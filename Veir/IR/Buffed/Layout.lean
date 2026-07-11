@@ -7,7 +7,7 @@ public import Lean
 
 /-! # Sizes of the different fields, in bytes. -/
 
-public section
+@[expose] public section
 
 namespace Veir.Buffed
 

@@ -3,7 +3,7 @@ module
 public import Veir.Rewriter.LinkedList.GetSet
 import Veir.IR.LayoutUnchanged
 
-public section
+@[expose] public section
 
 namespace Veir.Sim
 

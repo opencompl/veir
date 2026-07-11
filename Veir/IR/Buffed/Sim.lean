@@ -9,14 +9,12 @@ public meta import Veir.IR.Buffed.Meta
 public meta import Veir.IR.Repr
 
 import Veir.IR.Buffed.Meta
-import all Veir.IR.Buffed.SimDefs
-import all Veir.IR.Buffed.RawAccessors
 
 open Veir.Buffed
 
 set_option linter.unusedSectionVars false
 
-public section
+@[expose] public section
 
 namespace Veir
 
@@ -60,7 +58,7 @@ theorem Sim.OptionOperationPtr.isRepr_of_inBounds {ctx : IRContext OpInfo} {ptr 
 def Sim.OperationPtr.toO (ptr : Sim.OperationPtr) : Sim.OptionOperationPtr :=
   { impl := ptr.impl, spec := some ptr.spec }
 
-@[inline, expose, grind]
+@[inline, grind]
 def Sim.OptionOperationPtr.toOption (ptr : Sim.OptionOperationPtr) : Option Sim.OperationPtr :=
   if ptr.impl ≠ .none then
     some { impl := ptr.impl, spec := ptr.spec.specGet! }
@@ -111,7 +109,7 @@ theorem Sim.OptionBlockPtr.isRepr_of_inBounds {ctx : IRContext OpInfo} {ptr : Si
 def Sim.BlockPtr.toO (ptr : Sim.BlockPtr) : Sim.OptionBlockPtr :=
   { impl := ptr.impl, spec := some ptr.spec }
 
-@[inline, expose, grind]
+@[inline, grind]
 def Sim.OptionBlockPtr.toOption (ptr : Sim.OptionBlockPtr) : Option Sim.BlockPtr :=
   if ptr.impl ≠ .none then
     some { impl := ptr.impl, spec := ptr.spec.specGet! }
@@ -157,7 +155,7 @@ theorem Sim.OptionRegionPtr.isRepr_of_inBounds {ctx : IRContext OpInfo} {ptr : S
 def Sim.RegionPtr.toO (ptr : Sim.RegionPtr) : Sim.OptionRegionPtr :=
   { impl := ptr.impl, spec := some ptr.spec }
 
-@[inline, expose, grind]
+@[inline, grind]
 def Sim.OptionRegionPtr.toOption (ptr : Sim.OptionRegionPtr) : Option Sim.RegionPtr :=
   if _ : ptr.impl ≠ .none then
     some { impl := ptr.impl, spec := ptr.spec.specGet! }
@@ -207,7 +205,7 @@ theorem Sim.OptionOpResultPtr.isRepr_of_inBounds {ctx : IRContext OpInfo} {ptr :
 def Sim.OpResultPtr.toO (ptr : Sim.OpResultPtr) : Sim.OptionOpResultPtr :=
   { impl := ptr.impl, spec := some ptr.spec }
 
-@[inline, expose, grind]
+@[inline, grind]
 def Sim.OptionOpResultPtr.toOption (ptr : Sim.OptionOpResultPtr) : Option Sim.OpResultPtr :=
   if ptr.impl ≠ .none then
     some { impl := ptr.impl, spec := ptr.spec.specGet! }
@@ -254,7 +252,7 @@ theorem Sim.OptionBlockArgumentPtr.isRepr_of_inBounds {ctx : IRContext OpInfo} {
 def Sim.BlockArgumentPtr.toO (ptr : Sim.BlockArgumentPtr) : Sim.OptionBlockArgumentPtr :=
   { impl := ptr.impl, spec := some ptr.spec }
 
-@[inline, expose, grind]
+@[inline, grind]
 def Sim.OptionBlockArgumentPtr.toOption (ptr : Sim.OptionBlockArgumentPtr) : Option Sim.BlockArgumentPtr :=
   if ptr.impl ≠ .none then
     some { impl := ptr.impl, spec := ptr.spec.specGet! }
@@ -265,7 +263,7 @@ def Sim.OptionBlockArgumentPtr.toOption (ptr : Sim.OptionBlockArgumentPtr) : Opt
 def Sim.OptionOpOperandPtr.none : Sim.OptionOpOperandPtr :=
   { impl := .none, spec := .none }
 
-@[inline, expose, grind]
+@[inline, grind]
 def Sim.OptionOpOperandPtr.toOption (ptr : Sim.OptionOpOperandPtr) : Option Sim.OpOperandPtr :=
   if ptr.impl = .none then .none else some { impl := ptr.impl, spec := ptr.spec.specGet! }
 
@@ -343,7 +341,7 @@ theorem Sim.OptionBlockOperandPtr.isRepr_of_inBounds {ctx : IRContext OpInfo} {p
 def Sim.BlockOperandPtr.toO (ptr : Sim.BlockOperandPtr) : Sim.OptionBlockOperandPtr :=
   { impl := ptr.impl, spec := some ptr.spec }
 
-@[inline, expose, grind]
+@[inline, grind]
 def Sim.OptionBlockOperandPtr.toOption (ptr : Sim.OptionBlockOperandPtr) : Option Sim.BlockOperandPtr :=
   if ptr.impl ≠ .none then
     some { impl := ptr.impl, spec := ptr.spec.specGet! }
@@ -402,7 +400,7 @@ theorem Sim.OptionValuePtr.isRepr_of_inBounds {ctx : IRContext OpInfo} {ptr : Si
 def Sim.ValuePtr.toO (ptr : Sim.ValuePtr) : Sim.OptionValuePtr :=
   { impl := ptr.impl, spec := some ptr.spec }
 
-@[inline, expose, grind]
+@[inline, grind]
 def Sim.OptionValuePtr.toOption (ptr : Sim.OptionValuePtr) : Option Sim.ValuePtr :=
   if ptr.impl ≠ .none then
     some { impl := ptr.impl, spec := ptr.spec.specGet! }
@@ -595,42 +593,42 @@ theorem Sim.OpResultPtr.sim_layoutPreserved {ctx ctx' : Sim.IRContext OpInfo} {p
     ctx.spec.LayoutPreserved ctx'.spec →
     ptr.InBounds ctx →
     ptr.Sim ctx'.inner := by
-  grind [Sim.OpResultPtr.Sim, Veir.OpResultPtr.toM]
+  grind [Veir.OpResultPtr.toM]
 
 @[grind! .]
 theorem Sim.OpOperandPtr.sim_layoutPreserved {ctx ctx' : Sim.IRContext OpInfo} {ptr : Sim.OpOperandPtr} :
     ctx.spec.LayoutPreserved ctx'.spec →
     ptr.InBounds ctx →
     ptr.Sim ctx'.inner := by
-  grind [Sim.OpOperandPtr.Sim, Veir.OpOperandPtr.toM]
+  grind [Veir.OpOperandPtr.toM]
 
 @[grind! .]
 theorem Sim.BlockOperandPtr.sim_layoutPreserved {ctx ctx' : Sim.IRContext OpInfo} {ptr : Sim.BlockOperandPtr} :
     ctx.spec.LayoutPreserved ctx'.spec →
     ptr.InBounds ctx →
     ptr.Sim ctx'.inner := by
-  grind [Sim.BlockOperandPtr.Sim, Veir.BlockOperandPtr.toM]
+  grind [Veir.BlockOperandPtr.toM]
 
 @[grind! .]
 theorem Sim.ValuePtr.sim_layoutPreserved {ctx ctx' : Sim.IRContext OpInfo} {ptr : Sim.ValuePtr} :
     ctx.spec.LayoutPreserved ctx'.spec →
     ptr.InBounds ctx →
     ptr.Sim ctx'.inner := by
-  grind [Sim.ValuePtr.Sim, Veir.ValuePtr.toM]
+  grind [Veir.ValuePtr.toM]
 
 @[grind! .]
 theorem Sim.OpOperandPtrPtr.sim_layoutPreserved {ctx ctx' : Sim.IRContext OpInfo} {ptr : Sim.OpOperandPtrPtr} :
     ctx.spec.LayoutPreserved ctx'.spec →
     ptr.InBounds ctx →
     ptr.Sim ctx'.inner := by
-  grind [Sim.OpOperandPtrPtr.Sim, Veir.OpOperandPtrPtr.toM]
+  grind [Veir.OpOperandPtrPtr.toM]
 
 @[grind! .]
 theorem Sim.BlockOperandPtrPtr.sim_layoutPreserved {ctx ctx' : Sim.IRContext OpInfo} {ptr : Sim.BlockOperandPtrPtr} :
     ctx.spec.LayoutPreserved ctx'.spec →
     ptr.InBounds ctx →
     ptr.Sim ctx'.inner := by
-  grind [Sim.BlockOperandPtrPtr.Sim, Veir.BlockOperandPtrPtr.toM]
+  grind [Veir.BlockOperandPtrPtr.toM]
 
 @[grind! .]
 theorem Sim.OptionOpResultPtr.sim_layoutPreserved {ctx ctx' : Sim.IRContext OpInfo} {ptr : Sim.OptionOpResultPtr} :
@@ -639,7 +637,7 @@ theorem Sim.OptionOpResultPtr.sim_layoutPreserved {ctx ctx' : Sim.IRContext OpIn
     ptr.Sim ctx'.inner := by
   obtain ⟨impl, spec⟩ := ptr
   cases spec <;>
-    grind [Sim.OptionOpResultPtr.Sim, Veir.OpResultPtr.toO, Veir.OpResultPtr.toM, Option.maybe_def]
+    grind [Veir.OpResultPtr.toO, Veir.OpResultPtr.toM, Option.maybe_def]
 
 @[grind! .]
 theorem Sim.OptionOpOperandPtr.sim_layoutPreserved {ctx ctx' : Sim.IRContext OpInfo} {ptr : Sim.OptionOpOperandPtr} :
@@ -648,7 +646,7 @@ theorem Sim.OptionOpOperandPtr.sim_layoutPreserved {ctx ctx' : Sim.IRContext OpI
     ptr.Sim ctx'.inner := by
   obtain ⟨impl, spec⟩ := ptr
   cases spec <;>
-    grind [Sim.OptionOpOperandPtr.Sim, Veir.OpOperandPtr.toO, Veir.OpOperandPtr.toM, Option.maybe_def]
+    grind [Veir.OpOperandPtr.toO, Veir.OpOperandPtr.toM, Option.maybe_def]
 
 @[grind! .]
 theorem Sim.OptionBlockOperandPtr.sim_layoutPreserved {ctx ctx' : Sim.IRContext OpInfo} {ptr : Sim.OptionBlockOperandPtr} :
@@ -657,7 +655,7 @@ theorem Sim.OptionBlockOperandPtr.sim_layoutPreserved {ctx ctx' : Sim.IRContext 
     ptr.Sim ctx'.inner := by
   obtain ⟨impl, spec⟩ := ptr
   cases spec <;>
-    grind [Sim.OptionBlockOperandPtr.Sim, Veir.BlockOperandPtr.toO, Veir.BlockOperandPtr.toM, Option.maybe_def]
+    grind [Veir.BlockOperandPtr.toO, Veir.BlockOperandPtr.toM, Option.maybe_def]
 
 @[grind! .]
 theorem Sim.OptionValuePtr.sim_layoutPreserved {ctx ctx' : Sim.IRContext OpInfo} {ptr : Sim.OptionValuePtr} :
@@ -666,7 +664,7 @@ theorem Sim.OptionValuePtr.sim_layoutPreserved {ctx ctx' : Sim.IRContext OpInfo}
     ptr.Sim ctx'.inner := by
   obtain ⟨impl, spec⟩ := ptr
   cases spec <;>
-    grind [Sim.OptionValuePtr.Sim, Veir.ValuePtr.toO, Veir.ValuePtr.toM, Option.maybe_def]
+    grind [Veir.ValuePtr.toO, Veir.ValuePtr.toM, Option.maybe_def]
 
 @[layout_grind .]
 theorem BlockOperandPtr.layoutPreserved_same_toM {ctx ctx' : Veir.IRContext OpInfo} {ptr : Veir.BlockOperandPtr} :
@@ -780,7 +778,7 @@ theorem Sim.GenericPtr.sim_layoutUnchanged {ctx ctx' : Sim.IRContext OpInfo} {pt
 theorem Sim.OperationPtr.toFlat_eq_impl_toNat {ctx : Sim.IRContext OpInfo} {ptr : Sim.OperationPtr} (ib : ptr.InBounds ctx) :
     ptr.spec.toFlat = ptr.impl.toNat  := by
   have sim := ib.sim
-  simp [Sim, Veir.OperationPtr.toM] at sim
+  simp [Sim_def, Veir.OperationPtr.toM] at sim
   have : ptr.spec.IsRepr := by grind only [isRepr_of_inBounds]
   grind
 
@@ -788,7 +786,7 @@ theorem Sim.OperationPtr.toFlat_eq_impl_toNat {ctx : Sim.IRContext OpInfo} {ptr 
 theorem Sim.OptionOperationPtr.toFlat_eq_impl_toNat {ctx : Sim.IRContext OpInfo} {ptr : Sim.OptionOperationPtr} (ib : ptr.InBounds ctx) :
     ptr.spec.maybe₁ (·.toFlat = ptr.impl.toNat) := by
   have sim := ib.sim
-  simp [Sim, Veir.OperationPtr.toO, Veir.OperationPtr.toM] at sim
+  simp [Sim_def, Veir.OperationPtr.toO, Veir.OperationPtr.toM] at sim
   have repr := Sim.OptionOperationPtr.isRepr_of_inBounds ib
   grind
 
@@ -797,7 +795,7 @@ theorem Sim.OptionOperationPtr.impl_none_iff_spec_none {ctx : Sim.IRContext OpIn
     ptr.impl = .none ↔ ptr.spec = .none := by
   have : ptr.spec.maybe₁ OperationPtr.IsRepr := by grind
   have sim := ib.sim
-  simp [Sim.OptionOperationPtr.Sim, Veir.OperationPtr.toO, Veir.OperationPtr.toM] at sim
+  simp [Sim.OptionOperationPtr.Sim_def, Veir.OperationPtr.toO, Veir.OperationPtr.toM] at sim
   grind
 
 @[grind .]
@@ -812,13 +810,13 @@ theorem Sim.OptionOperationPtr.toOption_some {ctx : Sim.IRContext OpInfo} {ptr :
 @[grind .]
 theorem Sim.OperationPtr.sim_of_optionPtr_sim (optr : Sim.OptionOperationPtr) ptr :
     optr.toOption = some ptr → optr.Sim → ptr.Sim := by
-  simp_all only [OptionOperationPtr.Sim, Veir.OperationPtr.toO]
+  simp_all only [OptionOperationPtr.Sim_def, Veir.OperationPtr.toO]
   grind
 
 @[grind .]
 theorem Sim.OptionOperationPtr.toO_sim_of_sim (ptr : Sim.OperationPtr) :
     ptr.Sim → ptr.toO.Sim := by
-  simp_all only [OptionOperationPtr.Sim, Sim.OperationPtr.toO, Veir.OperationPtr.toO]
+  simp_all only [OptionOperationPtr.Sim_def, Sim.OperationPtr.toO, Veir.OperationPtr.toO]
   grind
 
 /-! ### Blocks -/
@@ -827,7 +825,7 @@ theorem Sim.OptionOperationPtr.toO_sim_of_sim (ptr : Sim.OperationPtr) :
 theorem Sim.BlockPtr.toFlat_eq_impl_toNat {ctx : Sim.IRContext OpInfo} {ptr : Sim.BlockPtr} (ib : ptr.InBounds ctx) :
     ptr.spec.toFlat = ptr.impl.toNat  := by
   have sim := ib.sim
-  simp [Sim, Veir.BlockPtr.toM] at sim
+  simp [Sim_def, Veir.BlockPtr.toM] at sim
   have : ptr.spec.IsRepr := by grind only [isRepr_of_inBounds]
   grind
 
@@ -835,7 +833,7 @@ theorem Sim.BlockPtr.toFlat_eq_impl_toNat {ctx : Sim.IRContext OpInfo} {ptr : Si
 theorem Sim.OptionBlockPtr.toFlat_eq_impl_toNat {ctx : Sim.IRContext OpInfo} {ptr : Sim.OptionBlockPtr} (ib : ptr.InBounds ctx) :
     ptr.spec.maybe₁ (·.toFlat = ptr.impl.toNat) := by
   have sim := ib.sim
-  simp [Sim, Veir.BlockPtr.toO, Veir.BlockPtr.toM] at sim
+  simp [Sim_def, Veir.BlockPtr.toO, Veir.BlockPtr.toM] at sim
   have repr := Sim.OptionBlockPtr.isRepr_of_inBounds ib
   grind
 
@@ -844,7 +842,7 @@ theorem Sim.OptionBlockPtr.impl_none_iff_spec_none {ctx : Sim.IRContext OpInfo} 
     ptr.impl = .none ↔ ptr.spec = .none := by
   have : ptr.spec.maybe₁ BlockPtr.IsRepr := by grind
   have sim := ib.sim
-  simp [Sim.OptionBlockPtr.Sim, Veir.BlockPtr.toO, Veir.BlockPtr.toM] at sim
+  simp [Sim.OptionBlockPtr.Sim_def, Veir.BlockPtr.toO, Veir.BlockPtr.toM] at sim
   grind
 
 @[grind .]
@@ -859,21 +857,22 @@ theorem Sim.OptionBlockPtr.toOption_some {ctx : Sim.IRContext OpInfo} {ptr : Sim
 @[grind .]
 theorem Sim.BlockPtr.sim_of_optionPtr_sim (optr : Sim.OptionBlockPtr) ptr :
     optr.toOption = some ptr → optr.Sim → ptr.Sim := by
-  simp_all only [OptionBlockPtr.Sim, Veir.BlockPtr.toO]
+  simp_all only [OptionBlockPtr.Sim_def, Veir.BlockPtr.toO]
   grind
 
 @[grind .]
 theorem Sim.OptionBlockPtr.toO_sim_of_sim (ptr : Sim.BlockPtr) :
     ptr.Sim → ptr.toO.Sim := by
-  simp_all only [OptionBlockPtr.Sim, Sim.BlockPtr.toO, Veir.BlockPtr.toO]
+  simp_all only [OptionBlockPtr.Sim_def, Sim.BlockPtr.toO, Veir.BlockPtr.toO]
   grind
 
 @[grind .]
 theorem Sim.BlockPtr.getOpOperandPtrPtr_sim_of_sim {ctx : Sim.IRContext OpInfo} (block : BlockPtr) (ib : block.InBounds ctx) :
     block.getBlockOperandPtrPtr.Sim ctx.inner := by
   rcases ib with ⟨sim, ib⟩ -- need `ib` to know that there is no overflow!
-  unfold getBlockOperandPtrPtr BlockOperandPtrPtr.Sim
-  rw [← sim]
+  unfold getBlockOperandPtrPtr
+  simp only [BlockOperandPtrPtr.Sim_def]
+  rw [← sim.out]
   suffices _ : block.spec.toFlat + Block.Offsets.firstUse.toInt.toNat < 2^64 by
     exact UInt64.left_eq_add.mpr rfl
   have := ctx.sim.in_bounds (.block block.spec) (by grind)
@@ -885,7 +884,7 @@ theorem Sim.BlockPtr.getOpOperandPtrPtr_sim_of_sim {ctx : Sim.IRContext OpInfo} 
 theorem Sim.RegionPtr.toFlat_eq_impl_toNat {ctx : Sim.IRContext OpInfo} {ptr : Sim.RegionPtr} (ib : ptr.InBounds ctx) :
     ptr.spec.toFlat = ptr.impl.toNat  := by
   have sim := ib.sim
-  simp [Sim, Veir.RegionPtr.toM] at sim
+  simp [Sim_def, Veir.RegionPtr.toM] at sim
   have : ptr.spec.IsRepr := by grind only [isRepr_of_inBounds]
   grind
 
@@ -893,7 +892,7 @@ theorem Sim.RegionPtr.toFlat_eq_impl_toNat {ctx : Sim.IRContext OpInfo} {ptr : S
 theorem Sim.OptionRegionPtr.toFlat_eq_impl_toNat {ctx : Sim.IRContext OpInfo} {ptr : Sim.OptionRegionPtr} (ib : ptr.InBounds ctx) :
     ptr.spec.maybe₁ (·.toFlat = ptr.impl.toNat) := by
   have sim := ib.sim
-  simp [Sim, Veir.RegionPtr.toO, Veir.RegionPtr.toM] at sim
+  simp [Sim_def, Veir.RegionPtr.toO, Veir.RegionPtr.toM] at sim
   have repr := Sim.OptionRegionPtr.isRepr_of_inBounds ib
   grind
 
@@ -902,7 +901,7 @@ theorem Sim.OptionRegionPtr.impl_none_iff_spec_none {ctx : Sim.IRContext OpInfo}
     ptr.impl = .none ↔ ptr.spec = .none := by
   have : ptr.spec.maybe₁ RegionPtr.IsRepr := by grind
   have sim := ib.sim
-  simp [Sim.OptionRegionPtr.Sim, Veir.RegionPtr.toO, Veir.RegionPtr.toM] at sim
+  simp [Sim.OptionRegionPtr.Sim_def, Veir.RegionPtr.toO, Veir.RegionPtr.toM] at sim
   grind
 
 @[grind .]
@@ -917,13 +916,13 @@ theorem Sim.OptionRegionPtr.toOption_some {ctx : Sim.IRContext OpInfo} {ptr : Si
 @[grind .]
 theorem Sim.RegionPtr.sim_of_optionPtr_sim (optr : Sim.OptionRegionPtr) ptr :
     optr.toOption = some ptr → optr.Sim → ptr.Sim := by
-  simp_all only [OptionRegionPtr.Sim, Veir.RegionPtr.toO]
+  simp_all only [OptionRegionPtr.Sim_def, Veir.RegionPtr.toO]
   grind
 
 @[grind .]
 theorem Sim.OptionRegionPtr.toO_sim_of_sim (ptr : Sim.RegionPtr) :
     ptr.Sim → ptr.toO.Sim := by
-  simp_all only [OptionRegionPtr.Sim, Sim.RegionPtr.toO, Veir.RegionPtr.toO]
+  simp_all only [OptionRegionPtr.Sim_def, Sim.RegionPtr.toO, Veir.RegionPtr.toO]
   grind
 
 /-! ### Op results -/
@@ -932,7 +931,7 @@ theorem Sim.OptionRegionPtr.toO_sim_of_sim (ptr : Sim.RegionPtr) :
 theorem Sim.OpResultPtr.toFlat_eq_impl_toNat {ctx : Sim.IRContext OpInfo} {ptr : Sim.OpResultPtr} (ib : ptr.InBounds ctx) :
     ptr.spec.toFlat ctx.spec = ptr.impl.toNat  := by
   have sim := ib.sim
-  simp [Sim, Veir.OpResultPtr.toM] at sim
+  simp [Sim_def, Veir.OpResultPtr.toM] at sim
   have : ptr.spec.IsRepr ctx.spec := by grind only [isRepr_of_inBounds]
   grind
 
@@ -941,7 +940,7 @@ theorem Sim.OptionOpResultPtr.toFlat_eq_impl_toNat {ctx : Sim.IRContext OpInfo} 
     ptr.spec.maybe₁ (·.toFlat ctx.spec = ptr.impl.toNat) := by
   have sim := ib.sim
   have : ptr.spec.maybe Veir.OpResultPtr.IsRepr ctx.spec := by grind
-  simp [Sim, Veir.OpResultPtr.toO, Veir.OpResultPtr.toM] at sim
+  simp [Sim_def, Veir.OpResultPtr.toO, Veir.OpResultPtr.toM] at sim
   grind
 
 @[grind.]
@@ -950,7 +949,7 @@ theorem Sim.OptionOpResultPtr.impl_none_iff_spec_none {ctx : Sim.IRContext OpInf
   have : ptr.spec.maybe OpResultPtr.IsRepr ctx.spec := by grind only [isRepr_of_inBounds]
   have : ptr.spec.maybe₁ (OpResultPtr.IsRepr · ctx.spec) := by grind [Option.maybe_def, Option.maybe₁_def]
   have sim := ib.sim
-  simp [Sim.OptionOpResultPtr.Sim, Veir.OpResultPtr.toO, Veir.OpResultPtr.toM] at sim
+  simp [Sim.OptionOpResultPtr.Sim_def, Veir.OpResultPtr.toO, Veir.OpResultPtr.toM] at sim
   grind
 
 @[grind .]
@@ -965,13 +964,13 @@ theorem Sim.OptionOpResultPtr.toOption_some {ctx : Sim.IRContext OpInfo} {ptr : 
 @[grind .]
 theorem Sim.OpResultPtr.sim_of_optionPtr_sim {ctx : Sim.IRContext OpInfo} (optr : Sim.OptionOpResultPtr) ptr :
     optr.toOption = some ptr → optr.Sim ctx.inner → ptr.Sim ctx.inner := by
-  simp_all only [OptionOpResultPtr.Sim, Veir.OpResultPtr.toO]
+  simp_all only [OptionOpResultPtr.Sim_def, Veir.OpResultPtr.toO]
   grind
 
 @[grind .]
 theorem Sim.OptionOpResultPtr.toO_sim_of_sim {ctx : Sim.IRContext OpInfo} (ptr : Sim.OpResultPtr) :
     ptr.Sim ctx.inner → ptr.toO.Sim ctx.inner := by
-  simp_all only [OptionOpResultPtr.Sim, Sim.OpResultPtr.toO, Veir.OpResultPtr.toO]
+  simp_all only [OptionOpResultPtr.Sim_def, Sim.OpResultPtr.toO, Veir.OpResultPtr.toO]
   grind
 
 /-! ### Block arguments -/
@@ -980,7 +979,7 @@ theorem Sim.OptionOpResultPtr.toO_sim_of_sim {ctx : Sim.IRContext OpInfo} (ptr :
 theorem Sim.BlockArgumentPtr.toFlat_eq_impl_toNat {ctx : Sim.IRContext OpInfo} {ptr : Sim.BlockArgumentPtr} (ib : ptr.InBounds ctx) :
     ptr.spec.toFlat = ptr.impl.toNat  := by
   have sim := ib.sim
-  simp [Sim, Veir.BlockArgumentPtr.toM] at sim
+  simp [Sim_def, Veir.BlockArgumentPtr.toM] at sim
   have : ptr.spec.IsRepr := by grind
   grind
 
@@ -989,7 +988,7 @@ theorem Sim.OptionBlockArgumentPtr.toFlat_eq_impl_toNat {ctx : Sim.IRContext OpI
     ptr.spec.maybe₁ (·.toFlat = ptr.impl.toNat) := by
   have sim := ib.sim
   have : ptr.spec.maybe₁ Veir.BlockArgumentPtr.IsRepr := by grind
-  simp [Sim, Veir.BlockArgumentPtr.toO, Veir.BlockArgumentPtr.toM] at sim
+  simp [Sim_def, Veir.BlockArgumentPtr.toO, Veir.BlockArgumentPtr.toM] at sim
   grind
 
 @[grind.]
@@ -997,7 +996,7 @@ theorem Sim.OptionBlockArgumentPtr.impl_none_iff_spec_none {ctx : Sim.IRContext 
     ptr.impl = .none ↔ ptr.spec = .none := by
   have : ptr.spec.maybe₁ BlockArgumentPtr.IsRepr := by grind
   have sim := ib.sim
-  simp [Sim.OptionBlockArgumentPtr.Sim, Veir.BlockArgumentPtr.toO, Veir.BlockArgumentPtr.toM] at sim
+  simp [Sim.OptionBlockArgumentPtr.Sim_def, Veir.BlockArgumentPtr.toO, Veir.BlockArgumentPtr.toM] at sim
   grind
 
 @[grind .]
@@ -1012,13 +1011,13 @@ theorem Sim.OptionBlockArgumentPtr.toOption_some {ctx : Sim.IRContext OpInfo} {p
 @[grind .]
 theorem Sim.BlockArgumentPtr.sim_of_optionPtr_sim (optr : Sim.OptionBlockArgumentPtr) ptr :
     optr.toOption = some ptr → optr.Sim → ptr.Sim := by
-  simp_all only [OptionBlockArgumentPtr.Sim, Veir.BlockArgumentPtr.toO]
+  simp_all only [OptionBlockArgumentPtr.Sim_def, Veir.BlockArgumentPtr.toO]
   grind
 
 @[grind .]
 theorem Sim.OptionBlockArgumentPtr.toO_sim_of_sim (ptr : Sim.BlockArgumentPtr) :
     ptr.Sim → ptr.toO.Sim := by
-  simp_all only [OptionBlockArgumentPtr.Sim, Sim.BlockArgumentPtr.toO, Veir.BlockArgumentPtr.toO]
+  simp_all only [OptionBlockArgumentPtr.Sim_def, Sim.BlockArgumentPtr.toO, Veir.BlockArgumentPtr.toO]
   grind
 
 /-! ### Op operands -/
@@ -1026,20 +1025,20 @@ theorem Sim.OptionBlockArgumentPtr.toO_sim_of_sim (ptr : Sim.BlockArgumentPtr) :
 @[grind .]
 theorem Sim.OpOperandPtr.sim_of_optionPtr_sim  {ctx : Sim.IRContext OpInfo} (optr : Sim.OptionOpOperandPtr) ptr :
     optr.toOption = some ptr → optr.Sim ctx.inner → ptr.Sim ctx.inner := by
-  simp_all only [OptionOpOperandPtr.Sim, Veir.OpOperandPtr.toO]
+  simp_all only [OptionOpOperandPtr.Sim_def, Veir.OpOperandPtr.toO]
   grind
 
 @[grind .]
 theorem Sim.OptionOpOperandPtr.toO_sim_of_sim {ctx : Sim.IRContext OpInfo} (ptr : Sim.OpOperandPtr) :
     ptr.Sim ctx.inner → ptr.toO.Sim ctx.inner := by
-  simp_all only [OptionOpOperandPtr.Sim, Sim.OpOperandPtr.toO, Veir.OpOperandPtr.toO]
+  simp_all only [OptionOpOperandPtr.Sim_def, Sim.OpOperandPtr.toO, Veir.OpOperandPtr.toO]
   grind
 
 @[grind .]
 theorem Sim.OpOperandPtr.toFlat_eq_impl_toNat {ctx : Sim.IRContext OpInfo} {ptr : Sim.OpOperandPtr} (ib : ptr.InBounds ctx) :
     ptr.spec.toFlat ctx.spec = ptr.impl.toNat  := by
   have sim := ib.sim
-  simp [Sim, Veir.OpOperandPtr.toM] at sim
+  simp [Sim_def, Veir.OpOperandPtr.toM] at sim
   have : ptr.spec.IsRepr ctx.spec := by grind
   grind
 
@@ -1048,7 +1047,7 @@ theorem Sim.OptionOpOperandPtr.toFlat_eq_impl_toNat {ctx : Sim.IRContext OpInfo}
     ptr.spec.maybe₁ (·.toFlat ctx.spec = ptr.impl.toNat) := by
   have sim := ib.sim
   have : ptr.spec.maybe Veir.OpOperandPtr.IsRepr ctx.spec := by grind
-  simp [Sim, Veir.OpOperandPtr.toO, Veir.OpOperandPtr.toM] at sim
+  simp [Sim_def, Veir.OpOperandPtr.toO, Veir.OpOperandPtr.toM] at sim
   grind
 
 @[grind .]
@@ -1057,7 +1056,7 @@ theorem Sim.OptionOpOperandPtr.impl_none_iff_spec_none {ctx : Sim.IRContext OpIn
   have : ptr.spec.maybe OpOperandPtr.IsRepr ctx.spec := by grind
   have : ptr.spec.maybe₁ (OpOperandPtr.IsRepr · ctx.spec) := by grind [Option.maybe_def, Option.maybe₁_def]
   have sim := ib.sim
-  simp [Sim.OptionOpOperandPtr.Sim, Veir.OpOperandPtr.toO, Veir.OpOperandPtr.toM] at sim
+  simp [Sim.OptionOpOperandPtr.Sim_def, Veir.OpOperandPtr.toO, Veir.OpOperandPtr.toM] at sim
   grind
 
 @[grind .]
@@ -1075,7 +1074,7 @@ theorem Sim.OptionOpOperandPtr.toOption_some {ctx : Sim.IRContext OpInfo} {ptr :
 theorem Sim.BlockOperandPtr.toFlat_eq_impl_toNat {ctx : Sim.IRContext OpInfo} {ptr : Sim.BlockOperandPtr} (ib : ptr.InBounds ctx) :
     ptr.spec.toFlat ctx.spec = ptr.impl.toNat  := by
   have sim := ib.sim
-  simp [Sim, Veir.BlockOperandPtr.toM] at sim
+  simp [Sim_def, Veir.BlockOperandPtr.toM] at sim
   have : ptr.spec.IsRepr ctx.spec := by grind
   grind
 
@@ -1084,7 +1083,7 @@ theorem Sim.OptionBlockOperandPtr.toFlat_eq_impl_toNat {ctx : Sim.IRContext OpIn
     ptr.spec.maybe₁ (·.toFlat ctx.spec = ptr.impl.toNat) := by
   have sim := ib.sim
   have : ptr.spec.maybe Veir.BlockOperandPtr.IsRepr ctx.spec := by grind
-  simp [Sim, Veir.BlockOperandPtr.toO, Veir.BlockOperandPtr.toM] at sim
+  simp [Sim_def, Veir.BlockOperandPtr.toO, Veir.BlockOperandPtr.toM] at sim
   grind
 
 @[grind.]
@@ -1093,7 +1092,7 @@ theorem Sim.OptionBlockOperandPtr.impl_none_iff_spec_none {ctx : Sim.IRContext O
   have : ptr.spec.maybe BlockOperandPtr.IsRepr ctx.spec := by grind
   have : ptr.spec.maybe₁ (BlockOperandPtr.IsRepr · ctx.spec) := by grind [Option.maybe_def, Option.maybe₁_def]
   have sim := ib.sim
-  simp [Sim.OptionBlockOperandPtr.Sim, Veir.BlockOperandPtr.toO, Veir.BlockOperandPtr.toM] at sim
+  simp [Sim.OptionBlockOperandPtr.Sim_def, Veir.BlockOperandPtr.toO, Veir.BlockOperandPtr.toM] at sim
   grind
 
 @[grind .]
@@ -1108,13 +1107,13 @@ theorem Sim.OptionBlockOperandPtr.toOption_some {ctx : Sim.IRContext OpInfo} {pt
 @[grind .]
 theorem Sim.BlockOperandPtr.sim_of_optionPtr_sim {ctx : Sim.IRContext OpInfo} (optr : Sim.OptionBlockOperandPtr) ptr :
     optr.toOption = some ptr → optr.Sim ctx.inner → ptr.Sim ctx.inner := by
-  simp_all only [OptionBlockOperandPtr.Sim, Veir.BlockOperandPtr.toO]
+  simp_all only [OptionBlockOperandPtr.Sim_def, Veir.BlockOperandPtr.toO]
   grind
 
 @[grind .]
 theorem Sim.OptionBlockOperandPtr.toO_sim_of_sim {ctx : Sim.IRContext OpInfo} (ptr : Sim.BlockOperandPtr) :
     ptr.Sim ctx.inner → ptr.toO.Sim ctx.inner := by
-  simp_all only [OptionBlockOperandPtr.Sim, Sim.BlockOperandPtr.toO, Veir.BlockOperandPtr.toO]
+  simp_all only [OptionBlockOperandPtr.Sim_def, Sim.BlockOperandPtr.toO, Veir.BlockOperandPtr.toO]
   grind
 
 /-! ### Values -/
@@ -1123,7 +1122,7 @@ theorem Sim.OptionBlockOperandPtr.toO_sim_of_sim {ctx : Sim.IRContext OpInfo} (p
 theorem Sim.ValuePtr.toFlat_eq_impl_toNat {ctx : Sim.IRContext OpInfo} {ptr : Sim.ValuePtr} (ib : ptr.InBounds ctx) :
     ptr.spec.toFlat ctx.spec = ptr.impl.toNat  := by
   have sim := ib.sim
-  simp [Sim, Veir.ValuePtr.toM] at sim
+  simp [Sim_def, Veir.ValuePtr.toM] at sim
   have : ptr.spec.IsRepr ctx.spec := by grind
   grind
 
@@ -1132,7 +1131,7 @@ theorem Sim.OptionValuePtr.toFlat_eq_impl_toNat {ctx : Sim.IRContext OpInfo} {pt
     ptr.spec.maybe₁ (·.toFlat ctx.spec = ptr.impl.toNat) := by
   have sim := ib.sim
   have : ptr.spec.maybe Veir.ValuePtr.IsRepr ctx.spec := by grind
-  simp [Sim, Veir.ValuePtr.toO, Veir.ValuePtr.toM] at sim
+  simp [Sim_def, Veir.ValuePtr.toO, Veir.ValuePtr.toM] at sim
   grind
 
 @[grind.]
@@ -1141,7 +1140,7 @@ theorem Sim.OptionValuePtr.impl_none_iff_spec_none {ctx : Sim.IRContext OpInfo} 
   have : ptr.spec.maybe ValuePtr.IsRepr ctx.spec := by grind
   have : ptr.spec.maybe₁ (ValuePtr.IsRepr · ctx.spec) := by grind [Option.maybe_def, Option.maybe₁_def]
   have sim := ib.sim
-  simp [Sim.OptionValuePtr.Sim, Veir.ValuePtr.toO, Veir.ValuePtr.toM] at sim
+  simp [Sim.OptionValuePtr.Sim_def, Veir.ValuePtr.toO, Veir.ValuePtr.toM] at sim
   grind
 
 @[grind .]
@@ -1156,24 +1155,25 @@ theorem Sim.OptionValuePtr.toOption_some {ctx : Sim.IRContext OpInfo} {ptr : Sim
 @[grind .]
 theorem Sim.ValuePtr.sim_of_optionPtr_sim {ctx : Sim.IRContext OpInfo} (optr : Sim.OptionValuePtr) ptr :
     optr.toOption = some ptr → optr.Sim ctx.inner → ptr.Sim ctx.inner := by
-  simp_all only [OptionValuePtr.Sim, Veir.ValuePtr.toO]
+  simp_all only [OptionValuePtr.Sim_def, Veir.ValuePtr.toO]
   grind
 
 @[grind .]
 theorem Sim.OptionValuePtr.toO_sim_of_sim {ctx : Sim.IRContext OpInfo} (ptr : Sim.ValuePtr) :
     ptr.Sim ctx.inner → ptr.toO.Sim ctx.inner := by
-  simp_all only [OptionValuePtr.Sim, Sim.ValuePtr.toO, Veir.ValuePtr.toO]
+  simp_all only [OptionValuePtr.Sim_def, Sim.ValuePtr.toO, Veir.ValuePtr.toO]
   grind
 
 @[grind .]
 theorem Sim.ValuePtr.getOpOperandPtrPtr_sim_of_sim {ctx : Sim.IRContext OpInfo} (value : ValuePtr) (ib : value.InBounds ctx) :
     value.getOpOperandPtrPtr.Sim ctx.inner := by
   rcases ib with ⟨sim, ib⟩ -- need `ib` to know that there is no overflow!
-  unfold Sim at sim
-  unfold getOpOperandPtrPtr OpOperandPtrPtr.Sim
+  replace sim := sim.out
+  unfold getOpOperandPtrPtr
+  simp only [OpOperandPtrPtr.Sim_def]
   rw [← sim]
   clear sim
-  simp
+  try simp
   rcases heq : value.spec with ptr | ptr
   · simp_all
     unfold OpOperandPtrPtr.toM OpOperandPtrPtr.toFlat ValuePtr.toFlat -- OpResultPtr.toFlat
@@ -1200,7 +1200,7 @@ theorem Sim.ValuePtr.getOpOperandPtrPtr_sim_of_sim {ctx : Sim.IRContext OpInfo} 
 theorem Sim.OpOperandPtrPtr.toFlat_eq_impl_toNat {ctx : Sim.IRContext OpInfo} {ptr : Sim.OpOperandPtrPtr} (ib : ptr.InBounds ctx) :
     ptr.spec.toFlat ctx.spec = ptr.impl.toNat  := by
   have sim := ib.sim
-  simp [Sim, Veir.OpOperandPtrPtr.toM] at sim
+  simp [Sim_def, Veir.OpOperandPtrPtr.toM] at sim
   have : ptr.spec.IsRepr ctx.spec := by grind
   grind
 
@@ -1208,8 +1208,9 @@ theorem Sim.OpOperandPtrPtr.toFlat_eq_impl_toNat {ctx : Sim.IRContext OpInfo} {p
 theorem Sim.OpOperandPtr.getOpOperandPtrPtr_sim_of_sim {ctx : Sim.IRContext OpInfo} (oper : OpOperandPtr) (ib : oper.InBounds ctx) :
     oper.getOpOperandPtrPtr.Sim ctx.inner := by
   rcases ib with ⟨sim, ib⟩ -- need `ib` to know that there is no overflow!
-  unfold Sim at sim
-  unfold getOpOperandPtrPtr OpOperandPtrPtr.Sim
+  replace sim := sim.out
+  unfold getOpOperandPtrPtr
+  simp only [OpOperandPtrPtr.Sim_def]
   rw [← sim]
   clear sim
   unfold OpOperandPtrPtr.toM OpOperandPtrPtr.toFlat OpOperandPtr.toM
@@ -1227,7 +1228,7 @@ theorem Sim.OpOperandPtr.getOpOperandPtrPtr_sim_of_sim {ctx : Sim.IRContext OpIn
 theorem Sim.BlockOperandPtrPtr.toFlat_eq_impl_toNat {ctx : Sim.IRContext OpInfo} {ptr : Sim.BlockOperandPtrPtr} (ib : ptr.InBounds ctx) :
     ptr.spec.toFlat ctx.spec = ptr.impl.toNat  := by
   have sim := ib.sim
-  simp [Sim, Veir.BlockOperandPtrPtr.toM] at sim
+  simp [Sim_def, Veir.BlockOperandPtrPtr.toM] at sim
   have : ptr.spec.IsRepr ctx.spec := by grind
   grind
 
@@ -1235,8 +1236,9 @@ theorem Sim.BlockOperandPtrPtr.toFlat_eq_impl_toNat {ctx : Sim.IRContext OpInfo}
 theorem Sim.BlockOperandPtr.getOpOperandPtrPtr_sim_of_sim {ctx : Sim.IRContext OpInfo} (oper : BlockOperandPtr) (ib : oper.InBounds ctx) :
     oper.getBlockOperandPtrPtr.Sim ctx.inner := by
   rcases ib with ⟨sim, ib⟩ -- need `ib` to know that there is no overflow!
-  unfold Sim at sim
-  unfold getBlockOperandPtrPtr BlockOperandPtrPtr.Sim
+  replace sim := sim.out
+  unfold getBlockOperandPtrPtr
+  simp only [BlockOperandPtrPtr.Sim_def]
   rw [← sim]
   clear sim
   unfold BlockOperandPtrPtr.toM BlockOperandPtrPtr.toFlat BlockOperandPtr.toM

@@ -2,9 +2,9 @@ module
 
 public import Veir.IR.Basic
 public import Veir.IR.InBounds
-import all Veir.IR.Basic
 import Veir.ForLean
 import Veir.IR.GetSet
+import Veir.Prelude
 
 public section
 

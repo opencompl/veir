@@ -8,11 +8,10 @@ public import Veir.IR.Buffed.Basic
 public import Veir.IR.Buffed.Sim
 public import Veir.IR.Buffed.InBounds
 
-import all Veir.IR.Buffed.Sim
 
 set_option linter.unusedSectionVars false
 
-public section
+@[expose] public section
 
 namespace Veir
 
@@ -33,7 +32,7 @@ def InsertPoint.InBounds (ip : InsertPoint) (ctx : IRContext OpInfo) : Prop :=
   | before op => op.InBounds ctx
   | atEnd bl => bl.InBounds ctx
 
-@[expose, grind]
+@[grind]
 def InsertPoint.IsRepr (ip : InsertPoint) : Prop :=
   match ip with
   | before op => op.IsRepr
@@ -226,7 +225,7 @@ theorem InsertPoint.next_eq_some_iff_eq_before {ip : InsertPoint} (hRepr : ip.Is
   obtain ⟨nextImpl, nextSpec⟩ := nextOp
   cases ip <;>
     simp_all [InsertPoint.next_def, InsertPoint.nextSim, Sim.OperationPtr.toO,
-      Sim.OptionOperationPtr.none, Sim.OptionOperationPtr.toOption, Sim.OperationPtr.Sim,
+      Sim.OptionOperationPtr.none, Sim.OptionOperationPtr.toOption, Sim.OperationPtr.Sim_def,
       OperationPtr.toSim, Option.specGet!, InsertPoint.IsRepr]
 
 @[simp, grind .]
@@ -442,7 +441,7 @@ theorem inBounds_before : (before op).InBounds ctx ↔ op.InBounds ctx := by rfl
 @[grind =]
 theorem inBounds_atEnd : (atEnd bl).InBounds ctx ↔ bl.InBounds ctx := by rfl
 
-@[expose, grind]
+@[grind]
 def IsRepr (ip : BlockInsertPoint) : Prop :=
   match ip with
   | before bl => bl.IsRepr
@@ -516,7 +515,7 @@ theorem next_inBounds {ip : BlockInsertPoint} {ctx : Sim.IRContext OpInfo} :
   · simp [Sim.OptionBlockPtr.none]
     intros
     constructor
-    · rfl
+    · exact (Sim.OptionBlockPtr.Sim_def _).mpr rfl
     · grind
 
 @[grind]

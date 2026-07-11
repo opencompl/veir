@@ -862,7 +862,10 @@ private meta def addBuffedDecl (name : Name) (type value : Expr) (levelParams : 
     hints := .regular 0
     safety := .safe
   }
-  addDecl decl
+  -- Expose the body only when it references no module-private constants (match auxiliaries
+  -- stay private and would make the public equations unverifiable).
+  let expose := (type.getUsedConstants ++ value.getUsedConstants).all (!isPrivateName ·)
+  addDecl decl (forceExpose := expose)
   setInlineAttr name (inline? := inline?)
   if nospecialize? then
     applyBareAttr name `nospecialize
@@ -1302,3 +1305,8 @@ elab_rules : command
 
 initialize registerTraceClass `Buffed.ghosting (inherited := false)
 initialize registerTraceClass `Buffed.ghosting.defs (inherited := false)
+
+namespace Veir
+
+
+end Veir

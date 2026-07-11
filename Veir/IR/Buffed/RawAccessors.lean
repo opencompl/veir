@@ -10,7 +10,7 @@ open Std (HashMap)
 
 set_option linter.unusedSectionVars false
 
-public section
+@[expose] public section
 
 @[grind =]
 theorem _root_UInt64.toNat_UInt64_ofNat_of_lt {n : Nat} (h : n < UInt64.size) : UInt64.toNat (UInt64.ofNat n) = n := by

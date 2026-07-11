@@ -9,7 +9,7 @@ import Veir.IR.WellFormed
 import Std.Data.HashSet
 import Std.Data.ExtHashSet
 
-public section
+@[expose] public section
 
 namespace Veir
 variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo]

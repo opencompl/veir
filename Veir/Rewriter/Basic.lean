@@ -16,20 +16,10 @@ import Veir.IR.Buffed.RawAccessorsLemmas
 import Veir.IR.Buffed.Meta
 import Veir.IR.Buffed.InBounds
 import Veir.Rewriter.LinkedList.LayoutUnchanged
-import all Veir.Rewriter.RewriterPushOperand
-import all Veir.Rewriter.RewriterPushBlockOperand
-import all Veir.Rewriter.RewriterPushResult
-import all Veir.Rewriter.RewriterPushBlockArgument
-import all Veir.Rewriter.RewriterPushRegion
-import all Veir.Rewriter.LinkedList.Basic
-import all Veir.Rewriter.LinkedList.WellFormed
-import all Veir.IR.Buffed.Basic
-import all Veir.IR.Buffed.RawAccessors
-import all Veir.IR.Buffed.SimDefs
 
 set_option linter.unusedSectionVars false
 
-public section
+@[expose] public section
 namespace Veir
 
 variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [SerializableOpInfo OpInfo]
@@ -1579,7 +1569,7 @@ def IRContext.createSim OpInfo [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] : 
   have regionIb : region.InBounds ctx := by grind [generic_ptr_grind]
   rlet ⟨ctx, block⟩ ← Rewriter.createBlock ctx #[] (some (.atEnd ⟨region.impl.toNat⟩)) (by
     simp only [Option.maybe_def, Veir.BlockInsertPoint.inBounds_def]
-    rw [← regionIb.sim]
+    rw [← regionIb.sim.out]
     simp only [RegionPtr.toM]
     simp [show region.spec.toFlat.toUInt64.toNat = region.spec.toFlat by grind]
     exact regionIb.ib) (by grind [Veir.RegionPtr.toFlat, Veir.RegionPtr.toM])

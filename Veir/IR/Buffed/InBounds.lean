@@ -9,10 +9,6 @@ import Veir.IR.GetSet
 import Veir.IR.Grind
 import Veir.IR.Buffed.Meta
 
-import all Veir.IR.Buffed.RawAccessors
-import all Veir.IR.Buffed.SimDefs
-import all Veir.IR.Buffed.Sim
-import all Veir.IR.Buffed.Basic
 
 public section
 
@@ -44,7 +40,7 @@ theorem OptionOperationPtr.toO_inBounds_of_inBounds (ptr : Sim.OperationPtr) :
 theorem OptionOperationPtr.none_inBounds : none.InBounds ctx := by
   simp [none]
   constructor
-  · simp [Sim, Veir.OperationPtr.toO]
+  · simp [Sim_def, Veir.OperationPtr.toO]
   · grind
 
 
@@ -121,7 +117,7 @@ theorem OperationPtr.getOpOperand_inBounds (op : OperationPtr)
     (hop : op.InBounds ctx) i (h₂ : i.toNat < op.spec.getNumOperands! ctx.spec) :
     (op.getOperandPtr ctx i hop).InBounds ctx := by
   rw [Sim.OperationPtr.getOperandPtr_eq_getOperandPtr!]
-  exact ⟨OperationPtr.getOpOperand_toM op hop i h₂, OperationPtr.getOpOperand_veir_inBounds op hop i h₂⟩
+  exact ⟨(Sim.OpOperandPtr.Sim_def _ _).mpr (OperationPtr.getOpOperand_toM op hop i h₂), OperationPtr.getOpOperand_veir_inBounds op hop i h₂⟩
 
 /-- The spec-level block operand pointer is in bounds when its index is below the count. -/
 theorem OperationPtr.getBlockOperand_veir_inBounds (op : OperationPtr)
@@ -160,7 +156,7 @@ theorem OperationPtr.getBlockOperand_inBounds (op : OperationPtr)
     (hop : op.InBounds ctx) i (h₂ : i.toNat < op.spec.getNumSuccessors! ctx.spec) :
     (op.getBlockOperandPtr ctx i hop).InBounds ctx := by
   rw [Sim.OperationPtr.getBlockOperandPtr_eq_getBlockOperandPtr!]
-  exact ⟨OperationPtr.getBlockOperand_toM op hop i h₂, OperationPtr.getBlockOperand_veir_inBounds op hop i h₂⟩
+  exact ⟨(Sim.BlockOperandPtr.Sim_def _ _).mpr (OperationPtr.getBlockOperand_toM op hop i h₂), OperationPtr.getBlockOperand_veir_inBounds op hop i h₂⟩
 
 /-- The spec-level result pointer is in bounds when its index is below the result count. -/
 theorem OperationPtr.getResult_veir_inBounds (op : OperationPtr)
@@ -200,7 +196,7 @@ theorem OperationPtr.getResult_inBounds (op : OperationPtr)
     (hop : op.InBounds ctx) i (h₂ : i.toNat < op.spec.getNumResults! ctx.spec) :
     (op.getResultPtr ctx i hop).InBounds ctx := by
   rw [Sim.OperationPtr.getResultPtr_eq_getResultPtr!]
-  exact ⟨OperationPtr.getResult_toM op hop i h₂, OperationPtr.getResult_veir_inBounds op hop i h₂⟩
+  exact ⟨(Sim.OpResultPtr.Sim_def _ _).mpr (OperationPtr.getResult_toM op hop i h₂), OperationPtr.getResult_veir_inBounds op hop i h₂⟩
 
 @[grind =>]
 theorem OperationPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr)
@@ -215,17 +211,17 @@ theorem OperationPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr)
     · -- Old pointer: the layout is preserved, so the address is unchanged.
       refine .inl ⟨?_, hold⟩
       have := Veir.GenericPtr.layoutPreserved_same_toM hlay hold
-      grind [Sim.GenericPtr.Sim]
+      grind
     · -- The freshly allocated operation: its impl address is forced by the sim relation.
       refine .inr ?_
       obtain ⟨impl, spec⟩ := ptr
-      grind [Sim.GenericPtr.Sim, Sim.GenericPtr.fromOperation, Veir.GenericPtr.toM,
+      grind [Sim.GenericPtr.fromOperation, Veir.GenericPtr.toM,
         Veir.OperationPtr.toM]
   · rintro (hold | rfl)
     · exact ⟨Sim.GenericPtr.sim_layoutPreserved hlay hold,
         (Veir.OperationPtr.allocEmptyAt_genericPtr_iff ptr.spec hspec).mpr (.inl hold.ib)⟩
     · refine ⟨?_, (Veir.OperationPtr.allocEmptyAt_genericPtr_iff _ hspec).mpr (.inr (by grind [Sim.GenericPtr.fromOperation]))⟩
-      grind [Sim.GenericPtr.Sim, Sim.GenericPtr.fromOperation, Veir.GenericPtr.toM, Veir.OperationPtr.toM]
+      grind [Sim.GenericPtr.fromOperation, Veir.GenericPtr.toM, Veir.OperationPtr.toM]
 
 theorem OperationPtr.allocEmpty_operationPtr_iff (ptr : OperationPtr)
     (heq : allocEmpty ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
@@ -287,7 +283,7 @@ theorem OptionOpOperandPtr.toO_inBounds_of_inBounds (ptr : Sim.OpOperandPtr) :
 theorem OptionOpOperandPtr.none_inBounds : none.InBounds ctx := by
   simp [none]
   constructor
-  · simp [Sim, Veir.OpOperandPtr.toO]
+  · simp [Sim_def, Veir.OpOperandPtr.toO]
   · grind
 
 @[grind =]
@@ -363,7 +359,7 @@ theorem OptionOpResultPtr.toO_inBounds_of_inBounds (ptr : Sim.OpResultPtr) :
 theorem OptionOpResultPtr.none_inBounds : none.InBounds ctx := by
   simp [none]
   constructor
-  · simp [Sim, Veir.OpResultPtr.toO]
+  · simp [Sim_def, Veir.OpResultPtr.toO]
   · grind
 
 @[grind =]
@@ -402,7 +398,7 @@ theorem OptionBlockArgumentPtr.toO_inBounds_of_inBounds (ptr : Sim.BlockArgument
 theorem OptionBlockArgumentPtr.none_inBounds : none.InBounds ctx := by
   simp [none]
   constructor
-  · simp [Sim, Veir.BlockArgumentPtr.toO]
+  · simp [Sim_def, Veir.BlockArgumentPtr.toO]
   · grind
 
 @[grind =]
@@ -441,7 +437,7 @@ theorem OptionValuePtr.toO_inBounds_of_inBounds (ptr : Sim.ValuePtr) :
 theorem OptionValuePtr.none_inBounds : none.InBounds ctx := by
   simp [none]
   constructor
-  · simp [Sim, Veir.ValuePtr.toO]
+  · simp [Sim_def, Veir.ValuePtr.toO]
   · grind
 
 @[grind =]
@@ -492,7 +488,7 @@ theorem OptionBlockPtr.toO_inBounds_of_inBounds (ptr : Sim.BlockPtr) :
 theorem OptionBlockPtr.none_inBounds : none.InBounds ctx := by
   simp [none]
   constructor
-  · simp [Sim, Veir.BlockPtr.toO]
+  · simp [Sim_def, Veir.BlockPtr.toO]
   · grind
 
 /-- The spec-level block argument pointer is in bounds when its index is below the count. -/
@@ -531,7 +527,7 @@ theorem BlockPtr.getArgument_inBounds (block : BlockPtr)
     (hblock : block.InBounds ctx) i (h₂ : i.toNat < block.spec.getNumArguments ctx.spec) :
     (block.getArgumentPtr ctx i hblock).InBounds ctx := by
   rw [Sim.BlockPtr.getArgumentPtr_eq_getArgumentPtr!]
-  exact ⟨BlockPtr.getArgument_toM block hblock i h₂, BlockPtr.getArgument_veir_inBounds block hblock i h₂⟩
+  exact ⟨(Sim.BlockArgumentPtr.Sim_def _).mpr (BlockPtr.getArgument_toM block hblock i h₂), BlockPtr.getArgument_veir_inBounds block hblock i h₂⟩
 
 @[grind =]
 theorem BlockPtr.setParent_inBounds (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr) (ptr' : Sim.GenericPtr)
@@ -615,7 +611,7 @@ theorem BlockPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr) (heq : allocEmpty 
     have hib := (Veir.BlockPtr.allocEmptyAtAddress_genericPtr_iff (.block ptr'.spec) hspec).mpr
       (.inr (.inl rfl))
     refine ⟨?_, by grind⟩
-    grind [Sim.BlockPtr.Sim, Veir.BlockPtr.toM]
+    grind [Veir.BlockPtr.toM]
   have hslot := Sim.BlockPtr.getOpOperandPtrPtr_sim_of_sim (ctx := ctx') ptr' hnew
   constructor
   · rintro ⟨sim', ib'⟩
@@ -623,26 +619,26 @@ theorem BlockPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr) (heq : allocEmpty 
     · -- Old pointer: the layout is preserved, so the address is unchanged.
       refine .inl ⟨?_, hold⟩
       have := Veir.GenericPtr.layoutPreserved_same_toM hlay hold
-      grind [Sim.GenericPtr.Sim]
+      grind
     · -- The freshly allocated block: its impl address is forced by the sim relation.
       refine .inr (.inl ?_)
       obtain ⟨impl, spec⟩ := ptr
-      grind [Sim.GenericPtr.Sim, Sim.GenericPtr.fromBlock, Veir.GenericPtr.toM, Veir.BlockPtr.toM]
+      grind [Sim.GenericPtr.fromBlock, Veir.GenericPtr.toM, Veir.BlockPtr.toM]
     · -- The new block's `firstUse` slot: its impl address is forced by the sim relation.
       refine .inr (.inr ?_)
       obtain ⟨impl, spec⟩ := ptr
-      grind [Sim.GenericPtr.Sim, Sim.GenericPtr.fromBlockOperandPtr, Veir.GenericPtr.toM,
-        Sim.BlockPtr.getBlockOperandPtrPtr, Sim.BlockOperandPtrPtr.Sim]
+      grind [Sim.GenericPtr.fromBlockOperandPtr, Veir.GenericPtr.toM,
+        Sim.BlockPtr.getBlockOperandPtrPtr]
   · rintro (hold | rfl | rfl)
     · exact ⟨Sim.GenericPtr.sim_layoutPreserved hlay hold,
         (Veir.BlockPtr.allocEmptyAtAddress_genericPtr_iff ptr.spec hspec).mpr (.inl hold.ib)⟩
     · refine ⟨?_, (Veir.BlockPtr.allocEmptyAtAddress_genericPtr_iff _ hspec).mpr
         (.inr (.inl (by grind [Sim.GenericPtr.fromBlock])))⟩
-      grind [Sim.GenericPtr.Sim, Sim.GenericPtr.fromBlock, Veir.GenericPtr.toM, Sim.BlockPtr.Sim]
+      grind [Sim.GenericPtr.fromBlock, Veir.GenericPtr.toM]
     · refine ⟨?_, (Veir.BlockPtr.allocEmptyAtAddress_genericPtr_iff _ hspec).mpr
         (.inr (.inr (by grind [Sim.GenericPtr.fromBlockOperandPtr, Sim.BlockPtr.getBlockOperandPtrPtr])))⟩
-      grind [Sim.GenericPtr.Sim, Sim.GenericPtr.fromBlockOperandPtr, Veir.GenericPtr.toM,
-        Sim.BlockPtr.getBlockOperandPtrPtr, Sim.BlockOperandPtrPtr.Sim]
+      grind [Sim.GenericPtr.fromBlockOperandPtr, Veir.GenericPtr.toM,
+        Sim.BlockPtr.getBlockOperandPtrPtr]
 
 @[grind .]
 theorem BlockPtr.allocEmpty_genericPtr_mono (ptr : GenericPtr) (heq : allocEmpty ctx numArgs = some (ptr', ctx')) :
@@ -685,7 +681,7 @@ theorem OptionRegionPtr.toO_inBounds_of_inBounds (ptr : Sim.RegionPtr) :
 theorem OptionRegionPtr.none_inBounds : none.InBounds ctx := by
   simp [none]
   constructor
-  · simp [Sim, Veir.RegionPtr.toO]
+  · simp [Sim_def, Veir.RegionPtr.toO]
   · grind
 
 @[grind =]
@@ -736,18 +732,18 @@ theorem RegionPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr) (heq : allocEmpty
     · -- Old pointer: the layout is preserved, so the address is unchanged.
       refine .inl ⟨?_, hold⟩
       have := Veir.GenericPtr.layoutPreserved_same_toM hlay hold
-      grind [Sim.GenericPtr.Sim]
+      grind
     · -- The freshly allocated region: its impl address is forced by the sim relation.
       refine .inr ?_
       obtain ⟨impl, spec⟩ := ptr
-      grind [Sim.GenericPtr.Sim, Sim.GenericPtr.fromRegion, Veir.GenericPtr.toM,
+      grind [Sim.GenericPtr.fromRegion, Veir.GenericPtr.toM,
         Veir.RegionPtr.toM]
   · rintro (hold | rfl)
     · exact ⟨Sim.GenericPtr.sim_layoutPreserved hlay hold,
         (Veir.RegionPtr.allocEmptyAt_genericPtr_iff ptr.spec hspec).mpr (.inl hold.ib)⟩
     · refine ⟨?_, (Veir.RegionPtr.allocEmptyAt_genericPtr_iff _ hspec).mpr
         (.inr (by grind [Sim.GenericPtr.fromRegion]))⟩
-      grind [Sim.GenericPtr.Sim, Sim.GenericPtr.fromRegion, Veir.GenericPtr.toM,
+      grind [Sim.GenericPtr.fromRegion, Veir.GenericPtr.toM,
         Veir.RegionPtr.toM]
 
 @[grind .]
@@ -796,7 +792,7 @@ theorem OptionBlockOperandPtr.toO_inBounds_of_inBounds (ptr : Sim.BlockOperandPt
 theorem OptionBlockOperandPtr.none_inBounds : none.InBounds ctx := by
   simp [none]
   constructor
-  · simp [Sim, Veir.BlockOperandPtr.toO]
+  · simp [Sim_def, Veir.BlockOperandPtr.toO]
   · grind
 
 @[grind =]

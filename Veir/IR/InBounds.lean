@@ -1,8 +1,8 @@
 module
 
 public import Veir.IR.Basic
-import all Veir.IR.Basic
 import Veir.ForLean
+import Veir.Prelude
 
 namespace Veir
 

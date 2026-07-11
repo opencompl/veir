@@ -11,7 +11,7 @@ public import Veir.IR.Simp
 
 open Std (HashMap)
 
-public section
+@[expose] public section
 
 namespace Veir
 
@@ -283,7 +283,6 @@ variable {ctx ctx' : IRContext OpInfo}
 
 /-! Empty objects. -/
 
-@[expose]
 def Operation.empty (opType : OpInfo) (prop : HasOpInfo.propertiesOf opType) (capResults capBlockOperands capRegions capOperands : Nat) : Operation OpInfo :=
   { results := #[]
     prev := none
@@ -301,7 +300,6 @@ def Operation.empty (opType : OpInfo) (prop : HasOpInfo.propertiesOf opType) (ca
     capOperands
   }
 
-@[expose]
 def Region.empty : Region :=
   {
     parent := none
@@ -309,7 +307,6 @@ def Region.empty : Region :=
     lastBlock := none
   }
 
-@[expose]
 def Block.empty (capArguments : Nat) : Block :=
   {
     arguments := #[]

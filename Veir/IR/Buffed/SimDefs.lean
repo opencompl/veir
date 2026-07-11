@@ -22,72 +22,88 @@ variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo]
 
 /-! ## Translate a high-level pointer to a flat address. -/
 
-@[grind, layout_simp]
+@[expose, layout_simp]
 def OperationPtr.toFlat (ptr : OperationPtr) := ptr.id
 
-@[grind, layout_simp]
+@[grind =]
+theorem OperationPtr.toFlat_def (ptr : OperationPtr) : ptr.toFlat = ptr.id := rfl
+
+@[expose, layout_simp]
 def BlockPtr.toFlat (ptr : BlockPtr) := ptr.id
 
-@[grind, layout_simp]
+@[grind =]
+theorem BlockPtr.toFlat_def (ptr : BlockPtr) : ptr.toFlat = ptr.id := rfl
+
+@[expose, layout_simp]
 def RegionPtr.toFlat (ptr : RegionPtr) := ptr.id
 
+@[grind =]
+theorem RegionPtr.toFlat_def (ptr : RegionPtr) : ptr.toFlat = ptr.id := rfl
+
+@[expose]
 def OpResultPtr.toFlat (ptr : OpResultPtr) (ctx : IRContext OpInfo) :=
   (ptr.op.toFlat + (Buffed.Operation.Offsets.results ptr.op ctx).toInt).toNat +
   ptr.index * Buffed.OpResult.size.toNat
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def OpResultPtr.toFlatNat (ptr : OpResultPtr) (ctx : IRContext OpInfo) :=
   (ptr.op.toFlat + (Buffed.Operation.Offsets.resultsInt ptr.op ctx)).toNat +
   ptr.index * Buffed.OpResult.sizeNat
 
+@[expose]
 def OpOperandPtr.toFlat (ptr : OpOperandPtr) (ctx : IRContext OpInfo) :=
   (ptr.op.toFlat + (Buffed.Operation.Offsets.operands ptr.op ctx).toInt).toNat +
   ptr.index * Buffed.OpOperand.size.toNat
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def OpOperandPtr.toFlatNat (ptr : OpOperandPtr) (ctx : IRContext OpInfo) :=
   (ptr.op.toFlat + (Buffed.Operation.Offsets.operandsInt ptr.op ctx)).toNat +
   ptr.index * Buffed.OpOperand.sizeNat
 
+@[expose]
 def BlockOperandPtr.toFlat (ptr : BlockOperandPtr) (ctx : IRContext OpInfo) :=
   (ptr.op.toFlat + (Buffed.Operation.Offsets.blockOperands ptr.op ctx).toInt).toNat +
   ptr.index * Buffed.BlockOperand.size.toNat
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def BlockOperandPtr.toFlatNat (ptr : BlockOperandPtr) (ctx : IRContext OpInfo) :=
   (ptr.op.toFlat + (Buffed.Operation.Offsets.blockOperandsInt ptr.op ctx)).toNat +
   ptr.index * Buffed.BlockOperand.sizeNat
 
+@[expose]
 def BlockArgumentPtr.toFlat (ptr : BlockArgumentPtr) :=
   (ptr.block.toFlat + Buffed.Block.Offsets.arguments.toInt).toNat +
   ptr.index * Buffed.BlockArgument.size.toNat
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def BlockArgumentPtr.toFlatNat (ptr : BlockArgumentPtr) :=
   (ptr.block.toFlat + Buffed.Block.Offsets.argumentsInt).toNat +
   ptr.index * Buffed.BlockArgument.sizeNat
 
+@[expose]
 def ValuePtr.toFlat (ptr : ValuePtr) (ctx : IRContext OpInfo) :=
   match ptr with
   | .opResult ptr => ptr.toFlat ctx
   | .blockArgument ptr => ptr.toFlat
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def ValuePtr.toFlatNat (ptr : ValuePtr) (ctx : IRContext OpInfo) :=
   match ptr with
   | .opResult ptr => ptr.toFlatNat ctx
   | .blockArgument ptr => ptr.toFlatNat
 
+@[expose]
 def OpOperandPtrPtr.toFlat (ptr : OpOperandPtrPtr) (ctx : IRContext OpInfo) :=
   match ptr with
   | .operandNextUse ptr => ptr.toFlat ctx + Buffed.OpOperand.Offsets.nextUse.toInt.toNat
   | .valueFirstUse ptr => ptr.toFlat ctx + Buffed.ValueImpl.Offsets.firstUse.toInt.toNat
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def OpOperandPtrPtr.toFlatNat (ptr : OpOperandPtrPtr) (ctx : IRContext OpInfo) :=
   match ptr with
   | .operandNextUse ptr => ptr.toFlatNat ctx + Buffed.OpOperand.Offsets.nextUseInt.toNat
   | .valueFirstUse ptr => ptr.toFlatNat ctx + Buffed.ValueImpl.Offsets.firstUseInt.toNat
 
+@[expose]
 def BlockOperandPtrPtr.toFlat (ptr : BlockOperandPtrPtr) (ctx : IRContext OpInfo) :=
   match ptr with
   | .blockOperandNextUse ptr => ptr.toFlat ctx + Buffed.BlockOperand.Offsets.nextUse.toInt.toNat
   | .blockFirstUse ptr => ptr.toFlat + Buffed.Block.Offsets.firstUse.toInt.toNat
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def BlockOperandPtrPtr.toFlatNat (ptr : BlockOperandPtrPtr) (ctx : IRContext OpInfo) :=
   match ptr with
   | .blockOperandNextUse ptr => ptr.toFlatNat ctx + Buffed.BlockOperand.Offsets.nextUseInt.toNat
@@ -95,81 +111,90 @@ def BlockOperandPtrPtr.toFlatNat (ptr : BlockOperandPtrPtr) (ctx : IRContext OpI
 
 /-! ## A pointer is representable if it fits in 63 bits. -/
 
-@[grind] def OperationPtr.IsRepr (ptr : OperationPtr) : Prop :=
+@[expose] def OperationPtr.IsRepr (ptr : OperationPtr) : Prop :=
   ptr.toFlat ≤ Int64.maxNatValue
 
-@[grind] def BlockPtr.IsRepr (ptr : BlockPtr) : Prop :=
+@[grind =]
+theorem OperationPtr.IsRepr_def (ptr : OperationPtr) : ptr.IsRepr ↔ ptr.toFlat ≤ Int64.maxNatValue := .rfl
+
+@[expose] def BlockPtr.IsRepr (ptr : BlockPtr) : Prop :=
   ptr.toFlat ≤ Int64.maxNatValue
 
-@[grind] def RegionPtr.IsRepr (ptr : RegionPtr) : Prop :=
+@[grind =]
+theorem BlockPtr.IsRepr_def (ptr : BlockPtr) : ptr.IsRepr ↔ ptr.toFlat ≤ Int64.maxNatValue := .rfl
+
+@[expose] def RegionPtr.IsRepr (ptr : RegionPtr) : Prop :=
   ptr.toFlat ≤ Int64.maxNatValue
+
+@[grind =]
+theorem RegionPtr.IsRepr_def (ptr : RegionPtr) : ptr.IsRepr ↔ ptr.toFlat ≤ Int64.maxNatValue := .rfl
 
 /-! ## Translate a high-level pointer to a buffed address. -/
 
-@[layout_grind]
+@[expose, layout_grind]
 def OperationPtr.toM (ptr : OperationPtr) : OperationMPtr := ptr.toFlat.toUInt64
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def OperationPtr.toO (ptr : Option OperationPtr) : OperationOPtr :=
   match ptr with
   | some ptr => ptr.toM
   | none => .none
 
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def BlockPtr.toM (ptr : BlockPtr) : BlockMPtr := ptr.toFlat.toUInt64
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def BlockPtr.toO (ptr : Option BlockPtr) : BlockOPtr :=
   match ptr with
   | some ptr => ptr.toM
   | none => .none
 
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def RegionPtr.toM (ptr : RegionPtr) : RegionMPtr := ptr.toFlat.toUInt64
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def RegionPtr.toO (ptr : Option RegionPtr) : RegionOPtr :=
   match ptr with
   | some ptr => ptr.toM
   | none => .none
 
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def OpResultPtr.toM (ptr : OpResultPtr) (ctx : IRContext OpInfo) : OpResultMPtr :=
   (ptr.toFlat ctx).toUInt64
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def OpResultPtr.toO (ptr : Option OpResultPtr) (ctx : IRContext OpInfo) : OpResultOPtr :=
   match ptr with
   | some ptr => ptr.toM ctx
   | none => .none
 
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def BlockArgumentPtr.toM (ptr : BlockArgumentPtr) : BlockArgumentMPtr :=
   ptr.toFlat.toUInt64
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def BlockArgumentPtr.toO (ptr : Option BlockArgumentPtr) : BlockArgumentOPtr :=
   match ptr with
   | some ptr => ptr.toM
   | none => .none
 
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def OpOperandPtr.toM (ptr : OpOperandPtr) (ctx : IRContext OpInfo) : OpOperandMPtr :=
   (ptr.toFlat ctx).toUInt64
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def OpOperandPtr.toO (ptr : Option OpOperandPtr) (ctx : IRContext OpInfo) : OpOperandOPtr :=
   match ptr with
   | some ptr => ptr.toM ctx
   | none => .none
 
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def BlockOperandPtr.toM (ptr : BlockOperandPtr) (ctx : IRContext OpInfo) : BlockOperandMPtr :=
   (ptr.toFlat ctx).toUInt64
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def BlockOperandPtr.toO (ptr : Option BlockOperandPtr) (ctx : IRContext OpInfo) : BlockOperandOPtr :=
   match ptr with
   | some ptr => ptr.toM ctx
   | none => .none
 
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def ValuePtr.toM (ptr : ValuePtr) (ctx : IRContext OpInfo) : ValueImplMPtr :=
   (ptr.toFlat ctx).toUInt64
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def ValuePtr.toO (ptr : Option ValuePtr) (ctx : IRContext OpInfo) : ValueImplOPtr :=
   match ptr with
   | some ptr => ptr.toM ctx
@@ -181,15 +206,15 @@ theorem ValuePtr.toM_opResult {ctx : IRContext OpInfo} : (ValuePtr.opResult res)
 @[simp, grind =]
 theorem ValuePtr.toM_blockArgument {ctx : IRContext OpInfo} : (ValuePtr.blockArgument arg).toM ctx = arg.toM := by rfl
 
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def OpOperandPtrPtr.toM (ptr : OpOperandPtrPtr) (ctx : IRContext OpInfo) : GenericMPtr :=
   (ptr.toFlat ctx).toUInt64
 
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def BlockOperandPtrPtr.toM (ptr : BlockOperandPtrPtr) (ctx : IRContext OpInfo) : GenericMPtr :=
   (ptr.toFlat ctx).toUInt64
 
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def GenericPtr.toM (ptr : GenericPtr) (ctx : IRContext OpInfo) : GenericMPtr :=
   match ptr with
   | .operation ptr => ptr.toM
@@ -203,7 +228,7 @@ def GenericPtr.toM (ptr : GenericPtr) (ctx : IRContext OpInfo) : GenericMPtr :=
   | .value ptr => ptr.toM ctx
   | .opOperandPtr ptr => ptr.toM ctx
 
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def GenericPtr.toO (ptr : Option GenericPtr) (ctx : IRContext OpInfo) : GenericOPtr :=
   match ptr with
   | some ptr => ptr.toM ctx
@@ -211,87 +236,98 @@ def GenericPtr.toO (ptr : Option GenericPtr) (ctx : IRContext OpInfo) : GenericO
 
 /-! ## Range of a pointer -/
 
+@[expose]
 def OperationPtr.range (op : OperationPtr) (ctx : IRContext OpInfo) :=
   op.toFlat + (Buffed.Operation.range op ctx)
 
 abbrev OperationPtr.rangeInt (op : OperationPtr) (ctx : IRContext OpInfo) :=
   op.toFlat + (Buffed.Operation.rangeInt op ctx)
 
+@[expose]
 def BlockPtr.range (bl : BlockPtr) (ctx : IRContext OpInfo) :=
   bl.toFlat + Buffed.Block.range bl ctx
 
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def BlockPtr.rangeInt (bl : BlockPtr) (ctx : IRContext OpInfo) :=
   bl.toFlat + Buffed.Block.rangeInt bl ctx
 
+@[expose]
 def RegionPtr.range (rg : RegionPtr) :=
   rg.toFlat + Buffed.Region.range
 
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def RegionPtr.rangeInt (rg : RegionPtr) :=
   rg.toFlat + Buffed.Region.rangeInt
 
+@[expose]
 def OpResultPtr.range (res : OpResultPtr) (ctx : IRContext OpInfo) :=
   res.toFlat ctx + Buffed.OpResult.range
 
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def OpResultPtr.rangeInt (res : OpResultPtr) (ctx : IRContext OpInfo) :=
   res.toFlatNat ctx + Buffed.OpResult.rangeInt
 
+@[expose]
 def BlockArgumentPtr.range (arg : BlockArgumentPtr) :=
   arg.toFlat + Buffed.BlockArgument.range
 
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def BlockArgumentPtr.rangeInt (arg : BlockArgumentPtr) :=
   arg.toFlatNat + Buffed.BlockArgument.rangeInt
 
+@[expose]
 def OpOperandPtr.range (opr : OpOperandPtr) (ctx : IRContext OpInfo) :=
   opr.toFlat ctx + Buffed.OpOperand.range
 
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def OpOperandPtr.rangeInt (opr : OpOperandPtr) (ctx : IRContext OpInfo) :=
   opr.toFlatNat ctx + Buffed.OpOperand.rangeInt
 
+@[expose]
 def BlockOperandPtr.range (opr : BlockOperandPtr) (ctx : IRContext OpInfo) :=
   opr.toFlat ctx + Buffed.BlockOperand.range
 
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def BlockOperandPtr.rangeInt (opr : BlockOperandPtr) (ctx : IRContext OpInfo) :=
   opr.toFlatNat ctx + Buffed.BlockOperand.rangeInt
 
+@[expose]
 def ValuePtr.range (val : ValuePtr) (ctx : IRContext OpInfo) :=
   match val with
   | .opResult res => res.range ctx
   | .blockArgument arg => arg.range
 
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def ValuePtr.rangeInt (val : ValuePtr) (ctx : IRContext OpInfo) :=
   match val with
   | .opResult res => res.rangeInt ctx
   | .blockArgument arg => arg.rangeInt
 
+@[expose]
 def OpOperandPtrPtr.range (ptr : OpOperandPtrPtr) (ctx : IRContext OpInfo) :=
   match ptr with
   | .operandNextUse opr => opr.range ctx
   | .valueFirstUse val => val.range ctx
 
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def OpOperandPtrPtr.rangeInt (ptr : OpOperandPtrPtr) (ctx : IRContext OpInfo) :=
   match ptr with
   | .operandNextUse opr => opr.rangeInt ctx
   | .valueFirstUse val => val.rangeInt ctx
 
+@[expose]
 def BlockOperandPtrPtr.range (ptr : BlockOperandPtrPtr) (ctx : IRContext OpInfo) :=
   match ptr with
   | .blockOperandNextUse opr => opr.range ctx
   | .blockFirstUse bl => bl.range ctx
 
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def BlockOperandPtrPtr.rangeInt (ptr : BlockOperandPtrPtr) (ctx : IRContext OpInfo) :=
   match ptr with
   | .blockOperandNextUse opr => opr.rangeInt ctx
   | .blockFirstUse bl => bl.rangeInt ctx
 
+@[expose]
 def GenericPtr.range (ptr : GenericPtr) (ctx : IRContext OpInfo) : Std.Rco Int :=
   match ptr with
   | .operation op => op.range ctx
@@ -305,7 +341,7 @@ def GenericPtr.range (ptr : GenericPtr) (ctx : IRContext OpInfo) : Std.Rco Int :
   | .value val => val.range ctx
   | .opOperandPtr ptr => ptr.range ctx
 
-@[layout_grind, layout_simp]
+@[expose, layout_grind, layout_simp]
 def GenericPtr.rangeInt (ptr : GenericPtr) (ctx : IRContext OpInfo) : Std.Rco Int :=
   match ptr with
   | .operation op => op.rangeInt ctx
@@ -368,26 +404,54 @@ structure IRContext.IsRepr (ctx : IRContext OpInfo) where
 
 /-! ## Other pointer representations -/
 
-@[grind] def OpResultPtr.IsRepr (ptr : OpResultPtr) (ctx : IRContext OpInfo) : Prop :=
+@[expose] def OpResultPtr.IsRepr (ptr : OpResultPtr) (ctx : IRContext OpInfo) : Prop :=
   ptr.toFlat ctx ≤ Int64.maxNatValue
 
-@[grind] def OpOperandPtr.IsRepr (ptr : OpOperandPtr) (ctx : IRContext OpInfo) : Prop :=
+@[grind =]
+theorem OpResultPtr.IsRepr_def (ptr : OpResultPtr) (ctx : IRContext OpInfo) :
+    ptr.IsRepr ctx ↔ ptr.toFlat ctx ≤ Int64.maxNatValue := .rfl
+
+@[expose] def OpOperandPtr.IsRepr (ptr : OpOperandPtr) (ctx : IRContext OpInfo) : Prop :=
   ptr.toFlat ctx ≤ Int64.maxNatValue
 
-@[grind] def BlockOperandPtr.IsRepr (ptr : BlockOperandPtr) (ctx : IRContext OpInfo) : Prop :=
+@[grind =]
+theorem OpOperandPtr.IsRepr_def (ptr : OpOperandPtr) (ctx : IRContext OpInfo) :
+    ptr.IsRepr ctx ↔ ptr.toFlat ctx ≤ Int64.maxNatValue := .rfl
+
+@[expose] def BlockOperandPtr.IsRepr (ptr : BlockOperandPtr) (ctx : IRContext OpInfo) : Prop :=
   ptr.toFlat ctx ≤ Int64.maxNatValue
 
-@[grind] def BlockArgumentPtr.IsRepr (ptr : BlockArgumentPtr) : Prop :=
+@[grind =]
+theorem BlockOperandPtr.IsRepr_def (ptr : BlockOperandPtr) (ctx : IRContext OpInfo) :
+    ptr.IsRepr ctx ↔ ptr.toFlat ctx ≤ Int64.maxNatValue := .rfl
+
+@[expose] def BlockArgumentPtr.IsRepr (ptr : BlockArgumentPtr) : Prop :=
   ptr.toFlat ≤ Int64.maxNatValue
 
-@[grind] def ValuePtr.IsRepr (ptr : ValuePtr) (ctx : IRContext OpInfo) : Prop :=
+@[grind =]
+theorem BlockArgumentPtr.IsRepr_def (ptr : BlockArgumentPtr) :
+    ptr.IsRepr ↔ ptr.toFlat ≤ Int64.maxNatValue := .rfl
+
+@[expose] def ValuePtr.IsRepr (ptr : ValuePtr) (ctx : IRContext OpInfo) : Prop :=
   ptr.toFlat ctx ≤ Int64.maxNatValue
 
-@[grind] def OpOperandPtrPtr.IsRepr (ptr : OpOperandPtrPtr) (ctx : IRContext OpInfo) : Prop :=
+@[grind =]
+theorem ValuePtr.IsRepr_def (ptr : ValuePtr) (ctx : IRContext OpInfo) :
+    ptr.IsRepr ctx ↔ ptr.toFlat ctx ≤ Int64.maxNatValue := .rfl
+
+@[expose] def OpOperandPtrPtr.IsRepr (ptr : OpOperandPtrPtr) (ctx : IRContext OpInfo) : Prop :=
   ptr.toFlat ctx ≤ Int64.maxNatValue
 
-@[grind] def BlockOperandPtrPtr.IsRepr (ptr : BlockOperandPtrPtr) (ctx : IRContext OpInfo) : Prop :=
+@[grind =]
+theorem OpOperandPtrPtr.IsRepr_def (ptr : OpOperandPtrPtr) (ctx : IRContext OpInfo) :
+    ptr.IsRepr ctx ↔ ptr.toFlat ctx ≤ Int64.maxNatValue := .rfl
+
+@[expose] def BlockOperandPtrPtr.IsRepr (ptr : BlockOperandPtrPtr) (ctx : IRContext OpInfo) : Prop :=
   ptr.toFlat ctx ≤ Int64.maxNatValue
+
+@[grind =]
+theorem BlockOperandPtrPtr.IsRepr_def (ptr : BlockOperandPtrPtr) (ctx : IRContext OpInfo) :
+    ptr.IsRepr ctx ↔ ptr.toFlat ctx ≤ Int64.maxNatValue := .rfl
 
 /-! ## Sim Pointers -/
 
@@ -496,66 +560,120 @@ structure Sim.GenericPtr where
   impl : GenericMPtr
   spec : Veir.GenericPtr
 
-@[grind]
+@[expose]
 def Sim.GenericPtr.fromBlock (ptr : BlockPtr) : GenericPtr :=
   ⟨ptr.impl, .block ptr.spec⟩
-@[grind]
+
+@[grind =]
+theorem Sim.GenericPtr.fromBlock_def (ptr : BlockPtr) : Sim.GenericPtr.fromBlock ptr = ⟨ptr.impl, .block ptr.spec⟩ := rfl
+@[expose]
 def Sim.GenericPtr.fromOperation (ptr : OperationPtr) : GenericPtr :=
   ⟨ptr.impl, .operation ptr.spec⟩
-@[grind]
+
+@[grind =]
+theorem Sim.GenericPtr.fromOperation_def (ptr : OperationPtr) : Sim.GenericPtr.fromOperation ptr = ⟨ptr.impl, .operation ptr.spec⟩ := rfl
+@[expose]
 def Sim.GenericPtr.fromOpResult (ptr : OpResultPtr) : GenericPtr :=
   ⟨ptr.impl, .opResult ptr.spec⟩
-@[grind]
+
+@[grind =]
+theorem Sim.GenericPtr.fromOpResult_def (ptr : OpResultPtr) : Sim.GenericPtr.fromOpResult ptr = ⟨ptr.impl, .opResult ptr.spec⟩ := rfl
+@[expose]
 def Sim.GenericPtr.fromOpOperand (ptr : OpOperandPtr) : GenericPtr :=
   ⟨ptr.impl, .opOperand ptr.spec⟩
-@[grind]
+
+@[grind =]
+theorem Sim.GenericPtr.fromOpOperand_def (ptr : OpOperandPtr) : Sim.GenericPtr.fromOpOperand ptr = ⟨ptr.impl, .opOperand ptr.spec⟩ := rfl
+@[expose]
 def Sim.GenericPtr.fromBlockOperand (ptr : BlockOperandPtr) : GenericPtr :=
   ⟨ptr.impl, .blockOperand ptr.spec⟩
-@[grind]
+
+@[grind =]
+theorem Sim.GenericPtr.fromBlockOperand_def (ptr : BlockOperandPtr) : Sim.GenericPtr.fromBlockOperand ptr = ⟨ptr.impl, .blockOperand ptr.spec⟩ := rfl
+@[expose]
 def Sim.GenericPtr.fromBlockOperandPtr (ptr : BlockOperandPtrPtr) : GenericPtr :=
   ⟨ptr.impl, .blockOperandPtr ptr.spec⟩
-@[grind]
+
+@[grind =]
+theorem Sim.GenericPtr.fromBlockOperandPtr_def (ptr : BlockOperandPtrPtr) : Sim.GenericPtr.fromBlockOperandPtr ptr = ⟨ptr.impl, .blockOperandPtr ptr.spec⟩ := rfl
+@[expose]
 def Sim.GenericPtr.fromBlockArgument (ptr : BlockArgumentPtr) : GenericPtr :=
   ⟨ptr.impl, .blockArgument ptr.spec⟩
-@[grind]
+
+@[grind =]
+theorem Sim.GenericPtr.fromBlockArgument_def (ptr : BlockArgumentPtr) : Sim.GenericPtr.fromBlockArgument ptr = ⟨ptr.impl, .blockArgument ptr.spec⟩ := rfl
+@[expose]
 def Sim.GenericPtr.fromRegion (ptr : RegionPtr) : GenericPtr :=
   ⟨ptr.impl, .region ptr.spec⟩
-@[grind]
+
+@[grind =]
+theorem Sim.GenericPtr.fromRegion_def (ptr : RegionPtr) : Sim.GenericPtr.fromRegion ptr = ⟨ptr.impl, .region ptr.spec⟩ := rfl
+@[expose]
 def Sim.GenericPtr.fromValue (ptr : ValuePtr) : GenericPtr :=
   ⟨ptr.impl, .value ptr.spec⟩
-@[grind]
+
+@[grind =]
+theorem Sim.GenericPtr.fromValue_def (ptr : ValuePtr) : Sim.GenericPtr.fromValue ptr = ⟨ptr.impl, .value ptr.spec⟩ := rfl
+@[expose]
 def Sim.GenericPtr.fromOpOperandPtr (ptr : OpOperandPtrPtr) : GenericPtr :=
   ⟨ptr.impl, .opOperandPtr ptr.spec⟩
+
+@[grind =]
+theorem Sim.GenericPtr.fromOpOperandPtr_def (ptr : OpOperandPtrPtr) : Sim.GenericPtr.fromOpOperandPtr ptr = ⟨ptr.impl, .opOperandPtr ptr.spec⟩ := rfl
 
 @[grind] -- TODO: finer grained grind strategy
 structure Sim.OptionGenericPtr where
   impl : GenericOPtr
   spec : Option Veir.GenericPtr
 
-@[grind]
+@[expose]
 def Sim.OptionGenericPtr.fromBlock (ptr : OptionBlockPtr) : OptionGenericPtr :=
   ⟨ptr.impl, ptr.spec.map .block⟩
-@[grind]
+
+@[grind =]
+theorem Sim.OptionGenericPtr.fromBlock_def (ptr : OptionBlockPtr) : Sim.OptionGenericPtr.fromBlock ptr = ⟨ptr.impl, ptr.spec.map .block⟩ := rfl
+@[expose]
 def Sim.OptionGenericPtr.fromOperation (ptr : OptionOperationPtr) : OptionGenericPtr :=
   ⟨ptr.impl, ptr.spec.map .operation⟩
-@[grind]
+
+@[grind =]
+theorem Sim.OptionGenericPtr.fromOperation_def (ptr : OptionOperationPtr) : Sim.OptionGenericPtr.fromOperation ptr = ⟨ptr.impl, ptr.spec.map .operation⟩ := rfl
+@[expose]
 def Sim.OptionGenericPtr.fromOpResult (ptr : OptionOpResultPtr) : OptionGenericPtr :=
   ⟨ptr.impl, ptr.spec.map .opResult⟩
-@[grind]
+
+@[grind =]
+theorem Sim.OptionGenericPtr.fromOpResult_def (ptr : OptionOpResultPtr) : Sim.OptionGenericPtr.fromOpResult ptr = ⟨ptr.impl, ptr.spec.map .opResult⟩ := rfl
+@[expose]
 def Sim.OptionGenericPtr.fromOpOperand (ptr : OptionOpOperandPtr) : OptionGenericPtr :=
   ⟨ptr.impl, ptr.spec.map  .opOperand⟩
-@[grind]
+
+@[grind =]
+theorem Sim.OptionGenericPtr.fromOpOperand_def (ptr : OptionOpOperandPtr) : Sim.OptionGenericPtr.fromOpOperand ptr = ⟨ptr.impl, ptr.spec.map  .opOperand⟩ := rfl
+@[expose]
 def Sim.OptionGenericPtr.fromBlockOperand (ptr : OptionBlockOperandPtr) : OptionGenericPtr :=
   ⟨ptr.impl, ptr.spec.map .blockOperand⟩
-@[grind]
+
+@[grind =]
+theorem Sim.OptionGenericPtr.fromBlockOperand_def (ptr : OptionBlockOperandPtr) : Sim.OptionGenericPtr.fromBlockOperand ptr = ⟨ptr.impl, ptr.spec.map .blockOperand⟩ := rfl
+@[expose]
 def Sim.OptionGenericPtr.fromBlockArgument (ptr : OptionBlockArgumentPtr) : OptionGenericPtr :=
   ⟨ptr.impl, ptr.spec.map .blockArgument⟩
-@[grind]
+
+@[grind =]
+theorem Sim.OptionGenericPtr.fromBlockArgument_def (ptr : OptionBlockArgumentPtr) : Sim.OptionGenericPtr.fromBlockArgument ptr = ⟨ptr.impl, ptr.spec.map .blockArgument⟩ := rfl
+@[expose]
 def Sim.OptionGenericPtr.fromRegion (ptr : OptionRegionPtr) : OptionGenericPtr :=
   ⟨ptr.impl, ptr.spec.map .region⟩
-@[grind]
+
+@[grind =]
+theorem Sim.OptionGenericPtr.fromRegion_def (ptr : OptionRegionPtr) : Sim.OptionGenericPtr.fromRegion ptr = ⟨ptr.impl, ptr.spec.map .region⟩ := rfl
+@[expose]
 def Sim.OptionGenericPtr.fromValue (ptr : OptionValuePtr) : OptionGenericPtr :=
   ⟨ptr.impl, ptr.spec.map .value⟩
+
+@[grind =]
+theorem Sim.OptionGenericPtr.fromValue_def (ptr : OptionValuePtr) : Sim.OptionGenericPtr.fromValue ptr = ⟨ptr.impl, ptr.spec.map .value⟩ := rfl
 
 /-! ## Refinement for Sim Pointers -/
 
@@ -564,84 +682,190 @@ structure Sim.RawIRContext where
   buf : IRBufContext OpInfo
   spec : Veir.IRContext OpInfo
 
-@[grind] -- TODO: finer grained grind strategy
 def Sim.OperationPtr.Sim (ptr : Sim.OperationPtr) :=
   ptr.spec.toM = ptr.impl
 
-@[grind] -- TODO: finer grained grind strategy
 def Sim.OptionOperationPtr.Sim (ptr : Sim.OptionOperationPtr) :=
   OperationPtr.toO ptr.spec = ptr.impl
 
-@[grind] -- TODO: finer grained grind strategy
 def Sim.BlockPtr.Sim (ptr : Sim.BlockPtr) :=
   ptr.spec.toM = ptr.impl
 
-@[grind] -- TODO: finer grained grind strategy
 def Sim.OptionBlockPtr.Sim (ptr : Sim.OptionBlockPtr) :=
   BlockPtr.toO ptr.spec = ptr.impl
 
-@[grind] -- TODO: finer grained grind strategy
 def Sim.RegionPtr.Sim (ptr : Sim.RegionPtr) :=
   ptr.spec.toM = ptr.impl
 
-@[grind] -- TODO: finer grained grind strategy
 def Sim.OptionRegionPtr.Sim (ptr : Sim.OptionRegionPtr) :=
   RegionPtr.toO ptr.spec = ptr.impl
 
-@[grind] -- TODO: finer grained grind strategy
 def Sim.OpResultPtr.Sim (ptr : Sim.OpResultPtr) (ctx : Sim.RawIRContext OpInfo) :=
   ptr.spec.toM ctx.spec = ptr.impl
 
-@[grind] -- TODO: finer grained grind strategy
 def Sim.OptionOpResultPtr.Sim (ptr : Sim.OptionOpResultPtr) (ctx : Sim.RawIRContext OpInfo) :=
   OpResultPtr.toO ptr.spec ctx.spec = ptr.impl
 
-@[grind] -- TODO: finer grained grind strategy
 def Sim.BlockArgumentPtr.Sim (ptr : Sim.BlockArgumentPtr) :=
   ptr.spec.toM = ptr.impl
 
-@[grind] -- TODO: finer grained grind strategy
 def Sim.OptionBlockArgumentPtr.Sim (ptr : Sim.OptionBlockArgumentPtr) :=
   BlockArgumentPtr.toO ptr.spec = ptr.impl
 
-@[grind] -- TODO: finer grained grind strategy
 def Sim.OpOperandPtr.Sim (ptr : Sim.OpOperandPtr) (ctx : Sim.RawIRContext OpInfo) :=
   ptr.spec.toM ctx.spec = ptr.impl
 
-@[grind] -- TODO: finer grained grind strategy
 def Sim.OptionOpOperandPtr.Sim (ptr : Sim.OptionOpOperandPtr) (ctx : Sim.RawIRContext OpInfo) :=
   OpOperandPtr.toO ptr.spec ctx.spec = ptr.impl
-@[grind] -- TODO: finer grained grind strategy
 def Sim.BlockOperandPtr.Sim (ptr : Sim.BlockOperandPtr) (ctx : Sim.RawIRContext OpInfo) :=
   ptr.spec.toM ctx.spec = ptr.impl
 
-@[grind] -- TODO: finer grained grind strategy
 def Sim.OptionBlockOperandPtr.Sim (ptr : Sim.OptionBlockOperandPtr) (ctx : Sim.RawIRContext OpInfo) :=
   BlockOperandPtr.toO ptr.spec ctx.spec = ptr.impl
 
-@[grind] -- TODO: finer grained grind strategy
 def Sim.ValuePtr.Sim (ptr : Sim.ValuePtr) (ctx : Sim.RawIRContext OpInfo) :=
   ptr.spec.toM ctx.spec = ptr.impl
 
-@[grind] -- TODO: finer grained grind strategy
 def Sim.OptionValuePtr.Sim (ptr : Sim.OptionValuePtr) (ctx : Sim.RawIRContext OpInfo) :=
   ValuePtr.toO ptr.spec ctx.spec = ptr.impl
 
-@[grind] -- TODO: finer grained grind strategy
 def Sim.OpOperandPtrPtr.Sim (ptr : Sim.OpOperandPtrPtr) (ctx : Sim.RawIRContext OpInfo) :=
   ptr.spec.toM ctx.spec = ptr.impl
 
-@[grind] -- TODO: finer grained grind strategy
 def Sim.BlockOperandPtrPtr.Sim (ptr : Sim.BlockOperandPtrPtr) (ctx : Sim.RawIRContext OpInfo) :=
   ptr.spec.toM ctx.spec = ptr.impl
 
-@[grind] -- TODO: finer grained grind strategy
 def Sim.GenericPtr.Sim (ptr : Sim.GenericPtr) (ctx : Sim.RawIRContext OpInfo) :=
   ptr.spec.toM ctx.spec = ptr.impl
 
-@[grind] -- TODO: finer grained grind strategy
 def Sim.OptionGenericPtr.Sim (ptr : Sim.OptionGenericPtr) (ctx : Sim.RawIRContext OpInfo) :=
   GenericPtr.toO ptr.spec ctx.spec = ptr.impl
+
+/-! ### Equation bricks for the `Sim` predicates.
+
+These let modules that do not `import all` this file (where the `Sim` bodies are opaque)
+still convert between `ptr.Sim` and its defining equation: `Sim_def` is the `grind`-facing
+iff, `.out` the term-level projection used by the proof macros. -/
+
+@[grind =]
+theorem Sim.OperationPtr.Sim_def (ptr : Sim.OperationPtr) :
+    ptr.Sim ↔ ptr.spec.toM = ptr.impl := .rfl
+theorem Sim.OperationPtr.Sim.out {ptr : Sim.OperationPtr} (h : ptr.Sim) :
+    ptr.spec.toM = ptr.impl := h
+
+@[grind =]
+theorem Sim.OptionOperationPtr.Sim_def (ptr : Sim.OptionOperationPtr) :
+    ptr.Sim ↔ OperationPtr.toO ptr.spec = ptr.impl := .rfl
+theorem Sim.OptionOperationPtr.Sim.out {ptr : Sim.OptionOperationPtr} (h : ptr.Sim) :
+    OperationPtr.toO ptr.spec = ptr.impl := h
+
+@[grind =]
+theorem Sim.BlockPtr.Sim_def (ptr : Sim.BlockPtr) :
+    ptr.Sim ↔ ptr.spec.toM = ptr.impl := .rfl
+theorem Sim.BlockPtr.Sim.out {ptr : Sim.BlockPtr} (h : ptr.Sim) :
+    ptr.spec.toM = ptr.impl := h
+
+@[grind =]
+theorem Sim.OptionBlockPtr.Sim_def (ptr : Sim.OptionBlockPtr) :
+    ptr.Sim ↔ BlockPtr.toO ptr.spec = ptr.impl := .rfl
+theorem Sim.OptionBlockPtr.Sim.out {ptr : Sim.OptionBlockPtr} (h : ptr.Sim) :
+    BlockPtr.toO ptr.spec = ptr.impl := h
+
+@[grind =]
+theorem Sim.RegionPtr.Sim_def (ptr : Sim.RegionPtr) :
+    ptr.Sim ↔ ptr.spec.toM = ptr.impl := .rfl
+theorem Sim.RegionPtr.Sim.out {ptr : Sim.RegionPtr} (h : ptr.Sim) :
+    ptr.spec.toM = ptr.impl := h
+
+@[grind =]
+theorem Sim.OptionRegionPtr.Sim_def (ptr : Sim.OptionRegionPtr) :
+    ptr.Sim ↔ RegionPtr.toO ptr.spec = ptr.impl := .rfl
+theorem Sim.OptionRegionPtr.Sim.out {ptr : Sim.OptionRegionPtr} (h : ptr.Sim) :
+    RegionPtr.toO ptr.spec = ptr.impl := h
+
+@[grind =]
+theorem Sim.OpResultPtr.Sim_def (ptr : Sim.OpResultPtr) (ctx : Sim.RawIRContext OpInfo) :
+    ptr.Sim ctx ↔ ptr.spec.toM ctx.spec = ptr.impl := .rfl
+theorem Sim.OpResultPtr.Sim.out {ptr : Sim.OpResultPtr} {ctx : Sim.RawIRContext OpInfo} (h : ptr.Sim ctx) :
+    ptr.spec.toM ctx.spec = ptr.impl := h
+
+@[grind =]
+theorem Sim.OptionOpResultPtr.Sim_def (ptr : Sim.OptionOpResultPtr) (ctx : Sim.RawIRContext OpInfo) :
+    ptr.Sim ctx ↔ OpResultPtr.toO ptr.spec ctx.spec = ptr.impl := .rfl
+theorem Sim.OptionOpResultPtr.Sim.out {ptr : Sim.OptionOpResultPtr} {ctx : Sim.RawIRContext OpInfo} (h : ptr.Sim ctx) :
+    OpResultPtr.toO ptr.spec ctx.spec = ptr.impl := h
+
+@[grind =]
+theorem Sim.BlockArgumentPtr.Sim_def (ptr : Sim.BlockArgumentPtr) :
+    ptr.Sim ↔ ptr.spec.toM = ptr.impl := .rfl
+theorem Sim.BlockArgumentPtr.Sim.out {ptr : Sim.BlockArgumentPtr} (h : ptr.Sim) :
+    ptr.spec.toM = ptr.impl := h
+
+@[grind =]
+theorem Sim.OptionBlockArgumentPtr.Sim_def (ptr : Sim.OptionBlockArgumentPtr) :
+    ptr.Sim ↔ BlockArgumentPtr.toO ptr.spec = ptr.impl := .rfl
+theorem Sim.OptionBlockArgumentPtr.Sim.out {ptr : Sim.OptionBlockArgumentPtr} (h : ptr.Sim) :
+    BlockArgumentPtr.toO ptr.spec = ptr.impl := h
+
+@[grind =]
+theorem Sim.OpOperandPtr.Sim_def (ptr : Sim.OpOperandPtr) (ctx : Sim.RawIRContext OpInfo) :
+    ptr.Sim ctx ↔ ptr.spec.toM ctx.spec = ptr.impl := .rfl
+theorem Sim.OpOperandPtr.Sim.out {ptr : Sim.OpOperandPtr} {ctx : Sim.RawIRContext OpInfo} (h : ptr.Sim ctx) :
+    ptr.spec.toM ctx.spec = ptr.impl := h
+
+@[grind =]
+theorem Sim.OptionOpOperandPtr.Sim_def (ptr : Sim.OptionOpOperandPtr) (ctx : Sim.RawIRContext OpInfo) :
+    ptr.Sim ctx ↔ OpOperandPtr.toO ptr.spec ctx.spec = ptr.impl := .rfl
+theorem Sim.OptionOpOperandPtr.Sim.out {ptr : Sim.OptionOpOperandPtr} {ctx : Sim.RawIRContext OpInfo} (h : ptr.Sim ctx) :
+    OpOperandPtr.toO ptr.spec ctx.spec = ptr.impl := h
+
+@[grind =]
+theorem Sim.BlockOperandPtr.Sim_def (ptr : Sim.BlockOperandPtr) (ctx : Sim.RawIRContext OpInfo) :
+    ptr.Sim ctx ↔ ptr.spec.toM ctx.spec = ptr.impl := .rfl
+theorem Sim.BlockOperandPtr.Sim.out {ptr : Sim.BlockOperandPtr} {ctx : Sim.RawIRContext OpInfo} (h : ptr.Sim ctx) :
+    ptr.spec.toM ctx.spec = ptr.impl := h
+
+@[grind =]
+theorem Sim.OptionBlockOperandPtr.Sim_def (ptr : Sim.OptionBlockOperandPtr) (ctx : Sim.RawIRContext OpInfo) :
+    ptr.Sim ctx ↔ BlockOperandPtr.toO ptr.spec ctx.spec = ptr.impl := .rfl
+theorem Sim.OptionBlockOperandPtr.Sim.out {ptr : Sim.OptionBlockOperandPtr} {ctx : Sim.RawIRContext OpInfo} (h : ptr.Sim ctx) :
+    BlockOperandPtr.toO ptr.spec ctx.spec = ptr.impl := h
+
+@[grind =]
+theorem Sim.ValuePtr.Sim_def (ptr : Sim.ValuePtr) (ctx : Sim.RawIRContext OpInfo) :
+    ptr.Sim ctx ↔ ptr.spec.toM ctx.spec = ptr.impl := .rfl
+theorem Sim.ValuePtr.Sim.out {ptr : Sim.ValuePtr} {ctx : Sim.RawIRContext OpInfo} (h : ptr.Sim ctx) :
+    ptr.spec.toM ctx.spec = ptr.impl := h
+
+@[grind =]
+theorem Sim.OptionValuePtr.Sim_def (ptr : Sim.OptionValuePtr) (ctx : Sim.RawIRContext OpInfo) :
+    ptr.Sim ctx ↔ ValuePtr.toO ptr.spec ctx.spec = ptr.impl := .rfl
+theorem Sim.OptionValuePtr.Sim.out {ptr : Sim.OptionValuePtr} {ctx : Sim.RawIRContext OpInfo} (h : ptr.Sim ctx) :
+    ValuePtr.toO ptr.spec ctx.spec = ptr.impl := h
+
+@[grind =]
+theorem Sim.OpOperandPtrPtr.Sim_def (ptr : Sim.OpOperandPtrPtr) (ctx : Sim.RawIRContext OpInfo) :
+    ptr.Sim ctx ↔ ptr.spec.toM ctx.spec = ptr.impl := .rfl
+theorem Sim.OpOperandPtrPtr.Sim.out {ptr : Sim.OpOperandPtrPtr} {ctx : Sim.RawIRContext OpInfo} (h : ptr.Sim ctx) :
+    ptr.spec.toM ctx.spec = ptr.impl := h
+
+@[grind =]
+theorem Sim.BlockOperandPtrPtr.Sim_def (ptr : Sim.BlockOperandPtrPtr) (ctx : Sim.RawIRContext OpInfo) :
+    ptr.Sim ctx ↔ ptr.spec.toM ctx.spec = ptr.impl := .rfl
+theorem Sim.BlockOperandPtrPtr.Sim.out {ptr : Sim.BlockOperandPtrPtr} {ctx : Sim.RawIRContext OpInfo} (h : ptr.Sim ctx) :
+    ptr.spec.toM ctx.spec = ptr.impl := h
+
+@[grind =]
+theorem Sim.GenericPtr.Sim_def (ptr : Sim.GenericPtr) (ctx : Sim.RawIRContext OpInfo) :
+    ptr.Sim ctx ↔ ptr.spec.toM ctx.spec = ptr.impl := .rfl
+theorem Sim.GenericPtr.Sim.out {ptr : Sim.GenericPtr} {ctx : Sim.RawIRContext OpInfo} (h : ptr.Sim ctx) :
+    ptr.spec.toM ctx.spec = ptr.impl := h
+
+@[grind =]
+theorem Sim.OptionGenericPtr.Sim_def (ptr : Sim.OptionGenericPtr) (ctx : Sim.RawIRContext OpInfo) :
+    ptr.Sim ctx ↔ GenericPtr.toO ptr.spec ctx.spec = ptr.impl := .rfl
+theorem Sim.OptionGenericPtr.Sim.out {ptr : Sim.OptionGenericPtr} {ctx : Sim.RawIRContext OpInfo} (h : ptr.Sim ctx) :
+    GenericPtr.toO ptr.spec ctx.spec = ptr.impl := h
 
 /-! ## Refinement predicate. -/
 
@@ -728,7 +952,7 @@ structure OperationPtr.Matches (ctx : Sim.RawIRContext OpInfo) (op : OperationPt
   OperationPtr.MatchesResults ctx op ib,
   OperationPtr.Capacities ctx.spec op
 
-@[simp, grind]
+@[expose, simp, grind]
 def TopLevelPtr.range (ptr : TopLevelPtr) (ctx : IRContext OpInfo) : Std.Rco Int :=
   match ptr with
   | .operation op => op.range ctx
@@ -779,8 +1003,11 @@ instance : Inhabited (Sim.IRContext OpInfo) where
       intros ptr
       cases ptr <;> grind⟩
 
-@[grind]
+@[expose]
 def Sim.IRContext.inner (ctx : IRContext OpInfo) : RawIRContext OpInfo := ⟨ctx.buf, ctx.spec⟩
+
+@[grind =]
+theorem Sim.IRContext.inner_def (ctx : IRContext OpInfo) : ctx.inner = ⟨ctx.buf, ctx.spec⟩ := rfl
 
 @[grind .]
 theorem Sim.IRContext.isRepr (ctx : IRContext OpInfo) : ctx.spec.IsRepr := ctx.sim.repr

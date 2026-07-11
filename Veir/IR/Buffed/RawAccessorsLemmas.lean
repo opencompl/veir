@@ -3,8 +3,6 @@ module
 public import Veir.IR.Buffed.RawAccessors
 public import Veir.IR.Buffed.Sim
 public import Veir.IR.Buffed.SimDefs
-import all Veir.IR.Buffed.RawAccessors
-import all Veir.IR.Buffed.SimDefs
 
 public section
 

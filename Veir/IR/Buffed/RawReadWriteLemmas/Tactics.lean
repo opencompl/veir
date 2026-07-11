@@ -3,10 +3,11 @@ module
 public import Veir.IR.Buffed.RawAccessors
 public import Veir.IR.Buffed.Sim
 public import Veir.IR.Buffed.SimDefs
-import all Veir.IR.Buffed.RawAccessors
-import all Veir.IR.Buffed.SimDefs
+public import Veir.IR.Buffed.RawAccessorFootprints
 
 public section
+
+set_option linter.unusedVariables false
 
 namespace Veir.Buffed
 
@@ -16,799 +17,134 @@ variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] {ctx : Sim.IRContext OpI
 
 /-! Tactic macros for the read/write interaction lemmas -/
 
-
 namespace RwReal
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-/-- OpOperandPtr reader vs. a scalar operation write. -/
-scoped macro "rw_oo_opScalar_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic|
-    (have := @Sim.OpOperandPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hop2 := ctx.sim.in_bounds (.operation ($w).spec) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.operation ($r).op) (.operation ($w).spec) (by grind) (by grind)
-     have hinclr := OpOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ($r) (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       OpOperandPtr.range, OpOperandPtr.toFlat, OperationPtr.toM, IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-/-- OpOperandPtr reader vs. a top-level `BlockPtr` write (InBounds hyp `$wib`). -/
-scoped macro "rw_oo_block_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
-  `(tactic|
-    (have := @Sim.OpOperandPtr.after_lt_ctx
-     have := @Sim.BlockPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hinclr := OpOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ($r) (by grind)
-     have b2 := Sim.BlockPtr.after_lt_ctx (ctx := ctx) ($w).spec ($wib).ib
-     have hw := ctx.sim.in_bounds (.block ($w).spec) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.operation ($r).op) (.block ($w).spec) (by grind) (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       OpOperandPtr.toM, OpOperandPtr.range, OpOperandPtr.toFlat, BlockPtr.range, BlockPtr.toFlat,
-       IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-/-- OpOperandPtr reader vs. a top-level `RegionPtr` write. -/
-scoped macro "rw_oo_region_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic|
-    (have := @Sim.OpOperandPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hinclr := OpOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ($r) (by grind)
-     have hw := ctx.sim.in_bounds (.region ($w).spec) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.operation ($r).op) (.region ($w).spec) (by grind) (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       OpOperandPtr.toM, OpOperandPtr.range, OpOperandPtr.toFlat, RegionPtr.range, RegionPtr.toFlat,
-       IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-/-- OpOperandPtr reader vs. a `BlockArgumentPtr` write. -/
-scoped macro "rw_oo_blockArg_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic|
-    (have := @Sim.OpOperandPtr.after_lt_ctx
-     have := @Sim.BlockArgumentPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hinclr := OpOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ($r) (by grind)
-     have hw := ctx.sim.in_bounds (.block ($w).spec.block) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.operation ($r).op) (.block ($w).spec.block) (by grind) (by grind)
-     have hinclw := BlockArgumentPtr.range_included_block_range (ctx := ctx.spec) (by grind) ($w).spec (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       OpOperandPtr.toM, OpOperandPtr.range, OpOperandPtr.toFlat, BlockArgumentPtr.range, BlockArgumentPtr.toFlat,
-       IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-/-- OpOperandPtr reader vs. the same-struct `OpOperandPtr` write (same op, possibly same slot). -/
-scoped macro "rw_oo_oo_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic|
-    (have := @Sim.OpOperandPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hdisj := ctx.sim.disjoint_allocs (.operation ($r).op) (.operation ($w).spec.op) (by grind) (by grind)
-     have hincl₁ := OpOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ($r) (by grind)
-     have hincl₂ := OpOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ($w).spec (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       OpOperandPtr.toM, OpOperandPtr.range, OpOperandPtr.toFlat, IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-/-- OpOperandPtr reader vs. a `OpResultPtr` write (same op — index bounds + `Sim` unfold + ReprIndices; InBounds hyp `$wib`). -/
-scoped macro "rw_oo_opResult_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
-  `(tactic|
-    (have := @Sim.OpOperandPtr.after_lt_ctx
-     have := @Sim.OpResultPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hinclr := OpOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ($r) (by grind)
-     have hw := ctx.sim.in_bounds (.operation ($w).spec.op) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.operation ($r).op) (.operation ($w).spec.op) (by grind) (by grind)
-     have hinclw := OpResultPtr.range_included_op_range (ctx := ctx) ($w).spec (by grind)
-     have hsim := ($wib).sim
-     simp only [Sim.OpResultPtr.Sim] at hsim
-     have : ($r).index < (($r).op.getNumOperands! ctx.spec) := by grind [OpOperandPtr.inBounds_def]
-     have hw2idx : ($w).spec.index < (($w).spec.op.getNumResults! ctx.spec) := by grind [OpResultPtr.inBounds_def]
-     have hri := ctx.sim.repr.operations_indices ($r).op (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       OpOperandPtr.toM, OpOperandPtr.range, OpOperandPtr.toFlat, OpResultPtr.toM, OpResultPtr.range, OpResultPtr.toFlat, OpResultPtr.rangeInt, OpResultPtr.toFlatNat,
-       OpOperandPtr.rangeInt, OpOperandPtr.toFlatNat, Operation.ReprIndices,
-       IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-/-- OpOperandPtr reader vs. a `BlockOperandPtr` write (same op — index bounds + `Sim` unfold + ReprIndices; InBounds hyp `$wib`). -/
-scoped macro "rw_oo_blockOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
-  `(tactic|
-    (have := @Sim.OpOperandPtr.after_lt_ctx
-     have := @Sim.BlockOperandPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hinclr := OpOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ($r) (by grind)
-     have hw := ctx.sim.in_bounds (.operation ($w).spec.op) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.operation ($r).op) (.operation ($w).spec.op) (by grind) (by grind)
-     have hinclw := BlockOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ($w).spec (by grind)
-     have hsim := ($wib).sim
-     simp only [Sim.BlockOperandPtr.Sim] at hsim
-     have : ($r).index < (($r).op.getNumOperands! ctx.spec) := by grind [OpOperandPtr.inBounds_def]
-     have hw2idx : ($w).spec.index < (($w).spec.op.getNumSuccessors! ctx.spec) := by grind [BlockOperandPtr.inBounds_def]
-     have hri := ctx.sim.repr.operations_indices ($r).op (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       OpOperandPtr.toM, OpOperandPtr.range, OpOperandPtr.toFlat, BlockOperandPtr.toM, BlockOperandPtr.range, BlockOperandPtr.toFlat, BlockOperandPtr.rangeInt, BlockOperandPtr.toFlatNat,
-       OpOperandPtr.rangeInt, OpOperandPtr.toFlatNat, Operation.ReprIndices,
-       IsIncludedI, IsDisjointI]))
-
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-/-- OpResultPtr reader vs. a scalar operation write. -/
-scoped macro "rw_or_opScalar_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic|
-    (have := @Sim.OpResultPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hop2 := ctx.sim.in_bounds (.operation ($w).spec) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.operation ($r).op) (.operation ($w).spec) (by grind) (by grind)
-     have hinclr := OpResultPtr.range_included_op_range (ctx := ctx) ($r) (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       OpResultPtr.range, OpResultPtr.toFlat, OperationPtr.toM, IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-/-- OpResultPtr reader vs. a top-level `BlockPtr` write (InBounds hyp `$wib`). -/
-scoped macro "rw_or_block_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
-  `(tactic|
-    (have := @Sim.OpResultPtr.after_lt_ctx
-     have := @Sim.BlockPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hinclr := OpResultPtr.range_included_op_range (ctx := ctx) ($r) (by grind)
-     have hres := ctx.sim.in_bounds (.operation ($r).op) (by grind)
-     have b2 := Sim.BlockPtr.after_lt_ctx (ctx := ctx) ($w).spec ($wib).ib
-     have hw := ctx.sim.in_bounds (.block ($w).spec) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.operation ($r).op) (.block ($w).spec) (by grind) (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       OpResultPtr.toM, OpResultPtr.range, OpResultPtr.toFlat, BlockPtr.range, BlockPtr.toFlat,
-       IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-/-- OpResultPtr reader vs. a top-level `RegionPtr` write. -/
-scoped macro "rw_or_region_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic|
-    (have := @Sim.OpResultPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hinclr := OpResultPtr.range_included_op_range (ctx := ctx) ($r) (by grind)
-     have hres := ctx.sim.in_bounds (.operation ($r).op) (by grind)
-     have hw := ctx.sim.in_bounds (.region ($w).spec) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.operation ($r).op) (.region ($w).spec) (by grind) (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       OpResultPtr.toM, OpResultPtr.range, OpResultPtr.toFlat, RegionPtr.range, RegionPtr.toFlat,
-       IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-/-- OpResultPtr reader vs. a `BlockArgumentPtr` write. -/
-scoped macro "rw_or_blockArg_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic|
-    (have := @Sim.OpResultPtr.after_lt_ctx
-     have := @Sim.BlockArgumentPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hinclr := OpResultPtr.range_included_op_range (ctx := ctx) ($r) (by grind)
-     have hres := ctx.sim.in_bounds (.operation ($r).op) (by grind)
-     have hw := ctx.sim.in_bounds (.block ($w).spec.block) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.operation ($r).op) (.block ($w).spec.block) (by grind) (by grind)
-     have hinclw := BlockArgumentPtr.range_included_block_range (ctx := ctx.spec) (by grind) ($w).spec (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       OpResultPtr.toM, OpResultPtr.range, OpResultPtr.toFlat, BlockArgumentPtr.range, BlockArgumentPtr.toFlat,
-       IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-/-- OpResultPtr reader vs. the same-struct `OpResultPtr` write (same op, possibly same slot). -/
-scoped macro "rw_or_or_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic|
-    (have := @Sim.OpResultPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hdisj := ctx.sim.disjoint_allocs (.operation ($r).op) (.operation ($w).spec.op) (by grind) (by grind)
-     have hincl₁ := OpResultPtr.range_included_op_range (ctx := ctx) ($r) (by grind)
-     have hincl₂ := OpResultPtr.range_included_op_range (ctx := ctx) ($w).spec (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       OpResultPtr.toM, OpResultPtr.range, OpResultPtr.toFlat, IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-/-- OpResultPtr reader vs. a `OpOperandPtr` write (same op — index bounds + `Sim` unfold + ReprIndices; InBounds hyp `$wib`). -/
-scoped macro "rw_or_opOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
-  `(tactic|
-    (have := @Sim.OpResultPtr.after_lt_ctx
-     have := @Sim.OpOperandPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hinclr := OpResultPtr.range_included_op_range (ctx := ctx) ($r) (by grind)
-     have hres := ctx.sim.in_bounds (.operation ($r).op) (by grind)
-     have hw := ctx.sim.in_bounds (.operation ($w).spec.op) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.operation ($r).op) (.operation ($w).spec.op) (by grind) (by grind)
-     have hinclw := OpOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ($w).spec (by grind)
-     have hsim := ($wib).sim
-     simp only [Sim.OpOperandPtr.Sim] at hsim
-     have : ($r).index < (($r).op.getNumResults! ctx.spec) := by grind [OpResultPtr.inBounds_def]
-     have hw2idx : ($w).spec.index < (($w).spec.op.getNumOperands! ctx.spec) := by grind [OpOperandPtr.inBounds_def]
-     have hri := ctx.sim.repr.operations_indices ($r).op (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       OpResultPtr.toM, OpResultPtr.range, OpResultPtr.toFlat, OpOperandPtr.toM, OpOperandPtr.range, OpOperandPtr.toFlat, OpOperandPtr.rangeInt, OpOperandPtr.toFlatNat,
-       OpResultPtr.rangeInt, OpResultPtr.toFlatNat, Operation.ReprIndices,
-       IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-/-- OpResultPtr reader vs. a `BlockOperandPtr` write (same op — index bounds + `Sim` unfold + ReprIndices; InBounds hyp `$wib`). -/
-scoped macro "rw_or_blockOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
-  `(tactic|
-    (have := @Sim.OpResultPtr.after_lt_ctx
-     have := @Sim.BlockOperandPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hinclr := OpResultPtr.range_included_op_range (ctx := ctx) ($r) (by grind)
-     have hres := ctx.sim.in_bounds (.operation ($r).op) (by grind)
-     have hw := ctx.sim.in_bounds (.operation ($w).spec.op) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.operation ($r).op) (.operation ($w).spec.op) (by grind) (by grind)
-     have hinclw := BlockOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ($w).spec (by grind)
-     have hsim := ($wib).sim
-     simp only [Sim.BlockOperandPtr.Sim] at hsim
-     have : ($r).index < (($r).op.getNumResults! ctx.spec) := by grind [OpResultPtr.inBounds_def]
-     have hw2idx : ($w).spec.index < (($w).spec.op.getNumSuccessors! ctx.spec) := by grind [BlockOperandPtr.inBounds_def]
-     have hri := ctx.sim.repr.operations_indices ($r).op (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       OpResultPtr.toM, OpResultPtr.range, OpResultPtr.toFlat, BlockOperandPtr.toM, BlockOperandPtr.range, BlockOperandPtr.toFlat, BlockOperandPtr.rangeInt, BlockOperandPtr.toFlatNat,
-       OpResultPtr.rangeInt, OpResultPtr.toFlatNat, Operation.ReprIndices,
-       IsIncludedI, IsDisjointI]))
-
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-/-- BlockOperandPtr reader vs. a scalar operation write. -/
-scoped macro "rw_bo_opScalar_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic|
-    (have := @Sim.BlockOperandPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hop2 := ctx.sim.in_bounds (.operation ($w).spec) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.operation ($r).op) (.operation ($w).spec) (by grind) (by grind)
-     have hinclr := BlockOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ($r) (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       BlockOperandPtr.range, BlockOperandPtr.toFlat, OperationPtr.toM, IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-/-- BlockOperandPtr reader vs. a top-level `BlockPtr` write (InBounds hyp `$wib`). -/
-scoped macro "rw_bo_block_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
-  `(tactic|
-    (have := @Sim.BlockOperandPtr.after_lt_ctx
-     have := @Sim.BlockPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hinclr := BlockOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ($r) (by grind)
-     have b2 := Sim.BlockPtr.after_lt_ctx (ctx := ctx) ($w).spec ($wib).ib
-     have hw := ctx.sim.in_bounds (.block ($w).spec) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.operation ($r).op) (.block ($w).spec) (by grind) (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       BlockOperandPtr.toM, BlockOperandPtr.range, BlockOperandPtr.toFlat, BlockPtr.range, BlockPtr.toFlat,
-       IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-/-- BlockOperandPtr reader vs. a top-level `RegionPtr` write. -/
-scoped macro "rw_bo_region_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic|
-    (have := @Sim.BlockOperandPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hinclr := BlockOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ($r) (by grind)
-     have hw := ctx.sim.in_bounds (.region ($w).spec) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.operation ($r).op) (.region ($w).spec) (by grind) (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       BlockOperandPtr.toM, BlockOperandPtr.range, BlockOperandPtr.toFlat, RegionPtr.range, RegionPtr.toFlat,
-       IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-/-- BlockOperandPtr reader vs. a `BlockArgumentPtr` write. -/
-scoped macro "rw_bo_blockArg_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic|
-    (have := @Sim.BlockOperandPtr.after_lt_ctx
-     have := @Sim.BlockArgumentPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hinclr := BlockOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ($r) (by grind)
-     have hw := ctx.sim.in_bounds (.block ($w).spec.block) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.operation ($r).op) (.block ($w).spec.block) (by grind) (by grind)
-     have hinclw := BlockArgumentPtr.range_included_block_range (ctx := ctx.spec) (by grind) ($w).spec (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       BlockOperandPtr.toM, BlockOperandPtr.range, BlockOperandPtr.toFlat, BlockArgumentPtr.range, BlockArgumentPtr.toFlat,
-       IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-/-- BlockOperandPtr reader vs. the same-struct `BlockOperandPtr` write (same op, possibly same slot). -/
-scoped macro "rw_bo_bo_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic|
-    (have := @Sim.BlockOperandPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hdisj := ctx.sim.disjoint_allocs (.operation ($r).op) (.operation ($w).spec.op) (by grind) (by grind)
-     have hincl₁ := BlockOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ($r) (by grind)
-     have hincl₂ := BlockOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ($w).spec (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       BlockOperandPtr.toM, BlockOperandPtr.range, BlockOperandPtr.toFlat, IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-/-- BlockOperandPtr reader vs. a `OpResultPtr` write (same op — index bounds + `Sim` unfold + ReprIndices; InBounds hyp `$wib`). -/
-scoped macro "rw_bo_opResult_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
-  `(tactic|
-    (have := @Sim.BlockOperandPtr.after_lt_ctx
-     have := @Sim.OpResultPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hinclr := BlockOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ($r) (by grind)
-     have hw := ctx.sim.in_bounds (.operation ($w).spec.op) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.operation ($r).op) (.operation ($w).spec.op) (by grind) (by grind)
-     have hinclw := OpResultPtr.range_included_op_range (ctx := ctx) ($w).spec (by grind)
-     have hsim := ($wib).sim
-     simp only [Sim.OpResultPtr.Sim] at hsim
-     have : ($r).index < (($r).op.getNumSuccessors! ctx.spec) := by grind [BlockOperandPtr.inBounds_def]
-     have hw2idx : ($w).spec.index < (($w).spec.op.getNumResults! ctx.spec) := by grind [OpResultPtr.inBounds_def]
-     have hri := ctx.sim.repr.operations_indices ($r).op (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       BlockOperandPtr.toM, BlockOperandPtr.range, BlockOperandPtr.toFlat, OpResultPtr.toM, OpResultPtr.range, OpResultPtr.toFlat, OpResultPtr.rangeInt, OpResultPtr.toFlatNat,
-       BlockOperandPtr.rangeInt, BlockOperandPtr.toFlatNat, Operation.ReprIndices,
-       IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-/-- BlockOperandPtr reader vs. a `OpOperandPtr` write (same op — index bounds + `Sim` unfold + ReprIndices; InBounds hyp `$wib`). -/
-scoped macro "rw_bo_opOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
-  `(tactic|
-    (have := @Sim.BlockOperandPtr.after_lt_ctx
-     have := @Sim.OpOperandPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hinclr := BlockOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ($r) (by grind)
-     have hw := ctx.sim.in_bounds (.operation ($w).spec.op) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.operation ($r).op) (.operation ($w).spec.op) (by grind) (by grind)
-     have hinclw := OpOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ($w).spec (by grind)
-     have hsim := ($wib).sim
-     simp only [Sim.OpOperandPtr.Sim] at hsim
-     have : ($r).index < (($r).op.getNumSuccessors! ctx.spec) := by grind [BlockOperandPtr.inBounds_def]
-     have hw2idx : ($w).spec.index < (($w).spec.op.getNumOperands! ctx.spec) := by grind [OpOperandPtr.inBounds_def]
-     have hri := ctx.sim.repr.operations_indices ($r).op (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       BlockOperandPtr.toM, BlockOperandPtr.range, BlockOperandPtr.toFlat, OpOperandPtr.toM, OpOperandPtr.range, OpOperandPtr.toFlat, OpOperandPtr.rangeInt, OpOperandPtr.toFlatNat,
-       BlockOperandPtr.rangeInt, BlockOperandPtr.toFlatNat, Operation.ReprIndices,
-       IsIncludedI, IsDisjointI]))
-
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_ba_opScalar_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic|
-    (have := @Sim.BlockArgumentPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hop2 := ctx.sim.in_bounds (.operation ($w).spec) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.block ($r).block) (.operation ($w).spec) (by grind) (by grind)
-     have hinclr := BlockArgumentPtr.range_included_block_range (ctx := ctx.spec) (by grind) ($r) (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       BlockArgumentPtr.range, BlockArgumentPtr.toFlat, OperationPtr.toM, IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_ba_region_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic|
-    (have := @Sim.BlockArgumentPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hinclr := BlockArgumentPtr.range_included_block_range (ctx := ctx.spec) (by grind) ($r) (by grind)
-     have hw := ctx.sim.in_bounds (.region ($w).spec) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.block ($r).block) (.region ($w).spec) (by grind) (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       BlockArgumentPtr.toM, BlockArgumentPtr.range, BlockArgumentPtr.toFlat, RegionPtr.range, RegionPtr.toFlat,
-       IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_ba_block_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
-  `(tactic|
-    (have := @Sim.BlockArgumentPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hinclr := BlockArgumentPtr.range_included_block_range (ctx := ctx.spec) (by grind) ($r) (by grind)
-     have := @Sim.BlockPtr.after_lt_ctx
-     have b2 := Sim.BlockPtr.after_lt_ctx (ctx := ctx) ($w).spec ($wib).ib
-     have hw := ctx.sim.in_bounds (.block ($w).spec) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.block ($r).block) (.block ($w).spec) (by grind) (by grind)
-     have : ($r).index < (($r).block.getNumArguments! ctx.spec) := by grind [BlockArgumentPtr.inBounds_def]
-     have hri := ctx.sim.repr.blocks_indices ($r).block (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       BlockArgumentPtr.toM, BlockArgumentPtr.range, BlockArgumentPtr.toFlat, BlockArgumentPtr.rangeInt, BlockArgumentPtr.toFlatNat, BlockPtr.range, BlockPtr.toFlat, Block.ReprIndices,
-       IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_ba_ba_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic|
-    (have := @Sim.BlockArgumentPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hinclr := BlockArgumentPtr.range_included_block_range (ctx := ctx.spec) (by grind) ($r) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.block ($r).block) (.block ($w).spec.block) (by grind) (by grind)
-     have hinclw := BlockArgumentPtr.range_included_block_range (ctx := ctx.spec) (by grind) ($w).spec (by grind)
-     have : ($r).index < (($r).block.getNumArguments! ctx.spec) := by grind [BlockArgumentPtr.inBounds_def]
-     have : ($w).spec.index < (($w).spec.block.getNumArguments! ctx.spec) := by grind [BlockArgumentPtr.inBounds_def]
-     have hri := ctx.sim.repr.blocks_indices ($r).block (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       BlockArgumentPtr.toM, BlockArgumentPtr.range, BlockArgumentPtr.toFlat, BlockArgumentPtr.rangeInt, BlockArgumentPtr.toFlatNat, Block.ReprIndices,
-       IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_ba_opResult_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic|
-    (have := @Sim.BlockArgumentPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hinclr := BlockArgumentPtr.range_included_block_range (ctx := ctx.spec) (by grind) ($r) (by grind)
-     have := @Sim.OpResultPtr.after_lt_ctx
-     have hw := ctx.sim.in_bounds (.operation ($w).spec.op) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.block ($r).block) (.operation ($w).spec.op) (by grind) (by grind)
-     have hinclw := OpResultPtr.range_included_op_range (ctx := ctx) ($w).spec (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       BlockArgumentPtr.toM, BlockArgumentPtr.range, BlockArgumentPtr.toFlat, OpResultPtr.range, OpResultPtr.toFlat,
-       IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_ba_opOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic|
-    (have := @Sim.BlockArgumentPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hinclr := BlockArgumentPtr.range_included_block_range (ctx := ctx.spec) (by grind) ($r) (by grind)
-     have := @Sim.OpOperandPtr.after_lt_ctx
-     have hw := ctx.sim.in_bounds (.operation ($w).spec.op) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.block ($r).block) (.operation ($w).spec.op) (by grind) (by grind)
-     have hinclw := OpOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ($w).spec (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       BlockArgumentPtr.toM, BlockArgumentPtr.range, BlockArgumentPtr.toFlat, OpOperandPtr.range, OpOperandPtr.toFlat,
-       IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_ba_blockOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic|
-    (have := @Sim.BlockArgumentPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hinclr := BlockArgumentPtr.range_included_block_range (ctx := ctx.spec) (by grind) ($r) (by grind)
-     have := @Sim.BlockOperandPtr.after_lt_ctx
-     have hw := ctx.sim.in_bounds (.operation ($w).spec.op) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.block ($r).block) (.operation ($w).spec.op) (by grind) (by grind)
-     have hinclw := BlockOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ($w).spec (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       BlockArgumentPtr.toM, BlockArgumentPtr.range, BlockArgumentPtr.toFlat, BlockOperandPtr.range, BlockOperandPtr.toFlat,
-       IsIncludedI, IsDisjointI]))
-
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
 scoped macro "rw_rg_rg_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " rib:term ", " wib:term : tactic =>
   `(tactic|
-    (have b1 := Sim.RegionPtr.after_lt_ctx (ctx := ctx) ($r) ($rib)
-     have b2 := Sim.RegionPtr.after_lt_ctx (ctx := ctx) ($w).spec ($wib).ib
-     have disj := ctx.sim.disjoint_allocs (.region ($w).spec) (.region ($r))
-     have hsize : ctx.buf.mem.size < Int64.maxValue.toInt := by grind [ctx.buf.mem.fits_in_memory]
-     grind (splits := 20) [$read, $write, layout_grind, RegionPtr.range]))
+    (have himpl : ($w).spec.toM = ($w).impl := ($wib).sim.out
+     have haddr_r := _root_.Veir.RegionPtr.toM_toNat ctx.sim.repr ($r) ($rib)
+     have haddr_w := _root_.Veir.RegionPtr.toM_toNat ctx.sim.repr ($w).spec ($wib).ib
+     have hrange_r := _root_.Veir.Sim.RegionPtr.range_linear ($r) ($rib)
+     have hrange_w := _root_.Veir.Sim.RegionPtr.range_linear ($w).spec ($wib).ib
+     by_cases heq : ($r) = ($w).spec
+     · subst heq
+       grind (splits := 4) only [footprint_grind, isDisjointI_def, IsIncludedI, _root_.Veir.Buffed.IRBufContext.size_def, add_nat_range_def]
+     · have hdisj := _root_.Veir.Sim.disjoint_region_region ($r) ($w).spec ($rib) ($wib).ib heq
+       grind (splits := 4) only [footprint_grind, isDisjointI_def, IsIncludedI, _root_.Veir.Buffed.IRBufContext.size_def, add_nat_range_def,
+         _root_.Veir.RegionPtr.rangeInt, _root_.Veir.RegionPtr.toFlat]))
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_rg_opScalar_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_oo_oo_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
-    (have := @Sim.RegionPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hop2 := ctx.sim.in_bounds (.operation ($w).spec) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.region ($r)) (.operation ($w).spec) (by grind) (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       RegionPtr.range, RegionPtr.toFlat, OperationPtr.toM, IsIncludedI, IsDisjointI]))
+    (have hrib : ($r).InBounds ctx.spec := by assumption
+     have haddr_r := _root_.Veir.Sim.OpOperandPtr.toM_toNat ($r) hrib
+     have hrpib := _root_.Veir.Sim.OpOperandPtr.op_inBounds hrib
+     have hrincl := _root_.Veir.Sim.OpOperandPtr.slot_included ($r) hrib
+     have hrprange := _root_.Veir.Sim.OperationPtr.range_linear ($r).op hrpib
+     have hwib : ($w).InBounds ctx := by assumption
+     have himpl : ($w).spec.toM ctx.spec = ($w).impl := hwib.sim.out
+     have haddr_w := _root_.Veir.Sim.OpOperandPtr.toM_toNat ($w).spec hwib.ib
+     have hwpib := _root_.Veir.Sim.OpOperandPtr.op_inBounds hwib.ib
+     have hwincl := _root_.Veir.Sim.OpOperandPtr.slot_included ($w).spec hwib.ib
+     have hwprange := _root_.Veir.Sim.OperationPtr.range_linear ($w).spec.op hwpib
+     have hdisj := fun hpne : ($r).op ≠ ($w).spec.op => _root_.Veir.Sim.disjoint_operation_operation ($r).op ($w).spec.op hrpib hwpib hpne
+     have hsize := _root_.Veir.Sim.IRContext.mem_size_lt ctx
+     grind (splits := 6) only [footprint_grind, isDisjointI_def, IsIncludedI, _root_.Veir.Buffed.IRBufContext.size_def, add_nat_range_def,
+         _root_.Veir.OpOperandPtr.toFlatNat, _root_.Veir.OpOperandPtr.rangeInt, _root_.Veir.OperationPtr.toFlat, _root_.Veir.OpOperandPtr.toFlatNat, _root_.Veir.OpOperandPtr.rangeInt, _root_.Veir.OperationPtr.toFlat, _root_.Veir.OpOperandPtr.ext]))
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_rg_block_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
+scoped macro "rw_or_or_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
-    (have := @Sim.RegionPtr.after_lt_ctx
-     have := @Sim.BlockPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have b2 := Sim.BlockPtr.after_lt_ctx (ctx := ctx) ($w).spec ($wib).ib
-     have hw := ctx.sim.in_bounds (.block ($w).spec) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.region ($r)) (.block ($w).spec) (by grind) (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       RegionPtr.range, RegionPtr.toFlat, BlockPtr.range, BlockPtr.toFlat, IsIncludedI, IsDisjointI]))
+    (have hrib : ($r).InBounds ctx.spec := by assumption
+     have haddr_r := _root_.Veir.Sim.OpResultPtr.toM_toNat ($r) hrib
+     have hrpib := _root_.Veir.Sim.OpResultPtr.op_inBounds hrib
+     have hrincl := _root_.Veir.Sim.OpResultPtr.slot_included ($r) hrib
+     have hrprange := _root_.Veir.Sim.OperationPtr.range_linear ($r).op hrpib
+     have hwib : ($w).InBounds ctx := by assumption
+     have himpl : ($w).spec.toM ctx.spec = ($w).impl := hwib.sim.out
+     have haddr_w := _root_.Veir.Sim.OpResultPtr.toM_toNat ($w).spec hwib.ib
+     have hwpib := _root_.Veir.Sim.OpResultPtr.op_inBounds hwib.ib
+     have hwincl := _root_.Veir.Sim.OpResultPtr.slot_included ($w).spec hwib.ib
+     have hwprange := _root_.Veir.Sim.OperationPtr.range_linear ($w).spec.op hwpib
+     have hdisj := fun hpne : ($r).op ≠ ($w).spec.op => _root_.Veir.Sim.disjoint_operation_operation ($r).op ($w).spec.op hrpib hwpib hpne
+     have hsize := _root_.Veir.Sim.IRContext.mem_size_lt ctx
+     grind (splits := 6) only [footprint_grind, isDisjointI_def, IsIncludedI, _root_.Veir.Buffed.IRBufContext.size_def, add_nat_range_def,
+         _root_.Veir.OpResultPtr.toFlatNat, _root_.Veir.OpResultPtr.rangeInt, _root_.Veir.OperationPtr.toFlat, _root_.Veir.OpResultPtr.toFlatNat, _root_.Veir.OpResultPtr.rangeInt, _root_.Veir.OperationPtr.toFlat, _root_.Veir.OpResultPtr.ext]))
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_rg_blockArg_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_bo_bo_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
-    (have := @Sim.RegionPtr.after_lt_ctx
-     have := @Sim.BlockArgumentPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hw := ctx.sim.in_bounds (.block ($w).spec.block) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.region ($r)) (.block ($w).spec.block) (by grind) (by grind)
-     have hinclw := BlockArgumentPtr.range_included_block_range (ctx := ctx.spec) (by grind) ($w).spec (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       RegionPtr.range, RegionPtr.toFlat, BlockArgumentPtr.range, BlockArgumentPtr.toFlat, IsIncludedI, IsDisjointI]))
+    (have hrib : ($r).InBounds ctx.spec := by assumption
+     have haddr_r := _root_.Veir.Sim.BlockOperandPtr.toM_toNat ($r) hrib
+     have hrpib := _root_.Veir.Sim.BlockOperandPtr.op_inBounds hrib
+     have hrincl := _root_.Veir.Sim.BlockOperandPtr.slot_included ($r) hrib
+     have hrprange := _root_.Veir.Sim.OperationPtr.range_linear ($r).op hrpib
+     have hwib : ($w).InBounds ctx := by assumption
+     have himpl : ($w).spec.toM ctx.spec = ($w).impl := hwib.sim.out
+     have haddr_w := _root_.Veir.Sim.BlockOperandPtr.toM_toNat ($w).spec hwib.ib
+     have hwpib := _root_.Veir.Sim.BlockOperandPtr.op_inBounds hwib.ib
+     have hwincl := _root_.Veir.Sim.BlockOperandPtr.slot_included ($w).spec hwib.ib
+     have hwprange := _root_.Veir.Sim.OperationPtr.range_linear ($w).spec.op hwpib
+     have hdisj := fun hpne : ($r).op ≠ ($w).spec.op => _root_.Veir.Sim.disjoint_operation_operation ($r).op ($w).spec.op hrpib hwpib hpne
+     have hsize := _root_.Veir.Sim.IRContext.mem_size_lt ctx
+     grind (splits := 6) only [footprint_grind, isDisjointI_def, IsIncludedI, _root_.Veir.Buffed.IRBufContext.size_def, add_nat_range_def,
+         _root_.Veir.BlockOperandPtr.toFlatNat, _root_.Veir.BlockOperandPtr.rangeInt, _root_.Veir.OperationPtr.toFlat, _root_.Veir.BlockOperandPtr.toFlatNat, _root_.Veir.BlockOperandPtr.rangeInt, _root_.Veir.OperationPtr.toFlat, _root_.Veir.BlockOperandPtr.ext]))
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_rg_opResult_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_ba_ba_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
-    (have := @Sim.RegionPtr.after_lt_ctx
-     have := @Sim.OpResultPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hw := ctx.sim.in_bounds (.operation ($w).spec.op) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.region ($r)) (.operation ($w).spec.op) (by grind) (by grind)
-     have hinclw := OpResultPtr.range_included_op_range (ctx := ctx) ($w).spec (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       RegionPtr.range, RegionPtr.toFlat, OpResultPtr.range, OpResultPtr.toFlat, IsIncludedI, IsDisjointI]))
+    (have hrib : ($r).InBounds ctx.spec := by assumption
+     have haddr_r := _root_.Veir.Sim.BlockArgumentPtr.toM_toNat ($r) hrib
+     have hrpib := _root_.Veir.Sim.BlockArgumentPtr.block_inBounds hrib
+     have hrincl := _root_.Veir.Sim.BlockArgumentPtr.slot_included ($r) hrib
+     have hrprange := _root_.Veir.Sim.BlockPtr.range_linear ($r).block hrpib
+     have hwib : ($w).InBounds ctx := by assumption
+     have himpl : ($w).spec.toM = ($w).impl := hwib.sim.out
+     have haddr_w := _root_.Veir.Sim.BlockArgumentPtr.toM_toNat ($w).spec hwib.ib
+     have hwpib := _root_.Veir.Sim.BlockArgumentPtr.block_inBounds hwib.ib
+     have hwincl := _root_.Veir.Sim.BlockArgumentPtr.slot_included ($w).spec hwib.ib
+     have hwprange := _root_.Veir.Sim.BlockPtr.range_linear ($w).spec.block hwpib
+     have hdisj := fun hpne : ($r).block ≠ ($w).spec.block => _root_.Veir.Sim.disjoint_block_block ($r).block ($w).spec.block hrpib hwpib hpne
+     have hsize := _root_.Veir.Sim.IRContext.mem_size_lt ctx
+     grind (splits := 6) only [footprint_grind, isDisjointI_def, IsIncludedI, _root_.Veir.Buffed.IRBufContext.size_def, add_nat_range_def,
+         _root_.Veir.BlockArgumentPtr.toFlatNat, _root_.Veir.BlockArgumentPtr.rangeInt, _root_.Veir.BlockPtr.rangeInt, _root_.Veir.BlockPtr.toFlat, _root_.Veir.BlockArgumentPtr.toFlatNat, _root_.Veir.BlockArgumentPtr.rangeInt, _root_.Veir.BlockPtr.rangeInt, _root_.Veir.BlockPtr.toFlat, _root_.Veir.BlockArgumentPtr.ext]))
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_rg_opOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_op_opScalar_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
-    (have := @Sim.RegionPtr.after_lt_ctx
-     have := @Sim.OpOperandPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hw := ctx.sim.in_bounds (.operation ($w).spec.op) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.region ($r)) (.operation ($w).spec.op) (by grind) (by grind)
-     have hinclw := OpOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ($w).spec (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       RegionPtr.range, RegionPtr.toFlat, OpOperandPtr.range, OpOperandPtr.toFlat, IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_rg_blockOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic|
-    (have := @Sim.RegionPtr.after_lt_ctx
-     have := @Sim.BlockOperandPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hw := ctx.sim.in_bounds (.operation ($w).spec.op) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.region ($r)) (.operation ($w).spec.op) (by grind) (by grind)
-     have hinclw := BlockOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ($w).spec (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       RegionPtr.range, RegionPtr.toFlat, BlockOperandPtr.range, BlockOperandPtr.toFlat, IsIncludedI, IsDisjointI]))
-
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_bl_bl_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " proj:ident ", " rib:term ", " wib:term : tactic =>
-  `(tactic|
-    (have b1 := Sim.BlockPtr.after_lt_ctx (ctx := ctx) ($r) ($rib)
-     have b2 := Sim.BlockPtr.after_lt_ctx (ctx := ctx) ($w).spec ($wib).ib
-     have disj := ctx.sim.disjoint_allocs (.block ($w).spec) (.block ($r))
-     have hsize : ctx.buf.mem.size < Int64.maxValue.toInt := by grind [ctx.buf.mem.fits_in_memory]
-     have := ctx.sim.encoding_block ($r) (by grind) |>.$proj
-     grind (splits := 20) [$read, $write, layout_grind, = Buffed.Block.Offsets.after_ideal, BlockPtr.range]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_bl_opScalar_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic|
-    (have := @Sim.BlockPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hop2 := ctx.sim.in_bounds (.operation ($w).spec) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.block ($r)) (.operation ($w).spec) (by grind) (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       BlockPtr.range, BlockPtr.toFlat, OperationPtr.toM, IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_bl_region_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic|
-    (have := @Sim.BlockPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hw := ctx.sim.in_bounds (.region ($w).spec) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.block ($r)) (.region ($w).spec) (by grind) (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       BlockPtr.range, BlockPtr.toFlat, RegionPtr.range, RegionPtr.toFlat, IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_bl_blockArg_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " proj:ident ", " rib:term ", " wib:term : tactic =>
-  `(tactic|
-    (have b1 := Sim.BlockPtr.after_lt_ctx (ctx := ctx) ($r) ($rib)
-     have disj := ctx.sim.disjoint_allocs (.block ($w).spec.block) (.block ($r))
-     have hsize : ctx.buf.mem.size < Int64.maxValue.toInt := by grind [ctx.buf.mem.fits_in_memory]
-     have := ctx.sim.encoding_block ($r) (by grind) |>.$proj
-     have hincl := BlockArgumentPtr.range_included_block_range (by grind) ($w).spec ($wib).ib
-     have hsim := ($wib).sim
-     have := ctx.sim.in_bounds (.block ($r)) (by grind)
-     simp only [Sim.BlockArgumentPtr.Sim] at hsim
-     grind (splits := 20) [$read, $write, layout_grind,
-       = Buffed.Block.Offsets.after_ideal, BlockPtr.range,
-       BlockArgumentPtr.toM, BlockArgumentPtr.range, BlockArgumentPtr.toFlat, IsIncludedI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_bl_opResult_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic|
-    (have := @Sim.BlockPtr.after_lt_ctx
-     have := @Sim.OpResultPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hw := ctx.sim.in_bounds (.operation ($w).spec.op) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.block ($r)) (.operation ($w).spec.op) (by grind) (by grind)
-     have hinclw := OpResultPtr.range_included_op_range (ctx := ctx) ($w).spec (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       BlockPtr.range, BlockPtr.toFlat, OpResultPtr.range, OpResultPtr.toFlat, IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_bl_opOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic|
-    (have := @Sim.BlockPtr.after_lt_ctx
-     have := @Sim.OpOperandPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hw := ctx.sim.in_bounds (.operation ($w).spec.op) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.block ($r)) (.operation ($w).spec.op) (by grind) (by grind)
-     have hinclw := OpOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ($w).spec (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       BlockPtr.range, BlockPtr.toFlat, OpOperandPtr.range, OpOperandPtr.toFlat, IsIncludedI, IsDisjointI]))
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_bl_blockOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic|
-    (have := @Sim.BlockPtr.after_lt_ctx
-     have := @Sim.BlockOperandPtr.after_lt_ctx
-     have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
-     have hw := ctx.sim.in_bounds (.operation ($w).spec.op) (by grind)
-     have hdisj := ctx.sim.disjoint_allocs (.block ($r)) (.operation ($w).spec.op) (by grind) (by grind)
-     have hinclw := BlockOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ($w).spec (by grind)
-     grind (splits := 20) [$read, $write, layout_grind,
-       BlockPtr.range, BlockPtr.toFlat, BlockOperandPtr.range, BlockOperandPtr.toFlat, IsIncludedI, IsDisjointI]))
-
+    (have hrib : ($r).InBounds ctx.spec := by assumption
+     have haddr_r := _root_.Veir.OperationPtr.toM_toNat ctx.sim.repr ($r) hrib
+     have hrrange := _root_.Veir.Sim.OperationPtr.range_linear ($r) hrib
+     try have hincl_n := _root_.Veir.OperationPtr.nthRegion_range_included_op_range ctx ($r) idx hidx hrib
+     try have hoff_n := _root_.Veir.OperationPtr.computeRegionsOffet!_plus_offset_eq_regionsInt (ctx := ctx) (idx := idx) ($r) hrib (by have := ctx.sim.repr.operations_indices ($r) hrib |>.regions; grind)
+     have hwib : ($w).InBounds ctx := by assumption
+     have himpl : ($w).spec.toM = ($w).impl := hwib.sim.out
+     have haddr_w := _root_.Veir.OperationPtr.toM_toNat ctx.sim.repr ($w).spec hwib.ib
+     have hwrange := _root_.Veir.Sim.OperationPtr.range_linear ($w).spec hwib.ib
+     have hdisj := fun hpne : ($r) ≠ ($w).spec => _root_.Veir.Sim.disjoint_operation_operation ($r) ($w).spec hrib hwib.ib hpne
+     have hsize := _root_.Veir.Sim.IRContext.mem_size_lt ctx
+     grind (splits := 6) only [footprint_grind, isDisjointI_def, IsIncludedI, _root_.Veir.Buffed.IRBufContext.size_def, add_nat_range_def,
+         $read, _root_.Veir.Buffed.OperationMPtr.computeResultOffset!, _root_.Veir.Buffed.OperationMPtr.computeResultsOffset!,
+         _root_.Veir.Buffed.OperationMPtr.computeBlockOperandOffset!, _root_.Veir.Buffed.OperationMPtr.computeBlockOperandsOffset!,
+         _root_.Veir.Buffed.OperationMPtr.computeOperandOffset!, _root_.Veir.Buffed.OperationMPtr.computeOperandsOffset!,
+         _root_.Veir.Buffed.OperationMPtr.computeRegionOffset!, _root_.Veir.Buffed.OperationMPtr.computeRegionsOffset!,
+         ExArray.read64!_eq_read64', _root_.Veir.Buffed.uint64_add_int64_toNat, _root_.Veir.OperationPtr.toFlat]))
 
 end RwReal
-
-/-! Stub implementations -/
-
-namespace RwStub
-
-open Lean.Parser.Tactic in
-scoped macro "rw_oo_opScalar_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_oo_block_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_oo_region_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_oo_blockArg_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_oo_oo_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_oo_opResult_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_oo_blockOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_or_opScalar_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_or_block_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_or_region_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_or_blockArg_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_or_or_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_or_opOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_or_blockOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_bo_opScalar_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_bo_block_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_bo_region_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_bo_blockArg_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_bo_bo_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_bo_opResult_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_bo_opOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_ba_opScalar_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_ba_region_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_ba_block_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_ba_ba_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_ba_opResult_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_ba_opOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_ba_blockOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_rg_rg_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " rib:term ", " wib:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_rg_opScalar_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_rg_block_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_rg_blockArg_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_rg_opResult_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_rg_opOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_rg_blockOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_bl_bl_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " proj:ident ", " rib:term ", " wib:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_bl_opScalar_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_bl_region_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_bl_blockArg_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " proj:ident ", " rib:term ", " wib:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_bl_opResult_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_bl_opOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-open Lean.Parser.Tactic in
-scoped macro "rw_bl_blockOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
-
-end RwStub
-
-/-! The switch -/
-
 open scoped RwReal
--- open scoped RwStub
 
 /-! Public `rw_*` entry points -/
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_oo_opScalar" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic| rw_oo_opScalar_impl $read, $write, $r, $w)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_oo_block" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
-  `(tactic| rw_oo_block_impl $read, $write, $r, $w, $wib)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_oo_region" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic| rw_oo_region_impl $read, $write, $r, $w)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_oo_blockArg" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic| rw_oo_blockArg_impl $read, $write, $r, $w)
-
 open Lean.Parser.Tactic in
 set_option hygiene false in
 scoped macro "rw_oo_oo" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic| rw_oo_oo_impl $read, $write, $r, $w)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_oo_opResult" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
-  `(tactic| rw_oo_opResult_impl $read, $write, $r, $w, $wib)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_oo_blockOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
-  `(tactic| rw_oo_blockOperand_impl $read, $write, $r, $w, $wib)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_or_opScalar" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic| rw_or_opScalar_impl $read, $write, $r, $w)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_or_block" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
-  `(tactic| rw_or_block_impl $read, $write, $r, $w, $wib)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_or_region" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic| rw_or_region_impl $read, $write, $r, $w)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_or_blockArg" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic| rw_or_blockArg_impl $read, $write, $r, $w)
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
@@ -817,63 +153,8 @@ scoped macro "rw_or_or" read:grindParam ", " write:grindParam ", " r:term ", " w
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_or_opOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
-  `(tactic| rw_or_opOperand_impl $read, $write, $r, $w, $wib)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_or_blockOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
-  `(tactic| rw_or_blockOperand_impl $read, $write, $r, $w, $wib)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_bo_opScalar" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic| rw_bo_opScalar_impl $read, $write, $r, $w)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_bo_block" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
-  `(tactic| rw_bo_block_impl $read, $write, $r, $w, $wib)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_bo_region" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic| rw_bo_region_impl $read, $write, $r, $w)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_bo_blockArg" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic| rw_bo_blockArg_impl $read, $write, $r, $w)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
 scoped macro "rw_bo_bo" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic| rw_bo_bo_impl $read, $write, $r, $w)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_bo_opResult" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
-  `(tactic| rw_bo_opResult_impl $read, $write, $r, $w, $wib)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_bo_opOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
-  `(tactic| rw_bo_opOperand_impl $read, $write, $r, $w, $wib)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_ba_opScalar" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic| rw_ba_opScalar_impl $read, $write, $r, $w)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_ba_region" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic| rw_ba_region_impl $read, $write, $r, $w)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_ba_block" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
-  `(tactic| rw_ba_block_impl $read, $write, $r, $w, $wib)
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
@@ -882,89 +163,13 @@ scoped macro "rw_ba_ba" read:grindParam ", " write:grindParam ", " r:term ", " w
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_ba_opResult" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic| rw_ba_opResult_impl $read, $write, $r, $w)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_ba_opOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic| rw_ba_opOperand_impl $read, $write, $r, $w)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_ba_blockOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic| rw_ba_blockOperand_impl $read, $write, $r, $w)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
 scoped macro "rw_rg_rg" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " rib:term ", " wib:term : tactic =>
   `(tactic| rw_rg_rg_impl $read, $write, $r, $w, $rib, $wib)
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_rg_opScalar" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic| rw_rg_opScalar_impl $read, $write, $r, $w)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_rg_block" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
-  `(tactic| rw_rg_block_impl $read, $write, $r, $w, $wib)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_rg_blockArg" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic| rw_rg_blockArg_impl $read, $write, $r, $w)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_rg_opResult" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic| rw_rg_opResult_impl $read, $write, $r, $w)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_rg_opOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic| rw_rg_opOperand_impl $read, $write, $r, $w)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_rg_blockOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic| rw_rg_blockOperand_impl $read, $write, $r, $w)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_bl_bl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " proj:ident ", " rib:term ", " wib:term : tactic =>
-  `(tactic| rw_bl_bl_impl $read, $write, $r, $w, $proj, $rib, $wib)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_bl_opScalar" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic| rw_bl_opScalar_impl $read, $write, $r, $w)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_bl_region" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic| rw_bl_region_impl $read, $write, $r, $w)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_bl_blockArg" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " proj:ident ", " rib:term ", " wib:term : tactic =>
-  `(tactic| rw_bl_blockArg_impl $read, $write, $r, $w, $proj, $rib, $wib)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_bl_opResult" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic| rw_bl_opResult_impl $read, $write, $r, $w)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_bl_opOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic| rw_bl_opOperand_impl $read, $write, $r, $w)
-
-open Lean.Parser.Tactic in
-set_option hygiene false in
-scoped macro "rw_bl_blockOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
-  `(tactic| rw_bl_blockOperand_impl $read, $write, $r, $w)
+scoped macro "rw_op_opScalar" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_op_opScalar_impl $read, $write, $r, $w)
 
 end read_write
-
 end Veir.Buffed

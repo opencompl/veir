@@ -11,10 +11,8 @@ import Veir.IR.Buffed.InBounds
 import Veir.IR.Buffed.Meta
 import Veir.IR.Buffed.Basic
 
-import all Veir.IR.Buffed.Sim
-import all Veir.IR.Buffed.Meta
 
-public section
+@[expose] public section
 
 namespace Veir
 

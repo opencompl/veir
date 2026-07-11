@@ -2,9 +2,8 @@ module
 
 public import Veir.IR
 public import Veir.Rewriter.LinkedList.Basic
-import all Veir.Rewriter.LinkedList.Basic
 
-public section
+@[expose] public section
 
 /- Transport lemmas: every getter against every linked-list setter. -/
 namespace Veir.Sim
