@@ -2,7 +2,7 @@ import Veir.Interpreter.Basic
 import Veir.PatternRewriter.Basic
 
 /-!
-  # Constant folding
+  # Constant folding infrastructure
 
   Folding infrastructure in the style of MLIR's `fold`/`createOrFold`, with one
   important difference: the folded values are computed by the interpreter

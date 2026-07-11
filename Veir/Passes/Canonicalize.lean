@@ -1,7 +1,7 @@
 import Veir.Pass
 import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
-import Veir.Passes.Fold
+import Veir.Fold
 
 namespace Veir
 
@@ -9,7 +9,7 @@ namespace Veir
   # Canonicalize pass
 
   Performs the following transformations:
-  * folding operations (see `Veir.Passes.Fold`);
+  * folding operations (see `Veir.Fold`);
   * moving constants to the right side, for commutative operations.
 -/
 
