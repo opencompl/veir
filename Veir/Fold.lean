@@ -207,51 +207,71 @@ def Llvm.foldsTo (op : Llvm) (_properties : HasDialectOpInfo.propertiesOf op)
 -/
 def Riscv.foldsTo (op : Riscv) (properties : HasDialectOpInfo.propertiesOf op)
     (constOperands : Array (Option RuntimeValue)) : Option FoldOutcome :=
-  match op, constOperands with
-  | .add, #[_, some (.reg c)] =>
-    if c.val = 0 then some (.operand 0) else none
-  | .sub, #[_, some (.reg c)] =>
-    if c.val = 0 then some (.operand 0) else none
-  | .xor, #[_, some (.reg c)] =>
-    if c.val = 0 then some (.operand 0) else none
-  | .or, #[_, some (.reg c)] =>
-    if c.val = 0 then some (.operand 0)
-    else if c.val = BitVec.allOnes 64 then
-      some (.constant (.reg (Data.RISCV.li (BitVec.allOnes 64))))
-    else none
-  | .and, #[_, some (.reg c)] =>
-    if c.val = 0 then some (.constant (.reg (Data.RISCV.li 0)))
-    else if c.val = BitVec.allOnes 64 then some (.operand 0)
-    else none
-  | .mul, #[_, some (.reg c)] =>
-    if c.val = 0 then some (.constant (.reg (Data.RISCV.li 0)))
-    else if c.val = 1 then some (.operand 0)
-    else none
-  | .sll, #[_, some (.reg c)] =>
-    if c.val = 0 then some (.operand 0) else none
-  | .srl, #[_, some (.reg c)] =>
-    if c.val = 0 then some (.operand 0) else none
-  | .sra, #[_, some (.reg c)] =>
-    if c.val = 0 then some (.operand 0) else none
+  match op with
+  | .add => match constOperands.toList with
+    | [_, some (.reg c)] => if c.val = 0 then some (.operand 0) else none
+    | _ => none
+  | .sub => match constOperands.toList with
+    | [_, some (.reg c)] => if c.val = 0 then some (.operand 0) else none
+    | _ => none
+  | .xor => match constOperands.toList with
+    | [_, some (.reg c)] => if c.val = 0 then some (.operand 0) else none
+    | _ => none
+  | .or => match constOperands.toList with
+    | [_, some (.reg c)] =>
+      if c.val = 0 then some (.operand 0)
+      else if c.val = BitVec.allOnes 64 then
+        some (.constant (.reg (Data.RISCV.li (BitVec.allOnes 64))))
+      else none
+    | _ => none
+  | .and => match constOperands.toList with
+    | [_, some (.reg c)] =>
+      if c.val = 0 then some (.constant (.reg (Data.RISCV.li 0)))
+      else if c.val = BitVec.allOnes 64 then some (.operand 0)
+      else none
+    | _ => none
+  | .mul => match constOperands.toList with
+    | [_, some (.reg c)] =>
+      if c.val = 0 then some (.constant (.reg (Data.RISCV.li 0)))
+      else if c.val = 1 then some (.operand 0)
+      else none
+    | _ => none
+  | .sll => match constOperands.toList with
+    | [_, some (.reg c)] => if c.val = 0 then some (.operand 0) else none
+    | _ => none
+  | .srl => match constOperands.toList with
+    | [_, some (.reg c)] => if c.val = 0 then some (.operand 0) else none
+    | _ => none
+  | .sra => match constOperands.toList with
+    | [_, some (.reg c)] => if c.val = 0 then some (.operand 0) else none
+    | _ => none
   -- Immediate forms: adding, or-ing, xor-ing, or shifting by 0 is the
   -- identity; and-ing with 0 is 0.
-  | .addi, #[_] =>
-    if properties.value.value = 0 then some (.operand 0) else none
-  | .ori, #[_] =>
-    if properties.value.value = 0 then some (.operand 0) else none
-  | .xori, #[_] =>
-    if properties.value.value = 0 then some (.operand 0) else none
-  | .andi, #[_] =>
-    if properties.value.value = 0 then
-      some (.constant (.reg (Data.RISCV.li 0)))
-    else none
-  | .slli, #[_] =>
-    if properties.value.value = 0 then some (.operand 0) else none
-  | .srli, #[_] =>
-    if properties.value.value = 0 then some (.operand 0) else none
-  | .srai, #[_] =>
-    if properties.value.value = 0 then some (.operand 0) else none
-  | _, _ => none
+  | .addi => match constOperands.toList with
+    | [_] => if properties.value.value = 0 then some (.operand 0) else none
+    | _ => none
+  | .ori => match constOperands.toList with
+    | [_] => if properties.value.value = 0 then some (.operand 0) else none
+    | _ => none
+  | .xori => match constOperands.toList with
+    | [_] => if properties.value.value = 0 then some (.operand 0) else none
+    | _ => none
+  | .andi => match constOperands.toList with
+    | [_] =>
+      if properties.value.value = 0 then
+        some (.constant (.reg (Data.RISCV.li 0)))
+      else none
+    | _ => none
+  | .slli => match constOperands.toList with
+    | [_] => if properties.value.value = 0 then some (.operand 0) else none
+    | _ => none
+  | .srli => match constOperands.toList with
+    | [_] => if properties.value.value = 0 then some (.operand 0) else none
+    | _ => none
+  | .srai => match constOperands.toList with
+    | [_] => if properties.value.value = 0 then some (.operand 0) else none
+    | _ => none
+  | _ => none
 
 /--
   Query whether an operation folds, given the values of its constant-defined
