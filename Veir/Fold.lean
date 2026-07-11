@@ -114,42 +114,75 @@ def OpCode.isFoldEvaluable : OpCode → Bool
 -/
 def Arith.foldsTo (op : Arith) (_properties : HasDialectOpInfo.propertiesOf op)
     (constOperands : Array (Option RuntimeValue)) : Option FoldOutcome :=
-  match op, constOperands with
-  | .addi, #[_, some (.int _ (.val c))] =>
-    if c = 0 then some (.operand 0) else none
-  | .subi, #[_, some (.int _ (.val c))] =>
-    if c = 0 then some (.operand 0) else none
-  | .muli, #[_, some (.int bw (.val c))] =>
-    if c = 0 then some (.constant (.int bw (.val 0)))
-    else if c = 1 then some (.operand 0)
-    else none
-  | .andi, #[_, some (.int bw (.val c))] =>
-    if c = 0 then some (.constant (.int bw (.val 0)))
-    else if c = BitVec.allOnes bw then some (.operand 0)
-    else none
-  | .ori, #[_, some (.int bw (.val c))] =>
-    if c = 0 then some (.operand 0)
-    else if c = BitVec.allOnes bw then
-      some (.constant (.int bw (.val (BitVec.allOnes bw))))
-    else none
-  | .xori, #[_, some (.int _ (.val c))] =>
-    if c = 0 then some (.operand 0) else none
-  | .shli, #[_, some (.int _ (.val c))] =>
-    if c = 0 then some (.operand 0) else none
-  | .shrsi, #[_, some (.int _ (.val c))] =>
-    if c = 0 then some (.operand 0) else none
-  | .shrui, #[_, some (.int _ (.val c))] =>
-    if c = 0 then some (.operand 0) else none
+  match op with
+  | .addi =>
+    match constOperands.toList with
+    | [_, some (.int _ (.val c))] => if c = 0 then some (.operand 0) else none
+    | _ => none
+  | .subi =>
+    match constOperands.toList with
+    | [_, some (.int _ (.val c))] => if c = 0 then some (.operand 0) else none
+    | _ => none
+  | .muli =>
+    match constOperands.toList with
+    | [_, some (.int bw (.val c))] =>
+      if c = 0 then some (.constant (.int bw (.val 0)))
+      else if c = 1 then some (.operand 0)
+      else none
+    | _ => none
+  | .andi =>
+    match constOperands.toList with
+    | [_, some (.int bw (.val c))] =>
+      if c = 0 then some (.constant (.int bw (.val 0)))
+      else if c = BitVec.allOnes bw then some (.operand 0)
+      else none
+    | _ => none
+  | .ori =>
+    match constOperands.toList with
+    | [_, some (.int bw (.val c))] =>
+      if c = 0 then some (.operand 0)
+      else if c = BitVec.allOnes bw then
+        some (.constant (.int bw (.val (BitVec.allOnes bw))))
+      else none
+    | _ => none
+  | .xori =>
+    match constOperands.toList with
+    | [_, some (.int _ (.val c))] => if c = 0 then some (.operand 0) else none
+    | _ => none
+  | .shli =>
+    match constOperands.toList with
+    | [_, some (.int _ (.val c))] => if c = 0 then some (.operand 0) else none
+    | _ => none
+  | .shrsi =>
+    match constOperands.toList with
+    | [_, some (.int _ (.val c))] => if c = 0 then some (.operand 0) else none
+    | _ => none
+  | .shrui =>
+    match constOperands.toList with
+    | [_, some (.int _ (.val c))] => if c = 0 then some (.operand 0) else none
+    | _ => none
   -- Division / remainder by zero is immediate UB: fold to poison.
-  | .divsi, #[_, some (.int bw (.val c))] =>
-    if c = 0 then some (.constant (.int bw .poison)) else none
-  | .divui, #[_, some (.int bw (.val c))] =>
-    if c = 0 then some (.constant (.int bw .poison)) else none
-  | .remsi, #[_, some (.int bw (.val c))] =>
-    if c = 0 then some (.constant (.int bw .poison)) else none
-  | .remui, #[_, some (.int bw (.val c))] =>
-    if c = 0 then some (.constant (.int bw .poison)) else none
-  | _, _ => none
+  | .divsi =>
+    match constOperands.toList with
+    | [_, some (.int bw (.val c))] =>
+      if c = 0 then some (.constant (.int bw .poison)) else none
+    | _ => none
+  | .divui =>
+    match constOperands.toList with
+    | [_, some (.int bw (.val c))] =>
+      if c = 0 then some (.constant (.int bw .poison)) else none
+    | _ => none
+  | .remsi =>
+    match constOperands.toList with
+    | [_, some (.int bw (.val c))] =>
+      if c = 0 then some (.constant (.int bw .poison)) else none
+    | _ => none
+  | .remui =>
+    match constOperands.toList with
+    | [_, some (.int bw (.val c))] =>
+      if c = 0 then some (.constant (.int bw .poison)) else none
+    | _ => none
+  | _ => none
 
 /--
   Fold table for `llvm` operations with partially-constant operands.
@@ -157,42 +190,75 @@ def Arith.foldsTo (op : Arith) (_properties : HasDialectOpInfo.propertiesOf op)
 -/
 def Llvm.foldsTo (op : Llvm) (_properties : HasDialectOpInfo.propertiesOf op)
     (constOperands : Array (Option RuntimeValue)) : Option FoldOutcome :=
-  match op, constOperands with
-  | .add, #[_, some (.int _ (.val c))] =>
-    if c = 0 then some (.operand 0) else none
-  | .sub, #[_, some (.int _ (.val c))] =>
-    if c = 0 then some (.operand 0) else none
-  | .mul, #[_, some (.int bw (.val c))] =>
-    if c = 0 then some (.constant (.int bw (.val 0)))
-    else if c = 1 then some (.operand 0)
-    else none
-  | .and, #[_, some (.int bw (.val c))] =>
-    if c = 0 then some (.constant (.int bw (.val 0)))
-    else if c = BitVec.allOnes bw then some (.operand 0)
-    else none
-  | .or, #[_, some (.int bw (.val c))] =>
-    if c = 0 then some (.operand 0)
-    else if c = BitVec.allOnes bw then
-      some (.constant (.int bw (.val (BitVec.allOnes bw))))
-    else none
-  | .xor, #[_, some (.int _ (.val c))] =>
-    if c = 0 then some (.operand 0) else none
-  | .shl, #[_, some (.int _ (.val c))] =>
-    if c = 0 then some (.operand 0) else none
-  | .lshr, #[_, some (.int _ (.val c))] =>
-    if c = 0 then some (.operand 0) else none
-  | .ashr, #[_, some (.int _ (.val c))] =>
-    if c = 0 then some (.operand 0) else none
+  match op with
+  | .add =>
+    match constOperands.toList with
+    | [_, some (.int _ (.val c))] => if c = 0 then some (.operand 0) else none
+    | _ => none
+  | .sub =>
+    match constOperands.toList with
+    | [_, some (.int _ (.val c))] => if c = 0 then some (.operand 0) else none
+    | _ => none
+  | .mul =>
+    match constOperands.toList with
+    | [_, some (.int bw (.val c))] =>
+      if c = 0 then some (.constant (.int bw (.val 0)))
+      else if c = 1 then some (.operand 0)
+      else none
+    | _ => none
+  | .and =>
+    match constOperands.toList with
+    | [_, some (.int bw (.val c))] =>
+      if c = 0 then some (.constant (.int bw (.val 0)))
+      else if c = BitVec.allOnes bw then some (.operand 0)
+      else none
+    | _ => none
+  | .or =>
+    match constOperands.toList with
+    | [_, some (.int bw (.val c))] =>
+      if c = 0 then some (.operand 0)
+      else if c = BitVec.allOnes bw then
+        some (.constant (.int bw (.val (BitVec.allOnes bw))))
+      else none
+    | _ => none
+  | .xor =>
+    match constOperands.toList with
+    | [_, some (.int _ (.val c))] => if c = 0 then some (.operand 0) else none
+    | _ => none
+  | .shl =>
+    match constOperands.toList with
+    | [_, some (.int _ (.val c))] => if c = 0 then some (.operand 0) else none
+    | _ => none
+  | .lshr =>
+    match constOperands.toList with
+    | [_, some (.int _ (.val c))] => if c = 0 then some (.operand 0) else none
+    | _ => none
+  | .ashr =>
+    match constOperands.toList with
+    | [_, some (.int _ (.val c))] => if c = 0 then some (.operand 0) else none
+    | _ => none
   -- Division / remainder by zero is immediate UB: fold to poison.
-  | .sdiv, #[_, some (.int bw (.val c))] =>
-    if c = 0 then some (.constant (.int bw .poison)) else none
-  | .udiv, #[_, some (.int bw (.val c))] =>
-    if c = 0 then some (.constant (.int bw .poison)) else none
-  | .srem, #[_, some (.int bw (.val c))] =>
-    if c = 0 then some (.constant (.int bw .poison)) else none
-  | .urem, #[_, some (.int bw (.val c))] =>
-    if c = 0 then some (.constant (.int bw .poison)) else none
-  | _, _ => none
+  | .sdiv =>
+    match constOperands.toList with
+    | [_, some (.int bw (.val c))] =>
+      if c = 0 then some (.constant (.int bw .poison)) else none
+    | _ => none
+  | .udiv =>
+    match constOperands.toList with
+    | [_, some (.int bw (.val c))] =>
+      if c = 0 then some (.constant (.int bw .poison)) else none
+    | _ => none
+  | .srem =>
+    match constOperands.toList with
+    | [_, some (.int bw (.val c))] =>
+      if c = 0 then some (.constant (.int bw .poison)) else none
+    | _ => none
+  | .urem =>
+    match constOperands.toList with
+    | [_, some (.int bw (.val c))] =>
+      if c = 0 then some (.constant (.int bw .poison)) else none
+    | _ => none
+  | _ => none
 
 /--
   Fold table for `riscv` operations with partially-constant operands.
@@ -389,7 +455,8 @@ def foldDecision (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     let values := constOperands.map (·.get!)
     match (foldEvaluate opType properties resultTypes values : Option (UBOr _)) with
     | none => .noFold
-    | some (.ok results) => .useConstant results[0]!
+    | some (.ok results) =>
+      if results.size = 1 then .useConstant results[0]! else .noFold
     | some .ub =>
       -- The operation triggers UB whenever it is executed: fold to poison.
       match resultTypes[0]!.val with
