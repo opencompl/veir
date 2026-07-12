@@ -180,7 +180,9 @@ theorem fshrConst_local_preservesSemantics :
       grind
     have hCastOperands : castOp.getOperands! ctx₃.raw = #[a] := by grind
     have hRoriwOperands :
-        roriwOp.getOperands! ctx₃.raw = #[ValuePtr.opResult (castOp.getResult 0)] := by grind
+        roriwOp.getOperands! ctx₃.raw = #[ValuePtr.opResult (castOp.getResult 0)] := by
+      grind [OperationPtr.getOperands!_WfRewriter_createOp hRoriw (operation := roriwOp),
+        OperationPtr.getOperands!_WfRewriter_createOp hCastBack (operation := roriwOp)]
     have hCastBackOperands :
         castBackOp.getOperands! ctx₃.raw = #[ValuePtr.opResult (roriwOp.getResult 0)] := by grind
     have hRoriwProps : roriwOp.getProperties! ctx₃.raw (.riscv .roriw)
@@ -245,7 +247,9 @@ theorem fshrConst_local_preservesSemantics :
       grind
     have hCastOperands : castOp.getOperands! ctx₃.raw = #[a] := by grind
     have hRoriOperands :
-        roriOp.getOperands! ctx₃.raw = #[ValuePtr.opResult (castOp.getResult 0)] := by grind
+        roriOp.getOperands! ctx₃.raw = #[ValuePtr.opResult (castOp.getResult 0)] := by
+      grind [OperationPtr.getOperands!_WfRewriter_createOp hRori (operation := roriOp),
+        OperationPtr.getOperands!_WfRewriter_createOp hCastBack (operation := roriOp)]
     have hCastBackOperands :
         castBackOp.getOperands! ctx₃.raw = #[ValuePtr.opResult (roriOp.getResult 0)] := by grind
     have hRoriProps : roriOp.getProperties! ctx₃.raw (.riscv .rori)

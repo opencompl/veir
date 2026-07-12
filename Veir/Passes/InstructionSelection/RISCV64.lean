@@ -757,10 +757,11 @@ def trunc_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (operand, _) := matchTrunc op ctx | return (ctx, none)
   let opType := (operand.getType! ctx.raw)
   let resType := ((op.getResult 0).get! ctx.raw).type
-  if match opType.val, resType.val with
-  | .integerType _, .integerType _ => false
-  | .byteType _, .byteType _ => false
-  | _, _ => true
+  let shouldTruncate := match opType.val, resType.val with
+    | .integerType _, .integerType _ => true
+    | .byteType _, .byteType _ => true
+    | _, _ => false
+  if !shouldTruncate
   then return (ctx, none)
   let some opBw := getIntByteTypeBitwidth opType | return (ctx, none)
   let some resBw := getIntByteTypeBitwidth resType | return (ctx, none)

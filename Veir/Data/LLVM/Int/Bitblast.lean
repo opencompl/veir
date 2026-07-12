@@ -137,7 +137,7 @@ theorem isPoison_add {w : Nat} (x y : Int w) {nsw nuw : Bool} :
         (nuw ∧ BitVec.uaddOverflow x.getValue y.getValue) := by
   simp only [isPoison, add, Id.run, getValue, Bool.decide_or, Bool.decide_and,
     Bool.decide_eq_true]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -155,7 +155,7 @@ theorem isPoison_sub {w : Nat} (x y : Int w) {nsw nuw : Bool} :
         (nuw ∧ BitVec.usubOverflow x.getValue y.getValue) := by
   simp only [isPoison, sub, Id.run, getValue, Bool.decide_or, Bool.decide_and,
     Bool.decide_eq_true]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -172,7 +172,7 @@ theorem isPoison_mul {w : Nat} (x y : Int w) {nsw nuw : Bool} :
         (nsw ∧ BitVec.smulOverflow x.getValue y.getValue) ∨
         (nuw ∧ BitVec.umulOverflow x.getValue y.getValue) := by
   simp only [mul, isPoison, getValue, Id.run]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -189,7 +189,7 @@ theorem isPoison_udiv {w : Nat} (x y : Int w) {exact : Bool} :
         (exact ∧ BitVec.umod x.getValue y.getValue ≠ 0) ∨
         (y.getValue = 0) := by
   simp only [udiv, isPoison, getValue, Id.run]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -207,7 +207,7 @@ theorem isPoison_sdiv {w : Nat} (x y : Int w) {exact : Bool} :
         (exact ∧ BitVec.smod x.getValue y.getValue ≠ 0) ∨
         (y.getValue = 0) := by
   simp only [sdiv, isPoison, getValue, Id.run]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -223,7 +223,7 @@ theorem isPoison_urem {w : Nat} (x y : Int w) :
       else
         y.getValue = 0 := by
   simp only [urem, isPoison, getValue, Id.run]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -239,7 +239,7 @@ theorem isPoison_srem {w : Nat} (x y : Int w) :
       else
         (y.getValue = 0 ∨ (x.getValue = (BitVec.intMin w) ∧ y.getValue = -1)) := by
   simp only [srem, isPoison, getValue, Id.run]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -257,7 +257,7 @@ theorem isPoison_shl {w : Nat} (x y : Int w) {nsw nuw : Bool} :
         (nuw ∧ (x.getValue <<< y.getValue) >>> y.getValue ≠ x.getValue) ∨
         (y.getValue ≥ w) := by
   simp only [shl, isPoison, getValue, Id.run]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -265,7 +265,7 @@ theorem getValue_shl {w : Nat} (x y : Int w) {nsw nuw : Bool} (h : (shl x y nsw 
     (shl x y nsw nuw).getValue h = x.getValue <<< y.getValue := by
   simp only [shl, Id.run, BitVec.shiftLeft_eq', BitVec.sshiftRight_eq', ne_eq,
     BitVec.ushiftRight_eq', BitVec.natCast_eq_ofNat, ge_iff_le]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -276,7 +276,7 @@ theorem isPoison_lshr {w : Nat} (x y : Int w) {exact : Bool} :
         y.getValue ≥ w ∨
         (exact ∧ (x.getValue >>> y.getValue) <<< y.getValue ≠ x.getValue) := by
   simp only [lshr, isPoison, getValue, Id.run]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -284,7 +284,7 @@ theorem getValue_lshr {w : Nat} (x y : Int w) {exact : Bool} (h : (lshr x y exac
     (lshr x y exact).getValue h = x.getValue >>> y.getValue := by
   simp only [lshr, Id.run, BitVec.natCast_eq_ofNat, ge_iff_le, BitVec.ushiftRight_eq',
     BitVec.shiftLeft_eq', ne_eq]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -295,7 +295,7 @@ theorem isPoison_ashr {w : Nat} (x y : Int w) {exact : Bool} :
         y.getValue ≥ w ∨
         (exact ∧ (x.getValue >>> y.getValue) <<< y.getValue ≠ x.getValue) := by
   simp only [ashr, isPoison, getValue, Id.run]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -303,7 +303,7 @@ theorem getValue_ashr {w : Nat} (x y : Int w) {exact : Bool} (h : (ashr x y exac
     (ashr x y exact).getValue h = x.getValue.sshiftRight' y.getValue := by
   simp only [ashr, Id.run, BitVec.natCast_eq_ofNat, ge_iff_le, BitVec.ushiftRight_eq',
     BitVec.shiftLeft_eq', ne_eq, BitVec.sshiftRight_eq']
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -311,7 +311,7 @@ theorem isPoison_ctlz {w : Nat} (x : Int w) {is_zero_poison : Bool} :
     (ctlz x is_zero_poison).isPoison =
       if _ : x.isPoison = true then true else is_zero_poison && (x.getValue == 0#w) := by
   simp only [ctlz, isPoison, getValue, Id.run]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -319,7 +319,7 @@ theorem getValue_ctlz {w : Nat} (x : Int w) {is_zero_poison : Bool}
     (h : (ctlz x is_zero_poison).isPoison = false) :
     (ctlz x is_zero_poison).getValue h = x.getValue.clz := by
   simp only [ctlz, isPoison, getValue, Id.run]
-  simp [pure] at h ⊢
+  simp only [pure, bind] at h ⊢
   grind
 
 @[veir_bv_normalize, grind =]
@@ -327,7 +327,7 @@ theorem isPoison_cttz {w : Nat} (x : Int w) {is_zero_poison : Bool} :
     (cttz x is_zero_poison).isPoison =
       if _ : x.isPoison = true then true else is_zero_poison && (x.getValue == 0#w) := by
   simp only [cttz, isPoison, getValue, Id.run]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -335,7 +335,7 @@ theorem getValue_cttz {w : Nat} (x : Int w) {is_zero_poison : Bool}
     (h : (cttz x is_zero_poison).isPoison = false) :
     (cttz x is_zero_poison).getValue h = x.getValue.ctz := by
   simp only [cttz, isPoison, getValue, Id.run]
-  simp [pure] at h ⊢
+  simp only [pure, bind] at h ⊢
   grind
 
 @[veir_bv_normalize, grind =]
@@ -358,9 +358,9 @@ theorem isPoison_bswap {w : Nat} (x : Int w) :
       by_cases h16 : w = 16
       · simp [bswap, isPoison, Id.run, pure, h16]
       · by_cases h32 : w = 32
-        · simp [bswap, isPoison, Id.run, pure, h32]
+        · simp [bswap, isPoison, Id.run, pure, bind, h32]
         · by_cases h64 : w = 64
-          · simp [bswap, isPoison, Id.run, pure, h64]
+          · simp [bswap, isPoison, Id.run, pure, bind, h64]
           · simp [bswap, isPoison, Id.run, h16, h32, h64]
 
 @[veir_bv_normalize, grind =]
@@ -368,7 +368,7 @@ theorem getValue_bswap_32 (x : Int 32) (h : (bswap x).isPoison = false) :
     (bswap x).getValue h =
       x.getValue.extractLsb 7 0 ++ x.getValue.extractLsb 15 8 ++
       x.getValue.extractLsb 23 16 ++ x.getValue.extractLsb 31 24 := by
-  cases x <;> simp [bswap, bswap32BV, getValue, Id.run, pure] at h ⊢
+  cases x <;> simp [bswap, bswap32BV, getValue, Id.run, pure, bind] at h ⊢
 
 @[veir_bv_normalize, grind =]
 theorem getValue_bswap_64 (x : Int 64) (h : (bswap x).isPoison = false) :
@@ -377,7 +377,7 @@ theorem getValue_bswap_64 (x : Int 64) (h : (bswap x).isPoison = false) :
       x.getValue.extractLsb 23 16 ++ x.getValue.extractLsb 31 24 ++
       x.getValue.extractLsb 39 32 ++ x.getValue.extractLsb 47 40 ++
       x.getValue.extractLsb 55 48 ++ x.getValue.extractLsb 63 56 := by
-  cases x <;> simp [bswap, bswap64BV, getValue, Id.run, pure] at h ⊢
+  cases x <;> simp [bswap, bswap64BV, getValue, Id.run, pure, bind] at h ⊢
 
 @[veir_bv_normalize, grind =]
 theorem isPoison_bitreverse {w : Nat} (x : Int w) :
@@ -420,7 +420,7 @@ theorem isPoison_or {w : Nat} (x y : Int w) {disjoint : Bool} :
       else
         disjoint ∧ ((x.getValue &&& y.getValue) ≠ 0) := by
   simp only [or, isPoison, getValue, Id.run]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -449,7 +449,7 @@ theorem isPoison_trunc {w₁ w₂: Nat} (x : Int w₁) {nsw nuw : Bool} (h : w�
         (nsw ∧ (x.getValue.truncate w₂).signExtend w₁ ≠ x.getValue) ∨
         (nuw ∧ (x.getValue.truncate w₂).zeroExtend w₁ ≠ x.getValue) := by
   simp only [trunc, isPoison, getValue, Id.run]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -465,7 +465,7 @@ theorem isPoison_zext {w₁ w₂: Nat} (x : Int w₁) {nneg : Bool} (h : w₁ < 
       else
         nneg ∧ x.getValue.msb := by
   simp only [zext, isPoison, getValue, Id.run]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -566,7 +566,7 @@ theorem getValue_umin {w : Nat} (x y : Int w) (h : (umin x y).isPoison = false) 
 theorem isPoison_saddSat {w : Nat} (x y : Int w) :
     (saddSat x y).isPoison = decide (x.isPoison ∨ y.isPoison) := by
   simp only [saddSat, isPoison, Id.run]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -576,14 +576,14 @@ theorem getValue_saddSat {w : Nat} (x y : Int w) (h : (saddSat x y).isPoison = f
         (if x.getValue.msb then BitVec.intMin w else BitVec.intMax w)
       else x.getValue + y.getValue := by
   simp only [saddSat, Id.run]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
 theorem isPoison_uaddSat {w : Nat} (x y : Int w) :
     (uaddSat x y).isPoison = decide (x.isPoison ∨ y.isPoison) := by
   simp only [uaddSat, isPoison, Id.run]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -592,14 +592,14 @@ theorem getValue_uaddSat {w : Nat} (x y : Int w) (h : (uaddSat x y).isPoison = f
       if BitVec.uaddOverflow x.getValue y.getValue then BitVec.allOnes w
       else x.getValue + y.getValue := by
   simp only [uaddSat, Id.run]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
 theorem isPoison_ssubSat {w : Nat} (x y : Int w) :
     (ssubSat x y).isPoison = decide (x.isPoison ∨ y.isPoison) := by
   simp only [ssubSat, isPoison, Id.run]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -609,14 +609,14 @@ theorem getValue_ssubSat {w : Nat} (x y : Int w) (h : (ssubSat x y).isPoison = f
         (if x.getValue.msb then BitVec.intMin w else BitVec.intMax w)
       else x.getValue - y.getValue := by
   simp only [ssubSat, Id.run]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
 theorem isPoison_usubSat {w : Nat} (x y : Int w) :
     (usubSat x y).isPoison = decide (x.isPoison ∨ y.isPoison) := by
   simp only [usubSat, isPoison, Id.run]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -625,7 +625,7 @@ theorem getValue_usubSat {w : Nat} (x y : Int w) (h : (usubSat x y).isPoison = f
       if BitVec.usubOverflow x.getValue y.getValue then BitVec.ofNat w 0
       else x.getValue - y.getValue := by
   simp only [usubSat, Id.run]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -634,7 +634,7 @@ theorem isPoison_sshlSat {w : Nat} (x y : Int w) :
       if h : x.isPoison = true ∨ y.isPoison = true then true
       else y.getValue ≥ w := by
   simp only [sshlSat, isPoison, getValue, Id.run]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -645,7 +645,7 @@ theorem getValue_sshlSat {w : Nat} (x y : Int w) (h : (sshlSat x y).isPoison = f
       else x.getValue <<< y.getValue := by
   simp only [sshlSat, Id.run, BitVec.shiftLeft_eq', BitVec.sshiftRight_eq', ne_eq,
     BitVec.natCast_eq_ofNat, ge_iff_le]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -654,7 +654,7 @@ theorem isPoison_ushlSat {w : Nat} (x y : Int w) :
       if h : x.isPoison = true ∨ y.isPoison = true then true
       else y.getValue ≥ w := by
   simp only [ushlSat, isPoison, getValue, Id.run]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -664,7 +664,7 @@ theorem getValue_ushlSat {w : Nat} (x y : Int w) (h : (ushlSat x y).isPoison = f
       else x.getValue <<< y.getValue := by
   simp only [ushlSat, Id.run, BitVec.shiftLeft_eq', BitVec.ushiftRight_eq', ne_eq,
     BitVec.natCast_eq_ofNat, ge_iff_le]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -673,7 +673,7 @@ theorem isPoison_abs {w : Nat} (x : Int w) (is_int_min_poison : Bool) :
       if h : x.isPoison = true then true
       else is_int_min_poison ∧ x.getValue = BitVec.intMin w := by
   simp only [abs, isPoison, getValue, Id.run]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -682,7 +682,7 @@ theorem getValue_abs {w : Nat} (x : Int w) (is_int_min_poison : Bool)
     (abs x is_int_min_poison).getValue h =
       if x.getValue.msb then -x.getValue else x.getValue := by
   simp only [abs, Id.run]
-  simp [pure]
+  simp only [pure, bind]
   grind
 
 @[veir_bv_normalize, grind =]
