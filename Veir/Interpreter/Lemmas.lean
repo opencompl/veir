@@ -539,14 +539,7 @@ original ones, so both sides interpret to the very same result.
 -/
 theorem RuntimeValue.eq_of_arrayIsRefinedBy_of_regs {a b : Array RuntimeValue}
     (h : a ⊒ b) (hregs : ∀ v ∈ a, ∃ r, v = .reg r) : b = a := by
-  obtain ⟨hsize, helem⟩ := h
-  apply Array.ext hsize.symm
-  intro i hib hia
-  obtain ⟨r, hr⟩ := hregs a[i] (Array.getElem_mem hia)
-  have hrefines := helem i hia
-  rw [getElem!_pos a i hia, getElem!_pos b i hib, hr] at hrefines
-  rw [hr]
-  exact RuntimeValue.reg_of_isRefinedBy hrefines
+  grind [arrayIsRefinedBy, reg_of_isRefinedBy, Array.getElem_mem]
 
 /--
 `Riscv.interpretOp'` is monotone in its operands.
