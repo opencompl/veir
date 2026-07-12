@@ -548,6 +548,78 @@ theorem RuntimeValue.eq_of_arrayIsRefinedBy_of_regs {a b : Array RuntimeValue}
   rw [hr]
   exact RuntimeValue.reg_of_isRefinedBy hrefines
 
+/-- Destructure a refined one-element operand array. -/
+theorem RuntimeValue.arrayIsRefinedBy_one {a b : Array RuntimeValue} {x : RuntimeValue}
+    (h : a ⊒ b) (ha : a.toList = [x]) :
+    ∃ x', b.toList = [x'] ∧ x ⊒ x' := by
+  have ha2 : a = #[x] := Array.ext' (by simp [ha])
+  subst ha2
+  obtain ⟨hsize, helem⟩ := h
+  simp at hsize
+  have hlen : b.toList.length = 1 := by rw [Array.length_toList]; omega
+  match hb : b.toList with
+  | [x'] =>
+    have hb2 : b = #[x'] := Array.ext' (by simp [hb])
+    subst hb2
+    have h0 := helem 0 (by simp)
+    simp at h0
+    exact ⟨x', by simp, h0⟩
+  | [] => rw [hb] at hlen; simp at hlen
+  | _ :: _ :: _ => rw [hb] at hlen; simp at hlen
+
+/-- Destructure a refined two-element operand array. -/
+theorem RuntimeValue.arrayIsRefinedBy_two {a b : Array RuntimeValue} {x y : RuntimeValue}
+    (h : a ⊒ b) (ha : a.toList = [x, y]) :
+    ∃ x' y', b.toList = [x', y'] ∧ x ⊒ x' ∧ y ⊒ y' := by
+  have ha2 : a = #[x, y] := Array.ext' (by simp [ha])
+  subst ha2
+  obtain ⟨hsize, helem⟩ := h
+  simp at hsize
+  have hlen : b.toList.length = 2 := by rw [Array.length_toList]; omega
+  match hb : b.toList with
+  | [x', y'] =>
+    have hb2 : b = #[x', y'] := Array.ext' (by simp [hb])
+    subst hb2
+    have h0 := helem 0 (by simp)
+    have h1 := helem 1 (by simp)
+    simp at h0 h1
+    exact ⟨x', y', by simp, h0, h1⟩
+  | [] => rw [hb] at hlen; simp at hlen
+  | [_] => rw [hb] at hlen; simp at hlen
+  | _ :: _ :: _ :: _ => rw [hb] at hlen; simp at hlen
+
+/-- `Array.extract` preserves operand refinement (used for branch arguments). -/
+theorem RuntimeValue.arrayIsRefinedBy_extract {a b : Array RuntimeValue} (h : a ⊒ b) (i j : Nat) :
+    a.extract i j ⊒ b.extract i j := by
+  obtain ⟨hsize, helem⟩ := h
+  refine ⟨by simp [hsize], ?_⟩
+  intro k hk
+  simp only [Array.size_extract] at hk
+  have hka : i + k < a.size := by omega
+  have hkb : i + k < b.size := by omega
+  rw [getElem!_pos _ k (by simp only [Array.size_extract]; omega),
+      getElem!_pos _ k (by simp only [Array.size_extract]; omega)]
+  simp only [Array.getElem_extract]
+  have := helem (i + k) hka
+  rwa [getElem!_pos a _ hka, getElem!_pos b _ hkb] at this
+
+/-- A refined operand array agrees on `getElem?`, up to refinement of the element. -/
+theorem RuntimeValue.arrayIsRefinedBy_getElem? {a b : Array RuntimeValue} (h : a ⊒ b) {i : Nat}
+    {v : RuntimeValue} (hv : a[i]? = some v) : ∃ w, b[i]? = some w ∧ v ⊒ w := by
+  obtain ⟨hsize, helem⟩ := h
+  have hia : i < a.size := by
+    rcases Nat.lt_or_ge i a.size with hlt | hge
+    · exact hlt
+    · rw [Array.getElem?_eq_none hge] at hv
+      exact absurd hv (by simp)
+  have hib : i < b.size := by omega
+  have hveq : a[i] = v := by
+    rw [Array.getElem?_eq_getElem hia] at hv
+    exact Option.some.inj hv
+  refine ⟨b[i], by rw [Array.getElem?_eq_getElem hib], ?_⟩
+  have := helem i hia
+  rwa [getElem!_pos a _ hia, getElem!_pos b _ hib, hveq] at this
+
 set_option warn.sorry false in
 /--
 `Llvm.interpretOp'` is monotone in its operands, except for `llvm.store`.
