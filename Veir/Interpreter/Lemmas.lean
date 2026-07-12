@@ -1,6 +1,7 @@
 import Veir.Interpreter.Basic
 import Veir.Dominance
 import Veir.Interpreter.Refinement.Basic
+import Veir.Interpreter.Refinement.Lemmas
 import Veir.Verifier
 
 namespace Veir
@@ -516,6 +517,37 @@ theorem exists_interpretOp'_eq_some {ctx : WfIRContext OpCode} {op : OperationPt
     (mem : MemoryState) :
   ∃ res, op.interpret ctx.raw operands mem = some res := by sorry
 
+/-- The relation `interpretOp'_monotone` establishes between two interpretation results. -/
+abbrev InterpretResultIsRefinedBy :
+    Array RuntimeValue × MemoryState × Option ControlFlowAction →
+    Array RuntimeValue × MemoryState × Option ControlFlowAction → Prop :=
+  fun r₁ r₂ => r₁.1 ⊒ r₂.1 ∧ r₁.2.1 = r₂.2.1 ∧
+    ControlFlowAction.optionIsRefinedBy r₁.2.2 r₂.2.2
+
+/-- `InterpretResultIsRefinedBy` is reflexive, so an interpretation result always refines itself. -/
+@[grind .]
+theorem interpretResult_isRefinedBy_refl
+    (x : Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction)) :
+    Interp.isRefinedBy InterpretResultIsRefinedBy x x := by
+  rcases x with _ | (x | _) <;> grind [Interp.isRefinedBy]
+
+/--
+A register runtime value can only be refined by itself, so operand arrays that consist purely of
+registers are refined only by themselves. This makes every dialect whose operands are registers
+(`riscv`, `riscv_cf`, `riscv_stack`, `rv64`) monotone for free: the refined operands are the
+original ones, so both sides interpret to the very same result.
+-/
+theorem RuntimeValue.eq_of_arrayIsRefinedBy_of_regs {a b : Array RuntimeValue}
+    (h : a ⊒ b) (hregs : ∀ v ∈ a, ∃ r, v = .reg r) : b = a := by
+  obtain ⟨hsize, helem⟩ := h
+  apply Array.ext hsize.symm
+  intro i hib hia
+  obtain ⟨r, hr⟩ := hregs a[i] (Array.getElem_mem hia)
+  have hrefines := helem i hia
+  rw [getElem!_pos a i hia, getElem!_pos b i hib, hr] at hrefines
+  rw [hr]
+  exact RuntimeValue.reg_of_isRefinedBy hrefines
+
 set_option warn.sorry false in
 /-- `Llvm.interpretOp'` is monotone in its operands. -/
 theorem Llvm.interpretOp'_monotone {operands operands' : Array RuntimeValue} :
@@ -527,80 +559,38 @@ theorem Llvm.interpretOp'_monotone {operands operands' : Array RuntimeValue} :
       (Llvm.interpretOp' opType properties resultTypes operands' blockOperands mem) := by
   sorry
 
-set_option warn.sorry false in
-/-- `Riscv.interpretOp'` is monotone in its operands. -/
+/--
+`Riscv.interpretOp'` is monotone in its operands.
+
+RISC-V operands are registers, which carry no poison, so refinement on them is equality: either
+every operand is a register -- and then the refined operands are the original ones and both sides
+interpret to the very same result -- or some operand is not a register, and every opcode that
+reads its operands fails to interpret (opcodes that ignore their operands, such as `li`, again
+produce the very same result on both sides).
+-/
 theorem Riscv.interpretOp'_monotone {operands operands' : Array RuntimeValue} :
     operands ⊒ operands' →
-    Interp.isRefinedBy (α := Array RuntimeValue × MemoryState × Option ControlFlowAction)
-      (fun r₁ r₂ => r₁.1 ⊒ r₂.1 ∧ r₁.2.1 = r₂.2.1 ∧
-        ControlFlowAction.optionIsRefinedBy r₁.2.2 r₂.2.2)
+    Interp.isRefinedBy InterpretResultIsRefinedBy
       (Riscv.interpretOp' opType properties resultTypes operands blockOperands mem)
       (Riscv.interpretOp' opType properties resultTypes operands' blockOperands mem) := by
   intro h
-  cases opType
-  case add =>
-    simp only [Riscv.interpretOp']
-    split <;> split
-    · rw [← List.toArray_eq_iff, Array.toArray_toList] at *
-      rename_i ops₁ xb xc xd ops₂
-      simp [ops₁, ops₂, RuntimeValue.arrayIsRefinedBy] at h
-      have aaa0 := h 0 (by simp)
-      have aaa1 := h 1 (by simp)
-      simp at aaa0
-      simp at aaa1
-      simp [RuntimeValue.isRefinedBy] at aaa0 aaa1
-      simp [Interp.isRefinedBy, pure, RuntimeValue.arrayIsRefinedBy,
-        RuntimeValue.isRefinedBy, ControlFlowAction.optionIsRefinedBy]
-      grind
-    ·
-      rename_i ops₁ xb xc xd ops₂
-      simp at ops₂
-      simp only [Interp.isRefinedBy]
-      have ops₂' := ops₂ ops₁ xb
-      rw [RuntimeValue.arrayIsRefinedBy] at h
-      rw [← List.toArray_eq_iff, Array.toArray_toList] at *
-      by_cases hhh : operands.size = operands'.size ∧ operands.size = 2
-      .
-        simp [hhh] at h
-        have aaa0 := h 0 (by grind)
-        have aaa1 := h 1 (by grind)
-        simp [RuntimeValue.isRefinedBy] at aaa0 aaa1
-        grind
-      . grind
-    · simp [Interp.isRefinedBy]
-    · simp [Interp.isRefinedBy]
-  case sub =>
-    simp only [Riscv.interpretOp']
-    split <;> split
-    · rw [← List.toArray_eq_iff, Array.toArray_toList] at *
-      rename_i ops₁ xb xc xd ops₂
-      simp [ops₁, ops₂, RuntimeValue.arrayIsRefinedBy] at h
-      have aaa0 := h 0 (by simp)
-      have aaa1 := h 1 (by simp)
-      simp at aaa0
-      simp at aaa1
-      simp [RuntimeValue.isRefinedBy] at aaa0 aaa1
-      simp [Interp.isRefinedBy, pure, RuntimeValue.arrayIsRefinedBy,
-        RuntimeValue.isRefinedBy, ControlFlowAction.optionIsRefinedBy]
-      grind
-    ·
-      rename_i ops₁ xb xc xd ops₂
-      simp at ops₂
-      simp only [Interp.isRefinedBy]
-      have ops₂' := ops₂ ops₁ xb
-      rw [RuntimeValue.arrayIsRefinedBy] at h
-      rw [← List.toArray_eq_iff, Array.toArray_toList] at *
-      by_cases hhh : operands.size = operands'.size ∧ operands.size = 2
-      .
-        simp [hhh] at h
-        have aaa0 := h 0 (by grind)
-        have aaa1 := h 1 (by grind)
-        simp [RuntimeValue.isRefinedBy] at aaa0 aaa1
-        grind
-      . grind
-    · simp [Interp.isRefinedBy]
-    · simp [Interp.isRefinedBy]
-  all_goals sorry
+  by_cases hregs : ∀ v ∈ operands, ∃ r, v = .reg r
+  · have hb : operands' = operands := RuntimeValue.eq_of_arrayIsRefinedBy_of_regs h hregs
+    subst hb
+    apply interpretResult_isRefinedBy_refl
+  · cases opType <;>
+      simp only [Riscv.interpretOp'] <;>
+      first
+        | apply interpretResult_isRefinedBy_refl
+        | (split
+           · exfalso
+             rename_i heq
+             refine hregs (fun v hv => ?_)
+             have hv' : v ∈ operands.toList := hv.val
+             rw [heq] at hv'
+             simp at hv'
+             grind
+           · simp [Interp.isRefinedBy])
 
 set_option warn.sorry false in
 theorem interpretOp'_monotone
