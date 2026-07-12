@@ -123,7 +123,7 @@ def lowerModArithBinOp (modOp : Mod_Arith) (widen : Nat → Nat) (build : Builde
   let (rewriter, r) ← emitArithBinOp rewriter .remui () r q ip
   let (rewriter, r) ← packValue rewriter r modArithType ip
   let rewriter := rewriter.replaceValue (op.getResult 0) r sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 /-! ## Binary op lowering Patterns -/
 
@@ -167,7 +167,7 @@ def lowerModArithConstant (rewriter : PatternRewriter OpCode) (op : OperationPtr
   let (rewriter, r) ← emitArithConstant rewriter c storageType.bitwidth ip
   let (rewriter, out) ← castToModArith rewriter (r : ValuePtr) modArithType ip
   let rewriter := rewriter.replaceValue (op.getResult 0) out sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 /-! ## Pass implementation -/
 

@@ -53,7 +53,7 @@ def addiZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.In
   if cst.value ≠ 0 then
     return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
 /-- Rewrites `x * 1` to `x`. -/
@@ -66,7 +66,7 @@ def mulIOneToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InB
   if cst.value ≠ 1 then
     return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
 /-- Rewrites `x - 0` to `x`. -/
@@ -79,7 +79,7 @@ def subiZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.In
   if cst.value ≠ 0 then
     return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 /-- Rewrites `x - x` to `0`. -/
 def subiSelfToZero (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
@@ -104,7 +104,7 @@ def andiSelfToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.In
   if lhs ≠ rhs then
     return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 /-- Rewrites `x & 0` to `0`. -/
 def andiZeroToZero (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
@@ -133,7 +133,7 @@ def oriZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InB
   if cst.value ≠ 0 then
     return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
 /-- Rewrites `x | x` to `x`. -/
@@ -144,7 +144,7 @@ def oriSelfToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InB
   if lhs ≠ rhs then
     return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
 /-- Rewrites `x ^ 0` to `x`. -/
@@ -157,7 +157,7 @@ def xoriZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.In
   if cst.value ≠ 0 then
     return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 /-- Rewrites `x ^ x` to `0`. -/
 def xoriSelfToZero (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
@@ -182,7 +182,7 @@ def notNotToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBo
   let some inner := matchNot outerNotted rewriter.ctx
     | return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) inner sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 /-- Rewrites `~(~a & ~b)` to `a | b` (DeMorgan). -/
 /- TODO: the precondition should be strengthened by some hasOneUse() checks -/

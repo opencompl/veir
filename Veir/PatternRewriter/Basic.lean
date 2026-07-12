@@ -213,10 +213,9 @@ def eraseOp (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
     (opRegions : op.getNumRegions! rewriter.ctx.raw = 0 := by grind)
     (opUses : !op.hasUses! rewriter.ctx.raw := by grind)
     (hOp : op.InBounds rewriter.ctx.raw := by grind)
-    : Option (PatternRewriter OpInfo) := do
-  let newCtx ← WfRewriter.eraseOp rewriter.ctx op opRegions opUses hOp
-  some { rewriter with
-    ctx := newCtx,
+    : PatternRewriter OpInfo :=
+  { rewriter with
+    ctx := WfRewriter.eraseOp rewriter.ctx op opRegions opUses hOp,
     hasDoneAction := true,
     worklist := rewriter.worklist.remove op,
   }

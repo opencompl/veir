@@ -42,7 +42,7 @@ def right_identity_zero_add (rewriter: PatternRewriter OpCode) (op: OperationPtr
   let some (_, cst) := matchOp liOp rewriter.ctx (.riscv .li) 0 | return rewriter
   if cst.value.value ≠ 0 then return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 /-! ### select_same_val :  (c ? x : x) → x -/
 
@@ -52,7 +52,7 @@ def select_same_val_self (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some (_c, tval, fval) := matchSelect op rewriter.ctx | return rewriter
   if tval != fval then return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) tval sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 /-! ### select_constant_cmp :  (1 ? x : y) → x ,  (0 ? x : y) → y -/
 
@@ -63,7 +63,7 @@ def select_constant_cmp_true (rewriter: PatternRewriter OpCode) (op: OperationPt
   let some cst := matchConstantIntVal cond rewriter.ctx | return rewriter
   if cst.value ≠ 1 then return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) tval sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
 def select_constant_cmp_false (rewriter: PatternRewriter OpCode) (op: OperationPtr)
@@ -72,7 +72,7 @@ def select_constant_cmp_false (rewriter: PatternRewriter OpCode) (op: OperationP
   let some cst := matchConstantIntVal cond rewriter.ctx | return rewriter
   if cst.value ≠ 0 then return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) fval sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 /-! ### hoist_logic_op_with_same_opcode_hands-/
 
@@ -414,7 +414,7 @@ def sub_add_reg_x_add_y_sub_y (rewriter: PatternRewriter OpCode) (op: OperationP
   let some (x, y, _ap) := matchAdd dAdd rewriter.ctx | return rewriter
   if y != s1 then return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) x sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 -- (x + y) - x → y
 set_option warn.sorry false in
@@ -425,7 +425,7 @@ def sub_add_reg_x_add_y_sub_x (rewriter: PatternRewriter OpCode) (op: OperationP
   let some (x, y, _ap) := matchAdd dAdd rewriter.ctx | return rewriter
   if x != s1 then return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) y sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 -- x - (y + x) → 0 - y
 set_option warn.sorry false in
@@ -606,7 +606,7 @@ def trunc_of_zext (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some (x, _zp) := matchZext dZ rewriter.ctx | return rewriter
   if (op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw != x.getType! rewriter.ctx.raw then return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) x sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 /-! ### select_of_{zext,truncate} : cast(select c,t,f) → select c, cast t, cast f -/
 
@@ -1146,7 +1146,7 @@ def combine_or_of_and_l (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some (a0, a1, _aprops) := matchAnd dAnd rewriter.ctx | return rewriter
   if a0 != x && a1 != x then return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) x sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 -- or x, (and x, y)  →  x   (the `and` is the right OR operand)
 set_option warn.sorry false in
@@ -1157,7 +1157,7 @@ def combine_or_of_and_r (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some (a0, a1, _aprops) := matchAnd dAnd rewriter.ctx | return rewriter
   if a0 != x && a1 != x then return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) x sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 /-! ### AMinusBMinusC :  A - (B - C)  →  A + (C - B) -/
 set_option warn.sorry false in
@@ -1181,7 +1181,7 @@ def shl_left_to_zero (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some cst := matchConstantIntVal zero rewriter.ctx | return rewriter
   if cst.value ≠ 0 then return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) zero sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
 def lshr_left_to_zero (rewriter: PatternRewriter OpCode) (op: OperationPtr)
@@ -1190,7 +1190,7 @@ def lshr_left_to_zero (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some cst := matchConstantIntVal zero rewriter.ctx | return rewriter
   if cst.value ≠ 0 then return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) zero sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
 def ashr_left_to_zero (rewriter: PatternRewriter OpCode) (op: OperationPtr)
@@ -1199,7 +1199,7 @@ def ashr_left_to_zero (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some cst := matchConstantIntVal zero rewriter.ctx | return rewriter
   if cst.value ≠ 0 then return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) zero sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
 def mul_left_to_zero (rewriter: PatternRewriter OpCode) (op: OperationPtr)
@@ -1208,7 +1208,7 @@ def mul_left_to_zero (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some cst := matchConstantIntVal zero rewriter.ctx | return rewriter
   if cst.value ≠ 0 then return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) zero sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
 /-- `srlDst (width - 1) (sraDst _ x) -> srlDst (width - 1) x`, where `(srlDst,
@@ -1234,7 +1234,7 @@ def srl_sra_signbitGen (srlDst : Riscv) (hSrl : Riscv.propertiesOf srlDst = RISC
   let (rewriter, newOp) ← rewriter.createOp! (.riscv srlDst) #[RegisterType.mk] #[sraOperands[0]!]
       #[] #[] outerImm (some $ .before op)
   let rewriter := rewriter.replaceValue (op.getResult 0) (newOp.getResult 0) sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 def srl_sra_signbit := srl_sra_signbitGen .srli rfl .srai 64
 
@@ -1268,7 +1268,7 @@ private def drop_slli_srli_boolGen (boolDst : Riscv) (arity : Nat)
   let some boolOp := getDefiningOp slliOperands[0]! rewriter.ctx | return rewriter
   let some (_, _) := matchOp boolOp rewriter.ctx (.riscv boolDst) arity | return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) slliOperands[0]! sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 /-- `riscv.slt` produces exactly 0 or 1. -/
 def drop_slli_srli_slt := drop_slli_srli_boolGen .slt 2
@@ -1313,7 +1313,7 @@ private def drop_redundant_ext (ext : Riscv) (rewriter : PatternRewriter OpCode)
   let some innerOp := getDefiningOp outerSrc rewriter.ctx | return rewriter
   let some (_, _) := matchOp innerOp rewriter.ctx (.riscv ext) 1 | return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) outerSrc sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 /-- `riscv.zextw (riscv.zextw x) -> riscv.zextw x`. -/
 def zextw_zextw := drop_redundant_ext .zextw
@@ -1361,7 +1361,7 @@ private def drop_ext_binary_low_word (ext dst : Riscv) (rewriter : PatternRewrit
   let (rewriter, newOp) ← rewriter.createOp! (.riscv dst) #[RegisterType.mk] #[lhs, rhs]
       #[] #[] props (some $ .before op)
   let rewriter := rewriter.replaceValue (op.getResult 0) (newOp.getResult 0) sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
 /-- Drop a `riscv.<ext>` operand feeding a unary immediate op whose semantics use
@@ -1376,7 +1376,7 @@ private def drop_ext_unary_imm_low_word (ext dst : Riscv) (rewriter : PatternRew
   let (rewriter, newOp) ← rewriter.createOp! (.riscv dst) #[RegisterType.mk] #[src]
       #[] #[] props (some $ .before op)
   let rewriter := rewriter.replaceValue (op.getResult 0) (newOp.getResult 0) sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 /-- `riscv.addw (riscv.zextw x), y -> riscv.addw x, y`, and symmetrically for
     the right operand. `addw` reads only the low 32 bits of each source.
@@ -1467,7 +1467,7 @@ private def drop_ext_of_bitwise (ext dst : Riscv) (oneOperandSuffices : Bool)
   let guarded := if oneOperandSuffices then lhsGuarded || rhsGuarded else lhsGuarded && rhsGuarded
   if !guarded then return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) inner sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 /-- `riscv.zextw (riscv.and a b) -> riscv.and a b` when *at least one* of `a`, `b`
     is `riscv.zextw`-guarded: `and` forces a result bit to zero whenever either
@@ -1553,7 +1553,7 @@ private def drop_ext_store (ext store : Riscv) (rewriter : PatternRewriter OpCod
   if !changed then return rewriter
   let (rewriter, _newOp) ← rewriter.createOp! (.riscv store) #[] #[addr, val]
       #[] #[] props (some $ .before op)
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 /-- `riscv.sw addr, (riscv.zextw val) -> riscv.sw addr, val`. -/
 def drop_zextw_sw := drop_ext_store .zextw .sw
@@ -1590,7 +1590,7 @@ def li_zero_to_x0 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let (rewriter, x0Op) ← rewriter.createOp! (.rv64 .get_register)
     #[(RegisterType.mk (some 0) : TypeAttr)] #[] #[] #[] () (some $ .before op)
   let rewriter := rewriter.replaceValue (op.getResult 0) (x0Op.getResult 0) sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
 /-- `riscv.<ext>` (`zextw`/`sextw`) of the hard-wired zero register `x0` is a
@@ -1607,7 +1607,7 @@ private def ext_x0 (ext : Riscv) (rewriter : PatternRewriter OpCode) (op : Opera
   let .registerType regType := (src.getType! rewriter.ctx.raw).val | return rewriter
   if regType.index ≠ some 0 then return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) src sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 /-- `riscv.zextw x0 -> x0`. -/
 def zextw_x0 := ext_x0 .zextw
@@ -1639,7 +1639,7 @@ def zextw_li_low32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let some (_, cst) := matchOp srcOp rewriter.ctx (.riscv .li) 0 | return rewriter
   if cst.value.value < 0 ∨ cst.value.value ≥ 4294967296 then return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) src sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
 /-- `riscv.sextw (riscv.li v) -> riscv.li v` when `-2^31 ≤ v < 2^31`: in that
@@ -1660,7 +1660,7 @@ def sextw_li_low32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let some (_, cst) := matchOp srcOp rewriter.ctx (.riscv .li) 0 | return rewriter
   if cst.value.value < -2147483648 ∨ cst.value.value ≥ 2147483648 then return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) src sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
 /-- Byte- and half-word mirrors of `zextw_li_low32`/`sextw_li_low32`: a `riscv.<ext>`
@@ -1678,7 +1678,7 @@ private def ext_li_range (ext : Riscv) (lo hi : Int) (rewriter : PatternRewriter
   let some (_, cst) := matchOp srcOp rewriter.ctx (.riscv .li) 0 | return rewriter
   if cst.value.value < lo ∨ cst.value.value ≥ hi then return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) src sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 /-- `riscv.zextb (riscv.li v) -> riscv.li v` when `0 ≤ v < 2^8`. -/
 def zextb_li_low8 := ext_li_range .zextb 0 256
@@ -1809,7 +1809,7 @@ def truncate_of_sext (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some (x, _sp) := matchSext dS rewriter.ctx | return rewriter
   if (op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw != x.getType! rewriter.ctx.raw then return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) x sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 /-! ### zext_of_zext :  zext (zext x) → zext x -/
 
@@ -2019,7 +2019,7 @@ def funnel_shift_right_zero (rewriter: PatternRewriter OpCode) (op: OperationPtr
   let some c := matchConstantIntVal amt rewriter.ctx | return rewriter
   if c.value ≠ 0 then return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) y sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
 def funnel_shift_left_zero (rewriter: PatternRewriter OpCode) (op: OperationPtr)
@@ -2028,7 +2028,7 @@ def funnel_shift_left_zero (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some c := matchConstantIntVal amt rewriter.ctx | return rewriter
   if c.value ≠ 0 then return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) x sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 /-! ### canonicalize_icmp :  (icmp pred C, x) → (icmp swappedPred x, C)
 
@@ -2183,7 +2183,7 @@ def funnel_shift_or_shift_to_funnel_shift_left (rewriter: PatternRewriter OpCode
     some fshlV
   let some keep := (tryOrder o0 o1).orElse (fun _ => tryOrder o1 o0) | return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) keep sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
 def funnel_shift_or_shift_to_funnel_shift_right (rewriter: PatternRewriter OpCode) (op: OperationPtr)
@@ -2199,7 +2199,7 @@ def funnel_shift_or_shift_to_funnel_shift_right (rewriter: PatternRewriter OpCod
     some fshrV
   let some keep := (tryOrder o0 o1).orElse (fun _ => tryOrder o1 o0) | return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) keep sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  return rewriter.eraseOp op sorry sorry sorry
 
 /-! ### constant_fold_binop :  binop(C1, C2) → C
 
