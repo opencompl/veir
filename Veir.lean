@@ -12,6 +12,7 @@ import Veir.PatternRewriter.Basic
 import Veir.Fold.Semantics
 import Veir.Fold.Agree
 import Veir.Fold.Bridge
+import Veir.Fold.Materialize
 import Veir.Passes.RISCVCombines.Proofs
 import Veir.Benchmarks
 import Veir.Parser.Lexer
