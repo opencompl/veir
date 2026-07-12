@@ -491,8 +491,8 @@ theorem getOperands!.getElem_eq_getOperand! {op : OperationPtr} {h} :
   grind [getOperands!, getOperand!]
 
 def getOpOperands (op : OperationPtr) (ctx : IRContext OpInfo)
-  (inBounds : op.InBounds ctx := by grind) : Array OpOperandPtr :=
-  Array.map (fun i => op.getOpOperand i) (Array.range (op.getNumOperands ctx inBounds))
+    (inBounds : op.InBounds ctx := by grind) : Array OpOperandPtr :=
+  Array.map op.getOpOperand (Array.range (op.getNumOperands ctx inBounds))
 
 def getOpOperands! (op : OperationPtr) (ctx : IRContext OpInfo) : Array OpOperandPtr :=
   Array.map (fun i => op.getOpOperand i) (Array.range (op.getNumOperands! ctx))
