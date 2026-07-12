@@ -602,26 +602,56 @@ theorem Riscv.interpretOp'_monotone {operands operands' : Array RuntimeValue} :
 
 set_option warn.sorry false in
 /--
-`interpretOp'` is monotone in its operands, except for `llvm.store`, which is not monotone for a
-relation that requires the resulting memories to be equal (see `Llvm.interpretOp'_monotone`).
+`interpretOp'` is monotone in its operands, except for two opcodes that materialise poison into a
+representation that cannot hold it, and so are genuinely *not* monotone for this relation:
+
+* `llvm.store` writes poison into memory as an empoisoned byte range, while storing the concrete
+  value that refines it clears that poison mask, and the relation requires the resulting memories
+  to be *equal* (see `Llvm.interpretOp'_monotone`).
+* `builtin.unrealized_conversion_cast` from an integer to a register maps poison to the register
+  `0` (`LLVM.Int.toReg`), while the concrete value that refines it maps to a different register,
+  and refinement on registers is equality (registers cannot be poison).
 -/
 theorem interpretOp'_monotone
     (opType : OpCode) (properties : propertiesOf opType) (resultTypes : Array TypeAttr)
     (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr) (mem : MemoryState)
-    (notStore : opType ≠ .llvm .store) :
+    (notStore : opType ≠ .llvm .store)
+    (notCast : opType ≠ .builtin .unrealized_conversion_cast) :
     operands ⊒ operands' →
     Interp.isRefinedBy (α := Array RuntimeValue × MemoryState × Option ControlFlowAction)
       (fun r₁ r₂ => r₁.1 ⊒ r₂.1 ∧ r₁.2.1 = r₂.2.1 ∧
         ControlFlowAction.optionIsRefinedBy r₁.2.2 r₂.2.2)
       (interpretOp' opType properties resultTypes operands blockOperands mem)
       (interpretOp' opType properties resultTypes operands' blockOperands mem) := by
+  intro h
   cases opType
   case riscv =>
     simp only [interpretOp']
-    apply Riscv.interpretOp'_monotone
+    exact Riscv.interpretOp'_monotone h
   case llvm =>
     simp only [interpretOp']
-    exact Llvm.interpretOp'_monotone (by grind)
+    exact Llvm.interpretOp'_monotone (by grind) h
+  /- `rv64`, `riscv_stack` and `hw` ignore their operands entirely, so both sides interpret to the
+  very same result. -/
+  case rv64 op =>
+    cases op <;> simp only [interpretOp', Rv64.interpretOp'] <;>
+      apply interpretResult_isRefinedBy_refl
+  case riscv_stack op =>
+    cases op <;> simp only [interpretOp', Riscv_Stack.interpretOp'] <;>
+      apply interpretResult_isRefinedBy_refl
+  case hw op =>
+    cases op <;> simp only [interpretOp', HW.interpretOp'] <;>
+      apply interpretResult_isRefinedBy_refl
+  /- `func.return` hands its operands straight to the `return` action, which refines pointwise. -/
+  case func op =>
+    cases op
+    case «return» =>
+      simpa [interpretOp', Interp.isRefinedBy, pure, ControlFlowAction.optionIsRefinedBy,
+        ControlFlowAction.isRefinedBy] using h
+    all_goals simp [interpretOp', Interp.isRefinedBy]
+  /- The only `builtin` opcode that interprets is the (excluded) cast; the others fail. -/
+  case builtin op =>
+    cases op <;> simp_all [interpretOp', Interp.isRefinedBy]
   all_goals sorry
 
 set_option warn.sorry false in
