@@ -181,7 +181,7 @@ partial def initializeRecursively
     (irCtx : IRContext OpCode) : DataFlowContext := Id.run do
   let mut dfCtx := dfCtx
 
-  for region in (op.get! irCtx).regions do
+  for region in op.getRegions! irCtx do
     dfCtx := initializeRegion region dfCtx irCtx
 
     let mut currentBlock := (region.get! irCtx).firstBlock
