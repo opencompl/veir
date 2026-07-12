@@ -94,6 +94,8 @@ theorem interpretOp_monotone
     (hPreserves : mapping.PreservesOperation op op')
     (opVerif' : op'.Verified ctx' opIn')
     (notStore : op.getOpType! ctx.raw ≠ .llvm .store)
+    (notFreeze : op.getOpType! ctx.raw ≠ .llvm .freeze)
+    (notBitcast : op.getOpType! ctx.raw ≠ .llvm .bitcast)
     (notCast : op.getOpType! ctx.raw ≠ .builtin .unrealized_conversion_cast) :
     Interp.isRefinedBy
       (fun (r₁ : InterpreterState ctx × Option ControlFlowAction)
@@ -112,7 +114,8 @@ theorem interpretOp_monotone
   -- Add the refinement of `interpretOp'` on `op` with `operands` and `operands'`
   have hPR1 := interpretOp'_monotone (op.getOpType! ctx.raw)
     (op.getProperties! ctx.raw (op.getOpType! ctx.raw)) (op.getResultTypes! ctx.raw)
-    operands operands' (op.getSuccessors! ctx.raw) state.memory notStore notCast hOpsRef
+    operands operands' (op.getSuccessors! ctx.raw) state.memory notStore notFreeze notBitcast
+    notCast hOpsRef
   -- Add the equality between `interpretOp'` on `operands'`
   have hInterp'Eq : op'.interpret ctx'.raw operands' state'.memory =
                     op.interpret ctx.raw operands' state.memory := by
@@ -161,6 +164,8 @@ theorem interpretOpList_mono
     (hState : state.isRefinedBy state' mapping)
     (hPreserves : ∀ op, (h : op ∈ ops) → mapping.PreservesOperation op op)
     (notStore : ∀ op, op ∈ ops → op.getOpType! ctx.raw ≠ .llvm .store)
+    (notFreeze : ∀ op, op ∈ ops → op.getOpType! ctx.raw ≠ .llvm .freeze)
+    (notBitcast : ∀ op, op ∈ ops → op.getOpType! ctx.raw ≠ .llvm .bitcast)
     (notCast : ∀ op, op ∈ ops → op.getOpType! ctx.raw ≠ .builtin .unrealized_conversion_cast) :
     Interp.isRefinedBy
       (fun (r₁ : InterpreterState ctx × Option ControlFlowAction)
@@ -172,7 +177,8 @@ theorem interpretOpList_mono
   | cons a l ih =>
     /- Refinement of the state after interpreting the head operation `a`. -/
     have refinesHead := interpretOp_monotone (opsInBounds a (by grind)) (opsInBounds' a (by grind))
-      hState (hPreserves a (by grind)) (by grind) (notStore a (by grind)) (notCast a (by grind))
+      hState (hPreserves a (by grind)) (by grind) (notStore a (by grind)) (notFreeze a (by grind))
+      (notBitcast a (by grind)) (notCast a (by grind))
     simp only [interpretOpList_cons]
     /- Case analysis on the interpretation of the head operation `a` in the source. -/
     rcases hsrc : interpretOp a state (opsInBounds a (by grind)) with _ | (⟨s, act⟩ | _)
@@ -191,7 +197,7 @@ theorem interpretOpList_mono
         have hact' : act' = none := by grind [ControlFlowAction.optionIsRefinedBy]
         subst hact'
         simp only
-        apply ih (by grind) (by grind) hsRef (by grind) (by grind) (by grind)
+        apply ih (by grind) (by grind) hsRef (by grind) (by grind) (by grind) (by grind) (by grind)
       case some cf =>
         simp [ControlFlowAction.optionIsRefinedBy] at hactRef
         /- A control-flow action: the list stops here for both the source and the target. -/
@@ -214,6 +220,8 @@ theorem interpretTerminatedOpList_mono
     (hState : state.isRefinedBy state' mapping)
     (hFrame : ∀ op, (h : op ∈ ops) → mapping.PreservesOperation op op)
     (notStore : ∀ op, op ∈ ops → op.getOpType! ctx.raw ≠ .llvm .store)
+    (notFreeze : ∀ op, op ∈ ops → op.getOpType! ctx.raw ≠ .llvm .freeze)
+    (notBitcast : ∀ op, op ∈ ops → op.getOpType! ctx.raw ≠ .llvm .bitcast)
     (notCast : ∀ op, op ∈ ops → op.getOpType! ctx.raw ≠ .builtin .unrealized_conversion_cast) :
     Interp.isRefinedBy
       (fun (r₁ : InterpreterState ctx × ControlFlowAction)
@@ -221,7 +229,7 @@ theorem interpretTerminatedOpList_mono
         r₁.1.isRefinedBy r₂.1 mapping ∧ r₁.2.isRefinedBy r₂.2)
       (interpretTerminatedOpList ops state) (interpretTerminatedOpList ops state') := by
   have hList := interpretOpList_mono ctx'Verif opsInBounds opsInBounds' hState hFrame notStore
-    notCast
+    notFreeze notBitcast notCast
   simp only [interpretTerminatedOpList, bind]
   rcases hsrc : interpretOpList ops state (by grind) with _ | (⟨s, act⟩ | _)
   · simp [Interp.isRefinedBy]

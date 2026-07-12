@@ -620,25 +620,6 @@ theorem RuntimeValue.arrayIsRefinedBy_getElem? {a b : Array RuntimeValue} (h : a
   have := helem i hia
   rwa [getElem!_pos a _ hia, getElem!_pos b _ hib, hveq] at this
 
-set_option warn.sorry false in
-/--
-`Llvm.interpretOp'` is monotone in its operands, except for `llvm.store`.
-
-`llvm.store` is genuinely *not* monotone for this relation, which requires the resulting memories
-to be *equal*: storing a poison value empoisons the target bytes (`MemoryState.empoison`), while
-storing the concrete value that refines it writes those bytes and clears their poison mask
-(`MemoryState.store`). Both stores succeed, but the two memories differ, so the relation fails.
-Monotonicity of `llvm.store` would need the resulting memories to be related by
-`MemoryState.isRefinedBy` rather than by equality.
--/
-theorem Llvm.interpretOp'_monotone {operands operands' : Array RuntimeValue}
-    (notStore : opType ≠ Llvm.store) :
-    operands ⊒ operands' →
-    Interp.isRefinedBy InterpretResultIsRefinedBy
-      (Llvm.interpretOp' opType properties resultTypes operands blockOperands mem)
-      (Llvm.interpretOp' opType properties resultTypes operands' blockOperands mem) := by
-  sorry
-
 /--
 `Riscv.interpretOp'` is monotone in its operands.
 
@@ -1335,15 +1316,833 @@ theorem Comb.interpretOp'_monotone
 
 end MemFreeMonotone
 
+section LlvmMonotone
 
-set_option warn.sorry false in
+open Veir.Data
+
+/-! ### Data-level monotonicity of the `LLVM.Int` intrinsics
+
+`Veir/Data/LLVM/Int/Bitblast.lean` already proves monotonicity of the arithmetic, bitwise, cast,
+comparison and selection operations. The intrinsics below are the remaining `LLVM.Int` functions
+used by `Llvm.interpretOp'`; each is monotone for the same reason (poison propagates, and on
+poison-free inputs refinement is equality), and `grind` closes them from the registered
+`isPoison_*`/`getValue_*` equations.
+-/
+
+private theorem int_fshl_mono {w : Nat} (a₁ b₁ c₁ a₂ b₂ c₂ : LLVM.Int w)
+    (ha : a₁ ⊒ a₂) (hb : b₁ ⊒ b₂) (hc : c₁ ⊒ c₂) :
+    LLVM.Int.fshl a₁ b₁ c₁ ⊒ LLVM.Int.fshl a₂ b₂ c₂ := by
+  grind
+
+private theorem int_fshr_mono {w : Nat} (a₁ b₁ c₁ a₂ b₂ c₂ : LLVM.Int w)
+    (ha : a₁ ⊒ a₂) (hb : b₁ ⊒ b₂) (hc : c₁ ⊒ c₂) :
+    LLVM.Int.fshr a₁ b₁ c₁ ⊒ LLVM.Int.fshr a₂ b₂ c₂ := by
+  grind
+
+private theorem int_ctlz_mono {w : Nat} (x₁ x₂ : LLVM.Int w) (isZeroPoison : Bool)
+    (h : x₁ ⊒ x₂) : LLVM.Int.ctlz x₁ isZeroPoison ⊒ LLVM.Int.ctlz x₂ isZeroPoison := by
+  grind
+
+private theorem int_cttz_mono {w : Nat} (x₁ x₂ : LLVM.Int w) (isZeroPoison : Bool)
+    (h : x₁ ⊒ x₂) : LLVM.Int.cttz x₁ isZeroPoison ⊒ LLVM.Int.cttz x₂ isZeroPoison := by
+  grind
+
+private theorem int_ctpop_mono {w : Nat} (x₁ x₂ : LLVM.Int w) (h : x₁ ⊒ x₂) :
+    LLVM.Int.ctpop x₁ ⊒ LLVM.Int.ctpop x₂ := by
+  grind
+
+/-- `bswap` has no width-generic `getValue` equation, so we argue by cases on the source instead:
+poison propagates, and a concrete source is refined only by itself. -/
+private theorem int_bswap_mono {w : Nat} (x₁ x₂ : LLVM.Int w) (h : x₁ ⊒ x₂) :
+    LLVM.Int.bswap x₁ ⊒ LLVM.Int.bswap x₂ := by
+  cases x₁ with
+  | poison => grind
+  | val v => rw [int_eq_of_val_isRefinedBy h]; grind
+
+private theorem int_bitreverse_mono {w : Nat} (x₁ x₂ : LLVM.Int w) (h : x₁ ⊒ x₂) :
+    LLVM.Int.bitreverse x₁ ⊒ LLVM.Int.bitreverse x₂ := by
+  grind
+
+private theorem int_smax_mono {w : Nat} (x₁ y₁ x₂ y₂ : LLVM.Int w)
+    (hx : x₁ ⊒ x₂) (hy : y₁ ⊒ y₂) : LLVM.Int.smax x₁ y₁ ⊒ LLVM.Int.smax x₂ y₂ := by
+  grind
+
+private theorem int_smin_mono {w : Nat} (x₁ y₁ x₂ y₂ : LLVM.Int w)
+    (hx : x₁ ⊒ x₂) (hy : y₁ ⊒ y₂) : LLVM.Int.smin x₁ y₁ ⊒ LLVM.Int.smin x₂ y₂ := by
+  grind
+
+private theorem int_umax_mono {w : Nat} (x₁ y₁ x₂ y₂ : LLVM.Int w)
+    (hx : x₁ ⊒ x₂) (hy : y₁ ⊒ y₂) : LLVM.Int.umax x₁ y₁ ⊒ LLVM.Int.umax x₂ y₂ := by
+  grind
+
+private theorem int_umin_mono {w : Nat} (x₁ y₁ x₂ y₂ : LLVM.Int w)
+    (hx : x₁ ⊒ x₂) (hy : y₁ ⊒ y₂) : LLVM.Int.umin x₁ y₁ ⊒ LLVM.Int.umin x₂ y₂ := by
+  grind
+
+private theorem int_abs_mono {w : Nat} (x₁ x₂ : LLVM.Int w) (isIntMinPoison : Bool)
+    (h : x₁ ⊒ x₂) : LLVM.Int.abs x₁ isIntMinPoison ⊒ LLVM.Int.abs x₂ isIntMinPoison := by
+  grind
+
+private theorem int_saddSat_mono {w : Nat} (x₁ y₁ x₂ y₂ : LLVM.Int w)
+    (hx : x₁ ⊒ x₂) (hy : y₁ ⊒ y₂) : LLVM.Int.saddSat x₁ y₁ ⊒ LLVM.Int.saddSat x₂ y₂ := by
+  grind
+
+private theorem int_uaddSat_mono {w : Nat} (x₁ y₁ x₂ y₂ : LLVM.Int w)
+    (hx : x₁ ⊒ x₂) (hy : y₁ ⊒ y₂) : LLVM.Int.uaddSat x₁ y₁ ⊒ LLVM.Int.uaddSat x₂ y₂ := by
+  grind
+
+private theorem int_ssubSat_mono {w : Nat} (x₁ y₁ x₂ y₂ : LLVM.Int w)
+    (hx : x₁ ⊒ x₂) (hy : y₁ ⊒ y₂) : LLVM.Int.ssubSat x₁ y₁ ⊒ LLVM.Int.ssubSat x₂ y₂ := by
+  grind
+
+private theorem int_usubSat_mono {w : Nat} (x₁ y₁ x₂ y₂ : LLVM.Int w)
+    (hx : x₁ ⊒ x₂) (hy : y₁ ⊒ y₂) : LLVM.Int.usubSat x₁ y₁ ⊒ LLVM.Int.usubSat x₂ y₂ := by
+  grind
+
+private theorem int_sshlSat_mono {w : Nat} (x₁ y₁ x₂ y₂ : LLVM.Int w)
+    (hx : x₁ ⊒ x₂) (hy : y₁ ⊒ y₂) : LLVM.Int.sshlSat x₁ y₁ ⊒ LLVM.Int.sshlSat x₂ y₂ := by
+  grind
+
+private theorem int_ushlSat_mono {w : Nat} (x₁ y₁ x₂ y₂ : LLVM.Int w)
+    (hx : x₁ ⊒ x₂) (hy : y₁ ⊒ y₂) : LLVM.Int.ushlSat x₁ y₁ ⊒ LLVM.Int.ushlSat x₂ y₂ := by
+  grind
+
+/-! ### Data-level monotonicity of the `LLVM.Byte` operations
+
+`llvm.shl`, `llvm.lshr` and `llvm.trunc` also accept a *byte* operand, whose refinement is
+bit-wise (`LLVM.Byte.isRefinedBy`). There are no monotonicity lemmas for `LLVM.Byte` yet, so we
+prove the three we need here, working bit by bit.
+-/
+
+/-- Bit-wise characterisation of byte refinement: at every bit, either the source bit is poison,
+or the value bits agree and the target bit is not poison. -/
+private theorem byte_isRefinedBy_iff {w : Nat} (x y : LLVM.Byte w) :
+    x ⊒ y ↔ ∀ i, i < w →
+      (x.poison.getLsbD i = true ∨
+        (x.val.getLsbD i = y.val.getLsbD i ∧ y.poison.getLsbD i = false)) := by
+  simp only [LLVM.Byte.isRefinedBy, BitVec.eq_of_getLsbD_eq_iff, BitVec.getLsbD_or,
+    BitVec.getLsbD_and, BitVec.getLsbD_xor, BitVec.getLsbD_not, BitVec.getLsbD_allOnes]
+  constructor
+  · intro h i hi
+    have hbit := h i hi
+    revert hbit
+    simp only [hi, decide_true, Bool.true_and]
+    cases x.poison.getLsbD i <;> cases x.val.getLsbD i <;> cases y.val.getLsbD i <;>
+      cases y.poison.getLsbD i <;> simp
+  · intro h i hi
+    have hbit := h i hi
+    revert hbit
+    simp only [hi, decide_true, Bool.true_and]
+    cases x.poison.getLsbD i <;> cases x.val.getLsbD i <;> cases y.val.getLsbD i <;>
+      cases y.poison.getLsbD i <;> simp
+
+/-- The all-poison byte refines every byte. -/
+private theorem byte_allPoison_isRefinedBy {w : Nat} (y : LLVM.Byte w) :
+    LLVM.Byte.allPoison ⊒ y := by
+  rw [byte_isRefinedBy_iff]
+  intro i hi
+  simp [LLVM.Byte.allPoison, hi]
+
+/-- Shifting left and back right is the identity exactly when the bits shifted out are zero. -/
+private theorem bv_shiftLeft_ushiftRight_eq_self_iff {w : Nat} (v : BitVec w) (n : Nat) :
+    (v <<< n) >>> n = v ↔ ∀ i, i < w → w ≤ i + n → v.getLsbD i = false := by
+  rw [BitVec.eq_of_getLsbD_eq_iff]
+  simp only [BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft, Nat.add_sub_cancel_left]
+  constructor
+  · intro h i hi hw
+    have := h i hi
+    simp only [Nat.not_lt.mpr (by omega : w ≤ n + i), decide_false, Bool.false_and] at this
+    grind
+  · intro h i hi
+    by_cases hw : n + i < w
+    · simp [hw]
+    · simp only [hw, decide_false, Bool.false_and]
+      exact (h i hi (by omega)).symm
+
+/-- Shifting right and back left is the identity exactly when the bits shifted out are zero. -/
+private theorem bv_ushiftRight_shiftLeft_eq_self_iff {w : Nat} (v : BitVec w) (n : Nat) :
+    (v >>> n) <<< n = v ↔ ∀ i, i < n → v.getLsbD i = false := by
+  rw [BitVec.eq_of_getLsbD_eq_iff]
+  simp only [BitVec.getLsbD_shiftLeft, BitVec.getLsbD_ushiftRight]
+  constructor
+  · intro h i hi
+    by_cases hiw : i < w
+    · have := h i hiw
+      simp only [hiw, decide_true, Bool.true_and, hi, decide_true, Bool.not_true,
+        Bool.false_and] at this
+      exact this.symm
+    · exact BitVec.getLsbD_of_ge v i (by omega)
+  · intro h i hi
+    by_cases hin : i < n
+    · simp only [hi, decide_true, Bool.true_and, hin, decide_true, Bool.not_true, Bool.false_and]
+      exact (h i hin).symm
+    · simp only [hi, decide_true, Bool.true_and, hin, decide_false, Bool.not_false,
+        Bool.true_and]
+      congr 1
+      omega
+
+/-- Shifting both the value and the poison mask left preserves byte refinement. -/
+private theorem byte_shiftLeft_isRefinedBy {w : Nat} {x y : LLVM.Byte w} (h : x ⊒ y)
+    (s : BitVec w) (hx : (x.val <<< s) &&& (x.poison <<< s) = 0)
+    (hy : (y.val <<< s) &&& (y.poison <<< s) = 0) :
+    (⟨x.val <<< s, x.poison <<< s, hx⟩ : LLVM.Byte w) ⊒
+      ⟨y.val <<< s, y.poison <<< s, hy⟩ := by
+  rw [byte_isRefinedBy_iff] at h ⊢
+  intro i hi
+  simp only [BitVec.shiftLeft_eq', BitVec.getLsbD_shiftLeft, hi, decide_true, Bool.true_and]
+  by_cases hlt : i < s.toNat
+  · simp [hlt]
+  · simp only [hlt, decide_false, Bool.not_false, Bool.true_and]
+    exact h (i - s.toNat) (by omega)
+
+/-- Shifting both the value and the poison mask right preserves byte refinement. -/
+private theorem byte_ushiftRight_isRefinedBy {w : Nat} {x y : LLVM.Byte w} (h : x ⊒ y)
+    (s : BitVec w) (hx : (x.val >>> s) &&& (x.poison >>> s) = 0)
+    (hy : (y.val >>> s) &&& (y.poison >>> s) = 0) :
+    (⟨x.val >>> s, x.poison >>> s, hx⟩ : LLVM.Byte w) ⊒
+      ⟨y.val >>> s, y.poison >>> s, hy⟩ := by
+  rw [byte_isRefinedBy_iff] at h ⊢
+  intro i hi
+  simp only [BitVec.ushiftRight_eq', BitVec.getLsbD_ushiftRight]
+  by_cases hlt : s.toNat + i < w
+  · exact h (s.toNat + i) hlt
+  · right
+    exact ⟨by rw [BitVec.getLsbD_of_ge _ _ (by omega), BitVec.getLsbD_of_ge _ _ (by omega)],
+      BitVec.getLsbD_of_ge _ _ (by omega)⟩
+
+/-- If the source byte loses no bit when shifted left (the `nuw` check of `LLVM.Byte.shl`), then
+neither does a byte refining it: the bits shifted out are concrete zeros in the source, hence also
+in the target. -/
+private theorem byte_shl_noWrap_of_isRefinedBy {w : Nat} {x y : LLVM.Byte w} (h : x ⊒ y)
+    (s : BitVec w) (hv : (x.val <<< s) >>> s = x.val)
+    (hp : (x.poison <<< s) >>> s = x.poison) :
+    (y.val <<< s) >>> s = y.val ∧ (y.poison <<< s) >>> s = y.poison := by
+  rw [byte_isRefinedBy_iff] at h
+  rw [BitVec.shiftLeft_eq', BitVec.ushiftRight_eq'] at hv hp
+  rw [bv_shiftLeft_ushiftRight_eq_self_iff] at hv hp
+  constructor <;>
+    · rw [BitVec.shiftLeft_eq', BitVec.ushiftRight_eq', bv_shiftLeft_ushiftRight_eq_self_iff]
+      intro i hi hw
+      rcases h i hi with hpoison | ⟨hval, hypoison⟩
+      · simp [hp i hi hw] at hpoison
+      · first
+          | (rw [← hval]; exact hv i hi hw)
+          | exact hypoison
+
+/-- If the source byte loses no bit when shifted right (the `exact` check of `LLVM.Byte.lshr`),
+then neither does a byte refining it. -/
+private theorem byte_lshr_exact_of_isRefinedBy {w : Nat} {x y : LLVM.Byte w} (h : x ⊒ y)
+    (s : BitVec w) (hv : (x.val >>> s) <<< s = x.val)
+    (hp : (x.poison >>> s) <<< s = x.poison) :
+    (y.val >>> s) <<< s = y.val ∧ (y.poison >>> s) <<< s = y.poison := by
+  rw [byte_isRefinedBy_iff] at h
+  rw [BitVec.shiftLeft_eq', BitVec.ushiftRight_eq'] at hv hp
+  rw [bv_ushiftRight_shiftLeft_eq_self_iff] at hv hp
+  constructor <;>
+    · rw [BitVec.shiftLeft_eq', BitVec.ushiftRight_eq', bv_ushiftRight_shiftLeft_eq_self_iff]
+      intro i hi
+      by_cases hiw : i < w
+      · rcases h i hiw with hpoison | ⟨hval, hypoison⟩
+        · simp [hp i hi] at hpoison
+        · first
+            | (rw [← hval]; exact hv i hi)
+            | exact hypoison
+      · exact BitVec.getLsbD_of_ge _ _ (by omega)
+
+/-- `LLVM.Byte.shl` as a conditional chain: unlike `LLVM.Byte.lshr` it is written as a `do`-block,
+which is awkward to case-split on directly. -/
+private theorem byte_shl_eq {w : Nat} (x : LLVM.Byte w) (y : LLVM.Int w) (nuw : Bool) :
+    LLVM.Byte.shl x y nuw =
+      if y.isPoison || y.getValueD ≥ w then LLVM.Byte.allPoison
+      else if nuw ∧ (x.val <<< y.getValueD) >>> y.getValueD ≠ x.val then LLVM.Byte.allPoison
+      else if nuw ∧ (x.poison <<< y.getValueD) >>> y.getValueD ≠ x.poison then LLVM.Byte.allPoison
+      else ⟨x.val <<< y.getValueD, x.poison <<< y.getValueD, by
+        simp [← BitVec.shiftLeft_and_distrib, x.h]⟩ := by
+  cases y with
+  | poison => simp [LLVM.Byte.shl, Id.run, LLVM.Int.isPoison_of_poison]
+  | val y' =>
+    simp only [LLVM.Byte.shl, Id.run, LLVM.Int.isPoison_of_val, LLVM.Int.getValueD_val,
+      Bool.false_or, decide_eq_true_eq]
+    repeat' split
+    all_goals first | rfl | simp_all | (exfalso; bv_omega)
+
+/-- `LLVM.Byte.shl` is monotone in both of its operands. -/
+private theorem byte_shl_mono {w : Nat} (x y : LLVM.Byte w) (a b : LLVM.Int w) (nuw : Bool)
+    (hxy : x ⊒ y) (hab : a ⊒ b) :
+    LLVM.Byte.shl x a nuw ⊒ LLVM.Byte.shl y b nuw := by
+  cases a with
+  | poison =>
+    rw [byte_shl_eq]
+    simp only [LLVM.Int.isPoison_of_poison, Bool.true_or, if_true]
+    exact byte_allPoison_isRefinedBy _
+  | val s =>
+    rw [int_eq_of_val_isRefinedBy hab, byte_shl_eq, byte_shl_eq]
+    simp only [LLVM.Int.isPoison_of_val, LLVM.Int.getValueD_val, Bool.false_or]
+    split
+    · exact byte_allPoison_isRefinedBy _
+    · by_cases hnuw : nuw = true
+      · subst hnuw
+        split
+        · exact byte_allPoison_isRefinedBy _
+        · next hv =>
+          split
+          · exact byte_allPoison_isRefinedBy _
+          · next hp =>
+            have hv' : (x.val <<< s) >>> s = x.val := by simpa using hv
+            have hp' : (x.poison <<< s) >>> s = x.poison := by simpa using hp
+            obtain ⟨hvy, hpy⟩ := byte_shl_noWrap_of_isRefinedBy hxy s hv' hp'
+            rw [if_neg (by simpa using hvy), if_neg (by simpa using hpy)]
+            exact byte_shiftLeft_isRefinedBy hxy s _ _
+      · simp only [Bool.not_eq_true] at hnuw
+        subst hnuw
+        simp only [Bool.false_eq_true, false_and, if_false]
+        exact byte_shiftLeft_isRefinedBy hxy s _ _
+
+/-- `LLVM.Byte.lshr` is monotone in both of its operands. -/
+private theorem byte_lshr_mono {w : Nat} (x y : LLVM.Byte w) (a b : LLVM.Int w) (exact : Bool)
+    (hxy : x ⊒ y) (hab : a ⊒ b) :
+    LLVM.Byte.lshr x a exact ⊒ LLVM.Byte.lshr y b exact := by
+  cases a with
+  | poison =>
+    simp only [LLVM.Byte.lshr, LLVM.Int.isPoison_of_poison, Bool.true_or, if_true]
+    exact byte_allPoison_isRefinedBy _
+  | val s =>
+    rw [int_eq_of_val_isRefinedBy hab]
+    simp only [LLVM.Byte.lshr, LLVM.Int.isPoison_of_val, LLVM.Int.getValueD_val, Bool.false_or]
+    split
+    · exact byte_allPoison_isRefinedBy _
+    · by_cases hexact : exact = true
+      · subst hexact
+        split
+        · exact byte_allPoison_isRefinedBy _
+        · next hv =>
+          split
+          · exact byte_allPoison_isRefinedBy _
+          · next hp =>
+            have hv' : (x.val >>> s) <<< s = x.val := by simpa using hv
+            have hp' : (x.poison >>> s) <<< s = x.poison := by simpa using hp
+            obtain ⟨hvy, hpy⟩ := byte_lshr_exact_of_isRefinedBy hxy s hv' hp'
+            rw [if_neg (by simpa using hvy), if_neg (by simpa using hpy)]
+            exact byte_ushiftRight_isRefinedBy hxy s _ _
+      · simp only [Bool.not_eq_true] at hexact
+        subst hexact
+        simp only [Bool.false_eq_true, false_and, if_false]
+        exact byte_ushiftRight_isRefinedBy hxy s _ _
+
+/-- `LLVM.Byte.trunc` is monotone. -/
+private theorem byte_trunc_mono {w w' : Nat} (x y : LLVM.Byte w) (h : x ⊒ y) :
+    LLVM.Byte.trunc x w' ⊒ LLVM.Byte.trunc y w' := by
+  rw [byte_isRefinedBy_iff] at h ⊢
+  intro i hi
+  simp only [LLVM.Byte.trunc, BitVec.getLsbD_setWidth, hi, decide_true, Bool.true_and]
+  by_cases hiw : i < w
+  · exact h i hiw
+  · right
+    exact ⟨by rw [BitVec.getLsbD_of_ge _ _ (by omega), BitVec.getLsbD_of_ge _ _ (by omega)],
+      BitVec.getLsbD_of_ge _ _ (by omega)⟩
+
+/-! ### Monotonicity of the `llvm` dialect interpreter -/
+
+/-- Two single-integer-result interpretations refine each other as soon as the integers do. -/
+private theorem interp_llvm_int_isRefinedBy {bw : Nat} {v v' : LLVM.Int bw} (mem : MemoryState) :
+    v ⊒ v' →
+    Interp.isRefinedBy InterpretResultIsRefinedBy
+      (pure (#[RuntimeValue.int bw v], mem, none))
+      (pure (#[RuntimeValue.int bw v'], mem, none)) := by
+  intro hv
+  refine ⟨?_, rfl, trivial⟩
+  simp only [RuntimeValue.arrayIsRefinedBy_singleton]
+  exact ⟨rfl, by simpa using hv⟩
+
+/-- Two single-byte-result interpretations refine each other as soon as the bytes do. -/
+private theorem interp_llvm_byte_isRefinedBy {bw : Nat} {v v' : LLVM.Byte bw} (mem : MemoryState) :
+    v ⊒ v' →
+    Interp.isRefinedBy InterpretResultIsRefinedBy
+      (pure (#[RuntimeValue.byte bw v], mem, none))
+      (pure (#[RuntimeValue.byte bw v'], mem, none)) := by
+  intro hv
+  refine ⟨?_, rfl, trivial⟩
+  simp only [RuntimeValue.arrayIsRefinedBy_singleton]
+  exact ⟨rfl, by simpa using hv⟩
+
 /--
-`interpretOp'` is monotone in its operands, except for two opcodes that materialise poison into a
+`Llvm.interpretOp'` is monotone in its operands, except for three opcodes that *materialise poison
+into a representation that cannot hold it*, and so are genuinely **not** monotone for this
+relation:
+
+* `llvm.store` writes poison to memory as an empoisoned byte range (`MemoryState.empoison`), while
+  storing the concrete value that refines the poison writes those bytes and *clears* their poison
+  mask (`MemoryState.store`). Both stores succeed, but the resulting memories differ, and the
+  relation demands that they be equal.
+* `llvm.freeze` turns poison into a fixed concrete value: `LLVM.Int.freeze poison = 0`, while
+  freezing the concrete value `1` that refines poison yields `1`, and `0 ⊒ 1` is false (a concrete
+  integer is refined only by itself). The same happens for byte operands, whose poison mask
+  `freeze` clears while keeping the value bits.
+* `llvm.bitcast` of a *byte* to a *pointer* goes through `LLVM.Byte.toUInt64`, which maps a byte
+  with any poison bit to the address `0`, while the concrete byte `1` that refines it maps to the
+  address `1`; addresses carry no poison, so refinement on them is equality.
+
+Every other opcode is monotone: the arithmetic, bitwise, comparison, selection and intrinsic
+opcodes are pure functions of their operands computed with monotone data-level operations; the
+division and remainder opcodes are UB in the source exactly when the target could misbehave; and
+the memory and control-flow opcodes either read only poison-free operands (addresses, concrete
+integers) or raise UB on a poison operand (`llvm.cond_br`, `llvm.getelementptr`).
+-/
+theorem Llvm.interpretOp'_monotone {operands operands' : Array RuntimeValue}
+    (notStore : opType ≠ Llvm.store) (notFreeze : opType ≠ Llvm.freeze)
+    (notBitcast : opType ≠ Llvm.bitcast) :
+    operands ⊒ operands' →
+    Interp.isRefinedBy InterpretResultIsRefinedBy
+      (Llvm.interpretOp' opType properties resultTypes operands blockOperands mem)
+      (Llvm.interpretOp' opType properties resultTypes operands' blockOperands mem) := by
+  intro h
+  cases opType
+  /- The three genuinely non-monotone opcodes are excluded by hypothesis. -/
+  case store => exact absurd rfl notStore
+  case freeze => exact absurd rfl notFreeze
+  case bitcast => exact absurd rfl notBitcast
+  /- `llvm.mlir.constant` and `llvm.mlir.poison` do not read their operands. -/
+  case mlir__constant | mlir__poison =>
+    all_goals
+      simp only [Llvm.interpretOp']
+      exact interpretResult_isRefinedBy_refl _
+  /- `llvm.unreachable` is UB, which is refined by anything. -/
+  case unreachable => exact Interp.isRefinedBy_ub_target
+  /- The binary integer opcodes: their data-level operation is monotone. -/
+  case add | sub | mul | ashr | and | or | xor =>
+    all_goals
+      simp only [Llvm.interpretOp']
+      split
+      · next bw lhs bw' rhs heq =>
+        obtain ⟨_, _, heq', hx, hy⟩ := arrayIsRefinedBy_toList_two h heq
+        obtain ⟨lhs', rfl, hl⟩ := RuntimeValue.int_of_isRefinedBy hx
+        obtain ⟨rhs', rfl, hr⟩ := RuntimeValue.int_of_isRefinedBy hy
+        rw [heq']
+        dsimp only
+        split
+        · exact Interp.isRefinedBy_none_target
+        · next hbw =>
+          have hbw' : bw' = bw := by omega
+          subst hbw'
+          simp only [LLVM.Int.cast_self]
+          exact interp_llvm_int_isRefinedBy mem (by grind)
+      · exact Interp.isRefinedBy_none_target
+  /- The binary integer intrinsics, closed with the data-level lemmas proved above. -/
+  case intr__smax | intr__smin | intr__umax | intr__umin | intr__sadd__sat | intr__uadd__sat
+      | intr__ssub__sat | intr__usub__sat | intr__sshl__sat | intr__ushl__sat =>
+    all_goals
+      simp only [Llvm.interpretOp']
+      split
+      · next bw lhs bw' rhs heq =>
+        obtain ⟨_, _, heq', hx, hy⟩ := arrayIsRefinedBy_toList_two h heq
+        obtain ⟨lhs', rfl, hl⟩ := RuntimeValue.int_of_isRefinedBy hx
+        obtain ⟨rhs', rfl, hr⟩ := RuntimeValue.int_of_isRefinedBy hy
+        rw [heq']
+        dsimp only
+        split
+        · exact Interp.isRefinedBy_none_target
+        · next hbw =>
+          have hbw' : bw' = bw := by omega
+          subst hbw'
+          simp only [LLVM.Int.cast_self]
+          refine interp_llvm_int_isRefinedBy mem ?_
+          first
+            | exact int_smax_mono _ _ _ _ hl hr
+            | exact int_smin_mono _ _ _ _ hl hr
+            | exact int_umax_mono _ _ _ _ hl hr
+            | exact int_umin_mono _ _ _ _ hl hr
+            | exact int_saddSat_mono _ _ _ _ hl hr
+            | exact int_uaddSat_mono _ _ _ _ hl hr
+            | exact int_ssubSat_mono _ _ _ _ hl hr
+            | exact int_usubSat_mono _ _ _ _ hl hr
+            | exact int_sshlSat_mono _ _ _ _ hl hr
+            | exact int_ushlSat_mono _ _ _ _ hl hr
+      · exact Interp.isRefinedBy_none_target
+  /- `llvm.icmp`: two integer operands and a one-bit result. -/
+  case icmp =>
+    simp only [Llvm.interpretOp']
+    split
+    · next bw lhs bw' rhs heq =>
+      obtain ⟨_, _, heq', hx, hy⟩ := arrayIsRefinedBy_toList_two h heq
+      obtain ⟨lhs', rfl, hl⟩ := RuntimeValue.int_of_isRefinedBy hx
+      obtain ⟨rhs', rfl, hr⟩ := RuntimeValue.int_of_isRefinedBy hy
+      rw [heq']
+      dsimp only
+      split
+      · exact Interp.isRefinedBy_none_target
+      · next hbw =>
+        have hbw' : bw' = bw := by omega
+        subst hbw'
+        simp only [LLVM.Int.cast_self]
+        exact interp_llvm_int_isRefinedBy mem (by grind)
+    · exact Interp.isRefinedBy_none_target
+  /- The unary integer intrinsics. -/
+  case intr__ctlz | intr__cttz | intr__ctpop | intr__bswap | intr__bitreverse | intr__abs =>
+    all_goals
+      simp only [Llvm.interpretOp']
+      split
+      · next bw x heq =>
+        obtain ⟨_, heq', hx⟩ := arrayIsRefinedBy_toList_one h heq
+        obtain ⟨x', rfl, hxx⟩ := RuntimeValue.int_of_isRefinedBy hx
+        rw [heq']
+        dsimp only
+        refine interp_llvm_int_isRefinedBy mem ?_
+        first
+          | exact int_ctlz_mono _ _ _ hxx
+          | exact int_cttz_mono _ _ _ hxx
+          | exact int_ctpop_mono _ _ hxx
+          | exact int_bswap_mono _ _ hxx
+          | exact int_bitreverse_mono _ _ hxx
+          | exact int_abs_mono _ _ _ hxx
+      · exact Interp.isRefinedBy_none_target
+  /- The unsigned division/remainder opcodes: a poison or zero divisor is UB in the source. -/
+  case udiv | urem =>
+    all_goals
+      simp only [Llvm.interpretOp']
+      split
+      · next bw lhs bw' rhs heq =>
+        obtain ⟨_, _, heq', hx, hy⟩ := arrayIsRefinedBy_toList_two h heq
+        obtain ⟨lhs', rfl, hl⟩ := RuntimeValue.int_of_isRefinedBy hx
+        obtain ⟨rhs', rfl, hr⟩ := RuntimeValue.int_of_isRefinedBy hy
+        rw [heq']
+        dsimp only
+        split
+        · exact Interp.isRefinedBy_none_target
+        · next hbw =>
+          have hbw' : bw' = bw := by omega
+          subst hbw'
+          simp only [LLVM.Int.cast_self]
+          cases hrhs : rhs with
+          | poison => exact Interp.isRefinedBy_ub_target
+          | val v' =>
+            rw [hrhs] at hr
+            rw [int_eq_of_val_isRefinedBy hr]
+            dsimp only
+            split
+            · exact Interp.isRefinedBy_ub_target
+            · exact interp_llvm_int_isRefinedBy mem (by grind)
+      · exact Interp.isRefinedBy_none_target
+  /- The signed division/remainder opcodes: additionally, the overflowing `intMin / -1` is UB. -/
+  case sdiv | srem =>
+    all_goals
+      simp only [Llvm.interpretOp']
+      split
+      · next bw lhs bw' rhs heq =>
+        obtain ⟨_, _, heq', hx, hy⟩ := arrayIsRefinedBy_toList_two h heq
+        obtain ⟨lhs', rfl, hl⟩ := RuntimeValue.int_of_isRefinedBy hx
+        obtain ⟨rhs', rfl, hr⟩ := RuntimeValue.int_of_isRefinedBy hy
+        rw [heq']
+        dsimp only
+        split
+        · exact Interp.isRefinedBy_none_target
+        · next hbw =>
+          have hbw' : bw' = bw := by omega
+          subst hbw'
+          simp only [LLVM.Int.cast_self]
+          cases hrhs : rhs with
+          | poison => exact Interp.isRefinedBy_ub_target
+          | val v' =>
+            rw [hrhs] at hr
+            rw [int_eq_of_val_isRefinedBy hr]
+            dsimp only
+            split
+            · exact Interp.isRefinedBy_ub_target
+            · split
+              · cases hlhs : lhs with
+                | poison => exact Interp.isRefinedBy_ub_target
+                | val v =>
+                  rw [hlhs] at hl
+                  rw [int_eq_of_val_isRefinedBy hl]
+                  dsimp only
+                  split
+                  · exact Interp.isRefinedBy_ub_target
+                  · exact interp_llvm_int_isRefinedBy mem (by grind)
+              · exact interp_llvm_int_isRefinedBy mem (by grind)
+      · exact Interp.isRefinedBy_none_target
+  /- The funnel shifts: three integer operands. -/
+  case intr__fshl | intr__fshr =>
+    all_goals
+      simp only [Llvm.interpretOp']
+      split
+      · next bw a bw' b bw'' c heq =>
+        obtain ⟨_, _, _, heq', ha, hb, hc⟩ := arrayIsRefinedBy_toList_three h heq
+        obtain ⟨a', rfl, haa⟩ := RuntimeValue.int_of_isRefinedBy ha
+        obtain ⟨b', rfl, hbb⟩ := RuntimeValue.int_of_isRefinedBy hb
+        obtain ⟨c', rfl, hcc⟩ := RuntimeValue.int_of_isRefinedBy hc
+        rw [heq']
+        dsimp only
+        split
+        · exact Interp.isRefinedBy_none_target
+        · next hbw =>
+          have hbw' : bw' = bw := by omega
+          subst hbw'
+          split
+          · exact Interp.isRefinedBy_none_target
+          · next hbw2 =>
+            have hbw2' : bw'' = bw' := by omega
+            subst hbw2'
+            simp only [LLVM.Int.cast_self]
+            refine interp_llvm_int_isRefinedBy mem ?_
+            first
+              | exact int_fshl_mono _ _ _ _ _ _ haa hbb hcc
+              | exact int_fshr_mono _ _ _ _ _ _ haa hbb hcc
+      · exact Interp.isRefinedBy_none_target
+  /- `llvm.select`: three integer operands, and `LLVM.Int.select` is monotone. -/
+  case select =>
+    simp only [Llvm.interpretOp']
+    split
+    · next cond bw lhs bw' rhs heq =>
+      obtain ⟨_, _, _, heq', hc, hx, hy⟩ := arrayIsRefinedBy_toList_three h heq
+      obtain ⟨cond', rfl, hcond⟩ := RuntimeValue.int_of_isRefinedBy hc
+      obtain ⟨lhs', rfl, hl⟩ := RuntimeValue.int_of_isRefinedBy hx
+      obtain ⟨rhs', rfl, hr⟩ := RuntimeValue.int_of_isRefinedBy hy
+      simp only [heq']
+      split
+      · exact Interp.isRefinedBy_none_target
+      · next hbw =>
+        have hbw' : bw' = bw := by omega
+        subst hbw'
+        simp only [LLVM.Int.cast_self]
+        exact interp_llvm_int_isRefinedBy mem
+          (LLVM.Int.select_mono lhs rhs lhs' rhs' cond cond' hl hr hcond)
+    · exact Interp.isRefinedBy_none_target
+  /- The integer widening casts. -/
+  case zext | sext =>
+    all_goals
+      simp only [Llvm.interpretOp']
+      split
+      · next w val heq =>
+        obtain ⟨_, heq', hx⟩ := arrayIsRefinedBy_toList_one h heq
+        obtain ⟨val', rfl, hv⟩ := RuntimeValue.int_of_isRefinedBy hx
+        rw [heq']
+        dsimp only
+        split
+        · split
+          · split
+            · exact Interp.isRefinedBy_none_target
+            · exact interp_llvm_int_isRefinedBy mem (by grind)
+          · exact Interp.isRefinedBy_none_target
+        · exact Interp.isRefinedBy_none_target
+      · exact Interp.isRefinedBy_none_target
+  /- `llvm.trunc` accepts an integer or a byte operand. -/
+  case trunc =>
+    simp only [Llvm.interpretOp']
+    split
+    · next val heq =>
+      obtain ⟨val', heq', hv⟩ := arrayIsRefinedBy_toList_one h heq
+      cases val with
+      | int w v =>
+        obtain ⟨v', rfl, hvv⟩ := RuntimeValue.int_of_isRefinedBy hv
+        simp only [heq']
+        repeat' split
+        all_goals first
+          | exact Interp.isRefinedBy_none_target
+          | exact interp_llvm_int_isRefinedBy mem (by grind)
+      | byte w b =>
+        obtain ⟨b', rfl, hbb⟩ := RuntimeValue.byte_of_isRefinedBy hv
+        simp only [heq']
+        repeat' split
+        all_goals first
+          | exact Interp.isRefinedBy_none_target
+          | exact interp_llvm_byte_isRefinedBy mem (byte_trunc_mono _ _ hbb)
+      | addr a =>
+        rw [RuntimeValue.addr_of_isRefinedBy hv] at heq'
+        simp only [heq']
+        repeat' split
+        all_goals exact Interp.isRefinedBy_none_target
+      | reg r =>
+        rw [RuntimeValue.reg_of_isRefinedBy hv] at heq'
+        simp only [heq']
+        repeat' split
+        all_goals exact Interp.isRefinedBy_none_target
+      | float bw f =>
+        rw [RuntimeValue.float_of_isRefinedBy hv] at heq'
+        simp only [heq']
+        repeat' split
+        all_goals exact Interp.isRefinedBy_none_target
+    · exact Interp.isRefinedBy_none_target
+  /- `llvm.shl` accepts an integer or a byte left-hand side. -/
+  case shl =>
+    simp only [Llvm.interpretOp']
+    split
+    · next lhs bw' rhs heq =>
+      obtain ⟨_, _, heq', hx, hy⟩ := arrayIsRefinedBy_toList_two h heq
+      obtain ⟨rhs', rfl, hr⟩ := RuntimeValue.int_of_isRefinedBy hy
+      rw [heq']
+      dsimp only
+      cases lhs with
+      | int bw v =>
+        obtain ⟨v', rfl, hvv⟩ := RuntimeValue.int_of_isRefinedBy hx
+        dsimp only
+        split
+        · exact Interp.isRefinedBy_none_target
+        · next hbw =>
+          have hbw' : bw' = bw := by omega
+          subst hbw'
+          simp only [LLVM.Int.cast_self]
+          exact interp_llvm_int_isRefinedBy mem (by grind)
+      | byte bw b =>
+        obtain ⟨b', rfl, hbb⟩ := RuntimeValue.byte_of_isRefinedBy hx
+        dsimp only
+        split
+        · exact Interp.isRefinedBy_none_target
+        · next hbw =>
+          have hbw' : bw' = bw := by omega
+          subst hbw'
+          split
+          · exact Interp.isRefinedBy_none_target
+          · simp only [LLVM.Int.cast_self]
+            exact interp_llvm_byte_isRefinedBy mem (byte_shl_mono _ _ _ _ _ hbb hr)
+      | addr a =>
+        rw [RuntimeValue.addr_of_isRefinedBy hx]
+        exact Interp.isRefinedBy_none_target
+      | reg r =>
+        rw [RuntimeValue.reg_of_isRefinedBy hx]
+        exact Interp.isRefinedBy_none_target
+      | float bw f =>
+        rw [RuntimeValue.float_of_isRefinedBy hx]
+        exact Interp.isRefinedBy_none_target
+    · exact Interp.isRefinedBy_none_target
+  /- `llvm.lshr` accepts an integer or a byte left-hand side. -/
+  case lshr =>
+    simp only [Llvm.interpretOp']
+    split
+    · next lhs bw' rhs heq =>
+      obtain ⟨_, _, heq', hx, hy⟩ := arrayIsRefinedBy_toList_two h heq
+      obtain ⟨rhs', rfl, hr⟩ := RuntimeValue.int_of_isRefinedBy hy
+      rw [heq']
+      dsimp only
+      cases lhs with
+      | int bw v =>
+        obtain ⟨v', rfl, hvv⟩ := RuntimeValue.int_of_isRefinedBy hx
+        dsimp only
+        split
+        · exact Interp.isRefinedBy_none_target
+        · next hbw =>
+          have hbw' : bw' = bw := by omega
+          subst hbw'
+          simp only [LLVM.Int.cast_self]
+          exact interp_llvm_int_isRefinedBy mem (by grind)
+      | byte bw b =>
+        obtain ⟨b', rfl, hbb⟩ := RuntimeValue.byte_of_isRefinedBy hx
+        dsimp only
+        split
+        · exact Interp.isRefinedBy_none_target
+        · next hbw =>
+          have hbw' : bw' = bw := by omega
+          subst hbw'
+          simp only [LLVM.Int.cast_self]
+          exact interp_llvm_byte_isRefinedBy mem (byte_lshr_mono _ _ _ _ _ hbb hr)
+      | addr a =>
+        rw [RuntimeValue.addr_of_isRefinedBy hx]
+        exact Interp.isRefinedBy_none_target
+      | reg r =>
+        rw [RuntimeValue.reg_of_isRefinedBy hx]
+        exact Interp.isRefinedBy_none_target
+      | float bw f =>
+        rw [RuntimeValue.float_of_isRefinedBy hx]
+        exact Interp.isRefinedBy_none_target
+    · exact Interp.isRefinedBy_none_target
+  /- `llvm.return` and `llvm.br` hand their operands to the control-flow action, which refines
+  pointwise. -/
+  case «return» =>
+    simp only [Llvm.interpretOp']
+    exact ⟨RuntimeValue.arrayIsRefinedBy_refl _, rfl, h⟩
+  case br =>
+    simp only [Llvm.interpretOp']
+    split
+    · exact ⟨RuntimeValue.arrayIsRefinedBy_refl _, rfl, rfl, h⟩
+    · exact Interp.isRefinedBy_none_target
+  /- `llvm.cond_br`: a poison condition is UB in the source, a concrete condition is refined only
+  by itself, and the branch arguments refine because `Array.extract` preserves refinement. -/
+  case cond_br =>
+    simp only [Llvm.interpretOp']
+    split
+    · split
+      · next condVal hcond =>
+        obtain ⟨condVal', hcond', hcc⟩ := RuntimeValue.arrayIsRefinedBy_getElem? h hcond
+        rw [hcond']
+        split
+        · match condVal, hcc with
+          | .int 1 (.val cond), hcc =>
+            obtain ⟨c', rfl, hc⟩ := RuntimeValue.int_of_isRefinedBy hcc
+            rw [int_eq_of_val_isRefinedBy hc]
+            have hsizes : operands.size = operands'.size := h.1
+            by_cases hcond1 : cond = 1#1
+            · simp only [if_pos hcond1]
+              exact ⟨RuntimeValue.arrayIsRefinedBy_refl _, rfl, rfl,
+                RuntimeValue.arrayIsRefinedBy_extract h _ _⟩
+            · simp only [if_neg hcond1, ← hsizes]
+              exact ⟨RuntimeValue.arrayIsRefinedBy_refl _, rfl, rfl,
+                RuntimeValue.arrayIsRefinedBy_extract h _ _⟩
+          | .int 1 .poison, _ => exact Interp.isRefinedBy_ub_target
+          | .int 0 v, _ => exact Interp.isRefinedBy_none_target
+          | .int (n + 2) v, _ => exact Interp.isRefinedBy_none_target
+          | .byte bw v, _ => exact Interp.isRefinedBy_none_target
+          | .addr a, _ => exact Interp.isRefinedBy_none_target
+          | .reg r, _ => exact Interp.isRefinedBy_none_target
+          | .float bw f, _ => exact Interp.isRefinedBy_none_target
+        · exact Interp.isRefinedBy_none_target
+      · exact Interp.isRefinedBy_none_target
+    · exact Interp.isRefinedBy_none_target
+  /- `llvm.alloca` and `llvm.load` read only poison-free operands (a concrete count, an address),
+  which are refined only by themselves, so both sides compute the very same result. -/
+  case alloca =>
+    simp only [Llvm.interpretOp']
+    split
+    · next bw count heq =>
+      obtain ⟨_, heq', hx⟩ := arrayIsRefinedBy_toList_one h heq
+      obtain ⟨count', rfl, hc⟩ := RuntimeValue.int_of_isRefinedBy hx
+      rw [int_eq_of_val_isRefinedBy hc] at heq'
+      rw [heq']
+      exact interpretResult_isRefinedBy_refl _
+    · exact Interp.isRefinedBy_none_target
+  case load =>
+    simp only [Llvm.interpretOp']
+    split
+    · next addr heq =>
+      obtain ⟨_, heq', hx⟩ := arrayIsRefinedBy_toList_one h heq
+      rw [RuntimeValue.addr_of_isRefinedBy hx] at heq'
+      rw [heq']
+      exact interpretResult_isRefinedBy_refl _
+    · exact Interp.isRefinedBy_none_target
+  /- `llvm.getelementptr`: a poison index is UB in the source, a concrete one is refined only by
+  itself. -/
+  case getelementptr =>
+    simp only [Llvm.interpretOp']
+    split
+    · next ptr bw idx heq =>
+      obtain ⟨_, _, heq', hp, hi⟩ := arrayIsRefinedBy_toList_two h heq
+      obtain ⟨idx', rfl, hidx⟩ := RuntimeValue.int_of_isRefinedBy hi
+      rw [RuntimeValue.addr_of_isRefinedBy hp] at heq'
+      rw [heq']
+      cases idx with
+      | poison =>
+        simp only [bind, pure, liftM, monadLift, MonadLift.monadLift]
+        repeat' split
+        all_goals first
+          | exact Interp.isRefinedBy_none_target
+          | exact Interp.isRefinedBy_ub_target
+      | val v =>
+        rw [int_eq_of_val_isRefinedBy hidx]
+        exact interpretResult_isRefinedBy_refl _
+    · exact Interp.isRefinedBy_none_target
+  /- The remaining `llvm` opcodes are not interpreted, so the source interpretation fails. -/
+  all_goals exact Interp.isRefinedBy_none_target
+
+end LlvmMonotone
+
+/--
+`interpretOp'` is monotone in its operands, except for the opcodes that materialise poison into a
 representation that cannot hold it, and so are genuinely *not* monotone for this relation:
 
 * `llvm.store` writes poison into memory as an empoisoned byte range, while storing the concrete
   value that refines it clears that poison mask, and the relation requires the resulting memories
   to be *equal* (see `Llvm.interpretOp'_monotone`).
+* `llvm.freeze` maps poison to a fixed concrete value, which is *not* refined by the freeze of the
+  concrete value that refines the poison (see `Llvm.interpretOp'_monotone`).
+* `llvm.bitcast` of a byte to a pointer maps a poisoned byte to the address `0`, which is not
+  refined by the address the refining concrete byte casts to (see `Llvm.interpretOp'_monotone`).
 * `builtin.unrealized_conversion_cast` from an integer to a register maps poison to the register
   `0` (`LLVM.Int.toReg`), while the concrete value that refines it maps to a different register,
   and refinement on registers is equality (registers cannot be poison).
@@ -1352,6 +2151,8 @@ theorem interpretOp'_monotone
     (opType : OpCode) (properties : propertiesOf opType) (resultTypes : Array TypeAttr)
     (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr) (mem : MemoryState)
     (notStore : opType ≠ .llvm .store)
+    (notFreeze : opType ≠ .llvm .freeze)
+    (notBitcast : opType ≠ .llvm .bitcast)
     (notCast : opType ≠ .builtin .unrealized_conversion_cast) :
     operands ⊒ operands' →
     Interp.isRefinedBy (α := Array RuntimeValue × MemoryState × Option ControlFlowAction)
@@ -1366,7 +2167,7 @@ theorem interpretOp'_monotone
     exact Riscv.interpretOp'_monotone h
   case llvm =>
     simp only [interpretOp']
-    exact Llvm.interpretOp'_monotone (by grind) h
+    exact Llvm.interpretOp'_monotone (by grind) (by grind) (by grind) h
   /- `rv64`, `riscv_stack` and `hw` ignore their operands entirely, so both sides interpret to the
   very same result. -/
   case rv64 op =>
@@ -1406,7 +2207,8 @@ theorem interpretOp'_monotone
     simp only [interpretOp']
     exact interpretResult_isRefinedBy_of_memFree mem
       (Comb.interpretOp'_monotone op properties operands operands' blockOperands h)
-  all_goals sorry
+  /- The remaining dialects are not interpreted, so the source interpretation fails. -/
+  all_goals simp [interpretOp', Interp.isRefinedBy]
 
 set_option warn.sorry false in
 /--
