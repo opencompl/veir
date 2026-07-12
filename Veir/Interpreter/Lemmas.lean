@@ -549,12 +549,20 @@ theorem RuntimeValue.eq_of_arrayIsRefinedBy_of_regs {a b : Array RuntimeValue}
   exact RuntimeValue.reg_of_isRefinedBy hrefines
 
 set_option warn.sorry false in
-/-- `Llvm.interpretOp'` is monotone in its operands. -/
-theorem Llvm.interpretOp'_monotone {operands operands' : Array RuntimeValue} :
+/--
+`Llvm.interpretOp'` is monotone in its operands, except for `llvm.store`.
+
+`llvm.store` is genuinely *not* monotone for this relation, which requires the resulting memories
+to be *equal*: storing a poison value empoisons the target bytes (`MemoryState.empoison`), while
+storing the concrete value that refines it writes those bytes and clears their poison mask
+(`MemoryState.store`). Both stores succeed, but the two memories differ, so the relation fails.
+Monotonicity of `llvm.store` would need the resulting memories to be related by
+`MemoryState.isRefinedBy` rather than by equality.
+-/
+theorem Llvm.interpretOp'_monotone {operands operands' : Array RuntimeValue}
+    (notStore : opType ≠ Llvm.store) :
     operands ⊒ operands' →
-    Interp.isRefinedBy (α := Array RuntimeValue × MemoryState × Option ControlFlowAction)
-      (fun r₁ r₂ => r₁.1 ⊒ r₂.1 ∧ r₁.2.1 = r₂.2.1 ∧
-        ControlFlowAction.optionIsRefinedBy r₁.2.2 r₂.2.2)
+    Interp.isRefinedBy InterpretResultIsRefinedBy
       (Llvm.interpretOp' opType properties resultTypes operands blockOperands mem)
       (Llvm.interpretOp' opType properties resultTypes operands' blockOperands mem) := by
   sorry
@@ -593,9 +601,14 @@ theorem Riscv.interpretOp'_monotone {operands operands' : Array RuntimeValue} :
            · simp [Interp.isRefinedBy])
 
 set_option warn.sorry false in
+/--
+`interpretOp'` is monotone in its operands, except for `llvm.store`, which is not monotone for a
+relation that requires the resulting memories to be equal (see `Llvm.interpretOp'_monotone`).
+-/
 theorem interpretOp'_monotone
     (opType : OpCode) (properties : propertiesOf opType) (resultTypes : Array TypeAttr)
-    (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr) (mem : MemoryState) :
+    (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr) (mem : MemoryState)
+    (notStore : opType ≠ .llvm .store) :
     operands ⊒ operands' →
     Interp.isRefinedBy (α := Array RuntimeValue × MemoryState × Option ControlFlowAction)
       (fun r₁ r₂ => r₁.1 ⊒ r₂.1 ∧ r₁.2.1 = r₂.2.1 ∧
@@ -608,7 +621,7 @@ theorem interpretOp'_monotone
     apply Riscv.interpretOp'_monotone
   case llvm =>
     simp only [interpretOp']
-    apply Llvm.interpretOp'_monotone
+    exact Llvm.interpretOp'_monotone (by grind)
   all_goals sorry
 
 set_option warn.sorry false in
