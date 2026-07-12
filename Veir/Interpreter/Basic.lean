@@ -447,7 +447,6 @@ def MemoryState.hasPoison (state : MemoryState) (addr size : UInt64)
       break
   return poison
 
-set_option warn.sorry false in
 /--
   Load an LLVM value from the given memory address.
   Yields UB if access is out of bounds or the address is 0.
