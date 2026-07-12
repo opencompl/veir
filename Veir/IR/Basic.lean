@@ -527,16 +527,16 @@ theorem getOpOperands!.size_eq_getNumOperands! {op : OperationPtr} :
 theorem getOpOperands!.getElem!_eq_getOpOperand {op : OperationPtr} :
     index < op.getNumOperands! ctx →
     (op.getOpOperands! ctx)[index]! = op.getOpOperand index := by
-  simp only [getOpOperands!, getOpOperand]
-  grind
+  simp only [getOpOperands!]
+  grind [getOpOperand]
 
 @[simp, grind =]
 theorem getOpOperands!.getElem_eq_getOpOperand
     {op : OperationPtr} {h : index < (op.getOpOperands! ctx).size} :
     index < op.getNumOperands! ctx →
     (op.getOpOperands! ctx)[index]'h = op.getOpOperand index := by
-  simp only [getOpOperands!, getOpOperand]
-  grind
+  simp only [getOpOperands!]
+  grind [getOpOperand]
 
 def getOperandTypes (op : OperationPtr) (ctx : IRContext OpInfo)
     (inBounds : op.InBounds ctx := by grind) : Array TypeAttr :=
