@@ -962,6 +962,380 @@ theorem interpretResult_isRefinedBy_of_memFree
     simp_all [Interp.isRefinedBy, pure, bind]
   exact ⟨h.1, rfl, h.2⟩
 
+/-! ## Monotonicity of the `cf`, `riscv_cf` and `comb` dialect interpreters
+
+None of these three dialects touches memory, so they interpret to a `(values, action)` pair that
+`interpretOp'` pairs with the unchanged input memory (see `interpretResult_isRefinedBy_of_memFree`).
+All three are monotone with respect to operand refinement:
+
+* `cf.br` and `riscv_cf.branch` hand their operands straight to a `branch` action, which refines
+  because the operands do;
+* `cf.cond_br` is undefined behaviour on a poison condition (and UB is refined by anything), while
+  a concrete condition is refined only by itself, so both sides take the same branch and pass it
+  refining `Array.extract` slices of their operands;
+* the `riscv_cf` comparisons branch on registers, which carry no poison and hence refine only
+  themselves, so again both sides take the same branch;
+* `comb.add` is a pure function of its integer operands, and `Veir.Data.Comb.add` is monotone: it
+  is poison as soon as one of its arguments is, and otherwise all its arguments are concrete and
+  the refining ones are the very same.
+-/
+
+section MemFreeMonotone
+
+open Veir.Data
+
+/-- The refinement relation on the results of a memory-free dialect interpreter: the result values
+refine pointwise, and the control flow actions refine. -/
+private abbrev MemFreeResultIsRefinedBy :
+    (Array RuntimeValue × Option ControlFlowAction) →
+    (Array RuntimeValue × Option ControlFlowAction) → Prop :=
+  fun r₁ r₂ => r₁.1 ⊒ r₂.1 ∧ ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2
+
+/-- A memory-free interpretation refines itself. -/
+private theorem memFree_isRefinedBy_self
+    (x : Interp (Array RuntimeValue × Option ControlFlowAction)) :
+    Interp.isRefinedBy MemFreeResultIsRefinedBy x x := by
+  rcases x with _ | (x | _) <;> simp only [Interp.isRefinedBy]
+  exact ⟨RuntimeValue.arrayIsRefinedBy_refl _, ControlFlowAction.optionIsRefinedBy_refl _⟩
+
+/-- Branching to the same destination with refining arguments refines. -/
+private theorem interp_branch_isRefinedBy {vals vals' : Array RuntimeValue} (dest : BlockPtr)
+    (h : vals ⊒ vals') :
+    Interp.isRefinedBy MemFreeResultIsRefinedBy
+      (pure (#[], some (.branch vals dest)))
+      (pure (#[], some (.branch vals' dest))) :=
+  ⟨RuntimeValue.arrayIsRefinedBy_nil, rfl, h⟩
+
+/-- The suffix slices of refined operand arrays refine: the two arrays have the same size. -/
+private theorem arrayIsRefinedBy_extract_size {a b : Array RuntimeValue} (h : a ⊒ b) (i : Nat) :
+    a.extract i a.size ⊒ b.extract i b.size := by
+  have hsize : a.size = b.size := h.1
+  rw [← hsize]
+  exact RuntimeValue.arrayIsRefinedBy_extract h i a.size
+
+/-- Both sides of a conditional branch on the same condition pick the same successor, and the
+branch arguments they pass to it are refining slices of the operands. -/
+private theorem interp_condBranch_isRefinedBy {operands operands' : Array RuntimeValue}
+    (h : operands ⊒ operands') (c : Prop) [Decidable c] (s t : Nat)
+    (destTrue destFalse : BlockPtr) :
+    Interp.isRefinedBy MemFreeResultIsRefinedBy
+      (if c then pure (#[], some (.branch (operands.extract s (t + s)) destTrue))
+        else pure (#[], some (.branch (operands.extract (t + s) operands.size) destFalse)))
+      (if c then pure (#[], some (.branch (operands'.extract s (t + s)) destTrue))
+        else pure (#[], some (.branch (operands'.extract (t + s) operands'.size) destFalse))) := by
+  split
+  · exact interp_branch_isRefinedBy _ (RuntimeValue.arrayIsRefinedBy_extract h _ _)
+  · exact interp_branch_isRefinedBy _ (arrayIsRefinedBy_extract_size h _)
+
+/--
+`Cf.interpretOp'` is monotone with respect to operand refinement.
+
+`cf.br` passes its operands straight to the `branch` action. `cf.cond_br` is undefined behaviour
+when the condition is poison, and a concrete condition is refined only by itself, so both sides
+take the same branch and pass refining slices of their operands to it.
+-/
+theorem Cf.interpretOp'_monotone
+    (op : Cf) (properties : HasDialectOpInfo.propertiesOf op) (resultTypes : Array TypeAttr)
+    (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr)
+    (h : operands ⊒ operands') :
+    Interp.isRefinedBy
+      (fun (r₁ r₂ : Array RuntimeValue × Option ControlFlowAction) =>
+        r₁.1 ⊒ r₂.1 ∧ ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2)
+      (Cf.interpretOp' op properties resultTypes operands blockOperands)
+      (Cf.interpretOp' op properties resultTypes operands' blockOperands) := by
+  cases op
+  /- `cf.br` hands its operands to the branch action. -/
+  case br =>
+    simp only [Cf.interpretOp']
+    split
+    · exact ⟨RuntimeValue.arrayIsRefinedBy_nil, rfl, h⟩
+    · exact Interp.isRefinedBy_none_target
+  /- `cf.cond_br`: a poison condition is UB, a concrete one is refined only by itself. -/
+  case cond_br =>
+    simp only [Cf.interpretOp']
+    split
+    · split
+      · next condVal hcond =>
+        obtain ⟨w, hw, hcw⟩ := RuntimeValue.arrayIsRefinedBy_getElem? h hcond
+        rw [hw]
+        dsimp only
+        split
+        · split
+          · next _ v =>
+            obtain ⟨t, rfl, ht⟩ := RuntimeValue.int_of_isRefinedBy hcw
+            rw [int_eq_of_val_isRefinedBy ht]
+            exact interp_condBranch_isRefinedBy h _ 1 _ _ _
+          · exact Interp.isRefinedBy_ub_target
+          · exact Interp.isRefinedBy_none_target
+        · exact Interp.isRefinedBy_none_target
+      · exact Interp.isRefinedBy_none_target
+    · exact Interp.isRefinedBy_none_target
+
+/--
+`Riscv_Cf.interpretOp'` is monotone with respect to operand refinement.
+
+`riscv_cf.branch` hands its operands to the branch action. Every conditional jump compares
+registers, which carry no poison and are hence refined only by themselves, so both sides compare
+the very same values, take the same branch, and pass refining slices of their operands to it.
+-/
+theorem Riscv_Cf.interpretOp'_monotone
+    (op : Riscv_Cf) (properties : HasDialectOpInfo.propertiesOf op) (resultTypes : Array TypeAttr)
+    (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr)
+    (h : operands ⊒ operands') :
+    Interp.isRefinedBy
+      (fun (r₁ r₂ : Array RuntimeValue × Option ControlFlowAction) =>
+        r₁.1 ⊒ r₂.1 ∧ ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2)
+      (Riscv_Cf.interpretOp' op properties resultTypes operands blockOperands)
+      (Riscv_Cf.interpretOp' op properties resultTypes operands' blockOperands) := by
+  cases op
+  case branch =>
+    simp only [Riscv_Cf.interpretOp']
+    split
+    · exact ⟨RuntimeValue.arrayIsRefinedBy_nil, rfl, h⟩
+    · exact Interp.isRefinedBy_none_target
+  /- The two-register comparisons. -/
+  case beq | bne | blt | bge | bltu | bgeu =>
+    all_goals
+      simp only [Riscv_Cf.interpretOp']
+      split
+      · split
+        · next lhs hlhs =>
+          obtain ⟨u, hu, hru⟩ := RuntimeValue.arrayIsRefinedBy_getElem? h hlhs
+          rw [RuntimeValue.reg_of_isRefinedBy hru] at hu
+          rw [hu]
+          dsimp only
+          split
+          · next rhs hrhs =>
+            obtain ⟨v, hv, hrv⟩ := RuntimeValue.arrayIsRefinedBy_getElem? h hrhs
+            rw [RuntimeValue.reg_of_isRefinedBy hrv] at hv
+            rw [hv]
+            dsimp only
+            split
+            · exact interp_condBranch_isRefinedBy h _ 2 _ _ _
+            · exact Interp.isRefinedBy_none_target
+          · exact Interp.isRefinedBy_none_target
+        · exact Interp.isRefinedBy_none_target
+      · exact Interp.isRefinedBy_none_target
+  /- The single-register comparisons against zero. -/
+  case beqz | bnez =>
+    all_goals
+      simp only [Riscv_Cf.interpretOp']
+      split
+      · split
+        · next cond hcond =>
+          obtain ⟨u, hu, hru⟩ := RuntimeValue.arrayIsRefinedBy_getElem? h hcond
+          rw [RuntimeValue.reg_of_isRefinedBy hru] at hu
+          rw [hu]
+          dsimp only
+          split
+          · exact interp_condBranch_isRefinedBy h _ 1 _ _ _
+          · exact Interp.isRefinedBy_none_target
+        · exact Interp.isRefinedBy_none_target
+      · exact Interp.isRefinedBy_none_target
+
+/-- Refined operand arrays refine element-wise, also as lists. -/
+private theorem toList_getElem!_isRefinedBy {a b : Array RuntimeValue} (h : a ⊒ b) (i : Nat)
+    (hi : i < a.size) : a.toList[i]! ⊒ b.toList[i]! := by
+  obtain ⟨hs, he⟩ := h
+  have hrefine := he i hi
+  rw [getElem!_pos a i hi, getElem!_pos b i (by omega)] at hrefine
+  rw [getElem!_pos a.toList i (by simpa using hi), getElem!_pos b.toList i (by simp; omega)]
+  simpa using hrefine
+
+/-- Monotonicity of an `Option`-valued interpreter lifts to the `Interp` monad it is lifted into
+(`Comb.interpretOp'` cannot signal undefined behaviour, so it returns an `Option`). -/
+private theorem interp_isRefinedBy_liftOption {α β : Type} {R : α → β → Prop} {x : Option α}
+    {y : Option β} (hxy : ∀ a, x = some a → ∃ b, y = some b ∧ R a b) :
+    Interp.isRefinedBy R (liftM x) (liftM y) := by
+  cases x with
+  | none => exact Interp.isRefinedBy_none_target
+  | some a =>
+    obtain ⟨b, hb, hR⟩ := hxy a rfl
+    rw [hb]
+    exact hR
+
+/-- `Veir.Data.Comb.add` of a list that starts with poison is poison. -/
+private theorem comb_add_cons_poison {w : Nat} (xs : List (LLVM.Int w)) :
+    Data.Comb.add (.poison :: xs) = .poison := by
+  simp [Data.Comb.add, Id.run]
+  rfl
+
+/-- `Veir.Data.Comb.add` of a list whose second element is poison is poison. -/
+private theorem comb_add_val_cons_poison {w : Nat} (acc : BitVec w) (xs : List (LLVM.Int w)) :
+    Data.Comb.add (.val acc :: .poison :: xs) = .poison := by
+  simp [Data.Comb.add, Id.run]
+  rfl
+
+/-- Absorbing the second element of the list into the accumulator of `Veir.Data.Comb.add`. -/
+private theorem comb_add_val_cons_val {w : Nat} (acc u : BitVec w) (xs : List (LLVM.Int w)) :
+    Data.Comb.add (.val acc :: .val u :: xs) = Data.Comb.add (.val (acc + u) :: xs) := by
+  simp [Data.Comb.add, Id.run]
+
+/-- `Veir.Data.Comb.add` of a list containing a poison value is poison. -/
+private theorem comb_add_eq_poison {w : Nat} :
+    ∀ (l : List (LLVM.Int w)), LLVM.Int.poison ∈ l → Data.Comb.add l = .poison := by
+  have hgen : ∀ (xs : List (LLVM.Int w)) (acc : BitVec w), LLVM.Int.poison ∈ xs →
+      Data.Comb.add (.val acc :: xs) = .poison := by
+    intro xs
+    induction xs with
+    | nil => simp
+    | cons x xs ih =>
+      intro acc hmem
+      match x with
+      | .poison => exact comb_add_val_cons_poison acc xs
+      | .val u =>
+        rw [comb_add_val_cons_val]
+        exact ih (acc + u) (by simpa using hmem)
+  intro l hmem
+  match l with
+  | [] => simp at hmem
+  | .poison :: xs => exact comb_add_cons_poison xs
+  | .val u :: xs => exact hgen xs u (by simpa using hmem)
+
+/-- A concrete integer is refined only by itself, so a refined integer is either poison in the
+source, or the very same value on both sides. -/
+private theorem int_eq_or_poison_of_isRefinedBy {w : Nat} {a b : LLVM.Int w} (h : a ⊒ b) :
+    a = .poison ∨ b = a := by
+  cases a with
+  | poison => exact Or.inl rfl
+  | val v => exact Or.inr (int_eq_of_val_isRefinedBy h)
+
+/-- Mapping refining operand lists with the same partial function succeeds on both sides, and
+yields lists that are either equal, or a source list that contains a poison value (and hence sums
+to poison). -/
+private theorem mapM_isRefinedBy {w : Nat} {f : RuntimeValue → Option (LLVM.Int w)}
+    (hf : ∀ (x y : RuntimeValue) (a : LLVM.Int w), RuntimeValue.isRefinedBy x y → f x = some a →
+      ∃ b, f y = some b ∧ _root_.isRefinedBy a b) :
+    ∀ (l l' : List RuntimeValue) (as : List (LLVM.Int w)),
+      RuntimeValue.arrayIsRefinedBy l.toArray l'.toArray → l.mapM f = some as →
+      ∃ bs, l'.mapM f = some bs ∧ (as = bs ∨ LLVM.Int.poison ∈ as) := by
+  intro l
+  induction l with
+  | nil =>
+    intro l' as harr hmap
+    have hnil : l' = [] := by
+      have hlen := harr.1
+      simp at hlen
+      exact List.eq_nil_of_length_eq_zero hlen.symm
+    subst hnil
+    simp at hmap
+    exact ⟨[], by simp, Or.inl hmap⟩
+  | cons x xs ih =>
+    intro l' as harr hmap
+    match l' with
+    | [] =>
+      have hlen := harr.1
+      simp at hlen
+    | y :: ys =>
+      rw [RuntimeValue.arrayIsRefinedBy_cons] at harr
+      obtain ⟨hxy, hxys⟩ := harr
+      cases hfx : f x with
+      | none => rw [List.mapM_cons] at hmap; simp [hfx] at hmap
+      | some a =>
+        cases hfxs : xs.mapM f with
+        | none => rw [List.mapM_cons] at hmap; simp [hfx, hfxs] at hmap
+        | some as₀ =>
+          rw [List.mapM_cons, hfx, hfxs] at hmap
+          simp at hmap
+          obtain ⟨b, hfb, hab⟩ := hf x y a hxy hfx
+          obtain ⟨bs₀, hbs₀, hrel⟩ := ih ys as₀ hxys hfxs
+          refine ⟨b :: bs₀, ?_, ?_⟩
+          · rw [List.mapM_cons]
+            simp [hfb, hbs₀]
+          · subst hmap
+            rcases int_eq_or_poison_of_isRefinedBy hab with hpoison | hba
+            · exact Or.inr (by simp [hpoison])
+            · rcases hrel with heq | hmem
+              · exact Or.inl (by rw [hba, heq])
+              · exact Or.inr (by simp [hmem])
+
+/--
+`Comb.interpretOp'` is monotone with respect to operand refinement.
+
+`comb.add` is the only interpreted `comb` opcode. Its operands are integers of a common width, and
+`Veir.Data.Comb.add` is monotone: it is poison as soon as one of its arguments is poison (and
+poison is refined by anything), and otherwise every argument is concrete, so the refining arguments
+are the very same ones and both sides compute the same sum.
+-/
+theorem Comb.interpretOp'_monotone
+    (op : Comb) (properties : HasDialectOpInfo.propertiesOf op)
+    (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr)
+    (h : operands ⊒ operands') :
+    Interp.isRefinedBy
+      (fun (r₁ r₂ : Array RuntimeValue × Option ControlFlowAction) =>
+        r₁.1 ⊒ r₂.1 ∧ ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2)
+      (liftM (Comb.interpretOp' op properties operands blockOperands))
+      (liftM (Comb.interpretOp' op properties operands' blockOperands)) := by
+  cases op
+  case add =>
+    /- Empty operand arrays: both sides interpret to the very same result. -/
+    by_cases hsize : operands.size = 0
+    · have hempty : operands = #[] := by
+        simpa using hsize
+      have hempty' : operands' = #[] := by
+        have hsize' := h.1
+        simp [hempty] at hsize'
+        simpa using hsize'.symm
+      rw [hempty, hempty']
+      exact memFree_isRefinedBy_self _
+    apply interp_isRefinedBy_liftOption
+    intro res hres
+    have hpos : 0 < operands.size := by omega
+    have h0 := toList_getElem!_isRefinedBy h 0 hpos
+    simp only [Comb.interpretOp'] at hres ⊢
+    split at hres
+    /- The first operand is an integer of width `w`, and so is the refining one. -/
+    · next w fst heq0 =>
+      rw [heq0] at h0
+      obtain ⟨fst', hfst', hrfst⟩ := RuntimeValue.int_of_isRefinedBy h0
+      rw [hfst']
+      dsimp only
+      split at hres
+      /- Every operand is an integer of width `w`, and so is every refining one. -/
+      · next nl hmap =>
+        obtain ⟨bs, hbs, hrel⟩ := mapM_isRefinedBy (w := w)
+          (by
+            intro x y a hxy hfx
+            cases x with
+            | int w' val =>
+              obtain ⟨t, rfl, ht⟩ := RuntimeValue.int_of_isRefinedBy hxy
+              simp only at hfx ⊢
+              split at hfx
+              · exact absurd hfx (by simp)
+              · next hw =>
+                have hw' : w' = w := by simpa using hw
+                subst hw'
+                simp only [LLVM.Int.cast_self] at hfx ⊢
+                refine ⟨t, by simp, ?_⟩
+                have hav : val = a := by simpa using hfx
+                subst hav
+                exact ht
+            | _ => exact absurd hfx (by simp))
+          operands.toList operands'.toList nl (by simpa using h) hmap
+        rw [show operands'.toList.mapM _ = some bs from hbs]
+        have hres' : res = (#[RuntimeValue.int w (Data.Comb.add nl)], none) := by
+          simpa using hres.symm
+        subst hres'
+        have hadd : Data.Comb.add nl ⊒ Data.Comb.add bs := by
+          rcases hrel with heq | hmem
+          · rw [heq]
+            exact isRefinedBy_refl _
+          · rw [comb_add_eq_poison nl hmem]
+            trivial
+        refine ⟨_, rfl, ?_, ?_⟩
+        · simp only [RuntimeValue.arrayIsRefinedBy_singleton]
+          exact ⟨rfl, by simpa using hadd⟩
+        · trivial
+      · exact absurd hres (by simp)
+    · exact absurd hres (by simp)
+  /- No other `comb` opcode is interpreted, so the source interpretation fails. -/
+  all_goals
+    simp only [Comb.interpretOp']
+    exact Interp.isRefinedBy_none_target
+
+end MemFreeMonotone
+
+
 set_option warn.sorry false in
 /--
 `interpretOp'` is monotone in its operands, except for two opcodes that materialise poison into a
@@ -1014,11 +1388,24 @@ theorem interpretOp'_monotone
   /- The only `builtin` opcode that interprets is the (excluded) cast; the others fail. -/
   case builtin op =>
     cases op <;> simp_all [interpretOp', Interp.isRefinedBy]
-  /- `arith` does not touch memory: lift its own monotonicity through the memory threading. -/
+  /- `arith`, `cf`, `riscv_cf` and `comb` do not touch memory: lift their own monotonicity through
+  the memory threading. -/
   case arith op =>
     simp only [interpretOp']
     exact interpretResult_isRefinedBy_of_memFree mem
       (Arith.interpretOp'_monotone op properties resultTypes operands operands' blockOperands h)
+  case cf op =>
+    simp only [interpretOp']
+    exact interpretResult_isRefinedBy_of_memFree mem
+      (Cf.interpretOp'_monotone op properties resultTypes operands operands' blockOperands h)
+  case riscv_cf op =>
+    simp only [interpretOp']
+    exact interpretResult_isRefinedBy_of_memFree mem
+      (Riscv_Cf.interpretOp'_monotone op properties resultTypes operands operands' blockOperands h)
+  case comb op =>
+    simp only [interpretOp']
+    exact interpretResult_isRefinedBy_of_memFree mem
+      (Comb.interpretOp'_monotone op properties operands operands' blockOperands h)
   all_goals sorry
 
 set_option warn.sorry false in
