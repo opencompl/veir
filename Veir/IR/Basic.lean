@@ -495,7 +495,7 @@ def getOpOperands (op : OperationPtr) (ctx : IRContext OpInfo)
   Array.map op.getOpOperand (Array.range (op.getNumOperands ctx inBounds))
 
 def getOpOperands! (op : OperationPtr) (ctx : IRContext OpInfo) : Array OpOperandPtr :=
-  Array.map (fun i => op.getOpOperand i) (Array.range (op.getNumOperands! ctx))
+  Array.map op.getOpOperand (Array.range (op.getNumOperands! ctx))
 
 @[grind =_, eq_bang ←]
 theorem getOpOperands!_eq_getOpOperands {op : OperationPtr} (hin : op.InBounds ctx) :
