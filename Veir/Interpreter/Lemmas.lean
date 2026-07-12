@@ -541,14 +541,51 @@ theorem RuntimeValue.eq_of_arrayIsRefinedBy_of_regs {a b : Array RuntimeValue}
     (h : a ⊒ b) (hregs : ∀ v ∈ a, ∃ r, v = .reg r) : b = a := by
   grind [arrayIsRefinedBy, reg_of_isRefinedBy, Array.getElem_mem]
 
+@[grind =]
+theorem Interp.pure_def {α : Type} (a : α) : (pure a : Interp α) = some (.ok a) := rfl
+
+@[grind =]
+theorem Interp.bind_def {α β : Type} (x : Interp α) (f : α → Interp β) :
+    (x >>= f) = match x with
+      | none => none
+      | some .ub => some .ub
+      | some (.ok a) => f a := rfl
+
+/--
+A RISC-V operation that interprets successfully produces register results and no control flow
+action: a single register for the arithmetic and load opcodes, and no result at all for the stores.
+Note that the memory is *not* preserved -- loads grow it via `ensureSize` and stores write to it.
+-/
+theorem Riscv.interpretOp'_ok_results {vals : Array RuntimeValue} {mem' : MemoryState}
+    {act : Option ControlFlowAction}
+    (h : Riscv.interpretOp' opType properties resultTypes operands blockOperands mem
+      = some (.ok (vals, mem', act))) :
+    ((∃ r, vals = #[.reg r]) ∨ vals = #[]) ∧ act = none := by
+  cases opType <;> simp only [Riscv.interpretOp'] at h <;> grind
+
+/--
+A non-register operand is either fatal or irrelevant: every RISC-V opcode that reads its operands
+pattern-matches them as registers and fails to interpret otherwise, and the opcodes that ignore
+their operands (`li`, `lui`) interpret to the very same result whatever the operands are.
+-/
+theorem Riscv.interpretOp'_eq_none_or_eq_of_not_regs {operands operands' : Array RuntimeValue}
+    (hregs : ¬ ∀ v ∈ operands, ∃ r, v = .reg r) :
+    Riscv.interpretOp' opType properties resultTypes operands blockOperands mem = none ∨
+    Riscv.interpretOp' opType properties resultTypes operands blockOperands mem
+      = Riscv.interpretOp' opType properties resultTypes operands' blockOperands mem := by
+  cases opType <;>
+    simp only [Riscv.interpretOp'] <;>
+    first
+      | (right; trivial)
+      | (left; split <;> grind [Array.mem_def])
+
 /--
 `Riscv.interpretOp'` is monotone in its operands.
 
 RISC-V operands are registers, which carry no poison, so refinement on them is equality: either
 every operand is a register -- and then the refined operands are the original ones and both sides
-interpret to the very same result -- or some operand is not a register, and every opcode that
-reads its operands fails to interpret (opcodes that ignore their operands, such as `li`, again
-produce the very same result on both sides).
+interpret to the very same result -- or some operand is not a register, and
+`Riscv.interpretOp'_eq_none_or_eq_of_not_regs` applies.
 -/
 theorem Riscv.interpretOp'_monotone {operands operands' : Array RuntimeValue} :
     operands ⊒ operands' →
@@ -557,22 +594,11 @@ theorem Riscv.interpretOp'_monotone {operands operands' : Array RuntimeValue} :
       (Riscv.interpretOp' opType properties resultTypes operands' blockOperands mem) := by
   intro h
   by_cases hregs : ∀ v ∈ operands, ∃ r, v = .reg r
-  · have hb : operands' = operands := RuntimeValue.eq_of_arrayIsRefinedBy_of_regs h hregs
-    subst hb
+  · obtain rfl := RuntimeValue.eq_of_arrayIsRefinedBy_of_regs h hregs
     apply interpretResult_isRefinedBy_refl
-  · cases opType <;>
-      simp only [Riscv.interpretOp'] <;>
-      first
-        | apply interpretResult_isRefinedBy_refl
-        | (split
-           · exfalso
-             rename_i heq
-             refine hregs (fun v hv => ?_)
-             have hv' : v ∈ operands.toList := hv.val
-             rw [heq] at hv'
-             simp at hv'
-             grind
-           · simp [Interp.isRefinedBy])
+  · rcases Riscv.interpretOp'_eq_none_or_eq_of_not_regs (operands' := operands') hregs with heq | heq
+    · rw [heq]; simp [Interp.isRefinedBy]
+    · rw [heq]; apply interpretResult_isRefinedBy_refl
 
 set_option warn.sorry false in
 theorem interpretOp'_monotone
