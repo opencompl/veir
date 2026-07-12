@@ -672,6 +672,296 @@ theorem Riscv.interpretOp'_monotone {operands operands' : Array RuntimeValue} :
              grind
            · simp [Interp.isRefinedBy])
 
+/-! ## Monotonicity of the `arith` dialect interpreter
+
+`Arith.interpretOp'` is monotone with respect to operand refinement: interpreting an `arith`
+operation on refined operands yields a refined result. Every `arith` opcode is either a pure
+function of its (integer) operands, computed with a data-level operation that is itself monotone
+(`LLVM.Int.add_mono` and friends), or it is a division/remainder, whose source interpretation is
+UB exactly when the refining target could misbehave (poison or zero divisor, and signed
+overflow), and UB is refined by anything.
+-/
+
+section ArithMonotone
+
+open Veir.Data
+
+/-- The refinement relation on the results of `Arith.interpretOp'`: the result values refine
+pointwise, and the control flow actions refine. -/
+private abbrev ArithResultIsRefinedBy :
+    (Array RuntimeValue × Option ControlFlowAction) →
+    (Array RuntimeValue × Option ControlFlowAction) → Prop :=
+  fun r₁ r₂ => r₁.1 ⊒ r₂.1 ∧ ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2
+
+private theorem toArray_of_toList_eq {a : Array RuntimeValue} {l : List RuntimeValue}
+    (ha : a.toList = l) : a = l.toArray := by
+  rw [← ha]
+
+private theorem list_length_eq_one {α : Type} {l : List α} (h : l.length = 1) :
+    ∃ x, l = [x] := by
+  match l, h with
+  | [x], _ => exact ⟨x, rfl⟩
+
+private theorem list_length_eq_two {α : Type} {l : List α} (h : l.length = 2) :
+    ∃ x y, l = [x, y] := by
+  match l, h with
+  | [x, y], _ => exact ⟨x, y, rfl⟩
+
+private theorem list_length_eq_three {α : Type} {l : List α} (h : l.length = 3) :
+    ∃ x y z, l = [x, y, z] := by
+  match l, h with
+  | [x, y, z], _ => exact ⟨x, y, z, rfl⟩
+
+/-- An array refining a one-element array is a one-element array whose element refines. -/
+private theorem arrayIsRefinedBy_toList_one {a b : Array RuntimeValue} {x : RuntimeValue}
+    (h : a ⊒ b) (ha : a.toList = [x]) : ∃ x', b.toList = [x'] ∧ x ⊒ x' := by
+  have ha' : a = #[x] := toArray_of_toList_eq ha
+  subst ha'
+  obtain ⟨hs, hr⟩ := h
+  simp at hs
+  obtain ⟨x', hx'⟩ :=
+    list_length_eq_one (l := b.toList) (by simp only [Array.length_toList]; omega)
+  have hb : b = #[x'] := toArray_of_toList_eq hx'
+  subst hb
+  exact ⟨x', by simp, by simpa using hr 0 (by simp)⟩
+
+/-- An array refining a two-element array is a two-element array whose elements refine. -/
+private theorem arrayIsRefinedBy_toList_two {a b : Array RuntimeValue} {x y : RuntimeValue}
+    (h : a ⊒ b) (ha : a.toList = [x, y]) :
+    ∃ x' y', b.toList = [x', y'] ∧ x ⊒ x' ∧ y ⊒ y' := by
+  have ha' : a = #[x, y] := toArray_of_toList_eq ha
+  subst ha'
+  obtain ⟨hs, hr⟩ := h
+  simp at hs
+  obtain ⟨x', y', hx'⟩ :=
+    list_length_eq_two (l := b.toList) (by simp only [Array.length_toList]; omega)
+  have hb : b = #[x', y'] := toArray_of_toList_eq hx'
+  subst hb
+  exact ⟨x', y', by simp, by simpa using hr 0 (by simp), by simpa using hr 1 (by simp)⟩
+
+/-- An array refining a three-element array is a three-element array whose elements refine. -/
+private theorem arrayIsRefinedBy_toList_three {a b : Array RuntimeValue} {x y z : RuntimeValue}
+    (h : a ⊒ b) (ha : a.toList = [x, y, z]) :
+    ∃ x' y' z', b.toList = [x', y', z'] ∧ x ⊒ x' ∧ y ⊒ y' ∧ z ⊒ z' := by
+  have ha' : a = #[x, y, z] := toArray_of_toList_eq ha
+  subst ha'
+  obtain ⟨hs, hr⟩ := h
+  simp at hs
+  obtain ⟨x', y', z', hx'⟩ :=
+    list_length_eq_three (l := b.toList) (by simp only [Array.length_toList]; omega)
+  have hb : b = #[x', y', z'] := toArray_of_toList_eq hx'
+  subst hb
+  exact ⟨x', y', z', by simp, by simpa using hr 0 (by simp), by simpa using hr 1 (by simp),
+    by simpa using hr 2 (by simp)⟩
+
+/-- Two single-integer-result interpretations refine each other as soon as the integers do. -/
+private theorem interp_pure_int_isRefinedBy {bw : Nat} {v v' : LLVM.Int bw} (h : v ⊒ v') :
+    Interp.isRefinedBy ArithResultIsRefinedBy
+      (pure (#[RuntimeValue.int bw v], none)) (pure (#[RuntimeValue.int bw v'], none)) := by
+  refine ⟨?_, ?_⟩
+  · simp only [RuntimeValue.arrayIsRefinedBy_singleton]
+    exact ⟨rfl, by simpa using h⟩
+  · trivial
+
+/-- An interpretation refines itself (used for the operand-independent `arith.constant`). -/
+private theorem interp_isRefinedBy_self
+    (x : Interp (Array RuntimeValue × Option ControlFlowAction)) :
+    Interp.isRefinedBy ArithResultIsRefinedBy x x := by
+  rcases x with _ | (x | _) <;> simp only [Interp.isRefinedBy]
+  exact ⟨RuntimeValue.arrayIsRefinedBy_refl _, ControlFlowAction.optionIsRefinedBy_refl _⟩
+
+/-- Only a concrete integer refines a concrete integer, and it must be the very same one. -/
+private theorem int_eq_of_val_isRefinedBy {w : Nat} {v : BitVec w} {x : LLVM.Int w}
+    (h : LLVM.Int.val v ⊒ x) : x = .val v := by
+  cases x <;> simp_all [isRefinedBy]
+
+/--
+`Arith.interpretOp'` is monotone with respect to operand refinement: if the source operands are
+refined by the target operands, the source interpretation is refined by the target interpretation.
+-/
+theorem Arith.interpretOp'_monotone
+    (op : Arith) (properties : HasDialectOpInfo.propertiesOf op) (resultTypes : Array TypeAttr)
+    (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr)
+    (h : operands ⊒ operands') :
+    Interp.isRefinedBy
+      (fun (r₁ r₂ : Array RuntimeValue × Option ControlFlowAction) =>
+        r₁.1 ⊒ r₂.1 ∧ ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2)
+      (Arith.interpretOp' op properties resultTypes operands blockOperands)
+      (Arith.interpretOp' op properties resultTypes operands' blockOperands) := by
+  cases op
+  /- `arith.constant` does not read its operands. -/
+  case constant =>
+    simp only [Arith.interpretOp']
+    exact interp_isRefinedBy_self _
+  /- The binary integer opcodes: their data-level operation is monotone. -/
+  case addi | subi | muli | shli | shrsi | shrui | andi | ori | xori =>
+    all_goals
+      simp only [Arith.interpretOp']
+      split
+      · next bw lhs bw' rhs heq =>
+        obtain ⟨_, _, heq', hx, hy⟩ := arrayIsRefinedBy_toList_two h heq
+        obtain ⟨lhs', rfl, hl⟩ := RuntimeValue.int_of_isRefinedBy hx
+        obtain ⟨rhs', rfl, hr⟩ := RuntimeValue.int_of_isRefinedBy hy
+        rw [heq']
+        dsimp only
+        split
+        · exact Interp.isRefinedBy_none_target
+        · next hbw =>
+          have hbw' : bw' = bw := by omega
+          subst hbw'
+          simp only [LLVM.Int.cast_self]
+          exact interp_pure_int_isRefinedBy (by grind)
+      · exact Interp.isRefinedBy_none_target
+  /- The unsigned division/remainder opcodes: a poison or zero divisor is UB in the source. -/
+  case divui | remui =>
+    all_goals
+      simp only [Arith.interpretOp']
+      split
+      · next bw lhs bw' rhs heq =>
+        obtain ⟨_, _, heq', hx, hy⟩ := arrayIsRefinedBy_toList_two h heq
+        obtain ⟨lhs', rfl, hl⟩ := RuntimeValue.int_of_isRefinedBy hx
+        obtain ⟨rhs', rfl, hr⟩ := RuntimeValue.int_of_isRefinedBy hy
+        rw [heq']
+        dsimp only
+        split
+        · exact Interp.isRefinedBy_none_target
+        · next hbw =>
+          have hbw' : bw' = bw := by omega
+          subst hbw'
+          simp only [LLVM.Int.cast_self]
+          cases hrhs : rhs with
+          | poison => exact Interp.isRefinedBy_ub_target
+          | val v' =>
+            rw [hrhs] at hr
+            rw [int_eq_of_val_isRefinedBy hr]
+            dsimp only
+            split
+            · exact Interp.isRefinedBy_ub_target
+            · exact interp_pure_int_isRefinedBy (by grind)
+      · exact Interp.isRefinedBy_none_target
+  /- The signed division/remainder opcodes: additionally, the overflowing `intMin / -1` is UB. -/
+  case divsi | remsi =>
+    all_goals
+      simp only [Arith.interpretOp']
+      split
+      · next bw lhs bw' rhs heq =>
+        obtain ⟨_, _, heq', hx, hy⟩ := arrayIsRefinedBy_toList_two h heq
+        obtain ⟨lhs', rfl, hl⟩ := RuntimeValue.int_of_isRefinedBy hx
+        obtain ⟨rhs', rfl, hr⟩ := RuntimeValue.int_of_isRefinedBy hy
+        rw [heq']
+        dsimp only
+        split
+        · exact Interp.isRefinedBy_none_target
+        · next hbw =>
+          have hbw' : bw' = bw := by omega
+          subst hbw'
+          simp only [LLVM.Int.cast_self]
+          cases hrhs : rhs with
+          | poison => exact Interp.isRefinedBy_ub_target
+          | val v' =>
+            rw [hrhs] at hr
+            rw [int_eq_of_val_isRefinedBy hr]
+            dsimp only
+            split
+            · exact Interp.isRefinedBy_ub_target
+            · split
+              · cases hlhs : lhs with
+                | poison => exact Interp.isRefinedBy_ub_target
+                | val v =>
+                  rw [hlhs] at hl
+                  rw [int_eq_of_val_isRefinedBy hl]
+                  dsimp only
+                  split
+                  · exact Interp.isRefinedBy_ub_target
+                  · exact interp_pure_int_isRefinedBy (by grind)
+              · exact interp_pure_int_isRefinedBy (by grind)
+      · exact Interp.isRefinedBy_none_target
+  /- The cast opcodes: one integer operand, and a monotone data-level cast. -/
+  case trunci | extui | extsi =>
+    all_goals
+      simp only [Arith.interpretOp']
+      split
+      · next w val heq =>
+        obtain ⟨_, heq', hx⟩ := arrayIsRefinedBy_toList_one h heq
+        obtain ⟨val', rfl, hv⟩ := RuntimeValue.int_of_isRefinedBy hx
+        rw [heq']
+        dsimp only
+        split
+        · split
+          · split
+            · exact Interp.isRefinedBy_none_target
+            · exact interp_pure_int_isRefinedBy (by grind)
+          · exact Interp.isRefinedBy_none_target
+        · exact Interp.isRefinedBy_none_target
+      · exact Interp.isRefinedBy_none_target
+  /- `arith.select`: three integer operands, and `LLVM.Int.select` is monotone. -/
+  case select =>
+    simp only [Arith.interpretOp']
+    split
+    · next cond bw lhs bw' rhs heq =>
+      obtain ⟨_, _, _, heq', hc, hx, hy⟩ := arrayIsRefinedBy_toList_three h heq
+      obtain ⟨cond', rfl, hcond⟩ := RuntimeValue.int_of_isRefinedBy hc
+      obtain ⟨lhs', rfl, hl⟩ := RuntimeValue.int_of_isRefinedBy hx
+      obtain ⟨rhs', rfl, hr⟩ := RuntimeValue.int_of_isRefinedBy hy
+      rw [heq']
+      simp only []
+      split
+      · exact Interp.isRefinedBy_none_target
+      · next hbw =>
+        have hbw' : bw' = bw := by omega
+        subst hbw'
+        simp only [LLVM.Int.cast_self]
+        exact interp_pure_int_isRefinedBy
+          (LLVM.Int.select_mono lhs rhs lhs' rhs' cond cond' hl hr hcond)
+    · exact Interp.isRefinedBy_none_target
+  /- All remaining `arith` opcodes are not interpreted, so the source interpretation fails. -/
+  all_goals exact Interp.isRefinedBy_none_target
+
+/--
+`interpretOp'` is monotone with respect to operand refinement on the `arith` dialect: the memory
+is threaded through unchanged, so it is left untouched (and hence equal) on both sides.
+-/
+theorem interpretOp'_monotone_arith
+    (op : Arith) (properties : propertiesOf (OpCode.arith op)) (resultTypes : Array TypeAttr)
+    (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr) (mem : MemoryState)
+    (h : operands ⊒ operands') :
+    Interp.isRefinedBy (α := Array RuntimeValue × MemoryState × Option ControlFlowAction)
+      (fun r₁ r₂ => r₁.1 ⊒ r₂.1 ∧ r₁.2.1 = r₂.2.1 ∧
+        ControlFlowAction.optionIsRefinedBy r₁.2.2 r₂.2.2)
+      (interpretOp' (.arith op) properties resultTypes operands blockOperands mem)
+      (interpretOp' (.arith op) properties resultTypes operands' blockOperands mem) := by
+  have hmono :=
+    Arith.interpretOp'_monotone op properties resultTypes operands operands' blockOperands h
+  simp only [interpretOp', bind]
+  rcases hsrc : Arith.interpretOp' op properties resultTypes operands blockOperands with
+    _ | (⟨vals, act⟩ | _)
+  · exact Interp.isRefinedBy_none_target
+  · simp only [hsrc, Interp.isRefinedBy_ok_target_iff] at hmono
+    obtain ⟨⟨vals', act'⟩, htgt, hvals, hact⟩ := hmono
+    simp only [htgt]
+    exact ⟨hvals, rfl, hact⟩
+  · exact Interp.isRefinedBy_ub_target
+
+end ArithMonotone
+
+
+/--
+Lift monotonicity of a dialect interpreter that does not touch memory (its result is a
+`(values, action)` pair) to the memory-carrying result of `interpretOp'`, which threads the
+unchanged input memory through.
+-/
+theorem interpretResult_isRefinedBy_of_memFree
+    {x y : Interp (Array RuntimeValue × Option ControlFlowAction)} (mem : MemoryState)
+    (h : Interp.isRefinedBy
+      (fun (r₁ r₂ : Array RuntimeValue × Option ControlFlowAction) =>
+        r₁.1 ⊒ r₂.1 ∧ ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2) x y) :
+    Interp.isRefinedBy InterpretResultIsRefinedBy
+      (do let (vals, act) ← x; return (vals, mem, act))
+      (do let (vals, act) ← y; return (vals, mem, act)) := by
+  rcases x with _ | (⟨v, a⟩ | _) <;> rcases y with _ | (⟨v', a'⟩ | _) <;>
+    simp_all [Interp.isRefinedBy, pure, bind]
+  exact ⟨h.1, rfl, h.2⟩
+
 set_option warn.sorry false in
 /--
 `interpretOp'` is monotone in its operands, except for two opcodes that materialise poison into a
@@ -724,6 +1014,11 @@ theorem interpretOp'_monotone
   /- The only `builtin` opcode that interprets is the (excluded) cast; the others fail. -/
   case builtin op =>
     cases op <;> simp_all [interpretOp', Interp.isRefinedBy]
+  /- `arith` does not touch memory: lift its own monotonicity through the memory threading. -/
+  case arith op =>
+    simp only [interpretOp']
+    exact interpretResult_isRefinedBy_of_memFree mem
+      (Arith.interpretOp'_monotone op properties resultTypes operands operands' blockOperands h)
   all_goals sorry
 
 set_option warn.sorry false in
