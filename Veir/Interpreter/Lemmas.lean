@@ -517,6 +517,92 @@ theorem exists_interpretOp'_eq_some {ctx : WfIRContext OpCode} {op : OperationPt
   ∃ res, op.interpret ctx.raw operands mem = some res := by sorry
 
 set_option warn.sorry false in
+/-- `Llvm.interpretOp'` is monotone in its operands. -/
+theorem Llvm.interpretOp'_monotone {operands operands' : Array RuntimeValue} :
+    operands ⊒ operands' →
+    Interp.isRefinedBy (α := Array RuntimeValue × MemoryState × Option ControlFlowAction)
+      (fun r₁ r₂ => r₁.1 ⊒ r₂.1 ∧ r₁.2.1 = r₂.2.1 ∧
+        ControlFlowAction.optionIsRefinedBy r₁.2.2 r₂.2.2)
+      (Llvm.interpretOp' opType properties resultTypes operands blockOperands mem)
+      (Llvm.interpretOp' opType properties resultTypes operands' blockOperands mem) := by
+  sorry
+
+set_option warn.sorry false in
+/-- `Riscv.interpretOp'` is monotone in its operands. -/
+theorem Riscv.interpretOp'_monotone {operands operands' : Array RuntimeValue} :
+    operands ⊒ operands' →
+    Interp.isRefinedBy (α := Array RuntimeValue × MemoryState × Option ControlFlowAction)
+      (fun r₁ r₂ => r₁.1 ⊒ r₂.1 ∧ r₁.2.1 = r₂.2.1 ∧
+        ControlFlowAction.optionIsRefinedBy r₁.2.2 r₂.2.2)
+      (Riscv.interpretOp' opType properties resultTypes operands blockOperands mem)
+      (Riscv.interpretOp' opType properties resultTypes operands' blockOperands mem) := by
+  intro h
+  cases opType
+  case add =>
+    simp only [Riscv.interpretOp']
+    split <;> split
+    · rw [← List.toArray_eq_iff, Array.toArray_toList] at *
+      rename_i ops₁ xb xc xd ops₂
+      simp [ops₁, ops₂, RuntimeValue.arrayIsRefinedBy] at h
+      have aaa0 := h 0 (by simp)
+      have aaa1 := h 1 (by simp)
+      simp at aaa0
+      simp at aaa1
+      simp [RuntimeValue.isRefinedBy] at aaa0 aaa1
+      simp [Interp.isRefinedBy, pure, RuntimeValue.arrayIsRefinedBy,
+        RuntimeValue.isRefinedBy, ControlFlowAction.optionIsRefinedBy]
+      grind
+    ·
+      rename_i ops₁ xb xc xd ops₂
+      simp at ops₂
+      simp only [Interp.isRefinedBy]
+      have ops₂' := ops₂ ops₁ xb
+      rw [RuntimeValue.arrayIsRefinedBy] at h
+      rw [← List.toArray_eq_iff, Array.toArray_toList] at *
+      by_cases hhh : operands.size = operands'.size ∧ operands.size = 2
+      .
+        simp [hhh] at h
+        have aaa0 := h 0 (by grind)
+        have aaa1 := h 1 (by grind)
+        simp [RuntimeValue.isRefinedBy] at aaa0 aaa1
+        grind
+      . grind
+    · simp [Interp.isRefinedBy]
+    · simp [Interp.isRefinedBy]
+  case sub =>
+    simp only [Riscv.interpretOp']
+    split <;> split
+    · rw [← List.toArray_eq_iff, Array.toArray_toList] at *
+      rename_i ops₁ xb xc xd ops₂
+      simp [ops₁, ops₂, RuntimeValue.arrayIsRefinedBy] at h
+      have aaa0 := h 0 (by simp)
+      have aaa1 := h 1 (by simp)
+      simp at aaa0
+      simp at aaa1
+      simp [RuntimeValue.isRefinedBy] at aaa0 aaa1
+      simp [Interp.isRefinedBy, pure, RuntimeValue.arrayIsRefinedBy,
+        RuntimeValue.isRefinedBy, ControlFlowAction.optionIsRefinedBy]
+      grind
+    ·
+      rename_i ops₁ xb xc xd ops₂
+      simp at ops₂
+      simp only [Interp.isRefinedBy]
+      have ops₂' := ops₂ ops₁ xb
+      rw [RuntimeValue.arrayIsRefinedBy] at h
+      rw [← List.toArray_eq_iff, Array.toArray_toList] at *
+      by_cases hhh : operands.size = operands'.size ∧ operands.size = 2
+      .
+        simp [hhh] at h
+        have aaa0 := h 0 (by grind)
+        have aaa1 := h 1 (by grind)
+        simp [RuntimeValue.isRefinedBy] at aaa0 aaa1
+        grind
+      . grind
+    · simp [Interp.isRefinedBy]
+    · simp [Interp.isRefinedBy]
+  all_goals sorry
+
+set_option warn.sorry false in
 theorem interpretOp'_monotone
     (opType : OpCode) (properties : propertiesOf opType) (resultTypes : Array TypeAttr)
     (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr) (mem : MemoryState) :
@@ -526,7 +612,14 @@ theorem interpretOp'_monotone
         ControlFlowAction.optionIsRefinedBy r₁.2.2 r₂.2.2)
       (interpretOp' opType properties resultTypes operands blockOperands mem)
       (interpretOp' opType properties resultTypes operands' blockOperands mem) := by
-  sorry
+  cases opType
+  case riscv =>
+    simp only [interpretOp']
+    apply Riscv.interpretOp'_monotone
+  case llvm =>
+    simp only [interpretOp']
+    apply Llvm.interpretOp'_monotone
+  all_goals sorry
 
 set_option warn.sorry false in
 /--
