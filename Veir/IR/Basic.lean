@@ -802,7 +802,7 @@ theorem getRegion!_eq_of_OperationPtr_get!_eq {op : OperationPtr} :
   grind [get!, getRegion!]
 
 def getRegions (op : OperationPtr) (ctx : IRContext OpInfo)
-  (inBounds : op.InBounds ctx := by grind) : Array RegionPtr :=
+    (inBounds : op.InBounds ctx := by grind) : Array RegionPtr :=
   (op.get ctx inBounds).regions
 
 def getRegions! (op : OperationPtr) (ctx : IRContext OpInfo) : Array RegionPtr :=
