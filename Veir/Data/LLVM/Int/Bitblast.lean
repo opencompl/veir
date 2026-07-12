@@ -816,6 +816,89 @@ theorem isPoison_freeze {w : Nat} (x : Int w) :
   simp [freeze, isPoison, Id.run]
   grind
 
+
+theorem fshl_mono {w : Nat} (a₁ b₁ c₁ a₂ b₂ c₂ : Int w)
+    (ha : a₁ ⊒ a₂) (hb : b₁ ⊒ b₂) (hc : c₁ ⊒ c₂) :
+    fshl a₁ b₁ c₁ ⊒ fshl a₂ b₂ c₂ := by
+  grind
+
+theorem fshr_mono {w : Nat} (a₁ b₁ c₁ a₂ b₂ c₂ : Int w)
+    (ha : a₁ ⊒ a₂) (hb : b₁ ⊒ b₂) (hc : c₁ ⊒ c₂) :
+    fshr a₁ b₁ c₁ ⊒ fshr a₂ b₂ c₂ := by
+  grind
+
+theorem ctlz_mono {w : Nat} (x₁ x₂ : Int w) (isZeroPoison : Bool)
+    (h : x₁ ⊒ x₂) : ctlz x₁ isZeroPoison ⊒ ctlz x₂ isZeroPoison := by
+  grind
+
+theorem cttz_mono {w : Nat} (x₁ x₂ : Int w) (isZeroPoison : Bool)
+    (h : x₁ ⊒ x₂) : cttz x₁ isZeroPoison ⊒ cttz x₂ isZeroPoison := by
+  grind
+
+theorem ctpop_mono {w : Nat} (x₁ x₂ : Int w) (h : x₁ ⊒ x₂) :
+    ctpop x₁ ⊒ ctpop x₂ := by
+  grind
+
+/-- `bswap` has no width-generic `getValue` equation, so we argue by cases on the source instead:
+poison propagates, and a concrete source is refined only by itself. -/
+theorem bswap_mono {w : Nat} (x₁ x₂ : Int w) (h : x₁ ⊒ x₂) :
+    bswap x₁ ⊒ bswap x₂ := by
+  cases x₁ with
+  | poison => grind
+  | val v =>
+    have : x₂ = .val v := by
+      cases x₂ <;> grind [isRefinedBy]
+    subst this
+    grind
+
+theorem bitreverse_mono {w : Nat} (x₁ x₂ : Int w) (h : x₁ ⊒ x₂) :
+    bitreverse x₁ ⊒ bitreverse x₂ := by
+  grind
+
+theorem smax_mono {w : Nat} (x₁ y₁ x₂ y₂ : Int w)
+    (hx : x₁ ⊒ x₂) (hy : y₁ ⊒ y₂) : smax x₁ y₁ ⊒ smax x₂ y₂ := by
+  grind
+
+theorem smin_mono {w : Nat} (x₁ y₁ x₂ y₂ : Int w)
+    (hx : x₁ ⊒ x₂) (hy : y₁ ⊒ y₂) : smin x₁ y₁ ⊒ smin x₂ y₂ := by
+  grind
+
+theorem umax_mono {w : Nat} (x₁ y₁ x₂ y₂ : Int w)
+    (hx : x₁ ⊒ x₂) (hy : y₁ ⊒ y₂) : umax x₁ y₁ ⊒ umax x₂ y₂ := by
+  grind
+
+theorem umin_mono {w : Nat} (x₁ y₁ x₂ y₂ : Int w)
+    (hx : x₁ ⊒ x₂) (hy : y₁ ⊒ y₂) : umin x₁ y₁ ⊒ umin x₂ y₂ := by
+  grind
+
+theorem abs_mono {w : Nat} (x₁ x₂ : Int w) (isIntMinPoison : Bool)
+    (h : x₁ ⊒ x₂) : abs x₁ isIntMinPoison ⊒ abs x₂ isIntMinPoison := by
+  grind
+
+theorem saddSat_mono {w : Nat} (x₁ y₁ x₂ y₂ : Int w)
+    (hx : x₁ ⊒ x₂) (hy : y₁ ⊒ y₂) : saddSat x₁ y₁ ⊒ saddSat x₂ y₂ := by
+  grind
+
+theorem uaddSat_mono {w : Nat} (x₁ y₁ x₂ y₂ : Int w)
+    (hx : x₁ ⊒ x₂) (hy : y₁ ⊒ y₂) : uaddSat x₁ y₁ ⊒ uaddSat x₂ y₂ := by
+  grind
+
+theorem ssubSat_mono {w : Nat} (x₁ y₁ x₂ y₂ : Int w)
+    (hx : x₁ ⊒ x₂) (hy : y₁ ⊒ y₂) : ssubSat x₁ y₁ ⊒ ssubSat x₂ y₂ := by
+  grind
+
+theorem usubSat_mono {w : Nat} (x₁ y₁ x₂ y₂ : Int w)
+    (hx : x₁ ⊒ x₂) (hy : y₁ ⊒ y₂) : usubSat x₁ y₁ ⊒ usubSat x₂ y₂ := by
+  grind
+
+theorem sshlSat_mono {w : Nat} (x₁ y₁ x₂ y₂ : Int w)
+    (hx : x₁ ⊒ x₂) (hy : y₁ ⊒ y₂) : sshlSat x₁ y₁ ⊒ sshlSat x₂ y₂ := by
+  grind
+
+theorem ushlSat_mono {w : Nat} (x₁ y₁ x₂ y₂ : Int w)
+    (hx : x₁ ⊒ x₂) (hy : y₁ ⊒ y₂) : ushlSat x₁ y₁ ⊒ ushlSat x₂ y₂ := by
+  grind
+
 @[veir_bv_normalize, grind =]
 theorem getValue_freeze {w : Nat} (x : Int w) :
     (freeze x).getValue = if h : x.isPoison then 0#w else x.getValue := by
