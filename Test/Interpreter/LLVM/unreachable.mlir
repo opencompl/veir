@@ -2,7 +2,7 @@
 
 // Executing `llvm.unreachable` is immediate undefined behaviour.
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main"}> ({
+  "func.func"() <{sym_name = "main", function_type = () -> ()}> ({
     "llvm.unreachable"() : () -> ()
   }) : () -> ()
 }) : () -> ()
