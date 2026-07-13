@@ -80,8 +80,8 @@ public def getFirstBlock? (funcOp : OperationPtr) (raw : IRContext OpCode) : Opt
 public def getLastBlock? (funcOp : OperationPtr) (raw : IRContext OpCode) : Option BlockPtr :=
   ((getFunctionBody! funcOp raw).get! raw).lastBlock
 
-/-
-  Argument and Result Handling
+/-!
+## Argument and Result Handling
 -/
 
 /-- Returns the number of function arguments. -/
