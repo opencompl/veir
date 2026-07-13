@@ -94,7 +94,7 @@ def getArgumentTypes? (funcOp: OperationPtr) (raw: IRContext OpCode) :
   ft.inputs
 
 /-- Returns the number of function results. -/
-public def getNumResults? (funcOp : OperationPtr) (raw : IRContext OpCode) : Option Nat := do
+def getNumResults? (funcOp : OperationPtr) (raw : IRContext OpCode) : Option Nat := do
   rlet ft ← getFunctionType? funcOp raw
   ft.outputs.size
 
