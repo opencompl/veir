@@ -3,6 +3,7 @@ import UnitTest.ParserError
 import UnitTest.Parser
 import UnitTest.AttrParser
 import UnitTest.MlirParser
+import UnitTest.IR.Operation
 import UnitTest.FP
 import UnitTest.Bitblasting.Bitblasting
 import UnitTest.DataFlowFramework.Dominance

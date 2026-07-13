@@ -290,6 +290,7 @@ theorem sltiEmitLocal_noWrap_sound {ctx : WfIRContext OpCode} (_ctxDom : ctx.Dom
   have hlo : -2048 ≤ immVal := by omega
   have hhi : immVal ≤ 2047 := by omega
   -- Peel the three creations: `castToReg lhs → dst (imm) → castBack`.
+  simp only [Option.bind_some] at hEmit
   peelCastToRegLocal hEmit ctx₁ castOp hCast hDomCtxLhs hDom₁
   peelOpCreation! hEmit ctx₂ immOp hImm hDom₁ hDom₂
   peelReplaceWithRegLocal hEmit ctx₃ castBackOp hCastBack hDom₂ hDom₃
@@ -407,6 +408,7 @@ theorem sltiEmitLocal_wrap_sound {ctx : WfIRContext OpCode} (_ctxDom : ctx.Dom)
   have hlo : -2048 ≤ immVal := by omega
   have hhi : immVal ≤ 2047 := by omega
   -- Peel the four creations: `castToReg lhs → dst (imm) → xori _ 1 → castBack`.
+  simp only [Option.bind_some] at hEmit
   peelCastToRegLocal hEmit ctx₁ castOp hCast hDomCtxLhs hDom₁
   peelOpCreation! hEmit ctx₂ immOp hImm hDom₁ hDom₂
   peelOpCreation! hEmit ctx₃ xorOp hXor hDom₂ hDom₃

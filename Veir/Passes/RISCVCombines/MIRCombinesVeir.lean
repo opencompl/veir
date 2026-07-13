@@ -6,116 +6,144 @@ import Veir.Passes.Matching
 
 namespace Veir.RISCV
 
-def sub_minus_one (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (lhs, op1, _props) := matchSub op rewriter.ctx | return rewriter
-  let some cst := matchConstantIntVal lhs rewriter.ctx | return rewriter
-  if cst.value ≠ -1 then return rewriter
-  let .integerType ctype := (op1.getType! rewriter.ctx.raw).val | return rewriter
+def sub_minus_one_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (lhs, op1, _props) := matchSub op ctx | return (ctx, none)
+  let some cst := matchConstantIntVal lhs ctx | return (ctx, none)
+  if cst.value ≠ -1 then return (ctx, none)
+  let .integerType ctype := (op1.getType! ctx.raw).val | return (ctx, none)
   let cstOpProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-1) ctype))
-  let (rewriter, cstOp) ← rewriter.createOp! (.llvm .mlir__constant) #[op1.getType! rewriter.ctx.raw] #[]
-    #[] #[] cstOpProp (some $ .before op)
-  let (rewriter, newOp) ← rewriter.createOp! (.llvm .xor) #[op1.getType! rewriter.ctx.raw] #[op1, (cstOp.getResult 0)]
-    #[] #[] () (some $ .before op)
-  return rewriter.replaceOp! op newOp
+  let (ctx, cstOp) ← WfRewriter.createOp! ctx (.llvm .mlir__constant) #[op1.getType! ctx.raw] #[]
+    #[] #[] cstOpProp none
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .xor) #[op1.getType! ctx.raw] #[op1, (cstOp.getResult 0)]
+    #[] #[] () none
+  some (ctx, some (#[cstOp, newOp], #[newOp.getResult 0]))
 
-set_option warn.sorry false in
-def right_identity_zero_0 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (lhs, rhs, _props) := matchSub op rewriter.ctx | return rewriter
-  let some cst := matchConstantIntVal rhs rewriter.ctx | return rewriter
-  if cst.value ≠ 0 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+def sub_minus_one (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite sub_minus_one_local rewriter op opInBounds
 
-set_option warn.sorry false in
-def right_identity_zero_1 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (lhs, rhs, _props) := matchAdd op rewriter.ctx | return rewriter
-  let some cst := matchConstantIntVal rhs rewriter.ctx | return rewriter
-  if cst.value ≠ 0 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+def right_identity_zero_0_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (lhs, rhs, _props) := matchSub op ctx | return (ctx, none)
+  let some cst := matchConstantIntVal rhs ctx | return (ctx, none)
+  if cst.value ≠ 0 then return (ctx, none)
+  some (ctx, some (#[], #[lhs]))
 
-set_option warn.sorry false in
-def right_identity_zero_2 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (lhs, rhs, _props) := matchOr op rewriter.ctx | return rewriter
-  let some cst := matchConstantIntVal rhs rewriter.ctx | return rewriter
-  if cst.value ≠ 0 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+def right_identity_zero_0 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite right_identity_zero_0_local rewriter op opInBounds
 
-set_option warn.sorry false in
-def right_identity_zero_3 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (lhs, rhs, _props) := matchXor op rewriter.ctx | return rewriter
-  let some cst := matchConstantIntVal rhs rewriter.ctx | return rewriter
-  if cst.value ≠ 0 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+def right_identity_zero_1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (lhs, rhs, _props) := matchAdd op ctx | return (ctx, none)
+  let some cst := matchConstantIntVal rhs ctx | return (ctx, none)
+  if cst.value ≠ 0 then return (ctx, none)
+  some (ctx, some (#[], #[lhs]))
 
-set_option warn.sorry false in
-def right_identity_zero_4 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (lhs, rhs, _props) := matchShl op rewriter.ctx | return rewriter
-  let some cst := matchConstantIntVal rhs rewriter.ctx | return rewriter
-  if cst.value ≠ 0 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+def right_identity_zero_1 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite right_identity_zero_1_local rewriter op opInBounds
 
-set_option warn.sorry false in
-def right_identity_zero_5 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (lhs, rhs, _props) := matchAshr op rewriter.ctx | return rewriter
-  let some cst := matchConstantIntVal rhs rewriter.ctx | return rewriter
-  if cst.value ≠ 0 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+def right_identity_zero_2_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (lhs, rhs, _props) := matchOr op ctx | return (ctx, none)
+  let some cst := matchConstantIntVal rhs ctx | return (ctx, none)
+  if cst.value ≠ 0 then return (ctx, none)
+  some (ctx, some (#[], #[lhs]))
 
-set_option warn.sorry false in
-def right_identity_zero_6 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (lhs, rhs, _props) := matchLshr op rewriter.ctx | return rewriter
-  let some cst := matchConstantIntVal rhs rewriter.ctx | return rewriter
-  if cst.value ≠ 0 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+def right_identity_zero_2 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite right_identity_zero_2_local rewriter op opInBounds
 
-set_option warn.sorry false in
-def right_identity_one_int (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (x, rhs, _props) := matchMul op rewriter.ctx | return rewriter
-  let some cst := matchConstantIntVal rhs rewriter.ctx | return rewriter
-  if cst.value ≠ 1 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) x sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+def right_identity_zero_3_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (lhs, rhs, _props) := matchXor op ctx | return (ctx, none)
+  let some cst := matchConstantIntVal rhs ctx | return (ctx, none)
+  if cst.value ≠ 0 then return (ctx, none)
+  some (ctx, some (#[], #[lhs]))
 
-set_option warn.sorry false in
-def binop_same_val_0 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (src, src1, _) := matchAnd op rewriter.ctx | return rewriter
-  if src != src1 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) src sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+def right_identity_zero_3 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite right_identity_zero_3_local rewriter op opInBounds
 
-set_option warn.sorry false in
-def binop_same_val_1 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (src, src1, _props) := matchOr op rewriter.ctx | return rewriter
-  if src != src1 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) src sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+def right_identity_zero_4_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (lhs, rhs, _props) := matchShl op ctx | return (ctx, none)
+  let some cst := matchConstantIntVal rhs ctx | return (ctx, none)
+  if cst.value ≠ 0 then return (ctx, none)
+  some (ctx, some (#[], #[lhs]))
 
-def same_val_zero_0 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (x, x1, _props) := matchSub op rewriter.ctx | return rewriter
-  if x != x1 then return rewriter
-  let .integerType type := (x.getType! rewriter.ctx.raw).val | return rewriter
+def right_identity_zero_4 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite right_identity_zero_4_local rewriter op opInBounds
+
+def right_identity_zero_5_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (lhs, rhs, _props) := matchAshr op ctx | return (ctx, none)
+  let some cst := matchConstantIntVal rhs ctx | return (ctx, none)
+  if cst.value ≠ 0 then return (ctx, none)
+  some (ctx, some (#[], #[lhs]))
+
+def right_identity_zero_5 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite right_identity_zero_5_local rewriter op opInBounds
+
+def right_identity_zero_6_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (lhs, rhs, _props) := matchLshr op ctx | return (ctx, none)
+  let some cst := matchConstantIntVal rhs ctx | return (ctx, none)
+  if cst.value ≠ 0 then return (ctx, none)
+  some (ctx, some (#[], #[lhs]))
+
+def right_identity_zero_6 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite right_identity_zero_6_local rewriter op opInBounds
+
+def right_identity_one_int_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (x, rhs, _props) := matchMul op ctx | return (ctx, none)
+  let some cst := matchConstantIntVal rhs ctx | return (ctx, none)
+  if cst.value ≠ 1 then return (ctx, none)
+  some (ctx, some (#[], #[x]))
+
+def right_identity_one_int (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite right_identity_one_int_local rewriter op opInBounds
+
+def binop_same_val_0_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (src, src1, _) := matchAnd op ctx | return (ctx, none)
+  if src != src1 then return (ctx, none)
+  some (ctx, some (#[], #[src]))
+
+def binop_same_val_0 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite binop_same_val_0_local rewriter op opInBounds
+
+def binop_same_val_1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (src, src1, _props) := matchOr op ctx | return (ctx, none)
+  if src != src1 then return (ctx, none)
+  some (ctx, some (#[], #[src]))
+
+def binop_same_val_1 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite binop_same_val_1_local rewriter op opInBounds
+
+def same_val_zero_0_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (x, x1, _props) := matchSub op ctx | return (ctx, none)
+  if x != x1 then return (ctx, none)
+  let .integerType type := (x.getType! ctx.raw).val | return (ctx, none)
   let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) type))
-  let (rewriter, newOp) ← rewriter.createOp! (.llvm .mlir__constant) #[x.getType! rewriter.ctx.raw] #[]
-    #[] #[] cstProp (some $ .before op)
-  return rewriter.replaceOp! op newOp
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .mlir__constant) #[x.getType! ctx.raw] #[]
+    #[] #[] cstProp none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
+
+def same_val_zero_0 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite same_val_zero_0_local rewriter op opInBounds
 
 /-- `llvm.xor x x` -> `llvm.mlir.constant 0` (64-bit only): xoring a value with itself is always
   zero (and if the operand is poison, the result poison is refined by the concrete constant). This
@@ -137,210 +165,270 @@ def same_val_zero_1 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite same_val_zero_1_local rewriter op opInBounds
 
-set_option warn.sorry false in
-def binop_right_to_zero (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (lhs, zero, _props) := matchMul op rewriter.ctx | return rewriter
-  let some cst := matchConstantIntVal zero rewriter.ctx | return rewriter
-  if cst.value ≠ 0 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) zero sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+def binop_right_to_zero_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (_lhs, zero, _props) := matchMul op ctx | return (ctx, none)
+  let some cst := matchConstantIntVal zero ctx | return (ctx, none)
+  if cst.value ≠ 0 then return (ctx, none)
+  some (ctx, some (#[], #[zero]))
 
-def mul_by_neg_one (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (x, rhs, _props) := matchMul op rewriter.ctx | return rewriter
-  let some cst := matchConstantIntVal rhs rewriter.ctx | return rewriter
-  if cst.value ≠ -1 then return rewriter
-  let .integerType ctype := (x.getType! rewriter.ctx.raw).val | return rewriter
+def binop_right_to_zero (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite binop_right_to_zero_local rewriter op opInBounds
+
+def mul_by_neg_one_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (x, rhs, _props) := matchMul op ctx | return (ctx, none)
+  let some cst := matchConstantIntVal rhs ctx | return (ctx, none)
+  if cst.value ≠ -1 then return (ctx, none)
+  let .integerType ctype := (x.getType! ctx.raw).val | return (ctx, none)
   let cstOpProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) ctype))
-  let (rewriter, cstOp) ← rewriter.createOp! (.llvm .mlir__constant) #[x.getType! rewriter.ctx.raw] #[]
-    #[] #[] cstOpProp (some $ .before op)
-  let (rewriter, newOp) ← rewriter.createOp! (.llvm .sub) #[x.getType! rewriter.ctx.raw] #[(cstOp.getResult 0), x]
-    #[] #[] _props (some $ .before op)
-  return rewriter.replaceOp! op newOp
+  let (ctx, cstOp) ← WfRewriter.createOp! ctx (.llvm .mlir__constant) #[x.getType! ctx.raw] #[]
+    #[] #[] cstOpProp none
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .sub) #[x.getType! ctx.raw] #[(cstOp.getResult 0), x]
+    #[] #[] _props none
+  some (ctx, some (#[cstOp, newOp], #[newOp.getResult 0]))
 
-def or_and_xor_to_or (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (and, y, _props) := matchOr op rewriter.ctx | return rewriter
-  let some defOp := getDefiningOp and rewriter.ctx | return rewriter
-  let some (x, not, _) := matchAnd defOp rewriter.ctx | return rewriter
-  let some defOp1 := getDefiningOp not rewriter.ctx | return rewriter
-  let some (y1, rhs, _props1) := matchXor defOp1 rewriter.ctx | return rewriter
-  if y != y1 then return rewriter
-  let some cst := matchConstantIntVal rhs rewriter.ctx | return rewriter
-  if cst.value ≠ -1 then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp! (.llvm .or) #[and.getType! rewriter.ctx.raw] #[x, y]
-    #[] #[] _props (some $ .before op)
-  return rewriter.replaceOp! op newOp
+def mul_by_neg_one (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite mul_by_neg_one_local rewriter op opInBounds
 
-def and_xor_or_to_and (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (or, y, _) := matchAnd op rewriter.ctx | return rewriter
-  let some defOp := getDefiningOp or rewriter.ctx | return rewriter
-  let some (x, not, _props) := matchOr defOp rewriter.ctx | return rewriter
-  let some defOp1 := getDefiningOp not rewriter.ctx | return rewriter
-  let some (y1, rhs, _props1) := matchXor defOp1 rewriter.ctx | return rewriter
-  if y != y1 then return rewriter
-  let some cst := matchConstantIntVal rhs rewriter.ctx | return rewriter
-  if cst.value ≠ -1 then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp! (.llvm .and) #[or.getType! rewriter.ctx.raw] #[x, y]
-    #[] #[] () (some $ .before op)
-  return rewriter.replaceOp! op newOp
+def or_and_xor_to_or_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (and, y, _props) := matchOr op ctx | return (ctx, none)
+  let some defOp := getDefiningOp and ctx | return (ctx, none)
+  let some (x, not, _) := matchAnd defOp ctx | return (ctx, none)
+  let some defOp1 := getDefiningOp not ctx | return (ctx, none)
+  let some (y1, rhs, _props1) := matchXor defOp1 ctx | return (ctx, none)
+  if y != y1 then return (ctx, none)
+  let some cst := matchConstantIntVal rhs ctx | return (ctx, none)
+  if cst.value ≠ -1 then return (ctx, none)
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .or) #[and.getType! ctx.raw] #[x, y]
+    #[] #[] _props none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
-set_option warn.sorry false in
-def add_sub_reg_0 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (x, tmp, _props) := matchAdd op rewriter.ctx | return rewriter
-  let some defOp := getDefiningOp tmp rewriter.ctx | return rewriter
-  let some (src, x1, _props1) := matchSub defOp rewriter.ctx | return rewriter
-  if x != x1 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) src sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+def or_and_xor_to_or (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite or_and_xor_to_or_local rewriter op opInBounds
 
-set_option warn.sorry false in
-def add_sub_reg_1 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (tmp, x, _props) := matchAdd op rewriter.ctx | return rewriter
-  let some defOp := getDefiningOp tmp rewriter.ctx | return rewriter
-  let some (src, x1, _props1) := matchSub defOp rewriter.ctx | return rewriter
-  if x != x1 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) src sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+def and_xor_or_to_and_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (or, y, _) := matchAnd op ctx | return (ctx, none)
+  let some defOp := getDefiningOp or ctx | return (ctx, none)
+  let some (x, not, _props) := matchOr defOp ctx | return (ctx, none)
+  let some defOp1 := getDefiningOp not ctx | return (ctx, none)
+  let some (y1, rhs, _props1) := matchXor defOp1 ctx | return (ctx, none)
+  if y != y1 then return (ctx, none)
+  let some cst := matchConstantIntVal rhs ctx | return (ctx, none)
+  if cst.value ≠ -1 then return (ctx, none)
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .and) #[or.getType! ctx.raw] #[x, y]
+    #[] #[] () none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
-def APlusBMinusCMinusB (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (add1, B, _props) := matchSub op rewriter.ctx | return rewriter
-  let some defOp := getDefiningOp add1 rewriter.ctx | return rewriter
-  let some (A, sub1, _props1) := matchAdd defOp rewriter.ctx | return rewriter
-  let some defOp1 := getDefiningOp sub1 rewriter.ctx | return rewriter
-  let some (B1, C, _props2) := matchSub defOp1 rewriter.ctx | return rewriter
-  if B != B1 then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp! (.llvm .sub) #[add1.getType! rewriter.ctx.raw] #[A, C]
-    #[] #[] _props (some $ .before op)
-  return rewriter.replaceOp! op newOp
+def and_xor_or_to_and (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite and_xor_or_to_and_local rewriter op opInBounds
 
-def AMinusBMinusCMinusC (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (sub2, C, _props) := matchSub op rewriter.ctx | return rewriter
-  let some defOp := getDefiningOp sub2 rewriter.ctx | return rewriter
-  let some (A, sub1, _props1) := matchSub defOp rewriter.ctx | return rewriter
-  let some defOp1 := getDefiningOp sub1 rewriter.ctx | return rewriter
-  let some (B, C1, _props2) := matchSub defOp1 rewriter.ctx | return rewriter
-  if C != C1 then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp! (.llvm .sub) #[sub2.getType! rewriter.ctx.raw] #[A, B]
-    #[] #[] _props (some $ .before op)
-  return rewriter.replaceOp! op newOp
+def add_sub_reg_0_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (x, tmp, _props) := matchAdd op ctx | return (ctx, none)
+  let some defOp := getDefiningOp tmp ctx | return (ctx, none)
+  let some (src, x1, _props1) := matchSub defOp ctx | return (ctx, none)
+  if x != x1 then return (ctx, none)
+  some (ctx, some (#[], #[src]))
 
-def ZeroMinusAPlusB (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (sub, B, _props) := matchAdd op rewriter.ctx | return rewriter
-  let some defOp := getDefiningOp sub rewriter.ctx | return rewriter
-  let some (lhs, A, _props1) := matchSub defOp rewriter.ctx | return rewriter
-  let some cst := matchConstantIntVal lhs rewriter.ctx | return rewriter
-  if cst.value ≠ 0 then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp! (.llvm .sub) #[sub.getType! rewriter.ctx.raw] #[B, A]
-    #[] #[] _props (some $ .before op)
-  return rewriter.replaceOp! op newOp
+def add_sub_reg_0 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite add_sub_reg_0_local rewriter op opInBounds
 
-def APlusZeroMinusB (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (A, sub, _props) := matchAdd op rewriter.ctx | return rewriter
-  let some defOp := getDefiningOp sub rewriter.ctx | return rewriter
-  let some (lhs, B, _props1) := matchSub defOp rewriter.ctx | return rewriter
-  let some cst := matchConstantIntVal lhs rewriter.ctx | return rewriter
-  if cst.value ≠ 0 then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp! (.llvm .sub) #[A.getType! rewriter.ctx.raw] #[A, B]
-    #[] #[] _props (some $ .before op)
-  return rewriter.replaceOp! op newOp
+def add_sub_reg_1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (tmp, x, _props) := matchAdd op ctx | return (ctx, none)
+  let some defOp := getDefiningOp tmp ctx | return (ctx, none)
+  let some (src, x1, _props1) := matchSub defOp ctx | return (ctx, none)
+  if x != x1 then return (ctx, none)
+  some (ctx, some (#[], #[src]))
 
-set_option warn.sorry false in
-def APlusBMinusB (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (A, sub, _props) := matchAdd op rewriter.ctx | return rewriter
-  let some defOp := getDefiningOp sub rewriter.ctx | return rewriter
-  let some (B, A1, _props1) := matchSub defOp rewriter.ctx | return rewriter
-  if A != A1 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) B sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+def add_sub_reg_1 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite add_sub_reg_1_local rewriter op opInBounds
 
-set_option warn.sorry false in
-def BMinusAPlusA (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (sub, A, _props) := matchAdd op rewriter.ctx | return rewriter
-  let some defOp := getDefiningOp sub rewriter.ctx | return rewriter
-  let some (B, A1, _props1) := matchSub defOp rewriter.ctx | return rewriter
-  if A != A1 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) B sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+def APlusBMinusCMinusB_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (add1, B, _props) := matchSub op ctx | return (ctx, none)
+  let some defOp := getDefiningOp add1 ctx | return (ctx, none)
+  let some (A, sub1, _props1) := matchAdd defOp ctx | return (ctx, none)
+  let some defOp1 := getDefiningOp sub1 ctx | return (ctx, none)
+  let some (B1, C, _props2) := matchSub defOp1 ctx | return (ctx, none)
+  if B != B1 then return (ctx, none)
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .sub) #[add1.getType! ctx.raw] #[A, C]
+    #[] #[] _props none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
-def AMinusBPlusCMinusA (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (sub1, sub2, _props) := matchAdd op rewriter.ctx | return rewriter
-  let some defOp := getDefiningOp sub1 rewriter.ctx | return rewriter
-  let some (A, B, _props1) := matchSub defOp rewriter.ctx | return rewriter
-  let some defOp1 := getDefiningOp sub2 rewriter.ctx | return rewriter
-  let some (C, A1, _props2) := matchSub defOp1 rewriter.ctx | return rewriter
-  if A != A1 then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp! (.llvm .sub) #[sub1.getType! rewriter.ctx.raw] #[C, B]
-    #[] #[] _props (some $ .before op)
-  return rewriter.replaceOp! op newOp
+def APlusBMinusCMinusB (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite APlusBMinusCMinusB_local rewriter op opInBounds
 
-def AMinusBPlusBMinusC (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (sub1, sub2, _props) := matchAdd op rewriter.ctx | return rewriter
-  let some defOp := getDefiningOp sub1 rewriter.ctx | return rewriter
-  let some (A, B, _props1) := matchSub defOp rewriter.ctx | return rewriter
-  let some defOp1 := getDefiningOp sub2 rewriter.ctx | return rewriter
-  let some (B1, C, _props2) := matchSub defOp1 rewriter.ctx | return rewriter
-  if B != B1 then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp! (.llvm .sub) #[sub1.getType! rewriter.ctx.raw] #[A, C]
-    #[] #[] _props (some $ .before op)
-  return rewriter.replaceOp! op newOp
+def AMinusBMinusCMinusC_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (sub2, C, _props) := matchSub op ctx | return (ctx, none)
+  let some defOp := getDefiningOp sub2 ctx | return (ctx, none)
+  let some (A, sub1, _props1) := matchSub defOp ctx | return (ctx, none)
+  let some defOp1 := getDefiningOp sub1 ctx | return (ctx, none)
+  let some (B, C1, _props2) := matchSub defOp1 ctx | return (ctx, none)
+  if C != C1 then return (ctx, none)
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .sub) #[sub2.getType! ctx.raw] #[A, B]
+    #[] #[] _props none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
-def APlusBMinusAplusC (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (A, sub1, _props) := matchAdd op rewriter.ctx | return rewriter
-  let some defOp := getDefiningOp sub1 rewriter.ctx | return rewriter
-  let some (B, add1, _props1) := matchSub defOp rewriter.ctx | return rewriter
-  let some defOp1 := getDefiningOp add1 rewriter.ctx | return rewriter
-  let some (A1, C, _props2) := matchAdd defOp1 rewriter.ctx | return rewriter
-  if A != A1 then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp! (.llvm .sub) #[A.getType! rewriter.ctx.raw] #[B, C]
-    #[] #[] _props (some $ .before op)
-  return rewriter.replaceOp! op newOp
+def AMinusBMinusCMinusC (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite AMinusBMinusCMinusC_local rewriter op opInBounds
 
-def APlusBMinusCPlusA (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (A, sub1, _props) := matchAdd op rewriter.ctx | return rewriter
-  let some defOp := getDefiningOp sub1 rewriter.ctx | return rewriter
-  let some (B, add1, _props1) := matchSub defOp rewriter.ctx | return rewriter
-  let some defOp1 := getDefiningOp add1 rewriter.ctx | return rewriter
-  let some (C, A1, _props2) := matchAdd defOp1 rewriter.ctx | return rewriter
-  if A != A1 then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp! (.llvm .sub) #[A.getType! rewriter.ctx.raw] #[B, C]
-    #[] #[] _props (some $ .before op)
-  return rewriter.replaceOp! op newOp
+def ZeroMinusAPlusB_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (sub, B, _props) := matchAdd op ctx | return (ctx, none)
+  let some defOp := getDefiningOp sub ctx | return (ctx, none)
+  let some (lhs, A, _props1) := matchSub defOp ctx | return (ctx, none)
+  let some cst := matchConstantIntVal lhs ctx | return (ctx, none)
+  if cst.value ≠ 0 then return (ctx, none)
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .sub) #[sub.getType! ctx.raw] #[B, A]
+    #[] #[] _props none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
-def AMinusZeroMinusB (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (A, sub1, _props) := matchSub op rewriter.ctx | return rewriter
-  let some defOp := getDefiningOp sub1 rewriter.ctx | return rewriter
-  let some (lhs, B, _props1) := matchSub defOp rewriter.ctx | return rewriter
-  let some cst := matchConstantIntVal lhs rewriter.ctx | return rewriter
-  if cst.value ≠ 0 then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp! (.llvm .add) #[A.getType! rewriter.ctx.raw] #[A, B]
-    #[] #[] _props (some $ .before op)
-  return rewriter.replaceOp! op newOp
+def ZeroMinusAPlusB (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite ZeroMinusAPlusB_local rewriter op opInBounds
 
-set_option warn.sorry false in
-def AMinusBMinusA (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (A, add, _props) := matchSub op rewriter.ctx | return rewriter
-  let some defOp := getDefiningOp add rewriter.ctx | return rewriter
-  let some (A1, B, _props1) := matchSub defOp rewriter.ctx | return rewriter
-  if A != A1 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) B sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+def APlusZeroMinusB_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (A, sub, _props) := matchAdd op ctx | return (ctx, none)
+  let some defOp := getDefiningOp sub ctx | return (ctx, none)
+  let some (lhs, B, _props1) := matchSub defOp ctx | return (ctx, none)
+  let some cst := matchConstantIntVal lhs ctx | return (ctx, none)
+  if cst.value ≠ 0 then return (ctx, none)
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .sub) #[A.getType! ctx.raw] #[A, B]
+    #[] #[] _props none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
+
+def APlusZeroMinusB (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite APlusZeroMinusB_local rewriter op opInBounds
+
+def APlusBMinusB_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (A, sub, _props) := matchAdd op ctx | return (ctx, none)
+  let some defOp := getDefiningOp sub ctx | return (ctx, none)
+  let some (B, A1, _props1) := matchSub defOp ctx | return (ctx, none)
+  if A != A1 then return (ctx, none)
+  some (ctx, some (#[], #[B]))
+
+def APlusBMinusB (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite APlusBMinusB_local rewriter op opInBounds
+
+def BMinusAPlusA_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (sub, A, _props) := matchAdd op ctx | return (ctx, none)
+  let some defOp := getDefiningOp sub ctx | return (ctx, none)
+  let some (B, A1, _props1) := matchSub defOp ctx | return (ctx, none)
+  if A != A1 then return (ctx, none)
+  some (ctx, some (#[], #[B]))
+
+def BMinusAPlusA (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite BMinusAPlusA_local rewriter op opInBounds
+
+def AMinusBPlusCMinusA_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (sub1, sub2, _props) := matchAdd op ctx | return (ctx, none)
+  let some defOp := getDefiningOp sub1 ctx | return (ctx, none)
+  let some (A, B, _props1) := matchSub defOp ctx | return (ctx, none)
+  let some defOp1 := getDefiningOp sub2 ctx | return (ctx, none)
+  let some (C, A1, _props2) := matchSub defOp1 ctx | return (ctx, none)
+  if A != A1 then return (ctx, none)
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .sub) #[sub1.getType! ctx.raw] #[C, B]
+    #[] #[] _props none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
+
+def AMinusBPlusCMinusA (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite AMinusBPlusCMinusA_local rewriter op opInBounds
+
+def AMinusBPlusBMinusC_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (sub1, sub2, _props) := matchAdd op ctx | return (ctx, none)
+  let some defOp := getDefiningOp sub1 ctx | return (ctx, none)
+  let some (A, B, _props1) := matchSub defOp ctx | return (ctx, none)
+  let some defOp1 := getDefiningOp sub2 ctx | return (ctx, none)
+  let some (B1, C, _props2) := matchSub defOp1 ctx | return (ctx, none)
+  if B != B1 then return (ctx, none)
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .sub) #[sub1.getType! ctx.raw] #[A, C]
+    #[] #[] _props none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
+
+def AMinusBPlusBMinusC (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite AMinusBPlusBMinusC_local rewriter op opInBounds
+
+def APlusBMinusAplusC_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (A, sub1, _props) := matchAdd op ctx | return (ctx, none)
+  let some defOp := getDefiningOp sub1 ctx | return (ctx, none)
+  let some (B, add1, _props1) := matchSub defOp ctx | return (ctx, none)
+  let some defOp1 := getDefiningOp add1 ctx | return (ctx, none)
+  let some (A1, C, _props2) := matchAdd defOp1 ctx | return (ctx, none)
+  if A != A1 then return (ctx, none)
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .sub) #[A.getType! ctx.raw] #[B, C]
+    #[] #[] _props none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
+
+def APlusBMinusAplusC (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite APlusBMinusAplusC_local rewriter op opInBounds
+
+def APlusBMinusCPlusA_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (A, sub1, _props) := matchAdd op ctx | return (ctx, none)
+  let some defOp := getDefiningOp sub1 ctx | return (ctx, none)
+  let some (B, add1, _props1) := matchSub defOp ctx | return (ctx, none)
+  let some defOp1 := getDefiningOp add1 ctx | return (ctx, none)
+  let some (C, A1, _props2) := matchAdd defOp1 ctx | return (ctx, none)
+  if A != A1 then return (ctx, none)
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .sub) #[A.getType! ctx.raw] #[B, C]
+    #[] #[] _props none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
+
+def APlusBMinusCPlusA (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite APlusBMinusCPlusA_local rewriter op opInBounds
+
+def AMinusZeroMinusB_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (A, sub1, _props) := matchSub op ctx | return (ctx, none)
+  let some defOp := getDefiningOp sub1 ctx | return (ctx, none)
+  let some (lhs, B, _props1) := matchSub defOp ctx | return (ctx, none)
+  let some cst := matchConstantIntVal lhs ctx | return (ctx, none)
+  if cst.value ≠ 0 then return (ctx, none)
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .add) #[A.getType! ctx.raw] #[A, B]
+    #[] #[] _props none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
+
+def AMinusZeroMinusB (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite AMinusZeroMinusB_local rewriter op opInBounds
+
+def AMinusBMinusA_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (A, add, _props) := matchSub op ctx | return (ctx, none)
+  let some defOp := getDefiningOp add ctx | return (ctx, none)
+  let some (A1, B, _props1) := matchSub defOp ctx | return (ctx, none)
+  if A != A1 then return (ctx, none)
+  some (ctx, some (#[], #[B]))
+
+def AMinusBMinusA (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite AMinusBMinusA_local rewriter op opInBounds
 
 def mir_pattern_combines :=
   [sub_minus_one,
