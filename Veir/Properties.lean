@@ -556,7 +556,7 @@ def FuncFuncProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute)
     | none => pure none
   let extra := DictionaryAttr.fromArray
     (attrDict.toArray.filter fun (k, _) => k ≠ "sym_name".toUTF8)
-  return { sym_name := symName, function_type := funcType , extra }
+  return { sym_name := symName, function_type := funcType, extra }
 
 /--
   Properties of the `func.call` operation. The `callee` is first-class; all
