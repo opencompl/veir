@@ -150,11 +150,11 @@ def coerceFunction (ctx : WfIRContext OpCode) (funcOp : OperationPtr) :
   -- Shadow the parameter: from here on `ctx` always names the latest version, with no
   -- separate old binding left around to second-guess.
   let mut ctx := ctx
-  let some entry := FunctionOpInterface.getFirstBlock? funcOp ctx.raw | return ctx
+  let some entry := FunctionOpInterface.getEntryBlock? funcOp ctx.raw | return ctx
   let returnCode := returnOpCodeFor (funcOp.getOpType! ctx.raw)
   -- Default the output types to the currently-declared ones, then flip coerced positions.
   -- This preserves non-integer results and `llvm.func`'s `void` return.
-  let mut outputs : Array Attribute := (FunctionOpInterface.getResultTypes? funcOp ctx.raw).getD #[]
+  let mut outputs : Array Attribute := FunctionOpInterface.getResultTypes! funcOp ctx.raw
   -- (1) Coerce entry-block arguments (the function parameters). This mirrors the
   --     block-argument coercion in `isel-br-riscv64`, which skips entry blocks.
   let mut inputs : Array Attribute := #[]

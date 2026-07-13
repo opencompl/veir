@@ -1,5 +1,8 @@
 module
 
+public import Veir.GlobalOpInfo
+public import Veir.IR.Fields
+
 /-!
 # FunctionOpInterface
 
@@ -11,9 +14,6 @@ Also see:
 https://github.com/llvm/llvm-project/blob/main/mlir/include/mlir/Interfaces/FunctionInterfaces.td
 -/
 
-public import Veir.GlobalOpInfo
-public import Veir.IR.Fields
-
 namespace Veir
 
 public section
@@ -21,7 +21,7 @@ public section
 namespace FunctionOpInterface
 
 /-- Returns the symbol name of the function. -/
-public def getSymName? (funcOp : OperationPtr) (raw : IRContext OpCode) : Option StringAttr :=
+def getSymName? (funcOp : OperationPtr) (raw : IRContext OpCode) : Option StringAttr :=
   match funcOp.getOpType! raw with
   | .func .func =>
     (funcOp.getProperties! raw (.func .func) : FuncFuncProperties).sym_name
@@ -30,7 +30,7 @@ public def getSymName? (funcOp : OperationPtr) (raw : IRContext OpCode) : Option
   | _ => none
 
 /-- Returns the type of the function. -/
-public def getFunctionType? (funcOp : OperationPtr) (raw : IRContext OpCode) :
+def getFunctionType? (funcOp : OperationPtr) (raw : IRContext OpCode) :
     Option FunctionType := do
   match funcOp.getOpType! raw with
   | .func .func =>
@@ -50,12 +50,13 @@ public def getFunctionType? (funcOp : OperationPtr) (raw : IRContext OpCode) :
 -/
 
 /-- Returns the region containing the body of this function. -/
-public def getFunctionBody (funcOp : OperationPtr) (raw : IRContext OpCode)
+def getFunctionBody (funcOp : OperationPtr) (raw : IRContext OpCode)
     (opInBounds : funcOp.InBounds raw := by grind)
     (hasRegion : 0 < funcOp.getNumRegions raw opInBounds := by grind) : RegionPtr :=
   funcOp.getRegion raw 0 opInBounds hasRegion
 
-public def getFunctionBody! (funcOp : OperationPtr) (raw : IRContext OpCode) : RegionPtr :=
+/-- Returns the region containing the body of this function. -/
+def getFunctionBody! (funcOp : OperationPtr) (raw : IRContext OpCode) : RegionPtr :=
   funcOp.getRegion! raw 0
 
 @[grind =_, eq_bang ←]
@@ -74,27 +75,38 @@ theorem getFunctionBody!_inBounds
 grind_pattern getFunctionBody!_inBounds => (getFunctionBody! funcOp raw), raw.FieldsInBounds
 
 /-- Returns the first block in the body region. -/
-public def getFirstBlock? (funcOp : OperationPtr) (raw : IRContext OpCode) : Option BlockPtr :=
+def getEntryBlock? (funcOp : OperationPtr) (raw : IRContext OpCode) : Option BlockPtr :=
   ((getFunctionBody! funcOp raw).get! raw).firstBlock
-
-/-- Returns the last block in the body region. -/
-public def getLastBlock? (funcOp : OperationPtr) (raw : IRContext OpCode) : Option BlockPtr :=
-  ((getFunctionBody! funcOp raw).get! raw).lastBlock
 
 /-!
 ## Argument and Result Handling
 -/
 
 /-- Returns the number of function arguments. -/
-public def getNumArguments? (funcOp : OperationPtr) (raw : IRContext OpCode) : Option Nat := do
+def getNumArguments? (funcOp : OperationPtr) (raw : IRContext OpCode) : Option Nat := do
   rlet ft ← getFunctionType? funcOp raw
   ft.inputs.size
 
+/-- Returns the argument types of the function. -/
+def getArgumentTypes? (funcOp: OperationPtr) (raw: IRContext OpCode) :
+    Option (Array Attribute) := do
+  rlet ft ← getFunctionType? funcOp raw
+  ft.inputs
+
+/-- Returns the number of function results. -/
+public def getNumResults? (funcOp : OperationPtr) (raw : IRContext OpCode) : Option Nat := do
+  rlet ft ← getFunctionType? funcOp raw
+  ft.outputs.size
+
 /-- Returns the result types of the function. -/
-public def getResultTypes? (funcOp : OperationPtr) (raw : IRContext OpCode) :
+def getResultTypes? (funcOp : OperationPtr) (raw : IRContext OpCode) :
     Option (Array Attribute) := do
   rlet ft ← getFunctionType? funcOp raw
   ft.outputs
+
+/-- Returns the result types of the function. -/
+def getResultTypes! (funcOp : OperationPtr) (raw : IRContext OpCode) : Array Attribute :=
+  (getResultTypes? funcOp raw).get!
 
 end FunctionOpInterface
 
