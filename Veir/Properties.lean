@@ -538,6 +538,7 @@ def HWConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribut
 -/
 structure FuncFuncProperties where
   sym_name : Option StringAttr
+  function_type : Option TypeAttr
   extra : DictionaryAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
@@ -547,9 +548,15 @@ def FuncFuncProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute)
     | some (.stringAttr s) => pure (some s)
     | some attr => throw s!"func.func: expected 'sym_name' to be a string attribute, but got {attr}"
     | none => pure none
+  let funcType ← match attrDict["function_type".toUTF8]? with
+    | some attr =>
+      if _ : attr.isType = false then
+        throw "func.func: expected 'function_type' to be a type attribute"
+      else pure (some attr.asType)
+    | none => pure none
   let extra := DictionaryAttr.fromArray
     (attrDict.toArray.filter fun (k, _) => k ≠ "sym_name".toUTF8)
-  return { sym_name := symName, extra }
+  return { sym_name := symName, function_type := funcType , extra }
 
 /--
   Properties of the `func.call` operation. The `callee` is first-class; all
