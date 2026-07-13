@@ -1,6 +1,15 @@
+module
+
+public import Veir.IR.OpInfo
+public import Veir.Interpreter.Refinement.Basic
+public import Veir.Interpreter.Basic
+public import Veir.Verifier
+
+import Veir.Interpreter.Lemmas
 import Veir.Interpreter.EquationLemma
-import Veir.Interpreter.Refinement.Basic
 import Veir.Interpreter.Refinement.Lemmas
+
+public section
 
 /-!
 # Monotonicity of the interpreter
