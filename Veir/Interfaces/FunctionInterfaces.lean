@@ -1,13 +1,14 @@
 module
 
-/- FunctionOpInterface
+/-!
+# FunctionOpInterface
 
-  This file provides the `FunctionOpInterface` interface, which provides support
-  for interacting with operations that behave like functions.
-  Currently, this supports llvm.func and func.func.
+This file provides the `FunctionOpInterface` interface, which provides support
+for interacting with operations that behave like functions.
+Currently, this supports llvm.func and func.func.
 
-  Also see:
-  https://github.com/llvm/llvm-project/blob/main/mlir/include/mlir/Interfaces/FunctionInterfaces.td
+Also see:
+https://github.com/llvm/llvm-project/blob/main/mlir/include/mlir/Interfaces/FunctionInterfaces.td
 -/
 
 public import Veir.GlobalOpInfo
