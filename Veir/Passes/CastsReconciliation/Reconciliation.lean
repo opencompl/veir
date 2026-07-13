@@ -132,7 +132,8 @@ def setFunctionType (c : WfIRContext OpCode) (funcOp : OperationPtr)
     let props : FuncFuncProperties := funcOp.getProperties! c.raw (.func .func)
     let newEntries := props.extra.entries.map fun (k, v) =>
       if k == "function_type".toUTF8 then (k, ftType.val) else (k, v)
-    let newProps : FuncFuncProperties := { props with extra := DictionaryAttr.fromArray newEntries }
+    let newProps : FuncFuncProperties :=
+      { props with function_type := some ftType, extra := DictionaryAttr.fromArray newEntries }
     ⟨funcOp.setProperties (opCode := .func .func) c.raw newProps sorry sorry, sorry⟩
   | .llvm .func =>
     let props : LLVMFuncProperties := funcOp.getProperties! c.raw (.llvm .func)
