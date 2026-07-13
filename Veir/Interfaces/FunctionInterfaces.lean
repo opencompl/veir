@@ -44,8 +44,8 @@ public def getFunctionType? (funcOp : OperationPtr) (raw : IRContext OpCode) :
     | _ => none
   | _ => none
 
-/-
-  Body Handling
+/-!
+## Body Handling
 -/
 
 /-- Returns the region containing the body of this function. -/
