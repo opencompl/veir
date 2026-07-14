@@ -506,6 +506,8 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 successors"
     if (FunctionOpInterface.getFunctionType? op ctx.raw).isNone then
       throw "Expected function type"
+    if (FunctionOpInterface.getSymName? op ctx.raw).isNone then
+      throw "Expected symbol name"
     pure ()
   | .func .call => do
     if op.getNumRegions ctx.raw opIn ≠ 0 then
@@ -668,6 +670,8 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 successors"
     if (FunctionOpInterface.getFunctionType? op ctx.raw).isNone then
       throw "Expected function type"
+    if (FunctionOpInterface.getSymName? op ctx.raw).isNone then
+      throw "Expected symbol name"
     pure ()
   | .llvm .fadd | .llvm .fsub | .llvm .fmul | .llvm .fdiv | .llvm .frem => do
     op.verifyPlainOpCounts ctx opIn 2 1
