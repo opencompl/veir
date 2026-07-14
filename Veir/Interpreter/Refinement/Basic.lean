@@ -116,16 +116,6 @@ def OperationPtr.isRefinedByAsFunction (op₁ : OperationPtr) (ctx₁ : WfIRCont
       (interpretFunction op₂ valuesTarget mem (ctx := ctx₂) op₂In)
 
 /--
-The symbol name (`sym_name`) of `op` when it is a `func.func` operation, and `none` otherwise.
-Used to match a source function against a target function carrying the same name.
--/
-def OperationPtr.funcSymName? (op : OperationPtr) (ctx : IRContext OpCode) : Option StringAttr :=
-  let opType := op.getOpType! ctx
-  match opType, (op.getProperties! ctx opType) with
-    | .llvm .func, props => props.sym_name
-    | _, _ => none
-
-/--
 `op` is a top-level function of the module operation `moduleOp` (in `ctx`): it is a `func.func`
 operation whose parent operation is `moduleOp`.
 -/
