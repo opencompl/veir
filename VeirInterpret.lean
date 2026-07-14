@@ -25,7 +25,7 @@ def parseOperation (filename : String) : ExceptT String IO (WfIRContext OpCode Ã
   match ParserState.fromInput fileContent with
   | .ok parser =>
     let parserState := MlirParserState.fromContext ctx (allowUnregisteredDialect := true)
-    match (parseOp none).run parserState parser with
+    match parseTopLevelOp.run parserState parser with
     | .ok (op, state, _) =>
       return (state.ctx, op)
     | .error errMsg =>
