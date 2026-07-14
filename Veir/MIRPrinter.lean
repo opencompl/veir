@@ -3,6 +3,7 @@ module
 public import Veir.IR.Basic
 public import Veir.Properties
 public import Veir.GlobalOpInfo
+public import Veir.Interfaces.FunctionInterfaces
 
 import Veir.IR.Grind
 
@@ -403,8 +404,7 @@ def emitTrampoline (t : Nat) (s : Nat) : IO Unit := do
 
 /-- Print a full MIR module for the given `main` function. -/
 def printMIR (ctx : IRContext OpCode) (funcOp : OperationPtr) : IO Unit := do
-  let region := funcOp.getRegion! ctx 0
-  let allBlocks := collectBlocks ctx (region.get! ctx).firstBlock
+  let allBlocks := collectBlocks ctx (FunctionOpInterface.getEntryBlock? funcOp ctx)
   -- Drop blocks unreachable from the entry: a real codegen prunes them, and
   -- they break MIR liveness (their values aren't dominated by any real path).
   let reach :=
