@@ -179,6 +179,46 @@ private theorem sem_riscv_li {r : Data.RISCV.Reg} {resType : TypeAttr} (mem : Me
 
 set_option maxHeartbeats 1000000 in
 /--
+  Detached-materialization analogue of
+  `PatternRewriter.materializeConstant!_interpretOp`. This is the form used by
+  `foldOperationLocal`: the new operation is present in `ctx'` but is not yet
+  linked into a block.
+-/
+theorem WfRewriter.materializeConstant!_interpretOp
+    {ctx ctx' : WfIRContext OpCode} {rv : RuntimeValue} {resType : TypeAttr}
+    {forOp : OpCode} {newOp : OperationPtr}
+    (hMat : WfRewriter.materializeConstant! ctx rv resType forOp = some (ctx', newOp))
+    (hConf : rv.Conforms resType)
+    (hNotModArith : ∀ mop, forOp ≠ .mod_arith mop)
+    (state : InterpreterState ctx') :
+    ∃ (hInB : newOp.InBounds ctx'.raw) (varState' : VariableState ctx'),
+      interpretOp newOp state hInB = some (.ok (⟨varState', state.memory⟩, none)) ∧
+      varState'.getVar? (newOp.getResult 0) = some rv := by
+  unfold WfRewriter.materializeConstant! at hMat
+  split at hMat
+  case h_1 bw v =>
+    split at hMat
+    case h_1 =>
+      obtain ⟨hoper, hblock, hreg, hins, hCreate⟩ :=
+        WfRewriter.createOp!_some_inv hMat
+      exact interpretOp_createOp_constant hCreate (sem_llvm_constant hConf) hConf state
+    case h_2 mop => exact absurd rfl (hNotModArith mop)
+    case h_3 =>
+      obtain ⟨hoper, hblock, hreg, hins, hCreate⟩ :=
+        WfRewriter.createOp!_some_inv hMat
+      exact interpretOp_createOp_constant hCreate (sem_arith_constant hConf) hConf state
+  case h_2 bw =>
+    obtain ⟨hoper, hblock, hreg, hins, hCreate⟩ :=
+      WfRewriter.createOp!_some_inv hMat
+    exact interpretOp_createOp_constant hCreate (sem_llvm_poison hConf) hConf state
+  case h_3 r =>
+    obtain ⟨hoper, hblock, hreg, hins, hCreate⟩ :=
+      WfRewriter.createOp!_some_inv hMat
+    exact interpretOp_createOp_constant hCreate (fun mem => sem_riscv_li mem) hConf state
+  case h_4 => simp at hMat
+
+set_option maxHeartbeats 1000000 in
+/--
   Layer C: interpreting the operation built by
   `PatternRewriter.materializeConstant!` succeeds in any state over the
   post-creation context, binds its single result to exactly the materialized

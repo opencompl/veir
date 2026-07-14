@@ -8,12 +8,13 @@ import Veir.Interpreter.Refinement.Lemmas
   infrastructure in `Veir.Fold`.  The proofs are layered so that the pure fold
   tables can be checked independently of IR mutation by `PatternRewriter`.
 
-  The remaining layers are:
+  The proof is organized into these layers:
   * soundness of every partial-fold table entry;
-  * agreement between `ValuePtr.constantValue` and interpreted SSA values;
-  * correctness of constant materialization; and
-  * lifting the decision-level theorem through `foldOperation` and
-    `PatternRewriter.createOrFoldOp!`.
+  * agreement between `ValuePtr.constantValue` and interpreted SSA values
+    (`Veir.Fold.Agree`);
+  * correctness of constant materialization (`Veir.Fold.Materialize`); and
+  * lifting the decision-level theorem through the local folding rewrite
+    (`Veir.Fold.Rewrite`).
 -/
 
 namespace Veir

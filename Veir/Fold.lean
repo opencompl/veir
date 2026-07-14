@@ -15,8 +15,8 @@ import Veir.PatternRewriter.Basic
 
   * `.operand j`: the single result of the operation is always refined by
     operand `j` (e.g. `arith.addi %x, %c0` folds to `%x`). This requires a
-    per-opcode entry in the fold table, and (eventually) a proof against the
-    interpreter semantics.
+    per-opcode entry in the fold table and a proof against the interpreter
+    semantics.
   * `.constant rv`: the single result of the operation is always refined by the
     runtime value `rv`, even though not all operands are known (e.g.
     `arith.muli %x, %c0` folds to `0`, and `arith.divsi %x, %c0` is immediate
@@ -489,6 +489,41 @@ def PatternRewriter.materializeConstant! (rewriter : PatternRewriter OpCode)
   | _ => none
 
 /--
+  Detached counterpart of `PatternRewriter.materializeConstant!`, for use by
+  `LocalRewritePattern`s. The returned operation is in the returned context but
+  is not linked into a block; `RewritePattern.fromLocalRewrite` performs the
+  insertion after the local pattern succeeds.
+-/
+def WfRewriter.materializeConstant! (ctx : WfIRContext OpCode)
+    (rv : RuntimeValue) (resType : TypeAttr) (forOp : OpCode) :
+    Option (WfIRContext OpCode × OperationPtr) :=
+  match rv with
+  | .int bw (.val v) =>
+    match forOp with
+    | .llvm _ =>
+      let properties : LLVMConstantProperties :=
+        { value := .integer (IntegerAttr.mk v.toInt (IntegerType.mk bw)) }
+      WfRewriter.createOp! ctx (.llvm .mlir__constant) #[resType] #[] #[] #[] properties none
+    | .mod_arith _ =>
+      match resType.val with
+      | .modArithType mt =>
+        let properties : ModArithConstantProperties :=
+          { value := IntegerAttr.mk v.toNat mt.modulus.type }
+        WfRewriter.createOp! ctx (.mod_arith .constant) #[resType] #[] #[] #[] properties none
+      | _ => none
+    | _ =>
+      let properties : ArithConstantProperties :=
+        { value := IntegerAttr.mk v.toInt (IntegerType.mk bw) }
+      WfRewriter.createOp! ctx (.arith .constant) #[resType] #[] #[] #[] properties none
+  | .int _ .poison =>
+    WfRewriter.createOp! ctx (.llvm .mlir__poison) #[resType] #[] #[] #[] () none
+  | .reg r =>
+    let properties : RISCVImmediateProperties :=
+      { value := IntegerAttr.mk r.val.toInt (IntegerType.mk 64) }
+    WfRewriter.createOp! ctx (.riscv .li) #[resType] #[] #[] #[] properties none
+  | _ => none
+
+/--
   Replace all uses of the single result of `op` with `newVal` and erase `op`.
   Panics if `op` does not have exactly one result, if `newVal` is that result,
   or if anything is out of bounds — verified IR reaching this through
@@ -550,20 +585,29 @@ def foldDecision (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
   Rewrite pattern that folds an existing operation, replacing it with one of
   its operands or with a materialized constant.
 -/
+def foldOperationLocal (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
+  if _ : op.InBounds ctx.raw then
+    let opType := op.getOpType! ctx.raw
+    let operands := op.getOperands! ctx.raw
+    let resultTypes := op.getResultTypes! ctx.raw
+    let constOperands := operands.map (ValuePtr.constantValue · ctx.raw)
+    match foldDecision opType (op.getProperties! ctx.raw opType) resultTypes constOperands with
+    | .noFold => some (ctx, none)
+    | .useOperand j =>
+      match operands[j]? with
+      | some operand => some (ctx, some (#[], #[operand]))
+      | none => some (ctx, none)
+    | .useConstant rv => do
+      let some resultType := resultTypes[0]? | return (ctx, none)
+      let (ctx, newOp) ← WfRewriter.materializeConstant! ctx rv resultType opType
+      return (ctx, some (#[newOp], #[newOp.getResult 0]))
+  else some (ctx, none)
+
+/-- Rewrite-pattern wrapper around the semantics-friendly local folding pattern. -/
 def foldOperation (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let ctx := rewriter.ctx.raw
-  let opType := op.getOpType! ctx
-  let operands := op.getOperands! ctx
-  let resultTypes := op.getResultTypes! ctx
-  let constOperands := operands.map (ValuePtr.constantValue · ctx)
-  match foldDecision opType (op.getProperties! ctx opType) resultTypes constOperands with
-  | .noFold => return rewriter
-  | .useOperand j =>
-    return rewriter.replaceOpWithValue! op operands[j]!
-  | .useConstant rv =>
-    let (rewriter, newOp) ← rewriter.materializeConstant! rv resultTypes[0]! opType (.before op)
-    return rewriter.replaceOp! op newOp
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite foldOperationLocal rewriter op opInBounds
 
 /--
   Create an operation at the given insertion point, unless it can be folded,
