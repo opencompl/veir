@@ -110,6 +110,6 @@ def getResultTypes! (funcOp : OperationPtr) (raw : IRContext OpCode) : Array Att
 
 end FunctionOpInterface
 
-end -- public section
+end
 
 end Veir
