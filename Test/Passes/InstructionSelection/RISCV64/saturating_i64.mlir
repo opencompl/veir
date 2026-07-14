@@ -3,7 +3,7 @@
 "builtin.module"() ({
 
     // llvm.intr.sadd.sat.i64 -> LLVM RV64+Zicond signed saturating-add sequence
-    "func.func"()  <{function_type = (i64, i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64, i64) -> (), sym_name = "f0"}> ({
     ^bb0(%x: i64, %y: i64):
         %r = "llvm.intr.sadd.sat"(%x, %y) : (i64, i64) -> i64
         // CHECK:      "riscv.add"
@@ -20,7 +20,7 @@
     }) : () -> ()
 
     // llvm.intr.ssub.sat.i64 -> LLVM RV64+Zicond signed saturating-sub sequence
-    "func.func"()  <{function_type = (i64, i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64, i64) -> (), sym_name = "f1"}> ({
     ^bb0(%x: i64, %y: i64):
         %r = "llvm.intr.ssub.sat"(%x, %y) : (i64, i64) -> i64
         // CHECK:      "riscv.sub"
@@ -37,7 +37,7 @@
     }) : () -> ()
 
     // llvm.intr.uadd.sat.i64 -> not y; minu x, not-y; add
-    "func.func"()  <{function_type = (i64, i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64, i64) -> (), sym_name = "f2"}> ({
     ^bb0(%x: i64, %y: i64):
         %r = "llvm.intr.uadd.sat"(%x, %y) : (i64, i64) -> i64
         // CHECK:      "riscv.xori"({{.*}}) <{"value" = -1 : i64}>
@@ -47,7 +47,7 @@
     }) : () -> ()
 
     // llvm.intr.usub.sat.i64 -> maxu x, y; sub y
-    "func.func"()  <{function_type = (i64, i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64, i64) -> (), sym_name = "f3"}> ({
     ^bb0(%x: i64, %y: i64):
         %r = "llvm.intr.usub.sat"(%x, %y) : (i64, i64) -> i64
         // CHECK:      "riscv.maxu"
@@ -56,7 +56,7 @@
     }) : () -> ()
 
     // llvm.intr.sshl.sat.i64 -> LLVM RV64+Zicond signed saturating-shl sequence
-    "func.func"()  <{function_type = (i64, i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64, i64) -> (), sym_name = "f4"}> ({
     ^bb0(%x: i64, %y: i64):
         %r = "llvm.intr.sshl.sat"(%x, %y) : (i64, i64) -> i64
         // CHECK:      "riscv.sll"
@@ -72,7 +72,7 @@
     }) : () -> ()
 
     // llvm.intr.ushl.sat.i64 -> LLVM RV64 unsigned saturating-shl sequence
-    "func.func"()  <{function_type = (i64, i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64, i64) -> (), sym_name = "f5"}> ({
     ^bb0(%x: i64, %y: i64):
         %r = "llvm.intr.ushl.sat"(%x, %y) : (i64, i64) -> i64
         // CHECK:      "riscv.sll"

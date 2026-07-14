@@ -6,7 +6,7 @@
 
 "builtin.module"() ({
   // add(5, 7) = 12
-  "func.func"() <{function_type = () -> i32}> ({
+  "func.func"() <{function_type = () -> i32, sym_name = "foo"}> ({
   ^bb0():
     %a = "llvm.mlir.constant"() <{value = 5 : i32}> : () -> i32
     %b = "llvm.mlir.constant"() <{value = 7 : i32}> : () -> i32
@@ -15,7 +15,7 @@
   }) : () -> ()
 
   // sub(20, 8) = 12
-  "func.func"() <{function_type = () -> i32}> ({
+  "func.func"() <{function_type = () -> i32, sym_name = "bar"}> ({
   ^bb0():
     %a = "llvm.mlir.constant"() <{value = 20 : i32}> : () -> i32
     %b = "llvm.mlir.constant"() <{value = 8 : i32}> : () -> i32
@@ -24,7 +24,7 @@
   }) : () -> ()
 
   // smin(4, 9) = 4
-  "func.func"() <{function_type = () -> i32}> ({
+  "func.func"() <{function_type = () -> i32, sym_name = "baz"}> ({
   ^bb0():
     %a = "llvm.mlir.constant"() <{value = 4 : i32}> : () -> i32
     %b = "llvm.mlir.constant"() <{value = 9 : i32}> : () -> i32

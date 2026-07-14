@@ -5,7 +5,7 @@
 // is redundant and gets dropped.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg, sym_name = "f0"}> ({
   ^bb0(%x: !riscv.reg, %y: !riscv.reg):
     %sx = "riscv.sextw"(%x) : (!riscv.reg) -> !riscv.reg
     %sy = "riscv.sextw"(%y) : (!riscv.reg) -> !riscv.reg
@@ -13,21 +13,21 @@
     "func.return"(%sum) : (!riscv.reg) -> ()
   }) : () -> ()
 
-  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "f1"}> ({
   ^bb0(%x: !riscv.reg):
     %sx = "riscv.sextw"(%x) : (!riscv.reg) -> !riscv.reg
     %y = "riscv.addiw"(%sx) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
     "func.return"(%y) : (!riscv.reg) -> ()
   }) : () -> ()
 
-  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "f2"}> ({
   ^bb0(%x: !riscv.reg):
     %sx = "riscv.sextw"(%x) : (!riscv.reg) -> !riscv.reg
     %y = "riscv.roriw"(%sx) <{"value" = 7 : i64}> : (!riscv.reg) -> !riscv.reg
     "func.return"(%y) : (!riscv.reg) -> ()
   }) : () -> ()
 
-  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "f3"}> ({
   ^bb0(%x: !riscv.reg):
     %sx = "riscv.sextw"(%x) : (!riscv.reg) -> !riscv.reg
     %y = "riscv.srliw"(%sx) <{"value" = 3 : i64}> : (!riscv.reg) -> !riscv.reg
@@ -35,7 +35,7 @@
   }) : () -> ()
 
   // `zextw` reads only bits 31:0, so a `sextw` feeding it is redundant too.
-  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "f4"}> ({
   ^bb0(%x: !riscv.reg):
     %sx = "riscv.sextw"(%x) : (!riscv.reg) -> !riscv.reg
     %y = "riscv.zextw"(%sx) : (!riscv.reg) -> !riscv.reg

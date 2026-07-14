@@ -9,7 +9,7 @@
 
 "builtin.module"() ({
     // icmp slt x (const imm12) -> riscv.slti x imm   (predicate 2 = slt)
-    "func.func"() <{function_type = (i64) -> i1}> ({
+    "func.func"() <{function_type = (i64) -> i1, sym_name = "f0"}> ({
     ^bb(%a: i64):
         %c = "llvm.mlir.constant"() <{value = 7 : i64}> : () -> i64
         %r = "llvm.icmp"(%a, %c) <{"predicate" = 2 : i64}> : (i64, i64) -> i1
@@ -18,7 +18,7 @@
     }) : () -> ()
 
     // icmp ult x (const imm12) -> riscv.sltiu x imm   (predicate 6 = ult)
-    "func.func"() <{function_type = (i64) -> i1}> ({
+    "func.func"() <{function_type = (i64) -> i1, sym_name = "f1"}> ({
     ^bb(%a: i64):
         %c = "llvm.mlir.constant"() <{value = 2047 : i64}> : () -> i64
         %r = "llvm.icmp"(%a, %c) <{"predicate" = 6 : i64}> : (i64, i64) -> i1
@@ -29,7 +29,7 @@
     // icmp sgt: no immediate form (predicate 4 = sgt) -> stays `llvm.icmp`.
     // The reg-reg lowering (slt with swapped operands) is already the same
     // instruction count, and is strictly better for the `> 0` case via x0.
-    "func.func"() <{function_type = (i64) -> i1}> ({
+    "func.func"() <{function_type = (i64) -> i1, sym_name = "f2"}> ({
     ^bb(%a: i64):
         %c = "llvm.mlir.constant"() <{value = 7 : i64}> : () -> i64
         %r = "llvm.icmp"(%a, %c) <{"predicate" = 4 : i64}> : (i64, i64) -> i1
@@ -38,7 +38,7 @@
     }) : () -> ()
 
     // Out-of-range immediate: not selected here (stays `llvm.icmp`).
-    "func.func"() <{function_type = (i64) -> i1}> ({
+    "func.func"() <{function_type = (i64) -> i1, sym_name = "f3"}> ({
     ^bb(%a: i64):
         %c = "llvm.mlir.constant"() <{value = 2048 : i64}> : () -> i64
         %r = "llvm.icmp"(%a, %c) <{"predicate" = 2 : i64}> : (i64, i64) -> i1

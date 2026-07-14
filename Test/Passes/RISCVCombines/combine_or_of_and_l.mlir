@@ -4,7 +4,7 @@
 // Here the `and` is the LEFT operand of the `or`.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i64, i64) -> i64}> ({
+  "func.func"() <{function_type = (i64, i64) -> i64, sym_name = "foo"}> ({
   ^bb0(%x: i64, %y: i64):
     %and = "llvm.and"(%x, %y) : (i64, i64) -> i64
     %r = "llvm.or"(%and, %x) : (i64, i64) -> i64
@@ -12,7 +12,7 @@
   }) : () -> ()
 
   // Negative case: neither `and` operand is the other `or` operand, so no absorption.
-  "func.func"() <{function_type = (i64, i64, i64) -> i64}> ({
+  "func.func"() <{function_type = (i64, i64, i64) -> i64, sym_name = "bar"}> ({
   ^bb0(%x: i64, %y: i64, %z: i64):
     %and = "llvm.and"(%x, %y) : (i64, i64) -> i64
     %r = "llvm.or"(%and, %z) : (i64, i64) -> i64

@@ -5,7 +5,7 @@
 // consumes it directly.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i64) -> i64}> ({
+  "func.func"() <{function_type = (i64) -> i64, sym_name = "foo"}> ({
   ^bb0(%x: i64):
     %zero = "llvm.mlir.constant"() <{value = 0 : i64}> : () -> i64
     %sub = "llvm.sub"(%zero, %x) : (i64, i64) -> i64
@@ -15,7 +15,7 @@
   }) : () -> ()
 
   // Negative case: the min is `smin`, not `umin`, so the unsigned pattern does not fire.
-  "func.func"() <{function_type = (i64) -> i64}> ({
+  "func.func"() <{function_type = (i64) -> i64, sym_name = "bar"}> ({
   ^bb0(%x: i64):
     %zero = "llvm.mlir.constant"() <{value = 0 : i64}> : () -> i64
     %sub = "llvm.sub"(%zero, %x) : (i64, i64) -> i64

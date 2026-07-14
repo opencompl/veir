@@ -8,7 +8,7 @@
 
 "builtin.module"() ({
     // eq, zero on the right: a == 0
-    "func.func"() <{function_type = (i64) -> (i1)}> ({
+    "func.func"() <{function_type = (i64) -> (i1), sym_name = "foo"}> ({
     ^bb0(%a: i64):
         %z = "llvm.mlir.constant"() <{value = 0 : i64}> : () -> i64
         %r = "llvm.icmp"(%a, %z) <{predicate = 0 : i64}> : (i64, i64) -> i1
@@ -19,7 +19,7 @@
     }) : () -> ()
 
     // ne, zero on the right: a != 0  ->  riscv.sltu 0 a (no xor)
-    "func.func"() <{function_type = (i64) -> (i1)}> ({
+    "func.func"() <{function_type = (i64) -> (i1), sym_name = "bar"}> ({
     ^bb0(%a: i64):
         %z = "llvm.mlir.constant"() <{value = 0 : i64}> : () -> i64
         %r = "llvm.icmp"(%a, %z) <{predicate = 1 : i64}> : (i64, i64) -> i1

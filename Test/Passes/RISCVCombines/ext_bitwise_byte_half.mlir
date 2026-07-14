@@ -8,7 +8,7 @@
 
 "builtin.module"() ({
   // zextb + and: one guarded operand suffices.
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg, sym_name = "f0"}> ({
   ^bb0(%x: !riscv.reg, %y: !riscv.reg):
     %zx = "riscv.zextb"(%x) : (!riscv.reg) -> !riscv.reg
     %a = "riscv.and"(%zx, %y) : (!riscv.reg, !riscv.reg) -> !riscv.reg
@@ -17,7 +17,7 @@
   }) : () -> ()
 
   // zexth + or: both operands guarded.
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg, sym_name = "f1"}> ({
   ^bb0(%x: !riscv.reg, %y: !riscv.reg):
     %zx = "riscv.zexth"(%x) : (!riscv.reg) -> !riscv.reg
     %zy = "riscv.zexth"(%y) : (!riscv.reg) -> !riscv.reg
@@ -27,7 +27,7 @@
   }) : () -> ()
 
   // sextb + xor: both operands guarded.
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg, sym_name = "f2"}> ({
   ^bb0(%x: !riscv.reg, %y: !riscv.reg):
     %sx = "riscv.sextb"(%x) : (!riscv.reg) -> !riscv.reg
     %sy = "riscv.sextb"(%y) : (!riscv.reg) -> !riscv.reg
@@ -37,7 +37,7 @@
   }) : () -> ()
 
   // sexth + and: both operands guarded (sign-extension needs both even for `and`).
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg, sym_name = "f3"}> ({
   ^bb0(%x: !riscv.reg, %y: !riscv.reg):
     %sx = "riscv.sexth"(%x) : (!riscv.reg) -> !riscv.reg
     %sy = "riscv.sexth"(%y) : (!riscv.reg) -> !riscv.reg
@@ -47,7 +47,7 @@
   }) : () -> ()
 
   // Negative: `or` needs both operands guarded -- one `zextb` is not enough.
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg, sym_name = "f4"}> ({
   ^bb0(%x: !riscv.reg, %y: !riscv.reg):
     %zx = "riscv.zextb"(%x) : (!riscv.reg) -> !riscv.reg
     %o = "riscv.or"(%zx, %y) : (!riscv.reg, !riscv.reg) -> !riscv.reg
@@ -56,7 +56,7 @@
   }) : () -> ()
 
   // Negative: a *sign*-extension needs both operands guarded even for `and`.
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg, sym_name = "f5"}> ({
   ^bb0(%x: !riscv.reg, %y: !riscv.reg):
     %sx = "riscv.sextb"(%x) : (!riscv.reg) -> !riscv.reg
     %a = "riscv.and"(%sx, %y) : (!riscv.reg, !riscv.reg) -> !riscv.reg

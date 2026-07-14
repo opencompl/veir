@@ -4,7 +4,7 @@
 // reads as 0, and 0 is its own sign-extension.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = () -> !riscv.reg}> ({
+  "func.func"() <{function_type = () -> !riscv.reg, sym_name = "foo"}> ({
   ^bb0():
     %x0 = "rv64.get_register"() : () -> !riscv.reg<x0>
     %s = "riscv.sextw"(%x0) : (!riscv.reg<x0>) -> !riscv.reg
@@ -12,7 +12,7 @@
   }) : () -> ()
 
   // Negative case: a plain (non-`x0`-typed) register must be left alone.
-  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "bar"}> ({
   ^bb0(%x: !riscv.reg):
     %s = "riscv.sextw"(%x) : (!riscv.reg) -> !riscv.reg
     "func.return"(%s) : (!riscv.reg) -> ()
