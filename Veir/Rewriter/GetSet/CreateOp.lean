@@ -166,11 +166,15 @@ grind_pattern OperationPtr.attrs!_createEmptyOp =>
 
 theorem OperationPtr.getProperties!_createEmptyOp {operation : OperationPtr} :
     Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
-    operation.getProperties! ctx' opType = if operation = op then properties else operation.getProperties! ctx opType := by
+    operation.getProperties! ctx' opType' =
+    if operation = op then
+      if h : opType = opType' then h ▸ properties else default
+    else
+      operation.getProperties! ctx opType' := by
   grind [Operation.empty]
 
 grind_pattern OperationPtr.getProperties!_createEmptyOp =>
-  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operation.getProperties! ctx' opType
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operation.getProperties! ctx' opType'
 
 theorem OperationPtr.getNumResults!_createEmptyOp {operation : OperationPtr} :
     Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
@@ -482,8 +486,11 @@ theorem OperationPtr.attrs!_createOp {operation : OperationPtr} :
 theorem OperationPtr.getProperties!_createOp {operation : OperationPtr} :
     Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
-    operation.getProperties! ctx' opType =
-    if operation = newOp then properties else operation.getProperties! ctx opType := by
+    operation.getProperties! ctx' opType' =
+    if operation = newOp then
+      if h : opType = opType' then h ▸ properties else default
+    else
+      operation.getProperties! ctx opType' := by
   simp only [Rewriter.createOp]
   grind (gen := 20)
 
