@@ -203,3 +203,64 @@ axiom WfIRContext.Dom.blockArgument_not_dominatesIp_before_of_dominatesIp_firstO
     (opDom : op.dominatesIp (InsertPoint.atStart! block ctx.raw) ctx)
     (hMem : value ∈ block.getArguments! ctx.raw) :
     ¬ value.dominatesIp (InsertPoint.before op) ctx
+
+/-- A block argument dominates the end of its own block: it is in scope throughout the block body. -/
+axiom WfIRContext.Dom.blockArgument_dominatesIp_atEnd
+    (ctxDom : ctx.Dom) {block : BlockPtr} (blockIn : block.InBounds ctx.raw)
+    (hMem : value ∈ block.getArguments! ctx.raw) :
+    value.dominatesIp (InsertPoint.atEnd block) ctx
+
+/-- A result of an operation in a block body does not dominate that block's entry (the SSA
+property: results are defined strictly inside the block, not before it). -/
+axiom WfIRContext.Dom.opResult_not_dominatesIp_atStart!
+    (ctxDom : ctx.Dom) {op : OperationPtr} (opIn : op.InBounds ctx.raw)
+    {block : BlockPtr} (blockIn : block.InBounds ctx.raw)
+    (opInBlock : op ∈ block.operationList ctx.raw ctx.wellFormed blockIn)
+    {r : ValuePtr} (rResult : r ∈ op.getResults! ctx.raw) :
+    ¬ r.dominatesIp (InsertPoint.atStart! block ctx.raw) ctx
+
+/-- A result of an operation does not dominate the point before that same operation (the SSA
+property: a result is only defined once its own operation has run). -/
+axiom WfIRContext.Dom.opResult_not_dominatesIp_before_self
+    (ctxDom : ctx.Dom) {op : OperationPtr}
+    {r : ValuePtr} (rResult : r ∈ op.getResults! ctx.raw) :
+    ¬ r.dominatesIp (InsertPoint.before op) ctx
+
+/-!
+## Block-level dominance
+
+Dominance between blocks (the entry of `b₁` dominates every point of `b₂`). Used to discharge the
+cross-block antisymmetry argument in the pattern-rewriter soundness proof: a value forwarded by a
+rewrite cannot become an argument of a *different* block.
+-/
+
+variable {b₁ b₂ block bl : BlockPtr}
+
+/-- The dominance relation between two blocks: `b₁` dominates `b₂` when `b₁`'s entry dominates every
+program point of `b₂`. A block dominates itself. -/
+axiom BlockPtr.dominates (b₁ b₂ : BlockPtr) (ctx : WfIRContext OpInfo) : Prop
+
+/-- Block dominance is antisymmetric: two blocks that dominate each other are equal. -/
+axiom BlockPtr.dominates_antisymm :
+    b₁.dominates b₂ ctx → b₂.dominates b₁ ctx → b₁ = b₂
+
+/-- If a result `r` of an operation `op` living in `block` dominates the entry of a block `bl`, then
+`block` dominates `bl` (the definition site of `r` is in `block`, and `r` reaches all of `bl`). -/
+axiom WfIRContext.Dom.block_dominates_of_opResult_dominatesIp_atStart!
+    (ctxDom : ctx.Dom) {op : OperationPtr} (opIn : op.InBounds ctx.raw)
+    (blockIn : block.InBounds ctx.raw) (blIn : bl.InBounds ctx.raw)
+    (opInBlock : op ∈ block.operationList ctx.raw ctx.wellFormed blockIn)
+    {r : ValuePtr} (rResult : r ∈ op.getResults! ctx.raw)
+    (rDom : r.dominatesIp (InsertPoint.atStart! bl ctx.raw) ctx) :
+    block.dominates bl ctx
+
+/-- If an argument `w` of a block `bl` dominates a program point inside `block` (the end of a list of
+`block`'s operations, started from `block`'s entry), then `bl` dominates `block`: `w` is in scope
+from `bl`'s entry, so `bl`'s entry dominates that point, hence all of `block`. -/
+axiom WfIRContext.Dom.block_dominates_of_arg_dominatesIp_afterLast
+    (ctxDom : ctx.Dom) (blIn : bl.InBounds ctx.raw) (blockIn : block.InBounds ctx.raw)
+    {w : ValuePtr} (wArg : w ∈ bl.getArguments! ctx.raw)
+    {ops : List OperationPtr}
+    (hops : ∀ o ∈ ops, o ∈ block.operationList ctx.raw ctx.wellFormed blockIn)
+    (wDom : w.dominatesIp (InsertPoint.afterLast ops ctx.raw (.atStart! block ctx.raw)) ctx) :
+    bl.dominates block ctx

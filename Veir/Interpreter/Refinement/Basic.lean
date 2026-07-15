@@ -23,7 +23,7 @@ open Veir.Data
 
 namespace Veir
 
-variable {OpInfo : Type} [HasOpInfo OpInfo] {ctx : WfIRContext OpInfo}
+variable {OpInfo : Type} [HasOpInfo OpInfo] {ctx ctx₁ ctx₂ : WfIRContext OpInfo}
 
 /-- Refinement relation between two runtime values. -/
 def RuntimeValue.isRefinedBy (source target : RuntimeValue) : Prop :=
@@ -149,20 +149,9 @@ def ValueMapping.applyToArray {ctx ctx' : WfIRContext OpInfo} (mapping : ValueMa
     (vals : Array ValuePtr) (valsIn : ∀ v ∈ vals, v.InBounds ctx.raw := by grind) : Array ValuePtr :=
   vals.attach.map (fun ⟨v, hv⟩ => (mapping ⟨v, valsIn v hv⟩).val)
 
-/--
-`mapping` *reflects* `op'`'s result pointers back to `op`'s if the only value it sends onto `op'`'s
-`i`-th result pointer is `op`'s `i`-th result pointer. Paired with the "fixes" equation
-`mapping.applyToArray (op.getResults! ..) = op'.getResults! ..`, this says `mapping` matches the two
-operations' results index-by-index without mapping any other value onto them. -/
-def ValueMapping.ReflectsResults {ctx ctx' : WfIRContext OpInfo} (mapping : ValueMapping ctx ctx')
-    (op op' : OperationPtr) : Prop :=
-  ∀ (val : ValuePtr) (valIn : val.InBounds ctx.raw) (i : Nat),
-    (mapping ⟨val, valIn⟩).val = op'.getResult i → val = op.getResult i
-
-/-- An operation `op` in `ctx` is *preserved* and renamed to an operation `op'` in `ctx'` by the
-mapping `mapping` if `op` and `op'` have the same type, properties, result types, successors, and
-their operands and results are related by `mapping`. Additionally, `mapping` must reflect `op'`'s
-results back to `op`'s, so no other value is sent onto `op'`'s results. -/
+/-- The *intrinsic-data frame* of an operation `op` in `ctx` renamed to `op'` in `ctx'` by `mapping`:
+`op` and `op'` have the same type, properties, result types, successors, and their operands and
+results are related by `mapping`. -/
 structure ValueMapping.PreservesOperation {ctx ctx' : WfIRContext OpInfo}
     (mapping : ValueMapping ctx ctx') (op op' : OperationPtr)
     (opIn : op.InBounds ctx.raw := by grind)
@@ -174,7 +163,6 @@ structure ValueMapping.PreservesOperation {ctx ctx' : WfIRContext OpInfo}
   successors : op'.getSuccessors! ctx'.raw = op.getSuccessors! ctx.raw
   operands : op'.getOperands! ctx'.raw = mapping.applyToArray (op.getOperands! ctx.raw)
   results : op'.getResults! ctx'.raw = mapping.applyToArray (op.getResults! ctx.raw) (by grind)
-  reflect : mapping.ReflectsResults op op'
 
 /--
 A variable state `state` is refined by `state'` through the value renaming `mapping`: every
@@ -274,15 +262,16 @@ def VariableState.isRefinedByAt {ctx ctx' : WfIRContext OpInfo}
     (mapping : ValueMapping ctx ctx') (s : RefinementPoint) (s' : RefinementPoint)
     (_sIn : s.InBounds ctx.raw := by grind) (_s'In : s'.InBounds ctx'.raw := by grind) : Prop :=
   ∀ (val : ValuePtr) (valIn : val.InBounds ctx.raw),
-  val.InScopeAt s ctx →
-  (mapping ⟨val, valIn⟩).val.InScopeAt s' ctx' →
-  ∀ sv, state.getVar? val = some sv →
-  ∀ tv, state'.getVar? (mapping ⟨val, valIn⟩) = some tv →
-  sv ⊒ tv
+    val.InScopeAt s ctx →
+    (mapping ⟨val, valIn⟩).val.InScopeAt s' ctx' →
+    ∀ sv, state.getVar? val = some sv →
+    ∀ tv, state'.getVar? (mapping ⟨val, valIn⟩) = some tv →
+    sv ⊒ tv
 
 /--
-A refinement relation for intepreter states in two different locations.
-This asserts that memory is equal, and that the variable states are refined at the given points.
+An interpreter state `state` is refined by `state'` through the value mapping `mapping`, scoped
+to source point `s` and target point `s'`: they have the same memory, and the variable state of
+`state` is scoped-refined by the variable state of `state'` through `mapping` at `(s, s')`.
 -/
 def InterpreterState.isRefinedByAt {ctx ctx' : WfIRContext OpInfo}
     (state : InterpreterState ctx) (state' : InterpreterState ctx')
@@ -290,5 +279,66 @@ def InterpreterState.isRefinedByAt {ctx ctx' : WfIRContext OpInfo}
     (_sIn : s.InBounds ctx.raw := by grind) (_s'In : s'.InBounds ctx'.raw := by grind) : Prop :=
   state.memory = state'.memory ∧
   state.variables.isRefinedByAt state'.variables mapping s s'
+
+/-- Scope-weakening (antitone): `isRefinedByAt` at a *wider* pair of scopes implies it at a
+*narrower* pair. If every value in scope at `(t, t')` is in scope at `(s, s')`, the relation
+transports from `(s, s')` to `(t, t')`. -/
+theorem VariableState.isRefinedByAt.weaken {ctx ctx' : WfIRContext OpInfo}
+    {state : VariableState ctx} {state' : VariableState ctx'}
+    {mapping : ValueMapping ctx ctx'} {s s' t t' : RefinementPoint}
+    {sIn : s.InBounds ctx.raw} {s'In : s'.InBounds ctx'.raw}
+    {tIn : t.InBounds ctx.raw} {t'In : t'.InBounds ctx'.raw}
+    (h : state.isRefinedByAt state' mapping s s' sIn s'In)
+    (hsrc : ∀ (val : ValuePtr), val.InScopeAt t ctx → val.InScopeAt s ctx)
+    (htgt : ∀ (val : ValuePtr), val.InScopeAt t' ctx' → val.InScopeAt s' ctx') :
+    state.isRefinedByAt state' mapping t t' tIn t'In :=
+  fun val valIn hsc htsc sv tv hsv htv =>
+    h val valIn (hsrc val hsc) (htgt _ htsc) sv tv hsv htv
+
+/-- Interpreter-state version of `VariableState.isRefinedByAt.weaken`. -/
+theorem InterpreterState.isRefinedByAt.weaken {ctx ctx' : WfIRContext OpInfo}
+    {state : InterpreterState ctx} {state' : InterpreterState ctx'}
+    {mapping : ValueMapping ctx ctx'} {s s' t t' : RefinementPoint}
+    {sIn : s.InBounds ctx.raw} {s'In : s'.InBounds ctx'.raw}
+    {tIn : t.InBounds ctx.raw} {t'In : t'.InBounds ctx'.raw}
+    (h : state.isRefinedByAt state' mapping s s' sIn s'In)
+    (hsrc : ∀ (val : ValuePtr), val.InScopeAt t ctx → val.InScopeAt s ctx)
+    (htgt : ∀ (val : ValuePtr), val.InScopeAt t' ctx' → val.InScopeAt s' ctx') :
+    state.isRefinedByAt state' mapping t t' tIn t'In :=
+  ⟨h.1, h.2.weaken hsrc htgt⟩
+
+/--
+`mapping` *preserves dominance* from the source scope `s` (in `ctx`) to the target scope `s'` (in
+`ctx'`): every value *in scope* at `s` is mapped to a value *in scope* at `s'`. Scoped exactly like
+`isRefinedByAt`, this is a dominance homomorphism restricted to the values the refinement actually
+constrains, so stale/out-of-scope values are excused.
+
+This is the natural well-formedness condition on the value renaming produced by a rewrite. Its key
+consequence for the monotonicity proof is `PreservesDominance.image_not_mem_getResults`: the image of
+an in-scope value is never a result of the target operation.
+-/
+def ValueMapping.PreservesDominance {ctx ctx' : WfIRContext OpInfo}
+    (mapping : ValueMapping ctx ctx') (s s' : RefinementPoint)
+    (_sIn : s.InBounds ctx.raw := by grind) (_s'In : s'.InBounds ctx'.raw := by grind) : Prop :=
+  ∀ (val : ValuePtr) (valIn : val.InBounds ctx.raw),
+    val.InScopeAt s ctx → (mapping ⟨val, valIn⟩).val.InScopeAt s' ctx'
+
+/--
+Under dominance preservation at `(before op, before op')` and target dominance-wellformedness, the
+image of any value in scope just before `op` is **not** a result of `op'`: the image dominates
+`before op'` (dominance preservation), while a result of `op'` never dominates the point before `op'`
+(`ctx'.Dom`). This is the exact fact the monotonicity proof needs where the old `ReflectsResults`
+obligation used to be threaded — no `ctx.Dom` needed on the source.
+-/
+theorem ValueMapping.PreservesDominance.image_not_mem_getResults {ctx ctx' : WfIRContext OpInfo}
+    {mapping : ValueMapping ctx ctx'} {op op' : OperationPtr}
+    (opIn : op.InBounds ctx.raw) (opIn' : op'.InBounds ctx'.raw)
+    (ctxDom' : ctx'.Dom)
+    (hPres : mapping.PreservesDominance (.at (.before op)) (.at (.before op')))
+    {val : ValuePtr} (valIn : val.InBounds ctx.raw)
+    (hValDom : val.dominatesIp (InsertPoint.before op) ctx) :
+    (mapping ⟨val, valIn⟩).val ∉ op'.getResults! ctx'.raw :=
+  fun hmem =>
+    (ctxDom'.opResult_not_dominatesIp_before_self hmem) (hPres val valIn hValDom)
 
 end Veir

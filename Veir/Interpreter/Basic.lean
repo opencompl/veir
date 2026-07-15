@@ -345,6 +345,12 @@ instance : MonadLift Option Interp where
 
 instance : Inhabited (Interp α) := ⟨(none : Option (UBOr α))⟩
 
+/-- The interpreter monad is a chain-complete partial order with `none` as bottom (the flat order on
+`Option`). This steers `partial_fixpoint` (used for `interpretBlockCFG`) to take its least fixpoint in
+the `none`-bottom order, so that `interpretBlockCFG.fixpoint_induct`'s admissibility base case is the
+trivially-true `none` outcome — exactly what refinement/correctness proofs need. -/
+instance instCCPOInterp {α : Type} : Lean.Order.CCPO (Interp α) := Lean.Order.instCCPOOption
+
 /-- Signal undefined behaviour from inside the interpreter monad. -/
 @[inline] def Interp.ub : Interp α := some .ub
 
