@@ -1354,38 +1354,6 @@ theorem OperationPtr.Verified.llvm_mlir__constant {op : OperationPtr} {opInBound
     Except.pure] at opVerify
   grind
 
-/--
-  Structural facts guaranteed by the verifier for `llvm.mlir.poison`: no operands, one
-  result, no successors or regions.
--/
-theorem OperationPtr.Verified.llvm_mlir__poison {op : OperationPtr} {opInBounds}
-    (opVerify : op.Verified ctx opInBounds)
-    (opType : op.getOpType! ctx.raw = .llvm .mlir__poison) :
-    op.getNumResults! ctx.raw = 1 ∧
-    op.getNumOperands! ctx.raw = 0 ∧
-    op.getNumSuccessors! ctx.raw = 0 ∧
-    op.getNumRegions! ctx.raw = 0 := by
-  simp only [Verified, verifyLocalInvariants, ← getOpType!_eq_getOpType, opType,
-    verifyPlainOpCounts, ne_eq, bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure,
-    Except.pure] at opVerify
-  grind
-
-/--
-  Structural facts guaranteed by the verifier for `riscv.li`: no operands, one
-  result, no successors or regions.
--/
-theorem OperationPtr.Verified.riscv_li {op : OperationPtr} {opInBounds}
-    (opVerify : op.Verified ctx opInBounds)
-    (opType : op.getOpType! ctx.raw = .riscv .li) :
-    op.getNumResults! ctx.raw = 1 ∧
-    op.getNumOperands! ctx.raw = 0 ∧
-    op.getNumSuccessors! ctx.raw = 0 ∧
-    op.getNumRegions! ctx.raw = 0 := by
-  simp only [Verified, verifyLocalInvariants, ← getOpType!_eq_getOpType, opType,
-    verifyPlainOpCounts, ne_eq, bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure,
-    Except.pure] at opVerify
-  grind
-
 theorem OperationPtr.Verified.llvm_intr__smax {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__smax) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
