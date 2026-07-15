@@ -27,7 +27,7 @@ def parseTopLevelOp (s : String) : Except String (OperationPtr × MlirParserStat
     | throw "internal error: failed to create IR context"
   let parserState ← (ParserState.fromInput s.toByteArray).mapError toString
   let (op, mlirState, _) ←
-    ((parseOp none).run (MlirParserState.fromContext ctx) parserState).mapError toString
+    (Veir.Parser.parseTopLevelOp.run (MlirParserState.fromContext ctx) parserState).mapError toString
   pure (op, mlirState)
 
 /--

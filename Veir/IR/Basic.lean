@@ -490,6 +490,54 @@ theorem getOperands!.getElem_eq_getOperand! {op : OperationPtr} {h} :
     (op.getOperands! ctx)[index]'h = op.getOperand! ctx index := by
   grind [getOperands!, getOperand!]
 
+def getOpOperands (op : OperationPtr) (ctx : IRContext OpInfo)
+    (inBounds : op.InBounds ctx := by grind) : Array OpOperandPtr :=
+  Array.map op.getOpOperand (Array.range (op.getNumOperands ctx inBounds))
+
+def getOpOperands! (op : OperationPtr) (ctx : IRContext OpInfo) : Array OpOperandPtr :=
+  Array.map op.getOpOperand (Array.range (op.getNumOperands! ctx))
+
+@[grind =_, eq_bang ←]
+theorem getOpOperands!_eq_getOpOperands {op : OperationPtr} (hin : op.InBounds ctx) :
+    op.getOpOperands! ctx = op.getOpOperands ctx (by grind) := by
+  grind [getOpOperands, getOpOperands!]
+
+theorem getOpOperands!.mem_iff_exists_index {op : OperationPtr} :
+    operand ∈ op.getOpOperands! ctx ↔
+    ∃ index, index < op.getNumOperands! ctx ∧ op.getOpOperand index = operand := by
+  simp only [getOpOperands!, Array.mem_map, getOpOperand, getNumOperands!]
+  constructor
+  · rintro ⟨opr, ⟨hopr, oprValue⟩⟩
+    have ⟨i, hi, hopr⟩ := Array.getElem_of_mem hopr
+    exists i
+    grind
+  · grind
+
+theorem getOpOperands!.mem_getOpOperand {op : OperationPtr} :
+    index < op.getNumOperands! ctx →
+    op.getOpOperand index ∈ op.getOpOperands! ctx := by
+  grind [getOpOperands!, getOpOperand, getNumOperands!]
+
+@[simp, grind =]
+theorem getOpOperands!.size_eq_getNumOperands! {op : OperationPtr} :
+    (op.getOpOperands! ctx).size = op.getNumOperands! ctx := by
+  grind [getOpOperands!, getNumOperands!]
+
+@[simp, grind =]
+theorem getOpOperands!.getElem!_eq_getOpOperand {op : OperationPtr} :
+    index < op.getNumOperands! ctx →
+    (op.getOpOperands! ctx)[index]! = op.getOpOperand index := by
+  simp only [getOpOperands!]
+  grind [getOpOperand]
+
+@[simp, grind =]
+theorem getOpOperands!.getElem_eq_getOpOperand
+    {op : OperationPtr} {h : index < (op.getOpOperands! ctx).size} :
+    index < op.getNumOperands! ctx →
+    (op.getOpOperands! ctx)[index]'h = op.getOpOperand index := by
+  simp only [getOpOperands!]
+  grind [getOpOperand]
+
 def getOperandTypes (op : OperationPtr) (ctx : IRContext OpInfo)
     (inBounds : op.InBounds ctx := by grind) : Array TypeAttr :=
   (op.get ctx).operands.map fun opr =>
@@ -800,6 +848,51 @@ theorem getRegion!_eq_of_OperationPtr_get!_eq {op : OperationPtr} :
     op.get! ctx = op.get! ctx' →
     op.getRegion! ctx = op.getRegion! ctx' := by
   grind [get!, getRegion!]
+
+def getRegions (op : OperationPtr) (ctx : IRContext OpInfo)
+    (inBounds : op.InBounds ctx := by grind) : Array RegionPtr :=
+  (op.get ctx inBounds).regions
+
+def getRegions! (op : OperationPtr) (ctx : IRContext OpInfo) : Array RegionPtr :=
+  (op.get! ctx).regions
+
+@[grind =_, eq_bang ←]
+theorem getRegions!_eq_getRegions {op : OperationPtr} (hin : op.InBounds ctx) :
+    op.getRegions! ctx = op.getRegions ctx (by grind) := by
+  grind [getRegions, getRegions!]
+
+theorem getRegions!.mem_iff_exists_index {op : OperationPtr} :
+    region ∈ op.getRegions! ctx ↔
+    ∃ index, index < op.getNumRegions! ctx ∧ op.getRegion! ctx index = region := by
+  simp only [getRegions!, getRegion!, getNumRegions!]
+  constructor
+  · rintro hregion
+    have ⟨i, hi, hregion⟩ := Array.getElem_of_mem hregion
+    exists i
+    grind
+  · grind
+
+theorem getRegions!.mem_getRegion! {op : OperationPtr} :
+    index < op.getNumRegions! ctx →
+    op.getRegion! ctx index ∈ op.getRegions! ctx := by
+  grind [getRegions!, getRegion!, getNumRegions!]
+
+@[simp, grind =]
+theorem getRegions!.size_eq_getNumRegions! {op : OperationPtr} :
+    (op.getRegions! ctx).size = op.getNumRegions! ctx := by
+  grind [getRegions!, getNumRegions!]
+
+@[simp, grind =]
+theorem getRegions!.getElem!_eq_getRegion! {op : OperationPtr} :
+    (op.getRegions! ctx)[index]! = op.getRegion! ctx index := by
+  simp only [getRegions!, getRegion!]
+
+@[simp, grind =]
+theorem getRegions!.getElem_eq_getRegion!
+    {op : OperationPtr} {h : index < (op.getRegions! ctx).size} :
+    (op.getRegions! ctx)[index]'h = op.getRegion! ctx index := by
+  simp only [getRegions!, getRegion!]
+  grind
 
 def set (ptr : OperationPtr) (ctx : IRContext OpInfo) (newOp : Operation OpInfo) : IRContext OpInfo :=
   {ctx with operations := ctx.operations.insert ptr newOp}
