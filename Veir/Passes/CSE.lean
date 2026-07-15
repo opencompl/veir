@@ -127,7 +127,6 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
       return ordinaryKey ctx op kind
   | _ => none
 
-set_option warn.sorry false in
 /-- Perform CSE: walk operations in dominance-friendly order, building
     up a single map of available values. Each key may have multiple
     candidates because the first equivalent operation we encounter may
@@ -149,8 +148,8 @@ def run (ctx : WfIRContext OpCode) (top : OperationPtr) :
         let candidates := available.getD key #[]
         match candidates.find? (·.properlyDominates op dfCtx ctx.raw) with
         | some earlier =>
-            ctx := WfRewriter.replaceValue ctx (op.getResult 0) (earlier.getResult 0) sorry sorry sorry
-            ctx := WfRewriter.eraseOp ctx op sorry sorry sorry
+            ctx := WfRewriter.replaceValue! ctx (op.getResult 0) (earlier.getResult 0)
+            ctx := WfRewriter.eraseOp! ctx op
         | none =>
             available := available.insert key (candidates.push op)
   return ctx
