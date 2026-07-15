@@ -115,9 +115,9 @@ def addIConstantFolding (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_
   let mut rewriter ← rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
   if (lhsValuePtr.getFirstUse rewriter.ctx.raw (by sorry)).isNone then
-    rewriter ← rewriter.eraseOp lhsOp sorry sorry sorry
+    rewriter := rewriter.eraseOp lhsOp sorry sorry sorry
   if (rhsValuePtr.getFirstUse rewriter.ctx.raw (by sorry)).isNone then
-    rewriter ← rewriter.eraseOp rhsOp sorry sorry sorry
+    rewriter := rewriter.eraseOp rhsOp sorry sorry sorry
   return rewriter
 
 def addIConstantFoldingLocal (ctx: WfIRContext OpCode) (op: OperationPtr) :
@@ -170,10 +170,10 @@ def addIZeroFolding (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : o
 
   let opValuePtr := op.getResult 0
   let mut rewriter ← rewriter.replaceValue opValuePtr lhsValuePtr sorry sorry
-  rewriter ← rewriter.eraseOp op sorry sorry sorry
+  rewriter := rewriter.eraseOp op sorry sorry sorry
 
   if (rhsValuePtr.getFirstUse rewriter.ctx.raw (by sorry)).isNone then
-    rewriter ← rewriter.eraseOp rhsOp sorry sorry sorry
+    rewriter := rewriter.eraseOp rhsOp sorry sorry sorry
   return rewriter
 
 def mulITwoReduce (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
@@ -198,7 +198,7 @@ def mulITwoReduce (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.
   let mut rewriter ← rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
   if (rhsValuePtr.getFirstUse rewriter.ctx.raw (by sorry)).isNone then
-    rewriter ← rewriter.eraseOp rhsOp sorry sorry sorry
+    rewriter := rewriter.eraseOp rhsOp sorry sorry sorry
   return rewriter
 
 end Pattern

@@ -163,7 +163,9 @@ theorem sext_1_local_preservesSemantics
   -- Structural facts about the four created ops.
   have hCastType : castOp.getOpType! ctx₄.raw = .builtin .unrealized_conversion_cast := by grind
   have hSlliType : slliOp.getOpType! ctx₄.raw = .riscv .slli := by grind
-  have hSraiType : sraiOp.getOpType! ctx₄.raw = .riscv .srai := by grind
+  have hSraiType : sraiOp.getOpType! ctx₄.raw = .riscv .srai := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hSrai (operation := sraiOp),
+      OperationPtr.getOpType!_WfRewriter_createOp hCastBack (operation := sraiOp)]
   have hCastBackType : castBackOp.getOpType! ctx₄.raw = .builtin .unrealized_conversion_cast := by
     grind
   have hCastOperands : castOp.getOperands! ctx₄.raw = #[operand] := by
