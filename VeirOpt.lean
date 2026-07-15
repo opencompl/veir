@@ -42,7 +42,8 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
 
 /--
   A map of named pass groups, each expanding to a comma-separated pipeline of pass names.
-  Selected with the `-pgrp=` flag.
+  A group name may be used wherever a pass name is expected in a `-p` list and expands
+  in place to its member passes. If a name is both a pass and a group, the pass wins.
 -/
 def passGroups : Std.HashMap String String :=
   (Std.HashMap.emptyWithCapacity 2)
@@ -71,33 +72,25 @@ structure VeirOptArgs where
   allowUnregisteredDialect : Bool
 
 /--
-  Parse the `-p` and `-pgrp` flags to construct a pass pipeline.
-  `-p` takes a comma-separated list of pass names; `-pgrp` takes the name of a predefined
-  pass group (see `passGroups`). Both flags may appear any number of times and in any order;
-  the resulting pipeline is the concatenation of their passes, in the order the flags appear
-  on the command line.
-  Returns an error if a flag is malformed or if any pass name / group is unknown.
+  Parse the `-p` flags to construct a pass pipeline.
+  `-p` takes a comma-separated list of pass names and pass-group names; a group name
+  (see `passGroups`) expands in place to its member passes. The flag may appear any
+  number of times; the resulting pipeline is the concatenation of their passes, in the
+  order the flags appear on the command line.
+  Returns an error if a flag is malformed or if any name is neither a pass nor a group.
 -/
 def parsePipelineOption (args : List String) :
     Except String (PassPipeline OpCode × List String) := do
-  let (pipelineFlags, rest) :=
-    args.partition (fun arg => arg.startsWith "-p=" || arg.startsWith "-pgrp=")
+  let (pipelineFlags, rest) := args.partition (·.startsWith "-p=")
   let mut passes : Array (Pass OpCode) := #[]
   for flag in pipelineFlags do
-    if flag.startsWith "-p=" then
-      let arg := (flag.drop 3).toString
-      match PassPipeline.ofString? availablePasses arg with
-      | .ok pipeline => passes := passes ++ pipeline.passes
-      | .error errMsg => throw s!"Error parsing -p flag: {errMsg}"
-    else
-      let groupName := (flag.drop 6).toString
-      match passGroups.get? groupName with
-      | some arg =>
-        match PassPipeline.ofString? availablePasses arg with
-        | .ok pipeline => passes := passes ++ pipeline.passes
-        | .error errMsg => throw s!"Error parsing -pgrp flag: {errMsg}"
-      | none =>
-        throw s!"Unknown pass group '{groupName}'. Available groups: {", ".intercalate passGroups.keys}"
+    let arg := (flag.drop 3).toString
+    let expanded := String.intercalate "," (arg.splitOn "," |>.map fun name =>
+      if availablePasses.contains name then name
+      else (passGroups.get? name).getD name)
+    match PassPipeline.ofString? availablePasses expanded with
+    | .ok pipeline => passes := passes ++ pipeline.passes
+    | .error errMsg => throw s!"Error parsing -p flag: {errMsg}"
   return ({ passes }, rest)
 
 /--
@@ -105,7 +98,7 @@ def parsePipelineOption (args : List String) :
 -/
 def parseArgs (args : List String) : Except String VeirOptArgs := do
   let (flags, positional) := args.partition (·.startsWith "-")
-  -- Consume any `-p` and `-pgrp` flags.
+  -- Consume any `-p` flags.
   let (pipeline, flags) ← parsePipelineOption flags
   -- Consume `--allow-unregistered-dialect` if present.
   let allowUnregisteredDialect := flags.contains "--allow-unregistered-dialect"
@@ -159,9 +152,9 @@ def main (args : List String) : IO Unit := do
   match parseArgs args with
   | .error errMsg =>
     IO.eprintln s!"Error: {errMsg}"
-    IO.eprintln "Usage: veir-opt <filename> [-p=\"pass1,pass2,...\" | -pgrp=<group>]... [--allow-unregistered-dialect]"
-    IO.eprintln "  -p and -pgrp may be repeated and mixed; passes run in the order the flags appear."
-    IO.eprintln "Pass groups (-pgrp):"
+    IO.eprintln "Usage: veir-opt <filename> [-p=\"pass1,pass2,...\"]... [--allow-unregistered-dialect]"
+    IO.eprintln "  -p may be repeated; passes run in the order the flags appear."
+    IO.eprintln "  A pass list may also contain pass-group names, which expand in place:"
     IO.eprintln passGroupsUsage
     IO.Process.exit 1
   | .ok { filename, passes, allowUnregisteredDialect } =>

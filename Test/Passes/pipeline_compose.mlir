@@ -1,7 +1,8 @@
-// RUN: veir-opt %s -p=canonicalize -pgrp=riscv -p=cse -p=dce | filecheck %s
+// RUN: veir-opt %s -p=canonicalize -p=riscv,cse -p=dce | filecheck %s
 
-// Check that -p and -pgrp compose: repeated and mixed flags build one pipeline
-// in the order the flags appear on the command line.
+// Check that repeated -p flags build one pipeline in the order the flags appear
+// on the command line, and that a pass-group name inside a -p list expands in
+// place to the group's passes.
 
 "builtin.module"() ({
     "func.func"()  <{function_type = (i64, i64) -> i64}> ({

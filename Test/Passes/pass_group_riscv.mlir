@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -pgrp=riscv | filecheck %s
+// RUN: veir-opt %s -p=riscv | filecheck %s
 
 "builtin.module"() ({
     "func.func"()  <{function_type = (i64, i64) -> i64}> ({
