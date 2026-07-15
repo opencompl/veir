@@ -644,8 +644,9 @@ def Rewriter.initBlockArgumentsLoopSim (blockPtr: Sim.BlockPtr) (ctx: Sim.IRCont
   if h : index ≥ types.usize.toUInt64 then
     ctx
   else
+    have : index.toNat < 2^32 := by grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le]
     rlet ctx ← Rewriter.pushBlockArgumentAt blockPtr ctx index
-      (types[index.toNat]'(by grind only [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le]))
+      (types.uget index.toUSize (by grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le]))
       (by grind) (by grind)
       (by grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le])
     -- TODO: simplify...
@@ -878,7 +879,8 @@ def Rewriter.initOpRegionsSim (opPtr: Sim.OperationPtr) (ctx: Sim.IRContext OpIn
   if h: index >= regions.usize.toUInt64 then
     some ctx
   else
-    let region := regions[index.toNat]'(by grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le])
+    have : index.toNat < 2^32 := by grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le]
+    let region := regions.uget index.toUSize (by grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le])
     match hParent : (region.getParent ctx (by grind)).toOption with
     | none =>
       let ctx := Rewriter.pushRegionAt opPtr ctx index region (hregion := by grind) (hRegionParent := by grind)
@@ -1020,7 +1022,9 @@ def Rewriter.initOpResultsSim (opPtr: Sim.OperationPtr) (ctx: Sim.IRContext OpIn
   if h: index >= resultTypes.usize.toUInt64 then
     some ctx
   else
-    rlet ctx ← Rewriter.pushResultAt opPtr ctx index (resultTypes[index.toNat]'(by grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le])) (by grind) (by grind)
+    have : index.toNat < 2^32 := by grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le]
+    let type := resultTypes.uget index.toUSize (by grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le])
+    rlet ctx ← Rewriter.pushResultAt opPtr ctx index type (by grind) (by grind)
       (by grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le])
     Rewriter.initOpResultsSim opPtr ctx resultTypes (index + 1) (by grind [generic_ptr_grind]) (by
       have : (index + 1).toNat = index.toNat + 1 := by grind [Array.usize_toUInt64_toNat]
@@ -1206,10 +1210,12 @@ def Rewriter.initOpOperandsSim (opPtr: Sim.OperationPtr) (ctx: Sim.IRContext OpI
   if h : index >= operands.usize.toUInt64 then
     ctx
   else
-    let valuePtr := operands[index.toNat]'(by grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le])
+    let valuePtr := operands.uget index.toUSize (by grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le])
     let ctx := Rewriter.pushOperandAt opPtr ctx index valuePtr
+      (valueInBounds := by grind [show index.toNat < 2^32 by grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le]])
       (hcap := by grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le])
     Rewriter.initOpOperandsSim opPtr ctx (by grind [generic_ptr_grind]) operands (by grind [generic_ptr_grind]) (index + 1) (by
+      have : index.toNat < 2^32 := by grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le]
       grind [Rewriter.pushOperandAt_def, Rewriter.pushOperandAtSpec, Rewriter.pushOperandAtSim, Sim.IRContext.isRepr, Rewriter.pushOperand])
       (by
         grind [Rewriter.pushOperandAt_def, Rewriter.pushOperandAtSpec, Rewriter.pushOperandAtSim, Rewriter.pushOperand])

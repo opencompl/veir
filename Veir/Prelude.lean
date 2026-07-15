@@ -14,6 +14,17 @@ theorem UInt64.add_int64_zero (x : UInt64) : x + (0 : Int64) = x := by
 theorem UInt64.uint64_zero_add (x : Int64) : (0 : UInt64) + x = x.toUInt64 := by
   simp [UInt64.add_int64_r_def]
 
+
+@[grind =]
+theorem UInt64.toNat_toUSize_of_lt (i : UInt64) (hi : i.toNat < 2^32) :
+    i.toUSize.toNat = i.toNat := by
+  grind [UInt64.toNat_toUSize, System.Platform.numBits_eq]
+
+@[grind =]
+theorem Array.uget_eq_get_of_lt_uint32_max (i : UInt64) (hi : i.toNat < 2^32) (a : Array α) h :
+    a.uget i.toUSize h = a[i.toNat]'(by grind) := by
+  grind [Array.uget]
+
 open Lean Meta Simp in
 def mkInst : Expr := mkConst  `instHAddInt64UInt64_veir []
 open Lean Meta Simp in
