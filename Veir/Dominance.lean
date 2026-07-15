@@ -197,7 +197,7 @@ axiom WfIRContext.Dom.blockArgument_dominatesIp_entry (ctxDom : ctx.Dom)
     (hMem : value ∈ block.getArguments! ctx.raw) :
     value.dominatesIp (InsertPoint.atStart! block ctx.raw) ctx
 
-/-- An argument of a block cannot dominate a program point that dominates hde block start. -/
+/-- An argument of a block cannot dominate a program point that dominates the block start. -/
 axiom WfIRContext.Dom.blockArgument_not_dominatesIp_before_of_dominatesIp_firstOp
     (ctxDom : ctx.Dom) {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
     (opDom : op.dominatesIp (InsertPoint.atStart! block ctx.raw) ctx)
