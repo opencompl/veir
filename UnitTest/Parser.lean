@@ -238,83 +238,89 @@ end parseKeyword
 
 section parseStringLiteral
 
+private def parseStringLiteralStr : EStateM ParserError ParserState String :=
+  parseStringLiteral >>= fun b => return String.fromUTF8! b
+
+private def parseOptionalStringLiteralStr : EStateM ParserError ParserState (Option String) :=
+  parseOptionalStringLiteral >>= fun ob => return ob.map String.fromUTF8!
+
 /--
   info: "Success: hello world!"
 -/
 #guard_msgs in
-#eval testParser "\"hello world!\"" parseStringLiteral
+#eval testParser "\"hello world!\"" parseStringLiteralStr
 
 /-- info: <test>:1:1: error: string literal expected
 hello world!
 ^ -/
 #guard_msgs (whitespace := exact) in
-#eval testParser "hello world!" parseStringLiteral
+#eval testParser "hello world!" parseStringLiteralStr
 
 /--
   info: <unknown location>: error: expected '"' in string literal
 -/
 #guard_msgs in
-#eval testParser "\"unterminated string" parseStringLiteral
+#eval testParser "\"unterminated string" parseStringLiteralStr
 
 /--
   info: "Success: \n"
 -/
 #guard_msgs in
-#eval testParser "\"\\n\"" parseStringLiteral
+#eval testParser "\"\\n\"" parseStringLiteralStr
 
 /--
   info: "Success: hello\tworld"
 -/
 #guard_msgs in
-#eval testParser "\"hello\\tworld\"" parseStringLiteral
+#eval testParser "\"hello\\tworld\"" parseStringLiteralStr
 
 /--
   info: "Success: say \"hi\""
 -/
 #guard_msgs in
-#eval testParser "\"say \\\"hi\\\"\"" parseStringLiteral
+#eval testParser "\"say \\\"hi\\\"\"" parseStringLiteralStr
 
 /--
   info: "Success: back\\slash"
 -/
 #guard_msgs in
-#eval testParser "\"back\\\\slash\"" parseStringLiteral
+#eval testParser "\"back\\\\slash\"" parseStringLiteralStr
 
 /--
   info: "Success: A"
 -/
 #guard_msgs in
-#eval testParser "\"\\41\"" parseStringLiteral
+#eval testParser "\"\\41\"" parseStringLiteralStr
 
 /--
   info: "Success: a"
 -/
 #guard_msgs in
-#eval testParser "\"\\61\"" parseStringLiteral
+#eval testParser "\"\\61\"" parseStringLiteralStr
 
 /--
   info: "Success: *"
 -/
 #guard_msgs in
-#eval testParser "\"\\2a\"" parseStringLiteral
+#eval testParser "\"\\2a\"" parseStringLiteralStr
 
 /--
   info: "Success: *"
 -/
 #guard_msgs in
-#eval testParser "\"\\2A\"" parseStringLiteral
+#eval testParser "\"\\2A\"" parseStringLiteralStr
 
 /--
   info: "Success: O"
 -/
 #guard_msgs in
-#eval testParser "\"\\4f\"" parseStringLiteral
+#eval testParser "\"\\4f\"" parseStringLiteralStr
 
 /--
   info: "Success: O"
 -/
 #guard_msgs in
-#eval testParser "\"\\4F\"" parseStringLiteral
+#eval testParser "\"\\4F\"" parseStringLiteralStr
 
 /-!
 `\c3\a9` is the two-byte UTF-8 encoding of é (U+00E9).
@@ -325,31 +331,52 @@ since single-byte values with a letter first digit (>= 0xA0) aren't valid UTF-8 
   info: "Success: é"
 -/
 #guard_msgs in
-#eval testParser "\"\\c3\\a9\"" parseStringLiteral
+#eval testParser "\"\\c3\\a9\"" parseStringLiteralStr
 
 /--
   info: "Success: é"
 -/
 #guard_msgs in
-#eval testParser "\"\\C3\\A9\"" parseStringLiteral
+#eval testParser "\"\\C3\\A9\"" parseStringLiteralStr
 
 /--
   info: "Success: é"
 -/
 #guard_msgs in
-#eval testParser "\"\\c3\\A9\"" parseStringLiteral
+#eval testParser "\"\\c3\\A9\"" parseStringLiteralStr
 
 /--
   info: "Success: é"
 -/
 #guard_msgs in
-#eval testParser "\"\\C3\\a9\"" parseStringLiteral
+#eval testParser "\"\\C3\\a9\"" parseStringLiteralStr
 
 /--
   info: "Success: (some (hello world!))"
 -/
 #guard_msgs in
-#eval testParser "\"hello world!\"" parseOptionalStringLiteral
+#eval testParser "\"hello world!\"" parseOptionalStringLiteralStr
+
+/-!
+{\t, \n, \"} and {\09, \0A, \22} are printed as {\t, \n, \"}.
+-/
+/--
+  info: "Success: (some (\t\n\"hello world\t\n\"))"
+-/
+#guard_msgs in
+#eval testParser "\"\\t\\n\\\"hello world\\09\\0A\\22\"" parseOptionalStringLiteralStr
+
+/--
+  info: "Success: none"
+-/
+#guard_msgs in
+#eval testParser "0" parseOptionalStringLiteralStr
+
+/--
+  info: "Success: none"
+-/
+#guard_msgs in
+#eval testParser "" parseOptionalStringLiteralStr
 
 end parseStringLiteral
 

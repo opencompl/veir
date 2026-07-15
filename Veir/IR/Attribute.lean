@@ -754,18 +754,27 @@ instance : ToString RegisterType where
 instance : ToString RegisterAttr where
   toString attr := s!"{attr.value} : !riscv.reg"
 
-def escapeStringLiteral (s : String) : String := Id.run do
+private def hexDigit (n : UInt8) : Char :=
+  if n < 10 then Char.ofNat (n.toNat + '0'.toNat)
+  else Char.ofNat (n.toNat - 10 + 'A'.toNat)
+
+def escapeStringLiteral (b : ByteArray) : String := Id.run do
   let mut result := ""
-  for c in s.toList do
-    if c == '\\' then result := result ++ "\\\\"
-    else if c == '"' then result := result ++ "\\\""
-    else if c == '\n' then result := result ++ "\\n"
-    else if c == '\t' then result := result ++ "\\t"
-    else result := result.push c
+  for byte in b do
+    if byte == '\\'.toUInt8 then result := result ++ "\\\\"
+    else if byte == '"'.toUInt8 then result := result ++ "\\\""
+    else if byte == '\n'.toUInt8 then result := result ++ "\\n"
+    else if byte == '\t'.toUInt8 then result := result ++ "\\t"
+    else if byte >= 0x20 && byte < 0x7F then result := result.push (Char.ofNat byte.toNat)
+    else
+      /- LLVM convention: encode hex as \HH. -/
+      result := result.push '\\'
+      result := result.push (hexDigit (byte >>> 4))
+      result := result.push (hexDigit (byte &&& 0x0F))
   return result
 
 instance : ToString StringAttr where
-  toString attr := s!"\"{escapeStringLiteral (String.fromUTF8! attr.value)}\""
+  toString attr := s!"\"{escapeStringLiteral attr.value}\""
 
 instance : ToString UnitAttr where
   toString _ := "unit"

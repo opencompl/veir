@@ -282,40 +282,38 @@ private def processEscapes (input : ByteArray) (basePos : Nat) : Except ParserEr
   return result
 
 /--
-  Parse optionally a string literal.
-  If the next token is a string literal, consume it and return its string value.
-  Otherwise, return none.
+  Parse optionally a (byte) string literal.
+  If the next token is a string literal, consume it and return its raw bytes
+  after processing escape sequences. Otherwise, return none.
   Handles escape sequences: `\\`, `\"`, `\n`, `\t`, and `\HH`.
 -/
-def parseOptionalStringLiteral : M (Option String) := do
+def parseOptionalStringLiteral : M (Option ByteArray) := do
   match ← parseOptionalToken .stringLit with
   | some token =>
     let slice : Slice := {start := token.slice.start + 1, stop := { byteOffset := token.slice.stop.byteOffset - 1 }} -- remove quotes
     let raw := slice.of ((← get).input)
     let processed ← ofExcept (processEscapes raw (token.slice.start.byteOffset + 1))
-    match String.fromUTF8? processed with
-    | some str => return some str
-    | none => throwAt token.slice.start "internal error: failed converting string literal"
+    return some processed
   | none => return none
 
 /--
-  Parse a string literal.
+  Parse a (byte) string literal.
   Raise an error if the next token is not a string literal.
 -/
-def parseStringLiteral (errorMsg : String := "string literal expected") : M String := do
+def parseStringLiteral (errorMsg : String := "string literal expected") : M ByteArray := do
   match ← parseOptionalStringLiteral with
-  | some str => return str
+  | some bytes => return bytes
   | none => throwAtCurrentPos errorMsg
 
 /--
-  Parses either an identifier or a string literal, if present.
+  Parses either an identifier or a (byte) string literal, if present.
 -/
 def parseOptionalIdentifierOrStringLiteral : M (Option ByteArray) := do
   match ← parseOptionalIdentifier with
   | some ident => return ident
   | none =>
     match ← parseOptionalStringLiteral with
-    | some str => return some str.toByteArray
+    | some bytes => return some bytes
     | none => return none
 
 /--

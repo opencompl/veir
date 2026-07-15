@@ -2404,7 +2404,7 @@ theorem get!_of_not_inBounds {ptr : RegionPtr} (notInBounds : ¬ ptr.InBounds ct
 def set (ptr : RegionPtr) (ctx : IRContext OpInfo) (newRegion : Region) : IRContext OpInfo :=
   {ctx with regions := ctx.regions.insert ptr newRegion}
 
-def setParent (region : RegionPtr) (ctx : IRContext OpInfo) (newParent : OperationPtr)
+def setParent (region : RegionPtr) (ctx : IRContext OpInfo) (newParent : Option OperationPtr)
     (inBounds : region.InBounds ctx := by grind) : IRContext OpInfo :=
   let oldRegion := region.get ctx (by grind)
   region.set ctx { oldRegion with parent := newParent}
@@ -2664,6 +2664,14 @@ theorem cons_iff {ctx : IRContext OpInfo} {parent : BlockPtr} {head : OperationP
   simp [BlockPtr.OpChainSlice]
 
 end BlockPtr.OpChainSlice
+
+/-- Get the successors of a block. This is defined as the successors of the terminator operation.
+In case the block has no terminator, this function returns an empty array. -/
+def BlockPtr.getSuccessors! (block : BlockPtr) (ctx : IRContext OpInfo) : Array BlockPtr :=
+  let term := (block.get! ctx).lastOp
+  match term with
+  | none => #[]
+  | some term => term.getSuccessors! ctx
 
 def IRContext.empty (OpInfo : Type) [HasOpInfo OpInfo] : IRContext OpInfo := {
     nextID := 0,
