@@ -4,6 +4,7 @@ import Veir.Passes.Matching
 import Veir.Passes.DCE.dce
 import Veir.Rewriter.WfRewriter
 import Veir.Properties
+import Veir.Interfaces.FunctionInterfaces
 
 namespace Veir
 
@@ -131,7 +132,8 @@ def setFunctionType (c : WfIRContext OpCode) (funcOp : OperationPtr)
     let props : FuncFuncProperties := funcOp.getProperties! c.raw (.func .func)
     let newEntries := props.extra.entries.map fun (k, v) =>
       if k == "function_type".toUTF8 then (k, ftType.val) else (k, v)
-    let newProps : FuncFuncProperties := { props with extra := DictionaryAttr.fromArray newEntries }
+    let newProps : FuncFuncProperties :=
+      { props with function_type := some ftType, extra := DictionaryAttr.fromArray newEntries }
     ⟨funcOp.setProperties (opCode := .func .func) c.raw newProps sorry sorry, sorry⟩
   | .llvm .func =>
     let props : LLVMFuncProperties := funcOp.getProperties! c.raw (.llvm .func)
@@ -148,13 +150,11 @@ def coerceFunction (ctx : WfIRContext OpCode) (funcOp : OperationPtr) :
   -- Shadow the parameter: from here on `ctx` always names the latest version, with no
   -- separate old binding left around to second-guess.
   let mut ctx := ctx
-  let region := funcOp.getRegion! ctx.raw 0
-  let some entry := (region.get! ctx.raw).firstBlock | return ctx
+  let some entry := FunctionOpInterface.getEntryBlock? funcOp ctx.raw | return ctx
   let returnCode := returnOpCodeFor (funcOp.getOpType! ctx.raw)
   -- Default the output types to the currently-declared ones, then flip coerced positions.
   -- This preserves non-integer results and `llvm.func`'s `void` return.
-  let declaredFt := (readFunctionType? ctx.raw funcOp).getD { inputs := #[], outputs := #[] }
-  let mut outputs : Array Attribute := declaredFt.outputs
+  let mut outputs : Array Attribute := FunctionOpInterface.getResultTypes! funcOp ctx.raw
   -- (1) Coerce entry-block arguments (the function parameters). This mirrors the
   --     block-argument coercion in `isel-br-riscv64`, which skips entry blocks.
   let mut inputs : Array Attribute := #[]

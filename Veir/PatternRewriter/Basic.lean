@@ -198,6 +198,18 @@ def insertOp (rewriter: PatternRewriter OpInfo) (op: OperationPtr) (ip : InsertP
   }
 
 /--
+Insert an operation at a given location, panicking if the operation or the insertion point is out
+of bounds, or if the insertion point does not have a parent block.
+-/
+def insertOp! (rewriter: PatternRewriter OpInfo) (op: OperationPtr) (ip : InsertPoint)
+    : PatternRewriter OpInfo :=
+  { rewriter with
+    ctx := WfRewriter.insertOp! rewriter.ctx op ip,
+    hasDoneAction := true,
+    worklist := rewriter.worklist.push op,
+  }
+
+/--
 Walk a use chain and check that at most one operation besides `exceptOp` uses
 the value: uses owned by `exceptOp` are ignored, and multiple uses from a
 single other operation count as one user. Returns `false` when out of fuel.
@@ -239,6 +251,22 @@ def eraseOp (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
     hasDoneAction := true,
     worklist
   }
+
+/--
+Erase an operation, panicking if the operation is out of bounds, has regions, or has uses.
+-/
+def eraseOp! (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
+    : PatternRewriter OpInfo :=
+  if hOp : op.InBounds rewriter.ctx.raw then
+    if opRegions : op.getNumRegions! rewriter.ctx.raw = 0 then
+      if opUses : !op.hasUses! rewriter.ctx.raw then
+        rewriter.eraseOp op opRegions opUses hOp
+      else
+        panic! "PatternRewriter.eraseOp! failed: operation has uses"
+    else
+      panic! "PatternRewriter.eraseOp! failed: operation has regions"
+  else
+    panic! "PatternRewriter.eraseOp! failed: operation is out of bounds"
 
 def replaceOp (rewriter: PatternRewriter OpInfo) (oldOp newOp: OperationPtr)
     (opNe : oldOp ≠ newOp := by grind)
@@ -288,6 +316,19 @@ def replaceValue (rewriter: PatternRewriter OpInfo) (oldVal newVal: ValuePtr)
   let ctx := WfRewriter.replaceValue rewriter.ctx oldVal newVal
   { rewriter with ctx, hasDoneAction := true}
 
+/--
+Replace all uses of a value by another value, panicking if the two values are equal, or if either
+value is out of bounds.
+-/
+def replaceValue! (rewriter: PatternRewriter OpInfo) (oldVal newVal: ValuePtr)
+    : PatternRewriter OpInfo :=
+  if oldIn : oldVal.InBounds rewriter.ctx.raw then
+    let rewriter := rewriter.addUsersInWorklist oldVal oldIn
+    let ctx := WfRewriter.replaceValue! rewriter.ctx oldVal newVal
+    { rewriter with ctx, hasDoneAction := true }
+  else
+    panic! "PatternRewriter.replaceValue! failed: old value is out of bounds"
+
 def createBlock (rewriter: PatternRewriter OpInfo)
     (argTypes: Array TypeAttr)
     (insertPoint : Option BlockInsertPoint)
@@ -319,9 +360,8 @@ abbrev RewritePattern (OpInfo : Type) [HasOpInfo OpInfo] :=
 abbrev LocalRewritePattern (OpInfo : Type) [HasOpInfo OpInfo] :=
   WfIRContext OpInfo → OperationPtr → Option (WfIRContext OpInfo × Option (Array OperationPtr × Array ValuePtr))
 
-set_option warn.sorry false in
 def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern OpInfo) : RewritePattern OpInfo :=
-  fun rewriter op opInBounds => do
+  fun rewriter op _opInBounds => do
     match pattern rewriter.ctx op with
     -- error while applying pattern
     | none => none
@@ -331,13 +371,12 @@ def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern OpInfo) : Rew
     | some (newCtx, some (newOps, newRes)) =>
       let mut rewriter := { rewriter with ctx := newCtx, hasDoneAction := true }
       for newOp in newOps do
-        rewriter ← rewriter.insertOp newOp (InsertPoint.before op) (by sorry) (by sorry)
+        rewriter := rewriter.insertOp! newOp (InsertPoint.before op)
       for (res, i) in newRes.zipIdx do
-        rewriter := rewriter.replaceValue (op.getResult i) res (by sorry) (by sorry) (by sorry)
-      rewriter := rewriter.eraseOp op (by sorry) (by sorry) (by sorry)
-      return rewriter
+        rewriter := rewriter.replaceValue! (op.getResult i) res
+      -- All results of `op` have been replaced above, so `op` is dead and can be erased.
+      return rewriter.eraseOp! op
 
-set_option warn.sorry false in
 /--
   Greedy pattern application: transforms a list of patterns into a single pattern that applies
   them repeatedly in order.

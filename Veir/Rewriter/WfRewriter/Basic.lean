@@ -91,6 +91,20 @@ def WfRewriter.eraseOp (wfCtx : WfIRContext OpInfo) (op : OperationPtr)
   ⟨Rewriter.eraseOp wfCtx op (by grind) hOp,
     by grind [Rewriter.eraseOp_WellFormed]⟩
 
+/-- Erase an operation, panicking if the operation is out of bounds, has regions, or has uses. -/
+def WfRewriter.eraseOp! (wfCtx : WfIRContext OpInfo) (op : OperationPtr)
+    : WfIRContext OpInfo :=
+  if hOp : op.InBounds wfCtx.raw then
+    if opRegions : op.getNumRegions! wfCtx.raw = 0 then
+      if opUses : !op.hasUses! wfCtx.raw then
+        WfRewriter.eraseOp wfCtx op opRegions opUses hOp
+      else
+        panic! "WfRewriter.eraseOp! failed: operation has uses"
+    else
+      panic! "WfRewriter.eraseOp! failed: operation has regions"
+  else
+    panic! "WfRewriter.eraseOp! failed: operation is out of bounds"
+
 /-- Insert a block at a given location. -/
 @[inline]
 def WfRewriter.insertBlock (wfCtx : WfIRContext OpInfo) (newBlock : BlockPtr)
