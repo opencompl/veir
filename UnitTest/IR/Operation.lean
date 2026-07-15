@@ -11,7 +11,7 @@ private def parse (s : String) : OperationPtr × IRContext OpCode :=
     match ParserState.fromInput s.toByteArray with
     | .error _ => panic! "lex error"
     | .ok parser =>
-      match (parseOp none).run (MlirParserState.fromContext ctx) parser with
+      match parseTopLevelOp.run (MlirParserState.fromContext ctx) parser with
       | .error _ => panic! "parse error"
       | .ok (op, state, _) => (op, state.ctx.raw)
 
