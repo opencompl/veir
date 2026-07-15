@@ -184,3 +184,32 @@ it dominates the program point before the operation, or it is a result of the op
 axiom WfIRContext.Dom.value_dominatesIp_after_iff (ctxDom : ctx.Dom) :
   value.dominatesIp (InsertPoint.after op ctx.raw block blockIsParent opInBounds) ctx ↔
   value.dominatesIp (InsertPoint.before op) ctx ∨ value ∈ op.getResults! ctx.raw
+
+/-- A value dominating the entry of a successor block either already dominates the predecessor's
+end, or it is one of the successor's own block arguments. -/
+axiom WfIRContext.Dom.value_dominatesIp_successor_entry (ctxDom : ctx.Dom)
+    {block : BlockPtr} (blockInBounds : block.InBounds ctx.raw)
+    (hsucc : succ ∈ block.getSuccessors! ctx.raw) :
+    value.dominatesIp (InsertPoint.atStart! succ ctx.raw) ctx →
+    value.dominatesIp (InsertPoint.atEnd block) ctx ∨
+      value ∈ succ.getArguments! ctx.raw
+
+/-- An operation dominating the entry of a successor already dominates the predecessor's end. -/
+axiom WfIRContext.Dom.op_dominatesIp_successor_entry (ctxDom : ctx.Dom)
+    {block : BlockPtr} (blockInBounds : block.InBounds ctx.raw)
+    (hsucc : succ ∈ block.getSuccessors! ctx.raw) :
+    op.dominatesIp (InsertPoint.atStart! succ ctx.raw) ctx →
+    op.dominatesIp (InsertPoint.atEnd block) ctx
+
+/-- An argument of a block dominates the block's start. -/
+axiom WfIRContext.Dom.blockArgument_dominatesIp_entry (ctxDom : ctx.Dom)
+    {block : BlockPtr} (blockInBounds : block.InBounds ctx.raw)
+    (hMem : value ∈ block.getArguments! ctx.raw) :
+    value.dominatesIp (InsertPoint.atStart! block ctx.raw) ctx
+
+/-- An argument of a block cannot dominate a program point that dominates the block start. -/
+axiom WfIRContext.Dom.blockArgument_not_dominatesIp_before_of_dominatesIp_firstOp
+    (ctxDom : ctx.Dom) {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
+    (opDom : op.dominatesIp (InsertPoint.atStart! block ctx.raw) ctx)
+    (hMem : value ∈ block.getArguments! ctx.raw) :
+    ¬ value.dominatesIp (InsertPoint.before op) ctx
