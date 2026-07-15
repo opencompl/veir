@@ -435,7 +435,6 @@ theorem OperationPtr.getNumOperands!_initOpOperands {operation : OperationPtr} :
 OpOperandPtr.get!_initOpOperands is too complex to be expressed, and should not be needed in practice,
 as we should reason at a higher-level abstraction at this point.
 -/
-
 @[grind =>]
 theorem OperationPtr.getOperands!_initOpOperands {operation : OperationPtr} :
     operation.getOperands! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) =
@@ -443,8 +442,7 @@ theorem OperationPtr.getOperands!_initOpOperands {operation : OperationPtr} :
       (operation.getOperands! ctx) ++ operands.extract (operands.size - n) operands.size
     else
       operation.getOperands! ctx := by
-  fun_induction Rewriter.initOpOperands <;>
-    grind [Array.singleton_getElem_append_extract_succ_eq]
+  fun_induction Rewriter.initOpOperands <;> grind
 
 @[simp, grind =]
 theorem OperationPtr.getNumRegions!_initOpOperands {operation : OperationPtr} :
