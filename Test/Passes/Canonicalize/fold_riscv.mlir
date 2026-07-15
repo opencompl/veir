@@ -51,8 +51,50 @@
       // CHECK-NEXT: "func.return"(%[[C42]]) : (!riscv.reg) -> ()
       "func.return"(%r) : (!riscv.reg) -> ()
   }) : () -> ()
+
+  // Zicond: czeroeqz(x, 0) -> 0 (condition rs2 is zero)
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "czeroeqz_zero"}> ({
+    ^bb0(%x : !riscv.reg):
+      // CHECK:      %[[Z0:.*]] = "riscv.li"() <{"value" = 0 : i64}> : () -> !riscv.reg
+      // CHECK-NEXT: "func.return"(%[[Z0]]) : (!riscv.reg) -> ()
+      %c0 = "riscv.li"() <{"value" = 0 : i64}> : () -> !riscv.reg
+      %r = "riscv.czeroeqz"(%x, %c0) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+      "func.return"(%r) : (!riscv.reg) -> ()
+  }) : () -> ()
+
+  // Zicond: czeroeqz(x, 5) -> x (condition rs2 is nonzero)
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "czeroeqz_nonzero"}> ({
+    ^bb0(%x : !riscv.reg):
+      // CHECK:      ^{{.*}}(%[[A:.*]] : !riscv.reg):
+      // CHECK-NEXT: "func.return"(%[[A]]) : (!riscv.reg) -> ()
+      %c5 = "riscv.li"() <{"value" = 5 : i64}> : () -> !riscv.reg
+      %r = "riscv.czeroeqz"(%x, %c5) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+      "func.return"(%r) : (!riscv.reg) -> ()
+  }) : () -> ()
+
+  // Zicond: czeronez(x, 0) -> x (condition rs2 is zero)
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "czeronez_zero"}> ({
+    ^bb0(%x : !riscv.reg):
+      // CHECK:      ^{{.*}}(%[[B:.*]] : !riscv.reg):
+      // CHECK-NEXT: "func.return"(%[[B]]) : (!riscv.reg) -> ()
+      %c0 = "riscv.li"() <{"value" = 0 : i64}> : () -> !riscv.reg
+      %r = "riscv.czeronez"(%x, %c0) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+      "func.return"(%r) : (!riscv.reg) -> ()
+  }) : () -> ()
+
+  // Zicond: czeronez(x, 5) -> 0 (condition rs2 is nonzero)
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "czeronez_nonzero"}> ({
+    ^bb0(%x : !riscv.reg):
+      // CHECK:      %[[Z1:.*]] = "riscv.li"() <{"value" = 0 : i64}> : () -> !riscv.reg
+      // CHECK-NEXT: "func.return"(%[[Z1]]) : (!riscv.reg) -> ()
+      %c5 = "riscv.li"() <{"value" = 5 : i64}> : () -> !riscv.reg
+      %r = "riscv.czeronez"(%x, %c5) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+      "func.return"(%r) : (!riscv.reg) -> ()
+  }) : () -> ()
 }) : () -> ()
 
 // CHECK-NOT: "riscv.add"
 // CHECK-NOT: "riscv.and"
 // CHECK-NOT: "riscv.addi"
+// CHECK-NOT: "riscv.czeroeqz"
+// CHECK-NOT: "riscv.czeronez"

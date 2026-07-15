@@ -195,6 +195,15 @@ def Arith.foldsTo (op : Arith) (_properties : HasDialectOpInfo.propertiesOf op)
     | [_, some (.int bw (.val c))] =>
       if c = 0 then some (.constant (.int bw .poison)) else none
     | _ => none
+  -- Select with a known non-poison condition returns the selected operand
+  -- exactly (poison on the non-selected arm does not propagate). A poison
+  -- condition is deliberately not matched: it makes the result poison, not
+  -- the selected operand.
+  | .select =>
+    match constOperands.toList with
+    | [some (.int 1 (.val c)), _, _] =>
+      if c = 1 then some (.operand 1) else some (.operand 2)
+    | _ => none
   | _ => none
 
 /--
@@ -272,6 +281,12 @@ def Llvm.foldsTo (op : Llvm) (_properties : HasDialectOpInfo.propertiesOf op)
     | [_, some (.int bw (.val c))] =>
       if c = 0 then some (.constant (.int bw .poison)) else none
     | _ => none
+  -- See the `arith.select` entry.
+  | .select =>
+    match constOperands.toList with
+    | [some (.int 1 (.val c)), _, _] =>
+      if c = 1 then some (.operand 1) else some (.operand 2)
+    | _ => none
   | _ => none
 
 /--
@@ -325,6 +340,20 @@ def Riscv.foldsTo (op : Riscv) (properties : HasDialectOpInfo.propertiesOf op)
     | _ => none
   | .sra => match constOperands.toList with
     | [_, some (.reg c)] => if c.val = 0 then some (.operand 0) else none
+    | _ => none
+  -- Zicond: with a known condition (`rs2` = operand 1), `czero.eqz` and
+  -- `czero.nez` either forward `rs1` unchanged or produce zero. Registers
+  -- have no poison, so both branches fold (unlike `select`, whose condition
+  -- may be poison).
+  | .czeroeqz => match constOperands.toList with
+    | [_, some (.reg c)] =>
+      if c.val = 0 then some (.constant (.reg (Data.RISCV.li 0)))
+      else some (.operand 0)
+    | _ => none
+  | .czeronez => match constOperands.toList with
+    | [_, some (.reg c)] =>
+      if c.val = 0 then some (.operand 0)
+      else some (.constant (.reg (Data.RISCV.li 0)))
     | _ => none
   -- Immediate forms: adding, or-ing, xor-ing, or shifting by 0 is the
   -- identity; and-ing with 0 is 0.
