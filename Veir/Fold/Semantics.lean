@@ -105,6 +105,51 @@ theorem ConstOperands.Agree.pair {known₀ known₁ : Option RuntimeValue}
         rw [getElem!_pos actual 1 (by omega)]
         exact Option.some.inj hValue |>.symm
 
+theorem ConstOperands.Agree.triple {known₀ known₁ known₂ : Option RuntimeValue}
+    {actual : Array RuntimeValue}
+    (h : ConstOperands.Agree #[known₀, known₁, known₂] actual) :
+    actual = #[actual[0]!, actual[1]!, actual[2]!] ∧
+      KnownOperand.Agrees known₀ actual[0]! ∧ KnownOperand.Agrees known₁ actual[1]! ∧
+      KnownOperand.Agrees known₂ actual[2]! := by
+  have hSize : actual.size = 3 := by
+    simpa [ConstOperands.Agree] using h.1.symm
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · apply Array.ext
+    · simp [hSize]
+    · intro i hi _
+      have : i = 0 ∨ i = 1 ∨ i = 2 := by omega
+      rcases this with rfl | rfl | rfl
+      · rw [getElem!_pos actual 0 (by omega)]
+        simp
+      · rw [getElem!_pos actual 1 (by omega)]
+        simp
+      · rw [getElem!_pos actual 2 (by omega)]
+        simp
+  · cases known₀ with
+    | none => trivial
+    | some value =>
+      simp only [KnownOperand.Agrees]
+      have hValue := h.2 0 value (by simp)
+      rw [Array.getElem?_eq_getElem (by omega)] at hValue
+      rw [getElem!_pos actual 0 (by omega)]
+      exact Option.some.inj hValue |>.symm
+  · cases known₁ with
+    | none => trivial
+    | some value =>
+      simp only [KnownOperand.Agrees]
+      have hValue := h.2 1 value (by simp)
+      rw [Array.getElem?_eq_getElem (by omega)] at hValue
+      rw [getElem!_pos actual 1 (by omega)]
+      exact Option.some.inj hValue |>.symm
+  · cases known₂ with
+    | none => trivial
+    | some value =>
+      simp only [KnownOperand.Agrees]
+      have hValue := h.2 2 value (by simp)
+      rw [Array.getElem?_eq_getElem (by omega)] at hValue
+      rw [getElem!_pos actual 2 (by omega)]
+      exact Option.some.inj hValue |>.symm
+
 /-- Forget knowledge about the only operand. -/
 theorem ConstOperands.Agree.forgetSingleton {known : Option RuntimeValue}
     {actual : Array RuntimeValue} (h : ConstOperands.Agree #[known] actual) :
@@ -133,6 +178,26 @@ theorem ConstOperands.Agree.forgetPairFirst_of_toList
   have hKnown : known = #[known₀, known₁] := Array.toList_inj.mp (by simpa using hList)
   subst known
   exact h.forgetPairFirst
+
+/-- Keep only the knowledge about the first of three operands. -/
+theorem ConstOperands.Agree.condOnly_of_toList
+    {known : Array (Option RuntimeValue)} {known₀ known₁ known₂ : Option RuntimeValue}
+    {actual : Array RuntimeValue} (h : ConstOperands.Agree known actual)
+    (hList : known.toList = [known₀, known₁, known₂]) :
+    ConstOperands.Agree #[known₀, none, none] actual := by
+  have hKnown : known = #[known₀, known₁, known₂] := Array.toList_inj.mp (by simpa using hList)
+  subst known
+  refine ⟨by simpa using h.1, ?_⟩
+  intro i value hAt
+  obtain ⟨hlt, hEq⟩ := Array.getElem?_eq_some_iff.mp hAt
+  have hi : i = 0 ∨ i = 1 ∨ i = 2 := by
+    have : i < 3 := by simpa using hlt
+    omega
+  rcases hi with rfl | rfl | rfl
+  · simp at hEq
+    exact h.2 0 value (by simp [hEq])
+  · simp at hEq
+  · simp at hEq
 
 theorem ConstOperands.Agree.rhsReg_of_toList
     {known : Array (Option RuntimeValue)} {known₀ : Option RuntimeValue}
@@ -371,6 +436,14 @@ theorem ConstOperands.Agree.binaryIntShape {bw : Nat} {rhs : Data.LLVM.Int bw}
   have hShape : actualOperands = #[lhs, actualOperands[1]!] := hAgree.pair.1
   have hRhs : RuntimeValue.int bw rhs = actualOperands[1]! := hAgree.pair.2.2
   exact ⟨lhs, hShape.trans (by rw [← hRhs])⟩
+
+theorem ConstOperands.Agree.ternaryCondShape {cond : Data.LLVM.Int 1}
+    {actualOperands : Array RuntimeValue}
+    (hAgree : ConstOperands.Agree #[some (.int 1 cond), none, none] actualOperands) :
+    ∃ tv fv, actualOperands = #[.int 1 cond, tv, fv] := by
+  obtain ⟨hShape, hCond, -, -⟩ := hAgree.triple
+  simp only [KnownOperand.Agrees] at hCond
+  exact ⟨actualOperands[1]!, actualOperands[2]!, hShape.trans (by rw [← hCond])⟩
 
 @[simp] private theorem BitVec.saddOverflow_zero_right {w : Nat} (x : BitVec w) :
     x.saddOverflow 0 = false := by
@@ -645,6 +718,54 @@ theorem Arith.dispatchPartialFold {op : Arith} {bw : Nat}
   exact Arith.partialFold_refines rule properties resultTypes actualOperands
     (hAgree.rhsInt_of_toList hList (congrArg Data.LLVM.Int.val hRhs))
 
+/-- `select` with a known non-poison condition returns the selected operand exactly. -/
+private theorem Data.LLVM.Int.select_val {w : Nat} (c : BitVec 1)
+    (tv fv : Data.LLVM.Int w) :
+    Data.LLVM.Int.select (.val c) tv fv = if c = 1 then tv else fv := by
+  simp only [Data.LLVM.Int.select, Id.run]
+  split <;> simp_all
+
+/--
+  `arith.select` with a known non-poison condition returns the selected
+  operand exactly, so replacing the result by that operand is a refinement.
+-/
+theorem Arith.selectFold_refines
+    (properties : HasDialectOpInfo.propertiesOf Arith.select)
+    (resultTypes : Array TypeAttr) (actualOperands : Array RuntimeValue)
+    {c : BitVec 1}
+    (hAgree : ConstOperands.Agree #[some (.int 1 (.val c)), none, none] actualOperands) :
+    FoldOutcome.Refines (if c = 1 then .operand 1 else .operand 2)
+      (.arith .select) properties resultTypes actualOperands := by
+  obtain ⟨tv, fv, rfl⟩ := hAgree.ternaryCondShape
+  have hc' : (c = 1#1) ↔ (c = 1) := Iff.rfl
+  by_cases hc : c = 1
+  all_goals first
+    | rw [if_pos hc]
+    | rw [if_neg hc]
+  all_goals
+    cases tv with
+    | int tvBw tv =>
+      cases fv with
+      | int fvBw fv =>
+        by_cases hBw : fvBw = tvBw
+        · subst fvBw
+          simp [FoldOutcome.Refines, FoldOutcome.target, foldEvaluate, Veir.interpretOp',
+            Arith.interpretOp', Data.LLVM.Int.select_val, hc', hc, Interp.isRefinedBy,
+            RuntimeValue.arrayIsRefinedBy, RuntimeValue.isRefinedBy] <;>
+            first
+              | exact RuntimeValue.isRefinedBy_refl _
+              | exact isRefinedBy_refl _
+              | (rw [if_pos hc]; cases tv <;> simp)
+              | (rw [if_neg hc]; cases fv <;> simp)
+        · simp [FoldOutcome.Refines, FoldOutcome.target, foldEvaluate, Veir.interpretOp',
+            Arith.interpretOp', hBw, Interp.isRefinedBy]
+      | byte | addr | reg | float =>
+        simp [FoldOutcome.Refines, FoldOutcome.target, foldEvaluate, Veir.interpretOp',
+          Arith.interpretOp', Interp.isRefinedBy]
+    | byte | addr | reg | float =>
+      simp [FoldOutcome.Refines, FoldOutcome.target, foldEvaluate, Veir.interpretOp',
+        Arith.interpretOp', Interp.isRefinedBy]
+
 theorem Arith.foldsTo_refines (op : Arith)
     (properties : HasDialectOpInfo.propertiesOf op)
     (knownOperands : Array (Option RuntimeValue)) (outcome : FoldOutcome)
@@ -744,6 +865,15 @@ theorem Arith.foldsTo_refines (op : Arith)
         exact Arith.dispatchPartialFold (.orAllOnes) properties knownOperands resultTypes
           actualOperands hList hAllOnes (Option.some.inj hFold) hAgree
       next hNotAllOnes => contradiction
+  case select =>
+    split at hFold <;> simp_all
+    rename_i _ c known₁ known₂ hList
+    have hRef := Arith.selectFold_refines properties resultTypes actualOperands
+      (hAgree.condOnly_of_toList hList)
+    have hOutcome : (if c = 1 then FoldOutcome.operand 1 else FoldOutcome.operand 2)
+        = outcome := by
+      split at hFold <;> simp_all
+    rwa [hOutcome] at hRef
 
 theorem OpCode.foldsTo_arith_refines (op : Arith)
     (properties : HasDialectOpInfo.propertiesOf op)
@@ -852,6 +982,47 @@ theorem Llvm.dispatchPartialFold {op : Llvm} {bw : Nat}
   exact Llvm.partialFold_refines rule properties resultTypes actualOperands
     (hAgree.rhsInt_of_toList hList (congrArg Data.LLVM.Int.val hRhs))
 
+/--
+  `llvm.select` with a known non-poison condition returns the selected
+  operand exactly, so replacing the result by that operand is a refinement.
+-/
+theorem Llvm.selectFold_refines
+    (properties : HasDialectOpInfo.propertiesOf Llvm.select)
+    (resultTypes : Array TypeAttr) (actualOperands : Array RuntimeValue)
+    {c : BitVec 1}
+    (hAgree : ConstOperands.Agree #[some (.int 1 (.val c)), none, none] actualOperands) :
+    FoldOutcome.Refines (if c = 1 then .operand 1 else .operand 2)
+      (.llvm .select) properties resultTypes actualOperands := by
+  obtain ⟨tv, fv, rfl⟩ := hAgree.ternaryCondShape
+  have hc' : (c = 1#1) ↔ (c = 1) := Iff.rfl
+  by_cases hc : c = 1
+  all_goals first
+    | rw [if_pos hc]
+    | rw [if_neg hc]
+  all_goals
+    cases tv with
+    | int tvBw tv =>
+      cases fv with
+      | int fvBw fv =>
+        by_cases hBw : fvBw = tvBw
+        · subst fvBw
+          simp [FoldOutcome.Refines, FoldOutcome.target, foldEvaluate, Veir.interpretOp',
+            Llvm.interpretOp', Data.LLVM.Int.select_val, hc', hc, Interp.isRefinedBy,
+            RuntimeValue.arrayIsRefinedBy, RuntimeValue.isRefinedBy] <;>
+            first
+              | exact RuntimeValue.isRefinedBy_refl _
+              | exact isRefinedBy_refl _
+              | (rw [if_pos hc]; cases tv <;> simp)
+              | (rw [if_neg hc]; cases fv <;> simp)
+        · simp [FoldOutcome.Refines, FoldOutcome.target, foldEvaluate, Veir.interpretOp',
+            Llvm.interpretOp', hBw, Interp.isRefinedBy]
+      | byte | addr | reg | float =>
+        simp [FoldOutcome.Refines, FoldOutcome.target, foldEvaluate, Veir.interpretOp',
+          Llvm.interpretOp', Interp.isRefinedBy]
+    | byte | addr | reg | float =>
+      simp [FoldOutcome.Refines, FoldOutcome.target, foldEvaluate, Veir.interpretOp',
+        Llvm.interpretOp', Interp.isRefinedBy]
+
 theorem Llvm.foldsTo_refines (op : Llvm)
     (properties : HasDialectOpInfo.propertiesOf op)
     (knownOperands : Array (Option RuntimeValue)) (outcome : FoldOutcome)
@@ -950,6 +1121,15 @@ theorem Llvm.foldsTo_refines (op : Llvm)
         exact Llvm.dispatchPartialFold (.orAllOnes) properties knownOperands resultTypes
           actualOperands hList hAllOnes (Option.some.inj hFold) hAgree
       next hNotAllOnes => contradiction
+  case select =>
+    split at hFold <;> simp_all
+    rename_i _ c known₁ known₂ hList
+    have hRef := Llvm.selectFold_refines properties resultTypes actualOperands
+      (hAgree.condOnly_of_toList hList)
+    have hOutcome : (if c = 1 then FoldOutcome.operand 1 else FoldOutcome.operand 2)
+        = outcome := by
+      split at hFold <;> simp_all
+    rwa [hOutcome] at hRef
 
 theorem OpCode.foldsTo_llvm_refines (op : Llvm)
     (properties : HasDialectOpInfo.propertiesOf op)
@@ -993,12 +1173,21 @@ inductive Riscv.BinaryOperandFold : Riscv → BitVec 64 → Prop where
   | sllZero : BinaryOperandFold .sll 0
   | srlZero : BinaryOperandFold .srl 0
   | sraZero : BinaryOperandFold .sra 0
+  -- Zicond: the condition is the right operand (`rs2`); registers have no
+  -- poison, so a known condition selects the other operand or zero exactly.
+  | czeroeqzNonzero (cond : BitVec 64) (hNonzero : cond ≠ 0) :
+      BinaryOperandFold .czeroeqz cond
+  | czeronezZero : BinaryOperandFold .czeronez 0
 
 /-- Constant-returning binary rules in the RISC-V fold table. -/
 inductive Riscv.BinaryConstantFold : Riscv → BitVec 64 → BitVec 64 → Prop where
   | orAllOnes : BinaryConstantFold .or (BitVec.allOnes 64) (BitVec.allOnes 64)
   | andZero : BinaryConstantFold .and 0 0
   | mulZero : BinaryConstantFold .mul 0 0
+  -- Zicond: the non-selected branches produce zero (see `BinaryOperandFold`).
+  | czeroeqzZero : BinaryConstantFold .czeroeqz 0 0
+  | czeronezNonzero (cond : BitVec 64) (hNonzero : cond ≠ 0) :
+      BinaryConstantFold .czeronez cond 0
 
 theorem ConstOperands.Agree.binaryRegShape {rhs : BitVec 64}
     {actualOperands : Array RuntimeValue}
@@ -1025,7 +1214,8 @@ theorem Riscv.binaryOperandFold_refines {op : Riscv} {rhs : BitVec 64}
       simp [FoldOutcome.Refines, FoldOutcome.target, foldEvaluate, Veir.interpretOp',
         Riscv.interpretOp', Data.RISCV.add, Data.RISCV.sub, Data.RISCV.xor,
         Data.RISCV.or, Data.RISCV.and, Data.RISCV.mul, Data.RISCV.sll,
-        Data.RISCV.srl, Data.RISCV.sra, Data.RISCV.li, Interp.isRefinedBy,
+        Data.RISCV.srl, Data.RISCV.sra, Data.RISCV.czeroeqz, Data.RISCV.czeronez,
+        Data.RISCV.li, Interp.isRefinedBy,
         RuntimeValue.arrayIsRefinedBy, RuntimeValue.isRefinedBy] <;> bv_decide
 
 /-- Every constant-returning binary RISC-V fold rule is sound. -/
@@ -1043,6 +1233,7 @@ theorem Riscv.binaryConstantFold_refines {op : Riscv} {rhs result : BitVec 64}
     cases lhs <;>
       simp [FoldOutcome.Refines, FoldOutcome.target, foldEvaluate, Veir.interpretOp',
         Riscv.interpretOp', Data.RISCV.or, Data.RISCV.and, Data.RISCV.mul,
+        Data.RISCV.czeroeqz, Data.RISCV.czeronez,
         Data.RISCV.li, Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy,
         RuntimeValue.isRefinedBy] <;> bv_decide
 
@@ -1258,6 +1449,26 @@ theorem Riscv.foldsTo_refines (op : Riscv)
         exact Riscv.dispatchBinaryOperandFold .mulOne properties knownOperands
           resultTypes actualOperands hList hOne (Option.some.inj hFold) hAgree
       next hNotOne => contradiction
+  case czeroeqz =>
+    split at hFold <;> simp_all
+    rename_i _ head c hList
+    split at hFold
+    next hZero =>
+      exact Riscv.dispatchBinaryConstantFold .czeroeqzZero properties knownOperands
+        resultTypes actualOperands hList hZero (Option.some.inj hFold) hAgree
+    next hNonzero =>
+      exact Riscv.dispatchBinaryOperandFold (.czeroeqzNonzero c.val hNonzero) properties
+        knownOperands resultTypes actualOperands hList rfl (Option.some.inj hFold) hAgree
+  case czeronez =>
+    split at hFold <;> simp_all
+    rename_i _ head c hList
+    split at hFold
+    next hZero =>
+      exact Riscv.dispatchBinaryOperandFold .czeronezZero properties knownOperands
+        resultTypes actualOperands hList hZero (Option.some.inj hFold) hAgree
+    next hNonzero =>
+      exact Riscv.dispatchBinaryConstantFold (.czeronezNonzero c.val hNonzero) properties
+        knownOperands resultTypes actualOperands hList rfl (Option.some.inj hFold) hAgree
 
 /-- Every fold outcome returned for a RISC-V opcode is sound. -/
 theorem OpCode.foldsTo_riscv_refines (op : Riscv)

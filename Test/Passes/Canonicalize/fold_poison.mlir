@@ -45,8 +45,24 @@
       %r = "arith.addi"(%p, %c7) : (i32, i32) -> i32
       "func.return"(%r) : (i32) -> ()
   }) : () -> ()
+
+  // Poison propagates through a chain of operations (across dialects): each
+  // fold materializes a poison constant that the next fold consumes as a
+  // constant-like operand, until only a single poison remains.
+  "func.func"() <{function_type = () -> i32, sym_name = "poison_chain"}> ({
+      // CHECK:      %[[P5:.*]] = "llvm.mlir.poison"() : () -> i32
+      // CHECK-NEXT: "func.return"(%[[P5]]) : (i32) -> ()
+      %p = "llvm.mlir.poison"() : () -> i32
+      %c3 = "arith.constant"() <{ "value" = 3 : i32 }> : () -> i32
+      %a = "arith.addi"(%p, %c3) : (i32, i32) -> i32
+      %b = "llvm.mul"(%a, %a) : (i32, i32) -> i32
+      %r = "arith.xori"(%b, %c3) : (i32, i32) -> i32
+      "func.return"(%r) : (i32) -> ()
+  }) : () -> ()
 }) : () -> ()
 
 // CHECK-NOT: "arith.divsi"
 // CHECK-NOT: "llvm.shl"
 // CHECK-NOT: "arith.addi"
+// CHECK-NOT: "llvm.mul"
+// CHECK-NOT: "arith.xori"
