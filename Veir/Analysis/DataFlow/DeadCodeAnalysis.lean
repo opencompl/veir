@@ -189,7 +189,9 @@ def visitBranchOperation
     for successor in branch.getSuccessors! irCtx do
       dfCtx := markEdgeLive parentBlock successor dfCtx irCtx
     dfCtx
-
+/--
+Visit an operation and deduce which of its successors are live.
+--/
 private def visitOp
     (op : OperationPtr)
     (dfCtx : DataFlowContext)
@@ -246,7 +248,8 @@ def visit
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : DataFlowContext := Id.run do
   if point.prev! irCtx = none then
-    return dfCtx
+    panic "Dead code visit called on non block start insertion point.
+           Should've already been marked live when initialized!"
 
   visitOp ((point.prev! irCtx).get!) dfCtx irCtx
 
