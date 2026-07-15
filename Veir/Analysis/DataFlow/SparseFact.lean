@@ -15,14 +15,11 @@ namespace SparseFact
 variable {kind : FactKind} {Domain : Type}
 variable [SparseFactSpec kind Domain]
 
-private theorem payloadEq : FactPayload kind = SparsePayload Domain :=
-  SparseFactSpec.payloadEq (kind := kind)
-
 def getPayload (fact : Fact kind) : SparsePayload Domain :=
-  cast payloadEq fact.payload
+  cast SparseFactSpec.payloadEq fact.payload
 
 def setPayload (fact : Fact kind) (payload : SparsePayload Domain) : Fact kind :=
-  { fact with payload := cast (Eq.symm payloadEq) payload }
+  { fact with payload := cast (Eq.symm SparseFactSpec.payloadEq) payload }
 
 def latticeElement (fact : Fact kind) : Domain :=
   (getPayload fact).latticeElement
@@ -43,12 +40,11 @@ def propagate (state : Fact kind) (anchor : LatticeAnchor)
     let mut maybeUse := ssaValue.getFirstUse! irCtx
     while let some use := maybeUse do
       let user := (use.get! irCtx).owner
-      for analysisKind in state.subscribers do
-        match InsertPoint.after? user irCtx with
-        | some point =>
+      match InsertPoint.after? user irCtx with
+      | some point =>
+        for analysisKind in state.subscribers do
           dfCtx := dfCtx.enqueue (point, analysisKind)
-        | none =>
-          pure ()
+      | none => pure ()
       maybeUse := (use.get! irCtx).nextUse
   | _ =>
     pure ()
@@ -60,7 +56,7 @@ variable [Bot Domain]
 
 /-- Default sparse lattice fact for the given anchor. -/
 def mkDefault : Fact kind :=
-  { payload := cast (Eq.symm payloadEq) { latticeElement := ⊥ } }
+  { payload := cast (Eq.symm SparseFactSpec.payloadEq) { latticeElement := ⊥ } }
 
 instance : FactSpec kind where
   mkDefault := SparseFact.mkDefault (kind := kind)
