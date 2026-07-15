@@ -10,6 +10,7 @@ import Veir.Data.HW.Basic
 import Veir.Data.Casting
 import Veir.Properties
 import Veir.GlobalOpInfo
+import Veir.Interfaces.FunctionInterfaces
 
 open Veir.Data
 /-!
@@ -447,7 +448,6 @@ def MemoryState.hasPoison (state : MemoryState) (addr size : UInt64)
       break
   return poison
 
-set_option warn.sorry false in
 /--
   Load an LLVM value from the given memory address.
   Yields UB if access is out of bounds or the address is 0.
@@ -1712,7 +1712,7 @@ def interpretFunction (op : OperationPtr) (values : Array RuntimeValue) {ctx : W
     none
   else
     let state : InterpreterState ctx := ⟨.empty ctx, mem⟩
-    let (state, results) ← interpretRegion (op.getRegion ctx.raw 0) values state
+    let (state, results) ← interpretRegion (FunctionOpInterface.getFunctionBody op ctx.raw) values state
     return (state.memory, results)
 
 /--

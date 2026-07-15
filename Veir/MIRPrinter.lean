@@ -3,6 +3,7 @@ module
 public import Veir.IR.Basic
 public import Veir.Properties
 public import Veir.GlobalOpInfo
+public import Veir.Interfaces.FunctionInterfaces
 
 import Veir.IR.Grind
 
@@ -233,7 +234,8 @@ def emitRegular (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
   | .builtin .unrealized_conversion_cast =>
     let operandAttr := (op.getOperandTypes! ctx)[0]?.map (·.val)
     match operandAttr with
-    | some (.integerType { bitwidth := 32 }) => IO.println s!"    {res} = PseudoZEXT_W {v 0}"
+    | some (Attribute.integerType { bitwidth := 32 }) =>
+      IO.println s!"    {res} = PseudoZEXT_W {v 0}"
     | _ => IO.println s!"    {res} = COPY {v 0}"
   | .riscv rop =>
     match rop with
@@ -402,8 +404,7 @@ def emitTrampoline (t : Nat) (s : Nat) : IO Unit := do
 
 /-- Print a full MIR module for the given `main` function. -/
 def printMIR (ctx : IRContext OpCode) (funcOp : OperationPtr) : IO Unit := do
-  let region := funcOp.getRegion! ctx 0
-  let allBlocks := collectBlocks ctx (region.get! ctx).firstBlock
+  let allBlocks := collectBlocks ctx (FunctionOpInterface.getEntryBlock? funcOp ctx)
   -- Drop blocks unreachable from the entry: a real codegen prunes them, and
   -- they break MIR liveness (their values aren't dominated by any real path).
   let reach :=

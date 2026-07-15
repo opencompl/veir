@@ -114,7 +114,7 @@ def parseOperation (filename : Option String) (allowUnregisteredDialect : Bool :
   match ParserState.fromInput fileContent with
   | .ok parser =>
     let state := MlirParserState.fromContext ctx allowUnregisteredDialect
-    match (parseOp none).run state parser with
+    match parseTopLevelOp.run state parser with
     | .ok (op, state, _) =>
       return (state.ctx, op)
     | .error err =>

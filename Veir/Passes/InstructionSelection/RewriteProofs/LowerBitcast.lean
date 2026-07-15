@@ -162,6 +162,9 @@ theorem bitcast_local_preservesSemantics
     grind [IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom (op₁ := op)]
   -- The single source value is `op`'s result.
   have hResults : op.getResults ctx.raw (by grind) = #[ValuePtr.opResult (op.getResult 0)] := by
+    -- Workaround for a `grind` internalization bug on v4.31.0: `hpattern`/`hInterp'` contain
+    -- proof-carrying matchers whose dependent `isType` binders `grind` fails to internalize.
+    clear hpattern hInterp'
     grind
   -- Expose the result type as a plain attribute `resTy`, both in the interpretation and in the
   -- pattern's guards.
@@ -174,7 +177,8 @@ theorem bitcast_local_preservesSemantics
   -- together, and the last case (no arm matches) is immediate.
   split at hInterp'
   case h_8 => simp at hInterp'
-  case h_1 opBw x resBw =>
+  case h_1 =>
+    rename_i opBw x resBw resTyIsTy
     -- `int → int`: the result is the operand value itself.
     have hOperandType : (operand.getType! ctx.raw).val = Attribute.integerType ⟨opBw⟩ :=
       conforms_int_type (VariableState.getVar?_conforms hgetVar)
@@ -232,7 +236,8 @@ theorem bitcast_local_preservesSemantics
       · simp [hRes₂, Option.bind, Option.map]
       · exact RuntimeValue.arrayIsRefinedBy_singleton.mpr
           ⟨rfl, by simpa using bitcast_isRefinedBy_toInt hmem hxtRef⟩
-  case h_2 opBw x resBw =>
+  case h_2 =>
+    rename_i opBw x resBw resTyIsTy
     -- `int → byte`.
     have hOperandType : (operand.getType! ctx.raw).val = Attribute.integerType ⟨opBw⟩ :=
       conforms_int_type (VariableState.getVar?_conforms hgetVar)
@@ -291,7 +296,8 @@ theorem bitcast_local_preservesSemantics
       · simp [hRes₂, Option.bind, Option.map]
       · exact RuntimeValue.arrayIsRefinedBy_singleton.mpr
           ⟨rfl, by simpa using bitcast_isRefinedBy_intToByte hmem hxtRef⟩
-  case h_3 opBw x resBw =>
+  case h_3 =>
+    rename_i opBw x resBw resTyIsTy
     -- `byte → byte`: the result is the operand value itself.
     have hOperandType : (operand.getType! ctx.raw).val = Attribute.byteType ⟨opBw⟩ :=
       conforms_byte_type (VariableState.getVar?_conforms hgetVar)
@@ -349,7 +355,8 @@ theorem bitcast_local_preservesSemantics
       · simp [hRes₂, Option.bind, Option.map]
       · exact RuntimeValue.arrayIsRefinedBy_singleton.mpr
           ⟨rfl, by simpa using bitcast_isRefinedBy_toByte hmem hxtRef⟩
-  case h_4 opBw x resBw =>
+  case h_4 =>
+    rename_i opBw x resBw resTyIsTy
     -- `byte → int`.
     have hOperandType : (operand.getType! ctx.raw).val = Attribute.byteType ⟨opBw⟩ :=
       conforms_byte_type (VariableState.getVar?_conforms hgetVar)
@@ -408,12 +415,14 @@ theorem bitcast_local_preservesSemantics
       · simp [hRes₂, Option.bind, Option.map]
       · exact RuntimeValue.arrayIsRefinedBy_singleton.mpr
           ⟨rfl, by simpa using bitcast_isRefinedBy_byteToInt hmem hxtRef⟩
-  case h_5 opBw x pt =>
+  case h_5 =>
+    rename_i opBw x pt resTyIsTy
     -- `byte → ptr` is excluded from the pattern, so it never fires.
     have hOperandType : (operand.getType! ctx.raw).val = Attribute.byteType ⟨opBw⟩ :=
       conforms_byte_type (VariableState.getVar?_conforms hgetVar)
     simp [checkBitcastType, isBitcastByteToPtr, hOperandType] at hpattern
-  case h_6 a pt =>
+  case h_6 =>
+    rename_i a pt resTyIsTy
     -- `ptr → ptr`: the result is the operand value itself.
     obtain ⟨opPt, hOperandType⟩ := conforms_addr_type (VariableState.getVar?_conforms hgetVar)
     obtain ⟨rfl, rfl, rfl⟩ :
@@ -463,7 +472,8 @@ theorem bitcast_local_preservesSemantics
     · refine ⟨#[RuntimeValue.addr a], ?_, ?_⟩
       · simp [hRes₂, Option.bind, Option.map]
       · exact RuntimeValue.arrayIsRefinedBy_singleton.mpr (by simp [RuntimeValue.isRefinedBy])
-  case h_7 a resBw =>
+  case h_7 =>
+    rename_i a resBw resTyIsTy
     -- `ptr → byte`, only at width 64.
     obtain ⟨opPt, hOperandType⟩ := conforms_addr_type (VariableState.getVar?_conforms hgetVar)
     split at hInterp'
