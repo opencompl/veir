@@ -89,7 +89,16 @@ private meta def implSpecRule (typeName ctorName : Name) : BuffedSplitRule :=
 private meta def buffedSplitTable : Array BuffedSplitRule :=
   #[{ typeName := ``Veir.Sim.IRContext
       ctorName := ``Veir.Sim.IRContext.mk
-      fieldSuffixes := #["buf", "spec", "sim"] }]
+      fieldSuffixes := #["buf", "spec", "sim"] },
+    { typeName := ``Veir.Sim.ArrayValuePtr
+      ctorName := ``Veir.Sim.ArrayValuePtr.mk
+      fieldSuffixes := #["impl", "spec", "sizes", "max_size"] },
+    { typeName := ``Veir.Sim.ArrayBlockPtr
+      ctorName := ``Veir.Sim.ArrayBlockPtr.mk
+      fieldSuffixes := #["impl", "spec", "sizes", "max_size"] },
+    { typeName := ``Veir.Sim.ArrayRegionPtr
+      ctorName := ``Veir.Sim.ArrayRegionPtr.mk
+      fieldSuffixes := #["impl", "spec", "sizes", "max_size"] }]
     ++ #[
       implSpecRule ``Veir.Sim.OperationPtr ``Veir.Sim.OperationPtr.mk,
       implSpecRule ``Veir.Sim.OptionOperationPtr ``Veir.Sim.OptionOperationPtr.mk,
@@ -1251,6 +1260,8 @@ private meta def buildRecursiveImplCmd (declName implName : Name) (inline : Bool
     let b ← projectResultTail implName field0? ⟨b⟩
     prependRebindLets plans b
   let newDeclVal := declVal.setArg 1 newBody.raw
+  -- The `termination_by`/`decreasing_by` suffix (`declVal[2]`) is scoped to the *binders*, not the body's rebinding `let`s; rewrite split parameter references (e.g. `operands.size`) to their reconstructed `Ctor.mk …` form.
+  let newDeclVal := newDeclVal.setArg 2 (← liftMacroM <| substSplitIdents plans newDeclVal[2])
   -- Use an unhygienic attribute identifier so it reads as `@[inline]`, not `@[inline✝]`.
   let attrId := mkIdentFrom (← getRef) (if inline then `inline else `noinline) (canonical := true)
   let inlineAttr ← `(Parser.Term.attrInstance| $attrId:ident)

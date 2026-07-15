@@ -556,6 +556,42 @@ structure Sim.OptionValuePtr where
   impl : ValueImplOPtr
   spec : Option Veir.ValuePtr
 
+structure Sim.ArrayValuePtr where
+  impl : Array ValueImplMPtr
+  spec : Array Veir.ValuePtr
+  sizes : impl.size = spec.size
+  max_size : impl.size < 2^32
+@[expose, inline] def Sim.ArrayValuePtr.size (a : Sim.ArrayValuePtr) : Nat := a.impl.size
+@[expose, inline] def Sim.ArrayValuePtr.usize (a : Sim.ArrayValuePtr) : UInt64 := a.impl.usize.toUInt64
+@[expose, inline] def Sim.ArrayValuePtr.uget (a : Sim.ArrayValuePtr) (i : UInt64)
+    (hi : i.toNat < a.size := by grind [Sim.ArrayValuePtr.size, Sim.ArrayValuePtr.sizes, Sim.ArrayValuePtr.max_size]) :
+    Sim.ValuePtr :=
+  ⟨a.impl.uget i.toUSize (by grind [a.max_size, size]), a.spec[i.toNat]'(by grind [size, sizes])⟩
+
+structure Sim.ArrayBlockPtr where
+  impl : Array BlockMPtr
+  spec : Array Veir.BlockPtr
+  sizes : impl.size = spec.size
+  max_size : impl.size < 2^32
+@[expose, inline] def Sim.ArrayBlockPtr.size (a : Sim.ArrayBlockPtr) : Nat := a.impl.size
+@[expose, inline] def Sim.ArrayBlockPtr.usize (a : Sim.ArrayBlockPtr) : UInt64 := a.impl.usize.toUInt64
+@[expose, inline] def Sim.ArrayBlockPtr.uget (a : Sim.ArrayBlockPtr) (i : UInt64)
+    (hi : i.toNat < a.size := by grind [Sim.ArrayBlockPtr.size, Sim.ArrayBlockPtr.sizes, Sim.ArrayBlockPtr.max_size]) :
+    Sim.BlockPtr :=
+  ⟨a.impl.uget i.toUSize (by grind [a.max_size, size]), a.spec[i.toNat]'(by grind [size, sizes])⟩
+
+structure Sim.ArrayRegionPtr where
+  impl : Array RegionMPtr
+  spec : Array Veir.RegionPtr
+  sizes : impl.size = spec.size
+  max_size : impl.size < 2^32
+@[expose, inline] def Sim.ArrayRegionPtr.size (a : Sim.ArrayRegionPtr) : Nat := a.impl.size
+@[expose, inline] def Sim.ArrayRegionPtr.usize (a : Sim.ArrayRegionPtr) : UInt64 := a.impl.usize.toUInt64
+@[expose, inline] def Sim.ArrayRegionPtr.uget (a : Sim.ArrayRegionPtr) (i : UInt64)
+    (hi : i.toNat < a.size := by grind [Sim.ArrayRegionPtr.size, Sim.ArrayRegionPtr.sizes, Sim.ArrayRegionPtr.max_size]) :
+    Sim.RegionPtr :=
+  ⟨a.impl.uget i.toUSize (by grind [a.max_size, size]), a.spec[i.toNat]'(by grind [size, sizes])⟩
+
 structure Sim.GenericPtr where
   impl : GenericMPtr
   spec : Veir.GenericPtr
@@ -684,39 +720,38 @@ structure Sim.RawIRContext where
 
 def Sim.OperationPtr.Sim (ptr : Sim.OperationPtr) :=
   ptr.spec.toM = ptr.impl
-
 def Sim.OptionOperationPtr.Sim (ptr : Sim.OptionOperationPtr) :=
   OperationPtr.toO ptr.spec = ptr.impl
 
 def Sim.BlockPtr.Sim (ptr : Sim.BlockPtr) :=
   ptr.spec.toM = ptr.impl
-
 def Sim.OptionBlockPtr.Sim (ptr : Sim.OptionBlockPtr) :=
   BlockPtr.toO ptr.spec = ptr.impl
+def Sim.ArrayBlockPtr.Sim (ptr : Sim.ArrayBlockPtr) :=
+  ∀ i (hi : i < ptr.size), ptr.uget i.toUInt64 |>.Sim
 
 def Sim.RegionPtr.Sim (ptr : Sim.RegionPtr) :=
   ptr.spec.toM = ptr.impl
-
 def Sim.OptionRegionPtr.Sim (ptr : Sim.OptionRegionPtr) :=
   RegionPtr.toO ptr.spec = ptr.impl
+def Sim.ArrayRegionPtr.Sim (ptr : Sim.ArrayRegionPtr) :=
+  ∀ i (hi : i < ptr.size), ptr.uget i.toUInt64 |>.Sim
 
 def Sim.OpResultPtr.Sim (ptr : Sim.OpResultPtr) (ctx : Sim.RawIRContext OpInfo) :=
   ptr.spec.toM ctx.spec = ptr.impl
-
 def Sim.OptionOpResultPtr.Sim (ptr : Sim.OptionOpResultPtr) (ctx : Sim.RawIRContext OpInfo) :=
   OpResultPtr.toO ptr.spec ctx.spec = ptr.impl
 
 def Sim.BlockArgumentPtr.Sim (ptr : Sim.BlockArgumentPtr) :=
   ptr.spec.toM = ptr.impl
-
 def Sim.OptionBlockArgumentPtr.Sim (ptr : Sim.OptionBlockArgumentPtr) :=
   BlockArgumentPtr.toO ptr.spec = ptr.impl
 
 def Sim.OpOperandPtr.Sim (ptr : Sim.OpOperandPtr) (ctx : Sim.RawIRContext OpInfo) :=
   ptr.spec.toM ctx.spec = ptr.impl
-
 def Sim.OptionOpOperandPtr.Sim (ptr : Sim.OptionOpOperandPtr) (ctx : Sim.RawIRContext OpInfo) :=
   OpOperandPtr.toO ptr.spec ctx.spec = ptr.impl
+
 def Sim.BlockOperandPtr.Sim (ptr : Sim.BlockOperandPtr) (ctx : Sim.RawIRContext OpInfo) :=
   ptr.spec.toM ctx.spec = ptr.impl
 
@@ -725,9 +760,10 @@ def Sim.OptionBlockOperandPtr.Sim (ptr : Sim.OptionBlockOperandPtr) (ctx : Sim.R
 
 def Sim.ValuePtr.Sim (ptr : Sim.ValuePtr) (ctx : Sim.RawIRContext OpInfo) :=
   ptr.spec.toM ctx.spec = ptr.impl
-
 def Sim.OptionValuePtr.Sim (ptr : Sim.OptionValuePtr) (ctx : Sim.RawIRContext OpInfo) :=
   ValuePtr.toO ptr.spec ctx.spec = ptr.impl
+def Sim.ArrayValuePtr.Sim (ptr : Sim.ArrayValuePtr) (ctx : Sim.RawIRContext OpInfo) :=
+  ∀ i (hi : i < ptr.size), ptr.uget i.toUInt64 |>.Sim ctx
 
 def Sim.OpOperandPtrPtr.Sim (ptr : Sim.OpOperandPtrPtr) (ctx : Sim.RawIRContext OpInfo) :=
   ptr.spec.toM ctx.spec = ptr.impl

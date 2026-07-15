@@ -105,6 +105,9 @@ theorem Sim.OptionBlockPtr.isRepr_of_inBounds {ctx : IRContext OpInfo} {ptr : Si
   have := ctx.sim.repr
   rcases heq : ptr.spec <;> grind
 
+def Sim.ArrayBlockPtr.InBounds (ptr : Sim.ArrayBlockPtr) (ctx : Sim.IRContext OpInfo) :=
+  ∀ i (hi : i < ptr.size), ptr.uget i.toUInt64 |>.InBounds ctx
+
 @[inline, grind]
 def Sim.BlockPtr.toO (ptr : Sim.BlockPtr) : Sim.OptionBlockPtr :=
   { impl := ptr.impl, spec := some ptr.spec }
@@ -150,6 +153,9 @@ theorem Sim.OptionRegionPtr.isRepr_of_inBounds {ctx : IRContext OpInfo} {ptr : S
     ptr.spec.maybe₁ Veir.RegionPtr.IsRepr := by
   have := ctx.sim.repr
   rcases heq : ptr.spec <;> grind
+
+def Sim.ArrayRegionPtr.InBounds (ptr : Sim.ArrayRegionPtr) (ctx : Sim.IRContext OpInfo) :=
+  ∀ i (hi : i < ptr.size), ptr.uget i.toUInt64 |>.InBounds ctx
 
 @[inline, grind]
 def Sim.RegionPtr.toO (ptr : Sim.RegionPtr) : Sim.OptionRegionPtr :=
@@ -388,6 +394,9 @@ theorem Sim.ValuePtr.isRepr_of_inBounds {ctx : IRContext OpInfo} {ptr : Sim.Valu
 structure Sim.OptionValuePtr.InBounds (ptr : Sim.OptionValuePtr) (ctx : Sim.IRContext OpInfo) where
   sim : ptr.Sim ctx.inner
   ib : ptr.spec.maybe Veir.ValuePtr.InBounds ctx.spec
+
+def Sim.ArrayValuePtr.InBounds (ptr : Sim.ArrayValuePtr) (ctx : Sim.IRContext OpInfo) :=
+  ∀ i (hi : i < ptr.size), ptr.uget i.toUInt64 |>.InBounds ctx
 
 @[grind .]
 theorem Sim.OptionValuePtr.isRepr_of_inBounds {ctx : IRContext OpInfo} {ptr : Sim.OptionValuePtr} (ib : ptr.InBounds ctx) :

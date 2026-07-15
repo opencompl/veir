@@ -794,11 +794,13 @@ def Attribute.isDict (attr : Attribute) : Bool :=
   | _ => false
 
 /-- Coerce an attribute to a dictionary attribute if it is a dictionary attribute. -/
+@[inline]
 def Attribute.asDict? (attr : Attribute) (isDict : attr.isDict := by grind) : Option DictionaryAttr :=
   match _ : attr with
   | .dictionaryAttr dict => some dict
   | _ => none
 
+@[inline]
 def Attribute.asDict (attr : Attribute) (isDict : attr.isDict := by grind) : DictionaryAttr :=
   let res := attr.asDict?
   match _ : res with

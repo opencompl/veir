@@ -98,6 +98,7 @@ theorem Array.usize_le_toNat {ar : Array α} {x : UInt64}
   rw [← this]
   grind [UInt64.le_iff_toNat_le]
 
+-- TODO: remove
 /-- An array's size as a `UInt64`. -/
 @[irreducible] def Array.sizeU64 (ar : Array α) : UInt64 := ar.size.toUInt64
 

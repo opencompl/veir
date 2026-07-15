@@ -85,20 +85,20 @@ def constFoldTreeGoSim (i : Nat) (ctx : Sim.IRContext OpCode) (insertPoint : Ins
     (prop : propertiesOf opcode) (pc : Nat) (inc : Int) (accVal : Sim.ValuePtr) : Option (Sim.IRContext OpCode) := do
   match i with
   | 0 =>
-    let (ctx, op) ← Rewriter.createOp ctx (.test .test) #[] #[⟨accVal.impl, default⟩] #[] #[] () insertPoint sorry sorry sorry sorry sorry sorry
+    let (ctx, op) ← Rewriter.createOp ctx (.test .test) #[] ⟨#[accVal.impl], #[default], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ () insertPoint sorry sorry sorry sorry sorry sorry
     ctx
   | i + 1 =>
     let ⟨thisOp, thisProp⟩ : (op : OpCode) × propertiesOf op := if (i % 100 < pc) then ⟨opcode, prop⟩ else ⟨.arith .andi, ()⟩
 
     -- Create rhs const
     let incAttr := DictionaryAttr.fromArray #[("value".toByteArray, IntegerAttr.mk inc (IntegerType.mk 32))]
-    let (ctx, rhsOp) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] () insertPoint sorry sorry sorry sorry sorry sorry
+    let (ctx, rhsOp) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ () insertPoint sorry sorry sorry sorry sorry sorry
     let ctx ← rhsOp.setAttributes ctx incAttr sorry
 
     let rhsValPtr := rhsOp.getResultPtr ctx 0 sorry
     let rhsVal : Sim.ValuePtr := ⟨rhsValPtr.impl, rhsValPtr.spec⟩
 
-    let (ctx, acc) ← Rewriter.createOp ctx thisOp #[IntegerType.mk 32] #[⟨accVal.impl, default⟩, ⟨rhsVal.impl, default⟩] #[] #[] thisProp insertPoint sorry sorry sorry sorry sorry
+    let (ctx, acc) ← Rewriter.createOp ctx thisOp #[IntegerType.mk 32] ⟨#[accVal.impl, rhsVal.impl], #[default, default], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ thisProp insertPoint sorry sorry sorry sorry sorry
     let accResult := acc.getResultPtr ctx 0 sorry
     let accVal : Sim.ValuePtr := ⟨accResult.impl, accResult.spec⟩
     constFoldTreeGoSim i ctx insertPoint opcode prop pc inc accVal
@@ -115,7 +115,7 @@ buffed (def_lemma := false)
 def constFoldTreeSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (opcode : OpCode)
     (prop : propertiesOf opcode) (size pc : Nat) (root inc : Int) : Option (Sim.IRContext OpCode) := do
   let rootAttr := DictionaryAttr.fromArray #[("value".toByteArray, IntegerAttr.mk root (IntegerType.mk 32))]
-  let (ctx, acc) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] () insertPoint sorry sorry sorry sorry sorry
+  let (ctx, acc) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ () insertPoint sorry sorry sorry sorry sorry
   let ctx ← acc.setAttributes ctx rootAttr sorry
 
   let accResultPtr := acc.getResultPtr ctx 0 sorry
@@ -140,14 +140,14 @@ def constFoldTreeSparseGoSim (ctx : Sim.IRContext OpCode) (rng : Xoshiro256PP) (
     (prop : propertiesOf opcode) (size pc : Nat) (inc : Int) (constants runningTotals : Array Buffed.ValueImplMPtr) : Option (Sim.IRContext OpCode) := do
   if runningTotals.size ≥ size then
     let back := runningTotals.back!
-    let (ctx, op) ← Rewriter.createOp ctx (.test .test) #[] #[⟨back, default⟩] #[] #[] () insertPoint sorry sorry sorry sorry sorry sorry
+    let (ctx, op) ← Rewriter.createOp ctx (.test .test) #[] ⟨#[back], #[default], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ () insertPoint sorry sorry sorry sorry sorry sorry
     ctx
   else
     let (rng, const) := rng.randBool 20
 
     if const then
       let incAttr := DictionaryAttr.fromArray #[("value".toByteArray, IntegerAttr.mk inc (IntegerType.mk 32))]
-      let (ctx, op) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] () insertPoint sorry sorry sorry sorry sorry sorry
+      let (ctx, op) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ () insertPoint sorry sorry sorry sorry sorry sorry
       let ctx ← op.setAttributes ctx incAttr sorry
       let constResultPtr := op.getResultPtr ctx 0 sorry
       let constants := constants.push constResultPtr.impl
@@ -161,7 +161,7 @@ def constFoldTreeSparseGoSim (ctx : Sim.IRContext OpCode) (rng : Xoshiro256PP) (
           let (rng, b) := rng.randBool pc
           let ⟨thisOp, thisProp⟩ : (op : OpCode) × propertiesOf op := if b then ⟨opcode, prop⟩ else ⟨.arith .andi, ()⟩
 
-          let (ctx, op) ← Rewriter.createOp ctx thisOp #[IntegerType.mk 32] #[⟨lhs, default⟩, ⟨rhs, default⟩] #[] #[] thisProp insertPoint sorry sorry sorry sorry sorry sorry
+          let (ctx, op) ← Rewriter.createOp ctx thisOp #[IntegerType.mk 32] ⟨#[lhs, rhs], #[default, default], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ thisProp insertPoint sorry sorry sorry sorry sorry sorry
           let result := op.getResultPtr ctx 0 sorry
           let runningTotals := runningTotals.push result.impl
           constFoldTreeSparseGoSim ctx rng insertPoint opcode prop size pc inc constants runningTotals
@@ -176,12 +176,12 @@ def constReuseTreeGoSim (i : Nat) (ctx : Sim.IRContext OpCode) (insertPoint : In
     (prop : propertiesOf opcode) (pc : Nat) (accVal reuseVal : Sim.ValuePtr) : Option (Sim.IRContext OpCode) := do
   match i with
   | 0 =>
-    let (ctx, op) ← Rewriter.createOp ctx (.test .test) #[] #[⟨accVal.impl, default⟩] #[] #[] () insertPoint sorry sorry sorry sorry sorry sorry
+    let (ctx, op) ← Rewriter.createOp ctx (.test .test) #[] ⟨#[accVal.impl], #[default], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ () insertPoint sorry sorry sorry sorry sorry sorry
     ctx
   | i + 1 =>
     let ⟨thisOp, thisProp⟩ : (op : OpCode) × propertiesOf op := if (i % 100 < pc) then ⟨opcode, prop⟩ else ⟨.arith .andi, ()⟩
 
-    let (ctx, acc) ← Rewriter.createOp ctx thisOp #[IntegerType.mk 32] #[⟨accVal.impl, default⟩, ⟨reuseVal.impl, default⟩] #[] #[] thisProp insertPoint sorry sorry sorry sorry sorry sorry
+    let (ctx, acc) ← Rewriter.createOp ctx thisOp #[IntegerType.mk 32] ⟨#[accVal.impl, reuseVal.impl], #[default, default], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ thisProp insertPoint sorry sorry sorry sorry sorry sorry
     let accResult := acc.getResultPtr ctx 0 sorry
     let accVal : Sim.ValuePtr := ⟨accResult.impl, accResult.spec⟩
     constReuseTreeGoSim i ctx insertPoint opcode prop pc accVal reuseVal
@@ -199,10 +199,10 @@ def constReuseTreeSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (
   let rootAttr := DictionaryAttr.fromArray #[("value".toByteArray, IntegerAttr.mk root (IntegerType.mk 32))]
   let incAttr := DictionaryAttr.fromArray #[("value".toByteArray, IntegerAttr.mk inc (IntegerType.mk 32))]
 
-  let (ctx, acc) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] () insertPoint sorry sorry sorry sorry sorry
+  let (ctx, acc) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ () insertPoint sorry sorry sorry sorry sorry
   let ctx ← acc.setAttributes ctx rootAttr sorry
 
-  let (ctx, reuse) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] () insertPoint sorry sorry sorry sorry sorry
+  let (ctx, reuse) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ () insertPoint sorry sorry sorry sorry sorry
   let ctx ← reuse.setAttributes ctx incAttr sorry
 
   let accResult := acc.getResultPtr ctx 0 sorry
@@ -213,7 +213,7 @@ def constReuseTreeSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (
 
   constReuseTreeGo size ctx insertPoint opcode prop pc accVal reuseVal
 
-buffed (def_lemma := false)
+buffed (inline := false) (def_lemma := false)
 def addZeroReuseTreeSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
   constReuseTree ctx ip (.arith .addi) () size pc 42 0
 
@@ -232,10 +232,10 @@ def constLotsOfReuseTreeSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPo
   let lhsAttr := DictionaryAttr.fromArray #[("value".toByteArray, IntegerAttr.mk lhs (IntegerType.mk 32))]
   let rhsAttr := DictionaryAttr.fromArray #[("value".toByteArray, IntegerAttr.mk rhs (IntegerType.mk 32))]
 
-  let (ctx, lhsOp) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] () insertPoint sorry sorry sorry sorry sorry
+  let (ctx, lhsOp) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ () insertPoint sorry sorry sorry sorry sorry
   let ctx ← lhsOp.setAttributes ctx lhsAttr sorry
 
-  let (ctx, rhsOp) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] () insertPoint sorry sorry sorry sorry sorry
+  let (ctx, rhsOp) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ () insertPoint sorry sorry sorry sorry sorry
   let ctx ← rhsOp.setAttributes ctx rhsAttr sorry
 
   let lhsResult := lhsOp.getResultPtr ctx 0 sorry
@@ -244,13 +244,13 @@ def constLotsOfReuseTreeSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPo
   let rhsResult := rhsOp.getResultPtr ctx 0 sorry
   let rhsVal : Sim.ValuePtr := ⟨rhsResult.impl, rhsResult.spec⟩
 
-  let (ctx, reuse) ← Rewriter.createOp ctx opcode #[IntegerType.mk 32] #[⟨lhsVal.impl, default⟩, ⟨rhsVal.impl, default⟩] #[] #[] prop insertPoint sorry sorry sorry sorry sorry sorry
+  let (ctx, reuse) ← Rewriter.createOp ctx opcode #[IntegerType.mk 32] ⟨#[lhsVal.impl, rhsVal.impl], #[default, default], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ prop insertPoint sorry sorry sorry sorry sorry sorry
   let reuseResult := reuse.getResultPtr ctx 0 sorry
   let reuseVal : Sim.ValuePtr := ⟨reuseResult.impl, reuseResult.spec⟩
 
   constReuseTreeGo size ctx insertPoint opcode prop pc reuseVal reuseVal
 
-buffed (def_lemma := false)
+buffed (inline := false) (def_lemma := false)
 def addZeroLotsOfReuseTreeSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
   constLotsOfReuseTree ctx ip (.arith .addi) () size pc 42 0
 
@@ -260,7 +260,7 @@ buffed (def_lemma := false)
 def constFoldTreeSparseSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (opcode : OpCode)
     (prop : propertiesOf opcode) (size pc : Nat) (root inc : Int) : Option (Sim.IRContext OpCode) := do
   let rootAttr := DictionaryAttr.fromArray #[("value".toByteArray, IntegerAttr.mk root (IntegerType.mk 32))]
-  let (ctx, root) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] () insertPoint sorry sorry sorry sorry sorry
+  let (ctx, root) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ () insertPoint sorry sorry sorry sorry sorry
   let ctx ← root.setAttributes ctx rootAttr sorry
   let  rootResult := root.getResultPtr ctx 0 sorry
 
@@ -270,15 +270,15 @@ def constFoldTreeSparseSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoi
 
   constFoldTreeSparseGo ctx rng insertPoint opcode prop size pc inc constants runningTotals
 
-buffed (def_lemma := false)
+buffed (inline := false) (def_lemma := false)
 def addZeroTreeSparseSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
   constFoldTreeSparse ctx ip (.arith .addi) () size pc 42 0
 
-buffed (def_lemma := false)
+buffed (inline := false) (def_lemma := false)
 def addOneTreeSparseSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
   constFoldTreeSparse ctx ip (.arith .addi) () size pc 42 1
 
-buffed (def_lemma := false)
+buffed (inline := false) (def_lemma := false)
 def mulTwoTreeSparseSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
   constFoldTreeSparse ctx ip (.arith .muli) () size pc 42 2
 
@@ -331,7 +331,7 @@ def addIConstantFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) 
   -- Compute the sum
   let sumValue := IntegerAttr.mk (rhsConstValue.value + lhsConstValue.value) (IntegerType.mk 32)
   let insertPoint := InsertPoint.before ⟨op.impl.toNat⟩
-  let (ctx, newOp) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] () insertPoint sorry sorry sorry sorry sorry
+  let (ctx, newOp) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ () insertPoint sorry sorry sorry sorry sorry
   let ctx ← newOp.setAttributes ctx (.fromArray #[("value".toByteArray, sumValue)]) sorry
 
   let ctx ← Rewriter.replaceOp? ctx op newOp sorry sorry sorry sorry sorry
@@ -460,7 +460,7 @@ def mulITwoReduceSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Opti
   let lhsValue := lhsValuePtr.getValue ctx sorry
 
   let insertPoint := InsertPoint.before ⟨op.impl.toNat⟩
-  let (ctx, newOp) ← Rewriter.createOp ctx (.arith .addi) #[IntegerType.mk 32] #[⟨lhsValue.impl, default⟩, ⟨lhsValue.impl, default⟩] #[] #[] () insertPoint sorry sorry sorry sorry sorry
+  let (ctx, newOp) ← Rewriter.createOp ctx (.arith .addi) #[IntegerType.mk 32] ⟨#[lhsValue.impl, lhsValue.impl], #[default, default], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ () insertPoint sorry sorry sorry sorry sorry
   let ctx ← Rewriter.replaceOp? ctx op newOp sorry sorry sorry sorry sorry
 
   if (rhsOpResultPtr.getFirstUse ctx sorry).toOption.isNone then
@@ -497,9 +497,9 @@ def createManyOpsLoopSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint
   match n with
   | 0 => some ctx
   | n + 1 => do
-    let prev2 := ⟨prev2.impl, .blockArgument ⟨⟨0⟩, 0⟩⟩
-    let prev1 := ⟨prev1.impl, .blockArgument ⟨⟨0⟩, 0⟩⟩
-    match Rewriter.createOp ctx (.arith .addi) #[IntegerType.mk 32] #[prev2, prev1] #[] #[]
+    let prev2 : Sim.ValuePtr := ⟨prev2.impl, .blockArgument ⟨⟨0⟩, 0⟩⟩
+    let prev1 : Sim.ValuePtr := ⟨prev1.impl, .blockArgument ⟨⟨0⟩, 0⟩⟩
+    match Rewriter.createOp ctx (.arith .addi) #[IntegerType.mk 32] ⟨#[prev2.impl, prev1.impl], #[prev2.spec, prev1.spec], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩
         () (some insertPoint) sorry sorry sorry sorry sorry sorry with
     | some (ctx, op) =>
       createManyOpsLoopSim ctx insertPoint prev1
@@ -525,7 +525,7 @@ def createManyOpsSim (n : Nat) : Option (Sim.BlockPtr × Sim.IRContext OpCode) :
 
   let insertPoint := InsertPoint.atEnd ⟨block.impl.toNat⟩
 
-  let some (ctx, op) := Rewriter.createOp ctx (.test .test) #[IntegerType.mk 32] #[] #[] #[]
+  let some (ctx, op) := Rewriter.createOp ctx (.test .test) #[IntegerType.mk 32] ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩
       default (some insertPoint) sorry sorry sorry sorry sorry
     | none
   let ctx := dumpOp op ctx "first op"
