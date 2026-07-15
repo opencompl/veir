@@ -1085,21 +1085,6 @@ theorem getProperties!_eq_of_OperationPtr_get!_eq {op : OperationPtr} :
     op.getProperties! ctx opCode = op.getProperties! ctx' opCode := by
   grind [OperationPtr.get!, getProperties!]
 
-/--
-  Does this operation have effects that make it ineligible for DCE and
-  other transformations that add / remove / rearrange instructions?
-
-  NOTE: ¬ hasSideEffects does not imply that an operation is safe to
-        speculate. For that we also need it to never trigger immediate
-        UB. We'll have to deal with this later on.
-
-  Also see:
-  https://mlir.llvm.org/docs/Rationale/SideEffectsAndSpeculation/
--/
-def hasSideEffects (op : OperationPtr) (ctx : IRContext OpInfo) : Bool :=
-  let opType := op.getOpType! ctx
-  HasOpInfo.hasSideEffects opType (op.getProperties! ctx opType)
-
 def setProperties {opCode : OpInfo} (op : OperationPtr) (ctx : IRContext OpInfo)
     (newProperties : HasOpInfo.propertiesOf opCode)
     (inBounds : op.InBounds ctx := by grind)

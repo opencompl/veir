@@ -1,5 +1,6 @@
 import Veir.Prelude
 import Veir.IR.Basic
+import Veir.Interfaces.SideEffectInterfaces
 import Veir.Rewriter.Basic
 import Veir.ForLean
 import Veir.Rewriter.GetSet
