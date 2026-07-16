@@ -3,7 +3,9 @@
 
 // builtin.module is a registered op with a graph region, so its region may have
 // at most one block. (Unregistered ops and the test dialect are exempt and may
-// use multi-block graph regions.)
+// have multiple blocks in their regions; such multi-block regions then have SSA
+// dominance like any other -- graph-region leniency only ever applies to
+// single-block regions, as in MLIR.)
 
 "builtin.module"() ({
 ^bb0:

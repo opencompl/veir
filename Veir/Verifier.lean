@@ -1074,7 +1074,9 @@ def OperationPtr.verifyOperandIsolation (op : OperationPtr) (ctx : WfIRContext O
   Verify that graph regions of registered operations contain at most one block.
   Like MLIR, this restriction limits the cases transforms must handle; it applies
   only to registered operations, so unregistered ops and the test dialect may
-  still use multi-block graph regions.
+  still have multiple blocks in their regions. Such multi-block regions are then
+  treated as having SSA dominance (see `RegionPtr.hasSSADominance`), so the
+  single-block limit is also what makes graph-region dominance leniency sound.
 -/
 def OperationPtr.verifyGraphRegionBlockCount (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
@@ -1091,16 +1093,52 @@ def OperationPtr.verifyGraphRegionBlockCount (op : OperationPtr) (ctx : WfIRCont
         | none => pure ()
 
 /--
-  Check that a block is non-empty and its last operation is a
-  terminator.
+  Whether this operation might be a terminator, mirroring MLIR's
+  `mightHaveTrait<IsTerminator>`: registered terminators are, and unregistered
+  or test-dialect operations might be, since their traits are unknown.
+-/
+def OpCode.mightBeTerminator (opCode : OpCode) : Bool :=
+  opCode.isTerminator ||
+    match opCode with
+    | .builtin .unregistered | .test .test => true
+    | _ => false
+
+/--
+  Whether a block may be valid without a terminator, mirroring MLIR's
+  `mayBeValidWithoutTerminator` (`mlir/lib/IR/Verifier.cpp`): only a block that
+  is alone in its region is exempt, and only when the region's owner either has
+  unknown semantics (unregistered and test-dialect operations, which might carry
+  MLIR's `NoTerminator` trait) or is known not to require a terminator
+  (`builtin.module`). Blocks of multi-block regions always need a terminator.
+-/
+def BlockPtr.mayBeValidWithoutTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
+    (blockIn : block.InBounds ctx.raw) : Bool :=
+  match (block.get ctx.raw blockIn).parent with
+  | none => true
+  | some region =>
+    (region.get! ctx.raw).firstBlock = some block &&
+    (block.get ctx.raw blockIn).next.isNone &&
+    match (region.get! ctx.raw).parent with
+    | none => true
+    | some parentOp =>
+      match parentOp.getOpType! ctx.raw with
+      | .builtin .module | .builtin .unregistered | .test .test => true
+      | _ => false
+
+/--
+  Check that a block is non-empty and ends in an operation that might be a
+  terminator, unless the block may be valid without one. Mirrors MLIR's generic
+  verifier (`verifyOnEntrance`/`verifyOnExit` in `mlir/lib/IR/Verifier.cpp`).
 -/
 def BlockPtr.verifyTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
     (blockIn : block.InBounds ctx.raw) : Except String PUnit := do
+  if block.mayBeValidWithoutTerminator ctx blockIn then
+    return
   let b := block.get ctx.raw blockIn
   match b.lastOp with
   | none => throw "Expected the block to end in a terminator, but the block is empty"
   | some lastOp =>
-    if !(lastOp.getOpType! ctx.raw).isTerminator then
+    if !(lastOp.getOpType! ctx.raw).mightBeTerminator then
       throw "Expected the last operation of a block to be a terminator"
 
 /--
@@ -1148,10 +1186,11 @@ def OperationPtr.verifyOperandDominance
   -- the executable form of `isReachableFromEntry`.
   --
   -- A consequence, shared with MLIR, is that a use hidden in a *non-entry* block
-  -- of a graph region with no intra-region control-flow edges is unreachable and
-  -- therefore not checked, even if it captures a value that does not dominate the
-  -- graph-owning operation. (A capture used in the graph region's *entry* block
-  -- is still checked, because the entry block is always reachable.)
+  -- with no incoming control-flow edges (e.g. in a multi-block region of an
+  -- unregistered operation) is unreachable and therefore not checked, even if it
+  -- captures a value that does not dominate the region-owning operation. (A use
+  -- in the region's *entry* block is still checked, because the entry block is
+  -- always reachable.)
   let shouldCheck : Bool := Id.run do
     let some useBlock := (op.get ctx.raw opIn).parent | return false
     return (useBlock.getDominatorFact? dfCtx ctx.raw).isSome
@@ -1184,11 +1223,13 @@ def OperationPtr.verifyOperandDominance
 
   Therefore `verifyDominance ctx top = .ok ()` means every operand of every operation
   in a reachable block dominates its use according to the region-aware dominance
-  relation used by MLIR: SSACFG regions enforce control-flow and same-block order,
-  graph regions ignore same-block order, and values captured into the *entry* block of
-  a graph region must still dominate the enclosing operation in the parent region. As in
-  MLIR, blocks that are not reachable from their region's entry are not checked, so a
-  capture used in a non-entry, edgeless graph-region block is left unverified.
+  relation used by MLIR: multi-block regions always enforce control-flow and
+  same-block order (whatever their kind — see `getDominanceInfo` in
+  `mlir/lib/IR/Dominance.cpp`), single-block graph regions ignore same-block order,
+  and values captured into a region from outside must still dominate the enclosing
+  operation in the parent region. As in MLIR, blocks that are not reachable from
+  their region's entry are not checked, so a use in a non-entry, edgeless block of a
+  multi-block region is left unverified.
 
   This is still an executable checker, not a Lean proof of `ctx.Dom`; it is written so
   that each step lines up with a clause of the definition, which is what makes the
@@ -1223,12 +1264,8 @@ def WfIRContext.verify (ctx : WfIRContext OpCode)
     op.verifySuccessorsInSameRegion ctx opIn
     op.verifyGraphRegionBlockCount ctx opIn
     op.verifyOperandIsolation ctx opIn)
-  ctx.raw.forBlocksDepM (fun block blockIn => do
-    match (block.get ctx.raw blockIn).parent with
-    | some region =>
-      if region.getRegionKind ctx = .SSACFG then
-        block.verifyTerminator ctx blockIn
-    | none => pure ())
+  ctx.raw.forBlocksDepM (fun block blockIn =>
+    block.verifyTerminator ctx blockIn)
   match top? with
   | some top => ctx.verifyDominance top
   | none => pure ()

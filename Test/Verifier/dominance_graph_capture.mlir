@@ -1,13 +1,13 @@
 // RUN: veir-opt %s | filecheck %s
 // RUN: MLIR_VALID
 
-// A graph region captures %x from ^A, and ^A does not dominate ^B (the block
-// that owns the graph region). The capture is used in a NON-entry block (^g1)
-// of the multi-block graph region. Like MLIR, dominance is only checked in
-// blocks reachable from their region's entry; ^g1 has no intra-region control
+// A nested test-op region captures %x from ^A, and ^A does not dominate ^B (the
+// block that owns the nested region). The capture is used in a NON-entry block
+// (^g1) of the multi-block nested region. Like MLIR, dominance is only checked
+// in blocks reachable from their region's entry; ^g1 has no intra-region control
 // flow into it, so it is unreachable and the use is not checked. The program
-// therefore verifies. (A capture used in the graph region's entry block ^g0 is
-// still checked -- see dominance_graph_capture_result.mlir.)
+// therefore verifies. (A capture used in the region's entry block ^g0 is still
+// checked -- see dominance_graph_capture_result.mlir.)
 
 "builtin.module"() ({
   "func.func"() <{function_type = (i1) -> (), sym_name = "m"}> ({

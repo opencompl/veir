@@ -20,14 +20,18 @@ private structure ExpectedOperationDominance where
   properDom : Bool
 
 /--
-Whether `block` lies in a graph region. In graph regions there is no SSA source
-order, so dominance is reflexive even for the proper variant: a block (or op)
-properly dominates itself, and a dominator properly dominates every block it
-dominates, including itself.
+Whether `block` lies in a region without SSA dominance: a *single-block* graph
+region. There, source order is ignored, so dominance is reflexive even for the
+proper variant: a block (or op) properly dominates itself, and a dominator
+properly dominates every block it dominates, including itself. As in MLIR,
+multi-block regions always have SSA dominance, whatever their kind.
 -/
 private def blockInGraphRegion (block : BlockPtr) (irCtx : IRContext OpCode) : Bool :=
   match (block.get! irCtx).parent with
   | some region =>
+    (match (region.get! irCtx).firstBlock with
+     | some first => (first.get! irCtx).next.isNone
+     | none => true) &&
     match (region.get! irCtx).parent with
     | some parentOp =>
       let parent := parentOp.get! irCtx
