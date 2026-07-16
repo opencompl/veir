@@ -1819,5 +1819,18 @@ theorem OperationPtr.Verified.mod_arith_constant {op : OperationPtr} {opInBounds
     at hPlainOpCounts hModArithType hAttr
   grind
 
+/-- Structural facts guaranteed for a verified `func.func`: it has no operands, results, or
+successors, and exactly one region (its body). -/
+theorem OperationPtr.Verified.func_func {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .func .func) :
+    op.getNumOperands! ctx.raw = 0 ∧
+    op.getNumResults! ctx.raw = 0 ∧
+    op.getNumSuccessors! ctx.raw = 0 ∧
+    op.getNumRegions! ctx.raw = 1 := by
+  simp only [Verified, verifyLocalInvariants, ← getOpType!_eq_getOpType, opType, ne_eq,
+    bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure,
+    ite_not] at opVerify
+  grind
+
 end
 end Veir
