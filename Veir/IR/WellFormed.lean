@@ -1285,6 +1285,17 @@ theorem BlockPtr.parent!_prev {bl : BlockPtr}
 grind_pattern BlockPtr.parent!_prev =>
   ctx.WellFormed missingUses missingSuccessorUses, (bl.get! ctx).prev, some prevBl
 
+theorem RegionPtr.firstBlock!_parent! {reg : RegionPtr}
+    (regInBounds : reg.InBounds ctx) (hctx : ctx.WellFormed missingUses missingSuccessorUses)
+    (hfirst : (reg.get! ctx).firstBlock = some firstBl) :
+    (firstBl.get! ctx).parent = some reg := by
+  have ⟨array, harray⟩ := hctx.blockChain reg (by grind)
+  grind [RegionPtr.BlockChain]
+
+grind_pattern RegionPtr.firstBlock!_parent! =>
+  ctx.WellFormed missingUses missingSuccessorUses, (reg.get! ctx).firstBlock, some firstBl,
+  (firstBl.get! ctx).parent
+
 theorem RegionPtr.lastBlock!_parent! {reg : RegionPtr}
     (regInBounds : reg.InBounds ctx) (hctx : ctx.WellFormed missingUses missingSuccessorUses)
     (hlast : (reg.get! ctx).lastBlock = some lastBl) :
