@@ -65,7 +65,7 @@ Tags to match on for different fact types.
 inductive FactKind where
   | dominator
   | regionMetadata
-  | executable
+  | liveness
 deriving BEq, ReflBEq, LawfulBEq, Hashable, Repr, DecidableEq
 
 abbrev WorkItem := InsertPoint × AnalysisKind
@@ -86,9 +86,9 @@ structure RegionMetadataPayload where
   postOrderIndex : HashMap BlockPtr Nat := {}
 
 /--
-Tracks whether a control flow point or edge is executable.
+Tracks whether a control flow point or edge is live.
 -/
-structure ExecutablePayload where
+structure LivenessPayload where
   latticeElement : Liveness := .dead
 
 /--
@@ -97,7 +97,7 @@ The fact specific data stored for each fact kind.
 @[expose] def FactPayload : FactKind → Type
   | .dominator => DominatorPayload
   | .regionMetadata => RegionMetadataPayload
-  | .executable => ExecutablePayload
+  | .liveness => LivenessPayload
 
 /--
 A dataflow fact stored by the framework.
@@ -159,18 +159,18 @@ def setPostOrderIndex (fact : Fact .regionMetadata)
     (postOrderIndex : HashMap BlockPtr Nat) : Fact .regionMetadata :=
   { fact with payload := { fact.payload with postOrderIndex := postOrderIndex } }
 
-def live (fact : Fact .executable) : Bool :=
+def live (fact : Fact .liveness) : Bool :=
   match fact.payload.latticeElement with
   | .dead => false
   | .live => true
 
-def latticeElement (fact : Fact .executable) : Liveness :=
+def latticeElement (fact : Fact .liveness) : Liveness :=
   fact.payload.latticeElement
 
-def setLatticeElement (fact : Fact .executable) (latticeElement : Liveness) : Fact .executable :=
+def setLatticeElement (fact : Fact .liveness) (latticeElement : Liveness) : Fact .liveness :=
   { fact with payload := { fact.payload with latticeElement := latticeElement } }
 
-def setToLive (fact : Fact .executable) : Fact .executable :=
+def setToLive (fact : Fact .liveness) : Fact .liveness :=
   fact.setLatticeElement .live
 
 end Fact
@@ -179,6 +179,6 @@ abbrev DominatorFact := Fact .dominator
 
 abbrev RegionMetadataFact := Fact .regionMetadata
 
-abbrev ExecutableFact := Fact .executable
+abbrev LivenessFact := Fact .liveness
 
 end Veir

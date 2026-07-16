@@ -8,12 +8,12 @@ public section
 
 namespace Veir
 
-namespace ExecutableFact
+namespace LivenessFact
 
-def mkDefault : ExecutableFact :=
+def mkDefault : LivenessFact :=
   { payload := { latticeElement := .dead } }
 
-def propagate (state : ExecutableFact) (anchor : LatticeAnchor)
+def propagate (state : LivenessFact) (anchor : LatticeAnchor)
   (dfCtx : DataFlowContext) (irCtx : IRContext OpCode) : DataFlowContext := Id.run do
   let mut dfCtx := { dfCtx with workList := state.enqueueDependents dfCtx.workList }
   match anchor with
@@ -45,15 +45,15 @@ def propagate (state : ExecutableFact) (anchor : LatticeAnchor)
     pure ()
   dfCtx
 
-instance : FactSpec .executable where
-  mkDefault := ExecutableFact.mkDefault
-  propagate := ExecutableFact.propagate
+instance : FactSpec .liveness where
+  mkDefault := LivenessFact.mkDefault
+  propagate := LivenessFact.propagate
 
-end ExecutableFact
+end LivenessFact
 
 namespace DeadCodeAnalysis
 
-variable [FactSpec .executable]
+variable [FactSpec .liveness]
 
 def kind : AnalysisKind :=
   .deadCode
@@ -69,9 +69,9 @@ def markEdgeLive
     (irCtx : IRContext OpCode) : DataFlowContext := Id.run do
   let mut dfCtx := dfCtx
   let point := InsertPoint.atStart! dst irCtx
-  dfCtx := dfCtx.modifyFactAndPropagate .executable (.InsertPoint point) (fun fact =>
+  dfCtx := dfCtx.modifyFactAndPropagate .liveness (.InsertPoint point) (fun fact =>
     (fact.setToLive, !fact.live)) irCtx
-  dfCtx := dfCtx.modifyFactAndPropagate .executable (.CFGEdge { source := src, target := dst }) (fun fact =>
+  dfCtx := dfCtx.modifyFactAndPropagate .liveness (.CFGEdge { source := src, target := dst }) (fun fact =>
     (fact.setToLive, !fact.live)) irCtx
   dfCtx
 
@@ -85,7 +85,7 @@ def markEntryBlocksLive
     let region := regionPtr.get! irCtx
     if let some block := region.firstBlock then
       let point := InsertPoint.atStart! block irCtx
-      dfCtx := dfCtx.modifyFactAndPropagate .executable (.InsertPoint point) (fun fact =>
+      dfCtx := dfCtx.modifyFactAndPropagate .liveness (.InsertPoint point) (fun fact =>
         (fact.setToLive, !fact.live)) irCtx
   dfCtx
 
@@ -196,17 +196,17 @@ private def visitOp
     (op : OperationPtr)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : DataFlowContext := Id.run do
-  -- If the parent block is not executable, there is nothing to do.
+  -- If the parent block is not live, there is nothing to do.
   if hParent : (op.get! irCtx).parent.isSome then
     let parentBlock := (op.get! irCtx).parent.get hParent
     let blockPoint := InsertPoint.atStart! parentBlock irCtx
-    match dfCtx.getFact? .executable (.InsertPoint blockPoint) with
-    | some executableFact =>
+    match dfCtx.getFact? .liveness (.InsertPoint blockPoint) with
+    | some liveFact =>
       -- If parent block not live, skip op.
-      if !executableFact.live then
+      if !liveFact.live then
         return dfCtx
     -- Liveness is false by default, so also return here as the parent block is
-    -- not executable.
+    -- not live.
     | none =>
       return dfCtx
 
@@ -218,7 +218,7 @@ private def visitOp
     -- TODO: Check if we can reason about region control-flow.
 
     -- TODO: Check if this is a callable operation and use callsite information
-    -- to decide whether to mark the callable executable.
+    -- to decide whether to mark the callable live.
 
     -- else:
     dfCtx := markEntryBlocksLive op dfCtx irCtx
@@ -234,7 +234,7 @@ private def visitOp
       if isBranchOp op irCtx then
         dfCtx := visitBranchOperation op dfCtx irCtx
       else
-        -- Conservatively mark all successors as executable.
+        -- Conservatively mark all successors as live.
         for successor in op.getSuccessors! irCtx do
           dfCtx := markEdgeLive parentBlock successor dfCtx irCtx
     else
@@ -273,7 +273,7 @@ partial def initializeRecursively
     if h : (op.get! irCtx).parent.isSome then
       let parentBlock := (op.get! irCtx).parent.get h
       let blockPoint := InsertPoint.atStart! parentBlock irCtx
-      dfCtx := dfCtx.modifyFact .executable (.InsertPoint blockPoint) (fun fact =>
+      dfCtx := dfCtx.modifyFact .liveness (.InsertPoint blockPoint) (fun fact =>
         fact.subscribe kind)
 
     -- Visit the op.
@@ -298,7 +298,7 @@ def init
     (top : OperationPtr)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : DataFlowContext := Id.run do
-  -- Mark the top level blocks as executable.
+  -- Mark the top level blocks as live.
   let dfCtx := markEntryBlocksLive top dfCtx irCtx
 
   -- TODO: Mark as overdefined the predecessors of symbol callables with
@@ -308,7 +308,7 @@ def init
 
 end DeadCodeAnalysis
 
-def DeadCodeAnalysis [FactSpec .executable] : DataFlowAnalysis :=
+def DeadCodeAnalysis [FactSpec .liveness] : DataFlowAnalysis :=
   { kind := DeadCodeAnalysis.kind
     init := DeadCodeAnalysis.init
     visit := DeadCodeAnalysis.visit }

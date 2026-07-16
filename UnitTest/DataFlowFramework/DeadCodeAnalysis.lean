@@ -8,12 +8,12 @@ open Veir
 -- TODO: Facts not initialized in the Dataflow Analysis Framework are implicitly assumed to be the pessimistic bottom state.
 -- We should not assume this implicitly, but rather encode this in the framework!!!!
 def isBlockLive (dfCtx : DataFlowContext) (block : BlockPtr) (irCtx : IRContext OpCode) : Bool :=
-  match dfCtx.getFact? .executable (.InsertPoint (InsertPoint.atStart! block irCtx)) with
+  match dfCtx.getFact? .liveness (.InsertPoint (InsertPoint.atStart! block irCtx)) with
   | some fact => fact.live
   | none => false
 
 def isEdgeLive (dfCtx : DataFlowContext) (src dst : BlockPtr) : Bool :=
-  match dfCtx.getFact? .executable (.CFGEdge { source := src, target := dst }) with
+  match dfCtx.getFact? .liveness (.CFGEdge { source := src, target := dst }) with
   | some fact => fact.live
   | none => false
 
