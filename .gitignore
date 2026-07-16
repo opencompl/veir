@@ -32,3 +32,4 @@ lakefile.olean
 .lake/
 
 **/.ruff_cache
+profile.json
