@@ -13,7 +13,7 @@ namespace ExecutableFact
 def mkDefault : ExecutableFact :=
   { payload := { latticeElement := .dead } }
 
-def propagate (state : ExecutableFact) (anchor : LatticeAnchor) 
+def propagate (state : ExecutableFact) (anchor : LatticeAnchor)
   (dfCtx : DataFlowContext) (irCtx : IRContext OpCode) : DataFlowContext := Id.run do
   let mut dfCtx := { dfCtx with workList := state.enqueueDependents dfCtx.workList }
   match anchor with
