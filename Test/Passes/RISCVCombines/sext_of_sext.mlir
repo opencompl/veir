@@ -3,7 +3,7 @@
 // `sext (sext x)` collapses to a single `sext x` to the outer width.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i8) -> i64}> ({
+  "func.func"() <{function_type = (i8) -> i64, sym_name = "foo"}> ({
   ^bb0(%x: i8):
     %s0 = "llvm.sext"(%x) : (i8) -> i32
     %s1 = "llvm.sext"(%s0) : (i32) -> i64
@@ -11,7 +11,7 @@
   }) : () -> ()
 
   // Negative case: a single sext is left alone.
-  "func.func"() <{function_type = (i8) -> i64}> ({
+  "func.func"() <{function_type = (i8) -> i64, sym_name = "bar"}> ({
   ^bb0(%x: i8):
     %s = "llvm.sext"(%x) : (i8) -> i64
     "func.return"(%s) : (i64) -> ()

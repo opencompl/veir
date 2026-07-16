@@ -1,7 +1,7 @@
 // RUN: veir-opt %s -p=riscv-combine | filecheck %s
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "foo"}> ({
   ^bb0(%x: !riscv.reg):
     %inner = "riscv.zextw"(%x) : (!riscv.reg) -> !riscv.reg
     %outer = "riscv.zextw"(%inner) : (!riscv.reg) -> !riscv.reg

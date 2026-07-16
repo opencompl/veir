@@ -4,7 +4,7 @@
 // as `0 - y`.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i64, i64) -> i64}> ({
+  "func.func"() <{function_type = (i64, i64) -> i64, sym_name = "foo"}> ({
   ^bb0(%x: i64, %y: i64):
     %add = "llvm.add"(%y, %x) : (i64, i64) -> i64
     %s = "llvm.sub"(%x, %add) : (i64, i64) -> i64
@@ -12,7 +12,7 @@
   }) : () -> ()
 
   // Negative case: the minuend is not the `add`'s second operand, so no fold.
-  "func.func"() <{function_type = (i64, i64, i64) -> i64}> ({
+  "func.func"() <{function_type = (i64, i64, i64) -> i64, sym_name = "bar"}> ({
   ^bb0(%x: i64, %y: i64, %w: i64):
     %add = "llvm.add"(%y, %x) : (i64, i64) -> i64
     %s = "llvm.sub"(%w, %add) : (i64, i64) -> i64
