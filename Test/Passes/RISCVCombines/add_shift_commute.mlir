@@ -4,7 +4,7 @@
 // shifted (negated) value as the add's first operand.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i64, i64, i64) -> i64}> ({
+  "func.func"() <{function_type = (i64, i64, i64) -> i64, sym_name = "foo"}> ({
   ^bb0(%a: i64, %b: i64, %c: i64):
     %zero = "llvm.mlir.constant"() <{value = 0 : i64}> : () -> i64
     %negb = "llvm.sub"(%zero, %b) : (i64, i64) -> i64
@@ -14,7 +14,7 @@
   }) : () -> ()
 
   // Negative case: no negation feeding the shift.
-  "func.func"() <{function_type = (i64, i64, i64) -> i64}> ({
+  "func.func"() <{function_type = (i64, i64, i64) -> i64, sym_name = "bar"}> ({
   ^bb0(%a: i64, %b: i64, %c: i64):
     %sh = "llvm.shl"(%b, %c) : (i64, i64) -> i64
     %r = "llvm.add"(%sh, %a) : (i64, i64) -> i64

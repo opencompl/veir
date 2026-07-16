@@ -6,7 +6,7 @@
 // unlike the unsigned range of `zextw_li_low32`.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = () -> !riscv.reg}> ({
+  "func.func"() <{function_type = () -> !riscv.reg, sym_name = "foo"}> ({
   ^bb0():
     %c = "riscv.li"() <{"value" = 16 : i32}> : () -> !riscv.reg
     %s = "riscv.sextw"(%c) : (!riscv.reg) -> !riscv.reg
@@ -15,7 +15,7 @@
 
   // A negative immediate is fine here: -1 is already sign-extended, so `sextw`
   // is redundant (this is where the sext range differs from the zext one).
-  "func.func"() <{function_type = () -> !riscv.reg}> ({
+  "func.func"() <{function_type = () -> !riscv.reg, sym_name = "bar"}> ({
   ^bb0():
     %c = "riscv.li"() <{"value" = -1 : i32}> : () -> !riscv.reg
     %s = "riscv.sextw"(%c) : (!riscv.reg) -> !riscv.reg

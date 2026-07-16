@@ -3,7 +3,7 @@
 // Sign extension is idempotent: `riscv.sextw (riscv.sextw x) -> riscv.sextw x`.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "foo"}> ({
   ^bb0(%x: !riscv.reg):
     %inner = "riscv.sextw"(%x) : (!riscv.reg) -> !riscv.reg
     %outer = "riscv.sextw"(%inner) : (!riscv.reg) -> !riscv.reg

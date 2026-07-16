@@ -1,7 +1,7 @@
 // RUN: veir-opt %s -p=cse | filecheck %s
 
 "builtin.module"() ({
-  "llvm.func"()  <{function_type = !llvm.func<void (i32, i32)>}> ({
+  "llvm.func"()  <{function_type = !llvm.func<void (i32, i32)>, sym_name = "foo"}> ({
 ^bb0(%arg0 : i32, %arg1 : i32):
     %c0_i32 = "llvm.mlir.constant"() <{value = 7 : i32}> : () -> i32
     %c1_i32 = "llvm.mlir.constant"() <{value = 7 : i32}> : () -> i32

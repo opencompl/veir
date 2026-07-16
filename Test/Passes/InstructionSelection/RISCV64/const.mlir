@@ -1,7 +1,7 @@
 // RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
 
 "builtin.module"() ({
-    "func.func"()  <{function_type = () -> ()}> ({
+    "func.func"()  <{function_type = () -> (), sym_name = "foo"}> ({
     ^bb():
         %c1 = "llvm.mlir.constant"() <{"value" = -1 : i64 }> : () -> i64
         // CHECK: %[[A:.*]] = "riscv.li"() <{"value" = -1 : i64}> : () -> !riscv.reg

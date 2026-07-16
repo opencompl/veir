@@ -4,7 +4,7 @@
 // `add (xor B, -1), A`.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i64, i64) -> i64}> ({
+  "func.func"() <{function_type = (i64, i64) -> i64, sym_name = "foo"}> ({
   ^bb0(%a: i64, %b: i64):
     %sub = "llvm.sub"(%a, %b) : (i64, i64) -> i64
     %one = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64
@@ -13,7 +13,7 @@
   }) : () -> ()
 
   // Negative case: subtracting 2 (not 1) from the inner sub does not match.
-  "func.func"() <{function_type = (i64, i64) -> i64}> ({
+  "func.func"() <{function_type = (i64, i64) -> i64, sym_name = "bar"}> ({
   ^bb0(%a: i64, %b: i64):
     %sub = "llvm.sub"(%a, %b) : (i64, i64) -> i64
     %two = "llvm.mlir.constant"() <{value = 2 : i64}> : () -> i64

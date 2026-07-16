@@ -6,14 +6,14 @@
 
 "builtin.module"() ({
   // Positive case: i64 `xor x x` folds to constant 0.
-  "func.func"() <{function_type = (i64) -> i64}> ({
+  "func.func"() <{function_type = (i64) -> i64, sym_name = "foo"}> ({
   ^bb0(%x: i64):
     %r = "llvm.xor"(%x, %x) : (i64, i64) -> i64
     "func.return"(%r) : (i64) -> ()
   }) : () -> ()
 
   // Negative case: distinct operands, so the rule must not fire.
-  "func.func"() <{function_type = (i64, i64) -> i64}> ({
+  "func.func"() <{function_type = (i64, i64) -> i64, sym_name = "bar"}> ({
   ^bb0(%x: i64, %y: i64):
     %r = "llvm.xor"(%x, %y) : (i64, i64) -> i64
     "func.return"(%r) : (i64) -> ()
@@ -21,12 +21,12 @@
 }) : () -> ()
 
 // The i64 `xor` is replaced by a constant zero; the operand is now dead.
-// CHECK:      "func.func"() <{"function_type" = (i64) -> i64}>
+// CHECK:      "func.func"() <{"function_type" = (i64) -> i64, "sym_name" = "foo"}>
 // CHECK:      %[[Z:.*]] = "llvm.mlir.constant"() <{"value" = 0 : i64}> : () -> i64
 // CHECK-NEXT: "func.return"(%[[Z]]) : (i64) -> ()
 
 // Distinct operands: the `xor` survives untouched.
-// CHECK:      "func.func"() <{"function_type" = (i64, i64) -> i64}>
+// CHECK:      "func.func"() <{"function_type" = (i64, i64) -> i64, "sym_name" = "bar"}>
 // CHECK:      ^{{.*}}(%[[DX:.*]] : i64, %[[DY:.*]] : i64):
 // CHECK-NEXT: %[[DR:.*]] = "llvm.xor"(%[[DX]], %[[DY]]) : (i64, i64) -> i64
 // CHECK-NEXT: "func.return"(%[[DR]]) : (i64) -> ()

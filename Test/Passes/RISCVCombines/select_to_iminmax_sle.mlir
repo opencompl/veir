@@ -4,7 +4,7 @@
 // must be exactly the select's true/false values.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i64, i64) -> i64}> ({
+  "func.func"() <{function_type = (i64, i64) -> i64, sym_name = "foo"}> ({
   ^bb0(%x: i64, %y: i64):
     %c = "llvm.icmp"(%x, %y) <{predicate = 3 : i64}> : (i64, i64) -> i1
     %r = "llvm.select"(%c, %x, %y) : (i1, i64, i64) -> i64
@@ -12,7 +12,7 @@
   }) : () -> ()
 
   // Negative case: the compared operands don't match the select operands.
-  "func.func"() <{function_type = (i64, i64, i64) -> i64}> ({
+  "func.func"() <{function_type = (i64, i64, i64) -> i64, sym_name = "bar"}> ({
   ^bb0(%x: i64, %y: i64, %z: i64):
     %c = "llvm.icmp"(%x, %y) <{predicate = 3 : i64}> : (i64, i64) -> i1
     %r = "llvm.select"(%c, %x, %z) : (i1, i64, i64) -> i64

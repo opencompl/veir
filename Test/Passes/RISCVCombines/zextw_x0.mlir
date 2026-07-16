@@ -4,7 +4,7 @@
 // reads as 0, so it already has bits 63:32 clear.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = () -> !riscv.reg}> ({
+  "func.func"() <{function_type = () -> !riscv.reg, sym_name = "foo"}> ({
   ^bb0():
     %x0 = "rv64.get_register"() : () -> !riscv.reg<x0>
     %z = "riscv.zextw"(%x0) : (!riscv.reg<x0>) -> !riscv.reg
@@ -12,7 +12,7 @@
   }) : () -> ()
 
   // Negative case: a plain (non-`x0`-typed) register must be left alone.
-  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "bar"}> ({
   ^bb0(%x: !riscv.reg):
     %z = "riscv.zextw"(%x) : (!riscv.reg) -> !riscv.reg
     "func.return"(%z) : (!riscv.reg) -> ()

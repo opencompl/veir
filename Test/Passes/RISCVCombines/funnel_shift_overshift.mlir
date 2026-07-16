@@ -6,7 +6,7 @@
 
 "builtin.module"() ({
   // fshl by 35 on i32 reduces the amount to 35 % 32 = 3.
-  "func.func"() <{function_type = (i32, i32) -> i32}> ({
+  "func.func"() <{function_type = (i32, i32) -> i32, sym_name = "foo"}> ({
   ^bb0(%x: i32, %y: i32):
     %c = "llvm.mlir.constant"() <{value = 35 : i32}> : () -> i32
     %r = "llvm.intr.fshl"(%x, %y, %c) : (i32, i32, i32) -> i32
@@ -14,7 +14,7 @@
   }) : () -> ()
 
   // fshr by 40 on i32 reduces the amount to 40 % 32 = 8.
-  "func.func"() <{function_type = (i32, i32) -> i32}> ({
+  "func.func"() <{function_type = (i32, i32) -> i32, sym_name = "bar"}> ({
   ^bb0(%x: i32, %y: i32):
     %c = "llvm.mlir.constant"() <{value = 40 : i32}> : () -> i32
     %r = "llvm.intr.fshr"(%x, %y, %c) : (i32, i32, i32) -> i32
@@ -22,7 +22,7 @@
   }) : () -> ()
 
   // Negative case: the amount is already less than the width, so it stays.
-  "func.func"() <{function_type = (i32, i32) -> i32}> ({
+  "func.func"() <{function_type = (i32, i32) -> i32, sym_name = "baz"}> ({
   ^bb0(%x: i32, %y: i32):
     %c = "llvm.mlir.constant"() <{value = 5 : i32}> : () -> i32
     %r = "llvm.intr.fshl"(%x, %y, %c) : (i32, i32, i32) -> i32

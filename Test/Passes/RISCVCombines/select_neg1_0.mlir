@@ -3,7 +3,7 @@
 // `select c, -1, 0` is `sext c` (all-ones when true, zero when false).
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i1) -> i64}> ({
+  "func.func"() <{function_type = (i1) -> i64, sym_name = "foo"}> ({
   ^bb0(%c: i1):
     %m1 = "llvm.mlir.constant"() <{value = -1 : i64}> : () -> i64
     %zero = "llvm.mlir.constant"() <{value = 0 : i64}> : () -> i64
@@ -12,7 +12,7 @@
   }) : () -> ()
 
   // Negative case: arms are 1 and 0, not -1 and 0 (that is select_1_0's shape).
-  "func.func"() <{function_type = (i1) -> i64}> ({
+  "func.func"() <{function_type = (i1) -> i64, sym_name = "bar"}> ({
   ^bb0(%c: i1):
     %one = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64
     %zero = "llvm.mlir.constant"() <{value = 0 : i64}> : () -> i64
