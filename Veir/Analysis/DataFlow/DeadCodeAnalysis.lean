@@ -170,6 +170,11 @@ private def getSuccessorForOperands?
   else
     none
 
+/--
+Visit the given region branch operation, which defines regions, and
+compute any necessary lattice state. This also resolves the lattice state
+of both the operation results and any nested regions.
+-/
 def visitBranchOperation
     (branch : OperationPtr)
     (dfCtx : DataFlowContext)
@@ -185,13 +190,14 @@ def visitBranchOperation
   | some successor =>
     markEdgeLive parentBlock successor dfCtx irCtx
   | none =>
+    -- Otherwise, mark all successors as executable and outgoing edges.
     let mut dfCtx := dfCtx
     for successor in branch.getSuccessors! irCtx do
       dfCtx := markEdgeLive parentBlock successor dfCtx irCtx
     dfCtx
 /--
 Visit an operation and deduce which of its successors are live.
---/
+-/
 private def visitOp
     (op : OperationPtr)
     (dfCtx : DataFlowContext)
