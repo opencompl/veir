@@ -245,9 +245,8 @@ def SimplifyCFG.mergeUnconditionalBranch (rewriter : PatternRewriter OpCode)
   for (blockArg, i) in blockArgs.zipIdx do
     let some branchArg := branchArgs[i]? | none
     mergedCtx := WfRewriter.replaceValue mergedCtx blockArg branchArg sorry sorry sorry
-  let some rewriter :=
+  let rewriter :=
     ({ rewriter with ctx := mergedCtx } : PatternRewriter OpCode).eraseOp op sorry sorry sorry
-    | none
   let some rewriter := rewriter.detachBlock dest sorry | none
   return rewriter
 
@@ -272,9 +271,7 @@ def SimplifyCFG.eraseDeadBlockOps (rewriter : PatternRewriter OpCode)
           else if deadOp.hasUses! rewriter.ctx.raw then
             rewriter
           else
-            match rewriter.eraseOp deadOp sorry sorry sorry with
-            | some rewriter => SimplifyCFG.eraseDeadBlockOps rewriter block fuel
-            | none => rewriter
+            SimplifyCFG.eraseDeadBlockOps (rewriter.eraseOp deadOp sorry sorry sorry) block fuel
 
 set_option warn.sorry false in
 def SimplifyCFG.removeDeadBlock (rewriter : PatternRewriter OpCode)
