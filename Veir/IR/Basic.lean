@@ -2560,10 +2560,29 @@ end BlockOperandPtrPtr
 
 namespace OperationPtr
 
+/-- Return the region directly containing an operation, if one exists. -/
+def getParentRegion! (op : OperationPtr) (ctx : IRContext OpInfo) : Option RegionPtr := do
+  let block ← (op.get! ctx).parent
+  (block.get! ctx).parent
+
+@[grind =]
+theorem getParentRegion!_eq_some_iff {op : OperationPtr} :
+    op.getParentRegion! ctx = some region ↔
+      ∃ block,
+        (op.get! ctx).parent = some block ∧
+        (block.get! ctx).parent = some region := by
+  simp only [OperationPtr.getParentRegion!, bind, Option.bind]
+  grind
+
+theorem getParentRegion!_eq_some_of_parent_of_parent {op : OperationPtr} :
+    (op.get! ctx).parent = some block →
+    (block.get! ctx).parent = some region →
+    op.getParentRegion! ctx = some region := by
+  grind [OperationPtr.getParentRegion!]
+
 @[expose]
 def getParentOp! (op : OperationPtr) (ctx : IRContext OpInfo) : Option OperationPtr := do
-  rlet block ← (op.get! ctx).parent
-  rlet region ← (block.get! ctx).parent
+  let region ← op.getParentRegion! ctx
   (region.get! ctx).parent
 
 theorem getParentOp!_eq_some_iff {child parent : OperationPtr} {ctx : IRContext OpInfo} :
@@ -2572,7 +2591,8 @@ theorem getParentOp!_eq_some_iff {child parent : OperationPtr} {ctx : IRContext 
         (child.get! ctx).parent = some block ∧
         (block.get! ctx).parent = some region ∧
         (region.get! ctx).parent = some parent := by
-  grind [OperationPtr.getParentOp!]
+  simp only [OperationPtr.getParentOp!, bind, Option.bind]
+  grind
 
 def hasUses.loop (op : OperationPtr) (ctx : IRContext OpInfo) (index : Nat)
     (opIn : op.InBounds ctx := by grind)
