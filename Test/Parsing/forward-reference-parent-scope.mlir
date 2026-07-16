@@ -1,5 +1,5 @@
 // RUN: veir-opt %s | filecheck %s
-// RUN: VEIR_MLIR_SAME_VERDICT
+// RUN: MLIR_VALID
 
 // A use inside a nested region may forward-reference a value defined later in
 // the parent region. The nested region is a multi-block graph region, and the

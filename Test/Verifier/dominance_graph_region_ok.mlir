@@ -1,5 +1,5 @@
 // RUN: veir-opt %s | filecheck %s
-// RUN: VEIR_MLIR_SAME_VERDICT
+// RUN: MLIR_VALID
 
 // Dominance is only required in SSACFG regions. The body of an unregistered op
 // is a graph region, where a value defined in one block may be used in another

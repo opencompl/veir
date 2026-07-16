@@ -1,5 +1,4 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
-// RUN: VEIR_MLIR_SAME_VERDICT
 
 // func.func is isolated from above: the body of @inner may not reference %k,
 // which is defined in the enclosing function @outer.

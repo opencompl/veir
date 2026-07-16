@@ -1,5 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
-// RUN: VEIR_MLIR_SAME_VERDICT
+// RUN: MLIR_INVALID
 
 // Block arguments are subject to the same dominance rule as op results. %arg is
 // an argument of ^a, but it is used in ^b, and ^a does not dominate ^b (^b is

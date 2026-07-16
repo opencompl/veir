@@ -1,5 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
-// RUN: VEIR_MLIR_SAME_VERDICT
+// RUN: MLIR_INVALID
 
 // The entry block of a region may not have predecessors. Here ^bb1 branches back
 // to the entry block ^bb0, which would mean the region is re-entered through its

@@ -1,5 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
-// RUN: VEIR_MLIR_SAME_VERDICT
+// RUN: MLIR_INVALID
 
 // Every used SSA name must be defined somewhere. A use of a name that is never
 // assigned is rejected by the parser, before verification runs.

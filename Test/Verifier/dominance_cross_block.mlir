@@ -1,5 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
-// RUN: VEIR_MLIR_SAME_VERDICT
+// RUN: MLIR_INVALID
 
 // %x is defined in ^a but used in ^b. ^a does not dominate ^b, because ^b is
 // also reachable directly from ^entry, so this violates SSA dominance even

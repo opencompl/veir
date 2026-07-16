@@ -1,5 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
-// RUN: VEIR_MLIR_SAME_VERDICT
+// RUN: MLIR_INVALID
 
 // SSA requires that each name is assigned exactly once. Defining %a twice is
 // rejected by the parser, before verification runs.

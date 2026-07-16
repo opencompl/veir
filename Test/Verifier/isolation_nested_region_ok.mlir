@@ -1,5 +1,5 @@
 // RUN: veir-opt %s | filecheck %s
-// RUN: VEIR_MLIR_SAME_VERDICT
+// RUN: MLIR_VALID
 
 // A non-isolated nested region (the body of an unregistered test.test op) may
 // reference values from an enclosing region. Only IsolatedFromAbove ops, such as

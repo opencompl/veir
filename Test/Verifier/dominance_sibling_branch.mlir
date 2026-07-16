@@ -1,5 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
-// RUN: VEIR_MLIR_SAME_VERDICT
+// RUN: MLIR_INVALID
 
 // %x is defined in ^then and used in the sibling block ^else. Neither branch of
 // the conditional dominates the other, so the use in ^else is not dominated by

@@ -1,5 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
-// RUN: VEIR_MLIR_SAME_VERDICT
+// RUN: MLIR_INVALID
 
 // %x is defined in the loop body but used in the loop header. The header is
 // reachable from ^entry without going through ^body, so ^body does not dominate

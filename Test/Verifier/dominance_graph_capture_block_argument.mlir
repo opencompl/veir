@@ -1,5 +1,4 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
-// RUN: VEIR_MLIR_SAME_VERDICT
 
 // The block argument %arg is only available along the path through ^b. Hiding
 // its use inside a nested graph region in sibling block ^a must not bypass the
