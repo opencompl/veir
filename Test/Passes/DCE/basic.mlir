@@ -5,19 +5,19 @@
 "builtin.module"() ({
   
   // An operation that returns one unused result
-    "func.func"()  <{function_type = (i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64) -> (), sym_name = "foo"}> ({
       ^6(%1 : i64):
         %2 = "llvm.add"(%1, %1) : (i64, i64) -> i64
         "test.test"(%1) : (i64) -> ()
         // The unused %2 is removed; the sink stays right after the block header.
-        // CHECK:      "func.func"() <{"function_type" = (i64) -> ()}> ({
+        // CHECK:      "func.func"() <{"function_type" = (i64) -> (), "sym_name" = "foo"}> ({
         // CHECK-NEXT: ^{{.*}}(%{{.*}} : i64):
         // CHECK-NEXT: "test.test"(%{{.*}}) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
   
   // A chain of operations that is eventually unused
-    "func.func"()  <{function_type = () -> ()}> ({
+    "func.func"()  <{function_type = () -> (), sym_name = "bar"}> ({
       ^6():
         %1 = "arith.constant"() <{ "value" = 1 : i64 }> : () -> i64
         %2 = "llvm.add"(%1, %1) : (i64, i64) -> i64
@@ -32,7 +32,7 @@
     }) : () -> ()
   
   // A chain of operations that is eventually used
-    "func.func"()  <{function_type = () -> ()}> ({
+    "func.func"()  <{function_type = () -> (), sym_name = "baz"}> ({
       ^6():
         %1 = "arith.constant"() <{ "value" = 1 : i64 }> : () -> i64
         %2 = "llvm.add"(%1, %1) : (i64, i64) -> i64

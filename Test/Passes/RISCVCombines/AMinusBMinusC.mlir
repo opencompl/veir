@@ -4,7 +4,7 @@
 // subtraction turns the nested subtract into an add of the swapped difference.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i64, i64, i64) -> i64}> ({
+  "func.func"() <{function_type = (i64, i64, i64) -> i64, sym_name = "foo"}> ({
   ^bb0(%a: i64, %b: i64, %c: i64):
     %inner = "llvm.sub"(%b, %c) : (i64, i64) -> i64
     %r = "llvm.sub"(%a, %inner) : (i64, i64) -> i64
@@ -12,7 +12,7 @@
   }) : () -> ()
 
   // Negative case: the inner op is an add, not a sub, so the identity does not apply.
-  "func.func"() <{function_type = (i64, i64, i64) -> i64}> ({
+  "func.func"() <{function_type = (i64, i64, i64) -> i64, sym_name = "bar"}> ({
   ^bb0(%a: i64, %b: i64, %c: i64):
     %inner = "llvm.add"(%b, %c) : (i64, i64) -> i64
     %r = "llvm.sub"(%a, %inner) : (i64, i64) -> i64

@@ -1770,6 +1770,23 @@ theorem getArguments!.getElem_eq_getArgument
   simp only [getArguments!, getArgument]
   grind
 
+def getArgumentTypes (block : BlockPtr) (ctx : IRContext OpInfo)
+    (inBounds : block.InBounds ctx := by grind) : Array TypeAttr :=
+  (block.get ctx).arguments.map (·.type)
+
+def getArgumentTypes! (block : BlockPtr) (ctx : IRContext OpInfo) : Array TypeAttr :=
+  (block.get! ctx).arguments.map (·.type)
+
+@[grind =_, eq_bang ←]
+theorem getArgumentTypes!_eq_getArgumentTypes {block : BlockPtr} (hin : block.InBounds ctx) :
+    block.getArgumentTypes! ctx = block.getArgumentTypes ctx (by grind) := by
+  grind [getArgumentTypes, getArgumentTypes!, get!_eq_get]
+
+@[grind =]
+theorem getArgumentTypes!.size_eq_getNumArguments! {block : BlockPtr} :
+    (block.getArgumentTypes! ctx).size = block.getNumArguments! ctx := by
+  grind [getArgumentTypes!, getNumArguments!]
+
 def nextArgument (block : BlockPtr) (ctx : IRContext OpInfo)
     (inBounds: block.InBounds ctx := by grind) : BlockArgumentPtr :=
   getArgument block (block.getNumArguments ctx (by grind))
@@ -1961,6 +1978,19 @@ theorem block_of_mem_getArguments! {blockArg : BlockArgumentPtr} (blockArgIn : b
   · grind [BlockPtr.getArgument]
 
 end BlockArgumentPtr
+
+@[simp, grind =]
+theorem BlockPtr.getArgumentTypes!.getElem!_eq_getArgument {op : BlockPtr} :
+    index < op.getNumArguments! ctx →
+    (op.getArgumentTypes! ctx)[index]! = ((op.getArgument index).get! ctx).type := by
+  grind [BlockPtr.getNumArguments!, getArgumentTypes!, getArgument, BlockArgumentPtr.get!]
+
+@[simp, grind =]
+theorem BlockPtr.getArgumentTypes!.getElem_eq_getArgument
+    {block : BlockPtr} {h : index < (block.getArgumentTypes! ctx).size} :
+    index < block.getNumArguments! ctx →
+    (block.getArgumentTypes! ctx)[index]'h = ((block.getArgument index).get! ctx).type := by
+  grind [BlockPtr.getNumArguments!, getArgumentTypes!, getArgument, BlockArgumentPtr.get!]
 
 /-!
  ValuePtr accessors

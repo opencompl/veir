@@ -1,14 +1,16 @@
-// RUN: veir-opt %s --allow-unregistered-dialect | filecheck %s
+// RUN: not veir-opt %s --allow-unregistered-dialect 2>&1 | filecheck %s
 
 // A value name forward-referenced before its definition resolves to the FIRST textual
 // definition of that name, wherever it appears -- following MLIR's generic-form parser,
 // whose SSA name table is flat across regions. Here both uses of %a (the one in the function
 // body and the one inside the nested region) bind to the first definition, which is inside
 // the nested region; the later definition in the function body is an independent value.
+// For details see `ForwardValue` in `Veir.Parser.MlirParser`.
 //
-// Whether this is legal under dominance / IsolatedFromAbove is a verifier concern that MLIR
-// checks after parsing. Implementation in VeIR TBD. For details see `ForwardValue` in 
-// `Veir.Parser.MlirParser`.
+// That binding makes the outer use refer to a value defined in a nested region, which
+// is invalid SSA scoping, so the program parses but fails verification (mlir-opt also
+// rejects it). The error below only arises because the outer use was bound to the
+// nested definition rather than to the later definition in the function body.
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> ()}> ({
@@ -24,10 +26,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// Both uses bind to the first (nested) definition ...
-// CHECK:        "test.use"(%[[A:.*]]) : (i32) -> ()
-// CHECK:            "test.use"(%[[A]]) : (i32) -> ()
-// CHECK-NEXT:       %[[A]] = "test.def"() : () -> i32
-// ... and the later definition is an independent value.
-// CHECK:        %[[B:.*]] = "test.def"() : () -> i32
-// CHECK-NOT:    %[[A]] =
+// CHECK: uses a value defined outside the isolated region that encloses its use

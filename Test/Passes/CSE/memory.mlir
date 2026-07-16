@@ -1,7 +1,7 @@
 // RUN: veir-opt %s -p=cse | filecheck %s
 
 "builtin.module"() ({
-  "llvm.func"()  <{function_type = !llvm.func<void (!llvm.ptr)>}> ({
+  "llvm.func"()  <{function_type = !llvm.func<void (!llvm.ptr)>, sym_name = "foo"}> ({
 ^bb0(%ptr : !llvm.ptr):
     %load0 = "llvm.load"(%ptr) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
     %load1 = "llvm.load"(%ptr) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32

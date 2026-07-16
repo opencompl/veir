@@ -8,7 +8,7 @@
 
 "builtin.module"() ({
     // or x (1 << 40) -> riscv.bseti x 40
-    "func.func"() <{function_type = (i64) -> i64}> ({
+    "func.func"() <{function_type = (i64) -> i64, sym_name = "f0"}> ({
     ^bb(%a: i64):
         %c = "llvm.mlir.constant"() <{value = 1099511627776 : i64}> : () -> i64
         %r = "llvm.or"(%a, %c) : (i64, i64) -> i64
@@ -17,7 +17,7 @@
     }) : () -> ()
 
     // xor x (1 << 40) -> riscv.binvi x 40
-    "func.func"() <{function_type = (i64) -> i64}> ({
+    "func.func"() <{function_type = (i64) -> i64, sym_name = "f1"}> ({
     ^bb(%a: i64):
         %c = "llvm.mlir.constant"() <{value = 1099511627776 : i64}> : () -> i64
         %r = "llvm.xor"(%a, %c) : (i64, i64) -> i64
@@ -26,7 +26,7 @@
     }) : () -> ()
 
     // and x (~(1 << 40)) -> riscv.bclri x 40
-    "func.func"() <{function_type = (i64) -> i64}> ({
+    "func.func"() <{function_type = (i64) -> i64, sym_name = "f2"}> ({
     ^bb(%a: i64):
         %c = "llvm.mlir.constant"() <{value = -1099511627777 : i64}> : () -> i64
         %r = "llvm.and"(%a, %c) : (i64, i64) -> i64
@@ -35,7 +35,7 @@
     }) : () -> ()
 
     // and (lshr x 5) 1 -> riscv.bexti x 5
-    "func.func"() <{function_type = (i64) -> i64}> ({
+    "func.func"() <{function_type = (i64) -> i64, sym_name = "f3"}> ({
     ^bb(%a: i64):
         %sh = "llvm.mlir.constant"() <{value = 5 : i64}> : () -> i64
         %one = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64
@@ -46,7 +46,7 @@
     }) : () -> ()
 
     // Single-bit mask that DOES fit imm12: handled by ori, not bseti.
-    "func.func"() <{function_type = (i64) -> i64}> ({
+    "func.func"() <{function_type = (i64) -> i64, sym_name = "f4"}> ({
     ^bb(%a: i64):
         %c = "llvm.mlir.constant"() <{value = 1024 : i64}> : () -> i64
         %r = "llvm.or"(%a, %c) : (i64, i64) -> i64

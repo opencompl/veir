@@ -2,7 +2,7 @@
 
 "builtin.module"() ({
   ^4():
-    "func.func"()  <{function_type = (i32) -> ()}> ({
+    "func.func"()  <{function_type = (i32) -> (), sym_name = "foo"}> ({
       ^6(%arg6_0 : i32):
         "riscv_cf.branch"(%arg6_0) [^7] : (i32) -> ()
       ^7(%arg7_0 : i32):
@@ -20,7 +20,7 @@
 
 // CHECK:      "builtin.module"() ({
 // CHECK-NEXT:   ^{{.*}}():
-// CHECK-NEXT:     "func.func"() <{"function_type" = (i32) -> ()}> ({
+// CHECK-NEXT:     "func.func"() <{"function_type" = (i32) -> (), "sym_name" = "foo"}> ({
 // CHECK-NEXT:       ^{{.*}}(%{{.*}} : i32):
 // CHECK-NEXT:         "riscv_cf.branch"(%{{.*}}) [^[[b_blt:.*]]] : (i32) -> ()
 // CHECK-NEXT:       ^[[b_blt]](%{{.*}} : i32):

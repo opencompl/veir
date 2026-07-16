@@ -6,14 +6,14 @@
 // fed by a `riscv.zextw`.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> ()}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> (), sym_name = "foo"}> ({
   ^bb0(%addr: !riscv.reg, %val: !riscv.reg):
     %zval = "riscv.zextw"(%val) : (!riscv.reg) -> !riscv.reg
     "riscv.sw"(%addr, %zval) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
     "func.return"() : () -> ()
   }) : () -> ()
 
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> ()}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> (), sym_name = "bar"}> ({
   ^bb0(%addr: !riscv.reg, %val: !riscv.reg):
     %zaddr = "riscv.zextw"(%addr) : (!riscv.reg) -> !riscv.reg
     %zval = "riscv.zextw"(%val) : (!riscv.reg) -> !riscv.reg
