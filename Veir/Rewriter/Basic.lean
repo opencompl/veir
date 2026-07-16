@@ -323,7 +323,7 @@ theorem Rewriter.detachBlockOperands_fieldsInBounds :
     ctx.spec.FieldsInBounds → (detachBlockOperands ctx op hCtx hOp hCap).spec.FieldsInBounds := by
   grind [detachBlockOperands_def, detachBlockOperandsSim]
 
-buffed
+buffed (inline := false)
 def Rewriter.eraseOpSim (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr)
     (hCtx : ctx.spec.FieldsInBounds := by grind)
     (hOp : op.InBounds ctx := by grind)
