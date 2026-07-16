@@ -158,7 +158,10 @@ partial def visit (code : Code .pure) : GatherM Unit := do
         if x ∉ (←get).constructed then
           unmarkJpConstrVar jp i
     pure ()
-  | .return _ => pure ()
+  | .return fvarId =>
+    -- A returned variable is consumed as a whole value, so it must keep its
+    -- constructor form (it cannot be flattened into its components).
+    removeOnlyCase fvarId
   | .unreach _ => pure ()
 
 def shouldModifyJp (jp : FVarId) : GatherM (Option (HashSet Nat)) := do
