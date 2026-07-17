@@ -719,6 +719,7 @@ partial def parseRegion : MlirParserM RegionPtr := do
 
   /- Case where there are no blocks inside the region. -/
   if (← parseOptionalPunctuation "}") then
+    modifyThe MlirParserState fun s => {s with blocks := oldBlocks}
     return region
 
   /- Parse the first block separately, as it may not have a label. -/
