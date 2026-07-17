@@ -1,6 +1,9 @@
-import Veir.Parser.Parser
-import Veir.IR.Basic
-import Veir.IR.Attribute
+module
+
+public import Veir.Parser.Parser
+public import Veir.IR.Attribute
+
+public section
 
 open Veir.Parser.Lexer
 open Veir.Parser
@@ -701,7 +704,7 @@ partial def parseOptionalLLVMFunctionType : AttrParserM (Option TypeAttr) := do
     | .type ty => some ty.val
     | .ellipsis => none
   let ft := FunctionType.mk paramTypes #[result.val] isVarArg
-  return some ⟨.llvmFunctionType ft, by rfl⟩
+  return some ⟨.llvmFunctionType ft, by simp⟩
 
 /--
   Parse a type, if present.

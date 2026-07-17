@@ -1,14 +1,16 @@
-import Veir.Parser.Parser
+module
+
+public import Veir.Parser.Parser
+public import Veir.GlobalOpInfo
+public import Veir.IR.WellFormed
+public import Veir.Rewriter.InsertPoint
+
 import Veir.Parser.AttrParser
 import Veir.Parser.DecidableInBounds
-import Veir.IR.Basic
-import Veir.Rewriter.InsertPoint
-import Veir.Rewriter.Basic
-import Veir.Rewriter.GetSet
 import Veir.Rewriter.WellFormed
 import Veir.Rewriter.WfRewriter
-import Veir.Properties
-import Veir.GlobalOpInfo
+
+public section
 
 open Veir.Parser.Lexer
 open Veir.Parser
