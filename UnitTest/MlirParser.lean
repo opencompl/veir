@@ -168,6 +168,21 @@ def testParseOp (s : String) : IO Unit :=
 /--
   info: "builtin.module"() ({
   ^4():
+    "test.test"() [^5] ({    }) : () -> ()
+  ^5():
+    "test.test"() : () -> ()
+}) : () -> ()-/
+#guard_msgs in
+#eval! testParseOp "\"builtin.module\"() ({
+^bb0:
+  \"test.test\"() [^bb1] ({}) : () -> ()
+^bb1:
+  \"test.test\"() : () -> ()
+}) : () -> ()"
+
+/--
+  info: "builtin.module"() ({
+  ^4():
     %5:2 = "test.test"() : () -> (i32, i64)
 }) : () -> ()
 -/
