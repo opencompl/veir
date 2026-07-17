@@ -1,9 +1,14 @@
-import Veir.Interpreter.Basic
-import Veir.Dominance
-import Veir.Interpreter.Refinement.Basic
-import Veir.Verifier
+module
+
+public import Veir.Interpreter.Basic
+public import Veir.Dominance
+public import Veir.Verifier
+public import Veir.Interpreter.Refinement.Basic
+
+import all Veir.Interpreter.Basic
 
 namespace Veir
+public section
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 variable {ctx ctx' : WfIRContext OpInfo}
@@ -182,7 +187,7 @@ theorem VariableState.getVar?_setResultValues?_of_value_inBounds
 
 theorem VariableState.getVar?_setArgumentValues?_loop {block : BlockPtr}
     {values : Array RuntimeValue} {i : Nat} {iInBounds blockInBounds} :
-    VariableState.setArgumentValues?.loop block values blockInBounds varState i iInBounds = some varState' →
+    VariableState.setArgumentValues?_loop varState block values i blockInBounds iInBounds = some varState' →
     varState'.getVar? value =
     match value with
     | .blockArgument ⟨block', index⟩ =>
@@ -192,7 +197,7 @@ theorem VariableState.getVar?_setArgumentValues?_loop {block : BlockPtr}
         varState.getVar? value
     | _ =>
       varState.getVar? value := by
-  fun_induction VariableState.setArgumentValues?.loop
+  fun_induction VariableState.setArgumentValues?_loop
   next => grind
   next =>
     simp only [Option.bind_eq_bind, Nat.succ_eq_add_one, Option.bind]
@@ -240,8 +245,8 @@ type. -/
 theorem VariableState.setArgumentValues?_loop_isSome_iff {block : BlockPtr}
     {values : Array RuntimeValue} {i : Nat} {iInBounds blockInBounds} :
     (∀ j, j < i → (values[j]!).Conforms ((block.getArgument j : ValuePtr).getType! ctx.raw)) ↔
-    (∃ v, VariableState.setArgumentValues?.loop block values blockInBounds varState i iInBounds = some v) := by
-  fun_induction VariableState.setArgumentValues?.loop
+    (∃ v, VariableState.setArgumentValues?_loop varState block values i blockInBounds iInBounds = some v) := by
+  fun_induction VariableState.setArgumentValues?_loop
   next => grind
   next varState hin k hk arg value ih =>
     simp only [Option.bind_eq_bind, Option.bind]
@@ -251,7 +256,7 @@ theorem VariableState.setArgumentValues?_loop_isSome_iff {block : BlockPtr}
       simp only [← ih]
       grind
     · rintro ⟨v, hv⟩ j hj
-      rcases hsv : hin.setVar? (ValuePtr.blockArgument arg) value with _ | varState'
+      rcases hsv : varState.setVar? (ValuePtr.blockArgument arg) value with _ | varState'
       · grind
       · grind [ih varState']
 
