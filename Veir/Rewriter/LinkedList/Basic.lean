@@ -34,7 +34,7 @@ variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo]
 variable {ctx : Sim.IRContext OpInfo}
 
 /- Use def chain for operands. -/
-buffed
+buffed (inline := false)
 def Sim.OpOperandPtr.removeFromCurrentSim (ctx: Sim.IRContext OpInfo) (operandPtr: Sim.OpOperandPtr)
     (operandIn: operandPtr.InBounds ctx := by grind)
     (ctxInBounds: ctx.spec.FieldsInBounds := by grind) : Sim.IRContext OpInfo :=

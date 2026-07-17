@@ -388,7 +388,7 @@ theorem Rewriter.replaceUse_fieldsInBounds :
      ctx.spec.FieldsInBounds → (replaceUse ctx use newValue useIn newIn ctxIn).spec.FieldsInBounds := by
   grind [replaceUse_def, replaceUseSim]
 
-buffed
+buffed (inline := false)
 def Rewriter.replaceValue?Sim (ctx: Sim.IRContext OpInfo) (oldValue: Sim.ValuePtr) (newValue: Sim.ValuePtr)
     (oldIn : oldValue.InBounds ctx := by grind [generic_ptr_grind])
     (newIn : newValue.InBounds ctx := by grind [generic_ptr_grind])
