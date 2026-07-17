@@ -93,7 +93,7 @@ def parseArgs (args : List String) : Except String VeirOptArgs := do
     | .error "Expected exactly one positional argument for the input filename."
 
   if filename == "-" then
-    return { filename := none, passes := pipeline, allowUnregisteredDialect, disableVerifiers}
+    return { filename := none, passes := pipeline, allowUnregisteredDialect, disableVerifiers }
 
   return { filename := some filename, passes := pipeline, allowUnregisteredDialect, disableVerifiers }
 
