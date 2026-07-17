@@ -4,3 +4,7 @@
 "builtin.module"() ({
 
 }, {}) : () -> ()
+
+// RUN: veir-opt --disable-verifiers %s 2>&1 | filecheck --check-prefix=CHECK-NO-VERIFY %s
+
+// CHECK-NO-VERIFY: "builtin.module"() ({}, {}) : () -> ()

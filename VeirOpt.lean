@@ -50,6 +50,8 @@ structure VeirOptArgs where
   passes : PassPipeline OpCode
   /-- Whether to accept ops/types/attrs from unregistered dialects. -/
   allowUnregisteredDialect : Bool
+  /-- Whether to disable IR verification -/
+  disableVerifiers : Bool
 
 /--
   Parse the `-p` flag to construct a pass pipeline.
@@ -77,20 +79,23 @@ def parseArgs (args : List String) : Except String VeirOptArgs := do
   -- Consume `--allow-unregistered-dialect` if present.
   let allowUnregisteredDialect := flags.contains "--allow-unregistered-dialect"
   let flags := flags.filter (· != "--allow-unregistered-dialect")
+  -- Consume `--disable-verifiers` if present.
+  let disableVerifiers := flags.contains "--disable-verifiers"
+  let flags := flags.filter (· != "--disable-verifiers")
   -- If anything survived, it was unrecognized and we error out.
   if let some flag := flags.head? then
     .error s!"Unrecognized flag '{flag}'."
 
   if positional.length == 0 then -- read from stdin
-    return { filename := none, passes := pipeline, allowUnregisteredDialect }
+    return { filename := none, passes := pipeline, allowUnregisteredDialect, disableVerifiers }
 
   let [filename] := positional
     | .error "Expected exactly one positional argument for the input filename."
 
   if filename == "-" then
-    return { filename := none, passes := pipeline, allowUnregisteredDialect }
+    return { filename := none, passes := pipeline, allowUnregisteredDialect, disableVerifiers}
 
-  return { filename := some filename, passes := pipeline, allowUnregisteredDialect }
+  return { filename := some filename, passes := pipeline, allowUnregisteredDialect, disableVerifiers }
 
 def getFileContent (filename : Option String) : ExceptT String IO ByteArray := do
   if let some f := filename then
@@ -126,22 +131,21 @@ def main (args : List String) : IO Unit := do
   match parseArgs args with
   | .error errMsg =>
     IO.eprintln s!"Error: {errMsg}"
-    IO.eprintln "Usage: veir-opt <filename> [-p=\"pass1,pass2,...\"] [--allow-unregistered-dialect]"
+    IO.eprintln "Usage: veir-opt <filename> [-p=\"pass1,pass2,...\"] [--allow-unregistered-dialect] [--disable-verifiers]"
     IO.Process.exit 1
-  | .ok { filename, passes, allowUnregisteredDialect } =>
+  | .ok { filename, passes, allowUnregisteredDialect, disableVerifiers } =>
     match ← parseOperation filename allowUnregisteredDialect with
     | .error errMsg =>
       IO.eprintln errMsg
       IO.Process.exit 1
     | .ok (ctx, op) =>
-      match ctx.verify with
-      | .error errMsg =>
-        IO.eprintln s!"Error verifying input program: {errMsg}"
-        IO.Process.exit 1
-      | .ok _ =>
-        match ← passes.run ⟨ctx, by sorry⟩ op with
-        | .error errMsg =>
-          IO.eprintln s!"Error: {errMsg}"
+      if !disableVerifiers then
+        if let .error errMsg := ctx.verify then
+          IO.eprintln s!"Error verifying input program: {errMsg}"
           IO.Process.exit 1
-        | .ok finalCtx =>
-          Veir.Printer.printOperation finalCtx op
+      match ← passes.run ⟨ctx, by sorry⟩ op disableVerifiers with
+      | .error errMsg =>
+        IO.eprintln s!"Error: {errMsg}"
+        IO.Process.exit 1
+      | .ok finalCtx =>
+        Veir.Printer.printOperation finalCtx op
