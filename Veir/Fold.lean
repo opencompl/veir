@@ -1,11 +1,10 @@
 import Veir.Interpreter.Basic
-import Veir.PatternRewriter.Basic
 
 /-!
   # Constant folding infrastructure
 
-  Folding infrastructure in the style of MLIR's `fold`/`createOrFold`, with one
-  important difference: the folded values are computed by the interpreter
+  Pure folding infrastructure in the style of MLIR's `fold`, with one important
+  difference: the folded values are computed by the interpreter
   (`interpretOp'`), which defines the semantics of each operation, instead of by
   per-operation reimplementations of the semantics.
 
@@ -27,9 +26,8 @@ import Veir.PatternRewriter.Basic
     the value the operation would produce at runtime. If the interpreter
     signals UB the operation folds to `poison` (which UB refines).
 
-  Folded results are materialized as `arith.constant` / `llvm.mlir.constant`
-  ops (depending on the dialect of the folded operation), and poison results as
-  `llvm.mlir.poison`.
+  This module never mutates the IR. Constant materialization, `createOrFold`,
+  and rewrite patterns live in `Veir.Fold.Rewriter`.
 -/
 
 namespace Veir
@@ -480,113 +478,55 @@ def foldEvaluate (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode)
   else return results
 
 /--
-  Materialize a runtime value as a constant-like operation at the given
-  insertion point. Concrete integers become `arith.constant`, or
-  `llvm.mlir.constant` when the folded operation `forOp` belongs to the `llvm`
-  dialect. Poison becomes `llvm.mlir.poison` (the only poison-producing
-  constant available). Register values become `riscv.li`.
--/
-def PatternRewriter.materializeConstant! (rewriter : PatternRewriter OpCode)
-    (rv : RuntimeValue) (resType : TypeAttr) (forOp : OpCode) (ip : InsertPoint)
-    : Option (PatternRewriter OpCode × OperationPtr) :=
-  match rv with
-  | .int bw (.val v) =>
-    match forOp with
-    | .llvm _ =>
-      let properties : LLVMConstantProperties :=
-        { value := .integer (IntegerAttr.mk v.toInt (IntegerType.mk bw)) }
-      rewriter.createOp! (.llvm .mlir__constant) #[resType] #[] #[] #[] properties (some ip)
-    | .mod_arith _ =>
-      -- `v` is a canonical residue in `[0, q)`, stored with the modulus'
-      -- storage type (read off the `!mod_arith.int` result type).
-      match resType.val with
-      | .modArithType mt =>
-        let properties : ModArithConstantProperties :=
-          { value := IntegerAttr.mk v.toNat mt.modulus.type }
-        rewriter.createOp! (.mod_arith .constant) #[resType] #[] #[] #[] properties (some ip)
-      | _ => none
-    | _ =>
-      let properties : ArithConstantProperties :=
-        { value := IntegerAttr.mk v.toInt (IntegerType.mk bw) }
-      rewriter.createOp! (.arith .constant) #[resType] #[] #[] #[] properties (some ip)
-  | .int _ .poison =>
-    rewriter.createOp! (.llvm .mlir__poison) #[resType] #[] #[] #[] () (some ip)
-  | .reg r =>
-    let properties : RISCVImmediateProperties :=
-      { value := IntegerAttr.mk r.val.toInt (IntegerType.mk 64) }
-    rewriter.createOp! (.riscv .li) #[resType] #[] #[] #[] properties (some ip)
-  | _ => none
+  The resolved decision of whether and how an operation folds.
 
-/--
-  Detached counterpart of `PatternRewriter.materializeConstant!`, for use by
-  `LocalRewritePattern`s. The returned operation is in the returned context but
-  is not linked into a block; `RewritePattern.fromLocalRewrite` performs the
-  insertion after the local pattern succeeds.
--/
-def WfRewriter.materializeConstant! (ctx : WfIRContext OpCode)
-    (rv : RuntimeValue) (resType : TypeAttr) (forOp : OpCode) :
-    Option (WfIRContext OpCode × OperationPtr) :=
-  match rv with
-  | .int bw (.val v) =>
-    match forOp with
-    | .llvm _ =>
-      let properties : LLVMConstantProperties :=
-        { value := .integer (IntegerAttr.mk v.toInt (IntegerType.mk bw)) }
-      WfRewriter.createOp! ctx (.llvm .mlir__constant) #[resType] #[] #[] #[] properties none
-    | .mod_arith _ =>
-      match resType.val with
-      | .modArithType mt =>
-        let properties : ModArithConstantProperties :=
-          { value := IntegerAttr.mk v.toNat mt.modulus.type }
-        WfRewriter.createOp! ctx (.mod_arith .constant) #[resType] #[] #[] #[] properties none
-      | _ => none
-    | _ =>
-      let properties : ArithConstantProperties :=
-        { value := IntegerAttr.mk v.toInt (IntegerType.mk bw) }
-      WfRewriter.createOp! ctx (.arith .constant) #[resType] #[] #[] #[] properties none
-  | .int _ .poison =>
-    WfRewriter.createOp! ctx (.llvm .mlir__poison) #[resType] #[] #[] #[] () none
-  | .reg r =>
-    let properties : RISCVImmediateProperties :=
-      { value := IntegerAttr.mk r.val.toInt (IntegerType.mk 64) }
-    WfRewriter.createOp! ctx (.riscv .li) #[resType] #[] #[] #[] properties none
-  | _ => none
-
-/--
-  Replace all uses of the single result of `op` with `newVal` and erase `op`.
-  Panics if `op` does not have exactly one result, if `newVal` is that result,
-  or if anything is out of bounds — verified IR reaching this through
-  `foldOperation` satisfies all of these.
--/
-def PatternRewriter.replaceOpWithValue! {OpInfo : Type} [HasOpInfo OpInfo]
-    (rewriter : PatternRewriter OpInfo)
-    (op : OperationPtr) (newVal : ValuePtr) : PatternRewriter OpInfo :=
-  let rewriter := rewriter.replaceValue! (op.getResult 0) newVal
-  rewriter.eraseOp! op
-
-/--
-  The resolved decision of whether and how an operation folds, shared by
-  `foldOperation` (folding existing operations) and
-  `PatternRewriter.createOrFoldOp!` (folding at creation time).
+  This is the pure interface consumed by both data-flow analyses and rewriting
+  clients. It never changes the IR or materializes a constant operation.
 -/
 inductive FoldDecision where
   /-- Use operand `j` in place of the result. -/
   | useOperand (j : Nat)
-  /-- Materialize `rv` as a constant and use it in place of the result. -/
+  /-- Use the runtime constant `rv` in place of the result. -/
   | useConstant (rv : RuntimeValue)
-  /-- The operation does not fold. -/
+  /-- The operation does not fold with the supplied operand information. -/
   | noFold
 
 /--
-  Decide whether an operation folds, given its opcode, properties, result
-  types, and the values of its constant-defined operands. This resolves the
-  `FoldOutcome` reported by `OpCode.foldsTo`: `.evaluate` outcomes are
-  computed with the interpreter, and interpreter-reported UB becomes a poison
-  constant (which UB refines).
+Whether a runtime value can represent a folded result of the given type.
+Modular integers use an `.int` runtime value with the modulus storage width,
+even though the interpreter's general `RuntimeValue.Conforms` relation keeps
+`.int` exclusive to ordinary `integerType`s.
+-/
+def RuntimeValue.conformsFoldResult (rv : RuntimeValue) (resultType : TypeAttr) : Prop :=
+  match rv, resultType.val with
+  | .int bw _, .modArithType modType => modType.modulus.type.bitwidth = bw
+  | _, _ => rv.Conforms resultType
 
-  Folding is restricted to single-result operations; this also excludes
-  structural ops (module, functions, terminators), and every op `foldsTo` can
-  answer for is verified to have no regions and no successors.
+instance : Decidable (RuntimeValue.conformsFoldResult rv resultType) := by
+  unfold RuntimeValue.conformsFoldResult
+  split <;> infer_instance
+
+/-- Return a constant decision only when `rv` conforms to the sole result type. -/
+private def conformingConstantDecision
+    (resultTypes : Array TypeAttr) (rv : RuntimeValue) : FoldDecision :=
+  match resultTypes[0]? with
+  | some resultType =>
+    if rv.conformsFoldResult resultType then .useConstant rv else .noFold
+  | none => .noFold
+
+/--
+  Decide whether an operation folds, given its opcode, properties, result
+  types, and the values of its known-constant operands. This resolves the
+  `FoldOutcome` reported by `OpCode.foldsTo`: `.evaluate` outcomes are computed
+  with the interpreter, and interpreter-reported UB becomes a poison constant.
+
+  Unknown operands are represented by `none`. A data-flow client may use that
+  representation for either an uninitialized or an overdefined lattice value;
+  after `.noFold`, the client retains responsibility for deciding whether to
+  wait for more information or move its result to top.
+
+  Folding is restricted to single-result operations. Returned operand indices
+  and runtime constants are validated before they are exposed to callers.
 -/
 def foldDecision (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue))
@@ -595,89 +535,38 @@ def foldDecision (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
   if resultTypes.size ≠ 1 then .noFold else
   match OpCode.foldsTo opType properties resultTypes constOperands with
   | none => .noFold
-  | some (.operand j) => .useOperand j
-  | some (.constant rv) => .useConstant rv
+  | some (.operand j) =>
+    if j < constOperands.size then .useOperand j else .noFold
+  | some (.constant rv) => conformingConstantDecision resultTypes rv
   | some .evaluate =>
     -- `.evaluate` is only answered when every operand is a known constant.
     let values := constOperands.map (·.get!)
     match (foldEvaluate opType properties resultTypes values : Option (UBOr _)) with
     | none => .noFold
     | some (.ok results) =>
-      if results.size = 1 then .useConstant results[0]! else .noFold
+      match results.toList with
+      | [result] => conformingConstantDecision resultTypes result
+      | _ => .noFold
     | some .ub =>
       -- The operation triggers UB whenever it is executed: fold to poison.
       match resultTypes[0]!.val with
-      | .integerType intTy => .useConstant (.int intTy.bitwidth .poison)
+      | .integerType intTy =>
+        conformingConstantDecision resultTypes (.int intTy.bitwidth .poison)
       | _ => .noFold
 
 /--
-  Rewrite pattern that folds an existing operation, replacing it with one of
-  its operands or with a materialized constant.
+Read-only convenience wrapper around `foldDecision` for an existing operation.
+The supplied constant array remains explicit so SCCP can provide constants
+inferred from lattice facts rather than only constants materialized in the IR.
 -/
-def foldOperationLocal (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  if _ : op.InBounds ctx.raw then
-    let opType := op.getOpType! ctx.raw
-    let operands := op.getOperands! ctx.raw
-    let resultTypes := op.getResultTypes! ctx.raw
-    let constOperands := operands.map (ValuePtr.constantValue · ctx.raw)
-    match foldDecision opType (op.getProperties! ctx.raw opType) resultTypes constOperands with
-    | .noFold => some (ctx, none)
-    | .useOperand j =>
-      match operands[j]? with
-      | some operand => some (ctx, some (#[], #[operand]))
-      | none => some (ctx, none)
-    | .useConstant rv => do
-      let some resultType := resultTypes[0]? | return (ctx, none)
-      let (ctx, newOp) ← WfRewriter.materializeConstant! ctx rv resultType opType
-      return (ctx, some (#[newOp], #[newOp.getResult 0]))
-  else some (ctx, none)
-
-/-- Rewrite-pattern wrapper around the semantics-friendly local folding pattern. -/
-def foldOperation (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite foldOperationLocal rewriter op opInBounds
-
-/--
-  Create an operation at the given insertion point, unless it can be folded,
-  in which case no operation is created and the folded values are returned
-  instead. This is the analog of MLIR's `OpBuilder::createOrFold`, restricted
-  to operations without regions or block operands.
-
-  Returns the values to use in place of the operation's results.
--/
-def PatternRewriter.createOrFoldOp! (rewriter : PatternRewriter OpCode) (opType : OpCode)
-    (resultTypes : Array TypeAttr) (operands : Array ValuePtr)
-    (properties : HasOpInfo.propertiesOf opType) (insertionPoint : InsertPoint)
-    : Option (PatternRewriter OpCode × Array ValuePtr) := do
-  let constOperands := operands.map (ValuePtr.constantValue · rewriter.ctx.raw)
-  match foldDecision opType properties resultTypes constOperands with
-  | .useOperand j =>
-    return (rewriter, #[operands[j]!])
-  | .useConstant rv =>
-    let (rewriter, newOp) ← rewriter.materializeConstant! rv resultTypes[0]!
-      opType insertionPoint
-    return (rewriter, newOp.getResults! rewriter.ctx.raw)
-  | .noFold =>
-    let (rewriter, newOp) ← rewriter.createOp! opType resultTypes operands
-      #[] #[] properties (some insertionPoint)
-    return (rewriter, newOp.getResults! rewriter.ctx.raw)
-
-/--
-  Create or fold an operation, replace `oldOp` with the resulting values, and
-  erase `oldOp`. The result counts must agree; folding itself remains restricted
-  to single-result operations, while the no-fold path supports multiple results.
--/
-def PatternRewriter.createOrFoldAndReplaceOp! (rewriter : PatternRewriter OpCode)
-    (oldOp : OperationPtr) (opType : OpCode) (resultTypes : Array TypeAttr)
-    (operands : Array ValuePtr) (properties : HasOpInfo.propertiesOf opType)
-    (insertionPoint : InsertPoint) : Option (PatternRewriter OpCode) := do
-  let (rewriter, newValues) ←
-    rewriter.createOrFoldOp! opType resultTypes operands properties insertionPoint
-  guard (oldOp.getNumResults! rewriter.ctx.raw == newValues.size)
-  let mut rewriter := rewriter
-  for h : i in 0...newValues.size do
-    rewriter := rewriter.replaceValue! (oldOp.getResult i) newValues[i]
-  return rewriter.eraseOp! oldOp
+def foldDecisionForOp (op : OperationPtr)
+    (constOperands : Array (Option RuntimeValue))
+    (ctx : IRContext OpCode) : FoldDecision :=
+  if constOperands.size ≠ op.getNumOperands! ctx then
+    .noFold
+  else
+    let opType := op.getOpType! ctx
+    foldDecision opType (op.getProperties! ctx opType)
+      (op.getResultTypes! ctx) constOperands
 
 end Veir

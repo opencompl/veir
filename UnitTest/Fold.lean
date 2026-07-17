@@ -1,10 +1,45 @@
 import UnitTest.DataFlowFramework.Helpers
 
-import Veir.Fold
+import Veir.Fold.Rewriter
 
 /-! Tests for `PatternRewriter.createOrFoldOp!`. -/
 
 open Veir
+
+private def testRuntimeValueExactBEq : String :=
+  let nan := RuntimeValue.float 64 (Float.ofBits 0x7ff8000000000001)
+  let positiveZero := RuntimeValue.float 64 (Float.ofBits 0x0000000000000000)
+  let negativeZero := RuntimeValue.float 64 (Float.ofBits 0x8000000000000000)
+  if nan != nan then
+    "a NaN runtime value was not bit-equal to itself"
+  else if positiveZero == negativeZero then
+    "positive and negative floating-point zero compared bit-equal"
+  else if RuntimeValue.int 8 (.val 0) == RuntimeValue.int 16 (.val 0) then
+    "integers with different bitwidths compared equal"
+  else
+    "ok"
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testRuntimeValueExactBEq
+
+private def testFoldDecisionRejectsNonconformingConstant : String :=
+  let i32 : TypeAttr := IntegerType.mk 32
+  -- The `muli(_, 0)` table entry gets its constant width from the operand.
+  -- Supplying an inconsistent i64 operand for an i32 result must not leak an
+  -- ill-typed constant decision through the public API.
+  match foldDecision (.arith .muli) default #[i32]
+      #[none, some (.int 64 (.val 0))] with
+  | .noFold => "ok"
+  | _ => "accepted a folding constant that does not conform to the result type"
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testFoldDecisionRejectsNonconformingConstant
 
 /-- Find all operations with the given opcode. -/
 private def findOps (ctx : IRContext OpCode) (opType : OpCode) : Array OperationPtr := Id.run do

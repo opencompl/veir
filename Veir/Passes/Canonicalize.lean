@@ -1,7 +1,7 @@
 import Veir.Pass
 import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
-import Veir.Fold
+import Veir.Fold.Rewriter
 
 namespace Veir
 
