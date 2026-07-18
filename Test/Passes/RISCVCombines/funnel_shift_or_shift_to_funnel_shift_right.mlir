@@ -4,7 +4,7 @@
 // plain shift is subsumed by the funnel shift.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i32, i32, i32) -> i32}> ({
+  "func.func"() <{function_type = (i32, i32, i32) -> i32, sym_name = "foo"}> ({
   ^bb0(%z: i32, %x: i32, %y: i32):
     %f = "llvm.intr.fshr"(%z, %x, %y) : (i32, i32, i32) -> i32
     %s = "llvm.lshr"(%x, %y) : (i32, i32) -> i32
@@ -13,7 +13,7 @@
   }) : () -> ()
 
   // Commuted operand order: lshr on the left, fshr on the right.
-  "func.func"() <{function_type = (i32, i32, i32) -> i32}> ({
+  "func.func"() <{function_type = (i32, i32, i32) -> i32, sym_name = "bar"}> ({
   ^bb0(%z: i32, %x: i32, %y: i32):
     %f = "llvm.intr.fshr"(%z, %x, %y) : (i32, i32, i32) -> i32
     %s = "llvm.lshr"(%x, %y) : (i32, i32) -> i32
@@ -23,7 +23,7 @@
 
   // Negative case: the lshr base differs from the funnel-shift data operand, so the
   // OR stays.
-  "func.func"() <{function_type = (i32, i32, i32, i32) -> i32}> ({
+  "func.func"() <{function_type = (i32, i32, i32, i32) -> i32, sym_name = "baz"}> ({
   ^bb0(%z: i32, %x: i32, %y: i32, %w: i32):
     %f = "llvm.intr.fshr"(%z, %x, %y) : (i32, i32, i32) -> i32
     %s = "llvm.lshr"(%w, %y) : (i32, i32) -> i32

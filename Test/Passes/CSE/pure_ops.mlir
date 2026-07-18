@@ -1,7 +1,7 @@
 // RUN: veir-opt %s -p=cse --allow-unregistered-dialect | filecheck %s
 
 "builtin.module"() ({
-  "llvm.func"()  <{function_type = !llvm.func<void (i32, i32)>}> ({
+  "llvm.func"()  <{function_type = !llvm.func<void (i32, i32)>, sym_name = "foo"}> ({
 ^bb0(%arg0 : i32, %arg1 : i32):
     // Pure integer divs and remainders are non-commutative; duplicates with
     // the same operands merge, swapped operands stay distinct. Soundness

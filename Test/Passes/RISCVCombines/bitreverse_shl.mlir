@@ -4,7 +4,7 @@
 // again equals a single logical right shift.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i64, i64) -> i64}> ({
+  "func.func"() <{function_type = (i64, i64) -> i64, sym_name = "foo"}> ({
   ^bb0(%x: i64, %y: i64):
     %bx = "llvm.intr.bitreverse"(%x) : (i64) -> i64
     %s = "llvm.shl"(%bx, %y) : (i64, i64) -> i64
@@ -13,7 +13,7 @@
   }) : () -> ()
 
   // Negative case: the inner value is not a bitreverse, so the pattern does not fire.
-  "func.func"() <{function_type = (i64, i64) -> i64}> ({
+  "func.func"() <{function_type = (i64, i64) -> i64, sym_name = "bar"}> ({
   ^bb0(%x: i64, %y: i64):
     %s = "llvm.shl"(%x, %y) : (i64, i64) -> i64
     %r = "llvm.intr.bitreverse"(%s) : (i64) -> i64

@@ -5,14 +5,14 @@
 // dead condition) can be dropped.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i1, i64) -> i64}> ({
+  "func.func"() <{function_type = (i1, i64) -> i64, sym_name = "foo"}> ({
   ^bb0(%c: i1, %x: i64):
     %r = "llvm.select"(%c, %x, %x) : (i1, i64, i64) -> i64
     "func.return"(%r) : (i64) -> ()
   }) : () -> ()
 
   // Negative case: distinct arms, so the `select` must stay.
-  "func.func"() <{function_type = (i1, i64, i64) -> i64}> ({
+  "func.func"() <{function_type = (i1, i64, i64) -> i64, sym_name = "bar"}> ({
   ^bb0(%c: i1, %x: i64, %y: i64):
     %r = "llvm.select"(%c, %x, %y) : (i1, i64, i64) -> i64
     "func.return"(%r) : (i64) -> ()

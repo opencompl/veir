@@ -1,4 +1,6 @@
-import Veir.Pass
+module
+
+public import Veir.Pass
 import Veir.Printer
 
 namespace Veir

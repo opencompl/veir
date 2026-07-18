@@ -12,7 +12,7 @@
 // CHECK: "riscv.add"
 
 "builtin.module"() ({
-    "func.func"()  <{function_type = (i64, i64) -> i64}> ({
+    "func.func"()  <{function_type = (i64, i64) -> i64, sym_name = "foo"}> ({
     ^bb(%a: i64, %b: i64):
         %add = "llvm.add"(%a, %b) : (i64, i64) -> i64
         "func.return"(%add) : (i64) -> ()

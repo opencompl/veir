@@ -4,7 +4,7 @@
 // bitmask.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i32) -> i32}> ({
+  "func.func"() <{function_type = (i32) -> i32, sym_name = "foo"}> ({
   ^bb0(%x: i32):
     %c = "llvm.mlir.constant"() <{value = 8 : i32}> : () -> i32
     %r = "llvm.urem"(%x, %c) : (i32, i32) -> i32
@@ -12,7 +12,7 @@
   }) : () -> ()
 
   // Negative case: 6 is not a power of two, so the pattern does not fire.
-  "func.func"() <{function_type = (i32) -> i32}> ({
+  "func.func"() <{function_type = (i32) -> i32, sym_name = "bar"}> ({
   ^bb0(%x: i32):
     %c = "llvm.mlir.constant"() <{value = 6 : i32}> : () -> i32
     %r = "llvm.urem"(%x, %c) : (i32, i32) -> i32

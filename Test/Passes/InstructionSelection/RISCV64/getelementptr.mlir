@@ -4,7 +4,7 @@
 // where `scale` is the byte size of the element type.
 
 "builtin.module"() ({
-    "func.func"()  <{function_type = (!llvm.ptr, i64) -> ()}> ({
+    "func.func"()  <{function_type = (!llvm.ptr, i64) -> (), sym_name = "foo"}> ({
     ^bb0(%p: !llvm.ptr, %i: i64):
         // scale 1 (i8): ptr + idx -> riscv.add
         %g1 = "llvm.getelementptr"(%p, %i) <{elem_type = i8, rawConstantIndices = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr

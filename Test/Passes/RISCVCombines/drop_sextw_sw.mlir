@@ -6,14 +6,14 @@
 // pointer and must be left untouched, even if it too is fed by a `riscv.sextw`.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> ()}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> (), sym_name = "foo"}> ({
   ^bb0(%addr: !riscv.reg, %val: !riscv.reg):
     %sval = "riscv.sextw"(%val) : (!riscv.reg) -> !riscv.reg
     "riscv.sw"(%addr, %sval) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
     "func.return"() : () -> ()
   }) : () -> ()
 
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> ()}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> (), sym_name = "bar"}> ({
   ^bb0(%addr: !riscv.reg, %val: !riscv.reg):
     %saddr = "riscv.sextw"(%addr) : (!riscv.reg) -> !riscv.reg
     %sval = "riscv.sextw"(%val) : (!riscv.reg) -> !riscv.reg
