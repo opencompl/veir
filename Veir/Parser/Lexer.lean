@@ -1,5 +1,9 @@
+module
+
+public import Veir.Parser.ParserError
 import Veir.ForLean
-import Veir.Parser.ParserError
+
+public section
 
 namespace Veir.Parser
 
@@ -120,7 +124,7 @@ namespace TokenKind
 /--
   Checks if the token kind is an at, hash, percent, caret, or exclamation identifier.
 -/
-@[grind]
+@[grind, expose]
 def isPrefixedIdentifier (tokenKind : TokenKind) : Bool :=
   tokenKind = .hashIdent || tokenKind = .percentIdent || tokenKind = .caretIdent ||
   tokenKind = .exclamationIdent || tokenKind = .atIdent

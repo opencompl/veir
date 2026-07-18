@@ -1,3 +1,7 @@
+module
+
+public section
+
 namespace Veir
 
 @[extern "lean_internal_set_exit_on_panic"]

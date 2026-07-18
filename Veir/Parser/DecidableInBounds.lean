@@ -1,8 +1,11 @@
-import Veir.Parser.Parser
-import Veir.IR.Basic
-import Veir.Rewriter.InsertPoint
+module
+
+public import Veir.Parser.Parser
+public import Veir.Rewriter.InsertPoint
 import Veir.Rewriter.Basic
 import Veir.Rewriter.GetSet
+
+public section
 
 /-!
   Runtime decidable InBounds checks for the MLIR parser.

@@ -1,4 +1,9 @@
-import Veir.Parser.Lexer
+module
+
+public import Veir.Parser.Lexer
+public import Veir.ForLean
+
+public section
 open Veir.Parser.Lexer
 
 namespace Veir.Parser
@@ -109,7 +114,7 @@ def peekToken : M Token := do
   The available punctuation symbols are `->`, `...`, `:`, `,`, `=`, `>`, `{`, `(`,
   `[`, `<`, `-`, `+`, `?`, `}`, `)`, `]`, `*`, and `|`.
 -/
-@[grind]
+@[grind, expose]
 def isPunctuation (c : String) : Option TokenKind :=
   /-
   Note that the `{-#` and `#-}` symbols are not considered punctuation, as users should not
