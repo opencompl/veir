@@ -9,8 +9,8 @@ import Veir.Data.LLVM.Int.Basic
 
   This pass implements a small, conservative CSE:
   * it only reasons within one basic block;
-  * it only considers arithmetic operations (including icmps, select,
-    and ext/trunc);
+  * it only considers pure operations (arithmetic, icmps, select,
+    ext/trunc, and getelementptr pointer arithmetic);
   * it only works for instructions that return a single result;
   * distinct UB flags are treated as distinct instructions;
   * it only supports the LLVM dialect (arith would be trivial to add);
@@ -125,6 +125,7 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
   | .llvm .intr__fshl | .llvm .intr__fshr
   | .llvm .sdiv | .llvm .udiv | .llvm .srem | .llvm .urem
   | .llvm .zext | .llvm .sext | .llvm .trunc
+  | .llvm .getelementptr
   | .llvm .select =>
       return ordinaryKey ctx op kind
   | _ => none
