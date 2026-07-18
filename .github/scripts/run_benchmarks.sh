@@ -19,12 +19,12 @@ set -euo pipefail
 
 COUNT="${1:-1000}"
 PC="${2:-50}"
-SAMPLES_MIN="${3:-5}"
+SAMPLES_MIN="${3:-1}"
 
 SAMPLES_MAX="${SAMPLES_MAX:-30}"
 TIME_BUDGET_SECS="${TIME_BUDGET_SECS:-180}"
 CV_THRESHOLD="${CV_THRESHOLD:-5.0}"
-WARMUP="${WARMUP:-2}"
+WARMUP="${WARMUP:-0}"
 
 BENCHMARKS=(
   "add-fold-worklist"
@@ -88,8 +88,9 @@ flt_lt() {
 
 run_one() {
   local bench="$1" out cs rs
-  out=$(lake env run-benchmarks "$bench" "$COUNT" "$PC" 2>&1) || return 1
-  cs=$(echo "$out" | sed -n 's/.*create time (s): \([0-9.]*\).*/\1/p')
+  out=$(valgrind --tool=cachegrind --cache-sim=no --branch-sim=no --log-file=out .lake/build/bin/run-benchmarks "$bench" "$COUNT" "$PC" 2>&1) || return 1
+  cs=$(sed -n 's/.* I refs: *\(.*\) */\1/p' out | sed -e 's/,//g')
+  cs=$(sed -n 's/.* I refs: *\(.*\) */\1/p' out | sed -e 's/,//g')
   rs=$(echo "$out" | sed -n 's/.*rewrite time (s): \([0-9.]*\).*/\1/p')
   [ -n "$cs" ] && [ -n "$rs" ] && echo "$cs $rs"
 }
