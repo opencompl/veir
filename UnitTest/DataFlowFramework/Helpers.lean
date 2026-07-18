@@ -1,4 +1,6 @@
 import Veir.Analysis.DataFlowFramework
+import Veir.Analysis.DataFlow.SparseFact
+import Veir.Analysis.DataFlow.SparseConstantPropagationAnalysis
 import Veir.Parser.MlirParser
 
 open Std (HashMap)
@@ -165,3 +167,28 @@ def runWithAnalyses
       let some dfCtx := fixpointSolve top analyses parserState.ctx
         | return "analysis did not converge"
       return renderReport (check top dfCtx parserState)
+
+/-- Sparse constant propagation helpers. -/
+def showConstantDomain : AbstractConstant -> String
+  | .top =>
+    "top"
+  | .bottom =>
+    "bottom"
+  | .constant c =>
+    s!"const({c.value} : i{c.bitwidth})"
+
+def checkNamedConstants
+    (dfCtx : DataFlowContext)
+    (valueDefs : HashMap String ValuePtr)
+    (expected : Array (String × AbstractConstant)) : MismatchReport := Id.run do
+  let mut report := #[]
+  for (name, expectedValue) in expected do
+    let some value := valueDefs[name]? |
+      report := report.push s!"constant {name}: missing value definition"
+      continue
+    let observedValue :=
+      SparseFact.getElementD .sparseConstant value ⊥ dfCtx
+    if observedValue != expectedValue then
+      report := report.push
+        s!"constant {name}: expected {showConstantDomain expectedValue}, observed {showConstantDomain observedValue}"
+  report
