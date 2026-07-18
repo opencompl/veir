@@ -1,5 +1,7 @@
-import Veir.Fold
-import Veir.PatternRewriter.Basic
+module
+
+public import Veir.Fold
+public import Veir.PatternRewriter.Basic
 
 /-!
   # Folding rewrites and constant materialization
@@ -8,6 +10,8 @@ import Veir.PatternRewriter.Basic
   clients such as data-flow analyses should import `Veir.Fold` and call
   `foldDecision` or `foldDecisionForOp` instead.
 -/
+
+public section
 
 namespace Veir
 

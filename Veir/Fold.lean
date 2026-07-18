@@ -1,4 +1,6 @@
-import Veir.Interpreter.Basic
+module
+
+public import Veir.Interpreter.Basic
 
 /-!
   # Constant folding infrastructure
@@ -29,6 +31,8 @@ import Veir.Interpreter.Basic
   This module never mutates the IR. Constant materialization, `createOrFold`,
   and rewrite patterns live in `Veir.Fold.Rewriter`.
 -/
+
+public section
 
 namespace Veir
 
@@ -497,7 +501,7 @@ Modular integers use an `.int` runtime value with the modulus storage width,
 even though the interpreter's general `RuntimeValue.Conforms` relation keeps
 `.int` exclusive to ordinary `integerType`s.
 -/
-def RuntimeValue.conformsFoldResult (rv : RuntimeValue) (resultType : TypeAttr) : Prop :=
+@[expose] def RuntimeValue.conformsFoldResult (rv : RuntimeValue) (resultType : TypeAttr) : Prop :=
   match rv, resultType.val with
   | .int bw _, .modArithType modType => modType.modulus.type.bitwidth = bw
   | _, _ => rv.Conforms resultType
