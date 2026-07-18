@@ -1,7 +1,7 @@
 // RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
 
 "builtin.module"() ({
-    "func.func"()  <{function_type = (i64, i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64, i64) -> (), sym_name = "foo"}> ({
     ^bb0(%a: i64, %b: i64):
         %lshr = "llvm.lshr"(%a, %b) : (i64, i64) -> i64
         // CHECK:      %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
@@ -31,7 +31,7 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
-    "func.func"()  <{function_type = (!llvm.byte<64>, i64) -> ()}> ({
+    "func.func"()  <{function_type = (!llvm.byte<64>, i64) -> (), sym_name = "bar"}> ({
     ^bb0(%a: !llvm.byte<64>, %b: i64):
         %lshr = "llvm.lshr"(%a, %b) : (!llvm.byte<64>, i64) -> !llvm.byte<64>
         // CHECK:      %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!llvm.byte<64>) -> !riscv.reg
@@ -43,7 +43,7 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
-    "func.func"()  <{function_type = (i32, i32) -> ()}> ({
+    "func.func"()  <{function_type = (i32, i32) -> (), sym_name = "baz"}> ({
     ^bb(%a: i32, %b: i32):
         %lshr = "llvm.lshr"(%a, %b) : (i32, i32) -> i32
         // CHECK:      %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i32) -> !riscv.reg

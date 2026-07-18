@@ -5,7 +5,7 @@
 // and flags are never silently dropped.
 
 "builtin.module"() ({
-  "llvm.func"()  <{function_type = !llvm.func<void (i32, i32)>}> ({
+  "llvm.func"()  <{function_type = !llvm.func<void (i32, i32)>, sym_name = "foo"}> ({
 
 // `add nsw` merges with `add nsw`; flagless `add` stays separate.
 ^add_nsw(%a : i32, %b : i32):

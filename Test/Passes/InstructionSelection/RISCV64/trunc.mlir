@@ -1,7 +1,7 @@
 // RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
 
 "builtin.module"() ({
-    "func.func"()  <{function_type = (i16, i32, !llvm.byte<32>) -> ()}> ({
+    "func.func"()  <{function_type = (i16, i32, !llvm.byte<32>) -> (), sym_name = "foo"}> ({
     ^bb0(%b : i16, %c: i32, %d: !llvm.byte<32>):
         %truncb = "llvm.trunc"(%b) : (i16) -> i8
         %truncc = "llvm.trunc"(%c) : (i32) -> i16

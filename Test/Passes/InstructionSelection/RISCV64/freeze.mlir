@@ -1,7 +1,7 @@
 // RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
 
 "builtin.module"() ({
-    "func.func"()  <{function_type = (i64, i32) -> ()}> ({
+    "func.func"()  <{function_type = (i64, i32) -> (), sym_name = "foo"}> ({
     ^bb0(%a : i64, %b: i32):
         %freeze = "llvm.freeze"(%a) : (i64) -> i64
         %freezeinv = "llvm.freeze"(%b) : (i32) -> i32

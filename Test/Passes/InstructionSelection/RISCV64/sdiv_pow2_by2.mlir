@@ -11,7 +11,7 @@
 "builtin.module"() ({
     // llvm.sdiv x, 2 -> riscv.srli 63 x / riscv.add x _ / riscv.srai 1 _
     // (no `riscv.srai 63` sign-splat survives).
-    "func.func"() <{function_type = (i64) -> i64}> ({
+    "func.func"() <{function_type = (i64) -> i64, sym_name = "foo"}> ({
     ^bb(%a: i64):
         %c = "llvm.mlir.constant"() <{value = 2 : i64}> : () -> i64
         %r = "llvm.sdiv"(%a, %c) : (i64, i64) -> i64
@@ -23,7 +23,7 @@
     }) : () -> ()
 
     // i32 analogue: riscv.srliw 31 x / riscv.addw x _ / riscv.sraiw 1 _.
-    "func.func"() <{function_type = (i32) -> i32}> ({
+    "func.func"() <{function_type = (i32) -> i32, sym_name = "bar"}> ({
     ^bb(%a: i32):
         %c = "llvm.mlir.constant"() <{value = 2 : i32}> : () -> i32
         %r = "llvm.sdiv"(%a, %c) : (i32, i32) -> i32

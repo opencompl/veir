@@ -1,14 +1,16 @@
-import Veir.Parser.Parser
+module
+
+public import Veir.Parser.Parser
+public import Veir.GlobalOpInfo
+public import Veir.IR.WellFormed
+public import Veir.Rewriter.InsertPoint
+
 import Veir.Parser.AttrParser
 import Veir.Parser.DecidableInBounds
-import Veir.IR.Basic
-import Veir.Rewriter.InsertPoint
-import Veir.Rewriter.Basic
-import Veir.Rewriter.GetSet
 import Veir.Rewriter.WellFormed
 import Veir.Rewriter.WfRewriter
-import Veir.Properties
-import Veir.GlobalOpInfo
+
+public section
 
 open Veir.Parser.Lexer
 open Veir.Parser
@@ -719,6 +721,7 @@ partial def parseRegion : MlirParserM RegionPtr := do
 
   /- Case where there are no blocks inside the region. -/
   if (← parseOptionalPunctuation "}") then
+    modifyThe MlirParserState fun s => {s with blocks := oldBlocks}
     return region
 
   /- Parse the first block separately, as it may not have a label. -/

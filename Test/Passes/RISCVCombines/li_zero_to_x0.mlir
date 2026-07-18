@@ -7,7 +7,7 @@
 // forwarded as a generic `!riscv.reg` block argument.
 
 "builtin.module"() ({
-    "func.func"() <{function_type = (!riscv.reg) -> ()}> ({
+    "func.func"() <{function_type = (!riscv.reg) -> (), sym_name = "foo"}> ({
     ^bb0(%x: !riscv.reg):
         %z = "riscv.li"() <{value = 0 : i64}> : () -> !riscv.reg
         %s = "riscv.slt"(%z, %x) : (!riscv.reg, !riscv.reg) -> !riscv.reg
@@ -18,7 +18,7 @@
     }) : () -> ()
 
     // A non-zero constant must be left untouched.
-    "func.func"() <{function_type = (!riscv.reg) -> ()}> ({
+    "func.func"() <{function_type = (!riscv.reg) -> (), sym_name = "bar"}> ({
     ^bb0(%x: !riscv.reg):
         %one = "riscv.li"() <{value = 1 : i64}> : () -> !riscv.reg
         %s = "riscv.slt"(%one, %x) : (!riscv.reg, !riscv.reg) -> !riscv.reg

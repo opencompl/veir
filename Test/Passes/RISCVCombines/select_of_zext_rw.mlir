@@ -4,7 +4,7 @@
 // `zext (select c, t, f) -> select c, (zext t), (zext f)`.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i1, i32, i32) -> i64}> ({
+  "func.func"() <{function_type = (i1, i32, i32) -> i64, sym_name = "foo"}> ({
   ^bb0(%c: i1, %t: i32, %f: i32):
     %s = "llvm.select"(%c, %t, %f) : (i1, i32, i32) -> i32
     %z = "llvm.zext"(%s) : (i32) -> i64
@@ -12,7 +12,7 @@
   }) : () -> ()
 
   // Negative case: the zext feeds an add, not a select.
-  "func.func"() <{function_type = (i32, i32) -> i64}> ({
+  "func.func"() <{function_type = (i32, i32) -> i64, sym_name = "bar"}> ({
   ^bb0(%a: i32, %b: i32):
     %s = "llvm.add"(%a, %b) : (i32, i32) -> i32
     %z = "llvm.zext"(%s) : (i32) -> i64

@@ -10,7 +10,7 @@
 "builtin.module"() ({
 
   ^1():
-    "func.func"()  <{function_type = (i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64) -> (), sym_name = "f0"}> ({
       ^1(%0 : i64):
         // A lone `iX -> iX` cast is not a round trip, so nothing reconciles it away.
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> i64
@@ -23,7 +23,7 @@
     }) : () -> ()
 
   ^2():
-    "func.func"()  <{function_type = (i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64) -> (), sym_name = "f1"}> ({
       ^1(%0 : i64):
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> !riscv.reg
         "test.test"(%1) : (!riscv.reg) -> ()
@@ -35,7 +35,7 @@
     }) : () -> ()
 
   ^3():
-    "func.func"()  <{function_type = (i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64) -> (), sym_name = "f2"}> ({
       ^1(%0 : i64):
         // the remaining cast is unused
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> !riscv.reg
@@ -48,7 +48,7 @@
     }) : () -> ()
 
   ^4():
-    "func.func"()  <{function_type = (i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64) -> (), sym_name = "f3"}> ({
       ^1(%0 : i64):
         // the remaining cast is used
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> !riscv.reg
@@ -63,7 +63,7 @@
     }) : () -> ()
 
   ^5():
-    "func.func"()  <{function_type = (i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64) -> (), sym_name = "f4"}> ({
       ^1(%0 : i64):
         // The `reg -> reg` cast in the middle breaks the `reg -> i64 -> reg` round trip: no
         // pair of adjacent casts returns to its own input type, so nothing reconciles.
@@ -79,7 +79,7 @@
     }) : () -> ()
 
   ^6():
-    "func.func"()  <{function_type = (i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64) -> (), sym_name = "f5"}> ({
       ^1(%0 : i64):
         // pairs of casts
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> !riscv.reg
@@ -97,7 +97,7 @@
     }) : () -> ()
 
   ^7():
-    "func.func"()  <{function_type = (!riscv.reg) -> ()}> ({
+    "func.func"()  <{function_type = (!riscv.reg) -> (), sym_name = "f6"}> ({
       ^1(%0 : !riscv.reg):
         // identity cast on block argument: not a round trip, so it survives the pass
         %1 = "builtin.unrealized_conversion_cast"(%0) : (!riscv.reg) -> !riscv.reg
@@ -109,7 +109,7 @@
     }) : () -> ()
 
   ^8():
-    "func.func"()  <{function_type = (i8) -> ()}> ({
+    "func.func"()  <{function_type = (i8) -> (), sym_name = "f7"}> ({
       ^1(%0 : i8):
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i8) -> i8
         "test.test"(%1) : (i8) -> ()
@@ -120,7 +120,7 @@
     }) : () -> ()
 
   ^9():
-    "func.func"()  <{function_type = (i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64) -> (), sym_name = "f8"}> ({
       ^1(%0 : i64):
         // `iX -> iY -> iX` round trips are not reconciled: the interpreter gives an
         // integer-to-integer cast no semantics, so the pass leaves these alone.
@@ -140,7 +140,7 @@
     }) : () -> ()
 
   ^10():
-    "func.func"()  <{function_type = (i32) -> ()}> ({
+    "func.func"()  <{function_type = (i32) -> (), sym_name = "f9"}> ({
       ^1(%0 : i32):
         // i32 -> reg -> i32
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i32) -> !riscv.reg
@@ -157,7 +157,7 @@
     }) : () -> ()
 
   ^11():
-    "func.func"()  <{function_type = (!riscv.reg) -> ()}> ({
+    "func.func"()  <{function_type = (!riscv.reg) -> (), sym_name = "f10"}> ({
       ^1(%0 : !riscv.reg):
         // reg -> i32 -> reg : should not be folded away.
         %1 = "builtin.unrealized_conversion_cast"(%0) : (!riscv.reg) -> i32
@@ -170,7 +170,7 @@
     }) : () -> ()
 
   ^12():
-    "func.func"()  <{function_type = (!llvm.ptr) -> ()}> ({
+    "func.func"()  <{function_type = (!llvm.ptr) -> (), sym_name = "f11"}> ({
       ^1(%0 : !llvm.ptr):
         // ptr -> reg -> ptr (64-bit)
         %1 = "builtin.unrealized_conversion_cast"(%0) : (!llvm.ptr) -> !riscv.reg
@@ -185,7 +185,7 @@
     }) : () -> ()
 
   ^13():
-    "func.func"()  <{function_type = (!riscv.reg) -> ()}> ({
+    "func.func"()  <{function_type = (!riscv.reg) -> (), sym_name = "f12"}> ({
       ^1(%0 : !riscv.reg):
         // reg -> ptr -> reg (64-bit)
         %1 = "builtin.unrealized_conversion_cast"(%0) : (!riscv.reg) -> !llvm.ptr
@@ -197,7 +197,7 @@
     }) : () -> ()
 
   ^14():
-    "func.func"()  <{function_type = (i32) -> ()}> ({
+    "func.func"()  <{function_type = (i32) -> (), sym_name = "f13"}> ({
       ^1(%0 : i32):
         // i32 -> reg -> i32  (reg is also used elsewhere)
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i32) -> !riscv.reg
@@ -216,7 +216,7 @@
     }) : () -> ()
 
   ^15():
-    "func.func"()  <{function_type = (!riscv.reg) -> ()}> ({
+    "func.func"()  <{function_type = (!riscv.reg) -> (), sym_name = "f14"}> ({
       ^1(%0 : !riscv.reg):
         // reg -> i16 -> reg : should not be folded away.
         %1 = "builtin.unrealized_conversion_cast"(%0) : (!riscv.reg) -> i16
@@ -229,7 +229,7 @@
     }) : () -> ()
     
   ^16():
-    "func.func"()  <{function_type = (!riscv.reg) -> ()}> ({
+    "func.func"()  <{function_type = (!riscv.reg) -> (), sym_name = "f15"}> ({
       ^1(%0 : !riscv.reg):
         // reg -> i8 -> reg : should not be folded away.
         %1 = "builtin.unrealized_conversion_cast"(%0) : (!riscv.reg) -> i8
@@ -242,7 +242,7 @@
     }) : () -> ()
 
   ^17():
-    "func.func"()  <{function_type = (!riscv.reg) -> ()}> ({
+    "func.func"()  <{function_type = (!riscv.reg) -> (), sym_name = "f16"}> ({
       ^1(%0 : !riscv.reg):
         // reg -> i14 -> reg : should not be folded away.
         %1 = "builtin.unrealized_conversion_cast"(%0) : (!riscv.reg) -> i14
@@ -256,7 +256,7 @@
     }) : () -> ()
 
   ^18():
-    "func.func"()  <{function_type = (!riscv.reg) -> ()}> ({
+    "func.func"()  <{function_type = (!riscv.reg) -> (), sym_name = "f17"}> ({
       ^1(%0 : !riscv.reg):
         // reg -> i0 -> reg : the round trip is the constant zero, which the `slli`/`srli`
         // pair cannot compute (its 6-bit shift amount `64 - 0` wraps back to `0`).

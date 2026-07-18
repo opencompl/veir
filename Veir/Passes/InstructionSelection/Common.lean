@@ -1,5 +1,9 @@
-import Veir.Pass
+module
+
+public import Veir.Pass
 import Veir.PatternRewriter.Basic
+
+public section
 
 namespace Veir
 

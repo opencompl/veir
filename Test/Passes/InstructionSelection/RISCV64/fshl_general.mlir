@@ -12,7 +12,7 @@
 "builtin.module"() ({
 
     // General i64 fshl -> sll / (srli 1 + srl ~z) / or, no rotate instruction.
-    "func.func"()  <{function_type = (i64, i64, i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64, i64, i64) -> (), sym_name = "foo"}> ({
     ^bb0(%a: i64, %b: i64, %s: i64):
         %r = "llvm.intr.fshl"(%a, %b, %s) : (i64, i64, i64) -> i64
         // CHECK: %[[NOTZ:.*]] = "riscv.xori"(%[[Z:.*]]) <{"value" = -1 : i64}>
@@ -26,7 +26,7 @@
     }) : () -> ()
 
     // General i64 fshr -> (slli 1 + sll ~z) / srl / or, no rotate instruction.
-    "func.func"()  <{function_type = (i64, i64, i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64, i64, i64) -> (), sym_name = "bar"}> ({
     ^bb0(%a: i64, %b: i64, %s: i64):
         %r = "llvm.intr.fshr"(%a, %b, %s) : (i64, i64, i64) -> i64
         // CHECK: %[[NOTZ:.*]] = "riscv.xori"(%[[Z:.*]]) <{"value" = -1 : i64}>
@@ -40,7 +40,7 @@
     }) : () -> ()
 
     // General i32 fshl -> the `w`-suffixed shifts (sllw / srliw / srlw / or).
-    "func.func"()  <{function_type = (i32, i32, i32) -> ()}> ({
+    "func.func"()  <{function_type = (i32, i32, i32) -> (), sym_name = "baz"}> ({
     ^bb0(%a: i32, %b: i32, %s: i32):
         %r = "llvm.intr.fshl"(%a, %b, %s) : (i32, i32, i32) -> i32
         // CHECK: %[[NOTZ:.*]] = "riscv.xori"(%[[Z:.*]]) <{"value" = -1 : i64}>

@@ -1,7 +1,7 @@
 // RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
 
 "builtin.module"() ({
-    "func.func"()  <{function_type = (i64, i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64, i64) -> (), sym_name = "foo"}> ({
     ^bb0(%a: i64, %b: i64):
         %r_0 = "llvm.icmp"(%a, %b) <{predicate = 0 : i64}> : (i64, i64) -> i1
         // CHECK:      [[A:%.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
@@ -72,7 +72,7 @@
         "test.test"(%r_9) : (i1) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
-    "func.func"()  <{function_type = (i32, i32) -> ()}> ({
+    "func.func"()  <{function_type = (i32, i32) -> (), sym_name = "bar"}> ({
     ^bb0(%a: i32, %b: i32):
         %r_0 = "llvm.icmp"(%a, %b) <{predicate = 0 : i64}> : (i32, i32) -> i1
         // CHECK:      [[A:%.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i32) -> !riscv.reg

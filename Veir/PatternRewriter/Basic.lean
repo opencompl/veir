@@ -1,10 +1,17 @@
-import Veir.Prelude
-import Veir.IR.Basic
-import Veir.Interfaces.SideEffectInterfaces
+module
+
+public import Veir.IR.Basic
+public import Veir.IR.WellFormed
+public import Veir.Rewriter.WfRewriter
+public import Veir.Interfaces.SideEffectInterfaces
+
 import Veir.Rewriter.Basic
 import Veir.ForLean
 import Veir.Rewriter.GetSet
-import Veir.Rewriter.WfRewriter
+
+import all Veir.IR.Basic
+
+public section
 
 open Std (HashMap)
 
@@ -87,8 +94,7 @@ def Worklist.remove (worklist: Worklist) (op: OperationPtr) : Worklist :=
     worklist
 
 -- TODO: remove this lemma and/or move it somewhere reasonable
-@[local grind →]
-theorem OperationPtr.inBounds_of_mem_operations_keys (ctx : IRContext OpInfo) :
+private theorem OperationPtr.inBounds_of_mem_operations_keys (ctx : IRContext OpInfo) :
     (op ∈ ctx.operations.keys) → op.InBounds ctx := by
   grind [OperationPtr.InBounds]
 
@@ -99,7 +105,8 @@ theorem OperationPtr.inBounds_of_mem_operations_keys (ctx : IRContext OpInfo) :
 def Worklist.createFromContext (ctx: WfIRContext OpInfo) : Worklist := Id.run do
   let mut worklist := Worklist.empty
   for h : op in ctx.raw.operations.keys do
-    if (op.get ctx.raw (by grind)).parent.isSome then
+    if (op.get ctx.raw (by
+      exact OperationPtr.inBounds_of_mem_operations_keys ctx.raw h)).parent.isSome then
       worklist := worklist.push op
   worklist
 
@@ -133,7 +140,7 @@ private def addUseChainUserInWorklist (rewriter: PatternRewriter OpInfo) (useCha
   | 0 => rewriter
 
 @[simp, grind =]
-theorem addUseChainUserInWorklist_same_ctx
+private theorem addUseChainUserInWorklist_same_ctx
     {rewriter : PatternRewriter OpInfo}
     {huc : Option.maybe OpOperandPtr.InBounds useChain rewriter.ctx.raw}:
     (addUseChainUserInWorklist rewriter useChain maxIteration huc).ctx = rewriter.ctx := by
@@ -142,18 +149,18 @@ theorem addUseChainUserInWorklist_same_ctx
   · simp [addUseChainUserInWorklist]; grind
 
 -- TODO: move this somewhere
-@[local grind .]
-theorem ValuePtr.inBounds_getFirstUse {value : ValuePtr} (hv : value.InBounds ctx.raw) :
+private theorem ValuePtr.inBounds_getFirstUse {value : ValuePtr} (hv : value.InBounds ctx.raw) :
     (value.getFirstUse ctx.raw hv).maybe OpOperandPtr.InBounds ctx.raw := by
-  grind [Option.maybe]
+  grind [Option.maybe_def]
 
 private def addUsersInWorklist (rewriter: PatternRewriter OpInfo) (value: ValuePtr)
     (hv : value.InBounds rewriter.ctx.raw) : PatternRewriter OpInfo :=
   let useChain := value.getFirstUse rewriter.ctx.raw (by grind)
-  rewriter.addUseChainUserInWorklist useChain 1_000_000_000 (by grind [Option.maybe])
+  rewriter.addUseChainUserInWorklist useChain 1_000_000_000 (by
+    grind [Option.maybe_def, ValuePtr.inBounds_getFirstUse])
 
 @[grind =]
-theorem addUsersInWorklist_same_ctx :
+private theorem addUsersInWorklist_same_ctx :
     (addUsersInWorklist rewriter value hv).ctx = rewriter.ctx := by
   simp [addUsersInWorklist]
 

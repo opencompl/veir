@@ -9,7 +9,7 @@
 
 "builtin.module"() ({
     // Y = 0: right operand is `M` itself, left is `shl M 8`, mask 0x0101_0101_0101_0101.
-    "func.func"()  <{function_type = (i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64) -> (), sym_name = "f0"}> ({
     ^bb0(%z: i64):
         %mask = "llvm.mlir.constant"() <{ "value" = 72340172838076673 : i64 }> : () -> i64
         %m = "llvm.and"(%z, %mask) : (i64, i64) -> i64
@@ -22,7 +22,7 @@
         "func.return"() : () -> ()
     }) : () -> ()
     // Y = 3: left is `shl M 5`, right is `lshr M 3`, mask 0x0808_0808_0808_0808.
-    "func.func"()  <{function_type = (i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64) -> (), sym_name = "f1"}> ({
     ^bb0(%z: i64):
         %mask = "llvm.mlir.constant"() <{ "value" = 578721382704613384 : i64 }> : () -> i64
         %m = "llvm.and"(%z, %mask) : (i64, i64) -> i64
@@ -39,7 +39,7 @@
     // Y = 7: left is `shl M 1`, right is `lshr M 7`, mask 0x8080_8080_8080_8080.
     // This is the top-bit-of-each-byte mask, whose i64 value is "negative"; it
     // exercises the signed/unsigned normalization in the matcher's mask check.
-    "func.func"()  <{function_type = (i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64) -> (), sym_name = "f2"}> ({
     ^bb0(%z: i64):
         %mask = "llvm.mlir.constant"() <{ "value" = 9259542123273814144 : i64 }> : () -> i64
         %m = "llvm.and"(%z, %mask) : (i64, i64) -> i64
@@ -55,7 +55,7 @@
     }) : () -> ()
     // Y = 0 with the mask on the left operand of the `and` (`and %mask %z`): the
     // matcher accepts the mask constant on either side.
-    "func.func"()  <{function_type = (i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64) -> (), sym_name = "f3"}> ({
     ^bb0(%z: i64):
         %mask = "llvm.mlir.constant"() <{ "value" = 72340172838076673 : i64 }> : () -> i64
         %m = "llvm.and"(%mask, %z) : (i64, i64) -> i64

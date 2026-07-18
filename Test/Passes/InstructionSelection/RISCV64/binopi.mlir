@@ -7,7 +7,7 @@
 
 "builtin.module"() ({
     // llvm.add x (const imm12) -> riscv.addi x imm
-    "func.func"() <{function_type = (i64) -> i64}> ({
+    "func.func"() <{function_type = (i64) -> i64, sym_name = "f0"}> ({
     ^bb(%a: i64):
         %c = "llvm.mlir.constant"() <{value = 5 : i64}> : () -> i64
         %r = "llvm.add"(%a, %c) : (i64, i64) -> i64
@@ -17,7 +17,7 @@
     }) : () -> ()
 
     // llvm.or x (const imm12) -> riscv.ori x imm
-    "func.func"() <{function_type = (i64) -> i64}> ({
+    "func.func"() <{function_type = (i64) -> i64, sym_name = "f1"}> ({
     ^bb(%a: i64):
         %c = "llvm.mlir.constant"() <{value = 7 : i64}> : () -> i64
         %r = "llvm.or"(%a, %c) : (i64, i64) -> i64
@@ -26,7 +26,7 @@
     }) : () -> ()
 
     // llvm.and x (const imm12) -> riscv.andi x imm
-    "func.func"() <{function_type = (i64) -> i64}> ({
+    "func.func"() <{function_type = (i64) -> i64, sym_name = "f2"}> ({
     ^bb(%a: i64):
         %c = "llvm.mlir.constant"() <{value = 6 : i64}> : () -> i64
         %r = "llvm.and"(%a, %c) : (i64, i64) -> i64
@@ -35,7 +35,7 @@
     }) : () -> ()
 
     // llvm.xor x (const imm12) -> riscv.xori x imm
-    "func.func"() <{function_type = (i64) -> i64}> ({
+    "func.func"() <{function_type = (i64) -> i64, sym_name = "f3"}> ({
     ^bb(%a: i64):
         %c = "llvm.mlir.constant"() <{value = -2048 : i64}> : () -> i64
         %r = "llvm.xor"(%a, %c) : (i64, i64) -> i64
@@ -44,7 +44,7 @@
     }) : () -> ()
 
     // Out-of-range immediate: not selected here (stays `llvm.add`).
-    "func.func"() <{function_type = (i64) -> i64}> ({
+    "func.func"() <{function_type = (i64) -> i64, sym_name = "f4"}> ({
     ^bb(%a: i64):
         %c = "llvm.mlir.constant"() <{value = 2048 : i64}> : () -> i64
         %r = "llvm.add"(%a, %c) : (i64, i64) -> i64
@@ -53,7 +53,7 @@
     }) : () -> ()
 
     // Constant on the left: not matched (mirrors PatGprImm's `(OpNode GPR, imm)`).
-    "func.func"() <{function_type = (i64) -> i64}> ({
+    "func.func"() <{function_type = (i64) -> i64, sym_name = "f5"}> ({
     ^bb(%a: i64):
         %c = "llvm.mlir.constant"() <{value = 5 : i64}> : () -> i64
         %r = "llvm.add"(%c, %a) : (i64, i64) -> i64

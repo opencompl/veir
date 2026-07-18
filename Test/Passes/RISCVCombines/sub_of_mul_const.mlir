@@ -3,7 +3,7 @@
 // `sub a, (mul x, C)` is `add a, (mul x, -C)` when C is a constant.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i32, i32) -> i32}> ({
+  "func.func"() <{function_type = (i32, i32) -> i32, sym_name = "foo"}> ({
   ^bb0(%a: i32, %x: i32):
     %c = "llvm.mlir.constant"() <{value = 3 : i32}> : () -> i32
     %m = "llvm.mul"(%x, %c) : (i32, i32) -> i32
@@ -12,7 +12,7 @@
   }) : () -> ()
 
   // Negative case: the mul's second operand is not a constant, so the pattern does not fire.
-  "func.func"() <{function_type = (i32, i32, i32) -> i32}> ({
+  "func.func"() <{function_type = (i32, i32, i32) -> i32, sym_name = "bar"}> ({
   ^bb0(%a: i32, %x: i32, %y: i32):
     %m = "llvm.mul"(%x, %y) : (i32, i32) -> i32
     %r = "llvm.sub"(%a, %m) : (i32, i32) -> i32

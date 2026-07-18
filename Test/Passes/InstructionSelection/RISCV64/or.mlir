@@ -1,7 +1,7 @@
 // RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
 
 "builtin.module"() ({
-    "func.func"()  <{function_type = (i64, i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64, i64) -> (), sym_name = "f0"}> ({
     ^bb0(%a: i64, %b: i64):
         %add = "llvm.or"(%a, %b) : (i64, i64) -> i64
         // CHECK:      %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
@@ -18,7 +18,7 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
-    "func.func"()  <{function_type = (i32, i32) -> ()}> ({
+    "func.func"()  <{function_type = (i32, i32) -> (), sym_name = "f1"}> ({
     ^bb(%a: i32, %b: i32):
         %or = "llvm.or"(%a, %b) : (i32, i32) -> i32
         // CHECK:      %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i32) -> !riscv.reg
@@ -28,7 +28,7 @@
         "test.test"(%or) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
-        "func.func"()  <{function_type = (i8, i8) -> ()}> ({
+        "func.func"()  <{function_type = (i8, i8) -> (), sym_name = "f2"}> ({
     ^bb(%a: i8, %b: i8):
         %and8 = "llvm.or"(%a, %b) : (i8, i8) -> i8
         // CHECK:      %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i8) -> !riscv.reg
@@ -38,7 +38,7 @@
         "test.test"(%and8) : (i8) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
-    "func.func"()  <{function_type = (i1, i1) -> ()}> ({
+    "func.func"()  <{function_type = (i1, i1) -> (), sym_name = "f3"}> ({
     ^bb(%a: i1, %b: i1):
         %and1 = "llvm.or"(%a, %b) : (i1, i1) -> i1
         // CHECK:      %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i1) -> !riscv.reg

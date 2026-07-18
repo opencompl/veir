@@ -4,7 +4,7 @@
 // `trunc (select c, t, f) -> select c, (trunc t), (trunc f)`.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i1, i64, i64) -> i32}> ({
+  "func.func"() <{function_type = (i1, i64, i64) -> i32, sym_name = "foo"}> ({
   ^bb0(%c: i1, %t: i64, %f: i64):
     %s = "llvm.select"(%c, %t, %f) : (i1, i64, i64) -> i64
     %r = "llvm.trunc"(%s) : (i64) -> i32
@@ -12,7 +12,7 @@
   }) : () -> ()
 
   // Negative case: the trunc feeds an add, not a select.
-  "func.func"() <{function_type = (i64, i64) -> i32}> ({
+  "func.func"() <{function_type = (i64, i64) -> i32, sym_name = "bar"}> ({
   ^bb0(%a: i64, %b: i64):
     %s = "llvm.add"(%a, %b) : (i64, i64) -> i64
     %r = "llvm.trunc"(%s) : (i64) -> i32

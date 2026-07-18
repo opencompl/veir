@@ -3,7 +3,7 @@
 "builtin.module"() ({
 
     // select c, t, 0 -> riscv.czeroeqz t, c
-    "func.func"()  <{function_type = (i1, i64) -> ()}> ({
+    "func.func"()  <{function_type = (i1, i64) -> (), sym_name = "f0"}> ({
     ^bb0(%c: i1, %t: i64):
         %zero = "llvm.mlir.constant"() <{ "value" = 0 : i64 }> : () -> i64
         %r = "llvm.select"(%c, %t, %zero) : (i1, i64, i64) -> i64
@@ -13,7 +13,7 @@
     }) : () -> ()
 
     // select c, 0, f -> riscv.czeronez f, c
-    "func.func"()  <{function_type = (i1, i64) -> ()}> ({
+    "func.func"()  <{function_type = (i1, i64) -> (), sym_name = "f1"}> ({
     ^bb0(%c: i1, %f: i64):
         %zero = "llvm.mlir.constant"() <{ "value" = 0 : i64 }> : () -> i64
         %r = "llvm.select"(%c, %zero, %f) : (i1, i64, i64) -> i64
@@ -23,7 +23,7 @@
     }) : () -> ()
 
     // general select c, t, f -> or (czero.eqz t, c) (czero.nez f, c)
-    "func.func"()  <{function_type = (i1, i64, i64) -> ()}> ({
+    "func.func"()  <{function_type = (i1, i64, i64) -> (), sym_name = "f2"}> ({
     ^bb0(%c: i1, %t: i64, %f: i64):
         %r = "llvm.select"(%c, %t, %f) : (i1, i64, i64) -> i64
         // CHECK-DAG: %{{.*}} = "riscv.czeroeqz"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
@@ -34,7 +34,7 @@
     }) : () -> ()
 
     // i32: select c, t, 0 -> riscv.czeroeqz t, c
-    "func.func"()  <{function_type = (i1, i32) -> ()}> ({
+    "func.func"()  <{function_type = (i1, i32) -> (), sym_name = "f3"}> ({
     ^bb0(%c: i1, %t: i32):
         %zero = "llvm.mlir.constant"() <{ "value" = 0 : i32 }> : () -> i32
         %r = "llvm.select"(%c, %t, %zero) : (i1, i32, i32) -> i32
@@ -44,7 +44,7 @@
     }) : () -> ()
 
     // i32: select c, 0, f -> riscv.czeronez f, c
-    "func.func"()  <{function_type = (i1, i32) -> ()}> ({
+    "func.func"()  <{function_type = (i1, i32) -> (), sym_name = "f4"}> ({
     ^bb0(%c: i1, %f: i32):
         %zero = "llvm.mlir.constant"() <{ "value" = 0 : i32 }> : () -> i32
         %r = "llvm.select"(%c, %zero, %f) : (i1, i32, i32) -> i32
@@ -54,7 +54,7 @@
     }) : () -> ()
 
     // i32: general select
-    "func.func"()  <{function_type = (i1, i32, i32) -> ()}> ({
+    "func.func"()  <{function_type = (i1, i32, i32) -> (), sym_name = "f5"}> ({
     ^bb0(%c: i1, %t: i32, %f: i32):
         %r = "llvm.select"(%c, %t, %f) : (i1, i32, i32) -> i32
         // CHECK-DAG: %{{.*}} = "riscv.czeroeqz"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
@@ -65,7 +65,7 @@
     }) : () -> ()
     
     // i1: general select
-    "func.func"()  <{function_type = (i1, i1, i1) -> ()}> ({
+    "func.func"()  <{function_type = (i1, i1, i1) -> (), sym_name = "f6"}> ({
     ^bb0(%c: i1, %t: i1, %f: i1):
         %r = "llvm.select"(%c, %t, %f) : (i1, i1, i1) -> i1
         // CHECK-DAG: %{{.*}} = "riscv.czeroeqz"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg

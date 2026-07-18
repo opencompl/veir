@@ -1,7 +1,7 @@
 // RUN: veir-opt %s -p=cse | filecheck %s
 
 "builtin.module"() ({
-  "llvm.func"()  <{function_type = !llvm.func<void (i32, i32)>}> ({
+  "llvm.func"()  <{function_type = !llvm.func<void (i32, i32)>, sym_name = "foo"}> ({
 ^bb0(%arg0 : i32, %arg1 : i32):
     %icmp_slt0 = "llvm.icmp"(%arg0, %arg1) <{predicate = 2 : i64}> : (i32, i32) -> i1
     %icmp_sgt_inverse = "llvm.icmp"(%arg1, %arg0) <{predicate = 4 : i64}> : (i32, i32) -> i1

@@ -1,7 +1,7 @@
 // RUN: veir-opt %s | filecheck %s
 
 "builtin.module"() ({
-  "func.func"() <{function_type = () -> ()}> ({
+  "func.func"() <{function_type = () -> (), sym_name="foo"}> ({
   ^bb0():
     "func.return"() : () -> ()
   }) : () -> ()

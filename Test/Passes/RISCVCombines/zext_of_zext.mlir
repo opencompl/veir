@@ -3,7 +3,7 @@
 // `zext (zext x)` collapses to a single `zext x` to the outer width.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i8) -> i64}> ({
+  "func.func"() <{function_type = (i8) -> i64, sym_name = "foo"}> ({
   ^bb0(%x: i8):
     %z0 = "llvm.zext"(%x) : (i8) -> i32
     %z1 = "llvm.zext"(%z0) : (i32) -> i64
@@ -11,7 +11,7 @@
   }) : () -> ()
 
   // Negative case: a single zext is left alone.
-  "func.func"() <{function_type = (i8) -> i64}> ({
+  "func.func"() <{function_type = (i8) -> i64, sym_name = "bar"}> ({
   ^bb0(%x: i8):
     %z = "llvm.zext"(%x) : (i8) -> i64
     "func.return"(%z) : (i64) -> ()
