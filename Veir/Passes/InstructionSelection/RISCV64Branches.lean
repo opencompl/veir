@@ -10,9 +10,8 @@ import Std
 
 namespace Veir
 
-set_option warn.sorry false in
 def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
-    (block : BlockPtr) : ExceptT String IO (WfIRContext OpCode) := do
+    : ExceptT String IO (WfIRContext OpCode) := do
   let mut c := ctx
 
   -- Check if the terminator operations can be converted to RISCV branches. If
@@ -26,17 +25,16 @@ def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
 
   for i in List.range (op.getNumOperands! c.raw) do
     let operand := op.getOperand! c.raw i
-    let some (c', cast) := WfRewriter.createOp c
+    let some (c', cast) := WfRewriter.createOp! c
       (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand] #[]
-      #[] default ip sorry sorry sorry sorry | return c
+      #[] default ip | return c
     c := c'
     casts := casts.push cast
 
   if op.getOpType! c = OpCode.llvm .br then do
-    let some (c', _) := WfRewriter.createOp c (.riscv_cf .branch) #[]
+    let some (c', _) := WfRewriter.createOp! c (.riscv_cf .branch) #[]
       (casts.map (fun cast => cast.getResult 0))
-      #[op.getSuccessor! c.raw 0] #[] default ip sorry sorry sorry
-      sorry | return c
+      #[op.getSuccessor! c.raw 0] #[] default ip | return c
     c := c'
 
   if op.getOpType! c = OpCode.llvm .cond_br then do
@@ -44,17 +42,16 @@ def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
       (OpCode.llvm .cond_br)
     let props : RISCVBrProperties := ⟨condProps.operandSegmentSizes⟩
 
-    let some (c', _) :=WfRewriter.createOp c (.riscv_cf .bnez) #[]
+    let some (c', _) := WfRewriter.createOp! c (.riscv_cf .bnez) #[]
       (casts.map (fun cast => cast.getResult 0))
-      (op.getSuccessors! c.raw) #[] props ip sorry sorry sorry sorry | return c
+      (op.getSuccessors! c.raw) #[] props ip | return c
     c := c'
 
-  if h : op.getNumRegions! c.raw = 0 && !op.hasUses! c.raw then
-    c := WfRewriter.eraseOp c op (by grind) (by grind) (sorry)
+  if op.getNumRegions! c.raw = 0 && !op.hasUses! c.raw then
+    c := WfRewriter.eraseOp! c op
 
   return c
 
-set_option warn.sorry false in
 def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr)
     : ExceptT String IO (WfIRContext OpCode) := do
   let mut c := ctx
@@ -75,7 +72,7 @@ def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr)
       predOps := predOps.push op
 
   for op in predOps do
-    c := ← convertBranch c op block
+    c := ← convertBranch c op
 
   for i in List.range (block.getNumArguments! c.raw) do
     let bap : BlockArgumentPtr := { block := block, index := i }
@@ -84,15 +81,13 @@ def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr)
     -- register reproduces the correct type (e.g. i32 instead of i64)
     let origType := (ValuePtr.blockArgument bap).getType! c.raw
 
-    c := WfRewriter.setType c bap (RegisterType.mk) sorry
-    let ip := InsertPoint.atStart block c.raw sorry
-    let some (c', cast) := WfRewriter.createOp c
+    c := WfRewriter.setType! c bap (RegisterType.mk)
+    let ip := InsertPoint.atStart! block c.raw
+    let some (c', cast) := WfRewriter.createOp! c
       (OpCode.builtin .unrealized_conversion_cast)
-      #[origType] #[] #[] #[] default ip sorry sorry sorry
-      sorry | return c
-    let c' := WfRewriter.replaceValue c' bap (cast.getResult 0) sorry sorry
-      sorry
-    c := WfRewriter.pushOperand c' cast bap sorry sorry
+      #[origType] #[] #[] #[] default ip | return c
+    let c' := WfRewriter.replaceValue! c' bap (cast.getResult 0)
+    c := WfRewriter.pushOperand! c' cast bap
 
   return c
 
