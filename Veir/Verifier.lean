@@ -437,6 +437,14 @@ def OperationPtr.verifyModArithConstantOp (op : OperationPtr) (ctx: WfIRContext 
       throw s!"{instrName}: constant value {value} does not fit in storage type 'i{bw}'."
 
 
+def denseElementsElementType? (typeStr : String) : Option String :=
+  let s := typeStr.replace " " ""
+  let segments := s.splitOn "x"
+  if "tensor<".isPrefixOf s && s.endsWith ">" && segments.length ≥ 2 then
+    some ((segments.getLast!.splitOn ">").head!)
+  else
+    none
+
 /--
   Verify local invariants of an operation.
   This typically includes checking that the number of operands, successors, results, and regions
@@ -582,9 +590,16 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
         if intType.bitwidth ≠ floatAttr.type.bitwidth then
           throw s!"llvm.mlir.constant: Expected integer result type with bitwidth {floatAttr.type.bitwidth}"
       | _ => throw "llvm.mlir.constant: Expected float or integer result type for a float constant"
-    | .dense _ =>
+    | .dense denseAttr =>
       match resultType with
-      | .llvmArrayType _ => pure ()
+      | .llvmArrayType { type := .llvmArrayType _, .. } => pure ()
+      | .llvmArrayType arrType =>
+        match denseElementsElementType? denseAttr.type with
+        | some elemType =>
+          let baseType := toString arrType.type
+          if elemType ≠ baseType then
+            throw s!"llvm.mlir.constant: dense elements type '{elemType}' does not match array element type '{baseType}'"
+        | none => pure ()
       | _ => throw "llvm.mlir.constant: Expected array result type for a dense elements constant"
     pure ()
   | .llvm .mlir__poison => do
