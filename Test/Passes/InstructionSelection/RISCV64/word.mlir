@@ -7,7 +7,7 @@
 
 "builtin.module"() ({
     // i32 add x (const imm12) -> riscv.addiw x imm
-    "func.func"() <{function_type = (i32) -> i32}> ({
+    "func.func"() <{function_type = (i32) -> i32, sym_name = "foo"}> ({
     ^bb(%a: i32):
         %c = "llvm.mlir.constant"() <{value = 5 : i32}> : () -> i32
         %r = "llvm.add"(%a, %c) : (i32, i32) -> i32
@@ -16,7 +16,7 @@
     }) : () -> ()
 
     // i32 shl x (const in [0,31]) -> riscv.slliw x imm
-    "func.func"() <{function_type = (i32) -> i32}> ({
+    "func.func"() <{function_type = (i32) -> i32, sym_name = "bar"}> ({
     ^bb(%a: i32):
         %c = "llvm.mlir.constant"() <{value = 3 : i32}> : () -> i32
         %r = "llvm.shl"(%a, %c) : (i32, i32) -> i32

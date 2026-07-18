@@ -4,7 +4,7 @@
 // i.e. `(~x) & y`. It rewrites to `and (xor x, -1), y` -- an `andn`-shaped form.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i64, i64) -> i64}> ({
+  "func.func"() <{function_type = (i64, i64) -> i64, sym_name = "foo"}> ({
   ^bb0(%x: i64, %y: i64):
     %a = "llvm.and"(%x, %y) : (i64, i64) -> i64
     %r = "llvm.xor"(%a, %y) : (i64, i64) -> i64
@@ -13,7 +13,7 @@
 
   // Negative case: the `xor`'s second operand is not the `and`'s operand, so no
   // fold.
-  "func.func"() <{function_type = (i64, i64, i64) -> i64}> ({
+  "func.func"() <{function_type = (i64, i64, i64) -> i64, sym_name = "bar"}> ({
   ^bb0(%x: i64, %y: i64, %w: i64):
     %a = "llvm.and"(%x, %y) : (i64, i64) -> i64
     %r = "llvm.xor"(%a, %w) : (i64, i64) -> i64

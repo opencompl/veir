@@ -7,7 +7,7 @@
 "builtin.module"() ({
 
     // fshr(a, a, 5) is rotate-right by 5 -> rori a, 5
-    "func.func"()  <{function_type = (i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64) -> (), sym_name = "f0"}> ({
     ^bb0(%a: i64):
         %c = "llvm.mlir.constant"() <{ "value" = 5 : i64 }> : () -> i64
         %r = "llvm.intr.fshr"(%a, %a, %c) : (i64, i64, i64) -> i64
@@ -16,7 +16,7 @@
     }) : () -> ()
 
     // fshl(a, a, 5) is rotate-left by 5 == rotate-right by 59 -> rori a, 59
-    "func.func"()  <{function_type = (i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64) -> (), sym_name = "f1"}> ({
     ^bb0(%a: i64):
         %c = "llvm.mlir.constant"() <{ "value" = 5 : i64 }> : () -> i64
         %l = "llvm.intr.fshl"(%a, %a, %c) : (i64, i64, i64) -> i64
@@ -25,7 +25,7 @@
     }) : () -> ()
 
     // A rotate by 0 stays a (no-op) rotate: fshl/fshr by 0 -> rori a, 0
-    "func.func"()  <{function_type = (i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64) -> (), sym_name = "f2"}> ({
     ^bb0(%a: i64):
         %c = "llvm.mlir.constant"() <{ "value" = 0 : i64 }> : () -> i64
         %l = "llvm.intr.fshl"(%a, %a, %c) : (i64, i64, i64) -> i64
@@ -35,7 +35,7 @@
     }) : () -> ()
 
     // i32: fshr(a, a, 5) is rotate-right by 5 -> roriw a, 5
-    "func.func"()  <{function_type = (i32) -> ()}> ({
+    "func.func"()  <{function_type = (i32) -> (), sym_name = "f3"}> ({
     ^bb0(%a: i32):
         %c = "llvm.mlir.constant"() <{ "value" = 5 : i32 }> : () -> i32
         %r = "llvm.intr.fshr"(%a, %a, %c) : (i32, i32, i32) -> i32
@@ -44,7 +44,7 @@
     }) : () -> ()
 
     // i32: fshl(a, a, 5) is rotate-left by 5 == rotate-right by 27 -> roriw a, 27
-    "func.func"()  <{function_type = (i32) -> ()}> ({
+    "func.func"()  <{function_type = (i32) -> (), sym_name = "f4"}> ({
     ^bb0(%a: i32):
         %c = "llvm.mlir.constant"() <{ "value" = 5 : i32 }> : () -> i32
         %l = "llvm.intr.fshl"(%a, %a, %c) : (i32, i32, i32) -> i32

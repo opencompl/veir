@@ -5,7 +5,7 @@
 // sub redone at the narrow width. The constant operand must be second.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i64) -> i32}> ({
+  "func.func"() <{function_type = (i64) -> i32, sym_name = "foo"}> ({
   ^bb0(%x: i64):
     %c = "llvm.mlir.constant"() <{value = 7 : i64}> : () -> i64
     %sub = "llvm.sub"(%x, %c) : (i64, i64) -> i64
@@ -14,7 +14,7 @@
   }) : () -> ()
 
   // Negative case: the second operand is not a constant, so the pattern does not fire.
-  "func.func"() <{function_type = (i64, i64) -> i32}> ({
+  "func.func"() <{function_type = (i64, i64) -> i32, sym_name = "bar"}> ({
   ^bb0(%x: i64, %y: i64):
     %sub = "llvm.sub"(%x, %y) : (i64, i64) -> i64
     %r = "llvm.trunc"(%sub) : (i64) -> i32

@@ -56,6 +56,16 @@ theorem InsertPoint.atStart!_eq_atStart (block : BlockPtr) (ctx : IRContext OpIn
     InsertPoint.atStart! block ctx = InsertPoint.atStart block ctx hIn := by
   cases (block.get ctx (by grind)).firstOp <;> grind [InsertPoint.atStart!, InsertPoint.atStart]
 
+@[simp, grind =]
+theorem InsertPoint.inBounds_atStart (ctxWf : ctx.WellFormed) :
+    (InsertPoint.atStart block ctx hIn).InBounds ctx ↔ block.InBounds ctx := by
+  grind [InsertPoint.atStart]
+
+@[simp, grind =]
+theorem InsertPoint.inBounds_atStart! (ctxWf : ctx.WellFormed) (blockInBounds : block.InBounds ctx) :
+    (InsertPoint.atStart! block ctx).InBounds ctx ↔ block.InBounds ctx := by
+  grind [InsertPoint.atStart!]
+
 def InsertPoint.after (op : OperationPtr) (ctx : IRContext OpInfo) (block : BlockPtr)
     (_opHasParent : (op.get! ctx).parent = some block := by grind)
     (opInBounds : op.InBounds ctx := by grind) : InsertPoint :=

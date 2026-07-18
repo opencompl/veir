@@ -345,6 +345,8 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     let mut dict := Std.HashMap.ofList props.extra.entries.toList
     if let some sym_name := props.sym_name then
       dict := dict.insert "sym_name".toUTF8 (.stringAttr sym_name)
+    if let some function_type := props.function_type then
+      dict := dict.insert "function_type".toUTF8  function_type
     dict
   | .builtin .unregistered =>
     Std.HashMap.ofList props.properties.entries.toList

@@ -1,4 +1,6 @@
-import Veir.Pass
+module
+
+public import Veir.Pass
 import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
 import Veir.Fold.Rewriter

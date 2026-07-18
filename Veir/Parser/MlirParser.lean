@@ -1,14 +1,16 @@
-import Veir.Parser.Parser
+module
+
+public import Veir.Parser.Parser
+public import Veir.GlobalOpInfo
+public import Veir.IR.WellFormed
+public import Veir.Rewriter.InsertPoint
+
 import Veir.Parser.AttrParser
 import Veir.Parser.DecidableInBounds
-import Veir.IR.Basic
-import Veir.Rewriter.InsertPoint
-import Veir.Rewriter.Basic
-import Veir.Rewriter.GetSet
 import Veir.Rewriter.WellFormed
 import Veir.Rewriter.WfRewriter
-import Veir.Properties
-import Veir.GlobalOpInfo
+
+public section
 
 open Veir.Parser.Lexer
 open Veir.Parser
@@ -640,23 +642,25 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
   let results ← parseOpResults
   let opNameStart ← getPos
   let some opName ← parseOptionalStringLiteral | return none
+  let some opNameStr := String.fromUTF8? opName
+    | throwAt opNameStart s!"op '{escapeStringLiteral opName}' not a valid UTF8 string."
   let operands ← parseOperands
   let blockOperands ← parseBlockOperands
 
   /- Get the operation opcode. -/
-  let opId := OpCode.fromName opName.toByteArray
+  let opId := OpCode.fromName opName
 
   if let .builtin .unregistered := opId then
     if !(← get).allowUnregisteredDialect then
       throwAt opNameStart
-        s!"op '{opName}' is not registered. Consider using --allow-unregistered-dialect."
+        s!"op '{opNameStr}' is not registered. Consider using --allow-unregistered-dialect."
 
   let properties ← parseOpProperties opId
   /- For `builtin.unregistered`, record the original op name in the properties so it can be
      printed back out. The properties dictionary itself has already been populated by
      `Properties.fromAttrDict` (see `UnregisteredProperties.fromAttrDict`). -/
   let properties : propertiesOf opId := match opId, properties with
-    | .builtin .unregistered, props => { props with opName := opName.toByteArray }
+    | .builtin .unregistered, props => { props with opName := opName }
     | _, props => props
   let regions ← parseOpRegions
   let attrs ← parseOpAttributes
@@ -667,11 +671,11 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
 
   /- Check that the number of results matches with the operation type. -/
   if outputTypes.size ≠ numResults then
-    throwAt opNameStart s!"operation '{opName}' declares {outputTypes.size} result types, but {numResults} result values were provided"
+    throwAt opNameStart s!"operation '{opNameStr}' declares {outputTypes.size} result types, but {numResults} result values were provided"
 
   /- Check that the number and types of operands matches with the operation type. -/
   if inputTypes.size ≠ operands.size then
-    throwAt opNameStart s!"operation '{opName}' declares {inputTypes.size} operand types, but {operands.size} operands were provided"
+    throwAt opNameStart s!"operation '{opNameStr}' declares {inputTypes.size} operand types, but {operands.size} operands were provided"
   let operands ← operands.zip inputTypes |>.mapM (fun (operand, type) => resolveOperand operand type)
 
   let op ← modifyContextM' fun ctx => do
@@ -717,6 +721,7 @@ partial def parseRegion : MlirParserM RegionPtr := do
 
   /- Case where there are no blocks inside the region. -/
   if (← parseOptionalPunctuation "}") then
+    modifyThe MlirParserState fun s => {s with blocks := oldBlocks}
     return region
 
   /- Parse the first block separately, as it may not have a label. -/

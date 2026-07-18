@@ -851,7 +851,7 @@ theorem OpResultPtr.setFirstUse_fieldsInBounds_maybe (hnew : newFirstUse.maybe O
   prove_fieldsInBounds_operation ctx
 
 @[grind .]
-theorem RegionPtr.setParent_fieldsInBounds (hnew : newParent.InBounds ctx) :
+theorem RegionPtr.setParent_fieldsInBounds (hnew : newParent.maybe OperationPtr.InBounds ctx) :
     ctx.FieldsInBounds → (setParent region ctx newParent h).FieldsInBounds := by
   prove_fieldsInBounds_region ctx
 

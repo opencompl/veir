@@ -5,7 +5,7 @@
 // bitwise op on the narrow operands and casting once.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i64, i64) -> i32}> ({
+  "func.func"() <{function_type = (i64, i64) -> i32, sym_name = "foo"}> ({
   ^bb0(%x: i64, %y: i64):
     %ex = "llvm.trunc"(%x) : (i64) -> i32
     %ey = "llvm.trunc"(%y) : (i64) -> i32
@@ -14,7 +14,7 @@
   }) : () -> ()
 
   // Negative case: only one operand is a `trunc`, so nothing is hoisted.
-  "func.func"() <{function_type = (i64, i32) -> i32}> ({
+  "func.func"() <{function_type = (i64, i32) -> i32, sym_name = "bar"}> ({
   ^bb0(%x: i64, %y: i32):
     %ex = "llvm.trunc"(%x) : (i64) -> i32
     %r = "llvm.or"(%ex, %y) : (i32, i32) -> i32

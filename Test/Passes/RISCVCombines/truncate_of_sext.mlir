@@ -3,7 +3,7 @@
 // `trunc (sext x)` that round-trips back to `x`'s type folds to `x`.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i32) -> i32}> ({
+  "func.func"() <{function_type = (i32) -> i32, sym_name = "foo"}> ({
   ^bb0(%x: i32):
     %s = "llvm.sext"(%x) : (i32) -> i64
     %t = "llvm.trunc"(%s) : (i64) -> i32
@@ -11,7 +11,7 @@
   }) : () -> ()
 
   // Negative case: the trunc target width doesn't match x's width (i32 -> i16).
-  "func.func"() <{function_type = (i32) -> i16}> ({
+  "func.func"() <{function_type = (i32) -> i16, sym_name = "bar"}> ({
   ^bb0(%x: i32):
     %s = "llvm.sext"(%x) : (i32) -> i64
     %t = "llvm.trunc"(%s) : (i64) -> i16

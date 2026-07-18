@@ -1,9 +1,14 @@
-import Veir.Interpreter.Basic
-import Veir.Dominance
-import Veir.Interpreter.Refinement.Basic
-import Veir.Verifier
+module
+
+public import Veir.Interpreter.Basic
+public import Veir.Dominance
+public import Veir.Verifier
+public import Veir.Interpreter.Refinement.Basic
+
+import all Veir.Interpreter.Basic
 
 namespace Veir
+public section
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 variable {ctx ctx' : WfIRContext OpInfo}
@@ -180,6 +185,90 @@ theorem VariableState.getVar?_setResultValues?_of_value_inBounds
   simp only [getVar?_setResultValues? h]
   cases value <;> grind
 
+theorem VariableState.getVar?_setArgumentValues?_loop {block : BlockPtr}
+    {values : Array RuntimeValue} {i : Nat} {iInBounds blockInBounds} :
+    VariableState.setArgumentValues?_loop varState block values i blockInBounds iInBounds = some varState' →
+    varState'.getVar? value =
+    match value with
+    | .blockArgument ⟨block', index⟩ =>
+      if block' = block ∧ index < i then
+        some values[index]!
+      else
+        varState.getVar? value
+    | _ =>
+      varState.getVar? value := by
+  fun_induction VariableState.setArgumentValues?_loop
+  next => grind
+  next =>
+    simp only [Option.bind_eq_bind, Nat.succ_eq_add_one, Option.bind]
+    grind [cases BlockArgumentPtr, OperationPtr.getResult_def, cases ValuePtr]
+
+@[grind =>]
+theorem VariableState.getVar?_setArgumentValues? {block : BlockPtr} {values : Array RuntimeValue}
+    {blockInBounds} :
+    varState.setArgumentValues? block values blockInBounds = some varState' →
+    varState'.getVar? value =
+    match value with
+    | .blockArgument ⟨block', index⟩ =>
+      if block' = block ∧ index < block.getNumArguments! ctx.raw then
+        some values[index]!
+      else
+        varState.getVar? value
+    | _ =>
+      varState.getVar? value := by
+  grind [VariableState.setArgumentValues?, VariableState.getVar?_setArgumentValues?_loop]
+
+theorem VariableState.getVar?_setArgumentValues?_of_notMem_getArguments!
+    {block : BlockPtr} {value values blockInBounds} :
+    value ∉ block.getArguments! ctx.raw →
+    varState.setArgumentValues? block values blockInBounds = some varState' →
+    varState'.getVar? value = varState.getVar? value := by
+  intro hNotMem hSet
+  simp only [VariableState.getVar?_setArgumentValues? hSet]
+  rcases value with _ | ⟨block', index⟩
+  · grind
+  · simp only [BlockPtr.getArguments!.mem_iff_exists_index, not_exists, not_and] at hNotMem
+    grind [BlockPtr.getArgument_def]
+
+/-- `block` arguments are exactly the values set by `setArgumentValues? block` in the new state. -/
+theorem VariableState.getVar?_getArgument_of_setArgumentValues?
+    {block : BlockPtr} {values blockInBounds} :
+    i < block.getNumArguments! ctx.raw →
+    varState.setArgumentValues? block values blockInBounds = some varState' →
+    varState'.getVar? (block.getArgument i) = some values[i]! := by
+  intro hi hSet
+  simp only [VariableState.getVar?_setArgumentValues? hSet]
+  grind [BlockPtr.getArgument_def]
+
+/-- `setArgumentValues?.loop` succeeds iff every argument value it binds conforms to its argument
+type. -/
+theorem VariableState.setArgumentValues?_loop_isSome_iff {block : BlockPtr}
+    {values : Array RuntimeValue} {i : Nat} {iInBounds blockInBounds} :
+    (∀ j, j < i → (values[j]!).Conforms ((block.getArgument j : ValuePtr).getType! ctx.raw)) ↔
+    (∃ v, VariableState.setArgumentValues?_loop varState block values i blockInBounds iInBounds = some v) := by
+  fun_induction VariableState.setArgumentValues?_loop
+  next => grind
+  next varState hin k hk arg value ih =>
+    simp only [Option.bind_eq_bind, Option.bind]
+    constructor
+    · intro hconform
+      rw [VariableState.setVar?_eq_some_setVar (hconform k (by grind))]
+      simp only [← ih]
+      grind
+    · rintro ⟨v, hv⟩ j hj
+      rcases hsv : varState.setVar? (ValuePtr.blockArgument arg) value with _ | varState'
+      · grind
+      · grind [ih varState']
+
+/-- `setArgumentValues?` succeeds iff every argument value conforms to its argument type. -/
+theorem VariableState.setArgumentValues?_isSome_iff_conforms (varState : VariableState ctx)
+    {block : BlockPtr} {values : Array RuntimeValue} {blockInBounds} :
+    (∀ j, j < block.getNumArguments! ctx.raw →
+      (values[j]!).Conforms ((block.getArgument j : ValuePtr).getType! ctx.raw)) ↔
+    (∃ v, varState.setArgumentValues? block values blockInBounds = some v) := by
+  simp only [VariableState.setArgumentValues?]
+  exact VariableState.setArgumentValues?_loop_isSome_iff
+
 /--
 Assert equality between two `interpretOp'` calls that have the same operation type and properties.
 This lemma is useful to avoid introducing extra casts on the `interpretOp'` arguments.
@@ -281,6 +370,48 @@ theorem VariableState.setResultValues?_comm
   simp only [hvs₂', Option.some.injEq]
   ext val value
   cases val <;> grind [getVar?_setResultValues?]
+
+/-- Success of `setArgumentValues?` only depends on the values conforming to the argument types,
+not on the contents of the variable state, so it can be transferred to any other state. -/
+theorem VariableState.setArgumentValues?_eq_some_of_varState
+    (varState₂ : VariableState ctx) :
+    varState.setArgumentValues? block values blockInBounds = some varState' →
+    ∃ varState₂', varState₂.setArgumentValues? block values blockInBounds = some varState₂' := by
+  intro h
+  simp only [← VariableState.setArgumentValues?_isSome_iff_conforms]
+  grind [(VariableState.setArgumentValues?_isSome_iff_conforms varState).mpr ⟨_, h⟩]
+
+/-- Setting block arguments and operation results commute: block arguments and operation results
+are distinct `ValuePtr`s, so they never alias. -/
+theorem VariableState.setArgumentValues?_setResultValues?_comm :
+    varState.setArgumentValues? block argValues blockInBounds = some varState' →
+    varState'.setResultValues? op resValues opInBounds = some varState'' →
+    ∃ varState₂, varState.setResultValues? op resValues opInBounds = some varState₂ ∧
+    varState₂.setArgumentValues? block argValues blockInBounds = some varState'' := by
+  intros h₁ h₂
+  have ⟨varState₂, hvs₂⟩ := setResultValues?_eq_some_of_varState varState h₂
+  have ⟨varState₂', hvs₂'⟩ := setArgumentValues?_eq_some_of_varState varState₂ h₁
+  exists varState₂
+  constructor; grind
+  simp only [hvs₂', Option.some.injEq]
+  ext val value
+  grind [getVar?_setResultValues?, getVar?_setArgumentValues?]
+
+/-- Setting operation results and block arguments commute: block arguments and operation results
+are distinct `ValuePtr`s, so they never alias. -/
+theorem VariableState.setResultValues?_setArgumentValues?_comm :
+    varState.setResultValues? op resValues opInBounds = some varState' →
+    varState'.setArgumentValues? block argValues blockInBounds = some varState'' →
+    ∃ varState₂, varState.setArgumentValues? block argValues blockInBounds = some varState₂ ∧
+    varState₂.setResultValues? op resValues opInBounds = some varState'' := by
+  intros h₁ h₂
+  have ⟨varState₂, hvs₂⟩ := setArgumentValues?_eq_some_of_varState varState h₂
+  have ⟨varState₂', hvs₂'⟩ := setResultValues?_eq_some_of_varState varState₂ h₁
+  exists varState₂
+  constructor; grind
+  simp only [hvs₂', Option.some.injEq]
+  ext val value
+  grind [getVar?_setResultValues?, getVar?_setArgumentValues?]
 
 theorem VariableState.getVar?_setResultValues?_operand_of_dominates
     (ctxDom : ctx.Dom) (hdom : op'.dominates op ctx) :

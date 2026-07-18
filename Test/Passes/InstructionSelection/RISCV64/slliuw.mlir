@@ -6,7 +6,7 @@
 
 "builtin.module"() ({
     // shl (zext x) 3 -> riscv.slliuw x 3
-    "func.func"() <{function_type = (i32) -> i64}> ({
+    "func.func"() <{function_type = (i32) -> i64, sym_name = "foo"}> ({
     ^bb(%a: i32):
         %z = "llvm.zext"(%a) : (i32) -> i64
         %c = "llvm.mlir.constant"() <{value = 3 : i64}> : () -> i64
