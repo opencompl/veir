@@ -152,6 +152,45 @@ def WfRewriter.replaceOperand! (wfCtx : WfIRContext OpInfo) (use : OpOperandPtr)
   else
     panic! "WfRewriter.replaceOperand! failed: operand use is out of bounds"
 
+/-- Set the attributes of an operation. -/
+@[inline]
+def WfRewriter.setAttributes (wfCtx : WfIRContext OpInfo) (op : OperationPtr) (newAttrs : DictionaryAttr)
+    (opIn : op.InBounds wfCtx.raw := by grind) : WfIRContext OpInfo :=
+  ⟨Rewriter.setAttributes wfCtx.raw op newAttrs opIn,
+    by grind [Rewriter.setAttributes_WellFormed]⟩
+
+/-- Set the attributes of an operation, panicking if the operation is out of bounds. -/
+def WfRewriter.setAttributes! (wfCtx : WfIRContext OpInfo) (op : OperationPtr) (newAttrs : DictionaryAttr)
+    : WfIRContext OpInfo :=
+  if hop : op.InBounds wfCtx.raw then
+    WfRewriter.setAttributes wfCtx op newAttrs hop
+  else
+    panic! "WfRewriter.replaceOperand! failed: operation is out of bounds"
+
+/-- Set the properties of an operation. -/
+@[inline]
+def WfRewriter.setProperties {opCode : OpInfo} (wfCtx : WfIRContext OpInfo) (op : OperationPtr)
+    (newProps : HasOpInfo.propertiesOf opCode)
+    (opIn : op.InBounds wfCtx.raw := by grind)
+    (hprop : op.getOpType! wfCtx.raw = opCode := by grind) :
+    WfIRContext OpInfo :=
+  ⟨Rewriter.setProperties wfCtx.raw op newProps opIn hprop,
+    by grind [Rewriter.setProperties_WellFormed]⟩
+
+/--
+Set the properties of an operation, panicking if the operation is out of bounds, or if the
+property types don't match.
+-/
+def WfRewriter.setProperties! {opCode : OpInfo} (wfCtx : WfIRContext OpInfo) (op : OperationPtr)
+    (newProperties : HasOpInfo.propertiesOf opCode) : WfIRContext OpInfo :=
+  if opIn : op.InBounds wfCtx.raw then
+    if hprop : op.getOpType! wfCtx.raw = opCode then
+      WfRewriter.setProperties wfCtx op newProperties opIn hprop
+    else
+      panic! "WfRewriter.setProperties! failed: property types don't match"
+  else
+    panic! "WfRewriter.setProperties! failed: operation is out of bounds"
+
 /-- Set the type of a value. -/
 @[inline]
 def WfRewriter.setType (wfCtx : WfIRContext OpInfo) (value : ValuePtr) (newType : TypeAttr)

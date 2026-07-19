@@ -877,6 +877,318 @@ theorem OperationPtr.getResultTypes!_WfRewriter_replaceValue :
 
 end WfRewriter.replaceValue
 
+/-! ## `WfRewriter.setAttributes` -/
+
+section WfRewriter.setAttributes
+
+attribute [local grind] WfRewriter.setAttributes
+
+variable {op : OperationPtr} {newAttrs : DictionaryAttr} {opIn : op.InBounds ctx.raw}
+
+@[simp, grind =]
+theorem BlockPtr.prev!_wfRewriter_setAttributes {block : BlockPtr} :
+    (block.get! ((WfRewriter.setAttributes ctx op newAttrs opIn)).raw).prev =
+    (block.get! ctx.raw).prev := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.next!_wfRewriter_setAttributes {block : BlockPtr} :
+    (block.get! ((WfRewriter.setAttributes ctx op newAttrs opIn)).raw).next =
+    (block.get! ctx.raw).next := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.parent!_wfRewriter_setAttributes {block : BlockPtr} :
+    (block.get! ((WfRewriter.setAttributes ctx op newAttrs opIn).raw)).parent =
+    (block.get! ctx.raw).parent := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.firstOp!_wfRewriter_setAttributes {block : BlockPtr} :
+    (block.get! ((WfRewriter.setAttributes ctx op newAttrs opIn)).raw).firstOp =
+    (block.get! ctx.raw).firstOp := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.lastOp!_wfRewriter_setAttributes {block : BlockPtr} :
+    (block.get! ((WfRewriter.setAttributes ctx op newAttrs opIn)).raw).lastOp =
+    (block.get! ctx.raw).lastOp := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.prev!_wfRewriter_setAttributes {op' : OperationPtr} :
+    (op'.get! ((WfRewriter.setAttributes ctx op newAttrs opIn)).raw).prev =
+    (op'.get! ctx.raw).prev := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.next!_wfRewriter_setAttributes {op' : OperationPtr} :
+    (op'.get! ((WfRewriter.setAttributes ctx op newAttrs opIn)).raw).next =
+    (op'.get! ctx.raw).next := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.parent!_wfRewriter_setAttributes {op' : OperationPtr} :
+    (op'.get! ((WfRewriter.setAttributes ctx op newAttrs opIn)).raw).parent =
+    (op'.get! ctx.raw).parent := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getOpType!_wfRewriter_setAttributes {op' : OperationPtr} :
+    op'.getOpType! (WfRewriter.setAttributes ctx op newAttrs opIn).raw =
+    op'.getOpType! ctx := by
+  grind
+
+@[grind =]
+theorem OperationPtr.attrs!_wfRewriter_setAttributes {op' : OperationPtr} :
+    (op'.get! ((WfRewriter.setAttributes ctx op newAttrs opIn)).raw).attrs =
+    if op' = op then newAttrs else (op'.get! ctx.raw).attrs  := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getProperties!_wfRewriter_setAttributes {op' : OperationPtr} :
+    op'.getProperties! (WfRewriter.setAttributes ctx op newAttrs opIn).raw =
+    op'.getProperties! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumResults!_wfRewriter_setAttributes {op' : OperationPtr} :
+    op'.getNumResults! (WfRewriter.setAttributes ctx op newAttrs opIn).raw =
+    op'.getNumResults! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumOperands!_wfRewriter_setAttributes {op' : OperationPtr} :
+    op'.getNumOperands! (WfRewriter.setAttributes ctx op newAttrs opIn).raw =
+    op'.getNumOperands! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getOperand!_wfRewriter_setAttributes {op' : OperationPtr} :
+    op'.getOperand! (WfRewriter.setAttributes ctx op newAttrs opIn).raw index =
+    op'.getOperand! ctx.raw index := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getOperands!_wfRewriter_setAttributes {op' : OperationPtr} :
+    op'.getOperands! (WfRewriter.setAttributes ctx op newAttrs opIn).raw =
+    op'.getOperands! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_wfRewriter_setAttributes {op' : OperationPtr} :
+    op'.getNumSuccessors! (WfRewriter.setAttributes ctx op newAttrs opIn).raw =
+    op'.getNumSuccessors! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessor!_wfRewriter_setAttributes {op' : OperationPtr} :
+    op'.getSuccessor! (WfRewriter.setAttributes ctx op newAttrs opIn).raw index =
+    op'.getSuccessor! ctx.raw index := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessors!_wfRewriter_setAttributes {op' : OperationPtr} :
+    op'.getSuccessors! (WfRewriter.setAttributes ctx op newAttrs opIn).raw =
+    op'.getSuccessors! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumRegions!_wfRewriter_setAttributes {op' : OperationPtr} :
+    op'.getNumRegions! (WfRewriter.setAttributes ctx op newAttrs opIn).raw =
+    op'.getNumRegions! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getRegions!_wfRewriter_setAttributes {op' : OperationPtr} :
+    op'.getRegions! (WfRewriter.setAttributes ctx op newAttrs opIn).raw =
+    op'.getRegions! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.firstBlock!_wfRewriter_setAttributes {region : RegionPtr} :
+    (region.get! ((WfRewriter.setAttributes ctx op newAttrs opIn)).raw).firstBlock =
+    (region.get! ctx.raw).firstBlock := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.lastBlock!_wfRewriter_setAttributes {region : RegionPtr} :
+    (region.get! ((WfRewriter.setAttributes ctx op newAttrs opIn)).raw).lastBlock =
+    (region.get! ctx.raw).lastBlock := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.parent!_wfRewriter_setAttributes {region : RegionPtr} :
+    (region.get! ((WfRewriter.setAttributes ctx op newAttrs opIn)).raw).parent =
+    (region.get! ctx.raw).parent := by
+  grind
+
+@[simp, grind =]
+theorem ValuePtr.getType!_wfRewriter_setAttributes {value : ValuePtr} :
+    value.getType! (WfRewriter.setAttributes ctx op newAttrs opIn).raw  =
+    value.getType! ctx.raw := by
+  grind
+
+end WfRewriter.setAttributes
+
+/-! ## `WfRewriter.setProperties` -/
+
+section WfRewriter.setProperties
+
+attribute [local grind] WfRewriter.setProperties
+
+variable {opCode: OpInfo} {op : OperationPtr} {newProps : HasOpInfo.propertiesOf opCode} {opIn : op.InBounds ctx.raw}
+         {opIn: op.InBounds ctx.raw} {hprop : op.getOpType! ctx.raw = opCode}
+
+@[simp, grind =]
+theorem BlockPtr.prev!_wfRewriter_setProperties {block : BlockPtr} :
+    (block.get! ((WfRewriter.setProperties ctx op newProps opIn hprop)).raw).prev =
+    (block.get! ctx.raw).prev := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.next!_wfRewriter_setProperties {block : BlockPtr} :
+    (block.get! ((WfRewriter.setProperties ctx op newProps opIn hprop)).raw).next =
+    (block.get! ctx.raw).next := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.parent!_wfRewriter_setProperties {block : BlockPtr} :
+    (block.get! ((WfRewriter.setProperties ctx op newProps opIn hprop).raw)).parent =
+    (block.get! ctx.raw).parent := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.firstOp!_wfRewriter_setProperties {block : BlockPtr} :
+    (block.get! ((WfRewriter.setProperties ctx op newProps opIn hprop)).raw).firstOp =
+    (block.get! ctx.raw).firstOp := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.lastOp!_wfRewriter_setProperties {block : BlockPtr} :
+    (block.get! ((WfRewriter.setProperties ctx op newProps opIn hprop)).raw).lastOp =
+    (block.get! ctx.raw).lastOp := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.prev!_wfRewriter_setProperties {op' : OperationPtr} :
+    (op'.get! ((WfRewriter.setProperties ctx op newProps opIn hprop)).raw).prev =
+    (op'.get! ctx.raw).prev := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.next!_wfRewriter_setProperties {op' : OperationPtr} :
+    (op'.get! ((WfRewriter.setProperties ctx op newProps opIn hprop)).raw).next =
+    (op'.get! ctx.raw).next := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.parent!_wfRewriter_setProperties {op' : OperationPtr} :
+    (op'.get! ((WfRewriter.setProperties ctx op newProps opIn hprop)).raw).parent =
+    (op'.get! ctx.raw).parent := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getOpType!_wfRewriter_setProperties {op' : OperationPtr} :
+    op'.getOpType! (WfRewriter.setProperties ctx op newProps opIn hprop).raw =
+    op'.getOpType! ctx := by
+  grind
+
+@[simp ,grind =]
+theorem OperationPtr.attrs!_wfRewriter_setProperties {op' : OperationPtr} :
+    (op'.get! ((WfRewriter.setProperties ctx op newProps opIn hprop)).raw).attrs =
+    (op'.get! ctx.raw).attrs := by
+  grind
+
+@[grind =]
+theorem OperationPtr.getProperties!_wfRewriter_setProperties {op' : OperationPtr} {opCode' : OpInfo}:
+    op'.getProperties! (WfRewriter.setProperties ctx op newProps opIn hprop).raw opCode' =
+    if op' = op then
+      if h: opCode' = opCode then h ▸ newProps else default
+    else
+      op'.getProperties! ctx.raw opCode' := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumResults!_wfRewriter_setProperties {op' : OperationPtr} :
+    op'.getNumResults! (WfRewriter.setProperties ctx op newProps opIn hprop).raw =
+    op'.getNumResults! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumOperands!_wfRewriter_setProperties {op' : OperationPtr} :
+    op'.getNumOperands! (WfRewriter.setProperties ctx op newProps opIn hprop).raw =
+    op'.getNumOperands! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getOperand!_wfRewriter_setProperties {op' : OperationPtr} :
+    op'.getOperand! (WfRewriter.setProperties ctx op newProps opIn hprop).raw index =
+    op'.getOperand! ctx.raw index := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getOperands!_wfRewriter_setProperties {op' : OperationPtr} :
+    op'.getOperands! (WfRewriter.setProperties ctx op newProps opIn hprop).raw =
+    op'.getOperands! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_wfRewriter_setProperties {op' : OperationPtr} :
+    op'.getNumSuccessors! (WfRewriter.setProperties ctx op newProps opIn hprop).raw =
+    op'.getNumSuccessors! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessor!_wfRewriter_setProperties {op' : OperationPtr} :
+    op'.getSuccessor! (WfRewriter.setProperties ctx op newProps opIn hprop).raw index =
+    op'.getSuccessor! ctx.raw index := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessors!_wfRewriter_setProperties {op' : OperationPtr} :
+    op'.getSuccessors! (WfRewriter.setProperties ctx op newProps opIn hprop).raw =
+    op'.getSuccessors! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumRegions!_wfRewriter_setProperties {op' : OperationPtr} :
+    op'.getNumRegions! (WfRewriter.setProperties ctx op newProps opIn hprop).raw =
+    op'.getNumRegions! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getRegions!_wfRewriter_setProperties {op' : OperationPtr} :
+    op'.getRegions! (WfRewriter.setProperties ctx op newProps opIn hprop).raw =
+    op'.getRegions! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.firstBlock!_wfRewriter_setProperties {region : RegionPtr} :
+    (region.get! ((WfRewriter.setProperties ctx op newProps opIn hprop)).raw).firstBlock =
+    (region.get! ctx.raw).firstBlock := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.lastBlock!_wfRewriter_setProperties {region : RegionPtr} :
+    (region.get! ((WfRewriter.setProperties ctx op newProps opIn hprop)).raw).lastBlock =
+    (region.get! ctx.raw).lastBlock := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.parent!_wfRewriter_setProperties {region : RegionPtr} :
+    (region.get! ((WfRewriter.setProperties ctx op newProps opIn hprop)).raw).parent =
+    (region.get! ctx.raw).parent := by
+  grind
+
+@[simp, grind =]
+theorem ValuePtr.getType!_wfRewriter_setProperties {value : ValuePtr} :
+    value.getType! (WfRewriter.setProperties ctx op newProps opIn hprop).raw  =
+    value.getType! ctx.raw := by
+  grind
+
+end WfRewriter.setProperties
+
 /-! ## `WfRewriter.setType` -/
 
 section WfRewriter.setType
