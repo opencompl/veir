@@ -7,7 +7,7 @@
 
 "builtin.module"() ({
   // slt with constant on the left -> sgt with constant on the right.
-  "func.func"() <{function_type = (i32) -> i1}> ({
+  "func.func"() <{function_type = (i32) -> i1, sym_name = "foo"}> ({
   ^bb0(%x: i32):
     %c = "llvm.mlir.constant"() <{value = 5 : i32}> : () -> i32
     %r = "llvm.icmp"(%c, %x) <{predicate = 2 : i64}> : (i32, i32) -> i1
@@ -15,7 +15,7 @@
   }) : () -> ()
 
   // eq is symmetric: predicate is unchanged, operands still swapped.
-  "func.func"() <{function_type = (i32) -> i1}> ({
+  "func.func"() <{function_type = (i32) -> i1, sym_name = "bar"}> ({
   ^bb0(%x: i32):
     %c = "llvm.mlir.constant"() <{value = 5 : i32}> : () -> i32
     %r = "llvm.icmp"(%c, %x) <{predicate = 0 : i64}> : (i32, i32) -> i1
@@ -23,7 +23,7 @@
   }) : () -> ()
 
   // Negative case: constant already on the right, so nothing to canonicalize.
-  "func.func"() <{function_type = (i32) -> i1}> ({
+  "func.func"() <{function_type = (i32) -> i1, sym_name = "baz"}> ({
   ^bb0(%x: i32):
     %c = "llvm.mlir.constant"() <{value = 5 : i32}> : () -> i32
     %r = "llvm.icmp"(%x, %c) <{predicate = 2 : i64}> : (i32, i32) -> i1

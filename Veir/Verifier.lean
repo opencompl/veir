@@ -55,15 +55,11 @@ def OperationPtr.verifyFuncReturnTypes (op : OperationPtr) (ctx : WfIRContext Op
       throw s!"func.return operand {i} type does not match the function's declared result type"
 
 /--
-  Check that an `llvm.return` returns the declared result types of its
-  enclosing `llvm.func`. A single `llvm.void` result is normalized to no
-  results.
+  Check an `llvm.return` against its enclosing `llvm.func`'s declared results.
+  A single `llvm.void` result means no operands.
 -/
-def OperationPtr.verifyLLVMReturnTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
-  let funcOp ← op.getEnclosingFunctionOp ctx "llvm.return"
-  let .llvm .func := funcOp.getOpType! ctx.raw
-    | throw "Expected llvm.return to be enclosed by llvm.func"
+def OperationPtr.verifyLLVMFuncReturnTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) (funcOp : OperationPtr) : Except String PUnit := do
   let some ft := FunctionOpInterface.getFunctionType? funcOp ctx.raw
     | throw "Expected enclosing llvm.func to have a function_type attribute"
   -- A single `llvm.void` result corresponds to no return operands.
@@ -76,6 +72,37 @@ def OperationPtr.verifyLLVMReturnTypes (op : OperationPtr) (ctx : WfIRContext Op
   for i in [0:outputs.size] do
     if !Attribute.branchArgCompatible (opTypes[i]!).val outputs[i]! then
       throw s!"llvm.return operand {i} type does not match the function's declared result type"
+
+/--
+  Check an `llvm.return` against its `llvm.mlir.global`'s `global_type`.
+-/
+def OperationPtr.verifyLLVMGlobalReturnTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) (globalOp : OperationPtr) : Except String PUnit := do
+  let props := globalOp.getProperties! ctx.raw (.builtin .unregistered)
+  let some (_, globalType) := props.properties.entries.find?
+      (fun entry => entry.1 == "global_type".toUTF8)
+    | throw "Expected enclosing llvm.mlir.global to have a global_type attribute"
+  if op.getNumOperands ctx.raw opIn ≠ 1 then
+    throw "Expected llvm.return in llvm.mlir.global to have 1 operand"
+  let opTypes := op.getOperandTypes! ctx.raw
+  if (opTypes[0]!).val ≠ globalType then
+    throw "llvm.return operand type does not match the global's declared global_type"
+
+/--
+  Check an `llvm.return`'s operands against its enclosing `llvm.func` or `llvm.mlir.global`.
+-/
+def OperationPtr.verifyLLVMReturnTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  let enclosingOp ← op.getEnclosingFunctionOp ctx "llvm.return"
+  let badEnclosure : Except String PUnit :=
+    throw "Expected llvm.return to be enclosed by llvm.func or llvm.mlir.global"
+  match enclosingOp.getOpType! ctx.raw with
+  | .llvm .func => op.verifyLLVMFuncReturnTypes ctx opIn enclosingOp
+  | .builtin .unregistered =>
+    if (enclosingOp.getProperties! ctx.raw (.builtin .unregistered)).opName == "llvm.mlir.global".toUTF8 then
+      op.verifyLLVMGlobalReturnTypes ctx opIn enclosingOp
+    else badEnclosure
+  | _ => badEnclosure
 
 def TypeAttr.verifyIntegerType (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
   match ty.val with
@@ -410,6 +437,14 @@ def OperationPtr.verifyModArithConstantOp (op : OperationPtr) (ctx: WfIRContext 
       throw s!"{instrName}: constant value {value} does not fit in storage type 'i{bw}'."
 
 
+def denseElementsElementType? (typeStr : String) : Option String :=
+  let s := typeStr.replace " " ""
+  let segments := s.splitOn "x"
+  if "tensor<".isPrefixOf s && s.endsWith ">" && segments.length ≥ 2 then
+    some ((segments.getLast!.splitOn ">").head!)
+  else
+    none
+
 /--
   Verify local invariants of an operation.
   This typically includes checking that the number of operands, successors, results, and regions
@@ -506,6 +541,8 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 successors"
     if (FunctionOpInterface.getFunctionType? op ctx.raw).isNone then
       throw "Expected function type"
+    if (FunctionOpInterface.getSymName? op ctx.raw).isNone then
+      throw "Expected symbol name"
     pure ()
   | .func .call => do
     if op.getNumRegions ctx.raw opIn ≠ 0 then
@@ -553,9 +590,16 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
         if intType.bitwidth ≠ floatAttr.type.bitwidth then
           throw s!"llvm.mlir.constant: Expected integer result type with bitwidth {floatAttr.type.bitwidth}"
       | _ => throw "llvm.mlir.constant: Expected float or integer result type for a float constant"
-    | .dense _ =>
+    | .dense denseAttr =>
       match resultType with
-      | .llvmArrayType _ => pure ()
+      | .llvmArrayType { type := .llvmArrayType _, .. } => pure ()
+      | .llvmArrayType arrType =>
+        match denseElementsElementType? denseAttr.type with
+        | some elemType =>
+          let baseType := toString arrType.type
+          if elemType ≠ baseType then
+            throw s!"llvm.mlir.constant: dense elements type '{elemType}' does not match array element type '{baseType}'"
+        | none => pure ()
       | _ => throw "llvm.mlir.constant: Expected array result type for a dense elements constant"
     pure ()
   | .llvm .mlir__poison => do
@@ -668,6 +712,8 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 successors"
     if (FunctionOpInterface.getFunctionType? op ctx.raw).isNone then
       throw "Expected function type"
+    if (FunctionOpInterface.getSymName? op ctx.raw).isNone then
+      throw "Expected symbol name"
     pure ()
   | .llvm .fadd | .llvm .fsub | .llvm .fmul | .llvm .fdiv | .llvm .frem => do
     op.verifyPlainOpCounts ctx opIn 2 1
@@ -1786,6 +1832,19 @@ theorem OperationPtr.Verified.mod_arith_constant {op : OperationPtr} {opInBounds
   obtain ⟨hPlainOpCounts, modArithType, hModArithType, hAttr⟩ := h
   simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure]
     at hPlainOpCounts hModArithType hAttr
+  grind
+
+/-- Structural facts guaranteed for a verified `func.func`: it has no operands, results, or
+successors, and exactly one region (its body). -/
+theorem OperationPtr.Verified.func_func {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .func .func) :
+    op.getNumOperands! ctx.raw = 0 ∧
+    op.getNumResults! ctx.raw = 0 ∧
+    op.getNumSuccessors! ctx.raw = 0 ∧
+    op.getNumRegions! ctx.raw = 1 := by
+  simp only [Verified, verifyLocalInvariants, ← getOpType!_eq_getOpType, opType, ne_eq,
+    bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure,
+    ite_not] at opVerify
   grind
 
 end

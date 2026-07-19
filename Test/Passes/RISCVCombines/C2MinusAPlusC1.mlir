@@ -4,7 +4,7 @@
 // constant, leaving one subtract of A.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i64) -> i64}> ({
+  "func.func"() <{function_type = (i64) -> i64, sym_name = "foo"}> ({
   ^bb0(%a: i64):
     %c1 = "llvm.mlir.constant"() <{value = 3 : i64}> : () -> i64
     %c2 = "llvm.mlir.constant"() <{value = 10 : i64}> : () -> i64
@@ -14,7 +14,7 @@
   }) : () -> ()
 
   // Negative case: the minuend is not a constant, so no fold.
-  "func.func"() <{function_type = (i64, i64) -> i64}> ({
+  "func.func"() <{function_type = (i64, i64) -> i64, sym_name = "bar"}> ({
   ^bb0(%a: i64, %y: i64):
     %c1 = "llvm.mlir.constant"() <{value = 3 : i64}> : () -> i64
     %add = "llvm.add"(%a, %c1) : (i64, i64) -> i64
@@ -23,7 +23,7 @@
   }) : () -> ()
 
   // Negative case: the added operand is not a constant, so no fold.
-  "func.func"() <{function_type = (i64, i64) -> i64}> ({
+  "func.func"() <{function_type = (i64, i64) -> i64, sym_name = "baz"}> ({
   ^bb0(%a: i64, %x: i64):
     %c2 = "llvm.mlir.constant"() <{value = 10 : i64}> : () -> i64
     %add = "llvm.add"(%a, %x) : (i64, i64) -> i64

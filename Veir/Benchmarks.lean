@@ -1,10 +1,14 @@
-import Veir.Prelude
-import Veir.IR.Basic
-import Veir.Rewriter.Basic
+module
+
+public import Veir.PatternRewriter.Basic
+public import Veir.GlobalOpInfo
+
 import Veir.Printer
-import Veir.PatternRewriter.Basic
-import Veir.Rewriter.Basic
-import Veir.Properties
+
+meta import Veir.PatternRewriter.Basic
+meta import Veir.Printer
+
+public section
 
 open Veir
 

@@ -5,7 +5,7 @@
 // (-2147483648) entries in rawConstantIndices.
 
 "builtin.module"() ({
-  "llvm.func"()  <{function_type = !llvm.func<void (!llvm.ptr, i64, i64, i64, i64)>}> ({
+  "llvm.func"()  <{function_type = !llvm.func<void (!llvm.ptr, i64, i64, i64, i64)>, sym_name = "foo"}> ({
     ^bb0(%ptr: !llvm.ptr, %i: i64, %j: i64, %k: i64, %l: i64):
 
       // 1 dynamic index: ptr[i]
@@ -42,7 +42,7 @@
 
 // CHECK:       "builtin.module"() ({
 // CHECK-NEXT:    ^{{.*}}():
-// CHECK-NEXT:      "llvm.func"() <{"function_type" = !llvm.func<void (!llvm.ptr, i64, i64, i64, i64)>}> ({
+// CHECK-NEXT:      "llvm.func"() <{"function_type" = !llvm.func<void (!llvm.ptr, i64, i64, i64, i64)>, "sym_name" = "foo"}> ({
 // CHECK-NEXT:        ^{{.*}}(%{{.*}} : !llvm.ptr, %{{.*}} : i64, %{{.*}} : i64, %{{.*}} : i64, %{{.*}} : i64):
 // CHECK-NEXT:          %{{.*}} = "llvm.getelementptr"(%{{.*}}, %{{.*}}) <{"elem_type" = i8, "noWrapFlags" = 0 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
 // CHECK-NEXT:          %{{.*}} = "llvm.getelementptr"(%{{.*}}, %{{.*}}, %{{.*}}) <{"elem_type" = !llvm.array<10 x i8>, "noWrapFlags" = 0 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr

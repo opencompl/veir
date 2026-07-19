@@ -4,7 +4,7 @@
 // materialized 64-bit value already has bits 63:32 clear in that range.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = () -> !riscv.reg}> ({
+  "func.func"() <{function_type = () -> !riscv.reg, sym_name = "foo"}> ({
   ^bb0():
     %c = "riscv.li"() <{"value" = 16 : i32}> : () -> !riscv.reg
     %z = "riscv.zextw"(%c) : (!riscv.reg) -> !riscv.reg
@@ -13,7 +13,7 @@
 
   // Negative case: a negative immediate's 64-bit materialization does *not*
   // have bits 63:32 clear (it's sign-extended), so the `zextw` must stay.
-  "func.func"() <{function_type = () -> !riscv.reg}> ({
+  "func.func"() <{function_type = () -> !riscv.reg, sym_name = "bar"}> ({
   ^bb0():
     %c = "riscv.li"() <{"value" = -1 : i32}> : () -> !riscv.reg
     %z = "riscv.zextw"(%c) : (!riscv.reg) -> !riscv.reg

@@ -1,6 +1,9 @@
-import Veir.Parser.Parser
-import Veir.IR.Basic
-import Veir.IR.Attribute
+module
+
+public import Veir.Parser.Parser
+public import Veir.IR.Attribute
+
+public section
 
 open Veir.Parser.Lexer
 open Veir.Parser
@@ -158,9 +161,9 @@ def parseOptionalIntegerAttr : AttrParserM (Option IntegerAttr) := do
   Its syntax is a string literal enclosed in double quotes, e.g., `"foo"`.
 -/
 def parseOptionalStringAttr : AttrParserM (Option StringAttr) := do
-  let some str ← parseOptionalStringLiteral
+  let some bytes ← parseOptionalStringLiteral
     | return none
-  return some (StringAttr.mk str.toByteArray)
+  return some (StringAttr.mk bytes)
 
 /--
 Parse a float attribute, if present.
@@ -701,7 +704,7 @@ partial def parseOptionalLLVMFunctionType : AttrParserM (Option TypeAttr) := do
     | .type ty => some ty.val
     | .ellipsis => none
   let ft := FunctionType.mk paramTypes #[result.val] isVarArg
-  return some ⟨.llvmFunctionType ft, by rfl⟩
+  return some ⟨.llvmFunctionType ft, by simp⟩
 
 /--
   Parse a type, if present.

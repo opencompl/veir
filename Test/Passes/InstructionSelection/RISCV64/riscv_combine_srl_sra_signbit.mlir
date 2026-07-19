@@ -10,7 +10,7 @@
     // riscv.srli 63 (riscv.srai 5 x) -> riscv.srli 63 x: the inner shift amount is
     // discarded, and only the outer `srli 63` (renamed here, since a new op is
     // created) survives.
-    "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+    "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "f0"}> ({
     ^bb(%x: !riscv.reg):
         %sra = "riscv.srai"(%x) <{"value" = 5 : i64}> : (!riscv.reg) -> !riscv.reg
         %srl = "riscv.srli"(%sra) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
@@ -20,7 +20,7 @@
     }) : () -> ()
 
     // i32 analogue: riscv.srliw 31 (riscv.sraiw 7 x) -> riscv.srliw 31 x.
-    "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+    "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "f1"}> ({
     ^bb(%x: !riscv.reg):
         %sraw = "riscv.sraiw"(%x) <{"value" = 7 : i64}> : (!riscv.reg) -> !riscv.reg
         %srlw = "riscv.srliw"(%sraw) <{"value" = 31 : i64}> : (!riscv.reg) -> !riscv.reg
@@ -31,7 +31,7 @@
 
     // Outer shift amount not (width - 1): the pattern must not fire, so both
     // instructions survive.
-    "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+    "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "f2"}> ({
     ^bb(%x: !riscv.reg):
         %sra = "riscv.srai"(%x) <{"value" = 5 : i64}> : (!riscv.reg) -> !riscv.reg
         %srl = "riscv.srli"(%sra) <{"value" = 62 : i64}> : (!riscv.reg) -> !riscv.reg
@@ -41,7 +41,7 @@
     }) : () -> ()
 
     // No inner `srai`: not matched, `riscv.srli` is left as-is.
-    "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+    "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "f3"}> ({
     ^bb(%x: !riscv.reg):
         %srl = "riscv.srli"(%x) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
         // CHECK:      %{{.*}} = "riscv.srli"(%{{.*}}) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg

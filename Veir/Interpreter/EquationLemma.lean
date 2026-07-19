@@ -1,6 +1,14 @@
-import Veir.Interpreter.Basic
+module
+
+public import Veir.IR.OpInfo
+public import Veir.IR.Basic
+public import Veir.GlobalOpInfo
+public import Veir.Interpreter.Basic
+public import Veir.Dominance
+public import Veir.Verifier
+
 import Veir.Interpreter.Lemmas
-import Veir.Dominance
+
 
 /-!
 # Equation Lemma and SSA Invariant
@@ -14,6 +22,7 @@ CompCertSSA semantics are based on small-step operational semantics.
 -/
 
 namespace Veir
+public section
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 
@@ -56,7 +65,7 @@ theorem interpretOp'_eq_ok_implies_memory_eq (h : op.Pure ctx) :
           some (.ok (resValues, memory₂, cf)) →
       memory₁ = memory₂ := by
   rw [h operands memory₁ memory₁]
-  simp only [Interp.map, Option.map, UBOr.map]
+  simp only [Interp.map, Option.map, Interp, UBOr.map]
   grind
 
 end OperationPtr.Pure
@@ -173,8 +182,7 @@ theorem InterpreterState.DefinesDominating.exists_getVar_of_dominatesIp
 /-- All operands operation in a well-dominated program exist in a state that is `DefinesDominating`
 right before the operation. -/
 theorem InterpreterState.DefinesDominating.exists_getOperandValues_eq_some
-    {ctx : WfIRContext OpCode} (ctxDom : ctx.Dom) {state : InterpreterState ctx}
-    {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
+    (ctxDom : ctx.Dom) {state : InterpreterState ctx}
     (stateDom : state.DefinesDominating (InsertPoint.before op) opInBounds) :
     ∃ val, state.variables.getOperandValues op = some val := by
   simp only [VariableState.getOperandValues, Array.exists_mapM_option_eq_some_iff]
@@ -204,15 +212,60 @@ theorem interpretOp_DefinesDominating {ctx : WfIRContext OpCode} {opInBounds}
   case inr =>
     grind [OperationPtr.getResults!.mem_iff_exists_index]
 
+/-- Setting a successor's block arguments preserves `DefinesDominating` in a state satisfying it at
+the predecessor's exit. -/
+theorem InterpreterState.DefinesDominating.setArgumentValues?_succ_entry
+    (ctxDom : ctx.Dom) {exitState : InterpreterState ctx}
+    {block : BlockPtr} (blockInBounds : block.InBounds ctx.raw)
+    (hsucc : succ ∈ block.getSuccessors! ctx.raw)
+    (hExit : exitState.DefinesDominating (InsertPoint.atEnd block))
+    (hArgs : exitState.variables.setArgumentValues? succ res succInBounds = some newVars) :
+    InterpreterState.DefinesDominating ⟨newVars, exitState.memory⟩ (InsertPoint.atStart! succ ctx.raw) := by
+  intro value valueInBounds valueDom
+  cases WfIRContext.Dom.value_dominatesIp_successor_entry ctxDom blockInBounds hsucc valueDom
+  · grind [InterpreterState.DefinesDominating]
+  · grind [BlockPtr.getArguments!.mem_iff_exists_index]
+
+/-- `EquationHolds` for an `op` dominating `succ`'s entry is preserved when setting `succ`'s block
+arguments. -/
+theorem InterpreterState.EquationHolds.setArgumentValues?_of_dominatesIp (ctxDom : ctx.Dom)
+    (opDom : op.dominatesIp (InsertPoint.atStart! succ ctx.raw) ctx)
+    {exitState : InterpreterState ctx} (hEq : exitState.EquationHolds op opIn)
+    (hArgs : exitState.variables.setArgumentValues? succ res succInBounds = some newVars) :
+    InterpreterState.EquationHolds ⟨newVars, exitState.memory⟩ op := by
+  simp only [InterpreterState.EquationHolds] at hEq ⊢
+  obtain ⟨cf, hinterp⟩ := hEq
+  simp only [interpretOp_some_iff] at hinterp ⊢
+  grind [VariableState.getOperandValues_eq_of_getVar?_eq,
+      VariableState.getVar?_setArgumentValues?_of_notMem_getArguments!,
+      WfIRContext.Dom.blockArgument_not_dominatesIp_before_of_dominatesIp_firstOp,
+      → VariableState.setResultValues?_setArgumentValues?_comm]
+
+/-- Setting a successor's block arguments preserves `EquationLemmaAt` in a state satisfying it at
+the predecessor's exit. -/
+theorem InterpreterState.EquationLemmaAt.setArgumentValues?_succ_entry (ctxDom : ctx.Dom)
+    {block : BlockPtr} (blockInBounds : block.InBounds ctx.raw)
+    (hsucc : succ ∈ block.getSuccessors! ctx.raw)
+    {exitState : InterpreterState ctx}
+    (hExit : exitState.EquationLemmaAt (InsertPoint.atEnd block))
+    (hArgs : exitState.variables.setArgumentValues? succ res succInBounds = some newVars) :
+    InterpreterState.EquationLemmaAt ⟨newVars, exitState.memory⟩
+      (InsertPoint.atStart! succ ctx.raw) := by
+  intro op opIn hPure hDom
+  have opDomAtEnd : op.dominatesIp (InsertPoint.atEnd block) ctx := by
+    grind [WfIRContext.Dom.op_dominatesIp_successor_entry]
+  have := hExit op opIn hPure opDomAtEnd
+  grind [InterpreterState.EquationHolds.setArgumentValues?_of_dominatesIp]
+
 /-- Interpreting a verified operation never fails on a state satisfying `DefinesDominating` at the
 operation's location. -/
 theorem InterpreterState.DefinesDominating.interpretOp_ne_none
-    (ctxDom : ctx.Dom) (opInBounds : op.InBounds ctx.raw) {state : InterpreterState ctx}
-    (stateDom : state.DefinesDominating (InsertPoint.before op) opInBounds)
+    (ctxDom : ctx.Dom) {state : InterpreterState ctx}
+    (stateDom : state.DefinesDominating (InsertPoint.before op) ipInBounds)
     (opVerif : op.Verified ctx opInBounds) :
     ∃ state', interpretOp op state opInBounds = some state' := by
   simp only [interpretOp]
-  have ⟨operandValues, hOperandValues⟩ := stateDom.exists_getOperandValues_eq_some ctxDom opInBounds
+  have ⟨operandValues, hOperandValues⟩ := stateDom.exists_getOperandValues_eq_some ctxDom
   simp only [hOperandValues]
   have hconforms : RuntimeValue.ArrayConforms operandValues (op.getOperandTypes! ctx.raw) := by
     grind [VariableState.getOperandValues_conforms]

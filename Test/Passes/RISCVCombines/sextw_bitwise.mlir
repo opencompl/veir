@@ -5,7 +5,7 @@
 // if each operand's bits 63:32 already equal its bit 31, so do the result's.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg, sym_name = "f0"}> ({
   ^bb0(%x: !riscv.reg, %y: !riscv.reg):
     %sx = "riscv.sextw"(%x) : (!riscv.reg) -> !riscv.reg
     %sy = "riscv.sextw"(%y) : (!riscv.reg) -> !riscv.reg
@@ -14,7 +14,7 @@
     "func.return"(%sa) : (!riscv.reg) -> ()
   }) : () -> ()
 
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg, sym_name = "f1"}> ({
   ^bb0(%x: !riscv.reg, %y: !riscv.reg):
     %sx = "riscv.sextw"(%x) : (!riscv.reg) -> !riscv.reg
     %sy = "riscv.sextw"(%y) : (!riscv.reg) -> !riscv.reg
@@ -23,7 +23,7 @@
     "func.return"(%so) : (!riscv.reg) -> ()
   }) : () -> ()
 
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg, sym_name = "f2"}> ({
   ^bb0(%x: !riscv.reg, %y: !riscv.reg):
     %sx = "riscv.sextw"(%x) : (!riscv.reg) -> !riscv.reg
     %sy = "riscv.sextw"(%y) : (!riscv.reg) -> !riscv.reg
@@ -34,7 +34,7 @@
 
   // Negative case: only one operand is `sextw`-guarded, so the result's upper
   // bits aren't known to match bit 31 -- the outer `sextw` must stay.
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg, sym_name = "f3"}> ({
   ^bb0(%x: !riscv.reg, %y: !riscv.reg):
     %sx = "riscv.sextw"(%x) : (!riscv.reg) -> !riscv.reg
     %e = "riscv.xor"(%sx, %y) : (!riscv.reg, !riscv.reg) -> !riscv.reg

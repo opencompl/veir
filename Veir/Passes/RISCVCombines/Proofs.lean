@@ -1,7 +1,18 @@
-import Veir.Data.RISCV.Reg.Basic
-import Veir.Data.RISCV.Reg.Lemmas
+module
+
+public import Veir.Data.RISCV.Reg.Basic
+public import Veir.Data.RISCV.Reg.Lemmas
 
 import Veir.Meta.BVDecide
+import Std.Tactic.BVDecide
+meta import Veir.Meta.BVDecide
+meta import Std.Tactic.BVDecide
+meta import Std.Tactic.BVDecide.Reflect
+
+import all Veir.Data.RISCV.Reg.Basic
+import all Veir.Data.RISCV.Reg.Lemmas
+
+public section
 
 /-!
   Correctness proofs for the RISC-V combines in `Combine.lean`.
