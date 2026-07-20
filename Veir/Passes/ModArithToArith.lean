@@ -296,7 +296,7 @@ def RemuiToBarrettReducePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     remuiToBarrettReduction
   ]
   match RewritePattern.applyInContext pattern ctx with
-  | none => throw "Error while applying remui-to-barrett-reduce lowering"
+  | none => throw "Error while applying remui-to-barrett-reduction rewrite"
   | some ctx => pure ctx
 
 public def RemuiToBarrettReductionPass : Pass OpCode :=
