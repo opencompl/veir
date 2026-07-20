@@ -112,9 +112,9 @@ def emitBarrettReduction (rewriter : PatternRewriter OpCode) (r q : ValuePtr) (m
     (width : Nat) (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do
   let ty : TypeAttr := IntegerType.mk width
   let ty_i1 : TypeAttr := IntegerType.mk 1
-  let k     : Nat := (modulus - 1).toNat.log2 + 1     -- ceil(log2 modulus)
+  let k : Nat := (modulus - 1).toNat.log2 + 1     -- ceil(log2 modulus)
   let shift : Nat := 4 * k                           -- 4k (2k if you want 2 * k)
-  let mu    : Int := (2 ^ shift) / modulus            -- floor(2^shift / modulus)
+  let mu : Int := (2 ^ shift) / modulus            -- floor(2^shift / modulus)
 
   let (rewriter, m) ← emitArithConstant rewriter mu width ip
   let (rewriter, sh) ← emitArithConstant rewriter shift width ip
