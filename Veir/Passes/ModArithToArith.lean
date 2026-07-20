@@ -105,7 +105,7 @@ def emitArithBinOp (rewriter : PatternRewriter OpCode) (arithOp : Arith)
         r := r - q
     }
     return r
-}
+    }
 -/
 
 def emitBarrettReduction (rewriter : PatternRewriter OpCode) (r q : ValuePtr) (modulus : Int)
