@@ -1,16 +1,22 @@
-import Veir.IR.Basic
+module
+
+public import Veir.IR.Basic
+public import Veir.Data.LLVM.Int.Basic
+public import Veir.Data.LLVM.Byte.Basic
+public import Veir.Data.RISCV.Reg.Basic
+public import Veir.IR.WellFormed
+public import Veir.GlobalOpInfo
+
 import Veir.Rewriter.Basic
 import Veir.ForLean
-import Veir.IR.WellFormed
 import Veir.Data.Comb.Basic
-import Veir.Data.LLVM.Int.Basic
-import Veir.Data.LLVM.Byte.Basic
-import Veir.Data.RISCV.Reg.Basic
 import Veir.Data.HW.Basic
 import Veir.Data.Casting
 import Veir.Properties
 import Veir.GlobalOpInfo
 import Veir.Interfaces.FunctionInterfaces
+
+public section
 
 open Veir.Data
 /-!
@@ -57,7 +63,7 @@ namespace RuntimeValue
   A predicate indicating whether a `RuntimeValue` is a value that is a runtime value
   of a given `TypeAttr`.
 -/
-@[grind]
+@[expose, grind]
 def Conforms (val : RuntimeValue) (ty : TypeAttr) : Prop :=
   match val, ty with
   | .int bw _, ⟨.integerType intType, _⟩ => intType.bitwidth = bw
@@ -249,6 +255,7 @@ theorem VariableState.ext {s₁ s₂ : VariableState ctx} :
   Get the value of the operands of an operation.
   If any operand is not in the state, return `none`.
 -/
+@[expose]
 def VariableState.getOperandValues (state : VariableState ctx)
     (op : OperationPtr) : Option (Array RuntimeValue) := do
   (op.getOperands! ctx.raw).mapM state.getVar?
@@ -279,22 +286,29 @@ def VariableState.setResultValues? (state : VariableState ctx)
     none
 
 /--
+  Implementation loop for setting the values of block arguments.
+-/
+def VariableState.setArgumentValues?_loop (state : VariableState ctx)
+    (block : BlockPtr) (values : Array RuntimeValue) (i : Nat)
+    (blockInBounds : block.InBounds ctx.raw := by grind)
+    (iInBounds : i ≤ block.getNumArguments! ctx.raw := by grind)
+    : Option (VariableState ctx) :=
+  match i with
+  | 0 => state
+  | i + 1 => do
+    let arg := block.getArgument i
+    let value := values[i]!
+    let newState ← state.setVar? arg value
+    VariableState.setArgumentValues?_loop newState block values i
+
+/--
   Set the values of block arguments.
 -/
 def VariableState.setArgumentValues? (state : VariableState ctx)
     (block : BlockPtr) (values : Array RuntimeValue)
     (blockInBounds : block.InBounds ctx.raw := by grind)
     : Option (VariableState ctx) :=
-  let rec loop (state : VariableState ctx) (i : Nat)
-      (iInBounds : i ≤ block.getNumArguments! ctx.raw := by grind) :=
-    match i with
-    | 0 => state
-    | i + 1 => do
-      let arg := block.getArgument i
-      let value := values[i]!
-      let newState ← state.setVar? arg value
-      loop newState i
-  loop state (block.getNumArguments! ctx.raw)
+  VariableState.setArgumentValues?_loop state block values (block.getNumArguments! ctx.raw)
 
 /--
   How the control flow should proceed after interpreting a terminator.
@@ -316,9 +330,16 @@ inductive UBOr (α : Type) where
   | ub : UBOr α
 deriving Inhabited
 
+@[expose]
 def UBOr.map {α β : Type} (f : α → β) : UBOr α → UBOr β
   | .ok a => .ok (f a)
   | .ub => .ub
+
+@[simp, grind =]
+theorem UBOr.map_ok : UBOr.map f (.ok a) = .ok (f a) := by grind [UBOr.map]
+
+@[simp, grind =]
+theorem UBOr.map_ub : UBOr.map f .ub = .ub := by grind [UBOr.map]
 
 /--
   The interpreter monad. `Option (UBOr α)` has three states:
@@ -326,8 +347,10 @@ def UBOr.map {α β : Type} (f : α → β) : UBOr α → UBOr β
   - `some .ub`     — execution triggered undefined behaviour.
   - `none`         — interpreter could not proceed (malformed IR, unsupported op).
 -/
+@[expose]
 def Interp (α : Type) : Type := Option (UBOr α)
 
+@[expose]
 def Interp.map {α β : Type} (f : α → β) : Interp α → Interp β :=
   Option.map (UBOr.map f)
 
@@ -1587,6 +1610,7 @@ abbrev OperationPtr.interpret (op : OperationPtr) (ctx : IRContext OpCode)
   If any error occurs during interpretation (e.g., unknown operation, missing variable),
   return `none`.
 -/
+@[expose]
 def interpretOp (op : OperationPtr) {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
     (inBounds : op.InBounds ctx.raw := by grind)
     : Interp (InterpreterState ctx × Option ControlFlowAction) := do
@@ -1641,6 +1665,7 @@ def interpretOpList {ctx : WfIRContext OpCode} (ops : List OperationPtr)
   interpretation. If no terminator is encountered, return `none`.
   Return `none` if any errors occur during interpretation.
 -/
+@[expose]
 def interpretTerminatedOpList {ctx : WfIRContext OpCode} (ops : List OperationPtr)
     (state : InterpreterState ctx)
     (opInBounds : ∀ op ∈ ops, op.InBounds ctx.raw := by grind)

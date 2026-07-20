@@ -9,7 +9,7 @@
 "builtin.module"() ({
 
   ^1():
-    "func.func"()  <{function_type = (i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64) -> (), sym_name = "foo"}> ({
       ^1(%0 : i64):
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> i8
         %2 = "builtin.unrealized_conversion_cast"(%1) : (i8) -> i64
@@ -23,7 +23,7 @@
     }) : () -> ()
 
   ^2():
-    "func.func"()  <{function_type = (i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64) -> (), sym_name = "bar"}> ({
       ^1(%0 : i64):
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> !riscv.reg
         %2 = "builtin.unrealized_conversion_cast"(%1) : (!riscv.reg) -> i32

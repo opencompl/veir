@@ -5,7 +5,7 @@
 // are then guaranteed clear already.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg, sym_name = "f0"}> ({
   ^bb0(%x: !riscv.reg, %y: !riscv.reg):
     %zx = "riscv.zextw"(%x) : (!riscv.reg) -> !riscv.reg
     %zy = "riscv.zextw"(%y) : (!riscv.reg) -> !riscv.reg
@@ -14,7 +14,7 @@
     "func.return"(%za) : (!riscv.reg) -> ()
   }) : () -> ()
 
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg, sym_name = "f1"}> ({
   ^bb0(%x: !riscv.reg, %y: !riscv.reg):
     %zx = "riscv.zextw"(%x) : (!riscv.reg) -> !riscv.reg
     %zy = "riscv.zextw"(%y) : (!riscv.reg) -> !riscv.reg
@@ -23,7 +23,7 @@
     "func.return"(%zo) : (!riscv.reg) -> ()
   }) : () -> ()
 
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg, sym_name = "f2"}> ({
   ^bb0(%x: !riscv.reg, %y: !riscv.reg):
     %zx = "riscv.zextw"(%x) : (!riscv.reg) -> !riscv.reg
     %zy = "riscv.zextw"(%y) : (!riscv.reg) -> !riscv.reg
@@ -35,7 +35,7 @@
   // `and` only needs *one* `zextw`-guarded operand: `and` clears a result bit
   // whenever either operand's bit is clear, so bits 63:32 of the `and` are known
   // clear even though `%y` is unguarded -- the outer `zextw` folds away.
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg, sym_name = "f3"}> ({
   ^bb0(%x: !riscv.reg, %y: !riscv.reg):
     %zx = "riscv.zextw"(%x) : (!riscv.reg) -> !riscv.reg
     %a = "riscv.and"(%zx, %y) : (!riscv.reg, !riscv.reg) -> !riscv.reg
@@ -46,7 +46,7 @@
   // Negative case: `xor` (unlike `and`) needs *both* operands `zextw`-guarded;
   // with only one, the result's upper bits aren't known clear -- the outer
   // `zextw` must stay.
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg, sym_name = "f4"}> ({
   ^bb0(%x: !riscv.reg, %y: !riscv.reg):
     %zx = "riscv.zextw"(%x) : (!riscv.reg) -> !riscv.reg
     %e = "riscv.xor"(%zx, %y) : (!riscv.reg, !riscv.reg) -> !riscv.reg

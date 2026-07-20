@@ -1,6 +1,14 @@
-import Veir.Interpreter.Basic
+module
+
+public import Veir.IR.OpInfo
+public import Veir.IR.Basic
+public import Veir.GlobalOpInfo
+public import Veir.Interpreter.Basic
+public import Veir.Dominance
+public import Veir.Verifier
+
 import Veir.Interpreter.Lemmas
-import Veir.Dominance
+
 
 /-!
 # Equation Lemma and SSA Invariant
@@ -14,6 +22,7 @@ CompCertSSA semantics are based on small-step operational semantics.
 -/
 
 namespace Veir
+public section
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 
@@ -56,7 +65,7 @@ theorem interpretOp'_eq_ok_implies_memory_eq (h : op.Pure ctx) :
           some (.ok (resValues, memory₂, cf)) →
       memory₁ = memory₂ := by
   rw [h operands memory₁ memory₁]
-  simp only [Interp.map, Option.map, UBOr.map]
+  simp only [Interp.map, Option.map, Interp, UBOr.map]
   grind
 
 end OperationPtr.Pure
@@ -173,8 +182,7 @@ theorem InterpreterState.DefinesDominating.exists_getVar_of_dominatesIp
 /-- All operands operation in a well-dominated program exist in a state that is `DefinesDominating`
 right before the operation. -/
 theorem InterpreterState.DefinesDominating.exists_getOperandValues_eq_some
-    {ctx : WfIRContext OpCode} (ctxDom : ctx.Dom) {state : InterpreterState ctx}
-    {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
+    (ctxDom : ctx.Dom) {state : InterpreterState ctx}
     (stateDom : state.DefinesDominating (InsertPoint.before op) opInBounds) :
     ∃ val, state.variables.getOperandValues op = some val := by
   simp only [VariableState.getOperandValues, Array.exists_mapM_option_eq_some_iff]
@@ -252,12 +260,12 @@ theorem InterpreterState.EquationLemmaAt.setArgumentValues?_succ_entry (ctxDom :
 /-- Interpreting a verified operation never fails on a state satisfying `DefinesDominating` at the
 operation's location. -/
 theorem InterpreterState.DefinesDominating.interpretOp_ne_none
-    (ctxDom : ctx.Dom) (opInBounds : op.InBounds ctx.raw) {state : InterpreterState ctx}
-    (stateDom : state.DefinesDominating (InsertPoint.before op) opInBounds)
+    (ctxDom : ctx.Dom) {state : InterpreterState ctx}
+    (stateDom : state.DefinesDominating (InsertPoint.before op) ipInBounds)
     (opVerif : op.Verified ctx opInBounds) :
     ∃ state', interpretOp op state opInBounds = some state' := by
   simp only [interpretOp]
-  have ⟨operandValues, hOperandValues⟩ := stateDom.exists_getOperandValues_eq_some ctxDom opInBounds
+  have ⟨operandValues, hOperandValues⟩ := stateDom.exists_getOperandValues_eq_some ctxDom
   simp only [hOperandValues]
   have hconforms : RuntimeValue.ArrayConforms operandValues (op.getOperandTypes! ctx.raw) := by
     grind [VariableState.getOperandValues_conforms]

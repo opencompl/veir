@@ -10,7 +10,7 @@
 "builtin.module"() ({
     // Wrong mask: `2` is not a per-byte bit-`Y` mask, so a byte of `M` could have
     // a bit other than bit 0 set and `(M << 8) - M` is not `orc.b M`.
-    "func.func"()  <{function_type = (i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64) -> (), sym_name = "f0"}> ({
     ^bb0(%z: i64):
         %mask = "llvm.mlir.constant"() <{ "value" = 2 : i64 }> : () -> i64
         %m = "llvm.and"(%z, %mask) : (i64, i64) -> i64
@@ -23,7 +23,7 @@
     }) : () -> ()
     // No `and` at all: the shifted value is a bare argument, so the soundness gate
     // has nothing to prove each byte has only bit `Y` set. (Unsound to fuse.)
-    "func.func"()  <{function_type = (i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64) -> (), sym_name = "f1"}> ({
     ^bb0(%z: i64):
         %c8 = "llvm.mlir.constant"() <{ "value" = 8 : i64 }> : () -> i64
         %shl = "llvm.shl"(%z, %c8) : (i64, i64) -> i64
@@ -34,7 +34,7 @@
     }) : () -> ()
     // Shift-amount mismatch: mask is for Y=3 and `shl` is by 5 (Y=3), but `lshr`
     // is by 2 instead of 3.
-    "func.func"()  <{function_type = (i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64) -> (), sym_name = "f2"}> ({
     ^bb0(%z: i64):
         %mask = "llvm.mlir.constant"() <{ "value" = 578721382704613384 : i64 }> : () -> i64
         %m = "llvm.and"(%z, %mask) : (i64, i64) -> i64
@@ -49,7 +49,7 @@
     }) : () -> ()
     // Mask/shift inconsistency: shifts say Y=3 (`shl` 5, `lshr` 3) but the mask is
     // the Y=0 mask `0x0101_0101_0101_0101` rather than `0x0808_0808_0808_0808`.
-    "func.func"()  <{function_type = (i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64) -> (), sym_name = "f3"}> ({
     ^bb0(%z: i64):
         %mask = "llvm.mlir.constant"() <{ "value" = 72340172838076673 : i64 }> : () -> i64
         %m = "llvm.and"(%z, %mask) : (i64, i64) -> i64
@@ -64,7 +64,7 @@
     }) : () -> ()
     // Different masked values: the `shl` operand and the right operand are distinct
     // `and` results, so they are not the same `M`.
-    "func.func"()  <{function_type = (i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64) -> (), sym_name = "f4"}> ({
     ^bb0(%z: i64):
         %mask = "llvm.mlir.constant"() <{ "value" = 72340172838076673 : i64 }> : () -> i64
         %m1 = "llvm.and"(%z, %mask) : (i64, i64) -> i64
@@ -77,7 +77,7 @@
         "func.return"() : () -> ()
     }) : () -> ()
     // Out-of-range left shift: `shl` by 9 gives Y = 8 - 9 < 0, outside `0 ≤ Y < 8`.
-    "func.func"()  <{function_type = (i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64) -> (), sym_name = "f5"}> ({
     ^bb0(%z: i64):
         %mask = "llvm.mlir.constant"() <{ "value" = 72340172838076673 : i64 }> : () -> i64
         %m = "llvm.and"(%z, %mask) : (i64, i64) -> i64

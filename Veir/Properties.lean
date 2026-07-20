@@ -555,7 +555,7 @@ def FuncFuncProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute)
       else pure (some attr.asType)
     | none => pure none
   let extra := DictionaryAttr.fromArray
-    (attrDict.toArray.filter fun (k, _) => k ≠ "sym_name".toUTF8)
+    (attrDict.toArray.filter fun (k, _) => k ≠ "sym_name".toUTF8 && k ≠ "function_type".toUTF8)
   return { sym_name := symName, function_type := funcType, extra }
 
 /--

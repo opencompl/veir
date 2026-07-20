@@ -1,7 +1,7 @@
 // RUN: veir-opt %s -p=riscv-combine | filecheck %s
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg, sym_name = "f0"}> ({
   ^bb0(%x: !riscv.reg, %y: !riscv.reg):
     %zx = "riscv.zextw"(%x) : (!riscv.reg) -> !riscv.reg
     %zy = "riscv.zextw"(%y) : (!riscv.reg) -> !riscv.reg
@@ -9,28 +9,28 @@
     "func.return"(%sum) : (!riscv.reg) -> ()
   }) : () -> ()
 
-  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "f1"}> ({
   ^bb0(%x: !riscv.reg):
     %zx = "riscv.zextw"(%x) : (!riscv.reg) -> !riscv.reg
     %y = "riscv.addiw"(%zx) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
     "func.return"(%y) : (!riscv.reg) -> ()
   }) : () -> ()
 
-  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "f2"}> ({
   ^bb0(%x: !riscv.reg):
     %zx = "riscv.zextw"(%x) : (!riscv.reg) -> !riscv.reg
     %y = "riscv.roriw"(%zx) <{"value" = 7 : i64}> : (!riscv.reg) -> !riscv.reg
     "func.return"(%y) : (!riscv.reg) -> ()
   }) : () -> ()
 
-  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "f3"}> ({
   ^bb0(%x: !riscv.reg):
     %zx = "riscv.zextw"(%x) : (!riscv.reg) -> !riscv.reg
     %y = "riscv.srliw"(%zx) <{"value" = 3 : i64}> : (!riscv.reg) -> !riscv.reg
     "func.return"(%y) : (!riscv.reg) -> ()
   }) : () -> ()
 
-  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "f4"}> ({
   ^bb0(%x: !riscv.reg):
     %zx = "riscv.zextw"(%x) : (!riscv.reg) -> !riscv.reg
     %y = "riscv.sextw"(%zx) : (!riscv.reg) -> !riscv.reg

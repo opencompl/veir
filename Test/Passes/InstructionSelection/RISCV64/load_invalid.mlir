@@ -1,7 +1,7 @@
 // RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
 
 "builtin.module"() ({
-    "func.func"()  <{function_type = (!llvm.ptr) -> ()}> ({
+    "func.func"()  <{function_type = (!llvm.ptr) -> (), sym_name = "foo"}> ({
     ^bb0(%a: !llvm.ptr):
         // i16 loads are not supported (only i64/i32/i8), so this stays un-lowered.
         %val = "llvm.load"(%a) : (!llvm.ptr) -> i16

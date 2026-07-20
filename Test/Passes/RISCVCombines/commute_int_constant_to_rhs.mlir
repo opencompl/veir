@@ -6,7 +6,7 @@
 
 "builtin.module"() ({
   // add
-  "func.func"() <{function_type = (i32) -> i32}> ({
+  "func.func"() <{function_type = (i32) -> i32, sym_name = "f0"}> ({
   ^bb0(%x: i32):
     %c = "llvm.mlir.constant"() <{value = 5 : i32}> : () -> i32
     %r = "llvm.add"(%c, %x) : (i32, i32) -> i32
@@ -14,7 +14,7 @@
   }) : () -> ()
 
   // mul
-  "func.func"() <{function_type = (i32) -> i32}> ({
+  "func.func"() <{function_type = (i32) -> i32, sym_name = "f1"}> ({
   ^bb0(%x: i32):
     %c = "llvm.mlir.constant"() <{value = 5 : i32}> : () -> i32
     %r = "llvm.mul"(%c, %x) : (i32, i32) -> i32
@@ -22,7 +22,7 @@
   }) : () -> ()
 
   // and
-  "func.func"() <{function_type = (i32) -> i32}> ({
+  "func.func"() <{function_type = (i32) -> i32, sym_name = "f2"}> ({
   ^bb0(%x: i32):
     %c = "llvm.mlir.constant"() <{value = 5 : i32}> : () -> i32
     %r = "llvm.and"(%c, %x) : (i32, i32) -> i32
@@ -30,7 +30,7 @@
   }) : () -> ()
 
   // or
-  "func.func"() <{function_type = (i32) -> i32}> ({
+  "func.func"() <{function_type = (i32) -> i32, sym_name = "f3"}> ({
   ^bb0(%x: i32):
     %c = "llvm.mlir.constant"() <{value = 5 : i32}> : () -> i32
     %r = "llvm.or"(%c, %x) : (i32, i32) -> i32
@@ -38,7 +38,7 @@
   }) : () -> ()
 
   // xor
-  "func.func"() <{function_type = (i32) -> i32}> ({
+  "func.func"() <{function_type = (i32) -> i32, sym_name = "f4"}> ({
   ^bb0(%x: i32):
     %c = "llvm.mlir.constant"() <{value = 5 : i32}> : () -> i32
     %r = "llvm.xor"(%c, %x) : (i32, i32) -> i32
@@ -46,7 +46,7 @@
   }) : () -> ()
 
   // Negative case: constant already on the right, so nothing to commute.
-  "func.func"() <{function_type = (i32) -> i32}> ({
+  "func.func"() <{function_type = (i32) -> i32, sym_name = "f5"}> ({
   ^bb0(%x: i32):
     %c = "llvm.mlir.constant"() <{value = 5 : i32}> : () -> i32
     %r = "llvm.add"(%x, %c) : (i32, i32) -> i32

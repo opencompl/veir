@@ -4,28 +4,28 @@
 // idempotent, so the redundant outer one is dropped.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "f0"}> ({
   ^bb0(%x: !riscv.reg):
     %i = "riscv.zextb"(%x) : (!riscv.reg) -> !riscv.reg
     %o = "riscv.zextb"(%i) : (!riscv.reg) -> !riscv.reg
     "func.return"(%o) : (!riscv.reg) -> ()
   }) : () -> ()
 
-  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "f1"}> ({
   ^bb0(%x: !riscv.reg):
     %i = "riscv.zexth"(%x) : (!riscv.reg) -> !riscv.reg
     %o = "riscv.zexth"(%i) : (!riscv.reg) -> !riscv.reg
     "func.return"(%o) : (!riscv.reg) -> ()
   }) : () -> ()
 
-  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "f2"}> ({
   ^bb0(%x: !riscv.reg):
     %i = "riscv.sextb"(%x) : (!riscv.reg) -> !riscv.reg
     %o = "riscv.sextb"(%i) : (!riscv.reg) -> !riscv.reg
     "func.return"(%o) : (!riscv.reg) -> ()
   }) : () -> ()
 
-  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "f3"}> ({
   ^bb0(%x: !riscv.reg):
     %i = "riscv.sexth"(%x) : (!riscv.reg) -> !riscv.reg
     %o = "riscv.sexth"(%i) : (!riscv.reg) -> !riscv.reg

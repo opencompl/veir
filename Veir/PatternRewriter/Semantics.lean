@@ -1,9 +1,12 @@
-import Veir.PatternRewriter.Basic
-import Veir.Interpreter
-import Veir.IR.WellFormed
-import Veir.Passes.Matching
-import Veir.Rewriter.WfRewriter
-import Veir.Interpreter.Refinement.Basic
+module
+
+public import Veir.Interpreter
+public import Veir.Passes.Matching
+
+import all Veir.Interpreter.Basic
+
+public section
+
 namespace Veir
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
