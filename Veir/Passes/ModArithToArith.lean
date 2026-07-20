@@ -91,7 +91,7 @@ def emitArithBinOp (rewriter : PatternRewriter OpCode) (arithOp : Arith)
   return (rewriter, (r.getResult 0 : ValuePtr))
 
 
-/-! ## Barret Helper -/
+/-! ## Barrett Helper -/
 /-- Barrett reduction: approximate `⌊r / modulus⌋` with a precomputed reciprocal
     `magic = ⌊2^width / modulus⌋` via widen → multiply → shift → truncate, instead of
     emitting a runtime division. Note: this is the plain reciprocal-multiply approximation
