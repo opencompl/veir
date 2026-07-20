@@ -4,7 +4,7 @@
 // masking operand `Z`.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i64, i64, i64) -> i64}> ({
+  "func.func"() <{function_type = (i64, i64, i64) -> i64, sym_name = "foo"}> ({
   ^bb0(%x: i64, %y: i64, %z: i64):
     %ax = "llvm.and"(%x, %z) : (i64, i64) -> i64
     %ay = "llvm.and"(%y, %z) : (i64, i64) -> i64
@@ -13,7 +13,7 @@
   }) : () -> ()
 
   // Negative case: distinct masks, so the rule must not fire.
-  "func.func"() <{function_type = (i64, i64, i64, i64) -> i64}> ({
+  "func.func"() <{function_type = (i64, i64, i64, i64) -> i64, sym_name = "bar"}> ({
   ^bb0(%x: i64, %y: i64, %z0: i64, %z1: i64):
     %ax = "llvm.and"(%x, %z0) : (i64, i64) -> i64
     %ay = "llvm.and"(%y, %z1) : (i64, i64) -> i64

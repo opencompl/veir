@@ -9,7 +9,7 @@
 
 "builtin.module"() ({
     // sge: a >=s 5  ->  xori (slti a 5) 1
-    "func.func"() <{function_type = (i64) -> (i1)}> ({
+    "func.func"() <{function_type = (i64) -> (i1), sym_name = "f0"}> ({
     ^bb0(%a: i64):
         %z = "llvm.mlir.constant"() <{value = 5 : i64}> : () -> i64
         %r = "llvm.icmp"(%a, %z) <{predicate = 5 : i64}> : (i64, i64) -> i1
@@ -21,7 +21,7 @@
     }) : () -> ()
 
     // uge: a >=u 5  ->  xori (sltiu a 5) 1
-    "func.func"() <{function_type = (i64) -> (i1)}> ({
+    "func.func"() <{function_type = (i64) -> (i1), sym_name = "f1"}> ({
     ^bb0(%a: i64):
         %z = "llvm.mlir.constant"() <{value = 5 : i64}> : () -> i64
         %r = "llvm.icmp"(%a, %z) <{predicate = 9 : i64}> : (i64, i64) -> i1
@@ -33,7 +33,7 @@
     }) : () -> ()
 
     // sle: a <=s 5  ->  slti a 6   (x <= C  ==  x < C+1)
-    "func.func"() <{function_type = (i64) -> (i1)}> ({
+    "func.func"() <{function_type = (i64) -> (i1), sym_name = "f2"}> ({
     ^bb0(%a: i64):
         %z = "llvm.mlir.constant"() <{value = 5 : i64}> : () -> i64
         %r = "llvm.icmp"(%a, %z) <{predicate = 3 : i64}> : (i64, i64) -> i1
@@ -45,7 +45,7 @@
     }) : () -> ()
 
     // ule: a <=u 5  ->  sltiu a 6
-    "func.func"() <{function_type = (i64) -> (i1)}> ({
+    "func.func"() <{function_type = (i64) -> (i1), sym_name = "f3"}> ({
     ^bb0(%a: i64):
         %z = "llvm.mlir.constant"() <{value = 5 : i64}> : () -> i64
         %r = "llvm.icmp"(%a, %z) <{predicate = 7 : i64}> : (i64, i64) -> i1
@@ -59,7 +59,7 @@
     // Bail: sle against 2047 would need immediate 2048, which does not fit a
     // signed 12-bit field, so the peephole defers to the reg-reg lowering and
     // the `llvm.icmp` is left for `isel-riscv64` (not run here).
-    "func.func"() <{function_type = (i64) -> (i1)}> ({
+    "func.func"() <{function_type = (i64) -> (i1), sym_name = "f4"}> ({
     ^bb0(%a: i64):
         %z = "llvm.mlir.constant"() <{value = 2047 : i64}> : () -> i64
         %r = "llvm.icmp"(%a, %z) <{predicate = 3 : i64}> : (i64, i64) -> i1
@@ -70,7 +70,7 @@
     }) : () -> ()
 
     // Bail: ule against -1 (unsigned UINT_MAX) is excluded, since C+1 wraps to 0.
-    "func.func"() <{function_type = (i64) -> (i1)}> ({
+    "func.func"() <{function_type = (i64) -> (i1), sym_name = "f5"}> ({
     ^bb0(%a: i64):
         %z = "llvm.mlir.constant"() <{value = -1 : i64}> : () -> i64
         %r = "llvm.icmp"(%a, %z) <{predicate = 7 : i64}> : (i64, i64) -> i1

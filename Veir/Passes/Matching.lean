@@ -1,2 +1,4 @@
-import Veir.Passes.Matching.Basic
-import Veir.Passes.Matching.Lemmas
+module
+
+public import Veir.Passes.Matching.Basic
+public import Veir.Passes.Matching.Lemmas

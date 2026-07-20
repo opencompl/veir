@@ -3,7 +3,7 @@
 // `select c, 0, -1` is `sext (not c)`: invert the condition, then sign-extend.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i1) -> i64}> ({
+  "func.func"() <{function_type = (i1) -> i64, sym_name = "foo"}> ({
   ^bb0(%c: i1):
     %zero = "llvm.mlir.constant"() <{value = 0 : i64}> : () -> i64
     %m1 = "llvm.mlir.constant"() <{value = -1 : i64}> : () -> i64
@@ -12,7 +12,7 @@
   }) : () -> ()
 
   // Negative case: arms are 0 and 1, so this is select_0_1's shape (zext), not sext.
-  "func.func"() <{function_type = (i1) -> i64}> ({
+  "func.func"() <{function_type = (i1) -> i64, sym_name = "bar"}> ({
   ^bb0(%c: i1):
     %zero = "llvm.mlir.constant"() <{value = 0 : i64}> : () -> i64
     %one = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64

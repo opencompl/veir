@@ -5,7 +5,7 @@
 // bit 63, and `srli 63` moves it straight back -- an identity for such `X`.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg, sym_name = "f0"}> ({
   ^bb0(%x: !riscv.reg, %y: !riscv.reg):
     %c = "riscv.sltu"(%x, %y) : (!riscv.reg, !riscv.reg) -> !riscv.reg
     %s = "riscv.slli"(%c) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
@@ -13,7 +13,7 @@
     "func.return"(%r) : (!riscv.reg) -> ()
   }) : () -> ()
 
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg, sym_name = "f1"}> ({
   ^bb0(%x: !riscv.reg, %y: !riscv.reg):
     %c = "riscv.slt"(%x, %y) : (!riscv.reg, !riscv.reg) -> !riscv.reg
     %s = "riscv.slli"(%c) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
@@ -21,7 +21,7 @@
     "func.return"(%r) : (!riscv.reg) -> ()
   }) : () -> ()
 
-  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "f2"}> ({
   ^bb0(%x: !riscv.reg):
     %c = "riscv.sltiu"(%x) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
     %s = "riscv.slli"(%c) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
@@ -29,7 +29,7 @@
     "func.return"(%r) : (!riscv.reg) -> ()
   }) : () -> ()
 
-  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "f3"}> ({
   ^bb0(%x: !riscv.reg):
     %c = "riscv.seqz"(%x) : (!riscv.reg) -> !riscv.reg
     %s = "riscv.slli"(%c) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
@@ -39,7 +39,7 @@
 
   // Negative case: the shifted value isn't known to be 0/1 (it's an ordinary
   // `add`), so the shift pair must stay.
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg, sym_name = "f4"}> ({
   ^bb0(%x: !riscv.reg, %y: !riscv.reg):
     %c = "riscv.add"(%x, %y) : (!riscv.reg, !riscv.reg) -> !riscv.reg
     %s = "riscv.slli"(%c) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
@@ -48,7 +48,7 @@
   }) : () -> ()
 
   // Negative case: wrong shift amount (not width-1) must not be touched.
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg, sym_name = "f5"}> ({
   ^bb0(%x: !riscv.reg, %y: !riscv.reg):
     %c = "riscv.sltu"(%x, %y) : (!riscv.reg, !riscv.reg) -> !riscv.reg
     %s = "riscv.slli"(%c) <{"value" = 62 : i64}> : (!riscv.reg) -> !riscv.reg

@@ -4,7 +4,7 @@
 // `(1 ? x : y) -> x`. The `select` is erased and its uses forwarded to `x`.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i64, i64) -> i64}> ({
+  "func.func"() <{function_type = (i64, i64) -> i64, sym_name = "foo"}> ({
   ^bb0(%t: i64, %f: i64):
     %c = "llvm.mlir.constant"() <{value = 1 : i1}> : () -> i1
     %r = "llvm.select"(%c, %t, %f) : (i1, i64, i64) -> i64
@@ -12,7 +12,7 @@
   }) : () -> ()
 
   // Negative case: a non-constant condition leaves the `select` in place.
-  "func.func"() <{function_type = (i1, i64, i64) -> i64}> ({
+  "func.func"() <{function_type = (i1, i64, i64) -> i64, sym_name = "bar"}> ({
   ^bb0(%c: i1, %t: i64, %f: i64):
     %r = "llvm.select"(%c, %t, %f) : (i1, i64, i64) -> i64
     "func.return"(%r) : (i64) -> ()

@@ -8,7 +8,7 @@
 
 "builtin.module"() ({
     // and x (not y) -> riscv.andn
-    "func.func"()  <{function_type = (i64, i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64, i64) -> (), sym_name = "f0"}> ({
     ^bb0(%x: i64, %y: i64):
         %ones = "llvm.mlir.constant"() <{ "value" = -1 : i64 }> : () -> i64
         %not = "llvm.xor"(%y, %ones) : (i64, i64) -> i64
@@ -17,7 +17,7 @@
         "func.return"() : () -> ()
     }) : () -> ()
     // or x (not y) -> riscv.orn
-    "func.func"()  <{function_type = (i64, i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64, i64) -> (), sym_name = "f1"}> ({
     ^bb0(%x: i64, %y: i64):
         %ones = "llvm.mlir.constant"() <{ "value" = -1 : i64 }> : () -> i64
         %not = "llvm.xor"(%y, %ones) : (i64, i64) -> i64
@@ -26,7 +26,7 @@
         "func.return"() : () -> ()
     }) : () -> ()
     // xor x (not y) -> riscv.xnor  (i.e. ~(x ^ y))
-    "func.func"()  <{function_type = (i64, i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64, i64) -> (), sym_name = "f2"}> ({
     ^bb0(%x: i64, %y: i64):
         %ones = "llvm.mlir.constant"() <{ "value" = -1 : i64 }> : () -> i64
         %not = "llvm.xor"(%y, %ones) : (i64, i64) -> i64
@@ -35,7 +35,7 @@
         "func.return"() : () -> ()
     }) : () -> ()
     // The `not` is accepted on either operand: and (not y) x -> riscv.andn
-    "func.func"()  <{function_type = (i64, i64) -> ()}> ({
+    "func.func"()  <{function_type = (i64, i64) -> (), sym_name = "f3"}> ({
     ^bb0(%x: i64, %y: i64):
         %ones = "llvm.mlir.constant"() <{ "value" = -1 : i64 }> : () -> i64
         %not = "llvm.xor"(%y, %ones) : (i64, i64) -> i64

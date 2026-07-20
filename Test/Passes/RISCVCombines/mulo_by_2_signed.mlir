@@ -3,7 +3,7 @@
 // `mul x, 2` becomes `add x, x`; the constant 2 must match exactly.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i64) -> i64}> ({
+  "func.func"() <{function_type = (i64) -> i64, sym_name = "foo"}> ({
   ^bb0(%x: i64):
     %c2 = "llvm.mlir.constant"() <{value = 2 : i64}> : () -> i64
     %r = "llvm.mul"(%x, %c2) : (i64, i64) -> i64
@@ -11,7 +11,7 @@
   }) : () -> ()
 
   // Negative case: multiplying by 3 does not fold to a self-add.
-  "func.func"() <{function_type = (i64) -> i64}> ({
+  "func.func"() <{function_type = (i64) -> i64, sym_name = "bar"}> ({
   ^bb0(%x: i64):
     %c3 = "llvm.mlir.constant"() <{value = 3 : i64}> : () -> i64
     %r = "llvm.mul"(%x, %c3) : (i64, i64) -> i64

@@ -1,6 +1,13 @@
-import Veir.Interpreter.Basic
+module
+
+public import Veir.IR.OpInfo
+public import Veir.Interpreter.Basic
+public import Veir.Rewriter.InsertPoint
+public import Veir.Dominance
+
 import Veir.Data.Refinement
-import Veir.Dominance
+
+public section
 
 /-!
 # Refinement of programs
@@ -26,6 +33,7 @@ namespace Veir
 variable {OpInfo : Type} [HasOpInfo OpInfo] {ctx : WfIRContext OpInfo}
 
 /-- Refinement relation between two runtime values. -/
+@[expose]
 def RuntimeValue.isRefinedBy (source target : RuntimeValue) : Prop :=
   match source, target with
   | .int bw s, .int bw' t => ∃ h : bw = bw', s.cast h ⊒ t
@@ -41,6 +49,7 @@ def RuntimeValue.isRefinedBy (source target : RuntimeValue) : Prop :=
 An array `source` of runtime values is refined by `target`. This asserts that the arrays have
 the same size, and that they refine pointwise.
 -/
+@[expose]
 def RuntimeValue.arrayIsRefinedBy (source target : Array RuntimeValue) : Prop :=
   source.size = target.size ∧
     ∀ (i : Nat) (_ : i < source.size), source[i]! ⊒ target[i]!
@@ -51,6 +60,7 @@ def RuntimeValue.arrayIsRefinedBy (source target : Array RuntimeValue) : Prop :=
 Refinement of memory states, which can involve poison bits being refined into concrete bits.
 This should be kept consistent with the definition of refinement on the byte type.
 -/
+@[expose]
 def MemoryState.isRefinedBy (source target : MemoryState) : Prop :=
   ∀ addr, source.poisonMask.getD addr 0 ||| ((source.contents.getD addr 0 ^^^ ~~~target.contents.getD addr 0) &&& ~~~target.poisonMask.getD addr 0) = 0xff
 
@@ -60,6 +70,7 @@ def MemoryState.isRefinedBy (source target : MemoryState) : Prop :=
 A function interpretation `source` is refined by `target`. This asserts that the final memories
 are equal, and the returned values refine pointwise.
 -/
+@[expose]
 def FunctionResult.isRefinedBy (source target : MemoryState × Array RuntimeValue) : Prop :=
   source.1 = target.1 ∧ source.2 ⊒ target.2
 
@@ -73,6 +84,7 @@ on the underlying values. This asserts:
 * when `source` is undefined behaviour (`some .ub`) or failed interpretation (`none`), `target`
   is unconstrained
 -/
+@[expose]
 def Interp.isRefinedBy (R : α → β → Prop) (source : Interp α) (target : Interp β) : Prop :=
   match source, target with
   | some (.ok a), some (.ok b) => R a b
@@ -84,6 +96,7 @@ def Interp.isRefinedBy (R : α → β → Prop) (source : Interp α) (target : I
 Refinement between two control flow actions: same constructor, equal successor block `dest`, and
 the carried value payloads refine pointwise.
 -/
+@[expose]
 def ControlFlowAction.isRefinedBy : ControlFlowAction → ControlFlowAction → Prop
   | .return vals, .return vals' => vals ⊒ vals'
   | .branch vals dest, .branch vals' dest' => dest = dest' ∧ vals ⊒ vals'
@@ -95,6 +108,7 @@ def ControlFlowAction.isRefinedBy : ControlFlowAction → ControlFlowAction → 
 Refinement between two optional control flow actions. They should either both be `none`, or both be
 `some` and refine.
 -/
+@[expose]
 def ControlFlowAction.optionIsRefinedBy : Option ControlFlowAction → Option ControlFlowAction → Prop
   | none, none => True
   | some a, some b => a.isRefinedBy b
@@ -105,6 +119,7 @@ The function described by source `op₁` (in `ctx₁`) is *refined by* target `o
 for every argument `values` and initial memory `mem`, interpreting `op₁` is refined by interpreting
 `op₂`.
 -/
+@[expose]
 def OperationPtr.isRefinedByAsFunction (op₁ : OperationPtr) (ctx₁ : WfIRContext OpCode)
     (op₂ : OperationPtr) (ctx₂ : WfIRContext OpCode)
     (op₁In : op₁.InBounds ctx₁.raw := by grind)
@@ -133,6 +148,7 @@ the same symbol name.
 In particular, note that `mod₂` may have extra top-level functions that are not in `mod₁`, but
 every function in `mod₁` must be matched by a same-named function in `mod₂` that refines it.
 -/
+@[expose]
 def OperationPtr.isModuleRefinedBy (mod₁ : OperationPtr) (ctx₁ : WfIRContext OpCode)
     (mod₂ : OperationPtr) (ctx₂ : WfIRContext OpCode) : Prop :=
   ∀ (func₁ : OperationPtr) (func₁In : func₁.InBounds ctx₁.raw) (name : StringAttr),
@@ -145,6 +161,7 @@ abbrev ValueMapping (ctx ctx' : WfIRContext OpInfo) : Type :=
   {v : ValuePtr // v.InBounds ctx.raw} → {v : ValuePtr // v.InBounds ctx'.raw}
 
 /-- Apply the value mapping to an array of values with separately their bounds information. -/
+@[expose]
 def ValueMapping.applyToArray {ctx ctx' : WfIRContext OpInfo} (mapping : ValueMapping ctx ctx')
     (vals : Array ValuePtr) (valsIn : ∀ v ∈ vals, v.InBounds ctx.raw := by grind) : Array ValuePtr :=
   vals.attach.map (fun ⟨v, hv⟩ => (mapping ⟨v, valsIn v hv⟩).val)
@@ -181,6 +198,7 @@ A variable state `state` is refined by `state'` through the value renaming `mapp
 variable defined in `state` is, after renaming through `mapping`, also defined in `state'` with a
 value that refines the source value.
 -/
+@[expose]
 def VariableState.isRefinedBy {ctx ctx' : WfIRContext OpInfo}
     (state : VariableState ctx) (state' : VariableState ctx')
     (mapping : ValueMapping ctx ctx') : Prop :=
@@ -194,6 +212,7 @@ An interpreter state `state` is refined by `state'` through the value mapping
 `mapping`: they have the same memory, and the variable state of `state` is refined by the variable
 state of `state'` through `mapping`.
 -/
+@[expose]
 def InterpreterState.isRefinedBy {ctx ctx' : WfIRContext OpInfo}
     (state : InterpreterState ctx) (state' : InterpreterState ctx')
     (mapping : ValueMapping ctx ctx') : Prop :=
@@ -238,11 +257,13 @@ def RefinementPoint.InBounds (point : RefinementPoint) (ctx : IRContext OpInfo) 
 
 @[simp, grind =]
 theorem RefinementPoint.inBounds_at {p : InsertPoint} {ctx : IRContext OpInfo} :
-    (RefinementPoint.at p).InBounds ctx = p.InBounds ctx := rfl
+    (RefinementPoint.at p).InBounds ctx = p.InBounds ctx := by
+  simp [RefinementPoint.InBounds]
 
 @[simp, grind =]
 theorem RefinementPoint.inBounds_blockEntry {b : BlockPtr} {ctx : IRContext OpInfo} :
-    (RefinementPoint.blockEntry b).InBounds ctx = b.InBounds ctx := rfl
+    (RefinementPoint.blockEntry b).InBounds ctx = b.InBounds ctx := by
+  simp [RefinementPoint.InBounds]
 
 /-- Whether `value` is *in scope* at a refinement point. For `.at p` this holds exactly when the
 value dominates `p`; for `.blockEntry b` it must dominate the block entry and not be one of `b`'s
@@ -256,13 +277,15 @@ def ValuePtr.InScopeAt (value : ValuePtr) (point : RefinementPoint) (ctx : WfIRC
 
 @[simp, grind =]
 theorem ValuePtr.inScopeAt_at :
-    ValuePtr.InScopeAt val (.at p) ctx = val.dominatesIp p ctx := rfl
+    ValuePtr.InScopeAt val (.at p) ctx = val.dominatesIp p ctx := by
+  simp [ValuePtr.InScopeAt]
 
 @[simp, grind =]
 theorem ValuePtr.inScopeAt_blockEntry :
     ValuePtr.InScopeAt val (.blockEntry b) ctx =
       (val.dominatesIp (InsertPoint.atStart! b ctx.raw) ctx
-      ∧ val ∉ b.getArguments! ctx.raw) := rfl
+      ∧ val ∉ b.getArguments! ctx.raw) := by
+  simp [ValuePtr.InScopeAt]
 
 /--
 A refinement relation for variable states in two different contexts at different locations.

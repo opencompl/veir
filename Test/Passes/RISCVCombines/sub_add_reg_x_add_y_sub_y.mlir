@@ -4,7 +4,7 @@
 // is erased and its uses forwarded to `x`.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i64, i64) -> i64}> ({
+  "func.func"() <{function_type = (i64, i64) -> i64, sym_name = "foo"}> ({
   ^bb0(%x: i64, %y: i64):
     %add = "llvm.add"(%x, %y) : (i64, i64) -> i64
     %s = "llvm.sub"(%add, %y) : (i64, i64) -> i64
@@ -12,7 +12,7 @@
   }) : () -> ()
 
   // Negative case: the subtrahend is not the `add`'s second operand, so no fold.
-  "func.func"() <{function_type = (i64, i64, i64) -> i64}> ({
+  "func.func"() <{function_type = (i64, i64, i64) -> i64, sym_name = "bar"}> ({
   ^bb0(%x: i64, %y: i64, %w: i64):
     %add = "llvm.add"(%x, %y) : (i64, i64) -> i64
     %s = "llvm.sub"(%add, %w) : (i64, i64) -> i64

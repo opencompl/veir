@@ -1,12 +1,14 @@
-import Veir.Pass
-import Veir.PatternRewriter.Basic
+module
+
+public import Veir.Pass
+public import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
 
 namespace Veir
 
 /-! We implement a dead code elimination pass. -/
 
-def eliminateDeadOp (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+public def eliminateDeadOp (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   /- delete operations that are not used and have no side effects -/
   if ¬ op.hasUses! rewriter.ctx.raw && ¬ op.hasSideEffects rewriter.ctx.raw then

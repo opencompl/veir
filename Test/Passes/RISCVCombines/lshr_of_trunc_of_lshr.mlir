@@ -4,7 +4,7 @@
 // right shifts compose at x's full width, then one trunc narrows the result.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (i64) -> i32}> ({
+  "func.func"() <{function_type = (i64) -> i32, sym_name = "foo"}> ({
   ^bb0(%x: i64):
     %c1 = "llvm.mlir.constant"() <{value = 5 : i64}> : () -> i64
     %inner = "llvm.lshr"(%x, %c1) : (i64, i64) -> i64
@@ -15,7 +15,7 @@
   }) : () -> ()
 
   // Negative case: the outer shift amount is not a constant, so the pattern does not fire.
-  "func.func"() <{function_type = (i64, i32) -> i32}> ({
+  "func.func"() <{function_type = (i64, i32) -> i32, sym_name = "bar"}> ({
   ^bb0(%x: i64, %s: i32):
     %c1 = "llvm.mlir.constant"() <{value = 5 : i64}> : () -> i64
     %inner = "llvm.lshr"(%x, %c1) : (i64, i64) -> i64

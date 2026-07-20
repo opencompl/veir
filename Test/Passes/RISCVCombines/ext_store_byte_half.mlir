@@ -5,28 +5,28 @@
 // matching-width extension feeding that operand is redundant and gets dropped.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> ()}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> (), sym_name = "f0"}> ({
   ^bb0(%addr: !riscv.reg, %val: !riscv.reg):
     %zval = "riscv.zexth"(%val) : (!riscv.reg) -> !riscv.reg
     "riscv.sh"(%addr, %zval) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
     "func.return"() : () -> ()
   }) : () -> ()
 
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> ()}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> (), sym_name = "f1"}> ({
   ^bb0(%addr: !riscv.reg, %val: !riscv.reg):
     %sval = "riscv.sexth"(%val) : (!riscv.reg) -> !riscv.reg
     "riscv.sh"(%addr, %sval) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
     "func.return"() : () -> ()
   }) : () -> ()
 
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> ()}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> (), sym_name = "f2"}> ({
   ^bb0(%addr: !riscv.reg, %val: !riscv.reg):
     %zval = "riscv.zextb"(%val) : (!riscv.reg) -> !riscv.reg
     "riscv.sb"(%addr, %zval) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
     "func.return"() : () -> ()
   }) : () -> ()
 
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> ()}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> (), sym_name = "f3"}> ({
   ^bb0(%addr: !riscv.reg, %val: !riscv.reg):
     %sval = "riscv.sextb"(%val) : (!riscv.reg) -> !riscv.reg
     "riscv.sb"(%addr, %sval) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
