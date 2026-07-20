@@ -15,41 +15,18 @@ easy to combine MLIR and VeIR tools.
 | peephole rewriter (declarative)                       |            |           |
 | interpreter framework                                 | ✅         |           |
 
-## Testing
+## Building and testing
+
+Common tasks are wrapped in the [`Makefile`](Makefile): `make build` to build and
+`make tests` to run the tests. Run `make` to list every target.
 
 Our testing framework is split into two parts: unit tests written in Lean and
 [FileCheck](https://llvm.org/docs/CommandGuide/FileCheck.html) tests for the
-command line tool `veir-opt`.
+command line tool `veir-opt`. The FileCheck tests require
+[uv](https://docs.astral.sh/uv/) to be installed.
 
-### Unit Tests
-
-Run the unit tests with:
-
-```bash
-lake test
-```
-
-### FileCheck Tests
-
-FileCheck tests require [uv](https://docs.astral.sh/uv/) to be installed.
-
-First, install dependencies:
-
-```bash
-uv sync
-```
-
-Then run the tests:
-
-```bash
-uv run lit Test/ -v
-```
-
-## Running the benchmarks
-
-```bash
-lake exe run-benchmarks add-fold-worklist
-```
+Run a single benchmark with `lake exe run-benchmarks <name>` (see
+[`Veir/Benchmarks.lean`](Veir/Benchmarks.lean) for the available names).
 
 ## From C to VeIR
 

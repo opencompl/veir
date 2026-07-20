@@ -1,4 +1,6 @@
-import Veir.Interpreter.Basic
-import Veir.Interpreter.Lemmas
-import Veir.Interpreter.EquationLemma
-import Veir.Interpreter.Refinement
+module
+
+public import Veir.Interpreter.Basic
+public import Veir.Interpreter.Lemmas
+public import Veir.Interpreter.EquationLemma
+public import Veir.Interpreter.Refinement

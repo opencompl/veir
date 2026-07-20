@@ -1,4 +1,6 @@
-import Veir.Pass
+module
+
+public import Veir.Pass
 import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
 import Veir.Passes.DCE.dce
@@ -125,8 +127,8 @@ def setFunctionType (c : WfIRContext OpCode) (funcOp : OperationPtr)
     (inputs outputs : Array Attribute) : WfIRContext OpCode :=
   let ftType : TypeAttr :=
     match funcOp.getOpType! c.raw with
-    | .llvm .func => ⟨.llvmFunctionType { inputs, outputs }, by rfl⟩
-    | _ => ⟨.functionType { inputs, outputs }, by rfl⟩
+    | .llvm .func => ⟨.llvmFunctionType { inputs, outputs }, by simp⟩
+    | _ => ⟨.functionType { inputs, outputs }, by simp⟩
   match funcOp.getOpType! c.raw with
   | .func .func =>
     let props : FuncFuncProperties := funcOp.getProperties! c.raw (.func .func)

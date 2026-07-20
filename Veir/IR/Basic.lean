@@ -2638,6 +2638,7 @@ end OperationPtr
 /-- `ops` is a contiguous chain of operations in a block `parent` in context `ctx`: each operation's
 `.next` field points to the following operation in the list, and each operation's `.parent` field
 points to `parent`. -/
+@[expose]
 def BlockPtr.OpChainSlice (ctx : IRContext OpInfo) (parent : BlockPtr) : List OperationPtr → Prop
   | [] => True
   | a :: l =>
