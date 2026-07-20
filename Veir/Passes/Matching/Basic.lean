@@ -1,5 +1,10 @@
-import Veir.Pass
-import Veir.PatternRewriter.Basic
+module
+
+public import Veir.IR.Basic
+public import Veir.GlobalOpInfo
+public import Veir.PatternRewriter.Basic
+
+public section
 
 /-! This file contains helper functions to match operations when defining a rewrite. -/
 

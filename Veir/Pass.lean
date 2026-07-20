@@ -60,15 +60,17 @@ def ofString? {OpInfo : Type} [HasOpInfo OpInfo]
 -/
 def run (pipeline : PassPipeline OpCode)
     (ctx : WfIRContext OpCode)
-    (moduleOp : OperationPtr) :
+    (moduleOp : OperationPtr)
+    (disableVerifiers : Bool) :
     ExceptT String IO (WfIRContext OpCode) := do
   let mut currentCtx := ctx
   for pass in pipeline.passes do
     if h : moduleOp.InBounds currentCtx.raw then
       let ctx' ← try pass.run currentCtx moduleOp h
                  catch errMsg => throw s!"pass '{pass.name}' failed: {errMsg}"
-      if let .error errMsg := WfIRContext.verify ctx' (some moduleOp) then
-        throw s!"verification failed after pass '{pass.name}': {errMsg}"
+      if !disableVerifiers then
+        if let .error errMsg := WfIRContext.verify ctx' (some moduleOp) then
+          throw s!"verification failed after pass '{pass.name}': {errMsg}"
       currentCtx := ctx'
     else
       throw s!"module is not in bounds before pass '{pass.name}'"

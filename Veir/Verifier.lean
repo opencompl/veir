@@ -438,6 +438,14 @@ def OperationPtr.verifyModArithConstantOp (op : OperationPtr) (ctx: WfIRContext 
       throw s!"{instrName}: constant value {value} does not fit in storage type 'i{bw}'."
 
 
+def denseElementsElementType? (typeStr : String) : Option String :=
+  let s := typeStr.replace " " ""
+  let segments := s.splitOn "x"
+  if "tensor<".isPrefixOf s && s.endsWith ">" && segments.length ≥ 2 then
+    some ((segments.getLast!.splitOn ">").head!)
+  else
+    none
+
 /--
   Verify local invariants of an operation.
   This typically includes checking that the number of operands, successors, results, and regions
@@ -583,9 +591,16 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
         if intType.bitwidth ≠ floatAttr.type.bitwidth then
           throw s!"llvm.mlir.constant: Expected integer result type with bitwidth {floatAttr.type.bitwidth}"
       | _ => throw "llvm.mlir.constant: Expected float or integer result type for a float constant"
-    | .dense _ =>
+    | .dense denseAttr =>
       match resultType with
-      | .llvmArrayType _ => pure ()
+      | .llvmArrayType { type := .llvmArrayType _, .. } => pure ()
+      | .llvmArrayType arrType =>
+        match denseElementsElementType? denseAttr.type with
+        | some elemType =>
+          let baseType := toString arrType.type
+          if elemType ≠ baseType then
+            throw s!"llvm.mlir.constant: dense elements type '{elemType}' does not match array element type '{baseType}'"
+        | none => pure ()
       | _ => throw "llvm.mlir.constant: Expected array result type for a dense elements constant"
     pure ()
   | .llvm .mlir__poison => do
@@ -2076,6 +2091,19 @@ theorem OperationPtr.Verified.mod_arith_constant {op : OperationPtr} {opInBounds
   obtain ⟨hPlainOpCounts, modArithType, hModArithType, hAttr⟩ := h
   simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure]
     at hPlainOpCounts hModArithType hAttr
+  grind
+
+/-- Structural facts guaranteed for a verified `func.func`: it has no operands, results, or
+successors, and exactly one region (its body). -/
+theorem OperationPtr.Verified.func_func {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .func .func) :
+    op.getNumOperands! ctx.raw = 0 ∧
+    op.getNumResults! ctx.raw = 0 ∧
+    op.getNumSuccessors! ctx.raw = 0 ∧
+    op.getNumRegions! ctx.raw = 1 := by
+  simp only [Verified, verifyLocalInvariants, ← getOpType!_eq_getOpType, opType, ne_eq,
+    bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure,
+    ite_not] at opVerify
   grind
 
 end

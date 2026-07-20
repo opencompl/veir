@@ -1,12 +1,23 @@
-import Veir.Data.RISCV.Reg.Basic
-import Veir.Data.RISCV.Reg.Lemmas
-import Veir.Data.LLVM.Int.Basic
-import Veir.Data.LLVM.Int.Lemmas
-import Veir.Data.LLVM.Int.Bitblast
-import Veir.Data.Casting
-import Veir.Data.Refinement
-import Std.Tactic.BVDecide
+module
+
+public import Veir.Data.RISCV.Reg.Basic
+public import Veir.Data.LLVM.Int.Basic
+public import Veir.Data.Casting
+public import Veir.Data.Refinement
+
+meta import Std.Tactic.BVDecide
+meta import Std.Tactic.BVDecide.Reflect
+
 import Veir.ForLean
+import all Veir.Data.RISCV.Reg.Basic
+import all Veir.Data.RISCV.Reg.Lemmas
+import all Veir.Data.LLVM.Int.Basic
+import all Veir.Data.LLVM.Int.Lemmas
+import all Veir.Data.LLVM.Int.Bitblast
+import all Veir.Data.Casting
+import all Veir.Data.Refinement
+
+public section
 
 /-!
   In this file we prove the correctness of the lowering patterns used in the

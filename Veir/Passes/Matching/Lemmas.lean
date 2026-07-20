@@ -1,4 +1,10 @@
-import Veir.Passes.Matching.Basic
+module
+
+public import Veir.Passes.Matching.Basic
+
+import all Veir.Passes.Matching.Basic
+
+public section
 
 /-! This file contains lemmas that characterize the behavior of the matching functions. -/
 

@@ -1,4 +1,11 @@
-import Veir.Interpreter.Refinement.Basic
+module
+
+public import Veir.IR.OpInfo
+public import Veir.Interpreter.Refinement.Basic
+
+import all Veir.Interpreter.Refinement.Basic
+
+public section
 
 namespace Veir
 open Veir.Data
@@ -78,7 +85,9 @@ theorem ControlFlowAction.optionIsRefinedBy_refl (cf : Option ControlFlowAction)
 
 theorem RuntimeValue.isRefinedBy_trans {v₁ v₂ v₃ : RuntimeValue}
     (h12 : v₁ ⊒ v₂) (h23 : v₂ ⊒ v₃) : v₁ ⊒ v₃ := by
-  cases v₁ <;> grind [RuntimeValue.isRefinedBy, isRefinedBy_trans, cases RuntimeValue]
+  cases v₁ <;>
+    grind [RuntimeValue.isRefinedBy, isRefinedBy_trans,
+      cases RuntimeValue, LLVM.Byte.isRefinedBy_trans]
 
 theorem MemoryState.isRefinedBy_trans {m1 m2 m3 : MemoryState}
     (h12 : m1 ⊒ m2) (h23 : m2 ⊒ m3) : m1 ⊒ m3 := by
