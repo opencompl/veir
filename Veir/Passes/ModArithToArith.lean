@@ -228,7 +228,7 @@ def lowerModArithConstant (rewriter : PatternRewriter OpCode) (op : OperationPtr
 
 /-! ## arith.remui rewriting pattern -/
 
--- TODO: this matching function might be moved to Mathing/Basic.lean, but it is currently only used here.
+-- TODO: this matching function might be moved to Matching/Basic.lean, but it is currently only used here.
 def matchArithConstantIntVal
     (val : ValuePtr)
     (ctx : IRContext OpCode) :
