@@ -165,7 +165,7 @@ def WfRewriter.setAttributes! (wfCtx : WfIRContext OpInfo) (op : OperationPtr) (
   if hop : op.InBounds wfCtx.raw then
     WfRewriter.setAttributes wfCtx op newAttrs hop
   else
-    panic! "WfRewriter.replaceOperand! failed: operation is out of bounds"
+    panic! "WfRewriter.setAttributes! failed: operation is out of bounds"
 
 /-- Set the properties of an operation. -/
 @[inline]

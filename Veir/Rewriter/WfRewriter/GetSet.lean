@@ -1006,6 +1006,18 @@ theorem OperationPtr.getRegions!_wfRewriter_setAttributes {op' : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getRegion!_wfRewriter_setAttributes {op' : OperationPtr} :
+    op'.getRegion! (WfRewriter.setAttributes ctx op newAttrs opIn).raw index =
+    op'.getRegion! ctx.raw index := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_wfRewriter_setAttributes {block : BlockPtr} :
+    block.getNumArguments! (WfRewriter.setAttributes ctx op newAttrs opIn).raw =
+    block.getNumArguments! ctx.raw := by
+  grind
+
+@[simp, grind =]
 theorem RegionPtr.firstBlock!_wfRewriter_setAttributes {region : RegionPtr} :
     (region.get! ((WfRewriter.setAttributes ctx op newAttrs opIn)).raw).firstBlock =
     (region.get! ctx.raw).firstBlock := by
@@ -1027,6 +1039,12 @@ theorem RegionPtr.parent!_wfRewriter_setAttributes {region : RegionPtr} :
 theorem ValuePtr.getType!_wfRewriter_setAttributes {value : ValuePtr} :
     value.getType! (WfRewriter.setAttributes ctx op newAttrs opIn).raw  =
     value.getType! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getResultTypes!_wfRewriter_setAttributes {op' : OperationPtr} :
+    op'.getResultTypes! (WfRewriter.setAttributes ctx op newAttrs opIn).raw =
+    op'.getResultTypes! ctx.raw := by
   grind
 
 end WfRewriter.setAttributes
@@ -1170,6 +1188,18 @@ theorem RegionPtr.firstBlock!_wfRewriter_setProperties {region : RegionPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getRegion!_wfRewriter_setProperties {op' : OperationPtr} :
+    op'.getRegion! (WfRewriter.setProperties ctx op newProps opIn hprop).raw index =
+    op'.getRegion! ctx.raw index := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_wfRewriter_setProperties {block : BlockPtr} :
+    block.getNumArguments! (WfRewriter.setProperties ctx op newProps opIn).raw =
+    block.getNumArguments! ctx.raw := by
+  grind
+
+@[simp, grind =]
 theorem RegionPtr.lastBlock!_wfRewriter_setProperties {region : RegionPtr} :
     (region.get! ((WfRewriter.setProperties ctx op newProps opIn hprop)).raw).lastBlock =
     (region.get! ctx.raw).lastBlock := by
@@ -1185,6 +1215,12 @@ theorem RegionPtr.parent!_wfRewriter_setProperties {region : RegionPtr} :
 theorem ValuePtr.getType!_wfRewriter_setProperties {value : ValuePtr} :
     value.getType! (WfRewriter.setProperties ctx op newProps opIn hprop).raw  =
     value.getType! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getResultTypes!_wfRewriter_setProperties {op' : OperationPtr} :
+    op'.getResultTypes! (WfRewriter.setProperties ctx op newProps opIn hprop).raw =
+    op'.getResultTypes! ctx.raw := by
   grind
 
 end WfRewriter.setProperties

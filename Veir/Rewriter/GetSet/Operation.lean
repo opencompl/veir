@@ -56,7 +56,7 @@ variable {op : OperationPtr} {newAttrs : DictionaryAttr} {opIn : op.InBounds ctx
 
 attribute [local grind] Rewriter.setAttributes
 
-@[simp ,grind =]
+@[simp, grind =]
 theorem BlockPtr.get!_setAttributes {block : BlockPtr} :
     block.get! (Rewriter.setAttributes ctx op newAttrs opIn) =
     block.get! ctx := by
@@ -217,8 +217,8 @@ theorem BlockOperandPtrPtr.get!_setAttributes {blockOperandPtr : BlockOperandPtr
 
 @[simp, grind =]
 theorem BlockPtr.getNumArguments!_setAttributes {block : BlockPtr} :
-    (block.getNumArguments! (Rewriter.setAttributes ctx op newAttrs opIn)) =
-    (block.getNumArguments! ctx) := by
+    block.getNumArguments! (Rewriter.setAttributes ctx op newAttrs opIn) =
+    block.getNumArguments! ctx := by
   grind
 
 @[simp, grind =]
@@ -279,7 +279,7 @@ variable {opCode: OpInfo} {op : OperationPtr} {newProps : HasOpInfo.propertiesOf
 
 attribute [local grind] Rewriter.setProperties
 
-@[simp ,grind =]
+@[simp, grind =]
 theorem BlockPtr.get!_setProperties {block : BlockPtr} :
     block.get! (Rewriter.setProperties ctx op newProps opIn hprop) =
     block.get! ctx := by
@@ -443,8 +443,8 @@ theorem BlockOperandPtrPtr.get!_setProperties {blockOperandPtr : BlockOperandPtr
 
 @[simp, grind =]
 theorem BlockPtr.getNumArguments!_setProperties {block : BlockPtr} :
-    (block.getNumArguments! (Rewriter.setProperties ctx op newProps opIn)) =
-    (block.getNumArguments! ctx) := by
+    block.getNumArguments! (Rewriter.setProperties ctx op newProps opIn) =
+    block.getNumArguments! ctx := by
   grind
 
 @[simp, grind =]
