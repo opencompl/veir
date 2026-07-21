@@ -14,4 +14,4 @@ tests: build ## run all tests
 	uv sync
 	lake test
 	uv run lit Test/ -v
-	[ "$(shell uname -m)" = arm64 ] || (cd ExArray && lake exe test)  # TODO: Fix LTO link bug on apple silicon
+	. ./.envrc && cd ExArray && lake exe test
