@@ -145,7 +145,7 @@ def run (ctx : WfIRContext OpCode) (top : OperationPtr) :
   let mut ctx := ctx
   let mut available : Std.HashMap Key (Array OperationPtr) := Std.HashMap.emptyWithCapacity
   for op in ops do
-    if h : op.InBounds ctx.raw then
+    if _h : op.InBounds ctx.raw then
       if let some key := key? ctx.raw op then
         let candidates := available.getD key #[]
         match candidates.find? (·.properlyDominates op dfCtx ctx.raw) with
