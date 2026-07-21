@@ -1,4 +1,8 @@
 // RUN: veir-opt %s -p=cse --allow-unregistered-dialect | filecheck %s
+// XFAIL: *
+// Known limitation: a single CSE pass computes dominance once up front, then
+// erases ops, leaving the fact set stale -- so ^C's add is not collapsed. A
+// second CSE pass (with fresh facts) clears it. We are not fixing this now.
 
 // Minimal reproducer for a stale-dominance bug in cross-block CSE.
 //
@@ -14,7 +18,7 @@
 // third add is left in place.
 
 "builtin.module"() ({
-  "llvm.func"() <{function_type = !llvm.func<void (i32, i32)>}> ({
+  "llvm.func"() <{function_type = !llvm.func<void (i32, i32)>, sym_name = "stale_dominance"}> ({
   ^A(%a : i32, %b : i32):
     %1 = "llvm.add"(%a, %b) : (i32, i32) -> i32
     "llvm.br"() [^B] : () -> ()

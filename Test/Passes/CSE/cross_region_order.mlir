@@ -4,7 +4,7 @@
   // The pass processes the outer block before the nested region. A candidate
   // that appears after the region-owning op in the outer block must not be used
   // inside that nested region, because it does not dominate the nested op.
-  "llvm.func"() <{function_type = !llvm.func<void (i32, i32)>}> ({
+  "llvm.func"() <{function_type = !llvm.func<void (i32, i32)>, sym_name = "region_order"}> ({
   ^entry(%a : i32, %b : i32):
     "test.region"() ({
     ^inner:

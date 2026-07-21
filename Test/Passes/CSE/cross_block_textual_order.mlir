@@ -3,7 +3,7 @@
 "builtin.module"() ({
   // ^def dominates ^use in the CFG, but ^use appears first in textual order.
   // Dominance-order traversal should still see ^def's add first and reuse it.
-  "llvm.func"() <{function_type = !llvm.func<void (i32, i32)>}> ({
+  "llvm.func"() <{function_type = !llvm.func<void (i32, i32)>, sym_name = "textual_order"}> ({
   ^entry(%a : i32, %b : i32):
     "llvm.br"() [^def] : () -> ()
   ^use:

@@ -4,7 +4,7 @@
   // A candidate from the left sibling is encountered first but does not dominate
   // the right sibling. The first add in ^right must become a candidate so the
   // second add in ^right, and the add in ^right_child, can reuse it.
-  "llvm.func"() <{function_type = !llvm.func<void (i32, i32, i1)>}> ({
+  "llvm.func"() <{function_type = !llvm.func<void (i32, i32, i1)>, sym_name = "siblings"}> ({
   ^entry(%a : i32, %b : i32, %cond : i1):
     "llvm.cond_br"(%cond) [^left, ^right] <{branch_weights = array<i32>, operandSegmentSizes = array<i32: 1, 0, 0>}> : (i1) -> ()
   ^left:
