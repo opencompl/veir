@@ -4,6 +4,7 @@ public import Std.Data.HashMap
 public import Init.Data.Queue
 public import Veir.IR.Basic
 public import Veir.GlobalOpInfo
+public import Veir.Analysis.DataFlow.Domains.LivenessDomain
 public import Veir.Rewriter.InsertPoint
 
 open Std (HashMap Queue)
@@ -55,6 +56,7 @@ Tags to match on for different `DataFlowAnalysis` types.
 -/
 inductive AnalysisKind where
   | dominance
+  | deadCode
 deriving BEq, Hashable, Repr, DecidableEq
 
 /--
@@ -63,6 +65,7 @@ Tags to match on for different fact types.
 inductive FactKind where
   | dominator
   | regionMetadata
+  | liveness
 deriving BEq, ReflBEq, LawfulBEq, Hashable, Repr, DecidableEq
 
 abbrev WorkItem := InsertPoint × AnalysisKind
@@ -83,21 +86,31 @@ structure RegionMetadataPayload where
   postOrderIndex : HashMap BlockPtr Nat := {}
 
 /--
+Tracks whether a control flow point or edge is live.
+-/
+structure LivenessPayload where
+  latticeElement : Liveness := .dead
+
+/--
 The fact specific data stored for each fact kind.
 -/
 @[expose] def FactPayload : FactKind → Type
   | .dominator => DominatorPayload
   | .regionMetadata => RegionMetadataPayload
+  | .liveness => LivenessPayload
 
 /--
 A dataflow fact stored by the framework.
 
-Each fact associates with a lattice anchor (some location in the program), has 
+Each fact associates with a lattice anchor (some location in the program), has
 an array of dependents (other facts that "depend" on this fact's current state in
-some fashion), and has the fact specific payload determined by its `FactKind`.
+some fashion), has an array of analysis subscribers (similar to dependents except 
+it's entire analyses that depend on this fact's current state), and has the fact 
+specific payload determined by its `FactKind`.
 -/
 structure Fact (kind : FactKind) where
   dependents : Array WorkItem := #[]
+  subscribers : Array AnalysisKind := #[]
   payload : FactPayload kind
 
 namespace Fact
@@ -113,6 +126,15 @@ Add one dependent work item to the fact.
 -/
 def addDependent (fact : Fact kind) (workItem : WorkItem) : Fact kind :=
   fact.setDependents (fact.dependents.push workItem)
+
+/--
+Subscribe one analysis to changes of this fact.
+-/
+def subscribe (fact : Fact kind) (analysisKind : AnalysisKind) : Fact kind :=
+  if fact.subscribers.contains analysisKind then
+    fact
+  else
+    { fact with subscribers := (fact.subscribers.push analysisKind) }
 
 /--
 Enqueue all dependents of this fact.
@@ -137,10 +159,26 @@ def setPostOrderIndex (fact : Fact .regionMetadata)
     (postOrderIndex : HashMap BlockPtr Nat) : Fact .regionMetadata :=
   { fact with payload := { fact.payload with postOrderIndex := postOrderIndex } }
 
+def live (fact : Fact .liveness) : Bool :=
+  match fact.payload.latticeElement with
+  | .dead => false
+  | .live => true
+
+def latticeElement (fact : Fact .liveness) : Liveness :=
+  fact.payload.latticeElement
+
+def setLatticeElement (fact : Fact .liveness) (latticeElement : Liveness) : Fact .liveness :=
+  { fact with payload := { fact.payload with latticeElement := latticeElement } }
+
+def setToLive (fact : Fact .liveness) : Fact .liveness :=
+  fact.setLatticeElement .live
+
 end Fact
 
 abbrev DominatorFact := Fact .dominator
 
 abbrev RegionMetadataFact := Fact .regionMetadata
+
+abbrev LivenessFact := Fact .liveness
 
 end Veir
