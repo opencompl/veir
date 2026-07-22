@@ -1036,12 +1036,17 @@ def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
   if !ctx.graphRegionsHaveAtMostOneBlock then
     throw "Graph regions may contain at most one block"
   ctx.raw.forOpsDepM (fun op opIn => do
-    op.verifyLocalInvariants ctx opIn
-    if let .riscv _ := op.getOpType ctx.raw opIn then
-      op.verifyRISCVRegisterTypes ctx opIn
-    match (op.get ctx.raw opIn).parent with
-    | some _ => op.verifyTerminatorPosition ctx opIn
-    | none => pure ())
+    let opType := op.getOpType ctx.raw opIn
+    let opName := String.fromUTF8! opType.name
+    Except.mapError
+      (fun msg => if opName.isEmpty || msg.startsWith opName then msg else s!"{opName}: {msg}")
+      (do
+        op.verifyLocalInvariants ctx opIn
+        if let .riscv _ := opType then
+          op.verifyRISCVRegisterTypes ctx opIn
+        match (op.get ctx.raw opIn).parent with
+        | some _ => op.verifyTerminatorPosition ctx opIn
+        | none => pure ()))
   ctx.raw.forBlocksDepM (fun block blockIn => do
     match (block.get ctx.raw blockIn).parent with
     | some region =>
