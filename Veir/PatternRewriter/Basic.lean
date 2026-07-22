@@ -340,6 +340,9 @@ def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern OpInfo) : Rew
     | some (newCtx, none) => return {rewriter with ctx := newCtx, hasDoneAction := false}
     -- match and rewrite
     | some (newCtx, some (newOps, newRes)) =>
+      -- Only rewrite an operation that lives inside a block: the surgery below (insert before `op`,
+      -- erase `op`) is only meaningful for a parented op, and soundness needs `op`'s parent block.
+      let _ ← (op.get! rewriter.ctx.raw).parent
       let mut rewriter := { rewriter with ctx := newCtx, hasDoneAction := true }
       for newOp in newOps do
         rewriter := rewriter.insertOp! newOp (InsertPoint.before op)
@@ -369,31 +372,43 @@ def RewritePattern.GreedyRewritePattern (patterns : Array (RewritePattern OpInfo
     return { rewriter with hasDoneAction := hasDoneAction }
 
 /--
+Drain the worklist of `rewriter`, applying `pattern` to each popped operation.
+
+Written as an explicit `partial_fixpoint` recursion rather than a `while` loop: the least
+fixed point in the `Option` monad comes with a partial-correctness induction principle
+(`applyOnceInContext.go.partial_correctness`), which is what lets us reason about the loop.
+-/
+def RewritePattern.applyOnceInContext.go (pattern: RewritePattern OpInfo)
+    (rewriter : PatternRewriter OpInfo) : Option (Bool × WfIRContext OpInfo) := do
+  if rewriter.worklist.isEmpty then
+    pure (rewriter.hasDoneAction, rewriter.ctx)
+  else
+    let (opOpt, newWorklist) := rewriter.worklist.pop
+    let op := opOpt.get!
+    let rewriter := { rewriter with worklist := newWorklist }
+    if opInBounds : op.InBounds rewriter.ctx.raw then
+      let rewriter ← pattern rewriter op opInBounds
+      RewritePattern.applyOnceInContext.go pattern rewriter
+    else
+      failure
+partial_fixpoint
+
+/--
 - Apply the given rewrite pattern to all operations in the context (possibly multiple times).
 - Return the new context, and a boolean indicating whether any changes were made.
 - If any pattern failed, return none.
 -/
-private partial def RewritePattern.applyOnceInContext
+def RewritePattern.applyOnceInContext
     (pattern: RewritePattern OpInfo) (ctx: WfIRContext OpInfo) :
-    Option (Bool × WfIRContext OpInfo) := do
-  let worklist := PatternRewriter.Worklist.createFromContext ctx
-  let mut rewriter : PatternRewriter OpInfo := { ctx, hasDoneAction := false, worklist }
-  while !rewriter.worklist.isEmpty do
-    let (opOpt, newWorklist) := rewriter.worklist.pop
-    let op := opOpt.get!
-    rewriter := { rewriter with worklist := newWorklist }
-    if _ : op.InBounds rewriter.ctx.raw then
-      rewriter ← pattern rewriter op (by grind)
-    else
-      failure
-  pure (rewriter.hasDoneAction, rewriter.ctx)
+    Option (Bool × WfIRContext OpInfo) :=
+  RewritePattern.applyOnceInContext.go pattern
+    { ctx, hasDoneAction := false, worklist := PatternRewriter.Worklist.createFromContext ctx }
 
 def RewritePattern.applyInContext (pattern: RewritePattern OpInfo)
     (ctx: WfIRContext OpInfo) : Option (WfIRContext OpInfo) := do
-  let mut hasDoneAction := true
-  let mut ctx := ctx
-  while hasDoneAction do
-    let (lastHasDoneAction, newCtx) ← pattern.applyOnceInContext ctx
-    ctx := newCtx
-    hasDoneAction := lastHasDoneAction
-  pure ctx
+  let (hasDoneAction, newCtx) ← pattern.applyOnceInContext ctx
+  if hasDoneAction then
+    pattern.applyInContext newCtx
+  else
+    pure newCtx
+partial_fixpoint

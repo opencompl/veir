@@ -11,6 +11,7 @@ import Veir.Rewriter.WfRewriter
 import Veir.Printer
 import Veir.PatternRewriter.Basic
 import Veir.Passes.RISCVCombines.Proofs
+import Veir.PatternRewriter.Soundness
 import Veir.Benchmarks
 import Veir.Parser.Lexer
 import Veir.Interpreter
