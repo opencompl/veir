@@ -2,7 +2,8 @@ module
 
 public import Veir.Pass
 import Veir.PatternRewriter.Basic
-import Veir.Passes.Matching
+import Veir.Passes.Matching.LLVM.Basic
+import Veir.Passes.Matching.RISCV.Basic
 import Veir.Passes.RISCVCombines.MIRCombinesVeir
 
 namespace Veir.RISCV
@@ -37,10 +38,9 @@ def isConstantPowerOfTwo (v : ValuePtr) (ctx : IRContext OpCode) : Option Nat :=
 /-- riscv.add x 0 -> x -/
 def right_identity_zero_add_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (operands, _) := matchOp op ctx (.riscv .add) 2 | return (ctx, none)
-  let lhs := operands[0]!
-  let some liOp := getDefiningOp operands[1]! ctx | return (ctx, none)
-  let some (_, cst) := matchOp liOp ctx (.riscv .li) 0 | return (ctx, none)
+  let some (lhs, rhs, _) := matchRVAdd op ctx | return (ctx, none)
+  let some liOp := getDefiningOp rhs ctx | return (ctx, none)
+  let some cst := matchRVLi liOp ctx | return (ctx, none)
   if cst.value.value ≠ 0 then return (ctx, none)
   some (ctx, some (#[], #[lhs]))
 
@@ -1487,14 +1487,14 @@ def srlw_sraw_signbit := srl_sra_signbitGen .srliw rfl .sraiw 32
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVISelLowering.cpp#L919 -/
 private def drop_slli_srli_boolGen_local (boolDst : Riscv) (arity : Nat) (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (operands, outerImm) := matchOp op ctx (.riscv .srli) 1 | return (ctx, none)
+  let some (srliSrc, outerImm) := matchRVSrli op ctx | return (ctx, none)
   if outerImm.value.value ≠ 63 then return (ctx, none)
-  let some slliOp := getDefiningOp operands[0]! ctx | return (ctx, none)
-  let some (slliOperands, innerImm) := matchOp slliOp ctx (.riscv .slli) 1 | return (ctx, none)
+  let some slliOp := getDefiningOp srliSrc ctx | return (ctx, none)
+  let some (slliSrc, innerImm) := matchRVSlli slliOp ctx | return (ctx, none)
   if innerImm.value.value ≠ 63 then return (ctx, none)
-  let some boolOp := getDefiningOp slliOperands[0]! ctx | return (ctx, none)
+  let some boolOp := getDefiningOp slliSrc ctx | return (ctx, none)
   let some (_, _) := matchOp boolOp ctx (.riscv boolDst) arity | return (ctx, none)
-  some (ctx, some (#[], #[slliOperands[0]!]))
+  some (ctx, some (#[], #[slliSrc]))
 
 private def drop_slli_srli_boolGen (boolDst : Riscv) (arity : Nat) (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
@@ -1818,7 +1818,7 @@ def drop_sextb_sb := drop_ext_store .sextb .sb
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVISelDAGToDAG.cpp#L1119-L1126 -/
 def li_zero_to_x0_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (_, cst) := matchOp op ctx (.riscv .li) 0 | return (ctx, none)
+  let some cst := matchRVLi op ctx | return (ctx, none)
   if cst.value.value ≠ 0 then return (ctx, none)
   /- Nothing to do for a dead `li 0`; leave it for DCE and avoid creating a dead x0. -/
   if !op.hasUses! ctx.raw then return (ctx, none)
@@ -1872,10 +1872,9 @@ def sexth_x0 := ext_x0 .sexth
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L759 -/
 def zextw_li_low32_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (operands, _) := matchOp op ctx (.riscv .zextw) 1 | return (ctx, none)
-  let src := operands[0]!
+  let some (src, _) := matchRVZextw op ctx | return (ctx, none)
   let some srcOp := getDefiningOp src ctx | return (ctx, none)
-  let some (_, cst) := matchOp srcOp ctx (.riscv .li) 0 | return (ctx, none)
+  let some cst := matchRVLi srcOp ctx | return (ctx, none)
   if cst.value.value < 0 ∨ cst.value.value ≥ 4294967296 then return (ctx, none)
   some (ctx, some (#[], #[src]))
 
@@ -1895,10 +1894,9 @@ def zextw_li_low32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L120 -/
 def sextw_li_low32_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (operands, _) := matchOp op ctx (.riscv .sextw) 1 | return (ctx, none)
-  let src := operands[0]!
+  let some (src, _) := matchRVSextw op ctx | return (ctx, none)
   let some srcOp := getDefiningOp src ctx | return (ctx, none)
-  let some (_, cst) := matchOp srcOp ctx (.riscv .li) 0 | return (ctx, none)
+  let some cst := matchRVLi srcOp ctx | return (ctx, none)
   if cst.value.value < -2147483648 ∨ cst.value.value ≥ 2147483648 then return (ctx, none)
   some (ctx, some (#[], #[src]))
 
@@ -1917,7 +1915,7 @@ private def ext_li_range_local (ext : Riscv) (lo hi : Int) (ctx : WfIRContext Op
   let some (operands, _) := matchOp op ctx (.riscv ext) 1 | return (ctx, none)
   let src := operands[0]!
   let some srcOp := getDefiningOp src ctx | return (ctx, none)
-  let some (_, cst) := matchOp srcOp ctx (.riscv .li) 0 | return (ctx, none)
+  let some cst := matchRVLi srcOp ctx | return (ctx, none)
   if cst.value.value < lo ∨ cst.value.value ≥ hi then return (ctx, none)
   some (ctx, some (#[], #[src]))
 
