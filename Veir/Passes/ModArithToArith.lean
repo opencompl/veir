@@ -95,7 +95,7 @@ def emitArithBinOp (rewriter : PatternRewriter OpCode) (arithOp : Arith)
 /-- Barrett reduction: approximate `⌊r / modulus⌋` with a precomputed reciprocal
     `magic = ⌊2^width / modulus⌋` via widen → multiply → shift → truncate, instead of
     emitting a runtime division. Note: this is the plain reciprocal-multiply approximation
-    with no correction step, so it can be off by a small amount for some inputs.
+    with a single correction step.
 
     func reduce(r uint) uint {
     -- m := magic
@@ -229,23 +229,11 @@ def lowerModArithConstant (rewriter : PatternRewriter OpCode) (op : OperationPtr
 /-! ## arith.remui rewriting pattern -/
 
 -- TODO: this matching function might be moved to Matching/Basic.lean, but it is currently only used here.
-def matchArithConstantIntVal
-    (val : ValuePtr)
-    (ctx : IRContext OpCode) :
-    Option IntegerAttr := do
-  let .opResult result := val
-    | none
-  let .arith .constant := result.op.getOpType! ctx
-    | none
-  let properties :=
-    result.op.getProperties! ctx (.arith .constant)
-  return properties.value
-
 /-- Rewrite `arith.remui r, q` to a Barrett reduction when `q` is a positive constant. -/
 def remuiToBarrettReduction (rewriter : PatternRewriter OpCode) (op : OperationPtr) (_opInBounds : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
-  let some (operands, _) :=
-      matchOp op rewriter.ctx (.arith .remui) 2
+
+  let some (operands, _) := matchOp op rewriter.ctx (.arith .remui) 2
     | return rewriter
 
   let r := operands[0]!
