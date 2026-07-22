@@ -9,9 +9,21 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - profile: release
+            debug: false
+          - profile: debug
+            debug: true
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Enable debug build type in lakefile.toml
+        if: matrix.debug
+        run: |
+          sed -i 's/^buildType = "release"$/buildType = "debug"/g' lakefile.toml
 
       - name: Source environment variables
         run: source .envrc
