@@ -41,8 +41,26 @@ match opCode with
 instance : HasDialectOpInfo OpCode where
   propertiesOf := _propertiesOf
 
+inductive RegionKind where
+| SSACFG
+| Graph
+deriving Inhabited, Repr, DecidableEq
+
+/--
+  Return the kind of the region with the given index inside this operation.
+  This mirrors MLIR's RegionKindInterface default: regions are SSACFG unless
+  the operation is known to define graph regions.
+-/
+def OpCode.getRegionKind (opCode : OpCode) (_index : Nat) : RegionKind :=
+  match opCode with
+  | .builtin .module
+  | .builtin .unregistered
+  | .test .test => .Graph
+  | _ => .SSACFG
+
 instance : HasOpInfo OpCode where
   moduleOpCode := .builtin .module
+  hasSSADominance opCode index := opCode.getRegionKind index == .SSACFG
 
 abbrev propertiesOf := HasOpInfo.propertiesOf (self := instHasOpInfoOpCode)
 
@@ -359,23 +377,6 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     dict
   | _ =>
     Std.HashMap.emptyWithCapacity 0
-
-inductive RegionKind where
-| SSACFG
-| Graph
-deriving Inhabited, Repr, DecidableEq
-
-/--
-  Return the kind of the region with the given index inside this operation.
-  This mirrors MLIR's RegionKindInterface default: regions are SSACFG unless
-  the operation is known to define graph regions.
--/
-def OpCode.getRegionKind (opCode : OpCode) (_index : Nat) : RegionKind :=
-  match opCode with
-  | .builtin .module
-  | .builtin .unregistered
-  | .test .test => .Graph
-  | _ => .SSACFG
 
 /--
   Whether this operation defines `IsolatedFromAbove` regions: operations nested

@@ -11,6 +11,8 @@ import Veir.ForLean
 
 namespace Veir
 
+variable {OpInfo : Type} [HasOpInfo OpInfo]
+
 /--
   Walk up from `op` (a return-like terminator named `opName`) to the
   operation that encloses its parent region, i.e. the enclosing function
@@ -977,7 +979,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
 /--
   Return the kind of this region.
 -/
-def RegionPtr.getRegionKind (region : RegionPtr) (ctx : WfIRContext OpCode) : RegionKind :=
+public def RegionPtr.getRegionKind (region : RegionPtr) (ctx : WfIRContext OpCode) : RegionKind :=
   match (region.get! ctx.raw).parent with
   | some parentOp =>
     let parent := parentOp.get! ctx.raw
@@ -1013,24 +1015,6 @@ def OperationPtr.verifyDoesNotBranchToEntryBlock (op : OperationPtr) (ctx : WfIR
       if (region.get! ctx.raw).firstBlock = some succ then
         throw "entry block of a region may not have predecessors"
     | none => pure ()
-
-/--
-  Verify that every successor of an operation lies in the same region as the
-  operation itself. Control flow may not branch out of its enclosing region.
-
-  This cannot be expressed in the textual format (block labels are region-scoped,
-  so the parser already rejects a reference to a block in another region), but it
-  guards against passes that build malformed cross-region control flow.
--/
-def OperationPtr.verifySuccessorsInSameRegion (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
-  match (op.get ctx.raw opIn).parent with
-  | none => pure ()
-  | some block =>
-    let blockRegion := (block.get! ctx.raw).parent
-    for succ in op.getSuccessors ctx.raw opIn do
-      if (succ.get! ctx.raw).parent ≠ blockRegion then
-        throw "branching to a block of a different region"
 
 /--
   Starting from `region` (the region containing a use) and walking outward, decide
@@ -1086,28 +1070,6 @@ def OperationPtr.verifyOperandIsolation (op : OperationPtr) (ctx : WfIRContext O
               throw s!"{instrName}: operand {i} ({reprStr value}) uses a value defined outside the isolated region that encloses its use"
 
 /--
-  Verify that graph regions of registered operations contain at most one block.
-  Like MLIR, this restriction limits the cases transforms must handle; it applies
-  only to registered operations, so unregistered ops and the test dialect may
-  still have multiple blocks in their regions. Such multi-block regions are then
-  treated as having SSA dominance (see `RegionPtr.hasSSADominance`), so the
-  single-block limit is also what makes graph-region dominance leniency sound.
--/
-def OperationPtr.verifyGraphRegionBlockCount (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
-  let opCode := op.getOpType ctx.raw opIn
-  match opCode with
-  | .builtin .unregistered | .test .test => pure ()
-  | _ =>
-    for i in [0:op.getNumRegions ctx.raw opIn] do
-      if opCode.getRegionKind i = .Graph then
-        match (op.getRegion! ctx.raw i |>.get! ctx.raw).firstBlock with
-        | some b =>
-          if (b.get! ctx.raw).next.isSome then
-            throw s!"expects graph region {i} to have 0 or 1 blocks"
-        | none => pure ()
-
-/--
   Whether this operation might be a terminator, mirroring MLIR's
   `mightHaveTrait<IsTerminator>`: registered terminators are, and unregistered
   or test-dialect operations might be, since their traits are unknown.
@@ -1155,6 +1117,41 @@ def BlockPtr.verifyTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
   | some lastOp =>
     if !(lastOp.getOpType! ctx.raw).mightBeTerminator then
       throw "Expected the last operation of a block to be a terminator"
+
+/--
+  Check that every successor belongs to the same region as its predecessor.
+-/
+private def WfIRContext.successorsHaveSameParent (ctx : WfIRContext OpInfo) : Bool :=
+  ctx.raw.blocks.keys.all fun block =>
+    (block.getSuccessors! ctx.raw).all fun successor =>
+      (successor.get! ctx.raw).parent = (block.get! ctx.raw).parent
+
+/--
+  Whether this region is a graph region whose owning operation limits it to a
+  single block. Like MLIR, the limit applies only to registered operations:
+  unregistered operations and the test dialect have unknown semantics (they
+  stand in for operations that do not implement `RegionKindInterface`) and may
+  have multiple blocks in their regions. Such multi-block regions are then
+  treated as having SSA dominance (see `RegionPtr.hasSSADominance`), so the
+  single-block limit is also what makes graph-region dominance leniency sound.
+-/
+public def RegionPtr.limitedToOneBlock (region : RegionPtr) (ctx : WfIRContext OpCode) : Bool :=
+  region.getRegionKind ctx = .Graph &&
+    match (region.get! ctx.raw).parent with
+    | none => false
+    | some parentOp =>
+      match parentOp.getOpType! ctx.raw with
+      | .builtin .unregistered | .test .test => false
+      | _ => true
+
+/-- Check that a graph region of a registered operation contains at most one block. -/
+private def WfIRContext.graphRegionsHaveAtMostOneBlock (ctx : WfIRContext OpCode) : Bool :=
+  ctx.raw.regions.keys.all fun region =>
+    if region.limitedToOneBlock ctx then
+      let body := region.get! ctx.raw
+      body.firstBlock = body.lastBlock
+    else
+      true
 
 /--
   Decide the per-operand condition of `WfIRContext.Dom` (see `Veir/Dominance.lean`):
@@ -1263,22 +1260,30 @@ def WfIRContext.verifyDominance
 public section
 
 /--
-  Verify that all operations in the IRContext satisfy their local invariants. If `top?` is
-  provided, also run the dynamic SSA dominance checker rooted at that operation.
+Verify the structural invariants of the IR context and the local invariants of all its
+operations. If `top?` is provided, also run the dynamic SSA dominance checker rooted at
+that operation.
 -/
 def WfIRContext.verify (ctx : WfIRContext OpCode)
     (top? : Option OperationPtr := none) : Except String Unit := do
+  if !ctx.successorsHaveSameParent then
+    throw "Block successors must belong to the same region as their predecessor"
+  if !ctx.graphRegionsHaveAtMostOneBlock then
+    throw "Graph regions may contain at most one block"
   ctx.raw.forOpsDepM (fun op opIn => do
-    op.verifyLocalInvariants ctx opIn
-    if let .riscv _ := op.getOpType ctx.raw opIn then
-      op.verifyRISCVRegisterTypes ctx opIn
-    match (op.get ctx.raw opIn).parent with
-    | some _ => op.verifyTerminatorPosition ctx opIn
-    | none => pure ()
-    op.verifyDoesNotBranchToEntryBlock ctx opIn
-    op.verifySuccessorsInSameRegion ctx opIn
-    op.verifyGraphRegionBlockCount ctx opIn
-    op.verifyOperandIsolation ctx opIn)
+    let opType := op.getOpType ctx.raw opIn
+    let opName := String.fromUTF8! opType.name
+    Except.mapError
+      (fun msg => if opName.isEmpty || msg.startsWith opName then msg else s!"{opName}: {msg}")
+      (do
+        op.verifyLocalInvariants ctx opIn
+        if let .riscv _ := opType then
+          op.verifyRISCVRegisterTypes ctx opIn
+        match (op.get ctx.raw opIn).parent with
+        | some _ => op.verifyTerminatorPosition ctx opIn
+        | none => pure ()
+        op.verifyDoesNotBranchToEntryBlock ctx opIn
+        op.verifyOperandIsolation ctx opIn))
   ctx.raw.forBlocksDepM (fun block blockIn =>
     block.verifyTerminator ctx blockIn)
   match top? with
@@ -1286,10 +1291,54 @@ def WfIRContext.verify (ctx : WfIRContext OpCode)
   | none => pure ()
 
 /--
-Assert that all operations in the IRContext satisfy their local invariants.
+Assert that the IR context satisfies its structural and local invariants.
 -/
 def WfIRContext.Verified (ctx : WfIRContext OpCode) : Prop :=
   ctx.verify = .ok ()
+
+/-- A verified context satisfies the same-parent successor check. -/
+private theorem WfIRContext.Verified.successorsHaveSameParent
+    {ctx : WfIRContext OpCode} (ctxVerified : ctx.Verified) :
+    ctx.successorsHaveSameParent := by
+  simp only [WfIRContext.Verified, WfIRContext.verify] at ctxVerified
+  split at ctxVerified
+  · trivial
+  · grind
+
+/-- Every successor of a block in a verified context belongs to the block's parent region. -/
+@[grind →]
+theorem WfIRContext.Verified.successor_parent
+    {ctx : WfIRContext OpCode} (ctxVerified : ctx.Verified)
+    {source : BlockPtr} (sourceIn : source.InBounds ctx.raw)
+    (hsourceParent : (source.get! ctx.raw).parent = some region)
+    (hsuccessor : successor ∈ source.getSuccessors! ctx.raw) :
+    (successor.get! ctx.raw).parent = some region := by
+  have hcheck := ctxVerified.successorsHaveSameParent
+  have hsourceKeys : source ∈ ctx.raw.blocks.keys := by grind [source.inBounds_def]
+  grind [Array.getElem_of_mem hsuccessor, (List.all_eq_true.mp hcheck) source hsourceKeys]
+
+/-- A verified context satisfies the single-block graph-region check. -/
+private theorem WfIRContext.Verified.graphRegionsHaveAtMostOneBlock
+    {ctx : WfIRContext OpCode} (ctxVerified : ctx.Verified) :
+    ctx.graphRegionsHaveAtMostOneBlock := by
+  simp only [WfIRContext.Verified, WfIRContext.verify] at ctxVerified
+  split at ctxVerified
+  · trivial
+  · split at ctxVerified
+    · trivial
+    · grind
+
+/-- The first and last block of a graph region in a verified context are the same. -/
+@[grind →]
+theorem WfIRContext.Verified.graph_region_firstBlock_eq_lastBlock
+    {ctx : WfIRContext OpCode} (ctxVerified : ctx.Verified)
+    {region : RegionPtr} (regionIn : region.InBounds ctx.raw)
+    (hregionKind : region.limitedToOneBlock ctx) :
+    (region.get! ctx.raw).firstBlock = (region.get! ctx.raw).lastBlock := by
+  have hcheck := ctxVerified.graphRegionsHaveAtMostOneBlock
+  have hregionKeys : region ∈ ctx.raw.regions.keys := by grind [region.inBounds_def]
+  have hregionCheck := (List.all_eq_true.mp hcheck) region hregionKeys
+  grind
 
 /--
 Assert that a given operation satisfies its local invariants.

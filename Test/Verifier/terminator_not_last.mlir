@@ -9,4 +9,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Expected a terminator to be the last operation of its block
+// CHECK: func.return: Expected a terminator to be the last operation of its block

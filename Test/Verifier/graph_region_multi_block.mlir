@@ -1,11 +1,9 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
 // RUN: MLIR_INVALID
 
-// builtin.module is a registered op with a graph region, so its region may have
-// at most one block. (Unregistered ops and the test dialect are exempt and may
-// have multiple blocks in their regions; such multi-block regions then have SSA
-// dominance like any other -- graph-region leniency only ever applies to
-// single-block regions, as in MLIR.)
+// builtin.module has a graph region, so its region may have at most one block.
+// Graph-region dominance leniency therefore only ever applies to single-block
+// regions, as in MLIR.
 
 "builtin.module"() ({
 ^bb0:
@@ -14,4 +12,4 @@
   "func.func"() <{function_type = () -> (), sym_name = "b"}> ({ ^e1: "func.return"() : () -> () }) : () -> ()
 }) : () -> ()
 
-// CHECK: expects graph region 0 to have 0 or 1 blocks
+// CHECK: Graph regions may contain at most one block

@@ -10,6 +10,7 @@ public import Veir.Rewriter.GetSet.Results
 public import Veir.Rewriter.GetSet.Value
 public import Veir.Rewriter.GetSet.Regions
 public import Veir.Rewriter.GetSet.Operands
+public import Veir.Rewriter.GetSet.Operation
 public import Veir.Rewriter.GetSet.BlockOperands
 public import Veir.Rewriter.GetSet.CreateOp
 public import Veir.Rewriter.GetSet.CreateRegion
