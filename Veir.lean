@@ -3,6 +3,7 @@ import Veir.Data
 import Veir.IR.Basic
 import Veir.IR.Fields
 import Veir.IR.WellFormed
+import Veir.IRNesting
 import Veir.Rewriter.LinkedList.WellFormed
 import Veir.Rewriter.WellFormed
 import Veir.Rewriter.InlineBlock

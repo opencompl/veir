@@ -9,4 +9,5 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: modulus 7 does not fit into the underlying storage type 'i2'
+// CHECK: mod_arith.constant: Expected result to have ModArithType
+// CHECK-SAME: modulus 7 does not fit into the underlying storage type 'i2'

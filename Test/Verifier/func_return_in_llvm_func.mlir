@@ -7,4 +7,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Expected func.return to be enclosed by func.func
+// CHECK: func.return: Expected func.return to be enclosed by func.func
