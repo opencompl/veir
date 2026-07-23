@@ -60,6 +60,35 @@ instance : ToString (RuntimeValue) where
 namespace RuntimeValue
 
 /--
+Bit-exact equality for runtime values.
+
+The standard `BEq Float` instance implements IEEE equality, under which NaNs
+are unequal to themselves and positive and negative zero compare equal. Those
+semantics are unsuitable for data-flow lattice elements: two constants agree
+only when their complete representations agree. Compare floating-point values
+through `Float.toBits` and compare the remaining constructors structurally.
+-/
+protected def exactBEq : RuntimeValue → RuntimeValue → Bool
+  | .int bw₁ value₁, .int bw₂ value₂ =>
+    if h : bw₁ = bw₂ then
+      decide (value₁ = LLVM.Int.cast value₂ h.symm)
+    else
+      false
+  | .byte bw₁ value₁, .byte bw₂ value₂ =>
+    if h : bw₁ = bw₂ then
+      decide (value₁ = LLVM.Byte.cast value₂ h.symm)
+    else
+      false
+  | .float bw₁ value₁, .float bw₂ value₂ =>
+    bw₁ == bw₂ && value₁.toBits == value₂.toBits
+  | .addr value₁, .addr value₂ => value₁ == value₂
+  | .reg value₁, .reg value₂ => decide (value₁ = value₂)
+  | _, _ => false
+
+instance : BEq RuntimeValue where
+  beq := RuntimeValue.exactBEq
+
+/--
   A predicate indicating whether a `RuntimeValue` is a value that is a runtime value
   of a given `TypeAttr`.
 -/

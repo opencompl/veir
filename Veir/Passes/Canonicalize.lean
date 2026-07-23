@@ -3,14 +3,16 @@ module
 public import Veir.Pass
 import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
+import Veir.Fold.Rewriter
 
 namespace Veir
 
 /-!
   # Canonicalize pass
 
-  Currently, the only transformation it performs is to move constants
-  to the right side, for commutative operations.
+  Performs the following transformations:
+  * folding operations (see `Veir.Fold`);
+  * moving constants to the right side, for commutative operations.
 -/
 
 def isConstOperand (ctx : IRContext OpCode) (v : ValuePtr) : Bool :=
@@ -29,15 +31,14 @@ def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPt
   if reordered == operands then return rewriter
   let resultTypes := op.getResultTypes! rewriter.ctx.raw
   let properties := op.getProperties! rewriter.ctx.raw opType
-  let (rewriter, newOp) ← rewriter.createOp! opType resultTypes reordered
-    #[] #[] properties (some $ .before op)
-  return rewriter.replaceOp! op newOp
+  rewriter.createOrFoldAndReplaceOp! op opType resultTypes reordered properties (.before op)
 
 /-! ## Pass implementation -/
 
 def CanonicalizePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[
+    foldOperation,
     commutativeConstantRHS
   ]
   match RewritePattern.applyInContext pattern ctx with
