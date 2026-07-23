@@ -1,8 +1,5 @@
 module
 
-public import Veir.IR.Basic
-public import Veir.GlobalOpInfo
-public import Veir.PatternRewriter.Basic
 public import Veir.Passes.Matching.Basic
 
 public section
@@ -17,6 +14,6 @@ def matchArithConstantIntVal (val : ValuePtr) (ctx : IRContext OpCode) : Option 
   let properties := result.op.getProperties! ctx (.arith .constant)
   return properties.value
 
--- def matchRemui (op : OperationPtr) (ctx : IRContext OpCode) : Option (Array ValuePtr × propertiesOf (.arith .remui)) := do
---   let (op, properties) := matchOp op ctx (.arith .remui) 2
---   return (op[0]!, op[1]!, properties)
+def matchRemui (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.arith .remui)) := do
+  let (op, properties) ← matchOp op ctx (.arith .remui) 2
+  return (op[0]!, op[1]!, properties)
