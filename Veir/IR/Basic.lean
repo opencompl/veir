@@ -2560,10 +2560,19 @@ end BlockOperandPtrPtr
 
 namespace OperationPtr
 
+@[expose]
 def getParentOp! (op : OperationPtr) (ctx : IRContext OpInfo) : Option OperationPtr := do
   rlet block ← (op.get! ctx).parent
   rlet region ← (block.get! ctx).parent
   (region.get! ctx).parent
+
+theorem getParentOp!_eq_some_iff {child parent : OperationPtr} {ctx : IRContext OpInfo} :
+    child.getParentOp! ctx = some parent ↔
+      ∃ block region,
+        (child.get! ctx).parent = some block ∧
+        (block.get! ctx).parent = some region ∧
+        (region.get! ctx).parent = some parent := by
+  grind [OperationPtr.getParentOp!]
 
 def hasUses.loop (op : OperationPtr) (ctx : IRContext OpInfo) (index : Nat)
     (opIn : op.InBounds ctx := by grind)

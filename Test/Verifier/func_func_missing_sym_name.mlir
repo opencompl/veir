@@ -7,4 +7,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Expected symbol name
+// CHECK: func.func: Expected symbol name

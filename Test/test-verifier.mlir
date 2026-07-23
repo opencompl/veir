@@ -5,5 +5,5 @@
 
 }, {}) : () -> ()
 
-// CHECK: Error verifying input program: Expected 1 region
+// CHECK: Error verifying input program: builtin.module: Expected 1 region
 // CHECK-NO-VERIFY: "builtin.module"() ({}, {}) : () -> ()

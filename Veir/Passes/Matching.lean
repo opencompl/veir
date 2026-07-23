@@ -1,5 +1,6 @@
 module
 
 public import Veir.Passes.Matching.Basic
-public import Veir.Passes.Matching.Lemmas
-public import Veir.Passes.Matching.matchArith
+public import Veir.Passes.Matching.LLVM.Basic
+public import Veir.Passes.Matching.LLVM.Lemmas
+public import Veir.Passes.Matching.RISCV.Basic

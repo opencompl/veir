@@ -7,4 +7,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Expected llvm.return to be enclosed by llvm.func
+// CHECK: llvm.return: Expected llvm.return to be enclosed by llvm.func
