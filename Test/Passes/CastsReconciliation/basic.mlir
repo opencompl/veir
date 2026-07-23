@@ -212,7 +212,7 @@
         // CHECK-NEXT:   "test.test"(%[[C1]]) : (!riscv.reg) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
-    
+
     "func.func"()  <{function_type = (!riscv.reg) -> (), sym_name = "f15"}> ({
       ^1(%0 : !riscv.reg):
         // reg -> i8 -> reg : should not be folded away.

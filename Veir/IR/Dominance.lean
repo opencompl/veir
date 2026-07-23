@@ -27,6 +27,26 @@ private partial def normalizeInsertPoint
   normalizeInsertPoint region (.before parentOp) irCtx
 
 /--
+Whether this region has MLIR-style SSA dominance. Multi-block regions always
+have SSA dominance, no matter what operation owns them: as in MLIR (see
+`getDominanceInfo` in `mlir/lib/IR/Dominance.cpp`), graph-region leniency is
+only granted to single-block regions, where operations may use each other
+without respecting source order. Values defined outside a graph region must
+still dominate the operation that owns the graph region.
+-/
+private def RegionPtr.hasSSADominance
+    (region : RegionPtr) (irCtx : IRContext OpCode) : Bool :=
+  -- Multi-block regions always have SSA dominance, whatever their kind.
+  (match (region.get! irCtx).firstBlock with
+   | some first => (first.get! irCtx).next.isSome
+   | none => false) ||
+  match (region.get! irCtx).parent with
+  | some parentOp =>
+    let parent := parentOp.get! irCtx
+    parent.opType.getRegionKind (parent.regions.idxOf region) = .SSACFG
+  | none => true
+
+/--
 Check dominance between two blocks that are already known
 to lie in the same region.
 
@@ -38,10 +58,13 @@ private partial def BlockPtr.dominatesWithinRegion
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : Bool := Id.run do
   if dominator = block then
-    true
-  else
-    let some idom := block.getIDom? dfCtx irCtx | return false
-    idom ≠ block && dominatesWithinRegion dominator idom dfCtx irCtx
+    return true
+  -- Two distinct blocks always lie in a multi-block region, which has SSA
+  -- dominance regardless of its kind, so the query is answered by the
+  -- immediate-dominator chain alone (as in MLIR, whose block-vs-block query
+  -- goes straight to the region's dominator tree).
+  let some idom := block.getIDom? dfCtx irCtx | return false
+  return idom ≠ block && dominatesWithinRegion dominator idom dfCtx irCtx
 
 
 /--
@@ -70,6 +93,10 @@ to lie in the same block.
 private def dominatesWithinBlock
     (dominator point : InsertPoint)
     (irCtx : IRContext OpCode) : Bool := Id.run do
+  let some block := dominator.block! irCtx | return false
+  let some region := (block.get! irCtx).parent | return false
+  if !region.hasSSADominance irCtx then
+    return true
   if dominator = point then
     return true
   match dominator, point with
@@ -116,6 +143,13 @@ private def dominates
 /--
 Proper dominance query between two insertion points.
 
+From the MLIR documentation: "If A and B are in the same block and A
+properly dominates B within the block, or if the block that contains A
+properly dominates the block that contains B. In an SSACFG region,
+Operation A dominates Operation B in the same block if A preceeds
+B. In a Graph region, all operations in a block properly dominate all
+operations in the same block."
+
 An insertion point does not properly dominate itself. Otherwise this is the same query as `InsertPoint.dominates`.
 -/
 private def properlyDominates
@@ -123,7 +157,15 @@ private def properlyDominates
     (point : InsertPoint)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : Bool :=
-  dominator ≠ point && dominator.dominates point dfCtx irCtx
+  if dominator = point then
+    match dominator.block! irCtx with
+    | some block =>
+      match (block.get! irCtx).parent with
+      | some region => !region.hasSSADominance irCtx
+      | none => false
+    | none => false
+  else
+    dominator.dominates point dfCtx irCtx
 
 
 end InsertPoint
@@ -144,7 +186,7 @@ def immediateDominator?
 /--
 Dominance query between two blocks, where a block dominates itself.
 -/
-def dominates
+def dominatesByAnalysis
     [FactSpec .dominator]
     (dominator block : BlockPtr)
     (dfCtx : DataFlowContext)
@@ -154,7 +196,7 @@ def dominates
 /--
 Dominance query between two blocks, where a block does not dominate itself.
 -/
-def properlyDominates
+def properlyDominatesByAnalysis
     [FactSpec .dominator]
     (dominator block : BlockPtr)
     (dfCtx : DataFlowContext)
@@ -169,7 +211,7 @@ namespace OperationPtr
 /--
 Dominance query between two operations, where an operation dominates itself.
 -/
-def dominates
+def dominatesByAnalysis
     (dominator op : OperationPtr)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : Bool :=
@@ -178,7 +220,7 @@ def dominates
 /--
 Dominance query between two operations, where an operation does not dominate itself.
 -/
-def properlyDominates
+def properlyDominatesByAnalysis
     (dominator op : OperationPtr)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : Bool :=

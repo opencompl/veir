@@ -379,6 +379,19 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     Std.HashMap.emptyWithCapacity 0
 
 /--
+  Whether this operation defines `IsolatedFromAbove` regions: operations nested
+  inside its regions may not reference SSA values defined outside the operation.
+  This mirrors MLIR, where symbol-table ops like modules and functions are
+  isolated from above.
+-/
+def OpCode.isIsolatedFromAbove (opCode : OpCode) : Bool :=
+  match opCode with
+  | .builtin .module
+  | .func .func
+  | .llvm .func => true
+  | _ => false
+
+/--
   Does this OpCode count as an MLIR basic block terminator?
 -/
 def OpCode.isTerminator (opCode : OpCode) : Bool :=
