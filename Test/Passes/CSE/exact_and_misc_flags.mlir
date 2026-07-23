@@ -19,7 +19,7 @@
     // CHECK-NEXT: "test.test"(%[[LSHR_EXACT]], %[[LSHR_EXACT]], %[[LSHR_PLAIN]])
 
 // `ashr exact` is distinct from plain `ashr`.
-    "llvm.return"() : () -> ()
+    "llvm.br"(%m, %n) [^ashr_exact] : (i32, i32) -> ()
 ^ashr_exact(%o : i32, %p : i32):
     %ashr_exact = "llvm.ashr"(%o, %p) <{exact}> : (i32, i32) -> i32
     %ashr_plain = "llvm.ashr"(%o, %p) : (i32, i32) -> i32
@@ -34,7 +34,7 @@
 // Going from "not exact" to "exact" would introduce UB where there was none
 // if the dividend isn't actually divisible - keying them distinctly sidesteps
 // that.
-    "llvm.return"() : () -> ()
+    "llvm.br"(%o, %p) [^udiv_exact] : (i32, i32) -> ()
 ^udiv_exact(%udiv_a : i32, %udiv_b : i32):
     %udiv_exact_1 = "llvm.udiv"(%udiv_a, %udiv_b) <{exact}> : (i32, i32) -> i32
     %udiv_exact_2 = "llvm.udiv"(%udiv_a, %udiv_b) <{exact}> : (i32, i32) -> i32
@@ -47,7 +47,7 @@
     // CHECK-NEXT: "test.test"(%[[UDIV_EXACT]], %[[UDIV_EXACT]], %[[UDIV_PLAIN]])
 
 // Same for `sdiv exact`.
-    "llvm.return"() : () -> ()
+    "llvm.br"(%udiv_a, %udiv_b) [^sdiv_exact] : (i32, i32) -> ()
 ^sdiv_exact(%sdiv_a : i32, %sdiv_b : i32):
     %sdiv_exact_1 = "llvm.sdiv"(%sdiv_a, %sdiv_b) <{exact}> : (i32, i32) -> i32
     %sdiv_exact_2 = "llvm.sdiv"(%sdiv_a, %sdiv_b) <{exact}> : (i32, i32) -> i32
@@ -60,7 +60,7 @@
     // CHECK-NEXT: "test.test"(%[[SDIV_EXACT]], %[[SDIV_EXACT]], %[[SDIV_PLAIN]])
 
 // `or disjoint` is commutative and partitions identity by flag.
-    "llvm.return"() : () -> ()
+    "llvm.br"(%sdiv_a, %sdiv_b) [^or_disjoint] : (i32, i32) -> ()
 ^or_disjoint(%q : i32, %r : i32):
     %or_disjoint_1 = "llvm.or"(%q, %r) <{disjoint}> : (i32, i32) -> i32
     %or_disjoint_2 = "llvm.or"(%r, %q) <{disjoint}> : (i32, i32) -> i32
@@ -73,7 +73,8 @@
     // CHECK-NEXT: "test.test"(%[[OR_DISJOINT]], %[[OR_DISJOINT]], %[[OR_PLAIN]])
 
 // `zext nneg` is distinct from plain `zext`.
-    "llvm.return"() : () -> ()
+    %q_to_i8 = "llvm.trunc"(%q) : (i32) -> i8
+    "llvm.br"(%q_to_i8) [^zext_nneg] : (i8) -> ()
 ^zext_nneg(%s : i8):
     %zext_nneg_1 = "llvm.zext"(%s) <{nneg}> : (i8) -> i32
     %zext_nneg_2 = "llvm.zext"(%s) <{nneg}> : (i8) -> i32
