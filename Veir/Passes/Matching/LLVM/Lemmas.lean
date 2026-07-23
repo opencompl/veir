@@ -1,8 +1,8 @@
 module
 
-public import Veir.Passes.Matching.Basic
+public import Veir.Passes.Matching.LLVM.Basic
 
-import all Veir.Passes.Matching.Basic
+import all Veir.Passes.Matching.LLVM.Basic
 
 public section
 
@@ -10,19 +10,6 @@ public section
 
 namespace Veir
 
-/-- What the generic `matchOp` helper syntactically guarantees. -/
-@[grind →]
-theorem matchOp_implies {op : OperationPtr} {ctx : IRContext OpCode}
-    {opType numOperands operands props} :
-    matchOp op ctx opType numOperands = some (operands, props) →
-    op.getOpType! ctx = opType ∧
-    op.getNumOperands! ctx = numOperands ∧
-    op.getNumResults! ctx = 1 ∧
-    operands = op.getOperands! ctx ∧
-    props = op.getProperties! ctx opType := by
-  intro hmatch
-  simp only [matchOp, bind, pure, Option.bind, guard, failure] at hmatch
-  grind
 
 /-- What matching `llvm.add` (via `matchAddi`) syntactically guarantees. -/
 theorem matchAddi_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs props} :
