@@ -69,6 +69,14 @@
         // CHECK-NEXT: %{{.*}} = "riscv.add"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> !llvm.ptr
 
+        "test.test"(%g1) : (!llvm.ptr) -> ()
+        "test.test"(%g2) : (!llvm.ptr) -> ()
+        "test.test"(%g4) : (!llvm.ptr) -> ()
+        "test.test"(%g8) : (!llvm.ptr) -> ()
+        "test.test"(%garr) : (!llvm.ptr) -> ()
+        "test.test"(%g16) : (!llvm.ptr) -> ()
+        "test.test"(%g3) : (!llvm.ptr) -> ()
+        "test.test"(%g0) : (!llvm.ptr) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

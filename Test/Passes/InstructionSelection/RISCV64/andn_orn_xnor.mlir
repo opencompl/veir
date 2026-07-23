@@ -14,6 +14,7 @@
         %not = "llvm.xor"(%y, %ones) : (i64, i64) -> i64
         %r = "llvm.and"(%x, %not) : (i64, i64) -> i64
         // CHECK-DAG: %{{.*}} = "riscv.andn"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        "test.test"(%r) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
     // or x (not y) -> riscv.orn
@@ -23,6 +24,7 @@
         %not = "llvm.xor"(%y, %ones) : (i64, i64) -> i64
         %r = "llvm.or"(%x, %not) : (i64, i64) -> i64
         // CHECK-DAG: %{{.*}} = "riscv.orn"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        "test.test"(%r) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
     // xor x (not y) -> riscv.xnor  (i.e. ~(x ^ y))
@@ -32,6 +34,7 @@
         %not = "llvm.xor"(%y, %ones) : (i64, i64) -> i64
         %r = "llvm.xor"(%x, %not) : (i64, i64) -> i64
         // CHECK-DAG: %{{.*}} = "riscv.xnor"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        "test.test"(%r) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
     // The `not` is accepted on either operand: and (not y) x -> riscv.andn
@@ -41,6 +44,7 @@
         %not = "llvm.xor"(%y, %ones) : (i64, i64) -> i64
         %r = "llvm.and"(%not, %x) : (i64, i64) -> i64
         // CHECK-DAG: %{{.*}} = "riscv.andn"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        "test.test"(%r) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

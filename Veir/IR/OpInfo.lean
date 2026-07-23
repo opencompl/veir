@@ -50,6 +50,14 @@ class HasOpInfo (opCode: Type)
     extends Hashable opCode, Repr opCode, Inhabited opCode, HasDialectOpInfo opCode where
   moduleOpCode: opCode
   /--
+  Whether an operation with this opcode and these properties may have
+  effects that make it ineligible for transformations that add /
+  remove / rearrange instructions (terminators count as having
+  effects). Defaults to `true` for every opcode, which conservatively
+  disables such transformations.
+  -/
+  hasSideEffects : (op : opCode) → propertiesOf op → Bool := fun _ _ => true
+  /--
   Whether definitions in the indexed region must dominate their uses. A false
   result denotes graph-style semantics, where only a single block can be in the
   region, and operation order does not impose SSA dominance.

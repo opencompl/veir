@@ -13,6 +13,7 @@
         %c = "llvm.mlir.constant"() <{value = 5 : i32}> : () -> i32
         %r = "llvm.intr.fshr"(%a, %a, %c) : (i32, i32, i32) -> i32
         // CHECK: %{{.*}} = "riscv.roriw"(%{{.*}}) <{"value" = 5 : i64}> : (!riscv.reg) -> !riscv.reg
+        "test.test"(%r) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -22,6 +23,7 @@
         %c = "llvm.mlir.constant"() <{value = 5 : i32}> : () -> i32
         %l = "llvm.intr.fshl"(%a, %a, %c) : (i32, i32, i32) -> i32
         // CHECK: %{{.*}} = "riscv.roriw"(%{{.*}}) <{"value" = 27 : i64}> : (!riscv.reg) -> !riscv.reg
+        "test.test"(%l) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -32,6 +34,8 @@
         %l = "llvm.intr.fshl"(%a, %a, %c) : (i32, i32, i32) -> i32
         %r = "llvm.intr.fshr"(%a, %a, %c) : (i32, i32, i32) -> i32
         // CHECK-COUNT-2: %{{.*}} = "riscv.roriw"(%{{.*}}) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
+        "test.test"(%l) : (i32) -> ()
+        "test.test"(%r) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -41,6 +45,7 @@
         %c = "llvm.mlir.constant"() <{value = 5 : i64}> : () -> i64
         %l = "llvm.intr.fshl"(%a, %a, %c) : (i64, i64, i64) -> i64
         // CHECK: %{{.*}} = "llvm.intr.fshl"(%{{.*}}, %{{.*}}, %{{.*}}) : (i64, i64, i64) -> i64
+        "test.test"(%l) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 

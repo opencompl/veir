@@ -6,6 +6,7 @@
         %urem = "llvm.urem"(%a, %b) : (i16, i16) -> i16
         // CHECK: %{{.*}} = "llvm.urem"(%{{.*}}, %{{.*}}) : (i16, i16) -> i16
 
+        "test.test"(%urem) : (i16) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

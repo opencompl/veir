@@ -15,6 +15,9 @@
         // CHECK-NEXT:      %[[N:.*]] = "builtin.unrealized_conversion_cast"([[D]]) : (!llvm.byte<32>) -> !riscv.reg
         // CHECK-NEXT:      %[[O:.*]] = "builtin.unrealized_conversion_cast"(%[[N]]) : (!riscv.reg) -> !llvm.byte<16>
         
+        "test.test"(%truncb) : (i8) -> ()
+        "test.test"(%truncc) : (i16) -> ()
+	"test.test"(%truncd) : (!llvm.byte<16>) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

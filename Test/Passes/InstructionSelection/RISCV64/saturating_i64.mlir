@@ -16,6 +16,7 @@
         // CHECK:      "riscv.czeronez"
         // CHECK:      "riscv.czeroeqz"
         // CHECK:      "riscv.or"
+        "test.test"(%r) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -33,6 +34,7 @@
         // CHECK:      "riscv.czeronez"
         // CHECK:      "riscv.czeroeqz"
         // CHECK:      "riscv.or"
+        "test.test"(%r) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -43,6 +45,7 @@
         // CHECK:      "riscv.xori"({{.*}}) <{"value" = -1 : i64}>
         // CHECK:      "riscv.minu"
         // CHECK:      "riscv.add"
+        "test.test"(%r) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -52,6 +55,7 @@
         %r = "llvm.intr.usub.sat"(%x, %y) : (i64, i64) -> i64
         // CHECK:      "riscv.maxu"
         // CHECK:      "riscv.sub"
+        "test.test"(%r) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -68,6 +72,7 @@
         // CHECK:      "riscv.czeronez"
         // CHECK:      "riscv.czeroeqz"
         // CHECK:      "riscv.or"
+        "test.test"(%r) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -81,6 +86,7 @@
         // CHECK:      "riscv.sltiu"({{.*}}) <{"value" = 1 : i64}>
         // CHECK:      "riscv.addi"({{.*}}) <{"value" = -1 : i64}>
         // CHECK:      "riscv.or"
+        "test.test"(%r) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 

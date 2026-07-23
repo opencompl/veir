@@ -7,6 +7,8 @@
         // CHECK:      %{{.*}} = "llvm.zext"(%{{.*}}) : (i128) -> i256
         %zextb = "llvm.zext"(%b) : (i42) -> i64
         // CHECK:      %{{.*}} = "llvm.zext"(%{{.*}}) : (i42) -> i64
+        "test.test"(%zexta) : (i256) -> ()
+        "test.test"(%zextb) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

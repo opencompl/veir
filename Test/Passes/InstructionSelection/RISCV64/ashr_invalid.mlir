@@ -5,6 +5,7 @@
     ^bb(%a: i16, %b: i16):
         %add = "llvm.ashr"(%a, %b) : (i16, i16) -> i16
         // CHECK:      %{{.*}} = "llvm.ashr"(%{{.*}}, %{{.*}}) : (i16, i16) -> i16
+        "test.test"(%add) : (i16) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

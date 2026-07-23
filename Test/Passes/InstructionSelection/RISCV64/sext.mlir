@@ -30,6 +30,12 @@
         // CHECK-NEXT:      %[[W:.*]] = "builtin.unrealized_conversion_cast"([[E]]) : (i8) -> !riscv.reg
         // CHECK-NEXT:      %[[X:.*]] = "riscv.sextb"(%[[W]]) : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT:      %[[Y:.*]] = "builtin.unrealized_conversion_cast"(%[[X]]) : (!riscv.reg) -> i64
+        "test.test"(%sexta) : (i64) -> ()
+        "test.test"(%sextb) : (i32) -> ()
+        "test.test"(%sextc) : (i64) -> ()
+        "test.test"(%sextd) : (i64) -> ()
+        "test.test"(%sexte) : (i32) -> ()
+        "test.test"(%sextf) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

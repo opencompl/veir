@@ -18,6 +18,7 @@
         %sub = "llvm.sub"(%shl, %m) : (i64, i64) -> i64
         // CHECK-DAG: %{{.*}} = "riscv.and"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-DAG: %{{.*}} = "riscv.orcb"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
+        "test.test"(%sub) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
     // Y = 3: left is `shl M 5`, right is `lshr M 3`, mask 0x0808_0808_0808_0808.
@@ -32,6 +33,7 @@
         %sub = "llvm.sub"(%shl, %srl) : (i64, i64) -> i64
         // CHECK-DAG: %{{.*}} = "riscv.and"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-DAG: %{{.*}} = "riscv.orcb"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
+        "test.test"(%sub) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
     // Y = 7: left is `shl M 1`, right is `lshr M 7`, mask 0x8080_8080_8080_8080.
@@ -48,6 +50,7 @@
         %sub = "llvm.sub"(%shl, %srl) : (i64, i64) -> i64
         // CHECK-DAG: %{{.*}} = "riscv.and"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-DAG: %{{.*}} = "riscv.orcb"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
+        "test.test"(%sub) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
     // Y = 0 with the mask on the left operand of the `and` (`and %mask %z`): the
@@ -61,6 +64,7 @@
         %sub = "llvm.sub"(%shl, %m) : (i64, i64) -> i64
         // CHECK-DAG: %{{.*}} = "riscv.and"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-DAG: %{{.*}} = "riscv.orcb"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
+        "test.test"(%sub) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()
