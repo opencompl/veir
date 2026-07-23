@@ -69,6 +69,18 @@ inductive RegionPtr.Path (region : RegionPtr) (ctx : WfIRContext OpInfo) :
       region.Path ctx source target (source :: blocks)
 
 /--
+Synctactic reachability of `block` from the entry of `region`.
+
+A block is reachable from the entry block of a region if there is a CFG path from the
+entry block to the block.
+-/
+def BlockPtr.ReachableFromEntry (block : BlockPtr) (region : RegionPtr)
+    (ctx : WfIRContext OpInfo) : Prop :=
+  ∃ entry blocks,
+    (region.get! ctx.raw).firstBlock = some entry ∧
+    region.Path ctx entry block blocks
+
+/--
 Proper dominance between `dominator` and `dominated` in a graph `region`.
 
 This is defined as the property that both blocks are in the same region, and that the region is a
