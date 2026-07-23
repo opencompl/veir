@@ -51,6 +51,13 @@ inductive RegionPtr.Path (region : RegionPtr) (ctx : WfIRContext OpInfo) :
       (tail : region.Path ctx next target blocks) :
       region.Path ctx source target (source :: blocks)
 
+/-- Reachability of `block` from the entry of `region`. -/
+def BlockPtr.ReachableFromEntry (block : BlockPtr) (region : RegionPtr)
+    (ctx : WfIRContext OpInfo) : Prop :=
+  ∃ entry blocks,
+    (region.get! ctx.raw).firstBlock = some entry ∧
+    region.Path ctx entry block blocks
+
 /--
 Block dominance within the blocks' common region.
 
@@ -84,6 +91,16 @@ Operation dominance depends on the parent region of the operations.
   and operations in different blocks dominate each other according to the dominance of their
   containing blocks.
 -/
+
+/--
+An operation is reachable from a region entry when its containing block is reachable
+from the entry of its containing region.
+-/
+def OperationPtr.ReachableFromEntry (op : OperationPtr)
+    (ctx : WfIRContext OpInfo) : Prop :=
+  ∃ block region,
+    (op.get! ctx.raw).parent = some block ∧
+    block.ReachableFromEntry region ctx
 
 /--
 Lexical dominance between `dominator` and `dominated` in a `block` of an SSACFG `region`.
@@ -171,5 +188,202 @@ def OperationPtr.ProperlyDominates (dominator dominated : OperationPtr)
     (ctx : WfIRContext OpInfo) : Prop :=
   dominator ≠ dominated ∧
   OperationPtr.Dominates dominator dominated ctx
+
+/-- Structural evidence that an operation dominates a block entry. -/
+inductive OperationPtr.BlockEntryDominance
+    (source : OperationPtr) (target : BlockPtr) (ctx : WfIRContext OpInfo) : Prop where
+  | ssa {sourceBlock : BlockPtr} {region : RegionPtr}
+      (sourceParent : (source.get! ctx.raw).parent = some sourceBlock)
+      (sourceBlockParent : (sourceBlock.get! ctx.raw).parent = some region)
+      (targetParent : (target.get! ctx.raw).parent = some region)
+      (regionSSA : region.hasSSADominance ctx = true)
+      (blocksNe : sourceBlock ≠ target)
+      (blockDominance : sourceBlock.Dominates target ctx) :
+      source.BlockEntryDominance target ctx
+  | graph {sourceBlock : BlockPtr} {region : RegionPtr}
+      (sourceParent : (source.get! ctx.raw).parent = some sourceBlock)
+      (sourceBlockParent : (sourceBlock.get! ctx.raw).parent = some region)
+      (targetParent : (target.get! ctx.raw).parent = some region)
+      (regionGraph : region.hasSSADominance ctx = false) :
+      source.BlockEntryDominance target ctx
+  | ancestor {ancestor : OperationPtr} {region : RegionPtr}
+      (localDominance : source.DominatesInRegion ancestor region ctx)
+      (ancestry : IRNode.Ancestor (.operation ancestor) (.block target) ctx) :
+      source.BlockEntryDominance target ctx
+
+/-- Structural evidence that an operation dominates a block end. -/
+inductive OperationPtr.BlockEndDominance
+    (source : OperationPtr) (target : BlockPtr) (ctx : WfIRContext OpInfo) : Prop where
+  | same
+      (sourceParent : (source.get! ctx.raw).parent = some target) :
+      source.BlockEndDominance target ctx
+  | ssa {sourceBlock : BlockPtr} {region : RegionPtr}
+      (sourceParent : (source.get! ctx.raw).parent = some sourceBlock)
+      (sourceBlockParent : (sourceBlock.get! ctx.raw).parent = some region)
+      (targetParent : (target.get! ctx.raw).parent = some region)
+      (regionSSA : region.hasSSADominance ctx = true)
+      (blocksNe : sourceBlock ≠ target)
+      (blockDominance : sourceBlock.Dominates target ctx) :
+      source.BlockEndDominance target ctx
+  | graph {sourceBlock : BlockPtr} {region : RegionPtr}
+      (sourceParent : (source.get! ctx.raw).parent = some sourceBlock)
+      (sourceBlockParent : (sourceBlock.get! ctx.raw).parent = some region)
+      (targetParent : (target.get! ctx.raw).parent = some region)
+      (regionGraph : region.hasSSADominance ctx = false) :
+      source.BlockEndDominance target ctx
+  | ancestor {ancestor : OperationPtr} {region : RegionPtr}
+      (localDominance : source.DominatesInRegion ancestor region ctx)
+      (ancestry : IRNode.Ancestor (.operation ancestor) (.block target) ctx) :
+      source.BlockEndDominance target ctx
+
+/-! ## Projection into ancestor regions -/
+
+/--
+An operation ancestor of `op` that is directly contained in `region`.
+The ancestry relation is reflexive, so `op` itself is such an ancestor when it
+is directly contained in `region`.
+-/
+@[expose]
+def OperationPtr.AncestorOpInRegion
+    (op ancestor : OperationPtr) (region : RegionPtr)
+    (ctx : WfIRContext OpInfo) : Prop :=
+  (IRNode.operation ancestor).Ancestor (.operation op) ctx ∧
+  ancestor.getParentRegion! ctx.raw = some region
+
+/--
+An operation is hierarchically reachable when it is reachable at every
+enclosing region level and every operation dominating it is reachable from
+entry. The latter condition is needed when execution follows an operand
+to its defining operation: `WfIRContext.Dom` intentionally imposes no operand
+dominance obligations on unreachable operations.
+-/
+@[expose]
+def OperationPtr.HierarchicallyReachable (op : OperationPtr)
+    (ctx : WfIRContext OpInfo) : Prop :=
+  op.ReachableFromEntry ctx ∧
+  (∀ region projection,
+    op.AncestorOpInRegion projection region ctx →
+    projection.ReachableFromEntry ctx) ∧
+  ∀ source : OperationPtr,
+    source.Dominates op ctx → source.ReachableFromEntry ctx
+
+/-- Strict operation dominance excludes pointer equality. -/
+@[expose]
+def OperationPtr.StrictlyDominates (source target : OperationPtr)
+    (ctx : WfIRContext OpInfo) : Prop :=
+  source.Dominates target ctx ∧ source ≠ target
+
+/-! ## Insertion-point and value dominance -/
+
+/--
+A witness that follows operation parents and stops at the first operation in
+`region`. This stronger relation is used where projection must be deterministic.
+-/
+inductive OperationPtr.FirstAncestorOpInRegion :
+    OperationPtr → RegionPtr → OperationPtr → WfIRContext OpInfo → Prop where
+  | here {op : OperationPtr} {region : RegionPtr}
+      {block : BlockPtr} {ctx : WfIRContext OpInfo}
+      (opParent : (op.get! ctx.raw).parent = some block)
+      (blockParent : (block.get! ctx.raw).parent = some region) :
+      FirstAncestorOpInRegion op region op ctx
+  | step {op : OperationPtr} {region : RegionPtr}
+      {block : BlockPtr} {currentRegion : RegionPtr}
+      {parent projection : OperationPtr} {ctx : WfIRContext OpInfo}
+      (opParent : (op.get! ctx.raw).parent = some block)
+      (blockParent : (block.get! ctx.raw).parent = some currentRegion)
+      (regionNe : currentRegion ≠ region)
+      (regionParent : (currentRegion.get! ctx.raw).parent = some parent)
+      (tail : parent.FirstAncestorOpInRegion region projection ctx) :
+      FirstAncestorOpInRegion op region projection ctx
+
+/--
+Lift an insertion point into an ancestor region.
+
+The relation exposes raw block and region parents. A first-ancestor witness is
+used only after crossing the region that directly contains an `atEnd` point.
+-/
+inductive InsertPoint.LiftToRegion :
+    InsertPoint → RegionPtr → InsertPoint → WfIRContext OpInfo → Prop where
+  | before {op projection : OperationPtr} {region : RegionPtr}
+      {ctx : WfIRContext OpInfo}
+      (projectionPath : op.FirstAncestorOpInRegion region projection ctx) :
+      LiftToRegion (.before op) region (.before projection) ctx
+  | atEndHere {block : BlockPtr} {region : RegionPtr}
+      {ctx : WfIRContext OpInfo}
+      (blockParent : (block.get! ctx.raw).parent = some region) :
+      LiftToRegion (.atEnd block) region (.atEnd block) ctx
+  | atEndNested {block : BlockPtr} {currentRegion region : RegionPtr}
+      {parent projection : OperationPtr} {ctx : WfIRContext OpInfo}
+      (blockParent : (block.get! ctx.raw).parent = some currentRegion)
+      (regionNe : currentRegion ≠ region)
+      (regionParent : (currentRegion.get! ctx.raw).parent = some parent)
+      (projectionPath : parent.FirstAncestorOpInRegion region projection ctx) :
+      LiftToRegion (.atEnd block) region (.before projection) ctx
+
+/--
+Operation dominance at an insertion point.
+
+Away from block entry, the point is dominated exactly when its immediately
+preceding operation is dominated. At an operation that starts a block, SSA
+regions use strict operation dominance while graph regions also allow the
+operation itself. An empty block's start and end use block-entry dominance.
+-/
+@[expose]
+def OperationPtr.DominatesIp (source : OperationPtr) (point : InsertPoint)
+    (ctx : WfIRContext OpInfo) : Prop :=
+  match point.prev! ctx.raw with
+  | some previous => source.Dominates previous ctx
+  | none =>
+      match point with
+      | .before target =>
+          source.StrictlyDominates target ctx ∨
+          (source = target ∧
+            ∃ block region,
+              (target.get! ctx.raw).parent = some block ∧
+              (block.get! ctx.raw).parent = some region ∧
+              region.hasSSADominance ctx = false)
+      | .atEnd block => source.BlockEndDominance block ctx
+
+/-- A block entry dominates a point after lifting that point into the block's region. -/
+@[expose]
+def BlockPtr.DominatesIp (source : BlockPtr) (point : InsertPoint)
+    (ctx : WfIRContext OpInfo) : Prop :=
+  ∃ region lifted target,
+    (source.get! ctx.raw).parent = some region ∧
+    point.LiftToRegion region lifted ctx ∧
+    lifted.block! ctx.raw = some target ∧
+    source.Dominates target ctx
+
+/--
+An operation result dominates a point after lifting the point into the
+defining operation's region. The final disjunction excludes a genuinely nested
+point that projects to immediately before its own defining operation.
+-/
+@[expose]
+def OpResultPtr.DominatesIp (result : OpResultPtr) (point : InsertPoint)
+    (ctx : WfIRContext OpInfo) : Prop :=
+  result.InBounds ctx.raw ∧
+  let owner := (result.get! ctx.raw).owner
+  ∃ block region lifted,
+      (owner.get! ctx.raw).parent = some block ∧
+      (block.get! ctx.raw).parent = some region ∧
+      point.LiftToRegion region lifted ctx ∧
+      owner.DominatesIp lifted ctx ∧
+      (point = .before owner ∨ lifted ≠ .before owner)
+
+/-- A block argument is available wherever its owning block's entry dominates. -/
+@[expose]
+def BlockArgumentPtr.DominatesIp (argument : BlockArgumentPtr)
+    (point : InsertPoint) (ctx : WfIRContext OpInfo) : Prop :=
+  argument.InBounds ctx.raw ∧
+  (argument.get! ctx.raw).owner.DominatesIp point ctx
+
+/-- Propositional dominance of an insertion point by an SSA value. -/
+@[expose]
+def ValuePtr.DominatesIp (value : ValuePtr) (point : InsertPoint)
+    (ctx : WfIRContext OpInfo) : Prop :=
+  match value with
+  | .opResult result => result.DominatesIp point ctx
+  | .blockArgument argument => argument.DominatesIp point ctx
 
 end Veir

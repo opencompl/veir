@@ -414,14 +414,17 @@ theorem VariableState.setResultValues?_setArgumentValues?_comm :
   grind [getVar?_setResultValues?, getVar?_setArgumentValues?]
 
 theorem VariableState.getVar?_setResultValues?_operand_of_dominates
-    (ctxDom : ctx.Dom) (hdom : op'.dominates op ctx) :
+    (ctxDom : ctx.Dom)
+    (op'Acyclic : op'.OperandsAreDominanceAcyclic ctx)
+    (hdom : op'.Dominates op ctx) :
     value ∈ op'.getOperands! ctx.raw →
     varState.setResultValues? op resValues inBounds = some varState' →
     varState'.getVar? value =
     varState.getVar? value := by
   intro valueInOperands h
   simp only [VariableState.getVar?_setResultValues? h]
-  have := IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom hdom value valueInOperands
+  have := IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates
+    ctxDom op'Acyclic hdom value valueInOperands
   cases value
   case blockArgument blockArg => grind
   case opResult opRes =>
@@ -432,7 +435,9 @@ theorem VariableState.getVar?_setResultValues?_operand_of_dominates
 
 @[grind =>]
 theorem VariableState.getOperandValues_setResultValues?_of_dominates
-    (ctxDom : ctx.Dom) (hdom : op'.dominates op ctx) :
+    (ctxDom : ctx.Dom)
+    (op'Acyclic : op'.OperandsAreDominanceAcyclic ctx)
+    (hdom : op'.Dominates op ctx) :
     varState.setResultValues? op resValues inBounds = some varState' →
     varState'.getOperandValues op' = varState.getOperandValues op' := by
   intro h
@@ -441,10 +446,12 @@ theorem VariableState.getOperandValues_setResultValues?_of_dominates
 
 @[grind =>]
 theorem VariableState.getOperandValues_setResultValues?_self
-    (ctxDom : ctx.Dom) :
+    (ctxDom : ctx.Dom)
+    (opAcyclic : op.OperandsAreDominanceAcyclic ctx) :
     (varState.setResultValues? op resValues inBounds) = varState' →
     varState'.getOperandValues op = varState.getOperandValues op := by
-  exact getOperandValues_setResultValues?_of_dominates ctxDom OperationPtr.dominates_refl
+  exact getOperandValues_setResultValues?_of_dominates
+    ctxDom opAcyclic OperationPtr.dominates_refl
 
 @[grind =>]
 theorem VariableState.setResultValues?_setResultValues?_self :

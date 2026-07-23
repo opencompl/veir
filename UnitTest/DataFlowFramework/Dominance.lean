@@ -173,7 +173,7 @@ private def compareOperationDominance
   let some dominated := getNamedOperation? recovered expected.dominated irCtx
     | return #[s!"op dominance {expected.dominator}->{expected.dominated}: missing dominated op"]
 
-  let observedDominates := dominator.dominates dominated dfCtx irCtx
+  let observedDominates := dominator.dominatesUsingAnalysis dominated dfCtx irCtx
   let observedProperly := dominator.properlyDominates dominated dfCtx irCtx
   let mut report := #[]
   if observedDominates ≠ expected.dominates then
