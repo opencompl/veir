@@ -120,30 +120,6 @@ def returnOpCodeFor : OpCode → OpCode
   | _ => .func .return
 
 set_option warn.sorry false in
-/-- Rewrite a function op's `function_type` to the given input/output type lists.
-    `llvm.func` is canonicalized to the `.llvmFunctionType` spelling, regardless of
-    which spelling the original attribute used. -/
-def setFunctionType (c : WfIRContext OpCode) (funcOp : OperationPtr)
-    (inputs outputs : Array Attribute) : WfIRContext OpCode :=
-  let ftType : TypeAttr :=
-    match funcOp.getOpType! c.raw with
-    | .llvm .func => ⟨.llvmFunctionType { inputs, outputs }, by simp⟩
-    | _ => ⟨.functionType { inputs, outputs }, by simp⟩
-  match funcOp.getOpType! c.raw with
-  | .func .func =>
-    let props : FuncFuncProperties := funcOp.getProperties! c.raw (.func .func)
-    let newEntries := props.extra.entries.map fun (k, v) =>
-      if k == "function_type".toUTF8 then (k, ftType.val) else (k, v)
-    let newProps : FuncFuncProperties :=
-      { props with function_type := some ftType, extra := DictionaryAttr.fromArray newEntries }
-    ⟨funcOp.setProperties (opCode := .func .func) c.raw newProps sorry sorry, sorry⟩
-  | .llvm .func =>
-    let props : LLVMFuncProperties := funcOp.getProperties! c.raw (.llvm .func)
-    let newProps : LLVMFuncProperties := { props with function_type := some ftType }
-    ⟨funcOp.setProperties (opCode := .llvm .func) c.raw newProps sorry sorry, sorry⟩
-  | _ => c
-
-set_option warn.sorry false in
 /-- Coerce one function's `i32`/`i64` arguments and return values to `!riscv.reg`,
     inserting bridging casts and rewriting the `function_type` to match. Handles both
     `func.func` and `llvm.func`. -/
@@ -191,7 +167,7 @@ def coerceFunction (ctx : WfIRContext OpCode) (funcOp : OperationPtr) :
         -- a return's operand count equals the function's declared result count.
         outputs := outputs.set! j (.registerType ⟨none⟩)
   -- (3) Rewrite the function_type to reflect the coerced boundary types.
-  ctx := setFunctionType ctx funcOp inputs outputs
+  ctx := FunctionOpInterface.setFunctionType! ctx funcOp inputs outputs
   return ctx
 
 def coerceFunctionBoundaries (ctx : WfIRContext OpCode) :
