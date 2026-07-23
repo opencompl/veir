@@ -641,7 +641,124 @@ def Arith.interpretOp' (opType : Veir.Arith) (properties : HasDialectOpInfo.prop
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simpa using h)
     return (#[.int bw (LLVM.Int.select cond lhs rhs)], none)
-  | _ => none
+  | .cmpi => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    -- `arith.cmpi` lowers to `llvm.icmp`; the arith and LLVM predicate encodings
+    -- coincide, so `properties.predicate` is used directly. Result is `i1`.
+    return (#[.int 1 (LLVM.Int.icmp lhs rhs properties.predicate)], none)
+  | .maxsi => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.smax lhs rhs)], none)
+  | .minsi => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.smin lhs rhs)], none)
+  | .maxui => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.umax lhs rhs)], none)
+  | .minui => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.umin lhs rhs)], none)
+  | .addui_extended => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    -- Two results: the `w`-bit sum, then the `i1` unsigned-overflow flag.
+    return (#[.int bw (LLVM.Int.add lhs rhs),
+              .int 1 (LLVM.Int.uaddOverflowFlag lhs rhs)], none)
+  | .mulsi_extended => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    -- Two results: the low half (same as `muli`), then the signed high half.
+    return (#[.int bw (LLVM.Int.mul lhs rhs),
+              .int bw (LLVM.Int.smulHigh lhs rhs)], none)
+  | .mului_extended => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    -- Two results: the low half (same as `muli`), then the unsigned high half.
+    return (#[.int bw (LLVM.Int.mul lhs rhs),
+              .int bw (LLVM.Int.umulHigh lhs rhs)], none)
+  | .ceildivui => do
+    let [.int bw a, .int bw' b] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let b := b.cast (by simp at h; exact h)
+    -- Lowering (arith ExpandOps): `a == 0 ? 0 : ((a - 1) udiv b) + 1`. The
+    -- `udiv` makes a zero (or poison) divisor undefined behaviour, exactly as
+    -- for `arith.divui`.
+    match b with
+    | .poison => Interp.ub
+    | .val bv =>
+      if bv = 0 then Interp.ub
+      else
+        let zero : LLVM.Int bw := .val 0
+        let one : LLVM.Int bw := .val 1
+        let isZero := LLVM.Int.icmp a zero .eq
+        let quotient := LLVM.Int.udiv (LLVM.Int.sub a one) b
+        let plusOne := LLVM.Int.add quotient one
+        return (#[.int bw (LLVM.Int.select isZero zero plusOne)], none)
+  | .ceildivsi => do
+    let [.int bw a, .int bw' b] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let b := b.cast (by simp at h; exact h)
+    -- Lowering (arith ExpandOps): `z = a sdiv b;`
+    -- `(a != z*b) && ((a<0) == (b<0)) ? z + 1 : z`. The intermediate `mul`/`add`
+    -- carry no overflow flags (they wrap).
+    let zero : LLVM.Int bw := .val 0
+    let one : LLVM.Int bw := .val 1
+    let z := LLVM.Int.sdiv a b
+    let notExact := LLVM.Int.icmp a (LLVM.Int.mul z b) .ne
+    let signEqual := LLVM.Int.icmp (LLVM.Int.icmp a zero .slt) (LLVM.Int.icmp b zero .slt) .eq
+    let cond := LLVM.Int.and notExact signEqual
+    let result := LLVM.Int.select cond (LLVM.Int.add z one) z
+    -- UB gating mirrors `arith.divsi` (divide-by-zero, INT_MIN / -1).
+    match b with
+    | .poison => Interp.ub
+    | .val bv =>
+      if bv = 0 then Interp.ub
+      else if bv = -1 then
+        match a with
+        | .poison => Interp.ub
+        | .val av =>
+          if av = BitVec.intMin bw then Interp.ub
+          else return (#[.int bw result], none)
+      else return (#[.int bw result], none)
+  | .floordivsi => do
+    let [.int bw a, .int bw' b] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let b := b.cast (by simp at h; exact h)
+    -- Lowering (arith ExpandOps): `z = a sdiv b;`
+    -- `(a != z*b) && ((a<0) != (b<0)) ? z - 1 : z`. The intermediate `mul`/`add`
+    -- carry no overflow flags (they wrap).
+    let zero : LLVM.Int bw := .val 0
+    let negOne : LLVM.Int bw := .val (BitVec.allOnes bw)
+    let z := LLVM.Int.sdiv a b
+    let notExact := LLVM.Int.icmp a (LLVM.Int.mul z b) .ne
+    let signOpposite := LLVM.Int.icmp (LLVM.Int.icmp a zero .slt) (LLVM.Int.icmp b zero .slt) .ne
+    let cond := LLVM.Int.and notExact signOpposite
+    let result := LLVM.Int.select cond (LLVM.Int.add z negOne) z
+    -- UB gating mirrors `arith.divsi` (divide-by-zero, INT_MIN / -1).
+    match b with
+    | .poison => Interp.ub
+    | .val bv =>
+      if bv = 0 then Interp.ub
+      else if bv = -1 then
+        match a with
+        | .poison => Interp.ub
+        | .val av =>
+          if av = BitVec.intMin bw then Interp.ub
+          else return (#[.int bw result], none)
+      else return (#[.int bw result], none)
 
 def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
