@@ -232,7 +232,7 @@ def lowerModArithConstant (rewriter : PatternRewriter OpCode) (op : OperationPtr
 def remuiToBarrettReduction (rewriter : PatternRewriter OpCode) (op : OperationPtr) (_opInBounds : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
 
-  let some (r, q, _) := matchRemui op rewriter.ctx
+  let some (r, q, _) := matchArithRemui op rewriter.ctx
     | return rewriter
 
   let some modulusAttr := matchArithConstantIntVal q rewriter.ctx.raw
