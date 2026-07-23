@@ -67,6 +67,13 @@ inductive RegionPtr.Path (region : RegionPtr) (ctx : WfIRContext OpInfo) :
       (tail : region.Path ctx next target blocks) :
       region.Path ctx source target (source :: blocks)
 
+/-- Reachability of `block` from the entry of `region`. -/
+def BlockPtr.ReachableFromEntry (block : BlockPtr) (region : RegionPtr)
+    (ctx : WfIRContext OpInfo) : Prop :=
+  ∃ entry blocks,
+    (region.get! ctx.raw).firstBlock = some entry ∧
+    region.Path ctx entry block blocks
+
 /--
 Proper dominance between `dominator` and `dominated` in a graph `region`.
 
