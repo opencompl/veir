@@ -25,7 +25,9 @@ def check_tools(tools: tuple[str, ...]) -> None:
         sys.exit(f"vcc: required tool(s) not found in PATH: {', '.join(missing)}")
 
 
-def run(cmd: list[str], *, stdin: bytes | None = None, cwd: Path | None = None) -> bytes:
+def run(cmd: list[str], *, stdin: bytes | None = None, cwd: Path | None = None, debug: bool = False) -> bytes:
+    if debug:
+        print(f"+ vcc.run: {' '.join(cmd)}", file=sys.stderr)
     result = subprocess.run(cmd, input=stdin, capture_output=True, cwd=cwd)
     if result.returncode != 0:
         err = result.stderr.decode("utf-8", errors="replace")
@@ -33,26 +35,27 @@ def run(cmd: list[str], *, stdin: bytes | None = None, cwd: Path | None = None) 
     return result.stdout
 
 
-def compile_to_mlir(src: Path, veir_optimize: bool, llvm_o2: bool) -> bytes:
-    with tempfile.TemporaryDirectory() as tmpdir:
+def compile_to_mlir(src: Path, veir_optimize: bool, llvm_o2: bool, debug: bool = False) -> bytes:
+    with tempfile.TemporaryDirectory(delete=not debug) as tmpdir:
         tmp = Path(tmpdir)
         bc = tmp / (src.stem + ".bc")
         bc_opt = tmp / (src.stem + "-opt.bc")
 
         run(["clang", "-O0", "-Xclang", "-disable-O0-optnone", "-c", "-emit-llvm",
-             str(src), "-o", str(bc)])
+             str(src), "-o", str(bc)], debug=debug)
         if llvm_o2:
             # Run the full LLVM middle-end optimization pipeline, minus
             # autovectorization.
             run(["opt", "-O2", "-vectorize-loops=false", "-vectorize-slp=false",
-                 str(bc), "-o", str(bc_opt)])
+                 str(bc), "-o", str(bc_opt)], debug=debug)
         else:
             # TODO -- as soon as we have our own mem2reg, stop running LLVM's
-            run(["opt", "-passes=sroa", str(bc), "-o", str(bc_opt)])
-        translated = run(["mlir-translate", "--import-llvm", str(bc_opt)])
+            run(["opt", "-passes=sroa", str(bc), "-o", str(bc_opt)], debug=debug)
+        translated = run(["mlir-translate", "--import-llvm", str(bc_opt)], debug=debug)
         mlir = run(
             ["mlir-opt", "--mlir-print-op-generic", "--mlir-print-local-scope"],
             stdin=translated,
+            debug=debug
         )
         pre = tmp / (src.stem + ".mlir")
         pre.write_bytes(mlir)
@@ -63,15 +66,16 @@ def compile_to_mlir(src: Path, veir_optimize: bool, llvm_o2: bool) -> bytes:
         mlir = run(
             opt_cmd,
             cwd=REPO_ROOT,
+            debug=debug
         )
         return mlir
 
 
-def translate_mlir_to_llvm(mlir: bytes, src_stem: str) -> bytes:
+def translate_mlir_to_llvm(mlir: bytes, src_stem: str, debug: bool = False) -> bytes:
     with tempfile.TemporaryDirectory() as tmpdir:
         path = Path(tmpdir) / (src_stem + ".mlir")
         path.write_bytes(mlir)
-        return run(["mlir-translate", "--mlir-to-llvmir", str(path)])
+        return run(["mlir-translate", "--mlir-to-llvmir", str(path)], debug=debug)
 
 
 def write_output(output: bytes, dst: Path | None) -> None:
@@ -81,8 +85,8 @@ def write_output(output: bytes, dst: Path | None) -> None:
         dst.write_bytes(output)
 
 
-def finish_llvm_ir(llvm_ir: bytes, dst: Path | None, emit: str) -> None:
-    with tempfile.TemporaryDirectory() as tmpdir:
+def finish_llvm_ir(llvm_ir: bytes, dst: Path | None, emit: str, debug: bool = False) -> None:
+    with tempfile.TemporaryDirectory(delete = not debug) as tmpdir:
         path = Path(tmpdir) / "input.ll"
         path.write_bytes(llvm_ir)
         cmd = ["clang"]
@@ -91,7 +95,7 @@ def finish_llvm_ir(llvm_ir: bytes, dst: Path | None, emit: str) -> None:
         elif emit == "assembly":
             cmd.append("-S")
         cmd.extend([str(path), "-o", "-" if dst is None else str(dst)])
-        output = run(cmd)
+        output = run(cmd, debug=debug)
         if dst is None:
             sys.stdout.buffer.write(output)
 
@@ -123,7 +127,7 @@ def normalize_args(argv: list[str]) -> list[str]:
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="vcc",
-        usage="vcc [-h] [-o OUTPUT] [-c | -S | --emit-mlir | --emit-llvm] [-O[N]] source",
+        usage="vcc [-h] [-o OUTPUT] [-c | -S | --emit-mlir | --emit-llvm] [-O[N]] source [--debug]",
         description="Compile a C file via VeIR.",
     )
     parser.add_argument("source", type=Path, help="C source file")
@@ -157,8 +161,14 @@ def main() -> None:
         type=parse_opt_level, metavar="N",
         help=argparse.SUPPRESS,
     )
+
+    parser.add_argument(
+        "--debug", action="store_true",
+        help="keep tmp files; print commands to stderr",
+    )
+
     parser.epilog = "-O0 disables VeIR optimization; -O and other numeric -O levels run the same optimizer."
-    parser.set_defaults(emit="executable")
+    parser.set_defaults(emit="executable", debug=False)
     args = parser.parse_args(normalize_args(sys.argv[1:]))
 
     if not args.source.is_file():
@@ -183,17 +193,17 @@ def main() -> None:
     else:
         dst = Path("a.out")
 
-    mlir = compile_to_mlir(args.source, optimize_from_levels(args.opt_levels), args.llvm_o2)
+    mlir = compile_to_mlir(args.source, optimize_from_levels(args.opt_levels), args.llvm_o2, debug=args.debug)
     if args.emit == "mlir":
         write_output(mlir, dst)
         return
 
-    llvm_ir = translate_mlir_to_llvm(mlir, args.source.stem)
+    llvm_ir = translate_mlir_to_llvm(mlir, args.source.stem, debug=args.debug)
     if args.emit == "llvm":
         write_output(llvm_ir, dst)
         return
 
-    finish_llvm_ir(llvm_ir, dst, args.emit)
+    finish_llvm_ir(llvm_ir, dst, args.emit, debug=args.debug)
 
 
 if __name__ == "__main__":
