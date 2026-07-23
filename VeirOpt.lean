@@ -17,6 +17,7 @@ import Veir.Passes.DCE.dce
 import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.RISCVCombines.Combine
 import Veir.Passes.ModArithToArith
+import Veir.Passes.ArithToLLVM
 import Veir.Passes.Canonicalize
 
 open Veir.Parser
@@ -38,6 +39,7 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
     |>.insert CastReconcilePass.name CastReconcilePass
     |>.insert RISCV.Combine.name RISCV.Combine
     |>.insert ModArithToArithPass.name ModArithToArithPass
+    |>.insert ArithToLLVMPass.name ArithToLLVMPass
     |>.insert CanonicalizePass.name CanonicalizePass
 
 /--
