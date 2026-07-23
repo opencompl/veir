@@ -305,7 +305,73 @@ theorem BlockPtr.operationList_operationPtr_setAttributes
   simp only [←BlockPtr.operationList_iff_BlockPtr_OpChain]
   grind [BlockPtr.opChain_OperationPtr_setAttributes]
 
+theorem Rewriter.setAttributes_WellFormed
+    (hctx : ctx.WellFormed) :
+    (Rewriter.setAttributes ctx op newProps hop).WellFormed := by
+   grind [setAttributes, OperationPtr.setAttributes_WellFormed]
+
 end setAttributes
+
+section setProperties
+
+theorem OperationPtr.setProperties_WellFormed {opCode : OpInfo} (ctx: IRContext OpInfo)
+  (op: OperationPtr) (hctx : ctx.WellFormed) (hop : op.InBounds ctx)
+  (hprop : op.getOpType! ctx = opCode := by grind)
+  (newProperties: HasOpInfo.propertiesOf opCode) :
+  (op.setProperties ctx newProperties hop hprop).WellFormed := by
+  have ⟨h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈⟩ := hctx
+  constructor
+  · grind
+  · intro val hval
+    have ⟨array, harray⟩ := h₂ val (by grind)
+    exists array
+    simp only [Std.ExtHashSet.filter_empty] at harray ⊢
+    apply ValuePtr.DefUse.unchanged harray (ctx' := op.setProperties ctx newProperties hop hprop) <;> grind
+  · intro blk hblk
+    have ⟨array, harray⟩ := h₃ blk (by grind)
+    exists array
+    simp only [Std.ExtHashSet.filter_empty] at harray ⊢
+    apply BlockPtr.DefUse.unchanged harray (ctx' := op.setProperties ctx newProperties hop hprop) <;> grind
+  · intro blk hblk
+    have ⟨array, harray⟩ := h₄ blk (by grind)
+    exists array
+    apply BlockPtr.OpChain_unchanged harray (ctx' := op.setProperties ctx newProperties hop hprop) <;> grind
+  · intro reg hreg
+    have ⟨array, harray⟩ := h₅ reg (by grind)
+    exists array
+    apply RegionPtr.blockChain_unchanged harray (ctx' := op.setProperties ctx newProperties hop hprop) <;> grind
+  · intro op' hop'
+    have h_wf := h₆ op' (by grind)
+    apply OperationPtr.WellFormed_unchanged h_wf (ctx' := op.setProperties ctx newProperties hop hprop) <;> grind
+  · intro blk hblk
+    have h_wf := h₇ blk (by grind)
+    apply BlockPtr.WellFormed_unchanged h_wf (ctx' := op.setProperties ctx newProperties hop hprop) <;> grind
+  · intro reg hreg
+    have h_wf := h₈ reg (by grind)
+    apply RegionPtr.WellFormed_unchanged h_wf (ctx' := op.setProperties ctx newProperties hop hprop) <;> grind
+
+theorem BlockPtr.opChain_OperationPtr_setProperties
+    (hWf : BlockPtr.OpChain block' ctx array)
+    {op : OperationPtr} (hop : op.InBounds ctx)
+    {opCode : OpInfo} (newProps : HasOpInfo.propertiesOf opCode)
+    (hprop : op.getOpType! ctx = opCode := by grind) :
+    BlockPtr.OpChain block' (op.setProperties ctx newProps hop hprop) array := by
+  apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
+
+@[grind =]
+theorem BlockPtr.operationList_operationPtr_setProperties
+    (hctx : ctx.WellFormed) :
+    BlockPtr.operationList block' (OperationPtr.setProperties op ctx newProps hop hprop) ctx' blockInBounds' =
+    BlockPtr.operationList block' ctx hctx (by grind) := by
+  simp only [← BlockPtr.operationList_iff_BlockPtr_OpChain]
+  grind [BlockPtr.opChain_OperationPtr_setProperties]
+
+theorem Rewriter.setProperties_WellFormed
+    (hctx : ctx.WellFormed) :
+    (Rewriter.setProperties ctx op newProps hop hprop).WellFormed := by
+   grind [setProperties, OperationPtr.setProperties_WellFormed]
+
+end setProperties
 
 theorem Rewriter.detachOperands.loop_wellFormed
     (wf : IRContext.WellFormed ctx missingOperands missingSuccessors)

@@ -7,4 +7,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Expected enclosing func.func to have a function_type attribute
+// CHECK: func.return: Expected enclosing func.func to have a function_type attribute

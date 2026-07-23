@@ -7,4 +7,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Expected symbol name
+// CHECK: llvm.func: Expected symbol name
