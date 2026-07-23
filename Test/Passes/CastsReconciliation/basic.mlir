@@ -9,7 +9,6 @@
 
 "builtin.module"() ({
 
-  ^1():
     "func.func"()  <{function_type = (i64) -> (), sym_name = "f0"}> ({
       ^1(%0 : i64):
         // A lone `iX -> iX` cast is not a round trip, so nothing reconciles it away.
@@ -22,7 +21,6 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
-  ^2():
     "func.func"()  <{function_type = (i64) -> (), sym_name = "f1"}> ({
       ^1(%0 : i64):
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> !riscv.reg
@@ -34,7 +32,6 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
-  ^3():
     "func.func"()  <{function_type = (i64) -> (), sym_name = "f2"}> ({
       ^1(%0 : i64):
         // the remaining cast is unused
@@ -47,7 +44,6 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
-  ^4():
     "func.func"()  <{function_type = (i64) -> (), sym_name = "f3"}> ({
       ^1(%0 : i64):
         // the remaining cast is used
@@ -62,7 +58,6 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
-  ^5():
     "func.func"()  <{function_type = (i64) -> (), sym_name = "f4"}> ({
       ^1(%0 : i64):
         // The `reg -> reg` cast in the middle breaks the `reg -> i64 -> reg` round trip: no
@@ -78,7 +73,6 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
-  ^6():
     "func.func"()  <{function_type = (i64) -> (), sym_name = "f5"}> ({
       ^1(%0 : i64):
         // pairs of casts
@@ -96,7 +90,6 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
-  ^7():
     "func.func"()  <{function_type = (!riscv.reg) -> (), sym_name = "f6"}> ({
       ^1(%0 : !riscv.reg):
         // identity cast on block argument: not a round trip, so it survives the pass
@@ -108,7 +101,6 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
-  ^8():
     "func.func"()  <{function_type = (i8) -> (), sym_name = "f7"}> ({
       ^1(%0 : i8):
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i8) -> i8
@@ -119,7 +111,6 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
-  ^9():
     "func.func"()  <{function_type = (i64) -> (), sym_name = "f8"}> ({
       ^1(%0 : i64):
         // `iX -> iY -> iX` round trips are not reconciled: the interpreter gives an
@@ -139,7 +130,6 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
-  ^10():
     "func.func"()  <{function_type = (i32) -> (), sym_name = "f9"}> ({
       ^1(%0 : i32):
         // i32 -> reg -> i32
@@ -156,7 +146,6 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
-  ^11():
     "func.func"()  <{function_type = (!riscv.reg) -> (), sym_name = "f10"}> ({
       ^1(%0 : !riscv.reg):
         // reg -> i32 -> reg : should not be folded away.
@@ -169,7 +158,6 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
-  ^12():
     "func.func"()  <{function_type = (!llvm.ptr) -> (), sym_name = "f11"}> ({
       ^1(%0 : !llvm.ptr):
         // ptr -> reg -> ptr (64-bit)
@@ -184,7 +172,6 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
-  ^13():
     "func.func"()  <{function_type = (!riscv.reg) -> (), sym_name = "f12"}> ({
       ^1(%0 : !riscv.reg):
         // reg -> ptr -> reg (64-bit)
@@ -196,7 +183,6 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
-  ^14():
     "func.func"()  <{function_type = (i32) -> (), sym_name = "f13"}> ({
       ^1(%0 : i32):
         // i32 -> reg -> i32  (reg is also used elsewhere)
@@ -215,7 +201,6 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
-  ^15():
     "func.func"()  <{function_type = (!riscv.reg) -> (), sym_name = "f14"}> ({
       ^1(%0 : !riscv.reg):
         // reg -> i16 -> reg : should not be folded away.
@@ -228,7 +213,6 @@
         "func.return"() : () -> ()
     }) : () -> ()
     
-  ^16():
     "func.func"()  <{function_type = (!riscv.reg) -> (), sym_name = "f15"}> ({
       ^1(%0 : !riscv.reg):
         // reg -> i8 -> reg : should not be folded away.
@@ -241,7 +225,6 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
-  ^17():
     "func.func"()  <{function_type = (!riscv.reg) -> (), sym_name = "f16"}> ({
       ^1(%0 : !riscv.reg):
         // reg -> i14 -> reg : should not be folded away.
@@ -255,7 +238,6 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
-  ^18():
     "func.func"()  <{function_type = (!riscv.reg) -> (), sym_name = "f17"}> ({
       ^1(%0 : !riscv.reg):
         // reg -> i0 -> reg : the round trip is the constant zero, which the `slli`/`srli`

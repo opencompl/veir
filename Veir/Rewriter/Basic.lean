@@ -329,6 +329,38 @@ theorem Rewriter.replaceUse_fieldsInBounds :
      ctx.FieldsInBounds → (replaceUse ctx use newValue useIn newIn ctxIn).FieldsInBounds := by
   grind [replaceUse]
 
+/-- Set the attributes of an operation. -/
+def Rewriter.setAttributes (ctx: IRContext OpInfo) (op: OperationPtr) (newAttrs : DictionaryAttr)
+    (opIn : op.InBounds ctx := by grind) : IRContext OpInfo :=
+  op.setAttributes ctx newAttrs opIn
+
+@[grind =]
+theorem Rewriter.setAttributes_inBounds (ptr : GenericPtr) :
+    ptr.InBounds (setAttributes ctx op newAttrs opIn) ↔ ptr.InBounds ctx := by
+  grind [setAttributes]
+
+@[grind .]
+theorem Rewriter.setAttributes_fieldsInBounds :
+    ctx.FieldsInBounds → (setAttributes ctx op newAttrs opIn).FieldsInBounds := by
+  grind [setAttributes, OperationPtr.setAttributes_fieldsInBounds]
+
+/-- Set the properties of an operation. -/
+def Rewriter.setProperties {opCode : OpInfo} (ctx: IRContext OpInfo) (op: OperationPtr)
+    (newProps: HasOpInfo.propertiesOf opCode)
+    (opIn : op.InBounds ctx := by grind)
+    (hprop : op.getOpType! ctx = opCode := by grind) : IRContext OpInfo :=
+  op.setProperties ctx newProps opIn hprop
+
+@[grind =]
+theorem Rewriter.setProperties_inBounds (ptr : GenericPtr) :
+    ptr.InBounds (setProperties ctx op newProperties opIn hprop) ↔ ptr.InBounds ctx := by
+  grind [setProperties]
+
+@[grind .]
+theorem Rewriter.setProperties_fieldsInBounds :
+    ctx.FieldsInBounds → (setProperties ctx op newProperties opIn hprop).FieldsInBounds := by
+  grind [setProperties, OperationPtr.setProperties_fieldsInBounds]
+
 /--
 Set the type of a value (an op result or a block argument).
 -/
