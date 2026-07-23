@@ -228,7 +228,6 @@ def lowerModArithConstant (rewriter : PatternRewriter OpCode) (op : OperationPtr
 
 /-! ## arith.remui rewriting pattern -/
 
--- TODO: this matching function might be moved to Matching/Basic.lean, but it is currently only used here.
 /-- Rewrite `arith.remui r, q` to a Barrett reduction when `q` is a positive constant. -/
 def remuiToBarrettReduction (rewriter : PatternRewriter OpCode) (op : OperationPtr) (_opInBounds : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
