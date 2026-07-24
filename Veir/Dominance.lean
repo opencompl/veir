@@ -1,6 +1,8 @@
 module
 
 public import Veir.Rewriter.InsertPoint
+public import Veir.Dominance.Basic
+import all Veir.Dominance.Basic
 
 /-!
   # Dominance
@@ -21,31 +23,6 @@ variable {OpInfo : Type} [HasOpInfo OpInfo]
 variable {ctx : WfIRContext OpInfo}
 variable {op op₁ op₂ : OperationPtr}
 
-/-!
-## Definition of Dominance
--/
-
-/--
-  The dominance relation between operations.
-  An operation `op` dominates itself.
--/
-axiom OperationPtr.dominates (op₁ op₂ : OperationPtr) (ctx : WfIRContext OpInfo) : Prop
-
-/--
-  The strict dominance relation between operations.
-  An operation `op` does not strictly dominate itself.
--/
-def OperationPtr.strictlyDominates (op₁ op₂ : OperationPtr) (ctx : WfIRContext OpInfo) : Prop :=
-  op₁.dominates op₂ ctx ∧ op₁ ≠ op₂
-
-/--
-  An operation `op₁` strictly dominates an operation `op₂` if it dominates it
-  and the operations are not equal.
--/
-theorem OperationPtr.strictlyDominates_def :
-    op₁.strictlyDominates op₂ ctx ↔ op₁.dominates op₂ ctx ∧ op₁ ≠ op₂ := by
-  grind [strictlyDominates]
-
 /--
   The dominance relation between an operation and an insertion point.
 -/
@@ -61,25 +38,26 @@ axiom ValuePtr.dominatesIp (val : ValuePtr) (ip : InsertPoint) (ctx : WfIRContex
 -/
 
 /--
-An operation `op₁` dominates an operation `op₂` if it strictly dominates it.
+An operation `op₁` dominates an operation `op₂` if it properly dominates it.
 -/
-theorem OperationPtr.dominates_of_strictlyDominates :
-    op₁.strictlyDominates op₂ ctx → op₁.dominates op₂ ctx := by
-  grind [strictlyDominates]
+theorem OperationPtr.dominates_of_properlyDominates :
+    op₁.ProperlyDominates op₂ ctx true → op₁.Dominates op₂ ctx := by
+  grind [OperationPtr.Dominates]
 
 /--
 An operation dominates itself.
 -/
 @[grind .]
-axiom OperationPtr.dominates_refl : op.dominates op ctx
+theorem OperationPtr.dominates_refl : op.Dominates op ctx := by
+  grind [OperationPtr.Dominates]
 
 /--
 An operation `op₁` dominates an operation `op₂` if and only if
-`op₁` stricly dominates `op₂` or if `op₁` is `op₂`.
+`op₁` properly dominates `op₂` or if `op₁` is `op₂`.
 -/
-theorem OperationPtr.dominates_iff_strictlyDominates_or_eq :
-    op₁.dominates op₂ ctx ↔ op₁.strictlyDominates op₂ ctx ∨ op₁ = op₂ := by
-  grind [OperationPtr.strictlyDominates]
+theorem OperationPtr.dominates_iff_properlyDominates_or_eq :
+    op₁.Dominates op₂ ctx ↔ op₁.ProperlyDominates op₂ ctx true ∨ op₁ = op₂ := by
+  grind [OperationPtr.Dominates]
 
 /--
 An operation `op₁` dominates the program point after a given operation `op₂` if it
@@ -87,30 +65,31 @@ either dominates the `op₂`, or is `op₂`.
 -/
 axiom OperationPtr.dominatesIp_iff :
     op₁.dominatesIp (InsertPoint.after op₂ ctx.raw block op₂HasParent op₂InBounds) ctx ↔
-    op₁.dominates op₂ ctx
+    op₁.Dominates op₂ ctx
 
 /--
-An operation `op₁` dominates the program point before `op₂` if it strictly dominates `op₂`.
+An operation `op₁` dominates the program point before `op₂` if it properly dominates `op₂`.
 -/
 @[simp]
 axiom OperationPtr.dominatesIp_before :
-  op₁.dominatesIp (.before op₂) ctx ↔ op₁.strictlyDominates op₂ ctx
+  op₁.dominatesIp (.before op₂) ctx ↔ op₁.ProperlyDominates op₂ ctx true
 
 grind_pattern OperationPtr.dominatesIp_before => op₁.dominatesIp (.before op₂) ctx
 
 /--
-Strict dominance between operations is transitive.
+Proper dominance between operations is transitive.
 -/
-axiom OperationPtr.strictlyDominates_trans {op₃ : OperationPtr} :
-  op₁.strictlyDominates op₂ ctx → op₂.strictlyDominates op₃ ctx →
-  op₁.strictlyDominates op₃ ctx
+axiom OperationPtr.properlyDominates_trans {op₃ : OperationPtr} :
+  op₁.ProperlyDominates op₂ ctx true → op₂.ProperlyDominates op₃ ctx true →
+  op₁.ProperlyDominates op₃ ctx true
 
 /--
 A value dominating the program point before an operation `op₁` also dominates the program
-point before any operation `op₂` strictly dominated by `op₁`.
+point before any operation `op₂` properly dominated by `op₁`.
 -/
-axiom ValuePtr.dominatesIp_before_of_strictlyDominates {value : ValuePtr} :
-  value.dominatesIp (InsertPoint.before op₁) ctx → op₁.strictlyDominates op₂ ctx →
+axiom ValuePtr.dominatesIp_before_of_properlyDominates {value : ValuePtr} :
+  value.dominatesIp (InsertPoint.before op₁) ctx →
+  op₁.ProperlyDominates op₂ ctx true →
   value.dominatesIp (InsertPoint.before op₂) ctx
 
 /--
@@ -118,9 +97,9 @@ If an operation `op₁` dominates an operation `op₂`, it dominates the operati
 if it exists.
 -/
 axiom OperationPtr.dominates_next :
-  op₁.dominates op₂ ctx →
+  op₁.Dominates op₂ ctx →
   (op₂.get! ctx.raw).next = some op₂Next →
-  op₁.dominates op₂Next ctx
+  op₁.Dominates op₂Next ctx
 
 /-!
 ## Programs Satisfying Dominance Invariants
@@ -142,20 +121,20 @@ def WfIRContext.Dom (ctx : WfIRContext OpInfo) : Prop :=
 Operands of an operation are not results of dominated operations.
 -/
 axiom IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates (ctxDom : ctx.Dom) :
-    op₁.dominates op₂ ctx →
+    op₁.Dominates op₂ ctx →
     ∀ (value : ValuePtr), value ∈ op₁.getOperands! ctx.raw →
     value ∉ op₂.getResults! ctx.raw
 
 /--
 If a value is being defined by an operation `op₁` and being used as an operand of an
-operation `op₂`, then `op₁` strictly dominates `op₂`.
+operation `op₂`, then `op₁` properly dominates `op₂`.
 -/
-axiom OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! (ctxDom : ctx.Dom) :
+axiom OperationPtr.properlyDominates_of_getDefiningOp!_of_mem_getOperands! (ctxDom : ctx.Dom) :
   value.getDefiningOp! ctx.raw = some op₁ →
   value ∈ op₂.getOperands! ctx.raw →
-  op₁.strictlyDominates op₂ ctx
+  op₁.ProperlyDominates op₂ ctx true
 
-grind_pattern OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! =>
+grind_pattern OperationPtr.properlyDominates_of_getDefiningOp!_of_mem_getOperands! =>
   ctx.Dom, value.getDefiningOp! ctx.raw, some op₂, op₁.getOperands! ctx.raw
 
 /-- In a well-dominated IR context, any value that is an operand of an operation `op` is
