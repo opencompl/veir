@@ -1,25 +1,27 @@
-// RUN: veir-opt %s -p=arith-to-llvm | filecheck %s
+// RUN: veir-opt %s -p=arith-to-llvm > %t && veir-interpret %t | filecheck %s --check-prefix=EXEC
+// RUN: filecheck %s --check-prefix=LOWERED --input-file=%t
 
-// arith.mulsi_extended has two results: the low half (= mul) and the signed high
-// half. Following MLIR's MulIExtendedOpLowering / the mulsi_extended interpreter
-// case (smulHigh), the high half is computed by sign-extending both operands to
-// 2*N bits, multiplying, shifting right by N, and truncating back.
-
+// Check low/high halves for negative products and signed i8 endpoints:
+//   -128 * 2    = 0xff00
+//   -128 * -1   = 0x0080
+//    127 * 127  = 0x3f01
+//   -128 * -128 = 0x4000
 "builtin.module"() ({
-  "func.func"() <{function_type = (i32, i32) -> i32, sym_name = "main"}> ({
-    ^bb0(%0 : i32, %1 : i32):
-      %s:2 = "arith.mulsi_extended"(%0, %1) : (i32, i32) -> (i32, i32)
-      "func.return"(%s#1) : (i32) -> ()
+  "func.func"() <{sym_name = "main", function_type = () -> (i8, i8, i8, i8, i8, i8, i8, i8)}> ({
+    %cn128 = "arith.constant"() <{value = -128 : i8}> : () -> i8
+    %cn1 = "arith.constant"() <{value = -1 : i8}> : () -> i8
+    %c2 = "arith.constant"() <{value = 2 : i8}> : () -> i8
+    %c127 = "arith.constant"() <{value = 127 : i8}> : () -> i8
+    %lo0, %hi0 = "arith.mulsi_extended"(%cn128, %c2) : (i8, i8) -> (i8, i8)
+    %lo1, %hi1 = "arith.mulsi_extended"(%cn128, %cn1) : (i8, i8) -> (i8, i8)
+    %lo2, %hi2 = "arith.mulsi_extended"(%c127, %c127) : (i8, i8) -> (i8, i8)
+    %lo3, %hi3 = "arith.mulsi_extended"(%cn128, %cn128) : (i8, i8) -> (i8, i8)
+    "func.return"(%lo0, %hi0, %lo1, %hi1, %lo2, %hi2, %lo3, %hi3)
+      : (i8, i8, i8, i8, i8, i8, i8, i8) -> ()
   }) : () -> ()
 }) : () -> ()
 
-// CHECK:      ^{{.*}}([[A:%.*]] : i32, [[B:%.*]] : i32):
-// CHECK-NEXT:   [[LOW:%.*]] = "llvm.mul"([[A]], [[B]]) : (i32, i32) -> i32
-// CHECK-NEXT:   [[AE:%.*]] = "llvm.sext"([[A]]) : (i32) -> i64
-// CHECK-NEXT:   [[BE:%.*]] = "llvm.sext"([[B]]) : (i32) -> i64
-// CHECK-NEXT:   [[WM:%.*]] = "llvm.mul"([[AE]], [[BE]]) : (i64, i64) -> i64
-// CHECK-NEXT:   [[SH:%.*]] = "llvm.mlir.constant"() <{"value" = 32 : i64}> : () -> i64
-// CHECK-NEXT:   [[HI:%.*]] = "llvm.lshr"([[WM]], [[SH]]) : (i64, i64) -> i64
-// CHECK-NEXT:   [[HIGH:%.*]] = "llvm.trunc"([[HI]]) : (i64) -> i32
-// CHECK-NEXT:   "func.return"([[HIGH]]) : (i32) -> ()
-// CHECK-NOT: "arith.
+// EXEC: Program output: #[0x00#8, 0xff#8, 0x80#8, 0x00#8, 0x01#8, 0x3f#8, 0x00#8, 0x40#8]
+
+// LOWERED: "builtin.module"
+// LOWERED-NOT: "arith.

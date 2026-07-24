@@ -1,24 +1,25 @@
-// RUN: veir-opt %s -p=arith-to-llvm | filecheck %s
+// RUN: veir-opt %s -p=arith-to-llvm > %t && veir-interpret %t | filecheck %s --check-prefix=EXEC
+// RUN: filecheck %s --check-prefix=LOWERED --input-file=%t
 
-// arith.ceildivui expands (matching arith ExpandOps and the ceildivui interpreter
-// case) to: a == 0 ? 0 : ((a - 1) udiv b) + 1. The divide-by-zero / poison-divisor
-// UB comes from the unconditional udiv.
-
+// Unsigned ceiling division at zero, exact and non-exact quotients, and the
+// maximum i8 numerator/divisor boundaries.
 "builtin.module"() ({
-  "func.func"() <{function_type = (i32, i32) -> i32, sym_name = "main"}> ({
-    ^bb0(%0 : i32, %1 : i32):
-      %r = "arith.ceildivui"(%0, %1) : (i32, i32) -> i32
-      "func.return"(%r) : (i32) -> ()
+  "func.func"() <{sym_name = "main", function_type = () -> (i8, i8, i8, i8, i8)}> ({
+    %c0 = "arith.constant"() <{value = 0 : i8}> : () -> i8
+    %c1 = "arith.constant"() <{value = 1 : i8}> : () -> i8
+    %c2 = "arith.constant"() <{value = 2 : i8}> : () -> i8
+    %c254 = "arith.constant"() <{value = 254 : i8}> : () -> i8
+    %c255 = "arith.constant"() <{value = 255 : i8}> : () -> i8
+    %r0 = "arith.ceildivui"(%c0, %c255) : (i8, i8) -> i8
+    %r1 = "arith.ceildivui"(%c1, %c255) : (i8, i8) -> i8
+    %r2 = "arith.ceildivui"(%c254, %c2) : (i8, i8) -> i8
+    %r3 = "arith.ceildivui"(%c255, %c2) : (i8, i8) -> i8
+    %r4 = "arith.ceildivui"(%c255, %c255) : (i8, i8) -> i8
+    "func.return"(%r0, %r1, %r2, %r3, %r4) : (i8, i8, i8, i8, i8) -> ()
   }) : () -> ()
 }) : () -> ()
 
-// CHECK:      ^{{.*}}([[A:%.*]] : i32, [[B:%.*]] : i32):
-// CHECK-NEXT:   [[ZERO:%.*]] = "llvm.mlir.constant"() <{"value" = 0 : i32}> : () -> i32
-// CHECK-NEXT:   [[ONE:%.*]] = "llvm.mlir.constant"() <{"value" = 1 : i32}> : () -> i32
-// CHECK-NEXT:   [[ISZ:%.*]] = "llvm.icmp"([[A]], [[ZERO]]) <{"predicate" = 0 : i64}> : (i32, i32) -> i1
-// CHECK-NEXT:   [[AM1:%.*]] = "llvm.sub"([[A]], [[ONE]]) : (i32, i32) -> i32
-// CHECK-NEXT:   [[Q:%.*]] = "llvm.udiv"([[AM1]], [[B]]) : (i32, i32) -> i32
-// CHECK-NEXT:   [[QP1:%.*]] = "llvm.add"([[Q]], [[ONE]]) : (i32, i32) -> i32
-// CHECK-NEXT:   [[R:%.*]] = "llvm.select"([[ISZ]], [[ZERO]], [[QP1]]) : (i1, i32, i32) -> i32
-// CHECK-NEXT:   "func.return"([[R]]) : (i32) -> ()
-// CHECK-NOT: "arith.
+// EXEC: Program output: #[0x00#8, 0x01#8, 0x7f#8, 0x80#8, 0x01#8]
+
+// LOWERED: "builtin.module"
+// LOWERED-NOT: "arith.

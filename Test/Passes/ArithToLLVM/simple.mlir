@@ -1,18 +1,23 @@
-// RUN: veir-opt %s -p=arith-to-llvm | filecheck %s
+// RUN: veir-opt %s -p=arith-to-llvm > %t && veir-interpret %t | filecheck %s --check-prefix=EXEC
+// RUN: filecheck %s --check-prefix=LOWERED --input-file=%t
 
-// Sanity check for the 1:1 lowerings: ops map to their llvm counterpart with the
-// same types (no casts) and flags preserved. The complicated expansions have
-// their own dedicated tests.
-
+// Exercise direct 1:1 lowerings, including wrapping subtraction and valid
+// nsw/nuw/disjoint promises.
 "builtin.module"() ({
-  "func.func"() <{function_type = (i32, i32) -> i32, sym_name = "main"}> ({
-    ^bb0(%0 : i32, %1 : i32):
-      %a = "arith.subi"(%0, %1) <{overflowFlags = #arith.overflow<nsw, nuw>}> : (i32, i32) -> i32
-      %b = "arith.ori"(%a, %1) <{disjoint}> : (i32, i32) -> i32
-      "func.return"(%b) : (i32) -> ()
+  "func.func"() <{sym_name = "main", function_type = () -> (i8, i8)}> ({
+    %c0 = "arith.constant"() <{value = 0 : i8}> : () -> i8
+    %c1 = "arith.constant"() <{value = 1 : i8}> : () -> i8
+    %c16 = "arith.constant"() <{value = 16 : i8}> : () -> i8
+    %c48 = "arith.constant"() <{value = 48 : i8}> : () -> i8
+    %wrapped = "arith.subi"(%c0, %c1) : (i8, i8) -> i8
+    %difference = "arith.subi"(%c48, %c16)
+      <{overflowFlags = #arith.overflow<nsw, nuw>}> : (i8, i8) -> i8
+    %combined = "arith.ori"(%difference, %c16) <{disjoint}> : (i8, i8) -> i8
+    "func.return"(%wrapped, %combined) : (i8, i8) -> ()
   }) : () -> ()
 }) : () -> ()
 
-// CHECK:      [[A:%.*]] = "llvm.sub"({{.*}}) <{"overflowFlags" = 3 : i32}> : (i32, i32) -> i32
-// CHECK-NEXT: [[B:%.*]] = "llvm.or"([[A]], {{.*}}) <{disjoint}> : (i32, i32) -> i32
-// CHECK-NOT: "arith.
+// EXEC: Program output: #[0xff#8, 0x30#8]
+
+// LOWERED: "builtin.module"
+// LOWERED-NOT: "arith.

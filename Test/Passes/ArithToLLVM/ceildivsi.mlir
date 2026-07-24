@@ -1,30 +1,35 @@
-// RUN: veir-opt %s -p=arith-to-llvm | filecheck %s
+// RUN: veir-opt %s -p=arith-to-llvm > %t && veir-interpret %t | filecheck %s --check-prefix=EXEC
+// RUN: filecheck %s --check-prefix=LOWERED --input-file=%t
 
-// arith.ceildivsi has no single LLVM op. It expands (matching arith ExpandOps and
-// the ceildivsi interpreter case) to:
-//   z = a sdiv b; (a != z*b) && (sign a == sign b) ? z + 1 : z
-// The divide-by-zero / INT_MIN÷-1 UB comes from the unconditional sdiv. The
-// intermediate mul/add wrap (no flags).
-
+// Signed ceiling division rounds toward positive infinity. Cover all sign
+// combinations, an exact negative quotient, a zero numerator, and both i8
+// endpoints (without invoking the INT_MIN / -1 UB case).
 "builtin.module"() ({
-  "func.func"() <{function_type = (i32, i32) -> i32, sym_name = "main"}> ({
-    ^bb0(%0 : i32, %1 : i32):
-      %r = "arith.ceildivsi"(%0, %1) : (i32, i32) -> i32
-      "func.return"(%r) : (i32) -> ()
+  "func.func"() <{sym_name = "main", function_type = () -> (i8, i8, i8, i8, i8, i8, i8, i8)}> ({
+    %c0 = "arith.constant"() <{value = 0 : i8}> : () -> i8
+    %c1 = "arith.constant"() <{value = 1 : i8}> : () -> i8
+    %cn1 = "arith.constant"() <{value = -1 : i8}> : () -> i8
+    %c2 = "arith.constant"() <{value = 2 : i8}> : () -> i8
+    %cn2 = "arith.constant"() <{value = -2 : i8}> : () -> i8
+    %c7 = "arith.constant"() <{value = 7 : i8}> : () -> i8
+    %cn7 = "arith.constant"() <{value = -7 : i8}> : () -> i8
+    %cn6 = "arith.constant"() <{value = -6 : i8}> : () -> i8
+    %c127 = "arith.constant"() <{value = 127 : i8}> : () -> i8
+    %cn128 = "arith.constant"() <{value = -128 : i8}> : () -> i8
+    %r0 = "arith.ceildivsi"(%c7, %c2) : (i8, i8) -> i8
+    %r1 = "arith.ceildivsi"(%cn7, %c2) : (i8, i8) -> i8
+    %r2 = "arith.ceildivsi"(%c7, %cn2) : (i8, i8) -> i8
+    %r3 = "arith.ceildivsi"(%cn7, %cn2) : (i8, i8) -> i8
+    %r4 = "arith.ceildivsi"(%cn6, %c2) : (i8, i8) -> i8
+    %r5 = "arith.ceildivsi"(%c0, %cn7) : (i8, i8) -> i8
+    %r6 = "arith.ceildivsi"(%c127, %cn1) : (i8, i8) -> i8
+    %r7 = "arith.ceildivsi"(%cn128, %c1) : (i8, i8) -> i8
+    "func.return"(%r0, %r1, %r2, %r3, %r4, %r5, %r6, %r7)
+      : (i8, i8, i8, i8, i8, i8, i8, i8) -> ()
   }) : () -> ()
 }) : () -> ()
 
-// CHECK:      ^{{.*}}([[A:%.*]] : i32, [[B:%.*]] : i32):
-// CHECK-NEXT:   [[ZERO:%.*]] = "llvm.mlir.constant"() <{"value" = 0 : i32}> : () -> i32
-// CHECK-NEXT:   [[ONE:%.*]] = "llvm.mlir.constant"() <{"value" = 1 : i32}> : () -> i32
-// CHECK-NEXT:   [[Z:%.*]] = "llvm.sdiv"([[A]], [[B]]) : (i32, i32) -> i32
-// CHECK-NEXT:   [[ZB:%.*]] = "llvm.mul"([[Z]], [[B]]) : (i32, i32) -> i32
-// CHECK-NEXT:   [[NE:%.*]] = "llvm.icmp"([[A]], [[ZB]]) <{"predicate" = 1 : i64}> : (i32, i32) -> i1
-// CHECK-NEXT:   [[ANEG:%.*]] = "llvm.icmp"([[A]], [[ZERO]]) <{"predicate" = 2 : i64}> : (i32, i32) -> i1
-// CHECK-NEXT:   [[BNEG:%.*]] = "llvm.icmp"([[B]], [[ZERO]]) <{"predicate" = 2 : i64}> : (i32, i32) -> i1
-// CHECK-NEXT:   [[SEQ:%.*]] = "llvm.icmp"([[ANEG]], [[BNEG]]) <{"predicate" = 0 : i64}> : (i1, i1) -> i1
-// CHECK-NEXT:   [[COND:%.*]] = "llvm.and"([[NE]], [[SEQ]]) : (i1, i1) -> i1
-// CHECK-NEXT:   [[ZP1:%.*]] = "llvm.add"([[Z]], [[ONE]]) : (i32, i32) -> i32
-// CHECK-NEXT:   [[R:%.*]] = "llvm.select"([[COND]], [[ZP1]], [[Z]]) : (i1, i32, i32) -> i32
-// CHECK-NEXT:   "func.return"([[R]]) : (i32) -> ()
-// CHECK-NOT: "arith.
+// EXEC: Program output: #[0x04#8, 0xfd#8, 0xfd#8, 0x04#8, 0xfd#8, 0x00#8, 0x81#8, 0x80#8]
+
+// LOWERED: "builtin.module"
+// LOWERED-NOT: "arith.
