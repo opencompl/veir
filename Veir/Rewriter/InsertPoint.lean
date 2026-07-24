@@ -44,6 +44,16 @@ def InsertPoint.atStart! (block : BlockPtr) (ctx : IRContext OpInfo) : InsertPoi
   | some firstOp => .before firstOp
   | none => .atEnd block
 
+theorem InsertPoint.atStart!_eq_before_of_firstOp_eq_some
+    (firstOpEq : (block.get! ctx).firstOp = some firstOp) :
+    InsertPoint.atStart! block ctx = .before firstOp := by
+  grind [InsertPoint.atStart!]
+
+theorem InsertPoint.atStart!_eq_atEnd_of_firstOp_eq_none
+    (firstOpEq : (block.get! ctx).firstOp = none) :
+    InsertPoint.atStart! block ctx = .atEnd block := by
+  grind [InsertPoint.atStart!]
+
 def InsertPoint.atStart (block : BlockPtr) (ctx : IRContext OpInfo)
     (hIn : block.InBounds ctx := by grind) : InsertPoint :=
   match (block.get ctx (by grind)).firstOp with
@@ -103,6 +113,11 @@ theorem InsertPoint.after_eq_of_some_next :
     InsertPoint.after op ctx blockPtr opHasParent opInBounds = .before nextOp := by
   grind [InsertPoint.after]
 
+theorem InsertPoint.after_eq_of_none_next :
+    (op.get! ctx).next = none →
+    InsertPoint.after op ctx blockPtr opHasParent opInBounds = .atEnd blockPtr := by
+  grind [InsertPoint.after]
+
 grind_pattern InsertPoint.after_eq_of_some_next =>
   (op.get! ctx).next, some nextOp, InsertPoint.after op ctx blockPtr opHasParent opInBounds
 
@@ -144,6 +159,41 @@ theorem InsertPoint.block!_atEnd_eq :
     InsertPoint.block! (atEnd blockPtr) ctx =
     blockPtr := by rfl
 
+/-- The start of a well-formed block is a point in that block. -/
+@[simp]
+theorem InsertPoint.block!_atStart!_eq
+    (ctxWf : ctx.WellFormed) (blockInBounds : blockPtr.InBounds ctx) :
+    (InsertPoint.atStart! blockPtr ctx).block! ctx = some blockPtr := by
+  cases firstOpEq : (blockPtr.get! ctx).firstOp with
+  | none =>
+      rw [InsertPoint.atStart!_eq_atEnd_of_firstOp_eq_none firstOpEq]
+      rfl
+  | some first =>
+      have firstInBounds : first.InBounds ctx := by grind
+      have firstParent :=
+        (ctxWf.firstOp!_eq_some_iff blockInBounds firstInBounds).mp firstOpEq |>.1
+      rw [InsertPoint.atStart!_eq_before_of_firstOp_eq_some firstOpEq]
+      simpa using firstParent
+
+/-- The point after an operation remains in that operation's block. -/
+@[simp]
+theorem InsertPoint.block!_after_eq
+    (ctxWf : ctx.WellFormed)
+    (opParent : (op.get! ctx).parent = some blockPtr)
+    (opInBounds : op.InBounds ctx) :
+    (InsertPoint.after op ctx blockPtr opParent opInBounds).block! ctx = some blockPtr := by
+  cases nextEq : (op.get! ctx).next with
+  | none =>
+      rw [InsertPoint.after_eq_of_none_next nextEq]
+      rfl
+  | some next =>
+      have nextInBounds : next.InBounds ctx := by grind
+      have nextParent : (next.get! ctx).parent = some blockPtr := by
+        obtain ⟨operations, chain⟩ := ctxWf.opChain blockPtr (by grind)
+        exact chain.parent!_nextOp_eq opInBounds opParent nextEq
+      rw [InsertPoint.after_eq_of_some_next nextEq]
+      simpa using nextParent
+
 def InsertPoint.prev (ip : InsertPoint) (ctx : IRContext OpInfo) (inBounds : ip.InBounds ctx) : Option OperationPtr :=
   match ip with
   | before op => (op.get ctx).prev
@@ -171,6 +221,26 @@ theorem InsertPoint.prev_atEnd_eq :
     InsertPoint.prev! (atEnd blockPtr) ctx =
     (blockPtr.get! ctx).lastOp := by
   grind [InsertPoint.prev!]
+
+/-- The program point immediately after an operation has that operation as its predecessor. -/
+@[simp]
+theorem InsertPoint.prev!_after_eq
+    (ctxWf : ctx.WellFormed)
+    (opParent : (op.get! ctx).parent = some blockPtr)
+    (opInBounds : op.InBounds ctx) :
+    (InsertPoint.after op ctx blockPtr opParent opInBounds).prev! ctx = some op := by
+  cases nextEq : (op.get! ctx).next with
+  | none =>
+      have lastOpEq : (blockPtr.get! ctx).lastOp = some op := by
+        apply (ctxWf.lastOp!_eq_some_iff (by grind) opInBounds).2
+        exact ⟨opParent, nextEq⟩
+      rw [InsertPoint.after_eq_of_none_next nextEq]
+      simpa using lastOpEq
+  | some next =>
+      have prevEq : (next.get! ctx).prev = some op :=
+        ctxWf.OperationPtr_prev!_eq_some_of_next!_eq_some opInBounds nextEq
+      rw [InsertPoint.after_eq_of_some_next nextEq]
+      simpa using prevEq
 
 @[simp, grind .]
 theorem InsertPoint.prev!_inBounds {ipInBounds : InsertPoint.InBounds ip ctx} {ctxInBounds : ctx.FieldsInBounds} :

@@ -271,19 +271,19 @@ own arguments. -/
 def ValuePtr.InScopeAt (value : ValuePtr) (point : RefinementPoint) (ctx : WfIRContext OpInfo) :
     Prop :=
   match point with
-  | .at p => value.dominatesIp p ctx
+  | .at p => value.DominatesIp p ctx
   | .blockEntry b =>
-    value.dominatesIp (InsertPoint.atStart! b ctx.raw) ctx ∧ value ∉ b.getArguments! ctx.raw
+    value.DominatesIp (InsertPoint.atStart! b ctx.raw) ctx ∧ value ∉ b.getArguments! ctx.raw
 
 @[simp, grind =]
 theorem ValuePtr.inScopeAt_at :
-    ValuePtr.InScopeAt val (.at p) ctx = val.dominatesIp p ctx := by
+    ValuePtr.InScopeAt val (.at p) ctx = val.DominatesIp p ctx := by
   simp [ValuePtr.InScopeAt]
 
 @[simp, grind =]
 theorem ValuePtr.inScopeAt_blockEntry :
     ValuePtr.InScopeAt val (.blockEntry b) ctx =
-      (val.dominatesIp (InsertPoint.atStart! b ctx.raw) ctx
+      (val.DominatesIp (InsertPoint.atStart! b ctx.raw) ctx
       ∧ val ∉ b.getArguments! ctx.raw) := by
   simp [ValuePtr.InScopeAt]
 

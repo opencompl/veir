@@ -202,6 +202,10 @@ theorem default_results_eq :
     (default : Operation OpInfo).results = #[] := by
   rfl
 
+theorem default_parent_eq :
+    (default : Operation OpInfo).parent = none := by
+  rfl
+
 end Operation
 
 namespace OpOperand

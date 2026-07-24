@@ -709,6 +709,36 @@ structure IRContext.WellFormed (ctx : IRContext OpInfo)
 
 attribute [grind →] IRContext.WellFormed.inBounds
 
+/-- Return the region containing an in-bounds operation in a well-formed context. -/
+def OperationPtr.getParentRegion
+    (op : OperationPtr) (ctx : IRContext OpInfo)
+    (opInBounds : op.InBounds ctx := by grind)
+    (ctxWellFormed : ctx.WellFormed := by grind) : Option RegionPtr := do
+  rlet block ← (op.get ctx opInBounds).parent
+  (block.get ctx (by grind)).parent
+
+@[grind =_, eq_bang ←]
+theorem OperationPtr.getParentRegion!_eq_getParentRegion
+    (op : OperationPtr) (ctx : IRContext OpInfo)
+    (opInBounds : op.InBounds ctx)
+    (ctxWellFormed : ctx.WellFormed) :
+    op.getParentRegion! ctx =
+      op.getParentRegion ctx opInBounds ctxWellFormed := by
+  grind [OperationPtr.getParentRegion!, OperationPtr.getParentRegion]
+
+@[grind =]
+theorem OperationPtr.getParentRegion_eq_some_iff
+    {op : OperationPtr} {region : RegionPtr} {ctx : IRContext OpInfo}
+    (opInBounds : op.InBounds ctx := by grind)
+    (ctxWellFormed : ctx.WellFormed := by grind) :
+    op.getParentRegion ctx opInBounds ctxWellFormed = some region ↔
+      ∃ block,
+        (op.get! ctx).parent = some block ∧
+        (block.get! ctx).parent = some region := by
+  rw [← OperationPtr.getParentRegion!_eq_getParentRegion
+    op ctx opInBounds ctxWellFormed]
+  exact OperationPtr.getParentRegion!_eq_some_iff
+
 @[grind .]
 theorem IRContext.empty_wellFormed [HasOpInfo opInfo] :
     (IRContext.empty opInfo).WellFormed := by
@@ -1285,6 +1315,36 @@ theorem BlockPtr.parent!_prev {bl : BlockPtr}
 grind_pattern BlockPtr.parent!_prev =>
   ctx.WellFormed missingUses missingSuccessorUses, (bl.get! ctx).prev, some prevBl
 
+/-- A well-formed region containing a block has a first block. -/
+theorem IRContext.WellFormed.exists_entry_of_parent
+    {block : BlockPtr} {region : RegionPtr}
+    (ctxWf : ctx.WellFormed missingUses missingSuccessorUses)
+    (blockParent : (block.get! ctx).parent = some region) :
+    ∃ entry, (region.get! ctx).firstBlock = some entry := by
+  have blockInBounds : block.InBounds ctx := by
+    grind [BlockPtr.get!_of_not_inBounds, Block.default_parent_eq]
+  obtain ⟨blocks, chain⟩ := ctxWf.blockChain region (by grind)
+  have blockMem :=
+    chain.allBlocksInChain block blockInBounds blockParent
+  have blocksNeEmpty : blocks ≠ #[] := by
+    intro blocksEq
+    subst blocks
+    simp at blockMem
+  have zeroInBounds : 0 < blocks.size := Array.size_pos_iff.mpr blocksNeEmpty
+  refine ⟨blocks[0]'zeroInBounds, ?_⟩
+  rw [chain.first, Array.getElem?_eq_getElem zeroInBounds]
+
+theorem RegionPtr.firstBlock!_parent! {reg : RegionPtr}
+    (regInBounds : reg.InBounds ctx) (hctx : ctx.WellFormed missingUses missingSuccessorUses)
+    (hfirst : (reg.get! ctx).firstBlock = some firstBl) :
+    (firstBl.get! ctx).parent = some reg := by
+  have ⟨array, harray⟩ := hctx.blockChain reg (by grind)
+  grind [RegionPtr.BlockChain]
+
+grind_pattern RegionPtr.firstBlock!_parent! =>
+  ctx.WellFormed missingUses missingSuccessorUses, (reg.get! ctx).firstBlock, some firstBl,
+  (firstBl.get! ctx).parent
+
 theorem RegionPtr.lastBlock!_parent! {reg : RegionPtr}
     (regInBounds : reg.InBounds ctx) (hctx : ctx.WellFormed missingUses missingSuccessorUses)
     (hlast : (reg.get! ctx).lastBlock = some lastBl) :
@@ -1316,6 +1376,51 @@ theorem OperationPtr.idxInParent_lt_size_operationList
     op.idxInParent ctx hop hctx <
       (block.operationList ctx hctx (by grind)).size := by
   grind [OperationPtr.idxInParent]
+
+/-- Two operations in one block with the same parent index are equal. -/
+theorem OperationPtr.eq_of_idxInParent_eq
+    {source target : OperationPtr} {block : BlockPtr}
+    (sourceParent : (source.get! ctx).parent = some block)
+    (targetParent : (target.get! ctx).parent = some block)
+    (sourceInBounds : source.InBounds ctx := by grind)
+    (targetInBounds : target.InBounds ctx := by grind)
+    (ctxWellFormed : ctx.WellFormed := by grind)
+    (indexEq : source.idxInParent ctx = target.idxInParent ctx) :
+    source = target := by
+  let operations := block.operationList ctx ctxWellFormed (by grind)
+  have sourceIndexInBounds := OperationPtr.idxInParent_lt_size_operationList
+    source ctx block sourceParent sourceInBounds ctxWellFormed
+  have targetIndexInBounds := OperationPtr.idxInParent_lt_size_operationList
+    target ctx block targetParent targetInBounds ctxWellFormed
+  have sourceIndexEq : source.idxInParent ctx = operations.idxOf source := by
+    simp only [OperationPtr.idxInParent]
+    split <;> grind
+  have targetIndexEq : target.idxInParent ctx = operations.idxOf target := by
+    simp only [OperationPtr.idxInParent]
+    split <;> grind
+  have sourceIdxOfInBounds : operations.idxOf source < operations.size := by
+    simpa [sourceIndexEq] using sourceIndexInBounds
+  have targetIdxOfInBounds : operations.idxOf target < operations.size := by
+    simpa [targetIndexEq] using targetIndexInBounds
+  have sourceAtIndex : operations[source.idxInParent ctx]? = some source := by
+    rw [sourceIndexEq, Array.getElem?_eq_getElem sourceIdxOfInBounds]
+    exact congrArg some (Array.getElem_idxOf sourceIdxOfInBounds)
+  have targetAtIndex : operations[target.idxInParent ctx]? = some target := by
+    rw [targetIndexEq, Array.getElem?_eq_getElem targetIdxOfInBounds]
+    exact congrArg some (Array.getElem_idxOf targetIdxOfInBounds)
+  rw [indexEq] at sourceAtIndex
+  exact Option.some.inj (sourceAtIndex.symm.trans targetAtIndex)
+
+/-- The first operation in a block has parent index zero. -/
+theorem OperationPtr.idxInParent_eq_zero_of_firstOp_eq
+    {op : OperationPtr} {block : BlockPtr}
+    (opParent : (op.get! ctx).parent = some block)
+    (firstEq : (block.get! ctx).firstOp = some op)
+    (opInBounds : op.InBounds ctx := by grind)
+    (ctxWellFormed : ctx.WellFormed := by grind) :
+    op.idxInParent ctx = 0 := by
+  have chain := BlockPtr.operationListWF ctx block (by grind) ctxWellFormed
+  grind [OperationPtr.idxInParent, BlockPtr.OpChain]
 
 theorem OperationPtr.idxInParent_next_eq
     (op : OperationPtr) (ctx : IRContext OpInfo) (nextOp : OperationPtr)
