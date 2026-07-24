@@ -372,6 +372,24 @@ instance : Inhabited (Interp α) := ⟨(none : Option (UBOr α))⟩
 @[inline] def Interp.ub : Interp α := some .ub
 
 /--
+  Signal UB if the divisor `b` of an unsigned division or remainder could be
+  zero. A poison divisor may refine to zero, so it is immediate UB just like a
+  concretely-zero one.
+-/
+@[inline] def Interp.checkUnsignedDivision {w : Nat} (b : LLVM.Int w) : Interp Unit :=
+  if b = .poison ∨ b = .val 0 then Interp.ub else pure ()
+
+/--
+  Signal UB if the signed division or remainder `a / b` could be undefined:
+  a zero divisor, or the `intMin / -1` overflow case. As above, poison operands
+  may refine to any value, so they count as possibly triggering either case.
+-/
+@[inline] def Interp.checkSignedDivision {w : Nat} (a b : LLVM.Int w) : Interp Unit := do
+  Interp.checkUnsignedDivision b
+  -- The divisor is now concretely nonzero, so only a concrete `-1` can overflow.
+  if b = .val (-1) ∧ (a = .poison ∨ a = .val (BitVec.intMin w)) then Interp.ub
+
+/--
   Allocate the given number of bytes of memory.
   Return the updated memory state and the freshly allocated address.
 -/
@@ -538,56 +556,26 @@ def Arith.interpretOp' (opType : Veir.Arith) (properties : HasDialectOpInfo.prop
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    -- A poison divisor could refine to 0, so it is immediate UB just like a
-    -- concrete-zero divisor.
-    match rhs with
-    | .poison => Interp.ub
-    | .val v' =>
-      if v' = 0 then Interp.ub
-      else return (#[.int bw (LLVM.Int.udiv lhs rhs properties.exact)], none)
+    Interp.checkUnsignedDivision rhs
+    return (#[.int bw (LLVM.Int.udiv lhs rhs properties.exact)], none)
   | .divsi => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    match rhs with
-    | .poison => Interp.ub
-    | .val v' =>
-      if v' = 0 then Interp.ub
-      else if v' = -1 then
-        -- Divisor is concretely -1; if the dividend could be intMin, the
-        -- overflow case applies and is UB.
-        match lhs with
-        | .poison => Interp.ub
-        | .val v =>
-          if v = BitVec.intMin bw then Interp.ub
-          else return (#[.int bw (LLVM.Int.sdiv lhs rhs properties.exact)], none)
-      else
-        return (#[.int bw (LLVM.Int.sdiv lhs rhs properties.exact)], none)
+    Interp.checkSignedDivision lhs rhs
+    return (#[.int bw (LLVM.Int.sdiv lhs rhs properties.exact)], none)
   | .remui => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    match rhs with
-    | .poison => Interp.ub
-    | .val v' =>
-      if v' = 0 then Interp.ub
-      else return (#[.int bw (LLVM.Int.urem lhs rhs)], none)
+    Interp.checkUnsignedDivision rhs
+    return (#[.int bw (LLVM.Int.urem lhs rhs)], none)
   | .remsi => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    match rhs with
-    | .poison => Interp.ub
-    | .val v' =>
-      if v' = 0 then Interp.ub
-      else if v' = -1 then
-        match lhs with
-        | .poison => Interp.ub
-        | .val v =>
-          if v = BitVec.intMin bw then Interp.ub
-          else return (#[.int bw (LLVM.Int.srem lhs rhs)], none)
-      else
-        return (#[.int bw (LLVM.Int.srem lhs rhs)], none)
+    Interp.checkSignedDivision lhs rhs
+    return (#[.int bw (LLVM.Int.srem lhs rhs)], none)
   | .shli => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
@@ -696,17 +684,13 @@ def Arith.interpretOp' (opType : Veir.Arith) (properties : HasDialectOpInfo.prop
     -- Lowering (arith ExpandOps): `a == 0 ? 0 : ((a - 1) udiv b) + 1`. The
     -- `udiv` makes a zero (or poison) divisor undefined behaviour, exactly as
     -- for `arith.divui`.
-    match b with
-    | .poison => Interp.ub
-    | .val bv =>
-      if bv = 0 then Interp.ub
-      else
-        let zero : LLVM.Int bw := .val 0
-        let one : LLVM.Int bw := .val 1
-        let isZero := LLVM.Int.icmp a zero .eq
-        let quotient := LLVM.Int.udiv (LLVM.Int.sub a one) b
-        let plusOne := LLVM.Int.add quotient one
-        return (#[.int bw (LLVM.Int.select isZero zero plusOne)], none)
+    Interp.checkUnsignedDivision b
+    let zero : LLVM.Int bw := .val 0
+    let one : LLVM.Int bw := .val 1
+    let isZero := LLVM.Int.icmp a zero .eq
+    let quotient := LLVM.Int.udiv (LLVM.Int.sub a one) b
+    let plusOne := LLVM.Int.add quotient one
+    return (#[.int bw (LLVM.Int.select isZero zero plusOne)], none)
   | .ceildivsi => do
     let [.int bw a, .int bw' b] := operands.toList | none
     if h: bw' ≠ bw then none else
@@ -716,23 +700,13 @@ def Arith.interpretOp' (opType : Veir.Arith) (properties : HasDialectOpInfo.prop
     -- carry no overflow flags (they wrap).
     let zero : LLVM.Int bw := .val 0
     let one : LLVM.Int bw := .val 1
+    -- UB gating mirrors `arith.divsi` (divide-by-zero, INT_MIN / -1).
+    Interp.checkSignedDivision a b
     let z := LLVM.Int.sdiv a b
     let notExact := LLVM.Int.icmp a (LLVM.Int.mul z b) .ne
     let signEqual := LLVM.Int.icmp (LLVM.Int.icmp a zero .slt) (LLVM.Int.icmp b zero .slt) .eq
     let cond := LLVM.Int.and notExact signEqual
-    let result := LLVM.Int.select cond (LLVM.Int.add z one) z
-    -- UB gating mirrors `arith.divsi` (divide-by-zero, INT_MIN / -1).
-    match b with
-    | .poison => Interp.ub
-    | .val bv =>
-      if bv = 0 then Interp.ub
-      else if bv = -1 then
-        match a with
-        | .poison => Interp.ub
-        | .val av =>
-          if av = BitVec.intMin bw then Interp.ub
-          else return (#[.int bw result], none)
-      else return (#[.int bw result], none)
+    return (#[.int bw (LLVM.Int.select cond (LLVM.Int.add z one) z)], none)
   | .floordivsi => do
     let [.int bw a, .int bw' b] := operands.toList | none
     if h: bw' ≠ bw then none else
@@ -742,23 +716,13 @@ def Arith.interpretOp' (opType : Veir.Arith) (properties : HasDialectOpInfo.prop
     -- carry no overflow flags (they wrap).
     let zero : LLVM.Int bw := .val 0
     let negOne : LLVM.Int bw := .val (BitVec.allOnes bw)
+    -- UB gating mirrors `arith.divsi` (divide-by-zero, INT_MIN / -1).
+    Interp.checkSignedDivision a b
     let z := LLVM.Int.sdiv a b
     let notExact := LLVM.Int.icmp a (LLVM.Int.mul z b) .ne
     let signOpposite := LLVM.Int.icmp (LLVM.Int.icmp a zero .slt) (LLVM.Int.icmp b zero .slt) .ne
     let cond := LLVM.Int.and notExact signOpposite
-    let result := LLVM.Int.select cond (LLVM.Int.add z negOne) z
-    -- UB gating mirrors `arith.divsi` (divide-by-zero, INT_MIN / -1).
-    match b with
-    | .poison => Interp.ub
-    | .val bv =>
-      if bv = 0 then Interp.ub
-      else if bv = -1 then
-        match a with
-        | .poison => Interp.ub
-        | .val av =>
-          if av = BitVec.intMin bw then Interp.ub
-          else return (#[.int bw result], none)
-      else return (#[.int bw result], none)
+    return (#[.int bw (LLVM.Int.select cond (LLVM.Int.add z negOne) z)], none)
 
 def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
@@ -803,52 +767,26 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    match rhs with
-    | .poison => Interp.ub
-    | .val v' =>
-      if v' = 0 then Interp.ub
-      else if v' = -1 then
-        match lhs with
-        | .poison => Interp.ub
-        | .val v =>
-          if v = BitVec.intMin bw then Interp.ub
-          else return (#[.int bw (LLVM.Int.sdiv lhs rhs properties.exact)], mem, none)
-      else
-        return (#[.int bw (LLVM.Int.sdiv lhs rhs properties.exact)], mem, none)
+    Interp.checkSignedDivision lhs rhs
+    return (#[.int bw (LLVM.Int.sdiv lhs rhs properties.exact)], mem, none)
   | .udiv => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    match rhs with
-    | .poison => Interp.ub
-    | .val v' =>
-      if v' = 0 then Interp.ub
-      else return (#[.int bw (LLVM.Int.udiv lhs rhs properties.exact)], mem, none)
+    Interp.checkUnsignedDivision rhs
+    return (#[.int bw (LLVM.Int.udiv lhs rhs properties.exact)], mem, none)
   | .srem => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    match rhs with
-    | .poison => Interp.ub
-    | .val v' =>
-      if v' = 0 then Interp.ub
-      else if v' = -1 then
-        match lhs with
-        | .poison => Interp.ub
-        | .val v =>
-          if v = BitVec.intMin bw then Interp.ub
-          else return (#[.int bw (LLVM.Int.srem lhs rhs)], mem, none)
-      else
-        return (#[.int bw (LLVM.Int.srem lhs rhs)], mem, none)
+    Interp.checkSignedDivision lhs rhs
+    return (#[.int bw (LLVM.Int.srem lhs rhs)], mem, none)
   | .urem => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    match rhs with
-    | .poison => Interp.ub
-    | .val v' =>
-      if v' = 0 then Interp.ub
-      else return (#[.int bw (LLVM.Int.urem lhs rhs)], mem, none)
+    Interp.checkUnsignedDivision rhs
+    return (#[.int bw (LLVM.Int.urem lhs rhs)], mem, none)
   | .shl => do
     let [lhs, .int bw' rhs] := operands.toList | none
     match lhs with
