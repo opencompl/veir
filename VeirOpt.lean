@@ -72,6 +72,8 @@ structure VeirOptArgs where
   allowUnregisteredDialect : Bool
   /-- Whether to disable IR verification -/
   disableVerifiers : Bool
+  /-- Whether to print operations using their custom (pretty) assembly format. -/
+  pretty : Bool
 
 /--
   Parse the `-p` flags to construct a pass pipeline.
@@ -108,20 +110,23 @@ def parseArgs (args : List String) : Except String VeirOptArgs := do
   -- Consume `--disable-verifiers` if present.
   let disableVerifiers := flags.contains "--disable-verifiers"
   let flags := flags.filter (· != "--disable-verifiers")
+  -- Consume `--pretty` if present.
+  let pretty := flags.contains "--pretty"
+  let flags := flags.filter (· != "--pretty")
   -- If anything survived, it was unrecognized and we error out.
   if let some flag := flags.head? then
     .error s!"Unrecognized flag '{flag}'."
 
   if positional.length == 0 then -- read from stdin
-    return { filename := none, passes := pipeline, allowUnregisteredDialect, disableVerifiers }
+    return { filename := none, passes := pipeline, allowUnregisteredDialect, disableVerifiers, pretty }
 
   let [filename] := positional
     | .error "Expected exactly one positional argument for the input filename."
 
   if filename == "-" then
-    return { filename := none, passes := pipeline, allowUnregisteredDialect, disableVerifiers }
+    return { filename := none, passes := pipeline, allowUnregisteredDialect, disableVerifiers, pretty }
 
-  return { filename := some filename, passes := pipeline, allowUnregisteredDialect, disableVerifiers }
+  return { filename := some filename, passes := pipeline, allowUnregisteredDialect, disableVerifiers, pretty }
 
 def getFileContent (filename : Option String) : ExceptT String IO ByteArray := do
   if let some f := filename then
@@ -162,7 +167,7 @@ def main (args : List String) : IO Unit := do
     IO.eprintln "  A pass list may also contain pass-group names, which expand in place:"
     IO.eprintln passGroupsUsage
     IO.Process.exit 1
-  | .ok { filename, passes, allowUnregisteredDialect, disableVerifiers } =>
+  | .ok { filename, passes, allowUnregisteredDialect, disableVerifiers, pretty } =>
     match ← parseOperation filename allowUnregisteredDialect with
     | .error errMsg =>
       IO.eprintln errMsg
@@ -177,4 +182,4 @@ def main (args : List String) : IO Unit := do
         IO.eprintln s!"Error: {errMsg}"
         IO.Process.exit 1
       | .ok finalCtx =>
-        Veir.Printer.printOperation finalCtx op
+        Veir.Printer.printOperation finalCtx op pretty
