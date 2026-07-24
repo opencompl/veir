@@ -407,6 +407,24 @@ def OperationPtr.verifyRISCVRegisterTypes (op : OperationPtr) (ctx : WfIRContext
     | .registerType _ => pure ()
     | _ => throw s!"{instrName}: Expected result {i} to have !riscv.reg type"
 
+/--
+  Reject any operand or result whose type is a zero-width integer (`i0`). The
+  caller is responsible for only invoking this on dialects that forbid `i0`
+  (currently `arith` and `llvm`).
+-/
+def OperationPtr.verifyNoI0 (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
+  let opTypes := op.getOperandTypes! ctx.raw
+  for i in [0:opTypes.size] do
+    if let .integerType intType := (opTypes[i]!).val then
+      if intType.bitwidth = 0 then
+        throw s!"{instrName}: operand {i} has forbidden i0 type"
+  for i in [0:op.getNumResults ctx.raw opIn] do
+    if let .integerType intType := ((op.getResult i).get! ctx.raw).type.val then
+      if intType.bitwidth = 0 then
+        throw s!"{instrName}: result {i} has forbidden i0 type"
+
 def TypeAttr.verifyModArithType (ty : TypeAttr) (msg : String): Except String ModArithType :=
   match ty.val with
   | .modArithType type => do
@@ -1044,6 +1062,9 @@ def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
         op.verifyLocalInvariants ctx opIn
         if let .riscv _ := opType then
           op.verifyRISCVRegisterTypes ctx opIn
+        match opType with
+        | .arith _ | .llvm _ => op.verifyNoI0 ctx opIn
+        | _ => pure ()
         match (op.get ctx.raw opIn).parent with
         | some _ => op.verifyTerminatorPosition ctx opIn
         | none => pure ()))
