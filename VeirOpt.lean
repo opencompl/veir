@@ -38,6 +38,7 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
     |>.insert CastReconcilePass.name CastReconcilePass
     |>.insert RISCV.Combine.name RISCV.Combine
     |>.insert ModArithToArithPass.name ModArithToArithPass
+    |>.insert RemuiToBarrettReductionPass.name RemuiToBarrettReductionPass
     |>.insert CanonicalizePass.name CanonicalizePass
 
 /--
