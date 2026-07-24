@@ -51,8 +51,13 @@ def parseOptionalIntegerType : AttrParserM (Option IntegerType) := do
       let bitwidthSlice : Slice := {start := slice.start + 1, stop := slice.stop}
       let identifier := bitwidthSlice.of (← (getThe ParserState)).input
       let some bitwidth := (String.fromUTF8? identifier).bind String.toNat? | return none
-      let _ ← consumeToken
-      return some (IntegerType.mk bitwidth)
+      -- Zero-width integers (`i0`) are not supported: reject them at the source
+      -- rather than letting an i0-typed value enter the IR.
+      if h : 0 < bitwidth then
+        let _ ← consumeToken
+        return some (IntegerType.mk bitwidth h)
+      else
+        throwAtCurrentPos s!"zero-width integer type 'i{bitwidth}' is not supported"
     return none
   | _ => return none
 

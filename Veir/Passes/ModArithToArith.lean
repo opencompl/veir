@@ -74,9 +74,9 @@ def packValue (rewriter : PatternRewriter OpCode) (v : ValuePtr) (ty : ModArithT
 
 /-- Emit `arith.constant c : i<width>`. Requires `c` to fit into width (unsigned) -/
 def emitArithConstant (rewriter : PatternRewriter OpCode) (c : Int) (width : Nat)
-    (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do
-  let ty : TypeAttr := IntegerType.mk width
-  let props : ArithConstantProperties := { value := IntegerAttr.mk c (IntegerType.mk width) }
+    (hwidth : 0 < width) (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do
+  let ty : TypeAttr := IntegerType.mk width hwidth
+  let props : ArithConstantProperties := { value := IntegerAttr.mk c (IntegerType.mk width hwidth) }
   let (rewriter, c) ← rewriter.createOp! (.arith .constant)
     #[ty] #[] #[] #[] props (some ip)
   return (rewriter, (c.getResult 0 : ValuePtr))
@@ -102,7 +102,8 @@ abbrev Builder :=
 /-- Lower a binary `mod_arith` op `modOp`,
     using intermediate Type iM given storage type iM, with M = `widen` N,
     and using Builder `build` to determine the exact `arith` operations to emit -/
-def lowerModArithBinOp (modOp : Mod_Arith) (widen : Nat → Nat) (build : Builder)
+def lowerModArithBinOp (modOp : Mod_Arith) (widen : Nat → Nat)
+    (hwiden : ∀ n, 0 < n → 0 < widen n) (build : Builder)
     (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   -- match op and extract operands:
@@ -114,12 +115,15 @@ def lowerModArithBinOp (modOp : Mod_Arith) (widen : Nat → Nat) (build : Builde
   let .modArithType modArithType := ((op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw).val
     | return rewriter
   let intermediateWidth := widen modArithType.modulus.type.bitwidth
-  let intermediateType  := IntegerType.mk intermediateWidth
+  have intermediateWidth_pos : 0 < intermediateWidth :=
+    hwiden _ modArithType.modulus.type.bitwidth_pos
+  let intermediateType  := IntegerType.mk intermediateWidth intermediateWidth_pos
   -- actual lowering:
   let ip := InsertPoint.before op
   let (rewriter, a) ← unpackValue rewriter lhs intermediateType ip
   let (rewriter, b) ← unpackValue rewriter rhs intermediateType ip
-  let (rewriter, q) ← emitArithConstant rewriter modArithType.modulus.value intermediateWidth ip
+  let (rewriter, q) ← emitArithConstant rewriter modArithType.modulus.value intermediateWidth
+    intermediateWidth_pos ip
   let (rewriter, r) ← build rewriter a b q ip
   let (rewriter, r) ← emitArithBinOp rewriter .remui () r q ip
   let (rewriter, r) ← packValue rewriter r modArithType ip
@@ -132,13 +136,13 @@ def buildAdd : Builder :=
   fun rewriter a b _ ip =>
   emitArithBinOp rewriter .addi { attr := { nsw := false, nuw := false } } a b ip
 
-def lowerModArithAddOp := lowerModArithBinOp .add (· + 1) buildAdd
+def lowerModArithAddOp := lowerModArithBinOp .add (· + 1) (fun _ _ => by omega) buildAdd
 
 def buildMul : Builder :=
   fun rewriter a b _ ip =>
   emitArithBinOp rewriter .muli { attr := { nsw := false, nuw := false } } a b ip
 
-def lowerModArithMulOp := lowerModArithBinOp .mul (2 * ·) buildMul
+def lowerModArithMulOp := lowerModArithBinOp .mul (2 * ·) (fun _ _ => by omega) buildMul
 
 def buildSub : Builder :=
   fun (rewriter : PatternRewriter OpCode) (a b q : ValuePtr) (ip : InsertPoint) => do
@@ -147,7 +151,7 @@ def buildSub : Builder :=
       { attr := { nsw := false, nuw := false } } a q ip
     emitArithBinOp rewriter .subi { attr := { nsw := false, nuw := false } } aq b ip
 
-def lowerModArithSubOp := lowerModArithBinOp .sub (· + 1) buildSub
+def lowerModArithSubOp := lowerModArithBinOp .sub (· + 1) (fun _ _ => by omega) buildSub
 
 /-! ## Constant lowering Pattern -/
 
@@ -164,7 +168,7 @@ def lowerModArithConstant (rewriter : PatternRewriter OpCode) (op : OperationPtr
   let storageType := modArithType.modulus.type
   -- actual lowering:
   let ip := InsertPoint.before op
-  let (rewriter, r) ← emitArithConstant rewriter c storageType.bitwidth ip
+  let (rewriter, r) ← emitArithConstant rewriter c storageType.bitwidth storageType.bitwidth_pos ip
   let (rewriter, out) ← castToModArith rewriter (r : ValuePtr) modArithType ip
   let rewriter := rewriter.replaceValue! (op.getResult 0) out
   return rewriter.eraseOp! op

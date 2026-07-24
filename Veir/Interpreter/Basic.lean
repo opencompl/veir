@@ -479,19 +479,19 @@ def MemoryState.llvmLoad (state : MemoryState) (addr : UInt64) (type : TypeAttr)
     : Interp RuntimeValue := do
   if addr == 0 then Interp.ub else
   match type.val with
-  | Attribute.integerType { bitwidth := 8 } =>
+  | Attribute.integerType { bitwidth := 8 , .. } =>
       let ba ← state.load addr 1
       if ← state.hasPoison addr 1 then return .int 8 .poison
       return .int 8 (.val ba[0]!.toNat)
-  | Attribute.integerType { bitwidth := 16 } =>
+  | Attribute.integerType { bitwidth := 16 , .. } =>
       let ba ← state.load addr 2
       if ← state.hasPoison addr 2 then return .int 16 .poison
       return .int 16 (.val (ba.toBitVecLE 2))
-  | Attribute.integerType { bitwidth := 32 } =>
+  | Attribute.integerType { bitwidth := 32 , .. } =>
       let ba ← state.load addr 4
       if ← state.hasPoison addr 4 then return .int 32 .poison
       return .int 32 (.val (ba.toBitVecLE 4))
-  | Attribute.integerType { bitwidth := 64 } =>
+  | Attribute.integerType { bitwidth := 64 , .. } =>
       let ba ← state.load addr 8
       if ← state.hasPoison addr 8 then return .int 64 .poison
       return .int 64 (.val (BitVec.ofNat 64 ba.toUInt64LE!.toNat))
@@ -917,7 +917,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
   | .alloca => do
     let [.int _ (.val count)] := operands.toList | none
     let size ← match properties.elem_type.val with
-    | Attribute.integerType { bitwidth := bw } => some (.ok (bw / 8))
+    | Attribute.integerType { bitwidth := bw , .. } => some (.ok (bw / 8))
     | .llvmPointerType _ => some (.ok 8)
     | _ => none
     let totalSize := (size * count.toNat).toUInt64
@@ -951,13 +951,13 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     let [val] := operands.toList | none
     let [⟨type, _⟩] := resultTypes.toList | none
     let result ← do match val, type with
-      | .int bw1 val', .integerType ⟨bw2⟩ =>
+      | .int bw1 val', .integerType ⟨bw2, _⟩ =>
           if bw1 ≠ bw2 then none else some (.ok val)
       | .int bw1 val', .byteType ⟨bw2⟩ =>
           if bw1 ≠ bw2 then none else some (.ok (.byte bw1 $ LLVM.Byte.fromInt val'))
       | .byte bw1 val', .byteType ⟨bw2⟩ =>
           if bw1 ≠ bw2 then none else some (.ok val)
-      | .byte bw1 val', .integerType ⟨bw2⟩ =>
+      | .byte bw1 val', .integerType ⟨bw2, _⟩ =>
           if bw1 ≠ bw2 then none else some (.ok (.int bw1 $ val'.toInt))
       | .byte bw val', .llvmPointerType _ =>
           if h : bw = 64 then some (.ok (.addr (val'.cast h).toUInt64)) else none
@@ -1387,7 +1387,7 @@ def Riscv_Stack.interpretOp' (opType : Veir.Riscv_Stack) (properties : HasDialec
   match opType with
   | .alloca => do
     let size ← match properties.value_type.val with
-    | Attribute.integerType ⟨bw⟩ => some (.ok (bw / 8))
+    | Attribute.integerType ⟨bw, _⟩ => some (.ok (bw / 8))
     | Attribute.llvmPointerType _ => some (.ok 8)
     | _ => none
     let (mem, addr) := mem.alloc size.toUInt64

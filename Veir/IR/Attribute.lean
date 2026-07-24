@@ -39,10 +39,20 @@ private local instance : Repr ByteArray where
 
 /--
   A `!builtin.integer` is an integer type with a given bitwidth.
+
+  Zero-width integers (`i0`) are forbidden by construction: the `bitwidth_pos`
+  field makes it impossible to build an `IntegerType` with a zero bitwidth, so
+  no i0-typed value can ever enter the IR (e.g. the parser cannot construct one).
+  For literal widths the proof is discharged automatically by the `by decide`
+  autoparam; variable widths must supply a positivity proof.
 -/
 structure IntegerType where
   bitwidth : Nat
-deriving Inhabited, Repr, DecidableEq, Hashable
+  bitwidth_pos : 0 < bitwidth := by decide
+deriving Repr, DecidableEq, Hashable
+
+instance : Inhabited IntegerType where
+  default := { bitwidth := 1 }
 
 /--
  A floating point type with a given bitwidth.
@@ -1107,7 +1117,7 @@ def isType (attr : Attribute) : Bool :=
 -/
 def bitwidthOfType (type : Attribute) : Option Nat :=
   match type with
-  | .integerType { bitwidth } | .floatType { bitwidth } | .byteType { bitwidth } => some bitwidth
+  | .integerType { bitwidth, .. } | .floatType { bitwidth } | .byteType { bitwidth } => some bitwidth
   | .llvmPointerType _ => some 64
   | _ => none
 
@@ -1116,7 +1126,7 @@ def bitwidthOfType (type : Attribute) : Option Nat :=
 -/
 def sizeOfType (type : Attribute) : Option Nat :=
   match type with
-  | .integerType { bitwidth } | .floatType { bitwidth } | .byteType { bitwidth } => some ((bitwidth + 7) / 8)
+  | .integerType { bitwidth, .. } | .floatType { bitwidth } | .byteType { bitwidth } => some ((bitwidth + 7) / 8)
   | .llvmPointerType _ => some 8
   | .llvmArrayType { size, type } => do
       let inner ← sizeOfType type
@@ -1179,7 +1189,7 @@ def TypeAttr := {attr // Attribute.isType attr}
 deriving Repr, Hashable, DecidableEq
 
 instance : Inhabited TypeAttr where
-  default := ⟨.integerType (IntegerType.mk 0), by rfl⟩
+  default := ⟨.integerType (IntegerType.mk 1), by rfl⟩
 
 instance : Coe TypeAttr Attribute where
   coe typeAttr := typeAttr.val

@@ -70,7 +70,7 @@ def reconcileRegIntCastLocal (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if resultType ≠ inputType then return (ctx, none)
   /- And the reconciliation involves the right types -/
   if inputType ≠ RegisterType.mk then return (ctx, none)
-  let .integerType ⟨ interBw ⟩ := interType.val | return (ctx, none)
+  let .integerType ⟨interBw, _⟩ := interType.val | return (ctx, none)
   /- Replace the initial operation's output with a zero-extension of the parent's input -/
   match interBw with
   | 8 =>

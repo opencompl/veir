@@ -352,7 +352,7 @@ def OperationPtr.verifyTruncTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
   let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
   let resultType := ((op.getResult 0).get! ctx.raw).type
   match operandType.val, resultType.val, allowByte with
-  | .integerType ⟨bw1⟩, .integerType ⟨bw2⟩, _ =>
+  | .integerType ⟨bw1, _⟩, .integerType ⟨bw2, _⟩, _ =>
     if bw1 ≤ bw2 then
       throw s!"{instrName}: Result's width must be smaller than operand's width"
     else

@@ -116,7 +116,8 @@ macro "#assert " e:term : command =>
 /-! ## Integer types -/
 
 #assert expectSuccessType "i32" (IntegerType.mk 32)
-#assert expectSuccessType "i0" (IntegerType.mk 0)
+-- Zero-width integers (`i0`) are forbidden by construction and rejected at parse time.
+#assert expectErrorType "i0" "zero-width integer type 'i0' is not supported" (some 0)
 #assert expectMissingType "i0x4"
 
 /-! ## Types parsed as attributes -/
