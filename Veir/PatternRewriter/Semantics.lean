@@ -115,7 +115,7 @@ old operation is being replaced.
 -/
 def LocalRewritePattern.ReturnValuesDominate (pattern : LocalRewritePattern OpCode) : Prop :=
   ∀ ctx op newCtx newOps newValues, pattern ctx op = some (newCtx, some (newOps, newValues)) →
-  ∀ v ∈ newValues, v.InBounds ctx.raw → v.dominatesIp (InsertPoint.before op) ctx
+  ∀ v ∈ newValues, v.InBounds ctx.raw → v.DominatesIp (InsertPoint.before op) ctx
 
 /-- The matched operation has no regions. -/
 def LocalRewritePattern.MatchedOpHasNoRegions (pattern : LocalRewritePattern OpCode) : Prop :=
@@ -170,13 +170,21 @@ def LocalRewritePattern.mapping
 Preservation of semantics for a local rewrite pattern.
 If the pattern matches an operation and return new operations and values, then interpreting
 the matched operation in a state is refined by interpreting the new operations in a refined state.
+The matched operation is required to be hierarchically reachable, ensuring
+operation-dominance composition is valid at each enclosing region level.
+Operand uses of every operation dominating the match must also be well-founded:
+they are dominance-acyclic and available before the matched operation. This is
+separate because graph regions intentionally permit cyclic uses, while these
+local rewrite proofs interpret dominating definitions before the match.
 -/
 def LocalRewritePattern.PreservesSemantics
   (pattern : LocalRewritePattern OpCode)
   (_ : pattern.ReturnOps) (_ : pattern.ReturnCtxChanges)
   (_ : pattern.ReturnValuesInBounds) (_ : pattern.ReturnValues) : Prop :=
-  ∀ ctx root (ctxDom : ctx.Dom) (ctxVerif : ctx.Verified root)
-    (op : OperationPtr) (opInBounds : op.InBounds ctx.raw),
+  ∀ ctx (ctxDom : ctx.Dom) root (ctxVerif : ctx.Verified root) (op : OperationPtr)
+    (opInBounds : op.InBounds ctx.raw)
+    (opHierarchicallyReachable : op.HierarchicallyReachable ctx)
+    (opDominatingOperandsAcyclic : op.DominatingOperandUsesAreWellFounded ctx),
   ∀ newCtx newOps newValues (hpattern : pattern ctx op = some (newCtx, some (newOps, newValues))),
   ∀ (state : InterpreterState ctx), state.EquationLemmaAt (InsertPoint.before op) →
   ∀ newState cf, interpretOp op state = some (newState, cf) →

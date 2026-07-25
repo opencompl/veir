@@ -54,3 +54,17 @@ private def verifyCrossRegionSuccessor : Except String Unit := do
 
 #guard verifyCrossRegionSuccessor =
   .error "Block successors must belong to the same region as their predecessor"
+
+/-- Build a context whose module graph region deliberately has two blocks. -/
+private def contextWithMultiBlockGraphRegion : Except String (WfIRContext OpCode) := do
+  let (ctx, moduleOp) := WfIRContext.create! OpCode
+  let moduleRegion := moduleOp.getRegion! ctx.raw 0
+  let (ctx, _) := WfRewriter.createBlock! ctx #[] (some (.atEnd moduleRegion))
+  return ctx
+
+private def verifyMultiBlockGraphRegion : Except String Unit := do
+  let ctx ← contextWithMultiBlockGraphRegion
+  ctx.verify
+
+#guard verifyMultiBlockGraphRegion =
+  .error "Graph regions may contain at most one block"
