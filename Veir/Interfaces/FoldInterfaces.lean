@@ -6,43 +6,52 @@ public import Veir.Fold.Rewriter
 /-!
 # Constant folding interface
 
-This file is the entry point for constant folding. Clients import it rather
-than `Veir.Fold` or `Veir.Fold.Rewriter`, which are implementation: the fold
-tables, the interpreter evaluation path, and constant materialization are all
-subject to change without notice. Each declaration below states the contract
-its caller may rely on; the bodies live in `Veir.Fold.Rewriter`.
-
-Folded values are computed by the interpreter (`interpretOp'`), so folding
-never restates the meaning of an operation.
+This file is the entry point for constant folding.
 
 ## Deciding whether an operation folds
 
 `foldDecision`, re-exported from `Veir.Fold`, resolves an opcode, its
-properties, its result types, and the values of its known-constant operands
-into a `FoldDecision` (`.useOperand j`, `.useConstant rv`, or `.noFold`).
-Operands with unknown values are passed as `none`, so a caller may supply
-constants it inferred itself instead of only constants materialized in the IR.
-It changes nothing in the IR.
+properties, its result types, and the values of its known-constant
+operands into a `FoldDecision` (`.useOperand j`, `.useConstant rv`, or
+`.noFold`).  Operands with unknown values are passed as `none`, so a
+caller may supply constants it inferred itself instead of only
+constants materialized in the IR.  It changes nothing in the IR and it
+is suitable for use by optimistic analyses such as SCCP.
 
-A `FoldDecision` other than `.noFold` guarantees that the operation has exactly
-one result and that the result is refined -- not necessarily equalled -- by the
-returned value. An operation whose execution is always UB folds to poison. A
-returned operand index is in bounds of the supplied array, and a returned
-constant conforms to the result type.
+A `FoldDecision` other than `.noFold` guarantees that the operation
+has exactly one result and that the result is refined by the returned
+value. An operation whose execution is always UB folds to poison. A
+returned operand index is in bounds of the supplied array, and a
+returned constant conforms to the result type.
 
-`none` means only that an operand's value is unknown; it does not distinguish
-an uninitialized lattice element from an overdefined one. After `.noFold` the
-caller still owns the decision of whether to wait for more information.
+`none` means only that an operand's value is unknown; it does not
+distinguish an uninitialized lattice element from an overdefined
+one. After `.noFold` the caller still owns the decision of whether to
+wait for more information.
 
-The supplied array is positional: entry `i` must describe operand `i`, and its
-size must match the operation's operand count. Nothing checks this, and a
-mismatch yields a well-typed wrong answer rather than `.noFold`.
+The supplied array is positional: entry `i` must describe operand `i`,
+and its size must match the operation's operand count. Nothing checks
+this, and a mismatch yields a well-typed wrong answer rather than
+`.noFold`.
 
-`IntegerConstantDialect` and `IntegerConstantDialect.forOp`, which select the
-spelling used for ordinary integer constants, are re-exported from
-`Veir.Fold.Rewriter`; the detached materialization path there needs them too,
-so they cannot be defined here.
--/
+## Reading constants already in the IR
+
+Constant-like operations do not fold: `foldDecision` answers `.noFold`
+for them, so it is never the way to learn what an `arith.constant`
+holds. A client that seeds itself from constants in the IR needs a
+separate reader, and `ValuePtr.constantValue`, re-exported from
+`Veir.Fold`, is that reader. Using it is what keeps a client's notion
+of "constant" in agreement with the folder's: it recognizes the
+`arith`, `llvm`, `riscv`, and `mod_arith` constant spellings along
+with `llvm.mlir.poison`, and reduces modular constants to their
+residue in `[0, q)`, exactly as the fold tables expect. A reader that
+covers fewer spellings will report values as unknown that the folder
+would have folded.
+
+`IntegerConstantDialect` and `IntegerConstantDialect.forOp`, which
+select the spelling used for ordinary integer constants, are
+re-exported from `Veir.Fold.Rewriter`; the detached materialization
+path there needs them too, so they cannot be defined here.  -/
 
 public section
 
