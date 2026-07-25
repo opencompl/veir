@@ -7,7 +7,10 @@ Compiles a C source file via VeIR, producing an executable by default.
 from __future__ import annotations
 
 import argparse
+import math
+import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -19,13 +22,73 @@ VEIR_TOOLS = ("lake",)
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
+# --------------------------------------------------------------------------
+# TEMPORARY: rewrite decimal float literals into raw-bit hex.
+#
+# VeIR cannot parse decimal floating-point literals yet, so we rewrite scalar
+# float attributes into the raw-bit hex form that MLIR itself already uses for
+# infinities and NaNs (e.g. "0x7F800000 : f32").  MLIR both prints and parses
+# this form, and the bit pattern is width-matched to the type, so the rewrite
+# is exactly value-preserving.
+#
+# Only scalar f16/f32/f64 attributes are touched.  Elements inside dense<>
+# attributes are deliberately left alone: their type follows the element list
+# rather than each element, so they do not match the pattern below.
+#
+# Delete this section and its single call in compile_to_mlir() once VeIR parses
+# floats directly.
+# --------------------------------------------------------------------------
+
+_FLOAT_PACK = {"f16": "<e", "f32": "<f", "f64": "<d"}
+
+# The 0x alternative matches literals that are *already* raw bits and passes
+# them through untouched.  It must come first: without it, a hex pattern such
+# as "0x41E00000 : f32" contains the substring "1E00000", which would
+# otherwise be mistaken for a decimal literal in exponent notation.
+_FLOAT_ATTR = re.compile(
+    rb"""(?<![\w.])(
+          0x[0-9A-Fa-f]+                        # already raw bits
+        | [-+]?(?: \d+\.\d*(?:[eE][-+]?\d+)?    # 1.5, 1.500000e+00
+                 | \d+[eE][-+]?\d+ )            # 1e10
+        )\s*:\s*(f16|f32|f64)\b""",
+    re.VERBOSE,
+)
+
+
+def float_to_raw_bits(literal: str, ty: str) -> str:
+    """Return the exact IEEE-754 bit pattern of a decimal literal at width ty.
+
+    float() is correctly rounded to binary64 and struct.pack narrows exactly,
+    so no precision is lost for any literal MLIR emits.
+    """
+    value = float(literal)
+    try:
+        packed = struct.pack(_FLOAT_PACK[ty], value)
+    except OverflowError:
+        # Out of range for the target width; IEEE-754 rounds these to infinity.
+        packed = struct.pack(_FLOAT_PACK[ty], math.copysign(math.inf, value))
+    return f"0x{int.from_bytes(packed, 'little'):0{2 * len(packed)}X}"
+
+
+def rewrite_floats_as_raw_bits(mlir: bytes) -> bytes:
+    def replace(m: re.Match[bytes]) -> bytes:
+        literal, ty = m.group(1).decode(), m.group(2).decode()
+        if literal.lower().startswith("0x"):
+            return m.group(0)
+        return f"{float_to_raw_bits(literal, ty)} : {ty}".encode()
+
+    return _FLOAT_ATTR.sub(replace, mlir)
+
+
 def check_tools(tools: tuple[str, ...]) -> None:
     missing = [t for t in tools if shutil.which(t) is None]
     if missing:
         sys.exit(f"vcc: required tool(s) not found in PATH: {', '.join(missing)}")
 
 
-def run(cmd: list[str], *, stdin: bytes | None = None, cwd: Path | None = None) -> bytes:
+def run(cmd: list[str], *, stdin: bytes | None = None, cwd: Path | None = None, debug: bool = False) -> bytes:
+    if debug:
+        print(f"+ vcc.run: {' '.join(cmd)}", file=sys.stderr)
     result = subprocess.run(cmd, input=stdin, capture_output=True, cwd=cwd)
     if result.returncode != 0:
         err = result.stderr.decode("utf-8", errors="replace")
@@ -33,27 +96,30 @@ def run(cmd: list[str], *, stdin: bytes | None = None, cwd: Path | None = None) 
     return result.stdout
 
 
-def compile_to_mlir(src: Path, veir_optimize: bool, llvm_o2: bool) -> bytes:
-    with tempfile.TemporaryDirectory() as tmpdir:
+def compile_to_mlir(src: Path, veir_optimize: bool, llvm_o2: bool, debug: bool = False) -> bytes:
+    with tempfile.TemporaryDirectory(delete=not debug) as tmpdir:
         tmp = Path(tmpdir)
         bc = tmp / (src.stem + ".bc")
         bc_opt = tmp / (src.stem + "-opt.bc")
 
         run(["clang", "-O0", "-Xclang", "-disable-O0-optnone", "-c", "-emit-llvm",
-             str(src), "-o", str(bc)])
+             str(src), "-o", str(bc)], debug=debug)
         if llvm_o2:
             # Run the full LLVM middle-end optimization pipeline, minus
             # autovectorization.
             run(["opt", "-O2", "-vectorize-loops=false", "-vectorize-slp=false",
-                 str(bc), "-o", str(bc_opt)])
+                 str(bc), "-o", str(bc_opt)], debug=debug)
         else:
             # TODO -- as soon as we have our own mem2reg, stop running LLVM's
-            run(["opt", "-passes=sroa", str(bc), "-o", str(bc_opt)])
-        translated = run(["mlir-translate", "--import-llvm", str(bc_opt)])
+            run(["opt", "-passes=sroa", str(bc), "-o", str(bc_opt)], debug=debug)
+        translated = run(["mlir-translate", "--import-llvm", str(bc_opt)], debug=debug)
         mlir = run(
             ["mlir-opt", "--mlir-print-op-generic", "--mlir-print-local-scope"],
             stdin=translated,
+            debug=debug
         )
+        # TEMPORARY: remove once VeIR parses decimal floats (see above).
+        mlir = rewrite_floats_as_raw_bits(mlir)
         pre = tmp / (src.stem + ".mlir")
         pre.write_bytes(mlir)
         opt_cmd = ["lake", "exec", "veir-opt", "--allow-unregistered-dialect"]
@@ -63,15 +129,16 @@ def compile_to_mlir(src: Path, veir_optimize: bool, llvm_o2: bool) -> bytes:
         mlir = run(
             opt_cmd,
             cwd=REPO_ROOT,
+            debug=debug
         )
         return mlir
 
 
-def translate_mlir_to_llvm(mlir: bytes, src_stem: str) -> bytes:
+def translate_mlir_to_llvm(mlir: bytes, src_stem: str, debug: bool = False) -> bytes:
     with tempfile.TemporaryDirectory() as tmpdir:
         path = Path(tmpdir) / (src_stem + ".mlir")
         path.write_bytes(mlir)
-        return run(["mlir-translate", "--mlir-to-llvmir", str(path)])
+        return run(["mlir-translate", "--mlir-to-llvmir", str(path)], debug=debug)
 
 
 def write_output(output: bytes, dst: Path | None) -> None:
@@ -81,8 +148,8 @@ def write_output(output: bytes, dst: Path | None) -> None:
         dst.write_bytes(output)
 
 
-def finish_llvm_ir(llvm_ir: bytes, dst: Path | None, emit: str) -> None:
-    with tempfile.TemporaryDirectory() as tmpdir:
+def finish_llvm_ir(llvm_ir: bytes, dst: Path | None, emit: str, debug: bool = False) -> None:
+    with tempfile.TemporaryDirectory(delete = not debug) as tmpdir:
         path = Path(tmpdir) / "input.ll"
         path.write_bytes(llvm_ir)
         cmd = ["clang"]
@@ -91,7 +158,7 @@ def finish_llvm_ir(llvm_ir: bytes, dst: Path | None, emit: str) -> None:
         elif emit == "assembly":
             cmd.append("-S")
         cmd.extend([str(path), "-o", "-" if dst is None else str(dst)])
-        output = run(cmd)
+        output = run(cmd, debug=debug)
         if dst is None:
             sys.stdout.buffer.write(output)
 
@@ -123,7 +190,7 @@ def normalize_args(argv: list[str]) -> list[str]:
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="vcc",
-        usage="vcc [-h] [-o OUTPUT] [-c | -S | --emit-mlir | --emit-llvm] [-O[N]] source",
+        usage="vcc [-h] [-o OUTPUT] [-c | -S | --emit-mlir | --emit-llvm] [-O[N]] source [--debug]",
         description="Compile a C file via VeIR.",
     )
     parser.add_argument("source", type=Path, help="C source file")
@@ -157,8 +224,14 @@ def main() -> None:
         type=parse_opt_level, metavar="N",
         help=argparse.SUPPRESS,
     )
+
+    parser.add_argument(
+        "--debug", action="store_true",
+        help="keep tmp files; print commands to stderr",
+    )
+
     parser.epilog = "-O0 disables VeIR optimization; -O and other numeric -O levels run the same optimizer."
-    parser.set_defaults(emit="executable")
+    parser.set_defaults(emit="executable", debug=False)
     args = parser.parse_args(normalize_args(sys.argv[1:]))
 
     if not args.source.is_file():
@@ -183,17 +256,17 @@ def main() -> None:
     else:
         dst = Path("a.out")
 
-    mlir = compile_to_mlir(args.source, optimize_from_levels(args.opt_levels), args.llvm_o2)
+    mlir = compile_to_mlir(args.source, optimize_from_levels(args.opt_levels), args.llvm_o2, debug=args.debug)
     if args.emit == "mlir":
         write_output(mlir, dst)
         return
 
-    llvm_ir = translate_mlir_to_llvm(mlir, args.source.stem)
+    llvm_ir = translate_mlir_to_llvm(mlir, args.source.stem, debug=args.debug)
     if args.emit == "llvm":
         write_output(llvm_ir, dst)
         return
 
-    finish_llvm_ir(llvm_ir, dst, args.emit)
+    finish_llvm_ir(llvm_ir, dst, args.emit, debug=args.debug)
 
 
 if __name__ == "__main__":
