@@ -19,6 +19,7 @@ namespace Veir
 
   TODO: Use the LLVM dialect's x.with.overflow intrinsics once these
   are supported in Veir.
+  Tracked in: https://github.com/opencompl/veir/issues/1125
 -/
 
 /-! ## Emission helpers -/
