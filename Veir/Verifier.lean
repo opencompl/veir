@@ -1002,11 +1002,18 @@ def OperationPtr.verifyTerminatorPosition (op : OperationPtr) (ctx : WfIRContext
 def BlockPtr.verifyTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
     (blockIn : block.InBounds ctx.raw) : Except String PUnit := do
   let b := block.get ctx.raw blockIn
+  let named (msg : String) : String :=
+    match b.parent with
+    | some region =>
+      match (region.get! ctx.raw).parent with
+      | some parentOp => s!"{String.fromUTF8! (parentOp.getOpType! ctx.raw).name}: {msg}"
+      | none => msg
+    | none => msg
   match b.lastOp with
-  | none => throw "Expected the block to end in a terminator, but the block is empty"
+  | none => throw (named "Expected the block to end in a terminator, but the block is empty")
   | some lastOp =>
     if !(lastOp.getOpType! ctx.raw).isTerminator then
-      throw "Expected the last operation of a block to be a terminator"
+      throw (named "Expected the last operation of a block to be a terminator")
 
 /--
   Check that every successor belongs to the same region as its predecessor.
