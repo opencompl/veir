@@ -417,8 +417,8 @@ def OperationPtr.checkIsNonNullIntegerType (op : OperationPtr) (ctx : WfIRContex
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
   let opTypes := op.getOperandTypes! ctx.raw
-  for i in [0:opTypes.size] do
-    if let .integerType intType := (opTypes[i]!).val then
+  for opType in opTypes do
+    if let .integerType intType := opType then
       if intType.bitwidth = 0 then
         throw s!"{instrName}: operand {i} has forbidden i0 type"
   for i in [0:op.getNumResults ctx.raw opIn] do
