@@ -1,6 +1,6 @@
 import UnitTest.DataFlowFramework.Helpers
 
-import Veir.Fold.Rewriter
+import Veir.Interfaces.FoldInterfaces
 
 /-! Tests for `PatternRewriter.createOrFoldOp!`. -/
 
