@@ -16,8 +16,7 @@ public import Veir.Interpreter.Basic
 
   * `.operand j`: the single result of the operation is always refined by
     operand `j` (e.g. `arith.addi %x, %c0` folds to `%x`). This requires a
-    per-opcode entry in the fold table and a proof against the interpreter
-    semantics.
+    per-opcode entry in the fold table.
   * `.constant rv`: the single result of the operation is always refined by the
     runtime value `rv`, even though not all operands are known (e.g.
     `arith.muli %x, %c0` folds to `0`, and `arith.divsi %x, %c0` is immediate
