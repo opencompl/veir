@@ -10,7 +10,7 @@ import Veir.Rewriter.InlineBlock
 import Veir.Rewriter.WfRewriter
 import Veir.Printer
 import Veir.PatternRewriter.Basic
-import Veir.Fold.Rewriter
+import Veir.Interfaces.FoldInterfaces
 import Veir.Passes.RISCVCombines.Proofs
 import Veir.Benchmarks
 import Veir.Parser.Lexer
