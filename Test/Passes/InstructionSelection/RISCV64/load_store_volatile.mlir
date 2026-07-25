@@ -8,10 +8,10 @@
     // Volatile i64 load and store lower to `riscv.ld` / `riscv.sd` with the flag.
     "func.func"()  <{function_type = (!llvm.ptr) -> (), sym_name = "vol"}> ({
     ^bb0(%a: !llvm.ptr):
-        %val = "llvm.load"(%a) <{"volatile_" = unit}> : (!llvm.ptr) -> i64
+        %val = "llvm.load"(%a) <{volatile_}> : (!llvm.ptr) -> i64
         // CHECK:      {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!llvm.ptr) -> !riscv.reg
         // CHECK-NEXT: {{.*}} = "riscv.ld"({{.*}}) <{"value" = 0 : i64, volatile_}> : (!riscv.reg) -> !riscv.reg
-        "llvm.store"(%val, %a) <{"volatile_" = unit}> : (i64, !llvm.ptr) -> ()
+        "llvm.store"(%val, %a) <{volatile_}> : (i64, !llvm.ptr) -> ()
         // CHECK:      "riscv.sd"({{.*}}) <{"value" = 0 : i64, volatile_}> : (!riscv.reg, !riscv.reg) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
@@ -19,11 +19,11 @@
     // The narrow widths carry it too.
     "func.func"()  <{function_type = (!llvm.ptr) -> (), sym_name = "vol_narrow"}> ({
     ^bb0(%a: !llvm.ptr):
-        %val = "llvm.load"(%a) <{"volatile_" = unit}> : (!llvm.ptr) -> i32
+        %val = "llvm.load"(%a) <{volatile_}> : (!llvm.ptr) -> i32
         // CHECK:      {{.*}} = "riscv.lw"({{.*}}) <{"value" = 0 : i64, volatile_}> : (!riscv.reg) -> !riscv.reg
-        %byte = "llvm.load"(%a) <{"volatile_" = unit}> : (!llvm.ptr) -> i8
+        %byte = "llvm.load"(%a) <{volatile_}> : (!llvm.ptr) -> i8
         // CHECK:      {{.*}} = "riscv.lb"({{.*}}) <{"value" = 0 : i64, volatile_}> : (!riscv.reg) -> !riscv.reg
-        "llvm.store"(%byte, %a) <{"volatile_" = unit}> : (i8, !llvm.ptr) -> ()
+        "llvm.store"(%byte, %a) <{volatile_}> : (i8, !llvm.ptr) -> ()
         // CHECK:      "riscv.sb"({{.*}}) <{"value" = 0 : i64, volatile_}> : (!riscv.reg, !riscv.reg) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
