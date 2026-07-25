@@ -391,7 +391,13 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
             throw s!"llvm.mlir.constant: dense elements type '{elemType}' does not match array element type '{baseType}'"
         | none => pure ()
       | _ => throw "llvm.mlir.constant: Expected array result type for a dense elements constant"
-    pure ()
+    | .string _ =>
+      match resultType with
+      | .llvmArrayType arrType =>
+        if arrType.type ≠ .integerType ⟨8⟩ then
+          throw "llvm.mlir.constant: Expected array<N x i8> result type for a string constant"
+      | _ => throw "llvm.mlir.constant: Expected array result type for a string constant"
+          pure ()
   | .llvm .mlir__poison => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 0 1

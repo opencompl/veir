@@ -149,6 +149,9 @@ def Llvm.toAttrDict
     | .dense denseAttr =>
       (Std.HashMap.emptyWithCapacity 1).insert
         "value".toUTF8 (Attribute.denseElementsAttr denseAttr)
+    | .string stringAttr =>
+      (Std.HashMap.emptyWithCapacity 1).insert
+        "value".toUTF8 (Attribute.stringAttr stringAttr)
   | .mlir__global => Id.run do
     let mut dict := Std.HashMap.ofList props.extra.entries.toList
     dict := dict.insert "sym_name".toUTF8 (.stringAttr props.sym_name)
