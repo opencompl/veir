@@ -100,17 +100,17 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case bexti => exact (RISCVImmediateProperties.fromAttrDict attrDict)
     case binvi => exact (RISCVImmediateProperties.fromAttrDict attrDict)
     case bseti => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-    case ld => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-    case lw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-    case lwu => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-    case lh => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-    case lhu => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-    case lb => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-    case lbu => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-    case sd => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-    case sw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-    case sh => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-    case sb => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case ld => exact (RISCVMemProperties.fromAttrDict attrDict)
+    case lw => exact (RISCVMemProperties.fromAttrDict attrDict)
+    case lwu => exact (RISCVMemProperties.fromAttrDict attrDict)
+    case lh => exact (RISCVMemProperties.fromAttrDict attrDict)
+    case lhu => exact (RISCVMemProperties.fromAttrDict attrDict)
+    case lb => exact (RISCVMemProperties.fromAttrDict attrDict)
+    case lbu => exact (RISCVMemProperties.fromAttrDict attrDict)
+    case sd => exact (RISCVMemProperties.fromAttrDict attrDict)
+    case sw => exact (RISCVMemProperties.fromAttrDict attrDict)
+    case sh => exact (RISCVMemProperties.fromAttrDict attrDict)
+    case sb => exact (RISCVMemProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case riscv_cf op =>
     cases op
@@ -272,10 +272,19 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
   | .riscv .li  | .riscv .lui | .riscv .auipc | .riscv .andi | .riscv .ori | .riscv .xori
   | .riscv .addi | .riscv .slti | .riscv .sltiu | .riscv .addiw | .riscv .slli | .riscv .srli | .riscv .srai
   | .riscv .slliw | .riscv .srliw | .riscv .sraiw | .riscv .rori | .riscv .roriw | .riscv .slliuw
-  | .riscv .bclri | .riscv .bexti | .riscv .binvi | .riscv .bseti | .riscv .ld | .riscv .sd
-  | .riscv .lw | .riscv .lwu | .riscv .lh | .riscv .lhu | .riscv .lb | .riscv .lbu
-  | .riscv .sw | .riscv .sh | .riscv .sb | .mod_arith .constant =>
+  | .riscv .bclri | .riscv .bexti | .riscv .binvi | .riscv .bseti
+  | .mod_arith .constant =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  -- The memory ops additionally carry a volatile flag, printed (like the LLVM
+  -- dialect's `volatile_`) only when set, so ordinary accesses are unchanged.
+  | .riscv .ld | .riscv .lw | .riscv .lwu | .riscv .lh | .riscv .lhu
+  | .riscv .lb | .riscv .lbu
+  | .riscv .sd | .riscv .sw | .riscv .sh | .riscv .sb => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 2
+    dict := dict.insert "value".toUTF8 (Attribute.integerAttr props.value)
+    if props.volatile_ then
+      dict := dict.insert "volatile_".toUTF8 (.unitAttr UnitAttr.mk)
+    dict
   | .riscv_stack .alloca => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
     dict := dict.insert "alignment".toUTF8 (Attribute.integerAttr props.alignment)

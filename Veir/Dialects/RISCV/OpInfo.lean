@@ -34,17 +34,18 @@ match op with
 | .bexti => RISCVImmediateProperties
 | .binvi => RISCVImmediateProperties
 | .bseti => RISCVImmediateProperties
-| .ld => RISCVImmediateProperties
-| .lw => RISCVImmediateProperties
-| .lwu => RISCVImmediateProperties
-| .lh => RISCVImmediateProperties
-| .lhu => RISCVImmediateProperties
-| .lb => RISCVImmediateProperties
-| .lbu => RISCVImmediateProperties
-| .sd => RISCVImmediateProperties
-| .sw => RISCVImmediateProperties
-| .sh => RISCVImmediateProperties
-| .sb => RISCVImmediateProperties
+/- The memory ops carry an offset immediate plus a volatile flag. -/
+| .ld => RISCVMemProperties
+| .lw => RISCVMemProperties
+| .lwu => RISCVMemProperties
+| .lh => RISCVMemProperties
+| .lhu => RISCVMemProperties
+| .lb => RISCVMemProperties
+| .lbu => RISCVMemProperties
+| .sd => RISCVMemProperties
+| .sw => RISCVMemProperties
+| .sh => RISCVMemProperties
+| .sb => RISCVMemProperties
 | _ => Unit
 
 instance : HasDialectOpInfo Riscv where
