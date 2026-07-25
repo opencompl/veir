@@ -3,7 +3,7 @@ module
 public import Veir.IR.Basic
 public import Veir.IR.WellFormed
 public import Veir.Rewriter.WfRewriter
-public import Veir.Interfaces.SideEffectInterfaces
+public import Veir.Interfaces.DeadCodeInterfaces
 
 import Veir.Rewriter.Basic
 import Veir.ForLean
@@ -421,10 +421,9 @@ private partial def RewritePattern.applyOnceInContext
     rewriter := { rewriter with worklist := newWorklist }
     if hin : op.InBounds rewriter.ctx.raw then
       -- Erase trivially dead operations directly, as in MLIR's greedy driver.
-      if hdead : op.getNumRegions! rewriter.ctx.raw = 0
-          ∧ !op.hasUses! rewriter.ctx.raw
-          ∧ !op.hasSideEffects rewriter.ctx.raw then
-        rewriter := rewriter.eraseOp op hdead.1 hdead.2.1 hin
+      if hdead : op.isTriviallyDead rewriter.ctx.raw then
+        have hdead' := (OperationPtr.isTriviallyDead_iff op rewriter.ctx.raw).mp hdead
+        rewriter := rewriter.eraseOp op hdead'.1 hdead'.2.1 hin
       else
         rewriter ← pattern rewriter op (by grind)
     else
