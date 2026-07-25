@@ -2,6 +2,7 @@ module
 
 public import Veir.GlobalOpInfo
 public import Veir.IR.Fields
+public import Veir.Rewriter.WfRewriter
 
 /-!
 # FunctionOpInterface
@@ -77,6 +78,40 @@ grind_pattern getFunctionBody!_inBounds => (getFunctionBody! funcOp raw), raw.Fi
 /-- Returns the first block in the body region. -/
 def getEntryBlock? (funcOp : OperationPtr) (raw : IRContext OpCode) : Option BlockPtr :=
   ((getFunctionBody! funcOp raw).get! raw).firstBlock
+
+/-!
+## Type Attribute Handling
+-/
+
+/-- Sets the function type to the given input/output type lists.
+    `llvm.func` is canonicalized to the `.llvmFunctionType` spelling, regardless of
+    which spelling the original attribute used. -/
+def setFunctionType (wfCtx : WfIRContext OpCode) (funcOp : OperationPtr)
+    (inputs outputs : Array Attribute)
+    (opInBounds : funcOp.InBounds wfCtx.raw := by grind) : WfIRContext OpCode :=
+  match h : funcOp.getOpType wfCtx.raw opInBounds with
+  | .func .func =>
+    let ftType : TypeAttr := ⟨.functionType { inputs, outputs }, by simp⟩
+    let props : FuncFuncProperties := funcOp.getProperties! wfCtx.raw (.func .func)
+    let newProps : FuncFuncProperties := { props with function_type := some ftType }
+    WfRewriter.setProperties (opCode := .func .func) wfCtx funcOp newProps opInBounds
+  | .llvm .func =>
+    let ftType : TypeAttr := ⟨.llvmFunctionType { inputs, outputs }, by simp⟩
+    let props : LLVMFuncProperties := funcOp.getProperties! wfCtx.raw (.llvm .func)
+    let newProps : LLVMFuncProperties := { props with function_type := some ftType }
+    WfRewriter.setProperties (opCode := .llvm .func) wfCtx funcOp newProps opInBounds
+  | _ => wfCtx
+
+/-- Sets the function type to the given input/output type lists, panicking if the op
+    is out of bounds.
+    `llvm.func` is canonicalized to the `.llvmFunctionType` spelling, regardless of
+    which spelling the original attribute used. -/
+def setFunctionType! (c : WfIRContext OpCode) (funcOp : OperationPtr)
+    (inputs outputs : Array Attribute) : WfIRContext OpCode :=
+  if opInBounds : funcOp.InBounds c.raw then
+    setFunctionType c funcOp inputs outputs opInBounds
+  else
+    panic "FunctionOpInterface.setFunctionType! failed: operation is out of bounds"
 
 /-!
 ## Argument and Result Handling
