@@ -10,22 +10,15 @@ namespace Veir
 /-!
   # ArithToLLVM pass
 
-  Lowers every operation of the `arith` dialect into the `llvm` dialect, leaving no
-  `arith` operation behind. This mirrors MLIR's `ArithToLLVM` conversion
+  Lowers every operation of the `arith` dialect into the `llvm`
+  dialect. This mirrors MLIR's `ArithToLLVM` conversion
   (`mlir/lib/Conversion/ArithToLLVM/ArithToLLVM.cpp`).
 
-  Unlike MLIR, Veir has no `index` type and no separate LLVM integer type: both
-  dialects operate on the same signless `IntegerType`. The type conversion is
-  therefore the identity, and — unlike `ModArithToArith` — this pass needs no
-  `unrealized_conversion_cast` plumbing at all. Result and operand types are
-  carried over verbatim.
+  Since result and operand types are carried over verbatim, this is a fairly
+  easy lowering.
 
-  Each lowering is a direct transcription of the corresponding `arith` interpreter
-  case in `Veir/Interpreter/Basic.lean`, which defines the `arith` semantics in
-  terms of the same `LLVM.Int.*` primitives the target `llvm` ops evaluate to. The
-  three ops with no single LLVM target (`ceildiv*`, `floordivsi`) and the
-  two-result "extended" ops are expanded exactly as those interpreter cases (and
-  MLIR's `ExpandOps` / `MulIExtendedOpLowering`) prescribe.
+  TODO: Use the LLVM dialect's x.with.overflow intrinsics once these
+  are supported in Veir.
 -/
 
 /-! ## Emission helpers -/
