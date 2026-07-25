@@ -422,8 +422,7 @@ private partial def RewritePattern.applyOnceInContext
     if hin : op.InBounds rewriter.ctx.raw then
       -- Erase trivially dead operations directly, as in MLIR's greedy driver.
       if hdead : op.isTriviallyDead rewriter.ctx.raw then
-        have hdead' := (OperationPtr.isTriviallyDead_iff op rewriter.ctx.raw).mp hdead
-        rewriter := rewriter.eraseOp op hdead'.1 hdead'.2.1 hin
+        rewriter := rewriter.eraseOp op hdead.1 hdead.2.1 hin
       else
         rewriter ← pattern rewriter op (by grind)
     else
