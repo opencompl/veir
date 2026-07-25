@@ -122,6 +122,18 @@ def add {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : In
   val (x' + y')
 
 /--
+The overflow (carry-out) bit of an unsigned addition, as produced by the second
+result of `arith.addui_extended`. This lowers to the `i1` overflow value of
+`llvm.uadd.with.overflow`: the result is `1` when the unsigned sum of `x` and `y`
+does not fit in `w` bits, and `0` otherwise. If either operand is poison, the
+result is poison.
+-/
+def uaddOverflowFlag {w : Nat} (x y : Int w) : Int 1 := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  val (BitVec.ofBool (BitVec.uaddOverflow x' y'))
+
+/--
 The `sub` instruction returns the difference of its two operands.
 
 Note that the `sub` instruction is used to represent the `neg` instruction
@@ -270,6 +282,32 @@ def mul {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : In
     return poison
 
   val (x' * y')
+
+/--
+The high half of the `2 * w`-bit unsigned product of `x` and `y`, as produced by
+the second (`high`) result of `arith.mului_extended`. The operands are
+zero-extended to `2 * w` bits, multiplied, and the high `w` bits (positions
+`w …< 2*w`) are returned. The corresponding low half is `mul x y`. If either
+operand is poison, the result is poison.
+-/
+def umulHigh {w : Nat} (x y : Int w) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  let wide : BitVec (w + w) := x'.zeroExtend (w + w) * y'.zeroExtend (w + w)
+  val (wide.extractLsb' w w)
+
+/--
+The high half of the `2 * w`-bit signed product of `x` and `y`, as produced by
+the second (`high`) result of `arith.mulsi_extended`. The operands are
+sign-extended to `2 * w` bits, multiplied, and the high `w` bits (positions
+`w …< 2*w`) are returned. The corresponding low half is `mul x y`. If either
+operand is poison, the result is poison.
+-/
+def smulHigh {w : Nat} (x y : Int w) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  let wide : BitVec (w + w) := x'.signExtend (w + w) * y'.signExtend (w + w)
+  val (wide.extractLsb' w w)
 
 /--
 The ‘udiv’ instruction returns the unsigned integer quotient of its two operands.
