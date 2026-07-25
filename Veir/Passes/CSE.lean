@@ -13,8 +13,7 @@ import Veir.IR.Dominance
     and ext/trunc);
   * it only works for instructions that return a single result;
   * distinct UB flags are treated as distinct instructions;
-  * it only supports the LLVM and mod_arith dialects (arith would be
-    trivial to add);
+  * it only supports the LLVM dialect (arith would be trivial to add);
   * it does not use a worklist or iterate to fixpoint, so it may leave
     work undone when it finishes.
 -/
@@ -115,11 +114,7 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
   let kind : Kind := ⟨opType, properties⟩
   match opType with
   | .llvm .add | .llvm .mul | .llvm .and | .llvm .or | .llvm .xor
-  | .llvm .intr__smax | .llvm .intr__smin | .llvm .intr__umax | .llvm .intr__umin
-  -- mod_arith carries its modulus in the operand and result types, and
-  -- `Key` includes the result type, so ops on different moduli never
-  -- collide.
-  | .mod_arith .add | .mod_arith .mul =>
+  | .llvm .intr__smax | .llvm .intr__smin | .llvm .intr__umax | .llvm .intr__umin =>
       return commutativeBinopKey ctx op kind
   | .llvm .icmp =>
       return icmpKey ctx op (op.getProperties! ctx (.llvm .icmp))
@@ -130,8 +125,7 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
   | .llvm .intr__fshl | .llvm .intr__fshr
   | .llvm .sdiv | .llvm .udiv | .llvm .srem | .llvm .urem
   | .llvm .zext | .llvm .sext | .llvm .trunc
-  | .llvm .select
-  | .mod_arith .sub | .mod_arith .constant =>
+  | .llvm .select =>
       return ordinaryKey ctx op kind
   | _ => none
 
