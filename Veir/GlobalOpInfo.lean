@@ -412,8 +412,6 @@ def OperationPtr.hasSideEffects (op : OperationPtr) (ctx : IRContext OpCode) : B
   | .builtin .unrealized_conversion_cast => false
   | .hw .constant => false
   -- Enumerate the pure subset of RISC-V
-  | .riscv .ld | .riscv .lw | .riscv .lwu
-  | .riscv .lh | .riscv .lhu | .riscv .lb | .riscv .lbu
   | .riscv .li | .riscv .lui | .riscv .auipc
   | .riscv .addi | .riscv .slti | .riscv .sltiu
   | .riscv .andi | .riscv .ori | .riscv .xori
