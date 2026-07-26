@@ -131,6 +131,17 @@ def isArithCoercibleType (t : TypeAttr) : Bool :=
   | .modArithType _ => true
   | _ => false
 
+/-- Return the function-boundary type to coerce `t` to, if this pass handles it. -/
+def coercedBoundaryType (t : TypeAttr) : Option TypeAttr :=
+  if isRegCoercibleType t then
+    some (RegisterType.mk : TypeAttr)
+  else if isArithCoercibleType t then
+    match t.val with
+    | .modArithType mt => some (mt.modulus.type : TypeAttr)
+    | _ => none
+  else
+    none
+
 /-- The return-terminator opcode paired with a function op (`func.return` for
     `func.func`, `llvm.return` for `llvm.func`). -/
 def returnOpCodeFor : OpCode → OpCode
@@ -157,26 +168,15 @@ def coerceFunction (ctx : WfIRContext OpCode) (funcOp : OperationPtr) :
   for i in List.range (entry.getNumArguments! ctx.raw) do
     let bap : BlockArgumentPtr := { block := entry, index := i }
     let origType := (ValuePtr.blockArgument bap).getType! ctx.raw
-    if isRegCoercibleType origType then
-      ctx := WfRewriter.setType ctx bap RegisterType.mk sorry
+    if let some boundaryType := coercedBoundaryType origType then
+      ctx := WfRewriter.setType ctx bap boundaryType sorry
       let ip := InsertPoint.atStart entry ctx.raw sorry
       let some (ctx', cast) := WfRewriter.createOp ctx
         (.builtin .unrealized_conversion_cast) #[origType] #[] #[] #[] default (some ip)
         sorry sorry sorry sorry | return ctx
       let ctx' := WfRewriter.replaceValue ctx' bap (cast.getResult 0) sorry sorry sorry
       ctx := WfRewriter.pushOperand ctx' cast bap sorry sorry
-      inputs := inputs.push (.registerType ⟨none⟩)
-    else if isArithCoercibleType origType then
-      let .modArithType mt := origType.val | return ctx
-      let arithType : TypeAttr := mt.modulus.type
-      ctx := WfRewriter.setType ctx bap arithType sorry
-      let ip := InsertPoint.atStart entry ctx.raw sorry
-      let some (ctx', cast) := WfRewriter.createOp ctx
-        (.builtin .unrealized_conversion_cast) #[origType] #[] #[] #[] default (some ip)
-        sorry sorry sorry sorry | return ctx
-      let ctx' := WfRewriter.replaceValue ctx' bap (cast.getResult 0) sorry sorry sorry
-      ctx := WfRewriter.pushOperand ctx' cast bap sorry sorry
-      inputs := inputs.push arithType.val
+      inputs := inputs.push boundaryType.val
     else
       inputs := inputs.push origType.val
   -- (2) Coerce the operands of every return terminator in this function.
@@ -187,22 +187,14 @@ def coerceFunction (ctx : WfIRContext OpCode) (funcOp : OperationPtr) :
     for j in List.range (retOp.getNumOperands! ctx.raw) do
       let opVal := retOp.getOperand! ctx.raw j
       let opType := opVal.getType! ctx.raw
-      if isRegCoercibleType opType then
+      if let some boundaryType := coercedBoundaryType opType then
         let some (ctx', cast) := WfRewriter.createOp ctx
-          (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[opVal] #[] #[] default
+          (.builtin .unrealized_conversion_cast) #[boundaryType] #[opVal] #[] #[] default
           (some (InsertPoint.before retOp)) sorry sorry sorry sorry | return ctx
         ctx := WfRewriter.replaceOperand ctx' ⟨retOp, j⟩ (cast.getResult 0) sorry sorry
         -- The `j`-th operand maps to the `j`-th declared result: the verifier guarantees
         -- a return's operand count equals the function's declared result count.
-        outputs := outputs.set! j (.registerType ⟨none⟩)
-      else if isArithCoercibleType opType then
-        let .modArithType mt := opType.val | return ctx
-        let arithType : TypeAttr := mt.modulus.type
-        let some (ctx', cast) := WfRewriter.createOp ctx
-          (.builtin .unrealized_conversion_cast) #[arithType] #[opVal] #[] #[] default
-          (some (InsertPoint.before retOp)) sorry sorry sorry sorry | return ctx
-        ctx := WfRewriter.replaceOperand ctx' ⟨retOp, j⟩ (cast.getResult 0) sorry sorry
-        outputs := outputs.set! j arithType.val
+        outputs := outputs.set! j boundaryType.val
   -- (3) Rewrite the function_type to reflect the coerced boundary types.
   ctx := FunctionOpInterface.setFunctionType! ctx funcOp inputs outputs
   return ctx
