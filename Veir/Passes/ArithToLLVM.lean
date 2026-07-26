@@ -38,14 +38,14 @@ def emitLLVMBin (rewriter : PatternRewriter OpCode) (lOp : Llvm)
     (props : propertiesOf (.llvm lOp)) (resTy : TypeAttr) (a b : ValuePtr)
     (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do
   let (rewriter, op) ← rewriter.createOp! (.llvm lOp) #[resTy] #[a, b] #[] #[] props (some ip)
-  return (rewriter, (op.getResult 0 : ValuePtr))
+  return (rewriter, op.getResult 0)
 
 /-- Emit a unary `llvm` op `lOp` (e.g. `sext`/`zext`/`trunc`) with result type `resTy`. -/
 def emitLLVMUnary (rewriter : PatternRewriter OpCode) (lOp : Llvm)
     (props : propertiesOf (.llvm lOp)) (resTy : TypeAttr) (a : ValuePtr)
     (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do
   let (rewriter, op) ← rewriter.createOp! (.llvm lOp) #[resTy] #[a] #[] #[] props (some ip)
-  return (rewriter, (op.getResult 0 : ValuePtr))
+  return (rewriter, op.getResult 0)
 
 /-- Emit `llvm.select cond, t, f : resTy`. -/
 def emitLLVMSelect (rewriter : PatternRewriter OpCode) (resTy : TypeAttr)
@@ -53,7 +53,7 @@ def emitLLVMSelect (rewriter : PatternRewriter OpCode) (resTy : TypeAttr)
     Option (PatternRewriter OpCode × ValuePtr) := do
   let (rewriter, op) ← rewriter.createOp! (.llvm .select) #[resTy] #[cond, t, f] #[] #[] ()
     (some ip)
-  return (rewriter, (op.getResult 0 : ValuePtr))
+  return (rewriter, op.getResult 0)
 
 /-- The integer bitwidth of value `v`, if it has an integer type. -/
 def intBitwidth (rewriter : PatternRewriter OpCode) (v : ValuePtr) : Option Nat := do
