@@ -81,16 +81,16 @@ def ValuePtr.constantValue (val : ValuePtr) (ctx : IRContext OpCode) : Option Ru
     return .reg (Data.RISCV.li (BitVec.ofInt 64 properties.value.value))
   | .mod_arith .constant =>
     -- `mod_arith` has no runtime representation (it is lowered before
-    -- interpretation); constants are recovered as their canonical residue in
-    -- `[0, q)`, stored in the modulus' storage type. Note that the verifier
-    -- only checks that the value fits the storage type, so the reduction here
-    -- also canonicalizes non-canonical constants.
+    -- interpretation). The lowering assumes constants are already canonical
+    -- residues in `[0, q)`, so decline non-canonical constants rather than
+    -- assigning them different semantics here.
     let .modArithType mt := (val.getType! ctx).val | none
     let q := mt.modulus.value
     if q ≤ 0 then none else
     let properties := defOp.getProperties! ctx (.mod_arith .constant)
-    return .int mt.modulus.type.bitwidth
-      (.val (BitVec.ofNat mt.modulus.type.bitwidth (properties.value.value % q).toNat))
+    let c := properties.value.value
+    if c < 0 ∨ q ≤ c then none else
+    return .int mt.modulus.type.bitwidth (.val (BitVec.ofInt mt.modulus.type.bitwidth c))
   | _ => none
 
 /--
@@ -396,15 +396,22 @@ def modArithModulus (resultTypes : Array TypeAttr) : Option (Nat × Nat) :=
     | _ => none
   | _ => none
 
+/-- Whether a known modular operand is a canonical residue of the expected
+    storage width. Unknown operands are permitted for partial folds. -/
+private def isCanonicalModArithOperand (q bw : Nat) : Option RuntimeValue → Bool
+  | none => true
+  | some (.int bw' (.val c)) => bw' == bw && c.toNat < q
+  | some _ => false
+
 /--
   Fold table for `mod_arith` operations. See `Arith.foldsTo`.
 
   `mod_arith` is not interpreted (it is lowered to `arith` before
   interpretation), so the all-constant case cannot go through `.evaluate`;
   instead it is computed here, modulo the modulus `q` recovered from the
-  result type. Constant operands are canonical residues in `[0, q)` (see
-  `ValuePtr.constantValue`), and the arithmetic is performed on `Nat` so it
-  cannot overflow the storage type. The `x + 0`, `x - 0`, and `x * 1`
+  result type. Only canonical constant operands in `[0, q)` are recognized
+  (see `ValuePtr.constantValue`), and the arithmetic is performed on `Nat` so
+  it cannot overflow the storage type. The `x + 0`, `x - 0`, and `x * 1`
   identities rely on the dialect invariant that runtime `mod_arith` values are
   canonical residues (the same assumption the `mod-arith-to-arith` lowering
   makes).
@@ -412,32 +419,33 @@ def modArithModulus (resultTypes : Array TypeAttr) : Option (Nat × Nat) :=
 def Mod_Arith.foldsTo (op : Mod_Arith) (_properties : HasDialectOpInfo.propertiesOf op)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue)) :
     Option FoldOutcome :=
-  match op with
-  | .add =>
-    match constOperands.toList with
-    | [some (.int _ (.val a)), some (.int _ (.val b))] => do
-      let (q, bw) ← modArithModulus resultTypes
-      some (.constant (.int bw (.val (BitVec.ofNat bw ((a.toNat + b.toNat) % q)))))
-    | [_, some (.int _ (.val c))] => if c = 0 then some (.operand 0) else none
-    | _ => none
-  | .sub =>
-    match constOperands.toList with
-    | [some (.int _ (.val a)), some (.int _ (.val b))] => do
-      let (q, bw) ← modArithModulus resultTypes
-      some (.constant (.int bw (.val (BitVec.ofNat bw ((a.toNat + q - b.toNat) % q)))))
-    | [_, some (.int _ (.val c))] => if c = 0 then some (.operand 0) else none
-    | _ => none
-  | .mul =>
-    match constOperands.toList with
-    | [some (.int _ (.val a)), some (.int _ (.val b))] => do
-      let (q, bw) ← modArithModulus resultTypes
-      some (.constant (.int bw (.val (BitVec.ofNat bw ((a.toNat * b.toNat) % q)))))
-    | [_, some (.int bw (.val c))] =>
-      if c = 0 then some (.constant (.int bw (.val 0)))
-      else if c = 1 then some (.operand 0)
-      else none
-    | _ => none
-  | .constant => none
+  match modArithModulus resultTypes with
+  | none => none
+  | some (q, bw) =>
+    if !constOperands.all (isCanonicalModArithOperand q bw) then none else
+    match op with
+    | .add =>
+      match constOperands.toList with
+      | [some (.int _ (.val a)), some (.int _ (.val b))] =>
+        some (.constant (.int bw (.val (BitVec.ofNat bw ((a.toNat + b.toNat) % q)))))
+      | [_, some (.int _ (.val c))] => if c = 0 then some (.operand 0) else none
+      | _ => none
+    | .sub =>
+      match constOperands.toList with
+      | [some (.int _ (.val a)), some (.int _ (.val b))] =>
+        some (.constant (.int bw (.val (BitVec.ofNat bw ((a.toNat + q - b.toNat) % q)))))
+      | [_, some (.int _ (.val c))] => if c = 0 then some (.operand 0) else none
+      | _ => none
+    | .mul =>
+      match constOperands.toList with
+      | [some (.int _ (.val a)), some (.int _ (.val b))] =>
+        some (.constant (.int bw (.val (BitVec.ofNat bw ((a.toNat * b.toNat) % q)))))
+      | [_, some (.int _ (.val c))] =>
+        if c = 0 then some (.constant (.int bw (.val 0)))
+        else if c = 1 then some (.operand 0)
+        else none
+      | _ => none
+    | .constant => none
 
 /--
   Query whether an operation folds, given its result types and the values of

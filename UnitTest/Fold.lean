@@ -41,6 +41,19 @@ info: "ok"
 #guard_msgs in
 #eval! testFoldDecisionRejectsNonconformingConstant
 
+private def testFoldDecisionRejectsNoncanonicalModArithConstant : String :=
+  let m17 : TypeAttr := ModArithType.mk (IntegerAttr.mk 17 (IntegerType.mk 32))
+  let c20 : RuntimeValue := .int 32 (.val (BitVec.ofNat 32 20))
+  match foldDecision (.mod_arith .add) () #[m17] #[some c20, some c20] with
+  | .noFold => "ok"
+  | _ => "folded a noncanonical modular constant"
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testFoldDecisionRejectsNoncanonicalModArithConstant
+
 /-- Find all operations with the given opcode. -/
 private def findOps (ctx : IRContext OpCode) (opType : OpCode) : Array OperationPtr := Id.run do
   let mut result := #[]
@@ -86,6 +99,13 @@ private def testCreateOrFold : String := Id.run do
     let rewriter : PatternRewriter OpCode :=
       { ctx := wfCtx, hasDoneAction := false, worklist := .empty }
     let mut errors : Array String := #[]
+
+    -- Public materialization rejects values that do not conform to the
+    -- requested result type instead of creating invalid IR.
+    match rewriter.materializeConstant! (.int 64 (.val 0)) i32 .arith (.before retOp) with
+    | none => pure ()
+    | some _ =>
+      errors := errors.push "materialize: accepted an i64 runtime value for an i32 result"
 
     -- addi(7, 8) is evaluated to a constant 15; no addi is created.
     match rewriter.createOrFoldOp! (.arith .addi) #[i32] #[c7v, c8v] default (.before retOp) with

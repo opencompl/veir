@@ -43,10 +43,11 @@ separate reader, and `ValuePtr.constantValue`, re-exported from
 `Veir.Fold`, is that reader. Using it is what keeps a client's notion
 of "constant" in agreement with the folder's: it recognizes the
 `arith`, `llvm`, `riscv`, and `mod_arith` constant spellings along
-with `llvm.mlir.poison`, and reduces modular constants to their
-residue in `[0, q)`, exactly as the fold tables expect. A reader that
-covers fewer spellings will report values as unknown that the folder
-would have folded.
+with `llvm.mlir.poison`. Modular constants are recognized only when
+they are already canonical residues in `[0, q)`, matching the
+`mod-arith-to-arith` lowering's invariant. A reader that covers fewer
+spellings will report values as unknown that the folder would have
+folded.
 
 `IntegerConstantDialect` and `IntegerConstantDialect.forOp`, which
 select the spelling used for ordinary integer constants, are
@@ -68,8 +69,9 @@ namespace Veir
   constant with no operation to fold, such as a data-flow analysis applying
   its lattice.
 
-  `none` means the value has no constant-like spelling, in which case the
-  caller must leave the IR alone rather than drop the value.
+  `none` means the value does not conform to the requested result type or has no
+  constant-like spelling, in which case the caller must leave the IR alone
+  rather than drop the value.
 -/
 def PatternRewriter.materializeConstant! (rewriter : PatternRewriter OpCode)
     (rv : RuntimeValue) (resType : TypeAttr)

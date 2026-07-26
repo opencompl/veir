@@ -42,30 +42,32 @@ def WfRewriter.materializeConstant! (ctx : WfIRContext OpCode)
     (rv : RuntimeValue) (resType : TypeAttr)
     (integerDialect : IntegerConstantDialect)
     : Option (WfIRContext OpCode × OperationPtr) :=
-  match rv with
-  | .int bw (.val v) =>
-    match resType.val with
-    | .modArithType mt =>
-      let properties : ModArithConstantProperties :=
-        { value := IntegerAttr.mk v.toNat mt.modulus.type }
-      WfRewriter.createOp! ctx (.mod_arith .constant) #[resType] #[] #[] #[] properties none
-    | _ =>
-      match integerDialect with
-      | .llvm =>
-        let properties : LLVMConstantProperties :=
-          { value := .integer (IntegerAttr.mk v.toInt (IntegerType.mk bw)) }
-        WfRewriter.createOp! ctx (.llvm .mlir__constant) #[resType] #[] #[] #[] properties none
-      | .arith =>
-        let properties : ArithConstantProperties :=
-          { value := IntegerAttr.mk v.toInt (IntegerType.mk bw) }
-        WfRewriter.createOp! ctx (.arith .constant) #[resType] #[] #[] #[] properties none
-  | .int _ .poison =>
-    WfRewriter.createOp! ctx (.llvm .mlir__poison) #[resType] #[] #[] #[] () none
-  | .reg r =>
-    let properties : RISCVImmediateProperties :=
-      { value := IntegerAttr.mk r.val.toInt (IntegerType.mk 64) }
-    WfRewriter.createOp! ctx (.riscv .li) #[resType] #[] #[] #[] properties none
-  | _ => none
+  if rv.conformsFoldResult resType then
+    match rv with
+    | .int bw (.val v) =>
+      match resType.val with
+      | .modArithType mt =>
+        let properties : ModArithConstantProperties :=
+          { value := IntegerAttr.mk v.toNat mt.modulus.type }
+        WfRewriter.createOp! ctx (.mod_arith .constant) #[resType] #[] #[] #[] properties none
+      | _ =>
+        match integerDialect with
+        | .llvm =>
+          let properties : LLVMConstantProperties :=
+            { value := .integer (IntegerAttr.mk v.toInt (IntegerType.mk bw)) }
+          WfRewriter.createOp! ctx (.llvm .mlir__constant) #[resType] #[] #[] #[] properties none
+        | .arith =>
+          let properties : ArithConstantProperties :=
+            { value := IntegerAttr.mk v.toInt (IntegerType.mk bw) }
+          WfRewriter.createOp! ctx (.arith .constant) #[resType] #[] #[] #[] properties none
+    | .int _ .poison =>
+      WfRewriter.createOp! ctx (.llvm .mlir__poison) #[resType] #[] #[] #[] () none
+    | .reg r =>
+      let properties : RISCVImmediateProperties :=
+        { value := IntegerAttr.mk r.val.toInt (IntegerType.mk 64) }
+      WfRewriter.createOp! ctx (.riscv .li) #[resType] #[] #[] #[] properties none
+    | _ => none
+  else none
 
 /--
   Local rewrite that folds an existing operation. An unmaterializable semantic
@@ -108,30 +110,32 @@ def materializeConstant! (rewriter : PatternRewriter OpCode)
     (rv : RuntimeValue) (resType : TypeAttr)
     (integerDialect : IntegerConstantDialect) (ip : InsertPoint)
     : Option (PatternRewriter OpCode × OperationPtr) :=
-  match rv with
-  | .int bw (.val v) =>
-    match resType.val with
-    | .modArithType mt =>
-      let properties : ModArithConstantProperties :=
-        { value := IntegerAttr.mk v.toNat mt.modulus.type }
-      rewriter.createOp! (.mod_arith .constant) #[resType] #[] #[] #[] properties (some ip)
-    | _ =>
-      match integerDialect with
-      | .llvm =>
-        let properties : LLVMConstantProperties :=
-          { value := .integer (IntegerAttr.mk v.toInt (IntegerType.mk bw)) }
-        rewriter.createOp! (.llvm .mlir__constant) #[resType] #[] #[] #[] properties (some ip)
-      | .arith =>
-        let properties : ArithConstantProperties :=
-          { value := IntegerAttr.mk v.toInt (IntegerType.mk bw) }
-        rewriter.createOp! (.arith .constant) #[resType] #[] #[] #[] properties (some ip)
-  | .int _ .poison =>
-    rewriter.createOp! (.llvm .mlir__poison) #[resType] #[] #[] #[] () (some ip)
-  | .reg r =>
-    let properties : RISCVImmediateProperties :=
-      { value := IntegerAttr.mk r.val.toInt (IntegerType.mk 64) }
-    rewriter.createOp! (.riscv .li) #[resType] #[] #[] #[] properties (some ip)
-  | _ => none
+  if rv.conformsFoldResult resType then
+    match rv with
+    | .int bw (.val v) =>
+      match resType.val with
+      | .modArithType mt =>
+        let properties : ModArithConstantProperties :=
+          { value := IntegerAttr.mk v.toNat mt.modulus.type }
+        rewriter.createOp! (.mod_arith .constant) #[resType] #[] #[] #[] properties (some ip)
+      | _ =>
+        match integerDialect with
+        | .llvm =>
+          let properties : LLVMConstantProperties :=
+            { value := .integer (IntegerAttr.mk v.toInt (IntegerType.mk bw)) }
+          rewriter.createOp! (.llvm .mlir__constant) #[resType] #[] #[] #[] properties (some ip)
+        | .arith =>
+          let properties : ArithConstantProperties :=
+            { value := IntegerAttr.mk v.toInt (IntegerType.mk bw) }
+          rewriter.createOp! (.arith .constant) #[resType] #[] #[] #[] properties (some ip)
+    | .int _ .poison =>
+      rewriter.createOp! (.llvm .mlir__poison) #[resType] #[] #[] #[] () (some ip)
+    | .reg r =>
+      let properties : RISCVImmediateProperties :=
+        { value := IntegerAttr.mk r.val.toInt (IntegerType.mk 64) }
+      rewriter.createOp! (.riscv .li) #[resType] #[] #[] #[] properties (some ip)
+    | _ => none
+  else none
 
 /-- Implements `PatternRewriter.createOrFoldOp!`. -/
 def createOrFoldOp! (rewriter : PatternRewriter OpCode) (opType : OpCode)

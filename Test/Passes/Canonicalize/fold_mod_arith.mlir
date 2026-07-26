@@ -34,15 +34,6 @@
       "func.return"(%prod) : (!mod_arith.int<17 : i32>) -> ()
   }) : () -> ()
 
-  // Non-canonical constants are reduced: 20 = 3 (mod 17), so 3 + 3 = 6.
-  "func.func"() <{function_type = () -> !mod_arith.int<17 : i32>, sym_name = "fold_noncanonical"}> ({
-      %c20 = "mod_arith.constant"() <{"value" = 20 : i32}> : () -> !mod_arith.int<17 : i32>
-      %sum = "mod_arith.add"(%c20, %c20) : (!mod_arith.int<17 : i32>, !mod_arith.int<17 : i32>) -> !mod_arith.int<17 : i32>
-      // CHECK:      %[[C6B:.*]] = "mod_arith.constant"() <{"value" = 6 : i32}> : () -> !mod_arith.int<17 : i32>
-      // CHECK-NEXT: "func.return"(%[[C6B]]) : (!mod_arith.int<17 : i32>) -> ()
-      "func.return"(%sum) : (!mod_arith.int<17 : i32>) -> ()
-  }) : () -> ()
-
   // add(x, 0) -> x; the zero is on the left, so the commutativity
   // canonicalization moves it right first.
   "func.func"() <{function_type = (!mod_arith.int<17 : i32>) -> !mod_arith.int<17 : i32>, sym_name = "add_zero"}> ({
@@ -82,26 +73,6 @@
       %c0 = "mod_arith.constant"() <{"value" = 0 : i32}> : () -> !mod_arith.int<17 : i32>
       %r = "mod_arith.sub"(%x, %c0) : (!mod_arith.int<17 : i32>, !mod_arith.int<17 : i32>) -> !mod_arith.int<17 : i32>
       "func.return"(%r) : (!mod_arith.int<17 : i32>) -> ()
-  }) : () -> ()
-
-  // A non-canonical zero: 17 = 0 (mod 17), so add(x, 17) -> x.
-  "func.func"() <{function_type = (!mod_arith.int<17 : i32>) -> !mod_arith.int<17 : i32>, sym_name = "add_residue_zero"}> ({
-    ^bb0(%x : !mod_arith.int<17 : i32>):
-      // CHECK:      ^{{.*}}(%[[W:.*]] : !mod_arith.int<17 : i32>):
-      // CHECK-NEXT: "func.return"(%[[W]]) : (!mod_arith.int<17 : i32>) -> ()
-      %c17 = "mod_arith.constant"() <{"value" = 17 : i32}> : () -> !mod_arith.int<17 : i32>
-      %r = "mod_arith.add"(%x, %c17) : (!mod_arith.int<17 : i32>, !mod_arith.int<17 : i32>) -> !mod_arith.int<17 : i32>
-      "func.return"(%r) : (!mod_arith.int<17 : i32>) -> ()
-  }) : () -> ()
-
-  // Negative constants are reduced: -1 = 16 (mod 17), so -1 + 5 = 4 (mod 17).
-  "func.func"() <{function_type = () -> !mod_arith.int<17 : i32>, sym_name = "fold_negative"}> ({
-      %cm1 = "mod_arith.constant"() <{"value" = -1 : i32}> : () -> !mod_arith.int<17 : i32>
-      %c5 = "mod_arith.constant"() <{"value" = 5 : i32}> : () -> !mod_arith.int<17 : i32>
-      %sum = "mod_arith.add"(%cm1, %c5) : (!mod_arith.int<17 : i32>, !mod_arith.int<17 : i32>) -> !mod_arith.int<17 : i32>
-      // CHECK:      %[[C4:.*]] = "mod_arith.constant"() <{"value" = 4 : i32}> : () -> !mod_arith.int<17 : i32>
-      // CHECK-NEXT: "func.return"(%[[C4]]) : (!mod_arith.int<17 : i32>) -> ()
-      "func.return"(%sum) : (!mod_arith.int<17 : i32>) -> ()
   }) : () -> ()
 
   // Modulus 1: every value is 0.
