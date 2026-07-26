@@ -411,9 +411,35 @@ def OperationPtr.hasSideEffects (op : OperationPtr) (ctx : IRContext OpCode) : B
   | .arith _ | .comb _ | .mod_arith _ | .datapath _ => false
   | .builtin .unrealized_conversion_cast => false
   | .hw .constant => false
-  -- RISC-V is pure register arithmetic except the memory ops
-  | .riscv .ld | .riscv .sd | .riscv .sw | .riscv .sh | .riscv .sb => true
-  | .riscv _ => false
+  -- Enumerate the pure subset of RISC-V
+  | .riscv .li | .riscv .lui | .riscv .auipc
+  | .riscv .addi | .riscv .slti | .riscv .sltiu
+  | .riscv .andi | .riscv .ori | .riscv .xori
+  | .riscv .addiw | .riscv .slli | .riscv .srli | .riscv .srai
+  | .riscv .add | .riscv .sub | .riscv .sll | .riscv .slt | .riscv .sltu
+  | .riscv .xor | .riscv .srl | .riscv .sra | .riscv .or | .riscv .and
+  | .riscv .slliw | .riscv .srliw | .riscv .sraiw
+  | .riscv .addw | .riscv .subw | .riscv .sllw | .riscv .srlw | .riscv .sraw
+  | .riscv .rem | .riscv .remu | .riscv .remw | .riscv .remuw
+  | .riscv .mul | .riscv .mulh | .riscv .mulhu | .riscv .mulhsu | .riscv .mulw
+  | .riscv .div | .riscv .divw | .riscv .divu | .riscv .divuw
+  | .riscv .adduw | .riscv .sh1adduw | .riscv .sh2adduw | .riscv .sh3adduw
+  | .riscv .sh1add | .riscv .sh2add | .riscv .sh3add | .riscv .slliuw
+  | .riscv .andn | .riscv .orn | .riscv .xnor
+  | .riscv .max | .riscv .maxu | .riscv .min | .riscv .minu
+  | .riscv .rol | .riscv .ror | .riscv .rolw | .riscv .rorw
+  | .riscv .sextb | .riscv .sexth | .riscv .zexth
+  | .riscv .clz | .riscv .clzw | .riscv .ctz | .riscv .ctzw
+  | .riscv .cpop | .riscv .cpopw | .riscv .orcb | .riscv .rev8
+  | .riscv .rori | .riscv .roriw
+  | .riscv .bclr | .riscv .bext | .riscv .binv | .riscv .bset
+  | .riscv .bclri | .riscv .bexti | .riscv .binvi | .riscv .bseti
+  | .riscv .pack | .riscv .packh | .riscv .packw
+  | .riscv .czeroeqz | .riscv .czeronez
+  -- RISC-V pseudo-operations
+  | .riscv .mv | .riscv .not | .riscv .neg | .riscv .negw
+  | .riscv .sextw | .riscv .zextb | .riscv .zextw
+  | .riscv .seqz | .riscv .snez | .riscv .sltz | .riscv .sgtz => false
   -- For LLVM we enumerate the pure ops
   | .llvm .mlir__constant
   | .llvm .mlir__poison
