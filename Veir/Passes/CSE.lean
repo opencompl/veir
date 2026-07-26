@@ -13,7 +13,7 @@ import Veir.Data.LLVM.Int.Basic
     and ext/trunc);
   * it only works for instructions that return a single result;
   * distinct UB flags are treated as distinct instructions;
-  * it only supports the LLVM and arith dialects;
+  * it only supports the LLVM, arith, and mod_arith dialects;
   * it does not use a worklist or iterate to fixpoint, so it may leave
     work undone when it finishes.
 -/
@@ -117,7 +117,11 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
   | .llvm .add | .llvm .mul | .llvm .and | .llvm .or | .llvm .xor
   | .llvm .intr__smax | .llvm .intr__smin | .llvm .intr__umax | .llvm .intr__umin
   | .arith .addi | .arith .muli | .arith .andi | .arith .ori | .arith .xori
-  | .arith .maxsi | .arith .maxui | .arith .minsi | .arith .minui =>
+  | .arith .maxsi | .arith .maxui | .arith .minsi | .arith .minui
+  -- mod_arith carries its modulus in the operand and result types, and
+  -- `Key` includes the result type, so ops on different moduli never
+  -- collide.
+  | .mod_arith .add | .mod_arith .mul =>
       return commutativeBinopKey ctx op kind
   | .llvm .icmp =>
       return icmpKey ctx op (fun props => ⟨.llvm .icmp, props⟩)
@@ -140,7 +144,8 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
   | .arith .extsi | .arith .extui | .arith .trunci
   -- The `*_extended` ops are commutative too, but they return two
   -- results, so the single-result guard above already rejects them.
-  | .arith .select =>
+  | .arith .select
+  | .mod_arith .sub | .mod_arith .constant =>
       return ordinaryKey ctx op kind
   | _ => none
 
