@@ -31,7 +31,7 @@ def emitLLVMIntConst (rewriter : PatternRewriter OpCode) (value : Int) (width : 
   let props : LLVMConstantProperties := { value := .integer (IntegerAttr.mk value ty) }
   let (rewriter, op) ← rewriter.createOp! (.llvm .mlir__constant)
     #[(ty : TypeAttr)] #[] #[] #[] props (some ip)
-  return (rewriter, (op.getResult 0 : ValuePtr))
+  return (rewriter, op.getResult 0)
 
 /-- Emit a binary `llvm` op `lOp` with result type `resTy` on `a` and `b`. -/
 def emitLLVMBin (rewriter : PatternRewriter OpCode) (lOp : Llvm)
