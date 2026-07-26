@@ -27,10 +27,10 @@ namespace Veir
 /-- Emit `llvm.mlir.constant value : i<width>`. -/
 def emitLLVMIntConst (rewriter : PatternRewriter OpCode) (value : Int) (width : Nat)
     (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do
-  let ty : IntegerType := IntegerType.mk width
-  let props : LLVMConstantProperties := { value := .integer (IntegerAttr.mk value ty) }
+  let ty := IntegerType.mk width
+  let props := { value := .integer (IntegerAttr.mk value ty) }
   let (rewriter, op) ← rewriter.createOp! (.llvm .mlir__constant)
-    #[(ty : TypeAttr)] #[] #[] #[] props (some ip)
+    #[ty] #[] #[] #[] props (some ip)
   return (rewriter, op.getResult 0)
 
 /-- Emit a binary `llvm` op `lOp` with result type `resTy` on `a` and `b`. -/
@@ -76,7 +76,7 @@ def lower1to1 (aOp : Arith) (lOp : Llvm)
   let ip := InsertPoint.before op
   let (rewriter, newOp) ← rewriter.createOp! (.llvm lOp)
     (op.getResultTypes! rewriter.ctx.raw) operands #[] #[] (convert props) (some ip)
-  let rewriter := rewriter.replaceValue! (op.getResult 0 : ValuePtr) (newOp.getResult 0 : ValuePtr)
+  let rewriter := rewriter.replaceValue! (op.getResult 0) (newOp.getResult 0)
   return rewriter.eraseOp! op
 
 /-- Translate `arith` integer-overflow flags to the `llvm` `nsw`/`nuw` properties. -/
@@ -139,7 +139,7 @@ def lowerCeilDivUI (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let (rewriter, q) ← emitLLVMBin rewriter .udiv { exact := false } iN am1 b ip
   let (rewriter, qp1) ← emitLLVMBin rewriter .add { nsw := false, nuw := false } iN q one ip
   let (rewriter, res) ← emitLLVMSelect rewriter iN isZero zero qp1 ip
-  let rewriter := rewriter.replaceValue! (op.getResult 0 : ValuePtr) res
+  let rewriter := rewriter.replaceValue! (op.getResult 0) res
   return rewriter.eraseOp! op
 
 /--
@@ -168,7 +168,7 @@ def lowerCeilDivSI (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let (rewriter, cond) ← emitLLVMBin rewriter .and () i1 notExact signEqual ip
   let (rewriter, zp1) ← emitLLVMBin rewriter .add { nsw := false, nuw := false } iN z one ip
   let (rewriter, res) ← emitLLVMSelect rewriter iN cond zp1 z ip
-  let rewriter := rewriter.replaceValue! (op.getResult 0 : ValuePtr) res
+  let rewriter := rewriter.replaceValue! (op.getResult 0) res
   return rewriter.eraseOp! op
 
 /--
@@ -196,7 +196,7 @@ def lowerFloorDivSI (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let (rewriter, cond) ← emitLLVMBin rewriter .and () i1 notExact signOpposite ip
   let (rewriter, zm1) ← emitLLVMBin rewriter .add { nsw := false, nuw := false } iN z negOne ip
   let (rewriter, res) ← emitLLVMSelect rewriter iN cond zm1 z ip
-  let rewriter := rewriter.replaceValue! (op.getResult 0 : ValuePtr) res
+  let rewriter := rewriter.replaceValue! (op.getResult 0) res
   return rewriter.eraseOp! op
 
 /--
@@ -218,8 +218,8 @@ def lowerAddUIExtended (rewriter : PatternRewriter OpCode) (op : OperationPtr)
       let ip := InsertPoint.before op
       let (rewriter, sum) ← emitLLVMBin rewriter .add { nsw := false, nuw := false } iN a b ip
       let (rewriter, carry) ← emitLLVMBin rewriter .icmp { predicate := .ult } i1 sum a ip
-      let rewriter := rewriter.replaceValue! (op.getResult 0 : ValuePtr) sum
-      let rewriter := rewriter.replaceValue! (op.getResult 1 : ValuePtr) carry
+      let rewriter := rewriter.replaceValue! (op.getResult 0) sum
+      let rewriter := rewriter.replaceValue! (op.getResult 1) carry
       return rewriter.eraseOp! op
     else return rewriter
   else return rewriter
@@ -253,11 +253,11 @@ def lowerMulExtended (theArithOp : Arith)
       let (rewriter, aExt) ← emitExt rewriter i2N a ip
       let (rewriter, bExt) ← emitExt rewriter i2N b ip
       let (rewriter, wideMul) ← emitLLVMBin rewriter .mul { nsw := false, nuw := false } i2N aExt bExt ip
-      let (rewriter, shiftAmt) ← emitLLVMIntConst rewriter (width : Int) (2 * width) ip
+      let (rewriter, shiftAmt) ← emitLLVMIntConst rewriter width (2 * width) ip
       let (rewriter, hiWide) ← emitLLVMBin rewriter .lshr { exact := false } i2N wideMul shiftAmt ip
       let (rewriter, high) ← emitLLVMUnary rewriter .trunc { nsw := false, nuw := false } iN hiWide ip
-      let rewriter := rewriter.replaceValue! (op.getResult 0 : ValuePtr) low
-      let rewriter := rewriter.replaceValue! (op.getResult 1 : ValuePtr) high
+      let rewriter := rewriter.replaceValue! (op.getResult 0) low
+      let rewriter := rewriter.replaceValue! (op.getResult 1) high
       return rewriter.eraseOp! op
     else return rewriter
   else return rewriter
