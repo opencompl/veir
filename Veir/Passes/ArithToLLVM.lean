@@ -226,10 +226,12 @@ def lowerAddUIExtended (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 
 /--
   Lower a two-result extended multiply (`arith.mulsi_extended` /
-  `arith.mului_extended`). Both produce the low half `mul a, b` and a high half.
-  Following MLIR's `MulIExtendedOpLowering`, the high half is computed by
-  extending both operands to `2*N` bits (signed for `mulsi_extended`, unsigned for
-  `mului_extended`), multiplying, shifting right by `N`, and truncating back.
+  `arith.mului_extended`). Following MLIR's `MulIExtendedOpLowering`, both
+  operands are extended to `2*N` bits (signed for `mulsi_extended`, unsigned for
+  `mului_extended`) and multiplied once. The low half is that product truncated
+  back to `N` bits; the high half shifts it right by `N` first. A narrow `mul` for
+  the low half would be redundant: `sext` and `zext` agree on the low `N` bits, so
+  the bottom of the wide product is already the wrapping `N`-bit product.
 
   The `emitExt` closure supplies the concrete `sext`/`zext` extension so the two
   variants stay monomorphic in the (universe-polymorphic) op properties.
@@ -249,10 +251,10 @@ def lowerMulExtended (theArithOp : Arith)
       let iN : TypeAttr := IntegerType.mk width
       let i2N : TypeAttr := IntegerType.mk (2 * width)
       let ip := InsertPoint.before op
-      let (rewriter, low) ← emitLLVMBin rewriter .mul { nsw := false, nuw := false } iN a b ip
       let (rewriter, aExt) ← emitExt rewriter i2N a ip
       let (rewriter, bExt) ← emitExt rewriter i2N b ip
       let (rewriter, wideMul) ← emitLLVMBin rewriter .mul { nsw := false, nuw := false } i2N aExt bExt ip
+      let (rewriter, low) ← emitLLVMUnary rewriter .trunc { nsw := false, nuw := false } iN wideMul ip
       let (rewriter, shiftAmt) ← emitLLVMIntConst rewriter width (2 * width) ip
       let (rewriter, hiWide) ← emitLLVMBin rewriter .lshr { exact := false } i2N wideMul shiftAmt ip
       let (rewriter, high) ← emitLLVMUnary rewriter .trunc { nsw := false, nuw := false } iN hiWide ip

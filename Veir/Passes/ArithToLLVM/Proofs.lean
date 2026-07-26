@@ -90,9 +90,9 @@ theorem addui_extended_lowering (a b : Int 8) :
   cases a <;> cases b <;> simp [uaddOverflowFlag, Id.run] <;> veir_bv_decide
 
 /--
-The two results of `arith.mulsi_extended` are reproduced by a low-half
-multiply and by sign-extending to twice the width, multiplying, shifting right
-by the original width, and truncating.
+Both results of `arith.mulsi_extended` are reproduced by sign-extending to twice
+the width and multiplying once: the low half is that product truncated, and the
+high half is it shifted right by the original width and truncated.
 -/
 theorem mulsi_extended_lowering (a b : Int 8) :
     (mul a b, smulHigh a b) =
@@ -101,13 +101,14 @@ theorem mulsi_extended_lowering (a b : Int 8) :
       let wide := mul aExt bExt
       let shiftAmount := constant 16 8
       let highWide := lshr wide shiftAmount
-      (mul a b, trunc highWide 8 false false (by omega)) := by
+      (trunc wide 8 false false (by omega),
+        trunc highWide 8 false false (by omega)) := by
   cases a <;> cases b <;> simp [smulHigh, Id.run] <;> veir_bv_decide
 
 /--
-The two results of `arith.mului_extended` are reproduced by a low-half
-multiply and by zero-extending to twice the width, multiplying, shifting right
-by the original width, and truncating.
+Both results of `arith.mului_extended` are reproduced by zero-extending to twice
+the width and multiplying once: the low half is that product truncated, and the
+high half is it shifted right by the original width and truncated.
 -/
 theorem mului_extended_lowering (a b : Int 8) :
     (mul a b, umulHigh a b) =
@@ -116,7 +117,8 @@ theorem mului_extended_lowering (a b : Int 8) :
       let wide := mul aExt bExt
       let shiftAmount := constant 16 8
       let highWide := lshr wide shiftAmount
-      (mul a b, trunc highWide 8 false false (by omega)) := by
+      (trunc wide 8 false false (by omega),
+        trunc highWide 8 false false (by omega)) := by
   cases a <;> cases b <;> simp [umulHigh, Id.run] <;> veir_bv_decide
 
 end Veir.Data.LLVM.Int
