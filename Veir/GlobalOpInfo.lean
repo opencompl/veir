@@ -1,6 +1,8 @@
 module
 
 public import Veir.Dialects.Arith.OpInfo
+public import Veir.Dialects.Builtin.OpInfo
+public import Veir.Dialects.Func.OpInfo
 public import Veir.Dialects.LLVM.OpInfo
 public import Veir.Dialects.RISCV.OpInfo
 public import Veir.Dialects.RISCV_Cf.OpInfo
@@ -10,6 +12,8 @@ public import Veir.Dialects.ModArith.OpInfo
 public import Veir.Dialects.Cf.OpInfo
 public import Veir.Dialects.Comb.OpInfo
 public import Veir.Dialects.HW.OpInfo
+public import Veir.Dialects.Datapath.OpInfo
+public import Veir.Dialects.Test.OpInfo
 public import Veir.IR.Basic
 
 namespace Veir
@@ -33,10 +37,10 @@ match opCode with
 | .cf op => Cf.propertiesOf op
 | .comb op => Comb.propertiesOf op
 | .hw op => HW.propertiesOf op
-| .builtin .unregistered => UnregisteredProperties
-| .func .func => FuncFuncProperties
-| .func .call => FuncCallProperties
-| _ => Unit
+| .builtin op => Builtin.propertiesOf op
+| .func op => Func.propertiesOf op
+| .datapath op => Datapath.propertiesOf op
+| .test op => Test.propertiesOf op
 
 instance : HasDialectOpInfo OpCode where
   propertiesOf := _propertiesOf
