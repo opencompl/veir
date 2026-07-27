@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Callable
 
 sys.path.insert(0, str(Path(__file__).parent))
-from vsmith_generate import generate
+from vsmith_generate import MEMORY_SIZE, generate
 
 
 DEFAULT_PASSES = "instcombine,dce,cse,dce"
@@ -69,6 +69,7 @@ MIR_DRIVER_TEMPLATE = """\
 .globl _start
 _start:
     la   sp, _stack_top
+    la   a0, _vsmith_memory
     call main
     la   t0, expected
     ld   t1, 0(t0)
@@ -91,6 +92,10 @@ tohost:   .dword 0
 .globl fromhost
 fromhost: .dword 0
 .section .bss
+.align 4
+.globl _vsmith_memory
+_vsmith_memory:
+.skip 65536
 .align 4
 .skip 65536
 _stack_top:
@@ -212,9 +217,13 @@ def prebuild(repo: Path, mir_exec: bool = False) -> None:
         raise SystemExit(f"lake build failed:\n{result.stdout}")
 
 
-def interpret(repo: Path, interp_bin: Path, path: Path) -> tuple[str, str]:
+def interpret(repo: Path, interp_bin: Path, path: Path, memory: bool = False) -> tuple[str, str]:
     """Return the last 'Program output: ...' line, or a classified failure string."""
-    result = run_tool(repo, [str(interp_bin), str(path)])
+    args = [str(interp_bin)]
+    if memory:
+        args.extend(["--memory-size", str(MEMORY_SIZE)])
+    args.append(str(path))
+    result = run_tool(repo, args)
     outputs = [line for line in result.output.splitlines() if line.startswith("Program output:")]
     output = outputs[-1] if outputs else classify_failure(result.output)
     return output, result.output
@@ -572,10 +581,19 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
     # register coalescing (deletes isel-generated copies), greedy allocation +
     # virtual-register rewriting, prologue/epilogue insertion, and post-RA / RISCV
     # pseudo expansion. -run-pass emits MIR, so the asm printer runs in stage 2b.
-    rc, out = _mir_run([tools["llc"], str(mir), "-mtriple=riscv64", "-x", "mir",
-                        "-run-pass=phi-node-elimination,twoaddressinstruction,"
-                        "register-coalescer,greedy,virtregrewriter,prologepilog,"
-                        "postrapseudos,riscv-expand-pseudo", "-o", str(lowered)])
+    # LLVM renamed the legacy PEI pass from `prologepilog` to
+    # `prolog-epilog`; accept either spelling so vsmith works across the
+    # transition.
+    rc, out = 1, ""
+    for pei_pass in ("prolog-epilog", "prologepilog"):
+        rc, out = _mir_run([
+            tools["llc"], str(mir), "-mtriple=riscv64", "-x", "mir",
+            "-run-pass=phi-node-elimination,twoaddressinstruction,"
+            f"register-coalescer,greedy,virtregrewriter,{pei_pass},"
+            "postrapseudos,riscv-expand-pseudo", "-o", str(lowered),
+        ])
+        if rc == 0 or "not registered" not in out:
+            break
     if rc != 0:
         return False, (f"llc failed to lower MIR (regalloc stage)\n"
                        f"optimized: {opt}\nmir: {mir}\n{out}")
@@ -633,11 +651,12 @@ def check(
     opt: Path,
     passes: str,
     riscv: bool,
+    memory: bool,
     keep: bool,
     mir_exec: bool,
 ) -> CheckResult:
     """Interpret, optimize, re-interpret, and compare."""
-    before, _ = interpret(repo, interp_bin, src)
+    before, _ = interpret(repo, interp_bin, src, memory)
     before_llvm: tuple[tuple[str, str], ...] = ()
     if llvm_interps:
         ok, message, before_llvm = check_llvm_interps(repo, llvm_interps, src, before, "source")
@@ -683,7 +702,7 @@ def check(
         # runs), and any cast that did survive in a *live* block would surface
         # anyway as an interpretation failure or a refinement mismatch below.
 
-    after, _ = interpret(repo, interp_bin, opt)
+    after, _ = interpret(repo, interp_bin, opt, memory)
     after_llvm: tuple[tuple[str, str], ...] = ()
     if llvm_interps:
         ok, message, after_llvm = check_llvm_interps(repo, llvm_interps, opt, after, "optimized")
@@ -745,6 +764,7 @@ def _worker(
     start_index: int,
     passes: str,
     riscv: bool,
+    memory: bool,
     keep: bool,
     mir_exec: bool,
     queue: "multiprocessing.Queue",
@@ -758,8 +778,11 @@ def _worker(
             idx = start_index + i
             src = workdir / f"case_{idx}.mlir"
             opt = workdir / f"case_{idx}.opt.mlir"
-            generate(src, rng, riscv)
-            result = check(repo, interp_bin, opt_bin, llvm_interps, src, opt, passes, riscv, keep, mir_exec)
+            generate(src, rng, riscv, memory)
+            result = check(
+                repo, interp_bin, opt_bin, llvm_interps, src, opt, passes,
+                riscv, memory, keep, mir_exec,
+            )
             if not result.ok:
                 queue.put(("fail", result.message))
                 return
@@ -792,6 +815,7 @@ def fuzz(
     iterations: int,
     passes: str,
     riscv: bool,
+    memory: bool,
     keep: bool,
     mir_exec: bool,
     rng: random.Random,
@@ -821,7 +845,10 @@ def fuzz(
         subdir = workdir / f"w{w}"
         p = ctx.Process(
             target=_worker,
-            args=(repo, interp_bin, opt_bin, llvm_interps, subdir, seed, count, start, passes, riscv, keep, mir_exec, queue),
+            args=(
+                repo, interp_bin, opt_bin, llvm_interps, subdir, seed, count,
+                start, passes, riscv, memory, keep, mir_exec, queue,
+            ),
         )
         p.start()
         processes.append(p)
@@ -896,6 +923,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
                         help=f"veir-opt pass pipeline (default: {DEFAULT_PASSES})")
     parser.add_argument("--riscv", action="store_true",
                         help="use the RISC-V backend pass pipeline")
+    parser.add_argument(
+        "--memory", action=argparse.BooleanOptionalAction, default=True,
+        help=f"fuzz i64 loads/stores in {MEMORY_SIZE} bytes of caller-owned memory (default: enabled)",
+    )
     parser.add_argument("--keep", action="store_true",
                         help="keep workdir on success (always kept on failure)")
     parser.add_argument("--no-mir-exec", action="store_true",
@@ -937,6 +968,8 @@ def main(argv: list[str]) -> int:
         llvm_interps.append(resolve_llvm_interp("llubi", "--llubi", ("--verbose",), classify_llubi_output))
     if args.alive_exec:
         llvm_interps.append(resolve_llvm_interp("alive-exec", "--alive-exec", (), classify_alive_exec_output))
+    if args.memory and llvm_interps:
+        raise SystemExit("--llubi and --alive-exec currently require --no-memory")
     seed = args.seed if args.seed is not None else secrets.randbits(64)
     rng = random.Random(seed)
 
@@ -946,6 +979,8 @@ def main(argv: list[str]) -> int:
     print(f"seed:    {seed}")
     print(f"passes:  {args.passes}")
     print(f"workers: {args.workers}")
+    if args.memory:
+        print(f"memory:  {MEMORY_SIZE} bytes passed to main")
     if mir_exec:
         print(f"mir-exec:    lower to MIR and execute under spike ({MIR_MARCH})")
     for interp in llvm_interps:
@@ -957,7 +992,7 @@ def main(argv: list[str]) -> int:
 
     success = fuzz(
         repo, interp_bin, opt_bin, llvm_interps, workdir,
-        args.iterations, args.passes, args.riscv, args.keep, mir_exec, rng,
+        args.iterations, args.passes, args.riscv, args.memory, args.keep, mir_exec, rng,
         args.workers, Spinner(), args.verbose,
     )
 

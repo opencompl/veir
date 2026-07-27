@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a single random closed MLIR module for VeIR testing."""
-
-# TODO:
-# - support llvm.[load,store,alloca]
+"""Generate a single random MLIR module for VeIR testing."""
 
 from __future__ import annotations
 
@@ -42,6 +39,11 @@ BSWAP_WIDTHS = (16, 32, 64)
 # and i1 values are never consumed by arithmetic/bitwise/shift/cast operations
 # or further comparisons.
 RISCV_WIDTHS = (32, 64)
+
+# Memory-mode programs receive a pointer to this many bytes of caller-owned
+# storage.  Accesses are i64-aligned and remain within the allocation.
+MEMORY_SLOTS = 4
+MEMORY_SIZE = MEMORY_SLOTS * 8
 
 
 def bitwidth(typ: str) -> int:
@@ -96,9 +98,10 @@ def format_block_arguments(arg_names: list[str], arg_types: list[str]) -> str:
 
 
 class Generator:
-    def __init__(self, rng: random.Random, riscv: bool = False) -> None:
+    def __init__(self, rng: random.Random, riscv: bool = False, memory: bool = True) -> None:
         self.rng = rng
         self.riscv = riscv
+        self.memory = memory
         self.counter = 0
         self.lines: list[str] = []
         self.imported: dict[str, list[str]] = defaultdict(list)
@@ -251,8 +254,11 @@ class Generator:
     def random_branch_condition(self) -> str:
         return self.random_dominating_value(1)
 
-    def random_return_value(self) -> tuple[str, str]:
-        pool = self.local_all + self.imported_all
+    def random_return_value(self, required: tuple[str, str] | None = None) -> tuple[str, str]:
+        # Pointer values are tracked for dominance just like integers, but are
+        # not valid inputs to the integer-only return-value mixer.
+        pool = [(name, typ) for name, typ in self.local_all + self.imported_all
+                if typ.startswith("i")]
         if self.riscv:
             # i1 values may only feed icmps, never casts or the xor combine, so
             # keep them out of the returned set entirely.
@@ -262,6 +268,11 @@ class Generator:
             return self.add_const(typ, rand_const_val(self.rng, bitwidth(typ))), typ
         n = min(self.rng.randint(1, 25), len(pool))
         chosen = self.rng.sample(pool, n)
+        if required is not None and required not in chosen:
+            if len(chosen) == n:
+                chosen[-1] = required
+            else:
+                chosen.append(required)
         target_width = self.rng.choice([bitwidth(typ) for _, typ in chosen])
         target = f"i{target_width}"
         casted: list[str] = []
@@ -278,6 +289,42 @@ class Generator:
         for other in casted[1:]:
             result = self.add_operation("llvm.xor", [result, other], [target, target], target)
         return result, target
+
+    def memory_pointer(self, slot: int) -> str:
+        """Return a pointer to an in-bounds i64 memory slot."""
+        if slot == 0 and self.rng.random() < 0.5:
+            return "%mem"
+        index = self.add_const("i64", slot)
+        name = self.name("p")
+        self.lines.append(
+            f'  {name} = "llvm.getelementptr"(%mem, {index}) '
+            f'<{{elem_type = i64, rawConstantIndices = array<i32: -2147483648>}}> '
+            f': (!llvm.ptr, i64) -> !llvm.ptr'
+        )
+        self.local["!llvm.ptr"].append(name)
+        self.local_all.append((name, "!llvm.ptr"))
+        return name
+
+    def memory_properties(self) -> str:
+        return " <{volatile_}>" if self.rng.random() < 0.1 else ""
+
+    def emit_memory(self, force_load: bool = False) -> str | None:
+        """Emit an in-bounds i64 load or store, returning a loaded SSA value."""
+        ptr = self.memory_pointer(self.rng.randrange(MEMORY_SLOTS))
+        props = self.memory_properties()
+        if force_load or self.rng.random() < 0.55:
+            return self.add_operation("llvm.load", [ptr], ["!llvm.ptr"], "i64", props,
+                                      name_prefix="ld")
+        value = self.random_dominating_value(64)
+        self.lines.append(f'  "llvm.store"({value}, {ptr}){props} : (i64, !llvm.ptr) -> ()')
+        return None
+
+    def initialize_memory(self) -> None:
+        """Give every slot a concrete value before any generated load can run."""
+        for slot in range(MEMORY_SLOTS):
+            ptr = self.memory_pointer(slot)
+            value = self.add_const("i64", rand_const_val(self.rng, 64))
+            self.lines.append(f'  "llvm.store"({value}, {ptr}) : (i64, !llvm.ptr) -> ()')
 
     def emit_intrinsic(self) -> None:
         """Emit a random integer intrinsic. All operands share the result type.
@@ -349,6 +396,11 @@ class Generator:
         exprs: list[tuple[str, str, str, str, str]] = []
         for _ in range(count):
             choice = self.rng.random()
+            if self.memory and choice < 0.12:
+                self.emit_memory()
+                continue
+            if self.memory:
+                choice = (choice - 0.12) / 0.88
             if choice < 0.35:
                 typ = self.rand_type()
                 same_type_exprs = [e for e in exprs if e[3] == typ]
@@ -436,14 +488,18 @@ class Generator:
                 self.add_const(typ, rand_const_val(self.rng, bitwidth(typ)))
 
 
-def generate(path: Path, rng: random.Random, riscv: bool = False) -> None:
-    """Write a random closed MLIR module to path."""
-    gen = Generator(rng, riscv)
+def generate(path: Path, rng: random.Random, riscv: bool = False, memory: bool = True) -> None:
+    """Write a random MLIR module to path.
+
+    Memory-mode modules take one caller-provided pointer to MEMORY_SIZE bytes;
+    otherwise the generated function is closed.
+    """
+    gen = Generator(rng, riscv, memory)
     lines: list[str] = []
     return_type: str | None = None
     num_blocks = rng.randint(1, 20)
-    block_arg_types: list[list[str]] = [[]]
-    block_arg_names: list[list[str]] = [[]]
+    block_arg_types: list[list[str]] = [["!llvm.ptr"]] if memory else [[]]
+    block_arg_names: list[list[str]] = [["%mem"]] if memory else [[]]
 
     for block_id in range(1, num_blocks):
         arg_count = rng.randint(0, 5)
@@ -476,6 +532,8 @@ def generate(path: Path, rng: random.Random, riscv: bool = False) -> None:
         header_args = format_block_arguments(block_arg_names[block_id], block_arg_types[block_id])
         lines.append(f"^bb{block_id}({header_args}):")
         gen.set_state(lines, imported, imported_all, local_args)
+        if memory and block_id == 0:
+            gen.initialize_memory()
         gen.seed_block()
         gen.add_block_body(rng.randint(3, 18))
 
@@ -484,7 +542,9 @@ def generate(path: Path, rng: random.Random, riscv: bool = False) -> None:
 
         successors = [f"^bb{succ}" for succ in range(block_id + 1, num_blocks)]
         if not successors:
-            returned, typ = gen.random_return_value()
+            memory_result = gen.emit_memory(force_load=True) if memory else None
+            required = (memory_result, "i64") if memory_result is not None else None
+            returned, typ = gen.random_return_value(required)
             return_type = typ
             lines.append(f'  "llvm.return"({returned}) : ({typ}) -> ()')
             continue
@@ -530,7 +590,8 @@ def generate(path: Path, rng: random.Random, riscv: bool = False) -> None:
 
     module_lines = [
         '"builtin.module"() ({',
-        f'  "llvm.func"() <{{sym_name = "main", function_type = !llvm.func<{return_type} ()>}}> ({{',
+        f'  "llvm.func"() <{{sym_name = "main", '
+        f'function_type = !llvm.func<{return_type} ({"!llvm.ptr" if memory else ""})>}}> ({{',
     ]
     module_lines.extend(f"    {line}" for line in lines)
     module_lines.append("  }) : () -> ()")
@@ -544,9 +605,13 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--seed", type=int, default=None, help="random seed; defaults to fresh system entropy")
     parser.add_argument("--riscv", action="store_true",
                         help="restrict bitwidths to those the RISC-V backend supports (32, 64)")
+    parser.add_argument(
+        "--memory", action=argparse.BooleanOptionalAction, default=True,
+        help=f"take a pointer argument and access {MEMORY_SIZE} bytes of i64 storage (default: enabled)",
+    )
     args = parser.parse_args(argv)
     seed = args.seed if args.seed is not None else secrets.randbits(64)
-    generate(args.output, random.Random(seed), args.riscv)
+    generate(args.output, random.Random(seed), args.riscv, args.memory)
     return 0
 
 
