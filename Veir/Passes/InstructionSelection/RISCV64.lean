@@ -850,7 +850,7 @@ def bitcast (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /-- llvm.load -> riscv.ld (i64) / riscv.lw (i32) / riscv.lb (i8) -/
 def load_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (ptr, _) := matchLoad op ctx | return (ctx, none)
+  let some (ptr, llvmProps) := matchLoad op ctx | return (ctx, none)
   /- support `i64`, `i32` and `i8` (the loaded value type) -/
   let type := ((op.getResult 0).get! ctx.raw).type
   let .integerType type' := type.val | return (ctx, none)
@@ -858,8 +858,10 @@ def load_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   /- cast ptr (!llvm.ptr) -> register -/
   let (ctx, pcastOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[ptr]
       #[] #[] () none
-  /- 64-bit `riscv.ld`, or its `lw` (i32) / `lb` (i8) variants -/
-  let zero := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
+  /- 64-bit `riscv.ld`, or its `lw` (i32) / `lb` (i8) variants. Volatility carries
+     over from the `llvm.load`: the riscv op encodes the same, but the flag keeps
+     later passes from deleting or duplicating the access. -/
+  let zero := RISCVMemProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64)) llvmProps.volatile_
   let (ctx, ldOp) ←
     if type'.bitwidth = 8 then
       WfRewriter.createOp! ctx (.riscv .lb) #[RegisterType.mk] #[pcastOp.getResult 0]
@@ -882,7 +884,7 @@ def load (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /-- llvm.store -> riscv.sd (i64) / riscv.sw (i32) / riscv.sb (i8) -/
 def store_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (arg, ptr, _) := matchStore op ctx | return (ctx, none)
+  let some (arg, ptr, llvmProps) := matchStore op ctx | return (ctx, none)
   /- support `i64`, `i32` and `i8` (the stored value type) -/
   let type := arg.getType! ctx.raw
   let .integerType type' := type.val | return (ctx, none)
@@ -893,8 +895,9 @@ def store_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   /- cast value (i64/i32/i8) -> register -/
   let (ctx, valcastOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[arg]
       #[] #[] () none
-  /- 64-bit `riscv.sd`, or its `sw` (i32, low 4 bytes) / `sb` (i8, low byte), with offset zero: operands are (addr, val), no results -/
-  let zero := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
+  /- 64-bit `riscv.sd`, or its `sw` (i32, low 4 bytes) / `sb` (i8, low byte), with offset zero: operands are (addr, val), no results.
+     Volatility carries over from the `llvm.store`, as in `load_local`. -/
+  let zero := RISCVMemProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64)) llvmProps.volatile_
   let (ctx, sdOp) ←
     if type'.bitwidth = 8 then
       WfRewriter.createOp! ctx (.riscv .sb) #[] #[valcastOp.getResult 0, pcastOp.getResult 0]
