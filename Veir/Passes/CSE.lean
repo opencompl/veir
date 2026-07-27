@@ -11,9 +11,8 @@ import Veir.Data.LLVM.Int.Basic
   * it only reasons within one basic block;
   * it only considers arithmetic operations (including icmps, select,
     and ext/trunc);
-  * it only works for instructions that return a single result;
   * distinct UB flags are treated as distinct instructions;
-  * it only supports the LLVM dialect (arith would be trivial to add);
+  * it only supports the LLVM, arith, and mod_arith dialects;
   * it does not use a worklist or iterate to fixpoint, so it may leave
     work undone when it finishes.
 -/
@@ -29,13 +28,13 @@ instance : Hashable Kind where
   hash k := mixHash (hash k.fst) (hash k.snd)
 
 /-- This is the basis for CSE: if two instructions have the same Key,
-    then they compute the same value: they are interchangeable. In
-    that case we can remove one of them and switch all of its uses to
-    the other. Proving this will be the crux of the eventual
-    correctness proof for this pass. -/
+    then they compute the same ordered sequence of result values. In
+    that case we can remove one of them and switch every result's uses
+    to the corresponding result of the other. Proving this will be the
+    crux of the eventual correctness proof for this pass. -/
 structure Key where
   kind : Kind
-  resultType : TypeAttr
+  resultTypes : Array TypeAttr
   operands : Array ValuePtr
 deriving DecidableEq, BEq, Hashable
 
@@ -45,7 +44,7 @@ def makeKey
     Key :=
   {
     kind
-    resultType := (op.getResult 0 : ValuePtr).getType! ctx
+    resultTypes := op.getResultTypes! ctx
     operands
   }
 
@@ -83,19 +82,20 @@ def ordinaryKey
     Key :=
   makeKey ctx op kind (op.getOperands! ctx)
 
-/-- Compute the Key for an `llvm.icmp`, canonicalizing equivalent
-    predicate/operand pairs. So, for example, `sgt x y` becomes
-    `slt y x`. -/
+/-- Compute the Key for an integer comparison (`llvm.icmp` or
+    `arith.cmpi`), canonicalizing equivalent predicate/operand pairs.
+    So, for example, `sgt x y` becomes `slt y x`. `mkKind` packages a
+    predicate back up with the comparison's own opcode, so comparisons
+    from different dialects never share a Key. -/
 def icmpKey
     (ctx : IRContext OpCode) (op : OperationPtr)
-    (props : propertiesOf (.llvm .icmp)) :
+    (mkKind : IcmpProperties → Kind) (props : IcmpProperties) :
     Key :=
-  let kind : Kind := ⟨.llvm .icmp, props⟩
+  let kind : Kind := mkKind props
   let lhs := op.getOperand! ctx 0
   let rhs := op.getOperand! ctx 1
   let swappedKey (pred : Data.LLVM.IntPred) : Key :=
-    let props := { props with predicate := pred }
-    makeKey ctx op ⟨.llvm .icmp, props⟩ #[rhs, lhs]
+    makeKey ctx op (mkKind { props with predicate := pred }) #[rhs, lhs]
   match props.predicate with
   | .eq | .ne => commutativeBinopKey ctx op kind
   | .slt | .sle | .ult | .ule => ordinaryKey ctx op kind
@@ -108,16 +108,27 @@ def icmpKey
     None. -/
 def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
   guard ((op.get! ctx).attrs.entries.size = 0)
-  guard (op.getNumResults! ctx = 1)
+  guard (op.getNumResults! ctx > 0)
   let opType := op.getOpType! ctx
   let properties := op.getProperties! ctx opType
   let kind : Kind := ⟨opType, properties⟩
   match opType with
   | .llvm .add | .llvm .mul | .llvm .and | .llvm .or | .llvm .xor
-  | .llvm .intr__smax | .llvm .intr__smin | .llvm .intr__umax | .llvm .intr__umin =>
+  | .llvm .intr__smax | .llvm .intr__smin | .llvm .intr__umax | .llvm .intr__umin
+  | .arith .addi | .arith .muli | .arith .andi | .arith .ori | .arith .xori
+  | .arith .maxsi | .arith .maxui | .arith .minsi | .arith .minui
+  | .arith .addui_extended | .arith .mulsi_extended | .arith .mului_extended
+  -- mod_arith carries its modulus in the operand and result types, and
+  -- `Key` includes the result types, so ops on different moduli never
+  -- collide.
+  | .mod_arith .add | .mod_arith .mul =>
       return commutativeBinopKey ctx op kind
   | .llvm .icmp =>
-      return icmpKey ctx op (op.getProperties! ctx (.llvm .icmp))
+      return icmpKey ctx op (fun props => ⟨.llvm .icmp, props⟩)
+        (op.getProperties! ctx (.llvm .icmp))
+  | .arith .cmpi =>
+      return icmpKey ctx op (fun props => ⟨.arith .cmpi, props⟩)
+        (op.getProperties! ctx (.arith .cmpi))
   | .llvm .sub | .llvm .mlir__constant
   | .llvm .shl | .llvm .lshr | .llvm .ashr
   | .llvm .intr__ctlz | .llvm .intr__cttz | .llvm .intr__ctpop
@@ -125,7 +136,14 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
   | .llvm .intr__fshl | .llvm .intr__fshr
   | .llvm .sdiv | .llvm .udiv | .llvm .srem | .llvm .urem
   | .llvm .zext | .llvm .sext | .llvm .trunc
-  | .llvm .select =>
+  | .llvm .select
+  | .arith .subi | .arith .constant
+  | .arith .shli | .arith .shrsi | .arith .shrui
+  | .arith .divsi | .arith .divui | .arith .remsi | .arith .remui
+  | .arith .ceildivsi | .arith .ceildivui | .arith .floordivsi
+  | .arith .extsi | .arith .extui | .arith .trunci
+  | .arith .select
+  | .mod_arith .sub | .mod_arith .constant =>
       return ordinaryKey ctx op kind
   | _ => none
 
@@ -144,8 +162,7 @@ def processBlock
     if let some key := key? ctx.raw op then
         match available[key]? with
         | some earlier =>
-            ctx := WfRewriter.replaceValue! ctx (op.getResult 0) (earlier.getResult 0)
-            ctx := WfRewriter.eraseOp! ctx op
+            ctx := WfRewriter.replaceOp! ctx op earlier
         | none =>
             available := available.insert key op
     current := next

@@ -6,4 +6,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Expected the block to end in a terminator, but the block is empty
+// CHECK: func.func: Expected the block to end in a terminator, but the block is empty
