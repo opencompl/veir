@@ -70,8 +70,15 @@ def OpCode.isTerminator (opCode : OpCode) : Bool :=
 def OpCode.hasSideEffects (opCode : OpCode) (props : _propertiesOf opCode) : Bool :=
   if opCode.isTerminator then true else
   match opCode, props with
-  -- Volatile loads are definitionally side-effecting
+  -- Volatile loads are definitionally side-effecting.
   | .llvm .load, props => props.volatile_
+  | .riscv .ld, props
+  | .riscv .lw, props
+  | .riscv .lwu, props
+  | .riscv .lh, props
+  | .riscv .lhu, props
+  | .riscv .lb, props
+  | .riscv .lbu, props => props.volatile_
   | opCode, _ =>
     match opCode with
     -- These dialects are pure
