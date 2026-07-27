@@ -50,6 +50,22 @@ def immValue? (ctx : IRContext OpCode) (op : OperationPtr) : Option Int :=
   | some (.integerAttr a) => some a.value
   | _ => none
 
+/-- Whether an op carries the optional `volatile_` unit property. -/
+def isVolatile (ctx : IRContext OpCode) (op : OperationPtr) : Bool :=
+  let opType := op.getOpType! ctx
+  let d := Properties.toAttrDict opType (op.getProperties! ctx opType)
+  match d["volatile_".toUTF8]? with
+  | some (.unitAttr _) => true
+  | _ => false
+
+/-- MIR MachineMemOperand suffix for a volatile memory access. -/
+def volatileMemOperandSuffix (isLoad : Bool) (bitwidth : Nat) (volatile_ : Bool) : String :=
+  if volatile_ then
+    let access := if isLoad then "load" else "store"
+    s!" :: (volatile {access} (s{bitwidth}))"
+  else
+    ""
+
 /-- The `operandSegmentSizes` property of a branch op, if present. -/
 def segments? (ctx : IRContext OpCode) (op : OperationPtr) : Option (Array Int) :=
   let opType := op.getOpType! ctx
@@ -230,6 +246,7 @@ def emitRegular (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
   let res := s!"%v{op.id}:gpr"
   let v := fun (i : Nat) => vreg ctx (ops[i]!)
   let imm := (immValue? ctx op).getD 0
+  let volatile_ := isVolatile ctx op
   match opType with
   | .builtin .unrealized_conversion_cast =>
     let operandAttr := (op.getOperandTypes! ctx)[0]?.map (·.val)
@@ -253,18 +270,18 @@ def emitRegular (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
     | .zextw => IO.println s!"    {res} = ADD_UW {v 0}, $x0"
     | .zextb => IO.println s!"    {res} = ANDI {v 0}, 255"
     -- memory: loads (result ← mem[base + imm])
-    | .ld  => IO.println s!"    {res} = LD {v 0}, {imm}"
-    | .lw  => IO.println s!"    {res} = LW {v 0}, {imm}"
-    | .lwu => IO.println s!"    {res} = LWU {v 0}, {imm}"
-    | .lh  => IO.println s!"    {res} = LH {v 0}, {imm}"
-    | .lhu => IO.println s!"    {res} = LHU {v 0}, {imm}"
-    | .lb  => IO.println s!"    {res} = LB {v 0}, {imm}"
-    | .lbu => IO.println s!"    {res} = LBU {v 0}, {imm}"
+    | .ld  => IO.println s!"    {res} = LD {v 0}, {imm}{volatileMemOperandSuffix true 64 volatile_}"
+    | .lw  => IO.println s!"    {res} = LW {v 0}, {imm}{volatileMemOperandSuffix true 32 volatile_}"
+    | .lwu => IO.println s!"    {res} = LWU {v 0}, {imm}{volatileMemOperandSuffix true 32 volatile_}"
+    | .lh  => IO.println s!"    {res} = LH {v 0}, {imm}{volatileMemOperandSuffix true 16 volatile_}"
+    | .lhu => IO.println s!"    {res} = LHU {v 0}, {imm}{volatileMemOperandSuffix true 16 volatile_}"
+    | .lb  => IO.println s!"    {res} = LB {v 0}, {imm}{volatileMemOperandSuffix true 8 volatile_}"
+    | .lbu => IO.println s!"    {res} = LBU {v 0}, {imm}{volatileMemOperandSuffix true 8 volatile_}"
     -- memory: stores (mem[base + imm] ← value; operands: value, base)
-    | .sd  => IO.println s!"    SD {v 0}, {v 1}, {imm}"
-    | .sw  => IO.println s!"    SW {v 0}, {v 1}, {imm}"
-    | .sh  => IO.println s!"    SH {v 0}, {v 1}, {imm}"
-    | .sb  => IO.println s!"    SB {v 0}, {v 1}, {imm}"
+    | .sd  => IO.println s!"    SD {v 0}, {v 1}, {imm}{volatileMemOperandSuffix false 64 volatile_}"
+    | .sw  => IO.println s!"    SW {v 0}, {v 1}, {imm}{volatileMemOperandSuffix false 32 volatile_}"
+    | .sh  => IO.println s!"    SH {v 0}, {v 1}, {imm}{volatileMemOperandSuffix false 16 volatile_}"
+    | .sb  => IO.println s!"    SB {v 0}, {v 1}, {imm}{volatileMemOperandSuffix false 8 volatile_}"
     | _ =>
       match unaryMnem rop with
       | some m => IO.println s!"    {res} = {m} {v 0}"

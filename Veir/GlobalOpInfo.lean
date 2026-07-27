@@ -1,6 +1,8 @@
 module
 
 public import Veir.Dialects.Arith.OpInfo
+public import Veir.Dialects.Builtin.OpInfo
+public import Veir.Dialects.Func.OpInfo
 public import Veir.Dialects.LLVM.OpInfo
 public import Veir.Dialects.RISCV.OpInfo
 public import Veir.Dialects.RISCV_Cf.OpInfo
@@ -10,6 +12,8 @@ public import Veir.Dialects.ModArith.OpInfo
 public import Veir.Dialects.Cf.OpInfo
 public import Veir.Dialects.Comb.OpInfo
 public import Veir.Dialects.HW.OpInfo
+public import Veir.Dialects.Datapath.OpInfo
+public import Veir.Dialects.Test.OpInfo
 public import Veir.IR.Basic
 
 namespace Veir
@@ -33,10 +37,10 @@ match opCode with
 | .cf op => Cf.propertiesOf op
 | .comb op => Comb.propertiesOf op
 | .hw op => HW.propertiesOf op
-| .builtin .unregistered => UnregisteredProperties
-| .func .func => FuncFuncProperties
-| .func .call => FuncCallProperties
-| _ => Unit
+| .builtin op => Builtin.propertiesOf op
+| .func op => Func.propertiesOf op
+| .datapath op => Datapath.propertiesOf op
+| .test op => Test.propertiesOf op
 
 instance : HasDialectOpInfo OpCode where
   propertiesOf := _propertiesOf
@@ -70,8 +74,15 @@ def OpCode.isTerminator (opCode : OpCode) : Bool :=
 def OpCode.hasSideEffects (opCode : OpCode) (props : _propertiesOf opCode) : Bool :=
   if opCode.isTerminator then true else
   match opCode, props with
-  -- Volatile loads are definitionally side-effecting
+  -- Volatile loads are definitionally side-effecting.
   | .llvm .load, props => props.volatile_
+  | .riscv .ld, props
+  | .riscv .lw, props
+  | .riscv .lwu, props
+  | .riscv .lh, props
+  | .riscv .lhu, props
+  | .riscv .lb, props
+  | .riscv .lbu, props => props.volatile_
   | opCode, _ =>
     match opCode with
     -- These dialects are pure
@@ -189,17 +200,17 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case bexti => exact (RISCVImmediateProperties.fromAttrDict attrDict)
     case binvi => exact (RISCVImmediateProperties.fromAttrDict attrDict)
     case bseti => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-    case ld => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-    case lw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-    case lwu => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-    case lh => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-    case lhu => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-    case lb => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-    case lbu => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-    case sd => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-    case sw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-    case sh => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-    case sb => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case ld => exact (RISCVMemProperties.fromAttrDict attrDict)
+    case lw => exact (RISCVMemProperties.fromAttrDict attrDict)
+    case lwu => exact (RISCVMemProperties.fromAttrDict attrDict)
+    case lh => exact (RISCVMemProperties.fromAttrDict attrDict)
+    case lhu => exact (RISCVMemProperties.fromAttrDict attrDict)
+    case lb => exact (RISCVMemProperties.fromAttrDict attrDict)
+    case lbu => exact (RISCVMemProperties.fromAttrDict attrDict)
+    case sd => exact (RISCVMemProperties.fromAttrDict attrDict)
+    case sw => exact (RISCVMemProperties.fromAttrDict attrDict)
+    case sh => exact (RISCVMemProperties.fromAttrDict attrDict)
+    case sb => exact (RISCVMemProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case riscv_cf op =>
     cases op
@@ -361,10 +372,19 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
   | .riscv .li  | .riscv .lui | .riscv .auipc | .riscv .andi | .riscv .ori | .riscv .xori
   | .riscv .addi | .riscv .slti | .riscv .sltiu | .riscv .addiw | .riscv .slli | .riscv .srli | .riscv .srai
   | .riscv .slliw | .riscv .srliw | .riscv .sraiw | .riscv .rori | .riscv .roriw | .riscv .slliuw
-  | .riscv .bclri | .riscv .bexti | .riscv .binvi | .riscv .bseti | .riscv .ld | .riscv .sd
-  | .riscv .lw | .riscv .lwu | .riscv .lh | .riscv .lhu | .riscv .lb | .riscv .lbu
-  | .riscv .sw | .riscv .sh | .riscv .sb | .mod_arith .constant =>
+  | .riscv .bclri | .riscv .bexti | .riscv .binvi | .riscv .bseti
+  | .mod_arith .constant =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  -- The memory ops additionally carry a volatile flag, printed (like the LLVM
+  -- dialect's `volatile_`) only when set, so ordinary accesses are unchanged.
+  | .riscv .ld | .riscv .lw | .riscv .lwu | .riscv .lh | .riscv .lhu
+  | .riscv .lb | .riscv .lbu
+  | .riscv .sd | .riscv .sw | .riscv .sh | .riscv .sb => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 2
+    dict := dict.insert "value".toUTF8 (Attribute.integerAttr props.value)
+    if props.volatile_ then
+      dict := dict.insert "volatile_".toUTF8 (.unitAttr UnitAttr.mk)
+    dict
   | .riscv_stack .alloca => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
     dict := dict.insert "alignment".toUTF8 (Attribute.integerAttr props.alignment)

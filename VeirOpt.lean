@@ -53,7 +53,7 @@ def passGroups : Std.HashMap String String :=
   (Std.HashMap.emptyWithCapacity 2)
     |>.insert "O" "canonicalize,instcombine,cse,dce"
     |>.insert "riscv"
-        "isel-br-riscv64,canonicalize,isel-sdag-riscv64,isel-riscv64,riscv-combine,reconcile-cast,dce"
+        "isel-sdag-riscv64,isel-br-riscv64,isel-riscv64,reconcile-cast,riscv-combine,dce"
 
 /--
   A human-readable description of every pass group and the passes it expands to,
