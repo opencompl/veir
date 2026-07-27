@@ -220,25 +220,26 @@ def insertOp! (rewriter: PatternRewriter OpInfo) (op: OperationPtr) (ip : Insert
 /--
 Walk a use chain and check that at most one operation besides `exceptOp` uses
 the value: uses owned by `exceptOp` are ignored, and multiple uses from a
-single other operation count as one user. Returns `false` when out of fuel.
+single other operation count as one user. Returns `none` when the chain leaves
+the context, in which case nothing can be concluded about the users.
 -/
-private def useChainHasAtMostOneUserBesides (ctx : IRContext OpInfo)
+private partial def useChainHasAtMostOneUserBesides (ctx : IRContext OpInfo)
     (useChain : Option OpOperandPtr) (exceptOp : OperationPtr)
-    (otherUser : Option OperationPtr) (maxIteration : Nat) : Bool :=
-  match maxIteration with
-  | maxIteration + 1 =>
-    match useChain with
-    | some use =>
-      let useStruct := use.get! ctx
+    (otherUser : Option OperationPtr) : Option Bool :=
+  match useChain with
+  | some use =>
+    if h : use.InBounds ctx then
+      let useStruct := use.get ctx h
       let owner := useStruct.owner
       if owner = exceptOp ∨ otherUser = some owner then
-        useChainHasAtMostOneUserBesides ctx useStruct.nextUse exceptOp otherUser maxIteration
+        useChainHasAtMostOneUserBesides ctx useStruct.nextUse exceptOp otherUser
       else if otherUser.isNone then
-        useChainHasAtMostOneUserBesides ctx useStruct.nextUse exceptOp (some owner) maxIteration
+        useChainHasAtMostOneUserBesides ctx useStruct.nextUse exceptOp (some owner)
       else
-        false
-    | none => true
-  | 0 => false
+        some false
+    else
+      none
+  | none => some true
 
 def eraseOp (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
     (opRegions : op.getNumRegions! rewriter.ctx.raw = 0 := by grind)
@@ -252,7 +253,7 @@ def eraseOp (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
   let mut worklist := rewriter.worklist.remove op
   for operand in op.getOperands ctx hOp do
     let some defOp := operand.getDefiningOp! ctx | continue
-    if useChainHasAtMostOneUserBesides ctx (operand.getFirstUse! ctx) op none 1_000_000_000 then
+    if (useChainHasAtMostOneUserBesides ctx (operand.getFirstUse! ctx) op none).getD false then
       worklist := worklist.push defOp
   return { rewriter with
     ctx := WfRewriter.eraseOp rewriter.ctx op opRegions opUses hOp,
