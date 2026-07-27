@@ -153,14 +153,14 @@ private theorem ValuePtr.inBounds_getFirstUse {value : ValuePtr} (hv : value.InB
     (value.getFirstUse ctx.raw hv).maybe OpOperandPtr.InBounds ctx.raw := by
   grind [Option.maybe_def]
 
-def addUsersInWorklist (rewriter: PatternRewriter OpInfo) (value: ValuePtr)
+private def addUsersInWorklist (rewriter: PatternRewriter OpInfo) (value: ValuePtr)
     (hv : value.InBounds rewriter.ctx.raw) : PatternRewriter OpInfo :=
   let useChain := value.getFirstUse rewriter.ctx.raw (by grind)
   rewriter.addUseChainUserInWorklist useChain 1_000_000_000 (by
     grind [Option.maybe_def, ValuePtr.inBounds_getFirstUse])
 
 @[grind =]
-theorem addUsersInWorklist_same_ctx :
+private theorem addUsersInWorklist_same_ctx :
     (addUsersInWorklist rewriter value hv).ctx = rewriter.ctx := by
   simp [addUsersInWorklist]
 
@@ -313,7 +313,6 @@ def replaceOp! (rewriter: PatternRewriter OpInfo) (oldOp newOp: OperationPtr)
   else
     panic! "PatternRewriter.replaceOp! failed: old operation is out of bounds"
 
-@[expose]
 def replaceValue (rewriter: PatternRewriter OpInfo) (oldVal newVal: ValuePtr)
     (neValues : oldVal ≠ newVal := by grind)
     (oldIn: oldVal.InBounds rewriter.ctx.raw := by grind)

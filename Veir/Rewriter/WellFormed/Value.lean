@@ -165,6 +165,24 @@ theorem Rewriter.replaceUse_WellFormed (ctx: IRContext OpInfo) (use : OpOperandP
       intros regionPtr regionPtrInBounds
       apply RegionPtr.WellFormed_unchanged (ctx := ctx) <;> grind [IRContext.WellFormed]
 
+/-- Redirecting a single use only affects the use lists of the two values involved: any other value
+keeps its uses. -/
+theorem ValuePtr.hasUses!_replaceUse_otherValue {other value' : ValuePtr} {use : OpOperandPtr}
+    (ctxWf : ctx.WellFormed) {useIn : use.InBounds ctx} {ctxIn : ctx.FieldsInBounds}
+    {newIn : value'.InBounds ctx} (otherIn : other.InBounds ctx)
+    (otherNeOld : other ≠ (use.get! ctx).value) (otherNeNew : other ≠ value') :
+    other.hasUses! (Rewriter.replaceUse ctx use value' useIn newIn ctxIn)
+      = other.hasUses! ctx := by
+  by_cases h : (use.get! ctx).value = value'
+  · simp [Rewriter.replaceUse, ← OpOperandPtr.get!_eq_get, h]
+  · have ⟨array, harray⟩ := ctxWf.valueDefUseChains (use.get! ctx).value (by grind)
+    have ⟨array', harray'⟩ := ctxWf.valueDefUseChains value' newIn
+    have ⟨array'', harray''⟩ := ctxWf.valueDefUseChains other otherIn
+    simp only [Std.ExtHashSet.filter_empty] at harray harray' harray''
+    have := Rewriter.replaceUse_DefUse_otherValue (useIn := useIn) (ctxIn := ctxIn)
+      (newValueInBounds := newIn) rfl harray harray' harray'' otherNeOld otherNeNew h
+    grind [ValuePtr.DefUse.hasUses!_iff]
+
 /-! ## Rewriter.replaceValue? -/
 
 theorem Rewriter.replaceValue?_WellFormed (ctx: IRContext OpInfo) (oldValue: ValuePtr) (newValue: ValuePtr)
