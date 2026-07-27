@@ -15,6 +15,10 @@
         %c4 = "llvm.mlir.constant"() <{"value" = -1 : i1 }> : () -> i1
         // CHECK: %[[A:.*]] = "riscv.li"() <{"value" = -1 : i1}> : () -> !riscv.reg
         // CHECK-NEXT: {{.*}} = "builtin.unrealized_conversion_cast"(%[[A]]) : (!riscv.reg) -> i1
+        "test.test"(%c1) : (i64) -> ()
+        "test.test"(%c2) : (i32) -> ()
+        "test.test"(%c3) : (i8) -> ()
+        "test.test"(%c4) : (i1) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

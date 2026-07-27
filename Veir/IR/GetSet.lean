@@ -100,8 +100,11 @@ theorem OpOperandPtr.get!_OperationPtr_allocEmpty  {opOperand : OpOperandPtr}
 @[simp, grind =>]
 theorem OperationPtr.getProperties!_OperationPtr_allocEmpty {operation : OperationPtr}
     (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
-    operation.getProperties! ctx' ty =
-    if operation = op' then properties else operation.getProperties! ctx ty := by
+    operation.getProperties! ctx' ty' =
+    if operation = op' then
+      if h : ty' = ty then h ▸ properties else default
+    else
+      operation.getProperties! ctx ty' := by
   grind
 
 @[grind =>]
