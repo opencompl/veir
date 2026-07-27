@@ -232,6 +232,8 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   case llvm op =>
     cases op
     case mlir__constant => exact (LLVMConstantProperties.fromAttrDict attrDict)
+    case mlir__global => exact (LLVMGlobalProperties.fromAttrDict attrDict)
+    case mlir__addressof => exact (LLVMAddressOfProperties.fromAttrDict attrDict)
     case add => exact (NswNuwProperties.fromAttrDict attrDict)
     case sub => exact (NswNuwProperties.fromAttrDict attrDict)
     case mul => exact (NswNuwProperties.fromAttrDict attrDict)
@@ -317,6 +319,22 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
       (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (Attribute.floatAttr floatAttr)
     | .dense denseAttr =>
       (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (Attribute.denseElementsAttr denseAttr)
+  | .llvm .mlir__global => Id.run do
+    let mut dict := Std.HashMap.ofList props.extra.entries.toList
+    dict := dict.insert "sym_name".toUTF8 (.stringAttr props.sym_name)
+    dict := dict.insert "global_type".toUTF8 props.global_type
+    dict := dict.insert "alignment".toUTF8 (.integerAttr props.alignment)
+    dict := dict.insert "addr_space".toUTF8 (.integerAttr props.addr_space)
+    dict := dict.insert "linkage".toUTF8 (.linkageAttr props.linkage)
+    if let some value := props.value then
+      dict := dict.insert "value".toUTF8 value
+    if props.constant then
+      dict := dict.insert "constant".toUTF8 (.unitAttr UnitAttr.mk)
+    dict
+  | .llvm .mlir__addressof => Id.run do
+    let mut dict := Std.HashMap.ofList props.extra.entries.toList
+    dict := dict.insert "global_name".toUTF8 (.flatSymbolRefAttr props.global_name)
+    dict
   | .arith .addi | .arith .subi | .arith .muli | .arith .shli | .arith .trunci => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 1
     if props.attr.nsw || props.attr.nuw then

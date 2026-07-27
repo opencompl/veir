@@ -74,6 +74,8 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 inductive Llvm where
 | mlir__constant
 | mlir__poison
+| mlir__global
+| mlir__addressof
 | and
 | or
 | xor

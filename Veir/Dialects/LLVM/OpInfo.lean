@@ -12,6 +12,8 @@ public section
 def Llvm.propertiesOf (op : Llvm) : Type :=
 match op with
 | .mlir__constant => LLVMConstantProperties
+| .mlir__global => LLVMGlobalProperties
+| .mlir__addressof => LLVMAddressOfProperties
 | .add => NswNuwProperties
 | .sub => NswNuwProperties
 | .mul => NswNuwProperties
