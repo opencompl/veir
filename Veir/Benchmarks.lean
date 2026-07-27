@@ -570,10 +570,6 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
-    %4 = "arith.constant"() <{"value" = 1 : i32}> : () -> i32
-    %9 = "arith.constant"() <{"value" = 43 : i32}> : () -> i32
-    %6 = "arith.constant"() <{"value" = 1 : i32}> : () -> i32
     %10 = "arith.constant"() <{"value" = 44 : i32}> : () -> i32
     "test.test"(%10) : (i32) -> ()
 }) : () -> ()

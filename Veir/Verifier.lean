@@ -287,6 +287,30 @@ def OperationPtr.verifyIntegerBinop (op : OperationPtr) (ctx : WfIRContext OpCod
   let operandType ← op.verifyOperandTypesMatch ctx 0 1 s!"{instrName}: Expected operands to have the same type"
   op.verifyResultTypeMatches ctx operandType s!"{instrName}: Expected result type to match operand type"
 
+/--
+  Verify an `arith` extended operation with two same-typed integer operands and
+  two results. The low result always matches the operand type; the high result
+  is either an `i1` overflow flag (`addui_extended`) or another value of the
+  operand type (`mulsi_extended` / `mului_extended`).
+-/
+def OperationPtr.verifyArithExtendedOp (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) (secondResultIsI1 : Bool) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 2 2
+  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
+  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType
+    s!"{instrName}: Expected operand 0 to have integer type"
+  ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerType
+    s!"{instrName}: Expected operand 1 to have integer type"
+  let operandType ← op.verifyOperandTypesMatch ctx 0 1
+    s!"{instrName}: Expected operands to have the same type"
+  op.verifyResultTypeMatches ctx operandType
+    s!"{instrName}: Expected result 0 type to match operand type"
+  let result1Type := ((op.getResult 1).get! ctx.raw).type
+  if secondResultIsI1 then
+    result1Type.verifyI1 s!"{instrName}: Expected i1 result 1"
+  else if result1Type.val ≠ operandType.val then
+    throw s!"{instrName}: Expected result 1 type to match operand type"
+
 def OperationPtr.verifyIntegerTernop (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 3 1
@@ -407,6 +431,25 @@ def OperationPtr.verifyRISCVRegisterTypes (op : OperationPtr) (ctx : WfIRContext
     | .registerType _ => pure ()
     | _ => throw s!"{instrName}: Expected result {i} to have !riscv.reg type"
 
+/--
+  Reject any operand or result whose type is a zero-width integer (`i0`).
+  Whether `i0` is legal is a per-dialect policy, so this is called explicitly
+  from the verifier arm of each operation that forbids it (currently every
+  `arith` and `llvm` operation) rather than being applied dialect-wide.
+-/
+def OperationPtr.checkIsNonNullIntegerType (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
+  let opTypes := op.getOperandTypes! ctx.raw
+  for i in [0:opTypes.size] do
+    if let .integerType intType := (opTypes[i]!).val then
+      if intType.bitwidth = 0 then
+        throw s!"{instrName}: operand {i} has forbidden i0 type"
+  for i in [0:op.getNumResults ctx.raw opIn] do
+    if let .integerType intType := ((op.getResult i).get! ctx.raw).type.val then
+      if intType.bitwidth = 0 then
+        throw s!"{instrName}: result {i} has forbidden i0 type"
+
 def TypeAttr.verifyModArithType (ty : TypeAttr) (msg : String): Except String ModArithType :=
   match ty.val with
   | .modArithType type => do
@@ -465,15 +508,23 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
   | .arith .maxui | .arith .minsi | .arith .minui | .arith .muli
   | .arith .ori | .arith .remsi | .arith .remui | .arith .shli
   | .arith .shrsi | .arith .shrui | .arith .subi | .arith .xori => do
+    op.checkIsNonNullIntegerType ctx opIn
     op.verifyIntegerBinop ctx opIn
     pure ()
-  | .arith .addui_extended | .arith .mulsi_extended | .arith .mului_extended => do
-    op.verifyPlainOpCounts ctx opIn 2 2
+  | .arith .addui_extended => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyArithExtendedOp ctx opIn true
+    pure ()
+  | .arith .mulsi_extended | .arith .mului_extended => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyArithExtendedOp ctx opIn false
     pure ()
   | .arith .cmpi => do
+    op.checkIsNonNullIntegerType ctx opIn
     op.verifyICmp ctx opIn
     pure ()
   | .arith .constant => do
+    op.checkIsNonNullIntegerType ctx opIn
     if op.getNumOperands ctx.raw opIn ≠ 0 then
       throw "Expected 0 operands"
     else if _ : op.getNumResults ctx.raw opIn ≠ 1 then
@@ -487,12 +538,15 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
         throw "Expected result type to be equal to the constant's type"
     pure ()
   | .arith .extui | .arith .extsi => do
+    op.checkIsNonNullIntegerType ctx opIn
     op.verifyIntegerExtTypes ctx opIn
     pure ()
   | .arith .select => do
+    op.checkIsNonNullIntegerType ctx opIn
     op.verifySelectTypes ctx opIn
     pure ()
   | .arith .trunci => do
+    op.checkIsNonNullIntegerType ctx opIn
     op.verifyTruncTypes ctx opIn false
     pure ()
   | .builtin .module => do
@@ -570,6 +624,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     pure ()
   /- LLVM -/
   | .llvm .mlir__constant => do
+    op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 0 1
     -- Unlike `arith.constant`, `llvm.mlir.constant` does not require the value
     -- attribute's type to match the result type exactly. An integer attribute
@@ -605,6 +660,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       | _ => throw "llvm.mlir.constant: Expected array result type for a dense elements constant"
     pure ()
   | .llvm .mlir__poison => do
+    op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 0 1
     pure ()
   | .llvm .and | .llvm .or | .llvm .xor | .llvm .intr__smax | .llvm .intr__smin
@@ -614,22 +670,28 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
   | .llvm .intr__sadd__sat | .llvm .intr__uadd__sat
   | .llvm .intr__ssub__sat | .llvm .intr__usub__sat
   | .llvm .intr__sshl__sat | .llvm .intr__ushl__sat => do
+    op.checkIsNonNullIntegerType ctx opIn
     op.verifyIntegerBinop ctx opIn
     pure ()
   | .llvm .lshr | .llvm .shl => do
+    op.checkIsNonNullIntegerType ctx opIn
     op.verifyLLVMShift ctx opIn
     pure ()
   | .llvm .intr__abs => do
+    op.checkIsNonNullIntegerType ctx opIn
     let _ ← op.verifyIntegerUnop ctx opIn
     pure ()
   | .llvm .intr__fshl | .llvm .intr__fshr => do
+    op.checkIsNonNullIntegerType ctx opIn
     op.verifyIntegerTernop ctx opIn
     pure ()
   | .llvm .intr__ctlz | .llvm .intr__cttz | .llvm .intr__ctpop
   | .llvm .intr__bitreverse => do
+    op.checkIsNonNullIntegerType ctx opIn
     let _ ← op.verifyIntegerUnop ctx opIn
     pure ()
   | .llvm .intr__bswap => do
+    op.checkIsNonNullIntegerType ctx opIn
     let operandType ← op.verifyIntegerUnop ctx opIn
     let .integerType intType := operandType.val
       | throw "llvm.intr.bswap: Expected operand 0 to have integer type"
@@ -637,26 +699,34 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "llvm.intr.bswap: bitwidth must be 16, 32, or 64"
     pure ()
   | .llvm .icmp => do
+    op.checkIsNonNullIntegerType ctx opIn
     op.verifyLLVMICmp ctx opIn
     pure ()
   | .llvm .select => do
+    op.checkIsNonNullIntegerType ctx opIn
     op.verifySelectTypes ctx opIn
     pure ()
   | .llvm .trunc => do
+    op.checkIsNonNullIntegerType ctx opIn
     op.verifyTruncTypes ctx opIn true
     pure ()
   | .llvm .sext | .llvm .zext => do
+    op.checkIsNonNullIntegerType ctx opIn
     op.verifyIntegerExtTypes ctx opIn
     pure ()
   | .llvm .return => do
+    op.checkIsNonNullIntegerType ctx opIn
     op.verifyTerminatorCounts ctx opIn 0
     op.verifyLLVMReturnTypes ctx opIn
   | .llvm .unreachable => do
+    op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 0 0
     pure ()
   | .llvm .br => do
+    op.checkIsNonNullIntegerType ctx opIn
     op.verifyUnconditionalBranch ctx opIn
   | .llvm .cond_br => do
+    op.checkIsNonNullIntegerType ctx opIn
     op.verifyTerminatorCounts ctx opIn 2
     let weights := (op.getProperties! ctx.raw (.llvm .cond_br)).branch_weights
     if weights.values.size ≠ 2 && weights.values.size ≠ 0 then
@@ -664,6 +734,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     let sizes := (op.getProperties! ctx.raw (.llvm .cond_br)).operandSegmentSizes
     op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 1
   | .llvm .alloca => do
+    op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 1 1
     let properties := (op.getProperties! ctx.raw (.llvm .alloca))
     if properties.alignment.type.bitwidth ≠ 64 then
@@ -671,6 +742,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
 
     pure ()
   | .llvm .load => do
+    op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 1 1
     let properties := (op.getProperties! ctx.raw (.llvm .load))
     if properties.alignment.type.bitwidth ≠ 64 then
@@ -678,12 +750,14 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
 
     pure ()
   | .llvm .store => do
+    op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 2 0
     let properties := (op.getProperties! ctx.raw (.llvm .store))
     if properties.alignment.type.bitwidth ≠ 64 then
       throw "'llvm.store' op attribute 'alignment' failed to satisfy constraint: 64-bit signless integer attribute"
     pure ()
   | .llvm .getelementptr => do
+    op.checkIsNonNullIntegerType ctx opIn
     let props := op.getProperties! ctx.raw (.llvm .getelementptr)
     let dynamicCount := props.rawConstantIndices.values.filter (· == -2147483648) |>.size
     if op.getNumOperands ctx.raw opIn ≠ 1 + dynamicCount then
@@ -696,6 +770,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 successors"
     pure ()
   | .llvm .call => do
+    op.checkIsNonNullIntegerType ctx opIn
     if op.getNumResults ctx.raw opIn > 1 then
       throw "Expected at most 1 result"
     if op.getNumRegions ctx.raw opIn ≠ 0 then
@@ -704,6 +779,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 successors"
     pure ()
   | .llvm .func => do
+    op.checkIsNonNullIntegerType ctx opIn
     if op.getNumOperands ctx.raw opIn ≠ 0 then
       throw "Expected 0 operands"
     if op.getNumResults ctx.raw opIn ≠ 0 then
@@ -718,17 +794,21 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected symbol name"
     pure ()
   | .llvm .fadd | .llvm .fsub | .llvm .fmul | .llvm .fdiv | .llvm .frem => do
+    op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 2 1
     pure ()
   | .llvm .module_flags => do
+    op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 0 0
     pure ()
   | .llvm .freeze => do
+    op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 1 1
     op.verifyResultTypeMatches ctx ((op.getOperand! ctx.raw 0).getType! ctx.raw)
       "llvm.freeze: Expected result type to match operand type"
     pure ()
   | .llvm .bitcast => do
+    op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 1 1
     if Attribute.bitwidthOfType ((op.getOperand! ctx.raw 0).getType! ctx.raw) ≠ Attribute.bitwidthOfType (op.getResultTypes! ctx.raw)[0]! then
       throw "llvm.bitcast: Expected types of the same bitwidth"
@@ -1002,11 +1082,18 @@ def OperationPtr.verifyTerminatorPosition (op : OperationPtr) (ctx : WfIRContext
 def BlockPtr.verifyTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
     (blockIn : block.InBounds ctx.raw) : Except String PUnit := do
   let b := block.get ctx.raw blockIn
+  let named (msg : String) : String :=
+    match b.parent with
+    | some region =>
+      match (region.get! ctx.raw).parent with
+      | some parentOp => s!"{String.fromUTF8! (parentOp.getOpType! ctx.raw).name}: {msg}"
+      | none => msg
+    | none => msg
   match b.lastOp with
-  | none => throw "Expected the block to end in a terminator, but the block is empty"
+  | none => throw (named "Expected the block to end in a terminator, but the block is empty")
   | some lastOp =>
     if !(lastOp.getOpType! ctx.raw).isTerminator then
-      throw "Expected the last operation of a block to be a terminator"
+      throw (named "Expected the last operation of a block to be a terminator")
 
 /--
   Check that every successor belongs to the same region as its predecessor.
@@ -1156,6 +1243,18 @@ private theorem OperationPtr.verifyIntegerBinop_eq_ok {ctx : WfIRContext OpCode}
   grind
 
 /--
+  Peel a successful leading statement off a `do` block: if `x >>= f` succeeded then so did
+  `f ()`. Every `arith` and `llvm` verifier arm starts with `checkIsNonNullIntegerType`, so the
+  `armReduces` hypotheses below carry that leading statement and this discards it before the
+  rest of the arm is analysed.
+-/
+private theorem Except.ok_of_bind_ok {ε α : Type} {x : Except ε PUnit} {f : PUnit → Except ε α}
+    {a : α} (h : (x >>= f) = .ok a) : f ⟨⟩ = .ok a := by
+  cases x with
+  | ok u => cases u; simpa [bind, Except.bind] using h
+  | error e => simp [bind, Except.bind] at h
+
+/--
   Reduce a verified integer binary operation to a successful `verifyIntegerBinop` check.
   The hypothesis `armReduces` says the operation's local-invariant check is exactly the
   `verifyIntegerBinop` arm; it is discharged per operation by unfolding the dispatcher at the
@@ -1164,9 +1263,11 @@ private theorem OperationPtr.verifyIntegerBinop_eq_ok {ctx : WfIRContext OpCode}
 private theorem OperationPtr.verifyIntegerBinop_ok_of_Verified {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds)
     (armReduces : op.verifyLocalInvariants ctx opInBounds
-      = (op.verifyIntegerBinop ctx opInBounds >>= fun _ => pure ())) :
+      = (op.checkIsNonNullIntegerType ctx opInBounds >>= fun _ =>
+          op.verifyIntegerBinop ctx opInBounds >>= fun _ => pure ())) :
     op.verifyIntegerBinop ctx opInBounds = .ok () := by
   rw [Verified, armReduces] at opVerify
+  replace opVerify := Except.ok_of_bind_ok opVerify
   cases hb : op.verifyIntegerBinop ctx opInBounds with
   | ok u => rfl
   | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
@@ -1192,9 +1293,11 @@ theorem OperationPtr.Verified.llvm_mlir__constant_resultType {op : OperationPtr}
     (opType : op.getOpType! ctx.raw = .llvm .mlir__constant)
     (hProp : (op.getProperties! ctx.raw (.llvm .mlir__constant)).value = .integer intAttr) :
     ∃ intTy : IntegerType, ((op.getResult 0).get! ctx.raw).type.val = .integerType intTy := by
-  simp only [Verified, verifyLocalInvariants, ← getOpType!_eq_getOpType, opType, verifyPlainOpCounts,
-    hProp, ne_eq, bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure]
-    at opVerify
+  rw [Verified] at opVerify
+  simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType] at opVerify
+  replace opVerify := Except.ok_of_bind_ok opVerify
+  simp only [verifyPlainOpCounts, hProp, ne_eq, bind, Except.bind, throw, throwThe,
+    MonadExceptOf.throw, pure, Except.pure] at opVerify
   cases hty : ((op.getResult 0).get! ctx.raw).type.val with
   | integerType intTy => exact ⟨intTy, rfl⟩
   | _ =>
@@ -1229,9 +1332,11 @@ private theorem OperationPtr.verifyLLVMICmp_eq_ok {ctx : WfIRContext OpCode} {op
 private theorem OperationPtr.verifyLLVMICmp_ok_of_Verified {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds)
     (armReduces : op.verifyLocalInvariants ctx opInBounds
-      = (op.verifyLLVMICmp ctx opInBounds >>= fun _ => pure ())) :
+      = (op.checkIsNonNullIntegerType ctx opInBounds >>= fun _ =>
+          op.verifyLLVMICmp ctx opInBounds >>= fun _ => pure ())) :
     op.verifyLLVMICmp ctx opInBounds = .ok () := by
   rw [Verified, armReduces] at opVerify
+  replace opVerify := Except.ok_of_bind_ok opVerify
   cases hb : op.verifyLLVMICmp ctx opInBounds with
   | ok u => rfl
   | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
@@ -1252,7 +1357,8 @@ theorem OperationPtr.Verified.llvm_icmp {op : OperationPtr} {opInBounds}
 private theorem OperationPtr.Verified.integerBinop {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds)
     (armReduces : op.verifyLocalInvariants ctx opInBounds
-      = (op.verifyIntegerBinop ctx opInBounds >>= fun _ => pure ())) :
+      = (op.checkIsNonNullIntegerType ctx opInBounds >>= fun _ =>
+          op.verifyIntegerBinop ctx opInBounds >>= fun _ => pure ())) :
     op.IsVerifiedIntegerBinop ctx :=
   op.verifyIntegerBinop_eq_ok <| op.verifyIntegerBinop_ok_of_Verified opVerify armReduces
 
@@ -1279,9 +1385,11 @@ private theorem OperationPtr.verifySelectTypes_eq_ok {ctx : WfIRContext OpCode} 
 private theorem OperationPtr.verifySelectTypes_ok_of_Verified {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds)
     (armReduces : op.verifyLocalInvariants ctx opInBounds
-      = (op.verifySelectTypes ctx opInBounds >>= fun _ => pure ())) :
+      = (op.checkIsNonNullIntegerType ctx opInBounds >>= fun _ =>
+          op.verifySelectTypes ctx opInBounds >>= fun _ => pure ())) :
     op.verifySelectTypes ctx opInBounds = .ok () := by
   rw [Verified, armReduces] at opVerify
+  replace opVerify := Except.ok_of_bind_ok opVerify
   cases hb : op.verifySelectTypes ctx opInBounds with
   | ok u => rfl
   | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
@@ -1317,9 +1425,11 @@ private theorem OperationPtr.verifyLLVMShift_eq_ok {ctx : WfIRContext OpCode} {o
 private theorem OperationPtr.verifyLLVMShift_ok_of_Verified {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds)
     (armReduces : op.verifyLocalInvariants ctx opInBounds
-      = (op.verifyLLVMShift ctx opInBounds >>= fun _ => pure ())) :
+      = (op.checkIsNonNullIntegerType ctx opInBounds >>= fun _ =>
+          op.verifyLLVMShift ctx opInBounds >>= fun _ => pure ())) :
     op.verifyLLVMShift ctx opInBounds = .ok () := by
   rw [Verified, armReduces] at opVerify
+  replace opVerify := Except.ok_of_bind_ok opVerify
   cases hb : op.verifyLLVMShift ctx opInBounds with
   | ok u => rfl
   | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
@@ -1327,7 +1437,8 @@ private theorem OperationPtr.verifyLLVMShift_ok_of_Verified {op : OperationPtr} 
 private theorem OperationPtr.Verified.llvmShift {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds)
     (armReduces : op.verifyLocalInvariants ctx opInBounds
-      = (op.verifyLLVMShift ctx opInBounds >>= fun _ => pure ())) :
+      = (op.checkIsNonNullIntegerType ctx opInBounds >>= fun _ =>
+          op.verifyLLVMShift ctx opInBounds >>= fun _ => pure ())) :
     op.IsVerifiedLLVMShift ctx :=
   op.verifyLLVMShift_eq_ok <| op.verifyLLVMShift_ok_of_Verified opVerify armReduces
 
@@ -1564,9 +1675,11 @@ private theorem OperationPtr.verifyIntegerUnop_eq_ok {ctx : WfIRContext OpCode} 
 private theorem OperationPtr.verifyIntegerUnop_ok_of_Verified {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds)
     (armReduces : op.verifyLocalInvariants ctx opInBounds
-      = (op.verifyIntegerUnop ctx opInBounds >>= fun _ => pure ())) :
+      = (op.checkIsNonNullIntegerType ctx opInBounds >>= fun _ =>
+          op.verifyIntegerUnop ctx opInBounds >>= fun _ => pure ())) :
     ∃ ty, op.verifyIntegerUnop ctx opInBounds = .ok ty := by
   rw [Verified, armReduces] at opVerify
+  replace opVerify := Except.ok_of_bind_ok opVerify
   cases hb : op.verifyIntegerUnop ctx opInBounds with
   | ok ty => exact ⟨ty, rfl⟩
   | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
@@ -1623,8 +1736,9 @@ theorem OperationPtr.Verified.llvm_intr__bswap {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__bswap) :
     op.IsVerifiedIntegerUnop ctx := by
   rw [Verified] at opVerify
-  simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType, bind, Except.bind]
-    at opVerify
+  simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType] at opVerify
+  replace opVerify := Except.ok_of_bind_ok opVerify
+  simp only [bind, Except.bind] at opVerify
   obtain ⟨ty, hty⟩ : ∃ ty, op.verifyIntegerUnop ctx opInBounds = .ok ty := by
     cases hb : op.verifyIntegerUnop ctx opInBounds with
     | ok ty => exact ⟨ty, rfl⟩
@@ -1670,9 +1784,11 @@ private theorem OperationPtr.verifyIntegerTernop_eq_ok {ctx : WfIRContext OpCode
 private theorem OperationPtr.verifyIntegerTernop_ok_of_Verified {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds)
     (armReduces : op.verifyLocalInvariants ctx opInBounds
-      = (op.verifyIntegerTernop ctx opInBounds >>= fun _ => pure ())) :
+      = (op.checkIsNonNullIntegerType ctx opInBounds >>= fun _ =>
+          op.verifyIntegerTernop ctx opInBounds >>= fun _ => pure ())) :
     op.verifyIntegerTernop ctx opInBounds = .ok () := by
   rw [Verified, armReduces] at opVerify
+  replace opVerify := Except.ok_of_bind_ok opVerify
   cases hb : op.verifyIntegerTernop ctx opInBounds with
   | ok u => rfl
   | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
@@ -1685,7 +1801,8 @@ private theorem OperationPtr.verifyIntegerTernop_ok_of_Verified {op : OperationP
 private theorem OperationPtr.Verified.integerTernop {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds)
     (armReduces : op.verifyLocalInvariants ctx opInBounds
-      = (op.verifyIntegerTernop ctx opInBounds >>= fun _ => pure ())) :
+      = (op.checkIsNonNullIntegerType ctx opInBounds >>= fun _ =>
+          op.verifyIntegerTernop ctx opInBounds >>= fun _ => pure ())) :
     op.IsVerifiedIntegerTernop ctx :=
   op.verifyIntegerTernop_eq_ok <| op.verifyIntegerTernop_ok_of_Verified opVerify armReduces
 
@@ -1738,9 +1855,11 @@ private theorem OperationPtr.verifyIntegerExtTypes_eq_ok {ctx : WfIRContext OpCo
 private theorem OperationPtr.verifyIntegerExtTypes_ok_of_Verified {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds)
     (armReduces : op.verifyLocalInvariants ctx opInBounds
-      = (op.verifyIntegerExtTypes ctx opInBounds >>= fun _ => pure ())) :
+      = (op.checkIsNonNullIntegerType ctx opInBounds >>= fun _ =>
+          op.verifyIntegerExtTypes ctx opInBounds >>= fun _ => pure ())) :
     op.verifyIntegerExtTypes ctx opInBounds = .ok () := by
   rw [Verified, armReduces] at opVerify
+  replace opVerify := Except.ok_of_bind_ok opVerify
   cases hb : op.verifyIntegerExtTypes ctx opInBounds with
   | ok u => rfl
   | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
@@ -1753,7 +1872,8 @@ private theorem OperationPtr.verifyIntegerExtTypes_ok_of_Verified {op : Operatio
 private theorem OperationPtr.Verified.integerExtop {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds)
     (armReduces : op.verifyLocalInvariants ctx opInBounds
-      = (op.verifyIntegerExtTypes ctx opInBounds >>= fun _ => pure ())) :
+      = (op.checkIsNonNullIntegerType ctx opInBounds >>= fun _ =>
+          op.verifyIntegerExtTypes ctx opInBounds >>= fun _ => pure ())) :
     op.IsVerifiedIntegerExtop ctx :=
   op.verifyIntegerExtTypes_eq_ok <| op.verifyIntegerExtTypes_ok_of_Verified opVerify armReduces
 

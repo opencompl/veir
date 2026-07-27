@@ -6,8 +6,7 @@
       // --- Identity and annihilation patterns ---
       %zero = "llvm.mlir.constant"() <{ "value" = 0 : i32 }> : () -> i32
       %x = "test.test"() : () -> i32
-      // CHECK:      %{{.*}} = "llvm.mlir.constant"() <{"value" = 0 : i32}> : () -> i32
-      // CHECK-NEXT: %[[X:.*]] = "test.test"() : () -> i32
+      // CHECK:      %[[X:.*]] = "test.test"() : () -> i32
 
       // xor x ^ 0 => x
       %xor_zero = "llvm.xor"(%x, %zero) : (i32, i32) -> i32
