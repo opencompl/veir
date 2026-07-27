@@ -7,8 +7,7 @@
       %m1 = "llvm.mlir.constant"() <{ "value" = -1 : i32 }> : () -> i32
       %a = "test.test"() : () -> i32
       %b = "test.test"() : () -> i32
-      // CHECK:      %[[M1:.*]] = "llvm.mlir.constant"() <{"value" = -1 : i32}> : () -> i32
-      // CHECK-NEXT: %[[A:.*]] = "test.test"() : () -> i32
+      // CHECK:      %[[A:.*]] = "test.test"() : () -> i32
       // CHECK-NEXT: %[[B:.*]] = "test.test"() : () -> i32
 
       // ~(~a | ~b) => a & b
@@ -17,9 +16,6 @@
       %or2 = "llvm.or"(%na2, %nb2) : (i32, i32) -> i32
       %demorgan_and = "llvm.xor"(%or2, %m1) : (i32, i32) -> i32
       "test.test"(%demorgan_and) : (i32) -> ()
-      // CHECK-NEXT: %{{.*}} = "llvm.xor"(%[[A]], %[[M1]]) : (i32, i32) -> i32
-      // CHECK-NEXT: %{{.*}} = "llvm.xor"(%[[B]], %[[M1]]) : (i32, i32) -> i32
-      // CHECK-NEXT: %{{.*}} = "llvm.or"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
       // CHECK-NEXT: %[[AND:.*]] = "llvm.and"(%[[A]], %[[B]]) : (i32, i32) -> i32
       // CHECK-NEXT: "test.test"(%[[AND]]) : (i32) -> ()
       "func.return"() : () -> ()

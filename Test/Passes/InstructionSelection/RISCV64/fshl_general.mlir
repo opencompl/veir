@@ -21,6 +21,7 @@
         // CHECK: %[[SHY:.*]] = "riscv.srl"(%[[Y1]], %[[NOTZ]])
         // CHECK: %{{.*}} = "riscv.or"(%[[SHX]], %[[SHY]])
         // CHECK-NOT: riscv.rol
+        "test.test"(%r) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -34,6 +35,7 @@
         // CHECK: %[[SHY:.*]] = "riscv.srl"(%{{.*}}, %[[Z]])
         // CHECK: %{{.*}} = "riscv.or"(%[[SHX]], %[[SHY]])
         // CHECK-NOT: riscv.ror
+        "test.test"(%r) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -46,6 +48,7 @@
         // CHECK: %[[Y1:.*]] = "riscv.srliw"(%{{.*}}) <{"value" = 1 : i64}>
         // CHECK: %[[SHY:.*]] = "riscv.srlw"(%[[Y1]], %[[NOTZ]])
         // CHECK: %{{.*}} = "riscv.or"(%[[SHX]], %[[SHY]])
+        "test.test"(%r) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
