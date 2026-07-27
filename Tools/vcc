@@ -7,7 +7,10 @@ Compiles a C source file via VeIR, producing an executable by default.
 from __future__ import annotations
 
 import argparse
+import math
+import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -17,6 +20,64 @@ from pathlib import Path
 BASE_TOOLS = ("clang", "opt", "mlir-translate", "mlir-opt")
 VEIR_TOOLS = ("lake",)
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+# --------------------------------------------------------------------------
+# TEMPORARY: rewrite decimal float literals into raw-bit hex.
+#
+# VeIR cannot parse decimal floating-point literals yet, so we rewrite scalar
+# float attributes into the raw-bit hex form that MLIR itself already uses for
+# infinities and NaNs (e.g. "0x7F800000 : f32").  MLIR both prints and parses
+# this form, and the bit pattern is width-matched to the type, so the rewrite
+# is exactly value-preserving.
+#
+# Only scalar f16/f32/f64 attributes are touched.  Elements inside dense<>
+# attributes are deliberately left alone: their type follows the element list
+# rather than each element, so they do not match the pattern below.
+#
+# Delete this section and its single call in compile_to_mlir() once VeIR parses
+# floats directly.
+# --------------------------------------------------------------------------
+
+_FLOAT_PACK = {"f16": "<e", "f32": "<f", "f64": "<d"}
+
+# The 0x alternative matches literals that are *already* raw bits and passes
+# them through untouched.  It must come first: without it, a hex pattern such
+# as "0x41E00000 : f32" contains the substring "1E00000", which would
+# otherwise be mistaken for a decimal literal in exponent notation.
+_FLOAT_ATTR = re.compile(
+    rb"""(?<![\w.])(
+          0x[0-9A-Fa-f]+                        # already raw bits
+        | [-+]?(?: \d+\.\d*(?:[eE][-+]?\d+)?    # 1.5, 1.500000e+00
+                 | \d+[eE][-+]?\d+ )            # 1e10
+        )\s*:\s*(f16|f32|f64)\b""",
+    re.VERBOSE,
+)
+
+
+def float_to_raw_bits(literal: str, ty: str) -> str:
+    """Return the exact IEEE-754 bit pattern of a decimal literal at width ty.
+
+    float() is correctly rounded to binary64 and struct.pack narrows exactly,
+    so no precision is lost for any literal MLIR emits.
+    """
+    value = float(literal)
+    try:
+        packed = struct.pack(_FLOAT_PACK[ty], value)
+    except OverflowError:
+        # Out of range for the target width; IEEE-754 rounds these to infinity.
+        packed = struct.pack(_FLOAT_PACK[ty], math.copysign(math.inf, value))
+    return f"0x{int.from_bytes(packed, 'little'):0{2 * len(packed)}X}"
+
+
+def rewrite_floats_as_raw_bits(mlir: bytes) -> bytes:
+    def replace(m: re.Match[bytes]) -> bytes:
+        literal, ty = m.group(1).decode(), m.group(2).decode()
+        if literal.lower().startswith("0x"):
+            return m.group(0)
+        return f"{float_to_raw_bits(literal, ty)} : {ty}".encode()
+
+    return _FLOAT_ATTR.sub(replace, mlir)
 
 
 def check_tools(tools: tuple[str, ...]) -> None:
@@ -57,6 +118,8 @@ def compile_to_mlir(src: Path, veir_optimize: bool, llvm_o2: bool, debug: bool =
             stdin=translated,
             debug=debug
         )
+        # TEMPORARY: remove once VeIR parses decimal floats (see above).
+        mlir = rewrite_floats_as_raw_bits(mlir)
         pre = tmp / (src.stem + ".mlir")
         pre.write_bytes(mlir)
         opt_cmd = ["lake", "exec", "veir-opt", "--allow-unregistered-dialect"]
