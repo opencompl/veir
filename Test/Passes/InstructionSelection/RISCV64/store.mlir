@@ -20,6 +20,16 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
+    // i16 store lowers to `riscv.sh`.
+    "func.func"()  <{function_type = (!llvm.ptr) -> (), sym_name = "half"}> ({
+    ^bb0(%a: !llvm.ptr, %b : i16):
+        "llvm.store"(%b, %a) : (i16, !llvm.ptr) -> ()
+        // CHECK:      {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!llvm.ptr) -> !riscv.reg
+        // CHECK-NEXT: {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (i16) -> !riscv.reg
+        // CHECK-NEXT: "riscv.sh"({{.*}}, {{.*}}) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
+        "func.return"() : () -> ()
+    }) : () -> ()
+
     // i8 store lowers to `riscv.sb`.
     "func.func"()  <{function_type = (!llvm.ptr) -> (), sym_name = "baz"}> ({
     ^bb0(%a: !llvm.ptr, %b : i8):

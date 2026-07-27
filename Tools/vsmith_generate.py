@@ -40,10 +40,12 @@ BSWAP_WIDTHS = (16, 32, 64)
 # or further comparisons.
 RISCV_WIDTHS = (32, 64)
 
-# Memory-mode programs receive a pointer to this many bytes of caller-owned
-# storage.  Accesses are i64-aligned and remain within the allocation.
-MEMORY_SLOTS = 4
-MEMORY_SIZE = MEMORY_SLOTS * 8
+# Memory-mode programs receive a pointer to 16 i64-sized slots of caller-owned
+# storage. Accesses use byte offsets, are naturally aligned, and remain within
+# the allocation.
+MEMORY_I64_SLOTS = 16
+MEMORY_SIZE = MEMORY_I64_SLOTS * 8
+MEMORY_WIDTHS = (8, 16, 32, 64)
 
 
 def bitwidth(typ: str) -> int:
@@ -269,11 +271,12 @@ class Generator:
         n = min(self.rng.randint(1, 25), len(pool))
         chosen = self.rng.sample(pool, n)
         if required is not None and required not in chosen:
-            if len(chosen) == n:
-                chosen[-1] = required
-            else:
-                chosen.append(required)
-        target_width = self.rng.choice([bitwidth(typ) for _, typ in chosen])
+            chosen.append(required)
+        target_widths = [
+            bitwidth(typ) for _, typ in chosen
+            if not self.riscv or bitwidth(typ) in RISCV_WIDTHS
+        ]
+        target_width = self.rng.choice(target_widths)
         target = f"i{target_width}"
         casted: list[str] = []
         for name, typ in chosen:
@@ -290,15 +293,15 @@ class Generator:
             result = self.add_operation("llvm.xor", [result, other], [target, target], target)
         return result, target
 
-    def memory_pointer(self, slot: int) -> str:
-        """Return a pointer to an in-bounds i64 memory slot."""
-        if slot == 0 and self.rng.random() < 0.5:
+    def memory_pointer(self, byte_offset: int) -> str:
+        """Return a pointer at an in-bounds byte offset."""
+        if byte_offset == 0 and self.rng.random() < 0.5:
             return "%mem"
-        index = self.add_const("i64", slot)
+        index = self.add_const("i64", byte_offset)
         name = self.name("p")
         self.lines.append(
             f'  {name} = "llvm.getelementptr"(%mem, {index}) '
-            f'<{{elem_type = i64, rawConstantIndices = array<i32: -2147483648>}}> '
+            f'<{{elem_type = i8, rawConstantIndices = array<i32: -2147483648>}}> '
             f': (!llvm.ptr, i64) -> !llvm.ptr'
         )
         self.local["!llvm.ptr"].append(name)
@@ -308,21 +311,34 @@ class Generator:
     def memory_properties(self) -> str:
         return " <{volatile_}>" if self.rng.random() < 0.1 else ""
 
-    def emit_memory(self, force_load: bool = False) -> str | None:
-        """Emit an in-bounds i64 load or store, returning a loaded SSA value."""
-        ptr = self.memory_pointer(self.rng.randrange(MEMORY_SLOTS))
+    def emit_memory(self, force_load: bool = False) -> tuple[str, str] | None:
+        """Emit an aligned, in-bounds integer load or store."""
+        width = self.rng.choice(MEMORY_WIDTHS)
+        typ = f"i{width}"
+        size = width // 8
+        byte_offset = self.rng.randrange(0, MEMORY_SIZE - size + 1, size)
+        ptr = self.memory_pointer(byte_offset)
         props = self.memory_properties()
         if force_load or self.rng.random() < 0.55:
-            return self.add_operation("llvm.load", [ptr], ["!llvm.ptr"], "i64", props,
-                                      name_prefix="ld")
-        value = self.random_dominating_value(64)
-        self.lines.append(f'  "llvm.store"({value}, {ptr}){props} : (i64, !llvm.ptr) -> ()')
+            value = self.add_operation("llvm.load", [ptr], ["!llvm.ptr"], typ, props,
+                                       name_prefix="ld")
+            return value, typ
+        if self.riscv and width < 32 and not (self.local.get(typ) or self.imported.get(typ)):
+            # RISC-V constant selection materializes register-width constants.
+            # Produce the first narrow store value by truncating one of those;
+            # subsequent stores can also reuse dominating narrow loads.
+            source_type = self.rng.choice(("i32", "i64"))
+            source = self.random_dominating_value(bitwidth(source_type))
+            value = self.add_operation("llvm.trunc", [source], [source_type], typ)
+        else:
+            value = self.random_dominating_value(width)
+        self.lines.append(f'  "llvm.store"({value}, {ptr}){props} : ({typ}, !llvm.ptr) -> ()')
         return None
 
     def initialize_memory(self) -> None:
         """Give every slot a concrete value before any generated load can run."""
-        for slot in range(MEMORY_SLOTS):
-            ptr = self.memory_pointer(slot)
+        for slot in range(MEMORY_I64_SLOTS):
+            ptr = self.memory_pointer(slot * 8)
             value = self.add_const("i64", rand_const_val(self.rng, 64))
             self.lines.append(f'  "llvm.store"({value}, {ptr}) : (i64, !llvm.ptr) -> ()')
 
@@ -542,8 +558,7 @@ def generate(path: Path, rng: random.Random, riscv: bool = False, memory: bool =
 
         successors = [f"^bb{succ}" for succ in range(block_id + 1, num_blocks)]
         if not successors:
-            memory_result = gen.emit_memory(force_load=True) if memory else None
-            required = (memory_result, "i64") if memory_result is not None else None
+            required = gen.emit_memory(force_load=True) if memory else None
             returned, typ = gen.random_return_value(required)
             return_type = typ
             lines.append(f'  "llvm.return"({returned}) : ({typ}) -> ()')
