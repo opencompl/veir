@@ -288,5 +288,4 @@ public def RemuiToBarrettReductionPass : Pass OpCode :=
     description := "Rewrite arith.remui operations to Barrett reduction."
     run := RemuiToBarrettReducePass.impl }
 
-
 end Veir
