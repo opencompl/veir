@@ -46,6 +46,7 @@ inductive Arith where
 | shrsi
 | shrui
 | subi
+| subui_extended
 | trunci
 | xori
 deriving Inhabited, Repr, Hashable, DecidableEq

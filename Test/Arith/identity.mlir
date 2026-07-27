@@ -36,6 +36,7 @@
       %28 = "arith.shrsi"(%5, %5) : (i32, i32) -> i32
       %29 = "arith.shrui"(%5, %5) : (i32, i32) -> i32
       %30 = "arith.subi"(%5, %5) : (i32, i32) -> i32
+      %300, %301 = "arith.subui_extended"(%5, %5) : (i32, i32) -> (i32, i1)
       %31 = "arith.trunci"(%5) : (i32) -> i16
       %32 = "arith.xori"(%5, %5) : (i32, i32) -> i32
       "func.return"() : () -> ()
@@ -78,6 +79,7 @@
 // CHECK-NEXT:         %{{.*}} = "arith.shrsi"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:         %{{.*}} = "arith.shrui"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:         %{{.*}} = "arith.subi"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
+// CHECK-NEXT:         %{{.*}}:2 = "arith.subui_extended"(%{{.*}}, %{{.*}}) : (i32, i32) -> (i32, i1)
 // CHECK-NEXT:         %{{.*}} = "arith.trunci"(%{{.*}}) : (i32) -> i16
 // CHECK-NEXT:         %{{.*}} = "arith.xori"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:         "func.return"() : () -> ()
