@@ -6,6 +6,7 @@
         %sdiv = "llvm.sdiv"(%a, %b) : (i16, i16) -> i16
         // CHECK: %{{.*}} = "llvm.sdiv"(%{{.*}}, %{{.*}}) : (i16, i16) -> i16
 
+        "test.test"(%sdiv) : (i16) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

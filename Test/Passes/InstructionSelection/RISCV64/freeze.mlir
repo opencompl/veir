@@ -11,6 +11,8 @@
         // CHECK-NEXT:      %[[J:.*]] = "builtin.unrealized_conversion_cast"([[C]]) : (i32) -> !riscv.reg
         // CHECK-NEXT:      %[[K:.*]] = "builtin.unrealized_conversion_cast"(%[[J]]) : (!riscv.reg) -> i32
         
+        "test.test"(%freeze) : (i64) -> ()
+        "test.test"(%freezeinv) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

@@ -13,7 +13,7 @@ import Veir.IR.Dominance
     and ext/trunc);
   * it only works for instructions that return a single result;
   * distinct UB flags are treated as distinct instructions;
-  * it only supports the LLVM dialect (arith would be trivial to add);
+  * it only supports the LLVM, arith, and mod_arith dialects;
   * it does not use a worklist or iterate to fixpoint, so it may leave
     work undone when it finishes.
 -/
@@ -83,19 +83,20 @@ def ordinaryKey
     Key :=
   makeKey ctx op kind (op.getOperands! ctx)
 
-/-- Compute the Key for an `llvm.icmp`, canonicalizing equivalent
-    predicate/operand pairs. So, for example, `sgt x y` becomes
-    `slt y x`. -/
+/-- Compute the Key for an integer comparison (`llvm.icmp` or
+    `arith.cmpi`), canonicalizing equivalent predicate/operand pairs.
+    So, for example, `sgt x y` becomes `slt y x`. `mkKind` packages a
+    predicate back up with the comparison's own opcode, so comparisons
+    from different dialects never share a Key. -/
 def icmpKey
     (ctx : IRContext OpCode) (op : OperationPtr)
-    (props : propertiesOf (.llvm .icmp)) :
+    (mkKind : IcmpProperties → Kind) (props : IcmpProperties) :
     Key :=
-  let kind : Kind := ⟨.llvm .icmp, props⟩
+  let kind : Kind := mkKind props
   let lhs := op.getOperand! ctx 0
   let rhs := op.getOperand! ctx 1
   let swappedKey (pred : Data.LLVM.IntPred) : Key :=
-    let props := { props with predicate := pred }
-    makeKey ctx op ⟨.llvm .icmp, props⟩ #[rhs, lhs]
+    makeKey ctx op (mkKind { props with predicate := pred }) #[rhs, lhs]
   match props.predicate with
   | .eq | .ne => commutativeBinopKey ctx op kind
   | .slt | .sle | .ult | .ule => ordinaryKey ctx op kind
@@ -114,10 +115,20 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
   let kind : Kind := ⟨opType, properties⟩
   match opType with
   | .llvm .add | .llvm .mul | .llvm .and | .llvm .or | .llvm .xor
-  | .llvm .intr__smax | .llvm .intr__smin | .llvm .intr__umax | .llvm .intr__umin =>
+  | .llvm .intr__smax | .llvm .intr__smin | .llvm .intr__umax | .llvm .intr__umin
+  | .arith .addi | .arith .muli | .arith .andi | .arith .ori | .arith .xori
+  | .arith .maxsi | .arith .maxui | .arith .minsi | .arith .minui
+  -- mod_arith carries its modulus in the operand and result types, and
+  -- `Key` includes the result type, so ops on different moduli never
+  -- collide.
+  | .mod_arith .add | .mod_arith .mul =>
       return commutativeBinopKey ctx op kind
   | .llvm .icmp =>
-      return icmpKey ctx op (op.getProperties! ctx (.llvm .icmp))
+      return icmpKey ctx op (fun props => ⟨.llvm .icmp, props⟩)
+        (op.getProperties! ctx (.llvm .icmp))
+  | .arith .cmpi =>
+      return icmpKey ctx op (fun props => ⟨.arith .cmpi, props⟩)
+        (op.getProperties! ctx (.arith .cmpi))
   | .llvm .sub | .llvm .mlir__constant
   | .llvm .shl | .llvm .lshr | .llvm .ashr
   | .llvm .intr__ctlz | .llvm .intr__cttz | .llvm .intr__ctpop
@@ -125,7 +136,16 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
   | .llvm .intr__fshl | .llvm .intr__fshr
   | .llvm .sdiv | .llvm .udiv | .llvm .srem | .llvm .urem
   | .llvm .zext | .llvm .sext | .llvm .trunc
-  | .llvm .select =>
+  | .llvm .select
+  | .arith .subi | .arith .constant
+  | .arith .shli | .arith .shrsi | .arith .shrui
+  | .arith .divsi | .arith .divui | .arith .remsi | .arith .remui
+  | .arith .ceildivsi | .arith .ceildivui | .arith .floordivsi
+  | .arith .extsi | .arith .extui | .arith .trunci
+  -- The `*_extended` ops are commutative too, but they return two
+  -- results, so the single-result guard above already rejects them.
+  | .arith .select
+  | .mod_arith .sub | .mod_arith .constant =>
       return ordinaryKey ctx op kind
   | _ => none
 
