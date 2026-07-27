@@ -287,6 +287,30 @@ def OperationPtr.verifyIntegerBinop (op : OperationPtr) (ctx : WfIRContext OpCod
   let operandType ← op.verifyOperandTypesMatch ctx 0 1 s!"{instrName}: Expected operands to have the same type"
   op.verifyResultTypeMatches ctx operandType s!"{instrName}: Expected result type to match operand type"
 
+/--
+  Verify an `arith` extended operation with two same-typed integer operands and
+  two results. The low result always matches the operand type; the high result
+  is either an `i1` overflow flag (`addui_extended`) or another value of the
+  operand type (`mulsi_extended` / `mului_extended`).
+-/
+def OperationPtr.verifyArithExtendedOp (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) (secondResultIsI1 : Bool) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 2 2
+  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
+  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType
+    s!"{instrName}: Expected operand 0 to have integer type"
+  ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerType
+    s!"{instrName}: Expected operand 1 to have integer type"
+  let operandType ← op.verifyOperandTypesMatch ctx 0 1
+    s!"{instrName}: Expected operands to have the same type"
+  op.verifyResultTypeMatches ctx operandType
+    s!"{instrName}: Expected result 0 type to match operand type"
+  let result1Type := ((op.getResult 1).get! ctx.raw).type
+  if secondResultIsI1 then
+    result1Type.verifyI1 s!"{instrName}: Expected i1 result 1"
+  else if result1Type.val ≠ operandType.val then
+    throw s!"{instrName}: Expected result 1 type to match operand type"
+
 def OperationPtr.verifyIntegerTernop (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 3 1
@@ -487,9 +511,13 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyIntegerBinop ctx opIn
     pure ()
-  | .arith .addui_extended | .arith .mulsi_extended | .arith .mului_extended => do
+  | .arith .addui_extended => do
     op.checkIsNonNullIntegerType ctx opIn
-    op.verifyPlainOpCounts ctx opIn 2 2
+    op.verifyArithExtendedOp ctx opIn true
+    pure ()
+  | .arith .mulsi_extended | .arith .mului_extended => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyArithExtendedOp ctx opIn false
     pure ()
   | .arith .cmpi => do
     op.checkIsNonNullIntegerType ctx opIn
@@ -1054,11 +1082,18 @@ def OperationPtr.verifyTerminatorPosition (op : OperationPtr) (ctx : WfIRContext
 def BlockPtr.verifyTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
     (blockIn : block.InBounds ctx.raw) : Except String PUnit := do
   let b := block.get ctx.raw blockIn
+  let named (msg : String) : String :=
+    match b.parent with
+    | some region =>
+      match (region.get! ctx.raw).parent with
+      | some parentOp => s!"{String.fromUTF8! (parentOp.getOpType! ctx.raw).name}: {msg}"
+      | none => msg
+    | none => msg
   match b.lastOp with
-  | none => throw "Expected the block to end in a terminator, but the block is empty"
+  | none => throw (named "Expected the block to end in a terminator, but the block is empty")
   | some lastOp =>
     if !(lastOp.getOpType! ctx.raw).isTerminator then
-      throw "Expected the last operation of a block to be a terminator"
+      throw (named "Expected the last operation of a block to be a terminator")
 
 /--
   Check that every successor belongs to the same region as its predecessor.

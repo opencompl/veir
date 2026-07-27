@@ -11,6 +11,9 @@
         %three = "llvm.mlir.poison"() : () -> i64
         // CHECK: [[A:%.*]] = "riscv.li"() <{"value" = 0 : i64}> : () -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"([[A]]) : (!riscv.reg) -> i64
+        "test.test"(%one) : (i1) -> ()
+        "test.test"(%two) : (i32) -> ()
+        "test.test"(%three) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

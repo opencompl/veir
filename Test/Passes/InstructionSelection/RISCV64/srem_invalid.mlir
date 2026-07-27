@@ -6,6 +6,7 @@
         %srem = "llvm.srem"(%a, %b) : (i16, i16) -> i16
         // CHECK: %{{.*}} = "llvm.srem"(%{{.*}}, %{{.*}}) : (i16, i16) -> i16
 
+        "test.test"(%srem) : (i16) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

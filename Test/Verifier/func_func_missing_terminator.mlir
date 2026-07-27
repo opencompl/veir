@@ -7,4 +7,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Expected the last operation of a block to be a terminator
+// CHECK: func.func: Expected the last operation of a block to be a terminator
