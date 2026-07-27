@@ -35,8 +35,8 @@ from vsmith_generate import generate
 DEFAULT_PASSES = "instcombine,dce,cse,dce"
 RISCV_PASSES = (
     "canonicalize,instcombine,canonicalize,cse,dce,"
-    "isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,"
-    "canonicalize,reconcile-cast,riscv-combine,dce"
+    "isel-sdag-riscv64,isel-br-riscv64,isel-riscv64,"
+    "reconcile-cast,riscv-combine,dce"
 )
 
 # --- RISC-V MIR execution cross-check -------------------------------------
