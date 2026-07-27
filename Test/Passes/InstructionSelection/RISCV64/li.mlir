@@ -8,6 +8,8 @@
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"([[A]]) : (!riscv.reg) -> i64
         // CHECK-NEXT: [[B:%.*]] = "riscv.li"() <{"value" = 2 : i64}> : () -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"([[B]]) : (!riscv.reg) -> i64
+        "test.test"(%one) : (i64) -> ()
+        "test.test"(%two) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -15,6 +17,7 @@
         %one = "llvm.mlir.constant"() <{ "value" = 1 : i32 }> : () -> i32
         // CHECK: [[C:%.*]] = "riscv.li"() <{"value" = 1 : i32}> : () -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"([[C]]) : (!riscv.reg) -> i32
+        "test.test"(%one) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

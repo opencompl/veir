@@ -8,6 +8,7 @@
         %zero = "llvm.mlir.constant"() <{ "value" = 0 : i64 }> : () -> i64
         %r = "llvm.select"(%c, %t, %zero) : (i1, i64, i64) -> i64
         // CHECK-DAG: %{{.*}} = "riscv.czeroeqz"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        "test.test"(%r) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -17,6 +18,7 @@
         %zero = "llvm.mlir.constant"() <{ "value" = 0 : i64 }> : () -> i64
         %r = "llvm.select"(%c, %zero, %f) : (i1, i64, i64) -> i64
         // CHECK-DAG: %{{.*}} = "riscv.czeronez"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        "test.test"(%r) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -27,6 +29,7 @@
         // CHECK-DAG: %{{.*}} = "riscv.czeroeqz"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-DAG: %{{.*}} = "riscv.czeronez"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-DAG: %{{.*}} = "riscv.or"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        "test.test"(%r) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -36,6 +39,7 @@
         %zero = "llvm.mlir.constant"() <{ "value" = 0 : i32 }> : () -> i32
         %r = "llvm.select"(%c, %t, %zero) : (i1, i32, i32) -> i32
         // CHECK-DAG: %{{.*}} = "riscv.czeroeqz"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        "test.test"(%r) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -45,6 +49,7 @@
         %zero = "llvm.mlir.constant"() <{ "value" = 0 : i32 }> : () -> i32
         %r = "llvm.select"(%c, %zero, %f) : (i1, i32, i32) -> i32
         // CHECK-DAG: %{{.*}} = "riscv.czeronez"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        "test.test"(%r) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -55,6 +60,7 @@
         // CHECK-DAG: %{{.*}} = "riscv.czeroeqz"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-DAG: %{{.*}} = "riscv.czeronez"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-DAG: %{{.*}} = "riscv.or"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        "test.test"(%r) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
     
@@ -65,6 +71,7 @@
         // CHECK-DAG: %{{.*}} = "riscv.czeroeqz"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-DAG: %{{.*}} = "riscv.czeronez"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-DAG: %{{.*}} = "riscv.or"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        "test.test"(%r) : (i1) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 

@@ -17,6 +17,9 @@
         %c = "llvm.getelementptr"(%p) <{elem_type = i64, rawConstantIndices = array<i32: 5>}> : (!llvm.ptr) -> !llvm.ptr
         // CHECK-NEXT: %{{.*}} = "llvm.getelementptr"(%{{.*}}) <{"elem_type" = i64, "noWrapFlags" = 0 : i32, "rawConstantIndices" = array<i32: 5>}> : (!llvm.ptr) -> !llvm.ptr
 
+        "test.test"(%a) : (!llvm.ptr) -> ()
+        "test.test"(%b) : (!llvm.ptr) -> ()
+        "test.test"(%c) : (!llvm.ptr) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()
