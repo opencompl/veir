@@ -146,8 +146,6 @@ def emitBarrettReduction (rewriter : PatternRewriter OpCode) (r q : ValuePtr) (m
     (some ip)
   return (rewriter, (result.getResult 0 : ValuePtr))
 
-
-
 /-! ## Binary op lowering Template -/
 
 abbrev Builder :=
