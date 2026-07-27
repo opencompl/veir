@@ -367,7 +367,6 @@ def replaceSingleResultAndErase? (rewriter : PatternRewriter OpInfo) (op : Opera
       ∧ op.getNumResults! rewriter.ctx.raw = 1
       ∧ op.getNumRegions! rewriter.ctx.raw = 0
       ∧ (op.getResult 0 : ValuePtr) ≠ newVal
-      ∧ (op.getResult 0 : ValuePtr).InBounds rewriter.ctx.raw
       ∧ newVal.InBounds rewriter.ctx.raw then
     let rewriter := rewriter.replaceValue (op.getResult 0) newVal (by grind) (by grind) (by grind)
     some (rewriter.eraseOp op (by grind [replaceValue]) (by grind [replaceValue])
@@ -404,9 +403,7 @@ def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern OpInfo) : Rew
       -- Every `matchOp`-based pattern rewrites a single-result operation into a single value,
       -- which is the shape where erasing `op` is justified by proof rather than by a use check.
       if hsize : newRes.size = 1 then
-        match rewriter.replaceSingleResultAndErase? op newRes[0] with
-        | some erased => return erased
-        | none => failure
+        return ← rewriter.replaceSingleResultAndErase? op newRes[0]
       -- A local rewrite must replace every result before erasing `op`. Reject malformed pattern
       -- output before indexing the old results.
       guard (newRes.size = op.getNumResults! rewriter.ctx.raw)
