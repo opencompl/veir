@@ -153,14 +153,14 @@ private theorem ValuePtr.inBounds_getFirstUse {value : ValuePtr} (hv : value.InB
     (value.getFirstUse ctx.raw hv).maybe OpOperandPtr.InBounds ctx.raw := by
   grind [Option.maybe_def]
 
-private def addUsersInWorklist (rewriter: PatternRewriter OpInfo) (value: ValuePtr)
+def addUsersInWorklist (rewriter: PatternRewriter OpInfo) (value: ValuePtr)
     (hv : value.InBounds rewriter.ctx.raw) : PatternRewriter OpInfo :=
   let useChain := value.getFirstUse rewriter.ctx.raw (by grind)
   rewriter.addUseChainUserInWorklist useChain 1_000_000_000 (by
     grind [Option.maybe_def, ValuePtr.inBounds_getFirstUse])
 
 @[grind =]
-private theorem addUsersInWorklist_same_ctx :
+theorem addUsersInWorklist_same_ctx :
     (addUsersInWorklist rewriter value hv).ctx = rewriter.ctx := by
   simp [addUsersInWorklist]
 
@@ -313,6 +313,7 @@ def replaceOp! (rewriter: PatternRewriter OpInfo) (oldOp newOp: OperationPtr)
   else
     panic! "PatternRewriter.replaceOp! failed: old operation is out of bounds"
 
+@[expose]
 def replaceValue (rewriter: PatternRewriter OpInfo) (oldVal newVal: ValuePtr)
     (neValues : oldVal ≠ newVal := by grind)
     (oldIn: oldVal.InBounds rewriter.ctx.raw := by grind)
@@ -321,14 +322,6 @@ def replaceValue (rewriter: PatternRewriter OpInfo) (oldVal newVal: ValuePtr)
   let rewriter := rewriter.addUsersInWorklist oldVal (by grind)
   let ctx := WfRewriter.replaceValue rewriter.ctx oldVal newVal
   { rewriter with ctx, hasDoneAction := true}
-
-@[simp, grind =]
-theorem replaceValue_ctx {rewriter : PatternRewriter OpInfo} {oldVal newVal : ValuePtr}
-    {neValues : oldVal ≠ newVal} {oldIn : oldVal.InBounds rewriter.ctx.raw}
-    {newIn : newVal.InBounds rewriter.ctx.raw} :
-    (rewriter.replaceValue oldVal newVal neValues oldIn newIn).ctx
-      = WfRewriter.replaceValue rewriter.ctx oldVal newVal neValues oldIn newIn := by
-  simp [replaceValue, addUsersInWorklist_same_ctx]
 
 /--
 Replace all uses of a value by another value, panicking if the two values are equal, or if either

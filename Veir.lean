@@ -9,7 +9,7 @@ import Veir.Rewriter.WellFormed
 import Veir.Rewriter.InlineBlock
 import Veir.Rewriter.WfRewriter
 import Veir.Printer
-import Veir.PatternRewriter.Basic
+import Veir.PatternRewriter.Lemmas
 import Veir.Passes.ArithToLLVM.Proofs
 import Veir.Passes.RISCVCombines.Proofs
 import Veir.Benchmarks
