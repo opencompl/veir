@@ -352,6 +352,29 @@ def insertBlock (rewriter: PatternRewriter OpInfo) (block: BlockPtr) (ip : Block
     hasDoneAction := true
   }
 
+/--
+Replace the sole result of `op` with `newVal` and erase `op`, which the replacement leaves dead.
+Returns `none` if `op` is not in that shape: out of bounds, not exactly one result, carrying
+regions, or a replacement value that is out of bounds or is `op`'s own result.
+
+The erase performs no runtime use check. Once the single result has been replaced, `op` provably
+has no uses (`OperationPtr.hasUses!_WfRewriter_replaceValue_getResult0`), so the obligation is
+discharged statically.
+-/
+def replaceSingleResultAndErase? (rewriter : PatternRewriter OpInfo) (op : OperationPtr)
+    (newVal : ValuePtr) : Option (PatternRewriter OpInfo) :=
+  if h : op.InBounds rewriter.ctx.raw
+      ∧ op.getNumResults! rewriter.ctx.raw = 1
+      ∧ op.getNumRegions! rewriter.ctx.raw = 0
+      ∧ (op.getResult 0 : ValuePtr) ≠ newVal
+      ∧ (op.getResult 0 : ValuePtr).InBounds rewriter.ctx.raw
+      ∧ newVal.InBounds rewriter.ctx.raw then
+    let rewriter := rewriter.replaceValue (op.getResult 0) newVal (by grind) (by grind) (by grind)
+    some (rewriter.eraseOp op (by grind [replaceValue]) (by grind [replaceValue])
+      (by grind [replaceValue]))
+  else
+    none
+
 end PatternRewriter
 
 abbrev RewritePattern (OpInfo : Type) [HasOpInfo OpInfo] :=
@@ -378,10 +401,21 @@ def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern OpInfo) : Rew
       let mut rewriter := { rewriter with ctx := newCtx, hasDoneAction := true }
       for newOp in newOps do
         rewriter := rewriter.insertOp! newOp (InsertPoint.before op)
+      -- Every `matchOp`-based pattern rewrites a single-result operation into a single value,
+      -- which is the shape where erasing `op` is justified by proof rather than by a use check.
+      if hsize : newRes.size = 1 then
+        if let some erased := rewriter.replaceSingleResultAndErase? op newRes[0] then
+          return erased
+      -- Any other shape: replace whatever the pattern asked for, then erase `op` only if it is
+      -- genuinely dead. If it is not, `op` stays put and the driver's trivially-dead sweep can
+      -- collect it later -- unlike `eraseOp!`, which would panic and yield an empty context.
       for (res, i) in newRes.zipIdx do
         rewriter := rewriter.replaceValue! (op.getResult i) res
-      -- All results of `op` have been replaced above, so `op` is dead and can be erased.
-      return rewriter.eraseOp! op
+      if h : op.getNumRegions! rewriter.ctx.raw = 0 ∧ (!op.hasUses! rewriter.ctx.raw)
+          ∧ op.InBounds rewriter.ctx.raw then
+        return rewriter.eraseOp op h.1 h.2.1 h.2.2
+      else
+        return rewriter
 
 /--
   Greedy pattern application: transforms a list of patterns into a single pattern that applies
