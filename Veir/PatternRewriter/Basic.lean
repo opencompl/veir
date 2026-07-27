@@ -330,21 +330,6 @@ theorem replaceValue_ctx {rewriter : PatternRewriter OpInfo} {oldVal newVal : Va
       = WfRewriter.replaceValue rewriter.ctx oldVal newVal neValues oldIn newIn := by
   simp [replaceValue, addUsersInWorklist_same_ctx]
 
-/-- After replacing `op`'s single result with `newValue`, erasing `op` succeeds: the three
-preconditions of `eraseOp` (`op` in bounds, no regions, no uses) hold in the resulting rewriter. -/
-theorem eraseOp_some_after_replace_result0
-    (rewriter : PatternRewriter OpInfo) (op : OperationPtr) (newValue : ValuePtr)
-    (hop : op.InBounds rewriter.ctx.raw)
-    (hres : (op.getResult 0 : ValuePtr).InBounds rewriter.ctx.raw)
-    (hnew : newValue.InBounds rewriter.ctx.raw)
-    (hne : (op.getResult 0 : ValuePtr) ≠ newValue)
-    (hone : op.getNumResults! rewriter.ctx.raw = 1)
-    (hregions : op.getNumRegions! rewriter.ctx.raw = 0) :
-    ∃ rewriter',
-      (rewriter.replaceValue (op.getResult 0 : ValuePtr) newValue hne hres hnew).eraseOp op
-        = rewriter' :=
-  ⟨_, rfl⟩
-
 /--
 Replace all uses of a value by another value, panicking if the two values are equal, or if either
 value is out of bounds.
