@@ -69,7 +69,7 @@
 
 // CHECK:      "func.func"() <{"function_type" = (i1) -> (), "sym_name" = "not_empty_trampoline"}> ({
 // CHECK-NEXT:   ^{{.*}}(%{{.*}} : i1):
-// CHECK-NEXT:     %{{.*}} = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
 // CHECK-NEXT:     "func.return"() : () -> ()
+// CHECK-NOT:      "arith.constant"
 // CHECK-NOT:      "cf.br"
 // CHECK:      }) : () -> ()
