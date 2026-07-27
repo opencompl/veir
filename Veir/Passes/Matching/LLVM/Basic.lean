@@ -251,6 +251,8 @@ def matchStore (op : OperationPtr) (ctx : IRContext OpCode) :
     Option (ValuePtr × ValuePtr × propertiesOf (.llvm .store)) := do
   guard (op.getOpType! ctx = .llvm .store)
   guard (op.getNumOperands! ctx = 2)
+  guard (op.getNumResults! ctx = 0)
+  guard (op.getNumRegions! ctx = 0)
   let operands := op.getOperands! ctx
   let properties := op.getProperties! ctx (.llvm .store)
   return (operands[0]!, operands[1]!, properties)

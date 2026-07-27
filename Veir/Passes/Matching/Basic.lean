@@ -11,7 +11,7 @@ public section
 namespace Veir
 
 /--
-  Match an operation that has a single result, a specific opcode,
+  Match a regionless operation that has a single result, a specific opcode,
   and a specific number of operands.
   Returns the operands and the properties of the operation if it matches, or `none` otherwise.
 -/
@@ -20,6 +20,7 @@ def matchOp (op : OperationPtr) (ctx : IRContext OpCode) (opType : OpCode) (numO
   guard (op.getOpType! ctx = opType)
   guard (op.getNumOperands! ctx = numOperands)
   guard (op.getNumResults! ctx = 1)
+  guard (op.getNumRegions! ctx = 0)
   let operands := op.getOperands! ctx
   some (operands, op.getProperties! ctx opType)
 
@@ -31,6 +32,7 @@ theorem matchOp_implies {op : OperationPtr} {ctx : IRContext OpCode}
     op.getOpType! ctx = opType ∧
     op.getNumOperands! ctx = numOperands ∧
     op.getNumResults! ctx = 1 ∧
+    op.getNumRegions! ctx = 0 ∧
     operands = op.getOperands! ctx ∧
     props = op.getProperties! ctx opType := by
   intro hmatch

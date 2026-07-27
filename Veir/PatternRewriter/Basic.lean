@@ -404,18 +404,21 @@ def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern OpInfo) : Rew
       -- Every `matchOp`-based pattern rewrites a single-result operation into a single value,
       -- which is the shape where erasing `op` is justified by proof rather than by a use check.
       if hsize : newRes.size = 1 then
-        if let some erased := rewriter.replaceSingleResultAndErase? op newRes[0] then
-          return erased
-      -- Any other shape: replace whatever the pattern asked for, then erase `op` only if it is
-      -- genuinely dead. If it is not, `op` stays put and the driver's trivially-dead sweep can
-      -- collect it later -- unlike `eraseOp!`, which would panic and yield an empty context.
+        match rewriter.replaceSingleResultAndErase? op newRes[0] with
+        | some erased => return erased
+        | none => failure
+      -- A local rewrite must replace every result before erasing `op`. Reject malformed pattern
+      -- output before indexing the old results.
+      guard (newRes.size = op.getNumResults! rewriter.ctx.raw)
+      -- Any other shape: replace every result, then commit the candidate context only if `op` can
+      -- be erased. Returning failure discards all insertions and replacements performed above.
       for (res, i) in newRes.zipIdx do
         rewriter := rewriter.replaceValue! (op.getResult i) res
       if h : op.getNumRegions! rewriter.ctx.raw = 0 ∧ (!op.hasUses! rewriter.ctx.raw)
           ∧ op.InBounds rewriter.ctx.raw then
         return rewriter.eraseOp op h.1 h.2.1 h.2.2
       else
-        return rewriter
+        failure
 
 /--
   Greedy pattern application: transforms a list of patterns into a single pattern that applies

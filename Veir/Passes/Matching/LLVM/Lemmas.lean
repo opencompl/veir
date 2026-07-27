@@ -558,6 +558,8 @@ theorem matchPoison_implies {op : OperationPtr} {ctx : IRContext OpCode} :
 theorem matchStore_implies {op : OperationPtr} {ctx : IRContext OpCode} {value ptr props} :
     matchStore op ctx = some (value, ptr, props) →
     op.getOpType! ctx = .llvm .store ∧
+    op.getNumResults! ctx = 0 ∧
+    op.getNumRegions! ctx = 0 ∧
     op.getOperands! ctx = #[value, ptr] ∧
     props = op.getProperties! ctx (.llvm .store) := by
   intro hmatch
