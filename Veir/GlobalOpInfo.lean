@@ -41,6 +41,94 @@ match opCode with
 instance : HasDialectOpInfo OpCode where
   propertiesOf := _propertiesOf
 
+/--
+  Does this OpCode count as an MLIR basic block terminator?
+-/
+def OpCode.isTerminator (opCode : OpCode) : Bool :=
+  match opCode with
+  | .cf .br | .cf .cond_br
+  | .func .return
+  | .llvm .br | .llvm .cond_br | .llvm .return | .llvm .unreachable
+  | .riscv_cf .branch | .riscv_cf .beq | .riscv_cf .bne
+  | .riscv_cf .beqz | .riscv_cf .bnez
+  | .riscv_cf .blt | .riscv_cf .bge | .riscv_cf .bltu | .riscv_cf .bgeu
+  | .hw .output => true
+  | _ => false
+
+/--
+  Does an operation with this opcode and these properties have effects that
+  make it ineligible for DCE and other transformations that add / remove /
+  rearrange instructions?
+
+  NOTE: ¬ hasSideEffects does not imply that an operation is safe to
+        speculate. For that we also need it to never trigger immediate
+        UB. We'll have to deal with this later on.
+
+  Also see:
+  https://mlir.llvm.org/docs/Rationale/SideEffectsAndSpeculation/
+-/
+def OpCode.hasSideEffects (opCode : OpCode) (props : _propertiesOf opCode) : Bool :=
+  if opCode.isTerminator then true else
+  match opCode, props with
+  -- Volatile loads are definitionally side-effecting
+  | .llvm .load, props => props.volatile_
+  | opCode, _ =>
+    match opCode with
+    -- These dialects are pure
+    | .arith _ | .comb _ | .mod_arith _ | .datapath _ => false
+    | .builtin .unrealized_conversion_cast => false
+    | .hw .constant => false
+    -- Enumerate the pure subset of RISC-V
+    | .riscv .li | .riscv .lui | .riscv .auipc
+    | .riscv .addi | .riscv .slti | .riscv .sltiu
+    | .riscv .andi | .riscv .ori | .riscv .xori
+    | .riscv .addiw | .riscv .slli | .riscv .srli | .riscv .srai
+    | .riscv .add | .riscv .sub | .riscv .sll | .riscv .slt | .riscv .sltu
+    | .riscv .xor | .riscv .srl | .riscv .sra | .riscv .or | .riscv .and
+    | .riscv .slliw | .riscv .srliw | .riscv .sraiw
+    | .riscv .addw | .riscv .subw | .riscv .sllw | .riscv .srlw | .riscv .sraw
+    | .riscv .rem | .riscv .remu | .riscv .remw | .riscv .remuw
+    | .riscv .mul | .riscv .mulh | .riscv .mulhu | .riscv .mulhsu | .riscv .mulw
+    | .riscv .div | .riscv .divw | .riscv .divu | .riscv .divuw
+    | .riscv .adduw | .riscv .sh1adduw | .riscv .sh2adduw | .riscv .sh3adduw
+    | .riscv .sh1add | .riscv .sh2add | .riscv .sh3add | .riscv .slliuw
+    | .riscv .andn | .riscv .orn | .riscv .xnor
+    | .riscv .max | .riscv .maxu | .riscv .min | .riscv .minu
+    | .riscv .rol | .riscv .ror | .riscv .rolw | .riscv .rorw
+    | .riscv .sextb | .riscv .sexth | .riscv .zexth
+    | .riscv .clz | .riscv .clzw | .riscv .ctz | .riscv .ctzw
+    | .riscv .cpop | .riscv .cpopw | .riscv .orcb | .riscv .rev8
+    | .riscv .rori | .riscv .roriw
+    | .riscv .bclr | .riscv .bext | .riscv .binv | .riscv .bset
+    | .riscv .bclri | .riscv .bexti | .riscv .binvi | .riscv .bseti
+    | .riscv .pack | .riscv .packh | .riscv .packw
+    | .riscv .czeroeqz | .riscv .czeronez
+    -- RISC-V pseudo-operations
+    | .riscv .mv | .riscv .not | .riscv .neg | .riscv .negw
+    | .riscv .sextw | .riscv .zextb | .riscv .zextw
+    | .riscv .seqz | .riscv .snez | .riscv .sltz | .riscv .sgtz => false
+    -- For LLVM we enumerate the pure ops
+    | .llvm .mlir__constant
+    | .llvm .mlir__poison
+    | .llvm .and | .llvm .or | .llvm .xor
+    | .llvm .add | .llvm .sub | .llvm .mul
+    | .llvm .sdiv | .llvm .udiv | .llvm .srem | .llvm .urem
+    | .llvm .shl | .llvm .lshr | .llvm .ashr
+    | .llvm .intr__ctlz | .llvm .intr__cttz | .llvm .intr__ctpop
+    | .llvm .intr__bswap | .llvm .intr__bitreverse
+    | .llvm .intr__fshl | .llvm .intr__fshr
+    | .llvm .icmp | .llvm .select
+    | .llvm .trunc | .llvm .sext | .llvm .zext
+    | .llvm .getelementptr
+    | .llvm .intr__smax | .llvm .intr__smin | .llvm .intr__umax | .llvm .intr__umin
+    | .llvm .intr__abs
+    | .llvm .intr__sadd__sat | .llvm .intr__uadd__sat
+    | .llvm .intr__ssub__sat | .llvm .intr__usub__sat
+    | .llvm .intr__sshl__sat | .llvm .intr__ushl__sat
+    | .llvm .fadd | .llvm .fsub | .llvm .fmul | .llvm .fdiv | .llvm .frem => false
+    -- For everything else: be conservative!
+    | _ => true
+
 inductive RegionKind where
 | SSACFG
 | Graph
@@ -60,6 +148,7 @@ def OpCode.getRegionKind (opCode : OpCode) (_index : Nat) : RegionKind :=
 
 instance : HasOpInfo OpCode where
   moduleOpCode := .builtin .module
+  hasSideEffects := OpCode.hasSideEffects
   hasSSADominance opCode index := opCode.getRegionKind index == .SSACFG
 
 abbrev propertiesOf := HasOpInfo.propertiesOf (self := instHasOpInfoOpCode)
@@ -377,92 +466,6 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     dict
   | _ =>
     Std.HashMap.emptyWithCapacity 0
-
-/--
-  Does this OpCode count as an MLIR basic block terminator?
--/
-def OpCode.isTerminator (opCode : OpCode) : Bool :=
-  match opCode with
-  | .cf .br | .cf .cond_br
-  | .func .return
-  | .llvm .br | .llvm .cond_br | .llvm .return | .llvm .unreachable
-  | .riscv_cf .branch | .riscv_cf .beq | .riscv_cf .bne
-  | .riscv_cf .beqz | .riscv_cf .bnez
-  | .riscv_cf .blt | .riscv_cf .bge | .riscv_cf .bltu | .riscv_cf .bgeu
-  | .hw .output => true
-  | _ => false
-
-/--
-  Does this operation have effects that make it ineligible for DCE and
-  other transformations that add / remove / rearrange instructions?
-
-  NOTE: ¬ hasSideEffects does not imply that an operation is safe to
-        speculate. For that we also need it to never trigger immediate
-        UB. We'll have to deal with this later on.
-
-  Also see:
-  https://mlir.llvm.org/docs/Rationale/SideEffectsAndSpeculation/
--/
-def OperationPtr.hasSideEffects (op : OperationPtr) (ctx : IRContext OpCode) : Bool :=
-  let opCode := op.getOpType! ctx
-  if opCode.isTerminator then true else
-  match opCode with
-  -- These dialects are pure
-  | .arith _ | .comb _ | .mod_arith _ | .datapath _ => false
-  | .builtin .unrealized_conversion_cast => false
-  | .hw .constant => false
-  -- Enumerate the pure subset of RISC-V
-  | .riscv .li | .riscv .lui | .riscv .auipc
-  | .riscv .addi | .riscv .slti | .riscv .sltiu
-  | .riscv .andi | .riscv .ori | .riscv .xori
-  | .riscv .addiw | .riscv .slli | .riscv .srli | .riscv .srai
-  | .riscv .add | .riscv .sub | .riscv .sll | .riscv .slt | .riscv .sltu
-  | .riscv .xor | .riscv .srl | .riscv .sra | .riscv .or | .riscv .and
-  | .riscv .slliw | .riscv .srliw | .riscv .sraiw
-  | .riscv .addw | .riscv .subw | .riscv .sllw | .riscv .srlw | .riscv .sraw
-  | .riscv .rem | .riscv .remu | .riscv .remw | .riscv .remuw
-  | .riscv .mul | .riscv .mulh | .riscv .mulhu | .riscv .mulhsu | .riscv .mulw
-  | .riscv .div | .riscv .divw | .riscv .divu | .riscv .divuw
-  | .riscv .adduw | .riscv .sh1adduw | .riscv .sh2adduw | .riscv .sh3adduw
-  | .riscv .sh1add | .riscv .sh2add | .riscv .sh3add | .riscv .slliuw
-  | .riscv .andn | .riscv .orn | .riscv .xnor
-  | .riscv .max | .riscv .maxu | .riscv .min | .riscv .minu
-  | .riscv .rol | .riscv .ror | .riscv .rolw | .riscv .rorw
-  | .riscv .sextb | .riscv .sexth | .riscv .zexth
-  | .riscv .clz | .riscv .clzw | .riscv .ctz | .riscv .ctzw
-  | .riscv .cpop | .riscv .cpopw | .riscv .orcb | .riscv .rev8
-  | .riscv .rori | .riscv .roriw
-  | .riscv .bclr | .riscv .bext | .riscv .binv | .riscv .bset
-  | .riscv .bclri | .riscv .bexti | .riscv .binvi | .riscv .bseti
-  | .riscv .pack | .riscv .packh | .riscv .packw
-  | .riscv .czeroeqz | .riscv .czeronez
-  -- RISC-V pseudo-operations
-  | .riscv .mv | .riscv .not | .riscv .neg | .riscv .negw
-  | .riscv .sextw | .riscv .zextb | .riscv .zextw
-  | .riscv .seqz | .riscv .snez | .riscv .sltz | .riscv .sgtz => false
-  -- For LLVM we enumerate the pure ops
-  | .llvm .mlir__constant
-  | .llvm .mlir__poison
-  | .llvm .and | .llvm .or | .llvm .xor
-  | .llvm .add | .llvm .sub | .llvm .mul
-  | .llvm .sdiv | .llvm .udiv | .llvm .srem | .llvm .urem
-  | .llvm .shl | .llvm .lshr | .llvm .ashr
-  | .llvm .intr__ctlz | .llvm .intr__cttz | .llvm .intr__ctpop
-  | .llvm .intr__bswap | .llvm .intr__bitreverse
-  | .llvm .intr__fshl | .llvm .intr__fshr
-  | .llvm .icmp | .llvm .select
-  | .llvm .trunc | .llvm .sext | .llvm .zext
-  | .llvm .getelementptr
-  | .llvm .intr__smax | .llvm .intr__smin | .llvm .intr__umax | .llvm .intr__umin
-  | .llvm .intr__abs
-  | .llvm .intr__sadd__sat | .llvm .intr__uadd__sat
-  | .llvm .intr__ssub__sat | .llvm .intr__usub__sat
-  | .llvm .intr__sshl__sat | .llvm .intr__ushl__sat
-  | .llvm .fadd | .llvm .fsub | .llvm .fmul | .llvm .fdiv | .llvm .frem => false
-  -- Volatile loads are definitionally side-effecting
-  | .llvm .load => (op.getProperties! ctx (.llvm .load)).volatile_
-  -- For everything else: be conservative!
-  | _ => true
 
 /--
   Does this `OpCode` materialize a literal constant value (i.e. an op
