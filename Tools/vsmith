@@ -574,7 +574,7 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
     # pseudo expansion. -run-pass emits MIR, so the asm printer runs in stage 2b.
     rc, out = _mir_run([tools["llc"], str(mir), "-mtriple=riscv64", "-x", "mir",
                         "-run-pass=phi-node-elimination,twoaddressinstruction,"
-                        "register-coalescer,greedy,virtregrewriter,prologepilog,"
+                        "register-coalescer,greedy,virtregrewriter,prolog-epilog,"
                         "postrapseudos,riscv-expand-pseudo", "-o", str(lowered)])
     if rc != 0:
         return False, (f"llc failed to lower MIR (regalloc stage)\n"
