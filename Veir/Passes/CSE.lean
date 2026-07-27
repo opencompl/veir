@@ -11,7 +11,7 @@ import Veir.Data.LLVM.Int.Basic
   * it only reasons within one basic block;
   * it only considers arithmetic operations (including icmps, select,
     and ext/trunc);
-  * it only works for instructions that return a single result;
+  * it only works for instructions that return at least one result;
   * distinct UB flags are treated as distinct instructions;
   * it only supports the LLVM, arith, and mod_arith dialects;
   * it does not use a worklist or iterate to fixpoint, so it may leave
@@ -29,13 +29,13 @@ instance : Hashable Kind where
   hash k := mixHash (hash k.fst) (hash k.snd)
 
 /-- This is the basis for CSE: if two instructions have the same Key,
-    then they compute the same value: they are interchangeable. In
-    that case we can remove one of them and switch all of its uses to
-    the other. Proving this will be the crux of the eventual
-    correctness proof for this pass. -/
+    then they compute the same ordered sequence of result values. In
+    that case we can remove one of them and switch every result's uses
+    to the corresponding result of the other. Proving this will be the
+    crux of the eventual correctness proof for this pass. -/
 structure Key where
   kind : Kind
-  resultType : TypeAttr
+  resultTypes : Array TypeAttr
   operands : Array ValuePtr
 deriving DecidableEq, BEq, Hashable
 
@@ -45,7 +45,7 @@ def makeKey
     Key :=
   {
     kind
-    resultType := (op.getResult 0 : ValuePtr).getType! ctx
+    resultTypes := op.getResultTypes! ctx
     operands
   }
 
@@ -109,7 +109,7 @@ def icmpKey
     None. -/
 def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
   guard ((op.get! ctx).attrs.entries.size = 0)
-  guard (op.getNumResults! ctx = 1)
+  guard (op.getNumResults! ctx > 0)
   let opType := op.getOpType! ctx
   let properties := op.getProperties! ctx opType
   let kind : Kind := ⟨opType, properties⟩
@@ -118,8 +118,9 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
   | .llvm .intr__smax | .llvm .intr__smin | .llvm .intr__umax | .llvm .intr__umin
   | .arith .addi | .arith .muli | .arith .andi | .arith .ori | .arith .xori
   | .arith .maxsi | .arith .maxui | .arith .minsi | .arith .minui
+  | .arith .addui_extended | .arith .mulsi_extended | .arith .mului_extended
   -- mod_arith carries its modulus in the operand and result types, and
-  -- `Key` includes the result type, so ops on different moduli never
+  -- `Key` includes the result types, so ops on different moduli never
   -- collide.
   | .mod_arith .add | .mod_arith .mul =>
       return commutativeBinopKey ctx op kind
@@ -142,8 +143,6 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
   | .arith .divsi | .arith .divui | .arith .remsi | .arith .remui
   | .arith .ceildivsi | .arith .ceildivui | .arith .floordivsi
   | .arith .extsi | .arith .extui | .arith .trunci
-  -- The `*_extended` ops are commutative too, but they return two
-  -- results, so the single-result guard above already rejects them.
   | .arith .select
   | .mod_arith .sub | .mod_arith .constant =>
       return ordinaryKey ctx op kind
@@ -164,8 +163,7 @@ def processBlock
     if let some key := key? ctx.raw op then
         match available[key]? with
         | some earlier =>
-            ctx := WfRewriter.replaceValue! ctx (op.getResult 0) (earlier.getResult 0)
-            ctx := WfRewriter.eraseOp! ctx op
+            ctx := WfRewriter.replaceOp! ctx op earlier
         | none =>
             available := available.insert key op
     current := next
