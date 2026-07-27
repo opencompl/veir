@@ -11,7 +11,6 @@ import Veir.Data.LLVM.Int.Basic
   * it only reasons within one basic block;
   * it only considers arithmetic operations (including icmps, select,
     and ext/trunc);
-  * it only works for instructions that return at least one result;
   * distinct UB flags are treated as distinct instructions;
   * it only supports the LLVM, arith, and mod_arith dialects;
   * it does not use a worklist or iterate to fixpoint, so it may leave
