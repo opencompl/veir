@@ -60,9 +60,30 @@ def OpCode.isTerminator (opCode : OpCode) : Bool :=
   | _ => false
 
 /--
+  Does an operation with this opcode read memory?
+
+  These are exactly the operations whose `volatile_` flag `hasSideEffects`
+  consults below, viewed through the other question one can ask about a load:
+  a non-volatile load is removable (`hasSideEffects` is `false`) but is never
+  executable at compile time. The two definitions describe the same set of
+  operations and must be edited together.
+-/
+def OpCode.readsMemory (opCode : OpCode) : Bool :=
+  match opCode with
+  | .llvm .load
+  | .riscv .ld | .riscv .lw | .riscv .lwu
+  | .riscv .lh | .riscv .lhu
+  | .riscv .lb | .riscv .lbu => true
+  | _ => false
+
+/--
   Does an operation with this opcode and these properties have effects that
   make it ineligible for DCE and other transformations that add / remove /
   rearrange instructions?
+
+  A reading operation may still answer `false` here: a non-volatile load is
+  removable when its result is unused. Use `isMemoryEffectFree` when the
+  question is whether an operation may be executed rather than deleted.
 
   NOTE: ¬ hasSideEffects does not imply that an operation is safe to
         speculate. For that we also need it to never trigger immediate
@@ -177,6 +198,7 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
 instance : HasOpInfo OpCode where
   moduleOpCode := .builtin .module
   hasSideEffects := OpCode.hasSideEffects
+  readsMemory := OpCode.readsMemory
   isConstantLike := OpCode.isConstantLike
   hasSSADominance opCode index := opCode.getRegionKind index == .SSACFG
 

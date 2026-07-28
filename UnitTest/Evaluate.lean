@@ -1,3 +1,5 @@
+import UnitTest.DataFlowFramework.Helpers
+
 import Veir.Interpreter.Evaluate
 
 /-! Tests for compile-time evaluation of operations with the interpreter. -/
@@ -25,7 +27,8 @@ info: "ok"
 #eval! testEvaluateAddi
 
 /-- Division by zero is immediate UB, which the interpreter reports as `.ub`
-    rather than as a value: a client must not read a result out of it. -/
+    rather than as a value: a client must not read a result out of it. Turning
+    UB into poison is the client's policy decision, not this layer's. -/
 private def testEvaluateUB : String := Id.run do
   let operands : Array RuntimeValue := #[.int 32 (.val 5), .int 32 (.val 0)]
   let some .ub :=
@@ -54,3 +57,99 @@ info: "ok"
 -/
 #guard_msgs in
 #eval! testEvaluateUninterpreted
+
+/-! ## Which operations may be evaluated -/
+
+/-- Find the first operation with the given opcode. -/
+private def findOp (ctx : IRContext OpCode) (opType : OpCode) : Option OperationPtr := Id.run do
+  for op in ctx.operations.keys do
+    if op.getOpType! ctx = opType then
+      return some op
+  return none
+
+private def loadModule (volatileFlag : String) : String :=
+  "\"builtin.module\"() ({
+    \"func.func\"() <{function_type = (!llvm.ptr) -> i32, sym_name = \"main\"}> ({
+    ^bb0(%p : !llvm.ptr):
+      %v = \"llvm.load\"(%p) " ++ volatileFlag ++ " : (!llvm.ptr) -> i32
+      \"func.return\"(%v) : (i32) -> ()
+    }) : () -> ()
+  }) : () -> ()"
+
+/--
+  A non-volatile load is the case that separates the two questions: it is
+  removable when its result is unused, so `hasSideEffects` reports `false`,
+  and it must still never be executed at compile time. Reading memory is what
+  `isMemoryEffectFree` adds.
+-/
+private def testNonVolatileLoadIsNotMemoryEffectFree : String := Id.run do
+  let .ok (_, state) := parseTopLevelOp (loadModule "") | return "parse error"
+  let ctx := state.ctx.raw
+  let some load := findOp ctx (.llvm .load) | return "missing llvm.load"
+  if load.hasSideEffects ctx then
+    return "a non-volatile llvm.load was reported as side-effecting"
+  if load.isMemoryEffectFree ctx then
+    return "a non-volatile llvm.load was reported as memory-effect-free"
+  -- The guard inside `foldEvaluate` is what makes this hold, whatever the
+  -- interpreter would have done with the empty memory.
+  let props := load.getProperties! ctx (.llvm .load)
+  let none := (foldEvaluate (.llvm .load) props (load.getResultTypes! ctx) #[.addr 0]
+    : Option (UBOr (Array RuntimeValue)))
+    | return "a non-volatile llvm.load was evaluated"
+  return "ok"
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testNonVolatileLoadIsNotMemoryEffectFree
+
+/-- A volatile load is excluded twice over: it is side-effecting *and* it
+    reads memory. -/
+private def testVolatileLoadIsNotMemoryEffectFree : String := Id.run do
+  let .ok (_, state) := parseTopLevelOp (loadModule "<{volatile_}>") | return "parse error"
+  let ctx := state.ctx.raw
+  let some load := findOp ctx (.llvm .load) | return "missing llvm.load"
+  if ¬ load.hasSideEffects ctx then
+    return "a volatile llvm.load was reported as free of side effects"
+  if load.isMemoryEffectFree ctx then
+    return "a volatile llvm.load was reported as memory-effect-free"
+  return "ok"
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testVolatileLoadIsNotMemoryEffectFree
+
+private def arithmeticModule : String :=
+  "\"builtin.module\"() ({
+    \"func.func\"() <{function_type = (i32, !riscv.reg) -> i32, sym_name = \"main\"}> ({
+    ^bb0(%x : i32, %r : !riscv.reg):
+      %a = \"arith.addi\"(%x, %x) : (i32, i32) -> i32
+      %b = \"llvm.add\"(%a, %x) : (i32, i32) -> i32
+      %c = \"riscv.add\"(%r, %r) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+      \"func.return\"(%b) : (i32) -> ()
+    }) : () -> ()
+  }) : () -> ()"
+
+/-- Pure arithmetic stays evaluable, and the terminator does not: a
+    terminator is already side-effecting, so control flow needs no separate
+    exclusion. -/
+private def testArithmeticIsMemoryEffectFree : String := Id.run do
+  let .ok (_, state) := parseTopLevelOp arithmeticModule | return "parse error"
+  let ctx := state.ctx.raw
+  for opType in #[OpCode.arith .addi, .llvm .add, .riscv .add] do
+    let some op := findOp ctx opType | return s!"missing {repr opType}"
+    if ¬ op.isMemoryEffectFree ctx then
+      return "a pure arithmetic operation was reported as not memory-effect-free"
+  let some ret := findOp ctx (.func .return) | return "missing func.return"
+  if ret.isMemoryEffectFree ctx then
+    return "a terminator was reported as memory-effect-free"
+  return "ok"
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testArithmeticIsMemoryEffectFree
