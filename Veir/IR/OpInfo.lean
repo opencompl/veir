@@ -62,9 +62,9 @@ class HasOpInfo (opCode: Type)
 
   This is deliberately separate from `hasSideEffects`: a non-volatile load
   reads memory and yet is eligible for removal when its result is unused, so
-  `hasSideEffects` reports `false` for it. A client that wants to *execute* an
-  operation, rather than delete or move one, must consult this as well; see
-  `isMemoryEffectFree`.
+  `hasSideEffects` reports `false` for it. Fold-time evaluation must consult
+  this as well before running an operation against memory that is not the
+  program's.
 
   Defaults to `true` for every opcode, which conservatively assumes memory is
   read.

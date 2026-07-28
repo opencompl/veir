@@ -1,6 +1,5 @@
 module
 
-public import Veir.Interfaces.SideEffectInterfaces
 public import Veir.Interpreter.Basic
 
 /-!
@@ -16,14 +15,24 @@ semantics in the optimizer, is what makes a client agree with the runtime
 semantics by construction. The intended clients are constant folding and
 optimistic data-flow analyses such as SCCP.
 
-Which operations may be evaluated is not a question this file answers: an
-operation may be executed at compile time exactly when it is free of memory
-effects, which `Veir.isMemoryEffectFree` already decides.
+The fold-time eligibility check is deliberately local to this file. It keeps
+operations that read memory or otherwise report side effects away from the
+empty memory used below without defining a general-purpose side-effect API.
 -/
 
 public section
 
 namespace Veir
+
+/--
+  Whether an operation is a candidate for evaluation by `foldEvaluate`.
+
+  In particular, a non-volatile load reports no side effects but is not a
+  candidate because it reads memory.
+-/
+private def isFoldEvaluationCandidate
+    (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode) : Bool :=
+  !HasOpInfo.hasSideEffects opCode properties && !HasOpInfo.readsMemory opCode
 
 /--
   Evaluate an operation with the interpreter, given the runtime values of its
@@ -43,7 +52,7 @@ namespace Veir
 def foldEvaluate (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
     : Interp (Array RuntimeValue) := do
-  if !isMemoryEffectFree opCode properties then none else
+  if !isFoldEvaluationCandidate opCode properties then none else
   let (results, _mem, action) ←
     interpretOp' opCode properties resultTypes operands #[] MemoryState.empty
   -- Terminators are already excluded above, since `hasSideEffects` reports

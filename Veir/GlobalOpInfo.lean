@@ -82,8 +82,8 @@ def OpCode.readsMemory (opCode : OpCode) : Bool :=
   rearrange instructions?
 
   A reading operation may still answer `false` here: a non-volatile load is
-  removable when its result is unused. Use `isMemoryEffectFree` when the
-  question is whether an operation may be executed rather than deleted.
+  removable when its result is unused. Fold-time evaluation separately checks
+  `readsMemory` before running an operation against empty memory.
 
   NOTE: ¬ hasSideEffects does not imply that an operation is safe to
         speculate. For that we also need it to never trigger immediate
