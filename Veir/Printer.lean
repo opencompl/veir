@@ -1,12 +1,10 @@
 module
 
 public import Veir.IR.Basic
-public import Veir.Properties
 public import Veir.GlobalOpInfo
 
 import Veir.IR.Grind
 import Veir.Rewriter.Basic
-import Veir.Properties
 
 open Veir
 

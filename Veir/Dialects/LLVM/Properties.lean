@@ -1,75 +1,14 @@
 module
 
-public import Veir.OpCode
-public import Veir.IR.Attribute
-public import Veir.IR.Simp
-public import Veir.ForLean
-public import Veir.IR.OpInfo
 public import Veir.Data.LLVM.Int.Basic
+public import Std.Data.HashMap
+public import Veir.IR.Attribute
 
-/- This is needed as some properties have ByteArray and require Repr instances -/
-deriving instance Repr for ByteArray
+import Veir.Dialects.Builtin.Properties
 
 namespace Veir
 
 public section
-
-/--
-  Properties of a `builtin.unregistered` operation. Holds the original (parsed) operation name
-  and the original `<{...}>` properties dictionary so that the operation can be printed back
-  with its source representation preserved.
--/
-structure UnregisteredProperties where
-  opName : ByteArray
-  properties : DictionaryAttr
-deriving Inhabited, Repr, Hashable, DecidableEq
-
-def UnregisteredProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String UnregisteredProperties :=
-  .ok { opName := .empty, properties := DictionaryAttr.fromArray attrDict.toArray }
-
-def getUnitAttr (key : String) (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String Bool := do
-  match attrDict[key.toUTF8]? with
-  | some (.unitAttr _) => .ok true
-  | some attr => .error s!"expected '{key}' to be an optional unit attribute, but got {attr}"
-  | none => .ok false
-
-/--
-  Properties of the `arith.constant` operation.
--/
-structure ArithConstantProperties where
-  value : IntegerAttr
-deriving Inhabited, Repr, Hashable, DecidableEq
-
-def ArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String ArithConstantProperties := do
-  if attrDict.size > 1 then
-    throw s!"arith.constant: expected only 'value' property, but got {attrDict.size} properties"
-  let some attr := attrDict["value".toUTF8]?
-    | throw "arith.constant: missing 'value' property"
-  let .integerAttr intAttr := attr
-    | throw s!"arith.constant: expected 'value' to be an integer attribute, but got {attr}"
-  return { value := intAttr }
-
-/-- Properties of arith operations that can have `nsw` and `nuw` flags, such as `arith.addi` or `arith.muli`. -/
-structure ArithIntegerOverflowFlagsProperties where
-  attr : ArithIntegerOverflowFlagsAttr
-deriving Inhabited, Repr, Hashable, DecidableEq
-
-def ArithIntegerOverflowFlagsProperties.fromAttrDict
-    (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String ArithIntegerOverflowFlagsProperties := do
-
-  let value ← match attrDict["overflowFlags".toUTF8]? with
-    | none => .ok { nsw := false, nuw := false }
-    | some (.arithIntegerOverflowFlagsAttr flags) => .ok flags
-    | some (.unregisteredAttr attr) =>
-        .error s!"expected 'overflowFlags' to be an arith integer overflow flags attribute, but got unregistered {attr}"
-    | some attr =>
-        .error s!"expected 'overflowFlags' to be an arith integer overflow flags attribute, but got {attr}"
-
-  return ⟨value⟩
 
 /-- Properties of LLVM operations that can have `nsw` and `nuw` flags, such as `llvm.add` or `llvm.mul`. -/
 structure NswNuwProperties where
@@ -258,127 +197,6 @@ def IcmpProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
   IcmpProperties.fromAttrDictFor "llvm.icmp" attrDict
 
 /--
-  Properties of the RISC-V immediate operations.
--/
-structure RISCVImmediateProperties where
-  value : IntegerAttr
-deriving Inhabited, Repr, Hashable, DecidableEq
-
-def RISCVImmediateProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String RISCVImmediateProperties := do
-  if attrDict.size > 1 then
-    throw s!"RISC-V immediate operation: expected only 'value' property, but got {attrDict.size} properties"
-  let some attr := attrDict["value".toUTF8]?
-    | throw "RISC-V immediate operation: missing 'value' property"
-  let .integerAttr intAttr := attr
-    | throw s!"RISC-V immediate operation: expected 'value' to be an integer attribute, but got {attr}"
-  return { value := intAttr }
-
-/--
-  Properties of the RISC-V memory operations (`ld`/`lw`/.../`sd`/`sb`): the
-  offset immediate added to the base register, plus whether the access is
-  volatile.
-
-  RISC-V itself has no volatile bit -- a volatile `lw` and an ordinary one
-  encode identically -- so this mirrors `LoadProperties`/`StoreProperties`
-  in the LLVM dialect, where volatility is likewise a promise to the
-  optimizer rather than something the target encodes.
--/
-structure RISCVMemProperties where
-  value : IntegerAttr
-  volatile_ : Bool
-deriving Inhabited, Repr, Hashable, DecidableEq
-
-def RISCVMemProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String RISCVMemProperties := do
-  let volatile_ ← getUnitAttr "volatile_" attrDict
-  /- 'value' is required and 'volatile_' optional, so anything beyond those
-     two keys (or a second key when there is no 'volatile_') is bogus. -/
-  if attrDict.size > (if volatile_ then 2 else 1) then
-    throw s!"RISC-V memory operation: expected only 'value' and 'volatile_' properties, but got {attrDict.size} properties"
-  let some attr := attrDict["value".toUTF8]?
-    | throw "RISC-V memory operation: missing 'value' property"
-  let .integerAttr intAttr := attr
-    | throw s!"RISC-V memory operation: expected 'value' to be an integer attribute, but got {attr}"
-  return { value := intAttr, volatile_ }
-
-/--
-  Properties of the RISC-V conditional branching operations.
--/
-
-structure RISCVBrProperties where
-  operandSegmentSizes : DenseArrayAttr
-
-deriving Inhabited, Repr, Hashable, DecidableEq
-
-def RISCVBrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String RISCVBrProperties := do
-  if attrDict.size > 1 then
-    throw s!"riscv_cf: expected only 'operandSegmentSizes' property, but got {attrDict.size} properties"
-  let some sizesAttr := attrDict["operandSegmentSizes".toUTF8]?
-    | throw "riscv_cf: missing 'operandSegmentSizes' property"
-  let .denseArrayAttr sizesAttr := sizesAttr
-    | throw s!"riscv_cf: expected 'operandSegmentSizes' to be a dense array attribute, but got {sizesAttr}"
-  return { operandSegmentSizes := sizesAttr }
-
-structure RISCVStackAllocaProperties where
-  alignment : IntegerAttr
-  value_type : TypeAttr
-deriving Inhabited, Repr, Hashable, DecidableEq
-
-def RISCVStackAllocaProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String RISCVStackAllocaProperties := do
-  let alignAttr ← match attrDict["alignment".toUTF8]? with
-    | some (.integerAttr alignAttr) => .ok alignAttr
-    | some attr => .error s!"expected 'alignment' to be an optional integer attribute, but got {attr}"
-    | none => .ok { value := 0, type := { bitwidth := 64 } }
-  let some typeAttr := attrDict["value_type".toUTF8]?
-    | throw "alloca: missing 'value_type' property"
-  if _ : typeAttr.isType = false then throw "alloca: expected 'value_type' to be a type attribute" else
-  return { alignment := alignAttr, value_type := typeAttr.asType }
-
-/--
-  Properties of the `mod_arith.constant` operation.
--/
-structure ModArithConstantProperties where
-  value : IntegerAttr
-deriving Inhabited, Repr, Hashable, DecidableEq
-
-def ModArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String ModArithConstantProperties := do
-  if attrDict.size > 1 then
-    throw s!"mod_arith.constant: expected only 'value' property, but got {attrDict.size} properties"
-  let some attr := attrDict["value".toUTF8]?
-    | throw "mod_arith.constant: missing 'value' property"
-  let .integerAttr intAttr := attr
-    | throw s!"mod_arith.constant: expected 'value' to be an integer attribute, but got {attr}"
-  return { value := intAttr }
-
-/--
-  Properties of the `cond_br` operation.
--/
-
-structure CondBrProperties where
-  branch_weights : DenseArrayAttr
-  operandSegmentSizes : DenseArrayAttr
-
-deriving Inhabited, Repr, Hashable, DecidableEq
-
-def CondBrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String CondBrProperties := do
-  if attrDict.size > 2 then
-    throw s!"cf.cond_br: expected only 'branch_weights' and 'operandSegmentSizes' properties, but got {attrDict.size} properties"
-  let weightsAttr ← match attrDict["branch_weights".toUTF8]? with
-    | some (.denseArrayAttr weightsAttr) => .ok weightsAttr
-    | some attr => .error s!"expected 'branch_weights' to be an optional dense array attribute, but got {attr}"
-    | none => .ok { elementType := { bitwidth := 32 }, values := #[] }
-  let some sizesAttr := attrDict["operandSegmentSizes".toUTF8]?
-    | throw "cf.cond_br: missing 'operandSegmentSizes' property"
-  let .denseArrayAttr sizesAttr := sizesAttr
-    | throw s!"cf.cond_br: expected 'operandSegmentSizes' to be a dense array attribute, but got {sizesAttr}"
-  return { branch_weights := weightsAttr, operandSegmentSizes := sizesAttr }
-
-/--
   Properties of LLVM memory operations.
 -/
 
@@ -510,103 +328,6 @@ def GetelementptrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
   return {rawConstantIndices, elem_type := typeAttr.asType, noWrapFlags}
 
 /--
-  Properties of the `comb.extract` operation.
--/
-structure CombExtractProperties where
-  lowBit : IntegerAttr
-deriving Inhabited, Repr, Hashable, DecidableEq
-
-def CombExtractProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String CombExtractProperties := do
-  if attrDict.size > 1 then
-    throw s!"comb.extract: expected only one property, but got {attrDict.size} properties"
-  let some attr := attrDict["lowBit".toUTF8]?
-    | throw "comb.extract: missing 'lowBit' property"
-  let .integerAttr intAttr := attr
-    | throw s!"comb.extract: expected 'lowBit' to be an integer attribute, but got {attr}"
-  return { lowBit := intAttr }
-
-/--
-  Properties of `comb.icmp` operation, describing predicates for integer comparison.
--/
-structure CombIcmpProperties where
-  predicate : IntegerAttr
-deriving Inhabited, Repr, Hashable, DecidableEq
-
-def CombIcmpProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String CombIcmpProperties := do
-  if attrDict.size > 1 then
-    throw s!"comb.icmp: expected only one property, but got {attrDict.size} properties"
-  let some attr := attrDict["predicate".toUTF8]?
-    | throw "comb.icmp: missing 'predicate' property"
-  let .integerAttr intAttr := attr
-    | throw s!"comb.icmp: expected 'predicate' to be an integer attribute, but got {attr}"
-  return { predicate := intAttr }
-
-/--
-  Properties of the `hw.constant` operation.
--/
-structure HWConstantProperties where
-  value : IntegerAttr
-deriving Inhabited, Repr, Hashable, DecidableEq
-
-def HWConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String HWConstantProperties := do
-  if attrDict.size > 1 then
-    throw s!"hw.constant: expected only 'value' property, but got {attrDict.size} properties"
-  let some attr := attrDict["value".toUTF8]?
-    | throw "hw.constant: missing 'value' property"
-  let .integerAttr intAttr := attr
-    | throw s!"hw.constant: expected 'value' to be an integer attribute, but got {attr}"
-  return { value := intAttr }
-
-/--
-  Properties of `func.func`. The `sym_name` attribute is modelled explicitly;
-  all other attributes are preserved verbatim in `extra`.
--/
-structure FuncFuncProperties where
-  sym_name : Option StringAttr
-  function_type : Option TypeAttr
-  extra : DictionaryAttr
-deriving Inhabited, Repr, Hashable, DecidableEq
-
-def FuncFuncProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String FuncFuncProperties := do
-  let symName ← match attrDict["sym_name".toUTF8]? with
-    | some (.stringAttr s) => pure (some s)
-    | some attr => throw s!"func.func: expected 'sym_name' to be a string attribute, but got {attr}"
-    | none => pure none
-  let funcType ← match attrDict["function_type".toUTF8]? with
-    | some attr =>
-      if _ : attr.isType = false then
-        throw "func.func: expected 'function_type' to be a type attribute"
-      else pure (some attr.asType)
-    | none => pure none
-  let extra := DictionaryAttr.fromArray
-    (attrDict.toArray.filter fun (k, _) => k ≠ "sym_name".toUTF8 && k ≠ "function_type".toUTF8)
-  return { sym_name := symName, function_type := funcType, extra }
-
-/--
-  Properties of the `func.call` operation. The `callee` is first-class; all
-  other attributes are kept verbatim in `extra`. `func.call` is never indirect,
-  so `callee` is required.
--/
-structure FuncCallProperties where
-  callee : FlatSymbolRefAttr
-  extra : DictionaryAttr
-deriving Inhabited, Repr, Hashable, DecidableEq
-
-def FuncCallProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String FuncCallProperties := do
-  let callee ← match attrDict["callee".toUTF8]? with
-    | some (.flatSymbolRefAttr s) => pure s
-    | some attr => throw s!"func.call: expected 'callee' to be a flat symbol reference, but got {attr}"
-    | none => throw "func.call: expected a 'callee' symbol reference"
-  let extra := DictionaryAttr.fromArray
-    (attrDict.toArray.filter fun (k, _) => k ≠ "callee".toUTF8)
-  return { callee, extra }
-
-/--
   Properties of the `llvm.call` operation. The `callee` is first-class; all
   other attributes are kept verbatim in `extra`. `callee` is optional because
   `llvm.call` doubles as an indirect-call operation.
@@ -664,32 +385,6 @@ def LLVMModuleFlagsProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Att
     | some attr => .error s!"expected 'flags' to be an array attribute, but got {attr}"
     | none => .error "llvm.module_flags: missing 'flags' property"
   return { flags := flagsAttr }
-
-/--
-  Properties of `hw.module`.
--/
-structure HWModuleProperties where
-  module_type : HW.ModuleType
-  sym_name : StringAttr
-  per_port_attrs : ArrayAttr
-  parameters : ArrayAttr
-deriving Inhabited, Repr, Hashable, DecidableEq
-
-def HWModuleProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String HWModuleProperties := do
-  let some module_type := attrDict["module_type".toUTF8]? | throw "hw.module: requires attribute 'module_type'"
-  let .hwModuleType module_type := module_type | throw s!"hw.module: expected 'module_type' to be `!hw.modty`, but got {module_type}"
-
-  let some sym_name := attrDict["sym_name".toUTF8]? | throw "hw.module: requires attribute 'sym_name'"
-  let .stringAttr sym_name := sym_name | throw s!"hw.module: expected 'sym_name' to be a string attribute, but got {sym_name}"
-
-  let per_port_attrs := attrDict["per_port_attrs".toUTF8]?.getD (.arrayAttr .empty)
-  let .arrayAttr per_port_attrs := per_port_attrs | throw s!"hw.module: expected 'per_port_attrs' to be an array attribute, but got {per_port_attrs}"
-
-  let parameters := attrDict["parameters".toUTF8]?.getD (.arrayAttr .empty)
-  let .arrayAttr parameters := parameters | throw s!"hw.module: expected 'parameters' to be an array attribute, but got {parameters}"
-
-  return { module_type, sym_name, per_port_attrs, parameters }
 
 end
 end Veir

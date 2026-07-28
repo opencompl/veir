@@ -190,7 +190,7 @@ theorem WfRewriter.createOp_inBounds_mono
 /-! ## `WfIRContext.create` -/
 
 @[grind →]
-theorem WfIRContext.create_new_inBounds
+theorem WfIRContext.create_new_inBounds [HasDialect OpInfo Builtin]
     (heq : WfIRContext.create OpInfo = some (ctx', op)) :
     op.InBounds ctx'.raw := by
   grind [WfIRContext.create]

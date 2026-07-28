@@ -12,7 +12,6 @@ import Veir.ForLean
 import Veir.Data.Comb.Basic
 import Veir.Data.HW.Basic
 import Veir.Data.Casting
-import Veir.Properties
 import Veir.GlobalOpInfo
 import Veir.Interfaces.FunctionInterfaces
 
@@ -663,6 +662,14 @@ def Arith.interpretOp' (opType : Veir.Arith) (properties : HasDialectOpInfo.prop
     -- Two results: the `w`-bit sum, then the `i1` unsigned-overflow flag.
     return (#[.int bw (LLVM.Int.add lhs rhs),
               .int 1 (LLVM.Int.uaddOverflowFlag lhs rhs)], none)
+  | .subui_extended => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    -- Two results: the `w`-bit difference, then the `i1` borrow flag, which is
+    -- set exactly when `lhs <u rhs`.
+    return (#[.int bw (LLVM.Int.sub lhs rhs),
+              .int 1 (LLVM.Int.usubOverflowFlag lhs rhs)], none)
   | .mulsi_extended => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
