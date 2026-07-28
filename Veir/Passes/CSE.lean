@@ -137,7 +137,7 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
   | .llvm .sdiv | .llvm .udiv | .llvm .srem | .llvm .urem
   | .llvm .zext | .llvm .sext | .llvm .trunc
   | .llvm .select
-  | .arith .subi | .arith .constant
+  | .arith .subi | .arith .subui_extended | .arith .constant
   | .arith .shli | .arith .shrsi | .arith .shrui
   | .arith .divsi | .arith .divui | .arith .remsi | .arith .remui
   | .arith .ceildivsi | .arith .ceildivui | .arith .floordivsi

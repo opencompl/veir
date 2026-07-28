@@ -224,6 +224,32 @@ def lowerAddUIExtended (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   else return rewriter
 
 /--
+  `arith.subui_extended a, b` → two results: `diff = a - b` and the borrow flag
+  `borrow = icmp ult a, b`. LLVM's `usub.with.overflow` intrinsic is not available
+  in Veir's `llvm` dialect, so the borrow is computed directly; an unsigned
+  subtraction underflows exactly when `a <u b`.
+-/
+def lowerSubUIExtended (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let ctx : IRContext OpCode := rewriter.ctx
+  if op.getOpType! ctx = .arith .subui_extended then
+    if op.getNumOperands! ctx = 2 then
+      let operands := op.getOperands! ctx
+      let a := operands[0]!
+      let b := operands[1]!
+      let some width := intBitwidth rewriter a | return rewriter
+      let iN : TypeAttr := IntegerType.mk width
+      let i1 : TypeAttr := IntegerType.mk 1
+      let ip := InsertPoint.before op
+      let (rewriter, diff) ← emitLLVMBin rewriter .sub { nsw := false, nuw := false } iN a b ip
+      let (rewriter, borrow) ← emitLLVMBin rewriter .icmp { predicate := .ult } i1 a b ip
+      let rewriter := rewriter.replaceValue! (op.getResult 0) diff
+      let rewriter := rewriter.replaceValue! (op.getResult 1) borrow
+      return rewriter.eraseOp! op
+    else return rewriter
+  else return rewriter
+
+/--
   Lower a two-result extended multiply (`arith.mulsi_extended` /
   `arith.mului_extended`). Following MLIR's `MulIExtendedOpLowering`, both
   operands are extended to `2*N` bits (signed for `mulsi_extended`, unsigned for
@@ -280,7 +306,7 @@ def ArithToLLVMPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     lowerExtUI, lowerExtSI, lowerCmpI, lowerSelect,
     lowerMaxSI, lowerMinSI, lowerMaxUI, lowerMinUI,
     lowerCeilDivUI, lowerCeilDivSI, lowerFloorDivSI,
-    lowerAddUIExtended, lowerMulSIExtended, lowerMulUIExtended
+    lowerAddUIExtended, lowerSubUIExtended, lowerMulSIExtended, lowerMulUIExtended
   ]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying arith-to-llvm lowering"

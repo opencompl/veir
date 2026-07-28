@@ -40,6 +40,7 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
     |>.insert CoerceFunctionBoundariesToRiscvRegPass.name CoerceFunctionBoundariesToRiscvRegPass
     |>.insert RISCV.Combine.name RISCV.Combine
     |>.insert ModArithToArithPass.name ModArithToArithPass
+    |>.insert RemuiToBarrettReductionPass.name RemuiToBarrettReductionPass
     |>.insert ArithToLLVMPass.name ArithToLLVMPass
     |>.insert CanonicalizePass.name CanonicalizePass
 

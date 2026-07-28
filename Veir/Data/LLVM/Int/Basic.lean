@@ -165,6 +165,18 @@ def sub {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) :
   val (x' - y')
 
 /--
+The borrow bit of an unsigned subtraction, as produced by the second result of
+`arith.subui_extended`. This lowers to the `i1` overflow value of
+`llvm.usub.with.overflow`: the result is `1` when the unsigned difference of `x`
+and `y` underflows, i.e. when `x < y` unsigned, and `0` otherwise. If either
+operand is poison, the result is poison.
+-/
+def usubOverflowFlag {w : Nat} (x y : Int w) : Int 1 := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  val (BitVec.ofBool (BitVec.usubOverflow x' y'))
+
+/--
 `llvm.sadd.sat`: signed saturating addition. The result is the mathematical sum
 of the operands clamped to the signed range of the bit width. Signed addition
 can only overflow when both operands share a sign, so on overflow the result

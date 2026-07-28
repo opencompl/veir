@@ -131,10 +131,18 @@ the type `OpCodes` will contain the constructors
 | arith_addi
 | arith_subi
 ```
+
+Dialect types declared in imported modules are included automatically.
 -/
-elab "#generate_op_codes" : command  => do
-  let ts := opCodesExt.getEntries (← getEnv)
+elab "#generate_op_codes" : command => do
   let env ← getEnv
+  let mut ts := #[]
+  /- Gather opcodes defined in imported modules. -/
+  for moduleIdx in [:env.allImportedModuleNames.size] do
+    ts := ts.append <| opCodesExt.getModuleEntries env moduleIdx
+  /- Gather opcodes defined in the current module. -/
+  for t in opCodesExt.getEntries env do
+    ts := ts.push t
   let mut dialects := #[]
   for t in ts do
     let some (.inductInfo info) := env.find? t
