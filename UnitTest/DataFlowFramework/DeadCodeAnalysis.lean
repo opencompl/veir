@@ -61,65 +61,67 @@ private def run
           checkNamedEdgeLiveness dfCtx recovered.blocks expectedEdgeLives)
 
 private def testTopLevelAndFunctionEntryBlocksLive : String :=
-  let mlir := "\"builtin.module\"() ({\n\
-^bb0:\n\
-  \"func.func\"() ({\n\
-  ^entry:\n\
-  }) : () -> ()\n\
-}) : () -> ()"
-  run mlir #[("bb0", true), ("entry", true)] #[]
+  run
+    r#""builtin.module"() ({
+^bb0:
+  "func.func"() ({
+  ^entry:
+  }) : () -> ()
+}) : () -> ()"#
+    #[("bb0", true), ("entry", true)]
+    #[]
 
 private def testLiteralBranchWithoutSCPTakesKnownSuccessor : String :=
-  let mlir := "\"builtin.module\"() ({\n\
-^bb0:\n\
-  %cond = \"arith.constant\"() <{ value = 1 : i32 }> : () -> i32\n\
-  \"test.test\"(%cond)[^bb1, ^bb2] : (i32) -> ()\n\
-^bb1:\n\
-  %x = \"arith.constant\"() <{ value = 10 : i32 }> : () -> i32\n\
-^bb2:\n\
-  %y = \"arith.constant\"() <{ value = 20 : i32 }> : () -> i32\n\
-}) : () -> ()"
-  run mlir
+  run
+    r#""builtin.module"() ({
+^bb0:
+  %cond = "arith.constant"() <{ value = 1 : i32 }> : () -> i32
+  "test.test"(%cond)[^bb1, ^bb2] : (i32) -> ()
+^bb1:
+  %x = "arith.constant"() <{ value = 10 : i32 }> : () -> i32
+^bb2:
+  %y = "arith.constant"() <{ value = 20 : i32 }> : () -> i32
+}) : () -> ()"#
     #[("bb1", true), ("bb2", false)]
     #[ (("bb0", "bb1"), true)
      , (("bb0", "bb2"), false)
      ]
 
 private def testUnknownBranchWithoutSCPMarksAllSuccessorsLive : String :=
-  let mlir := "\"builtin.module\"() ({\n\
-^bb0:\n\
-  %cond = \"test.test\"() : () -> i32\n\
-  \"test.test\"(%cond)[^bb1, ^bb2] : (i32) -> ()\n\
-^bb1:\n\
-  %x = \"arith.constant\"() <{ value = 10 : i32 }> : () -> i32\n\
-^bb2:\n\
-  %y = \"arith.constant\"() <{ value = 20 : i32 }> : () -> i32\n\
-}) : () -> ()"
-  run mlir
+  run
+    r#""builtin.module"() ({
+^bb0:
+  %cond = "test.test"() : () -> i32
+  "test.test"(%cond)[^bb1, ^bb2] : (i32) -> ()
+^bb1:
+  %x = "arith.constant"() <{ value = 10 : i32 }> : () -> i32
+^bb2:
+  %y = "arith.constant"() <{ value = 20 : i32 }> : () -> i32
+}) : () -> ()"#
     #[("bb1", true), ("bb2", true)]
     #[ (("bb0", "bb1"), true)
      , (("bb0", "bb2"), true)
      ]
 
 private def testDiamond : String :=
-  let mlir := "\"builtin.module\"() ({\n\
-^bb0:\n\
-  \"test.test\"() [^bb1] : () -> ()\n\
-^bb1:\n\
-  %cond = \"arith.constant\"() <{ value = 1 : i32 }> : () -> i32\n\
-  \"test.test\"(%cond)[^bb2, ^bb3] : (i32) -> ()\n\
-^bb2:\n\
-  \"test.test\"() [^bb5] : () -> ()\n\
-^bb3:\n\
-  \"test.test\"() [^bb4] : () -> ()\n\
-^bb4:\n\
-  \"test.test\"() [^bb6] : () -> ()\n\
-^bb5:\n\
-  \"test.test\"() [^bb6] : () -> ()\n\
-^bb6:\n\
-  %x = \"arith.constant\"() <{ value = 10 : i32 }> : () -> i32\n\
-}) : () -> ()"
-  run mlir
+  run
+    r#""builtin.module"() ({
+^bb0:
+  "test.test"() [^bb1] : () -> ()
+^bb1:
+  %cond = "arith.constant"() <{ value = 1 : i32 }> : () -> i32
+  "test.test"(%cond)[^bb2, ^bb3] : (i32) -> ()
+^bb2:
+  "test.test"() [^bb5] : () -> ()
+^bb3:
+  "test.test"() [^bb4] : () -> ()
+^bb4:
+  "test.test"() [^bb6] : () -> ()
+^bb5:
+  "test.test"() [^bb6] : () -> ()
+^bb6:
+  %x = "arith.constant"() <{ value = 10 : i32 }> : () -> i32
+}) : () -> ()"#
     #[("bb1", true), ("bb2", true), ("bb3", false), ("bb4", false), ("bb5", true), ("bb6", true)]
     #[ (("bb0", "bb1"), true)
      , (("bb1", "bb2"), true)
@@ -138,20 +140,20 @@ Exercise reachability that is discovered against source order.
 to the block's liveness fact. Visiting the later `bb2` then makes `bb1` live.
 -/
 private def testReachabilityDiscoveredAfterSourceOrderScan : String :=
-  let mlir := "\"builtin.module\"() ({\n\
-^bb0:\n\
-  \"test.test\"() [^bb2] : () -> ()\n\
-^bb1:\n\
-  \"test.test\"() [^bb0] : () -> ()\n\
-^bb2:\n\
-  \"test.test\"() [^bb1] : () -> ()\n\
-}) : () -> ()"
-  run mlir 
-    #[("bb0", true), ("bb1", true), ("bb2", true)] 
+  run
+    r#""builtin.module"() ({
+^bb0:
+  "test.test"() [^bb2] : () -> ()
+^bb1:
+  "test.test"() [^bb0] : () -> ()
+^bb2:
+  "test.test"() [^bb1] : () -> ()
+}) : () -> ()"#
+    #[("bb0", true), ("bb1", true), ("bb2", true)]
     #[ (("bb0", "bb2"), true)
-    , (("bb2", "bb1"), true)
-    , (("bb1", "bb0"), true)
-    ]
+     , (("bb2", "bb1"), true)
+     , (("bb1", "bb0"), true)
+     ]
 /--
 info: "ok"
 -/
