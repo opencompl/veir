@@ -1756,7 +1756,11 @@ def sexth_and := drop_ext_of_bitwise .sexth .and false
 def sexth_or := drop_ext_of_bitwise .sexth .or false
 def sexth_xor := drop_ext_of_bitwise .sexth .xor false
 
-/-- Match a `riscv.<store>` (`sw`/`sh`/`sb`), returning `(addr, val, properties)`.
+/-- Match a `riscv.<store>` (`sw`/`sh`/`sb`), returning `(val, addr, properties)`.
+    RISC-V stores take the stored value as operand 0 and the base address as
+    operand 1: see the store cases of `Interpreter.Basic.exec`, which read the
+    effective address out of operand 1, and `Test/Interpreter/RISCV/sw.mlir`,
+    which pins the convention down by execution.
     These stores have no results, so they can't go through `matchOp` (which
     requires exactly one). -/
 private def matchRiscvStore (store : Riscv) (op : OperationPtr) (ctx : IRContext OpCode) :
@@ -1780,10 +1784,10 @@ private def matchRiscvStore (store : Riscv) (op : OperationPtr) (ctx : IRContext
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L304-L311 -/
 private def drop_ext_store_local (ext store : Riscv) (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (addr, val, props) := matchRiscvStore store op ctx | return (ctx, none)
+  let some (val, addr, props) := matchRiscvStore store op ctx | return (ctx, none)
   let (val, changed) := stripDefiningExt ext val ctx
   if !changed then return (ctx, none)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.riscv store) #[] #[addr, val]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.riscv store) #[] #[val, addr]
       #[] #[] props none
   some (ctx, some (#[newOp], #[]))
 

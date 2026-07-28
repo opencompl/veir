@@ -8,46 +8,46 @@
   "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> (), sym_name = "f0"}> ({
   ^bb0(%addr: !riscv.reg, %val: !riscv.reg):
     %zval = "riscv.zexth"(%val) : (!riscv.reg) -> !riscv.reg
-    "riscv.sh"(%addr, %zval) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
+    "riscv.sh"(%zval, %addr) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
     "func.return"() : () -> ()
   }) : () -> ()
 
   "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> (), sym_name = "f1"}> ({
   ^bb0(%addr: !riscv.reg, %val: !riscv.reg):
     %sval = "riscv.sexth"(%val) : (!riscv.reg) -> !riscv.reg
-    "riscv.sh"(%addr, %sval) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
+    "riscv.sh"(%sval, %addr) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
     "func.return"() : () -> ()
   }) : () -> ()
 
   "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> (), sym_name = "f2"}> ({
   ^bb0(%addr: !riscv.reg, %val: !riscv.reg):
     %zval = "riscv.zextb"(%val) : (!riscv.reg) -> !riscv.reg
-    "riscv.sb"(%addr, %zval) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
+    "riscv.sb"(%zval, %addr) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
     "func.return"() : () -> ()
   }) : () -> ()
 
   "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> (), sym_name = "f3"}> ({
   ^bb0(%addr: !riscv.reg, %val: !riscv.reg):
     %sval = "riscv.sextb"(%val) : (!riscv.reg) -> !riscv.reg
-    "riscv.sb"(%addr, %sval) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
+    "riscv.sb"(%sval, %addr) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
     "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
 
-// riscv-combine alone (no dce) leaves the now-dead extension in place; what
-// matters is that the store itself no longer reads through it.
+// What matters is that the store no longer reads through the extension; the
+// greedy driver then erases it as trivially dead.
 // CHECK:      ^{{.*}}(%[[ZH_A:.*]] : !riscv.reg, %[[ZH_V:.*]] : !riscv.reg):
-// CHECK:      "riscv.sh"(%[[ZH_A]], %[[ZH_V]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
+// CHECK:      "riscv.sh"(%[[ZH_V]], %[[ZH_A]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT: "func.return"() : () -> ()
 
 // CHECK:      ^{{.*}}(%[[SH_A:.*]] : !riscv.reg, %[[SH_V:.*]] : !riscv.reg):
-// CHECK:      "riscv.sh"(%[[SH_A]], %[[SH_V]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
+// CHECK:      "riscv.sh"(%[[SH_V]], %[[SH_A]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT: "func.return"() : () -> ()
 
 // CHECK:      ^{{.*}}(%[[ZB_A:.*]] : !riscv.reg, %[[ZB_V:.*]] : !riscv.reg):
-// CHECK:      "riscv.sb"(%[[ZB_A]], %[[ZB_V]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
+// CHECK:      "riscv.sb"(%[[ZB_V]], %[[ZB_A]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT: "func.return"() : () -> ()
 
 // CHECK:      ^{{.*}}(%[[SB_A:.*]] : !riscv.reg, %[[SB_V:.*]] : !riscv.reg):
-// CHECK:      "riscv.sb"(%[[SB_A]], %[[SB_V]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
+// CHECK:      "riscv.sb"(%[[SB_V]], %[[SB_A]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT: "func.return"() : () -> ()
