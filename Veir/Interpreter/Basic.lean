@@ -12,7 +12,6 @@ import Veir.ForLean
 import Veir.Data.Comb.Basic
 import Veir.Data.HW.Basic
 import Veir.Data.Casting
-import Veir.Properties
 import Veir.GlobalOpInfo
 import Veir.Interfaces.FunctionInterfaces
 

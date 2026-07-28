@@ -17,7 +17,7 @@ namespace Veir
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 variable {ctx : IRContext OpInfo}
 
-theorem IRContext.wellFormed_IRContext_create :
+theorem IRContext.wellFormed_IRContext_create [HasDialect OpInfo Builtin] :
     IRContext.create OpInfo = some (ctx, op) →
     ctx.WellFormed := by
   simp only [create]

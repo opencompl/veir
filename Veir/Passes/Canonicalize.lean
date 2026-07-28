@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+import Veir.Interfaces.ConstantLikeInterfaces
 import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
 
@@ -13,18 +14,13 @@ namespace Veir
   to the right side, for commutative operations.
 -/
 
-def isConstOperand (ctx : IRContext OpCode) (v : ValuePtr) : Bool :=
-  match v.getDefiningOp! ctx with
-  | some defOp => (defOp.getOpType! ctx).isConstantLike
-  | none => false
-
 def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let opType := op.getOpType! rewriter.ctx.raw
   if ¬ opType.isCommutative then return rewriter
   let operands := op.getOperands! rewriter.ctx.raw
   /- Stable partition: non-constant operands first, then the constants. -/
-  let (nonConsts, consts) := operands.partition (!isConstOperand rewriter.ctx.raw ·)
+  let (nonConsts, consts) := operands.partition (!·.isConstantLike rewriter.ctx.raw)
   let reordered := nonConsts ++ consts
   if reordered == operands then return rewriter
   let resultTypes := op.getResultTypes! rewriter.ctx.raw
