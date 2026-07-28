@@ -1669,17 +1669,18 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   /- Early loop: multi-instruction fusion patterns that must run before the
      per-op lowerings consume their operands. -/
   let early := RewritePattern.GreedyRewritePattern #[load, store]
-  let some ctx := RewritePattern.applyInContext early ctx
-    | throw "Error while applying early address-folding patterns"
+  let ctx ← match RewritePattern.applyInContext early ctx with
+  | none => throw "Error while applying early address-folding patterns"
+  | some ctx => pure ctx
   /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern #[selectCzeroeqz, selectCzeronez, selectGeneral,
     ctlz, cttz, ctpop, bswap, bitreverse, constant, add, and, ashr, icmp, or, xor, mul,
     sdiv, udiv, srem, urem, sext, zext, trunc, shl, lshr, sub, bitcast, load, getelementptr, store,
     smax, smin, umax, umin, saddSat, ssubSat, uaddSat, usubSat, sshlSat, ushlSat, abs,
     fshlConst, fshrConst, fshl, fshr, fshlGeneral, fshrGeneral, poisonConst, freeze]
-  let some ctx := RewritePattern.applyInContext pattern ctx
-    | throw "Error while applying main instruction-selection patterns"
-  pure ctx
+  match RewritePattern.applyInContext pattern ctx with
+  | none => throw "Error while applying main instruction-selection patterns"
+  | some ctx => pure ctx
 
 public def IselRISCV64 : Pass OpCode :=
   { name := "isel-riscv64"
