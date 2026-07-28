@@ -16,8 +16,9 @@ Correctness proofs for the `mod_arith` patterns in `Canonicalize.lean`.
 Replacing the value of `mod_arith.constant` from `value` to `value % modulus`
 preserves its value in `ℤ/modulusℤ`.
 -/
+@[simp, grind =]
 theorem canonicalizeModArithConstant_correct (value modulus : Int) :
-    constant modulus value = constant modulus (value % modulus) := by
+    constant modulus (value % modulus) = constant modulus value := by
   simp [constant]
 
 /--
