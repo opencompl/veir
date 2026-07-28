@@ -20,9 +20,7 @@ namespace Veir
   runtime value it materializes.
 
   The conversions match the interpretation of the corresponding operations in
-  `interpretOp'`. Since `mod_arith` has no interpreter semantics, its constants
-  are recognized only when they satisfy the canonical-residue invariant
-  expected by the `mod-arith-to-arith` lowering.
+  `interpretOp'`.
 -/
 def ValuePtr.constantValue (val : ValuePtr) (ctx : IRContext OpCode) : Option RuntimeValue := do
   let defOp ← val.getDefiningOp! ctx
