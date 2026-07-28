@@ -5,7 +5,6 @@ import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
 import Veir.Passes.DCE.dce
 import Veir.Rewriter.WfRewriter
-import Veir.Properties
 import Veir.Interfaces.FunctionInterfaces
 
 namespace Veir
