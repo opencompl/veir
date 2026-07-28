@@ -21,6 +21,14 @@
     %ulo1, %uhi1 = "arith.mului_extended"(%b, %a) : (i32, i32) -> (i32, i32)
     "test.test"(%slo0, %shi0, %slo1, %shi1, %ulo0, %uhi0, %ulo1, %uhi1)
       : (i32, i32, i32, i32, i32, i32, i32, i32) -> ()
+
+    // subui_extended is not commutative, so only the repeat with identical
+    // operand order CSEs; the commuted one survives.
+    %diff0, %borrow0 = "arith.subui_extended"(%a, %b) : (i32, i32) -> (i32, i1)
+    %diff1, %borrow1 = "arith.subui_extended"(%a, %b) : (i32, i32) -> (i32, i1)
+    %diff2, %borrow2 = "arith.subui_extended"(%b, %a) : (i32, i32) -> (i32, i1)
+    "test.test"(%diff0, %borrow0, %diff1, %borrow1, %diff2, %borrow2)
+      : (i32, i1, i32, i1, i32, i1) -> ()
     "func.return"() : () -> ()
 
     // CHECK-LABEL: "sym_name" = "multi_result"
@@ -35,6 +43,10 @@
     // CHECK-NEXT: "test.test"(%[[SMUL]]#0, %[[SMUL]]#1,
     // CHECK-SAME: %[[SMUL]]#0, %[[SMUL]]#1, %[[UMUL]]#0, %[[UMUL]]#1,
     // CHECK-SAME: %[[UMUL]]#0, %[[UMUL]]#1)
+    // CHECK-NEXT: %[[SUB:.*]]:2 = "arith.subui_extended"(%[[A]], %[[B]]) : (i32, i32) -> (i32, i1)
+    // CHECK-NEXT: %[[RSUB:.*]]:2 = "arith.subui_extended"(%[[B]], %[[A]]) : (i32, i32) -> (i32, i1)
+    // CHECK-NEXT: "test.test"(%[[SUB]]#0, %[[SUB]]#1, %[[SUB]]#0, %[[SUB]]#1,
+    // CHECK-SAME: %[[RSUB]]#0, %[[RSUB]]#1)
     // CHECK-NEXT: "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
