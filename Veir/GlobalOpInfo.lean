@@ -1,5 +1,6 @@
 module
 
+import Veir.Meta.OpCode
 public import Veir.Dialects.Arith.OpInfo
 public import Veir.Dialects.Builtin.OpInfo
 public import Veir.Dialects.Func.OpInfo
@@ -14,7 +15,9 @@ public import Veir.Dialects.Comb.OpInfo
 public import Veir.Dialects.HW.OpInfo
 public import Veir.Dialects.Datapath.OpInfo
 public import Veir.Dialects.Test.OpInfo
+
 public import Veir.IR.Basic
+public import Veir.OpCode
 
 namespace Veir
 
@@ -176,10 +179,11 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | _ => false
 
 instance : HasOpInfo OpCode where
-  moduleOpCode := .builtin .module
   hasSideEffects := OpCode.hasSideEffects
   isConstantLike := OpCode.isConstantLike
   hasSSADominance opCode index := opCode.getRegionKind index == .SSACFG
+
+#generate_has_dialect_instances OpCode
 
 abbrev propertiesOf := HasOpInfo.propertiesOf (self := instHasOpInfoOpCode)
 

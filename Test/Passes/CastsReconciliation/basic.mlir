@@ -1,12 +1,5 @@
 // RUN: veir-opt %s -p=reconcile-cast | filecheck %s
 
-// Note: `reconcile-cast` unconditionally coerces every function's register-width
-// (i64/i32/`!llvm.ptr`) arguments to `!riscv.reg`, inserting a bridging cast at entry
-// (see `coerce_function_boundaries.mlir`). Below, that boundary cast either reconciles
-// away into the round trip already written in the body, or -- when it doesn't -- shows
-// up as an extra leading cast. Functions whose argument is already `!riscv.reg` (or a
-// non-coercible type like `i8`) are unaffected.
-
 "builtin.module"() ({
 
     "func.func"()  <{function_type = (i64) -> (), sym_name = "f0"}> ({
@@ -14,9 +7,8 @@
         // A lone `iX -> iX` cast is not a round trip, so nothing reconciles it away.
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> i64
         "test.test"(%1) : (i64) -> ()
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : !riscv.reg):
-        // CHECK-NEXT:   [[C:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (!riscv.reg) -> i64
-        // CHECK-NEXT:   [[I:%.*]] = "builtin.unrealized_conversion_cast"([[C]]) : (i64) -> i64
+        // CHECK:        ^{{.*}}([[ARG:%.*]] : i64):
+        // CHECK-NEXT:   [[I:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (i64) -> i64
         // CHECK-NEXT:   "test.test"([[I]]) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
@@ -25,35 +17,37 @@
       ^1(%0 : i64):
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> !riscv.reg
         "test.test"(%1) : (!riscv.reg) -> ()
-        // The boundary's `reg -> i64` cast pairs with this body's `i64 -> reg` cast and
-        // both reconcile away, leaving the register argument used directly.
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : !riscv.reg):
-        // CHECK-NEXT:   "test.test"([[ARG]]) : (!riscv.reg) -> ()
+        // CHECK:        ^{{.*}}([[ARG:%.*]] : i64):
+        // CHECK-NEXT:   [[C:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (i64) -> !riscv.reg
+        // CHECK-NEXT:   "test.test"([[C]]) : (!riscv.reg) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
     "func.func"()  <{function_type = (i64) -> (), sym_name = "f2"}> ({
       ^1(%0 : i64):
-        // the remaining cast is unused
+        // `i64 -> reg -> i64` freezes poison, so the round trip cannot be removed.
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> !riscv.reg
         %2 = "builtin.unrealized_conversion_cast"(%1) : (!riscv.reg) -> i64
         "test.test"(%2) : (i64) -> ()
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : !riscv.reg):
-        // CHECK-NEXT:   [[C:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (!riscv.reg) -> i64
-        // CHECK-NEXT:   "test.test"([[C]]) : (i64) -> ()
+        // CHECK:        ^{{.*}}([[ARG:%.*]] : i64):
+        // CHECK-NEXT:   [[C1:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (i64) -> !riscv.reg
+        // CHECK-NEXT:   [[C2:%.*]] = "builtin.unrealized_conversion_cast"([[C1]]) : (!riscv.reg) -> i64
+        // CHECK-NEXT:   "test.test"([[C2]]) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
     "func.func"()  <{function_type = (i64) -> (), sym_name = "f3"}> ({
       ^1(%0 : i64):
-        // the remaining cast is used
+        // The integer-starting round trip cannot be removed, and its register value has
+        // another use.
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> !riscv.reg
         %2 = "test.test"(%1) : (!riscv.reg) -> (!riscv.reg)
         %3 = "builtin.unrealized_conversion_cast"(%1) : (!riscv.reg) -> i64
         "test.test"(%2, %3) : (!riscv.reg, i64) -> ()
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : !riscv.reg):
-        // CHECK-NEXT:   [[T:%.*]] = "test.test"([[ARG]]) : (!riscv.reg) -> !riscv.reg
-        // CHECK-NEXT:   [[I:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (!riscv.reg) -> i64
+        // CHECK:        ^{{.*}}([[ARG:%.*]] : i64):
+        // CHECK-NEXT:   [[C:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (i64) -> !riscv.reg
+        // CHECK-NEXT:   [[T:%.*]] = "test.test"([[C]]) : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT:   [[I:%.*]] = "builtin.unrealized_conversion_cast"([[C]]) : (!riscv.reg) -> i64
         // CHECK-NEXT:   "test.test"([[T]], [[I]]) : (!riscv.reg, i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
@@ -66,8 +60,9 @@
         %2 = "builtin.unrealized_conversion_cast"(%1) : (!riscv.reg) -> !riscv.reg
         %3 = "builtin.unrealized_conversion_cast"(%2) : (!riscv.reg) -> i64
         "test.test"(%3) : (i64) -> ()
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : !riscv.reg):
-        // CHECK-NEXT:   [[I:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (!riscv.reg) -> !riscv.reg
+        // CHECK:        ^{{.*}}([[ARG:%.*]] : i64):
+        // CHECK-NEXT:   [[R:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (i64) -> !riscv.reg
+        // CHECK-NEXT:   [[I:%.*]] = "builtin.unrealized_conversion_cast"([[R]]) : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT:   [[C:%.*]] = "builtin.unrealized_conversion_cast"([[I]]) : (!riscv.reg) -> i64
         // CHECK-NEXT:   "test.test"([[C]]) : (i64) -> ()
         "func.return"() : () -> ()
@@ -81,12 +76,13 @@
         %2 = "builtin.unrealized_conversion_cast"(%1) : (!riscv.reg) -> i64
         %4 = "builtin.unrealized_conversion_cast"(%3) : (!riscv.reg) -> i64
         "test.test"(%2, %4) : (i64, i64) -> ()
-        // Each `i64 -> reg` cast folds to the register argument, leaving the two `reg -> i64`
-        // casts behind as separate (identical) operations.
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : !riscv.reg):
-        // CHECK-NEXT:   [[C1:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (!riscv.reg) -> i64
-        // CHECK-NEXT:   [[C2:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (!riscv.reg) -> i64
-        // CHECK-NEXT:   "test.test"([[C1]], [[C2]]) : (i64, i64) -> ()
+        // Integer-starting register round trips freeze poison, so both pairs remain.
+        // CHECK:        ^{{.*}}([[ARG:%.*]] : i64):
+        // CHECK-NEXT:   [[R1:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (i64) -> !riscv.reg
+        // CHECK-NEXT:   [[R2:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (i64) -> !riscv.reg
+        // CHECK-NEXT:   [[I1:%.*]] = "builtin.unrealized_conversion_cast"([[R1]]) : (!riscv.reg) -> i64
+        // CHECK-NEXT:   [[I2:%.*]] = "builtin.unrealized_conversion_cast"([[R2]]) : (!riscv.reg) -> i64
+        // CHECK-NEXT:   "test.test"([[I1]], [[I2]]) : (i64, i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -120,10 +116,9 @@
         %2 = "builtin.unrealized_conversion_cast"(%1) : (i256) -> i64
         %4 = "builtin.unrealized_conversion_cast"(%3) : (i128) -> i64
         "test.test"(%2, %4) : (i64, i64) -> ()
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : !riscv.reg):
-        // CHECK-NEXT:   [[C:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (!riscv.reg) -> i64
-        // CHECK-NEXT:   [[W1:%.*]] = "builtin.unrealized_conversion_cast"([[C]]) : (i64) -> i256
-        // CHECK-NEXT:   [[W2:%.*]] = "builtin.unrealized_conversion_cast"([[C]]) : (i64) -> i128
+        // CHECK:        ^{{.*}}([[ARG:%.*]] : i64):
+        // CHECK-NEXT:   [[W1:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (i64) -> i256
+        // CHECK-NEXT:   [[W2:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (i64) -> i128
         // CHECK-NEXT:   [[N1:%.*]] = "builtin.unrealized_conversion_cast"([[W1]]) : (i256) -> i64
         // CHECK-NEXT:   [[N2:%.*]] = "builtin.unrealized_conversion_cast"([[W2]]) : (i128) -> i64
         // CHECK-NEXT:   "test.test"([[N1]], [[N2]]) : (i64, i64) -> ()
@@ -136,13 +131,11 @@
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i32) -> !riscv.reg
         %2 = "builtin.unrealized_conversion_cast"(%1) : (!riscv.reg) -> i32
         "test.test"(%2) : (i32) -> ()
-        // The `i32 -> reg -> i32` round trip is not itself reconciled (it freezes poison), but
-        // the boundary's `reg -> i32` cast forms a `reg -> i32 -> reg` round trip with the body's
-        // first cast, which lowers to `zextw`. The body's second cast remains.
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : !riscv.reg):
-        // CHECK-NEXT:   [[Z:%.*]] = "riscv.zextw"([[ARG]]) : (!riscv.reg) -> !riscv.reg
-        // CHECK-NEXT:   [[C:%.*]] = "builtin.unrealized_conversion_cast"([[Z]]) : (!riscv.reg) -> i32
-        // CHECK-NEXT:   "test.test"([[C]]) : (i32) -> ()
+        // The `i32 -> reg -> i32` round trip is not reconciled because it freezes poison.
+        // CHECK:        ^{{.*}}([[ARG:%.*]] : i32):
+        // CHECK-NEXT:   [[R:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (i32) -> !riscv.reg
+        // CHECK-NEXT:   [[I:%.*]] = "builtin.unrealized_conversion_cast"([[R]]) : (!riscv.reg) -> i32
+        // CHECK-NEXT:   "test.test"([[I]]) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -164,11 +157,8 @@
         %1 = "builtin.unrealized_conversion_cast"(%0) : (!llvm.ptr) -> !riscv.reg
         %2 = "builtin.unrealized_conversion_cast"(%1) : (!riscv.reg) -> !llvm.ptr
         "test.test"(%2) : (!llvm.ptr) -> ()
-        // The boundary's `reg -> ptr` cast pairs with the body's `ptr -> reg` cast (both
-        // directions are legal for `ptr`), leaving one `reg -> ptr` cast.
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : !riscv.reg):
-        // CHECK-NEXT:   [[C:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (!riscv.reg) -> !llvm.ptr
-        // CHECK-NEXT:   "test.test"([[C]]) : (!llvm.ptr) -> ()
+        // CHECK:        ^{{.*}}([[ARG:%.*]] : !llvm.ptr):
+        // CHECK-NEXT:   "test.test"([[ARG]]) : (!llvm.ptr) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -190,13 +180,11 @@
         %2 = "test.test"(%1) : (!riscv.reg) -> (!riscv.reg)
         %3 = "builtin.unrealized_conversion_cast"(%1) : (!riscv.reg) -> i32
         "test.test"(%2, %3) : (!riscv.reg, i32) -> ()
-        // The boundary's `reg -> i32` cast feeds the body's `i32 -> reg` cast, and that
-        // `reg -> i32 -> reg` round trip lowers to an explicit `zextw`. The body's second
-        // cast then reads the `zextw` result directly.
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : !riscv.reg):
-        // CHECK-NEXT:   [[Z:%.*]] = "riscv.zextw"([[ARG]]) : (!riscv.reg) -> !riscv.reg
-        // CHECK-NEXT:   [[T:%.*]] = "test.test"([[Z]]) : (!riscv.reg) -> !riscv.reg
-        // CHECK-NEXT:   [[C:%.*]] = "builtin.unrealized_conversion_cast"([[Z]]) : (!riscv.reg) -> i32
+        // The integer-starting round trip freezes poison, so both casts remain.
+        // CHECK:        ^{{.*}}([[ARG:%.*]] : i32):
+        // CHECK-NEXT:   [[R:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (i32) -> !riscv.reg
+        // CHECK-NEXT:   [[T:%.*]] = "test.test"([[R]]) : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT:   [[C:%.*]] = "builtin.unrealized_conversion_cast"([[R]]) : (!riscv.reg) -> i32
         // CHECK-NEXT:   "test.test"([[T]], [[C]]) : (!riscv.reg, i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
@@ -250,6 +238,17 @@
         // CHECK-NEXT:   %[[C1:.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (!riscv.reg) -> i0
         // CHECK-NEXT:   %[[C2:.*]] = "builtin.unrealized_conversion_cast"(%[[C1]]) : (i0) -> !riscv.reg
         // CHECK-NEXT:   "test.test"(%[[C2]]) : (!riscv.reg) -> ()
+        "func.return"() : () -> ()
+    }) : () -> ()
+
+    "func.func"()  <{function_type = (i32) -> (), sym_name = "f18"}> ({
+      ^1(%0 : i32):
+        // Conversion cast to/from dissimilar types
+        %1 = "builtin.unrealized_conversion_cast"(%0) : (i32) -> !mod_arith.int<7 : i32>
+        %2 = "builtin.unrealized_conversion_cast"(%1) : (!mod_arith.int<7 : i32>) -> i32
+        "test.test"(%2) : (i32) -> ()
+        // CHECK:        ^{{.*}}([[ARG:%.*]] : i32):
+        // CHECK-NEXT:   "test.test"([[ARG]]) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
