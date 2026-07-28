@@ -13,8 +13,22 @@ namespace Veir
 
   Performs the following transformations:
   * folding operations (see `Veir.Fold`);
+  * reducing modular constants to their canonical representatives;
   * moving constants to the right side, for commutative operations.
 -/
+
+def canonicalizeModArithConstant (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (_, props) := matchOp op rewriter.ctx (.mod_arith .constant) 0
+    | return rewriter
+  let resultType := (op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw
+  let .modArithType modArithType := resultType.val
+    | return rewriter
+  let canonicalValue := props.value.value % modArithType.modulus.value
+  if canonicalValue = props.value.value then return rewriter
+  let canonicalProps : ModArithConstantProperties :=
+    { value := { props.value with value := canonicalValue } }
+  return rewriter.setProperties! op (.mod_arith .constant) canonicalProps
 
 def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
@@ -35,6 +49,7 @@ def CanonicalizePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op
     ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[
     foldOperation,
+    canonicalizeModArithConstant,
     commutativeConstantRHS
   ]
   match RewritePattern.applyInContext pattern ctx with

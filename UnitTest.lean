@@ -12,4 +12,4 @@ import UnitTest.DataFlowFramework.Dominance
 import UnitTest.DataFlowFramework.DeadCodeAnalysis
 import UnitTest.ConstantValue
 import UnitTest.Fold
-
+import UnitTest.Evaluate

@@ -63,6 +63,17 @@ def OpCode.isTerminator (opCode : OpCode) : Bool :=
   | _ => false
 
 /--
+  Does an operation with this opcode read memory?
+-/
+def OpCode.readsMemory (opCode : OpCode) : Bool :=
+  match opCode with
+  | .llvm .load
+  | .riscv .ld | .riscv .lw | .riscv .lwu
+  | .riscv .lh | .riscv .lhu
+  | .riscv .lb | .riscv .lbu => true
+  | _ => false
+
+/--
   Does an operation with this opcode and these properties have effects that
   make it ineligible for DCE and other transformations that add / remove /
   rearrange instructions?
@@ -180,6 +191,7 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
 
 instance : HasOpInfo OpCode where
   hasSideEffects := OpCode.hasSideEffects
+  readsMemory := OpCode.readsMemory
   isConstantLike := OpCode.isConstantLike
   hasSSADominance opCode index := opCode.getRegionKind index == .SSACFG
 

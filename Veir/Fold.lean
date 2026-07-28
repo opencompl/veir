@@ -2,6 +2,7 @@ module
 
 public import Veir.Interfaces.ConstantLikeInterfaces
 public import Veir.Interpreter.Basic
+public import Veir.Interpreter.Evaluate
 
 /-!
   # Constant folding infrastructure
@@ -429,22 +430,6 @@ def OpCode.foldsTo (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode
     | .riscv op => Riscv.foldsTo op properties resultTypes constOperands
     | .mod_arith op => Mod_Arith.foldsTo op properties resultTypes constOperands
     | _ => none
-
-/--
-  Evaluate a side-effect-free operation with the interpreter. Returns the
-  result values, `Interp.ub` if the operation triggers UB, and `none` if the
-  interpreter cannot evaluate it (or it performs control flow).
-
-  Must only be called for `isFoldEvaluable` opcodes: those neither read nor
-  write memory, so the dummy memory state is irrelevant.
--/
-def foldEvaluate (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode)
-    (resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
-    : Interp (Array RuntimeValue) := do
-  let (results, _mem, action) ←
-    interpretOp' opCode properties resultTypes operands #[] MemoryState.empty
-  if action.isSome then none
-  else return results
 
 /--
   The resolved decision of whether and how an operation folds.
