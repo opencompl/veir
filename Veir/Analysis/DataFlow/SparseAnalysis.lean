@@ -16,11 +16,13 @@ variable [Top Domain] [Bot Domain] [Join Domain] [DecidableEq Domain]
 /--
 The transfer function signature used for custom sparse analyses.
 
-The framework handles operand subscriptions before invoking this hook, and
-analysis code can recover operands/results directly from the operation pointer.
+The framework handles operand subscriptions, invokes this hook with the current
+operand lattice elements, and then joins any returned updates into the result
+facts. Returning `none` for a result means the transfer contributes no new fact
+for that result.
 -/
-abbrev VisitOperationFn :=
-  OperationPtr -> DataFlowContext -> IRContext OpCode -> DataFlowContext
+abbrev VisitOperationFn (Domain : Type) :=
+  OperationPtr -> Array Domain -> IRContext OpCode -> Array (Option Domain)
 
 /--
 Join a sparse lattice fact into the target value state and propagate updates
@@ -78,8 +80,8 @@ private def getSuccessorOperand?
     | _ =>
       panic! "SparseForwardDataFlowAnalysis.getSuccessorOperand?: non-branch op"
 
-/-- Conservatively treat blocks as executable when no liveness facts exist. -/
-private def isBlockExecutable
+/-- Conservatively treat blocks as live when no liveness facts exist. -/
+private def isBlockLive
     (block : BlockPtr)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : Bool :=
@@ -88,8 +90,8 @@ private def isBlockExecutable
   let _ := irCtx
   true
 
-/-- Conservatively treat CFG edges as executable when no liveness facts exist. -/
-private def isEdgeExecutable
+/-- Conservatively treat CFG edges as live when no liveness facts exist. -/
+private def isEdgeLive
     (edge : CFGEdge)
     (dfCtx : DataFlowContext)
     (_irCtx : IRContext OpCode) : Bool :=
@@ -97,7 +99,7 @@ private def isEdgeExecutable
   let _ := dfCtx
   true
 
-/-- No-op when no external executability provider is registered. -/
+/-- No-op when no liveness analysis is registered. -/
 private def subscribeToBlockLiveness
     (analysisKind : AnalysisKind)
     (block : BlockPtr)
@@ -108,7 +110,7 @@ private def subscribeToBlockLiveness
   let _ := irCtx
   dfCtx
 
-/-- No-op when no external executability provider is registered. -/
+/-- No-op when no liveness analysis is registered. -/
 private def subscribeToEdgeLiveness
     (analysisKind : AnalysisKind)
     (edge : CFGEdge)
@@ -131,8 +133,8 @@ private def visitBlock
   if block.getNumArguments! irCtx = 0 then
     return dfCtx 
 
-  -- If the block is not executable, bail out.
-  if !isBlockExecutable block dfCtx irCtx then
+  -- If the block is not live, bail out.
+  if !isBlockLive block dfCtx irCtx then
     return dfCtx
 
   let some parentRegion := (block.get! irCtx).parent
@@ -164,7 +166,7 @@ private def visitBlock
 
     -- If the edge from the predecessor block to the current block is not live,
     -- bail out.
-    if !isEdgeExecutable edge dfCtx irCtx then
+    if !isEdgeLive edge dfCtx irCtx then
       continue
 
     -- Check if we can reason about the dataflow from the predecessor.
@@ -218,14 +220,15 @@ partial def subscribeToOperand
 
 /--
 Visit one operation in the sparse analysis.
-We first subscribe to operand lattices, then hand the operation to the user
-provided transfer function.
+We first subscribe to operand lattices, then hand the operation and current
+operand lattice elements to the user provided transfer function. The framework
+applies any returned result updates itself.
 -/
 partial def visitOperation
     (kind : FactKind)
     [SparseFactSpec kind Domain]
     (analysisKind : AnalysisKind)
-    (visitOperationImpl : VisitOperationFn)
+    (visitOperationImpl : VisitOperationFn Domain)
     (op : OperationPtr)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : DataFlowContext := Id.run do
@@ -233,10 +236,10 @@ partial def visitOperation
   if op.getNumResults! irCtx = 0 then
     return dfCtx
 
-  -- If the containing block is not executable, bail out. Executability is
+  -- If the containing block is not live, bail out. Liveness is by default
   -- unreachable until proven live, so a missing state is treated as dead.
   if let some parentBlock := (op.get! irCtx).parent then
-    if !isBlockExecutable parentBlock dfCtx irCtx then
+    if !isBlockLive parentBlock dfCtx irCtx then
       return dfCtx
 
   -- TODO: Mirror MLIR more closely by `visitRegionSuccessors`
@@ -248,8 +251,14 @@ partial def visitOperation
   for operand in op.getOperands! irCtx do
     dfCtx := subscribeToOperand kind analysisKind operand dfCtx
 
-  -- Invoke the operation transfer function.
-  visitOperationImpl op dfCtx irCtx
+  let operandLatticeElements := (op.getOperands! irCtx).map (fun operand =>
+    SparseFact.getElement kind operand dfCtx)
+  let resultUpdates := visitOperationImpl op operandLatticeElements irCtx
+
+  for (result, incoming?) in (op.getResults! irCtx).zip resultUpdates do
+    if let some incoming := incoming? then
+      dfCtx := joinAndPropagate kind result incoming dfCtx irCtx
+  return dfCtx
 
 /--
 Recursively initialize an operation tree for sparse analysis.
@@ -260,7 +269,7 @@ partial def initializeRecursively
     (kind : FactKind)
     [SparseFactSpec kind Domain]
     (analysisKind : AnalysisKind)
-    (visitOperationImpl : VisitOperationFn)
+    (visitOperationImpl : VisitOperationFn Domain)
     (op : OperationPtr)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : DataFlowContext := Id.run do
@@ -295,7 +304,7 @@ private def init
     (kind : FactKind)
     [SparseFactSpec kind Domain]
     (analysisKind : AnalysisKind)
-    (visitOperationImpl : VisitOperationFn)
+    (visitOperationImpl : VisitOperationFn Domain)
     (top : OperationPtr)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : DataFlowContext := Id.run do
@@ -321,7 +330,7 @@ private def visit
     (kind : FactKind)
     [SparseFactSpec kind Domain]
     (analysisKind : AnalysisKind)
-    (visitOperationImpl : VisitOperationFn)
+    (visitOperationImpl : VisitOperationFn Domain)
     (point : InsertPoint)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : DataFlowContext :=
@@ -345,7 +354,7 @@ def new
     (kind : FactKind)
     [SparseFactSpec kind Domain]
     (analysisKind : AnalysisKind)
-    (visitOperationImpl : VisitOperationFn)
+    (visitOperationImpl : VisitOperationFn Domain)
     : DataFlowAnalysis :=
   { kind := analysisKind
     init := init kind analysisKind visitOperationImpl
