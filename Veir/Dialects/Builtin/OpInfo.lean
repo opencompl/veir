@@ -2,12 +2,19 @@ module
 
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
-public import Veir.OpCode
 public import Veir.Dialects.Builtin.Properties
+meta import Veir.Meta.Attrs
 
 namespace Veir
 
 public section
+
+@[opcodes]
+inductive Builtin where
+| unregistered
+| module
+| unrealized_conversion_cast
+deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, properties_of]
 def Builtin.propertiesOf (op : Builtin) : Type :=
