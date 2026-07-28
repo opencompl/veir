@@ -3,7 +3,6 @@ import Veir.Parser.ParserError
 import Veir.Printer
 import Veir.IR.Basic
 import Veir.Verifier
-import Veir.Properties
 import Veir.Pass
 import Veir.Panic
 

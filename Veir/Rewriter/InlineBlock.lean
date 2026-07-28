@@ -1,12 +1,10 @@
 module
 
 public import Veir.Rewriter.Basic
-public import Veir.Properties
 
 import all Veir.Rewriter.Basic
 import Veir.Rewriter.WellFormed.Operation
 import Veir.Rewriter.GetSet
-import Veir.Properties
 
 public section
 

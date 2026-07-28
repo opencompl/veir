@@ -491,7 +491,7 @@ Create a new IR context with a single `builtin.module` operation at the top-leve
 The operation contains a single region, which contains a single empty block.
 -/
 @[inline]
-def WfIRContext.create (OpInfo : Type) [HasOpInfo OpInfo]
+def WfIRContext.create (OpInfo : Type) [HasOpInfo OpInfo] [HasDialect OpInfo Builtin]
     : Option (WfIRContext OpInfo × OperationPtr) := do
   rlet (ctx, op) ← IRContext.create OpInfo
   return (⟨ctx, by grind [IRContext.wellFormed_IRContext_create]⟩, op)
@@ -501,7 +501,7 @@ Create a new IR context with a single `builtin.module` operation at the top-leve
 the context could not be created.
 The operation contains a single region, which contains a single empty block.
 -/
-def WfIRContext.create! (OpInfo : Type) [HasOpInfo OpInfo]
+def WfIRContext.create! (OpInfo : Type) [HasOpInfo OpInfo] [HasDialect OpInfo Builtin]
     : WfIRContext OpInfo × OperationPtr :=
   if let some result := WfIRContext.create OpInfo then
     result

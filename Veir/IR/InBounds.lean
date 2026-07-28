@@ -27,6 +27,14 @@ variable {ctx ctx' : IRContext OpInfo}
 
 section operation
 
+/-- Internal definition-building helper for dependent parent-region queries. -/
+@[grind →]
+theorem OperationPtr.in_bounds_of_parent_eq_some
+    {op : OperationPtr} {block : BlockPtr} {ctx : IRContext OpInfo}
+    (parentEq : (op.get! ctx).parent = some block) :
+    op.InBounds ctx := by
+  grind [Operation.default_parent_eq]
+
 variable {op : OperationPtr} (h : op.InBounds ctx)
 
 @[grind =]

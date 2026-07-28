@@ -2,7 +2,9 @@ module
 
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
-public import Veir.Properties
+public import Veir.OpCode
+public import Veir.Dialects.Arith.Properties
+public import Veir.Dialects.LLVM.Properties
 
 namespace Veir
 
