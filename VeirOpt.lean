@@ -3,7 +3,6 @@ import Veir.Parser.ParserError
 import Veir.Printer
 import Veir.IR.Basic
 import Veir.Verifier
-import Veir.Properties
 import Veir.Pass
 import Veir.Panic
 
@@ -15,6 +14,7 @@ import Veir.Passes.InstructionSelection.RISCV64Sdag
 import Veir.Passes.InstructionSelection.RISCV64Branches
 import Veir.Passes.DCE.dce
 import Veir.Passes.CastsReconciliation.Reconciliation
+import Veir.Passes.FunctionBoundaryCoercion.Coercion
 import Veir.Passes.RISCVCombines.Combine
 import Veir.Passes.ModArithToArith
 import Veir.Passes.ArithToLLVM
@@ -38,8 +38,10 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
     |>.insert IselBrRISCV64.name IselBrRISCV64
     |>.insert DCEPass.name DCEPass
     |>.insert CastReconcilePass.name CastReconcilePass
+    |>.insert CoerceFunctionBoundariesToRiscvRegPass.name CoerceFunctionBoundariesToRiscvRegPass
     |>.insert RISCV.Combine.name RISCV.Combine
     |>.insert ModArithToArithPass.name ModArithToArithPass
+    |>.insert RemuiToBarrettReductionPass.name RemuiToBarrettReductionPass
     |>.insert ArithToLLVMPass.name ArithToLLVMPass
     |>.insert CanonicalizePass.name CanonicalizePass
     |>.insert SimplifyCFGPass.name SimplifyCFGPass
@@ -53,7 +55,7 @@ def passGroups : Std.HashMap String String :=
   (Std.HashMap.emptyWithCapacity 2)
     |>.insert "O" "canonicalize,instcombine,cse,dce"
     |>.insert "riscv"
-        "isel-sdag-riscv64,isel-br-riscv64,isel-riscv64,reconcile-cast,riscv-combine,dce"
+        "isel-sdag-riscv64,isel-br-riscv64,isel-riscv64,coerce-function-boundaries-to-riscv-reg,reconcile-cast,riscv-combine,dce"
 
 /--
   A human-readable description of every pass group and the passes it expands to,

@@ -91,6 +91,28 @@ meta def emitName (ds : Array Dialect) : TermElabM Command := do
   `(def $(mkIdent `OpCode.name) (op : $(mkIdent `OpCode)) : ByteArray := match op with $alts:matchAlt* )
 
 /--
+Generate a `HasDialect OpInfo Dialect` instance for the inductive `opInfo` with
+constructor `ctorName` of type `'dialectName' → 'opInfo'`.
+-/
+meta def mkHasDialectInstance (opInfo ctorName dialectName : Name) : TermElabM Command := do
+  let hasDialect := mkIdent (Name.mkStr2 "Veir" "HasDialect")
+  let dialectType := mkIdent dialectName
+  let ctor := mkIdent ctorName
+  let project ←
+    `(fun
+      | $ctor op => some op
+      | _ => none)
+  `(instance : $hasDialect $(mkIdent opInfo) $dialectType where
+      inject := $ctor
+      project := $project
+      project_eq_some_iff := by
+        intros opInfo op
+        cases opInfo <;> simp [eq_comm]
+      properties_eq := by
+        intro op
+        cases op <;> rfl)
+
+/--
 Generates the type `OpCodes`, and its functions `fromName` and `name`.
 It does so by gathering all inductive types annotated with `@[opcodes]`.
 
@@ -109,10 +131,18 @@ the type `OpCodes` will contain the constructors
 | arith_addi
 | arith_subi
 ```
+
+Dialect types declared in imported modules are included automatically.
 -/
-elab "#generate_op_codes" : command  => do
-  let ts := opCodesExt.getEntries (← getEnv)
+elab "#generate_op_codes" : command => do
   let env ← getEnv
+  let mut ts := #[]
+  /- Gather opcodes defined in imported modules. -/
+  for moduleIdx in [:env.allImportedModuleNames.size] do
+    ts := ts.append <| opCodesExt.getModuleEntries env moduleIdx
+  /- Gather opcodes defined in the current module. -/
+  for t in opCodesExt.getEntries env do
+    ts := ts.push t
   let mut dialects := #[]
   for t in ts do
     let some (.inductInfo info) := env.find? t
@@ -123,3 +153,24 @@ elab "#generate_op_codes" : command  => do
   elabCommand <| ← Command.liftTermElabM <| emitFromName dialects
   elabCommand <| ← Command.liftTermElabM <| emitName dialects
   pure ()
+
+/--
+Generate a `HasDialect OpInfo Dialect` instance for every dialect constructor
+of the merged `OpInfo` inductive. This command must be invoked after
+`HasOpInfo OpInfo` and all dialect-local `HasDialectOpInfo` instances have been
+defined.
+-/
+elab "#generate_has_dialect_instances" opInfo:ident : command => do
+  let opInfoName ← resolveGlobalConstNoOverload opInfo
+  let env ← getEnv
+  let some (.inductInfo info) := env.find? opInfoName
+    | throwError m!"Type {opInfoName} is not defined or not an inductive."
+  for ctorName in info.ctors do
+    let some (.ctorInfo ctorInfo) := env.find? ctorName
+      | throwError m!"Constructor {ctorName} is not defined."
+    let .forallE _ (.const dialectName _) resultType _ := ctorInfo.type
+      | throwError m!"Constructor {ctorName} must have exactly one dialect opcode argument."
+    unless resultType.isConstOf opInfoName do
+      throwError m!"Constructor {ctorName} does not construct {opInfoName}."
+    elabCommand <| ← Command.liftTermElabM <|
+      mkHasDialectInstance opInfoName ctorName dialectName

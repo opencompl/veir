@@ -252,14 +252,14 @@ def runOperationDominance
 -/
 def testDomLoop : String :=
   run
-    "\"builtin.module\"() ({\n\
-^bb0:\n\
-  \"test.test\"() [^bb1] : () -> ()\n\
-^bb1:\n\
-  \"test.test\"() [^bb2] : () -> ()\n\
-^bb2:\n\
-  \"test.test\"() [^bb1] : () -> ()\n\
-}) : () -> ()"
+    r#""builtin.module"() ({
+^bb0:
+  "test.test"() [^bb1] : () -> ()
+^bb1:
+  "test.test"() [^bb2] : () -> ()
+^bb2:
+  "test.test"() [^bb1] : () -> ()
+}) : () -> ()"#
     #[ { name := "bb0", doms := { "bb0" },               immediateDom := "bb0" }
      , { name := "bb1", doms := { "bb0", "bb1" },        immediateDom := "bb0" }
      , { name := "bb2", doms := { "bb0", "bb1", "bb2" }, immediateDom := "bb1" }
@@ -279,16 +279,16 @@ def testDomLoop : String :=
 -/
 def testDomDiamond : String :=
   run
-    "\"builtin.module\"() ({\n\
-^bb0:\n\
-  \"test.test\"() [^bb1, ^bb2] : () -> ()\n\
-^bb1:\n\
-  \"test.test\"() [^bb3] : () -> ()\n\
-^bb2:\n\
-  \"test.test\"() [^bb3] : () -> ()\n\
-^bb3:\n\
-  \"test.test\"() : () -> ()\n\
-}) : () -> ()"
+    r#""builtin.module"() ({
+^bb0:
+  "test.test"() [^bb1, ^bb2] : () -> ()
+^bb1:
+  "test.test"() [^bb3] : () -> ()
+^bb2:
+  "test.test"() [^bb3] : () -> ()
+^bb3:
+  "test.test"() : () -> ()
+}) : () -> ()"#
     #[ { name := "bb0", doms := { "bb0" },        immediateDom := "bb0" }
      , { name := "bb1", doms := { "bb0", "bb1" }, immediateDom := "bb0" }
      , { name := "bb2", doms := { "bb0", "bb2" }, immediateDom := "bb0" }
@@ -315,16 +315,16 @@ def testDomDiamond : String :=
 -/
 def testDomLine : String :=
   run
-    "\"builtin.module\"() ({\n\
-^bb0:\n\
-  \"test.test\"() [^bb1] : () -> ()\n\
-^bb1:\n\
-  \"test.test\"() [^bb2] : () -> ()\n\
-^bb2:\n\
-  \"test.test\"() [^bb3] : () -> ()\n\
-^bb3:\n\
-  \"test.test\"() : () -> ()\n\
-}) : () -> ()"
+    r#""builtin.module"() ({
+^bb0:
+  "test.test"() [^bb1] : () -> ()
+^bb1:
+  "test.test"() [^bb2] : () -> ()
+^bb2:
+  "test.test"() [^bb3] : () -> ()
+^bb3:
+  "test.test"() : () -> ()
+}) : () -> ()"#
     #[ { name := "bb0", doms := { "bb0" },                      immediateDom := "bb0" }
      , { name := "bb1", doms := { "bb0", "bb1" },               immediateDom := "bb0" }
      , { name := "bb2", doms := { "bb0", "bb1", "bb2" },        immediateDom := "bb1" }
@@ -351,24 +351,24 @@ def testDomLine : String :=
 -/
 def testDomIfLoopIf : String :=
   run
-    "\"builtin.module\"() ({\n\
-^bb0:\n\
-  \"test.test\"() [^bb1, ^bb2] : () -> ()\n\
-^bb1:\n\
-  \"test.test\"() [^bb5] : () -> ()\n\
-^bb2:\n\
-  \"test.test\"() [^bb3, ^bb4] : () -> ()\n\
-^bb3:\n\
-  \"test.test\"() [^bb6] : () -> ()\n\
-^bb4:\n\
-  \"test.test\"() [^bb6] : () -> ()\n\
-^bb5:\n\
-  \"test.test\"() [^bb1, ^bb7] : () -> ()\n\
-^bb6:\n\
-  \"test.test\"() [^bb7] : () -> ()\n\
-^bb7:\n\
-  \"test.test\"() : () -> ()\n\
-}) : () -> ()"
+    r#""builtin.module"() ({
+^bb0:
+  "test.test"() [^bb1, ^bb2] : () -> ()
+^bb1:
+  "test.test"() [^bb5] : () -> ()
+^bb2:
+  "test.test"() [^bb3, ^bb4] : () -> ()
+^bb3:
+  "test.test"() [^bb6] : () -> ()
+^bb4:
+  "test.test"() [^bb6] : () -> ()
+^bb5:
+  "test.test"() [^bb1, ^bb7] : () -> ()
+^bb6:
+  "test.test"() [^bb7] : () -> ()
+^bb7:
+  "test.test"() : () -> ()
+}) : () -> ()"#
     #[ { name := "bb0", doms := { "bb0" },               immediateDom := "bb0" }
      , { name := "bb1", doms := { "bb0", "bb1" },        immediateDom := "bb0" }
      , { name := "bb2", doms := { "bb0", "bb2" },        immediateDom := "bb0" }
