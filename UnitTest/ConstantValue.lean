@@ -32,23 +32,17 @@ private def testConstantValue : String := Id.run do
   if li.val ≠ BitVec.ofInt 64 (-1) then
     return "riscv.li produced the wrong register value"
 
-  let .ok (some (.int 32 (.val mod13))) := constantValueOf
+  let .ok (some (.int 32 (.val hw))) :=
+    constantValueOf r#"%x = "hw.constant"() <{"value" = 42 : i32}> : () -> i32"#
+    | return "failed to read hw.constant"
+  if hw ≠ BitVec.ofInt 32 42 then
+    return "hw.constant produced the wrong value"
+
+  let .ok unsupported := constantValueOf
     r#"%x = "mod_arith.constant"() <{"value" = 13 : i32}> : () -> !mod_arith.int<17 : i32>"#
-    | return "failed to read canonical mod_arith.constant"
-  if mod13 ≠ BitVec.ofInt 32 13 then
-    return "mod_arith.constant produced the wrong residue"
-
-  let .ok mod20 := constantValueOf
-    r#"%x = "mod_arith.constant"() <{"value" = 20 : i32}> : () -> !mod_arith.int<17 : i32>"#
-    | return "failed to parse noncanonical mod_arith.constant"
-  if mod20.isSome then
-    return "accepted a noncanonical mod_arith.constant"
-
-  let .ok modNeg := constantValueOf
-    r#"%x = "mod_arith.constant"() <{"value" = -1 : i32}> : () -> !mod_arith.int<17 : i32>"#
-    | return "failed to parse negative mod_arith.constant"
-  if modNeg.isSome then
-    return "accepted a negative mod_arith.constant"
+    | return "failed to parse mod_arith.constant"
+  if unsupported.isSome then
+    return "read a constant the interpreter does not model"
 
   return "ok"
 

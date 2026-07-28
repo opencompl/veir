@@ -58,6 +58,13 @@ class HasOpInfo (opCode: Type)
   -/
   hasSideEffects : (op : opCode) → propertiesOf op → Bool := fun _ _ => true
   /--
+  Whether an operation with this opcode materializes a literal constant
+  value: no operands, one result, no side effects, and a result that is
+  always determined by the operation's properties. Defaults to `false`
+  for every opcode, which conservatively treats nothing as constant.
+  -/
+  isConstantLike : opCode → Bool := fun _ => false
+  /--
   Whether definitions in the indexed region must dominate their uses. A false
   result denotes graph-style semantics, where only a single block can be in the
   region, and operation order does not impose SSA dominance.
