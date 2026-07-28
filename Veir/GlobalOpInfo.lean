@@ -176,7 +176,6 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | _ => false
 
 instance : HasOpInfo OpCode where
-  moduleOpCode := .builtin .module
   hasSideEffects := OpCode.hasSideEffects
   isConstantLike := OpCode.isConstantLike
   hasSSADominance opCode index := opCode.getRegionKind index == .SSACFG

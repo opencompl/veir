@@ -48,7 +48,6 @@ opcodes and whether or not their regions have SSA dominance.
 -/
 class HasOpInfo (opCode: Type)
     extends Hashable opCode, Repr opCode, Inhabited opCode, HasDialectOpInfo opCode where
-  moduleOpCode: opCode
   /--
   Whether an operation with this opcode and these properties may have
   effects that make it ineligible for transformations that add /
