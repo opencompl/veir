@@ -80,9 +80,7 @@ private def getSuccessorOperand?
     | _ =>
       panic! "SparseForwardDataFlowAnalysis.getSuccessorOperand?: non-branch op"
 
-/--
-Conservatively treat blocks as live when no liveness facts exist.
--/
+/-- Conservatively treat blocks as live when no liveness facts exist. -/
 private def isBlockLive
     (block : BlockPtr)
     (dfCtx : DataFlowContext)
@@ -105,7 +103,7 @@ private def isEdgeLive
   let _ := dfCtx
   true
 
-/-- Subscribe to block liveness updates if dead code analysis is registered. -/
+/-- No-op when no liveness analysis is registered. -/
 private def subscribeToBlockLiveness
     (analysisKind : AnalysisKind)
     (block : BlockPtr)
@@ -116,7 +114,7 @@ private def subscribeToBlockLiveness
   let _ := irCtx
   dfCtx
 
-/-- Subscribe to edge liveness updates if dead code analysis is registered. -/
+/-- No-op when no liveness analysis is registered. -/
 private def subscribeToEdgeLiveness
     (analysisKind : AnalysisKind)
     (edge : CFGEdge)
