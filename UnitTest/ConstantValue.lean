@@ -1,5 +1,5 @@
 import UnitTest.DataFlowFramework.Helpers
-import Veir.Fold.ConstantValue
+import Veir.Interfaces.ConstantLikeInterfaces
 
 /-! Tests for reading constant-like IR values as interpreter runtime values. -/
 
