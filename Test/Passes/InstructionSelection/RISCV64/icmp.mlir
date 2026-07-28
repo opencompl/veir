@@ -60,6 +60,16 @@
         // CHECK-NEXT: [[C:%.*]] = "riscv.sltu"([[A]], [[B]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NEXT: [[D:%.*]] = "riscv.xori"([[C]]) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT: [[E:%.*]] = "builtin.unrealized_conversion_cast"([[D]]) : (!riscv.reg) -> i1
+        "test.test"(%r_0) : (i1) -> ()
+        "test.test"(%r_1) : (i1) -> ()
+        "test.test"(%r_2) : (i1) -> ()
+        "test.test"(%r_3) : (i1) -> ()
+        "test.test"(%r_4) : (i1) -> ()
+        "test.test"(%r_5) : (i1) -> ()
+        "test.test"(%r_6) : (i1) -> ()
+        "test.test"(%r_7) : (i1) -> ()
+        "test.test"(%r_8) : (i1) -> ()
+        "test.test"(%r_9) : (i1) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
     "func.func"()  <{function_type = (i32, i32) -> (), sym_name = "bar"}> ({
@@ -86,6 +96,9 @@
         // CHECK-NEXT: [[D:%.*]] = "riscv.sextw"([[B]]) : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT: [[E:%.*]] = "riscv.sltu"([[C]], [[D]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NEXT: [[F:%.*]] = "builtin.unrealized_conversion_cast"([[E]]) : (!riscv.reg) -> i1
+        "test.test"(%r_0) : (i1) -> ()
+        "test.test"(%r_2) : (i1) -> ()
+        "test.test"(%r_6) : (i1) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

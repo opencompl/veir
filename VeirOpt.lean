@@ -17,6 +17,7 @@ import Veir.Passes.DCE.dce
 import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.RISCVCombines.Combine
 import Veir.Passes.ModArithToArith
+import Veir.Passes.ArithToLLVM
 import Veir.Passes.Canonicalize
 
 open Veir.Parser
@@ -38,6 +39,7 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
     |>.insert CastReconcilePass.name CastReconcilePass
     |>.insert RISCV.Combine.name RISCV.Combine
     |>.insert ModArithToArithPass.name ModArithToArithPass
+    |>.insert ArithToLLVMPass.name ArithToLLVMPass
     |>.insert CanonicalizePass.name CanonicalizePass
 
 /--
@@ -49,7 +51,7 @@ def passGroups : Std.HashMap String String :=
   (Std.HashMap.emptyWithCapacity 2)
     |>.insert "O" "canonicalize,instcombine,cse,dce"
     |>.insert "riscv"
-        "isel-br-riscv64,canonicalize,isel-sdag-riscv64,isel-riscv64,riscv-combine,reconcile-cast,dce"
+        "isel-sdag-riscv64,isel-br-riscv64,isel-riscv64,reconcile-cast,riscv-combine,dce"
 
 /--
   A human-readable description of every pass group and the passes it expands to,

@@ -3,3 +3,5 @@ module
 import Veir.Interfaces.FoldInterfaces
 import Veir.Interfaces.FunctionInterfaces
 import Veir.Interfaces.RegionKindInterfaces
+import Veir.Interfaces.SideEffectInterfaces
+import Veir.Interfaces.DeadCodeInterfaces
