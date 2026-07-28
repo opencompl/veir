@@ -29,6 +29,15 @@ def isRiscvRegToPtrCast (inputType interType : TypeAttr): Bool :=
   | .registerType _, .llvmPointerType _  => true
   | _, _ => false
 
+
+/- We reconcile cast from `!mod_arith.int< q: iN> to iM (and back) for any M -/
+def isPreservingModArithToIntCast (inputType interType : TypeAttr) : Bool :=
+  match inputType.val, interType.val with
+  | .modArithType _, .integerType _ => True
+  | .integerType _, .modArithType _ => True
+  | _, _ => false
+
+
 /-- Reconciles round-trip casts of the form X->Y->X if allowed for these types by `legal X Y`.
 
   The parent cast is left in place: it is now dead, and DCE (run at the end of the pass) removes
@@ -104,6 +113,7 @@ def CastReconcilePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : o
   let pattern := RewritePattern.GreedyRewritePattern #[
     .fromLocalRewrite (reconcilePairingCastLocal isRegToI64RoundTrip),
     .fromLocalRewrite (reconcilePairingCastLocal isRiscvRegToPtrCast),
+    .fromLocalRewrite (reconcilePairingCastLocal isPreservingModArithToIntCast),
     .fromLocalRewrite reconcileRegIntCastLocal]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying cast reconciliation"
