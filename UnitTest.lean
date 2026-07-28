@@ -10,3 +10,4 @@ import UnitTest.Bitblasting.Bitblasting
 import UnitTest.DataFlowFramework.Dominance
 import UnitTest.DataFlowFramework.DeadCodeAnalysis
 
+import UnitTest.DataFlowFramework.SparseConstantPropagation
