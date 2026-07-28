@@ -2,11 +2,19 @@ module
 
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
-public import Veir.Properties
+public import Veir.Dialects.HW.Properties
+meta import Veir.Meta.Attrs
 
 namespace Veir
 
 public section
+
+@[opcodes]
+inductive HW where
+| constant
+| module
+| output
+deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, properties_of]
 def HW.propertiesOf (op : HW) : Type :=
