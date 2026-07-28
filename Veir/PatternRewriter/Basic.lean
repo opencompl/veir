@@ -218,19 +218,14 @@ def insertOp! (rewriter: PatternRewriter OpInfo) (op: OperationPtr) (ip : Insert
   }
 
 /--
-Set the properties of an operation in place. The operation and the users of its results are
-re-enqueued, as the new properties may enable further rewrites.
+Set the properties of an operation in place, and re-enqueue it.
 -/
 def setProperties (rewriter: PatternRewriter OpInfo) (op: OperationPtr) (opCode : OpInfo)
     (newProps : HasOpInfo.propertiesOf opCode)
     (opIn : op.InBounds rewriter.ctx.raw := by grind)
     (hprop : op.getOpType! rewriter.ctx.raw = opCode := by grind)
-    : PatternRewriter OpInfo := Id.run do
-  let mut rw : {r : PatternRewriter OpInfo // r.ctx = rewriter.ctx } := ⟨rewriter, by grind⟩
-  for h : i in 0...(op.getNumResults rewriter.ctx.raw opIn) do
-    rw := ⟨rw.val.addUsersInWorklist (op.getResult i) (by grind), by grind⟩
-  let rewriter := rw.val
-  return { rewriter with
+    : PatternRewriter OpInfo :=
+  { rewriter with
     ctx := WfRewriter.setProperties rewriter.ctx op newProps (by grind) (by grind),
     hasDoneAction := true,
     worklist := rewriter.worklist.push op,
