@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785272469734,
+  "lastUpdate": 1785272841629,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -97338,6 +97338,184 @@ window.BENCHMARK_DATA = {
             "range": "± 39715",
             "unit": "ns",
             "extra": "count=1000 pc=100 samples=5 median=0.000789s stddev=0.000039715s cv=4.9994%"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "63247502+Seonyoung-Cheon@users.noreply.github.com",
+            "name": "Seonyoung-Cheon",
+            "username": "Seonyoung-Cheon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "222b9277f450d2fb611ac1fa6835697059f12dd0",
+          "message": "Add `remui-to-barrett-reduction` rewrite pass (#1106)\n\n### Summary\nAdd lowering pass `remui-to-barrett-reduction` and a example\n`barrett-reduction.mlir`\n\n\n### What Changed\n\nStrictly speaking, this transformation is closer to a rewrite than a\nlowering, since `arith.remui` can be represented as a sequence of other\n`arith` operations.\n\nThe conversion pipeline is now separated into two steps:\n\n* `mod-arith-to-arith` pass : `mod_arith` → `arith` while preserving\n`arith.remui`\n* `remui-to-barrett-reduction` pass : `arith.remui` → a sequence of\n`arith` operations implementing Barrett reduction\n\nThis PR adds only the `remui-to-barrett-reduction` pass.\n\nKeeping `arith.remui` as an explicit operation makes it easier to apply\nrange analysis before expanding it into Barrett reduction. The analysis\nonly needs to reason about the input and output ranges of `arith.remui`,\nrather than the individual operations used in its implementation.\n\n---------\n\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>\nCo-authored-by: Luisa Cicolini <48860705+luisacicolini@users.noreply.github.com>\nCo-authored-by: Tobias Christian Grosser <tobias@grosser.es>\nCo-authored-by: Samin Ishtiaq <samin.ishtiaq@gmail.com>",
+          "timestamp": "2026-07-28T20:59:46Z",
+          "tree_id": "7480308a3d52d00dcaf4db5da6e9ae598d68f112",
+          "url": "https://github.com/opencompl/veir/commit/222b9277f450d2fb611ac1fa6835697059f12dd0"
+        },
+        "date": 1785272817583,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2375500,
+            "range": "± 118066",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=10 median=0.002375500s stddev=0.000118066s cv=4.9737%"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 4313500,
+            "range": "± 131722",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=10 median=0.004313500s stddev=0.000131722s cv=3.0309%"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2322000,
+            "range": "± 131200",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.002322000s stddev=0.000131200s cv=5.6005%"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 5329500,
+            "range": "± 238936",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.005329500s stddev=0.000238936s cv=4.4382%"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2331000,
+            "range": "± 116034",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=19 median=0.002331s stddev=0.000116034s cv=4.9605%"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 3094000,
+            "range": "± 119253",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=19 median=0.003094s stddev=0.000119253s cv=3.7930%"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1990500,
+            "range": "± 113249",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.001990500s stddev=0.000113249s cv=5.7002%"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 2754500,
+            "range": "± 90550",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.002754500s stddev=0.000090550s cv=3.2633%"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2389000,
+            "range": "± 47838",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002389s stddev=0.000047838s cv=1.9949%"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 6044000,
+            "range": "± 64860",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.006044s stddev=0.000064860s cv=1.0705%"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2376000,
+            "range": "± 127468",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.002376000s stddev=0.000127468s cv=5.3879%"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 3069000,
+            "range": "± 63892",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.003069000s stddev=0.000063892s cv=2.0679%"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2408000,
+            "range": "± 155660",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.002408000s stddev=0.000155660s cv=6.5020%"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 2024000,
+            "range": "± 42488",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.002024000s stddev=0.000042488s cv=2.1014%"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 2038000,
+            "range": "± 93965",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=8 median=0.002038000s stddev=0.000093965s cv=4.6265%"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1571000,
+            "range": "± 79816",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=8 median=0.001571000s stddev=0.000079816s cv=4.9854%"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2411000,
+            "range": "± 48418",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002411s stddev=0.000048418s cv=2.0253%"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3856000,
+            "range": "± 72758",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.003856s stddev=0.000072758s cv=1.8758%"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 2021500,
+            "range": "± 140107",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.002021500s stddev=0.000140107s cv=6.9190%"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 8000,
+            "range": "± 712",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.000008000s stddev=0.000000712s cv=8.7901%"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1982000,
+            "range": "± 73682",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=9 median=0.001982s stddev=0.000073682s cv=3.6853%"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 810000,
+            "range": "± 41125",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=9 median=0.000810s stddev=0.000041125s cv=4.9695%"
           }
         ]
       }
