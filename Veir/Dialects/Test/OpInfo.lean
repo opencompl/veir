@@ -17,8 +17,12 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 def Test.propertiesOf (_op : Test) : Type :=
   Unit
 
+def Test.hasSideEffects (_op : Test) (_props : Test.propertiesOf _op) : Bool :=
+  true
+
 instance : HasDialectOpInfo Test where
   propertiesOf := Test.propertiesOf
+  hasSideEffects := Test.hasSideEffects
 
 end
 

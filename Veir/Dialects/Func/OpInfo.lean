@@ -23,8 +23,12 @@ match op with
 | .call => FuncCallProperties
 | _ => Unit
 
+def Func.hasSideEffects (_op : Func) (_props : Func.propertiesOf _op) : Bool :=
+  true
+
 instance : HasDialectOpInfo Func where
   propertiesOf := Func.propertiesOf
+  hasSideEffects := Func.hasSideEffects
 
 end
 

@@ -25,6 +25,14 @@ class HasDialectOpInfo (opCode: Type)
     ((try rename_i op; cases op) <;> infer_instance)
   decideEq : DecidableEq (opCode) := by
     intros opCode1 opCode2; cases opCode1 <;> cases opCode2 <;> infer_instance
+  /--
+  Whether an operation with this opcode and these properties may have
+  effects that make it ineligible for transformations that add /
+  remove / rearrange instructions (terminators count as having
+  effects). Defaults to `true` for every opcode, which conservatively
+  disables such transformations.
+  -/
+  hasSideEffects : (op : opCode) → propertiesOf op → Bool := fun _ _ => true
 
 instance [HasDialectOpInfo opCode] {op : opCode} : Hashable (HasDialectOpInfo.propertiesOf op) where
   hash := HasDialectOpInfo.propertiesHash.hash
@@ -48,14 +56,6 @@ opcodes and whether or not their regions have SSA dominance.
 -/
 class HasOpInfo (opCode: Type)
     extends Hashable opCode, Repr opCode, Inhabited opCode, HasDialectOpInfo opCode where
-  /--
-  Whether an operation with this opcode and these properties may have
-  effects that make it ineligible for transformations that add /
-  remove / rearrange instructions (terminators count as having
-  effects). Defaults to `true` for every opcode, which conservatively
-  disables such transformations.
-  -/
-  hasSideEffects : (op : opCode) → propertiesOf op → Bool := fun _ _ => true
   /--
   Whether an operation with this opcode reads memory.
 

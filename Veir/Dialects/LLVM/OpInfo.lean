@@ -99,8 +99,34 @@ match op with
 | .module_flags => LLVMModuleFlagsProperties
 | _ => Unit
 
+def Llvm.hasSideEffects (op : Llvm) (props : Llvm.propertiesOf op) : Bool :=
+  match op, props with
+  -- Volatile loads are definitionally side-effecting.
+  | .load, props => props.volatile_
+  | .mlir__constant, _
+  | .mlir__poison, _
+  | .and, _ | .or, _ | .xor, _
+  | .add, _ | .sub, _ | .mul, _
+  | .sdiv, _ | .udiv, _ | .srem, _ | .urem, _
+  | .shl, _ | .lshr, _ | .ashr, _
+  | .intr__ctlz, _ | .intr__cttz, _ | .intr__ctpop, _
+  | .intr__bswap, _ | .intr__bitreverse, _
+  | .intr__fshl, _ | .intr__fshr, _
+  | .icmp, _ | .select, _
+  | .trunc, _ | .sext, _ | .zext, _
+  | .getelementptr, _
+  | .intr__smax, _ | .intr__smin, _ | .intr__umax, _ | .intr__umin, _
+  | .intr__abs, _
+  | .intr__sadd__sat, _ | .intr__uadd__sat, _
+  | .intr__ssub__sat, _ | .intr__usub__sat, _
+  | .intr__sshl__sat, _ | .intr__ushl__sat, _
+  | .fadd, _ | .fsub, _ | .fmul, _ | .fdiv, _ | .frem, _ => false
+  -- For everything else: be conservative!
+  | _, _ => true
+
 instance : HasDialectOpInfo Llvm where
   propertiesOf := Llvm.propertiesOf
+  hasSideEffects := Llvm.hasSideEffects
 
 end
 

@@ -35,8 +35,13 @@ match op with
 | .bnez => RISCVBrProperties
 | _ => Unit
 
+def Riscv_Cf.hasSideEffects
+    (_op : Riscv_Cf) (_props : Riscv_Cf.propertiesOf _op) : Bool :=
+  true
+
 instance : HasDialectOpInfo Riscv_Cf where
   propertiesOf := Riscv_Cf.propertiesOf
+  hasSideEffects := Riscv_Cf.hasSideEffects
 
 end
 

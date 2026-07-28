@@ -40,8 +40,12 @@ match op with
 | .icmp => CombIcmpProperties
 | _ => Unit
 
+def Comb.hasSideEffects (_op : Comb) (_props : Comb.propertiesOf _op) : Bool :=
+  false
+
 instance : HasDialectOpInfo Comb where
   propertiesOf := Comb.propertiesOf
+  hasSideEffects := Comb.hasSideEffects
 
 end
 

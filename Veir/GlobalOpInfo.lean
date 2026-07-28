@@ -45,9 +45,6 @@ match opCode with
 | .datapath op => Datapath.propertiesOf op
 | .test op => Test.propertiesOf op
 
-instance : HasDialectOpInfo OpCode where
-  propertiesOf := _propertiesOf
-
 /--
   Does this OpCode count as an MLIR basic block terminator?
 -/
@@ -86,73 +83,25 @@ def OpCode.readsMemory (opCode : OpCode) : Bool :=
   https://mlir.llvm.org/docs/Rationale/SideEffectsAndSpeculation/
 -/
 def OpCode.hasSideEffects (opCode : OpCode) (props : _propertiesOf opCode) : Bool :=
-  if opCode.isTerminator then true else
   match opCode, props with
-  -- Volatile loads are definitionally side-effecting.
-  | .llvm .load, props => props.volatile_
-  | .riscv .ld, props
-  | .riscv .lw, props
-  | .riscv .lwu, props
-  | .riscv .lh, props
-  | .riscv .lhu, props
-  | .riscv .lb, props
-  | .riscv .lbu, props => props.volatile_
-  | opCode, _ =>
-    match opCode with
-    -- These dialects are pure
-    | .arith _ | .comb _ | .mod_arith _ | .datapath _ => false
-    | .builtin .unrealized_conversion_cast => false
-    | .hw .constant => false
-    -- Enumerate the pure subset of RISC-V
-    | .riscv .li | .riscv .lui | .riscv .auipc
-    | .riscv .addi | .riscv .slti | .riscv .sltiu
-    | .riscv .andi | .riscv .ori | .riscv .xori
-    | .riscv .addiw | .riscv .slli | .riscv .srli | .riscv .srai
-    | .riscv .add | .riscv .sub | .riscv .sll | .riscv .slt | .riscv .sltu
-    | .riscv .xor | .riscv .srl | .riscv .sra | .riscv .or | .riscv .and
-    | .riscv .slliw | .riscv .srliw | .riscv .sraiw
-    | .riscv .addw | .riscv .subw | .riscv .sllw | .riscv .srlw | .riscv .sraw
-    | .riscv .rem | .riscv .remu | .riscv .remw | .riscv .remuw
-    | .riscv .mul | .riscv .mulh | .riscv .mulhu | .riscv .mulhsu | .riscv .mulw
-    | .riscv .div | .riscv .divw | .riscv .divu | .riscv .divuw
-    | .riscv .adduw | .riscv .sh1adduw | .riscv .sh2adduw | .riscv .sh3adduw
-    | .riscv .sh1add | .riscv .sh2add | .riscv .sh3add | .riscv .slliuw
-    | .riscv .andn | .riscv .orn | .riscv .xnor
-    | .riscv .max | .riscv .maxu | .riscv .min | .riscv .minu
-    | .riscv .rol | .riscv .ror | .riscv .rolw | .riscv .rorw
-    | .riscv .sextb | .riscv .sexth | .riscv .zexth
-    | .riscv .clz | .riscv .clzw | .riscv .ctz | .riscv .ctzw
-    | .riscv .cpop | .riscv .cpopw | .riscv .orcb | .riscv .rev8
-    | .riscv .rori | .riscv .roriw
-    | .riscv .bclr | .riscv .bext | .riscv .binv | .riscv .bset
-    | .riscv .bclri | .riscv .bexti | .riscv .binvi | .riscv .bseti
-    | .riscv .pack | .riscv .packh | .riscv .packw
-    | .riscv .czeroeqz | .riscv .czeronez
-    -- RISC-V pseudo-operations
-    | .riscv .mv | .riscv .not | .riscv .neg | .riscv .negw
-    | .riscv .sextw | .riscv .zextb | .riscv .zextw
-    | .riscv .seqz | .riscv .snez | .riscv .sltz | .riscv .sgtz => false
-    -- For LLVM we enumerate the pure ops
-    | .llvm .mlir__constant
-    | .llvm .mlir__poison
-    | .llvm .and | .llvm .or | .llvm .xor
-    | .llvm .add | .llvm .sub | .llvm .mul
-    | .llvm .sdiv | .llvm .udiv | .llvm .srem | .llvm .urem
-    | .llvm .shl | .llvm .lshr | .llvm .ashr
-    | .llvm .intr__ctlz | .llvm .intr__cttz | .llvm .intr__ctpop
-    | .llvm .intr__bswap | .llvm .intr__bitreverse
-    | .llvm .intr__fshl | .llvm .intr__fshr
-    | .llvm .icmp | .llvm .select
-    | .llvm .trunc | .llvm .sext | .llvm .zext
-    | .llvm .getelementptr
-    | .llvm .intr__smax | .llvm .intr__smin | .llvm .intr__umax | .llvm .intr__umin
-    | .llvm .intr__abs
-    | .llvm .intr__sadd__sat | .llvm .intr__uadd__sat
-    | .llvm .intr__ssub__sat | .llvm .intr__usub__sat
-    | .llvm .intr__sshl__sat | .llvm .intr__ushl__sat
-    | .llvm .fadd | .llvm .fsub | .llvm .fmul | .llvm .fdiv | .llvm .frem => false
-    -- For everything else: be conservative!
-    | _ => true
+  | .arith op, props => Arith.hasSideEffects op props
+  | .llvm op, props => Llvm.hasSideEffects op props
+  | .riscv op, props => Riscv.hasSideEffects op props
+  | .riscv_cf op, props => Riscv_Cf.hasSideEffects op props
+  | .riscv_stack op, props => Riscv_Stack.hasSideEffects op props
+  | .rv64 op, props => Rv64.hasSideEffects op props
+  | .mod_arith op, props => Mod_Arith.hasSideEffects op props
+  | .cf op, props => Cf.hasSideEffects op props
+  | .comb op, props => Comb.hasSideEffects op props
+  | .hw op, props => HW.hasSideEffects op props
+  | .builtin op, props => Builtin.hasSideEffects op props
+  | .func op, props => Func.hasSideEffects op props
+  | .datapath op, props => Datapath.hasSideEffects op props
+  | .test op, props => Test.hasSideEffects op props
+
+instance : HasDialectOpInfo OpCode where
+  propertiesOf := _propertiesOf
+  hasSideEffects := OpCode.hasSideEffects
 
 inductive RegionKind where
 | SSACFG
@@ -189,7 +138,6 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | _ => false
 
 instance : HasOpInfo OpCode where
-  hasSideEffects := OpCode.hasSideEffects
   readsMemory := OpCode.readsMemory
   isConstantLike := OpCode.isConstantLike
   hasSSADominance opCode index := opCode.getRegionKind index == .SSACFG

@@ -19,8 +19,13 @@ def Riscv_Stack.propertiesOf (op : Riscv_Stack) : Type :=
 match op with
 | .alloca => RISCVStackAllocaProperties
 
+def Riscv_Stack.hasSideEffects
+    (_op : Riscv_Stack) (_props : Riscv_Stack.propertiesOf _op) : Bool :=
+  true
+
 instance : HasDialectOpInfo Riscv_Stack where
   propertiesOf := Riscv_Stack.propertiesOf
+  hasSideEffects := Riscv_Stack.hasSideEffects
 
 end
 
