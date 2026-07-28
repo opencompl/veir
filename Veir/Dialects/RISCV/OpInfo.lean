@@ -2,11 +2,130 @@ module
 
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
-public import Veir.Properties
+public import Veir.Dialects.RISCV.Properties
+meta import Veir.Meta.Attrs
 
 namespace Veir
 
 public section
+
+@[opcodes]
+inductive Riscv where
+| li
+| lui
+| auipc
+| addi
+| slti
+| sltiu
+| andi
+| ori
+| xori
+| addiw
+| slli
+| srli
+| srai
+| add
+| sub
+| sll
+| slt
+| sltu
+| xor
+| srl
+| sra
+| or
+| and
+| slliw
+| srliw
+| sraiw
+| addw
+| subw
+| sllw
+| srlw
+| sraw
+| rem
+| remu
+| remw
+| remuw
+| mul
+| mulh
+| mulhu
+| mulhsu
+| mulw
+| div
+| divw
+| divu
+| divuw
+| adduw
+| sh1adduw
+| sh2adduw
+| sh3adduw
+| sh1add
+| sh2add
+| sh3add
+| slliuw
+| andn
+| orn
+| xnor
+| max
+| maxu
+| min
+| minu
+| rol
+| ror
+| rolw
+| rorw
+| sextb
+| sexth
+| zexth
+| clz
+| clzw
+| ctz
+| ctzw
+| cpop
+| cpopw
+| orcb
+| rev8
+| roriw
+| rori
+| bclr
+| bext
+| binv
+| bset
+| bclri
+| bexti
+| binvi
+| bseti
+| pack
+| packh
+| packw
+| czeroeqz
+| czeronez
+/- memory -/
+| ld
+| lw
+| lwu
+| lh
+| lhu
+| lb
+| lbu
+| sd
+| sw
+| sh
+| sb
+
+/- pseudooperations -/
+| mv
+| not
+| neg
+| negw
+| sextw
+| zextb
+| zextw
+| seqz
+| snez
+| sltz
+| sgtz
+deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, properties_of]
 def Riscv.propertiesOf (op : Riscv) : Type :=
