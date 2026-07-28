@@ -40,10 +40,10 @@ Constant-like operations do not fold: `foldDecision` answers `.noFold`
 for them, so it is never the way to learn what an `arith.constant`
 holds. A client that seeds itself from constants in the IR needs a
 separate reader, and `ValuePtr.constantValue`, re-exported from
-`Veir.Fold`, is that reader. Using it is what keeps a client's notion
-of "constant" in agreement with the folder's: it recognizes the
-`arith`, `llvm`, `riscv`, and `mod_arith` constant spellings along
-with `llvm.mlir.poison`. Modular constants are recognized only when
+`Veir.Interfaces.ConstantLikeInterfaces`, is that reader. Using it is
+what keeps a client's notion of "constant" in agreement with the
+folder's: it recognizes every opcode `OpCode.isConstantLike` accepts,
+including `llvm.mlir.poison`. Modular constants are recognized only when
 they are already canonical residues in `[0, q)`, matching the
 `mod-arith-to-arith` lowering's invariant. A reader that covers fewer
 spellings will report values as unknown that the folder would have

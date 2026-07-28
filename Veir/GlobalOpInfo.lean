@@ -157,9 +157,28 @@ def OpCode.getRegionKind (opCode : OpCode) (_index : Nat) : RegionKind :=
   | .test .test => .Graph
   | _ => .SSACFG
 
+/--
+  Does this `OpCode` materialize a literal constant value, i.e. an op
+  whose single result is a compile-time constant taken from its
+  properties, with no SSA operands and no side effects?
+
+  This is the analogue of MLIR's `ConstantLike` op trait, which likewise
+  covers `llvm.mlir.poison`: poison is a perfectly good constant.
+-/
+def OpCode.isConstantLike (opCode : OpCode) : Bool :=
+  match opCode with
+  | .arith .constant
+  | .llvm .mlir__constant
+  | .llvm .mlir__poison
+  | .hw .constant
+  | .mod_arith .constant
+  | .riscv .li => true
+  | _ => false
+
 instance : HasOpInfo OpCode where
   moduleOpCode := .builtin .module
   hasSideEffects := OpCode.hasSideEffects
+  isConstantLike := OpCode.isConstantLike
   hasSSADominance opCode index := opCode.getRegionKind index == .SSACFG
 
 abbrev propertiesOf := HasOpInfo.propertiesOf (self := instHasOpInfoOpCode)
@@ -486,20 +505,6 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     dict
   | _ =>
     Std.HashMap.emptyWithCapacity 0
-
-/--
-  Does this `OpCode` materialize a literal constant value (i.e. an op
-  whose result is a compile-time constant taken from its attributes,
-  with no SSA operands)?
--/
-def OpCode.isConstantLike (opCode : OpCode) : Bool :=
-  match opCode with
-  | .arith .constant
-  | .llvm .mlir__constant
-  | .llvm .mlir__poison
-  | .mod_arith .constant
-  | .riscv .li => true
-  | _ => false
 
 /--
   Is this `OpCode` commutative in its operands, i.e. `op x y` always

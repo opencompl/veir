@@ -1,5 +1,6 @@
 module
 
+public import Veir.Interfaces.ConstantLikeInterfaces
 public import Veir.Interpreter.Basic
 
 /-!
@@ -49,49 +50,6 @@ inductive FoldOutcome where
   /-- All operands are constant: evaluate the operation with the interpreter
       and materialize the result. -/
   | evaluate
-
-/--
-  If `val` is defined by a constant-like operation with an integer result,
-  return the runtime value it materializes.
-
-  The conversions here must match the interpretation of the corresponding
-  constant operations in `interpretOp'` exactly: this is what makes folding
-  agree with the runtime semantics.
--/
-def ValuePtr.constantValue (val : ValuePtr) (ctx : IRContext OpCode) : Option RuntimeValue := do
-  let defOp ← val.getDefiningOp! ctx
-  match defOp.getOpType! ctx with
-  | .arith .constant =>
-    let .integerType intTy := (val.getType! ctx).val | none
-    let bw := intTy.bitwidth
-    let properties := defOp.getProperties! ctx (.arith .constant)
-    return .int bw (.val (BitVec.ofInt bw properties.value.value))
-  | .llvm .mlir__constant =>
-    let .integerType intTy := (val.getType! ctx).val | none
-    let bw := intTy.bitwidth
-    let properties := defOp.getProperties! ctx (.llvm .mlir__constant)
-    let .integer intAttr := properties.value | none
-    return .int bw (Data.LLVM.Int.constant bw intAttr.value)
-  | .llvm .mlir__poison =>
-    let .integerType intTy := (val.getType! ctx).val | none
-    return .int intTy.bitwidth (Data.LLVM.Int.mlir_poison intTy.bitwidth)
-  | .riscv .li =>
-    let .registerType _ := (val.getType! ctx).val | none
-    let properties := defOp.getProperties! ctx (.riscv .li)
-    return .reg (Data.RISCV.li (BitVec.ofInt 64 properties.value.value))
-  | .mod_arith .constant =>
-    -- `mod_arith` has no runtime representation (it is lowered before
-    -- interpretation). The lowering assumes constants are already canonical
-    -- residues in `[0, q)`, so decline non-canonical constants rather than
-    -- assigning them different semantics here.
-    let .modArithType mt := (val.getType! ctx).val | none
-    let q := mt.modulus.value
-    if q ≤ 0 then none else
-    let properties := defOp.getProperties! ctx (.mod_arith .constant)
-    let c := properties.value.value
-    if c < 0 ∨ q ≤ c then none else
-    return .int mt.modulus.type.bitwidth (.val (BitVec.ofInt mt.modulus.type.bitwidth c))
-  | _ => none
 
 /--
   Opcodes whose interpretation may be evaluated at fold time: they must be
