@@ -3,15 +3,6 @@ module
 public import Veir.Interpreter.Basic
 public import Veir.Interfaces.ConstantLikeInterfaces
 
-/-!
-  # Reading constant-like values
-
-  This module provides a read-only bridge from constant-like IR operations to
-  the runtime values used by the interpreter. Analyses can use it to seed
-  constant facts without duplicating the interpretation of each constant
-  spelling.
--/
-
 public section
 
 namespace Veir
