@@ -1757,10 +1757,6 @@ def sexth_or := drop_ext_of_bitwise .sexth .or false
 def sexth_xor := drop_ext_of_bitwise .sexth .xor false
 
 /-- Match a `riscv.<store>` (`sw`/`sh`/`sb`), returning `(val, addr, properties)`.
-    RISC-V stores take the stored value as operand 0 and the base address as
-    operand 1: see the store cases of `Interpreter.Basic.exec`, which read the
-    effective address out of operand 1, and `Test/Interpreter/RISCV/sw.mlir`,
-    which pins the convention down by execution.
     These stores have no results, so they can't go through `matchOp` (which
     requires exactly one). -/
 private def matchRiscvStore (store : Riscv) (op : OperationPtr) (ctx : IRContext OpCode) :
@@ -1795,10 +1791,10 @@ private def drop_ext_store (ext store : Riscv) (rewriter : PatternRewriter OpCod
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite (drop_ext_store_local ext store) rewriter op opInBounds
 
-/-- `riscv.sw addr, (riscv.zextw val) -> riscv.sw addr, val`. -/
+/-- `riscv.sw (riscv.zextw val), addr -> riscv.sw val, addr`. -/
 def drop_zextw_sw := drop_ext_store .zextw .sw
 
-/-- `riscv.sw addr, (riscv.sextw val) -> riscv.sw addr, val`. -/
+/-- `riscv.sw (riscv.sextw val), addr -> riscv.sw val, addr`. -/
 def drop_sextw_sw := drop_ext_store .sextw .sw
 
 /-- Halfword- and byte-store mirrors of `drop_zextw_sw`/`drop_sextw_sw`: `sh` writes
