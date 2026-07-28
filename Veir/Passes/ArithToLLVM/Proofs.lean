@@ -96,8 +96,7 @@ exactly when `a <u b`.
 -/
 theorem subui_extended_lowering (a b : Int 8) :
     (sub a b, usubOverflowFlag a b) =
-      let diff := sub a b
-      (diff, icmp a b .ult) := by
+      (sub a b, icmp a b .ult) := by
   cases a <;> cases b <;> simp [usubOverflowFlag, Id.run] <;> veir_bv_decide
 
 /--
