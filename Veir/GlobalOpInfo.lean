@@ -1,5 +1,6 @@
 module
 
+import Veir.Meta.OpCode
 public import Veir.Dialects.Arith.OpInfo
 public import Veir.Dialects.Builtin.OpInfo
 public import Veir.Dialects.Func.OpInfo
@@ -14,7 +15,9 @@ public import Veir.Dialects.Comb.OpInfo
 public import Veir.Dialects.HW.OpInfo
 public import Veir.Dialects.Datapath.OpInfo
 public import Veir.Dialects.Test.OpInfo
+
 public import Veir.IR.Basic
+public import Veir.OpCode
 
 namespace Veir
 
@@ -157,10 +160,29 @@ def OpCode.getRegionKind (opCode : OpCode) (_index : Nat) : RegionKind :=
   | .test .test => .Graph
   | _ => .SSACFG
 
+/--
+  Does this `OpCode` materialize a literal constant value, i.e. an op
+  whose single result is a compile-time constant taken from its
+  properties, with no SSA operands and no side effects?
+
+  This is the analogue of MLIR's `ConstantLike` op trait, which likewise
+  covers `llvm.mlir.poison`: poison is a perfectly good constant.
+-/
+def OpCode.isConstantLike (opCode : OpCode) : Bool :=
+  match opCode with
+  | .arith .constant
+  | .llvm .mlir__constant
+  | .llvm .mlir__poison
+  | .hw .constant
+  | .riscv .li => true
+  | _ => false
+
 instance : HasOpInfo OpCode where
-  moduleOpCode := .builtin .module
   hasSideEffects := OpCode.hasSideEffects
+  isConstantLike := OpCode.isConstantLike
   hasSSADominance opCode index := opCode.getRegionKind index == .SSACFG
+
+#generate_has_dialect_instances OpCode
 
 abbrev propertiesOf := HasOpInfo.propertiesOf (self := instHasOpInfoOpCode)
 
@@ -498,18 +520,6 @@ def OpCode.isIsolatedFromAbove (opCode : OpCode) : Bool :=
   | .builtin .module
   | .func .func
   | .llvm .func => true
-  | _ => false
-
-/--
-  Does this `OpCode` materialize a literal constant value (i.e. an op
-  whose result is a compile-time constant taken from its attributes,
-  with no SSA operands)?
--/
-def OpCode.isConstantLike (opCode : OpCode) : Bool :=
-  match opCode with
-  | .arith .constant
-  | .llvm .mlir__constant
-  | .riscv .li => true
   | _ => false
 
 /--

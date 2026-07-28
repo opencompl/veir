@@ -3,7 +3,6 @@ module
 public import Veir.IR.Basic
 public import Veir.IR.Dominance
 public import Veir.IR.Fields
-public import Veir.Properties
 public import Veir.GlobalOpInfo
 public import Veir.IR.WellFormed
 public import Veir.Interfaces.FunctionInterfaces
