@@ -1,7 +1,6 @@
 module
 
 public import Veir.IR.Basic
-public import Veir.Properties
 public import Veir.GlobalOpInfo
 public import Veir.Interfaces.FunctionInterfaces
 

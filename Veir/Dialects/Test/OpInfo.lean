@@ -2,11 +2,16 @@ module
 
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
-public import Veir.Properties
+meta import Veir.Meta.Attrs
 
 namespace Veir
 
 public section
+
+@[opcodes]
+inductive Test where
+| test
+deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, properties_of]
 def Test.propertiesOf (_op : Test) : Type :=
