@@ -14,6 +14,7 @@ import Veir.Passes.InstructionSelection.RISCV64Sdag
 import Veir.Passes.InstructionSelection.RISCV64Branches
 import Veir.Passes.DCE.dce
 import Veir.Passes.CastsReconciliation.Reconciliation
+import Veir.Passes.FunctionBoundaryCoercion.Coercion
 import Veir.Passes.RISCVCombines.Combine
 import Veir.Passes.ModArithToArith
 import Veir.Passes.ArithToLLVM
@@ -36,6 +37,7 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
     |>.insert IselBrRISCV64.name IselBrRISCV64
     |>.insert DCEPass.name DCEPass
     |>.insert CastReconcilePass.name CastReconcilePass
+    |>.insert CoerceFunctionBoundariesToRiscvRegPass.name CoerceFunctionBoundariesToRiscvRegPass
     |>.insert RISCV.Combine.name RISCV.Combine
     |>.insert ModArithToArithPass.name ModArithToArithPass
     |>.insert ArithToLLVMPass.name ArithToLLVMPass

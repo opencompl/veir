@@ -1,6 +1,6 @@
-// RUN: veir-opt %s -p=reconcile-cast | filecheck %s
+// RUN: veir-opt %s -p=coerce-function-boundaries-to-riscv-reg,reconcile-cast | filecheck %s
 
-// The cast-reconciliation pass coerces every function's register-width arguments and
+// The boundary-coercion pass coerces every function's register-width arguments and
 // return values to `!riscv.reg`, inserting bridging casts and rewriting `function_type`,
 // regardless of whether the body has actually been lowered by instruction selection yet
 // (that's the caller's responsibility -- see `notlowered`). For 64-bit boundaries (`i64`,

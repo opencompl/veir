@@ -1,9 +1,9 @@
 // RUN: veir-interpret %s | filecheck %s --check-prefix=SRC
-// RUN: veir-opt %s -p=canonicalize,instcombine,canonicalize,cse,dce,isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,canonicalize,riscv-combine,reconcile-cast,dce > %t && veir-interpret %t | filecheck %s
+// RUN: veir-opt %s -p=canonicalize,instcombine,canonicalize,cse,dce,isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,canonicalize,riscv-combine,coerce-function-boundaries-to-riscv-reg,reconcile-cast,dce > %t && veir-interpret %t | filecheck %s
 
 // `i32` analogue of udiv_pow2_exec.mlir (`udivwPow2`).
 //
-// CHECK is #64 (SRC is #32): reconcile-cast coerces `main`'s `i32` boundary to
+// CHECK is #64 (SRC is #32): coerce-function-boundaries-to-riscv-reg,reconcile-cast coerces `main`'s `i32` boundary to
 // `!riscv.reg`, so post-lowering the declared return type is a register.
 
 "builtin.module"() ({
