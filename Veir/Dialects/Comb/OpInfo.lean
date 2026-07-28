@@ -2,12 +2,36 @@ module
 
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
-public import Veir.OpCode
 public import Veir.Dialects.Comb.Properties
+meta import Veir.Meta.Attrs
 
 namespace Veir
 
 public section
+
+@[opcodes]
+inductive Comb where
+| add
+| and
+| concat
+| divs
+| divu
+| extract
+| icmp
+| mods
+| modu
+| mul
+| mux
+| or
+| parity
+| replicate
+| reverse
+| shl
+| shrs
+| shru
+| sub
+| xor
+deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, properties_of]
 def Comb.propertiesOf (op : Comb) : Type :=

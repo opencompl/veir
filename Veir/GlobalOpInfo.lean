@@ -15,7 +15,9 @@ public import Veir.Dialects.Comb.OpInfo
 public import Veir.Dialects.HW.OpInfo
 public import Veir.Dialects.Datapath.OpInfo
 public import Veir.Dialects.Test.OpInfo
+
 public import Veir.IR.Basic
+public import Veir.OpCode
 
 namespace Veir
 
