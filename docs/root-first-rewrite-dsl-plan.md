@@ -135,6 +135,39 @@ Its proof hides matching inversion, `InBounds`, dominance,
 `EquationLemmaAt`, interpreter states, value mappings, target
 `interpretOpList` reconstruction, and memory/control-flow bookkeeping.
 
+### PDL-like frontend semantics
+
+The PDL-like frontend also exposes its own author-facing
+`PDL.Pattern.Semantics` proposition. It is generated directly from the
+frontend's typed declarative source and target graphs, so proofs and
+diagnostics use frontend names rather than details of the compiled
+root-first matcher.
+
+Compilation produces a `RootFirst.PurePattern` and proves the semantic
+transport theorem:
+
+```lean
+PDL.Pattern.lowerSemantics
+  (h : pattern.Semantics) :
+  pattern.compile.Semantics
+```
+
+Here the conclusion is the existing `RootFirst.PurePattern.Semantics`.
+Consequently, the certified path is:
+
+```text
+PDL.Pattern.Semantics
+  → RootFirst.PurePattern.Semantics
+  → LocalRewritePattern.PreservesSemantics
+```
+
+The forward implication is the requirement for soundness. When the frontend
+and root-first representations have exactly the same accepted programs,
+lowering should prove an equivalence as the stronger result. Pattern authors
+should not have to unfold or prove the semantics of the compiled matcher;
+the root-first proposition remains the intermediate proof interface and the
+existing generic soundness theorem remains the final trusted bridge.
+
 ## Pull Request Sequence
 
 ### PR 1 — Pure operation semantic interface
@@ -179,10 +212,43 @@ Its proof hides matching inversion, `InBounds`, dominance,
 ### PR 5 — PDL-like frontend
 
 - [ ] Add a declarative typed graph representation and custom syntax.
+- [ ] Generate an author-facing `PDL.Pattern.Semantics` proposition from the
+      declarative source and target graphs.
 - [ ] Compile it to the root-first DSL.
-- [ ] Verify lowering against the declarative graph semantics.
+- [ ] Prove that frontend semantics imply the compiled
+      `RootFirst.PurePattern.Semantics`; prove equivalence where lowering is
+      exact.
+- [ ] Derive the frontend-level `Semantics → PreservesSemantics` theorem by
+      composing semantic lowering with root-first soundness.
+- [ ] Present semantic goals and lowering errors using frontend source names
+      and locations.
 
-### PR 6 — Matcher merging
+### PR 6 — Complete InstCombine adoption through the PDL-like frontend
+
+- [ ] Express all 15 rewrites currently installed by `InstCombinePass` with
+      the PDL-like frontend:
+      `mulITwoToAddi`, `mulIZeroToCst`, `mulIOneToX`, `addiZeroToX`,
+      `subiZeroToX`, `subiSelfToZero`, `andiSelfToX`, `andiZeroToZero`,
+      `oriZeroToX`, `oriSelfToX`, `xoriZeroToX`, `xoriSelfToZero`,
+      `notNotToX`, `deMorganAndToOr`, and `deMorganOrToAnd`.
+- [ ] Cover the frontend features exercised by the complete file: exact
+      integer constants, integer-width-dependent constant construction,
+      shared SSA values, nested producer DAGs, copied and constructed
+      properties, result-type reuse, value-only replacements, and
+      multi-operation source patterns.
+- [ ] Prove each frontend `Semantics` proposition and derive its
+      `LocalRewritePattern.PreservesSemantics` theorem through the verified
+      frontend-to-root-first lowering.
+- [ ] Replace the handwritten `_local` match/rewrite implementations and the
+      direct root-first `andiSelfToX` authoring with generated frontend
+      patterns once behavior parity is established.
+- [ ] Preserve greedy pattern order, public pass behavior, and the
+      `InstCombinePass` entry point.
+- [ ] Add focused positive and negative matcher tests for every pattern, plus
+      pass-level regression tests for nested `not`/De Morgan rewrites and
+      target operation construction.
+
+### PR 7 — Matcher merging
 
 - [ ] Normalize root-first matchers into a shared decision DAG.
 - [ ] Share opcode, arity, type, property, and navigation checks.
@@ -203,6 +269,12 @@ Its proof hides matching inversion, `InBounds`, dominance,
   unrelated refactors.
 - The temporary fold-evaluation soundness axiom remains isolated and is
   explicitly tracked for removal.
+- The PDL-like frontend has its own declarative `Semantics` proposition;
+  certified lowering transports it to root-first semantics rather than
+  exposing the compiled proposition as the frontend proof obligation.
+- Before matcher merging begins, every rewrite installed by
+  `InstCombinePass` is authored through the PDL-like frontend and has a
+  semantic certificate.
 
 ## Progress Log
 
@@ -241,3 +313,8 @@ Its proof hides matching inversion, `InBounds`, dominance,
   target obligations, and the refinement conclusion without exposing matcher
   internals in the proof state. Added side-by-side authoring documentation and
   migrated InstCombine's `andiSelfToX` local rewrite to the root-first DSL.
+- 2026-07-29: Expanded the post-frontend roadmap with a dedicated PR to
+  migrate all 15 `InstCombinePass` rewrites to the PDL-like frontend before
+  matcher merging. Clarified that the frontend generates its own declarative
+  `Semantics` proposition and transports it through root-first semantics to
+  `LocalRewritePattern.PreservesSemantics`.
