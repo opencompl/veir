@@ -1130,6 +1130,11 @@ private def WfIRContext.graphRegionsHaveAtMostOneBlock (ctx : WfIRContext OpCode
 /--
   Check the module-wide invariants needed by LLVM global references: global
   names are unique and every `llvm.mlir.addressof` names a declared global.
+
+  TODO: This is stricter than MLIR, which lets `llvm.mlir.addressof` name either
+  an `llvm.mlir.global` or an `llvm.func`, so taking the address of a function
+  (function pointers, vtables, globals initialized with a function address) is
+  currently rejected.
 -/
 private def WfIRContext.verifyLLVMGlobalSymbols (ctx : WfIRContext OpCode) :
     Except String Unit := do
