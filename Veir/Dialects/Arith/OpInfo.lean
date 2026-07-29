@@ -68,10 +68,16 @@ def Arith.hasSideEffects (_op : Arith) (_props : Arith.propertiesOf _op) : Bool 
 def Arith.readsMemory (_op : Arith) : Bool :=
   false
 
+def Arith.isConstantLike (op : Arith) : Bool :=
+  match op with
+  | .constant => true
+  | _ => false
+
 instance : HasDialectOpInfo Arith where
   propertiesOf := Arith.propertiesOf
   hasSideEffects := Arith.hasSideEffects
   readsMemory := Arith.readsMemory
+  isConstantLike := Arith.isConstantLike
 
 end
 

@@ -217,10 +217,16 @@ def Riscv.readsMemory (op : Riscv) : Bool :=
   | .lb | .lbu => true
   | _ => false
 
+def Riscv.isConstantLike (op : Riscv) : Bool :=
+  match op with
+  | .li => true
+  | _ => false
+
 instance : HasDialectOpInfo Riscv where
   propertiesOf := Riscv.propertiesOf
   hasSideEffects := Riscv.hasSideEffects
   readsMemory := Riscv.readsMemory
+  isConstantLike := Riscv.isConstantLike
 
 end
 

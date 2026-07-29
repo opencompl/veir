@@ -108,11 +108,6 @@ def OpCode.hasSideEffects (opCode : OpCode) (props : _propertiesOf opCode) : Boo
   | .datapath op, props => Datapath.hasSideEffects op props
   | .test op, props => Test.hasSideEffects op props
 
-instance : HasDialectOpInfo OpCode where
-  propertiesOf := _propertiesOf
-  hasSideEffects := OpCode.hasSideEffects
-  readsMemory := OpCode.readsMemory
-
 inductive RegionKind where
 | SSACFG
 | Graph
@@ -140,15 +135,28 @@ def OpCode.getRegionKind (opCode : OpCode) (_index : Nat) : RegionKind :=
 -/
 def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   match opCode with
-  | .arith .constant
-  | .llvm .mlir__constant
-  | .llvm .mlir__poison
-  | .hw .constant
-  | .riscv .li => true
-  | _ => false
+  | .arith op => Arith.isConstantLike op
+  | .llvm op => Llvm.isConstantLike op
+  | .riscv op => Riscv.isConstantLike op
+  | .riscv_cf op => Riscv_Cf.isConstantLike op
+  | .riscv_stack op => Riscv_Stack.isConstantLike op
+  | .rv64 op => Rv64.isConstantLike op
+  | .mod_arith op => Mod_Arith.isConstantLike op
+  | .cf op => Cf.isConstantLike op
+  | .comb op => Comb.isConstantLike op
+  | .hw op => HW.isConstantLike op
+  | .builtin op => Builtin.isConstantLike op
+  | .func op => Func.isConstantLike op
+  | .datapath op => Datapath.isConstantLike op
+  | .test op => Test.isConstantLike op
+
+instance : HasDialectOpInfo OpCode where
+  propertiesOf := _propertiesOf
+  hasSideEffects := OpCode.hasSideEffects
+  readsMemory := OpCode.readsMemory
+  isConstantLike := OpCode.isConstantLike
 
 instance : HasOpInfo OpCode where
-  isConstantLike := OpCode.isConstantLike
   hasSSADominance opCode index := opCode.getRegionKind index == .SSACFG
 
 #generate_has_dialect_instances OpCode

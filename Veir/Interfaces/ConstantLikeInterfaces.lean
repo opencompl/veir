@@ -16,7 +16,7 @@ public section
 
 def OperationPtr.isConstantLike {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : IRContext OpInfo) : Bool :=
-  HasOpInfo.isConstantLike (op.getOpType! ctx)
+  HasDialectOpInfo.isConstantLike (op.getOpType! ctx)
 
 def ValuePtr.isConstantLike {OpInfo : Type} [HasOpInfo OpInfo]
     (val : ValuePtr) (ctx : IRContext OpInfo) : Bool :=

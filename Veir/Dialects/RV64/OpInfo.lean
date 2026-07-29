@@ -24,10 +24,14 @@ def Rv64.hasSideEffects (_op : Rv64) (_props : Rv64.propertiesOf _op) : Bool :=
 def Rv64.readsMemory (_op : Rv64) : Bool :=
   false
 
+def Rv64.isConstantLike (_op : Rv64) : Bool :=
+  false
+
 instance : HasDialectOpInfo Rv64 where
   propertiesOf := Rv64.propertiesOf
   hasSideEffects := Rv64.hasSideEffects
   readsMemory := Rv64.readsMemory
+  isConstantLike := Rv64.isConstantLike
 
 end
 

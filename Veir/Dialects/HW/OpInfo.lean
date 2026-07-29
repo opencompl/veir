@@ -31,10 +31,16 @@ def HW.hasSideEffects (op : HW) (_props : HW.propertiesOf op) : Bool :=
 def HW.readsMemory (_op : HW) : Bool :=
   false
 
+def HW.isConstantLike (op : HW) : Bool :=
+  match op with
+  | .constant => true
+  | _ => false
+
 instance : HasDialectOpInfo HW where
   propertiesOf := HW.propertiesOf
   hasSideEffects := HW.hasSideEffects
   readsMemory := HW.readsMemory
+  isConstantLike := HW.isConstantLike
 
 end
 

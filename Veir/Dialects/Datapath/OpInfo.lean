@@ -26,10 +26,14 @@ def Datapath.hasSideEffects
 def Datapath.readsMemory (_op : Datapath) : Bool :=
   false
 
+def Datapath.isConstantLike (_op : Datapath) : Bool :=
+  false
+
 instance : HasDialectOpInfo Datapath where
   propertiesOf := Datapath.propertiesOf
   hasSideEffects := Datapath.hasSideEffects
   readsMemory := Datapath.readsMemory
+  isConstantLike := Datapath.isConstantLike
 
 end
 
