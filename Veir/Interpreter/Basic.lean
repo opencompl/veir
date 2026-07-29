@@ -778,7 +778,7 @@ def ModArith.interpretOp' (opType : Veir.Mod_Arith) (properties : HasDialectOpIn
     let some (lhs, rhs) := ModArith.binaryOperands bw operands | none
     let res :=
       match lhs.toNat?, rhs.toNat? with
-      | some lhs, some rhs => LLVM.Int.constant bw ((lhs - rhs) % mod)
+      | some lhs, some rhs => LLVM.Int.constant bw ((Int.ofNat lhs - rhs) % mod)
       | _, _ => LLVM.Int.poison
     return (#[RuntimeValue.int bw res], none)
   | .mul => do
