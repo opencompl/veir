@@ -1,5 +1,8 @@
 module
 
+public import Veir.IR.Attribute
+public import Std.Data.HashMap
+
 namespace Veir
 
 public section
@@ -7,6 +10,11 @@ public section
 class HasDialectOpInfo (opCode: Type)
     extends Hashable opCode, Repr opCode, Inhabited opCode where
   propertiesOf : opCode → Type
+  /-- Create an operation's properties from its attribute dictionary. -/
+  fromAttrDict : (op : opCode) → Std.HashMap ByteArray Attribute →
+    Except String (propertiesOf op)
+  /-- Convert an operation's properties into an attribute dictionary. -/
+  toAttrDict : (op : opCode) → propertiesOf op → Std.HashMap ByteArray Attribute
   propertiesHash {op : opCode} : Hashable (propertiesOf op) := by
     simp only [properties_of]
     intros opCode; cases opCode <;>
@@ -53,6 +61,12 @@ class HasDialectOpInfo (opCode: Type)
   for every opcode, which conservatively treats nothing as constant.
   -/
   isConstantLike : opCode → Bool := fun _ => false
+  /--
+  Whether definitions in the indexed region must dominate their uses. A false
+  result denotes graph-style semantics, where only a single block can be in the
+  region, and operation order does not impose SSA dominance.
+  -/
+  hasSSADominance : opCode → Nat → Bool
 
 instance [HasDialectOpInfo opCode] {op : opCode} : Hashable (HasDialectOpInfo.propertiesOf op) where
   hash := HasDialectOpInfo.propertiesHash.hash
@@ -70,18 +84,11 @@ instance [HasDialectOpInfo opCode] : DecidableEq opCode :=
   HasDialectOpInfo.decideEq
 
 /--
-The `HasOpInfo` type class provides information about opcodes and their properties
-and how to hash, represent, and compare them for equality. It also contains the mapping between
-opcodes and whether or not their regions have SSA dominance.
+The `HasOpInfo` type class provides the combined operation information for a
+global opcode type.
 -/
 class HasOpInfo (opCode: Type)
-    extends Hashable opCode, Repr opCode, Inhabited opCode, HasDialectOpInfo opCode where
-  /--
-  Whether definitions in the indexed region must dominate their uses. A false
-  result denotes graph-style semantics, where only a single block can be in the
-  region, and operation order does not impose SSA dominance.
-  -/
-  hasSSADominance : opCode → Nat → Bool
+    extends Hashable opCode, Repr opCode, Inhabited opCode, HasDialectOpInfo opCode
 
 /--
 `HasDialect OpInfo Dialect` states that `OpInfo` contains the operations from
