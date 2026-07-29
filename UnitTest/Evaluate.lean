@@ -44,12 +44,11 @@ info: "ok"
 #eval! testEvaluateUB
 
 /-- An operation the interpreter does not implement evaluates to `none`. The
-    `mod_arith` dialect is lowered to `arith` before interpretation, so it has
-    no runtime semantics of its own to evaluate against. -/
+    `datapath` dialect models hardware structures with no runtime semantics of
+    their own to evaluate against. -/
 private def testEvaluateUninterpreted : String := Id.run do
-  let m17 : TypeAttr := ModArithType.mk (IntegerAttr.mk 17 (IntegerType.mk 32))
   let operands : Array RuntimeValue := #[.int 32 (.val 13), .int 32 (.val 7)]
-  let none := (foldEvaluate (.mod_arith .add) () #[m17] operands : Option (UBOr (Array RuntimeValue)))
+  let none := (foldEvaluate (.datapath .compress) () #[i32, i32] operands : Option (UBOr (Array RuntimeValue)))
     | return "an uninterpreted operation was evaluated"
   return "ok"
 
@@ -58,3 +57,24 @@ info: "ok"
 -/
 #guard_msgs in
 #eval! testEvaluateUninterpreted
+
+/-- `mod_arith` operations have interpreter semantics and fold modulo the
+    modulus of their result type: (13 + 7) mod 17 = 3. -/
+private def testEvaluateModArithAdd : String := Id.run do
+  let m17 : TypeAttr := ModArithType.mk (IntegerAttr.mk 17 (IntegerType.mk 32))
+  let operands : Array RuntimeValue := #[.int 32 (.val 13), .int 32 (.val 7)]
+  let some (.ok results) :=
+    (foldEvaluate (.mod_arith .add) () #[m17] operands : Option (UBOr (Array RuntimeValue)))
+    | return "mod_arith.add did not evaluate"
+  let result? : Option RuntimeValue := results[0]?
+  let some (.int 32 (.val value)) := result?
+    | return "mod_arith.add produced no i32 result"
+  if value ≠ 3 then
+    return "mod_arith.add produced the wrong value"
+  return "ok"
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testEvaluateModArithAdd
