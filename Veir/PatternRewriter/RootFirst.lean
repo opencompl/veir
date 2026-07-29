@@ -2,6 +2,7 @@ module
 
 public import Veir.Interpreter.Purity
 public import Veir.PatternRewriter.Semantics
+public meta import Veir.Meta.RootFirstSimp
 
 import all Veir.IR.Basic
 import all Veir.Interpreter.EquationLemma
@@ -167,6 +168,13 @@ private abbrev ensureValueBound (action : String) (valueId : Nat) : Builder Unit
   let state ← Builder.get
   if state.valueCount ≤ valueId then
     Builder.throw s!"{action}: {handleDiagnostic "value" valueId state.valueCount}"
+
+private def ensureValueHandlesBound (action : String) :
+    List ValueHandle → Builder Unit
+  | [] => pure ()
+  | value :: rest => do
+      ensureValueBound action value.id
+      ensureValueHandlesBound action rest
 
 private abbrev ensureTypeBound (action : String) (typeId : Nat) : Builder Unit := do
   let state ← Builder.get
@@ -416,8 +424,7 @@ def replace (root : OpHandle opCode) (values : Array ValueHandle) : Builder Unit
     Builder.throw
       s!"replace: operation handle #{root.id} is not the matched root \
          (expected operation handle #{rootSpec.id})"
-  for value in values do
-    ensureValueBound "replace" value.id
+  ensureValueHandlesBound "replace" values.toList
   if state.replacement.isSome then
     Builder.throw "replace: a pattern has exactly one replacement"
   Builder.set { state with replacement := some values }
@@ -1983,6 +1990,17 @@ private inductive TargetSemantics (types : Array TypeAttr) :
       (hrest : TargetSemantics types rest (values ++ results) finalValues) :
       TargetSemantics types (spec :: rest) values finalValues
 
+private theorem targetSemantics_nil_iff (types : Array TypeAttr)
+    (values finalValues : Array RuntimeValue) :
+    TargetSemantics types [] values finalValues ↔ finalValues = values := by
+  constructor
+  · intro h
+    cases h
+    rfl
+  · intro h
+    subst finalValues
+    exact .nil _
+
 private def ValuesRefineState {ctx : WfIRContext OpCode}
     (pointers : Array ValuePtr) (semanticValues : Array RuntimeValue)
     (state : InterpreterState ctx) : Prop :=
@@ -2382,6 +2400,54 @@ def buildChecked (builder : Builder Unit)
         rfl
       rw [herror] at h
       contradiction
+
+theorem buildChecked_blueprint (builder : Builder Unit)
+    (h : (build builder).isOk = true) :
+    (buildChecked builder h).blueprint =
+      match builder {} with
+      | .ok (_, blueprint) => blueprint
+      | .error _ => {} := by
+  unfold buildChecked
+  split
+  next pattern hbuild =>
+    cases hbuilder : builder {} with
+    | error message =>
+        simp [build, hbuilder, bind, Except.bind] at hbuild
+    | ok result =>
+        obtain ⟨_, blueprint⟩ := result
+        simp
+        by_cases hroot : blueprint.root.isNone = true
+        · simp [build, hbuilder, hroot, bind, pure, Except.bind, Except.pure] at hbuild
+        by_cases hreplacement : blueprint.replacement.isNone = true
+        · simp [build, hbuilder, hroot, hreplacement, bind, pure,
+            Except.bind, Except.pure] at hbuild
+        by_cases hsafe : blueprintSafe blueprint = true
+        · simp [build, hbuilder, hroot, hreplacement, hsafe, bind, pure,
+            Except.bind, Except.pure] at hbuild
+          subst pattern
+          rfl
+        · simp [build, hbuilder, hroot, hreplacement, hsafe, bind,
+            Except.bind] at hbuild
+  next message hbuild =>
+    have : False := by
+      rw [hbuild] at h
+      cases h
+    contradiction
+
+/-
+Definitions used to normalize a statically known root-first builder and its
+generated semantic obligations.  The dedicated simp set avoids making ordinary
+`simp` unfold the builder implementation globally.
+-/
+attribute [root_first_semantics]
+  buildChecked_blueprint
+  matchRoot OpHandle.operand checkSameValue replace
+  Builder.set Builder.modify
+  bind pure StateT.bind StateT.pure Except.bind Except.pure
+  handleDiagnostic ensureSourcePhase ensureOpBound ensureValueBound
+  ensureValueHandlesBound
+  sourceSemantics blueprintSourceSemantics matchStepSemantics
+  resolveRuntimeValues targetSemantics_nil_iff
 
 private structure MatchOutput (blueprint : Blueprint) (ctx : WfIRContext OpCode)
     (root : OperationPtr) where
@@ -2821,6 +2887,39 @@ theorem twoOperationTarget_preservesSemantics :
       twoOperationTarget.returnValuesInBounds
       twoOperationTarget.returnValues :=
   twoOperationTarget.preservesSemantics twoOperationTarget_semantics
+
+def llvmAndSelfBuilder : Builder Unit := do
+  let root ← matchRoot (.llvm .and)
+  let lhs ← root.operand 0
+  let rhs ← root.operand 1
+  checkSameValue lhs rhs
+  replace root #[lhs]
+
+def llvmAndSelf : PurePattern :=
+  buildChecked llvmAndSelfBuilder (by native_decide)
+
+theorem llvmAndSelf_semantics : llvmAndSelf.Semantics := by
+  intro assignment hsource
+  simp [llvmAndSelf, llvmAndSelfBuilder, root_first_semantics] at hsource
+  rcases hsource with
+    ⟨⟨root, hroot, hopcode⟩, hallValid,
+      ⟨root₀, hroot₀, lhs, hlhs, hlhsOperand⟩,
+      ⟨root₁, hroot₁, rhs, hrhs, hrhsOperand⟩,
+      value, hvalueLhs, hvalueRhs⟩
+  have hvalid : root.Valid :=
+    hallValid root (by grind [Array.getElem?_eq_some_iff])
+  have hresults :=
+    foldEvaluate_llvm_and_same_operand root.properties hopcode
+      root.resultTypes root.operands root.results value
+      (by grind) (by grind) hvalid
+  refine ⟨assignment.values, #[value], root, ?_, ?_, hroot, ?_⟩
+  all_goals simp [llvmAndSelf, llvmAndSelfBuilder, root_first_semantics,
+    hvalueLhs, hresults]
+
+theorem llvmAndSelfBuilder_semantics
+    (h : (build llvmAndSelfBuilder).isOk = true) :
+    (buildChecked llvmAndSelfBuilder h).Semantics :=
+  llvmAndSelf_semantics
 
 end Examples
 

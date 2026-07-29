@@ -124,12 +124,8 @@ This is the first production `LocalRewritePattern` migrated to the typed DSL:
 the two operand handles are constrained to denote the same SSA value and the
 root is replaced by that shared handle.
 -/
-private def andiSelfToXBuilder : RootFirst.Builder Unit := do
-  let root ← RootFirst.matchRoot (.llvm .and)
-  let lhs ← root.operand 0
-  let rhs ← root.operand 1
-  RootFirst.checkSameValue lhs rhs
-  RootFirst.replace root #[lhs]
+private abbrev andiSelfToXBuilder : RootFirst.Builder Unit :=
+  RootFirst.Examples.llvmAndSelfBuilder
 
 /-- Statically checked compiled form of `andiSelfToXBuilder`. -/
 def andiSelfToXPattern : RootFirst.PurePattern :=
@@ -138,6 +134,17 @@ def andiSelfToXPattern : RootFirst.PurePattern :=
 /-- Rewrites `x & x` to `x` through the root-first DSL. -/
 def andiSelfToX_local : LocalRewritePattern OpCode :=
   andiSelfToXPattern.run
+
+theorem andiSelfToX_semantics : andiSelfToXPattern.Semantics := by
+  exact RootFirst.Examples.llvmAndSelfBuilder_semantics (by native_decide)
+
+theorem andiSelfToX_local_preservesSemantics :
+    andiSelfToX_local.PreservesSemantics
+      andiSelfToXPattern.returnOps
+      andiSelfToXPattern.returnCtxChanges
+      andiSelfToXPattern.returnValuesInBounds
+      andiSelfToXPattern.returnValues :=
+  andiSelfToXPattern.preservesSemantics andiSelfToX_semantics
 
 def andiSelfToX (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=

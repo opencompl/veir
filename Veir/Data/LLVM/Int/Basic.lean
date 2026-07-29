@@ -625,6 +625,13 @@ def and {w : Nat} (x y : Int w) : Int w := Id.run do
 
   val (x' &&& y')
 
+@[simp]
+theorem and_self {w : Nat} (x : Int w) : and x x = x := by
+  cases x with
+  | val value =>
+      change val (value &&& value) = val value
+      simp
+  | poison => rfl
 
 /--
 The ‘or’ instruction returns the bitwise logical inclusive or of its two operands.

@@ -154,6 +154,18 @@ def OpCode.hasSideEffects (opCode : OpCode) (props : _propertiesOf opCode) : Boo
     -- For everything else: be conservative!
     | _ => true
 
+@[simp]
+theorem OpCode.hasSideEffects_llvm_and
+    (properties : _propertiesOf (OpCode.llvm Veir.Llvm.and)) :
+    OpCode.hasSideEffects (.llvm .and) properties = false := by
+  cases properties
+  rfl
+
+@[simp]
+theorem OpCode.readsMemory_llvm_and :
+    OpCode.readsMemory (.llvm .and) = false := by
+  rfl
+
 inductive RegionKind where
 | SSACFG
 | Graph

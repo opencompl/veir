@@ -96,6 +96,24 @@ theorem foldEvaluate_eq_ok_iff
       obtain ⟨results', memory', action⟩ := result
       cases action <;> simp [Interp.map, Interp, bind, pure]
 
+theorem foldEvaluate_llvm_and_same_operand
+    {opCode : OpCode} (properties : propertiesOf opCode)
+    (hopCode : opCode = .llvm .and)
+    (resultTypes : Array TypeAttr) (operands results : Array RuntimeValue)
+    (value : RuntimeValue)
+    (hlhs : operands[0]? = some value)
+    (hrhs : operands[1]? = some value)
+    (hevaluate :
+      foldEvaluate opCode properties resultTypes operands = some (.ok results)) :
+    results = #[value] := by
+  subst opCode
+  have hinterpret :=
+    (foldEvaluate_eq_ok_iff (.llvm .and) properties resultTypes operands
+      results MemoryState.empty
+      (isFoldEvaluationCandidate_llvm_and properties)).mp hevaluate
+  exact interpretOp'_llvm_and_same_operand properties resultTypes operands #[]
+    MemoryState.empty MemoryState.empty results none value hlhs hrhs hinterpret
+
 /--
 An operation accepted by `foldEvaluate` satisfies the semantic definition
 `OperationPtr.Pure`.

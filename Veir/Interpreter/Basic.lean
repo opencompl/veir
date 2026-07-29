@@ -1030,6 +1030,38 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     return (#[result], mem, none)
   | _ => none
 
+theorem Llvm.interpretOp'_and_same_operand
+    (properties : HasDialectOpInfo.propertiesOf Veir.Llvm.and)
+    (resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
+    (blockOperands : Array BlockPtr) (mem mem' : MemoryState)
+    (results : Array RuntimeValue) (action : Option ControlFlowAction)
+    (value : RuntimeValue)
+    (hlhs : operands[0]? = some value)
+    (hrhs : operands[1]? = some value)
+    (hinterpret :
+      Llvm.interpretOp' .and properties resultTypes operands blockOperands mem =
+        some (.ok (results, mem', action))) :
+    results = #[value] := by
+  simp only [Llvm.interpretOp'] at hinterpret
+  split at hinterpret
+  next bw lhs bw' rhs hoperands =>
+    have hoperandsEq :
+        operands = #[.int bw lhs, .int bw' rhs] := by
+      simpa using congrArg List.toArray hoperands
+    subst operands
+    simp at hlhs
+    subst value
+    simp at hrhs
+    rcases hrhs with ⟨rfl, hrhs⟩
+    have hrhsEq : rhs = lhs := eq_of_heq hrhs
+    subst rhs
+    simp at hinterpret
+    change some (UBOr.ok (#[.int bw' lhs], mem, none)) =
+      some (UBOr.ok (results, mem', action)) at hinterpret
+    cases hinterpret
+    rfl
+  next => simp at hinterpret
+
 /-- Effective address of a RISC-V load/store: the base register value plus the
     sign-extended 12-bit immediate offset. -/
 def riscvEffectiveAddr (base : BitVec 64) (offset : Int) : BitVec 64 :=
@@ -1657,6 +1689,22 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
       return (#[.addr ⟨val.val⟩], mem, none)
     | _ , _ => none
   | _ => none
+
+theorem interpretOp'_llvm_and_same_operand
+    (properties : HasOpInfo.propertiesOf (OpCode.llvm Veir.Llvm.and))
+    (resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
+    (blockOperands : Array BlockPtr) (mem mem' : MemoryState)
+    (results : Array RuntimeValue) (action : Option ControlFlowAction)
+    (value : RuntimeValue)
+    (hlhs : operands[0]? = some value)
+    (hrhs : operands[1]? = some value)
+    (hinterpret :
+      interpretOp' (.llvm .and) properties resultTypes operands blockOperands mem =
+        some (.ok (results, mem', action))) :
+    results = #[value] := by
+  apply Llvm.interpretOp'_and_same_operand properties resultTypes operands
+    blockOperands mem mem' results action value hlhs hrhs
+  simpa [interpretOp'] using hinterpret
 
 /-- Wrapper around `interpretOp'` that retrieves the operation type, properties,
 result types, and successor blocks from the operation pointer. -/

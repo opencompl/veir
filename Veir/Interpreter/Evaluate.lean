@@ -19,6 +19,12 @@ def isFoldEvaluationCandidate
     (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode) : Bool :=
   !HasOpInfo.hasSideEffects opCode properties && !HasOpInfo.readsMemory opCode
 
+theorem isFoldEvaluationCandidate_llvm_and
+    (properties : propertiesOf (OpCode.llvm Veir.Llvm.and)) :
+    isFoldEvaluationCandidate (.llvm .and) properties = true := by
+  simp [isFoldEvaluationCandidate, HasOpInfo.hasSideEffects,
+    HasOpInfo.readsMemory]
+
 /--
   Evaluate an operation with the interpreter, given the runtime values of its
   operands. Returns the result values, `Interp.ub` if the operation triggers
