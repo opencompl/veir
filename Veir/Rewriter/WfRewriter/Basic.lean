@@ -486,6 +486,23 @@ def WfRewriter.createOp! (wfCtx : WfIRContext OpInfo) (opType : OpInfo)
   else
     panic! "WfRewriter.createOp! failed: an operand is out of bounds"
 
+/-- Creating an operation preserves precisely the old operation pointers and
+adds the returned pointer. -/
+theorem WfRewriter.createOp_operation_inBounds_iff
+    {wfCtx newCtx : WfIRContext OpInfo} {opType : OpInfo}
+    {resultTypes : Array TypeAttr} {operands : Array ValuePtr}
+    {blockOperands : Array BlockPtr} {regions : Array RegionPtr}
+    {properties : HasOpInfo.propertiesOf opType}
+    {newOp operation : OperationPtr} {hoper hblockOperands hregions hins}
+    (hcreate :
+      WfRewriter.createOp wfCtx opType resultTypes operands blockOperands
+        regions properties none hoper hblockOperands hregions hins =
+          some (newCtx, newOp)) :
+    operation.InBounds newCtx.raw ↔
+      operation.InBounds wfCtx.raw ∨ operation = newOp := by
+  simp only [WfRewriter.createOp] at hcreate
+  grind (gen := 20) [Rewriter.createOp_none_operation_inBounds_iff]
+
 /--
 Create a new IR context with a single `builtin.module` operation at the top-level.
 The operation contains a single region, which contains a single empty block.

@@ -14,6 +14,7 @@ variable {OpInfo : Type} [HasOpInfo OpInfo]
 /--
 Asserts that the pattern returns the input context whenever there are no errors and no match.
 -/
+@[expose]
 def LocalRewritePattern.ReturnsCtxNoChanges (pattern : LocalRewritePattern OpCode) : Prop :=
   ∀ ctx op newCtx, pattern ctx op = some (newCtx, none) → ctx = newCtx
 
@@ -61,7 +62,7 @@ theorem WfIRContext.WithCreatedOps.preserves_VariableState_inBounds {ctx₁ ctx�
 When there is a match and no errors, the output context is only modified by creating
 new operations.
 -/
-@[local grind]
+@[expose, local grind]
 def LocalRewritePattern.ReturnCtxChanges (pattern : LocalRewritePattern OpCode) : Prop :=
   ∀ ctx op newCtx newOps newValues, pattern ctx op = some (newCtx, some (newOps, newValues)) →
   WfIRContext.WithCreatedOps ctx newCtx
@@ -70,6 +71,7 @@ def LocalRewritePattern.ReturnCtxChanges (pattern : LocalRewritePattern OpCode) 
 When there is a match and no errors, the returned operations are exactly the new ones
 created in the pattern.
 -/
+@[expose]
 def LocalRewritePattern.ReturnOps
   (pattern : LocalRewritePattern OpCode) : Prop :=
   ∀ ctx op newCtx newOps newValues,
@@ -79,6 +81,7 @@ def LocalRewritePattern.ReturnOps
 /--
 The pattern returns the same number of values as the number of results of the matched operation.
 -/
+@[expose]
 def LocalRewritePattern.ReturnValues (pattern : LocalRewritePattern OpCode) : Prop :=
   ∀ ctx op (_ : op.InBounds ctx.raw) newCtx newOps newValues,
   pattern ctx op = some (newCtx, some (newOps, newValues)) →
@@ -87,6 +90,7 @@ def LocalRewritePattern.ReturnValues (pattern : LocalRewritePattern OpCode) : Pr
 /--
 All values returned by the pattern are in bounds of the new context.
 -/
+@[expose]
 def LocalRewritePattern.ReturnValuesInBounds (pattern : LocalRewritePattern OpCode) : Prop :=
   ∀ ctx op newCtx newOps newValues, pattern ctx op = some (newCtx, some (newOps, newValues)) →
   ∀ v ∈ newValues, v.InBounds newCtx.raw

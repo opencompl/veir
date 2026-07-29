@@ -721,6 +721,14 @@ theorem Rewriter.initOpRegions_inBounds_mono (ptr : GenericPtr) {ctx' : IRContex
     ptr.InBounds ctx' := by
   fun_induction initOpRegions <;> grind
 
+@[grind =>]
+theorem Rewriter.initOpRegions_operation_inBounds_iff
+    (ptr : OperationPtr) {ctx' : IRContext OpInfo}
+    (h :
+      initOpRegions ctx opPtr regions n opPtrInBounds hregions hctx hn = some ctx') :
+    ptr.InBounds ctx' ↔ ptr.InBounds ctx := by
+  fun_induction initOpRegions <;> grind
+
 def Rewriter.pushResult (ctx : IRContext OpInfo) (op : OperationPtr) (type : TypeAttr)
     (hop : op.InBounds ctx := by grind)
     : IRContext OpInfo :=
@@ -770,6 +778,12 @@ theorem Rewriter.initOpResults_fieldsInBounds (hx : ctx.FieldsInBounds) :
 @[grind .]
 theorem Rewriter.initOpResults_inBounds_mono (ptr : GenericPtr) :
     ptr.InBounds ctx → ptr.InBounds (initOpResults ctx opPtr resultTypes index h₁ h₂) := by
+  fun_induction initOpResults <;> grind
+
+@[simp, grind =]
+theorem Rewriter.initOpResults_operation_inBounds_iff (ptr : OperationPtr) :
+    ptr.InBounds (initOpResults ctx opPtr resultTypes index h₁ h₂) ↔
+      ptr.InBounds ctx := by
   fun_induction initOpResults <;> grind
 
 @[grind =]
@@ -848,6 +862,16 @@ theorem Rewriter.initOpOperands_inBounds_mono (ptr : GenericPtr) :
     simp [initOpOperands]
     grind
 
+@[simp, grind =]
+theorem Rewriter.initOpOperands_operation_inBounds_iff (ptr : OperationPtr) :
+    ptr.InBounds (initOpOperands ctx opPtr h₁ operands h₂ h₃ n hn) ↔
+      ptr.InBounds ctx := by
+  induction n generalizing ctx
+  case zero => grind [initOpOperands]
+  case succ n ih =>
+    simp only [initOpOperands]
+    grind
+
 
 @[irreducible]
 protected def Rewriter.pushBlockOperand (ctx : IRContext OpInfo) (opPtr : OperationPtr) (blockPtr : BlockPtr)
@@ -908,6 +932,16 @@ theorem Rewriter.initBlockOperands_inBounds_mono (ptr : GenericPtr) :
   case zero => grind [initBlockOperands]
   case succ n ih =>
     simp [initBlockOperands]
+    grind
+
+@[simp, grind =]
+theorem Rewriter.initBlockOperands_operation_inBounds_iff (ptr : OperationPtr) :
+    ptr.InBounds (initBlockOperands ctx opPtr operands n h₁ h₂ h₃ hn) ↔
+      ptr.InBounds ctx := by
+  induction n generalizing ctx
+  case zero => grind [initBlockOperands]
+  case succ n ih =>
+    simp only [initBlockOperands]
     grind
 
 @[irreducible]
@@ -986,6 +1020,15 @@ theorem Rewriter.createOp_new_not_inBounds (ptr : OperationPtr)
     ¬ ptr.InBounds ctx := by
   simp only [createOp] at heq
   grind
+
+@[grind =>]
+theorem Rewriter.createOp_none_operation_inBounds_iff (ptr : OperationPtr)
+    (heq : createOp ctx opType resultTypes operands blockOperands regions props none
+      h₁ h₂ h₃ h₄ h₅ = some (newCtx, newOp)) :
+    ptr.InBounds newCtx ↔
+      ptr.InBounds ctx ∨ ptr = newOp := by
+  simp only [createOp] at heq
+  grind (gen := 20)
 
 @[grind .]
 theorem Rewriter.createOp_fieldsInBounds

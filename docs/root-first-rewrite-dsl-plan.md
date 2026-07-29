@@ -147,13 +147,13 @@ Its proof hides matching inversion, `InBounds`, dominance,
 
 ### PR 2 — Root-first DSL and runtime interpreter
 
-- [ ] Add typed binding contexts, handles, and builder combinators.
-- [ ] Implement pure producer-DAG matching.
-- [ ] Implement pure target-DAG construction.
-- [ ] Compile execution to `LocalRewritePattern`.
-- [ ] Generate `pattern.Semantics`.
-- [ ] Prove all structural `Return*` properties.
-- [ ] Add the `arith.constant`/`arith.addi` add-zero example.
+- [x] Add typed binding contexts, handles, and builder combinators.
+- [x] Implement pure producer-DAG matching.
+- [x] Implement pure target-DAG construction.
+- [x] Compile execution to `LocalRewritePattern`.
+- [x] Generate `pattern.Semantics`.
+- [x] Prove all structural `Return*` properties.
+- [x] Add the `arith.constant`/`arith.addi` add-zero example.
 
 ### PR 3 — Generic semantic soundness
 
@@ -211,3 +211,10 @@ Its proof hides matching inversion, `InBounds`, dominance,
   semantic instances are required. Focused tests and both build targets pass.
 - 2026-07-29: Moved semantic purity into `Veir.Interpreter.Purity`, between
   executable fold evaluation and the equation-lemma layer.
+- 2026-07-29: Completed the PR 2 root-first DSL and runtime interpreter.
+  Typed operation, value, type, and dependent-property handles compile a
+  private-by-convention experimental matcher representation to
+  `LocalRewritePattern`. Source and target DAG execution is restricted to
+  pure, successorless, regionless operations; generated value-level
+  semantics and all structural `Return*` theorems are included. Added the
+  arith add-zero pilot and a two-operation target-DAG construction example.
