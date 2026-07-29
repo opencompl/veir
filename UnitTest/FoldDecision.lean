@@ -38,8 +38,24 @@ private def testFoldDecisionForOp : String := Id.run do
         return "foldDecisionForOp produced the wrong constant"
     | _ => return "foldDecisionForOp did not evaluate arith.addi"
     match foldDecisionForOp add ctx addInBounds #[some (.int 32 (.val 7))] with
-    | .noFold => return "ok"
+    | .noFold => pure ()
     | _ => return "foldDecisionForOp accepted the wrong operand count"
+    let i32Types := add.getResultTypes ctx.raw addInBounds
+
+    match foldDecision (.arith .divsi) default i32Types
+        #[none, some (.int 32 (.val 1))] with
+    | .useOperand 0 => pure ()
+    | _ => return "arith.divsi by one did not fold"
+    match foldDecision (.arith .remsi) () i32Types
+        #[none, some (.int 32 (.val (BitVec.allOnes 32)))] with
+    | .useConstant (.int 32 (.val value)) =>
+      if value ≠ 0 then return "arith.remsi by minus one produced a nonzero value"
+    | _ => return "arith.remsi by minus one did not fold"
+    match foldDecision (.arith .select) () i32Types
+        #[none, some (.int 32 .poison), none] with
+    | .useOperand 2 => pure ()
+    | _ => return "arith.select with a poison true arm did not fold to the false arm"
+    return "ok"
 
 /--
 info: "ok"

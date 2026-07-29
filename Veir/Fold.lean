@@ -50,10 +50,47 @@ private def poisonOutcome (resultTypes : Array TypeAttr) : Option FoldOutcome :=
   | none => none
 
 /--
+  Partial folds shared by `arith.select` and `llvm.select`.
+
+  Besides a known condition, this handles poison arms, the boolean
+  `select %c, true, false`, and equal known integer arms. Each case depends
+  only on the select itself and its supplied constant operands.
+-/
+private def selectFoldsTo (resultTypes : Array TypeAttr)
+    (constOperands : Array (Option RuntimeValue)) : Option FoldOutcome :=
+  match constOperands.toList with
+  | [some (.int 1 (.val c)), _, _] =>
+    if c = 1 then some (.operand 1) else some (.operand 2)
+  | [some (.int 1 .poison), _, _] => poisonOutcome resultTypes
+  | [_, some (.int _ .poison), _] => some (.operand 2)
+  | [_, _, some (.int _ .poison)] => some (.operand 1)
+  | [_, some (.int 1 (.val t)), some (.int 1 (.val f))] =>
+    if t = 1 ∧ f = 0 then some (.operand 0)
+    else if t = f then some (.constant (.int 1 (.val t)))
+    else none
+  | [_, some (.int bw lhs), some (.int bw' rhs)] =>
+    if h : bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    if lhs = rhs then some (.constant (.int bw lhs)) else none
+  | [_, some (.byte bw lhs), some (.byte bw' rhs)] =>
+    if h : bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    if lhs = rhs then some (.constant (.byte bw lhs)) else none
+  | [_, some (.float bw lhs), some (.float bw' rhs)] =>
+    if bw = bw' ∧ lhs.toBits = rhs.toBits then
+      some (.constant (.float bw lhs))
+    else none
+  | [_, some (.addr lhs), some (.addr rhs)] =>
+    if lhs = rhs then some (.constant (.addr lhs)) else none
+  | [_, some (.reg lhs), some (.reg rhs)] =>
+    if lhs = rhs then some (.constant (.reg lhs)) else none
+  | _ => none
+
+/--
   Fold table for `arith` operations with partially-constant operands.
   The all-constant case is handled generically by `OpCode.foldsTo`.
 -/
-def Arith.foldsTo (op : Arith) (_properties : HasDialectOpInfo.propertiesOf op)
+def Arith.foldsTo (op : Arith) (properties : HasDialectOpInfo.propertiesOf op)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue)) :
     Option FoldOutcome :=
   match op with
@@ -107,39 +144,80 @@ def Arith.foldsTo (op : Arith) (_properties : HasDialectOpInfo.propertiesOf op)
   | .divsi =>
     match constOperands.toList with
     | [_, some (.int bw (.val c))] =>
-      if c = 0 then some (.constant (.int bw .poison)) else none
+      if c = 0 then some (.constant (.int bw .poison))
+      else if c = 1 then some (.operand 0)
+      else none
     | _ => none
   | .divui =>
     match constOperands.toList with
     | [_, some (.int bw (.val c))] =>
-      if c = 0 then some (.constant (.int bw .poison)) else none
+      if c = 0 then some (.constant (.int bw .poison))
+      else if c = 1 then some (.operand 0)
+      else none
+    | _ => none
+  | .ceildivui | .ceildivsi | .floordivsi =>
+    match constOperands.toList with
+    | [_, some (.int _ (.val c))] =>
+      if c = 1 then some (.operand 0) else none
     | _ => none
   | .remsi =>
     match constOperands.toList with
     | [_, some (.int bw (.val c))] =>
-      if c = 0 then some (.constant (.int bw .poison)) else none
+      if c = 0 then some (.constant (.int bw .poison))
+      else if c = 1 ∨ c = BitVec.allOnes bw then
+        some (.constant (.int bw (.val 0)))
+      else none
     | _ => none
   | .remui =>
     match constOperands.toList with
     | [_, some (.int bw (.val c))] =>
-      if c = 0 then some (.constant (.int bw .poison)) else none
+      if c = 0 then some (.constant (.int bw .poison))
+      else if c = 1 then some (.constant (.int bw (.val 0)))
+      else none
     | _ => none
-  -- Select with a known non-poison condition returns the selected operand
-  -- exactly (poison on the non-selected arm does not propagate). A poison
-  -- condition makes the result poison regardless of either arm.
-  | .select =>
+  | .maxsi =>
     match constOperands.toList with
-    | [some (.int 1 (.val c)), _, _] =>
-      if c = 1 then some (.operand 1) else some (.operand 2)
-    | [some (.int 1 .poison), _, _] => poisonOutcome resultTypes
+    | [_, some (.int bw (.val c))] =>
+      if c = BitVec.intMin bw then some (.operand 0)
+      else if c = BitVec.intMax bw then some (.constant (.int bw (.val c)))
+      else none
     | _ => none
+  | .minsi =>
+    match constOperands.toList with
+    | [_, some (.int bw (.val c))] =>
+      if c = BitVec.intMax bw then some (.operand 0)
+      else if c = BitVec.intMin bw then some (.constant (.int bw (.val c)))
+      else none
+    | _ => none
+  | .maxui =>
+    match constOperands.toList with
+    | [_, some (.int bw (.val c))] =>
+      if c = 0 then some (.operand 0)
+      else if c = BitVec.allOnes bw then some (.constant (.int bw (.val c)))
+      else none
+    | _ => none
+  | .minui =>
+    match constOperands.toList with
+    | [_, some (.int bw (.val c))] =>
+      if c = BitVec.allOnes bw then some (.operand 0)
+      else if c = 0 then some (.constant (.int bw (.val 0)))
+      else none
+    | _ => none
+  | .cmpi =>
+    match constOperands.toList with
+    | [_, some (.int 1 (.val c))] =>
+      if properties.predicate = .ne ∧ c = 0 then some (.operand 0)
+      else if properties.predicate = .eq ∧ c = 1 then some (.operand 0)
+      else none
+    | _ => none
+  | .select => selectFoldsTo resultTypes constOperands
   | _ => none
 
 /--
   Fold table for `llvm` operations with partially-constant operands.
   See `Arith.foldsTo`.
 -/
-def Llvm.foldsTo (op : Llvm) (_properties : HasDialectOpInfo.propertiesOf op)
+def Llvm.foldsTo (op : Llvm) (properties : HasDialectOpInfo.propertiesOf op)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue)) :
     Option FoldOutcome :=
   match op with
@@ -193,30 +271,68 @@ def Llvm.foldsTo (op : Llvm) (_properties : HasDialectOpInfo.propertiesOf op)
   | .sdiv =>
     match constOperands.toList with
     | [_, some (.int bw (.val c))] =>
-      if c = 0 then some (.constant (.int bw .poison)) else none
+      if c = 0 then some (.constant (.int bw .poison))
+      else if c = 1 then some (.operand 0)
+      else none
     | _ => none
   | .udiv =>
     match constOperands.toList with
     | [_, some (.int bw (.val c))] =>
-      if c = 0 then some (.constant (.int bw .poison)) else none
+      if c = 0 then some (.constant (.int bw .poison))
+      else if c = 1 then some (.operand 0)
+      else none
     | _ => none
   | .srem =>
     match constOperands.toList with
     | [_, some (.int bw (.val c))] =>
-      if c = 0 then some (.constant (.int bw .poison)) else none
+      if c = 0 then some (.constant (.int bw .poison))
+      else if c = 1 ∨ c = BitVec.allOnes bw then
+        some (.constant (.int bw (.val 0)))
+      else none
     | _ => none
   | .urem =>
     match constOperands.toList with
     | [_, some (.int bw (.val c))] =>
-      if c = 0 then some (.constant (.int bw .poison)) else none
+      if c = 0 then some (.constant (.int bw .poison))
+      else if c = 1 then some (.constant (.int bw (.val 0)))
+      else none
     | _ => none
-  -- See the `arith.select` entry.
-  | .select =>
+  | .intr__smax =>
     match constOperands.toList with
-    | [some (.int 1 (.val c)), _, _] =>
-      if c = 1 then some (.operand 1) else some (.operand 2)
-    | [some (.int 1 .poison), _, _] => poisonOutcome resultTypes
+    | [_, some (.int bw (.val c))] =>
+      if c = BitVec.intMin bw then some (.operand 0)
+      else if c = BitVec.intMax bw then some (.constant (.int bw (.val c)))
+      else none
     | _ => none
+  | .intr__smin =>
+    match constOperands.toList with
+    | [_, some (.int bw (.val c))] =>
+      if c = BitVec.intMax bw then some (.operand 0)
+      else if c = BitVec.intMin bw then some (.constant (.int bw (.val c)))
+      else none
+    | _ => none
+  | .intr__umax =>
+    match constOperands.toList with
+    | [_, some (.int bw (.val c))] =>
+      if c = 0 then some (.operand 0)
+      else if c = BitVec.allOnes bw then some (.constant (.int bw (.val c)))
+      else none
+    | _ => none
+  | .intr__umin =>
+    match constOperands.toList with
+    | [_, some (.int bw (.val c))] =>
+      if c = BitVec.allOnes bw then some (.operand 0)
+      else if c = 0 then some (.constant (.int bw (.val 0)))
+      else none
+    | _ => none
+  | .icmp =>
+    match constOperands.toList with
+    | [_, some (.int 1 (.val c))] =>
+      if properties.predicate = .ne ∧ c = 0 then some (.operand 0)
+      else if properties.predicate = .eq ∧ c = 1 then some (.operand 0)
+      else none
+    | _ => none
+  | .select => selectFoldsTo resultTypes constOperands
   | _ => none
 
 /--
