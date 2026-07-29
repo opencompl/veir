@@ -290,8 +290,8 @@ def OperationPtr.verifyIntegerBinop (op : OperationPtr) (ctx : WfIRContext OpCod
 /--
   Verify an `arith` extended operation with two same-typed integer operands and
   two results. The low result always matches the operand type; the high result
-  is either an `i1` overflow flag (`addui_extended`) or another value of the
-  operand type (`mulsi_extended` / `mului_extended`).
+  is either an `i1` overflow flag (`addui_extended` / `subui_extended`) or
+  another value of the operand type (`mulsi_extended` / `mului_extended`).
 -/
 def OperationPtr.verifyArithExtendedOp (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) (secondResultIsI1 : Bool) : Except String PUnit := do
@@ -511,7 +511,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyIntegerBinop ctx opIn
     pure ()
-  | .arith .addui_extended => do
+  | .arith .addui_extended | .arith .subui_extended => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyArithExtendedOp ctx opIn true
     pure ()
