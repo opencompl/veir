@@ -1002,6 +1002,19 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
   /- RISCV Stack -/
   | .riscv_stack .alloca => do
     op.verifyPlainOpCounts ctx opIn 0 1
+    op.verifyRISCVRegisterTypes ctx opIn
+    let properties := op.getProperties! ctx.raw (.riscv_stack .alloca)
+    if properties.size.type.bitwidth ≠ 64 then
+      throw "attribute 'size' must be a 64-bit signless integer attribute"
+    if properties.size.value < 0 then
+      throw "size must be nonnegative"
+    if properties.alignment.type.bitwidth ≠ 64 then
+      throw "attribute 'alignment' must be a 64-bit signless integer attribute"
+    if properties.alignment.value ≤ 0 then
+      throw "alignment must be a positive power of two"
+    let alignment := properties.alignment.value.toNat
+    if alignment &&& (alignment - 1) ≠ 0 then
+      throw "alignment must be a positive power of two"
     pure ()
   /- RISCV 64-bit -/
   | .rv64 .get_register => do

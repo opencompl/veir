@@ -93,13 +93,12 @@ def emitArithBinOp (rewriter : PatternRewriter OpCode) (arithOp : Arith)
 
 /-! ## Barrett Helper -/
 /-- Barrett reduction: approximate `⌊r / modulus⌋` with a precomputed reciprocal
-    `magic = ⌊2^width / modulus⌋` via widen → multiply → shift → truncate, instead of
-    emitting a runtime division. Note: this is the plain reciprocal-multiply approximation
+    `mu = ⌊2^(2*k) / modulus⌋` (`k = ceil(log2 modulus)`) via widen → multiply → shift → truncate,
+    instead of emitting a runtime division. Note: this is the plain reciprocal-multiply approximation
     with a single correction step.
 
     func reduce(r uint) uint {
-    -- m := magic
-    reduced := (r * m) >> k
+    reduced := (r * mu) >> k
     r := r - reduced * q
     if r >= q {
         r := r - q
@@ -108,19 +107,30 @@ def emitArithBinOp (rewriter : PatternRewriter OpCode) (arithOp : Arith)
     }
 -/
 
-def emitBarrettReduction (rewriter : PatternRewriter OpCode) (r q : ValuePtr) (modulus : Int)
+def emitBarrettReduction (rewriter : PatternRewriter OpCode) (r : ValuePtr) (modulus : Int)
     (width : Nat) (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do
-  let ty : TypeAttr := IntegerType.mk width
-  let ty_i1 : TypeAttr := IntegerType.mk 1
   let k : Nat := (modulus - 1).toNat.log2 + 1     -- ceil(log2 modulus)
-  let shift : Nat := 4 * k                        -- 4k (2k if you want 2 * k)
+  let shift : Nat := 2 * k
   let mu : Int := (2 ^ shift) / modulus           -- floor(2^shift / modulus)
+  let bw := max width (3 * k)                     -- width required for r *
+  let ty : TypeAttr := IntegerType.mk bw
+  let ty_i1 : TypeAttr := IntegerType.mk 1
 
-  let (rewriter, m) ← emitArithConstant rewriter mu width ip
-  let (rewriter, sh) ← emitArithConstant rewriter shift width ip
+  -- extend if needed
+  let (rewriter, r) ←
+    if bw > width then
+      let (rewriter, ext) ← rewriter.createOp! (.arith .extui)
+        #[ty] #[r] #[] #[] { nneg := false } (some ip)
+      pure (rewriter, (ext.getResult 0 : ValuePtr))
+    else
+      pure (rewriter, r)
+
+  let (rewriter, q) ← emitArithConstant rewriter modulus bw ip
+  let (rewriter, m) ← emitArithConstant rewriter mu bw ip
+  let (rewriter, sh) ← emitArithConstant rewriter shift bw ip
 
 
-  -- reduced := (r * m) >> shift // (r * m) should be at most 2^(2*width) - 1, so we can safely truncate to width bits after the shift
+  -- reduced := (r * m) >> shift // (r * m) should be at most 2^(2*bw) - 1, so we can safely truncate to width bits after the shift
   let (rewriter, product) ← rewriter.createOp! (.arith .muli)
     #[ty] #[r, m] #[] #[] { attr := { nsw := false, nuw := true } } (some ip)
   let (rewriter, reduced) ← rewriter.createOp! (.arith .shrui)
@@ -144,7 +154,15 @@ def emitBarrettReduction (rewriter : PatternRewriter OpCode) (r q : ValuePtr) (m
   let (rewriter, result) ← rewriter.createOp! (.arith .select)
     #[ty] #[corr.getResult 0, sub.getResult 0, remainder.getResult 0] #[] #[] ()
     (some ip)
-  return (rewriter, (result.getResult 0 : ValuePtr))
+
+  -- truncate if needed
+  if bw > width then
+    let (rewriter, narrowed) ← rewriter.createOp! (.arith .trunci)
+      #[IntegerType.mk width] #[result.getResult 0] #[] #[]
+      { attr := { nsw := false, nuw := true } } (some ip)
+    return (rewriter, (narrowed.getResult 0 : ValuePtr))
+  else
+    return (rewriter, (result.getResult 0 : ValuePtr))
 
 /-! ## Binary op lowering Template -/
 
@@ -247,7 +265,7 @@ def remuiToBarrettReduction (rewriter : PatternRewriter OpCode) (op : OperationP
   let ip := InsertPoint.before op
   let (rewriter, reduced) ←
     emitBarrettReduction
-      rewriter r q modulus resultType.bitwidth ip
+      rewriter r modulus resultType.bitwidth ip
 
   let rewriter :=
     rewriter.replaceValue! (op.getResult 0) reduced
