@@ -31,8 +31,8 @@ def foldDecision (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
   inferred from lattice facts rather than only constants materialized in the IR.
 -/
 def foldDecisionForOp (op : OperationPtr)
-    (constOperands : Array (Option RuntimeValue))
-    (ctx : IRContext OpCode) : FoldDecision :=
-  Fold.Impl.foldDecisionForOp op constOperands ctx
+    (ctx : WfIRContext OpCode) (opInBounds : op.InBounds ctx.raw)
+    (constOperands : Array (Option RuntimeValue)) : FoldDecision :=
+  Fold.Impl.foldDecisionForOp op ctx opInBounds constOperands
 
 end Veir

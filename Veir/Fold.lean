@@ -395,15 +395,16 @@ def foldDecision (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
         conformingConstantDecision resultTypes (.int intTy.bitwidth .poison)
       | _ => .noFold
 
-def foldDecisionForOp (op : OperationPtr)
-    (constOperands : Array (Option RuntimeValue))
-    (ctx : IRContext OpCode) : FoldDecision :=
-  if constOperands.size ≠ op.getNumOperands! ctx then
+def foldDecisionForOp (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opInBounds : op.InBounds ctx.raw)
+    (constOperands : Array (Option RuntimeValue)) : FoldDecision :=
+  if constOperands.size ≠ op.getNumOperands ctx.raw opInBounds then
     .noFold
   else
-    let opType := op.getOpType! ctx
-    foldDecision opType (op.getProperties! ctx opType)
-      (op.getResultTypes! ctx) constOperands
+    let opType := op.getOpType ctx.raw opInBounds
+    foldDecision opType
+      (op.getProperties ctx.raw opType opInBounds (by grind))
+      (op.getResultTypes ctx.raw opInBounds) constOperands
 
 end Fold.Impl
 

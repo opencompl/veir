@@ -4,11 +4,13 @@ import Veir.Interfaces.FoldInterfaces
 
 open Veir
 
-/-- Find the first operation with the given opcode. -/
-private def findOp (ctx : IRContext OpCode) (opType : OpCode) : Option OperationPtr := Id.run do
+/-- Find the first in-bounds operation with the given opcode. -/
+private def findOp (ctx : IRContext OpCode) (opType : OpCode) :
+    Option { op : OperationPtr // op.InBounds ctx } := Id.run do
   for op in ctx.operations.keys do
     if op.getOpType! ctx = opType then
-      return some op
+      if h : op.InBounds ctx then
+        return some ⟨op, h⟩
   return none
 
 private def foldDecisionTestModule : String :=
@@ -25,16 +27,17 @@ private def testFoldDecisionForOp : String := Id.run do
   match parseTopLevelOp foldDecisionTestModule with
   | .error e => return s!"parse error: {e}"
   | .ok (_, parserState) =>
-    let ctx := parserState.ctx.raw
-    let some add := findOp ctx (.arith .addi) | return "missing arith.addi"
+    let ctx := parserState.ctx
+    let some ⟨add, addInBounds⟩ := findOp ctx.raw (.arith .addi)
+      | return "missing arith.addi"
     let constants : Array (Option RuntimeValue) :=
       #[some (.int 32 (.val 7)), some (.int 32 (.val 8))]
-    match foldDecisionForOp add constants ctx with
+    match foldDecisionForOp add ctx addInBounds constants with
     | .useConstant (.int 32 (.val value)) =>
       if value ≠ 15 then
         return "foldDecisionForOp produced the wrong constant"
     | _ => return "foldDecisionForOp did not evaluate arith.addi"
-    match foldDecisionForOp add #[some (.int 32 (.val 7))] ctx with
+    match foldDecisionForOp add ctx addInBounds #[some (.int 32 (.val 7))] with
     | .noFold => return "ok"
     | _ => return "foldDecisionForOp accepted the wrong operand count"
 
@@ -62,12 +65,13 @@ private def testRiscvFoldDecision : String := Id.run do
   match parseTopLevelOp foldDecisionRiscvModule with
   | .error e => return s!"parse error: {e}"
   | .ok (_, parserState) =>
-    let ctx := parserState.ctx.raw
-    let some sub := findOp ctx (.riscv .sub) | return "missing riscv.sub"
-    match foldDecisionForOp sub #[none, some (.reg ⟨0⟩)] ctx with
+    let ctx := parserState.ctx
+    let some ⟨sub, subInBounds⟩ := findOp ctx.raw (.riscv .sub)
+      | return "missing riscv.sub"
+    match foldDecisionForOp sub ctx subInBounds #[none, some (.reg ⟨0⟩)] with
     | .useOperand 0 => pure ()
     | _ => return "riscv.sub with a zero subtrahend did not fold to operand 0"
-    match foldDecisionForOp sub #[some (.reg ⟨0⟩), none] ctx with
+    match foldDecisionForOp sub ctx subInBounds #[some (.reg ⟨0⟩), none] with
     | .noFold => return "ok"
     | _ => return "riscv.sub with a zero minuend folded, but sub is not commutative"
 
@@ -98,15 +102,16 @@ private def testModArithFoldDecision : String := Id.run do
   match parseTopLevelOp foldDecisionModArithModule with
   | .error e => return s!"parse error: {e}"
   | .ok (_, parserState) =>
-    let ctx := parserState.ctx.raw
-    let some mul := findOp ctx (.mod_arith .mul) | return "missing mod_arith.mul"
+    let ctx := parserState.ctx
+    let some ⟨mul, mulInBounds⟩ := findOp ctx.raw (.mod_arith .mul)
+      | return "missing mod_arith.mul"
     -- 34 is not zero, but it is zero modulo 17.
-    match foldDecisionForOp mul #[none, some (.int 32 (.val 34))] ctx with
+    match foldDecisionForOp mul ctx mulInBounds #[none, some (.int 32 (.val 34))] with
     | .useConstant (.int 32 (.val value)) =>
       if value ≠ 0 then
         return "mod_arith.mul by a zero residue produced the wrong constant"
     | _ => return "mod_arith.mul by a zero residue did not fold"
-    match foldDecisionForOp mul #[none, some (.int 32 (.val 3))] ctx with
+    match foldDecisionForOp mul ctx mulInBounds #[none, some (.int 32 (.val 3))] with
     | .noFold => return "ok"
     | _ => return "mod_arith.mul by a nonzero residue folded"
 
