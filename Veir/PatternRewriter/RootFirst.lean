@@ -149,23 +149,46 @@ private abbrev Builder.modify (f : Blueprint → Blueprint) : Builder Unit :=
 private abbrev Builder.throw {α : Type} (message : String) : Builder α :=
   fun _ => .error message
 
-private abbrev ensureSourcePhase : Builder Unit := do
+private def handleDiagnostic (kind : String) (id bound : Nat) : String :=
+  s!"{kind} handle #{id} is not bound (bound handle count: {bound})"
+
+private abbrev ensureSourcePhase (action : String) : Builder Unit := do
   if (← Builder.get).targetStarted then
-    Builder.throw "source bindings must be declared before target operations"
+    Builder.throw
+      s!"{action}: source matching is closed after the first target operation; \
+         move this constraint before createOp"
+
+private abbrev ensureOpBound (action : String) (opId : Nat) : Builder Unit := do
+  let state ← Builder.get
+  if state.sourceOps.size ≤ opId then
+    Builder.throw s!"{action}: {handleDiagnostic "operation" opId state.sourceOps.size}"
+
+private abbrev ensureValueBound (action : String) (valueId : Nat) : Builder Unit := do
+  let state ← Builder.get
+  if state.valueCount ≤ valueId then
+    Builder.throw s!"{action}: {handleDiagnostic "value" valueId state.valueCount}"
+
+private abbrev ensureTypeBound (action : String) (typeId : Nat) : Builder Unit := do
+  let state ← Builder.get
+  if state.typeCount ≤ typeId then
+    Builder.throw s!"{action}: {handleDiagnostic "type" typeId state.typeCount}"
 
 /-- Bind the candidate root and require it to have `opCode`. -/
 def matchRoot (opCode : OpCode) : Builder (OpHandle opCode) := do
-  ensureSourcePhase
+  ensureSourcePhase "matchRoot"
   let state ← Builder.get
   if state.root.isSome then
-    Builder.throw "a root-first pattern has exactly one root"
+    Builder.throw
+      "matchRoot: a root-first pattern has exactly one root; navigate to \
+       producers with matchDefiningOp"
   let spec : SourceOpSpec := { opCode, id := state.sourceOps.size }
   Builder.set { state with root := some spec, sourceOps := state.sourceOps.push spec }
   pure ⟨spec.id⟩
 
 /-- Bind operand `index` of a matched source operation. -/
 def OpHandle.operand (op : OpHandle opCode) (index : Nat) : Builder ValueHandle := do
-  ensureSourcePhase
+  ensureSourcePhase "OpHandle.operand"
+  ensureOpBound "OpHandle.operand" op.id
   let state ← Builder.get
   let value : ValueHandle := ⟨state.valueCount⟩
   Builder.set { state with
@@ -175,7 +198,8 @@ def OpHandle.operand (op : OpHandle opCode) (index : Nat) : Builder ValueHandle 
 
 /-- Bind result `index` of a matched source operation. -/
 def OpHandle.result (op : OpHandle opCode) (index : Nat) : Builder ValueHandle := do
-  ensureSourcePhase
+  ensureSourcePhase "OpHandle.result"
+  ensureOpBound "OpHandle.result" op.id
   let state ← Builder.get
   let value : ValueHandle := ⟨state.valueCount⟩
   Builder.set { state with
@@ -185,7 +209,8 @@ def OpHandle.result (op : OpHandle opCode) (index : Nat) : Builder ValueHandle :
 
 /-- Bind result type `index` of a matched source operation. -/
 def OpHandle.resultType (op : OpHandle opCode) (index : Nat) : Builder TypeHandle := do
-  ensureSourcePhase
+  ensureSourcePhase "OpHandle.resultType"
+  ensureOpBound "OpHandle.resultType" op.id
   let state ← Builder.get
   let type : TypeHandle := ⟨state.typeCount⟩
   Builder.set { state with
@@ -195,21 +220,25 @@ def OpHandle.resultType (op : OpHandle opCode) (index : Nat) : Builder TypeHandl
 
 /-- Apply a decidable constraint to a bound type. -/
 def matchType (type : TypeHandle) (pattern : TypePattern) : Builder TypeHandle := do
-  ensureSourcePhase
+  ensureSourcePhase "matchType"
+  ensureTypeBound "matchType" type.id
   Builder.modify fun state =>
     { state with steps := state.steps.push (.typeConstraint type.id pattern) }
   pure type
 
 /-- Require a matched SSA value to have a bound type. -/
 def checkType (value : ValueHandle) (type : TypeHandle) : Builder Unit := do
-  ensureSourcePhase
+  ensureSourcePhase "checkType"
+  ensureValueBound "checkType" value.id
+  ensureTypeBound "checkType" type.id
   Builder.modify fun state =>
     { state with steps := state.steps.push (.valueType value.id type.id) }
 
 /-- Discover and bind the defining operation of a matched value. -/
 def matchDefiningOp (value : ValueHandle) (opCode : OpCode) :
     Builder (OpHandle opCode) := do
-  ensureSourcePhase
+  ensureSourcePhase "matchDefiningOp"
+  ensureValueBound "matchDefiningOp" value.id
   let state ← Builder.get
   let spec : SourceOpSpec := { opCode, id := state.sourceOps.size }
   Builder.set { state with
@@ -219,7 +248,9 @@ def matchDefiningOp (value : ValueHandle) (opCode : OpCode) :
 
 /-- Require two handles to denote the same SSA value. -/
 def checkSameValue (lhs rhs : ValueHandle) : Builder Unit := do
-  ensureSourcePhase
+  ensureSourcePhase "checkSameValue"
+  ensureValueBound "checkSameValue" lhs.id
+  ensureValueBound "checkSameValue" rhs.id
   Builder.modify fun state =>
     { state with steps := state.steps.push (.sameValue lhs.id rhs.id) }
 
@@ -229,7 +260,8 @@ def checkPropertiesWhere (op : OpHandle opCode)
     (Holds : propertiesOf opCode → Prop)
     (test_iff : ∀ properties, test properties = true ↔ Holds properties) :
     Builder Unit := do
-  ensureSourcePhase
+  ensureSourcePhase "checkPropertiesWhere"
+  ensureOpBound "checkPropertiesWhere" op.id
   let constraint : PropertyConstraint := {
     opCode, opId := op.id, test, Holds, test_iff
   }
@@ -347,9 +379,17 @@ def createOp (opCode : OpCode) (properties : propertiesOf opCode)
     Builder (OpHandle opCode × Array ValueHandle) := do
   let state ← Builder.get
   if !isFoldEvaluationCandidate opCode properties then
-    Builder.throw "target operation is not a pure fold-evaluation candidate"
+    Builder.throw
+      "createOp: target operation is not a pure fold-evaluation candidate \
+       (it has side effects or reads memory)"
+  for type in resultTypes do
+    ensureTypeBound "createOp result type" type.id
+  for operand in operands do
+    ensureValueBound "createOp operand" operand.id
   if !handlesInBounds state resultTypes operands then
-    Builder.throw "target operation refers to an unbound type or value"
+    Builder.throw
+      "createOp: internal handle validation failed after checking all operands \
+       and result types"
   let results := Array.range resultTypes.size |>.map fun index =>
     ValueHandle.mk (state.valueCount + index)
   let op : OpHandle opCode := ⟨state.sourceOps.size + state.targetOps.size⟩
@@ -371,13 +411,15 @@ def createOp1 (opCode : OpCode) (properties : propertiesOf opCode)
 def replace (root : OpHandle opCode) (values : Array ValueHandle) : Builder Unit := do
   let state ← Builder.get
   let some rootSpec := state.root
-    | Builder.throw "replace requires a matched root"
+    | Builder.throw "replace: call matchRoot before selecting replacement values"
   if root.id != rootSpec.id then
-    Builder.throw "replace must name the matched root"
-  if values.any (fun value => state.valueCount ≤ value.id) then
-    Builder.throw "replacement refers to an unbound value"
+    Builder.throw
+      s!"replace: operation handle #{root.id} is not the matched root \
+         (expected operation handle #{rootSpec.id})"
+  for value in values do
+    ensureValueBound "replace" value.id
   if state.replacement.isSome then
-    Builder.throw "a pattern has exactly one replacement"
+    Builder.throw "replace: a pattern has exactly one replacement"
   Builder.set { state with replacement := some values }
 
 private structure MatchEnv where
@@ -2067,6 +2109,68 @@ structure PurePattern where
   blueprint : Blueprint
   private safe : blueprintSafe blueprint = true
 
+private def valueHandleList (values : Array ValueHandle) : String :=
+  String.intercalate ", " (values.toList.map fun value => s!"value#{value.id}")
+
+private def typeHandleList (types : Array TypeHandle) : String :=
+  String.intercalate ", " (types.toList.map fun type => s!"type#{type.id}")
+
+private def matchStepSummary : MatchStep → String
+  | .operand opId index valueId =>
+      s!"  value#{valueId} = operand[{index}] of op#{opId}"
+  | .result opId index valueId =>
+      s!"  value#{valueId} = result[{index}] of op#{opId}"
+  | .resultType opId index typeId =>
+      s!"  type#{typeId} = resultType[{index}] of op#{opId}"
+  | .valueType valueId typeId =>
+      s!"  value#{valueId} conforms to type#{typeId}"
+  | .definingOp valueId opId opCode =>
+      s!"  op#{opId} = definingOp(value#{valueId}) : {reprStr opCode}"
+  | .typeConstraint typeId _ =>
+      s!"  type#{typeId} satisfies its type constraint"
+  | .propertyConstraint constraint =>
+      s!"  properties(op#{constraint.opId}) satisfy their constraint"
+  | .sameValue lhs rhs =>
+      s!"  value#{lhs} = value#{rhs}"
+
+private def targetOpSummary (index : Nat) (spec : TargetOpSpec) : String :=
+  s!"  target#{index} : {reprStr spec.opCode} " ++
+    s!"({valueHandleList spec.operands}) -> ({typeHandleList spec.resultTypes}); " ++
+    s!"binds {valueHandleList spec.resultIds}"
+
+/--
+Render the generated semantic obligation without exposing the matcher
+implementation in the proof state.
+
+The summary separates universal source bindings and successful source
+`foldEvaluate` assumptions from existential target evaluations and the final
+pointwise refinement conclusion. It is intended for `#eval` while authoring a
+certificate; `PurePattern.Semantics` remains the proposition to prove.
+-/
+def PurePattern.semanticGoalSummary (pattern : PurePattern) : String :=
+  let root :=
+    match pattern.blueprint.root with
+    | none => "  <missing root>"
+    | some spec => s!"  op#{spec.id} (root) : {reprStr spec.opCode}"
+  let sourceLines :=
+    pattern.blueprint.steps.toList.map matchStepSummary
+  let targetLines :=
+    pattern.blueprint.targetOps.toList.mapIdx targetOpSummary
+  let targets :=
+    if targetLines.isEmpty then ["  <no target operations>"] else targetLines
+  let replacement :=
+    match pattern.blueprint.replacement with
+    | none => "<missing replacement>"
+    | some values => s!"[{valueHandleList values}]"
+  String.intercalate "\n" <|
+    ["Universal source bindings:", root] ++ sourceLines ++
+    ["Source assumptions:",
+     "  every bound value conforms to its checked type",
+     "  every matched source operation has a successful foldEvaluate equation",
+     "Existential target bindings:"] ++ targets ++
+    ["Conclusion:",
+     s!"  results(op#0) pointwise-refine {replacement}"]
+
 private def sourceSemantics (pattern : PurePattern) :=
   blueprintSourceSemantics pattern.blueprint
 
@@ -2251,13 +2355,33 @@ def PurePattern.Semantics (pattern : PurePattern) : Prop :=
 def build (builder : Builder Unit) : Except String PurePattern := do
   let (_, blueprint) ← builder {}
   if blueprint.root.isNone then
-    throw "a root-first pattern requires matchRoot"
+    throw "build: a root-first pattern requires matchRoot"
   if blueprint.replacement.isNone then
-    throw "a root-first pattern requires replace"
+    throw "build: a root-first pattern requires replace"
   if hsafe : blueprintSafe blueprint then
     pure ⟨blueprint, hsafe⟩
   else
-    throw "the pattern violates root-first value availability or binding order"
+    throw
+      "build: the pattern violates root-first value availability or binding \
+       order; source values must be bound before use and target operations \
+       must be topologically ordered"
+
+/--
+Compile a statically declared pattern and require a proof that construction
+succeeds.  `by native_decide` normally discharges the proof, turning builder
+mistakes into errors at the pattern declaration instead of silently installing
+a fallback matcher.
+-/
+def buildChecked (builder : Builder Unit)
+    (h : (build builder).isOk = true) : PurePattern :=
+  match hbuild : build builder with
+  | .ok pattern => pattern
+  | .error _ => by
+      have herror : (build builder).isOk = false := by
+        rw [hbuild]
+        rfl
+      rw [herror] at h
+      contradiction
 
 private structure MatchOutput (blueprint : Blueprint) (ctx : WfIRContext OpCode)
     (root : OperationPtr) where

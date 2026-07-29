@@ -2,6 +2,8 @@ module
 
 public import Veir.Pass
 import Veir.PatternRewriter.Basic
+import Veir.PatternRewriter.RootFirst
+public meta import Veir.PatternRewriter.RootFirst
 import Veir.Passes.Matching
 
 namespace Veir
@@ -115,14 +117,27 @@ def subiSelfToZero (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite subiSelfToZero_local rewriter op opInBounds
 
-/-- Rewrites `x & x` to `x`. -/
-def andiSelfToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs) := matchAndi op ctx
-    | return (ctx, none)
-  if lhs ≠ rhs then
-    return (ctx, none)
-  some (ctx, some (#[], #[lhs]))
+/--
+Root-first builder for `x & x` to `x`.
+
+This is the first production `LocalRewritePattern` migrated to the typed DSL:
+the two operand handles are constrained to denote the same SSA value and the
+root is replaced by that shared handle.
+-/
+private def andiSelfToXBuilder : RootFirst.Builder Unit := do
+  let root ← RootFirst.matchRoot (.llvm .and)
+  let lhs ← root.operand 0
+  let rhs ← root.operand 1
+  RootFirst.checkSameValue lhs rhs
+  RootFirst.replace root #[lhs]
+
+/-- Statically checked compiled form of `andiSelfToXBuilder`. -/
+def andiSelfToXPattern : RootFirst.PurePattern :=
+  RootFirst.buildChecked andiSelfToXBuilder (by native_decide)
+
+/-- Rewrites `x & x` to `x` through the root-first DSL. -/
+def andiSelfToX_local : LocalRewritePattern OpCode :=
+  andiSelfToXPattern.run
 
 def andiSelfToX (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=

@@ -172,9 +172,9 @@ Its proof hides matching inversion, `InBounds`, dominance,
 
 ### PR 4 — API polish and adoption
 
-- [ ] Improve builder diagnostics and semantic-goal presentation.
-- [ ] Document pattern, generated proposition, and proof side by side.
-- [ ] Migrate one existing pure `LocalRewritePattern`.
+- [x] Improve builder diagnostics and semantic-goal presentation.
+- [x] Document pattern, generated proposition, and proof side by side.
+- [x] Migrate one existing pure `LocalRewritePattern`.
 
 ### PR 5 — PDL-like frontend
 
@@ -234,3 +234,10 @@ Its proof hides matching inversion, `InBounds`, dominance,
   fold-evaluation bridges. The two arithmetic examples retain named semantic
   certificates. The former invalid target example was replaced by two
   additions of a matched zero, giving a valid two-operation target DAG.
+- 2026-07-29: Completed the PR 4 API polish and first production adoption.
+  Builder failures now identify the combinator and invalid handle, and
+  `buildChecked` turns malformed static declarations into compile-time proof
+  failures. `PurePattern.semanticGoalSummary` presents source assumptions,
+  target obligations, and the refinement conclusion without exposing matcher
+  internals in the proof state. Added side-by-side authoring documentation and
+  migrated InstCombine's `andiSelfToX` local rewrite to the root-first DSL.
