@@ -2,6 +2,8 @@ module
 
 public import Veir.Interpreter.Basic
 
+import all Veir.Interpreter.Basic
+
 /-!
 # Compile-time evaluation of operations
 -/
@@ -13,7 +15,7 @@ namespace Veir
 /--
   Whether an operation is a candidate for evaluation by `foldEvaluate`.
 -/
-private def isFoldEvaluationCandidate
+def isFoldEvaluationCandidate
     (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode) : Bool :=
   !HasOpInfo.hasSideEffects opCode properties && !HasOpInfo.readsMemory opCode
 
@@ -23,6 +25,7 @@ private def isFoldEvaluationCandidate
   UB, and `none` if the operation must not be evaluated or the interpreter
   cannot evaluate it.
 -/
+@[expose]
 def foldEvaluate (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
     : Interp (Array RuntimeValue) := do

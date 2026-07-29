@@ -3,7 +3,7 @@ module
 public import Veir.IR.OpInfo
 public import Veir.IR.Basic
 public import Veir.GlobalOpInfo
-public import Veir.Interpreter.Basic
+public import Veir.Interpreter.Purity
 public import Veir.Dominance
 public import Veir.Verifier
 
@@ -29,46 +29,6 @@ variable {OpInfo : Type} [HasOpInfo OpInfo]
 /-!
 ## Equation Lemma
 -/
-
-/--
-An operation is *pure* when its interpretation does not depend on, and does not modify, the
-memory state: running it under any memory yields the same result values and control flow, with
-the memory threaded through unchanged.
-
-Concretely, the result under `memory₁` is the result under `memory₂` with the output memory
-rewritten to the input memory.
--/
-def OperationPtr.Pure (op : OperationPtr) (ctx : IRContext OpCode) : Prop :=
-  ∀ operands memory₁ memory₂,
-    interpretOp' (op.getOpType! ctx) (op.getProperties! ctx (op.getOpType! ctx))
-      (op.getResultTypes! ctx) operands (op.getSuccessors! ctx) memory₁ =
-    (interpretOp' (op.getOpType! ctx) (op.getProperties! ctx (op.getOpType! ctx))
-      (op.getResultTypes! ctx) operands (op.getSuccessors! ctx) memory₂ |>.map
-      (fun (r, _, cf) => (r, memory₁, cf)))
-
-namespace OperationPtr.Pure
-
-variable {op : OperationPtr} {ctx : IRContext OpCode}
-
-theorem interpretOp'_eq_interpretOp'_other_memory
-    (opPure : op.Pure ctx) (memory₂ : MemoryState) :
-      interpretOp' (op.getOpType! ctx) (op.getProperties! ctx (op.getOpType! ctx))
-        (op.getResultTypes! ctx) operands (op.getSuccessors! ctx) memory₁ =
-      (interpretOp' (op.getOpType! ctx) (op.getProperties! ctx (op.getOpType! ctx))
-        (op.getResultTypes! ctx) operands (op.getSuccessors! ctx) memory₂ |>.map
-      (fun (r, _, cf) => (r, memory₁, cf))) := by
-  grind [Pure]
-
-theorem interpretOp'_eq_ok_implies_memory_eq (h : op.Pure ctx) :
-      interpretOp' (op.getOpType! ctx) (op.getProperties! ctx (op.getOpType! ctx))
-        (op.getResultTypes! ctx) operands (op.getSuccessors! ctx) memory₁ =
-          some (.ok (resValues, memory₂, cf)) →
-      memory₁ = memory₂ := by
-  rw [h operands memory₁ memory₁]
-  simp only [Interp.map, Option.map, Interp, UBOr.map]
-  grind
-
-end OperationPtr.Pure
 
 /--
 `state.EquationHolds ctx op` holds when `state` records the result of interpreting `op`.
