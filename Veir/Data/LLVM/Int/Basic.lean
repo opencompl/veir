@@ -96,6 +96,11 @@ def constant (w : Nat) (v : _root_.Int) : Int w := val (BitVec.ofInt w v)
 -/
 def mlir_poison (w : Nat) : Int w := poison
 
+/-- The unsigned value of the integer, or `none` if it is poison. -/
+def toNat? {w : Nat} : Int w → Option Nat
+  | .val v => some v.toNat
+  | .poison => none
+
 /--
 The ‘add’ instruction returns the sum of its two operands.
 
