@@ -62,7 +62,7 @@ namespace RuntimeValue
   A predicate indicating whether a `RuntimeValue` is a value that is a runtime value
   of a given `TypeAttr`.
 -/
-@[expose, grind]
+@[expose]
 def Conforms (val : RuntimeValue) (ty : TypeAttr) : Prop :=
   match val, ty with
   | .int bw _, ⟨.integerType intType, _⟩ => intType.bitwidth = bw
