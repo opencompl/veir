@@ -117,6 +117,26 @@ axiom ValuePtr.dominatesIp_before_of_strictlyDominates {value : ValuePtr} :
   value.dominatesIp (InsertPoint.before op₂) ctx
 
 /--
+A result of an operation strictly dominating `op₂` dominates the program
+point before `op₂`.
+-/
+axiom ValuePtr.result_dominatesIp_before_of_strictlyDominates
+    {value : ValuePtr} :
+  value ∈ op₁.getResults! ctx.raw →
+  op₁.strictlyDominates op₂ ctx →
+  value.dominatesIp (InsertPoint.before op₂) ctx
+
+/--
+If a value is defined by `op₁` and dominates the point before `op₂`, then
+`op₁` strictly dominates `op₂`.
+-/
+axiom OperationPtr.strictlyDominates_of_getDefiningOp!_of_value_dominatesIp
+    {value : ValuePtr} :
+  value.getDefiningOp! ctx.raw = some op₁ →
+  value.dominatesIp (InsertPoint.before op₂) ctx →
+  op₁.strictlyDominates op₂ ctx
+
+/--
 If an operation `op₁` dominates an operation `op₂`, it dominates the operation after `op₂`,
 if it exists.
 -/

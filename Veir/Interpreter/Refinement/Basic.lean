@@ -314,4 +314,32 @@ def InterpreterState.isRefinedByAt {ctx ctx' : WfIRContext OpInfo}
   state.memory = state'.memory ∧
   state.variables.isRefinedByAt state'.variables mapping s s'
 
+theorem InterpreterState.isRefinedByAt_memory
+    {ctx ctx' : WfIRContext OpInfo}
+    {state : InterpreterState ctx} {state' : InterpreterState ctx'}
+    {mapping : ValueMapping ctx ctx'} {s s' : RefinementPoint}
+    {sIn : s.InBounds ctx.raw} {s'In : s'.InBounds ctx'.raw}
+    (h : state.isRefinedByAt state' mapping s s' sIn s'In) :
+    state.memory = state'.memory :=
+  h.1
+
+theorem InterpreterState.isRefinedByAt_value
+    {ctx ctx' : WfIRContext OpInfo}
+    {state : InterpreterState ctx} {state' : InterpreterState ctx'}
+    {mapping : ValueMapping ctx ctx'} {s s' : RefinementPoint}
+    {sIn : s.InBounds ctx.raw} {s'In : s'.InBounds ctx'.raw}
+    (h : state.isRefinedByAt state' mapping s s' sIn s'In)
+    (val : ValuePtr) (valIn : val.InBounds ctx.raw)
+    (sourceScope : val.InScopeAt s ctx)
+    (targetScope : (mapping ⟨val, valIn⟩).val.InScopeAt s' ctx')
+    (sourceValue : RuntimeValue)
+    (hsource : state.variables.getVar? val = some sourceValue)
+    (targetValue : RuntimeValue)
+    (htarget :
+      state'.variables.getVar? (mapping ⟨val, valIn⟩) =
+        some targetValue) :
+    sourceValue ⊒ targetValue :=
+  h.2 val valIn sourceScope targetScope sourceValue hsource
+    targetValue htarget
+
 end Veir

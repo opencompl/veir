@@ -50,6 +50,23 @@ axiom foldEvaluationCandidate_memory_independent
           (interpretOp' opCode properties resultTypes operands successors memory₂)
 
 /--
+Fold-evaluation candidates with no successors do not produce control-flow
+actions.
+
+Like `foldEvaluationCandidate_memory_independent`, this is an explicit bridge
+from effect metadata to the global interpreter until operation-family proofs
+replace it.
+-/
+axiom foldEvaluationCandidate_control_flow_free
+    (opCode : OpCode)
+    (properties : propertiesOf opCode)
+    (hCandidate : isFoldEvaluationCandidate opCode properties = true) :
+    ∀ resultTypes operands memory results memory' action,
+      interpretOp' opCode properties resultTypes operands #[] memory =
+        some (.ok (results, memory', action)) →
+      action = none
+
+/--
 Successful fold evaluation is equivalent to successful interpretation under
 any memory, with that memory unchanged and no control-flow action.
 -/

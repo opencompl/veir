@@ -39,6 +39,22 @@ theorem WfIRContext.WithCreatedOps.inBounds_mono {ctx₁ ctx₂ : WfIRContext Op
   intro ptr inBounds
   induction h <;> grind
 
+/--
+Appending detached operations preserves dominance of values that were
+already in the context.
+
+Dominance is currently abstract in `Veir.Dominance`, so this is the precise
+context-extension compatibility assumption needed by local rewrites.
+-/
+axiom WfIRContext.WithCreatedOps.value_dominatesIp_before_mono
+    {ctx₁ ctx₂ : WfIRContext OpInfo}
+    (h : WfIRContext.WithCreatedOps ctx₁ ctx₂)
+    {value : ValuePtr} {op : OperationPtr}
+    (valueIn : value.InBounds ctx₁.raw)
+    (opIn : op.InBounds ctx₁.raw) :
+    value.dominatesIp (.before op) ctx₁ →
+    value.dominatesIp (.before op) ctx₂
+
 @[local grind =>]
 theorem WfIRContext.WithCreatedOps.preserves_VariableState_conforms {ctx₁ ctx₂ : WfIRContext OpInfo}
     (state : InterpreterState ctx₁) :
@@ -139,11 +155,25 @@ def LocalRewritePattern.mapping
     else
       ⟨v, by grind⟩
 
+theorem LocalRewritePattern.mapping_eq_of_not_mem_results
+    {pattern : LocalRewritePattern OpCode}
+    (hpattern :
+      pattern ctx op = some (newCtx, some (newOps, newValues)))
+    (hreturn : pattern.ReturnValuesInBounds)
+    (hreturn₂ : pattern.ReturnValues)
+    (hreturn₃ : pattern.ReturnCtxChanges)
+    {v : ValuePtr} (vInBounds : v.InBounds ctx.raw)
+    (hnot : v ∉ op.getResults! ctx.raw) :
+    (LocalRewritePattern.mapping hpattern hreturn hreturn₂ hreturn₃
+      ⟨v, vInBounds⟩).val = v := by
+  simp [LocalRewritePattern.mapping, hnot]
+
 /--
 Preservation of semantics for a local rewrite pattern.
 If the pattern matches an operation and return new operations and values, then interpreting
 the matched operation in a state is refined by interpreting the new operations in a refined state.
 -/
+@[expose]
 def LocalRewritePattern.PreservesSemantics
   (pattern : LocalRewritePattern OpCode)
   (_ : pattern.ReturnOps) (_ : pattern.ReturnCtxChanges)

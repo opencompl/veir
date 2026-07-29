@@ -166,9 +166,9 @@ Its proof hides matching inversion, `InBounds`, dominance,
 - [x] Certify add-zero and a target-producing multi-operation example with
       named arithmetic certificates.
 - [x] Keep the remaining semantic proof debt explicit: one generic
-      root-first soundness axiom and two arithmetic example certificates,
-      in addition to the existing fold-evaluation axiom. This replaces the
-      original no-new-axioms criterion by explicit agreement.
+      target-DAG replay bridge and two arithmetic example certificates,
+      in addition to the isolated fold-evaluation and abstract-dominance
+      assumptions. The main `Semantics → PreservesSemantics` result is proved.
 
 ### PR 4 — API polish and adoption
 
@@ -227,8 +227,10 @@ Its proof hides matching inversion, `InBounds`, dominance,
   and `PurePattern.preservesSemantics` exposes the requested
   `Semantics → PreservesSemantics` theorem. A build-time availability replay
   prevents use of root results before the root executes and rejects forged
-  or out-of-order blueprints. The remaining equation-lemma/dominance/context
-  transport is deliberately isolated in `semanticSoundnessAxiom`, while the
-  two arithmetic examples have named semantic certificates. The former
-  invalid target example was replaced by two additions of a matched zero,
-  giving a valid two-operation target DAG.
+  or out-of-order blueprints. The original broad
+  `semanticSoundnessAxiom` has since been replaced by the proved
+  `PurePattern.semanticSoundness`; the remaining operational reconstruction is
+  isolated in `runTargetList_semantics`, with narrow abstract-dominance and
+  fold-evaluation bridges. The two arithmetic examples retain named semantic
+  certificates. The former invalid target example was replaced by two
+  additions of a matched zero, giving a valid two-operation target DAG.
