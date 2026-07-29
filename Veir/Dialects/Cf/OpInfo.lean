@@ -21,8 +21,16 @@ match op with
 | .cond_br => CondBrProperties
 | _ => Unit
 
+def Cf.hasSideEffects (_op : Cf) (_props : Cf.propertiesOf _op) : Bool :=
+  true
+
+def Cf.readsMemory (_op : Cf) : Bool :=
+  false
+
 instance : HasDialectOpInfo Cf where
   propertiesOf := Cf.propertiesOf
+  hasSideEffects := Cf.hasSideEffects
+  readsMemory := Cf.readsMemory
 
 end
 

@@ -62,8 +62,16 @@ match op with
 | .extui => NnegProperties
 | _ => Unit
 
+def Arith.hasSideEffects (_op : Arith) (_props : Arith.propertiesOf _op) : Bool :=
+  false
+
+def Arith.readsMemory (_op : Arith) : Bool :=
+  false
+
 instance : HasDialectOpInfo Arith where
   propertiesOf := Arith.propertiesOf
+  hasSideEffects := Arith.hasSideEffects
+  readsMemory := Arith.readsMemory
 
 end
 
