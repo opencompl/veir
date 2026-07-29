@@ -23,12 +23,12 @@
 // CHECK-NEXT:     [[V1:%.*]] = "arith.extui"([[V0]]) : (i32) -> i64
 // CHECK-NEXT:     [[V2:%.*]] = "builtin.unrealized_conversion_cast"([[ARG1]]) : (!mod_arith.int<7 : i32>) -> i32
 // CHECK-NEXT:     [[V3:%.*]] = "arith.extui"([[V2]]) : (i32) -> i64
-// CHECK-NEXT:     [[C7:%.*]] = "arith.constant"() <{"value" = 7 : i64}> : () -> i64
 // CHECK-NEXT:     [[V4:%.*]] = "arith.muli"([[V1]], [[V3]]) : (i64, i64) -> i64
-// CHECK-NEXT:     [[C585:%.*]] = "arith.constant"() <{"value" = 585 : i64}> : () -> i64
-// CHECK-NEXT:     [[C12:%.*]] = "arith.constant"() <{"value" = 12 : i64}> : () -> i64
-// CHECK-NEXT:     [[V5:%.*]] = "arith.muli"([[V4]], [[C585]]) <{"overflowFlags" = #arith.overflow<nuw>}> : (i64, i64) -> i64
-// CHECK-NEXT:     [[V6:%.*]] = "arith.shrui"([[V5]], [[C12]]) : (i64, i64) -> i64
+// CHECK-NEXT:     [[C7:%.*]] = "arith.constant"() <{"value" = 7 : i64}> : () -> i64
+// CHECK-NEXT:     [[C9:%.*]] = "arith.constant"() <{"value" = 9 : i64}> : () -> i64
+// CHECK-NEXT:     [[C6:%.*]] = "arith.constant"() <{"value" = 6 : i64}> : () -> i64
+// CHECK-NEXT:     [[V5:%.*]] = "arith.muli"([[V4]], [[C9]]) <{"overflowFlags" = #arith.overflow<nuw>}> : (i64, i64) -> i64
+// CHECK-NEXT:     [[V6:%.*]] = "arith.shrui"([[V5]], [[C6]]) : (i64, i64) -> i64
 // CHECK-NEXT:     [[V7:%.*]] = "arith.muli"([[V6]], [[C7]]) <{"overflowFlags" = #arith.overflow<nuw>}> : (i64, i64) -> i64
 // CHECK-NEXT:     [[V8:%.*]] = "arith.subi"([[V4]], [[V7]]) <{"overflowFlags" = #arith.overflow<nuw>}> : (i64, i64) -> i64
 // CHECK-NEXT:     [[V9:%.*]] = "arith.cmpi"([[V8]], [[C7]]) <{"predicate" = 9 : i64}> : (i64, i64) -> i1
