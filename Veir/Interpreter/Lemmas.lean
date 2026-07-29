@@ -201,7 +201,7 @@ theorem VariableState.getVar?_setArgumentValues?_loop {block : BlockPtr}
   next => grind
   next =>
     simp only [Option.bind_eq_bind, Nat.succ_eq_add_one, Option.bind]
-    grind [cases BlockArgumentPtr, OperationPtr.getResult_def, cases ValuePtr]
+    grind [-RuntimeValue.Conforms, cases BlockArgumentPtr, OperationPtr.getResult_def, cases ValuePtr]
 
 @[grind =>]
 theorem VariableState.getVar?_setArgumentValues? {block : BlockPtr} {values : Array RuntimeValue}

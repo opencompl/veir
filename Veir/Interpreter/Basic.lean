@@ -68,6 +68,7 @@ def Conforms (val : RuntimeValue) (ty : TypeAttr) : Prop :=
   | .int bw _, ⟨.integerType intType, _⟩ => intType.bitwidth = bw
   | .float bw _, ⟨.floatType floatType, _⟩ => floatType.bitwidth = bw
   | .byte bw _, ⟨.byteType byteType, _⟩ => byteType.bitwidth = bw
+  | .int bw _, ⟨.modArithType modArithType, _⟩ => modArithType.modulus.type.bitwidth = bw
   | .reg _, ⟨.registerType _, _⟩ => True
   | .addr _, ⟨.llvmPointerType _, _⟩ => True
   | _, _ => False
@@ -108,6 +109,18 @@ theorem Conforms.floatType :
   cases runtimeValue
   case float bw val =>
     simp only [float.injEq, exists_and_left]
+    intro _; subst bw
+    grind
+  all_goals grind
+
+@[grind <=]
+theorem Conforms.modArithType {runtimeValue modArithType h} :
+    Conforms runtimeValue ⟨.modArithType modArithType, h⟩ →
+    ∃ val, runtimeValue = .int modArithType.modulus.type.bitwidth val := by
+  simp only [Conforms]
+  cases runtimeValue
+  case int bw val =>
+    simp only [int.injEq, exists_and_left]
     intro _; subst bw
     grind
   all_goals grind
@@ -730,6 +743,54 @@ def Arith.interpretOp' (opType : Veir.Arith) (properties : HasDialectOpInfo.prop
     let signOpposite := LLVM.Int.icmp (LLVM.Int.icmp a zero .slt) (LLVM.Int.icmp b zero .slt) .ne
     let cond := LLVM.Int.and notExact signOpposite
     return (#[.int bw (LLVM.Int.select cond (LLVM.Int.add z negOne) z)], none)
+
+
+/-- Matches two integer operands and casts them to the expected bitwidth `bw`. -/
+private def ModArith.binaryOperands (bw : Nat) (operands : Array RuntimeValue) :
+    Option (LLVM.Int bw × LLVM.Int bw) := do
+  let [RuntimeValue.int bw' lhs, RuntimeValue.int bw'' rhs] := operands.toList | none
+  if h : bw' = bw ∧ bw'' = bw then
+    return (lhs.cast h.left, rhs.cast h.right)
+  else
+    none
+
+def ModArith.interpretOp' (opType : Veir.Mod_Arith) (properties : HasDialectOpInfo.propertiesOf opType)
+    (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
+    : Interp ((Array RuntimeValue) × Option ControlFlowAction) :=
+  match opType with
+  | .constant => do
+    let some resType := resultTypes[0]? | none
+    let .modArithType ⟨⟨mod, ⟨bw⟩⟩⟩ := resType.val | none
+    let res := LLVM.Int.constant bw (properties.value.value % mod)
+    return (#[RuntimeValue.int bw res], none)
+  | .add => do
+    let some resType := resultTypes[0]? | none
+    let .modArithType ⟨⟨mod, ⟨bw⟩⟩⟩ := resType.val | none
+    let some (lhs, rhs) := ModArith.binaryOperands bw operands | none
+    let res :=
+      match lhs.toNat?, rhs.toNat? with
+      | some lhs, some rhs => LLVM.Int.constant bw ((lhs + rhs) % mod)
+      | _, _ => LLVM.Int.poison
+    return (#[RuntimeValue.int bw res], none)
+  | .sub => do
+    let some resType := resultTypes[0]? | none
+    let .modArithType ⟨⟨mod, ⟨bw⟩⟩⟩ := resType.val | none
+    let some (lhs, rhs) := ModArith.binaryOperands bw operands | none
+    let res :=
+      match lhs.toNat?, rhs.toNat? with
+      | some lhs, some rhs => LLVM.Int.constant bw ((lhs - rhs) % mod)
+      | _, _ => LLVM.Int.poison
+    return (#[RuntimeValue.int bw res], none)
+  | .mul => do
+    let some resType := resultTypes[0]? | none
+    let .modArithType ⟨⟨mod, ⟨bw⟩⟩⟩ := resType.val | none
+    let some (lhs, rhs) := ModArith.binaryOperands bw operands | none
+    let res :=
+      match lhs.toNat?, rhs.toNat? with
+      | some lhs, some rhs => LLVM.Int.constant bw ((lhs * rhs) % mod)
+      | _, _ => LLVM.Int.poison
+    return (#[RuntimeValue.int bw res], none)
+
 
 def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
@@ -1614,6 +1675,9 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
   match opType with
   | .arith arithOp => do
     let (vals, act) ← Arith.interpretOp' arithOp properties resultTypes operands blockOperands
+    return (vals, mem, act)
+  | .mod_arith modArithOp => do
+    let (vals, act) ← ModArith.interpretOp' modArithOp properties resultTypes operands blockOperands
     return (vals, mem, act)
   | .llvm llvmOp => do
     Llvm.interpretOp' llvmOp properties resultTypes operands blockOperands mem
