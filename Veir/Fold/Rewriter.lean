@@ -15,9 +15,8 @@ public section
 
 namespace Veir
 
-/-- Preferred constant operation for ordinary integer results. Other result
-    kinds, such as registers and modular integers, are materialized according
-    to their result type. -/
+/-- Preferred constant operation for ordinary integer results. Register
+    constants are materialized according to their result type. -/
 inductive IntegerConstantDialect where
   | arith
   | llvm
@@ -34,8 +33,7 @@ def IntegerConstantDialect.forOp : OpCode → IntegerConstantDialect
   constant at a program point use `PatternRewriter.materializeConstant!`
   instead.
 
-  Concrete integers use the requested ordinary integer dialect, except that
-  modular integer result types use `mod_arith.constant`. Poison becomes
+  Concrete integers use the requested ordinary integer dialect. Poison becomes
   `llvm.mlir.poison`, and register values become `riscv.li`.
 -/
 def WfRewriter.materializeConstant! (ctx : WfIRContext OpCode)
@@ -45,21 +43,15 @@ def WfRewriter.materializeConstant! (ctx : WfIRContext OpCode)
   if rv.conformsFoldResult resType then
     match rv with
     | .int bw (.val v) =>
-      match resType.val with
-      | .modArithType mt =>
-        let properties : ModArithConstantProperties :=
-          { value := IntegerAttr.mk v.toNat mt.modulus.type }
-        WfRewriter.createOp! ctx (.mod_arith .constant) #[resType] #[] #[] #[] properties none
-      | _ =>
-        match integerDialect with
-        | .llvm =>
-          let properties : LLVMConstantProperties :=
-            { value := .integer (IntegerAttr.mk v.toInt (IntegerType.mk bw)) }
-          WfRewriter.createOp! ctx (.llvm .mlir__constant) #[resType] #[] #[] #[] properties none
-        | .arith =>
-          let properties : ArithConstantProperties :=
-            { value := IntegerAttr.mk v.toInt (IntegerType.mk bw) }
-          WfRewriter.createOp! ctx (.arith .constant) #[resType] #[] #[] #[] properties none
+      match integerDialect with
+      | .llvm =>
+        let properties : LLVMConstantProperties :=
+          { value := .integer (IntegerAttr.mk v.toInt (IntegerType.mk bw)) }
+        WfRewriter.createOp! ctx (.llvm .mlir__constant) #[resType] #[] #[] #[] properties none
+      | .arith =>
+        let properties : ArithConstantProperties :=
+          { value := IntegerAttr.mk v.toInt (IntegerType.mk bw) }
+        WfRewriter.createOp! ctx (.arith .constant) #[resType] #[] #[] #[] properties none
     | .int _ .poison =>
       WfRewriter.createOp! ctx (.llvm .mlir__poison) #[resType] #[] #[] #[] () none
     | .reg r =>
@@ -113,21 +105,15 @@ def materializeConstant! (rewriter : PatternRewriter OpCode)
   if rv.conformsFoldResult resType then
     match rv with
     | .int bw (.val v) =>
-      match resType.val with
-      | .modArithType mt =>
-        let properties : ModArithConstantProperties :=
-          { value := IntegerAttr.mk v.toNat mt.modulus.type }
-        rewriter.createOp! (.mod_arith .constant) #[resType] #[] #[] #[] properties (some ip)
-      | _ =>
-        match integerDialect with
-        | .llvm =>
-          let properties : LLVMConstantProperties :=
-            { value := .integer (IntegerAttr.mk v.toInt (IntegerType.mk bw)) }
-          rewriter.createOp! (.llvm .mlir__constant) #[resType] #[] #[] #[] properties (some ip)
-        | .arith =>
-          let properties : ArithConstantProperties :=
-            { value := IntegerAttr.mk v.toInt (IntegerType.mk bw) }
-          rewriter.createOp! (.arith .constant) #[resType] #[] #[] #[] properties (some ip)
+      match integerDialect with
+      | .llvm =>
+        let properties : LLVMConstantProperties :=
+          { value := .integer (IntegerAttr.mk v.toInt (IntegerType.mk bw)) }
+        rewriter.createOp! (.llvm .mlir__constant) #[resType] #[] #[] #[] properties (some ip)
+      | .arith =>
+        let properties : ArithConstantProperties :=
+          { value := IntegerAttr.mk v.toInt (IntegerType.mk bw) }
+        rewriter.createOp! (.arith .constant) #[resType] #[] #[] #[] properties (some ip)
     | .int _ .poison =>
       rewriter.createOp! (.llvm .mlir__poison) #[resType] #[] #[] #[] () (some ip)
     | .reg r =>

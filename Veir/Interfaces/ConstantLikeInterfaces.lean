@@ -37,21 +37,6 @@ def ValuePtr.constantValue (val : ValuePtr) (ctx : IRContext OpCode) : Option Ru
   -- makes interpreting against an empty operand array and an empty memory
   -- produce exactly the value the operation materializes.
   if res.op.getNumOperands! ctx ≠ 0 then none else
-  match res.op.getOpType! ctx with
-  | .mod_arith .constant =>
-    -- `mod_arith` has no runtime representation (it is lowered to `arith`
-    -- before interpretation), so read the residue out of the properties. The
-    -- lowering assumes constants are already canonical residues in `[0, q)`,
-    -- so decline non-canonical constants rather than assigning them different
-    -- semantics here.
-    let .modArithType mt := (val.getType! ctx).val | none
-    let q := mt.modulus.value
-    if q ≤ 0 then none else
-    let c := (res.op.getProperties! ctx (.mod_arith .constant)).value.value
-    if c < 0 ∨ q ≤ c then none else
-    let bw := mt.modulus.type.bitwidth
-    some (.int bw (.val (BitVec.ofInt bw c)))
-  | _ =>
   match (res.op.interpret ctx #[] .empty : Option (UBOr _)) with
   | some (.ok (results, _, none)) => results[res.index]?
   | some .ub =>

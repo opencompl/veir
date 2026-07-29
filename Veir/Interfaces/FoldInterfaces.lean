@@ -43,11 +43,8 @@ separate reader, and `ValuePtr.constantValue`, re-exported from
 `Veir.Interfaces.ConstantLikeInterfaces`, is that reader. Using it is
 what keeps a client's notion of "constant" in agreement with the
 folder's: it recognizes every opcode `OpCode.isConstantLike` accepts,
-including `llvm.mlir.poison`. Modular constants are recognized only when
-they are already canonical residues in `[0, q)`, matching the
-`mod-arith-to-arith` lowering's invariant. A reader that covers fewer
-spellings will report values as unknown that the folder would have
-folded.
+including `llvm.mlir.poison`. A reader that covers fewer spellings will
+report values as unknown that the folder would have folded.
 
 `IntegerConstantDialect` and `IntegerConstantDialect.forOp`, which
 select the spelling used for ordinary integer constants, are
@@ -61,8 +58,8 @@ namespace Veir
 /--
   Materialize a runtime value as a constant-like operation at the given
   insertion point. Concrete integers use the requested ordinary integer
-  dialect, except that modular integer result types use `mod_arith.constant`.
-  Poison becomes `llvm.mlir.poison`, and register values become `riscv.li`.
+  dialect. Poison becomes `llvm.mlir.poison`, and register values become
+  `riscv.li`.
 
   Clients that fold an operation do not need this: `foldOperation` and
   `createOrFoldOp!` materialize internally. It is for a client holding a

@@ -343,69 +343,6 @@ def Riscv.foldsTo (op : Riscv) (properties : HasDialectOpInfo.propertiesOf op)
     | _ => none
   | _ => none
 
-/-- The modulus `q` (as a positive `Nat`) and storage bitwidth of a single
-    `!mod_arith.int` result type. -/
-def modArithModulus (resultTypes : Array TypeAttr) : Option (Nat × Nat) :=
-  match resultTypes.toList with
-  | [resType] =>
-    match resType.val with
-    | .modArithType mt =>
-      let q := mt.modulus.value.toNat
-      if q = 0 then none else some (q, mt.modulus.type.bitwidth)
-    | _ => none
-  | _ => none
-
-/-- Whether a known modular operand is a canonical residue of the expected
-    storage width. Unknown operands are permitted for partial folds. -/
-private def isCanonicalModArithOperand (q bw : Nat) : Option RuntimeValue → Bool
-  | none => true
-  | some (.int bw' (.val c)) => bw' == bw && c.toNat < q
-  | some _ => false
-
-/--
-  Fold table for `mod_arith` operations. See `Arith.foldsTo`.
-
-  `mod_arith` is not interpreted (it is lowered to `arith` before
-  interpretation), so the all-constant case cannot go through `.evaluate`;
-  instead it is computed here, modulo the modulus `q` recovered from the
-  result type. Only canonical constant operands in `[0, q)` are recognized
-  (see `ValuePtr.constantValue`), and the arithmetic is performed on `Nat` so
-  it cannot overflow the storage type. The `x + 0`, `x - 0`, and `x * 1`
-  identities rely on the dialect invariant that runtime `mod_arith` values are
-  canonical residues (the same assumption the `mod-arith-to-arith` lowering
-  makes).
--/
-def Mod_Arith.foldsTo (op : Mod_Arith) (_properties : HasDialectOpInfo.propertiesOf op)
-    (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue)) :
-    Option FoldOutcome :=
-  match modArithModulus resultTypes with
-  | none => none
-  | some (q, bw) =>
-    if !constOperands.all (isCanonicalModArithOperand q bw) then none else
-    match op with
-    | .add =>
-      match constOperands.toList with
-      | [some (.int _ (.val a)), some (.int _ (.val b))] =>
-        some (.constant (.int bw (.val (BitVec.ofNat bw ((a.toNat + b.toNat) % q)))))
-      | [_, some (.int _ (.val c))] => if c = 0 then some (.operand 0) else none
-      | _ => none
-    | .sub =>
-      match constOperands.toList with
-      | [some (.int _ (.val a)), some (.int _ (.val b))] =>
-        some (.constant (.int bw (.val (BitVec.ofNat bw ((a.toNat + q - b.toNat) % q)))))
-      | [_, some (.int _ (.val c))] => if c = 0 then some (.operand 0) else none
-      | _ => none
-    | .mul =>
-      match constOperands.toList with
-      | [some (.int _ (.val a)), some (.int _ (.val b))] =>
-        some (.constant (.int bw (.val (BitVec.ofNat bw ((a.toNat * b.toNat) % q)))))
-      | [_, some (.int _ (.val c))] =>
-        if c = 0 then some (.constant (.int bw (.val 0)))
-        else if c = 1 then some (.operand 0)
-        else none
-      | _ => none
-    | .constant => none
-
 /--
   Query whether an operation folds, given its result types and the values of
   its constant-defined operands (`constOperands[i] = some rv` iff operand `i`
@@ -413,9 +350,7 @@ def Mod_Arith.foldsTo (op : Mod_Arith) (_properties : HasDialectOpInfo.propertie
 
   When every operand is a known constant and the opcode is evaluable, the
   answer is always `.evaluate` — no per-opcode logic is involved. Otherwise
-  the per-dialect fold tables are consulted for identities (and, for the
-  uninterpreted `mod_arith` dialect, for all-constant folds computed in the
-  table itself).
+  the per-dialect fold tables are consulted for identities.
 -/
 def OpCode.foldsTo (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue)) :
@@ -428,7 +363,6 @@ def OpCode.foldsTo (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode
     | .arith op => Arith.foldsTo op properties resultTypes constOperands
     | .llvm op => Llvm.foldsTo op properties resultTypes constOperands
     | .riscv op => Riscv.foldsTo op properties resultTypes constOperands
-    | .mod_arith op => Mod_Arith.foldsTo op properties resultTypes constOperands
     | _ => none
 
 /--
@@ -445,20 +379,13 @@ inductive FoldDecision where
   /-- The operation does not fold with the supplied operand information. -/
   | noFold
 
-/--
-Whether a runtime value can represent a folded result of the given type.
-Modular integers use an `.int` runtime value with the modulus storage width,
-even though the interpreter's general `RuntimeValue.Conforms` relation keeps
-`.int` exclusive to ordinary `integerType`s.
--/
+/-- Whether a runtime value can represent a folded result of the given type. -/
 @[expose] def RuntimeValue.conformsFoldResult (rv : RuntimeValue) (resultType : TypeAttr) : Prop :=
-  match rv, resultType.val with
-  | .int bw _, .modArithType modType => modType.modulus.type.bitwidth = bw
-  | _, _ => rv.Conforms resultType
+  rv.Conforms resultType
 
 instance : Decidable (RuntimeValue.conformsFoldResult rv resultType) := by
   unfold RuntimeValue.conformsFoldResult
-  split <;> infer_instance
+  infer_instance
 
 /-- Return a constant decision only when `rv` conforms to the sole result type. -/
 private def conformingConstantDecision
