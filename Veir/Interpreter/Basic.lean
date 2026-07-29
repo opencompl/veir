@@ -1448,11 +1448,7 @@ def Riscv_Stack.interpretOp' (opType : Veir.Riscv_Stack) (properties : HasDialec
     : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
   match opType with
   | .alloca => do
-    let size ← match properties.value_type.val with
-    | Attribute.integerType ⟨bw⟩ => some (.ok (bw / 8))
-    | Attribute.llvmPointerType _ => some (.ok 8)
-    | _ => none
-    let (mem, addr) := mem.alloc size.toUInt64
+    let (mem, addr) := mem.alloc properties.size.value.toNat.toUInt64
     return (#[.reg ⟨.ofNat 64 addr.toNat⟩], mem, none)
 
 def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : HasDialectOpInfo.propertiesOf opType)

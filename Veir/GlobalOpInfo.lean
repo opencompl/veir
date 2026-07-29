@@ -421,8 +421,8 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     dict
   | .riscv_stack .alloca => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
-    dict := dict.insert "alignment".toUTF8 (Attribute.integerAttr props.alignment)
-    dict.insert "value_type".toUTF8 props.value_type
+    dict := dict.insert "size".toUTF8 (Attribute.integerAttr props.size)
+    dict.insert "alignment".toUTF8 (Attribute.integerAttr props.alignment)
   | .riscv_cf .beq | .riscv_cf .bne | .riscv_cf .blt | .riscv_cf .bge
   | .riscv_cf .bltu | .riscv_cf .bgeu | .riscv_cf .beqz | .riscv_cf .bnez =>
     (Std.HashMap.emptyWithCapacity 1).insert "operandSegmentSizes".toUTF8 (Attribute.denseArrayAttr props.operandSegmentSizes)
