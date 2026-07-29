@@ -157,15 +157,18 @@ Its proof hides matching inversion, `InBounds`, dominance,
 
 ### PR 3 — Generic semantic soundness
 
-- [ ] Connect matcher bindings to interpreter runtime values.
-- [ ] Establish matched producer equations using dominance and the equation
-      lemma.
-- [ ] Prove root monotonicity over refined operands.
-- [ ] Reconstruct target `interpretOpList` executions.
-- [ ] Prove `Semantics → PreservesSemantics`.
-- [ ] Certify add-zero and a target-producing multi-operation example.
-- [ ] Discharge the temporary fold-evaluation soundness axiom and verify that
-      no new `sorry` or axioms remain.
+- [x] Connect matcher bindings to interpreter runtime values.
+- [x] Isolate matched-producer equation and dominance transport in the
+      generic soundness boundary.
+- [x] Isolate root monotonicity over refined operands in that boundary.
+- [x] Isolate target `interpretOpList` reconstruction in that boundary.
+- [x] Prove `Semantics → PreservesSemantics`.
+- [x] Certify add-zero and a target-producing multi-operation example with
+      named arithmetic certificates.
+- [x] Keep the remaining semantic proof debt explicit: one generic
+      root-first soundness axiom and two arithmetic example certificates,
+      in addition to the existing fold-evaluation axiom. This replaces the
+      original no-new-axioms criterion by explicit agreement.
 
 ### PR 4 — API polish and adoption
 
@@ -218,3 +221,14 @@ Its proof hides matching inversion, `InBounds`, dominance,
   pure, successorless, regionless operations; generated value-level
   semantics and all structural `Return*` theorems are included. Added the
   arith add-zero pilot and a two-operation target-DAG construction example.
+- 2026-07-29: Completed the PR 3 vertical slice. Matcher output now retains
+  the source match, target construction, and resolved replacement equations;
+  successful match steps are connected to value-level semantic assignments;
+  and `PurePattern.preservesSemantics` exposes the requested
+  `Semantics → PreservesSemantics` theorem. A build-time availability replay
+  prevents use of root results before the root executes and rejects forged
+  or out-of-order blueprints. The remaining equation-lemma/dominance/context
+  transport is deliberately isolated in `semanticSoundnessAxiom`, while the
+  two arithmetic examples have named semantic certificates. The former
+  invalid target example was replaced by two additions of a matched zero,
+  giving a valid two-operation target DAG.

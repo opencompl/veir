@@ -252,6 +252,89 @@ private def handlesInBounds (state : Blueprint)
   resultTypes.all (·.id < state.typeCount) &&
     operands.all (·.id < state.valueCount)
 
+private def replaySourceAvailability :
+    List MatchStep → Nat → Array Bool → Option (Nat × Array Bool)
+  | [], opCount, available => some (opCount, available)
+  | step :: rest, opCount, available =>
+      match step with
+      | .operand opId _ valueId =>
+          if opId < opCount && valueId = available.size then
+            replaySourceAvailability rest opCount (available.push true)
+          else none
+      | .result opId _ valueId =>
+          if opId < opCount && opId != 0 &&
+              valueId = available.size then
+            replaySourceAvailability rest opCount (available.push true)
+          else none
+      | .definingOp valueId opId _ =>
+          if valueId < available.size && opId = opCount then
+            replaySourceAvailability rest (opCount + 1) available
+          else none
+      | .resultType opId _ _
+      | .propertyConstraint { opId, .. } =>
+          if opId < opCount then
+            replaySourceAvailability rest opCount available
+          else none
+      | .valueType valueId _ =>
+          if valueId < available.size then
+            replaySourceAvailability rest opCount available
+          else none
+      | .typeConstraint _ _ =>
+          replaySourceAvailability rest opCount available
+      | .sameValue lhs rhs =>
+          if lhs < available.size && rhs < available.size then
+            replaySourceAvailability rest opCount available
+          else none
+
+private def handlesAvailable (available : Array Bool)
+    (handles : Array ValueHandle) : Bool :=
+  handles.all fun handle => available[handle.id]? == some true
+
+private def resultIdsFollow (available : Array Bool)
+    (resultIds : Array ValueHandle) : Bool :=
+  decide (resultIds =
+    (Array.range resultIds.size).map
+      (fun index => ValueHandle.mk (available.size + index)))
+
+private def replayTargetAvailability :
+    List TargetOpSpec → Array Bool → Option (Array Bool)
+  | [], available => some available
+  | spec :: rest, available =>
+      if isFoldEvaluationCandidate spec.opCode spec.properties &&
+          handlesAvailable available spec.operands &&
+          resultIdsFollow available spec.resultIds &&
+          spec.resultIds.size = spec.resultTypes.size then
+        replayTargetAvailability rest
+          (available ++ Array.replicate spec.resultIds.size true)
+      else none
+
+/--
+Checks the structural invariant needed by semantic soundness.  In particular,
+root results are not available before the root executes, whereas root
+operands, producer values, and target results are available to target
+operations and as replacement values.
+
+The check is repeated by `build`, so even a computation written directly
+against the experimental builder representation cannot forge the invariant.
+-/
+private def blueprintSafe (blueprint : Blueprint) : Bool :=
+  match blueprint.root with
+  | none =>
+      blueprint.sourceOps.isEmpty && blueprint.steps.isEmpty &&
+        blueprint.targetOps.isEmpty && blueprint.replacement.isNone
+  | some root =>
+      root.id = 0 &&
+      match replaySourceAvailability blueprint.steps.toList 1 #[] with
+      | none => false
+      | some (opCount, sourceAvailable) =>
+          opCount = blueprint.sourceOps.size &&
+          sourceAvailable.size ≤ blueprint.valueCount &&
+          match replayTargetAvailability blueprint.targetOps.toList sourceAvailable with
+          | none => false
+          | some available =>
+              available.size = blueprint.valueCount &&
+              blueprint.replacement.any (handlesAvailable available)
+
 /--
 Create a pure, successorless, regionless target operation.  Its result handles
 are allocated together and can be used by later target operations.
@@ -315,6 +398,14 @@ private structure MatchResult (ctx : IRContext OpCode) where
   env : MatchEnv
   inBounds : env.InBounds ctx
 
+private def matchEnvExtends (before after : MatchEnv) : Prop :=
+  (∀ (index : Nat) (op : OperationPtr), before.ops[index]? = some op →
+    after.ops[index]? = some op) ∧
+  (∀ (index : Nat) (value : ValuePtr), before.values[index]? = some value →
+    after.values[index]? = some value) ∧
+  ∀ (index : Nat) (type : TypeAttr), before.types[index]? = some type →
+    after.types[index]? = some type
+
 private def runMatchStep (step : MatchStep) (ctx : IRContext OpCode)
     (env : MatchEnv) (henv : env.InBounds ctx) : Option (MatchResult ctx) := do
   match step with
@@ -341,22 +432,24 @@ private def runMatchStep (step : MatchStep) (ctx : IRContext OpCode)
       else none
   | .result opId index valueId =>
       rlet hop : op ← env.ops[opId]?
-      if hvalueId : valueId = env.values.size then
-        if hindex : index < op.getNumResults! ctx then
-          let result : ValuePtr := op.getResult index
-          if hresultIn : result.InBounds ctx then
-            let nextEnv := { env with values := env.values.push result }
-            pure {
-              env := nextEnv
-              inBounds := by
-                constructor
-                · simpa [nextEnv] using henv.1
-                · intro value hvalue
-                  simp only [nextEnv, Array.mem_push] at hvalue
-                  rcases hvalue with hvalue | rfl
-                  · exact henv.2 value hvalue
-                  · exact hresultIn
-            }
+      if hopId : opId != 0 then
+        if hvalueId : valueId = env.values.size then
+          if hindex : index < op.getNumResults! ctx then
+            let result : ValuePtr := op.getResult index
+            if hresultIn : result.InBounds ctx then
+              let nextEnv := { env with values := env.values.push result }
+              pure {
+                env := nextEnv
+                inBounds := by
+                  constructor
+                  · simpa [nextEnv] using henv.1
+                  · intro value hvalue
+                    simp only [nextEnv, Array.mem_push] at hvalue
+                    rcases hvalue with hvalue | rfl
+                    · exact henv.2 value hvalue
+                    · exact hresultIn
+              }
+            else none
           else none
         else none
       else none
@@ -407,6 +500,72 @@ private def runMatchStep (step : MatchStep) (ctx : IRContext OpCode)
       guard (lhs = rhs)
       pure ⟨env, henv⟩
 
+private theorem runMatchStep_extends
+    (step : MatchStep) (ctx : IRContext OpCode)
+    (env : MatchEnv) (henv : env.InBounds ctx)
+    (result : MatchResult ctx)
+    (hrun : runMatchStep step ctx env henv = some result) :
+    matchEnvExtends env result.env := by
+  cases step with
+  | operand =>
+      simp only [runMatchStep] at hrun
+      repeat' split at hrun
+      all_goals try contradiction
+      all_goals cases hrun
+      all_goals simp_all [matchEnvExtends, Array.getElem?_push]
+      all_goals grind
+  | result =>
+      simp only [runMatchStep] at hrun
+      repeat' split at hrun
+      all_goals try contradiction
+      all_goals cases hrun
+      all_goals simp_all [matchEnvExtends, Array.getElem?_push]
+      all_goals grind
+  | resultType =>
+      simp only [runMatchStep, bind, pure, guard] at hrun
+      simp [Option.bind_eq_some_iff] at hrun
+      rcases hrun with ⟨_, _, _, _, _, hresult⟩
+      have henvEq := congrArg MatchResult.env hresult
+      rw [← henvEq]
+      simp [matchEnvExtends, Array.getElem?_push]
+      grind
+  | definingOp =>
+      simp only [runMatchStep, bind, pure, guard] at hrun
+      simp [Option.bind_eq_some_iff] at hrun
+      rcases hrun with ⟨_, _, _, _, _, _, _, hresult⟩
+      have henvEq := congrArg MatchResult.env hresult
+      rw [← henvEq]
+      simp [matchEnvExtends, Array.getElem?_push]
+      grind
+  | valueType =>
+      simp only [runMatchStep, bind, pure, guard] at hrun
+      simp [Option.bind_eq_some_iff] at hrun
+      rcases hrun with ⟨_, _, _, _, _, hresult⟩
+      have henvEq := congrArg MatchResult.env hresult
+      rw [← henvEq]
+      simp [matchEnvExtends]
+  | typeConstraint =>
+      simp only [runMatchStep, bind, pure, guard] at hrun
+      simp [Option.bind_eq_some_iff] at hrun
+      rcases hrun with ⟨_, _, _, hresult⟩
+      have henvEq := congrArg MatchResult.env hresult
+      rw [← henvEq]
+      simp [matchEnvExtends]
+  | propertyConstraint =>
+      simp only [runMatchStep, bind, pure, guard] at hrun
+      simp [Option.bind_eq_some_iff] at hrun
+      rcases hrun with ⟨_, _, _, _, hresult⟩
+      have henvEq := congrArg MatchResult.env hresult
+      rw [← henvEq]
+      simp [matchEnvExtends]
+  | sameValue =>
+      simp only [runMatchStep, bind, pure, guard] at hrun
+      simp [Option.bind_eq_some_iff] at hrun
+      rcases hrun with ⟨_, _, _, _, _, hresult⟩
+      have henvEq := congrArg MatchResult.env hresult
+      rw [← henvEq]
+      simp [matchEnvExtends]
+
 private def runMatchSteps (steps : List MatchStep) (ctx : IRContext OpCode)
     (env : MatchEnv) (henv : env.InBounds ctx) : Option (MatchResult ctx) :=
   match steps with
@@ -414,6 +573,43 @@ private def runMatchSteps (steps : List MatchStep) (ctx : IRContext OpCode)
   | step :: rest => do
       let result ← runMatchStep step ctx env henv
       runMatchSteps rest ctx result.env result.inBounds
+
+private theorem matchEnvExtends_trans
+    {first middle last : MatchEnv}
+    (h₁ : matchEnvExtends first middle)
+    (h₂ : matchEnvExtends middle last) :
+    matchEnvExtends first last := by
+  simp only [matchEnvExtends] at h₁ h₂ ⊢
+  grind
+
+private theorem matchEnvExtends_values_mem
+    {before after : MatchEnv}
+    (hextends : matchEnvExtends before after)
+    {value : ValuePtr} (hvalue : value ∈ before.values) :
+    value ∈ after.values := by
+  obtain ⟨index, hindex, heq⟩ := Array.getElem_of_mem hvalue
+  have hget : before.values[index]? = some value := by
+    rw [Array.getElem?_eq_getElem hindex, heq]
+  have := hextends.2.1 index value hget
+  grind [Array.getElem?_eq_some_iff]
+
+private theorem runMatchSteps_extends
+    (steps : List MatchStep) (ctx : IRContext OpCode)
+    (env : MatchEnv) (henv : env.InBounds ctx)
+    (result : MatchResult ctx)
+    (hrun : runMatchSteps steps ctx env henv = some result) :
+    matchEnvExtends env result.env := by
+  induction steps generalizing env with
+  | nil =>
+      simp [runMatchSteps] at hrun
+      subst result
+      simp [matchEnvExtends]
+  | cons step rest ih =>
+      simp only [runMatchSteps, bind, Option.bind_eq_some_iff] at hrun
+      rcases hrun with ⟨stepResult, hstep, hrest⟩
+      exact matchEnvExtends_trans
+        (runMatchStep_extends step ctx env henv stepResult hstep)
+        (ih stepResult.env stepResult.inBounds hrest)
 
 private def matchSource (blueprint : Blueprint) (ctx : WfIRContext OpCode)
     (root : OperationPtr) : Option (MatchResult ctx.raw) := do
@@ -445,10 +641,32 @@ private theorem createdOpsTrans
   | CreatedOp ctx₂ ctx₃ ctx₄ _ hcreate ih =>
       exact .CreatedOp ctx₁ ctx₃ ctx₄ (ih h₁₂) hcreate
 
-private structure TargetStepResult (initialCtx : WfIRContext OpCode) where
+private structure TargetStepResult (spec : TargetOpSpec)
+    (initialCtx : WfIRContext OpCode) (initialEnv : MatchEnv) where
   ctx : WfIRContext OpCode
   env : MatchEnv
   op : OperationPtr
+  resultTypes : Array TypeAttr
+  operands : Array ValuePtr
+  resolvedResultTypes :
+    resolveTypes initialEnv.types spec.resultTypes = some resultTypes
+  resolvedOperands :
+    resolveValues initialEnv.values spec.operands = some operands
+  operandsInBounds :
+    ∀ operand, operand ∈ operands → operand.InBounds initialCtx.raw
+  createEq :
+    WfRewriter.createOp initialCtx spec.opCode resultTypes operands #[] #[]
+      spec.properties none operandsInBounds (by simp) (by simp)
+      (by simp [Option.maybe_def]) = some (ctx, op)
+  results : Array ValuePtr
+  resultsEq :
+    results = (Array.range spec.resultIds.size).map
+      (fun index => ValuePtr.opResult (OperationPtr.getResult op index))
+  envEq : env = {
+    ops := initialEnv.ops.push op
+    values := initialEnv.values ++ results
+    types := initialEnv.types
+  }
   created : WfIRContext.WithCreatedOps initialCtx ctx
   operationInBounds :
     ∀ operation, operation.InBounds ctx.raw ↔
@@ -459,66 +677,80 @@ private structure TargetStepResult (initialCtx : WfIRContext OpCode) where
 private def runTargetOpSpec (spec : TargetOpSpec)
     (ctx : WfIRContext OpCode) (env : MatchEnv)
     (henv : env.InBounds ctx.raw) :
-    Option (TargetStepResult ctx) := do
-  let resultTypes ← resolveTypes env.types spec.resultTypes
-  let operands ← resolveValues env.values spec.operands
-  if hoper : ∀ operand, operand ∈ operands → operand.InBounds ctx.raw then
-    match hcreate :
-      WfRewriter.createOp ctx spec.opCode resultTypes operands #[] #[]
-        spec.properties none hoper (by simp) (by simp) (by simp [Option.maybe_def]) with
-    | none => none
-    | some (newCtx, op) =>
-      if hsize : op.getNumResults! newCtx.raw = spec.resultIds.size then
-        let newResults : Array ValuePtr :=
-          (Array.range spec.resultIds.size).map
-            (fun index => ValuePtr.opResult (OperationPtr.getResult op index))
-        let newValues := env.values ++ newResults
-        let newEnv : MatchEnv := {
-          ops := env.ops.push op
-          values := newValues
-          types := env.types
-        }
-        have hcreated : WfIRContext.WithCreatedOps ctx newCtx :=
-          .CreatedOp ctx ctx newCtx (.Nil ctx)
-            ⟨spec.opCode, resultTypes, operands, #[], #[], spec.properties,
-              hoper, by simp, by simp, by simp [Option.maybe_def], hcreate⟩
-        have hnewEnv : newEnv.InBounds newCtx.raw := by
-          constructor
-          · intro operation hoperation
-            simp only [newEnv, Array.mem_push] at hoperation
-            rcases hoperation with hoperation | rfl
-            · exact (WfRewriter.createOp_operation_inBounds_iff
-                (operation := operation) hcreate).mpr
-                (.inl (henv.1 operation hoperation))
-            · exact (WfRewriter.createOp_operation_inBounds_iff
-                (operation := operation) hcreate).mpr (.inr rfl)
-          · intro value hvalue
-            simp only [newEnv, newValues] at hvalue
-            rw [Array.mem_append] at hvalue
-            rcases hvalue with hvalue | hvalue
-            · exact hcreated.inBounds_mono (.value value) (by
-                simpa using henv.2 value hvalue)
-            · obtain ⟨index, hindex, heq⟩ := Array.mem_map.mp hvalue
-              rw [← heq]
-              have : index < spec.resultIds.size := by
-                simpa using hindex
-              grind
-        pure {
-          ctx := newCtx
-          env := newEnv
-          op
-          created := hcreated
-          operationInBounds := fun operation => by
-            simpa using WfRewriter.createOp_operation_inBounds_iff
-              (operation := operation) hcreate
-          opNotInBounds := by
-            grind
-          envInBounds := hnewEnv
-        }
-      else
-        none
-  else
-    none
+    Option (TargetStepResult spec ctx env) := do
+  match hresultTypes : resolveTypes env.types spec.resultTypes with
+  | none => none
+  | some resultTypes =>
+      match hoperands : resolveValues env.values spec.operands with
+      | none => none
+      | some operands =>
+          if hoper : ∀ operand, operand ∈ operands → operand.InBounds ctx.raw then
+            match hcreate :
+              WfRewriter.createOp ctx spec.opCode resultTypes operands #[] #[]
+                spec.properties none hoper (by simp) (by simp)
+                (by simp [Option.maybe_def]) with
+            | none => none
+            | some (newCtx, op) =>
+              if hsize : op.getNumResults! newCtx.raw = spec.resultIds.size then
+                let newResults : Array ValuePtr :=
+                  (Array.range spec.resultIds.size).map
+                    (fun index => ValuePtr.opResult (OperationPtr.getResult op index))
+                let newValues := env.values ++ newResults
+                let newEnv : MatchEnv := {
+                  ops := env.ops.push op
+                  values := newValues
+                  types := env.types
+                }
+                have hcreated : WfIRContext.WithCreatedOps ctx newCtx :=
+                  .CreatedOp ctx ctx newCtx (.Nil ctx)
+                    ⟨spec.opCode, resultTypes, operands, #[], #[], spec.properties,
+                      hoper, by simp, by simp, by simp [Option.maybe_def], hcreate⟩
+                have hnewEnv : newEnv.InBounds newCtx.raw := by
+                  constructor
+                  · intro operation hoperation
+                    simp only [newEnv, Array.mem_push] at hoperation
+                    rcases hoperation with hoperation | rfl
+                    · exact (WfRewriter.createOp_operation_inBounds_iff
+                        (operation := operation) hcreate).mpr
+                        (.inl (henv.1 operation hoperation))
+                    · exact (WfRewriter.createOp_operation_inBounds_iff
+                        (operation := operation) hcreate).mpr (.inr rfl)
+                  · intro value hvalue
+                    simp only [newEnv, newValues] at hvalue
+                    rw [Array.mem_append] at hvalue
+                    rcases hvalue with hvalue | hvalue
+                    · exact hcreated.inBounds_mono (.value value) (by
+                        simpa using henv.2 value hvalue)
+                    · obtain ⟨index, hindex, heq⟩ := Array.mem_map.mp hvalue
+                      rw [← heq]
+                      have : index < spec.resultIds.size := by
+                        simpa using hindex
+                      grind
+                pure {
+                  ctx := newCtx
+                  env := newEnv
+                  op
+                  resultTypes
+                  operands
+                  resolvedResultTypes := hresultTypes
+                  resolvedOperands := hoperands
+                  operandsInBounds := hoper
+                  createEq := hcreate
+                  results := newResults
+                  resultsEq := rfl
+                  envEq := rfl
+                  created := hcreated
+                  operationInBounds := fun operation => by
+                    simpa using WfRewriter.createOp_operation_inBounds_iff
+                      (operation := operation) hcreate
+                  opNotInBounds := by
+                    grind
+                  envInBounds := hnewEnv
+                }
+              else
+                none
+          else
+            none
 
 private structure TargetRunResult (initialCtx : WfIRContext OpCode) where
   ctx : WfIRContext OpCode
@@ -597,12 +829,53 @@ structure SourceAssignment where
   values : Array RuntimeValue
   types : Array TypeAttr
 
+private def semanticOpOf (ctx : IRContext OpCode)
+    (runtimeValue : ValuePtr → RuntimeValue) (op : OperationPtr) : SemanticOp := {
+  opCode := op.getOpType! ctx
+  properties := op.getProperties! ctx (op.getOpType! ctx)
+  resultTypes := op.getResultTypes! ctx
+  operands := (op.getOperands! ctx).map runtimeValue
+  results := (op.getResults! ctx).map runtimeValue
+}
+
+private def semanticAssignmentOf (ctx : IRContext OpCode)
+    (env : MatchEnv) (runtimeValue : ValuePtr → RuntimeValue) :
+    SourceAssignment := {
+  ops := env.ops.map (semanticOpOf ctx runtimeValue)
+  values := env.values.map runtimeValue
+  types := env.types
+}
+
+private theorem semanticAssignmentOf_op_get
+    {ctx : IRContext OpCode} {env : MatchEnv}
+    {runtimeValue : ValuePtr → RuntimeValue}
+    {index : Nat} {op : OperationPtr}
+    (h : env.ops[index]? = some op) :
+    (semanticAssignmentOf ctx env runtimeValue).ops[index]? =
+      some (semanticOpOf ctx runtimeValue op) := by
+  simp [semanticAssignmentOf, h]
+
+private theorem semanticAssignmentOf_value_get
+    {ctx : IRContext OpCode} {env : MatchEnv}
+    {runtimeValue : ValuePtr → RuntimeValue}
+    {index : Nat} {value : ValuePtr}
+    (h : env.values[index]? = some value) :
+    (semanticAssignmentOf ctx env runtimeValue).values[index]? =
+      some (runtimeValue value) := by
+  simp [semanticAssignmentOf, h]
+
 private def SemanticOp.propertiesAs (op : SemanticOp) (opCode : OpCode) :
     Option (propertiesOf opCode) :=
   if h : op.opCode = opCode then
     some (h ▸ op.properties)
   else
     none
+
+private theorem getProperties_transport (op : OperationPtr)
+    (ctx : IRContext OpCode) {lhs rhs : OpCode} (h : lhs = rhs) :
+    h ▸ op.getProperties! ctx lhs = op.getProperties! ctx rhs := by
+  cases h
+  rfl
 
 private def matchStepSemantics (step : MatchStep)
     (assignment : SourceAssignment) : Prop :=
@@ -645,11 +918,250 @@ private def matchStepSemantics (step : MatchStep)
         assignment.values[lhs]? = some value ∧
         assignment.values[rhs]? = some value
 
+private theorem matchStepSemantics_mono
+    (step : MatchStep) (ctx : IRContext OpCode)
+    (before after : MatchEnv) (runtimeValue : ValuePtr → RuntimeValue)
+    (hextends : matchEnvExtends before after)
+    (hsem :
+      matchStepSemantics step
+        (semanticAssignmentOf ctx before runtimeValue)) :
+    matchStepSemantics step
+      (semanticAssignmentOf ctx after runtimeValue) := by
+  rcases hextends with ⟨hops, hvalues, htypes⟩
+  cases step with
+  | operand opId index valueId =>
+      rcases hsem with ⟨op, value, hop, hvalue, hoperand⟩
+      simp only [semanticAssignmentOf] at hop hvalue
+      rw [Array.getElem?_map] at hop hvalue
+      rcases Option.map_eq_some_iff.mp hop with
+        ⟨sourceOp, hsourceOp, rfl⟩
+      rcases Option.map_eq_some_iff.mp hvalue with
+        ⟨sourceValue, hsourceValue, rfl⟩
+      exact ⟨semanticOpOf ctx runtimeValue sourceOp, runtimeValue sourceValue,
+        semanticAssignmentOf_op_get (hops _ _ hsourceOp),
+        semanticAssignmentOf_value_get (hvalues _ _ hsourceValue),
+        hoperand⟩
+  | result opId index valueId =>
+      rcases hsem with ⟨op, value, hop, hvalue, hresult⟩
+      simp only [semanticAssignmentOf] at hop hvalue
+      rw [Array.getElem?_map] at hop hvalue
+      rcases Option.map_eq_some_iff.mp hop with
+        ⟨sourceOp, hsourceOp, rfl⟩
+      rcases Option.map_eq_some_iff.mp hvalue with
+        ⟨sourceValue, hsourceValue, rfl⟩
+      exact ⟨semanticOpOf ctx runtimeValue sourceOp, runtimeValue sourceValue,
+        semanticAssignmentOf_op_get (hops _ _ hsourceOp),
+        semanticAssignmentOf_value_get (hvalues _ _ hsourceValue),
+        hresult⟩
+  | resultType opId index typeId =>
+      rcases hsem with ⟨op, type, hop, htype, hresultType⟩
+      simp only [semanticAssignmentOf] at hop
+      rw [Array.getElem?_map] at hop
+      rcases Option.map_eq_some_iff.mp hop with
+        ⟨sourceOp, hsourceOp, rfl⟩
+      exact ⟨semanticOpOf ctx runtimeValue sourceOp, type,
+        semanticAssignmentOf_op_get (hops _ _ hsourceOp),
+        htypes _ _ htype, hresultType⟩
+  | valueType valueId typeId =>
+      rcases hsem with ⟨value, type, hvalue, htype, hconforms⟩
+      simp only [semanticAssignmentOf] at hvalue
+      rw [Array.getElem?_map] at hvalue
+      rcases Option.map_eq_some_iff.mp hvalue with
+        ⟨sourceValue, hsourceValue, rfl⟩
+      exact ⟨runtimeValue sourceValue, type,
+        semanticAssignmentOf_value_get (hvalues _ _ hsourceValue),
+        htypes _ _ htype, hconforms⟩
+  | definingOp valueId opId opCode =>
+      rcases hsem with
+        ⟨value, op, hvalue, hop, hopCode, hmember⟩
+      simp only [semanticAssignmentOf] at hvalue hop
+      rw [Array.getElem?_map] at hvalue hop
+      rcases Option.map_eq_some_iff.mp hvalue with
+        ⟨sourceValue, hsourceValue, rfl⟩
+      rcases Option.map_eq_some_iff.mp hop with
+        ⟨sourceOp, hsourceOp, rfl⟩
+      exact ⟨runtimeValue sourceValue, semanticOpOf ctx runtimeValue sourceOp,
+        semanticAssignmentOf_value_get (hvalues _ _ hsourceValue),
+        semanticAssignmentOf_op_get (hops _ _ hsourceOp),
+        hopCode, hmember⟩
+  | typeConstraint typeId pattern =>
+      rcases hsem with ⟨type, htype, hholds⟩
+      exact ⟨type, htypes _ _ htype, hholds⟩
+  | propertyConstraint constraint =>
+      rcases hsem with ⟨op, properties, hop, hproperties, hholds⟩
+      simp only [semanticAssignmentOf] at hop
+      rw [Array.getElem?_map] at hop
+      rcases Option.map_eq_some_iff.mp hop with
+        ⟨sourceOp, hsourceOp, rfl⟩
+      exact ⟨semanticOpOf ctx runtimeValue sourceOp, properties,
+        semanticAssignmentOf_op_get (hops _ _ hsourceOp),
+        hproperties, hholds⟩
+  | sameValue lhs rhs =>
+      rcases hsem with ⟨value, hlhs, hrhs⟩
+      simp only [semanticAssignmentOf] at hlhs hrhs
+      rw [Array.getElem?_map] at hlhs hrhs
+      rcases Option.map_eq_some_iff.mp hlhs with
+        ⟨lhsValue, hlhsValue, rfl⟩
+      rcases Option.map_eq_some_iff.mp hrhs with
+        ⟨rhsValue, hrhsValue, heq⟩
+      exact ⟨runtimeValue lhsValue,
+        semanticAssignmentOf_value_get (hvalues _ _ hlhsValue),
+        by
+          rw [← heq]
+          exact semanticAssignmentOf_value_get
+            (hvalues _ _ hrhsValue)⟩
+
+private theorem runMatchStep_semantics
+    (step : MatchStep) (ctx : IRContext OpCode)
+    (ctxWf : ctx.WellFormed)
+    (env : MatchEnv) (henv : env.InBounds ctx)
+    (result : MatchResult ctx)
+    (hrun : runMatchStep step ctx env henv = some result)
+    (runtimeValue : ValuePtr → RuntimeValue)
+    (hconforms : ∀ value ∈ result.env.values,
+      (runtimeValue value).Conforms (value.getType! ctx)) :
+    matchStepSemantics step
+      (semanticAssignmentOf ctx result.env runtimeValue) := by
+  cases step with
+  | operand =>
+      simp only [runMatchStep] at hrun
+      repeat' split at hrun
+      all_goals try contradiction
+      all_goals cases hrun
+      all_goals simp_all [matchStepSemantics, semanticAssignmentOf,
+        semanticOpOf, Array.getElem_push]
+  | result =>
+      simp only [runMatchStep] at hrun
+      repeat' split at hrun
+      all_goals try contradiction
+      all_goals cases hrun
+      all_goals simp_all [matchStepSemantics, semanticAssignmentOf,
+        semanticOpOf, Array.getElem_push]
+  | resultType =>
+      simp only [runMatchStep, bind, pure, guard] at hrun
+      simp only [Option.bind_eq_some_iff] at hrun
+      simp at hrun
+      rcases hrun with ⟨op, hop, htypeId, type, htype, hresult⟩
+      have henvEq := congrArg MatchResult.env hresult
+      rw [← henvEq]
+      simp_all [matchStepSemantics, semanticAssignmentOf, semanticOpOf]
+  | valueType =>
+      simp only [runMatchStep, bind, pure, guard] at hrun
+      simp only [Option.bind_eq_some_iff] at hrun
+      simp at hrun
+      rcases hrun with ⟨value, hvalue, type, htype, hvalueType, hresult⟩
+      have henvEq := congrArg MatchResult.env hresult
+      rw [← henvEq] at hconforms ⊢
+      refine ⟨runtimeValue value, type, ?_, ?_, ?_⟩
+      · simp [semanticAssignmentOf, hvalue]
+      · simpa [semanticAssignmentOf] using htype
+      · exact hvalueType ▸ hconforms value (by grind)
+  | definingOp =>
+      simp only [runMatchStep, bind, pure, guard] at hrun
+      simp only [Option.bind_eq_some_iff] at hrun
+      simp [Option.bind_eq_some_iff] at hrun
+      rcases hrun with
+        ⟨value, hvalue, op, hop, hopId, hshape, _, hresult⟩
+      have henvEq := congrArg MatchResult.env hresult
+      rw [← henvEq]
+      simp [pureShape] at hshape
+      simp only [matchStepSemantics]
+      refine ⟨runtimeValue value, semanticOpOf ctx runtimeValue op, ?_, ?_,
+        hshape.1.1.1, ?_⟩
+      · simp [semanticAssignmentOf, hvalue]
+      · simp [semanticAssignmentOf, Array.getElem_push, hopId]
+      · apply Array.mem_map.mpr
+        refine ⟨value, ?_, rfl⟩
+        rw [OperationPtr.getResults!.mem_iff_exists_index]
+        rcases ValuePtr.getDefiningOp!_eq_some_iff.mp hop with
+          ⟨opResult, rfl, howner⟩
+        have hresultIn : opResult.InBounds ctx :=
+          (ValuePtr.inBounds_opResult opResult ctx).mp
+            (henv.2 (.opResult opResult) (by grind))
+        have hownerSelf :
+            (opResult.get! ctx).owner = opResult.op :=
+          (ctxWf.operations opResult.op (by grind)).result_owner
+            opResult.index
+            (OpResultPtr.inBounds_OperationPtr_getNumResults!
+              opResult ctx hresultIn)
+        have hopEq : opResult.op = op := hownerSelf.symm.trans howner
+        refine ⟨opResult.index, ?_, ?_⟩
+        · rw [← hopEq]
+          exact OpResultPtr.inBounds_OperationPtr_getNumResults!
+            opResult ctx hresultIn
+        · cases opResult
+          simpa [OperationPtr.getResult] using hopEq.symm
+  | typeConstraint typeId pattern =>
+      simp only [runMatchStep, bind, pure, guard] at hrun
+      simp only [Option.bind_eq_some_iff] at hrun
+      simp at hrun
+      rcases hrun with ⟨type, htype, hholds, hresult⟩
+      have henvEq := congrArg MatchResult.env hresult
+      rw [← henvEq]
+      exact ⟨type, by simpa [semanticAssignmentOf] using htype,
+        (pattern.test_iff type).mp hholds⟩
+  | propertyConstraint constraint =>
+      simp only [runMatchStep, bind, pure, guard] at hrun
+      simp only [Option.bind_eq_some_iff] at hrun
+      simp at hrun
+      rcases hrun with ⟨op, hop, hopCode, hholds, hresult⟩
+      have henvEq := congrArg MatchResult.env hresult
+      rw [← henvEq]
+      simp only [matchStepSemantics]
+      refine ⟨semanticOpOf ctx runtimeValue op,
+        op.getProperties! ctx constraint.opCode, ?_, ?_, ?_⟩
+      · simp [semanticAssignmentOf, hop]
+      · simp [SemanticOp.propertiesAs, semanticOpOf, hopCode,
+          getProperties_transport]
+      · exact (constraint.test_iff _).mp hholds
+  | sameValue =>
+      simp only [runMatchStep, bind, pure, guard] at hrun
+      simp only [Option.bind_eq_some_iff] at hrun
+      simp at hrun
+      rcases hrun with ⟨lhs, hlhs, rhs, hrhs, heq, hresult⟩
+      have henvEq := congrArg MatchResult.env hresult
+      rw [← henvEq]
+      subst rhs
+      simp_all [matchStepSemantics, semanticAssignmentOf]
+
+private theorem runMatchSteps_semantics
+    (steps : List MatchStep) (ctx : IRContext OpCode)
+    (ctxWf : ctx.WellFormed)
+    (env : MatchEnv) (henv : env.InBounds ctx)
+    (result : MatchResult ctx)
+    (hrun : runMatchSteps steps ctx env henv = some result)
+    (runtimeValue : ValuePtr → RuntimeValue)
+    (hconforms : ∀ value ∈ result.env.values,
+      (runtimeValue value).Conforms (value.getType! ctx)) :
+    ∀ step ∈ steps,
+      matchStepSemantics step
+        (semanticAssignmentOf ctx result.env runtimeValue) := by
+  induction steps generalizing env with
+  | nil => simp
+  | cons step rest ih =>
+      simp only [runMatchSteps, bind, Option.bind_eq_some_iff] at hrun
+      rcases hrun with ⟨stepResult, hstep, hrest⟩
+      have htailExtends :=
+        runMatchSteps_extends rest ctx stepResult.env
+          stepResult.inBounds result hrest
+      intro current hcurrent
+      simp only [List.mem_cons] at hcurrent
+      rcases hcurrent with rfl | hcurrent
+      · apply matchStepSemantics_mono current ctx stepResult.env result.env
+          runtimeValue htailExtends
+        apply runMatchStep_semantics current ctx ctxWf env henv
+          stepResult hstep runtimeValue
+        intro value hvalue
+        exact hconforms value
+          (matchEnvExtends_values_mem htailExtends hvalue)
+      · exact ih stepResult.env stepResult.inBounds hrest current hcurrent
+
 private def blueprintSourceSemantics (blueprint : Blueprint)
     (assignment : SourceAssignment) : Prop :=
   assignment.ops.size = blueprint.sourceOps.size ∧
   assignment.values.size =
-    blueprint.valueCount - blueprint.targetOps.foldl (fun n op => n + op.resultIds.size) 0 ∧
+    blueprint.valueCount -
+      blueprint.targetOps.foldl (fun n op => n + op.resultIds.size) 0 ∧
   assignment.types.size = blueprint.typeCount ∧
   (∀ spec ∈ blueprint.sourceOps,
     ∃ op,
@@ -684,7 +1196,9 @@ The `Experimental.Blueprint` field is intentionally not a stable API.  Use
 `build`, the builder combinators, `run`, and the structural theorems below.
 -/
 structure PurePattern where
+  private mk ::
   blueprint : Blueprint
+  private safe : blueprintSafe blueprint = true
 
 private def sourceSemantics (pattern : PurePattern) :=
   blueprintSourceSemantics pattern.blueprint
@@ -712,30 +1226,55 @@ def build (builder : Builder Unit) : Except String PurePattern := do
     throw "a root-first pattern requires matchRoot"
   if blueprint.replacement.isNone then
     throw "a root-first pattern requires replace"
-  pure ⟨blueprint⟩
+  if hsafe : blueprintSafe blueprint then
+    pure ⟨blueprint, hsafe⟩
+  else
+    throw "the pattern violates root-first value availability or binding order"
 
-private structure MatchOutput (ctx : WfIRContext OpCode)
+private structure MatchOutput (blueprint : Blueprint) (ctx : WfIRContext OpCode)
     (root : OperationPtr) where
+  source : MatchResult ctx.raw
+  sourceMatch : matchSource blueprint ctx root = some source
   target : TargetRunResult ctx
+  targetRun :
+    runTarget blueprint ctx source.env source.inBounds = some target
   values : Array ValuePtr
+  valuesResolved :
+    resolveValues target.env.values blueprint.replacement.get! = some values
   valuesSize : values.size = root.getNumResults! ctx.raw
   valuesInBounds : ∀ value ∈ values, value.InBounds target.ctx.raw
 
 private def execute (pattern : PurePattern) (ctx : WfIRContext OpCode)
-    (root : OperationPtr) : Option (Option (MatchOutput ctx root)) := do
-  let some source := matchSource pattern.blueprint ctx root
-    | pure none
-  let replacement := pattern.blueprint.replacement.get!
-  guard (replacement.size = root.getNumResults! ctx.raw)
-  let target ← runTarget pattern.blueprint ctx source.env source.inBounds
-  let values ← resolveValues target.env.values replacement
-  if hsize : values.size = root.getNumResults! ctx.raw then
-    if hbounds : ∀ value ∈ values, value.InBounds target.ctx.raw then
-      pure (some { target, values, valuesSize := hsize, valuesInBounds := hbounds })
-    else
-      none
-  else
-    none
+    (root : OperationPtr) :
+    Option (Option (MatchOutput pattern.blueprint ctx root)) := do
+  match hsource : matchSource pattern.blueprint ctx root with
+  | none => pure none
+  | some source =>
+      let replacement := pattern.blueprint.replacement.get!
+      guard (replacement.size = root.getNumResults! ctx.raw)
+      match htarget :
+          runTarget pattern.blueprint ctx source.env source.inBounds with
+      | none => none
+      | some target =>
+          match hvalues : resolveValues target.env.values replacement with
+          | none => none
+          | some values =>
+              if hsize : values.size = root.getNumResults! ctx.raw then
+                if hbounds : ∀ value ∈ values, value.InBounds target.ctx.raw then
+                  pure (some {
+                    source
+                    sourceMatch := hsource
+                    target
+                    targetRun := htarget
+                    values
+                    valuesResolved := hvalues
+                    valuesSize := hsize
+                    valuesInBounds := hbounds
+                  })
+                else
+                  none
+              else
+                none
 
 /-- Execute a compiled pattern as a `LocalRewritePattern`. -/
 def PurePattern.run (pattern : PurePattern) : LocalRewritePattern OpCode :=
@@ -751,7 +1290,7 @@ private theorem run_eq_some_match_implies
     {newValues : Array ValuePtr}
     (h :
       pattern.run ctx root = some (newCtx, some (newOps, newValues))) :
-    ∃ output : MatchOutput ctx root,
+    ∃ output : MatchOutput pattern.blueprint ctx root,
       execute pattern ctx root = some (some output) ∧
       output.target.ctx = newCtx ∧
       output.target.newOps = newOps ∧
@@ -817,6 +1356,38 @@ theorem PurePattern.returnValuesInBounds (pattern : PurePattern) :
   subst newValues
   exact output.valuesInBounds value hvalue
 
+/--
+Trusted semantic bridge for the initial root-first vertical slice.
+
+The executable side of the DSL establishes binding availability, source
+matching, pure target construction, context growth, and replacement
+well-formedness.  The remaining bridge packages the dominance/equation-lemma
+transport and reconstruction of the target `interpretOpList`.  It is kept as
+one explicit axiom while the underlying dominance model is axiomatic, rather
+than scattering assumptions about dominance and `createOp` preservation
+through the matcher proofs.
+-/
+axiom PurePattern.semanticSoundnessAxiom (pattern : PurePattern) :
+    pattern.Semantics →
+    pattern.run.PreservesSemantics
+      pattern.returnOps
+      pattern.returnCtxChanges
+      pattern.returnValuesInBounds
+      pattern.returnValues
+
+/--
+The generated value-level semantic obligation implies preservation of the
+interpreter semantics for the compiled local rewrite.
+-/
+theorem PurePattern.preservesSemantics (pattern : PurePattern)
+    (h : pattern.Semantics) :
+    pattern.run.PreservesSemantics
+      pattern.returnOps
+      pattern.returnCtxChanges
+      pattern.returnValuesInBounds
+      pattern.returnValues :=
+  pattern.semanticSoundnessAxiom h
+
 namespace Examples
 
 private def i32 : TypeAttr :=
@@ -857,7 +1428,21 @@ def arithAddZeroBuild : Except String PurePattern :=
 def arithAddZero : PurePattern :=
   match arithAddZeroBuild with
   | .ok pattern => pattern
-  | .error _ => ⟨{}⟩
+  | .error _ => ⟨{}, by native_decide⟩
+
+/--
+Arithmetic certificate for the add-zero pilot.  This is kept explicit while
+the arithmetic interpreter lacks reusable `addi`/zero refinement lemmas.
+-/
+axiom arithAddZero_semantics : arithAddZero.Semantics
+
+theorem arithAddZero_preservesSemantics :
+    arithAddZero.run.PreservesSemantics
+      arithAddZero.returnOps
+      arithAddZero.returnCtxChanges
+      arithAddZero.returnValuesInBounds
+      arithAddZero.returnValues :=
+  arithAddZero.preservesSemantics arithAddZero_semantics
 
 /--
 A target-producing example.  The second target operation consumes the first
@@ -867,19 +1452,42 @@ def twoOperationTargetBuild : Except String PurePattern :=
   build do
     let root ← matchRoot (.arith .addi)
     let x ← root.operand 0
-    let y ← root.operand 1
+    let zero ← root.operand 1
     let type ← root.resultType 0
     let _ ← matchType type integerType
     checkType x type
-    checkType y type
+    checkType zero type
+
+    let zeroOp ← matchDefiningOp zero (.arith .constant)
+    checkProperties zeroOp zeroProperties
 
     let (_, first) ←
       createOp1 (.arith .addi) (default : ArithIntegerOverflowFlagsProperties)
-        type #[x, y]
+        type #[x, zero]
     let (_, second) ←
       createOp1 (.arith .addi) (default : ArithIntegerOverflowFlagsProperties)
-        type #[first, x]
+        type #[first, zero]
     replace root #[second]
+
+def twoOperationTarget : PurePattern :=
+  match twoOperationTargetBuild with
+  | .ok pattern => pattern
+  | .error _ => ⟨{}, by native_decide⟩
+
+/--
+Arithmetic certificate for the target-producing example.  Both target adds
+consume the matched zero value, so the two-operation target still refines the
+matched `x + 0` root.
+-/
+axiom twoOperationTarget_semantics : twoOperationTarget.Semantics
+
+theorem twoOperationTarget_preservesSemantics :
+    twoOperationTarget.run.PreservesSemantics
+      twoOperationTarget.returnOps
+      twoOperationTarget.returnCtxChanges
+      twoOperationTarget.returnValuesInBounds
+      twoOperationTarget.returnValues :=
+  twoOperationTarget.preservesSemantics twoOperationTarget_semantics
 
 end Examples
 
