@@ -27,11 +27,15 @@ def Rv64.readsMemory (_op : Rv64) : Bool :=
 def Rv64.isConstantLike (_op : Rv64) : Bool :=
   false
 
+def Rv64.hasSSADominance (_op : Rv64) (_index : Nat) : Bool :=
+  true
+
 instance : HasDialectOpInfo Rv64 where
   propertiesOf := Rv64.propertiesOf
   hasSideEffects := Rv64.hasSideEffects
   readsMemory := Rv64.readsMemory
   isConstantLike := Rv64.isConstantLike
+  hasSSADominance := Rv64.hasSSADominance
 
 end
 

@@ -126,6 +126,27 @@ def OpCode.getRegionKind (opCode : OpCode) (_index : Nat) : RegionKind :=
   | _ => .SSACFG
 
 /--
+  Whether definitions in the indexed region of this opcode must dominate
+  their uses.
+-/
+def OpCode.hasSSADominance (opCode : OpCode) (index : Nat) : Bool :=
+  match opCode with
+  | .arith op => Arith.hasSSADominance op index
+  | .llvm op => Llvm.hasSSADominance op index
+  | .riscv op => Riscv.hasSSADominance op index
+  | .riscv_cf op => Riscv_Cf.hasSSADominance op index
+  | .riscv_stack op => Riscv_Stack.hasSSADominance op index
+  | .rv64 op => Rv64.hasSSADominance op index
+  | .mod_arith op => Mod_Arith.hasSSADominance op index
+  | .cf op => Cf.hasSSADominance op index
+  | .comb op => Comb.hasSSADominance op index
+  | .hw op => HW.hasSSADominance op index
+  | .builtin op => Builtin.hasSSADominance op index
+  | .func op => Func.hasSSADominance op index
+  | .datapath op => Datapath.hasSSADominance op index
+  | .test op => Test.hasSSADominance op index
+
+/--
   Does this `OpCode` materialize a literal constant value, i.e. an op
   whose single result is a compile-time constant taken from its
   properties, with no SSA operands and no side effects?
@@ -155,9 +176,9 @@ instance : HasDialectOpInfo OpCode where
   hasSideEffects := OpCode.hasSideEffects
   readsMemory := OpCode.readsMemory
   isConstantLike := OpCode.isConstantLike
+  hasSSADominance := OpCode.hasSSADominance
 
 instance : HasOpInfo OpCode where
-  hasSSADominance opCode index := opCode.getRegionKind index == .SSACFG
 
 #generate_has_dialect_instances OpCode
 

@@ -36,11 +36,15 @@ def HW.isConstantLike (op : HW) : Bool :=
   | .constant => true
   | _ => false
 
+def HW.hasSSADominance (_op : HW) (_index : Nat) : Bool :=
+  true
+
 instance : HasDialectOpInfo HW where
   propertiesOf := HW.propertiesOf
   hasSideEffects := HW.hasSideEffects
   readsMemory := HW.readsMemory
   isConstantLike := HW.isConstantLike
+  hasSSADominance := HW.hasSSADominance
 
 end
 

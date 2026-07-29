@@ -33,8 +33,12 @@ def Mod_Arith.readsMemory (_op : Mod_Arith) : Bool :=
 def Mod_Arith.isConstantLike (_op : Mod_Arith) : Bool :=
   false
 
+def Mod_Arith.hasSSADominance (_op : Mod_Arith) (_index : Nat) : Bool :=
+  true
+
 instance : HasDialectOpInfo Mod_Arith where
   propertiesOf := Mod_Arith.propertiesOf
   hasSideEffects := Mod_Arith.hasSideEffects
   readsMemory := Mod_Arith.readsMemory
   isConstantLike := Mod_Arith.isConstantLike
+  hasSSADominance := Mod_Arith.hasSSADominance

@@ -33,11 +33,17 @@ def Builtin.readsMemory (_op : Builtin) : Bool :=
 def Builtin.isConstantLike (_op : Builtin) : Bool :=
   false
 
+def Builtin.hasSSADominance (op : Builtin) (_index : Nat) : Bool :=
+  match op with
+  | .module | .unregistered => false
+  | _ => true
+
 instance : HasDialectOpInfo Builtin where
   propertiesOf := Builtin.propertiesOf
   hasSideEffects := Builtin.hasSideEffects
   readsMemory := Builtin.readsMemory
   isConstantLike := Builtin.isConstantLike
+  hasSSADominance := Builtin.hasSSADominance
 
 end
 

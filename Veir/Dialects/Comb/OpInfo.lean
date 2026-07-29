@@ -49,11 +49,15 @@ def Comb.readsMemory (_op : Comb) : Bool :=
 def Comb.isConstantLike (_op : Comb) : Bool :=
   false
 
+def Comb.hasSSADominance (_op : Comb) (_index : Nat) : Bool :=
+  true
+
 instance : HasDialectOpInfo Comb where
   propertiesOf := Comb.propertiesOf
   hasSideEffects := Comb.hasSideEffects
   readsMemory := Comb.readsMemory
   isConstantLike := Comb.isConstantLike
+  hasSSADominance := Comb.hasSSADominance
 
 end
 

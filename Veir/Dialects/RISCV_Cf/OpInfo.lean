@@ -45,11 +45,15 @@ def Riscv_Cf.readsMemory (_op : Riscv_Cf) : Bool :=
 def Riscv_Cf.isConstantLike (_op : Riscv_Cf) : Bool :=
   false
 
+def Riscv_Cf.hasSSADominance (_op : Riscv_Cf) (_index : Nat) : Bool :=
+  true
+
 instance : HasDialectOpInfo Riscv_Cf where
   propertiesOf := Riscv_Cf.propertiesOf
   hasSideEffects := Riscv_Cf.hasSideEffects
   readsMemory := Riscv_Cf.readsMemory
   isConstantLike := Riscv_Cf.isConstantLike
+  hasSSADominance := Riscv_Cf.hasSSADominance
 
 end
 

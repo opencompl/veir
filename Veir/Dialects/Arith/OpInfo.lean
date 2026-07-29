@@ -73,11 +73,15 @@ def Arith.isConstantLike (op : Arith) : Bool :=
   | .constant => true
   | _ => false
 
+def Arith.hasSSADominance (_op : Arith) (_index : Nat) : Bool :=
+  true
+
 instance : HasDialectOpInfo Arith where
   propertiesOf := Arith.propertiesOf
   hasSideEffects := Arith.hasSideEffects
   readsMemory := Arith.readsMemory
   isConstantLike := Arith.isConstantLike
+  hasSSADominance := Arith.hasSSADominance
 
 end
 

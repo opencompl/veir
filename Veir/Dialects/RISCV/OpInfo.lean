@@ -222,11 +222,15 @@ def Riscv.isConstantLike (op : Riscv) : Bool :=
   | .li => true
   | _ => false
 
+def Riscv.hasSSADominance (_op : Riscv) (_index : Nat) : Bool :=
+  true
+
 instance : HasDialectOpInfo Riscv where
   propertiesOf := Riscv.propertiesOf
   hasSideEffects := Riscv.hasSideEffects
   readsMemory := Riscv.readsMemory
   isConstantLike := Riscv.isConstantLike
+  hasSSADominance := Riscv.hasSSADominance
 
 end
 

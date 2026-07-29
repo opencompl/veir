@@ -26,7 +26,7 @@ def RegionPtr.hasSSADominance (region : RegionPtr)
   match (region.get! ctx.raw).parent with
   | none => true
   | some parent =>
-      HasOpInfo.hasSSADominance (parent.getOpType! ctx.raw)
+      HasDialectOpInfo.hasSSADominance (parent.getOpType! ctx.raw)
         ((parent.get! ctx.raw).regions.idxOf region)
 
 end Veir

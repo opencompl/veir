@@ -32,11 +32,15 @@ def Func.readsMemory (_op : Func) : Bool :=
 def Func.isConstantLike (_op : Func) : Bool :=
   false
 
+def Func.hasSSADominance (_op : Func) (_index : Nat) : Bool :=
+  true
+
 instance : HasDialectOpInfo Func where
   propertiesOf := Func.propertiesOf
   hasSideEffects := Func.hasSideEffects
   readsMemory := Func.readsMemory
   isConstantLike := Func.isConstantLike
+  hasSSADominance := Func.hasSSADominance
 
 end
 

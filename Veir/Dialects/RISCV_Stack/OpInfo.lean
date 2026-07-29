@@ -29,11 +29,15 @@ def Riscv_Stack.readsMemory (_op : Riscv_Stack) : Bool :=
 def Riscv_Stack.isConstantLike (_op : Riscv_Stack) : Bool :=
   false
 
+def Riscv_Stack.hasSSADominance (_op : Riscv_Stack) (_index : Nat) : Bool :=
+  true
+
 instance : HasDialectOpInfo Riscv_Stack where
   propertiesOf := Riscv_Stack.propertiesOf
   hasSideEffects := Riscv_Stack.hasSideEffects
   readsMemory := Riscv_Stack.readsMemory
   isConstantLike := Riscv_Stack.isConstantLike
+  hasSSADominance := Riscv_Stack.hasSSADominance
 
 end
 

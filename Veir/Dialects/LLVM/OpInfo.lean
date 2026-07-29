@@ -134,11 +134,15 @@ def Llvm.isConstantLike (op : Llvm) : Bool :=
   | .mlir__constant | .mlir__poison => true
   | _ => false
 
+def Llvm.hasSSADominance (_op : Llvm) (_index : Nat) : Bool :=
+  true
+
 instance : HasDialectOpInfo Llvm where
   propertiesOf := Llvm.propertiesOf
   hasSideEffects := Llvm.hasSideEffects
   readsMemory := Llvm.readsMemory
   isConstantLike := Llvm.isConstantLike
+  hasSSADominance := Llvm.hasSSADominance
 
 end
 

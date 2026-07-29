@@ -30,11 +30,15 @@ def Cf.readsMemory (_op : Cf) : Bool :=
 def Cf.isConstantLike (_op : Cf) : Bool :=
   false
 
+def Cf.hasSSADominance (_op : Cf) (_index : Nat) : Bool :=
+  true
+
 instance : HasDialectOpInfo Cf where
   propertiesOf := Cf.propertiesOf
   hasSideEffects := Cf.hasSideEffects
   readsMemory := Cf.readsMemory
   isConstantLike := Cf.isConstantLike
+  hasSSADominance := Cf.hasSSADominance
 
 end
 

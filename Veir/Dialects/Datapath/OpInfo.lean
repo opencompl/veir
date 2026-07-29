@@ -29,11 +29,15 @@ def Datapath.readsMemory (_op : Datapath) : Bool :=
 def Datapath.isConstantLike (_op : Datapath) : Bool :=
   false
 
+def Datapath.hasSSADominance (_op : Datapath) (_index : Nat) : Bool :=
+  true
+
 instance : HasDialectOpInfo Datapath where
   propertiesOf := Datapath.propertiesOf
   hasSideEffects := Datapath.hasSideEffects
   readsMemory := Datapath.readsMemory
   isConstantLike := Datapath.isConstantLike
+  hasSSADominance := Datapath.hasSSADominance
 
 end
 

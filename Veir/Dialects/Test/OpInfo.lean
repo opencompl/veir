@@ -26,11 +26,15 @@ def Test.readsMemory (_op : Test) : Bool :=
 def Test.isConstantLike (_op : Test) : Bool :=
   false
 
+def Test.hasSSADominance (_op : Test) (_index : Nat) : Bool :=
+  false
+
 instance : HasDialectOpInfo Test where
   propertiesOf := Test.propertiesOf
   hasSideEffects := Test.hasSideEffects
   readsMemory := Test.readsMemory
   isConstantLike := Test.isConstantLike
+  hasSSADominance := Test.hasSSADominance
 
 end
 
