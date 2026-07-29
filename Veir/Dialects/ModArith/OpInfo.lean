@@ -30,7 +30,11 @@ def Mod_Arith.hasSideEffects
 def Mod_Arith.readsMemory (_op : Mod_Arith) : Bool :=
   false
 
+def Mod_Arith.isConstantLike (_op : Mod_Arith) : Bool :=
+  false
+
 instance : HasDialectOpInfo Mod_Arith where
   propertiesOf := Mod_Arith.propertiesOf
   hasSideEffects := Mod_Arith.hasSideEffects
   readsMemory := Mod_Arith.readsMemory
+  isConstantLike := Mod_Arith.isConstantLike

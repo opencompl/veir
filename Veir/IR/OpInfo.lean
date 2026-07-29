@@ -46,6 +46,13 @@ class HasDialectOpInfo (opCode: Type)
   read.
   -/
   readsMemory : opCode → Bool := fun _ => true
+  /--
+  Whether an operation with this opcode materializes a literal constant
+  value: no operands, one result, no side effects, and a result that is
+  always determined by the operation's properties. Defaults to `false`
+  for every opcode, which conservatively treats nothing as constant.
+  -/
+  isConstantLike : opCode → Bool := fun _ => false
 
 instance [HasDialectOpInfo opCode] {op : opCode} : Hashable (HasDialectOpInfo.propertiesOf op) where
   hash := HasDialectOpInfo.propertiesHash.hash
@@ -69,13 +76,6 @@ opcodes and whether or not their regions have SSA dominance.
 -/
 class HasOpInfo (opCode: Type)
     extends Hashable opCode, Repr opCode, Inhabited opCode, HasDialectOpInfo opCode where
-  /--
-  Whether an operation with this opcode materializes a literal constant
-  value: no operands, one result, no side effects, and a result that is
-  always determined by the operation's properties. Defaults to `false`
-  for every opcode, which conservatively treats nothing as constant.
-  -/
-  isConstantLike : opCode → Bool := fun _ => false
   /--
   Whether definitions in the indexed region must dominate their uses. A false
   result denotes graph-style semantics, where only a single block can be in the

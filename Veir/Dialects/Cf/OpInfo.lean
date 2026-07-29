@@ -27,10 +27,14 @@ def Cf.hasSideEffects (_op : Cf) (_props : Cf.propertiesOf _op) : Bool :=
 def Cf.readsMemory (_op : Cf) : Bool :=
   false
 
+def Cf.isConstantLike (_op : Cf) : Bool :=
+  false
+
 instance : HasDialectOpInfo Cf where
   propertiesOf := Cf.propertiesOf
   hasSideEffects := Cf.hasSideEffects
   readsMemory := Cf.readsMemory
+  isConstantLike := Cf.isConstantLike
 
 end
 

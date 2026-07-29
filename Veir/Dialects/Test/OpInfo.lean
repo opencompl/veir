@@ -23,10 +23,14 @@ def Test.hasSideEffects (_op : Test) (_props : Test.propertiesOf _op) : Bool :=
 def Test.readsMemory (_op : Test) : Bool :=
   false
 
+def Test.isConstantLike (_op : Test) : Bool :=
+  false
+
 instance : HasDialectOpInfo Test where
   propertiesOf := Test.propertiesOf
   hasSideEffects := Test.hasSideEffects
   readsMemory := Test.readsMemory
+  isConstantLike := Test.isConstantLike
 
 end
 

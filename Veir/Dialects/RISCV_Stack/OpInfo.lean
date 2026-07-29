@@ -26,10 +26,14 @@ def Riscv_Stack.hasSideEffects
 def Riscv_Stack.readsMemory (_op : Riscv_Stack) : Bool :=
   false
 
+def Riscv_Stack.isConstantLike (_op : Riscv_Stack) : Bool :=
+  false
+
 instance : HasDialectOpInfo Riscv_Stack where
   propertiesOf := Riscv_Stack.propertiesOf
   hasSideEffects := Riscv_Stack.hasSideEffects
   readsMemory := Riscv_Stack.readsMemory
+  isConstantLike := Riscv_Stack.isConstantLike
 
 end
 

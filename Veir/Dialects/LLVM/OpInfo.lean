@@ -129,10 +129,16 @@ def Llvm.readsMemory (op : Llvm) : Bool :=
   | .load => true
   | _ => false
 
+def Llvm.isConstantLike (op : Llvm) : Bool :=
+  match op with
+  | .mlir__constant | .mlir__poison => true
+  | _ => false
+
 instance : HasDialectOpInfo Llvm where
   propertiesOf := Llvm.propertiesOf
   hasSideEffects := Llvm.hasSideEffects
   readsMemory := Llvm.readsMemory
+  isConstantLike := Llvm.isConstantLike
 
 end
 

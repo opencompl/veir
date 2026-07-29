@@ -46,10 +46,14 @@ def Comb.hasSideEffects (_op : Comb) (_props : Comb.propertiesOf _op) : Bool :=
 def Comb.readsMemory (_op : Comb) : Bool :=
   false
 
+def Comb.isConstantLike (_op : Comb) : Bool :=
+  false
+
 instance : HasDialectOpInfo Comb where
   propertiesOf := Comb.propertiesOf
   hasSideEffects := Comb.hasSideEffects
   readsMemory := Comb.readsMemory
+  isConstantLike := Comb.isConstantLike
 
 end
 
