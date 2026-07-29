@@ -29,7 +29,7 @@ public section
 def OperationPtr.hasSideEffects {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : IRContext OpInfo) : Bool :=
   let opType := op.getOpType! ctx
-  HasOpInfo.hasSideEffects opType (op.getProperties! ctx opType)
+  HasDialectOpInfo.hasSideEffects opType (op.getProperties! ctx opType)
 
 end
 
