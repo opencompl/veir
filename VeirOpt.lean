@@ -43,7 +43,6 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
     |>.insert ModArithToArithPass.name ModArithToArithPass
     |>.insert RemuiToBarrettReductionPass.name RemuiToBarrettReductionPass
     |>.insert ArithToLLVMPass.name ArithToLLVMPass
-    |>.insert RemuiToBarrettReductionPass.name RemuiToBarrettReductionPass
     |>.insert CanonicalizePass.name CanonicalizePass
 
 /--
