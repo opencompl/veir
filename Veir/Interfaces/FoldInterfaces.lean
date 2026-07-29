@@ -18,14 +18,7 @@ namespace Veir
   types, and the values of its known-constant operands. This resolves the
   `FoldOutcome` reported by `OpCode.foldsTo`: `.evaluate` outcomes are computed
   with the interpreter, and interpreter-reported UB becomes a poison constant.
-
-  Unknown operands are represented by `none`. A data-flow client may use that
-  representation for either an uninitialized or an overdefined lattice value;
-  after `.noFold`, the client retains responsibility for deciding whether to
-  wait for more information or move its result to top.
-
-  Folding is restricted to single-result operations. Returned operand indices
-  and runtime constants are validated before they are exposed to callers.
+  Unknown operands are represented by `none`.
 -/
 def foldDecision (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue))
@@ -33,9 +26,9 @@ def foldDecision (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
   Fold.Impl.foldDecision opType properties resultTypes constOperands
 
 /--
-Read-only convenience wrapper around `foldDecision` for an existing operation.
-The supplied constant array remains explicit so SCCP can provide constants
-inferred from lattice facts rather than only constants materialized in the IR.
+  Read-only convenience wrapper around `foldDecision` for an existing operation.
+  The supplied constant array remains explicit so SCCP can provide constants
+  inferred from lattice facts rather than only constants materialized in the IR.
 -/
 def foldDecisionForOp (op : OperationPtr)
     (constOperands : Array (Option RuntimeValue))
