@@ -90,6 +90,16 @@ theorem addui_extended_lowering (a b : Int 8) :
   cases a <;> cases b <;> simp [uaddOverflowFlag, Id.run] <;> veir_bv_decide
 
 /--
+The two results of `arith.subui_extended` are reproduced by an unflagged
+`llvm.sub` and `llvm.icmp ult` on the operands: an unsigned subtraction borrows
+exactly when `a <u b`.
+-/
+theorem subui_extended_lowering (a b : Int 8) :
+    (sub a b, usubOverflowFlag a b) =
+      (sub a b, icmp a b .ult) := by
+  cases a <;> cases b <;> simp [usubOverflowFlag, Id.run] <;> veir_bv_decide
+
+/--
 Both results of `arith.mulsi_extended` are reproduced by sign-extending to twice
 the width and multiplying once: the low half is that product truncated, and the
 high half is it shifted right by the original width and truncated.

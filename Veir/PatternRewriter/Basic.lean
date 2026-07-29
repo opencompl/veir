@@ -218,6 +218,34 @@ def insertOp! (rewriter: PatternRewriter OpInfo) (op: OperationPtr) (ip : Insert
   }
 
 /--
+Set the properties of an operation in place, and re-enqueue it.
+-/
+def setProperties (rewriter: PatternRewriter OpInfo) (op: OperationPtr) (opCode : OpInfo)
+    (newProps : HasOpInfo.propertiesOf opCode)
+    (opIn : op.InBounds rewriter.ctx.raw := by grind)
+    (hprop : op.getOpType! rewriter.ctx.raw = opCode := by grind)
+    : PatternRewriter OpInfo :=
+  { rewriter with
+    ctx := WfRewriter.setProperties rewriter.ctx op newProps (by grind) (by grind),
+    hasDoneAction := true,
+    worklist := rewriter.worklist.push op,
+  }
+
+/--
+Set the properties of an operation in place, panicking if the operation is out of bounds, or if
+the property types don't match.
+-/
+def setProperties! (rewriter: PatternRewriter OpInfo) (op: OperationPtr) (opCode : OpInfo)
+    (newProps : HasOpInfo.propertiesOf opCode) : PatternRewriter OpInfo :=
+  if opIn : op.InBounds rewriter.ctx.raw then
+    if hprop : op.getOpType! rewriter.ctx.raw = opCode then
+      rewriter.setProperties op opCode newProps opIn hprop
+    else
+      panic! "PatternRewriter.setProperties! failed: property types don't match"
+  else
+    panic! "PatternRewriter.setProperties! failed: operation is out of bounds"
+
+/--
 Walk a use chain and check that at most one operation besides `exceptOp` uses
 the value: uses owned by `exceptOp` are ignored, and multiple uses from a
 single other operation count as one user. An out-of-bounds use reads as the
