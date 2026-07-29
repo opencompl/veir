@@ -38,11 +38,8 @@ def Attribute.branchArgCompatible (opTy argTy : Attribute) : Bool :=
   | _, _ => decide (opTy = argTy)
 
 /--
-  Whether `attr` is definitely a non-zero initializer, the negation of MLIR's
-  `isZeroAttribute`. Only the attribute kinds VeIR models precisely are decided:
-  dense elements attributes are carried around unparsed, so a dense zero splat
-  answers `false` here rather than risking a spurious rejection of valid IR.
-  Note that `-0.0` counts as zero, matching MLIR.
+  Whether `attr` is *definitely* a non-zero initializer. TODO: This
+  does not yet completely match MLIR's behavior.
 -/
 def Attribute.isKnownNonZero (attr : Attribute) : Bool :=
   match attr with
