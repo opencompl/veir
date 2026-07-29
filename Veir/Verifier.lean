@@ -38,6 +38,25 @@ def Attribute.branchArgCompatible (opTy argTy : Attribute) : Bool :=
   | _, _ => decide (opTy = argTy)
 
 /--
+  Whether `attr` is definitely a non-zero initializer, the negation of MLIR's
+  `isZeroAttribute`. Only the attribute kinds VeIR models precisely are decided:
+  dense elements attributes are carried around unparsed, so a dense zero splat
+  answers `false` here rather than risking a spurious rejection of valid IR.
+  Note that `-0.0` counts as zero, matching MLIR.
+-/
+def Attribute.isKnownNonZero (attr : Attribute) : Bool :=
+  match attr with
+  | .integerAttr intAttr => intAttr.value != 0
+  | .floatAttr fltAttr => fltAttr.value != 0.0
+  | _ => false
+
+/--
+  Whether `n` is a valid alignment: a strictly positive power of two.
+-/
+def isValidLLVMAlignment (n : Int) : Bool :=
+  decide (0 < n) && (n.toNat &&& (n.toNat - 1)) == 0
+
+/--
   Check that a `func.return` returns the declared result types of its
   enclosing `func.func`.
 -/
@@ -670,8 +689,19 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     if let some alignment := properties.alignment then
       if alignment.type.bitwidth ≠ 64 then
         throw "'alignment' must be a 64-bit signless integer attribute"
+      if !isValidLLVMAlignment alignment.value then
+        throw "alignment attribute is not a power of 2"
     if properties.addr_space.type.bitwidth ≠ 32 then
       throw "'addr_space' must be a 32-bit signless integer attribute"
+    -- A global is initialized either by the `value` attribute or by the body
+    -- region, never both. An empty body with no `value` is a declaration, which
+    -- is legal for every linkage.
+    if let some value := properties.value then
+      let body := (op.getRegion! ctx.raw 0).get! ctx.raw
+      if body.firstBlock.isSome then
+        throw "cannot have both initializer value and region"
+      if properties.linkage.value == "common" && value.isKnownNonZero then
+        throw "expected zero value for 'common' linkage"
     pure ()
   | .llvm .mlir__addressof => do
     op.verifyPlainOpCounts ctx opIn 0 1
