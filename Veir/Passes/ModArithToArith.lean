@@ -130,7 +130,7 @@ def emitBarrettReduction (rewriter : PatternRewriter OpCode) (r : ValuePtr) (mod
   let (rewriter, sh) ← emitArithConstant rewriter shift bw ip
 
 
-  -- reduced := (r * m) >> shift // (r * m) should be at most 2^(2*width) - 1, so we can safely truncate to width bits after the shift
+  -- reduced := (r * m) >> shift // (r * m) should be at most 2^(2*bw) - 1, so we can safely truncate to width bits after the shift
   let (rewriter, product) ← rewriter.createOp! (.arith .muli)
     #[ty] #[r, m] #[] #[] { attr := { nsw := false, nuw := true } } (some ip)
   let (rewriter, reduced) ← rewriter.createOp! (.arith .shrui)
