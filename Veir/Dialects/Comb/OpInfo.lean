@@ -40,6 +40,26 @@ match op with
 | .icmp => CombIcmpProperties
 | _ => Unit
 
+def Comb.fromAttrDict
+    (op : Comb) (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String (Comb.propertiesOf op) := by
+  cases op
+  case extract => exact CombExtractProperties.fromAttrDict attrDict
+  case icmp => exact CombIcmpProperties.fromAttrDict attrDict
+  all_goals exact .ok ()
+
+def Comb.toAttrDict
+    (op : Comb) (props : Comb.propertiesOf op) :
+    Std.HashMap ByteArray Attribute :=
+  match op with
+  | .extract =>
+    (Std.HashMap.emptyWithCapacity 1).insert
+      "lowBit".toUTF8 (Attribute.integerAttr props.lowBit)
+  | .icmp =>
+    (Std.HashMap.emptyWithCapacity 1).insert
+      "predicate".toUTF8 (Attribute.integerAttr props.predicate)
+  | _ => Std.HashMap.emptyWithCapacity 0
+
 def Comb.hasSideEffects (_op : Comb) (_props : Comb.propertiesOf _op) : Bool :=
   false
 
@@ -54,6 +74,8 @@ def Comb.hasSSADominance (_op : Comb) (_index : Nat) : Bool :=
 
 instance : HasDialectOpInfo Comb where
   propertiesOf := Comb.propertiesOf
+  fromAttrDict := Comb.fromAttrDict
+  toAttrDict := Comb.toAttrDict
   hasSideEffects := Comb.hasSideEffects
   readsMemory := Comb.readsMemory
   isConstantLike := Comb.isConstantLike

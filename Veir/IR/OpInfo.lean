@@ -1,5 +1,8 @@
 module
 
+public import Veir.IR.Attribute
+public import Std.Data.HashMap
+
 namespace Veir
 
 public section
@@ -7,6 +10,11 @@ public section
 class HasDialectOpInfo (opCode: Type)
     extends Hashable opCode, Repr opCode, Inhabited opCode where
   propertiesOf : opCode → Type
+  /-- Create an operation's properties from its attribute dictionary. -/
+  fromAttrDict : (op : opCode) → Std.HashMap ByteArray Attribute →
+    Except String (propertiesOf op)
+  /-- Convert an operation's properties into an attribute dictionary. -/
+  toAttrDict : (op : opCode) → propertiesOf op → Std.HashMap ByteArray Attribute
   propertiesHash {op : opCode} : Hashable (propertiesOf op) := by
     simp only [properties_of]
     intros opCode; cases opCode <;>

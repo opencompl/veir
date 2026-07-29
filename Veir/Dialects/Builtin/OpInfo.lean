@@ -22,6 +22,20 @@ match op with
 | .unregistered => UnregisteredProperties
 | _ => Unit
 
+def Builtin.fromAttrDict
+    (op : Builtin) (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String (Builtin.propertiesOf op) := by
+  cases op
+  case unregistered => exact UnregisteredProperties.fromAttrDict attrDict
+  all_goals exact .ok ()
+
+def Builtin.toAttrDict
+    (op : Builtin) (props : Builtin.propertiesOf op) :
+    Std.HashMap ByteArray Attribute :=
+  match op with
+  | .unregistered => Std.HashMap.ofList props.properties.entries.toList
+  | _ => Std.HashMap.emptyWithCapacity 0
+
 def Builtin.hasSideEffects (op : Builtin) (_props : Builtin.propertiesOf op) : Bool :=
   match op with
   | .unrealized_conversion_cast => false
@@ -40,6 +54,8 @@ def Builtin.hasSSADominance (op : Builtin) (_index : Nat) : Bool :=
 
 instance : HasDialectOpInfo Builtin where
   propertiesOf := Builtin.propertiesOf
+  fromAttrDict := Builtin.fromAttrDict
+  toAttrDict := Builtin.toAttrDict
   hasSideEffects := Builtin.hasSideEffects
   readsMemory := Builtin.readsMemory
   isConstantLike := Builtin.isConstantLike

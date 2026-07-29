@@ -19,6 +19,16 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 def Datapath.propertiesOf (_op : Datapath) : Type :=
   Unit
 
+def Datapath.fromAttrDict
+    (_op : Datapath) (_attrDict : Std.HashMap ByteArray Attribute) :
+    Except String (Datapath.propertiesOf _op) :=
+  .ok ()
+
+def Datapath.toAttrDict
+    (_op : Datapath) (_props : Datapath.propertiesOf _op) :
+    Std.HashMap ByteArray Attribute :=
+  Std.HashMap.emptyWithCapacity 0
+
 def Datapath.hasSideEffects
     (_op : Datapath) (_props : Datapath.propertiesOf _op) : Bool :=
   false
@@ -34,6 +44,8 @@ def Datapath.hasSSADominance (_op : Datapath) (_index : Nat) : Bool :=
 
 instance : HasDialectOpInfo Datapath where
   propertiesOf := Datapath.propertiesOf
+  fromAttrDict := Datapath.fromAttrDict
+  toAttrDict := Datapath.toAttrDict
   hasSideEffects := Datapath.hasSideEffects
   readsMemory := Datapath.readsMemory
   isConstantLike := Datapath.isConstantLike

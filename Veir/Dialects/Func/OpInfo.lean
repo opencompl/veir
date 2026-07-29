@@ -23,6 +23,31 @@ match op with
 | .call => FuncCallProperties
 | _ => Unit
 
+def Func.fromAttrDict
+    (op : Func) (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String (Func.propertiesOf op) := by
+  cases op
+  case func => exact FuncFuncProperties.fromAttrDict attrDict
+  case call => exact FuncCallProperties.fromAttrDict attrDict
+  all_goals exact .ok ()
+
+def Func.toAttrDict
+    (op : Func) (props : Func.propertiesOf op) :
+    Std.HashMap ByteArray Attribute :=
+  match op with
+  | .call => Id.run do
+    let mut dict := Std.HashMap.ofList props.extra.entries.toList
+    dict := dict.insert "callee".toUTF8 (.flatSymbolRefAttr props.callee)
+    dict
+  | .func => Id.run do
+    let mut dict := Std.HashMap.ofList props.extra.entries.toList
+    if let some sym_name := props.sym_name then
+      dict := dict.insert "sym_name".toUTF8 (.stringAttr sym_name)
+    if let some function_type := props.function_type then
+      dict := dict.insert "function_type".toUTF8 function_type
+    dict
+  | _ => Std.HashMap.emptyWithCapacity 0
+
 def Func.hasSideEffects (_op : Func) (_props : Func.propertiesOf _op) : Bool :=
   true
 
@@ -37,6 +62,8 @@ def Func.hasSSADominance (_op : Func) (_index : Nat) : Bool :=
 
 instance : HasDialectOpInfo Func where
   propertiesOf := Func.propertiesOf
+  fromAttrDict := Func.fromAttrDict
+  toAttrDict := Func.toAttrDict
   hasSideEffects := Func.hasSideEffects
   readsMemory := Func.readsMemory
   isConstantLike := Func.isConstantLike

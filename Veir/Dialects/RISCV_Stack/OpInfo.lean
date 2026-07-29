@@ -19,6 +19,21 @@ def Riscv_Stack.propertiesOf (op : Riscv_Stack) : Type :=
 match op with
 | .alloca => RISCVStackAllocaProperties
 
+def Riscv_Stack.fromAttrDict
+    (op : Riscv_Stack) (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String (Riscv_Stack.propertiesOf op) := by
+  cases op
+  exact RISCVStackAllocaProperties.fromAttrDict attrDict
+
+def Riscv_Stack.toAttrDict
+    (op : Riscv_Stack) (props : Riscv_Stack.propertiesOf op) :
+    Std.HashMap ByteArray Attribute :=
+  match op with
+  | .alloca => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 2
+    dict := dict.insert "size".toUTF8 (Attribute.integerAttr props.size)
+    dict.insert "alignment".toUTF8 (Attribute.integerAttr props.alignment)
+
 def Riscv_Stack.hasSideEffects
     (_op : Riscv_Stack) (_props : Riscv_Stack.propertiesOf _op) : Bool :=
   true
@@ -34,6 +49,8 @@ def Riscv_Stack.hasSSADominance (_op : Riscv_Stack) (_index : Nat) : Bool :=
 
 instance : HasDialectOpInfo Riscv_Stack where
   propertiesOf := Riscv_Stack.propertiesOf
+  fromAttrDict := Riscv_Stack.fromAttrDict
+  toAttrDict := Riscv_Stack.toAttrDict
   hasSideEffects := Riscv_Stack.hasSideEffects
   readsMemory := Riscv_Stack.readsMemory
   isConstantLike := Riscv_Stack.isConstantLike

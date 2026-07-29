@@ -35,6 +35,24 @@ match op with
 | .bnez => RISCVBrProperties
 | _ => Unit
 
+def Riscv_Cf.fromAttrDict
+    (op : Riscv_Cf) (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String (Riscv_Cf.propertiesOf op) := by
+  cases op
+  case beq | bne | blt | bge | bltu | bgeu | beqz | bnez =>
+    exact RISCVBrProperties.fromAttrDict attrDict
+  all_goals exact .ok ()
+
+def Riscv_Cf.toAttrDict
+    (op : Riscv_Cf) (props : Riscv_Cf.propertiesOf op) :
+    Std.HashMap ByteArray Attribute :=
+  match op with
+  | .beq | .bne | .blt | .bge | .bltu | .bgeu | .beqz | .bnez =>
+    (Std.HashMap.emptyWithCapacity 1).insert
+      "operandSegmentSizes".toUTF8
+      (Attribute.denseArrayAttr props.operandSegmentSizes)
+  | _ => Std.HashMap.emptyWithCapacity 0
+
 def Riscv_Cf.hasSideEffects
     (_op : Riscv_Cf) (_props : Riscv_Cf.propertiesOf _op) : Bool :=
   true
@@ -50,6 +68,8 @@ def Riscv_Cf.hasSSADominance (_op : Riscv_Cf) (_index : Nat) : Bool :=
 
 instance : HasDialectOpInfo Riscv_Cf where
   propertiesOf := Riscv_Cf.propertiesOf
+  fromAttrDict := Riscv_Cf.fromAttrDict
+  toAttrDict := Riscv_Cf.toAttrDict
   hasSideEffects := Riscv_Cf.hasSideEffects
   readsMemory := Riscv_Cf.readsMemory
   isConstantLike := Riscv_Cf.isConstantLike

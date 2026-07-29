@@ -23,6 +23,30 @@ match op with
 | .module => HWModuleProperties
 | _ => Unit
 
+def HW.fromAttrDict
+    (op : HW) (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String (HW.propertiesOf op) := by
+  cases op
+  case constant => exact HWConstantProperties.fromAttrDict attrDict
+  case module => exact HWModuleProperties.fromAttrDict attrDict
+  all_goals exact .ok ()
+
+def HW.toAttrDict
+    (op : HW) (props : HW.propertiesOf op) :
+    Std.HashMap ByteArray Attribute :=
+  match op with
+  | .constant =>
+    (Std.HashMap.emptyWithCapacity 1).insert
+      "value".toUTF8 (Attribute.integerAttr props.value)
+  | .module => Id.run do
+    let dict := Std.HashMap.emptyWithCapacity 4
+    let dict := dict.insert "module_type".toUTF8 (.hwModuleType props.module_type)
+    let dict := dict.insert "sym_name".toUTF8 (.stringAttr props.sym_name)
+    let dict := dict.insert "per_port_attrs".toUTF8 (.arrayAttr props.per_port_attrs)
+    let dict := dict.insert "parameters".toUTF8 (.arrayAttr props.parameters)
+    dict
+  | _ => Std.HashMap.emptyWithCapacity 0
+
 def HW.hasSideEffects (op : HW) (_props : HW.propertiesOf op) : Bool :=
   match op with
   | .constant => false
@@ -41,6 +65,8 @@ def HW.hasSSADominance (_op : HW) (_index : Nat) : Bool :=
 
 instance : HasDialectOpInfo HW where
   propertiesOf := HW.propertiesOf
+  fromAttrDict := HW.fromAttrDict
+  toAttrDict := HW.toAttrDict
   hasSideEffects := HW.hasSideEffects
   readsMemory := HW.readsMemory
   isConstantLike := HW.isConstantLike
