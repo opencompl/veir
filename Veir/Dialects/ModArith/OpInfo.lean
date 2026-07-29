@@ -27,6 +27,10 @@ def Mod_Arith.hasSideEffects
     (_op : Mod_Arith) (_props : Mod_Arith.propertiesOf _op) : Bool :=
   false
 
+def Mod_Arith.readsMemory (_op : Mod_Arith) : Bool :=
+  false
+
 instance : HasDialectOpInfo Mod_Arith where
   propertiesOf := Mod_Arith.propertiesOf
   hasSideEffects := Mod_Arith.hasSideEffects
+  readsMemory := Mod_Arith.readsMemory

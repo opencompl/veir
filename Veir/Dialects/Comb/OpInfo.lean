@@ -43,9 +43,13 @@ match op with
 def Comb.hasSideEffects (_op : Comb) (_props : Comb.propertiesOf _op) : Bool :=
   false
 
+def Comb.readsMemory (_op : Comb) : Bool :=
+  false
+
 instance : HasDialectOpInfo Comb where
   propertiesOf := Comb.propertiesOf
   hasSideEffects := Comb.hasSideEffects
+  readsMemory := Comb.readsMemory
 
 end
 

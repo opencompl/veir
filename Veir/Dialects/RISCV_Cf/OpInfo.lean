@@ -39,9 +39,13 @@ def Riscv_Cf.hasSideEffects
     (_op : Riscv_Cf) (_props : Riscv_Cf.propertiesOf _op) : Bool :=
   true
 
+def Riscv_Cf.readsMemory (_op : Riscv_Cf) : Bool :=
+  false
+
 instance : HasDialectOpInfo Riscv_Cf where
   propertiesOf := Riscv_Cf.propertiesOf
   hasSideEffects := Riscv_Cf.hasSideEffects
+  readsMemory := Riscv_Cf.readsMemory
 
 end
 

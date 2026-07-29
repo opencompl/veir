@@ -27,9 +27,13 @@ def Builtin.hasSideEffects (op : Builtin) (_props : Builtin.propertiesOf op) : B
   | .unrealized_conversion_cast => false
   | _ => true
 
+def Builtin.readsMemory (_op : Builtin) : Bool :=
+  false
+
 instance : HasDialectOpInfo Builtin where
   propertiesOf := Builtin.propertiesOf
   hasSideEffects := Builtin.hasSideEffects
+  readsMemory := Builtin.readsMemory
 
 end
 

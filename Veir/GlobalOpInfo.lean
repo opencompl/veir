@@ -64,11 +64,20 @@ def OpCode.isTerminator (opCode : OpCode) : Bool :=
 -/
 def OpCode.readsMemory (opCode : OpCode) : Bool :=
   match opCode with
-  | .llvm .load
-  | .riscv .ld | .riscv .lw | .riscv .lwu
-  | .riscv .lh | .riscv .lhu
-  | .riscv .lb | .riscv .lbu => true
-  | _ => false
+  | .arith op => Arith.readsMemory op
+  | .llvm op => Llvm.readsMemory op
+  | .riscv op => Riscv.readsMemory op
+  | .riscv_cf op => Riscv_Cf.readsMemory op
+  | .riscv_stack op => Riscv_Stack.readsMemory op
+  | .rv64 op => Rv64.readsMemory op
+  | .mod_arith op => Mod_Arith.readsMemory op
+  | .cf op => Cf.readsMemory op
+  | .comb op => Comb.readsMemory op
+  | .hw op => HW.readsMemory op
+  | .builtin op => Builtin.readsMemory op
+  | .func op => Func.readsMemory op
+  | .datapath op => Datapath.readsMemory op
+  | .test op => Test.readsMemory op
 
 /--
   Does an operation with this opcode and these properties have effects that
@@ -102,6 +111,7 @@ def OpCode.hasSideEffects (opCode : OpCode) (props : _propertiesOf opCode) : Boo
 instance : HasDialectOpInfo OpCode where
   propertiesOf := _propertiesOf
   hasSideEffects := OpCode.hasSideEffects
+  readsMemory := OpCode.readsMemory
 
 inductive RegionKind where
 | SSACFG
@@ -138,7 +148,6 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | _ => false
 
 instance : HasOpInfo OpCode where
-  readsMemory := OpCode.readsMemory
   isConstantLike := OpCode.isConstantLike
   hasSSADominance opCode index := opCode.getRegionKind index == .SSACFG
 

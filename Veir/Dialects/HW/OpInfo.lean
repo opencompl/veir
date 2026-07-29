@@ -28,9 +28,13 @@ def HW.hasSideEffects (op : HW) (_props : HW.propertiesOf op) : Bool :=
   | .constant => false
   | _ => true
 
+def HW.readsMemory (_op : HW) : Bool :=
+  false
+
 instance : HasDialectOpInfo HW where
   propertiesOf := HW.propertiesOf
   hasSideEffects := HW.hasSideEffects
+  readsMemory := HW.readsMemory
 
 end
 

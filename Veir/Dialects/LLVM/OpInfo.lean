@@ -124,9 +124,15 @@ def Llvm.hasSideEffects (op : Llvm) (props : Llvm.propertiesOf op) : Bool :=
   -- For everything else: be conservative!
   | _, _ => true
 
+def Llvm.readsMemory (op : Llvm) : Bool :=
+  match op with
+  | .load => true
+  | _ => false
+
 instance : HasDialectOpInfo Llvm where
   propertiesOf := Llvm.propertiesOf
   hasSideEffects := Llvm.hasSideEffects
+  readsMemory := Llvm.readsMemory
 
 end
 

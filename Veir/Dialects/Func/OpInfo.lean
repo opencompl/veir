@@ -26,9 +26,13 @@ match op with
 def Func.hasSideEffects (_op : Func) (_props : Func.propertiesOf _op) : Bool :=
   true
 
+def Func.readsMemory (_op : Func) : Bool :=
+  false
+
 instance : HasDialectOpInfo Func where
   propertiesOf := Func.propertiesOf
   hasSideEffects := Func.hasSideEffects
+  readsMemory := Func.readsMemory
 
 end
 

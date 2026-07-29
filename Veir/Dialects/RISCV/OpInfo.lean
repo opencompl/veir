@@ -210,9 +210,17 @@ def Riscv.hasSideEffects (op : Riscv) (props : Riscv.propertiesOf op) : Bool :=
     -- For everything else: be conservative!
     | _ => true
 
+def Riscv.readsMemory (op : Riscv) : Bool :=
+  match op with
+  | .ld | .lw | .lwu
+  | .lh | .lhu
+  | .lb | .lbu => true
+  | _ => false
+
 instance : HasDialectOpInfo Riscv where
   propertiesOf := Riscv.propertiesOf
   hasSideEffects := Riscv.hasSideEffects
+  readsMemory := Riscv.readsMemory
 
 end
 
