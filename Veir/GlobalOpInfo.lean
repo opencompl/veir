@@ -357,7 +357,8 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     let mut dict := Std.HashMap.ofList props.extra.entries.toList
     dict := dict.insert "sym_name".toUTF8 (.stringAttr props.sym_name)
     dict := dict.insert "global_type".toUTF8 props.global_type
-    dict := dict.insert "alignment".toUTF8 (.integerAttr props.alignment)
+    if let some alignment := props.alignment then
+      dict := dict.insert "alignment".toUTF8 (.integerAttr alignment)
     dict := dict.insert "addr_space".toUTF8 (.integerAttr props.addr_space)
     dict := dict.insert "linkage".toUTF8 (.linkageAttr props.linkage)
     if let some value := props.value then

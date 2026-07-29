@@ -177,12 +177,18 @@ def LLVMConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
   Properties of `llvm.mlir.global`. The properties needed to identify and lay
   out the global are modelled explicitly; less common LLVM global properties
   are preserved verbatim in `extra`.
+
+  `alignment` is genuinely optional in MLIR (an absent alignment means "use the
+  target's preferred alignment", which is not the same as any particular value),
+  so it is modelled as an `Option` and omitted again when printing. `addr_space`
+  instead has a default of `0 : i32`, which MLIR materializes on parse, so it is
+  always present here.
 -/
 structure LLVMGlobalProperties where
   sym_name : StringAttr
   global_type : TypeAttr
   value : Option Attribute
-  alignment : IntegerAttr
+  alignment : Option IntegerAttr
   addr_space : IntegerAttr
   linkage : LinkageAttr
   constant : Bool
@@ -204,15 +210,15 @@ def LLVMGlobalProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribut
         pure attr.asType
     | none => throw "llvm.mlir.global: missing 'global_type' property"
   let alignment ← match attrDict["alignment".toUTF8]? with
-    | some (.integerAttr attr) => pure attr
+    | some (.integerAttr attr) => pure (some attr)
     | some attr =>
       throw s!"llvm.mlir.global: expected 'alignment' to be an integer attribute, but got {attr}"
-    | none => throw "llvm.mlir.global: missing 'alignment' property"
+    | none => pure none
   let addrSpace ← match attrDict["addr_space".toUTF8]? with
     | some (.integerAttr attr) => pure attr
     | some attr =>
       throw s!"llvm.mlir.global: expected 'addr_space' to be an integer attribute, but got {attr}"
-    | none => throw "llvm.mlir.global: missing 'addr_space' property"
+    | none => pure { value := 0, type := { bitwidth := 32 } }
   let linkage ← match attrDict["linkage".toUTF8]? with
     | some (.linkageAttr attr) => pure attr
     | some attr =>

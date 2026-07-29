@@ -667,8 +667,9 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     let properties := op.getProperties! ctx.raw (.llvm .mlir__global)
-    if properties.alignment.type.bitwidth ≠ 64 then
-      throw "'alignment' must be a 64-bit signless integer attribute"
+    if let some alignment := properties.alignment then
+      if alignment.type.bitwidth ≠ 64 then
+        throw "'alignment' must be a 64-bit signless integer attribute"
     if properties.addr_space.type.bitwidth ≠ 32 then
       throw "'addr_space' must be a 32-bit signless integer attribute"
     pure ()
