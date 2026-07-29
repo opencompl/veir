@@ -46,8 +46,10 @@ def Mod_Arith.hasSideEffects
 def Mod_Arith.readsMemory (_op : Mod_Arith) : Bool :=
   false
 
-def Mod_Arith.isConstantLike (_op : Mod_Arith) : Bool :=
-  false
+def Mod_Arith.isConstantLike (op : Mod_Arith) : Bool :=
+  match op with
+  | .constant => true
+  | _ => false
 
 def Mod_Arith.hasSSADominance (_op : Mod_Arith) (_index : Nat) : Bool :=
   true
