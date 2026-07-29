@@ -53,6 +53,8 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
 def passGroups : Std.HashMap String String :=
   (Std.HashMap.emptyWithCapacity 2)
     |>.insert "O" "canonicalize,instcombine,cse,dce"
+    |>.insert "mod-arith"
+        "mod-arith-to-arith,cse,coerce-mod-arith-function-boundaries,reconcile-cast,canonicalize,remui-to-barrett-reduction,canonicalize,cse,dce"
     |>.insert "riscv"
         "isel-sdag-riscv64,isel-br-riscv64,isel-riscv64,coerce-function-boundaries-to-riscv-reg,reconcile-cast,riscv-combine,dce"
 
