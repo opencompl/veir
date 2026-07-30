@@ -480,11 +480,6 @@ private def validateFoldDecision (resultTypes : Array TypeAttr)
   Query whether an operation folds, given its result types and the values of
   its constant-defined operands (`constOperands[i] = some rv` iff operand `i`
   is defined by a constant-like operation with value `rv`).
-
-  The per-dialect fold table is consulted first because its refinement folds
-  can be stronger than direct evaluation in the presence of poison. If the
-  table does not fold, an evaluable operation with all operands known is
-  interpreted directly.
 -/
 def OpCode.foldsTo (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue)) :

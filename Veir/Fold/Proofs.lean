@@ -4,11 +4,9 @@ public import Veir.Data.LLVM.Int.Basic
 public import Veir.Data.LLVM.Byte.Basic
 public import Veir.Data.RISCV.Reg.Basic
 public import Veir.Data.Refinement
-public import Veir.Fold
-public import Veir.IR.Attribute
 
 import Veir.Meta.BVDecide
-import Veir.Interpreter.Refinement.Basic
+import Veir.IR.Attribute
 import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.LLVM.Int.Bitblast
 import all Veir.Data.LLVM.Byte.Basic
@@ -108,49 +106,35 @@ theorem udiv_one (x : LLVM.Int 8) (exact : Bool) :
     LLVM.Int.udiv x (LLVM.Int.constant 8 1) exact ⊒ x := by
   veir_bv_decide
 
-/-- i8 value semantics of `arith.ceildivui`, used only by these standalone proofs. -/
-def ceildivui (a b : LLVM.Int 8) : LLVM.Int 8 :=
-  let zero := LLVM.Int.constant 8 0
-  let one := LLVM.Int.constant 8 1
-  let isZero := LLVM.Int.icmp a zero .eq
-  let quotient := LLVM.Int.udiv (LLVM.Int.sub a one) b
-  LLVM.Int.select isZero zero (LLVM.Int.add quotient one)
-
 theorem ceildivui_one (x : LLVM.Int 8) :
-    ceildivui x (LLVM.Int.constant 8 1) ⊒ x := by
-  simp only [ceildivui]
+    (let zero := LLVM.Int.constant 8 0
+     let one := LLVM.Int.constant 8 1
+     let isZero := LLVM.Int.icmp x zero .eq
+     let quotient := LLVM.Int.udiv (LLVM.Int.sub x one) one
+     LLVM.Int.select isZero zero (LLVM.Int.add quotient one)) ⊒ x := by
   veir_bv_decide
-
-/-- i8 value semantics of `arith.ceildivsi`, used only by these standalone proofs. -/
-def ceildivsi (a b : LLVM.Int 8) : LLVM.Int 8 :=
-  let zero := LLVM.Int.constant 8 0
-  let one := LLVM.Int.constant 8 1
-  let z := LLVM.Int.sdiv a b
-  let notExact := LLVM.Int.icmp a (LLVM.Int.mul z b) .ne
-  let signEqual :=
-    LLVM.Int.icmp (LLVM.Int.icmp a zero .slt) (LLVM.Int.icmp b zero .slt) .eq
-  let cond := LLVM.Int.and notExact signEqual
-  LLVM.Int.select cond (LLVM.Int.add z one) z
 
 theorem ceildivsi_one (x : LLVM.Int 8) :
-    ceildivsi x (LLVM.Int.constant 8 1) ⊒ x := by
-  simp only [ceildivsi]
+    (let zero := LLVM.Int.constant 8 0
+     let one := LLVM.Int.constant 8 1
+     let z := LLVM.Int.sdiv x one
+     let notExact := LLVM.Int.icmp x (LLVM.Int.mul z one) .ne
+     let signEqual :=
+       LLVM.Int.icmp (LLVM.Int.icmp x zero .slt) (LLVM.Int.icmp one zero .slt) .eq
+     let cond := LLVM.Int.and notExact signEqual
+     LLVM.Int.select cond (LLVM.Int.add z one) z) ⊒ x := by
   veir_bv_decide
 
-/-- i8 value semantics of `arith.floordivsi`, used only by these standalone proofs. -/
-def floordivsi (a b : LLVM.Int 8) : LLVM.Int 8 :=
-  let zero := LLVM.Int.constant 8 0
-  let negOne := LLVM.Int.constant 8 (-1)
-  let z := LLVM.Int.sdiv a b
-  let notExact := LLVM.Int.icmp a (LLVM.Int.mul z b) .ne
-  let signOpposite :=
-    LLVM.Int.icmp (LLVM.Int.icmp a zero .slt) (LLVM.Int.icmp b zero .slt) .ne
-  let cond := LLVM.Int.and notExact signOpposite
-  LLVM.Int.select cond (LLVM.Int.add z negOne) z
-
 theorem floordivsi_one (x : LLVM.Int 8) :
-    floordivsi x (LLVM.Int.constant 8 1) ⊒ x := by
-  simp only [floordivsi]
+    (let zero := LLVM.Int.constant 8 0
+     let one := LLVM.Int.constant 8 1
+     let negOne := LLVM.Int.constant 8 (-1)
+     let z := LLVM.Int.sdiv x one
+     let notExact := LLVM.Int.icmp x (LLVM.Int.mul z one) .ne
+     let signOpposite :=
+       LLVM.Int.icmp (LLVM.Int.icmp x zero .slt) (LLVM.Int.icmp one zero .slt) .ne
+     let cond := LLVM.Int.and notExact signOpposite
+     LLVM.Int.select cond (LLVM.Int.add z negOne) z) ⊒ x := by
   veir_bv_decide
 
 theorem srem_zero (x : LLVM.Int 8) :
@@ -259,34 +243,37 @@ end Byte
 
 namespace GenericSelect
 
-/--
-  Type-polymorphic select semantics used for the table cases whose selected
-  values are not integers. `none` represents a poison result.
--/
-def select (c : LLVM.Int 1) (x y : α) : Option α :=
-  match c with
-  | .poison => none
-  | .val c => some (if c = 1 then x else y)
-
-/-- A poison result may be refined by any concrete selected value. -/
-def refines (source : Option α) (target : α) : Prop :=
-  source = none ∨ source = some target
-
 theorem select_true (x y : α) :
-    refines (select (LLVM.Int.constant 1 1) x y) x := by
-  simp [select, refines, LLVM.Int.constant]
+    (let source :=
+       match LLVM.Int.constant 1 1 with
+       | .poison => none
+       | .val c => some (if c = 1 then x else y)
+     source = none ∨ source = some x) := by
+  simp [LLVM.Int.constant]
 
 theorem select_false (x y : α) :
-    refines (select (LLVM.Int.constant 1 0) x y) y := by
-  simp [select, refines, LLVM.Int.constant]
+    (let source :=
+       match LLVM.Int.constant 1 0 with
+       | .poison => none
+       | .val c => some (if c = 1 then x else y)
+     source = none ∨ source = some y) := by
+  simp [LLVM.Int.constant]
 
 theorem select_equal (c : LLVM.Int 1) (x : α) :
-    refines (select c x x) x := by
-  cases c <;> simp [select, refines]
+    (let source :=
+       match c with
+       | .poison => none
+       | .val c => some (if c = 1 then x else x)
+     source = none ∨ source = some x) := by
+  cases c <;> simp
 
 theorem select_equal_float_bits (c : LLVM.Int 1) (x y : Float)
     (h : x.toBits = y.toBits) :
-    refines (select c x y) x := by
+    (let source :=
+       match c with
+       | .poison => none
+       | .val c => some (if c = 1 then x else y)
+     source = none ∨ source = some x) := by
   have : x = y := floatEqOfToBitsEq h
   subst y
   exact select_equal c x
@@ -394,35 +381,29 @@ end Riscv
 
 namespace ModArith
 
-/--
-  The interpreter's i8 modular multiplication semantics. The modulus remains
-  general because the fold accepts every positive modulus that fits the
-  storage type.
--/
-def mulMod (modulus : Nat) (x y : LLVM.Int 8) : LLVM.Int 8 :=
-  match x.toNat?, y.toNat? with
-  | some x, some y => LLVM.Int.constant 8 ((x * y) % modulus)
-  | _, _ => LLVM.Int.poison
-
 theorem mul_zero_residue_rhs (modulus : Nat)
     (x : LLVM.Int 8) (c : BitVec 8) (h : c.toNat % modulus = 0) :
-    mulMod modulus x (.val c) ⊒ LLVM.Int.constant 8 0 := by
+    (match x.toNat?, (LLVM.Int.val c).toNat? with
+     | some x, some y => LLVM.Int.constant 8 ((x * y) % modulus)
+     | _, _ => LLVM.Int.poison) ⊒ LLVM.Int.constant 8 0 := by
   cases x with
-  | poison => simp [mulMod, LLVM.Int.toNat?, isRefinedBy]
+  | poison => simp [LLVM.Int.toNat?, isRefinedBy]
   | val x =>
     obtain ⟨k, hk⟩ := Nat.dvd_of_mod_eq_zero h
-    simp [mulMod, LLVM.Int.toNat?, LLVM.Int.constant, isRefinedBy, hk]
+    simp [LLVM.Int.toNat?, LLVM.Int.constant, isRefinedBy, hk]
     rw [Int.mul_emod]
     simp
 
 theorem mul_zero_residue_lhs (modulus : Nat)
     (c : BitVec 8) (x : LLVM.Int 8) (h : c.toNat % modulus = 0) :
-    mulMod modulus (.val c) x ⊒ LLVM.Int.constant 8 0 := by
+    (match (LLVM.Int.val c).toNat?, x.toNat? with
+     | some x, some y => LLVM.Int.constant 8 ((x * y) % modulus)
+     | _, _ => LLVM.Int.poison) ⊒ LLVM.Int.constant 8 0 := by
   cases x with
-  | poison => simp [mulMod, LLVM.Int.toNat?, isRefinedBy]
+  | poison => simp [LLVM.Int.toNat?, isRefinedBy]
   | val x =>
     obtain ⟨k, hk⟩ := Nat.dvd_of_mod_eq_zero h
-    simp [mulMod, LLVM.Int.toNat?, LLVM.Int.constant, isRefinedBy, hk]
+    simp [LLVM.Int.toNat?, LLVM.Int.constant, isRefinedBy, hk]
     rw [Int.mul_emod]
     simp
 
