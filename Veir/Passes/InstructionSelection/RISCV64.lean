@@ -891,9 +891,12 @@ def alloca_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if ¬ isInEntryBlock op ctx.raw then return (ctx, none)
   /- `riscv_stack.alloca` takes no operands, so the element count must be a constant. -/
   let some countAttr := matchConstantIntVal count ctx.raw | return (ctx, none)
-  if countAttr.value < 0 then return (ctx, none)
+  let .integerType countType := (count.getType! ctx.raw).val | return (ctx, none)
+  /- Interpret the literal through the SSA value's width. The constant attribute may have
+     a different width (e.g. `256 : i64` producing `i8`), and alloca counts are unsigned. -/
+  let count := (BitVec.ofInt countType.bitwidth countAttr.value).toNat
   let some elemSize := Attribute.sizeOfType properties.elem_type.val | return (ctx, none)
-  let size := elemSize * countAttr.value.toNat
+  let size := elemSize * count
   /- The slot size is a signed `i64` attribute, so bail on counts that overflow it. -/
   if 2 ^ 63 ≤ size then return (ctx, none)
   let some alignment := selectAllocaAlignment properties | return (ctx, none)
