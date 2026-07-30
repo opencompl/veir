@@ -14,7 +14,7 @@ import Veir.Data.HW.Basic
 import Veir.Data.Casting
 import Veir.GlobalOpInfo
 import Veir.Interfaces.FunctionInterfaces
-import Veir.Interfaces.DataLayoutInterfaces
+import Veir.DataLayout.RISCV64
 
 public section
 

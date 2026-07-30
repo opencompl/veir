@@ -1,4 +1,4 @@
-import Veir.Interfaces.DataLayoutInterfaces
+import Veir.DataLayout.RISCV64
 
 /-! Tests for fixed RV64 data-layout queries. -/
 
