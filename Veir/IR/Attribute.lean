@@ -1111,18 +1111,6 @@ def bitwidthOfType (type : Attribute) : Option Nat :=
   | .llvmPointerType _ => some 64
   | _ => none
 
-/--
-  Returns the size, in bytes, that an LLVM type would use if stored to memory.
--/
-def sizeOfType (type : Attribute) : Option Nat :=
-  match type with
-  | .integerType { bitwidth } | .floatType { bitwidth } | .byteType { bitwidth } => some ((bitwidth + 7) / 8)
-  | .llvmPointerType _ => some 8
-  | .llvmArrayType { size, type } => do
-      let inner ← sizeOfType type
-      some (inner * size)
-  | _ => none
-
 @[simp, grind =]
 theorem isType_integerType type : (integerType type).isType = true := by rfl
 @[simp, grind =]
