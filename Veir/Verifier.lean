@@ -1,11 +1,6 @@
 module
 
-public import Veir.IR.Basic
-public import Veir.IR.Fields
-public import Veir.GlobalOpInfo
-public import Veir.IR.WellFormed
 public import Veir.Interfaces.FunctionInterfaces
-import Veir.ForLean
 
 namespace Veir
 

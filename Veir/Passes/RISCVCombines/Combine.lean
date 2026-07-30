@@ -1,9 +1,6 @@
 module
 
 public import Veir.Pass
-import Veir.PatternRewriter.Basic
-import Veir.Passes.Matching.LLVM.Basic
-import Veir.Passes.Matching.RISCV.Basic
 import Veir.Passes.RISCVCombines.MIRCombinesVeir
 
 namespace Veir.RISCV

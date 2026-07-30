@@ -1,4 +1,3 @@
-import Veir.Rewriter.WfRewriter.Basic
 import Veir.Verifier
 
 open Veir

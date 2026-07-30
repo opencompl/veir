@@ -1,11 +1,7 @@
 module
 
 public import Veir.Pass
-import Veir.PatternRewriter.Basic
-import Veir.Passes.Matching
 import Veir.Passes.DCE.dce
-import Veir.Rewriter.WfRewriter
-import Veir.Interfaces.FunctionInterfaces
 
 namespace Veir
 

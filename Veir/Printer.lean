@@ -1,9 +1,7 @@
 module
 
-public import Veir.IR.Basic
 public import Veir.GlobalOpInfo
 
-import Veir.IR.Grind
 import Veir.Rewriter.Basic
 
 open Veir

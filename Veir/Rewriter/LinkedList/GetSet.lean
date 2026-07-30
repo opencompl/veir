@@ -1,6 +1,5 @@
 module
 
-public import Veir.IR
 public import Veir.Rewriter.LinkedList.Basic
 import all Veir.Rewriter.LinkedList.Basic
 

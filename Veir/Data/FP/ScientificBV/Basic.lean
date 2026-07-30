@@ -1,5 +1,5 @@
 module
-public import Veir.Data.FP.Sign
+import Veir.Data.FP.Sign
 
 namespace Veir.Data.FP
 

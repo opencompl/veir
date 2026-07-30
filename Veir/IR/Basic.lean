@@ -1,11 +1,8 @@
 module
 
-import Std.Data.HashMap
 public import Veir.Prelude
 public import Veir.IR.OpInfo
 public import Veir.ForLean
-public import Veir.IR.Attribute
-public import Std.Data.HashMap.Basic
 public import Veir.IR.Simp
 
 open Std (HashMap)

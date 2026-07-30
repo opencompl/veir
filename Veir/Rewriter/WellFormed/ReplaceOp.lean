@@ -1,13 +1,11 @@
 module
 
-public import Veir.IR.Basic
 public import Veir.Rewriter.Basic
 
 import all Veir.Rewriter.Basic
 import Veir.Rewriter.GetSet
 import Veir.Rewriter.WellFormed.Operation
 import Veir.Rewriter.WellFormed.Value
-import Veir.Rewriter.WellFormed.Block
 
 public section
 

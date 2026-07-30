@@ -1,8 +1,6 @@
 module
 
-public import Veir.IR.OpInfo
 public import Veir.Interpreter.Refinement.Basic
-public import Veir.Interpreter.Basic
 public import Veir.Verifier
 
 import Veir.Interpreter.Lemmas

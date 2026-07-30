@@ -1,11 +1,8 @@
 module
 
-public import Veir.IR.OpInfo
 public import Veir.Interpreter.Basic
-public import Veir.Rewriter.InsertPoint
 public import Veir.Dominance
 
-import Veir.Data.Refinement
 
 public section
 

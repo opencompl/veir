@@ -1,7 +1,6 @@
 module
 
 public import Veir.GlobalOpInfo
-public import Veir.IR.Fields
 public import Veir.Rewriter.WfRewriter
 
 /-!

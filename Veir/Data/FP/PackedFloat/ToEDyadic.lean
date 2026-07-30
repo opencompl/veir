@@ -2,7 +2,6 @@ module
 
 import Veir.Data.FP.PackedFloat.State
 public import Veir.Data.FP.PackedFloat.ToExtRat
-import Veir.Data.FP.Sign
 public import Veir.Data.FP.EDyadic.Basic
 
 namespace Veir.Data.FP.PackedFloat
