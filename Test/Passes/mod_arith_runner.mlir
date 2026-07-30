@@ -29,8 +29,8 @@ uint32_t mod_arith_chain(uint32_t, uint32_t);
 
 static uint32_t reference(uint32_t a, uint32_t b) {
   const uint32_t q = 12289;
-  uint64_t sum = (a + b) % q;
-  uint64_t difference = (a + q - b) % q;
+  uint64_t sum = ((uint64_t)a + (uint64_t)b) % q;
+  uint64_t difference = ((uint64_t)a + q - (uint64_t)b) % q;
   uint64_t product = sum * difference % q;
   uint64_t scaled = product * 5 % q;
   uint64_t result = (scaled + a) % q;
