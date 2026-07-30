@@ -1,4 +1,5 @@
 import Veir.IR.Basic
+import Veir.GlobalOpInfo
 import Veir.Parser.MlirParser
 
 open Veir
