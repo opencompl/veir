@@ -30,6 +30,8 @@ private def testFoldDecisionForOp : String := Id.run do
     let ctx := parserState.ctx
     let some ⟨add, addInBounds⟩ := findOp ctx.raw (.arith .addi)
       | return "missing arith.addi"
+    let some ⟨constant, constantInBounds⟩ := findOp ctx.raw (.arith .constant)
+      | return "missing arith.constant"
     let constants : Array (Option RuntimeValue) :=
       #[some (.int 32 (.val 7)), some (.int 32 (.val 8))]
     match foldDecisionForOp add ctx addInBounds constants with
@@ -41,6 +43,24 @@ private def testFoldDecisionForOp : String := Id.run do
     | .noFold => pure ()
     | _ => return "foldDecisionForOp accepted the wrong operand count"
     let i32Types := add.getResultTypes ctx.raw addInBounds
+
+    match foldDecisionForOp constant ctx constantInBounds #[] with
+    | .noFold => pure ()
+    | _ => return "arith.constant folded despite already being constant-like"
+    match foldDecision (.arith .addi) default (i32Types ++ i32Types) constants with
+    | .noFold => pure ()
+    | _ => return "foldDecision accepted a multi-result operation"
+    match foldDecision (.arith .divsi) default i32Types
+        #[some (.int 32 (.val 5)), some (.int 32 (.val 0))] with
+    | .useConstant (.int 32 .poison) => pure ()
+    | _ => return "arith.divsi by zero did not fold interpreter UB to poison"
+    match foldDecision (.llvm .load) default i32Types #[some (.addr 0)] with
+    | .noFold => pure ()
+    | _ => return "llvm.load folded despite reading memory"
+    match foldDecision (.llvm .sdiv) default i32Types
+        #[none, some (.int 32 (.val 1))] with
+    | .useOperand 0 => pure ()
+    | _ => return "llvm.sdiv by one did not fold"
 
     match foldDecision (.arith .divsi) default i32Types
         #[none, some (.int 32 (.val 1))] with
