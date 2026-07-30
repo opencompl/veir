@@ -496,8 +496,7 @@ def OpCode.foldsTo (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode
   | .useOperand j => .useOperand j
   | .useConstant rv => .useConstant rv
   | .noFold =>
-    if opCode.isFoldEvaluable properties && !constOperands.isEmpty
-        && constOperands.all (·.isSome) then
+    if constOperands.all (·.isSome) then
       evaluatedFoldDecision opCode properties resultTypes constOperands
     else
       .noFold

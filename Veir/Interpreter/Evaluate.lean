@@ -11,9 +11,9 @@ public section
 namespace Veir
 
 /--
-  Whether an operation is safe to attempt to evaluate at fold time.
+  Whether an operation is a candidate for evaluation by `foldEvaluate`.
 -/
-def OpCode.isFoldEvaluable
+private def isFoldEvaluationCandidate
     (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode) : Bool :=
   !HasDialectOpInfo.hasSideEffects opCode properties && !HasDialectOpInfo.readsMemory opCode
 
@@ -26,7 +26,7 @@ def OpCode.isFoldEvaluable
 def foldEvaluate (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
     : Interp (Array RuntimeValue) := do
-  if !opCode.isFoldEvaluable properties then none else
+  if !isFoldEvaluationCandidate opCode properties then none else
   let (results, _mem, action) ←
     interpretOp' opCode properties resultTypes operands #[] MemoryState.empty
   if action.isSome then none
