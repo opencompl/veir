@@ -41,6 +41,7 @@ private def testFoldDecisionForOp : String := Id.run do
       if value ≠ 15 then
         return "foldDecisionForOp produced the wrong constant"
     | _ => return "foldDecisionForOp did not evaluate arith.addi"
+
     match foldDecisionForOp add ctx addInBounds #[some (.int 32 (.val 7))] with
     | .noFold => pure ()
     | _ => return "foldDecisionForOp accepted the wrong operand count"
@@ -48,6 +49,7 @@ private def testFoldDecisionForOp : String := Id.run do
     match foldDecisionForOp constant ctx constantInBounds #[] with
     | .noFold => pure ()
     | _ => return "arith.constant folded despite already being constant-like"
+
     match foldDecision (.arith .addi) default (i32Types ++ i32Types) constants with
     | .noFold => pure ()
     | _ => return "foldDecision accepted a multi-result operation"
@@ -62,6 +64,7 @@ private def testFoldDecisionForOp : String := Id.run do
     | .useConstant (.int 32 (.val value)) =>
       if value ≠ 0 then return "arith.muli by zero produced a nonzero value"
     | _ => return "arith.muli poison by zero did not prefer the refining table fold"
+
     let byte8 : TypeAttr := LLVM.ByteType.mk 8
     let byte7 := Data.LLVM.Byte.fromBitVec (7 : BitVec 8)
     match foldDecision (.llvm .select) () #[byte8]
@@ -82,11 +85,13 @@ private def testFoldDecisionForOp : String := Id.run do
         #[none, some (.int 32 (.val 1))] with
     | .useOperand 0 => pure ()
     | _ => return "arith.divsi by one did not fold"
+
     match foldDecision (.arith .remsi) () i32Types
         #[none, some (.int 32 (.val (BitVec.allOnes 32)))] with
     | .useConstant (.int 32 (.val value)) =>
       if value ≠ 0 then return "arith.remsi by minus one produced a nonzero value"
     | _ => return "arith.remsi by minus one did not fold"
+
     match foldDecision (.arith .select) () i32Types
         #[none, some (.int 32 .poison), none] with
     | .useOperand 2 => pure ()
