@@ -9,6 +9,7 @@
     "func.func"()  <{function_type = () -> (), sym_name = "foo"}> ({
     ^bb0():
         %c1 = "llvm.mlir.constant"() <{ "value" = 1 : i64 }> : () -> i64
+        %c2 = "llvm.mlir.constant"() <{ "value" = 2 : i64 }> : () -> i64
         %c8 = "llvm.mlir.constant"() <{ "value" = 8 : i64 }> : () -> i64
 
         // 8 x i64 = 64 bytes, natural alignment 8
@@ -41,6 +42,17 @@
         // CHECK:      %{{.*}} = "riscv_stack.alloca"() <{"alignment" = 8 : i64, "size" = 8 : i64}> : () -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> !llvm.ptr
 
+        // Allocation size includes ABI tail padding: i24 has store size 3,
+        // alignment 4, and allocation stride 4, so two elements need 8 bytes.
+        %h = "llvm.alloca"(%c2) <{ elem_type = i24 }> : (i64) -> !llvm.ptr
+        // CHECK:      %{{.*}} = "riscv_stack.alloca"() <{"alignment" = 4 : i64, "size" = 8 : i64}> : () -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> !llvm.ptr
+
+        // RV64 gives i128 a 16-byte ABI alignment.
+        %i = "llvm.alloca"(%c1) <{ elem_type = i128 }> : (i64) -> !llvm.ptr
+        // CHECK:      %{{.*}} = "riscv_stack.alloca"() <{"alignment" = 16 : i64, "size" = 16 : i64}> : () -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> !llvm.ptr
+
         // The element count is read from the defining `llvm.mlir.constant`, so the alloca
         // must be selected before that constant is rewritten to a `riscv.li`. Here the
         // constant has another use and so survives selection in its own right.
@@ -60,6 +72,8 @@
         "test.test"(%d) : (!llvm.ptr) -> ()
         "test.test"(%e) : (!llvm.ptr) -> ()
         "test.test"(%f) : (!llvm.ptr) -> ()
+        "test.test"(%h) : (!llvm.ptr) -> ()
+        "test.test"(%i) : (!llvm.ptr) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

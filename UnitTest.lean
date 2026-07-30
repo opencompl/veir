@@ -11,4 +11,5 @@ import UnitTest.Bitblasting.Bitblasting
 import UnitTest.DataFlowFramework.Dominance
 import UnitTest.DataFlowFramework.DeadCodeAnalysis
 import UnitTest.ConstantValue
+import UnitTest.DataLayout
 import UnitTest.Evaluate

@@ -2,6 +2,7 @@ module
 
 public import Veir.Pass
 import Veir.PatternRewriter.Basic
+import Veir.Interfaces.DataLayoutInterfaces
 import Veir.Passes.Matching.LLVM.Basic
 import Veir.Passes.InstructionSelection.Common
 
@@ -854,10 +855,11 @@ def bitcast (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   value is rejected: `riscv_stack.alloca` requires a positive power of two, while the
   `llvm.alloca` verifier only requires an `i64` attribute.
 -/
-def selectAllocaAlignment (props : propertiesOf (.llvm .alloca)) : Option Nat :=
+def selectAllocaAlignment (layout : DataLayout)
+    (props : propertiesOf (.llvm .alloca)) : Option Nat :=
   let requested := props.alignment.value
   if requested = 0 then
-    Attribute.alignOfType props.elem_type.val
+    layout.getTypePreferredAlignment props.elem_type.val
   else if 0 < requested ∧ requested.toNat &&& (requested.toNat - 1) = 0 then
     some requested.toNat
   else
@@ -895,11 +897,13 @@ def alloca_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   /- Interpret the literal through the SSA value's width. The constant attribute may have
      a different width (e.g. `256 : i64` producing `i8`), and alloca counts are unsigned. -/
   let count := (BitVec.ofInt countType.bitwidth countAttr.value).toNat
-  let some elemSize := Attribute.sizeOfType properties.elem_type.val | return (ctx, none)
+  let some elemSize := DataLayout.riscv64.getTypeAllocSize properties.elem_type.val
+    | return (ctx, none)
   let size := elemSize * count
   /- The slot size is a signed `i64` attribute, so bail on counts that overflow it. -/
   if 2 ^ 63 ≤ size then return (ctx, none)
-  let some alignment := selectAllocaAlignment properties | return (ctx, none)
+  let some alignment := selectAllocaAlignment DataLayout.riscv64 properties
+    | return (ctx, none)
   let slotProps : RISCVStackAllocaProperties :=
     { size := IntegerAttr.mk (size : Int) (IntegerType.mk 64),
       alignment := IntegerAttr.mk (alignment : Int) (IntegerType.mk 64) }
@@ -928,7 +932,7 @@ def selectAddrRegImm (ptr : ValuePtr) (ctx : IRContext OpCode) : ValuePtr × Int
     let .integerType itype := (idx.getType! ctx).val | none
     guard (itype.bitwidth = 64)
     let c ← matchConstantIntVal idx ctx
-    let scale ← Attribute.sizeOfType properties.elem_type.val
+    let scale ← DataLayout.riscv64.getTypeAllocSize properties.elem_type.val
     let offset := c.value * (scale : Int)
     guard (-2048 ≤ offset ∧ offset ≤ 2047)
     return (base, offset)
@@ -1008,7 +1012,7 @@ def store (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 
 /--
   Lower a single-dynamic-index `llvm.getelementptr` computing `ptr + idx * scale`,
-  where `scale` is the byte size of the element type.
+  where `scale` is the allocation size (ABI stride) of the element type.
 -/
 def getelementptr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
@@ -1018,7 +1022,8 @@ def getelementptr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   /- The index must be `i64`. -/
   let .integerType itype := (idx.getType! ctx.raw).val | return (ctx, none)
   if itype.bitwidth ≠ 64 then return (ctx, none)
-  let some scale := Attribute.sizeOfType properties.elem_type.val | return (ctx, none)
+  let some scale := DataLayout.riscv64.getTypeAllocSize properties.elem_type.val
+    | return (ctx, none)
   let type := ((op.getResult 0).get! ctx.raw).type
   let (ctx, pcastOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[ptr]
       #[] #[] () none

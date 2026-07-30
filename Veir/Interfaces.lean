@@ -1,5 +1,6 @@
 module
 
+import Veir.Interfaces.DataLayoutInterfaces
 import Veir.Interfaces.FunctionInterfaces
 import Veir.Interfaces.RegionKindInterfaces
 import Veir.Interfaces.SideEffectInterfaces
