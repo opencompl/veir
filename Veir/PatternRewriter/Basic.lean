@@ -1,13 +1,8 @@
 module
 
-public import Veir.IR.Basic
-public import Veir.IR.WellFormed
 public import Veir.Rewriter.WfRewriter
 public import Veir.Interfaces.DeadCodeInterfaces
 
-import Veir.Rewriter.Basic
-import Veir.ForLean
-import Veir.Rewriter.GetSet
 
 import all Veir.IR.Basic
 

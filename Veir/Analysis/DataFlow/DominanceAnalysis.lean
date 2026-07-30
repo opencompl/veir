@@ -1,8 +1,6 @@
 module
 
 public import Veir.Analysis.DataFlowFramework
-public import Std.Data.HashSet
-public import Std.Data.HashMap
 
 public section
 

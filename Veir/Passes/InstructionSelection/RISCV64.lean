@@ -1,7 +1,6 @@
 module
 
 public import Veir.Pass
-import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching.LLVM.Basic
 import Veir.Passes.InstructionSelection.Common
 
@@ -919,7 +918,7 @@ def store_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   /- cast value (i64/i32/i8) -> register -/
   let (ctx, valcastOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[arg]
       #[] #[] () none
-  /- 64-bit `riscv.sd`, or its `sw` (i32, low 4 bytes) / `sb` (i8, low byte): operands are (addr, val), no results.
+  /- 64-bit `riscv.sd`, or its `sw` (i32, low 4 bytes) / `sb` (i8, low byte): operands are (val, addr), no results.
      Volatility carries over from the `llvm.store`, as in `load_local`. -/
   let immProps := RISCVMemProperties.mk (IntegerAttr.mk offset (IntegerType.mk 64)) llvmProps.volatile_
   let (ctx, sdOp) ←

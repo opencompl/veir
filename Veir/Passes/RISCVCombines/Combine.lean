@@ -1,9 +1,6 @@
 module
 
 public import Veir.Pass
-import Veir.PatternRewriter.Basic
-import Veir.Passes.Matching.LLVM.Basic
-import Veir.Passes.Matching.RISCV.Basic
 import Veir.Passes.RISCVCombines.MIRCombinesVeir
 
 namespace Veir.RISCV
@@ -1756,7 +1753,7 @@ def sexth_and := drop_ext_of_bitwise .sexth .and false
 def sexth_or := drop_ext_of_bitwise .sexth .or false
 def sexth_xor := drop_ext_of_bitwise .sexth .xor false
 
-/-- Match a `riscv.<store>` (`sw`/`sh`/`sb`), returning `(addr, val, properties)`.
+/-- Match a `riscv.<store>` (`sw`/`sh`/`sb`), returning `(val, addr, properties)`.
     These stores have no results, so they can't go through `matchOp` (which
     requires exactly one). -/
 private def matchRiscvStore (store : Riscv) (op : OperationPtr) (ctx : IRContext OpCode) :
@@ -1780,10 +1777,10 @@ private def matchRiscvStore (store : Riscv) (op : OperationPtr) (ctx : IRContext
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L304-L311 -/
 private def drop_ext_store_local (ext store : Riscv) (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (addr, val, props) := matchRiscvStore store op ctx | return (ctx, none)
+  let some (val, addr, props) := matchRiscvStore store op ctx | return (ctx, none)
   let (val, changed) := stripDefiningExt ext val ctx
   if !changed then return (ctx, none)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.riscv store) #[] #[addr, val]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.riscv store) #[] #[val, addr]
       #[] #[] props none
   some (ctx, some (#[newOp], #[]))
 
@@ -1791,10 +1788,10 @@ private def drop_ext_store (ext store : Riscv) (rewriter : PatternRewriter OpCod
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite (drop_ext_store_local ext store) rewriter op opInBounds
 
-/-- `riscv.sw addr, (riscv.zextw val) -> riscv.sw addr, val`. -/
+/-- `riscv.sw (riscv.zextw val), addr -> riscv.sw val, addr`. -/
 def drop_zextw_sw := drop_ext_store .zextw .sw
 
-/-- `riscv.sw addr, (riscv.sextw val) -> riscv.sw addr, val`. -/
+/-- `riscv.sw (riscv.sextw val), addr -> riscv.sw val, addr`. -/
 def drop_sextw_sw := drop_ext_store .sextw .sw
 
 /-- Halfword- and byte-store mirrors of `drop_zextw_sw`/`drop_sextw_sw`: `sh` writes

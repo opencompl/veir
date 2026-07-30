@@ -1,18 +1,13 @@
 module
 
-public import Veir.IR.Basic
-public import Veir.Data.LLVM.Int.Basic
 public import Veir.Data.LLVM.Byte.Basic
 public import Veir.Data.RISCV.Reg.Basic
 public import Veir.IR.WellFormed
 public import Veir.GlobalOpInfo
 
-import Veir.Rewriter.Basic
-import Veir.ForLean
 import Veir.Data.Comb.Basic
 import Veir.Data.HW.Basic
 import Veir.Data.Casting
-import Veir.GlobalOpInfo
 import Veir.Interfaces.FunctionInterfaces
 
 public section

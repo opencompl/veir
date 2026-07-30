@@ -1,8 +1,5 @@
 module
 
-public import Veir.IR.OpInfo
-public import Veir.IR.WellFormed
-public import Veir.Rewriter.InsertPoint
 public import Veir.Rewriter.Basic
 
 import Veir.Rewriter.WellFormed

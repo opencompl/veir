@@ -1,13 +1,9 @@
 module
 
-public import Veir.IR.Basic
 public import Veir.Rewriter.Basic
 
 import all Veir.Rewriter.Basic
 
-import Veir.Rewriter.LinkedList.GetSet
-import Veir.ForLean
-import Veir.IR.DeallocLemmas
 import Veir.Rewriter.GetSet.DetachOperands
 import Veir.Rewriter.GetSet.DetachBlockOperands
 

@@ -3,7 +3,6 @@ module
 public import Veir.IR.Basic
 import Veir.IR.InBounds
 import Veir.IR.GetSet
-public import Veir.Prelude
 
 namespace Veir
 

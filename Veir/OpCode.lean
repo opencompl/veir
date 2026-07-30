@@ -8,7 +8,6 @@ operation codes in the Veir intermediate representation (IR). Each `OpCode` corr
 to an operation definition.
 -/
 
-import Std.Data.HashMap
 import Veir.Meta.OpCode
 public import Veir.Dialects.Arith.OpInfo
 public import Veir.Dialects.Builtin.OpInfo

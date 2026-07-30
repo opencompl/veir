@@ -1,8 +1,7 @@
 module
 
 public import Veir.Analysis.DataFlowFramework
-public import Veir.Analysis.DataFlow.Domains.ConstantDomain
-public import Std.Data.HashSet
+import Veir.Analysis.DataFlow.Domains.ConstantDomain
 
 public section
 

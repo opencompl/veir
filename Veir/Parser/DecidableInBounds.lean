@@ -2,8 +2,6 @@ module
 
 public import Veir.Parser.Parser
 public import Veir.Rewriter.InsertPoint
-import Veir.Rewriter.Basic
-import Veir.Rewriter.GetSet
 
 public section
 
