@@ -282,7 +282,7 @@ it writes it on the board, groups together terms known to be equal,
 and lets each reasoning engine read from and contribute to the shared workspace.
 These engines work together to handle equality reasoning, apply known theorems,
 propagate new facts, perform case analysis, and run specialized solvers
-for domains like linear arithmetic and commutative rings.</p><p>See <a href="https://lean-lang.org/doc/reference/4.32.0/find/?domain=Verso.Genre.Manual.section&amp;name=grind-tactic">the reference manual's chapter on <code>grind</code></a> for more information.</p><p><code>grind</code> is <em>not</em> designed for goals whose search space explodes combinatorially,
+for domains like linear arithmetic and commutative rings.</p><p>See <a href="https://lean-lang.org/doc/reference/4.32.2/find/?domain=Verso.Genre.Manual.section&amp;name=grind-tactic">the reference manual's chapter on <code>grind</code></a> for more information.</p><p><code>grind</code> is <em>not</em> designed for goals whose search space explodes combinatorially,
 think large pigeonhole instances, graph‑coloring reductions, high‑order N‑queens boards,
 or a 200‑variable Sudoku encoded as Boolean constraints.  Such encodings require
 thousands (or millions) of case‑splits that overwhelm <code>grind</code>’s branching search.</p><p>For <strong>bit‑level or combinatorial problems</strong>, consider using <strong><code>bv_decide</code></strong>.
