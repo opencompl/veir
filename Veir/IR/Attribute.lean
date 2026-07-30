@@ -244,6 +244,10 @@ structure ModArithType where
   modulus : IntegerAttr
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+/-- The bitwidth of the storage type of a `!mod_arith.int`. -/
+public def ModArithType.bitwidth (ty : ModArithType) : Nat :=
+  ty.modulus.type.bitwidth
+
 namespace LLVM
 
 structure VoidType
