@@ -28,18 +28,6 @@ inductive FoldDecision where
   /-- The operation does not fold with the supplied operand information. -/
   | noFold
 
-/--
-  Prefer a fold-table decision, consulting `fallback` only when the table does
-  not fold. The thunk avoids interpreting an operation whose table already
-  produced a decision.
--/
-@[expose]
-def FoldDecision.orElse (decision : FoldDecision)
-    (fallback : Unit → FoldDecision) : FoldDecision :=
-  match decision with
-  | .noFold => fallback ()
-  | decision => decision
-
 /-- Construct a poison decision for a supported result type. -/
 private def poisonDecision (resultTypes : Array TypeAttr) : FoldDecision :=
   match resultTypes[0]? with
@@ -509,7 +497,10 @@ def OpCode.foldsTo (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode
     | .riscv op => Riscv.foldsTo op properties resultTypes constOperands
     | .mod_arith op => Mod_Arith.foldsTo op properties resultTypes constOperands
     | _ => .noFold
-  tableDecision.orElse fun _ =>
+  match tableDecision with
+  | .useOperand j => .useOperand j
+  | .useConstant rv => .useConstant rv
+  | .noFold =>
     if opCode.isFoldEvaluable properties && !constOperands.isEmpty
         && constOperands.all (·.isSome) then
       evaluatedFoldDecision opCode properties resultTypes constOperands
