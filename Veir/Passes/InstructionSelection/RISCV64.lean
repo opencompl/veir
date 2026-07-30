@@ -848,6 +848,70 @@ def bitcast (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   RewritePattern.fromLocalRewrite bitcast_local rewriter op opInBounds
 
 /--
+  The alignment, in bytes, of the stack slot an `llvm.alloca` asks for: its `alignment`
+  property when that is an explicit positive power of two, and the natural alignment of
+  the element type when the property is `0`, which MLIR leaves to the target. Any other
+  value is rejected: `riscv_stack.alloca` requires a positive power of two, while the
+  `llvm.alloca` verifier only requires an `i64` attribute.
+-/
+def selectAllocaAlignment (props : propertiesOf (.llvm .alloca)) : Option Nat :=
+  let requested := props.alignment.value
+  if requested = 0 then
+    Attribute.alignOfType props.elem_type.val
+  else if 0 < requested ∧ requested.toNat &&& (requested.toNat - 1) = 0 then
+    some requested.toNat
+  else
+    none
+
+/--
+  Is `op` in the entry block of the region containing it? An entry block has no
+  predecessors, so an operation in one executes at most once per entry to the region.
+-/
+def isInEntryBlock (op : OperationPtr) (ctx : IRContext OpCode) : Bool :=
+  match (op.get! ctx).parent, op.getParentRegion! ctx with
+  | some block, some region => (region.get! ctx).firstBlock = some block
+  | _, _ => false
+
+/--
+  `llvm.alloca` -> `riscv_stack.alloca`, a fixed-size stack object whose frame offset is
+  assigned later, plus a cast of its address back to `!llvm.ptr`.
+
+  Only entry-block allocas with a constant element count are selected, mirroring the
+  `StaticAllocaMap` of LLVM's
+  [`FunctionLoweringInfo`](https://github.com/llvm/llvm-project/blob/llvmorg-22.1.8/llvm/lib/CodeGen/SelectionDAG/FunctionLoweringInfo.cpp#L138-L173):
+  a `riscv_stack.alloca` names a single stack slot, so an op whose size is not known
+  statically, or that could execute more than once and hand out a fresh address each
+  time, has no frame object to name. `inalloca` is a calling-convention marker with no
+  `riscv_stack` equivalent, so those are left alone too.
+-/
+def alloca_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (count, properties) := matchAlloca op ctx | return (ctx, none)
+  if properties.inalloca then return (ctx, none)
+  if ¬ isInEntryBlock op ctx.raw then return (ctx, none)
+  /- `riscv_stack.alloca` takes no operands, so the element count must be a constant. -/
+  let some countAttr := matchConstantIntVal count ctx.raw | return (ctx, none)
+  if countAttr.value < 0 then return (ctx, none)
+  let some elemSize := Attribute.sizeOfType properties.elem_type.val | return (ctx, none)
+  let size := elemSize * countAttr.value.toNat
+  /- The slot size is a signed `i64` attribute, so bail on counts that overflow it. -/
+  if 2 ^ 63 ≤ size then return (ctx, none)
+  let some alignment := selectAllocaAlignment properties | return (ctx, none)
+  let slotProps : RISCVStackAllocaProperties :=
+    { size := IntegerAttr.mk (size : Int) (IntegerType.mk 64),
+      alignment := IntegerAttr.mk (alignment : Int) (IntegerType.mk 64) }
+  let (ctx, slotOp) ← WfRewriter.createOp! ctx (.riscv_stack .alloca) #[RegisterType.mk] #[]
+      #[] #[] slotProps none
+  /- Cast the slot's address back to `!llvm.ptr`. -/
+  let (ctx, castOp) ← replaceWithRegLocal ctx op (slotOp.getResult 0)
+  some (ctx, some (#[slotOp, castOp], #[castOp.getResult 0]))
+
+/-- `llvm.alloca` -> `riscv_stack.alloca` plus a cast of its address back to `!llvm.ptr`. -/
+def alloca (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite alloca_local rewriter op opInBounds
+
+/--
   Split a load/store address into a base register operand and a signed 12-bit
   immediate offset, mirroring the `isBaseWithConstantOffset` case of LLVM's
   [`RISCVDAGToDAGISel::SelectAddrRegImm`](https://github.com/llvm/llvm-project/blob/llvmorg-22.1.8/llvm/lib/Target/RISCV/RISCVISelDAGToDAG.cpp#L3175-L3206).
@@ -1667,8 +1731,10 @@ def freeze (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   /- Early loop: multi-instruction fusion patterns that must run before the
-     per-op lowerings consume their operands. -/
-  let early := RewritePattern.GreedyRewritePattern #[load, store]
+     per-op lowerings consume their operands. `alloca` belongs here too: it reads
+     the constant defining its element count, which `constant` would otherwise
+     have already rewritten to a `riscv.li`. -/
+  let early := RewritePattern.GreedyRewritePattern #[alloca, load, store]
   let ctx ← match RewritePattern.applyInContext early ctx with
   | none => throw "Error while applying early address-folding patterns"
   | some ctx => pure ctx

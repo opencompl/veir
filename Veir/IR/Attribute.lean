@@ -1123,6 +1123,21 @@ def sizeOfType (type : Attribute) : Option Nat :=
       some (inner * size)
   | _ => none
 
+/--
+  Returns the natural (ABI) alignment, in bytes, of an LLVM type: a scalar is aligned to
+  its byte size rounded up to a power of two, capped at the 8-byte register width, and an
+  array is aligned like its element type. Used to pick a stack-slot alignment for an
+  `llvm.alloca` whose `alignment` property is `0`, i.e. left to the target.
+-/
+def alignOfType (type : Attribute) : Option Nat :=
+  match type with
+  | .integerType { bitwidth } | .floatType { bitwidth } | .byteType { bitwidth } =>
+      let bytes := (bitwidth + 7) / 8
+      some (if bytes ≤ 1 then 1 else if bytes ≤ 2 then 2 else if bytes ≤ 4 then 4 else 8)
+  | .llvmPointerType _ => some 8
+  | .llvmArrayType { type, .. } => alignOfType type
+  | _ => none
+
 @[simp, grind =]
 theorem isType_integerType type : (integerType type).isType = true := by rfl
 @[simp, grind =]
