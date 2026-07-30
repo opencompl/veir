@@ -17,26 +17,31 @@ public section
 namespace Veir
 
 /--
-  A resolved fold result, mirroring MLIR's `OpFoldResult`. Folding is currently
-  restricted to operations with exactly one result.
+  The result of querying whether an operation folds, mirroring MLIR's
+  `OpFoldResult`. Folding is currently restricted to operations with exactly
+  one result.
 -/
-inductive FoldResult where
+inductive FoldOutcome where
   /-- The result of the operation is refined by operand `j`. -/
   | operand (j : Nat)
   /-- The result of the operation is refined by the constant `rv`.
       `rv` may be poison, e.g. for operations that trigger immediate UB. -/
   | constant (rv : RuntimeValue)
-
-/-- An opcode-level fold action that may still require interpreter evaluation. -/
-inductive FoldAction where
-  /-- A partial fold that is already resolved. -/
-  | result (result : FoldResult)
   /-- All operands are constant: evaluate the operation with the interpreter
       and return the result. -/
   | evaluate
 
-/-- Construct a poison result for a supported result type. -/
-private def poisonOutcome (resultTypes : Array TypeAttr) : Option FoldResult :=
+/-- The resolved decision of whether and how an operation folds. -/
+inductive FoldDecision where
+  /-- Use operand `j` in place of the result. -/
+  | useOperand (j : Nat)
+  /-- Use the runtime constant `rv` in place of the result. -/
+  | useConstant (rv : RuntimeValue)
+  /-- The operation does not fold with the supplied operand information. -/
+  | noFold
+
+/-- Construct a poison outcome for a supported result type. -/
+private def poisonOutcome (resultTypes : Array TypeAttr) : Option FoldOutcome :=
   match resultTypes[0]? with
   | some resultType =>
     match resultType.val with
@@ -52,7 +57,7 @@ private def poisonOutcome (resultTypes : Array TypeAttr) : Option FoldResult :=
   only on the select itself and its supplied constant operands.
 -/
 private def selectFoldsTo (resultTypes : Array TypeAttr)
-    (constOperands : Array (Option RuntimeValue)) : Option FoldResult :=
+    (constOperands : Array (Option RuntimeValue)) : Option FoldOutcome :=
   match constOperands.toList with
   | [some (.int 1 (.val c)), _, _] =>
     if c = 1 then some (.operand 1) else some (.operand 2)
@@ -87,7 +92,7 @@ private def selectFoldsTo (resultTypes : Array TypeAttr)
 -/
 def Arith.foldsTo (op : Arith) (properties : HasDialectOpInfo.propertiesOf op)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue)) :
-    Option FoldResult :=
+    Option FoldOutcome :=
   match op with
   | .addi =>
     match constOperands.toList with
@@ -214,7 +219,7 @@ def Arith.foldsTo (op : Arith) (properties : HasDialectOpInfo.propertiesOf op)
 -/
 def Llvm.foldsTo (op : Llvm) (properties : HasDialectOpInfo.propertiesOf op)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue)) :
-    Option FoldResult :=
+    Option FoldOutcome :=
   match op with
   | .add =>
     match constOperands.toList with
@@ -343,7 +348,7 @@ def Llvm.foldsTo (op : Llvm) (properties : HasDialectOpInfo.propertiesOf op)
 -/
 def Riscv.foldsTo (op : Riscv) (properties : HasDialectOpInfo.propertiesOf op)
     (_resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue)) :
-    Option FoldResult :=
+    Option FoldOutcome :=
   match op with
   | .add => match constOperands.toList with
     | [_, some (.reg c)] => if c.val = 0 then some (.operand 0) else none
@@ -435,7 +440,7 @@ private def modArithResultInfo (resultTypes : Array TypeAttr) : Option (Nat × N
 -/
 def Mod_Arith.foldsTo (op : Mod_Arith) (_properties : HasDialectOpInfo.propertiesOf op)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue)) :
-    Option FoldResult := do
+    Option FoldOutcome := do
   let (modulus, bitwidth) ← modArithResultInfo resultTypes
   let isZeroResidue {w : Nat} (value : BitVec w) :=
     value.toNat % modulus = 0
@@ -460,58 +465,57 @@ def Mod_Arith.foldsTo (op : Mod_Arith) (_properties : HasDialectOpInfo.propertie
 -/
 def OpCode.foldsTo (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue)) :
-    Option FoldAction :=
+    Option FoldOutcome :=
   if opCode.isFoldEvaluable properties && !constOperands.isEmpty
       && constOperands.all (·.isSome) then
     some .evaluate
   else
     match opCode with
-    | .arith op => (Arith.foldsTo op properties resultTypes constOperands).map .result
-    | .llvm op => (Llvm.foldsTo op properties resultTypes constOperands).map .result
-    | .riscv op => (Riscv.foldsTo op properties resultTypes constOperands).map .result
-    | .mod_arith op =>
-      (Mod_Arith.foldsTo op properties resultTypes constOperands).map .result
+    | .arith op => Arith.foldsTo op properties resultTypes constOperands
+    | .llvm op => Llvm.foldsTo op properties resultTypes constOperands
+    | .riscv op => Riscv.foldsTo op properties resultTypes constOperands
+    | .mod_arith op => Mod_Arith.foldsTo op properties resultTypes constOperands
     | _ => none
 
 namespace Fold.Impl
 
-/-- Return a constant result only when `rv` conforms to the sole result type. -/
-private def conformingConstantResult
-    (resultTypes : Array TypeAttr) (rv : RuntimeValue) : Option FoldResult :=
+/-- Return a constant decision only when `rv` conforms to the sole result type. -/
+private def conformingConstantDecision
+    (resultTypes : Array TypeAttr) (rv : RuntimeValue) : FoldDecision :=
   match resultTypes[0]? with
   | some resultType =>
-    if rv.Conforms resultType then some (.constant rv) else none
-  | none => none
+    if rv.Conforms resultType then .useConstant rv else .noFold
+  | none => .noFold
 
 def foldDecision (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue))
-    : Option FoldResult :=
-  if opType.isConstantLike then none else
-  if resultTypes.size ≠ 1 then none else
+    : FoldDecision :=
+  if opType.isConstantLike then .noFold else
+  if resultTypes.size ≠ 1 then .noFold else
   match OpCode.foldsTo opType properties resultTypes constOperands with
-  | none => none
-  | some (.result (.operand j)) =>
-    if j < constOperands.size then some (.operand j) else none
-  | some (.result (.constant rv)) => conformingConstantResult resultTypes rv
+  | none => .noFold
+  | some (.operand j) =>
+    if j < constOperands.size then .useOperand j else .noFold
+  | some (.constant rv) => conformingConstantDecision resultTypes rv
   | some .evaluate =>
     let values := constOperands.map (·.get!)
     match (foldEvaluate opType properties resultTypes values : Option (UBOr _)) with
-    | none => none
+    | none => .noFold
     | some (.ok results) =>
       match results.toList with
-      | [result] => conformingConstantResult resultTypes result
-      | _ => none
+      | [result] => conformingConstantDecision resultTypes result
+      | _ => .noFold
     | some .ub =>
       match resultTypes[0]!.val with
       | .integerType intTy =>
-        conformingConstantResult resultTypes (.int intTy.bitwidth .poison)
-      | _ => none
+        conformingConstantDecision resultTypes (.int intTy.bitwidth .poison)
+      | _ => .noFold
 
 def foldDecisionForOp (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opInBounds : op.InBounds ctx.raw)
-    (constOperands : Array (Option RuntimeValue)) : Option FoldResult :=
+    (constOperands : Array (Option RuntimeValue)) : FoldDecision :=
   if constOperands.size ≠ op.getNumOperands ctx.raw opInBounds then
-    none
+    .noFold
   else
     let opType := op.getOpType ctx.raw opInBounds
     foldDecision opType
