@@ -34,6 +34,8 @@ private def testFoldDecisionForOp : String := Id.run do
       | return "missing arith.constant"
     let constants : Array (Option RuntimeValue) :=
       #[some (.int 32 (.val 7)), some (.int 32 (.val 8))]
+    let i32Types := add.getResultTypes ctx.raw addInBounds
+
     match foldDecisionForOp add ctx addInBounds constants with
     | .useConstant (.int 32 (.val value)) =>
       if value ≠ 15 then
@@ -42,7 +44,6 @@ private def testFoldDecisionForOp : String := Id.run do
     match foldDecisionForOp add ctx addInBounds #[some (.int 32 (.val 7))] with
     | .noFold => pure ()
     | _ => return "foldDecisionForOp accepted the wrong operand count"
-    let i32Types := add.getResultTypes ctx.raw addInBounds
 
     match foldDecisionForOp constant ctx constantInBounds #[] with
     | .noFold => pure ()
@@ -50,10 +51,12 @@ private def testFoldDecisionForOp : String := Id.run do
     match foldDecision (.arith .addi) default (i32Types ++ i32Types) constants with
     | .noFold => pure ()
     | _ => return "foldDecision accepted a multi-result operation"
+
     match foldDecision (.arith .ceildivui) default i32Types
         #[some (.int 32 (.val 5)), some (.int 32 (.val 0))] with
     | .useConstant (.int 32 .poison) => pure ()
     | _ => return "arith.ceildivui by zero did not fold interpreter UB to poison"
+
     match foldDecision (.arith .muli) default i32Types
         #[some (.int 32 .poison), some (.int 32 (.val 0))] with
     | .useConstant (.int 32 (.val value)) =>
@@ -65,9 +68,11 @@ private def testFoldDecisionForOp : String := Id.run do
         #[some (.int 1 (.val 1)), some (.byte 8 byte7), some (.byte 8 byte7)] with
     | .useOperand 1 => pure ()
     | _ => return "llvm.select of known bytes did not use the table fold"
+
     match foldDecision (.llvm .load) default i32Types #[some (.addr 0)] with
     | .noFold => pure ()
     | _ => return "llvm.load folded despite reading memory"
+
     match foldDecision (.llvm .sdiv) default i32Types
         #[none, some (.int 32 (.val 1))] with
     | .useOperand 0 => pure ()
