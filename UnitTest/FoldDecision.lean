@@ -33,27 +33,27 @@ private def testFoldDecisionForOp : String := Id.run do
     let constants : Array (Option RuntimeValue) :=
       #[some (.int 32 (.val 7)), some (.int 32 (.val 8))]
     match foldDecisionForOp add ctx addInBounds constants with
-    | .useConstant (.int 32 (.val value)) =>
+    | some (.constant (.int 32 (.val value))) =>
       if value ≠ 15 then
         return "foldDecisionForOp produced the wrong constant"
     | _ => return "foldDecisionForOp did not evaluate arith.addi"
     match foldDecisionForOp add ctx addInBounds #[some (.int 32 (.val 7))] with
-    | .noFold => pure ()
+    | none => pure ()
     | _ => return "foldDecisionForOp accepted the wrong operand count"
     let i32Types := add.getResultTypes ctx.raw addInBounds
 
     match foldDecision (.arith .divsi) default i32Types
         #[none, some (.int 32 (.val 1))] with
-    | .useOperand 0 => pure ()
+    | some (.operand 0) => pure ()
     | _ => return "arith.divsi by one did not fold"
     match foldDecision (.arith .remsi) () i32Types
         #[none, some (.int 32 (.val (BitVec.allOnes 32)))] with
-    | .useConstant (.int 32 (.val value)) =>
+    | some (.constant (.int 32 (.val value))) =>
       if value ≠ 0 then return "arith.remsi by minus one produced a nonzero value"
     | _ => return "arith.remsi by minus one did not fold"
     match foldDecision (.arith .select) () i32Types
         #[none, some (.int 32 .poison), none] with
-    | .useOperand 2 => pure ()
+    | some (.operand 2) => pure ()
     | _ => return "arith.select with a poison true arm did not fold to the false arm"
     return "ok"
 
@@ -85,10 +85,10 @@ private def testRiscvFoldDecision : String := Id.run do
     let some ⟨sub, subInBounds⟩ := findOp ctx.raw (.riscv .sub)
       | return "missing riscv.sub"
     match foldDecisionForOp sub ctx subInBounds #[none, some (.reg ⟨0⟩)] with
-    | .useOperand 0 => pure ()
+    | some (.operand 0) => pure ()
     | _ => return "riscv.sub with a zero subtrahend did not fold to operand 0"
     match foldDecisionForOp sub ctx subInBounds #[some (.reg ⟨0⟩), none] with
-    | .noFold => return "ok"
+    | none => return "ok"
     | _ => return "riscv.sub with a zero minuend folded, but sub is not commutative"
 
 /--
@@ -123,12 +123,12 @@ private def testModArithFoldDecision : String := Id.run do
       | return "missing mod_arith.mul"
     -- 34 is not zero, but it is zero modulo 17.
     match foldDecisionForOp mul ctx mulInBounds #[none, some (.int 32 (.val 34))] with
-    | .useConstant (.int 32 (.val value)) =>
+    | some (.constant (.int 32 (.val value))) =>
       if value ≠ 0 then
         return "mod_arith.mul by a zero residue produced the wrong constant"
     | _ => return "mod_arith.mul by a zero residue did not fold"
     match foldDecisionForOp mul ctx mulInBounds #[none, some (.int 32 (.val 3))] with
-    | .noFold => return "ok"
+    | none => return "ok"
     | _ => return "mod_arith.mul by a nonzero residue folded"
 
 /--

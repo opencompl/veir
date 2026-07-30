@@ -16,13 +16,13 @@ namespace Veir
 /--
   Decide whether an operation folds, given its opcode, properties, result
   types, and the values of its known-constant operands. This resolves the
-  `FoldOutcome` reported by `OpCode.foldsTo`: `.evaluate` outcomes are computed
+  `FoldAction` reported by `OpCode.foldsTo`: `.evaluate` actions are computed
   with the interpreter, and interpreter-reported UB becomes a poison constant.
-  Unknown operands are represented by `none`.
+  Unknown operands and operations that do not fold produce `none`.
 -/
 def foldDecision (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue))
-    : FoldDecision :=
+    : Option FoldResult :=
   Fold.Impl.foldDecision opType properties resultTypes constOperands
 
 /--
@@ -32,7 +32,7 @@ def foldDecision (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
 -/
 def foldDecisionForOp (op : OperationPtr)
     (ctx : WfIRContext OpCode) (opInBounds : op.InBounds ctx.raw)
-    (constOperands : Array (Option RuntimeValue)) : FoldDecision :=
+    (constOperands : Array (Option RuntimeValue)) : Option FoldResult :=
   Fold.Impl.foldDecisionForOp op ctx opInBounds constOperands
 
 end Veir
