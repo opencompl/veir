@@ -1,7 +1,6 @@
 module
 
 public import Veir.Data.LLVM.Int.Basic
-public import Veir.Data.RISCV.Reg.Basic
 
 public section
 

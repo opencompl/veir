@@ -1,7 +1,6 @@
 module
 
 public import Veir.Pass
-import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching.LLVM.Basic
 import Veir.Passes.InstructionSelection.Common
 

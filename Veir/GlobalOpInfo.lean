@@ -1,20 +1,6 @@
 module
 
 import Veir.Meta.OpCode
-public import Veir.Dialects.Arith.OpInfo
-public import Veir.Dialects.Builtin.OpInfo
-public import Veir.Dialects.Func.OpInfo
-public import Veir.Dialects.LLVM.OpInfo
-public import Veir.Dialects.RISCV.OpInfo
-public import Veir.Dialects.RISCV_Cf.OpInfo
-public import Veir.Dialects.RISCV_Stack.OpInfo
-public import Veir.Dialects.RV64.OpInfo
-public import Veir.Dialects.ModArith.OpInfo
-public import Veir.Dialects.Cf.OpInfo
-public import Veir.Dialects.Comb.OpInfo
-public import Veir.Dialects.HW.OpInfo
-public import Veir.Dialects.Datapath.OpInfo
-public import Veir.Dialects.Test.OpInfo
 
 public import Veir.IR.Basic
 public import Veir.OpCode

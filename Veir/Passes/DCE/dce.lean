@@ -2,7 +2,6 @@ module
 
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
-import Veir.Passes.Matching
 
 namespace Veir
 

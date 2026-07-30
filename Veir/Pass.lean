@@ -1,7 +1,5 @@
 module
 
-public import Veir.IR.Basic
-public import Veir.IR.WellFormed
 public import Veir.Verifier
 
 /-!

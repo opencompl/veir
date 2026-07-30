@@ -1,6 +1,5 @@
 module
 
-public import Veir.Data.LLVM.Int.Basic
 public import Veir.Data.LLVM.Int.Bitblast
 
 namespace Veir.Data.LLVM

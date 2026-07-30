@@ -1,7 +1,6 @@
 module
 
 public import Veir.Data.FP.EDyadic
-public import Veir.Data.FP.ExtRat
 
 namespace Veir.Data.FP.EDyadic
 

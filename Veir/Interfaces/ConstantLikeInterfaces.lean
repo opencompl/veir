@@ -1,6 +1,5 @@
 module
 
-public import Veir.IR.Basic
 public import Veir.Interpreter.Basic
 
 /-!

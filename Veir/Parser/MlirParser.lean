@@ -1,13 +1,9 @@
 module
 
-public import Veir.Parser.Parser
-public import Veir.Dialects.Builtin.OpInfo
-public import Veir.IR.WellFormed
-public import Veir.Rewriter.InsertPoint
 
 public import Veir.Parser.AttrParser
 public import Veir.Parser.DecidableInBounds
-public import Veir.Rewriter.WellFormed
+import Veir.Rewriter.WellFormed
 public import Veir.Rewriter.WfRewriter
 
 public section
