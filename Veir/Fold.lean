@@ -28,6 +28,18 @@ inductive FoldDecision where
   /-- The operation does not fold with the supplied operand information. -/
   | noFold
 
+/--
+  Prefer a fold-table decision, consulting `fallback` only when the table does
+  not fold. The thunk avoids interpreting an operation whose table already
+  produced a decision.
+-/
+@[expose]
+def FoldDecision.orElse (decision : FoldDecision)
+    (fallback : Unit → FoldDecision) : FoldDecision :=
+  match decision with
+  | .noFold => fallback ()
+  | decision => decision
+
 /-- Construct a poison decision for a supported result type. -/
 private def poisonDecision (resultTypes : Array TypeAttr) : FoldDecision :=
   match resultTypes[0]? with
@@ -481,26 +493,28 @@ private def validateFoldDecision (resultTypes : Array TypeAttr)
   its constant-defined operands (`constOperands[i] = some rv` iff operand `i`
   is defined by a constant-like operation with value `rv`).
 
-  When every operand is a known constant and the opcode is evaluable, the
-  interpreter computes the decision directly. Otherwise the per-dialect fold
-  tables are consulted for identities.
+  The per-dialect fold table is consulted first because its refinement folds
+  can be stronger than direct evaluation in the presence of poison. If the
+  table does not fold, an evaluable operation with all operands known is
+  interpreted directly.
 -/
 def OpCode.foldsTo (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue)) :
     FoldDecision :=
   if resultTypes.size ≠ 1 then .noFold else
-  let decision :=
+  let tableDecision := validateFoldDecision resultTypes constOperands <|
+    match opCode with
+    | .arith op => Arith.foldsTo op properties resultTypes constOperands
+    | .llvm op => Llvm.foldsTo op properties resultTypes constOperands
+    | .riscv op => Riscv.foldsTo op properties resultTypes constOperands
+    | .mod_arith op => Mod_Arith.foldsTo op properties resultTypes constOperands
+    | _ => .noFold
+  tableDecision.orElse fun _ =>
     if opCode.isFoldEvaluable properties && !constOperands.isEmpty
         && constOperands.all (·.isSome) then
       evaluatedFoldDecision opCode properties resultTypes constOperands
     else
-      match opCode with
-      | .arith op => Arith.foldsTo op properties resultTypes constOperands
-      | .llvm op => Llvm.foldsTo op properties resultTypes constOperands
-      | .riscv op => Riscv.foldsTo op properties resultTypes constOperands
-      | .mod_arith op => Mod_Arith.foldsTo op properties resultTypes constOperands
-      | _ => .noFold
-  validateFoldDecision resultTypes constOperands decision
+      .noFold
 
 namespace Fold.Impl
 

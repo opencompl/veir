@@ -50,10 +50,21 @@ private def testFoldDecisionForOp : String := Id.run do
     match foldDecision (.arith .addi) default (i32Types ++ i32Types) constants with
     | .noFold => pure ()
     | _ => return "foldDecision accepted a multi-result operation"
-    match foldDecision (.arith .divsi) default i32Types
+    match foldDecision (.arith .ceildivui) default i32Types
         #[some (.int 32 (.val 5)), some (.int 32 (.val 0))] with
     | .useConstant (.int 32 .poison) => pure ()
-    | _ => return "arith.divsi by zero did not fold interpreter UB to poison"
+    | _ => return "arith.ceildivui by zero did not fold interpreter UB to poison"
+    match foldDecision (.arith .muli) default i32Types
+        #[some (.int 32 .poison), some (.int 32 (.val 0))] with
+    | .useConstant (.int 32 (.val value)) =>
+      if value ≠ 0 then return "arith.muli by zero produced a nonzero value"
+    | _ => return "arith.muli poison by zero did not prefer the refining table fold"
+    let byte8 : TypeAttr := LLVM.ByteType.mk 8
+    let byte7 := Data.LLVM.Byte.fromBitVec (7 : BitVec 8)
+    match foldDecision (.llvm .select) () #[byte8]
+        #[some (.int 1 (.val 1)), some (.byte 8 byte7), some (.byte 8 byte7)] with
+    | .useOperand 1 => pure ()
+    | _ => return "llvm.select of known bytes did not use the table fold"
     match foldDecision (.llvm .load) default i32Types #[some (.addr 0)] with
     | .noFold => pure ()
     | _ => return "llvm.load folded despite reading memory"

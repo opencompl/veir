@@ -4,9 +4,11 @@ public import Veir.Data.LLVM.Int.Basic
 public import Veir.Data.LLVM.Byte.Basic
 public import Veir.Data.RISCV.Reg.Basic
 public import Veir.Data.Refinement
+public import Veir.Fold
 public import Veir.IR.Attribute
 
 import Veir.Meta.BVDecide
+import Veir.Interpreter.Refinement.Basic
 import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.LLVM.Int.Bitblast
 import all Veir.Data.LLVM.Byte.Basic
@@ -39,6 +41,29 @@ public section
 namespace Veir.Fold.Proofs
 
 open Veir.Data
+
+/--
+  A fold decision is sound for a concrete source result when it either declines
+  to fold or names a runtime value that refines the source result.
+-/
+def decisionSoundForResult (source : RuntimeValue)
+    (constOperands : Array (Option RuntimeValue)) : FoldDecision → Prop
+  | .useOperand j =>
+    ∃ target, constOperands[j]? = some (some target) ∧ source ⊒ target
+  | .useConstant target => source ⊒ target
+  | .noFold => True
+
+/--
+  Table-first selection preserves soundness: it returns either the sound table
+  decision or, when that decision is `.noFold`, the sound fallback decision.
+-/
+theorem FoldDecision.orElse_soundForResult
+    (source : RuntimeValue) (constOperands : Array (Option RuntimeValue))
+    (table : FoldDecision) (fallback : Unit → FoldDecision)
+    (tableSound : decisionSoundForResult source constOperands table)
+    (fallbackSound : decisionSoundForResult source constOperands (fallback ())) :
+    decisionSoundForResult source constOperands (table.orElse fallback) := by
+  cases table <;> simp only [FoldDecision.orElse] <;> assumption
 
 namespace Integer
 
