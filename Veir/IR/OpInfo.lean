@@ -153,11 +153,19 @@ theorem toDialect?_ofDialect (op : Dialect) :
   simp [ofDialect, toDialect?, HasDialect.project_eq_some_iff]
 
 /-- A dialect's injection into an global opcode type is injective. -/
-theorem ofDialect_injective (op₁ op₂ : Dialect) :
+theorem ofDialect_injective {op₁ op₂ : Dialect} :
     ofDialect OpInfo op₁ = ofDialect OpInfo op₂ →
     op₁ = op₂ := by
   intro h
   grind [congrArg (toDialect? Dialect) h]
+
+@[simp]
+theorem toDialect?_eq_some_iff (opInfo : OpInfo) (op : Dialect) :
+    toDialect? Dialect opInfo = some op ↔ ofDialect OpInfo op = opInfo := by
+  grind [project_eq_some_iff, ofDialect, toDialect?]
+
+grind_pattern toDialect?_eq_some_iff =>
+  toDialect? Dialect opInfo, ofDialect OpInfo op
 
 /-- Convert dialect-local properties to the global property family. -/
 def ofDialectProperties (OpInfo : Type) [HasOpInfo OpInfo] [dialectInj : HasDialect OpInfo Dialect]

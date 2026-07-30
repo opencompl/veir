@@ -23,7 +23,7 @@ def renderReport (report : MismatchReport) : String :=
 /--
 Parse one top level MLIR operation together with the parser state that owns its IR context.
 -/
-def parseTopLevelOp (s : String) : Except String (OperationPtr × MlirParserState) := do
+def parseTopLevelOp (s : String) : Except String (OperationPtr × MlirParserState OpCode) := do
   let some (ctx, _) := WfIRContext.create OpCode
     | throw "internal error: failed to create IR context"
   let parserState ← (ParserState.fromInput s.toByteArray).mapError toString
@@ -158,7 +158,8 @@ render any test mismatches produced by `check`.
 def runWithAnalyses
     (mlir : String)
     (analyses : Array DataFlowAnalysis)
-    (check : OperationPtr -> DataFlowContext -> MlirParserState -> MismatchReport) : String := Id.run do
+    (check : OperationPtr -> DataFlowContext -> MlirParserState OpCode -> MismatchReport) :
+    String := Id.run do
   match parseTopLevelOp mlir with
   | .error err =>
       return s!"parse failed: {err}"
