@@ -173,7 +173,7 @@ abbrev Builder :=
   Option (PatternRewriter OpCode × ValuePtr)
 
 /-- Lower a binary `mod_arith` op `modOp`,
-    using intermediate Type iM given storage type iM, with M = `widen` N,
+    using intermediate Type iM given storage type iN, with M = `widen` N,
     and using Builder `build` to determine the exact `arith` operations to emit -/
 def lowerModArithBinOp (modOp : Mod_Arith) (widen : Nat → Nat) (build : Builder)
     (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -184,15 +184,15 @@ def lowerModArithBinOp (modOp : Mod_Arith) (widen : Nat → Nat) (build : Builde
   let lhs := operands[0]!
   let rhs := operands[1]!
   -- type setup
-  let .modArithType modArithType := ((op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw).val
+  let .modArithType modArithType@⟨⟨modulus, storageType⟩⟩ := ((op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw).val
     | return rewriter
-  let intermediateWidth := widen modArithType.modulus.type.bitwidth
+  let intermediateWidth := widen storageType.bitwidth
   let intermediateType  := IntegerType.mk intermediateWidth
   -- actual lowering:
   let ip := InsertPoint.before op
   let (rewriter, a) ← unpackValue rewriter lhs intermediateType ip
   let (rewriter, b) ← unpackValue rewriter rhs intermediateType ip
-  let (rewriter, q) ← emitArithConstant rewriter modArithType.modulus.value intermediateWidth ip
+  let (rewriter, q) ← emitArithConstant rewriter modulus intermediateWidth ip
   let (rewriter, r) ← build rewriter a b q ip
   let (rewriter, r) ← emitArithBinOp rewriter .remui () r q ip
   let (rewriter, r) ← packValue rewriter r modArithType ip
@@ -224,20 +224,19 @@ def lowerModArithSubOp := lowerModArithBinOp .sub (· + 1) buildSub
 
 /-! ## Constant lowering Pattern -/
 
-/-- Lower `mod_arith.constant` to an `arith.constant` (assumes value is in `[0, q)` already). -/
-def lowerModArithConstant (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+/-- Lower `mod_arith.constant` to an `arith.constant`. -/
+def lowerModArithConstantOp (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   -- match op and extract attribute:
   let some (_, props) := matchOp op rewriter.ctx (.mod_arith .constant) 0
     | return rewriter
   let c := props.value.value
   -- type setup
-  let .modArithType modArithType := ((op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw).val
+  let .modArithType modArithType@⟨⟨q, storageType⟩⟩ := ((op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw).val
     | return rewriter
-  let storageType := modArithType.modulus.type
   -- actual lowering:
   let ip := InsertPoint.before op
-  let (rewriter, r) ← emitArithConstant rewriter c storageType.bitwidth ip
+  let (rewriter, r) ← emitArithConstant rewriter (c % q) storageType.bitwidth ip
   let (rewriter, out) ← castToModArith rewriter (r : ValuePtr) modArithType ip
   let rewriter := rewriter.replaceValue! (op.getResult 0) out
   return rewriter.eraseOp! op
@@ -247,7 +246,6 @@ def lowerModArithConstant (rewriter : PatternRewriter OpCode) (op : OperationPtr
 /-- Rewrite `arith.remui r, q` to a Barrett reduction when `q` is a positive constant. -/
 def remuiToBarrettReduction (rewriter : PatternRewriter OpCode) (op : OperationPtr) (_opInBounds : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
-
   let some (r, q, _) := matchArithRemui op rewriter.ctx
     | return rewriter
 
@@ -276,7 +274,7 @@ def remuiToBarrettReduction (rewriter : PatternRewriter OpCode) (op : OperationP
 def ModArithToArithPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[
-    lowerModArithConstant,
+    lowerModArithConstantOp,
     lowerModArithAddOp,
     lowerModArithSubOp,
     lowerModArithMulOp
@@ -290,7 +288,7 @@ public def ModArithToArithPass : Pass OpCode :=
     description := "Lower mod_arith operations to the arith dialect."
     run := ModArithToArithPass.impl }
 
-def RemuiToBarrettReducePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
+def RemuiToBarrettReductionPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[
     remuiToBarrettReduction
@@ -302,6 +300,6 @@ def RemuiToBarrettReducePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
 public def RemuiToBarrettReductionPass : Pass OpCode :=
   { name := "remui-to-barrett-reduction"
     description := "Rewrite arith.remui operations to Barrett reduction."
-    run := RemuiToBarrettReducePass.impl }
+    run := RemuiToBarrettReductionPass.impl }
 
 end Veir

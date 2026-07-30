@@ -3,7 +3,7 @@ module
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Dialects.RISCV.Properties
-meta import Veir.Meta.Attrs
+meta import Veir.Meta.OpCode
 
 namespace Veir
 
@@ -257,7 +257,11 @@ def Riscv.isConstantLike (op : Riscv) : Bool :=
 def Riscv.hasSSADominance (_op : Riscv) (_index : Nat) : Bool :=
   true
 
+#generate_dialect Riscv
+
 instance : HasDialectOpInfo Riscv where
+  fromName := Riscv.fromName
+  name := Riscv.name
   propertiesOf := Riscv.propertiesOf
   fromAttrDict := Riscv.fromAttrDict
   toAttrDict := Riscv.toAttrDict

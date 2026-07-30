@@ -3,7 +3,7 @@ module
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Dialects.Func.Properties
-meta import Veir.Meta.Attrs
+meta import Veir.Meta.OpCode
 
 namespace Veir
 
@@ -60,7 +60,11 @@ def Func.isConstantLike (_op : Func) : Bool :=
 def Func.hasSSADominance (_op : Func) (_index : Nat) : Bool :=
   true
 
+#generate_dialect Func
+
 instance : HasDialectOpInfo Func where
+  fromName := Func.fromName
+  name := Func.name
   propertiesOf := Func.propertiesOf
   fromAttrDict := Func.fromAttrDict
   toAttrDict := Func.toAttrDict

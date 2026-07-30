@@ -173,6 +173,96 @@ def LLVMConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
   | _ =>
     throw s!"llvm.constant: expected 'value' to be an integer, float, or dense elements attribute, but got {attr}"
 
+/--
+  Properties of `llvm.mlir.global`. The properties needed to identify and lay
+  out the global are modelled explicitly; less common LLVM global properties
+  are preserved verbatim in `extra`.
+
+  `alignment` is genuinely optional in MLIR (an absent alignment means "use the
+  target's preferred alignment", which is not the same as any particular value),
+  so it is modelled as an `Option` and omitted again when printing. `addr_space`
+  instead has a default of `0 : i32`, which MLIR materializes on parse, so it is
+  always present here.
+-/
+structure LLVMGlobalProperties where
+  sym_name : StringAttr
+  global_type : TypeAttr
+  value : Option Attribute
+  alignment : Option IntegerAttr
+  addr_space : IntegerAttr
+  linkage : LinkageAttr
+  constant : Bool
+  extra : DictionaryAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMGlobalProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMGlobalProperties := do
+  let symName ← match attrDict["sym_name".toUTF8]? with
+    | some (.stringAttr attr) => pure attr
+    | some attr =>
+      throw s!"llvm.mlir.global: expected 'sym_name' to be a string attribute, but got {attr}"
+    | none => throw "llvm.mlir.global: missing 'sym_name' property"
+  let globalType ← match attrDict["global_type".toUTF8]? with
+    | some attr =>
+      if _ : attr.isType = false then
+        throw "llvm.mlir.global: expected 'global_type' to be a type attribute"
+      else
+        pure attr.asType
+    | none => throw "llvm.mlir.global: missing 'global_type' property"
+  let alignment ← match attrDict["alignment".toUTF8]? with
+    | some (.integerAttr attr) => pure (some attr)
+    | some attr =>
+      throw s!"llvm.mlir.global: expected 'alignment' to be an integer attribute, but got {attr}"
+    | none => pure none
+  let addrSpace ← match attrDict["addr_space".toUTF8]? with
+    | some (.integerAttr attr) => pure attr
+    | some attr =>
+      throw s!"llvm.mlir.global: expected 'addr_space' to be an integer attribute, but got {attr}"
+    | none => pure { value := 0, type := { bitwidth := 32 } }
+  let linkage ← match attrDict["linkage".toUTF8]? with
+    | some (.linkageAttr attr) => pure attr
+    | some attr =>
+      throw s!"llvm.mlir.global: expected 'linkage' to be an LLVM linkage attribute, but got {attr}"
+    | none => throw "llvm.mlir.global: missing 'linkage' property"
+  let constant ← getUnitAttr "constant" attrDict
+  let value := attrDict["value".toUTF8]?
+  let extra := DictionaryAttr.fromArray
+    (attrDict.toArray.filter fun (k, _) =>
+      k ≠ "sym_name".toUTF8 &&
+      k ≠ "global_type".toUTF8 &&
+      k ≠ "value".toUTF8 &&
+      k ≠ "alignment".toUTF8 &&
+      k ≠ "addr_space".toUTF8 &&
+      k ≠ "linkage".toUTF8 &&
+      k ≠ "constant".toUTF8)
+  return {
+    sym_name := symName
+    global_type := globalType
+    value
+    alignment
+    addr_space := addrSpace
+    linkage
+    constant
+    extra
+  }
+
+/-- Properties of `llvm.mlir.addressof`. -/
+structure LLVMAddressOfProperties where
+  global_name : FlatSymbolRefAttr
+  extra : DictionaryAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMAddressOfProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMAddressOfProperties := do
+  let globalName ← match attrDict["global_name".toUTF8]? with
+    | some (.flatSymbolRefAttr attr) => pure attr
+    | some attr =>
+      throw s!"llvm.mlir.addressof: expected 'global_name' to be a flat symbol reference, but got {attr}"
+    | none => throw "llvm.mlir.addressof: missing 'global_name' property"
+  let extra := DictionaryAttr.fromArray
+    (attrDict.toArray.filter fun (k, _) => k ≠ "global_name".toUTF8)
+  return { global_name := globalName, extra }
+
 /-- Properties of integer comparison operations in the LLVM and arith dialects. -/
 structure IcmpProperties where
   predicate : Data.LLVM.IntPred

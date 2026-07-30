@@ -3,7 +3,7 @@ module
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Dialects.HW.Properties
-meta import Veir.Meta.Attrs
+meta import Veir.Meta.OpCode
 
 namespace Veir
 
@@ -63,7 +63,11 @@ def HW.isConstantLike (op : HW) : Bool :=
 def HW.hasSSADominance (_op : HW) (_index : Nat) : Bool :=
   true
 
+#generate_dialect HW
+
 instance : HasDialectOpInfo HW where
+  fromName := HW.fromName
+  name := HW.name
   propertiesOf := HW.propertiesOf
   fromAttrDict := HW.fromAttrDict
   toAttrDict := HW.toAttrDict

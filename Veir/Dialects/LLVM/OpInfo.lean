@@ -4,7 +4,7 @@ public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Dialects.LLVM.Properties
 public import Veir.Dialects.Cf.Properties
-meta import Veir.Meta.Attrs
+meta import Veir.Meta.OpCode
 
 namespace Veir
 
@@ -14,6 +14,8 @@ public section
 inductive Llvm where
 | mlir__constant
 | mlir__poison
+| mlir__global
+| mlir__addressof
 | and
 | or
 | xor
@@ -74,6 +76,8 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 def Llvm.propertiesOf (op : Llvm) : Type :=
 match op with
 | .mlir__constant => LLVMConstantProperties
+| .mlir__global => LLVMGlobalProperties
+| .mlir__addressof => LLVMAddressOfProperties
 | .add => NswNuwProperties
 | .sub => NswNuwProperties
 | .mul => NswNuwProperties
@@ -104,6 +108,8 @@ def Llvm.fromAttrDict
     Except String (Llvm.propertiesOf op) := by
   cases op
   case mlir__constant => exact LLVMConstantProperties.fromAttrDict attrDict
+  case mlir__global => exact LLVMGlobalProperties.fromAttrDict attrDict
+  case mlir__addressof => exact LLVMAddressOfProperties.fromAttrDict attrDict
   case add | sub | mul | shl | trunc =>
     exact NswNuwProperties.fromAttrDict attrDict
   case udiv | sdiv | lshr | ashr =>
@@ -143,6 +149,23 @@ def Llvm.toAttrDict
     | .dense denseAttr =>
       (Std.HashMap.emptyWithCapacity 1).insert
         "value".toUTF8 (Attribute.denseElementsAttr denseAttr)
+  | .mlir__global => Id.run do
+    let mut dict := Std.HashMap.ofList props.extra.entries.toList
+    dict := dict.insert "sym_name".toUTF8 (.stringAttr props.sym_name)
+    dict := dict.insert "global_type".toUTF8 props.global_type
+    if let some alignment := props.alignment then
+      dict := dict.insert "alignment".toUTF8 (.integerAttr alignment)
+    dict := dict.insert "addr_space".toUTF8 (.integerAttr props.addr_space)
+    dict := dict.insert "linkage".toUTF8 (.linkageAttr props.linkage)
+    if let some value := props.value then
+      dict := dict.insert "value".toUTF8 value
+    if props.constant then
+      dict := dict.insert "constant".toUTF8 (.unitAttr UnitAttr.mk)
+    dict
+  | .mlir__addressof => Id.run do
+    let mut dict := Std.HashMap.ofList props.extra.entries.toList
+    dict := dict.insert "global_name".toUTF8 (.flatSymbolRefAttr props.global_name)
+    dict
   | .add | .sub | .mul | .shl | .trunc => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 1
     let mut val := 0
@@ -295,7 +318,11 @@ def Llvm.isConstantLike (op : Llvm) : Bool :=
 def Llvm.hasSSADominance (_op : Llvm) (_index : Nat) : Bool :=
   true
 
+#generate_dialect Llvm
+
 instance : HasDialectOpInfo Llvm where
+  fromName := Llvm.fromName
+  name := Llvm.name
   propertiesOf := Llvm.propertiesOf
   fromAttrDict := Llvm.fromAttrDict
   toAttrDict := Llvm.toAttrDict

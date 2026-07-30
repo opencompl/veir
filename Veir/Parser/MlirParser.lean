@@ -648,7 +648,7 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
   let blockOperands ← parseBlockOperands
 
   /- Get the operation opcode. -/
-  let opId := OpCode.fromName opName
+  let opId := (OpCode.fromName opName).getD (.builtin .unregistered)
 
   if let .builtin .unregistered := opId then
     if !(← get).allowUnregisteredDialect then

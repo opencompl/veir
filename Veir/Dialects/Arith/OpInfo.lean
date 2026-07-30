@@ -4,7 +4,7 @@ public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Dialects.Arith.Properties
 public import Veir.Dialects.LLVM.Properties
-meta import Veir.Meta.Attrs
+meta import Veir.Meta.OpCode
 
 namespace Veir
 
@@ -125,7 +125,11 @@ def Arith.isConstantLike (op : Arith) : Bool :=
 def Arith.hasSSADominance (_op : Arith) (_index : Nat) : Bool :=
   true
 
+#generate_dialect Arith
+
 instance : HasDialectOpInfo Arith where
+  fromName := Arith.fromName
+  name := Arith.name
   propertiesOf := Arith.propertiesOf
   fromAttrDict := Arith.fromAttrDict
   toAttrDict := Arith.toAttrDict

@@ -38,6 +38,22 @@ def Attribute.branchArgCompatible (opTy argTy : Attribute) : Bool :=
   | _, _ => decide (opTy = argTy)
 
 /--
+  Whether `attr` is *definitely* a non-zero initializer. TODO: This
+  does not yet completely match MLIR's behavior.
+-/
+def Attribute.isKnownNonZero (attr : Attribute) : Bool :=
+  match attr with
+  | .integerAttr intAttr => intAttr.value != 0
+  | .floatAttr fltAttr => fltAttr.value != 0.0
+  | _ => false
+
+/--
+  Whether `n` is a valid alignment: a strictly positive power of two.
+-/
+def isValidLLVMAlignment (n : Int) : Bool :=
+  decide (0 < n) && (n.toNat &&& (n.toNat - 1)) == 0
+
+/--
   Check that a `func.return` returns the declared result types of its
   enclosing `func.func`.
 -/
@@ -79,14 +95,12 @@ def OperationPtr.verifyLLVMFuncReturnTypes (op : OperationPtr) (ctx : WfIRContex
 -/
 def OperationPtr.verifyLLVMGlobalReturnTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) (globalOp : OperationPtr) : Except String PUnit := do
-  let props := globalOp.getProperties! ctx.raw (.builtin .unregistered)
-  let some (_, globalType) := props.properties.entries.find?
-      (fun entry => entry.1 == "global_type".toUTF8)
-    | throw "Expected enclosing llvm.mlir.global to have a global_type attribute"
+  let globalType :=
+    (globalOp.getProperties! ctx.raw (.llvm .mlir__global)).global_type
   if op.getNumOperands ctx.raw opIn ≠ 1 then
     throw "Expected llvm.return in llvm.mlir.global to have 1 operand"
   let opTypes := op.getOperandTypes! ctx.raw
-  if (opTypes[0]!).val ≠ globalType then
+  if (opTypes[0]!).val ≠ globalType.val then
     throw "llvm.return operand type does not match the global's declared global_type"
 
 /--
@@ -99,10 +113,7 @@ def OperationPtr.verifyLLVMReturnTypes (op : OperationPtr) (ctx : WfIRContext Op
     throw "Expected llvm.return to be enclosed by llvm.func or llvm.mlir.global"
   match enclosingOp.getOpType! ctx.raw with
   | .llvm .func => op.verifyLLVMFuncReturnTypes ctx opIn enclosingOp
-  | .builtin .unregistered =>
-    if (enclosingOp.getProperties! ctx.raw (.builtin .unregistered)).opName == "llvm.mlir.global".toUTF8 then
-      op.verifyLLVMGlobalReturnTypes ctx opIn enclosingOp
-    else badEnclosure
+  | .llvm .mlir__global => op.verifyLLVMGlobalReturnTypes ctx opIn enclosingOp
   | _ => badEnclosure
 
 def TypeAttr.verifyIntegerType (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
@@ -662,6 +673,39 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 0 1
     pure ()
+  | .llvm .mlir__global => do
+    if op.getNumOperands ctx.raw opIn ≠ 0 then
+      throw "Expected 0 operands"
+    if op.getNumResults ctx.raw opIn ≠ 0 then
+      throw "Expected 0 results"
+    if op.getNumRegions ctx.raw opIn ≠ 1 then
+      throw "Expected 1 region"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    let properties := op.getProperties! ctx.raw (.llvm .mlir__global)
+    if let some alignment := properties.alignment then
+      if alignment.type.bitwidth ≠ 64 then
+        throw "'alignment' must be a 64-bit signless integer attribute"
+      if !isValidLLVMAlignment alignment.value then
+        throw "alignment attribute is not a power of 2"
+    if properties.addr_space.type.bitwidth ≠ 32 then
+      throw "'addr_space' must be a 32-bit signless integer attribute"
+    -- A global is initialized either by the `value` attribute or by the body
+    -- region, never both. An empty body with no `value` is a declaration, which
+    -- is legal for every linkage.
+    if let some value := properties.value then
+      let body := (op.getRegion! ctx.raw 0).get! ctx.raw
+      if body.firstBlock.isSome then
+        throw "cannot have both initializer value and region"
+      if properties.linkage.value == "common" && value.isKnownNonZero then
+        throw "expected zero value for 'common' linkage"
+    pure ()
+  | .llvm .mlir__addressof => do
+    op.verifyPlainOpCounts ctx opIn 0 1
+    let resultType := ((op.getResult 0).get! ctx.raw).type
+    let .llvmPointerType _ := resultType.val
+      | throw "Expected result to have !llvm.ptr type"
+    pure ()
   | .llvm .and | .llvm .or | .llvm .xor | .llvm .intr__smax | .llvm .intr__smin
   | .llvm .intr__umax | .llvm .intr__umin | .llvm .add | .llvm .sub
   | .llvm .ashr | .llvm .mul | .llvm .sdiv | .llvm .udiv
@@ -1124,6 +1168,32 @@ private def WfIRContext.graphRegionsHaveAtMostOneBlock (ctx : WfIRContext OpCode
     else
       true
 
+/--
+  Check the module-wide invariants needed by LLVM global references: global
+  names are unique and every `llvm.mlir.addressof` names a declared global.
+
+  TODO: This is stricter than MLIR, which lets `llvm.mlir.addressof` name either
+  an `llvm.mlir.global` or an `llvm.func`, so taking the address of a function
+  (function pointers, vtables, globals initialized with a function address) is
+  currently rejected.
+-/
+private def WfIRContext.verifyLLVMGlobalSymbols (ctx : WfIRContext OpCode) :
+    Except String Unit := do
+  let mut globals : Std.HashMap ByteArray OperationPtr := Std.HashMap.emptyWithCapacity
+  for op in ctx.raw.operations.keys do
+    if op.getOpType! ctx.raw = .llvm .mlir__global then
+      let props := op.getProperties! ctx.raw (.llvm .mlir__global)
+      let symbolName := "@".toUTF8 ++ props.sym_name.value
+      if globals.contains symbolName then
+        let displayName := String.fromUTF8? symbolName |>.getD "<non-UTF8 global symbol>"
+        throw s!"llvm.mlir.global: duplicate global symbol '{displayName}'"
+      globals := globals.insert symbolName op
+  for op in ctx.raw.operations.keys do
+    if op.getOpType! ctx.raw = .llvm .mlir__addressof then
+      let props := op.getProperties! ctx.raw (.llvm .mlir__addressof)
+      if !globals.contains props.global_name.value.toUTF8 then
+        throw s!"llvm.mlir.addressof: symbol '{props.global_name.value}' does not name an llvm.mlir.global"
+
 public section
 
 /--
@@ -1152,6 +1222,7 @@ def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
       if region.getRegionKind ctx = .SSACFG then
         block.verifyTerminator ctx blockIn
     | none => pure ())
+  ctx.verifyLLVMGlobalSymbols
 
 /--
 Assert that the IR context satisfies its structural and local invariants.
