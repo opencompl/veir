@@ -3,7 +3,7 @@ module
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Dialects.ModArith.Properties
-meta import Veir.Meta.Attrs
+meta import Veir.Meta.OpCode
 
 namespace Veir
 
@@ -52,7 +52,11 @@ def Mod_Arith.isConstantLike (_op : Mod_Arith) : Bool :=
 def Mod_Arith.hasSSADominance (_op : Mod_Arith) (_index : Nat) : Bool :=
   true
 
+#generate_dialect Mod_Arith
+
 instance : HasDialectOpInfo Mod_Arith where
+  fromName := Mod_Arith.fromName
+  name := Mod_Arith.name
   propertiesOf := Mod_Arith.propertiesOf
   fromAttrDict := Mod_Arith.fromAttrDict
   toAttrDict := Mod_Arith.toAttrDict

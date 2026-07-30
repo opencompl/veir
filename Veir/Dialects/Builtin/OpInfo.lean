@@ -3,7 +3,7 @@ module
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Dialects.Builtin.Properties
-meta import Veir.Meta.Attrs
+meta import Veir.Meta.OpCode
 
 namespace Veir
 
@@ -52,7 +52,11 @@ def Builtin.hasSSADominance (op : Builtin) (_index : Nat) : Bool :=
   | .module | .unregistered => false
   | _ => true
 
+#generate_dialect Builtin
+
 instance : HasDialectOpInfo Builtin where
+  fromName := Builtin.fromName
+  name := Builtin.name
   propertiesOf := Builtin.propertiesOf
   fromAttrDict := Builtin.fromAttrDict
   toAttrDict := Builtin.toAttrDict

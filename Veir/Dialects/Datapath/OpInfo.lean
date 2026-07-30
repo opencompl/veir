@@ -2,7 +2,7 @@ module
 
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
-meta import Veir.Meta.Attrs
+meta import Veir.Meta.OpCode
 
 namespace Veir
 
@@ -42,7 +42,11 @@ def Datapath.isConstantLike (_op : Datapath) : Bool :=
 def Datapath.hasSSADominance (_op : Datapath) (_index : Nat) : Bool :=
   true
 
+#generate_dialect Datapath
+
 instance : HasDialectOpInfo Datapath where
+  fromName := Datapath.fromName
+  name := Datapath.name
   propertiesOf := Datapath.propertiesOf
   fromAttrDict := Datapath.fromAttrDict
   toAttrDict := Datapath.toAttrDict

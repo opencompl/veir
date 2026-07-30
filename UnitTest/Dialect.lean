@@ -10,6 +10,16 @@ open Veir
 example : HasDialect OpCode Arith := inferInstance
 example : HasDialect OpCode Builtin := inferInstance
 
+/-! Dialect-local and global operation name lookup is generated. -/
+#guard Arith.fromName "arith.addi".toUTF8 = some .addi
+#guard Arith.fromName "llvm.add".toUTF8 = none
+#guard Arith.name .addi = "arith.addi".toUTF8
+#guard OpCode.fromName "arith.addi".toUTF8 = some (.arith .addi)
+#guard OpCode.fromName "unknown.op".toUTF8 = none
+#guard OpCode.name (.arith .addi) = "arith.addi".toUTF8
+#guard HasDialectOpInfo.fromName (opCode := Arith) "arith.addi".toUTF8 = some .addi
+#guard HasDialectOpInfo.name (opCode := Arith) .addi = "arith.addi".toUTF8
+
 /-! Dialects can define conversion functions to and from the global opcode type. -/
 abbrev Veir.Arith.from? (op : OpInfo) [HasOpInfo OpInfo] [HasDialect OpInfo Arith]
     : Option Arith :=

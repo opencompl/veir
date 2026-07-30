@@ -2,7 +2,7 @@ module
 
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
-meta import Veir.Meta.Attrs
+meta import Veir.Meta.OpCode
 
 namespace Veir
 
@@ -39,7 +39,11 @@ def Test.isConstantLike (_op : Test) : Bool :=
 def Test.hasSSADominance (_op : Test) (_index : Nat) : Bool :=
   false
 
+#generate_dialect Test
+
 instance : HasDialectOpInfo Test where
+  fromName := Test.fromName
+  name := Test.name
   propertiesOf := Test.propertiesOf
   fromAttrDict := Test.fromAttrDict
   toAttrDict := Test.toAttrDict

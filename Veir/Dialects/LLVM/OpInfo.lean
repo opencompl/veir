@@ -4,7 +4,7 @@ public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Dialects.LLVM.Properties
 public import Veir.Dialects.Cf.Properties
-meta import Veir.Meta.Attrs
+meta import Veir.Meta.OpCode
 
 namespace Veir
 
@@ -295,7 +295,11 @@ def Llvm.isConstantLike (op : Llvm) : Bool :=
 def Llvm.hasSSADominance (_op : Llvm) (_index : Nat) : Bool :=
   true
 
+#generate_dialect Llvm
+
 instance : HasDialectOpInfo Llvm where
+  fromName := Llvm.fromName
+  name := Llvm.name
   propertiesOf := Llvm.propertiesOf
   fromAttrDict := Llvm.fromAttrDict
   toAttrDict := Llvm.toAttrDict

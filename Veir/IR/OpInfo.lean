@@ -9,6 +9,10 @@ public section
 
 class HasDialectOpInfo (opCode: Type)
     extends Hashable opCode, Repr opCode, Inhabited opCode where
+  /-- Look up an operation by its fully qualified MLIR name. -/
+  fromName : ByteArray → Option opCode
+  /-- Return an operation's fully qualified MLIR name. -/
+  name : opCode → ByteArray
   propertiesOf : opCode → Type
   /-- Create an operation's properties from its attribute dictionary. -/
   fromAttrDict : (op : opCode) → Std.HashMap ByteArray Attribute →

@@ -212,6 +212,8 @@ def Properties.toAttrDict
   | .test op, props => Test.toAttrDict op props
 
 instance : HasDialectOpInfo OpCode where
+  fromName := OpCode.fromName
+  name := OpCode.name
   propertiesOf := _propertiesOf
   fromAttrDict := Properties.fromAttrDict
   toAttrDict := Properties.toAttrDict

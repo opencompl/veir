@@ -3,7 +3,7 @@ module
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Dialects.Comb.Properties
-meta import Veir.Meta.Attrs
+meta import Veir.Meta.OpCode
 
 namespace Veir
 
@@ -72,7 +72,11 @@ def Comb.isConstantLike (_op : Comb) : Bool :=
 def Comb.hasSSADominance (_op : Comb) (_index : Nat) : Bool :=
   true
 
+#generate_dialect Comb
+
 instance : HasDialectOpInfo Comb where
+  fromName := Comb.fromName
+  name := Comb.name
   propertiesOf := Comb.propertiesOf
   fromAttrDict := Comb.fromAttrDict
   toAttrDict := Comb.toAttrDict
