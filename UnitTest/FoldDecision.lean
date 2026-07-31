@@ -31,8 +31,6 @@ private def testFoldDecision : String := Id.run do
     let ctx := parserState.ctx
     let some ⟨add, addInBounds⟩ := findOp ctx.raw (.arith .addi)
       | return "missing arith.addi"
-    let some ⟨constant, constantInBounds⟩ := findOp ctx.raw (.arith .constant)
-      | return "missing arith.constant"
     let constants : Array (Option RuntimeValue) :=
       #[some (.int 32 (.val 7)), some (.int 32 (.val 8))]
     let i32Types := add.getResultTypes ctx.raw addInBounds
