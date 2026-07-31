@@ -64,9 +64,6 @@ instance : HasDialectOpInfo PDL where
 /--
 Verify the local invariants of a `pdl` operation in any operation-info type
 containing the `pdl` dialect.
-
-TODO: The optional `valueType` operand is a `!pdl.type` handle produced by
-`pdl.type`, which is not modelled yet, so the operand type is left unchecked.
 -/
 def PDL.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpInfo PDL]
     (opType : PDL) (op : OperationPtr) (ctx : WfIRContext OpInfo)
@@ -85,6 +82,10 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpI
     let numOperands := op.getNumOperands ctx.raw opIn
     if numOperands > 1 then
       throw "Expected at most 1 operand"
+    if numOperands = 1 then
+      let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
+      if operandType.val ≠ (PDL.TypeType.mk : TypeAttr).val then
+        throw "Expected the `valueType` operand to be of type '!pdl.type'"
     let props : PDL.propertiesOf .attribute :=
       HasDialect.toDialectProperties (OpInfo := OpInfo) PDL.attribute
         (op.getProperties! ctx.raw (ofDialect OpInfo PDL.attribute))
