@@ -12,10 +12,6 @@ public section
 
 namespace Veir
 
-/--
-  The decision of whether and how an operation folds. Folding is currently
-  restricted to operations with exactly one result.
--/
 inductive FoldDecision where
   /-- Use operand `j` in place of the result. -/
   | useOperand (j : Nat)
@@ -28,10 +24,6 @@ inductive FoldDecision where
   Query whether an operation folds, given its result types and the values of
   its constant-defined operands (`constOperands[i] = some rv` iff operand `i`
   is defined by a constant-like operation with value `rv`).
-
-  Folding requires a single result type and a value for every operand: the
-  interpreter is the only source of fold decisions, so a single `none` yields
-  `.noFold`.
 -/
 def OpCode.foldsTo (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue)) :
