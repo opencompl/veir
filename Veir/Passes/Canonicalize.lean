@@ -25,7 +25,7 @@ def canonicalizeModArithConstant (rewriter : PatternRewriter OpCode) (op : Opera
   if canonicalValue = props.value.value then return rewriter
   let canonicalProps : ModArithConstantProperties :=
     { value := { props.value with value := canonicalValue } }
-  return rewriter.setProperties! op (.mod_arith .constant) canonicalProps
+  return rewriter.setProperties! op Mod_Arith.constant canonicalProps
 
 def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do

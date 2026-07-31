@@ -696,8 +696,12 @@ theorem OperationPtr.pushResult_fieldsInBounds {newResult : OpResult} {op : Oper
   prove_fieldsInBounds
 
 @[grind .]
-theorem OperationPtr.setProperties_fieldsInBounds :
-    ctx.FieldsInBounds → (setProperties op ctx newProperties inBounds hprop).FieldsInBounds := by
+theorem OperationPtr.setProperties_fieldsInBounds
+    {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+    {op : OperationPtr} {inBounds : op.InBounds ctx}
+    {opCode : Dialect} {newProperties : HasDialectOpInfo.propertiesOf opCode}
+    {hprop : op.getOpType! ctx = opCode} :
+    ctx.FieldsInBounds → (setProperties op ctx opCode newProperties inBounds hprop).FieldsInBounds := by
   prove_fieldsInBounds_operation ctx
 
 @[grind .]
