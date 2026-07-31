@@ -36,8 +36,10 @@ inductive FoldDecision where
 def OpCode.foldsTo (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue)) :
     FoldDecision :=
-  match resultTypes.toList, constOperands.mapM id with
-  | [resultType], some values =>
+  if !constOperands.all (·.isSome) then .noFold else
+  let values := constOperands.map (·.get!)
+  match resultTypes.toList with
+  | [resultType] =>
     match (foldEvaluate opCode properties #[resultType] values : Option (UBOr _)) with
     | none => .noFold
     | some (.ok results) =>
@@ -50,7 +52,7 @@ def OpCode.foldsTo (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode
       match resultType.val with
       | .integerType intTy => .useConstant (.int intTy.bitwidth .poison)
       | _ => .noFold
-  | _, _ => .noFold
+  | _ => .noFold
 
 namespace Fold.Impl
 
