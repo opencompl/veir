@@ -24,37 +24,32 @@ inductive FoldDecision where
   /-- The operation does not fold with the supplied operand information. -/
   | noFold
 
-/-- Resolve all-constant folding of a single-result operation with the interpreter. -/
-private def evaluatedFoldDecision (opCode : OpCode)
-    (properties : HasOpInfo.propertiesOf opCode)
-    (resultType : TypeAttr) (values : Array RuntimeValue) : FoldDecision :=
-  match (foldEvaluate opCode properties #[resultType] values : Option (UBOr _)) with
-  | none => .noFold
-  | some (.ok results) =>
-    -- The interpreter may disagree about arity, so the lone result is checked.
-    match results.toList with
-    | [result] => if result.Conforms resultType then .useConstant result else .noFold
-    | _ => .noFold
-  | some .ub =>
-    -- UB may be refined by any value; poison is the strongest one available.
-    match resultType.val with
-    | .integerType intTy => .useConstant (.int intTy.bitwidth .poison)
-    | _ => .noFold
-
 /--
   Query whether an operation folds, given its result types and the values of
   its constant-defined operands (`constOperands[i] = some rv` iff operand `i`
   is defined by a constant-like operation with value `rv`).
 
-  Every operand must be known: the interpreter is the only source of fold
-  decisions, so a single `none` yields `.noFold`.
+  Folding requires a single result type and a value for every operand: the
+  interpreter is the only source of fold decisions, so a single `none` yields
+  `.noFold`.
 -/
 def OpCode.foldsTo (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue)) :
     FoldDecision :=
   match resultTypes.toList, constOperands.mapM id with
   | [resultType], some values =>
-    evaluatedFoldDecision opCode properties resultType values
+    match (foldEvaluate opCode properties #[resultType] values : Option (UBOr _)) with
+    | none => .noFold
+    | some (.ok results) =>
+      -- The interpreter may disagree about arity, so the lone result is checked.
+      match results.toList with
+      | [result] => if result.Conforms resultType then .useConstant result else .noFold
+      | _ => .noFold
+    | some .ub =>
+      -- UB may be refined by any value; poison is the strongest one available.
+      match resultType.val with
+      | .integerType intTy => .useConstant (.int intTy.bitwidth .poison)
+      | _ => .noFold
   | _, _ => .noFold
 
 namespace Fold.Impl
