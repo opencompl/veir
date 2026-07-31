@@ -1,4 +1,4 @@
-// RUN: VEIR_UNREGISTERED_ROUNDTRIP
+// RUN: VEIR_ROUNDTRIP
 
 "builtin.module"() ({
   // Define an attribute:

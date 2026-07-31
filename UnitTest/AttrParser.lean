@@ -219,6 +219,10 @@ macro "#assert " e:term : command =>
 #assert expectErrorType "!mod_arith.int<17>" "Expected punctuation ':'" (some 17)
 #assert expectErrorType "!mod_arith.int<17 : x>" "integer type expected after ':' in integer attribute" (some 20)
 
+/-! ## PDL handle types -/
+#assert expectSuccessType "!pdl.attribute" (PDL.AttributeType.mk)
+#assert expectSuccessAttr "!pdl.attribute" (PDL.AttributeType.mk)
+
 /-! ## LLVM Pointer type -/
 #assert expectSuccessType "!llvm.ptr" (LLVM.PointerType.mk)
 

@@ -461,6 +461,18 @@ partial def parseOptionalLLVMVoidType : AttrParserM (Option TypeAttr) := do
   return some LLVM.VoidType.mk
 
 /--
+  Parse a PDL attribute handle type `!pdl.attribute`, if present.
+-/
+partial def parseOptionalPDLAttributeType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "pdl.attribute".toByteArray then return none
+  let _ ← consumeToken
+  return some PDL.AttributeType.mk
+
+/--
   Parse an LLVM pointer type `!llvm.ptr`, if present.
 -/
 partial def parseOptionalLLVMPointerType : AttrParserM (Option TypeAttr) := do
@@ -734,6 +746,8 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some cudaTilePointerType
   if let some hwModuleType ← parseOptionalHWModuleType then
     return some hwModuleType
+  if let some pdlAttributeType ← parseOptionalPDLAttributeType then
+    return some pdlAttributeType
   if let some dialectType ← parseOptionalDialectType then
     return some dialectType
   else if let some functionType := ← parseOptionalFunctionType then
