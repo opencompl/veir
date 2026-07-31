@@ -91,7 +91,26 @@ def emitArithBinOp (rewriter : PatternRewriter OpCode) (arithOp : Arith)
   return (rewriter, (r.getResult 0 : ValuePtr))
 
 
-/-! ## Barrett Helper -/
+/-! ## Reduction Helpers -/
+
+def ReductionBuilder :=
+  (legalizeWidth : Nat → Nat) →
+  (rewriter : PatternRewriter OpCode) →
+  (r : ValuePtr) →
+  (modulus : Int) →
+  (width : Nat) →
+  (ip : InsertPoint) →
+  Option (PatternRewriter OpCode × ValuePtr)
+
+/-- Emit full reduction using `arith.remui` -/
+def emitFullReduction (legalizeWidth : Nat → Nat) (rewriter : PatternRewriter OpCode)
+    (r : ValuePtr) (modulus : Int) (width : Nat) (ip : InsertPoint) :
+    Option (PatternRewriter OpCode × ValuePtr) := do
+  let bw := legalizeWidth width
+  let (rewriter, q) ← emitArithConstant rewriter modulus bw ip
+  let (rewriter, r) ← emitArithBinOp rewriter .remui () r q ip
+  return (rewriter, r)
+
 /-- Barrett reduction: approximate `⌊r / modulus⌋` with a precomputed reciprocal
     `mu = ⌊2^(2*k) / modulus⌋` (`k = ceil(log2 modulus)`) via widen → multiply → shift → truncate,
     instead of emitting a runtime division. Note: this is the plain reciprocal-multiply approximation
@@ -106,7 +125,6 @@ def emitArithBinOp (rewriter : PatternRewriter OpCode) (arithOp : Arith)
     return r
     }
 -/
-
 def emitBarrettReduction (legalizeWidth : Nat → Nat) (rewriter : PatternRewriter OpCode)
     (r : ValuePtr) (modulus : Int) (width : Nat) (ip : InsertPoint) :
     Option (PatternRewriter OpCode × ValuePtr) := do
@@ -176,7 +194,7 @@ abbrev Builder :=
 /-- Lower a binary `mod_arith` op `modOp`,
     using intermediate Type iM given storage type iN, with M = `legalizeWidth` (`widen` N),
     and using Builder `build` to determine the exact `arith` operations to emit -/
-def lowerModArithBinOp (modOp : Mod_Arith) (widen : Nat → Nat) (legalizeWidth : Nat → Nat)
+def lowerModArithBinOp (modOp : Mod_Arith) (widen : Nat → Nat) (legalizeWidth : Nat → Nat) (emitReduction : ReductionBuilder)
     (build : Builder) (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   -- match op and extract operands:
@@ -195,33 +213,36 @@ def lowerModArithBinOp (modOp : Mod_Arith) (widen : Nat → Nat) (legalizeWidth 
   let (rewriter, b) ← unpackValue legalizeWidth rewriter rhs intermediateType ip
   let (rewriter, q) ← emitArithConstant rewriter modulus intermediateWidth ip
   let (rewriter, r) ← build rewriter a b q ip
-  let (rewriter, r) ← emitArithBinOp rewriter .remui () r q ip
+  let (rewriter, r) ← emitReduction legalizeWidth rewriter r modulus intermediateWidth ip
   let (rewriter, r) ← packValue legalizeWidth rewriter r modArithType ip
   let rewriter := rewriter.replaceValue! (op.getResult 0) r
   return rewriter.eraseOp! op
 
 /-! ## Binary op lowering Patterns -/
 
-def buildAdd : Builder :=
+def emitAdd : Builder :=
   fun rewriter a b _ ip =>
   emitArithBinOp rewriter .addi { attr := { nsw := false, nuw := false } } a b ip
 
-def lowerModArithAddOp (legalizeWidth : Nat → Nat) := lowerModArithBinOp .add (· + 1) legalizeWidth buildAdd
+def lowerModArithAddOp (legalizeWidth : Nat → Nat) (emitReduction : ReductionBuilder)
+ := lowerModArithBinOp .add (· + 1) legalizeWidth emitReduction emitAdd
 
-def buildMul : Builder :=
+def emitMul : Builder :=
   fun rewriter a b _ ip =>
   emitArithBinOp rewriter .muli { attr := { nsw := false, nuw := false } } a b ip
 
-def lowerModArithMulOp (legalizeWidth : Nat → Nat) := lowerModArithBinOp .mul (2 * ·) legalizeWidth buildMul
+def lowerModArithMulOp (legalizeWidth : Nat → Nat) (emitReduction : ReductionBuilder)
+:= lowerModArithBinOp .mul (2 * ·) legalizeWidth emitReduction emitMul
 
-def buildSub : Builder :=
+def emitSub : Builder :=
   fun (rewriter : PatternRewriter OpCode) (a b q : ValuePtr) (ip : InsertPoint) => do
     -- we compute a - b (mod q) as ((a+q) - b) % q to avoid unsigned underflow when a < b.
     let (rewriter, aq) ← emitArithBinOp rewriter .addi
       { attr := { nsw := false, nuw := false } } a q ip
     emitArithBinOp rewriter .subi { attr := { nsw := false, nuw := false } } aq b ip
 
-def lowerModArithSubOp (legalizeWidth : Nat → Nat) := lowerModArithBinOp .sub (· + 1) legalizeWidth buildSub
+def lowerModArithSubOp (legalizeWidth : Nat → Nat) (emitReduction : ReductionBuilder)
+:= lowerModArithBinOp .sub (· + 1) legalizeWidth emitReduction emitSub
 
 /-! ## Constant lowering Pattern -/
 
@@ -273,13 +294,13 @@ def remuiToBarrettReduction (legalizeWidth : Nat → Nat) (rewriter : PatternRew
 
 /-! ## Pass implementation -/
 
-def ModArithToArithPass.impl (legalizeWidth : Nat → Nat) (ctx : WfIRContext OpCode)
+def ModArithToArithPass.impl (legalizeWidth : Nat → Nat) (emitReduction : ReductionBuilder) (ctx : WfIRContext OpCode)
     (op : OperationPtr) (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[
     lowerModArithConstantOp legalizeWidth,
-    lowerModArithAddOp legalizeWidth,
-    lowerModArithSubOp legalizeWidth,
-    lowerModArithMulOp legalizeWidth
+    lowerModArithAddOp legalizeWidth emitReduction,
+    lowerModArithSubOp legalizeWidth emitReduction,
+    lowerModArithMulOp legalizeWidth emitReduction
   ]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying mod-arith-to-arith lowering"
@@ -287,30 +308,23 @@ def ModArithToArithPass.impl (legalizeWidth : Nat → Nat) (ctx : WfIRContext Op
 
 public def ModArithToArithPass : Pass OpCode :=
   { name := "mod-arith-to-arith"
-    description := "Lower mod_arith operations to the arith dialect."
-    run := ModArithToArithPass.impl id }
+    description := "Lower mod_arith operations to the arith dialect, using `arith.remui` for reduction."
+    run := ModArithToArithPass.impl id emitFullReduction }
 
-public def ModArithToArithPassPow2Width : Pass OpCode :=
+public def ModArithToAritBarretPass : Pass OpCode :=
+  { name := "mod-arith-to-arith-barrett"
+    description := "Lower mod_arith operations to the arith dialect, using Barrett reduction."
+    run := ModArithToArithPass.impl id emitBarrettReduction }
+
+public def ModArithToArithPow2WidthPass : Pass OpCode :=
   { name := "mod-arith-to-arith-pow2-width"
-    description := "Lower mod_arith operations to the arith dialect, using power-of-two bitwidths."
-    run := ModArithToArithPass.impl Nat.nextPowerOfTwo }
+    description := "Lower mod_arith operations to the arith dialect, using `arith.remui` for reduction and power-of-two bitwidths."
+    run := ModArithToArithPass.impl Nat.nextPowerOfTwo emitFullReduction }
 
-def RemuiToBarrettReductionPass.impl (legalizeWidth : Nat → Nat) (ctx : WfIRContext OpCode)
-    (op : OperationPtr) (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
-  let pattern := RewritePattern.GreedyRewritePattern #[
-    remuiToBarrettReduction legalizeWidth
-  ]
-  match RewritePattern.applyInContext pattern ctx with
-  | none => throw "Error while applying remui-to-barrett-reduction rewrite"
-  | some ctx => pure ctx
+public def ModArithToArithBarettPow2WidthPass : Pass OpCode :=
+  { name := "mod-arith-to-arith-barrett-pow2-width"
+    description := "Lower mod_arith operations to the arith dialect, using Barrett reduction and power-of-two bitwidths."
+    run := ModArithToArithPass.impl Nat.nextPowerOfTwo emitBarrettReduction }
 
-public def RemuiToBarrettReductionPass : Pass OpCode :=
-  { name := "remui-to-barrett-reduction"
-    description := "Rewrite arith.remui operations to Barrett reduction."
-    run := RemuiToBarrettReductionPass.impl id }
 
-public def RemuiToBarrettReductionPassPow2Width : Pass OpCode :=
-  { name := "remui-to-barrett-reduction-pow2-width"
-    description := "Rewrite arith.remui operations to Barrett reduction, using power-of-two bitwidths for intermediate types."
-    run := RemuiToBarrettReductionPass.impl Nat.nextPowerOfTwo }
 end Veir

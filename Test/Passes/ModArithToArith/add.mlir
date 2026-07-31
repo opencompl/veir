@@ -17,8 +17,8 @@
 // CHECK-NEXT:   [[E0:%.*]] = "arith.extui"([[C0]]) : (i32) -> i33
 // CHECK-NEXT:   [[C1:%.*]] = "builtin.unrealized_conversion_cast"([[ARG1]]) : (!mod_arith.int<7 : i32>) -> i32
 // CHECK-NEXT:   [[E1:%.*]] = "arith.extui"([[C1]]) : (i32) -> i33
-// CHECK-NEXT:   [[Q:%.*]] = "arith.constant"() <{"value" = 7 : i33}> : () -> i33
 // CHECK-NEXT:   [[SUM:%.*]] = "arith.addi"([[E0]], [[E1]]) : (i33, i33) -> i33
+// CHECK-NEXT:   [[Q:%.*]] = "arith.constant"() <{"value" = 7 : i33}> : () -> i33
 // CHECK-NEXT:   [[SUMR:%.*]] = "arith.remui"([[SUM]], [[Q]]) : (i33, i33) -> i33
 // CHECK-NEXT:   [[T:%.*]] = "arith.trunci"([[SUMR]]) <{"overflowFlags" = #arith.overflow<nuw>}> : (i33) -> i32
 // CHECK-NEXT:   [[RES:%.*]] = "builtin.unrealized_conversion_cast"([[T]]) : (i32) -> !mod_arith.int<7 : i32>

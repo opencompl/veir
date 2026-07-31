@@ -16,8 +16,8 @@
 // CHECK-NEXT:   [[E0:%.*]] = "arith.extui"([[C0]]) : (i32) -> i64
 // CHECK-NEXT:   [[C1:%.*]] = "builtin.unrealized_conversion_cast"([[ARG1]]) : (!mod_arith.int<7 : i32>) -> i32
 // CHECK-NEXT:   [[E1:%.*]] = "arith.extui"([[C1]]) : (i32) -> i64
-// CHECK-NEXT:   [[Q:%.*]] = "arith.constant"() <{"value" = 7 : i64}> : () -> i64
 // CHECK-NEXT:   [[PROD:%.*]] = "arith.muli"([[E0]], [[E1]]) : (i64, i64) -> i64
+// CHECK-NEXT:   [[Q:%.*]] = "arith.constant"() <{"value" = 7 : i64}> : () -> i64
 // CHECK-NEXT:   [[PRODR:%.*]] = "arith.remui"([[PROD]], [[Q]]) : (i64, i64) -> i64
 // CHECK-NEXT:   [[T:%.*]] = "arith.trunci"([[PRODR]]) <{"overflowFlags" = #arith.overflow<nuw>}> : (i64) -> i32
 // CHECK-NEXT:   [[RES:%.*]] = "builtin.unrealized_conversion_cast"([[T]]) : (i32) -> !mod_arith.int<7 : i32>
