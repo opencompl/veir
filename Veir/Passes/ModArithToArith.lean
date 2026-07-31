@@ -264,34 +264,6 @@ def lowerModArithConstantOp (legalizeWidth : Nat → Nat) (rewriter : PatternRew
   let rewriter := rewriter.replaceValue! (op.getResult 0) out
   return rewriter.eraseOp! op
 
-/-! ## arith.remui rewriting pattern -/
-
-/-- Rewrite `arith.remui r, q` to a Barrett reduction when `q` is a positive constant. -/
-def remuiToBarrettReduction (legalizeWidth : Nat → Nat) (rewriter : PatternRewriter OpCode)
-    (op : OperationPtr) (_opInBounds : op.InBounds rewriter.ctx.raw) :
-    Option (PatternRewriter OpCode) := do
-  let some (r, q, _) := matchArithRemui op rewriter.ctx
-    | return rewriter
-
-  let some modulusAttr := matchArithConstantIntVal q rewriter.ctx.raw
-    | return rewriter
-  let modulus := modulusAttr.value
-
-  if modulus <= 0 then
-    return rewriter
-
-  let .integerType resultType :=
-      ((op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw).val
-    | return rewriter
-
-  let ip := InsertPoint.before op
-  let (rewriter, reduced) ←
-    emitBarrettReduction legalizeWidth rewriter r modulus resultType.bitwidth ip
-
-  let rewriter :=
-    rewriter.replaceValue! (op.getResult 0) reduced
-  return rewriter.eraseOp! op
-
 /-! ## Pass implementation -/
 
 def ModArithToArithPass.impl (legalizeWidth : Nat → Nat) (emitReduction : ReductionBuilder) (ctx : WfIRContext OpCode)
