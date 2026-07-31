@@ -135,6 +135,22 @@ def ofDialect {Dialect : Type} (OpInfo : Type) [HasOpInfo OpInfo] [HasDialectOpI
     OpInfo :=
   HasDialect.inject op
 
+/--
+We can always treat a global opcode type as a dialect of itself.
+This simplifies quite a lot of the API, since we can use a single generic function for both
+dialect-local and global opcodes.
+-/
+instance hasDialectRefl (OpInfo : Type) [HasOpInfo OpInfo] : HasDialect OpInfo OpInfo where
+  inject := id
+  project := some
+  project_eq_some_iff _ _ := by grind
+  properties_eq _ := rfl
+
+/-- Casting an opcode to itself is the identity. -/
+@[simp, grind =]
+theorem ofDialect_hasDialectRefl (OpInfo : Type) [HasOpInfo OpInfo] (op : OpInfo) :
+    ofDialect OpInfo op = op := by rfl
+
 /-- Coercion from a dialect opcode to the global opcode type. -/
 instance {OpInfo : Type} {Dialect : Type} [HasOpInfo OpInfo] [HasDialectOpInfo Dialect]
     [HasDialect OpInfo Dialect] (op : Dialect) :

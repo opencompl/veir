@@ -1761,7 +1761,7 @@ private def matchRiscvStore (store : Riscv) (op : OperationPtr) (ctx : IRContext
   guard (op.getOpType! ctx = .riscv store)
   guard (op.getNumOperands! ctx = 2)
   let operands := op.getOperands! ctx
-  let properties := op.getProperties! ctx (.riscv store)
+  let properties := op.getProperties! ctx store
   return (operands[0]!, operands[1]!, properties)
 
 /-- Drop a `riscv.<ext>` from the value operand of a `riscv.<store>` whose width

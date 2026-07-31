@@ -50,6 +50,8 @@ namespace Veir
 
 variable {OpInfo} [HasOpInfo OpInfo]
 variable {ctx : IRContext OpInfo}
+variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {opCode : Dialect}
 section Rewriter.replaceUse
 
 @[simp, grind .]
@@ -133,8 +135,8 @@ theorem OperationPtr.attrs!_replaceUse {op : OperationPtr} :
 
 @[simp, grind =]
 theorem OperationPtr.getProperties!_replaceUse {op : OperationPtr} :
-    op.getProperties! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) opType =
-    op.getProperties! ctx opType := by
+    op.getProperties! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) opCode =
+    op.getProperties! ctx opCode := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]

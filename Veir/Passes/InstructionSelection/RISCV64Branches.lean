@@ -33,7 +33,7 @@ def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
     c := c'
 
   if op.getOpType! c = OpCode.llvm .cond_br then do
-    let condProps : CondBrProperties := op.getProperties! c
+    let condProps : CondBrProperties := op.getProperties! c.raw
       (OpCode.llvm .cond_br)
     let props : RISCVBrProperties := ⟨condProps.operandSegmentSizes⟩
 

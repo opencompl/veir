@@ -134,7 +134,7 @@ operation whose parent operation is `moduleOp`.
 structure OperationPtr.IsTopLevelFuncWithName (op : OperationPtr) (moduleOp : OperationPtr)
     (ctx : IRContext OpCode) (name : StringAttr) : Prop where
   isFunc : op.getOpType! ctx = .func .func
-  hasName : name = (op.getProperties! ctx (.func .func)).sym_name
+  hasName : name = (op.getProperties! ctx Func.func).sym_name
   isTopLevel : op.getParentOp! ctx = some moduleOp
 
 /--

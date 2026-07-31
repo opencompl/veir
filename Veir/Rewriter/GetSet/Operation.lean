@@ -48,6 +48,8 @@ namespace Veir
 
 variable {OpInfo} [HasOpInfo OpInfo]
 variable {ctx : IRContext OpInfo}
+variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {opCode : Dialect}
 /-! ## `Rewriter.setAttributes` -/
 
 section Rewriter.setAttributes
@@ -139,8 +141,8 @@ theorem OperationPtr.attrs!_setAttributes {op' : OperationPtr} :
 
 @[simp, grind =]
 theorem OperationPtr.getProperties!_setAttributes {op' : OperationPtr} :
-    op'.getProperties! (Rewriter.setAttributes ctx op newAttrs opIn) =
-    op'.getProperties! ctx := by
+    op'.getProperties! (Rewriter.setAttributes ctx op newAttrs opIn) opCode =
+    op'.getProperties! ctx opCode := by
   grind
 
 @[simp, grind =]
@@ -361,12 +363,15 @@ theorem OperationPtr.attrs!_setProperties {op' : OperationPtr} :
   grind
 
 @[grind =]
-theorem OperationPtr.getProperties!_setProperties {op' : OperationPtr} {opCode' : OpInfo}:
-    op'.getProperties! (Rewriter.setProperties ctx op newProps opIn hprop) opCode' =
+theorem OperationPtr.getProperties!_setProperties
+    {op' : OperationPtr} {getterOpCode : Dialect} :
+    op'.getProperties! (Rewriter.setProperties ctx op newProps opIn hprop) getterOpCode =
     if op' = op then
-      if h: opCode' = opCode then h ▸ newProps else default
+      if h : (getterOpCode : OpInfo) = opCode then
+        HasDialect.toDialectProperties getterOpCode (h ▸ newProps)
+      else default
     else
-      op'.getProperties! ctx opCode' := by
+      op'.getProperties! ctx getterOpCode := by
   grind
 
 @[simp, grind =]

@@ -7,6 +7,8 @@ namespace Veir
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 variable {ctx ctx': IRContext OpInfo}
+variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {opCode opCode' : Dialect}
 
 public section
 
@@ -100,11 +102,13 @@ theorem OpOperandPtr.get!_OperationPtr_allocEmpty  {opOperand : OpOperandPtr}
 @[simp, grind =>]
 theorem OperationPtr.getProperties!_OperationPtr_allocEmpty {operation : OperationPtr}
     (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
-    operation.getProperties! ctx' ty' =
+    operation.getProperties! ctx' opCode =
     if operation = op' then
-      if h : ty' = ty then h ▸ properties else default
+      if h : (opCode : OpInfo) = ty then
+        HasDialect.toDialectProperties opCode (h ▸ properties)
+      else default
     else
-      operation.getProperties! ctx ty' := by
+      operation.getProperties! ctx opCode := by
   grind
 
 @[grind =>]
@@ -1312,6 +1316,14 @@ theorem OpOperandPtrPtr.get!_OperationPtr_pushResult {opOperandPtr : OpOperandPt
 
 /- OperationPtr.setProperties -/
 
+section OperationPtr.setProperties
+
+variable {operation' : OperationPtr}
+variable {setterOpCode' : OpInfo}
+variable {newProperties : HasOpInfo.propertiesOf setterOpCode'}
+variable {inBounds : operation'.InBounds ctx}
+variable {hprop : operation'.getOpType! ctx = setterOpCode'}
+
 @[simp, grind =]
 theorem BlockPtr.get!_OperationPtr_setProperties {block : BlockPtr} :
     block.get! (OperationPtr.setProperties operation' ctx newProperties inBounds hprop) =
@@ -1322,17 +1334,19 @@ theorem BlockPtr.get!_OperationPtr_setProperties {block : BlockPtr} :
 theorem OperationPtr.get!_OperationPtr_setProperties {operation : OperationPtr} :
     operation.get! (OperationPtr.setProperties operation' ctx newProperties inBounds hprop) =
     if operation = operation' then
-      { operation.get! ctx with opType := operation'.getOpType! ctx, properties := newProperties }
+      { operation.get! ctx with
+        opType := operation'.getOpType! ctx
+        properties := hprop ▸ newProperties }
     else
       operation.get! ctx := by
   grind
 
 @[grind =]
 theorem OperationPtr.getProperties!_OperationPtr_setProperties {operation : OperationPtr} :
-    operation.getProperties! (OperationPtr.setProperties (opCode := opCode') operation' ctx newProperties inBounds hprop) opCode =
+    operation.getProperties! (OperationPtr.setProperties (opCode := setterOpCode') operation' ctx newProperties inBounds hprop) opCode =
     if operation = operation' then
-      if h : opCode = opCode' then
-        h ▸ newProperties
+      if h : (opCode : OpInfo) = setterOpCode' then
+        HasDialect.toDialectProperties opCode (h ▸ newProperties)
       else
         default
     else
@@ -1343,10 +1357,13 @@ theorem OperationPtr.getProperties!_OperationPtr_setProperties {operation : Oper
   TODO: make a decision about this
 -/
 @[grind =]
-theorem OperationPtr.getProperties!_OperationPtr_setProperties_same_opCode {operation : OperationPtr} :
-    operation.getProperties! (OperationPtr.setProperties (opCode := opCode) operation' ctx newProperties inBounds hprop) opCode =
+theorem OperationPtr.getProperties!_OperationPtr_setProperties_same_opCode
+    {operation : OperationPtr} (h : (opCode : OpInfo) = setterOpCode') :
+    operation.getProperties!
+      (OperationPtr.setProperties (opCode := setterOpCode') operation' ctx
+        newProperties inBounds hprop) opCode =
     if operation = operation' then
-      newProperties
+      HasDialect.toDialectProperties opCode (h ▸ newProperties)
     else
       operation.getProperties! ctx opCode := by
   grind
@@ -1476,6 +1493,8 @@ theorem OpOperandPtrPtr.get!_OperationPtr_setProperties {opOperandPtr : OpOperan
     opOperandPtr.get! (OperationPtr.setProperties operation' ctx newProperties inBounds hprop) =
     opOperandPtr.get! ctx := by
   grind
+
+end OperationPtr.setProperties
 
 /- OperationPtr.setAttributes -/
 

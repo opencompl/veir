@@ -55,6 +55,8 @@ namespace Veir
 
 variable {OpInfo} [HasOpInfo OpInfo]
 variable {ctx : IRContext OpInfo}
+variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {dialectOpType : Dialect}
 section Rewriter.createEmptyOp
 
 variable {op : OperationPtr}
@@ -162,15 +164,18 @@ grind_pattern OperationPtr.attrs!_createEmptyOp =>
 
 theorem OperationPtr.getProperties!_createEmptyOp {operation : OperationPtr} :
     Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
-    operation.getProperties! ctx' opType' =
+    operation.getProperties! ctx' dialectOpType =
     if operation = op then
-      if h : opType = opType' then h ▸ properties else default
+      if h : (dialectOpType : OpInfo) = opType then
+        HasDialect.toDialectProperties dialectOpType (h ▸ properties)
+      else default
     else
-      operation.getProperties! ctx opType' := by
+      operation.getProperties! ctx dialectOpType := by
   grind [Operation.empty]
 
 grind_pattern OperationPtr.getProperties!_createEmptyOp =>
-  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operation.getProperties! ctx' opType'
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op),
+    operation.getProperties! ctx' dialectOpType
 
 theorem OperationPtr.getNumResults!_createEmptyOp {operation : OperationPtr} :
     Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
@@ -482,11 +487,13 @@ theorem OperationPtr.attrs!_createOp {operation : OperationPtr} :
 theorem OperationPtr.getProperties!_createOp {operation : OperationPtr} :
     Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
-    operation.getProperties! ctx' opType' =
+    operation.getProperties! ctx' dialectOpType =
     if operation = newOp then
-      if h : opType = opType' then h ▸ properties else default
+      if h : (dialectOpType : OpInfo) = opType then
+        HasDialect.toDialectProperties dialectOpType (h ▸ properties)
+      else default
     else
-      operation.getProperties! ctx opType' := by
+      operation.getProperties! ctx dialectOpType := by
   simp only [Rewriter.createOp]
   grind (gen := 20)
 

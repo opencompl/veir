@@ -52,6 +52,8 @@ namespace Veir
 
 variable {OpInfo} [HasOpInfo OpInfo]
 variable {ctx : IRContext OpInfo}
+variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {opCode : Dialect}
 section Rewriter.unsetParentAndNeighbors
 
 attribute [local grind] Rewriter.unsetParentAndNeighbors

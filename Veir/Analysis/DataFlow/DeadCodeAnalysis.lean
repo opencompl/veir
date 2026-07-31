@@ -40,7 +40,7 @@ def propagate (state : LivenessFact) (anchor : LatticeAnchor)
   | .CFGEdge edge =>
     for analysisKind in state.subscribers do
       dfCtx := dfCtx.enqueue (InsertPoint.atStart! edge.target irCtx, analysisKind)
-  | _ => 
+  | _ =>
     pure ()
   dfCtx
 
@@ -88,7 +88,7 @@ def markEntryBlocksLive
         (fact.setToLive, !fact.live)) irCtx
   dfCtx
 
-/-- 
+/--
 Return whether the given operation is a branch op.
 TODO: This function likely needs to be replaced with
 an interface much like what MLIR has.
@@ -114,7 +114,7 @@ private def getLiteralConstant?
     else
       match (result.op.get! irCtx).opType with
       | .arith .constant =>
-        let intAttr := (result.op.getProperties! irCtx (.arith .constant)).value
+        let intAttr := (result.op.getProperties! irCtx Arith.constant).value
         some (.constant ⟨intAttr.type.bitwidth, Data.LLVM.Int.constant intAttr.type.bitwidth intAttr.value⟩)
       | _ =>
         none

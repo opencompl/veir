@@ -180,6 +180,7 @@ structure Operation (OpInfo : Type) [HasOpInfo OpInfo] where
 deriving Inhabited, Repr, Hashable
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
+variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
 
 namespace Operation
 
@@ -1061,27 +1062,43 @@ theorem setAttributes!_eq_setAttributes {op : OperationPtr} (inBounds : op.InBou
     op.setAttributes! ctx newAttrs = op.setAttributes ctx newAttrs inBounds := by
   grind [setAttributes, setAttributes!]
 
+/--
+Get the properties of an operation of type `opCode`.
+The passed `opCode` can either be of the global `OpInfo` type, or the dialect-specific `Dialect`
+type, in order to get the dialect-specific properties which is often easier to use.
+-/
 @[inline]
-def getProperties (op : OperationPtr) (ctx : IRContext OpInfo) (opCode : OpInfo)
+def getProperties (op : OperationPtr) (ctx : IRContext OpInfo) (opCode : Dialect)
     (inBounds : op.InBounds ctx := by grind)
-    (hprop : op.getOpType! ctx = opCode := by grind) : HasOpInfo.propertiesOf opCode :=
+    (hprop : op.getOpType! ctx = opCode := by grind) : HasDialectOpInfo.propertiesOf opCode :=
   have h : (op.get ctx inBounds).opType = opCode := by grind [getOpType!]
-  h ▸ (op.get ctx (by grind)).properties
+  let globalProperties := h ▸ (op.get ctx (by grind)).properties
+  HasDialect.toDialectProperties opCode globalProperties
 
+/--
+Get the properties of an operation of type `opCode`.
+The passed `opCode` can either be of the global `OpInfo` type, or the dialect-specific `Dialect`
+type, in order to get the dialect-specific properties which is often easier to use.
+
+This function returns the default properties if the operation is not in bounds, or if the
+operation's type does not match the passed `opCode`.
+-/
 @[inline]
-def getProperties! (op : OperationPtr) (ctx : IRContext OpInfo) (opCode : OpInfo) : HasOpInfo.propertiesOf opCode :=
+def getProperties! (op : OperationPtr) (ctx : IRContext OpInfo)
+    (opCode : Dialect) : HasDialectOpInfo.propertiesOf opCode :=
   if h : (op.get! ctx).opType = opCode then
-    h ▸ (op.get! ctx).properties
+    let globalProperties := h ▸ (op.get! ctx).properties
+    HasDialect.toDialectProperties opCode globalProperties
   else
     default
 
 @[grind =_, eq_bang ←]
 theorem getProperties!_eq_getProperties {op : OperationPtr} (inBounds : op.InBounds ctx)
-    (hprop : op.getOpType! ctx = opCode) :
+    {opCode : Dialect} (hprop : op.getOpType! ctx = opCode) :
     op.getProperties! ctx opCode = op.getProperties ctx opCode inBounds (by grind) := by
   grind [getProperties, getProperties!]
 
-theorem getProperties!_eq_of_OperationPtr_get!_eq {op : OperationPtr} :
+theorem getProperties!_eq_of_OperationPtr_get!_eq {op : OperationPtr} {opCode : Dialect} :
     op.get! ctx = op.get! ctx' →
     op.getProperties! ctx opCode = op.getProperties! ctx' opCode := by
   grind [OperationPtr.get!, getProperties!]
