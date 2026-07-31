@@ -13,13 +13,13 @@ namespace Veir
   The coercion applied is selected by a `BoundaryCoercion` flag;
   each variant is  exposed as its own pass:
   - `.riscvReg`: i32-, i64-, and pointer-typed boundaries become `!riscv.reg`.
-  - `.modArithToInt`: `!mod_arith.int<q : iN>`-typed boundaries become `iN`.
+  - `.modArithToInt legalizeWidth`: `!mod_arith.int<q : iN>`-typed boundaries become `i(legalizeWidth N)`
 -/
 
 /-- Selects which boundary coercion the shared implementation applies. -/
 inductive BoundaryCoercion where
   | riscvReg
-  | modArithToInt
+  | modArithToInt (legalizeWidth : Nat → Nat)
 
 /-- The type a boundary value of type `t` is coerced to, or `none` to leave it alone. -/
 def BoundaryCoercion.target : BoundaryCoercion → TypeAttr → Option TypeAttr
@@ -29,9 +29,9 @@ def BoundaryCoercion.target : BoundaryCoercion → TypeAttr → Option TypeAttr
       if x.bitwidth == 64 || x.bitwidth == 32 then some (RegisterType.mk : TypeAttr) else none
     | .llvmPointerType _ => some (RegisterType.mk : TypeAttr)
     | _ => none
-  | .modArithToInt, t =>
+  | .modArithToInt legalizeWidth, t =>
     match t.val with
-    | .modArithType mt => some mt.modulus.type
+    | .modArithType mt => some (IntegerType.mk (legalizeWidth mt.bitwidth) : TypeAttr)
     | _ => none
 
 /-- The return-terminator opcode paired with a function op (`func.return` for
@@ -121,4 +121,9 @@ public def CoerceFunctionBoundariesToRiscvRegPass : Pass OpCode :=
 public def CoerceModArithFunctionBoundariesPass : Pass OpCode :=
   { name := "coerce-mod-arith-function-boundaries"
     description := "Coerce `!mod_arith.int` function boundaries to their storage integer type."
-    run := CoerceFunctionBoundariesPass.impl .modArithToInt }
+    run := CoerceFunctionBoundariesPass.impl (.modArithToInt id) }
+
+public def CoerceModArithFunctionBoundariesPassPow2Width : Pass OpCode :=
+  { name := "coerce-mod-arith-function-boundaries-pow2-width"
+    description := "Coerce `!mod_arith.int` function boundaries to their storage integer type, widened to a power of two."
+    run := CoerceFunctionBoundariesPass.impl (.modArithToInt Nat.nextPowerOfTwo) }

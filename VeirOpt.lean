@@ -35,9 +35,12 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
     |>.insert CastReconcilePass.name CastReconcilePass
     |>.insert CoerceFunctionBoundariesToRiscvRegPass.name CoerceFunctionBoundariesToRiscvRegPass
     |>.insert CoerceModArithFunctionBoundariesPass.name CoerceModArithFunctionBoundariesPass
+    |>.insert CoerceModArithFunctionBoundariesPassPow2Width.name CoerceModArithFunctionBoundariesPassPow2Width
     |>.insert RISCV.Combine.name RISCV.Combine
     |>.insert ModArithToArithPass.name ModArithToArithPass
+    |>.insert ModArithToArithPassPow2Width.name ModArithToArithPassPow2Width
     |>.insert RemuiToBarrettReductionPass.name RemuiToBarrettReductionPass
+    |>.insert RemuiToBarrettReductionPassPow2Width.name RemuiToBarrettReductionPassPow2Width
     |>.insert ArithToLLVMPass.name ArithToLLVMPass
     |>.insert CanonicalizePass.name CanonicalizePass
 
@@ -51,6 +54,8 @@ def passGroups : Std.HashMap String String :=
     |>.insert "O" "canonicalize,instcombine,cse,dce"
     |>.insert "mod-arith"
         "mod-arith-to-arith,cse,coerce-mod-arith-function-boundaries,reconcile-cast,canonicalize,remui-to-barrett-reduction,canonicalize,cse,dce"
+    |>.insert "mod-arith-pow2-width"
+        "mod-arith-to-arith-pow2-width,cse,coerce-mod-arith-function-boundaries-pow2-width,reconcile-cast,canonicalize,remui-to-barrett-reduction-pow2-width,canonicalize,cse,dce"
     |>.insert "riscv"
         "isel-sdag-riscv64,isel-br-riscv64,isel-riscv64,coerce-function-boundaries-to-riscv-reg,reconcile-cast,riscv-combine,dce"
 

@@ -1,8 +1,15 @@
 // REQUIRES: clang, mlir-translate, mlir-opt
 // RUN: split-file %s %t
+
+// Standard pipeline, using i33/i42/etc
 // RUN: veir-opt %t/input.mlir -p=mod-arith,arith-to-llvm | mlir-opt --convert-func-to-llvm | mlir-translate --mlir-to-llvmir -o %t/kernel.ll
 // RUN: clang -Wno-override-module %t/driver.c %t/kernel.ll -o %t/test
 // RUN: %t/test | filecheck %s
+
+// Pow-2-width pipeline, using i32/i64/etc
+// RUN: veir-opt %t/input.mlir -p=mod-arith-pow2-width,arith-to-llvm | mlir-opt --convert-func-to-llvm | mlir-translate --mlir-to-llvmir -o %t/kernel_pow2.ll
+// RUN: clang -Wno-override-module %t/driver.c %t/kernel_pow2.ll -o %t/test_pow2
+// RUN: %t/test_pow2 | filecheck %s
 
 // CHECK: OK
 
