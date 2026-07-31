@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=mod-arith-to-arith-pow2-width | filecheck %s
+// RUN: veir-opt %s -p='mod-arith-to-arith{pow2-width}' | filecheck %s
 
 // Width-normalized lowering of mod_arith.mul with a non-power-of-two storage type (i33).
 // The representation type crossing op boundaries is the normalized storage width (i64),

@@ -22,27 +22,27 @@ open Veir
 
 /--
   A map of all available compilation passes, keyed by their unique names.
+  A pass that takes no options is registered with `PassRegistration.ofPass`; one that is
+  configured by boolean options registers itself as a `PassRegistration` directly.
 -/
-def availablePasses : Std.HashMap String (Pass OpCode) :=
-  (Std.HashMap.emptyWithCapacity 1)
-    |>.insert PrintIRPass.name PrintIRPass
-    |>.insert InstCombinePass.name InstCombinePass
-    |>.insert CSEPass.name CSEPass
-    |>.insert IselRISCV64.name IselRISCV64
-    |>.insert IselSDAG.name IselSDAG
-    |>.insert IselBrRISCV64.name IselBrRISCV64
-    |>.insert DCEPass.name DCEPass
-    |>.insert CastReconcilePass.name CastReconcilePass
-    |>.insert CoerceFunctionBoundariesToRiscvRegPass.name CoerceFunctionBoundariesToRiscvRegPass
-    |>.insert CoerceModArithFunctionBoundariesPass.name CoerceModArithFunctionBoundariesPass
-    |>.insert CoerceModArithFunctionBoundariesPassPow2Width.name CoerceModArithFunctionBoundariesPassPow2Width
-    |>.insert RISCV.Combine.name RISCV.Combine
-    |>.insert ModArithToArithPass.name ModArithToArithPass
-    |>.insert ModArithToArithPassPow2Width.name ModArithToArithPassPow2Width
-    |>.insert RemuiToBarrettReductionPass.name RemuiToBarrettReductionPass
-    |>.insert RemuiToBarrettReductionPassPow2Width.name RemuiToBarrettReductionPassPow2Width
-    |>.insert ArithToLLVMPass.name ArithToLLVMPass
-    |>.insert CanonicalizePass.name CanonicalizePass
+def availablePasses : Std.HashMap String (PassRegistration OpCode) :=
+  ([ .ofPass PrintIRPass,
+     .ofPass InstCombinePass,
+     .ofPass CSEPass,
+     .ofPass IselRISCV64,
+     .ofPass IselSDAG,
+     .ofPass IselBrRISCV64,
+     .ofPass DCEPass,
+     .ofPass CastReconcilePass,
+     .ofPass CoerceFunctionBoundariesToRiscvRegPass,
+     CoerceModArithFunctionBoundariesPass,
+     .ofPass RISCV.Combine,
+     ModArithToArithPass,
+     RemuiToBarrettReductionPass,
+     .ofPass ArithToLLVMPass,
+     .ofPass CanonicalizePass ] : List (PassRegistration OpCode)).foldl
+    (fun m registration => m.insert registration.name registration)
+    (Std.HashMap.emptyWithCapacity 16)
 
 /--
   A map of named pass groups, each expanding to a comma-separated pipeline of pass names.
@@ -55,7 +55,7 @@ def passGroups : Std.HashMap String String :=
     |>.insert "mod-arith"
         "mod-arith-to-arith,cse,coerce-mod-arith-function-boundaries,reconcile-cast,canonicalize,remui-to-barrett-reduction,canonicalize,cse,dce"
     |>.insert "mod-arith-pow2-width"
-        "mod-arith-to-arith-pow2-width,cse,coerce-mod-arith-function-boundaries-pow2-width,reconcile-cast,canonicalize,remui-to-barrett-reduction-pow2-width,canonicalize,cse,dce"
+        "mod-arith-to-arith{pow2-width},cse,coerce-mod-arith-function-boundaries{pow2-width},reconcile-cast,canonicalize,remui-to-barrett-reduction{pow2-width},canonicalize,cse,dce"
     |>.insert "riscv"
         "isel-sdag-riscv64,isel-br-riscv64,isel-riscv64,coerce-function-boundaries-to-riscv-reg,reconcile-cast,riscv-combine,dce"
 
@@ -67,6 +67,18 @@ def passGroupsUsage : String :=
   String.intercalate "\n"
     ((passGroups.toList.toArray.qsort (·.1 < ·.1)).toList.map fun (name, passes) =>
       s!"    {name}: {passes}")
+
+/--
+  A human-readable description of the options taken by those passes that have any,
+  used in the usage message. Passes without options are omitted.
+-/
+def passOptionsUsage : String :=
+  let withOptions := (availablePasses.values.toArray.qsort (·.name < ·.name)).toList.filter
+    (!·.options.isEmpty)
+  String.intercalate "\n" (withOptions.flatMap fun registration =>
+    s!"    {registration.name}:" ::
+      registration.options.toList.map fun option =>
+        s!"      {option.name}: {option.description}")
 
 /--
   Arguments for the `veir-opt` command-line tool, parsed from the CLI.
@@ -82,12 +94,31 @@ structure VeirOptArgs where
   disableVerifiers : Bool
 
 /--
+  Replace every pass-group name in a pipeline string by the passes it stands for, leaving
+  everything else alone. Names that are neither a pass nor a group are left in place so
+  that `PassPipeline.ofString?` reports them. Groups do not take options.
+-/
+def expandPassGroups (pipeline : String) : Except String String := do
+  let elements ← (splitPipelineElements pipeline).mapM fun element => do
+    let (name, options) ← splitPipelineElement element
+    if availablePasses.contains name then return element
+    match passGroups.get? name with
+    | none => return element
+    | some expansion =>
+      unless options.isEmpty do
+        throw s!"pass group '{name}' does not take options"
+      return expansion
+  return String.intercalate "," elements
+
+/--
   Parse the `-p` flags to construct a pass pipeline.
   `-p` takes a comma-separated list of pass names and pass-group names; a group name
-  (see `passGroups`) expands in place to its member passes. The flag may appear any
-  number of times; the resulting pipeline is the concatenation of their passes, in the
-  order the flags appear on the command line.
-  Returns an error if a flag is malformed or if any name is neither a pass nor a group.
+  (see `passGroups`) expands in place to its member passes. A pass name may be followed by
+  a brace-enclosed, space-separated list of boolean options, as in `pass{opt1 opt2}`; every
+  option not listed is off. The flag may appear any number of times; the resulting pipeline
+  is the concatenation of their passes, in the order the flags appear on the command line.
+  Returns an error if a flag is malformed, if any name is neither a pass nor a group, or if
+  a pass is given an option it does not accept.
 -/
 def parsePipelineOption (args : List String) :
     Except String (PassPipeline OpCode × List String) := do
@@ -95,9 +126,9 @@ def parsePipelineOption (args : List String) :
   let mut passes : Array (Pass OpCode) := #[]
   for flag in pipelineFlags do
     let arg := (flag.drop 3).toString
-    let expanded := String.intercalate "," (arg.splitOn "," |>.map fun name =>
-      if availablePasses.contains name then name
-      else (passGroups.get? name).getD name)
+    let expanded ← match expandPassGroups arg with
+      | .ok expanded => pure expanded
+      | .error errMsg => throw s!"Error parsing -p flag: {errMsg}"
     match PassPipeline.ofString? availablePasses expanded with
     | .ok pipeline => passes := passes ++ pipeline.passes
     | .error errMsg => throw s!"Error parsing -p flag: {errMsg}"
@@ -167,6 +198,9 @@ def main (args : List String) : IO Unit := do
     IO.eprintln s!"Error: {errMsg}"
     IO.eprintln "Usage: veir-opt <filename> [-p=\"pass1,pass2,...\"]... [--allow-unregistered-dialect] [--disable-verifiers]"
     IO.eprintln "  -p may be repeated; passes run in the order the flags appear."
+    IO.eprintln "  A pass name may be followed by boolean options: pass{opt1 opt2}."
+    IO.eprintln "  Options not listed are off. The passes taking options are:"
+    IO.eprintln passOptionsUsage
     IO.eprintln "  A pass list may also contain pass-group names, which expand in place:"
     IO.eprintln passGroupsUsage
     IO.Process.exit 1

@@ -1,10 +1,10 @@
-// RUN: veir-opt %s -p=coerce-mod-arith-function-boundaries-pow2-width,reconcile-cast | filecheck %s
+// RUN: veir-opt %s -p='coerce-mod-arith-function-boundaries{pow2-width},reconcile-cast' | filecheck %s
 
 "builtin.module"() ({
 
-  // With the pow2-width variant, `mod_arith` boundaries with a non-power-of-two storage
+  // With the `pow2-width` option, `mod_arith` boundaries with a non-power-of-two storage
   // type (i33) are coerced to the power-of-two-widened storage type (i64) — the same
-  // representation type the `mod-arith-to-arith-pow2-width` lowering uses. The boundary
+  // representation type the `mod-arith-to-arith{pow2-width}` lowering uses. The boundary
   // casts below (as that lowering would emit them) then form identity round trips and
   // are reconciled away.
     "func.func"() <{sym_name = "arith_add", function_type = (!mod_arith.int<7 : i33>, !mod_arith.int<7 : i33>) -> !mod_arith.int<7 : i33>}> ({
