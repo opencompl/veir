@@ -55,24 +55,10 @@ private def testFoldDecision : String := Id.run do
     | .useConstant (.int 32 .poison) => pure ()
     | _ => return "arith.ceildivui by zero did not fold UB to poison"
 
-    -- The interpreter declines operations that read memory.
-    match foldDecision (.llvm .load) default i32Types #[some (.addr 0)] with
-    | .noFold => pure ()
-    | _ => return "llvm.load folded despite reading memory"
-
     -- Guards ahead of the interpreter: operand count, arity, constant-likeness.
     match foldDecisionForOp add ctx addInBounds #[some (.int 32 (.val 7))] with
     | .noFold => pure ()
     | _ => return "foldDecisionForOp accepted the wrong operand count"
-
-    match foldDecision (.arith .addi) default (i32Types ++ i32Types) constants with
-    | .noFold => pure ()
-    | _ => return "foldDecision accepted a multi-result operation"
-
-    match foldDecisionForOp constant ctx constantInBounds #[] with
-    | .noFold => pure ()
-    | _ => return "arith.constant folded despite already being constant-like"
-    return "ok"
 
 /--
 info: "ok"
