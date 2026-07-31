@@ -1103,27 +1103,43 @@ theorem getProperties!_eq_of_OperationPtr_get!_eq {op : OperationPtr} {opCode : 
     op.getProperties! ctx opCode = op.getProperties! ctx' opCode := by
   grind [OperationPtr.get!, getProperties!]
 
-def setProperties {opCode : OpInfo} (op : OperationPtr) (ctx : IRContext OpInfo)
-    (newProperties : HasOpInfo.propertiesOf opCode)
+/--
+Set the properties of an operation of type `opCode`.
+The passed `opCode` can either be of the global `OpInfo` type, or the dialect-specific
+`Dialect` type. The `OpInfo` version is often the one used when manipulating generic operations,
+while the `Dialect` version is often easier to use when manipulating dialect-specific operations.
+-/
+def setProperties (op : OperationPtr) (ctx : IRContext OpInfo) (opCode : Dialect)
+    (newProperties : HasDialectOpInfo.propertiesOf opCode)
     (inBounds : op.InBounds ctx := by grind)
     (hprop : op.getOpType! ctx = opCode := by grind) : IRContext OpInfo :=
   have h : (op.get ctx inBounds).opType = opCode := by grind [getOpType!]
   let oldOp := op.get ctx (by grind)
-  op.set ctx { oldOp with properties := h ▸ newProperties }
+  let newPropertiesGlobal := HasDialect.ofDialectProperties OpInfo opCode newProperties
+  op.set ctx { oldOp with properties := h ▸ newPropertiesGlobal }
 
-def setProperties! {opCode : OpInfo} (op : OperationPtr) (ctx : IRContext OpInfo)
-  (newProperties : HasOpInfo.propertiesOf opCode)
+/--
+Set the properties of an operation of type `opCode`.
+The implicitely passed `opCode` can either be of the global `OpInfo` type, or the dialect-specific
+`Dialect` type. The `OpInfo` version is often the one used when manipulating generic operations,
+while the `Dialect` version is often easier to use when manipulating dialect-specific operations.
+
+This function panics if the given operation is not in bounds.
+-/
+def setProperties! {opCode : Dialect} (op : OperationPtr) (ctx : IRContext OpInfo)
+  (newProperties : HasDialectOpInfo.propertiesOf opCode)
   (hprop : op.getOpType! ctx = opCode := by grind) : IRContext OpInfo :=
   have h : (op.get! ctx).opType = opCode := by grind [getOpType!]
   let oldOp := op.get! ctx
-  op.set ctx { oldOp with properties := h ▸ newProperties }
+  let newPropertiesGlobal := HasDialect.ofDialectProperties OpInfo opCode newProperties
+  op.set ctx { oldOp with properties := h ▸ newPropertiesGlobal }
 
 @[grind =_, eq_bang ←]
-theorem setProperties!_eq_setProperties {op : OperationPtr}
-    (newProperties : HasOpInfo.propertiesOf opCode) (inBounds : op.InBounds ctx)
+theorem setProperties!_eq_setProperties {op : OperationPtr} {opCode : Dialect}
+    (newProperties : HasDialectOpInfo.propertiesOf opCode) (inBounds : op.InBounds ctx)
     (hprop : op.getOpType! ctx = opCode) :
     op.setProperties! ctx newProperties =
-    op.setProperties ctx newProperties inBounds := by
+    op.setProperties ctx opCode newProperties inBounds := by
   grind [setProperties, setProperties!]
 
 def nextOperand (op : OperationPtr) (ctx : IRContext OpInfo)

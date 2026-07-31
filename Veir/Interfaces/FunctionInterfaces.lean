@@ -88,18 +88,19 @@ def getEntryBlock? (funcOp : OperationPtr) (raw : IRContext OpCode) : Option Blo
 def setFunctionType (wfCtx : WfIRContext OpCode) (funcOp : OperationPtr)
     (inputs outputs : Array Attribute)
     (opInBounds : funcOp.InBounds wfCtx.raw := by grind) : WfIRContext OpCode :=
-  match h : funcOp.getOpType wfCtx.raw opInBounds with
-  | .func .func =>
+  let opType := funcOp.getOpType! wfCtx.raw
+  if h : opType = ofDialect OpCode Func.func then
     let ftType : TypeAttr := ⟨.functionType { inputs, outputs }, by simp⟩
     let props : FuncFuncProperties := funcOp.getProperties! wfCtx.raw Func.func
     let newProps : FuncFuncProperties := { props with function_type := some ftType }
-    WfRewriter.setProperties (opCode := .func .func) wfCtx funcOp newProps opInBounds
-  | .llvm .func =>
+    WfRewriter.setProperties wfCtx funcOp Func.func newProps opInBounds
+  else if h : opType = ofDialect OpCode Llvm.func then
     let ftType : TypeAttr := ⟨.llvmFunctionType { inputs, outputs }, by simp⟩
     let props : LLVMFuncProperties := funcOp.getProperties! wfCtx.raw Llvm.func
     let newProps : LLVMFuncProperties := { props with function_type := some ftType }
-    WfRewriter.setProperties (opCode := .llvm .func) wfCtx funcOp newProps opInBounds
-  | _ => wfCtx
+    WfRewriter.setProperties wfCtx funcOp Llvm.func newProps opInBounds
+  else
+    wfCtx
 
 /-- Sets the function type to the given input/output type lists, panicking if the op
     is out of bounds.

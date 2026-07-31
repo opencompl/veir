@@ -189,6 +189,18 @@ theorem ofDialect_injective {op₁ op₂ : Dialect} :
   intro h
   grind [congrArg (toDialect? Dialect) h]
 
+/-- Equal global opcodes have equal dialect-local property types. -/
+theorem properties_eq_of_ofDialect_eq
+    {Dialect₁ Dialect₂ : Type}
+    [HasDialectOpInfo Dialect₁] [HasDialectOpInfo Dialect₂]
+    [hasDialect₁ : HasDialect OpInfo Dialect₁]
+    [hasDialect₂ : HasDialect OpInfo Dialect₂]
+    {op₁ : Dialect₁} {op₂ : Dialect₂}
+    (h : ofDialect OpInfo op₁ = ofDialect OpInfo op₂) :
+    HasDialectOpInfo.propertiesOf op₁ = HasDialectOpInfo.propertiesOf op₂ := by
+  simp [← hasDialect₁.properties_eq op₁, ← hasDialect₂.properties_eq op₂]
+  grind [ofDialect]
+
 @[simp]
 theorem toDialect?_eq_some_iff (opInfo : OpInfo) (op : Dialect) :
     toDialect? Dialect opInfo = some op ↔ ofDialect OpInfo op = opInfo := by
@@ -208,6 +220,20 @@ def toDialectProperties (op : Dialect)
     (props : HasOpInfo.propertiesOf (opCode := OpInfo) op) :
     HasDialectOpInfo.propertiesOf op :=
   (dialectInj.properties_eq op).symm ▸ props
+
+@[simp, grind =]
+theorem toDialectProperties_cast_ofDialectProperties_eq
+    {Dialect₁ Dialect₂ : Type}
+    [HasDialectOpInfo Dialect₁] [HasDialectOpInfo Dialect₂]
+    [hasDialect₁ : HasDialect OpInfo Dialect₁]
+    [hasDialect₂ : HasDialect OpInfo Dialect₂]
+    {op₁ : Dialect₁} {op₂ : Dialect₂}
+    (h : ofDialect OpInfo op₁ = ofDialect OpInfo op₂)
+    (props : HasDialectOpInfo.propertiesOf op₁) :
+    toDialectProperties op₂ (h ▸ ofDialectProperties OpInfo op₁ props) =
+      properties_eq_of_ofDialect_eq h ▸ props := by
+  apply eq_of_heq
+  exact (cast_heq _ _).trans ((eqRec_heq h _).trans ((cast_heq _ _).trans (cast_heq _ _).symm))
 
 /-- Coercion from a dialect property to the global property type. -/
 instance {OpInfo Dialect : Type} [HasOpInfo OpInfo] [HasDialectOpInfo Dialect]

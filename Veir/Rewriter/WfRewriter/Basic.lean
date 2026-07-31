@@ -166,23 +166,26 @@ def WfRewriter.setAttributes! (wfCtx : WfIRContext OpInfo) (op : OperationPtr) (
 
 /-- Set the properties of an operation. -/
 @[inline]
-def WfRewriter.setProperties {opCode : OpInfo} (wfCtx : WfIRContext OpInfo) (op : OperationPtr)
-    (newProps : HasOpInfo.propertiesOf opCode)
+def WfRewriter.setProperties {Dialect : Type} [HasDialectOpInfo Dialect]
+    [HasDialect OpInfo Dialect] (wfCtx : WfIRContext OpInfo)
+    (op : OperationPtr) (opCode : Dialect) (newProps : HasDialectOpInfo.propertiesOf opCode)
     (opIn : op.InBounds wfCtx.raw := by grind)
     (hprop : op.getOpType! wfCtx.raw = opCode := by grind) :
     WfIRContext OpInfo :=
-  ⟨Rewriter.setProperties wfCtx.raw op newProps opIn hprop,
+  ⟨Rewriter.setProperties wfCtx.raw op opCode newProps opIn hprop,
     by grind [Rewriter.setProperties_WellFormed]⟩
 
 /--
 Set the properties of an operation, panicking if the operation is out of bounds, or if the
 property types don't match.
 -/
-def WfRewriter.setProperties! {opCode : OpInfo} (wfCtx : WfIRContext OpInfo) (op : OperationPtr)
-    (newProperties : HasOpInfo.propertiesOf opCode) : WfIRContext OpInfo :=
+def WfRewriter.setProperties! {Dialect : Type} [HasDialectOpInfo Dialect]
+    [HasDialect OpInfo Dialect] (wfCtx : WfIRContext OpInfo)
+    (op : OperationPtr) (opCode : Dialect) (newProperties : HasDialectOpInfo.propertiesOf opCode) :
+    WfIRContext OpInfo :=
   if opIn : op.InBounds wfCtx.raw then
     if hprop : op.getOpType! wfCtx.raw = opCode then
-      WfRewriter.setProperties wfCtx op newProperties opIn hprop
+      WfRewriter.setProperties wfCtx op opCode newProperties opIn hprop
     else
       panic! "WfRewriter.setProperties! failed: property types don't match"
   else

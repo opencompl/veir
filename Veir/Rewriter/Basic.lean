@@ -300,22 +300,38 @@ theorem Rewriter.setAttributes_fieldsInBounds :
     ctx.FieldsInBounds → (setAttributes ctx op newAttrs opIn).FieldsInBounds := by
   grind [setAttributes, OperationPtr.setAttributes_fieldsInBounds]
 
-/-- Set the properties of an operation. -/
-def Rewriter.setProperties {opCode : OpInfo} (ctx: IRContext OpInfo) (op: OperationPtr)
-    (newProps: HasOpInfo.propertiesOf opCode)
+section Rewriter.setProperties
+
+variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {opCode : Dialect}
+
+/--
+Set the properties of an operation of type `opCode`.
+The implicitely passed `opCode` can either be of the global `OpInfo` type, or the dialect-specific
+`Dialect` type. The `OpInfo` version is often the one used when manipulating generic operations,
+while the `Dialect` version is often easier to use when manipulating dialect-specific operations.
+-/
+def Rewriter.setProperties (ctx: IRContext OpInfo) (op: OperationPtr)
+    (opCode : Dialect := by grind)
+    (newProps: HasDialectOpInfo.propertiesOf opCode)
     (opIn : op.InBounds ctx := by grind)
     (hprop : op.getOpType! ctx = opCode := by grind) : IRContext OpInfo :=
-  op.setProperties ctx newProps opIn hprop
+  op.setProperties ctx opCode newProps opIn hprop
+
+variable {op : OperationPtr} {newProperties : HasDialectOpInfo.propertiesOf opCode}
+variable {opIn : op.InBounds ctx} {hprop : op.getOpType! ctx = opCode}
 
 @[grind =]
 theorem Rewriter.setProperties_inBounds (ptr : GenericPtr) :
-    ptr.InBounds (setProperties ctx op newProperties opIn hprop) ↔ ptr.InBounds ctx := by
+    ptr.InBounds (setProperties ctx op opCode newProperties opIn hprop) ↔ ptr.InBounds ctx := by
   grind [setProperties]
 
 @[grind .]
 theorem Rewriter.setProperties_fieldsInBounds :
-    ctx.FieldsInBounds → (setProperties ctx op newProperties opIn hprop).FieldsInBounds := by
+    ctx.FieldsInBounds → (setProperties ctx op opCode newProperties opIn hprop).FieldsInBounds := by
   grind [setProperties, OperationPtr.setProperties_fieldsInBounds]
+
+end Rewriter.setProperties
 
 /--
 Set the type of a value (an op result or a block argument).
