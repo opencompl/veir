@@ -1,4 +1,4 @@
-// RUN: not veir-opt %s -p='mod-arith-to-arith{pow2-widht}' 2>&1 | filecheck %s --check-prefix=MISSPELLED
+// RUN: not veir-opt %s -p='mod-arith-to-arith{unknown-option}' 2>&1 | filecheck %s --check-prefix=MISSPELLED
 // RUN: not veir-opt %s -p='cse{whatever}' 2>&1 | filecheck %s --check-prefix=NO-OPTIONS
 // RUN: not veir-opt %s -p='mod-arith{pow2-width}' 2>&1 | filecheck %s --check-prefix=GROUP
 // RUN: not veir-opt %s -p='mod-arith-to-arith{pow2-width' 2>&1 | filecheck %s --check-prefix=UNCLOSED
