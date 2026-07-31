@@ -6,12 +6,6 @@ public import Veir.Interpreter.Evaluate
 
 /-!
   # Constant folding decisions
-
-  An operation whose operands are all known constants can be queried through
-  `OpCode.foldsTo`, which resolves the fold by running the interpreter. There
-  are no per-dialect fold tables here: an operation with any unknown operand
-  never folds, however trivial the algebraic identity would be. This module
-  never mutates the IR or materializes constants.
 -/
 
 public section
@@ -30,35 +24,22 @@ inductive FoldDecision where
   /-- The operation does not fold with the supplied operand information. -/
   | noFold
 
-/-- Construct a poison decision for a supported result type. -/
-private def poisonDecision (resultTypes : Array TypeAttr) : FoldDecision :=
-  match resultTypes[0]? with
-  | some resultType =>
+/-- Resolve all-constant folding of a single-result operation with the interpreter. -/
+private def evaluatedFoldDecision (opCode : OpCode)
+    (properties : HasOpInfo.propertiesOf opCode)
+    (resultType : TypeAttr) (values : Array RuntimeValue) : FoldDecision :=
+  match (foldEvaluate opCode properties #[resultType] values : Option (UBOr _)) with
+  | none => .noFold
+  | some (.ok results) =>
+    -- The interpreter may disagree about arity, so the lone result is checked.
+    match results.toList with
+    | [result] => if result.Conforms resultType then .useConstant result else .noFold
+    | _ => .noFold
+  | some .ub =>
+    -- UB may be refined by any value; poison is the strongest one available.
     match resultType.val with
     | .integerType intTy => .useConstant (.int intTy.bitwidth .poison)
     | _ => .noFold
-  | none => .noFold
-
-/-- Return a constant decision only when `rv` conforms to the sole result type. -/
-private def conformingConstantDecision
-    (resultTypes : Array TypeAttr) (rv : RuntimeValue) : FoldDecision :=
-  match resultTypes.toList with
-  | [resultType] =>
-    if rv.Conforms resultType then .useConstant rv else .noFold
-  | _ => .noFold
-
-/-- Resolve all-constant folding with the interpreter. -/
-private def evaluatedFoldDecision (opCode : OpCode)
-    (properties : HasOpInfo.propertiesOf opCode)
-    (resultTypes : Array TypeAttr) (values : Array RuntimeValue) :
-    FoldDecision :=
-  match (foldEvaluate opCode properties resultTypes values : Option (UBOr _)) with
-  | none => .noFold
-  | some (.ok results) =>
-    match results.toList with
-    | [result] => conformingConstantDecision resultTypes result
-    | _ => .noFold
-  | some .ub => poisonDecision resultTypes
 
 /--
   Query whether an operation folds, given its result types and the values of
@@ -71,10 +52,10 @@ private def evaluatedFoldDecision (opCode : OpCode)
 def OpCode.foldsTo (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue)) :
     FoldDecision :=
-  if resultTypes.size ≠ 1 then .noFold else
-  match constOperands.mapM id with
-  | none => .noFold
-  | some values => evaluatedFoldDecision opCode properties resultTypes values
+  match resultTypes.toList, constOperands.mapM id with
+  | [resultType], some values =>
+    evaluatedFoldDecision opCode properties resultType values
+  | _, _ => .noFold
 
 namespace Fold.Impl
 
