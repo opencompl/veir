@@ -58,28 +58,6 @@ def Pass.parseOptions {OpInfo : Type} [HasOpInfo OpInfo]
   return enabled
 
 /--
-  Split a pipeline string on the commas that are not inside braces, so that
-  `a{x y},b` splits into `a{x y}` and `b`.
--/
-def splitPipelineElements (s : String) : List String := Id.run do
-  let mut elements : Array String := #[]
-  let mut current : String := ""
-  let mut depth : Nat := 0
-  for c in s.toList do
-    if c == '{' then
-      depth := depth + 1
-      current := current.push c
-    else if c == '}' then
-      depth := depth - 1
-      current := current.push c
-    else if c == ',' && depth == 0 then
-      elements := elements.push current
-      current := ""
-    else
-      current := current.push c
-  return (elements.push current).toList
-
-/--
   Split one pipeline element, either `name` or `name{flag1 flag2 ...}`, into the name and
   the (possibly empty) list of option words.
 -/
@@ -110,7 +88,7 @@ namespace PassPipeline
 def ofString? {OpInfo : Type} [HasOpInfo OpInfo]
     (registry : Std.HashMap String (Pass OpInfo)) (s : String) :
     Except String (PassPipeline OpInfo) := do
-  let passes ← (splitPipelineElements s).mapM fun element => do
+  let passes ← (s.splitOn ",").mapM fun element => do
     let (name, flags) ← splitPipelineElement element
     let some pass := registry.get? name
       | throw s!"unknown pass: '{name}'"

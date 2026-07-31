@@ -97,7 +97,7 @@ structure VeirOptArgs where
   that `PassPipeline.ofString?` reports them. Groups do not take options.
 -/
 def expandPassGroups (pipeline : String) : Except String String := do
-  let elements ← (splitPipelineElements pipeline).mapM fun element => do
+  let elements ← (pipeline.splitOn ",").mapM fun element => do
     let (name, options) ← splitPipelineElement element
     if availablePasses.contains name then return element
     match passGroups.get? name with
