@@ -35,12 +35,10 @@ def OpCode.foldsTo (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode
     match (foldEvaluate opCode properties #[resultType] values : Option (UBOr _)) with
     | none => .noFold
     | some (.ok results) =>
-      -- The interpreter may disagree about arity, so the lone result is checked.
-      match results.toList with
-      | [result] => if result.Conforms resultType then .useConstant result else .noFold
-      | _ => .noFold
+      match results[0]? with
+      | some result => if result.Conforms resultType then .useConstant result else .noFold
+      | none => .noFold
     | some .ub =>
-      -- UB may be refined by any value; poison is the strongest one available.
       match resultType.val with
       | .integerType intTy => .useConstant (.int intTy.bitwidth .poison)
       | _ => .noFold

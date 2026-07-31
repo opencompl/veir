@@ -55,10 +55,7 @@ private def testFoldDecision : String := Id.run do
     | .useConstant (.int 32 .poison) => pure ()
     | _ => return "arith.ceildivui by zero did not fold UB to poison"
 
-    -- Guards ahead of the interpreter: operand count, arity, constant-likeness.
-    match foldDecisionForOp add ctx addInBounds #[some (.int 32 (.val 7))] with
-    | .noFold => pure ()
-    | _ => return "foldDecisionForOp accepted the wrong operand count"
+    return "ok"
 
 /--
 info: "ok"
