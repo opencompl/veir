@@ -42,7 +42,7 @@ def lowerBinopNotLocal {P : Type}
                | none => none) | return (ctx, none)
   let (ctx, xCastOp) ← castToRegLocal ctx x
   let (ctx, yCastOp) ← castToRegLocal ctx y
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.riscv dst) #[RegisterType.mk]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx dst #[RegisterType.mk]
       #[xCastOp.getResult 0, yCastOp.getResult 0] #[] #[] props none
   let (ctx, castBackOp) ← replaceWithRegLocal ctx op (newOp.getResult 0)
   some (ctx, some (#[xCastOp, yCastOp, newOp, castBackOp], #[castBackOp.getResult 0]))
@@ -133,7 +133,7 @@ def orcb_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some _zAttr := matchOrcbMask mo0 mo1 y ctx | return (ctx, none)
   let (ctx, mCastOp) ← castToRegLocal ctx m
   /- actual `riscv.orcb` -/
-  let (ctx, orcbOp) ← WfRewriter.createOp! ctx (.riscv .orcb) #[RegisterType.mk] #[mCastOp.getResult 0]
+  let (ctx, orcbOp) ← WfRewriter.createOp! ctx Riscv.orcb #[RegisterType.mk] #[mCastOp.getResult 0]
       #[] #[] () none
   let (ctx, castBackOp) ← replaceWithRegLocal ctx op (orcbOp.getResult 0)
   some (ctx, some (#[mCastOp, orcbOp, castBackOp], #[castBackOp.getResult 0]))
@@ -180,7 +180,7 @@ def selectBinopImmLocal {α} (matchPair : OperationPtr → IRContext OpCode → 
   if imm.value < lo || imm.value > hi then return (ctx, none)
   let (ctx, xCastOp) ← castToRegLocal ctx lhs
   let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk imm.value (IntegerType.mk 64))
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.riscv dst) #[RegisterType.mk] #[xCastOp.getResult 0]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx dst #[RegisterType.mk] #[xCastOp.getResult 0]
       #[] #[] (cast h.symm immProps) none
   let (ctx, castBackOp) ← replaceWithRegLocal ctx op (newOp.getResult 0)
   some (ctx, some (#[xCastOp, newOp, castBackOp], #[castBackOp.getResult 0]))
@@ -217,11 +217,11 @@ def sltiEmitLocal (op : OperationPtr) (lhs : ValuePtr) (dst : Riscv)
   if immVal < -2048 || immVal > 2047 then return (ctx, none)
   let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk immVal (IntegerType.mk 64))
   let (ctx, xCastOp) ← castToRegLocal ctx lhs
-  let (ctx, cmpOp) ← WfRewriter.createOp! ctx (.riscv dst) #[RegisterType.mk] #[xCastOp.getResult 0]
+  let (ctx, cmpOp) ← WfRewriter.createOp! ctx dst #[RegisterType.mk] #[xCastOp.getResult 0]
       #[] #[] (cast h.symm immProps) none
   if wrap then
     let one := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
-    let (ctx, xorOp) ← WfRewriter.createOp! ctx (.riscv .xori) #[RegisterType.mk] #[cmpOp.getResult 0]
+    let (ctx, xorOp) ← WfRewriter.createOp! ctx Riscv.xori #[RegisterType.mk] #[cmpOp.getResult 0]
         #[] #[] one none
     let (ctx, castBackOp) ← replaceWithRegLocal ctx op (xorOp.getResult 0)
     some (ctx, some (#[xCastOp, cmpOp, xorOp, castBackOp], #[castBackOp.getResult 0]))
@@ -319,7 +319,7 @@ def selectSingleBitLocal {α} (matchPair : OperationPtr → IRContext OpCode →
   let some n := singleSetBit (if complement then ~~~ bv else bv) | return (ctx, none)
   let (ctx, xCastOp) ← castToRegLocal ctx lhs
   let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk n (IntegerType.mk 64))
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.riscv dst) #[RegisterType.mk] #[xCastOp.getResult 0]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx dst #[RegisterType.mk] #[xCastOp.getResult 0]
       #[] #[] (cast h.symm immProps) none
   let (ctx, castBackOp) ← replaceWithRegLocal ctx op (newOp.getResult 0)
   some (ctx, some (#[xCastOp, newOp, castBackOp], #[castBackOp.getResult 0]))
@@ -343,7 +343,7 @@ def bexti_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if sh.value < 0 || sh.value > 63 then return (ctx, none)
   let (ctx, xCastOp) ← castToRegLocal ctx x
   let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk sh.value (IntegerType.mk 64))
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.riscv .bexti) #[RegisterType.mk] #[xCastOp.getResult 0]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Riscv.bexti #[RegisterType.mk] #[xCastOp.getResult 0]
       #[] #[] immProps none
   let (ctx, castBackOp) ← replaceWithRegLocal ctx op (newOp.getResult 0)
   some (ctx, some (#[xCastOp, newOp, castBackOp], #[castBackOp.getResult 0]))
@@ -366,7 +366,7 @@ def roriw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let sh : Int := ((amtAttr.value % 32) + 32) % 32
   let (ctx, valCastOp) ← castToRegLocal ctx a
   let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk sh (IntegerType.mk 64))
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.riscv .roriw) #[RegisterType.mk] #[valCastOp.getResult 0]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Riscv.roriw #[RegisterType.mk] #[valCastOp.getResult 0]
       #[] #[] immProps none
   let (ctx, castBackOp) ← replaceWithRegLocal ctx op (newOp.getResult 0)
   some (ctx, some (#[valCastOp, newOp, castBackOp], #[castBackOp.getResult 0]))
@@ -391,7 +391,7 @@ def roliw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let imm : Int := (32 - sh) % 32
   let (ctx, valCastOp) ← castToRegLocal ctx a
   let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk imm (IntegerType.mk 64))
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.riscv .roriw) #[RegisterType.mk] #[valCastOp.getResult 0]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Riscv.roriw #[RegisterType.mk] #[valCastOp.getResult 0]
       #[] #[] immProps none
   let (ctx, castBackOp) ← replaceWithRegLocal ctx op (newOp.getResult 0)
   some (ctx, some (#[valCastOp, newOp, castBackOp], #[castBackOp.getResult 0]))
@@ -417,7 +417,7 @@ def slliuw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if srcT.bitwidth ≠ 32 then return (ctx, none)
   let (ctx, xCastOp) ← castToRegLocal ctx x
   let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk sh.value (IntegerType.mk 64))
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.riscv .slliuw) #[RegisterType.mk] #[xCastOp.getResult 0]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Riscv.slliuw #[RegisterType.mk] #[xCastOp.getResult 0]
       #[] #[] immProps none
   let (ctx, castBackOp) ← replaceWithRegLocal ctx op (newOp.getResult 0)
   some (ctx, some (#[xCastOp, newOp, castBackOp], #[castBackOp.getResult 0]))
@@ -436,12 +436,12 @@ def zext_1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let .integerType opType := (operand.getType! ctx.raw).val | return (ctx, none)
   if opType.bitwidth ≠ 1 then return (ctx, none)
   /- First, cast the operand to registers -/
-  let (ctx, opCastOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
+  let (ctx, opCastOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[RegisterType.mk] #[operand]
       #[] #[] () none
   let imm := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
-  let (ctx, andiOp) ← WfRewriter.createOp! ctx (.riscv .andi) #[RegisterType.mk] #[opCastOp.getResult 0]
+  let (ctx, andiOp) ← WfRewriter.createOp! ctx Riscv.andi #[RegisterType.mk] #[opCastOp.getResult 0]
       #[] #[] imm none
-  let (ctx, castOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[t] #[andiOp.getResult 0]
+  let (ctx, castOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[t] #[andiOp.getResult 0]
       #[] #[] () none
   some (ctx, some (#[opCastOp, andiOp, castOp], #[castOp.getResult 0]))
 
@@ -459,14 +459,14 @@ def sext_1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let .integerType opType := (operand.getType! ctx.raw).val | return (ctx, none)
   if opType.bitwidth ≠ 1 then return (ctx, none)
   /- First, cast the operand to registers -/
-  let (ctx, opCastOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
+  let (ctx, opCastOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[RegisterType.mk] #[operand]
       #[] #[] () none
   let imm := RISCVImmediateProperties.mk (IntegerAttr.mk 63 (IntegerType.mk 6))
-  let (ctx, slliOp) ← WfRewriter.createOp! ctx (.riscv .slli) #[RegisterType.mk] #[opCastOp.getResult 0]
+  let (ctx, slliOp) ← WfRewriter.createOp! ctx Riscv.slli #[RegisterType.mk] #[opCastOp.getResult 0]
       #[] #[] imm none
-  let (ctx, sraiOp) ← WfRewriter.createOp! ctx (.riscv .srai) #[RegisterType.mk] #[slliOp.getResult 0]
+  let (ctx, sraiOp) ← WfRewriter.createOp! ctx Riscv.srai #[RegisterType.mk] #[slliOp.getResult 0]
       #[] #[] imm none
-  let (ctx, castOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[t] #[sraiOp.getResult 0]
+  let (ctx, castOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[t] #[sraiOp.getResult 0]
       #[] #[] () none
   some (ctx, some (#[opCastOp, slliOp, sraiOp, castOp], #[castOp.getResult 0]))
 
@@ -526,7 +526,7 @@ def udivPow2GenLocal (dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateP
   let some k := matchUnsignedPow2Divisor width imm.value | return (ctx, none)
   let (ctx, xCastOp) ← castToRegLocal ctx lhs
   let shamt := RISCVImmediateProperties.mk (IntegerAttr.mk k (IntegerType.mk 64))
-  let (ctx, shiftOp) ← WfRewriter.createOp! ctx (.riscv dst) #[RegisterType.mk] #[xCastOp.getResult 0]
+  let (ctx, shiftOp) ← WfRewriter.createOp! ctx dst #[RegisterType.mk] #[xCastOp.getResult 0]
       #[] #[] (cast h.symm shamt) none
   let (ctx, castBackOp) ← replaceWithRegLocal ctx op (shiftOp.getResult 0)
   some (ctx, some (#[xCastOp, shiftOp, castBackOp], #[castBackOp.getResult 0]))
@@ -542,9 +542,9 @@ def negateRegLocal (negDst : Riscv) (h : Riscv.propertiesOf negDst = Unit)
     (ctx : WfIRContext OpCode) (x : ValuePtr) :
     Option (WfIRContext OpCode × Array OperationPtr × OperationPtr) := do
   let zero := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
-  let (ctx, zeroOp) ← WfRewriter.createOp! ctx (.riscv .li) #[RegisterType.mk] #[]
+  let (ctx, zeroOp) ← WfRewriter.createOp! ctx Riscv.li #[RegisterType.mk] #[]
       #[] #[] zero none
-  let (ctx, negOp) ← WfRewriter.createOp! ctx (.riscv negDst) #[RegisterType.mk] #[zeroOp.getResult 0, x]
+  let (ctx, negOp) ← WfRewriter.createOp! ctx negDst #[RegisterType.mk] #[zeroOp.getResult 0, x]
       #[] #[] (cast h.symm ()) none
   some (ctx, #[zeroOp, negOp], negOp)
 
@@ -570,7 +570,7 @@ def sdivPow2ExactGenLocal (dst : Riscv) (hDst : Riscv.propertiesOf dst = RISCVIm
   let some (k, isNeg) := matchSignedPow2Divisor width imm.value | return (ctx, none)
   let (ctx, xCastOp) ← castToRegLocal ctx lhs
   let shamt := RISCVImmediateProperties.mk (IntegerAttr.mk k (IntegerType.mk 64))
-  let (ctx, sraOp) ← WfRewriter.createOp! ctx (.riscv dst) #[RegisterType.mk] #[xCastOp.getResult 0]
+  let (ctx, sraOp) ← WfRewriter.createOp! ctx dst #[RegisterType.mk] #[xCastOp.getResult 0]
       #[] #[] (cast hDst.symm shamt) none
   if ¬ isNeg then
     let (ctx, castBackOp) ← replaceWithRegLocal ctx op (sraOp.getResult 0)
@@ -619,15 +619,15 @@ def sdivPow2GenLocal (shiftDst : Riscv) (hShift : Riscv.propertiesOf shiftDst = 
   if k = 0 then return (ctx, none)
   let (ctx, xCastOp) ← castToRegLocal ctx lhs
   let shSign := RISCVImmediateProperties.mk (IntegerAttr.mk (width - 1) (IntegerType.mk 64))
-  let (ctx, signOp) ← WfRewriter.createOp! ctx (.riscv shiftDst) #[RegisterType.mk] #[xCastOp.getResult 0]
+  let (ctx, signOp) ← WfRewriter.createOp! ctx shiftDst #[RegisterType.mk] #[xCastOp.getResult 0]
       #[] #[] (cast hShift.symm shSign) none
   let shCorr := RISCVImmediateProperties.mk (IntegerAttr.mk (width - k) (IntegerType.mk 64))
-  let (ctx, corrOp) ← WfRewriter.createOp! ctx (.riscv corrDst) #[RegisterType.mk] #[signOp.getResult 0]
+  let (ctx, corrOp) ← WfRewriter.createOp! ctx corrDst #[RegisterType.mk] #[signOp.getResult 0]
       #[] #[] (cast hCorr.symm shCorr) none
-  let (ctx, biasedOp) ← WfRewriter.createOp! ctx (.riscv addDst) #[RegisterType.mk]
+  let (ctx, biasedOp) ← WfRewriter.createOp! ctx addDst #[RegisterType.mk]
       #[xCastOp.getResult 0, corrOp.getResult 0] #[] #[] (cast hAdd.symm ()) none
   let shQ := RISCVImmediateProperties.mk (IntegerAttr.mk k (IntegerType.mk 64))
-  let (ctx, qOp) ← WfRewriter.createOp! ctx (.riscv shiftDst) #[RegisterType.mk] #[biasedOp.getResult 0]
+  let (ctx, qOp) ← WfRewriter.createOp! ctx shiftDst #[RegisterType.mk] #[biasedOp.getResult 0]
       #[] #[] (cast hShift.symm shQ) none
   if ¬ isNeg then
     let (ctx, castBackOp) ← replaceWithRegLocal ctx op (qOp.getResult 0)

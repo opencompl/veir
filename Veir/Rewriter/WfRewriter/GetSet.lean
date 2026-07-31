@@ -45,9 +45,12 @@ namespace Veir
 variable {OpInfo} [HasOpInfo OpInfo]
 variable {ctx ctx' : WfIRContext OpInfo}
 variable {operation : OperationPtr} {region : RegionPtr} {block : BlockPtr} {value : ValuePtr}
-variable {opType : OpInfo}
 variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
 variable {dialectOpType : Dialect}
+variable {CreateDialect : Type} [HasDialectOpInfo CreateDialect]
+  [HasDialect OpInfo CreateDialect]
+variable {opType : CreateDialect}
+variable {properties : HasDialectOpInfo.propertiesOf opType}
 
 /-! ## `WfRewriter.createOp` -/
 
@@ -155,7 +158,7 @@ theorem OperationPtr.getOpType!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
     operation.getOpType! ctx'.raw =
-    if operation = newOp then opType else operation.getOpType! ctx.raw := by
+    if operation = newOp then ofDialect OpInfo opType else operation.getOpType! ctx.raw := by
   simp only [WfRewriter.createOp]
   grind (gen := 20)
 
@@ -174,12 +177,12 @@ theorem OperationPtr.getProperties!_WfRewriter_createOp :
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
     operation.getProperties! ctx'.raw dialectOpType =
     if operation = newOp then
-      if h : (dialectOpType : OpInfo) = opType then
-        HasDialect.toDialectProperties dialectOpType (h ▸ properties)
+      if h : ofDialect OpInfo opType = ofDialect OpInfo dialectOpType then
+        HasDialect.properties_eq_of_ofDialect_eq h ▸ properties
       else default
     else operation.getProperties! ctx.raw dialectOpType := by
   simp only [WfRewriter.createOp]
-  grind (gen := 20)
+  grind (gen := 20) [HasDialect.toDialectProperties_cast_ofDialectProperties_eq]
 
 @[grind =>, simp_getset]
 theorem OperationPtr.getNumResults!_WfRewriter_createOp :
@@ -1065,7 +1068,6 @@ section WfRewriter.setProperties
 
 attribute [local grind] WfRewriter.setProperties
 
-variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
 variable {opCode : Dialect} {op : OperationPtr}
          {newProps : HasDialectOpInfo.propertiesOf opCode}
          {opIn : op.InBounds ctx.raw} {hprop : op.getOpType! ctx.raw = opCode}

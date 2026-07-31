@@ -53,6 +53,10 @@ setup_grind_with_get_set_definitions
 
 /- OperationPtr.allocEmpty -/
 
+variable {CreateDialect : Type} [HasDialectOpInfo CreateDialect]
+  [HasDialect OpInfo CreateDialect]
+variable {ty : CreateDialect} {properties : HasDialectOpInfo.propertiesOf ty}
+
 @[simp, grind =>]
 theorem BlockPtr.get!_OperationPtr_allocEmpty {block : BlockPtr}
     (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
@@ -63,14 +67,16 @@ theorem BlockPtr.get!_OperationPtr_allocEmpty {block : BlockPtr}
 theorem OperationPtr.get!_OperationPtr_allocEmpty {operation : OperationPtr}
     (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
     operation.get! ctx' =
-    if operation = op' then Operation.empty ty properties else operation.get! ctx := by
+    if operation = op' then
+      Operation.empty (ty : OpInfo) (HasDialect.ofDialectProperties OpInfo ty properties)
+    else operation.get! ctx := by
   grind
 
 @[grind =>]
 theorem OperationPtr.getOpType!_OperationPtr_allocEmpty {operation : OperationPtr}
     (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
     operation.getOpType! ctx' =
-    if operation = op' then ty else operation.getOpType! ctx := by
+    if operation = op' then (ty : OpInfo) else operation.getOpType! ctx := by
   grind
 
 @[grind =>]
@@ -104,8 +110,8 @@ theorem OperationPtr.getProperties!_OperationPtr_allocEmpty {operation : Operati
     (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
     operation.getProperties! ctx' opCode =
     if operation = op' then
-      if h : (opCode : OpInfo) = ty then
-        HasDialect.toDialectProperties opCode (h ▸ properties)
+      if h : ofDialect OpInfo ty = ofDialect OpInfo opCode then
+        HasDialect.properties_eq_of_ofDialect_eq h ▸ properties
       else default
     else
       operation.getProperties! ctx opCode := by

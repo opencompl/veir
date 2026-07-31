@@ -21,13 +21,13 @@ def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
   for i in List.range (op.getNumOperands! c.raw) do
     let operand := op.getOperand! c.raw i
     let some (c', cast) := WfRewriter.createOp! c
-      (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand] #[]
+      Builtin.unrealized_conversion_cast #[RegisterType.mk] #[operand] #[]
       #[] default ip | return c
     c := c'
     casts := casts.push cast
 
   if op.getOpType! c = OpCode.llvm .br then do
-    let some (c', _) := WfRewriter.createOp! c (.riscv_cf .branch) #[]
+    let some (c', _) := WfRewriter.createOp! c Riscv_Cf.branch #[]
       (casts.map (fun cast => cast.getResult 0))
       #[op.getSuccessor! c.raw 0] #[] default ip | return c
     c := c'
@@ -37,7 +37,7 @@ def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
       (OpCode.llvm .cond_br)
     let props : RISCVBrProperties := ⟨condProps.operandSegmentSizes⟩
 
-    let some (c', _) := WfRewriter.createOp! c (.riscv_cf .bnez) #[]
+    let some (c', _) := WfRewriter.createOp! c Riscv_Cf.bnez #[]
       (casts.map (fun cast => cast.getResult 0))
       (op.getSuccessors! c.raw) #[] props ip | return c
     c := c'

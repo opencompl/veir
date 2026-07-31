@@ -723,6 +723,8 @@ theorem OperationPtr.pushBlockOperand_push_fieldsInBounds
 attribute [local grind] Operation.empty in
 @[grind .]
 theorem OperationPtr.allocEmpty_fieldsInBounds
+    {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+    {type : Dialect} {prop : HasDialectOpInfo.propertiesOf type}
     (heq : allocEmpty ctx type prop = some (ctx', ptr')) :
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by
   prove_fieldsInBounds

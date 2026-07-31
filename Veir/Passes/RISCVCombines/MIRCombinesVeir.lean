@@ -15,9 +15,9 @@ def sub_minus_one_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if cst.value ≠ -1 then return (ctx, none)
   let .integerType ctype := (op1.getType! ctx.raw).val | return (ctx, none)
   let cstOpProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-1) ctype))
-  let (ctx, cstOp) ← WfRewriter.createOp! ctx (.llvm .mlir__constant) #[op1.getType! ctx.raw] #[]
+  let (ctx, cstOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[op1.getType! ctx.raw] #[]
     #[] #[] cstOpProp none
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .xor) #[op1.getType! ctx.raw] #[op1, (cstOp.getResult 0)]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.xor #[op1.getType! ctx.raw] #[op1, (cstOp.getResult 0)]
     #[] #[] () none
   some (ctx, some (#[cstOp, newOp], #[newOp.getResult 0]))
 
@@ -139,7 +139,7 @@ def same_val_zero_0_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if x != x1 then return (ctx, none)
   let .integerType type := (x.getType! ctx.raw).val | return (ctx, none)
   let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) type))
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .mlir__constant) #[x.getType! ctx.raw] #[]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[x.getType! ctx.raw] #[]
     #[] #[] cstProp none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
@@ -159,7 +159,7 @@ def same_val_zero_1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let .integerType type' := type.val | return (ctx, none)
   if type'.bitwidth ≠ 64 then return (ctx, none)
   let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 type'))
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .mlir__constant) #[type] #[]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[type] #[]
       #[] #[] cstProp none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
@@ -185,9 +185,9 @@ def mul_by_neg_one_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if cst.value ≠ -1 then return (ctx, none)
   let .integerType ctype := (x.getType! ctx.raw).val | return (ctx, none)
   let cstOpProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) ctype))
-  let (ctx, cstOp) ← WfRewriter.createOp! ctx (.llvm .mlir__constant) #[x.getType! ctx.raw] #[]
+  let (ctx, cstOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[x.getType! ctx.raw] #[]
     #[] #[] cstOpProp none
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .sub) #[x.getType! ctx.raw] #[(cstOp.getResult 0), x]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[x.getType! ctx.raw] #[(cstOp.getResult 0), x]
     #[] #[] _props none
   some (ctx, some (#[cstOp, newOp], #[newOp.getResult 0]))
 
@@ -205,7 +205,7 @@ def or_and_xor_to_or_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if y != y1 then return (ctx, none)
   let some cst := matchConstantIntVal rhs ctx | return (ctx, none)
   if cst.value ≠ -1 then return (ctx, none)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .or) #[and.getType! ctx.raw] #[x, y]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.or #[and.getType! ctx.raw] #[x, y]
     #[] #[] _props none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
@@ -223,7 +223,7 @@ def and_xor_or_to_and_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if y != y1 then return (ctx, none)
   let some cst := matchConstantIntVal rhs ctx | return (ctx, none)
   if cst.value ≠ -1 then return (ctx, none)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .and) #[or.getType! ctx.raw] #[x, y]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.and #[or.getType! ctx.raw] #[x, y]
     #[] #[] () none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
@@ -263,7 +263,7 @@ def APlusBMinusCMinusB_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some defOp1 := getDefiningOp sub1 ctx | return (ctx, none)
   let some (B1, C, _props2) := matchSub defOp1 ctx | return (ctx, none)
   if B != B1 then return (ctx, none)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .sub) #[add1.getType! ctx.raw] #[A, C]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[add1.getType! ctx.raw] #[A, C]
     #[] #[] _props none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
@@ -279,7 +279,7 @@ def AMinusBMinusCMinusC_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some defOp1 := getDefiningOp sub1 ctx | return (ctx, none)
   let some (B, C1, _props2) := matchSub defOp1 ctx | return (ctx, none)
   if C != C1 then return (ctx, none)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .sub) #[sub2.getType! ctx.raw] #[A, B]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[sub2.getType! ctx.raw] #[A, B]
     #[] #[] _props none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
@@ -294,7 +294,7 @@ def ZeroMinusAPlusB_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (lhs, A, _props1) := matchSub defOp ctx | return (ctx, none)
   let some cst := matchConstantIntVal lhs ctx | return (ctx, none)
   if cst.value ≠ 0 then return (ctx, none)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .sub) #[sub.getType! ctx.raw] #[B, A]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[sub.getType! ctx.raw] #[B, A]
     #[] #[] _props none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
@@ -309,7 +309,7 @@ def APlusZeroMinusB_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (lhs, B, _props1) := matchSub defOp ctx | return (ctx, none)
   let some cst := matchConstantIntVal lhs ctx | return (ctx, none)
   if cst.value ≠ 0 then return (ctx, none)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .sub) #[A.getType! ctx.raw] #[A, B]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[A.getType! ctx.raw] #[A, B]
     #[] #[] _props none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
@@ -349,7 +349,7 @@ def AMinusBPlusCMinusA_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some defOp1 := getDefiningOp sub2 ctx | return (ctx, none)
   let some (C, A1, _props2) := matchSub defOp1 ctx | return (ctx, none)
   if A != A1 then return (ctx, none)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .sub) #[sub1.getType! ctx.raw] #[C, B]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[sub1.getType! ctx.raw] #[C, B]
     #[] #[] _props none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
@@ -365,7 +365,7 @@ def AMinusBPlusBMinusC_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some defOp1 := getDefiningOp sub2 ctx | return (ctx, none)
   let some (B1, C, _props2) := matchSub defOp1 ctx | return (ctx, none)
   if B != B1 then return (ctx, none)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .sub) #[sub1.getType! ctx.raw] #[A, C]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[sub1.getType! ctx.raw] #[A, C]
     #[] #[] _props none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
@@ -381,7 +381,7 @@ def APlusBMinusAplusC_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some defOp1 := getDefiningOp add1 ctx | return (ctx, none)
   let some (A1, C, _props2) := matchAdd defOp1 ctx | return (ctx, none)
   if A != A1 then return (ctx, none)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .sub) #[A.getType! ctx.raw] #[B, C]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[A.getType! ctx.raw] #[B, C]
     #[] #[] _props none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
@@ -397,7 +397,7 @@ def APlusBMinusCPlusA_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some defOp1 := getDefiningOp add1 ctx | return (ctx, none)
   let some (C, A1, _props2) := matchAdd defOp1 ctx | return (ctx, none)
   if A != A1 then return (ctx, none)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .sub) #[A.getType! ctx.raw] #[B, C]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[A.getType! ctx.raw] #[B, C]
     #[] #[] _props none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
@@ -412,7 +412,7 @@ def AMinusZeroMinusB_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (lhs, B, _props1) := matchSub defOp ctx | return (ctx, none)
   let some cst := matchConstantIntVal lhs ctx | return (ctx, none)
   if cst.value ≠ 0 then return (ctx, none)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .add) #[A.getType! ctx.raw] #[A, B]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.add #[A.getType! ctx.raw] #[A, B]
     #[] #[] _props none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
