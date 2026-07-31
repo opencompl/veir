@@ -1,4 +1,7 @@
 // RUN: veir-opt %s -p=mod-arith-to-arith | filecheck %s
+// RUN: veir-opt %s -p=mod-arith-to-arith-barrett | filecheck %s
+// RUN: veir-opt %s -p=mod-arith-to-arith-pow2-width | filecheck %s
+// RUN: veir-opt %s -p=mod-arith-to-arith-barrett-pow2-width | filecheck %s
 
 // Lowering of mod_arith.constant: the value is assumed to already be in [0, q)
 // and materialised as an arith.constant cast up to the mod_arith type.
