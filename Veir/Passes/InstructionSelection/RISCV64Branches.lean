@@ -103,4 +103,4 @@ public def IselBrRISCV64 : Pass OpCode :=
   { name := "isel-br-riscv64"
     description :=
       "Lower LLVM IR branch instructions to RISCV 64 assembly."
-    run := ISelBrPass.impl }
+    run := fun _ => ISelBrPass.impl }

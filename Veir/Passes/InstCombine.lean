@@ -287,4 +287,4 @@ public def InstCombinePass : Pass OpCode :=
   { name := "instcombine"
     description :=
       "Combine instructions into more efficient forms, e.g., fold constants or simplify llvmmetic."
-    run := InstCombinePass.impl }
+    run := fun _ => InstCombinePass.impl }

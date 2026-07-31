@@ -57,6 +57,6 @@ def CanonicalizePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op
 public def CanonicalizePass : Pass OpCode :=
   { name := "canonicalize"
     description := "Rewrite operations into a canonical form."
-    run := CanonicalizePass.impl }
+    run := fun _ => CanonicalizePass.impl }
 
 end Veir

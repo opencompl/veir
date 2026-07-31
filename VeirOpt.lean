@@ -22,26 +22,24 @@ open Veir
 
 /--
   A map of all available compilation passes, keyed by their unique names.
-  A pass that takes no options is registered with `PassRegistration.ofPass`; one that is
-  configured by boolean options registers itself as a `PassRegistration` directly.
 -/
-def availablePasses : Std.HashMap String (PassRegistration OpCode) :=
-  ([ .ofPass PrintIRPass,
-     .ofPass InstCombinePass,
-     .ofPass CSEPass,
-     .ofPass IselRISCV64,
-     .ofPass IselSDAG,
-     .ofPass IselBrRISCV64,
-     .ofPass DCEPass,
-     .ofPass CastReconcilePass,
-     .ofPass CoerceFunctionBoundariesToRiscvRegPass,
+def availablePasses : Std.HashMap String (Pass OpCode) :=
+  ([ PrintIRPass,
+     InstCombinePass,
+     CSEPass,
+     IselRISCV64,
+     IselSDAG,
+     IselBrRISCV64,
+     DCEPass,
+     CastReconcilePass,
+     CoerceFunctionBoundariesToRiscvRegPass,
      CoerceModArithFunctionBoundariesPass,
-     .ofPass RISCV.Combine,
+     RISCV.Combine,
      ModArithToArithPass,
      RemuiToBarrettReductionPass,
-     .ofPass ArithToLLVMPass,
-     .ofPass CanonicalizePass ] : List (PassRegistration OpCode)).foldl
-    (fun m registration => m.insert registration.name registration)
+     ArithToLLVMPass,
+     CanonicalizePass ] : List (Pass OpCode)).foldl
+    (fun m pass => m.insert pass.name pass)
     (Std.HashMap.emptyWithCapacity 16)
 
 /--
@@ -75,10 +73,10 @@ def passGroupsUsage : String :=
 def passOptionsUsage : String :=
   let withOptions := (availablePasses.values.toArray.qsort (·.name < ·.name)).toList.filter
     (!·.options.isEmpty)
-  String.intercalate "\n" (withOptions.flatMap fun registration =>
-    s!"    {registration.name}:" ::
-      registration.options.toList.map fun option =>
-        s!"      {option.name}: {option.description}")
+  String.intercalate "\n" (withOptions.flatMap fun pass =>
+    s!"    {pass.name}:" ::
+      (pass.options.toList.toArray.qsort (·.1 < ·.1)).toList.map fun (name, description) =>
+        s!"      {name}: {description}")
 
 /--
   Arguments for the `veir-opt` command-line tool, parsed from the CLI.
@@ -123,7 +121,7 @@ def expandPassGroups (pipeline : String) : Except String String := do
 def parsePipelineOption (args : List String) :
     Except String (PassPipeline OpCode × List String) := do
   let (pipelineFlags, rest) := args.partition (·.startsWith "-p=")
-  let mut passes : Array (Pass OpCode) := #[]
+  let mut passes : Array (Pass OpCode × PassOptions) := #[]
   for flag in pipelineFlags do
     let arg := (flag.drop 3).toString
     let expanded ← match expandPassGroups arg with

@@ -1685,4 +1685,4 @@ public def IselRISCV64 : Pass OpCode :=
   { name := "isel-riscv64"
     description :=
       "Lower LLVM IR to RISCV 64 assembly instruction selection pass."
-    run := ISelPass.impl }
+    run := fun _ => ISelPass.impl }

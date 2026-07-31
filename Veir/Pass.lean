@@ -13,25 +13,8 @@ namespace Veir
 
 public section
 
-/--
-  A boolean option accepted by a pass. Every option defaults to `false`; the only way to
-  turn one on is to name it in the pipeline string.
--/
-structure PassOption where
-  /-- The name used in a pipeline string, e.g. `pow2-width`. -/
-  name : String
-  /-- Help text, shown in the `veir-opt` usage message. -/
-  description : String
-
-/-- The options set on one pass instance. Any option not present is `false`. -/
-structure PassOptions where
-  enabled : Std.HashSet String
-
-/-- The options value for a pass that was given no options. -/
-def PassOptions.empty : PassOptions := ⟨∅⟩
-
-/-- `true` iff the option `name` was set on this pass instance. -/
-def PassOptions.isSet (o : PassOptions) (name : String) : Bool := o.enabled.contains name
+/-- The options set on one instance of a pass. Any option not in the set is `false`. -/
+abbrev PassOptions := Std.HashSet String
 
 /-- A compilation pass. -/
 structure Pass (OpInfo : Type) [HasOpInfo OpInfo] where
@@ -43,64 +26,36 @@ structure Pass (OpInfo : Type) [HasOpInfo OpInfo] where
   /-- Brief explanation of what the pass does, for documentation and tooling. -/
   description : String
   /--
-    Execute the pass over the given IR context rooted at `op`.
+    The boolean options this pass accepts, mapping each option name to its help text.
+    An option that the pipeline string does not name is `false`.
+  -/
+  options : Std.HashMap String String := ∅
+  /--
+    Execute the pass over the given IR context rooted at `op`, under the options this
+    instance of the pass was given.
     Returns the context on success, or an error message on failure.
   -/
   run :
+    PassOptions →
     ∀ (ctx : WfIRContext OpInfo) (op : OperationPtr),
     op.InBounds ctx.raw →
     ExceptT String IO (WfIRContext OpInfo)
 
 /--
-  What a pass name resolves to: a pass, the boolean options it accepts, and a function
-  building a configured `Pass` from a set of options. Options are resolved when the
-  pipeline is parsed, so a `Pass` itself never sees them.
+  Check the given option words against the options this pass accepts and return them as a
+  set. Each word names an option to turn on; there is no syntax for turning one off, since
+  every option is off unless named.
 -/
-structure PassRegistration (OpInfo : Type) [HasOpInfo OpInfo] where
-  /-- Human-readable unique identifier, matching the `name` of the passes it builds. -/
-  name : String
-  /-- Brief explanation of what the pass does, for documentation and tooling. -/
-  description : String
-  /-- The boolean options this pass accepts; all of them default to `false`. -/
-  options : Array PassOption := #[]
-  /-- Build the pass from a set of options. -/
-  instantiate : PassOptions → Pass OpInfo
-
-namespace PassRegistration
-
-/-- Register a pass that takes no options. -/
-def ofPass {OpInfo : Type} [HasOpInfo OpInfo] (p : Pass OpInfo) : PassRegistration OpInfo :=
-  { name := p.name, description := p.description, instantiate := fun _ => p }
-
-/-- Register a pass whose behavior is configured by boolean options. -/
-def ofOptions {OpInfo : Type} [HasOpInfo OpInfo]
-    (name description : String) (options : Array PassOption)
-    (run : PassOptions → ∀ (ctx : WfIRContext OpInfo) (op : OperationPtr),
-             op.InBounds ctx.raw → ExceptT String IO (WfIRContext OpInfo)) :
-    PassRegistration OpInfo :=
-  { name, description, options, instantiate := fun o => { name, description, run := run o } }
-
-/--
-  Check the given option words against the options this pass declares, then build the pass.
-  Each word is either `flag`, `flag=true` or `flag=false`; anything not named is `false`.
--/
-def instantiate? {OpInfo : Type} [HasOpInfo OpInfo]
-    (r : PassRegistration OpInfo) (flags : List String) : Except String (Pass OpInfo) := do
-  let mut enabled : Std.HashSet String := ∅
+def Pass.parseOptions {OpInfo : Type} [HasOpInfo OpInfo]
+    (pass : Pass OpInfo) (flags : List String) : Except String PassOptions := do
+  let mut enabled : PassOptions := ∅
   for flag in flags do
-    let (key, value) ← match flag.splitOn "=" with
-      | [k] => pure (k, true)
-      | [k, "true"] => pure (k, true)
-      | [k, "false"] => pure (k, false)
-      | _ => throw s!"pass '{r.name}': malformed option '{flag}'"
-    unless r.options.any (·.name == key) do
-      let known := String.intercalate ", " (r.options.toList.map (·.name))
+    unless pass.options.contains flag do
+      let known := String.intercalate ", " (pass.options.keys.toArray.qsort (· < ·)).toList
       let known := if known.isEmpty then "it accepts no options" else s!"it accepts: {known}"
-      throw s!"pass '{r.name}' has no option '{key}' ({known})"
-    enabled := if value then enabled.insert key else enabled.erase key
-  return r.instantiate ⟨enabled⟩
-
-end PassRegistration
+      throw s!"pass '{pass.name}' has no option '{flag}' ({known})"
+    enabled := enabled.insert flag
+  return enabled
 
 /--
   Split a pipeline string on the commas that are not inside braces, so that
@@ -141,25 +96,25 @@ def splitPipelineElement (s : String) : Except String (String × List String) :=
 
 /-- An ordered sequence of passes to run in succession. -/
 structure PassPipeline (OpInfo : Type) [HasOpInfo OpInfo] where
-  /-- The ordered list of passes to run -/
-  passes : Array (Pass OpInfo)
+  /-- The ordered list of passes to run, each with the options it was given -/
+  passes : Array (Pass OpInfo × PassOptions)
 
 namespace PassPipeline
 
 /--
   Parse a comma-separated list of pipeline elements into a `PassPipeline`, looking each
   name up in `registry`. An element is either `name` or `name{flag1 flag2 ...}`, where the
-  flags are boolean options declared by that pass. Returns an error if a name does not
-  exist in the registry, or if an element requests an option the pass does not declare.
+  flags are boolean options accepted by that pass. Returns an error if a name does not
+  exist in the registry, or if an element requests an option the pass does not accept.
 -/
 def ofString? {OpInfo : Type} [HasOpInfo OpInfo]
-    (registry : Std.HashMap String (PassRegistration OpInfo)) (s : String) :
+    (registry : Std.HashMap String (Pass OpInfo)) (s : String) :
     Except String (PassPipeline OpInfo) := do
   let passes ← (splitPipelineElements s).mapM fun element => do
     let (name, flags) ← splitPipelineElement element
-    let some registration := registry.get? name
+    let some pass := registry.get? name
       | throw s!"unknown pass: '{name}'"
-    registration.instantiate? flags
+    return (pass, ← pass.parseOptions flags)
   return { passes := passes.toArray }
 
 /--
@@ -172,9 +127,9 @@ def run (pipeline : PassPipeline OpCode)
     (disableVerifiers : Bool) :
     ExceptT String IO (WfIRContext OpCode) := do
   let mut currentCtx := ctx
-  for pass in pipeline.passes do
+  for (pass, options) in pipeline.passes do
     if h : moduleOp.InBounds currentCtx.raw then
-      let ctx' ← try pass.run currentCtx moduleOp h
+      let ctx' ← try pass.run options currentCtx moduleOp h
                  catch errMsg => throw s!"pass '{pass.name}' failed: {errMsg}"
       if !disableVerifiers then
         if let .error errMsg := ctx'.verify then

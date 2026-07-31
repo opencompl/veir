@@ -2751,4 +2751,4 @@ def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds
 public def Combine : Pass OpCode :=
   { name := "riscv-combine"
     description := "GlobalISel RISCV combines"
-    run := Combine.impl }
+    run := fun _ => Combine.impl }

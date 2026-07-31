@@ -665,4 +665,4 @@ public def IselSDAG : Pass OpCode :=
   { name := "isel-sdag-riscv64"
     description :=
       "Lower LLVM IR to RISCV 64 assembly instruction selection pass."
-    run := IselSDAG.impl }
+    run := fun _ => IselSDAG.impl }

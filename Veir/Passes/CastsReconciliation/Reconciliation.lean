@@ -124,4 +124,4 @@ def CastReconcilePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : o
 public def CastReconcilePass : Pass OpCode :=
   { name := "reconcile-cast"
     description := "Reconcile round trips of casts that return to their own input type."
-    run := CastReconcilePass.impl }
+    run := fun _ => CastReconcilePass.impl }

@@ -51,7 +51,7 @@ private def genericArithAwarePass {OpInfo : Type} [HasOpInfo OpInfo]
     [HasDialect OpInfo Arith] : Pass OpInfo where
   name := "generic-arith-aware-test"
   description := "Compile-time test for dialect-generic passes."
-  run := fun ctx op _ => do
+  run := fun _ ctx op _ => do
     /- Matching an `arith` operation, here an `addi`. -/
     let some .addi := Arith.from? (op.getOpType! ctx.raw) | return ctx
     /- Getting the property of an operation with a type based on the dialect. -/

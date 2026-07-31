@@ -285,12 +285,12 @@ def ModArithToArithPass.impl (legalizeWidth : Nat → Nat) (ctx : WfIRContext Op
   | none => throw "Error while applying mod-arith-to-arith lowering"
   | some ctx => pure ctx
 
-public def ModArithToArithPass : PassRegistration OpCode :=
-  .ofOptions "mod-arith-to-arith"
-    "Lower mod_arith operations to the arith dialect."
-    #[⟨"pow2-width", "Use power-of-two bitwidths for the lowered integer types."⟩]
-    fun options =>
-      ModArithToArithPass.impl (if options.isSet "pow2-width" then Nat.nextPowerOfTwo else id)
+public def ModArithToArithPass : Pass OpCode :=
+  { name := "mod-arith-to-arith"
+    description := "Lower mod_arith operations to the arith dialect."
+    options := .ofList [("pow2-width", "Use power-of-two bitwidths for the lowered integer types.")]
+    run := fun options =>
+      ModArithToArithPass.impl (if options.contains "pow2-width" then Nat.nextPowerOfTwo else id) }
 
 def RemuiToBarrettReductionPass.impl (legalizeWidth : Nat → Nat) (ctx : WfIRContext OpCode)
     (op : OperationPtr) (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
@@ -301,11 +301,11 @@ def RemuiToBarrettReductionPass.impl (legalizeWidth : Nat → Nat) (ctx : WfIRCo
   | none => throw "Error while applying remui-to-barrett-reduction rewrite"
   | some ctx => pure ctx
 
-public def RemuiToBarrettReductionPass : PassRegistration OpCode :=
-  .ofOptions "remui-to-barrett-reduction"
-    "Rewrite arith.remui operations to Barrett reduction."
-    #[⟨"pow2-width", "Use power-of-two bitwidths for the intermediate types."⟩]
-    fun options =>
+public def RemuiToBarrettReductionPass : Pass OpCode :=
+  { name := "remui-to-barrett-reduction"
+    description := "Rewrite arith.remui operations to Barrett reduction."
+    options := .ofList [("pow2-width", "Use power-of-two bitwidths for the intermediate types.")]
+    run := fun options =>
       RemuiToBarrettReductionPass.impl
-        (if options.isSet "pow2-width" then Nat.nextPowerOfTwo else id)
+        (if options.contains "pow2-width" then Nat.nextPowerOfTwo else id) }
 end Veir

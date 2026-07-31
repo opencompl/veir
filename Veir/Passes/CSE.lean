@@ -182,6 +182,6 @@ end CSE
 public def CSEPass : Pass OpCode :=
   { name := "cse"
     description := "Eliminate common pure integer SSA expressions within each basic block."
-    run := CSE.CSEPass.impl }
+    run := fun _ => CSE.CSEPass.impl }
 
 end Veir
