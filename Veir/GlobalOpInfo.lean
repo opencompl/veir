@@ -29,6 +29,7 @@ match opCode with
 | .builtin op => Builtin.propertiesOf op
 | .func op => Func.propertiesOf op
 | .datapath op => Datapath.propertiesOf op
+| .pdl op => PDL.propertiesOf op
 | .test op => Test.propertiesOf op
 
 /--
@@ -63,6 +64,7 @@ def OpCode.readsMemory (opCode : OpCode) : Bool :=
   | .builtin op => Builtin.readsMemory op
   | .func op => Func.readsMemory op
   | .datapath op => Datapath.readsMemory op
+  | .pdl op => PDL.readsMemory op
   | .test op => Test.readsMemory op
 
 /--
@@ -92,6 +94,7 @@ def OpCode.hasSideEffects (opCode : OpCode) (props : _propertiesOf opCode) : Boo
   | .builtin op, props => Builtin.hasSideEffects op props
   | .func op, props => Func.hasSideEffects op props
   | .datapath op, props => Datapath.hasSideEffects op props
+  | .pdl op, props => PDL.hasSideEffects op props
   | .test op, props => Test.hasSideEffects op props
 
 inductive RegionKind where
@@ -130,6 +133,7 @@ def OpCode.hasSSADominance (opCode : OpCode) (index : Nat) : Bool :=
   | .builtin op => Builtin.hasSSADominance op index
   | .func op => Func.hasSSADominance op index
   | .datapath op => Datapath.hasSSADominance op index
+  | .pdl op => PDL.hasSSADominance op index
   | .test op => Test.hasSSADominance op index
 
 /--
@@ -155,6 +159,7 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | .builtin op => Builtin.isConstantLike op
   | .func op => Func.isConstantLike op
   | .datapath op => Datapath.isConstantLike op
+  | .pdl op => PDL.isConstantLike op
   | .test op => Test.isConstantLike op
 
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
@@ -173,6 +178,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   | .builtin op => Builtin.fromAttrDict op attrDict
   | .func op => Func.fromAttrDict op attrDict
   | .datapath op => Datapath.fromAttrDict op attrDict
+  | .pdl op => PDL.fromAttrDict op attrDict
   | .test op => Test.fromAttrDict op attrDict
 
 /--
@@ -195,6 +201,7 @@ def Properties.toAttrDict
   | .builtin op, props => Builtin.toAttrDict op props
   | .func op, props => Func.toAttrDict op props
   | .datapath op, props => Datapath.toAttrDict op props
+  | .pdl op, props => PDL.toAttrDict op props
   | .test op, props => Test.toAttrDict op props
 
 instance : HasDialectOpInfo OpCode where

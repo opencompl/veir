@@ -248,6 +248,16 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 public def ModArithType.bitwidth (ty : ModArithType) : Nat :=
   ty.modulus.type.bitwidth
 
+namespace PDL
+
+/--
+  The `!pdl.attribute` type, a handle to an `mlir::Attribute` within a pattern.
+-/
+structure AttributeType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+end PDL
+
 namespace LLVM
 
 structure VoidType
@@ -430,6 +440,8 @@ inductive Attribute
 | cudaTilePointerType (type : CudaTile.PointerType)
 /-- CIRCT hw module type -/
 | hwModuleType (type : HW.ModuleType)
+/-- PDL attribute handle type -/
+| pdlAttributeType (type : PDL.AttributeType)
 deriving Inhabited, Repr, Hashable
 
 end
@@ -672,6 +684,8 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case pdlAttributeType.pdlAttributeType type1 type2 =>
+    exact (isTrue (by grind))
   all_goals exact isFalse (by grind)
 termination_by sizeOf attr1
 end
@@ -803,6 +817,9 @@ instance : ToString FlatSymbolRefAttr where
 
 instance : ToString ModArithType where
   toString type := s!"!mod_arith.int<{type.modulus}>"
+
+instance : ToString PDL.AttributeType where
+  toString _ := "!pdl.attribute"
 
 instance : ToString LLVM.VoidType where
   toString _ := "!llvm.void"
@@ -939,6 +956,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .llvmFunctionType type => type.toLLVMString
   | .cudaTilePointerType type => ToString.toString type
   | .hwModuleType type => ToString.toString type
+  | .pdlAttributeType type => ToString.toString type
 termination_by sizeOf attr
 
 end
@@ -1056,6 +1074,9 @@ instance : Coe CudaTile.PointerType Attribute where
 instance : Coe HW.ModuleType Attribute where
   coe type := .hwModuleType type
 
+instance : Coe PDL.AttributeType Attribute where
+  coe type := .pdlAttributeType type
+
 /-!
   ## TypeAttr definition
 
@@ -1105,6 +1126,7 @@ def isType (attr : Attribute) : Bool :=
   | .llvmFunctionType _ => true
   | .cudaTilePointerType _ => true
   | .hwModuleType _ => true
+  | .pdlAttributeType _ => true
 
 /--
   Returns the size, in bits, that an LLVM type would use if stored to memory.
@@ -1172,6 +1194,8 @@ theorem isType_llvmFunctionType type : (llvmFunctionType type).isType = true := 
 theorem isType_cudaTilePointerType type : (cudaTilePointerType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_hwModuleType type : (hwModuleType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_pdlAttributeType type : (pdlAttributeType type).isType = true := by rfl
 
 end Attribute
 
@@ -1244,6 +1268,9 @@ instance : Coe CudaTile.PointerType TypeAttr where
 
 instance : Coe HW.ModuleType TypeAttr where
   coe type := ⟨.hwModuleType type, by rfl⟩
+
+instance : Coe PDL.AttributeType TypeAttr where
+  coe type := ⟨.pdlAttributeType type, by rfl⟩
 
 end
 end Veir
