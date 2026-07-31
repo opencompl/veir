@@ -1,6 +1,7 @@
 module
 
 public import Veir.IR.Attribute
+public import Veir.Fold.Basic
 public import Std.Data.HashMap
 
 namespace Veir
@@ -65,6 +66,12 @@ class HasDialectOpInfo (opCode: Type)
   for every opcode, which conservatively treats nothing as constant.
   -/
   isConstantLike : opCode → Bool := fun _ => false
+  /--
+  Decide whether an operation folds for a supplied pattern of constant
+  operands. Dialects override this hook with their partial fold table.
+  -/
+  foldsTo : (op : opCode) → propertiesOf op → Array TypeAttr →
+    Array (Option RuntimeValue) → FoldDecision := fun _ _ _ _ => .noFold
   /--
   Whether definitions in the indexed region must dominate their uses. A false
   result denotes graph-style semantics, where only a single block can be in the

@@ -157,6 +157,43 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | .datapath op => Datapath.isConstantLike op
   | .test op => Test.isConstantLike op
 
+/--
+  Dispatch the global folding hook to the dialect-local `HasDialectOpInfo`
+  instance.
+-/
+def OpCode.dialectFoldsTo (opCode : OpCode) (props : _propertiesOf opCode)
+    (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue)) :
+    FoldDecision :=
+  match opCode, props with
+  | .arith op, props =>
+    HasDialectOpInfo.foldsTo op props resultTypes constOperands
+  | .llvm op, props =>
+    HasDialectOpInfo.foldsTo op props resultTypes constOperands
+  | .riscv op, props =>
+    HasDialectOpInfo.foldsTo op props resultTypes constOperands
+  | .riscv_cf op, props =>
+    HasDialectOpInfo.foldsTo op props resultTypes constOperands
+  | .riscv_stack op, props =>
+    HasDialectOpInfo.foldsTo op props resultTypes constOperands
+  | .rv64 op, props =>
+    HasDialectOpInfo.foldsTo op props resultTypes constOperands
+  | .mod_arith op, props =>
+    HasDialectOpInfo.foldsTo op props resultTypes constOperands
+  | .cf op, props =>
+    HasDialectOpInfo.foldsTo op props resultTypes constOperands
+  | .comb op, props =>
+    HasDialectOpInfo.foldsTo op props resultTypes constOperands
+  | .hw op, props =>
+    HasDialectOpInfo.foldsTo op props resultTypes constOperands
+  | .builtin op, props =>
+    HasDialectOpInfo.foldsTo op props resultTypes constOperands
+  | .func op, props =>
+    HasDialectOpInfo.foldsTo op props resultTypes constOperands
+  | .datapath op, props =>
+    HasDialectOpInfo.foldsTo op props resultTypes constOperands
+  | .test op, props =>
+    HasDialectOpInfo.foldsTo op props resultTypes constOperands
+
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (_propertiesOf opCode) :=
   match opCode with
@@ -206,6 +243,7 @@ instance : HasDialectOpInfo OpCode where
   hasSideEffects := OpCode.hasSideEffects
   readsMemory := OpCode.readsMemory
   isConstantLike := OpCode.isConstantLike
+  foldsTo := OpCode.dialectFoldsTo
   hasSSADominance := OpCode.hasSSADominance
 
 instance : HasOpInfo OpCode where
