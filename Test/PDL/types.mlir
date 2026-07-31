@@ -1,7 +1,6 @@
 // RUN: VEIR_ROUNDTRIP
 
-// The `pdl` handle types are nullary and round-trip as-is. `test.test` stands in
-// for the `pdl` operations producing them, which are not modelled yet.
+// The `pdl` handle types are nullary and round-trip as-is.
 "builtin.module"() ({
   %0 = "test.test"() : () -> !pdl.attribute
   %1 = "test.test"() : () -> !pdl.operation

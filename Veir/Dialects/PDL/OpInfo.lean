@@ -13,18 +13,21 @@ public section
 @[opcodes]
 inductive PDL where
 | attribute
+| type
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, properties_of]
 def PDL.propertiesOf (op : PDL) : Type :=
 match op with
 | .attribute => PDLAttributeProperties
+| .type => PDLTypeProperties
 
 def PDL.fromAttrDict
     (op : PDL) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (PDL.propertiesOf op) :=
   match op with
   | .attribute => PDLAttributeProperties.fromAttrDict attrDict
+  | .type => PDLTypeProperties.fromAttrDict attrDict
 
 def PDL.toAttrDict
     (op : PDL) (props : PDL.propertiesOf op) :
@@ -33,6 +36,11 @@ def PDL.toAttrDict
   | .attribute =>
     match props.value with
     | some value => (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 value
+    | none => Std.HashMap.emptyWithCapacity 0
+  | .type =>
+    match props.constantType with
+    | some constantType =>
+      (Std.HashMap.emptyWithCapacity 1).insert "constantType".toUTF8 constantType
     | none => Std.HashMap.emptyWithCapacity 0
 
 /-- The `pdl` operations are declarative pattern descriptions and are `Pure`. -/
@@ -64,6 +72,10 @@ instance : HasDialectOpInfo PDL where
 /--
 Verify the local invariants of a `pdl` operation in any operation-info type
 containing the `pdl` dialect.
+
+TODO: An unconstrained `pdl.type` needs a use that binds it, but that invariant
+only applies inside the matcher body of a `pdl.pattern`, which is not modelled
+yet.
 -/
 def PDL.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpInfo PDL]
     (opType : PDL) (op : OperationPtr) (ctx : WfIRContext OpInfo)
@@ -93,6 +105,12 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpI
        constant value, but never by both, as the constant provides its own type. -/
     if props.value.isSome && numOperands = 1 then
       throw "Expected only one of [`type`, `value`] to be set"
+  | .type =>
+    /- The optional `constantType` is a property, so `pdl.type` takes no
+       operands. -/
+    op.verifyPlainOpCounts ctx opIn 0 1
+    op.verifyResultTypeMatches ctx (PDL.TypeType.mk : TypeAttr)
+      "Expected the result to be of type '!pdl.type'"
 
 end
 

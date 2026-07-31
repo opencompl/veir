@@ -26,6 +26,29 @@ def PDLAttributeProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
     throw s!"pdl.attribute: expected only the 'value' property, but got {attrDict.size} properties"
   return { value := value }
 
+/--
+  Properties of the `pdl.type` operation.
+
+  `constantType` is the optional constant type the handle is constrained to. It
+  is absent when the type is unconstrained, so it is modelled as an `Option` and
+  omitted again when printing.
+-/
+structure PDLTypeProperties where
+  constantType : Option TypeAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def PDLTypeProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String PDLTypeProperties := do
+  let constantType ← match attrDict["constantType".toUTF8]? with
+    | some attr =>
+      if _ : attr.isType = false then
+        throw s!"pdl.type: expected 'constantType' to be a type attribute, but got {attr}"
+      else pure (some attr.asType)
+    | none => pure none
+  if attrDict.size > (if constantType.isSome then 1 else 0) then
+    throw s!"pdl.type: expected only the 'constantType' property, but got {attrDict.size} properties"
+  return { constantType := constantType }
+
 end
 
 end Veir
