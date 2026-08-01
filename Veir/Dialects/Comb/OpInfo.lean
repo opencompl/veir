@@ -63,7 +63,10 @@ def Comb.toAttrDict
 def Comb.hasSideEffects (_op : Comb) (_props : Comb.propertiesOf _op) : Bool :=
   false
 
-def Comb.readsMemory (_op : Comb) : Bool :=
+def Comb.readsMemory (_op : Comb) (_props : Comb.propertiesOf _op) : Bool :=
+  false
+
+def Comb.writesMemory (_op : Comb) (_props : Comb.propertiesOf _op) : Bool :=
   false
 
 def Comb.isConstantLike (_op : Comb) : Bool :=
@@ -82,6 +85,7 @@ instance : HasDialectOpInfo Comb where
   toAttrDict := Comb.toAttrDict
   hasSideEffects := Comb.hasSideEffects
   readsMemory := Comb.readsMemory
+  writesMemory := Comb.writesMemory
   isConstantLike := Comb.isConstantLike
   hasSSADominance := Comb.hasSSADominance
 

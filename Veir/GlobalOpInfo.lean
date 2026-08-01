@@ -50,23 +50,47 @@ def OpCode.isTerminator (opCode : OpCode) : Bool :=
 /--
   Does an operation with this opcode read memory?
 -/
-def OpCode.readsMemory (opCode : OpCode) : Bool :=
-  match opCode with
-  | .arith op => Arith.readsMemory op
-  | .llvm op => Llvm.readsMemory op
-  | .riscv op => Riscv.readsMemory op
-  | .riscv_cf op => Riscv_Cf.readsMemory op
-  | .riscv_stack op => Riscv_Stack.readsMemory op
-  | .rv64 op => Rv64.readsMemory op
-  | .mod_arith op => Mod_Arith.readsMemory op
-  | .cf op => Cf.readsMemory op
-  | .comb op => Comb.readsMemory op
-  | .hw op => HW.readsMemory op
-  | .builtin op => Builtin.readsMemory op
-  | .func op => Func.readsMemory op
-  | .datapath op => Datapath.readsMemory op
-  | .pdl op => PDL.readsMemory op
-  | .test op => Test.readsMemory op
+def OpCode.readsMemory (opCode : OpCode) (props : _propertiesOf opCode) : Bool :=
+  match opCode, props with
+  | .arith op, props => Arith.readsMemory op props
+  | .llvm op, props => Llvm.readsMemory op props
+  | .riscv op, props => Riscv.readsMemory op props
+  | .riscv_cf op, props => Riscv_Cf.readsMemory op props
+  | .riscv_stack op, props => Riscv_Stack.readsMemory op props
+  | .rv64 op, props => Rv64.readsMemory op props
+  | .mod_arith op, props => Mod_Arith.readsMemory op props
+  | .cf op, props => Cf.readsMemory op props
+  | .comb op, props => Comb.readsMemory op props
+  | .hw op, props => HW.readsMemory op props
+  | .builtin op, props => Builtin.readsMemory op props
+  | .func op, props => Func.readsMemory op props
+  | .datapath op, props => Datapath.readsMemory op props
+  | .pdl op, props => PDL.readsMemory op props
+  | .test op, props => Test.readsMemory op props
+
+/--
+  Does an operation with this opcode and these properties write memory?
+
+  A `true` result says only that the operation may modify memory; it does not
+  establish a complete overwrite of any particular location.
+-/
+def OpCode.writesMemory (opCode : OpCode) (props : _propertiesOf opCode) : Bool :=
+  match opCode, props with
+  | .arith op, props => Arith.writesMemory op props
+  | .llvm op, props => Llvm.writesMemory op props
+  | .riscv op, props => Riscv.writesMemory op props
+  | .riscv_cf op, props => Riscv_Cf.writesMemory op props
+  | .riscv_stack op, props => Riscv_Stack.writesMemory op props
+  | .rv64 op, props => Rv64.writesMemory op props
+  | .mod_arith op, props => Mod_Arith.writesMemory op props
+  | .cf op, props => Cf.writesMemory op props
+  | .comb op, props => Comb.writesMemory op props
+  | .hw op, props => HW.writesMemory op props
+  | .builtin op, props => Builtin.writesMemory op props
+  | .func op, props => Func.writesMemory op props
+  | .datapath op, props => Datapath.writesMemory op props
+  | .pdl op, props => PDL.writesMemory op props
+  | .test op, props => Test.writesMemory op props
 
 /--
   Does an operation with this opcode and these properties have effects that
@@ -236,6 +260,7 @@ instance : HasDialectOpInfo OpCode where
   toAttrDict := Properties.toAttrDict
   hasSideEffects := OpCode.hasSideEffects
   readsMemory := OpCode.readsMemory
+  writesMemory := OpCode.writesMemory
   isConstantLike := OpCode.isConstantLike
   hasSSADominance := OpCode.hasSSADominance
   hasNoTerminator := OpCode.hasNoTerminator

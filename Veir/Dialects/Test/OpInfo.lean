@@ -30,8 +30,11 @@ def Test.toAttrDict
 def Test.hasSideEffects (_op : Test) (_props : Test.propertiesOf _op) : Bool :=
   true
 
-def Test.readsMemory (_op : Test) : Bool :=
-  false
+def Test.readsMemory (_op : Test) (_props : Test.propertiesOf _op) : Bool :=
+  true
+
+def Test.writesMemory (_op : Test) (_props : Test.propertiesOf _op) : Bool :=
+  true
 
 def Test.isConstantLike (_op : Test) : Bool :=
   false
@@ -52,6 +55,7 @@ instance : HasDialectOpInfo Test where
   toAttrDict := Test.toAttrDict
   hasSideEffects := Test.hasSideEffects
   readsMemory := Test.readsMemory
+  writesMemory := Test.writesMemory
   isConstantLike := Test.isConstantLike
   hasSSADominance := Test.hasSSADominance
   hasNoTerminator := Test.hasNoTerminator

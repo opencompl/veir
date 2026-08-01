@@ -52,7 +52,10 @@ def HW.hasSideEffects (op : HW) (_props : HW.propertiesOf op) : Bool :=
   | .constant => false
   | _ => true
 
-def HW.readsMemory (_op : HW) : Bool :=
+def HW.readsMemory (_op : HW) (_props : HW.propertiesOf _op) : Bool :=
+  false
+
+def HW.writesMemory (_op : HW) (_props : HW.propertiesOf _op) : Bool :=
   false
 
 def HW.isConstantLike (op : HW) : Bool :=
@@ -73,6 +76,7 @@ instance : HasDialectOpInfo HW where
   toAttrDict := HW.toAttrDict
   hasSideEffects := HW.hasSideEffects
   readsMemory := HW.readsMemory
+  writesMemory := HW.writesMemory
   isConstantLike := HW.isConstantLike
   hasSSADominance := HW.hasSSADominance
 

@@ -114,7 +114,10 @@ def Arith.toAttrDict
 def Arith.hasSideEffects (_op : Arith) (_props : Arith.propertiesOf _op) : Bool :=
   false
 
-def Arith.readsMemory (_op : Arith) : Bool :=
+def Arith.readsMemory (_op : Arith) (_props : Arith.propertiesOf _op) : Bool :=
+  false
+
+def Arith.writesMemory (_op : Arith) (_props : Arith.propertiesOf _op) : Bool :=
   false
 
 def Arith.isConstantLike (op : Arith) : Bool :=
@@ -135,6 +138,7 @@ instance : HasDialectOpInfo Arith where
   toAttrDict := Arith.toAttrDict
   hasSideEffects := Arith.hasSideEffects
   readsMemory := Arith.readsMemory
+  writesMemory := Arith.writesMemory
   isConstantLike := Arith.isConstantLike
   hasSSADominance := Arith.hasSSADominance
 

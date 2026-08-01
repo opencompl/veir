@@ -41,8 +41,17 @@ def Builtin.hasSideEffects (op : Builtin) (_props : Builtin.propertiesOf op) : B
   | .unrealized_conversion_cast => false
   | _ => true
 
-def Builtin.readsMemory (_op : Builtin) : Bool :=
-  false
+def Builtin.readsMemory
+    (op : Builtin) (_props : Builtin.propertiesOf op) : Bool :=
+  match op with
+  | .unrealized_conversion_cast => false
+  | _ => true
+
+def Builtin.writesMemory
+    (op : Builtin) (_props : Builtin.propertiesOf op) : Bool :=
+  match op with
+  | .unrealized_conversion_cast => false
+  | _ => true
 
 def Builtin.isConstantLike (_op : Builtin) : Bool :=
   false
@@ -69,6 +78,7 @@ instance : HasDialectOpInfo Builtin where
   toAttrDict := Builtin.toAttrDict
   hasSideEffects := Builtin.hasSideEffects
   readsMemory := Builtin.readsMemory
+  writesMemory := Builtin.writesMemory
   isConstantLike := Builtin.isConstantLike
   hasSSADominance := Builtin.hasSSADominance
   hasNoTerminator := Builtin.hasNoTerminator

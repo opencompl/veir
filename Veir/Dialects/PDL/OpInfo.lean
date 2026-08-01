@@ -129,7 +129,10 @@ def PDL.hasSideEffects (op : PDL) (_props : PDL.propertiesOf op) : Bool :=
   | .range | .result | .results => false
   | _ => true
 
-def PDL.readsMemory (_op : PDL) : Bool :=
+def PDL.readsMemory (_op : PDL) (_props : PDL.propertiesOf _op) : Bool :=
+  false
+
+def PDL.writesMemory (_op : PDL) (_props : PDL.propertiesOf _op) : Bool :=
   false
 
 def PDL.isConstantLike (_op : PDL) : Bool :=
@@ -155,6 +158,7 @@ instance : HasDialectOpInfo PDL where
   toAttrDict := PDL.toAttrDict
   hasSideEffects := PDL.hasSideEffects
   readsMemory := PDL.readsMemory
+  writesMemory := PDL.writesMemory
   isConstantLike := PDL.isConstantLike
   hasSSADominance := PDL.hasSSADominance
   hasNoTerminator := PDL.hasNoTerminator

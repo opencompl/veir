@@ -51,8 +51,15 @@ def Func.toAttrDict
 def Func.hasSideEffects (_op : Func) (_props : Func.propertiesOf _op) : Bool :=
   true
 
-def Func.readsMemory (_op : Func) : Bool :=
-  false
+def Func.readsMemory (op : Func) (_props : Func.propertiesOf op) : Bool :=
+  match op with
+  | .call => true
+  | _ => false
+
+def Func.writesMemory (op : Func) (_props : Func.propertiesOf op) : Bool :=
+  match op with
+  | .call => true
+  | _ => false
 
 def Func.isConstantLike (_op : Func) : Bool :=
   false
@@ -70,6 +77,7 @@ instance : HasDialectOpInfo Func where
   toAttrDict := Func.toAttrDict
   hasSideEffects := Func.hasSideEffects
   readsMemory := Func.readsMemory
+  writesMemory := Func.writesMemory
   isConstantLike := Func.isConstantLike
   hasSSADominance := Func.hasSSADominance
 

@@ -32,7 +32,10 @@ def Rv64.toAttrDict
 def Rv64.hasSideEffects (_op : Rv64) (_props : Rv64.propertiesOf _op) : Bool :=
   true
 
-def Rv64.readsMemory (_op : Rv64) : Bool :=
+def Rv64.readsMemory (_op : Rv64) (_props : Rv64.propertiesOf _op) : Bool :=
+  false
+
+def Rv64.writesMemory (_op : Rv64) (_props : Rv64.propertiesOf _op) : Bool :=
   false
 
 def Rv64.isConstantLike (_op : Rv64) : Bool :=
@@ -51,6 +54,7 @@ instance : HasDialectOpInfo Rv64 where
   toAttrDict := Rv64.toAttrDict
   hasSideEffects := Rv64.hasSideEffects
   readsMemory := Rv64.readsMemory
+  writesMemory := Rv64.writesMemory
   isConstantLike := Rv64.isConstantLike
   hasSSADominance := Rv64.hasSSADominance
 

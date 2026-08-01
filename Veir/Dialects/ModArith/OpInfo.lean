@@ -43,7 +43,12 @@ def Mod_Arith.hasSideEffects
     (_op : Mod_Arith) (_props : Mod_Arith.propertiesOf _op) : Bool :=
   false
 
-def Mod_Arith.readsMemory (_op : Mod_Arith) : Bool :=
+def Mod_Arith.readsMemory
+    (_op : Mod_Arith) (_props : Mod_Arith.propertiesOf _op) : Bool :=
+  false
+
+def Mod_Arith.writesMemory
+    (_op : Mod_Arith) (_props : Mod_Arith.propertiesOf _op) : Bool :=
   false
 
 def Mod_Arith.isConstantLike (op : Mod_Arith) : Bool :=
@@ -64,5 +69,6 @@ instance : HasDialectOpInfo Mod_Arith where
   toAttrDict := Mod_Arith.toAttrDict
   hasSideEffects := Mod_Arith.hasSideEffects
   readsMemory := Mod_Arith.readsMemory
+  writesMemory := Mod_Arith.writesMemory
   isConstantLike := Mod_Arith.isConstantLike
   hasSSADominance := Mod_Arith.hasSSADominance

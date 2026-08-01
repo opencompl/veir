@@ -309,10 +309,53 @@ def Llvm.hasSideEffects (op : Llvm) (props : Llvm.propertiesOf op) : Bool :=
   -- For everything else: be conservative!
   | _, _ => true
 
-def Llvm.readsMemory (op : Llvm) : Bool :=
-  match op with
-  | .load => true
-  | _ => false
+def Llvm.readsMemory (op : Llvm) (props : Llvm.propertiesOf op) : Bool :=
+  match op, props with
+  | .store, props => props.volatile_
+  | .mlir__constant, _ | .mlir__poison, _ | .mlir__addressof, _
+  | .and, _ | .or, _ | .xor, _
+  | .add, _ | .sub, _ | .mul, _
+  | .sdiv, _ | .udiv, _ | .srem, _ | .urem, _
+  | .shl, _ | .lshr, _ | .ashr, _
+  | .intr__ctlz, _ | .intr__cttz, _ | .intr__ctpop, _
+  | .intr__bswap, _ | .intr__bitreverse, _
+  | .intr__fshl, _ | .intr__fshr, _
+  | .icmp, _ | .select, _
+  | .trunc, _ | .sext, _ | .zext, _
+  | .getelementptr, _
+  | .br, _ | .cond_br, _ | .return, _
+  | .freeze, _ | .bitcast, _
+  | .intr__smax, _ | .intr__smin, _ | .intr__umax, _ | .intr__umin, _
+  | .intr__abs, _
+  | .intr__sadd__sat, _ | .intr__uadd__sat, _
+  | .intr__ssub__sat, _ | .intr__usub__sat, _
+  | .intr__sshl__sat, _ | .intr__ushl__sat, _
+  | .fadd, _ | .fsub, _ | .fmul, _ | .fdiv, _ | .frem, _ => false
+  | _, _ => true
+
+def Llvm.writesMemory (op : Llvm) (props : Llvm.propertiesOf op) : Bool :=
+  match op, props with
+  | .load, props => props.volatile_
+  | .mlir__constant, _ | .mlir__poison, _ | .mlir__addressof, _
+  | .and, _ | .or, _ | .xor, _
+  | .add, _ | .sub, _ | .mul, _
+  | .sdiv, _ | .udiv, _ | .srem, _ | .urem, _
+  | .shl, _ | .lshr, _ | .ashr, _
+  | .intr__ctlz, _ | .intr__cttz, _ | .intr__ctpop, _
+  | .intr__bswap, _ | .intr__bitreverse, _
+  | .intr__fshl, _ | .intr__fshr, _
+  | .icmp, _ | .select, _
+  | .trunc, _ | .sext, _ | .zext, _
+  | .getelementptr, _
+  | .br, _ | .cond_br, _ | .return, _
+  | .freeze, _ | .bitcast, _
+  | .intr__smax, _ | .intr__smin, _ | .intr__umax, _ | .intr__umin, _
+  | .intr__abs, _
+  | .intr__sadd__sat, _ | .intr__uadd__sat, _
+  | .intr__ssub__sat, _ | .intr__usub__sat, _
+  | .intr__sshl__sat, _ | .intr__ushl__sat, _
+  | .fadd, _ | .fsub, _ | .fmul, _ | .fdiv, _ | .frem, _ => false
+  | _, _ => true
 
 def Llvm.isConstantLike (op : Llvm) : Bool :=
   match op with
@@ -332,6 +375,7 @@ instance : HasDialectOpInfo Llvm where
   toAttrDict := Llvm.toAttrDict
   hasSideEffects := Llvm.hasSideEffects
   readsMemory := Llvm.readsMemory
+  writesMemory := Llvm.writesMemory
   isConstantLike := Llvm.isConstantLike
   hasSSADominance := Llvm.hasSSADominance
 

@@ -38,7 +38,12 @@ def Riscv_Stack.hasSideEffects
     (_op : Riscv_Stack) (_props : Riscv_Stack.propertiesOf _op) : Bool :=
   true
 
-def Riscv_Stack.readsMemory (_op : Riscv_Stack) : Bool :=
+def Riscv_Stack.readsMemory
+    (_op : Riscv_Stack) (_props : Riscv_Stack.propertiesOf _op) : Bool :=
+  false
+
+def Riscv_Stack.writesMemory
+    (_op : Riscv_Stack) (_props : Riscv_Stack.propertiesOf _op) : Bool :=
   false
 
 def Riscv_Stack.isConstantLike (_op : Riscv_Stack) : Bool :=
@@ -57,6 +62,7 @@ instance : HasDialectOpInfo Riscv_Stack where
   toAttrDict := Riscv_Stack.toAttrDict
   hasSideEffects := Riscv_Stack.hasSideEffects
   readsMemory := Riscv_Stack.readsMemory
+  writesMemory := Riscv_Stack.writesMemory
   isConstantLike := Riscv_Stack.isConstantLike
   hasSSADominance := Riscv_Stack.hasSSADominance
 
