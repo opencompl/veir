@@ -23,7 +23,6 @@ private def foldDecisionTestModule : String :=
     }) : () -> ()
   }) : () -> ()"
 
-/-- One case per outcome of `foldsTo`. -/
 private def testFoldDecision : String := Id.run do
   match parseTopLevelOp foldDecisionTestModule with
   | .error e => return s!"parse error: {e}"
@@ -42,7 +41,7 @@ private def testFoldDecision : String := Id.run do
         return s!"arith.addi folded to the wrong constant: {value}"
     | _ => return "arith.addi did not evaluate"
 
-    -- An unknown operand defeats folding; there are no partial folds.
+    -- An unknown operand defeats folding.
     match opFoldsTo add ctx addInBounds #[none, some (.int 32 (.val 8))] with
     | none => pure ()
     | _ => return "arith.addi folded with an unknown operand"
