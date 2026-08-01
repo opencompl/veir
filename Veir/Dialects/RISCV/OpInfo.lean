@@ -274,7 +274,7 @@ def Riscv.readsMemory (op : Riscv) (props : Riscv.propertiesOf op) : Bool :=
   | .mv, _ | .not, _ | .neg, _ | .negw, _
   | .sextw, _ | .zextb, _ | .zextw, _
   | .seqz, _ | .snez, _ | .sltz, _ | .sgtz, _ => false
-  -- For everything else: be conservative!
+  -- Conservative default
   | _, _ => true
 
 def Riscv.writesMemory (op : Riscv) (props : Riscv.propertiesOf op) : Bool :=
@@ -310,7 +310,7 @@ def Riscv.writesMemory (op : Riscv) (props : Riscv.propertiesOf op) : Bool :=
   | .mv, _ | .not, _ | .neg, _ | .negw, _
   | .sextw, _ | .zextb, _ | .zextw, _
   | .seqz, _ | .snez, _ | .sltz, _ | .sgtz, _ => false
-  -- For everything else: be conservative!
+  -- Conservative default
   | _, _ => true
 
 def Riscv.isConstantLike (op : Riscv) : Bool :=
