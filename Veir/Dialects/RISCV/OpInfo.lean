@@ -251,7 +251,7 @@ def Riscv.readsMemory (op : Riscv) : Bool :=
 
 def Riscv.isConstantLike (op : Riscv) : Bool :=
   match op with
-  | .li => true
+  | .li | .lui => true
   | _ => false
 
 def Riscv.hasSSADominance (_op : Riscv) (_index : Nat) : Bool :=

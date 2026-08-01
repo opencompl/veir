@@ -286,6 +286,7 @@ def Llvm.hasSideEffects (op : Llvm) (props : Llvm.propertiesOf op) : Bool :=
   | .load, props => props.volatile_
   | .mlir__constant, _
   | .mlir__poison, _
+  | .mlir__addressof, _
   | .and, _ | .or, _ | .xor, _
   | .add, _ | .sub, _ | .mul, _
   | .sdiv, _ | .udiv, _ | .srem, _ | .urem, _
@@ -312,7 +313,7 @@ def Llvm.readsMemory (op : Llvm) : Bool :=
 
 def Llvm.isConstantLike (op : Llvm) : Bool :=
   match op with
-  | .mlir__constant | .mlir__poison => true
+  | .mlir__constant | .mlir__poison | .mlir__addressof => true
   | _ => false
 
 def Llvm.hasSSADominance (_op : Llvm) (_index : Nat) : Bool :=
