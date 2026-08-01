@@ -3,15 +3,17 @@ module
 public import Veir.Pass
 import Veir.Interfaces.ConstantLikeInterfaces
 import Veir.Passes.Matching
+import Veir.Interfaces.FoldInterfaces
 
 namespace Veir
 
 /-!
   # Canonicalize pass
 
-  Rewrites operations into canonical forms, including moving constants
-  to the right side of commutative operations and reducing modular
-  constants to their canonical representatives.
+  Performs the following transformations:
+  * folding operations (see `Veir.Fold`);
+  * reducing modular constants to their canonical representatives;
+  * moving constants to the right side, for commutative operations.
 -/
 
 def canonicalizeModArithConstant (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -38,15 +40,14 @@ def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPt
   if reordered == operands then return rewriter
   let resultTypes := op.getResultTypes! rewriter.ctx.raw
   let properties := op.getProperties! rewriter.ctx.raw opType
-  let (rewriter, newOp) ← rewriter.createOp! opType resultTypes reordered
-    #[] #[] properties (some $ .before op)
-  return rewriter.replaceOp! op newOp
+  rewriter.createOrFoldAndReplaceOp! op opType resultTypes reordered properties (.before op)
 
 /-! ## Pass implementation -/
 
 def CanonicalizePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[
+    foldOperation,
     canonicalizeModArithConstant,
     commutativeConstantRHS
   ]

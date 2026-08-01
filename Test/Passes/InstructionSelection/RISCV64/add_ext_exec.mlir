@@ -5,15 +5,26 @@
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (i64, i64, i64, i64)}> ({
+    // The constants are passed through cast pairs so that the adds are not
+    // constant-folded away by canonicalize: the casts are only reconciled
+    // after instruction selection has run.
     // 0x40000000 + 0x40000000 = 0x80000000 -- so bit 31  is set such that sext != zext.
-    %a = "llvm.mlir.constant"() <{value = 0x40000000 : i32}> : () -> i32
-    %b = "llvm.mlir.constant"() <{value = 0x40000000 : i32}> : () -> i32
+    %a0 = "llvm.mlir.constant"() <{value = 0x40000000 : i32}> : () -> i32
+    %a1 = "builtin.unrealized_conversion_cast"(%a0) : (i32) -> !riscv.reg
+    %a = "builtin.unrealized_conversion_cast"(%a1) : (!riscv.reg) -> i32
+    %b0 = "llvm.mlir.constant"() <{value = 0x40000000 : i32}> : () -> i32
+    %b1 = "builtin.unrealized_conversion_cast"(%b0) : (i32) -> !riscv.reg
+    %b = "builtin.unrealized_conversion_cast"(%b1) : (!riscv.reg) -> i32
     %z = "llvm.add"(%a, %b) : (i32, i32) -> i32
     %zs = "llvm.sext"(%z) : (i32) -> i64
     %zz = "llvm.zext"(%z) : (i32) -> i64
     // 0x10 + 0x20 = 0x30 -- so bit 31 clear, sext == zext.
-    %c = "llvm.mlir.constant"() <{value = 0x10 : i32}> : () -> i32
-    %d = "llvm.mlir.constant"() <{value = 0x20 : i32}> : () -> i32
+    %c0 = "llvm.mlir.constant"() <{value = 0x10 : i32}> : () -> i32
+    %c1 = "builtin.unrealized_conversion_cast"(%c0) : (i32) -> !riscv.reg
+    %c = "builtin.unrealized_conversion_cast"(%c1) : (!riscv.reg) -> i32
+    %d0 = "llvm.mlir.constant"() <{value = 0x20 : i32}> : () -> i32
+    %d1 = "builtin.unrealized_conversion_cast"(%d0) : (i32) -> !riscv.reg
+    %d = "builtin.unrealized_conversion_cast"(%d1) : (!riscv.reg) -> i32
     %w = "llvm.add"(%c, %d) : (i32, i32) -> i32
     %ws = "llvm.sext"(%w) : (i32) -> i64
     %wz = "llvm.zext"(%w) : (i32) -> i64
