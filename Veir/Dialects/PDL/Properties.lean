@@ -89,6 +89,27 @@ def PDLOperationProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
     throw s!"pdl.operation: expected only the 'opName', 'attributeValueNames' and 'operandSegmentSizes' properties, but got {attrDict.size} properties"
   return { opName, attributeValueNames, operandSegmentSizes }
 
+/--
+  Properties of the `pdl.result` operation.
+
+  `index` is the zero-based index of the result to extract from the `parent`
+  operation handle. It counts concrete results, so it is not an index into the
+  range of results of a variadic result group.
+-/
+structure PDLResultProperties where
+  index : IntegerAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def PDLResultProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String PDLResultProperties := do
+  let some indexAttr := attrDict["index".toUTF8]?
+    | throw "pdl.result: missing 'index' property"
+  let .integerAttr index := indexAttr
+    | throw s!"pdl.result: expected 'index' to be an integer attribute, but got {indexAttr}"
+  if attrDict.size > 1 then
+    throw s!"pdl.result: expected only the 'index' property, but got {attrDict.size} properties"
+  return { index }
+
 end
 
 end Veir

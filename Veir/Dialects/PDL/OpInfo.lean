@@ -15,6 +15,7 @@ inductive PDL where
 | attribute
 | operand
 | operation
+| result
 | type
 deriving Inhabited, Repr, Hashable, DecidableEq
 
@@ -24,6 +25,7 @@ match op with
 | .attribute => PDLAttributeProperties
 | .operand => Unit
 | .operation => PDLOperationProperties
+| .result => PDLResultProperties
 | .type => PDLTypeProperties
 
 def PDL.fromAttrDict
@@ -38,6 +40,7 @@ def PDL.fromAttrDict
     else
       .ok ()
   | .operation => PDLOperationProperties.fromAttrDict attrDict
+  | .result => PDLResultProperties.fromAttrDict attrDict
   | .type => PDLTypeProperties.fromAttrDict attrDict
 
 def PDL.toAttrDict
@@ -56,6 +59,8 @@ def PDL.toAttrDict
     dict := dict.insert "attributeValueNames".toUTF8 (.arrayAttr props.attributeValueNames)
     dict := dict.insert "operandSegmentSizes".toUTF8 (.denseArrayAttr props.operandSegmentSizes)
     dict
+  | .result =>
+    (Std.HashMap.emptyWithCapacity 1).insert "index".toUTF8 (.integerAttr props.index)
   | .type =>
     match props.constantType with
     | some constantType =>
@@ -174,6 +179,20 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpI
     for i in [valueCount + attributeCount:valueCount + attributeCount + typeCount] do
       if ((op.getOperand! ctx.raw i).getType! ctx.raw).val ≠ (PDL.TypeType.mk : TypeAttr).val then
         throw s!"Expected operand {i} to be of type '!pdl.type'"
+  | .result =>
+    op.verifyPlainOpCounts ctx opIn 1 1
+    op.verifyResultTypeMatches ctx (PDL.ValueType.mk : TypeAttr)
+      "Expected the result to be of type '!pdl.value'"
+    if ((op.getOperand! ctx.raw 0).getType! ctx.raw).val ≠ (PDL.OperationType.mk : TypeAttr).val then
+      throw "Expected the `parent` operand to be of type '!pdl.operation'"
+    let props : PDL.propertiesOf .result :=
+      HasDialect.toDialectProperties (OpInfo := OpInfo) PDL.result
+        (op.getProperties! ctx.raw (ofDialect OpInfo PDL.result))
+    /- MLIR constrains `index` to a 32-bit signless integer attribute and
+       nothing more: it range-checks neither the sign nor the parent's result
+       count, so neither does this. -/
+    if props.index.type.bitwidth ≠ 32 then
+      throw "Expected 'index' to be a 32-bit signless integer attribute"
   | .type =>
     /- The optional `constantType` is a property, so `pdl.type` takes no
        operands. -/
