@@ -251,6 +251,24 @@ public def ModArithType.bitwidth (ty : ModArithType) : Nat :=
 namespace PDL
 
 /--
+  The `!pdl.operation` type, a handle to an `mlir::Operation` within a pattern.
+-/
+structure OperationType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
+  The `!pdl.value` type, a handle to an `mlir::Value` within a pattern.
+-/
+structure ValueType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
+  The `!pdl.type` type, a handle to an `mlir::Type` within a pattern.
+-/
+structure TypeType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
   The `!pdl.attribute` type, a handle to an `mlir::Attribute` within a pattern.
 -/
 structure AttributeType
@@ -442,6 +460,12 @@ inductive Attribute
 | hwModuleType (type : HW.ModuleType)
 /-- PDL attribute handle type -/
 | pdlAttributeType (type : PDL.AttributeType)
+/-- PDL operation handle type -/
+| pdlOperationType (type : PDL.OperationType)
+/-- PDL value handle type -/
+| pdlValueType (type : PDL.ValueType)
+/-- PDL type handle type -/
+| pdlTypeType (type : PDL.TypeType)
 deriving Inhabited, Repr, Hashable
 
 end
@@ -686,6 +710,12 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
       | isFalse hEq => isFalse (by grind))
   case pdlAttributeType.pdlAttributeType type1 type2 =>
     exact (isTrue (by grind))
+  case pdlOperationType.pdlOperationType type1 type2 =>
+    exact (isTrue (by grind))
+  case pdlValueType.pdlValueType type1 type2 =>
+    exact (isTrue (by grind))
+  case pdlTypeType.pdlTypeType type1 type2 =>
+    exact (isTrue (by grind))
   all_goals exact isFalse (by grind)
 termination_by sizeOf attr1
 end
@@ -820,6 +850,15 @@ instance : ToString ModArithType where
 
 instance : ToString PDL.AttributeType where
   toString _ := "!pdl.attribute"
+
+instance : ToString PDL.OperationType where
+  toString _ := "!pdl.operation"
+
+instance : ToString PDL.ValueType where
+  toString _ := "!pdl.value"
+
+instance : ToString PDL.TypeType where
+  toString _ := "!pdl.type"
 
 instance : ToString LLVM.VoidType where
   toString _ := "!llvm.void"
@@ -957,6 +996,9 @@ def Attribute.toString (attr : Attribute) : String :=
   | .cudaTilePointerType type => ToString.toString type
   | .hwModuleType type => ToString.toString type
   | .pdlAttributeType type => ToString.toString type
+  | .pdlOperationType type => ToString.toString type
+  | .pdlValueType type => ToString.toString type
+  | .pdlTypeType type => ToString.toString type
 termination_by sizeOf attr
 
 end
@@ -1077,6 +1119,15 @@ instance : Coe HW.ModuleType Attribute where
 instance : Coe PDL.AttributeType Attribute where
   coe type := .pdlAttributeType type
 
+instance : Coe PDL.OperationType Attribute where
+  coe type := .pdlOperationType type
+
+instance : Coe PDL.ValueType Attribute where
+  coe type := .pdlValueType type
+
+instance : Coe PDL.TypeType Attribute where
+  coe type := .pdlTypeType type
+
 /-!
   ## TypeAttr definition
 
@@ -1127,6 +1178,9 @@ def isType (attr : Attribute) : Bool :=
   | .cudaTilePointerType _ => true
   | .hwModuleType _ => true
   | .pdlAttributeType _ => true
+  | .pdlOperationType _ => true
+  | .pdlValueType _ => true
+  | .pdlTypeType _ => true
 
 /--
   Returns the size, in bits, that an LLVM type would use if stored to memory.
@@ -1196,6 +1250,12 @@ theorem isType_cudaTilePointerType type : (cudaTilePointerType type).isType = tr
 theorem isType_hwModuleType type : (hwModuleType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_pdlAttributeType type : (pdlAttributeType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_pdlOperationType type : (pdlOperationType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_pdlValueType type : (pdlValueType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_pdlTypeType type : (pdlTypeType type).isType = true := by rfl
 
 end Attribute
 
@@ -1271,6 +1331,15 @@ instance : Coe HW.ModuleType TypeAttr where
 
 instance : Coe PDL.AttributeType TypeAttr where
   coe type := ⟨.pdlAttributeType type, by rfl⟩
+
+instance : Coe PDL.OperationType TypeAttr where
+  coe type := ⟨.pdlOperationType type, by rfl⟩
+
+instance : Coe PDL.ValueType TypeAttr where
+  coe type := ⟨.pdlValueType type, by rfl⟩
+
+instance : Coe PDL.TypeType TypeAttr where
+  coe type := ⟨.pdlTypeType type, by rfl⟩
 
 end
 end Veir
