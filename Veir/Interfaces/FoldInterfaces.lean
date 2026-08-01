@@ -40,14 +40,14 @@ def OpCode.foldsTo (opType : OpCode) (properties : HasOpInfo.propertiesOf opType
   | .ub => return .useConstant (← RuntimeValue.getPoisonForType resultType)
 
 /--
-  Convenience wrapper around `foldsTo`.
+  Convenience wrapper around `OpCode.foldsTo`.
 -/
 def OperationPtr.foldsTo (op : OperationPtr)
     (ctx : WfIRContext OpCode) (opInBounds : op.InBounds ctx.raw)
     (constOperands : Array (Option RuntimeValue)) : Option FoldDecision := do
   guard (constOperands.size = op.getNumOperands ctx.raw opInBounds)
   let opType := op.getOpType ctx.raw opInBounds
-  foldsTo opType
+  OpCode.foldsTo opType
     (op.getProperties ctx.raw opType opInBounds (by grind))
     (op.getResultTypes ctx.raw opInBounds) constOperands
 
