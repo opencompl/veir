@@ -24,10 +24,7 @@ inductive FoldDecision where
 /--
   Decide whether an operation folds, given its opcode, properties, result
   types, and the values of its constant-defined operands (`constOperands[i] =
-  some rv` iff operand `i` is known to hold the constant `rv`). Operations with
-  all operands constant are evaluated with the interpreter, and
-  interpreter-reported UB becomes a poison constant. `none` means the operation
-  does not fold with the supplied operand information.
+  some rv` iff operand `i` is known to hold the constant `rv`).
 -/
 def foldsTo (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue))
@@ -43,9 +40,7 @@ def foldsTo (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
   | .ub => return .useConstant (← RuntimeValue.getPoisonForType resultType)
 
 /--
-  Read-only convenience wrapper around `foldsTo` for an existing operation.
-  The supplied constant array remains explicit so SCCP can provide constants
-  inferred from lattice facts rather than only constants materialized in the IR.
+  Convenience wrapper around `foldsTo`.
 -/
 def opFoldsTo (op : OperationPtr)
     (ctx : WfIRContext OpCode) (opInBounds : op.InBounds ctx.raw)
