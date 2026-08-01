@@ -42,7 +42,7 @@ def foldsTo (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
 /--
   Convenience wrapper around `foldsTo`.
 -/
-def opFoldsTo (op : OperationPtr)
+def OperationPtr.foldsTo (op : OperationPtr)
     (ctx : WfIRContext OpCode) (opInBounds : op.InBounds ctx.raw)
     (constOperands : Array (Option RuntimeValue)) : Option FoldDecision := do
   guard (constOperands.size = op.getNumOperands ctx.raw opInBounds)
