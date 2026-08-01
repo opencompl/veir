@@ -31,7 +31,8 @@ def PDL.fromAttrDict
   | .attribute => PDLAttributeProperties.fromAttrDict attrDict
   | .operand =>
     if attrDict.size > 0 then
-      .error s!"pdl.operand: expected no properties, but got {attrDict.size} properties"
+      let plural := if attrDict.size = 1 then "property" else "properties"
+      .error s!"pdl.operand: expected no properties, but got {attrDict.size} {plural}"
     else
       .ok ()
   | .type => PDLTypeProperties.fromAttrDict attrDict
