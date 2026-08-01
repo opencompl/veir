@@ -32,18 +32,7 @@ def OperationPtr.hasSideEffects {OpInfo : Type} [HasOpInfo OpInfo]
   HasDialectOpInfo.hasSideEffects opType (op.getProperties! ctx opType)
 
 /--
-  Does this operation read memory?
-
-  An operation that carries regions reads memory whenever anything nested
-  inside it does, and `HasDialectOpInfo.readsMemory` sees only an opcode and
-  its properties, so it cannot answer for the nested operations. Such an
-  operation is therefore reported conservatively rather than being asked.
-
-  This mirrors MLIR's `isMemoryEffectFree`, which reports an operation as
-  having effects unless it either declares them through
-  `MemoryEffectOpInterface` or opts into a walk of its regions through
-  `HasRecursiveMemoryEffects`. No opcode opts into that walk here yet, so the
-  conservative answer is the only one available.
+  May this operation read memory?
 -/
 def OperationPtr.readsMemory {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : IRContext OpInfo) : Bool :=
@@ -52,12 +41,7 @@ def OperationPtr.readsMemory {OpInfo : Type} [HasOpInfo OpInfo]
   HasDialectOpInfo.readsMemory opType (op.getProperties! ctx opType)
 
 /--
-  Does this operation write memory?
-
-  This does not imply a complete overwrite of any particular location.
-
-  Operations carrying regions are reported conservatively, for the reason
-  given on `OperationPtr.readsMemory`.
+  May this operation write memory?
 -/
 def OperationPtr.writesMemory {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : IRContext OpInfo) : Bool :=
