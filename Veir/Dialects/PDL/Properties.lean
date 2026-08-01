@@ -49,6 +49,46 @@ def PDLTypeProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) 
     throw s!"pdl.type: expected only the 'constantType' property, but got {attrDict.size} properties"
   return { constantType := constantType }
 
+/--
+  Properties of the `pdl.operation` operation.
+
+  `opName` is the optional name of the operation being matched or created; it is
+  absent when the pattern matches an operation of any name.
+
+  `attributeValueNames` names the `attributeValues` operands positionally, so it
+  holds one string attribute per attribute operand.
+
+  `operandSegmentSizes` splits the operands into the `operandValues`,
+  `attributeValues`, and `typeValues` groups, in that order.
+-/
+structure PDLOperationProperties where
+  opName : Option StringAttr
+  attributeValueNames : ArrayAttr
+  operandSegmentSizes : DenseArrayAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def PDLOperationProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String PDLOperationProperties := do
+  let opName ← match attrDict["opName".toUTF8]? with
+    | some (.stringAttr attr) => pure (some attr)
+    | some attr =>
+      throw s!"pdl.operation: expected 'opName' to be a string attribute, but got {attr}"
+    | none => pure none
+  let some namesAttr := attrDict["attributeValueNames".toUTF8]?
+    | throw "pdl.operation: missing 'attributeValueNames' property"
+  let .arrayAttr attributeValueNames := namesAttr
+    | throw s!"pdl.operation: expected 'attributeValueNames' to be an array attribute, but got {namesAttr}"
+  for name in attributeValueNames.value do
+    let .stringAttr _ := name
+      | throw s!"pdl.operation: expected 'attributeValueNames' to hold string attributes, but got {name}"
+  let some sizesAttr := attrDict["operandSegmentSizes".toUTF8]?
+    | throw "pdl.operation: missing 'operandSegmentSizes' property"
+  let .denseArrayAttr operandSegmentSizes := sizesAttr
+    | throw s!"pdl.operation: expected 'operandSegmentSizes' to be a dense array attribute, but got {sizesAttr}"
+  if attrDict.size > (if opName.isSome then 3 else 2) then
+    throw s!"pdl.operation: expected only the 'opName', 'attributeValueNames' and 'operandSegmentSizes' properties, but got {attrDict.size} properties"
+  return { opName, attributeValueNames, operandSegmentSizes }
+
 end
 
 end Veir

@@ -14,6 +14,7 @@ public section
 inductive PDL where
 | attribute
 | operand
+| operation
 | type
 deriving Inhabited, Repr, Hashable, DecidableEq
 
@@ -22,6 +23,7 @@ def PDL.propertiesOf (op : PDL) : Type :=
 match op with
 | .attribute => PDLAttributeProperties
 | .operand => Unit
+| .operation => PDLOperationProperties
 | .type => PDLTypeProperties
 
 def PDL.fromAttrDict
@@ -35,6 +37,7 @@ def PDL.fromAttrDict
       .error s!"pdl.operand: expected no properties, but got {attrDict.size} {plural}"
     else
       .ok ()
+  | .operation => PDLOperationProperties.fromAttrDict attrDict
   | .type => PDLTypeProperties.fromAttrDict attrDict
 
 def PDL.toAttrDict
@@ -46,6 +49,13 @@ def PDL.toAttrDict
     | some value => (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 value
     | none => Std.HashMap.emptyWithCapacity 0
   | .operand => Std.HashMap.emptyWithCapacity 0
+  | .operation => Id.run do
+    let mut dict : Std.HashMap ByteArray Attribute := Std.HashMap.emptyWithCapacity 3
+    if let some opName := props.opName then
+      dict := dict.insert "opName".toUTF8 (.stringAttr opName)
+    dict := dict.insert "attributeValueNames".toUTF8 (.arrayAttr props.attributeValueNames)
+    dict := dict.insert "operandSegmentSizes".toUTF8 (.denseArrayAttr props.operandSegmentSizes)
+    dict
   | .type =>
     match props.constantType with
     | some constantType =>
@@ -131,6 +141,39 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpI
       let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
       if operandType.val ≠ (PDL.TypeType.mk : TypeAttr).val then
         throw "Expected the `valueType` operand to be of type '!pdl.type'"
+  | .operation =>
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    op.verifyResultTypeMatches ctx (PDL.OperationType.mk : TypeAttr)
+      "Expected the result to be of type '!pdl.operation'"
+    let props : PDL.propertiesOf .operation :=
+      HasDialect.toDialectProperties (OpInfo := OpInfo) PDL.operation
+        (op.getProperties! ctx.raw (ofDialect OpInfo PDL.operation))
+    /- The operands are the `operandValues`, `attributeValues` and `typeValues`
+       groups, laid out consecutively in that order. -/
+    let segments ← op.verifyOperandSegmentSizes ctx opIn props.operandSegmentSizes 3
+    let valueCount := segments[0]!
+    let attributeCount := segments[1]!
+    let typeCount := segments[2]!
+    /- Every attribute operand is named positionally by `attributeValueNames`. -/
+    let nameCount := props.attributeValueNames.value.size
+    if nameCount ≠ attributeCount then
+      throw s!"Expected the same number of attribute values and attribute names, got {attributeCount} values and {nameCount} names"
+    /- TODO: `!pdl.range<...>` is not modelled yet, so the value and type groups
+       accept single handles only. -/
+    for i in [0:valueCount] do
+      if ((op.getOperand! ctx.raw i).getType! ctx.raw).val ≠ (PDL.ValueType.mk : TypeAttr).val then
+        throw s!"Expected operand {i} to be of type '!pdl.value'"
+    for i in [valueCount:valueCount + attributeCount] do
+      if ((op.getOperand! ctx.raw i).getType! ctx.raw).val ≠ (PDL.AttributeType.mk : TypeAttr).val then
+        throw s!"Expected operand {i} to be of type '!pdl.attribute'"
+    for i in [valueCount + attributeCount:valueCount + attributeCount + typeCount] do
+      if ((op.getOperand! ctx.raw i).getType! ctx.raw).val ≠ (PDL.TypeType.mk : TypeAttr).val then
+        throw s!"Expected operand {i} to be of type '!pdl.type'"
   | .type =>
     /- The optional `constantType` is a property, so `pdl.type` takes no
        operands. -/
