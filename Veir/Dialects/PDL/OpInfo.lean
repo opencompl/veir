@@ -13,6 +13,7 @@ public section
 @[opcodes]
 inductive PDL where
 | attribute
+| operand
 | type
 deriving Inhabited, Repr, Hashable, DecidableEq
 
@@ -20,6 +21,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 def PDL.propertiesOf (op : PDL) : Type :=
 match op with
 | .attribute => PDLAttributeProperties
+| .operand => Unit
 | .type => PDLTypeProperties
 
 def PDL.fromAttrDict
@@ -27,6 +29,12 @@ def PDL.fromAttrDict
     Except String (PDL.propertiesOf op) :=
   match op with
   | .attribute => PDLAttributeProperties.fromAttrDict attrDict
+  | .operand =>
+    if attrDict.size > 0 then
+      let plural := if attrDict.size = 1 then "property" else "properties"
+      .error s!"pdl.operand: expected no properties, but got {attrDict.size} {plural}"
+    else
+      .ok ()
   | .type => PDLTypeProperties.fromAttrDict attrDict
 
 def PDL.toAttrDict
@@ -37,6 +45,7 @@ def PDL.toAttrDict
     match props.value with
     | some value => (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 value
     | none => Std.HashMap.emptyWithCapacity 0
+  | .operand => Std.HashMap.emptyWithCapacity 0
   | .type =>
     match props.constantType with
     | some constantType =>
@@ -105,6 +114,23 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpI
        constant value, but never by both, as the constant provides its own type. -/
     if props.value.isSome && numOperands = 1 then
       throw "Expected only one of [`type`, `value`] to be set"
+  | .operand =>
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    op.verifyResultTypeMatches ctx (PDL.ValueType.mk : TypeAttr)
+      "Expected the result to be of type '!pdl.value'"
+    /- The `valueType` operand is optional. -/
+    let numOperands := op.getNumOperands ctx.raw opIn
+    if numOperands > 1 then
+      throw "Expected at most 1 operand"
+    if numOperands = 1 then
+      let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
+      if operandType.val ≠ (PDL.TypeType.mk : TypeAttr).val then
+        throw "Expected the `valueType` operand to be of type '!pdl.type'"
   | .type =>
     /- The optional `constantType` is a property, so `pdl.type` takes no
        operands. -/
