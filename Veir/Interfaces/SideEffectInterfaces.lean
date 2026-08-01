@@ -33,6 +33,8 @@ def OperationPtr.hasSideEffects {OpInfo : Type} [HasOpInfo OpInfo]
 
 /--
   May this operation read memory?
+
+  TODO: recursively walk regions to get a less conservative answer
 -/
 def OperationPtr.readsMemory {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : IRContext OpInfo) : Bool :=
@@ -42,6 +44,8 @@ def OperationPtr.readsMemory {OpInfo : Type} [HasOpInfo OpInfo]
 
 /--
   May this operation write memory?
+
+  TODO: recursively walk regions to get a less conservative answer
 -/
 def OperationPtr.writesMemory {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : IRContext OpInfo) : Bool :=
