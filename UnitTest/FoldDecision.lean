@@ -23,7 +23,7 @@ private def foldDecisionTestModule : String :=
     }) : () -> ()
   }) : () -> ()"
 
-/-- One case per outcome of `foldDecision`. -/
+/-- One case per outcome of `foldsTo`. -/
 private def testFoldDecision : String := Id.run do
   match parseTopLevelOp foldDecisionTestModule with
   | .error e => return s!"parse error: {e}"
@@ -36,19 +36,19 @@ private def testFoldDecision : String := Id.run do
     let i32Types := add.getResultTypes ctx.raw addInBounds
 
     -- All operands known: the interpreter supplies the constant.
-    match foldDecisionForOp add ctx addInBounds constants with
+    match opFoldsTo add ctx addInBounds constants with
     | some (.useConstant (.int 32 (.val value))) =>
       if value ≠ 15 then
         return s!"arith.addi folded to the wrong constant: {value}"
     | _ => return "arith.addi did not evaluate"
 
     -- An unknown operand defeats folding; there are no partial folds.
-    match foldDecisionForOp add ctx addInBounds #[none, some (.int 32 (.val 8))] with
+    match opFoldsTo add ctx addInBounds #[none, some (.int 32 (.val 8))] with
     | none => pure ()
     | _ => return "arith.addi folded with an unknown operand"
 
     -- Interpreter UB becomes poison.
-    match foldDecision (.arith .ceildivui) default i32Types
+    match foldsTo (.arith .ceildivui) default i32Types
         #[some (.int 32 (.val 5)), some (.int 32 (.val 0))] with
     | some (.useConstant (.int 32 .poison)) => pure ()
     | _ => return "arith.ceildivui by zero did not fold UB to poison"

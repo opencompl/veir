@@ -29,7 +29,7 @@ inductive FoldDecision where
   interpreter-reported UB becomes a poison constant. `none` means the operation
   does not fold with the supplied operand information.
 -/
-def foldDecision (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
+def foldsTo (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue))
     : Option FoldDecision := do
   guard (!opType.isConstantLike)
@@ -43,16 +43,16 @@ def foldDecision (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
   | .ub => return .useConstant (← RuntimeValue.getPoisonForType resultType)
 
 /--
-  Read-only convenience wrapper around `foldDecision` for an existing operation.
+  Read-only convenience wrapper around `foldsTo` for an existing operation.
   The supplied constant array remains explicit so SCCP can provide constants
   inferred from lattice facts rather than only constants materialized in the IR.
 -/
-def foldDecisionForOp (op : OperationPtr)
+def opFoldsTo (op : OperationPtr)
     (ctx : WfIRContext OpCode) (opInBounds : op.InBounds ctx.raw)
     (constOperands : Array (Option RuntimeValue)) : Option FoldDecision := do
   guard (constOperands.size = op.getNumOperands ctx.raw opInBounds)
   let opType := op.getOpType ctx.raw opInBounds
-  foldDecision opType
+  foldsTo opType
     (op.getProperties ctx.raw opType opInBounds (by grind))
     (op.getResultTypes ctx.raw opInBounds) constOperands
 
