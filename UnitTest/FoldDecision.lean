@@ -37,20 +37,20 @@ private def testFoldDecision : String := Id.run do
 
     -- All operands known: the interpreter supplies the constant.
     match foldDecisionForOp add ctx addInBounds constants with
-    | .useConstant (.int 32 (.val value)) =>
+    | some (.useConstant (.int 32 (.val value))) =>
       if value ≠ 15 then
         return s!"arith.addi folded to the wrong constant: {value}"
     | _ => return "arith.addi did not evaluate"
 
     -- An unknown operand defeats folding; there are no partial folds.
     match foldDecisionForOp add ctx addInBounds #[none, some (.int 32 (.val 8))] with
-    | .noFold => pure ()
+    | none => pure ()
     | _ => return "arith.addi folded with an unknown operand"
 
     -- Interpreter UB becomes poison.
     match foldDecision (.arith .ceildivui) default i32Types
         #[some (.int 32 (.val 5)), some (.int 32 (.val 0))] with
-    | .useConstant (.int 32 .poison) => pure ()
+    | some (.useConstant (.int 32 .poison)) => pure ()
     | _ => return "arith.ceildivui by zero did not fold UB to poison"
 
     return "ok"
