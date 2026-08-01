@@ -5,4 +5,4 @@
   %0 = "pdl.operand"() <{"constantType" = i32}> : () -> !pdl.value
 }) : () -> ()
 
-// CHECK: pdl.operand: expected no properties, but got 1 properties
+// CHECK: pdl.operand: expected no properties, but got 1 property.
