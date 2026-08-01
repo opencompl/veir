@@ -48,7 +48,7 @@ def OpCode.isTerminator (opCode : OpCode) : Bool :=
   | _ => false
 
 /--
-  Does an operation with this opcode read memory?
+  Does an operation with this opcode and these properties read memory?
 -/
 def OpCode.readsMemory (opCode : OpCode) (props : _propertiesOf opCode) : Bool :=
   match opCode, props with
@@ -70,9 +70,6 @@ def OpCode.readsMemory (opCode : OpCode) (props : _propertiesOf opCode) : Bool :
 
 /--
   Does an operation with this opcode and these properties write memory?
-
-  A `true` result says only that the operation may modify memory; it does not
-  establish a complete overwrite of any particular location.
 -/
 def OpCode.writesMemory (opCode : OpCode) (props : _propertiesOf opCode) : Bool :=
   match opCode, props with

@@ -54,11 +54,6 @@ class HasDialectOpInfo (opCode: Type)
   this as well before running an operation against memory that is not the
   program's.
 
-  This describes the operation itself and says nothing about operations nested
-  in its regions, which an opcode and its properties cannot see. Callers
-  holding an `OperationPtr` should use `OperationPtr.readsMemory`, which
-  accounts for regions.
-
   Defaults to `true` for every opcode, which conservatively assumes memory is
   read.
   -/
@@ -69,10 +64,6 @@ class HasDialectOpInfo (opCode: Type)
   This reports only that memory may be modified. It does not imply that the
   operation completely overwrites any particular location, so it is not by
   itself sufficient to prove that an earlier write is dead.
-
-  As with `readsMemory`, this describes the operation itself and not the
-  operations nested in its regions; use `OperationPtr.writesMemory` when an
-  `OperationPtr` is available.
 
   Defaults to `true` for every opcode, which conservatively assumes memory is
   written.
