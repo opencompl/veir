@@ -40,9 +40,7 @@ def foldDecision (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     let result ← results[0]?
     guard (result.Conforms resultType)
     return .useConstant result
-  | .ub =>
-    let .integerType intTy := resultType.val | none
-    return .useConstant (.int intTy.bitwidth .poison)
+  | .ub => return .useConstant (← RuntimeValue.getPoisonForType resultType)
 
 /--
   Read-only convenience wrapper around `foldDecision` for an existing operation.

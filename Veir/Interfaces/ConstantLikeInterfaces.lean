@@ -38,11 +38,7 @@ def ValuePtr.constantValue (val : ValuePtr) (ctx : IRContext OpCode) : Option Ru
   if res.op.getNumOperands! ctx ≠ 0 then none else
   match (res.op.interpret ctx #[] .empty : Option (UBOr _)) with
   | some (.ok (results, _, none)) => results[res.index]?
-  | some .ub =>
-    match (val.getType! ctx).val with
-    | .integerType intTy => some (.int intTy.bitwidth .poison)
-    | .byteType byteTy => some (.byte byteTy.bitwidth Data.LLVM.Byte.allPoison)
-    | _ => none
+  | some .ub => RuntimeValue.getPoisonForType (val.getType! ctx)
   | _ => none
 
 end

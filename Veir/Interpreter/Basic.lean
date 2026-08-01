@@ -134,6 +134,16 @@ theorem Conforms.llvmPointerType :
   simp only [Conforms]
   cases runtimeValue <;> grind
 
+/--
+  The wholly-poisoned `RuntimeValue` of type `ty`, for the types that have one.
+  Used to materialize a result for an operation whose evaluation triggers UB.
+-/
+def getPoisonForType (ty : TypeAttr) : Option RuntimeValue :=
+  match ty.val with
+  | .integerType intTy => some (.int intTy.bitwidth .poison)
+  | .byteType byteTy => some (.byte byteTy.bitwidth LLVM.Byte.allPoison)
+  | _ => none
+
 def ArrayConforms (source : Array RuntimeValue) (target : Array TypeAttr) : Prop :=
   source.size = target.size ∧ ∀ (i : Nat) (_ : i < source.size), source[i]!.Conforms target[i]!
 
