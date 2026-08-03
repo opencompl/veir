@@ -19,3 +19,4 @@ import Veir.Interpreter
 import Veir.Dominance
 import Veir.Passes.InstructionSelection.Proofs
 import Veir.Passes.CastsReconciliation.Reconciliation
+import Veir.Passes.Legalization.Proofs

@@ -778,6 +778,15 @@ def sext {w₁ : Nat} (x : Int w₁) (w₂ : Nat) (_h : w₁ < w₂) : Int w₂ 
   val (v.signExtend w₂)
 
 /--
+The `G_ANYEXT` gMIR instruction extends its operand with unspecified bits.
+
+We can model its behavior at the bitvector level using a ∀ quantifier.
+-/
+def ext {w₁ : Nat} (x : Int w₁) (w₂ : Nat) (msb : BitVec (w₂-w₁)) (_h : w₁ < w₂) : Int w₂ := Id.run do
+  let val v := x | poison
+  (val (msb ++ v)).cast (by grind)
+
+/--
 The `icmp` instruction takes three operands.
 The first operand is the condition code indicating the kind of comparison to perform.
 It is not a value, just a keyword.
