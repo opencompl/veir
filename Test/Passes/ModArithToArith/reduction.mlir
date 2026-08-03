@@ -6,7 +6,7 @@
 "builtin.module"() ({
   "func.func"() <{function_type = (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>, sym_name = "mod_arith_add_chain"}> ({
   ^bb0(%a : !mod_arith.int<12289 : i32>, %b : !mod_arith.int<12289 : i32>):
-    %c = "mod_arith.constant"() <{"value" = 12335 : i32}> : () -> !mod_arith.int<12289 : i32>
+    %c = "mod_arith.constant"() <{"value" = 46 : i32}> : () -> !mod_arith.int<12289 : i32>
     %small = "mod_arith.constant"() <{"value" = 3 : i32}> : () -> !mod_arith.int<12289 : i32>
     %add0 = "mod_arith.add"(%a, %c) {"reduction" = "none"} : (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>
     %add1 = "mod_arith.add"(%add0, %b) {"reduction" = "barrett"} : (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>
