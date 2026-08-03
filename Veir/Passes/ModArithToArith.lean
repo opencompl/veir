@@ -303,10 +303,10 @@ def tagModArithOpsWithReduction (reduction : ReductionKind)
   let key := "reduction".toUTF8
   let value : Attribute := StringAttr.mk reductionName.toUTF8
   let oldAttrs := (op.get rewriter.ctx.raw opInBounds).attrs
-  if oldAttrs.entries.any (fun entry => entry = (key, value)) then
+  if oldAttrs.entries.any (fun entry => entry.1 == key) then
     return rewriter
   let newAttrs := DictionaryAttr.fromArray
-    (oldAttrs.entries.filter (fun entry => entry.1 != key) |>.push (key, value))
+    (oldAttrs.entries.push (key, value))
   return { rewriter with
     ctx := WfRewriter.setAttributes rewriter.ctx op newAttrs opInBounds
     hasDoneAction := true }
