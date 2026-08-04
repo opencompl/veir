@@ -273,6 +273,10 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpI
     /- An external rewrite names a native function and leaves its region empty;
        an inline rewrite supplies a body and takes no external arguments. -/
     let body := (op.getRegion! ctx.raw 0).get! ctx.raw
+    /- MLIR gives `pdl.rewrite` `SingleBlock`, so the body holds no more than
+       one block. -/
+    if body.firstBlock ≠ body.lastBlock then
+      throw "Expected the rewrite region to contain at most 1 block"
     if props.name.isSome then
       if body.firstBlock.isSome then
         throw "Expected the rewrite region to be empty when the rewrite is external"
