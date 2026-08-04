@@ -71,6 +71,20 @@ class HasDialectOpInfo (opCode: Type)
   region, and operation order does not impose SSA dominance.
   -/
   hasSSADominance : opCode → Nat → Bool
+  /--
+  Whether the indexed region is exempt from the requirement that each of its
+  blocks ends in a terminator, mirroring MLIR's `NoTerminator` trait.
+
+  This is deliberately separate from the region kind. A graph region implies
+  no terminator, but the converse does not hold: MLIR gives `pdl.rewrite` a
+  body that is an ordinary SSACFG region and yet carries `NoTerminator`.
+  Encoding such a region as a graph region would silently drop SSA dominance
+  from the model in order to relax an unrelated requirement.
+
+  Defaults to `false` for every opcode, which conservatively keeps the
+  terminator requirement.
+  -/
+  hasNoTerminator : opCode → Nat → Bool := fun _ _ => false
 
 instance [HasDialectOpInfo opCode] {op : opCode} : Hashable (HasDialectOpInfo.propertiesOf op) where
   hash := HasDialectOpInfo.propertiesHash.hash

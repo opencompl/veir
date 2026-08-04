@@ -137,6 +137,29 @@ def OpCode.hasSSADominance (opCode : OpCode) (index : Nat) : Bool :=
   | .test op => Test.hasSSADominance op index
 
 /--
+  Whether the indexed region of this opcode is exempt from the requirement
+  that each of its blocks ends in a terminator. Dialects that do not say
+  otherwise inherit the `HasDialectOpInfo` default of `false`.
+-/
+def OpCode.hasNoTerminator (opCode : OpCode) (index : Nat) : Bool :=
+  match opCode with
+  | .arith op => HasDialectOpInfo.hasNoTerminator op index
+  | .llvm op => HasDialectOpInfo.hasNoTerminator op index
+  | .riscv op => HasDialectOpInfo.hasNoTerminator op index
+  | .riscv_cf op => HasDialectOpInfo.hasNoTerminator op index
+  | .riscv_stack op => HasDialectOpInfo.hasNoTerminator op index
+  | .rv64 op => HasDialectOpInfo.hasNoTerminator op index
+  | .mod_arith op => HasDialectOpInfo.hasNoTerminator op index
+  | .cf op => HasDialectOpInfo.hasNoTerminator op index
+  | .comb op => HasDialectOpInfo.hasNoTerminator op index
+  | .hw op => HasDialectOpInfo.hasNoTerminator op index
+  | .builtin op => HasDialectOpInfo.hasNoTerminator op index
+  | .func op => HasDialectOpInfo.hasNoTerminator op index
+  | .datapath op => HasDialectOpInfo.hasNoTerminator op index
+  | .pdl op => HasDialectOpInfo.hasNoTerminator op index
+  | .test op => HasDialectOpInfo.hasNoTerminator op index
+
+/--
   Does this `OpCode` materialize a literal constant value, i.e. an op
   whose single result is a compile-time constant taken from its
   properties, with no SSA operands and no side effects?
@@ -214,6 +237,7 @@ instance : HasDialectOpInfo OpCode where
   readsMemory := OpCode.readsMemory
   isConstantLike := OpCode.isConstantLike
   hasSSADominance := OpCode.hasSSADominance
+  hasNoTerminator := OpCode.hasNoTerminator
 
 instance : HasOpInfo OpCode where
 

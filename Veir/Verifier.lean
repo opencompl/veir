@@ -853,6 +853,17 @@ public def RegionPtr.getRegionKind (region : RegionPtr) (ctx : WfIRContext OpCod
   | none => .SSACFG
 
 /--
+  Whether this region is exempt from the requirement that each of its blocks
+  ends in a terminator.
+-/
+public def RegionPtr.hasNoTerminator (region : RegionPtr) (ctx : WfIRContext OpCode) : Bool :=
+  match (region.get! ctx.raw).parent with
+  | some parentOp =>
+    let parent := parentOp.get! ctx.raw
+    parent.opType.hasNoTerminator (parent.regions.idxOf region)
+  | none => false
+
+/--
   Verify that a terminator only ever appears as the last operation of its block:
   an operation that is a terminator must not be followed by another operation.
 -/
@@ -942,7 +953,7 @@ def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
   ctx.raw.forBlocksDepM (fun block blockIn => do
     match (block.get ctx.raw blockIn).parent with
     | some region =>
-      if region.getRegionKind ctx = .SSACFG then
+      if !region.hasNoTerminator ctx then
         block.verifyTerminator ctx blockIn
     | none => pure ())
   ctx.verifyLLVMGlobalSymbols

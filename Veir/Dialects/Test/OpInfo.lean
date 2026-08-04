@@ -39,6 +39,9 @@ def Test.isConstantLike (_op : Test) : Bool :=
 def Test.hasSSADominance (_op : Test) (_index : Nat) : Bool :=
   false
 
+def Test.hasNoTerminator (_op : Test) (_index : Nat) : Bool :=
+  true
+
 #generate_dialect Test
 
 instance : HasDialectOpInfo Test where
@@ -51,6 +54,7 @@ instance : HasDialectOpInfo Test where
   readsMemory := Test.readsMemory
   isConstantLike := Test.isConstantLike
   hasSSADominance := Test.hasSSADominance
+  hasNoTerminator := Test.hasNoTerminator
 
 end
 
