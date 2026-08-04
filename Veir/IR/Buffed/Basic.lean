@@ -13,7 +13,6 @@ import Veir.IR.Buffed.RawAccessorsLemmas
 import Veir.IR.Buffed.RawReadWriteLemmas
 import Veir.IR.Buffed.Frames
 
--- Exposes the body of `dbgTrace` so the `dump*` printers (which use `dbg_trace`) can be proved to leave the context unchanged (`dbgTrace s (fun _ => x)` reduces to `x`).
 import all Init.Util
 
 

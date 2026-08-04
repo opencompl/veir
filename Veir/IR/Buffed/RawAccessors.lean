@@ -128,16 +128,16 @@ abbrev GenericOPtr := UInt64
 abbrev GenericOPtr.none : GenericOPtr := -1
 @[grind =] theorem GenericOPtr.toNat_none : UInt64.toNat GenericOPtr.none = 18446744073709551615 := rfl
 
-structure IRBufContext OpInfo [HasOpInfo OpInfo] where
+structure IRBufContext where
   mem : ExArray
   attributes : Array Attribute
 
 /-- The default context reserves attribute-table slot 0 for the empty dictionary attribute: freshly allocated operations leave their (zero-initialized) `attrs` field pointing at it. -/
-instance [HasOpInfo OpInfo] : Inhabited (IRBufContext OpInfo) where
+instance : Inhabited IRBufContext where
   default := ⟨default, #[.dictionaryAttr DictionaryAttr.empty]⟩
 
 theorem IRBufContext.default_def [HasOpInfo OpInfo] :
-    (default : IRBufContext OpInfo) = ⟨default, #[.dictionaryAttr DictionaryAttr.empty]⟩ := rfl
+    (default : IRBufContext) = ⟨default, #[.dictionaryAttr DictionaryAttr.empty]⟩ := rfl
 
 /-! ## Raw accessors -/
 
@@ -1260,6 +1260,9 @@ def BlockOperandPtrMPtr.write (operandPtr : BlockOperandPtrMPtr) (val : BlockOpe
     (h : operandPtr.toNat + Buffed.ptrSize.toNat ≤ bctx.size) : IRBufContext OpInfo :=
   { bctx with mem := bctx.mem.blit64 operandPtr val (by grind) }
 
+/-! ## Properties -/
+class HasBuffedProperties  (opCode: Type) extends HasDialectOpInfo opCode where
+  writeProperties (op : opCode) (p : propertiesOf op) (bctx : IRBufContext )
 
 /-! ## Debugging utilities -/
 

@@ -24,10 +24,25 @@ match op with
 | .extui => NnegProperties
 | _ => Unit
 
+def Arith.propertySize (op : Arith) : UInt64 :=
+match op with
+-- TODO: Temporarily removed this as properties aren't supported in buffed yet, so we encode properties with attributes
+| .subi => 1
+| .divsi => 1
+| .divui => 1
+| .cmpi => 1
+| .shli => 1
+| .shrsi => 1
+| .shrui => 1
+| .ori => 1
+| .trunci => 1
+| .extui => 1
+| _ => 0
+
 instance : HasDialectOpInfo Arith where
   propertiesOf := Arith.propertiesOf
-  propertySize _ := 4
-  propertySize_small {op} := by grind
+  propertySize op := op.propertySize
+  propertySize_small {op} := by cases op <;> simp [Arith.propertySize]
 
 end
 
