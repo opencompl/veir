@@ -26,7 +26,7 @@ attribute [footprint_grind =]
   ExArray.read32'_blit64'_disjoint ExArray.read32'_blit32'_disjoint
   ExArray.blit64'_size ExArray.blit32'_size
 
-variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] (bctx : IRBufContext OpInfo)
+variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] (bctx : IRBufContext)
 
 /-- `Nat`-level version of `UInt64.uint64_add_int64_toInt_lt`: a wrap-free mixed
 `UInt64 + Int64` address, with a nonnegative offset, adds up in `Nat`. -/

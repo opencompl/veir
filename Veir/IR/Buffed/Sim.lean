@@ -1260,14 +1260,14 @@ theorem Sim.BlockOperandPtr.getOpOperandPtrPtr_sim_of_sim {ctx : Sim.IRContext O
 
 @[layout_grind =]
 theorem OperationPtr.computeRegionsOffet!_plus_offset_eq_regionsInt (ctx : Sim.IRContext OpInfo) (op : OperationPtr) (opIb : op.InBounds ctx.spec) (hidx : idx.toNat < countCard) :
-    (op.toM.computeRegionsOffset! ctx.buf + ptrSize * idx).toInt = Operation.Offsets.regionsInt op ctx.spec + ptrSizeNat * idx.toNat := by
+    (op.toM.computeRegionsOffset! (OpInfo := OpInfo) ctx.buf + ptrSize * idx).toInt = Operation.Offsets.regionsInt op ctx.spec + ptrSizeNat * idx.toNat := by
   have := @Operation.propertySize_lt
   have hsize : ctx.buf.mem.size < Int64.maxValue.toInt := by grind [ctx.buf.mem.fits_in_memory]
   have : (ptrSize * idx).toNat < 2^40 := by grind only [UInt64.toNat_mul]
   have := ctx.sim.repr.operations_indices op opIb |>.operands
   have := ctx.sim.repr.operations_indices op opIb |>.blockOperands
   have := Sim.OperationPtr.after_lt_ctx (ctx := ctx) op (by grind)
-  have : (OperationMPtr.computeRegionsOffset! ctx.buf op.toM).toInt = Operation.Offsets.regionsInt op ctx.spec := by
+  have : (OperationMPtr.computeRegionsOffset! (OpInfo := OpInfo) ctx.buf op.toM).toInt = Operation.Offsets.regionsInt op ctx.spec := by
     rw [show op.toM = op.toSim.impl by grind]
     grind [layout_grind, OperationPtr.computeRegionsOffset!_ideal]
   rw [Int64.add_toInt_lt'] <;> grind only [UInt64.toNat_mul]
@@ -1277,14 +1277,14 @@ theorem OperationPtr.computeRegionsOffet!_plus_offset_eq_regionsInt (ctx : Sim.I
 theorem Buffed.OperationMPtr.readNthRegion!_operationMPtr_writeNumResults {ctx : Sim.IRContext OpInfo} (op : Veir.OperationPtr) (ptr : Sim.OperationPtr) (idx : UInt64)
     (hidx : idx.toNat < (op.get! ctx.spec).capRegions)
     (val : UInt64) h (opIb : op.InBounds ctx.spec) (ptrIb : ptr.InBounds ctx) :
-    Buffed.OperationMPtr.readNthRegion! (Buffed.OperationMPtr.writeNumResults ctx.buf ptr.impl val h) op.toM idx =
-    Buffed.OperationMPtr.readNthRegion! ctx.buf op.toM idx := by
+    Buffed.OperationMPtr.readNthRegion! (OpInfo := OpInfo) (Buffed.OperationMPtr.writeNumResults ctx.buf ptr.impl val h) op.toM idx =
+    Buffed.OperationMPtr.readNthRegion! (OpInfo := OpInfo) ctx.buf op.toM idx := by
   simp only [readNthRegion!, computeRegionOffset!]
   have hsize : ctx.buf.mem.size < Int64.maxValue.toInt := by grind [ctx.buf.mem.fits_in_memory]
   have disj := ctx.sim.disjoint_allocs (.operation ptr.spec) (.operation op)
   have := @Sim.OperationPtr.after_lt_ctx
-  have hoff : (OperationMPtr.computeRegionsOffset! (OperationMPtr.writeNumResults ctx.buf ptr.impl val h) op.toM)
-      = OperationMPtr.computeRegionsOffset! ctx.buf op.toM := by
+  have hoff : (OperationMPtr.computeRegionsOffset! (OpInfo := OpInfo) (OperationMPtr.writeNumResults ctx.buf ptr.impl val h) op.toM)
+      = OperationMPtr.computeRegionsOffset! (OpInfo := OpInfo) ctx.buf op.toM := by
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, writeNumResults, layout_grind]
   rw [hoff]

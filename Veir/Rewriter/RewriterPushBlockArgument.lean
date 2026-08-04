@@ -36,10 +36,10 @@ protected def Rewriter.pushBlockArgument (ctx : IRContext OpInfo) (blockPtr : Bl
 
 /-- The five 8-byte field writes into the (pre-allocated) argument slot `idx` of `blockPtr`. -/
 @[inline]
-protected def Rewriter.setBlockArgumentRaw (blockPtr : Buffed.BlockMPtr) (ctx₁ : Buffed.IRBufContext OpInfo)
+protected def Rewriter.setBlockArgumentRaw (blockPtr : Buffed.BlockMPtr) (ctx₁ : Buffed.IRBufContext)
     (idx : UInt64) (typeIdx : UInt64)
     (hslot : (blockPtr.getArgumentPtr idx).toNat + Buffed.BlockArgument.size.toNat ≤ ctx₁.size) :
-    Buffed.IRBufContext OpInfo :=
+    Buffed.IRBufContext :=
   let arg := blockPtr.getArgumentPtr idx
   let ctx := Buffed.ValueImplMPtr.writeKind ctx₁ arg Buffed.ValueImpl.kindArgument (by prove_setSlotBounds ctx₁)
   let ctx := arg.writeType ctx typeIdx (by prove_setSlotBounds ctx₁)
@@ -49,9 +49,9 @@ protected def Rewriter.setBlockArgumentRaw (blockPtr : Buffed.BlockMPtr) (ctx₁
   ctx
 
 @[inline]
-protected def Rewriter.setBlockArgument (blockPtr : Buffed.BlockMPtr) (ctx₀ : Buffed.IRBufContext OpInfo) (idx : UInt64)
+protected def Rewriter.setBlockArgument (blockPtr : Buffed.BlockMPtr) (ctx₀ : Buffed.IRBufContext) (idx : UInt64)
     (hslot : (blockPtr.getArgumentPtr idx).toNat + Buffed.BlockArgument.size.toNat ≤ ctx₀.size)
-    (type : TypeAttr) : Option (Buffed.IRBufContext OpInfo) :=
+    (type : TypeAttr) : Option (Buffed.IRBufContext) :=
   rlet hattr : (ctx, typeIdx) ← ctx₀.insertAttrs type
   have hsz : ctx.size = ctx₀.size := ctx₀.insertAttrs_size hattr
   some (Rewriter.setBlockArgumentRaw blockPtr ctx idx typeIdx (by grind))
@@ -63,7 +63,7 @@ theorem Rewriter.setBlockArgumentRaw_pushBlockArgument_sim (blockPtr : Sim.Block
     (blockPtrInBounds : blockPtr.InBounds ctx)
     (hidx : idx.toNat = blockPtr.spec.getNumArguments! ctx.spec)
     (hcap : idx.toNat < (blockPtr.spec.get! ctx.spec).capArguments)
-    (buf₁ : Buffed.IRBufContext OpInfo) (typeIdx : UInt64)
+    (buf₁ : Buffed.IRBufContext) (typeIdx : UInt64)
     (hmem : buf₁.mem = ctx.buf.mem)
     (hattrs : buf₁.attributes = ctx.buf.attributes.push type)
     (htidx : typeIdx.toNat = ctx.buf.attributes.size)
@@ -483,7 +483,7 @@ theorem Rewriter.setBlockArgument_pushBlockArgument_sim (blockPtr : Sim.BlockPtr
     (hidx : idx.toNat = blockPtr.spec.getNumArguments! ctx.spec)
     (hcap : idx.toNat < (blockPtr.spec.get! ctx.spec).capArguments)
     (hslot : (Buffed.BlockMPtr.getArgumentPtr blockPtr.impl idx).toNat + Buffed.BlockArgument.size.toNat ≤ ctx.buf.size)
-    {newBuf : Buffed.IRBufContext OpInfo}
+    {newBuf : Buffed.IRBufContext}
     (heq : Rewriter.setBlockArgument blockPtr.impl ctx.buf idx hslot type = some newBuf) :
     Veir.Sim (OpInfo := OpInfo)
       ⟨newBuf, Rewriter.pushBlockArgument ctx.spec blockPtr.spec type (by grind)⟩ := by

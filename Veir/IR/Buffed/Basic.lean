@@ -209,7 +209,7 @@ macro "prove_setSlotBounds" ctx₀:ident : tactic => `(tactic|
 
 buffed
 def dumpOpSim (op : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
-  ⟨op.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.OperationMPtr.debugPrint_eq]; exact ctx.sim⟩
+  ⟨op.impl.debugPrint (OpInfo := OpInfo) pref ctx.buf, ctx.spec, by rw [Buffed.OperationMPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
 theorem dumpOp_eq (op : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
@@ -283,7 +283,7 @@ theorem dumpBlockOperand_eq (operand : Sim.BlockOperandPtr) (ctx : Sim.IRContext
 
 buffed
 def dumpOptionOpSim (op : Sim.OptionOperationPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
-  ⟨op.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.OperationOPtr.debugPrint_eq]; exact ctx.sim⟩
+  ⟨op.impl.debugPrint (OpInfo := OpInfo) pref ctx.buf, ctx.spec, by rw [Buffed.OperationOPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
 theorem dumpOptionOp_eq (op : Sim.OptionOperationPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
@@ -854,14 +854,14 @@ theorem Sim.OperationPtr.getAttributes_eq_getAttributes! (ctx : IRContext OpInfo
 buffed
 def Sim.OperationPtr.getOperandPtrSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (index : UInt64) (_ib : ptr.InBounds ctx) : Sim.OpOperandPtr :=
-  ⟨ptr.impl + ptr.impl.computeOperandOffset ctx.buf index (by prove_setLinkBoundsOp ctx ptr),
+  ⟨ptr.impl + ptr.impl.computeOperandOffset (OpInfo := OpInfo) ctx.buf index (by prove_setLinkBoundsOp ctx ptr),
    ptr.spec.getOpOperand index.toNat⟩
 
 
 buffed
 def Sim.OperationPtr.getOperandPtr!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (index : UInt64) : Sim.OpOperandPtr :=
-  ⟨ptr.impl + ptr.impl.computeOperandOffset! ctx.buf index,
+  ⟨ptr.impl + ptr.impl.computeOperandOffset! (OpInfo := OpInfo) ctx.buf index,
    ptr.spec.getOpOperand index.toNat⟩
 
 @[eq_bang, grind _=_]
@@ -889,13 +889,13 @@ theorem Sim.OperationPtr.getResultPtr_eq_getResultPtr! (ctx : IRContext OpInfo) 
 buffed
 def Sim.OperationPtr.getRegionPtrSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (index : UInt64) (_ib : ptr.InBounds ctx) (hindex : index.toNat < ptr.spec.getNumRegions! ctx.spec) : Sim.RegionPtr :=
-  ⟨ptr.impl.readNthRegion ctx.buf index (by prove_setLinkBoundsOp ctx ptr) (by prove_setLinkBoundsRegionSlot ctx ptr index),
+  ⟨ptr.impl.readNthRegion (OpInfo := OpInfo) ctx.buf index (by prove_setLinkBoundsOp ctx ptr) (by prove_setLinkBoundsRegionSlot ctx ptr index),
    ptr.spec.getRegion ctx.spec index.toNat (by grind) (by grind)⟩
 
 buffed
 def Sim.OperationPtr.getRegionPtr!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (index : UInt64) : Sim.RegionPtr :=
-  ⟨ptr.impl.readNthRegion! ctx.buf index,
+  ⟨ptr.impl.readNthRegion! (OpInfo := OpInfo) ctx.buf index,
    ptr.spec.getRegion! ctx.spec index.toNat⟩
 
 @[eq_bang, grind _=_]
@@ -906,13 +906,13 @@ theorem Sim.OperationPtr.getRegionPtr_eq_getRegionPtr! (ctx : IRContext OpInfo) 
 buffed
 def Sim.OperationPtr.getBlockOperandPtrSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (index : UInt64) (_ib : ptr.InBounds ctx) : Sim.BlockOperandPtr :=
-  ⟨ptr.impl + ptr.impl.computeBlockOperandOffset ctx.buf index (by prove_setLinkBoundsOp ctx ptr),
+  ⟨ptr.impl + ptr.impl.computeBlockOperandOffset (OpInfo := OpInfo) ctx.buf index (by prove_setLinkBoundsOp ctx ptr),
    ptr.spec.getBlockOperand index.toNat⟩
 
 buffed
 def Sim.OperationPtr.getBlockOperandPtr!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (index : UInt64) : Sim.BlockOperandPtr :=
-  ⟨ptr.impl + ptr.impl.computeBlockOperandOffset! ctx.buf index,
+  ⟨ptr.impl + ptr.impl.computeBlockOperandOffset! (OpInfo := OpInfo) ctx.buf index,
    ptr.spec.getBlockOperand index.toNat⟩
 
 @[eq_bang, grind _=_]
@@ -1946,8 +1946,8 @@ theorem Sim.BlockOperandPtr.getValue_eq_getValue! (ctx : IRContext OpInfo) ptr i
   grind
 
 @[inline]
-def Sim.BlockPtr.allocEmptyImpl (ctx₀ : Buffed.IRBufContext OpInfo) (numArgs : UInt64)
-    (hnumArgs : numArgs.toNat ≤ Buffed.countCard) : Option (Buffed.IRBufContext OpInfo × Buffed.BlockMPtr) :=
+def Sim.BlockPtr.allocEmptyImpl (ctx₀ : Buffed.IRBufContext) (numArgs : UInt64)
+    (hnumArgs : numArgs.toNat ≤ Buffed.countCard) : Option (Buffed.IRBufContext × Buffed.BlockMPtr) :=
   let size := Buffed.BlockMPtr.computeBlockSize numArgs
   let ptr : Buffed.BlockMPtr := ctx₀.usize
   rlet halloc : ctx ← ctx₀.alloc size.toUInt64
@@ -1978,7 +1978,7 @@ set_option maxHeartbeats 8000000 in
 /-- The `Sim` relation survives an empty-block allocation. -/
 theorem Sim.BlockPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo) (numArgs : UInt64)
     (hnumArgs : numArgs.toNat ≤ Buffed.countCard)
-    {ctxBuf : Buffed.IRBufContext OpInfo} {ptrImpl : Buffed.BlockMPtr}
+    {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.BlockMPtr}
     (heq : Sim.BlockPtr.allocEmptyImpl ctx.buf numArgs hnumArgs = some (ctxBuf, ptrImpl))
     {ctxSpec : Veir.IRContext OpInfo} {ptrSpec : Veir.BlockPtr}
     (hspec : Veir.BlockPtr.allocEmptyAtAddress ctx.spec numArgs.toNat ptrImpl.toNat = some (ctxSpec, ptrSpec)) :
@@ -3343,7 +3343,7 @@ theorem Sim.BlockOperandPtrPtr.setSim_spec (ctx : Sim.IRContext OpInfo) (ptr : S
 /-! Allocation of empty regions and operations. -/
 
 @[inline]
-def Sim.RegionPtr.allocEmptyImpl (ctx₀ : Buffed.IRBufContext OpInfo) : Option (Buffed.IRBufContext OpInfo × Buffed.RegionMPtr) :=
+def Sim.RegionPtr.allocEmptyImpl (ctx₀ : Buffed.IRBufContext) : Option (Buffed.IRBufContext × Buffed.RegionMPtr) :=
   let size := Buffed.Region.size
   let ptr : Buffed.RegionMPtr := ctx₀.usize
   rlet halloc : ctx ← ctx₀.alloc size
@@ -3367,7 +3367,7 @@ theorem Sim.RegionPtr.slot_free (ctx : Sim.IRContext OpInfo) :
 set_option maxHeartbeats 4000000 in
 /-- The `Sim` relation survives an empty-region allocation: given that `allocEmptyImpl` produced `ctxBuf`/`ptrImpl` and the spec allocated the matching region at `ptrImpl.toNat`, the resulting buffer and spec still simulate each other. -/
 theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
-    {ctxBuf : Buffed.IRBufContext OpInfo} {ptrImpl : Buffed.RegionMPtr}
+    {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.RegionMPtr}
     (heq : Sim.RegionPtr.allocEmptyImpl ctx.buf = some (ctxBuf, ptrImpl))
     {ctxSpec : Veir.IRContext OpInfo} {ptrSpec : Veir.RegionPtr}
     (hspec : Veir.RegionPtr.allocEmptyAt ctx.spec ptrImpl.toNat = some (ctxSpec, ptrSpec)) :
@@ -3745,13 +3745,13 @@ theorem Sim.RegionPtr.allocEmpty_spec {ctx : Sim.IRContext OpInfo} :
 
 set_option maxHeartbeats 10000000 in
 @[inline]
-def Sim.OperationPtr.allocEmptyImpl (ctx₀ : Buffed.IRBufContext OpInfo)
+def Sim.OperationPtr.allocEmptyImpl (ctx₀ : Buffed.IRBufContext)
     (numResults numOperands numBlockOperands numRegions propSize : UInt64)
     (opType : UInt32)
     (hr : numResults.toNat ≤ Buffed.countCard) (ho : numOperands.toNat ≤ Buffed.countCard)
     (hbo : numBlockOperands.toNat ≤ Buffed.countCard) (hreg : numRegions.toNat ≤ Buffed.countCard)
     (hp : propSize.toNat ≤ Buffed.countCard) :
-    Option (Buffed.IRBufContext OpInfo × Buffed.OperationMPtr) :=
+    Option (Buffed.IRBufContext × Buffed.OperationMPtr) :=
   let size := Buffed.OperationMPtr.computeOperationSize numResults numOperands numBlockOperands numRegions propSize
   -- The operation pointer points past the (back-allocated) results array.
   let ptr : Buffed.OperationMPtr := ctx₀.usize + (Buffed.OpResult.size * numResults)
@@ -3779,9 +3779,9 @@ def Sim.OperationPtr.allocEmptyImpl (ctx₀ : Buffed.IRBufContext OpInfo)
   some (ctx, ptr)
 
 /-- The operation pointer produced by `allocEmptyImpl` lies at or past the end of the buffer: its address is the old buffer size plus the back-allocated results prefix. -/
-theorem Sim.OperationPtr.allocEmptyImpl_ptr_ge {ctx₀ : Buffed.IRBufContext OpInfo}
+theorem Sim.OperationPtr.allocEmptyImpl_ptr_ge {ctx₀ : Buffed.IRBufContext}
     {numResults numOperands numBlockOperands numRegions propSize : UInt64}
-    {hr ho hbo hreg hp hc} {ctxBuf : Buffed.IRBufContext OpInfo} {ptrImpl : Buffed.OperationMPtr}
+    {hr ho hbo hreg hp hc} {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.OperationMPtr}
     (h : allocEmptyImpl ctx₀ numResults numOperands numBlockOperands numRegions propSize hc
       hr ho hbo hreg hp = some (ctxBuf, ptrImpl)) :
     ctx₀.mem.size ≤ ptrImpl.toNat := by
@@ -3802,9 +3802,9 @@ theorem Sim.OperationPtr.allocEmptyImpl_ptr_ge {ctx₀ : Buffed.IRBufContext OpI
     omega
 
 /-- Closed form of the operation pointer returned by `allocEmptyImpl`: the old buffer size plus the back-allocated results array. -/
-theorem Sim.OperationPtr.allocEmptyImpl_ptr_toNat {ctx₀ : Buffed.IRBufContext OpInfo}
+theorem Sim.OperationPtr.allocEmptyImpl_ptr_toNat {ctx₀ : Buffed.IRBufContext}
     {numResults numOperands numBlockOperands numRegions propSize : UInt64} {opType : UInt32}
-    {hr ho hbo hreg hp} {ctxBuf : Buffed.IRBufContext OpInfo} {ptrImpl : Buffed.OperationMPtr}
+    {hr ho hbo hreg hp} {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.OperationMPtr}
     (h : allocEmptyImpl ctx₀ numResults numOperands numBlockOperands numRegions propSize opType
       hr ho hbo hreg hp = some (ctxBuf, ptrImpl)) :
     ptrImpl.toNat = ctx₀.mem.size + Buffed.OpResult.size.toNat * numResults.toNat := by
@@ -3825,9 +3825,9 @@ theorem Sim.OperationPtr.allocEmptyImpl_ptr_toNat {ctx₀ : Buffed.IRBufContext 
     omega
 
 /-- `allocEmptyImpl` only touches `mem`; the attribute table is unchanged. -/
-theorem Sim.OperationPtr.allocEmptyImpl_attributes {ctx₀ : Buffed.IRBufContext OpInfo}
+theorem Sim.OperationPtr.allocEmptyImpl_attributes {ctx₀ : Buffed.IRBufContext}
     {numResults numOperands numBlockOperands numRegions propSize : UInt64} {opType : UInt32}
-    {hr ho hbo hreg hp} {ctxBuf : Buffed.IRBufContext OpInfo} {ptrImpl : Buffed.OperationMPtr}
+    {hr ho hbo hreg hp} {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.OperationMPtr}
     (h : allocEmptyImpl ctx₀ numResults numOperands numBlockOperands numRegions propSize opType
       hr ho hbo hreg hp = some (ctxBuf, ptrImpl)) :
     ctxBuf.attributes = ctx₀.attributes := by
@@ -3843,9 +3843,9 @@ theorem Sim.OperationPtr.allocEmptyImpl_attributes {ctx₀ : Buffed.IRBufContext
     · exact absurd halloc (by simp)
 
 /-- `allocEmptyImpl` grows the buffer by exactly the computed operation size. -/
-theorem Sim.OperationPtr.allocEmptyImpl_size {ctx₀ : Buffed.IRBufContext OpInfo}
+theorem Sim.OperationPtr.allocEmptyImpl_size {ctx₀ : Buffed.IRBufContext}
     {numResults numOperands numBlockOperands numRegions propSize : UInt64} {opType : UInt32}
-    {hr ho hbo hreg hp} {ctxBuf : Buffed.IRBufContext OpInfo} {ptrImpl : Buffed.OperationMPtr}
+    {hr ho hbo hreg hp} {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.OperationMPtr}
     (h : allocEmptyImpl ctx₀ numResults numOperands numBlockOperands numRegions propSize opType
       hr ho hbo hreg hp = some (ctxBuf, ptrImpl)) :
     ctxBuf.mem.size = ctx₀.mem.size +
@@ -3864,9 +3864,9 @@ theorem Sim.OperationPtr.allocEmptyImpl_size {ctx₀ : Buffed.IRBufContext OpInf
       Buffed.OperationMPtr.writePrev_size, Buffed.OperationMPtr.writeOpType_size]
 
 /-- 64-bit reads that lie entirely inside the old buffer are unchanged by `allocEmptyImpl`: the fresh operation is written past the old buffer end. -/
-theorem Sim.OperationPtr.allocEmptyImpl_read64_old {ctx₀ : Buffed.IRBufContext OpInfo}
+theorem Sim.OperationPtr.allocEmptyImpl_read64_old {ctx₀ : Buffed.IRBufContext}
     {numResults numOperands numBlockOperands numRegions propSize : UInt64} {opType : UInt32}
-    {hr ho hbo hreg hp} {ctxBuf : Buffed.IRBufContext OpInfo} {ptrImpl : Buffed.OperationMPtr}
+    {hr ho hbo hreg hp} {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.OperationMPtr}
     (h : allocEmptyImpl ctx₀ numResults numOperands numBlockOperands numRegions propSize opType
       hr ho hbo hreg hp = some (ctxBuf, ptrImpl))
     (n : UInt64) (hn : n.toNat + 8 ≤ ctx₀.mem.size) :
@@ -3916,9 +3916,9 @@ theorem Sim.OperationPtr.allocEmptyImpl_read64_old {ctx₀ : Buffed.IRBufContext
     · exact absurd halloc (by simp)
 
 /-- 32-bit variant of `allocEmptyImpl_read64_old`. -/
-theorem Sim.OperationPtr.allocEmptyImpl_read32_old {ctx₀ : Buffed.IRBufContext OpInfo}
+theorem Sim.OperationPtr.allocEmptyImpl_read32_old {ctx₀ : Buffed.IRBufContext}
     {numResults numOperands numBlockOperands numRegions propSize : UInt64} {opType : UInt32}
-    {hr ho hbo hreg hp} {ctxBuf : Buffed.IRBufContext OpInfo} {ptrImpl : Buffed.OperationMPtr}
+    {hr ho hbo hreg hp} {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.OperationMPtr}
     (h : allocEmptyImpl ctx₀ numResults numOperands numBlockOperands numRegions propSize opType
       hr ho hbo hreg hp = some (ctxBuf, ptrImpl))
     (n : UInt64) (hn : n.toNat + 4 ≤ ctx₀.mem.size) :
@@ -3968,9 +3968,9 @@ theorem Sim.OperationPtr.allocEmptyImpl_read32_old {ctx₀ : Buffed.IRBufContext
     · exact absurd halloc (by simp)
 
 /-- The header fields of the freshly allocated operation read back as written: the counts are the requested capacities, the links are `none`, the opType is the encoded opcode, and the `attrs` slot is still zero-initialized (pointing at the canonical empty dictionary). -/
-theorem Sim.OperationPtr.allocEmptyImpl_new_op_reads {ctx₀ : Buffed.IRBufContext OpInfo}
+theorem Sim.OperationPtr.allocEmptyImpl_new_op_reads {ctx₀ : Buffed.IRBufContext}
     {numResults numOperands numBlockOperands numRegions propSize : UInt64} {opType : UInt32}
-    {hr ho hbo hreg hp} {ctxBuf : Buffed.IRBufContext OpInfo} {ptrImpl : Buffed.OperationMPtr}
+    {hr ho hbo hreg hp} {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.OperationMPtr}
     (h : allocEmptyImpl ctx₀ numResults numOperands numBlockOperands numRegions propSize opType
       hr ho hbo hreg hp = some (ctxBuf, ptrImpl)) :
     Buffed.OperationMPtr.readNumResults! ctxBuf ptrImpl = numResults ∧
@@ -4179,7 +4179,7 @@ theorem Sim.OperationPtr.allocEmpty_sim {ctx : Sim.IRContext OpInfo} {opType : O
     {h₁ : numResults.toNat ≤ countCard} {h₂ : numOperands.toNat ≤ countCard}
     {h₃ : numBlockOperands.toNat ≤ countCard} {h₄ : numRegions.toNat ≤ countCard}
     {hp : (HasDialectOpInfo.propertySize opType).toNat ≤ countCard}
-    {ctxBuf : Buffed.IRBufContext OpInfo} {ptrImpl : Buffed.OperationMPtr}
+    {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.OperationMPtr}
     {ctxSpec : Veir.IRContext OpInfo} {ptrSpec : Veir.OperationPtr}
     (heqImpl : allocEmptyImpl ctx.buf numResults numOperands numBlockOperands numRegions
       (HasDialectOpInfo.propertySize opType) (SerializableOpInfo.encode opType)

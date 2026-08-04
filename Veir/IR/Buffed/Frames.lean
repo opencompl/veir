@@ -25,14 +25,14 @@ variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo]
 /-- `buf'` reads identically to `buf` everywhere inside `[lo, hi)`, and every attribute
 lookup that succeeds in `buf` returns the same value in `buf'` (so the table may have
 grown, e.g. by an `insertAttrs` push). -/
-structure Buffed.AgreesOn (buf' buf : IRBufContext OpInfo) (lo hi : Nat) : Prop where
+structure Buffed.AgreesOn (buf' buf : IRBufContext) (lo hi : Nat) : Prop where
   read64 : ∀ (a : UInt64), lo ≤ a.toNat → a.toNat + 8 ≤ hi → buf'.mem.read64! a = buf.mem.read64! a
   read32 : ∀ (a : UInt64), lo ≤ a.toNat → a.toNat + 4 ≤ hi → buf'.mem.read32! a = buf.mem.read32! a
   attrs : ∀ (i : Nat) (a : Attribute), buf.attributes[i]? = some a → buf'.attributes[i]? = some a
 
 /-- A single-`blit64` write agrees with the original buffer on any range disjoint from the
 written word — the one brick every scalar setter needs to feed a `Matches` frame lemma. -/
-theorem Buffed.agreesOn_blit64 (bctx : IRBufContext OpInfo) (p v : UInt64) (hb) (lo hi : Nat)
+theorem Buffed.agreesOn_blit64 (bctx : IRBufContext) (p v : UInt64) (hb) (lo hi : Nat)
     (hd : hi ≤ p.toNat ∨ p.toNat + 8 ≤ lo) :
     AgreesOn { bctx with mem := bctx.mem.blit64 p v hb } bctx lo hi := by
   refine ⟨fun a h1 h2 => ?_, fun a h1 h2 => ?_, fun _ _ h => h⟩
@@ -41,7 +41,7 @@ theorem Buffed.agreesOn_blit64 (bctx : IRBufContext OpInfo) (p v : UInt64) (hb) 
 
 /-- Restrict an agreement to a subrange — the bridge from an allocation's
 whole-old-buffer agreement to the per-record windows the frame lemmas expect. -/
-theorem Buffed.AgreesOn.mono {buf' buf : IRBufContext OpInfo} {lo hi lo' hi' : Nat}
+theorem Buffed.AgreesOn.mono {buf' buf : IRBufContext} {lo hi lo' hi' : Nat}
     (h : AgreesOn buf' buf lo hi) (hlo : lo ≤ lo') (hhi : hi' ≤ hi) :
     AgreesOn buf' buf lo' hi' :=
   ⟨fun a h1 h2 => h.read64 a (by omega) (by omega),
@@ -267,7 +267,7 @@ end Sim
 /-- `OpOperandPtr.Matches` survives any buffer change that agrees on the slot's 32-byte
 footprint and any layout-preserving spec change that fixes the slot value. -/
 theorem OpOperandPtr.matches_frame (ctx : Sim.IRContext OpInfo)
-    {buf' : Buffed.IRBufContext OpInfo} {spec' : IRContext OpInfo}
+    {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
     (oper : OpOperandPtr) (ib : oper.InBounds ctx.spec)
     (hm : oper.Matches ⟨ctx.buf, ctx.spec⟩ ib)
     (hagree : Buffed.AgreesOn buf' ctx.buf (oper.toFlatNat ctx.spec) (oper.toFlatNat ctx.spec + 32))
@@ -303,7 +303,7 @@ theorem OpOperandPtr.matches_frame (ctx : Sim.IRContext OpInfo)
 /-- `BlockOperandPtr.Matches` survives any buffer change agreeing on the slot's 32-byte
 footprint and any layout-preserving spec change fixing the slot value. -/
 theorem BlockOperandPtr.matches_frame (ctx : Sim.IRContext OpInfo)
-    {buf' : Buffed.IRBufContext OpInfo} {spec' : IRContext OpInfo}
+    {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
     (oper : BlockOperandPtr) (ib : oper.InBounds ctx.spec)
     (hm : oper.Matches ⟨ctx.buf, ctx.spec⟩ ib)
     (hagree : Buffed.AgreesOn buf' ctx.buf (oper.toFlatNat ctx.spec) (oper.toFlatNat ctx.spec + 32))
@@ -338,7 +338,7 @@ theorem BlockOperandPtr.matches_frame (ctx : Sim.IRContext OpInfo)
 /-- `OpResultPtr.Matches` survives any buffer change agreeing on the slot's 40-byte
 footprint and any layout-preserving spec change fixing the slot value. -/
 theorem OpResultPtr.matches_frame (ctx : Sim.IRContext OpInfo)
-    {buf' : Buffed.IRBufContext OpInfo} {spec' : IRContext OpInfo}
+    {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
     (res : OpResultPtr) (ib : res.InBounds ctx.spec)
     (hm : OpResultPtr.Matches ⟨ctx.buf, ctx.spec⟩ res ib)
     (hagree : Buffed.AgreesOn buf' ctx.buf (res.toFlatNat ctx.spec) (res.toFlatNat ctx.spec + 40))
@@ -377,7 +377,7 @@ theorem OpResultPtr.matches_frame (ctx : Sim.IRContext OpInfo)
 footprint (`loc` is 0-sized, so the slot is ValueImpl + index + owner) and any
 layout-preserving spec change fixing the slot value. -/
 theorem BlockArgumentPtr.matches_frame (ctx : Sim.IRContext OpInfo)
-    {buf' : Buffed.IRBufContext OpInfo} {spec' : IRContext OpInfo}
+    {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
     (arg : BlockArgumentPtr) (ib : arg.InBounds ctx.spec)
     (hm : BlockArgumentPtr.Matches ⟨ctx.buf, ctx.spec⟩ arg ib)
     (hagree : Buffed.AgreesOn buf' ctx.buf arg.toFlatNat (arg.toFlatNat + 40))
@@ -416,7 +416,7 @@ theorem BlockArgumentPtr.matches_frame (ctx : Sim.IRContext OpInfo)
 /-- `OperationPtr.MatchesBase` survives any buffer change agreeing on the 72-byte header
 and any layout-preserving spec change fixing the op. -/
 theorem OperationPtr.matchesBase_frame (ctx : Sim.IRContext OpInfo)
-    {buf' : Buffed.IRBufContext OpInfo} {spec' : IRContext OpInfo}
+    {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
     (op : OperationPtr) (ib : op.InBounds ctx.spec)
     (hm : OperationPtr.MatchesBase ⟨ctx.buf, ctx.spec⟩ op ib)
     (hagree : Buffed.AgreesOn buf' ctx.buf op.id (op.id + 72))
@@ -452,7 +452,7 @@ theorem OperationPtr.matchesBase_frame (ctx : Sim.IRContext OpInfo)
 /-- `BlockPtr.MatchesBase` survives any buffer change agreeing on the 56-byte header and
 any layout-preserving spec change fixing the block. -/
 theorem BlockPtr.matchesBase_frame (ctx : Sim.IRContext OpInfo)
-    {buf' : Buffed.IRBufContext OpInfo} {spec' : IRContext OpInfo}
+    {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
     (bl : BlockPtr) (ib : bl.InBounds ctx.spec)
     (hm : BlockPtr.MatchesBase ⟨ctx.buf, ctx.spec⟩ bl ib)
     (hagree : Buffed.AgreesOn buf' ctx.buf bl.id (bl.id + 56))
@@ -494,7 +494,7 @@ theorem BlockPtr.matchesBase_frame (ctx : Sim.IRContext OpInfo)
 /-- `RegionPtr.Matches` survives any buffer change agreeing on the 24-byte region record
 and any layout-preserving spec change fixing the region. -/
 theorem RegionPtr.matches_frame (ctx : Sim.IRContext OpInfo)
-    {buf' : Buffed.IRBufContext OpInfo} {spec' : IRContext OpInfo}
+    {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
     (rg : RegionPtr) (ib : rg.InBounds ctx.spec)
     (hm : rg.Matches ⟨ctx.buf, ctx.spec⟩ ib)
     (hagree : Buffed.AgreesOn buf' ctx.buf rg.id (rg.id + 24))
@@ -522,7 +522,7 @@ the same parent — needed when the written field and the count share a header) 
 /-- The `capResults` count survives any buffer change agreeing on the count's word at
 offset 0 of the header. -/
 theorem OperationPtr.numResults_frame (ctx : Sim.IRContext OpInfo)
-    {buf' : Buffed.IRBufContext OpInfo} {spec' : IRContext OpInfo}
+    {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
     (op : OperationPtr) (ib : op.InBounds ctx.spec)
     (hm : (op.get! ctx.spec).capResults = (op.toM.readNumResults! ctx.buf).toNat)
     (hagree : Buffed.AgreesOn buf' ctx.buf op.id (op.id + 8))
@@ -537,7 +537,7 @@ theorem OperationPtr.numResults_frame (ctx : Sim.IRContext OpInfo)
 /-- The `capBlockOperands` count survives any buffer change agreeing on the count's word
 at offset 40 of the header. -/
 theorem OperationPtr.numBlockOperands_frame (ctx : Sim.IRContext OpInfo)
-    {buf' : Buffed.IRBufContext OpInfo} {spec' : IRContext OpInfo}
+    {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
     (op : OperationPtr) (ib : op.InBounds ctx.spec)
     (hm : (op.get! ctx.spec).capBlockOperands = (op.toM.readNumBlockOperands! ctx.buf).toNat)
     (hagree : Buffed.AgreesOn buf' ctx.buf (op.id + 40) (op.id + 48))
@@ -552,7 +552,7 @@ theorem OperationPtr.numBlockOperands_frame (ctx : Sim.IRContext OpInfo)
 /-- The `capRegions` count survives any buffer change agreeing on the count's word at
 offset 48 of the header. -/
 theorem OperationPtr.numRegions_frame (ctx : Sim.IRContext OpInfo)
-    {buf' : Buffed.IRBufContext OpInfo} {spec' : IRContext OpInfo}
+    {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
     (op : OperationPtr) (ib : op.InBounds ctx.spec)
     (hm : (op.get! ctx.spec).capRegions = (op.toM.readNumRegions! ctx.buf).toNat)
     (hagree : Buffed.AgreesOn buf' ctx.buf (op.id + 48) (op.id + 56))
@@ -567,7 +567,7 @@ theorem OperationPtr.numRegions_frame (ctx : Sim.IRContext OpInfo)
 /-- The `capOperands` count survives any buffer change agreeing on the count's word at
 offset 56 of the header. -/
 theorem OperationPtr.numOperands_frame (ctx : Sim.IRContext OpInfo)
-    {buf' : Buffed.IRBufContext OpInfo} {spec' : IRContext OpInfo}
+    {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
     (op : OperationPtr) (ib : op.InBounds ctx.spec)
     (hm : (op.get! ctx.spec).capOperands = (op.toM.readNumOperands! ctx.buf).toNat)
     (hagree : Buffed.AgreesOn buf' ctx.buf (op.id + 56) (op.id + 64))
@@ -582,7 +582,7 @@ theorem OperationPtr.numOperands_frame (ctx : Sim.IRContext OpInfo)
 /-- The `capArguments` count survives any buffer change agreeing on the count's word at
 offset 48 of the block header. -/
 theorem BlockPtr.numArguments_frame (ctx : Sim.IRContext OpInfo)
-    {buf' : Buffed.IRBufContext OpInfo} {spec' : IRContext OpInfo}
+    {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
     (bl : BlockPtr) (ib : bl.InBounds ctx.spec)
     (hm : (bl.get! ctx.spec).capArguments = (Buffed.BlockMPtr.readNumArguments! ctx.buf bl.toM).toNat)
     (hagree : Buffed.AgreesOn buf' ctx.buf (bl.id + 48) (bl.id + 56))
@@ -601,10 +601,10 @@ words feeding `computeRegionsOffset!` (`opType`, `numBlockOperands`, `numOperand
 inside `[op.id + 32, op.id + 64)`) and on the slot's word in the region array, plus any
 spec change fixing the region value. -/
 theorem OperationPtr.nthRegion_frame (ctx : Sim.IRContext OpInfo)
-    {buf' : Buffed.IRBufContext OpInfo} {spec' : IRContext OpInfo}
+    {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
     (op : OperationPtr) (ib : op.InBounds ctx.spec) (idx : Nat)
     (hnr : idx < op.getNumRegions! ctx.spec)
-    (hm : Sim.RegionPtr.Sim ⟨Buffed.OperationMPtr.readNthRegion! ctx.buf op.toM idx.toUInt64, op.getRegion! ctx.spec idx⟩)
+    (hm : Sim.RegionPtr.Sim ⟨Buffed.OperationMPtr.readNthRegion! (OpInfo := OpInfo) ctx.buf op.toM idx.toUInt64, op.getRegion! ctx.spec idx⟩)
     (hagreeHdr : Buffed.AgreesOn buf' ctx.buf (op.id + 32) (op.id + 64))
     (hagreeArr : Buffed.AgreesOn buf' ctx.buf
       (op.id + 72 + (Buffed.Operation.propertySize (op.getOpType! ctx.spec)).toNat
@@ -612,7 +612,7 @@ theorem OperationPtr.nthRegion_frame (ctx : Sim.IRContext OpInfo)
       (op.id + 72 + (Buffed.Operation.propertySize (op.getOpType! ctx.spec)).toNat
         + 32 * (op.get! ctx.spec).capOperands + 32 * (op.get! ctx.spec).capBlockOperands + 8 * idx + 8))
     (hreg : op.getRegion! spec' idx = op.getRegion! ctx.spec idx) :
-    Sim.RegionPtr.Sim ⟨Buffed.OperationMPtr.readNthRegion! buf' op.toM idx.toUInt64, op.getRegion! spec' idx⟩ := by
+    Sim.RegionPtr.Sim ⟨Buffed.OperationMPtr.readNthRegion! (OpInfo := OpInfo) buf' op.toM idx.toUInt64, op.getRegion! spec' idx⟩ := by
   have hrepr := ctx.sim.repr.operations op ib
   have hind := ctx.sim.repr.operations_indices op ib
   have hidx : idx < (op.get! ctx.spec).capRegions := by
@@ -627,20 +627,20 @@ theorem OperationPtr.nthRegion_frame (ctx : Sim.IRContext OpInfo)
     (by grind [Veir.OperationPtr.toM]) (by grind [Veir.OperationPtr.toM])
   have hoo := hagreeHdr.read64 (op.toM + Buffed.Operation.Offsets.numOperands)
     (by grind [Veir.OperationPtr.toM]) (by grind [Veir.OperationPtr.toM])
-  have hoff : Buffed.OperationMPtr.computeRegionsOffset! buf' op.toM
-      = Buffed.OperationMPtr.computeRegionsOffset! ctx.buf op.toM := by
+  have hoff : Buffed.OperationMPtr.computeRegionsOffset! (OpInfo := OpInfo) buf' op.toM
+      = Buffed.OperationMPtr.computeRegionsOffset! (OpInfo := OpInfo) ctx.buf op.toM := by
     simp only [Buffed.OperationMPtr.computeRegionsOffset!,
       Buffed.OperationMPtr.computeBlockOperandsOffset!, Buffed.OperationMPtr.computeOperandsOffset!]
     grind [Buffed.OperationMPtr.readOpType!, Buffed.OperationMPtr.readNumOperands!,
       Buffed.OperationMPtr.readNumBlockOperands!]
   have hplus := OperationPtr.computeRegionsOffet!_plus_offset_eq_regionsInt ctx op ib
     (idx := idx.toUInt64) (by grind)
-  have haddr : ((op.toM + (Buffed.OperationMPtr.computeRegionsOffset! ctx.buf op.toM + Buffed.ptrSize * idx.toUInt64)).toNat : Int)
+  have haddr : ((op.toM + (Buffed.OperationMPtr.computeRegionsOffset! (OpInfo := OpInfo) ctx.buf op.toM + Buffed.ptrSize * idx.toUInt64)).toNat : Int)
       = op.id + (Buffed.Operation.Offsets.regionsInt op ctx.spec + Buffed.ptrSizeNat * idx) := by
     rw [UInt64.uint64_add_int64_toNat_lt] <;>
       grind [Veir.OperationPtr.toM, Veir.OperationPtr.toFlat]
   have harr := hagreeArr.read64
-    (op.toM + (Buffed.OperationMPtr.computeRegionsOffset! ctx.buf op.toM + Buffed.ptrSize * idx.toUInt64))
+    (op.toM + (Buffed.OperationMPtr.computeRegionsOffset! (OpInfo := OpInfo) ctx.buf op.toM + Buffed.ptrSize * idx.toUInt64))
     (by grind) (by grind)
   simp only [Buffed.OperationMPtr.readNthRegion!, Buffed.OperationMPtr.computeRegionOffset!] at hm ⊢
   rw [Sim.RegionPtr.Sim_def] at hm ⊢

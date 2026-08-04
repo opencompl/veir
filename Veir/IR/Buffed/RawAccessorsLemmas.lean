@@ -10,7 +10,7 @@ namespace Veir.Buffed
 
 section range
 
-variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] {bctx : IRBufContext OpInfo}
+variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] {bctx : IRBufContext}
 
 @[simp, grind =]
 theorem ValueImplMPtr.writeKind_range :
@@ -266,11 +266,11 @@ theorem OperationMPtr.writeAttrs_size :
 
 @[simp, grind =]
 theorem OperationMPtr.writeNthRegion_range :
-    (OperationMPtr.writeNthRegion bctx ptr idx val h₁ h₂).mem.range = bctx.mem.range := by
+    (OperationMPtr.writeNthRegion (OpInfo := OpInfo) bctx ptr idx val h₁ h₂).mem.range = bctx.mem.range := by
   simp [writeNthRegion]
 @[simp, grind =]
 theorem OperationMPtr.writeNthRegion_size :
-    (OperationMPtr.writeNthRegion bctx ptr idx val h₁ h₂).mem.size = bctx.mem.size := by
+    (OperationMPtr.writeNthRegion (OpInfo := OpInfo) bctx ptr idx val h₁ h₂).mem.size = bctx.mem.size := by
   simp [writeNthRegion]
 
 @[simp, grind =]

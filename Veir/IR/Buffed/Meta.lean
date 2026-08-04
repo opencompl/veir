@@ -952,7 +952,7 @@ private structure ParamPlan where
   structType? : Option Term := none
   /-- For a split parameter, the structure's constructor (e.g. `Sim.IRContext.mk`), used to spell the reconstructed value. -/
   ctorName? : Option Name := none
-  /-- For a split parameter, each field's type as syntax (`#[IRBufContext OpInfo, IRContext OpInfo, Sim ctx_buf GHOST_ctx_spec]`), used as the generated impl field-parameter types. -/
+  /-- For a split parameter, each field's type as syntax (`#[IRBufContext, IRContext OpInfo, Sim ctx_buf GHOST_ctx_spec]`), used as the generated impl field-parameter types. -/
   fieldTypes : Array Term := #[]
 
 /-- Classify each explicit parameter of `funcSim` for the recursive body rewrite. -/
@@ -1026,7 +1026,7 @@ private meta partial def substSplitIdents (plans : Array ParamPlan) (stx : Synta
 /-- Build the recursive impl's `def` binders + return type. -/
 private meta def buffedImplSig (declName : Name) (plans : Array ParamPlan) (defn : Syntax)
     : CommandElabM (Array Syntax × Term) := do
-  -- Return type: field-0 projection of the source return (e.g. `Option (IRBufContext OpInfo)`).
+  -- Return type: field-0 projection of the source return (e.g. `Option (IRBufContext)`).
   let (_, implType, _, _) ← liftCoreM <| MetaM.run' (Veir.Buffed.buildBuffedImpl declName)
   let retTy ← liftTermElabM <| Meta.forallTelescopeReducing implType fun _ body =>
     PrettyPrinter.delab body

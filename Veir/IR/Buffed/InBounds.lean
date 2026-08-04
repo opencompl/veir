@@ -91,7 +91,7 @@ theorem OperationPtr.getOpOperand_veir_inBounds (op : OperationPtr)
 theorem OperationPtr.getOpOperand_toM (op : OperationPtr)
     (hop : op.InBounds ctx) (i : UInt64) (h₂ : i.toNat < op.spec.getNumOperands! ctx.spec) :
     (op.spec.getOpOperand i.toNat).toM ctx.spec
-      = op.impl + Buffed.OperationMPtr.computeOperandOffset! ctx.buf op.impl i := by
+      = op.impl + Buffed.OperationMPtr.computeOperandOffset! (OpInfo := OpInfo) ctx.buf op.impl i := by
   have hsim := hop.sim
   have hib := hop.ib
   have hri := ctx.sim.repr.operations_indices op.spec hib
@@ -99,12 +99,12 @@ theorem OperationPtr.getOpOperand_toM (op : OperationPtr)
   have hsize : ctx.buf.mem.size < 2^63 := by grind
   have hoib := OperationPtr.getOpOperand_veir_inBounds op hop i h₂
   have haop := Sim.OpOperandPtr.after_lt_ctx (ctx := ctx) (op.spec.getOpOperand i.toNat) hoib
-  have hplus : (Buffed.OperationMPtr.computeOperandOffset! ctx.buf op.impl i).toInt
+  have hplus : (Buffed.OperationMPtr.computeOperandOffset! (OpInfo := OpInfo) ctx.buf op.impl i).toInt
       = Buffed.Operation.Offsets.operandsInt op.spec ctx.spec + Buffed.OpOperand.sizeNat * i.toNat := by
     simp only [Buffed.OperationMPtr.computeOperandOffset!]
     rw [Int64.add_toInt_lt'] <;>
       grind [layout_grind, UInt64.toNat_mul, OperationPtr.computeOperandsOffset!_ideal]
-  have haddr : ((op.impl + Buffed.OperationMPtr.computeOperandOffset! ctx.buf op.impl i).toNat : Int)
+  have haddr : ((op.impl + Buffed.OperationMPtr.computeOperandOffset! (OpInfo := OpInfo) ctx.buf op.impl i).toNat : Int)
       = op.impl.toNat + (Buffed.Operation.Offsets.operandsInt op.spec ctx.spec + Buffed.OpOperand.sizeNat * i.toNat) := by
     rw [UInt64.uint64_add_int64_toNat_lt] <;> grind [layout_grind]
   rw [← UInt64.toNat_inj]
@@ -130,7 +130,7 @@ theorem OperationPtr.getBlockOperand_veir_inBounds (op : OperationPtr)
 theorem OperationPtr.getBlockOperand_toM (op : OperationPtr)
     (hop : op.InBounds ctx) (i : UInt64) (h₂ : i.toNat < op.spec.getNumSuccessors! ctx.spec) :
     (op.spec.getBlockOperand i.toNat).toM ctx.spec
-      = op.impl + Buffed.OperationMPtr.computeBlockOperandOffset! ctx.buf op.impl i := by
+      = op.impl + Buffed.OperationMPtr.computeBlockOperandOffset! (OpInfo := OpInfo) ctx.buf op.impl i := by
   have hsim := hop.sim
   have hib := hop.ib
   have hri := ctx.sim.repr.operations_indices op.spec hib
@@ -138,12 +138,12 @@ theorem OperationPtr.getBlockOperand_toM (op : OperationPtr)
   have hsize : ctx.buf.mem.size < 2^63 := by grind
   have hoib := OperationPtr.getBlockOperand_veir_inBounds op hop i h₂
   have haop := Sim.BlockOperandPtr.after_lt_ctx (ctx := ctx) (op.spec.getBlockOperand i.toNat) hoib
-  have hplus : (Buffed.OperationMPtr.computeBlockOperandOffset! ctx.buf op.impl i).toInt
+  have hplus : (Buffed.OperationMPtr.computeBlockOperandOffset! (OpInfo := OpInfo) ctx.buf op.impl i).toInt
       = Buffed.Operation.Offsets.blockOperandsInt op.spec ctx.spec + Buffed.BlockOperand.sizeNat * i.toNat := by
     simp only [Buffed.OperationMPtr.computeBlockOperandOffset!]
     rw [Int64.add_toInt_lt'] <;>
       grind [layout_grind, UInt64.toNat_mul, OperationPtr.computeBlockOperandsOffset!_ideal]
-  have haddr : ((op.impl + Buffed.OperationMPtr.computeBlockOperandOffset! ctx.buf op.impl i).toNat : Int)
+  have haddr : ((op.impl + Buffed.OperationMPtr.computeBlockOperandOffset! (OpInfo := OpInfo) ctx.buf op.impl i).toNat : Int)
       = op.impl.toNat + (Buffed.Operation.Offsets.blockOperandsInt op.spec ctx.spec + Buffed.BlockOperand.sizeNat * i.toNat) := by
     rw [UInt64.uint64_add_int64_toNat_lt] <;> grind [layout_grind]
   rw [← UInt64.toNat_inj]

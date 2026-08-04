@@ -23,10 +23,10 @@ variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo]
 variable {ctx : Sim.IRContext OpInfo}
 
 @[inline]
-protected def Rewriter.setResult (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffed.IRBufContext OpInfo) (idx : UInt64)
+protected def Rewriter.setResult (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffed.IRBufContext) (idx : UInt64)
     (hnum : (opPtr + Buffed.Operation.Offsets.numResults).toInt + Buffed.Operation.Sizes.numResults.toInt ≤ ctx₀.size)
     (hslot : (opPtr.getResultPtr ctx₀ idx hnum).toNat + Buffed.OpResult.size.toNat ≤ ctx₀.size)
-    (type : TypeAttr) : Option (Buffed.IRBufContext OpInfo) :=
+    (type : TypeAttr) : Option (Buffed.IRBufContext) :=
   let res := opPtr.getResultPtr ctx₀ idx hnum
   rlet hattr : (ctx, typeIdx) ← ctx₀.insertAttrs type
   have hsz : ctx.size = ctx₀.size := ctx₀.insertAttrs_size hattr
@@ -53,7 +53,7 @@ theorem Rewriter.setResult_pushResult_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
     (hcap : idx.toNat < (opPtr.spec.get! ctx.spec).capResults)
     (hnum : (opPtr.impl + Buffed.Operation.Offsets.numResults).toInt + Buffed.Operation.Sizes.numResults.toInt ≤ ctx.buf.size)
     (hslot : (Buffed.OperationMPtr.getResultPtr ctx.buf opPtr.impl idx hnum).toNat + Buffed.OpResult.size.toNat ≤ ctx.buf.size)
-    {bufctx : Buffed.IRBufContext OpInfo}
+    {bufctx : Buffed.IRBufContext}
     (heq : Rewriter.setResult opPtr.impl ctx.buf idx hnum hslot type = some bufctx) :
     Veir.Sim ⟨bufctx, Rewriter.pushResult ctx.spec opPtr.spec type (by grind)⟩ := by
   simp only [Rewriter.setResult] at heq

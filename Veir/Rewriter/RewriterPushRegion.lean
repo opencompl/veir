@@ -31,14 +31,14 @@ def Rewriter.pushRegion (ctx : IRContext OpInfo) (op : OperationPtr) (region : R
   op.pushRegion ctx region
 
 @[inline]
-protected def Rewriter.setRegion (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffed.IRBufContext OpInfo) (idx : UInt64)
+protected def Rewriter.setRegion (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffed.IRBufContext) (idx : UInt64)
     (region : Buffed.RegionMPtr)
     (hregion : (region + Buffed.Region.Offsets.parent).toInt + Buffed.Region.Sizes.parent.toInt ≤ ctx₀.size)
     (hnum : opPtr.toNat + Buffed.Operation.sizeBaseNat ≤ ctx₀.size)
-    (hslot : (opPtr + opPtr.computeRegionOffset ctx₀ idx hnum).toNat + Buffed.ptrSize.toNat ≤ ctx₀.size) :
-    Buffed.IRBufContext OpInfo :=
+    (hslot : (opPtr + opPtr.computeRegionOffset (OpInfo := OpInfo) ctx₀ idx hnum).toNat + Buffed.ptrSize.toNat ≤ ctx₀.size) :
+    Buffed.IRBufContext :=
   -- Compute the region slot from `ctx₀` (the region-`writeParent` below touches the region, not the operation's count fields, so the offset is the same), then write the parent link and blit the region pointer into the slot.
-  let slot := opPtr + opPtr.computeRegionOffset ctx₀ idx hnum
+  let slot := opPtr + opPtr.computeRegionOffset (OpInfo := OpInfo) ctx₀ idx hnum
   let ctx := region.writeParent ctx₀ opPtr hregion
   let mem := ctx.mem.blit64 slot region (by
     have hb := ctx₀.mem.fits_in_memory
@@ -57,7 +57,7 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
     (hcap : idx.toNat < (opPtr.spec.get! ctx.spec).capRegions)
     (hregion : (region.impl + Buffed.Region.Offsets.parent).toInt + Buffed.Region.Sizes.parent.toInt ≤ ctx.buf.size)
     (hnum : opPtr.impl.toNat + Buffed.Operation.sizeBaseNat ≤ ctx.buf.size)
-    (hslot : (opPtr.impl + Buffed.OperationMPtr.computeRegionOffset ctx.buf opPtr.impl idx hnum).toNat
+    (hslot : (opPtr.impl + Buffed.OperationMPtr.computeRegionOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat
       + Buffed.ptrSize.toNat ≤ ctx.buf.size) :
     Veir.Sim ⟨Rewriter.setRegion opPtr.impl ctx.buf idx region.impl hregion hnum hslot,
               Rewriter.pushRegion ctx.spec opPtr.spec region.spec (by grind) (by grind) (by grind)⟩ := by
@@ -80,7 +80,7 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
     have := regionInBounds.sim
     simp only [Sim.RegionPtr.Sim_def, RegionPtr.toM] at this
     grind [RegionPtr.toFlat, RegionPtr.range]
-  have hslotaddr : ((opPtr.impl + Buffed.OperationMPtr.computeRegionOffset ctx.buf opPtr.impl idx hnum).toNat : Int)
+  have hslotaddr : ((opPtr.impl + Buffed.OperationMPtr.computeRegionOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat : Int)
       = opPtr.spec.toFlat + (Buffed.Operation.Offsets.regionsInt opPtr.spec ctx.spec + Buffed.ptrSizeNat * idx.toNat) := by
     simp only [Buffed.OperationMPtr.computeRegionOffset,
       Buffed.OperationMPtr.computeRegionsOffset_eq_computeRegionsOffset!]
@@ -91,8 +91,8 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
   have hdOR := ctx.sim.disjoint_allocs (.operation opPtr.spec) (.region region.spec)
     (by grind) (by grind) (by simp)
   have hread : ∀ (a : UInt64),
-      (a.toNat + 8 ≤ (opPtr.impl + Buffed.OperationMPtr.computeRegionOffset ctx.buf opPtr.impl idx hnum).toNat
-       ∨ (opPtr.impl + Buffed.OperationMPtr.computeRegionOffset ctx.buf opPtr.impl idx hnum).toNat + 8 ≤ a.toNat) →
+      (a.toNat + 8 ≤ (opPtr.impl + Buffed.OperationMPtr.computeRegionOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat
+       ∨ (opPtr.impl + Buffed.OperationMPtr.computeRegionOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat + 8 ≤ a.toNat) →
       (a.toNat + 8 ≤ (region.impl + Buffed.Region.Offsets.parent).toNat
        ∨ (region.impl + Buffed.Region.Offsets.parent).toNat + 8 ≤ a.toNat) →
       (Rewriter.setRegion opPtr.impl ctx.buf idx region.impl hregion hnum hslot).mem.read64! a
@@ -102,8 +102,8 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
     rw [ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
       ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega)]
   have hread32 : ∀ (a : UInt64),
-      (a.toNat + 4 ≤ (opPtr.impl + Buffed.OperationMPtr.computeRegionOffset ctx.buf opPtr.impl idx hnum).toNat
-       ∨ (opPtr.impl + Buffed.OperationMPtr.computeRegionOffset ctx.buf opPtr.impl idx hnum).toNat + 8 ≤ a.toNat) →
+      (a.toNat + 4 ≤ (opPtr.impl + Buffed.OperationMPtr.computeRegionOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat
+       ∨ (opPtr.impl + Buffed.OperationMPtr.computeRegionOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat + 8 ≤ a.toNat) →
       (a.toNat + 4 ≤ (region.impl + Buffed.Region.Offsets.parent).toNat
        ∨ (region.impl + Buffed.Region.Offsets.parent).toNat + 8 ≤ a.toNat) →
       (Rewriter.setRegion opPtr.impl ctx.buf idx region.impl hregion hnum hslot).mem.read32! a
@@ -113,7 +113,7 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
     rw [ExArray.read32!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
       ExArray.read32!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega)]
   have hslotread : (Rewriter.setRegion opPtr.impl ctx.buf idx region.impl hregion hnum hslot).mem.read64!
-      (opPtr.impl + Buffed.OperationMPtr.computeRegionOffset ctx.buf opPtr.impl idx hnum) = region.impl := by
+      (opPtr.impl + Buffed.OperationMPtr.computeRegionOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum) = region.impl := by
     simp only [Rewriter.setRegion, Buffed.RegionMPtr.writeParent]
     rw [ExArray.read64!_blit64_self]
   have hparentread : (Rewriter.setRegion opPtr.impl ctx.buf idx region.impl hregion hnum hslot).mem.read64!
@@ -149,8 +149,8 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
   -- The two writes stay inside the fresh slot word and the region's `parent` word; any
   -- window disjoint from both agrees.
   have hagreeD : ∀ lo hi : Nat,
-      (hi ≤ (opPtr.impl + Buffed.OperationMPtr.computeRegionOffset ctx.buf opPtr.impl idx hnum).toNat
-       ∨ (opPtr.impl + Buffed.OperationMPtr.computeRegionOffset ctx.buf opPtr.impl idx hnum).toNat + 8 ≤ lo) →
+      (hi ≤ (opPtr.impl + Buffed.OperationMPtr.computeRegionOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat
+       ∨ (opPtr.impl + Buffed.OperationMPtr.computeRegionOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat + 8 ≤ lo) →
       (hi ≤ (region.impl + Buffed.Region.Offsets.parent).toNat
        ∨ (region.impl + Buffed.Region.Offsets.parent).toNat + 8 ≤ lo) →
       Buffed.AgreesOn (Rewriter.setRegion opPtr.impl ctx.buf idx region.impl hregion hnum hslot) ctx.buf lo hi :=
@@ -349,9 +349,9 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
           obtain ⟨hcase, hlast⟩ := hnewslot
           subst hcase
           have hM : opPtr.spec.toM = opPtr.impl := opPtrInBounds.sim.out
-          have hcro : Buffed.OperationMPtr.computeRegionsOffset!
+          have hcro : Buffed.OperationMPtr.computeRegionsOffset! (OpInfo := OpInfo)
                 (Rewriter.setRegion opPtr.impl ctx.buf idx region.impl hregion hnum hslot) opPtr.spec.toM
-              = Buffed.OperationMPtr.computeRegionsOffset! ctx.buf opPtr.spec.toM := by
+              = Buffed.OperationMPtr.computeRegionsOffset! (OpInfo := OpInfo) ctx.buf opPtr.spec.toM := by
             simp only [Buffed.OperationMPtr.computeRegionsOffset!, Buffed.OperationMPtr.computeBlockOperandsOffset!,
               Buffed.OperationMPtr.computeOperandsOffset!, Buffed.OperationMPtr.readNumBlockOperands!,
               Buffed.OperationMPtr.readNumOperands!, Buffed.OperationMPtr.readOpType!]
@@ -362,8 +362,8 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
             grind [Nat.toUInt64_eq, UInt64.toNat_ofNat']
           simp only [Buffed.OperationMPtr.readNthRegion!, Buffed.OperationMPtr.computeRegionOffset!,
             hcro, hidxu]
-          rw [show opPtr.spec.toM + (Buffed.OperationMPtr.computeRegionsOffset! ctx.buf opPtr.spec.toM + Buffed.ptrSize * idx)
-                = opPtr.impl + Buffed.OperationMPtr.computeRegionOffset ctx.buf opPtr.impl idx hnum from by
+          rw [show opPtr.spec.toM + (Buffed.OperationMPtr.computeRegionsOffset! (OpInfo := OpInfo) ctx.buf opPtr.spec.toM + Buffed.ptrSize * idx)
+                = opPtr.impl + Buffed.OperationMPtr.computeRegionOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum from by
                 simp only [hM, Buffed.OperationMPtr.computeRegionOffset_eq_computeRegionOffset!,
                   Buffed.OperationMPtr.computeRegionOffset!], hslotread]
           rw [Sim.RegionPtr.Sim_def]

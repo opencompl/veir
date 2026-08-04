@@ -715,7 +715,7 @@ theorem Sim.OptionGenericPtr.fromValue_def (ptr : OptionValuePtr) : Sim.OptionGe
 
 variable (OpInfo) [HasOpInfo OpInfo] in
 structure Sim.RawIRContext where
-  buf : IRBufContext OpInfo
+  buf : IRBufContext
   spec : Veir.IRContext OpInfo
 
 def Sim.OperationPtr.Sim (ptr : Sim.OperationPtr) :=
@@ -972,7 +972,7 @@ structure OperationPtr.MatchesBlockOperands (ctx : Sim.RawIRContext OpInfo) (op 
 structure OperationPtr.MatchesRegions (ctx : Sim.RawIRContext OpInfo) (op : OperationPtr) where
   numRegions : (op.get! ctx.spec).capRegions = (op.toM.readNumRegions! ctx.buf).toNat
   regions  idx (hin : idx < (op.getNumRegions! ctx.spec)) :
-    Sim.RegionPtr.Sim ⟨op.toM.readNthRegion! ctx.buf idx.toUInt64, op.getRegion! ctx.spec idx⟩
+    Sim.RegionPtr.Sim ⟨op.toM.readNthRegion! (OpInfo := OpInfo) ctx.buf idx.toUInt64, op.getRegion! ctx.spec idx⟩
 
 structure OperationPtr.MatchesOperands (ctx : Sim.RawIRContext OpInfo) (op : OperationPtr) where
   numOperands : (op.get! ctx.spec).capOperands = (op.toM.readNumOperands! ctx.buf).toNat
@@ -1020,7 +1020,7 @@ structure Sim (ctx : Sim.RawIRContext OpInfo) where
 
 variable (OpInfo) [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] in
 structure Sim.IRContext where
-  buf : IRBufContext OpInfo
+  buf : IRBufContext
   spec : Veir.IRContext OpInfo
   sim : Sim ⟨buf, spec⟩
 
@@ -1234,7 +1234,7 @@ theorem OperationPtr.computeOperationSize_ideal
 
 theorem OperationPtr.computeOperandOffset_eq (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr)
     (hib : op.spec.InBounds ctx.spec) (hsim : op.Sim) h :
-    op.impl.computeOperandsOffset ctx.buf h = Operation.Offsets.operands op.spec ctx.spec := by
+    op.impl.computeOperandsOffset (OpInfo := OpInfo) ctx.buf h = Operation.Offsets.operands op.spec ctx.spec := by
   have hop := ctx.sim.encoding_op op.spec hib
   simp only [Sim.OperationPtr.Sim] at hsim
   simp [Veir.Buffed.OperationMPtr.computeOperandsOffset, Operation.Offsets.operands, Operation.Offsets.properties]
@@ -1243,7 +1243,7 @@ theorem OperationPtr.computeOperandOffset_eq (ctx : Sim.IRContext OpInfo) (op : 
 @[layout_simp, layout_grind =]
 theorem OperationPtr.computeOperandOffset_ideal (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr)
     (hib : op.spec.InBounds ctx.spec) (hsim : op.Sim) h :
-    (op.impl.computeOperandsOffset ctx.buf h).toInt = Operation.Offsets.operandsInt op.spec ctx.spec := by
+    (op.impl.computeOperandsOffset (OpInfo := OpInfo) ctx.buf h).toInt = Operation.Offsets.operandsInt op.spec ctx.spec := by
   rw [OperationPtr.computeOperandOffset_eq ctx op hib hsim, Buffed.Operation.Offsets.operands_ideal]
 
 theorem OperationPtr.computeResultsOffset_eq (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr)
@@ -1264,7 +1264,7 @@ theorem OperationPtr.computeResultsOffset_ideal (ctx : Sim.IRContext OpInfo) (op
 
 theorem OperationPtr.computeBlockOperandsOffset_eq (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr)
     (hib : op.spec.InBounds ctx.spec) (hsim : op.Sim) h :
-    op.impl.computeBlockOperandsOffset ctx.buf h = Operation.Offsets.blockOperands op.spec ctx.spec := by
+    op.impl.computeBlockOperandsOffset (OpInfo := OpInfo) ctx.buf h = Operation.Offsets.blockOperands op.spec ctx.spec := by
   have hop := ctx.sim.encoding_op op.spec hib |>.numOperands
   simp only [Veir.Buffed.OperationMPtr.computeBlockOperandsOffset, Operation.Offsets.blockOperands]
   rw [OperationPtr.computeOperandOffset_eq ctx op hib hsim]
@@ -1275,13 +1275,13 @@ theorem OperationPtr.computeBlockOperandsOffset_eq (ctx : Sim.IRContext OpInfo) 
 @[layout_simp, layout_grind =]
 theorem OperationPtr.computeBlockOperandsOffset_ideal (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr)
     (hib : op.spec.InBounds ctx.spec) (hsim : op.Sim) h :
-    (op.impl.computeBlockOperandsOffset ctx.buf h).toInt = Operation.Offsets.blockOperandsInt op.spec ctx.spec := by
+    (op.impl.computeBlockOperandsOffset (OpInfo := OpInfo) ctx.buf h).toInt = Operation.Offsets.blockOperandsInt op.spec ctx.spec := by
   rw [OperationPtr.computeBlockOperandsOffset_eq ctx op hib hsim,
     Buffed.Operation.Offsets.blockOperands_ideal ctx.isRepr _ hib]
 
 theorem OperationPtr.computeRegionsOffset_eq (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr)
     (hib : op.spec.InBounds ctx.spec) (hsim : op.Sim) h :
-    op.impl.computeRegionsOffset ctx.buf h = Operation.Offsets.regions op.spec ctx.spec := by
+    op.impl.computeRegionsOffset (OpInfo := OpInfo) ctx.buf h = Operation.Offsets.regions op.spec ctx.spec := by
   have hop := ctx.sim.encoding_op op.spec hib |>.numBlockOperands
   simp only [Sim.OperationPtr.Sim] at hsim
   simp only [Veir.Buffed.OperationMPtr.computeRegionsOffset, Operation.Offsets.regions]
@@ -1292,7 +1292,7 @@ theorem OperationPtr.computeRegionsOffset_eq (ctx : Sim.IRContext OpInfo) (op : 
 @[layout_simp, layout_grind =]
 theorem OperationPtr.computeRegionsOffset_ideal (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr)
     (hib : op.spec.InBounds ctx.spec) (hsim : op.Sim) h :
-    (op.impl.computeRegionsOffset ctx.buf h).toInt = Operation.Offsets.regionsInt op.spec ctx.spec := by
+    (op.impl.computeRegionsOffset (OpInfo := OpInfo) ctx.buf h).toInt = Operation.Offsets.regionsInt op.spec ctx.spec := by
   rw [OperationPtr.computeRegionsOffset_eq ctx op hib hsim,
     Buffed.Operation.Offsets.regions_ideal ctx.isRepr _ hib]
 
@@ -1302,7 +1302,7 @@ theorem OperationPtr.computeRegionsOffset_ideal (ctx : Sim.IRContext OpInfo) (op
 theorem OperationPtr.computeOperandsOffset!_ideal (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr)
     (hib : op.spec.InBounds ctx.spec) (hsim : op.Sim)
     (h : (op.impl + Operation.Offsets.opType).toInt + Operation.Sizes.opType.toInt ≤ ctx.buf.size) :
-    (op.impl.computeOperandsOffset! ctx.buf).toInt = Operation.Offsets.operandsInt op.spec ctx.spec := by
+    (op.impl.computeOperandsOffset! (OpInfo := OpInfo) ctx.buf).toInt = Operation.Offsets.operandsInt op.spec ctx.spec := by
   rw [← OperationMPtr.computeOperandsOffset_eq_computeOperandsOffset! (h := h)]
   exact OperationPtr.computeOperandOffset_ideal ctx op hib hsim h
 
@@ -1318,7 +1318,7 @@ theorem OperationPtr.computeResultsOffset!_ideal (ctx : Sim.IRContext OpInfo) (o
 theorem OperationPtr.computeBlockOperandsOffset!_ideal (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr)
     (hib : op.spec.InBounds ctx.spec) (hsim : op.Sim)
     (h : op.impl.toNat + Operation.sizeBaseNat ≤ ctx.buf.size) :
-    (op.impl.computeBlockOperandsOffset! ctx.buf).toInt = Operation.Offsets.blockOperandsInt op.spec ctx.spec := by
+    (op.impl.computeBlockOperandsOffset! (OpInfo := OpInfo) ctx.buf).toInt = Operation.Offsets.blockOperandsInt op.spec ctx.spec := by
   rw [← OperationMPtr.computeBlockOperandsOffset_eq_computeBlockOperandsOffset! (h := h)]
   exact OperationPtr.computeBlockOperandsOffset_ideal ctx op hib hsim h
 
@@ -1326,7 +1326,7 @@ theorem OperationPtr.computeBlockOperandsOffset!_ideal (ctx : Sim.IRContext OpIn
 theorem OperationPtr.computeRegionsOffset!_ideal (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr)
     (hib : op.spec.InBounds ctx.spec) (hsim : op.Sim)
     (h : op.impl.toNat + Operation.sizeBaseNat ≤ ctx.buf.size) :
-    (op.impl.computeRegionsOffset! ctx.buf).toInt = Operation.Offsets.regionsInt op.spec ctx.spec := by
+    (op.impl.computeRegionsOffset! (OpInfo := OpInfo) ctx.buf).toInt = Operation.Offsets.regionsInt op.spec ctx.spec := by
   rw [← OperationMPtr.computeRegionsOffset_eq_computeRegionsOffset! (h := h)]
   exact OperationPtr.computeRegionsOffset_ideal ctx op hib hsim h
 
