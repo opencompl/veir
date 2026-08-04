@@ -221,6 +221,8 @@ macro "#assert " e:term : command =>
 
 /-! ## PDL handle types -/
 #assert expectSuccessType "!pdl.attribute" (PDL.AttributeType.mk)
+#assert expectSuccessType "!pdl.range<value>" (PDL.RangeType.mk .value)
+#assert expectSuccessType "!pdl.range<attribute>" (PDL.RangeType.mk .attribute)
 #assert expectSuccessAttr "!pdl.attribute" (PDL.AttributeType.mk)
 
 #assert expectSuccessType "!pdl.operation" (PDL.OperationType.mk)

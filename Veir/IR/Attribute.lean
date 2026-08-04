@@ -274,6 +274,24 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 structure AttributeType
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+/--
+  The element of a `!pdl.range<...>`. MLIR restricts it to the four handle
+  types, so a range never nests.
+-/
+inductive RangeElement
+| attribute
+| operation
+| type
+| value
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
+  The `!pdl.range<...>` type, a handle to a range of PDL entities.
+-/
+structure RangeType where
+  element : RangeElement
+deriving Inhabited, Repr, DecidableEq, Hashable
+
 end PDL
 
 namespace LLVM
@@ -458,6 +476,8 @@ inductive Attribute
 | cudaTilePointerType (type : CudaTile.PointerType)
 /-- CIRCT hw module type -/
 | hwModuleType (type : HW.ModuleType)
+/-- PDL range handle type -/
+| pdlRangeType (type : PDL.RangeType)
 /-- PDL attribute handle type -/
 | pdlAttributeType (type : PDL.AttributeType)
 /-- PDL operation handle type -/
@@ -708,6 +728,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case pdlRangeType.pdlRangeType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case pdlAttributeType.pdlAttributeType type1 type2 =>
     exact (isTrue (by grind))
   case pdlOperationType.pdlOperationType type1 type2 =>
@@ -847,6 +871,17 @@ instance : ToString FlatSymbolRefAttr where
 
 instance : ToString ModArithType where
   toString type := s!"!mod_arith.int<{type.modulus}>"
+
+instance : ToString PDL.RangeElement where
+  toString element :=
+    match element with
+    | .attribute => "attribute"
+    | .operation => "operation"
+    | .type => "type"
+    | .value => "value"
+
+instance : ToString PDL.RangeType where
+  toString type := s!"!pdl.range<{type.element}>"
 
 instance : ToString PDL.AttributeType where
   toString _ := "!pdl.attribute"
@@ -995,6 +1030,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .llvmFunctionType type => type.toLLVMString
   | .cudaTilePointerType type => ToString.toString type
   | .hwModuleType type => ToString.toString type
+  | .pdlRangeType type => ToString.toString type
   | .pdlAttributeType type => ToString.toString type
   | .pdlOperationType type => ToString.toString type
   | .pdlValueType type => ToString.toString type
@@ -1116,6 +1152,9 @@ instance : Coe CudaTile.PointerType Attribute where
 instance : Coe HW.ModuleType Attribute where
   coe type := .hwModuleType type
 
+instance : Coe PDL.RangeType Attribute where
+  coe type := .pdlRangeType type
+
 instance : Coe PDL.AttributeType Attribute where
   coe type := .pdlAttributeType type
 
@@ -1177,6 +1216,7 @@ def isType (attr : Attribute) : Bool :=
   | .llvmFunctionType _ => true
   | .cudaTilePointerType _ => true
   | .hwModuleType _ => true
+  | .pdlRangeType _ => true
   | .pdlAttributeType _ => true
   | .pdlOperationType _ => true
   | .pdlValueType _ => true
@@ -1250,6 +1290,8 @@ theorem isType_cudaTilePointerType type : (cudaTilePointerType type).isType = tr
 theorem isType_hwModuleType type : (hwModuleType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_pdlAttributeType type : (pdlAttributeType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_pdlRangeType type : (pdlRangeType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_pdlOperationType type : (pdlOperationType type).isType = true := by rfl
 @[simp, grind =]
@@ -1328,6 +1370,9 @@ instance : Coe CudaTile.PointerType TypeAttr where
 
 instance : Coe HW.ModuleType TypeAttr where
   coe type := ⟨.hwModuleType type, by rfl⟩
+
+instance : Coe PDL.RangeType TypeAttr where
+  coe type := ⟨.pdlRangeType type, by rfl⟩
 
 instance : Coe PDL.AttributeType TypeAttr where
   coe type := ⟨.pdlAttributeType type, by rfl⟩
