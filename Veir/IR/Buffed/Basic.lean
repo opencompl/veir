@@ -4179,16 +4179,20 @@ theorem Sim.OperationPtr.allocEmpty_sim {ctx : Sim.IRContext OpInfo} {opType : O
     {numResults numOperands numBlockOperands numRegions : UInt64}
     {h₁ : numResults.toNat ≤ countCard} {h₂ : numOperands.toNat ≤ countCard}
     {h₃ : numBlockOperands.toNat ≤ countCard} {h₄ : numRegions.toNat ≤ countCard}
-    {hp : (Buffed.Operation.propertySize opType).toNat ≤ countCard}
+    {hp : (HasDialectOpInfo.propertySize opType).toNat ≤ countCard}
     {ctxBuf : Buffed.IRBufContext OpInfo} {ptrImpl : Buffed.OperationMPtr}
     {ctxSpec : Veir.IRContext OpInfo} {ptrSpec : Veir.OperationPtr}
     (heqImpl : allocEmptyImpl ctx.buf numResults numOperands numBlockOperands numRegions
-      (Buffed.Operation.propertySize opType) (SerializableOpInfo.encode opType)
+      (HasDialectOpInfo.propertySize opType) (SerializableOpInfo.encode opType)
       h₁ h₂ h₃ h₄ hp = some (ctxBuf, ptrImpl))
     (heqSpec : Veir.OperationPtr.allocEmptyAt ctx.spec opType props numResults.toNat
       numBlockOperands.toNat numRegions.toNat numOperands.toNat ptrImpl.toNat
       = some (ctxSpec, ptrSpec)) :
     Veir.Sim (OpInfo := OpInfo) ⟨ctxBuf, ctxSpec⟩ := by
+  replace hp : (Buffed.Operation.propertySize opType).toNat ≤ countCard := hp
+  replace heqImpl : allocEmptyImpl ctx.buf numResults numOperands numBlockOperands numRegions
+      (Buffed.Operation.propertySize opType) (SerializableOpInfo.encode opType)
+      h₁ h₂ h₃ h₄ hp = some (ctxBuf, ptrImpl) := heqImpl
   have hattrs := Sim.OperationPtr.allocEmptyImpl_attributes heqImpl
   have hsize := Sim.OperationPtr.allocEmptyImpl_size heqImpl
   have hge := Sim.OperationPtr.allocEmptyImpl_ptr_ge heqImpl
@@ -4441,8 +4445,8 @@ def Sim.OperationPtr.allocEmpty (ctx : Sim.IRContext OpInfo) (opType : OpInfo)
     (h₃ : numBlockOperands.toNat ≤ countCard) (h₄ : numRegions.toNat ≤ countCard) :
     Option (Sim.OperationPtr × Sim.IRContext OpInfo) :=
   match heqImpl : allocEmptyImpl ctx.buf numResults numOperands numBlockOperands numRegions
-        (Buffed.Operation.propertySize opType) (SerializableOpInfo.encode opType)
-        h₁ h₂ h₃ h₄ (Nat.le_of_lt (Operation.propertySize_lt opType)) with
+        (HasDialectOpInfo.propertySize opType) (SerializableOpInfo.encode opType)
+        h₁ h₂ h₃ h₄ (Nat.le_of_lt (HasDialectOpInfo.propertySize_small)) with
     | none => none
     | some (ctxBuf, ptrImpl) =>
       -- The spec-side allocation succeeds: the new pointer lies at/past the old buffer end, so its address is free in the spec.
@@ -4456,8 +4460,7 @@ def Sim.OperationPtr.allocEmpty (ctx : Sim.IRContext OpInfo) (opType : OpInfo)
           numResults.toNat numBlockOperands.toNat numRegions.toNat numOperands.toNat).specGet! with
       | (ctxSpec, ptrSpec) =>
         some ⟨⟨ptrImpl, ptrSpec⟩, ⟨ctxBuf, ctxSpec, by
-          refine Sim.OperationPtr.allocEmpty_sim (props := properties) (ptrSpec := ptrSpec)
-            heqImpl ?_
+          refine Sim.OperationPtr.allocEmpty_sim (props := properties) (ptrSpec := ptrSpec) heqImpl ?_
           -- `allocEmptySpec` is a definitional wrapper around `allocEmptyAt`; `hsome` turns the `specGet!` equation back into the `= some _` equation the lemma wants.
           show allocEmptySpec ctx.spec ptrImpl.toNat opType properties numResults.toNat
             numBlockOperands.toNat numRegions.toNat numOperands.toNat = some (ctxSpec, ptrSpec)
@@ -4488,6 +4491,3 @@ theorem Sim.OperationPtr.allocEmpty_spec {ctx : Sim.IRContext OpInfo} :
     allocEmpty ctx opType props c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some ⟨ptr, ctx'⟩ →
     ∃ addr, Veir.OperationPtr.allocEmptyAt ctx.spec opType props c₁.toNat c₃.toNat c₄.toNat c₂.toNat addr = some ⟨ctx'.spec, ptr.spec⟩:=
   fun h => ⟨ptr.impl.toNat, Sim.OperationPtr.allocEmpty_spec' h⟩
-
-
-

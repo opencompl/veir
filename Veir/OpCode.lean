@@ -57,7 +57,7 @@ inductive Func where
 | return
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[opcodes]
+-- @[opcodes]
 inductive Cf where
 | br
 | cond_br
@@ -101,7 +101,7 @@ inductive Llvm where
 | frem
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[opcodes]
+-- @[opcodes]
 inductive Riscv where
 | li
 | lui
@@ -206,14 +206,14 @@ inductive Riscv where
 | sgtz
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[opcodes]
+-- @[opcodes]
 inductive Riscv_Cf where
 | branch
 | beq
 | bne
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[opcodes]
+-- @[opcodes]
 inductive Mod_Arith where
 | add
 | constant
@@ -221,14 +221,14 @@ inductive Mod_Arith where
 | sub
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[opcodes]
+-- @[opcodes]
 inductive Datapath where
 | compress
 | partial_product
 | pos_partial_product
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[opcodes]
+-- @[opcodes]
 inductive Comb where
 | add
 | and
@@ -252,7 +252,7 @@ inductive Comb where
 | xor
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[opcodes]
+-- @[opcodes]
 inductive HW where
 | constant
 | module

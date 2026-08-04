@@ -1054,7 +1054,7 @@ theorem Sim.IRContext.fieldsInBounds (ctx : IRContext OpInfo) : ctx.spec.FieldsI
 
 theorem Operation.propertySize_lt (oi : OpInfo) : (Operation.propertySize oi).toNat < UInt32.size := by
   unfold Operation.propertySize
-  grind
+  exact HasDialectOpInfo.propertySize_small
 
 @[grind .] theorem Operation.propertySize_pos  (oi : OpInfo) : 0 ≤ (Operation.propertySize oi).toInt64.toInt := by
   have := Operation.propertySize_lt oi

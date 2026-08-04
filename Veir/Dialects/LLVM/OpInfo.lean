@@ -36,6 +36,8 @@ match op with
 
 instance : HasDialectOpInfo Llvm where
   propertiesOf := Llvm.propertiesOf
+  propertySize _ := 4
+  propertySize_small {op} := by grind
 
 end
 

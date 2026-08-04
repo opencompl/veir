@@ -23,6 +23,8 @@ class HasDialectOpInfo (opCode: Type)
     simp only [properties_of]
     intros opCode; cases opCode <;>
     ((try rename_i op; cases op) <;> infer_instance)
+  propertySize (op : opCode) : UInt64
+  propertySize_small {op : opCode} : (propertySize op).toNat < 2^32
   decideEq : DecidableEq (opCode) := by
     intros opCode1 opCode2; cases opCode1 <;> cases opCode2 <;> infer_instance
 
@@ -35,7 +37,7 @@ instance [HasDialectOpInfo opCode] {op : opCode} : Inhabited (HasDialectOpInfo.p
 instance [HasDialectOpInfo opCode] {op : opCode} : Repr (HasDialectOpInfo.propertiesOf op) where
   reprPrec := HasDialectOpInfo.propertiesRepr.reprPrec
 
-instance [HasDialectOpInfo opCode] {op : opCode} : DecidableEq (HasDialectOpInfo.propertiesOf op) := 
+instance [HasDialectOpInfo opCode] {op : opCode} : DecidableEq (HasDialectOpInfo.propertiesOf op) :=
   HasDialectOpInfo.propertiesDecideEq
 
 instance [HasDialectOpInfo opCode] : DecidableEq opCode :=
@@ -55,7 +57,7 @@ instance [HasOpInfo opCode] {op : opCode} : Inhabited (HasOpInfo.propertiesOf op
 instance [HasOpInfo opCode] {op : opCode} : Repr (HasOpInfo.propertiesOf op) where
   reprPrec := HasOpInfo.propertiesRepr.reprPrec
 
-instance [HasOpInfo opCode] {op : opCode} : DecidableEq (HasOpInfo.propertiesOf op) := 
+instance [HasOpInfo opCode] {op : opCode} : DecidableEq (HasOpInfo.propertiesOf op) :=
   HasOpInfo.propertiesDecideEq
 
 instance [HasOpInfo opCode] : DecidableEq opCode :=

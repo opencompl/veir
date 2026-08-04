@@ -26,6 +26,8 @@ match op with
 
 instance : HasDialectOpInfo Arith where
   propertiesOf := Arith.propertiesOf
+  propertySize _ := 4
+  propertySize_small {op} := by grind
 
 end
 
