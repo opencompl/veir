@@ -1,4 +1,5 @@
 // RUN: VEIR_ROUNDTRIP
+// RUN: MLIR_ROUNDTRIP
 
 // The `pdl` handle types are nullary and round-trip as-is.
 "builtin.module"() ({

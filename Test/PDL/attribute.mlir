@@ -1,4 +1,5 @@
 // RUN: VEIR_ROUNDTRIP
+// RUN: MLIR_ROUNDTRIP
 
 "builtin.module"() ({
   // Define an attribute:
