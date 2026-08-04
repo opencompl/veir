@@ -13,9 +13,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Source environment variables
-        run: source .envrc
-
       - name: Add LLVM apt repository
         uses: gerlero/add-apt-repository@v1
         with:
