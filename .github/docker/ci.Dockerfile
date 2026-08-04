@@ -46,5 +46,16 @@ ENV PATH=/usr/local/elan/bin:$PATH
 RUN curl -fsSL https://elan.lean-lang.org/elan-init.sh \
       | sh -s -- -y --default-toolchain none
 
+# Python and the `lit`/`filecheck` dependencies, resolved from the repository's
+# own lockfile so the image cannot drift from it. `uv.lock` pins `filecheck`,
+# whose versions differ enough to change test outcomes, so this must stay in
+# step: the `CI image` workflow rebuilds when either file changes.
+COPY pyproject.toml uv.lock /opt/veir-python/
+ENV UV_PYTHON_INSTALL_DIR=/opt/uv-python
+ENV PATH=/opt/veir-python/.venv/bin:$PATH
+RUN cd /opt/veir-python \
+ && uv sync --frozen --no-install-project
+
 # Fail the build rather than the CI run if a tool is missing.
-RUN mlir-opt --version && uv --version && git --version && elan --version
+RUN mlir-opt --version && uv --version && git --version && elan --version \
+ && lit --version && filecheck --version

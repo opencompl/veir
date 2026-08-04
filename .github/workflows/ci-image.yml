@@ -6,10 +6,14 @@ on:
     paths:
       - .github/docker/ci.Dockerfile
       - .github/workflows/ci-image.yml
+      - pyproject.toml
+      - uv.lock
   pull_request:
     paths:
       - .github/docker/ci.Dockerfile
       - .github/workflows/ci-image.yml
+      - pyproject.toml
+      - uv.lock
   workflow_dispatch:
 
 permissions:
