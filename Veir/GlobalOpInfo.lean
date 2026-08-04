@@ -43,7 +43,8 @@ def OpCode.isTerminator (opCode : OpCode) : Bool :=
   | .riscv_cf .branch | .riscv_cf .beq | .riscv_cf .bne
   | .riscv_cf .beqz | .riscv_cf .bnez
   | .riscv_cf .blt | .riscv_cf .bge | .riscv_cf .bltu | .riscv_cf .bgeu
-  | .hw .output => true
+  | .hw .output
+  | .pdl .rewrite => true
   | _ => false
 
 /--

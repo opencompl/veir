@@ -110,6 +110,64 @@ def PDLResultProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute
     throw s!"pdl.result: expected only the 'index' property, but got {attrDict.size} properties"
   return { index }
 
+/--
+  Properties of the `pdl.pattern` operation.
+
+  `benefit` is the pattern's benefit, mirroring the benefit of the
+  `RewritePattern` it stands for. MLIR constrains it to a non-negative 16-bit
+  attribute.
+
+  `sym_name` is optional: a pattern may, but need not, define a symbol.
+-/
+structure PDLPatternProperties where
+  benefit : IntegerAttr
+  sym_name : Option StringAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def PDLPatternProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String PDLPatternProperties := do
+  let some benefitAttr := attrDict["benefit".toUTF8]?
+    | throw "pdl.pattern: missing 'benefit' property"
+  let .integerAttr benefit := benefitAttr
+    | throw s!"pdl.pattern: expected 'benefit' to be an integer attribute, but got {benefitAttr}"
+  let symName ← match attrDict["sym_name".toUTF8]? with
+    | some (.stringAttr attr) => pure (some attr)
+    | some attr =>
+      throw s!"pdl.pattern: expected 'sym_name' to be a string attribute, but got {attr}"
+    | none => pure none
+  if attrDict.size > (if symName.isSome then 2 else 1) then
+    throw s!"pdl.pattern: expected only the 'benefit' and 'sym_name' properties, but got {attrDict.size} properties"
+  return { benefit, sym_name := symName }
+
+/--
+  Properties of the `pdl.rewrite` operation.
+
+  `name` names an external rewrite function. It is absent when the rewrite is
+  given inline by the body region instead.
+
+  `operandSegmentSizes` splits the operands into the optional `root` and the
+  variadic `externalArgs` groups, in that order.
+-/
+structure PDLRewriteProperties where
+  name : Option StringAttr
+  operandSegmentSizes : DenseArrayAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def PDLRewriteProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String PDLRewriteProperties := do
+  let name ← match attrDict["name".toUTF8]? with
+    | some (.stringAttr attr) => pure (some attr)
+    | some attr =>
+      throw s!"pdl.rewrite: expected 'name' to be a string attribute, but got {attr}"
+    | none => pure none
+  let some sizesAttr := attrDict["operandSegmentSizes".toUTF8]?
+    | throw "pdl.rewrite: missing 'operandSegmentSizes' property"
+  let .denseArrayAttr operandSegmentSizes := sizesAttr
+    | throw s!"pdl.rewrite: expected 'operandSegmentSizes' to be a dense array attribute, but got {sizesAttr}"
+  if attrDict.size > (if name.isSome then 2 else 1) then
+    throw s!"pdl.rewrite: expected only the 'name' and 'operandSegmentSizes' properties, but got {attrDict.size} properties"
+  return { name, operandSegmentSizes }
+
 end
 
 end Veir
