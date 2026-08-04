@@ -13,6 +13,7 @@ public section
 @[opcodes]
 inductive PDL where
 | attribute
+| erase
 | operand
 | operation
 | pattern
@@ -25,6 +26,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 def PDL.propertiesOf (op : PDL) : Type :=
 match op with
 | .attribute => PDLAttributeProperties
+| .erase => Unit
 | .operand => Unit
 | .operation => PDLOperationProperties
 | .pattern => PDLPatternProperties
@@ -37,6 +39,12 @@ def PDL.fromAttrDict
     Except String (PDL.propertiesOf op) :=
   match op with
   | .attribute => PDLAttributeProperties.fromAttrDict attrDict
+  | .erase =>
+    if attrDict.size > 0 then
+      let plural := if attrDict.size = 1 then "property" else "properties"
+      .error s!"pdl.erase: expected no properties, but got {attrDict.size} {plural}"
+    else
+      .ok ()
   | .operand =>
     if attrDict.size > 0 then
       let plural := if attrDict.size = 1 then "property" else "properties"
@@ -57,6 +65,7 @@ def PDL.toAttrDict
     match props.value with
     | some value => (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 value
     | none => Std.HashMap.emptyWithCapacity 0
+  | .erase => Std.HashMap.emptyWithCapacity 0
   | .operand => Std.HashMap.emptyWithCapacity 0
   | .operation => Id.run do
     let mut dict : Std.HashMap ByteArray Attribute := Std.HashMap.emptyWithCapacity 3
@@ -154,6 +163,17 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpI
        constant value, but never by both, as the constant provides its own type. -/
     if props.value.isSome && numOperands = 1 then
       throw "Expected only one of [`type`, `value`] to be set"
+  | .erase =>
+    op.verifyPlainOpCounts ctx opIn 1 0
+    /- A `pdl.erase` only appears inside the body of a `pdl.rewrite`. -/
+    match op.getParentOp! ctx.raw with
+    | some parent =>
+      if toDialect? PDL (parent.getOpType! ctx.raw) ≠ some PDL.rewrite then
+        throw "Expected the parent operation to be a `pdl.rewrite`"
+    | none => throw "Expected the parent operation to be a `pdl.rewrite`"
+    if ((op.getOperand! ctx.raw 0).getType! ctx.raw).val
+        ≠ (PDL.OperationType.mk : TypeAttr).val then
+      throw "Expected the `opValue` operand to be of type '!pdl.operation'"
   | .operand =>
     if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
