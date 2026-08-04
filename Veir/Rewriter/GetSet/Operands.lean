@@ -3,6 +3,7 @@ module
 public import Veir.Rewriter.Basic
 
 import all Veir.Rewriter.Basic
+import Veir.Rewriter.WfRewriter.GetSetTactic
 
 
 public section
@@ -60,85 +61,85 @@ variable {opPtr : OperationPtr} {valuePtr : ValuePtr}
 
 attribute [local grind] Rewriter.pushOperand
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.firstUse!_pushOperand {block : BlockPtr} :
     (block.get! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃)).firstUse =
     (block.get! ctx).firstUse := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.prev!_pushOperand {block : BlockPtr} :
     (block.get! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃)).prev =
     (block.get! ctx).prev := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.next!_pushOperand {block : BlockPtr} :
     (block.get! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃)).next =
     (block.get! ctx).next := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.parent!_pushOperand {block : BlockPtr} :
     (block.get! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃)).parent =
     (block.get! ctx).parent := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.firstOp!_pushOperand {block : BlockPtr} :
     (block.get! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃)).firstOp =
     (block.get! ctx).firstOp := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.lastOp!_pushOperand {block : BlockPtr} :
     (block.get! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃)).lastOp =
     (block.get! ctx).lastOp := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.prev!_pushOperand {operation : OperationPtr} :
     (operation.get! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃)).prev =
     (operation.get! ctx).prev := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.next!_pushOperand {operation : OperationPtr} :
     (operation.get! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃)).next =
     (operation.get! ctx).next := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.parent!_pushOperand {operation : OperationPtr} :
     (operation.get! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃)).parent =
     (operation.get! ctx).parent := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getOpType!_pushOperand {operation : OperationPtr} :
     operation.getOpType! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
     operation.getOpType! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.attrs!_pushOperand {operation : OperationPtr} :
     (operation.get! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃)).attrs =
     (operation.get! ctx).attrs := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getProperties!_pushOperand {operation : OperationPtr} :
     operation.getProperties! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) opCode =
     operation.getProperties! ctx opCode := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getNumResults!_pushOperand {operation : OperationPtr} :
     operation.getNumResults! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
     operation.getNumResults! ctx := by
   grind
 
-@[grind =]
+@[grind =, simp_getset]
 theorem OpResultPtr.get!_pushOperand {opResult : OpResultPtr} :
     opResult.get! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
     if valuePtr = opResult then
@@ -147,7 +148,7 @@ theorem OpResultPtr.get!_pushOperand {opResult : OpResultPtr} :
       opResult.get! ctx := by
   grind [OperationPtr.getOpOperand_def]
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getNumOperands!_pushOperand {operation : OperationPtr} :
     operation.getNumOperands! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
     if operation = opPtr then
@@ -156,7 +157,7 @@ theorem OperationPtr.getNumOperands!_pushOperand {operation : OperationPtr} :
       operation.getNumOperands! ctx := by
   grind
 
-@[grind =]
+@[grind =, simp_getset]
 theorem OpOperandPtr.get!_pushOperand {operand : OpOperandPtr} :
     operand.get! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
     if operand = opPtr.nextOperand ctx then
@@ -195,7 +196,7 @@ theorem OpOperandPtr.get!_pushOperand'
         operandPtr.get! ctx := by
   apply OpOperand.ext <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getOperands!_pushOperand {operation : OperationPtr} :
     operation.getOperands! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
     if operation = opPtr then
@@ -204,56 +205,56 @@ theorem OperationPtr.getOperands!_pushOperand {operation : OperationPtr} :
       operation.getOperands! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getNumSuccessors!_pushOperand {operation : OperationPtr} :
     operation.getNumSuccessors! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
     operation.getNumSuccessors! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockOperandPtr.get!_pushOperand {blockOperand : BlockOperandPtr} :
     blockOperand.get! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
     blockOperand.get! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getSuccessor!_pushOperand {operation : OperationPtr} :
     operation.getSuccessor! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) index =
     operation.getSuccessor! ctx index := by
   grind [OperationPtr.getSuccessor!_def]
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getSuccessors!_pushOperand {operation : OperationPtr} :
     operation.getSuccessors! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
     operation.getSuccessors! ctx := by
   simp only [OperationPtr.getSuccessors!_def, OperationPtr.getSuccessor!_pushOperand,
     OperationPtr.getNumSuccessors!_pushOperand]
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getNumRegions!_pushOperand {operation : OperationPtr} :
     operation.getNumRegions! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
     operation.getNumRegions! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getRegion!_pushOperand {operation : OperationPtr} :
     operation.getRegion! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) idx =
     operation.getRegion! ctx idx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockOperandPtrPtr.get!_pushOperand {blockOperandPtr : BlockOperandPtrPtr} :
     blockOperandPtr.get! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
     blockOperandPtr.get! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.getNumArguments!_pushOperand {block : BlockPtr} :
     block.getNumArguments! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
     block.getNumArguments! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockArgumentPtr.get!_pushOperand {blockArg : BlockArgumentPtr} :
     blockArg.get! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
     if valuePtr = blockArg then
@@ -262,37 +263,37 @@ theorem BlockArgumentPtr.get!_pushOperand {blockArg : BlockArgumentPtr} :
       blockArg.get! ctx := by
   grind [OperationPtr.getOpOperand_def]
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem RegionPtr.firstBlock!_pushOperand {region : RegionPtr} :
     (region.get! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃)).firstBlock =
     (region.get! ctx).firstBlock := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem RegionPtr.lastBlock!_pushOperand {region : RegionPtr} :
     (region.get! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃)).lastBlock =
     (region.get! ctx).lastBlock := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem RegionPtr.parent!_pushOperand {region : RegionPtr} :
     (region.get! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃)).parent =
     (region.get! ctx).parent := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem ValuePtr.getType!_pushOperand {value : ValuePtr} :
     value.getType! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
     value.getType! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem ValuePtr.getFirstUse!_pushOperand {value : ValuePtr} :
     value.getFirstUse! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
     if value = valuePtr then some (opPtr.nextOperand! ctx) else value.getFirstUse! ctx := by
   grind [OperationPtr.getOpOperand_def]
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OpOperandPtrPtr.get!_pushOperand {operandPtr : OpOperandPtrPtr} :
     operandPtr.get! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
     if operandPtr = .operandNextUse (opPtr.nextOperand ctx) then
@@ -312,79 +313,79 @@ variable {op : OperationPtr}
 
 attribute [local grind] Rewriter.initOpOperands
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.firstUse!_initOpOperands {block : BlockPtr} :
     (block.get! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn)).firstUse =
     (block.get! ctx).firstUse := by
   fun_induction Rewriter.initOpOperands <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.prev!_initOpOperands {block : BlockPtr} :
     (block.get! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn)).prev =
     (block.get! ctx).prev := by
   fun_induction Rewriter.initOpOperands <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.next!_initOpOperands {block : BlockPtr} :
     (block.get! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn)).next =
     (block.get! ctx).next := by
   fun_induction Rewriter.initOpOperands <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.parent!_initOpOperands {block : BlockPtr} :
     (block.get! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn)).parent =
     (block.get! ctx).parent := by
   fun_induction Rewriter.initOpOperands <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.firstOp!_initOpOperands {block : BlockPtr} :
     (block.get! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn)).firstOp =
     (block.get! ctx).firstOp := by
   fun_induction Rewriter.initOpOperands <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.lastOp!_initOpOperands {block : BlockPtr} :
     (block.get! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn)).lastOp =
     (block.get! ctx).lastOp := by
   fun_induction Rewriter.initOpOperands <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.prev!_initOpOperands {operation : OperationPtr} :
     (operation.get! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn)).prev =
     (operation.get! ctx).prev := by
   fun_induction Rewriter.initOpOperands <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.next!_initOpOperands {operation : OperationPtr} :
     (operation.get! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn)).next =
     (operation.get! ctx).next := by
   fun_induction Rewriter.initOpOperands <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.parent!_initOpOperands {operation : OperationPtr} :
     (operation.get! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn)).parent =
     (operation.get! ctx).parent := by
   fun_induction Rewriter.initOpOperands <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getOpType!_initOpOperands {operation : OperationPtr} :
     operation.getOpType! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) =
     operation.getOpType! ctx := by
   fun_induction Rewriter.initOpOperands <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.attrs!_initOpOperands {operation : OperationPtr} :
     (operation.get! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn)).attrs =
     (operation.get! ctx).attrs := by
   fun_induction Rewriter.initOpOperands <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getProperties!_initOpOperands {operation : OperationPtr} :
     operation.getProperties! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) opCode =
     operation.getProperties! ctx opCode := by
   fun_induction Rewriter.initOpOperands <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getNumResults!_initOpOperands {operation : OperationPtr} :
     operation.getNumResults! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) =
     operation.getNumResults! ctx := by
@@ -395,32 +396,32 @@ OpResultPtr.get!_initOpOperands is too complex to be expressed, and should not b
 as we should reason at a higher-level abstraction at this point.
 -/
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getNumSuccessors!_initOpOperands {operation : OperationPtr} :
     operation.getNumSuccessors! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) =
     operation.getNumSuccessors! ctx := by
   fun_induction Rewriter.initOpOperands <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockOperandPtr.get!_initOpOperands {blockOperand : BlockOperandPtr} :
     blockOperand.get! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) =
     blockOperand.get! ctx := by
   fun_induction Rewriter.initOpOperands <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getSuccessor!_initOpOperands {operation : OperationPtr} :
     operation.getSuccessor! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) i =
     operation.getSuccessor! ctx i := by
   fun_induction Rewriter.initOpOperands <;> grind [OperationPtr.getSuccessor!_def]
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getSuccessors!_initOpOperands {operation : OperationPtr} :
     operation.getSuccessors! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) =
     operation.getSuccessors! ctx := by
   simp only [OperationPtr.getSuccessors!_def, OperationPtr.getSuccessor!_initOpOperands,
     OperationPtr.getNumSuccessors!_initOpOperands]
 
-@[grind =>]
+@[grind =>, simp_getset]
 theorem OperationPtr.getNumOperands!_initOpOperands {operation : OperationPtr} :
     operation.getNumOperands! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) =
     if operation = op then
@@ -433,7 +434,7 @@ theorem OperationPtr.getNumOperands!_initOpOperands {operation : OperationPtr} :
 OpOperandPtr.get!_initOpOperands is too complex to be expressed, and should not be needed in practice,
 as we should reason at a higher-level abstraction at this point.
 -/
-@[grind =>]
+@[grind =>, simp_getset]
 theorem OperationPtr.getOperands!_initOpOperands {operation : OperationPtr} :
     operation.getOperands! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) =
     if operation = op then
@@ -442,25 +443,25 @@ theorem OperationPtr.getOperands!_initOpOperands {operation : OperationPtr} :
       operation.getOperands! ctx := by
   fun_induction Rewriter.initOpOperands <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getNumRegions!_initOpOperands {operation : OperationPtr} :
     operation.getNumRegions! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) =
     operation.getNumRegions! ctx := by
   fun_induction Rewriter.initOpOperands <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getRegion!_initOpOperands {operation : OperationPtr} :
     operation.getRegion! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) idx =
     operation.getRegion! ctx idx := by
   fun_induction Rewriter.initOpOperands <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockOperandPtrPtr.get!_initOpOperands {blockOperandPtr : BlockOperandPtrPtr} :
     blockOperandPtr.get! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) =
     blockOperandPtr.get! ctx := by
   fun_induction Rewriter.initOpOperands <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.getNumArguments!_initOpOperands {block : BlockPtr} :
     block.getNumArguments! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) =
     block.getNumArguments! ctx := by
@@ -471,19 +472,19 @@ BlockArgumentPtr.get!_initOpOperands is too complex to be expressed, and should 
 in practice, as we should reason at a higher-level abstraction at this point.
 -/
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem RegionPtr.firstBlock!_initOpOperands {region : RegionPtr} :
     (region.get! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn)).firstBlock =
     (region.get! ctx).firstBlock := by
   fun_induction Rewriter.initOpOperands <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem RegionPtr.lastBlock!_initOpOperands {region : RegionPtr} :
     (region.get! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn)).lastBlock =
     (region.get! ctx).lastBlock := by
   fun_induction Rewriter.initOpOperands <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem RegionPtr.parent!_initOpOperands {region : RegionPtr} :
     (region.get! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn)).parent =
     (region.get! ctx).parent := by
@@ -494,7 +495,7 @@ ValuePtr.getFirstUse!_initOpOperands is too complex to be expressed, and should 
 in practice, as we should reason at a higher-level abstraction at this point.
 -/
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem ValuePtr.getType!_initOpOperands {value : ValuePtr} :
     value.getType! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) =
     value.getType! ctx := by
@@ -505,7 +506,7 @@ OpOperandPtrPtr.get!_initOpOperands is too complex to be expressed, and should n
 in practice, as we should reason at a higher-level abstraction at this point.
 -/
 
-@[grind =]
+@[grind =, simp_getset]
 theorem Rewriter.initOpOperands_inBounds (ptr : GenericPtr) :
     ptr.InBounds (initOpOperands ctx op h₁ operands h₂ h₃ n hn) ↔
     match ptr with

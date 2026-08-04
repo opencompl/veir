@@ -3,6 +3,7 @@ module
 public import Veir.Rewriter.Basic
 
 import all Veir.Rewriter.Basic
+import Veir.Rewriter.WfRewriter.GetSetTactic
 
 public section
 
@@ -60,133 +61,133 @@ variable {block : BlockPtr}
 
 attribute [local grind] Rewriter.pushBlockArgument
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.firstUse!_Rewriter_pushBlockArgument {block' : BlockPtr} :
     (block'.get! (Rewriter.pushBlockArgument ctx block type hblock)).firstUse =
     (block'.get! ctx).firstUse := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.prev!_Rewriter_pushBlockArgument {block' : BlockPtr} :
     (block'.get! (Rewriter.pushBlockArgument ctx block type hblock)).prev =
     (block'.get! ctx).prev := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.next!_Rewriter_pushBlockArgument {block' : BlockPtr} :
     (block'.get! (Rewriter.pushBlockArgument ctx block type hblock)).next =
     (block'.get! ctx).next := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.parent!_Rewriter_pushBlockArgument {block' : BlockPtr} :
     (block'.get! (Rewriter.pushBlockArgument ctx block type hblock)).parent =
     (block'.get! ctx).parent := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.firstOp!_Rewriter_pushBlockArgument {block' : BlockPtr} :
     (block'.get! (Rewriter.pushBlockArgument ctx block type hblock)).firstOp =
     (block'.get! ctx).firstOp := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.lastOp!_Rewriter_pushBlockArgument {block' : BlockPtr} :
     (block'.get! (Rewriter.pushBlockArgument ctx block type hblock)).lastOp =
     (block'.get! ctx).lastOp := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.get!_Rewriter_pushBlockArgument {operation : OperationPtr} :
     operation.get! (Rewriter.pushBlockArgument ctx block type hblock) =
     operation.get! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getOpType!_Rewriter_pushBlockArgument {operation : OperationPtr} :
     operation.getOpType! (Rewriter.pushBlockArgument ctx block type hblock) =
     operation.getOpType! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getProperties!_Rewriter_pushBlockArgument {operation : OperationPtr} :
     operation.getProperties! (Rewriter.pushBlockArgument ctx block type hblock) opCode =
     operation.getProperties! ctx opCode := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getNumResults!_Rewriter_pushBlockArgument {operation : OperationPtr} :
     operation.getNumResults! (Rewriter.pushBlockArgument ctx block type hblock) =
     operation.getNumResults! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OpResultPtr.get!_Rewriter_pushBlockArgument {opResult : OpResultPtr} :
     opResult.get! (Rewriter.pushBlockArgument ctx block type hblock) =
     opResult.get! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getNumOperands!_Rewriter_pushBlockArgument {operation : OperationPtr} :
     operation.getNumOperands! (Rewriter.pushBlockArgument ctx block type hblock) =
     operation.getNumOperands! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OpOperandPtr.get!_Rewriter_pushBlockArgument {opOperand : OpOperandPtr} :
     opOperand.get! (Rewriter.pushBlockArgument ctx block type hblock) =
     opOperand.get! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getOperands!_Rewriter_pushBlockArgument {operation : OperationPtr} :
     operation.getOperands! (Rewriter.pushBlockArgument ctx block type hblock) =
     operation.getOperands! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getNumSuccessors!_Rewriter_pushBlockArgument {operation : OperationPtr} :
     operation.getNumSuccessors! (Rewriter.pushBlockArgument ctx block type hblock) =
     operation.getNumSuccessors! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockOperandPtr.get!_Rewriter_pushBlockArgument {blockOperand : BlockOperandPtr} :
     blockOperand.get! (Rewriter.pushBlockArgument ctx block type hblock) =
     blockOperand.get! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getSuccessor!_Rewriter_pushBlockArgument {operation : OperationPtr} :
     operation.getSuccessor! (Rewriter.pushBlockArgument ctx block type hblock) index =
     operation.getSuccessor! ctx index := by
   grind [OperationPtr.getSuccessor!_def]
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getSuccessors!_Rewriter_pushBlockArgument {operation : OperationPtr} :
     operation.getSuccessors! (Rewriter.pushBlockArgument ctx block type hblock) =
     operation.getSuccessors! ctx := by
   grind [OperationPtr.getSuccessors!_def]
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getNumRegions!_Rewriter_pushBlockArgument {operation : OperationPtr} :
     operation.getNumRegions! (Rewriter.pushBlockArgument ctx block type hblock) =
     operation.getNumRegions! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getRegion!_Rewriter_pushBlockArgument {operation : OperationPtr} :
     operation.getRegion! (Rewriter.pushBlockArgument ctx block type hblock) idx =
     operation.getRegion! ctx idx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockOperandPtrPtr.get!_Rewriter_pushBlockArgument {blockOperandPtr : BlockOperandPtrPtr} :
     blockOperandPtr.get! (Rewriter.pushBlockArgument ctx block type hblock) =
     blockOperandPtr.get! ctx := by
   grind
 
-@[grind =]
+@[grind =, simp_getset]
 theorem BlockPtr.getNumArguments!_Rewriter_pushBlockArgument {block' : BlockPtr} :
     block'.getNumArguments! (Rewriter.pushBlockArgument ctx block type hblock) =
     if block = block' then
@@ -195,7 +196,7 @@ theorem BlockPtr.getNumArguments!_Rewriter_pushBlockArgument {block' : BlockPtr}
       block'.getNumArguments! ctx := by
   grind
 
-@[grind =]
+@[grind =, simp_getset]
 theorem BlockArgumentPtr.get!_Rewriter_pushBlockArgument {blockArg : BlockArgumentPtr} :
     blockArg.get! (Rewriter.pushBlockArgument ctx block type hblock) =
     if blockArg = block.nextArgument ctx then
@@ -204,13 +205,13 @@ theorem BlockArgumentPtr.get!_Rewriter_pushBlockArgument {blockArg : BlockArgume
       blockArg.get! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem RegionPtr.get!_Rewriter_pushBlockArgument {region : RegionPtr} :
     region.get! (Rewriter.pushBlockArgument ctx block type hblock) =
     region.get! ctx := by
   grind
 
-@[grind =]
+@[grind =, simp_getset]
 theorem ValuePtr.getFirstUse!_Rewriter_pushBlockArgument {value : ValuePtr} :
     value.getFirstUse! (Rewriter.pushBlockArgument ctx block type hblock) =
     if value = block.nextArgument ctx then
@@ -219,7 +220,7 @@ theorem ValuePtr.getFirstUse!_Rewriter_pushBlockArgument {value : ValuePtr} :
       value.getFirstUse! ctx := by
   grind
 
-@[grind =]
+@[grind =, simp_getset]
 theorem ValuePtr.getType!_Rewriter_pushBlockArgument {value : ValuePtr} :
     value.getType! (Rewriter.pushBlockArgument ctx block type hblock) =
     if value = block.nextArgument ctx then
@@ -228,7 +229,7 @@ theorem ValuePtr.getType!_Rewriter_pushBlockArgument {value : ValuePtr} :
       value.getType! ctx := by
   grind
 
-@[grind =]
+@[grind =, simp_getset]
 theorem OpOperandPtrPtr.get!_Rewriter_pushBlockArgument {opOperandPtr : OpOperandPtrPtr} :
     opOperandPtr.get! (Rewriter.pushBlockArgument ctx block type hblock) =
     if opOperandPtr = OpOperandPtrPtr.valueFirstUse (block.nextArgument ctx) then
@@ -247,132 +248,132 @@ variable {op : OperationPtr}
 
 attribute [local grind] Rewriter.initBlockArguments
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.firstUse!_initBlockArguments {block' : BlockPtr} :
     (block'.get! (Rewriter.initBlockArguments ctx block types idx h₁ h₂)).firstUse =
     (block'.get! ctx).firstUse := by
   fun_induction Rewriter.initBlockArguments <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.prev!_initBlockArguments {block' : BlockPtr} :
     (block'.get! (Rewriter.initBlockArguments ctx block types idx h₁ h₂)).prev =
     (block'.get! ctx).prev := by
   fun_induction Rewriter.initBlockArguments <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.next!_initBlockArguments {block' : BlockPtr} :
     (block'.get! (Rewriter.initBlockArguments ctx block types idx h₁ h₂)).next =
     (block'.get! ctx).next := by
   fun_induction Rewriter.initBlockArguments <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.parent!_initBlockArguments {block' : BlockPtr} :
     (block'.get! (Rewriter.initBlockArguments ctx block types idx h₁ h₂)).parent =
     (block'.get! ctx).parent := by
   fun_induction Rewriter.initBlockArguments <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.firstOp!_initBlockArguments {block' : BlockPtr} :
     (block'.get! (Rewriter.initBlockArguments ctx block types idx h₁ h₂)).firstOp =
     (block'.get! ctx).firstOp := by
   fun_induction Rewriter.initBlockArguments <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.lastOp!_initBlockArguments {block' : BlockPtr} :
     (block'.get! (Rewriter.initBlockArguments ctx block types idx h₁ h₂)).lastOp =
     (block'.get! ctx).lastOp := by
   fun_induction Rewriter.initBlockArguments <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.get!_initBlockArguments {operation : OperationPtr} :
     operation.get! (Rewriter.initBlockArguments ctx block types idx h₁ h₂) =
     operation.get! ctx := by
   fun_induction Rewriter.initBlockArguments <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getOpType!_initBlockArguments {operation : OperationPtr} :
     operation.getOpType! (Rewriter.initBlockArguments ctx block types idx h₁ h₂) =
     operation.getOpType! ctx := by
   fun_induction Rewriter.initBlockArguments <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getProperties!_initBlockArguments {operation : OperationPtr} :
     operation.getProperties! (Rewriter.initBlockArguments ctx block types idx h₁ h₂) opCode =
     operation.getProperties! ctx opCode := by
   fun_induction Rewriter.initBlockArguments <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getNumResults!_initBlockArguments {operation : OperationPtr} :
     operation.getNumResults! (Rewriter.initBlockArguments ctx block types idx h₁ h₂) =
     operation.getNumResults! ctx := by
   fun_induction Rewriter.initBlockArguments <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OpResultPtr.get!_initBlockArguments {opResult : OpResultPtr} :
     opResult.get! (Rewriter.initBlockArguments ctx block types idx h₁ h₂) =
     opResult.get! ctx := by
   fun_induction Rewriter.initBlockArguments <;> grind [cases OpResultPtr]
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getNumOperands!_initBlockArguments {operation : OperationPtr} :
     operation.getNumOperands! (Rewriter.initBlockArguments ctx block types idx h₁ h₂) =
     operation.getNumOperands! ctx := by
   fun_induction Rewriter.initBlockArguments <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OpOperandPtr.get!_initBlockArguments {opOperand : OpOperandPtr}:
     opOperand.get! (Rewriter.initBlockArguments ctx block types idx h₁ h₂) = opOperand.get! ctx := by
   fun_induction Rewriter.initBlockArguments <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getOperands!_initBlockArguments {operation : OperationPtr} :
     operation.getOperands! (Rewriter.initBlockArguments ctx block types idx h₁ h₂) = operation.getOperands! ctx := by
   fun_induction Rewriter.initBlockArguments <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getNumSuccessors!_initBlockArguments {operation : OperationPtr} :
     operation.getNumSuccessors! (Rewriter.initBlockArguments ctx block types idx h₁ h₂) =
     operation.getNumSuccessors! ctx := by
   fun_induction Rewriter.initBlockArguments <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockOperandPtr.get!_initBlockArguments {blockOperand : BlockOperandPtr} :
     blockOperand.get! (Rewriter.initBlockArguments ctx block types idx h₁ h₂) =
     blockOperand.get! ctx := by
   fun_induction Rewriter.initBlockArguments <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getSuccessor!_initBlockArguments {operation : OperationPtr} :
     operation.getSuccessor! (Rewriter.initBlockArguments ctx block types idx h₁ h₂) i =
     operation.getSuccessor! ctx i := by
   fun_induction Rewriter.initBlockArguments <;> grind [OperationPtr.getSuccessor!_def]
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getSuccessors!_initBlockArguments {operation : OperationPtr} :
     operation.getSuccessors! (Rewriter.initBlockArguments ctx block types idx h₁ h₂) =
     operation.getSuccessors! ctx := by
   simp only [OperationPtr.getSuccessors!_def, OperationPtr.getSuccessor!_initBlockArguments,
     OperationPtr.getNumSuccessors!_initBlockArguments]
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getNumRegions!_initBlockArguments {operation : OperationPtr} :
     operation.getNumRegions! (Rewriter.initBlockArguments ctx block types idx h₁ h₂) =
     operation.getNumRegions! ctx := by
   fun_induction Rewriter.initBlockArguments <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getRegion!_initBlockArguments {operation : OperationPtr} :
     operation.getRegion! (Rewriter.initBlockArguments ctx block types index h₁ h₂) idx =
     operation.getRegion! ctx idx := by
   fun_induction Rewriter.initBlockArguments <;> grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockOperandPtrPtr.get!_initBlockArguments {blockOperandPtr : BlockOperandPtrPtr} :
     blockOperandPtr.get! (Rewriter.initBlockArguments ctx block types idx h₁ h₂) =
     blockOperandPtr.get! ctx := by
   fun_induction Rewriter.initBlockArguments <;> grind
 
-@[grind =]
+@[grind =, simp_getset]
 theorem BlockPtr.getNumArguments!_initBlockArguments {block' : BlockPtr} :
     block'.getNumArguments! (Rewriter.initBlockArguments ctx block types idx h₁ h₂) =
     if block = block' then
@@ -381,7 +382,7 @@ theorem BlockPtr.getNumArguments!_initBlockArguments {block' : BlockPtr} :
       block'.getNumArguments! ctx := by
   fun_induction Rewriter.initBlockArguments <;> grind
 
-@[grind =]
+@[grind =, simp_getset]
 theorem BlockArgumentPtr.get!_initBlockArguments {blockArg : BlockArgumentPtr} :
     blockArg.get! (Rewriter.initBlockArguments ctx bl types idx h₁ h₂) =
     if h : blockArg.block = bl ∧ blockArg.index < types.size ∧ bl.getNumArguments! ctx ≤ blockArg.index then
@@ -389,13 +390,13 @@ theorem BlockArgumentPtr.get!_initBlockArguments {blockArg : BlockArgumentPtr} :
     else blockArg.get! ctx := by
   fun_induction Rewriter.initBlockArguments <;> grind [BlockPtr.getArgument_def, cases BlockArgumentPtr]
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem RegionPtr.get!_initBlockArguments {region : RegionPtr} :
     region.get! (Rewriter.initBlockArguments ctx block types idx h₁ h₂) =
     region.get! ctx := by
   fun_induction Rewriter.initBlockArguments <;> grind
 
-@[grind =]
+@[grind =, simp_getset]
 theorem ValuePtr.getFirstUse!_initBlockArguments {value : ValuePtr} :
     value.getFirstUse! (Rewriter.initBlockArguments ctx block types idx h₁ h₂) =
     match value with
@@ -407,7 +408,7 @@ theorem ValuePtr.getFirstUse!_initBlockArguments {value : ValuePtr} :
   fun_induction Rewriter.initBlockArguments <;>
     grind [cases BlockArgumentPtr, cases ValuePtr, BlockPtr.getArgument_def]
 
-@[grind =]
+@[grind =, simp_getset]
 theorem ValuePtr.getType!_initBlockArguments {value : ValuePtr} :
     value.getType! (Rewriter.initBlockArguments ctx block types idx h₁ h₂) =
     match value with
@@ -419,7 +420,7 @@ theorem ValuePtr.getType!_initBlockArguments {value : ValuePtr} :
   fun_induction Rewriter.initBlockArguments <;>
     grind [cases BlockArgumentPtr, cases ValuePtr, BlockPtr.getArgument_def]
 
-@[grind =]
+@[grind =, simp_getset]
 theorem OpOperandPtrPtr.get!_initBlockArguments {opOperandPtr : OpOperandPtrPtr} :
     opOperandPtr.get! (Rewriter.initBlockArguments ctx block types idx h₁ h₂) =
     match opOperandPtr with
@@ -441,134 +442,134 @@ section Rewriter.setBlockArguments
 variable {op : OperationPtr}
 attribute [local grind] Rewriter.setBlockArguments
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.firstUse!_Rewriter_setBlockArguments {block' : BlockPtr} :
     (block'.get! (Rewriter.setBlockArguments ctx blockPtr types hblock)).firstUse =
     (block'.get! ctx).firstUse := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.prev!_Rewriter_setBlockArguments {block' : BlockPtr} :
     (block'.get! (Rewriter.setBlockArguments ctx blockPtr types hblock)).prev =
     (block'.get! ctx).prev := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.next!_Rewriter_setBlockArguments {block' : BlockPtr} :
     (block'.get! (Rewriter.setBlockArguments ctx blockPtr types hblock)).next =
     (block'.get! ctx).next := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.parent!_Rewriter_setBlockArguments {block' : BlockPtr} :
     (block'.get! (Rewriter.setBlockArguments ctx blockPtr types hblock)).parent =
     (block'.get! ctx).parent := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.firstOp!_Rewriter_setBlockArguments {block' : BlockPtr} :
     (block'.get! (Rewriter.setBlockArguments ctx blockPtr types hblock)).firstOp =
     (block'.get! ctx).firstOp := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockPtr.lastOp!_Rewriter_setBlockArguments {block' : BlockPtr} :
     (block'.get! (Rewriter.setBlockArguments ctx blockPtr types hblock)).lastOp =
     (block'.get! ctx).lastOp := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.get!_Rewriter_setBlockArguments {operation : OperationPtr} :
     operation.get! (Rewriter.setBlockArguments ctx blockPtr types hblock) =
     operation.get! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getOpType!_Rewriter_setBlockArguments {operation : OperationPtr} :
     operation.getOpType! (Rewriter.setBlockArguments ctx blockPtr types hblock) =
     operation.getOpType! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getProperties!_Rewriter_setBlockArguments {operation : OperationPtr} :
     operation.getProperties! (Rewriter.setBlockArguments ctx blockPtr types hblock) opCode =
     operation.getProperties! ctx opCode := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getNumResults!_Rewriter_setBlockArguments {operation : OperationPtr} :
     operation.getNumResults! (Rewriter.setBlockArguments ctx blockPtr types hblock) =
     operation.getNumResults! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OpResultPtr.get!_Rewriter_setBlockArguments {opResult : OpResultPtr} :
     opResult.get! (Rewriter.setBlockArguments ctx blockPtr types hblock) =
     opResult.get! ctx := by
   grind [cases OpResultPtr]
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getNumOperands!_Rewriter_setBlockArguments {operation : OperationPtr} :
     operation.getNumOperands! (Rewriter.setBlockArguments ctx blockPtr types hblock) =
     operation.getNumOperands! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OpOperandPtr.get!_Rewriter_setBlockArguments {opOperand : OpOperandPtr} :
     opOperand.get! (Rewriter.setBlockArguments ctx blockPtr types hblock) =
     opOperand.get! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getOperands!_Rewriter_setBlockArguments {operation : OperationPtr} :
     operation.getOperands! (Rewriter.setBlockArguments ctx blockPtr types hblock) =
     operation.getOperands! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getNumSuccessors!_Rewriter_setBlockArguments {operation : OperationPtr} :
     operation.getNumSuccessors! (Rewriter.setBlockArguments ctx blockPtr types hblock) =
     operation.getNumSuccessors! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockOperandPtr.get!_Rewriter_setBlockArguments {blockOperand : BlockOperandPtr} :
     blockOperand.get! (Rewriter.setBlockArguments ctx blockPtr types hblock) =
     blockOperand.get! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getSuccessor!_Rewriter_setBlockArguments {operation : OperationPtr} :
     operation.getSuccessor! (Rewriter.setBlockArguments ctx blockPtr types hblock) index =
     operation.getSuccessor! ctx index := by
   grind [OperationPtr.getSuccessor!_def]
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getSuccessors!_Rewriter_setBlockArguments {operation : OperationPtr} :
     operation.getSuccessors! (Rewriter.setBlockArguments ctx blockPtr types hblock) =
     operation.getSuccessors! ctx := by
   simp only [OperationPtr.getSuccessors!_def, OperationPtr.getSuccessor!_Rewriter_setBlockArguments,
     OperationPtr.getNumSuccessors!_Rewriter_setBlockArguments]
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getNumRegions!_Rewriter_setBlockArguments {operation : OperationPtr} :
     operation.getNumRegions! (Rewriter.setBlockArguments ctx blockPtr types hblock) =
     operation.getNumRegions! ctx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getRegion!_Rewriter_setBlockArguments {operation : OperationPtr} :
     operation.getRegion! (Rewriter.setBlockArguments ctx blockPtr types hblock) idx =
     operation.getRegion! ctx idx := by
   grind
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem BlockOperandPtrPtr.get!_Rewriter_setBlockArguments {blockOperandPtr : BlockOperandPtrPtr} :
     blockOperandPtr.get! (Rewriter.setBlockArguments ctx blockPtr types hblock) =
     blockOperandPtr.get! ctx := by
   grind
 
-@[grind =]
+@[grind =, simp_getset]
 theorem BlockPtr.getNumArguments!_Rewriter_setBlockArguments {block' : BlockPtr} :
     block'.getNumArguments! (Rewriter.setBlockArguments ctx blockPtr types hblock) =
     if blockPtr = block' then
@@ -577,7 +578,7 @@ theorem BlockPtr.getNumArguments!_Rewriter_setBlockArguments {block' : BlockPtr}
       block'.getNumArguments! ctx := by
   grind
 
-@[grind =]
+@[grind =, simp_getset]
 theorem BlockArgumentPtr.get!_Rewriter_setBlockArguments {blockArg : BlockArgumentPtr} :
     blockArg.get! (Rewriter.setBlockArguments ctx blockPtr types hblock) =
     if blockArg.block = blockPtr then
@@ -589,13 +590,13 @@ theorem BlockArgumentPtr.get!_Rewriter_setBlockArguments {blockArg : BlockArgume
       blockArg.get! ctx := by
   grind [BlockArgumentPtr.inBounds_def, BlockArgumentPtr.get!_of_not_inBounds]
 
-@[simp, grind =]
+@[simp, grind =, simp_getset]
 theorem RegionPtr.get!_Rewriter_setBlockArguments {region : RegionPtr} :
     region.get! (Rewriter.setBlockArguments ctx blockPtr types hblock) =
     region.get! ctx := by
   grind
 
-@[grind =]
+@[grind =, simp_getset]
 theorem ValuePtr.getFirstUse!_Rewriter_setBlockArguments {value : ValuePtr} :
     value.getFirstUse! (Rewriter.setBlockArguments ctx blockPtr types hblock) =
     match value with
@@ -608,7 +609,7 @@ theorem ValuePtr.getFirstUse!_Rewriter_setBlockArguments {value : ValuePtr} :
     grind [BlockArgumentPtr.inBounds_def, BlockArgumentPtr.get!_of_not_inBounds,
       BlockArgument.default_firstUse_eq]
 
-@[grind =]
+@[grind =, simp_getset]
 theorem ValuePtr.getType!_Rewriter_setBlockArguments {value : ValuePtr} :
     value.getType! (Rewriter.setBlockArguments ctx blockPtr types hblock) =
     match value with
@@ -625,7 +626,7 @@ theorem ValuePtr.getType!_Rewriter_setBlockArguments {value : ValuePtr} :
     grind [BlockArgumentPtr.inBounds_def, BlockArgumentPtr.get!_of_not_inBounds,
       BlockArgument.default_type_eq]
 
-@[grind =]
+@[grind =, simp_getset]
 theorem OpOperandPtrPtr.get!_Rewriter_setBlockArguments {opOperandPtr : OpOperandPtrPtr} :
     opOperandPtr.get! (Rewriter.setBlockArguments ctx blockPtr types hblock) =
     match opOperandPtr with
