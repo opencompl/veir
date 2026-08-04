@@ -168,6 +168,26 @@ def PDLRewriteProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribut
     throw s!"pdl.rewrite: expected only the 'name' and 'operandSegmentSizes' properties, but got {attrDict.size} properties"
   return { name, operandSegmentSizes }
 
+/--
+  Properties of the `pdl.replace` operation.
+
+  `operandSegmentSizes` splits the operands into the `opValue`, the optional
+  `replOperation`, and the variadic `replValues` groups, in that order.
+-/
+structure PDLReplaceProperties where
+  operandSegmentSizes : DenseArrayAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def PDLReplaceProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String PDLReplaceProperties := do
+  let some sizesAttr := attrDict["operandSegmentSizes".toUTF8]?
+    | throw "pdl.replace: missing 'operandSegmentSizes' property"
+  let .denseArrayAttr operandSegmentSizes := sizesAttr
+    | throw s!"pdl.replace: expected 'operandSegmentSizes' to be a dense array attribute, but got {sizesAttr}"
+  if attrDict.size > 1 then
+    throw s!"pdl.replace: expected only the 'operandSegmentSizes' property, but got {attrDict.size} properties"
+  return { operandSegmentSizes }
+
 end
 
 end Veir

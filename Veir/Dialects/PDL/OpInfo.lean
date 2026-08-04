@@ -16,6 +16,7 @@ inductive PDL where
 | operand
 | operation
 | pattern
+| replace
 | result
 | rewrite
 | type
@@ -28,6 +29,7 @@ match op with
 | .operand => Unit
 | .operation => PDLOperationProperties
 | .pattern => PDLPatternProperties
+| .replace => PDLReplaceProperties
 | .result => PDLResultProperties
 | .rewrite => PDLRewriteProperties
 | .type => PDLTypeProperties
@@ -45,6 +47,7 @@ def PDL.fromAttrDict
       .ok ()
   | .operation => PDLOperationProperties.fromAttrDict attrDict
   | .pattern => PDLPatternProperties.fromAttrDict attrDict
+  | .replace => PDLReplaceProperties.fromAttrDict attrDict
   | .result => PDLResultProperties.fromAttrDict attrDict
   | .rewrite => PDLRewriteProperties.fromAttrDict attrDict
   | .type => PDLTypeProperties.fromAttrDict attrDict
@@ -71,6 +74,9 @@ def PDL.toAttrDict
     if let some symName := props.sym_name then
       dict := dict.insert "sym_name".toUTF8 (.stringAttr symName)
     dict
+  | .replace =>
+    (Std.HashMap.emptyWithCapacity 1).insert
+      "operandSegmentSizes".toUTF8 (.denseArrayAttr props.operandSegmentSizes)
   | .result =>
     (Std.HashMap.emptyWithCapacity 1).insert "index".toUTF8 (.integerAttr props.index)
   | .rewrite => Id.run do
@@ -231,6 +237,47 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpI
       | throw "Expected the body to terminate with a `pdl.rewrite`"
     if toDialect? PDL (terminator.getOpType! ctx.raw) ≠ some PDL.rewrite then
       throw "Expected the body to terminate with a `pdl.rewrite`"
+  | .replace =>
+    if op.getNumResults ctx.raw opIn ≠ 0 then
+      throw "Expected 0 results"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    /- A `pdl.replace` only appears inside the body of a `pdl.rewrite`. -/
+    match op.getParentOp! ctx.raw with
+    | some parent =>
+      if toDialect? PDL (parent.getOpType! ctx.raw) ≠ some PDL.rewrite then
+        throw "Expected the parent operation to be a `pdl.rewrite`"
+    | none => throw "Expected the parent operation to be a `pdl.rewrite`"
+    let props : PDL.propertiesOf .replace :=
+      HasDialect.toDialectProperties (OpInfo := OpInfo) PDL.replace
+        (op.getProperties! ctx.raw (ofDialect OpInfo PDL.replace))
+    /- The operands are the replaced `opValue`, the optional `replOperation`,
+       and the `replValues`, in that order. -/
+    let segments ← op.verifyOperandSegmentSizes ctx opIn props.operandSegmentSizes 3
+    let replOperationCount := segments[1]!
+    let replValueCount := segments[2]!
+    if segments[0]! ≠ 1 then
+      throw "Expected exactly 1 replaced operation"
+    if replOperationCount > 1 then
+      throw "Expected at most 1 replacement operation"
+    if ((op.getOperand! ctx.raw 0).getType! ctx.raw).val
+        ≠ (PDL.OperationType.mk : TypeAttr).val then
+      throw "Expected the `opValue` operand to be of type '!pdl.operation'"
+    if replOperationCount = 1 then
+      if ((op.getOperand! ctx.raw 1).getType! ctx.raw).val
+          ≠ (PDL.OperationType.mk : TypeAttr).val then
+        throw "Expected the `replOperation` operand to be of type '!pdl.operation'"
+    /- TODO: `!pdl.range<...>` is not modelled yet, so `replValues` accepts
+       single handles only. -/
+    for i in [1 + replOperationCount : 1 + replOperationCount + replValueCount] do
+      if ((op.getOperand! ctx.raw i).getType! ctx.raw).val
+          ≠ (PDL.ValueType.mk : TypeAttr).val then
+        throw s!"Expected operand {i} to be of type '!pdl.value'"
+    /- The replacement is either an operation or a list of values, never both. -/
+    if replOperationCount = 1 && replValueCount ≠ 0 then
+      throw "Expected no replacement values when the replacement operation is present"
   | .result =>
     op.verifyPlainOpCounts ctx opIn 1 1
     op.verifyResultTypeMatches ctx (PDL.ValueType.mk : TypeAttr)
