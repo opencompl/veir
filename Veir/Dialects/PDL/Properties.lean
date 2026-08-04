@@ -169,6 +169,52 @@ def PDLRewriteProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribut
   return { name, operandSegmentSizes }
 
 /--
+  Properties of the `pdl.types` operation.
+
+  `constantTypes` is the optional list of constant types the range is
+  constrained to. It is absent when the range is unconstrained.
+-/
+structure PDLTypesProperties where
+  constantTypes : Option ArrayAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def PDLTypesProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String PDLTypesProperties := do
+  let constantTypes ← match attrDict["constantTypes".toUTF8]? with
+    | some (.arrayAttr attr) =>
+      for element in attr.value do
+        if element.isType = false then
+          throw s!"pdl.types: expected 'constantTypes' to hold types, but got {element}"
+      pure (some attr)
+    | some attr =>
+      throw s!"pdl.types: expected 'constantTypes' to be an array attribute, but got {attr}"
+    | none => pure none
+  if attrDict.size > (if constantTypes.isSome then 1 else 0) then
+    throw s!"pdl.types: expected only the 'constantTypes' property, but got {attrDict.size} properties"
+  return { constantTypes }
+
+/--
+  Properties of the `pdl.results` operation.
+
+  `index` selects a single result group of the parent operation. It is absent
+  when the operation's whole result range is meant.
+-/
+structure PDLResultsProperties where
+  index : Option IntegerAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def PDLResultsProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String PDLResultsProperties := do
+  let index ← match attrDict["index".toUTF8]? with
+    | some (.integerAttr attr) => pure (some attr)
+    | some attr =>
+      throw s!"pdl.results: expected 'index' to be an integer attribute, but got {attr}"
+    | none => pure none
+  if attrDict.size > (if index.isSome then 1 else 0) then
+    throw s!"pdl.results: expected only the 'index' property, but got {attrDict.size} properties"
+  return { index }
+
+/--
   Properties of the `pdl.replace` operation.
 
   `operandSegmentSizes` splits the operands into the `opValue`, the optional

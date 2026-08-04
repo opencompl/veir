@@ -15,12 +15,16 @@ inductive PDL where
 | attribute
 | erase
 | operand
+| operands
 | operation
 | pattern
+| range
 | replace
 | result
+| results
 | rewrite
 | type
+| types
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, properties_of]
@@ -29,36 +33,43 @@ match op with
 | .attribute => PDLAttributeProperties
 | .erase => Unit
 | .operand => Unit
+| .operands => Unit
 | .operation => PDLOperationProperties
 | .pattern => PDLPatternProperties
+| .range => Unit
 | .replace => PDLReplaceProperties
 | .result => PDLResultProperties
+| .results => PDLResultsProperties
 | .rewrite => PDLRewriteProperties
 | .type => PDLTypeProperties
+| .types => PDLTypesProperties
+
+/-- Reject any property on an operation that carries none. -/
+private def noProperties (opName : String) (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String Unit :=
+  if attrDict.size > 0 then
+    let plural := if attrDict.size = 1 then "property" else "properties"
+    .error s!"{opName}: expected no properties, but got {attrDict.size} {plural}"
+  else
+    .ok ()
 
 def PDL.fromAttrDict
     (op : PDL) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (PDL.propertiesOf op) :=
   match op with
   | .attribute => PDLAttributeProperties.fromAttrDict attrDict
-  | .erase =>
-    if attrDict.size > 0 then
-      let plural := if attrDict.size = 1 then "property" else "properties"
-      .error s!"pdl.erase: expected no properties, but got {attrDict.size} {plural}"
-    else
-      .ok ()
-  | .operand =>
-    if attrDict.size > 0 then
-      let plural := if attrDict.size = 1 then "property" else "properties"
-      .error s!"pdl.operand: expected no properties, but got {attrDict.size} {plural}"
-    else
-      .ok ()
+  | .erase => noProperties "pdl.erase" attrDict
+  | .operand => noProperties "pdl.operand" attrDict
+  | .operands => noProperties "pdl.operands" attrDict
   | .operation => PDLOperationProperties.fromAttrDict attrDict
   | .pattern => PDLPatternProperties.fromAttrDict attrDict
+  | .range => noProperties "pdl.range" attrDict
   | .replace => PDLReplaceProperties.fromAttrDict attrDict
   | .result => PDLResultProperties.fromAttrDict attrDict
+  | .results => PDLResultsProperties.fromAttrDict attrDict
   | .rewrite => PDLRewriteProperties.fromAttrDict attrDict
   | .type => PDLTypeProperties.fromAttrDict attrDict
+  | .types => PDLTypesProperties.fromAttrDict attrDict
 
 def PDL.toAttrDict
     (op : PDL) (props : PDL.propertiesOf op) :
@@ -70,6 +81,11 @@ def PDL.toAttrDict
     | none => Std.HashMap.emptyWithCapacity 0
   | .erase => Std.HashMap.emptyWithCapacity 0
   | .operand => Std.HashMap.emptyWithCapacity 0
+  | .operands => Std.HashMap.emptyWithCapacity 0
+  | .range => Std.HashMap.emptyWithCapacity 0
+  | .replace =>
+    (Std.HashMap.emptyWithCapacity 1).insert
+      "operandSegmentSizes".toUTF8 (.denseArrayAttr props.operandSegmentSizes)
   | .operation => Id.run do
     let mut dict : Std.HashMap ByteArray Attribute := Std.HashMap.emptyWithCapacity 3
     if let some opName := props.opName then
@@ -83,11 +99,12 @@ def PDL.toAttrDict
     if let some symName := props.sym_name then
       dict := dict.insert "sym_name".toUTF8 (.stringAttr symName)
     dict
-  | .replace =>
-    (Std.HashMap.emptyWithCapacity 1).insert
-      "operandSegmentSizes".toUTF8 (.denseArrayAttr props.operandSegmentSizes)
   | .result =>
     (Std.HashMap.emptyWithCapacity 1).insert "index".toUTF8 (.integerAttr props.index)
+  | .results =>
+    match props.index with
+    | some index => (Std.HashMap.emptyWithCapacity 1).insert "index".toUTF8 (.integerAttr index)
+    | none => Std.HashMap.emptyWithCapacity 0
   | .rewrite => Id.run do
     let mut dict : Std.HashMap ByteArray Attribute := Std.HashMap.emptyWithCapacity 2
     if let some name := props.name then
@@ -97,6 +114,11 @@ def PDL.toAttrDict
     match props.constantType with
     | some constantType =>
       (Std.HashMap.emptyWithCapacity 1).insert "constantType".toUTF8 constantType
+    | none => Std.HashMap.emptyWithCapacity 0
+  | .types =>
+    match props.constantTypes with
+    | some constantTypes =>
+      (Std.HashMap.emptyWithCapacity 1).insert "constantTypes".toUTF8 (.arrayAttr constantTypes)
     | none => Std.HashMap.emptyWithCapacity 0
 
 /-- The `pdl` operations are declarative pattern descriptions and are `Pure`. -/
@@ -132,6 +154,19 @@ instance : HasDialectOpInfo PDL where
   isConstantLike := PDL.isConstantLike
   hasSSADominance := PDL.hasSSADominance
   hasNoTerminator := PDL.hasNoTerminator
+
+/--
+  The element kind of a PDL handle type, treating a non-range handle as a range
+  of itself. Mirrors MLIR's `getRangeElementTypeOrSelf`.
+-/
+private def pdlElementOrSelf (ty : Attribute) : Option PDL.RangeElement :=
+  match ty with
+  | .pdlRangeType rangeType => some rangeType.element
+  | .pdlAttributeType _ => some .attribute
+  | .pdlOperationType _ => some .operation
+  | .pdlTypeType _ => some .type
+  | .pdlValueType _ => some .value
+  | _ => none
 
 /--
 Verify the local invariants of a `pdl` operation in any operation-info type
@@ -197,6 +232,23 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpI
       let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
       if operandType.val ≠ (PDL.TypeType.mk : TypeAttr).val then
         throw "Expected the `valueType` operand to be of type '!pdl.type'"
+  | .operands =>
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    op.verifyResultTypeMatches ctx (PDL.RangeType.mk .value : TypeAttr)
+      "Expected the result to be of type '!pdl.range<value>'"
+    /- The `valueType` operand is optional. -/
+    let numOperands := op.getNumOperands ctx.raw opIn
+    if numOperands > 1 then
+      throw "Expected at most 1 operand"
+    if numOperands = 1 then
+      if ((op.getOperand! ctx.raw 0).getType! ctx.raw).val
+          ≠ (PDL.RangeType.mk .type : TypeAttr).val then
+        throw "Expected the `valueType` operand to be of type '!pdl.range<type>'"
   | .operation =>
     if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
@@ -219,17 +271,16 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpI
     let nameCount := props.attributeValueNames.value.size
     if nameCount ≠ attributeCount then
       throw s!"Expected the same number of attribute values and attribute names, got {attributeCount} values and {nameCount} names"
-    /- TODO: `!pdl.range<...>` is not modelled yet, so the value and type groups
-       accept single handles only. -/
+    /- The value and type groups take single handles or ranges of them. -/
     for i in [0:valueCount] do
-      if ((op.getOperand! ctx.raw i).getType! ctx.raw).val ≠ (PDL.ValueType.mk : TypeAttr).val then
-        throw s!"Expected operand {i} to be of type '!pdl.value'"
+      if pdlElementOrSelf ((op.getOperand! ctx.raw i).getType! ctx.raw).val ≠ some .value then
+        throw s!"Expected operand {i} to be of type '!pdl.value' or '!pdl.range<value>'"
     for i in [valueCount:valueCount + attributeCount] do
       if ((op.getOperand! ctx.raw i).getType! ctx.raw).val ≠ (PDL.AttributeType.mk : TypeAttr).val then
         throw s!"Expected operand {i} to be of type '!pdl.attribute'"
     for i in [valueCount + attributeCount:valueCount + attributeCount + typeCount] do
-      if ((op.getOperand! ctx.raw i).getType! ctx.raw).val ≠ (PDL.TypeType.mk : TypeAttr).val then
-        throw s!"Expected operand {i} to be of type '!pdl.type'"
+      if pdlElementOrSelf ((op.getOperand! ctx.raw i).getType! ctx.raw).val ≠ some .type then
+        throw s!"Expected operand {i} to be of type '!pdl.type' or '!pdl.range<type>'"
   | .pattern =>
     if op.getNumOperands ctx.raw opIn ≠ 0 then
       throw "Expected 0 operands"
@@ -257,6 +308,31 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpI
       | throw "Expected the body to terminate with a `pdl.rewrite`"
     if toDialect? PDL (terminator.getOpType! ctx.raw) ≠ some PDL.rewrite then
       throw "Expected the body to terminate with a `pdl.rewrite`"
+  | .range =>
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    /- A `pdl.range` only appears inside the body of a `pdl.rewrite`. -/
+    match op.getParentOp! ctx.raw with
+    | some parent =>
+      if toDialect? PDL (parent.getOpType! ctx.raw) ≠ some PDL.rewrite then
+        throw "Expected the parent operation to be a `pdl.rewrite`"
+    | none => throw "Expected the parent operation to be a `pdl.rewrite`"
+    let .pdlRangeType resultRange := ((op.getResult 0).get! ctx.raw).type.val
+      | throw "Expected the result to be of type '!pdl.range<...>'"
+    /- MLIR builds ranges of types and values only. -/
+    match resultRange.element with
+    | .type | .value => pure ()
+    | _ => throw "Expected the result to be a range of '!pdl.type' or '!pdl.value'"
+    /- Every argument contributes elements of the result's element kind, either
+       one at a time or as a range. -/
+    for i in [0 : op.getNumOperands ctx.raw opIn] do
+      let operandType := ((op.getOperand! ctx.raw i).getType! ctx.raw).val
+      if pdlElementOrSelf operandType ≠ some resultRange.element then
+        throw s!"Expected operand {i} to have element type '!pdl.{resultRange.element}'"
   | .replace =>
     if op.getNumResults ctx.raw opIn ≠ 0 then
       throw "Expected 0 results"
@@ -352,12 +428,36 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpI
         throw "Expected the rewrite region to be non-empty when no external name is specified"
       if segments[1]! ≠ 0 then
         throw "Expected no external arguments when the rewrite is specified inline"
+  | .results =>
+    op.verifyPlainOpCounts ctx opIn 1 1
+    if ((op.getOperand! ctx.raw 0).getType! ctx.raw).val
+        ≠ (PDL.OperationType.mk : TypeAttr).val then
+      throw "Expected the `parent` operand to be of type '!pdl.operation'"
+    let props : PDL.propertiesOf .results :=
+      HasDialect.toDialectProperties (OpInfo := OpInfo) PDL.results
+        (op.getProperties! ctx.raw (ofDialect OpInfo PDL.results))
+    let resultType := ((op.getResult 0).get! ctx.raw).type.val
+    /- A single result group is one value; the whole result range is a range. -/
+    match resultType with
+    | .pdlValueType _ =>
+      if props.index.isNone then
+        throw "Expected a '!pdl.range<value>' result type when no index is specified"
+    | .pdlRangeType rangeType =>
+      if rangeType.element ≠ .value then
+        throw "Expected the result to be of type '!pdl.value' or '!pdl.range<value>'"
+    | _ => throw "Expected the result to be of type '!pdl.value' or '!pdl.range<value>'"
   | .type =>
     /- The optional `constantType` is a property, so `pdl.type` takes no
        operands. -/
     op.verifyPlainOpCounts ctx opIn 0 1
     op.verifyResultTypeMatches ctx (PDL.TypeType.mk : TypeAttr)
       "Expected the result to be of type '!pdl.type'"
+  | .types =>
+    /- The optional `constantTypes` is a property, so `pdl.types` takes no
+       operands. -/
+    op.verifyPlainOpCounts ctx opIn 0 1
+    op.verifyResultTypeMatches ctx (PDL.RangeType.mk .type : TypeAttr)
+      "Expected the result to be of type '!pdl.range<type>'"
 
 end
 
