@@ -14,12 +14,13 @@ on:
 
 permissions:
   contents: read
-  # `nsc` authenticates through GitHub's OIDC token endpoint.
-  id-token: write
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # A Namespace runner is already authenticated with Namespace, so pushing to
+    # the workspace registry needs no OIDC token exchange, and so no Namespace
+    # GitHub App installation on the organisation.
+    runs-on: nscloud-ubuntu-24.04-amd64-4x8
 
     steps:
       - uses: actions/checkout@v4
