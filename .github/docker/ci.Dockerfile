@@ -17,6 +17,8 @@ RUN apt-get update \
       ca-certificates \
       curl \
       git \
+      # `nscloud-cache-action` shells out to `sudo` to bind-mount the volume.
+      sudo \
       # leanc links through the system toolchain.
       build-essential \
       # ExArray's C code resolves GMP through pkg-config.
