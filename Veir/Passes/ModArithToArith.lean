@@ -303,7 +303,7 @@ def tagModArithOpsWithReduction (reduction : ReductionKind)
   let key := "reduction".toUTF8
   let value : Attribute := StringAttr.mk reductionName.toUTF8
   let oldAttrs := (op.get rewriter.ctx.raw opInBounds).attrs
-  if oldAttrs.entries.any (fun entry => entry.1 == key) then
+  if oldAttrs.entries.any (fun entry => entry = (key, value)) then
     return rewriter
   let newAttrs := DictionaryAttr.fromArray
     (oldAttrs.entries.push (key, value))
