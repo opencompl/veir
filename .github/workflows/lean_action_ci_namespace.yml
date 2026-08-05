@@ -1,0 +1,52 @@
+name: Lean Action CI (Namespace)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  merge_group:
+
+jobs:
+  build:
+    # The runner profile pins the machine shape (32 vCPU, eight times what the
+    # GitHub-hosted runner in the sibling `Lean Action CI` workflow gets, so
+    # Lake builds with `-j32` instead of `-j4`), the cache volume and the git
+    # mirror. It also carries the custom base image that provides `mlir-opt`,
+    # `uv`, `lit`, `filecheck` and `elan`; its Dockerfile is kept in
+    # `.github/docker/namespace-base-image.Dockerfile`.
+    runs-on: namespace-profile-veir
+
+    steps:
+      - uses: namespacelabs/nscloud-checkout-action@v9
+
+      # The checkout wipes the workspace, so `.lake` does not exist when the
+      # cache action runs and it has nothing to bind the volume onto. It skips
+      # the path with "Some cache paths missing" and still reports success, so
+      # the directory has to be created first.
+      - name: Create the build directory
+        run: mkdir -p ${{ github.workspace }}/.lake
+
+      # `~/.elan` holds the Lean toolchain and `.lake` the build tree; together
+      # they dominate the run.
+      - name: Set up caches
+        uses: namespacelabs/nscloud-cache-action@v1
+        with:
+          path: |
+            ~/.elan
+            ${{ github.workspace }}/.lake
+
+      # One invocation: `lean-action` runs `lake build` and then `lake test`,
+      # so a second one only repeated the build as a no-op.
+      - name: Build and test the project
+        uses: leanprover/lean-action@v1
+        with:
+          build-args: "--iofail"
+          test-args: "--iofail"
+          test: true
+          use-github-cache: false
+
+      # `lit` and `filecheck` come from the image, so there is nothing to
+      # install and no virtualenv to activate.
+      - name: Run filecheck tests
+        run: lit Test/ -v
