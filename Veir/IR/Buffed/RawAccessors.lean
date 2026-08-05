@@ -1260,11 +1260,6 @@ def BlockOperandPtrMPtr.write (operandPtr : BlockOperandPtrMPtr) (val : BlockOpe
     (h : operandPtr.toNat + Buffed.ptrSize.toNat ≤ bctx.size) : IRBufContext :=
   { bctx with mem := bctx.mem.blit64 operandPtr val (by grind) }
 
-/-! ## Properties -/
-
--- class HasBuffedProperties  (opCode: Type) extends HasDialectOpInfo opCode where
---   writeProperties (op : opCode) (p : propertiesOf op) (bctx : IRBufContext )
-
 /-! ## Debugging utilities -/
 
 def printO (ptr : UInt64) : String :=
@@ -1476,3 +1471,16 @@ omit [SerializableOpInfo OpInfo] in
 theorem BlockOperandOPtr.debugPrint_eq (pref : String) (ptr : BlockOperandOPtr) (bctx : IRBufContext) :
     ptr.debugPrint pref bctx = bctx := by
   simp only [BlockOperandOPtr.debugPrint]; rfl
+
+end Buffed
+
+/-! ## Properties -/
+
+class HasBuffedProperties (opCode: Type) extends HasDialectOpInfo opCode where
+  writePropertyAt (op : opCode) (p : propertiesOf op) (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + (propertySize op).toNat ≤ bctx.mem.size) : Buffed.IRBufContext
+  readPropertyAt (op : opCode) (addr : UInt64) (bctx : IRBufContext) : Option (propertiesOf op)
+  read_after_write : readPropertyAt op addr (writePropertyAt op p addr bctx h) = some p
+  only_adds_attributes (i : Nat) : bctx.attributes[i]? = some a →  (writePropertyAt op p addr bctx h).attributes[i]? = some a
+  preserves_size : (writePropertyAt op p addr bctx h).mem.size = bctx.mem.size
+  only_modifies_properties (hd : IsDisjoint (n.toNat...(n.toNat+len.toNat)) (addr.toNat...(addr.toNat + (propertySize op).toNat))) :
+    (writePropertyAt op p addr bctx h).mem.read! (w := w) n len = bctx.mem.read! (w := w) n len

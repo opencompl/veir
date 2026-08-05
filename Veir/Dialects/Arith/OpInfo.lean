@@ -3,6 +3,7 @@ module
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Properties
+public import Veir.IR.Buffed.RawAccessors
 
 namespace Veir
 
@@ -43,6 +44,13 @@ instance : HasDialectOpInfo Arith where
   propertiesOf := Arith.propertiesOf
   propertySize op := op.propertySize
   propertySize_small {op} := by cases op <;> simp [Arith.propertySize]
+
+def NswNuwProperties.writeProperty (a : NswNuwProperties) (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Buffed.IRBufContext := sorry
+
+def NswNuwProperties.readProperty (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Option NswNuwProperties := sorry
+
+instance : HasBuffedProperties Arith where
+
 
 end
 
