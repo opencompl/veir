@@ -146,6 +146,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case ori => exact (DisjointProperties.fromAttrDict attrDict)
     case trunci => exact (NswNuwProperties.fromAttrDict attrDict)
     case extui => exact (NnegProperties.fromAttrDict attrDict)
+    case constant => exact (ArithConstantProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   -- case comb op =>
   --   cases op
@@ -168,6 +169,8 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
       (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (Attribute.integerAttr intAttr)
     | .float floatAttr =>
       (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (Attribute.floatAttr floatAttr)
+  | .arith .constant =>
+    (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (Attribute.integerAttr props.value)
   | .arith .subi | .arith .shli | .arith .trunci
   | .llvm .add | .llvm .sub | .llvm .mul | .llvm .shl | .llvm .trunc => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 1

@@ -26,6 +26,7 @@ inductive IntPred where
 deriving DecidableEq, Inhabited, Repr, Hashable
 
 /-- Mapped as in MLIR: https://github.com/llvm/llvm-project/blob/d3417c8bf35852af88f41aa721a719ea756fdd8c/mlir/include/mlir/Dialect/LLVMIR/LLVMEnums.td#L571 -/
+@[expose]
 def IntPred.fromNat (s : Nat) : Option IntPred :=
   match s with
   | 0 => some .eq
@@ -41,6 +42,7 @@ def IntPred.fromNat (s : Nat) : Option IntPred :=
   | _ => none
 
 /-- Mapped as in MLIR. See `IntPred.fromNat`. -/
+@[expose]
 def IntPred.toNat : IntPred → Nat
   | .eq => 0
   | .ne => 1
