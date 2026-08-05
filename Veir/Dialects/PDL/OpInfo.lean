@@ -121,9 +121,13 @@ def PDL.toAttrDict
       (Std.HashMap.emptyWithCapacity 1).insert "constantTypes".toUTF8 (.arrayAttr constantTypes)
     | none => Std.HashMap.emptyWithCapacity 0
 
-/-- The `pdl` operations are declarative pattern descriptions and are `Pure`. -/
-def PDL.hasSideEffects (_op : PDL) (_props : PDL.propertiesOf _op) : Bool :=
-  false
+/-- MLIR marks only `pdl.range`, `pdl.result` and `pdl.results` `Pure`. The rest
+    describe or perform rewrite actions, so treating them as side-effect free
+    lets dead-code elimination delete a pattern body. -/
+def PDL.hasSideEffects (op : PDL) (_props : PDL.propertiesOf op) : Bool :=
+  match op with
+  | .range | .result | .results => false
+  | _ => true
 
 def PDL.readsMemory (_op : PDL) : Bool :=
   false
