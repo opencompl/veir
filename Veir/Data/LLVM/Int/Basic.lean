@@ -778,9 +778,10 @@ def sext {w₁ : Nat} (x : Int w₁) (w₂ : Nat) (_h : w₁ < w₂) : Int w₂ 
   val (v.signExtend w₂)
 
 /--
-The `G_ANYEXT` gMIR instruction extends its operand with unspecified bits.
+`ext` extends the given `Int` to the specified bitwidth, using the given MSBs.
 
-We can model its behavior at the bitvector level using a ∀ quantifier.
+Combining it with a ∀ quantifier allows one to model the `G_ANYEXT` gMIR instruction
+that extends its operand with unspecified bits.
 -/
 def ext {w₁ : Nat} (x : Int w₁) (w₂ : Nat) (msb : BitVec (w₂-w₁)) (_h : w₁ < w₂) : Int w₂ := Id.run do
   let val v := x | poison
