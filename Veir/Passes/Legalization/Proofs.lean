@@ -17,7 +17,7 @@ Prove the correctness of `llvm.add` widening with anyext.
 -/
 theorem add_widening_32_64 (i i' : LLVM.Int 32) (ext ext' : BitVec 32) (nuw nsw : Bool) :
     LLVM.Int.add i i' nuw nsw ⊒
-      Veir.Data.LLVM.Int.trunc (LLVM.Int.add
+      LLVM.Int.trunc (LLVM.Int.add
         (LLVM.Int.ext i 64 ext (by grind))
         (LLVM.Int.ext i' 64 ext' (by grind))
         false false
