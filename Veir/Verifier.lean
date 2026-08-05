@@ -391,7 +391,15 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
             throw s!"llvm.mlir.constant: dense elements type '{elemType}' does not match array element type '{baseType}'"
         | none => pure ()
       | _ => throw "llvm.mlir.constant: Expected array result type for a dense elements constant"
-    pure ()
+    | .string stringAttr =>
+      match resultType with
+      | .llvmArrayType arrType =>
+        if arrType.type ≠ .integerType ⟨8⟩ then
+          throw "llvm.mlir.constant: Expected array<N x i8> result type for a string constant"
+        if stringAttr.value.size ≠ arrType.size then
+          throw s!"llvm.mlir.constant: string length {stringAttr.value.size} does not match declared array size {arrType.size}"
+      | _ => throw "llvm.mlir.constant: Expected array result type for a string constant"
+      pure ()
   | .llvm .mlir__poison => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 0 1
@@ -845,6 +853,17 @@ public def RegionPtr.getRegionKind (region : RegionPtr) (ctx : WfIRContext OpCod
   | none => .SSACFG
 
 /--
+  Whether this region is exempt from the requirement that each of its blocks
+  ends in a terminator.
+-/
+public def RegionPtr.hasNoTerminator (region : RegionPtr) (ctx : WfIRContext OpCode) : Bool :=
+  match (region.get! ctx.raw).parent with
+  | some parentOp =>
+    let parent := parentOp.get! ctx.raw
+    parent.opType.hasNoTerminator (parent.regions.idxOf region)
+  | none => false
+
+/--
   Verify that a terminator only ever appears as the last operation of its block:
   an operation that is a terminator must not be followed by another operation.
 -/
@@ -909,6 +928,34 @@ private def WfIRContext.verifyLLVMGlobalSymbols (ctx : WfIRContext OpCode) :
       if !globals.contains props.global_name.value.toUTF8 then
         throw s!"llvm.mlir.addressof: symbol '{props.global_name.value}' does not name an llvm.mlir.global"
 
+/--
+  Check the whole-pattern invariants that MLIR verifies in
+  `PatternOp::verifyRegions`: a `pdl.pattern` body holds only `pdl` operations,
+  and contains at least one `pdl.operation`.
+-/
+private def WfIRContext.verifyPDLPatternBodies (ctx : WfIRContext OpCode) :
+    Except String Unit := do
+  let mut patternHasOperation : Std.HashMap OperationPtr Bool := Std.HashMap.emptyWithCapacity
+  for op in ctx.raw.operations.keys do
+    if op.getOpType! ctx.raw = .pdl .pattern then
+      patternHasOperation := patternHasOperation.insert op false
+  for op in ctx.raw.operations.keys do
+    match op.getParentOp! ctx.raw with
+    | some parent =>
+      /- The body of a `pdl.pattern` and the body of the `pdl.rewrite` that
+         terminates it both belong to the pattern. -/
+      let parentType := parent.getOpType! ctx.raw
+      if parentType = .pdl .pattern || parentType = .pdl .rewrite then
+        let opType := op.getOpType! ctx.raw
+        let .pdl pdlOp := opType
+          | throw s!"pdl.pattern: expected only `pdl` operations within the pattern body, but got '{String.fromUTF8! opType.name}'"
+        if pdlOp = .operation && parentType = .pdl .pattern then
+          patternHasOperation := patternHasOperation.insert parent true
+    | none => pure ()
+  for (_, hasOperation) in patternHasOperation.toArray do
+    if !hasOperation then
+      throw "pdl.pattern: the pattern must contain at least one `pdl.operation`"
+
 public section
 
 /--
@@ -934,10 +981,11 @@ def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
   ctx.raw.forBlocksDepM (fun block blockIn => do
     match (block.get ctx.raw blockIn).parent with
     | some region =>
-      if region.getRegionKind ctx = .SSACFG then
+      if !region.hasNoTerminator ctx then
         block.verifyTerminator ctx blockIn
     | none => pure ())
   ctx.verifyLLVMGlobalSymbols
+  ctx.verifyPDLPatternBodies
 
 /--
 Assert that the IR context satisfies its structural and local invariants.

@@ -817,6 +817,8 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
       return (#[.float 64 floatAttr.value], mem, none)
     | .dense denseAttr =>
       none
+    | .string _ =>
+      none
   | .mlir__poison => do
     let some resType := resultTypes[0]? | none
     let .integerType bw := resType.val | none

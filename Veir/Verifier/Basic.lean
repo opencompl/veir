@@ -81,6 +81,27 @@ def OperationPtr.verifyUnconditionalBranch (op : OperationPtr)
     throw s!"{instrName}: branch expected operand count {dest.getNumArguments! ctx.raw}, got {op.getNumOperands ctx.raw opIn}"
   op.verifyBranchSuccessorArgTypes ctx 0 dest s!"{instrName}: successor"
 
+/--
+  Validate an `operandSegmentSizes` property that splits an operation's operands
+  into `expectedSegments` consecutive groups, and return the group sizes.
+-/
+def OperationPtr.verifyOperandSegmentSizes
+    (op : OperationPtr) (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw)
+    (sizes : DenseArrayAttr) (expectedSegments : Nat) :
+    Except String (Array Nat) := do
+  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  if sizes.values.size ≠ expectedSegments then
+    throw s!"{instrName}: operandSegmentSizes expected {expectedSegments} entries, got {sizes.values.size}"
+  let mut segmentSizes : Array Nat := #[]
+  for size in sizes.values do
+    if size < 0 then
+      throw s!"{instrName}: operandSegmentSizes contains negative size {size}"
+    segmentSizes := segmentSizes.push size.toNat
+  let segmentSum := segmentSizes.foldl (init := 0) fun acc size => acc + size
+  if segmentSum ≠ op.getNumOperands ctx.raw opIn then
+    throw s!"{instrName}: operandSegmentSizes describes {segmentSum} operands, got {op.getNumOperands ctx.raw opIn}"
+  return segmentSizes
+
 def OperationPtr.verifyCondBranchOperandSegmentSizes
     (op : OperationPtr) (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw)
     (sizes : DenseArrayAttr) (fixedOperands : Nat) :

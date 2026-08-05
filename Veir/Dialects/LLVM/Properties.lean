@@ -148,6 +148,7 @@ inductive LLVMConstantValue where
 | integer (value : IntegerAttr)
 | float (value : FloatAttr)
 | dense (value : DenseElementsAttr)
+| string (value : StringAttr)
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 /--
@@ -170,8 +171,10 @@ def LLVMConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
     return { value := .float floatAttr }
   | .denseElementsAttr denseAttr =>
     return { value := .dense denseAttr }
+  | .stringAttr stringAttr =>
+    return { value := .string stringAttr }
   | _ =>
-    throw s!"llvm.constant: expected 'value' to be an integer, float, or dense elements attribute, but got {attr}"
+    throw s!"llvm.constant: expected 'value' to be an integer, float, dense elements, or string attribute, but got {attr}"
 
 /--
   Properties of `llvm.mlir.global`. The properties needed to identify and lay
