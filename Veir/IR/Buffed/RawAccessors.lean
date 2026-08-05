@@ -1479,8 +1479,8 @@ end Buffed
 class HasBuffedProperties (opCode: Type) extends HasDialectOpInfo opCode where
   writePropertyAt (op : opCode) (p : propertiesOf op) (addr: UInt64) (bctx : Buffed.IRBufContext)
     (h : addr.toNat + (propertySize op).toNat ≤ bctx.mem.size)
-    -- Writing a property may append to the attribute table (e.g. constants store an index to their value attribute), so the table must have a free index.
-    (hattrs : bctx.attributes.size < UInt64.size) : Buffed.IRBufContext
+    -- Writing a property may append to the attribute table (e.g. constants store an index to their value attribute). The index shares its 8-byte slot with a tag bit, so it must fit in 63 bits.
+    (hattrs : bctx.attributes.size < 2^63) : Buffed.IRBufContext
   readPropertyAt (op : opCode) (addr : UInt64) (bctx : Buffed.IRBufContext) : Option (propertiesOf op)
   read_after_write : readPropertyAt op addr (writePropertyAt op p addr bctx h hattrs) = some p
   only_adds_attributes (i : Nat) : bctx.attributes[i]? = some a →  (writePropertyAt op p addr bctx h hattrs).attributes[i]? = some a

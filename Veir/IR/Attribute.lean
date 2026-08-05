@@ -746,6 +746,8 @@ theorem isType_unregistered unregistered :
   (unregisteredAttr unregistered).isType = unregistered.isType := by rfl
 @[simp, grind =]
 theorem isType_functionType type : (functionType type).isType = true := by rfl
+
+theorem isType_unitAttr attr : (unitAttr attr).isType = false := by rfl
 @[simp, grind =]
 theorem isType_modArithType type : (modArithType type).isType = true := by rfl
 @[simp, grind =]

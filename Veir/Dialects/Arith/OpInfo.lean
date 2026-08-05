@@ -4,6 +4,7 @@ public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Properties
 public import Veir.IR.Buffed.RawAccessors
+public import Veir.Dialects.BuffedProperties
 
 namespace Veir
 
@@ -48,241 +49,100 @@ instance : HasDialectOpInfo Arith where
   propertySize op := op.propertySize
   propertySize_small {op} := by cases op <;> simp [Arith.propertySize]
 
-/-- Encode the two flags in the low bits of a single byte: bit 0 is `nsw`, bit 1 is `nuw` (the same layout as MLIR's `overflowFlags`). -/
-def NswNuwProperties.writeProperty (a : NswNuwProperties) (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Buffed.IRBufContext :=
-  let byte : BitVec 8 := (if a.nsw then 1 else 0) ||| (if a.nuw then 2 else 0)
-  { bctx with mem := bctx.mem.blit addr 1 byte (by grind) }
+/-- A constant is stored inline in its 8-byte property slot when the value fits in 48 bits (two's complement) and the bitwidth in 15 bits. -/
+abbrev ArithConstantProperties.IsInline (a : ArithConstantProperties) : Prop :=
+  -(2^47) ≤ a.value.value ∧ a.value.value < 2^47 ∧ a.value.type.bitwidth < 2^15
 
-def NswNuwProperties.readProperty (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Option NswNuwProperties :=
-  let byte : BitVec 8 := bctx.mem.read addr 1 (by grind)
-  some { nsw := byte &&& 1 != 0, nuw := byte &&& 2 != 0 }
-
-@[simp, grind =]
-theorem NswNuwProperties.writeProperty_size (a : NswNuwProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h) :
-    (a.writeProperty addr bctx h).mem.size = bctx.mem.size := by
-  simp [writeProperty]
-
-@[simp, grind =]
-theorem NswNuwProperties.writeProperty_attributes (a : NswNuwProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h) :
-    (a.writeProperty addr bctx h).attributes = bctx.attributes := by
-  simp [writeProperty]
-
-theorem NswNuwProperties.readProperty_writeProperty (a : NswNuwProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h h') :
-    NswNuwProperties.readProperty addr (a.writeProperty addr bctx h) h' = some a := by
-  obtain ⟨nsw, nuw⟩ := a
-  simp only [readProperty, writeProperty, ExArray.read_eq_read!]
-  rw [ExArray.read!_blit_self_aligned 8 8 _ _ 1 _ _ rfl (by decide)]
-  cases nsw <;> cases nuw <;> simp
-
-/-- `readProperty` after `writeProperty`, with the bounds check of the instance's `readPropertyAt` still in place. -/
-theorem NswNuwProperties.read_after_write_dite (a : NswNuwProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) :
-    (if h' : addr.toNat + 1 ≤ (a.writeProperty addr bctx h).mem.size then
-       NswNuwProperties.readProperty addr (a.writeProperty addr bctx h) h'
-     else none) = some a := by
-  rw [dif_pos (by simpa using h)]
-  exact readProperty_writeProperty a addr bctx h _
-
-theorem NswNuwProperties.writeProperty_read_disjoint {w : Nat} (a : NswNuwProperties) (addr n len : UInt64) (bctx : Buffed.IRBufContext) (h)
-    (hd : IsDisjoint (n.toNat...(n.toNat + len.toNat)) (addr.toNat...(addr.toNat + 1))) :
-    (a.writeProperty addr bctx h).mem.read! (w := w) n len = bctx.mem.read! n len := by
-  simp only [writeProperty]
-  exact ExArray.read!_blit_disjoint _ _ _ _ _ (by simpa using hd)
-
-/-- Encode the `exact` flag in bit 0 of a single byte. -/
-def ExactProperties.writeProperty (a : ExactProperties) (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Buffed.IRBufContext :=
-  let byte : BitVec 8 := if a.exact then 1 else 0
-  { bctx with mem := bctx.mem.blit addr 1 byte (by grind) }
-
-def ExactProperties.readProperty (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Option ExactProperties :=
-  let byte : BitVec 8 := bctx.mem.read addr 1 (by grind)
-  some { exact := byte &&& 1 != 0 }
-
-@[simp, grind =]
-theorem ExactProperties.writeProperty_size (a : ExactProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h) :
-    (a.writeProperty addr bctx h).mem.size = bctx.mem.size := by
-  simp [writeProperty]
-
-@[simp, grind =]
-theorem ExactProperties.writeProperty_attributes (a : ExactProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h) :
-    (a.writeProperty addr bctx h).attributes = bctx.attributes := by
-  simp [writeProperty]
-
-theorem ExactProperties.readProperty_writeProperty (a : ExactProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h h') :
-    ExactProperties.readProperty addr (a.writeProperty addr bctx h) h' = some a := by
-  obtain ⟨e⟩ := a
-  simp only [readProperty, writeProperty, ExArray.read_eq_read!]
-  rw [ExArray.read!_blit_self_aligned 8 8 _ _ 1 _ _ rfl (by decide)]
-  cases e <;> simp
-
-/-- `readProperty` after `writeProperty`, with the bounds check of the instance's `readPropertyAt` still in place. -/
-theorem ExactProperties.read_after_write_dite (a : ExactProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) :
-    (if h' : addr.toNat + 1 ≤ (a.writeProperty addr bctx h).mem.size then
-       ExactProperties.readProperty addr (a.writeProperty addr bctx h) h'
-     else none) = some a := by
-  rw [dif_pos (by simpa using h)]
-  exact readProperty_writeProperty a addr bctx h _
-
-theorem ExactProperties.writeProperty_read_disjoint {w : Nat} (a : ExactProperties) (addr n len : UInt64) (bctx : Buffed.IRBufContext) (h)
-    (hd : IsDisjoint (n.toNat...(n.toNat + len.toNat)) (addr.toNat...(addr.toNat + 1))) :
-    (a.writeProperty addr bctx h).mem.read! (w := w) n len = bctx.mem.read! n len := by
-  simp only [writeProperty]
-  exact ExArray.read!_blit_disjoint _ _ _ _ _ (by simpa using hd)
-
-/-- Encode the `disjoint` flag in bit 0 of a single byte. -/
-def DisjointProperties.writeProperty (a : DisjointProperties) (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Buffed.IRBufContext :=
-  let byte : BitVec 8 := if a.disjoint then 1 else 0
-  { bctx with mem := bctx.mem.blit addr 1 byte (by grind) }
-
-def DisjointProperties.readProperty (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Option DisjointProperties :=
-  let byte : BitVec 8 := bctx.mem.read addr 1 (by grind)
-  some { disjoint := byte &&& 1 != 0 }
-
-@[simp, grind =]
-theorem DisjointProperties.writeProperty_size (a : DisjointProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h) :
-    (a.writeProperty addr bctx h).mem.size = bctx.mem.size := by
-  simp [writeProperty]
-
-@[simp, grind =]
-theorem DisjointProperties.writeProperty_attributes (a : DisjointProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h) :
-    (a.writeProperty addr bctx h).attributes = bctx.attributes := by
-  simp [writeProperty]
-
-theorem DisjointProperties.readProperty_writeProperty (a : DisjointProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h h') :
-    DisjointProperties.readProperty addr (a.writeProperty addr bctx h) h' = some a := by
-  obtain ⟨d⟩ := a
-  simp only [readProperty, writeProperty, ExArray.read_eq_read!]
-  rw [ExArray.read!_blit_self_aligned 8 8 _ _ 1 _ _ rfl (by decide)]
-  cases d <;> simp
-
-/-- `readProperty` after `writeProperty`, with the bounds check of the instance's `readPropertyAt` still in place. -/
-theorem DisjointProperties.read_after_write_dite (a : DisjointProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) :
-    (if h' : addr.toNat + 1 ≤ (a.writeProperty addr bctx h).mem.size then
-       DisjointProperties.readProperty addr (a.writeProperty addr bctx h) h'
-     else none) = some a := by
-  rw [dif_pos (by simpa using h)]
-  exact readProperty_writeProperty a addr bctx h _
-
-theorem DisjointProperties.writeProperty_read_disjoint {w : Nat} (a : DisjointProperties) (addr n len : UInt64) (bctx : Buffed.IRBufContext) (h)
-    (hd : IsDisjoint (n.toNat...(n.toNat + len.toNat)) (addr.toNat...(addr.toNat + 1))) :
-    (a.writeProperty addr bctx h).mem.read! (w := w) n len = bctx.mem.read! n len := by
-  simp only [writeProperty]
-  exact ExArray.read!_blit_disjoint _ _ _ _ _ (by simpa using hd)
-
-/-- Encode the `nneg` flag in bit 0 of a single byte. -/
-def NnegProperties.writeProperty (a : NnegProperties) (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Buffed.IRBufContext :=
-  let byte : BitVec 8 := if a.nneg then 1 else 0
-  { bctx with mem := bctx.mem.blit addr 1 byte (by grind) }
-
-def NnegProperties.readProperty (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Option NnegProperties :=
-  let byte : BitVec 8 := bctx.mem.read addr 1 (by grind)
-  some { nneg := byte &&& 1 != 0 }
-
-@[simp, grind =]
-theorem NnegProperties.writeProperty_size (a : NnegProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h) :
-    (a.writeProperty addr bctx h).mem.size = bctx.mem.size := by
-  simp [writeProperty]
-
-@[simp, grind =]
-theorem NnegProperties.writeProperty_attributes (a : NnegProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h) :
-    (a.writeProperty addr bctx h).attributes = bctx.attributes := by
-  simp [writeProperty]
-
-theorem NnegProperties.readProperty_writeProperty (a : NnegProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h h') :
-    NnegProperties.readProperty addr (a.writeProperty addr bctx h) h' = some a := by
-  obtain ⟨n⟩ := a
-  simp only [readProperty, writeProperty, ExArray.read_eq_read!]
-  rw [ExArray.read!_blit_self_aligned 8 8 _ _ 1 _ _ rfl (by decide)]
-  cases n <;> simp
-
-/-- `readProperty` after `writeProperty`, with the bounds check of the instance's `readPropertyAt` still in place. -/
-theorem NnegProperties.read_after_write_dite (a : NnegProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) :
-    (if h' : addr.toNat + 1 ≤ (a.writeProperty addr bctx h).mem.size then
-       NnegProperties.readProperty addr (a.writeProperty addr bctx h) h'
-     else none) = some a := by
-  rw [dif_pos (by simpa using h)]
-  exact readProperty_writeProperty a addr bctx h _
-
-theorem NnegProperties.writeProperty_read_disjoint {w : Nat} (a : NnegProperties) (addr n len : UInt64) (bctx : Buffed.IRBufContext) (h)
-    (hd : IsDisjoint (n.toNat...(n.toNat + len.toNat)) (addr.toNat...(addr.toNat + 1))) :
-    (a.writeProperty addr bctx h).mem.read! (w := w) n len = bctx.mem.read! n len := by
-  simp only [writeProperty]
-  exact ExArray.read!_blit_disjoint _ _ _ _ _ (by simpa using hd)
-
-/-- Encode the comparison predicate as its MLIR numeric code (0–9, see `IntPred.fromNat`) in a single byte. -/
-def IcmpProperties.writeProperty (a : IcmpProperties) (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Buffed.IRBufContext :=
-  let byte : BitVec 8 := BitVec.ofNat 8 a.predicate.toNat
-  { bctx with mem := bctx.mem.blit addr 1 byte (by grind) }
-
-def IcmpProperties.readProperty (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Option IcmpProperties :=
-  let byte : BitVec 8 := bctx.mem.read addr 1 (by grind)
-  (Data.LLVM.IntPred.fromNat byte.toNat).map ({ predicate := · })
-
-@[simp, grind =]
-theorem IcmpProperties.writeProperty_size (a : IcmpProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h) :
-    (a.writeProperty addr bctx h).mem.size = bctx.mem.size := by
-  simp [writeProperty]
-
-@[simp, grind =]
-theorem IcmpProperties.writeProperty_attributes (a : IcmpProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h) :
-    (a.writeProperty addr bctx h).attributes = bctx.attributes := by
-  simp [writeProperty]
-
-theorem IcmpProperties.readProperty_writeProperty (a : IcmpProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h h') :
-    IcmpProperties.readProperty addr (a.writeProperty addr bctx h) h' = some a := by
-  obtain ⟨p⟩ := a
-  simp only [readProperty, writeProperty, ExArray.read_eq_read!]
-  rw [ExArray.read!_blit_self_aligned 8 8 _ _ 1 _ _ rfl (by decide)]
-  cases p <;> simp [Data.LLVM.IntPred.toNat, Data.LLVM.IntPred.fromNat]
-
-/-- `readProperty` after `writeProperty`, with the bounds check of the instance's `readPropertyAt` still in place. -/
-theorem IcmpProperties.read_after_write_dite (a : IcmpProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) :
-    (if h' : addr.toNat + 1 ≤ (a.writeProperty addr bctx h).mem.size then
-       IcmpProperties.readProperty addr (a.writeProperty addr bctx h) h'
-     else none) = some a := by
-  rw [dif_pos (by simpa using h)]
-  exact readProperty_writeProperty a addr bctx h _
-
-theorem IcmpProperties.writeProperty_read_disjoint {w : Nat} (a : IcmpProperties) (addr n len : UInt64) (bctx : Buffed.IRBufContext) (h)
-    (hd : IsDisjoint (n.toNat...(n.toNat + len.toNat)) (addr.toNat...(addr.toNat + 1))) :
-    (a.writeProperty addr bctx h).mem.read! (w := w) n len = bctx.mem.read! n len := by
-  simp only [writeProperty]
-  exact ExArray.read!_blit_disjoint _ _ _ _ _ (by simpa using hd)
-
-/-- Store the constant's value: append it to the attribute table and write its index as the 8-byte property. -/
+/-- Store the constant's value in the 8-byte property slot:
+* small constants (`IsInline`) are stored inline with the MSB 0: bits 62–48 hold the bitwidth and bits 47–0 the two's-complement value;
+* otherwise the value is appended to the attribute table and the slot holds its index with the MSB set to 1. -/
 def ArithConstantProperties.writeProperty (a : ArithConstantProperties) (addr: UInt64) (bctx : Buffed.IRBufContext)
-    (h : addr.toNat + 8 ≤ bctx.mem.size) (_hattrs : bctx.attributes.size < UInt64.size) : Buffed.IRBufContext :=
-  let idx : UInt64 := UInt64.ofNat bctx.attributes.size
-  { mem := bctx.mem.blit64 addr idx (by grind),
-    attributes := bctx.attributes.push (.integerAttr a.value) }
+    (h : addr.toNat + 8 ≤ bctx.mem.size) (_hattrs : bctx.attributes.size < 2^63) : Buffed.IRBufContext :=
+  if a.IsInline then
+    let w : UInt64 := UInt64.ofNat (a.value.type.bitwidth * 2^48 + (a.value.value % 2^48).toNat)
+    { bctx with mem := bctx.mem.blit64 addr w (by grind) }
+  else
+    let idx : UInt64 := UInt64.ofNat (2^63 + bctx.attributes.size)
+    { mem := bctx.mem.blit64 addr idx (by grind),
+      attributes := bctx.attributes.push (.integerAttr a.value) }
 
-def ArithConstantProperties.readProperty (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 8 ≤ bctx.mem.size) : Option ArithConstantProperties :=
-  let idx := bctx.mem.read64 addr (by grind)
-  match bctx.attributes[idx.toNat]? with
-  | some (.integerAttr v) => some { value := v }
-  | _ => none
+def ArithConstantProperties.readProperty (addr: UInt64) (bctx : Buffed.IRBufContext) (_h : addr.toNat + 8 ≤ bctx.mem.size) : Option ArithConstantProperties :=
+  let w : Nat := (bctx.mem.read64! addr).toNat
+  if w < 2^63 then
+    -- inline: bits 62–48 are the bitwidth, bits 47–0 the two's-complement value
+    let bw : Nat := w / 2^48
+    let raw : Nat := w % 2^48
+    let v : Int := if raw < 2^47 then (raw : Int) else (raw : Int) - 2^48
+    some { value := IntegerAttr.mk v (IntegerType.mk bw) }
+  else
+    -- MSB set: the remaining 63 bits index the attribute table
+    match bctx.attributes[w - 2^63]? with
+    | some (Attribute.integerAttr v) => some { value := v }
+    | _ => none
 
 @[simp, grind =]
 theorem ArithConstantProperties.writeProperty_size (a : ArithConstantProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h hattrs) :
     (a.writeProperty addr bctx h hattrs).mem.size = bctx.mem.size := by
-  simp [writeProperty]
+  unfold writeProperty
+  split <;> simp
 
-/-- The write only appends to the attribute table, so existing entries keep their index. -/
+/-- The write at most appends to the attribute table, so existing entries keep their index. -/
 theorem ArithConstantProperties.writeProperty_attributes (a : ArithConstantProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h hattrs)
     {i : Nat} {attr : Attribute} (hsome : bctx.attributes[i]? = some attr) :
     (a.writeProperty addr bctx h hattrs).attributes[i]? = some attr := by
-  simp only [writeProperty]
-  grind
+  unfold writeProperty
+  split
+  · exact hsome
+  · grind
+
+/-- `readProperty` returns the inline constant when the slot holds an inline encoding (MSB 0). -/
+theorem ArithConstantProperties.readProperty_inline (addr : UInt64) (bctx : Buffed.IRBufContext) (h) (bw : Nat) (v : Int)
+    (h1 : -(2^47) ≤ v) (h2 : v < 2^47) (h3 : bw < 2^15)
+    (hread : (bctx.mem.read64! addr).toNat = bw * 2^48 + (v % 2^48).toNat) :
+    ArithConstantProperties.readProperty addr bctx h = some { value := IntegerAttr.mk v (IntegerType.mk bw) } := by
+  have ht : (v % 2^48).toNat < 2^48 := by omega
+  have he : bw * 2^48 + (v % 2^48).toNat < 2^63 := by omega
+  unfold readProperty
+  simp only [hread]
+  rw [if_pos he]
+  simp only [Option.some.injEq, ArithConstantProperties.mk.injEq, IntegerAttr.mk.injEq,
+    IntegerType.mk.injEq]
+  refine ⟨?_, by omega⟩
+  split <;> omega
+
+/-- `readProperty` looks up the attribute table when the slot holds a tagged index (MSB 1). -/
+theorem ArithConstantProperties.readProperty_spilled (addr : UInt64) (bctx : Buffed.IRBufContext) (h) {idx : Nat} {v : IntegerAttr}
+    (hidx : idx < 2^63)
+    (hread : (bctx.mem.read64! addr).toNat = 2^63 + idx)
+    (hattr : bctx.attributes[idx]? = some (Attribute.integerAttr v)) :
+    ArithConstantProperties.readProperty addr bctx h = some { value := v } := by
+  have hsub : 2^63 + idx - 2^63 = idx := by omega
+  unfold readProperty
+  simp only [hread]
+  rw [if_neg (by omega), hsub, hattr]
 
 theorem ArithConstantProperties.readProperty_writeProperty (a : ArithConstantProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h hattrs h') :
     ArithConstantProperties.readProperty addr (a.writeProperty addr bctx h hattrs) h' = some a := by
-  obtain ⟨v⟩ := a
-  simp only [readProperty, writeProperty, ExArray.read64_eq_read64!, ExArray.read64!_blit64_self]
-  rw [show (UInt64.ofNat bctx.attributes.size).toNat = bctx.attributes.size from by grind]
-  simp
+  obtain ⟨⟨v, ⟨bw⟩⟩⟩ := a
+  unfold writeProperty
+  split
+  next hsm =>
+    have h1 : -(2^47) ≤ v := hsm.1
+    have h2 : v < 2^47 := hsm.2.1
+    have h3 : bw < 2^15 := hsm.2.2
+    have ht : (v % 2^48).toNat < 2^48 := by omega
+    refine ArithConstantProperties.readProperty_inline addr _ _ bw v h1 h2 h3 ?_
+    rw [ExArray.read64!_blit64_self]
+    exact _root_UInt64.toNat_UInt64_ofNat_of_lt (by simp only [UInt64.size]; omega)
+  next hsm =>
+    refine ArithConstantProperties.readProperty_spilled addr _ _ (idx := bctx.attributes.size) hattrs ?_ ?_
+    · rw [ExArray.read64!_blit64_self]
+      exact _root_UInt64.toNat_UInt64_ofNat_of_lt (by simp only [UInt64.size]; omega)
+    · simp
 
 /-- `readProperty` after `writeProperty`, with the bounds check of the instance's `readPropertyAt` still in place. -/
 theorem ArithConstantProperties.read_after_write_dite (a : ArithConstantProperties) (addr : UInt64) (bctx : Buffed.IRBufContext)
-    (h : addr.toNat + 8 ≤ bctx.mem.size) (hattrs : bctx.attributes.size < UInt64.size) :
+    (h : addr.toNat + 8 ≤ bctx.mem.size) (hattrs : bctx.attributes.size < 2^63) :
     (if h' : addr.toNat + 8 ≤ (a.writeProperty addr bctx h hattrs).mem.size then
        ArithConstantProperties.readProperty addr (a.writeProperty addr bctx h hattrs) h'
      else none) = some a := by
@@ -292,8 +152,8 @@ theorem ArithConstantProperties.read_after_write_dite (a : ArithConstantProperti
 theorem ArithConstantProperties.writeProperty_read_disjoint {w : Nat} (a : ArithConstantProperties) (addr n len : UInt64) (bctx : Buffed.IRBufContext) (h hattrs)
     (hd : IsDisjoint (n.toNat...(n.toNat + len.toNat)) (addr.toNat...(addr.toNat + 8))) :
     (a.writeProperty addr bctx h hattrs).mem.read! (w := w) n len = bctx.mem.read! n len := by
-  simp only [writeProperty]
-  exact ExArray.read!_blit64_disjoint _ _ _ _ _ (by simpa using hd)
+  unfold writeProperty
+  split <;> exact ExArray.read!_blit64_disjoint _ _ _ _ _ (by simpa using hd)
 
 instance : HasBuffedProperties Arith where
   writePropertyAt op p addr bctx h hattrs :=
