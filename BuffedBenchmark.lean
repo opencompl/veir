@@ -91,9 +91,7 @@ def constFoldTreeGoSim (i : Nat) (ctx : Sim.IRContext OpCode) (insertPoint : Ins
     let ⟨thisOp, thisProp⟩ : (op : OpCode) × propertiesOf op := if (i % 100 < pc) then ⟨opcode, prop⟩ else ⟨.arith .andi, ()⟩
 
     -- Create rhs const
-    let incAttr := DictionaryAttr.fromArray #[("value".toByteArray, IntegerAttr.mk inc (IntegerType.mk 32))]
     let (ctx, rhsOp) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ({ value := IntegerAttr.mk inc (IntegerType.mk 32) } : ArithConstantProperties) insertPoint sorry sorry sorry sorry sorry sorry sorry
-    let ctx ← rhsOp.setAttributes ctx incAttr sorry
 
     let rhsValPtr := rhsOp.getResultPtr ctx 0 sorry
     let rhsVal : Sim.ValuePtr := ⟨rhsValPtr.impl, rhsValPtr.spec⟩
@@ -114,9 +112,7 @@ def constFoldTreeGoSim (i : Nat) (ctx : Sim.IRContext OpCode) (insertPoint : Ins
 buffed (def_lemma := false)
 def constFoldTreeSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (opcode : OpCode)
     (prop : propertiesOf opcode) (size pc : Nat) (root inc : Int) : Option (Sim.IRContext OpCode) := do
-  let rootAttr := DictionaryAttr.fromArray #[("value".toByteArray, IntegerAttr.mk root (IntegerType.mk 32))]
   let (ctx, acc) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ({ value := IntegerAttr.mk root (IntegerType.mk 32) } : ArithConstantProperties) insertPoint sorry sorry sorry sorry sorry sorry
-  let ctx ← acc.setAttributes ctx rootAttr sorry
 
   let accResultPtr := acc.getResultPtr ctx 0 sorry
   let accVal : Sim.ValuePtr := ⟨accResultPtr.impl, accResultPtr.spec⟩
@@ -146,9 +142,7 @@ def constFoldTreeSparseGoSim (ctx : Sim.IRContext OpCode) (rng : Xoshiro256PP) (
     let (rng, const) := rng.randBool 20
 
     if const then
-      let incAttr := DictionaryAttr.fromArray #[("value".toByteArray, IntegerAttr.mk inc (IntegerType.mk 32))]
       let (ctx, op) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ({ value := IntegerAttr.mk inc (IntegerType.mk 32) } : ArithConstantProperties) insertPoint sorry sorry sorry sorry sorry sorry sorry
-      let ctx ← op.setAttributes ctx incAttr sorry
       let constResultPtr := op.getResultPtr ctx 0 sorry
       let constants := constants.push constResultPtr.impl
       constFoldTreeSparseGoSim ctx rng insertPoint opcode prop size pc inc constants runningTotals
@@ -196,14 +190,10 @@ def constReuseTreeGoSim (i : Nat) (ctx : Sim.IRContext OpCode) (insertPoint : In
 buffed (def_lemma := false)
 def constReuseTreeSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (opcode : OpCode)
     (prop : propertiesOf opcode) (size pc : Nat) (root inc : Int) : Option (Sim.IRContext OpCode) := do
-  let rootAttr := DictionaryAttr.fromArray #[("value".toByteArray, IntegerAttr.mk root (IntegerType.mk 32))]
-  let incAttr := DictionaryAttr.fromArray #[("value".toByteArray, IntegerAttr.mk inc (IntegerType.mk 32))]
 
   let (ctx, acc) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ({ value := IntegerAttr.mk root (IntegerType.mk 32) } : ArithConstantProperties) insertPoint sorry sorry sorry sorry sorry sorry
-  let ctx ← acc.setAttributes ctx rootAttr sorry
 
   let (ctx, reuse) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ({ value := IntegerAttr.mk inc (IntegerType.mk 32) } : ArithConstantProperties) insertPoint sorry sorry sorry sorry sorry sorry
-  let ctx ← reuse.setAttributes ctx incAttr sorry
 
   let accResult := acc.getResultPtr ctx 0 sorry
   let accVal : Sim.ValuePtr := ⟨accResult.impl, accResult.spec⟩
@@ -229,14 +219,10 @@ def addZeroReuseTreeSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc
 buffed (def_lemma := false)
 def constLotsOfReuseTreeSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (opcode : OpCode)
     (prop : propertiesOf opcode) (size pc : Nat) (lhs rhs : Int) : Option (Sim.IRContext OpCode) := do
-  let lhsAttr := DictionaryAttr.fromArray #[("value".toByteArray, IntegerAttr.mk lhs (IntegerType.mk 32))]
-  let rhsAttr := DictionaryAttr.fromArray #[("value".toByteArray, IntegerAttr.mk rhs (IntegerType.mk 32))]
 
   let (ctx, lhsOp) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ({ value := IntegerAttr.mk lhs (IntegerType.mk 32) } : ArithConstantProperties) insertPoint sorry sorry sorry sorry sorry sorry
-  let ctx ← lhsOp.setAttributes ctx lhsAttr sorry
 
   let (ctx, rhsOp) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ({ value := IntegerAttr.mk rhs (IntegerType.mk 32) } : ArithConstantProperties) insertPoint sorry sorry sorry sorry sorry sorry
-  let ctx ← rhsOp.setAttributes ctx rhsAttr sorry
 
   let lhsResult := lhsOp.getResultPtr ctx 0 sorry
   let lhsVal : Sim.ValuePtr := ⟨lhsResult.impl, lhsResult.spec⟩
@@ -259,9 +245,7 @@ def addZeroLotsOfReuseTreeSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (s
 buffed (def_lemma := false)
 def constFoldTreeSparseSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (opcode : OpCode)
     (prop : propertiesOf opcode) (size pc : Nat) (root inc : Int) : Option (Sim.IRContext OpCode) := do
-  let rootAttr := DictionaryAttr.fromArray #[("value".toByteArray, IntegerAttr.mk root (IntegerType.mk 32))]
   let (ctx, root) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ({ value := IntegerAttr.mk root (IntegerType.mk 32) } : ArithConstantProperties) insertPoint sorry sorry sorry sorry sorry sorry
-  let ctx ← root.setAttributes ctx rootAttr sorry
   let  rootResult := root.getResultPtr ctx 0 sorry
 
   let runningTotals := #[rootResult.impl]
@@ -291,6 +275,11 @@ def _root_.Veir.ValuePtr.asOpResultPtr (ptr : ValuePtr) : OpResultPtr :=
   | .opResult ptr => ptr
   | _ => default
 
+/-- Read an `arith.constant`'s value directly from its 8-byte property slot. -/
+@[inline]
+def _root_.Veir.Sim.OperationPtr.getConstantValue! (ctx : Sim.IRContext OpCode) (ptr : Sim.OperationPtr) : IntegerAttr :=
+  (ArithConstantProperties.read (ptr.impl + Buffed.Operation.Offsets.properties) ctx.buf sorry).value
+
 buffed (def_lemma := false)
 def addIConstantFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
   if op.getOpType ctx sorry ≠ .arith .addi then
@@ -316,23 +305,16 @@ def addIConstantFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) 
   if rhsOpPtr.getOpType ctx sorry ≠ .arith .constant then
     return ctx
 
-  -- Get the lhs value
-  let lhsAttrs := lhsOpPtr.getAttributes ctx sorry
-  let some (attrName, Attribute.integerAttr lhsConstValue) := lhsAttrs.entries[0]? | return ctx
-  if attrName ≠ "value".toByteArray then
-    return ctx
+  -- Get the lhs value from its property slot
+  let lhsConstValue := lhsOpPtr.getConstantValue! ctx
 
-  -- Get the rhs value
-  let rhsAttrs := rhsOpPtr.getAttributes ctx sorry
-  let some (attrName, Attribute.integerAttr rhsConstValue) := rhsAttrs.entries[0]? | return ctx
-  if attrName ≠ "value".toByteArray then
-    return ctx
+  -- Get the rhs value from its property slot
+  let rhsConstValue := rhsOpPtr.getConstantValue! ctx
 
   -- Compute the sum
   let sumValue := IntegerAttr.mk (rhsConstValue.value + lhsConstValue.value) (IntegerType.mk 32)
   let insertPoint := InsertPoint.before ⟨op.impl.toNat⟩
   let (ctx, newOp) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ({ value := sumValue } : ArithConstantProperties) insertPoint sorry sorry sorry sorry sorry sorry
-  let ctx ← newOp.setAttributes ctx (.fromArray #[("value".toByteArray, sumValue)]) sorry
 
   let ctx ← Rewriter.replaceOp? ctx op newOp sorry sorry sorry sorry sorry
 
@@ -377,10 +359,9 @@ def addIZeroFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Op
   if rhsOpPtr.getOpType ctx sorry ≠ .arith .constant then
     return ctx
 
-  -- We store a constant value as an integer attribute "value"
-  let rhsAttrs := rhsOpPtr.getAttributes ctx sorry
-  let some (attrName, Attribute.integerAttr rhsConstValue) := rhsAttrs.entries[0]? | return ctx
-  if rhsConstValue.value ≠ 0 ∨ attrName ≠ "value".toByteArray then
+  -- The constant value is stored in the property slot
+  let rhsConstValue := rhsOpPtr.getConstantValue! ctx
+  if rhsConstValue.value ≠ 0 then
     return ctx
 
   -- Get the lhs value
@@ -449,10 +430,9 @@ def mulITwoReduceSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Opti
   if rhsOpPtr.getOpType ctx sorry ≠ .arith .constant then
     return ctx
 
-  -- We store a constant value as an integer attribute "value"
-  let rhsAttrs := rhsOpPtr.getAttributes ctx sorry
-  let some (attrName, Attribute.integerAttr rhsConstValue) := rhsAttrs.entries[0]? | return ctx
-  if rhsConstValue.value ≠ 2 ∨ attrName ≠ "value".toByteArray then
+  -- The constant value is stored in the property slot
+  let rhsConstValue := rhsOpPtr.getConstantValue! ctx
+  if rhsConstValue.value ≠ 2 then
     return ctx
 
   -- Get the lhs value

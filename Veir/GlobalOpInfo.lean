@@ -35,9 +35,17 @@ instance : HasDialectOpInfo OpCode where
     match op with
     | .arith op => HasDialectOpInfo.propertySize op
     | .llvm op => HasDialectOpInfo.propertySize op
+    -- `builtin.unregistered` and `func.func` have rich properties, spilled to the attribute table via an 8-byte index
+    | .builtin .unregistered => 8
+    | .func .func => 8
     | _ => 0
   propertySize_small {op} := by
-    cases op <;> grind [HasDialectOpInfo.propertySize_small]
+    cases op
+    case arith op => exact HasDialectOpInfo.propertySize_small
+    case llvm op => exact HasDialectOpInfo.propertySize_small
+    case builtin op => cases op <;> decide
+    case func op => cases op <;> decide
+    case test op => cases op <;> decide
 
 instance : HasOpInfo OpCode where
   moduleOpCode := .builtin .module
@@ -49,6 +57,115 @@ instance : SerializableOpInfo OpCode where
   encode := OpCode.encode
   decode := OpCode.decode
   decode_encode := OpCode.decode_encode
+
+/-! ## Buffed properties
+
+`.arith` and `.llvm` operations delegate to their dialect's `HasBuffedProperties` instance.
+`builtin.unregistered` and `func.func` have rich properties of their own: they are spilled to
+the attribute table through an `AttrCodec` (the 8-byte property slot stores the entry's index). -/
+
+def UnregisteredProperties.toAttr (p : UnregisteredProperties) : Attribute :=
+  .arrayAttr ⟨⟨[.stringAttr ⟨p.opName⟩, .dictionaryAttr p.properties]⟩⟩
+
+def UnregisteredProperties.ofAttr? : Attribute → Option UnregisteredProperties
+  | .arrayAttr ⟨⟨[.stringAttr ⟨opName⟩, .dictionaryAttr props]⟩⟩ => some ⟨opName, props⟩
+  | _ => none
+
+theorem UnregisteredProperties.ofAttr?_toAttr (p : UnregisteredProperties) : ofAttr? p.toAttr = some p := by
+  obtain ⟨n, props⟩ := p
+  simp [toAttr, ofAttr?]
+
+def UnregisteredProperties.codec : AttrCodec UnregisteredProperties :=
+  ⟨toAttr, ofAttr?, ofAttr?_toAttr⟩
+
+def FuncFuncProperties.toAttr (p : FuncFuncProperties) : Attribute :=
+  .arrayAttr ⟨⟨[.ofOptStringAttr p.sym_name, .dictionaryAttr p.extra]⟩⟩
+
+def FuncFuncProperties.ofAttr? : Attribute → Option FuncFuncProperties
+  | .arrayAttr ⟨⟨[sn, .dictionaryAttr extra]⟩⟩ => do
+    let sym_name ← sn.toOptStringAttr?
+    some ⟨sym_name, extra⟩
+  | _ => none
+
+theorem FuncFuncProperties.ofAttr?_toAttr (p : FuncFuncProperties) : ofAttr? p.toAttr = some p := by
+  obtain ⟨sn, extra⟩ := p
+  simp [toAttr, ofAttr?]
+
+def FuncFuncProperties.codec : AttrCodec FuncFuncProperties :=
+  ⟨toAttr, ofAttr?, ofAttr?_toAttr⟩
+
+@[inline]
+instance : HasBuffedProperties OpCode where
+  writePropertyAt op p addr bctx h hattrs :=
+    match op, p, h with
+    | .arith op, p, h => HasBuffedProperties.writePropertyAt op p addr bctx h hattrs
+    | .llvm op, p, h => HasBuffedProperties.writePropertyAt op p addr bctx h hattrs
+    | .builtin .unregistered, p, h => UnregisteredProperties.codec.writeProperty p addr bctx h hattrs
+    | .func .func, p, h => FuncFuncProperties.codec.writeProperty p addr bctx h hattrs
+    -- the remaining ops have `Unit` properties: nothing to store
+    | _, _, _ => bctx
+  readPropertyAt op addr bctx :=
+    match op with
+    | .arith op => HasBuffedProperties.readPropertyAt op addr bctx
+    | .llvm op => HasBuffedProperties.readPropertyAt op addr bctx
+    | .builtin .unregistered =>
+      if h : addr.toNat + 8 ≤ bctx.mem.size then
+        UnregisteredProperties.codec.readProperty addr bctx h
+      else
+        none
+    | .func .func =>
+      if h : addr.toNat + 8 ≤ bctx.mem.size then
+        FuncFuncProperties.codec.readProperty addr bctx h
+      else
+        none
+    -- the remaining ops have `Unit` properties: nothing to read
+    | .builtin .module | .builtin .unrealized_conversion_cast | .func .«return» | .test .test => some ()
+  read_after_write {op addr p bctx h hattrs} := by
+    cases op
+    case arith op => exact HasBuffedProperties.read_after_write
+    case llvm op => exact HasBuffedProperties.read_after_write
+    case builtin op =>
+      cases op
+      case unregistered => exact UnregisteredProperties.codec.read_after_write_dite p addr bctx h hattrs
+      all_goals rfl
+    case func op =>
+      cases op
+      case func => exact FuncFuncProperties.codec.read_after_write_dite p addr bctx h hattrs
+      all_goals rfl
+    case test op => cases op <;> rfl
+  only_adds_attributes {a op p addr bctx h hattrs} i hsome := by
+    cases op
+    case arith op => exact HasBuffedProperties.only_adds_attributes i hsome
+    case llvm op => exact HasBuffedProperties.only_adds_attributes i hsome
+    case builtin op =>
+      cases op
+      case unregistered => exact AttrCodec.writeProperty_attributes _ p addr bctx h hattrs hsome
+      all_goals exact hsome
+    case func op =>
+      cases op
+      case func => exact AttrCodec.writeProperty_attributes _ p addr bctx h hattrs hsome
+      all_goals exact hsome
+    case test op => cases op <;> exact hsome
+  preserves_size {op p addr bctx h hattrs} := by
+    cases op
+    case arith op => exact HasBuffedProperties.preserves_size
+    case llvm op => exact HasBuffedProperties.preserves_size
+    case builtin op => cases op <;> first | simp | rfl
+    case func op => cases op <;> first | simp | rfl
+    case test op => cases op <;> rfl
+  only_modifies_properties {op p addr bctx h hattrs w n len} hd := by
+    cases op
+    case arith op => exact HasBuffedProperties.only_modifies_properties hd
+    case llvm op => exact HasBuffedProperties.only_modifies_properties hd
+    case builtin op =>
+      cases op
+      case unregistered => exact AttrCodec.writeProperty_read_disjoint _ p addr n len bctx h hattrs hd
+      all_goals rfl
+    case func op =>
+      cases op
+      case func => exact AttrCodec.writeProperty_read_disjoint _ p addr n len bctx h hattrs hd
+      all_goals rfl
+    case test op => cases op <;> rfl
 
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (propertiesOf opCode) := by

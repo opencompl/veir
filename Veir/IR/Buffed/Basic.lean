@@ -3745,7 +3745,7 @@ theorem Sim.RegionPtr.allocEmpty_spec {ctx : Sim.IRContext OpInfo} :
 
 set_option maxHeartbeats 10000000 in
 @[inline]
-def Sim.OperationPtr.allocEmptyImpl (ctx₀ : Buffed.IRBufContext)
+def Sim.OperationPtr.allocEmptyHeaderImpl (ctx₀ : Buffed.IRBufContext)
     (numResults numOperands numBlockOperands numRegions propSize : UInt64)
     (opType : UInt32)
     (hr : numResults.toNat ≤ Buffed.countCard) (ho : numOperands.toNat ≤ Buffed.countCard)
@@ -3778,14 +3778,14 @@ def Sim.OperationPtr.allocEmptyImpl (ctx₀ : Buffed.IRBufContext)
   let ctx := ptr.writeOpType ctx opType (by prove_allocBoundsOp ctx₀)
   some (ctx, ptr)
 
-/-- The operation pointer produced by `allocEmptyImpl` lies at or past the end of the buffer: its address is the old buffer size plus the back-allocated results prefix. -/
-theorem Sim.OperationPtr.allocEmptyImpl_ptr_ge {ctx₀ : Buffed.IRBufContext}
+/-- The operation pointer produced by `allocEmptyHeaderImpl` lies at or past the end of the buffer: its address is the old buffer size plus the back-allocated results prefix. -/
+theorem Sim.OperationPtr.allocEmptyHeaderImpl_ptr_ge {ctx₀ : Buffed.IRBufContext}
     {numResults numOperands numBlockOperands numRegions propSize : UInt64}
     {hr ho hbo hreg hp hc} {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.OperationMPtr}
-    (h : allocEmptyImpl ctx₀ numResults numOperands numBlockOperands numRegions propSize hc
+    (h : allocEmptyHeaderImpl ctx₀ numResults numOperands numBlockOperands numRegions propSize hc
       hr ho hbo hreg hp = some (ctxBuf, ptrImpl)) :
     ctx₀.mem.size ≤ ptrImpl.toNat := by
-  simp only [allocEmptyImpl] at h
+  simp only [allocEmptyHeaderImpl] at h
   split at h
   · exact absurd h (by simp)
   · rename_i buf halloc
@@ -3801,14 +3801,14 @@ theorem Sim.OperationPtr.allocEmptyImpl_ptr_ge {ctx₀ : Buffed.IRBufContext}
       Int64.maxNatValue, Buffed.ptrSize] at *
     omega
 
-/-- Closed form of the operation pointer returned by `allocEmptyImpl`: the old buffer size plus the back-allocated results array. -/
-theorem Sim.OperationPtr.allocEmptyImpl_ptr_toNat {ctx₀ : Buffed.IRBufContext}
+/-- Closed form of the operation pointer returned by `allocEmptyHeaderImpl`: the old buffer size plus the back-allocated results array. -/
+theorem Sim.OperationPtr.allocEmptyHeaderImpl_ptr_toNat {ctx₀ : Buffed.IRBufContext}
     {numResults numOperands numBlockOperands numRegions propSize : UInt64} {opType : UInt32}
     {hr ho hbo hreg hp} {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.OperationMPtr}
-    (h : allocEmptyImpl ctx₀ numResults numOperands numBlockOperands numRegions propSize opType
+    (h : allocEmptyHeaderImpl ctx₀ numResults numOperands numBlockOperands numRegions propSize opType
       hr ho hbo hreg hp = some (ctxBuf, ptrImpl)) :
     ptrImpl.toNat = ctx₀.mem.size + Buffed.OpResult.size.toNat * numResults.toNat := by
-  simp only [allocEmptyImpl] at h
+  simp only [allocEmptyHeaderImpl] at h
   split at h
   · exact absurd h (by simp)
   · rename_i buf halloc
@@ -3824,14 +3824,14 @@ theorem Sim.OperationPtr.allocEmptyImpl_ptr_toNat {ctx₀ : Buffed.IRBufContext}
       Int64.maxNatValue, Buffed.ptrSize] at *
     omega
 
-/-- `allocEmptyImpl` only touches `mem`; the attribute table is unchanged. -/
-theorem Sim.OperationPtr.allocEmptyImpl_attributes {ctx₀ : Buffed.IRBufContext}
+/-- `allocEmptyHeaderImpl` only touches `mem`; the attribute table is unchanged. -/
+theorem Sim.OperationPtr.allocEmptyHeaderImpl_attributes {ctx₀ : Buffed.IRBufContext}
     {numResults numOperands numBlockOperands numRegions propSize : UInt64} {opType : UInt32}
     {hr ho hbo hreg hp} {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.OperationMPtr}
-    (h : allocEmptyImpl ctx₀ numResults numOperands numBlockOperands numRegions propSize opType
+    (h : allocEmptyHeaderImpl ctx₀ numResults numOperands numBlockOperands numRegions propSize opType
       hr ho hbo hreg hp = some (ctxBuf, ptrImpl)) :
     ctxBuf.attributes = ctx₀.attributes := by
-  simp only [allocEmptyImpl] at h
+  simp only [allocEmptyHeaderImpl] at h
   split at h
   · exact absurd h (by simp)
   · rename_i buf halloc
@@ -3842,16 +3842,16 @@ theorem Sim.OperationPtr.allocEmptyImpl_attributes {ctx₀ : Buffed.IRBufContext
       rfl
     · exact absurd halloc (by simp)
 
-/-- `allocEmptyImpl` grows the buffer by exactly the computed operation size. -/
-theorem Sim.OperationPtr.allocEmptyImpl_size {ctx₀ : Buffed.IRBufContext}
+/-- `allocEmptyHeaderImpl` grows the buffer by exactly the computed operation size. -/
+theorem Sim.OperationPtr.allocEmptyHeaderImpl_size {ctx₀ : Buffed.IRBufContext}
     {numResults numOperands numBlockOperands numRegions propSize : UInt64} {opType : UInt32}
     {hr ho hbo hreg hp} {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.OperationMPtr}
-    (h : allocEmptyImpl ctx₀ numResults numOperands numBlockOperands numRegions propSize opType
+    (h : allocEmptyHeaderImpl ctx₀ numResults numOperands numBlockOperands numRegions propSize opType
       hr ho hbo hreg hp = some (ctxBuf, ptrImpl)) :
     ctxBuf.mem.size = ctx₀.mem.size +
       (Buffed.OperationMPtr.computeOperationSize numResults numOperands numBlockOperands
         numRegions propSize).toNat := by
-  simp only [allocEmptyImpl] at h
+  simp only [allocEmptyHeaderImpl] at h
   split at h
   · exact absurd h (by simp)
   · rename_i buf halloc
@@ -3863,22 +3863,22 @@ theorem Sim.OperationPtr.allocEmptyImpl_size {ctx₀ : Buffed.IRBufContext}
       Buffed.OperationMPtr.writeParent_size, Buffed.OperationMPtr.writeNext_size,
       Buffed.OperationMPtr.writePrev_size, Buffed.OperationMPtr.writeOpType_size]
 
-/-- 64-bit reads that lie entirely inside the old buffer are unchanged by `allocEmptyImpl`: the fresh operation is written past the old buffer end. -/
-theorem Sim.OperationPtr.allocEmptyImpl_read64_old {ctx₀ : Buffed.IRBufContext}
+/-- 64-bit reads that lie entirely inside the old buffer are unchanged by `allocEmptyHeaderImpl`: the fresh operation is written past the old buffer end. -/
+theorem Sim.OperationPtr.allocEmptyHeaderImpl_read64_old {ctx₀ : Buffed.IRBufContext}
     {numResults numOperands numBlockOperands numRegions propSize : UInt64} {opType : UInt32}
     {hr ho hbo hreg hp} {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.OperationMPtr}
-    (h : allocEmptyImpl ctx₀ numResults numOperands numBlockOperands numRegions propSize opType
+    (h : allocEmptyHeaderImpl ctx₀ numResults numOperands numBlockOperands numRegions propSize opType
       hr ho hbo hreg hp = some (ctxBuf, ptrImpl))
     (n : UInt64) (hn : n.toNat + 8 ≤ ctx₀.mem.size) :
     ctxBuf.mem.read64! n = ctx₀.mem.read64! n := by
-  have hptr := Sim.OperationPtr.allocEmptyImpl_ptr_ge h
-  have hptn := Sim.OperationPtr.allocEmptyImpl_ptr_toNat h
+  have hptr := Sim.OperationPtr.allocEmptyHeaderImpl_ptr_ge h
+  have hptn := Sim.OperationPtr.allocEmptyHeaderImpl_ptr_toNat h
   have hu := ctx₀.usize_toNat
   have hfits := ctx₀.mem.fits_in_memory
   have hsz := Buffed.OperationMPtr.computeOperationSize_toNat numResults numOperands
     numBlockOperands numRegions propSize hr ho hbo hreg hp
   have hnr := UInt64.toNat_lt numResults
-  simp only [allocEmptyImpl] at h
+  simp only [allocEmptyHeaderImpl] at h
   split at h
   · exact absurd h (by simp)
   · rename_i buf halloc
@@ -3915,22 +3915,22 @@ theorem Sim.OperationPtr.allocEmptyImpl_read64_old {ctx₀ : Buffed.IRBufContext
       grind (gen := 20) (splits := 30) [IsDisjoint, IsIncluded]
     · exact absurd halloc (by simp)
 
-/-- 32-bit variant of `allocEmptyImpl_read64_old`. -/
-theorem Sim.OperationPtr.allocEmptyImpl_read32_old {ctx₀ : Buffed.IRBufContext}
+/-- 32-bit variant of `allocEmptyHeaderImpl_read64_old`. -/
+theorem Sim.OperationPtr.allocEmptyHeaderImpl_read32_old {ctx₀ : Buffed.IRBufContext}
     {numResults numOperands numBlockOperands numRegions propSize : UInt64} {opType : UInt32}
     {hr ho hbo hreg hp} {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.OperationMPtr}
-    (h : allocEmptyImpl ctx₀ numResults numOperands numBlockOperands numRegions propSize opType
+    (h : allocEmptyHeaderImpl ctx₀ numResults numOperands numBlockOperands numRegions propSize opType
       hr ho hbo hreg hp = some (ctxBuf, ptrImpl))
     (n : UInt64) (hn : n.toNat + 4 ≤ ctx₀.mem.size) :
     ctxBuf.mem.read32! n = ctx₀.mem.read32! n := by
-  have hptr := Sim.OperationPtr.allocEmptyImpl_ptr_ge h
-  have hptn := Sim.OperationPtr.allocEmptyImpl_ptr_toNat h
+  have hptr := Sim.OperationPtr.allocEmptyHeaderImpl_ptr_ge h
+  have hptn := Sim.OperationPtr.allocEmptyHeaderImpl_ptr_toNat h
   have hu := ctx₀.usize_toNat
   have hfits := ctx₀.mem.fits_in_memory
   have hsz := Buffed.OperationMPtr.computeOperationSize_toNat numResults numOperands
     numBlockOperands numRegions propSize hr ho hbo hreg hp
   have hnr := UInt64.toNat_lt numResults
-  simp only [allocEmptyImpl] at h
+  simp only [allocEmptyHeaderImpl] at h
   split at h
   · exact absurd h (by simp)
   · rename_i buf halloc
@@ -3968,10 +3968,10 @@ theorem Sim.OperationPtr.allocEmptyImpl_read32_old {ctx₀ : Buffed.IRBufContext
     · exact absurd halloc (by simp)
 
 /-- The header fields of the freshly allocated operation read back as written: the counts are the requested capacities, the links are `none`, the opType is the encoded opcode, and the `attrs` slot is still zero-initialized (pointing at the canonical empty dictionary). -/
-theorem Sim.OperationPtr.allocEmptyImpl_new_op_reads {ctx₀ : Buffed.IRBufContext}
+theorem Sim.OperationPtr.allocEmptyHeaderImpl_new_op_reads {ctx₀ : Buffed.IRBufContext}
     {numResults numOperands numBlockOperands numRegions propSize : UInt64} {opType : UInt32}
     {hr ho hbo hreg hp} {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.OperationMPtr}
-    (h : allocEmptyImpl ctx₀ numResults numOperands numBlockOperands numRegions propSize opType
+    (h : allocEmptyHeaderImpl ctx₀ numResults numOperands numBlockOperands numRegions propSize opType
       hr ho hbo hreg hp = some (ctxBuf, ptrImpl)) :
     Buffed.OperationMPtr.readNumResults! ctxBuf ptrImpl = numResults ∧
     Buffed.OperationMPtr.readNumOperands! ctxBuf ptrImpl = numOperands ∧
@@ -3982,14 +3982,14 @@ theorem Sim.OperationPtr.allocEmptyImpl_new_op_reads {ctx₀ : Buffed.IRBufConte
     Buffed.OperationMPtr.readParent! ctxBuf ptrImpl = Buffed.BlockOPtr.none ∧
     Buffed.OperationMPtr.readOpType! ctxBuf ptrImpl = opType ∧
     Buffed.OperationMPtr.readAttrs! ctxBuf ptrImpl = 0 := by
-  have hptr := Sim.OperationPtr.allocEmptyImpl_ptr_ge h
-  have hptn := Sim.OperationPtr.allocEmptyImpl_ptr_toNat h
+  have hptr := Sim.OperationPtr.allocEmptyHeaderImpl_ptr_ge h
+  have hptn := Sim.OperationPtr.allocEmptyHeaderImpl_ptr_toNat h
   have hu := ctx₀.usize_toNat
   have hfits := ctx₀.mem.fits_in_memory
   have hsz := Buffed.OperationMPtr.computeOperationSize_toNat numResults numOperands
     numBlockOperands numRegions propSize hr ho hbo hreg hp
   have hnr := UInt64.toNat_lt numResults
-  simp only [allocEmptyImpl] at h
+  simp only [allocEmptyHeaderImpl] at h
   split at h
   · exact absurd h (by simp)
   · rename_i buf halloc
@@ -4031,6 +4031,259 @@ theorem Sim.OperationPtr.allocEmptyImpl_new_op_reads {ctx₀ : Buffed.IRBufConte
       refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
         grind (gen := 20) (splits := 30) [IsDisjoint, IsIncluded, ExArray.read64!_extend_new]
     · exact absurd halloc (by simp)
+
+/-- The property slot of the fresh operation starts at `ptrImpl + 72`, which is at or past the old buffer end. -/
+theorem Sim.OperationPtr.allocEmptyHeaderImpl_properties_toNat {ctx₀ : Buffed.IRBufContext}
+    {numResults numOperands numBlockOperands numRegions propSize : UInt64} {opType : UInt32}
+    {hr ho hbo hreg hp} {ctxH : Buffed.IRBufContext} {ptrImpl : Buffed.OperationMPtr}
+    (h : allocEmptyHeaderImpl ctx₀ numResults numOperands numBlockOperands numRegions propSize
+      opType hr ho hbo hreg hp = some (ctxH, ptrImpl)) :
+    ∀ (off : Int64) (k : Nat), off.toInt = (k : Int) → k ≤ 72 →
+      (ptrImpl + off).toNat = ptrImpl.toNat + k := by
+  have hptn := allocEmptyHeaderImpl_ptr_toNat h
+  have hsz := allocEmptyHeaderImpl_size h
+  have hfits := ctxH.mem.fits_in_memory
+  have hcst := Buffed.OperationMPtr.computeOperationSize_toNat numResults numOperands
+    numBlockOperands numRegions propSize hr ho hbo hreg hp
+  have hnr := UInt64.toNat_lt numResults
+  have hmax : Int64.maxValue.toInt = 2^63 - 1 := by decide
+  have hptrlt : ptrImpl.toNat + 72 < 2^63 := by
+    simp only [Int64.maxNatValue,
+      show Buffed.OpResult.size.toNat = 40 from rfl,
+      show Buffed.Operation.sizeBase.toNat = 72 from rfl] at *
+    omega
+  intro off k hoff hk
+  rw [UInt64.uint64_add_int64_toNat_lt (by omega) (by omega)]
+  omega
+
+/-- Allocate an empty operation record and store its property: the header fields are written by
+`allocEmptyHeaderImpl` (with the property slot sized by `HasDialectOpInfo.propertySize`), then the
+property itself is written into the slot (which may also append its spilled encoding to the
+attribute table — hence the guard that the table still has a free 63-bit index). -/
+@[inline]
+def Sim.OperationPtr.allocEmptyImpl [HasBuffedProperties OpInfo] {opCode : OpInfo} (ctx₀ : Buffed.IRBufContext)
+    (numResults numOperands numBlockOperands numRegions : UInt64)
+    (opType : UInt32) (prop : HasDialectOpInfo.propertiesOf opCode)
+    (hr : numResults.toNat ≤ Buffed.countCard) (ho : numOperands.toNat ≤ Buffed.countCard)
+    (hbo : numBlockOperands.toNat ≤ Buffed.countCard) (hreg : numRegions.toNat ≤ Buffed.countCard) :
+    Option (Buffed.IRBufContext × Buffed.OperationMPtr) :=
+  if hattrs : ctx₀.attributes.size < 9223372036854775808 then
+    match heq : allocEmptyHeaderImpl ctx₀ numResults numOperands numBlockOperands numRegions
+        (HasDialectOpInfo.propertySize opCode) opType hr ho hbo hreg
+        (Nat.le_of_lt HasDialectOpInfo.propertySize_small) with
+    | none => none
+    | some (ctx, ptr) =>
+      some (HasBuffedProperties.writePropertyAt opCode prop
+        (ptr + Buffed.Operation.Offsets.properties) ctx
+        (by
+          have hsz := Sim.OperationPtr.allocEmptyHeaderImpl_size heq
+          have hptn := Sim.OperationPtr.allocEmptyHeaderImpl_ptr_toNat heq
+          have hoff := Sim.OperationPtr.allocEmptyHeaderImpl_properties_toNat heq
+            Buffed.Operation.Offsets.properties 72 (by decide) (by omega)
+          have hcst := Buffed.OperationMPtr.computeOperationSize_toNat numResults numOperands
+            numBlockOperands numRegions (HasDialectOpInfo.propertySize opCode) hr ho hbo hreg
+            (Nat.le_of_lt HasDialectOpInfo.propertySize_small)
+          simp only [show Buffed.OpResult.size.toNat = 40 from rfl,
+            show Buffed.Operation.sizeBase.toNat = 72 from rfl] at *
+          omega)
+        (by
+          rw [Sim.OperationPtr.allocEmptyHeaderImpl_attributes heq]
+          exact hattrs), ptr)
+  else
+    none
+
+/-- Destructure a successful `allocEmptyImpl` into its header allocation and the property write. -/
+theorem Sim.OperationPtr.allocEmptyImpl_eq [HasBuffedProperties OpInfo] {opCode : OpInfo}
+    {ctx₀ : Buffed.IRBufContext}
+    {numResults numOperands numBlockOperands numRegions : UInt64} {opType : UInt32}
+    {prop : HasDialectOpInfo.propertiesOf opCode}
+    {hr ho hbo hreg} {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.OperationMPtr}
+    (h : allocEmptyImpl ctx₀ numResults numOperands numBlockOperands numRegions opType
+      prop hr ho hbo hreg = some (ctxBuf, ptrImpl)) :
+    ∃ (ctxH : Buffed.IRBufContext),
+      allocEmptyHeaderImpl ctx₀ numResults numOperands numBlockOperands numRegions
+        (HasDialectOpInfo.propertySize opCode) opType hr ho hbo hreg
+        (Nat.le_of_lt HasDialectOpInfo.propertySize_small) = some (ctxH, ptrImpl) ∧
+      ∃ h₁ h₂, ctxBuf = HasBuffedProperties.writePropertyAt opCode prop
+        (ptrImpl + Buffed.Operation.Offsets.properties) ctxH h₁ h₂ := by
+  unfold allocEmptyImpl at h
+  split at h
+  · split at h
+    · exact absurd h (by simp)
+    · rename_i ctxH ptr heq
+      simp only [Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨hbuf, rfl⟩ := h
+      exact ⟨ctxH, heq, _, _, hbuf.symm⟩
+  · exact absurd h (by simp)
+
+/-- The operation pointer produced by `allocEmptyImpl` lies at or past the end of the buffer. -/
+theorem Sim.OperationPtr.allocEmptyImpl_ptr_ge [HasBuffedProperties OpInfo] {opCode : OpInfo}
+    {ctx₀ : Buffed.IRBufContext}
+    {numResults numOperands numBlockOperands numRegions : UInt64} {opType : UInt32}
+    {prop : HasDialectOpInfo.propertiesOf opCode}
+    {hr ho hbo hreg} {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.OperationMPtr}
+    (h : allocEmptyImpl ctx₀ numResults numOperands numBlockOperands numRegions opType
+      prop hr ho hbo hreg = some (ctxBuf, ptrImpl)) :
+    ctx₀.mem.size ≤ ptrImpl.toNat := by
+  obtain ⟨ctxH, hH, -⟩ := allocEmptyImpl_eq h
+  exact allocEmptyHeaderImpl_ptr_ge hH
+
+/-- Closed form of the operation pointer returned by `allocEmptyImpl`. -/
+theorem Sim.OperationPtr.allocEmptyImpl_ptr_toNat [HasBuffedProperties OpInfo] {opCode : OpInfo}
+    {ctx₀ : Buffed.IRBufContext}
+    {numResults numOperands numBlockOperands numRegions : UInt64} {opType : UInt32}
+    {prop : HasDialectOpInfo.propertiesOf opCode}
+    {hr ho hbo hreg} {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.OperationMPtr}
+    (h : allocEmptyImpl ctx₀ numResults numOperands numBlockOperands numRegions opType
+      prop hr ho hbo hreg = some (ctxBuf, ptrImpl)) :
+    ptrImpl.toNat = ctx₀.mem.size + Buffed.OpResult.size.toNat * numResults.toNat := by
+  obtain ⟨ctxH, hH, -⟩ := allocEmptyImpl_eq h
+  exact allocEmptyHeaderImpl_ptr_toNat hH
+
+/-- `allocEmptyImpl` only appends to the attribute table (when the property is spilled), so existing entries keep their index. -/
+theorem Sim.OperationPtr.allocEmptyImpl_attributes [HasBuffedProperties OpInfo] {opCode : OpInfo}
+    {ctx₀ : Buffed.IRBufContext}
+    {numResults numOperands numBlockOperands numRegions : UInt64} {opType : UInt32}
+    {prop : HasDialectOpInfo.propertiesOf opCode}
+    {hr ho hbo hreg} {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.OperationMPtr}
+    (h : allocEmptyImpl ctx₀ numResults numOperands numBlockOperands numRegions opType
+      prop hr ho hbo hreg = some (ctxBuf, ptrImpl))
+    {i : Nat} {a : Attribute} (hsome : ctx₀.attributes[i]? = some a) :
+    ctxBuf.attributes[i]? = some a := by
+  obtain ⟨ctxH, hH, h₁, h₂, rfl⟩ := allocEmptyImpl_eq h
+  refine HasBuffedProperties.only_adds_attributes i ?_
+  rw [allocEmptyHeaderImpl_attributes hH]
+  exact hsome
+
+/-- `allocEmptyImpl` grows the buffer by exactly the computed operation size. -/
+theorem Sim.OperationPtr.allocEmptyImpl_size [HasBuffedProperties OpInfo] {opCode : OpInfo}
+    {ctx₀ : Buffed.IRBufContext}
+    {numResults numOperands numBlockOperands numRegions : UInt64} {opType : UInt32}
+    {prop : HasDialectOpInfo.propertiesOf opCode}
+    {hr ho hbo hreg} {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.OperationMPtr}
+    (h : allocEmptyImpl ctx₀ numResults numOperands numBlockOperands numRegions opType
+      prop hr ho hbo hreg = some (ctxBuf, ptrImpl)) :
+    ctxBuf.mem.size = ctx₀.mem.size +
+      (Buffed.OperationMPtr.computeOperationSize numResults numOperands numBlockOperands
+        numRegions (HasDialectOpInfo.propertySize opCode)).toNat := by
+  obtain ⟨ctxH, hH, h₁, h₂, rfl⟩ := allocEmptyImpl_eq h
+  rw [HasBuffedProperties.preserves_size]
+  exact allocEmptyHeaderImpl_size hH
+
+/-- 64-bit reads that lie entirely inside the old buffer are unchanged by `allocEmptyImpl`. -/
+theorem Sim.OperationPtr.allocEmptyImpl_read64_old [HasBuffedProperties OpInfo] {opCode : OpInfo}
+    {ctx₀ : Buffed.IRBufContext}
+    {numResults numOperands numBlockOperands numRegions : UInt64} {opType : UInt32}
+    {prop : HasDialectOpInfo.propertiesOf opCode}
+    {hr ho hbo hreg} {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.OperationMPtr}
+    (h : allocEmptyImpl ctx₀ numResults numOperands numBlockOperands numRegions opType
+      prop hr ho hbo hreg = some (ctxBuf, ptrImpl))
+    (n : UInt64) (hn : n.toNat + 8 ≤ ctx₀.mem.size) :
+    ctxBuf.mem.read64! n = ctx₀.mem.read64! n := by
+  obtain ⟨ctxH, hH, h₁, h₂, rfl⟩ := allocEmptyImpl_eq h
+  have hge := allocEmptyHeaderImpl_ptr_ge hH
+  have haddr := allocEmptyHeaderImpl_properties_toNat hH Buffed.Operation.Offsets.properties 72
+    (by decide) (by omega)
+  rw [HasBuffedProperties.read64!_writePropertyAt (Or.inl (show n.toNat + 8
+    ≤ (ptrImpl + Buffed.Operation.Offsets.properties).toNat by omega))]
+  exact allocEmptyHeaderImpl_read64_old hH n hn
+
+/-- 32-bit variant of `allocEmptyImpl_read64_old`. -/
+theorem Sim.OperationPtr.allocEmptyImpl_read32_old [HasBuffedProperties OpInfo] {opCode : OpInfo}
+    {ctx₀ : Buffed.IRBufContext}
+    {numResults numOperands numBlockOperands numRegions : UInt64} {opType : UInt32}
+    {prop : HasDialectOpInfo.propertiesOf opCode}
+    {hr ho hbo hreg} {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.OperationMPtr}
+    (h : allocEmptyImpl ctx₀ numResults numOperands numBlockOperands numRegions opType
+      prop hr ho hbo hreg = some (ctxBuf, ptrImpl))
+    (n : UInt64) (hn : n.toNat + 4 ≤ ctx₀.mem.size) :
+    ctxBuf.mem.read32! n = ctx₀.mem.read32! n := by
+  obtain ⟨ctxH, hH, h₁, h₂, rfl⟩ := allocEmptyImpl_eq h
+  have hge := allocEmptyHeaderImpl_ptr_ge hH
+  have haddr := allocEmptyHeaderImpl_properties_toNat hH Buffed.Operation.Offsets.properties 72
+    (by decide) (by omega)
+  rw [HasBuffedProperties.read32!_writePropertyAt (Or.inl (show n.toNat + 4
+    ≤ (ptrImpl + Buffed.Operation.Offsets.properties).toNat by omega))]
+  exact allocEmptyHeaderImpl_read32_old hH n hn
+
+/-- The header fields of the freshly allocated operation read back as written: the property write
+lands past the 72-byte header, so the header lemma's values survive. -/
+theorem Sim.OperationPtr.allocEmptyImpl_new_op_reads [HasBuffedProperties OpInfo] {opCode : OpInfo}
+    {ctx₀ : Buffed.IRBufContext}
+    {numResults numOperands numBlockOperands numRegions : UInt64} {opType : UInt32}
+    {prop : HasDialectOpInfo.propertiesOf opCode}
+    {hr ho hbo hreg} {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.OperationMPtr}
+    (h : allocEmptyImpl ctx₀ numResults numOperands numBlockOperands numRegions opType
+      prop hr ho hbo hreg = some (ctxBuf, ptrImpl)) :
+    Buffed.OperationMPtr.readNumResults! ctxBuf ptrImpl = numResults ∧
+    Buffed.OperationMPtr.readNumOperands! ctxBuf ptrImpl = numOperands ∧
+    Buffed.OperationMPtr.readNumBlockOperands! ctxBuf ptrImpl = numBlockOperands ∧
+    Buffed.OperationMPtr.readNumRegions! ctxBuf ptrImpl = numRegions ∧
+    Buffed.OperationMPtr.readPrev! ctxBuf ptrImpl = Buffed.OperationOPtr.none ∧
+    Buffed.OperationMPtr.readNext! ctxBuf ptrImpl = Buffed.OperationOPtr.none ∧
+    Buffed.OperationMPtr.readParent! ctxBuf ptrImpl = Buffed.BlockOPtr.none ∧
+    Buffed.OperationMPtr.readOpType! ctxBuf ptrImpl = opType ∧
+    Buffed.OperationMPtr.readAttrs! ctxBuf ptrImpl = 0 := by
+  obtain ⟨ctxH, hH, h₁, h₂, rfl⟩ := allocEmptyImpl_eq h
+  obtain ⟨hnr', hno', hnb', hnrg', hprev', hnext', hpar', hty', hattrs'⟩ :=
+    allocEmptyHeaderImpl_new_op_reads hH
+  have hstep := allocEmptyHeaderImpl_properties_toNat hH
+  have haddr := hstep Buffed.Operation.Offsets.properties 72 (by decide) (by omega)
+  have h0 := hstep Buffed.Operation.Offsets.numResults 0 (by decide) (by omega)
+  have h8 := hstep Buffed.Operation.Offsets.prev 8 (by decide) (by omega)
+  have h16 := hstep Buffed.Operation.Offsets.next 16 (by decide) (by omega)
+  have h24 := hstep Buffed.Operation.Offsets.parent 24 (by decide) (by omega)
+  have h32 := hstep Buffed.Operation.Offsets.opType 32 (by decide) (by omega)
+  have h40 := hstep Buffed.Operation.Offsets.numBlockOperands 40 (by decide) (by omega)
+  have h48 := hstep Buffed.Operation.Offsets.numRegions 48 (by decide) (by omega)
+  have h56 := hstep Buffed.Operation.Offsets.numOperands 56 (by decide) (by omega)
+  have h64 := hstep Buffed.Operation.Offsets.attrs 64 (by decide) (by omega)
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · simp only [Buffed.OperationMPtr.readNumResults!] at hnr' ⊢
+    rw [HasBuffedProperties.read64!_writePropertyAt (Or.inl
+      (show (ptrImpl + Buffed.Operation.Offsets.numResults).toNat + 8
+        ≤ (ptrImpl + Buffed.Operation.Offsets.properties).toNat from by omega))]
+    exact hnr'
+  · simp only [Buffed.OperationMPtr.readNumOperands!] at hno' ⊢
+    rw [HasBuffedProperties.read64!_writePropertyAt (Or.inl
+      (show (ptrImpl + Buffed.Operation.Offsets.numOperands).toNat + 8
+        ≤ (ptrImpl + Buffed.Operation.Offsets.properties).toNat from by omega))]
+    exact hno'
+  · simp only [Buffed.OperationMPtr.readNumBlockOperands!] at hnb' ⊢
+    rw [HasBuffedProperties.read64!_writePropertyAt (Or.inl
+      (show (ptrImpl + Buffed.Operation.Offsets.numBlockOperands).toNat + 8
+        ≤ (ptrImpl + Buffed.Operation.Offsets.properties).toNat from by omega))]
+    exact hnb'
+  · simp only [Buffed.OperationMPtr.readNumRegions!] at hnrg' ⊢
+    rw [HasBuffedProperties.read64!_writePropertyAt (Or.inl
+      (show (ptrImpl + Buffed.Operation.Offsets.numRegions).toNat + 8
+        ≤ (ptrImpl + Buffed.Operation.Offsets.properties).toNat from by omega))]
+    exact hnrg'
+  · simp only [Buffed.OperationMPtr.readPrev!] at hprev' ⊢
+    rw [HasBuffedProperties.read64!_writePropertyAt (Or.inl
+      (show (ptrImpl + Buffed.Operation.Offsets.prev).toNat + 8
+        ≤ (ptrImpl + Buffed.Operation.Offsets.properties).toNat from by omega))]
+    exact hprev'
+  · simp only [Buffed.OperationMPtr.readNext!] at hnext' ⊢
+    rw [HasBuffedProperties.read64!_writePropertyAt (Or.inl
+      (show (ptrImpl + Buffed.Operation.Offsets.next).toNat + 8
+        ≤ (ptrImpl + Buffed.Operation.Offsets.properties).toNat from by omega))]
+    exact hnext'
+  · simp only [Buffed.OperationMPtr.readParent!] at hpar' ⊢
+    rw [HasBuffedProperties.read64!_writePropertyAt (Or.inl
+      (show (ptrImpl + Buffed.Operation.Offsets.parent).toNat + 8
+        ≤ (ptrImpl + Buffed.Operation.Offsets.properties).toNat from by omega))]
+    exact hpar'
+  · simp only [Buffed.OperationMPtr.readOpType!] at hty' ⊢
+    rw [HasBuffedProperties.read32!_writePropertyAt (Or.inl
+      (show (ptrImpl + Buffed.Operation.Offsets.opType).toNat + 4
+        ≤ (ptrImpl + Buffed.Operation.Offsets.properties).toNat from by omega))]
+    exact hty'
+  · simp only [Buffed.OperationMPtr.readAttrs!] at hattrs' ⊢
+    rw [HasBuffedProperties.read64!_writePropertyAt (Or.inl
+      (show (ptrImpl + Buffed.Operation.Offsets.attrs).toNat + 8
+        ≤ (ptrImpl + Buffed.Operation.Offsets.properties).toNat from by omega))]
+    exact hattrs'
 
 def Sim.OperationPtr.allocEmptySpec (ctx : Veir.IRContext OpInfo) (addr : Nat) (opType : OpInfo)
     (properties : HasOpInfo.propertiesOf opType) (capResults capBlockOperands capRegions capOperands : Nat)
@@ -4173,33 +4426,35 @@ theorem Sim.OperationPtr.slot_free (ctx : Sim.IRContext OpInfo) {a : Nat} (ha : 
 
 set_option maxHeartbeats 1000000000 in
 /-- Freshly allocating an empty operation — buffer side (`allocEmptyImpl`) and spec side (`allocEmptyAt`, at the same address) — preserves the simulation invariant. -/
-theorem Sim.OperationPtr.allocEmpty_sim {ctx : Sim.IRContext OpInfo} {opType : OpInfo}
+theorem Sim.OperationPtr.allocEmpty_sim [HasBuffedProperties OpInfo] {ctx : Sim.IRContext OpInfo} {opType : OpInfo}
     {props : HasOpInfo.propertiesOf opType}
     {numResults numOperands numBlockOperands numRegions : UInt64}
     {h₁ : numResults.toNat ≤ countCard} {h₂ : numOperands.toNat ≤ countCard}
     {h₃ : numBlockOperands.toNat ≤ countCard} {h₄ : numRegions.toNat ≤ countCard}
-    {hp : (HasDialectOpInfo.propertySize opType).toNat ≤ countCard}
     {ctxBuf : Buffed.IRBufContext} {ptrImpl : Buffed.OperationMPtr}
     {ctxSpec : Veir.IRContext OpInfo} {ptrSpec : Veir.OperationPtr}
     (heqImpl : allocEmptyImpl ctx.buf numResults numOperands numBlockOperands numRegions
-      (HasDialectOpInfo.propertySize opType) (SerializableOpInfo.encode opType)
-      h₁ h₂ h₃ h₄ hp = some (ctxBuf, ptrImpl))
+      (SerializableOpInfo.encode opType)
+      (props : HasDialectOpInfo.propertiesOf opType)
+      h₁ h₂ h₃ h₄ = some (ctxBuf, ptrImpl))
     (heqSpec : Veir.OperationPtr.allocEmptyAt ctx.spec opType props numResults.toNat
       numBlockOperands.toNat numRegions.toNat numOperands.toNat ptrImpl.toNat
       = some (ctxSpec, ptrSpec)) :
     Veir.Sim (OpInfo := OpInfo) ⟨ctxBuf, ctxSpec⟩ := by
-  replace hp : (Buffed.Operation.propertySize opType).toNat ≤ countCard := hp
-  replace heqImpl : allocEmptyImpl ctx.buf numResults numOperands numBlockOperands numRegions
-      (Buffed.Operation.propertySize opType) (SerializableOpInfo.encode opType)
-      h₁ h₂ h₃ h₄ hp = some (ctxBuf, ptrImpl) := heqImpl
-  have hattrs := Sim.OperationPtr.allocEmptyImpl_attributes heqImpl
+  have hp : (Buffed.Operation.propertySize opType).toNat ≤ countCard :=
+    Nat.le_of_lt HasDialectOpInfo.propertySize_small
+  have hps : Buffed.Operation.propertySize opType = HasDialectOpInfo.propertySize opType := rfl
+  have hattrs : ∀ {i : Nat} {a : Attribute}, ctx.buf.attributes[i]? = some a →
+      ctxBuf.attributes[i]? = some a :=
+    fun h => Sim.OperationPtr.allocEmptyImpl_attributes heqImpl h
   have hsize := Sim.OperationPtr.allocEmptyImpl_size heqImpl
+  rw [← hps] at hsize
   have hge := Sim.OperationPtr.allocEmptyImpl_ptr_ge heqImpl
   have hptn := Sim.OperationPtr.allocEmptyImpl_ptr_toNat heqImpl
   have hro64 := Sim.OperationPtr.allocEmptyImpl_read64_old heqImpl
   have hro32 := Sim.OperationPtr.allocEmptyImpl_read32_old heqImpl
   have hagree : Buffed.AgreesOn ctxBuf ctx.buf 0 ctx.buf.mem.size :=
-    ⟨fun a _ ha => hro64 a ha, fun a _ ha => hro32 a ha, fun _ _ h => by simp only [hattrs]; exact h⟩
+    ⟨fun a _ ha => hro64 a ha, fun a _ ha => hro32 a ha, fun _ _ h => hattrs h⟩
   obtain ⟨hRnr, hRno, hRnb, hRnrg, hRprev, hRnext, hRpar, hRty, hRattrs⟩ :=
     Sim.OperationPtr.allocEmptyImpl_new_op_reads heqImpl
   have hnew : ptrSpec = ⟨ptrImpl.toNat⟩ := Veir.OperationPtr.allocEmptyAt_ptr_eq heqSpec
@@ -4382,8 +4637,8 @@ theorem Sim.OperationPtr.allocEmpty_sim {ctx : Sim.IRContext OpInfo} {opType : O
         · grind [SerializableOpInfo.decode_encode]
         · -- `attrs`: the zero-initialized index denotes the canonical empty dictionary
           have hae := ctx.sim.attr_empty
-          rw [hnewToM, hRattrs, hattrs, hget]
-          simpa [Veir.Operation.empty] using hae
+          rw [hnewToM, hRattrs, hget]
+          exact hattrs (by simpa [Veir.Operation.empty] using hae)
       · constructor
         · grind
         · intro bo boIb heq
@@ -4433,19 +4688,19 @@ theorem Sim.OperationPtr.allocEmpty_sim {ctx : Sim.IRContext OpInfo} {opType : O
     refine RegionPtr.matches_frame ctx rg hold henc
       (hagree.mono (Nat.zero_le _) (by grind)) hlp (by grind [layout_grind]) rgIb
   · -- `attr_empty`
-    rw [hattrs]
-    exact ctx.sim.attr_empty
+    exact hattrs ctx.sim.attr_empty
 
 @[inline]
-def Sim.OperationPtr.allocEmpty (ctx : Sim.IRContext OpInfo) (opType : OpInfo)
+def Sim.OperationPtr.allocEmpty [HasBuffedProperties OpInfo] (ctx : Sim.IRContext OpInfo) (opType : OpInfo)
     (properties : HasOpInfo.propertiesOf opType)
     (numResults numOperands numBlockOperands numRegions : UInt64)
     (h₁ : numResults.toNat ≤ countCard) (h₂ : numOperands.toNat ≤ countCard)
     (h₃ : numBlockOperands.toNat ≤ countCard) (h₄ : numRegions.toNat ≤ countCard) :
     Option (Sim.OperationPtr × Sim.IRContext OpInfo) :=
   match heqImpl : allocEmptyImpl ctx.buf numResults numOperands numBlockOperands numRegions
-        (HasDialectOpInfo.propertySize opType) (SerializableOpInfo.encode opType)
-        h₁ h₂ h₃ h₄ (Nat.le_of_lt (HasDialectOpInfo.propertySize_small)) with
+        (SerializableOpInfo.encode opType)
+        (properties : HasDialectOpInfo.propertiesOf opType)
+        h₁ h₂ h₃ h₄ with
     | none => none
     | some (ctxBuf, ptrImpl) =>
       -- The spec-side allocation succeeds: the new pointer lies at/past the old buffer end, so its address is free in the spec.
@@ -4466,7 +4721,7 @@ def Sim.OperationPtr.allocEmpty (ctx : Sim.IRContext OpInfo) (opType : OpInfo)
           grind [Option.specGet!]⟩⟩
 
 /-- Strengthening of `allocEmpty_spec`: the spec-level operation is allocated exactly at the address of the returned impl pointer. -/
-theorem Sim.OperationPtr.allocEmpty_spec' {ctx : Sim.IRContext OpInfo} :
+theorem Sim.OperationPtr.allocEmpty_spec' [HasBuffedProperties OpInfo] {ctx : Sim.IRContext OpInfo} :
     allocEmpty ctx opType props c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some ⟨ptr, ctx'⟩ →
     Veir.OperationPtr.allocEmptyAt ctx.spec opType props c₁.toNat c₃.toNat c₄.toNat c₂.toNat ptr.impl.toNat = some ⟨ctx'.spec, ptr.spec⟩ := by
   unfold Sim.OperationPtr.allocEmpty allocEmptySpec
@@ -4486,7 +4741,7 @@ theorem Sim.OperationPtr.allocEmpty_spec' {ctx : Sim.IRContext OpInfo} :
     grind
 
 @[grind! .]
-theorem Sim.OperationPtr.allocEmpty_spec {ctx : Sim.IRContext OpInfo} :
+theorem Sim.OperationPtr.allocEmpty_spec [HasBuffedProperties OpInfo] {ctx : Sim.IRContext OpInfo} :
     allocEmpty ctx opType props c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some ⟨ptr, ctx'⟩ →
     ∃ addr, Veir.OperationPtr.allocEmptyAt ctx.spec opType props c₁.toNat c₃.toNat c₄.toNat c₂.toNat addr = some ⟨ctx'.spec, ptr.spec⟩:=
   fun h => ⟨ptr.impl.toNat, Sim.OperationPtr.allocEmpty_spec' h⟩

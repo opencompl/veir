@@ -310,6 +310,14 @@ def read64! (buf : @& ExArray) (n : UInt64) : UInt64 :=
 def read32! (buf : @& ExArray) (n : UInt64) : UInt32 :=
   UInt32.ofBitVec (read! buf n 4)
 
+theorem read64!_eq_read! (buf : ExArray) (n : UInt64) :
+    buf.read64! n = UInt64.ofBitVec (buf.read! n 8) := by
+  simp only [read64!]
+
+theorem read32!_eq_read! (buf : ExArray) (n : UInt64) :
+    buf.read32! n = UInt32.ofBitVec (buf.read! n 4) := by
+  simp only [read32!]
+
 @[simp, grind =]
 theorem read64_eq_read64! {buf : ExArray} h :
     buf.read64 n h = buf.read64! n := by

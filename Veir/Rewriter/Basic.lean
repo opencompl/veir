@@ -1426,7 +1426,7 @@ theorem Rewriter.initBlockOperands_inBounds_veir_mono (ptr : Veir.GenericPtr) {o
 
 set_option maxHeartbeats 4000000 in
 buffed
-def Rewriter.createOpSim (ctx: Sim.IRContext OpInfo) (opType: OpInfo)
+def Rewriter.createOpSim [HasBuffedProperties OpInfo] (ctx: Sim.IRContext OpInfo) (opType: OpInfo)
     (resultTypes: Array TypeAttr) (operands: Sim.ArrayValuePtr) (blockOperands : Sim.ArrayBlockPtr)
     (regions: Sim.ArrayRegionPtr) (properties: HasOpInfo.propertiesOf opType)
     (insertionPoint: Option InsertPoint)
@@ -1528,7 +1528,7 @@ def Rewriter.createOpSim (ctx: Sim.IRContext OpInfo) (opType: OpInfo)
 
 
 @[grind .]
-theorem Rewriter.createOp_inBounds_mono (ptr : GenericPtr)
+theorem Rewriter.createOp_inBounds_mono [HasBuffedProperties OpInfo] (ptr : GenericPtr)
     (heq : createOp ctx opType numResults operands blockOperands regions props ip h₁ h₂ h₃ h₄ h₅ h₆ = some (newCtx, newOp)) :
     ptr.InBounds ctx.spec → ptr.InBounds newCtx.spec := by
   intro hp
@@ -1548,7 +1548,7 @@ theorem Rewriter.createOp_inBounds_mono (ptr : GenericPtr)
         · grind
 
 @[grind .]
-theorem Rewriter.createOp_new_inBounds (ptr : Sim.OperationPtr)
+theorem Rewriter.createOp_new_inBounds [HasBuffedProperties OpInfo] (ptr : Sim.OperationPtr)
     (heq : createOp ctx opType numResults operands blockOperands regions props ip h₁ h₂ h₃ h₄ h₅ h₆ = some (newCtx, ptr)) :
     ptr.InBounds newCtx := by
   simp only [createOp_def, createOpSim] at heq
@@ -1564,7 +1564,7 @@ theorem Rewriter.createOp_new_inBounds (ptr : Sim.OperationPtr)
         · grind
 
 @[grind .]
-theorem Rewriter.createOp_new_not_inBounds (ptr : Sim.OperationPtr)
+theorem Rewriter.createOp_new_not_inBounds [HasBuffedProperties OpInfo] (ptr : Sim.OperationPtr)
     (heq : createOp ctx opType numResults operands blockOperands regions props ip h₁ h₂ h₃ h₄ h₅ h₆ = some (newCtx, ptr)) :
     ¬ ptr.spec.InBounds ctx.spec := by
   simp only [createOp_def, createOpSim] at heq
@@ -1581,7 +1581,7 @@ theorem Rewriter.createOp_new_not_inBounds (ptr : Sim.OperationPtr)
         · grind
 
 @[grind .]
-theorem Rewriter.createOp_fieldsInBounds
+theorem Rewriter.createOp_fieldsInBounds [HasBuffedProperties OpInfo]
     (_heq : createOp ctx opType numResults operands blockOperands numRegions props ip h₁ h₂ h₃ h₄ h₅ h₆ = some (newCtx, newOp)) :
     ctx.spec.FieldsInBounds → newCtx.spec.FieldsInBounds := by
   simp only [createOp] at _heq; grind (gen := 10)
@@ -1592,7 +1592,7 @@ def Sim.IRContext.emptySim : Sim.IRContext OpInfo :=
   ⟨⟨.emptyWithCapacity (256 * 1024 * 1024), #[.dictionaryAttr DictionaryAttr.empty]⟩, IRContext.empty OpInfo, by constructor <;> grind [TopLevelPtr]⟩
 
 buffed
-def IRContext.createSim OpInfo [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] : Option (Sim.IRContext OpInfo × Sim.OperationPtr) := do
+def IRContext.createSim OpInfo [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedProperties OpInfo] : Option (Sim.IRContext OpInfo × Sim.OperationPtr) := do
   rlet ⟨ctx, region⟩ ← Rewriter.createRegion .empty
   have regionIb : region.InBounds ctx := by grind
   have regionRepr : region.spec.IsRepr := by grind
@@ -1614,12 +1614,12 @@ def IRContext.createSim OpInfo [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] : 
   some (ctx, operation)
 
 @[grind →]
-theorem IRContext.create_fieldsInBounds {op: Sim.OperationPtr} (_h : IRContext.create OpInfo = some (ctx, op)) :
+theorem IRContext.create_fieldsInBounds [HasBuffedProperties OpInfo] {op: Sim.OperationPtr} (_h : IRContext.create OpInfo = some (ctx, op)) :
     ctx.spec.FieldsInBounds := by
   simp only [IRContext.create] at _h; grind
 
 @[grind →]
-theorem IRContext.create_inBounds {op: Sim.OperationPtr} (h : IRContext.create OpInfo = some (ctx, op)) :
+theorem IRContext.create_inBounds [HasBuffedProperties OpInfo] {op: Sim.OperationPtr} (h : IRContext.create OpInfo = some (ctx, op)) :
     op.InBounds ctx := by
   simp only [IRContext.create_def, IRContext.createSim] at h
   split at h

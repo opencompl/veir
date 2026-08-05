@@ -51,7 +51,9 @@ instance : HasDialectOpInfo Arith where
 
 /-- A constant is stored inline in its 8-byte property slot when the value fits in 48 bits (two's complement) and the bitwidth in 15 bits. -/
 abbrev ArithConstantProperties.IsInline (a : ArithConstantProperties) : Prop :=
-  -(2^47) ≤ a.value.value ∧ a.value.value < 2^47 ∧ a.value.type.bitwidth < 2^15
+  -- Literals (= `-2^47`, `2^47`, `2^15`): a `2^k` spelling would be recomputed with
+  -- arbitrary-precision arithmetic every time the decidable instance runs.
+  -140737488355328 ≤ a.value.value ∧ a.value.value < 140737488355328 ∧ a.value.type.bitwidth < 32768
 
 /-- Store the constant's value in the 8-byte property slot:
 * small constants (`IsInline`) are stored inline with the MSB 0: bits 62–48 hold the bitwidth and bits 47–0 the two's-complement value;
@@ -59,24 +61,29 @@ abbrev ArithConstantProperties.IsInline (a : ArithConstantProperties) : Prop :=
 def ArithConstantProperties.writeProperty (a : ArithConstantProperties) (addr: UInt64) (bctx : Buffed.IRBufContext)
     (h : addr.toNat + 8 ≤ bctx.mem.size) (_hattrs : bctx.attributes.size < 2^63) : Buffed.IRBufContext :=
   if a.IsInline then
-    let w : UInt64 := UInt64.ofNat (a.value.type.bitwidth * 2^48 + (a.value.value % 2^48).toNat)
+    -- Scalar `UInt64` encode (mirroring `readProperty`): the bitwidth in bits 62–48, the value
+    -- (two's complement, via `Int64` wrapping) in bits 47–0.
+    let w : UInt64 := UInt64.ofNat a.value.type.bitwidth * ((1 : UInt64) <<< 48)
+      + (Int64.ofInt a.value.value).toUInt64 % ((1 : UInt64) <<< 48)
     { bctx with mem := bctx.mem.blit64 addr w (by grind) }
   else
-    let idx : UInt64 := UInt64.ofNat (2^63 + bctx.attributes.size)
+    let idx : UInt64 := UInt64.ofNat bctx.attributes.size + ((1 : UInt64) <<< 63)
     { mem := bctx.mem.blit64 addr idx (by grind),
       attributes := bctx.attributes.push (.integerAttr a.value) }
 
-def ArithConstantProperties.readProperty (addr: UInt64) (bctx : Buffed.IRBufContext) (_h : addr.toNat + 8 ≤ bctx.mem.size) : Option ArithConstantProperties :=
-  let w : Nat := (bctx.mem.read64! addr).toNat
-  if w < 2^63 then
-    -- inline: bits 62–48 are the bitwidth, bits 47–0 the two's-complement value
-    let bw : Nat := w / 2^48
-    let raw : Nat := w % 2^48
-    let v : Int := if raw < 2^47 then (raw : Int) else (raw : Int) - 2^48
-    some { value := IntegerAttr.mk v (IntegerType.mk bw) }
+def ArithConstantProperties.readProperty (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 8 ≤ bctx.mem.size) : Option ArithConstantProperties :=
+  let w : UInt64 := bctx.mem.read64 addr (by grind)
+  -- Scalar `UInt64` arithmetic: the divisions by powers of two compile to shifts/masks, whereas
+  -- the `Nat` spelling of these constants would recompute `2^k` (arbitrary precision) per read.
+  if w < ((1 : UInt64) <<< 63) then
+    -- inline (MSB 0): bits 62–48 are the bitwidth, bits 47–0 the two's-complement value
+    let bw : UInt64 := w / ((1 : UInt64) <<< 48)
+    let raw : UInt64 := w % ((1 : UInt64) <<< 48)
+    let v : Int := if raw < ((1 : UInt64) <<< 47) then (raw.toNat : Int) else (raw.toNat : Int) - 281474976710656
+    some { value := IntegerAttr.mk v (IntegerType.mk bw.toNat) }
   else
-    -- MSB set: the remaining 63 bits index the attribute table
-    match bctx.attributes[w - 2^63]? with
+    -- MSB 1: the remaining 63 bits index the attribute table
+    match bctx.attributes[(w - ((1 : UInt64) <<< 63)).toNat]? with
     | some (Attribute.integerAttr v) => some { value := v }
     | _ => none
 
@@ -95,20 +102,52 @@ theorem ArithConstantProperties.writeProperty_attributes (a : ArithConstantPrope
   · exact hsome
   · grind
 
+/-- Infallible, allocation-light variant of `readProperty` for hot paths: an out-of-range spilled
+index or a non-integer table entry decodes to `default` instead of `none`. -/
+@[inline]
+def ArithConstantProperties.read (addr : UInt64) (bctx : Buffed.IRBufContext)
+    (h : addr.toNat + 8 ≤ bctx.mem.size) : ArithConstantProperties :=
+  let w : UInt64 := bctx.mem.read64 addr (by grind)
+  if w < (1 : UInt64) <<< 63 then
+    -- inline (MSB 0): bits 62–48 are the bitwidth, bits 47–0 the two's-complement value
+    let bw : UInt64 := w / ((1 : UInt64) <<< 48)
+    let raw : UInt64 := w % ((1 : UInt64) <<< 48)
+    let v : Int := if raw < (1 : UInt64) <<< 47 then (raw.toNat : Int) else (raw.toNat : Int) - 281474976710656
+    { value := IntegerAttr.mk v (IntegerType.mk bw.toNat) }
+  else
+    -- MSB 1: the remaining 63 bits index the attribute table
+    match bctx.attributes[(w - ((1 : UInt64) <<< 63)).toNat]! with
+    | Attribute.integerAttr v => { value := v }
+    | _ => default
+
 /-- `readProperty` returns the inline constant when the slot holds an inline encoding (MSB 0). -/
 theorem ArithConstantProperties.readProperty_inline (addr : UInt64) (bctx : Buffed.IRBufContext) (h) (bw : Nat) (v : Int)
     (h1 : -(2^47) ≤ v) (h2 : v < 2^47) (h3 : bw < 2^15)
     (hread : (bctx.mem.read64! addr).toNat = bw * 2^48 + (v % 2^48).toNat) :
     ArithConstantProperties.readProperty addr bctx h = some { value := IntegerAttr.mk v (IntegerType.mk bw) } := by
   have ht : (v % 2^48).toNat < 2^48 := by omega
-  have he : bw * 2^48 + (v % 2^48).toNat < 2^63 := by omega
+  have hbig : (((1 : UInt64) <<< 63)).toNat = 9223372036854775808 := rfl
+  have hc48 : (((1 : UInt64) <<< 48)).toNat = 281474976710656 := rfl
+  have hc47 : (((1 : UInt64) <<< 47)).toNat = 140737488355328 := rfl
   unfold readProperty
-  simp only [hread]
-  rw [if_pos he]
+  simp only [ExArray.read64_eq_read64!]
+  have hlt : bctx.mem.read64! addr < ((1 : UInt64) <<< 63) := by
+    rw [UInt64.lt_iff_toNat_lt, hread, hbig]; omega
+  rw [if_pos hlt]
+  have hdiv : (bctx.mem.read64! addr / ((1 : UInt64) <<< 48)).toNat = bw := by
+    rw [UInt64.toNat_div, hread, hc48]; omega
+  have hmod : (bctx.mem.read64! addr % ((1 : UInt64) <<< 48)).toNat = (v % 2^48).toNat := by
+    rw [UInt64.toNat_mod, hread, hc48]; omega
   simp only [Option.some.injEq, ArithConstantProperties.mk.injEq, IntegerAttr.mk.injEq,
-    IntegerType.mk.injEq]
-  refine ⟨?_, by omega⟩
-  split <;> omega
+    hdiv, hmod]
+  refine ⟨?_, trivial⟩
+  by_cases hc : bctx.mem.read64! addr % ((1 : UInt64) <<< 48) < ((1 : UInt64) <<< 47)
+  · rw [if_pos hc]
+    rw [UInt64.lt_iff_toNat_lt, hmod, hc47] at hc
+    omega
+  · rw [if_neg hc]
+    rw [UInt64.lt_iff_toNat_lt, hmod, hc47] at hc
+    omega
 
 /-- `readProperty` looks up the attribute table when the slot holds a tagged index (MSB 1). -/
 theorem ArithConstantProperties.readProperty_spilled (addr : UInt64) (bctx : Buffed.IRBufContext) (h) {idx : Nat} {v : IntegerAttr}
@@ -116,10 +155,14 @@ theorem ArithConstantProperties.readProperty_spilled (addr : UInt64) (bctx : Buf
     (hread : (bctx.mem.read64! addr).toNat = 2^63 + idx)
     (hattr : bctx.attributes[idx]? = some (Attribute.integerAttr v)) :
     ArithConstantProperties.readProperty addr bctx h = some { value := v } := by
-  have hsub : 2^63 + idx - 2^63 = idx := by omega
+  have hbig : (((1 : UInt64) <<< 63)).toNat = 9223372036854775808 := rfl
   unfold readProperty
-  simp only [hread]
-  rw [if_neg (by omega), hsub, hattr]
+  simp only [ExArray.read64_eq_read64!]
+  have hle : ((1 : UInt64) <<< 63) ≤ bctx.mem.read64! addr := by
+    rw [UInt64.le_iff_toNat_le, hread, hbig]; omega
+  have hsub : (bctx.mem.read64! addr - ((1 : UInt64) <<< 63)).toNat = idx := by
+    rw [UInt64.toNat_sub_of_le _ _ hle, hread, hbig]; omega
+  rw [if_neg (by rw [UInt64.lt_iff_toNat_lt, hread, hbig]; omega), hsub, hattr]
 
 theorem ArithConstantProperties.readProperty_writeProperty (a : ArithConstantProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h hattrs h') :
     ArithConstantProperties.readProperty addr (a.writeProperty addr bctx h hattrs) h' = some a := by
@@ -130,15 +173,54 @@ theorem ArithConstantProperties.readProperty_writeProperty (a : ArithConstantPro
     have h1 : -(2^47) ≤ v := hsm.1
     have h2 : v < 2^47 := hsm.2.1
     have h3 : bw < 2^15 := hsm.2.2
-    have ht : (v % 2^48).toNat < 2^48 := by omega
     refine ArithConstantProperties.readProperty_inline addr _ _ bw v h1 h2 h3 ?_
     rw [ExArray.read64!_blit64_self]
-    exact _root_UInt64.toNat_UInt64_ofNat_of_lt (by simp only [UInt64.size]; omega)
+    have hbw : (UInt64.ofNat bw).toNat = bw :=
+      _root_UInt64.toNat_UInt64_ofNat_of_lt (by simp only [UInt64.size]; omega)
+    have hv : (Int64.ofInt v).toUInt64.toNat = (v % 18446744073709551616).toNat := by
+      show (Int64.ofInt v).toBitVec.toNat = _
+      rw [Int64.toBitVec_ofInt, BitVec.toNat_ofInt]
+      omega
+    have hc48 : (((1 : UInt64) <<< 48)).toNat = 281474976710656 := rfl
+    rw [UInt64.toNat_add, UInt64.toNat_mul, UInt64.toNat_mod, hbw, hv, hc48]
+    omega
   next hsm =>
     refine ArithConstantProperties.readProperty_spilled addr _ _ (idx := bctx.attributes.size) hattrs ?_ ?_
     · rw [ExArray.read64!_blit64_self]
-      exact _root_UInt64.toNat_UInt64_ofNat_of_lt (by simp only [UInt64.size]; omega)
+      have hsz : (UInt64.ofNat bctx.attributes.size).toNat = bctx.attributes.size :=
+        _root_UInt64.toNat_UInt64_ofNat_of_lt (by simp only [UInt64.size]; omega)
+      have hbig : (((1 : UInt64) <<< 63)).toNat = 9223372036854775808 := rfl
+      rw [UInt64.toNat_add, hsz, hbig]
+      omega
     · simp
+
+/-- On any slot that `readProperty` decodes successfully, the infallible `read` agrees. -/
+theorem ArithConstantProperties.read_eq_of_readProperty {addr : UInt64} {bctx : Buffed.IRBufContext} {h}
+    {p : ArithConstantProperties}
+    (heq : ArithConstantProperties.readProperty addr bctx h = some p) :
+    ArithConstantProperties.read addr bctx h = p := by
+  unfold readProperty at heq
+  unfold read
+  simp only [ExArray.read64_eq_read64!] at heq ⊢
+  split at heq
+  next hc =>
+    rw [if_pos hc]
+    exact Option.some.inj heq
+  next hc =>
+    rw [if_neg hc]
+    split at heq
+    next v hm =>
+      have hbang : bctx.attributes[(bctx.mem.read64! addr - ((1 : UInt64) <<< 63)).toNat]!
+          = Attribute.integerAttr v := by grind
+      rw [hbang]
+      exact Option.some.inj heq
+    next hm => exact absurd heq (by simp)
+
+/-- Read-after-write for the infallible `read`. -/
+theorem ArithConstantProperties.read_writeProperty (a : ArithConstantProperties) (addr : UInt64)
+    (bctx : Buffed.IRBufContext) (h hattrs h') :
+    ArithConstantProperties.read addr (a.writeProperty addr bctx h hattrs) h' = a :=
+  read_eq_of_readProperty (readProperty_writeProperty a addr bctx h hattrs h')
 
 /-- `readProperty` after `writeProperty`, with the bounds check of the instance's `readPropertyAt` still in place. -/
 theorem ArithConstantProperties.read_after_write_dite (a : ArithConstantProperties) (addr : UInt64) (bctx : Buffed.IRBufContext)
@@ -155,6 +237,7 @@ theorem ArithConstantProperties.writeProperty_read_disjoint {w : Nat} (a : Arith
   unfold writeProperty
   split <;> exact ExArray.read!_blit64_disjoint _ _ _ _ _ (by simpa using hd)
 
+@[inline]
 instance : HasBuffedProperties Arith where
   writePropertyAt op p addr bctx h hattrs :=
     match op, p, h with

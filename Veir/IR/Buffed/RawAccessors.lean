@@ -1476,14 +1476,35 @@ end Buffed
 
 /-! ## Properties -/
 
-class HasBuffedProperties (opCode: Type) extends HasDialectOpInfo opCode where
-  writePropertyAt (op : opCode) (p : propertiesOf op) (addr: UInt64) (bctx : Buffed.IRBufContext)
-    (h : addr.toNat + (propertySize op).toNat ≤ bctx.mem.size)
+-- `HasDialectOpInfo` is a superclass *parameter* (not `extends`): in generic contexts that also
+-- carry `[HasOpInfo opCode]`, an `extends` parent would introduce a second, unrelated
+-- `HasDialectOpInfo` instance path and break definitional equality.
+class HasBuffedProperties (opCode: Type) [HasDialectOpInfo opCode] where
+  writePropertyAt (op : opCode) (p : HasDialectOpInfo.propertiesOf op) (addr: UInt64) (bctx : Buffed.IRBufContext)
+    (h : addr.toNat + (HasDialectOpInfo.propertySize op).toNat ≤ bctx.mem.size)
     -- Writing a property may append to the attribute table (e.g. constants store an index to their value attribute). The index shares its 8-byte slot with a tag bit, so it must fit in 63 bits.
     (hattrs : bctx.attributes.size < 2^63) : Buffed.IRBufContext
-  readPropertyAt (op : opCode) (addr : UInt64) (bctx : Buffed.IRBufContext) : Option (propertiesOf op)
+  readPropertyAt (op : opCode) (addr : UInt64) (bctx : Buffed.IRBufContext) : Option (HasDialectOpInfo.propertiesOf op)
   read_after_write : readPropertyAt op addr (writePropertyAt op p addr bctx h hattrs) = some p
   only_adds_attributes (i : Nat) : bctx.attributes[i]? = some a →  (writePropertyAt op p addr bctx h hattrs).attributes[i]? = some a
   preserves_size : (writePropertyAt op p addr bctx h hattrs).mem.size = bctx.mem.size
-  only_modifies_properties (hd : IsDisjoint (n.toNat...(n.toNat+len.toNat)) (addr.toNat...(addr.toNat + (propertySize op).toNat))) :
+  only_modifies_properties (hd : IsDisjoint (n.toNat...(n.toNat+len.toNat)) (addr.toNat...(addr.toNat + (HasDialectOpInfo.propertySize op).toNat))) :
     (writePropertyAt op p addr bctx h hattrs).mem.read! (w := w) n len = bctx.mem.read! (w := w) n len
+
+/-- 64-bit reads disjoint from the written property slot are unchanged by `writePropertyAt`. -/
+theorem HasBuffedProperties.read64!_writePropertyAt {opCode : Type} [HasDialectOpInfo opCode] [HasBuffedProperties opCode]
+    {op : opCode} {p : HasDialectOpInfo.propertiesOf op} {addr : UInt64} {bctx : Buffed.IRBufContext}
+    {h hattrs} {n : UInt64}
+    (hd : IsDisjoint (n.toNat...(n.toNat + 8)) (addr.toNat...(addr.toNat + (HasDialectOpInfo.propertySize op).toNat))) :
+    (HasBuffedProperties.writePropertyAt op p addr bctx h hattrs).mem.read64! n = bctx.mem.read64! n := by
+  rw [ExArray.read64!_eq_read!, ExArray.read64!_eq_read!,
+    HasBuffedProperties.only_modifies_properties hd]
+
+/-- 32-bit variant of `read64!_writePropertyAt`. -/
+theorem HasBuffedProperties.read32!_writePropertyAt {opCode : Type} [HasDialectOpInfo opCode] [HasBuffedProperties opCode]
+    {op : opCode} {p : HasDialectOpInfo.propertiesOf op} {addr : UInt64} {bctx : Buffed.IRBufContext}
+    {h hattrs} {n : UInt64}
+    (hd : IsDisjoint (n.toNat...(n.toNat + 4)) (addr.toNat...(addr.toNat + (HasDialectOpInfo.propertySize op).toNat))) :
+    (HasBuffedProperties.writePropertyAt op p addr bctx h hattrs).mem.read32! n = bctx.mem.read32! n := by
+  rw [ExArray.read32!_eq_read!, ExArray.read32!_eq_read!,
+    HasBuffedProperties.only_modifies_properties hd]
