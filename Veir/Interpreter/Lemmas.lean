@@ -1,7 +1,5 @@
 module
 
-public import Veir.Interpreter.Basic
-public import Veir.Dominance
 public import Veir.Verifier
 public import Veir.Interpreter.Refinement.Basic
 

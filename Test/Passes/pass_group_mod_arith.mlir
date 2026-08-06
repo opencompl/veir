@@ -25,7 +25,6 @@
 // CHECK-NEXT:     [[C5:%.*]] = "arith.constant"() <{"value" = 5 : i32}> : () -> i32
 // CHECK-NEXT:     [[A33:%.*]] = "arith.extui"([[A]]) : (i32) -> i33
 // CHECK-NEXT:     [[B33:%.*]] = "arith.extui"([[B]]) : (i32) -> i33
-// CHECK-NEXT:     [[Q33:%.*]] = "arith.constant"() <{"value" = 12289 : i33}> : () -> i33
 
 // s = (a + b) mod q: i33 add
 // CHECK-NEXT:     [[SUM:%.*]] = "arith.addi"([[A33]], [[B33]]) : (i33, i33) -> i33
@@ -44,6 +43,7 @@
 // CHECK-NEXT:     [[S:%.*]] = "arith.trunci"([[T1]]) <{"overflowFlags" = #arith.overflow<nuw>}> : (i33) -> i32
 
 // d = (a - b) mod q
+// CHECK-NEXT:     [[Q33:%.*]] = "arith.constant"() <{"value" = 12289 : i33}> : () -> i33
 // CHECK-NEXT:     [[AQ:%.*]] = "arith.addi"([[A33]], [[Q33]]) : (i33, i33) -> i33
 // CHECK-NEXT:     [[DIF:%.*]] = "arith.subi"([[AQ]], [[B33]]) : (i33, i33) -> i33
 // CHECK-NEXT:     [[DIFW:%.*]] = "arith.extui"([[DIF]]) : (i33) -> i42

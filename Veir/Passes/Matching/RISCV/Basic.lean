@@ -396,28 +396,28 @@ def matchRVSd (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr ×
   guard (op.getOpType! ctx = .riscv .sd)
   guard (op.getNumOperands! ctx = 2)
   let operands := op.getOperands! ctx
-  let properties := op.getProperties! ctx (.riscv .sd)
+  let properties := op.getProperties! ctx Riscv.sd
   return (operands[0]!, operands[1]!, properties)
 
 def matchRVSw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.riscv .sw)) := do
   guard (op.getOpType! ctx = .riscv .sw)
   guard (op.getNumOperands! ctx = 2)
   let operands := op.getOperands! ctx
-  let properties := op.getProperties! ctx (.riscv .sw)
+  let properties := op.getProperties! ctx Riscv.sw
   return (operands[0]!, operands[1]!, properties)
 
 def matchRVSh (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.riscv .sh)) := do
   guard (op.getOpType! ctx = .riscv .sh)
   guard (op.getNumOperands! ctx = 2)
   let operands := op.getOperands! ctx
-  let properties := op.getProperties! ctx (.riscv .sh)
+  let properties := op.getProperties! ctx Riscv.sh
   return (operands[0]!, operands[1]!, properties)
 
 def matchRVSb (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.riscv .sb)) := do
   guard (op.getOpType! ctx = .riscv .sb)
   guard (op.getNumOperands! ctx = 2)
   let operands := op.getOperands! ctx
-  let properties := op.getProperties! ctx (.riscv .sb)
+  let properties := op.getProperties! ctx Riscv.sb
   return (operands[0]!, operands[1]!, properties)
 
 def matchRVMv (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (.riscv .mv)) := do

@@ -1,6 +1,5 @@
 module
 
-public import Veir.IR.OpInfo
 public import Veir.Interpreter.Refinement.Basic
 
 import all Veir.Interpreter.Refinement.Basic

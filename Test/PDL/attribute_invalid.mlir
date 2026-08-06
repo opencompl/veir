@@ -1,0 +1,10 @@
+// RUN: not veir-opt %s 2>&1 | filecheck %s
+
+// A `pdl.attribute` is constrained either by an expected type or by a constant
+// value, but never by both.
+"builtin.module"() ({
+  %0 = "pdl.type"() : () -> !pdl.type
+  %1 = "pdl.attribute"(%0) <{"value" = "hello"}> : (!pdl.type) -> !pdl.attribute
+}) : () -> ()
+
+// CHECK: pdl.attribute: Expected only one of [`type`, `value`] to be set

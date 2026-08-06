@@ -1,13 +1,9 @@
 module
 
-public import Veir.IR.Basic
 public import Veir.Rewriter.Basic
 
 import all Veir.Rewriter.Basic
-import Veir.IR.WellFormed
 import Veir.Rewriter.GetSet
-import Veir.Rewriter.LinkedList.GetSet
-import Veir.Rewriter.LinkedList.WellFormed
 
 public section
 

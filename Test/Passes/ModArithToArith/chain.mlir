@@ -17,14 +17,14 @@
 // CHECK-NEXT:   [[E1:%.*]] = "arith.extui"([[C1]]) : (i32) -> i33
 
 // "middle" casts are reconciled away
-// CHECK-NEXT:   [[QADD:%.*]] = "arith.constant"() <{"value" = 7 : i33}> : () -> i33
 // CHECK-NEXT:   [[SUM:%.*]] = "arith.addi"([[E0]], [[E1]]) : (i33, i33) -> i33
+// CHECK-NEXT:   [[QADD:%.*]] = "arith.constant"() <{"value" = 7 : i33}> : () -> i33
 // CHECK-NEXT:   [[SUMR:%.*]] = "arith.remui"([[SUM]], [[QADD]]) : (i33, i33) -> i33
 // CHECK-NEXT:   [[ADD:%.*]] = "arith.trunci"([[SUMR]]) <{"overflowFlags" = #arith.overflow<nuw>}> : (i33) -> i32
 // CHECK-NEXT:   [[M0:%.*]] = "arith.extui"([[ADD]]) : (i32) -> i64
 // CHECK-NEXT:   [[M1:%.*]] = "arith.extui"([[ADD]]) : (i32) -> i64
-// CHECK-NEXT:   [[QMUL:%.*]] = "arith.constant"() <{"value" = 7 : i64}> : () -> i64
 // CHECK-NEXT:   [[PROD:%.*]] = "arith.muli"([[M0]], [[M1]]) : (i64, i64) -> i64
+// CHECK-NEXT:   [[QMUL:%.*]] = "arith.constant"() <{"value" = 7 : i64}> : () -> i64
 // CHECK-NEXT:   [[PRODR:%.*]] = "arith.remui"([[PROD]], [[QMUL]]) : (i64, i64) -> i64
 
 // output casts are kept
