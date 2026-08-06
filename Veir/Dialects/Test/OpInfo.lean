@@ -2,7 +2,7 @@ module
 
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
-meta import Veir.Meta.Attrs
+meta import Veir.Meta.OpCode
 
 namespace Veir
 
@@ -30,8 +30,11 @@ def Test.toAttrDict
 def Test.hasSideEffects (_op : Test) (_props : Test.propertiesOf _op) : Bool :=
   true
 
-def Test.readsMemory (_op : Test) : Bool :=
-  false
+def Test.readsMemory (_op : Test) (_props : Test.propertiesOf _op) : Bool :=
+  true
+
+def Test.writesMemory (_op : Test) (_props : Test.propertiesOf _op) : Bool :=
+  true
 
 def Test.isConstantLike (_op : Test) : Bool :=
   false
@@ -39,14 +42,23 @@ def Test.isConstantLike (_op : Test) : Bool :=
 def Test.hasSSADominance (_op : Test) (_index : Nat) : Bool :=
   false
 
+def Test.hasNoTerminator (_op : Test) (_index : Nat) : Bool :=
+  true
+
+#generate_dialect Test
+
 instance : HasDialectOpInfo Test where
+  fromName := Test.fromName
+  name := Test.name
   propertiesOf := Test.propertiesOf
   fromAttrDict := Test.fromAttrDict
   toAttrDict := Test.toAttrDict
   hasSideEffects := Test.hasSideEffects
   readsMemory := Test.readsMemory
+  writesMemory := Test.writesMemory
   isConstantLike := Test.isConstantLike
   hasSSADominance := Test.hasSSADominance
+  hasNoTerminator := Test.hasNoTerminator
 
 end
 

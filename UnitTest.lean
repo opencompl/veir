@@ -13,3 +13,5 @@ import UnitTest.DataFlowFramework.DeadCodeAnalysis
 import UnitTest.ConstantValue
 import UnitTest.DataLayout
 import UnitTest.Evaluate
+import UnitTest.FoldDecision
+import UnitTest.SideEffectInterfaces

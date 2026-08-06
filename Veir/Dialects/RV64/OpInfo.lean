@@ -2,7 +2,7 @@ module
 
 public import Veir.IR.OpInfo
 public import Veir.IR.Simp
-meta import Veir.Meta.Attrs
+meta import Veir.Meta.OpCode
 
 namespace Veir
 
@@ -32,7 +32,10 @@ def Rv64.toAttrDict
 def Rv64.hasSideEffects (_op : Rv64) (_props : Rv64.propertiesOf _op) : Bool :=
   true
 
-def Rv64.readsMemory (_op : Rv64) : Bool :=
+def Rv64.readsMemory (_op : Rv64) (_props : Rv64.propertiesOf _op) : Bool :=
+  false
+
+def Rv64.writesMemory (_op : Rv64) (_props : Rv64.propertiesOf _op) : Bool :=
   false
 
 def Rv64.isConstantLike (_op : Rv64) : Bool :=
@@ -41,12 +44,17 @@ def Rv64.isConstantLike (_op : Rv64) : Bool :=
 def Rv64.hasSSADominance (_op : Rv64) (_index : Nat) : Bool :=
   true
 
+#generate_dialect Rv64
+
 instance : HasDialectOpInfo Rv64 where
+  fromName := Rv64.fromName
+  name := Rv64.name
   propertiesOf := Rv64.propertiesOf
   fromAttrDict := Rv64.fromAttrDict
   toAttrDict := Rv64.toAttrDict
   hasSideEffects := Rv64.hasSideEffects
   readsMemory := Rv64.readsMemory
+  writesMemory := Rv64.writesMemory
   isConstantLike := Rv64.isConstantLike
   hasSSADominance := Rv64.hasSSADominance
 

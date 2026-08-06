@@ -1,18 +1,13 @@
 module
 
-public import Veir.IR.Basic
-public import Veir.Data.LLVM.Int.Basic
 public import Veir.Data.LLVM.Byte.Basic
 public import Veir.Data.RISCV.Reg.Basic
 public import Veir.IR.WellFormed
 public import Veir.GlobalOpInfo
 
-import Veir.Rewriter.Basic
-import Veir.ForLean
 import Veir.Data.Comb.Basic
 import Veir.Data.HW.Basic
 import Veir.Data.Casting
-import Veir.GlobalOpInfo
 import Veir.Interfaces.FunctionInterfaces
 import Veir.DataLayout.RISCV64
 
@@ -139,6 +134,16 @@ theorem Conforms.llvmPointerType :
     ∃ val, runtimeValue = .addr val := by
   simp only [Conforms]
   cases runtimeValue <;> grind
+
+/--
+  The wholly-poisoned `RuntimeValue` of type `ty`, for the types that have one.
+  Used to materialize a result for an operation whose evaluation triggers UB.
+-/
+def getPoisonForType (ty : TypeAttr) : Option RuntimeValue :=
+  match ty.val with
+  | .integerType intTy => some (.int intTy.bitwidth .poison)
+  | .byteType byteTy => some (.byte byteTy.bitwidth LLVM.Byte.allPoison)
+  | _ => none
 
 def ArrayConforms (source : Array RuntimeValue) (target : Array TypeAttr) : Prop :=
   source.size = target.size ∧ ∀ (i : Nat) (_ : i < source.size), source[i]!.Conforms target[i]!
@@ -812,6 +817,8 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
         none
       return (#[.float 64 floatAttr.value], mem, none)
     | .dense denseAttr =>
+      none
+    | .string _ =>
       none
   | .mlir__poison => do
     let some resType := resultTypes[0]? | none

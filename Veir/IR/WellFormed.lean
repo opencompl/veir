@@ -1,12 +1,9 @@
 module
 
-public import Veir.IR.Basic
 public import Veir.IR.Fields
 import Veir.IR.GetSet
 import Veir.IR.InBounds
 import Veir.IR.Grind
-import Veir.ForLean
-import Std.Data.ExtHashSet
 
 public section
 

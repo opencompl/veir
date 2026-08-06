@@ -49,6 +49,20 @@ info: "ok"
 #guard_msgs in
 #eval! testRiscvLi
 
+private def testRiscvLui : String := Id.run do
+  let .ok (some (.reg value)) :=
+    constantValueOf r#"%x = "riscv.lui"() <{"value" = 5 : i20}> : () -> !riscv.reg"#
+    | return "failed to read riscv.lui"
+  if value.val ≠ (BitVec.ofInt 20 5 ++ (0 : BitVec 12)).signExtend 64 then
+    return "riscv.lui produced the wrong register value"
+  return "ok"
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testRiscvLui
+
 private def testHwConstant : String := Id.run do
   let .ok (some (.int 32 (.val value))) :=
     constantValueOf r#"%x = "hw.constant"() <{"value" = 42 : i32}> : () -> i32"#

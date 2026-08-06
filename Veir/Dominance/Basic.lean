@@ -1,6 +1,6 @@
 module
 
-public import Veir.Interfaces.RegionKindInterfaces
+import Veir.Interfaces.RegionKindInterfaces
 public import Veir.IRNesting
 
 import Veir.IR.InBounds

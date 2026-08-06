@@ -70,25 +70,67 @@ meta def mkOpCodeInductive (ds : Array Dialect) : TermElabM Syntax := do
   `(inductive $(mkIdent `OpCode) where $ctors*
     deriving Inhabited, Repr, Hashable, DecidableEq)
 
-meta def emitFromName (ds : Array Dialect) : TermElabM Command := do
-  let unreg : TSyntax `term := (mkIdent `Builtin.unregistered)
-  let builtin : TSyntax `term := (mkIdent `OpCode.builtin)
-  let mut res : TSyntax `term ← `($builtin $unreg)
-  for d in ds do
-    for op in d.operations do
-      let op := op.replace "." "__" -- we replace "." with "__" to avoid issues with '.' in constructor names
-      if d.getName = "builtin" ∧ op = "unregistered" then continue
-      res ← `(if name = $(Syntax.mkStrLit (d.mkOpName op)).toByteArray then ($(mkIdent d.mkDialectCode) $(mkIdent (.mkStr2 d.name op))) else $res)
-  `(def $(mkIdent `OpCode.fromName) (name : $(mkIdent ``ByteArray)) : $(mkIdent `OpCode) := $res)
+/--
+Generate `Dialect.fromName : ByteArray → Option Dialect` from a given
+inductive representing the operation opcodes of a dialect.
+-/
+meta def emitDialectFromName (d : Dialect) : TermElabM Command := do
+  let mut res : TSyntax `term ← `(none)
+  for op in d.operations do
+    res ←
+      `(if name = $(Syntax.mkStrLit (d.mkOpName op)).toByteArray then
+          some $(mkIdent (.mkStr2 d.name op))
+        else
+          $res)
+  `(def $(mkIdent (.mkStr2 d.name "fromName"))
+      (name : $(mkIdent ``ByteArray)) : Option $(mkIdent d.mkDialectCodeSimple) := $res)
 
-meta def emitName (ds : Array Dialect) : TermElabM Command := do
+/--
+Generate `Dialect.name : Dialect → ByteArray` from a given
+inductive representing the operation opcodes of a dialect.
+-/
+meta def emitDialectName (d : Dialect) : TermElabM Command := do
+  let mut alts := #[]
+  for op in d.operations do
+    alts := alts.push <| ←
+      `(Lean.Parser.Term.matchAltExpr |
+         | $(mkIdent (.mkStr2 d.name op)) => $(Syntax.mkStrLit (d.mkOpName op)).toByteArray)
+  `(def $(mkIdent (.mkStr2 d.name "name"))
+      (op : $(mkIdent d.mkDialectCodeSimple)) : ByteArray := match op with $alts:matchAlt* )
+
+/-- Generate `OpCode.fromName : ByteArray → Option OpCode` from a given array of dialects. -/
+meta def emitGlobalFromName (ds : Array Dialect) : TermElabM Command := do
+  let mut res : TSyntax `term ← `(none)
+  for d in ds do
+    res ←
+      `(match ($(mkIdent (.mkStr2 d.name "fromName")) name) with
+        | some op => some ($(mkIdent d.mkDialectCode) op)
+        | none => $res)
+  `(def $(mkIdent `OpCode.fromName)
+      (name : $(mkIdent ``ByteArray)) : Option $(mkIdent `OpCode) := $res)
+
+/-- Generate `OpCode.name : OpCode → ByteArray` from a given array of dialects. -/
+meta def emitGlobalName (ds : Array Dialect) : TermElabM Command := do
   let mut alts := #[]
   for d in ds do
-    for op in d.operations do
-      alts := alts.push <| ←
-        `(Lean.Parser.Term.matchAltExpr |
-           | $(mkIdent d.mkDialectCode) $(mkIdent (.mkStr2 d.name op)) => $(Syntax.mkStrLit (d.mkOpName op)).toByteArray)
-  `(def $(mkIdent `OpCode.name) (op : $(mkIdent `OpCode)) : ByteArray := match op with $alts:matchAlt* )
+    alts := alts.push <| ←
+      `(Lean.Parser.Term.matchAltExpr |
+         | $(mkIdent d.mkDialectCode) op => $(mkIdent (.mkStr2 d.name "name")) op)
+  `(def $(mkIdent `OpCode.name)
+      (op : $(mkIdent `OpCode)) : ByteArray := match op with $alts:matchAlt* )
+
+/--
+Generate the necessary boilerplate for a dialect inductive type.
+For now, this only include generating `Dialect.fromName` and `Dialect.name`.
+-/
+elab "#generate_dialect" dialect:ident : command => do
+  let dialectName ← resolveGlobalConstNoOverload dialect
+  let env ← getEnv
+  let some (.inductInfo info) := env.find? dialectName
+    | throwError m!"Type {dialectName} is not defined or not an inductive."
+  let d := mkDialect dialectName.getString! info
+  elabCommand <| ← Command.liftTermElabM <| emitDialectFromName d
+  elabCommand <| ← Command.liftTermElabM <| emitDialectName d
 
 /--
 Generate a `HasDialect OpInfo Dialect` instance for the inductive `opInfo` with
@@ -150,8 +192,8 @@ elab "#generate_op_codes" : command => do
     dialects := dialects.push <| mkDialect t.getString! info
 
   elabCommand <| ← Command.liftTermElabM <| mkOpCodeInductive dialects
-  elabCommand <| ← Command.liftTermElabM <| emitFromName dialects
-  elabCommand <| ← Command.liftTermElabM <| emitName dialects
+  elabCommand <| ← Command.liftTermElabM <| emitGlobalFromName dialects
+  elabCommand <| ← Command.liftTermElabM <| emitGlobalName dialects
   pure ()
 
 /--

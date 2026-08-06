@@ -244,6 +244,56 @@ structure ModArithType where
   modulus : IntegerAttr
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+/-- The bitwidth of the storage type of a `!mod_arith.int`. -/
+public def ModArithType.bitwidth (ty : ModArithType) : Nat :=
+  ty.modulus.type.bitwidth
+
+namespace PDL
+
+/--
+  The `!pdl.operation` type, a handle to an `mlir::Operation` within a pattern.
+-/
+structure OperationType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
+  The `!pdl.value` type, a handle to an `mlir::Value` within a pattern.
+-/
+structure ValueType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
+  The `!pdl.type` type, a handle to an `mlir::Type` within a pattern.
+-/
+structure TypeType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
+  The `!pdl.attribute` type, a handle to an `mlir::Attribute` within a pattern.
+-/
+structure AttributeType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
+  The element of a `!pdl.range<...>`. MLIR restricts it to the four handle
+  types, so a range never nests.
+-/
+inductive RangeElement
+| attribute
+| operation
+| type
+| value
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
+  The `!pdl.range<...>` type, a handle to a range of PDL entities.
+-/
+structure RangeType where
+  element : RangeElement
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+end PDL
+
 namespace LLVM
 
 structure VoidType
@@ -353,6 +403,19 @@ structure LLVM.ArrayType where
 deriving Repr, Hashable
 
 /--
+  The `!match.optional<...>` type, wrapping a PDL handle type whose value may
+  be null at match time.
+
+  Navigation in the `match` dialect that can fail returns one of these, and
+  `match.is_not_null` is the only way back to the bare handle. The wrapped type
+  is an arbitrary attribute rather than a fixed enumeration because MLIR places
+  no restriction on it beyond it being a type; the verifier narrows it.
+-/
+structure Match.OptionalType where
+  innerType : Attribute
+deriving Repr, Hashable
+
+/--
   A data structure that represents compile-time information in the IR.
   Attributes are used either as type annotations for SSA values, or
   as extra information stored in operations.
@@ -426,6 +489,18 @@ inductive Attribute
 | cudaTilePointerType (type : CudaTile.PointerType)
 /-- CIRCT hw module type -/
 | hwModuleType (type : HW.ModuleType)
+/-- PDL range handle type -/
+| pdlRangeType (type : PDL.RangeType)
+/-- PDL attribute handle type -/
+| pdlAttributeType (type : PDL.AttributeType)
+/-- PDL operation handle type -/
+| pdlOperationType (type : PDL.OperationType)
+/-- PDL value handle type -/
+| pdlValueType (type : PDL.ValueType)
+/-- PDL type handle type -/
+| pdlTypeType (type : PDL.TypeType)
+/-- Match optional handle type -/
+| matchOptionalType (type : Match.OptionalType)
 deriving Inhabited, Repr, Hashable
 
 end
@@ -463,6 +538,10 @@ theorem DictionaryAttr.sizeOf_elems_entries {da : DictionaryAttr} (hx : x ∈ da
 theorem LLVM.ArrayType.sizeOf_elems_type {t : ArrayType} :
     sizeOf t.type < sizeOf t := by
   grind [cases ArrayType]
+
+theorem Match.OptionalType.sizeOf_innerType {t : Match.OptionalType} :
+    sizeOf t.innerType < sizeOf t := by
+  grind [cases Match.OptionalType]
 
 /-!
   ## DecidableEq instances
@@ -513,9 +592,19 @@ def LLVM.ArrayType.decEq (arr1 arr2 : LLVM.ArrayType) : Decidable (arr1 = arr2) 
     | isTrue _ => isTrue (by grind [cases LLVM.ArrayType])
     | isFalse _ => isFalse (by grind)
   | isFalse _ => isFalse (by grind)
+
 termination_by sizeOf arr1
 decreasing_by
   have := @LLVM.ArrayType.sizeOf_elems_type
+  grind
+
+def Match.OptionalType.decEq (opt1 opt2 : Match.OptionalType) : Decidable (opt1 = opt2) :=
+  match Attribute.decEq opt1.innerType opt2.innerType with
+  | isTrue _ => isTrue (by grind [cases Match.OptionalType])
+  | isFalse _ => isFalse (by grind)
+termination_by sizeOf opt1
+decreasing_by
+  have := @Match.OptionalType.sizeOf_innerType
   grind
 
 def DictionaryAttr.decEq (dict1 dict2 : DictionaryAttr) : Decidable (dict1 = dict2) :=
@@ -668,6 +757,22 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case pdlRangeType.pdlRangeType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case matchOptionalType.matchOptionalType type1 type2 =>
+    exact (match Match.OptionalType.decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case pdlAttributeType.pdlAttributeType type1 type2 =>
+    exact (isTrue (by grind))
+  case pdlOperationType.pdlOperationType type1 type2 =>
+    exact (isTrue (by grind))
+  case pdlValueType.pdlValueType type1 type2 =>
+    exact (isTrue (by grind))
+  case pdlTypeType.pdlTypeType type1 type2 =>
+    exact (isTrue (by grind))
   all_goals exact isFalse (by grind)
 termination_by sizeOf attr1
 end
@@ -800,6 +905,29 @@ instance : ToString FlatSymbolRefAttr where
 instance : ToString ModArithType where
   toString type := s!"!mod_arith.int<{type.modulus}>"
 
+instance : ToString PDL.RangeElement where
+  toString element :=
+    match element with
+    | .attribute => "attribute"
+    | .operation => "operation"
+    | .type => "type"
+    | .value => "value"
+
+instance : ToString PDL.RangeType where
+  toString type := s!"!pdl.range<{type.element}>"
+
+instance : ToString PDL.AttributeType where
+  toString _ := "!pdl.attribute"
+
+instance : ToString PDL.OperationType where
+  toString _ := "!pdl.operation"
+
+instance : ToString PDL.ValueType where
+  toString _ := "!pdl.value"
+
+instance : ToString PDL.TypeType where
+  toString _ := "!pdl.type"
+
 instance : ToString LLVM.VoidType where
   toString _ := "!llvm.void"
 
@@ -896,6 +1024,12 @@ termination_by sizeOf type
 decreasing_by
   apply LLVM.ArrayType.sizeOf_elems_type
 
+def Match.OptionalType.toString (type : Match.OptionalType) : String :=
+  s!"!match.optional<{Attribute.toString type.innerType}>"
+termination_by sizeOf type
+decreasing_by
+  apply Match.OptionalType.sizeOf_innerType
+
 /--
   Convert an attribute to a string representation.
 -/
@@ -935,6 +1069,12 @@ def Attribute.toString (attr : Attribute) : String :=
   | .llvmFunctionType type => type.toLLVMString
   | .cudaTilePointerType type => ToString.toString type
   | .hwModuleType type => ToString.toString type
+  | .pdlRangeType type => ToString.toString type
+  | .pdlAttributeType type => ToString.toString type
+  | .pdlOperationType type => ToString.toString type
+  | .pdlValueType type => ToString.toString type
+  | .pdlTypeType type => ToString.toString type
+  | .matchOptionalType type => type.toString
 termination_by sizeOf attr
 
 end
@@ -953,6 +1093,9 @@ instance : ToString DictionaryAttr where
 
 instance : ToString LLVM.ArrayType where
   toString := LLVM.ArrayType.toString
+
+instance : ToString Match.OptionalType where
+  toString := Match.OptionalType.toString
 
 /-!
   ## Coercion instances to Attribute
@@ -1052,6 +1195,24 @@ instance : Coe CudaTile.PointerType Attribute where
 instance : Coe HW.ModuleType Attribute where
   coe type := .hwModuleType type
 
+instance : Coe PDL.RangeType Attribute where
+  coe type := .pdlRangeType type
+
+instance : Coe Match.OptionalType Attribute where
+  coe type := .matchOptionalType type
+
+instance : Coe PDL.AttributeType Attribute where
+  coe type := .pdlAttributeType type
+
+instance : Coe PDL.OperationType Attribute where
+  coe type := .pdlOperationType type
+
+instance : Coe PDL.ValueType Attribute where
+  coe type := .pdlValueType type
+
+instance : Coe PDL.TypeType Attribute where
+  coe type := .pdlTypeType type
+
 /-!
   ## TypeAttr definition
 
@@ -1101,6 +1262,12 @@ def isType (attr : Attribute) : Bool :=
   | .llvmFunctionType _ => true
   | .cudaTilePointerType _ => true
   | .hwModuleType _ => true
+  | .pdlRangeType _ => true
+  | .pdlAttributeType _ => true
+  | .pdlOperationType _ => true
+  | .pdlValueType _ => true
+  | .pdlTypeType _ => true
+  | .matchOptionalType _ => true
 
 /--
   Returns the size, in bits, that an LLVM type would use if stored to memory.
@@ -1156,6 +1323,16 @@ theorem isType_llvmFunctionType type : (llvmFunctionType type).isType = true := 
 theorem isType_cudaTilePointerType type : (cudaTilePointerType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_hwModuleType type : (hwModuleType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_pdlAttributeType type : (pdlAttributeType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_pdlRangeType type : (pdlRangeType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_pdlOperationType type : (pdlOperationType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_pdlValueType type : (pdlValueType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_pdlTypeType type : (pdlTypeType type).isType = true := by rfl
 
 end Attribute
 
@@ -1228,6 +1405,24 @@ instance : Coe CudaTile.PointerType TypeAttr where
 
 instance : Coe HW.ModuleType TypeAttr where
   coe type := ⟨.hwModuleType type, by rfl⟩
+
+instance : Coe PDL.RangeType TypeAttr where
+  coe type := ⟨.pdlRangeType type, by rfl⟩
+
+instance : Coe Match.OptionalType TypeAttr where
+  coe type := ⟨.matchOptionalType type, by rfl⟩
+
+instance : Coe PDL.AttributeType TypeAttr where
+  coe type := ⟨.pdlAttributeType type, by rfl⟩
+
+instance : Coe PDL.OperationType TypeAttr where
+  coe type := ⟨.pdlOperationType type, by rfl⟩
+
+instance : Coe PDL.ValueType TypeAttr where
+  coe type := ⟨.pdlValueType type, by rfl⟩
+
+instance : Coe PDL.TypeType TypeAttr where
+  coe type := ⟨.pdlTypeType type, by rfl⟩
 
 end
 end Veir

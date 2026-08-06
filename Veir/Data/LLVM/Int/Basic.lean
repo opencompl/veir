@@ -778,6 +778,16 @@ def sext {w₁ : Nat} (x : Int w₁) (w₂ : Nat) (_h : w₁ < w₂) : Int w₂ 
   val (v.signExtend w₂)
 
 /--
+`ext` extends the given `Int` to the specified bitwidth, using the given MSBs.
+
+Combining it with a ∀ quantifier allows one to model the `G_ANYEXT` gMIR instruction
+that extends its operand with unspecified bits.
+-/
+def ext {w₁ : Nat} (x : Int w₁) (w₂ : Nat) (msb : BitVec (w₂-w₁)) (_h : w₁ < w₂) : Int w₂ := Id.run do
+  let val v := x | poison
+  (val (msb ++ v)).cast (by grind)
+
+/--
 The `icmp` instruction takes three operands.
 The first operand is the condition code indicating the kind of comparison to perform.
 It is not a value, just a keyword.
