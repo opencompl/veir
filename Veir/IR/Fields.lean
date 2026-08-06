@@ -3,7 +3,6 @@ module
 public import Veir.IR.Basic
 import Veir.IR.InBounds
 import Veir.IR.GetSet
-public import Veir.Prelude
 
 namespace Veir
 
@@ -697,8 +696,12 @@ theorem OperationPtr.pushResult_fieldsInBounds {newResult : OpResult} {op : Oper
   prove_fieldsInBounds
 
 @[grind .]
-theorem OperationPtr.setProperties_fieldsInBounds :
-    ctx.FieldsInBounds → (setProperties op ctx newProperties inBounds hprop).FieldsInBounds := by
+theorem OperationPtr.setProperties_fieldsInBounds
+    {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+    {op : OperationPtr} {inBounds : op.InBounds ctx}
+    {opCode : Dialect} {newProperties : HasDialectOpInfo.propertiesOf opCode}
+    {hprop : op.getOpType! ctx = opCode} :
+    ctx.FieldsInBounds → (setProperties op ctx opCode newProperties inBounds hprop).FieldsInBounds := by
   prove_fieldsInBounds_operation ctx
 
 @[grind .]
@@ -720,6 +723,8 @@ theorem OperationPtr.pushBlockOperand_push_fieldsInBounds
 attribute [local grind] Operation.empty in
 @[grind .]
 theorem OperationPtr.allocEmpty_fieldsInBounds
+    {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+    {type : Dialect} {prop : HasDialectOpInfo.propertiesOf type}
     (heq : allocEmpty ctx type prop = some (ctx', ptr')) :
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by
   prove_fieldsInBounds

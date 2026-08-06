@@ -4,7 +4,7 @@ public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Dialects.Arith.Properties
 public import Veir.Dialects.LLVM.Properties
-meta import Veir.Meta.Attrs
+meta import Veir.Meta.OpCode
 
 namespace Veir
 
@@ -114,7 +114,10 @@ def Arith.toAttrDict
 def Arith.hasSideEffects (_op : Arith) (_props : Arith.propertiesOf _op) : Bool :=
   false
 
-def Arith.readsMemory (_op : Arith) : Bool :=
+def Arith.readsMemory (_op : Arith) (_props : Arith.propertiesOf _op) : Bool :=
+  false
+
+def Arith.writesMemory (_op : Arith) (_props : Arith.propertiesOf _op) : Bool :=
   false
 
 def Arith.isConstantLike (op : Arith) : Bool :=
@@ -125,12 +128,17 @@ def Arith.isConstantLike (op : Arith) : Bool :=
 def Arith.hasSSADominance (_op : Arith) (_index : Nat) : Bool :=
   true
 
+#generate_dialect Arith
+
 instance : HasDialectOpInfo Arith where
+  fromName := Arith.fromName
+  name := Arith.name
   propertiesOf := Arith.propertiesOf
   fromAttrDict := Arith.fromAttrDict
   toAttrDict := Arith.toAttrDict
   hasSideEffects := Arith.hasSideEffects
   readsMemory := Arith.readsMemory
+  writesMemory := Arith.writesMemory
   isConstantLike := Arith.isConstantLike
   hasSSADominance := Arith.hasSSADominance
 

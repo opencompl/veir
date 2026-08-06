@@ -1,6 +1,5 @@
 import UnitTest.DataFlowFramework.Helpers
 
-import Veir.Analysis.DataFlow.DeadCodeAnalysis
 
 open Std (HashMap)
 open Veir

@@ -1,7 +1,6 @@
 module
 
 public import Std.Data.ExtHashSet
-public import Std.Data.HashMap
 public import Veir.Meta.BVNormalizeSimp
 import all Init.Data.Array.Basic -- unfold [Array.popWhile] in Array.getElem?_popWhile_of_false
 public section
@@ -295,6 +294,26 @@ theorem Nat.eq_iff_forall_lessthan :
     grind
 
 deriving instance DecidableEq for Except
+
+/-- Peel a successful leading `PUnit` statement off a `do` block. -/
+theorem Except.ok_of_bind_ok {ε α : Type} {x : Except ε PUnit}
+    {f : PUnit → Except ε α} {a : α} (h : (x >>= f) = .ok a) :
+    f ⟨⟩ = .ok a := by
+  cases x with
+  | ok u => cases u; simpa [bind, Except.bind] using h
+  | error e => simp [bind, Except.bind] at h
+
+/-- Unpack a successful `Except` bind into the success of both steps. -/
+theorem Except_bind_ok_iff {ε α β} {x : Except ε α} {f : α → Except ε β}
+    {b : β} :
+    (x >>= f) = Except.ok b ↔ ∃ a, x = Except.ok a ∧ f a = Except.ok b := by
+  cases x <;> simp [bind, Except.bind]
+
+/-- Remove an existential binder over `PUnit`. -/
+theorem exists_punit {p : PUnit → Prop} :
+    (∃ u, p u) ↔ p PUnit.unit :=
+  ⟨fun ⟨⟨⟩, h⟩ => h, fun h => ⟨PUnit.unit, h⟩⟩
+
 
 @[simp, grind =]
 theorem Std.ExtHashSet.filter_empty {α : Type} [Hashable α] [BEq α] [LawfulBEq α] (f : α → Bool) :

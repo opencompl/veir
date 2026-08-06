@@ -2,7 +2,6 @@ module
 
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
-import Veir.Passes.Matching
 
 namespace Veir
 
@@ -26,4 +25,4 @@ def DCEPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
 public def DCEPass : Pass OpCode :=
   { name := "dce"
     description := "Eliminate dead code by removing operations whose results are unused."
-    run := DCEPass.impl }
+    run := fun _ => DCEPass.impl }

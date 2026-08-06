@@ -1,6 +1,5 @@
 module
 
-public import Veir.IR.Basic
 public import Veir.GlobalOpInfo
 public import Veir.PatternRewriter.Basic
 

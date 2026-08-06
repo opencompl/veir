@@ -3,7 +3,7 @@ module
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Dialects.ModArith.Properties
-meta import Veir.Meta.Attrs
+meta import Veir.Meta.OpCode
 
 namespace Veir
 
@@ -43,20 +43,32 @@ def Mod_Arith.hasSideEffects
     (_op : Mod_Arith) (_props : Mod_Arith.propertiesOf _op) : Bool :=
   false
 
-def Mod_Arith.readsMemory (_op : Mod_Arith) : Bool :=
+def Mod_Arith.readsMemory
+    (_op : Mod_Arith) (_props : Mod_Arith.propertiesOf _op) : Bool :=
   false
 
-def Mod_Arith.isConstantLike (_op : Mod_Arith) : Bool :=
+def Mod_Arith.writesMemory
+    (_op : Mod_Arith) (_props : Mod_Arith.propertiesOf _op) : Bool :=
   false
+
+def Mod_Arith.isConstantLike (op : Mod_Arith) : Bool :=
+  match op with
+  | .constant => true
+  | _ => false
 
 def Mod_Arith.hasSSADominance (_op : Mod_Arith) (_index : Nat) : Bool :=
   true
 
+#generate_dialect Mod_Arith
+
 instance : HasDialectOpInfo Mod_Arith where
+  fromName := Mod_Arith.fromName
+  name := Mod_Arith.name
   propertiesOf := Mod_Arith.propertiesOf
   fromAttrDict := Mod_Arith.fromAttrDict
   toAttrDict := Mod_Arith.toAttrDict
   hasSideEffects := Mod_Arith.hasSideEffects
   readsMemory := Mod_Arith.readsMemory
+  writesMemory := Mod_Arith.writesMemory
   isConstantLike := Mod_Arith.isConstantLike
   hasSSADominance := Mod_Arith.hasSSADominance

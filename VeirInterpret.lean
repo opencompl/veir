@@ -1,10 +1,7 @@
 import Veir.Parser.MlirParser
-import Veir.Printer
-import Veir.IR.Basic
 import Veir.Verifier
 import Veir.Interpreter.Basic
 import Veir.Panic
-import Veir.Interfaces.FunctionInterfaces
 
 /-!
   # Veir Interpreter CLI Tool

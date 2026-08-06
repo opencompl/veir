@@ -1,5 +1,4 @@
 import Veir.Parser.MlirParser
-import Veir.IR.Basic
 import Veir.MIRPrinter
 
 /-!

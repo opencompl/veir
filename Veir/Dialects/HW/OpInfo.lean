@@ -3,7 +3,7 @@ module
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Dialects.HW.Properties
-meta import Veir.Meta.Attrs
+meta import Veir.Meta.OpCode
 
 namespace Veir
 
@@ -52,7 +52,10 @@ def HW.hasSideEffects (op : HW) (_props : HW.propertiesOf op) : Bool :=
   | .constant => false
   | _ => true
 
-def HW.readsMemory (_op : HW) : Bool :=
+def HW.readsMemory (_op : HW) (_props : HW.propertiesOf _op) : Bool :=
+  false
+
+def HW.writesMemory (_op : HW) (_props : HW.propertiesOf _op) : Bool :=
   false
 
 def HW.isConstantLike (op : HW) : Bool :=
@@ -63,12 +66,17 @@ def HW.isConstantLike (op : HW) : Bool :=
 def HW.hasSSADominance (_op : HW) (_index : Nat) : Bool :=
   true
 
+#generate_dialect HW
+
 instance : HasDialectOpInfo HW where
+  fromName := HW.fromName
+  name := HW.name
   propertiesOf := HW.propertiesOf
   fromAttrDict := HW.fromAttrDict
   toAttrDict := HW.toAttrDict
   hasSideEffects := HW.hasSideEffects
   readsMemory := HW.readsMemory
+  writesMemory := HW.writesMemory
   isConstantLike := HW.isConstantLike
   hasSSADominance := HW.hasSSADominance
 

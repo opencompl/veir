@@ -2,7 +2,6 @@ module
 
 public import Veir.Pass
 import Veir.Interfaces.ConstantLikeInterfaces
-import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
 
 namespace Veir
@@ -26,7 +25,7 @@ def canonicalizeModArithConstant (rewriter : PatternRewriter OpCode) (op : Opera
   if canonicalValue = props.value.value then return rewriter
   let canonicalProps : ModArithConstantProperties :=
     { value := { props.value with value := canonicalValue } }
-  return rewriter.setProperties! op (.mod_arith .constant) canonicalProps
+  return rewriter.setProperties! op Mod_Arith.constant canonicalProps
 
 def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
@@ -58,6 +57,6 @@ def CanonicalizePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op
 public def CanonicalizePass : Pass OpCode :=
   { name := "canonicalize"
     description := "Rewrite operations into a canonical form."
-    run := CanonicalizePass.impl }
+    run := fun _ => CanonicalizePass.impl }
 
 end Veir

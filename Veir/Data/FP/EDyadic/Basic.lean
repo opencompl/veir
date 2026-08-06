@@ -1,5 +1,4 @@
 module
-public import Veir.Data.FP.ScientificBV
 
 namespace Veir.Data.FP
 

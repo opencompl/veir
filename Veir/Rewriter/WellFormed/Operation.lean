@@ -1,12 +1,9 @@
 module
 
-public import Veir.IR.Basic
 public import Veir.Rewriter.Basic
 
 import all Veir.Rewriter.Basic
-import Veir.IR.WellFormed
 import Veir.Rewriter.GetSet
-import Veir.Rewriter.LinkedList.GetSet
 import Veir.Rewriter.WellFormed.BlockOperands
 import Veir.Rewriter.WellFormed.OpOperands
 import Veir.Rewriter.WellFormed.OpRegion
@@ -314,11 +311,14 @@ end setAttributes
 
 section setProperties
 
-theorem OperationPtr.setProperties_WellFormed {opCode : OpInfo} (ctx: IRContext OpInfo)
+variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {opCode : Dialect} {newProps : HasDialectOpInfo.propertiesOf opCode}
+
+theorem OperationPtr.setProperties_WellFormed (ctx: IRContext OpInfo)
   (op: OperationPtr) (hctx : ctx.WellFormed) (hop : op.InBounds ctx)
   (hprop : op.getOpType! ctx = opCode := by grind)
-  (newProperties: HasOpInfo.propertiesOf opCode) :
-  (op.setProperties ctx newProperties hop hprop).WellFormed := by
+  (newProperties: HasDialectOpInfo.propertiesOf opCode) :
+  (op.setProperties ctx opCode newProperties hop hprop).WellFormed := by
   have ⟨h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈⟩ := hctx
   constructor
   · grind
@@ -326,49 +326,51 @@ theorem OperationPtr.setProperties_WellFormed {opCode : OpInfo} (ctx: IRContext 
     have ⟨array, harray⟩ := h₂ val (by grind)
     exists array
     simp only [Std.ExtHashSet.filter_empty] at harray ⊢
-    apply ValuePtr.DefUse.unchanged harray (ctx' := op.setProperties ctx newProperties hop hprop) <;> grind
+    apply ValuePtr.DefUse.unchanged harray (ctx' := op.setProperties ctx opCode newProperties hop hprop) <;> grind
   · intro blk hblk
     have ⟨array, harray⟩ := h₃ blk (by grind)
     exists array
     simp only [Std.ExtHashSet.filter_empty] at harray ⊢
-    apply BlockPtr.DefUse.unchanged harray (ctx' := op.setProperties ctx newProperties hop hprop) <;> grind
+    apply BlockPtr.DefUse.unchanged harray (ctx' := op.setProperties ctx opCode newProperties hop hprop) <;> grind
   · intro blk hblk
     have ⟨array, harray⟩ := h₄ blk (by grind)
     exists array
-    apply BlockPtr.OpChain_unchanged harray (ctx' := op.setProperties ctx newProperties hop hprop) <;> grind
+    apply BlockPtr.OpChain_unchanged harray (ctx' := op.setProperties ctx opCode newProperties hop hprop) <;> grind
   · intro reg hreg
     have ⟨array, harray⟩ := h₅ reg (by grind)
     exists array
-    apply RegionPtr.blockChain_unchanged harray (ctx' := op.setProperties ctx newProperties hop hprop) <;> grind
+    apply RegionPtr.blockChain_unchanged harray (ctx' := op.setProperties ctx opCode newProperties hop hprop) <;> grind
   · intro op' hop'
     have h_wf := h₆ op' (by grind)
-    apply OperationPtr.WellFormed_unchanged h_wf (ctx' := op.setProperties ctx newProperties hop hprop) <;> grind
+    apply OperationPtr.WellFormed_unchanged h_wf (ctx' := op.setProperties ctx opCode newProperties hop hprop) <;> grind
   · intro blk hblk
     have h_wf := h₇ blk (by grind)
-    apply BlockPtr.WellFormed_unchanged h_wf (ctx' := op.setProperties ctx newProperties hop hprop) <;> grind
+    apply BlockPtr.WellFormed_unchanged h_wf (ctx' := op.setProperties ctx opCode newProperties hop hprop) <;> grind
   · intro reg hreg
     have h_wf := h₈ reg (by grind)
-    apply RegionPtr.WellFormed_unchanged h_wf (ctx' := op.setProperties ctx newProperties hop hprop) <;> grind
+    apply RegionPtr.WellFormed_unchanged h_wf (ctx' := op.setProperties ctx opCode newProperties hop hprop) <;> grind
 
 theorem BlockPtr.opChain_OperationPtr_setProperties
     (hWf : BlockPtr.OpChain block' ctx array)
     {op : OperationPtr} (hop : op.InBounds ctx)
-    {opCode : OpInfo} (newProps : HasOpInfo.propertiesOf opCode)
+    (newProps : HasDialectOpInfo.propertiesOf opCode)
     (hprop : op.getOpType! ctx = opCode := by grind) :
-    BlockPtr.OpChain block' (op.setProperties ctx newProps hop hprop) array := by
+    BlockPtr.OpChain block' (op.setProperties ctx opCode newProps hop hprop) array := by
   apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
 
 @[grind =]
 theorem BlockPtr.operationList_operationPtr_setProperties
     (hctx : ctx.WellFormed) :
-    BlockPtr.operationList block' (OperationPtr.setProperties op ctx newProps hop hprop) ctx' blockInBounds' =
+    BlockPtr.operationList block' (OperationPtr.setProperties op ctx opCode newProps hop hprop) ctx' blockInBounds' =
     BlockPtr.operationList block' ctx hctx (by grind) := by
   simp only [← BlockPtr.operationList_iff_BlockPtr_OpChain]
   grind [BlockPtr.opChain_OperationPtr_setProperties]
 
 theorem Rewriter.setProperties_WellFormed
+    {op : OperationPtr} {hop : op.InBounds ctx}
+    {hprop : op.getOpType! ctx = opCode}
     (hctx : ctx.WellFormed) :
-    (Rewriter.setProperties ctx op newProps hop hprop).WellFormed := by
+    (Rewriter.setProperties ctx op opCode newProps hop hprop).WellFormed := by
    grind [setProperties, OperationPtr.setProperties_WellFormed]
 
 end setProperties
@@ -648,6 +650,11 @@ theorem OperationPtr.getOperand_Rewriter_eraseOp
     OperationPtr.getOperand op' ctx idx (by sorry) (by sorry) := by
   sorry
 
+section createOp
+
+variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {opType : Dialect} {properties : HasDialectOpInfo.propertiesOf opType}
+
 theorem Rewriter.createEmptyOp_wellFormed  (hctx : IRContext.WellFormed ctx) :
     Rewriter.createEmptyOp ctx opType properties = some (newCtx, newOp) →
     newCtx.WellFormed := by
@@ -773,5 +780,7 @@ theorem BlockPtr.operationList_rewriter_createOp
       split <;>
         grind [Rewriter.initOpOperands_WellFormed, Rewriter.initBlockOperands_WellFormed,
           Rewriter.insertOp_WellFormed, IRContext.wellFormed_rewriter_initOpResults]
+
+end createOp
 
 end Veir

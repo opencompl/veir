@@ -1,9 +1,6 @@
 module
 
-public import Veir.IR.WellFormed
-public import Veir.IR.OpInfo
 public import Veir.Rewriter.InsertPoint
-public import Veir.Dominance.Basic
 
 /-!
   # Dominance

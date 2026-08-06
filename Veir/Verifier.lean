@@ -1,42 +1,31 @@
 module
 
-public import Veir.IR.Basic
+public import Veir.Verifier.Lemmas
 public import Veir.IR.Dominance
-public import Veir.IR.Fields
-public import Veir.GlobalOpInfo
-public import Veir.IR.WellFormed
 public import Veir.Interfaces.FunctionInterfaces
-import Veir.ForLean
+
+import all Veir.Verifier.Basic
 
 namespace Veir
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 
-/--
-  Walk up from `op` (a return-like terminator named `opName`) to the
-  operation that encloses its parent region, i.e. the enclosing function
-  operation.
--/
-def OperationPtr.getEnclosingFunctionOp (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opName : String) : Except String OperationPtr :=
-  match op.getParentOp! ctx.raw with
-  | some funcOp => pure funcOp
-  | none => throw s!"Expected {opName} to have an enclosing function operation"
 
 /--
-  Type compatibility for matching an actual value's type against a declared type.
-  Register types are compatible when their register constraints agree, treating an
-  unconstrained `!riscv.reg` (no index) as matching any physical register such as
-  `!riscv.reg<x0>`. This lets a hard-wired register like `x0` be forwarded into a
-  generic register slot, whether that's a successor block argument (see
-  `verifyBranchSuccessorArgTypes`) or a function return value. All other types must
-  be equal.
+  Whether `attr` is *definitely* a non-zero initializer. TODO: This
+  does not yet completely match MLIR's behavior.
 -/
-def Attribute.branchArgCompatible (opTy argTy : Attribute) : Bool :=
-  match opTy, argTy with
-  | .registerType r1, .registerType r2 =>
-      decide (r1.index = r2.index) || r1.index.isNone || r2.index.isNone
-  | _, _ => decide (opTy = argTy)
+def Attribute.isKnownNonZero (attr : Attribute) : Bool :=
+  match attr with
+  | .integerAttr intAttr => intAttr.value != 0
+  | .floatAttr fltAttr => fltAttr.value != 0.0
+  | _ => false
+
+/--
+  Whether `n` is a valid alignment: a strictly positive power of two.
+-/
+def isValidLLVMAlignment (n : Int) : Bool :=
+  decide (0 < n) && (n.toNat &&& (n.toNat - 1)) == 0
 
 /--
   Check that a `func.return` returns the declared result types of its
@@ -80,14 +69,12 @@ def OperationPtr.verifyLLVMFuncReturnTypes (op : OperationPtr) (ctx : WfIRContex
 -/
 def OperationPtr.verifyLLVMGlobalReturnTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) (globalOp : OperationPtr) : Except String PUnit := do
-  let props := globalOp.getProperties! ctx.raw (.builtin .unregistered)
-  let some (_, globalType) := props.properties.entries.find?
-      (fun entry => entry.1 == "global_type".toUTF8)
-    | throw "Expected enclosing llvm.mlir.global to have a global_type attribute"
+  let globalType :=
+    (globalOp.getProperties! ctx.raw Llvm.mlir__global).global_type
   if op.getNumOperands ctx.raw opIn ≠ 1 then
     throw "Expected llvm.return in llvm.mlir.global to have 1 operand"
   let opTypes := op.getOperandTypes! ctx.raw
-  if (opTypes[0]!).val ≠ globalType then
+  if (opTypes[0]!).val ≠ globalType.val then
     throw "llvm.return operand type does not match the global's declared global_type"
 
 /--
@@ -100,133 +87,8 @@ def OperationPtr.verifyLLVMReturnTypes (op : OperationPtr) (ctx : WfIRContext Op
     throw "Expected llvm.return to be enclosed by llvm.func or llvm.mlir.global"
   match enclosingOp.getOpType! ctx.raw with
   | .llvm .func => op.verifyLLVMFuncReturnTypes ctx opIn enclosingOp
-  | .builtin .unregistered =>
-    if (enclosingOp.getProperties! ctx.raw (.builtin .unregistered)).opName == "llvm.mlir.global".toUTF8 then
-      op.verifyLLVMGlobalReturnTypes ctx opIn enclosingOp
-    else badEnclosure
+  | .llvm .mlir__global => op.verifyLLVMGlobalReturnTypes ctx opIn enclosingOp
   | _ => badEnclosure
-
-def TypeAttr.verifyIntegerType (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
-  match ty.val with
-  | .integerType _ => pure ()
-  | _ => throw errMsg
-
-def TypeAttr.verifyIntegerOrByteType (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
-  match ty.val with
-  | .integerType _ => pure ()
-  | .byteType _ => pure ()
-  | _ => throw errMsg
-
-def TypeAttr.verifyIntegerOrPointerType (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
-  match ty.val with
-  | .integerType _ => pure ()
-  | .llvmPointerType _ => pure ()
-  | _ => throw errMsg
-
-def TypeAttr.verifyI1 (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
-  match ty.val with
-  | .integerType intType =>
-    if intType.bitwidth ≠ 1 then
-      throw errMsg
-    else
-      pure ()
-  | _ => throw errMsg
-
-/--
-  Verify the operand and result counts of a "plain" operation: one that has no
-  regions and no successors. The instruction name is included in each error
-  message.
--/
-def OperationPtr.verifyPlainOpCounts (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opIn : op.InBounds ctx.raw) (operands results : Nat) : Except String PUnit := do
-  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
-  if op.getNumOperands ctx.raw opIn ≠ operands then
-    throw s!"{instrName}: Expected {operands} operand(s)"
-  if op.getNumResults ctx.raw opIn ≠ results then
-    throw s!"{instrName}: Expected {results} result(s)"
-  if op.getNumRegions ctx.raw opIn ≠ 0 then
-    throw s!"{instrName}: Expected 0 regions"
-  if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-    throw s!"{instrName}: Expected 0 successors"
-
-/--
-  Verify the result, region, and successor counts of a terminator: one that
-  produces no results, has no regions, and transfers control to `successors`
-  successor blocks. The operand count is left to the caller, since terminators
-  are typically variadic in their forwarded arguments. The instruction name is
-  included in each error message.
--/
-def OperationPtr.verifyTerminatorCounts (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opIn : op.InBounds ctx.raw) (successors : Nat) : Except String PUnit := do
-  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
-  if op.getNumResults ctx.raw opIn ≠ 0 then
-    throw s!"{instrName}: Expected 0 results"
-  if op.getNumRegions ctx.raw opIn ≠ 0 then
-    throw s!"{instrName}: Expected 0 regions"
-  if op.getNumSuccessors ctx.raw opIn ≠ successors then
-    throw s!"{instrName}: Expected {successors} successor(s)"
-
-/--
-  Check that the operands forwarded to a successor block match the types of that
-  block's arguments. `operandBase` is the index of the first forwarded operand;
-  the forwarded operands are `operandBase .. operandBase + dest.numArguments`,
-  mapped positionally onto `dest`'s arguments. Callers must have already verified
-  that this operand range is in bounds (i.e. the relevant segment size equals the
-  successor's argument count).
--/
-def OperationPtr.verifyBranchSuccessorArgTypes
-    (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (operandBase : Nat) (dest : BlockPtr) (errPrefix : String) :
-    Except String PUnit := do
-  for j in [0:dest.getNumArguments! ctx.raw] do
-    let opTy := (op.getOperand! ctx.raw (operandBase + j)).getType! ctx.raw
-    let argTy := ((dest.getArgument j).get! ctx.raw).type
-    if !Attribute.branchArgCompatible opTy.val argTy.val then
-      throw s!"{errPrefix} argument {j} type mismatch: operand has type {opTy}, block argument has type {argTy}"
-
-/--
-  Verify an unconditional branch with a single successor: every operand is
-  forwarded positionally to the successor block's arguments, so the operand
-  count must equal the successor's argument count and the operand types must
-  match the block argument types.
--/
-def OperationPtr.verifyUnconditionalBranch (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
-  op.verifyTerminatorCounts ctx opIn 1
-  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
-  let dest := op.getSuccessor! ctx.raw 0
-  if op.getNumOperands ctx.raw opIn ≠ dest.getNumArguments! ctx.raw then
-    throw s!"{instrName}: branch expected operand count {dest.getNumArguments! ctx.raw}, got {op.getNumOperands ctx.raw opIn}"
-  op.verifyBranchSuccessorArgTypes ctx 0 dest s!"{instrName}: successor"
-
-def OperationPtr.verifyCondBranchOperandSegmentSizes
-    (op : OperationPtr) (ctx : WfIRContext OpCode) (opIn : op.InBounds ctx.raw)
-    (sizes : DenseArrayAttr) (fixedOperands : Nat) :
-    Except String PUnit := do
-  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
-  if _ : sizes.values.size ≠ fixedOperands + 2 then
-    throw s!"{instrName}: operandSegmentSizes expected {fixedOperands + 2} entries, got {sizes.values.size}"
-  let mut operandSegmentSizes : Array Nat := #[]
-  for size in sizes.values do
-    if size < 0 then
-      throw s!"{instrName}: operandSegmentSizes contains negative size {size}"
-    operandSegmentSizes := operandSegmentSizes.push size.toNat
-  for i in [0:fixedOperands] do
-    if operandSegmentSizes[i]! ≠ 1 then
-      throw s!"{instrName}: fixed operand segment {i} expected size 1, got {operandSegmentSizes[i]!}"
-  let operandSegmentSum := operandSegmentSizes.foldl (init := 0) fun acc size => acc + size
-  if operandSegmentSum ≠ op.getNumOperands ctx.raw opIn then
-    throw s!"{instrName}: operandSegmentSizes describes {operandSegmentSum} operands, got {op.getNumOperands ctx.raw opIn}"
-  let trueArgCount := operandSegmentSizes[fixedOperands]!
-  let falseArgCount := operandSegmentSizes[fixedOperands + 1]!
-  let trueDest := op.getSuccessor! ctx.raw 0
-  let falseDest := op.getSuccessor! ctx.raw 1
-  if trueArgCount ≠ trueDest.getNumArguments! ctx.raw then
-    throw s!"{instrName}: true operand segment expected operand count {trueDest.getNumArguments! ctx.raw}, got {trueArgCount}"
-  if falseArgCount ≠ falseDest.getNumArguments! ctx.raw then
-    throw s!"{instrName}: false operand segment expected operand count {falseDest.getNumArguments! ctx.raw}, got {falseArgCount}"
-  op.verifyBranchSuccessorArgTypes ctx fixedOperands trueDest s!"{instrName}: true successor"
-  op.verifyBranchSuccessorArgTypes ctx (fixedOperands + trueArgCount) falseDest s!"{instrName}: false successor"
 
 def OperationPtr.verifyRISCVimm12 (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) (operands results : Nat) (imm : Int) : Except String PUnit := do
@@ -265,28 +127,6 @@ def OperationPtr.verifyRISCVuimm6 (op : OperationPtr) (ctx : WfIRContext OpCode)
   else
     pure ()
 
-def OperationPtr.verifyOperandTypesMatch (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (firstIdx secondIdx : Nat) (errMsg : String) : Except String TypeAttr := do
-  let firstType := (op.getOperand! ctx.raw firstIdx).getType! ctx.raw
-  let secondType := (op.getOperand! ctx.raw secondIdx).getType! ctx.raw
-  if secondType.val ≠ firstType.val then
-    throw errMsg
-  pure firstType
-
-def OperationPtr.verifyResultTypeMatches (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (expectedType : TypeAttr) (errMsg : String) : Except String PUnit := do
-  if ((op.getResult 0).get! ctx.raw).type.val ≠ expectedType.val then
-    throw errMsg
-
-def OperationPtr.verifyIntegerBinop (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
-  op.verifyPlainOpCounts ctx opIn 2 1
-  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
-  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType s!"{instrName}: Expected operand 0 to have integer type"
-  ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerType s!"{instrName}: Expected operand 1 to have integer type"
-  let operandType ← op.verifyOperandTypesMatch ctx 0 1 s!"{instrName}: Expected operands to have the same type"
-  op.verifyResultTypeMatches ctx operandType s!"{instrName}: Expected result type to match operand type"
-
 /--
   Verify an `arith` extended operation with two same-typed integer operands and
   two results. The low result always matches the operand type; the high result
@@ -311,26 +151,6 @@ def OperationPtr.verifyArithExtendedOp (op : OperationPtr) (ctx : WfIRContext Op
   else if result1Type.val ≠ operandType.val then
     throw s!"{instrName}: Expected result 1 type to match operand type"
 
-def OperationPtr.verifyIntegerTernop (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
-  op.verifyPlainOpCounts ctx opIn 3 1
-  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
-  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType s!"{instrName}: Expected operand 0 to have integer type"
-  ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerType s!"{instrName}: Expected operand 1 to have integer type"
-  ((op.getOperand! ctx.raw 2).getType! ctx.raw).verifyIntegerType s!"{instrName}: Expected operand 2 to have integer type"
-  let _ ← op.verifyOperandTypesMatch ctx 0 1 s!"{instrName}: Expected operands to have the same type"
-  let operandType ← op.verifyOperandTypesMatch ctx 0 2 s!"{instrName}: Expected operands to have the same type"
-  op.verifyResultTypeMatches ctx operandType s!"{instrName}: Expected result type to match operand type"
-
-def OperationPtr.verifyIntegerUnop (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opIn : op.InBounds ctx.raw) : Except String TypeAttr := do
-  op.verifyPlainOpCounts ctx opIn 1 1
-  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
-  let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
-  operandType.verifyIntegerType s!"{instrName}: Expected operand 0 to have integer type"
-  op.verifyResultTypeMatches ctx operandType s!"{instrName}: Expected result type to match operand type"
-  pure operandType
-
 def OperationPtr.verifyLLVMShift (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 2 1
@@ -338,15 +158,6 @@ def OperationPtr.verifyLLVMShift (op : OperationPtr) (ctx : WfIRContext OpCode)
   ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerOrByteType s!"{instrName}: Expected operand 0 to have integer or byte type"
   ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerType s!"{instrName}: Expected operand 1 to have integer type"
   op.verifyResultTypeMatches ctx ((op.getOperand! ctx.raw 0).getType! ctx.raw) s!"{instrName}: Expected result type to match first operand type"
-
-def OperationPtr.verifyICmp (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
-  op.verifyPlainOpCounts ctx opIn 2 1
-  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
-  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType s!"{instrName}: Expected operand 0 to have integer type"
-  ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerType s!"{instrName}: Expected operand 1 to have integer type"
-  let _ ← op.verifyOperandTypesMatch ctx 0 1 s!"{instrName}: Expected operands to have the same type"
-  ((op.getResult 0).get! ctx.raw).type.verifyI1 s!"{instrName}: Expected i1 result"
 
 def OperationPtr.verifyLLVMICmp (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
@@ -359,49 +170,6 @@ def OperationPtr.verifyLLVMICmp (op : OperationPtr) (ctx : WfIRContext OpCode)
     s!"{instrName}: Expected operand 1 to have integer or pointer type"
   let _ ← op.verifyOperandTypesMatch ctx 0 1 s!"{instrName}: Expected operands to have the same type"
   ((op.getResult 0).get! ctx.raw).type.verifyI1 s!"{instrName}: Expected i1 result"
-
-def OperationPtr.verifySelectTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
-  op.verifyPlainOpCounts ctx opIn 3 1
-  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
-  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyI1 s!"{instrName}: Expected i1 condition"
-  -- Both `arith.select` and `llvm.select` accept values of any type.
-  let operandType ← op.verifyOperandTypesMatch ctx 1 2 s!"{instrName}: Expected select values to have the same type"
-  op.verifyResultTypeMatches ctx operandType s!"{instrName}: Expected result type to match select value type"
-
-def OperationPtr.verifyTruncTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opIn : op.InBounds ctx.raw) (allowByte : Bool) : Except String PUnit := do
-  op.verifyPlainOpCounts ctx opIn 1 1
-  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
-  let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
-  let resultType := ((op.getResult 0).get! ctx.raw).type
-  match operandType.val, resultType.val, allowByte with
-  | .integerType ⟨bw1⟩, .integerType ⟨bw2⟩, _ =>
-    if bw1 ≤ bw2 then
-      throw s!"{instrName}: Result's width must be smaller than operand's width"
-    else
-      pure ()
-  | .byteType ⟨bw1⟩, .byteType ⟨bw2⟩, true =>
-    if bw1 ≤ bw2 then
-      throw s!"{instrName}: Result's width must be smaller than operand's width"
-    else
-      pure ()
-  | _, _, _ => throw s!"{instrName}: Expected 1 integer operand and 1 integer result"
-
-def OperationPtr.verifyIntegerExtTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
-  op.verifyPlainOpCounts ctx opIn 1 1
-  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
-  let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
-  let resultType := ((op.getResult 0).get! ctx.raw).type
-  let .integerType operandInt := operandType.val
-    | throw s!"{instrName}: Expected operand 0 to have integer type"
-  let .integerType resultInt := resultType.val
-    | throw s!"{instrName}: Expected integer result type"
-  if resultInt.bitwidth ≤ operandInt.bitwidth then
-    throw s!"{instrName}: Operand's width must be smaller than result's width"
-  else
-    pure ()
 
 def OperationPtr.verifyRISCVneg (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) (operands results : Nat) (imm : Int) : Except String PUnit := do
@@ -431,25 +199,6 @@ def OperationPtr.verifyRISCVRegisterTypes (op : OperationPtr) (ctx : WfIRContext
     | .registerType _ => pure ()
     | _ => throw s!"{instrName}: Expected result {i} to have !riscv.reg type"
 
-/--
-  Reject any operand or result whose type is a zero-width integer (`i0`).
-  Whether `i0` is legal is a per-dialect policy, so this is called explicitly
-  from the verifier arm of each operation that forbids it (currently every
-  `arith` and `llvm` operation) rather than being applied dialect-wide.
--/
-def OperationPtr.checkIsNonNullIntegerType (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
-  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
-  let opTypes := op.getOperandTypes! ctx.raw
-  for i in [0:opTypes.size] do
-    if let .integerType intType := (opTypes[i]!).val then
-      if intType.bitwidth = 0 then
-        throw s!"{instrName}: operand {i} has forbidden i0 type"
-  for i in [0:op.getNumResults ctx.raw opIn] do
-    if let .integerType intType := ((op.getResult i).get! ctx.raw).type.val then
-      if intType.bitwidth = 0 then
-        throw s!"{instrName}: result {i} has forbidden i0 type"
-
 def TypeAttr.verifyModArithType (ty : TypeAttr) (msg : String): Except String ModArithType :=
   match ty.val with
   | .modArithType type => do
@@ -475,20 +224,11 @@ def OperationPtr.verifyModArithConstantOp (op : OperationPtr) (ctx: WfIRContext 
     op.verifyPlainOpCounts ctx opIn 0 1
     let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
     let mat ← ((op.getResult 0).get! ctx.raw).type.verifyModArithType s!"{instrName}: Expected result to have ModArithType"
-    let value := (op.getProperties! ctx.raw (.mod_arith .constant)).value.value
+    let value := (op.getProperties! ctx.raw Mod_Arith.constant).value.value
     let bw := mat.modulus.type.bitwidth
     -- slightly odd range because the storage type is signless
     if value < -(2 ^ (bw - 1) : Int) ∨ (2 ^ bw : Int) ≤ value then
       throw s!"{instrName}: constant value {value} does not fit in storage type 'i{bw}'."
-
-
-def denseElementsElementType? (typeStr : String) : Option String :=
-  let s := typeStr.replace " " ""
-  let segments := s.splitOn "x"
-  if "tensor<".isPrefixOf s && s.endsWith ">" && segments.length ≥ 2 then
-    some ((segments.getLast!.splitOn ">").head!)
-  else
-    none
 
 /--
   Verify local invariants of an operation.
@@ -533,7 +273,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     else if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
-    else if (op.getProperties! ctx.raw (.arith .constant)).value.type ≠
+    else if (op.getProperties! ctx.raw Arith.constant).value.type ≠
           ((op.getResult 0).get ctx.raw).type.val then
         throw "Expected result type to be equal to the constant's type"
     pure ()
@@ -610,15 +350,9 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     op.verifyTerminatorCounts ctx opIn 0
     op.verifyFuncReturnTypes ctx opIn
   /- CF -/
-  | .cf .br => do
-    op.verifyUnconditionalBranch ctx opIn
-  | .cf .cond_br => do
-    op.verifyTerminatorCounts ctx opIn 2
-    let weights := (op.getProperties! ctx.raw (OpCode.cf .cond_br)).branch_weights
-    if weights.values.size ≠ 2 && weights.values.size ≠ 0 then
-      throw "Expected 0 or 2 branch weights"
-    let sizes := (op.getProperties! ctx.raw (OpCode.cf .cond_br)).operandSegmentSizes
-    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 1
+  | .cf opType => Cf.verifyLocalInvariants opType op ctx opIn
+  /- PDL -/
+  | .pdl opType => PDL.verifyLocalInvariants opType op ctx opIn
   /- TEST -/
   | .test .test => do
     pure ()
@@ -633,7 +367,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     -- a same-width float result, or a same-width integer result (the workaround
     -- for builtin MLIR float types without an LLVM equivalent).
     let resultType := ((op.getResult 0).get! ctx.raw).type.val
-    match (op.getProperties! ctx.raw (.llvm .mlir__constant)).value with
+    match (op.getProperties! ctx.raw Llvm.mlir__constant).value with
     | .integer _ =>
       match resultType with
       | .integerType _ => pure ()
@@ -658,10 +392,51 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
             throw s!"llvm.mlir.constant: dense elements type '{elemType}' does not match array element type '{baseType}'"
         | none => pure ()
       | _ => throw "llvm.mlir.constant: Expected array result type for a dense elements constant"
-    pure ()
+    | .string stringAttr =>
+      match resultType with
+      | .llvmArrayType arrType =>
+        if arrType.type ≠ .integerType ⟨8⟩ then
+          throw "llvm.mlir.constant: Expected array<N x i8> result type for a string constant"
+        if stringAttr.value.size ≠ arrType.size then
+          throw s!"llvm.mlir.constant: string length {stringAttr.value.size} does not match declared array size {arrType.size}"
+      | _ => throw "llvm.mlir.constant: Expected array result type for a string constant"
+      pure ()
   | .llvm .mlir__poison => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 0 1
+    pure ()
+  | .llvm .mlir__global => do
+    if op.getNumOperands ctx.raw opIn ≠ 0 then
+      throw "Expected 0 operands"
+    if op.getNumResults ctx.raw opIn ≠ 0 then
+      throw "Expected 0 results"
+    if op.getNumRegions ctx.raw opIn ≠ 1 then
+      throw "Expected 1 region"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    let properties := op.getProperties! ctx.raw Llvm.mlir__global
+    if let some alignment := properties.alignment then
+      if alignment.type.bitwidth ≠ 64 then
+        throw "'alignment' must be a 64-bit signless integer attribute"
+      if !isValidLLVMAlignment alignment.value then
+        throw "alignment attribute is not a power of 2"
+    if properties.addr_space.type.bitwidth ≠ 32 then
+      throw "'addr_space' must be a 32-bit signless integer attribute"
+    -- A global is initialized either by the `value` attribute or by the body
+    -- region, never both. An empty body with no `value` is a declaration, which
+    -- is legal for every linkage.
+    if let some value := properties.value then
+      let body := (op.getRegion! ctx.raw 0).get! ctx.raw
+      if body.firstBlock.isSome then
+        throw "cannot have both initializer value and region"
+      if properties.linkage.value == "common" && value.isKnownNonZero then
+        throw "expected zero value for 'common' linkage"
+    pure ()
+  | .llvm .mlir__addressof => do
+    op.verifyPlainOpCounts ctx opIn 0 1
+    let resultType := ((op.getResult 0).get! ctx.raw).type
+    let .llvmPointerType _ := resultType.val
+      | throw "Expected result to have !llvm.ptr type"
     pure ()
   | .llvm .and | .llvm .or | .llvm .xor | .llvm .intr__smax | .llvm .intr__smin
   | .llvm .intr__umax | .llvm .intr__umin | .llvm .add | .llvm .sub
@@ -728,15 +503,15 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
   | .llvm .cond_br => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyTerminatorCounts ctx opIn 2
-    let weights := (op.getProperties! ctx.raw (.llvm .cond_br)).branch_weights
+    let weights := (op.getProperties! ctx.raw Llvm.cond_br).branch_weights
     if weights.values.size ≠ 2 && weights.values.size ≠ 0 then
       throw "Expected 0 or 2 branch weights"
-    let sizes := (op.getProperties! ctx.raw (.llvm .cond_br)).operandSegmentSizes
+    let sizes := (op.getProperties! ctx.raw Llvm.cond_br).operandSegmentSizes
     op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 1
   | .llvm .alloca => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 1 1
-    let properties := (op.getProperties! ctx.raw (.llvm .alloca))
+    let properties := (op.getProperties! ctx.raw Llvm.alloca)
     if properties.alignment.type.bitwidth ≠ 64 then
       throw "'llvm.alloca' op attribute 'alignment' failed to satisfy constraint: 64-bit signless integer attribute"
 
@@ -744,7 +519,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
   | .llvm .load => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 1 1
-    let properties := (op.getProperties! ctx.raw (.llvm .load))
+    let properties := (op.getProperties! ctx.raw Llvm.load)
     if properties.alignment.type.bitwidth ≠ 64 then
       throw "'llvm.load' op attribute 'alignment' failed to satisfy constraint: 64-bit signless integer attribute"
 
@@ -752,13 +527,13 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
   | .llvm .store => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 2 0
-    let properties := (op.getProperties! ctx.raw (.llvm .store))
+    let properties := (op.getProperties! ctx.raw Llvm.store)
     if properties.alignment.type.bitwidth ≠ 64 then
       throw "'llvm.store' op attribute 'alignment' failed to satisfy constraint: 64-bit signless integer attribute"
     pure ()
   | .llvm .getelementptr => do
     op.checkIsNonNullIntegerType ctx opIn
-    let props := op.getProperties! ctx.raw (.llvm .getelementptr)
+    let props := op.getProperties! ctx.raw Llvm.getelementptr
     let dynamicCount := props.rawConstantIndices.values.filter (· == -2147483648) |>.size
     if op.getNumOperands ctx.raw opIn ≠ 1 + dynamicCount then
       throw s!"Expected {1 + dynamicCount} operands"
@@ -825,53 +600,53 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     op.verifyPlainOpCounts ctx opIn 0 1
     pure ()
   | .riscv .lui => do
-    op.verifyRISCVneg ctx opIn 0 1 (op.getProperties! ctx.raw (.riscv .lui)).value.value
+    op.verifyRISCVneg ctx opIn 0 1 (op.getProperties! ctx.raw Riscv.lui).value.value
     pure ()
   | .riscv .auipc => do
-    op.verifyRISCVneg ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .auipc)).value.value
+    op.verifyRISCVneg ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.auipc).value.value
     pure ()
   | .riscv .addi => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .addi)).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.addi).value.value
     pure ()
   | .riscv .slti => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .slti)).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.slti).value.value
     pure ()
   | .riscv .sltiu => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .sltiu)).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.sltiu).value.value
     pure ()
   | .riscv .andi => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .andi)).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.andi).value.value
     pure ()
   | .riscv .ori => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .ori)).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.ori).value.value
     pure ()
   | .riscv .xori => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .xori)).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.xori).value.value
     pure ()
   | .riscv .addiw => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .addiw)).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.addiw).value.value
     pure ()
   | .riscv .slli => do
-    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw (.riscv .slli)).value.value
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.slli).value.value
     pure ()
   | .riscv .srli => do
-    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw (.riscv .srli)).value.value
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.srli).value.value
     pure ()
   | .riscv .srai => do
-    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw (.riscv .srai)).value.value
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.srai).value.value
     pure ()
   | .riscv .add | .riscv .sub | .riscv .sll | .riscv .slt | .riscv .sltu
   | .riscv .xor | .riscv .srl | .riscv .sra | .riscv .or | .riscv .and => do
     op.verifyPlainOpCounts ctx opIn 2 1
     pure ()
   | .riscv .slliw => do
-    op.verifyRISCVuimm5 ctx opIn (op.getProperties! ctx.raw (.riscv .slliw)).value.value
+    op.verifyRISCVuimm5 ctx opIn (op.getProperties! ctx.raw Riscv.slliw).value.value
     pure ()
   | .riscv .srliw => do
-    op.verifyRISCVuimm5 ctx opIn (op.getProperties! ctx.raw (.riscv .srliw)).value.value
+    op.verifyRISCVuimm5 ctx opIn (op.getProperties! ctx.raw Riscv.srliw).value.value
     pure ()
   | .riscv .sraiw => do
-    op.verifyRISCVuimm5 ctx opIn (op.getProperties! ctx.raw (.riscv .sraiw)).value.value
+    op.verifyRISCVuimm5 ctx opIn (op.getProperties! ctx.raw Riscv.sraiw).value.value
     pure ()
   | .riscv .addw | .riscv .subw | .riscv .sllw | .riscv .srlw | .riscv .sraw
   | .riscv .rem | .riscv .remu | .riscv .remw | .riscv .remuw
@@ -882,7 +657,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     op.verifyPlainOpCounts ctx opIn 2 1
     pure ()
   | .riscv .slliuw => do
-    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw (.riscv .slliuw)).value.value
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.slliuw).value.value
     pure ()
   | .riscv .andn | .riscv .orn | .riscv .xnor
   | .riscv .max | .riscv .maxu | .riscv .min | .riscv .minu
@@ -895,62 +670,62 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     op.verifyPlainOpCounts ctx opIn 1 1
     pure ()
   | .riscv .roriw => do
-    op.verifyRISCVuimm5 ctx opIn (op.getProperties! ctx.raw (.riscv .roriw)).value.value
+    op.verifyRISCVuimm5 ctx opIn (op.getProperties! ctx.raw Riscv.roriw).value.value
     pure ()
   | .riscv .rori => do
-    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw (.riscv .rori)).value.value
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.rori).value.value
     pure ()
   | .riscv .bclr | .riscv .bext | .riscv .binv | .riscv .bset => do
     op.verifyPlainOpCounts ctx opIn 2 1
     pure ()
   | .riscv .bclri => do
-    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw (.riscv .bclri)).value.value
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.bclri).value.value
     pure ()
   | .riscv .bexti => do
-    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw (.riscv .bexti)).value.value
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.bexti).value.value
     pure ()
   | .riscv .binvi => do
-    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw (.riscv .binvi)).value.value
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.binvi).value.value
     pure ()
   | .riscv .bseti => do
-    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw (.riscv .bseti)).value.value
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.bseti).value.value
     pure ()
   | .riscv .pack | .riscv .packh | .riscv .packw
   | .riscv .czeroeqz | .riscv .czeronez => do
     op.verifyPlainOpCounts ctx opIn 2 1
     pure ()
   | .riscv .ld => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .ld)).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.ld).value.value
     pure ()
   | .riscv .lw => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .lw)).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.lw).value.value
     pure ()
   | .riscv .lwu => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .lwu)).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.lwu).value.value
     pure ()
   | .riscv .lh => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .lh)).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.lh).value.value
     pure ()
   | .riscv .lhu => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .lhu)).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.lhu).value.value
     pure ()
   | .riscv .lb => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .lb)).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.lb).value.value
     pure ()
   | .riscv .lbu => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .lbu)).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.lbu).value.value
     pure ()
   | .riscv .sd => do
-    op.verifyRISCVimm12 ctx opIn 2 0 (op.getProperties! ctx.raw (.riscv .sd)).value.value
+    op.verifyRISCVimm12 ctx opIn 2 0 (op.getProperties! ctx.raw Riscv.sd).value.value
     pure ()
   | .riscv .sw => do
-    op.verifyRISCVimm12 ctx opIn 2 0 (op.getProperties! ctx.raw (.riscv .sw)).value.value
+    op.verifyRISCVimm12 ctx opIn 2 0 (op.getProperties! ctx.raw Riscv.sw).value.value
     pure ()
   | .riscv .sh => do
-    op.verifyRISCVimm12 ctx opIn 2 0 (op.getProperties! ctx.raw (.riscv .sh)).value.value
+    op.verifyRISCVimm12 ctx opIn 2 0 (op.getProperties! ctx.raw Riscv.sh).value.value
     pure ()
   | .riscv .sb => do
-    op.verifyRISCVimm12 ctx opIn 2 0 (op.getProperties! ctx.raw (.riscv .sb)).value.value
+    op.verifyRISCVimm12 ctx opIn 2 0 (op.getProperties! ctx.raw Riscv.sb).value.value
     pure ()
   | .riscv .mv | .riscv .not | .riscv .neg | .riscv .negw | .riscv .sextw
   | .riscv .zextb | .riscv .zextw | .riscv .seqz | .riscv .snez
@@ -1004,7 +779,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
   | .riscv_stack .alloca => do
     op.verifyPlainOpCounts ctx opIn 0 1
     op.verifyRISCVRegisterTypes ctx opIn
-    let properties := op.getProperties! ctx.raw (.riscv_stack .alloca)
+    let properties := op.getProperties! ctx.raw Riscv_Stack.alloca
     if properties.size.type.bitwidth ≠ 64 then
       throw "attribute 'size' must be a 64-bit signless integer attribute"
     if properties.size.value < 0 then
@@ -1077,6 +852,17 @@ public def RegionPtr.getRegionKind (region : RegionPtr) (ctx : WfIRContext OpCod
     let parent := parentOp.get! ctx.raw
     parent.opType.getRegionKind (parent.regions.idxOf region)
   | none => .SSACFG
+
+/--
+  Whether this region is exempt from the requirement that each of its blocks
+  ends in a terminator.
+-/
+public def RegionPtr.hasNoTerminator (region : RegionPtr) (ctx : WfIRContext OpCode) : Bool :=
+  match (region.get! ctx.raw).parent with
+  | some parentOp =>
+    let parent := parentOp.get! ctx.raw
+    parent.opType.hasNoTerminator (parent.regions.idxOf region)
+  | none => false
 
 /--
   Verify operation/block control-flow position rules: a terminator only ever
@@ -1175,10 +961,12 @@ def OpCode.mightBeTerminator (opCode : OpCode) : Bool :=
 /--
   Whether a block may be valid without a terminator, mirroring MLIR's
   `mayBeValidWithoutTerminator` (`mlir/lib/IR/Verifier.cpp`): only a block that
-  is alone in its region is exempt, and only when the region's owner either has
-  unknown semantics (unregistered and test-dialect operations, which might carry
-  MLIR's `NoTerminator` trait) or is known not to require a terminator
-  (`builtin.module`). Blocks of multi-block regions always need a terminator.
+  is alone in its region is exempt, and only when the region is one that carries
+  no terminator (`RegionPtr.hasNoTerminator`), i.e. its owner either has unknown
+  semantics (unregistered and test-dialect operations, which might carry MLIR's
+  `NoTerminator` trait) or is known not to require a terminator (`builtin.module`,
+  the body of a `pdl.rewrite`). Blocks of multi-block regions always need a
+  terminator.
 -/
 def BlockPtr.mayBeValidWithoutTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
     (blockIn : block.InBounds ctx.raw) : Bool :=
@@ -1189,10 +977,7 @@ def BlockPtr.mayBeValidWithoutTerminator (block : BlockPtr) (ctx : WfIRContext O
     (block.get ctx.raw blockIn).next.isNone &&
     match (region.get! ctx.raw).parent with
     | none => true
-    | some parentOp =>
-      match parentOp.getOpType! ctx.raw with
-      | .builtin .module | .builtin .unregistered | .test .test => true
-      | _ => false
+    | some _ => region.hasNoTerminator ctx
 
 /--
   Check that a block is non-empty and ends in an operation that might be a
@@ -1216,14 +1001,6 @@ def BlockPtr.verifyTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
   | some lastOp =>
     if !(lastOp.getOpType! ctx.raw).mightBeTerminator then
       throw (named "Expected the last operation of a block to be a terminator")
-
-/--
-  Check that every successor belongs to the same region as its predecessor.
--/
-private def WfIRContext.successorsHaveSameParent (ctx : WfIRContext OpInfo) : Bool :=
-  ctx.raw.blocks.keys.all fun block =>
-    (block.getSuccessors! ctx.raw).all fun successor =>
-      (successor.get! ctx.raw).parent = (block.get! ctx.raw).parent
 
 /--
   Whether this region is a graph region whose owning operation limits it to a
@@ -1356,6 +1133,60 @@ def WfIRContext.verifyDominance
   else
     throw s!"dominance root operation is not in bounds: {reprStr top}"
 
+/--
+  Check the module-wide invariants needed by LLVM global references: global
+  names are unique and every `llvm.mlir.addressof` names a declared global.
+
+  TODO: This is stricter than MLIR, which lets `llvm.mlir.addressof` name either
+  an `llvm.mlir.global` or an `llvm.func`, so taking the address of a function
+  (function pointers, vtables, globals initialized with a function address) is
+  currently rejected.
+-/
+private def WfIRContext.verifyLLVMGlobalSymbols (ctx : WfIRContext OpCode) :
+    Except String Unit := do
+  let mut globals : Std.HashMap ByteArray OperationPtr := Std.HashMap.emptyWithCapacity
+  for op in ctx.raw.operations.keys do
+    if op.getOpType! ctx.raw = .llvm .mlir__global then
+      let props := op.getProperties! ctx.raw Llvm.mlir__global
+      let symbolName := "@".toUTF8 ++ props.sym_name.value
+      if globals.contains symbolName then
+        let displayName := String.fromUTF8? symbolName |>.getD "<non-UTF8 global symbol>"
+        throw s!"llvm.mlir.global: duplicate global symbol '{displayName}'"
+      globals := globals.insert symbolName op
+  for op in ctx.raw.operations.keys do
+    if op.getOpType! ctx.raw = .llvm .mlir__addressof then
+      let props := op.getProperties! ctx.raw Llvm.mlir__addressof
+      if !globals.contains props.global_name.value.toUTF8 then
+        throw s!"llvm.mlir.addressof: symbol '{props.global_name.value}' does not name an llvm.mlir.global"
+
+/--
+  Check the whole-pattern invariants that MLIR verifies in
+  `PatternOp::verifyRegions`: a `pdl.pattern` body holds only `pdl` operations,
+  and contains at least one `pdl.operation`.
+-/
+private def WfIRContext.verifyPDLPatternBodies (ctx : WfIRContext OpCode) :
+    Except String Unit := do
+  let mut patternHasOperation : Std.HashMap OperationPtr Bool := Std.HashMap.emptyWithCapacity
+  for op in ctx.raw.operations.keys do
+    if op.getOpType! ctx.raw = .pdl .pattern then
+      patternHasOperation := patternHasOperation.insert op false
+  for op in ctx.raw.operations.keys do
+    match op.getParentOp! ctx.raw with
+    | some parent =>
+      /- The body of a `pdl.pattern` and the body of the `pdl.rewrite` that
+         terminates it both belong to the pattern. -/
+      let parentType := parent.getOpType! ctx.raw
+      if parentType = .pdl .pattern || parentType = .pdl .rewrite then
+        let opType := op.getOpType! ctx.raw
+        let .pdl pdlOp := opType
+          | throw s!"pdl.pattern: expected only `pdl` operations within the pattern body, but got '{String.fromUTF8! opType.name}'"
+        if pdlOp = .operation && parentType = .pdl .pattern then
+          patternHasOperation := patternHasOperation.insert parent true
+    | none => pure ()
+  for (_, hasOperation) in patternHasOperation.toArray do
+    if !hasOperation then
+      throw "pdl.pattern: the pattern must contain at least one `pdl.operation`"
+
 public section
 
 /--
@@ -1385,6 +1216,8 @@ def WfIRContext.verify (ctx : WfIRContext OpCode)
         op.verifyOperandIsolation ctx opIn))
   ctx.raw.forBlocksDepM (fun block blockIn =>
     block.verifyTerminator ctx blockIn)
+  ctx.verifyLLVMGlobalSymbols
+  ctx.verifyPDLPatternBodies
   match top? with
   | some top => ctx.verifyDominance top
   | none => pure ()
@@ -1462,46 +1295,6 @@ There is one lemma per operation, and they are all of the same form: given that 
 satisfies its local invariants, we can conclude that it has the expected number of operands,
 results, regions, and successors, and that the types of its operands and results are as expected.
 -/
-
-/--
-  The structural facts shared by every integer binary operation: exactly 2 operands and 1 result,
-  no regions or successors, and both operands and the result share a single integer type.
--/
-def OperationPtr.IsVerifiedIntegerBinop (op : OperationPtr) (ctx : WfIRContext OpCode) : Prop :=
-  op.getNumResults! ctx.raw = 1 ∧
-  op.getNumOperands! ctx.raw = 2 ∧
-  op.getNumSuccessors! ctx.raw = 0 ∧
-  op.getNumRegions! ctx.raw = 0 ∧
-  ∃ integerType,
-    ((op.getResult 0).get! ctx.raw).type = ⟨.integerType integerType, (by grind)⟩ ∧
-    ((op.getOperand! ctx.raw 0).getType! ctx.raw) = ⟨.integerType integerType, (by grind)⟩ ∧
-    ((op.getOperand! ctx.raw 1).getType! ctx.raw) = ⟨.integerType integerType, (by grind)⟩
-
-/--
-  Structural facts extracted from a successful `verifyIntegerBinop` check. This is the shared
-  core behind every integer binary operation's `Verified.*` lemma.
--/
-private theorem OperationPtr.verifyIntegerBinop_eq_ok {ctx : WfIRContext OpCode} {op : OperationPtr}
-    {opInBounds : op.InBounds ctx.raw} (h : op.verifyIntegerBinop ctx opInBounds = .ok ()) :
-    op.IsVerifiedIntegerBinop ctx := by
-  simp only [IsVerifiedIntegerBinop, verifyIntegerBinop, verifyPlainOpCounts,
-    verifyOperandTypesMatch, verifyResultTypeMatches, TypeAttr.verifyIntegerType, ne_eq, bind,
-    Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at h ⊢
-  simp only [TypeAttr.inj]
-  grind
-
-/--
-  Peel a successful leading statement off a `do` block: if `x >>= f` succeeded then so did
-  `f ()`. Every `arith` and `llvm` verifier arm starts with `checkIsNonNullIntegerType`, so the
-  `armReduces` hypotheses below carry that leading statement and this discards it before the
-  rest of the arm is analysed.
--/
-private theorem Except.ok_of_bind_ok {ε α : Type} {x : Except ε PUnit} {f : PUnit → Except ε α}
-    {a : α} (h : (x >>= f) = .ok a) : f ⟨⟩ = .ok a := by
-  cases x with
-  | ok u => cases u; simpa [bind, Except.bind] using h
-  | error e => simp [bind, Except.bind] at h
-
 /--
   Reduce a verified integer binary operation to a successful `verifyIntegerBinop` check.
   The hypothesis `armReduces` says the operation's local-invariant check is exactly the
@@ -1527,7 +1320,7 @@ theorem OperationPtr.Verified.arith_constant {op : OperationPtr} {opInBounds}
     op.getNumSuccessors! ctx.raw = 0 ∧
     op.getNumRegions! ctx.raw = 0 ∧
     ((op.getResult 0).get! ctx.raw).type =
-      ⟨(op.getProperties! ctx.raw (.arith .constant)).value.type, (by grind)⟩ := by
+      ⟨(op.getProperties! ctx.raw Arith.constant).value.type, (by grind)⟩ := by
   simp only [Verified, verifyLocalInvariants, ← getOpType!_eq_getOpType, opType, ne_eq,
     bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure, dite_not,
     ite_not] at opVerify
@@ -1539,7 +1332,7 @@ theorem OperationPtr.Verified.llvm_mlir__constant_resultType {op : OperationPtr}
     {intAttr : IntegerAttr}
     (opVerify : op.Verified ctx opInBounds)
     (opType : op.getOpType! ctx.raw = .llvm .mlir__constant)
-    (hProp : (op.getProperties! ctx.raw (.llvm .mlir__constant)).value = .integer intAttr) :
+    (hProp : (op.getProperties! ctx.raw Llvm.mlir__constant).value = .integer intAttr) :
     ∃ intTy : IntegerType, ((op.getResult 0).get! ctx.raw).type.val = .integerType intTy := by
   rw [Verified] at opVerify
   simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType] at opVerify
@@ -1609,27 +1402,6 @@ private theorem OperationPtr.Verified.integerBinop {op : OperationPtr} {opInBoun
           op.verifyIntegerBinop ctx opInBounds >>= fun _ => pure ())) :
     op.IsVerifiedIntegerBinop ctx :=
   op.verifyIntegerBinop_eq_ok <| op.verifyIntegerBinop_ok_of_Verified opVerify armReduces
-
-/--
-  Structural facts guaranteed by a successful `verifySelectTypes` check: the condition (operand 0)
-  is `i1`, and the two value operands (1 and 2) and the result share a type.
--/
-def OperationPtr.IsVerifiedSelect (op : OperationPtr) (ctx : WfIRContext OpCode) : Prop :=
-  op.getNumResults! ctx.raw = 1 ∧
-  op.getNumOperands! ctx.raw = 3 ∧
-  (∃ it, ((op.getOperand! ctx.raw 0).getType! ctx.raw).val = .integerType it ∧ it.bitwidth = 1) ∧
-  ((op.getResult 0).get! ctx.raw).type.val = ((op.getOperand! ctx.raw 1).getType! ctx.raw).val ∧
-  ((op.getResult 0).get! ctx.raw).type.val = ((op.getOperand! ctx.raw 2).getType! ctx.raw).val
-
-private theorem OperationPtr.verifySelectTypes_eq_ok {ctx : WfIRContext OpCode} {op : OperationPtr}
-    {opInBounds : op.InBounds ctx.raw} (h : op.verifySelectTypes ctx opInBounds = .ok ()) :
-    op.IsVerifiedSelect ctx := by
-  simp only [IsVerifiedSelect] at ⊢
-  simp [verifySelectTypes, verifyPlainOpCounts, verifyOperandTypesMatch, verifyResultTypeMatches,
-    TypeAttr.verifyI1, bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure]
-    at h
-  grind [getNumOperands!_eq_getNumOperands, getNumResults!_eq_getNumResults]
-
 private theorem OperationPtr.verifySelectTypes_ok_of_Verified {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds)
     (armReduces : op.verifyLocalInvariants ctx opInBounds
@@ -1888,33 +1660,6 @@ theorem OperationPtr.Verified.llvm_intr__ushl__sat {op : OperationPtr} {opInBoun
     simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 /--
-  The structural facts shared by every integer unary operation: exactly 1 operand and 1 result,
-  no regions or successors, the result type matches the operand type, and that type is an integer
-  type.
--/
-def OperationPtr.IsVerifiedIntegerUnop (op : OperationPtr) (ctx : WfIRContext OpCode) : Prop :=
-  op.getNumResults! ctx.raw = 1 ∧
-  op.getNumOperands! ctx.raw = 1 ∧
-  op.getNumSuccessors! ctx.raw = 0 ∧
-  op.getNumRegions! ctx.raw = 0 ∧
-  ((op.getResult 0).get! ctx.raw).type = (op.getOperand! ctx.raw 0).getType! ctx.raw ∧
-  ∃ integerType isT,
-    ((op.getResult 0).get! ctx.raw).type = ⟨.integerType integerType, isT⟩
-
-/--
-  Structural facts extracted from a successful `verifyIntegerUnop` check. This is the shared
-  core behind every integer unary operation's `Verified.*` lemma.
--/
-private theorem OperationPtr.verifyIntegerUnop_eq_ok {ctx : WfIRContext OpCode} {op : OperationPtr}
-    {opInBounds : op.InBounds ctx.raw} {ty} (h : op.verifyIntegerUnop ctx opInBounds = .ok ty) :
-    op.IsVerifiedIntegerUnop ctx := by
-  simp only [IsVerifiedIntegerUnop, verifyIntegerUnop, verifyPlainOpCounts,
-    verifyResultTypeMatches, TypeAttr.verifyIntegerType, ne_eq, bind, Except.bind, throw, throwThe,
-    MonadExceptOf.throw, pure, Except.pure] at h ⊢
-  simp only [TypeAttr.inj]
-  split at h <;> grind
-
-/--
   Reduce a verified integer unary operation to a successful `verifyIntegerUnop` check.
   The hypothesis `armReduces` says the operation's local-invariant check is exactly the
   `verifyIntegerUnop` arm; it is discharged per operation by unfolding the dispatcher at the
@@ -1994,37 +1739,6 @@ theorem OperationPtr.Verified.llvm_intr__bswap {op : OperationPtr} {opInBounds}
   exact op.verifyIntegerUnop_eq_ok hty
 
 /--
-  Structural facts guaranteed by the verifier for a three-operand integer operation (e.g.
-  `llvm.intr.fshl`/`fshr`): one result, three operands, no successors or regions, and all three
-  operands *and* the result share one integer type. This is the ternary analogue of
-  `IsVerifiedIntegerBinop`.
--/
-def OperationPtr.IsVerifiedIntegerTernop (op : OperationPtr) (ctx : WfIRContext OpCode) : Prop :=
-  op.getNumResults! ctx.raw = 1 ∧
-  op.getNumOperands! ctx.raw = 3 ∧
-  op.getNumSuccessors! ctx.raw = 0 ∧
-  op.getNumRegions! ctx.raw = 0 ∧
-  ∃ integerType,
-    ((op.getResult 0).get! ctx.raw).type = ⟨.integerType integerType, (by grind)⟩ ∧
-    ((op.getOperand! ctx.raw 0).getType! ctx.raw) = ⟨.integerType integerType, (by grind)⟩ ∧
-    ((op.getOperand! ctx.raw 1).getType! ctx.raw) = ⟨.integerType integerType, (by grind)⟩ ∧
-    ((op.getOperand! ctx.raw 2).getType! ctx.raw) = ⟨.integerType integerType, (by grind)⟩
-
-/--
-  Structural facts extracted from a successful `verifyIntegerTernop` check. Shared core behind
-  every integer ternary operation's `Verified.*` lemma.
--/
-private theorem OperationPtr.verifyIntegerTernop_eq_ok {ctx : WfIRContext OpCode}
-    {op : OperationPtr} {opInBounds : op.InBounds ctx.raw}
-    (h : op.verifyIntegerTernop ctx opInBounds = .ok ()) :
-    op.IsVerifiedIntegerTernop ctx := by
-  simp only [IsVerifiedIntegerTernop, verifyIntegerTernop, verifyPlainOpCounts,
-    verifyOperandTypesMatch, verifyResultTypeMatches, TypeAttr.verifyIntegerType, ne_eq, bind,
-    Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at h ⊢
-  simp only [TypeAttr.inj]
-  split at h <;> grind
-
-/--
   Reduce a verified integer ternary operation to a successful `verifyIntegerTernop` check.
   `armReduces` says the operation's local-invariant check is exactly the `verifyIntegerTernop`
   arm; it is discharged per operation by unfolding the dispatcher at the concrete opcode.
@@ -2065,35 +1779,6 @@ theorem OperationPtr.Verified.llvm_intr__fshr {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__fshr) :
     op.IsVerifiedIntegerTernop ctx := OperationPtr.Verified.integerTernop opVerify <| by
     simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
-
-/--
-  Structural facts guaranteed by the verifier for an integer extension operation
-  (`llvm.sext`/`llvm.zext`): one result, one operand, no successors or regions, and both the
-  operand and the result have integer types, with the operand's strictly narrower than the
-  result's. This is the width-crossing cousin of `IsVerifiedIntegerUnop`.
--/
-def OperationPtr.IsVerifiedIntegerExtop (op : OperationPtr) (ctx : WfIRContext OpCode) : Prop :=
-  op.getNumResults! ctx.raw = 1 ∧
-  op.getNumOperands! ctx.raw = 1 ∧
-  op.getNumSuccessors! ctx.raw = 0 ∧
-  op.getNumRegions! ctx.raw = 0 ∧
-  ∃ operandType resultType,
-    ((op.getOperand! ctx.raw 0).getType! ctx.raw) = ⟨.integerType operandType, (by grind)⟩ ∧
-    ((op.getResult 0).get! ctx.raw).type = ⟨.integerType resultType, (by grind)⟩ ∧
-    operandType.bitwidth < resultType.bitwidth
-
-/--
-  Structural facts extracted from a successful `verifyIntegerExtTypes` check. Shared core behind
-  every integer extension operation's `Verified.*` lemma.
--/
-private theorem OperationPtr.verifyIntegerExtTypes_eq_ok {ctx : WfIRContext OpCode}
-    {op : OperationPtr} {opInBounds : op.InBounds ctx.raw}
-    (h : op.verifyIntegerExtTypes ctx opInBounds = .ok ()) :
-    op.IsVerifiedIntegerExtop ctx := by
-  simp only [IsVerifiedIntegerExtop, verifyIntegerExtTypes, verifyPlainOpCounts, ne_eq, bind,
-    Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at h ⊢
-  simp only [TypeAttr.inj]
-  split at h <;> grind
 
 /--
   Reduce a verified integer extension operation to a successful `verifyIntegerExtTypes` check.
@@ -2192,17 +1877,6 @@ def OperationPtr.IsVerifiedModArithBinop (op : OperationPtr) (ctx : WfIRContext 
     ((op.getOperand! ctx.raw 1).getType! ctx.raw) = ⟨.modArithType modArithType, (by grind)⟩
 
 
-/- Unpack a long `Except` chain that succeeds overall into a conjunction of successes. -/
-private theorem Except_bind_ok_iff {ε α β} {x : Except ε α} {f : α → Except ε β}
-    {b : β} :
-    (x >>= f) = Except.ok b ↔ ∃ a, x = Except.ok a ∧ f a = Except.ok b := by
-  cases x <;> simp [bind, Except.bind]
-
-/- Remove the existential binders produced by successful `PUnit` checks. -/
-private theorem exists_punit {p : PUnit → Prop} :
-    (∃ u, p u) ↔ p PUnit.unit :=
-  ⟨fun ⟨⟨⟩, h⟩ => h, fun h => ⟨PUnit.unit, h⟩⟩
-
 private theorem OperationPtr.verifyModArithBinOp_eq_ok {ctx : WfIRContext OpCode} {op : OperationPtr}
     {opInBounds : op.InBounds ctx.raw} (h : op.verifyModArithBinOp ctx opInBounds = .ok ()) :
     op.IsVerifiedModArithBinop ctx := by
@@ -2253,8 +1927,8 @@ def OperationPtr.IsVerifiedModArithConstant (op : OperationPtr) (ctx : WfIRConte
     modArithType.modulus.value > 0 ∧
     modArithType.modulus.value < 2 ^ modArithType.modulus.type.bitwidth ∧
     -(2 ^ (modArithType.modulus.type.bitwidth - 1) : Int)
-        ≤ (op.getProperties! ctx.raw (.mod_arith .constant)).value.value ∧
-    (op.getProperties! ctx.raw (.mod_arith .constant)).value.value
+        ≤ (op.getProperties! ctx.raw Mod_Arith.constant).value.value ∧
+    (op.getProperties! ctx.raw Mod_Arith.constant).value.value
         < 2 ^ modArithType.modulus.type.bitwidth
 
 theorem OperationPtr.Verified.mod_arith_constant {op : OperationPtr} {opInBounds}

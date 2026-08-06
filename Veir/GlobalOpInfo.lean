@@ -1,20 +1,6 @@
 module
 
 import Veir.Meta.OpCode
-public import Veir.Dialects.Arith.OpInfo
-public import Veir.Dialects.Builtin.OpInfo
-public import Veir.Dialects.Func.OpInfo
-public import Veir.Dialects.LLVM.OpInfo
-public import Veir.Dialects.RISCV.OpInfo
-public import Veir.Dialects.RISCV_Cf.OpInfo
-public import Veir.Dialects.RISCV_Stack.OpInfo
-public import Veir.Dialects.RV64.OpInfo
-public import Veir.Dialects.ModArith.OpInfo
-public import Veir.Dialects.Cf.OpInfo
-public import Veir.Dialects.Comb.OpInfo
-public import Veir.Dialects.HW.OpInfo
-public import Veir.Dialects.Datapath.OpInfo
-public import Veir.Dialects.Test.OpInfo
 
 public import Veir.IR.Basic
 public import Veir.OpCode
@@ -43,6 +29,7 @@ match opCode with
 | .builtin op => Builtin.propertiesOf op
 | .func op => Func.propertiesOf op
 | .datapath op => Datapath.propertiesOf op
+| .pdl op => PDL.propertiesOf op
 | .test op => Test.propertiesOf op
 
 /--
@@ -56,28 +43,51 @@ def OpCode.isTerminator (opCode : OpCode) : Bool :=
   | .riscv_cf .branch | .riscv_cf .beq | .riscv_cf .bne
   | .riscv_cf .beqz | .riscv_cf .bnez
   | .riscv_cf .blt | .riscv_cf .bge | .riscv_cf .bltu | .riscv_cf .bgeu
-  | .hw .output => true
+  | .hw .output
+  | .pdl .rewrite => true
   | _ => false
 
 /--
-  Does an operation with this opcode read memory?
+  Does an operation with this opcode and these properties read memory?
 -/
-def OpCode.readsMemory (opCode : OpCode) : Bool :=
-  match opCode with
-  | .arith op => Arith.readsMemory op
-  | .llvm op => Llvm.readsMemory op
-  | .riscv op => Riscv.readsMemory op
-  | .riscv_cf op => Riscv_Cf.readsMemory op
-  | .riscv_stack op => Riscv_Stack.readsMemory op
-  | .rv64 op => Rv64.readsMemory op
-  | .mod_arith op => Mod_Arith.readsMemory op
-  | .cf op => Cf.readsMemory op
-  | .comb op => Comb.readsMemory op
-  | .hw op => HW.readsMemory op
-  | .builtin op => Builtin.readsMemory op
-  | .func op => Func.readsMemory op
-  | .datapath op => Datapath.readsMemory op
-  | .test op => Test.readsMemory op
+def OpCode.readsMemory (opCode : OpCode) (props : _propertiesOf opCode) : Bool :=
+  match opCode, props with
+  | .arith op, props => Arith.readsMemory op props
+  | .llvm op, props => Llvm.readsMemory op props
+  | .riscv op, props => Riscv.readsMemory op props
+  | .riscv_cf op, props => Riscv_Cf.readsMemory op props
+  | .riscv_stack op, props => Riscv_Stack.readsMemory op props
+  | .rv64 op, props => Rv64.readsMemory op props
+  | .mod_arith op, props => Mod_Arith.readsMemory op props
+  | .cf op, props => Cf.readsMemory op props
+  | .comb op, props => Comb.readsMemory op props
+  | .hw op, props => HW.readsMemory op props
+  | .builtin op, props => Builtin.readsMemory op props
+  | .func op, props => Func.readsMemory op props
+  | .datapath op, props => Datapath.readsMemory op props
+  | .pdl op, props => PDL.readsMemory op props
+  | .test op, props => Test.readsMemory op props
+
+/--
+  Does an operation with this opcode and these properties write memory?
+-/
+def OpCode.writesMemory (opCode : OpCode) (props : _propertiesOf opCode) : Bool :=
+  match opCode, props with
+  | .arith op, props => Arith.writesMemory op props
+  | .llvm op, props => Llvm.writesMemory op props
+  | .riscv op, props => Riscv.writesMemory op props
+  | .riscv_cf op, props => Riscv_Cf.writesMemory op props
+  | .riscv_stack op, props => Riscv_Stack.writesMemory op props
+  | .rv64 op, props => Rv64.writesMemory op props
+  | .mod_arith op, props => Mod_Arith.writesMemory op props
+  | .cf op, props => Cf.writesMemory op props
+  | .comb op, props => Comb.writesMemory op props
+  | .hw op, props => HW.writesMemory op props
+  | .builtin op, props => Builtin.writesMemory op props
+  | .func op, props => Func.writesMemory op props
+  | .datapath op, props => Datapath.writesMemory op props
+  | .pdl op, props => PDL.writesMemory op props
+  | .test op, props => Test.writesMemory op props
 
 /--
   Does an operation with this opcode and these properties have effects that
@@ -106,6 +116,7 @@ def OpCode.hasSideEffects (opCode : OpCode) (props : _propertiesOf opCode) : Boo
   | .builtin op, props => Builtin.hasSideEffects op props
   | .func op, props => Func.hasSideEffects op props
   | .datapath op, props => Datapath.hasSideEffects op props
+  | .pdl op, props => PDL.hasSideEffects op props
   | .test op, props => Test.hasSideEffects op props
 
 inductive RegionKind where
@@ -144,7 +155,31 @@ def OpCode.hasSSADominance (opCode : OpCode) (index : Nat) : Bool :=
   | .builtin op => Builtin.hasSSADominance op index
   | .func op => Func.hasSSADominance op index
   | .datapath op => Datapath.hasSSADominance op index
+  | .pdl op => PDL.hasSSADominance op index
   | .test op => Test.hasSSADominance op index
+
+/--
+  Whether the indexed region of this opcode is exempt from the requirement
+  that each of its blocks ends in a terminator. Dialects that do not say
+  otherwise inherit the `HasDialectOpInfo` default of `false`.
+-/
+def OpCode.hasNoTerminator (opCode : OpCode) (index : Nat) : Bool :=
+  match opCode with
+  | .arith op => HasDialectOpInfo.hasNoTerminator op index
+  | .llvm op => HasDialectOpInfo.hasNoTerminator op index
+  | .riscv op => HasDialectOpInfo.hasNoTerminator op index
+  | .riscv_cf op => HasDialectOpInfo.hasNoTerminator op index
+  | .riscv_stack op => HasDialectOpInfo.hasNoTerminator op index
+  | .rv64 op => HasDialectOpInfo.hasNoTerminator op index
+  | .mod_arith op => HasDialectOpInfo.hasNoTerminator op index
+  | .cf op => HasDialectOpInfo.hasNoTerminator op index
+  | .comb op => HasDialectOpInfo.hasNoTerminator op index
+  | .hw op => HasDialectOpInfo.hasNoTerminator op index
+  | .builtin op => HasDialectOpInfo.hasNoTerminator op index
+  | .func op => HasDialectOpInfo.hasNoTerminator op index
+  | .datapath op => HasDialectOpInfo.hasNoTerminator op index
+  | .pdl op => HasDialectOpInfo.hasNoTerminator op index
+  | .test op => HasDialectOpInfo.hasNoTerminator op index
 
 /--
   Does this `OpCode` materialize a literal constant value, i.e. an op
@@ -169,6 +204,7 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | .builtin op => Builtin.isConstantLike op
   | .func op => Func.isConstantLike op
   | .datapath op => Datapath.isConstantLike op
+  | .pdl op => PDL.isConstantLike op
   | .test op => Test.isConstantLike op
 
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
@@ -187,6 +223,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   | .builtin op => Builtin.fromAttrDict op attrDict
   | .func op => Func.fromAttrDict op attrDict
   | .datapath op => Datapath.fromAttrDict op attrDict
+  | .pdl op => PDL.fromAttrDict op attrDict
   | .test op => Test.fromAttrDict op attrDict
 
 /--
@@ -209,16 +246,21 @@ def Properties.toAttrDict
   | .builtin op, props => Builtin.toAttrDict op props
   | .func op, props => Func.toAttrDict op props
   | .datapath op, props => Datapath.toAttrDict op props
+  | .pdl op, props => PDL.toAttrDict op props
   | .test op, props => Test.toAttrDict op props
 
 instance : HasDialectOpInfo OpCode where
+  fromName := OpCode.fromName
+  name := OpCode.name
   propertiesOf := _propertiesOf
   fromAttrDict := Properties.fromAttrDict
   toAttrDict := Properties.toAttrDict
   hasSideEffects := OpCode.hasSideEffects
   readsMemory := OpCode.readsMemory
+  writesMemory := OpCode.writesMemory
   isConstantLike := OpCode.isConstantLike
   hasSSADominance := OpCode.hasSSADominance
+  hasNoTerminator := OpCode.hasNoTerminator
 
 instance : HasOpInfo OpCode where
 
@@ -258,5 +300,6 @@ def OpCode.isCommutative (opCode : OpCode) : Bool :=
   | .riscv .add | .riscv .and | .riscv .or | .riscv .xor | .riscv .xnor
   | .riscv .mul | .riscv .mulh | .riscv .mulhu
   | .riscv .max | .riscv .maxu | .riscv .min | .riscv .minu
-  | .riscv .addw | .riscv .mulw => true
+  | .riscv .addw | .riscv .mulw
+  | .mod_arith .add | .mod_arith .mul => true
   | _ => false
