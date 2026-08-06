@@ -270,5 +270,8 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 set_option maxRecDepth 100000
 #generate_op_codes
 
+-- Inline so `OpCode.encode <constant>` folds to a `UInt32` literal at call sites.
+attribute [inline] OpCode.encode
+
 end
 end Veir

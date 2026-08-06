@@ -395,6 +395,31 @@ def Sim.OperationPtr.getOpType (ctx : Sim.IRContext OpInfo) (ptr : Sim.Operation
 def Sim.OperationPtr.getOpType! (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) : OpInfo :=
   SerializableOpInfo.decode (ptr.impl.readOpType! ctx.buf)
 
+/-- The raw encoded op type. Comparing it against `SerializableOpInfo.encode c` avoids
+decoding and the allocating `DecidableEq` call of `getOpType ctx ptr ib = c` on hot paths. -/
+@[inline]
+def Sim.OperationPtr.getOpTypeEncoded (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
+    (ib : ptr.InBounds ctx) : UInt32 :=
+  ptr.impl.readOpType ctx.buf (by prove_setLinkBoundsOp ctx ptr)
+
+@[inline]
+def Sim.OperationPtr.getOpTypeEncoded! (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) : UInt32 :=
+  ptr.impl.readOpType! ctx.buf
+
+theorem Sim.OperationPtr.getOpType_eq_of_getOpTypeEncoded_eq {ctx : Sim.IRContext OpInfo}
+    {ptr : Sim.OperationPtr} {ib : ptr.InBounds ctx} {c : OpInfo}
+    (h : getOpTypeEncoded ctx ptr ib = SerializableOpInfo.encode c) :
+    getOpType ctx ptr ib = c := by
+  simp only [getOpType, getOpTypeEncoded, Buffed.OperationMPtr.readOpType_eq_readOpType!] at h ⊢
+  rw [h, SerializableOpInfo.decode_encode]
+
+theorem Sim.OperationPtr.getOpType!_eq_of_getOpTypeEncoded!_eq {ctx : Sim.IRContext OpInfo}
+    {ptr : Sim.OperationPtr} {c : OpInfo}
+    (h : getOpTypeEncoded! ctx ptr = SerializableOpInfo.encode c) :
+    getOpType! ctx ptr = c := by
+  simp only [getOpType!, getOpTypeEncoded!] at h ⊢
+  rw [h, SerializableOpInfo.decode_encode]
+
 buffed
 def Sim.OperationPtr.setPrevOpSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) (prev : Sim.OptionOperationPtr)
     (ib : ptr.InBounds ctx) (prevIb : prev.InBounds ctx) : Sim.IRContext OpInfo :=

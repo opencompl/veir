@@ -282,7 +282,7 @@ def _root_.Veir.Sim.OperationPtr.getConstantValue! (ctx : Sim.IRContext OpCode) 
 
 buffed (def_lemma := false)
 def addIConstantFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
-  if op.getOpType ctx sorry ≠ .arith .addi then
+  if op.getOpTypeEncoded ctx sorry ≠ OpCode.encode (.arith .addi) then
     return ctx
 
   -- Get the lhs and check that it is a constant
@@ -292,7 +292,7 @@ def addIConstantFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) 
   let lhsOpResultPtr : Sim.OpResultPtr := ⟨lhsValue.impl, lhsValue.spec.asOpResultPtr⟩
   let lhsOpPtr := lhsOpResultPtr.getOwner ctx sorry
 
-  if lhsOpPtr.getOpType ctx sorry ≠ .arith .constant then
+  if lhsOpPtr.getOpTypeEncoded ctx sorry ≠ OpCode.encode (.arith .constant) then
     return ctx
 
   -- Get the rhs and check that it is a constant
@@ -302,7 +302,7 @@ def addIConstantFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) 
   let rhsOpResultPtr : Sim.OpResultPtr := ⟨rhsValue.impl, rhsValue.spec.asOpResultPtr⟩
   let rhsOpPtr := rhsOpResultPtr.getOwner ctx sorry
 
-  if rhsOpPtr.getOpType ctx sorry ≠ .arith .constant then
+  if rhsOpPtr.getOpTypeEncoded ctx sorry ≠ OpCode.encode (.arith .constant) then
     return ctx
 
   -- Get the lhs value from its property slot
@@ -346,7 +346,7 @@ def rewriteForwardsAddIConstFoldingSim (ctx : Sim.IRContext OpCode) (topOp : Sim
 
 buffed (def_lemma := false)
 def addIZeroFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
-  if op.getOpType ctx sorry ≠ .arith .addi then
+  if op.getOpTypeEncoded ctx sorry ≠ OpCode.encode (.arith .addi) then
     return ctx
 
   -- Get the rhs and check that it is the constant 0
@@ -356,7 +356,7 @@ def addIZeroFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Op
   let rhsOpResultPtr : Sim.OpResultPtr := ⟨rhsValue.impl, rhsValue.spec.asOpResultPtr⟩
   let rhsOpPtr := rhsOpResultPtr.getOwner ctx sorry
 
-  if rhsOpPtr.getOpType ctx sorry ≠ .arith .constant then
+  if rhsOpPtr.getOpTypeEncoded ctx sorry ≠ OpCode.encode (.arith .constant) then
     return ctx
 
   -- The constant value is stored in the property slot
@@ -401,7 +401,7 @@ def rewriteFirstAddIZeroFoldingGoSim (ctx : Sim.IRContext OpCode) (maybeOp : Sim
   match maybeOp.toOption with
   | none => ctx
   | some op =>
-    if op.getOpType ctx sorry = .arith .addi then
+    if op.getOpTypeEncoded ctx sorry = OpCode.encode (.arith .addi) then
       let ctx ← addIZeroFolding ctx op
       ctx
     else
@@ -417,7 +417,7 @@ def rewriteFirstAddIZeroFoldingSim (ctx : Sim.IRContext OpCode) (topOp : Sim.Ope
 
 buffed (def_lemma := false)
 def mulITwoReduceSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
-  if op.getOpType ctx sorry ≠ .arith .muli then
+  if op.getOpTypeEncoded ctx sorry ≠ OpCode.encode (.arith .muli) then
     return ctx
 
   -- Get the rhs and check that it is the constant 2
@@ -427,7 +427,7 @@ def mulITwoReduceSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Opti
   let rhsOpResultPtr : Sim.OpResultPtr := ⟨rhsValue.impl, rhsValue.spec.asOpResultPtr⟩
   let rhsOpPtr := rhsOpResultPtr.getOwner ctx sorry
 
-  if rhsOpPtr.getOpType ctx sorry ≠ .arith .constant then
+  if rhsOpPtr.getOpTypeEncoded ctx sorry ≠ OpCode.encode (.arith .constant) then
     return ctx
 
   -- The constant value is stored in the property slot

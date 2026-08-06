@@ -5,7 +5,10 @@ public import Veir.IR.Basic
 public import Veir.IR.LayoutUnchanged
 public import Lean
 
-/-! # Sizes of the different fields, in bytes. -/
+/-! # Sizes of the different fields, in bytes.
+
+Derived sizes and offsets are spelled as literals: the compiler does not constant-fold
+`UInt64`/`Int64` arithmetic, so symbolic sums compile to runtime once-cell chains. -/
 
 @[expose] public section
 
@@ -29,8 +32,8 @@ abbrev typeNat := ptrSizeNat
 abbrev firstUse : UInt64 := ptrSize
 abbrev firstUseNat := ptrSizeNat
 end Sizes
-abbrev size : UInt64 := ValueImpl.Sizes.kind + ValueImpl.Sizes.type + ValueImpl.Sizes.firstUse
-abbrev sizeNat := ValueImpl.Sizes.kindNat + ValueImpl.Sizes.typeNat + ValueImpl.Sizes.firstUseNat
+abbrev size : UInt64 := 24
+abbrev sizeNat : Nat := 24
 end ValueImpl
 
 namespace OpResult
@@ -40,8 +43,8 @@ abbrev indexNat := ptrSizeNat
 abbrev owner : UInt64 := ptrSize
 abbrev ownerNat := ptrSizeNat
 end Sizes
-abbrev size : UInt64 := ValueImpl.size + Sizes.index + Sizes.owner
-abbrev sizeNat := ValueImpl.sizeNat + Sizes.indexNat + Sizes.ownerNat
+abbrev size : UInt64 := 40
+abbrev sizeNat : Nat := 40
 end OpResult
 
 namespace BlockArgument
@@ -53,8 +56,8 @@ abbrev locNat : Nat := 0
 abbrev owner : UInt64 := ptrSize
 abbrev ownerNat := ptrSizeNat
 end Sizes
-abbrev size : UInt64 := ValueImpl.size + Sizes.index + Sizes.loc + Sizes.owner
-abbrev sizeNat := ValueImpl.sizeNat + Sizes.indexNat + Sizes.locNat + Sizes.ownerNat
+abbrev size : UInt64 := 40
+abbrev sizeNat : Nat := 40
 end BlockArgument
 
 namespace OpOperand
@@ -68,8 +71,8 @@ abbrev ownerNat := ptrSizeNat
 abbrev value : UInt64 := ptrSize
 abbrev valueNat := ptrSizeNat
 end Sizes
-abbrev size : UInt64 := Sizes.nextUse + Sizes.back + Sizes.owner + Sizes.value
-abbrev sizeNat := Sizes.nextUseNat + Sizes.backNat + Sizes.ownerNat + Sizes.valueNat
+abbrev size : UInt64 := 32
+abbrev sizeNat : Nat := 32
 end OpOperand
 
 namespace BlockOperand
@@ -83,8 +86,8 @@ abbrev ownerNat := ptrSizeNat
 abbrev value : UInt64 := ptrSize
 abbrev valueNat := ptrSizeNat
 end Sizes
-abbrev size : UInt64 := Sizes.nextUse + Sizes.back + Sizes.owner + Sizes.value
-abbrev sizeNat := Sizes.nextUseNat + Sizes.backNat + Sizes.ownerNat + Sizes.valueNat
+abbrev size : UInt64 := 32
+abbrev sizeNat : Nat := 32
 end BlockOperand
 
 namespace Operation
@@ -124,12 +127,8 @@ abbrev numOperandsNat := countSizeNat
 abbrev operands : UInt64 := UInt64.ofNat (op.get! ctx).capOperands * BlockOperand.size
 abbrev operandsNat : Nat := (op.get! ctx).capOperands * BlockOperand.sizeNat
 end Sizes
-abbrev sizeBase : UInt64 :=
-  Sizes.numResults + Sizes.prev + Sizes.next + Sizes.parent + Sizes.opType + Sizes.attrs +
-  Sizes.numRegions + Sizes.numBlockOperands + Sizes.numBlockOperands
-abbrev sizeBaseNat : Nat :=
-  Sizes.numResultsNat + Sizes.prevNat + Sizes.nextNat + Sizes.parentNat + Sizes.opTypeNat + Sizes.attrsNat +
-  Sizes.numRegionsNat + Sizes.numBlockOperandsNat + Sizes.numBlockOperandsNat
+abbrev sizeBase : UInt64 := 72
+abbrev sizeBaseNat : Nat := 72
 abbrev size : UInt64 :=
   sizeBase + Sizes.results op ctx +
   Sizes.properties op ctx +  Sizes.blockOperands op ctx +
@@ -161,21 +160,11 @@ abbrev arguments : UInt64 := UInt64.ofNat (bl.get! ctx).capArguments * BlockArgu
 abbrev argumentsNat : Nat := (bl.get! ctx).capArguments * BlockArgument.sizeNat
 end Sizes
 
-abbrev sizeBase : UInt64 :=
-  Sizes.firstUse + Sizes.prev + Sizes.next + Sizes.parent + Sizes.firstOp + Sizes.lastOp +
-  Sizes.numArguments
+abbrev sizeBase : UInt64 := 56
+abbrev sizeBaseNat : Nat := 56
 
-abbrev sizeBaseNat : Nat :=
-  Sizes.firstUseNat + Sizes.prevNat + Sizes.nextNat + Sizes.parentNat + Sizes.firstOpNat + Sizes.lastOpNat +
-  Sizes.numArgumentsNat
-
-abbrev size : UInt64 :=
-  Sizes.firstUse + Sizes.prev + Sizes.next + Sizes.parent + Sizes.firstOp + Sizes.lastOp +
-  Sizes.numArguments + Sizes.arguments bl ctx
-
-abbrev sizeNat : Nat :=
-  Sizes.firstUseNat + Sizes.prevNat + Sizes.nextNat + Sizes.parentNat + Sizes.firstOpNat + Sizes.lastOpNat +
-  Sizes.numArgumentsNat + Sizes.argumentsNat bl ctx
+abbrev size : UInt64 := 56 + Sizes.arguments bl ctx
+abbrev sizeNat : Nat := 56 + Sizes.argumentsNat bl ctx
 end Block
 
 namespace Region
@@ -188,8 +177,8 @@ abbrev parent : UInt64 := ptrSize
 abbrev parentNat := ptrSizeNat
 end Sizes
 
-abbrev size : UInt64 := Sizes.firstBlock + Sizes.lastBlock + Sizes.parent
-abbrev sizeNat := Sizes.firstBlockNat + Sizes.lastBlockNat + Sizes.parentNat
+abbrev size : UInt64 := 24
+abbrev sizeNat : Nat := 24
 end Region
 
 /-! # Offset of the different fields. -/
@@ -198,12 +187,12 @@ namespace ValueImpl
 namespace Offsets
 abbrev kind : Int64 := 0
 abbrev kindInt : Int := 0
-abbrev type : Int64 := (0 : Int64) + Sizes.kind
-abbrev typeInt : Int := (0 : Int) + Sizes.kindNat
-abbrev firstUse : Int64 := type + Sizes.type
-abbrev firstUseInt : Int := typeInt + Sizes.typeNat
-abbrev after : Int64 := firstUse + Sizes.firstUse
-abbrev afterInt : Int := firstUseInt + Sizes.firstUseNat
+abbrev type : Int64 := 8
+abbrev typeInt : Int := 8
+abbrev firstUse : Int64 := 16
+abbrev firstUseInt : Int := 16
+abbrev after : Int64 := 24
+abbrev afterInt : Int := 24
 end Offsets
 abbrev range : Std.Rco Int := 0...Offsets.after.toInt
 abbrev rangeInt : Std.Rco Int := 0...Offsets.afterInt
@@ -211,12 +200,12 @@ end ValueImpl
 
 namespace OpResult
 namespace Offsets
-abbrev index : Int64 := (0 : Int64) + ValueImpl.size
-abbrev indexInt : Int := (0 : Int) + ValueImpl.sizeNat
-abbrev owner : Int64 := index + Sizes.index
-abbrev ownerInt : Int := indexInt + Sizes.indexNat
-abbrev after : Int64 := owner + Sizes.owner
-abbrev afterInt : Int := ownerInt + Sizes.ownerNat
+abbrev index : Int64 := 24
+abbrev indexInt : Int := 24
+abbrev owner : Int64 := 32
+abbrev ownerInt : Int := 32
+abbrev after : Int64 := 40
+abbrev afterInt : Int := 40
 end Offsets
 abbrev range : Std.Rco Int := 0...Offsets.after.toInt
 abbrev rangeInt : Std.Rco Int := 0...Offsets.afterInt
@@ -224,14 +213,14 @@ end OpResult
 
 namespace BlockArgument
 namespace Offsets
-abbrev index : Int64 := (0 : Int64) + ValueImpl.size
-abbrev indexInt : Int := (0 : Int) + ValueImpl.sizeNat
-abbrev loc : Int64 := index + Sizes.index
-abbrev locInt : Int := indexInt + Sizes.indexNat
-abbrev owner : Int64 := loc + Sizes.loc
-abbrev ownerInt : Int := locInt + Sizes.locNat
-abbrev after : Int64 := owner + Sizes.owner
-abbrev afterInt : Int := ownerInt + Sizes.ownerNat
+abbrev index : Int64 := 24
+abbrev indexInt : Int := 24
+abbrev loc : Int64 := 32
+abbrev locInt : Int := 32
+abbrev owner : Int64 := 32
+abbrev ownerInt : Int := 32
+abbrev after : Int64 := 40
+abbrev afterInt : Int := 40
 end Offsets
 abbrev range : Std.Rco Int := 0...Offsets.after.toInt
 abbrev rangeInt : Std.Rco Int := 0...Offsets.afterInt
@@ -241,14 +230,14 @@ namespace OpOperand
 namespace Offsets
 abbrev nextUse : Int64 := 0
 abbrev nextUseInt : Int := 0
-abbrev back : Int64 := nextUse + Sizes.nextUse
-abbrev backInt : Int := nextUseInt + Sizes.nextUseNat
-abbrev owner : Int64 := back + Sizes.back
-abbrev ownerInt : Int := backInt + Sizes.backNat
-abbrev value : Int64 := owner + Sizes.owner
-abbrev valueInt : Int := ownerInt + Sizes.ownerNat
-abbrev after : Int64 := value + Sizes.value
-abbrev afterInt : Int := valueInt + Sizes.valueNat
+abbrev back : Int64 := 8
+abbrev backInt : Int := 8
+abbrev owner : Int64 := 16
+abbrev ownerInt : Int := 16
+abbrev value : Int64 := 24
+abbrev valueInt : Int := 24
+abbrev after : Int64 := 32
+abbrev afterInt : Int := 32
 end Offsets
 abbrev range : Std.Rco Int := 0...Offsets.after.toInt
 abbrev rangeInt : Std.Rco Int := 0...Offsets.afterInt
@@ -258,14 +247,14 @@ namespace BlockOperand
 namespace Offsets
 abbrev nextUse : Int64 := 0
 abbrev nextUseInt : Int := 0
-abbrev back : Int64 := nextUse + Sizes.nextUse
-abbrev backInt : Int := nextUseInt + Sizes.nextUseNat
-abbrev owner : Int64 := back + Sizes.back
-abbrev ownerInt : Int := backInt + Sizes.backNat
-abbrev value : Int64 := owner + Sizes.owner
-abbrev valueInt : Int := ownerInt + Sizes.ownerNat
-abbrev after : Int64 := value + Sizes.value
-abbrev afterInt : Int := valueInt + Sizes.valueNat
+abbrev back : Int64 := 8
+abbrev backInt : Int := 8
+abbrev owner : Int64 := 16
+abbrev ownerInt : Int := 16
+abbrev value : Int64 := 24
+abbrev valueInt : Int := 24
+abbrev after : Int64 := 32
+abbrev afterInt : Int := 32
 end Offsets
 abbrev range : Std.Rco Int := 0...Offsets.after.toInt
 abbrev rangeInt : Std.Rco Int := 0...Offsets.afterInt
@@ -278,24 +267,24 @@ abbrev results : Int64 := -((0 : Int64) + Sizes.results op ctx)
 abbrev resultsInt : Int := -((0 : Int) + Sizes.resultsNat op ctx)
 abbrev numResults : Int64 := 0
 abbrev numResultsInt : Int := 0
-abbrev prev : Int64 := Offsets.numResults + Sizes.numResults
-abbrev prevInt : Int := Offsets.numResultsInt + Sizes.numResultsNat
-abbrev next : Int64 := Offsets.prev + Sizes.prev
-abbrev nextInt : Int := Offsets.prevInt + Sizes.prevNat
-abbrev parent : Int64 := Offsets.next + Sizes.next
-abbrev parentInt : Int := Offsets.nextInt + Sizes.nextNat
-abbrev opType : Int64 :=  Offsets.parent + Sizes.parent
-abbrev opTypeInt : Int := Offsets.parentInt + Sizes.parentNat
-abbrev numBlockOperands : Int64 := Offsets.opType + Sizes.opType
-abbrev numBlockOperandsInt : Int := Offsets.opTypeInt + Sizes.opTypeNat
-abbrev numRegions : Int64 := Offsets.numBlockOperands + Sizes.numBlockOperands
-abbrev numRegionsInt : Int := Offsets.numBlockOperandsInt + Sizes.numBlockOperandsNat
-abbrev numOperands : Int64 := Offsets.numRegions + Sizes.numRegions
-abbrev numOperandsInt : Int := Offsets.numRegionsInt + Sizes.numRegionsNat
-abbrev attrs : Int64 := Offsets.numOperands + Sizes.numOperands
-abbrev attrsInt : Int := Offsets.numOperandsInt + Sizes.numOperandsNat
-abbrev properties : Int64 := Offsets.attrs + Sizes.attrs
-abbrev propertiesInt : Int := Offsets.attrsInt + Sizes.attrsNat
+abbrev prev : Int64 := 8
+abbrev prevInt : Int := 8
+abbrev next : Int64 := 16
+abbrev nextInt : Int := 16
+abbrev parent : Int64 := 24
+abbrev parentInt : Int := 24
+abbrev opType : Int64 := 32
+abbrev opTypeInt : Int := 32
+abbrev numBlockOperands : Int64 := 40
+abbrev numBlockOperandsInt : Int := 40
+abbrev numRegions : Int64 := 48
+abbrev numRegionsInt : Int := 48
+abbrev numOperands : Int64 := 56
+abbrev numOperandsInt : Int := 56
+abbrev attrs : Int64 := 64
+abbrev attrsInt : Int := 64
+abbrev properties : Int64 := 72
+abbrev propertiesInt : Int := 72
 abbrev operands : Int64 := Offsets.properties + Sizes.properties op ctx
 abbrev operandsInt : Int := Offsets.propertiesInt + Sizes.propertiesNat op ctx
 abbrev blockOperands : Int64 := Offsets.operands op ctx + Sizes.operands op ctx
@@ -314,20 +303,20 @@ variable [HasOpInfo OpInfo] (bl : BlockPtr) (ctx : IRContext OpInfo)
 namespace Offsets
 abbrev firstUse : Int64 := 0
 abbrev firstUseInt : Int := 0
-abbrev prev : Int64 := firstUse + Sizes.firstUse
-abbrev prevInt : Int := firstUseInt + Sizes.firstUseNat
-abbrev next : Int64 := prev + Sizes.prev
-abbrev nextInt : Int := prevInt + Sizes.prevNat
-abbrev parent : Int64 := next + Sizes.next
-abbrev parentInt : Int := nextInt + Sizes.nextNat
-abbrev firstOp : Int64 := parent + Sizes.parent
-abbrev firstOpInt : Int := parentInt + Sizes.parentNat
-abbrev lastOp : Int64 := firstOp + Sizes.firstOp
-abbrev lastOpInt : Int := firstOpInt + Sizes.firstOpNat
-abbrev numArguments : Int64 := lastOp + Sizes.lastOp
-abbrev numArgumentsInt : Int := lastOpInt + Sizes.lastOpNat
-abbrev arguments : Int64 := numArguments + Sizes.numArguments
-abbrev argumentsInt : Int := numArgumentsInt + Sizes.numArgumentsNat
+abbrev prev : Int64 := 8
+abbrev prevInt : Int := 8
+abbrev next : Int64 := 16
+abbrev nextInt : Int := 16
+abbrev parent : Int64 := 24
+abbrev parentInt : Int := 24
+abbrev firstOp : Int64 := 32
+abbrev firstOpInt : Int := 32
+abbrev lastOp : Int64 := 40
+abbrev lastOpInt : Int := 40
+abbrev numArguments : Int64 := 48
+abbrev numArgumentsInt : Int := 48
+abbrev arguments : Int64 := 56
+abbrev argumentsInt : Int := 56
 abbrev after : Int64 := arguments + Sizes.arguments bl ctx
 abbrev afterInt : Int := argumentsInt + Sizes.argumentsNat bl ctx
 end Offsets
@@ -339,12 +328,12 @@ namespace Region
 namespace Offsets
 abbrev firstBlock : Int64 := 0
 abbrev firstBlockInt : Int := 0
-abbrev lastBlock : Int64 := firstBlock + Sizes.firstBlock
-abbrev lastBlockInt : Int := firstBlockInt + Sizes.firstBlockNat
-abbrev parent : Int64 := lastBlock + Sizes.lastBlock
-abbrev parentInt : Int := lastBlockInt + Sizes.lastBlockNat
-abbrev after : Int64 := parent + Sizes.parent
-abbrev afterInt : Int := parentInt + Sizes.parentNat
+abbrev lastBlock : Int64 := 8
+abbrev lastBlockInt : Int := 8
+abbrev parent : Int64 := 16
+abbrev parentInt : Int := 16
+abbrev after : Int64 := 24
+abbrev afterInt : Int := 24
 end Offsets
 abbrev range : Std.Rco Int := 0...Offsets.after.toInt
 abbrev rangeInt : Std.Rco Int := 0...Offsets.afterInt
