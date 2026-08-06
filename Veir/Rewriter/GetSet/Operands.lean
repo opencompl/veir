@@ -1,13 +1,9 @@
 module
 
-public import Veir.IR.Basic
 public import Veir.Rewriter.Basic
 
 import all Veir.Rewriter.Basic
 
-import Veir.Rewriter.LinkedList.GetSet
-import Veir.ForLean
-import Veir.IR.DeallocLemmas
 
 public section
 
@@ -54,6 +50,8 @@ namespace Veir
 
 variable {OpInfo} [HasOpInfo OpInfo]
 variable {ctx : IRContext OpInfo}
+variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {opCode : Dialect}
 /-! ## `Rewriter.pushOperand` -/
 
 section Rewriter.pushOperand

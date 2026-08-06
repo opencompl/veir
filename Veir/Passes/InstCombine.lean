@@ -1,7 +1,6 @@
 module
 
 public import Veir.Pass
-import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
 
 namespace Veir
@@ -24,7 +23,7 @@ def mulITwoToAddi_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     | return (ctx, none)
   if cst.value ≠ 2 then
     return (ctx, none)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .add) #[lhs.getType! ctx.raw] #[lhs, lhs]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.add #[lhs.getType! ctx.raw] #[lhs, lhs]
     #[] #[] properties none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
@@ -44,7 +43,7 @@ def mulIZeroToCst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let .integerType type := (lhs.getType! ctx.raw).val
     | return (ctx, none)
   let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 type))
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .mlir__constant) #[lhs.getType! ctx.raw] #[]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[lhs.getType! ctx.raw] #[]
     #[] #[] cstProp none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
@@ -107,7 +106,7 @@ def subiSelfToZero_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let .integerType type := (lhs.getType! ctx.raw).val
     | return (ctx, none)
   let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 type))
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .mlir__constant) #[lhs.getType! ctx.raw] #[]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[lhs.getType! ctx.raw] #[]
     #[] #[] cstProp none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
@@ -140,7 +139,7 @@ def andiZeroToZero_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let .integerType type := (lhs.getType! ctx.raw).val
     | return (ctx, none)
   let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 type))
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .mlir__constant) #[lhs.getType! ctx.raw] #[]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[lhs.getType! ctx.raw] #[]
     #[] #[] cstProp none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
@@ -201,7 +200,7 @@ def xoriSelfToZero_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let .integerType type := (lhs.getType! ctx.raw).val
     | return (ctx, none)
   let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 type))
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .mlir__constant) #[lhs.getType! ctx.raw] #[]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[lhs.getType! ctx.raw] #[]
     #[] #[] cstProp none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
@@ -238,7 +237,7 @@ def deMorganAndToOr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     | return (ctx, none)
   let resultType := a.getType! ctx.raw
   let orProps : DisjointProperties := { disjoint := false }
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .or) #[resultType] #[a, b]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.or #[resultType] #[a, b]
     #[] #[] orProps none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
@@ -261,7 +260,7 @@ def deMorganOrToAnd_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some b := matchNot orR ctx
     | return (ctx, none)
   let resultType := a.getType! ctx.raw
-  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .and) #[resultType] #[a, b]
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.and #[resultType] #[a, b]
     #[] #[] () none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
@@ -288,4 +287,4 @@ public def InstCombinePass : Pass OpCode :=
   { name := "instcombine"
     description :=
       "Combine instructions into more efficient forms, e.g., fold constants or simplify llvmmetic."
-    run := InstCombinePass.impl }
+    run := fun _ => InstCombinePass.impl }

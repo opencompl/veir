@@ -1,10 +1,7 @@
 module
 
-public import Veir.IR.Basic
-public import Veir.GlobalOpInfo
 public import Veir.Interfaces.FunctionInterfaces
 
-import Veir.IR.Grind
 
 open Veir
 

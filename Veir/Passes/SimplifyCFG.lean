@@ -9,10 +9,10 @@ def SimplifyCFG.constantBoolValue? (val : ValuePtr) (ctx : IRContext OpCode) : O
   let definingOp := result.op
   match definingOp.getOpType! ctx with
   | .arith .constant =>
-      let props := definingOp.getProperties! ctx (.arith .constant)
+      let props := definingOp.getProperties! ctx Arith.constant
       return decide (props.value.value ≠ 0)
   | .llvm .mlir__constant =>
-      let props := definingOp.getProperties! ctx (.llvm .mlir__constant)
+      let props := definingOp.getProperties! ctx Llvm.mlir__constant
       let .integer intAttr := props.value | none
       return decide (intAttr.value ≠ 0)
   | _ => none
@@ -53,7 +53,7 @@ def SimplifyCFG.foldCfSameSuccessorCondBr (rewriter : PatternRewriter OpCode) (o
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   if op.getOpType! rewriter.ctx.raw ≠ .cf .cond_br then
     return rewriter
-  let props := op.getProperties! rewriter.ctx.raw (.cf .cond_br)
+  let props := op.getProperties! rewriter.ctx.raw Cf.cond_br
   let some (args, dest) := SimplifyCFG.sameSuccessorCondBrArgsAndDest? rewriter op props
     | return rewriter
   let (rewriter, newOp) ← rewriter.createOp! (.cf .br) #[] args #[dest] #[] () (some (.before op))
@@ -63,7 +63,7 @@ def SimplifyCFG.foldLLVMSameSuccessorCondBr (rewriter : PatternRewriter OpCode) 
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   if op.getOpType! rewriter.ctx.raw ≠ .llvm .cond_br then
     return rewriter
-  let props := op.getProperties! rewriter.ctx.raw (.llvm .cond_br)
+  let props := op.getProperties! rewriter.ctx.raw Llvm.cond_br
   let some (args, dest) := SimplifyCFG.sameSuccessorCondBrArgsAndDest? rewriter op props
     | return rewriter
   let (rewriter, newOp) ← rewriter.createOp! (.llvm .br) #[] args #[dest] #[] () (some (.before op))
@@ -73,7 +73,7 @@ def SimplifyCFG.foldCfConstantCondBr (rewriter : PatternRewriter OpCode) (op : O
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   if op.getOpType! rewriter.ctx.raw ≠ .cf .cond_br then
     return rewriter
-  let props := op.getProperties! rewriter.ctx.raw (.cf .cond_br)
+  let props := op.getProperties! rewriter.ctx.raw Cf.cond_br
   let some (args, dest) := SimplifyCFG.condBrArgsAndDest? rewriter op props | return rewriter
   let (rewriter, newOp) ← rewriter.createOp! (.cf .br) #[] args #[dest] #[] () (some (.before op))
   return rewriter.replaceOp! op newOp
@@ -82,7 +82,7 @@ def SimplifyCFG.foldLLVMConstantCondBr (rewriter : PatternRewriter OpCode) (op :
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   if op.getOpType! rewriter.ctx.raw ≠ .llvm .cond_br then
     return rewriter
-  let props := op.getProperties! rewriter.ctx.raw (.llvm .cond_br)
+  let props := op.getProperties! rewriter.ctx.raw Llvm.cond_br
   let some (args, dest) := SimplifyCFG.condBrArgsAndDest? rewriter op props | return rewriter
   let (rewriter, newOp) ← rewriter.createOp! (.llvm .br) #[] args #[dest] #[] () (some (.before op))
   return rewriter.replaceOp! op newOp
@@ -156,7 +156,7 @@ def SimplifyCFG.bypassCfCondBranch (rewriter : PatternRewriter OpCode) (op : Ope
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   if op.getOpType! rewriter.ctx.raw != .cf .cond_br then
     return rewriter
-  let props := op.getProperties! rewriter.ctx.raw (.cf .cond_br)
+  let props := op.getProperties! rewriter.ctx.raw Cf.cond_br
   let operands := op.getOperands! rewriter.ctx.raw
   let cond := operands[0]!
   let (trueArgs, falseArgs) := SimplifyCFG.condBrEdgeArgs operands props
@@ -182,7 +182,7 @@ def SimplifyCFG.bypassLLVMCondBranch (rewriter : PatternRewriter OpCode) (op : O
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   if op.getOpType! rewriter.ctx.raw != .llvm .cond_br then
     return rewriter
-  let props := op.getProperties! rewriter.ctx.raw (.llvm .cond_br)
+  let props := op.getProperties! rewriter.ctx.raw Llvm.cond_br
   let operands := op.getOperands! rewriter.ctx.raw
   let cond := operands[0]!
   let (trueArgs, falseArgs) := SimplifyCFG.condBrEdgeArgs operands props
@@ -309,6 +309,6 @@ def SimplifyCFGPass.impl (ctx : WfIRContext OpCode)
 public def SimplifyCFGPass : Pass OpCode :=
   { name := "simplify-cfg"
     description := "Simplify control-flow graph structure."
-    run := SimplifyCFGPass.impl }
+    run := fun _ => SimplifyCFGPass.impl }
 
 end Veir

@@ -1,8 +1,6 @@
 module
 
 public import Veir.Pass
-import Veir.Rewriter.WfRewriter
-import Veir.Data.LLVM.Int.Basic
 
 /-!
   # Local common subexpression elimination
@@ -125,10 +123,10 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
       return commutativeBinopKey ctx op kind
   | .llvm .icmp =>
       return icmpKey ctx op (fun props => ⟨.llvm .icmp, props⟩)
-        (op.getProperties! ctx (.llvm .icmp))
+        (op.getProperties! ctx Llvm.icmp)
   | .arith .cmpi =>
       return icmpKey ctx op (fun props => ⟨.arith .cmpi, props⟩)
-        (op.getProperties! ctx (.arith .cmpi))
+        (op.getProperties! ctx Arith.cmpi)
   | .llvm .sub | .llvm .mlir__constant
   | .llvm .shl | .llvm .lshr | .llvm .ashr
   | .llvm .intr__ctlz | .llvm .intr__cttz | .llvm .intr__ctpop
@@ -184,6 +182,6 @@ end CSE
 public def CSEPass : Pass OpCode :=
   { name := "cse"
     description := "Eliminate common pure integer SSA expressions within each basic block."
-    run := CSE.CSEPass.impl }
+    run := fun _ => CSE.CSEPass.impl }
 
 end Veir

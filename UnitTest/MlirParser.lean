@@ -1,7 +1,5 @@
-import Veir.IR.Basic
 import Veir.Parser.MlirParser
 import Veir.Printer
-import Veir.Rewriter.WfRewriter
 
 open Veir
 open Veir.Parser

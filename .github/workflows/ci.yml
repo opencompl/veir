@@ -11,56 +11,6 @@ permissions:
   pull-requests: write
 
 jobs:
-  benchmark:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Ensure gh-pages branch exists
-        run: |
-          if ! git ls-remote --exit-code origin gh-pages > /dev/null 2>&1; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git switch --orphan gh-pages
-            git commit --allow-empty -m "Initialize gh-pages"
-            git push origin gh-pages
-            git checkout "$GITHUB_SHA"
-          fi
-
-      - name: Build the project
-        uses: leanprover/lean-action@v1
-        with:
-          build-args: "--iofail"
-
-      - name: Run benchmarks
-        run: |
-          chmod +x .github/scripts/run_benchmarks.sh
-          .github/scripts/run_benchmarks.sh 1000 100 5
-
-      - name: Store benchmark result
-        if: github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          name: VeIR Benchmarks
-          tool: customSmallerIsBetter
-          output-file-path: benchmark-results.json
-          gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench
-          auto-push: ${{ github.ref == 'refs/heads/main' }}
-          alert-threshold: "100000%" # effectively disabled, gathering baseline data
-          comment-on-alert: false
-          fail-on-alert: ${{ github.event_name == 'pull_request' }}
-          comment-always: ${{ github.event_name == 'pull_request' }}
-          save-data-file: ${{ github.ref == 'refs/heads/main' }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload benchmark results artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: benchmark-results
-          path: benchmark-results.json
-
   build-docs:
     runs-on: ubuntu-latest
     steps:
@@ -83,7 +33,7 @@ jobs:
 
   deploy:
     if: github.ref == 'refs/heads/main'
-    needs: [benchmark, build-docs]
+    needs: [build-docs]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout gh-pages branch

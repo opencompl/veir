@@ -1,7 +1,5 @@
 module
 
-public import Std.Data.DHashMap
-public import Std.Data.HashMap
 public import Veir.Analysis.DataFlow.Facts
 
 open Std (DHashMap HashMap)

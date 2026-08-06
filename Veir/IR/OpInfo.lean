@@ -9,6 +9,10 @@ public section
 
 class HasDialectOpInfo (opCode: Type)
     extends Hashable opCode, Repr opCode, Inhabited opCode where
+  /-- Look up an operation by its fully qualified MLIR name. -/
+  fromName : ByteArray → Option opCode
+  /-- Return an operation's fully qualified MLIR name. -/
+  name : opCode → ByteArray
   propertiesOf : opCode → Type
   /-- Create an operation's properties from its attribute dictionary. -/
   fromAttrDict : (op : opCode) → Std.HashMap ByteArray Attribute →
@@ -53,7 +57,18 @@ class HasDialectOpInfo (opCode: Type)
   Defaults to `true` for every opcode, which conservatively assumes memory is
   read.
   -/
-  readsMemory : opCode → Bool := fun _ => true
+  readsMemory : (op : opCode) → propertiesOf op → Bool := fun _ _ => true
+  /--
+  Whether an operation with this opcode writes memory.
+
+  This reports only that memory may be modified. It does not imply that the
+  operation completely overwrites any particular location, so it is not by
+  itself sufficient to prove that an earlier write is dead.
+
+  Defaults to `true` for every opcode, which conservatively assumes memory is
+  written.
+  -/
+  writesMemory : (op : opCode) → propertiesOf op → Bool := fun _ _ => true
   /--
   Whether an operation with this opcode materializes a literal constant
   value: no operands, one result, no side effects, and a result that is
@@ -67,6 +82,20 @@ class HasDialectOpInfo (opCode: Type)
   region, and operation order does not impose SSA dominance.
   -/
   hasSSADominance : opCode → Nat → Bool
+  /--
+  Whether the indexed region is exempt from the requirement that each of its
+  blocks ends in a terminator, mirroring MLIR's `NoTerminator` trait.
+
+  This is deliberately separate from the region kind. A graph region implies
+  no terminator, but the converse does not hold: MLIR gives `pdl.rewrite` a
+  body that is an ordinary SSACFG region and yet carries `NoTerminator`.
+  Encoding such a region as a graph region would silently drop SSA dominance
+  from the model in order to relax an unrelated requirement.
+
+  Defaults to `false` for every opcode, which conservatively keeps the
+  terminator requirement.
+  -/
+  hasNoTerminator : opCode → Nat → Bool := fun _ _ => false
 
 instance [HasDialectOpInfo opCode] {op : opCode} : Hashable (HasDialectOpInfo.propertiesOf op) where
   hash := HasDialectOpInfo.propertiesHash.hash
@@ -131,6 +160,22 @@ def ofDialect {Dialect : Type} (OpInfo : Type) [HasOpInfo OpInfo] [HasDialectOpI
     OpInfo :=
   HasDialect.inject op
 
+/--
+We can always treat a global opcode type as a dialect of itself.
+This simplifies quite a lot of the API, since we can use a single generic function for both
+dialect-local and global opcodes.
+-/
+instance hasDialectRefl (OpInfo : Type) [HasOpInfo OpInfo] : HasDialect OpInfo OpInfo where
+  inject := id
+  project := some
+  project_eq_some_iff _ _ := by grind
+  properties_eq _ := rfl
+
+/-- Casting an opcode to itself is the identity. -/
+@[simp, grind =]
+theorem ofDialect_hasDialectRefl (OpInfo : Type) [HasOpInfo OpInfo] (op : OpInfo) :
+    ofDialect OpInfo op = op := by rfl
+
 /-- Coercion from a dialect opcode to the global opcode type. -/
 instance {OpInfo : Type} {Dialect : Type} [HasOpInfo OpInfo] [HasDialectOpInfo Dialect]
     [HasDialect OpInfo Dialect] (op : Dialect) :
@@ -149,11 +194,31 @@ theorem toDialect?_ofDialect (op : Dialect) :
   simp [ofDialect, toDialect?, HasDialect.project_eq_some_iff]
 
 /-- A dialect's injection into an global opcode type is injective. -/
-theorem ofDialect_injective (op₁ op₂ : Dialect) :
+theorem ofDialect_injective {op₁ op₂ : Dialect} :
     ofDialect OpInfo op₁ = ofDialect OpInfo op₂ →
     op₁ = op₂ := by
   intro h
   grind [congrArg (toDialect? Dialect) h]
+
+/-- Equal global opcodes have equal dialect-local property types. -/
+theorem properties_eq_of_ofDialect_eq
+    {Dialect₁ Dialect₂ : Type}
+    [HasDialectOpInfo Dialect₁] [HasDialectOpInfo Dialect₂]
+    [hasDialect₁ : HasDialect OpInfo Dialect₁]
+    [hasDialect₂ : HasDialect OpInfo Dialect₂]
+    {op₁ : Dialect₁} {op₂ : Dialect₂}
+    (h : ofDialect OpInfo op₁ = ofDialect OpInfo op₂) :
+    HasDialectOpInfo.propertiesOf op₁ = HasDialectOpInfo.propertiesOf op₂ := by
+  simp [← hasDialect₁.properties_eq op₁, ← hasDialect₂.properties_eq op₂]
+  grind [ofDialect]
+
+@[simp]
+theorem toDialect?_eq_some_iff (opInfo : OpInfo) (op : Dialect) :
+    toDialect? Dialect opInfo = some op ↔ ofDialect OpInfo op = opInfo := by
+  grind [project_eq_some_iff, ofDialect, toDialect?]
+
+grind_pattern toDialect?_eq_some_iff =>
+  toDialect? Dialect opInfo, ofDialect OpInfo op
 
 /-- Convert dialect-local properties to the global property family. -/
 def ofDialectProperties (OpInfo : Type) [HasOpInfo OpInfo] [dialectInj : HasDialect OpInfo Dialect]
@@ -166,6 +231,20 @@ def toDialectProperties (op : Dialect)
     (props : HasOpInfo.propertiesOf (opCode := OpInfo) op) :
     HasDialectOpInfo.propertiesOf op :=
   (dialectInj.properties_eq op).symm ▸ props
+
+@[simp, grind =]
+theorem toDialectProperties_cast_ofDialectProperties_eq
+    {Dialect₁ Dialect₂ : Type}
+    [HasDialectOpInfo Dialect₁] [HasDialectOpInfo Dialect₂]
+    [hasDialect₁ : HasDialect OpInfo Dialect₁]
+    [hasDialect₂ : HasDialect OpInfo Dialect₂]
+    {op₁ : Dialect₁} {op₂ : Dialect₂}
+    (h : ofDialect OpInfo op₁ = ofDialect OpInfo op₂)
+    (props : HasDialectOpInfo.propertiesOf op₁) :
+    toDialectProperties op₂ (h ▸ ofDialectProperties OpInfo op₁ props) =
+      properties_eq_of_ofDialect_eq h ▸ props := by
+  apply eq_of_heq
+  exact (cast_heq _ _).trans ((eqRec_heq h _).trans ((cast_heq _ _).trans (cast_heq _ _).symm))
 
 /-- Coercion from a dialect property to the global property type. -/
 instance {OpInfo Dialect : Type} [HasOpInfo OpInfo] [HasDialectOpInfo Dialect]

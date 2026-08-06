@@ -1,5 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s --check-prefix=SRC
-// RUN: veir-opt %s -p=isel-riscv64,coerce-function-boundaries-to-riscv-reg,reconcile-cast > %t && veir-interpret %t | filecheck %s
+// RUN: veir-opt %s -p=riscv > %t && veir-interpret %t | filecheck %s
 // RUN: filecheck %s --check-prefix=ISEL --input-file=%t
 
 // A store and a load through a constant `getelementptr` (index 3 of an i64

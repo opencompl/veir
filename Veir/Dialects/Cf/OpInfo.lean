@@ -2,8 +2,9 @@ module
 
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
+public import Veir.Verifier.Basic
 public import Veir.Dialects.Cf.Properties
-meta import Veir.Meta.Attrs
+meta import Veir.Meta.OpCode
 
 namespace Veir
 
@@ -42,7 +43,10 @@ def Cf.toAttrDict
 def Cf.hasSideEffects (_op : Cf) (_props : Cf.propertiesOf _op) : Bool :=
   true
 
-def Cf.readsMemory (_op : Cf) : Bool :=
+def Cf.readsMemory (_op : Cf) (_props : Cf.propertiesOf _op) : Bool :=
+  false
+
+def Cf.writesMemory (_op : Cf) (_props : Cf.propertiesOf _op) : Bool :=
   false
 
 def Cf.isConstantLike (_op : Cf) : Bool :=
@@ -51,14 +55,38 @@ def Cf.isConstantLike (_op : Cf) : Bool :=
 def Cf.hasSSADominance (_op : Cf) (_index : Nat) : Bool :=
   true
 
+#generate_dialect Cf
+
 instance : HasDialectOpInfo Cf where
+  fromName := Cf.fromName
+  name := Cf.name
   propertiesOf := Cf.propertiesOf
   fromAttrDict := Cf.fromAttrDict
   toAttrDict := Cf.toAttrDict
   hasSideEffects := Cf.hasSideEffects
   readsMemory := Cf.readsMemory
+  writesMemory := Cf.writesMemory
   isConstantLike := Cf.isConstantLike
   hasSSADominance := Cf.hasSSADominance
+
+/--
+Verify the local invariants of a `cf` operation in any operation-info type
+containing the `cf` dialect.
+-/
+def Cf.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpInfo Cf]
+    (opType : Cf) (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  match opType with
+  | .br =>
+    op.verifyUnconditionalBranch ctx opIn
+  | .cond_br =>
+    op.verifyTerminatorCounts ctx opIn 2
+    let props : Cf.propertiesOf .cond_br :=
+      HasDialect.toDialectProperties (OpInfo := OpInfo) Cf.cond_br
+        (op.getProperties! ctx.raw (ofDialect OpInfo Cf.cond_br))
+    if props.branch_weights.values.size ≠ 2 && props.branch_weights.values.size ≠ 0 then
+      throw "Expected 0 or 2 branch weights"
+    op.verifyCondBranchOperandSegmentSizes ctx opIn props.operandSegmentSizes 1
 
 end
 

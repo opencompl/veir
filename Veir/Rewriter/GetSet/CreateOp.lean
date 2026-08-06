@@ -1,13 +1,9 @@
 module
 
-public import Veir.IR.Basic
 public import Veir.Rewriter.Basic
 
 import all Veir.Rewriter.Basic
 
-import Veir.Rewriter.LinkedList.GetSet
-import Veir.ForLean
-import Veir.IR.DeallocLemmas
 import Veir.Rewriter.GetSet.Operands
 import Veir.Rewriter.GetSet.BlockOperands
 import Veir.Rewriter.GetSet.InsertOp
@@ -59,6 +55,12 @@ namespace Veir
 
 variable {OpInfo} [HasOpInfo OpInfo]
 variable {ctx : IRContext OpInfo}
+variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {dialectOpType : Dialect}
+variable {CreateDialect : Type} [HasDialectOpInfo CreateDialect]
+  [HasDialect OpInfo CreateDialect]
+variable {opType : CreateDialect}
+variable {properties : HasDialectOpInfo.propertiesOf opType}
 section Rewriter.createEmptyOp
 
 variable {op : OperationPtr}
@@ -149,7 +151,7 @@ grind_pattern OperationPtr.parent!_createEmptyOp =>
 theorem OperationPtr.getOpType!_createEmptyOp {operation : OperationPtr} :
     Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
     operation.getOpType! ctx' =
-    if operation = op then opType else operation.getOpType! ctx := by
+    if operation = op then ofDialect OpInfo opType else operation.getOpType! ctx := by
   grind [Operation.empty]
 
 grind_pattern OperationPtr.getOpType!_createEmptyOp =>
@@ -166,15 +168,18 @@ grind_pattern OperationPtr.attrs!_createEmptyOp =>
 
 theorem OperationPtr.getProperties!_createEmptyOp {operation : OperationPtr} :
     Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
-    operation.getProperties! ctx' opType' =
+    operation.getProperties! ctx' dialectOpType =
     if operation = op then
-      if h : opType = opType' then h ▸ properties else default
+      if h : ofDialect OpInfo opType = ofDialect OpInfo dialectOpType then
+        HasDialect.properties_eq_of_ofDialect_eq h ▸ properties
+      else default
     else
-      operation.getProperties! ctx opType' := by
+      operation.getProperties! ctx dialectOpType := by
   grind [Operation.empty]
 
 grind_pattern OperationPtr.getProperties!_createEmptyOp =>
-  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operation.getProperties! ctx' opType'
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op),
+    operation.getProperties! ctx' dialectOpType
 
 theorem OperationPtr.getNumResults!_createEmptyOp {operation : OperationPtr} :
     Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
@@ -469,7 +474,7 @@ theorem OperationPtr.getOpType!_createOp {operation : OperationPtr} :
     Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
     operation.getOpType! ctx' =
-    if operation = newOp then opType else operation.getOpType! ctx := by
+    if operation = newOp then ofDialect OpInfo opType else operation.getOpType! ctx := by
   simp only [Rewriter.createOp]
   grind (gen := 20)
 
@@ -486,11 +491,13 @@ theorem OperationPtr.attrs!_createOp {operation : OperationPtr} :
 theorem OperationPtr.getProperties!_createOp {operation : OperationPtr} :
     Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
-    operation.getProperties! ctx' opType' =
+    operation.getProperties! ctx' dialectOpType =
     if operation = newOp then
-      if h : opType = opType' then h ▸ properties else default
+      if h : ofDialect OpInfo opType = ofDialect OpInfo dialectOpType then
+        HasDialect.properties_eq_of_ofDialect_eq h ▸ properties
+      else default
     else
-      operation.getProperties! ctx opType' := by
+      operation.getProperties! ctx dialectOpType := by
   simp only [Rewriter.createOp]
   grind (gen := 20)
 

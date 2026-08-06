@@ -1,6 +1,5 @@
 import UnitTest.DataFlowFramework.Helpers
 
-import Veir.Interfaces.SideEffectInterfaces
 import Veir.Interpreter.Evaluate
 
 /-! Tests for compile-time evaluation of operations with the interpreter. -/

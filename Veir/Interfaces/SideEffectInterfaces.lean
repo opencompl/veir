@@ -31,6 +31,28 @@ def OperationPtr.hasSideEffects {OpInfo : Type} [HasOpInfo OpInfo]
   let opType := op.getOpType! ctx
   HasDialectOpInfo.hasSideEffects opType (op.getProperties! ctx opType)
 
+/--
+  May this operation read memory?
+
+  TODO: recursively walk regions to get a less conservative answer
+-/
+def OperationPtr.readsMemory {OpInfo : Type} [HasOpInfo OpInfo]
+    (op : OperationPtr) (ctx : IRContext OpInfo) : Bool :=
+  if op.getNumRegions! ctx != 0 then true else
+  let opType := op.getOpType! ctx
+  HasDialectOpInfo.readsMemory opType (op.getProperties! ctx opType)
+
+/--
+  May this operation write memory?
+
+  TODO: recursively walk regions to get a less conservative answer
+-/
+def OperationPtr.writesMemory {OpInfo : Type} [HasOpInfo OpInfo]
+    (op : OperationPtr) (ctx : IRContext OpInfo) : Bool :=
+  if op.getNumRegions! ctx != 0 then true else
+  let opType := op.getOpType! ctx
+  HasDialectOpInfo.writesMemory opType (op.getProperties! ctx opType)
+
 end
 
 end Veir

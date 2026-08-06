@@ -1,7 +1,5 @@
 module
 
-public import Veir.IR
-public import Veir.Rewriter.InsertPoint
 public import Veir.Rewriter.LinkedList
 public import Veir.Dialects.Builtin.OpInfo
 
@@ -345,22 +343,38 @@ theorem Rewriter.setAttributes_fieldsInBounds :
     ctx.FieldsInBounds → (setAttributes ctx op newAttrs opIn).FieldsInBounds := by
   grind [setAttributes, OperationPtr.setAttributes_fieldsInBounds]
 
-/-- Set the properties of an operation. -/
-def Rewriter.setProperties {opCode : OpInfo} (ctx: IRContext OpInfo) (op: OperationPtr)
-    (newProps: HasOpInfo.propertiesOf opCode)
+section Rewriter.setProperties
+
+variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {opCode : Dialect}
+
+/--
+Set the properties of an operation of type `opCode`.
+The implicitely passed `opCode` can either be of the global `OpInfo` type, or the dialect-specific
+`Dialect` type. The `OpInfo` version is often the one used when manipulating generic operations,
+while the `Dialect` version is often easier to use when manipulating dialect-specific operations.
+-/
+def Rewriter.setProperties (ctx: IRContext OpInfo) (op: OperationPtr)
+    (opCode : Dialect := by grind)
+    (newProps: HasDialectOpInfo.propertiesOf opCode)
     (opIn : op.InBounds ctx := by grind)
     (hprop : op.getOpType! ctx = opCode := by grind) : IRContext OpInfo :=
-  op.setProperties ctx newProps opIn hprop
+  op.setProperties ctx opCode newProps opIn hprop
+
+variable {op : OperationPtr} {newProperties : HasDialectOpInfo.propertiesOf opCode}
+variable {opIn : op.InBounds ctx} {hprop : op.getOpType! ctx = opCode}
 
 @[grind =]
 theorem Rewriter.setProperties_inBounds (ptr : GenericPtr) :
-    ptr.InBounds (setProperties ctx op newProperties opIn hprop) ↔ ptr.InBounds ctx := by
+    ptr.InBounds (setProperties ctx op opCode newProperties opIn hprop) ↔ ptr.InBounds ctx := by
   grind [setProperties]
 
 @[grind .]
 theorem Rewriter.setProperties_fieldsInBounds :
-    ctx.FieldsInBounds → (setProperties ctx op newProperties opIn hprop).FieldsInBounds := by
+    ctx.FieldsInBounds → (setProperties ctx op opCode newProperties opIn hprop).FieldsInBounds := by
   grind [setProperties, OperationPtr.setProperties_fieldsInBounds]
+
+end Rewriter.setProperties
 
 /--
 Set the type of a value (an op result or a block argument).
@@ -954,9 +968,16 @@ theorem Rewriter.initBlockOperands_inBounds_mono (ptr : GenericPtr) :
     grind
 
 @[irreducible]
-def Rewriter.createEmptyOp (ctx : IRContext OpInfo) (opType : OpInfo) (properties : HasOpInfo.propertiesOf opType) :
+def Rewriter.createEmptyOp {Dialect : Type} [HasDialectOpInfo Dialect]
+    [HasDialect OpInfo Dialect] (ctx : IRContext OpInfo) (opType : Dialect)
+    (properties : HasDialectOpInfo.propertiesOf opType) :
     Option (IRContext OpInfo × OperationPtr) :=
   OperationPtr.allocEmpty ctx opType properties
+
+section Rewriter.createEmptyOp
+
+variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {opType : Dialect} {properties : HasDialectOpInfo.propertiesOf opType}
 
 @[grind .]
 theorem Rewriter.createEmptyOp_new_inBounds
@@ -972,7 +993,7 @@ theorem Rewriter.createEmptyOp_new_not_inBounds
 
 @[grind =>]
 theorem Rewriter.createEmptyOp_genericPtr_mono (ptr : GenericPtr)
-    (heq : createEmptyOp ctx type properties = some (ctx', ptr')) :
+    (heq : createEmptyOp ctx opType properties = some (ctx', ptr')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .operation ptr') := by
   grind [createEmptyOp]
 
@@ -982,10 +1003,13 @@ theorem Rewriter.createEmptyOp_fieldsInBounds
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by
   grind [createEmptyOp]
 
+end Rewriter.createEmptyOp
+
 @[irreducible]
-def Rewriter.createOp (ctx: IRContext OpInfo) (opType: OpInfo)
+def Rewriter.createOp {Dialect : Type} [HasDialectOpInfo Dialect]
+    [HasDialect OpInfo Dialect] (ctx: IRContext OpInfo) (opType: Dialect)
     (resultTypes: Array TypeAttr) (operands: Array ValuePtr) (blockOperands : Array BlockPtr)
-    (regions: Array RegionPtr) (properties: HasOpInfo.propertiesOf opType)
+    (regions: Array RegionPtr) (properties: HasDialectOpInfo.propertiesOf opType)
     (insertionPoint: Option InsertPoint)
     (hoper : ∀ oper, oper ∈ operands → oper.InBounds ctx := by grind)
     (hblockOperands : ∀ oper, oper ∈ blockOperands → oper.InBounds ctx := by grind)
@@ -1008,6 +1032,11 @@ def Rewriter.createOp (ctx: IRContext OpInfo) (opType: OpInfo)
     some (ctx, newOpPtr)
   | none =>
     (ctx, newOpPtr)
+
+section Rewriter.createOp
+
+variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {opType : Dialect} {props : HasDialectOpInfo.propertiesOf opType}
 
 @[grind .]
 theorem Rewriter.createOp_inBounds_mono (ptr : GenericPtr)
@@ -1036,6 +1065,8 @@ theorem Rewriter.createOp_fieldsInBounds
     ctx.FieldsInBounds → newCtx.FieldsInBounds := by
   simp only [createOp] at heq
   grind
+
+end Rewriter.createOp
 
 @[irreducible]
 def IRContext.create OpInfo [HasOpInfo OpInfo] [HasDialect OpInfo Builtin]

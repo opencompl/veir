@@ -1,7 +1,6 @@
 module
 
 public import Veir.Pass
-import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
 
 namespace Veir
@@ -315,6 +314,6 @@ def ArithToLLVMPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
 public def ArithToLLVMPass : Pass OpCode :=
   { name := "arith-to-llvm"
     description := "Lower arith operations to the llvm dialect."
-    run := ArithToLLVMPass.impl }
+    run := fun _ => ArithToLLVMPass.impl }
 
 end Veir
