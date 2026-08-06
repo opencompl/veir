@@ -18,6 +18,15 @@ namespace Veir
 
 public section
 
+/-- Whether this operation acts like a function. This mirrors MLIR's
+    `isa<FunctionOpInterface>(op)`: it is answered from the opcode alone, so a
+    true result does not imply that the operation is well formed. In
+    particular, `function_type` is optional in the properties, so this can
+    report `true` where `getFunctionType?` returns `none`. -/
+def OperationPtr.isFunctionLike {OpInfo : Type} [HasOpInfo OpInfo]
+    (op : OperationPtr) (ctx : IRContext OpInfo) : Bool :=
+  HasDialectOpInfo.isFunctionLike (op.getOpType! ctx)
+
 namespace FunctionOpInterface
 
 /-- Returns the symbol name of the function. -/

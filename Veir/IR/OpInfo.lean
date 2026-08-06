@@ -77,6 +77,18 @@ class HasDialectOpInfo (opCode: Type)
   -/
   isConstantLike : opCode → Bool := fun _ => false
   /--
+  Whether an operation with this opcode acts like a function: a symbol
+  whose single region is the function body, with the signature carried in
+  a `function_type` property. An empty body denotes a declaration.
+
+  This is the analogue of MLIR's `FunctionOpInterface`, which likewise
+  answers membership from the opcode alone rather than by inspecting the
+  operation's structure. A true result therefore says nothing about
+  whether a particular operation is well formed. Defaults to `false` for
+  every opcode.
+  -/
+  isFunctionLike : opCode → Bool := fun _ => false
+  /--
   Whether definitions in the indexed region must dominate their uses. A false
   result denotes graph-style semantics, where only a single block can be in the
   region, and operation order does not impose SSA dominance.

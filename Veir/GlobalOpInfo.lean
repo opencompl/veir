@@ -207,6 +207,21 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | .pdl op => PDL.isConstantLike op
   | .test op => Test.isConstantLike op
 
+/--
+  Does this `OpCode` act like a function, i.e. a symbol whose single
+  region is the function body, with the signature carried in a
+  `function_type` property?
+
+  This is the analogue of MLIR's `FunctionOpInterface`. Dialects that
+  define no function-like operation are covered by the wildcard, matching
+  the `false` default on `HasDialectOpInfo.isFunctionLike`.
+-/
+def OpCode.isFunctionLike (opCode : OpCode) : Bool :=
+  match opCode with
+  | .func op => Func.isFunctionLike op
+  | .llvm op => Llvm.isFunctionLike op
+  | _ => false
+
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (_propertiesOf opCode) :=
   match opCode with
@@ -259,6 +274,7 @@ instance : HasDialectOpInfo OpCode where
   readsMemory := OpCode.readsMemory
   writesMemory := OpCode.writesMemory
   isConstantLike := OpCode.isConstantLike
+  isFunctionLike := OpCode.isFunctionLike
   hasSSADominance := OpCode.hasSSADominance
   hasNoTerminator := OpCode.hasNoTerminator
 
