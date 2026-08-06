@@ -48,7 +48,7 @@ namespace Veir
 
 variable {OpInfo} [HasOpInfo OpInfo]
 variable {ctx : IRContext OpInfo}
-variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpInfo Dialect]
 variable {opCode : Dialect}
 /-! ## `Rewriter.setAttributes` -/
 
@@ -276,7 +276,7 @@ end Rewriter.setAttributes
 
 section Rewriter.setProperties
 
-variable {op : OperationPtr} {newProps : HasDialectOpInfo.propertiesOf opCode}
+variable {op : OperationPtr} {newProps : HasOpInfo.propertiesOf opCode}
          {opIn : op.InBounds ctx} {hprop : op.getOpType! ctx = opCode}
 
 attribute [local grind] Rewriter.setProperties
@@ -366,7 +366,7 @@ theorem OperationPtr.attrs!_setProperties {op' : OperationPtr} :
 
 @[grind =]
 theorem OperationPtr.getProperties!_setProperties
-    {GetterDialect : Type} [HasDialectOpInfo GetterDialect]
+    {GetterDialect : Type} [HasOpInfo GetterDialect]
     [HasDialect OpInfo GetterDialect] {getterOpCode : GetterDialect}
     {op' : OperationPtr} :
     op'.getProperties!

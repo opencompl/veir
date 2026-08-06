@@ -70,7 +70,7 @@ def Builtin.hasNoTerminator (op : Builtin) (_index : Nat) : Bool :=
 
 #generate_dialect Builtin
 
-instance : HasDialectOpInfo Builtin where
+instance : HasOpInfo Builtin where
   fromName := Builtin.fromName
   name := Builtin.name
   propertiesOf := Builtin.propertiesOf

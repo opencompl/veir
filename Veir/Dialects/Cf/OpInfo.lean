@@ -57,7 +57,7 @@ def Cf.hasSSADominance (_op : Cf) (_index : Nat) : Bool :=
 
 #generate_dialect Cf
 
-instance : HasDialectOpInfo Cf where
+instance : HasOpInfo Cf where
   fromName := Cf.fromName
   name := Cf.name
   propertiesOf := Cf.propertiesOf

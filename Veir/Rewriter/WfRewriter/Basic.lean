@@ -166,9 +166,9 @@ def WfRewriter.setAttributes! (wfCtx : WfIRContext OpInfo) (op : OperationPtr) (
 
 /-- Set the properties of an operation. -/
 @[inline]
-def WfRewriter.setProperties {Dialect : Type} [HasDialectOpInfo Dialect]
+def WfRewriter.setProperties {Dialect : Type} [HasOpInfo Dialect]
     [HasDialect OpInfo Dialect] (wfCtx : WfIRContext OpInfo)
-    (op : OperationPtr) (opCode : Dialect) (newProps : HasDialectOpInfo.propertiesOf opCode)
+    (op : OperationPtr) (opCode : Dialect) (newProps : HasOpInfo.propertiesOf opCode)
     (opIn : op.InBounds wfCtx.raw := by grind)
     (hprop : op.getOpType! wfCtx.raw = opCode := by grind) :
     WfIRContext OpInfo :=
@@ -179,9 +179,9 @@ def WfRewriter.setProperties {Dialect : Type} [HasDialectOpInfo Dialect]
 Set the properties of an operation, panicking if the operation is out of bounds, or if the
 property types don't match.
 -/
-def WfRewriter.setProperties! {Dialect : Type} [HasDialectOpInfo Dialect]
+def WfRewriter.setProperties! {Dialect : Type} [HasOpInfo Dialect]
     [HasDialect OpInfo Dialect] (wfCtx : WfIRContext OpInfo)
-    (op : OperationPtr) (opCode : Dialect) (newProperties : HasDialectOpInfo.propertiesOf opCode) :
+    (op : OperationPtr) (opCode : Dialect) (newProperties : HasOpInfo.propertiesOf opCode) :
     WfIRContext OpInfo :=
   if opIn : op.InBounds wfCtx.raw then
     if hprop : op.getOpType! wfCtx.raw = opCode then
@@ -440,10 +440,10 @@ def WfRewriter.pushBlockOperand! (wfCtx : WfIRContext OpInfo) (opPtr : Operation
 
 /-- Create an operation and insert it at a given location. -/
 @[inline]
-def WfRewriter.createOp {Dialect : Type} [HasDialectOpInfo Dialect]
+def WfRewriter.createOp {Dialect : Type} [HasOpInfo Dialect]
     [HasDialect OpInfo Dialect] (wfCtx : WfIRContext OpInfo) (opType : Dialect)
     (resultTypes : Array TypeAttr) (operands : Array ValuePtr) (blockOperands : Array BlockPtr)
-    (regions : Array RegionPtr) (properties : HasDialectOpInfo.propertiesOf opType)
+    (regions : Array RegionPtr) (properties : HasOpInfo.propertiesOf opType)
     (insertionPoint : Option InsertPoint)
     (hoper : ∀ oper, oper ∈ operands → oper.InBounds wfCtx.raw := by grind)
     (hblockOperands : ∀ oper, oper ∈ blockOperands → oper.InBounds wfCtx.raw := by grind)
@@ -459,10 +459,10 @@ Create an operation and insert it at a given location, panicking if any operand,
 or region is out of bounds, if the insertion point is out of bounds, or if the operation could
 not be created.
 -/
-def WfRewriter.createOp! {Dialect : Type} [HasDialectOpInfo Dialect]
+def WfRewriter.createOp! {Dialect : Type} [HasOpInfo Dialect]
     [HasDialect OpInfo Dialect] (wfCtx : WfIRContext OpInfo) (opType : Dialect)
     (resultTypes : Array TypeAttr) (operands : Array ValuePtr) (blockOperands : Array BlockPtr)
-    (regions : Array RegionPtr) (properties : HasDialectOpInfo.propertiesOf opType)
+    (regions : Array RegionPtr) (properties : HasOpInfo.propertiesOf opType)
     (insertionPoint : Option InsertPoint)
     : Option (WfIRContext OpInfo × OperationPtr) :=
   if hoper : ∀ oper, oper ∈ operands → oper.InBounds wfCtx.raw then

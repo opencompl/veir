@@ -180,7 +180,7 @@ structure Operation (OpInfo : Type) [HasOpInfo OpInfo] where
 deriving Inhabited, Repr, Hashable
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
-variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpInfo Dialect]
 
 namespace Operation
 
@@ -1070,7 +1070,7 @@ type, in order to get the dialect-specific properties which is often easier to u
 @[inline]
 def getProperties (op : OperationPtr) (ctx : IRContext OpInfo) (opCode : Dialect)
     (inBounds : op.InBounds ctx := by grind)
-    (hprop : op.getOpType! ctx = opCode := by grind) : HasDialectOpInfo.propertiesOf opCode :=
+    (hprop : op.getOpType! ctx = opCode := by grind) : HasOpInfo.propertiesOf opCode :=
   have h : (op.get ctx inBounds).opType = opCode := by grind [getOpType!]
   let globalProperties := h ▸ (op.get ctx (by grind)).properties
   HasDialect.toDialectProperties opCode globalProperties
@@ -1085,7 +1085,7 @@ operation's type does not match the passed `opCode`.
 -/
 @[inline]
 def getProperties! (op : OperationPtr) (ctx : IRContext OpInfo)
-    (opCode : Dialect) : HasDialectOpInfo.propertiesOf opCode :=
+    (opCode : Dialect) : HasOpInfo.propertiesOf opCode :=
   if h : (op.get! ctx).opType = opCode then
     let globalProperties := h ▸ (op.get! ctx).properties
     HasDialect.toDialectProperties opCode globalProperties
@@ -1110,7 +1110,7 @@ The passed `opCode` can either be of the global `OpInfo` type, or the dialect-sp
 while the `Dialect` version is often easier to use when manipulating dialect-specific operations.
 -/
 def setProperties (op : OperationPtr) (ctx : IRContext OpInfo) (opCode : Dialect)
-    (newProperties : HasDialectOpInfo.propertiesOf opCode)
+    (newProperties : HasOpInfo.propertiesOf opCode)
     (inBounds : op.InBounds ctx := by grind)
     (hprop : op.getOpType! ctx = opCode := by grind) : IRContext OpInfo :=
   have h : (op.get ctx inBounds).opType = opCode := by grind [getOpType!]
@@ -1127,7 +1127,7 @@ while the `Dialect` version is often easier to use when manipulating dialect-spe
 This function panics if the given operation is not in bounds.
 -/
 def setProperties! {opCode : Dialect} (op : OperationPtr) (ctx : IRContext OpInfo)
-  (newProperties : HasDialectOpInfo.propertiesOf opCode)
+  (newProperties : HasOpInfo.propertiesOf opCode)
   (hprop : op.getOpType! ctx = opCode := by grind) : IRContext OpInfo :=
   have h : (op.get! ctx).opType = opCode := by grind [getOpType!]
   let oldOp := op.get! ctx
@@ -1136,7 +1136,7 @@ def setProperties! {opCode : Dialect} (op : OperationPtr) (ctx : IRContext OpInf
 
 @[grind =_, eq_bang ←]
 theorem setProperties!_eq_setProperties {op : OperationPtr} {opCode : Dialect}
-    (newProperties : HasDialectOpInfo.propertiesOf opCode) (inBounds : op.InBounds ctx)
+    (newProperties : HasOpInfo.propertiesOf opCode) (inBounds : op.InBounds ctx)
     (hprop : op.getOpType! ctx = opCode) :
     op.setProperties! ctx newProperties =
     op.setProperties ctx opCode newProperties inBounds := by
@@ -1193,9 +1193,9 @@ theorem nextResult!_eq_getResult {op : OperationPtr} :
     op.nextResult! ctx = op.getResult (op.getNumResults! ctx) := by
   rfl
 
-def allocEmpty {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+def allocEmpty {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpInfo Dialect]
     (ctx : IRContext OpInfo) (opType : Dialect)
-    (properties : HasDialectOpInfo.propertiesOf opType) :
+    (properties : HasOpInfo.propertiesOf opType) :
     Option (IRContext OpInfo × OperationPtr) :=
   let newOpPtr : OperationPtr := ⟨ctx.nextID⟩
   let globalProperties := HasDialect.ofDialectProperties OpInfo opType properties
