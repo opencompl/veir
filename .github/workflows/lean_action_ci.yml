@@ -10,9 +10,25 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      # A debug failure should not cancel the release run, and vice versa:
+      # knowing which of the two broke is the point of running both.
+      fail-fast: false
+      matrix:
+        buildType: [release, debug]
 
     steps:
       - uses: actions/checkout@v4
+
+      # `buildType` is a lakefile field with no command-line override, so the
+      # debug run edits it in place. The `grep` is not redundant: if the field
+      # is ever reworded the substitution would quietly match nothing and this
+      # job would silently become a second release build.
+      - name: Select the debug build type
+        if: matrix.buildType == 'debug'
+        run: |
+          sed -i 's/^buildType = "release"$/buildType = "debug"/' lakefile.toml
+          grep -qx 'buildType = "debug"' lakefile.toml
 
       - name: Source environment variables
         run: source .envrc
