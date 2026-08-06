@@ -461,6 +461,32 @@ partial def parseOptionalLLVMVoidType : AttrParserM (Option TypeAttr) := do
   return some LLVM.VoidType.mk
 
 /--
+  Parse a PDL range handle type `!pdl.range<...>`, if present. MLIR restricts
+  the element to the four handle types, so a range never nests.
+-/
+partial def parseOptionalPDLRangeType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "pdl.range".toByteArray then return none
+  let _ ← consumeToken
+  parsePunctuation "<"
+  let element ←
+    if ← parseOptionalKeyword "attribute".toByteArray then
+      pure PDL.RangeElement.attribute
+    else if ← parseOptionalKeyword "operation".toByteArray then
+      pure PDL.RangeElement.operation
+    else if ← parseOptionalKeyword "type".toByteArray then
+      pure PDL.RangeElement.type
+    else if ← parseOptionalKeyword "value".toByteArray then
+      pure PDL.RangeElement.value
+    else
+      throwAtCurrentPos "expected the element of a '!pdl.range' to be one of 'attribute', 'operation', 'type' or 'value'"
+  parsePunctuation ">"
+  return some (PDL.RangeType.mk element)
+
+/--
   Parse a PDL attribute handle type `!pdl.attribute`, if present.
 -/
 partial def parseOptionalPDLAttributeType : AttrParserM (Option TypeAttr) := do
@@ -782,6 +808,8 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some cudaTilePointerType
   if let some hwModuleType ← parseOptionalHWModuleType then
     return some hwModuleType
+  if let some pdlRangeType ← parseOptionalPDLRangeType then
+    return some pdlRangeType
   if let some pdlAttributeType ← parseOptionalPDLAttributeType then
     return some pdlAttributeType
   if let some pdlOperationType ← parseOptionalPDLOperationType then

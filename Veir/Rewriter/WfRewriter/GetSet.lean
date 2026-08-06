@@ -45,6 +45,9 @@ namespace Veir
 variable {OpInfo} [HasOpInfo OpInfo]
 variable {ctx ctx' : WfIRContext OpInfo}
 variable {operation : OperationPtr} {region : RegionPtr} {block : BlockPtr} {value : ValuePtr}
+variable {opType : OpInfo}
+variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {dialectOpType : Dialect}
 
 /-! ## `WfRewriter.createOp` -/
 
@@ -169,8 +172,12 @@ theorem OperationPtr.attrs!_WfRewriter_createOp :
 theorem OperationPtr.getProperties!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
-    operation.getProperties! ctx'.raw opType =
-    if operation = newOp then properties else operation.getProperties! ctx.raw opType := by
+    operation.getProperties! ctx'.raw dialectOpType =
+    if operation = newOp then
+      if h : (dialectOpType : OpInfo) = opType then
+        HasDialect.toDialectProperties dialectOpType (h ▸ properties)
+      else default
+    else operation.getProperties! ctx.raw dialectOpType := by
   simp only [WfRewriter.createOp]
   grind (gen := 20)
 
@@ -391,7 +398,8 @@ theorem OperationPtr.attrs!_wfRewriter_insertOp :
 @[simp, grind =>, simp_getset]
 theorem OperationPtr.getProperties!_wfRewriter_insertOp :
     WfRewriter.insertOp ctx newOp insertionPoint newOpIn insIn = some ctx' →
-    operation.getProperties! ctx'.raw opType = operation.getProperties! ctx.raw opType := by
+    operation.getProperties! ctx'.raw dialectOpType =
+      operation.getProperties! ctx.raw dialectOpType := by
   grind
 
 @[simp, grind =>, simp_getset]
@@ -582,8 +590,9 @@ theorem OperationPtr.attrs!_wfRewriter_eraseOp :
 @[simp, grind =]
 theorem OperationPtr.getProperties!_wfRewriter_eraseOp :
     operation.InBounds (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw →
-    operation.getProperties! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw opType =
-    operation.getProperties! ctx.raw opType := by
+    operation.getProperties!
+      (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw dialectOpType =
+    operation.getProperties! ctx.raw dialectOpType := by
   grind
 
 @[simp, grind =]
@@ -764,8 +773,9 @@ theorem OperationPtr.attrs!_WfRewriter_replaceValue :
 
 @[simp, grind =]
 theorem OperationPtr.getProperties!_WfRewriter_replaceValue :
-    operation.getProperties! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw opType =
-    operation.getProperties! ctx.raw opType := by
+    operation.getProperties!
+      (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw dialectOpType =
+    operation.getProperties! ctx.raw dialectOpType := by
   fun_induction WfRewriter.replaceValue <;> grind
 
 @[simp, grind =]
@@ -947,8 +957,8 @@ theorem OperationPtr.attrs!_wfRewriter_setAttributes {op' : OperationPtr} :
 
 @[simp, grind =]
 theorem OperationPtr.getProperties!_wfRewriter_setAttributes {op' : OperationPtr} :
-    op'.getProperties! (WfRewriter.setAttributes ctx op newAttrs opIn).raw =
-    op'.getProperties! ctx.raw := by
+    op'.getProperties! (WfRewriter.setAttributes ctx op newAttrs opIn).raw dialectOpType =
+    op'.getProperties! ctx.raw dialectOpType := by
   grind
 
 @[simp, grind =]
@@ -1119,12 +1129,15 @@ theorem OperationPtr.attrs!_wfRewriter_setProperties {op' : OperationPtr} :
   grind
 
 @[grind =]
-theorem OperationPtr.getProperties!_wfRewriter_setProperties {op' : OperationPtr} {opCode' : OpInfo}:
-    op'.getProperties! (WfRewriter.setProperties ctx op newProps opIn hprop).raw opCode' =
+theorem OperationPtr.getProperties!_wfRewriter_setProperties
+    {op' : OperationPtr} {getterOpCode : Dialect} :
+    op'.getProperties! (WfRewriter.setProperties ctx op newProps opIn hprop).raw getterOpCode =
     if op' = op then
-      if h: opCode' = opCode then h ▸ newProps else default
+      if h : (getterOpCode : OpInfo) = opCode then
+        HasDialect.toDialectProperties getterOpCode (h ▸ newProps)
+      else default
     else
-      op'.getProperties! ctx.raw opCode' := by
+      op'.getProperties! ctx.raw getterOpCode := by
   grind
 
 @[simp, grind =]
@@ -1295,8 +1308,8 @@ theorem OperationPtr.attrs!_wfRewriter_setType :
 
 @[simp, grind =]
 theorem OperationPtr.getProperties!_wfRewriter_setType :
-    operation.getProperties! (WfRewriter.setType ctx setValue newType hValue).raw opType =
-    operation.getProperties! ctx.raw opType := by
+    operation.getProperties! (WfRewriter.setType ctx setValue newType hValue).raw dialectOpType =
+    operation.getProperties! ctx.raw dialectOpType := by
   grind
 
 @[simp, grind =]

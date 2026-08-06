@@ -50,6 +50,8 @@ namespace Veir
 
 variable {OpInfo} [HasOpInfo OpInfo]
 variable {ctx : IRContext OpInfo}
+variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {opCode : Dialect}
 section Rewriter.detachBlockOperands.loop
 
 variable {op : OperationPtr}

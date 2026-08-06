@@ -53,6 +53,8 @@ variable {blockOperand blockOperand' : BlockOperandPtr}
 variable {value value' : ValuePtr}
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 variable {ctx ctx' : IRContext OpInfo}
+variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {opCode propT : Dialect}
 
 /- OpOperandPtr.removeFromCurrent -/
 attribute [local grind] OpOperandPtr.removeFromCurrent

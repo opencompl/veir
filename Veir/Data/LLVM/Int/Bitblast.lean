@@ -487,6 +487,18 @@ theorem getValue_sext {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ < w₂) (hpoiso
   grind
 
 @[veir_bv_normalize, grind =]
+theorem isPoison_ext {w₁ w₂: Nat} (x : Int w₁) (msb : BitVec (w₂ - w₁)) (h : w₁ < w₂) :
+    (ext x w₂ msb h).isPoison = x.isPoison := by
+  simp only [ext, isPoison, Id.run]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem getValue_ext (x : Int w₁) (msb : BitVec (w₂ - w₁)) (h : w₁ < w₂) (hpoison : (ext x w₂ msb h).isPoison = false) :
+    (ext x w₂ msb h).getValue hpoison = (msb ++ x.getValue).cast (by grind) := by
+  simp [ext, Id.run]
+  grind
+
+@[veir_bv_normalize, grind =]
 theorem isPoison_icmp {w : Nat} (x y : Int w) (p : IntPred) :
     (icmp x y p).isPoison = decide (x.isPoison ∨ y.isPoison) := by
   simp [icmp, isPoison, Id.run]

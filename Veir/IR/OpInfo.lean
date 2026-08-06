@@ -71,6 +71,20 @@ class HasDialectOpInfo (opCode: Type)
   region, and operation order does not impose SSA dominance.
   -/
   hasSSADominance : opCode → Nat → Bool
+  /--
+  Whether the indexed region is exempt from the requirement that each of its
+  blocks ends in a terminator, mirroring MLIR's `NoTerminator` trait.
+
+  This is deliberately separate from the region kind. A graph region implies
+  no terminator, but the converse does not hold: MLIR gives `pdl.rewrite` a
+  body that is an ordinary SSACFG region and yet carries `NoTerminator`.
+  Encoding such a region as a graph region would silently drop SSA dominance
+  from the model in order to relax an unrelated requirement.
+
+  Defaults to `false` for every opcode, which conservatively keeps the
+  terminator requirement.
+  -/
+  hasNoTerminator : opCode → Nat → Bool := fun _ _ => false
 
 instance [HasDialectOpInfo opCode] {op : opCode} : Hashable (HasDialectOpInfo.propertiesOf op) where
   hash := HasDialectOpInfo.propertiesHash.hash
@@ -134,6 +148,22 @@ def ofDialect {Dialect : Type} (OpInfo : Type) [HasOpInfo OpInfo] [HasDialectOpI
     [dialectInj : HasDialect OpInfo Dialect] (op : Dialect) :
     OpInfo :=
   HasDialect.inject op
+
+/--
+We can always treat a global opcode type as a dialect of itself.
+This simplifies quite a lot of the API, since we can use a single generic function for both
+dialect-local and global opcodes.
+-/
+instance hasDialectRefl (OpInfo : Type) [HasOpInfo OpInfo] : HasDialect OpInfo OpInfo where
+  inject := id
+  project := some
+  project_eq_some_iff _ _ := by grind
+  properties_eq _ := rfl
+
+/-- Casting an opcode to itself is the identity. -/
+@[simp, grind =]
+theorem ofDialect_hasDialectRefl (OpInfo : Type) [HasOpInfo OpInfo] (op : OpInfo) :
+    ofDialect OpInfo op = op := by rfl
 
 /-- Coercion from a dialect opcode to the global opcode type. -/
 instance {OpInfo : Type} {Dialect : Type} [HasOpInfo OpInfo] [HasDialectOpInfo Dialect]

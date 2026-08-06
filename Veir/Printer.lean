@@ -178,7 +178,7 @@ partial def printOperation (ctx: IRContext OpCode) (op: OperationPtr) (indent: N
   let nameBytes : ByteArray :=
     match opStruct.opType with
     | .builtin .unregistered =>
-      (op.getProperties! ctx (.builtin .unregistered)).opName
+      (op.getProperties! ctx Builtin.unregistered).opName
     | _ => opStruct.opType.name
   IO.print s!"\"{String.fromUTF8! nameBytes}\""
   printOpOperands ctx op

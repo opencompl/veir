@@ -15,6 +15,7 @@ import Veir.Passes.RISCVCombines.Combine
 import Veir.Passes.ModArithToArith
 import Veir.Passes.ArithToLLVM
 import Veir.Passes.Canonicalize
+import Veir.Passes.Legalization
 
 open Veir.Parser
 open Veir.Parser.ParserError
@@ -36,9 +37,9 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
      CoerceModArithFunctionBoundariesPass,
      RISCV.Combine,
      ModArithToArithPass,
-     RemuiToBarrettReductionPass,
      ArithToLLVMPass,
-     CanonicalizePass ] : List (Pass OpCode)).foldl
+     CanonicalizePass,
+     LegalizePass ] : List (Pass OpCode)).foldl
     (fun m pass => m.insert pass.name pass)
     (Std.HashMap.emptyWithCapacity 16)
 
@@ -51,11 +52,11 @@ def passGroups : Std.HashMap String String :=
   (Std.HashMap.emptyWithCapacity 2)
     |>.insert "O" "canonicalize,instcombine,cse,dce"
     |>.insert "mod-arith"
-        "mod-arith-to-arith,cse,coerce-mod-arith-function-boundaries,reconcile-cast,canonicalize,remui-to-barrett-reduction,canonicalize,cse,dce"
+        "mod-arith-to-arith{barrett},cse,coerce-mod-arith-function-boundaries,reconcile-cast,canonicalize,cse,dce"
     |>.insert "mod-arith-pow2-width"
-        "mod-arith-to-arith{pow2-width},cse,coerce-mod-arith-function-boundaries{pow2-width},reconcile-cast,canonicalize,remui-to-barrett-reduction{pow2-width},canonicalize,cse,dce"
+        "mod-arith-to-arith{barrett pow2-width},cse,coerce-mod-arith-function-boundaries{pow2-width},reconcile-cast,canonicalize,cse,dce"
     |>.insert "riscv"
-        "isel-sdag-riscv64,isel-br-riscv64,isel-riscv64,coerce-function-boundaries-to-riscv-reg,reconcile-cast,riscv-combine,dce"
+        "legalize,isel-sdag-riscv64,isel-br-riscv64,isel-riscv64,coerce-function-boundaries-to-riscv-reg,reconcile-cast,riscv-combine,dce"
 
 /--
   A human-readable description of every pass group and the passes it expands to,
