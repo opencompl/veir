@@ -18,7 +18,7 @@ public section
 
 namespace Veir
 
-variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo]
+variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedProperties OpInfo]
 
 /-! ## Translate a high-level pointer to a flat address. -/
 
@@ -959,6 +959,8 @@ structure OperationPtr.MatchesBase (ctx : Sim.RawIRContext OpInfo) (op : Operati
   parent : Sim.OptionBlockPtr.Sim ⟨op.toM.readParent! ctx.buf, (op.get! ctx.spec).parent⟩
   opType : op.getOpType! ctx.spec = SerializableOpInfo.decode (op.toM.readOpType! ctx.buf)
   attrs : ctx.buf.attributes[op.toM.readAttrs! ctx.buf |>.toNat]? = some (op.get! ctx.spec).attrs
+  props : HasBuffedProperties.readPropertyAt (op.getOpType! ctx.spec) (op.toM + Buffed.Operation.Offsets.properties) ctx.buf =
+          op.getProperties! ctx.spec (op.getOpType! ctx.spec)
   -- TODO: properties
 
 structure OperationPtr.MatchesResults (ctx : Sim.RawIRContext OpInfo) (op : OperationPtr) (ib : op.InBounds ctx.spec) where
@@ -1018,7 +1020,7 @@ structure Sim (ctx : Sim.RawIRContext OpInfo) where
   /-- Attribute-table slot 0 canonically holds the empty dictionary, so the zero-initialized `attrs` field of a freshly allocated operation denotes the empty dictionary. -/
   attr_empty : ctx.buf.attributes[0]? = some (.dictionaryAttr DictionaryAttr.empty)
 
-variable (OpInfo) [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] in
+variable (OpInfo) [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedProperties OpInfo] in
 structure Sim.IRContext where
   buf : IRBufContext
   spec : Veir.IRContext OpInfo
@@ -1055,6 +1057,11 @@ theorem Sim.IRContext.fieldsInBounds (ctx : IRContext OpInfo) : ctx.spec.FieldsI
 theorem Operation.propertySize_lt (oi : OpInfo) : (Operation.propertySize oi).toNat < UInt32.size := by
   unfold Operation.propertySize
   exact HasDialectOpInfo.propertySize_small
+
+theorem Operation.propertySize_def (oi : OpInfo) :
+    Operation.propertySize oi = HasDialectOpInfo.propertySize oi := by
+  unfold Operation.propertySize
+  rfl
 
 @[grind .] theorem Operation.propertySize_pos  (oi : OpInfo) : 0 ≤ (Operation.propertySize oi).toInt64.toInt := by
   have := Operation.propertySize_lt oi

@@ -296,6 +296,26 @@ instance : HasBuffedProperties Llvm where
         | exact IcmpProperties.writeProperty_read_disjoint p addr n len bctx h hd
         | exact FastMathFlagsProperties.writeProperty_read_disjoint p addr n len bctx h hd
         | rfl
+  readPropertyAt_frame {op addr bctx bctx' p} hp hsz hmem hattrs := by
+    cases op <;>
+      first
+        | exact hp
+        | exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+            (NswNuwProperties.readProperty_frame h h' (hmem 8 addr 1 (Nat.le_refl _) (Nat.le_refl _))).trans hr
+        | exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+            (ExactProperties.readProperty_frame h h' (hmem 8 addr 1 (Nat.le_refl _) (Nat.le_refl _))).trans hr
+        | exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+            (DisjointProperties.readProperty_frame h h' (hmem 8 addr 1 (Nat.le_refl _) (Nat.le_refl _))).trans hr
+        | exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+            (NnegProperties.readProperty_frame h h' (hmem 8 addr 1 (Nat.le_refl _) (Nat.le_refl _))).trans hr
+        | exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+            (IcmpProperties.readProperty_frame h h' (hmem 8 addr 1 (Nat.le_refl _) (Nat.le_refl _))).trans hr
+        | exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+            (FastMathFlagsProperties.readProperty_frame h h' (hmem 8 addr 1 (Nat.le_refl _) (Nat.le_refl _))).trans hr
+        | exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+            AttrCodec.readProperty_frame _ h h' hr
+              (by rw [ExArray.read64!_eq_read!, ExArray.read64!_eq_read!, hmem 64 addr 8 (Nat.le_refl _) (Nat.le_refl _)])
+              hattrs
 
 end
 

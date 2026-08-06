@@ -1490,6 +1490,18 @@ class HasBuffedProperties (opCode: Type) [HasDialectOpInfo opCode] where
   preserves_size : (writePropertyAt op p addr bctx h hattrs).mem.size = bctx.mem.size
   only_modifies_properties (hd : IsDisjoint (n.toNat...(n.toNat+len.toNat)) (addr.toNat...(addr.toNat + (HasDialectOpInfo.propertySize op).toNat))) :
     (writePropertyAt op p addr bctx h hattrs).mem.read! (w := w) n len = bctx.mem.read! (w := w) n len
+  /-- A successful `readPropertyAt` survives any buffer change that does not shrink the buffer,
+  reads identically on the property window, and preserves successful attribute lookups (the
+  table may grow). -/
+  readPropertyAt_frame {op : opCode} {addr : UInt64} {bctx bctx' : Buffed.IRBufContext}
+      {p : HasDialectOpInfo.propertiesOf op} :
+    readPropertyAt op addr bctx = some p →
+    bctx.mem.size ≤ bctx'.mem.size →
+    (∀ (w : Nat) (n len : UInt64), addr.toNat ≤ n.toNat →
+      n.toNat + len.toNat ≤ addr.toNat + (HasDialectOpInfo.propertySize op).toNat →
+      bctx'.mem.read! (w := w) n len = bctx.mem.read! n len) →
+    (∀ (i : Nat) (a : Attribute), bctx.attributes[i]? = some a → bctx'.attributes[i]? = some a) →
+    readPropertyAt op addr bctx' = some p
 
 /-- 64-bit reads disjoint from the written property slot are unchanged by `writePropertyAt`. -/
 theorem HasBuffedProperties.read64!_writePropertyAt {opCode : Type} [HasDialectOpInfo opCode] [HasBuffedProperties opCode]

@@ -30,7 +30,7 @@ attribute [local grind]
  Sim.OpResultPtr.toO
  Sim.ValuePtr.toO
 
-variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo]
+variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedProperties OpInfo]
 variable {ctx : Sim.IRContext OpInfo}
 
 /- Use def chain for operands. -/

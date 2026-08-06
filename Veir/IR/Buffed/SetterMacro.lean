@@ -206,19 +206,26 @@ meta def mkOpBase (cfg : Cfg) : MacroM (TSyntax `tactic) := do
     let cParent ← mkClause cfg (← `(henc.parent)) "OperationMPtr" "Parent" ["OperationPtr.get!"] [← sd "OptionBlockPtr"]
     let cOpType ← mkClause cfg (← `(henc.opType)) "OperationMPtr" "OpType" ["OperationPtr.getOpType!"] []
     let cAttrs ← mkClause cfg (← `(henc.attrs)) "OperationMPtr" "Attrs" ["OperationPtr.get!"] [← wpParam cfg]
+    let sgOpTy ← mkSg cfg "OperationPtr.getOpType!"
+    let sgProps ← mkSg cfg "OperationPtr.getProperties!"
+    let d ← disch
     `(tactic|
       (constructor
        · $cPrev:tactic
        · $cNext:tactic
        · $cParent:tactic
        · $cOpType:tactic
-       · $cAttrs:tactic))
+       · $cAttrs:tactic
+       · refine OperationPtr.props_frame $(cfg.ctx) op hopin henc.props ?_ $sgOpTy $sgProps
+         apply Buffed.agreesOn_blit64
+         $d:tactic))
   else
     let sgOpGet ← mkSg cfg "OperationPtr.get!"
     let sgOpTy ← mkSg cfg "OperationPtr.getOpType!"
+    let sgProps ← mkSg cfg "OperationPtr.getProperties!"
     let d ← disch
     `(tactic|
-      (refine OperationPtr.matchesBase_frame $(cfg.ctx) op hopin henc.toMatchesBase ?_ hlay $sgOpGet $sgOpGet $sgOpGet $sgOpGet $sgOpTy opIb
+      (refine OperationPtr.matchesBase_frame $(cfg.ctx) op hopin henc.toMatchesBase ?_ hlay $sgOpGet $sgOpGet $sgOpGet $sgOpGet $sgOpTy $sgProps opIb
        apply Buffed.agreesOn_blit64
        $d:tactic))
 

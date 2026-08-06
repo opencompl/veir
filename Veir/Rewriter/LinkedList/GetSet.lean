@@ -16,7 +16,7 @@ variable {opOperand opOperand' : OpOperandPtr}
 variable {opOperandPtr opOperandPtr' : OpOperandPtrPtr}
 variable {blockOperand blockOperand' : BlockOperandPtr}
 variable {value value' : ValuePtr}
-variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo]
+variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedProperties OpInfo]
 variable {ctx ctx' : IRContext OpInfo}
 
 /- OpOperandPtr.removeFromCurrent -/

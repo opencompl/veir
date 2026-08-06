@@ -16,7 +16,7 @@ open scoped Veir.Buffed
 
 section read_write
 
-variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] {ctx : Sim.IRContext OpInfo}
+variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedProperties OpInfo] {ctx : Sim.IRContext OpInfo}
 
 @[local ext, local grind ext]
 theorem _root_.Veir.OpOperandPtr.ext (x y : OpOperandPtr) : x.op = y.op → x.index = y.index → x = y := by

@@ -166,6 +166,27 @@ instance : HasBuffedProperties OpCode where
       case func => exact AttrCodec.writeProperty_read_disjoint _ p addr n len bctx h hattrs hd
       all_goals rfl
     case test op => cases op <;> rfl
+  readPropertyAt_frame {op addr bctx bctx' p} hp hsz hmem hattrs := by
+    cases op
+    case arith op => exact HasBuffedProperties.readPropertyAt_frame hp hsz hmem hattrs
+    case llvm op => exact HasBuffedProperties.readPropertyAt_frame hp hsz hmem hattrs
+    case builtin op =>
+      cases op
+      case unregistered =>
+        exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+          AttrCodec.readProperty_frame _ h h' hr
+            (by rw [ExArray.read64!_eq_read!, ExArray.read64!_eq_read!, hmem 64 addr 8 (Nat.le_refl _) (Nat.le_refl _)])
+            hattrs
+      all_goals exact hp
+    case func op =>
+      cases op
+      case func =>
+        exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+          AttrCodec.readProperty_frame _ h h' hr
+            (by rw [ExArray.read64!_eq_read!, ExArray.read64!_eq_read!, hmem 64 addr 8 (Nat.le_refl _) (Nat.le_refl _)])
+            hattrs
+      all_goals exact hp
+    case test op => cases op <;> exact hp
 
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (propertiesOf opCode) := by

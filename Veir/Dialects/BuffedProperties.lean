@@ -18,6 +18,18 @@ namespace Veir
 
 public section
 
+/-- Lift a per-type `readProperty` transfer to the bounds-checked read used by
+`readPropertyAt`: a successful read survives on any buffer that is at least as large. -/
+theorem Buffed.dite_read_frame {P : Type} {sz : Nat} {addr : UInt64} {bctx bctx' : Buffed.IRBufContext} {p : P}
+    {read : (b : Buffed.IRBufContext) → addr.toNat + sz ≤ b.mem.size → Option P}
+    (hp : (if h : addr.toNat + sz ≤ bctx.mem.size then read bctx h else none) = some p)
+    (hsz : bctx.mem.size ≤ bctx'.mem.size)
+    (htrans : ∀ h h', read bctx h = some p → read bctx' h' = some p) :
+    (if h : addr.toNat + sz ≤ bctx'.mem.size then read bctx' h else none) = some p := by
+  split at hp
+  next hb => rw [dif_pos (by omega)]; exact htrans hb (by omega) hp
+  next => simp at hp
+
 /-- Encode the two flags in the low bits of a single byte: bit 0 is `nsw`, bit 1 is `nuw` (the same layout as MLIR's `overflowFlags`). -/
 def NswNuwProperties.writeProperty (a : NswNuwProperties) (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Buffed.IRBufContext :=
   let byte : BitVec 8 := (if a.nsw then 1 else 0) ||| (if a.nuw then 2 else 0)
@@ -57,6 +69,12 @@ theorem NswNuwProperties.writeProperty_read_disjoint {w : Nat} (a : NswNuwProper
     (a.writeProperty addr bctx h).mem.read! (w := w) n len = bctx.mem.read! n len := by
   simp only [writeProperty]
   exact ExArray.read!_blit_disjoint _ _ _ _ _ (by simpa using hd)
+
+/-- The read depends only on the property byte at `addr`. -/
+theorem NswNuwProperties.readProperty_frame {addr : UInt64} {bctx bctx' : Buffed.IRBufContext} (h h')
+    (hmem : bctx'.mem.read! (w := 8) addr 1 = bctx.mem.read! addr 1) :
+    NswNuwProperties.readProperty addr bctx' h' = NswNuwProperties.readProperty addr bctx h := by
+  simp only [readProperty, ExArray.read_eq_read!, hmem]
 
 /-- Encode the `exact` flag in bit 0 of a single byte. -/
 def ExactProperties.writeProperty (a : ExactProperties) (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Buffed.IRBufContext :=
@@ -98,6 +116,12 @@ theorem ExactProperties.writeProperty_read_disjoint {w : Nat} (a : ExactProperti
   simp only [writeProperty]
   exact ExArray.read!_blit_disjoint _ _ _ _ _ (by simpa using hd)
 
+/-- The read depends only on the property byte at `addr`. -/
+theorem ExactProperties.readProperty_frame {addr : UInt64} {bctx bctx' : Buffed.IRBufContext} (h h')
+    (hmem : bctx'.mem.read! (w := 8) addr 1 = bctx.mem.read! addr 1) :
+    ExactProperties.readProperty addr bctx' h' = ExactProperties.readProperty addr bctx h := by
+  simp only [readProperty, ExArray.read_eq_read!, hmem]
+
 /-- Encode the `disjoint` flag in bit 0 of a single byte. -/
 def DisjointProperties.writeProperty (a : DisjointProperties) (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Buffed.IRBufContext :=
   let byte : BitVec 8 := if a.disjoint then 1 else 0
@@ -137,6 +161,12 @@ theorem DisjointProperties.writeProperty_read_disjoint {w : Nat} (a : DisjointPr
     (a.writeProperty addr bctx h).mem.read! (w := w) n len = bctx.mem.read! n len := by
   simp only [writeProperty]
   exact ExArray.read!_blit_disjoint _ _ _ _ _ (by simpa using hd)
+
+/-- The read depends only on the property byte at `addr`. -/
+theorem DisjointProperties.readProperty_frame {addr : UInt64} {bctx bctx' : Buffed.IRBufContext} (h h')
+    (hmem : bctx'.mem.read! (w := 8) addr 1 = bctx.mem.read! addr 1) :
+    DisjointProperties.readProperty addr bctx' h' = DisjointProperties.readProperty addr bctx h := by
+  simp only [readProperty, ExArray.read_eq_read!, hmem]
 
 /-- Encode the `nneg` flag in bit 0 of a single byte. -/
 def NnegProperties.writeProperty (a : NnegProperties) (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Buffed.IRBufContext :=
@@ -178,6 +208,12 @@ theorem NnegProperties.writeProperty_read_disjoint {w : Nat} (a : NnegProperties
   simp only [writeProperty]
   exact ExArray.read!_blit_disjoint _ _ _ _ _ (by simpa using hd)
 
+/-- The read depends only on the property byte at `addr`. -/
+theorem NnegProperties.readProperty_frame {addr : UInt64} {bctx bctx' : Buffed.IRBufContext} (h h')
+    (hmem : bctx'.mem.read! (w := 8) addr 1 = bctx.mem.read! addr 1) :
+    NnegProperties.readProperty addr bctx' h' = NnegProperties.readProperty addr bctx h := by
+  simp only [readProperty, ExArray.read_eq_read!, hmem]
+
 /-- Encode the comparison predicate as its MLIR numeric code (0–9, see `IntPred.fromNat`) in a single byte. -/
 def IcmpProperties.writeProperty (a : IcmpProperties) (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Buffed.IRBufContext :=
   let byte : BitVec 8 := BitVec.ofNat 8 a.predicate.toNat
@@ -218,6 +254,12 @@ theorem IcmpProperties.writeProperty_read_disjoint {w : Nat} (a : IcmpProperties
   simp only [writeProperty]
   exact ExArray.read!_blit_disjoint _ _ _ _ _ (by simpa using hd)
 
+/-- The read depends only on the property byte at `addr`. -/
+theorem IcmpProperties.readProperty_frame {addr : UInt64} {bctx bctx' : Buffed.IRBufContext} (h h')
+    (hmem : bctx'.mem.read! (w := 8) addr 1 = bctx.mem.read! addr 1) :
+    IcmpProperties.readProperty addr bctx' h' = IcmpProperties.readProperty addr bctx h := by
+  simp only [readProperty, ExArray.read_eq_read!, hmem]
+
 /-- Encode the three fast-math flags in the low bits of a single byte: bit 0 is `nnan`, bit 1 is `ninf`, bit 2 is `nsz`. -/
 def FastMathFlagsProperties.writeProperty (a : FastMathFlagsProperties) (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Buffed.IRBufContext :=
   let byte : BitVec 8 := (if a.attr.nnan then 1 else 0) ||| (if a.attr.ninf then 2 else 0) ||| (if a.attr.nsz then 4 else 0)
@@ -257,6 +299,12 @@ theorem FastMathFlagsProperties.writeProperty_read_disjoint {w : Nat} (a : FastM
     (a.writeProperty addr bctx h).mem.read! (w := w) n len = bctx.mem.read! n len := by
   simp only [writeProperty]
   exact ExArray.read!_blit_disjoint _ _ _ _ _ (by simpa using hd)
+
+/-- The read depends only on the property byte at `addr`. -/
+theorem FastMathFlagsProperties.readProperty_frame {addr : UInt64} {bctx bctx' : Buffed.IRBufContext} (h h')
+    (hmem : bctx'.mem.read! (w := 8) addr 1 = bctx.mem.read! addr 1) :
+    FastMathFlagsProperties.readProperty addr bctx' h' = FastMathFlagsProperties.readProperty addr bctx h := by
+  simp only [readProperty, ExArray.read_eq_read!, hmem]
 
 /-! ## Encoding property fields as `Attribute`s -/
 
@@ -386,6 +434,20 @@ theorem writeProperty_read_disjoint {w : Nat} (p : P) (addr n len : UInt64) (bct
     (c.writeProperty p addr bctx h hattrs).mem.read! (w := w) n len = bctx.mem.read! n len := by
   unfold writeProperty
   exact ExArray.read!_blit64_disjoint _ _ _ _ _ (by simpa using hd)
+
+/-- A successful read survives on any buffer agreeing on the index word whose attribute
+lookups extend those of `bctx` (only one direction: the table of `bctx'` may be larger,
+so a failing read need not stay failing). -/
+theorem readProperty_frame {addr : UInt64} {bctx bctx' : Buffed.IRBufContext} (h h') {p : P}
+    (hp : c.readProperty addr bctx h = some p)
+    (hmem : bctx'.mem.read64! addr = bctx.mem.read64! addr)
+    (hattrs : ∀ (i : Nat) (a : Attribute), bctx.attributes[i]? = some a → bctx'.attributes[i]? = some a) :
+    c.readProperty addr bctx' h' = some p := by
+  unfold readProperty at hp ⊢
+  rw [hmem]
+  rcases hm : bctx.attributes[(bctx.mem.read64! addr).toNat]? with _ | attr <;> rw [hm] at hp
+  · simp at hp
+  · rw [hattrs _ _ hm]; exact hp
 
 end AttrCodec
 

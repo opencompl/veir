@@ -237,6 +237,25 @@ theorem ArithConstantProperties.writeProperty_read_disjoint {w : Nat} (a : Arith
   unfold writeProperty
   split <;> exact ExArray.read!_blit64_disjoint _ _ _ _ _ (by simpa using hd)
 
+/-- A successful read survives on any buffer agreeing on the slot word whose attribute
+lookups extend those of `bctx` (the table may grow, so only success transfers). -/
+theorem ArithConstantProperties.readProperty_frame {addr : UInt64} {bctx bctx' : Buffed.IRBufContext} (h h')
+    {p : ArithConstantProperties}
+    (hp : ArithConstantProperties.readProperty addr bctx h = some p)
+    (hmem : bctx'.mem.read64! addr = bctx.mem.read64! addr)
+    (hattrs : ∀ (i : Nat) (a : Attribute), bctx.attributes[i]? = some a → bctx'.attributes[i]? = some a) :
+    ArithConstantProperties.readProperty addr bctx' h' = some p := by
+  unfold readProperty at hp ⊢
+  simp only [ExArray.read64_eq_read64!] at hp ⊢
+  rw [hmem]
+  split at hp
+  next hc => rw [if_pos hc]; exact hp
+  next hc =>
+    rw [if_neg hc]
+    split at hp
+    next v hm => rw [hattrs _ _ hm]; exact hp
+    next => simp at hp
+
 @[inline]
 instance : HasBuffedProperties Arith where
   writePropertyAt op p addr bctx h hattrs :=
@@ -341,6 +360,34 @@ instance : HasBuffedProperties Arith where
     case cmpi => exact IcmpProperties.writeProperty_read_disjoint p addr n len bctx h hd
     case extui => exact NnegProperties.writeProperty_read_disjoint p addr n len bctx h hd
     all_goals rfl
+  readPropertyAt_frame {op addr bctx bctx' p} hp hsz hmem hattrs := by
+    cases op
+    case constant =>
+      exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+        ArithConstantProperties.readProperty_frame h h' hr
+          (by rw [ExArray.read64!_eq_read!, ExArray.read64!_eq_read!, hmem 64 addr 8 (Nat.le_refl _) (Nat.le_refl _)])
+          hattrs
+    case subi => exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+      (NswNuwProperties.readProperty_frame h h' (hmem 8 addr 1 (Nat.le_refl _) (Nat.le_refl _))).trans hr
+    case shli => exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+      (NswNuwProperties.readProperty_frame h h' (hmem 8 addr 1 (Nat.le_refl _) (Nat.le_refl _))).trans hr
+    case trunci => exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+      (NswNuwProperties.readProperty_frame h h' (hmem 8 addr 1 (Nat.le_refl _) (Nat.le_refl _))).trans hr
+    case divsi => exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+      (ExactProperties.readProperty_frame h h' (hmem 8 addr 1 (Nat.le_refl _) (Nat.le_refl _))).trans hr
+    case divui => exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+      (ExactProperties.readProperty_frame h h' (hmem 8 addr 1 (Nat.le_refl _) (Nat.le_refl _))).trans hr
+    case shrsi => exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+      (ExactProperties.readProperty_frame h h' (hmem 8 addr 1 (Nat.le_refl _) (Nat.le_refl _))).trans hr
+    case shrui => exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+      (ExactProperties.readProperty_frame h h' (hmem 8 addr 1 (Nat.le_refl _) (Nat.le_refl _))).trans hr
+    case ori => exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+      (DisjointProperties.readProperty_frame h h' (hmem 8 addr 1 (Nat.le_refl _) (Nat.le_refl _))).trans hr
+    case cmpi => exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+      (IcmpProperties.readProperty_frame h h' (hmem 8 addr 1 (Nat.le_refl _) (Nat.le_refl _))).trans hr
+    case extui => exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+      (NnegProperties.readProperty_frame h h' (hmem 8 addr 1 (Nat.le_refl _) (Nat.le_refl _))).trans hr
+    all_goals exact hp
 
 
 end

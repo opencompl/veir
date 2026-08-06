@@ -20,32 +20,41 @@ namespace Veir
 
 open Veir.Buffed
 
-variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo]
+variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedProperties OpInfo]
 
-/-- `buf'` reads identically to `buf` everywhere inside `[lo, hi)`, and every attribute
-lookup that succeeds in `buf` returns the same value in `buf'` (so the table may have
-grown, e.g. by an `insertAttrs` push). -/
+/-- `buf'` is at least as large as `buf`, reads identically to `buf` everywhere inside
+`[lo, hi)` (at any width), and every attribute lookup that succeeds in `buf` returns the
+same value in `buf'` (so the table may have grown, e.g. by an `insertAttrs` push). -/
 structure Buffed.AgreesOn (buf' buf : IRBufContext) (lo hi : Nat) : Prop where
-  read64 : ∀ (a : UInt64), lo ≤ a.toNat → a.toNat + 8 ≤ hi → buf'.mem.read64! a = buf.mem.read64! a
-  read32 : ∀ (a : UInt64), lo ≤ a.toNat → a.toNat + 4 ≤ hi → buf'.mem.read32! a = buf.mem.read32! a
+  size : buf.mem.size ≤ buf'.mem.size
+  read : ∀ (w : Nat) (a len : UInt64), lo ≤ a.toNat → a.toNat + len.toNat ≤ hi →
+    buf'.mem.read! (w := w) a len = buf.mem.read! a len
   attrs : ∀ (i : Nat) (a : Attribute), buf.attributes[i]? = some a → buf'.attributes[i]? = some a
+
+theorem Buffed.AgreesOn.read64 {buf' buf : IRBufContext} {lo hi : Nat} (h : AgreesOn buf' buf lo hi)
+    (a : UInt64) (h1 : lo ≤ a.toNat) (h2 : a.toNat + 8 ≤ hi) :
+    buf'.mem.read64! a = buf.mem.read64! a := by
+  rw [ExArray.read64!_eq_read!, ExArray.read64!_eq_read!, h.read 64 a 8 h1 (by simpa using h2)]
+
+theorem Buffed.AgreesOn.read32 {buf' buf : IRBufContext} {lo hi : Nat} (h : AgreesOn buf' buf lo hi)
+    (a : UInt64) (h1 : lo ≤ a.toNat) (h2 : a.toNat + 4 ≤ hi) :
+    buf'.mem.read32! a = buf.mem.read32! a := by
+  rw [ExArray.read32!_eq_read!, ExArray.read32!_eq_read!, h.read 32 a 4 h1 (by simpa using h2)]
 
 /-- A single-`blit64` write agrees with the original buffer on any range disjoint from the
 written word — the one brick every scalar setter needs to feed a `Matches` frame lemma. -/
 theorem Buffed.agreesOn_blit64 (bctx : IRBufContext) (p v : UInt64) (hb) (lo hi : Nat)
     (hd : hi ≤ p.toNat ∨ p.toNat + 8 ≤ lo) :
     AgreesOn { bctx with mem := bctx.mem.blit64 p v hb } bctx lo hi := by
-  refine ⟨fun a h1 h2 => ?_, fun a h1 h2 => ?_, fun _ _ h => h⟩
-  · exact ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega)
-  · exact ExArray.read32!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega)
+  refine ⟨by simp, fun w a len h1 h2 => ?_, fun _ _ h => h⟩
+  exact ExArray.read!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega)
 
 /-- Restrict an agreement to a subrange — the bridge from an allocation's
 whole-old-buffer agreement to the per-record windows the frame lemmas expect. -/
 theorem Buffed.AgreesOn.mono {buf' buf : IRBufContext} {lo hi lo' hi' : Nat}
     (h : AgreesOn buf' buf lo hi) (hlo : lo ≤ lo') (hhi : hi' ≤ hi) :
     AgreesOn buf' buf lo' hi' :=
-  ⟨fun a h1 h2 => h.read64 a (by omega) (by omega),
-   fun a h1 h2 => h.read32 a (by omega) (by omega), h.attrs⟩
+  ⟨h.size, fun w a len h1 h2 => h.read w a len (by omega) (by omega), h.attrs⟩
 
 /-! ## Sum-pointer write footprints vs the framed section ranges
 
@@ -413,19 +422,49 @@ theorem BlockArgumentPtr.matches_frame (ctx : Sim.IRContext OpInfo)
 
 /-! ## Header structures (fixed offsets from the pointer's own address) -/
 
+/-- The `props` field of `OperationPtr.MatchesBase` survives any buffer change agreeing on
+the op's property slot and any spec change fixing the op's type and properties. -/
+theorem OperationPtr.props_frame (ctx : Sim.IRContext OpInfo)
+    {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
+    (op : OperationPtr) (ib : op.InBounds ctx.spec)
+    (hm : HasBuffedProperties.readPropertyAt (op.getOpType! ctx.spec)
+        (op.toM + Buffed.Operation.Offsets.properties) ctx.buf
+      = some (op.getProperties! ctx.spec (op.getOpType! ctx.spec)))
+    (hagree : Buffed.AgreesOn buf' ctx.buf (op.id + 72)
+      (op.id + 72 + (Buffed.Operation.propertySize (op.getOpType! ctx.spec)).toNat))
+    (hgetTy : op.getOpType! spec' = op.getOpType! ctx.spec)
+    (hgprops : op.getProperties! spec' (op.getOpType! ctx.spec)
+      = op.getProperties! ctx.spec (op.getOpType! ctx.spec)) :
+    HasBuffedProperties.readPropertyAt (op.getOpType! spec')
+        (op.toM + Buffed.Operation.Offsets.properties) buf'
+      = some (op.getProperties! spec' (op.getOpType! spec')) := by
+  have hrepr := ctx.sim.repr.operations op ib
+  have hrange := Sim.OperationPtr.range_linear op ib
+  have hsize := Sim.IRContext.mem_size_lt ctx
+  have haddr : (op.toM + Buffed.Operation.Offsets.properties).toNat = op.id + 72 := by
+    rw [UInt64.uint64_add_int64_toNat_lt] <;>
+      grind [Veir.OperationPtr.toM, Veir.OperationPtr.toFlat]
+  rw [hgetTy, hgprops]
+  exact HasBuffedProperties.readPropertyAt_frame hm hagree.size
+    (fun w n len h1 h2 => hagree.read w n len (by grind)
+      (by grind [Operation.propertySize_def])) hagree.attrs
+
 /-- `OperationPtr.MatchesBase` survives any buffer change agreeing on the 72-byte header
-and any layout-preserving spec change fixing the op. -/
+plus the property slot, and any layout-preserving spec change fixing the op. -/
 theorem OperationPtr.matchesBase_frame (ctx : Sim.IRContext OpInfo)
     {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
     (op : OperationPtr) (ib : op.InBounds ctx.spec)
     (hm : OperationPtr.MatchesBase ⟨ctx.buf, ctx.spec⟩ op ib)
-    (hagree : Buffed.AgreesOn buf' ctx.buf op.id (op.id + 72))
+    (hagree : Buffed.AgreesOn buf' ctx.buf op.id
+      (op.id + 72 + (Buffed.Operation.propertySize (op.getOpType! ctx.spec)).toNat))
     (_hlay : ctx.spec.LayoutPreserved spec')
     (hgprev : (op.get! spec').prev = (op.get! ctx.spec).prev)
     (hgnext : (op.get! spec').next = (op.get! ctx.spec).next)
     (hgparent : (op.get! spec').parent = (op.get! ctx.spec).parent)
     (hgattrs : (op.get! spec').attrs = (op.get! ctx.spec).attrs)
     (hgetTy : op.getOpType! spec' = op.getOpType! ctx.spec)
+    (hgprops : op.getProperties! spec' (op.getOpType! ctx.spec)
+      = op.getProperties! ctx.spec (op.getOpType! ctx.spec))
     (ib' : op.InBounds spec') :
     OperationPtr.MatchesBase ⟨buf', spec'⟩ op ib' := by
   have hrepr := ctx.sim.repr.operations op ib
@@ -448,6 +487,8 @@ theorem OperationPtr.matchesBase_frame (ctx : Sim.IRContext OpInfo)
     grind [Buffed.OperationMPtr.readOpType!]
   · have := hm.attrs
     grind [Buffed.OperationMPtr.readAttrs!]
+  · exact OperationPtr.props_frame ctx op ib hm.props (hagree.mono (by omega) (by omega))
+      hgetTy hgprops
 
 /-- `BlockPtr.MatchesBase` survives any buffer change agreeing on the 56-byte header and
 any layout-preserving spec change fixing the block. -/

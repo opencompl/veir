@@ -14,7 +14,7 @@ public section
 
 namespace Veir.Sim
 
-variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo]
+variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedProperties OpInfo]
 
 variable {ctx ctx' : IRContext OpInfo}
 
@@ -199,7 +199,7 @@ theorem OperationPtr.getResult_inBounds (op : OperationPtr)
   exact ⟨(Sim.OpResultPtr.Sim_def _ _).mpr (OperationPtr.getResult_toM op hop i h₂), OperationPtr.getResult_veir_inBounds op hop i h₂⟩
 
 @[grind =>]
-theorem OperationPtr.allocEmpty_genericPtr_iff [HasBuffedProperties OpInfo] (ptr : GenericPtr)
+theorem OperationPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr)
     (heq : allocEmpty ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .fromOperation ptr') := by
   have hspec := Sim.OperationPtr.allocEmpty_spec' heq
@@ -223,33 +223,33 @@ theorem OperationPtr.allocEmpty_genericPtr_iff [HasBuffedProperties OpInfo] (ptr
     · refine ⟨?_, (Veir.OperationPtr.allocEmptyAt_genericPtr_iff _ hspec).mpr (.inr (by grind [Sim.GenericPtr.fromOperation]))⟩
       grind [Sim.GenericPtr.fromOperation, Veir.GenericPtr.toM, Veir.OperationPtr.toM]
 
-theorem OperationPtr.allocEmpty_operationPtr_iff [HasBuffedProperties OpInfo] (ptr : OperationPtr)
+theorem OperationPtr.allocEmpty_operationPtr_iff (ptr : OperationPtr)
     (heq : allocEmpty ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr =  ptr') := by
   grind [generic_ptr_grind, Sim.OperationPtr]
 
 @[grind . ]
-theorem OperationPtr.allocEmpty_genericPtr_mono [HasBuffedProperties OpInfo] (ptr : GenericPtr)
+theorem OperationPtr.allocEmpty_genericPtr_mono (ptr : GenericPtr)
     (heq : allocEmpty ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
     ptr.InBounds ctx → ptr.InBounds ctx' := by
   grind
 
 @[grind .]
-theorem OperationPtr.allocEmpty_newBlock_inBounds [HasBuffedProperties OpInfo]
+theorem OperationPtr.allocEmpty_newBlock_inBounds
     (heq : allocEmpty ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
     ptr'.InBounds ctx' := by
   have := (OperationPtr.allocEmpty_genericPtr_iff (.fromOperation ptr') heq).mpr (.inr rfl)
   grind [generic_ptr_grind]
 
 @[grind .]
-theorem OperationPtr.allocEmpty_newBlock_veir_inBounds [HasBuffedProperties OpInfo] {ptr : Veir.GenericPtr}
+theorem OperationPtr.allocEmpty_newBlock_veir_inBounds {ptr : Veir.GenericPtr}
     (heq : allocEmpty ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
     ptr.InBounds ctx.spec → ptr.InBounds ctx'.spec := by
   have hspec := Sim.OperationPtr.allocEmpty_spec' heq
   grind
 
 @[grind .]
-theorem OperationPtr.allocEmpty_not_inBounds [HasBuffedProperties OpInfo]
+theorem OperationPtr.allocEmpty_not_inBounds
     (heq : allocEmpty ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
     ¬ ptr'.spec.InBounds ctx.spec :=
   Veir.OperationPtr.allocEmptyAt_not_inBounds (Sim.OperationPtr.allocEmpty_spec' heq)

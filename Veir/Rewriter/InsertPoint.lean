@@ -15,7 +15,7 @@ set_option linter.unusedSectionVars false
 
 namespace Veir
 
-variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo]
+variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedProperties OpInfo]
 variable {ctx ctx' : IRContext OpInfo}
 
 section InsertPoint

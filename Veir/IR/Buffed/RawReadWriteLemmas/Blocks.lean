@@ -16,7 +16,7 @@ open scoped Veir.Buffed
 
 section read_write
 
-variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] {ctx : Sim.IRContext OpInfo}
+variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedProperties OpInfo] {ctx : Sim.IRContext OpInfo}
 
 /-! ## BlockMPtr.readFirstUse! -/
 

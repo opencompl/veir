@@ -16,7 +16,7 @@ open scoped Veir.Buffed
 
 section read_write
 
-variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] {ctx : Sim.IRContext OpInfo}
+variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedProperties OpInfo] {ctx : Sim.IRContext OpInfo}
 
 theorem Sim.RegionPtr.after_lt_ctx (rg : Veir.RegionPtr) (opIb : rg.InBounds ctx.spec) :
     rg.id + Buffed.Region.Offsets.afterInt ≤ ctx.buf.size := by
