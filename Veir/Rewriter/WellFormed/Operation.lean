@@ -650,6 +650,11 @@ theorem OperationPtr.getOperand_Rewriter_eraseOp
     OperationPtr.getOperand op' ctx idx (by sorry) (by sorry) := by
   sorry
 
+section createOp
+
+variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {opType : Dialect} {properties : HasDialectOpInfo.propertiesOf opType}
+
 theorem Rewriter.createEmptyOp_wellFormed  (hctx : IRContext.WellFormed ctx) :
     Rewriter.createEmptyOp ctx opType properties = some (newCtx, newOp) →
     newCtx.WellFormed := by
@@ -775,5 +780,7 @@ theorem BlockPtr.operationList_rewriter_createOp
       split <;>
         grind [Rewriter.initOpOperands_WellFormed, Rewriter.initBlockOperands_WellFormed,
           Rewriter.insertOp_WellFormed, IRContext.wellFormed_rewriter_initOpResults]
+
+end createOp
 
 end Veir

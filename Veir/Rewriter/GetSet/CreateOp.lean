@@ -57,6 +57,10 @@ variable {OpInfo} [HasOpInfo OpInfo]
 variable {ctx : IRContext OpInfo}
 variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
 variable {dialectOpType : Dialect}
+variable {CreateDialect : Type} [HasDialectOpInfo CreateDialect]
+  [HasDialect OpInfo CreateDialect]
+variable {opType : CreateDialect}
+variable {properties : HasDialectOpInfo.propertiesOf opType}
 section Rewriter.createEmptyOp
 
 variable {op : OperationPtr}
@@ -147,7 +151,7 @@ grind_pattern OperationPtr.parent!_createEmptyOp =>
 theorem OperationPtr.getOpType!_createEmptyOp {operation : OperationPtr} :
     Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
     operation.getOpType! ctx' =
-    if operation = op then opType else operation.getOpType! ctx := by
+    if operation = op then ofDialect OpInfo opType else operation.getOpType! ctx := by
   grind [Operation.empty]
 
 grind_pattern OperationPtr.getOpType!_createEmptyOp =>
@@ -166,8 +170,8 @@ theorem OperationPtr.getProperties!_createEmptyOp {operation : OperationPtr} :
     Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
     operation.getProperties! ctx' dialectOpType =
     if operation = op then
-      if h : (dialectOpType : OpInfo) = opType then
-        HasDialect.toDialectProperties dialectOpType (h ▸ properties)
+      if h : ofDialect OpInfo opType = ofDialect OpInfo dialectOpType then
+        HasDialect.properties_eq_of_ofDialect_eq h ▸ properties
       else default
     else
       operation.getProperties! ctx dialectOpType := by
@@ -470,7 +474,7 @@ theorem OperationPtr.getOpType!_createOp {operation : OperationPtr} :
     Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
     operation.getOpType! ctx' =
-    if operation = newOp then opType else operation.getOpType! ctx := by
+    if operation = newOp then ofDialect OpInfo opType else operation.getOpType! ctx := by
   simp only [Rewriter.createOp]
   grind (gen := 20)
 
@@ -489,8 +493,8 @@ theorem OperationPtr.getProperties!_createOp {operation : OperationPtr} :
       insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
     operation.getProperties! ctx' dialectOpType =
     if operation = newOp then
-      if h : (dialectOpType : OpInfo) = opType then
-        HasDialect.toDialectProperties dialectOpType (h ▸ properties)
+      if h : ofDialect OpInfo opType = ofDialect OpInfo dialectOpType then
+        HasDialect.properties_eq_of_ofDialect_eq h ▸ properties
       else default
     else
       operation.getProperties! ctx dialectOpType := by

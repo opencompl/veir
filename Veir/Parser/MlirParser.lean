@@ -197,14 +197,6 @@ def modifyContextM (f : WfIRContext OpInfo → MlirParserM OpInfo (WfIRContext O
   modifyContextM' (fun ctx => do pure ((), ← f ctx))
 
 /--
-  The operation code used for forward-reference placeholders.
-  We use a throwaway operation result (specifically a `builtin.unrealized_conversion_cast`)
-  to stand in for a value that is referenced before it is defined.
--/
-def placeholderOpCode : OpInfo :=
-  ofDialect OpInfo Builtin.unrealized_conversion_cast
-
-/--
   Create a detached, single-result placeholder operation of the given type.
   Its result is used to stand in for a value that has been referenced but not yet
   defined. The operation is not inserted into any block; once the real definition is
@@ -214,8 +206,8 @@ def placeholderOpCode : OpInfo :=
 def createForwardRefPlaceholder (ty : TypeAttr) (loc : Location) :
     MlirParserM OpInfo OperationPtr :=
   modifyContextM' fun ctx => do
-    match WfRewriter.createOp ctx placeholderOpCode #[ty] #[] #[] #[]
-        (default : HasOpInfo.propertiesOf placeholderOpCode) none with
+    match WfRewriter.createOp ctx Builtin.unrealized_conversion_cast #[ty] #[] #[] #[]
+      default none with
     | none => throwAt loc "internal error: failed to create forward-reference placeholder"
     | some (ctx', op) => pure (op, ctx')
 

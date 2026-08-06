@@ -79,15 +79,15 @@ def reconcileRegIntCastLocal (ctx : WfIRContext OpCode) (op : OperationPtr) :
   /- Replace the initial operation's output with a zero-extension of the parent's input -/
   match interBw with
   | 8 =>
-      let (ctx, newOp) ← WfRewriter.createOp! ctx (.riscv .zextb) #[RegisterType.mk] #[parentInput]
+      let (ctx, newOp) ← WfRewriter.createOp! ctx Riscv.zextb #[RegisterType.mk] #[parentInput]
         #[] #[] () none
       return (ctx, some (#[newOp], #[newOp.getResult 0]))
   | 16 =>
-      let (ctx, newOp) ← WfRewriter.createOp! ctx (.riscv .zexth) #[RegisterType.mk] #[parentInput]
+      let (ctx, newOp) ← WfRewriter.createOp! ctx Riscv.zexth #[RegisterType.mk] #[parentInput]
         #[] #[] () none
       return (ctx, some (#[newOp], #[newOp.getResult 0]))
   | 32 =>
-      let (ctx, newOp) ← WfRewriter.createOp! ctx (.riscv .zextw) #[RegisterType.mk] #[parentInput]
+      let (ctx, newOp) ← WfRewriter.createOp! ctx Riscv.zextw #[RegisterType.mk] #[parentInput]
         #[] #[] () none
       return (ctx, some (#[newOp], #[newOp.getResult 0]))
   | bw =>
@@ -98,10 +98,10 @@ def reconcileRegIntCastLocal (ctx : WfIRContext OpCode) (op : OperationPtr) :
       /- for bitwidths with no dedicated instruction, shift left then right -/
       if bw >= 64 then none else
       let imm := IntegerAttr.mk (64-bw) (.mk 64)
-      let (ctx, shlOp) ← WfRewriter.createOp! ctx (.riscv .slli) #[RegisterType.mk] #[parentInput]
-        #[] #[] ⟨imm⟩ none
-      let (ctx, srlOp) ← WfRewriter.createOp! ctx (.riscv .srli) #[RegisterType.mk]
-        #[shlOp.getResult 0] #[] #[] ⟨imm⟩ none
+      let (ctx, shlOp) ← WfRewriter.createOp! ctx Riscv.slli #[RegisterType.mk] #[parentInput]
+        #[] #[] (⟨imm⟩ : RISCVImmediateProperties) none
+      let (ctx, srlOp) ← WfRewriter.createOp! ctx Riscv.srli #[RegisterType.mk]
+        #[shlOp.getResult 0] #[] #[] (⟨imm⟩ : RISCVImmediateProperties) none
       return (ctx, some (#[shlOp, srlOp], #[srlOp.getResult 0]))
 
 

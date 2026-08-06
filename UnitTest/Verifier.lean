@@ -36,14 +36,14 @@ private def contextWithCrossRegionSuccessor : Except String (WfIRContext OpCode)
     WfRewriter.createBlock! ctx #[] (some (.atEnd targetRegion))
 
   let (ctx, _) :=
-      (WfRewriter.createOp! ctx (.test .test) #[] #[] #[] #[sourceRegion] ()
+      (WfRewriter.createOp! ctx Test.test #[] #[] #[] #[sourceRegion] ()
         (some (.atEnd moduleBlock))).get!
   let (ctx, _) :=
-      (WfRewriter.createOp! ctx (.test .test) #[] #[] #[] #[targetRegion] ()
+      (WfRewriter.createOp! ctx Test.test #[] #[] #[] #[targetRegion] ()
         (some (.atEnd moduleBlock))).get!
 
   let (ctx, _) :=
-      (WfRewriter.createOp! ctx (.cf .br) #[] #[] #[targetBlock] #[] ()
+      (WfRewriter.createOp! ctx Cf.br #[] #[] #[targetBlock] #[] ()
         (some (.atEnd sourceBlock))).get!
   return ctx
 

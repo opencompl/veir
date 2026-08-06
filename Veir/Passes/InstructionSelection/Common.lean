@@ -17,7 +17,7 @@ namespace Veir
 -/
 def castToRegLocal (ctx : WfIRContext OpCode) (v : ValuePtr) :
     Option (WfIRContext OpCode × OperationPtr) :=
-  WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast)
+  WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast
       #[RegisterType.mk] #[v] #[] #[] () none
 
 /--
@@ -31,7 +31,7 @@ def castToRegLocal (ctx : WfIRContext OpCode) (v : ValuePtr) :
 def replaceWithRegLocal (ctx : WfIRContext OpCode) (op : OperationPtr) (reg : ValuePtr) :
     Option (WfIRContext OpCode × OperationPtr) :=
   let type := ((op.getResult 0).get! ctx.raw).type
-  WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast)
+  WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast
       #[type] #[reg] #[] #[] () none
 
 end Veir

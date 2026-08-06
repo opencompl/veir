@@ -1193,10 +1193,13 @@ theorem nextResult!_eq_getResult {op : OperationPtr} :
     op.nextResult! ctx = op.getResult (op.getNumResults! ctx) := by
   rfl
 
-def allocEmpty (ctx : IRContext OpInfo) (opType : OpInfo) (properties : HasOpInfo.propertiesOf opType) :
+def allocEmpty {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+    (ctx : IRContext OpInfo) (opType : Dialect)
+    (properties : HasDialectOpInfo.propertiesOf opType) :
     Option (IRContext OpInfo × OperationPtr) :=
   let newOpPtr : OperationPtr := ⟨ctx.nextID⟩
-  let operation := Operation.empty opType properties
+  let globalProperties := HasDialect.ofDialectProperties OpInfo opType properties
+  let operation := Operation.empty (opType : OpInfo) globalProperties
   if _ : ctx.operations.contains newOpPtr then none else
   let ctx := { ctx with nextID := ctx.nextID + 1 }
   let ctx := newOpPtr.set ctx operation
