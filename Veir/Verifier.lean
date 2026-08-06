@@ -352,6 +352,8 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
   | .cf opType => Cf.verifyLocalInvariants opType op ctx opIn
   /- PDL -/
   | .pdl opType => PDL.verifyLocalInvariants opType op ctx opIn
+  /- MATCH -/
+  | .«match» opType => Match.verifyLocalInvariants opType op ctx opIn
   /- TEST -/
   | .test .test => do
     pure ()

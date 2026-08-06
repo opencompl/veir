@@ -30,6 +30,7 @@ match opCode with
 | .func op => Func.propertiesOf op
 | .datapath op => Datapath.propertiesOf op
 | .pdl op => PDL.propertiesOf op
+| .«match» op => Match.propertiesOf op
 | .test op => Test.propertiesOf op
 
 /--
@@ -66,6 +67,7 @@ def OpCode.readsMemory (opCode : OpCode) (props : _propertiesOf opCode) : Bool :
   | .func op, props => Func.readsMemory op props
   | .datapath op, props => Datapath.readsMemory op props
   | .pdl op, props => PDL.readsMemory op props
+  | .«match» op, props => Match.readsMemory op props
   | .test op, props => Test.readsMemory op props
 
 /--
@@ -87,6 +89,7 @@ def OpCode.writesMemory (opCode : OpCode) (props : _propertiesOf opCode) : Bool 
   | .func op, props => Func.writesMemory op props
   | .datapath op, props => Datapath.writesMemory op props
   | .pdl op, props => PDL.writesMemory op props
+  | .«match» op, props => Match.writesMemory op props
   | .test op, props => Test.writesMemory op props
 
 /--
@@ -117,6 +120,7 @@ def OpCode.hasSideEffects (opCode : OpCode) (props : _propertiesOf opCode) : Boo
   | .func op, props => Func.hasSideEffects op props
   | .datapath op, props => Datapath.hasSideEffects op props
   | .pdl op, props => PDL.hasSideEffects op props
+  | .«match» op, props => Match.hasSideEffects op props
   | .test op, props => Test.hasSideEffects op props
 
 inductive RegionKind where
@@ -156,6 +160,7 @@ def OpCode.hasSSADominance (opCode : OpCode) (index : Nat) : Bool :=
   | .func op => Func.hasSSADominance op index
   | .datapath op => Datapath.hasSSADominance op index
   | .pdl op => PDL.hasSSADominance op index
+  | .«match» op => Match.hasSSADominance op index
   | .test op => Test.hasSSADominance op index
 
 /--
@@ -179,6 +184,7 @@ def OpCode.hasNoTerminator (opCode : OpCode) (index : Nat) : Bool :=
   | .func op => HasDialectOpInfo.hasNoTerminator op index
   | .datapath op => HasDialectOpInfo.hasNoTerminator op index
   | .pdl op => HasDialectOpInfo.hasNoTerminator op index
+  | .«match» op => HasDialectOpInfo.hasNoTerminator op index
   | .test op => HasDialectOpInfo.hasNoTerminator op index
 
 /--
@@ -205,6 +211,7 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | .func op => Func.isConstantLike op
   | .datapath op => Datapath.isConstantLike op
   | .pdl op => PDL.isConstantLike op
+  | .«match» op => Match.isConstantLike op
   | .test op => Test.isConstantLike op
 
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
@@ -224,6 +231,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   | .func op => Func.fromAttrDict op attrDict
   | .datapath op => Datapath.fromAttrDict op attrDict
   | .pdl op => PDL.fromAttrDict op attrDict
+  | .«match» op => Match.fromAttrDict op attrDict
   | .test op => Test.fromAttrDict op attrDict
 
 /--
@@ -247,6 +255,7 @@ def Properties.toAttrDict
   | .func op, props => Func.toAttrDict op props
   | .datapath op, props => Datapath.toAttrDict op props
   | .pdl op, props => PDL.toAttrDict op props
+  | .«match» op, props => Match.toAttrDict op props
   | .test op, props => Test.toAttrDict op props
 
 instance : HasDialectOpInfo OpCode where
