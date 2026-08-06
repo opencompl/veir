@@ -1,8 +1,6 @@
 module
 
 public import Veir.IR
-import Veir.IR.WellFormed
-import Veir.IR.Grind
 
 public section
 

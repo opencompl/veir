@@ -18,4 +18,4 @@ def PrintIRPass.impl (ctx : WfIRContext OpCode)
 public def PrintIRPass : Pass OpCode :=
   { name := "print-ir"
     description := "Print the IR on the stderr stream."
-    run := PrintIRPass.impl }
+    run := fun _ => PrintIRPass.impl }

@@ -166,6 +166,11 @@ theorem WfRewriter.pushBlockOperand_inBounds_mono :
 
 /-! ## `WfRewriter.createOp` -/
 
+section WfRewriter.createOp
+
+variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {opType : Dialect} {properties : HasDialectOpInfo.propertiesOf opType}
+
 @[grind →]
 theorem WfRewriter.createOp_new_inBounds (ptr : OperationPtr)
     (heq : WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
@@ -186,6 +191,8 @@ theorem WfRewriter.createOp_inBounds_mono
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp)) :
     ptr.InBounds ctx.raw → ptr.InBounds ctx'.raw := by
   grind [WfRewriter.createOp]
+
+end WfRewriter.createOp
 
 /-! ## `WfIRContext.create` -/
 

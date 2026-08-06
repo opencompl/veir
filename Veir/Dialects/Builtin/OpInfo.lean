@@ -3,7 +3,7 @@ module
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Dialects.Builtin.Properties
-meta import Veir.Meta.Attrs
+meta import Veir.Meta.OpCode
 
 namespace Veir
 
@@ -41,8 +41,17 @@ def Builtin.hasSideEffects (op : Builtin) (_props : Builtin.propertiesOf op) : B
   | .unrealized_conversion_cast => false
   | _ => true
 
-def Builtin.readsMemory (_op : Builtin) : Bool :=
-  false
+def Builtin.readsMemory
+    (op : Builtin) (_props : Builtin.propertiesOf op) : Bool :=
+  match op with
+  | .unrealized_conversion_cast => false
+  | _ => true
+
+def Builtin.writesMemory
+    (op : Builtin) (_props : Builtin.propertiesOf op) : Bool :=
+  match op with
+  | .unrealized_conversion_cast => false
+  | _ => true
 
 def Builtin.isConstantLike (_op : Builtin) : Bool :=
   false
@@ -52,14 +61,27 @@ def Builtin.hasSSADominance (op : Builtin) (_index : Nat) : Bool :=
   | .module | .unregistered => false
   | _ => true
 
+/-- A `builtin.module` body holds no terminator, and an unregistered operation
+    makes no promise about its regions. -/
+def Builtin.hasNoTerminator (op : Builtin) (_index : Nat) : Bool :=
+  match op with
+  | .module | .unregistered => true
+  | _ => false
+
+#generate_dialect Builtin
+
 instance : HasDialectOpInfo Builtin where
+  fromName := Builtin.fromName
+  name := Builtin.name
   propertiesOf := Builtin.propertiesOf
   fromAttrDict := Builtin.fromAttrDict
   toAttrDict := Builtin.toAttrDict
   hasSideEffects := Builtin.hasSideEffects
   readsMemory := Builtin.readsMemory
+  writesMemory := Builtin.writesMemory
   isConstantLike := Builtin.isConstantLike
   hasSSADominance := Builtin.hasSSADominance
+  hasNoTerminator := Builtin.hasNoTerminator
 
 end
 

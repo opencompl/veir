@@ -461,6 +461,80 @@ partial def parseOptionalLLVMVoidType : AttrParserM (Option TypeAttr) := do
   return some LLVM.VoidType.mk
 
 /--
+  Parse a PDL range handle type `!pdl.range<...>`, if present. MLIR restricts
+  the element to the four handle types, so a range never nests.
+-/
+partial def parseOptionalPDLRangeType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "pdl.range".toByteArray then return none
+  let _ ← consumeToken
+  parsePunctuation "<"
+  let element ←
+    if ← parseOptionalKeyword "attribute".toByteArray then
+      pure PDL.RangeElement.attribute
+    else if ← parseOptionalKeyword "operation".toByteArray then
+      pure PDL.RangeElement.operation
+    else if ← parseOptionalKeyword "type".toByteArray then
+      pure PDL.RangeElement.type
+    else if ← parseOptionalKeyword "value".toByteArray then
+      pure PDL.RangeElement.value
+    else
+      throwAtCurrentPos "expected the element of a '!pdl.range' to be one of 'attribute', 'operation', 'type' or 'value'"
+  parsePunctuation ">"
+  return some (PDL.RangeType.mk element)
+
+/--
+  Parse a PDL attribute handle type `!pdl.attribute`, if present.
+-/
+partial def parseOptionalPDLAttributeType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "pdl.attribute".toByteArray then return none
+  let _ ← consumeToken
+  return some PDL.AttributeType.mk
+
+/--
+  Parse a PDL operation handle type `!pdl.operation`, if present.
+-/
+partial def parseOptionalPDLOperationType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "pdl.operation".toByteArray then return none
+  let _ ← consumeToken
+  return some PDL.OperationType.mk
+
+/--
+  Parse a PDL value handle type `!pdl.value`, if present.
+-/
+partial def parseOptionalPDLValueType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "pdl.value".toByteArray then return none
+  let _ ← consumeToken
+  return some PDL.ValueType.mk
+
+/--
+  Parse a PDL type handle type `!pdl.type`, if present.
+-/
+partial def parseOptionalPDLTypeType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "pdl.type".toByteArray then return none
+  let _ ← consumeToken
+  return some PDL.TypeType.mk
+
+/--
   Parse an LLVM pointer type `!llvm.ptr`, if present.
 -/
 partial def parseOptionalLLVMPointerType : AttrParserM (Option TypeAttr) := do
@@ -707,6 +781,26 @@ partial def parseOptionalLLVMFunctionType : AttrParserM (Option TypeAttr) := do
   return some ⟨.llvmFunctionType ft, by simp⟩
 
 /--
+  Parse a `match` optional handle type `!match.optional<...>`, if present.
+
+  The wrapped type is parsed with the general type parser rather than a fixed
+  enumeration: MLIR's `!match.optional` takes any type, and it is the verifier
+  that narrows it to a PDL handle. That recursion is why this sits in the
+  mutual block with `parseType`, unlike the PDL handle parsers above.
+-/
+partial def parseOptionalMatchOptionalType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "match.optional".toByteArray then return none
+  let _ ← consumeToken
+  parsePunctuation "<"
+  let inner ← parseType "expected the wrapped type of a '!match.optional'"
+  parsePunctuation ">"
+  return some (Match.OptionalType.mk inner)
+
+/--
   Parse a type, if present.
 -/
 partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
@@ -734,6 +828,18 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some cudaTilePointerType
   if let some hwModuleType ← parseOptionalHWModuleType then
     return some hwModuleType
+  if let some pdlRangeType ← parseOptionalPDLRangeType then
+    return some pdlRangeType
+  if let some pdlAttributeType ← parseOptionalPDLAttributeType then
+    return some pdlAttributeType
+  if let some pdlOperationType ← parseOptionalPDLOperationType then
+    return some pdlOperationType
+  if let some pdlValueType ← parseOptionalPDLValueType then
+    return some pdlValueType
+  if let some pdlTypeType ← parseOptionalPDLTypeType then
+    return some pdlTypeType
+  if let some matchOptionalType ← parseOptionalMatchOptionalType then
+    return some matchOptionalType
   if let some dialectType ← parseOptionalDialectType then
     return some dialectType
   else if let some functionType := ← parseOptionalFunctionType then

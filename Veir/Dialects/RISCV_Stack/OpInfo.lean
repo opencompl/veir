@@ -3,7 +3,7 @@ module
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Dialects.RISCV_Stack.Properties
-meta import Veir.Meta.Attrs
+meta import Veir.Meta.OpCode
 
 namespace Veir
 
@@ -38,7 +38,12 @@ def Riscv_Stack.hasSideEffects
     (_op : Riscv_Stack) (_props : Riscv_Stack.propertiesOf _op) : Bool :=
   true
 
-def Riscv_Stack.readsMemory (_op : Riscv_Stack) : Bool :=
+def Riscv_Stack.readsMemory
+    (_op : Riscv_Stack) (_props : Riscv_Stack.propertiesOf _op) : Bool :=
+  false
+
+def Riscv_Stack.writesMemory
+    (_op : Riscv_Stack) (_props : Riscv_Stack.propertiesOf _op) : Bool :=
   false
 
 def Riscv_Stack.isConstantLike (_op : Riscv_Stack) : Bool :=
@@ -47,12 +52,17 @@ def Riscv_Stack.isConstantLike (_op : Riscv_Stack) : Bool :=
 def Riscv_Stack.hasSSADominance (_op : Riscv_Stack) (_index : Nat) : Bool :=
   true
 
+#generate_dialect Riscv_Stack
+
 instance : HasDialectOpInfo Riscv_Stack where
+  fromName := Riscv_Stack.fromName
+  name := Riscv_Stack.name
   propertiesOf := Riscv_Stack.propertiesOf
   fromAttrDict := Riscv_Stack.fromAttrDict
   toAttrDict := Riscv_Stack.toAttrDict
   hasSideEffects := Riscv_Stack.hasSideEffects
   readsMemory := Riscv_Stack.readsMemory
+  writesMemory := Riscv_Stack.writesMemory
   isConstantLike := Riscv_Stack.isConstantLike
   hasSSADominance := Riscv_Stack.hasSSADominance
 

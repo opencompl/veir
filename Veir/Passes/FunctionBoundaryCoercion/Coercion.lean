@@ -1,11 +1,7 @@
 module
 
 public import Veir.Pass
-import Veir.PatternRewriter.Basic
-import Veir.Passes.Matching
 import Veir.Passes.DCE.dce
-import Veir.Rewriter.WfRewriter
-import Veir.Interfaces.FunctionInterfaces
 
 namespace Veir
 
@@ -17,13 +13,13 @@ namespace Veir
   The coercion applied is selected by a `BoundaryCoercion` flag;
   each variant is  exposed as its own pass:
   - `.riscvReg`: i32-, i64-, and pointer-typed boundaries become `!riscv.reg`.
-  - `.modArithToInt`: `!mod_arith.int<q : iN>`-typed boundaries become `iN`.
+  - `.modArithToInt legalizeWidth`: `!mod_arith.int<q : iN>`-typed boundaries become `i(legalizeWidth N)`
 -/
 
 /-- Selects which boundary coercion the shared implementation applies. -/
 inductive BoundaryCoercion where
   | riscvReg
-  | modArithToInt
+  | modArithToInt (legalizeWidth : Nat → Nat)
 
 /-- The type a boundary value of type `t` is coerced to, or `none` to leave it alone. -/
 def BoundaryCoercion.target : BoundaryCoercion → TypeAttr → Option TypeAttr
@@ -33,9 +29,9 @@ def BoundaryCoercion.target : BoundaryCoercion → TypeAttr → Option TypeAttr
       if x.bitwidth == 64 || x.bitwidth == 32 then some (RegisterType.mk : TypeAttr) else none
     | .llvmPointerType _ => some (RegisterType.mk : TypeAttr)
     | _ => none
-  | .modArithToInt, t =>
+  | .modArithToInt legalizeWidth, t =>
     match t.val with
-    | .modArithType mt => some mt.modulus.type
+    | .modArithType mt => some (IntegerType.mk (legalizeWidth mt.bitwidth) : TypeAttr)
     | _ => none
 
 /-- The return-terminator opcode paired with a function op (`func.return` for
@@ -69,7 +65,7 @@ def coerceFunction (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
       ctx := WfRewriter.setType ctx bap newType sorry
       let ip := InsertPoint.atStart entry ctx.raw sorry
       let some (ctx', cast) := WfRewriter.createOp ctx
-        (.builtin .unrealized_conversion_cast) #[origType] #[] #[] #[] default (some ip)
+        Builtin.unrealized_conversion_cast #[origType] #[] #[] #[] default (some ip)
         sorry sorry sorry sorry | return ctx
       let ctx' := WfRewriter.replaceValue ctx' bap (cast.getResult 0) sorry sorry sorry
       ctx := WfRewriter.pushOperand ctx' cast bap sorry sorry
@@ -87,7 +83,7 @@ def coerceFunction (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
       match coercion.target opType with
       | some newType =>
         let some (ctx', cast) := WfRewriter.createOp ctx
-          (.builtin .unrealized_conversion_cast) #[newType] #[opVal] #[] #[] default
+          Builtin.unrealized_conversion_cast #[newType] #[opVal] #[] #[] default
           (some (InsertPoint.before retOp)) sorry sorry sorry sorry | return ctx
         ctx := WfRewriter.replaceOperand ctx' ⟨retOp, j⟩ (cast.getResult 0) sorry sorry
         -- The `j`-th operand maps to the `j`-th declared result: the verifier guarantees
@@ -120,9 +116,12 @@ def CoerceFunctionBoundariesPass.impl (coercion : BoundaryCoercion) (ctx : WfIRC
 public def CoerceFunctionBoundariesToRiscvRegPass : Pass OpCode :=
   { name := "coerce-function-boundaries-to-riscv-reg"
     description := "Coerce i32/i64/pointer function boundaries to `!riscv.reg`."
-    run := CoerceFunctionBoundariesPass.impl .riscvReg }
+    run := fun _ => CoerceFunctionBoundariesPass.impl .riscvReg }
 
 public def CoerceModArithFunctionBoundariesPass : Pass OpCode :=
   { name := "coerce-mod-arith-function-boundaries"
     description := "Coerce `!mod_arith.int` function boundaries to their storage integer type."
-    run := CoerceFunctionBoundariesPass.impl .modArithToInt }
+    options := .ofList [("pow2-width", "Widen the storage integer type to a power-of-two bitwidth.")]
+    run := fun options =>
+      CoerceFunctionBoundariesPass.impl
+        (.modArithToInt (if options.contains "pow2-width" then Nat.nextPowerOfTwo else id)) }

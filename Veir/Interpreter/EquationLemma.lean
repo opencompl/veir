@@ -1,8 +1,5 @@
 module
 
-public import Veir.IR.OpInfo
-public import Veir.IR.Basic
-public import Veir.GlobalOpInfo
 public import Veir.Interpreter.Basic
 public import Veir.Dominance
 public import Veir.Verifier

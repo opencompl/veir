@@ -43,7 +43,7 @@ def matchXori (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr ×
 
 def matchConstantIntOp (op : OperationPtr) (ctx : IRContext OpCode) : Option IntegerAttr := do
   let .llvm .mlir__constant := op.getOpType! ctx | none
-  let properties := op.getProperties! ctx (.llvm .mlir__constant)
+  let properties := op.getProperties! ctx (OpCode.llvm Llvm.mlir__constant)
   let .integer intAttr := properties.value | none
   return intAttr
 
@@ -252,7 +252,7 @@ def matchStore (op : OperationPtr) (ctx : IRContext OpCode) :
   guard (op.getOpType! ctx = .llvm .store)
   guard (op.getNumOperands! ctx = 2)
   let operands := op.getOperands! ctx
-  let properties := op.getProperties! ctx (.llvm .store)
+  let properties := op.getProperties! ctx (OpCode.llvm Llvm.store)
   return (operands[0]!, operands[1]!, properties)
 
 def matchFreeze (op : OperationPtr) (ctx : IRContext OpCode) : Option ValuePtr := do
