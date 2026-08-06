@@ -54,12 +54,12 @@ def Func.hasSideEffects (_op : Func) (_props : Func.propertiesOf _op) : Bool :=
 def Func.readsMemory (op : Func) (_props : Func.propertiesOf op) : Bool :=
   match op with
   | .call => true
-  | _ => false
+  | .func | .return => false
 
 def Func.writesMemory (op : Func) (_props : Func.propertiesOf op) : Bool :=
   match op with
   | .call => true
-  | _ => false
+  | .func | .return => false
 
 def Func.isConstantLike (_op : Func) : Bool :=
   false
