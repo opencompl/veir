@@ -4124,6 +4124,16 @@ theorem Sim.OperationPtr.allocEmptyHeaderImpl_properties_toNat {ctx₀ : Buffed.
   rw [UInt64.uint64_add_int64_toNat_lt (by omega) (by omega)]
   omega
 
+/-- Largest attribute-table size accepted by `allocEmptyImpl` (`2^63 - 1`).
+A `@[noinline]` constant: the value is the largest scalar `Nat`, and both literal spellings
+compile badly at use sites — `< 2^63` compares against an mpz (GMP temporary per allocation),
+and an inline `2^63 - 1` literal is re-materialized by `lean_cstr_to_nat` (GMP string parse per
+allocation). As a constant it is built once and every guard is a scalar compare. -/
+@[noinline]
+def Sim.OperationPtr.attrTableMaxSize : Nat := 9223372036854775807
+
+theorem Sim.OperationPtr.attrTableMaxSize_eq : attrTableMaxSize = 2^63 - 1 := rfl
+
 /-- Allocate an empty operation record and store its property: the header fields are written by
 `allocEmptyHeaderImpl` (with the property slot sized by `HasDialectOpInfo.propertySize`), then the
 property itself is written into the slot (which may also append its spilled encoding to the
@@ -4135,7 +4145,7 @@ def Sim.OperationPtr.allocEmptyImpl {opCode : OpInfo} (ctx₀ : Buffed.IRBufCont
     (hr : numResults.toNat ≤ Buffed.countCard) (ho : numOperands.toNat ≤ Buffed.countCard)
     (hbo : numBlockOperands.toNat ≤ Buffed.countCard) (hreg : numRegions.toNat ≤ Buffed.countCard) :
     Option (Buffed.IRBufContext × Buffed.OperationMPtr) :=
-  if hattrs : ctx₀.attributes.size < 9223372036854775808 then
+  if hattrs : ctx₀.attributes.size ≤ attrTableMaxSize then
     match heq : allocEmptyHeaderImpl ctx₀ numResults numOperands numBlockOperands numRegions
         (HasDialectOpInfo.propertySize opCode) opType hr ho hbo hreg
         (Nat.le_of_lt HasDialectOpInfo.propertySize_small) with
@@ -4156,7 +4166,8 @@ def Sim.OperationPtr.allocEmptyImpl {opCode : OpInfo} (ctx₀ : Buffed.IRBufCont
           omega)
         (by
           rw [Sim.OperationPtr.allocEmptyHeaderImpl_attributes heq]
-          exact hattrs), ptr)
+          rw [Sim.OperationPtr.attrTableMaxSize_eq] at hattrs
+          omega), ptr)
   else
     none
 

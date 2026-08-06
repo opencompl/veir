@@ -865,7 +865,7 @@ private meta def setInlineAttr (name : Name) (inline? : Bool := true) : AttrM Un
 
 /-- Add a generated declaration `(name, type, value, levelParams)`, tag its inline attribute, then compile it. -/
 private meta def addBuffedDecl (name : Name) (type value : Expr) (levelParams : List Name)
-    (inline? : Bool) (nospecialize? : Bool := false) : AttrM Unit := do
+    (inline? : Bool) (nospecialize? : Bool := false) (specialize? : Bool := false) : AttrM Unit := do
   let decl : Declaration := .defnDecl {
     name, levelParams, type, value
     hints := .regular 0
@@ -878,6 +878,8 @@ private meta def addBuffedDecl (name : Name) (type value : Expr) (levelParams : 
   setInlineAttr name (inline? := inline?)
   if nospecialize? then
     applyBareAttr name `nospecialize
+  if specialize? then
+    applyBareAttr name `specialize
   compileDecl decl
 
 /-- Add a generated theorem `(name, type, value, levelParams)`. -/
@@ -1275,6 +1277,9 @@ private meta def buildRecursiveImplCmd (declName implName : Name) (inline : Bool
       `(Parser.Command.declId| $implId.{$us,*})
   let binderStx : TSyntaxArray ``Parser.Term.bracketedBinder := binders.map (⟨·⟩)
   let declValStx : TSyntax ``Parser.Command.declVal := ⟨newDeclVal⟩
+  -- NOTE: do not add `@[specialize]` here (or in `addBuffedDecl` for impls): specialization
+  -- inlines the full `writePropertyAt`/instance dispatch trees into the loops and regresses
+  -- create by ~14% and add-fold rewrite by ~25% (icache) — measured 2026-08.
   let cmd ← `(@[$inlineAttr] def $declId $binderStx* : $retTy $declValStx:declVal)
   trace[Buffed.ghosting.defs] "Generated recursive impl for {declName}:\n{cmd}"
   return cmd
