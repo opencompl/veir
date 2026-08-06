@@ -35,7 +35,7 @@ match op with
 | .module_flags => LLVMModuleFlagsProperties
 | _ => Unit
 
-@[expose]
+@[expose, inline]
 def Llvm.propertySize (op : Llvm) : UInt64 :=
 match op with
 | .mlir__constant => 8 -- attribute

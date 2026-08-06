@@ -27,7 +27,7 @@ match op with
 | .constant => ArithConstantProperties
 | _ => Unit
 
-@[expose]
+@[expose, inline]
 def Arith.propertySize (op : Arith) : UInt64 :=
 match op with
 -- TODO: Temporarily removed this as properties aren't supported in buffed yet, so we encode properties with attributes

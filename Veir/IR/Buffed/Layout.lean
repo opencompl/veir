@@ -90,6 +90,7 @@ end BlockOperand
 namespace Operation
 variable [HasOpInfo OpInfo] (op : OperationPtr) (ctx : IRContext OpInfo)
 
+@[inline]
 def propertySize (opCode : OpInfo) : UInt64 := HasDialectOpInfo.propertySize opCode
 @[inline] abbrev opInfoSize : Nat := 8
 
