@@ -42,7 +42,7 @@ RUN apt-get update \
 
 # `uv` provides both the Python interpreter and the test dependencies, so no
 # separate Python install is needed.
-COPY --from=ghcr.io/astral-sh/uv:0.9.7 /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.12.2 /uv /usr/local/bin/uv
 
 USER runner
 
