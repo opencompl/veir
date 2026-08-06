@@ -899,6 +899,56 @@ theorem Sim.OperationPtr.getOperandPtr_eq_getOperandPtr! (ctx : IRContext OpInfo
     getOperandPtr ctx ptr index ib = getOperandPtr! ctx ptr index := by
   simp [getOperandPtr_def, getOperandPtrSim, getOperandPtr!_def, getOperandPtr!Sim]
 
+/-! Loop-friendly operand accessors. `getOperandPtr` recomputes the operands base offset on every
+call, which in generic code is a `propertySizeOfEncoded` call through the boxed `HasBuffedOpCode`
+dictionary (one `lean_box_uint32` + `lean_apply_1` heap allocation pair per call).
+`getOperandsOffset` exposes the base offset so loops can hoist the dispatch, `getOperandPtrAt`
+builds an operand pointer from the hoisted offset, and `getOperandPtrOf` handles the
+statically-known-op-type case where `Operation.propertySize c` folds to a literal. -/
+
+@[inline]
+def Sim.OperationPtr.getOperandsOffset (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
+    (ib : ptr.InBounds ctx) : Int64 :=
+  ptr.impl.computeOperandsOffset (OpInfo := OpInfo) ctx.buf (by prove_setLinkBoundsOp ctx ptr)
+
+@[simp, grind =]
+theorem Sim.OperationPtr.getOperandsOffset_eq (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
+    (ib : ptr.InBounds ctx) :
+    getOperandsOffset ctx ptr ib = Buffed.Operation.Offsets.operands ptr.spec ctx.spec :=
+  OperationPtr.computeOperandOffset_eq ctx ptr ib.ib ib.sim _
+
+buffed
+def Sim.OperationPtr.getOperandPtrAtSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
+    (off : Int64) (index : UInt64) (_ib : ptr.InBounds ctx)
+    (_hoff : off = Buffed.Operation.Offsets.operands ptr.spec ctx.spec) : Sim.OpOperandPtr :=
+  ⟨ptr.impl + (off + Buffed.OpOperand.size * index), ptr.spec.getOpOperand index.toNat⟩
+
+@[grind =]
+theorem Sim.OperationPtr.getOperandPtrAt_eq_getOperandPtr (ctx : Sim.IRContext OpInfo)
+    (ptr : Sim.OperationPtr) (off : Int64) (index : UInt64) (ib : ptr.InBounds ctx)
+    (hoff : off = Buffed.Operation.Offsets.operands ptr.spec ctx.spec) :
+    getOperandPtrAt ctx ptr off index ib hoff = getOperandPtr ctx ptr index ib := by
+  simp only [getOperandPtrAt_def, getOperandPtrAtSim, getOperandPtr_def, getOperandPtrSim,
+    Buffed.OperationMPtr.computeOperandOffset]
+  rw [hoff, OperationPtr.computeOperandOffset_eq ctx ptr ib.ib ib.sim]
+
+buffed
+def Sim.OperationPtr.getOperandPtrOfSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
+    (c : OpInfo) (index : UInt64)
+    (_hty : ptr.getOpTypeEncoded! ctx = SerializableOpInfo.encode c) : Sim.OpOperandPtr :=
+  ⟨ptr.impl + (Buffed.Operation.Offsets.properties + Buffed.Operation.propertySize c + Buffed.OpOperand.size * index),
+   ptr.spec.getOpOperand index.toNat⟩
+
+@[grind =]
+theorem Sim.OperationPtr.getOperandPtrOf_eq_getOperandPtr! (ctx : Sim.IRContext OpInfo)
+    (ptr : Sim.OperationPtr) (c : OpInfo) (index : UInt64)
+    (hty : ptr.getOpTypeEncoded! ctx = SerializableOpInfo.encode c) :
+    getOperandPtrOf ctx ptr c index hty = getOperandPtr! ctx ptr index := by
+  simp only [getOpTypeEncoded!] at hty
+  simp only [getOperandPtrOf_def, getOperandPtrOfSim, getOperandPtr!_def, getOperandPtr!Sim,
+    Buffed.OperationMPtr.computeOperandOffset!, Buffed.OperationMPtr.computeOperandsOffset!,
+    hty, HasBuffedOpCode.propertySizeOfEncoded_eq, SerializableOpInfo.decode_encode]
+
 buffed
 def Sim.OperationPtr.getResultPtrSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (index : UInt64) (_ib : ptr.InBounds ctx) : Sim.OpResultPtr :=

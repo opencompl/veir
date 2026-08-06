@@ -286,7 +286,7 @@ def addIConstantFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) 
     return ctx
 
   -- Get the lhs and check that it is a constant
-  let lhsValuePtr := op.getOperandPtr ctx 0 sorry
+  let lhsValuePtr := op.getOperandPtrOf ctx (.arith .addi) 0 sorry
   let lhsValue := lhsValuePtr.getValue ctx sorry
   -- Unsafe...
   let lhsOpResultPtr : Sim.OpResultPtr := ⟨lhsValue.impl, lhsValue.spec.asOpResultPtr⟩
@@ -296,7 +296,7 @@ def addIConstantFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) 
     return ctx
 
   -- Get the rhs and check that it is a constant
-  let rhsValuePtr := op.getOperandPtr ctx 1 sorry
+  let rhsValuePtr := op.getOperandPtrOf ctx (.arith .addi) 1 sorry
   let rhsValue := rhsValuePtr.getValue ctx sorry
   -- Unsafe...
   let rhsOpResultPtr : Sim.OpResultPtr := ⟨rhsValue.impl, rhsValue.spec.asOpResultPtr⟩
@@ -350,7 +350,7 @@ def addIZeroFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Op
     return ctx
 
   -- Get the rhs and check that it is the constant 0
-  let rhsValuePtr := op.getOperandPtr ctx 1 sorry
+  let rhsValuePtr := op.getOperandPtrOf ctx (.arith .addi) 1 sorry
   let rhsValue := rhsValuePtr.getValue ctx sorry
   -- Unsafe...
   let rhsOpResultPtr : Sim.OpResultPtr := ⟨rhsValue.impl, rhsValue.spec.asOpResultPtr⟩
@@ -365,7 +365,7 @@ def addIZeroFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Op
     return ctx
 
   -- Get the lhs value
-  let lhsValuePtr := op.getOperandPtr ctx 0 sorry
+  let lhsValuePtr := op.getOperandPtrOf ctx (.arith .addi) 0 sorry
   let lhsValue := lhsValuePtr.getValue ctx sorry
 
   let oldValuePtr := op.getResultPtr ctx 0 sorry
@@ -421,7 +421,7 @@ def mulITwoReduceSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Opti
     return ctx
 
   -- Get the rhs and check that it is the constant 2
-  let rhsValuePtr := op.getOperandPtr ctx 1 sorry
+  let rhsValuePtr := op.getOperandPtrOf ctx (.arith .muli) 1 sorry
   let rhsValue := rhsValuePtr.getValue ctx sorry
   -- Unsafe...
   let rhsOpResultPtr : Sim.OpResultPtr := ⟨rhsValue.impl, rhsValue.spec.asOpResultPtr⟩
@@ -436,7 +436,7 @@ def mulITwoReduceSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Opti
     return ctx
 
   -- Get the lhs value
-  let lhsValuePtr := op.getOperandPtr ctx 0 sorry
+  let lhsValuePtr := op.getOperandPtrOf ctx (.arith .muli) 0 sorry
   let lhsValue := lhsValuePtr.getValue ctx sorry
 
   let insertPoint := InsertPoint.before ⟨op.impl.toNat⟩

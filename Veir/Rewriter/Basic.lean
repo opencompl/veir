@@ -218,13 +218,17 @@ theorem Rewriter.detachOpIfAttached_preserves_capBlockOperands (hctx : ctx.spec.
   grind [detachOpIfAttached_def, detachOpIfAttachedSim]
 
 buffed
-def Rewriter.detachOperands.loopSim (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr) (index : UInt64)
+def Rewriter.detachOperands.loopSim (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr) (off : Int64) (index : UInt64)
     (hCtx : ctx.spec.FieldsInBounds := by grind)
     (hOp : op.InBounds ctx := by grind)
-    (hIndex : index.toNat < op.spec.getNumOperands! ctx.spec := by grind) : Sim.IRContext OpInfo :=
-  let ctx' := (op.getOperandPtr ctx index (by grind)).removeFromCurrent ctx (by grind) (by grind)
+    (hIndex : index.toNat < op.spec.getNumOperands! ctx.spec := by grind)
+    -- `off` is the hoisted operands base offset: computing it per iteration via `getOperandPtr`
+    -- costs a boxed `propertySizeOfEncoded` dispatch (two heap allocations) per operand.
+    (hoff : off = Buffed.Operation.Offsets.operands op.spec ctx.spec := by grind) : Sim.IRContext OpInfo :=
+  let ctx' := (op.getOperandPtrAt ctx off index (by grind) (by grind)).removeFromCurrent ctx (by grind) (by grind)
   if hz : index = 0 then ctx' else
-  Rewriter.detachOperands.loopSim ctx' op (index-1) (by grind) (by grind) (by grind)
+  Rewriter.detachOperands.loopSim ctx' op off (index-1) (by grind) (by grind) (by grind)
+    (by grind [Buffed.Operation.Offsets.operands_layoutPreserved])
 termination_by index.toNat
 decreasing_by
   · have := @UInt64.toNat_inj index 0
@@ -232,25 +236,25 @@ decreasing_by
 
 @[grind .]
 theorem Rewriter.detachOperands.loop_inBounds (ptr : Sim.GenericPtr) :
-    ptr.InBounds (detachOperands.loop ctx op index hCtx hOp hIndex) ↔ ptr.InBounds ctx := by
+    ptr.InBounds (detachOperands.loop ctx op off index hCtx hOp hIndex hoff) ↔ ptr.InBounds ctx := by
   simp [loop_def]
   fun_induction loopSim <;> grind
 
 @[grind .]
 theorem Rewriter.detachOperands.loop_fieldsInBounds :
-    ctx.spec.FieldsInBounds → (detachOperands.loop ctx op index hCtx hOp hIndex).spec.FieldsInBounds := by
+    ctx.spec.FieldsInBounds → (detachOperands.loop ctx op off index hCtx hOp hIndex hoff).spec.FieldsInBounds := by
   simp [loop_def]
   fun_induction loopSim <;> grind
 
 @[simp, grind =]
 theorem Rewriter.detachOperands.loop_preserves_numSuccessors (hctx : ctx.spec.FieldsInBounds) {op' : Veir.OperationPtr} :
-    op'.getNumSuccessors! (detachOperands.loop ctx op idx hctx hOp hIndex).spec = op'.getNumSuccessors! ctx.spec := by
+    op'.getNumSuccessors! (detachOperands.loop ctx op off idx hctx hOp hIndex hoff).spec = op'.getNumSuccessors! ctx.spec := by
   simp [loop_def]
   fun_induction loopSim <;> grind
 
 @[simp, grind =]
 theorem Rewriter.detachOperands.loop_preserves_capSuccessors (hctx : ctx.spec.FieldsInBounds) {op' : Veir.OperationPtr} :
-    (op'.get! (detachOperands.loop ctx op idx hctx hOp hIndex).spec).capBlockOperands = (op'.get! ctx.spec).capBlockOperands := by
+    (op'.get! (detachOperands.loop ctx op off idx hctx hOp hIndex hoff).spec).capBlockOperands = (op'.get! ctx.spec).capBlockOperands := by
   simp [loop_def]
   fun_induction loopSim <;> grind
 
@@ -263,9 +267,10 @@ def Rewriter.detachOperandsSim (ctx : Sim.IRContext OpInfo) (op : Sim.OperationP
   if hz : numOperands = 0 then
     ctx
   else
-    Rewriter.detachOperands.loop ctx op (numOperands - 1) (by grind) (by grind)
+    Rewriter.detachOperands.loop ctx op (op.getOperandsOffset ctx (by grind)) (numOperands - 1) (by grind) (by grind)
     (by grind [ UInt64.toNat_mod_size, UInt64.toNat_sub, UInt64.le_iff_toNat_le,
     UInt64.toNat_ofNat, UInt64.toNat_ofNat_of_lt, UInt64.toNat_lt])
+    (by grind)
 
 @[grind .]
 theorem Rewriter.detachOperands_inBounds (ptr : Sim.GenericPtr) :
