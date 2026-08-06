@@ -34,9 +34,6 @@ RUN apt-get update \
       mlir-22-tools \
       # leanc links through the system toolchain.
       build-essential \
-      # ExArray's C code resolves GMP through pkg-config.
-      libgmp-dev \
-      pkg-config \
  && ln -s /usr/bin/mlir-opt-22 /usr/bin/mlir-opt \
  && rm -rf /var/lib/apt/lists/*
 
