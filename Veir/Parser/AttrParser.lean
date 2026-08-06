@@ -781,6 +781,26 @@ partial def parseOptionalLLVMFunctionType : AttrParserM (Option TypeAttr) := do
   return some ⟨.llvmFunctionType ft, by simp⟩
 
 /--
+  Parse a `match` optional handle type `!match.optional<...>`, if present.
+
+  The wrapped type is parsed with the general type parser rather than a fixed
+  enumeration: MLIR's `!match.optional` takes any type, and it is the verifier
+  that narrows it to a PDL handle. That recursion is why this sits in the
+  mutual block with `parseType`, unlike the PDL handle parsers above.
+-/
+partial def parseOptionalMatchOptionalType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "match.optional".toByteArray then return none
+  let _ ← consumeToken
+  parsePunctuation "<"
+  let inner ← parseType "expected the wrapped type of a '!match.optional'"
+  parsePunctuation ">"
+  return some (Match.OptionalType.mk inner)
+
+/--
   Parse a type, if present.
 -/
 partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
@@ -818,6 +838,8 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some pdlValueType
   if let some pdlTypeType ← parseOptionalPDLTypeType then
     return some pdlTypeType
+  if let some matchOptionalType ← parseOptionalMatchOptionalType then
+    return some matchOptionalType
   if let some dialectType ← parseOptionalDialectType then
     return some dialectType
   else if let some functionType := ← parseOptionalFunctionType then
