@@ -3,6 +3,7 @@ module
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Dialects.RISCV.Properties
+public import Veir.ConstantMaterialization
 meta import Veir.Meta.OpCode
 
 namespace Veir
@@ -334,6 +335,18 @@ instance : HasDialectOpInfo Riscv where
   writesMemory := Riscv.writesMemory
   isConstantLike := Riscv.isConstantLike
   hasSSADominance := Riscv.hasSSADominance
+
+/--
+Materialize register-valued fold results as `riscv.li`. A register always holds
+64 bits, so the immediate is always an `i64`.
+-/
+def Riscv.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpInfo Riscv]
+    (_op : Riscv) (value : RuntimeValue) (type : TypeAttr) : Option (Materialized OpInfo) :=
+  match value, type.val with
+  | .reg value, .registerType _ =>
+    some (.of Riscv.li
+      (RISCVImmediateProperties.mk (IntegerAttr.mk value.val.toInt (IntegerType.mk 64))))
+  | _, _ => none
 
 end
 

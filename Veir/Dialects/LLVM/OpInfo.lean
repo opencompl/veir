@@ -4,6 +4,7 @@ public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Dialects.LLVM.Properties
 public import Veir.Dialects.Cf.Properties
+public import Veir.ConstantMaterialization
 meta import Veir.Meta.OpCode
 
 namespace Veir
@@ -378,6 +379,26 @@ instance : HasDialectOpInfo Llvm where
   writesMemory := Llvm.writesMemory
   isConstantLike := Llvm.isConstantLike
   hasSSADominance := Llvm.hasSSADominance
+
+/-- Materialize constants produced by folding LLVM dialect operations. -/
+def Llvm.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpInfo Llvm]
+    (_op : Llvm) (value : RuntimeValue) (type : TypeAttr) : Option (Materialized OpInfo) :=
+  match value, type.val with
+  | .int bw (.val value), .integerType intType =>
+    if bw = intType.bitwidth then
+      some (.of Llvm.mlir__constant
+        (LLVMConstantProperties.mk (.integer (IntegerAttr.mk value.toInt intType))))
+    else none
+  | .int bw .poison, .integerType intType =>
+    if bw = intType.bitwidth then some (.of Llvm.mlir__poison ()) else none
+  | .float bw value, .floatType floatType =>
+    -- `llvm.mlir.constant` only interprets 64-bit floats, so anything narrower
+    -- would materialize a constant that cannot be read back.
+    if bw = floatType.bitwidth ∧ bw = 64 then
+      some (.of Llvm.mlir__constant
+        (LLVMConstantProperties.mk (.float (FloatAttr.mk value floatType))))
+    else none
+  | _, _ => none
 
 end
 
