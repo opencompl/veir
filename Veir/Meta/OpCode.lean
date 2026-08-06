@@ -104,6 +104,27 @@ meta def emitDecodeEncode : TermElabM Command := do
       $(mkIdent `OpCode.decode) ($(mkIdent `OpCode.encode) op) = op := by
     cases op <;> (rename_i o; cases o) <;> rfl)
 
+/-- `OpCode.decodeMap f code = f (OpCode.decode code)`, with `f` applied to a literal constructor in each branch: after inlining, known-constructor reduction eliminates the intermediate `OpCode`, so e.g. `decodeMap propertySize` compiles to a flat `UInt32 → UInt64` switch with no allocation. -/
+meta def emitDecodeMap (ds : Array Dialect) : TermElabM Command := do
+  let mut alts := #[]
+  let mut code : Nat := 1
+  for d in ds do
+    for op in d.operations do
+      alts := alts.push <| ←
+        `(Lean.Parser.Term.matchAltExpr |
+           | $(quote code) => f ($(mkIdent d.mkDialectCode) $(mkIdent (.mkStr2 d.name op))))
+      code := code + 1
+  alts := alts.push <| ←
+    `(Lean.Parser.Term.matchAltExpr | | _ => f ($(mkIdent `OpCode.builtin) $(mkIdent `Builtin.unregistered)))
+  `(@[inline] def $(mkIdent `OpCode.decodeMap) {α : Type} (f : $(mkIdent `OpCode) → α) (code : UInt32) : α :=
+      match code with $alts:matchAlt*)
+
+meta def emitDecodeMapEq : TermElabM Command := do
+  `(theorem $(mkIdent `OpCode.decodeMap_eq) {α : Type} (f : $(mkIdent `OpCode) → α) (code : UInt32) :
+      $(mkIdent `OpCode.decodeMap) f code = f ($(mkIdent `OpCode.decode) code) := by
+    unfold $(mkIdent `OpCode.decodeMap) $(mkIdent `OpCode.decode)
+    split <;> first | rfl | (split <;> first | rfl | omega))
+
 /-- Generates the type `OpCodes`, and its functions `fromName` and `name`. -/
 elab "#generate_op_codes" : command  => do
   let ts := opCodesExt.getEntries (← getEnv)
@@ -120,4 +141,6 @@ elab "#generate_op_codes" : command  => do
   elabCommand <| ← Command.liftTermElabM <| emitEncode dialects
   elabCommand <| ← Command.liftTermElabM <| emitDecode dialects
   elabCommand <| ← Command.liftTermElabM <| emitDecodeEncode
+  elabCommand <| ← Command.liftTermElabM <| emitDecodeMap dialects
+  elabCommand <| ← Command.liftTermElabM <| emitDecodeMapEq
   pure ()

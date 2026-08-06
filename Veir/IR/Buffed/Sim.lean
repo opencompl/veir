@@ -18,7 +18,7 @@ set_option linter.unusedSectionVars false
 
 namespace Veir
 
-variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedProperties OpInfo]
+variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
 
 /-! ## Misc. defs on Sim Pointers  -/
 

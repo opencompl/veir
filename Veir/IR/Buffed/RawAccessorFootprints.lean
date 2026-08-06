@@ -25,7 +25,7 @@ namespace Veir
 
 open Veir.Buffed
 
-variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedProperties OpInfo]
+variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
 
 /-! ## Addresses of top-level pointers, in the linear fragment -/
 

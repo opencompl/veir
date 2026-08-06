@@ -139,9 +139,57 @@ instance : Inhabited IRBufContext where
 theorem IRBufContext.default_def :
     (default : IRBufContext) = ⟨default, #[.dictionaryAttr DictionaryAttr.empty]⟩ := rfl
 
+end Buffed
+
+/-! ## Properties -/
+
+-- `HasDialectOpInfo` is a superclass *parameter* (not `extends`): in generic contexts that also
+-- carry `[HasOpInfo opCode]`, an `extends` parent would introduce a second, unrelated
+-- `HasDialectOpInfo` instance path and break definitional equality.
+class HasBuffedProperties (opCode: Type) [HasDialectOpInfo opCode] where
+  writePropertyAt (op : opCode) (p : HasDialectOpInfo.propertiesOf op) (addr: UInt64) (bctx : Buffed.IRBufContext)
+    (h : addr.toNat + (HasDialectOpInfo.propertySize op).toNat ≤ bctx.mem.size)
+    -- Writing a property may append to the attribute table (e.g. constants store an index to their value attribute). The index shares its 8-byte slot with a tag bit, so it must fit in 63 bits.
+    (hattrs : bctx.attributes.size < 2^63) : Buffed.IRBufContext
+  readPropertyAt (op : opCode) (addr : UInt64) (bctx : Buffed.IRBufContext) : Option (HasDialectOpInfo.propertiesOf op)
+  read_after_write : readPropertyAt op addr (writePropertyAt op p addr bctx h hattrs) = some p
+  only_adds_attributes (i : Nat) : bctx.attributes[i]? = some a →  (writePropertyAt op p addr bctx h hattrs).attributes[i]? = some a
+  preserves_size : (writePropertyAt op p addr bctx h hattrs).mem.size = bctx.mem.size
+  only_modifies_properties (hd : IsDisjoint (n.toNat...(n.toNat+len.toNat)) (addr.toNat...(addr.toNat + (HasDialectOpInfo.propertySize op).toNat))) :
+    (writePropertyAt op p addr bctx h hattrs).mem.read! (w := w) n len = bctx.mem.read! (w := w) n len
+  /-- A successful `readPropertyAt` survives any buffer change that does not shrink the buffer,
+  reads identically on the property window, and preserves successful attribute lookups (the
+  table may grow). -/
+  readPropertyAt_frame {op : opCode} {addr : UInt64} {bctx bctx' : Buffed.IRBufContext}
+      {p : HasDialectOpInfo.propertiesOf op} :
+    readPropertyAt op addr bctx = some p →
+    bctx.mem.size ≤ bctx'.mem.size →
+    (∀ (w : Nat) (n len : UInt64), addr.toNat ≤ n.toNat →
+      n.toNat + len.toNat ≤ addr.toNat + (HasDialectOpInfo.propertySize op).toNat →
+      bctx'.mem.read! (w := w) n len = bctx.mem.read! n len) →
+    (∀ (i : Nat) (a : Attribute), bctx.attributes[i]? = some a → bctx'.attributes[i]? = some a) →
+    readPropertyAt op addr bctx' = some p
+
+/-- Extends the dialect-level `HasBuffedProperties` with operations on *encoded* op types.
+Only the top-level `OpCode` gets an instance (dialects have no `SerializableOpInfo`); it is
+the class generic buffed code takes, so hot paths can dispatch to allocation-free
+implementations on the raw `UInt32`. -/
+class HasBuffedOpCode (opCode : Type) [HasOpInfo opCode] [SerializableOpInfo opCode]
+    extends HasBuffedProperties opCode where
+  /-- `propertySize` computed directly from the encoded op type, avoiding `decode` (and its allocation) on hot paths. -/
+  propertySizeOfEncoded (w : UInt32) : UInt64 :=
+    Buffed.Operation.propertySize (SerializableOpInfo.decode (opCode := opCode) w)
+  propertySizeOfEncoded_eq (w : UInt32) :
+    propertySizeOfEncoded w = Buffed.Operation.propertySize (SerializableOpInfo.decode (opCode := opCode) w) := by
+      intros; rfl
+
+attribute [simp, grind =] HasBuffedOpCode.propertySizeOfEncoded_eq
+
+namespace Buffed
+
 /-! ## Raw accessors -/
 
-variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] (bctx : IRBufContext)
+variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo] (bctx : IRBufContext)
 
 @[inline]
 def IRBufContext.size (bctx : IRBufContext) : Nat := bctx.mem.size
@@ -786,12 +834,12 @@ theorem OperationMPtr.readAttrs_eq_readAttrs! {ptr : OperationMPtr} {h} :
 def OperationMPtr.computeOperandsOffset (ptr : OperationMPtr)
     (h : (ptr + Operation.Offsets.opType).toInt + Operation.Sizes.opType.toInt ≤ bctx.size) : Int64 :=
   let prop := ptr.readOpType bctx h
-  Operation.Offsets.properties + (Operation.propertySize (OpInfo := OpInfo) (SerializableOpInfo.decode prop))
+  Operation.Offsets.properties + (HasBuffedOpCode.propertySizeOfEncoded (opCode := OpInfo) prop)
 
 @[inline]
 def OperationMPtr.computeOperandsOffset! (ptr : OperationMPtr) : Int64 :=
   let prop := ptr.readOpType! bctx
-  Operation.Offsets.properties + (Operation.propertySize (OpInfo := OpInfo) (SerializableOpInfo.decode prop))
+  Operation.Offsets.properties + (HasBuffedOpCode.propertySizeOfEncoded (opCode := OpInfo) prop)
 
 @[simp, grind =]
 theorem OperationMPtr.computeOperandsOffset_eq_computeOperandsOffset! {ptr : OperationMPtr} {h} :
@@ -1473,35 +1521,6 @@ theorem BlockOperandOPtr.debugPrint_eq (pref : String) (ptr : BlockOperandOPtr) 
   simp only [BlockOperandOPtr.debugPrint]; rfl
 
 end Buffed
-
-/-! ## Properties -/
-
--- `HasDialectOpInfo` is a superclass *parameter* (not `extends`): in generic contexts that also
--- carry `[HasOpInfo opCode]`, an `extends` parent would introduce a second, unrelated
--- `HasDialectOpInfo` instance path and break definitional equality.
-class HasBuffedProperties (opCode: Type) [HasDialectOpInfo opCode] where
-  writePropertyAt (op : opCode) (p : HasDialectOpInfo.propertiesOf op) (addr: UInt64) (bctx : Buffed.IRBufContext)
-    (h : addr.toNat + (HasDialectOpInfo.propertySize op).toNat ≤ bctx.mem.size)
-    -- Writing a property may append to the attribute table (e.g. constants store an index to their value attribute). The index shares its 8-byte slot with a tag bit, so it must fit in 63 bits.
-    (hattrs : bctx.attributes.size < 2^63) : Buffed.IRBufContext
-  readPropertyAt (op : opCode) (addr : UInt64) (bctx : Buffed.IRBufContext) : Option (HasDialectOpInfo.propertiesOf op)
-  read_after_write : readPropertyAt op addr (writePropertyAt op p addr bctx h hattrs) = some p
-  only_adds_attributes (i : Nat) : bctx.attributes[i]? = some a →  (writePropertyAt op p addr bctx h hattrs).attributes[i]? = some a
-  preserves_size : (writePropertyAt op p addr bctx h hattrs).mem.size = bctx.mem.size
-  only_modifies_properties (hd : IsDisjoint (n.toNat...(n.toNat+len.toNat)) (addr.toNat...(addr.toNat + (HasDialectOpInfo.propertySize op).toNat))) :
-    (writePropertyAt op p addr bctx h hattrs).mem.read! (w := w) n len = bctx.mem.read! (w := w) n len
-  /-- A successful `readPropertyAt` survives any buffer change that does not shrink the buffer,
-  reads identically on the property window, and preserves successful attribute lookups (the
-  table may grow). -/
-  readPropertyAt_frame {op : opCode} {addr : UInt64} {bctx bctx' : Buffed.IRBufContext}
-      {p : HasDialectOpInfo.propertiesOf op} :
-    readPropertyAt op addr bctx = some p →
-    bctx.mem.size ≤ bctx'.mem.size →
-    (∀ (w : Nat) (n len : UInt64), addr.toNat ≤ n.toNat →
-      n.toNat + len.toNat ≤ addr.toNat + (HasDialectOpInfo.propertySize op).toNat →
-      bctx'.mem.read! (w := w) n len = bctx.mem.read! n len) →
-    (∀ (i : Nat) (a : Attribute), bctx.attributes[i]? = some a → bctx'.attributes[i]? = some a) →
-    readPropertyAt op addr bctx' = some p
 
 /-- 64-bit reads disjoint from the written property slot are unchanged by `writePropertyAt`. -/
 theorem HasBuffedProperties.read64!_writePropertyAt {opCode : Type} [HasDialectOpInfo opCode] [HasBuffedProperties opCode]

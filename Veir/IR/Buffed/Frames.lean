@@ -20,7 +20,7 @@ namespace Veir
 
 open Veir.Buffed
 
-variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedProperties OpInfo]
+variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
 
 /-- `buf'` is at least as large as `buf`, reads identically to `buf` everywhere inside
 `[lo, hi)` (at any width), and every attribute lookup that succeeds in `buf` returns the

@@ -95,7 +95,7 @@ def FuncFuncProperties.codec : AttrCodec FuncFuncProperties :=
   ⟨toAttr, ofAttr?, ofAttr?_toAttr⟩
 
 @[inline]
-instance : HasBuffedProperties OpCode where
+instance : HasBuffedOpCode OpCode where
   writePropertyAt op p addr bctx h hattrs :=
     match op, p, h with
     | .arith op, p, h => HasBuffedProperties.writePropertyAt op p addr bctx h hattrs
@@ -187,6 +187,8 @@ instance : HasBuffedProperties OpCode where
             hattrs
       all_goals exact hp
     case test op => cases op <;> exact hp
+  propertySizeOfEncoded w := OpCode.decodeMap Buffed.Operation.propertySize w
+  propertySizeOfEncoded_eq w := by rw [OpCode.decodeMap_eq]; rfl
 
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (propertiesOf opCode) := by

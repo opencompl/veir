@@ -18,7 +18,7 @@ public section
 
 namespace Veir
 
-variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedProperties OpInfo]
+variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
 
 /-! ## Translate a high-level pointer to a flat address. -/
 
@@ -1020,7 +1020,7 @@ structure Sim (ctx : Sim.RawIRContext OpInfo) where
   /-- Attribute-table slot 0 canonically holds the empty dictionary, so the zero-initialized `attrs` field of a freshly allocated operation denotes the empty dictionary. -/
   attr_empty : ctx.buf.attributes[0]? = some (.dictionaryAttr DictionaryAttr.empty)
 
-variable (OpInfo) [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedProperties OpInfo] in
+variable (OpInfo) [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo] in
 structure Sim.IRContext where
   buf : IRBufContext
   spec : Veir.IRContext OpInfo

@@ -12,7 +12,7 @@ attribute [local grind]
   IRContext.LayoutPreserved IRContext.LayoutUnchanged
 
 
-variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedProperties OpInfo]
+variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
 
 variable {ctx : IRContext OpInfo}
 

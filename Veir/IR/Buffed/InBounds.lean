@@ -14,7 +14,7 @@ public section
 
 namespace Veir.Sim
 
-variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedProperties OpInfo]
+variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
 
 variable {ctx ctx' : IRContext OpInfo}
 

@@ -12,7 +12,7 @@ import Std.Data.ExtHashSet
 @[expose] public section
 
 namespace Veir
-variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedProperties OpInfo]
+variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
 variable {ctx ctx' : Sim.IRContext OpInfo}
 
 attribute [local grind ext] OpOperand

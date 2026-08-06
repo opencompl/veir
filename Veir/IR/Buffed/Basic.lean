@@ -24,7 +24,7 @@ namespace Veir
 
 open Buffed (countCard)
 
-variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedProperties OpInfo]
+variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
 
 
 /- Shared bounds proofs passed to the `Buffed.*MPtr.write*` calls in the setters. -/

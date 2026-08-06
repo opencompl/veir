@@ -22,7 +22,7 @@ set_option linter.unusedSectionVars false
 @[expose] public section
 namespace Veir
 
-variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedProperties OpInfo]
+variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
 variable {ctx : Sim.IRContext OpInfo}
 
 -- TODO: Sim.InsertPoint
@@ -1592,7 +1592,7 @@ def Sim.IRContext.emptySim : Sim.IRContext OpInfo :=
   ⟨⟨.emptyWithCapacity (256 * 1024 * 1024), #[.dictionaryAttr DictionaryAttr.empty]⟩, IRContext.empty OpInfo, by constructor <;> grind [TopLevelPtr]⟩
 
 buffed
-def IRContext.createSim OpInfo [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedProperties OpInfo] : Option (Sim.IRContext OpInfo × Sim.OperationPtr) := do
+def IRContext.createSim OpInfo [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo] : Option (Sim.IRContext OpInfo × Sim.OperationPtr) := do
   rlet ⟨ctx, region⟩ ← Rewriter.createRegion .empty
   have regionIb : region.InBounds ctx := by grind
   have regionRepr : region.spec.IsRepr := by grind

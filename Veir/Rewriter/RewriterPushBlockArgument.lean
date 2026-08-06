@@ -19,7 +19,7 @@ set_option linter.unusedSectionVars false
 @[expose] public section
 namespace Veir
 
-variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedProperties OpInfo]
+variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
 variable {ctx : Sim.IRContext OpInfo}
 
 /-- Unfolding equation for `BlockPtr.pushArgument`, phrased at the `setArguments` level where the `GetSet` transport lemmas live. -/
