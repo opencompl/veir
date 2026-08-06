@@ -157,6 +157,18 @@ def Ancestor (ancestor descendant : IRNode)
     (ctx : WfIRContext OpInfo) : Prop :=
   ∃ nodes, ParentPath ctx ancestor descendant nodes
 
+/-- Non-reflexive, finite ancestry through nesting parent edges. -/
+@[expose]
+def ProperAncestor (ancestor descendant : IRNode)
+    (ctx : WfIRContext OpInfo) : Prop :=
+  ancestor.Ancestor descendant ctx ∧ ancestor ≠ descendant
+
+/-- Definition of proper ancestry. -/
+theorem properAncestor_def {ancestor descendant : IRNode} :
+    ancestor.ProperAncestor descendant ctx ↔
+      ancestor.Ancestor descendant ctx ∧ ancestor ≠ descendant := by
+  rfl
+
 namespace Ancestor
 
 variable {ancestor middle descendant parent child : IRNode}
@@ -219,7 +231,52 @@ theorem of_getParentOp!_eq_some {child parent : OperationPtr}
   apply IRNode.Ancestor.trans_parent_ancestor (middle := .operation child); grind
   grind
 
+/-- An ancestry relation is either proper or relates a node to itself. -/
+theorem proper_or_eq
+    (ancestry : ancestor.Ancestor descendant ctx) :
+    ancestor.ProperAncestor descendant ctx ∨ ancestor = descendant := by
+  by_cases ancestorEq : ancestor = descendant
+  · exact Or.inr ancestorEq
+  · exact Or.inl ⟨ancestry, ancestorEq⟩
+
 end Ancestor
+
+namespace ProperAncestor
+
+variable {ancestor descendant parent child : IRNode}
+
+/-- An ancestry proof with distinct endpoints is proper ancestry. -/
+theorem of_ancestor_ne
+    (ancestry : ancestor.Ancestor descendant ctx)
+    (ancestorNeDescendant : ancestor ≠ descendant) :
+    ancestor.ProperAncestor descendant ctx :=
+  ⟨ancestry, ancestorNeDescendant⟩
+
+/-- Proper ancestry implies ancestry. -/
+@[grind →]
+theorem toAncestor
+    (ancestry : ancestor.ProperAncestor descendant ctx) :
+    ancestor.Ancestor descendant ctx :=
+  ancestry.1
+
+/-- The endpoints of proper ancestry are distinct. -/
+@[grind →]
+theorem ne
+    (ancestry : ancestor.ProperAncestor descendant ctx) :
+    ancestor ≠ descendant :=
+  ancestry.2
+
+/-- No IR node is its own proper ancestor. -/
+@[simp]
+theorem irrefl : ¬ancestor.ProperAncestor ancestor ctx := by
+  simp [ProperAncestor]
+
+/-- An immediate parent is a proper ancestor. -/
+theorem of_parent (immediate : child.parent! ctx = some parent) :
+    parent.ProperAncestor child ctx :=
+  ⟨Ancestor.of_parent immediate, (child_ne_parent immediate).symm⟩
+
+end ProperAncestor
 
 end IRNode
 
