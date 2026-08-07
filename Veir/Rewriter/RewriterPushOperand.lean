@@ -23,16 +23,19 @@ variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuff
 variable {ctx : Sim.IRContext OpInfo}
 
 @[inline]
-protected def Rewriter.setOperand (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffed.IRBufContext) (idx : UInt64)
+protected def Rewriter.setOperand (opPtr : Buffed.OperationMPtr) (oper : Buffed.OpOperandMPtr)
+    (ctx₀ : Buffed.IRBufContext) (idx : UInt64)
     (hnum : (opPtr + Buffed.Operation.Offsets.opType).toInt + Buffed.Operation.Sizes.opType.toInt ≤ ctx₀.size)
+    -- The operand slot pointer is passed in precomputed: recomputing it here would re-run the
+    -- boxed `propertySizeOfEncoded` dispatch (two heap allocations in generic code) per operand.
+    (hoper : oper = opPtr + opPtr.computeOperandOffset (OpInfo := OpInfo) ctx₀ idx hnum)
     (hslot : (opPtr + opPtr.computeOperandOffset (OpInfo := OpInfo) ctx₀ idx hnum).toNat + Buffed.OpOperand.size.toNat ≤ ctx₀.size)
     (value : Buffed.ValueImplMPtr) : Buffed.IRBufContext :=
-  let oper : Buffed.OpOperandMPtr := opPtr + opPtr.computeOperandOffset (OpInfo := OpInfo) ctx₀ idx hnum
-  let ctx := oper.writeNextUse ctx₀ .none (by prove_setSlotBounds ctx₀)
+  let ctx := oper.writeNextUse ctx₀ .none (by subst hoper; prove_setSlotBounds ctx₀)
   -- `back` points at the value's `firstUse` slot, mirroring the spec's `OpOperandPtrPtr.valueFirstUse` (the use-list insertion re-writes it with the same value).
-  let ctx := oper.writeBack ctx (value + Buffed.ValueImpl.Offsets.firstUse) (by prove_setSlotBounds ctx₀)
-  let ctx := oper.writeOwner ctx opPtr (by prove_setSlotBounds ctx₀)
-  let ctx := oper.writeValue ctx value (by prove_setSlotBounds ctx₀)
+  let ctx := oper.writeBack ctx (value + Buffed.ValueImpl.Offsets.firstUse) (by subst hoper; prove_setSlotBounds ctx₀)
+  let ctx := oper.writeOwner ctx opPtr (by subst hoper; prove_setSlotBounds ctx₀)
+  let ctx := oper.writeValue ctx value (by subst hoper; prove_setSlotBounds ctx₀)
   ctx
 
 @[irreducible]
@@ -52,9 +55,12 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
     (hidx : idx.toNat = opPtr.spec.getNumOperands! ctx.spec)
     (hcap : idx.toNat < (opPtr.spec.get! ctx.spec).capOperands)
     (hnum : (opPtr.impl + Buffed.Operation.Offsets.opType).toInt + Buffed.Operation.Sizes.opType.toInt ≤ ctx.buf.size)
+    {oper : Buffed.OpOperandMPtr}
+    (hoper : oper = opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum)
     (hslot : (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat + Buffed.OpOperand.size.toNat ≤ ctx.buf.size) :
-    Veir.Sim ⟨Rewriter.setOperand opPtr.impl ctx.buf idx hnum hslot valuePtr.impl,
+    Veir.Sim ⟨Rewriter.setOperand opPtr.impl oper ctx.buf idx hnum hoper hslot valuePtr.impl,
               Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind)⟩ := by
+  subst hoper
   have hin := ctx.sim.in_bounds (.operation opPtr.spec) (by grind)
   have hsz : ctx.buf.mem.size < 2^63 := by grind
   have hincl := OperationPtr.nthOperand_range_included_op_range ctx opPtr.spec idx hcap (by grind)
@@ -84,7 +90,7 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
   have hread : ∀ (w : Nat) (a len : UInt64),
       (a.toNat + len.toNat ≤ (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat
        ∨ (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat + 32 ≤ a.toNat) →
-      (Rewriter.setOperand opPtr.impl ctx.buf idx hnum hslot valuePtr.impl).mem.read! (w := w) a len = ctx.buf.mem.read! a len := by
+      (Rewriter.setOperand opPtr.impl (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum) ctx.buf idx hnum rfl hslot valuePtr.impl).mem.read! (w := w) a len = ctx.buf.mem.read! a len := by
     intro w a len ha
     simp only [Rewriter.setOperand, Buffed.OpOperandMPtr.writeValue, Buffed.OpOperandMPtr.writeOwner,
       Buffed.OpOperandMPtr.writeBack, Buffed.OpOperandMPtr.writeNextUse]
@@ -96,11 +102,11 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
         (by simp only [IsDisjoint]; have := ek Buffed.OpOperand.Offsets.back 8 (by decide) (by decide); omega),
       ExArray.read!_blit64_disjoint _ _ _ _ _
         (by simp only [IsDisjoint]; have := ek Buffed.OpOperand.Offsets.nextUse 0 (by decide) (by decide); omega)]
-  have hsizele : ctx.buf.mem.size ≤ (Rewriter.setOperand opPtr.impl ctx.buf idx hnum hslot valuePtr.impl).mem.size := by
+  have hsizele : ctx.buf.mem.size ≤ (Rewriter.setOperand opPtr.impl (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum) ctx.buf idx hnum rfl hslot valuePtr.impl).mem.size := by
     simp only [Rewriter.setOperand, Buffed.OpOperandMPtr.writeValue, Buffed.OpOperandMPtr.writeOwner,
       Buffed.OpOperandMPtr.writeBack, Buffed.OpOperandMPtr.writeNextUse]
     grind [ExArray.blit64_size]
-  have hattr : (Rewriter.setOperand opPtr.impl ctx.buf idx hnum hslot valuePtr.impl).attributes = ctx.buf.attributes := by
+  have hattr : (Rewriter.setOperand opPtr.impl (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum) ctx.buf idx hnum rfl hslot valuePtr.impl).attributes = ctx.buf.attributes := by
     simp only [Rewriter.setOperand, Buffed.OpOperandMPtr.writeValue, Buffed.OpOperandMPtr.writeOwner,
       Buffed.OpOperandMPtr.writeBack, Buffed.OpOperandMPtr.writeNextUse]
   have hlay : ctx.spec.LayoutPreserved (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind)) :=
@@ -109,7 +115,7 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
   have hagreeD : ∀ lo hi : Nat,
       (hi ≤ (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat
        ∨ (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat + 32 ≤ lo) →
-      Buffed.AgreesOn (Rewriter.setOperand opPtr.impl ctx.buf idx hnum hslot valuePtr.impl) ctx.buf lo hi :=
+      Buffed.AgreesOn (Rewriter.setOperand opPtr.impl (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum) ctx.buf idx hnum rfl hslot valuePtr.impl) ctx.buf lo hi :=
     fun lo hi hd => ⟨hsizele, fun w a len h1 h2 => hread w a len (by omega), fun _ _ h => by simp only [hattr]; exact h⟩
   constructor
   · -- fieldsInBounds
