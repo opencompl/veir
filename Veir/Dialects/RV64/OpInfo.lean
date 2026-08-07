@@ -29,14 +29,16 @@ def Rv64.toAttrDict
     Std.HashMap ByteArray Attribute :=
   Std.HashMap.emptyWithCapacity 0
 
-def Rv64.hasSideEffects (_op : Rv64) (_props : Rv64.propertiesOf _op) : Bool :=
+/--
+`rv64.get_register` names a physical register, whose contents live outside the
+SSA value graph. This dialect has no upstream counterpart to take effects from,
+so both queries stay at the conservative answer.
+-/
+def Rv64.readsMemory (_op : Rv64) (_props : Rv64.propertiesOf _op) : Bool :=
   true
 
-def Rv64.readsMemory (_op : Rv64) (_props : Rv64.propertiesOf _op) : Bool :=
-  false
-
 def Rv64.writesMemory (_op : Rv64) (_props : Rv64.propertiesOf _op) : Bool :=
-  false
+  true
 
 def Rv64.isConstantLike (_op : Rv64) : Bool :=
   false
@@ -52,7 +54,6 @@ instance : HasOpInfo Rv64 where
   propertiesOf := Rv64.propertiesOf
   fromAttrDict := Rv64.fromAttrDict
   toAttrDict := Rv64.toAttrDict
-  hasSideEffects := Rv64.hasSideEffects
   readsMemory := Rv64.readsMemory
   writesMemory := Rv64.writesMemory
   isConstantLike := Rv64.isConstantLike

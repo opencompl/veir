@@ -29,10 +29,6 @@ def Datapath.toAttrDict
     Std.HashMap ByteArray Attribute :=
   Std.HashMap.emptyWithCapacity 0
 
-def Datapath.hasSideEffects
-    (_op : Datapath) (_props : Datapath.propertiesOf _op) : Bool :=
-  false
-
 def Datapath.readsMemory
     (_op : Datapath) (_props : Datapath.propertiesOf _op) : Bool :=
   false
@@ -55,7 +51,6 @@ instance : HasOpInfo Datapath where
   propertiesOf := Datapath.propertiesOf
   fromAttrDict := Datapath.fromAttrDict
   toAttrDict := Datapath.toAttrDict
-  hasSideEffects := Datapath.hasSideEffects
   readsMemory := Datapath.readsMemory
   writesMemory := Datapath.writesMemory
   isConstantLike := Datapath.isConstantLike

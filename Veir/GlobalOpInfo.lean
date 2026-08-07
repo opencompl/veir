@@ -89,36 +89,6 @@ def OpCode.writesMemory (opCode : OpCode) (props : _propertiesOf opCode) : Bool 
   | .pdl op, props => PDL.writesMemory op props
   | .test op, props => Test.writesMemory op props
 
-/--
-  Does an operation with this opcode and these properties have effects that
-  make it ineligible for DCE and other transformations that add / remove /
-  rearrange instructions?
-
-  NOTE: ¬ hasSideEffects does not imply that an operation is safe to
-        speculate. For that we also need it to never trigger immediate
-        UB. We'll have to deal with this later on.
-
-  Also see:
-  https://mlir.llvm.org/docs/Rationale/SideEffectsAndSpeculation/
--/
-def OpCode.hasSideEffects (opCode : OpCode) (props : _propertiesOf opCode) : Bool :=
-  match opCode, props with
-  | .arith op, props => Arith.hasSideEffects op props
-  | .llvm op, props => Llvm.hasSideEffects op props
-  | .riscv op, props => Riscv.hasSideEffects op props
-  | .riscv_cf op, props => Riscv_Cf.hasSideEffects op props
-  | .riscv_stack op, props => Riscv_Stack.hasSideEffects op props
-  | .rv64 op, props => Rv64.hasSideEffects op props
-  | .mod_arith op, props => Mod_Arith.hasSideEffects op props
-  | .cf op, props => Cf.hasSideEffects op props
-  | .comb op, props => Comb.hasSideEffects op props
-  | .hw op, props => HW.hasSideEffects op props
-  | .builtin op, props => Builtin.hasSideEffects op props
-  | .func op, props => Func.hasSideEffects op props
-  | .datapath op, props => Datapath.hasSideEffects op props
-  | .pdl op, props => PDL.hasSideEffects op props
-  | .test op, props => Test.hasSideEffects op props
-
 inductive RegionKind where
 | SSACFG
 | Graph
@@ -255,7 +225,6 @@ instance : HasOpInfo OpCode where
   propertiesOf := _propertiesOf
   fromAttrDict := Properties.fromAttrDict
   toAttrDict := Properties.toAttrDict
-  hasSideEffects := OpCode.hasSideEffects
   readsMemory := OpCode.readsMemory
   writesMemory := OpCode.writesMemory
   isConstantLike := OpCode.isConstantLike

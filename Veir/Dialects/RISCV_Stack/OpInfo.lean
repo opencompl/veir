@@ -34,17 +34,19 @@ def Riscv_Stack.toAttrDict
     dict := dict.insert "size".toUTF8 (Attribute.integerAttr props.size)
     dict.insert "alignment".toUTF8 (Attribute.integerAttr props.alignment)
 
-def Riscv_Stack.hasSideEffects
-    (_op : Riscv_Stack) (_props : Riscv_Stack.propertiesOf _op) : Bool :=
-  true
-
 def Riscv_Stack.readsMemory
     (_op : Riscv_Stack) (_props : Riscv_Stack.propertiesOf _op) : Bool :=
   false
 
+/--
+`riscv_stack.alloca` claims a fresh stack slot, which modifies the frame and
+so is not removable even when the resulting address is unused. Upstream's
+nearest counterpart, `llvm.alloca`, likewise carries neither `Pure` nor a
+memory-effect interface and so is never trivially dead.
+-/
 def Riscv_Stack.writesMemory
     (_op : Riscv_Stack) (_props : Riscv_Stack.propertiesOf _op) : Bool :=
-  false
+  true
 
 def Riscv_Stack.isConstantLike (_op : Riscv_Stack) : Bool :=
   false
@@ -60,7 +62,6 @@ instance : HasOpInfo Riscv_Stack where
   propertiesOf := Riscv_Stack.propertiesOf
   fromAttrDict := Riscv_Stack.fromAttrDict
   toAttrDict := Riscv_Stack.toAttrDict
-  hasSideEffects := Riscv_Stack.hasSideEffects
   readsMemory := Riscv_Stack.readsMemory
   writesMemory := Riscv_Stack.writesMemory
   isConstantLike := Riscv_Stack.isConstantLike

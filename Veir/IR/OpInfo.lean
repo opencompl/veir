@@ -38,21 +38,12 @@ class HasOpInfo (opCode: Type)
   decideEq : DecidableEq (opCode) := by
     intros opCode1 opCode2; cases opCode1 <;> cases opCode2 <;> infer_instance
   /--
-  Whether an operation with this opcode and these properties may have
-  effects that make it ineligible for transformations that add /
-  remove / rearrange instructions (terminators count as having
-  effects). Defaults to `true` for every opcode, which conservatively
-  disables such transformations.
-  -/
-  hasSideEffects : (op : opCode) → propertiesOf op → Bool := fun _ _ => true
-  /--
   Whether an operation with this opcode reads memory.
 
-  This is deliberately separate from `hasSideEffects`: a non-volatile load
-  reads memory and yet is eligible for removal when its result is unused, so
-  `hasSideEffects` reports `false` for it. Fold-time evaluation must consult
-  this as well before running an operation against memory that is not the
-  program's.
+  This is deliberately separate from `writesMemory`: a non-volatile load reads
+  memory and yet is eligible for removal when its result is unused, so only
+  `readsMemory` reports `true` for it. Fold-time evaluation must consult this
+  before running an operation against memory that is not the program's.
 
   Defaults to `true` for every opcode, which conservatively assumes memory is
   read.
@@ -64,6 +55,11 @@ class HasOpInfo (opCode: Type)
   This reports only that memory may be modified. It does not imply that the
   operation completely overwrites any particular location, so it is not by
   itself sufficient to prove that an earlier write is dead.
+
+  An operation that writes memory is ineligible for transformations that add /
+  remove / rearrange instructions, so this decides -- alongside the separate
+  question of whether the operation terminates its block -- whether it may be
+  removed when nothing uses its results.
 
   Defaults to `true` for every opcode, which conservatively assumes memory is
   written.

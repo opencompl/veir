@@ -39,10 +39,6 @@ def Mod_Arith.toAttrDict
       "value".toUTF8 (Attribute.integerAttr props.value)
   | _ => Std.HashMap.emptyWithCapacity 0
 
-def Mod_Arith.hasSideEffects
-    (_op : Mod_Arith) (_props : Mod_Arith.propertiesOf _op) : Bool :=
-  false
-
 def Mod_Arith.readsMemory
     (_op : Mod_Arith) (_props : Mod_Arith.propertiesOf _op) : Bool :=
   false
@@ -67,7 +63,6 @@ instance : HasOpInfo Mod_Arith where
   propertiesOf := Mod_Arith.propertiesOf
   fromAttrDict := Mod_Arith.fromAttrDict
   toAttrDict := Mod_Arith.toAttrDict
-  hasSideEffects := Mod_Arith.hasSideEffects
   readsMemory := Mod_Arith.readsMemory
   writesMemory := Mod_Arith.writesMemory
   isConstantLike := Mod_Arith.isConstantLike

@@ -1,6 +1,7 @@
 module
 
 public import Veir.Interfaces.SideEffectInterfaces
+public import Veir.GlobalOpInfo
 
 /-!
 # DeadCodeInterfaces
@@ -14,13 +15,21 @@ public section
 
 /--
 An operation is trivially dead when it has no regions, none of its results have
-uses, and it has no side effects.
+uses, it writes no memory, and it does not terminate its block.
+
+This mirrors MLIR's `wouldOpBeTriviallyDead`. Note that reading memory does not
+keep an operation alive: a non-volatile load whose result is unused is dead.
+
+TODO: this is specialised to `OpCode` only because the terminator query lives
+on `OpCode` rather than on `HasOpInfo`. Moving it into the class would let this
+go back to being generic over any operation-info type.
 -/
-abbrev OperationPtr.isTriviallyDead {OpInfo : Type} [HasOpInfo OpInfo]
-    (op : OperationPtr) (ctx : IRContext OpInfo) : Prop :=
+abbrev OperationPtr.isTriviallyDead
+    (op : OperationPtr) (ctx : IRContext OpCode) : Prop :=
   op.getNumRegions! ctx = 0
     ∧ !op.hasUses! ctx
-    ∧ !op.hasSideEffects ctx
+    ∧ !op.writesMemory ctx
+    ∧ !(op.getOpType! ctx).isTerminator
 
 end
 

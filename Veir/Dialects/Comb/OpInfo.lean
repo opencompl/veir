@@ -60,9 +60,6 @@ def Comb.toAttrDict
       "predicate".toUTF8 (Attribute.integerAttr props.predicate)
   | _ => Std.HashMap.emptyWithCapacity 0
 
-def Comb.hasSideEffects (_op : Comb) (_props : Comb.propertiesOf _op) : Bool :=
-  false
-
 def Comb.readsMemory (_op : Comb) (_props : Comb.propertiesOf _op) : Bool :=
   false
 
@@ -83,7 +80,6 @@ instance : HasOpInfo Comb where
   propertiesOf := Comb.propertiesOf
   fromAttrDict := Comb.fromAttrDict
   toAttrDict := Comb.toAttrDict
-  hasSideEffects := Comb.hasSideEffects
   readsMemory := Comb.readsMemory
   writesMemory := Comb.writesMemory
   isConstantLike := Comb.isConstantLike

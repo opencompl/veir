@@ -47,11 +47,6 @@ def HW.toAttrDict
     dict
   | _ => Std.HashMap.emptyWithCapacity 0
 
-def HW.hasSideEffects (op : HW) (_props : HW.propertiesOf op) : Bool :=
-  match op with
-  | .constant => false
-  | _ => true
-
 def HW.readsMemory (_op : HW) (_props : HW.propertiesOf _op) : Bool :=
   false
 
@@ -74,7 +69,6 @@ instance : HasOpInfo HW where
   propertiesOf := HW.propertiesOf
   fromAttrDict := HW.fromAttrDict
   toAttrDict := HW.toAttrDict
-  hasSideEffects := HW.hasSideEffects
   readsMemory := HW.readsMemory
   writesMemory := HW.writesMemory
   isConstantLike := HW.isConstantLike

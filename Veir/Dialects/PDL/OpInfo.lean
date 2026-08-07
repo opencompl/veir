@@ -121,19 +121,17 @@ def PDL.toAttrDict
       (Std.HashMap.emptyWithCapacity 1).insert "constantTypes".toUTF8 (.arrayAttr constantTypes)
     | none => Std.HashMap.emptyWithCapacity 0
 
-/-- MLIR marks only `pdl.range`, `pdl.result` and `pdl.results` `Pure`. The rest
-    describe or perform rewrite actions, so treating them as side-effect free
-    lets dead-code elimination delete a pattern body. -/
-def PDL.hasSideEffects (op : PDL) (_props : PDL.propertiesOf op) : Bool :=
-  match op with
-  | .range | .result | .results => false
-  | _ => true
-
 def PDL.readsMemory (_op : PDL) (_props : PDL.propertiesOf _op) : Bool :=
   false
 
-def PDL.writesMemory (_op : PDL) (_props : PDL.propertiesOf _op) : Bool :=
-  false
+/-- MLIR marks only `pdl.range`, `pdl.result` and `pdl.results` `Pure` (see
+    `PDLOps.td`). The rest describe or perform rewrite actions and carry no
+    memory-effect interface, so treating them as side-effect free lets dead-code
+    elimination delete a pattern body. -/
+def PDL.writesMemory (op : PDL) (_props : PDL.propertiesOf op) : Bool :=
+  match op with
+  | .range | .result | .results => false
+  | _ => true
 
 def PDL.isConstantLike (_op : PDL) : Bool :=
   false
@@ -156,7 +154,6 @@ instance : HasOpInfo PDL where
   propertiesOf := PDL.propertiesOf
   fromAttrDict := PDL.fromAttrDict
   toAttrDict := PDL.toAttrDict
-  hasSideEffects := PDL.hasSideEffects
   readsMemory := PDL.readsMemory
   writesMemory := PDL.writesMemory
   isConstantLike := PDL.isConstantLike

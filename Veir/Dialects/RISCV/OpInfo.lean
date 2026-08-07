@@ -199,49 +199,6 @@ def Riscv.toAttrDict
     dict
   | _ => Std.HashMap.emptyWithCapacity 0
 
-def Riscv.hasSideEffects (op : Riscv) (props : Riscv.propertiesOf op) : Bool :=
-  match op, props with
-  -- Volatile loads are definitionally side-effecting.
-  | .ld, props
-  | .lw, props
-  | .lwu, props
-  | .lh, props
-  | .lhu, props
-  | .lb, props
-  | .lbu, props => props.volatile_
-  | op, _ =>
-    match op with
-    | .li | .lui | .auipc
-    | .addi | .slti | .sltiu
-    | .andi | .ori | .xori
-    | .addiw | .slli | .srli | .srai
-    | .add | .sub | .sll | .slt | .sltu
-    | .xor | .srl | .sra | .or | .and
-    | .slliw | .srliw | .sraiw
-    | .addw | .subw | .sllw | .srlw | .sraw
-    | .rem | .remu | .remw | .remuw
-    | .mul | .mulh | .mulhu | .mulhsu | .mulw
-    | .div | .divw | .divu | .divuw
-    | .adduw | .sh1adduw | .sh2adduw | .sh3adduw
-    | .sh1add | .sh2add | .sh3add | .slliuw
-    | .andn | .orn | .xnor
-    | .max | .maxu | .min | .minu
-    | .rol | .ror | .rolw | .rorw
-    | .sextb | .sexth | .zexth
-    | .clz | .clzw | .ctz | .ctzw
-    | .cpop | .cpopw | .orcb | .rev8
-    | .rori | .roriw
-    | .bclr | .bext | .binv | .bset
-    | .bclri | .bexti | .binvi | .bseti
-    | .pack | .packh | .packw
-    | .czeroeqz | .czeronez
-    -- RISC-V pseudo-operations
-    | .mv | .not | .neg | .negw
-    | .sextw | .zextb | .zextw
-    | .seqz | .snez | .sltz | .sgtz => false
-    -- For everything else: be conservative!
-    | _ => true
-
 def Riscv.readsMemory (op : Riscv) (props : Riscv.propertiesOf op) : Bool :=
   match op, props with
   -- A volatile store also reads; ordinary loads reach the default below.
@@ -329,7 +286,6 @@ instance : HasOpInfo Riscv where
   propertiesOf := Riscv.propertiesOf
   fromAttrDict := Riscv.fromAttrDict
   toAttrDict := Riscv.toAttrDict
-  hasSideEffects := Riscv.hasSideEffects
   readsMemory := Riscv.readsMemory
   writesMemory := Riscv.writesMemory
   isConstantLike := Riscv.isConstantLike
