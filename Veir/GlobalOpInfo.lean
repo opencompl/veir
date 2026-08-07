@@ -33,21 +33,6 @@ match opCode with
 | .test op => Test.propertiesOf op
 
 /--
-  Does this OpCode count as an MLIR basic block terminator?
--/
-def OpCode.isTerminator (opCode : OpCode) : Bool :=
-  match opCode with
-  | .cf .br | .cf .cond_br
-  | .func .return
-  | .llvm .br | .llvm .cond_br | .llvm .return | .llvm .unreachable
-  | .riscv_cf .branch | .riscv_cf .beq | .riscv_cf .bne
-  | .riscv_cf .beqz | .riscv_cf .bnez
-  | .riscv_cf .blt | .riscv_cf .bge | .riscv_cf .bltu | .riscv_cf .bgeu
-  | .hw .output
-  | .pdl .rewrite => true
-  | _ => false
-
-/--
   Does an operation with this opcode and these properties read memory?
 -/
 def OpCode.readsMemory (opCode : OpCode) (props : _propertiesOf opCode) : Bool :=
@@ -182,6 +167,28 @@ def OpCode.hasNoTerminator (opCode : OpCode) (index : Nat) : Bool :=
   | .test op => HasOpInfo.hasNoTerminator op index
 
 /--
+  Does this OpCode count as an MLIR basic block terminator? Dialects that do
+  not say otherwise inherit the `HasOpInfo` default of `false`.
+-/
+def OpCode.isTerminator (opCode : OpCode) : Bool :=
+  match opCode with
+  | .arith op => HasOpInfo.isTerminator op
+  | .llvm op => HasOpInfo.isTerminator op
+  | .riscv op => HasOpInfo.isTerminator op
+  | .riscv_cf op => HasOpInfo.isTerminator op
+  | .riscv_stack op => HasOpInfo.isTerminator op
+  | .rv64 op => HasOpInfo.isTerminator op
+  | .mod_arith op => HasOpInfo.isTerminator op
+  | .cf op => HasOpInfo.isTerminator op
+  | .comb op => HasOpInfo.isTerminator op
+  | .hw op => HasOpInfo.isTerminator op
+  | .builtin op => HasOpInfo.isTerminator op
+  | .func op => HasOpInfo.isTerminator op
+  | .datapath op => HasOpInfo.isTerminator op
+  | .pdl op => HasOpInfo.isTerminator op
+  | .test op => HasOpInfo.isTerminator op
+
+/--
   Does this `OpCode` materialize a literal constant value, i.e. an op
   whose single result is a compile-time constant taken from its
   properties, with no SSA operands and no side effects?
@@ -261,6 +268,7 @@ instance : HasOpInfo OpCode where
   isConstantLike := OpCode.isConstantLike
   hasSSADominance := OpCode.hasSSADominance
   hasNoTerminator := OpCode.hasNoTerminator
+  isTerminator := OpCode.isTerminator
 
 #generate_has_dialect_instances OpCode
 

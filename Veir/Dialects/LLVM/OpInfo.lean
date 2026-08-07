@@ -365,6 +365,11 @@ def Llvm.isConstantLike (op : Llvm) : Bool :=
 def Llvm.hasSSADominance (_op : Llvm) (_index : Nat) : Bool :=
   true
 
+def Llvm.isTerminator (op : Llvm) : Bool :=
+  match op with
+  | .br | .cond_br | .return | .unreachable => true
+  | _ => false
+
 #generate_dialect Llvm
 
 instance : HasOpInfo Llvm where
@@ -378,6 +383,7 @@ instance : HasOpInfo Llvm where
   writesMemory := Llvm.writesMemory
   isConstantLike := Llvm.isConstantLike
   hasSSADominance := Llvm.hasSSADominance
+  isTerminator := Llvm.isTerminator
 
 end
 

@@ -148,6 +148,13 @@ def PDL.hasNoTerminator (op : PDL) (_index : Nat) : Bool :=
   | .rewrite => true
   | _ => false
 
+/-- MLIR marks `pdl.rewrite` itself a `Terminator`: it is the last operation of
+    the `pdl.pattern` body it lives in. -/
+def PDL.isTerminator (op : PDL) : Bool :=
+  match op with
+  | .rewrite => true
+  | _ => false
+
 #generate_dialect PDL
 
 instance : HasOpInfo PDL where
@@ -162,6 +169,7 @@ instance : HasOpInfo PDL where
   isConstantLike := PDL.isConstantLike
   hasSSADominance := PDL.hasSSADominance
   hasNoTerminator := PDL.hasNoTerminator
+  isTerminator := PDL.isTerminator
 
 /--
   The element kind of a PDL handle type, treating a non-range handle as a range
