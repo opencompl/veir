@@ -267,6 +267,28 @@ instance : HasOpInfo OpCode where
 abbrev propertiesOf := HasOpInfo.propertiesOf (self := instHasOpInfoOpCode)
 
 /--
+Ask the dialect of `opCode` how to represent a folded
+constant. Dialects without a materializer, and values a dialect cannot
+represent, decline to fold.
+-/
+def OpCode.materializeConstant (opCode : OpCode) (value : RuntimeValue)
+    (type : TypeAttr) : Option (Materialized OpCode) := do
+  let materialized ←
+    match opCode with
+    | .arith op => Arith.materializeConstant op value type
+    | .comb op => Comb.materializeConstant op value type
+    | .hw op => HW.materializeConstant op value type
+    | .llvm op => Llvm.materializeConstant op value type
+    | .mod_arith op => Mod_Arith.materializeConstant op value type
+    | .riscv op => Riscv.materializeConstant op value type
+    -- Listed rather than folded into a catch-all so that adding a dialect
+    -- fails to compile until it decides how, or whether, to materialize.
+    | .riscv_cf _ | .riscv_stack _ | .rv64 _ | .cf _ | .builtin _
+    | .func _ | .datapath _ | .pdl _ | .test _ => none
+  guard materialized.fst.isConstantLike
+  return materialized
+
+/--
   Is this `OpCode` commutative in its operands, i.e. `op x y` always
   computes the same value as `op y x`?
 -/
