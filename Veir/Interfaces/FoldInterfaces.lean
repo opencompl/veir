@@ -55,12 +55,21 @@ def OperationPtr.foldsTo (op : OperationPtr)
 /--
 Materialize `value` using the materialization hook of `foldingOpType`'s dialect.
 The hook may select a constant-like operation from another dialect.
+
+The return values signal two different failure modes:
+* `some (rewriter, none)` - the constant cannot be materialized, this means the
+   rewrite doesn't happen but there's no cause for concern
+* `none` - the operation could not be created; in this case the entire pass
+   should generate a hard failure
 -/
 def PatternRewriter.materializeConstant! (rewriter : PatternRewriter OpCode)
     (foldingOpType : OpCode) (value : RuntimeValue) (resultType : TypeAttr)
-    (insertionPoint : InsertPoint) : Option (PatternRewriter OpCode × OperationPtr) := do
-  let ⟨materializedOpType, properties⟩ ← foldingOpType.materializeConstant value resultType
-  rewriter.createOp! materializedOpType #[resultType] #[] #[] #[] properties
+    (insertionPoint : InsertPoint) :
+    Option (PatternRewriter OpCode × Option OperationPtr) := do
+  let some ⟨opType, properties⟩ := foldingOpType.materializeConstant value resultType
+    | return (rewriter, none)
+  let (rewriter, op) ← rewriter.createOp! opType #[resultType] #[] #[] #[] properties
     (some insertionPoint)
+  return (rewriter, some op)
 
 end Veir
