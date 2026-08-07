@@ -1,9 +1,9 @@
 module
 /-! # Masks as bitvector variables constrained by `m &&& (m + 1) = 0`. -/
 
-public section
+namespace Veir.Data.PBV
 
-namespace Veir.Data.BitVec
+public section
 
 /-- `maskOfWidth o w : BitVec o` has its low `w` bits set and all higher bits clear. -/
 def maskOfWidth (o w : Nat) : BitVec o := BitVec.ofNat o (2 ^ w - 1)
