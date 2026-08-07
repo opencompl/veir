@@ -53,7 +53,7 @@ partial def scanEntryPoints (ctx : IRContext OpCode) (op : Option OperationPtr)
       | .llvm .module_flags | .llvm .mlir__global =>
         scanEntryPoints ctx (op.get! ctx).next entryPoints
       | _ =>
-        IO.eprintln "Error: Top-level operations are disallowed; define a zero-argument function named 'main'"
+        IO.eprintln "Error: unsupported top-level operation; expected a function, llvm.mlir.global, or llvm.module_flags"
         IO.Process.exit 1
 
 /-- Resolve the unique entry point of the module, if one exists. -/
