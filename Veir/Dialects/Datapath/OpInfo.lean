@@ -49,7 +49,7 @@ def Datapath.hasSSADominance (_op : Datapath) (_index : Nat) : Bool :=
 
 #generate_dialect Datapath
 
-instance : HasDialectOpInfo Datapath where
+instance : HasOpInfo Datapath where
   fromName := Datapath.fromName
   name := Datapath.name
   propertiesOf := Datapath.propertiesOf

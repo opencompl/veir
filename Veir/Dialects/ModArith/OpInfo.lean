@@ -61,7 +61,7 @@ def Mod_Arith.hasSSADominance (_op : Mod_Arith) (_index : Nat) : Bool :=
 
 #generate_dialect Mod_Arith
 
-instance : HasDialectOpInfo Mod_Arith where
+instance : HasOpInfo Mod_Arith where
   fromName := Mod_Arith.fromName
   name := Mod_Arith.name
   propertiesOf := Mod_Arith.propertiesOf
