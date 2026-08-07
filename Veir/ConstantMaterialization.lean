@@ -22,9 +22,9 @@ abbrev Materialized (OpInfo : Type) [HasOpInfo OpInfo] :=
   Inject a dialect-local opcode and its properties into `OpInfo`. This is how a
   dialect materializer names the operation it wants created.
 -/
-def Materialized.of {OpInfo Dialect : Type} [HasOpInfo OpInfo] [HasDialectOpInfo Dialect]
+def Materialized.of {OpInfo Dialect : Type} [HasOpInfo OpInfo] [HasOpInfo Dialect]
     [HasDialect OpInfo Dialect] (op : Dialect)
-    (properties : HasDialectOpInfo.propertiesOf op) : Materialized OpInfo :=
+    (properties : HasOpInfo.propertiesOf op) : Materialized OpInfo :=
   ⟨ofDialect OpInfo op, HasDialect.ofDialectProperties OpInfo op properties⟩
 
 end
