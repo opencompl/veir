@@ -38,15 +38,9 @@ def Riscv_Stack.readsMemory
     (_op : Riscv_Stack) (_props : Riscv_Stack.propertiesOf _op) : Bool :=
   false
 
-/--
-`riscv_stack.alloca` claims a fresh stack slot, which modifies the frame and
-so is not removable even when the resulting address is unused. Upstream's
-nearest counterpart, `llvm.alloca`, likewise carries neither `Pure` nor a
-memory-effect interface and so is never trivially dead.
--/
 def Riscv_Stack.writesMemory
     (_op : Riscv_Stack) (_props : Riscv_Stack.propertiesOf _op) : Bool :=
-  true
+  false
 
 def Riscv_Stack.isConstantLike (_op : Riscv_Stack) : Bool :=
   false

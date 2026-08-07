@@ -29,16 +29,11 @@ def Rv64.toAttrDict
     Std.HashMap ByteArray Attribute :=
   Std.HashMap.emptyWithCapacity 0
 
-/--
-`rv64.get_register` names a physical register, whose contents live outside the
-SSA value graph. This dialect has no upstream counterpart to take effects from,
-so both queries stay at the conservative answer.
--/
 def Rv64.readsMemory (_op : Rv64) (_props : Rv64.propertiesOf _op) : Bool :=
-  true
+  false
 
 def Rv64.writesMemory (_op : Rv64) (_props : Rv64.propertiesOf _op) : Bool :=
-  true
+  false
 
 def Rv64.isConstantLike (_op : Rv64) : Bool :=
   false
