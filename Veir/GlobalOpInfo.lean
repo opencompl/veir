@@ -213,14 +213,26 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   `function_type` property?
 
   This is the analogue of MLIR's `FunctionOpInterface`. Dialects that
-  define no function-like operation are covered by the wildcard, matching
-  the `false` default on `HasDialectOpInfo.isFunctionLike`.
+  define no function-like operation inherit the `false` default on
+  `HasDialectOpInfo.isFunctionLike`.
 -/
 def OpCode.isFunctionLike (opCode : OpCode) : Bool :=
   match opCode with
-  | .func op => Func.isFunctionLike op
-  | .llvm op => Llvm.isFunctionLike op
-  | _ => false
+  | .arith op => HasDialectOpInfo.isFunctionLike op
+  | .llvm op => HasDialectOpInfo.isFunctionLike op
+  | .riscv op => HasDialectOpInfo.isFunctionLike op
+  | .riscv_cf op => HasDialectOpInfo.isFunctionLike op
+  | .riscv_stack op => HasDialectOpInfo.isFunctionLike op
+  | .rv64 op => HasDialectOpInfo.isFunctionLike op
+  | .mod_arith op => HasDialectOpInfo.isFunctionLike op
+  | .cf op => HasDialectOpInfo.isFunctionLike op
+  | .comb op => HasDialectOpInfo.isFunctionLike op
+  | .hw op => HasDialectOpInfo.isFunctionLike op
+  | .builtin op => HasDialectOpInfo.isFunctionLike op
+  | .func op => HasDialectOpInfo.isFunctionLike op
+  | .datapath op => HasDialectOpInfo.isFunctionLike op
+  | .pdl op => HasDialectOpInfo.isFunctionLike op
+  | .test op => HasDialectOpInfo.isFunctionLike op
 
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (_propertiesOf opCode) :=
