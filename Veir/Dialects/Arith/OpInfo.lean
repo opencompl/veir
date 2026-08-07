@@ -130,7 +130,7 @@ def Arith.hasSSADominance (_op : Arith) (_index : Nat) : Bool :=
 
 #generate_dialect Arith
 
-instance : HasDialectOpInfo Arith where
+instance : HasOpInfo Arith where
   fromName := Arith.fromName
   name := Arith.name
   propertiesOf := Arith.propertiesOf

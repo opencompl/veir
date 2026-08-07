@@ -323,7 +323,7 @@ def Riscv.hasSSADominance (_op : Riscv) (_index : Nat) : Bool :=
 
 #generate_dialect Riscv
 
-instance : HasDialectOpInfo Riscv where
+instance : HasOpInfo Riscv where
   fromName := Riscv.fromName
   name := Riscv.name
   propertiesOf := Riscv.propertiesOf
