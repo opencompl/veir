@@ -28,6 +28,7 @@ theorem pbv_setWidth_add {w o : Nat} (h : w ≤ o) :
   -- rw [BitVec.toNat_add, toNat_setWidth_of_le h, toNat_setWidth_of_le h,
   --   mod_two_pow_mod_two_pow_of_le' h, BitVec.toNat_add]
   sorry
+
 theorem pbv_setWidth_setWidth {w o : Nat} (h : w ≤ o) :
     ∀ {u : Nat} (a : BitVec u),
       (a.setWidth w).setWidth o = a.setWidth o &&& maskOfWidth o w := by
