@@ -64,6 +64,11 @@ def Func.writesMemory (op : Func) (_props : Func.propertiesOf op) : Bool :=
 def Func.isConstantLike (_op : Func) : Bool :=
   false
 
+def Func.isFunctionLike (op : Func) : Bool :=
+  match op with
+  | .func => true
+  | .call | .return => false
+
 def Func.hasSSADominance (_op : Func) (_index : Nat) : Bool :=
   true
 
@@ -79,6 +84,7 @@ instance : HasOpInfo Func where
   readsMemory := Func.readsMemory
   writesMemory := Func.writesMemory
   isConstantLike := Func.isConstantLike
+  isFunctionLike := Func.isFunctionLike
   hasSSADominance := Func.hasSSADominance
 
 end

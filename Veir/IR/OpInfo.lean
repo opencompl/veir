@@ -77,6 +77,11 @@ class HasOpInfo (opCode: Type)
   -/
   isConstantLike : opCode → Bool := fun _ => false
   /--
+  Whether an operation with this opcode acts like a function: a symbol
+  whose single region is the function body.
+  -/
+  isFunctionLike : opCode → Bool := fun _ => false
+  /--
   Whether definitions in the indexed region must dominate their uses. A false
   result denotes graph-style semantics, where only a single block can be in the
   region, and operation order does not impose SSA dominance.

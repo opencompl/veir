@@ -207,6 +207,32 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | .pdl op => PDL.isConstantLike op
   | .test op => Test.isConstantLike op
 
+/--
+  Does this `OpCode` act like a function, i.e. a symbol whose single
+  region is the function body, with the signature carried in a
+  `function_type` property?
+
+  Dialects that do not override isFunctionLike default to false
+  for all operations.
+-/
+def OpCode.isFunctionLike (opCode : OpCode) : Bool :=
+  match opCode with
+  | .arith op => HasOpInfo.isFunctionLike op
+  | .llvm op => HasOpInfo.isFunctionLike op
+  | .riscv op => HasOpInfo.isFunctionLike op
+  | .riscv_cf op => HasOpInfo.isFunctionLike op
+  | .riscv_stack op => HasOpInfo.isFunctionLike op
+  | .rv64 op => HasOpInfo.isFunctionLike op
+  | .mod_arith op => HasOpInfo.isFunctionLike op
+  | .cf op => HasOpInfo.isFunctionLike op
+  | .comb op => HasOpInfo.isFunctionLike op
+  | .hw op => HasOpInfo.isFunctionLike op
+  | .builtin op => HasOpInfo.isFunctionLike op
+  | .func op => HasOpInfo.isFunctionLike op
+  | .datapath op => HasOpInfo.isFunctionLike op
+  | .pdl op => HasOpInfo.isFunctionLike op
+  | .test op => HasOpInfo.isFunctionLike op
+
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (_propertiesOf opCode) :=
   match opCode with
@@ -259,6 +285,7 @@ instance : HasOpInfo OpCode where
   readsMemory := OpCode.readsMemory
   writesMemory := OpCode.writesMemory
   isConstantLike := OpCode.isConstantLike
+  isFunctionLike := OpCode.isFunctionLike
   hasSSADominance := OpCode.hasSSADominance
   hasNoTerminator := OpCode.hasNoTerminator
 
