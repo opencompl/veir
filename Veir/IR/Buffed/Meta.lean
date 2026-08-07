@@ -1155,6 +1155,11 @@ private meta partial def projectResultTail (implName : Name) (field0? : Option N
     let body' ← projectResultTail implName field0? body
     `(let $d:letDecl
       $body')
+  | `(have $d:letDecl
+      $body) =>
+    let body' ← projectResultTail implName field0? body
+    `(have $d:letDecl
+      $body')
   | `(if $c then $t else $e) =>
     let t' ← projectResultTail implName field0? t
     let e' ← projectResultTail implName field0? e

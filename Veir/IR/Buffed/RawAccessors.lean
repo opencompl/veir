@@ -210,6 +210,23 @@ def IRBufContext.insertAttrs (bctx : IRBufContext) (attrs : Attribute) :
   else
     none
 
+/-- Non-`Option` variant of `insertAttrs` for callers that have already discharged the
+attribute-table capacity check: the guard (a `Nat < 2^64` comparison, which the compiler
+lowers to a GMP call) is hoisted out of per-element loops into a single check. -/
+@[inline]
+def IRBufContext.insertAttrsBounded (bctx : IRBufContext) (attrs : Attribute)
+    (_h : bctx.attributes.size < UInt64.size) : IRBufContext × UInt64 :=
+  -- Read the index before the push: keeping `bctx.attributes` live across the push would bump
+  -- its refcount and turn the push into a full copy of the attribute table.
+  let idx := bctx.attributes.size.toUInt64
+  ({ bctx with attributes := bctx.attributes.push attrs }, idx)
+
+@[grind =]
+theorem IRBufContext.insertAttrs_eq_insertAttrsBounded {bctx : IRBufContext} {attrs : Attribute}
+    (h : bctx.attributes.size < UInt64.size) :
+    bctx.insertAttrs attrs = some (bctx.insertAttrsBounded attrs h) := by
+  simp [insertAttrs, insertAttrsBounded, h]
+
 /-- `insertAttrs` only grows the attribute table, so it leaves the buffer size unchanged. -/
 theorem IRBufContext.insertAttrs_size {bctx bctx' : IRBufContext} {attrs : Attribute} {idx : UInt64}
     (h : bctx.insertAttrs attrs = some (bctx', idx)) : bctx'.size = bctx.size := by
