@@ -149,6 +149,7 @@ theorem interpretOp_equationLemmaAt {ctx : WfIRContext OpCode} {opInBounds} {sta
 /-- An interpreter state satisfies the `DefinesDominating` invariant at a program point if it
 defines all values that dominate that program point. This should be satisfied by any state in the
 interpreter. -/
+@[expose]
 def InterpreterState.DefinesDominating {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
     (location : InsertPoint) (_locInBounds : location.InBounds ctx.raw := by grind) : Prop :=
   ∀ (value : ValuePtr) (_valueInBounds : value.InBounds ctx.raw),
