@@ -97,10 +97,7 @@ def coerceFunction (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
 def coerceFunctionBoundaries (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode) :
     ExceptT String IO (WfIRContext OpCode) := do
   let mut ctx := ctx
-  let funcOps := ctx.raw.operations.keys.filter fun o =>
-    match o.getOpType! ctx.raw with
-    | .func .func | .llvm .func => true
-    | _ => false
+  let funcOps := ctx.raw.operations.keys.filter fun o => o.isFunctionLike ctx.raw
   for funcOp in funcOps do
     ctx ← coerceFunction coercion ctx funcOp
   return ctx
