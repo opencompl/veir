@@ -212,9 +212,8 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   region is the function body, with the signature carried in a
   `function_type` property?
 
-  This is the analogue of MLIR's `FunctionOpInterface`. Dialects that
-  define no function-like operation inherit the `false` default on
-  `HasDialectOpInfo.isFunctionLike`.
+  Dialects that do not override isFunctionLike default to false
+  for all operations.
 -/
 def OpCode.isFunctionLike (opCode : OpCode) : Bool :=
   match opCode with
