@@ -217,21 +217,21 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
 -/
 def OpCode.isFunctionLike (opCode : OpCode) : Bool :=
   match opCode with
-  | .arith op => HasDialectOpInfo.isFunctionLike op
-  | .llvm op => HasDialectOpInfo.isFunctionLike op
-  | .riscv op => HasDialectOpInfo.isFunctionLike op
-  | .riscv_cf op => HasDialectOpInfo.isFunctionLike op
-  | .riscv_stack op => HasDialectOpInfo.isFunctionLike op
-  | .rv64 op => HasDialectOpInfo.isFunctionLike op
-  | .mod_arith op => HasDialectOpInfo.isFunctionLike op
-  | .cf op => HasDialectOpInfo.isFunctionLike op
-  | .comb op => HasDialectOpInfo.isFunctionLike op
-  | .hw op => HasDialectOpInfo.isFunctionLike op
-  | .builtin op => HasDialectOpInfo.isFunctionLike op
-  | .func op => HasDialectOpInfo.isFunctionLike op
-  | .datapath op => HasDialectOpInfo.isFunctionLike op
-  | .pdl op => HasDialectOpInfo.isFunctionLike op
-  | .test op => HasDialectOpInfo.isFunctionLike op
+  | .arith op => HasOpInfo.isFunctionLike op
+  | .llvm op => HasOpInfo.isFunctionLike op
+  | .riscv op => HasOpInfo.isFunctionLike op
+  | .riscv_cf op => HasOpInfo.isFunctionLike op
+  | .riscv_stack op => HasOpInfo.isFunctionLike op
+  | .rv64 op => HasOpInfo.isFunctionLike op
+  | .mod_arith op => HasOpInfo.isFunctionLike op
+  | .cf op => HasOpInfo.isFunctionLike op
+  | .comb op => HasOpInfo.isFunctionLike op
+  | .hw op => HasOpInfo.isFunctionLike op
+  | .builtin op => HasOpInfo.isFunctionLike op
+  | .func op => HasOpInfo.isFunctionLike op
+  | .datapath op => HasOpInfo.isFunctionLike op
+  | .pdl op => HasOpInfo.isFunctionLike op
+  | .test op => HasOpInfo.isFunctionLike op
 
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (_propertiesOf opCode) :=

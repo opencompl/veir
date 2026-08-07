@@ -21,7 +21,7 @@ public section
 /-- Whether this operation acts like a function. -/
 def OperationPtr.isFunctionLike {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : IRContext OpInfo) : Bool :=
-  HasDialectOpInfo.isFunctionLike (op.getOpType! ctx)
+  HasOpInfo.isFunctionLike (op.getOpType! ctx)
 
 namespace FunctionOpInterface
 
