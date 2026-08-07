@@ -69,7 +69,7 @@ def Func.hasSSADominance (_op : Func) (_index : Nat) : Bool :=
 
 #generate_dialect Func
 
-instance : HasDialectOpInfo Func where
+instance : HasOpInfo Func where
   fromName := Func.fromName
   name := Func.name
   propertiesOf := Func.propertiesOf

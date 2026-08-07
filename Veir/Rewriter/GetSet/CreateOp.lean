@@ -55,12 +55,12 @@ namespace Veir
 
 variable {OpInfo} [HasOpInfo OpInfo]
 variable {ctx : IRContext OpInfo}
-variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpInfo Dialect]
 variable {dialectOpType : Dialect}
-variable {CreateDialect : Type} [HasDialectOpInfo CreateDialect]
+variable {CreateDialect : Type} [HasOpInfo CreateDialect]
   [HasDialect OpInfo CreateDialect]
 variable {opType : CreateDialect}
-variable {properties : HasDialectOpInfo.propertiesOf opType}
+variable {properties : HasOpInfo.propertiesOf opType}
 section Rewriter.createEmptyOp
 
 variable {op : OperationPtr}

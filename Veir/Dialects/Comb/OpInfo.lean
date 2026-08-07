@@ -79,7 +79,7 @@ def Comb.hasSSADominance (_op : Comb) (_index : Nat) : Bool :=
 
 #generate_dialect Comb
 
-instance : HasDialectOpInfo Comb where
+instance : HasOpInfo Comb where
   fromName := Comb.fromName
   name := Comb.name
   propertiesOf := Comb.propertiesOf
