@@ -71,6 +71,10 @@ def Riscv_Cf.isConstantLike (_op : Riscv_Cf) : Bool :=
 def Riscv_Cf.hasSSADominance (_op : Riscv_Cf) (_index : Nat) : Bool :=
   true
 
+/-- Every `riscv_cf` operation is a branch, and so terminates its block. -/
+def Riscv_Cf.isTerminator (_op : Riscv_Cf) : Bool :=
+  true
+
 #generate_dialect Riscv_Cf
 
 instance : HasOpInfo Riscv_Cf where
@@ -84,6 +88,7 @@ instance : HasOpInfo Riscv_Cf where
   writesMemory := Riscv_Cf.writesMemory
   isConstantLike := Riscv_Cf.isConstantLike
   hasSSADominance := Riscv_Cf.hasSSADominance
+  isTerminator := Riscv_Cf.isTerminator
 
 end
 
