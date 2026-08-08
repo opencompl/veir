@@ -45,12 +45,12 @@ namespace Veir
 variable {OpInfo} [HasOpInfo OpInfo]
 variable {ctx ctx' : WfIRContext OpInfo}
 variable {operation : OperationPtr} {region : RegionPtr} {block : BlockPtr} {value : ValuePtr}
-variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpInfo Dialect]
 variable {dialectOpType : Dialect}
-variable {CreateDialect : Type} [HasDialectOpInfo CreateDialect]
+variable {CreateDialect : Type} [HasOpInfo CreateDialect]
   [HasDialect OpInfo CreateDialect]
 variable {opType : CreateDialect}
-variable {properties : HasDialectOpInfo.propertiesOf opType}
+variable {properties : HasOpInfo.propertiesOf opType}
 
 /-! ## `WfRewriter.createOp` -/
 
@@ -1069,7 +1069,7 @@ section WfRewriter.setProperties
 attribute [local grind] WfRewriter.setProperties
 
 variable {opCode : Dialect} {op : OperationPtr}
-         {newProps : HasDialectOpInfo.propertiesOf opCode}
+         {newProps : HasOpInfo.propertiesOf opCode}
          {opIn : op.InBounds ctx.raw} {hprop : op.getOpType! ctx.raw = opCode}
 
 @[simp, grind =]
@@ -1134,7 +1134,7 @@ theorem OperationPtr.attrs!_wfRewriter_setProperties {op' : OperationPtr} :
 
 @[grind =]
 theorem OperationPtr.getProperties!_wfRewriter_setProperties
-    {GetterDialect : Type} [HasDialectOpInfo GetterDialect]
+    {GetterDialect : Type} [HasOpInfo GetterDialect]
     [HasDialect OpInfo GetterDialect] {getterOpCode : GetterDialect} {op' : OperationPtr} :
     op'.getProperties!
       (WfRewriter.setProperties ctx op opCode newProps opIn hprop).raw getterOpCode =

@@ -29,7 +29,7 @@ public section
 def OperationPtr.hasSideEffects {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : IRContext OpInfo) : Bool :=
   let opType := op.getOpType! ctx
-  HasDialectOpInfo.hasSideEffects opType (op.getProperties! ctx opType)
+  HasOpInfo.hasSideEffects opType (op.getProperties! ctx opType)
 
 /--
   May this operation read memory?
@@ -40,7 +40,7 @@ def OperationPtr.readsMemory {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : IRContext OpInfo) : Bool :=
   if op.getNumRegions! ctx != 0 then true else
   let opType := op.getOpType! ctx
-  HasDialectOpInfo.readsMemory opType (op.getProperties! ctx opType)
+  HasOpInfo.readsMemory opType (op.getProperties! ctx opType)
 
 /--
   May this operation write memory?
@@ -51,7 +51,7 @@ def OperationPtr.writesMemory {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : IRContext OpInfo) : Bool :=
   if op.getNumRegions! ctx != 0 then true else
   let opType := op.getOpType! ctx
-  HasDialectOpInfo.writesMemory opType (op.getProperties! ctx opType)
+  HasOpInfo.writesMemory opType (op.getProperties! ctx opType)
 
 end
 

@@ -7,7 +7,7 @@ namespace Veir
 
 public section
 
-class HasDialectOpInfo (opCode: Type)
+class HasOpInfo (opCode: Type)
     extends Hashable opCode, Repr opCode, Inhabited opCode where
   /-- Look up an operation by its fully qualified MLIR name. -/
   fromName : ByteArray → Option opCode
@@ -97,27 +97,20 @@ class HasDialectOpInfo (opCode: Type)
   -/
   hasNoTerminator : opCode → Nat → Bool := fun _ _ => false
 
-instance [HasDialectOpInfo opCode] {op : opCode} : Hashable (HasDialectOpInfo.propertiesOf op) where
-  hash := HasDialectOpInfo.propertiesHash.hash
+instance [HasOpInfo opCode] {op : opCode} : Hashable (HasOpInfo.propertiesOf op) where
+  hash := HasOpInfo.propertiesHash.hash
 
-instance [HasDialectOpInfo opCode] {op : opCode} : Inhabited (HasDialectOpInfo.propertiesOf op) where
-  default := HasDialectOpInfo.propertiesDefault.default
+instance [HasOpInfo opCode] {op : opCode} : Inhabited (HasOpInfo.propertiesOf op) where
+  default := HasOpInfo.propertiesDefault.default
 
-instance [HasDialectOpInfo opCode] {op : opCode} : Repr (HasDialectOpInfo.propertiesOf op) where
-  reprPrec := HasDialectOpInfo.propertiesRepr.reprPrec
+instance [HasOpInfo opCode] {op : opCode} : Repr (HasOpInfo.propertiesOf op) where
+  reprPrec := HasOpInfo.propertiesRepr.reprPrec
 
-instance [HasDialectOpInfo opCode] {op : opCode} : DecidableEq (HasDialectOpInfo.propertiesOf op) :=
-  HasDialectOpInfo.propertiesDecideEq
+instance [HasOpInfo opCode] {op : opCode} : DecidableEq (HasOpInfo.propertiesOf op) :=
+  HasOpInfo.propertiesDecideEq
 
-instance [HasDialectOpInfo opCode] : DecidableEq opCode :=
-  HasDialectOpInfo.decideEq
-
-/--
-The `HasOpInfo` type class provides the combined operation information for a
-global opcode type.
--/
-class HasOpInfo (opCode: Type)
-    extends Hashable opCode, Repr opCode, Inhabited opCode, HasDialectOpInfo opCode
+instance [HasOpInfo opCode] : DecidableEq opCode :=
+  HasOpInfo.decideEq
 
 /--
 `HasDialect OpInfo Dialect` states that `OpInfo` contains the operations from
@@ -128,7 +121,7 @@ a projection from the combined opcode type to dialect-local opcodes.
 The class also records that the dialect-local property family agree with the combined
 property family on the injected opcodes.
 -/
-class HasDialect (OpInfo Dialect : Type) [HasOpInfo OpInfo] [HasDialectOpInfo Dialect] where
+class HasDialect (OpInfo Dialect : Type) [HasOpInfo OpInfo] [HasOpInfo Dialect] where
   /--
   Given a dialect opcode, get the equivalent opcode.
   `Veir.ofDialect` or a coercion should be used instead of calling this function.
@@ -144,18 +137,18 @@ class HasDialect (OpInfo Dialect : Type) [HasOpInfo OpInfo] [HasDialectOpInfo Di
     project opInfo = some op ↔ inject op = opInfo
   /-- The equivalence between the properties of the injected opcode and the dialect opcode. -/
   properties_eq (op : Dialect) :
-    HasOpInfo.propertiesOf (inject op) = HasDialectOpInfo.propertiesOf op
+    HasOpInfo.propertiesOf (inject op) = HasOpInfo.propertiesOf op
 
 /--
 Project a global opcode to a dialect. Returns `none` when the opcode belongs
 to another dialect.
 -/
 def toDialect? (Dialect : Type) {OpInfo : Type} [HasOpInfo OpInfo]
-    [HasDialectOpInfo Dialect] [dialectInj : HasDialect OpInfo Dialect] (opInfo : OpInfo) :
+    [HasOpInfo Dialect] [dialectInj : HasDialect OpInfo Dialect] (opInfo : OpInfo) :
     Option Dialect :=
   HasDialect.project opInfo
 
-def ofDialect {Dialect : Type} (OpInfo : Type) [HasOpInfo OpInfo] [HasDialectOpInfo Dialect]
+def ofDialect {Dialect : Type} (OpInfo : Type) [HasOpInfo OpInfo] [HasOpInfo Dialect]
     [dialectInj : HasDialect OpInfo Dialect] (op : Dialect) :
     OpInfo :=
   HasDialect.inject op
@@ -177,14 +170,14 @@ theorem ofDialect_hasDialectRefl (OpInfo : Type) [HasOpInfo OpInfo] (op : OpInfo
     ofDialect OpInfo op = op := by rfl
 
 /-- Coercion from a dialect opcode to the global opcode type. -/
-instance {OpInfo : Type} {Dialect : Type} [HasOpInfo OpInfo] [HasDialectOpInfo Dialect]
+instance {OpInfo : Type} {Dialect : Type} [HasOpInfo OpInfo] [HasOpInfo Dialect]
     [HasDialect OpInfo Dialect] (op : Dialect) :
     CoeDep Dialect op OpInfo where
   coe := ofDialect OpInfo op
 
 namespace HasDialect
 
-variable {OpInfo : Type} {Dialect : Type} [HasOpInfo OpInfo] [HasDialectOpInfo Dialect]
+variable {OpInfo : Type} {Dialect : Type} [HasOpInfo OpInfo] [HasOpInfo Dialect]
   [dialectInj : HasDialect OpInfo Dialect]
 
 /-- Projecting an injected dialect opcode recovers that opcode. -/
@@ -203,12 +196,12 @@ theorem ofDialect_injective {op₁ op₂ : Dialect} :
 /-- Equal global opcodes have equal dialect-local property types. -/
 theorem properties_eq_of_ofDialect_eq
     {Dialect₁ Dialect₂ : Type}
-    [HasDialectOpInfo Dialect₁] [HasDialectOpInfo Dialect₂]
+    [HasOpInfo Dialect₁] [HasOpInfo Dialect₂]
     [hasDialect₁ : HasDialect OpInfo Dialect₁]
     [hasDialect₂ : HasDialect OpInfo Dialect₂]
     {op₁ : Dialect₁} {op₂ : Dialect₂}
     (h : ofDialect OpInfo op₁ = ofDialect OpInfo op₂) :
-    HasDialectOpInfo.propertiesOf op₁ = HasDialectOpInfo.propertiesOf op₂ := by
+    HasOpInfo.propertiesOf op₁ = HasOpInfo.propertiesOf op₂ := by
   simp [← hasDialect₁.properties_eq op₁, ← hasDialect₂.properties_eq op₂]
   grind [ofDialect]
 
@@ -222,41 +215,41 @@ grind_pattern toDialect?_eq_some_iff =>
 
 /-- Convert dialect-local properties to the global property family. -/
 def ofDialectProperties (OpInfo : Type) [HasOpInfo OpInfo] [dialectInj : HasDialect OpInfo Dialect]
-    (op : Dialect) (props : HasDialectOpInfo.propertiesOf op) :
+    (op : Dialect) (props : HasOpInfo.propertiesOf op) :
     HasOpInfo.propertiesOf (opCode := OpInfo) op :=
   dialectInj.properties_eq op ▸ props
 
 /-- Convert global properties of an injected opcode back to dialect-local properties. -/
 def toDialectProperties (op : Dialect)
     (props : HasOpInfo.propertiesOf (opCode := OpInfo) op) :
-    HasDialectOpInfo.propertiesOf op :=
+    HasOpInfo.propertiesOf op :=
   (dialectInj.properties_eq op).symm ▸ props
 
 @[simp, grind =]
 theorem toDialectProperties_cast_ofDialectProperties_eq
     {Dialect₁ Dialect₂ : Type}
-    [HasDialectOpInfo Dialect₁] [HasDialectOpInfo Dialect₂]
+    [HasOpInfo Dialect₁] [HasOpInfo Dialect₂]
     [hasDialect₁ : HasDialect OpInfo Dialect₁]
     [hasDialect₂ : HasDialect OpInfo Dialect₂]
     {op₁ : Dialect₁} {op₂ : Dialect₂}
     (h : ofDialect OpInfo op₁ = ofDialect OpInfo op₂)
-    (props : HasDialectOpInfo.propertiesOf op₁) :
+    (props : HasOpInfo.propertiesOf op₁) :
     toDialectProperties op₂ (h ▸ ofDialectProperties OpInfo op₁ props) =
       properties_eq_of_ofDialect_eq h ▸ props := by
   apply eq_of_heq
   exact (cast_heq _ _).trans ((eqRec_heq h _).trans ((cast_heq _ _).trans (cast_heq _ _).symm))
 
 /-- Coercion from a dialect property to the global property type. -/
-instance {OpInfo Dialect : Type} [HasOpInfo OpInfo] [HasDialectOpInfo Dialect]
+instance {OpInfo Dialect : Type} [HasOpInfo OpInfo] [HasOpInfo Dialect]
     [HasDialect OpInfo Dialect] (x : Dialect) :
     CoeHead (HasOpInfo.propertiesOf (opCode := OpInfo) x)
-      (HasDialectOpInfo.propertiesOf x) where
+      (HasOpInfo.propertiesOf x) where
   coe := HasDialect.toDialectProperties x
 
 /- Projecting an injected properties recover the original properties. -/
 @[simp, grind =]
 theorem toDialectProperties_ofDialectProperties (op : Dialect)
-    (props : HasDialectOpInfo.propertiesOf op) :
+    (props : HasOpInfo.propertiesOf op) :
     toDialectProperties op (ofDialectProperties OpInfo op props) =
       props := by
   grind [toDialectProperties, ofDialectProperties]
