@@ -199,7 +199,7 @@ elab "#generate_op_codes" : command => do
 /--
 Generate a `HasDialect OpInfo Dialect` instance for every dialect constructor
 of the merged `OpInfo` inductive. This command must be invoked after
-`HasOpInfo OpInfo` and all dialect-local `HasDialectOpInfo` instances have been
+`HasOpInfo OpInfo` and all dialect-local `HasOpInfo` instances have been
 defined.
 -/
 elab "#generate_has_dialect_instances" opInfo:ident : command => do

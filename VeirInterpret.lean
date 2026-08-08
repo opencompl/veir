@@ -53,7 +53,7 @@ partial def scanEntryPoints (ctx : IRContext OpCode) (op : Option OperationPtr)
     | .llvm .func | .func .func =>
       let entryPoints := if isMainFunc ctx op numArgs then op :: entryPoints else entryPoints
       scanEntryPoints ctx (op.get! ctx).next numArgs entryPoints
-    | .llvm .module_flags =>
+    | .llvm .module_flags | .llvm .mlir__global =>
       scanEntryPoints ctx (op.get! ctx).next numArgs entryPoints
     | _ =>
       if numArgs == 0 then

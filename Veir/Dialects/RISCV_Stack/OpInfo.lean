@@ -54,7 +54,7 @@ def Riscv_Stack.hasSSADominance (_op : Riscv_Stack) (_index : Nat) : Bool :=
 
 #generate_dialect Riscv_Stack
 
-instance : HasDialectOpInfo Riscv_Stack where
+instance : HasOpInfo Riscv_Stack where
   fromName := Riscv_Stack.fromName
   name := Riscv_Stack.name
   propertiesOf := Riscv_Stack.propertiesOf

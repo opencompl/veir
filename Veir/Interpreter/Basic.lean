@@ -544,7 +544,7 @@ def MemoryState.llvmLoad (state : MemoryState) (addr : UInt64) (type : TypeAttr)
 
 
 
-def Arith.interpretOp' (opType : Veir.Arith) (properties : HasDialectOpInfo.propertiesOf opType)
+def Arith.interpretOp' (opType : Veir.Arith) (properties : HasOpInfo.propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
     : Interp ((Array RuntimeValue) × Option ControlFlowAction) :=
   match opType with
@@ -759,7 +759,7 @@ private def ModArith.binaryOperands (bw : Nat) (operands : Array RuntimeValue) :
   else
     none
 
-def ModArith.interpretOp' (opType : Veir.Mod_Arith) (properties : HasDialectOpInfo.propertiesOf opType)
+def ModArith.interpretOp' (opType : Veir.Mod_Arith) (properties : HasOpInfo.propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
     : Interp ((Array RuntimeValue) × Option ControlFlowAction) :=
   match opType with
@@ -797,7 +797,7 @@ def ModArith.interpretOp' (opType : Veir.Mod_Arith) (properties : HasDialectOpIn
     return (#[RuntimeValue.int bw res], none)
 
 
-def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.propertiesOf opType)
+def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasOpInfo.propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     (mem : MemoryState)
     : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
@@ -1121,7 +1121,7 @@ def riscvLoad (mem : MemoryState) (eaddr : BitVec 64) (bytes : Nat) (ext : LoadE
     | .zeroExt => val.setWidth 64
   return (extended, mem)
 
-def Riscv.interpretOp' (opType : Veir.Riscv) (properties : HasDialectOpInfo.propertiesOf opType)
+def Riscv.interpretOp' (opType : Veir.Riscv) (properties : HasOpInfo.propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
     (mem : MemoryState)
     : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
@@ -1510,7 +1510,7 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : HasDialectOpInfo.prop
     let mem ← mem.store eaddr.toNat.toUInt64 ((UInt64.ofBitVec val).toByteArrayLE.extract 0 1)
     return (#[], mem, none)
 
-def Riscv_Stack.interpretOp' (opType : Veir.Riscv_Stack) (properties : HasDialectOpInfo.propertiesOf opType)
+def Riscv_Stack.interpretOp' (opType : Veir.Riscv_Stack) (properties : HasOpInfo.propertiesOf opType)
     (_resultTypes : Array TypeAttr) (_operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
     (mem : MemoryState)
     : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
@@ -1519,7 +1519,7 @@ def Riscv_Stack.interpretOp' (opType : Veir.Riscv_Stack) (properties : HasDialec
     let (mem, addr) := mem.alloc properties.size.value.toNat.toUInt64
     return (#[.reg ⟨.ofNat 64 addr.toNat⟩], mem, none)
 
-def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : HasDialectOpInfo.propertiesOf opType)
+def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : HasOpInfo.propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     : Interp (Array RuntimeValue × Option ControlFlowAction) :=
   match opType with
@@ -1605,7 +1605,7 @@ def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : HasDialectOpInf
     else
       return (#[], some (.branch (operands.extract (trueSize + 1) operands.size) destFalse))
 
-def Rv64.interpretOp' (opType : Veir.Rv64) (properties : HasDialectOpInfo.propertiesOf opType)
+def Rv64.interpretOp' (opType : Veir.Rv64) (properties : HasOpInfo.propertiesOf opType)
     (resultTypes : Array TypeAttr) (_operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
     : Option ((Array RuntimeValue) × Option ControlFlowAction) :=
   match opType with
@@ -1616,7 +1616,7 @@ def Rv64.interpretOp' (opType : Veir.Rv64) (properties : HasDialectOpInfo.proper
     else
       none
 
-def Cf.interpretOp' (opType : Veir.Cf) (properties : HasDialectOpInfo.propertiesOf opType)
+def Cf.interpretOp' (opType : Veir.Cf) (properties : HasOpInfo.propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     : Interp ((Array RuntimeValue) × Option ControlFlowAction) :=
   match opType with
@@ -1637,7 +1637,7 @@ def Cf.interpretOp' (opType : Veir.Cf) (properties : HasDialectOpInfo.properties
     | .int 1 .poison => Interp.ub
     | _ => none
 
-def Comb.interpretOp' (opType : Veir.Comb) (properties : HasDialectOpInfo.propertiesOf opType)
+def Comb.interpretOp' (opType : Veir.Comb) (properties : HasOpInfo.propertiesOf opType)
     (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
     : Option ((Array RuntimeValue) × Option ControlFlowAction) :=
   match opType with
@@ -1652,7 +1652,7 @@ def Comb.interpretOp' (opType : Veir.Comb) (properties : HasDialectOpInfo.proper
     return (#[.int w (Veir.Data.Comb.add nl)], none)
   | _ => none
 
-def HW.interpretOp' (opType : Veir.HW) (properties : HasDialectOpInfo.propertiesOf opType)
+def HW.interpretOp' (opType : Veir.HW) (properties : HasOpInfo.propertiesOf opType)
     (resultTypes : Array TypeAttr) (_blockOperands : Array BlockPtr)
     : Option ((Array RuntimeValue) × Option ControlFlowAction) :=
   match opType with

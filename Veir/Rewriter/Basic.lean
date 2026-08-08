@@ -302,7 +302,7 @@ theorem Rewriter.setAttributes_fieldsInBounds :
 
 section Rewriter.setProperties
 
-variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpInfo Dialect]
 variable {opCode : Dialect}
 
 /--
@@ -313,12 +313,12 @@ while the `Dialect` version is often easier to use when manipulating dialect-spe
 -/
 def Rewriter.setProperties (ctx: IRContext OpInfo) (op: OperationPtr)
     (opCode : Dialect := by grind)
-    (newProps: HasDialectOpInfo.propertiesOf opCode)
+    (newProps: HasOpInfo.propertiesOf opCode)
     (opIn : op.InBounds ctx := by grind)
     (hprop : op.getOpType! ctx = opCode := by grind) : IRContext OpInfo :=
   op.setProperties ctx opCode newProps opIn hprop
 
-variable {op : OperationPtr} {newProperties : HasDialectOpInfo.propertiesOf opCode}
+variable {op : OperationPtr} {newProperties : HasOpInfo.propertiesOf opCode}
 variable {opIn : op.InBounds ctx} {hprop : op.getOpType! ctx = opCode}
 
 @[grind =]
@@ -925,16 +925,16 @@ theorem Rewriter.initBlockOperands_inBounds_mono (ptr : GenericPtr) :
     grind
 
 @[irreducible]
-def Rewriter.createEmptyOp {Dialect : Type} [HasDialectOpInfo Dialect]
+def Rewriter.createEmptyOp {Dialect : Type} [HasOpInfo Dialect]
     [HasDialect OpInfo Dialect] (ctx : IRContext OpInfo) (opType : Dialect)
-    (properties : HasDialectOpInfo.propertiesOf opType) :
+    (properties : HasOpInfo.propertiesOf opType) :
     Option (IRContext OpInfo × OperationPtr) :=
   OperationPtr.allocEmpty ctx opType properties
 
 section Rewriter.createEmptyOp
 
-variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
-variable {opType : Dialect} {properties : HasDialectOpInfo.propertiesOf opType}
+variable {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {opType : Dialect} {properties : HasOpInfo.propertiesOf opType}
 
 @[grind .]
 theorem Rewriter.createEmptyOp_new_inBounds
@@ -963,10 +963,10 @@ theorem Rewriter.createEmptyOp_fieldsInBounds
 end Rewriter.createEmptyOp
 
 @[irreducible]
-def Rewriter.createOp {Dialect : Type} [HasDialectOpInfo Dialect]
+def Rewriter.createOp {Dialect : Type} [HasOpInfo Dialect]
     [HasDialect OpInfo Dialect] (ctx: IRContext OpInfo) (opType: Dialect)
     (resultTypes: Array TypeAttr) (operands: Array ValuePtr) (blockOperands : Array BlockPtr)
-    (regions: Array RegionPtr) (properties: HasDialectOpInfo.propertiesOf opType)
+    (regions: Array RegionPtr) (properties: HasOpInfo.propertiesOf opType)
     (insertionPoint: Option InsertPoint)
     (hoper : ∀ oper, oper ∈ operands → oper.InBounds ctx := by grind)
     (hblockOperands : ∀ oper, oper ∈ blockOperands → oper.InBounds ctx := by grind)
@@ -992,8 +992,8 @@ def Rewriter.createOp {Dialect : Type} [HasDialectOpInfo Dialect]
 
 section Rewriter.createOp
 
-variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
-variable {opType : Dialect} {props : HasDialectOpInfo.propertiesOf opType}
+variable {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {opType : Dialect} {props : HasOpInfo.propertiesOf opType}
 
 @[grind .]
 theorem Rewriter.createOp_inBounds_mono (ptr : GenericPtr)

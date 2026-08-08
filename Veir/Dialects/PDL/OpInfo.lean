@@ -150,7 +150,7 @@ def PDL.hasNoTerminator (op : PDL) (_index : Nat) : Bool :=
 
 #generate_dialect PDL
 
-instance : HasDialectOpInfo PDL where
+instance : HasOpInfo PDL where
   fromName := PDL.fromName
   name := PDL.name
   propertiesOf := PDL.propertiesOf
