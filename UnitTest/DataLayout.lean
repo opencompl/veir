@@ -25,6 +25,16 @@ private def rv64 := DataLayout.riscv64
 
 #guard rv64.getTypeSize LLVM.PointerType.mk = some 8
 #guard rv64.getTypeABIAlignment LLVM.PointerType.mk = some 8
+#guard rv64.getTypePreferredAlignment LLVM.PointerType.mk = some 8
+#guard rv64.getTypeAllocSize LLVM.PointerType.mk = some 8
+
+#guard rv64.getTypeSize (FloatType.mk 80) = some 10
+#guard rv64.getTypeABIAlignment (FloatType.mk 80) = some 16
+#guard rv64.getTypeAllocSize (FloatType.mk 80) = some 16
+
+#guard rv64.getTypeSize (LLVM.ByteType.mk 24) = some 3
+#guard rv64.getTypeABIAlignment (LLVM.ByteType.mk 24) = some 4
+#guard rv64.getTypeAllocSize (LLVM.ByteType.mk 24) = some 4
 
 private def twoI24 : Attribute := LLVM.ArrayType.mk 2 (IntegerType.mk 24)
 

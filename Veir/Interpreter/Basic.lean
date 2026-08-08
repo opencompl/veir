@@ -9,7 +9,6 @@ import Veir.Data.Comb.Basic
 import Veir.Data.HW.Basic
 import Veir.Data.Casting
 import Veir.Interfaces.FunctionInterfaces
-import Veir.DataLayout.RISCV64
 
 public section
 
@@ -1047,7 +1046,10 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasOpInfo.propertiesOf 
     | _ => none
   | .alloca => do
     let [.int _ (.val count)] := operands.toList | none
-    let size ← DataLayout.riscv64.getTypeAllocSize properties.elem_type.val
+    let size ← match properties.elem_type.val with
+    | Attribute.integerType { bitwidth := bw } => some (.ok (bw / 8))
+    | .llvmPointerType _ => some (.ok 8)
+    | _ => none
     let totalSize := (size * count.toNat).toUInt64
     let (mem, addr) := mem.alloc totalSize
     return (#[.addr addr], mem, none)
@@ -1063,7 +1065,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasOpInfo.propertiesOf 
   | .getelementptr => do
     /- only supports exactly one dynamic index for now -/
     let [.addr ptr, .int _ idx] := operands.toList | none
-    let size ← DataLayout.riscv64.getTypeAllocSize properties.elem_type.val
+    let size ← Attribute.sizeOfType properties.elem_type.val
     match idx with
     | .val idx => return (#[.addr (ptr.toNat + idx.toNat * size).toUInt64], mem, none)
     | .poison => Interp.ub
