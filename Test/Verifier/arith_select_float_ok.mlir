@@ -1,4 +1,5 @@
 // RUN: veir-opt %s | filecheck %s
+// RUN: MLIR_VALID
 
 // arith.select accepts values of any type, including floats.
 
