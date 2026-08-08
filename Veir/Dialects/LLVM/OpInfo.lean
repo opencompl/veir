@@ -367,7 +367,7 @@ def Llvm.hasSSADominance (_op : Llvm) (_index : Nat) : Bool :=
 
 #generate_dialect Llvm
 
-instance : HasDialectOpInfo Llvm where
+instance : HasOpInfo Llvm where
   fromName := Llvm.fromName
   name := Llvm.name
   propertiesOf := Llvm.propertiesOf

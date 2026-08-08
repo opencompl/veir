@@ -311,13 +311,13 @@ end setAttributes
 
 section setProperties
 
-variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
-variable {opCode : Dialect} {newProps : HasDialectOpInfo.propertiesOf opCode}
+variable {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {opCode : Dialect} {newProps : HasOpInfo.propertiesOf opCode}
 
 theorem OperationPtr.setProperties_WellFormed (ctx: IRContext OpInfo)
   (op: OperationPtr) (hctx : ctx.WellFormed) (hop : op.InBounds ctx)
   (hprop : op.getOpType! ctx = opCode := by grind)
-  (newProperties: HasDialectOpInfo.propertiesOf opCode) :
+  (newProperties: HasOpInfo.propertiesOf opCode) :
   (op.setProperties ctx opCode newProperties hop hprop).WellFormed := by
   have ⟨h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈⟩ := hctx
   constructor
@@ -353,7 +353,7 @@ theorem OperationPtr.setProperties_WellFormed (ctx: IRContext OpInfo)
 theorem BlockPtr.opChain_OperationPtr_setProperties
     (hWf : BlockPtr.OpChain block' ctx array)
     {op : OperationPtr} (hop : op.InBounds ctx)
-    (newProps : HasDialectOpInfo.propertiesOf opCode)
+    (newProps : HasOpInfo.propertiesOf opCode)
     (hprop : op.getOpType! ctx = opCode := by grind) :
     BlockPtr.OpChain block' (op.setProperties ctx opCode newProps hop hprop) array := by
   apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
@@ -652,8 +652,8 @@ theorem OperationPtr.getOperand_Rewriter_eraseOp
 
 section createOp
 
-variable {Dialect : Type} [HasDialectOpInfo Dialect] [HasDialect OpInfo Dialect]
-variable {opType : Dialect} {properties : HasDialectOpInfo.propertiesOf opType}
+variable {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {opType : Dialect} {properties : HasOpInfo.propertiesOf opType}
 
 theorem Rewriter.createEmptyOp_wellFormed  (hctx : IRContext.WellFormed ctx) :
     Rewriter.createEmptyOp ctx opType properties = some (newCtx, newOp) →
