@@ -46,7 +46,7 @@ def Rv64.hasSSADominance (_op : Rv64) (_index : Nat) : Bool :=
 
 #generate_dialect Rv64
 
-instance : HasDialectOpInfo Rv64 where
+instance : HasOpInfo Rv64 where
   fromName := Rv64.fromName
   name := Rv64.name
   propertiesOf := Rv64.propertiesOf

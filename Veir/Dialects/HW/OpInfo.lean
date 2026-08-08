@@ -68,7 +68,7 @@ def HW.hasSSADominance (_op : HW) (_index : Nat) : Bool :=
 
 #generate_dialect HW
 
-instance : HasDialectOpInfo HW where
+instance : HasOpInfo HW where
   fromName := HW.fromName
   name := HW.name
   propertiesOf := HW.propertiesOf
