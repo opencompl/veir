@@ -184,6 +184,31 @@ def properlyDominates
     (irCtx : IRContext OpCode) : Bool :=
   (InsertPoint.before dominator).properlyDominates (InsertPoint.before op) dfCtx irCtx
 
+/-- Collect nested operations in reverse postorder. Unreachable blocks
+are omitted.  A region with no dominance metadata (including an empty
+region, or one the analysis never reached) contributes no operations.
+TODO: Replace this with an iterator, which should be more efficient.
+-/
+partial def opsInDominanceOrder
+    (op : OperationPtr)
+    (dfCtx : DataFlowContext)
+    (irCtx : IRContext OpCode) : Array OperationPtr := Id.run do
+  let mut ops := #[]
+  for region in (op.get! irCtx).regions do
+    -- Reachable blocks of the region in reverse postorder. The dominance
+    -- analysis only caches each reachable block's postorder index, so recover
+    -- the ordering by sorting those blocks on descending index.
+    let mut blocks := #[]
+    if let some metadata := region.getRegionMetadataFact? dfCtx irCtx then
+      blocks := (metadata.postOrderIndex.toArray.qsort (·.2 > ·.2)).map (·.1)
+    for block in blocks do
+      let mut currentOp := (block.get! irCtx).firstOp
+      while let some innerOp := currentOp do
+        ops := ops.push innerOp
+        ops := ops ++ innerOp.opsInDominanceOrder dfCtx irCtx
+        currentOp := (innerOp.get! irCtx).next
+  return ops
+
 end OperationPtr
 
 end Veir
