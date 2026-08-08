@@ -21,7 +21,6 @@ structure DataLayoutTypeInfo where
   size : Nat
   abiAlignment : Nat
   preferredAlignment : Nat
-  allocSize : Nat
 deriving Inhabited, Repr, DecidableEq
 
 /--
@@ -35,6 +34,11 @@ structure DataLayout where
   query : Attribute → Option DataLayoutTypeInfo
 
 namespace DataLayout
+
+/-- Round `size` up to a positive byte alignment. -/
+private def alignTo (size alignment : Nat) : Nat :=
+  if alignment = 0 then size
+  else ((size + alignment - 1) / alignment) * alignment
 
 /-- Return the size of `type` in bytes, including padding internal to the type. -/
 def getTypeSize (layout : DataLayout) (type : Attribute) : Option Nat :=
@@ -53,7 +57,7 @@ def getTypePreferredAlignment (layout : DataLayout) (type : Attribute) : Option 
   objects, including tail padding required by the ABI alignment.
 -/
 def getTypeAllocSize (layout : DataLayout) (type : Attribute) : Option Nat :=
-  (layout.query type).map (·.allocSize)
+  (layout.query type).map fun info => alignTo info.size info.abiAlignment
 
 end DataLayout
 

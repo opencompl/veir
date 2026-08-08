@@ -37,8 +37,7 @@ private def rv64IntegerAlignment (bitwidth : Nat) : Nat :=
 private def scalarInfo (size alignment : Nat) : DataLayoutTypeInfo :=
   { size
     abiAlignment := alignment
-    preferredAlignment := alignment
-    allocSize := alignTo size alignment }
+    preferredAlignment := alignment }
 
 /-- Layout facts for the LLVM-compatible fixed-size types supported by VeIR. -/
 private def queryRISCV64 (type : Attribute) : Option DataLayoutTypeInfo :=
@@ -57,12 +56,12 @@ private def queryRISCV64 (type : Attribute) : Option DataLayoutTypeInfo :=
       some (scalarInfo 8 8)
   | .llvmArrayType { size, type } => do
       let element ← queryRISCV64 type
-      let arraySize := element.allocSize * size
+      let elementAllocSize := alignTo element.size element.abiAlignment
+      let arraySize := elementAllocSize * size
       some
         { size := arraySize
           abiAlignment := element.abiAlignment
-          preferredAlignment := element.preferredAlignment
-          allocSize := alignTo arraySize element.abiAlignment }
+          preferredAlignment := element.preferredAlignment }
   | _ => none
 
 /--
