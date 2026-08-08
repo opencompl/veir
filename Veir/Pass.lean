@@ -110,7 +110,7 @@ def run (pipeline : PassPipeline OpCode)
       let ctx' ← try pass.run options currentCtx moduleOp h
                  catch errMsg => throw s!"pass '{pass.name}' failed: {errMsg}"
       if !disableVerifiers then
-        if let .error errMsg := ctx'.verify then
+        if let .error errMsg := WfIRContext.verify ctx' (some moduleOp) then
           throw s!"verification failed after pass '{pass.name}': {errMsg}"
       currentCtx := ctx'
     else

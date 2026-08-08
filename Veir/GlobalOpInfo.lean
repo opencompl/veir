@@ -267,6 +267,19 @@ instance : HasOpInfo OpCode where
 abbrev propertiesOf := HasOpInfo.propertiesOf (self := instHasOpInfoOpCode)
 
 /--
+  Whether this operation defines `IsolatedFromAbove` regions: operations nested
+  inside its regions may not reference SSA values defined outside the operation.
+  This mirrors MLIR, where symbol-table ops like modules and functions are
+  isolated from above.
+-/
+def OpCode.isIsolatedFromAbove (opCode : OpCode) : Bool :=
+  match opCode with
+  | .builtin .module
+  | .func .func
+  | .llvm .func => true
+  | _ => false
+
+/--
   Is this `OpCode` commutative in its operands, i.e. `op x y` always
   computes the same value as `op y x`?
 -/
