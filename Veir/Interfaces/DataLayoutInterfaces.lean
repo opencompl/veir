@@ -8,7 +8,7 @@ public import Veir.IR.Attribute
 Target data layouts answer physical representation queries for IR types.  The
 interface deliberately distinguishes the byte size of a type, its ABI and
 preferred alignments, and its allocation size (the stride between consecutive
-objects).  In particular, an odd-width integer can have a three-byte type size
+objects). In particular, an odd-width integer can have a three-byte type size
 but a four-byte allocation size.
 -/
 
