@@ -10,11 +10,6 @@ The fixed data layout used by the RV64 backend.
 
 namespace Veir.DataLayout
 
-/-- Round `size` up to a positive byte alignment. -/
-private def alignTo (size alignment : Nat) : Nat :=
-  if alignment = 0 then size
-  else ((size + alignment - 1) / alignment) * alignment
-
 /-- The smallest power of two greater than or equal to `n` (and `1` for `0`). -/
 private def powerOfTwoCeil (n : Nat) : Nat :=
   if n ≤ 1 then 1 else 2 ^ (Nat.log2 (n - 1) + 1)
@@ -54,10 +49,8 @@ private def queryRISCV64 (type : Attribute) : Option DataLayoutTypeInfo :=
       some (scalarInfo 8 8)
   | .llvmArrayType { size, type } => do
       let element ← queryRISCV64 type
-      let elementAllocSize := alignTo element.size element.abiAlignment
-      let arraySize := elementAllocSize * size
       some
-        { size := arraySize
+        { size := element.allocSize * size
           abiAlignment := element.abiAlignment
           preferredAlignment := element.preferredAlignment }
   | _ => none

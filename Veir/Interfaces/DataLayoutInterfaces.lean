@@ -16,12 +16,24 @@ namespace Veir
 
 public section
 
+/-- Round `size` up to a positive byte alignment. -/
+private def alignTo (size alignment : Nat) : Nat :=
+  if alignment = 0 then size
+  else ((size + alignment - 1) / alignment) * alignment
+
 /-- The fixed-size layout facts for one type, all expressed in bytes. -/
 structure DataLayoutTypeInfo where
   size : Nat
   abiAlignment : Nat
   preferredAlignment : Nat
 deriving Inhabited, Repr, DecidableEq
+
+/--
+  The allocation size of the type, in bytes: the stride between consecutive
+  objects, including tail padding required by the ABI alignment.
+-/
+def DataLayoutTypeInfo.allocSize (info : DataLayoutTypeInfo) : Nat :=
+  alignTo info.size info.abiAlignment
 
 /--
   A target data layout. Unsupported or unsized types return `none`.
@@ -34,11 +46,6 @@ structure DataLayout where
   query : Attribute → Option DataLayoutTypeInfo
 
 namespace DataLayout
-
-/-- Round `size` up to a positive byte alignment. -/
-private def alignTo (size alignment : Nat) : Nat :=
-  if alignment = 0 then size
-  else ((size + alignment - 1) / alignment) * alignment
 
 /-- Return the size of `type` in bytes, including padding internal to the type. -/
 def getTypeSize (layout : DataLayout) (type : Attribute) : Option Nat :=
@@ -57,7 +64,7 @@ def getTypePreferredAlignment (layout : DataLayout) (type : Attribute) : Option 
   objects, including tail padding required by the ABI alignment.
 -/
 def getTypeAllocSize (layout : DataLayout) (type : Attribute) : Option Nat :=
-  (layout.query type).map fun info => alignTo info.size info.abiAlignment
+  (layout.query type).map (·.allocSize)
 
 end DataLayout
 
