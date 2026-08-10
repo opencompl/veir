@@ -96,6 +96,10 @@ class HasOpInfo (opCode: Type)
   terminator requirement.
   -/
   hasNoTerminator : opCode → Nat → Bool := fun _ _ => false
+  /--
+  Does this OpCode count as an MLIR basic block terminator?
+  -/
+  isTerminator : opCode → Bool := fun _ => false
 
 instance [HasOpInfo opCode] {op : opCode} : Hashable (HasOpInfo.propertiesOf op) where
   hash := HasOpInfo.propertiesHash.hash
