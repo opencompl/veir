@@ -56,7 +56,7 @@ private def applyReduction (op : OperationPtr) (raw : IntegerRangeLattice)
     some raw
   else
     -- Match the lowering pass default: missing reduction attrs are treated as `full`.
-    IntegerRangeLattice.canonicalModArithRange? ((op.getResult 0 : ValuePtr).getType! irCtx)
+    canonicalModArithRange? ((op.getResult 0 : ValuePtr).getType! irCtx)
 
 abbrev KnownRanges := Std.HashMap ValuePtr IntegerRangeLattice
 
@@ -64,9 +64,9 @@ abbrev KnownRanges := Std.HashMap ValuePtr IntegerRangeLattice
 private def inferModArithRange? (value : ValuePtr) (knownRanges : KnownRanges)
     (irCtx : IRContext OpCode) : Option IntegerRangeLattice := do
   let some op := value.getDefiningOp! irCtx
-    | IntegerRangeLattice.canonicalModArithRange? (value.getType! irCtx)
+    | canonicalModArithRange? (value.getType! irCtx)
 
-  if let some range := IntegerRangeLattice.modArithConstantRange? op irCtx then
+  if let some range := modArithConstantRange? op irCtx then
     return range
 
   match op.getOpType! irCtx with
@@ -81,7 +81,7 @@ private def inferModArithRange? (value : ValuePtr) (knownRanges : KnownRanges)
       let rhs ← knownRanges[operands[1]!]?
       applyReduction op (IntegerRangeLattice.mulRange lhs rhs) irCtx
   | _ =>
-      IntegerRangeLattice.canonicalModArithRange? (value.getType! irCtx)
+      canonicalModArithRange? (value.getType! irCtx)
 
 private def compareRanges
     (recovered : RecoveredNames)
