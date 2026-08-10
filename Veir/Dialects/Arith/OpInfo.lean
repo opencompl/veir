@@ -114,11 +114,9 @@ def Arith.toAttrDict
 def Arith.hasSideEffects (_op : Arith) (_props : Arith.propertiesOf _op) : Bool :=
   false
 
-def Arith.readsMemory (_op : Arith) (_props : Arith.propertiesOf _op) : Bool :=
-  false
-
-def Arith.writesMemory (_op : Arith) (_props : Arith.propertiesOf _op) : Bool :=
-  false
+def Arith.getEffects
+    (_op : Arith) (_props : Arith.propertiesOf _op) : Array EffectInstance :=
+  #[]
 
 def Arith.isConstantLike (op : Arith) : Bool :=
   match op with
@@ -137,8 +135,7 @@ instance : HasOpInfo Arith where
   fromAttrDict := Arith.fromAttrDict
   toAttrDict := Arith.toAttrDict
   hasSideEffects := Arith.hasSideEffects
-  readsMemory := Arith.readsMemory
-  writesMemory := Arith.writesMemory
+  getEffects := Arith.getEffects
   isConstantLike := Arith.isConstantLike
   hasSSADominance := Arith.hasSSADominance
 

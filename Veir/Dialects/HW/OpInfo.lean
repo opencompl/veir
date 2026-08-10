@@ -52,11 +52,9 @@ def HW.hasSideEffects (op : HW) (_props : HW.propertiesOf op) : Bool :=
   | .constant => false
   | _ => true
 
-def HW.readsMemory (_op : HW) (_props : HW.propertiesOf _op) : Bool :=
-  false
-
-def HW.writesMemory (_op : HW) (_props : HW.propertiesOf _op) : Bool :=
-  false
+def HW.getEffects
+    (_op : HW) (_props : HW.propertiesOf _op) : Array EffectInstance :=
+  #[]
 
 def HW.isConstantLike (op : HW) : Bool :=
   match op with
@@ -80,8 +78,7 @@ instance : HasOpInfo HW where
   fromAttrDict := HW.fromAttrDict
   toAttrDict := HW.toAttrDict
   hasSideEffects := HW.hasSideEffects
-  readsMemory := HW.readsMemory
-  writesMemory := HW.writesMemory
+  getEffects := HW.getEffects
   isConstantLike := HW.isConstantLike
   hasSSADominance := HW.hasSSADominance
   isTerminator := HW.isTerminator

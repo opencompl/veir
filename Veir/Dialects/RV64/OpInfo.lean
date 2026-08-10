@@ -32,11 +32,9 @@ def Rv64.toAttrDict
 def Rv64.hasSideEffects (_op : Rv64) (_props : Rv64.propertiesOf _op) : Bool :=
   true
 
-def Rv64.readsMemory (_op : Rv64) (_props : Rv64.propertiesOf _op) : Bool :=
-  false
-
-def Rv64.writesMemory (_op : Rv64) (_props : Rv64.propertiesOf _op) : Bool :=
-  false
+def Rv64.getEffects
+    (_op : Rv64) (_props : Rv64.propertiesOf _op) : Array EffectInstance :=
+  #[]
 
 def Rv64.isConstantLike (_op : Rv64) : Bool :=
   false
@@ -53,8 +51,7 @@ instance : HasOpInfo Rv64 where
   fromAttrDict := Rv64.fromAttrDict
   toAttrDict := Rv64.toAttrDict
   hasSideEffects := Rv64.hasSideEffects
-  readsMemory := Rv64.readsMemory
-  writesMemory := Rv64.writesMemory
+  getEffects := Rv64.getEffects
   isConstantLike := Rv64.isConstantLike
   hasSSADominance := Rv64.hasSSADominance
 

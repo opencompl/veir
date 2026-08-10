@@ -10,15 +10,29 @@ private def volatileLoadProperties : LoadProperties :=
 private def volatileStoreProperties : StoreProperties :=
   { (default : StoreProperties) with volatile_ := true }
 
-/- The memory-effect queries distinguish reads from writes and inspect properties. -/
+/- `getEffects` reports the effects themselves, and inspects properties. -/
 
-#guard OpCode.readsMemory (.llvm .load) (default : LoadProperties)
-#guard !(OpCode.writesMemory (.llvm .load) (default : LoadProperties))
-#guard OpCode.writesMemory (.llvm .load) volatileLoadProperties
+#guard OpCode.getEffects (.llvm .load) (default : LoadProperties) == #[.read]
+#guard OpCode.getEffects (.llvm .load) volatileLoadProperties == #[.read, .write]
 
-#guard OpCode.writesMemory (.llvm .store) (default : StoreProperties)
-#guard !(OpCode.readsMemory (.llvm .store) (default : StoreProperties))
-#guard OpCode.readsMemory (.llvm .store) volatileStoreProperties
+#guard OpCode.getEffects (.llvm .store) (default : StoreProperties) == #[.write]
+#guard OpCode.getEffects (.llvm .store) volatileStoreProperties == #[.write, .read]
+
+#guard OpCode.getEffects (.arith .addi) (default : ArithIntegerOverflowFlagsProperties) == #[]
+
+/- The derived queries distinguish reads from writes. -/
+
+#guard HasOpInfo.readsMemory (OpCode.llvm .load) (default : LoadProperties)
+#guard !(HasOpInfo.writesMemory (OpCode.llvm .load) (default : LoadProperties))
+#guard HasOpInfo.writesMemory (OpCode.llvm .load) volatileLoadProperties
+
+#guard HasOpInfo.writesMemory (OpCode.llvm .store) (default : StoreProperties)
+#guard !(HasOpInfo.readsMemory (OpCode.llvm .store) (default : StoreProperties))
+#guard HasOpInfo.readsMemory (OpCode.llvm .store) volatileStoreProperties
+
+#guard !(isMemoryEffectFree (OpCode.getEffects (.llvm .load) (default : LoadProperties)))
+#guard isMemoryEffectFree
+  (OpCode.getEffects (.arith .addi) (default : ArithIntegerOverflowFlagsProperties))
 
 /- Operations carrying regions are conservatively treated as reading and writing. -/
 

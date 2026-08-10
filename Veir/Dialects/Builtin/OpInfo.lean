@@ -41,17 +41,11 @@ def Builtin.hasSideEffects (op : Builtin) (_props : Builtin.propertiesOf op) : B
   | .unrealized_conversion_cast => false
   | _ => true
 
-def Builtin.readsMemory
-    (op : Builtin) (_props : Builtin.propertiesOf op) : Bool :=
+def Builtin.getEffects
+    (op : Builtin) (_props : Builtin.propertiesOf op) : Array EffectInstance :=
   match op with
-  | .unrealized_conversion_cast => false
-  | _ => true
-
-def Builtin.writesMemory
-    (op : Builtin) (_props : Builtin.propertiesOf op) : Bool :=
-  match op with
-  | .unrealized_conversion_cast => false
-  | _ => true
+  | .unrealized_conversion_cast => #[]
+  | _ => unknownEffects
 
 def Builtin.isConstantLike (_op : Builtin) : Bool :=
   false
@@ -77,8 +71,7 @@ instance : HasOpInfo Builtin where
   fromAttrDict := Builtin.fromAttrDict
   toAttrDict := Builtin.toAttrDict
   hasSideEffects := Builtin.hasSideEffects
-  readsMemory := Builtin.readsMemory
-  writesMemory := Builtin.writesMemory
+  getEffects := Builtin.getEffects
   isConstantLike := Builtin.isConstantLike
   hasSSADominance := Builtin.hasSSADominance
   hasNoTerminator := Builtin.hasNoTerminator

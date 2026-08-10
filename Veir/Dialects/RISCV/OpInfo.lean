@@ -242,47 +242,18 @@ def Riscv.hasSideEffects (op : Riscv) (props : Riscv.propertiesOf op) : Bool :=
     -- For everything else: be conservative!
     | _ => true
 
-def Riscv.readsMemory (op : Riscv) (props : Riscv.propertiesOf op) : Bool :=
+def Riscv.getEffects (op : Riscv) (props : Riscv.propertiesOf op) : Array EffectInstance :=
   match op, props with
-  -- A volatile store also reads; ordinary loads reach the default below.
-  | .sd, props | .sw, props
-  | .sh, props | .sb, props => props.volatile_
-  | .li, _ | .lui, _ | .auipc, _
-  | .addi, _ | .slti, _ | .sltiu, _
-  | .andi, _ | .ori, _ | .xori, _
-  | .addiw, _ | .slli, _ | .srli, _ | .srai, _
-  | .add, _ | .sub, _ | .sll, _ | .slt, _ | .sltu, _
-  | .xor, _ | .srl, _ | .sra, _ | .or, _ | .and, _
-  | .slliw, _ | .srliw, _ | .sraiw, _
-  | .addw, _ | .subw, _ | .sllw, _ | .srlw, _ | .sraw, _
-  | .rem, _ | .remu, _ | .remw, _ | .remuw, _
-  | .mul, _ | .mulh, _ | .mulhu, _ | .mulhsu, _ | .mulw, _
-  | .div, _ | .divw, _ | .divu, _ | .divuw, _
-  | .adduw, _ | .sh1adduw, _ | .sh2adduw, _ | .sh3adduw, _
-  | .sh1add, _ | .sh2add, _ | .sh3add, _ | .slliuw, _
-  | .andn, _ | .orn, _ | .xnor, _
-  | .max, _ | .maxu, _ | .min, _ | .minu, _
-  | .rol, _ | .ror, _ | .rolw, _ | .rorw, _
-  | .sextb, _ | .sexth, _ | .zexth, _
-  | .clz, _ | .clzw, _ | .ctz, _ | .ctzw, _
-  | .cpop, _ | .cpopw, _ | .orcb, _ | .rev8, _
-  | .rori, _ | .roriw, _
-  | .bclr, _ | .bext, _ | .binv, _ | .bset, _
-  | .bclri, _ | .bexti, _ | .binvi, _ | .bseti, _
-  | .pack, _ | .packh, _ | .packw, _
-  | .czeroeqz, _ | .czeronez, _
-  | .mv, _ | .not, _ | .neg, _ | .negw, _
-  | .sextw, _ | .zextb, _ | .zextw, _
-  | .seqz, _ | .snez, _ | .sltz, _ | .sgtz, _ => false
-  -- Conservative default
-  | _, _ => true
-
-def Riscv.writesMemory (op : Riscv) (props : Riscv.propertiesOf op) : Bool :=
-  match op, props with
-  -- A volatile load also writes; ordinary stores reach the default below.
+  -- As upstream models volatile LLVM accesses: a volatile load or store can
+  -- have target-specific read-write effects on memory besides the one referred
+  -- to by its address operand.
   | .ld, props | .lw, props | .lwu, props
   | .lh, props | .lhu, props
-  | .lb, props | .lbu, props => props.volatile_
+  | .lb, props | .lbu, props =>
+    if props.volatile_ then #[.read, .write] else #[.read]
+  | .sd, props | .sw, props
+  | .sh, props | .sb, props =>
+    if props.volatile_ then #[.write, .read] else #[.write]
   | .li, _ | .lui, _ | .auipc, _
   | .addi, _ | .slti, _ | .sltiu, _
   | .andi, _ | .ori, _ | .xori, _
@@ -309,9 +280,7 @@ def Riscv.writesMemory (op : Riscv) (props : Riscv.propertiesOf op) : Bool :=
   | .czeroeqz, _ | .czeronez, _
   | .mv, _ | .not, _ | .neg, _ | .negw, _
   | .sextw, _ | .zextb, _ | .zextw, _
-  | .seqz, _ | .snez, _ | .sltz, _ | .sgtz, _ => false
-  -- Conservative default
-  | _, _ => true
+  | .seqz, _ | .snez, _ | .sltz, _ | .sgtz, _ => #[]
 
 def Riscv.isConstantLike (op : Riscv) : Bool :=
   match op with
@@ -330,8 +299,7 @@ instance : HasOpInfo Riscv where
   fromAttrDict := Riscv.fromAttrDict
   toAttrDict := Riscv.toAttrDict
   hasSideEffects := Riscv.hasSideEffects
-  readsMemory := Riscv.readsMemory
-  writesMemory := Riscv.writesMemory
+  getEffects := Riscv.getEffects
   isConstantLike := Riscv.isConstantLike
   hasSSADominance := Riscv.hasSSADominance
 

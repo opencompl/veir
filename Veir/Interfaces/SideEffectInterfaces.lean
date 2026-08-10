@@ -32,26 +32,30 @@ def OperationPtr.hasSideEffects {OpInfo : Type} [HasOpInfo OpInfo]
   HasOpInfo.hasSideEffects opType (op.getProperties! ctx opType)
 
 /--
-  May this operation read memory?
+  What memory effects may this operation have?
+
+  Upstream, an operation carrying regions reports the effects of the operations
+  nested inside them when it has the `HasRecursiveMemoryEffects` trait, and is
+  otherwise assumed to have unknown effects. We have neither the trait nor the
+  recursive walk, so any operation with a region is treated conservatively.
 
   TODO: recursively walk regions to get a less conservative answer
 -/
+def OperationPtr.getEffects {OpInfo : Type} [HasOpInfo OpInfo]
+    (op : OperationPtr) (ctx : IRContext OpInfo) : Array EffectInstance :=
+  if op.getNumRegions! ctx != 0 then unknownEffects else
+  let opType := op.getOpType! ctx
+  HasOpInfo.getEffects opType (op.getProperties! ctx opType)
+
+/-- May this operation read memory? -/
 def OperationPtr.readsMemory {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : IRContext OpInfo) : Bool :=
-  if op.getNumRegions! ctx != 0 then true else
-  let opType := op.getOpType! ctx
-  HasOpInfo.readsMemory opType (op.getProperties! ctx opType)
+  hasEffect (op.getEffects ctx) .read
 
-/--
-  May this operation write memory?
-
-  TODO: recursively walk regions to get a less conservative answer
--/
+/-- May this operation write memory? -/
 def OperationPtr.writesMemory {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : IRContext OpInfo) : Bool :=
-  if op.getNumRegions! ctx != 0 then true else
-  let opType := op.getOpType! ctx
-  HasOpInfo.writesMemory opType (op.getProperties! ctx opType)
+  hasEffect (op.getEffects ctx) .write
 
 end
 

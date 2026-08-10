@@ -33,13 +33,9 @@ def Datapath.hasSideEffects
     (_op : Datapath) (_props : Datapath.propertiesOf _op) : Bool :=
   false
 
-def Datapath.readsMemory
-    (_op : Datapath) (_props : Datapath.propertiesOf _op) : Bool :=
-  false
-
-def Datapath.writesMemory
-    (_op : Datapath) (_props : Datapath.propertiesOf _op) : Bool :=
-  false
+def Datapath.getEffects
+    (_op : Datapath) (_props : Datapath.propertiesOf _op) : Array EffectInstance :=
+  #[]
 
 def Datapath.isConstantLike (_op : Datapath) : Bool :=
   false
@@ -56,8 +52,7 @@ instance : HasOpInfo Datapath where
   fromAttrDict := Datapath.fromAttrDict
   toAttrDict := Datapath.toAttrDict
   hasSideEffects := Datapath.hasSideEffects
-  readsMemory := Datapath.readsMemory
-  writesMemory := Datapath.writesMemory
+  getEffects := Datapath.getEffects
   isConstantLike := Datapath.isConstantLike
   hasSSADominance := Datapath.hasSSADominance
 

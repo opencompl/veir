@@ -1,6 +1,7 @@
 module
 
 public import Veir.IR.Attribute
+public import Veir.IR.Effects
 public import Std.Data.HashMap
 
 namespace Veir
@@ -46,29 +47,25 @@ class HasOpInfo (opCode: Type)
   -/
   hasSideEffects : (op : opCode) → propertiesOf op → Bool := fun _ _ => true
   /--
-  Whether an operation with this opcode reads memory.
+  The memory effects of an operation with this opcode and these properties,
+  mirroring MLIR's `MemoryEffectOpInterface::getEffects`.
 
-  This is deliberately separate from `hasSideEffects`: a non-volatile load
-  reads memory and yet is eligible for removal when its result is unused, so
+  This is deliberately separate from `hasSideEffects`: a non-volatile load has
+  a read effect and yet is eligible for removal when its result is unused, so
   `hasSideEffects` reports `false` for it. Fold-time evaluation must consult
-  this as well before running an operation against memory that is not the
-  program's.
+  the effects as well before running an operation against memory that is not
+  the program's.
 
-  Defaults to `true` for every opcode, which conservatively assumes memory is
-  read.
+  Note that a write effect reports only that memory may be modified. It does
+  not imply that the operation completely overwrites any particular location,
+  so it is not by itself sufficient to prove that an earlier write is dead;
+  that is what upstream's `FullEffect` marker is for.
+
+  Defaults to `unknownEffects` for every opcode, which conservatively assumes
+  memory is both read and written.
   -/
-  readsMemory : (op : opCode) → propertiesOf op → Bool := fun _ _ => true
-  /--
-  Whether an operation with this opcode writes memory.
-
-  This reports only that memory may be modified. It does not imply that the
-  operation completely overwrites any particular location, so it is not by
-  itself sufficient to prove that an earlier write is dead.
-
-  Defaults to `true` for every opcode, which conservatively assumes memory is
-  written.
-  -/
-  writesMemory : (op : opCode) → propertiesOf op → Bool := fun _ _ => true
+  getEffects : (op : opCode) → propertiesOf op → Array EffectInstance :=
+    fun _ _ => unknownEffects
   /--
   Whether an operation with this opcode materializes a literal constant
   value: no operands, one result, no side effects, and a result that is
@@ -100,6 +97,27 @@ class HasOpInfo (opCode: Type)
   Does this OpCode count as an MLIR basic block terminator?
   -/
   isTerminator : opCode → Bool := fun _ => false
+
+namespace HasOpInfo
+
+variable {opCode : Type} [HasOpInfo opCode]
+
+/--
+  Does an operation with this opcode and these properties have an effect of the
+  given kind? Mirrors `mlir::hasEffect`.
+-/
+def hasEffect (op : opCode) (props : propertiesOf op) (effect : MemoryEffect) : Bool :=
+  Veir.hasEffect (getEffects op props) effect
+
+/-- Does an operation with this opcode and these properties read memory? -/
+def readsMemory (op : opCode) (props : propertiesOf op) : Bool :=
+  hasEffect op props .read
+
+/-- Does an operation with this opcode and these properties write memory? -/
+def writesMemory (op : opCode) (props : propertiesOf op) : Bool :=
+  hasEffect op props .write
+
+end HasOpInfo
 
 instance [HasOpInfo opCode] {op : opCode} : Hashable (HasOpInfo.propertiesOf op) where
   hash := HasOpInfo.propertiesHash.hash
