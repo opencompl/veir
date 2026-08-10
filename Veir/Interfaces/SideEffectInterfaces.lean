@@ -43,7 +43,7 @@ def OperationPtr.hasSideEffects {OpInfo : Type} [HasOpInfo OpInfo]
 -/
 def OperationPtr.getEffects {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : IRContext OpInfo) : Array EffectInstance :=
-  if op.getNumRegions! ctx != 0 then unknownEffects else
+  if op.getNumRegions! ctx != 0 then #[.read, .write] else
   let opType := op.getOpType! ctx
   HasOpInfo.getEffects opType (op.getProperties! ctx opType)
 

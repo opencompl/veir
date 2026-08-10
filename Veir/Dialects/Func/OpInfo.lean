@@ -54,7 +54,7 @@ def Func.hasSideEffects (_op : Func) (_props : Func.propertiesOf _op) : Bool :=
 def Func.getEffects
     (op : Func) (_props : Func.propertiesOf op) : Array EffectInstance :=
   match op with
-  | .call => unknownEffects
+  | .call => #[.read, .write]
   | .func | .return => #[]
 
 def Func.isConstantLike (_op : Func) : Bool :=

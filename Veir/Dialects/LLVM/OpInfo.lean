@@ -336,7 +336,7 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : Array EffectIns
   | .intr__sshl__sat, _ | .intr__ushl__sat, _
   | .fadd, _ | .fsub, _ | .fmul, _ | .fdiv, _ | .frem, _ => #[]
   -- For everything else: be conservative!
-  | _, _ => unknownEffects
+  | _, _ => #[.read, .write]
 
 def Llvm.isConstantLike (op : Llvm) : Bool :=
   match op with

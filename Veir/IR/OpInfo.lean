@@ -61,11 +61,11 @@ class HasOpInfo (opCode: Type)
   so it is not by itself sufficient to prove that an earlier write is dead;
   that is what upstream's `FullEffect` marker is for.
 
-  Defaults to `unknownEffects` for every opcode, which conservatively assumes
+  Defaults to `#[.read, .write]` for every opcode, which conservatively assumes
   memory is both read and written.
   -/
   getEffects : (op : opCode) → propertiesOf op → Array EffectInstance :=
-    fun _ _ => unknownEffects
+    fun _ _ => #[.read, .write]
   /--
   Whether an operation with this opcode materializes a literal constant
   value: no operands, one result, no side effects, and a result that is
