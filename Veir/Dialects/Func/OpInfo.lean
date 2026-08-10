@@ -64,6 +64,11 @@ def Func.isConstantLike (_op : Func) : Bool :=
 def Func.hasSSADominance (_op : Func) (_index : Nat) : Bool :=
   true
 
+def Func.isTerminator (op : Func) : Bool :=
+  match op with
+  | .return => true
+  | .func | .call => false
+
 #generate_dialect Func
 
 instance : HasOpInfo Func where
@@ -76,6 +81,7 @@ instance : HasOpInfo Func where
   writesMemory := Func.writesMemory
   isConstantLike := Func.isConstantLike
   hasSSADominance := Func.hasSSADominance
+  isTerminator := Func.isTerminator
 
 end
 

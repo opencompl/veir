@@ -61,6 +61,11 @@ def HW.isConstantLike (op : HW) : Bool :=
 def HW.hasSSADominance (_op : HW) (_index : Nat) : Bool :=
   true
 
+def HW.isTerminator (op : HW) : Bool :=
+  match op with
+  | .output => true
+  | _ => false
+
 #generate_dialect HW
 
 instance : HasOpInfo HW where
@@ -73,6 +78,7 @@ instance : HasOpInfo HW where
   writesMemory := HW.writesMemory
   isConstantLike := HW.isConstantLike
   hasSSADominance := HW.hasSSADominance
+  isTerminator := HW.isTerminator
 
 end
 
