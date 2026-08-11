@@ -40,16 +40,6 @@ private def volatileMemProperties : RISCVMemProperties :=
 
 #guard OpCode.getEffects (.func .call) (default : FuncCallProperties) == .readWrite
 
-/- The derived queries distinguish reads from writes. -/
-
-#guard HasOpInfo.readsMemory (OpCode.llvm .load) (default : LoadProperties)
-#guard !(HasOpInfo.writesMemory (OpCode.llvm .load) (default : LoadProperties))
-#guard HasOpInfo.writesMemory (OpCode.llvm .load) volatileLoadProperties
-
-#guard HasOpInfo.writesMemory (OpCode.llvm .store) (default : StoreProperties)
-#guard !(HasOpInfo.readsMemory (OpCode.llvm .store) (default : StoreProperties))
-#guard HasOpInfo.readsMemory (OpCode.llvm .store) volatileStoreProperties
-
 #guard !(isMemoryEffectFree (OpCode.getEffects (.llvm .load) (default : LoadProperties)))
 #guard isMemoryEffectFree
   (OpCode.getEffects (.arith .addi) (default : ArithIntegerOverflowFlagsProperties))
@@ -61,5 +51,4 @@ private def moduleWithRegion : OperationPtr × IRContext OpCode :=
   let (ctx, moduleOp) := WfIRContext.create! OpCode
   (moduleOp, ctx.raw)
 
-#guard moduleWithRegion.1.readsMemory moduleWithRegion.2
-#guard moduleWithRegion.1.writesMemory moduleWithRegion.2
+#guard moduleWithRegion.1.getEffects moduleWithRegion.2 == .readWrite

@@ -47,16 +47,6 @@ def OperationPtr.getEffects {OpInfo : Type} [HasOpInfo OpInfo]
   let opType := op.getOpType! ctx
   HasOpInfo.getEffects opType (op.getProperties! ctx opType)
 
-/-- May this operation read memory? -/
-def OperationPtr.readsMemory {OpInfo : Type} [HasOpInfo OpInfo]
-    (op : OperationPtr) (ctx : IRContext OpInfo) : Bool :=
-  (op.getEffects ctx).reads
-
-/-- May this operation write memory? -/
-def OperationPtr.writesMemory {OpInfo : Type} [HasOpInfo OpInfo]
-    (op : OperationPtr) (ctx : IRContext OpInfo) : Bool :=
-  (op.getEffects ctx).writes
-
 end
 
 end Veir

@@ -311,9 +311,6 @@ def Llvm.hasSideEffects (op : Llvm) (props : Llvm.propertiesOf op) : Bool :=
 
 def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :=
   match op, props with
-  -- Mirrors upstream `LLVM::LoadOp::getEffects` and `LLVM::StoreOp::getEffects`:
-  -- a volatile access can have target-specific read-write effects on memory
-  -- besides the one referred to by the pointer operand.
   | .load, props => if props.volatile_ then .readWrite else .read
   | .store, props => if props.volatile_ then .readWrite else .write
   | .mlir__constant, _ | .mlir__poison, _ | .mlir__addressof, _

@@ -244,9 +244,6 @@ def Riscv.hasSideEffects (op : Riscv) (props : Riscv.propertiesOf op) : Bool :=
 
 def Riscv.getEffects (op : Riscv) (props : Riscv.propertiesOf op) : MemoryEffects :=
   match op, props with
-  -- As upstream models volatile LLVM accesses: a volatile load or store can
-  -- have target-specific read-write effects on memory besides the one referred
-  -- to by its address operand.
   | .ld, props | .lw, props | .lwu, props
   | .lh, props | .lhu, props
   | .lb, props | .lbu, props =>

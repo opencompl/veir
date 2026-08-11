@@ -93,20 +93,6 @@ class HasOpInfo (opCode: Type)
   -/
   isTerminator : opCode → Bool := fun _ => false
 
-namespace HasOpInfo
-
-variable {opCode : Type} [HasOpInfo opCode]
-
-/-- Does an operation with this opcode and these properties read memory? -/
-def readsMemory (op : opCode) (props : propertiesOf op) : Bool :=
-  (getEffects op props).reads
-
-/-- Does an operation with this opcode and these properties write memory? -/
-def writesMemory (op : opCode) (props : propertiesOf op) : Bool :=
-  (getEffects op props).writes
-
-end HasOpInfo
-
 instance [HasOpInfo opCode] {op : opCode} : Hashable (HasOpInfo.propertiesOf op) where
   hash := HasOpInfo.propertiesHash.hash
 
