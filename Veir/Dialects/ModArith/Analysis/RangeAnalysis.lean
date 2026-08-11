@@ -76,10 +76,12 @@ def meet : IntegerRangeLattice → IntegerRangeLattice → IntegerRangeLattice
   | lhs, .top => lhs
   | .interval lhs, .interval rhs =>
       if lhs.bitwidth = rhs.bitwidth then
-        .interval
-          { bitwidth := lhs.bitwidth
-            lower := max lhs.lower rhs.lower
-            upper := min lhs.upper rhs.upper }
+        let lower := max lhs.lower rhs.lower
+        let upper := min lhs.upper rhs.upper
+        if lower ≤ upper then
+          .interval { bitwidth := lhs.bitwidth, lower, upper }
+        else
+          .bottom
       else
         .top
 
