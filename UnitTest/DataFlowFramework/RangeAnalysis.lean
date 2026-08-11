@@ -28,23 +28,6 @@ def canonicalModArithRange? (ty : TypeAttr) : Option IntegerRangeLattice := do
         lower := 0
         upper := q - 1 }
 
-/-- Exact range for a `mod_arith.constant`, canonicalized by its modulus. -/
-def modArithConstantRange? (op : OperationPtr) (irCtx : IRContext OpCode) : Option IntegerRangeLattice := do
-  match op.getOpType! irCtx with
-  | OpCode.mod_arith Mod_Arith.constant =>
-      let props := op.getProperties! irCtx (OpCode.mod_arith Mod_Arith.constant)
-      let .modArithType mt := ((op.getResult 0 : ValuePtr).getType! irCtx).val | none
-      let q := mt.modulus.value
-      if q <= 0 then
-        none
-      else
-        let value := props.value.value % q
-        some <| .interval
-          { bitwidth := mt.bitwidth
-            lower := value
-            upper := value }
-  | _ => none
-
 private def hasNoReductionAttr (op : OperationPtr) (irCtx : IRContext OpCode) : Bool :=
   match (op.get! irCtx).attrs.entries.find? (fun entry => entry.1 == "reduction".toUTF8) with
   | some (_, .stringAttr attr) => attr.value == "none".toUTF8
@@ -66,22 +49,27 @@ private def inferModArithRange? (value : ValuePtr) (knownRanges : KnownRanges)
   let some op := value.getDefiningOp! irCtx
     | canonicalModArithRange? (value.getType! irCtx)
 
-  if let some range := modArithConstantRange? op irCtx then
-    return range
-
   match op.getOpType! irCtx with
+  | OpCode.mod_arith Mod_Arith.constant =>
+    let props := op.getProperties! irCtx (OpCode.mod_arith Mod_Arith.constant)
+    let .modArithType mt := ((op.getResult 0 : ValuePtr).getType! irCtx).val | none
+    let q := mt.modulus.value
+    if q <= 0 then
+      none
+    else
+      some <| IntegerRangeLattice.singleton mt.bitwidth (props.value.value % q)
   | OpCode.mod_arith Mod_Arith.add =>
-      let operands := op.getOperands! irCtx
-      let lhs ← knownRanges[operands[0]!]?
-      let rhs ← knownRanges[operands[1]!]?
-      applyReduction op (IntegerRangeLattice.addRange lhs rhs) irCtx
+    let operands := op.getOperands! irCtx
+    let lhs ← knownRanges[operands[0]!]?
+    let rhs ← knownRanges[operands[1]!]?
+    applyReduction op (IntegerRangeLattice.addRange lhs rhs) irCtx
   | OpCode.mod_arith Mod_Arith.mul =>
-      let operands := op.getOperands! irCtx
-      let lhs ← knownRanges[operands[0]!]?
-      let rhs ← knownRanges[operands[1]!]?
-      applyReduction op (IntegerRangeLattice.mulRange lhs rhs) irCtx
+    let operands := op.getOperands! irCtx
+    let lhs ← knownRanges[operands[0]!]?
+    let rhs ← knownRanges[operands[1]!]?
+    applyReduction op (IntegerRangeLattice.mulRange lhs rhs) irCtx
   | _ =>
-      canonicalModArithRange? (value.getType! irCtx)
+    none
 
 private def compareRanges
     (recovered : RecoveredNames)

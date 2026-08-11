@@ -42,6 +42,19 @@ instance : Top IntegerRangeLattice where
 def singleton  (bitwidth : Nat) (value : Int) : IntegerRangeLattice :=
   .interval { bitwidth, lower := value, upper := value }
 
+/-- Construct an exact range from an integer attribute. -/
+def ofIntegerAttr (attr : IntegerAttr) : IntegerRangeLattice :=
+  singleton attr.type.bitwidth attr.value
+
+
+/-- Exact range for an `arith.constant` operation. -/
+def constantRange? (op : OperationPtr) (irCtx : IRContext OpCode) : Option IntegerRangeLattice := do
+  match op.getOpType! irCtx with
+  | OpCode.arith Arith.constant =>
+      let props := op.getProperties! irCtx (OpCode.arith Arith.constant)
+      some <| ofIntegerAttr props.value
+  | _ => none
+
 /-- Union-like merge of two abstract ranges. -/
 def join : IntegerRangeLattice → IntegerRangeLattice → IntegerRangeLattice
   | .bottom, rhs => rhs
