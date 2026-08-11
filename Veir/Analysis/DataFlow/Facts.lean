@@ -2,7 +2,6 @@ module
 
 public import Veir.GlobalOpInfo
 public import Veir.Analysis.DataFlow.Domains.LivenessDomain
-public import Veir.Analysis.DataFlow.Domains.RangeDomain
 public import Veir.Rewriter.InsertPoint
 
 open Std (HashMap Queue)

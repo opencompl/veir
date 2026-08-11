@@ -1,6 +1,6 @@
 import UnitTest.DataFlowFramework.Helpers
 
-import Veir.Analysis.DataFlow.Domains.RangeDomain
+import Veir.Dialects.ModArith.Analysis.RangeAnalysis
 
 open Veir
 
