@@ -56,16 +56,11 @@ class HasOpInfo (opCode: Type)
   the effects as well before running an operation against memory that is not
   the program's.
 
-  Note that a write effect reports only that memory may be modified. It does
-  not imply that the operation completely overwrites any particular location,
-  so it is not by itself sufficient to prove that an earlier write is dead;
-  that is what upstream's `FullEffect` marker is for.
-
-  Defaults to `#[.read, .write]` for every opcode, which conservatively assumes
+  Defaults to `.readWrite` for every opcode, which conservatively assumes
   memory is both read and written.
   -/
-  getEffects : (op : opCode) → propertiesOf op → Array EffectInstance :=
-    fun _ _ => #[.read, .write]
+  getEffects : (op : opCode) → propertiesOf op → MemoryEffects :=
+    fun _ _ => .readWrite
   /--
   Whether an operation with this opcode materializes a literal constant
   value: no operands, one result, no side effects, and a result that is
@@ -102,20 +97,13 @@ namespace HasOpInfo
 
 variable {opCode : Type} [HasOpInfo opCode]
 
-/--
-  Does an operation with this opcode and these properties have an effect of the
-  given kind? Mirrors `mlir::hasEffect`.
--/
-def hasEffect (op : opCode) (props : propertiesOf op) (effect : MemoryEffect) : Bool :=
-  Veir.hasEffect (getEffects op props) effect
-
 /-- Does an operation with this opcode and these properties read memory? -/
 def readsMemory (op : opCode) (props : propertiesOf op) : Bool :=
-  hasEffect op props .read
+  (getEffects op props).reads
 
 /-- Does an operation with this opcode and these properties write memory? -/
 def writesMemory (op : opCode) (props : propertiesOf op) : Bool :=
-  hasEffect op props .write
+  (getEffects op props).writes
 
 end HasOpInfo
 

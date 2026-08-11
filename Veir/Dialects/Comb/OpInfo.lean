@@ -64,8 +64,8 @@ def Comb.hasSideEffects (_op : Comb) (_props : Comb.propertiesOf _op) : Bool :=
   false
 
 def Comb.getEffects
-    (_op : Comb) (_props : Comb.propertiesOf _op) : Array EffectInstance :=
-  #[]
+    (_op : Comb) (_props : Comb.propertiesOf _op) : MemoryEffects :=
+  .none
 
 def Comb.isConstantLike (_op : Comb) : Bool :=
   false

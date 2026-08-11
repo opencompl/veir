@@ -242,7 +242,7 @@ def Riscv.hasSideEffects (op : Riscv) (props : Riscv.propertiesOf op) : Bool :=
     -- For everything else: be conservative!
     | _ => true
 
-def Riscv.getEffects (op : Riscv) (props : Riscv.propertiesOf op) : Array EffectInstance :=
+def Riscv.getEffects (op : Riscv) (props : Riscv.propertiesOf op) : MemoryEffects :=
   match op, props with
   -- As upstream models volatile LLVM accesses: a volatile load or store can
   -- have target-specific read-write effects on memory besides the one referred
@@ -250,10 +250,10 @@ def Riscv.getEffects (op : Riscv) (props : Riscv.propertiesOf op) : Array Effect
   | .ld, props | .lw, props | .lwu, props
   | .lh, props | .lhu, props
   | .lb, props | .lbu, props =>
-    if props.volatile_ then #[.read, .write] else #[.read]
+    if props.volatile_ then .readWrite else .read
   | .sd, props | .sw, props
   | .sh, props | .sb, props =>
-    if props.volatile_ then #[.write, .read] else #[.write]
+    if props.volatile_ then .readWrite else .write
   | .li, _ | .lui, _ | .auipc, _
   | .addi, _ | .slti, _ | .sltiu, _
   | .andi, _ | .ori, _ | .xori, _
@@ -280,7 +280,7 @@ def Riscv.getEffects (op : Riscv) (props : Riscv.propertiesOf op) : Array Effect
   | .czeroeqz, _ | .czeronez, _
   | .mv, _ | .not, _ | .neg, _ | .negw, _
   | .sextw, _ | .zextb, _ | .zextw, _
-  | .seqz, _ | .snez, _ | .sltz, _ | .sgtz, _ => #[]
+  | .seqz, _ | .snez, _ | .sltz, _ | .sgtz, _ => .none
 
 def Riscv.isConstantLike (op : Riscv) : Bool :=
   match op with

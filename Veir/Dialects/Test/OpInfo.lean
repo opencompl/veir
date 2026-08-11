@@ -31,8 +31,8 @@ def Test.hasSideEffects (_op : Test) (_props : Test.propertiesOf _op) : Bool :=
   true
 
 def Test.getEffects
-    (_op : Test) (_props : Test.propertiesOf _op) : Array EffectInstance :=
-  #[.read, .write]
+    (_op : Test) (_props : Test.propertiesOf _op) : MemoryEffects :=
+  .readWrite
 
 def Test.isConstantLike (_op : Test) : Bool :=
   false

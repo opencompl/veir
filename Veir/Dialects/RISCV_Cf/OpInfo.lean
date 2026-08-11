@@ -58,8 +58,8 @@ def Riscv_Cf.hasSideEffects
   true
 
 def Riscv_Cf.getEffects
-    (_op : Riscv_Cf) (_props : Riscv_Cf.propertiesOf _op) : Array EffectInstance :=
-  #[]
+    (_op : Riscv_Cf) (_props : Riscv_Cf.propertiesOf _op) : MemoryEffects :=
+  .none
 
 def Riscv_Cf.isConstantLike (_op : Riscv_Cf) : Bool :=
   false

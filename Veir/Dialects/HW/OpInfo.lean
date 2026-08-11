@@ -53,8 +53,8 @@ def HW.hasSideEffects (op : HW) (_props : HW.propertiesOf op) : Bool :=
   | _ => true
 
 def HW.getEffects
-    (_op : HW) (_props : HW.propertiesOf _op) : Array EffectInstance :=
-  #[]
+    (_op : HW) (_props : HW.propertiesOf _op) : MemoryEffects :=
+  .none
 
 def HW.isConstantLike (op : HW) : Bool :=
   match op with

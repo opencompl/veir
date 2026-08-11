@@ -36,7 +36,7 @@ match opCode with
   What are the memory effects of an operation with this opcode and these
   properties?
 -/
-def OpCode.getEffects (opCode : OpCode) (props : _propertiesOf opCode) : Array EffectInstance :=
+def OpCode.getEffects (opCode : OpCode) (props : _propertiesOf opCode) : MemoryEffects :=
   match opCode, props with
   | .arith op, props => Arith.getEffects op props
   | .llvm op, props => Llvm.getEffects op props

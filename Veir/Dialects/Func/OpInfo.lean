@@ -52,10 +52,10 @@ def Func.hasSideEffects (_op : Func) (_props : Func.propertiesOf _op) : Bool :=
   true
 
 def Func.getEffects
-    (op : Func) (_props : Func.propertiesOf op) : Array EffectInstance :=
+    (op : Func) (_props : Func.propertiesOf op) : MemoryEffects :=
   match op with
-  | .call => #[.read, .write]
-  | .func | .return => #[]
+  | .call => .readWrite
+  | .func | .return => .none
 
 def Func.isConstantLike (_op : Func) : Bool :=
   false

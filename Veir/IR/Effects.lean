@@ -4,22 +4,28 @@ module
   # Memory effects
 
   This file defines the vocabulary used by `HasOpInfo.getEffects` to describe
-  the memory effects of an operation. It mirrors the effect side of MLIR's
+  the memory effects of an operation. It corresponds to MLIR's
   `MemoryEffectOpInterface`:
 
   https://github.com/llvm/llvm-project/blob/main/mlir/include/mlir/Interfaces/SideEffectInterfaces.h
 
-  Upstream, an effect instance is a six-tuple: an effect kind, the resource the
-  effect applies to, an optional value (operand, result, block argument, or
-  symbol) it applies to, an optional parameter attribute, a stage ordering the
-  effects within a single operation, and a flag saying whether the effect
-  covers the resource in full or only in part.
+  Upstream returns a list of effect instances, where an instance is a six-tuple:
+  an effect kind, the resource the effect applies to, an optional value (operand,
+  result, block argument, or symbol) it applies to, an optional parameter
+  attribute, a stage ordering the effects within a single operation, and a flag
+  saying whether the effect covers the resource in full or only in part. That
+  list is a multiset: two read instances are genuinely different effects when
+  they name different values or resources, and its order carries no meaning.
 
-  We currently model only the effect kind. The remaining fields describe
-  information that no VeIR dialect records yet, so introducing them now would
-  cost proof noise without buying precision. `EffectInstance` is a structure
-  precisely so that they can be added later, with defaults, without disturbing
-  either the effect vocabulary or the dialect definitions that use it.
+  We record none of those fields, so the only thing an operation can say is
+  which kinds of effect it may have. A record of flags states exactly that, and
+  no more: unlike a list, it cannot express an order or a multiplicity that the
+  semantics does not have, so equality on it is equality of meaning.
+
+  Recovering upstream's precision -- which operand is read, which resource is
+  written -- means replacing this record with a collection of instances, not
+  extending it. That is a deliberate trade: this file describes what VeIR models
+  today rather than reserving room for what it might model later.
 -/
 
 namespace Veir
@@ -27,59 +33,45 @@ namespace Veir
 public section
 
 /--
-  The kind of a memory effect, mirroring `mlir::MemoryEffects`.
+  The memory effects an operation may have.
 
-  Upstream additionally has `Allocate` and `Free`, which are what let a pass
-  prove that an unused allocation is dead. No VeIR dialect describes allocation
-  yet, so they are omitted rather than left unpopulated.
+  A field reports only that the effect may occur. In particular `writes` does
+  not imply that the operation completely overwrites any particular location,
+  so it is not by itself sufficient to prove that an earlier write is dead;
+  that is what upstream's `FullEffect` marker is for.
 -/
-inductive MemoryEffect where
-  /-- The operation dereferences a resource, without visibly mutating it. -/
-  | read
-  /-- The operation mutates a resource, without visibly dereferencing it. -/
-  | write
+structure MemoryEffects where
+  /-- The operation may dereference memory, without necessarily mutating it. -/
+  reads : Bool
+  /-- The operation may mutate memory, without necessarily dereferencing it. -/
+  writes : Bool
 deriving Inhabited, Repr, DecidableEq
 
-/--
-  A single memory effect exhibited by an operation, mirroring
-  `mlir::SideEffects::EffectInstance`.
+namespace MemoryEffects
 
-  Prefer the `EffectInstance.read` and `EffectInstance.write` constructors over
-  the anonymous one, so that call sites keep elaborating when this structure
-  grows the fields described at the top of this file.
--/
-structure EffectInstance where
-  /-- The effect being applied. -/
-  effect : MemoryEffect
-deriving Inhabited, Repr, DecidableEq
+/-- The operation leaves memory alone. Corresponds to `NoMemoryEffect`. -/
+def none : MemoryEffects := { reads := false, writes := false }
 
-namespace EffectInstance
+/-- The operation only reads memory. -/
+def read : MemoryEffects := { reads := true, writes := false }
 
-/-- The operation reads memory. -/
-def read : EffectInstance := { effect := .read }
+/-- The operation only writes memory. -/
+def write : MemoryEffects := { reads := false, writes := true }
 
-/-- The operation writes memory. -/
-def write : EffectInstance := { effect := .write }
+/-- The operation both reads and writes memory. -/
+def readWrite : MemoryEffects := { reads := true, writes := true }
 
-end EffectInstance
+end MemoryEffects
 
 /--
-  Do any of these effect instances have the given kind? Mirrors
-  `mlir::hasEffect`.
--/
-def hasEffect (effects : Array EffectInstance) (effect : MemoryEffect) : Bool :=
-  effects.any (·.effect == effect)
-
-/--
-  Are these effects empty, i.e. does the operation they came from leave memory
-  alone entirely? Mirrors `mlir::isMemoryEffectFree`.
+  Is this operation free of memory effects? Mirrors `mlir::isMemoryEffectFree`.
 
   NOTE: as upstream, this says nothing about whether the operation is safe to
   speculate: an operation can be free of memory effects and still trigger
   immediate UB.
 -/
-def isMemoryEffectFree (effects : Array EffectInstance) : Bool :=
-  effects.isEmpty
+def isMemoryEffectFree (effects : MemoryEffects) : Bool :=
+  !effects.reads && !effects.writes
 
 end
 

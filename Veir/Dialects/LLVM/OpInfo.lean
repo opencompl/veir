@@ -309,13 +309,13 @@ def Llvm.hasSideEffects (op : Llvm) (props : Llvm.propertiesOf op) : Bool :=
   -- For everything else: be conservative!
   | _, _ => true
 
-def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : Array EffectInstance :=
+def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :=
   match op, props with
   -- Mirrors upstream `LLVM::LoadOp::getEffects` and `LLVM::StoreOp::getEffects`:
   -- a volatile access can have target-specific read-write effects on memory
   -- besides the one referred to by the pointer operand.
-  | .load, props => if props.volatile_ then #[.read, .write] else #[.read]
-  | .store, props => if props.volatile_ then #[.write, .read] else #[.write]
+  | .load, props => if props.volatile_ then .readWrite else .read
+  | .store, props => if props.volatile_ then .readWrite else .write
   | .mlir__constant, _ | .mlir__poison, _ | .mlir__addressof, _
   | .and, _ | .or, _ | .xor, _
   | .add, _ | .sub, _ | .mul, _
@@ -334,9 +334,9 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : Array EffectIns
   | .intr__sadd__sat, _ | .intr__uadd__sat, _
   | .intr__ssub__sat, _ | .intr__usub__sat, _
   | .intr__sshl__sat, _ | .intr__ushl__sat, _
-  | .fadd, _ | .fsub, _ | .fmul, _ | .fdiv, _ | .frem, _ => #[]
+  | .fadd, _ | .fsub, _ | .fmul, _ | .fdiv, _ | .frem, _ => .none
   -- For everything else: be conservative!
-  | _, _ => #[.read, .write]
+  | _, _ => .readWrite
 
 def Llvm.isConstantLike (op : Llvm) : Bool :=
   match op with

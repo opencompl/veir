@@ -130,8 +130,8 @@ def PDL.hasSideEffects (op : PDL) (_props : PDL.propertiesOf op) : Bool :=
   | _ => true
 
 def PDL.getEffects
-    (_op : PDL) (_props : PDL.propertiesOf _op) : Array EffectInstance :=
-  #[]
+    (_op : PDL) (_props : PDL.propertiesOf _op) : MemoryEffects :=
+  .none
 
 def PDL.isConstantLike (_op : PDL) : Bool :=
   false

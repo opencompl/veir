@@ -42,20 +42,20 @@ def OperationPtr.hasSideEffects {OpInfo : Type} [HasOpInfo OpInfo]
   TODO: recursively walk regions to get a less conservative answer
 -/
 def OperationPtr.getEffects {OpInfo : Type} [HasOpInfo OpInfo]
-    (op : OperationPtr) (ctx : IRContext OpInfo) : Array EffectInstance :=
-  if op.getNumRegions! ctx != 0 then #[.read, .write] else
+    (op : OperationPtr) (ctx : IRContext OpInfo) : MemoryEffects :=
+  if op.getNumRegions! ctx != 0 then .readWrite else
   let opType := op.getOpType! ctx
   HasOpInfo.getEffects opType (op.getProperties! ctx opType)
 
 /-- May this operation read memory? -/
 def OperationPtr.readsMemory {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : IRContext OpInfo) : Bool :=
-  hasEffect (op.getEffects ctx) .read
+  (op.getEffects ctx).reads
 
 /-- May this operation write memory? -/
 def OperationPtr.writesMemory {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : IRContext OpInfo) : Bool :=
-  hasEffect (op.getEffects ctx) .write
+  (op.getEffects ctx).writes
 
 end
 

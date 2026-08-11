@@ -13,25 +13,23 @@ private def volatileStoreProperties : StoreProperties :=
 private def volatileMemProperties : RISCVMemProperties :=
   { (default : RISCVMemProperties) with volatile_ := true }
 
-/- `getEffects` reports the effects themselves, and inspects properties. -/
+#guard OpCode.getEffects (.llvm .load) (default : LoadProperties) == .read
+#guard OpCode.getEffects (.llvm .load) volatileLoadProperties == .readWrite
 
-#guard OpCode.getEffects (.llvm .load) (default : LoadProperties) == #[.read]
-#guard OpCode.getEffects (.llvm .load) volatileLoadProperties == #[.read, .write]
+#guard OpCode.getEffects (.llvm .store) (default : StoreProperties) == .write
+#guard OpCode.getEffects (.llvm .store) volatileStoreProperties == .readWrite
 
-#guard OpCode.getEffects (.llvm .store) (default : StoreProperties) == #[.write]
-#guard OpCode.getEffects (.llvm .store) volatileStoreProperties == #[.write, .read]
-
-#guard OpCode.getEffects (.arith .addi) (default : ArithIntegerOverflowFlagsProperties) == #[]
+#guard OpCode.getEffects (.arith .addi) (default : ArithIntegerOverflowFlagsProperties) == .none
 
 /- RISC-V models volatility the same way, on its own load and store opcodes. -/
 
-#guard OpCode.getEffects (.riscv .lw) (default : RISCVMemProperties) == #[.read]
-#guard OpCode.getEffects (.riscv .lw) volatileMemProperties == #[.read, .write]
+#guard OpCode.getEffects (.riscv .lw) (default : RISCVMemProperties) == .read
+#guard OpCode.getEffects (.riscv .lw) volatileMemProperties == .readWrite
 
-#guard OpCode.getEffects (.riscv .sw) (default : RISCVMemProperties) == #[.write]
-#guard OpCode.getEffects (.riscv .sw) volatileMemProperties == #[.write, .read]
+#guard OpCode.getEffects (.riscv .sw) (default : RISCVMemProperties) == .write
+#guard OpCode.getEffects (.riscv .sw) volatileMemProperties == .readWrite
 
-#guard OpCode.getEffects (.riscv .add) (default : Unit) == #[]
+#guard OpCode.getEffects (.riscv .add) (default : Unit) == .none
 
 /-
   A call is conservative in both directions: we have no interprocedural effect
@@ -40,7 +38,7 @@ private def volatileMemProperties : RISCVMemProperties :=
   all and so has unknown effects.
 -/
 
-#guard OpCode.getEffects (.func .call) (default : FuncCallProperties) == #[.read, .write]
+#guard OpCode.getEffects (.func .call) (default : FuncCallProperties) == .readWrite
 
 /- The derived queries distinguish reads from writes. -/
 
@@ -51,9 +49,6 @@ private def volatileMemProperties : RISCVMemProperties :=
 #guard HasOpInfo.writesMemory (OpCode.llvm .store) (default : StoreProperties)
 #guard !(HasOpInfo.readsMemory (OpCode.llvm .store) (default : StoreProperties))
 #guard HasOpInfo.readsMemory (OpCode.llvm .store) volatileStoreProperties
-
-#guard hasEffect (OpCode.getEffects (.llvm .load) volatileLoadProperties) .write
-#guard !(hasEffect (OpCode.getEffects (.llvm .load) (default : LoadProperties)) .write)
 
 #guard !(isMemoryEffectFree (OpCode.getEffects (.llvm .load) (default : LoadProperties)))
 #guard isMemoryEffectFree

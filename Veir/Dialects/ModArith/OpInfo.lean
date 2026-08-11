@@ -44,8 +44,8 @@ def Mod_Arith.hasSideEffects
   false
 
 def Mod_Arith.getEffects
-    (_op : Mod_Arith) (_props : Mod_Arith.propertiesOf _op) : Array EffectInstance :=
-  #[]
+    (_op : Mod_Arith) (_props : Mod_Arith.propertiesOf _op) : MemoryEffects :=
+  .none
 
 def Mod_Arith.isConstantLike (op : Mod_Arith) : Bool :=
   match op with

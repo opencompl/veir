@@ -42,10 +42,10 @@ def Builtin.hasSideEffects (op : Builtin) (_props : Builtin.propertiesOf op) : B
   | _ => true
 
 def Builtin.getEffects
-    (op : Builtin) (_props : Builtin.propertiesOf op) : Array EffectInstance :=
+    (op : Builtin) (_props : Builtin.propertiesOf op) : MemoryEffects :=
   match op with
-  | .unrealized_conversion_cast => #[]
-  | _ => #[.read, .write]
+  | .unrealized_conversion_cast => .none
+  | _ => .readWrite
 
 def Builtin.isConstantLike (_op : Builtin) : Bool :=
   false

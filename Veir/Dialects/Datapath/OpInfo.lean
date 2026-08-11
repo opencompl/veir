@@ -34,8 +34,8 @@ def Datapath.hasSideEffects
   false
 
 def Datapath.getEffects
-    (_op : Datapath) (_props : Datapath.propertiesOf _op) : Array EffectInstance :=
-  #[]
+    (_op : Datapath) (_props : Datapath.propertiesOf _op) : MemoryEffects :=
+  .none
 
 def Datapath.isConstantLike (_op : Datapath) : Bool :=
   false

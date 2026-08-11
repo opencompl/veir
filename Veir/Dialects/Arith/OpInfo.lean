@@ -115,8 +115,8 @@ def Arith.hasSideEffects (_op : Arith) (_props : Arith.propertiesOf _op) : Bool 
   false
 
 def Arith.getEffects
-    (_op : Arith) (_props : Arith.propertiesOf _op) : Array EffectInstance :=
-  #[]
+    (_op : Arith) (_props : Arith.propertiesOf _op) : MemoryEffects :=
+  .none
 
 def Arith.isConstantLike (op : Arith) : Bool :=
   match op with

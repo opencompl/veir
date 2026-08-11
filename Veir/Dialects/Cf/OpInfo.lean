@@ -44,8 +44,8 @@ def Cf.hasSideEffects (_op : Cf) (_props : Cf.propertiesOf _op) : Bool :=
   true
 
 def Cf.getEffects
-    (_op : Cf) (_props : Cf.propertiesOf _op) : Array EffectInstance :=
-  #[]
+    (_op : Cf) (_props : Cf.propertiesOf _op) : MemoryEffects :=
+  .none
 
 def Cf.isConstantLike (_op : Cf) : Bool :=
   false

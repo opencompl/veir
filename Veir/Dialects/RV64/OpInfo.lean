@@ -33,8 +33,8 @@ def Rv64.hasSideEffects (_op : Rv64) (_props : Rv64.propertiesOf _op) : Bool :=
   true
 
 def Rv64.getEffects
-    (_op : Rv64) (_props : Rv64.propertiesOf _op) : Array EffectInstance :=
-  #[]
+    (_op : Rv64) (_props : Rv64.propertiesOf _op) : MemoryEffects :=
+  .none
 
 def Rv64.isConstantLike (_op : Rv64) : Bool :=
   false
