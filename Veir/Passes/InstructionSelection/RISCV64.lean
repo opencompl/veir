@@ -1082,7 +1082,7 @@ def getelementptr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
 
 /--
   Lower a single-dynamic-index `llvm.getelementptr` computing `ptr + idx * scale`,
-  where `scale` is the byte size of the element type.
+  where `scale` is the allocation size (ABI stride) of the element type.
 -/
 def getelementptr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=

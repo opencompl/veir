@@ -8,7 +8,7 @@ public import Veir.IR.Attribute
 Target data layouts answer physical representation queries for IR types.  The
 interface deliberately distinguishes the byte size of a type, its ABI and
 preferred alignments, and its allocation size (the stride between consecutive
-objects).  In particular, an odd-width integer can have a three-byte type size
+objects). In particular, an odd-width integer can have a three-byte type size
 but a four-byte allocation size.
 -/
 
@@ -16,13 +16,24 @@ namespace Veir
 
 public section
 
+/-- Round `size` up to a positive byte alignment. -/
+private def alignTo (size alignment : Nat) : Nat :=
+  if alignment = 0 then size
+  else ((size + alignment - 1) / alignment) * alignment
+
 /-- The fixed-size layout facts for one type, all expressed in bytes. -/
 structure DataLayoutTypeInfo where
   size : Nat
   abiAlignment : Nat
   preferredAlignment : Nat
-  allocSize : Nat
 deriving Inhabited, Repr, DecidableEq
+
+/--
+  The allocation size of the type, in bytes: the stride between consecutive
+  objects, including tail padding required by the ABI alignment.
+-/
+def DataLayoutTypeInfo.allocSize (info : DataLayoutTypeInfo) : Nat :=
+  alignTo info.size info.abiAlignment
 
 /--
   A target data layout. Unsupported or unsized types return `none`.

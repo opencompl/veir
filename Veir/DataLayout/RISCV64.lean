@@ -5,17 +5,10 @@ public import Veir.Interfaces.DataLayoutInterfaces
 /-!
 # RV64 Data Layout
 
-The fixed data layout used by the RV64 instruction selector. A future
-implementation can construct the generic `DataLayout` interface from a module's
-`dlti.dl_spec` without changing clients.
+The fixed data layout used by the RV64 backend.
 -/
 
 namespace Veir.DataLayout
-
-/-- Round `size` up to a positive byte alignment. -/
-private def alignTo (size alignment : Nat) : Nat :=
-  if alignment = 0 then size
-  else ((size + alignment - 1) / alignment) * alignment
 
 /-- The smallest power of two greater than or equal to `n` (and `1` for `0`). -/
 private def powerOfTwoCeil (n : Nat) : Nat :=
@@ -37,8 +30,7 @@ private def rv64IntegerAlignment (bitwidth : Nat) : Nat :=
 private def scalarInfo (size alignment : Nat) : DataLayoutTypeInfo :=
   { size
     abiAlignment := alignment
-    preferredAlignment := alignment
-    allocSize := alignTo size alignment }
+    preferredAlignment := alignment }
 
 /-- Layout facts for the LLVM-compatible fixed-size types supported by VeIR. -/
 private def queryRISCV64 (type : Attribute) : Option DataLayoutTypeInfo :=
@@ -57,12 +49,10 @@ private def queryRISCV64 (type : Attribute) : Option DataLayoutTypeInfo :=
       some (scalarInfo 8 8)
   | .llvmArrayType { size, type } => do
       let element ← queryRISCV64 type
-      let arraySize := element.allocSize * size
       some
-        { size := arraySize
+        { size := element.allocSize * size
           abiAlignment := element.abiAlignment
-          preferredAlignment := element.preferredAlignment
-          allocSize := alignTo arraySize element.abiAlignment }
+          preferredAlignment := element.preferredAlignment }
   | _ => none
 
 /--

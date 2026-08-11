@@ -55,6 +55,10 @@ def Cf.isConstantLike (_op : Cf) : Bool :=
 def Cf.hasSSADominance (_op : Cf) (_index : Nat) : Bool :=
   true
 
+/-- Every `cf` operation is a branch, and so terminates its block. -/
+def Cf.isTerminator (_op : Cf) : Bool :=
+  true
+
 #generate_dialect Cf
 
 instance : HasOpInfo Cf where
@@ -68,6 +72,7 @@ instance : HasOpInfo Cf where
   writesMemory := Cf.writesMemory
   isConstantLike := Cf.isConstantLike
   hasSSADominance := Cf.hasSSADominance
+  isTerminator := Cf.isTerminator
 
 /--
 Verify the local invariants of a `cf` operation in any operation-info type
