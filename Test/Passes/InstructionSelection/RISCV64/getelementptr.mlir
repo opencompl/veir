@@ -1,7 +1,7 @@
 // RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
 
 // Single-dynamic-index `llvm.getelementptr` lowers to `ptr + idx * scale`,
-// where `scale` is the byte size of the element type.
+// where `scale` is the allocation size (ABI stride) of the element type.
 
 "builtin.module"() ({
     "func.func"()  <{function_type = (!llvm.ptr, i64) -> (), sym_name = "foo"}> ({
@@ -22,6 +22,13 @@
 
         // scale 4 (i32): (idx << 2) + ptr -> riscv.sh2add
         %g4 = "llvm.getelementptr"(%p, %i) <{elem_type = i32, rawConstantIndices = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!llvm.ptr) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "riscv.sh2add"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> !llvm.ptr
+
+        // i24 has store size 3 but RV64 allocation stride 4: also riscv.sh2add
+        %g24 = "llvm.getelementptr"(%p, %i) <{elem_type = i24, rawConstantIndices = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!llvm.ptr) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "riscv.sh2add"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
@@ -72,6 +79,7 @@
         "test.test"(%g1) : (!llvm.ptr) -> ()
         "test.test"(%g2) : (!llvm.ptr) -> ()
         "test.test"(%g4) : (!llvm.ptr) -> ()
+        "test.test"(%g24) : (!llvm.ptr) -> ()
         "test.test"(%g8) : (!llvm.ptr) -> ()
         "test.test"(%garr) : (!llvm.ptr) -> ()
         "test.test"(%g16) : (!llvm.ptr) -> ()
