@@ -32,6 +32,20 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
+    // Folding uses allocation stride, not store size: i33 has store size 5 but
+    // RV64 allocation stride 8, so index 2 gives byte offset 16.
+    "func.func"()  <{function_type = (!llvm.ptr) -> (), sym_name = "fold_i33_stride"}> ({
+    ^bb0(%p: !llvm.ptr):
+        %i = "llvm.mlir.constant"() <{value = 2 : i64}> : () -> i64
+        %g = "llvm.getelementptr"(%p, %i) <{elem_type = i33, rawConstantIndices = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+        %v = "llvm.load"(%g) : (!llvm.ptr) -> i32
+        // CHECK:      {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!llvm.ptr) -> !riscv.reg
+        // CHECK-NEXT: {{.*}} = "riscv.lw"({{.*}}) <{"value" = 16 : i64}> : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!riscv.reg) -> i32
+        "test.test"(%v) : (i32) -> ()
+        "func.return"() : () -> ()
+    }) : () -> ()
+
     // Stores fold the same way: i8 element, index 7 -> byte offset 7.
     "func.func"()  <{function_type = (!llvm.ptr, i8) -> (), sym_name = "fold_sb"}> ({
     ^bb0(%p: !llvm.ptr, %x: i8):
