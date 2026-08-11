@@ -1,12 +1,31 @@
 module
 
 public import Veir.IR.Attribute
-public import Veir.IR.Effects
 public import Std.Data.HashMap
 
 namespace Veir
 
 public section
+
+/-- The memory effects an operation may have. -/
+structure MemoryEffects where
+  /-- The operation may dereference memory, without necessarily mutating it. -/
+  reads : Bool
+  /-- The operation may mutate memory, without necessarily dereferencing it. -/
+  writes : Bool
+deriving Inhabited, Repr, DecidableEq
+
+namespace MemoryEffects
+
+def none : MemoryEffects := { reads := false, writes := false }
+
+def read : MemoryEffects := { reads := true, writes := false }
+
+def write : MemoryEffects := { reads := false, writes := true }
+
+def readWrite : MemoryEffects := { reads := true, writes := true }
+
+end MemoryEffects
 
 class HasOpInfo (opCode: Type)
     extends Hashable opCode, Repr opCode, Inhabited opCode where

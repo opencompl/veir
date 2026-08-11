@@ -40,10 +40,6 @@ private def volatileMemProperties : RISCVMemProperties :=
 
 #guard OpCode.getEffects (.func .call) (default : FuncCallProperties) == .readWrite
 
-#guard !(isMemoryEffectFree (OpCode.getEffects (.llvm .load) (default : LoadProperties)))
-#guard isMemoryEffectFree
-  (OpCode.getEffects (.arith .addi) (default : ArithIntegerOverflowFlagsProperties))
-
 /- Operations carrying regions are conservatively treated as reading and writing. -/
 
 /-- A `builtin.module` op, which always carries a single region. -/
