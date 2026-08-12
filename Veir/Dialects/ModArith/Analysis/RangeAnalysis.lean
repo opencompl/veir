@@ -18,6 +18,7 @@ Proofs have not been added yet.
 structure IntegerRange where
   lower : Int
   upper : Int
+  lower_le_upper : lower ≤ upper
 deriving BEq, DecidableEq, Repr
 
 /-- Abstract integer range lattice element. -/
@@ -37,7 +38,7 @@ instance : Top IntegerRangeLattice where
 
 /-- Construct a singleton range for a known integer literal. -/
 def singleton (value : Int) : IntegerRangeLattice :=
-  .interval { lower := value, upper := value }
+  .interval { lower := value, upper := value, lower_le_upper := by omega }
 
 /-- Union-like merge of two abstract ranges. -/
 def join : IntegerRangeLattice → IntegerRangeLattice → IntegerRangeLattice
@@ -46,9 +47,12 @@ def join : IntegerRangeLattice → IntegerRangeLattice → IntegerRangeLattice
   | .top, _ => .top
   | _, .top => .top
   | .interval lhs, .interval rhs =>
-      .interval
-        { lower := min lhs.lower rhs.lower
-          upper := max lhs.upper rhs.upper }
+      let lower := min lhs.lower rhs.lower
+      let upper := max lhs.upper rhs.upper
+      if h : lower ≤ upper then
+        .interval { lower, upper, lower_le_upper := h }
+      else
+        .bottom
 
 /-- Intersection-like overlap of two abstract ranges. -/
 def meet : IntegerRangeLattice → IntegerRangeLattice → IntegerRangeLattice
@@ -59,8 +63,8 @@ def meet : IntegerRangeLattice → IntegerRangeLattice → IntegerRangeLattice
   | .interval lhs, .interval rhs =>
       let lower := max lhs.lower rhs.lower
       let upper := min lhs.upper rhs.upper
-      if lower ≤ upper then
-        .interval { lower, upper }
+      if h : lower ≤ upper then
+        .interval { lower, upper, lower_le_upper := h }
       else
         .bottom
 
@@ -76,7 +80,11 @@ def addRange (lhs rhs : IntegerRangeLattice) : IntegerRangeLattice :=
   | .interval lhs, .interval rhs =>
       .interval
         { lower := lhs.lower + rhs.lower
-          upper := lhs.upper + rhs.upper }
+          upper := lhs.upper + rhs.upper
+          lower_le_upper := by
+            have hl := lhs.lower_le_upper
+            have hr := rhs.lower_le_upper
+            omega }
 
 /-- Multiply two abstract integer ranges. -/
 def mulRange (lhs rhs : IntegerRangeLattice) : IntegerRangeLattice :=
@@ -91,18 +99,23 @@ def mulRange (lhs rhs : IntegerRangeLattice) : IntegerRangeLattice :=
         lhs.upper * rhs.upper]
       let lo := candidates.foldl min candidates[0]!
       let hi := candidates.foldl max candidates[0]!
-      .interval { lower := lo, upper := hi }
+      if h : lo ≤ hi then
+        .interval { lower := lo, upper := hi, lower_le_upper := h }
+      else
+        .bottom
 
 /-- The canonical `[0, q)` range for a `!mod_arith.int<q : iN>` value. -/
 def canonicalModArithRange? (ty : TypeAttr) : Option IntegerRangeLattice := do
   let .modArithType mt := ty.val | none
   let q := mt.modulus.value
-  if q <= 0 then
+  if hq : q <= 0 then
     none
   else
+    have h : 0 ≤ q - 1 := by omega
     some <| .interval
       { lower := 0
-        upper := q - 1 }
+        upper := q - 1
+        lower_le_upper := h }
 
 private def hasNoReductionAttr (op : OperationPtr) (irCtx : IRContext OpCode) : Bool :=
   match (op.get! irCtx).attrs.entries.find? (fun entry => entry.1 == "reduction".toUTF8) with

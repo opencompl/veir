@@ -35,8 +35,8 @@ private def compareRanges
         s!"range {e.name}: expected {rangeToString e.range}, observed {rangeToString observed}"
   report
 
-private def interval (lower upper : Int) : IntegerRangeLattice :=
-  .interval { lower, upper }
+private def interval (lower upper : Int) (h : lower ≤ upper := by omega) : IntegerRangeLattice :=
+  .interval { lower, upper, lower_le_upper := h }
 
 /--
 Mod_Arith range example with default reduction.
