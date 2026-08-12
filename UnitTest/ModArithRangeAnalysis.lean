@@ -39,9 +39,18 @@ private def interval (lower upper : Int) : IntegerRangeLattice :=
   .interval { lower, upper }
 
 /--
-Mod_Arith range example with default reduction. When the reduction attribute is
-missing, it is treated as full reduction, so reduction is always executed and
-the result is folded into the range `[0, q)`.
+Mod_Arith range example with default reduction.
+
+a, b ∈ [0, q)
+c = 46
+s = 3
+add₀ = (a + c) mod q
+add₁ = (add₀ + b) mod q
+add₂ = (add₁ + a) mod q
+out = (add₂ · s) mod q
+
+When the reduction attribute is missing, it is treated as full reduction, so each
+operation result is folded back into the canonical range `[0, q)`.
 -/
 def runModArithDefaultReductionExample : String :=
   let mlir := r#""builtin.module"() ({
@@ -75,9 +84,19 @@ def runModArithDefaultReductionExample : String :=
       | .ok recovered => renderReport (compareRanges recovered expected parserState.ctx)
 
 /--
-Run the mod_arith range example. The input block arguments are assumed to already
-be canonical values in `[0, q)`. Operation results track raw integer ranges when
-`reduction = "none"`; otherwise they are folded back to the canonical range.
+Mod_Arith range example without reduction.
+
+a, b ∈ [0, q)
+c = 46
+s = 3
+add₀ = a + c
+add₁ = add₀ + b
+add₂ = add₁ + a
+out = add₂ · s
+
+The input block arguments are assumed to already be canonical values in `[0, q)`.
+Since every operation in this example has `reduction = "none"`, operation results
+keep their raw integer ranges instead of being folded back to `[0, q)`.
 Constants are tracked exactly.
 -/
 
