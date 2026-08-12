@@ -14,74 +14,19 @@ private structure ExpectedRange where
 private def rangeToString : IntegerRangeLattice → String
   | .bottom => "bottom"
   | .top => "top"
-  | .interval r => s!"[{r.lower}, {r.upper}] : i{r.bitwidth}"
-
-/-- The canonical `[0, q)` range for a `!mod_arith.int<q : iN>` value. -/
-def canonicalModArithRange? (ty : TypeAttr) : Option IntegerRangeLattice := do
-  let .modArithType mt := ty.val | none
-  let q := mt.modulus.value
-  if q <= 0 then
-    none
-  else
-    some <| .interval
-      { bitwidth := mt.bitwidth
-        lower := 0
-        upper := q - 1 }
-
-private def hasNoReductionAttr (op : OperationPtr) (irCtx : IRContext OpCode) : Bool :=
-  match (op.get! irCtx).attrs.entries.find? (fun entry => entry.1 == "reduction".toUTF8) with
-  | some (_, .stringAttr attr) => attr.value == "none".toUTF8
-  | _ => false
-
-private def applyReduction (op : OperationPtr) (raw : IntegerRangeLattice)
-    (irCtx : IRContext OpCode) : Option IntegerRangeLattice :=
-  if hasNoReductionAttr op irCtx then
-    some raw
-  else
-    -- Match the lowering pass default: missing reduction attrs are treated as `full`.
-    canonicalModArithRange? ((op.getResult 0 : ValuePtr).getType! irCtx)
-
-abbrev KnownRanges := Std.HashMap ValuePtr IntegerRangeLattice
-
-/-- Infer one value using ranges already present in `knownRanges`. -/
-private def inferModArithRange? (value : ValuePtr) (knownRanges : KnownRanges)
-    (irCtx : IRContext OpCode) : Option IntegerRangeLattice := do
-  let some op := value.getDefiningOp! irCtx
-    | canonicalModArithRange? (value.getType! irCtx)
-
-  match op.getOpType! irCtx with
-  | OpCode.mod_arith Mod_Arith.constant =>
-    let props := op.getProperties! irCtx (OpCode.mod_arith Mod_Arith.constant)
-    let .modArithType mt := ((op.getResult 0 : ValuePtr).getType! irCtx).val | none
-    let q := mt.modulus.value
-    if q <= 0 then
-      none
-    else
-      some <| IntegerRangeLattice.singleton mt.bitwidth (props.value.value % q)
-  | OpCode.mod_arith Mod_Arith.add =>
-    let operands := op.getOperands! irCtx
-    let lhs ← knownRanges[operands[0]!]?
-    let rhs ← knownRanges[operands[1]!]?
-    applyReduction op (IntegerRangeLattice.addRange lhs rhs) irCtx
-  | OpCode.mod_arith Mod_Arith.mul =>
-    let operands := op.getOperands! irCtx
-    let lhs ← knownRanges[operands[0]!]?
-    let rhs ← knownRanges[operands[1]!]?
-    applyReduction op (IntegerRangeLattice.mulRange lhs rhs) irCtx
-  | _ =>
-    none
+  | .interval r => s!"[{r.lower}, {r.upper}]"
 
 private def compareRanges
     (recovered : RecoveredNames)
     (expected : Array ExpectedRange)
     (irCtx : IRContext OpCode) : MismatchReport := Id.run do
-  let mut knownRanges : KnownRanges := {}
+  let mut knownRanges : IntegerRangeLattice.KnownRanges := {}
   let mut report := #[]
   for e in expected do
     let some value := recovered.values[e.name]?
       | report := report.push s!"range {e.name}: missing SSA value"
         continue
-    let some observed := inferModArithRange? value knownRanges irCtx
+    let some observed := IntegerRangeLattice.inferModArithRange? value knownRanges irCtx
       | report := report.push s!"range {e.name}: no inferred mod_arith range"
         continue
     knownRanges := knownRanges.insert value observed
@@ -90,8 +35,8 @@ private def compareRanges
         s!"range {e.name}: expected {rangeToString e.range}, observed {rangeToString observed}"
   report
 
-private def interval (bitwidth : Nat) (lower upper : Int) : IntegerRangeLattice :=
-  .interval { bitwidth, lower, upper }
+private def interval (lower upper : Int) : IntegerRangeLattice :=
+  .interval { lower, upper }
 
 /--
 Mod_Arith range example with default reduction. When the reduction attribute is
@@ -113,14 +58,14 @@ def runModArithDefaultReductionExample : String :=
   }) : () -> ()
 }) : () -> ()"#
   let expected :=
-    #[ { name := "a",     range := interval 32 0 12288 }
-      , { name := "b",     range := interval 32 0 12288 }
-      , { name := "c",     range := interval 32 46 46 }
-      , { name := "small", range := interval 32 3 3 }
-      , { name := "add0",  range := interval 32 0 12288 }
-      , { name := "add1",  range := interval 32 0 12288 }
-      , { name := "add2",  range := interval 32 0 12288 }
-      , { name := "out",   range := interval 32 0 12288 }
+    #[ { name := "a",     range := interval 0 12288 }
+      , { name := "b",     range := interval 0 12288 }
+      , { name := "c",     range := interval 46 46 }
+      , { name := "small", range := interval 3 3 }
+      , { name := "add0",  range := interval 0 12288 }
+      , { name := "add1",  range := interval 0 12288 }
+      , { name := "add2",  range := interval 0 12288 }
+      , { name := "out",   range := interval 0 12288 }
       ]
   match parseTopLevelOp mlir with
   | .error err => s!"parse failed: {err}"
@@ -152,14 +97,14 @@ def runModArithNoneReductionExample : String :=
   }) : () -> ()
 }) : () -> ()"#
   let expected :=
-    #[ { name := "a",     range := interval 32 0 12288 }
-     , { name := "b",     range := interval 32 0 12288 }
-     , { name := "c",     range := interval 32 46 46 }
-     , { name := "small", range := interval 32 3 3 }
-     , { name := "add0",  range := interval 32 46 12334 }
-     , { name := "add1",  range := interval 32 46 24622 }
-     , { name := "add2",  range := interval 32 46 36910 }
-     , { name := "out",   range := interval 32 138 110730 }
+    #[ { name := "a",     range := interval 0 12288 }
+     , { name := "b",     range := interval 0 12288 }
+     , { name := "c",     range := interval 46 46 }
+     , { name := "small", range := interval 3 3 }
+     , { name := "add0",  range := interval 46 12334 }
+     , { name := "add1",  range := interval 46 24622 }
+     , { name := "add2",  range := interval 46 36910 }
+     , { name := "out",   range := interval 138 110730 }
      ]
   match parseTopLevelOp mlir with
   | .error err => s!"parse failed: {err}"
