@@ -40,10 +40,6 @@ instance : Top IntegerRangeLattice where
 def singleton  (bitwidth : Nat) (value : Int) : IntegerRangeLattice :=
   .interval { bitwidth, lower := value, upper := value }
 
-/-- Construct an exact range from an integer attribute. -/
-def ofIntegerAttr (attr : IntegerAttr) : IntegerRangeLattice :=
-  singleton attr.type.bitwidth attr.value
-
 /-- Union-like merge of two abstract ranges. -/
 def join : IntegerRangeLattice → IntegerRangeLattice → IntegerRangeLattice
   | .bottom, rhs => rhs
