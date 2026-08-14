@@ -27,24 +27,6 @@ def isValidLLVMAlignment (n : Int) : Bool :=
   decide (0 < n) && (n.toNat &&& (n.toNat - 1)) == 0
 
 /--
-  Check that a `func.return` returns the declared result types of its
-  enclosing `func.func`.
--/
-def OperationPtr.verifyFuncReturnTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
-  let funcOp ← op.getEnclosingFunctionOp ctx "func.return"
-  let .func .func := funcOp.getOpType! ctx.raw
-    | throw "Expected func.return to be enclosed by func.func"
-  let some outputs := FunctionOpInterface.getResultTypes? funcOp ctx.raw
-    | throw "Expected enclosing func.func to have a function_type attribute"
-  if op.getNumOperands ctx.raw opIn ≠ outputs.size then
-    throw s!"Expected func.return to have {outputs.size} operand(s)"
-  let opTypes := op.getOperandTypes! ctx.raw
-  for i in [0:outputs.size] do
-    if !Attribute.branchArgCompatible (opTypes[i]!).val outputs[i]! then
-      throw s!"func.return operand {i} type does not match the function's declared result type"
-
-/--
   Check an `llvm.return` against its enclosing `llvm.func`'s declared results.
   A single `llvm.void` result means no operands.
 -/
@@ -216,30 +198,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
   | .builtin opType => Builtin.verifyLocalInvariants opType op ctx opIn
   | .arith opType => Arith.verifyLocalInvariants opType op ctx opIn
   | .datapath opType => Datapath.verifyLocalInvariants opType op ctx opIn
-  /- FUNC -/
-  | .func .func => do
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "Expected 1 region"
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "Expected 0 operands"
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
-    if (FunctionOpInterface.getFunctionType? op ctx.raw).isNone then
-      throw "Expected function type"
-    if (FunctionOpInterface.getSymName? op ctx.raw).isNone then
-      throw "Expected symbol name"
-    pure ()
-  | .func .call => do
-    if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
-    pure ()
-  | .func .return => do
-    op.verifyTerminatorCounts ctx opIn 0
-    op.verifyFuncReturnTypes ctx opIn
+  | .func opType => Func.verifyLocalInvariants opType op ctx opIn
   /- CF -/
   | .cf opType => Cf.verifyLocalInvariants opType op ctx opIn
   /- PDL -/
@@ -1634,9 +1593,9 @@ theorem OperationPtr.Verified.func_func {op : OperationPtr} {opInBounds}
     op.getNumResults! ctx.raw = 0 ∧
     op.getNumSuccessors! ctx.raw = 0 ∧
     op.getNumRegions! ctx.raw = 1 := by
-  simp only [Verified, verifyLocalInvariants, ← getOpType!_eq_getOpType, opType, ne_eq,
-    bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure,
-    ite_not] at opVerify
+  simp only [Verified, verifyLocalInvariants, Func.verifyLocalInvariants,
+    ← getOpType!_eq_getOpType, opType, ne_eq, bind, Except.bind, throw,
+    throwThe, MonadExceptOf.throw, pure, Except.pure, ite_not] at opVerify
   grind
 
 end
