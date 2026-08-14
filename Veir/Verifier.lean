@@ -126,30 +126,6 @@ def OperationPtr.verifyRISCVuimm6 (op : OperationPtr) (ctx : WfIRContext OpCode)
   else
     pure ()
 
-/--
-  Verify an `arith` extended operation with two same-typed integer operands and
-  two results. The low result always matches the operand type; the high result
-  is either an `i1` overflow flag (`addui_extended` / `subui_extended`) or
-  another value of the operand type (`mulsi_extended` / `mului_extended`).
--/
-def OperationPtr.verifyArithExtendedOp (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opIn : op.InBounds ctx.raw) (secondResultIsI1 : Bool) : Except String PUnit := do
-  op.verifyPlainOpCounts ctx opIn 2 2
-  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
-  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType
-    s!"{instrName}: Expected operand 0 to have integer type"
-  ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerType
-    s!"{instrName}: Expected operand 1 to have integer type"
-  let operandType ← op.verifyOperandTypesMatch ctx 0 1
-    s!"{instrName}: Expected operands to have the same type"
-  op.verifyResultTypeMatches ctx operandType
-    s!"{instrName}: Expected result 0 type to match operand type"
-  let result1Type := ((op.getResult 1).get! ctx.raw).type
-  if secondResultIsI1 then
-    result1Type.verifyI1 s!"{instrName}: Expected i1 result 1"
-  else if result1Type.val ≠ operandType.val then
-    throw s!"{instrName}: Expected result 1 type to match operand type"
-
 def OperationPtr.verifyLLVMShift (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 2 1
@@ -242,52 +218,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     op.verifyPlainOpCounts ctx opIn 1 1
     pure ()
   /- ARITH -/
-  | .arith .addi | .arith .andi | .arith .ceildivsi | .arith .ceildivui
-  | .arith .divsi | .arith .divui | .arith .floordivsi | .arith .maxsi
-  | .arith .maxui | .arith .minsi | .arith .minui | .arith .muli
-  | .arith .ori | .arith .remsi | .arith .remui | .arith .shli
-  | .arith .shrsi | .arith .shrui | .arith .subi | .arith .xori => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .arith .addui_extended | .arith .subui_extended => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyArithExtendedOp ctx opIn true
-    pure ()
-  | .arith .mulsi_extended | .arith .mului_extended => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyArithExtendedOp ctx opIn false
-    pure ()
-  | .arith .cmpi => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyICmp ctx opIn
-    pure ()
-  | .arith .constant => do
-    op.checkIsNonNullIntegerType ctx opIn
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "Expected 0 operands"
-    else if _ : op.getNumResults ctx.raw opIn ≠ 1 then
-      throw "Expected 1 result"
-    else if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    else if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
-    else if (op.getProperties! ctx.raw Arith.constant).value.type ≠
-          ((op.getResult 0).get ctx.raw).type.val then
-        throw "Expected result type to be equal to the constant's type"
-    pure ()
-  | .arith .extui | .arith .extsi => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyIntegerExtTypes ctx opIn
-    pure ()
-  | .arith .select => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifySelectTypes ctx opIn
-    pure ()
-  | .arith .trunci => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyTruncTypes ctx opIn false
-    pure ()
+  | .arith opType => Arith.verifyLocalInvariants opType op ctx opIn
   | .builtin .module => do
     if op.getNumOperands ctx.raw opIn ≠ 0 then
       throw "Expected 0 operands"
@@ -1086,7 +1017,8 @@ theorem OperationPtr.Verified.arith_constant {op : OperationPtr} {opInBounds}
     op.getNumRegions! ctx.raw = 0 ∧
     ((op.getResult 0).get! ctx.raw).type =
       ⟨(op.getProperties! ctx.raw Arith.constant).value.type, (by grind)⟩ := by
-  simp only [Verified, verifyLocalInvariants, ← getOpType!_eq_getOpType, opType, ne_eq,
+  simp only [Verified, verifyLocalInvariants, Arith.verifyLocalInvariants,
+    ← getOpType!_eq_getOpType, opType, ne_eq,
     bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure, dite_not,
     ite_not] at opVerify
   simp only [TypeAttr.inj]
@@ -1240,102 +1172,122 @@ theorem OperationPtr.Verified.llvm_lshr {op : OperationPtr} {opInBounds}
 theorem OperationPtr.Verified.arith_addi {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .addi) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Arith.verifyLocalInvariants,
+      ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.arith_andi {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .andi) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Arith.verifyLocalInvariants,
+      ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.arith_ceildivsi {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .ceildivsi) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Arith.verifyLocalInvariants,
+      ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.arith_ceildivui {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .ceildivui) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Arith.verifyLocalInvariants,
+      ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.arith_divsi {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .divsi) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Arith.verifyLocalInvariants,
+      ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.arith_divui {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .divui) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Arith.verifyLocalInvariants,
+      ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.arith_floordivsi {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .floordivsi) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Arith.verifyLocalInvariants,
+      ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.arith_maxsi {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .maxsi) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Arith.verifyLocalInvariants,
+      ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.arith_maxui {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .maxui) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Arith.verifyLocalInvariants,
+      ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.arith_minsi {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .minsi) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Arith.verifyLocalInvariants,
+      ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.arith_minui {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .minui) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Arith.verifyLocalInvariants,
+      ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.arith_muli {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .muli) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Arith.verifyLocalInvariants,
+      ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.arith_ori {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .ori) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Arith.verifyLocalInvariants,
+      ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.arith_remsi {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .remsi) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Arith.verifyLocalInvariants,
+      ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.arith_remui {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .remui) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Arith.verifyLocalInvariants,
+      ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.arith_shli {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .shli) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Arith.verifyLocalInvariants,
+      ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.arith_shrsi {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .shrsi) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Arith.verifyLocalInvariants,
+      ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.arith_shrui {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .shrui) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Arith.verifyLocalInvariants,
+      ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.arith_subi {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .subi) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Arith.verifyLocalInvariants,
+      ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.arith_xori {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .xori) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Arith.verifyLocalInvariants,
+      ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.llvm_and {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .and) :

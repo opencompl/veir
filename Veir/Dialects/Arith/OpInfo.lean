@@ -2,6 +2,7 @@ module
 
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
+public import Veir.Verifier.Basic
 public import Veir.Dialects.Arith.Properties
 public import Veir.Dialects.LLVM.Properties
 meta import Veir.Meta.OpCode
@@ -141,6 +142,87 @@ instance : HasOpInfo Arith where
   writesMemory := Arith.writesMemory
   isConstantLike := Arith.isConstantLike
   hasSSADominance := Arith.hasSSADominance
+
+/--
+Verify an `arith` extended operation with two same-typed integer operands and
+two results. The low result always matches the operand type; the high result
+is either an `i1` overflow flag (`addui_extended` / `subui_extended`) or
+another value of the operand type (`mulsi_extended` / `mului_extended`).
+-/
+def OperationPtr.verifyArithExtendedOp {OpInfo : Type} [HasOpInfo OpInfo]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) (secondResultIsI1 : Bool) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 2 2
+  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType
+    s!"{instrName}: Expected operand 0 to have integer type"
+  ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerType
+    s!"{instrName}: Expected operand 1 to have integer type"
+  let operandType ← op.verifyOperandTypesMatch ctx 0 1
+    s!"{instrName}: Expected operands to have the same type"
+  op.verifyResultTypeMatches ctx operandType
+    s!"{instrName}: Expected result 0 type to match operand type"
+  let result1Type := ((op.getResult 1).get! ctx.raw).type
+  if secondResultIsI1 then
+    result1Type.verifyI1 s!"{instrName}: Expected i1 result 1"
+  else if result1Type.val ≠ operandType.val then
+    throw s!"{instrName}: Expected result 1 type to match operand type"
+
+/--
+Verify the local invariants of an `arith` operation in any operation-info type
+containing the `arith` dialect.
+-/
+@[expose]
+def Arith.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpInfo Arith]
+    (opType : Arith) (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  match opType with
+  | .addi | .andi | .ceildivsi | .ceildivui | .divsi | .divui | .floordivsi
+  | .maxsi | .maxui | .minsi | .minui | .muli | .ori | .remsi | .remui
+  | .shli | .shrsi | .shrui | .subi | .xori => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyIntegerBinop ctx opIn
+    pure ()
+  | .addui_extended | .subui_extended => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyArithExtendedOp ctx opIn true
+    pure ()
+  | .mulsi_extended | .mului_extended => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyArithExtendedOp ctx opIn false
+    pure ()
+  | .cmpi => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyICmp ctx opIn
+    pure ()
+  | .constant => do
+    op.checkIsNonNullIntegerType ctx opIn
+    if op.getNumOperands ctx.raw opIn ≠ 0 then
+      throw "Expected 0 operands"
+    else if _ : op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    else if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    else if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    else
+      let props : Arith.propertiesOf .constant :=
+        op.getProperties! ctx.raw Arith.constant
+      if props.value.type ≠ ((op.getResult 0).get ctx.raw).type.val then
+        throw "Expected result type to be equal to the constant's type"
+    pure ()
+  | .extui | .extsi => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyIntegerExtTypes ctx opIn
+    pure ()
+  | .select => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifySelectTypes ctx opIn
+    pure ()
+  | .trunci => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyTruncTypes ctx opIn false
+    pure ()
 
 end
 
