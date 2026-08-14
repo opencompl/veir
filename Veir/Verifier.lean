@@ -213,22 +213,8 @@ def OperationPtr.verifyModArithConstantOp (op : OperationPtr) (ctx: WfIRContext 
 -/
 def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext OpCode) (opIn : op.InBounds ctx.raw) : Except String PUnit :=
   match op.getOpType ctx.raw opIn with
-  | .builtin .unregistered => pure ()
-  | .builtin .unrealized_conversion_cast => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    pure ()
-  /- ARITH -/
+  | .builtin opType => Builtin.verifyLocalInvariants opType op ctx opIn
   | .arith opType => Arith.verifyLocalInvariants opType op ctx opIn
-  | .builtin .module => do
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "Expected 0 operands"
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "Expected 1 region"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
-    pure ()
   | .datapath .compress => do
     if op.getNumOperands ctx.raw opIn ≤ op.getNumResults ctx.raw opIn then
       throw "Number of inputs must be greater than the number of results"

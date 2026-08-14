@@ -2,6 +2,7 @@ module
 
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
+public import Veir.Verifier.Basic
 public import Veir.Dialects.Builtin.Properties
 meta import Veir.Meta.OpCode
 
@@ -82,6 +83,30 @@ instance : HasOpInfo Builtin where
   isConstantLike := Builtin.isConstantLike
   hasSSADominance := Builtin.hasSSADominance
   hasNoTerminator := Builtin.hasNoTerminator
+
+/--
+Verify the local invariants of a `builtin` operation in any operation-info type
+containing the `builtin` dialect.
+-/
+@[expose]
+def Builtin.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
+    [HasDialect OpInfo Builtin] (opType : Builtin) (op : OperationPtr)
+    (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  match opType with
+  | .unregistered => pure ()
+  | .unrealized_conversion_cast => do
+    op.verifyPlainOpCounts ctx opIn 1 1
+    pure ()
+  | .module => do
+    if op.getNumOperands ctx.raw opIn ≠ 0 then
+      throw "Expected 0 operands"
+    if op.getNumResults ctx.raw opIn ≠ 0 then
+      throw "Expected 0 results"
+    if op.getNumRegions ctx.raw opIn ≠ 1 then
+      throw "Expected 1 region"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
 
 end
 
