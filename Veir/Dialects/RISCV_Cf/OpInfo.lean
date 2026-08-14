@@ -3,6 +3,7 @@ module
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Dialects.RISCV_Cf.Properties
+public import Veir.Verifier.Basic
 meta import Veir.Meta.OpCode
 
 namespace Veir
@@ -84,6 +85,57 @@ instance : HasOpInfo Riscv_Cf where
   isConstantLike := Riscv_Cf.isConstantLike
   hasSSADominance := Riscv_Cf.hasSSADominance
   isTerminator := Riscv_Cf.isTerminator
+
+/--
+Verify the local invariants of a `riscv_cf` operation in any operation-info
+type containing the `riscv_cf` dialect.
+-/
+def Riscv_Cf.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
+    [HasDialect OpInfo Riscv_Cf] (opType : Riscv_Cf) (op : OperationPtr)
+    (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  match opType with
+  | .branch =>
+    op.verifyUnconditionalBranch ctx opIn
+  | .beq => do
+    op.verifyTerminatorCounts ctx opIn 2
+    let sizes := (op.getProperties! ctx.raw Riscv_Cf.beq).operandSegmentSizes
+    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
+    pure ()
+  | .bne => do
+    op.verifyTerminatorCounts ctx opIn 2
+    let sizes := (op.getProperties! ctx.raw Riscv_Cf.bne).operandSegmentSizes
+    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
+    pure ()
+  | .blt => do
+    op.verifyTerminatorCounts ctx opIn 2
+    let sizes := (op.getProperties! ctx.raw Riscv_Cf.blt).operandSegmentSizes
+    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
+    pure ()
+  | .bge => do
+    op.verifyTerminatorCounts ctx opIn 2
+    let sizes := (op.getProperties! ctx.raw Riscv_Cf.bge).operandSegmentSizes
+    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
+    pure ()
+  | .bltu => do
+    op.verifyTerminatorCounts ctx opIn 2
+    let sizes := (op.getProperties! ctx.raw Riscv_Cf.bltu).operandSegmentSizes
+    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
+    pure ()
+  | .bgeu => do
+    op.verifyTerminatorCounts ctx opIn 2
+    let sizes := (op.getProperties! ctx.raw Riscv_Cf.bgeu).operandSegmentSizes
+    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
+    pure ()
+  | .beqz => do
+    op.verifyTerminatorCounts ctx opIn 2
+    let sizes := (op.getProperties! ctx.raw Riscv_Cf.beqz).operandSegmentSizes
+    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 1
+    pure ()
+  | .bnez => do
+    op.verifyTerminatorCounts ctx opIn 2
+    let sizes := (op.getProperties! ctx.raw Riscv_Cf.bnez).operandSegmentSizes
+    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 1
+    pure ()
 
 end
 

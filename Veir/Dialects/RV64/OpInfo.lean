@@ -2,6 +2,7 @@ module
 
 public import Veir.IR.OpInfo
 public import Veir.IR.Simp
+public import Veir.Verifier.Basic
 meta import Veir.Meta.OpCode
 
 namespace Veir
@@ -54,6 +55,18 @@ instance : HasOpInfo Rv64 where
   getEffects := Rv64.getEffects
   isConstantLike := Rv64.isConstantLike
   hasSSADominance := Rv64.hasSSADominance
+
+/--
+Verify the local invariants of an `rv64` operation in any operation-info type
+containing the `rv64` dialect.
+-/
+def Rv64.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
+    [HasDialect OpInfo Rv64] (opType : Rv64) (op : OperationPtr)
+    (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  match opType with
+  | .get_register => do
+    op.verifyPlainOpCounts ctx opIn 0 1
+    pure ()
 
 end
 

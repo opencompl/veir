@@ -30,70 +30,9 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
   | .llvm opType => Llvm.verifyLocalInvariants opType op ctx opIn
   | .mod_arith opType => Mod_Arith.verifyLocalInvariants opType op ctx opIn
   | .riscv opType => Riscv.verifyLocalInvariants opType op ctx opIn
-  /- RISCV CF -/
-  | .riscv_cf .branch => do
-    op.verifyUnconditionalBranch ctx opIn
-  | .riscv_cf .beq => do
-    op.verifyTerminatorCounts ctx opIn 2
-    let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .beq)).operandSegmentSizes
-    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
-    pure ()
-  | .riscv_cf .bne => do
-    op.verifyTerminatorCounts ctx opIn 2
-    let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .bne)).operandSegmentSizes
-    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
-    pure ()
-  | .riscv_cf .blt => do
-    op.verifyTerminatorCounts ctx opIn 2
-    let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .blt)).operandSegmentSizes
-    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
-    pure ()
-  | .riscv_cf .bge => do
-    op.verifyTerminatorCounts ctx opIn 2
-    let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .bge)).operandSegmentSizes
-    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
-    pure ()
-  | .riscv_cf .bltu => do
-    op.verifyTerminatorCounts ctx opIn 2
-    let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .bltu)).operandSegmentSizes
-    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
-    pure ()
-  | .riscv_cf .bgeu => do
-    op.verifyTerminatorCounts ctx opIn 2
-    let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .bgeu)).operandSegmentSizes
-    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
-    pure ()
-  | .riscv_cf .beqz => do
-    op.verifyTerminatorCounts ctx opIn 2
-    let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .beqz)).operandSegmentSizes
-    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 1
-    pure ()
-  | .riscv_cf .bnez => do
-    op.verifyTerminatorCounts ctx opIn 2
-    let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .bnez)).operandSegmentSizes
-    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 1
-    pure ()
-  /- RISCV Stack -/
-  | .riscv_stack .alloca => do
-    op.verifyPlainOpCounts ctx opIn 0 1
-    op.verifyRISCVRegisterTypes ctx opIn
-    let properties := op.getProperties! ctx.raw Riscv_Stack.alloca
-    if properties.size.type.bitwidth ≠ 64 then
-      throw "attribute 'size' must be a 64-bit signless integer attribute"
-    if properties.size.value < 0 then
-      throw "size must be nonnegative"
-    if properties.alignment.type.bitwidth ≠ 64 then
-      throw "attribute 'alignment' must be a 64-bit signless integer attribute"
-    if properties.alignment.value ≤ 0 then
-      throw "alignment must be a positive power of two"
-    let alignment := properties.alignment.value.toNat
-    if alignment &&& (alignment - 1) ≠ 0 then
-      throw "alignment must be a positive power of two"
-    pure ()
-  /- RISCV 64-bit -/
-  | .rv64 .get_register => do
-    op.verifyPlainOpCounts ctx opIn 0 1
-    pure ()
+  | .riscv_cf opType => Riscv_Cf.verifyLocalInvariants opType op ctx opIn
+  | .riscv_stack opType => Riscv_Stack.verifyLocalInvariants opType op ctx opIn
+  | .rv64 opType => Rv64.verifyLocalInvariants opType op ctx opIn
   /- Comb -/
   | .comb .add | .comb .and | .comb .mul | .comb .or | .comb .xor => do
     if op.getNumOperands ctx.raw opIn < 1 then

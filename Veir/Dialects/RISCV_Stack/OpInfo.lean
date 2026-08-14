@@ -2,7 +2,9 @@ module
 
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
+public import Veir.Verifier.Basic
 public import Veir.Dialects.RISCV_Stack.Properties
+public import Veir.Dialects.RISCV.OpInfo
 meta import Veir.Meta.OpCode
 
 namespace Veir
@@ -60,6 +62,31 @@ instance : HasOpInfo Riscv_Stack where
   getEffects := Riscv_Stack.getEffects
   isConstantLike := Riscv_Stack.isConstantLike
   hasSSADominance := Riscv_Stack.hasSSADominance
+
+/--
+Verify the local invariants of a `riscv_stack` operation in any operation-info
+type containing the `riscv_stack` dialect.
+-/
+def Riscv_Stack.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
+    [HasDialect OpInfo Riscv_Stack] (opType : Riscv_Stack) (op : OperationPtr)
+    (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  match opType with
+  | .alloca => do
+    op.verifyPlainOpCounts ctx opIn 0 1
+    op.verifyRISCVRegisterTypes ctx opIn
+    let properties := op.getProperties! ctx.raw Riscv_Stack.alloca
+    if properties.size.type.bitwidth ≠ 64 then
+      throw "attribute 'size' must be a 64-bit signless integer attribute"
+    if properties.size.value < 0 then
+      throw "size must be nonnegative"
+    if properties.alignment.type.bitwidth ≠ 64 then
+      throw "attribute 'alignment' must be a 64-bit signless integer attribute"
+    if properties.alignment.value ≤ 0 then
+      throw "alignment must be a positive power of two"
+    let alignment := properties.alignment.value.toNat
+    if alignment &&& (alignment - 1) ≠ 0 then
+      throw "alignment must be a positive power of two"
+    pure ()
 
 end
 
