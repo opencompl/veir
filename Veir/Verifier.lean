@@ -4,72 +4,12 @@ public import Veir.Verifier.Lemmas
 public import Veir.Interfaces.FunctionInterfaces
 
 import all Veir.Verifier.Basic
+import all Veir.Dialects.LLVM.OpInfo
 
 namespace Veir
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 
-
-/--
-  Whether `attr` is *definitely* a non-zero initializer. TODO: This
-  does not yet completely match MLIR's behavior.
--/
-def Attribute.isKnownNonZero (attr : Attribute) : Bool :=
-  match attr with
-  | .integerAttr intAttr => intAttr.value != 0
-  | .floatAttr fltAttr => fltAttr.value != 0.0
-  | _ => false
-
-/--
-  Whether `n` is a valid alignment: a strictly positive power of two.
--/
-def isValidLLVMAlignment (n : Int) : Bool :=
-  decide (0 < n) && (n.toNat &&& (n.toNat - 1)) == 0
-
-/--
-  Check an `llvm.return` against its enclosing `llvm.func`'s declared results.
-  A single `llvm.void` result means no operands.
--/
-def OperationPtr.verifyLLVMFuncReturnTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opIn : op.InBounds ctx.raw) (funcOp : OperationPtr) : Except String PUnit := do
-  let some ft := FunctionOpInterface.getFunctionType? funcOp ctx.raw
-    | throw "Expected enclosing llvm.func to have a function_type attribute"
-  -- A single `llvm.void` result corresponds to no return operands.
-  let outputs := match ft.outputs with
-    | #[.llvmVoidType _] => #[]
-    | outputs => outputs
-  if op.getNumOperands ctx.raw opIn ≠ outputs.size then
-    throw s!"Expected llvm.return to have {outputs.size} operand(s)"
-  let opTypes := op.getOperandTypes! ctx.raw
-  for i in [0:outputs.size] do
-    if !Attribute.branchArgCompatible (opTypes[i]!).val outputs[i]! then
-      throw s!"llvm.return operand {i} type does not match the function's declared result type"
-
-/--
-  Check an `llvm.return` against its `llvm.mlir.global`'s `global_type`.
--/
-def OperationPtr.verifyLLVMGlobalReturnTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opIn : op.InBounds ctx.raw) (globalOp : OperationPtr) : Except String PUnit := do
-  let globalType :=
-    (globalOp.getProperties! ctx.raw Llvm.mlir__global).global_type
-  if op.getNumOperands ctx.raw opIn ≠ 1 then
-    throw "Expected llvm.return in llvm.mlir.global to have 1 operand"
-  let opTypes := op.getOperandTypes! ctx.raw
-  if (opTypes[0]!).val ≠ globalType.val then
-    throw "llvm.return operand type does not match the global's declared global_type"
-
-/--
-  Check an `llvm.return`'s operands against its enclosing `llvm.func` or `llvm.mlir.global`.
--/
-def OperationPtr.verifyLLVMReturnTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
-  let enclosingOp ← op.getEnclosingFunctionOp ctx "llvm.return"
-  let badEnclosure : Except String PUnit :=
-    throw "Expected llvm.return to be enclosed by llvm.func or llvm.mlir.global"
-  match enclosingOp.getOpType! ctx.raw with
-  | .llvm .func => op.verifyLLVMFuncReturnTypes ctx opIn enclosingOp
-  | .llvm .mlir__global => op.verifyLLVMGlobalReturnTypes ctx opIn enclosingOp
-  | _ => badEnclosure
 
 def OperationPtr.verifyRISCVimm12 (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) (operands results : Nat) (imm : Int) : Except String PUnit := do
@@ -107,26 +47,6 @@ def OperationPtr.verifyRISCVuimm6 (op : OperationPtr) (ctx : WfIRContext OpCode)
     throw s!"{instrName} immediate out of bounds: must fit in an unsigned 6-bit field [0, 63]"
   else
     pure ()
-
-def OperationPtr.verifyLLVMShift (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
-  op.verifyPlainOpCounts ctx opIn 2 1
-  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
-  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerOrByteType s!"{instrName}: Expected operand 0 to have integer or byte type"
-  ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerType s!"{instrName}: Expected operand 1 to have integer type"
-  op.verifyResultTypeMatches ctx ((op.getOperand! ctx.raw 0).getType! ctx.raw) s!"{instrName}: Expected result type to match first operand type"
-
-def OperationPtr.verifyLLVMICmp (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
-  op.verifyPlainOpCounts ctx opIn 2 1
-  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
-  -- `llvm.icmp` also compares pointers.
-  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerOrPointerType
-    s!"{instrName}: Expected operand 0 to have integer or pointer type"
-  ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerOrPointerType
-    s!"{instrName}: Expected operand 1 to have integer or pointer type"
-  let _ ← op.verifyOperandTypesMatch ctx 0 1 s!"{instrName}: Expected operands to have the same type"
-  ((op.getResult 0).get! ctx.raw).type.verifyI1 s!"{instrName}: Expected i1 result"
 
 def OperationPtr.verifyRISCVneg (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) (operands results : Nat) (imm : Int) : Except String PUnit := do
@@ -206,238 +126,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
   /- TEST -/
   | .test .test => do
     pure ()
-  /- LLVM -/
-  | .llvm .mlir__constant => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyPlainOpCounts ctx opIn 0 1
-    -- Unlike `arith.constant`, `llvm.mlir.constant` does not require the value
-    -- attribute's type to match the result type exactly. An integer attribute
-    -- only requires an integer result type of any width (e.g. a boolean constant
-    -- may be written with a wider integer attribute). A float attribute requires
-    -- a same-width float result, or a same-width integer result (the workaround
-    -- for builtin MLIR float types without an LLVM equivalent).
-    let resultType := ((op.getResult 0).get! ctx.raw).type.val
-    match (op.getProperties! ctx.raw Llvm.mlir__constant).value with
-    | .integer _ =>
-      match resultType with
-      | .integerType _ => pure ()
-      | _ => throw "llvm.mlir.constant: Expected integer result type for an integer constant"
-    | .float floatAttr =>
-      match resultType with
-      | .floatType floatType =>
-        if floatType.bitwidth ≠ floatAttr.type.bitwidth then
-          throw s!"llvm.mlir.constant: Expected float result type with bitwidth {floatAttr.type.bitwidth}"
-      | .integerType intType =>
-        if intType.bitwidth ≠ floatAttr.type.bitwidth then
-          throw s!"llvm.mlir.constant: Expected integer result type with bitwidth {floatAttr.type.bitwidth}"
-      | _ => throw "llvm.mlir.constant: Expected float or integer result type for a float constant"
-    | .dense denseAttr =>
-      match resultType with
-      | .llvmArrayType { type := .llvmArrayType _, .. } => pure ()
-      | .llvmArrayType arrType =>
-        match denseElementsElementType? denseAttr.type with
-        | some elemType =>
-          let baseType := toString arrType.type
-          if elemType ≠ baseType then
-            throw s!"llvm.mlir.constant: dense elements type '{elemType}' does not match array element type '{baseType}'"
-        | none => pure ()
-      | _ => throw "llvm.mlir.constant: Expected array result type for a dense elements constant"
-    | .string stringAttr =>
-      match resultType with
-      | .llvmArrayType arrType =>
-        if arrType.type ≠ .integerType ⟨8⟩ then
-          throw "llvm.mlir.constant: Expected array<N x i8> result type for a string constant"
-        if stringAttr.value.size ≠ arrType.size then
-          throw s!"llvm.mlir.constant: string length {stringAttr.value.size} does not match declared array size {arrType.size}"
-      | _ => throw "llvm.mlir.constant: Expected array result type for a string constant"
-      pure ()
-  | .llvm .mlir__poison => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyPlainOpCounts ctx opIn 0 1
-    pure ()
-  | .llvm .mlir__global => do
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "Expected 0 operands"
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "Expected 1 region"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
-    let properties := op.getProperties! ctx.raw Llvm.mlir__global
-    if let some alignment := properties.alignment then
-      if alignment.type.bitwidth ≠ 64 then
-        throw "'alignment' must be a 64-bit signless integer attribute"
-      if !isValidLLVMAlignment alignment.value then
-        throw "alignment attribute is not a power of 2"
-    if properties.addr_space.type.bitwidth ≠ 32 then
-      throw "'addr_space' must be a 32-bit signless integer attribute"
-    -- A global is initialized either by the `value` attribute or by the body
-    -- region, never both. An empty body with no `value` is a declaration, which
-    -- is legal for every linkage.
-    if let some value := properties.value then
-      let body := (op.getRegion! ctx.raw 0).get! ctx.raw
-      if body.firstBlock.isSome then
-        throw "cannot have both initializer value and region"
-      if properties.linkage.value == "common" && value.isKnownNonZero then
-        throw "expected zero value for 'common' linkage"
-    pure ()
-  | .llvm .mlir__addressof => do
-    op.verifyPlainOpCounts ctx opIn 0 1
-    let resultType := ((op.getResult 0).get! ctx.raw).type
-    let .llvmPointerType _ := resultType.val
-      | throw "Expected result to have !llvm.ptr type"
-    pure ()
-  | .llvm .and | .llvm .or | .llvm .xor | .llvm .intr__smax | .llvm .intr__smin
-  | .llvm .intr__umax | .llvm .intr__umin | .llvm .add | .llvm .sub
-  | .llvm .ashr | .llvm .mul | .llvm .sdiv | .llvm .udiv
-  | .llvm .srem | .llvm .urem
-  | .llvm .intr__sadd__sat | .llvm .intr__uadd__sat
-  | .llvm .intr__ssub__sat | .llvm .intr__usub__sat
-  | .llvm .intr__sshl__sat | .llvm .intr__ushl__sat => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .llvm .lshr | .llvm .shl => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyLLVMShift ctx opIn
-    pure ()
-  | .llvm .intr__abs => do
-    op.checkIsNonNullIntegerType ctx opIn
-    let _ ← op.verifyIntegerUnop ctx opIn
-    pure ()
-  | .llvm .intr__fshl | .llvm .intr__fshr => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyIntegerTernop ctx opIn
-    pure ()
-  | .llvm .intr__ctlz | .llvm .intr__cttz | .llvm .intr__ctpop
-  | .llvm .intr__bitreverse => do
-    op.checkIsNonNullIntegerType ctx opIn
-    let _ ← op.verifyIntegerUnop ctx opIn
-    pure ()
-  | .llvm .intr__bswap => do
-    op.checkIsNonNullIntegerType ctx opIn
-    let operandType ← op.verifyIntegerUnop ctx opIn
-    let .integerType intType := operandType.val
-      | throw "llvm.intr.bswap: Expected operand 0 to have integer type"
-    if intType.bitwidth ∉ [16, 32, 64] then
-      throw "llvm.intr.bswap: bitwidth must be 16, 32, or 64"
-    pure ()
-  | .llvm .icmp => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyLLVMICmp ctx opIn
-    pure ()
-  | .llvm .select => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifySelectTypes ctx opIn
-    pure ()
-  | .llvm .trunc => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyTruncTypes ctx opIn true
-    pure ()
-  | .llvm .sext | .llvm .zext => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyIntegerExtTypes ctx opIn
-    pure ()
-  | .llvm .return => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyTerminatorCounts ctx opIn 0
-    op.verifyLLVMReturnTypes ctx opIn
-  | .llvm .unreachable => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyPlainOpCounts ctx opIn 0 0
-    pure ()
-  | .llvm .br => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyUnconditionalBranch ctx opIn
-  | .llvm .cond_br => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyTerminatorCounts ctx opIn 2
-    let weights := (op.getProperties! ctx.raw Llvm.cond_br).branch_weights
-    if weights.values.size ≠ 2 && weights.values.size ≠ 0 then
-      throw "Expected 0 or 2 branch weights"
-    let sizes := (op.getProperties! ctx.raw Llvm.cond_br).operandSegmentSizes
-    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 1
-  | .llvm .alloca => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyPlainOpCounts ctx opIn 1 1
-    let properties := (op.getProperties! ctx.raw Llvm.alloca)
-    if properties.alignment.type.bitwidth ≠ 64 then
-      throw "'llvm.alloca' op attribute 'alignment' failed to satisfy constraint: 64-bit signless integer attribute"
-
-    pure ()
-  | .llvm .load => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyPlainOpCounts ctx opIn 1 1
-    let properties := (op.getProperties! ctx.raw Llvm.load)
-    if properties.alignment.type.bitwidth ≠ 64 then
-      throw "'llvm.load' op attribute 'alignment' failed to satisfy constraint: 64-bit signless integer attribute"
-
-    pure ()
-  | .llvm .store => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyPlainOpCounts ctx opIn 2 0
-    let properties := (op.getProperties! ctx.raw Llvm.store)
-    if properties.alignment.type.bitwidth ≠ 64 then
-      throw "'llvm.store' op attribute 'alignment' failed to satisfy constraint: 64-bit signless integer attribute"
-    pure ()
-  | .llvm .getelementptr => do
-    op.checkIsNonNullIntegerType ctx opIn
-    let props := op.getProperties! ctx.raw Llvm.getelementptr
-    let dynamicCount := props.rawConstantIndices.values.filter (· == -2147483648) |>.size
-    if op.getNumOperands ctx.raw opIn ≠ 1 + dynamicCount then
-      throw s!"Expected {1 + dynamicCount} operands"
-    if op.getNumResults ctx.raw opIn ≠ 1 then
-      throw "Expected 1 result"
-    if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
-    pure ()
-  | .llvm .call => do
-    op.checkIsNonNullIntegerType ctx opIn
-    if op.getNumResults ctx.raw opIn > 1 then
-      throw "Expected at most 1 result"
-    if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
-    pure ()
-  | .llvm .func => do
-    op.checkIsNonNullIntegerType ctx opIn
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "Expected 0 operands"
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "Expected 1 region"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
-    if (FunctionOpInterface.getFunctionType? op ctx.raw).isNone then
-      throw "Expected function type"
-    if (FunctionOpInterface.getSymName? op ctx.raw).isNone then
-      throw "Expected symbol name"
-    pure ()
-  | .llvm .fadd | .llvm .fsub | .llvm .fmul | .llvm .fdiv | .llvm .frem => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .llvm .module_flags => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyPlainOpCounts ctx opIn 0 0
-    pure ()
-  | .llvm .freeze => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyPlainOpCounts ctx opIn 1 1
-    op.verifyResultTypeMatches ctx ((op.getOperand! ctx.raw 0).getType! ctx.raw)
-      "llvm.freeze: Expected result type to match operand type"
-    pure ()
-  | .llvm .bitcast => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyPlainOpCounts ctx opIn 1 1
-    if Attribute.bitwidthOfType ((op.getOperand! ctx.raw 0).getType! ctx.raw) ≠ Attribute.bitwidthOfType (op.getResultTypes! ctx.raw)[0]! then
-      throw "llvm.bitcast: Expected types of the same bitwidth"
-    pure ()
+  | .llvm opType => Llvm.verifyLocalInvariants opType op ctx opIn
   /- MOD_ARITH -/
   | .mod_arith .add | .mod_arith .mul | .mod_arith .sub => do
     op.verifyModArithBinOp ctx opIn
@@ -952,7 +641,7 @@ theorem OperationPtr.Verified.llvm_mlir__constant_resultType {op : OperationPtr}
     (hProp : (op.getProperties! ctx.raw Llvm.mlir__constant).value = .integer intAttr) :
     ∃ intTy : IntegerType, ((op.getResult 0).get! ctx.raw).type.val = .integerType intTy := by
   rw [Verified] at opVerify
-  simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType] at opVerify
+  simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType] at opVerify
   replace opVerify := Except.ok_of_bind_ok opVerify
   simp only [verifyPlainOpCounts, hProp, ne_eq, bind, Except.bind, throw, throwThe,
     MonadExceptOf.throw, pure, Except.pure] at opVerify
@@ -1004,7 +693,7 @@ theorem OperationPtr.Verified.llvm_icmp {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .icmp) :
     op.IsVerifiedIcmp ctx :=
   op.verifyLLVMICmp_eq_ok <| op.verifyLLVMICmp_ok_of_Verified opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 /--
   Every integer binary operation's `Verified.*` lemma: given that the operation is verified and
@@ -1035,7 +724,7 @@ theorem OperationPtr.Verified.llvm_select {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .select) :
     op.IsVerifiedSelect ctx :=
   op.verifySelectTypes_eq_ok <| op.verifySelectTypes_ok_of_Verified opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 /--
   Structural facts guaranteed by a successful `verifyLLVMShift` check. Unlike `IsVerifiedIntegerBinop`
@@ -1082,12 +771,12 @@ private theorem OperationPtr.Verified.llvmShift {op : OperationPtr} {opInBounds}
 theorem OperationPtr.Verified.llvm_shl {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .shl) :
     op.IsVerifiedLLVMShift ctx := OperationPtr.Verified.llvmShift opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.llvm_lshr {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .lshr) :
     op.IsVerifiedLLVMShift ctx := OperationPtr.Verified.llvmShift opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.arith_addi {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .addi) :
@@ -1212,17 +901,17 @@ theorem OperationPtr.Verified.arith_xori {op : OperationPtr} {opInBounds}
 theorem OperationPtr.Verified.llvm_and {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .and) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.llvm_or {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .or) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.llvm_xor {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .xor) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 /--
   Structural facts guaranteed by the verifier for `llvm.mlir.constant`: no operands, one
@@ -1235,7 +924,7 @@ theorem OperationPtr.Verified.llvm_mlir__constant {op : OperationPtr} {opInBound
     op.getNumOperands! ctx.raw = 0 ∧
     op.getNumSuccessors! ctx.raw = 0 ∧
     op.getNumRegions! ctx.raw = 0 := by
-  simp only [Verified, verifyLocalInvariants, ← getOpType!_eq_getOpType, opType,
+  simp only [Verified, verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType,
     verifyPlainOpCounts, ne_eq, bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure,
     Except.pure] at opVerify
   grind
@@ -1243,58 +932,58 @@ theorem OperationPtr.Verified.llvm_mlir__constant {op : OperationPtr} {opInBound
 theorem OperationPtr.Verified.llvm_intr__smax {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__smax) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.llvm_intr__smin {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__smin) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.llvm_intr__umax {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__umax) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.llvm_intr__umin {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__umin) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.llvm_intr__usub__sat {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds)
     (opType : op.getOpType! ctx.raw = .llvm .intr__usub__sat) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.llvm_intr__uadd__sat {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds)
     (opType : op.getOpType! ctx.raw = .llvm .intr__uadd__sat) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.llvm_intr__sadd__sat {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds)
     (opType : op.getOpType! ctx.raw = .llvm .intr__sadd__sat) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.llvm_intr__ssub__sat {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds)
     (opType : op.getOpType! ctx.raw = .llvm .intr__ssub__sat) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.llvm_intr__sshl__sat {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds)
     (opType : op.getOpType! ctx.raw = .llvm .intr__sshl__sat) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.llvm_intr__ushl__sat {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds)
     (opType : op.getOpType! ctx.raw = .llvm .intr__ushl__sat) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 /--
   Reduce a verified integer unary operation to a successful `verifyIntegerUnop` check.
@@ -1321,7 +1010,7 @@ theorem OperationPtr.Verified.llvm_intr__bitreverse {op : OperationPtr} {opInBou
     (opType : op.getOpType! ctx.raw = .llvm .intr__bitreverse) :
     op.IsVerifiedIntegerUnop ctx := by
   obtain ⟨ty, hty⟩ := op.verifyIntegerUnop_ok_of_Verified opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
   exact op.verifyIntegerUnop_eq_ok hty
 
 /-- Structural facts from the verifier for a verified `llvm.intr.ctlz`. -/
@@ -1329,7 +1018,7 @@ theorem OperationPtr.Verified.llvm_intr__ctlz {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__ctlz) :
     op.IsVerifiedIntegerUnop ctx := by
   obtain ⟨ty, hty⟩ := op.verifyIntegerUnop_ok_of_Verified opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
   exact op.verifyIntegerUnop_eq_ok hty
 
 /-- Structural facts from the verifier for a verified `llvm.intr.cttz`. -/
@@ -1337,7 +1026,7 @@ theorem OperationPtr.Verified.llvm_intr__cttz {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__cttz) :
     op.IsVerifiedIntegerUnop ctx := by
   obtain ⟨ty, hty⟩ := op.verifyIntegerUnop_ok_of_Verified opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
   exact op.verifyIntegerUnop_eq_ok hty
 
 /-- Structural facts from the verifier for a verified `llvm.intr.ctpop`. -/
@@ -1345,7 +1034,7 @@ theorem OperationPtr.Verified.llvm_intr__ctpop {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__ctpop) :
     op.IsVerifiedIntegerUnop ctx := by
   obtain ⟨ty, hty⟩ := op.verifyIntegerUnop_ok_of_Verified opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
   exact op.verifyIntegerUnop_eq_ok hty
 
 /-- Structural facts from the verifier for a verified `llvm.intr.abs`. Its verifier arm is exactly
@@ -1355,7 +1044,7 @@ theorem OperationPtr.Verified.llvm_intr__abs {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__abs) :
     op.IsVerifiedIntegerUnop ctx := by
   obtain ⟨ty, hty⟩ := op.verifyIntegerUnop_ok_of_Verified opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
   exact op.verifyIntegerUnop_eq_ok hty
 
 /-- Structural facts from the verifier for a verified `llvm.intr.bswap`. Unlike the other unary
@@ -1366,7 +1055,7 @@ theorem OperationPtr.Verified.llvm_intr__bswap {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__bswap) :
     op.IsVerifiedIntegerUnop ctx := by
   rw [Verified] at opVerify
-  simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType] at opVerify
+  simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType] at opVerify
   replace opVerify := Except.ok_of_bind_ok opVerify
   simp only [bind, Except.bind] at opVerify
   obtain ⟨ty, hty⟩ : ∃ ty, op.verifyIntegerUnop ctx opInBounds = .ok ty := by
@@ -1409,13 +1098,13 @@ private theorem OperationPtr.Verified.integerTernop {op : OperationPtr} {opInBou
 theorem OperationPtr.Verified.llvm_intr__fshl {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__fshl) :
     op.IsVerifiedIntegerTernop ctx := OperationPtr.Verified.integerTernop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 /-- Structural facts from the verifier for a verified `llvm.intr.fshr`. -/
 theorem OperationPtr.Verified.llvm_intr__fshr {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__fshr) :
     op.IsVerifiedIntegerTernop ctx := OperationPtr.Verified.integerTernop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 /--
   Reduce a verified integer extension operation to a successful `verifyIntegerExtTypes` check.
@@ -1451,53 +1140,53 @@ private theorem OperationPtr.Verified.integerExtop {op : OperationPtr} {opInBoun
 theorem OperationPtr.Verified.llvm_sext {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .sext) :
     op.IsVerifiedIntegerExtop ctx := OperationPtr.Verified.integerExtop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 /-- Structural facts from the verifier for a verified `llvm.zext`. -/
 theorem OperationPtr.Verified.llvm_zext {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .zext) :
     op.IsVerifiedIntegerExtop ctx := OperationPtr.Verified.integerExtop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.llvm_add {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .add) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.llvm_sub {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .sub) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.llvm_ashr {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .ashr) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.llvm_mul {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .mul) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.llvm_sdiv {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .sdiv) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.llvm_udiv {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .udiv) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.llvm_srem {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .srem) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 theorem OperationPtr.Verified.llvm_urem {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .urem) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+    simp only [verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 /- Verified ModArith Op Lemmas -/
 
