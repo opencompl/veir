@@ -215,32 +215,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
   match op.getOpType ctx.raw opIn with
   | .builtin opType => Builtin.verifyLocalInvariants opType op ctx opIn
   | .arith opType => Arith.verifyLocalInvariants opType op ctx opIn
-  | .datapath .compress => do
-    if op.getNumOperands ctx.raw opIn ≤ op.getNumResults ctx.raw opIn then
-      throw "Number of inputs must be greater than the number of results"
-    if op.getNumResults ctx.raw opIn < 2 then
-      throw "Expected at least 2 results"
-    if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
-    pure ()
-  | .datapath .partial_product => do
-    if op.getNumOperands ctx.raw opIn ≠ 2 then
-      throw "Expected 2 operands"
-    if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
-    pure ()
-  | .datapath .pos_partial_product => do
-    if op.getNumOperands ctx.raw opIn ≠ 3 then
-      throw "Expected 3 operands"
-    if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
-    pure ()
+  | .datapath opType => Datapath.verifyLocalInvariants opType op ctx opIn
   /- FUNC -/
   | .func .func => do
     if op.getNumRegions ctx.raw opIn ≠ 1 then
