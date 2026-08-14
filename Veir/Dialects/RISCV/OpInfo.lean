@@ -2,6 +2,7 @@ module
 
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
+public import Veir.Verifier.Basic
 public import Veir.Dialects.RISCV.Properties
 meta import Veir.Meta.OpCode
 
@@ -299,6 +300,215 @@ instance : HasOpInfo Riscv where
   getEffects := Riscv.getEffects
   isConstantLike := Riscv.isConstantLike
   hasSSADominance := Riscv.hasSSADominance
+
+
+def OperationPtr.verifyRISCVimm12 {OpInfo : Type} [HasOpInfo OpInfo]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw)
+    (operands results : Nat) (imm : Int) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn operands results
+  if imm < -2048 ∨ imm > 2047 then
+    let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+    throw s!"{instrName} immediate out of bounds: must fit in a signed 12-bit field [-2048, 2047]"
+  else
+    pure ()
+
+/--
+Check that a shift-amount/bit-index immediate fits in an unsigned 5-bit field
+`[0, 31]`.
+-/
+def OperationPtr.verifyRISCVuimm5 {OpInfo : Type} [HasOpInfo OpInfo]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw)
+    (imm : Int) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 1 1
+  if imm < 0 ∨ imm > 31 then
+    let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+    throw s!"{instrName} immediate out of bounds: must fit in an unsigned 5-bit field [0, 31]"
+  else
+    pure ()
+
+/--
+Check that a shift-amount/bit-index immediate fits in an unsigned 6-bit field
+`[0, 63]`.
+-/
+def OperationPtr.verifyRISCVuimm6 {OpInfo : Type} [HasOpInfo OpInfo]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw)
+    (imm : Int) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 1 1
+  if imm < 0 ∨ imm > 63 then
+    let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+    throw s!"{instrName} immediate out of bounds: must fit in an unsigned 6-bit field [0, 63]"
+  else
+    pure ()
+
+def OperationPtr.verifyRISCVneg {OpInfo : Type} [HasOpInfo OpInfo]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw)
+    (operands results : Nat) (imm : Int) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn operands results
+  if imm < 0 ∨ 1048575 < imm then
+    let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+    throw s!"{instrName} immediate out of bounds: must fit in an unsigned 20-bit field."
+  else
+    pure ()
+
+/-- Ensure that every operand and result has type `!riscv.reg`. -/
+def OperationPtr.verifyRISCVRegisterTypes {OpInfo : Type} [HasOpInfo OpInfo]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let opTypes := op.getOperandTypes! ctx.raw
+  for i in [0:opTypes.size] do
+    match (opTypes[i]!).val with
+    | .registerType _ => pure ()
+    | _ => throw s!"{instrName}: Expected operand {i} to have !riscv.reg type"
+  for i in [0:op.getNumResults ctx.raw opIn] do
+    match ((op.getResult i).get! ctx.raw).type.val with
+    | .registerType _ => pure ()
+    | _ => throw s!"{instrName}: Expected result {i} to have !riscv.reg type"
+
+/--
+Verify the local invariants of a `riscv` operation in any operation-info type
+containing the `riscv` dialect.
+-/
+def Riscv.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
+    [HasDialect OpInfo Riscv] (opType : Riscv) (op : OperationPtr)
+    (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  match opType with
+  | .li => do
+    op.verifyPlainOpCounts ctx opIn 0 1
+    pure ()
+  | .lui => do
+    op.verifyRISCVneg ctx opIn 0 1 (op.getProperties! ctx.raw Riscv.lui).value.value
+    pure ()
+  | .auipc => do
+    op.verifyRISCVneg ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.auipc).value.value
+    pure ()
+  | .addi => do
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.addi).value.value
+    pure ()
+  | .slti => do
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.slti).value.value
+    pure ()
+  | .sltiu => do
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.sltiu).value.value
+    pure ()
+  | .andi => do
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.andi).value.value
+    pure ()
+  | .ori => do
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.ori).value.value
+    pure ()
+  | .xori => do
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.xori).value.value
+    pure ()
+  | .addiw => do
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.addiw).value.value
+    pure ()
+  | .slli => do
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.slli).value.value
+    pure ()
+  | .srli => do
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.srli).value.value
+    pure ()
+  | .srai => do
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.srai).value.value
+    pure ()
+  | .add | .sub | .sll | .slt | .sltu
+  | .xor | .srl | .sra | .or | .and => do
+    op.verifyPlainOpCounts ctx opIn 2 1
+    pure ()
+  | .slliw => do
+    op.verifyRISCVuimm5 ctx opIn (op.getProperties! ctx.raw Riscv.slliw).value.value
+    pure ()
+  | .srliw => do
+    op.verifyRISCVuimm5 ctx opIn (op.getProperties! ctx.raw Riscv.srliw).value.value
+    pure ()
+  | .sraiw => do
+    op.verifyRISCVuimm5 ctx opIn (op.getProperties! ctx.raw Riscv.sraiw).value.value
+    pure ()
+  | .addw | .subw | .sllw | .srlw | .sraw
+  | .rem | .remu | .remw | .remuw
+  | .mul | .mulh | .mulhu | .mulhsu | .mulw
+  | .div | .divw | .divu | .divuw
+  | .adduw | .sh1adduw | .sh2adduw | .sh3adduw
+  | .sh1add | .sh2add | .sh3add => do
+    op.verifyPlainOpCounts ctx opIn 2 1
+    pure ()
+  | .slliuw => do
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.slliuw).value.value
+    pure ()
+  | .andn | .orn | .xnor
+  | .max | .maxu | .min | .minu
+  | .rol | .ror | .rolw | .rorw => do
+    op.verifyPlainOpCounts ctx opIn 2 1
+    pure ()
+  | .sextb | .sexth | .zexth
+  | .clz | .clzw | .ctz | .ctzw
+  | .cpop | .cpopw | .orcb | .rev8 => do
+    op.verifyPlainOpCounts ctx opIn 1 1
+    pure ()
+  | .roriw => do
+    op.verifyRISCVuimm5 ctx opIn (op.getProperties! ctx.raw Riscv.roriw).value.value
+    pure ()
+  | .rori => do
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.rori).value.value
+    pure ()
+  | .bclr | .bext | .binv | .bset => do
+    op.verifyPlainOpCounts ctx opIn 2 1
+    pure ()
+  | .bclri => do
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.bclri).value.value
+    pure ()
+  | .bexti => do
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.bexti).value.value
+    pure ()
+  | .binvi => do
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.binvi).value.value
+    pure ()
+  | .bseti => do
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.bseti).value.value
+    pure ()
+  | .pack | .packh | .packw
+  | .czeroeqz | .czeronez => do
+    op.verifyPlainOpCounts ctx opIn 2 1
+    pure ()
+  | .ld => do
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.ld).value.value
+    pure ()
+  | .lw => do
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.lw).value.value
+    pure ()
+  | .lwu => do
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.lwu).value.value
+    pure ()
+  | .lh => do
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.lh).value.value
+    pure ()
+  | .lhu => do
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.lhu).value.value
+    pure ()
+  | .lb => do
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.lb).value.value
+    pure ()
+  | .lbu => do
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.lbu).value.value
+    pure ()
+  | .sd => do
+    op.verifyRISCVimm12 ctx opIn 2 0 (op.getProperties! ctx.raw Riscv.sd).value.value
+    pure ()
+  | .sw => do
+    op.verifyRISCVimm12 ctx opIn 2 0 (op.getProperties! ctx.raw Riscv.sw).value.value
+    pure ()
+  | .sh => do
+    op.verifyRISCVimm12 ctx opIn 2 0 (op.getProperties! ctx.raw Riscv.sh).value.value
+    pure ()
+  | .sb => do
+    op.verifyRISCVimm12 ctx opIn 2 0 (op.getProperties! ctx.raw Riscv.sb).value.value
+    pure ()
+  | .mv | .not | .neg | .negw | .sextw
+  | .zextb | .zextw | .seqz | .snez
+  | .sltz | .sgtz => do
+    op.verifyPlainOpCounts ctx opIn 1 1
+    pure ()
 
 end
 
