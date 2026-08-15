@@ -55,7 +55,7 @@ def Func.hasSideEffects (_op : Func) (_props : Func.propertiesOf _op) : Bool :=
 def Func.getEffects
     (op : Func) (_props : Func.propertiesOf op) : MemoryEffects :=
   match op with
-  | .call => .readWrite
+  | .call => .unknown
   | .func | .return => .none
 
 def Func.isConstantLike (_op : Func) : Bool :=

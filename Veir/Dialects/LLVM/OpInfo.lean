@@ -312,6 +312,7 @@ def Llvm.hasSideEffects (op : Llvm) (props : Llvm.propertiesOf op) : Bool :=
 
 def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :=
   match op, props with
+  | .alloca, _ => .allocate
   | .load, props => if props.volatile_ then .readWrite else .read
   | .store, props => if props.volatile_ then .readWrite else .write
   | .mlir__constant, _ | .mlir__poison, _ | .mlir__addressof, _
@@ -334,7 +335,7 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
   | .intr__sshl__sat, _ | .intr__ushl__sat, _
   | .fadd, _ | .fsub, _ | .fmul, _ | .fdiv, _ | .frem, _ => .none
   -- For everything else: be conservative!
-  | _, _ => .readWrite
+  | _, _ => .unknown
 
 def Llvm.isConstantLike (op : Llvm) : Bool :=
   match op with

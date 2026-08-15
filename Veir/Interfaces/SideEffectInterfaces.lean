@@ -38,7 +38,7 @@ def OperationPtr.hasSideEffects {OpInfo : Type} [HasOpInfo OpInfo]
 -/
 def OperationPtr.getEffects {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : IRContext OpInfo) : MemoryEffects :=
-  if op.getNumRegions! ctx != 0 then .readWrite else
+  if op.getNumRegions! ctx != 0 then .unknown else
   let opType := op.getOpType! ctx
   HasOpInfo.getEffects opType (op.getProperties! ctx opType)
 
