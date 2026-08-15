@@ -3,6 +3,7 @@ module
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Dialects.Comb.Properties
+public import Veir.Verifier.Basic
 meta import Veir.Meta.OpCode
 
 namespace Veir
@@ -85,6 +86,42 @@ instance : HasOpInfo Comb where
   getEffects := Comb.getEffects
   isConstantLike := Comb.isConstantLike
   hasSSADominance := Comb.hasSSADominance
+
+/--
+Verify the local invariants of a `comb` operation in any operation-info type
+containing the `comb` dialect.
+-/
+def Comb.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
+    [HasDialect OpInfo Comb] (opType : Comb) (op : OperationPtr)
+    (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  match opType with
+  | .add | .and | .mul | .or | .xor => do
+    if op.getNumOperands ctx.raw opIn < 1 then
+      throw "Expected 1 or more operands"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .concat => do
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .divs | .divu | .icmp | .mods | .modu | .shl | .shrs | .shru | .sub => do
+    op.verifyPlainOpCounts ctx opIn 2 1
+    pure ()
+  | .extract | .parity | .replicate | .reverse => do
+    op.verifyPlainOpCounts ctx opIn 1 1
+    pure ()
+  | .mux => do
+    op.verifyPlainOpCounts ctx opIn 3 1
+    pure ()
 
 end
 

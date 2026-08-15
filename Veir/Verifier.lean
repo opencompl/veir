@@ -33,52 +33,8 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
   | .riscv_cf opType => Riscv_Cf.verifyLocalInvariants opType op ctx opIn
   | .riscv_stack opType => Riscv_Stack.verifyLocalInvariants opType op ctx opIn
   | .rv64 opType => Rv64.verifyLocalInvariants opType op ctx opIn
-  /- Comb -/
-  | .comb .add | .comb .and | .comb .mul | .comb .or | .comb .xor => do
-    if op.getNumOperands ctx.raw opIn < 1 then
-      throw "Expected 1 or more operands"
-    if op.getNumResults ctx.raw opIn ≠ 1 then
-      throw "Expected 1 result"
-    if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
-    pure ()
-  | .comb .concat => do
-    if op.getNumResults ctx.raw opIn ≠ 1 then
-      throw "Expected 1 result"
-    if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
-    pure ()
-  | .comb .divs | .comb .divu | .comb .icmp | .comb .mods | .comb .modu | .comb .shl
-  | .comb .shrs | .comb .shru | .comb .sub => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .comb .extract | .comb .parity | .comb .replicate | .comb .reverse => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    pure ()
-  | .comb .mux => do
-    op.verifyPlainOpCounts ctx opIn 3 1
-    pure ()
-  /- HW -/
-  | .hw .constant => do
-    op.verifyPlainOpCounts ctx opIn 0 1
-    pure ()
-  | .hw .module => do
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "Expected 0 operands"
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "Expected 1 region"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
-    pure ()
-  | .hw .output => do
-    op.verifyTerminatorCounts ctx opIn 0
-    pure ()
+  | .comb opType => Comb.verifyLocalInvariants opType op ctx opIn
+  | .hw opType => HW.verifyLocalInvariants opType op ctx opIn
 
 /--
   Return the kind of this region.
