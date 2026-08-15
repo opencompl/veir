@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+public import Veir.PatternRewriter.Basic
 import Veir.DataLayout.RISCV64
 import Veir.Passes.Matching.LLVM.Basic
 import Veir.Passes.InstructionSelection.Common
@@ -294,7 +295,7 @@ def ctpop (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 -/
 def bswap_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some operand := matchBswap op ctx | return (ctx, none)
+  let some operand := matchBswap op ctx.raw | return (ctx, none)
   let .integerType opType := (operand.getType! ctx.raw).val | return (ctx, none)
   if opType.bitwidth ≠ 64 ∧ opType.bitwidth ≠ 32 then return (ctx, none)
   let (ctx, castOp) ← castToRegLocal ctx operand
@@ -346,7 +347,7 @@ def bitreverseStageLocal (mask shamt : Int) (ctx : WfIRContext OpCode) (input : 
 -/
 def bitreverse_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some operand := matchBitreverse op ctx | return (ctx, none)
+  let some operand := matchBitreverse op ctx.raw | return (ctx, none)
   let .integerType opType := (operand.getType! ctx.raw).val | return (ctx, none)
   if opType.bitwidth ≠ 64 ∧ opType.bitwidth ≠ 32 then return (ctx, none)
   let (ctx, castOp) ← castToRegLocal ctx operand
@@ -382,7 +383,7 @@ def bitreverse (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /-- llvm.constant -> riscv.li -/
 def constant_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some const := matchConstantIntOp op ctx
+  let some const := matchConstantIntOp op ctx.raw
       | return (ctx, none)
   if const.type.bitwidth ≠ 64 ∧ const.type.bitwidth ≠ 32 ∧ const.type.bitwidth ≠ 8 ∧ const.type.bitwidth ≠ 1 then return (ctx, none)
   let type := ((op.getResult 0).get! ctx.raw).type
@@ -422,7 +423,7 @@ def and (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /-- llvm.ashr -> riscv.sra -/
 def ashr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := matchAshr op ctx | return (ctx, none)
+  let some (lhs, rhs, _) := matchAshr op ctx.raw | return (ctx, none)
   /- support `i64` and `i32` -/
   let .integerType ltype := (lhs.getType! ctx.raw).val | return (ctx, none)
   if ltype.bitwidth ≠ 64 ∧ ltype.bitwidth ≠ 32 ∧ ltype.bitwidth ≠ 8 then return (ctx, none)
@@ -596,7 +597,7 @@ def icmpExtOf (bw : Nat) : Option IcmpExtOp :=
 /-- llvm.icmp -> riscv comparison sequence (see the arms above). -/
 def icmp_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, property) := matchIcmp op ctx | return (ctx, none)
+  let some (lhs, rhs, property) := matchIcmp op ctx.raw | return (ctx, none)
   /- support `i64`, `i32` and `i8` -/
   let .integerType ltype := (lhs.getType! ctx.raw).val | return (ctx, none)
   if ltype.bitwidth ≠ 64 ∧ ltype.bitwidth ≠ 32 ∧ ltype.bitwidth ≠ 8 then return (ctx, none)
@@ -611,7 +612,7 @@ def icmp_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
      LLVM: `Pat<(riscv_seteq GPR:$rs1), (SLTIU GPR:$rs1, 1)>` and
      `Pat<(riscv_setne GPR:$rs1), (SLTU (XLenVT X0), GPR:$rs1)>`.
      https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1649 -/
-  let rhsIsZero := (matchConstantZero rhs ctx).isSome
+  let rhsIsZero := (matchConstantZero rhs ctx.raw).isSome
   match property.predicate with
   | .eq =>
     if rhsIsZero then icmpEmitSeqzLocal ctx op lhs rhs ext
@@ -756,7 +757,7 @@ def zext (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 -/
 def trunc_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (operand, _) := matchTrunc op ctx | return (ctx, none)
+  let some (operand, _) := matchTrunc op ctx.raw | return (ctx, none)
   let opType := (operand.getType! ctx.raw)
   let resType := ((op.getResult 0).get! ctx.raw).type
   let shouldTruncate := match opType.val, resType.val with
@@ -827,7 +828,7 @@ def isBitcastByteToPtr (opType resType : TypeAttr) : Bool :=
 -/
 def bitcast_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (operand, _) := matchBitcast op ctx | return (ctx, none)
+  let some (operand, _) := matchBitcast op ctx.raw | return (ctx, none)
   let opType := operand.getType! ctx.raw
   let resType := ((op.getResult 0).get! ctx.raw).type
   if ¬ checkBitcastType opType ∨ ¬ checkBitcastType resType then return (ctx, none)
@@ -870,7 +871,7 @@ def selectAddrRegImm (ptr : ValuePtr) (ctx : IRContext OpCode) : ValuePtr × Int
 /-- llvm.load -> riscv.ld (i64) / riscv.lw (i32) / riscv.lb (i8) -/
 def load_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (ptr, llvmProps) := matchLoad op ctx | return (ctx, none)
+  let some (ptr, llvmProps) := matchLoad op ctx.raw | return (ctx, none)
   /- support `i64`, `i32` and `i8` (the loaded value type) -/
   let type := ((op.getResult 0).get! ctx.raw).type
   let .integerType type' := type.val | return (ctx, none)
@@ -906,7 +907,7 @@ def load (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /-- llvm.store -> riscv.sd (i64) / riscv.sw (i32) / riscv.sb (i8) -/
 def store_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (arg, ptr, llvmProps) := matchStore op ctx | return (ctx, none)
+  let some (arg, ptr, llvmProps) := matchStore op ctx.raw | return (ctx, none)
   /- support `i64`, `i32` and `i8` (the stored value type) -/
   let type := arg.getType! ctx.raw
   let .integerType type' := type.val | return (ctx, none)
@@ -945,7 +946,7 @@ def store (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 -/
 def getelementptr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (ptr, idx, properties) := matchGetelementptr op ctx | return (ctx, none)
+  let some (ptr, idx, properties) := matchGetelementptr op ctx.raw | return (ctx, none)
   /- Bail unless it's a single dynamic index with no trailing constant indices. -/
   if properties.rawConstantIndices.values ≠ #[(-2147483648 : Int)] then return (ctx, none)
   /- The index must be `i64`. -/
@@ -1037,10 +1038,10 @@ def getelementptr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 -/
 def selectCzeroeqz_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (cond, tval, fval) := matchSelect op ctx | return (ctx, none)
+  let some (cond, tval, fval) := matchSelect op ctx.raw | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
-  let some _ := matchConstantZero fval ctx | return (ctx, none)
+  let some _ := matchConstantZero fval ctx.raw | return (ctx, none)
   let (ctx, tCastOp) ← castToRegLocal ctx tval
   let (ctx, condCastOp) ← castToRegLocal ctx cond
   let (ctx, czOp) ← WfRewriter.createOp! ctx Riscv.czeroeqz #[RegisterType.mk] #[tCastOp.getResult 0, condCastOp.getResult 0]
@@ -1060,10 +1061,10 @@ def selectCzeroeqz (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 -/
 def selectCzeronez_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (cond, tval, fval) := matchSelect op ctx | return (ctx, none)
+  let some (cond, tval, fval) := matchSelect op ctx.raw | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
-  let some _ := matchConstantZero tval ctx | return (ctx, none)
+  let some _ := matchConstantZero tval ctx.raw | return (ctx, none)
   let (ctx, fCastOp) ← castToRegLocal ctx fval
   let (ctx, condCastOp) ← castToRegLocal ctx cond
   let (ctx, czOp) ← WfRewriter.createOp! ctx Riscv.czeronez #[RegisterType.mk] #[fCastOp.getResult 0, condCastOp.getResult 0]
@@ -1084,7 +1085,7 @@ def selectCzeronez (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 -/
 def selectGeneral_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (cond, tval, fval) := matchSelect op ctx | return (ctx, none)
+  let some (cond, tval, fval) := matchSelect op ctx.raw | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 ∧ t.bitwidth ≠ 1 then return (ctx, none)
   let (ctx, tCastOp) ← castToRegLocal ctx tval
@@ -1219,7 +1220,7 @@ def signedSatSelectLocal (ctx : WfIRContext OpCode) (op : OperationPtr)
     `expandSADDSUBO` add branch; sat endpoint `(sum >>s 63) ^ INT_MIN` at 12554). -/
 def saddSat_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs) := matchSaddSat op ctx | return (ctx, none)
+  let some (lhs, rhs) := matchSaddSat op ctx.raw | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 64 then return (ctx, none)
   let (ctx, lCastOp) ← castToRegLocal ctx lhs
@@ -1253,7 +1254,7 @@ def saddSat (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     `expandSADDSUBO` sub branch; sat endpoint `(diff >>s 63) ^ INT_MIN` at 12554). -/
 def ssubSat_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs) := matchSsubSat op ctx | return (ctx, none)
+  let some (lhs, rhs) := matchSsubSat op ctx.raw | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 64 then return (ctx, none)
   let (ctx, lCastOp) ← castToRegLocal ctx lhs
@@ -1286,7 +1287,7 @@ def ssubSat (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     `expandAddSubSat`, UADDSAT/UMIN idiom). -/
 def uaddSat_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs) := matchUaddSat op ctx | return (ctx, none)
+  let some (lhs, rhs) := matchUaddSat op ctx.raw | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 64 then return (ctx, none)
   let (ctx, lCastOp) ← castToRegLocal ctx lhs
@@ -1312,7 +1313,7 @@ def uaddSat (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     `expandAddSubSat`, USUBSAT/UMAX idiom). -/
 def usubSat_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs) := matchUsubSat op ctx | return (ctx, none)
+  let some (lhs, rhs) := matchUsubSat op ctx.raw | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 64 then return (ctx, none)
   let (ctx, lCastOp) ← castToRegLocal ctx lhs
@@ -1337,7 +1338,7 @@ def usubSat (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (TargetLowering.cpp:12598 `expandShlSat`, signed branch at 12626-12632). -/
 def sshlSat_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs) := matchSshlSat op ctx | return (ctx, none)
+  let some (lhs, rhs) := matchSshlSat op ctx.raw | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 64 then return (ctx, none)
   let (ctx, lCastOp) ← castToRegLocal ctx lhs
@@ -1371,7 +1372,7 @@ def sshlSat (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     at 12630-12633). -/
 def ushlSat_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs) := matchUshlSat op ctx | return (ctx, none)
+  let some (lhs, rhs) := matchUshlSat op ctx.raw | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 64 then return (ctx, none)
   let (ctx, lCastOp) ← castToRegLocal ctx lhs
@@ -1403,7 +1404,7 @@ def ushlSat (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     `is_int_min_poison` and non-poison forms of the intrinsic. -/
 def abs_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some val := matchAbs op ctx | return (ctx, none)
+  let some val := matchAbs op ctx.raw | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 64 then return (ctx, none)
   let (ctx, castOp) ← castToRegLocal ctx val
@@ -1443,9 +1444,9 @@ def fshr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     constant rotate-right: -> riscv.rori (mirrors `PatGprImm<rotr, RORI>`). -/
 def fshrConst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (a, b, amt) := matchFshr op ctx | return (ctx, none)
+  let some (a, b, amt) := matchFshr op ctx.raw | return (ctx, none)
   if a ≠ b then return (ctx, none)
-  let some amtAttr := matchConstantIntVal amt ctx | return (ctx, none)
+  let some amtAttr := matchConstantIntVal amt ctx.raw | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
   let (ctx, valCastOp) ← castToRegLocal ctx a
@@ -1476,9 +1477,9 @@ def fshrConst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     `riscv.rori` with the negated immediate `(64 - amt) mod 64`. -/
 def fshlConst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (a, b, amt) := matchFshl op ctx | return (ctx, none)
+  let some (a, b, amt) := matchFshl op ctx.raw | return (ctx, none)
   if a ≠ b then return (ctx, none)
-  let some amtAttr := matchConstantIntVal amt ctx | return (ctx, none)
+  let some amtAttr := matchConstantIntVal amt ctx.raw | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
   let (ctx, valCastOp) ← castToRegLocal ctx a
@@ -1534,7 +1535,7 @@ def fshlConst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     section comment). Handles i64 and i32; the i32 form uses the `w` shifts. -/
 def fshlGeneral_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (a, b, amt) := matchFshl op ctx | return (ctx, none)
+  let some (a, b, amt) := matchFshl op ctx.raw | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
   let (ctx, xCastOp) ← castToRegLocal ctx a
@@ -1581,7 +1582,7 @@ def fshlGeneral (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     section comment). Handles i64 and i32; the i32 form uses the `w` shifts. -/
 def fshrGeneral_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (a, b, amt) := matchFshr op ctx | return (ctx, none)
+  let some (a, b, amt) := matchFshr op ctx.raw | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
   let (ctx, xCastOp) ← castToRegLocal ctx a
@@ -1628,7 +1629,7 @@ def fshrGeneral (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /-- llvm.mlir.poison -> riscv.li 0 -/
 def poisonConst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some _ := matchPoison op ctx | return (ctx, none)
+  let some _ := matchPoison op ctx.raw | return (ctx, none)
   let imm := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
   let (ctx, liOp) ← WfRewriter.createOp! ctx Riscv.li #[RegisterType.mk] #[]
       #[] #[] imm none
@@ -1644,7 +1645,7 @@ def poisonConst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   unrealized_conversion_cast (unrealized_conversion_cast arg : Int w -> Reg) : Reg -> Int w -/
 def freeze_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some operand := matchFreeze op ctx | return (ctx, none)
+  let some operand := matchFreeze op ctx.raw | return (ctx, none)
   let .integerType opType := (operand.getType! ctx.raw).val | return (ctx, none)
   let type := ((op.getResult 0).get! ctx.raw).type
   let .integerType retType := type.val | return (ctx, none)

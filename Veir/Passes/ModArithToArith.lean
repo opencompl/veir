@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+public import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
 
 namespace Veir
@@ -218,7 +219,7 @@ def lowerModArithBinOp (modOp : Mod_Arith) (widen : Nat → Nat) (legalizeWidth 
     (build : Builder) (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   -- match op and extract operands:
-  let some (operands, _) := matchOp op rewriter.ctx (.mod_arith modOp) 2
+  let some (operands, _) := matchOp op rewriter.ctx.raw modOp 2
     | return rewriter
   let lhs := operands[0]!
   let rhs := operands[1]!
@@ -276,7 +277,7 @@ def lowerModArithConstantOp (legalizeWidth : Nat → Nat) (rewriter : PatternRew
     (op : OperationPtr) (_opInBounds : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   -- match op and extract attribute:
-  let some (_, props) := matchOp op rewriter.ctx (.mod_arith .constant) 0
+  let some (_, props) := matchOp op rewriter.ctx.raw Mod_Arith.constant 0
     | return rewriter
   let c := props.value.value
   -- type setup

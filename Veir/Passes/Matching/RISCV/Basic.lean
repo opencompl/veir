@@ -1,6 +1,7 @@
 module
 
 public import Veir.Passes.Matching.Basic
+public import Veir.Dialects.RISCV.OpInfo
 
 public section
 
@@ -8,458 +9,460 @@ public section
 
 namespace Veir
 
-def matchRVLi (op : OperationPtr) (ctx : IRContext OpCode) : Option (propertiesOf (OpCode.riscv .li)) := do
-  let (_, cst) ← matchOp op ctx (.riscv .li) 0
+variable {OpCode : Type} [HasOpInfo OpCode] [HasDialect OpCode Riscv]
+
+def matchRVLi (op : OperationPtr) (ctx : IRContext OpCode) : Option (propertiesOf Riscv.li) := do
+  let (_, cst) ← matchOp op ctx Riscv.li 0
   return cst
 
-def matchRVLui (op : OperationPtr) (ctx : IRContext OpCode) : Option (propertiesOf (OpCode.riscv .lui)) := do
-  let (_, cst) ← matchOp op ctx (.riscv .lui) 0
+def matchRVLui (op : OperationPtr) (ctx : IRContext OpCode) : Option (propertiesOf Riscv.lui) := do
+  let (_, cst) ← matchOp op ctx Riscv.lui 0
   return cst
 
-def matchRVAuipc (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .auipc)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .auipc) 1
+def matchRVAuipc (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.auipc) := do
+  let (op, properties) ← matchOp op ctx Riscv.auipc 1
   return (op[0]!,  properties)
 
-def matchRVAddi (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .addi)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .addi) 1
+def matchRVAddi (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.addi) := do
+  let (op, properties) ← matchOp op ctx Riscv.addi 1
   return (op[0]!,  properties)
 
-def matchRVSlti (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .slti)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .slti) 1
+def matchRVSlti (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.slti) := do
+  let (op, properties) ← matchOp op ctx Riscv.slti 1
   return (op[0]!,  properties)
 
-def matchRVSltiu (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .sltiu)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .sltiu) 1
+def matchRVSltiu (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.sltiu) := do
+  let (op, properties) ← matchOp op ctx Riscv.sltiu 1
   return (op[0]!,  properties)
 
-def matchRVAndi (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .andi)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .andi) 1
+def matchRVAndi (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.andi) := do
+  let (op, properties) ← matchOp op ctx Riscv.andi 1
   return (op[0]!,  properties)
 
-def matchRVOri (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .ori)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .ori) 1
+def matchRVOri (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.ori) := do
+  let (op, properties) ← matchOp op ctx Riscv.ori 1
   return (op[0]!,  properties)
 
-def matchRVXori (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .xori)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .xori) 1
+def matchRVXori (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.xori) := do
+  let (op, properties) ← matchOp op ctx Riscv.xori 1
   return (op[0]!,  properties)
 
-def matchRVAddiw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .addiw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .addiw) 1
+def matchRVAddiw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.addiw) := do
+  let (op, properties) ← matchOp op ctx Riscv.addiw 1
   return (op[0]!,  properties)
 
-def matchRVSlli (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .slli)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .slli) 1
+def matchRVSlli (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.slli) := do
+  let (op, properties) ← matchOp op ctx Riscv.slli 1
   return (op[0]!,  properties)
 
-def matchRVSrli (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .srli)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .srli) 1
+def matchRVSrli (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.srli) := do
+  let (op, properties) ← matchOp op ctx Riscv.srli 1
   return (op[0]!,  properties)
 
-def matchRVSrai (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .srai)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .srai) 1
+def matchRVSrai (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.srai) := do
+  let (op, properties) ← matchOp op ctx Riscv.srai 1
   return (op[0]!,  properties)
 
-def matchRVAdd (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .add)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .add) 2
+def matchRVAdd (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.add) := do
+  let (op, properties) ← matchOp op ctx Riscv.add 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVSub (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .sub)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .sub) 2
+def matchRVSub (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.sub) := do
+  let (op, properties) ← matchOp op ctx Riscv.sub 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVSll (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .sll)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .sll) 2
+def matchRVSll (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.sll) := do
+  let (op, properties) ← matchOp op ctx Riscv.sll 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVSlt (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .slt)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .slt) 2
+def matchRVSlt (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.slt) := do
+  let (op, properties) ← matchOp op ctx Riscv.slt 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVSltu (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .sltu)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .sltu) 2
+def matchRVSltu (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.sltu) := do
+  let (op, properties) ← matchOp op ctx Riscv.sltu 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVXor (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .xor)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .xor) 2
+def matchRVXor (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.xor) := do
+  let (op, properties) ← matchOp op ctx Riscv.xor 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVSrl (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .srl)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .srl) 2
+def matchRVSrl (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.srl) := do
+  let (op, properties) ← matchOp op ctx Riscv.srl 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVSra (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .sra)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .sra) 2
+def matchRVSra (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.sra) := do
+  let (op, properties) ← matchOp op ctx Riscv.sra 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVOr (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .or)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .or) 2
+def matchRVOr (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.or) := do
+  let (op, properties) ← matchOp op ctx Riscv.or 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVAnd (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .and)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .and) 2
+def matchRVAnd (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.and) := do
+  let (op, properties) ← matchOp op ctx Riscv.and 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVSlliw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .slliw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .slliw) 1
+def matchRVSlliw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.slliw) := do
+  let (op, properties) ← matchOp op ctx Riscv.slliw 1
   return (op[0]!,  properties)
 
-def matchRVSrliw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .srliw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .srliw) 1
+def matchRVSrliw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.srliw) := do
+  let (op, properties) ← matchOp op ctx Riscv.srliw 1
   return (op[0]!,  properties)
 
-def matchRVSraiw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .sraiw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .sraiw) 1
+def matchRVSraiw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.sraiw) := do
+  let (op, properties) ← matchOp op ctx Riscv.sraiw 1
   return (op[0]!,  properties)
 
-def matchRVAddw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .addw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .addw) 2
+def matchRVAddw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.addw) := do
+  let (op, properties) ← matchOp op ctx Riscv.addw 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVSubw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .subw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .subw) 2
+def matchRVSubw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.subw) := do
+  let (op, properties) ← matchOp op ctx Riscv.subw 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVSllw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .sllw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .sllw) 2
+def matchRVSllw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.sllw) := do
+  let (op, properties) ← matchOp op ctx Riscv.sllw 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVSrlw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .srlw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .srlw) 2
+def matchRVSrlw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.srlw) := do
+  let (op, properties) ← matchOp op ctx Riscv.srlw 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVSraw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .sraw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .sraw) 2
+def matchRVSraw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.sraw) := do
+  let (op, properties) ← matchOp op ctx Riscv.sraw 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVRem (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .rem)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .rem) 2
+def matchRVRem (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.rem) := do
+  let (op, properties) ← matchOp op ctx Riscv.rem 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVRemu (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .remu)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .remu) 2
+def matchRVRemu (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.remu) := do
+  let (op, properties) ← matchOp op ctx Riscv.remu 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVRemw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .remw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .remw) 2
+def matchRVRemw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.remw) := do
+  let (op, properties) ← matchOp op ctx Riscv.remw 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVRemuw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .remuw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .remuw) 2
+def matchRVRemuw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.remuw) := do
+  let (op, properties) ← matchOp op ctx Riscv.remuw 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVMul (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .mul)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .mul) 2
+def matchRVMul (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.mul) := do
+  let (op, properties) ← matchOp op ctx Riscv.mul 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVMulh (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .mulh)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .mulh) 2
+def matchRVMulh (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.mulh) := do
+  let (op, properties) ← matchOp op ctx Riscv.mulh 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVMulhu (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .mulhu)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .mulhu) 2
+def matchRVMulhu (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.mulhu) := do
+  let (op, properties) ← matchOp op ctx Riscv.mulhu 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVMulhsu (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .mulhsu)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .mulhsu) 2
+def matchRVMulhsu (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.mulhsu) := do
+  let (op, properties) ← matchOp op ctx Riscv.mulhsu 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVMulw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .mulw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .mulw) 2
+def matchRVMulw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.mulw) := do
+  let (op, properties) ← matchOp op ctx Riscv.mulw 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVDiv (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .div)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .div) 2
+def matchRVDiv (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.div) := do
+  let (op, properties) ← matchOp op ctx Riscv.div 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVDivw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .divw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .divw) 2
+def matchRVDivw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.divw) := do
+  let (op, properties) ← matchOp op ctx Riscv.divw 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVDivu (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .divu)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .divu) 2
+def matchRVDivu (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.divu) := do
+  let (op, properties) ← matchOp op ctx Riscv.divu 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVDivuw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .divuw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .divuw) 2
+def matchRVDivuw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.divuw) := do
+  let (op, properties) ← matchOp op ctx Riscv.divuw 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVAdduw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .adduw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .adduw) 2
+def matchRVAdduw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.adduw) := do
+  let (op, properties) ← matchOp op ctx Riscv.adduw 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVSh1adduw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .sh1adduw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .sh1adduw) 2
+def matchRVSh1adduw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.sh1adduw) := do
+  let (op, properties) ← matchOp op ctx Riscv.sh1adduw 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVSh2adduw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .sh2adduw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .sh2adduw) 2
+def matchRVSh2adduw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.sh2adduw) := do
+  let (op, properties) ← matchOp op ctx Riscv.sh2adduw 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVSh3adduw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .sh3adduw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .sh3adduw) 2
+def matchRVSh3adduw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.sh3adduw) := do
+  let (op, properties) ← matchOp op ctx Riscv.sh3adduw 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVSh1add (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .sh1add)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .sh1add) 2
+def matchRVSh1add (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.sh1add) := do
+  let (op, properties) ← matchOp op ctx Riscv.sh1add 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVSh2add (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .sh2add)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .sh2add) 2
+def matchRVSh2add (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.sh2add) := do
+  let (op, properties) ← matchOp op ctx Riscv.sh2add 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVSh3add (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .sh3add)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .sh3add) 2
+def matchRVSh3add (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.sh3add) := do
+  let (op, properties) ← matchOp op ctx Riscv.sh3add 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVSlliuw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .slliuw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .slliuw) 1
+def matchRVSlliuw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.slliuw) := do
+  let (op, properties) ← matchOp op ctx Riscv.slliuw 1
   return (op[0]!,  properties)
 
-def matchRVAndn (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .andn)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .andn) 2
+def matchRVAndn (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.andn) := do
+  let (op, properties) ← matchOp op ctx Riscv.andn 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVOrn (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .orn)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .orn) 2
+def matchRVOrn (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.orn) := do
+  let (op, properties) ← matchOp op ctx Riscv.orn 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVXnor (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .xnor)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .xnor) 2
+def matchRVXnor (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.xnor) := do
+  let (op, properties) ← matchOp op ctx Riscv.xnor 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVMax (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .max)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .max) 2
+def matchRVMax (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.max) := do
+  let (op, properties) ← matchOp op ctx Riscv.max 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVMaxu (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .maxu)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .maxu) 2
+def matchRVMaxu (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.maxu) := do
+  let (op, properties) ← matchOp op ctx Riscv.maxu 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVMin (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .min)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .min) 2
+def matchRVMin (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.min) := do
+  let (op, properties) ← matchOp op ctx Riscv.min 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVMinu (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .minu)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .minu) 2
+def matchRVMinu (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.minu) := do
+  let (op, properties) ← matchOp op ctx Riscv.minu 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVRol (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .rol)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .rol) 2
+def matchRVRol (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.rol) := do
+  let (op, properties) ← matchOp op ctx Riscv.rol 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVRor (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .ror)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .ror) 2
+def matchRVRor (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.ror) := do
+  let (op, properties) ← matchOp op ctx Riscv.ror 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVRolw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .rolw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .rolw) 2
+def matchRVRolw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.rolw) := do
+  let (op, properties) ← matchOp op ctx Riscv.rolw 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVRorw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .rorw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .rorw) 2
+def matchRVRorw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.rorw) := do
+  let (op, properties) ← matchOp op ctx Riscv.rorw 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVSextb (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .sextb)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .sextb) 1
+def matchRVSextb (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.sextb) := do
+  let (op, properties) ← matchOp op ctx Riscv.sextb 1
   return (op[0]!,  properties)
 
-def matchRVSexth (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .sexth)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .sexth) 1
+def matchRVSexth (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.sexth) := do
+  let (op, properties) ← matchOp op ctx Riscv.sexth 1
   return (op[0]!,  properties)
 
-def matchRVZexth (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .zexth)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .zexth) 1
+def matchRVZexth (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.zexth) := do
+  let (op, properties) ← matchOp op ctx Riscv.zexth 1
   return (op[0]!,  properties)
 
-def matchRVClz (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .clz)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .clz) 1
+def matchRVClz (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.clz) := do
+  let (op, properties) ← matchOp op ctx Riscv.clz 1
   return (op[0]!,  properties)
 
-def matchRVClzw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .clzw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .clzw) 1
+def matchRVClzw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.clzw) := do
+  let (op, properties) ← matchOp op ctx Riscv.clzw 1
   return (op[0]!,  properties)
 
-def matchRVCtz (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .ctz)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .ctz) 1
+def matchRVCtz (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.ctz) := do
+  let (op, properties) ← matchOp op ctx Riscv.ctz 1
   return (op[0]!,  properties)
 
-def matchRVCtzw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .ctzw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .ctzw) 1
+def matchRVCtzw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.ctzw) := do
+  let (op, properties) ← matchOp op ctx Riscv.ctzw 1
   return (op[0]!,  properties)
 
-def matchRVCpop (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .cpop)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .cpop) 1
+def matchRVCpop (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.cpop) := do
+  let (op, properties) ← matchOp op ctx Riscv.cpop 1
   return (op[0]!,  properties)
 
-def matchRVCpopw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .cpopw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .cpopw) 1
+def matchRVCpopw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.cpopw) := do
+  let (op, properties) ← matchOp op ctx Riscv.cpopw 1
   return (op[0]!,  properties)
 
-def matchRVOrcb (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .orcb)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .orcb) 1
+def matchRVOrcb (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.orcb) := do
+  let (op, properties) ← matchOp op ctx Riscv.orcb 1
   return (op[0]!,  properties)
 
-def matchRVRev8 (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .rev8)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .rev8) 1
+def matchRVRev8 (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.rev8) := do
+  let (op, properties) ← matchOp op ctx Riscv.rev8 1
   return (op[0]!,  properties)
 
-def matchRVRoriw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .roriw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .roriw) 1
+def matchRVRoriw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.roriw) := do
+  let (op, properties) ← matchOp op ctx Riscv.roriw 1
   return (op[0]!,  properties)
 
-def matchRVRori (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .rori)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .rori) 1
+def matchRVRori (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.rori) := do
+  let (op, properties) ← matchOp op ctx Riscv.rori 1
   return (op[0]!,  properties)
 
-def matchRVBclr (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .bclr)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .bclr) 2
+def matchRVBclr (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.bclr) := do
+  let (op, properties) ← matchOp op ctx Riscv.bclr 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVBext (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .bext)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .bext) 2
+def matchRVBext (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.bext) := do
+  let (op, properties) ← matchOp op ctx Riscv.bext 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVBinv (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .binv)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .binv) 2
+def matchRVBinv (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.binv) := do
+  let (op, properties) ← matchOp op ctx Riscv.binv 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVBset (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .bset)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .bset) 2
+def matchRVBset (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.bset) := do
+  let (op, properties) ← matchOp op ctx Riscv.bset 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVBclri (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .bclri)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .bclri) 1
+def matchRVBclri (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.bclri) := do
+  let (op, properties) ← matchOp op ctx Riscv.bclri 1
   return (op[0]!,  properties)
 
-def matchRVBexti (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .bexti)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .bexti) 1
+def matchRVBexti (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.bexti) := do
+  let (op, properties) ← matchOp op ctx Riscv.bexti 1
   return (op[0]!,  properties)
 
-def matchRVBinvi (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .binvi)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .binvi) 1
+def matchRVBinvi (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.binvi) := do
+  let (op, properties) ← matchOp op ctx Riscv.binvi 1
   return (op[0]!,  properties)
 
-def matchRVBseti (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .bseti)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .bseti) 1
+def matchRVBseti (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.bseti) := do
+  let (op, properties) ← matchOp op ctx Riscv.bseti 1
   return (op[0]!,  properties)
 
-def matchRVPack (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .pack)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .pack) 2
+def matchRVPack (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.pack) := do
+  let (op, properties) ← matchOp op ctx Riscv.pack 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVPackh (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .packh)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .packh) 2
+def matchRVPackh (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.packh) := do
+  let (op, properties) ← matchOp op ctx Riscv.packh 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVPackw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .packw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .packw) 2
+def matchRVPackw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.packw) := do
+  let (op, properties) ← matchOp op ctx Riscv.packw 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVCzeroeqz (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .czeroeqz)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .czeroeqz) 2
+def matchRVCzeroeqz (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.czeroeqz) := do
+  let (op, properties) ← matchOp op ctx Riscv.czeroeqz 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVCzeronez (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .czeronez)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .czeronez) 2
+def matchRVCzeronez (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.czeronez) := do
+  let (op, properties) ← matchOp op ctx Riscv.czeronez 2
   return (op[0]!, op[1]!, properties)
 
-def matchRVLd (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .ld)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .ld) 1
+def matchRVLd (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.ld) := do
+  let (op, properties) ← matchOp op ctx Riscv.ld 1
   return (op[0]!,  properties)
 
-def matchRVLw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .lw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .lw) 1
+def matchRVLw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.lw) := do
+  let (op, properties) ← matchOp op ctx Riscv.lw 1
   return (op[0]!,  properties)
 
-def matchRVLwu (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .lwu)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .lwu) 1
+def matchRVLwu (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.lwu) := do
+  let (op, properties) ← matchOp op ctx Riscv.lwu 1
   return (op[0]!,  properties)
 
-def matchRVLh (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .lh)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .lh) 1
+def matchRVLh (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.lh) := do
+  let (op, properties) ← matchOp op ctx Riscv.lh 1
   return (op[0]!,  properties)
 
-def matchRVLhu (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .lhu)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .lhu) 1
+def matchRVLhu (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.lhu) := do
+  let (op, properties) ← matchOp op ctx Riscv.lhu 1
   return (op[0]!,  properties)
 
-def matchRVLb (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .lb)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .lb) 1
+def matchRVLb (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.lb) := do
+  let (op, properties) ← matchOp op ctx Riscv.lb 1
   return (op[0]!,  properties)
 
-def matchRVLbu (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .lbu)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .lbu) 1
+def matchRVLbu (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.lbu) := do
+  let (op, properties) ← matchOp op ctx Riscv.lbu 1
   return (op[0]!,  properties)
 
-def matchRVSd (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .sd)) := do
-  guard (op.getOpType! ctx = .riscv .sd)
+def matchRVSd (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.sd) := do
+  guard (op.getOpType! ctx = Riscv.sd)
   guard (op.getNumOperands! ctx = 2)
   let operands := op.getOperands! ctx
   let properties := op.getProperties! ctx Riscv.sd
   return (operands[0]!, operands[1]!, properties)
 
-def matchRVSw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .sw)) := do
-  guard (op.getOpType! ctx = .riscv .sw)
+def matchRVSw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.sw) := do
+  guard (op.getOpType! ctx = Riscv.sw)
   guard (op.getNumOperands! ctx = 2)
   let operands := op.getOperands! ctx
   let properties := op.getProperties! ctx Riscv.sw
   return (operands[0]!, operands[1]!, properties)
 
-def matchRVSh (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .sh)) := do
-  guard (op.getOpType! ctx = .riscv .sh)
+def matchRVSh (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.sh) := do
+  guard (op.getOpType! ctx = Riscv.sh)
   guard (op.getNumOperands! ctx = 2)
   let operands := op.getOperands! ctx
   let properties := op.getProperties! ctx Riscv.sh
   return (operands[0]!, operands[1]!, properties)
 
-def matchRVSb (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv .sb)) := do
-  guard (op.getOpType! ctx = .riscv .sb)
+def matchRVSb (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf Riscv.sb) := do
+  guard (op.getOpType! ctx = Riscv.sb)
   guard (op.getNumOperands! ctx = 2)
   let operands := op.getOperands! ctx
   let properties := op.getProperties! ctx Riscv.sb
   return (operands[0]!, operands[1]!, properties)
 
-def matchRVMv (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .mv)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .mv) 1
+def matchRVMv (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.mv) := do
+  let (op, properties) ← matchOp op ctx Riscv.mv 1
   return (op[0]!,  properties)
 
-def matchRVNot (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .not)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .not) 1
+def matchRVNot (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.not) := do
+  let (op, properties) ← matchOp op ctx Riscv.not 1
   return (op[0]!,  properties)
 
-def matchRVNeg (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .neg)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .neg) 1
+def matchRVNeg (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.neg) := do
+  let (op, properties) ← matchOp op ctx Riscv.neg 1
   return (op[0]!,  properties)
 
-def matchRVNegw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .negw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .negw) 1
+def matchRVNegw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.negw) := do
+  let (op, properties) ← matchOp op ctx Riscv.negw 1
   return (op[0]!,  properties)
 
-def matchRVSextw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .sextw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .sextw) 1
+def matchRVSextw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.sextw) := do
+  let (op, properties) ← matchOp op ctx Riscv.sextw 1
   return (op[0]!,  properties)
 
-def matchRVZextb (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .zextb)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .zextb) 1
+def matchRVZextb (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.zextb) := do
+  let (op, properties) ← matchOp op ctx Riscv.zextb 1
   return (op[0]!,  properties)
 
-def matchRVZextw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .zextw)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .zextw) 1
+def matchRVZextw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.zextw) := do
+  let (op, properties) ← matchOp op ctx Riscv.zextw 1
   return (op[0]!,  properties)
 
-def matchRVSeqz (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .seqz)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .seqz) 1
+def matchRVSeqz (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.seqz) := do
+  let (op, properties) ← matchOp op ctx Riscv.seqz 1
   return (op[0]!,  properties)
 
-def matchRVSnez (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .snez)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .snez) 1
+def matchRVSnez (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.snez) := do
+  let (op, properties) ← matchOp op ctx Riscv.snez 1
   return (op[0]!,  properties)
 
-def matchRVSltz (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .sltz)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .sltz) 1
+def matchRVSltz (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.sltz) := do
+  let (op, properties) ← matchOp op ctx Riscv.sltz 1
   return (op[0]!,  properties)
 
-def matchRVSgtz (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.riscv .sgtz)) := do
-  let (op, properties) ← matchOp op ctx (.riscv .sgtz) 1
+def matchRVSgtz (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.sgtz) := do
+  let (op, properties) ← matchOp op ctx Riscv.sgtz 1
   return (op[0]!,  properties)

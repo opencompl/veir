@@ -10,10 +10,12 @@ public section
 
 namespace Veir
 
+variable {OpCode : Type} [HasOpInfo OpCode] [HasDialect OpCode Builtin]
+
 /-- What matching `builtin.unrealized_conversion_cast` (via `matchCastOp`) syntactically guarantees. -/
 theorem matchCastOp_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand} :
     matchCastOp op ctx = some operand →
-    op.getOpType! ctx = .builtin .unrealized_conversion_cast ∧
+    op.getOpType! ctx = Builtin.unrealized_conversion_cast ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[operand] := by
   intro hmatch

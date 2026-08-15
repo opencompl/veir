@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+public import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
 import Veir.Passes.InstructionSelection.Common
 
@@ -35,9 +36,9 @@ def lowerBinopNotLocal {P : Type}
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 64 then return (ctx, none)
   let some (x, y) :=
-    (match matchNot rhs ctx with
+    (match matchNot rhs ctx.raw with
      | some y => some (lhs, y)
-     | none => match matchNot lhs ctx with
+     | none => match matchNot lhs ctx.raw with
                | some y => some (rhs, y)
                | none => none) | return (ctx, none)
   let (ctx, xCastOp) ← castToRegLocal ctx x
@@ -116,20 +117,20 @@ def matchOrcbMask (mo0 mo1 : ValuePtr) (y : Nat) (ctx : IRContext OpCode) :
 -/
 def orcb_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (a, b, _) := matchSub op ctx | return (ctx, none)
+  let some (a, b, _) := matchSub op ctx.raw | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 64 then return (ctx, none)
   /- left operand must be `shl M (8 - Y)` for some `0 ≤ Y < 8` -/
   let some aOp := a.definingOp? | return (ctx, none)
-  let some (m, shamt, _) := matchShl aOp ctx | return (ctx, none)
-  let some shc := matchConstantIntVal shamt ctx | return (ctx, none)
+  let some (m, shamt, _) := matchShl aOp ctx.raw | return (ctx, none)
+  let some shc := matchConstantIntVal shamt ctx.raw | return (ctx, none)
   if shc.value < 1 || 8 < shc.value then return (ctx, none)
   let y : Nat := (8 - shc.value).toNat
   /- right operand must be `M` itself (when `Y = 0`) or `lshr M Y` -/
   let some _lshrProps := matchOrcbRight b m y ctx | return (ctx, none)
   /- soundness gate: `M = and Z (0x0101_0101_0101_0101 <<< Y)` -/
   let some mOp := m.definingOp? | return (ctx, none)
-  let some (mo0, mo1, _) := matchAnd mOp ctx | return (ctx, none)
+  let some (mo0, mo1, _) := matchAnd mOp ctx.raw | return (ctx, none)
   let some _zAttr := matchOrcbMask mo0 mo1 y ctx | return (ctx, none)
   let (ctx, mCastOp) ← castToRegLocal ctx m
   /- actual `riscv.orcb` -/
@@ -176,7 +177,7 @@ def selectBinopImmLocal {α} (matchPair : OperationPtr → IRContext OpCode → 
   let some (lhs, rhs, _) := matchPair op ctx | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ width then return (ctx, none)
-  let some imm := matchConstantIntVal rhs ctx | return (ctx, none)
+  let some imm := matchConstantIntVal rhs ctx.raw | return (ctx, none)
   if imm.value < lo || imm.value > hi then return (ctx, none)
   let (ctx, xCastOp) ← castToRegLocal ctx lhs
   let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk imm.value (IntegerType.mk 64))
@@ -266,10 +267,10 @@ def sltiEmitLocal (op : OperationPtr) (lhs : ValuePtr) (dst : Riscv)
 -/
 def slti_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, prop) := matchIcmp op ctx | return (ctx, none)
+  let some (lhs, rhs, prop) := matchIcmp op ctx.raw | return (ctx, none)
   let .integerType lt := (lhs.getType! ctx.raw).val | return (ctx, none)
   if lt.bitwidth ≠ 64 then return (ctx, none)
-  let some cst := matchConstantIntVal rhs ctx | return (ctx, none)
+  let some cst := matchConstantIntVal rhs ctx.raw | return (ctx, none)
   let c := cst.value
   match prop.predicate with
   | .slt => sltiEmitLocal op lhs .slti  rfl c       false ctx
@@ -312,7 +313,7 @@ def selectSingleBitLocal {α} (matchPair : OperationPtr → IRContext OpCode →
   let some (lhs, rhs, _) := matchPair op ctx | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 64 then return (ctx, none)
-  let some imm := matchConstantIntVal rhs ctx | return (ctx, none)
+  let some imm := matchConstantIntVal rhs ctx.raw | return (ctx, none)
   /- ANDI/ORI/XORI handle the simm12 cases; only fire when the immediate doesn't fit. -/
   if !(imm.value < -2048 || imm.value > 2047) then return (ctx, none)
   let bv := BitVec.ofInt 64 imm.value
@@ -332,14 +333,14 @@ def bclri := RewritePattern.fromLocalRewrite (selectSingleBitLocal matchAnd .bcl
     https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L536-L537 -/
 def bexti_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := matchAnd op ctx | return (ctx, none)
+  let some (lhs, rhs, _) := matchAnd op ctx.raw | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 64 then return (ctx, none)
-  let some one := matchConstantIntVal rhs ctx | return (ctx, none)
+  let some one := matchConstantIntVal rhs ctx.raw | return (ctx, none)
   if one.value ≠ 1 then return (ctx, none)
   let some shrOp := lhs.definingOp? | return (ctx, none)
-  let some (x, shamt, _) := matchLshr shrOp ctx | return (ctx, none)
-  let some sh := matchConstantIntVal shamt ctx | return (ctx, none)
+  let some (x, shamt, _) := matchLshr shrOp ctx.raw | return (ctx, none)
+  let some sh := matchConstantIntVal shamt ctx.raw | return (ctx, none)
   if sh.value < 0 || sh.value > 63 then return (ctx, none)
   let (ctx, xCastOp) ← castToRegLocal ctx x
   let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk sh.value (IntegerType.mk 64))
@@ -358,9 +359,9 @@ def bexti (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L504 -/
 def roriw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (a, b, amt) := matchFshr op ctx | return (ctx, none)
+  let some (a, b, amt) := matchFshr op ctx.raw | return (ctx, none)
   if a ≠ b then return (ctx, none)
-  let some amtAttr := matchConstantIntVal amt ctx | return (ctx, none)
+  let some amtAttr := matchConstantIntVal amt ctx.raw | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 32 then return (ctx, none)
   let sh : Int := ((amtAttr.value % 32) + 32) % 32
@@ -381,9 +382,9 @@ def roriw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     `(32 - amt) mod 32` (i32 analogue of `fshlConst`). -/
 def roliw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (a, b, amt) := matchFshl op ctx | return (ctx, none)
+  let some (a, b, amt) := matchFshl op ctx.raw | return (ctx, none)
   if a ≠ b then return (ctx, none)
-  let some amtAttr := matchConstantIntVal amt ctx | return (ctx, none)
+  let some amtAttr := matchConstantIntVal amt ctx.raw | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 32 then return (ctx, none)
   /- rotate-left by `sh` == rotate-right by `32 - sh` (mod 32). -/
@@ -406,13 +407,13 @@ def roliw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L821-L822 -/
 def slliuw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (base, shamt, _) := matchShl op ctx | return (ctx, none)
+  let some (base, shamt, _) := matchShl op ctx.raw | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 64 then return (ctx, none)
-  let some sh := matchConstantIntVal shamt ctx | return (ctx, none)
+  let some sh := matchConstantIntVal shamt ctx.raw | return (ctx, none)
   if sh.value < 0 || sh.value > 31 then return (ctx, none)
   let some baseOp := base.definingOp? | return (ctx, none)
-  let some (x, _) := matchZext baseOp ctx | return (ctx, none)
+  let some (x, _) := matchZext baseOp ctx.raw | return (ctx, none)
   let .integerType srcT := (x.getType! ctx.raw).val | return (ctx, none)
   if srcT.bitwidth ≠ 32 then return (ctx, none)
   let (ctx, xCastOp) ← castToRegLocal ctx x
@@ -430,7 +431,7 @@ def slliuw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /-- llvm.zext x i1 to i64 -> and x 1 -/
 def zext_1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (operand, _) := matchZext op ctx | return (ctx, none)
+  let some (operand, _) := matchZext op ctx.raw | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 64 then return (ctx, none)
   let .integerType opType := (operand.getType! ctx.raw).val | return (ctx, none)
@@ -453,7 +454,7 @@ def zext_1 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /-- llvm.sext x i1 to i64 -> srai (slli x 63) 63 -/
 def sext_1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (operand, _) := matchSext op ctx | return (ctx, none)
+  let some (operand, _) := matchSext op ctx.raw | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
   let .integerType opType := (operand.getType! ctx.raw).val | return (ctx, none)
@@ -519,10 +520,10 @@ def matchUnsignedPow2Divisor (w : Nat) (v : Int) : Option Nat :=
 def udivPow2GenLocal (dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties)
     (width : Nat) (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := matchUdiv op ctx | return (ctx, none)
+  let some (lhs, rhs, _) := matchUdiv op ctx.raw | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ width then return (ctx, none)
-  let some imm := matchConstantIntVal rhs ctx | return (ctx, none)
+  let some imm := matchConstantIntVal rhs ctx.raw | return (ctx, none)
   let some k := matchUnsignedPow2Divisor width imm.value | return (ctx, none)
   let (ctx, xCastOp) ← castToRegLocal ctx lhs
   let shamt := RISCVImmediateProperties.mk (IntegerAttr.mk k (IntegerType.mk 64))
@@ -562,11 +563,11 @@ def sdivPow2ExactGenLocal (dst : Riscv) (hDst : Riscv.propertiesOf dst = RISCVIm
     (negDst : Riscv) (hNeg : Riscv.propertiesOf negDst = Unit) (width : Nat)
     (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, props) := matchSdiv op ctx | return (ctx, none)
+  let some (lhs, rhs, props) := matchSdiv op ctx.raw | return (ctx, none)
   if ¬ props.exact then return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ width then return (ctx, none)
-  let some imm := matchConstantIntVal rhs ctx | return (ctx, none)
+  let some imm := matchConstantIntVal rhs ctx.raw | return (ctx, none)
   let some (k, isNeg) := matchSignedPow2Divisor width imm.value | return (ctx, none)
   let (ctx, xCastOp) ← castToRegLocal ctx lhs
   let shamt := RISCVImmediateProperties.mk (IntegerAttr.mk k (IntegerType.mk 64))
@@ -607,11 +608,11 @@ def sdivPow2GenLocal (shiftDst : Riscv) (hShift : Riscv.propertiesOf shiftDst = 
     (negDst : Riscv) (hNeg : Riscv.propertiesOf negDst = Unit) (width : Nat)
     (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, props) := matchSdiv op ctx | return (ctx, none)
+  let some (lhs, rhs, props) := matchSdiv op ctx.raw | return (ctx, none)
   if props.exact then return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ width then return (ctx, none)
-  let some imm := matchConstantIntVal rhs ctx | return (ctx, none)
+  let some imm := matchConstantIntVal rhs ctx.raw | return (ctx, none)
   let some (k, isNeg) := matchSignedPow2Divisor width imm.value | return (ctx, none)
   /- `k = 0` (divisor ±1) would need a shift by the full register width, which has
      no legal immediate encoding; middle-end optimizations always turn `sdiv x, ±1`

@@ -10,14 +10,15 @@ public section
 
 namespace Veir
 
+variable {OpCode : Type} [HasOpInfo OpCode] [HasDialect OpCode Llvm]
 
 /-- What matching `llvm.add` (via `matchAddi`) syntactically guarantees. -/
 theorem matchAddi_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs props} :
     matchAddi op ctx = some (lhs, rhs, props) →
-    op.getOpType! ctx = .llvm .add ∧
+    op.getOpType! ctx = Llvm.add ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.add) := by
+    props = op.getProperties! ctx Llvm.add := by
   intro hmatch
   simp only [matchAddi, bind, Option.bind, pure] at hmatch
   grind
@@ -25,10 +26,10 @@ theorem matchAddi_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs 
 /-- What matching `llvm.add` (via `matchAdd`) syntactically guarantees. -/
 theorem matchAdd_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs props} :
     matchAdd op ctx = some (lhs, rhs, props) →
-    op.getOpType! ctx = .llvm .add ∧
+    op.getOpType! ctx = Llvm.add ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.add) := by
+    props = op.getProperties! ctx Llvm.add := by
   intro hmatch
   simp only [matchAdd, bind, Option.bind, pure] at hmatch
   grind
@@ -36,10 +37,10 @@ theorem matchAdd_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs p
 /-- What matching `llvm.sub` (via `matchSubi`) syntactically guarantees. -/
 theorem matchSubi_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs props} :
     matchSubi op ctx = some (lhs, rhs, props) →
-    op.getOpType! ctx = .llvm .sub ∧
+    op.getOpType! ctx = Llvm.sub ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.sub) := by
+    props = op.getProperties! ctx Llvm.sub := by
   intro hmatch
   simp only [matchSubi, bind, Option.bind, pure] at hmatch
   grind
@@ -47,10 +48,10 @@ theorem matchSubi_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs 
 /-- What matching `llvm.mul` (via `matchMuli`) syntactically guarantees. -/
 theorem matchMuli_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs props} :
     matchMuli op ctx = some (lhs, rhs, props) →
-    op.getOpType! ctx = .llvm .mul ∧
+    op.getOpType! ctx = Llvm.mul ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.mul) := by
+    props = op.getProperties! ctx Llvm.mul := by
   intro hmatch
   simp only [matchMuli, bind, Option.bind, pure] at hmatch
   grind
@@ -58,7 +59,7 @@ theorem matchMuli_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs 
 /-- What matching `llvm.and` (via `matchAndi`) syntactically guarantees. -/
 theorem matchAndi_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs} :
     matchAndi op ctx = some (lhs, rhs) →
-    op.getOpType! ctx = .llvm .and ∧
+    op.getOpType! ctx = Llvm.and ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] := by
   intro hmatch
@@ -68,10 +69,10 @@ theorem matchAndi_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs}
 /-- What matching `llvm.and` (via `matchAnd`) syntactically guarantees. -/
 theorem matchAnd_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs props} :
     matchAnd op ctx = some (lhs, rhs, props) →
-    op.getOpType! ctx = .llvm .and ∧
+    op.getOpType! ctx = Llvm.and ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.and) := by
+    props = op.getProperties! ctx Llvm.and := by
   intro hmatch
   simp only [matchAnd, bind, Option.bind, pure] at hmatch
   grind
@@ -79,10 +80,10 @@ theorem matchAnd_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs p
 /-- What matching `llvm.or` (via `matchOri`) syntactically guarantees. -/
 theorem matchOri_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs props} :
     matchOri op ctx = some (lhs, rhs, props) →
-    op.getOpType! ctx = .llvm .or ∧
+    op.getOpType! ctx = Llvm.or ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.or) := by
+    props = op.getProperties! ctx Llvm.or := by
   intro hmatch
   simp only [matchOri, bind, Option.bind, pure] at hmatch
   grind
@@ -90,7 +91,7 @@ theorem matchOri_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs p
 /-- What matching `llvm.xor` (via `matchXori`) syntactically guarantees. -/
 theorem matchXori_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs} :
     matchXori op ctx = some (lhs, rhs) →
-    op.getOpType! ctx = .llvm .xor ∧
+    op.getOpType! ctx = Llvm.xor ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] := by
   intro hmatch
@@ -100,8 +101,8 @@ theorem matchXori_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs}
 /-- What matching `llvm.mlir.constant` (via `matchConstantIntOp`) syntactically guarantees. -/
 theorem matchConstantIntOp_implies {op : OperationPtr} {ctx : IRContext OpCode} {intAttr} :
     matchConstantIntOp op ctx = some intAttr →
-    op.getOpType! ctx = .llvm .mlir__constant ∧
-    (op.getProperties! ctx (OpCode.llvm Llvm.mlir__constant)).value = .integer intAttr := by
+    op.getOpType! ctx = Llvm.mlir__constant ∧
+    (op.getProperties! ctx Llvm.mlir__constant).value = .integer intAttr := by
   intro hmatch
   simp only [matchConstantIntOp, pure] at hmatch
   grind
@@ -126,10 +127,10 @@ theorem matchConstantZero_implies {val : ValuePtr} {ctx : IRContext OpCode} {res
 /-- What matching `llvm.ashr` (via `matchAshr`) syntactically guarantees. -/
 theorem matchAshr_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs props} :
     matchAshr op ctx = some (lhs, rhs, props) →
-    op.getOpType! ctx = .llvm .ashr ∧
+    op.getOpType! ctx = Llvm.ashr ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.ashr) := by
+    props = op.getProperties! ctx Llvm.ashr := by
   intro hmatch
   simp only [matchAshr, bind, Option.bind, pure] at hmatch
   grind
@@ -137,10 +138,10 @@ theorem matchAshr_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs 
 /-- What matching `llvm.icmp` (via `matchIcmp`) syntactically guarantees. -/
 theorem matchIcmp_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs props} :
     matchIcmp op ctx = some (lhs, rhs, props) →
-    op.getOpType! ctx = .llvm .icmp ∧
+    op.getOpType! ctx = Llvm.icmp ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.icmp) := by
+    props = op.getProperties! ctx Llvm.icmp := by
   intro hmatch
   simp only [matchIcmp, bind, Option.bind, pure] at hmatch
   grind
@@ -148,10 +149,10 @@ theorem matchIcmp_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs 
 /-- What matching `llvm.or` (via `matchOr`) syntactically guarantees. -/
 theorem matchOr_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs props} :
     matchOr op ctx = some (lhs, rhs, props) →
-    op.getOpType! ctx = .llvm .or ∧
+    op.getOpType! ctx = Llvm.or ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.or) := by
+    props = op.getProperties! ctx Llvm.or := by
   intro hmatch
   simp only [matchOr, bind, Option.bind, pure] at hmatch
   grind
@@ -159,7 +160,7 @@ theorem matchOr_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs pr
 /-- What matching `llvm.select` (via `matchSelect`) syntactically guarantees. -/
 theorem matchSelect_implies {op : OperationPtr} {ctx : IRContext OpCode} {cond tval fval} :
     matchSelect op ctx = some (cond, tval, fval) →
-    op.getOpType! ctx = .llvm .select ∧
+    op.getOpType! ctx = Llvm.select ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[cond, tval, fval] := by
   intro hmatch
@@ -169,10 +170,10 @@ theorem matchSelect_implies {op : OperationPtr} {ctx : IRContext OpCode} {cond t
 /-- What matching `llvm.xor` (via `matchXor`) syntactically guarantees. -/
 theorem matchXor_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs props} :
     matchXor op ctx = some (lhs, rhs, props) →
-    op.getOpType! ctx = .llvm .xor ∧
+    op.getOpType! ctx = Llvm.xor ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.xor) := by
+    props = op.getProperties! ctx Llvm.xor := by
   intro hmatch
   simp only [matchXor, bind, Option.bind, pure] at hmatch
   grind
@@ -180,7 +181,7 @@ theorem matchXor_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs p
 /-- What matching `llvm.intr.smax` (via `matchSmax`) syntactically guarantees. -/
 theorem matchSmax_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs} :
     matchSmax op ctx = some (lhs, rhs) →
-    op.getOpType! ctx = .llvm .intr__smax ∧
+    op.getOpType! ctx = Llvm.intr__smax ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] := by
   intro hmatch
@@ -190,7 +191,7 @@ theorem matchSmax_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs}
 /-- What matching `llvm.intr.smin` (via `matchSmin`) syntactically guarantees. -/
 theorem matchSmin_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs} :
     matchSmin op ctx = some (lhs, rhs) →
-    op.getOpType! ctx = .llvm .intr__smin ∧
+    op.getOpType! ctx = Llvm.intr__smin ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] := by
   intro hmatch
@@ -200,7 +201,7 @@ theorem matchSmin_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs}
 /-- What matching `llvm.intr.umax` (via `matchUmax`) syntactically guarantees. -/
 theorem matchUmax_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs} :
     matchUmax op ctx = some (lhs, rhs) →
-    op.getOpType! ctx = .llvm .intr__umax ∧
+    op.getOpType! ctx = Llvm.intr__umax ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] := by
   intro hmatch
@@ -210,7 +211,7 @@ theorem matchUmax_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs}
 /-- What matching `llvm.intr.umin` (via `matchUmin`) syntactically guarantees. -/
 theorem matchUmin_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs} :
     matchUmin op ctx = some (lhs, rhs) →
-    op.getOpType! ctx = .llvm .intr__umin ∧
+    op.getOpType! ctx = Llvm.intr__umin ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] := by
   intro hmatch
@@ -220,7 +221,7 @@ theorem matchUmin_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs}
 /-- What matching `llvm.intr.usub.sat` (via `matchUsubSat`) syntactically guarantees. -/
 theorem matchUsubSat_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs} :
     matchUsubSat op ctx = some (lhs, rhs) →
-    op.getOpType! ctx = .llvm .intr__usub__sat ∧
+    op.getOpType! ctx = Llvm.intr__usub__sat ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] := by
   intro hmatch
@@ -230,7 +231,7 @@ theorem matchUsubSat_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs r
 /-- What matching `llvm.intr.ushl.sat` (via `matchUshlSat`) syntactically guarantees. -/
 theorem matchUshlSat_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs} :
     matchUshlSat op ctx = some (lhs, rhs) →
-    op.getOpType! ctx = .llvm .intr__ushl__sat ∧
+    op.getOpType! ctx = Llvm.intr__ushl__sat ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] := by
   intro hmatch
@@ -240,7 +241,7 @@ theorem matchUshlSat_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs r
 /-- What matching `llvm.intr.uadd.sat` (via `matchUaddSat`) syntactically guarantees. -/
 theorem matchUaddSat_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs} :
     matchUaddSat op ctx = some (lhs, rhs) →
-    op.getOpType! ctx = .llvm .intr__uadd__sat ∧
+    op.getOpType! ctx = Llvm.intr__uadd__sat ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] := by
   intro hmatch
@@ -250,7 +251,7 @@ theorem matchUaddSat_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs r
 /-- What matching `llvm.intr.sadd.sat` (via `matchSaddSat`) syntactically guarantees. -/
 theorem matchSaddSat_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs} :
     matchSaddSat op ctx = some (lhs, rhs) →
-    op.getOpType! ctx = .llvm .intr__sadd__sat ∧
+    op.getOpType! ctx = Llvm.intr__sadd__sat ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] := by
   intro hmatch
@@ -260,7 +261,7 @@ theorem matchSaddSat_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs r
 /-- What matching `llvm.intr.ssub.sat` (via `matchSsubSat`) syntactically guarantees. -/
 theorem matchSsubSat_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs} :
     matchSsubSat op ctx = some (lhs, rhs) →
-    op.getOpType! ctx = .llvm .intr__ssub__sat ∧
+    op.getOpType! ctx = Llvm.intr__ssub__sat ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] := by
   intro hmatch
@@ -270,7 +271,7 @@ theorem matchSsubSat_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs r
 /-- What matching `llvm.intr.sshl.sat` (via `matchSshlSat`) syntactically guarantees. -/
 theorem matchSshlSat_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs} :
     matchSshlSat op ctx = some (lhs, rhs) →
-    op.getOpType! ctx = .llvm .intr__sshl__sat ∧
+    op.getOpType! ctx = Llvm.intr__sshl__sat ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] := by
   intro hmatch
@@ -280,7 +281,7 @@ theorem matchSshlSat_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs r
 /-- What matching `llvm.intr.fshl` (via `matchFshl`) syntactically guarantees. -/
 theorem matchFshl_implies {op : OperationPtr} {ctx : IRContext OpCode} {a b amt} :
     matchFshl op ctx = some (a, b, amt) →
-    op.getOpType! ctx = .llvm .intr__fshl ∧
+    op.getOpType! ctx = Llvm.intr__fshl ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[a, b, amt] := by
   intro hmatch
@@ -290,7 +291,7 @@ theorem matchFshl_implies {op : OperationPtr} {ctx : IRContext OpCode} {a b amt}
 /-- What matching `llvm.intr.fshr` (via `matchFshr`) syntactically guarantees. -/
 theorem matchFshr_implies {op : OperationPtr} {ctx : IRContext OpCode} {a b amt} :
     matchFshr op ctx = some (a, b, amt) →
-    op.getOpType! ctx = .llvm .intr__fshr ∧
+    op.getOpType! ctx = Llvm.intr__fshr ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[a, b, amt] := by
   intro hmatch
@@ -312,10 +313,10 @@ theorem matchNot_implies {val : ValuePtr} {ctx : IRContext OpCode} {lhs} :
 /-- What matching `llvm.mul` (via `matchMul`) syntactically guarantees. -/
 theorem matchMul_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs props} :
     matchMul op ctx = some (lhs, rhs, props) →
-    op.getOpType! ctx = .llvm .mul ∧
+    op.getOpType! ctx = Llvm.mul ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.mul) := by
+    props = op.getProperties! ctx Llvm.mul := by
   intro hmatch
   simp only [matchMul, bind, Option.bind, pure] at hmatch
   grind
@@ -323,10 +324,10 @@ theorem matchMul_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs p
 /-- What matching `llvm.sdiv` (via `matchSdiv`) syntactically guarantees. -/
 theorem matchSdiv_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs props} :
     matchSdiv op ctx = some (lhs, rhs, props) →
-    op.getOpType! ctx = .llvm .sdiv ∧
+    op.getOpType! ctx = Llvm.sdiv ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.sdiv) := by
+    props = op.getProperties! ctx Llvm.sdiv := by
   intro hmatch
   simp only [matchSdiv, bind, Option.bind, pure] at hmatch
   grind
@@ -334,10 +335,10 @@ theorem matchSdiv_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs 
 /-- What matching `llvm.udiv` (via `matchUdiv`) syntactically guarantees. -/
 theorem matchUdiv_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs props} :
     matchUdiv op ctx = some (lhs, rhs, props) →
-    op.getOpType! ctx = .llvm .udiv ∧
+    op.getOpType! ctx = Llvm.udiv ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.udiv) := by
+    props = op.getProperties! ctx Llvm.udiv := by
   intro hmatch
   simp only [matchUdiv, bind, Option.bind, pure] at hmatch
   grind
@@ -345,10 +346,10 @@ theorem matchUdiv_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs 
 /-- What matching `llvm.srem` (via `matchSrem`) syntactically guarantees. -/
 theorem matchSrem_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs props} :
     matchSrem op ctx = some (lhs, rhs, props) →
-    op.getOpType! ctx = .llvm .srem ∧
+    op.getOpType! ctx = Llvm.srem ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.srem) := by
+    props = op.getProperties! ctx Llvm.srem := by
   intro hmatch
   simp only [matchSrem, bind, Option.bind, pure] at hmatch
   grind
@@ -356,10 +357,10 @@ theorem matchSrem_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs 
 /-- What matching `llvm.urem` (via `matchUrem`) syntactically guarantees. -/
 theorem matchUrem_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs props} :
     matchUrem op ctx = some (lhs, rhs, props) →
-    op.getOpType! ctx = .llvm .urem ∧
+    op.getOpType! ctx = Llvm.urem ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.urem) := by
+    props = op.getProperties! ctx Llvm.urem := by
   intro hmatch
   simp only [matchUrem, bind, Option.bind, pure] at hmatch
   grind
@@ -367,10 +368,10 @@ theorem matchUrem_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs 
 /-- What matching `llvm.sext` (via `matchSext`) syntactically guarantees. -/
 theorem matchSext_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand props} :
     matchSext op ctx = some (operand, props) →
-    op.getOpType! ctx = .llvm .sext ∧
+    op.getOpType! ctx = Llvm.sext ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[operand] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.sext) := by
+    props = op.getProperties! ctx Llvm.sext := by
   intro hmatch
   simp only [matchSext, bind, Option.bind, pure] at hmatch
   grind
@@ -378,10 +379,10 @@ theorem matchSext_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand 
 /-- What matching `llvm.trunc` (via `matchTrunc`) syntactically guarantees. -/
 theorem matchTrunc_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand props} :
     matchTrunc op ctx = some (operand, props) →
-    op.getOpType! ctx = .llvm .trunc ∧
+    op.getOpType! ctx = Llvm.trunc ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[operand] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.trunc) := by
+    props = op.getProperties! ctx Llvm.trunc := by
   intro hmatch
   simp only [matchTrunc, bind, Option.bind, pure] at hmatch
   grind
@@ -389,10 +390,10 @@ theorem matchTrunc_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand
 /-- What matching `llvm.bitcast` (via `matchBitcast`) syntactically guarantees. -/
 theorem matchBitcast_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand props} :
     matchBitcast op ctx = some (operand, props) →
-    op.getOpType! ctx = .llvm .bitcast ∧
+    op.getOpType! ctx = Llvm.bitcast ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[operand] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.bitcast) := by
+    props = op.getProperties! ctx Llvm.bitcast := by
   intro hmatch
   simp only [matchBitcast, bind, Option.bind, pure] at hmatch
   grind
@@ -400,10 +401,10 @@ theorem matchBitcast_implies {op : OperationPtr} {ctx : IRContext OpCode} {opera
 /-- What matching `llvm.zext` (via `matchZext`) syntactically guarantees. -/
 theorem matchZext_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand props} :
     matchZext op ctx = some (operand, props) →
-    op.getOpType! ctx = .llvm .zext ∧
+    op.getOpType! ctx = Llvm.zext ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[operand] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.zext) := by
+    props = op.getProperties! ctx Llvm.zext := by
   intro hmatch
   simp only [matchZext, bind, Option.bind, pure] at hmatch
   grind
@@ -411,10 +412,10 @@ theorem matchZext_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand 
 /-- What matching `llvm.shl` (via `matchShl`) syntactically guarantees. -/
 theorem matchShl_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs props} :
     matchShl op ctx = some (lhs, rhs, props) →
-    op.getOpType! ctx = .llvm .shl ∧
+    op.getOpType! ctx = Llvm.shl ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.shl) := by
+    props = op.getProperties! ctx Llvm.shl := by
   intro hmatch
   simp only [matchShl, bind, Option.bind, pure] at hmatch
   grind
@@ -422,10 +423,10 @@ theorem matchShl_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs p
 /-- What matching `llvm.lshr` (via `matchLshr`) syntactically guarantees. -/
 theorem matchLshr_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs props} :
     matchLshr op ctx = some (lhs, rhs, props) →
-    op.getOpType! ctx = .llvm .lshr ∧
+    op.getOpType! ctx = Llvm.lshr ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.lshr) := by
+    props = op.getProperties! ctx Llvm.lshr := by
   intro hmatch
   simp only [matchLshr, bind, Option.bind, pure] at hmatch
   grind
@@ -433,10 +434,10 @@ theorem matchLshr_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs 
 /-- What matching `llvm.sub` (via `matchSub`) syntactically guarantees. -/
 theorem matchSub_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs props} :
     matchSub op ctx = some (lhs, rhs, props) →
-    op.getOpType! ctx = .llvm .sub ∧
+    op.getOpType! ctx = Llvm.sub ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[lhs, rhs] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.sub) := by
+    props = op.getProperties! ctx Llvm.sub := by
   intro hmatch
   simp only [matchSub, bind, Option.bind, pure] at hmatch
   grind
@@ -444,10 +445,10 @@ theorem matchSub_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs p
 /-- What matching `llvm.load` (via `matchLoad`) syntactically guarantees. -/
 theorem matchLoad_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand props} :
     matchLoad op ctx = some (operand, props) →
-    op.getOpType! ctx = .llvm .load ∧
+    op.getOpType! ctx = Llvm.load ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[operand] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.load) := by
+    props = op.getProperties! ctx Llvm.load := by
   intro hmatch
   simp only [matchLoad, bind, Option.bind, pure] at hmatch
   grind
@@ -455,10 +456,10 @@ theorem matchLoad_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand 
 /-- What matching `llvm.intr.ctlz` syntactically guarantees. -/
 theorem matchCtlz_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand props} :
     matchCtlz op ctx = some (operand, props) →
-    op.getOpType! ctx = .llvm .intr__ctlz ∧
+    op.getOpType! ctx = Llvm.intr__ctlz ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[operand] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.intr__ctlz) := by
+    props = op.getProperties! ctx Llvm.intr__ctlz := by
   intro hmatch
   simp only [matchCtlz, bind, Option.bind, pure] at hmatch
   grind
@@ -466,10 +467,10 @@ theorem matchCtlz_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand 
 /-- What matching `llvm.intr.cttz` (via `matchCttz`) syntactically guarantees. -/
 theorem matchCttz_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand props} :
     matchCttz op ctx = some (operand, props) →
-    op.getOpType! ctx = .llvm .intr__cttz ∧
+    op.getOpType! ctx = Llvm.intr__cttz ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[operand] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.intr__cttz) := by
+    props = op.getProperties! ctx Llvm.intr__cttz := by
   intro hmatch
   simp only [matchCttz, bind, Option.bind, pure] at hmatch
   grind
@@ -477,10 +478,10 @@ theorem matchCttz_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand 
 /-- What matching `llvm.intr.ctpop` (via `matchCtpop`) syntactically guarantees. -/
 theorem matchCtpop_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand props} :
     matchCtpop op ctx = some (operand, props) →
-    op.getOpType! ctx = .llvm .intr__ctpop ∧
+    op.getOpType! ctx = Llvm.intr__ctpop ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[operand] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.intr__ctpop) := by
+    props = op.getProperties! ctx Llvm.intr__ctpop := by
   intro hmatch
   simp only [matchCtpop, bind, Option.bind, pure] at hmatch
   grind
@@ -488,7 +489,7 @@ theorem matchCtpop_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand
 /-- What matching `llvm.intr.bswap` (via `matchBswap`) syntactically guarantees. -/
 theorem matchBswap_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand} :
     matchBswap op ctx = some operand →
-    op.getOpType! ctx = .llvm .intr__bswap ∧
+    op.getOpType! ctx = Llvm.intr__bswap ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[operand] := by
   intro hmatch
@@ -498,7 +499,7 @@ theorem matchBswap_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand
 /-- What matching `llvm.intr.abs` (via `matchAbs`) syntactically guarantees. -/
 theorem matchAbs_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand} :
     matchAbs op ctx = some operand →
-    op.getOpType! ctx = .llvm .intr__abs ∧
+    op.getOpType! ctx = Llvm.intr__abs ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[operand] := by
   intro hmatch
@@ -508,7 +509,7 @@ theorem matchAbs_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand} 
 /-- What matching `llvm.intr.bitreverse` (via `matchBitreverse`) syntactically guarantees. -/
 theorem matchBitreverse_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand} :
     matchBitreverse op ctx = some operand →
-    op.getOpType! ctx = .llvm .intr__bitreverse ∧
+    op.getOpType! ctx = Llvm.intr__bitreverse ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[operand] := by
   intro hmatch
@@ -518,10 +519,10 @@ theorem matchBitreverse_implies {op : OperationPtr} {ctx : IRContext OpCode} {op
 /-- What matching `llvm.getelementptr` (via `matchGetelementptr`) syntactically guarantees. -/
 theorem matchGetelementptr_implies {op : OperationPtr} {ctx : IRContext OpCode} {base idx props} :
     matchGetelementptr op ctx = some (base, idx, props) →
-    op.getOpType! ctx = .llvm .getelementptr ∧
+    op.getOpType! ctx = Llvm.getelementptr ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[base, idx] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.getelementptr) := by
+    props = op.getProperties! ctx Llvm.getelementptr := by
   intro hmatch
   simp only [matchGetelementptr, bind, Option.bind, pure] at hmatch
   grind
@@ -529,7 +530,7 @@ theorem matchGetelementptr_implies {op : OperationPtr} {ctx : IRContext OpCode} 
 /-- What matching `llvm.mlir.poison` (via `matchPoison`) syntactically guarantees. -/
 theorem matchPoison_implies {op : OperationPtr} {ctx : IRContext OpCode} :
     matchPoison op ctx = some () →
-    op.getOpType! ctx = .llvm .mlir__poison ∧
+    op.getOpType! ctx = Llvm.mlir__poison ∧
     op.getNumOperands! ctx = 0 ∧
     op.getNumResults! ctx = 1 := by
   intro hmatch
@@ -539,9 +540,9 @@ theorem matchPoison_implies {op : OperationPtr} {ctx : IRContext OpCode} :
 /-- What matching `llvm.store` (via `matchStore`) syntactically guarantees. -/
 theorem matchStore_implies {op : OperationPtr} {ctx : IRContext OpCode} {value ptr props} :
     matchStore op ctx = some (value, ptr, props) →
-    op.getOpType! ctx = .llvm .store ∧
+    op.getOpType! ctx = Llvm.store ∧
     op.getOperands! ctx = #[value, ptr] ∧
-    props = op.getProperties! ctx (OpCode.llvm Llvm.store) := by
+    props = op.getProperties! ctx Llvm.store := by
   intro hmatch
   simp only [matchStore, bind, pure, Option.bind, guard, failure] at hmatch
   grind
@@ -549,7 +550,7 @@ theorem matchStore_implies {op : OperationPtr} {ctx : IRContext OpCode} {value p
 /-- What matching `llvm.freeze` (via `matchFreeze`) syntactically guarantees. -/
 theorem matchFreeze_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand} :
     matchFreeze op ctx = some operand →
-    op.getOpType! ctx = .llvm .freeze ∧
+    op.getOpType! ctx = Llvm.freeze ∧
     op.getNumResults! ctx = 1 ∧
     op.getOperands! ctx = #[operand] := by
   intro hmatch
