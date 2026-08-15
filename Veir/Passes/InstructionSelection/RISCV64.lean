@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+import Veir.DataLayout.RISCV64
 import Veir.Passes.Matching.LLVM.Basic
 import Veir.Passes.InstructionSelection.Common
 
@@ -860,7 +861,7 @@ def selectAddrRegImm (ptr : ValuePtr) (ctx : IRContext OpCode) : ValuePtr × Int
     let .integerType itype := (idx.getType! ctx).val | none
     guard (itype.bitwidth = 64)
     let c ← matchConstantIntVal idx ctx
-    let scale ← Attribute.sizeOfType properties.elem_type.val
+    let scale ← DataLayout.riscv64.getTypeAllocSize properties.elem_type.val
     let offset := c.value * (scale : Int)
     guard (-2048 ≤ offset ∧ offset ≤ 2047)
     return (base, offset)
@@ -940,7 +941,7 @@ def store (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 
 /--
   Lower a single-dynamic-index `llvm.getelementptr` computing `ptr + idx * scale`,
-  where `scale` is the byte size of the element type.
+  where `scale` is the allocation size (ABI stride) of the element type.
 -/
 def getelementptr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
@@ -950,7 +951,8 @@ def getelementptr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   /- The index must be `i64`. -/
   let .integerType itype := (idx.getType! ctx.raw).val | return (ctx, none)
   if itype.bitwidth ≠ 64 then return (ctx, none)
-  let some scale := Attribute.sizeOfType properties.elem_type.val | return (ctx, none)
+  let some scale := DataLayout.riscv64.getTypeAllocSize properties.elem_type.val
+    | return (ctx, none)
   let type := ((op.getResult 0).get! ctx.raw).type
   let (ctx, pcastOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[RegisterType.mk] #[ptr]
       #[] #[] () none
@@ -1010,7 +1012,7 @@ def getelementptr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
 
 /--
   Lower a single-dynamic-index `llvm.getelementptr` computing `ptr + idx * scale`,
-  where `scale` is the byte size of the element type.
+  where `scale` is the allocation size (ABI stride) of the element type.
 -/
 def getelementptr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
