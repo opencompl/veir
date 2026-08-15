@@ -33,61 +33,26 @@ match opCode with
 | .test op => Test.propertiesOf op
 
 /--
-  Does this OpCode count as an MLIR basic block terminator?
+  What are the memory effects of an operation with this opcode and these
+  properties?
 -/
-def OpCode.isTerminator (opCode : OpCode) : Bool :=
-  match opCode with
-  | .cf .br | .cf .cond_br
-  | .func .return
-  | .llvm .br | .llvm .cond_br | .llvm .return | .llvm .unreachable
-  | .riscv_cf .branch | .riscv_cf .beq | .riscv_cf .bne
-  | .riscv_cf .beqz | .riscv_cf .bnez
-  | .riscv_cf .blt | .riscv_cf .bge | .riscv_cf .bltu | .riscv_cf .bgeu
-  | .hw .output
-  | .pdl .rewrite => true
-  | _ => false
-
-/--
-  Does an operation with this opcode and these properties read memory?
--/
-def OpCode.readsMemory (opCode : OpCode) (props : _propertiesOf opCode) : Bool :=
+def OpCode.getEffects (opCode : OpCode) (props : _propertiesOf opCode) : MemoryEffects :=
   match opCode, props with
-  | .arith op, props => Arith.readsMemory op props
-  | .llvm op, props => Llvm.readsMemory op props
-  | .riscv op, props => Riscv.readsMemory op props
-  | .riscv_cf op, props => Riscv_Cf.readsMemory op props
-  | .riscv_stack op, props => Riscv_Stack.readsMemory op props
-  | .rv64 op, props => Rv64.readsMemory op props
-  | .mod_arith op, props => Mod_Arith.readsMemory op props
-  | .cf op, props => Cf.readsMemory op props
-  | .comb op, props => Comb.readsMemory op props
-  | .hw op, props => HW.readsMemory op props
-  | .builtin op, props => Builtin.readsMemory op props
-  | .func op, props => Func.readsMemory op props
-  | .datapath op, props => Datapath.readsMemory op props
-  | .pdl op, props => PDL.readsMemory op props
-  | .test op, props => Test.readsMemory op props
-
-/--
-  Does an operation with this opcode and these properties write memory?
--/
-def OpCode.writesMemory (opCode : OpCode) (props : _propertiesOf opCode) : Bool :=
-  match opCode, props with
-  | .arith op, props => Arith.writesMemory op props
-  | .llvm op, props => Llvm.writesMemory op props
-  | .riscv op, props => Riscv.writesMemory op props
-  | .riscv_cf op, props => Riscv_Cf.writesMemory op props
-  | .riscv_stack op, props => Riscv_Stack.writesMemory op props
-  | .rv64 op, props => Rv64.writesMemory op props
-  | .mod_arith op, props => Mod_Arith.writesMemory op props
-  | .cf op, props => Cf.writesMemory op props
-  | .comb op, props => Comb.writesMemory op props
-  | .hw op, props => HW.writesMemory op props
-  | .builtin op, props => Builtin.writesMemory op props
-  | .func op, props => Func.writesMemory op props
-  | .datapath op, props => Datapath.writesMemory op props
-  | .pdl op, props => PDL.writesMemory op props
-  | .test op, props => Test.writesMemory op props
+  | .arith op, props => Arith.getEffects op props
+  | .llvm op, props => Llvm.getEffects op props
+  | .riscv op, props => Riscv.getEffects op props
+  | .riscv_cf op, props => Riscv_Cf.getEffects op props
+  | .riscv_stack op, props => Riscv_Stack.getEffects op props
+  | .rv64 op, props => Rv64.getEffects op props
+  | .mod_arith op, props => Mod_Arith.getEffects op props
+  | .cf op, props => Cf.getEffects op props
+  | .comb op, props => Comb.getEffects op props
+  | .hw op, props => HW.getEffects op props
+  | .builtin op, props => Builtin.getEffects op props
+  | .func op, props => Func.getEffects op props
+  | .datapath op, props => Datapath.getEffects op props
+  | .pdl op, props => PDL.getEffects op props
+  | .test op, props => Test.getEffects op props
 
 /--
   Does an operation with this opcode and these properties have effects that
@@ -180,6 +145,28 @@ def OpCode.hasNoTerminator (opCode : OpCode) (index : Nat) : Bool :=
   | .datapath op => HasOpInfo.hasNoTerminator op index
   | .pdl op => HasOpInfo.hasNoTerminator op index
   | .test op => HasOpInfo.hasNoTerminator op index
+
+/--
+  Does this OpCode count as an MLIR basic block terminator? Dialects that do
+  not say otherwise inherit the `HasOpInfo` default of `false`.
+-/
+def OpCode.isTerminator (opCode : OpCode) : Bool :=
+  match opCode with
+  | .arith op => HasOpInfo.isTerminator op
+  | .llvm op => HasOpInfo.isTerminator op
+  | .riscv op => HasOpInfo.isTerminator op
+  | .riscv_cf op => HasOpInfo.isTerminator op
+  | .riscv_stack op => HasOpInfo.isTerminator op
+  | .rv64 op => HasOpInfo.isTerminator op
+  | .mod_arith op => HasOpInfo.isTerminator op
+  | .cf op => HasOpInfo.isTerminator op
+  | .comb op => HasOpInfo.isTerminator op
+  | .hw op => HasOpInfo.isTerminator op
+  | .builtin op => HasOpInfo.isTerminator op
+  | .func op => HasOpInfo.isTerminator op
+  | .datapath op => HasOpInfo.isTerminator op
+  | .pdl op => HasOpInfo.isTerminator op
+  | .test op => HasOpInfo.isTerminator op
 
 /--
   Does this `OpCode` materialize a literal constant value, i.e. an op
@@ -282,12 +269,12 @@ instance : HasOpInfo OpCode where
   fromAttrDict := Properties.fromAttrDict
   toAttrDict := Properties.toAttrDict
   hasSideEffects := OpCode.hasSideEffects
-  readsMemory := OpCode.readsMemory
-  writesMemory := OpCode.writesMemory
+  getEffects := OpCode.getEffects
   isConstantLike := OpCode.isConstantLike
   isFunctionLike := OpCode.isFunctionLike
   hasSSADominance := OpCode.hasSSADominance
   hasNoTerminator := OpCode.hasNoTerminator
+  isTerminator := OpCode.isTerminator
 
 #generate_has_dialect_instances OpCode
 
