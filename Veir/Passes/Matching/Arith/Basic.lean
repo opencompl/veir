@@ -14,7 +14,6 @@ def matchArithConstantIntVal (val : ValuePtr) (ctx : IRContext OpCode) : Option 
   let properties := result.op.getProperties! ctx Arith.constant
   return properties.value
 
-def matchArithRemui (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.arith .remui)) := do
+def matchArithRemui (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.arith .remui)) := do
   let (op, properties) ← matchOp op ctx (.arith .remui) 2
   return (op[0]!, op[1]!, properties)
-  

@@ -38,7 +38,7 @@ def getIntByteTypeBitwidth (t : TypeAttr) : Option Nat :=
 def lowerUnaryWLocal {P : Type}
     (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × P))
     (op64 op32 : Riscv)
-    (props64 : propertiesOf (.riscv op64)) (props32 : propertiesOf (.riscv op32))
+    (props64 : propertiesOf (OpCode.riscv op64)) (props32 : propertiesOf (OpCode.riscv op32))
     (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (operand, _) := match? op ctx | return (ctx, none)
@@ -66,8 +66,8 @@ def lowerUnaryWLocal {P : Type}
 def lowerExtLocal {P : Type}
     (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × P))
     (op8 op16 op32 : Riscv)
-    (props8 : propertiesOf (.riscv op8)) (props16 : propertiesOf (.riscv op16))
-    (props32 : propertiesOf (.riscv op32))
+    (props8 : propertiesOf (OpCode.riscv op8)) (props16 : propertiesOf (OpCode.riscv op16))
+    (props32 : propertiesOf (OpCode.riscv op32))
     (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (operand, _) := match? op ctx | return (ctx, none)
@@ -98,7 +98,7 @@ def lowerExtLocal {P : Type}
 def lowerBinaryWLocal {P : Type}
     (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr × P))
     (op64 op32 : Riscv)
-    (props64 : propertiesOf (.riscv op64)) (props32 : propertiesOf (.riscv op32))
+    (props64 : propertiesOf (OpCode.riscv op64)) (props32 : propertiesOf (OpCode.riscv op32))
     (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (lhs, rhs, _) := match? op ctx | return (ctx, none)
@@ -124,7 +124,7 @@ def lowerBinaryWLocal {P : Type}
 def lowerByteBinaryWLocal {P : Type}
     (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr × P))
     (op64 op32 : Riscv)
-    (props64 : propertiesOf (.riscv op64)) (props32 : propertiesOf (.riscv op32))
+    (props64 : propertiesOf (OpCode.riscv op64)) (props32 : propertiesOf (OpCode.riscv op32))
     (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (lhs, rhs, _) := match? op ctx | return (ctx, none)
@@ -153,7 +153,7 @@ def lowerByteBinaryWLocal {P : Type}
 -/
 def lowerBinaryRegLocal
     (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr))
-    (rop : Riscv) (props : propertiesOf (.riscv rop))
+    (rop : Riscv) (props : propertiesOf (OpCode.riscv rop))
     (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (lhs, rhs) := match? op ctx | return (ctx, none)
@@ -174,7 +174,7 @@ def lowerBinaryRegLocal
 -/
 def lowerBitwiseRegLocal {P : Type}
     (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr × P))
-    (rop : Riscv) (props : propertiesOf (.riscv rop))
+    (rop : Riscv) (props : propertiesOf (OpCode.riscv rop))
     (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (lhs, rhs, _) := match? op ctx | return (ctx, none)
@@ -194,7 +194,7 @@ def lowerBitwiseRegLocal {P : Type}
 -/
 def lowerSignedMinMaxLocal
     (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr))
-    (rop : Riscv) (props : propertiesOf (.riscv rop))
+    (rop : Riscv) (props : propertiesOf (OpCode.riscv rop))
     (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (lhs, rhs) := match? op ctx | return (ctx, none)
@@ -228,7 +228,7 @@ def lowerSignedMinMaxLocal
 def lowerRotateLocal
     (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr × ValuePtr))
     (op64 op32 : Riscv)
-    (props64 : propertiesOf (.riscv op64)) (props32 : propertiesOf (.riscv op32))
+    (props64 : propertiesOf (OpCode.riscv op64)) (props32 : propertiesOf (OpCode.riscv op32))
     (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (a, b, amt) := match? op ctx | return (ctx, none)

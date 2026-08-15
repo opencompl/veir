@@ -112,6 +112,9 @@ class HasOpInfo (opCode: Type)
   -/
   isTerminator : opCode → Bool := fun _ => false
 
+abbrev propertiesOf {OpCode : Type} [HasOpInfo OpCode] (opCode : OpCode) :=
+  HasOpInfo.propertiesOf opCode
+
 instance [HasOpInfo opCode] {op : opCode} : Hashable (HasOpInfo.propertiesOf op) where
   hash := HasOpInfo.propertiesHash.hash
 

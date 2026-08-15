@@ -9,19 +9,19 @@ public section
 namespace Veir
 
 
-def matchAddi (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.llvm .add)) := do
+def matchAddi (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.llvm .add)) := do
   let (op, properties) ← matchOp op ctx (.llvm .add) 2
   return (op[0]!, op[1]!, properties)
 
-def matchAdd (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.llvm .add)) := do
+def matchAdd (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.llvm .add)) := do
   let (op, properties) ← matchOp op ctx (.llvm .add) 2
   return (op[0]!, op[1]!, properties)
 
-def matchSubi (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.llvm .sub)) := do
+def matchSubi (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.llvm .sub)) := do
   let (op, properties) ← matchOp op ctx (.llvm .sub) 2
   return (op[0]!, op[1]!, properties)
 
-def matchMuli (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.llvm .mul)) := do
+def matchMuli (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.llvm .mul)) := do
   let (op, properties) ← matchOp op ctx (.llvm .mul) 2
   return (op[0]!, op[1]!, properties)
 
@@ -29,11 +29,11 @@ def matchAndi (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr ×
   let (op, _) ← matchOp op ctx (.llvm .and) 2
   return (op[0]!, op[1]!)
 
-def matchAnd (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.llvm .and)) := do
+def matchAnd (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.llvm .and)) := do
   let (op, properties) ← matchOp op ctx (.llvm .and) 2
   return (op[0]!, op[1]!, properties)
 
-def matchOri (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.llvm .or)) := do
+def matchOri (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.llvm .or)) := do
   let (op, properties) ← matchOp op ctx (.llvm .or) 2
   return (op[0]!, op[1]!, properties)
 
@@ -70,15 +70,15 @@ def matchCastOp (op : OperationPtr) (ctx : IRContext OpCode) : Option ValuePtr :
   let (op, _) ← matchOp op ctx (.builtin .unrealized_conversion_cast) 1
   return op[0]!
 
-def matchAshr (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.llvm .ashr)) := do
+def matchAshr (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.llvm .ashr)) := do
   let (op, properties) ← matchOp op ctx (.llvm .ashr) 2
   return (op[0]!, op[1]!, properties)
 
-def matchIcmp (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.llvm .icmp)) := do
+def matchIcmp (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.llvm .icmp)) := do
   let (op, properties) ← matchOp op ctx (.llvm .icmp) 2
   return (op[0]!, op[1]!, properties)
 
-def matchOr (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.llvm .or)) := do
+def matchOr (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.llvm .or)) := do
   let (op, properties) ← matchOp op ctx (.llvm .or) 2
   return (op[0]!, op[1]!, properties)
 
@@ -88,7 +88,7 @@ def matchSelect (op : OperationPtr) (ctx : IRContext OpCode) :
   let (op, _) ← matchOp op ctx (.llvm .select) 3
   return (op[0]!, op[1]!, op[2]!)
 
-def matchXor (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.llvm .xor)) := do
+def matchXor (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.llvm .xor)) := do
   let (op, properties) ← matchOp op ctx (.llvm .xor) 2
   return (op[0]!, op[1]!, properties)
 
@@ -160,70 +160,70 @@ def matchNot (val : ValuePtr) (ctx : IRContext OpCode) : Option ValuePtr := do
   guard (cst.value = -1)
   return lhs
 
-def matchMul (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.llvm .mul)) := do
+def matchMul (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.llvm .mul)) := do
   let (op, properties) ← matchOp op ctx (.llvm .mul) 2
   return (op[0]!, op[1]!, properties)
 
-def matchSdiv (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.llvm .sdiv)) := do
+def matchSdiv (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.llvm .sdiv)) := do
   let (op, properties) ← matchOp op ctx (.llvm .sdiv) 2
   return (op[0]!, op[1]!, properties)
 
-def matchUdiv (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.llvm .udiv)) := do
+def matchUdiv (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.llvm .udiv)) := do
   let (op, properties) ← matchOp op ctx (.llvm .udiv) 2
   return (op[0]!, op[1]!, properties)
 
-def matchSrem (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.llvm .srem)) := do
+def matchSrem (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.llvm .srem)) := do
   let (op, properties) ← matchOp op ctx (.llvm .srem) 2
   return (op[0]!, op[1]!, properties)
 
-def matchUrem (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.llvm .urem)) := do
+def matchUrem (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.llvm .urem)) := do
   let (op, properties) ← matchOp op ctx (.llvm .urem) 2
   return (op[0]!, op[1]!, properties)
 
-def matchSext (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (.llvm .sext)) := do
+def matchSext (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.llvm .sext)) := do
   let (op, properties) ← matchOp op ctx (.llvm .sext) 1
   return (op[0]!, properties)
 
-def matchTrunc (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (.llvm .trunc)) := do
+def matchTrunc (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.llvm .trunc)) := do
   let (op, properties) ← matchOp op ctx (.llvm .trunc) 1
   return (op[0]!, properties)
 
-def matchZext (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (.llvm .zext)) := do
+def matchZext (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.llvm .zext)) := do
   let (op, properties) ← matchOp op ctx (.llvm .zext) 1
   return (op[0]!, properties)
 
-def matchShl (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.llvm .shl)) := do
+def matchShl (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.llvm .shl)) := do
   let (op, properties) ← matchOp op ctx (.llvm .shl) 2
   return (op[0]!, op[1]!, properties)
 
-def matchLshr (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.llvm .lshr)) := do
+def matchLshr (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.llvm .lshr)) := do
   let (op, properties) ← matchOp op ctx (.llvm .lshr) 2
   return (op[0]!, op[1]!, properties)
 
-def matchSub (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.llvm .sub)) := do
+def matchSub (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.llvm .sub)) := do
   let (op, properties) ← matchOp op ctx (.llvm .sub) 2
   return (op[0]!, op[1]!, properties)
 
-def matchBitcast (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (.llvm .bitcast)) := do
+def matchBitcast (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.llvm .bitcast)) := do
   let (op, properties) ← matchOp op ctx (.llvm .bitcast) 1
   return (op[0]!, properties)
 
-def matchLoad (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (.llvm .load)) := do
+def matchLoad (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (OpCode.llvm .load)) := do
   let (op, properties) ← matchOp op ctx (.llvm .load) 1
   return (op[0]!, properties)
 
 def matchCtlz (op : OperationPtr) (ctx : IRContext OpCode) :
-    Option (ValuePtr × propertiesOf (.llvm .intr__ctlz)) := do
+    Option (ValuePtr × propertiesOf (OpCode.llvm .intr__ctlz)) := do
   let (op, properties) ← matchOp op ctx (.llvm .intr__ctlz) 1
   return (op[0]!, properties)
 
 def matchCttz (op : OperationPtr) (ctx : IRContext OpCode) :
-    Option (ValuePtr × propertiesOf (.llvm .intr__cttz)) := do
+    Option (ValuePtr × propertiesOf (OpCode.llvm .intr__cttz)) := do
   let (op, properties) ← matchOp op ctx (.llvm .intr__cttz) 1
   return (op[0]!, properties)
 
 def matchCtpop (op : OperationPtr) (ctx : IRContext OpCode) :
-    Option (ValuePtr × propertiesOf (.llvm .intr__ctpop)) := do
+    Option (ValuePtr × propertiesOf (OpCode.llvm .intr__ctpop)) := do
   let (op, properties) ← matchOp op ctx (.llvm .intr__ctpop) 1
   return (op[0]!, properties)
 
@@ -239,7 +239,7 @@ def matchBitreverse (op : OperationPtr) (ctx : IRContext OpCode) : Option ValueP
   Match a `llvm.getelementptr` with a single dynamic index.
 -/
 def matchGetelementptr (op : OperationPtr) (ctx : IRContext OpCode) :
-    Option (ValuePtr × ValuePtr × propertiesOf (.llvm .getelementptr)) := do
+    Option (ValuePtr × ValuePtr × propertiesOf (OpCode.llvm .getelementptr)) := do
   let (op, properties) ← matchOp op ctx (.llvm .getelementptr) 2
   return (op[0]!, op[1]!, properties)
 
@@ -248,7 +248,7 @@ def matchPoison (op : OperationPtr) (ctx : IRContext OpCode) : Option Unit := do
   return ()
 
 def matchStore (op : OperationPtr) (ctx : IRContext OpCode) :
-    Option (ValuePtr × ValuePtr × propertiesOf (.llvm .store)) := do
+    Option (ValuePtr × ValuePtr × propertiesOf (OpCode.llvm .store)) := do
   guard (op.getOpType! ctx = .llvm .store)
   guard (op.getNumOperands! ctx = 2)
   let operands := op.getOperands! ctx

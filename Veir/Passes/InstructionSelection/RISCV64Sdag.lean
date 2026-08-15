@@ -28,7 +28,7 @@ def singleSetBit (x : BitVec 64) : Option Int :=
 -/
 def lowerBinopNotLocal {P : Type}
     (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr × P))
-    (dst : Riscv) (props : propertiesOf (.riscv dst))
+    (dst : Riscv) (props : propertiesOf (OpCode.riscv dst))
     (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (lhs, rhs, _) := match? op ctx | return (ctx, none)
@@ -94,7 +94,7 @@ def xnor (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def orcbMaskBV (y : Nat) : BitVec 64 := BitVec.ofNat 64 0x0101010101010101 <<< y
 
 def matchOrcbRight (b m : ValuePtr) (y : Nat) (ctx : IRContext OpCode) :
-    Option (propertiesOf (.llvm .lshr)) := do
+    Option (propertiesOf (OpCode.llvm .lshr)) := do
   if y = 0 then
     if b = m then return { exact := false } else none
   let some bOp := getDefiningOp b ctx | none

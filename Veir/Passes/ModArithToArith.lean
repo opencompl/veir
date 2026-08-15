@@ -88,7 +88,7 @@ def emitArithConstant (rewriter : PatternRewriter OpCode) (c : Int) (width : Nat
 
 /-- Emit a binary Arith op `arithOp` on `a` and `b` -/
 def emitArithBinOp (rewriter : PatternRewriter OpCode) (arithOp : Arith)
-    (props : propertiesOf (.arith arithOp)) (a b : ValuePtr) (ip : InsertPoint) :
+    (props : propertiesOf (OpCode.arith arithOp)) (a b : ValuePtr) (ip : InsertPoint) :
     Option (PatternRewriter OpCode × ValuePtr) := do
   let ty := a.getType! rewriter.ctx.raw
   let (rewriter, r) ← rewriter.createOp! (.arith arithOp)

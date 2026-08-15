@@ -251,8 +251,6 @@ instance : HasOpInfo OpCode where
 
 #generate_has_dialect_instances OpCode
 
-abbrev propertiesOf := HasOpInfo.propertiesOf (self := instHasOpInfoOpCode)
-
 /--
   Is this `OpCode` commutative in its operands, i.e. `op x y` always
   computes the same value as `op y x`?

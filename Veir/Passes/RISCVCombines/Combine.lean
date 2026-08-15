@@ -1757,7 +1757,7 @@ def sexth_xor := drop_ext_of_bitwise .sexth .xor false
     These stores have no results, so they can't go through `matchOp` (which
     requires exactly one). -/
 private def matchRiscvStore (store : Riscv) (op : OperationPtr) (ctx : IRContext OpCode) :
-    Option (ValuePtr × ValuePtr × propertiesOf (.riscv store)) := do
+    Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv store)) := do
   guard (op.getOpType! ctx = .riscv store)
   guard (op.getNumOperands! ctx = 2)
   let operands := op.getOperands! ctx
