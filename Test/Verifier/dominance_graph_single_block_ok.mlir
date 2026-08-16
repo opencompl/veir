@@ -1,5 +1,5 @@
 // RUN: veir-opt %s | filecheck %s
-// RUN: MLIR_VALID
+// RUN: MLIR_ROUNDTRIP
 
 // A single-block region of an unregistered/test operation is a graph region,
 // where operations may use each other without respecting source order, so this

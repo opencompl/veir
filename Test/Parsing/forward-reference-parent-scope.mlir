@@ -1,5 +1,5 @@
 // RUN: veir-opt %s | filecheck %s
-// RUN: MLIR_VALID
+// RUN: MLIR_ROUNDTRIP
 
 // A use inside a nested region may forward-reference a value defined later in
 // the parent region. The use sits in a block of the nested region that is

@@ -1,5 +1,5 @@
 // RUN: veir-opt %s | filecheck %s
-// RUN: MLIR_VALID
+// RUN: MLIR_ROUNDTRIP
 
 // A nested test-op region captures %x from ^A, and ^A does not dominate ^B (the
 // block that owns the nested region). The capture is used in a NON-entry block

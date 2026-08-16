@@ -1,5 +1,5 @@
 // RUN: veir-opt %s | filecheck %s
-// RUN: MLIR_VALID
+// RUN: MLIR_ROUNDTRIP
 
 // The uses in ^g1 are never dominance-checked: as in MLIR, dominance is only
 // verified in blocks reachable from their region's entry, and ^g1 has no

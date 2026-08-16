@@ -1,5 +1,5 @@
 // RUN: veir-opt %s | filecheck %s
-// RUN: MLIR_VALID
+// RUN: MLIR_ROUNDTRIP
 
 // A multi-block region always has SSA dominance, even under an unregistered op
 // (as in MLIR; see getDominanceInfo in mlir/lib/IR/Dominance.cpp), so ^bb0 does
