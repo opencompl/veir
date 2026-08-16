@@ -434,10 +434,10 @@ def RewritePattern.GreedyRewritePattern (patterns : Array (RewritePattern OpInfo
 - If any pattern failed, return none.
 -/
 private partial def RewritePattern.applyOnceInContext
-    (pattern: RewritePattern OpCode) (ctx: WfIRContext OpCode) :
-    Option (Bool × WfIRContext OpCode) := do
+    (pattern: RewritePattern OpInfo) (ctx: WfIRContext OpInfo) :
+    Option (Bool × WfIRContext OpInfo) := do
   let worklist := PatternRewriter.Worklist.createFromContext ctx
-  let mut rewriter : PatternRewriter OpCode := { ctx, hasDoneAction := false, worklist }
+  let mut rewriter : PatternRewriter OpInfo := { ctx, hasDoneAction := false, worklist }
   while !rewriter.worklist.isEmpty do
     let (opOpt, newWorklist) := rewriter.worklist.pop
     let op := opOpt.get!
@@ -452,8 +452,8 @@ private partial def RewritePattern.applyOnceInContext
       failure
   pure (rewriter.hasDoneAction, rewriter.ctx)
 
-def RewritePattern.applyInContext (pattern: RewritePattern OpCode)
-    (ctx: WfIRContext OpCode) : Option (WfIRContext OpCode) := do
+def RewritePattern.applyInContext (pattern: RewritePattern OpInfo)
+    (ctx: WfIRContext OpInfo) : Option (WfIRContext OpInfo) := do
   let mut hasDoneAction := true
   let mut ctx := ctx
   while hasDoneAction do
