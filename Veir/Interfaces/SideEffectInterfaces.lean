@@ -19,9 +19,10 @@ public section
 /--
   What memory effects may this operation have?
 
-  NOTE: an operation without effects is not necessarily safe to speculate. For
-        that we also need it to never trigger immediate UB. We'll have to deal
-        with this later on.
+  NOTE: An operation with no memory effects is not necessarily speculatable: it
+        may still have undefined behavior or fail to terminate. MLIR models
+        these properties separately with `ConditionallySpeculatable`; VEIR does
+        not support this interface yet.
 
   TODO: recursively walk regions to get a less conservative answer
 -/
