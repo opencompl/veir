@@ -131,16 +131,6 @@ theorem getDefiningOp_implies {val : ValuePtr} {ctx : IRContext OpCode} {op} :
   simp only [getDefiningOp] at hmatch
   grind
 
-/-- What matching `builtin.unrealized_conversion_cast` (via `matchCastOp`) syntactically guarantees. -/
-theorem matchCastOp_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand} :
-    matchCastOp op ctx = some operand →
-    op.getOpType! ctx = .builtin .unrealized_conversion_cast ∧
-    op.getNumResults! ctx = 1 ∧
-    op.getOperands! ctx = #[operand] := by
-  intro hmatch
-  simp only [matchCastOp, bind, Option.bind, pure] at hmatch
-  grind
-
 /-- What matching `llvm.ashr` (via `matchAshr`) syntactically guarantees. -/
 theorem matchAshr_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs props} :
     matchAshr op ctx = some (lhs, rhs, props) →

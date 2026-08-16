@@ -66,10 +66,6 @@ def getDefiningOp (val : ValuePtr) (_ctx : IRContext OpCode) : Option OperationP
   let .opResult opResultPtr := val | none
   some opResultPtr.op
 
-def matchCastOp (op : OperationPtr) (ctx : IRContext OpCode) : Option ValuePtr := do
-  let (op, _) ← matchOp op ctx (.builtin .unrealized_conversion_cast) 1
-  return op[0]!
-
 def matchAshr (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.llvm .ashr)) := do
   let (op, properties) ← matchOp op ctx (.llvm .ashr) 2
   return (op[0]!, op[1]!, properties)
