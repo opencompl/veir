@@ -854,7 +854,7 @@ def bitcast (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 -/
 def selectAddrRegImm (ptr : ValuePtr) (ctx : IRContext OpCode) : ValuePtr × Int :=
   let folded : Option (ValuePtr × Int) := do
-    let gepOp ← getDefiningOp ptr ctx
+    let gepOp ← ptr.definingOp?
     let (base, idx, properties) ← matchGetelementptr gepOp ctx
     /- A single dynamic index with no trailing constant indices, as in `getelementptr_local`. -/
     guard (properties.rawConstantIndices.values = #[(-2147483648 : Int)])

@@ -36,7 +36,7 @@ def isConstantPowerOfTwo (v : ValuePtr) (ctx : IRContext OpCode) : Option Nat :=
 def right_identity_zero_add_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (lhs, rhs, _) := matchRVAdd op ctx | return (ctx, none)
-  let some liOp := getDefiningOp rhs ctx | return (ctx, none)
+  let some liOp := rhs.definingOp? | return (ctx, none)
   let some cst := matchRVLi liOp ctx | return (ctx, none)
   if cst.value.value ≠ 0 then return (ctx, none)
   some (ctx, some (#[], #[lhs]))
@@ -87,9 +87,9 @@ def select_constant_cmp_false (rewriter : PatternRewriter OpCode) (op : Operatio
 def AndSextSext_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, v1, _) := matchAnd op ctx | return (ctx, none)
-  let some dX := getDefiningOp v0 ctx | return (ctx, none)
+  let some dX := v0.definingOp? | return (ctx, none)
   let some (x, _xp) := matchSext dX ctx | return (ctx, none)
-  let some dY := getDefiningOp v1 ctx | return (ctx, none)
+  let some dY := v1.definingOp? | return (ctx, none)
   let some (y, yp) := matchSext dY ctx | return (ctx, none)
   let (ctx, inner) ← WfRewriter.createOp! ctx Llvm.and #[x.getType! ctx.raw] #[x, y]
     #[] #[] () none
@@ -105,9 +105,9 @@ def AndSextSext (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def OrSextSext_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, v1, oprops) := matchOr op ctx | return (ctx, none)
-  let some dX := getDefiningOp v0 ctx | return (ctx, none)
+  let some dX := v0.definingOp? | return (ctx, none)
   let some (x, _xp) := matchSext dX ctx | return (ctx, none)
-  let some dY := getDefiningOp v1 ctx | return (ctx, none)
+  let some dY := v1.definingOp? | return (ctx, none)
   let some (y, yp) := matchSext dY ctx | return (ctx, none)
   let (ctx, inner) ← WfRewriter.createOp! ctx Llvm.or #[x.getType! ctx.raw] #[x, y]
     #[] #[] oprops none
@@ -123,9 +123,9 @@ def OrSextSext (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def XorSextSext_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, v1, xprops) := matchXor op ctx | return (ctx, none)
-  let some dX := getDefiningOp v0 ctx | return (ctx, none)
+  let some dX := v0.definingOp? | return (ctx, none)
   let some (x, _xp) := matchSext dX ctx | return (ctx, none)
-  let some dY := getDefiningOp v1 ctx | return (ctx, none)
+  let some dY := v1.definingOp? | return (ctx, none)
   let some (y, yp) := matchSext dY ctx | return (ctx, none)
   let (ctx, inner) ← WfRewriter.createOp! ctx Llvm.xor #[x.getType! ctx.raw] #[x, y]
     #[] #[] xprops none
@@ -141,9 +141,9 @@ def XorSextSext (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def AndZextZext_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, v1, _) := matchAnd op ctx | return (ctx, none)
-  let some dX := getDefiningOp v0 ctx | return (ctx, none)
+  let some dX := v0.definingOp? | return (ctx, none)
   let some (x, _xp) := matchZext dX ctx | return (ctx, none)
-  let some dY := getDefiningOp v1 ctx | return (ctx, none)
+  let some dY := v1.definingOp? | return (ctx, none)
   let some (y, yp) := matchZext dY ctx | return (ctx, none)
   let (ctx, inner) ← WfRewriter.createOp! ctx Llvm.and #[x.getType! ctx.raw] #[x, y]
     #[] #[] () none
@@ -159,9 +159,9 @@ def AndZextZext (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def OrZextZext_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, v1, oprops) := matchOr op ctx | return (ctx, none)
-  let some dX := getDefiningOp v0 ctx | return (ctx, none)
+  let some dX := v0.definingOp? | return (ctx, none)
   let some (x, _xp) := matchZext dX ctx | return (ctx, none)
-  let some dY := getDefiningOp v1 ctx | return (ctx, none)
+  let some dY := v1.definingOp? | return (ctx, none)
   let some (y, yp) := matchZext dY ctx | return (ctx, none)
   let (ctx, inner) ← WfRewriter.createOp! ctx Llvm.or #[x.getType! ctx.raw] #[x, y]
     #[] #[] oprops none
@@ -177,9 +177,9 @@ def OrZextZext (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def XorZextZext_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, v1, xprops) := matchXor op ctx | return (ctx, none)
-  let some dX := getDefiningOp v0 ctx | return (ctx, none)
+  let some dX := v0.definingOp? | return (ctx, none)
   let some (x, _xp) := matchZext dX ctx | return (ctx, none)
-  let some dY := getDefiningOp v1 ctx | return (ctx, none)
+  let some dY := v1.definingOp? | return (ctx, none)
   let some (y, yp) := matchZext dY ctx | return (ctx, none)
   let (ctx, inner) ← WfRewriter.createOp! ctx Llvm.xor #[x.getType! ctx.raw] #[x, y]
     #[] #[] xprops none
@@ -195,9 +195,9 @@ def XorZextZext (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def AndTruncTrunc_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, v1, _) := matchAnd op ctx | return (ctx, none)
-  let some dX := getDefiningOp v0 ctx | return (ctx, none)
+  let some dX := v0.definingOp? | return (ctx, none)
   let some (x, _xp) := matchTrunc dX ctx | return (ctx, none)
-  let some dY := getDefiningOp v1 ctx | return (ctx, none)
+  let some dY := v1.definingOp? | return (ctx, none)
   let some (y, yp) := matchTrunc dY ctx | return (ctx, none)
   let (ctx, inner) ← WfRewriter.createOp! ctx Llvm.and #[x.getType! ctx.raw] #[x, y]
     #[] #[] () none
@@ -213,9 +213,9 @@ def AndTruncTrunc (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def OrTruncTrunc_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, v1, oprops) := matchOr op ctx | return (ctx, none)
-  let some dX := getDefiningOp v0 ctx | return (ctx, none)
+  let some dX := v0.definingOp? | return (ctx, none)
   let some (x, _xp) := matchTrunc dX ctx | return (ctx, none)
-  let some dY := getDefiningOp v1 ctx | return (ctx, none)
+  let some dY := v1.definingOp? | return (ctx, none)
   let some (y, yp) := matchTrunc dY ctx | return (ctx, none)
   let (ctx, inner) ← WfRewriter.createOp! ctx Llvm.or #[x.getType! ctx.raw] #[x, y]
     #[] #[] oprops none
@@ -231,9 +231,9 @@ def OrTruncTrunc (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def XorTruncTrunc_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, v1, xprops) := matchXor op ctx | return (ctx, none)
-  let some dX := getDefiningOp v0 ctx | return (ctx, none)
+  let some dX := v0.definingOp? | return (ctx, none)
   let some (x, _xp) := matchTrunc dX ctx | return (ctx, none)
-  let some dY := getDefiningOp v1 ctx | return (ctx, none)
+  let some dY := v1.definingOp? | return (ctx, none)
   let some (y, yp) := matchTrunc dY ctx | return (ctx, none)
   let (ctx, inner) ← WfRewriter.createOp! ctx Llvm.xor #[x.getType! ctx.raw] #[x, y]
     #[] #[] xprops none
@@ -249,9 +249,9 @@ def XorTruncTrunc (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def AndShlShl_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, v1, _) := matchAnd op ctx | return (ctx, none)
-  let some dX := getDefiningOp v0 ctx | return (ctx, none)
+  let some dX := v0.definingOp? | return (ctx, none)
   let some (x, z0, _p0) := matchShl dX ctx | return (ctx, none)
-  let some dY := getDefiningOp v1 ctx | return (ctx, none)
+  let some dY := v1.definingOp? | return (ctx, none)
   let some (y, z1, p1) := matchShl dY ctx | return (ctx, none)
   if z0 != z1 then return (ctx, none)
   let (ctx, inner) ← WfRewriter.createOp! ctx Llvm.and #[x.getType! ctx.raw] #[x, y]
@@ -268,9 +268,9 @@ def AndShlShl (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def OrShlShl_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, v1, oprops) := matchOr op ctx | return (ctx, none)
-  let some dX := getDefiningOp v0 ctx | return (ctx, none)
+  let some dX := v0.definingOp? | return (ctx, none)
   let some (x, z0, _p0) := matchShl dX ctx | return (ctx, none)
-  let some dY := getDefiningOp v1 ctx | return (ctx, none)
+  let some dY := v1.definingOp? | return (ctx, none)
   let some (y, z1, p1) := matchShl dY ctx | return (ctx, none)
   if z0 != z1 then return (ctx, none)
   let (ctx, inner) ← WfRewriter.createOp! ctx Llvm.or #[x.getType! ctx.raw] #[x, y]
@@ -287,9 +287,9 @@ def OrShlShl (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def XorShlShl_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, v1, xprops) := matchXor op ctx | return (ctx, none)
-  let some dX := getDefiningOp v0 ctx | return (ctx, none)
+  let some dX := v0.definingOp? | return (ctx, none)
   let some (x, z0, _p0) := matchShl dX ctx | return (ctx, none)
-  let some dY := getDefiningOp v1 ctx | return (ctx, none)
+  let some dY := v1.definingOp? | return (ctx, none)
   let some (y, z1, p1) := matchShl dY ctx | return (ctx, none)
   if z0 != z1 then return (ctx, none)
   let (ctx, inner) ← WfRewriter.createOp! ctx Llvm.xor #[x.getType! ctx.raw] #[x, y]
@@ -306,9 +306,9 @@ def XorShlShl (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def AndLshrLshr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, v1, _) := matchAnd op ctx | return (ctx, none)
-  let some dX := getDefiningOp v0 ctx | return (ctx, none)
+  let some dX := v0.definingOp? | return (ctx, none)
   let some (x, z0, _p0) := matchLshr dX ctx | return (ctx, none)
-  let some dY := getDefiningOp v1 ctx | return (ctx, none)
+  let some dY := v1.definingOp? | return (ctx, none)
   let some (y, z1, p1) := matchLshr dY ctx | return (ctx, none)
   if z0 != z1 then return (ctx, none)
   let (ctx, inner) ← WfRewriter.createOp! ctx Llvm.and #[x.getType! ctx.raw] #[x, y]
@@ -325,9 +325,9 @@ def AndLshrLshr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def OrLshrLshr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, v1, oprops) := matchOr op ctx | return (ctx, none)
-  let some dX := getDefiningOp v0 ctx | return (ctx, none)
+  let some dX := v0.definingOp? | return (ctx, none)
   let some (x, z0, _p0) := matchLshr dX ctx | return (ctx, none)
-  let some dY := getDefiningOp v1 ctx | return (ctx, none)
+  let some dY := v1.definingOp? | return (ctx, none)
   let some (y, z1, p1) := matchLshr dY ctx | return (ctx, none)
   if z0 != z1 then return (ctx, none)
   let (ctx, inner) ← WfRewriter.createOp! ctx Llvm.or #[x.getType! ctx.raw] #[x, y]
@@ -344,9 +344,9 @@ def OrLshrLshr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def XorLshrLshr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, v1, xprops) := matchXor op ctx | return (ctx, none)
-  let some dX := getDefiningOp v0 ctx | return (ctx, none)
+  let some dX := v0.definingOp? | return (ctx, none)
   let some (x, z0, _p0) := matchLshr dX ctx | return (ctx, none)
-  let some dY := getDefiningOp v1 ctx | return (ctx, none)
+  let some dY := v1.definingOp? | return (ctx, none)
   let some (y, z1, p1) := matchLshr dY ctx | return (ctx, none)
   if z0 != z1 then return (ctx, none)
   let (ctx, inner) ← WfRewriter.createOp! ctx Llvm.xor #[x.getType! ctx.raw] #[x, y]
@@ -363,9 +363,9 @@ def XorLshrLshr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def AndAshrAshr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, v1, _) := matchAnd op ctx | return (ctx, none)
-  let some dX := getDefiningOp v0 ctx | return (ctx, none)
+  let some dX := v0.definingOp? | return (ctx, none)
   let some (x, z0, _p0) := matchAshr dX ctx | return (ctx, none)
-  let some dY := getDefiningOp v1 ctx | return (ctx, none)
+  let some dY := v1.definingOp? | return (ctx, none)
   let some (y, z1, p1) := matchAshr dY ctx | return (ctx, none)
   if z0 != z1 then return (ctx, none)
   let (ctx, inner) ← WfRewriter.createOp! ctx Llvm.and #[x.getType! ctx.raw] #[x, y]
@@ -382,9 +382,9 @@ def AndAshrAshr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def OrAshrAshr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, v1, oprops) := matchOr op ctx | return (ctx, none)
-  let some dX := getDefiningOp v0 ctx | return (ctx, none)
+  let some dX := v0.definingOp? | return (ctx, none)
   let some (x, z0, _p0) := matchAshr dX ctx | return (ctx, none)
-  let some dY := getDefiningOp v1 ctx | return (ctx, none)
+  let some dY := v1.definingOp? | return (ctx, none)
   let some (y, z1, p1) := matchAshr dY ctx | return (ctx, none)
   if z0 != z1 then return (ctx, none)
   let (ctx, inner) ← WfRewriter.createOp! ctx Llvm.or #[x.getType! ctx.raw] #[x, y]
@@ -401,9 +401,9 @@ def OrAshrAshr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def XorAshrAshr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, v1, xprops) := matchXor op ctx | return (ctx, none)
-  let some dX := getDefiningOp v0 ctx | return (ctx, none)
+  let some dX := v0.definingOp? | return (ctx, none)
   let some (x, z0, _p0) := matchAshr dX ctx | return (ctx, none)
-  let some dY := getDefiningOp v1 ctx | return (ctx, none)
+  let some dY := v1.definingOp? | return (ctx, none)
   let some (y, z1, p1) := matchAshr dY ctx | return (ctx, none)
   if z0 != z1 then return (ctx, none)
   let (ctx, inner) ← WfRewriter.createOp! ctx Llvm.xor #[x.getType! ctx.raw] #[x, y]
@@ -420,9 +420,9 @@ def XorAshrAshr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def AndAndAnd_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, v1, _) := matchAnd op ctx | return (ctx, none)
-  let some dX := getDefiningOp v0 ctx | return (ctx, none)
+  let some dX := v0.definingOp? | return (ctx, none)
   let some (x, z0, _) := matchAnd dX ctx | return (ctx, none)
-  let some dY := getDefiningOp v1 ctx | return (ctx, none)
+  let some dY := v1.definingOp? | return (ctx, none)
   let some (y, z1, _) := matchAnd dY ctx | return (ctx, none)
   if z0 != z1 then return (ctx, none)
   let (ctx, inner) ← WfRewriter.createOp! ctx Llvm.and #[x.getType! ctx.raw] #[x, y]
@@ -439,9 +439,9 @@ def AndAndAnd (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def OrAndAnd_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, v1, oprops) := matchOr op ctx | return (ctx, none)
-  let some dX := getDefiningOp v0 ctx | return (ctx, none)
+  let some dX := v0.definingOp? | return (ctx, none)
   let some (x, z0, _) := matchAnd dX ctx | return (ctx, none)
-  let some dY := getDefiningOp v1 ctx | return (ctx, none)
+  let some dY := v1.definingOp? | return (ctx, none)
   let some (y, z1, _) := matchAnd dY ctx | return (ctx, none)
   if z0 != z1 then return (ctx, none)
   let (ctx, inner) ← WfRewriter.createOp! ctx Llvm.or #[x.getType! ctx.raw] #[x, y]
@@ -458,9 +458,9 @@ def OrAndAnd (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def XorAndAnd_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, v1, xprops) := matchXor op ctx | return (ctx, none)
-  let some dX := getDefiningOp v0 ctx | return (ctx, none)
+  let some dX := v0.definingOp? | return (ctx, none)
   let some (x, z0, _) := matchAnd dX ctx | return (ctx, none)
-  let some dY := getDefiningOp v1 ctx | return (ctx, none)
+  let some dY := v1.definingOp? | return (ctx, none)
   let some (y, z1, _) := matchAnd dY ctx | return (ctx, none)
   if z0 != z1 then return (ctx, none)
   let (ctx, inner) ← WfRewriter.createOp! ctx Llvm.xor #[x.getType! ctx.raw] #[x, y]
@@ -479,7 +479,7 @@ def XorAndAnd (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def sub_add_reg_x_add_y_sub_y_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (s0, s1, _sp) := matchSub op ctx | return (ctx, none)
-  let some dAdd := getDefiningOp s0 ctx | return (ctx, none)
+  let some dAdd := s0.definingOp? | return (ctx, none)
   let some (x, y, _ap) := matchAdd dAdd ctx | return (ctx, none)
   if y != s1 then return (ctx, none)
   some (ctx, some (#[], #[x]))
@@ -492,7 +492,7 @@ def sub_add_reg_x_add_y_sub_y (rewriter : PatternRewriter OpCode) (op : Operatio
 def sub_add_reg_x_add_y_sub_x_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (s0, s1, _sp) := matchSub op ctx | return (ctx, none)
-  let some dAdd := getDefiningOp s0 ctx | return (ctx, none)
+  let some dAdd := s0.definingOp? | return (ctx, none)
   let some (x, y, _ap) := matchAdd dAdd ctx | return (ctx, none)
   if x != s1 then return (ctx, none)
   some (ctx, some (#[], #[y]))
@@ -505,7 +505,7 @@ def sub_add_reg_x_add_y_sub_x (rewriter : PatternRewriter OpCode) (op : Operatio
 def sub_add_reg_x_sub_y_add_x_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (s0, s1, sp) := matchSub op ctx | return (ctx, none)
-  let some dAdd := getDefiningOp s1 ctx | return (ctx, none)
+  let some dAdd := s1.definingOp? | return (ctx, none)
   let some (y, x, _ap) := matchAdd dAdd ctx | return (ctx, none)
   if x != s0 then return (ctx, none)
   let .integerType yty := (y.getType! ctx.raw).val | return (ctx, none)
@@ -524,7 +524,7 @@ def sub_add_reg_x_sub_y_add_x (rewriter : PatternRewriter OpCode) (op : Operatio
 def sub_add_reg_x_sub_x_add_y_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (s0, s1, sp) := matchSub op ctx | return (ctx, none)
-  let some dAdd := getDefiningOp s1 ctx | return (ctx, none)
+  let some dAdd := s1.definingOp? | return (ctx, none)
   let some (x, y, _ap) := matchAdd dAdd ctx | return (ctx, none)
   if x != s0 then return (ctx, none)
   let .integerType yty := (y.getType! ctx.raw).val | return (ctx, none)
@@ -544,7 +544,7 @@ def sub_add_reg_x_sub_x_add_y (rewriter : PatternRewriter OpCode) (op : Operatio
 def xor_of_and_with_same_reg_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (andVal, yval, _xp) := matchXor op ctx | return (ctx, none)
-  let some dA := getDefiningOp andVal ctx | return (ctx, none)
+  let some dA := andVal.definingOp? | return (ctx, none)
   let some (x, y2, _) := matchAnd dA ctx | return (ctx, none)
   if y2 != yval then return (ctx, none)
   let .integerType xty := (x.getType! ctx.raw).val | return (ctx, none)
@@ -570,7 +570,7 @@ def xor_of_and_with_same_reg (rewriter : PatternRewriter OpCode) (op : Operation
 def select_to_iminmax_ugt_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (cond, tv, fv) := matchSelect op ctx | return (ctx, none)
-  let some dI := getDefiningOp cond ctx | return (ctx, none)
+  let some dI := cond.definingOp? | return (ctx, none)
   let some (il, ir, ip) := matchIcmp dI ctx | return (ctx, none)
   let .ugt := ip.predicate | return (ctx, none)
   if il != tv then return (ctx, none)
@@ -587,7 +587,7 @@ def select_to_iminmax_ugt (rewriter : PatternRewriter OpCode) (op : OperationPtr
 def select_to_iminmax_uge_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (cond, tv, fv) := matchSelect op ctx | return (ctx, none)
-  let some dI := getDefiningOp cond ctx | return (ctx, none)
+  let some dI := cond.definingOp? | return (ctx, none)
   let some (il, ir, ip) := matchIcmp dI ctx | return (ctx, none)
   let .uge := ip.predicate | return (ctx, none)
   if il != tv then return (ctx, none)
@@ -604,7 +604,7 @@ def select_to_iminmax_uge (rewriter : PatternRewriter OpCode) (op : OperationPtr
 def select_to_iminmax_sgt_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (cond, tv, fv) := matchSelect op ctx | return (ctx, none)
-  let some dI := getDefiningOp cond ctx | return (ctx, none)
+  let some dI := cond.definingOp? | return (ctx, none)
   let some (il, ir, ip) := matchIcmp dI ctx | return (ctx, none)
   let .sgt := ip.predicate | return (ctx, none)
   if il != tv then return (ctx, none)
@@ -621,7 +621,7 @@ def select_to_iminmax_sgt (rewriter : PatternRewriter OpCode) (op : OperationPtr
 def select_to_iminmax_sge_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (cond, tv, fv) := matchSelect op ctx | return (ctx, none)
-  let some dI := getDefiningOp cond ctx | return (ctx, none)
+  let some dI := cond.definingOp? | return (ctx, none)
   let some (il, ir, ip) := matchIcmp dI ctx | return (ctx, none)
   let .sge := ip.predicate | return (ctx, none)
   if il != tv then return (ctx, none)
@@ -638,7 +638,7 @@ def select_to_iminmax_sge (rewriter : PatternRewriter OpCode) (op : OperationPtr
 def select_to_iminmax_ult_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (cond, tv, fv) := matchSelect op ctx | return (ctx, none)
-  let some dI := getDefiningOp cond ctx | return (ctx, none)
+  let some dI := cond.definingOp? | return (ctx, none)
   let some (il, ir, ip) := matchIcmp dI ctx | return (ctx, none)
   let .ult := ip.predicate | return (ctx, none)
   if il != tv then return (ctx, none)
@@ -655,7 +655,7 @@ def select_to_iminmax_ult (rewriter : PatternRewriter OpCode) (op : OperationPtr
 def select_to_iminmax_ule_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (cond, tv, fv) := matchSelect op ctx | return (ctx, none)
-  let some dI := getDefiningOp cond ctx | return (ctx, none)
+  let some dI := cond.definingOp? | return (ctx, none)
   let some (il, ir, ip) := matchIcmp dI ctx | return (ctx, none)
   let .ule := ip.predicate | return (ctx, none)
   if il != tv then return (ctx, none)
@@ -672,7 +672,7 @@ def select_to_iminmax_ule (rewriter : PatternRewriter OpCode) (op : OperationPtr
 def select_to_iminmax_slt_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (cond, tv, fv) := matchSelect op ctx | return (ctx, none)
-  let some dI := getDefiningOp cond ctx | return (ctx, none)
+  let some dI := cond.definingOp? | return (ctx, none)
   let some (il, ir, ip) := matchIcmp dI ctx | return (ctx, none)
   let .slt := ip.predicate | return (ctx, none)
   if il != tv then return (ctx, none)
@@ -689,7 +689,7 @@ def select_to_iminmax_slt (rewriter : PatternRewriter OpCode) (op : OperationPtr
 def select_to_iminmax_sle_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (cond, tv, fv) := matchSelect op ctx | return (ctx, none)
-  let some dI := getDefiningOp cond ctx | return (ctx, none)
+  let some dI := cond.definingOp? | return (ctx, none)
   let some (il, ir, ip) := matchIcmp dI ctx | return (ctx, none)
   let .sle := ip.predicate | return (ctx, none)
   if il != tv then return (ctx, none)
@@ -708,7 +708,7 @@ def select_to_iminmax_sle (rewriter : PatternRewriter OpCode) (op : OperationPtr
 def trunc_of_zext_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, _tp) := matchTrunc op ctx | return (ctx, none)
-  let some dZ := getDefiningOp v0 ctx | return (ctx, none)
+  let some dZ := v0.definingOp? | return (ctx, none)
   let some (x, _zp) := matchZext dZ ctx | return (ctx, none)
   if (op.getResult 0 : ValuePtr).getType! ctx.raw != x.getType! ctx.raw then return (ctx, none)
   some (ctx, some (#[], #[x]))
@@ -722,7 +722,7 @@ def trunc_of_zext (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def select_of_zext_rw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, zp) := matchZext op ctx | return (ctx, none)
-  let some dS := getDefiningOp v0 ctx | return (ctx, none)
+  let some dS := v0.definingOp? | return (ctx, none)
   let some (cond, tv, fv) := matchSelect dS ctx | return (ctx, none)
   let outTy := (op.getResult 0 : ValuePtr).getType! ctx.raw
   let (ctx, zt) ← WfRewriter.createOp! ctx Llvm.zext #[outTy] #[tv]
@@ -740,7 +740,7 @@ def select_of_zext_rw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def select_of_truncate_rw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, tp) := matchTrunc op ctx | return (ctx, none)
-  let some dS := getDefiningOp v0 ctx | return (ctx, none)
+  let some dS := v0.definingOp? | return (ctx, none)
   let some (cond, tv, fv) := matchSelect dS ctx | return (ctx, none)
   let outTy := (op.getResult 0 : ValuePtr).getType! ctx.raw
   let (ctx, tt) ← WfRewriter.createOp! ctx Llvm.trunc #[outTy] #[tv]
@@ -776,9 +776,9 @@ def mulo_by_2_unsigned_signed (rewriter : PatternRewriter OpCode) (op : Operatio
 def add_shift_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (a, shlNeg, _ap) := matchAdd op ctx | return (ctx, none)
-  let some dShl := getDefiningOp shlNeg ctx | return (ctx, none)
+  let some dShl := shlNeg.definingOp? | return (ctx, none)
   let some (negB, c, shp) := matchShl dShl ctx | return (ctx, none)
-  let some dSub := getDefiningOp negB ctx | return (ctx, none)
+  let some dSub := negB.definingOp? | return (ctx, none)
   let some (zeroV, b, subp) := matchSub dSub ctx | return (ctx, none)
   let some zc := matchConstantIntVal zeroV ctx | return (ctx, none)
   if zc.value ≠ 0 then return (ctx, none)
@@ -796,9 +796,9 @@ def add_shift (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def add_shift_commute_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (shlNeg, a, _ap) := matchAdd op ctx | return (ctx, none)
-  let some dShl := getDefiningOp shlNeg ctx | return (ctx, none)
+  let some dShl := shlNeg.definingOp? | return (ctx, none)
   let some (negB, c, shp) := matchShl dShl ctx | return (ctx, none)
-  let some dSub := getDefiningOp negB ctx | return (ctx, none)
+  let some dSub := negB.definingOp? | return (ctx, none)
   let some (zeroV, b, subp) := matchSub dSub ctx | return (ctx, none)
   let some zc := matchConstantIntVal zeroV ctx | return (ctx, none)
   if zc.value ≠ 0 then return (ctx, none)
@@ -821,7 +821,7 @@ def redundant_binop_in_equality_XPlusYEqX_local (ctx : WfIRContext OpCode) (op :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (lhsV, xval, ip) := matchIcmp op ctx | return (ctx, none)
   let .eq := ip.predicate | return (ctx, none)
-  let some dAdd := getDefiningOp lhsV ctx | return (ctx, none)
+  let some dAdd := lhsV.definingOp? | return (ctx, none)
   let some (x, y, _ap) := matchAdd dAdd ctx | return (ctx, none)
   if x != xval then return (ctx, none)
   let .integerType yty := (y.getType! ctx.raw).val | return (ctx, none)
@@ -840,7 +840,7 @@ def redundant_binop_in_equality_XPlusYNeX_local (ctx : WfIRContext OpCode) (op :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (lhsV, xval, ip) := matchIcmp op ctx | return (ctx, none)
   let .ne := ip.predicate | return (ctx, none)
-  let some dAdd := getDefiningOp lhsV ctx | return (ctx, none)
+  let some dAdd := lhsV.definingOp? | return (ctx, none)
   let some (x, y, _ap) := matchAdd dAdd ctx | return (ctx, none)
   if x != xval then return (ctx, none)
   let .integerType yty := (y.getType! ctx.raw).val | return (ctx, none)
@@ -859,7 +859,7 @@ def redundant_binop_in_equality_XMinusYEqX_local (ctx : WfIRContext OpCode) (op 
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (lhsV, xval, ip) := matchIcmp op ctx | return (ctx, none)
   let .eq := ip.predicate | return (ctx, none)
-  let some dSub := getDefiningOp lhsV ctx | return (ctx, none)
+  let some dSub := lhsV.definingOp? | return (ctx, none)
   let some (x, y, _sp) := matchSub dSub ctx | return (ctx, none)
   if x != xval then return (ctx, none)
   let .integerType yty := (y.getType! ctx.raw).val | return (ctx, none)
@@ -878,7 +878,7 @@ def redundant_binop_in_equality_XMinusYNeX_local (ctx : WfIRContext OpCode) (op 
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (lhsV, xval, ip) := matchIcmp op ctx | return (ctx, none)
   let .ne := ip.predicate | return (ctx, none)
-  let some dSub := getDefiningOp lhsV ctx | return (ctx, none)
+  let some dSub := lhsV.definingOp? | return (ctx, none)
   let some (x, y, _sp) := matchSub dSub ctx | return (ctx, none)
   if x != xval then return (ctx, none)
   let .integerType yty := (y.getType! ctx.raw).val | return (ctx, none)
@@ -897,7 +897,7 @@ def redundant_binop_in_equality_XXorYEqX_local (ctx : WfIRContext OpCode) (op : 
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (lhsV, xval, ip) := matchIcmp op ctx | return (ctx, none)
   let .eq := ip.predicate | return (ctx, none)
-  let some dXor := getDefiningOp lhsV ctx | return (ctx, none)
+  let some dXor := lhsV.definingOp? | return (ctx, none)
   let some (x, y, _xp) := matchXor dXor ctx | return (ctx, none)
   if x != xval then return (ctx, none)
   let .integerType yty := (y.getType! ctx.raw).val | return (ctx, none)
@@ -916,7 +916,7 @@ def redundant_binop_in_equality_XXorYNeX_local (ctx : WfIRContext OpCode) (op : 
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (lhsV, xval, ip) := matchIcmp op ctx | return (ctx, none)
   let .ne := ip.predicate | return (ctx, none)
-  let some dXor := getDefiningOp lhsV ctx | return (ctx, none)
+  let some dXor := lhsV.definingOp? | return (ctx, none)
   let some (x, y, _xp) := matchXor dXor ctx | return (ctx, none)
   if x != xval then return (ctx, none)
   let .integerType yty := (y.getType! ctx.raw).val | return (ctx, none)
@@ -1014,7 +1014,7 @@ def select_0_neg1 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def not_cmp_fold_eq_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some icmpV := matchNot (op.getResult 0) ctx | return (ctx, none)
-  let some dI := getDefiningOp icmpV ctx | return (ctx, none)
+  let some dI := icmpV.definingOp? | return (ctx, none)
   let some (x, y, ip) := matchIcmp dI ctx | return (ctx, none)
   let .eq := ip.predicate | return (ctx, none)
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.icmp #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[x, y]
@@ -1028,7 +1028,7 @@ def not_cmp_fold_eq (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def not_cmp_fold_ne_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some icmpV := matchNot (op.getResult 0) ctx | return (ctx, none)
-  let some dI := getDefiningOp icmpV ctx | return (ctx, none)
+  let some dI := icmpV.definingOp? | return (ctx, none)
   let some (x, y, ip) := matchIcmp dI ctx | return (ctx, none)
   let .ne := ip.predicate | return (ctx, none)
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.icmp #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[x, y]
@@ -1042,7 +1042,7 @@ def not_cmp_fold_ne (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def not_cmp_fold_ugt_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some icmpV := matchNot (op.getResult 0) ctx | return (ctx, none)
-  let some dI := getDefiningOp icmpV ctx | return (ctx, none)
+  let some dI := icmpV.definingOp? | return (ctx, none)
   let some (x, y, ip) := matchIcmp dI ctx | return (ctx, none)
   let .ugt := ip.predicate | return (ctx, none)
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.icmp #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[x, y]
@@ -1056,7 +1056,7 @@ def not_cmp_fold_ugt (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def not_cmp_fold_uge_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some icmpV := matchNot (op.getResult 0) ctx | return (ctx, none)
-  let some dI := getDefiningOp icmpV ctx | return (ctx, none)
+  let some dI := icmpV.definingOp? | return (ctx, none)
   let some (x, y, ip) := matchIcmp dI ctx | return (ctx, none)
   let .uge := ip.predicate | return (ctx, none)
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.icmp #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[x, y]
@@ -1070,7 +1070,7 @@ def not_cmp_fold_uge (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def not_cmp_fold_sgt_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some icmpV := matchNot (op.getResult 0) ctx | return (ctx, none)
-  let some dI := getDefiningOp icmpV ctx | return (ctx, none)
+  let some dI := icmpV.definingOp? | return (ctx, none)
   let some (x, y, ip) := matchIcmp dI ctx | return (ctx, none)
   let .sgt := ip.predicate | return (ctx, none)
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.icmp #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[x, y]
@@ -1084,7 +1084,7 @@ def not_cmp_fold_sgt (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def not_cmp_fold_sge_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some icmpV := matchNot (op.getResult 0) ctx | return (ctx, none)
-  let some dI := getDefiningOp icmpV ctx | return (ctx, none)
+  let some dI := icmpV.definingOp? | return (ctx, none)
   let some (x, y, ip) := matchIcmp dI ctx | return (ctx, none)
   let .sge := ip.predicate | return (ctx, none)
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.icmp #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[x, y]
@@ -1101,12 +1101,12 @@ def not_cmp_fold_sge (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def double_icmp_zero_and_combine_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, v1, _andprops) := matchAnd op ctx | return (ctx, none)
-  let some dL := getDefiningOp v0 ctx | return (ctx, none)
+  let some dL := v0.definingOp? | return (ctx, none)
   let some (x, cx, ip0) := matchIcmp dL ctx | return (ctx, none)
   let .eq := ip0.predicate | return (ctx, none)
   let some cxv := matchConstantIntVal cx ctx | return (ctx, none)
   if cxv.value ≠ 0 then return (ctx, none)
-  let some dR := getDefiningOp v1 ctx | return (ctx, none)
+  let some dR := v1.definingOp? | return (ctx, none)
   let some (y, cy, ip1) := matchIcmp dR ctx | return (ctx, none)
   let .eq := ip1.predicate | return (ctx, none)
   let some cyv := matchConstantIntVal cy ctx | return (ctx, none)
@@ -1129,12 +1129,12 @@ def double_icmp_zero_and_combine (rewriter : PatternRewriter OpCode) (op : Opera
 def double_icmp_zero_or_combine_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, v1, oprops) := matchOr op ctx | return (ctx, none)
-  let some dL := getDefiningOp v0 ctx | return (ctx, none)
+  let some dL := v0.definingOp? | return (ctx, none)
   let some (x, cx, ip0) := matchIcmp dL ctx | return (ctx, none)
   let .ne := ip0.predicate | return (ctx, none)
   let some cxv := matchConstantIntVal cx ctx | return (ctx, none)
   if cxv.value ≠ 0 then return (ctx, none)
-  let some dR := getDefiningOp v1 ctx | return (ctx, none)
+  let some dR := v1.definingOp? | return (ctx, none)
   let some (y, cy, ip1) := matchIcmp dR ctx | return (ctx, none)
   let .ne := ip1.predicate | return (ctx, none)
   let some cyv := matchConstantIntVal cy ctx | return (ctx, none)
@@ -1158,7 +1158,7 @@ def double_icmp_zero_or_combine (rewriter : PatternRewriter OpCode) (op : Operat
 def NotAPlusNegOne_rw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some addVal := matchNot (op.getResult 0) ctx | return (ctx, none)
-  let some dAdd := getDefiningOp addVal ctx | return (ctx, none)
+  let some dAdd := addVal.definingOp? | return (ctx, none)
   let some (x, cm1, ap) := matchAdd dAdd ctx | return (ctx, none)
   let some cst := matchConstantIntVal cm1 ctx | return (ctx, none)
   if cst.value ≠ -1 then return (ctx, none)
@@ -1181,7 +1181,7 @@ def sub_one_from_sub_rw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (subVal, c1v, sp) := matchSub op ctx | return (ctx, none)
   let some cst1 := matchConstantIntVal c1v ctx | return (ctx, none)
   if cst1.value ≠ 1 then return (ctx, none)
-  let some dSub := getDefiningOp subVal ctx | return (ctx, none)
+  let some dSub := subVal.definingOp? | return (ctx, none)
   let some (x, y, _sp2) := matchSub dSub ctx | return (ctx, none)
   let .integerType yty := (y.getType! ctx.raw).val | return (ctx, none)
   let m1 := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-1) yty))
@@ -1203,7 +1203,7 @@ def APlusC1MinusC2_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (addVal, c2v, _sp) := matchSub op ctx | return (ctx, none)
   let some c2 := matchConstantIntVal c2v ctx | return (ctx, none)
-  let some dAdd := getDefiningOp addVal ctx | return (ctx, none)
+  let some dAdd := addVal.definingOp? | return (ctx, none)
   let some (a, c1v, ap) := matchAdd dAdd ctx | return (ctx, none)
   let some c1 := matchConstantIntVal c1v ctx | return (ctx, none)
   let .integerType aty := (a.getType! ctx.raw).val | return (ctx, none)
@@ -1224,7 +1224,7 @@ def C2MinusAPlusC1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (c2v, addVal, sp) := matchSub op ctx | return (ctx, none)
   let some c2 := matchConstantIntVal c2v ctx | return (ctx, none)
-  let some dAdd := getDefiningOp addVal ctx | return (ctx, none)
+  let some dAdd := addVal.definingOp? | return (ctx, none)
   let some (a, c1v, _ap) := matchAdd dAdd ctx | return (ctx, none)
   let some c1 := matchConstantIntVal c1v ctx | return (ctx, none)
   let .integerType aty := (a.getType! ctx.raw).val | return (ctx, none)
@@ -1245,7 +1245,7 @@ def AMinusC1MinusC2_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (subVal, c2v, sp) := matchSub op ctx | return (ctx, none)
   let some c2 := matchConstantIntVal c2v ctx | return (ctx, none)
-  let some dSub := getDefiningOp subVal ctx | return (ctx, none)
+  let some dSub := subVal.definingOp? | return (ctx, none)
   let some (a, c1v, _sp2) := matchSub dSub ctx | return (ctx, none)
   let some c1 := matchConstantIntVal c1v ctx | return (ctx, none)
   let .integerType aty := (a.getType! ctx.raw).val | return (ctx, none)
@@ -1266,7 +1266,7 @@ def C1MinusAMinusC2_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (subVal, c2v, sp) := matchSub op ctx | return (ctx, none)
   let some c2 := matchConstantIntVal c2v ctx | return (ctx, none)
-  let some dSub := getDefiningOp subVal ctx | return (ctx, none)
+  let some dSub := subVal.definingOp? | return (ctx, none)
   let some (c1v, a, _sp2) := matchSub dSub ctx | return (ctx, none)
   let some c1 := matchConstantIntVal c1v ctx | return (ctx, none)
   let .integerType aty := (a.getType! ctx.raw).val | return (ctx, none)
@@ -1287,7 +1287,7 @@ def AMinusC1PlusC2_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (subVal, c2v, ap) := matchAdd op ctx | return (ctx, none)
   let some c2 := matchConstantIntVal c2v ctx | return (ctx, none)
-  let some dSub := getDefiningOp subVal ctx | return (ctx, none)
+  let some dSub := subVal.definingOp? | return (ctx, none)
   let some (a, c1v, _sp) := matchSub dSub ctx | return (ctx, none)
   let some c1 := matchConstantIntVal c1v ctx | return (ctx, none)
   let .integerType aty := (a.getType! ctx.raw).val | return (ctx, none)
@@ -1306,9 +1306,9 @@ def AMinusC1PlusC2 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def or_and_xor_to_xor_or_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (andV, notV, oprops) := matchOr op ctx | return (ctx, none)
-  let some dAnd := getDefiningOp andV ctx | return (ctx, none)
+  let some dAnd := andV.definingOp? | return (ctx, none)
   let some (x, y, _aprops) := matchAnd dAnd ctx | return (ctx, none)
-  let some dNot := getDefiningOp notV ctx | return (ctx, none)
+  let some dNot := notV.definingOp? | return (ctx, none)
   let some (y1, m1v, _xprops) := matchXor dNot ctx | return (ctx, none)
   if y1 != y then return (ctx, none)
   let some cst := matchConstantIntVal m1v ctx | return (ctx, none)
@@ -1325,9 +1325,9 @@ def or_and_xor_to_xor_or (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def and_xor_or_to_xor_and_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (orV, notV, _aprops) := matchAnd op ctx | return (ctx, none)
-  let some dOr := getDefiningOp orV ctx | return (ctx, none)
+  let some dOr := orV.definingOp? | return (ctx, none)
   let some (x, y, _oprops) := matchOr dOr ctx | return (ctx, none)
-  let some dNot := getDefiningOp notV ctx | return (ctx, none)
+  let some dNot := notV.definingOp? | return (ctx, none)
   let some (y1, m1v, _xprops) := matchXor dNot ctx | return (ctx, none)
   if y1 != y then return (ctx, none)
   let some cst := matchConstantIntVal m1v ctx | return (ctx, none)
@@ -1346,7 +1346,7 @@ def and_xor_or_to_xor_and (rewriter : PatternRewriter OpCode) (op : OperationPtr
 def combine_or_of_and_l_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (andV, x, _oprops) := matchOr op ctx | return (ctx, none)
-  let some dAnd := getDefiningOp andV ctx | return (ctx, none)
+  let some dAnd := andV.definingOp? | return (ctx, none)
   let some (a0, a1, _aprops) := matchAnd dAnd ctx | return (ctx, none)
   if a0 != x && a1 != x then return (ctx, none)
   some (ctx, some (#[], #[x]))
@@ -1359,7 +1359,7 @@ def combine_or_of_and_l (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def combine_or_of_and_r_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (x, andV, _oprops) := matchOr op ctx | return (ctx, none)
-  let some dAnd := getDefiningOp andV ctx | return (ctx, none)
+  let some dAnd := andV.definingOp? | return (ctx, none)
   let some (a0, a1, _aprops) := matchAnd dAnd ctx | return (ctx, none)
   if a0 != x && a1 != x then return (ctx, none)
   some (ctx, some (#[], #[x]))
@@ -1372,7 +1372,7 @@ def combine_or_of_and_r (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def AMinusBMinusC_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (A, sub1, sprops) := matchSub op ctx | return (ctx, none)
-  let some dSub := getDefiningOp sub1 ctx | return (ctx, none)
+  let some dSub := sub1.definingOp? | return (ctx, none)
   let some (B, C, _sprops1) := matchSub dSub ctx | return (ctx, none)
   let (ctx, cMinusB) ← WfRewriter.createOp! ctx Llvm.sub #[sub1.getType! ctx.raw] #[C, B]
     #[] #[] sprops none
@@ -1449,7 +1449,7 @@ def srl_sra_signbitGen_local (srlDst : Riscv)
   let some (operands, outerImm) := matchOp op ctx (.riscv srlDst) 1 | return (ctx, none)
   if (cast hSrl outerImm : RISCVImmediateProperties).value.value ≠ (width : Int) - 1 then
     return (ctx, none)
-  let some sraOp := getDefiningOp operands[0]! ctx | return (ctx, none)
+  let some sraOp := operands[0]!.definingOp? | return (ctx, none)
   let some (sraOperands, _) := matchOp sraOp ctx (.riscv sraDst) 1 | return (ctx, none)
   let (ctx, newOp) ← WfRewriter.createOp! ctx srlDst #[RegisterType.mk] #[sraOperands[0]!]
       #[] #[] outerImm none
@@ -1486,10 +1486,10 @@ private def drop_slli_srli_boolGen_local (boolDst : Riscv) (arity : Nat) (ctx : 
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (srliSrc, outerImm) := matchRVSrli op ctx | return (ctx, none)
   if outerImm.value.value ≠ 63 then return (ctx, none)
-  let some slliOp := getDefiningOp srliSrc ctx | return (ctx, none)
+  let some slliOp := srliSrc.definingOp? | return (ctx, none)
   let some (slliSrc, innerImm) := matchRVSlli slliOp ctx | return (ctx, none)
   if innerImm.value.value ≠ 63 then return (ctx, none)
-  let some boolOp := getDefiningOp slliSrc ctx | return (ctx, none)
+  let some boolOp := slliSrc.definingOp? | return (ctx, none)
   let some (_, _) := matchOp boolOp ctx (.riscv boolDst) arity | return (ctx, none)
   some (ctx, some (#[], #[slliSrc]))
 
@@ -1535,7 +1535,7 @@ private def drop_redundant_ext_local (ext : Riscv) (ctx : WfIRContext OpCode) (o
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (operands, _) := matchOp op ctx (.riscv ext) 1 | return (ctx, none)
   let outerSrc := operands[0]!
-  let some innerOp := getDefiningOp outerSrc ctx | return (ctx, none)
+  let some innerOp := outerSrc.definingOp? | return (ctx, none)
   let some (_, _) := matchOp innerOp ctx (.riscv ext) 1 | return (ctx, none)
   some (ctx, some (#[], #[outerSrc]))
 
@@ -1561,7 +1561,7 @@ def sexth_sexth := drop_redundant_ext .sexth
     return its source operand and `true`; otherwise `val` unchanged and `false`. -/
 private def stripDefiningExt (ext : Riscv) (val : ValuePtr) (ctx : IRContext OpCode) :
     ValuePtr × Bool :=
-  match getDefiningOp val ctx with
+  match val.definingOp? with
   | none => (val, false)
   | some defOp =>
     match matchOp defOp ctx (.riscv ext) 1 with
@@ -1688,7 +1688,7 @@ private def drop_ext_of_bitwise_local (ext dst : Riscv) (oneOperandSuffices : Bo
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (operands, _) := matchOp op ctx (.riscv ext) 1 | return (ctx, none)
   let inner := operands[0]!
-  let some innerOp := getDefiningOp inner ctx | return (ctx, none)
+  let some innerOp := inner.definingOp? | return (ctx, none)
   let some (innerOperands, _) := matchOp innerOp ctx (.riscv dst) 2 | return (ctx, none)
   let (_, lhsGuarded) := stripDefiningExt ext innerOperands[0]! ctx
   let (_, rhsGuarded) := stripDefiningExt ext innerOperands[1]! ctx
@@ -1870,7 +1870,7 @@ def sexth_x0 := ext_x0 .sexth
 def zextw_li_low32_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (src, _) := matchRVZextw op ctx | return (ctx, none)
-  let some srcOp := getDefiningOp src ctx | return (ctx, none)
+  let some srcOp := src.definingOp? | return (ctx, none)
   let some cst := matchRVLi srcOp ctx | return (ctx, none)
   if cst.value.value < 0 ∨ cst.value.value ≥ 4294967296 then return (ctx, none)
   some (ctx, some (#[], #[src]))
@@ -1892,7 +1892,7 @@ def zextw_li_low32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def sextw_li_low32_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (src, _) := matchRVSextw op ctx | return (ctx, none)
-  let some srcOp := getDefiningOp src ctx | return (ctx, none)
+  let some srcOp := src.definingOp? | return (ctx, none)
   let some cst := matchRVLi srcOp ctx | return (ctx, none)
   if cst.value.value < -2147483648 ∨ cst.value.value ≥ 2147483648 then return (ctx, none)
   some (ctx, some (#[], #[src]))
@@ -1911,7 +1911,7 @@ private def ext_li_range_local (ext : Riscv) (lo hi : Int) (ctx : WfIRContext Op
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (operands, _) := matchOp op ctx (.riscv ext) 1 | return (ctx, none)
   let src := operands[0]!
-  let some srcOp := getDefiningOp src ctx | return (ctx, none)
+  let some srcOp := src.definingOp? | return (ctx, none)
   let some cst := matchRVLi srcOp ctx | return (ctx, none)
   if cst.value.value < lo ∨ cst.value.value ≥ hi then return (ctx, none)
   some (ctx, some (#[], #[src]))
@@ -1944,9 +1944,9 @@ def SubSmaxSub_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (zeroOuter, maxV, sprops) := matchSub op ctx | return (ctx, none)
   let some _ := matchConstantZero zeroOuter ctx | return (ctx, none)
-  let some dMax := getDefiningOp maxV ctx | return (ctx, none)
+  let some dMax := maxV.definingOp? | return (ctx, none)
   let some (a, subV) := matchSmax dMax ctx | return (ctx, none)
-  let some dSub := getDefiningOp subV ctx | return (ctx, none)
+  let some dSub := subV.definingOp? | return (ctx, none)
   let some (zeroInner, a2, _) := matchSub dSub ctx | return (ctx, none)
   let some _ := matchConstantZero zeroInner ctx | return (ctx, none)
   if a2 != a then return (ctx, none)
@@ -1968,9 +1968,9 @@ def SubUmaxSub_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (zeroOuter, maxV, sprops) := matchSub op ctx | return (ctx, none)
   let some _ := matchConstantZero zeroOuter ctx | return (ctx, none)
-  let some dMax := getDefiningOp maxV ctx | return (ctx, none)
+  let some dMax := maxV.definingOp? | return (ctx, none)
   let some (a, subV) := matchUmax dMax ctx | return (ctx, none)
-  let some dSub := getDefiningOp subV ctx | return (ctx, none)
+  let some dSub := subV.definingOp? | return (ctx, none)
   let some (zeroInner, a2, _) := matchSub dSub ctx | return (ctx, none)
   let some _ := matchConstantZero zeroInner ctx | return (ctx, none)
   if a2 != a then return (ctx, none)
@@ -1998,7 +1998,7 @@ def SubUmaxSub (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def narrow_binop_add_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, tp) := matchTrunc op ctx | return (ctx, none)
-  let some dAdd := getDefiningOp v0 ctx | return (ctx, none)
+  let some dAdd := v0.definingOp? | return (ctx, none)
   let some (x, cst, _ap) := matchAdd dAdd ctx | return (ctx, none)
   let some _ := matchConstantIntVal cst ctx | return (ctx, none)
   let outTy := (op.getResult 0 : ValuePtr).getType! ctx.raw
@@ -2018,7 +2018,7 @@ def narrow_binop_add (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def narrow_binop_sub_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, tp) := matchTrunc op ctx | return (ctx, none)
-  let some dSub := getDefiningOp v0 ctx | return (ctx, none)
+  let some dSub := v0.definingOp? | return (ctx, none)
   let some (x, cst, _sp) := matchSub dSub ctx | return (ctx, none)
   let some _ := matchConstantIntVal cst ctx | return (ctx, none)
   let outTy := (op.getResult 0 : ValuePtr).getType! ctx.raw
@@ -2038,7 +2038,7 @@ def narrow_binop_sub (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def narrow_binop_mul_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, tp) := matchTrunc op ctx | return (ctx, none)
-  let some dMul := getDefiningOp v0 ctx | return (ctx, none)
+  let some dMul := v0.definingOp? | return (ctx, none)
   let some (x, cst, _mp) := matchMul dMul ctx | return (ctx, none)
   let some _ := matchConstantIntVal cst ctx | return (ctx, none)
   let outTy := (op.getResult 0 : ValuePtr).getType! ctx.raw
@@ -2059,7 +2059,7 @@ def narrow_binop_mul (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def truncate_of_sext_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, _tp) := matchTrunc op ctx | return (ctx, none)
-  let some dS := getDefiningOp v0 ctx | return (ctx, none)
+  let some dS := v0.definingOp? | return (ctx, none)
   let some (x, _sp) := matchSext dS ctx | return (ctx, none)
   if (op.getResult 0 : ValuePtr).getType! ctx.raw != x.getType! ctx.raw then return (ctx, none)
   some (ctx, some (#[], #[x]))
@@ -2073,7 +2073,7 @@ def truncate_of_sext (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def zext_of_zext_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, zp) := matchZext op ctx | return (ctx, none)
-  let some dZ := getDefiningOp v0 ctx | return (ctx, none)
+  let some dZ := v0.definingOp? | return (ctx, none)
   let some (x, _) := matchZext dZ ctx | return (ctx, none)
   let outTy := (op.getResult 0 : ValuePtr).getType! ctx.raw
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.zext #[outTy] #[x]
@@ -2089,7 +2089,7 @@ def zext_of_zext (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def sext_of_sext_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (v0, sp) := matchSext op ctx | return (ctx, none)
-  let some dS := getDefiningOp v0 ctx | return (ctx, none)
+  let some dS := v0.definingOp? | return (ctx, none)
   let some (x, _) := matchSext dS ctx | return (ctx, none)
   let outTy := (op.getResult 0 : ValuePtr).getType! ctx.raw
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sext #[outTy] #[x]
@@ -2123,7 +2123,7 @@ def sub_to_add (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def sub_of_mul_const_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (a, mulV, _sp) := matchSub op ctx | return (ctx, none)
-  let some dMul := getDefiningOp mulV ctx | return (ctx, none)
+  let some dMul := mulV.definingOp? | return (ctx, none)
   let some (x, cval, mp) := matchMul dMul ctx | return (ctx, none)
   let some c := matchConstantIntVal cval ctx | return (ctx, none)
   let .integerType xty := (x.getType! ctx.raw).val | return (ctx, none)
@@ -2145,7 +2145,7 @@ def sub_of_mul_const (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def select_not_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (cond, tv, fv) := matchSelect op ctx | return (ctx, none)
-  let some dC := getDefiningOp cond ctx | return (ctx, none)
+  let some dC := cond.definingOp? | return (ctx, none)
   let some (c, m1v, _) := matchXor dC ctx | return (ctx, none)
   let some m1 := matchConstantIntVal m1v ctx | return (ctx, none)
   if m1.value ≠ -1 then return (ctx, none)
@@ -2234,9 +2234,9 @@ def SubSminSub_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (zeroOuter, minV, sprops) := matchSub op ctx | return (ctx, none)
   let some _ := matchConstantZero zeroOuter ctx | return (ctx, none)
-  let some dMin := getDefiningOp minV ctx | return (ctx, none)
+  let some dMin := minV.definingOp? | return (ctx, none)
   let some (a, subV) := matchSmin dMin ctx | return (ctx, none)
-  let some dSub := getDefiningOp subV ctx | return (ctx, none)
+  let some dSub := subV.definingOp? | return (ctx, none)
   let some (zeroInner, a2, _) := matchSub dSub ctx | return (ctx, none)
   let some _ := matchConstantZero zeroInner ctx | return (ctx, none)
   if a2 != a then return (ctx, none)
@@ -2258,9 +2258,9 @@ def SubUminSub_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (zeroOuter, minV, sprops) := matchSub op ctx | return (ctx, none)
   let some _ := matchConstantZero zeroOuter ctx | return (ctx, none)
-  let some dMin := getDefiningOp minV ctx | return (ctx, none)
+  let some dMin := minV.definingOp? | return (ctx, none)
   let some (a, subV) := matchUmin dMin ctx | return (ctx, none)
-  let some dSub := getDefiningOp subV ctx | return (ctx, none)
+  let some dSub := subV.definingOp? | return (ctx, none)
   let some (zeroInner, a2, _) := matchSub dSub ctx | return (ctx, none)
   let some _ := matchConstantZero zeroInner ctx | return (ctx, none)
   if a2 != a then return (ctx, none)
@@ -2287,9 +2287,9 @@ def lshr_of_trunc_of_lshr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (truncV, c2v, _) := matchLshr op ctx | return (ctx, none)
   let some c2 := matchConstantIntVal c2v ctx | return (ctx, none)
-  let some dTrunc := getDefiningOp truncV ctx | return (ctx, none)
+  let some dTrunc := truncV.definingOp? | return (ctx, none)
   let some (innerLshrV, _) := matchTrunc dTrunc ctx | return (ctx, none)
-  let some dInner := getDefiningOp innerLshrV ctx | return (ctx, none)
+  let some dInner := innerLshrV.definingOp? | return (ctx, none)
   let some (x, c1v, ip) := matchLshr dInner ctx | return (ctx, none)
   let some c1 := matchConstantIntVal c1v ctx | return (ctx, none)
   let .integerType xty := (x.getType! ctx.raw).val | return (ctx, none)
@@ -2362,9 +2362,9 @@ def canonicalize_icmp (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def bitreverse_shl_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some rev := matchBitreverse op ctx | return (ctx, none)
-  let some dShl := getDefiningOp rev ctx | return (ctx, none)
+  let some dShl := rev.definingOp? | return (ctx, none)
   let some (inner, y, _) := matchShl dShl ctx | return (ctx, none)
-  let some dInner := getDefiningOp inner ctx | return (ctx, none)
+  let some dInner := inner.definingOp? | return (ctx, none)
   let some x := matchBitreverse dInner ctx | return (ctx, none)
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.lshr #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[x, y]
     #[] #[] (ExactProperties.mk false) none
@@ -2377,9 +2377,9 @@ def bitreverse_shl (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def bitreverse_lshr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some rev := matchBitreverse op ctx | return (ctx, none)
-  let some dLshr := getDefiningOp rev ctx | return (ctx, none)
+  let some dLshr := rev.definingOp? | return (ctx, none)
   let some (inner, y, _) := matchLshr dLshr ctx | return (ctx, none)
-  let some dInner := getDefiningOp inner ctx | return (ctx, none)
+  let some dInner := inner.definingOp? | return (ctx, none)
   let some x := matchBitreverse dInner ctx | return (ctx, none)
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.shl #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[x, y]
     #[] #[] (NswNuwProperties.mk false false) none
@@ -2498,9 +2498,9 @@ def funnel_shift_or_shift_to_funnel_shift_left_local (ctx : WfIRContext OpCode) 
   let some (o0, o1, _) := matchOr op ctx | return (ctx, none)
   -- Try (fshl = o0, shl = o1) then (fshl = o1, shl = o0).
   let tryOrder (fshlV shlV : ValuePtr) : Option ValuePtr := do
-    let some dFshl := getDefiningOp fshlV ctx | none
+    let some dFshl := fshlV.definingOp? | none
     let some (fx, _fz, fy) := matchFshl dFshl ctx | none
-    let some dShl := getDefiningOp shlV ctx | none
+    let some dShl := shlV.definingOp? | none
     let some (sx, sy, _) := matchShl dShl ctx | none
     guard (fx = sx ∧ fy = sy)
     some fshlV
@@ -2516,9 +2516,9 @@ def funnel_shift_or_shift_to_funnel_shift_right_local (ctx : WfIRContext OpCode)
   let some (o0, o1, _) := matchOr op ctx | return (ctx, none)
   -- Try (fshr = o0, lshr = o1) then (fshr = o1, lshr = o0).
   let tryOrder (fshrV lshrV : ValuePtr) : Option ValuePtr := do
-    let some dFshr := getDefiningOp fshrV ctx | none
+    let some dFshr := fshrV.definingOp? | none
     let some (_fz, fx, fy) := matchFshr dFshr ctx | none
-    let some dLshr := getDefiningOp lshrV ctx | none
+    let some dLshr := lshrV.definingOp? | none
     let some (sx, sy, _) := matchLshr dLshr ctx | none
     guard (fx = sx ∧ fy = sy)
     some fshrV

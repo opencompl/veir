@@ -123,14 +123,6 @@ theorem matchConstantZero_implies {val : ValuePtr} {ctx : IRContext OpCode} {res
   simp only [matchConstantZero, bind, pure, Option.bind, guard, failure] at hmatch
   grind
 
-/-- What `getDefiningOp` syntactically guarantees. -/
-theorem getDefiningOp_implies {val : ValuePtr} {ctx : IRContext OpCode} {op} :
-    getDefiningOp val ctx = some op →
-    ∃ opResultPtr, val = .opResult opResultPtr ∧ op = opResultPtr.op := by
-  intro hmatch
-  simp only [getDefiningOp] at hmatch
-  grind
-
 /-- What matching `llvm.ashr` (via `matchAshr`) syntactically guarantees. -/
 theorem matchAshr_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs props} :
     matchAshr op ctx = some (lhs, rhs, props) →

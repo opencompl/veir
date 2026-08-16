@@ -97,7 +97,7 @@ def matchOrcbRight (b m : ValuePtr) (y : Nat) (ctx : IRContext OpCode) :
     Option (propertiesOf (OpCode.llvm .lshr)) := do
   if y = 0 then
     if b = m then return { exact := false } else none
-  let some bOp := getDefiningOp b ctx | none
+  let some bOp := b.definingOp? | none
   let some (m', yShamt, lshrProps) := matchLshr bOp ctx | none
   let some yc := matchConstantIntVal yShamt ctx | none
   if yc.value = (y : Int) ∧ m' = m then return lshrProps else none
@@ -120,7 +120,7 @@ def orcb_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 64 then return (ctx, none)
   /- left operand must be `shl M (8 - Y)` for some `0 ≤ Y < 8` -/
-  let some aOp := getDefiningOp a ctx | return (ctx, none)
+  let some aOp := a.definingOp? | return (ctx, none)
   let some (m, shamt, _) := matchShl aOp ctx | return (ctx, none)
   let some shc := matchConstantIntVal shamt ctx | return (ctx, none)
   if shc.value < 1 || 8 < shc.value then return (ctx, none)
@@ -128,7 +128,7 @@ def orcb_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   /- right operand must be `M` itself (when `Y = 0`) or `lshr M Y` -/
   let some _lshrProps := matchOrcbRight b m y ctx | return (ctx, none)
   /- soundness gate: `M = and Z (0x0101_0101_0101_0101 <<< Y)` -/
-  let some mOp := getDefiningOp m ctx | return (ctx, none)
+  let some mOp := m.definingOp? | return (ctx, none)
   let some (mo0, mo1, _) := matchAnd mOp ctx | return (ctx, none)
   let some _zAttr := matchOrcbMask mo0 mo1 y ctx | return (ctx, none)
   let (ctx, mCastOp) ← castToRegLocal ctx m
@@ -337,7 +337,7 @@ def bexti_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if t.bitwidth ≠ 64 then return (ctx, none)
   let some one := matchConstantIntVal rhs ctx | return (ctx, none)
   if one.value ≠ 1 then return (ctx, none)
-  let some shrOp := getDefiningOp lhs ctx | return (ctx, none)
+  let some shrOp := lhs.definingOp? | return (ctx, none)
   let some (x, shamt, _) := matchLshr shrOp ctx | return (ctx, none)
   let some sh := matchConstantIntVal shamt ctx | return (ctx, none)
   if sh.value < 0 || sh.value > 63 then return (ctx, none)
@@ -411,7 +411,7 @@ def slliuw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if t.bitwidth ≠ 64 then return (ctx, none)
   let some sh := matchConstantIntVal shamt ctx | return (ctx, none)
   if sh.value < 0 || sh.value > 31 then return (ctx, none)
-  let some baseOp := getDefiningOp base ctx | return (ctx, none)
+  let some baseOp := base.definingOp? | return (ctx, none)
   let some (x, _) := matchZext baseOp ctx | return (ctx, none)
   let .integerType srcT := (x.getType! ctx.raw).val | return (ctx, none)
   if srcT.bitwidth ≠ 32 then return (ctx, none)

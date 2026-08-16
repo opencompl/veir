@@ -155,10 +155,9 @@ private def compareNamedDominators
 /-- Resolve a named SSA value to the operation that defines it. -/
 private def getNamedOperation?
     (recovered : RecoveredNames)
-    (name : String)
-    (irCtx : WfIRContext OpCode) : Option OperationPtr := do
+    (name : String) : Option OperationPtr := do
   let value ← recovered.values[name]?
-  value.getDefiningOp! irCtx.raw
+  value.definingOp?
 
 /--
 Compare one expected operation dominance relation.
@@ -168,9 +167,9 @@ private def compareOperationDominance
     (expected : ExpectedOperationDominance)
     (dfCtx : DataFlowContext)
     (irCtx : WfIRContext OpCode) : MismatchReport := Id.run do
-  let some dominator := getNamedOperation? recovered expected.dominator irCtx
+  let some dominator := getNamedOperation? recovered expected.dominator
     | return #[s!"op dominance {expected.dominator}->{expected.dominated}: missing dominator"]
-  let some dominated := getNamedOperation? recovered expected.dominated irCtx
+  let some dominated := getNamedOperation? recovered expected.dominated
     | return #[s!"op dominance {expected.dominator}->{expected.dominated}: missing dominated op"]
 
   let observedDominates := dominator.dominates dominated dfCtx irCtx

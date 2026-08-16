@@ -58,14 +58,6 @@ def matchConstantZero (val : ValuePtr) (ctx : IRContext OpCode) : Option ValuePt
   guard (attr.value = 0)
   return val
 
-/--
-  Return the operation that defines `val`, if `val` is the result of an operation
-  (rather than a block argument). Used for matching multi-operation patterns.
--/
-def getDefiningOp (val : ValuePtr) (_ctx : IRContext OpCode) : Option OperationPtr := do
-  let .opResult opResultPtr := val | none
-  some opResultPtr.op
-
 def matchAshr (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (OpCode.llvm .ashr)) := do
   let (op, properties) ← matchOp op ctx (.llvm .ashr) 2
   return (op[0]!, op[1]!, properties)
