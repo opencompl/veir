@@ -69,13 +69,10 @@ def OperationPtr.verifyTerminatorPosition (op : OperationPtr) (ctx : WfIRContext
 
 /-- Return the region containing a value's definition, if it is linked into one. -/
 private def ValuePtr.getParentRegion?
-    (value : ValuePtr) (ctx : WfIRContext OpCode) : Option RegionPtr := do
-  let block :=
-    match value with
-    | .opResult result => (result.op.get! ctx.raw).parent
-    | .blockArgument argument => some argument.block
-  let block ← block
-  (block.get! ctx.raw).parent
+    (value : ValuePtr) (ctx : WfIRContext OpCode) : Option RegionPtr :=
+  match value with
+  | .opResult result => result.op.getParentRegion! ctx.raw
+  | .blockArgument argument => (argument.block.get! ctx.raw).parent
 
 /--
 Whether `ancestor` is `descendant` or one of its enclosing regions. This is the
@@ -83,15 +80,10 @@ executable counterpart of MLIR's `Region::isAncestor` query.
 -/
 private partial def RegionPtr.isAncestorOf
     (ancestor descendant : RegionPtr) (ctx : WfIRContext OpCode) : Bool :=
-  if ancestor = descendant then
-    true
-  else
-    match (descendant.get! ctx.raw).parent with
+  ancestor = descendant ||
+    match (descendant.get! ctx.raw).parent.bind (·.getParentRegion! ctx.raw) with
     | none => false
-    | some parentOp =>
-      match parentOp.getParentRegion! ctx.raw with
-      | none => false
-      | some parentRegion => ancestor.isAncestorOf parentRegion ctx
+    | some parentRegion => ancestor.isAncestorOf parentRegion ctx
 
 /--
 Find the region that establishes the nearest `IsolatedFromAbove` scope around
