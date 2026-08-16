@@ -111,6 +111,14 @@ class HasOpInfo (opCode: Type)
   Does this OpCode count as an MLIR basic block terminator?
   -/
   isTerminator : opCode → Bool := fun _ => false
+  /--
+  Whether this operation has MLIR's `IsolatedFromAbove` trait. Operations in
+  each of its regions may only use values defined in that region or one of its
+  nested regions.
+
+  Defaults to `false` for every opcode.
+  -/
+  isIsolatedFromAbove : opCode → Bool := fun _ => false
 
 instance [HasOpInfo opCode] {op : opCode} : Hashable (HasOpInfo.propertiesOf op) where
   hash := HasOpInfo.propertiesHash.hash

@@ -67,6 +67,64 @@ def OperationPtr.verifyTerminatorPosition (op : OperationPtr) (ctx : WfIRContext
   if operation.opType.isTerminator && operation.next.isSome then
     throw "Expected a terminator to be the last operation of its block"
 
+/-- Return the region containing a value's definition, if it is linked into one. -/
+private def ValuePtr.getParentRegion?
+    (value : ValuePtr) (ctx : WfIRContext OpCode) : Option RegionPtr := do
+  let block :=
+    match value with
+    | .opResult result => (result.op.get! ctx.raw).parent
+    | .blockArgument argument => some argument.block
+  let block ← block
+  (block.get! ctx.raw).parent
+
+/--
+Whether `ancestor` is `descendant` or one of its enclosing regions. This is the
+executable counterpart of MLIR's `Region::isAncestor` query.
+-/
+private partial def RegionPtr.isAncestorOf
+    (ancestor descendant : RegionPtr) (ctx : WfIRContext OpCode) : Bool :=
+  if ancestor = descendant then
+    true
+  else
+    match (descendant.get! ctx.raw).parent with
+    | none => false
+    | some parentOp =>
+      match parentOp.getParentRegion! ctx.raw with
+      | none => false
+      | some parentRegion => ancestor.isAncestorOf parentRegion ctx
+
+/--
+Find the region that establishes the nearest `IsolatedFromAbove` scope around
+`region`. The returned region is one of the isolated operation's direct
+regions; different regions of the same isolated operation are separate scopes.
+-/
+private partial def RegionPtr.nearestIsolatedScope?
+    (region : RegionPtr) (ctx : WfIRContext OpCode) : Option RegionPtr := do
+  let parentOp ← (region.get! ctx.raw).parent
+  if (parentOp.getOpType! ctx.raw).isIsolatedFromAbove then
+    return region
+  let parentRegion ← parentOp.getParentRegion! ctx.raw
+  parentRegion.nearestIsolatedScope? ctx
+
+/--
+Verify MLIR's `IsolatedFromAbove` rule for one operation's operands. A use in
+an isolated operation's region may only reference a value defined in that same
+region or one of its nested regions. Looking for the nearest isolated scope
+also mirrors MLIR's behavior of checking nested isolated operations
+independently.
+-/
+def OperationPtr.verifyOperandIsolation
+    (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  let some useRegion := op.getParentRegion! ctx.raw | return
+  let some isolatedScope := useRegion.nearestIsolatedScope? ctx | return
+  for i in [0:op.getNumOperands ctx.raw opIn] do
+    let value := op.getOperand! ctx.raw i
+    let some defRegion := value.getParentRegion? ctx
+      | throw s!"operand {i} is unlinked from any region"
+    if !isolatedScope.isAncestorOf defRegion ctx then
+      throw s!"operand {i} uses a value defined outside the isolated region that encloses its use"
+
 /--
   Check that a block is non-empty and its last operation is a
   terminator.
@@ -171,7 +229,8 @@ def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
           op.verifyRISCVRegisterTypes ctx opIn
         match (op.get ctx.raw opIn).parent with
         | some _ => op.verifyTerminatorPosition ctx opIn
-        | none => pure ()))
+        | none => pure ()
+        op.verifyOperandIsolation ctx opIn))
   ctx.raw.forBlocksDepM (fun block blockIn => do
     match (block.get ctx.raw blockIn).parent with
     | some region =>

@@ -136,6 +136,11 @@ def PDL.getEffects
 def PDL.isConstantLike (_op : PDL) : Bool :=
   false
 
+def PDL.isIsolatedFromAbove (op : PDL) : Bool :=
+  match op with
+  | .pattern => true
+  | _ => false
+
 def PDL.hasSSADominance (_op : PDL) (_index : Nat) : Bool :=
   true
 
@@ -167,6 +172,7 @@ instance : HasOpInfo PDL where
   hasSSADominance := PDL.hasSSADominance
   hasNoTerminator := PDL.hasNoTerminator
   isTerminator := PDL.isTerminator
+  isIsolatedFromAbove := PDL.isIsolatedFromAbove
 
 /--
   The element kind of a PDL handle type, treating a non-range handle as a range

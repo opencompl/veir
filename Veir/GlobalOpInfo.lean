@@ -146,6 +146,25 @@ def OpCode.hasNoTerminator (opCode : OpCode) (index : Nat) : Bool :=
   | .pdl op => HasOpInfo.hasNoTerminator op index
   | .test op => HasOpInfo.hasNoTerminator op index
 
+/-- Whether this opcode carries MLIR's `IsolatedFromAbove` trait. -/
+def OpCode.isIsolatedFromAbove (opCode : OpCode) : Bool :=
+  match opCode with
+  | .arith op => HasOpInfo.isIsolatedFromAbove op
+  | .llvm op => HasOpInfo.isIsolatedFromAbove op
+  | .riscv op => HasOpInfo.isIsolatedFromAbove op
+  | .riscv_cf op => HasOpInfo.isIsolatedFromAbove op
+  | .riscv_stack op => HasOpInfo.isIsolatedFromAbove op
+  | .rv64 op => HasOpInfo.isIsolatedFromAbove op
+  | .mod_arith op => HasOpInfo.isIsolatedFromAbove op
+  | .cf op => HasOpInfo.isIsolatedFromAbove op
+  | .comb op => HasOpInfo.isIsolatedFromAbove op
+  | .hw op => HasOpInfo.isIsolatedFromAbove op
+  | .builtin op => HasOpInfo.isIsolatedFromAbove op
+  | .func op => HasOpInfo.isIsolatedFromAbove op
+  | .datapath op => HasOpInfo.isIsolatedFromAbove op
+  | .pdl op => HasOpInfo.isIsolatedFromAbove op
+  | .test op => HasOpInfo.isIsolatedFromAbove op
+
 /--
   Does this OpCode count as an MLIR basic block terminator? Dialects that do
   not say otherwise inherit the `HasOpInfo` default of `false`.
@@ -248,6 +267,7 @@ instance : HasOpInfo OpCode where
   hasSSADominance := OpCode.hasSSADominance
   hasNoTerminator := OpCode.hasNoTerminator
   isTerminator := OpCode.isTerminator
+  isIsolatedFromAbove := OpCode.isIsolatedFromAbove
 
 #generate_has_dialect_instances OpCode
 

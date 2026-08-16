@@ -341,6 +341,11 @@ def Llvm.isConstantLike (op : Llvm) : Bool :=
   | .mlir__constant | .mlir__poison | .mlir__addressof => true
   | _ => false
 
+def Llvm.isIsolatedFromAbove (op : Llvm) : Bool :=
+  match op with
+  | .mlir__global | .func => true
+  | _ => false
+
 def Llvm.hasSSADominance (_op : Llvm) (_index : Nat) : Bool :=
   true
 
@@ -362,6 +367,7 @@ instance : HasOpInfo Llvm where
   isConstantLike := Llvm.isConstantLike
   hasSSADominance := Llvm.hasSSADominance
   isTerminator := Llvm.isTerminator
+  isIsolatedFromAbove := Llvm.isIsolatedFromAbove
 
 /-- Whether `n` is a valid LLVM alignment: a strictly positive power of two. -/
 def isValidLLVMAlignment (n : Int) : Bool :=

@@ -1,4 +1,8 @@
-// RUN: veir-opt %s | filecheck %s
+// RUN: veir-opt %s --disable-verifiers | filecheck %s
+
+// This is a parser scope-resolution test. Some nested functions deliberately
+// reference values from enclosing functions, which violates
+// IsolatedFromAbove and is therefore not verifier-valid IR.
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "outer", function_type = () -> ()}> ({
