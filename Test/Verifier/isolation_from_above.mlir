@@ -14,4 +14,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: operand 0 uses a value defined outside the isolated region
+// CHECK: operand uses a value defined outside the isolated region

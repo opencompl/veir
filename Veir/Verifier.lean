@@ -118,12 +118,11 @@ def OperationPtr.verifyOperandIsolation
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   let some useRegion := op.getParentRegion! ctx.raw | return
   let some isolatedScope := useRegion.nearestIsolatedScope? ctx | return
-  for i in [0:op.getNumOperands ctx.raw opIn] do
-    let value := op.getOperand! ctx.raw i
+  for value in op.getOperands ctx.raw opIn do
     let some defRegion := value.getParentRegion? ctx
-      | throw s!"operand {i} is unlinked from any region"
+      | throw "operand is unlinked from any region"
     if !isolatedScope.isAncestorOf defRegion ctx then
-      throw s!"operand {i} uses a value defined outside the isolated region that encloses its use"
+      throw "operand uses a value defined outside the isolated region that encloses its use"
 
 /--
   Check that a block is non-empty and its last operation is a

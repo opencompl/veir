@@ -11,4 +11,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: test.test: operand 0 uses a value defined outside the isolated region
+// CHECK: test.test: operand uses a value defined outside the isolated region

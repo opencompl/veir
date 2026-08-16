@@ -11,4 +11,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: llvm.return: operand 0 uses a value defined outside the isolated region
+// CHECK: llvm.return: operand uses a value defined outside the isolated region

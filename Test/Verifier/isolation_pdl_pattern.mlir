@@ -14,4 +14,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: pdl.operation: operand 0 uses a value defined outside the isolated region
+// CHECK: pdl.operation: operand uses a value defined outside the isolated region
