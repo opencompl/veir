@@ -3,6 +3,7 @@ module
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Dialects.RISCV_Cf.Properties
+public import Veir.Verifier.Basic
 meta import Veir.Meta.OpCode
 
 namespace Veir
@@ -53,13 +54,9 @@ def Riscv_Cf.toAttrDict
       (Attribute.denseArrayAttr props.operandSegmentSizes)
   | _ => Std.HashMap.emptyWithCapacity 0
 
-def Riscv_Cf.readsMemory
-    (_op : Riscv_Cf) (_props : Riscv_Cf.propertiesOf _op) : Bool :=
-  false
-
-def Riscv_Cf.writesMemory
-    (_op : Riscv_Cf) (_props : Riscv_Cf.propertiesOf _op) : Bool :=
-  false
+def Riscv_Cf.getEffects
+    (_op : Riscv_Cf) (_props : Riscv_Cf.propertiesOf _op) : MemoryEffects :=
+  .none
 
 def Riscv_Cf.isConstantLike (_op : Riscv_Cf) : Bool :=
   false
@@ -79,11 +76,61 @@ instance : HasOpInfo Riscv_Cf where
   propertiesOf := Riscv_Cf.propertiesOf
   fromAttrDict := Riscv_Cf.fromAttrDict
   toAttrDict := Riscv_Cf.toAttrDict
-  readsMemory := Riscv_Cf.readsMemory
-  writesMemory := Riscv_Cf.writesMemory
+  getEffects := Riscv_Cf.getEffects
   isConstantLike := Riscv_Cf.isConstantLike
   hasSSADominance := Riscv_Cf.hasSSADominance
   isTerminator := Riscv_Cf.isTerminator
+
+/--
+Verify the local invariants of a `riscv_cf` operation in any operation-info
+type containing the `riscv_cf` dialect.
+-/
+def Riscv_Cf.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
+    [HasDialect OpInfo Riscv_Cf] (opType : Riscv_Cf) (op : OperationPtr)
+    (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  match opType with
+  | .branch =>
+    op.verifyUnconditionalBranch ctx opIn
+  | .beq => do
+    op.verifyTerminatorCounts ctx opIn 2
+    let sizes := (op.getProperties! ctx.raw Riscv_Cf.beq).operandSegmentSizes
+    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
+    pure ()
+  | .bne => do
+    op.verifyTerminatorCounts ctx opIn 2
+    let sizes := (op.getProperties! ctx.raw Riscv_Cf.bne).operandSegmentSizes
+    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
+    pure ()
+  | .blt => do
+    op.verifyTerminatorCounts ctx opIn 2
+    let sizes := (op.getProperties! ctx.raw Riscv_Cf.blt).operandSegmentSizes
+    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
+    pure ()
+  | .bge => do
+    op.verifyTerminatorCounts ctx opIn 2
+    let sizes := (op.getProperties! ctx.raw Riscv_Cf.bge).operandSegmentSizes
+    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
+    pure ()
+  | .bltu => do
+    op.verifyTerminatorCounts ctx opIn 2
+    let sizes := (op.getProperties! ctx.raw Riscv_Cf.bltu).operandSegmentSizes
+    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
+    pure ()
+  | .bgeu => do
+    op.verifyTerminatorCounts ctx opIn 2
+    let sizes := (op.getProperties! ctx.raw Riscv_Cf.bgeu).operandSegmentSizes
+    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
+    pure ()
+  | .beqz => do
+    op.verifyTerminatorCounts ctx opIn 2
+    let sizes := (op.getProperties! ctx.raw Riscv_Cf.beqz).operandSegmentSizes
+    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 1
+    pure ()
+  | .bnez => do
+    op.verifyTerminatorCounts ctx opIn 2
+    let sizes := (op.getProperties! ctx.raw Riscv_Cf.bnez).operandSegmentSizes
+    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 1
+    pure ()
 
 end
 

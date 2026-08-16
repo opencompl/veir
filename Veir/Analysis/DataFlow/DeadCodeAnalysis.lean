@@ -13,33 +13,33 @@ def mkDefault : LivenessFact :=
   { payload := { latticeElement := .dead } }
 
 def propagate (state : LivenessFact) (anchor : LatticeAnchor)
-  (dfCtx : DataFlowContext) (irCtx : IRContext OpCode) : DataFlowContext := Id.run do
+  (dfCtx : DataFlowContext) (irCtx : WfIRContext OpCode) : DataFlowContext := Id.run do
   let mut dfCtx := { dfCtx with workList := state.enqueueDependents dfCtx.workList }
   match anchor with
   | .InsertPoint point =>
     -- Only deal with block start insertion points!
-    if point.prev! irCtx ≠ none then
+    if point.prev! irCtx.raw ≠ none then
       panic! "Dead code propagate called on non block start insertion point"
 
     -- Reinvoke the analyses on the block itself
     for analysisKind in state.subscribers do
       dfCtx := dfCtx.enqueue (point, analysisKind)
 
-    let some block := point.block! irCtx
+    let some block := point.block! irCtx.raw
       | panic! "Dead Code propagate: block start insertion point without block"
 
     -- Reinvoke analyses on all operations in the block
     for analysisKind in state.subscribers do
-      let mut maybeOp := (block.get! irCtx).firstOp
+      let mut maybeOp := (block.get! irCtx.raw).firstOp
       while h : maybeOp.isSome do
         let op := maybeOp.get h
-        let some point := InsertPoint.after? op irCtx
+        let some point := InsertPoint.after? op irCtx.raw
           | panic! "Dead Code propagate: block operation without insertion point"
         dfCtx := dfCtx.enqueue (point, analysisKind)
-        maybeOp := (op.get! irCtx).next
+        maybeOp := (op.get! irCtx.raw).next
   | .CFGEdge edge =>
     for analysisKind in state.subscribers do
-      dfCtx := dfCtx.enqueue (InsertPoint.atStart! edge.target irCtx, analysisKind)
+      dfCtx := dfCtx.enqueue (InsertPoint.atStart! edge.target irCtx.raw, analysisKind)
   | _ =>
     pure ()
   dfCtx
@@ -65,9 +65,9 @@ def markEdgeLive
     (src : BlockPtr)
     (dst : BlockPtr)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : DataFlowContext := Id.run do
+    (irCtx : WfIRContext OpCode) : DataFlowContext := Id.run do
   let mut dfCtx := dfCtx
-  let point := InsertPoint.atStart! dst irCtx
+  let point := InsertPoint.atStart! dst irCtx.raw
   dfCtx := dfCtx.modifyFactAndPropagate .liveness (.InsertPoint point) (fun fact =>
     (fact.setToLive, !fact.live)) irCtx
   dfCtx := dfCtx.modifyFactAndPropagate .liveness (.CFGEdge { source := src, target := dst }) (fun fact =>
@@ -78,12 +78,12 @@ def markEdgeLive
 def markEntryBlocksLive
     (op : OperationPtr)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : DataFlowContext := Id.run do
+    (irCtx : WfIRContext OpCode) : DataFlowContext := Id.run do
   let mut dfCtx := dfCtx
-  for regionPtr in (op.get! irCtx).regions do
-    let region := regionPtr.get! irCtx
+  for regionPtr in (op.get! irCtx.raw).regions do
+    let region := regionPtr.get! irCtx.raw
     if let some block := region.firstBlock then
-      let point := InsertPoint.atStart! block irCtx
+      let point := InsertPoint.atStart! block irCtx.raw
       dfCtx := dfCtx.modifyFactAndPropagate .liveness (.InsertPoint point) (fun fact =>
         (fact.setToLive, !fact.live)) irCtx
   dfCtx
@@ -95,9 +95,9 @@ an interface much like what MLIR has.
 -/
 private def isBranchOp
     (op : OperationPtr)
-    (irCtx : IRContext OpCode) : Bool :=
+    (irCtx : WfIRContext OpCode) : Bool :=
   -- TODO: Replace this `.test .test` check once VeIR has proper branch ops.
-  match (op.get! irCtx).opType with
+  match (op.get! irCtx.raw).opType with
   | .test .test => true
   | _ => false
 
@@ -106,15 +106,15 @@ Read a literal constant directly from the defining operation when possible.
 -/
 private def getLiteralConstant?
     (value : ValuePtr)
-    (irCtx : IRContext OpCode) : Option AbstractConstant :=
+    (irCtx : WfIRContext OpCode) : Option AbstractConstant :=
   match value with
   | .opResult result =>
     if result.index ≠ 0 then
       none
     else
-      match (result.op.get! irCtx).opType with
+      match (result.op.get! irCtx.raw).opType with
       | .arith .constant =>
-        let intAttr := (result.op.getProperties! irCtx Arith.constant).value
+        let intAttr := (result.op.getProperties! irCtx.raw Arith.constant).value
         some (.constant ⟨intAttr.type.bitwidth, Data.LLVM.Int.constant intAttr.type.bitwidth intAttr.value⟩)
       | _ =>
         none
@@ -129,8 +129,8 @@ code analysis remains useful without any external constant information.
 private def getOperandValues
     (op : OperationPtr)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : DataFlowContext × Option (Array AbstractConstant) := Id.run do
-  let operands := (op.getOperands! irCtx).map fun operand =>
+    (irCtx : WfIRContext OpCode) : DataFlowContext × Option (Array AbstractConstant) := Id.run do
+  let operands := (op.getOperands! irCtx.raw).map fun operand =>
     match getLiteralConstant? operand irCtx with
     | some literal => literal
     | none => .top
@@ -150,18 +150,18 @@ TODO: Replace this once VeIR supports branch operators! For now, we treat
 private def getSuccessorForOperands?
     (op : OperationPtr)
     (operands : Array AbstractConstant)
-    (irCtx : IRContext OpCode) : Option BlockPtr :=
-  if op.getNumSuccessors! irCtx = 1 then
-    some (op.getSuccessor! irCtx 0)
-  else if op.getNumSuccessors! irCtx = 2 then
+    (irCtx : WfIRContext OpCode) : Option BlockPtr :=
+  if op.getNumSuccessors! irCtx.raw = 1 then
+    some (op.getSuccessor! irCtx.raw 0)
+  else if op.getNumSuccessors! irCtx.raw = 2 then
     match operands[0]? with
     | some (AbstractConstant.constant constant) =>
       match constant.value with
       | Data.LLVM.Int.val value =>
         if value = 0 then
-          some (op.getSuccessor! irCtx 1)
+          some (op.getSuccessor! irCtx.raw 1)
         else
-          some (op.getSuccessor! irCtx 0)
+          some (op.getSuccessor! irCtx.raw 0)
       | Data.LLVM.Int.poison =>
         none
     | _ =>
@@ -177,12 +177,12 @@ of both the operation results and any nested regions.
 def visitBranchOperation
     (branch : OperationPtr)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : DataFlowContext := Id.run do
+    (irCtx : WfIRContext OpCode) : DataFlowContext := Id.run do
   -- Try to deduce a single successor for the branch.
   let (dfCtx, operands?) := getOperandValues branch dfCtx irCtx
   let some operands := operands?
     | return dfCtx
-  let some parentBlock := (branch.get! irCtx).parent
+  let some parentBlock := (branch.get! irCtx.raw).parent
     | return dfCtx
 
   match getSuccessorForOperands? branch operands irCtx with
@@ -191,7 +191,7 @@ def visitBranchOperation
   | none =>
     -- Otherwise, mark all successors as executable and outgoing edges.
     let mut dfCtx := dfCtx
-    for successor in branch.getSuccessors! irCtx do
+    for successor in branch.getSuccessors! irCtx.raw do
       dfCtx := markEdgeLive parentBlock successor dfCtx irCtx
     dfCtx
 /--
@@ -200,11 +200,11 @@ Visit an operation and deduce which of its successors are live.
 private def visitOp
     (op : OperationPtr)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : DataFlowContext := Id.run do
+    (irCtx : WfIRContext OpCode) : DataFlowContext := Id.run do
   -- If the parent block is not live, there is nothing to do.
-  if hParent : (op.get! irCtx).parent.isSome then
-    let parentBlock := (op.get! irCtx).parent.get hParent
-    let blockPoint := InsertPoint.atStart! parentBlock irCtx
+  if hParent : (op.get! irCtx.raw).parent.isSome then
+    let parentBlock := (op.get! irCtx.raw).parent.get hParent
+    let blockPoint := InsertPoint.atStart! parentBlock irCtx.raw
     match dfCtx.getFact? .liveness (.InsertPoint blockPoint) with
     | some liveFact =>
       -- If parent block not live, skip op.
@@ -219,7 +219,7 @@ private def visitOp
 
   -- TODO: If we have a live call op, add this as a live predecessor of the callee.
 
-  if op.getNumRegions! irCtx ≠ 0 then
+  if op.getNumRegions! irCtx.raw ≠ 0 then
     -- TODO: Check if we can reason about region control-flow.
 
     -- TODO: Check if this is a callable operation and use callsite information
@@ -231,16 +231,16 @@ private def visitOp
   -- TODO: If `op` is a region or callable return, visit the corresponding
   -- terminator semantics once VeIR has the necessary interfaces.
 
-  if op.getNumSuccessors! irCtx ≠ 0 then
-    if hParent : (op.get! irCtx).parent.isSome then
-      let parentBlock := (op.get! irCtx).parent.get hParent
+  if op.getNumSuccessors! irCtx.raw ≠ 0 then
+    if hParent : (op.get! irCtx.raw).parent.isSome then
+      let parentBlock := (op.get! irCtx.raw).parent.get hParent
 
       -- Check if we can reason about the control-flow.
       if isBranchOp op irCtx then
         dfCtx := visitBranchOperation op dfCtx irCtx
       else
         -- Conservatively mark all successors as live.
-        for successor in op.getSuccessors! irCtx do
+        for successor in op.getSuccessors! irCtx.raw do
           dfCtx := markEdgeLive parentBlock successor dfCtx irCtx
     else
       -- TODO: Handle standalone operations with successors if VeIR ever models them.
@@ -251,8 +251,8 @@ private def visitOp
 def visit
     (point : InsertPoint)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : DataFlowContext := Id.run do
-  match point.prev! irCtx with
+    (irCtx : WfIRContext OpCode) : DataFlowContext := Id.run do
+  match point.prev! irCtx.raw with
   | none => dfCtx
   | some op => visitOp op dfCtx irCtx
 
@@ -264,18 +264,18 @@ liveness, then recurse into nested regions.
 partial def initializeRecursively
     (op : OperationPtr)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : DataFlowContext := Id.run do
+    (irCtx : WfIRContext OpCode) : DataFlowContext := Id.run do
   let mut dfCtx := dfCtx
 
   -- Initialize the analysis by visiting every op with control-flow semantics.
-  if op.getNumRegions! irCtx ≠ 0 || op.getNumSuccessors! irCtx ≠ 0 then
+  if op.getNumRegions! irCtx.raw ≠ 0 || op.getNumSuccessors! irCtx.raw ≠ 0 then
     -- TODO: || isRegionOrCallableReturn op || isACallOpInterface op
 
     -- When the liveness of the parent block changes, make sure to re-invoke
     -- the analysis on the op.
-    if h : (op.get! irCtx).parent.isSome then
-      let parentBlock := (op.get! irCtx).parent.get h
-      let blockPoint := InsertPoint.atStart! parentBlock irCtx
+    if h : (op.get! irCtx.raw).parent.isSome then
+      let parentBlock := (op.get! irCtx.raw).parent.get h
+      let blockPoint := InsertPoint.atStart! parentBlock irCtx.raw
       dfCtx := dfCtx.modifyFact .liveness (.InsertPoint blockPoint) (fun fact =>
         fact.subscribe kind)
 
@@ -283,24 +283,24 @@ partial def initializeRecursively
     dfCtx := visitOp op dfCtx irCtx
 
   -- Recurse on nested operations.
-  for regionPtr in (op.get! irCtx).regions do
+  for regionPtr in (op.get! irCtx.raw).regions do
     -- TODO: If we haven't seen a symbol table yet, check if the current
     -- operation has one. If so, update the flag to allow for resolving
     -- callables in nested regions.
-    let region := regionPtr.get! irCtx
+    let region := regionPtr.get! irCtx.raw
     let mut maybeBlock := region.firstBlock
     while let some block := maybeBlock do
-      let mut maybeOp := (block.get! irCtx).firstOp
+      let mut maybeOp := (block.get! irCtx.raw).firstOp
       while let some nestedOp := maybeOp do
         dfCtx := initializeRecursively nestedOp dfCtx irCtx
-        maybeOp := (nestedOp.get! irCtx).next
-      maybeBlock := (block.get! irCtx).next
+        maybeOp := (nestedOp.get! irCtx.raw).next
+      maybeBlock := (block.get! irCtx.raw).next
   dfCtx
 
 def init
     (top : OperationPtr)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : DataFlowContext := Id.run do
+    (irCtx : WfIRContext OpCode) : DataFlowContext := Id.run do
   -- Mark the top level blocks as live.
   let dfCtx := markEntryBlocksLive top dfCtx irCtx
 

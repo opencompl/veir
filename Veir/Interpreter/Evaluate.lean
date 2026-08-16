@@ -14,12 +14,11 @@ namespace Veir
   Whether an operation is a candidate for evaluation by `foldEvaluate`.
 
   Evaluation runs the operation against memory that is not the program's, so
-  it must neither observe nor modify the program's memory.
+  it must have no memory effects at all.
 -/
 private def isFoldEvaluationCandidate
     (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode) : Bool :=
-  !HasOpInfo.readsMemory opCode properties &&
-    !HasOpInfo.writesMemory opCode properties
+  HasOpInfo.getEffects opCode properties == .none
 
 /--
   Evaluate an operation with the interpreter, given the runtime values of its

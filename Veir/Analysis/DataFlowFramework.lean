@@ -1,6 +1,7 @@
 module
 
 public import Veir.Analysis.DataFlow.Facts
+public import Veir.IR.WellFormed
 
 open Std (DHashMap HashMap)
 
@@ -37,7 +38,7 @@ class FactSpec (kind : FactKind) where
   Hook that's called when the fact changes state. Typically used to
   enqueue a fact's dependents because it changed.
   -/
-  propagate : Fact kind → LatticeAnchor → DataFlowContext → IRContext OpCode → DataFlowContext
+  propagate : Fact kind → LatticeAnchor → DataFlowContext → WfIRContext OpCode → DataFlowContext
 
 namespace Fact
 
@@ -54,7 +55,7 @@ def propagate [FactSpec kind]
     (fact : Fact kind)
     (anchor : LatticeAnchor)
     (ctx : DataFlowContext)
-    (irCtx : IRContext OpCode) : DataFlowContext :=
+    (irCtx : WfIRContext OpCode) : DataFlowContext :=
   FactSpec.propagate (kind := kind) fact anchor ctx irCtx
 
 end Fact
@@ -72,11 +73,11 @@ structure DataFlowAnalysis where
   This often involves enqueueing some number of work items into the work list, such
   as every SSA value reachable from the top level operation pointer.
   -/
-  init : OperationPtr → DataFlowContext → IRContext OpCode → DataFlowContext
+  init : OperationPtr → DataFlowContext → WfIRContext OpCode → DataFlowContext
   /--
   The transfer function, visiting the given `InsertPoint`.
   -/
-  visit : InsertPoint → DataFlowContext → IRContext OpCode → DataFlowContext
+  visit : InsertPoint → DataFlowContext → WfIRContext OpCode → DataFlowContext
 
 namespace DataFlowContext
 
@@ -128,7 +129,7 @@ def modifyFactAndPropagate (kind : FactKind) [spec : FactSpec kind]
     (ctx : DataFlowContext)
     (anchor : LatticeAnchor)
     (f : Fact kind → Fact kind × Bool)
-    (irCtx : IRContext OpCode) : DataFlowContext :=
+    (irCtx : WfIRContext OpCode) : DataFlowContext :=
   let current := ctx.getOrMkFact kind anchor
   let (fact, changed) := f current
   let ctx := ctx.setFact kind anchor fact
@@ -151,7 +152,7 @@ Returns `Option` since `run` may run forever.
 TODO: Eventually prove via monotonicity that this is in fact impossible.
 -/
 partial def run (analyses : RegisteredAnalyses) (ctx : DataFlowContext)
-    (irCtx : IRContext OpCode) : Option DataFlowContext :=
+    (irCtx : WfIRContext OpCode) : Option DataFlowContext :=
   match ctx.workList.dequeue? with
   | none => some ctx
   | some ((point, analysisKind), workList) =>
@@ -169,7 +170,7 @@ Initialize the registered analyses and run the worklist solver to a fixpoint.
 Returns `some` whenever it terminates.
 -/
 def fixpointSolve (top : OperationPtr) (analyses : Array DataFlowAnalysis)
-    (irCtx : IRContext OpCode) : Option DataFlowContext := Id.run do
+    (irCtx : WfIRContext OpCode) : Option DataFlowContext := Id.run do
   let mut ctx := DataFlowContext.empty
   let mut registeredAnalyses : RegisteredAnalyses := ∅
   for analysis in analyses do

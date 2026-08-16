@@ -2,6 +2,7 @@ module
 
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
+public import Veir.Verifier.Basic
 meta import Veir.Meta.OpCode
 
 namespace Veir
@@ -29,13 +30,9 @@ def Datapath.toAttrDict
     Std.HashMap ByteArray Attribute :=
   Std.HashMap.emptyWithCapacity 0
 
-def Datapath.readsMemory
-    (_op : Datapath) (_props : Datapath.propertiesOf _op) : Bool :=
-  false
-
-def Datapath.writesMemory
-    (_op : Datapath) (_props : Datapath.propertiesOf _op) : Bool :=
-  false
+def Datapath.getEffects
+    (_op : Datapath) (_props : Datapath.propertiesOf _op) : MemoryEffects :=
+  .none
 
 def Datapath.isConstantLike (_op : Datapath) : Bool :=
   false
@@ -51,10 +48,45 @@ instance : HasOpInfo Datapath where
   propertiesOf := Datapath.propertiesOf
   fromAttrDict := Datapath.fromAttrDict
   toAttrDict := Datapath.toAttrDict
-  readsMemory := Datapath.readsMemory
-  writesMemory := Datapath.writesMemory
+  getEffects := Datapath.getEffects
   isConstantLike := Datapath.isConstantLike
   hasSSADominance := Datapath.hasSSADominance
+
+/--
+Verify the local invariants of a `datapath` operation in any operation-info
+type containing the `datapath` dialect.
+-/
+@[expose]
+def Datapath.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
+    [HasDialect OpInfo Datapath] (opType : Datapath) (op : OperationPtr)
+    (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  match opType with
+  | .compress => do
+    if op.getNumOperands ctx.raw opIn ≤ op.getNumResults ctx.raw opIn then
+      throw "Number of inputs must be greater than the number of results"
+    if op.getNumResults ctx.raw opIn < 2 then
+      throw "Expected at least 2 results"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .partial_product => do
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .pos_partial_product => do
+    if op.getNumOperands ctx.raw opIn ≠ 3 then
+      throw "Expected 3 operands"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
 
 end
 

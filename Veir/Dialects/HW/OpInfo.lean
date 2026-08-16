@@ -3,6 +3,7 @@ module
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Dialects.HW.Properties
+public import Veir.Verifier.Basic
 meta import Veir.Meta.OpCode
 
 namespace Veir
@@ -47,11 +48,9 @@ def HW.toAttrDict
     dict
   | _ => Std.HashMap.emptyWithCapacity 0
 
-def HW.readsMemory (_op : HW) (_props : HW.propertiesOf _op) : Bool :=
-  false
-
-def HW.writesMemory (_op : HW) (_props : HW.propertiesOf _op) : Bool :=
-  false
+def HW.getEffects
+    (_op : HW) (_props : HW.propertiesOf _op) : MemoryEffects :=
+  .none
 
 def HW.isConstantLike (op : HW) : Bool :=
   match op with
@@ -74,11 +73,35 @@ instance : HasOpInfo HW where
   propertiesOf := HW.propertiesOf
   fromAttrDict := HW.fromAttrDict
   toAttrDict := HW.toAttrDict
-  readsMemory := HW.readsMemory
-  writesMemory := HW.writesMemory
+  getEffects := HW.getEffects
   isConstantLike := HW.isConstantLike
   hasSSADominance := HW.hasSSADominance
   isTerminator := HW.isTerminator
+
+/--
+Verify the local invariants of an `hw` operation in any operation-info type
+containing the `hw` dialect.
+-/
+def HW.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
+    [HasDialect OpInfo HW] (opType : HW) (op : OperationPtr)
+    (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  match opType with
+  | .constant => do
+    op.verifyPlainOpCounts ctx opIn 0 1
+    pure ()
+  | .module => do
+    if op.getNumOperands ctx.raw opIn ≠ 0 then
+      throw "Expected 0 operands"
+    if op.getNumResults ctx.raw opIn ≠ 0 then
+      throw "Expected 0 results"
+    if op.getNumRegions ctx.raw opIn ≠ 1 then
+      throw "Expected 1 region"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .output => do
+    op.verifyTerminatorCounts ctx opIn 0
+    pure ()
 
 end
 

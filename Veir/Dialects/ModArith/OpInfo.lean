@@ -2,6 +2,7 @@ module
 
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
+public import Veir.Verifier.Basic
 public import Veir.Dialects.ModArith.Properties
 meta import Veir.Meta.OpCode
 
@@ -39,13 +40,9 @@ def Mod_Arith.toAttrDict
       "value".toUTF8 (Attribute.integerAttr props.value)
   | _ => Std.HashMap.emptyWithCapacity 0
 
-def Mod_Arith.readsMemory
-    (_op : Mod_Arith) (_props : Mod_Arith.propertiesOf _op) : Bool :=
-  false
-
-def Mod_Arith.writesMemory
-    (_op : Mod_Arith) (_props : Mod_Arith.propertiesOf _op) : Bool :=
-  false
+def Mod_Arith.getEffects
+    (_op : Mod_Arith) (_props : Mod_Arith.propertiesOf _op) : MemoryEffects :=
+  .none
 
 def Mod_Arith.isConstantLike (op : Mod_Arith) : Bool :=
   match op with
@@ -63,7 +60,57 @@ instance : HasOpInfo Mod_Arith where
   propertiesOf := Mod_Arith.propertiesOf
   fromAttrDict := Mod_Arith.fromAttrDict
   toAttrDict := Mod_Arith.toAttrDict
-  readsMemory := Mod_Arith.readsMemory
-  writesMemory := Mod_Arith.writesMemory
+  getEffects := Mod_Arith.getEffects
   isConstantLike := Mod_Arith.isConstantLike
   hasSSADominance := Mod_Arith.hasSSADominance
+
+def TypeAttr.verifyModArithType (ty : TypeAttr) (msg : String) : Except String ModArithType :=
+  match ty.val with
+  | .modArithType type => do
+    let modulus := type.modulus.value
+    let bitWidth := type.modulus.type.bitwidth
+    if modulus ≤ 0 then
+      throw s!"{msg} but found invalid ModArithType type: modulus {modulus} must be positive."
+    if modulus ≥ (2 ^ bitWidth) then
+      throw s!"{msg} but found invalid ModArithType type: modulus {modulus} does not fit into the underlying storage type 'i{bitWidth}'."
+    pure type
+  | type => throw s!"{msg} but found {type} instead."
+
+def OperationPtr.verifyModArithBinOp {OpInfo : Type} [HasOpInfo OpInfo]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 2 1
+  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let operandType ← op.verifyOperandTypesMatch ctx 0 1
+    s!"{instrName}: Expected operands to have the same type"
+  op.verifyResultTypeMatches ctx operandType
+    s!"{instrName}: Expected result type to match operand type"
+  let _ ← operandType.verifyModArithType s!"{instrName}: Expected ModArithType"
+
+def OperationPtr.verifyModArithConstantOp {OpInfo : Type} [HasOpInfo OpInfo]
+    [HasDialect OpInfo Mod_Arith] (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 0 1
+  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let mat ← ((op.getResult 0).get! ctx.raw).type.verifyModArithType
+    s!"{instrName}: Expected result to have ModArithType"
+  let value := (op.getProperties! ctx.raw Mod_Arith.constant).value.value
+  let bw := mat.modulus.type.bitwidth
+  -- Slightly odd range because the storage type is signless.
+  if value < -(2 ^ (bw - 1) : Int) ∨ (2 ^ bw : Int) ≤ value then
+    throw s!"{instrName}: constant value {value} does not fit in storage type 'i{bw}'."
+
+/--
+Verify the local invariants of a `mod_arith` operation in any operation-info
+type containing the `mod_arith` dialect.
+-/
+def Mod_Arith.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
+    [HasDialect OpInfo Mod_Arith] (opType : Mod_Arith) (op : OperationPtr)
+    (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  match opType with
+  | .add | .mul | .sub => do
+    op.verifyModArithBinOp ctx opIn
+    pure ()
+  | .constant => do
+    op.verifyModArithConstantOp ctx opIn
+    pure ()

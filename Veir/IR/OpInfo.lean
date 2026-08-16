@@ -7,6 +7,36 @@ namespace Veir
 
 public section
 
+/-- The memory effects an operation may have. -/
+structure MemoryEffects where
+  /-- The operation may dereference memory, without necessarily mutating it. -/
+  reads : Bool
+  /-- The operation may mutate memory, without necessarily dereferencing it. -/
+  writes : Bool
+  /--
+  The operation may allocate memory, without necessarily reading or writing it.
+  -/
+  allocates : Bool
+deriving Inhabited, Repr, DecidableEq
+
+namespace MemoryEffects
+
+def none : MemoryEffects := { reads := false, writes := false, allocates := false }
+
+def read : MemoryEffects := { reads := true, writes := false, allocates := false }
+
+def write : MemoryEffects := { reads := false, writes := true, allocates := false }
+
+def readWrite : MemoryEffects := { reads := true, writes := true, allocates := false }
+
+def allocate : MemoryEffects := { reads := false, writes := false, allocates := true }
+
+/-- A conservative summary for an operation whose memory effects are unknown. -/
+def unknown : MemoryEffects :=
+  { reads := true, writes := true, allocates := true }
+
+end MemoryEffects
+
 class HasOpInfo (opCode: Type)
     extends Hashable opCode, Repr opCode, Inhabited opCode where
   /-- Look up an operation by its fully qualified MLIR name. -/
@@ -38,33 +68,22 @@ class HasOpInfo (opCode: Type)
   decideEq : DecidableEq (opCode) := by
     intros opCode1 opCode2; cases opCode1 <;> cases opCode2 <;> infer_instance
   /--
-  Whether an operation with this opcode reads memory.
+  The memory effects of an operation with this opcode and these properties,
+  mirroring MLIR's `MemoryEffectOpInterface::getEffects`.
 
-  This is deliberately separate from `writesMemory`: a non-volatile load reads
-  memory and yet is eligible for removal when its result is unused, so only
-  `readsMemory` reports `true` for it. Fold-time evaluation must consult this
-  before running an operation against memory that is not the program's.
+  The effects are deliberately reported separately rather than collapsed into a
+  single "is this side-effecting" answer, because the transformations care about
+  different subsets of them. Only the write effect makes an operation ineligible
+  for removal: a non-volatile load reads memory, and an `alloca` allocates it,
+  yet both are dead when their results are unused. Fold-time evaluation, on the
+  other hand, must see no effects at all before running an operation against
+  memory that is not the program's.
 
-  Defaults to `true` for every opcode, which conservatively assumes memory is
-  read.
+  Defaults to `.unknown` for every opcode, which conservatively assumes every
+  modeled memory effect.
   -/
-  readsMemory : (op : opCode) → propertiesOf op → Bool := fun _ _ => true
-  /--
-  Whether an operation with this opcode writes memory.
-
-  This reports only that memory may be modified. It does not imply that the
-  operation completely overwrites any particular location, so it is not by
-  itself sufficient to prove that an earlier write is dead.
-
-  An operation that writes memory is ineligible for transformations that add /
-  remove / rearrange instructions, so this decides -- alongside the separate
-  question of whether the operation terminates its block -- whether it may be
-  removed when nothing uses its results.
-
-  Defaults to `true` for every opcode, which conservatively assumes memory is
-  written.
-  -/
-  writesMemory : (op : opCode) → propertiesOf op → Bool := fun _ _ => true
+  getEffects : (op : opCode) → propertiesOf op → MemoryEffects :=
+    fun _ _ => .unknown
   /--
   Whether an operation with this opcode materializes a literal constant
   value: no operands, one result, no side effects, and a result that is
