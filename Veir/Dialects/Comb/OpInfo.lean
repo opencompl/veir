@@ -3,6 +3,8 @@ module
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Dialects.Comb.Properties
+public import Veir.Dialects.HW.OpInfo
+public import Veir.ConstantMaterialization
 public import Veir.Verifier.Basic
 meta import Veir.Meta.OpCode
 
@@ -86,6 +88,16 @@ instance : HasOpInfo Comb where
   getEffects := Comb.getEffects
   isConstantLike := Comb.isConstantLike
   hasSSADominance := Comb.hasSSADominance
+
+/-- CIRCT combinational folds use the HW dialect's integer constant. -/
+def Comb.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpInfo HW]
+    (_op : Comb) (value : RuntimeValue) (type : TypeAttr) : Option (Materialized OpInfo) :=
+  match value, type.val with
+  | .int bw (.val value), .integerType intType =>
+    if bw = intType.bitwidth then
+      some (.of HW.constant (HWConstantProperties.mk (IntegerAttr.mk value.toInt intType)))
+    else none
+  | _, _ => none
 
 /--
 Verify the local invariants of a `comb` operation in any operation-info type

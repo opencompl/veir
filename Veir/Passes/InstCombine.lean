@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+public import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
 
 namespace Veir
@@ -17,9 +18,9 @@ namespace Veir
 /-- Rewrites `x * 2` to `x + x`. -/
 def mulITwoToAddi_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, properties) := matchMuli op ctx
+  let some (lhs, rhs, properties) := matchMuli op ctx.raw
     | return (ctx, none)
-  let some cst := matchConstantIntVal rhs ctx
+  let some cst := matchConstantIntVal rhs ctx.raw
     | return (ctx, none)
   if cst.value ≠ 2 then
     return (ctx, none)
@@ -34,9 +35,9 @@ def mulITwoToAddi (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /-- Rewrites `x * 0` to `0`. -/
 def mulIZeroToCst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := matchMuli op ctx
+  let some (lhs, rhs, _) := matchMuli op ctx.raw
     | return (ctx, none)
-  let some cst := matchConstantIntVal rhs ctx
+  let some cst := matchConstantIntVal rhs ctx.raw
     | return (ctx, none)
   if cst.value ≠ 0 then
     return (ctx, none)
@@ -54,9 +55,9 @@ def mulIZeroToCst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /-- Rewrites `x + 0` to `x`. -/
 def addiZeroToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := matchAddi op ctx
+  let some (lhs, rhs, _) := matchAddi op ctx.raw
     | return (ctx, none)
-  let some cst := matchConstantIntVal rhs ctx
+  let some cst := matchConstantIntVal rhs ctx.raw
     | return (ctx, none)
   if cst.value ≠ 0 then
     return (ctx, none)
@@ -69,9 +70,9 @@ def addiZeroToX (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /-- Rewrites `x * 1` to `x`. -/
 def mulIOneToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := matchMuli op ctx
+  let some (lhs, rhs, _) := matchMuli op ctx.raw
     | return (ctx, none)
-  let some cst := matchConstantIntVal rhs ctx
+  let some cst := matchConstantIntVal rhs ctx.raw
     | return (ctx, none)
   if cst.value ≠ 1 then
     return (ctx, none)
@@ -84,9 +85,9 @@ def mulIOneToX (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /-- Rewrites `x - 0` to `x`. -/
 def subiZeroToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := matchSubi op ctx
+  let some (lhs, rhs, _) := matchSubi op ctx.raw
     | return (ctx, none)
-  let some cst := matchConstantIntVal rhs ctx
+  let some cst := matchConstantIntVal rhs ctx.raw
     | return (ctx, none)
   if cst.value ≠ 0 then
     return (ctx, none)
@@ -99,7 +100,7 @@ def subiZeroToX (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /-- Rewrites `x - x` to `0`. -/
 def subiSelfToZero_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := matchSubi op ctx
+  let some (lhs, rhs, _) := matchSubi op ctx.raw
     | return (ctx, none)
   if lhs ≠ rhs then
     return (ctx, none)
@@ -117,7 +118,7 @@ def subiSelfToZero (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /-- Rewrites `x & x` to `x`. -/
 def andiSelfToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs) := matchAndi op ctx
+  let some (lhs, rhs) := matchAndi op ctx.raw
     | return (ctx, none)
   if lhs ≠ rhs then
     return (ctx, none)
@@ -130,9 +131,9 @@ def andiSelfToX (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /-- Rewrites `x & 0` to `0`. -/
 def andiZeroToZero_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs) := matchAndi op ctx
+  let some (lhs, rhs) := matchAndi op ctx.raw
     | return (ctx, none)
-  let some cst := matchConstantIntVal rhs ctx
+  let some cst := matchConstantIntVal rhs ctx.raw
     | return (ctx, none)
   if cst.value ≠ 0 then
     return (ctx, none)
@@ -150,9 +151,9 @@ def andiZeroToZero (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /-- Rewrites `x | 0` to `x`. -/
 def oriZeroToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := matchOri op ctx
+  let some (lhs, rhs, _) := matchOri op ctx.raw
     | return (ctx, none)
-  let some cst := matchConstantIntVal rhs ctx
+  let some cst := matchConstantIntVal rhs ctx.raw
     | return (ctx, none)
   if cst.value ≠ 0 then
     return (ctx, none)
@@ -165,7 +166,7 @@ def oriZeroToX (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /-- Rewrites `x | x` to `x`. -/
 def oriSelfToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := matchOri op ctx
+  let some (lhs, rhs, _) := matchOri op ctx.raw
     | return (ctx, none)
   if lhs ≠ rhs then
     return (ctx, none)
@@ -178,9 +179,9 @@ def oriSelfToX (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /-- Rewrites `x ^ 0` to `x`. -/
 def xoriZeroToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs) := matchXori op ctx
+  let some (lhs, rhs) := matchXori op ctx.raw
     | return (ctx, none)
-  let some cst := matchConstantIntVal rhs ctx
+  let some cst := matchConstantIntVal rhs ctx.raw
     | return (ctx, none)
   if cst.value ≠ 0 then
     return (ctx, none)
@@ -193,7 +194,7 @@ def xoriZeroToX (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /-- Rewrites `x ^ x` to `0`. -/
 def xoriSelfToZero_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs) := matchXori op ctx
+  let some (lhs, rhs) := matchXori op ctx.raw
     | return (ctx, none)
   if lhs ≠ rhs then
     return (ctx, none)
@@ -211,9 +212,9 @@ def xoriSelfToZero (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /-- Rewrites `~~x` to `x`. -/
 def notNotToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some outerNotted := matchNot (op.getResult 0) ctx
+  let some outerNotted := matchNot (op.getResult 0) ctx.raw
     | return (ctx, none)
-  let some inner := matchNot outerNotted ctx
+  let some inner := matchNot outerNotted ctx.raw
     | return (ctx, none)
   some (ctx, some (#[], #[inner]))
 
@@ -225,15 +226,15 @@ def notNotToX (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /- TODO: the precondition should be strengthened by some hasOneUse() checks -/
 def deMorganAndToOr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some andVal := matchNot (op.getResult 0) ctx
+  let some andVal := matchNot (op.getResult 0) ctx.raw
     | return (ctx, none)
   let .opResult andResPtr := andVal
     | return (ctx, none)
-  let some (andL, andR) := matchAndi andResPtr.op ctx
+  let some (andL, andR) := matchAndi andResPtr.op ctx.raw
     | return (ctx, none)
-  let some a := matchNot andL ctx
+  let some a := matchNot andL ctx.raw
     | return (ctx, none)
-  let some b := matchNot andR ctx
+  let some b := matchNot andR ctx.raw
     | return (ctx, none)
   let resultType := a.getType! ctx.raw
   let orProps : DisjointProperties := { disjoint := false }
@@ -249,15 +250,15 @@ def deMorganAndToOr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /- TODO: the precondition should be strengthened by some hasOneUse() checks -/
 def deMorganOrToAnd_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some orVal := matchNot (op.getResult 0) ctx
+  let some orVal := matchNot (op.getResult 0) ctx.raw
     | return (ctx, none)
   let .opResult orResPtr := orVal
     | return (ctx, none)
-  let some (orL, orR, _) := matchOri orResPtr.op ctx
+  let some (orL, orR, _) := matchOri orResPtr.op ctx.raw
     | return (ctx, none)
-  let some a := matchNot orL ctx
+  let some a := matchNot orL ctx.raw
     | return (ctx, none)
-  let some b := matchNot orR ctx
+  let some b := matchNot orR ctx.raw
     | return (ctx, none)
   let resultType := a.getType! ctx.raw
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.and #[resultType] #[a, b]

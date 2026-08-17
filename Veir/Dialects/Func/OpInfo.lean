@@ -55,11 +55,16 @@ def Func.hasSideEffects (_op : Func) (_props : Func.propertiesOf _op) : Bool :=
 def Func.getEffects
     (op : Func) (_props : Func.propertiesOf op) : MemoryEffects :=
   match op with
-  | .call => .readWrite
+  | .call => .unknown
   | .func | .return => .none
 
 def Func.isConstantLike (_op : Func) : Bool :=
   false
+
+def Func.isFunctionLike (op : Func) : Bool :=
+  match op with
+  | .func => true
+  | .call | .return => false
 
 def Func.hasSSADominance (_op : Func) (_index : Nat) : Bool :=
   true
@@ -80,6 +85,7 @@ instance : HasOpInfo Func where
   hasSideEffects := Func.hasSideEffects
   getEffects := Func.getEffects
   isConstantLike := Func.isConstantLike
+  isFunctionLike := Func.isFunctionLike
   hasSSADominance := Func.hasSSADominance
   isTerminator := Func.isTerminator
 

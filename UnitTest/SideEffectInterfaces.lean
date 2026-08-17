@@ -19,6 +19,8 @@ private def volatileMemProperties : RISCVMemProperties :=
 #guard OpCode.getEffects (.llvm .store) (default : StoreProperties) == .write
 #guard OpCode.getEffects (.llvm .store) volatileStoreProperties == .readWrite
 
+#guard OpCode.getEffects (.llvm .alloca) (default : AllocaProperties) == .allocate
+
 #guard OpCode.getEffects (.arith .addi) (default : ArithIntegerOverflowFlagsProperties) == .none
 
 /- RISC-V models volatility the same way, on its own load and store opcodes. -/
@@ -31,6 +33,9 @@ private def volatileMemProperties : RISCVMemProperties :=
 
 #guard OpCode.getEffects (.riscv .add) (default : Unit) == .none
 
+#guard OpCode.getEffects (.riscv_stack .alloca)
+  (default : RISCVStackAllocaProperties) == .allocate
+
 /-
   A call is conservative in both directions: we have no interprocedural effect
   analysis, so the callee may do anything. Upstream reaches the same answer by
@@ -38,13 +43,13 @@ private def volatileMemProperties : RISCVMemProperties :=
   all and so has unknown effects.
 -/
 
-#guard OpCode.getEffects (.func .call) (default : FuncCallProperties) == .readWrite
+#guard OpCode.getEffects (.func .call) (default : FuncCallProperties) == .unknown
 
-/- Operations carrying regions are conservatively treated as reading and writing. -/
+/- Operations carrying regions conservatively have every modeled memory effect. -/
 
 /-- A `builtin.module` op, which always carries a single region. -/
 private def moduleWithRegion : OperationPtr × IRContext OpCode :=
   let (ctx, moduleOp) := WfIRContext.create! OpCode
   (moduleOp, ctx.raw)
 
-#guard moduleWithRegion.1.getEffects moduleWithRegion.2 == .readWrite
+#guard moduleWithRegion.1.getEffects moduleWithRegion.2 == .unknown

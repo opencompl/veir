@@ -18,6 +18,11 @@ namespace Veir
 
 public section
 
+/-- Whether this operation acts like a function. -/
+def OperationPtr.isFunctionLike {OpInfo : Type} [HasOpInfo OpInfo]
+    (op : OperationPtr) (ctx : IRContext OpInfo) : Bool :=
+  HasOpInfo.isFunctionLike (op.getOpType! ctx)
+
 namespace FunctionOpInterface
 
 /-- Returns the symbol name of the function. -/

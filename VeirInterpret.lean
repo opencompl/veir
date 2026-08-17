@@ -45,16 +45,16 @@ partial def scanEntryPoints (ctx : IRContext OpCode) (op : Option OperationPtr)
   match op with
   | none => return entryPoints
   | some op =>
-    let opType := op.getOpType! ctx
-    match opType with
-    | .llvm .func | .func .func =>
+    if op.isFunctionLike ctx then
       let entryPoints := if isZeroArgMainFunc ctx op then op :: entryPoints else entryPoints
       scanEntryPoints ctx (op.get! ctx).next entryPoints
-    | .llvm .module_flags | .llvm .mlir__global =>
-      scanEntryPoints ctx (op.get! ctx).next entryPoints
-    | _ =>
-      IO.eprintln "Error: Top-level operations are disallowed; define a zero-argument function named 'main'"
-      IO.Process.exit 1
+    else
+      match op.getOpType! ctx with
+      | .llvm .module_flags | .llvm .mlir__global =>
+        scanEntryPoints ctx (op.get! ctx).next entryPoints
+      | _ =>
+        IO.eprintln "Error: unsupported top-level operation; expected a function, llvm.mlir.global, or llvm.module_flags"
+        IO.Process.exit 1
 
 /-- Resolve the unique entry point of the module, if one exists. -/
 def resolveEntryPoint (ctx : IRContext OpCode) (moduleOp : OperationPtr) : IO OperationPtr := do

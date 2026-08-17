@@ -26,14 +26,13 @@ def parseOperation (filename : String) : ExceptT String IO (WfIRContext OpCode Ã
   | .error errMsg =>
     throw s!"Error reading file: {errMsg}"
 
-/-- Find the first `llvm.func` / `func.func` in the module's top block. -/
+/-- Find the first function-like operation in the module's top block. -/
 partial def findFunc (ctx : IRContext OpCode) (op : Option OperationPtr) : Option OperationPtr :=
   match op with
   | none => none
   | some op =>
-    match op.getOpType! ctx with
-    | .llvm .func | .func .func => some op
-    | _ => findFunc ctx (op.get! ctx).next
+    if op.isFunctionLike ctx then some op
+    else findFunc ctx (op.get! ctx).next
 
 def main (args : List String) : IO Unit := do
   match args with
@@ -48,7 +47,7 @@ def main (args : List String) : IO Unit := do
       match funcOp with
       | some f => Veir.MIRPrinter.printMIR rawCtx f
       | none =>
-        IO.eprintln "Error: no llvm.func / func.func found in module"
+        IO.eprintln "Error: no function-like operation found in module"
         IO.Process.exit 1
     | .error errMsg =>
       IO.eprintln s!"Error: {errMsg}"

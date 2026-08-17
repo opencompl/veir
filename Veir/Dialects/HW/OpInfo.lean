@@ -3,6 +3,7 @@ module
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Dialects.HW.Properties
+public import Veir.ConstantMaterialization
 public import Veir.Verifier.Basic
 meta import Veir.Meta.OpCode
 
@@ -108,6 +109,16 @@ def HW.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
   | .output => do
     op.verifyTerminatorCounts ctx opIn 0
     pure ()
+
+/-- Materialize integer results as `hw.constant`. -/
+def HW.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpInfo HW]
+    (_op : HW) (value : RuntimeValue) (type : TypeAttr) : Option (Materialized OpInfo) :=
+  match value, type.val with
+  | .int bw (.val value), .integerType intType =>
+    if bw = intType.bitwidth then
+      some (.of HW.constant (HWConstantProperties.mk (IntegerAttr.mk value.toInt intType)))
+    else none
+  | _, _ => none
 
 end
 
