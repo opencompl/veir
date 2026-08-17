@@ -40,6 +40,20 @@ theorem isMask_of_eq_maskOfWidth {o w : Nat} {m : BitVec o}
   subst hm
   exact isMask_maskOfWidth
 
+theorem maskOfWidth_lt_maskOfWidth {o w₁ w₂ : Nat} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
+    (h : w₁ < w₂) : maskOfWidth o w₁ < maskOfWidth o w₂ := by
+  rw [BitVec.lt_def, toNat_maskOfWidth h₁, toNat_maskOfWidth h₂]
+  have hlt : 2 ^ w₁ < 2 ^ w₂ := Nat.pow_lt_pow_right (by omega) h
+  have : 0 < 2 ^ w₁ := Nat.two_pow_pos w₁
+  omega
+
+/-- Strict width order becomes strict mask order. -/
+theorem mask_lt_mask {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
+    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
+    (hw : w₁ < w₂) : m₁ < m₂ := by
+  subst hm₁; subst hm₂
+  exact maskOfWidth_lt_maskOfWidth h₁ h₂ hw
+
 /-- ANDing with `maskOfWidth o w` keeps exactly the low `w` bits. -/
 theorem toNat_and_maskOfWidth {o w : Nat} (h : w ≤ o) (x : BitVec o) :
     (x &&& maskOfWidth o w).toNat = x.toNat % 2 ^ w := by
