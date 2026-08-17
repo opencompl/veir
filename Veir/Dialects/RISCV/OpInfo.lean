@@ -340,6 +340,7 @@ containing the `riscv` dialect.
 def Riscv.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
     [HasDialect OpInfo Riscv] (opType : Riscv) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyRISCVRegisterTypes ctx opIn
   match opType with
   | .li => do
     op.verifyPlainOpCounts ctx opIn 0 1
