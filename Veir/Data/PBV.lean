@@ -44,5 +44,5 @@ prove it, the tactic performs the following steps:
 * `Veir.Data.PBV.Push` — step 6: pushing `setWidth o` from the root of the goal down to its leaves.
 * `Veir.Data.PBV.Examples` — a manual trace of the whole pipeline.
 
-The algorithm and its original implementation are due to `@bollu`.
+The algorithm and its original implementation were developed by `@bollu`.
 -/
