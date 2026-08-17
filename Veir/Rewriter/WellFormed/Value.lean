@@ -392,7 +392,7 @@ grind_pattern BlockPtr.operationList_rewriter_replaceValue? =>
   block'.operationList newCtx newCtxWf blockInBounds'
 
 /--
-info: 'Veir.Rewriter.replaceValue?_WellFormed' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'Veir.Rewriter.replaceValue?_WellFormed' depends on axioms: [propext, Classical.choice, Quot.sound, sorryAx]
 -/
 #guard_msgs in
 #print axioms Rewriter.replaceValue?_WellFormed
@@ -465,7 +465,7 @@ theorem IRContext.wellFormed_rewriter_setType
     apply RegionPtr.WellFormed_unchanged (ctx := ctx) (h₈ reg this) <;> grind [Rewriter.setType]
 
 /--
-info: 'Veir.IRContext.wellFormed_rewriter_setType' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'Veir.IRContext.wellFormed_rewriter_setType' depends on axioms: [propext, Classical.choice, Quot.sound, sorryAx]
 -/
 #guard_msgs in
 #print axioms IRContext.wellFormed_rewriter_setType

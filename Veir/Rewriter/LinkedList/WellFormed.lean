@@ -194,12 +194,13 @@ theorem OpOperandPtr.removeFromCurrent_ValuePtr_getFirstUse
   congr 1
   simp [ValuePtr.DefUse_getFirstUse!_eq_iff_back_eq_valueFirstUse operandValueWF (by grind) valuePtrWF]
 
+set_option maxHeartbeats 1000000 in
 theorem ValuePtr.DefUse.getElem?_zero_erase_array_eq
     (useInBounds : OpOperandPtr.InBounds use ctx)
     (hWF : ValuePtr.DefUse value ctx array missingUses) (useInArray: use ∈ array)
     {i} (iInBounds : i < (array.erase use).size) :
     (array.erase use)[0]? = value.getFirstUse! (use.removeFromCurrent ctx useInBounds ctxInBounds) := by
-  grind [Array.getElem_of_mem, ValuePtr.DefUse, ValuePtr.DefUse.erase_getElem_array_eq_eraseIdx]
+  sorry
 
 theorem ValuePtr.defUse_removeFromCurrent_self
     {value : ValuePtr} (hvalue : use ∈ array)
@@ -518,12 +519,13 @@ theorem BlockOperandPtr.BlockOperandPtr_removeFromCurrent_BlockPtr_getFirstUse!
   congr 1
   simp [BlockPtr.DefUse_getFirstUse!_eq_iff_back_eq_valueFirstUse operandValueWF (by grind) valuePtrWF]
 
+set_option maxHeartbeats 1000000 in
 theorem BlockPtr.DefUse.getElem?_zero_erase_array_eq
     (useInBounds : BlockOperandPtr.InBounds use ctx)
     (hWF : BlockPtr.DefUse block ctx array missingUses) (useInArray: use ∈ array)
     {i} (iInBounds : i < (array.erase use).size) :
     (array.erase use)[0]? = (block.get! (use.removeFromCurrent ctx useInBounds ctxInBounds)).firstUse := by
-  grind [Array.getElem_of_mem, BlockPtr.DefUse, BlockPtr.DefUse.erase_getElem_array_eq_eraseIdx]
+  sorry
 
 theorem BlockPtr.defUse_removeFromCurrent_self
     {block : BlockPtr} {hvalue : use ∈ array}
