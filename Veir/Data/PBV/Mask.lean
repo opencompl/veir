@@ -81,7 +81,7 @@ theorem maskOfWidth_zero (o : Nat) : maskOfWidth o 0 = 0#o := by
 
 /-! ## The sign bit helpers -/
 
-def signBitOfMask {o : Nat} (m : BitVec o) := m - (m >>> 1)
+@[expose] def signBitOfMask {o : Nat} (m : BitVec o) := m - (m >>> 1)
 
 theorem ushiftRight_one_le {o : Nat} (m : BitVec o) : m >>> 1 ≤ m := by
   rw [BitVec.le_def, BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow]

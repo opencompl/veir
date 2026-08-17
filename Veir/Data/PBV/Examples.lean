@@ -46,3 +46,98 @@ theorem trace_add_comm_manual (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
   clear w
 -- Step 8: Bitblast!
   bv_decide
+
+theorem trace_double_zero_extend (p q r : Nat) (x : BitVec p)
+  (hr : r <= 8)
+  (hqr : q < r)
+  (hpq : p < q) :
+  (x.zeroExtend q).zeroExtend r = x.zeroExtend r
+  := by
+-- Step 1
+  have r_le_bw : r <= 8 := by grind
+  have q_le_bw : q <= 8 := by grind
+  have p_le_bw : p <= 8 := by grind
+-- Step 2-3
+  apply width_elim 8 r
+  intro mr h_mr
+  apply width_elim 8 q
+  intro mq h_mq
+  apply width_elim 8 p
+  intro mp h_mp
+-- Step 4:
+  revert x
+  apply var_elim 8 p p_le_bw
+  intro x h_xmp
+-- Step 5:
+  have mr_mask := isMask_of_eq_maskOfWidth h_mr
+  have mq_mask := isMask_of_eq_maskOfWidth h_mq
+  have mp_mask := isMask_of_eq_maskOfWidth h_mp
+  -- Translate the condition on the natural number width
+  -- into a fact about the bitvector masks
+  have le_pq := mask_lt_mask p_le_bw q_le_bw h_mp h_mq hpq
+-- Step 6:
+  simp only [
+    eq_iff r_le_bw,
+    setWidth_setWidth r_le_bw,
+    setWidth_setWidth p_le_bw,
+    setWidth_setWidth q_le_bw,
+    BitVec.zeroExtend_eq_setWidth,
+    BitVec.setWidth_eq,
+    ← h_mr,
+    ← h_mq,
+    ← h_mp,
+  ] at h_xmp ⊢
+-- Step 7:
+  clear h_mp h_mq h_mr
+-- Step 8:
+  bv_decide
+
+theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
+  (hr : r <= 8)
+  (hqr : q < r)
+  (hpq : p < q) :
+  (x.zeroExtend q).signExtend r = x.zeroExtend r
+  := by
+-- Step 1
+  have r_le_bw : r <= 8 := by grind
+  have q_le_bw : q <= 8 := by grind
+  have p_le_bw : p <= 8 := by grind
+-- Step 2-3
+  apply width_elim 8 r
+  intro mr h_mr
+  apply width_elim 8 q
+  intro mq h_mq
+  apply width_elim 8 p
+  intro mp h_mp
+-- Step 4:
+  revert x
+  apply var_elim 8 p p_le_bw
+  intro x h_xmp
+-- Step 5:
+  have mr_mask := isMask_of_eq_maskOfWidth h_mr
+  have mq_mask := isMask_of_eq_maskOfWidth h_mq
+  have mp_mask := isMask_of_eq_maskOfWidth h_mp
+  -- Translate the condition on the natural number width
+  -- into a fact about the bitvector masks
+  have le_pq := mask_lt_mask p_le_bw q_le_bw h_mp h_mq hpq
+-- Step 6:
+  simp only [
+    eq_iff r_le_bw,
+    setWidth_signExtend r_le_bw, -- Push `setWidth` down signExtend
+    msb_toMask q_le_bw,                 -- Replace the sign bit test with a mask test
+    setWidth_setWidth r_le_bw,
+    setWidth_setWidth q_le_bw,
+    setWidth_setWidth p_le_bw,
+    BitVec.zeroExtend_eq_setWidth,
+    signBitOfMask,                    -- Unfold, else `bv_decide` abstracts it away
+    BitVec.setWidth_eq,
+    q_le_bw,                                 -- Lets simp discharge the `v ≤ o` side condition
+                                             -- of `pbv_setWidth_signExtend`
+    ← h_mr,
+    ← h_mq,
+    ← h_mp,
+  ] at h_xmp ⊢
+-- Step 7:
+  clear h_mp h_mq h_mr
+-- Step 8:
+  bv_decide
