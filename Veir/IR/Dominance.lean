@@ -18,12 +18,12 @@ escapes the IR hierarchy before reaching `region`, return `none`.
 private partial def normalizeInsertPoint
     (region : RegionPtr)
     (point : InsertPoint)
-    (irCtx : IRContext OpCode) : Option InsertPoint := do
-  let block ← point.block! irCtx
-  if (block.get! irCtx).parent = some region then
+    (irCtx : WfIRContext OpCode) : Option InsertPoint := do
+  let block ← point.block! irCtx.raw
+  if (block.get! irCtx.raw).parent = some region then
     return point
-  let parentRegion ← (block.get! irCtx).parent
-  let parentOp ← (parentRegion.get! irCtx).parent
+  let parentRegion ← (block.get! irCtx.raw).parent
+  let parentOp ← (parentRegion.get! irCtx.raw).parent
   normalizeInsertPoint region (.before parentOp) irCtx
 
 /--
@@ -36,7 +36,7 @@ upward until it either reaches `dominator` or the chain ends.
 private partial def BlockPtr.dominatesWithinRegion
     (dominator block : BlockPtr)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : Bool := Id.run do
+    (irCtx : WfIRContext OpCode) : Bool := Id.run do
   if dominator = block then
     true
   else
@@ -53,12 +53,12 @@ Iterates from `dominator` down the block until it either reaches
 -/
 private def OperationPtr.dominatesWithinBlock
     (dominator op : OperationPtr)
-    (irCtx : IRContext OpCode) : Bool := Id.run do
+    (irCtx : WfIRContext OpCode) : Bool := Id.run do
   let mut current := some dominator
   while let some operation := current do
     if operation = op then
       return true
-    current := (operation.get! irCtx).next
+    current := (operation.get! irCtx.raw).next
   false
 
 namespace InsertPoint
@@ -69,7 +69,7 @@ to lie in the same block.
 -/
 private def dominatesWithinBlock
     (dominator point : InsertPoint)
-    (irCtx : IRContext OpCode) : Bool := Id.run do
+    (irCtx : WfIRContext OpCode) : Bool := Id.run do
   if dominator = point then
     return true
   match dominator, point with
@@ -93,10 +93,10 @@ private def dominates
     (dominator : InsertPoint)
     (point : InsertPoint)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : Bool := Id.run do
-  let some dominatorBlock := dominator.block! irCtx
+    (irCtx : WfIRContext OpCode) : Bool := Id.run do
+  let some dominatorBlock := dominator.block! irCtx.raw
     | return false
-  let some dominatorRegion := (dominatorBlock.get! irCtx).parent
+  let some dominatorRegion := (dominatorBlock.get! irCtx.raw).parent
     | return false
 
   -- If the point does not lie in the same region as `dominator`, scoot up
@@ -105,7 +105,7 @@ private def dominates
   -- doesn't properly dominate the point.
   let some point := normalizeInsertPoint dominatorRegion point irCtx
     | return false 
-  let some pointBlock := point.block! irCtx
+  let some pointBlock := point.block! irCtx.raw
     | return false
 
   if dominatorBlock = pointBlock then
@@ -122,7 +122,7 @@ private def properlyDominates
     (dominator : InsertPoint)
     (point : InsertPoint)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : Bool :=
+    (irCtx : WfIRContext OpCode) : Bool :=
   dominator ≠ point && dominator.dominates point dfCtx irCtx
 
 
@@ -138,7 +138,7 @@ def immediateDominator?
     [FactSpec .dominator]
     (block : BlockPtr)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : Option BlockPtr :=
+    (irCtx : WfIRContext OpCode) : Option BlockPtr :=
   block.getIDom? dfCtx irCtx
 
 /--
@@ -148,8 +148,8 @@ def dominates
     [FactSpec .dominator]
     (dominator block : BlockPtr)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : Bool :=
-  (InsertPoint.atStart! dominator irCtx).dominates (InsertPoint.atStart! block irCtx) dfCtx irCtx
+    (irCtx : WfIRContext OpCode) : Bool :=
+  (InsertPoint.atStart! dominator irCtx.raw).dominates (InsertPoint.atStart! block irCtx.raw) dfCtx irCtx
 
 /--
 Dominance query between two blocks, where a block does not dominate itself.
@@ -158,9 +158,9 @@ def properlyDominates
     [FactSpec .dominator]
     (dominator block : BlockPtr)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : Bool :=
-  (InsertPoint.atStart! dominator irCtx).properlyDominates
-    (InsertPoint.atStart! block irCtx) dfCtx irCtx
+    (irCtx : WfIRContext OpCode) : Bool :=
+  (InsertPoint.atStart! dominator irCtx.raw).properlyDominates
+    (InsertPoint.atStart! block irCtx.raw) dfCtx irCtx
 
 end BlockPtr
 
@@ -172,7 +172,7 @@ Dominance query between two operations, where an operation dominates itself.
 def dominates
     (dominator op : OperationPtr)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : Bool :=
+    (irCtx : WfIRContext OpCode) : Bool :=
   (InsertPoint.before dominator).dominates (InsertPoint.before op) dfCtx irCtx
 
 /--
@@ -181,7 +181,7 @@ Dominance query between two operations, where an operation does not dominate its
 def properlyDominates
     (dominator op : OperationPtr)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : Bool :=
+    (irCtx : WfIRContext OpCode) : Bool :=
   (InsertPoint.before dominator).properlyDominates (InsertPoint.before op) dfCtx irCtx
 
 end OperationPtr

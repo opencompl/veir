@@ -274,7 +274,7 @@ def eraseOp (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
   -- remaining user, mirroring MLIR's `addOperandsToWorklist`.
   let mut worklist := rewriter.worklist.remove op
   for operand in op.getOperands ctx hOp do
-    let some defOp := operand.getDefiningOp! ctx | continue
+    let some defOp := operand.definingOp? | continue
     if useChainHasAtMostOneUserBesides ctx (operand.getFirstUse! ctx) op none then
       worklist := worklist.push defOp
   return { rewriter with

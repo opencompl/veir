@@ -31,7 +31,7 @@ private def compareExpectedDominator
     (recovered : RecoveredNames)
     (expected : ExpectedBlockDominators)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : MismatchReport := Id.run do
+    (irCtx : WfIRContext OpCode) : MismatchReport := Id.run do
   let some expectedBlock := recovered.blocks[expectedDom]?
     | return #[s!"dominators {expected.name}: missing block label {expectedDom}"]
   let shouldProperlyDom := expectedDom ≠ expected.name
@@ -55,7 +55,7 @@ private def compareObservedDominator
     (observedBlock : BlockPtr)
     (expected : ExpectedBlockDominators)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : MismatchReport := Id.run do
+    (irCtx : WfIRContext OpCode) : MismatchReport := Id.run do
   let observedByRelation := observedBlock.dominates block dfCtx irCtx
   let observedProperly := observedBlock.properlyDominates block dfCtx irCtx
   let mut report := #[]
@@ -76,7 +76,7 @@ private def compareImmediateDominator
     (recovered : RecoveredNames)
     (expected : ExpectedBlockDominators)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : MismatchReport := Id.run do
+    (irCtx : WfIRContext OpCode) : MismatchReport := Id.run do
   let some block := recovered.blocks[expected.name]?
     | return #[s!"idom {expected.name}: missing block label"]
   let some observedIDom := block.immediateDominator? dfCtx irCtx
@@ -102,7 +102,7 @@ private def compareReachableDominators
     (recovered : RecoveredNames)
     (expected : ExpectedBlockDominators)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : MismatchReport := Id.run do
+    (irCtx : WfIRContext OpCode) : MismatchReport := Id.run do
   let mut report := #[]
   for expectedDom in expected.doms.toArray do
     report := report ++ compareExpectedDominator
@@ -123,7 +123,7 @@ private def compareDominators
     (recovered : RecoveredNames)
     (expected : ExpectedBlockDominators)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : MismatchReport := Id.run do
+    (irCtx : WfIRContext OpCode) : MismatchReport := Id.run do
   let some block := recovered.blocks[expected.name]?
     | return #[s!"dominators {expected.name}: missing block label"]
   let observedFact? := block.getDominatorFact? dfCtx irCtx
@@ -145,7 +145,7 @@ private def compareNamedDominators
     (recovered : RecoveredNames)
     (expectations : Array ExpectedBlockDominators)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : MismatchReport := Id.run do
+    (irCtx : WfIRContext OpCode) : MismatchReport := Id.run do
   let mut report := #[]
   for expected in expectations do
     report := report ++ compareDominators recovered expected dfCtx irCtx
@@ -155,10 +155,9 @@ private def compareNamedDominators
 /-- Resolve a named SSA value to the operation that defines it. -/
 private def getNamedOperation?
     (recovered : RecoveredNames)
-    (name : String)
-    (irCtx : IRContext OpCode) : Option OperationPtr := do
+    (name : String) : Option OperationPtr := do
   let value ← recovered.values[name]?
-  value.getDefiningOp! irCtx
+  value.definingOp?
 
 /--
 Compare one expected operation dominance relation.
@@ -167,10 +166,10 @@ private def compareOperationDominance
     (recovered : RecoveredNames)
     (expected : ExpectedOperationDominance)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : MismatchReport := Id.run do
-  let some dominator := getNamedOperation? recovered expected.dominator irCtx
+    (irCtx : WfIRContext OpCode) : MismatchReport := Id.run do
+  let some dominator := getNamedOperation? recovered expected.dominator
     | return #[s!"op dominance {expected.dominator}->{expected.dominated}: missing dominator"]
-  let some dominated := getNamedOperation? recovered expected.dominated irCtx
+  let some dominated := getNamedOperation? recovered expected.dominated
     | return #[s!"op dominance {expected.dominator}->{expected.dominated}: missing dominated op"]
 
   let observedDominates := dominator.dominates dominated dfCtx irCtx
@@ -195,7 +194,7 @@ private def compareNamedOperationDominance
     (recovered : RecoveredNames)
     (expectations : Array ExpectedOperationDominance)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : MismatchReport := Id.run do
+    (irCtx : WfIRContext OpCode) : MismatchReport := Id.run do
   let mut report := #[]
   for expected in expectations do
     report := report ++ compareOperationDominance recovered expected dfCtx irCtx

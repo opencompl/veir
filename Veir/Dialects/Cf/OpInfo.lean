@@ -43,16 +43,18 @@ def Cf.toAttrDict
 def Cf.hasSideEffects (_op : Cf) (_props : Cf.propertiesOf _op) : Bool :=
   true
 
-def Cf.readsMemory (_op : Cf) (_props : Cf.propertiesOf _op) : Bool :=
-  false
-
-def Cf.writesMemory (_op : Cf) (_props : Cf.propertiesOf _op) : Bool :=
-  false
+def Cf.getEffects
+    (_op : Cf) (_props : Cf.propertiesOf _op) : MemoryEffects :=
+  .none
 
 def Cf.isConstantLike (_op : Cf) : Bool :=
   false
 
 def Cf.hasSSADominance (_op : Cf) (_index : Nat) : Bool :=
+  true
+
+/-- Every `cf` operation is a branch, and so terminates its block. -/
+def Cf.isTerminator (_op : Cf) : Bool :=
   true
 
 #generate_dialect Cf
@@ -64,10 +66,10 @@ instance : HasOpInfo Cf where
   fromAttrDict := Cf.fromAttrDict
   toAttrDict := Cf.toAttrDict
   hasSideEffects := Cf.hasSideEffects
-  readsMemory := Cf.readsMemory
-  writesMemory := Cf.writesMemory
+  getEffects := Cf.getEffects
   isConstantLike := Cf.isConstantLike
   hasSSADominance := Cf.hasSSADominance
+  isTerminator := Cf.isTerminator
 
 /--
 Verify the local invariants of a `cf` operation in any operation-info type

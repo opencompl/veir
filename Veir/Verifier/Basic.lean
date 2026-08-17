@@ -30,6 +30,13 @@ def Attribute.branchArgCompatible (opTy argTy : Attribute) : Bool :=
       decide (r1.index = r2.index) || r1.index.isNone || r2.index.isNone
   | _, _ => decide (opTy = argTy)
 
+/-- Whether `attr` is definitely a non-zero initializer. -/
+def Attribute.isKnownNonZero (attr : Attribute) : Bool :=
+  match attr with
+  | .integerAttr intAttr => intAttr.value != 0
+  | .floatAttr fltAttr => fltAttr.value != 0.0
+  | _ => false
+
 /--
   Verify the result, region, and successor counts of a terminator: one that
   produces no results, has no regions, and transfers control to `successors`

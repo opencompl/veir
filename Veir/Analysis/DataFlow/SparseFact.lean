@@ -37,19 +37,19 @@ Propagate a sparse lattice update by revisiting dependents and all users of the
 updated SSA value for subscribed analyses.
 -/
 def propagate (state : Fact kind) (anchor : LatticeAnchor) 
-  (dfCtx : DataFlowContext) (irCtx : IRContext OpCode) : DataFlowContext := Id.run do
+  (dfCtx : DataFlowContext) (irCtx : WfIRContext OpCode) : DataFlowContext := Id.run do
   let mut dfCtx := { dfCtx with workList := state.enqueueDependents dfCtx.workList }
   match anchor with
   | .ValuePtr ssaValue =>
-    let mut maybeUse := ssaValue.getFirstUse! irCtx
+    let mut maybeUse := ssaValue.getFirstUse! irCtx.raw
     while let some use := maybeUse do
-      let user := (use.get! irCtx).owner
-      match InsertPoint.after? user irCtx with
+      let user := (use.get! irCtx.raw).owner
+      match InsertPoint.after? user irCtx.raw with
       | some point =>
         for analysisKind in state.subscribers do
           dfCtx := dfCtx.enqueue (point, analysisKind)
       | none => pure ()
-      maybeUse := (use.get! irCtx).nextUse
+      maybeUse := (use.get! irCtx.raw).nextUse
   | _ =>
     pure ()
   dfCtx
