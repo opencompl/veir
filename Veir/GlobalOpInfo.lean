@@ -164,6 +164,32 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | .pdl op => PDL.isConstantLike op
   | .test op => Test.isConstantLike op
 
+/--
+  Does this `OpCode` act like a function, i.e. a symbol whose single
+  region is the function body, with the signature carried in a
+  `function_type` property?
+
+  Dialects that do not override isFunctionLike default to false
+  for all operations.
+-/
+def OpCode.isFunctionLike (opCode : OpCode) : Bool :=
+  match opCode with
+  | .arith op => HasOpInfo.isFunctionLike op
+  | .llvm op => HasOpInfo.isFunctionLike op
+  | .riscv op => HasOpInfo.isFunctionLike op
+  | .riscv_cf op => HasOpInfo.isFunctionLike op
+  | .riscv_stack op => HasOpInfo.isFunctionLike op
+  | .rv64 op => HasOpInfo.isFunctionLike op
+  | .mod_arith op => HasOpInfo.isFunctionLike op
+  | .cf op => HasOpInfo.isFunctionLike op
+  | .comb op => HasOpInfo.isFunctionLike op
+  | .hw op => HasOpInfo.isFunctionLike op
+  | .builtin op => HasOpInfo.isFunctionLike op
+  | .func op => HasOpInfo.isFunctionLike op
+  | .datapath op => HasOpInfo.isFunctionLike op
+  | .pdl op => HasOpInfo.isFunctionLike op
+  | .test op => HasOpInfo.isFunctionLike op
+
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (_propertiesOf opCode) :=
   match opCode with
@@ -214,13 +240,34 @@ instance : HasOpInfo OpCode where
   toAttrDict := Properties.toAttrDict
   getEffects := OpCode.getEffects
   isConstantLike := OpCode.isConstantLike
+  isFunctionLike := OpCode.isFunctionLike
   hasSSADominance := OpCode.hasSSADominance
   hasNoTerminator := OpCode.hasNoTerminator
   isTerminator := OpCode.isTerminator
 
 #generate_has_dialect_instances OpCode
 
-abbrev propertiesOf := HasOpInfo.propertiesOf (self := instHasOpInfoOpCode)
+/--
+Ask the dialect of `opCode` how to represent a folded
+constant. Dialects without a materializer, and values a dialect cannot
+represent, decline to fold.
+-/
+def OpCode.materializeConstant (opCode : OpCode) (value : RuntimeValue)
+    (type : TypeAttr) : Option (Materialized OpCode) := do
+  let materialized ←
+    match opCode with
+    | .arith op => Arith.materializeConstant op value type
+    | .comb op => Comb.materializeConstant op value type
+    | .hw op => HW.materializeConstant op value type
+    | .llvm op => Llvm.materializeConstant op value type
+    | .mod_arith op => Mod_Arith.materializeConstant op value type
+    | .riscv op => Riscv.materializeConstant op value type
+    -- Listed rather than folded into a catch-all so that adding a dialect
+    -- fails to compile until it decides how, or whether, to materialize.
+    | .riscv_cf _ | .riscv_stack _ | .rv64 _ | .cf _ | .builtin _
+    | .func _ | .datapath _ | .pdl _ | .test _ => none
+  guard materialized.fst.isConstantLike
+  return materialized
 
 /--
   Is this `OpCode` commutative in its operands, i.e. `op x y` always

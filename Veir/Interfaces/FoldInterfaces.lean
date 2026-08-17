@@ -3,12 +3,13 @@ module
 public import Veir.Interfaces.ConstantLikeInterfaces
 public import Veir.Interpreter.Basic
 public import Veir.Interpreter.Evaluate
+public import Veir.PatternRewriter.Basic
 
 /-!
   # Constant folding decision interface
 
-  This file is the public entry point for deciding whether operations fold. It
-  does not provide IR mutation or constant materialization.
+  This file is the public entry point for deciding whether operations fold and
+  for materializing folded constants in the IR.
 -/
 
 public section
@@ -50,5 +51,25 @@ def OperationPtr.foldsTo (op : OperationPtr)
   OpCode.foldsTo opType
     (op.getProperties ctx.raw opType opInBounds (by grind))
     (op.getResultTypes ctx.raw opInBounds) constOperands
+
+/--
+Materialize `value` using the materialization hook of `foldingOpType`'s dialect.
+The hook may select a constant-like operation from another dialect.
+
+The return values signal two different failure modes:
+* `some (rewriter, none)` - the constant cannot be materialized, this means the
+   rewrite doesn't happen but there's no cause for concern
+* `none` - the operation could not be created; in this case the entire pass
+   should generate a hard failure
+-/
+def PatternRewriter.materializeConstant! (rewriter : PatternRewriter OpCode)
+    (foldingOpType : OpCode) (value : RuntimeValue) (resultType : TypeAttr)
+    (insertionPoint : InsertPoint) :
+    Option (PatternRewriter OpCode × Option OperationPtr) := do
+  let some ⟨opType, properties⟩ := foldingOpType.materializeConstant value resultType
+    | return (rewriter, none)
+  let (rewriter, op) ← rewriter.createOp! opType #[resultType] #[] #[] #[] properties
+    (some insertionPoint)
+  return (rewriter, some op)
 
 end Veir

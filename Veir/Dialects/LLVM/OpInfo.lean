@@ -5,6 +5,7 @@ public import Veir.IR.OpInfo
 public import Veir.Verifier.Basic
 public import Veir.Dialects.LLVM.Properties
 public import Veir.Dialects.Cf.Properties
+public import Veir.ConstantMaterialization
 meta import Veir.Meta.OpCode
 
 namespace Veir
@@ -316,6 +317,11 @@ def Llvm.isConstantLike (op : Llvm) : Bool :=
   | .mlir__constant | .mlir__poison | .mlir__addressof => true
   | _ => false
 
+def Llvm.isFunctionLike (op : Llvm) : Bool :=
+  match op with
+  | .func => true
+  | _ => false
+
 def Llvm.hasSSADominance (_op : Llvm) (_index : Nat) : Bool :=
   true
 
@@ -334,6 +340,7 @@ instance : HasOpInfo Llvm where
   toAttrDict := Llvm.toAttrDict
   getEffects := Llvm.getEffects
   isConstantLike := Llvm.isConstantLike
+  isFunctionLike := Llvm.isFunctionLike
   hasSSADominance := Llvm.hasSSADominance
   isTerminator := Llvm.isTerminator
 
@@ -642,6 +649,26 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
         Attribute.bitwidthOfType (op.getResultTypes! ctx.raw)[0]! then
       throw "llvm.bitcast: Expected types of the same bitwidth"
     pure ()
+
+/-- Materialize constants produced by folding LLVM dialect operations. -/
+def Llvm.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpInfo Llvm]
+    (_op : Llvm) (value : RuntimeValue) (type : TypeAttr) : Option (Materialized OpInfo) :=
+  match value, type.val with
+  | .int bw (.val value), .integerType intType =>
+    if bw = intType.bitwidth then
+      some (.of Llvm.mlir__constant
+        (LLVMConstantProperties.mk (.integer (IntegerAttr.mk value.toInt intType))))
+    else none
+  | .int bw .poison, .integerType intType =>
+    if bw = intType.bitwidth then some (.of Llvm.mlir__poison ()) else none
+  | .float bw value, .floatType floatType =>
+    -- `llvm.mlir.constant` only interprets 64-bit floats, so anything narrower
+    -- would materialize a constant that cannot be read back.
+    if bw = floatType.bitwidth ∧ bw = 64 then
+      some (.of Llvm.mlir__constant
+        (LLVMConstantProperties.mk (.float (FloatAttr.mk value floatType))))
+    else none
+  | _, _ => none
 
 end
 
