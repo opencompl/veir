@@ -2135,50 +2135,32 @@ theorem getFirstUse!_blockArgument_eq {ba : BlockArgumentPtr} {ctx : IRContext O
     (blockArgument ba).getFirstUse! ctx = (ba.get! ctx).firstUse := by
   grind [getFirstUse!]
 
-def getDefiningOp (value : ValuePtr) (ctx : IRContext OpInfo)
-    (valueIn : value.InBounds ctx := by grind) : Option OperationPtr :=
+def definingOp? (value : ValuePtr) : Option OperationPtr :=
   match value with
-  | opResult ptr => (ptr.get ctx).owner
+  | opResult ptr => some ptr.op
   | blockArgument _ => none
 
-def getDefiningOp! (value : ValuePtr) (ctx : IRContext OpInfo) : Option OperationPtr :=
-  match value with
-  | opResult ptr => some (ptr.get! ctx).owner
-  | blockArgument _ => none
-
-theorem getDefiningOp!_def {value : ValuePtr} :
-    value.getDefiningOp! ctx =
-      match value with
-      | opResult ptr => some (ptr.get! ctx).owner
-      | blockArgument _ => none := by
-  grind [getDefiningOp!]
-
-@[grind =_, eq_bang ←]
-theorem getDefiningOp!_eq_getDefiningOp {ptr : ValuePtr} (hin : ptr.InBounds ctx) :
-    ptr.getDefiningOp! ctx = ptr.getDefiningOp ctx hin := by
-  unfold getDefiningOp getDefiningOp!; grind
+@[simp, grind =]
+theorem definingOp?_opResult :
+    (opResult res).definingOp? = some res.op := by
+  grind [definingOp?]
 
 @[simp, grind =]
-theorem getDefiningOp!_opResult :
-    (opResult res).getDefiningOp! ctx = some (res.get! ctx).owner := by
-  grind [getDefiningOp!]
-
-@[simp, grind =]
-theorem getDefiningOp!_blockArgument :
-    (blockArgument ba).getDefiningOp! ctx = none := by
-  grind [getDefiningOp!]
+theorem definingOp?_blockArgument :
+    (blockArgument ba).definingOp? = none := by
+  grind [definingOp?]
 
 @[grind =]
-theorem getDefiningOp!_eq_some_iff {value : ValuePtr} :
-    value.getDefiningOp! ctx = some op ↔
-    ∃ opRes, value = opResult opRes ∧ (opRes.get! ctx).owner = op := by
-  grind [getDefiningOp!, cases ValuePtr]
+theorem definingOp?_eq_some_iff {value : ValuePtr} :
+    value.definingOp? = some op ↔
+    ∃ opRes, value = opResult opRes ∧ opRes.op = op := by
+  grind [definingOp?, cases ValuePtr]
 
 @[grind =]
-theorem getDefiningOp!_eq_none_iff {value : ValuePtr} :
-    value.getDefiningOp! ctx = none ↔
+theorem definingOp?_eq_none_iff {value : ValuePtr} :
+    value.definingOp? = none ↔
     ∃ blockArg, value = blockArgument blockArg := by
-  grind [getDefiningOp!, cases ValuePtr]
+  grind [definingOp?, cases ValuePtr]
 
 /--
 Returns true if the value has any uses.

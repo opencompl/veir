@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+public import Veir.PatternRewriter.Basic
 import Veir.Interfaces.ConstantLikeInterfaces
 import Veir.Passes.Matching
 
@@ -16,7 +17,7 @@ namespace Veir
 
 def canonicalizeModArithConstant (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (_, props) := matchOp op rewriter.ctx (.mod_arith .constant) 0
+  let some (_, props) := matchOp op rewriter.ctx.raw Mod_Arith.constant 0
     | return rewriter
   let resultType := (op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw
   let .modArithType modArithType := resultType.val
