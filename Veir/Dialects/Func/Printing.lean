@@ -3,15 +3,14 @@ module
 /-
 # Custom printing for the `func` dialect
 
-Hand-written custom printers for `func` operations whose syntax cannot be
-expressed declaratively (mirroring MLIR's `hasCustomAssemblyFormat`), plus the
-`HasCustomPrinting` instance registering them. Operations with a declarative
-`assemblyFormat` (e.g. `func.return`, `func.call`) are registered here too,
-in the `assemblyFormat` follow-up.
+Custom printers for `func` operations, plus the `HasCustomPrinting` instance
+registering them.
 -/
 
 public import Veir.Printer.Basic
 public import Veir.Dialects.Func.OpInfo
+public import Veir.AssemblyFormat
+public meta import Veir.AssemblyFormat
 
 namespace Veir
 
@@ -73,15 +72,30 @@ def Func.printFuncFunc : Printer.CustomPrinter GlobalOpCode := fun env ctx op in
   | none =>
     IO.print ") {}"
 
+/-- The declarative assembly format string for a `func` operation, if it has
+    one. These strings are copied essentially verbatim from MLIR's
+    `FuncOps.td`; the parser side of the custom syntax will reuse this table. -/
+def Func.assemblyFormatString? : Func → Option String
+  | .return => some "attr-dict (operands^ `:` type(operands))?"
+  | .call => some "$callee `(` operands `)` attr-dict `:` functional-type(operands, results)"
+  | _ => none
+
 /--
-  The custom printer for a `func` operation, if it has one, in any global
-  operation type that contains `func` operations.
+  The custom printer for a `func` operation, if it has one: a hand-written
+  printer for `func.func`, and `AssemblyFormat.formatPrinter` on the format
+  string for the declarative ones. Works in any global operation type that
+  contains `func` operations.
 -/
 def Func.customPrinter? :
     Func → Option (Printer.CustomPrinter GlobalOpCode)
   | .func => some (Func.printFuncFunc (GlobalOpCode := GlobalOpCode))
-  | _ => none
+  | op => (Func.assemblyFormatString? op).bind fun s =>
+      (AssemblyFormat.Format.parse s).toOption.map (AssemblyFormat.formatPrinter (OpCode := GlobalOpCode))
 
 end -- public section
+
+/- Compile-time validation: every registered format string must parse. -/
+#guard (AssemblyFormat.Format.parse "attr-dict (operands^ `:` type(operands))?").toOption.isSome
+#guard (AssemblyFormat.Format.parse "$callee `(` operands `)` attr-dict `:` functional-type(operands, results)").toOption.isSome
 
 end Veir
