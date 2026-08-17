@@ -40,3 +40,26 @@ theorem setWidth_add {w o : Nat} (h : w ≤ o) :
   refine setWidth_eq_and_maskOfWidth h ?_
   rw [BitVec.toNat_add, BitVec.toNat_setWidth_of_le h, BitVec.toNat_setWidth_of_le h,
     Nat.mod_mod_pow_of_le h, BitVec.toNat_add]
+
+/-- Sign extension: fill above the source width `v` with the sign bit, then mask to the target
+width. -/
+theorem setWidth_signExtend {t o : Nat} (_h : t ≤ o) :
+    ∀ {v : Nat} (a : BitVec v), v ≤ o →
+      (a.signExtend t).setWidth o
+        = ((a.setWidth o) ||| (cond a.msb (~~~(maskOfWidth o v)) 0#o)) &&& maskOfWidth o t := by
+  intro v a hv
+  apply BitVec.eq_of_getLsbD_eq
+  intro i _
+  rw [BitVec.getLsbD_setWidth, BitVec.getLsbD_signExtend, BitVec.getLsbD_and,
+    BitVec.getLsbD_or, BitVec.getLsbD_setWidth, getLsbD_maskOfWidth]
+  by_cases hiv : i < v
+  · -- Below the source width: the sign fill is masked out, so the bit is `a`'s own.
+    have hio : i < o := by omega
+    have hmask : (maskOfWidth o v)[i] = true := by
+      rw [getElem_maskOfWidth i hio]; simp [hiv]
+    cases hmsb : a.msb <;>
+      simp [hiv, hio, hmask, Bool.and_comm]
+  · -- At or above the source width: `a` has no bit here, so the result is the sign bit.
+    rw [BitVec.getLsbD_of_ge a i (by omega)]
+    cases hmsb : a.msb <;>
+      simp [hiv, getLsbD_maskOfWidth, Bool.and_comm]
