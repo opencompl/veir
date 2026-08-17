@@ -2,6 +2,10 @@ module
 
 public import Veir.IR.Basic
 public import Veir.Dialects.Builtin.OpInfo
+public import Veir.GlobalOpInfo
+public import Veir.Printer.Basic
+public import Veir.OpPrinters
+
 import Veir.Rewriter.Basic
 
 open Veir
@@ -10,7 +14,7 @@ public section
 
 namespace Veir.Printer
 
-variable {OpCode : Type} [IsOpCode OpCode] [HasDialect OpCode Builtin]
+variable {OpCode : Type} [IsOpCode OpCode] [HasDialect OpCode Builtin] [HasCustomPrinting OpCode]
 
 def printIndent (identFactor: Nat) : IO Unit :=
   match identFactor with
@@ -107,15 +111,15 @@ def printOpProperties (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := 
   IO.print ">"
 
 mutual
-partial def printOpList (ctx: IRContext OpCode) (op: OperationPtr) (indent: Nat := 0) : IO Unit := do
-  printOperation ctx op indent
+partial def printOpList (ctx: IRContext OpCode) (op: OperationPtr) (pretty : Bool := false) (indent: Nat := 0) : IO Unit := do
+  printOperation ctx op pretty indent
   match _ : (op.get! ctx).next with
   | some nextOp =>
-    printOpList ctx nextOp indent
+    printOpList ctx nextOp pretty indent
   | none =>
     pure ()
 
-partial def printBlock (ctx: IRContext OpCode) (block: BlockPtr) (indent: Nat := 0) : IO Unit := do
+partial def printBlock (ctx: IRContext OpCode) (block: BlockPtr) (pretty : Bool := false) (indent: Nat := 0) : IO Unit := do
   printIndent indent
   IO.print s!"^{block.id}("
   for i in 0...(block.getNumArguments! ctx) do
@@ -126,19 +130,19 @@ partial def printBlock (ctx: IRContext OpCode) (block: BlockPtr) (indent: Nat :=
   IO.println s!"):"
   match _ : (block.get! ctx).firstOp with
   | some firstOp =>
-    printOpList ctx firstOp (indent + 1)
+    printOpList ctx firstOp pretty (indent + 1)
   | none =>
     pure ()
 
-partial def printBlockList (ctx: IRContext OpCode) (block: BlockPtr) (indent: Nat := 0) : IO Unit := do
-  printBlock ctx block indent
+partial def printBlockList (ctx: IRContext OpCode) (block: BlockPtr) (pretty : Bool := false) (indent: Nat := 0) : IO Unit := do
+  printBlock ctx block pretty indent
   match _ : (block.get! ctx).next with
   | some nextBlock =>
-    printBlockList ctx nextBlock indent
+    printBlockList ctx nextBlock pretty indent
   | none =>
     pure ()
 
-partial def printRegion (ctx: IRContext OpCode) (region: Region) (indent: Nat := 0) : IO Unit := do
+partial def printRegion (ctx: IRContext OpCode) (region: Region) (pretty : Bool := false) (indent: Nat := 0) : IO Unit := do
   IO.print "{"
   match region.firstBlock with
   | none =>
@@ -146,22 +150,43 @@ partial def printRegion (ctx: IRContext OpCode) (region: Region) (indent: Nat :=
     IO.print "}"
   | some blockPtr =>
     IO.println ""
-    printBlockList ctx blockPtr (indent + 1)
+    printBlockList ctx blockPtr pretty (indent + 1)
     printIndent indent
     IO.print "}"
 
-partial def printRegions (ctx: IRContext OpCode) (op: OperationPtr) (indent: Nat := 0) : IO Unit := do
+partial def printRegions (ctx: IRContext OpCode) (op: OperationPtr) (pretty : Bool := false) (indent: Nat := 0) : IO Unit := do
   if op.getNumRegions! ctx = 0 then return
   IO.print "("
   for i in 0...((op.getNumRegions! ctx) - 1) do
     let region := (op.getRegion! ctx i).get! ctx
-    printRegion ctx region indent
+    printRegion ctx region pretty indent
     IO.print ", "
-  printRegion ctx ((op.getRegion! ctx (op.getNumRegions! ctx - 1)).get! ctx) indent
+  printRegion ctx ((op.getRegion! ctx (op.getNumRegions! ctx - 1)).get! ctx) pretty indent
   IO.print ")"
 
-partial def printOperation (ctx: IRContext OpCode) (op: OperationPtr) (indent: Nat := 0) : IO Unit := do
+partial def printOperation (ctx: IRContext OpCode) (op: OperationPtr) (pretty : Bool := false) (indent: Nat := 0) : IO Unit := do
   let opStruct := op.get! ctx
+  let opType := opStruct.opType
+  /- Custom (non-generic) syntax dispatch. When `pretty` is set, operations
+     whose dialect registered a custom printer (via `HasCustomPrinting`) are
+     printed in their custom form; everything else falls through to the
+     generic form. -/
+  if pretty then
+    match HasCustomPrinting.customPrinter? opType with
+    | some cp =>
+        printIndent indent
+        printOpResults ctx op
+        IO.print s!"{String.fromUTF8! (IsOpCode.name opType)}"
+        let env : PrintEnv OpCode :=
+          { printValue     := printValue
+          , printOpList    := fun ctx op indent => printOpList ctx op pretty indent
+          , printBlockList := fun ctx block indent => printBlockList ctx block pretty indent
+          , printRegion    := fun ctx region indent => printRegion ctx region pretty indent
+          , printIndent    := printIndent }
+        cp env ctx op indent
+        IO.println ""
+        return
+    | none => pure ()
   printIndent indent
   printOpResults ctx op
   /- Unregistered operations store their original operation name in the properties. -/
@@ -176,11 +201,11 @@ partial def printOperation (ctx: IRContext OpCode) (op: OperationPtr) (indent: N
   printOpProperties ctx op
   if op.getNumRegions! ctx > 0 then
     IO.print " "
-    printRegions ctx op indent
+    printRegions ctx op pretty indent
   printOpAttrDict ctx op
   printOperationType ctx op
   IO.println ""
 end
 
-partial def printModule (ctx: IRContext OpCode) (op: OperationPtr) : IO Unit := do
-  printOperation ctx op
+partial def printModule (ctx: IRContext OpCode) (op: OperationPtr) (pretty : Bool := false) : IO Unit := do
+  printOperation ctx op pretty
