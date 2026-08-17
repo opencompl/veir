@@ -70,17 +70,6 @@ class HasOpInfo (opCode: Type)
   /--
   The memory effects of an operation with this opcode and these properties,
   mirroring MLIR's `MemoryEffectOpInterface::getEffects`.
-
-  The effects are deliberately reported separately rather than collapsed into a
-  single "is this side-effecting" answer, because the transformations care about
-  different subsets of them. Only the write effect makes an operation ineligible
-  for removal: a non-volatile load reads memory, and an `alloca` allocates it,
-  yet both are dead when their results are unused. Fold-time evaluation, on the
-  other hand, must see no effects at all before running an operation against
-  memory that is not the program's.
-
-  Defaults to `.unknown` for every opcode, which conservatively assumes every
-  modeled memory effect.
   -/
   getEffects : (op : opCode) → propertiesOf op → MemoryEffects :=
     fun _ _ => .unknown

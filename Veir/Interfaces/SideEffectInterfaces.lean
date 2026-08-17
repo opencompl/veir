@@ -21,7 +21,7 @@ public section
 
   NOTE: An operation with no memory effects is not necessarily speculatable: it
         may still have undefined behavior or fail to terminate. MLIR models
-        these properties separately with `ConditionallySpeculatable`; VEIR does
+        these properties separately with `ConditionallySpeculatable`; Veir does
         not support this interface yet.
 
   TODO: recursively walk regions to get a less conservative answer

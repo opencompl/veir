@@ -9,8 +9,6 @@ namespace Veir
 
 public def eliminateDeadOp (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  /- delete operations that are not used, write no memory, and do not
-     terminate their block -/
   if op.isTriviallyDead rewriter.ctx.raw then
     return rewriter.eraseOp! op
   else
