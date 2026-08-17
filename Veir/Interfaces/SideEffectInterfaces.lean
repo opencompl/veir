@@ -43,13 +43,9 @@ def OperationPtr.getEffects {OpInfo : Type} [HasOpInfo OpInfo]
   HasOpInfo.getEffects opType (op.getProperties! ctx opType)
 
 /--
-  Whether this operation is known to have no memory effects.
-
-  This is an executable classification derived from `getEffects`. An operation
-  with unknown effects, or one that may read, write, or allocate memory, is not
-  memory-independent. This does not imply that the operation is safe to
-  speculate: it may still affect control flow or trigger immediate undefined
-  behavior.
+  Whether this operation is known to have no memory effects. This
+  does not imply that the operation is safe to speculate: it may still
+  affect control flow or trigger immediate undefined behavior.
 -/
 def OperationPtr.isMemoryIndependent {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : IRContext OpInfo) : Bool :=
