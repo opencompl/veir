@@ -194,13 +194,17 @@ theorem OpOperandPtr.removeFromCurrent_ValuePtr_getFirstUse
   congr 1
   simp [ValuePtr.DefUse_getFirstUse!_eq_iff_back_eq_valueFirstUse operandValueWF (by grind) valuePtrWF]
 
-set_option maxHeartbeats 1000000 in
 theorem ValuePtr.DefUse.getElem?_zero_erase_array_eq
     (useInBounds : OpOperandPtr.InBounds use ctx)
     (hWF : ValuePtr.DefUse value ctx array missingUses) (useInArray: use ∈ array)
     {i} (iInBounds : i < (array.erase use).size) :
     (array.erase use)[0]? = value.getFirstUse! (use.removeFromCurrent ctx useInBounds ctxInBounds) := by
-  sorry
+  have ⟨useIdx, useIdxInBounds, huseIdx⟩ := Array.getElem_of_mem useInArray
+  subst use
+  have herase : (array.erase (array[useIdx]'(by grind))) = array.eraseIdx useIdx (by grind) := by
+    grind [ValuePtr.DefUse.erase_getElem_array_eq_eraseIdx]
+  by_cases useIdx = 0 <;>
+    grind [ValuePtr.DefUse, ValuePtr.DefUse_array_injective, Array.getElem?_eraseIdx_of_ge]
 
 theorem ValuePtr.defUse_removeFromCurrent_self
     {value : ValuePtr} (hvalue : use ∈ array)
@@ -519,13 +523,17 @@ theorem BlockOperandPtr.BlockOperandPtr_removeFromCurrent_BlockPtr_getFirstUse!
   congr 1
   simp [BlockPtr.DefUse_getFirstUse!_eq_iff_back_eq_valueFirstUse operandValueWF (by grind) valuePtrWF]
 
-set_option maxHeartbeats 1000000 in
 theorem BlockPtr.DefUse.getElem?_zero_erase_array_eq
     (useInBounds : BlockOperandPtr.InBounds use ctx)
     (hWF : BlockPtr.DefUse block ctx array missingUses) (useInArray: use ∈ array)
     {i} (iInBounds : i < (array.erase use).size) :
     (array.erase use)[0]? = (block.get! (use.removeFromCurrent ctx useInBounds ctxInBounds)).firstUse := by
-  sorry
+  have ⟨useIdx, useIdxInBounds, huseIdx⟩ := Array.getElem_of_mem useInArray
+  subst use
+  have herase : (array.erase (array[useIdx]'(by grind))) = array.eraseIdx useIdx (by grind) := by
+    grind [BlockPtr.DefUse.erase_getElem_array_eq_eraseIdx]
+  by_cases useIdx = 0 <;>
+    grind [BlockPtr.DefUse, BlockPtr.DefUse_array_injective, Array.getElem?_eraseIdx_of_ge]
 
 theorem BlockPtr.defUse_removeFromCurrent_self
     {block : BlockPtr} {hvalue : use ∈ array}

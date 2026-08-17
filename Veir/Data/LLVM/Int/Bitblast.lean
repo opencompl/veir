@@ -520,7 +520,9 @@ theorem isPoison_select {w : Nat} (x y : Int w) (c : Int 1) :
 @[veir_bv_normalize, grind =]
 theorem getValue_select {w : Nat} (x y : Int w) (c : Int 1) (h : (select c x y).isPoison = false) :
     (select c x y).getValue h = if _ : c.getValue = 1#1 then x.getValue else y.getValue := by
-  sorry
+  cases c with
+  | poison => simp [select, Id.run, isPoison] at h
+  | val c' => by_cases hc : c' = 1#1 <;> simp [select, Id.run, hc]
 
 @[veir_bv_normalize, grind =]
 theorem isPoison_smax {w : Nat} (x y : Int w) :
@@ -816,7 +818,15 @@ theorem icmp_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w) (p : IntPred)
 theorem select_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w) (c₁ c₂ : Int 1)
     (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) (h₃ : c₁ ⊒ c₂) :
     select c₁ x₁ x₂ ⊒ select c₂ y₁ y₂ := by
-  sorry
+  cases c₁ with
+  | poison => simp [select, Id.run, isRefinedBy_iff]
+  | val v =>
+    cases c₂ with
+    | poison => simp [isRefinedBy_iff] at h₃
+    | val v' =>
+      have hv : v = v' := by simp [isRefinedBy_iff] at h₃; grind
+      subst hv
+      by_cases hc : v = 1#1 <;> simp [select, Id.run, hc] <;> assumption
 
 @[veir_bv_normalize, grind =]
 theorem isPoison_freeze {w : Nat} (x : Int w) :

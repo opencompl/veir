@@ -80,7 +80,7 @@ theorem Rewriter.pushOperand_DefUse
       grind [ValuePtr.DefUse, OpOperandPtr.get!_pushOperand']
 
 /--
-info: 'Veir.Rewriter.pushOperand_DefUse' depends on axioms: [propext, Classical.choice, Quot.sound, sorryAx]
+info: 'Veir.Rewriter.pushOperand_DefUse' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms Rewriter.pushOperand_DefUse
@@ -131,7 +131,7 @@ theorem Rewriter.pushOperand_WellFormed  (valuePtr : ValuePtr) (valuePtrInBounds
       grind
 
 /--
-info: 'Veir.Rewriter.pushOperand_WellFormed' depends on axioms: [propext, Classical.choice, Quot.sound, sorryAx]
+info: 'Veir.Rewriter.pushOperand_WellFormed' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms Rewriter.pushOperand_WellFormed
