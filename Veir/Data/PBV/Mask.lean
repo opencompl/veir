@@ -65,3 +65,70 @@ theorem setWidth_eq_and_maskOfWidth {o w : Nat} {a : BitVec w} {b : BitVec o}
     a.setWidth o = b &&& maskOfWidth o w := by
   apply BitVec.eq_of_toNat_eq
   rw [toNat_and_maskOfWidth h, BitVec.toNat_setWidth_of_le h, hab]
+
+theorem getLsbD_maskOfWidth {o w : Nat} (i : Nat) :
+    (maskOfWidth o w).getLsbD i = (decide (i < w) && decide (i < o)) := by
+  rw [maskOfWidth, BitVec.getLsbD_ofNat, Nat.testBit_two_pow_sub_one]
+  exact Bool.and_comm _ _
+
+theorem getElem_maskOfWidth {o w : Nat} (i : Nat) (hi : i < o) :
+    (maskOfWidth o w)[i] = decide (i < w) := by
+  rw [← BitVec.getLsbD_eq_getElem, getLsbD_maskOfWidth]
+  simp [hi]
+
+theorem maskOfWidth_zero (o : Nat) : maskOfWidth o 0 = 0#o := by
+  simp [maskOfWidth]
+
+/-! ## The sign bit helpers -/
+
+def signBitOfMask {o : Nat} (m : BitVec o) := m - (m >>> 1)
+
+theorem ushiftRight_one_le {o : Nat} (m : BitVec o) : m >>> 1 ≤ m := by
+  rw [BitVec.le_def, BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow]
+  exact Nat.div_le_self _ _
+
+theorem toNat_signBitOfMask_maskOfWidth {o w : Nat} (h : w ≤ o) :
+    (signBitOfMask (maskOfWidth o w)).toNat = 2 ^ w - 2 ^ (w - 1) := by
+  rw [signBitOfMask, BitVec.toNat_sub_of_le (ushiftRight_one_le _), BitVec.toNat_ushiftRight,
+    toNat_maskOfWidth h, Nat.shiftRight_eq_div_pow, Nat.pow_one]
+  rcases Nat.eq_zero_or_pos w with rfl | hw
+  · simp
+  · have h2 : 2 ^ w = 2 * 2 ^ (w - 1) := by
+      obtain ⟨w', rfl⟩ : ∃ w', w = w' + 1 := ⟨w - 1, by omega⟩
+      rw [Nat.pow_succ, Nat.add_sub_cancel]
+      omega
+    have h3 : 0 < 2 ^ (w - 1) := Nat.two_pow_pos _
+    omega
+
+theorem twoPow_ne_zero {o k : Nat} (h : k < o) : BitVec.twoPow o k ≠ 0#o := by
+  intro hcontra
+  have hn := congrArg BitVec.toNat hcontra
+  rw [BitVec.toNat_twoPow, BitVec.toNat_zero,
+    Nat.mod_eq_of_lt (Nat.pow_lt_pow_right (by omega) h)] at hn
+  exact absurd hn (Nat.ne_of_gt (Nat.two_pow_pos k))
+
+theorem signBitOfMask_maskOfWidth_of_pos {o w : Nat} (h : w ≤ o) (hw : 0 < w) :
+    signBitOfMask (maskOfWidth o w) = BitVec.twoPow o (w - 1) := by
+  apply BitVec.eq_of_toNat_eq
+  rw [toNat_signBitOfMask_maskOfWidth h, BitVec.toNat_twoPow,
+    Nat.mod_eq_of_lt (Nat.pow_lt_pow_right (by omega) (by omega : w - 1 < o))]
+  have h2 : 2 ^ w = 2 * 2 ^ (w - 1) := by
+    obtain ⟨w', rfl⟩ : ∃ w', w = w' + 1 := ⟨w - 1, by omega⟩
+    rw [Nat.pow_succ, Nat.add_sub_cancel]
+    omega
+  omega
+
+theorem msb_toMask {w o : Nat} (h : w ≤ o) :
+    ∀ (a : BitVec w),
+      a.msb = (((a.setWidth o) &&& signBitOfMask (maskOfWidth o w)) != 0#o) := by
+  intro a
+  rcases Nat.eq_zero_or_pos w with rfl | hw
+  · -- `BitVec 0` has no bits, so both sides are `false`.
+    rw [BitVec.msb_eq_getLsbD_last, BitVec.getLsbD_of_ge _ _ (by omega)]
+    rw [maskOfWidth_zero, signBitOfMask]
+    simp
+  · rw [signBitOfMask_maskOfWidth_of_pos h hw, BitVec.and_twoPow, BitVec.getLsbD_setWidth,
+      BitVec.msb_eq_getLsbD_last]
+    have hlt : w - 1 < o := by omega
+    simp only [hlt, decide_true, Bool.true_and]
+    cases a.getLsbD (w - 1) <;> simp [twoPow_ne_zero hlt]
