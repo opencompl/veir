@@ -2,6 +2,7 @@ module
 
 public import Veir.Interpreter
 public import Veir.Passes.Matching
+public import Veir.PatternRewriter.Basic
 import Veir.Dominance.Basic
 
 import all Veir.Interpreter.Basic
@@ -27,7 +28,7 @@ inductive WfIRContext.WithCreatedOps : WfIRContext OpInfo → WfIRContext OpInfo
 | CreatedOp
     (ctx₁ ctx₂ ctx₃ : WfIRContext OpInfo)
     (h : WithCreatedOps ctx₁ ctx₂)
-    (h₂ : ∃ opType resultTypes operands successors regions properties h₁ h₂ h₃ h₄,
+    (h₂ : ∃ (opType : OpInfo), ∃ resultTypes operands successors regions properties h₁ h₂ h₃ h₄,
       WfRewriter.createOp ctx₂ opType resultTypes operands successors
         regions properties none h₁ h₂ h₃ h₄ = some (ctx₃, newOp))
     : WithCreatedOps ctx₁ ctx₃
