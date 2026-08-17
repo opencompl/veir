@@ -1,5 +1,10 @@
 module
-/-! # Masks as bitvector variables constrained by `m &&& (m + 1) = 0`. -/
+/-! # Steps 3 and 5: masks as bitvector variables constrained by `m &&& (m + 1) = 0`.
+
+A width `w` is represented by the mask `2^w - 1` of the blast width, and the constraint
+`m &&& (m + 1) = 0` is the only fact about that mask the bitblaster is given. See `Veir.Data.PBV`
+for the pipeline these steps belong to.
+-/
 
 namespace Veir.Data.PBV
 

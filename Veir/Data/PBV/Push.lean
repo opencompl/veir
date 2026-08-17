@@ -3,6 +3,13 @@ module
 public import Veir.Data.PBV.BitVec
 public import Veir.Data.PBV.Mask
 
+/-! # Step 6: rewriting a parametric expression into a concrete, single-width one.
+
+`eq_iff` introduces a `setWidth o` at the root of the goal, and the remaining lemmas push it down
+towards the leaves, masking the result of every width-sensitive operation on the way. See
+`Veir.Data.PBV` for the pipeline this step belongs to.
+-/
+
 namespace Veir.Data.PBV
 
 
@@ -21,7 +28,7 @@ theorem setWidth_setWidth_eq_self {w o : Nat} (h : w ≤ o) (x : BitVec w) :
   apply BitVec.eq_of_toNat_eq
   rw [BitVec.toNat_setWidth, BitVec.toNat_setWidth_of_le h, Nat.mod_eq_of_lt x.isLt]
 
-/-! ## Stage 1: lifting atoms to the blast width -/
+/-! ## Introducing `setWidth o` at the root -/
 
 theorem eq_iff {w o : Nat} (h : w ≤ o) :
     ∀ (a b : BitVec w), (a = b) = (a.setWidth o = b.setWidth o) := by
@@ -29,7 +36,7 @@ theorem eq_iff {w o : Nat} (h : w ≤ o) :
   apply propext
   exact ⟨fun hab => hab ▸ rfl, fun hab => BitVec.setWidth_inj h hab⟩
 
-/-! ## Stage 2: pushing `setWidth o` towards the leaves — leaves and width changes -/
+/-! ## Pushing `setWidth o` towards the leaves — leaves and width changes -/
 
 theorem setWidth_setWidth {w o : Nat} (h : w ≤ o) :
     ∀ {u : Nat} (a : BitVec u),

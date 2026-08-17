@@ -6,6 +6,12 @@ import Std.Tactic.BVDecide
 import Veir.Data.PBV.Elim
 import Veir.Data.PBV.Push
 
+/-! # Manual traces of the bounded parametric bitvector pipeline.
+
+Each example works through the steps documented in `Veir.Data.PBV` by hand, in the order the
+tactic will eventually perform them; the comments refer to that numbering.
+-/
+
 namespace Veir.Data.PBV
 
 /-- Manual trace of the pbvn_to_1 tactic, transforming an unbounded parametric width

@@ -3,6 +3,13 @@ module
 public import Veir.Data.PBV.Mask
 public import Veir.Data.PBV.Push
 
+/-! # Steps 3 and 4: replacing `Nat` widths and parametric-width variables.
+
+`width_elim` names the mask of a width, and `var_elim` replaces a variable of parametric width `w`
+by one of the blast width `o` that is invariant under masking. See `Veir.Data.PBV` for the pipeline
+these steps belong to.
+-/
+
 namespace Veir.Data.PBV
 
 public section
