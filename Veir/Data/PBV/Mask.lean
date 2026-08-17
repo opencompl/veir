@@ -81,15 +81,14 @@ theorem maskOfWidth_zero (o : Nat) : maskOfWidth o 0 = 0#o := by
 
 /-! ## The sign bit helpers -/
 
+/-- `signBitOfMask m` keeps only the top bit of the mask `m`, i.e. the sign bit of the width `m`
+represents. -/
 @[expose] def signBitOfMask {o : Nat} (m : BitVec o) := m - (m >>> 1)
-
-theorem ushiftRight_one_le {o : Nat} (m : BitVec o) : m >>> 1 ≤ m := by
-  rw [BitVec.le_def, BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow]
-  exact Nat.div_le_self _ _
 
 theorem toNat_signBitOfMask_maskOfWidth {o w : Nat} (h : w ≤ o) :
     (signBitOfMask (maskOfWidth o w)).toNat = 2 ^ w - 2 ^ (w - 1) := by
-  rw [signBitOfMask, BitVec.toNat_sub_of_le (ushiftRight_one_le _), BitVec.toNat_ushiftRight,
+  rw [signBitOfMask, BitVec.toNat_sub_of_le (BitVec.ushiftRight_one_le _),
+    BitVec.toNat_ushiftRight,
     toNat_maskOfWidth h, Nat.shiftRight_eq_div_pow, Nat.pow_one]
   rcases Nat.eq_zero_or_pos w with rfl | hw
   · simp
@@ -99,13 +98,6 @@ theorem toNat_signBitOfMask_maskOfWidth {o w : Nat} (h : w ≤ o) :
       omega
     have h3 : 0 < 2 ^ (w - 1) := Nat.two_pow_pos _
     omega
-
-theorem twoPow_ne_zero {o k : Nat} (h : k < o) : BitVec.twoPow o k ≠ 0#o := by
-  intro hcontra
-  have hn := congrArg BitVec.toNat hcontra
-  rw [BitVec.toNat_twoPow, BitVec.toNat_zero,
-    Nat.mod_eq_of_lt (Nat.pow_lt_pow_right (by omega) h)] at hn
-  exact absurd hn (Nat.ne_of_gt (Nat.two_pow_pos k))
 
 theorem signBitOfMask_maskOfWidth_of_pos {o w : Nat} (h : w ≤ o) (hw : 0 < w) :
     signBitOfMask (maskOfWidth o w) = BitVec.twoPow o (w - 1) := by
@@ -117,18 +109,3 @@ theorem signBitOfMask_maskOfWidth_of_pos {o w : Nat} (h : w ≤ o) (hw : 0 < w) 
     rw [Nat.pow_succ, Nat.add_sub_cancel]
     omega
   omega
-
-theorem msb_toMask {w o : Nat} (h : w ≤ o) :
-    ∀ (a : BitVec w),
-      a.msb = (((a.setWidth o) &&& signBitOfMask (maskOfWidth o w)) != 0#o) := by
-  intro a
-  rcases Nat.eq_zero_or_pos w with rfl | hw
-  · -- `BitVec 0` has no bits, so both sides are `false`.
-    rw [BitVec.msb_eq_getLsbD_last, BitVec.getLsbD_of_ge _ _ (by omega)]
-    rw [maskOfWidth_zero, signBitOfMask]
-    simp
-  · rw [signBitOfMask_maskOfWidth_of_pos h hw, BitVec.and_twoPow, BitVec.getLsbD_setWidth,
-      BitVec.msb_eq_getLsbD_last]
-    have hlt : w - 1 < o := by omega
-    simp only [hlt, decide_true, Bool.true_and]
-    cases a.getLsbD (w - 1) <;> simp [twoPow_ne_zero hlt]

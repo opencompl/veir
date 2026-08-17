@@ -63,3 +63,22 @@ theorem setWidth_signExtend {t o : Nat} (_h : t ≤ o) :
     rw [BitVec.getLsbD_of_ge a i (by omega)]
     cases hmsb : a.msb <;>
       simp [hiv, getLsbD_maskOfWidth, Bool.and_comm]
+
+/-! ### The sign bit: a test against the mask's top bit -/
+
+/-- `a.msb` is the only width-dependent test `signExtend` leaves behind; replace it by a test
+against the top bit of `w`'s mask, which the bitblaster can see. -/
+theorem msb_toMask {w o : Nat} (h : w ≤ o) :
+    ∀ (a : BitVec w),
+      a.msb = (((a.setWidth o) &&& signBitOfMask (maskOfWidth o w)) != 0#o) := by
+  intro a
+  rcases Nat.eq_zero_or_pos w with rfl | hw
+  · -- `BitVec 0` has no bits, so both sides are `false`.
+    rw [BitVec.msb_eq_getLsbD_last, BitVec.getLsbD_of_ge _ _ (by omega)]
+    rw [maskOfWidth_zero, signBitOfMask]
+    simp
+  · rw [signBitOfMask_maskOfWidth_of_pos h hw, BitVec.and_twoPow, BitVec.getLsbD_setWidth,
+      BitVec.msb_eq_getLsbD_last]
+    have hlt : w - 1 < o := by omega
+    simp only [hlt, decide_true, Bool.true_and]
+    cases a.getLsbD (w - 1) <;> simp [BitVec.twoPow_ne_zero hlt]
