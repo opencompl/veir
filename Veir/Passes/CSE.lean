@@ -156,18 +156,16 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
     dominates it*, replace it with the earlier one. -/
 def run (ctx : WfIRContext OpCode) (top : OperationPtr) :
     WfIRContext OpCode := Id.run do
-  let some dfCtx := Veir.fixpointSolve top #[Veir.DominanceAnalysis] ctx.raw
+  let some dfCtx := Veir.fixpointSolve top #[Veir.DominanceAnalysis] ctx
     | panic! "Dominance analysis not expected to fail"
-  -- `domCtx` keeps a stable handle on the original context after
-  -- `ctx` is shadowed by the mutable copy.
-  let ops := top.opsInDominanceOrder dfCtx ctx.raw
+  let ops := top.opsInDominanceOrder dfCtx ctx
   let mut ctx := ctx
   let mut available : Std.HashMap Key (Array OperationPtr) := Std.HashMap.emptyWithCapacity
   for op in ops do
     if _h : op.InBounds ctx.raw then
       if let some key := key? ctx.raw op then
         let candidates := available.getD key #[]
-        match candidates.find? (·.properlyDominates op dfCtx ctx.raw) with
+        match candidates.find? (·.properlyDominates op dfCtx ctx) with
         | some earlier =>
             ctx := WfRewriter.replaceOp! ctx op earlier
         | none =>

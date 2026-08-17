@@ -1,21 +1,14 @@
 // RUN: veir-opt %s -p=cse --allow-unregistered-dialect | filecheck %s
-// XFAIL: *
-// Known limitation: a single CSE pass computes dominance once up front, then
-// erases ops, leaving the fact set stale -- so ^C's add is not collapsed. A
-// second CSE pass (with fresh facts) clears it. We are not fixing this now.
 
-// Minimal reproducer for a stale-dominance bug in cross-block CSE.
+// Regression test for stale dominance facts in cross-block CSE.
 //
 // Three blocks form a straight-line chain ^A -> ^B -> ^C, each holding the
 // same `add %a, %b`. All three are equivalent and ^A dominates ^B and ^C, so
 // every redundant add should collapse onto the one in ^A.
 //
-// What actually happens: the pass computes the dominance facts once, up front,
-// then CSEs ^B's add against ^A's and *erases* it. ^B sits on ^C's idom chain
-// (^C -> ^B -> ^A), so erasing an op from ^B corrupts the dominance query that
-// is later run -- against the *mutated* IR but the *stale* fact set -- for ^C's
-// add. That query wrongly reports that ^A's add does not dominate ^C's, so the
-// third add is left in place.
+// Dominator facts are anchored directly to blocks so erasing ^B's first
+// operation does not prevent the later query from recognizing that ^A
+// dominates ^C.
 
 "builtin.module"() ({
   "llvm.func"() <{function_type = !llvm.func<void (i32, i32)>, sym_name = "stale_dominance"}> ({
@@ -39,7 +32,7 @@
   // CHECK:       ^{{[0-9]+}}():
   // CHECK-NEXT:    "llvm.br"()
 
-  // ^C's redundant add is gone too -- this is the line that fails today.
+  // ^C's redundant add is gone too.
   // CHECK:       ^{{[0-9]+}}():
   // CHECK-NEXT:    "llvm.return"()
 }) : () -> ()

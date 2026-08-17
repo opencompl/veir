@@ -1,12 +1,7 @@
 // RUN: veir-opt %s -p=cse --allow-unregistered-dialect | filecheck %s
-// XFAIL: *
 //
 // Eliminating the redundant %d1 in ^def rewrites (via RAUW) the operand of %u in
 // ^use, so %u becomes mul(%e, %z) and should merge with %u0 from the entry block.
-// It does not: the same stale-dominance bug as cross_block_stale_dominance bites
-// here -- erasing %d1 from ^def stales the dominance query later run for ^use, so
-// the mul in ^use is left in place. A second CSE pass (fresh facts) clears it.
-// We are not fixing this now.
 
 "builtin.module"() ({
   "llvm.func"() <{function_type = !llvm.func<void (i32, i32, i32)>, sym_name = "chain"}> ({

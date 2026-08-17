@@ -192,9 +192,9 @@ TODO: Replace this with an iterator, which should be more efficient.
 partial def opsInDominanceOrder
     (op : OperationPtr)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : Array OperationPtr := Id.run do
+    (irCtx : WfIRContext OpCode) : Array OperationPtr := Id.run do
   let mut ops := #[]
-  for region in (op.get! irCtx).regions do
+  for region in (op.get! irCtx.raw).regions do
     -- Reachable blocks of the region in reverse postorder. The dominance
     -- analysis only caches each reachable block's postorder index, so recover
     -- the ordering by sorting those blocks on descending index.
@@ -202,11 +202,11 @@ partial def opsInDominanceOrder
     if let some metadata := region.getRegionMetadataFact? dfCtx irCtx then
       blocks := (metadata.postOrderIndex.toArray.qsort (·.2 > ·.2)).map (·.1)
     for block in blocks do
-      let mut currentOp := (block.get! irCtx).firstOp
+      let mut currentOp := (block.get! irCtx.raw).firstOp
       while let some innerOp := currentOp do
         ops := ops.push innerOp
         ops := ops ++ innerOp.opsInDominanceOrder dfCtx irCtx
-        currentOp := (innerOp.get! irCtx).next
+        currentOp := (innerOp.get! irCtx.raw).next
   return ops
 
 end OperationPtr
