@@ -135,8 +135,7 @@ abbrev KnownRanges := Std.HashMap ValuePtr IntegerRangeLattice
 /-- Infer one value using ranges already present in `knownRanges`. -/
 def inferModArithRange? (value : ValuePtr) (knownRanges : KnownRanges)
     (irCtx : IRContext OpCode) : Option IntegerRangeLattice := do
-  let some op := value.getDefiningOp! irCtx
-    | canonicalModArithRange? (value.getType! irCtx)
+  let some op := value.definingOp? | canonicalModArithRange? (value.getType! irCtx)
 
   match op.getOpType! irCtx with
   | OpCode.mod_arith Mod_Arith.constant =>

@@ -42,7 +42,7 @@ def Riscv_Stack.hasSideEffects
 
 def Riscv_Stack.getEffects
     (_op : Riscv_Stack) (_props : Riscv_Stack.propertiesOf _op) : MemoryEffects :=
-  .none
+  .allocate
 
 def Riscv_Stack.isConstantLike (_op : Riscv_Stack) : Bool :=
   false

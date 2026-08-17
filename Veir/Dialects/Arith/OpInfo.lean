@@ -5,6 +5,8 @@ public import Veir.IR.OpInfo
 public import Veir.Verifier.Basic
 public import Veir.Dialects.Arith.Properties
 public import Veir.Dialects.LLVM.Properties
+public import Veir.Dialects.LLVM.OpInfo
+public import Veir.ConstantMaterialization
 meta import Veir.Meta.OpCode
 
 namespace Veir
@@ -139,6 +141,22 @@ instance : HasOpInfo Arith where
   getEffects := Arith.getEffects
   isConstantLike := Arith.isConstantLike
   hasSSADominance := Arith.hasSSADominance
+
+/--
+Materialize integer results of folded arithmetic operations as `arith.constant`.
+Poison is materialized as `llvm.mlir.poison`.
+-/
+def Arith.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpInfo Arith]
+    [HasDialect OpInfo Llvm] (_op : Arith) (value : RuntimeValue) (type : TypeAttr) :
+    Option (Materialized OpInfo) :=
+  match value, type.val with
+  | .int bw (.val value), .integerType intType =>
+    if bw = intType.bitwidth then
+      some (.of Arith.constant (ArithConstantProperties.mk (IntegerAttr.mk value.toInt intType)))
+    else none
+  | .int bw .poison, .integerType intType =>
+    if bw = intType.bitwidth then some (.of Llvm.mlir__poison ()) else none
+  | _, _ => none
 
 /--
 Verify an `arith` extended operation with two same-typed integer operands and

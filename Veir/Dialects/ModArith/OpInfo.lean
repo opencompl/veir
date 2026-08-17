@@ -4,6 +4,7 @@ public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Verifier.Basic
 public import Veir.Dialects.ModArith.Properties
+public import Veir.ConstantMaterialization
 meta import Veir.Meta.OpCode
 
 namespace Veir
@@ -68,6 +69,20 @@ instance : HasOpInfo Mod_Arith where
   getEffects := Mod_Arith.getEffects
   isConstantLike := Mod_Arith.isConstantLike
   hasSSADominance := Mod_Arith.hasSSADominance
+
+/--
+Materialize concrete modular-integer fold results.
+-/
+def Mod_Arith.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpInfo Mod_Arith]
+    (_op : Mod_Arith) (value : RuntimeValue) (type : TypeAttr) : Option (Materialized OpInfo) :=
+  match value, type.val with
+  | .int bw (.val value), .modArithType modType =>
+    if bw = modType.modulus.type.bitwidth then
+      some (.of Mod_Arith.constant
+        (ModArithConstantProperties.mk
+          (IntegerAttr.mk (Int.ofNat value.toNat) modType.modulus.type)))
+    else none
+  | _, _ => none
 
 def TypeAttr.verifyModArithType (ty : TypeAttr) (msg : String) : Except String ModArithType :=
   match ty.val with

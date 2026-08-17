@@ -19,7 +19,7 @@ def OperationPtr.isConstantLike {OpInfo : Type} [HasOpInfo OpInfo]
 
 def ValuePtr.isConstantLike {OpInfo : Type} [HasOpInfo OpInfo]
     (val : ValuePtr) (ctx : IRContext OpInfo) : Bool :=
-  match val.getDefiningOp! ctx with
+  match val.definingOp? with
   | some defOp => defOp.isConstantLike ctx
   | none => false
 

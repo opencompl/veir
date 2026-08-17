@@ -46,7 +46,7 @@ def Builtin.getEffects
     (op : Builtin) (_props : Builtin.propertiesOf op) : MemoryEffects :=
   match op with
   | .unrealized_conversion_cast => .none
-  | _ => .readWrite
+  | _ => .unknown
 
 def Builtin.isConstantLike (_op : Builtin) : Bool :=
   false
