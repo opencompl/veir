@@ -7,6 +7,11 @@ namespace Veir
 
 public section
 
+inductive RegionKind where
+| SSACFG
+| Graph
+deriving Inhabited, Repr, DecidableEq
+
 /-- The memory effects an operation may have. -/
 structure MemoryEffects where
   /-- The operation may dereference memory, without necessarily mutating it. -/
@@ -105,6 +110,12 @@ class HasOpInfo (opCode: Type)
   whose single region is the function body.
   -/
   isFunctionLike : opCode → Bool := fun _ => false
+  /--
+  Return the kind of the indexed region inside an operation with this opcode.
+  This mirrors MLIR's `RegionKindInterface` default: regions are SSACFG unless
+  the operation is known to define graph regions.
+  -/
+  getRegionKind : opCode → Nat → RegionKind := fun _ _ => .SSACFG
   /--
   Whether definitions in the indexed region must dominate their uses. A false
   result denotes graph-style semantics, where only a single block can be in the

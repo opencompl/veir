@@ -34,6 +34,9 @@ def Test.getEffects
 def Test.isConstantLike (_op : Test) : Bool :=
   false
 
+def Test.getRegionKind (_op : Test) (_index : Nat) : RegionKind :=
+  .Graph
+
 def Test.hasSSADominance (_op : Test) (_index : Nat) : Bool :=
   false
 
@@ -50,6 +53,7 @@ instance : HasOpInfo Test where
   toAttrDict := Test.toAttrDict
   getEffects := Test.getEffects
   isConstantLike := Test.isConstantLike
+  getRegionKind := Test.getRegionKind
   hasSSADominance := Test.hasSSADominance
   hasNoTerminator := Test.hasNoTerminator
 

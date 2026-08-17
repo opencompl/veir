@@ -54,22 +54,26 @@ def OpCode.getEffects (opCode : OpCode) (props : _propertiesOf opCode) : MemoryE
   | .pdl op, props => PDL.getEffects op props
   | .test op, props => Test.getEffects op props
 
-inductive RegionKind where
-| SSACFG
-| Graph
-deriving Inhabited, Repr, DecidableEq
-
 /--
   Return the kind of the region with the given index inside this operation.
-  This mirrors MLIR's RegionKindInterface default: regions are SSACFG unless
-  the operation is known to define graph regions.
 -/
-def OpCode.getRegionKind (opCode : OpCode) (_index : Nat) : RegionKind :=
+def OpCode.getRegionKind (opCode : OpCode) (index : Nat) : RegionKind :=
   match opCode with
-  | .builtin .module
-  | .builtin .unregistered
-  | .test .test => .Graph
-  | _ => .SSACFG
+  | .arith op => HasOpInfo.getRegionKind op index
+  | .llvm op => HasOpInfo.getRegionKind op index
+  | .riscv op => HasOpInfo.getRegionKind op index
+  | .riscv_cf op => HasOpInfo.getRegionKind op index
+  | .riscv_stack op => HasOpInfo.getRegionKind op index
+  | .rv64 op => HasOpInfo.getRegionKind op index
+  | .mod_arith op => HasOpInfo.getRegionKind op index
+  | .cf op => HasOpInfo.getRegionKind op index
+  | .comb op => HasOpInfo.getRegionKind op index
+  | .hw op => HasOpInfo.getRegionKind op index
+  | .builtin op => HasOpInfo.getRegionKind op index
+  | .func op => HasOpInfo.getRegionKind op index
+  | .datapath op => HasOpInfo.getRegionKind op index
+  | .pdl op => HasOpInfo.getRegionKind op index
+  | .test op => HasOpInfo.getRegionKind op index
 
 /--
   Whether definitions in the indexed region of this opcode must dominate
@@ -241,6 +245,7 @@ instance : HasOpInfo OpCode where
   getEffects := OpCode.getEffects
   isConstantLike := OpCode.isConstantLike
   isFunctionLike := OpCode.isFunctionLike
+  getRegionKind := OpCode.getRegionKind
   hasSSADominance := OpCode.hasSSADominance
   hasNoTerminator := OpCode.hasNoTerminator
   isTerminator := OpCode.isTerminator
