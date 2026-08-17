@@ -14,7 +14,7 @@ tactic will eventually perform them; the comments refer to that numbering.
 
 namespace Veir.Data.PBV
 
-/-- Manual trace of the pbvn_to_1 tactic, transforming an unbounded parametric width
+/-- Manual trace of the future tactic, transforming an unbounded parametric width
     statement into a bounded one and solving it up the bound (4 in this case) -/
 theorem trace_add_comm_manual (w : Nat) (x y : BitVec w)
   (hw : w ≤ 4)
@@ -49,8 +49,7 @@ theorem trace_add_comm_manual (w : Nat) (x y : BitVec w)
 -- Step 8: Bitblast!
   bv_decide
 
-/-- Manual trace of the pbvn_to_1 tactic, transforming an unbounded parametric width
-    statement into a bounded one and solving it up the bound (4 in this case) -/
+/-- Manual trace using calc to make the steps more explicit -/
 theorem trace_add_comm_manual_calc (w : Nat) (x y : BitVec w)
   (hw : w ≤ 4)
   : x + y = y + x := by
