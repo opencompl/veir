@@ -14,7 +14,7 @@ namespace Veir
 /--
   Sigma type for an operation plus its properties.
 -/
-abbrev OpWithProp := (op : OpCode) × (HasOpInfo.propertiesOf op)
+abbrev OpWithProp := (op : OpCode) × (propertiesOf op)
 
 /--
   Converts the types of the arguments and result of a single-result binary operation.
@@ -40,7 +40,7 @@ inductive IntegerExtKind
 /--
   Return the LLVM operation corresponding to an `IntegerExtKind`.
 -/
-def expandIntegerExtOp (type : IntegerExtKind) : ((op : OpCode) × HasOpInfo.propertiesOf op) :=
+def expandIntegerExtOp (type : IntegerExtKind) : ((op : OpCode) × propertiesOf op) :=
   match type with
   | .sign => .mk (OpCode.llvm .sext) ()
   | .zero => .mk (OpCode.llvm .zext) (.mk false)

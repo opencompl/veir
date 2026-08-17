@@ -54,10 +54,6 @@ def Riscv_Cf.toAttrDict
       (Attribute.denseArrayAttr props.operandSegmentSizes)
   | _ => Std.HashMap.emptyWithCapacity 0
 
-def Riscv_Cf.hasSideEffects
-    (_op : Riscv_Cf) (_props : Riscv_Cf.propertiesOf _op) : Bool :=
-  true
-
 def Riscv_Cf.getEffects
     (_op : Riscv_Cf) (_props : Riscv_Cf.propertiesOf _op) : MemoryEffects :=
   .none
@@ -80,7 +76,6 @@ instance : HasOpInfo Riscv_Cf where
   propertiesOf := Riscv_Cf.propertiesOf
   fromAttrDict := Riscv_Cf.fromAttrDict
   toAttrDict := Riscv_Cf.toAttrDict
-  hasSideEffects := Riscv_Cf.hasSideEffects
   getEffects := Riscv_Cf.getEffects
   isConstantLike := Riscv_Cf.isConstantLike
   hasSSADominance := Riscv_Cf.hasSSADominance

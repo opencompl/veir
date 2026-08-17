@@ -40,9 +40,6 @@ def Cf.toAttrDict
       (Attribute.denseArrayAttr props.operandSegmentSizes)
   | _ => Std.HashMap.emptyWithCapacity 0
 
-def Cf.hasSideEffects (_op : Cf) (_props : Cf.propertiesOf _op) : Bool :=
-  true
-
 def Cf.getEffects
     (_op : Cf) (_props : Cf.propertiesOf _op) : MemoryEffects :=
   .none
@@ -65,7 +62,6 @@ instance : HasOpInfo Cf where
   propertiesOf := Cf.propertiesOf
   fromAttrDict := Cf.fromAttrDict
   toAttrDict := Cf.toAttrDict
-  hasSideEffects := Cf.hasSideEffects
   getEffects := Cf.getEffects
   isConstantLike := Cf.isConstantLike
   hasSSADominance := Cf.hasSSADominance

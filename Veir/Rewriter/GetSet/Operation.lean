@@ -277,7 +277,7 @@ end Rewriter.setAttributes
 
 section Rewriter.setProperties
 
-variable {op : OperationPtr} {newProps : HasOpInfo.propertiesOf opCode}
+variable {op : OperationPtr} {newProps : propertiesOf opCode}
          {opIn : op.InBounds ctx} {hprop : op.getOpType! ctx = opCode}
 
 attribute [local grind] Rewriter.setProperties

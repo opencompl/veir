@@ -1,6 +1,7 @@
 module
 
 public import Veir.IR.WellFormed
+public import Veir.IR.OpInfo
 
 /-!
 # RegionKindInterface
