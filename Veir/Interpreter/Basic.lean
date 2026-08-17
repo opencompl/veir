@@ -1,7 +1,6 @@
 module
 
-public import Veir.Data.LLVM.Byte.Basic
-public import Veir.Data.RISCV.Reg.Basic
+public import Veir.RuntimeValue
 public import Veir.IR.WellFormed
 public import Veir.GlobalOpInfo
 
@@ -31,25 +30,6 @@ namespace Veir
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 variable {ctx : WfIRContext OpInfo}
-
-/--
-  The type-erased representation of a value in the interpreter.
--/
-inductive RuntimeValue where
-| int (bitwidth : Nat) (value : LLVM.Int bitwidth)
-| byte (bitwidth : Nat) (value : LLVM.Byte bitwidth)
-| float (bitwidth : Nat) (value : Float)
-| addr (value : UInt64)
-| reg (value : RISCV.Reg)
-deriving Inhabited
-
-instance : ToString (RuntimeValue) where
-  toString
-    | .int _ val => ToString.toString val
-    | .byte _ val => ToString.toString val
-    | .float _ val => ToString.toString val
-    | .addr val => ToString.toString val
-    | .reg val => ToString.toString val
 
 namespace RuntimeValue
 

@@ -417,13 +417,13 @@ theorem ValuePtr.getFirstUse!_inBounds :
 
 grind_pattern ValuePtr.getFirstUse!_inBounds => (value.getFirstUse! ctx), ctx.FieldsInBounds
 
-theorem ValuePtr.getDefiningOp!_inBounds :
+theorem ValuePtr.definingOp?_inBounds :
     ctx.FieldsInBounds →
     value.InBounds ctx →
-    (value.getDefiningOp! ctx).maybe OperationPtr.InBounds ctx := by
+    value.definingOp?.maybe OperationPtr.InBounds ctx := by
   cases value <;> grind
 
-grind_pattern ValuePtr.getDefiningOp!_inBounds => (value.getDefiningOp! ctx), ctx.FieldsInBounds
+grind_pattern ValuePtr.definingOp?_inBounds => value.definingOp?, ctx.FieldsInBounds
 
 end ValuePtr
 

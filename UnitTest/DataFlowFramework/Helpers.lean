@@ -77,19 +77,19 @@ Collect all blocks reachable by recursively traversing nested regions in source 
 -/
 partial def collectBlocksInSourceOrder
     (op : OperationPtr)
-    (irCtx : IRContext OpCode)
+    (irCtx : WfIRContext OpCode)
     (acc : Array BlockPtr := #[]) : Array BlockPtr := Id.run do
   let mut acc := acc
-  for region in (op.get! irCtx).regions do
-    let region := region.get! irCtx
+  for region in (op.get! irCtx.raw).regions do
+    let region := region.get! irCtx.raw
     let mut currentBlock := region.firstBlock
     while let some block := currentBlock do
       acc := acc.push block
-      let mut currentOp := (block.get! irCtx).firstOp
+      let mut currentOp := (block.get! irCtx.raw).firstOp
       while let some nestedOp := currentOp do
         acc := collectBlocksInSourceOrder nestedOp irCtx acc
-        currentOp := (nestedOp.get! irCtx).next
-      currentBlock := (block.get! irCtx).next
+        currentOp := (nestedOp.get! irCtx.raw).next
+      currentBlock := (block.get! irCtx.raw).next
   acc
 
 /--
@@ -99,22 +99,22 @@ operation results inside each region.
 -/
 partial def collectValuesInSourceOrder
     (top : OperationPtr)
-    (irCtx : IRContext OpCode)
+    (irCtx : WfIRContext OpCode)
     (acc : Array ValuePtr := #[]) : Array ValuePtr := Id.run do
   let mut acc := acc
-  for result in top.getResults! irCtx do
+  for result in top.getResults! irCtx.raw do
     acc := acc.push result
-  for region in (top.get! irCtx).regions do
-    let region := region.get! irCtx
+  for region in (top.get! irCtx.raw).regions do
+    let region := region.get! irCtx.raw
     let mut currentBlock := region.firstBlock
     while let some block := currentBlock do
-      for arg in block.getArguments! irCtx do
+      for arg in block.getArguments! irCtx.raw do
         acc := acc.push arg
-      let mut currentOp := (block.get! irCtx).firstOp
+      let mut currentOp := (block.get! irCtx.raw).firstOp
       while let some nestedOp := currentOp do
         acc := collectValuesInSourceOrder nestedOp irCtx acc
-        currentOp := (nestedOp.get! irCtx).next
-      currentBlock := (block.get! irCtx).next
+        currentOp := (nestedOp.get! irCtx.raw).next
+      currentBlock := (block.get! irCtx.raw).next
   acc
 
 /--
@@ -129,7 +129,7 @@ Recover block and SSA value maps by pairing MLIR source names with IR traversal 
 -/
 def recoverNames
     (top : OperationPtr)
-    (irCtx : IRContext OpCode)
+    (irCtx : WfIRContext OpCode)
     (mlir : String) : Except String RecoveredNames := do
   let blockLabels := blockLabelsFromMlir mlir
   let blocks := collectBlocksInSourceOrder top irCtx

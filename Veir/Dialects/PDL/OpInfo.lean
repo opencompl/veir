@@ -129,11 +129,9 @@ def PDL.hasSideEffects (op : PDL) (_props : PDL.propertiesOf op) : Bool :=
   | .range | .result | .results => false
   | _ => true
 
-def PDL.readsMemory (_op : PDL) (_props : PDL.propertiesOf _op) : Bool :=
-  false
-
-def PDL.writesMemory (_op : PDL) (_props : PDL.propertiesOf _op) : Bool :=
-  false
+def PDL.getEffects
+    (_op : PDL) (_props : PDL.propertiesOf _op) : MemoryEffects :=
+  .none
 
 def PDL.isConstantLike (_op : PDL) : Bool :=
   false
@@ -148,6 +146,13 @@ def PDL.hasNoTerminator (op : PDL) (_index : Nat) : Bool :=
   | .rewrite => true
   | _ => false
 
+/-- MLIR marks `pdl.rewrite` itself a `Terminator`: it is the last operation of
+    the `pdl.pattern` body it lives in. -/
+def PDL.isTerminator (op : PDL) : Bool :=
+  match op with
+  | .rewrite => true
+  | _ => false
+
 #generate_dialect PDL
 
 instance : HasOpInfo PDL where
@@ -157,11 +162,11 @@ instance : HasOpInfo PDL where
   fromAttrDict := PDL.fromAttrDict
   toAttrDict := PDL.toAttrDict
   hasSideEffects := PDL.hasSideEffects
-  readsMemory := PDL.readsMemory
-  writesMemory := PDL.writesMemory
+  getEffects := PDL.getEffects
   isConstantLike := PDL.isConstantLike
   hasSSADominance := PDL.hasSSADominance
   hasNoTerminator := PDL.hasNoTerminator
+  isTerminator := PDL.isTerminator
 
 /--
   The element kind of a PDL handle type, treating a non-range handle as a range
