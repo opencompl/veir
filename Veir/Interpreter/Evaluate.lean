@@ -17,7 +17,7 @@ namespace Veir
   it must have no memory effects at all.
 -/
 private def isFoldEvaluationCandidate
-    (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode) : Bool :=
+    (opCode : OpCode) (properties : propertiesOf opCode) : Bool :=
   HasOpInfo.getEffects opCode properties == .none
 
 /--
@@ -26,7 +26,7 @@ private def isFoldEvaluationCandidate
   UB, and `none` if the operation must not be evaluated or the interpreter
   cannot evaluate it.
 -/
-def foldEvaluate (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode)
+def foldEvaluate (opCode : OpCode) (properties : propertiesOf opCode)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
     : Interp (Array RuntimeValue) := do
   if !isFoldEvaluationCandidate opCode properties then none else

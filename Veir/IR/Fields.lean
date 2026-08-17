@@ -699,7 +699,7 @@ theorem OperationPtr.pushResult_fieldsInBounds {newResult : OpResult} {op : Oper
 theorem OperationPtr.setProperties_fieldsInBounds
     {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpInfo Dialect]
     {op : OperationPtr} {inBounds : op.InBounds ctx}
-    {opCode : Dialect} {newProperties : HasOpInfo.propertiesOf opCode}
+    {opCode : Dialect} {newProperties : propertiesOf opCode}
     {hprop : op.getOpType! ctx = opCode} :
     ctx.FieldsInBounds → (setProperties op ctx opCode newProperties inBounds hprop).FieldsInBounds := by
   prove_fieldsInBounds_operation ctx
@@ -724,7 +724,7 @@ attribute [local grind] Operation.empty in
 @[grind .]
 theorem OperationPtr.allocEmpty_fieldsInBounds
     {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpInfo Dialect]
-    {type : Dialect} {prop : HasOpInfo.propertiesOf type}
+    {type : Dialect} {prop : propertiesOf type}
     (heq : allocEmpty ctx type prop = some (ctx', ptr')) :
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by
   prove_fieldsInBounds

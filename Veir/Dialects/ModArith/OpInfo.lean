@@ -95,7 +95,7 @@ def OperationPtr.verifyModArithBinOp {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 2 1
-  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   let operandType ← op.verifyOperandTypesMatch ctx 0 1
     s!"{instrName}: Expected operands to have the same type"
   op.verifyResultTypeMatches ctx operandType
@@ -106,7 +106,7 @@ def OperationPtr.verifyModArithConstantOp {OpInfo : Type} [HasOpInfo OpInfo]
     [HasDialect OpInfo Mod_Arith] (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 0 1
-  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   let mat ← ((op.getResult 0).get! ctx.raw).type.verifyModArithType
     s!"{instrName}: Expected result to have ModArithType"
   let value := (op.getProperties! ctx.raw Mod_Arith.constant).value.value

@@ -275,7 +275,7 @@ def OperationPtr.verifyRISCVimm12 {OpInfo : Type} [HasOpInfo OpInfo]
     (operands results : Nat) (imm : Int) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn operands results
   if imm < -2048 ∨ imm > 2047 then
-    let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+    let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
     throw s!"{instrName} immediate out of bounds: must fit in a signed 12-bit field [-2048, 2047]"
   else
     pure ()
@@ -289,7 +289,7 @@ def OperationPtr.verifyRISCVuimm5 {OpInfo : Type} [HasOpInfo OpInfo]
     (imm : Int) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 1 1
   if imm < 0 ∨ imm > 31 then
-    let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+    let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
     throw s!"{instrName} immediate out of bounds: must fit in an unsigned 5-bit field [0, 31]"
   else
     pure ()
@@ -303,7 +303,7 @@ def OperationPtr.verifyRISCVuimm6 {OpInfo : Type} [HasOpInfo OpInfo]
     (imm : Int) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 1 1
   if imm < 0 ∨ imm > 63 then
-    let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+    let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
     throw s!"{instrName} immediate out of bounds: must fit in an unsigned 6-bit field [0, 63]"
   else
     pure ()
@@ -313,7 +313,7 @@ def OperationPtr.verifyRISCVneg {OpInfo : Type} [HasOpInfo OpInfo]
     (operands results : Nat) (imm : Int) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn operands results
   if imm < 0 ∨ 1048575 < imm then
-    let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+    let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
     throw s!"{instrName} immediate out of bounds: must fit in an unsigned 20-bit field."
   else
     pure ()
@@ -322,7 +322,7 @@ def OperationPtr.verifyRISCVneg {OpInfo : Type} [HasOpInfo OpInfo]
 def OperationPtr.verifyRISCVRegisterTypes {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
-  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   let opTypes := op.getOperandTypes! ctx.raw
   for i in [0:opTypes.size] do
     match (opTypes[i]!).val with

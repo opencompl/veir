@@ -58,7 +58,7 @@ private def moduleWithRegion : OperationPtr × IRContext OpCode :=
 /- Executable memory independence is derived from the complete memory-effect summary. -/
 
 private def opWithType {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpCode Dialect]
-    (opType : Dialect) (properties : HasOpInfo.propertiesOf opType) :
+    (opType : Dialect) (properties : propertiesOf opType) :
     OperationPtr × IRContext OpCode :=
   let (ctx, moduleOp) := WfIRContext.create! OpCode
   let moduleRegion := moduleOp.getRegion! ctx.raw 0

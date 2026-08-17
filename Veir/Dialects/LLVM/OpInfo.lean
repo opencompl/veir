@@ -399,7 +399,7 @@ def OperationPtr.verifyLLVMShift {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 2 1
-  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerOrByteType
     s!"{instrName}: Expected operand 0 to have integer or byte type"
   ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerType
@@ -411,7 +411,7 @@ def OperationPtr.verifyLLVMICmp {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 2 1
-  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   -- `llvm.icmp` also compares pointers.
   ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerOrPointerType
     s!"{instrName}: Expected operand 0 to have integer or pointer type"

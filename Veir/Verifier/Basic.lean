@@ -46,7 +46,7 @@ def Attribute.isKnownNonZero (attr : Attribute) : Bool :=
 -/
 def OperationPtr.verifyTerminatorCounts (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) (successors : Nat) : Except String PUnit := do
-  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   if op.getNumResults ctx.raw opIn ≠ 0 then
     throw s!"{instrName}: Expected 0 results"
   if op.getNumRegions ctx.raw opIn ≠ 0 then
@@ -82,7 +82,7 @@ def OperationPtr.verifyUnconditionalBranch (op : OperationPtr)
     (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyTerminatorCounts ctx opIn 1
-  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   let dest := op.getSuccessor! ctx.raw 0
   if op.getNumOperands ctx.raw opIn ≠ dest.getNumArguments! ctx.raw then
     throw s!"{instrName}: branch expected operand count {dest.getNumArguments! ctx.raw}, got {op.getNumOperands ctx.raw opIn}"
@@ -96,7 +96,7 @@ def OperationPtr.verifyOperandSegmentSizes
     (op : OperationPtr) (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw)
     (sizes : DenseArrayAttr) (expectedSegments : Nat) :
     Except String (Array Nat) := do
-  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   if sizes.values.size ≠ expectedSegments then
     throw s!"{instrName}: operandSegmentSizes expected {expectedSegments} entries, got {sizes.values.size}"
   let mut segmentSizes : Array Nat := #[]
@@ -113,7 +113,7 @@ def OperationPtr.verifyCondBranchOperandSegmentSizes
     (op : OperationPtr) (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw)
     (sizes : DenseArrayAttr) (fixedOperands : Nat) :
     Except String PUnit := do
-  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   if _ : sizes.values.size ≠ fixedOperands + 2 then
     throw s!"{instrName}: operandSegmentSizes expected {fixedOperands + 2} entries, got {sizes.values.size}"
   let mut operandSegmentSizes : Array Nat := #[]
@@ -188,7 +188,7 @@ def TypeAttr.verifyI1
 def OperationPtr.verifyPlainOpCounts (op : OperationPtr)
     (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) (operands results : Nat) : Except String PUnit := do
-  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   if op.getNumOperands ctx.raw opIn ≠ operands then
     throw s!"{instrName}: Expected {operands} operand(s)"
   if op.getNumResults ctx.raw opIn ≠ results then
@@ -217,7 +217,7 @@ def OperationPtr.verifyIntegerBinop (op : OperationPtr)
     (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 2 1
-  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType
     s!"{instrName}: Expected operand 0 to have integer type"
   ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerType
@@ -231,7 +231,7 @@ def OperationPtr.verifyIntegerTernop (op : OperationPtr)
     (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 3 1
-  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType
     s!"{instrName}: Expected operand 0 to have integer type"
   ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerType
@@ -249,7 +249,7 @@ def OperationPtr.verifyIntegerUnop (op : OperationPtr)
     (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String TypeAttr := do
   op.verifyPlainOpCounts ctx opIn 1 1
-  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
   operandType.verifyIntegerType s!"{instrName}: Expected operand 0 to have integer type"
   op.verifyResultTypeMatches ctx operandType
@@ -259,7 +259,7 @@ def OperationPtr.verifyIntegerUnop (op : OperationPtr)
 def OperationPtr.verifyICmp (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 2 1
-  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType
     s!"{instrName}: Expected operand 0 to have integer type"
   ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerType
@@ -272,7 +272,7 @@ def OperationPtr.verifySelectTypes (op : OperationPtr)
     (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 3 1
-  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyI1 s!"{instrName}: Expected i1 condition"
   let operandType ← op.verifyOperandTypesMatch ctx 1 2
     s!"{instrName}: Expected select values to have the same type"
@@ -283,7 +283,7 @@ def OperationPtr.verifyTruncTypes (op : OperationPtr)
     (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) (allowByte : Bool) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 1 1
-  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
   let resultType := ((op.getResult 0).get! ctx.raw).type
   match operandType.val, resultType.val, allowByte with
@@ -303,7 +303,7 @@ def OperationPtr.verifyIntegerExtTypes (op : OperationPtr)
     (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 1 1
-  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
   let resultType := ((op.getResult 0).get! ctx.raw).type
   let .integerType operandInt := operandType.val
@@ -323,7 +323,7 @@ def OperationPtr.verifyIntegerExtTypes (op : OperationPtr)
 def OperationPtr.checkIsNonNullIntegerType (op : OperationPtr)
     (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
-  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   let opTypes := op.getOperandTypes! ctx.raw
   for i in [0:opTypes.size] do
     if let .integerType intType := (opTypes[i]!).val then

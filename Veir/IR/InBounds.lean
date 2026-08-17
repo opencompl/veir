@@ -180,7 +180,7 @@ theorem OperationPtr.setBlockOperands_OpOperandPtr_InBounds_mono_ne {opOperand :
 @[grind =]
 theorem OperationPtr.setProperties_genericPtr_mono (ptr : GenericPtr)
     {opCode : Dialect} [HasOpInfo Dialect] [HasDialect OpInfo Dialect]
-    {newProperties : HasOpInfo.propertiesOf opCode}
+    {newProperties : propertiesOf opCode}
     {propEq : op.getOpType! ctx = opCode} :
     ptr.InBounds (setProperties op ctx opCode newProperties h propEq) ↔ ptr.InBounds ctx := by
   grind
@@ -192,7 +192,7 @@ theorem OperationPtr.setAttributes_genericPtr_mono (ptr : GenericPtr) :
 
 variable {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpInfo Dialect]
 variable {ty : Dialect}
-variable {properties : HasOpInfo.propertiesOf ty}
+variable {properties : propertiesOf ty}
 
 @[grind .]
 theorem OpResultPtr.allocEmpty_no_results {opResult : OpResultPtr}

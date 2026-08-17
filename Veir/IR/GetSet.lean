@@ -5,9 +5,9 @@ import all Veir.IR.Basic
 
 namespace Veir
 
-variable {OpInfo : Type} [HasOpInfo OpInfo]
+variable {OpInfo : Type} [IsOpCode OpInfo]
 variable {ctx ctx': IRContext OpInfo}
-variable {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {Dialect : Type} [IsOpCode Dialect] [HasDialect OpInfo Dialect]
 variable {opCode opCode' : Dialect}
 
 public section
@@ -53,9 +53,9 @@ setup_grind_with_get_set_definitions
 
 /- OperationPtr.allocEmpty -/
 
-variable {CreateDialect : Type} [HasOpInfo CreateDialect]
+variable {CreateDialect : Type} [IsOpCode CreateDialect]
   [HasDialect OpInfo CreateDialect]
-variable {ty : CreateDialect} {properties : HasOpInfo.propertiesOf ty}
+variable {ty : CreateDialect} {properties : propertiesOf ty}
 
 @[simp, grind =>]
 theorem BlockPtr.get!_OperationPtr_allocEmpty {block : BlockPtr}
@@ -1325,7 +1325,7 @@ theorem OpOperandPtrPtr.get!_OperationPtr_pushResult {opOperandPtr : OpOperandPt
 section OperationPtr.setProperties
 
 variable {operation' : OperationPtr}
-variable {newProperties : HasOpInfo.propertiesOf opCode}
+variable {newProperties : propertiesOf opCode}
 variable {inBounds : operation'.InBounds ctx}
 variable {hprop : operation'.getOpType! ctx = opCode}
 
@@ -1348,7 +1348,7 @@ theorem OperationPtr.get!_OperationPtr_setProperties {operation : OperationPtr} 
 
 @[grind =]
 theorem OperationPtr.getProperties!_OperationPtr_setProperties
-    {GetterDialect : Type} [HasOpInfo GetterDialect]
+    {GetterDialect : Type} [IsOpCode GetterDialect]
     [HasDialect OpInfo GetterDialect] {getterOpCode : GetterDialect}
     {operation : OperationPtr} :
     operation.getProperties!
