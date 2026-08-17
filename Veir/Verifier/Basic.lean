@@ -1,5 +1,6 @@
 module
 
+public import Veir.IR.OpInfo
 public import Veir.IR.WellFormed
 
 /-!

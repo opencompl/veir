@@ -5,7 +5,7 @@ import all Veir.IR.Basic
 
 namespace Veir
 
-variable {OpInfo : Type} [HasOpInfo OpInfo]
+variable {OpInfo : Type} [IsOpCode OpInfo]
 
 public section
 
@@ -179,7 +179,7 @@ theorem OperationPtr.setBlockOperands_OpOperandPtr_InBounds_mono_ne {opOperand :
 
 @[grind =]
 theorem OperationPtr.setProperties_genericPtr_mono (ptr : GenericPtr)
-    {opCode : Dialect} [HasOpInfo Dialect] [HasDialect OpInfo Dialect]
+    {opCode : Dialect} [IsOpCode Dialect] [HasDialect OpInfo Dialect]
     {newProperties : propertiesOf opCode}
     {propEq : op.getOpType! ctx = opCode} :
     ptr.InBounds (setProperties op ctx opCode newProperties h propEq) ↔ ptr.InBounds ctx := by
@@ -190,7 +190,7 @@ theorem OperationPtr.setAttributes_genericPtr_mono (ptr : GenericPtr) :
     ptr.InBounds (op.setAttributes ctx newAttrs h) ↔ ptr.InBounds ctx := by
   grind
 
-variable {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {Dialect : Type} [IsOpCode Dialect] [HasDialect OpInfo Dialect]
 variable {ty : Dialect}
 variable {properties : propertiesOf ty}
 

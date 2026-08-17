@@ -1,6 +1,7 @@
 module
 
 public import Veir.IR.Basic
+public import Veir.IR.OpInfo
 
 /-!
 # SideEffectInterfaces
