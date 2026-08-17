@@ -2,7 +2,7 @@ module
 
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
-import Veir.Interfaces.ConstantLikeInterfaces
+import Veir.Interfaces.FoldInterfaces
 import Veir.Passes.Matching
 
 namespace Veir
@@ -10,10 +10,29 @@ namespace Veir
 /-!
   # Canonicalize pass
 
-  Rewrites operations into canonical forms, including moving constants
-  to the right side of commutative operations and reducing modular
-  constants to their canonical representatives.
+  Rewrites operations into canonical forms, including folding operations,
+  moving constants to the right side of commutative operations, and reducing
+  modular constants to their canonical representatives.
 -/
+
+/-- Replace a foldable operation with an operand or a materialized constant. -/
+def foldOperation (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let operands := op.getOperands rewriter.ctx.raw opInBounds
+  let constantOperands := operands.map (ValuePtr.constantValue · rewriter.ctx.raw)
+  match op.foldsTo rewriter.ctx opInBounds constantOperands with
+  | none => return rewriter
+  | some (.useOperand index) =>
+    let replacement ← operands[index]?
+    let rewriter := rewriter.replaceValue! (op.getResult 0) replacement
+    return rewriter.eraseOp! op
+  | some (.useConstant value) =>
+    let resultType ← (op.getResultTypes rewriter.ctx.raw opInBounds)[0]?
+    match rewriter.materializeConstant! (op.getOpType rewriter.ctx.raw opInBounds)
+        value resultType (.before op) with
+    | none => none
+    | some (rewriter, none) => some rewriter
+    | some (rewriter, some constantOp) => some (rewriter.replaceOp! op constantOp)
 
 def canonicalizeModArithConstant (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
@@ -48,6 +67,7 @@ def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPt
 def CanonicalizePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[
+    foldOperation,
     canonicalizeModArithConstant,
     commutativeConstantRHS
   ]

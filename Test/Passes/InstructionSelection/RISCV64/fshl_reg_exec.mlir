@@ -9,7 +9,9 @@
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> i64}> ({
     %a = "llvm.mlir.constant"() <{value = 1311768467463790320 : i64}> : () -> i64
-    %x = "llvm.mlir.constant"() <{value = 5 : i64}> : () -> i64
+    %x0 = "llvm.mlir.constant"() <{value = 5 : i64}> : () -> i64
+    %x1 = "builtin.unrealized_conversion_cast"(%x0) : (i64) -> !riscv.reg
+    %x = "builtin.unrealized_conversion_cast"(%x1) : (!riscv.reg) -> i64
     %y = "llvm.mlir.constant"() <{value = 3 : i64}> : () -> i64
     %s = "llvm.add"(%x, %y) : (i64, i64) -> i64
     %r = "llvm.intr.fshl"(%a, %a, %s) : (i64, i64, i64) -> i64

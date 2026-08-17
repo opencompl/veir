@@ -5,7 +5,11 @@
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (i64, i64, i64, i64, i64, i64, i64)}> ({
-    %x = "llvm.mlir.constant"() <{value = 0x0123456789abcdef : i64}> : () -> i64
+    // Keep the input semantically constant for execution while hiding it from
+    // the canonicalizer so the intrinsic lowering is still exercised.
+    %x0 = "llvm.mlir.constant"() <{value = 0x0123456789abcdef : i64}> : () -> i64
+    %x1 = "builtin.unrealized_conversion_cast"(%x0) : (i64) -> !riscv.reg
+    %x = "builtin.unrealized_conversion_cast"(%x1) : (!riscv.reg) -> i64
     %ctlz = "llvm.intr.ctlz"(%x) <{is_zero_poison = false}> : (i64) -> i64
     %ctlz_poison = "llvm.intr.ctlz"(%x) <{is_zero_poison = true}> : (i64) -> i64
     %cttz = "llvm.intr.cttz"(%x) <{is_zero_poison = false}> : (i64) -> i64

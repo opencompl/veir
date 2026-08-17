@@ -6,7 +6,9 @@
 // (the bottom byte 0xF0 wraps around to the top); constant amount -> riscv.rori
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> i64}> ({
-    %a = "llvm.mlir.constant"() <{value = 1311768467463790320 : i64}> : () -> i64
+    %a0 = "llvm.mlir.constant"() <{value = 1311768467463790320 : i64}> : () -> i64
+    %a1 = "builtin.unrealized_conversion_cast"(%a0) : (i64) -> !riscv.reg
+    %a = "builtin.unrealized_conversion_cast"(%a1) : (!riscv.reg) -> i64
     %s = "llvm.mlir.constant"() <{value = 8 : i64}> : () -> i64
     %r = "llvm.intr.fshr"(%a, %a, %s) : (i64, i64, i64) -> i64
     "func.return"(%r) : (i64) -> ()
