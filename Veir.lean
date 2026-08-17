@@ -11,6 +11,7 @@ import Veir.Rewriter.WfRewriter
 import Veir.PatternRewriter.Semantics
 import Veir.Printer
 import Veir.PatternRewriter.Basic
+import Veir.PatternRewriter.Puddle
 import Veir.Interfaces.FoldInterfaces
 import Veir.Interfaces.ControlFlowInterfaces
 import Veir.Passes.ArithToLLVM.Proofs
