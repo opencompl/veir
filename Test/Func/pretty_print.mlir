@@ -1,7 +1,7 @@
-// Custom (pretty) printing of `func.func` via the `HasCustomPrinting`
-// interface. The input is in generic form; with --pretty the `func.func` ops
-// are printed in their custom syntax (mirroring MLIR's hasCustomAssemblyFormat)
-// while everything else keeps the generic form.
+// Custom (pretty) printing via the `HasCustomPrinting` interface. The input is
+// in generic form; with --pretty, `func.func` uses its hand-written printer
+// (mirroring MLIR's hasCustomAssemblyFormat) and `func.return`/`func.call` use
+// their declarative assembly formats; everything else keeps the generic form.
 
 // RUN: veir-opt --pretty %s | filecheck %s
 
@@ -18,7 +18,7 @@
 }) : () -> ()
 
 // CHECK:      func.func @callee(%arg{{[0-9]+_[0-9]+}}: i32) -> i32 {
-// CHECK-NEXT:   "func.return"(%arg{{[0-9]+_[0-9]+}}) : (i32) -> ()
+// CHECK-NEXT:   func.return %arg{{[0-9]+_[0-9]+}} : i32
 // CHECK:      func.func @caller(%arg{{[0-9]+_[0-9]+}}: i32) -> i32 {
-// CHECK:        %{{[0-9]+}} = "func.call"(%arg{{[0-9]+_[0-9]+}}) <{"callee" = @callee}> : (i32) -> i32
-// CHECK-NEXT:   "func.return"(%{{[0-9]+}}) : (i32) -> ()
+// CHECK:        %{{[0-9]+}} = func.call @callee(%arg{{[0-9]+_[0-9]+}}) : (i32) -> i32
+// CHECK-NEXT:   func.return %{{[0-9]+}} : i32
