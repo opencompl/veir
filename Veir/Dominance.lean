@@ -150,13 +150,13 @@ axiom IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates (ctx
 If a value is being defined by an operation `op₁` and being used as an operand of an
 operation `op₂`, then `op₁` strictly dominates `op₂`.
 -/
-axiom OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! (ctxDom : ctx.Dom) :
-  value.getDefiningOp! ctx.raw = some op₁ →
+axiom OperationPtr.strictlyDominates_of_definingOp?_of_mem_getOperands! (ctxDom : ctx.Dom) :
+  value.definingOp? = some op₁ →
   value ∈ op₂.getOperands! ctx.raw →
   op₁.strictlyDominates op₂ ctx
 
-grind_pattern OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! =>
-  ctx.Dom, value.getDefiningOp! ctx.raw, some op₂, op₁.getOperands! ctx.raw
+grind_pattern OperationPtr.strictlyDominates_of_definingOp?_of_mem_getOperands! =>
+  ctx.Dom, value.definingOp?, some op₂, op₁.getOperands! ctx.raw
 
 /-- In a well-dominated IR context, any value that is an operand of an operation `op` is
 dominating the program point before `op`. -/

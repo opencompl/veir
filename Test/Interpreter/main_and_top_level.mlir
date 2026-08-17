@@ -8,4 +8,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Error: Top-level operations are disallowed; define a zero-argument function named 'main'
+// CHECK: Error: unsupported top-level operation; expected a function, llvm.mlir.global, or llvm.module_flags

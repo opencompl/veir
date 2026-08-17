@@ -2,6 +2,7 @@ module
 
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
+public import Veir.Verifier.Basic
 public import Veir.Dialects.Func.Properties
 meta import Veir.Meta.OpCode
 
@@ -51,18 +52,19 @@ def Func.toAttrDict
 def Func.hasSideEffects (_op : Func) (_props : Func.propertiesOf _op) : Bool :=
   true
 
-def Func.readsMemory (op : Func) (_props : Func.propertiesOf op) : Bool :=
+def Func.getEffects
+    (op : Func) (_props : Func.propertiesOf op) : MemoryEffects :=
   match op with
-  | .call => true
-  | .func | .return => false
-
-def Func.writesMemory (op : Func) (_props : Func.propertiesOf op) : Bool :=
-  match op with
-  | .call => true
-  | .func | .return => false
+  | .call => .unknown
+  | .func | .return => .none
 
 def Func.isConstantLike (_op : Func) : Bool :=
   false
+
+def Func.isFunctionLike (op : Func) : Bool :=
+  match op with
+  | .func => true
+  | .call | .return => false
 
 def Func.hasSSADominance (_op : Func) (_index : Nat) : Bool :=
   true
@@ -81,11 +83,68 @@ instance : HasOpInfo Func where
   fromAttrDict := Func.fromAttrDict
   toAttrDict := Func.toAttrDict
   hasSideEffects := Func.hasSideEffects
-  readsMemory := Func.readsMemory
-  writesMemory := Func.writesMemory
+  getEffects := Func.getEffects
   isConstantLike := Func.isConstantLike
+  isFunctionLike := Func.isFunctionLike
   hasSSADominance := Func.hasSSADominance
   isTerminator := Func.isTerminator
+
+/--
+Check that a `func.return` returns the declared result types of its enclosing
+`func.func`.
+-/
+def OperationPtr.verifyFuncReturnTypes {OpInfo : Type} [HasOpInfo OpInfo]
+    [HasDialect OpInfo Func] (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  let funcOp ← op.getEnclosingFunctionOp ctx "func.return"
+  let some .func := toDialect? Func (funcOp.getOpType! ctx.raw)
+    | throw "Expected func.return to be enclosed by func.func"
+  let props : Func.propertiesOf .func := funcOp.getProperties! ctx.raw Func.func
+  let some functionType := props.function_type
+    | throw "Expected enclosing func.func to have a function_type attribute"
+  let .functionType functionType := functionType.val
+    | throw "Expected enclosing func.func to have a function_type attribute"
+  let outputs := functionType.outputs
+  if op.getNumOperands ctx.raw opIn ≠ outputs.size then
+    throw s!"Expected func.return to have {outputs.size} operand(s)"
+  let opTypes := op.getOperandTypes! ctx.raw
+  for i in [0:outputs.size] do
+    if !Attribute.branchArgCompatible (opTypes[i]!).val outputs[i]! then
+      throw s!"func.return operand {i} type does not match the function's declared result type"
+
+/--
+Verify the local invariants of a `func` operation in any operation-info type
+containing the `func` dialect.
+-/
+@[expose]
+def Func.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
+    [HasDialect OpInfo Func] (opType : Func) (op : OperationPtr)
+    (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  match opType with
+  | .func => do
+    if op.getNumRegions ctx.raw opIn ≠ 1 then
+      throw "Expected 1 region"
+    if op.getNumOperands ctx.raw opIn ≠ 0 then
+      throw "Expected 0 operands"
+    if op.getNumResults ctx.raw opIn ≠ 0 then
+      throw "Expected 0 results"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    let props : Func.propertiesOf .func := op.getProperties! ctx.raw Func.func
+    match props.function_type with
+    | some ⟨.functionType _, _⟩ => pure ()
+    | _ => throw "Expected function type"
+    if props.sym_name.isNone then
+      throw "Expected symbol name"
+  | .call => do
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .return => do
+    op.verifyTerminatorCounts ctx opIn 0
+    op.verifyFuncReturnTypes ctx opIn
 
 end
 

@@ -43,11 +43,9 @@ def Cf.toAttrDict
 def Cf.hasSideEffects (_op : Cf) (_props : Cf.propertiesOf _op) : Bool :=
   true
 
-def Cf.readsMemory (_op : Cf) (_props : Cf.propertiesOf _op) : Bool :=
-  false
-
-def Cf.writesMemory (_op : Cf) (_props : Cf.propertiesOf _op) : Bool :=
-  false
+def Cf.getEffects
+    (_op : Cf) (_props : Cf.propertiesOf _op) : MemoryEffects :=
+  .none
 
 def Cf.isConstantLike (_op : Cf) : Bool :=
   false
@@ -68,8 +66,7 @@ instance : HasOpInfo Cf where
   fromAttrDict := Cf.fromAttrDict
   toAttrDict := Cf.toAttrDict
   hasSideEffects := Cf.hasSideEffects
-  readsMemory := Cf.readsMemory
-  writesMemory := Cf.writesMemory
+  getEffects := Cf.getEffects
   isConstantLike := Cf.isConstantLike
   hasSSADominance := Cf.hasSSADominance
   isTerminator := Cf.isTerminator

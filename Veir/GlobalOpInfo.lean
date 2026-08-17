@@ -33,46 +33,26 @@ match opCode with
 | .test op => Test.propertiesOf op
 
 /--
-  Does an operation with this opcode and these properties read memory?
+  What are the memory effects of an operation with this opcode and these
+  properties?
 -/
-def OpCode.readsMemory (opCode : OpCode) (props : _propertiesOf opCode) : Bool :=
+def OpCode.getEffects (opCode : OpCode) (props : _propertiesOf opCode) : MemoryEffects :=
   match opCode, props with
-  | .arith op, props => Arith.readsMemory op props
-  | .llvm op, props => Llvm.readsMemory op props
-  | .riscv op, props => Riscv.readsMemory op props
-  | .riscv_cf op, props => Riscv_Cf.readsMemory op props
-  | .riscv_stack op, props => Riscv_Stack.readsMemory op props
-  | .rv64 op, props => Rv64.readsMemory op props
-  | .mod_arith op, props => Mod_Arith.readsMemory op props
-  | .cf op, props => Cf.readsMemory op props
-  | .comb op, props => Comb.readsMemory op props
-  | .hw op, props => HW.readsMemory op props
-  | .builtin op, props => Builtin.readsMemory op props
-  | .func op, props => Func.readsMemory op props
-  | .datapath op, props => Datapath.readsMemory op props
-  | .pdl op, props => PDL.readsMemory op props
-  | .test op, props => Test.readsMemory op props
-
-/--
-  Does an operation with this opcode and these properties write memory?
--/
-def OpCode.writesMemory (opCode : OpCode) (props : _propertiesOf opCode) : Bool :=
-  match opCode, props with
-  | .arith op, props => Arith.writesMemory op props
-  | .llvm op, props => Llvm.writesMemory op props
-  | .riscv op, props => Riscv.writesMemory op props
-  | .riscv_cf op, props => Riscv_Cf.writesMemory op props
-  | .riscv_stack op, props => Riscv_Stack.writesMemory op props
-  | .rv64 op, props => Rv64.writesMemory op props
-  | .mod_arith op, props => Mod_Arith.writesMemory op props
-  | .cf op, props => Cf.writesMemory op props
-  | .comb op, props => Comb.writesMemory op props
-  | .hw op, props => HW.writesMemory op props
-  | .builtin op, props => Builtin.writesMemory op props
-  | .func op, props => Func.writesMemory op props
-  | .datapath op, props => Datapath.writesMemory op props
-  | .pdl op, props => PDL.writesMemory op props
-  | .test op, props => Test.writesMemory op props
+  | .arith op, props => Arith.getEffects op props
+  | .llvm op, props => Llvm.getEffects op props
+  | .riscv op, props => Riscv.getEffects op props
+  | .riscv_cf op, props => Riscv_Cf.getEffects op props
+  | .riscv_stack op, props => Riscv_Stack.getEffects op props
+  | .rv64 op, props => Rv64.getEffects op props
+  | .mod_arith op, props => Mod_Arith.getEffects op props
+  | .cf op, props => Cf.getEffects op props
+  | .comb op, props => Comb.getEffects op props
+  | .hw op, props => HW.getEffects op props
+  | .builtin op, props => Builtin.getEffects op props
+  | .func op, props => Func.getEffects op props
+  | .datapath op, props => Datapath.getEffects op props
+  | .pdl op, props => PDL.getEffects op props
+  | .test op, props => Test.getEffects op props
 
 /--
   Does an operation with this opcode and these properties have effects that
@@ -214,6 +194,32 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | .pdl op => PDL.isConstantLike op
   | .test op => Test.isConstantLike op
 
+/--
+  Does this `OpCode` act like a function, i.e. a symbol whose single
+  region is the function body, with the signature carried in a
+  `function_type` property?
+
+  Dialects that do not override isFunctionLike default to false
+  for all operations.
+-/
+def OpCode.isFunctionLike (opCode : OpCode) : Bool :=
+  match opCode with
+  | .arith op => HasOpInfo.isFunctionLike op
+  | .llvm op => HasOpInfo.isFunctionLike op
+  | .riscv op => HasOpInfo.isFunctionLike op
+  | .riscv_cf op => HasOpInfo.isFunctionLike op
+  | .riscv_stack op => HasOpInfo.isFunctionLike op
+  | .rv64 op => HasOpInfo.isFunctionLike op
+  | .mod_arith op => HasOpInfo.isFunctionLike op
+  | .cf op => HasOpInfo.isFunctionLike op
+  | .comb op => HasOpInfo.isFunctionLike op
+  | .hw op => HasOpInfo.isFunctionLike op
+  | .builtin op => HasOpInfo.isFunctionLike op
+  | .func op => HasOpInfo.isFunctionLike op
+  | .datapath op => HasOpInfo.isFunctionLike op
+  | .pdl op => HasOpInfo.isFunctionLike op
+  | .test op => HasOpInfo.isFunctionLike op
+
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (_propertiesOf opCode) :=
   match opCode with
@@ -263,16 +269,36 @@ instance : HasOpInfo OpCode where
   fromAttrDict := Properties.fromAttrDict
   toAttrDict := Properties.toAttrDict
   hasSideEffects := OpCode.hasSideEffects
-  readsMemory := OpCode.readsMemory
-  writesMemory := OpCode.writesMemory
+  getEffects := OpCode.getEffects
   isConstantLike := OpCode.isConstantLike
+  isFunctionLike := OpCode.isFunctionLike
   hasSSADominance := OpCode.hasSSADominance
   hasNoTerminator := OpCode.hasNoTerminator
   isTerminator := OpCode.isTerminator
 
 #generate_has_dialect_instances OpCode
 
-abbrev propertiesOf := HasOpInfo.propertiesOf (self := instHasOpInfoOpCode)
+/--
+Ask the dialect of `opCode` how to represent a folded
+constant. Dialects without a materializer, and values a dialect cannot
+represent, decline to fold.
+-/
+def OpCode.materializeConstant (opCode : OpCode) (value : RuntimeValue)
+    (type : TypeAttr) : Option (Materialized OpCode) := do
+  let materialized ←
+    match opCode with
+    | .arith op => Arith.materializeConstant op value type
+    | .comb op => Comb.materializeConstant op value type
+    | .hw op => HW.materializeConstant op value type
+    | .llvm op => Llvm.materializeConstant op value type
+    | .mod_arith op => Mod_Arith.materializeConstant op value type
+    | .riscv op => Riscv.materializeConstant op value type
+    -- Listed rather than folded into a catch-all so that adding a dialect
+    -- fails to compile until it decides how, or whether, to materialize.
+    | .riscv_cf _ | .riscv_stack _ | .rv64 _ | .cf _ | .builtin _
+    | .func _ | .datapath _ | .pdl _ | .test _ => none
+  guard materialized.fst.isConstantLike
+  return materialized
 
 /--
   Is this `OpCode` commutative in its operands, i.e. `op x y` always

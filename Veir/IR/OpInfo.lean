@@ -7,6 +7,36 @@ namespace Veir
 
 public section
 
+/-- The memory effects an operation may have. -/
+structure MemoryEffects where
+  /-- The operation may dereference memory, without necessarily mutating it. -/
+  reads : Bool
+  /-- The operation may mutate memory, without necessarily dereferencing it. -/
+  writes : Bool
+  /--
+  The operation may allocate memory, without necessarily reading or writing it.
+  -/
+  allocates : Bool
+deriving Inhabited, Repr, DecidableEq
+
+namespace MemoryEffects
+
+def none : MemoryEffects := { reads := false, writes := false, allocates := false }
+
+def read : MemoryEffects := { reads := true, writes := false, allocates := false }
+
+def write : MemoryEffects := { reads := false, writes := true, allocates := false }
+
+def readWrite : MemoryEffects := { reads := true, writes := true, allocates := false }
+
+def allocate : MemoryEffects := { reads := false, writes := false, allocates := true }
+
+/-- A conservative summary for an operation whose memory effects are unknown. -/
+def unknown : MemoryEffects :=
+  { reads := true, writes := true, allocates := true }
+
+end MemoryEffects
+
 class HasOpInfo (opCode: Type)
     extends Hashable opCode, Repr opCode, Inhabited opCode where
   /-- Look up an operation by its fully qualified MLIR name. -/
@@ -46,29 +76,20 @@ class HasOpInfo (opCode: Type)
   -/
   hasSideEffects : (op : opCode) → propertiesOf op → Bool := fun _ _ => true
   /--
-  Whether an operation with this opcode reads memory.
+  The memory effects of an operation with this opcode and these properties,
+  mirroring MLIR's `MemoryEffectOpInterface::getEffects`.
 
-  This is deliberately separate from `hasSideEffects`: a non-volatile load
-  reads memory and yet is eligible for removal when its result is unused, so
+  This is deliberately separate from `hasSideEffects`: a non-volatile load has
+  a read effect and yet is eligible for removal when its result is unused, so
   `hasSideEffects` reports `false` for it. Fold-time evaluation must consult
-  this as well before running an operation against memory that is not the
-  program's.
+  the effects as well before running an operation against memory that is not
+  the program's.
 
-  Defaults to `true` for every opcode, which conservatively assumes memory is
-  read.
+  Defaults to `.unknown` for every opcode, which conservatively assumes every
+  modeled memory effect.
   -/
-  readsMemory : (op : opCode) → propertiesOf op → Bool := fun _ _ => true
-  /--
-  Whether an operation with this opcode writes memory.
-
-  This reports only that memory may be modified. It does not imply that the
-  operation completely overwrites any particular location, so it is not by
-  itself sufficient to prove that an earlier write is dead.
-
-  Defaults to `true` for every opcode, which conservatively assumes memory is
-  written.
-  -/
-  writesMemory : (op : opCode) → propertiesOf op → Bool := fun _ _ => true
+  getEffects : (op : opCode) → propertiesOf op → MemoryEffects :=
+    fun _ _ => .unknown
   /--
   Whether an operation with this opcode materializes a literal constant
   value: no operands, one result, no side effects, and a result that is
@@ -76,6 +97,11 @@ class HasOpInfo (opCode: Type)
   for every opcode, which conservatively treats nothing as constant.
   -/
   isConstantLike : opCode → Bool := fun _ => false
+  /--
+  Whether an operation with this opcode acts like a function: a symbol
+  whose single region is the function body.
+  -/
+  isFunctionLike : opCode → Bool := fun _ => false
   /--
   Whether definitions in the indexed region must dominate their uses. A false
   result denotes graph-style semantics, where only a single block can be in the
@@ -100,6 +126,9 @@ class HasOpInfo (opCode: Type)
   Does this OpCode count as an MLIR basic block terminator?
   -/
   isTerminator : opCode → Bool := fun _ => false
+
+abbrev propertiesOf {OpCode : Type} [HasOpInfo OpCode] (opCode : OpCode) :=
+  HasOpInfo.propertiesOf opCode
 
 instance [HasOpInfo opCode] {op : opCode} : Hashable (HasOpInfo.propertiesOf op) where
   hash := HasOpInfo.propertiesHash.hash
