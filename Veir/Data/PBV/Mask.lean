@@ -16,38 +16,25 @@ theorem ofNat_setWidth : BitVec.ofNat w x = BitVec.setWidth w (BitVec.ofNat w x)
   :=
   by grind
 
-
-theorem isMask_maskOfWidth {o w : Nat} (_h : w <= o)
-  : IsMask (maskOfWidth o w) :=
-  by
-  unfold IsMask
-  unfold maskOfWidth
-  rw[BitVec.ofNat_add_ofNat]
-  rw[← BitVec.ofNat_and]
-  rw[Nat.sub_add_cancel]
-  apply BitVec.eq_of_getLsbD_eq
-  intro i hio
-  rw[@BitVec.getLsbD_zero o i]
-  rw[BitVec.getLsbD_ofNat]
-  rw[decide_eq_true hio]
-  rw[Bool.true_and, Nat.testBit_and, Nat.testBit_two_pow_sub_one]
-  rw[Bool.and_eq_false_imp, decide_eq_true_eq]
-  intro h_iw
-  grind
-  grind
-
-/-- The mask constraint, stated for a named mask: the only fact about `m` surviving abstraction. -/
-theorem mask_isMask {o w : Nat} {m : BitVec o} (hwo : w ≤ o)
-    (hm : m = maskOfWidth o w) : m &&& (m + 1#o) = 0#o := by
-  subst hm
-  exact isMask_maskOfWidth hwo
-
 theorem toNat_maskOfWidth {o w : Nat} (h : w ≤ o) :
     (maskOfWidth o w).toNat = 2 ^ w - 1 := by
   rw [maskOfWidth, BitVec.toNat_ofNat, Nat.mod_eq_of_lt]
   have h1 : 2 ^ w ≤ 2 ^ o := Nat.pow_le_pow_right (by omega) h
   have h2 : 0 < 2 ^ w := Nat.two_pow_pos w
   omega
+
+/-- Soundness: every real mask satisfies the constraint. -/
+theorem isMask_maskOfWidth {o w : Nat} (_h : w <= o)
+  : IsMask (maskOfWidth o w) := by
+  simp [IsMask, maskOfWidth, BitVec.ofNat_add_ofNat, ← BitVec.ofNat_and,
+    Nat.sub_add_cancel Nat.one_le_two_pow, Nat.and_comm (2 ^ w - 1),
+    Nat.and_two_pow_sub_one_eq_mod]
+
+/-- The mask constraint, stated for a named mask: the only fact about `m` surviving abstraction. -/
+theorem mask_isMask {o w : Nat} {m : BitVec o} (hwo : w ≤ o)
+    (hm : m = maskOfWidth o w) : m &&& (m + 1#o) = 0#o := by
+  subst hm
+  exact isMask_maskOfWidth hwo
 
 /-- ANDing with `maskOfWidth o w` keeps exactly the low `w` bits. -/
 theorem toNat_and_maskOfWidth {o w : Nat} (h : w ≤ o) (x : BitVec o) :
