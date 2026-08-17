@@ -41,3 +41,21 @@ theorem mask_isMask {o w : Nat} {m : BitVec o} (hwo : w ≤ o)
     (hm : m = maskOfWidth o w) : m &&& (m + 1#o) = 0#o := by
   subst hm
   exact isMask_maskOfWidth hwo
+
+theorem toNat_maskOfWidth {o w : Nat} (h : w ≤ o) :
+    (maskOfWidth o w).toNat = 2 ^ w - 1 := by
+  rw [maskOfWidth, BitVec.toNat_ofNat, Nat.mod_eq_of_lt]
+  have h1 : 2 ^ w ≤ 2 ^ o := Nat.pow_le_pow_right (by omega) h
+  have h2 : 0 < 2 ^ w := Nat.two_pow_pos w
+  omega
+
+/-- ANDing with `maskOfWidth o w` keeps exactly the low `w` bits. -/
+theorem toNat_and_maskOfWidth {o w : Nat} (h : w ≤ o) (x : BitVec o) :
+    (x &&& maskOfWidth o w).toNat = x.toNat % 2 ^ w := by
+  rw [BitVec.toNat_and, toNat_maskOfWidth h, Nat.and_two_pow_sub_one_eq_mod]
+
+/-- Introduction rule for every "mask the result" push lemma: it suffices that `b = a` mod `2^w`. -/
+theorem setWidth_eq_and_maskOfWidth {w o : Nat} (h : w ≤ o) {a : BitVec w} {b : BitVec o}
+    (hab : b.toNat % 2 ^ w = a.toNat) : a.setWidth o = b &&& maskOfWidth o w := by
+  apply BitVec.eq_of_toNat_eq
+  rw [toNat_and_maskOfWidth h, BitVec.toNat_setWidth_of_le h, hab]
