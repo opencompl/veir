@@ -8,17 +8,15 @@ import Veir.Data.PBV.Push
 
 /-! # Manual traces of the bounded parametric bitvector pipeline.
 
-Each example works through the steps documented in `Veir.Data.PBV` by hand, in the order the
-tactic will eventually perform them; the comments refer to that numbering.
+Each example works through the steps documented in `Veir.Data.PBV` by hand.
 -/
 
 namespace Veir.Data.PBV
 
 /-- Manual trace of the future tactic, transforming an unbounded parametric width
     statement into a bounded one and solving it up the bound (4 in this case) -/
-theorem trace_add_comm_manual (w : Nat) (x y : BitVec w)
-  (hw : w ≤ 4)
-  : x + y = y + x := by
+theorem trace_add_comm_manual (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
+  x + y = y + x := by
 -- Step 1: Bound widths to the provided blast width (redundant in this case)
   have w_le_bw : w ≤ 4 := by grind
 -- Step 2-3: Introduce mask to replace `w` Nat var
@@ -50,9 +48,8 @@ theorem trace_add_comm_manual (w : Nat) (x y : BitVec w)
   bv_decide
 
 /-- Manual trace using calc to make the steps more explicit -/
-theorem trace_add_comm_manual_calc (w : Nat) (x y : BitVec w)
-  (hw : w ≤ 4)
-  : x + y = y + x := by
+theorem trace_add_comm_manual_calc (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
+  x + y = y + x := by
 -- Step 1: Bound widths to the provided blast width (redundant in this case)
   have w_le_bw : w ≤ 4 := by grind
 -- Step 2-3: Introduce mask to replace `w` Nat var
