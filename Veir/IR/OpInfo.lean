@@ -95,8 +95,6 @@ class HasOpInfo (opCode: Type)
   Whether this operation has MLIR's `IsolatedFromAbove` trait. Operations in
   each of its regions may only use values defined in that region or one of its
   nested regions.
-
-  Defaults to `false` for every opcode.
   -/
   isIsolatedFromAbove : opCode → Bool := fun _ => false
 
