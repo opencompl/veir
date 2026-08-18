@@ -128,21 +128,22 @@ def Arith.hasSSADominance (_op : Arith) (_index : Nat) : Bool :=
 
 #generate_dialect Arith
 
-/-- Apply the `arith` dialect's fold table. -/
+/--
+Apply the `arith` dialect's fold table. The operation is assumed to have passed
+verification, so `addi` has two operands of the result's own integer type and a
+concrete zero operand is a zero of the right width.
+-/
 def Arith.fold (op : Arith) (_properties : Arith.propertiesOf op)
-    (resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
+    (_resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
     Option FoldDecision :=
-  match op, resultTypes.toList, constantOperands.toList with
-  | .addi, [resultType], [_, rhs] =>
+  match op, constantOperands.toList with
+  | .addi, [_, some (.int _ (.val bits))] =>
     -- Canonical Veir keeps the constant operand of a commutative operation on
     -- the right, so only that side is worth testing. Reusing the left operand
     -- preserves poison and avoids creating an equivalent constant when both
     -- operands are known.
-    match rhs with
-    | some value@(.int _ (.val bits)) =>
-      if value.Conforms resultType ∧ bits = 0 then some (.useOperand 0) else none
-    | _ => none
-  | _, _, _ => none
+    if bits = 0 then some (.useOperand 0) else none
+  | _, _ => none
 
 instance : HasOpInfo Arith where
   fromName := Arith.fromName

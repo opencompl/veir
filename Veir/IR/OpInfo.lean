@@ -1,7 +1,7 @@
 module
 
 public import Veir.IR.OpCode
-public import Veir.Fold
+public import Veir.FoldDecision
 
 namespace Veir
 
