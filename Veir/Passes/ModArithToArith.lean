@@ -344,11 +344,11 @@ public def ModArithToArithPass : Pass OpCode :=
   { name := "mod-arith-to-arith"
     description := "Lower mod_arith operations to the arith dialect."
     options := .ofList [
-      ("barrett", "Use Barrett reduction instead of `arith.remui` for reduction."),
-      ("pow2-width", "Use power-of-two bitwidths for the lowered integer types.")]
+      ("barrett", { description := "Use Barrett reduction instead of `arith.remui` for reduction." }),
+      ("pow2-width", { description := "Use power-of-two bitwidths for the lowered integer types." })]
     run := fun options =>
       ModArithToArithPass.impl
-        (if options.contains "pow2-width" then Nat.nextPowerOfTwo else id)
-        (if options.contains "barrett" then .barrett else .full) }
+        (if (options.get? "pow2-width").getD false then Nat.nextPowerOfTwo else id)
+        (if (options.get? "barrett").getD false then .barrett else .full) }
 
 end Veir

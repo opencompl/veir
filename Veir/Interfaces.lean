@@ -7,3 +7,4 @@ import Veir.Interfaces.RegionKindInterfaces
 import Veir.Interfaces.SideEffectInterfaces
 import Veir.Interfaces.DeadCodeInterfaces
 import Veir.Interfaces.ConstantLikeInterfaces
+import Veir.Interfaces.ControlFlowInterfaces

@@ -118,7 +118,9 @@ public def CoerceFunctionBoundariesToRiscvRegPass : Pass OpCode :=
 public def CoerceModArithFunctionBoundariesPass : Pass OpCode :=
   { name := "coerce-mod-arith-function-boundaries"
     description := "Coerce `!mod_arith.int` function boundaries to their storage integer type."
-    options := .ofList [("pow2-width", "Widen the storage integer type to a power-of-two bitwidth.")]
+    options := .ofList [
+      ("pow2-width", { description := "Widen the storage integer type to a power-of-two bitwidth." })]
     run := fun options =>
       CoerceFunctionBoundariesPass.impl
-        (.modArithToInt (if options.contains "pow2-width" then Nat.nextPowerOfTwo else id)) }
+        (.modArithToInt
+          (if (options.get? "pow2-width").getD false then Nat.nextPowerOfTwo else id)) }

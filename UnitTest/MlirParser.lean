@@ -1,5 +1,6 @@
 import Veir.Parser.MlirParser
 import Veir.Printer
+import Veir.GlobalOpInfo
 
 open Veir
 open Veir.Parser
@@ -13,7 +14,7 @@ def testParseOp (s : String) : IO Unit :=
     match ParserState.fromInput (s.toByteArray) with
     | .ok parser =>
       match parseTopLevelOp.run (MlirParserState.fromContext ctx) parser with
-      | .ok (op, state, _) => Printer.printOperation state.ctx op
+      | .ok (op, state, _) => Printer.printOperation state.ctx.raw op
       | .error err => .error (toString err)
     | .error err => .error (toString err)
   | none => .error "internal error: failed to create IR context"

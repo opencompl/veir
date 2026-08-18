@@ -2,7 +2,7 @@ module
 
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
-import Veir.Interfaces.ConstantLikeInterfaces
+import Veir.Interfaces.FoldInterfaces
 import Veir.Passes.Matching
 
 namespace Veir
@@ -10,9 +10,9 @@ namespace Veir
 /-!
   # Canonicalize pass
 
-  Rewrites operations into canonical forms, including moving constants
-  to the right side of commutative operations and reducing modular
-  constants to their canonical representatives.
+  Rewrites operations into canonical forms, including folding operations,
+  moving constants to the right side of commutative operations, and reducing
+  modular constants to their canonical representatives.
 -/
 
 def canonicalizeModArithConstant (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -45,12 +45,17 @@ def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPt
 
 /-! ## Pass implementation -/
 
-def CanonicalizePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
+def CanonicalizePass.impl (options : PassOptions) (ctx : WfIRContext OpCode)
+    (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
-  let pattern := RewritePattern.GreedyRewritePattern #[
-    canonicalizeModArithConstant,
-    commutativeConstantRHS
-  ]
+  let mut patterns : Array (RewritePattern OpCode) := #[]
+  if (options.get? "fold").getD true then
+    patterns := patterns.push foldOperation
+  if (options.get? "mod-arith-constant").getD true then
+    patterns := patterns.push canonicalizeModArithConstant
+  if (options.get? "commutative-constant-rhs").getD true then
+    patterns := patterns.push commutativeConstantRHS
+  let pattern := RewritePattern.GreedyRewritePattern patterns
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying canonicalization patterns"
   | some ctx => pure ctx
@@ -58,6 +63,16 @@ def CanonicalizePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op
 public def CanonicalizePass : Pass OpCode :=
   { name := "canonicalize"
     description := "Rewrite operations into a canonical form."
-    run := fun _ => CanonicalizePass.impl }
+    options := .ofList [
+      ("fold",
+        { description := "Fold operations with constant operands to constants."
+          defaultValue := true }),
+      ("mod-arith-constant",
+        { description := "Reduce modular constants to their canonical representatives."
+          defaultValue := true }),
+      ("commutative-constant-rhs",
+        { description := "Move constants to the right side of commutative operations."
+          defaultValue := true })]
+    run := CanonicalizePass.impl }
 
 end Veir
