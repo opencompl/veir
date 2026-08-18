@@ -11,19 +11,24 @@ namespace Veir.Data.PBV
 def pbvTranslate (g : MVarId) (bound : Nat) : TacticM MVarId := do
   logInfo ("Deciding with bound")
   let width_elim_theorem ← mkConstWithFreshMVarLevels ``width_elim
-  let out ← g.withContext do
+  let (out, widthName) ← g.withContext do
     for ldecl in ← getLCtx do
       unless ldecl.isImplementationDetail do
         if ← isDefEq ldecl.type (mkConst ``Nat) then
           logInfo m!"Found a var! {ldecl.userName}"
           let applied := mkAppN width_elim_theorem #[mkNatLit bound, ldecl.toExpr, ← g.getType]
-          return ← g.apply applied
+          let out ← g.apply applied
+          let some g_out := out[0]? | throwError "Shuold have a goal here"
+
+          return (g_out, ldecl.userName)
     throwError "haven't thought about this yet"
 
-  let some new_g := out[0]? | throwError "Shuold have a goal here"
+  let mask_name := Name.mkSimple s!"m{widthName}"
+  let (mask, g_out) ← out.intro mask_name
+  let (mask_hyp, g_out) ← g_out.intro (Name.mkSimple s!"h_{mask_name}")
 
   logInfo (toString width_elim_theorem)
-  return new_g
+  return g_out
 
 
 syntax (name := pbvDecide) "pbv_decide" optConfig (ppSpace colGt num)? : tactic
