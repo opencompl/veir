@@ -60,6 +60,56 @@ info: "ok"
 #guard_msgs in
 #eval! testFoldDecision
 
+/--
+The dialect table and interpreter evaluation compete according to the common
+fold-result preference order.
+-/
+private def testFoldDecisionPreference : String := Id.run do
+  let i32 : TypeAttr := IntegerType.mk 32
+  let zero : Option RuntimeValue := some (.int 32 (.val 0))
+  let seven : Option RuntimeValue := some (.int 32 (.val 7))
+  let poison : Option RuntimeValue := some (.int 32 .poison)
+
+  -- Both mechanisms fold: the interpreter's concrete constant beats the
+  -- table's request to reuse operand 0.
+  match OpCode.foldsTo (.arith .addi) default #[i32] #[seven, zero] with
+  | some (.useConstant (.int 32 (.val value))) =>
+    if value ≠ 7 then return s!"arith.addi folded to the wrong constant: {value}"
+  | _ => return "a concrete constant did not beat an operand"
+
+  -- A poison constant is likewise preferred to the table's poison operand.
+  match OpCode.foldsTo (.arith .addi) default #[i32] #[poison, zero] with
+  | some (.useConstant (.int 32 .poison)) => pure ()
+  | _ => return "a poison constant did not beat an operand"
+
+  -- With an unknown left operand, evaluation declines and the table's operand
+  -- result wins over no fold.
+  match OpCode.foldsTo (.arith .addi) default #[i32] #[none, zero] with
+  | some (.useOperand 0) => pure ()
+  | _ => return "an operand did not beat no fold"
+
+  -- If neither mechanism can fold, the result remains no fold.
+  match OpCode.foldsTo (.arith .addi) default #[i32]
+      #[none, some (.int 32 (.val 1))] with
+  | none => pure ()
+  | _ => return "no fold did not remain no fold"
+
+  -- Conversely, a table-produced constant wins when evaluation cannot run.
+  let registerType : TypeAttr := RegisterType.mk
+  let zeroProperties : propertiesOf (.riscv .andi : OpCode) :=
+    RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 12))
+  match OpCode.foldsTo (.riscv .andi) zeroProperties #[registerType] #[none] with
+  | some (.useConstant (.reg value)) =>
+    if value.val ≠ 0 then return "riscv.andi folded to a nonzero register"
+    return "ok"
+  | _ => return "a table constant did not beat no fold"
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testFoldDecisionPreference
+
 private def testArithConstantMaterialization : String := Id.run do
   let i32 : TypeAttr := IntegerType.mk 32
   match (.arith .addi : OpCode).materializeConstant (.int 32 (.val 15)) i32 with

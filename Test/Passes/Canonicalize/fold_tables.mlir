@@ -1,8 +1,7 @@
 // RUN: veir-opt %s -p=canonicalize | filecheck %s
 
-// Each dialect's fold table runs ahead of interpreter evaluation, so a fold
-// can reuse an existing operand instead of materializing a new constant, and
-// can fire even when an operand is not constant at all.
+// Each dialect's fold table competes with interpreter evaluation. In
+// particular, a table can fire when an operand is not constant at all.
 "builtin.module"() ({
   // `arith.addi x, 0` folds to `x` itself: the zero constant is dead
   // afterwards and the addition disappears.

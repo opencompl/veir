@@ -23,28 +23,53 @@ private def FoldDecision.isValid (decision : FoldDecision) (resultType : TypeAtt
   | .useOperand index => index < numOperands
   | .useConstant value => decide (value.Conforms resultType)
 
+/-- Whether a runtime constant contains poison. -/
+private def RuntimeValue.isPoison : RuntimeValue → Bool
+  | .int _ .poison => true
+  | .byte _ value => value.poison != 0
+  | _ => false
+
+/--
+  Rank fold outcomes from least to most preferred: no fold, an operand, a
+  concrete constant, and a poison constant.
+-/
+private def FoldDecision.preference : Option FoldDecision → Nat
+  | none => 0
+  | some (.useOperand _) => 1
+  | some (.useConstant value) => if value.isPoison then 3 else 2
+
+/-- Return the better fold outcome, retaining the first when both rank equally. -/
+private def FoldDecision.preferred (first second : Option FoldDecision) :
+    Option FoldDecision :=
+  if FoldDecision.preference first < FoldDecision.preference second then second else first
+
 /--
   Decide whether an operation folds, given its opcode, properties, result
   types, and the values of its constant-defined operands (`constOperands[i] =
   some rv` iff operand `i` is known to hold the constant `rv`). The dialect
-  fold table runs first so it can reuse an existing operand; if it declines,
-  fully constant operations fall back to interpreter evaluation.
+  fold table and fully constant interpreter evaluation run independently. A
+  poison constant is preferred to a concrete constant, which is preferred to
+  an operand, which is preferred to no fold.
 -/
 def OpCode.foldsTo (opType : OpCode) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue))
     : Option FoldDecision := do
   guard (!opType.isConstantLike)
   let #[resultType] := resultTypes | none
-  if let some decision := HasOpInfo.fold opType properties resultTypes constOperands then
-    guard (decision.isValid resultType constOperands.size)
-    return decision
-  let values ← constOperands.mapM id
-  match ← (foldEvaluate opType properties resultTypes values : Option (UBOr _)) with
-  | .ok results =>
-    let result ← results[0]?
-    guard (result.Conforms resultType)
-    return .useConstant result
-  | .ub => return .useConstant (← RuntimeValue.getPoisonForType resultType)
+  let tableDecision :=
+    match HasOpInfo.fold opType properties resultTypes constOperands with
+    | some decision =>
+      if decision.isValid resultType constOperands.size then some decision else none
+    | none => none
+  let evaluationDecision : Option FoldDecision := do
+    let values ← constOperands.mapM id
+    match ← (foldEvaluate opType properties resultTypes values : Option (UBOr _)) with
+    | .ok results =>
+      let result ← results[0]?
+      guard (result.Conforms resultType)
+      return .useConstant result
+    | .ub => return .useConstant (← RuntimeValue.getPoisonForType resultType)
+  FoldDecision.preferred tableDecision evaluationDecision
 
 /--
   Convenience wrapper around `OpCode.foldsTo`.

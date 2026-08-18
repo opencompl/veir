@@ -140,8 +140,8 @@ def Arith.fold (op : Arith) (_properties : Arith.propertiesOf op)
   | .addi, [_, some (.int _ (.val bits))] =>
     -- Canonical Veir keeps the constant operand of a commutative operation on
     -- the right, so only that side is worth testing. Reusing the left operand
-    -- preserves poison and avoids creating an equivalent constant when both
-    -- operands are known.
+    -- preserves poison when it is not known at compile time and allows the
+    -- identity fold to fire without requiring every operand to be constant.
     if bits = 0 then some (.useOperand 0) else none
   | _, _ => none
 
