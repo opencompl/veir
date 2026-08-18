@@ -17,12 +17,6 @@ public section
 
 namespace Veir
 
-/-- Whether a runtime constant contains poison. -/
-private def RuntimeValue.isPoison : RuntimeValue → Bool
-  | .int _ .poison => true
-  | .byte _ value => value.poison != 0
-  | _ => false
-
 /--
   Rank fold outcomes from least to most preferred: no fold, an operand, a
   concrete constant, and a poison constant.

@@ -77,10 +77,10 @@ private def testFoldDecisionPreference : String := Id.run do
     if value ≠ 7 then return s!"arith.addi folded to the wrong constant: {value}"
   | _ => return "a concrete constant did not beat an operand"
 
-  -- A poison constant is likewise preferred to the table's poison operand.
+  -- Blanket propagation and evaluation agree on the preferred poison constant.
   match OpCode.foldsTo (.arith .addi) default #[i32] #[poison, zero] with
   | some (.useConstant (.int 32 .poison)) => pure ()
-  | _ => return "a poison constant did not beat an operand"
+  | _ => return "arith.addi with poison did not produce a poison constant"
 
   -- With an unknown left operand, evaluation declines and the table's operand
   -- result wins over no fold.
@@ -109,6 +109,61 @@ info: "ok"
 -/
 #guard_msgs in
 #eval! testFoldDecisionPreference
+
+/-- Poison propagates through scalar Arith and LLVM operations without waiting
+    for every operand to become constant. -/
+private def testBlanketPoisonFolds : String := Id.run do
+  let i1 : TypeAttr := IntegerType.mk 1
+  let i32 : TypeAttr := IntegerType.mk 32
+  let f64 : TypeAttr := FloatType.mk 64
+  let poison : Option RuntimeValue := some (.int 32 .poison)
+  let floatPoison : Option RuntimeValue := some (.floatPoison 64)
+
+  match OpCode.foldsTo (.arith .addi) default #[i32] #[none, poison] with
+  | some (.useConstant (.int 32 .poison)) => pure ()
+  | _ => return "arith.addi x, poison did not fold to poison"
+  match OpCode.foldsTo (.arith .addi) default #[i32] #[poison, none] with
+  | some (.useConstant (.int 32 .poison)) => pure ()
+  | _ => return "arith.addi poison, x did not fold to poison"
+  match OpCode.foldsTo (.arith .cmpi) default #[i1] #[none, poison] with
+  | some (.useConstant (.int 1 .poison)) => pure ()
+  | _ => return "arith.cmpi x, poison did not produce an i1 poison"
+
+  match OpCode.foldsTo (.llvm .add) default #[i32] #[none, poison] with
+  | some (.useConstant (.int 32 .poison)) => pure ()
+  | _ => return "llvm.add x, poison did not fold to poison"
+  match OpCode.foldsTo (.llvm .add) default #[i32] #[poison, none] with
+  | some (.useConstant (.int 32 .poison)) => pure ()
+  | _ => return "llvm.add poison, x did not fold to poison"
+  match OpCode.foldsTo (.llvm .icmp) default #[i1] #[none, poison] with
+  | some (.useConstant (.int 1 .poison)) => pure ()
+  | _ => return "llvm.icmp x, poison did not produce an i1 poison"
+  match OpCode.foldsTo (.llvm .fadd) default #[f64] #[none, floatPoison] with
+  | some (.useConstant (.floatPoison 64)) => pure ()
+  | _ => return "llvm.fadd x, poison did not fold to floating-point poison"
+
+  -- Poison on an unselected arm does not propagate through select.
+  let trueValue : Option RuntimeValue := some (.int 1 (.val 1))
+  match OpCode.foldsTo (.arith .select) () #[i32] #[trueValue, none, poison] with
+  | none => pure ()
+  | _ => return "arith.select propagated poison from its unselected arm"
+  match OpCode.foldsTo (.llvm .select) () #[i32] #[trueValue, none, poison] with
+  | none => pure ()
+  | _ => return "llvm.select propagated poison from its unselected arm"
+
+  -- Freeze consumes poison instead of propagating it; all-constant evaluation
+  -- supplies the concrete frozen value.
+  match OpCode.foldsTo (.llvm .freeze) () #[i32] #[poison] with
+  | some (.useConstant (.int 32 (.val value))) =>
+    if value ≠ 0 then return "llvm.freeze produced the wrong concrete value"
+    return "ok"
+  | _ => return "llvm.freeze incorrectly propagated poison"
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testBlanketPoisonFolds
 
 private def testArithConstantMaterialization : String := Id.run do
   let i32 : TypeAttr := IntegerType.mk 32

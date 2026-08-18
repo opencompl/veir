@@ -128,22 +128,35 @@ def Arith.hasSSADominance (_op : Arith) (_index : Nat) : Bool :=
 
 #generate_dialect Arith
 
+/-- Operations whose result is poison whenever any operand is poison. -/
+def Arith.propagatesPoison : Arith → Bool
+  | .addi | .andi | .ceildivsi | .ceildivui | .cmpi | .divsi | .divui
+  | .extsi | .extui | .floordivsi | .maxsi | .maxui | .minsi | .minui
+  | .muli | .ori | .remsi | .remui | .shli | .shrsi | .shrui | .subi
+  | .trunci | .xori => true
+  | .constant | .select | .addui_extended | .subui_extended
+  | .mulsi_extended | .mului_extended => false
+
 /--
 Apply the `arith` dialect's fold table. The operation is assumed to have passed
 verification, so `addi` has two operands of the result's own integer type and a
 concrete zero operand is a zero of the right width.
 -/
 def Arith.fold (op : Arith) (_properties : Arith.propertiesOf op)
-    (_resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
+    (resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
     Option FoldDecision :=
-  match op, constantOperands.toList with
-  | .addi, [_, some (.int _ (.val bits))] =>
-    -- Canonical Veir keeps the constant operand of a commutative operation on
-    -- the right, so only that side is worth testing. Reusing the left operand
-    -- preserves poison when it is not known at compile time and allows the
-    -- identity fold to fire without requiring every operand to be constant.
-    if bits = 0 then some (.useOperand 0) else none
-  | _, _ => none
+  match if op.propagatesPoison then
+      FoldDecision.propagatePoison resultTypes constantOperands else none with
+  | some decision => some decision
+  | none =>
+    match op, constantOperands.toList with
+    | .addi, [_, some (.int _ (.val bits))] =>
+      -- Canonical Veir keeps the constant operand of a commutative operation on
+      -- the right, so only that side is worth testing. Reusing the left operand
+      -- preserves poison when it is not known at compile time and allows the
+      -- identity fold to fire without requiring every operand to be constant.
+      if bits = 0 then some (.useOperand 0) else none
+    | _, _ => none
 
 instance : HasOpInfo Arith where
   fromName := Arith.fromName

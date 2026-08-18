@@ -332,12 +332,36 @@ def Llvm.isTerminator (op : Llvm) : Bool :=
 
 #generate_dialect Llvm
 
+/-- Operations whose result is poison whenever any operand is poison. -/
+def Llvm.propagatesPoison : Llvm → Bool
+  | .and | .or | .xor | .add | .sub | .mul | .sdiv | .udiv | .srem | .urem
+  | .shl | .lshr | .ashr | .icmp | .trunc | .sext | .zext | .bitcast
+  | .intr__ctlz | .intr__cttz | .intr__ctpop | .intr__bswap
+  | .intr__bitreverse | .intr__fshl | .intr__fshr
+  | .intr__smax | .intr__smin | .intr__umax | .intr__umin | .intr__abs
+  | .intr__sadd__sat | .intr__uadd__sat | .intr__ssub__sat | .intr__usub__sat
+  | .intr__sshl__sat | .intr__ushl__sat
+  | .fadd | .fsub | .fmul | .fdiv | .frem => true
+  | .mlir__constant | .mlir__poison | .mlir__global | .mlir__addressof
+  | .select | .br | .cond_br | .unreachable | .alloca | .load | .store
+  | .getelementptr | .call | .return | .func | .module_flags | .freeze => false
+
+/-- Apply blanket poison propagation for poison-propagating LLVM operations. -/
+def Llvm.fold (op : Llvm) (_properties : Llvm.propertiesOf op)
+    (resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
+    Option FoldDecision :=
+  if op.propagatesPoison then
+    FoldDecision.propagatePoison resultTypes constantOperands
+  else
+    none
+
 instance : HasOpInfo Llvm where
   fromName := Llvm.fromName
   name := Llvm.name
   propertiesOf := Llvm.propertiesOf
   fromAttrDict := Llvm.fromAttrDict
   toAttrDict := Llvm.toAttrDict
+  fold := Llvm.fold
   getEffects := Llvm.getEffects
   isConstantLike := Llvm.isConstantLike
   isFunctionLike := Llvm.isFunctionLike
@@ -668,6 +692,8 @@ def Llvm.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpIn
       some (.of Llvm.mlir__constant
         (LLVMConstantProperties.mk (.float (FloatAttr.mk value floatType))))
     else none
+  | .floatPoison bw, .floatType floatType =>
+    if bw = floatType.bitwidth then some (.of Llvm.mlir__poison ()) else none
   | _, _ => none
 
 end
