@@ -17,12 +17,6 @@ public section
 
 namespace Veir
 
-private def FoldDecision.isValid (decision : FoldDecision) (resultType : TypeAttr)
-    (numOperands : Nat) : Bool :=
-  match decision with
-  | .useOperand index => index < numOperands
-  | .useConstant value => decide (value.Conforms resultType)
-
 /-- Whether a runtime constant contains poison. -/
 private def RuntimeValue.isPoison : RuntimeValue → Bool
   | .int _ .poison => true
@@ -56,11 +50,7 @@ def OpCode.foldsTo (opType : OpCode) (properties : propertiesOf opType)
     : Option FoldDecision := do
   guard (!opType.isConstantLike)
   let #[resultType] := resultTypes | none
-  let tableDecision :=
-    match HasOpInfo.fold opType properties resultTypes constOperands with
-    | some decision =>
-      if decision.isValid resultType constOperands.size then some decision else none
-    | none => none
+  let tableDecision := HasOpInfo.fold opType properties resultTypes constOperands
   let evaluationDecision : Option FoldDecision := do
     let values ← constOperands.mapM id
     match ← (foldEvaluate opType properties resultTypes values : Option (UBOr _)) with

@@ -47,6 +47,8 @@ class HasOpInfo (opCode: Type)
   /--
   Apply this opcode set's dialect-local fold table. The array contains the
   known constant value of each operand, or `none` for a nonconstant operand.
+  Implementations are responsible for returning an in-range operand or a
+  constant conforming to the operation's result type.
   -/
   fold : (op : opCode) → propertiesOf op → Array TypeAttr →
     Array (Option RuntimeValue) → Option FoldDecision := fun _ _ _ _ => none
