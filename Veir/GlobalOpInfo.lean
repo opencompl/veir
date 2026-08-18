@@ -55,51 +55,25 @@ def OpCode.getEffects (opCode : OpCode) (props : _propertiesOf opCode) : MemoryE
   | .test op, props => Test.getEffects op props
 
 /--
-  Does an operation with this opcode and these properties have effects that
-  make it ineligible for DCE and other transformations that add / remove /
-  rearrange instructions?
-
-  NOTE: ¬ hasSideEffects does not imply that an operation is safe to
-        speculate. For that we also need it to never trigger immediate
-        UB. We'll have to deal with this later on.
-
-  Also see:
-  https://mlir.llvm.org/docs/Rationale/SideEffectsAndSpeculation/
--/
-def OpCode.hasSideEffects (opCode : OpCode) (props : _propertiesOf opCode) : Bool :=
-  match opCode, props with
-  | .arith op, props => Arith.hasSideEffects op props
-  | .llvm op, props => Llvm.hasSideEffects op props
-  | .riscv op, props => Riscv.hasSideEffects op props
-  | .riscv_cf op, props => Riscv_Cf.hasSideEffects op props
-  | .riscv_stack op, props => Riscv_Stack.hasSideEffects op props
-  | .rv64 op, props => Rv64.hasSideEffects op props
-  | .mod_arith op, props => Mod_Arith.hasSideEffects op props
-  | .cf op, props => Cf.hasSideEffects op props
-  | .comb op, props => Comb.hasSideEffects op props
-  | .hw op, props => HW.hasSideEffects op props
-  | .builtin op, props => Builtin.hasSideEffects op props
-  | .func op, props => Func.hasSideEffects op props
-  | .datapath op, props => Datapath.hasSideEffects op props
-  | .pdl op, props => PDL.hasSideEffects op props
-  | .test op, props => Test.hasSideEffects op props
-
-inductive RegionKind where
-| SSACFG
-| Graph
-deriving Inhabited, Repr, DecidableEq
-
-/--
   Return the kind of the region with the given index inside this operation.
-  This mirrors MLIR's RegionKindInterface default: regions are SSACFG unless
-  the operation is known to define graph regions.
 -/
-def OpCode.getRegionKind (opCode : OpCode) (_index : Nat) : RegionKind :=
+def OpCode.getRegionKind (opCode : OpCode) (index : Nat) : RegionKind :=
   match opCode with
-  | .builtin .module
-  | .builtin .unregistered
-  | .test .test => .Graph
-  | _ => .SSACFG
+  | .arith op => HasOpInfo.getRegionKind op index
+  | .llvm op => HasOpInfo.getRegionKind op index
+  | .riscv op => HasOpInfo.getRegionKind op index
+  | .riscv_cf op => HasOpInfo.getRegionKind op index
+  | .riscv_stack op => HasOpInfo.getRegionKind op index
+  | .rv64 op => HasOpInfo.getRegionKind op index
+  | .mod_arith op => HasOpInfo.getRegionKind op index
+  | .cf op => HasOpInfo.getRegionKind op index
+  | .comb op => HasOpInfo.getRegionKind op index
+  | .hw op => HasOpInfo.getRegionKind op index
+  | .builtin op => HasOpInfo.getRegionKind op index
+  | .func op => HasOpInfo.getRegionKind op index
+  | .datapath op => HasOpInfo.getRegionKind op index
+  | .pdl op => HasOpInfo.getRegionKind op index
+  | .test op => HasOpInfo.getRegionKind op index
 
 /--
   Whether definitions in the indexed region of this opcode must dominate
@@ -268,10 +242,10 @@ instance : HasOpInfo OpCode where
   propertiesOf := _propertiesOf
   fromAttrDict := Properties.fromAttrDict
   toAttrDict := Properties.toAttrDict
-  hasSideEffects := OpCode.hasSideEffects
   getEffects := OpCode.getEffects
   isConstantLike := OpCode.isConstantLike
   isFunctionLike := OpCode.isFunctionLike
+  getRegionKind := OpCode.getRegionKind
   hasSSADominance := OpCode.hasSSADominance
   hasNoTerminator := OpCode.hasNoTerminator
   isTerminator := OpCode.isTerminator

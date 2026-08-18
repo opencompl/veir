@@ -560,10 +560,10 @@ def parseTypedValue : MlirParserM OpInfo (ByteArray × TypeAttr × Location) := 
   Currently, these properties are not stored in the IR, but we still need to parse them to be able
   to parse valid MLIR syntax.
 -/
-def parseOpProperties (opCode : OpInfo) : MlirParserM OpInfo (HasOpInfo.propertiesOf opCode) := do
+def parseOpProperties (opCode : OpInfo) : MlirParserM OpInfo (propertiesOf opCode) := do
   let propertiesStart ← getPos
   if not (← parseOptionalPunctuation "<") then
-    match HasOpInfo.fromAttrDict opCode {} with
+    match IsOpCode.fromAttrDict opCode {} with
     | .ok properties => return properties
     | .error err => throwAtCurrentPos err
   let allowUnregisteredDialect := (← get).allowUnregisteredDialect
@@ -571,7 +571,7 @@ def parseOpProperties (opCode : OpInfo) : MlirParserM OpInfo (HasOpInfo.properti
   | .ok (properties, _, parserState) =>
     set parserState
     parsePunctuation ">"
-    match HasOpInfo.fromAttrDict opCode (.ofArray properties) with
+    match IsOpCode.fromAttrDict opCode (.ofArray properties) with
     | .ok properties => return properties
     | .error err => throwAt propertiesStart err
   | .error err => throw err
@@ -581,8 +581,8 @@ Record the source operation name in the properties of a `builtin.unregistered`
 operation.
 -/
 private def optionallySetUnregisteredOpName (opCode : OpInfo)
-    (properties : HasOpInfo.propertiesOf opCode) (opName : ByteArray) :
-    HasOpInfo.propertiesOf opCode :=
+    (properties : propertiesOf opCode) (opName : ByteArray) :
+    propertiesOf opCode :=
   if h : some .unregistered = toDialect? Builtin opCode then
     have h' : ofDialect OpInfo Builtin.unregistered = opCode := by grind
     let properties : UnregisteredProperties :=
@@ -669,7 +669,7 @@ partial def parseOptionalOp (ip : Option InsertPoint) :
 
   /- Get the operation opcode. -/
   let unregisteredOp : OpInfo := ofDialect OpInfo Builtin.unregistered
-  let opId := (HasOpInfo.fromName opName).getD unregisteredOp
+  let opId := (IsOpCode.fromName opName).getD unregisteredOp
 
   if opId = unregisteredOp then
     if !(← get).allowUnregisteredDialect then
@@ -679,7 +679,7 @@ partial def parseOptionalOp (ip : Option InsertPoint) :
   let properties ← parseOpProperties opId
   /- For `builtin.unregistered`, record the original op name in the properties so it can be
      printed back out. The properties dictionary itself has already been populated by
-     `HasOpInfo.fromAttrDict` (see `UnregisteredProperties.fromAttrDict`). -/
+     `IsOpCode.fromAttrDict` (see `UnregisteredProperties.fromAttrDict`). -/
   let properties := optionallySetUnregisteredOpName opId properties opName
   let regions ← parseOpRegions
   let attrs ← parseOpAttributes

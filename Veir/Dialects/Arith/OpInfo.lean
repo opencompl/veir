@@ -114,9 +114,6 @@ def Arith.toAttrDict
     dict
   | _ => Std.HashMap.emptyWithCapacity 0
 
-def Arith.hasSideEffects (_op : Arith) (_props : Arith.propertiesOf _op) : Bool :=
-  false
-
 def Arith.getEffects
     (_op : Arith) (_props : Arith.propertiesOf _op) : MemoryEffects :=
   .none
@@ -137,7 +134,6 @@ instance : HasOpInfo Arith where
   propertiesOf := Arith.propertiesOf
   fromAttrDict := Arith.fromAttrDict
   toAttrDict := Arith.toAttrDict
-  hasSideEffects := Arith.hasSideEffects
   getEffects := Arith.getEffects
   isConstantLike := Arith.isConstantLike
   hasSSADominance := Arith.hasSSADominance
@@ -168,7 +164,7 @@ def OperationPtr.verifyArithExtendedOp {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) (secondResultIsI1 : Bool) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 2 2
-  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType
     s!"{instrName}: Expected operand 0 to have integer type"
   ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerType

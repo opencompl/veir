@@ -27,7 +27,7 @@ inductive FoldDecision where
   types, and the values of its constant-defined operands (`constOperands[i] =
   some rv` iff operand `i` is known to hold the constant `rv`).
 -/
-def OpCode.foldsTo (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
+def OpCode.foldsTo (opType : OpCode) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue))
     : Option FoldDecision := do
   guard (!opType.isConstantLike)

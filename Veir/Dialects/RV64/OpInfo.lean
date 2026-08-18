@@ -30,9 +30,6 @@ def Rv64.toAttrDict
     Std.HashMap ByteArray Attribute :=
   Std.HashMap.emptyWithCapacity 0
 
-def Rv64.hasSideEffects (_op : Rv64) (_props : Rv64.propertiesOf _op) : Bool :=
-  true
-
 def Rv64.getEffects
     (_op : Rv64) (_props : Rv64.propertiesOf _op) : MemoryEffects :=
   .none
@@ -51,7 +48,6 @@ instance : HasOpInfo Rv64 where
   propertiesOf := Rv64.propertiesOf
   fromAttrDict := Rv64.fromAttrDict
   toAttrDict := Rv64.toAttrDict
-  hasSideEffects := Rv64.hasSideEffects
   getEffects := Rv64.getEffects
   isConstantLike := Rv64.isConstantLike
   hasSSADominance := Rv64.hasSSADominance
