@@ -1,7 +1,7 @@
 module
 
+public import Veir.Data.PBV.Lemmas
 public import Veir.Data.PBV.Mask
-public import Veir.Data.PBV.Push
 
 /-! # Steps 3 and 4: replacing `Nat` widths and parametric-width variables.
 
@@ -33,4 +33,4 @@ theorem var_elim (o w : Nat) (hwo : w ≤ o) (Q : BitVec w → Prop)
     rw [toNat_and_maskOfWidth hwo, BitVec.toNat_setWidth_of_le hwo,
       Nat.mod_eq_of_lt x.isLt]
   have hx := h (x.setWidth o) hinv
-  rwa [setWidth_setWidth_eq_self hwo] at hx
+  rwa [BitVec.setWidth_setWidth_eq_self_of_le hwo] at hx

@@ -1,4 +1,7 @@
 module
+
+public import Veir.Data.PBV.Lemmas
+
 /-! # Step 5: masks as bitvector variables constrained by `m &&& (m + 1) = 0`.
 
 A width `w` is represented by the mask `2^w - 1` of the blast width, and the constraint
@@ -16,10 +19,6 @@ def maskOfWidth (o w : Nat) : BitVec o := BitVec.ofNat o (2 ^ w - 1)
 /-- `m.IsMask` holds when `m = 2^k - 1` for some `k`; the only fact the bitblaster gets about a
 width. -/
 def IsMask {o : Nat} (m : BitVec o) : Prop := m &&& (m + 1#o) = 0#o
-
-theorem ofNat_setWidth : BitVec.ofNat w x = BitVec.setWidth w (BitVec.ofNat w x)
-  :=
-  by grind
 
 theorem toNat_maskOfWidth {o w : Nat} (h : w ≤ o) :
     (maskOfWidth o w).toNat = 2 ^ w - 1 := by
