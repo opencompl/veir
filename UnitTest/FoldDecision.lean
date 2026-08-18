@@ -60,6 +60,61 @@ info: "ok"
 #guard_msgs in
 #eval! testFoldDecision
 
+/-- Dialect folds run before interpreter evaluation and can reuse an operand. -/
+private def testArithFoldTable : String := Id.run do
+  let i32 : TypeAttr := IntegerType.mk 32
+  let zero : Option RuntimeValue := some (.int 32 (.val 0))
+  let five : Option RuntimeValue := some (.int 32 (.val 5))
+
+  match OpCode.foldsTo (.arith .addi) default #[i32] #[none, zero] with
+  | some (.useOperand 0) => pure ()
+  | _ => return "arith.addi x, 0 did not reuse x"
+
+  match OpCode.foldsTo (.arith .addi) default #[i32] #[zero, none] with
+  | some (.useOperand 1) => pure ()
+  | _ => return "arith.addi 0, x did not reuse x"
+
+  -- Prefer reusing the existing constant over asking the interpreter to
+  -- materialize an equivalent new one.
+  match OpCode.foldsTo (.arith .addi) default #[i32] #[five, zero] with
+  | some (.useOperand 0) => return "ok"
+  | _ => return "the arith fold table did not take precedence over evaluation"
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testArithFoldTable
+
+/-- A dialect fold can instead request materialization of a new constant. -/
+private def testRiscvFoldTable : String := Id.run do
+  let registerType : TypeAttr := RegisterType.mk
+  let zeroProperties : propertiesOf (.riscv .andi : OpCode) :=
+    RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 12))
+  match OpCode.foldsTo (.riscv .andi) zeroProperties #[registerType] #[none] with
+  | some (.useConstant (.reg value)) =>
+    if value.val ≠ 0 then return "riscv.andi x, 0 folded to a nonzero register"
+  | _ => return "riscv.andi x, 0 did not fold to a constant"
+
+  let oneProperties : propertiesOf (.riscv .andi : OpCode) :=
+    RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 12))
+  match OpCode.foldsTo (.riscv .andi) oneProperties #[registerType] #[none] with
+  | none => pure ()
+  | _ => return "riscv.andi with a nonzero immediate and unknown operand folded"
+
+  -- The common dispatcher rejects a dialect-produced constant that does not
+  -- conform to the operation's result type.
+  let i32 : TypeAttr := IntegerType.mk 32
+  match OpCode.foldsTo (.riscv .andi) zeroProperties #[i32] #[none] with
+  | none => return "ok"
+  | _ => return "a register-valued fold was accepted for an integer result"
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testRiscvFoldTable
+
 private def testArithConstantMaterialization : String := Id.run do
   let i32 : TypeAttr := IntegerType.mk 32
   match (.arith .addi : OpCode).materializeConstant (.int 32 (.val 15)) i32 with

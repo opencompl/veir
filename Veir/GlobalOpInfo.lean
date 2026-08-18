@@ -54,6 +54,27 @@ def OpCode.getEffects (opCode : OpCode) (props : _propertiesOf opCode) : MemoryE
   | .pdl op, props => PDL.getEffects op props
   | .test op, props => Test.getEffects op props
 
+/-- Delegate folding to the operation's dialect-local `HasOpInfo` instance. -/
+def OpCode.fold (opCode : OpCode) (props : _propertiesOf opCode)
+    (resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
+    Option FoldDecision :=
+  match opCode, props with
+  | .arith op, props => HasOpInfo.fold op props resultTypes constantOperands
+  | .llvm op, props => HasOpInfo.fold op props resultTypes constantOperands
+  | .riscv op, props => HasOpInfo.fold op props resultTypes constantOperands
+  | .riscv_cf op, props => HasOpInfo.fold op props resultTypes constantOperands
+  | .riscv_stack op, props => HasOpInfo.fold op props resultTypes constantOperands
+  | .rv64 op, props => HasOpInfo.fold op props resultTypes constantOperands
+  | .mod_arith op, props => HasOpInfo.fold op props resultTypes constantOperands
+  | .cf op, props => HasOpInfo.fold op props resultTypes constantOperands
+  | .comb op, props => HasOpInfo.fold op props resultTypes constantOperands
+  | .hw op, props => HasOpInfo.fold op props resultTypes constantOperands
+  | .builtin op, props => HasOpInfo.fold op props resultTypes constantOperands
+  | .func op, props => HasOpInfo.fold op props resultTypes constantOperands
+  | .datapath op, props => HasOpInfo.fold op props resultTypes constantOperands
+  | .pdl op, props => HasOpInfo.fold op props resultTypes constantOperands
+  | .test op, props => HasOpInfo.fold op props resultTypes constantOperands
+
 /--
   Return the kind of the region with the given index inside this operation.
 -/
@@ -242,6 +263,7 @@ instance : HasOpInfo OpCode where
   propertiesOf := _propertiesOf
   fromAttrDict := Properties.fromAttrDict
   toAttrDict := Properties.toAttrDict
+  fold := OpCode.fold
   getEffects := OpCode.getEffects
   isConstantLike := OpCode.isConstantLike
   isFunctionLike := OpCode.isFunctionLike

@@ -128,12 +128,32 @@ def Arith.hasSSADominance (_op : Arith) (_index : Nat) : Bool :=
 
 #generate_dialect Arith
 
+private def isConcreteIntegerZero (value : Option RuntimeValue) (type : TypeAttr) : Bool :=
+  match value, type.val with
+  | some (.int bitwidth (.val value)), .integerType integerType =>
+    bitwidth == integerType.bitwidth && value == 0
+  | _, _ => false
+
+/-- Apply the `arith` dialect's fold table. -/
+def Arith.fold (op : Arith) (_properties : Arith.propertiesOf op)
+    (resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
+    Option FoldDecision :=
+  match op, resultTypes.toList, constantOperands.toList with
+  | .addi, [resultType], [lhs, rhs] =>
+    -- Reuse the nonzero operand. This preserves poison and avoids creating an
+    -- equivalent constant when both operands are known.
+    if isConcreteIntegerZero rhs resultType then some (.useOperand 0)
+    else if isConcreteIntegerZero lhs resultType then some (.useOperand 1)
+    else none
+  | _, _, _ => none
+
 instance : HasOpInfo Arith where
   fromName := Arith.fromName
   name := Arith.name
   propertiesOf := Arith.propertiesOf
   fromAttrDict := Arith.fromAttrDict
   toAttrDict := Arith.toAttrDict
+  fold := Arith.fold
   getEffects := Arith.getEffects
   isConstantLike := Arith.isConstantLike
   hasSSADominance := Arith.hasSSADominance

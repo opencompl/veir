@@ -1,6 +1,7 @@
 module
 
 public import Veir.IR.OpCode
+public import Veir.Fold
 
 namespace Veir
 
@@ -43,6 +44,12 @@ end MemoryEffects
 
 class HasOpInfo (opCode: Type)
     extends IsOpCode opCode where
+  /--
+  Apply this opcode set's dialect-local fold table. The array contains the
+  known constant value of each operand, or `none` for a nonconstant operand.
+  -/
+  fold : (op : opCode) → propertiesOf op → Array TypeAttr →
+    Array (Option RuntimeValue) → Option FoldDecision := fun _ _ _ _ => none
   /--
   The memory effects of an operation with this opcode and these properties,
   mirroring MLIR's `MemoryEffectOpInterface::getEffects`.

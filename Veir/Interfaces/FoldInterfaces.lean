@@ -16,23 +16,28 @@ public section
 
 namespace Veir
 
-inductive FoldDecision where
-  /-- Use operand `j` in place of the result. -/
-  | useOperand (j : Nat)
-  /-- Use the runtime constant `rv` in place of the result. -/
-  | useConstant (rv : RuntimeValue)
+private def FoldDecision.isValid (decision : FoldDecision) (resultType : TypeAttr)
+    (numOperands : Nat) : Bool :=
+  match decision with
+  | .useOperand index => index < numOperands
+  | .useConstant value => decide (value.Conforms resultType)
 
 /--
   Decide whether an operation folds, given its opcode, properties, result
   types, and the values of its constant-defined operands (`constOperands[i] =
-  some rv` iff operand `i` is known to hold the constant `rv`).
+  some rv` iff operand `i` is known to hold the constant `rv`). The dialect
+  fold table runs first so it can reuse an existing operand; if it declines,
+  fully constant operations fall back to interpreter evaluation.
 -/
 def OpCode.foldsTo (opType : OpCode) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue))
     : Option FoldDecision := do
   guard (!opType.isConstantLike)
-  let values ← constOperands.mapM id
   let #[resultType] := resultTypes | none
+  if let some decision := HasOpInfo.fold opType properties resultTypes constOperands then
+    guard (decision.isValid resultType constOperands.size)
+    return decision
+  let values ← constOperands.mapM id
   match ← (foldEvaluate opType properties resultTypes values : Option (UBOr _)) with
   | .ok results =>
     let result ← results[0]?
