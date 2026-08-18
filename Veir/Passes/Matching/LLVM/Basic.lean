@@ -233,8 +233,8 @@ def matchLoad (op : OperationPtr) (ctx : IRContext OpCode) :
 
 /-- Match an `llvm.alloca`, returning its element-count operand. -/
 def matchAlloca (op : OperationPtr) (ctx : IRContext OpCode) :
-    Option (ValuePtr × propertiesOf (.llvm .alloca)) := do
-  let (op, properties) ← matchOp op ctx (.llvm .alloca) 1
+    Option (ValuePtr × propertiesOf Llvm.alloca) := do
+  let (op, properties) ← matchOp op ctx (Llvm.alloca) 1
   return (op[0]!, properties)
 
 def matchCtlz (op : OperationPtr) (ctx : IRContext OpCode) :

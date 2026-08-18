@@ -856,7 +856,7 @@ def bitcast (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   `llvm.alloca` verifier only requires an `i64` attribute.
 -/
 def selectAllocaAlignment (layout : DataLayout)
-    (props : propertiesOf (.llvm .alloca)) : Option Nat :=
+    (props : propertiesOf Llvm.alloca) : Option Nat :=
   let requested := props.alignment.value
   if requested = 0 then
     layout.getTypePreferredAlignment props.elem_type.val
@@ -888,7 +888,7 @@ def isInEntryBlock (op : OperationPtr) (ctx : IRContext OpCode) : Bool :=
 -/
 def alloca_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (count, properties) := matchAlloca op ctx | return (ctx, none)
+  let some (count, properties) := matchAlloca op ctx.raw | return (ctx, none)
   if properties.inalloca then return (ctx, none)
   if ¬ isInEntryBlock op ctx.raw then return (ctx, none)
   /- `riscv_stack.alloca` takes no operands, so the element count must be a constant. -/
