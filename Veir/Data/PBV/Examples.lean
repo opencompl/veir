@@ -125,16 +125,16 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
 -- Step 6:
   simp only [
     eq_iff r_le_bw,
-    setWidth_signExtend r_le_bw,        -- Push `setWidth` down signExtend
-    msb_toMask q_le_bw,                 -- Replace the sign bit test with a mask test
+    setWidth_signExtend r_le_bw,   -- Push `setWidth` down signExtend
+    msb_toMask q_le_bw,            -- Replace the sign bit test with a mask test
     setWidth_setWidth r_le_bw,
     setWidth_setWidth q_le_bw,
     setWidth_setWidth p_le_bw,
     BitVec.zeroExtend_eq_setWidth,
-    signBitOfMask,                    -- Unfold, else `bv_decide` abstracts it away
+    signBitOfMask,                 -- Unfold, else `bv_decide` abstracts it away
     BitVec.setWidth_eq,
-    q_le_bw,                                 -- Lets simp discharge the `v ≤ o` side condition
-                                             -- of `setWidth_signExtend`
+    q_le_bw,                       -- Lets simp discharge the `v ≤ o` side condition
+                                   -- of `setWidth_signExtend`
     ← h_mr,
     ← h_mq,
     ← h_mp,
