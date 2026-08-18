@@ -50,7 +50,7 @@ variable {dialectOpType : Dialect}
 variable {CreateDialect : Type} [HasOpInfo CreateDialect]
   [HasDialect OpInfo CreateDialect]
 variable {opType : CreateDialect}
-variable {properties : HasOpInfo.propertiesOf opType}
+variable {properties : propertiesOf opType}
 
 /-! ## `WfRewriter.createOp` -/
 
@@ -1069,7 +1069,7 @@ section WfRewriter.setProperties
 attribute [local grind] WfRewriter.setProperties
 
 variable {opCode : Dialect} {op : OperationPtr}
-         {newProps : HasOpInfo.propertiesOf opCode}
+         {newProps : propertiesOf opCode}
          {opIn : op.InBounds ctx.raw} {hprop : op.getOpType! ctx.raw = opCode}
 
 @[simp, grind =]

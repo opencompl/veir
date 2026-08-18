@@ -17,8 +17,8 @@ example : HasDialect OpCode Builtin := inferInstance
 #guard OpCode.fromName "arith.addi".toUTF8 = some (.arith .addi)
 #guard OpCode.fromName "unknown.op".toUTF8 = none
 #guard OpCode.name (.arith .addi) = "arith.addi".toUTF8
-#guard HasOpInfo.fromName (opCode := Arith) "arith.addi".toUTF8 = some .addi
-#guard HasOpInfo.name (opCode := Arith) .addi = "arith.addi".toUTF8
+#guard IsOpCode.fromName (opCode := Arith) "arith.addi".toUTF8 = some .addi
+#guard IsOpCode.name (opCode := Arith) .addi = "arith.addi".toUTF8
 
 /-! Dialects can define conversion functions to and from the global opcode type. -/
 abbrev Veir.Arith.from? (op : OpInfo) [HasOpInfo OpInfo] [HasDialect OpInfo Arith]

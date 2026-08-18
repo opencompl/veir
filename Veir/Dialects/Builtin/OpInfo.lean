@@ -37,11 +37,6 @@ def Builtin.toAttrDict
   | .unregistered => Std.HashMap.ofList props.properties.entries.toList
   | _ => Std.HashMap.emptyWithCapacity 0
 
-def Builtin.hasSideEffects (op : Builtin) (_props : Builtin.propertiesOf op) : Bool :=
-  match op with
-  | .unrealized_conversion_cast => false
-  | _ => true
-
 def Builtin.getEffects
     (op : Builtin) (_props : Builtin.propertiesOf op) : MemoryEffects :=
   match op with
@@ -55,6 +50,11 @@ def Builtin.isIsolatedFromAbove (op : Builtin) : Bool :=
   match op with
   | .module => true
   | _ => false
+
+def Builtin.getRegionKind (op : Builtin) (_index : Nat) : RegionKind :=
+  match op with
+  | .module | .unregistered => .Graph
+  | _ => .SSACFG
 
 def Builtin.hasSSADominance (op : Builtin) (_index : Nat) : Bool :=
   match op with
@@ -76,9 +76,9 @@ instance : HasOpInfo Builtin where
   propertiesOf := Builtin.propertiesOf
   fromAttrDict := Builtin.fromAttrDict
   toAttrDict := Builtin.toAttrDict
-  hasSideEffects := Builtin.hasSideEffects
   getEffects := Builtin.getEffects
   isConstantLike := Builtin.isConstantLike
+  getRegionKind := Builtin.getRegionKind
   hasSSADominance := Builtin.hasSSADominance
   hasNoTerminator := Builtin.hasNoTerminator
   isIsolatedFromAbove := Builtin.isIsolatedFromAbove

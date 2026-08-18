@@ -201,49 +201,6 @@ def Riscv.toAttrDict
     dict
   | _ => Std.HashMap.emptyWithCapacity 0
 
-def Riscv.hasSideEffects (op : Riscv) (props : Riscv.propertiesOf op) : Bool :=
-  match op, props with
-  -- Volatile loads are definitionally side-effecting.
-  | .ld, props
-  | .lw, props
-  | .lwu, props
-  | .lh, props
-  | .lhu, props
-  | .lb, props
-  | .lbu, props => props.volatile_
-  | op, _ =>
-    match op with
-    | .li | .lui | .auipc
-    | .addi | .slti | .sltiu
-    | .andi | .ori | .xori
-    | .addiw | .slli | .srli | .srai
-    | .add | .sub | .sll | .slt | .sltu
-    | .xor | .srl | .sra | .or | .and
-    | .slliw | .srliw | .sraiw
-    | .addw | .subw | .sllw | .srlw | .sraw
-    | .rem | .remu | .remw | .remuw
-    | .mul | .mulh | .mulhu | .mulhsu | .mulw
-    | .div | .divw | .divu | .divuw
-    | .adduw | .sh1adduw | .sh2adduw | .sh3adduw
-    | .sh1add | .sh2add | .sh3add | .slliuw
-    | .andn | .orn | .xnor
-    | .max | .maxu | .min | .minu
-    | .rol | .ror | .rolw | .rorw
-    | .sextb | .sexth | .zexth
-    | .clz | .clzw | .ctz | .ctzw
-    | .cpop | .cpopw | .orcb | .rev8
-    | .rori | .roriw
-    | .bclr | .bext | .binv | .bset
-    | .bclri | .bexti | .binvi | .bseti
-    | .pack | .packh | .packw
-    | .czeroeqz | .czeronez
-    -- RISC-V pseudo-operations
-    | .mv | .not | .neg | .negw
-    | .sextw | .zextb | .zextw
-    | .seqz | .snez | .sltz | .sgtz => false
-    -- For everything else: be conservative!
-    | _ => true
-
 def Riscv.getEffects (op : Riscv) (props : Riscv.propertiesOf op) : MemoryEffects :=
   match op, props with
   | .ld, props | .lw, props | .lwu, props
@@ -297,7 +254,6 @@ instance : HasOpInfo Riscv where
   propertiesOf := Riscv.propertiesOf
   fromAttrDict := Riscv.fromAttrDict
   toAttrDict := Riscv.toAttrDict
-  hasSideEffects := Riscv.hasSideEffects
   getEffects := Riscv.getEffects
   isConstantLike := Riscv.isConstantLike
   hasSSADominance := Riscv.hasSSADominance
@@ -319,7 +275,7 @@ def OperationPtr.verifyRISCVimm12 {OpInfo : Type} [HasOpInfo OpInfo]
     (operands results : Nat) (imm : Int) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn operands results
   if imm < -2048 ∨ imm > 2047 then
-    let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+    let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
     throw s!"{instrName} immediate out of bounds: must fit in a signed 12-bit field [-2048, 2047]"
   else
     pure ()
@@ -333,7 +289,7 @@ def OperationPtr.verifyRISCVuimm5 {OpInfo : Type} [HasOpInfo OpInfo]
     (imm : Int) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 1 1
   if imm < 0 ∨ imm > 31 then
-    let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+    let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
     throw s!"{instrName} immediate out of bounds: must fit in an unsigned 5-bit field [0, 31]"
   else
     pure ()
@@ -347,7 +303,7 @@ def OperationPtr.verifyRISCVuimm6 {OpInfo : Type} [HasOpInfo OpInfo]
     (imm : Int) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 1 1
   if imm < 0 ∨ imm > 63 then
-    let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+    let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
     throw s!"{instrName} immediate out of bounds: must fit in an unsigned 6-bit field [0, 63]"
   else
     pure ()
@@ -357,7 +313,7 @@ def OperationPtr.verifyRISCVneg {OpInfo : Type} [HasOpInfo OpInfo]
     (operands results : Nat) (imm : Int) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn operands results
   if imm < 0 ∨ 1048575 < imm then
-    let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+    let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
     throw s!"{instrName} immediate out of bounds: must fit in an unsigned 20-bit field."
   else
     pure ()
@@ -366,7 +322,7 @@ def OperationPtr.verifyRISCVneg {OpInfo : Type} [HasOpInfo OpInfo]
 def OperationPtr.verifyRISCVRegisterTypes {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
-  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   let opTypes := op.getOperandTypes! ctx.raw
   for i in [0:opTypes.size] do
     match (opTypes[i]!).val with
@@ -384,6 +340,7 @@ containing the `riscv` dialect.
 def Riscv.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
     [HasDialect OpInfo Riscv] (opType : Riscv) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyRISCVRegisterTypes ctx opIn
   match opType with
   | .li => do
     op.verifyPlainOpCounts ctx opIn 0 1

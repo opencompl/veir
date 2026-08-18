@@ -285,32 +285,6 @@ def Llvm.toAttrDict
     dict
   | _ => Std.HashMap.emptyWithCapacity 0
 
-def Llvm.hasSideEffects (op : Llvm) (props : Llvm.propertiesOf op) : Bool :=
-  match op, props with
-  -- Volatile loads are definitionally side-effecting.
-  | .load, props => props.volatile_
-  | .mlir__constant, _
-  | .mlir__poison, _
-  | .mlir__addressof, _
-  | .and, _ | .or, _ | .xor, _
-  | .add, _ | .sub, _ | .mul, _
-  | .sdiv, _ | .udiv, _ | .srem, _ | .urem, _
-  | .shl, _ | .lshr, _ | .ashr, _
-  | .intr__ctlz, _ | .intr__cttz, _ | .intr__ctpop, _
-  | .intr__bswap, _ | .intr__bitreverse, _
-  | .intr__fshl, _ | .intr__fshr, _
-  | .icmp, _ | .select, _
-  | .trunc, _ | .sext, _ | .zext, _
-  | .getelementptr, _
-  | .intr__smax, _ | .intr__smin, _ | .intr__umax, _ | .intr__umin, _
-  | .intr__abs, _
-  | .intr__sadd__sat, _ | .intr__uadd__sat, _
-  | .intr__ssub__sat, _ | .intr__usub__sat, _
-  | .intr__sshl__sat, _ | .intr__ushl__sat, _
-  | .fadd, _ | .fsub, _ | .fmul, _ | .fdiv, _ | .frem, _ => false
-  -- For everything else: be conservative!
-  | _, _ => true
-
 def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :=
   match op, props with
   | .alloca, _ => .allocate
@@ -369,7 +343,6 @@ instance : HasOpInfo Llvm where
   propertiesOf := Llvm.propertiesOf
   fromAttrDict := Llvm.fromAttrDict
   toAttrDict := Llvm.toAttrDict
-  hasSideEffects := Llvm.hasSideEffects
   getEffects := Llvm.getEffects
   isConstantLike := Llvm.isConstantLike
   isFunctionLike := Llvm.isFunctionLike
@@ -432,7 +405,7 @@ def OperationPtr.verifyLLVMShift {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 2 1
-  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerOrByteType
     s!"{instrName}: Expected operand 0 to have integer or byte type"
   ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerType
@@ -444,7 +417,7 @@ def OperationPtr.verifyLLVMICmp {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 2 1
-  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   -- `llvm.icmp` also compares pointers.
   ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerOrPointerType
     s!"{instrName}: Expected operand 0 to have integer or pointer type"
