@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=canonicalize,dce | filecheck %s
+// RUN: veir-opt %s -p=canonicalize | filecheck %s
 
 // Each dialect's fold table runs ahead of interpreter evaluation, so a fold
 // can reuse an existing operand instead of materializing a new constant, and
