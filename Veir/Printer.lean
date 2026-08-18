@@ -1,7 +1,7 @@
 module
 
-public import Veir.GlobalOpInfo
-
+public import Veir.IR.Basic
+public import Veir.Dialects.Builtin.OpInfo
 import Veir.Rewriter.Basic
 
 open Veir
@@ -10,17 +10,7 @@ public section
 
 namespace Veir.Printer
 
-def opName (opType: Nat) : String :=
-  match opType with
-  | 0 => "builtin.module"
-  | 1 => "arith.constant"
-  | 2 => "arith.addi"
-  | 3 => "return"
-  | 4 => "arith.muli"
-  | 5 => "arith.andi"
-  | 6 => "arith.subi"
-  | 99 => "test.test"
-  | _ => "UNREGISTERED"
+variable {OpCode : Type} [IsOpCode OpCode] [HasDialect OpCode Builtin]
 
 def printIndent (identFactor: Nat) : IO Unit :=
   match identFactor with
@@ -110,7 +100,7 @@ def printOpAttrDict (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
 def printOpProperties (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
   let opType := (op.get! ctx).opType
   let properties := op.getProperties! ctx opType
-  let attrDict := Properties.toAttrDict opType properties
+  let attrDict := IsOpCode.toAttrDict opType properties
   if attrDict.size = 0 then return
   IO.print " <"
   IO.print (DictionaryAttr.fromArray attrDict.toArray)
@@ -176,10 +166,10 @@ partial def printOperation (ctx: IRContext OpCode) (op: OperationPtr) (indent: N
   printOpResults ctx op
   /- Unregistered operations store their original operation name in the properties. -/
   let nameBytes : ByteArray :=
-    match opStruct.opType with
-    | .builtin .unregistered =>
+    match toDialect? Builtin opStruct.opType with
+    | some Builtin.unregistered =>
       (op.getProperties! ctx Builtin.unregistered).opName
-    | _ => opStruct.opType.name
+    | _ => IsOpCode.name opStruct.opType
   IO.print s!"\"{String.fromUTF8! nameBytes}\""
   printOpOperands ctx op
   printBlockOperands ctx op

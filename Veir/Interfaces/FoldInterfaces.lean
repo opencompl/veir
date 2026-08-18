@@ -8,8 +8,9 @@ public import Veir.PatternRewriter.Basic
 /-!
   # Constant folding decision interface
 
-  This file is the public entry point for deciding whether operations fold and
-  for materializing folded constants in the IR.
+  This file is the public entry point for deciding whether operations fold,
+  for materializing folded constants in the IR, and for the rewrite pattern
+  that applies a fold to an operation.
 -/
 
 public section
@@ -71,5 +72,24 @@ def PatternRewriter.materializeConstant! (rewriter : PatternRewriter OpCode)
   let (rewriter, op) ← rewriter.createOp! opType #[resultType] #[] #[] #[] properties
     (some insertionPoint)
   return (rewriter, some op)
+
+/-- Replace a foldable operation with an operand or a materialized constant. -/
+def foldOperation (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let operands := op.getOperands rewriter.ctx.raw opInBounds
+  let constantOperands := operands.map (ValuePtr.constantValue · rewriter.ctx.raw)
+  match op.foldsTo rewriter.ctx opInBounds constantOperands with
+  | none => return rewriter
+  | some (.useOperand index) =>
+    let replacement ← operands[index]?
+    let rewriter := rewriter.replaceValue! (op.getResult 0) replacement
+    return rewriter.eraseOp! op
+  | some (.useConstant value) =>
+    let resultType ← (op.getResultTypes rewriter.ctx.raw opInBounds)[0]?
+    match rewriter.materializeConstant! (op.getOpType rewriter.ctx.raw opInBounds)
+        value resultType (.before op) with
+    | none => none
+    | some (rewriter, none) => some rewriter
+    | some (rewriter, some constantOp) => some (rewriter.replaceOp! op constantOp)
 
 end Veir
