@@ -1,7 +1,7 @@
 module
 
 public import Veir.Verifier
-public import Std.Data.HashSet
+public import Std.Data.HashMap
 
 /-!
   # Compilation passes
@@ -13,8 +13,15 @@ namespace Veir
 
 public section
 
-/-- The options set on one instance of a pass. Any option not in the set is `false`. -/
-abbrev PassOptions := Std.HashSet String
+/-- The declaration of a boolean pass option. -/
+structure BoolPassOption where
+  /-- Human-readable help text for the option. -/
+  description : String
+  /-- The option's default value. -/
+  defaultValue : Bool := false
+
+/-- The boolean option values for one instance of a pass. -/
+abbrev PassOptions := Std.HashMap String Bool
 
 /-- A compilation pass. -/
 structure Pass (OpInfo : Type) [HasOpInfo OpInfo] where
@@ -26,10 +33,9 @@ structure Pass (OpInfo : Type) [HasOpInfo OpInfo] where
   /-- Brief explanation of what the pass does, for documentation and tooling. -/
   description : String
   /--
-    The boolean options this pass accepts, mapping each option name to its help text.
-    An option that the pipeline string does not name is `false`.
+    The boolean options this pass accepts, mapping each option name to its declaration.
   -/
-  options : Std.HashMap String String := ∅
+  options : Std.HashMap String BoolPassOption := ∅
   /--
     Execute the pass over the given IR context rooted at `op`, under the options this
     instance of the pass was given.
@@ -42,23 +48,34 @@ structure Pass (OpInfo : Type) [HasOpInfo OpInfo] where
     ExceptT String IO (WfIRContext OpInfo)
 
 /--
-  Check the given option words against the options this pass accepts and return them as a
-  set. Each word names an option to turn on; there is no syntax for turning one off, since
-  every option is off unless named.
+  Check the given option words against the options this pass accepts and return their values.
+  An option word is either `name`, shorthand for `name=true`, or `name=true|false`.
+  Options not named take their declared default value.
 -/
 def Pass.parseOptions {OpInfo : Type} [HasOpInfo OpInfo]
     (pass : Pass OpInfo) (flags : List String) : Except String PassOptions := do
-  let mut enabled : PassOptions := ∅
+  let mut values : PassOptions := ∅
+  for (name, option) in pass.options.toList do
+    values := values.insert name option.defaultValue
   for flag in flags do
-    unless pass.options.contains flag do
+    let (name, value?) ← match flag.splitOn "=" with
+      | [name] => pure (name, none)
+      | [name, value] => pure (name, some value)
+      | _ => throw s!"malformed boolean option '{flag}' for pass '{pass.name}'"
+    unless pass.options.contains name do
       let known := String.intercalate ", " (pass.options.keys.toArray.qsort (· < ·)).toList
       let known := if known.isEmpty then "it accepts no options" else s!"it accepts: {known}"
-      throw s!"pass '{pass.name}' has no option '{flag}' ({known})"
-    enabled := enabled.insert flag
-  return enabled
+      throw s!"pass '{pass.name}' has no option '{name}' ({known})"
+    let value ← match value? with
+      | none | some "true" => pure true
+      | some "false" => pure false
+      | some value =>
+          throw s!"invalid value '{value}' for boolean option '{name}' of pass '{pass.name}'"
+    values := values.insert name value
+  return values
 
 /--
-  Split one pipeline element, either `name` or `name{flag1 flag2 ...}`, into the name and
+  Split one pipeline element, either `name` or `name{option1 option2 ...}`, into the name and
   the (possibly empty) list of option words.
 -/
 def splitPipelineElement (s : String) : Except String (String × List String) := do
@@ -81,9 +98,10 @@ namespace PassPipeline
 
 /--
   Parse a comma-separated list of pipeline elements into a `PassPipeline`, looking each
-  name up in `registry`. An element is either `name` or `name{flag1 flag2 ...}`, where the
-  flags are boolean options accepted by that pass. Returns an error if a name does not
-  exist in the registry, or if an element requests an option the pass does not accept.
+  name up in `registry`. An element is either `name` or `name{option1 option2 ...}`, where the
+  options are accepted boolean options in `name` or `name=true|false` form. Returns an error if
+  a name does not exist in the registry, or if an element requests an option the pass does not
+  accept.
 -/
 def ofString? {OpInfo : Type} [HasOpInfo OpInfo]
     (registry : Std.HashMap String (Pass OpInfo)) (s : String) :

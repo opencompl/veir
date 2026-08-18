@@ -1,15 +1,11 @@
 // RUN: veir-interpret %s | filecheck %s --check-prefix=SRC
-// RUN: veir-opt %s -p=canonicalize,instcombine,canonicalize,cse,dce,isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,canonicalize,riscv-combine,coerce-function-boundaries-to-riscv-reg,reconcile-cast,dce > %t
+// RUN: veir-opt %s -p='canonicalize{fold=false},instcombine,canonicalize{fold=false},cse,dce,isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,canonicalize{fold=false},riscv-combine,coerce-function-boundaries-to-riscv-reg,reconcile-cast,dce' > %t
 // RUN: veir-interpret %t >> %t
 // RUN: filecheck %s < %t
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (i64, i64, i64, i64, i64, i64, i64)}> ({
-    // Keep the input semantically constant for execution while hiding it from
-    // the canonicalizer so the intrinsic lowering is still exercised.
-    %x0 = "llvm.mlir.constant"() <{value = 0x0123456789abcdef : i64}> : () -> i64
-    %x1 = "builtin.unrealized_conversion_cast"(%x0) : (i64) -> !riscv.reg
-    %x = "builtin.unrealized_conversion_cast"(%x1) : (!riscv.reg) -> i64
+    %x = "llvm.mlir.constant"() <{value = 0x0123456789abcdef : i64}> : () -> i64
     %ctlz = "llvm.intr.ctlz"(%x) <{is_zero_poison = false}> : (i64) -> i64
     %ctlz_poison = "llvm.intr.ctlz"(%x) <{is_zero_poison = true}> : (i64) -> i64
     %cttz = "llvm.intr.cttz"(%x) <{is_zero_poison = false}> : (i64) -> i64
