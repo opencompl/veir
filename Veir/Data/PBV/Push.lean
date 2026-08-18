@@ -3,11 +3,11 @@ module
 public import Veir.Data.PBV.Lemmas
 public import Veir.Data.PBV.Mask
 
-/-! # Step 6: rewriting a parametric expression into a concrete, single-width one.
+/-! # Rewriting a parametric expression into a concrete, single-width one.
 
-`eq_iff` introduces a `setWidth o` at the root of the goal, and the remaining lemmas push it down
-towards the leaves, masking the result of every width-sensitive operation on the way. See
-`Veir.Data.PBV` for the pipeline this step belongs to.
+`eq_iff` introduces a `setWidth o` at the root of the goal, and the remaining
+lemmas push it down towards the leaves, masking the result of every
+width-sensitive operation. See `Veir.Data.PBV` for more details.
 -/
 
 namespace Veir.Data.PBV
