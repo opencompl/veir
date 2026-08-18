@@ -121,17 +121,13 @@ def PDL.toAttrDict
       (Std.HashMap.emptyWithCapacity 1).insert "constantTypes".toUTF8 (.arrayAttr constantTypes)
     | none => Std.HashMap.emptyWithCapacity 0
 
-/-- MLIR marks only `pdl.range`, `pdl.result` and `pdl.results` `Pure`. The rest
-    describe or perform rewrite actions, so treating them as side-effect free
-    lets dead-code elimination delete a pattern body. -/
-def PDL.hasSideEffects (op : PDL) (_props : PDL.propertiesOf op) : Bool :=
+/-- MLIR marks only `pdl.range`, `pdl.result` and `pdl.results` `Pure` (see
+    `PDLOps.td`). The rest describe or perform rewrite actions and carry no
+    memory-effect interface, so we report the conservative answer for them. -/
+def PDL.getEffects (op : PDL) (_props : PDL.propertiesOf op) : MemoryEffects :=
   match op with
-  | .range | .result | .results => false
-  | _ => true
-
-def PDL.getEffects
-    (_op : PDL) (_props : PDL.propertiesOf _op) : MemoryEffects :=
-  .none
+  | .range | .result | .results => .none
+  | _ => .unknown
 
 def PDL.isConstantLike (_op : PDL) : Bool :=
   false
@@ -161,7 +157,6 @@ instance : HasOpInfo PDL where
   propertiesOf := PDL.propertiesOf
   fromAttrDict := PDL.fromAttrDict
   toAttrDict := PDL.toAttrDict
-  hasSideEffects := PDL.hasSideEffects
   getEffects := PDL.getEffects
   isConstantLike := PDL.isConstantLike
   hasSSADominance := PDL.hasSSADominance

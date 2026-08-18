@@ -14,13 +14,19 @@ public section
 
 /--
 An operation is trivially dead when it has no regions, none of its results have
-uses, and it has no side effects.
+uses, it writes no memory, and it does not terminate its block.
+
+This mirrors MLIR's `wouldOpBeTriviallyDead`. Note that neither reading nor
+allocating memory keeps an operation alive: a non-volatile load and an `alloca`
+whose results are unused are both dead.
+
 -/
 abbrev OperationPtr.isTriviallyDead {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : IRContext OpInfo) : Prop :=
   op.getNumRegions! ctx = 0
     ∧ !op.hasUses! ctx
-    ∧ !op.hasSideEffects ctx
+    ∧ !(op.getEffects ctx).writes
+    ∧ !HasOpInfo.isTerminator (op.getOpType! ctx)
 
 end
 

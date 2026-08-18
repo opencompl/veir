@@ -36,10 +36,6 @@ def Riscv_Stack.toAttrDict
     dict := dict.insert "size".toUTF8 (Attribute.integerAttr props.size)
     dict.insert "alignment".toUTF8 (Attribute.integerAttr props.alignment)
 
-def Riscv_Stack.hasSideEffects
-    (_op : Riscv_Stack) (_props : Riscv_Stack.propertiesOf _op) : Bool :=
-  true
-
 def Riscv_Stack.getEffects
     (_op : Riscv_Stack) (_props : Riscv_Stack.propertiesOf _op) : MemoryEffects :=
   .allocate
@@ -58,7 +54,6 @@ instance : HasOpInfo Riscv_Stack where
   propertiesOf := Riscv_Stack.propertiesOf
   fromAttrDict := Riscv_Stack.fromAttrDict
   toAttrDict := Riscv_Stack.toAttrDict
-  hasSideEffects := Riscv_Stack.hasSideEffects
   getEffects := Riscv_Stack.getEffects
   isConstantLike := Riscv_Stack.isConstantLike
   hasSSADominance := Riscv_Stack.hasSSADominance

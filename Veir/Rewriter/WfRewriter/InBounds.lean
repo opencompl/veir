@@ -169,7 +169,7 @@ theorem WfRewriter.pushBlockOperand_inBounds_mono :
 section WfRewriter.createOp
 
 variable {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpInfo Dialect]
-variable {opType : Dialect} {properties : HasOpInfo.propertiesOf opType}
+variable {opType : Dialect} {properties : propertiesOf opType}
 
 @[grind →]
 theorem WfRewriter.createOp_new_inBounds (ptr : OperationPtr)

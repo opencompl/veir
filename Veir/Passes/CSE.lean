@@ -2,15 +2,17 @@ module
 
 public import Veir.Pass
 
+import Veir.Interfaces.SideEffectInterfaces
+
 /-!
   # Local common subexpression elimination
 
   This pass implements a small, conservative CSE:
   * it only reasons within one basic block;
-  * it only considers arithmetic operations (including icmps, select,
-    and ext/trunc);
+  * it only considers memory-independent operations with no successors,
+    regions, or extra attributes;
   * distinct UB flags are treated as distinct instructions;
-  * it only supports the LLVM, arith, and mod_arith dialects;
+  * it canonicalizes binary commutative operations and integer comparisons;
   * it does not use a worklist or iterate to fixpoint, so it may leave
     work undone when it finishes.
 -/
@@ -102,48 +104,27 @@ def icmpKey
   | .ugt => swappedKey .ult
   | .uge => swappedKey .ule
 
-/-- Return op's Key if it is supported by this pass, otherwise return
-    None. -/
+/-- Return `op`'s key when it is eligible for CSE, otherwise return `none`. -/
 def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
+  guard (op.isMemoryIndependent ctx)
+  guard (op.getNumSuccessors! ctx = 0)
   guard ((op.get! ctx).attrs.entries.size = 0)
   guard (op.getNumResults! ctx > 0)
   let opType := op.getOpType! ctx
   let properties := op.getProperties! ctx opType
   let kind : Kind := ⟨opType, properties⟩
   match opType with
-  | .llvm .add | .llvm .mul | .llvm .and | .llvm .or | .llvm .xor
-  | .llvm .intr__smax | .llvm .intr__smin | .llvm .intr__umax | .llvm .intr__umin
-  | .arith .addi | .arith .muli | .arith .andi | .arith .ori | .arith .xori
-  | .arith .maxsi | .arith .maxui | .arith .minsi | .arith .minui
-  | .arith .addui_extended | .arith .mulsi_extended | .arith .mului_extended
-  -- mod_arith carries its modulus in the operand and result types, and
-  -- `Key` includes the result types, so ops on different moduli never
-  -- collide.
-  | .mod_arith .add | .mod_arith .mul =>
-      return commutativeBinopKey ctx op kind
   | .llvm .icmp =>
       return icmpKey ctx op (fun props => ⟨.llvm .icmp, props⟩)
         (op.getProperties! ctx Llvm.icmp)
   | .arith .cmpi =>
       return icmpKey ctx op (fun props => ⟨.arith .cmpi, props⟩)
         (op.getProperties! ctx Arith.cmpi)
-  | .llvm .sub | .llvm .mlir__constant
-  | .llvm .shl | .llvm .lshr | .llvm .ashr
-  | .llvm .intr__ctlz | .llvm .intr__cttz | .llvm .intr__ctpop
-  | .llvm .intr__bswap | .llvm .intr__bitreverse
-  | .llvm .intr__fshl | .llvm .intr__fshr
-  | .llvm .sdiv | .llvm .udiv | .llvm .srem | .llvm .urem
-  | .llvm .zext | .llvm .sext | .llvm .trunc
-  | .llvm .select
-  | .arith .subi | .arith .subui_extended | .arith .constant
-  | .arith .shli | .arith .shrsi | .arith .shrui
-  | .arith .divsi | .arith .divui | .arith .remsi | .arith .remui
-  | .arith .ceildivsi | .arith .ceildivui | .arith .floordivsi
-  | .arith .extsi | .arith .extui | .arith .trunci
-  | .arith .select
-  | .mod_arith .sub | .mod_arith .constant =>
-      return ordinaryKey ctx op kind
-  | _ => none
+  | _ =>
+      if opType.isCommutative && op.getNumOperands! ctx = 2 then
+        return commutativeBinopKey ctx op kind
+      else
+        return ordinaryKey ctx op kind
 
 /-- Perform CSE on a single BB: Walk the operations, building up a
     hash of available values. For any operation whose value is already
@@ -181,7 +162,7 @@ end CSE
 
 public def CSEPass : Pass OpCode :=
   { name := "cse"
-    description := "Eliminate common pure integer SSA expressions within each basic block."
+    description := "Eliminate common memory-independent SSA expressions within each basic block."
     run := fun _ => CSE.CSEPass.impl }
 
 end Veir

@@ -184,7 +184,7 @@ poison, the fold decision carries it, and materialization spells it.
 -/
 private def testNswOverflowFoldsToPoison : String := Id.run do
   let i32 : TypeAttr := IntegerType.mk 32
-  let props : HasOpInfo.propertiesOf (.arith .addi : OpCode) :=
+  let props : propertiesOf (.arith .addi : OpCode) :=
     ArithIntegerOverflowFlagsProperties.mk { nsw := true, nuw := false }
   let operands : Array (Option RuntimeValue) :=
     #[some (.int 32 (.val (BitVec.ofInt 32 2147483647))), some (.int 32 (.val 1))]

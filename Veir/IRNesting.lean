@@ -17,7 +17,7 @@ public section
 
 namespace Veir
 
-variable {OpInfo : Type} [HasOpInfo OpInfo]
+variable {OpInfo : Type} [IsOpCode OpInfo]
 variable {rawCtx : IRContext OpInfo}
 variable {ctx : WfIRContext OpInfo}
 
