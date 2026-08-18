@@ -26,7 +26,7 @@ theorem toNat_maskOfWidth {o w : Nat} (h : w ≤ o) :
   rw [maskOfWidth, BitVec.toNat_ofNat, Nat.mod_eq_of_lt]
   have h1 : 2 ^ w ≤ 2 ^ o := Nat.pow_le_pow_right (by omega) h
   have h2 : 0 < 2 ^ w := Nat.two_pow_pos w
-  omega
+  grind
 
 /-- Soundness: every real mask satisfies the constraint. -/
 theorem isMask_maskOfWidth {o w : Nat} (_h : w <= o)
