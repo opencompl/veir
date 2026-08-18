@@ -1,6 +1,7 @@
 module
 
 public import Veir.IR.Basic
+public import Veir.IR.OpInfo
 
 /-!
 # SideEffectInterfaces
@@ -17,22 +18,12 @@ namespace Veir
 public section
 
 /--
-  Does this operation have effects that make it ineligible for
-  transformations that add / remove / rearrange instructions?
-
-  NOTE: ¬ hasSideEffects does not imply that an operation is safe to
-        speculate. For that we also need it to never trigger immediate
-        UB. We'll have to deal with this later on.
-
-  NOTE: this interface is deprecated and will be removed
--/
-def OperationPtr.hasSideEffects {OpInfo : Type} [HasOpInfo OpInfo]
-    (op : OperationPtr) (ctx : IRContext OpInfo) : Bool :=
-  let opType := op.getOpType! ctx
-  HasOpInfo.hasSideEffects opType (op.getProperties! ctx opType)
-
-/--
   What memory effects may this operation have?
+
+  NOTE: An operation with no memory effects is not necessarily speculatable: it
+        may still have undefined behavior or fail to terminate. MLIR models
+        these properties separately with `ConditionallySpeculatable`; Veir does
+        not support this interface yet.
 
   TODO: recursively walk regions to get a less conservative answer
 -/
@@ -41,6 +32,15 @@ def OperationPtr.getEffects {OpInfo : Type} [HasOpInfo OpInfo]
   if op.getNumRegions! ctx != 0 then .unknown else
   let opType := op.getOpType! ctx
   HasOpInfo.getEffects opType (op.getProperties! ctx opType)
+
+/--
+  Whether this operation is known to have no memory effects. This
+  does not imply that the operation is safe to speculate: it may still
+  affect control flow or trigger immediate undefined behavior.
+-/
+def OperationPtr.isMemoryIndependent {OpInfo : Type} [HasOpInfo OpInfo]
+    (op : OperationPtr) (ctx : IRContext OpInfo) : Bool :=
+  op.getEffects ctx == .none
 
 end
 

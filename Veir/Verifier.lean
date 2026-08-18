@@ -167,8 +167,6 @@ def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
       (fun msg => if opName.isEmpty || msg.startsWith opName then msg else s!"{opName}: {msg}")
       (do
         op.verifyLocalInvariants ctx opIn
-        if let .riscv _ := opType then
-          op.verifyRISCVRegisterTypes ctx opIn
         match (op.get ctx.raw opIn).parent with
         | some _ => op.verifyTerminatorPosition ctx opIn
         | none => pure ()))

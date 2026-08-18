@@ -162,7 +162,7 @@ private theorem addUsersInWorklist_same_ctx :
 
 def createOp (rewriter: PatternRewriter OpInfo) (opType: OpInfo)
     (resultTypes: Array TypeAttr) (operands: Array ValuePtr)
-    (blockOperands: Array BlockPtr) (regions: Array RegionPtr) (properties: HasOpInfo.propertiesOf opType)
+    (blockOperands: Array BlockPtr) (regions: Array RegionPtr) (properties: propertiesOf opType)
     (insertionPoint: Option InsertPoint)
     (hoper : ∀ oper, oper ∈ operands → oper.InBounds rewriter.ctx.raw)
     (hblockOperands : ∀ blockOper, blockOper ∈ blockOperands → blockOper.InBounds rewriter.ctx.raw)
@@ -181,7 +181,7 @@ not be created.
 -/
 def createOp! (rewriter: PatternRewriter OpInfo) (opType: OpInfo)
     (resultTypes: Array TypeAttr) (operands: Array ValuePtr)
-    (blockOperands: Array BlockPtr) (regions: Array RegionPtr) (properties: HasOpInfo.propertiesOf opType)
+    (blockOperands: Array BlockPtr) (regions: Array RegionPtr) (properties: propertiesOf opType)
     (insertionPoint: Option InsertPoint) : Option ((PatternRewriter OpInfo) × OperationPtr) := do
   let (newCtx, op) ← WfRewriter.createOp! rewriter.ctx opType resultTypes operands blockOperands
     regions properties insertionPoint
@@ -217,7 +217,7 @@ Set the properties of an operation in place, and re-enqueue it.
 -/
 def setProperties {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpInfo Dialect]
     (rewriter: PatternRewriter OpInfo) (op: OperationPtr) (opCode : Dialect)
-    (newProps : HasOpInfo.propertiesOf opCode)
+    (newProps : propertiesOf opCode)
     (opIn : op.InBounds rewriter.ctx.raw := by grind)
     (hprop : op.getOpType! rewriter.ctx.raw = opCode := by grind)
     : PatternRewriter OpInfo :=
@@ -233,7 +233,7 @@ the property types don't match.
 -/
 def setProperties! {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpInfo Dialect]
     (rewriter: PatternRewriter OpInfo) (op: OperationPtr) (opCode : Dialect)
-    (newProps : HasOpInfo.propertiesOf opCode) : PatternRewriter OpInfo :=
+    (newProps : propertiesOf opCode) : PatternRewriter OpInfo :=
   if opIn : op.InBounds rewriter.ctx.raw then
     if hprop : op.getOpType! rewriter.ctx.raw = opCode then
       rewriter.setProperties op opCode newProps opIn hprop
