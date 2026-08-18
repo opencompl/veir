@@ -2683,6 +2683,12 @@ theorem hasUses!_eq_false_iff_hasUses!_opResult_eq_false {op : OperationPtr}
 
 end OperationPtr
 
+/-- Return the region containing a value's definition, if it is linked into one. -/
+def ValuePtr.getParentRegion! (value : ValuePtr) (ctx : IRContext OpInfo) : Option RegionPtr :=
+  match value with
+  | .opResult result => result.op.getParentRegion! ctx
+  | .blockArgument argument => (argument.block.get! ctx).parent
+
 /-- `ops` is a contiguous chain of operations in a block `parent` in context `ctx`: each operation's
 `.next` field points to the following operation in the list, and each operation's `.parent` field
 points to `parent`. -/

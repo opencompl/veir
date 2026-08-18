@@ -67,13 +67,6 @@ def OperationPtr.verifyTerminatorPosition (op : OperationPtr) (ctx : WfIRContext
   if operation.opType.isTerminator && operation.next.isSome then
     throw "Expected a terminator to be the last operation of its block"
 
-/-- Return the region containing a value's definition, if it is linked into one. -/
-private def ValuePtr.getParentRegion?
-    (value : ValuePtr) (ctx : WfIRContext OpCode) : Option RegionPtr :=
-  match value with
-  | .opResult result => result.op.getParentRegion! ctx.raw
-  | .blockArgument argument => (argument.block.get! ctx.raw).parent
-
 /--
 Whether `ancestor` is `descendant` or one of its enclosing regions. This is the
 executable counterpart of MLIR's `Region::isAncestor` query.
@@ -111,7 +104,7 @@ def OperationPtr.verifyOperandIsolation
   let some useRegion := op.getParentRegion! ctx.raw | return
   let some isolatedScope := useRegion.nearestIsolatedScope? ctx | return
   for value in op.getOperands ctx.raw opIn do
-    let some defRegion := value.getParentRegion? ctx
+    let some defRegion := value.getParentRegion! ctx.raw
       | throw "operand is unlinked from any region"
     if !isolatedScope.isAncestorOf defRegion ctx then
       throw "operand uses a value defined outside the isolated region that encloses its use"
