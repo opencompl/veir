@@ -168,7 +168,7 @@ def WfRewriter.setAttributes! (wfCtx : WfIRContext OpInfo) (op : OperationPtr) (
 @[inline]
 def WfRewriter.setProperties {Dialect : Type} [HasOpInfo Dialect]
     [HasDialect OpInfo Dialect] (wfCtx : WfIRContext OpInfo)
-    (op : OperationPtr) (opCode : Dialect) (newProps : HasOpInfo.propertiesOf opCode)
+    (op : OperationPtr) (opCode : Dialect) (newProps : propertiesOf opCode)
     (opIn : op.InBounds wfCtx.raw := by grind)
     (hprop : op.getOpType! wfCtx.raw = opCode := by grind) :
     WfIRContext OpInfo :=
@@ -181,7 +181,7 @@ property types don't match.
 -/
 def WfRewriter.setProperties! {Dialect : Type} [HasOpInfo Dialect]
     [HasDialect OpInfo Dialect] (wfCtx : WfIRContext OpInfo)
-    (op : OperationPtr) (opCode : Dialect) (newProperties : HasOpInfo.propertiesOf opCode) :
+    (op : OperationPtr) (opCode : Dialect) (newProperties : propertiesOf opCode) :
     WfIRContext OpInfo :=
   if opIn : op.InBounds wfCtx.raw then
     if hprop : op.getOpType! wfCtx.raw = opCode then
@@ -443,7 +443,7 @@ def WfRewriter.pushBlockOperand! (wfCtx : WfIRContext OpInfo) (opPtr : Operation
 def WfRewriter.createOp {Dialect : Type} [HasOpInfo Dialect]
     [HasDialect OpInfo Dialect] (wfCtx : WfIRContext OpInfo) (opType : Dialect)
     (resultTypes : Array TypeAttr) (operands : Array ValuePtr) (blockOperands : Array BlockPtr)
-    (regions : Array RegionPtr) (properties : HasOpInfo.propertiesOf opType)
+    (regions : Array RegionPtr) (properties : propertiesOf opType)
     (insertionPoint : Option InsertPoint)
     (hoper : ∀ oper, oper ∈ operands → oper.InBounds wfCtx.raw := by grind)
     (hblockOperands : ∀ oper, oper ∈ blockOperands → oper.InBounds wfCtx.raw := by grind)
@@ -462,7 +462,7 @@ not be created.
 def WfRewriter.createOp! {Dialect : Type} [HasOpInfo Dialect]
     [HasDialect OpInfo Dialect] (wfCtx : WfIRContext OpInfo) (opType : Dialect)
     (resultTypes : Array TypeAttr) (operands : Array ValuePtr) (blockOperands : Array BlockPtr)
-    (regions : Array RegionPtr) (properties : HasOpInfo.propertiesOf opType)
+    (regions : Array RegionPtr) (properties : propertiesOf opType)
     (insertionPoint : Option InsertPoint)
     : Option (WfIRContext OpInfo × OperationPtr) :=
   if hoper : ∀ oper, oper ∈ operands → oper.InBounds wfCtx.raw then

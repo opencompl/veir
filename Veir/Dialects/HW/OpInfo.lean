@@ -49,11 +49,6 @@ def HW.toAttrDict
     dict
   | _ => Std.HashMap.emptyWithCapacity 0
 
-def HW.hasSideEffects (op : HW) (_props : HW.propertiesOf op) : Bool :=
-  match op with
-  | .constant => false
-  | _ => true
-
 def HW.getEffects
     (_op : HW) (_props : HW.propertiesOf _op) : MemoryEffects :=
   .none
@@ -79,7 +74,6 @@ instance : HasOpInfo HW where
   propertiesOf := HW.propertiesOf
   fromAttrDict := HW.fromAttrDict
   toAttrDict := HW.toAttrDict
-  hasSideEffects := HW.hasSideEffects
   getEffects := HW.getEffects
   isConstantLike := HW.isConstantLike
   hasSSADominance := HW.hasSSADominance

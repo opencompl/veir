@@ -27,15 +27,15 @@ def Test.toAttrDict
     Std.HashMap ByteArray Attribute :=
   Std.HashMap.emptyWithCapacity 0
 
-def Test.hasSideEffects (_op : Test) (_props : Test.propertiesOf _op) : Bool :=
-  true
-
 def Test.getEffects
     (_op : Test) (_props : Test.propertiesOf _op) : MemoryEffects :=
   .unknown
 
 def Test.isConstantLike (_op : Test) : Bool :=
   false
+
+def Test.getRegionKind (_op : Test) (_index : Nat) : RegionKind :=
+  .Graph
 
 def Test.hasSSADominance (_op : Test) (_index : Nat) : Bool :=
   false
@@ -51,9 +51,9 @@ instance : HasOpInfo Test where
   propertiesOf := Test.propertiesOf
   fromAttrDict := Test.fromAttrDict
   toAttrDict := Test.toAttrDict
-  hasSideEffects := Test.hasSideEffects
   getEffects := Test.getEffects
   isConstantLike := Test.isConstantLike
+  getRegionKind := Test.getRegionKind
   hasSSADominance := Test.hasSSADominance
   hasNoTerminator := Test.hasNoTerminator
 

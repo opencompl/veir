@@ -21,7 +21,7 @@ public section
 
 namespace Veir
 
-variable {OpInfo : Type} [HasOpInfo OpInfo]
+variable {OpInfo : Type} [IsOpCode OpInfo]
 variable {ctx : IRContext OpInfo}
 
 @[expose, irreducible]

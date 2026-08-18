@@ -9,8 +9,7 @@ namespace Veir
 
 public def eliminateDeadOp (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  /- delete operations that are not used and have no side effects -/
-  if ¬ op.hasUses! rewriter.ctx.raw && ¬ op.hasSideEffects rewriter.ctx.raw then
+  if op.isTriviallyDead rewriter.ctx.raw then
     return rewriter.eraseOp! op
   else
     return rewriter

@@ -41,10 +41,6 @@ def Mod_Arith.toAttrDict
       "value".toUTF8 (Attribute.integerAttr props.value)
   | _ => Std.HashMap.emptyWithCapacity 0
 
-def Mod_Arith.hasSideEffects
-    (_op : Mod_Arith) (_props : Mod_Arith.propertiesOf _op) : Bool :=
-  false
-
 def Mod_Arith.getEffects
     (_op : Mod_Arith) (_props : Mod_Arith.propertiesOf _op) : MemoryEffects :=
   .none
@@ -65,7 +61,6 @@ instance : HasOpInfo Mod_Arith where
   propertiesOf := Mod_Arith.propertiesOf
   fromAttrDict := Mod_Arith.fromAttrDict
   toAttrDict := Mod_Arith.toAttrDict
-  hasSideEffects := Mod_Arith.hasSideEffects
   getEffects := Mod_Arith.getEffects
   isConstantLike := Mod_Arith.isConstantLike
   hasSSADominance := Mod_Arith.hasSSADominance
@@ -100,7 +95,7 @@ def OperationPtr.verifyModArithBinOp {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 2 1
-  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   let operandType ← op.verifyOperandTypesMatch ctx 0 1
     s!"{instrName}: Expected operands to have the same type"
   op.verifyResultTypeMatches ctx operandType
@@ -111,7 +106,7 @@ def OperationPtr.verifyModArithConstantOp {OpInfo : Type} [HasOpInfo OpInfo]
     [HasDialect OpInfo Mod_Arith] (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 0 1
-  let instrName := String.fromUTF8! (HasOpInfo.name (op.getOpType ctx.raw opIn))
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   let mat ← ((op.getResult 0).get! ctx.raw).type.verifyModArithType
     s!"{instrName}: Expected result to have ModArithType"
   let value := (op.getProperties! ctx.raw Mod_Arith.constant).value.value

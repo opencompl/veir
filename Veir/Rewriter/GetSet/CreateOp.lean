@@ -61,7 +61,7 @@ variable {dialectOpType : Dialect}
 variable {CreateDialect : Type} [HasOpInfo CreateDialect]
   [HasDialect OpInfo CreateDialect]
 variable {opType : CreateDialect}
-variable {properties : HasOpInfo.propertiesOf opType}
+variable {properties : propertiesOf opType}
 section Rewriter.createEmptyOp
 
 variable {op : OperationPtr}

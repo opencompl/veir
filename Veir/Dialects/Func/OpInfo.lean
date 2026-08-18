@@ -49,9 +49,6 @@ def Func.toAttrDict
     dict
   | _ => Std.HashMap.emptyWithCapacity 0
 
-def Func.hasSideEffects (_op : Func) (_props : Func.propertiesOf _op) : Bool :=
-  true
-
 def Func.getEffects
     (op : Func) (_props : Func.propertiesOf op) : MemoryEffects :=
   match op with
@@ -82,7 +79,6 @@ instance : HasOpInfo Func where
   propertiesOf := Func.propertiesOf
   fromAttrDict := Func.fromAttrDict
   toAttrDict := Func.toAttrDict
-  hasSideEffects := Func.hasSideEffects
   getEffects := Func.getEffects
   isConstantLike := Func.isConstantLike
   isFunctionLike := Func.isFunctionLike
