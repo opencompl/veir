@@ -17,7 +17,7 @@ public section
 structure BoolPassOption where
   /-- Human-readable help text for the option. -/
   description : String
-  /-- The option's value when it is omitted from a pipeline invocation. -/
+  /-- The option's default value. -/
   defaultValue : Bool := false
 
 /-- The boolean option values for one instance of a pass. -/
