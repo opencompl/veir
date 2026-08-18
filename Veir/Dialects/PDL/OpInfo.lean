@@ -151,17 +151,12 @@ def PDL.isTerminator (op : PDL) : Bool :=
 
 #generate_dialect PDL
 
-instance : HasOpInfo PDL where
+instance : IsOpCode PDL where
   fromName := PDL.fromName
   name := PDL.name
   propertiesOf := PDL.propertiesOf
   fromAttrDict := PDL.fromAttrDict
   toAttrDict := PDL.toAttrDict
-  getEffects := PDL.getEffects
-  isConstantLike := PDL.isConstantLike
-  hasSSADominance := PDL.hasSSADominance
-  hasNoTerminator := PDL.hasNoTerminator
-  isTerminator := PDL.isTerminator
 
 /--
   The element kind of a PDL handle type, treating a non-range handle as a range
@@ -184,7 +179,7 @@ TODO: An unconstrained `pdl.type` needs a use that binds it, but that invariant
 only applies inside the matcher body of a `pdl.pattern`, which is not modelled
 yet.
 -/
-def PDL.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpInfo PDL]
+def PDL.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpInfo PDL]
     (opType : PDL) (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
@@ -466,6 +461,14 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpI
     op.verifyPlainOpCounts ctx opIn 0 1
     op.verifyResultTypeMatches ctx (PDL.RangeType.mk .type : TypeAttr)
       "Expected the result to be of type '!pdl.range<type>'"
+
+instance : HasOpInfo PDL where
+  verifyLocalInvariants := PDL.verifyLocalInvariants
+  getEffects := PDL.getEffects
+  isConstantLike := PDL.isConstantLike
+  hasSSADominance := PDL.hasSSADominance
+  hasNoTerminator := PDL.hasNoTerminator
+  isTerminator := PDL.isTerminator
 
 end
 

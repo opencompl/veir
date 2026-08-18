@@ -332,24 +332,19 @@ def Llvm.isTerminator (op : Llvm) : Bool :=
 
 #generate_dialect Llvm
 
-instance : HasOpInfo Llvm where
+instance : IsOpCode Llvm where
   fromName := Llvm.fromName
   name := Llvm.name
   propertiesOf := Llvm.propertiesOf
   fromAttrDict := Llvm.fromAttrDict
   toAttrDict := Llvm.toAttrDict
-  getEffects := Llvm.getEffects
-  isConstantLike := Llvm.isConstantLike
-  isFunctionLike := Llvm.isFunctionLike
-  hasSSADominance := Llvm.hasSSADominance
-  isTerminator := Llvm.isTerminator
 
 /-- Whether `n` is a valid LLVM alignment: a strictly positive power of two. -/
 def isValidLLVMAlignment (n : Int) : Bool :=
   decide (0 < n) && (n.toNat &&& (n.toNat - 1)) == 0
 
 /-- Check an `llvm.return` against its enclosing `llvm.func`'s declared results. -/
-def OperationPtr.verifyLLVMFuncReturnTypes {OpInfo : Type} [HasOpInfo OpInfo]
+def OperationPtr.verifyLLVMFuncReturnTypes {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Llvm] (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) (funcOp : OperationPtr) : Except String PUnit := do
   let props : Llvm.propertiesOf .func := funcOp.getProperties! ctx.raw Llvm.func
@@ -369,7 +364,7 @@ def OperationPtr.verifyLLVMFuncReturnTypes {OpInfo : Type} [HasOpInfo OpInfo]
       throw s!"llvm.return operand {i} type does not match the function's declared result type"
 
 /-- Check an `llvm.return` against its `llvm.mlir.global`'s `global_type`. -/
-def OperationPtr.verifyLLVMGlobalReturnTypes {OpInfo : Type} [HasOpInfo OpInfo]
+def OperationPtr.verifyLLVMGlobalReturnTypes {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Llvm] (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) (globalOp : OperationPtr) : Except String PUnit := do
   let globalType :=
@@ -384,7 +379,7 @@ def OperationPtr.verifyLLVMGlobalReturnTypes {OpInfo : Type} [HasOpInfo OpInfo]
 Check an `llvm.return`'s operands against its enclosing `llvm.func` or
 `llvm.mlir.global`.
 -/
-def OperationPtr.verifyLLVMReturnTypes {OpInfo : Type} [HasOpInfo OpInfo]
+def OperationPtr.verifyLLVMReturnTypes {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Llvm] (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   let enclosingOp ← op.getEnclosingFunctionOp ctx "llvm.return"
@@ -395,7 +390,7 @@ def OperationPtr.verifyLLVMReturnTypes {OpInfo : Type} [HasOpInfo OpInfo]
   | some .mlir__global => op.verifyLLVMGlobalReturnTypes ctx opIn enclosingOp
   | _ => badEnclosure
 
-def OperationPtr.verifyLLVMShift {OpInfo : Type} [HasOpInfo OpInfo]
+def OperationPtr.verifyLLVMShift {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 2 1
@@ -407,7 +402,7 @@ def OperationPtr.verifyLLVMShift {OpInfo : Type} [HasOpInfo OpInfo]
   op.verifyResultTypeMatches ctx ((op.getOperand! ctx.raw 0).getType! ctx.raw)
     s!"{instrName}: Expected result type to match first operand type"
 
-def OperationPtr.verifyLLVMICmp {OpInfo : Type} [HasOpInfo OpInfo]
+def OperationPtr.verifyLLVMICmp {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 2 1
@@ -425,7 +420,7 @@ def OperationPtr.verifyLLVMICmp {OpInfo : Type} [HasOpInfo OpInfo]
 Verify the local invariants of an `llvm` operation in any operation-info type
 containing the `llvm` dialect.
 -/
-def Llvm.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
+def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Llvm] (opType : Llvm) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
@@ -669,6 +664,14 @@ def Llvm.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpIn
         (LLVMConstantProperties.mk (.float (FloatAttr.mk value floatType))))
     else none
   | _, _ => none
+
+instance : HasOpInfo Llvm where
+  verifyLocalInvariants := Llvm.verifyLocalInvariants
+  getEffects := Llvm.getEffects
+  isConstantLike := Llvm.isConstantLike
+  isFunctionLike := Llvm.isFunctionLike
+  hasSSADominance := Llvm.hasSSADominance
+  isTerminator := Llvm.isTerminator
 
 end
 

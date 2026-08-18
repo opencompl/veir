@@ -236,12 +236,37 @@ def Properties.toAttrDict
   | .pdl op, props => PDL.toAttrDict op props
   | .test op, props => Test.toAttrDict op props
 
-instance : HasOpInfo OpCode where
+instance : IsOpCode OpCode where
   fromName := OpCode.fromName
   name := OpCode.name
   propertiesOf := _propertiesOf
   fromAttrDict := Properties.fromAttrDict
   toAttrDict := Properties.toAttrDict
+
+#generate_has_dialect_instances OpCode
+
+@[expose]
+def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
+    (ctx : WfIRContext OpCode) (opIn : op.InBounds ctx.raw) : Except String Unit :=
+  match opCode with
+  | .builtin opType => Builtin.verifyLocalInvariants opType op ctx opIn
+  | .arith opType => Arith.verifyLocalInvariants opType op ctx opIn
+  | .datapath opType => Datapath.verifyLocalInvariants opType op ctx opIn
+  | .func opType => Func.verifyLocalInvariants opType op ctx opIn
+  | .cf opType => Cf.verifyLocalInvariants opType op ctx opIn
+  | .pdl opType => PDL.verifyLocalInvariants opType op ctx opIn
+  | .test .test => pure ()
+  | .llvm opType => Llvm.verifyLocalInvariants opType op ctx opIn
+  | .mod_arith opType => Mod_Arith.verifyLocalInvariants opType op ctx opIn
+  | .riscv opType => Riscv.verifyLocalInvariants opType op ctx opIn
+  | .riscv_cf opType => Riscv_Cf.verifyLocalInvariants opType op ctx opIn
+  | .riscv_stack opType => Riscv_Stack.verifyLocalInvariants opType op ctx opIn
+  | .rv64 opType => Rv64.verifyLocalInvariants opType op ctx opIn
+  | .comb opType => Comb.verifyLocalInvariants opType op ctx opIn
+  | .hw opType => HW.verifyLocalInvariants opType op ctx opIn
+
+instance : HasOpInfo OpCode where
+  verifyLocalInvariants := OpCode.verifyLocalInvariants
   getEffects := OpCode.getEffects
   isConstantLike := OpCode.isConstantLike
   isFunctionLike := OpCode.isFunctionLike
@@ -249,8 +274,6 @@ instance : HasOpInfo OpCode where
   hasSSADominance := OpCode.hasSSADominance
   hasNoTerminator := OpCode.hasNoTerminator
   isTerminator := OpCode.isTerminator
-
-#generate_has_dialect_instances OpCode
 
 /--
 Ask the dialect of `opCode` how to represent a folded

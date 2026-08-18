@@ -1,6 +1,7 @@
 module
 
 public import Veir.IR.OpCode
+public import Veir.IR.WellFormed
 
 namespace Veir
 
@@ -43,6 +44,16 @@ end MemoryEffects
 
 class HasOpInfo (opCode: Type)
     extends IsOpCode opCode where
+  /--
+  Verify the local invariants of an operation. This typically includes checking
+  that the number of operands, successors, results, and regions match the
+  expected values for the operation type, as well as checking that referenced
+  types are in bounds.
+  -/
+  verifyLocalInvariants :
+    (opType : opCode) → (op : OperationPtr) → (ctx : WfIRContext opCode) →
+    (opIn : op.InBounds ctx.raw) → Except String PUnit :=
+      fun _ _ _ _ => pure ()
   /--
   The memory effects of an operation with this opcode and these properties,
   mirroring MLIR's `MemoryEffectOpInterface::getEffects`.
@@ -91,6 +102,13 @@ class HasOpInfo (opCode: Type)
   Does this OpCode count as an MLIR basic block terminator?
   -/
   isTerminator : opCode → Bool := fun _ => false
+
+/-- Verify the local invariants of an operation using its opcode interface. -/
+@[inline]
+abbrev OperationPtr.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) :
+    Except String PUnit :=
+  HasOpInfo.verifyLocalInvariants (op.getOpType ctx.raw opIn) op ctx opIn
 
 end -- public section
 

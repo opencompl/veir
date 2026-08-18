@@ -73,23 +73,18 @@ def Func.isTerminator (op : Func) : Bool :=
 
 #generate_dialect Func
 
-instance : HasOpInfo Func where
+instance : IsOpCode Func where
   fromName := Func.fromName
   name := Func.name
   propertiesOf := Func.propertiesOf
   fromAttrDict := Func.fromAttrDict
   toAttrDict := Func.toAttrDict
-  getEffects := Func.getEffects
-  isConstantLike := Func.isConstantLike
-  isFunctionLike := Func.isFunctionLike
-  hasSSADominance := Func.hasSSADominance
-  isTerminator := Func.isTerminator
 
 /--
 Check that a `func.return` returns the declared result types of its enclosing
 `func.func`.
 -/
-def OperationPtr.verifyFuncReturnTypes {OpInfo : Type} [HasOpInfo OpInfo]
+def OperationPtr.verifyFuncReturnTypes {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Func] (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   let funcOp ← op.getEnclosingFunctionOp ctx "func.return"
@@ -113,7 +108,7 @@ Verify the local invariants of a `func` operation in any operation-info type
 containing the `func` dialect.
 -/
 @[expose]
-def Func.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
+def Func.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Func] (opType : Func) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
@@ -141,6 +136,14 @@ def Func.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
   | .return => do
     op.verifyTerminatorCounts ctx opIn 0
     op.verifyFuncReturnTypes ctx opIn
+
+instance : HasOpInfo Func where
+  verifyLocalInvariants := Func.verifyLocalInvariants
+  getEffects := Func.getEffects
+  isConstantLike := Func.isConstantLike
+  isFunctionLike := Func.isFunctionLike
+  hasSSADominance := Func.hasSSADominance
+  isTerminator := Func.isTerminator
 
 end
 
