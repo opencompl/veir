@@ -28,8 +28,8 @@ theorem toNat_maskOfWidth {o w : Nat} (h : w ≤ o) :
   grind
 
 /-- Soundness: every real mask satisfies the constraint. -/
-theorem isMask_maskOfWidth {o w : Nat} (_h : w <= o)
-  : IsMask (maskOfWidth o w) := by
+theorem isMask_maskOfWidth {o w : Nat} (_h : w <= o) :
+    IsMask (maskOfWidth o w) := by
   simp [IsMask, maskOfWidth, BitVec.ofNat_add_ofNat, ← BitVec.ofNat_and,
     Nat.sub_add_cancel Nat.one_le_two_pow, Nat.and_comm (2 ^ w - 1),
     Nat.and_two_pow_sub_one_eq_mod]
@@ -46,7 +46,8 @@ theorem toNat_and_maskOfWidth {o w : Nat} (h : w ≤ o) (x : BitVec o) :
   rw [BitVec.toNat_and, toNat_maskOfWidth h, Nat.and_two_pow_sub_one_eq_mod]
 
 /-- Introduction rule for every push lemma: it suffices that `b = a` mod `2^w`. -/
-theorem setWidth_eq_and_maskOfWidth {w o : Nat} (h : w ≤ o) {a : BitVec w} {b : BitVec o}
-    (hab : b.toNat % 2 ^ w = a.toNat) : a.setWidth o = b &&& maskOfWidth o w := by
+theorem setWidth_eq_and_maskOfWidth {w o : Nat} (h : w ≤ o) {a : BitVec w}
+    {b : BitVec o} (hab : b.toNat % 2 ^ w = a.toNat) :
+    a.setWidth o = b &&& maskOfWidth o w := by
   apply BitVec.eq_of_toNat_eq
   rw [toNat_and_maskOfWidth h, BitVec.toNat_setWidth_of_le h, hab]
