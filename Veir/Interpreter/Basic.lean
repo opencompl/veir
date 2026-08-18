@@ -33,25 +33,6 @@ variable {ctx : WfIRContext OpInfo}
 
 namespace RuntimeValue
 
-/--
-  A predicate indicating whether a `RuntimeValue` is a value that is a runtime value
-  of a given `TypeAttr`.
--/
-@[expose]
-def Conforms (val : RuntimeValue) (ty : TypeAttr) : Prop :=
-  match val, ty with
-  | .int bw _, ⟨.integerType intType, _⟩ => intType.bitwidth = bw
-  | .float bw _, ⟨.floatType floatType, _⟩ => floatType.bitwidth = bw
-  | .byte bw _, ⟨.byteType byteType, _⟩ => byteType.bitwidth = bw
-  | .int bw _, ⟨.modArithType modArithType, _⟩ => modArithType.modulus.type.bitwidth = bw
-  | .reg _, ⟨.registerType _, _⟩ => True
-  | .addr _, ⟨.llvmPointerType _, _⟩ => True
-  | _, _ => False
-
-instance : Decidable (Conforms val ty) := by
-  unfold Conforms
-  split <;> infer_instance
-
 @[grind <=]
 theorem Conforms.integerType :
     Conforms runtimeValue ⟨.integerType intType, h⟩ →
