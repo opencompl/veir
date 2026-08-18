@@ -30,11 +30,13 @@ syntax (name := pbvDecide) "pbv_decide" optConfig (ppSpace colGt num)? : tactic
 
 @[tactic pbvDecide]
 def evalPbvDecide : Tactic := fun stx => do
-  let out ← pbvTranslate (← getMainGoal) stx[0].toNat
-  replaceMainGoal [out]
+  match stx with
+  | `(tactic| pbv_decide $n:num) => do
+      replaceMainGoal [← pbvTranslate (← getMainGoal) n.getNat]
+  | _ => throwUnsupportedSyntax
 
 
 
 theorem trace_add_comm (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
   x + y = y + x := by
-  pbv_decide 9
+  pbv_decide 13
