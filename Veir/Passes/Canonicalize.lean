@@ -15,25 +15,6 @@ namespace Veir
   modular constants to their canonical representatives.
 -/
 
-/-- Replace a foldable operation with an operand or a materialized constant. -/
-def foldOperation (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let operands := op.getOperands rewriter.ctx.raw opInBounds
-  let constantOperands := operands.map (ValuePtr.constantValue · rewriter.ctx.raw)
-  match op.foldsTo rewriter.ctx opInBounds constantOperands with
-  | none => return rewriter
-  | some (.useOperand index) =>
-    let replacement ← operands[index]?
-    let rewriter := rewriter.replaceValue! (op.getResult 0) replacement
-    return rewriter.eraseOp! op
-  | some (.useConstant value) =>
-    let resultType ← (op.getResultTypes rewriter.ctx.raw opInBounds)[0]?
-    match rewriter.materializeConstant! (op.getOpType rewriter.ctx.raw opInBounds)
-        value resultType (.before op) with
-    | none => none
-    | some (rewriter, none) => some rewriter
-    | some (rewriter, some constantOp) => some (rewriter.replaceOp! op constantOp)
-
 def canonicalizeModArithConstant (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (_, props) := matchOp op rewriter.ctx.raw Mod_Arith.constant 0
