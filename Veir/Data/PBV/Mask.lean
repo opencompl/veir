@@ -41,10 +41,9 @@ theorem isMask_maskOfWidth {o w : Nat} :
     Nat.sub_add_cancel Nat.one_le_two_pow, Nat.and_comm (2 ^ w - 1),
     Nat.and_two_pow_sub_one_eq_mod]
 
-/-- The mask constraint: the only fact about `m` surviving abstraction.
-Unfold the IsMask def here to simplify use in the proof. -/
+/-- The mask constraint: the only fact about `m` surviving abstraction. -/
 theorem isMask_of_eq_maskOfWidth {o w : Nat} {m : BitVec o}
-    (hm : m = maskOfWidth o w) : m &&& (m + 1#o) = 0#o := by
+    (hm : m = maskOfWidth o w) : IsMask m := by
   subst hm
   exact isMask_maskOfWidth
 
