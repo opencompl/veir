@@ -3,6 +3,7 @@ module
 public import Veir.Verifier.Lemmas
 public import Veir.GlobalOpInfo
 public import Veir.Interfaces.FunctionInterfaces
+public import Veir.Interfaces.RegionKindInterfaces
 
 import all Veir.Verifier.Basic
 import all Veir.Dialects.LLVM.OpInfo
@@ -11,27 +12,6 @@ import all Veir.Dialects.ModArith.OpInfo
 namespace Veir
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
-
-/--
-  Return the kind of this region.
--/
-public def RegionPtr.getRegionKind (region : RegionPtr) (ctx : WfIRContext OpCode) : RegionKind :=
-  match (region.get! ctx.raw).parent with
-  | some parentOp =>
-    let parent := parentOp.get! ctx.raw
-    parent.opType.getRegionKind (parent.regions.idxOf region)
-  | none => .SSACFG
-
-/--
-  Whether this region is exempt from the requirement that each of its blocks
-  ends in a terminator.
--/
-public def RegionPtr.hasNoTerminator (region : RegionPtr) (ctx : WfIRContext OpCode) : Bool :=
-  match (region.get! ctx.raw).parent with
-  | some parentOp =>
-    let parent := parentOp.get! ctx.raw
-    parent.opType.hasNoTerminator (parent.regions.idxOf region)
-  | none => false
 
 /--
   Verify that a terminator only ever appears as the last operation of its block:
@@ -66,7 +46,7 @@ def BlockPtr.verifyTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
 /-- Check that a graph region contains at most one block. -/
 private def WfIRContext.graphRegionsHaveAtMostOneBlock (ctx : WfIRContext OpCode) : Bool :=
   ctx.raw.regions.keys.all fun region =>
-    if region.getRegionKind ctx = .Graph then
+    if !region.hasSSADominance ctx then
       let body := region.get! ctx.raw
       body.firstBlock = body.lastBlock
     else
@@ -202,7 +182,7 @@ private theorem WfIRContext.Verified.graphRegionsHaveAtMostOneBlock
 theorem WfIRContext.Verified.graph_region_firstBlock_eq_lastBlock
     {ctx : WfIRContext OpCode} (ctxVerified : ctx.Verified)
     {region : RegionPtr} (regionIn : region.InBounds ctx.raw)
-    (hregionKind : region.getRegionKind ctx = .Graph) :
+    (hregionKind : ¬ region.hasSSADominance ctx) :
     (region.get! ctx.raw).firstBlock = (region.get! ctx.raw).lastBlock := by
   have hcheck := ctxVerified.graphRegionsHaveAtMostOneBlock
   have hregionKeys : region ∈ ctx.raw.regions.keys := by grind [region.inBounds_def]

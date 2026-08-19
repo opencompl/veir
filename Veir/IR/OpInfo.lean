@@ -112,12 +112,25 @@ class HasOpInfo (opCode: Type)
   -/
   isTerminator : opCode → Bool := fun _ => false
 
+variable {OpInfo : Type} [HasOpInfo OpInfo]
+
 /-- Verify the local invariants of an operation using its opcode interface. -/
 @[inline]
-abbrev OperationPtr.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
-    (op : OperationPtr) (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) :
-    Except String PUnit :=
+abbrev OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit :=
   HasOpInfo.verifyLocalInvariants (op.getOpType ctx.raw opIn) op ctx opIn
+
+/--
+  Whether this region is exempt from the requirement that each of its blocks
+  ends in a terminator.
+-/
+@[expose, inline]
+public def RegionPtr.hasNoTerminator (region : RegionPtr) (ctx : WfIRContext OpInfo) : Bool :=
+  match (region.get! ctx.raw).parent with
+  | some parentOp =>
+    let parent := parentOp.get! ctx.raw
+    HasOpInfo.hasNoTerminator parent.opType (parent.regions.idxOf region)
+  | none => false
 
 end -- public section
 
