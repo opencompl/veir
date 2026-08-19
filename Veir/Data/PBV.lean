@@ -3,7 +3,7 @@ module
 public import Veir.Data.PBV.Mask
 public import Veir.Data.PBV.Elim
 public import Veir.Data.PBV.Push
-public import Veir.Data.PBV.Examples
+import Veir.Data.PBV.Examples
 
 /-!
 # Bounded parametric bitvector solving
@@ -11,10 +11,10 @@ public import Veir.Data.PBV.Examples
 Parametric bitvector formulas are in general undecidable, but by placing a bound
 on the widths we wish to consider the formula can be transformed into a
 bit-blastable form, discharged by `bv_decide`. Naively, bounding the widths means
-enumerating and generating queries exponential in the number of widths parameters.
+enumerating and generating queries exponential in the number of width parameters.
 The technique presented here solves a given formula in a single QF_BV query.
 
-For example me might want to prove addition is commutative for all bitvectors
+For example we might want to prove addition is commutative for all bitvectors
 of width up to 64:
 ```
 theorem add_comm_bv64 (w : Nat) (x y : BitVec w) (hw : w ≤ 64)

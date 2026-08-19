@@ -14,7 +14,7 @@ Each example works through the steps documented in `Veir.Data.PBV` by hand.
 namespace Veir.Data.PBV
 
 /-- Manual trace of the future tactic, transforming an unbounded parametric width
-    statement into a bounded one and solving it up the bound (4 in this case) -/
+    statement into a bounded one and solving it up to the bound (4 in this case) -/
 theorem trace_add_comm_manual (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
   x + y = y + x := by
 -- Step 1: Bound widths to the provided blast width (redundant in this case)
@@ -31,7 +31,7 @@ theorem trace_add_comm_manual (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
   apply var_elim 4 w w_le_bw
   intro y h_ymw
 -- Step 5: Convert width hypothesis to mask hypothesis
-  have mw_mask := mask_isMask w_le_bw h_mw
+  have mw_mask := mask_isMask h_mw
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [
       eq_iff w_le_bw,             -- Introduce `setWidth` to goal
@@ -64,7 +64,7 @@ theorem trace_add_comm_manual_calc (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
   apply var_elim 4 w w_le_bw
   intro y h_ymw
 -- Step 5: Convert width hypothesis to mask hypothesis
-  have mw_mask := mask_isMask w_le_bw h_mw
+  have mw_mask := mask_isMask h_mw
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   generalize h_xw : BitVec.setWidth w x = xw
   generalize h_yw : BitVec.setWidth w y = yw

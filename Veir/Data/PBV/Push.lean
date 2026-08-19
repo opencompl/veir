@@ -30,9 +30,9 @@ theorem setWidth_setWidth {w o : Nat} (h : w ≤ o) :
       (a.setWidth w).setWidth o = a.setWidth o &&& maskOfWidth o w := by
   intro u a
   refine setWidth_eq_and_maskOfWidth h ?_
-  rw [BitVec.toNat_setWidth, BitVec.toNat_setWidth, Nat.mod_two_pow_mod_two_pow_of_le h]
+  rw [BitVec.toNat_setWidth, BitVec.toNat_setWidth, Nat.mod_mod_pow_of_le h]
 
-/-! ### Width-sensitive arithmetic: mask the result -/
+/-! ## Width-sensitive arithmetic: mask the result -/
 
 theorem setWidth_add {w o : Nat} (h : w ≤ o) :
     ∀ (a b : BitVec w),
@@ -40,4 +40,4 @@ theorem setWidth_add {w o : Nat} (h : w ≤ o) :
   intro a b
   refine setWidth_eq_and_maskOfWidth h ?_
   rw [BitVec.toNat_add, BitVec.toNat_setWidth_of_le h, BitVec.toNat_setWidth_of_le h,
-    Nat.mod_two_pow_mod_two_pow_of_le h, BitVec.toNat_add]
+    Nat.mod_mod_pow_of_le h, BitVec.toNat_add]

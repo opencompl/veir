@@ -16,14 +16,18 @@ public section
 
 /-! ## Introducing masks -/
 
-/-- Name the mask of a width; the content is in what the tactic keeps after clearing `hm`. -/
+/-- Given some Prop `Q`, it can be generalised to hold given any `m : BitVec o`
+which represents a mask of width `w`. This is to be used "backwards", to
+introduce a new bitvector variable into the context of an existing goal `Q`. -/
 theorem width_elim (o w : Nat) (Q : Prop)
     (h : ∀ (m : BitVec o), m = maskOfWidth o w → Q) : Q :=
   h _ rfl
 
 /-! ## Eliminating parametric-width variables -/
 
-/-- Every `x : BitVec w` is the truncation of a `BitVec o` invariant under masking by `w`'s mask. -/
+/-- This theorem states that if some Prop `Q` holds for a bitvector variable `x`
+of width `o` that is masked to "behave" as if it had width `w` (where `w ≤ o`)
+then it also holds for a bitvector `x` of width `w`. -/
 theorem var_elim (o w : Nat) (hwo : w ≤ o) (Q : BitVec w → Prop)
     (h : ∀ (x : BitVec o), x &&& maskOfWidth o w = x → Q (x.setWidth w)) :
     ∀ (x : BitVec w), Q x := by
