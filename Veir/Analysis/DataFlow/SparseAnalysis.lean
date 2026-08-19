@@ -1,6 +1,7 @@
 module
 
 public import Veir.Analysis.DataFlow.SparseFact
+public import Veir.Interfaces.ControlFlowInterfaces
 
 public section
 
@@ -44,41 +45,6 @@ def joinAndPropagate
     return dfCtx
   dfCtx.modifyFactAndPropagate kind (.ValuePtr target) 
     (SparseFact.setLatticeElement · newValue, true) irCtx
-
-/--
-Return whether the given operation is a branch op.
--/
-private def isBranchOp
-    (op : OperationPtr)
-    (irCtx : WfIRContext OpCode) : Bool :=
-  -- TODO: Replace this `.test .test` check once VeIR has proper branch ops.
-  match (op.get! irCtx.raw).opType with
-  | .test .test =>
-    true
-  | _ =>
-    false
-
-/--
-Return the SSA value forwarded to the given successor's block argument, if any.
--/
-private def getSuccessorOperand?
-    (op : OperationPtr)
-    (successorIndex : Nat)
-    (argumentIndex : Nat)
-    (irCtx : WfIRContext OpCode) : Option ValuePtr :=
-  if successorIndex >= op.getNumSuccessors! irCtx.raw then
-    panic! s!"SparseForwardDataFlowAnalysis.getSuccessorOperand?: successor index {successorIndex} out of range"
-  else
-    match (op.get! irCtx.raw).opType with
-    -- TODO: Replace this `.test .test` check once VeIR has proper branch ops.
-    -- `successorIndex` will become relevant then.
-    | .test .test =>
-      if argumentIndex < op.getNumOperands! irCtx.raw then
-        some (op.getOperand! irCtx.raw argumentIndex)
-      else
-        none
-    | _ =>
-      panic! "SparseForwardDataFlowAnalysis.getSuccessorOperand?: non-branch op"
 
 /-- Conservatively treat blocks as live when no liveness facts exist. -/
 private def isBlockLive
@@ -174,14 +140,20 @@ private def visitBlock
       continue
 
     -- Check if we can reason about the dataflow from the predecessor.
-    if !isBranchOp predecessorOp irCtx then
+    if !(predecessorOp.getOpType! irCtx.raw).isTerminator then
       for target in block.getArguments! irCtx.raw do
         dfCtx := joinAndPropagate kind target ⊤ dfCtx irCtx
       return dfCtx
 
+    let some successorOperands :=
+        BranchOpInterface.getSuccessorOperands? predecessorOp predUse.index irCtx.raw
+      | for target in block.getArguments! irCtx.raw do
+          dfCtx := joinAndPropagate kind target ⊤ dfCtx irCtx
+        return dfCtx
+
     for i in [0:block.getNumArguments! irCtx.raw] do
       let arg := block.getArgument i
-      match getSuccessorOperand? predecessorOp predUse.index i irCtx with
+      match successorOperands[i]? with
       | some operand =>
         -- Add the current block start program point as a dependency of the
         -- predecessor block's successor operand lattice state, so this block
