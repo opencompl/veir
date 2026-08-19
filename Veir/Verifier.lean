@@ -2,6 +2,7 @@ module
 
 public import Veir.Verifier.Lemmas
 public import Veir.Interfaces.FunctionInterfaces
+public import Veir.IRNesting
 
 import all Veir.Verifier.Basic
 import all Veir.Dialects.LLVM.OpInfo
@@ -66,17 +67,6 @@ def OperationPtr.verifyTerminatorPosition (op : OperationPtr) (ctx : WfIRContext
   let operation := op.get ctx.raw opIn
   if operation.opType.isTerminator && operation.next.isSome then
     throw "Expected a terminator to be the last operation of its block"
-
-/--
-Whether `ancestor` is `descendant` or one of its enclosing regions. This is the
-executable counterpart of MLIR's `Region::isAncestor` query.
--/
-private partial def RegionPtr.isAncestorOf
-    (ancestor descendant : RegionPtr) (ctx : WfIRContext OpCode) : Bool :=
-  ancestor = descendant ||
-    match (descendant.get! ctx.raw).parent.bind (·.getParentRegion! ctx.raw) with
-    | none => false
-    | some parentRegion => ancestor.isAncestorOf parentRegion ctx
 
 /--
 Find the region that establishes the nearest `IsolatedFromAbove` scope around
