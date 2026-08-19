@@ -91,9 +91,13 @@ independently.
 def OperationPtr.verifyOperandIsolation
     (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  if op.getNumOperands ctx.raw opIn == 0 then return
   let some useRegion := op.getParentRegion! ctx.raw | return
+  let escaping := (op.getOperands ctx.raw opIn).filter
+    (·.getParentRegion! ctx.raw != some useRegion)
+  if escaping.isEmpty then return
   let some isolatedScope := useRegion.nearestIsolatedScope? ctx | return
-  for value in op.getOperands ctx.raw opIn do
+  for value in escaping do
     let some defRegion := value.getParentRegion! ctx.raw
       | throw "operand is unlinked from any region"
     if !isolatedScope.isAncestorOf defRegion ctx then
