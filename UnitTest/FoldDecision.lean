@@ -36,7 +36,7 @@ private def testFoldDecision : String := Id.run do
 
     -- All operands known: the interpreter supplies the constant.
     match add.foldsTo ctx addInBounds constants with
-    | some (.useConstant (.int 32 (.val value))) =>
+    | some #[.useConstant (.int 32 (.val value))] =>
       if value ≠ 15 then
         return s!"arith.addi folded to the wrong constant: {value}"
     | _ => return "arith.addi did not evaluate"
@@ -49,7 +49,7 @@ private def testFoldDecision : String := Id.run do
     -- Interpreter UB becomes poison.
     match OpCode.foldsTo (.arith .ceildivui) default i32Types
         #[some (.int 32 (.val 5)), some (.int 32 (.val 0))] with
-    | some (.useConstant (.int 32 .poison)) => pure ()
+    | some #[.useConstant (.int 32 .poison)] => pure ()
     | _ => return "arith.ceildivui by zero did not fold UB to poison"
 
     return "ok"
@@ -189,7 +189,7 @@ private def testNswOverflowFoldsToPoison : String := Id.run do
   let operands : Array (Option RuntimeValue) :=
     #[some (.int 32 (.val (BitVec.ofInt 32 2147483647))), some (.int 32 (.val 1))]
   match OpCode.foldsTo (.arith .addi) props #[i32] operands with
-  | some (.useConstant value) =>
+  | some #[.useConstant value] =>
     match (.arith .addi : OpCode).materializeConstant value i32 with
     | some ⟨.llvm .mlir__poison, _⟩ => return "ok"
     | _ => return "nsw overflow did not materialize llvm.mlir.poison"
@@ -226,6 +226,81 @@ info: "ok"
 -/
 #guard_msgs in
 #eval! testDialectsWithoutMaterializerDecline
+
+/--
+An operation with more than one result folds to one constant per result:
+`arith.mului_extended` produces the low word and the unsigned high word.
+-/
+private def testMultiResultFoldDecision : String := Id.run do
+  let i8 : TypeAttr := IntegerType.mk 8
+  -- 200 * 3 = 600 = 0x258, so the low word is 0x58 and the high word is 0x2.
+  let operands : Array (Option RuntimeValue) :=
+    #[some (.int 8 (.val 200)), some (.int 8 (.val 3))]
+  match OpCode.foldsTo (.arith .mului_extended) default #[i8, i8] operands with
+  | some #[.useConstant (.int 8 (.val low)), .useConstant (.int 8 (.val high))] =>
+    if low ≠ 0x58 then return s!"mului_extended folded to the wrong low word: {low}"
+    if high ≠ 2 then return s!"mului_extended folded to the wrong high word: {high}"
+    return "ok"
+  | _ => return "mului_extended did not fold to two constants"
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testMultiResultFoldDecision
+
+/--
+The two results of `arith.addui_extended` have different types: the sum takes
+the operand type and the overflow flag is an `i1`.
+-/
+private def testMultiResultFoldDecisionMixedTypes : String := Id.run do
+  let i8 : TypeAttr := IntegerType.mk 8
+  let i1 : TypeAttr := IntegerType.mk 1
+  let operands : Array (Option RuntimeValue) :=
+    #[some (.int 8 (.val 255)), some (.int 8 (.val 1))]
+  match OpCode.foldsTo (.arith .addui_extended) default #[i8, i1] operands with
+  | some #[.useConstant (.int 8 (.val sum)), .useConstant (.int 1 (.val overflow))] =>
+    if sum ≠ 0 then return s!"addui_extended folded to the wrong sum: {sum}"
+    if overflow ≠ 1 then return s!"addui_extended folded to the wrong flag: {overflow}"
+    return "ok"
+  | _ => return "addui_extended did not fold to two constants"
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testMultiResultFoldDecisionMixedTypes
+
+/-- One unknown operand defeats the fold of every result, not just of one. -/
+private def testMultiResultUnknownOperand : String := Id.run do
+  let i8 : TypeAttr := IntegerType.mk 8
+  match OpCode.foldsTo (.arith .mului_extended) default #[i8, i8]
+      #[some (.int 8 (.val 200)), none] with
+  | none => return "ok"
+  | _ => return "mului_extended folded with an unknown operand"
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testMultiResultUnknownOperand
+
+/--
+A decision has one entry per result, so a result type array that disagrees with
+what the interpreter computed is not folded.
+-/
+private def testResultTypeCountMismatch : String := Id.run do
+  let i8 : TypeAttr := IntegerType.mk 8
+  match OpCode.foldsTo (.arith .mului_extended) default #[i8]
+      #[some (.int 8 (.val 200)), some (.int 8 (.val 3))] with
+  | none => return "ok"
+  | _ => return "mului_extended folded against the wrong number of result types"
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testResultTypeCountMismatch
 
 /-- A value whose width disagrees with the result type is never materialized. -/
 private def testBitwidthMismatchIsRejected : String := Id.run do

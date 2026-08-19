@@ -124,8 +124,13 @@ def getPoisonForType (ty : TypeAttr) : Option RuntimeValue :=
   | .byteType byteTy => some (.byte byteTy.bitwidth LLVM.Byte.allPoison)
   | _ => none
 
+@[expose]
 def ArrayConforms (source : Array RuntimeValue) (target : Array TypeAttr) : Prop :=
   source.size = target.size ∧ ∀ (i : Nat) (_ : i < source.size), source[i]!.Conforms target[i]!
+
+instance : Decidable (ArrayConforms source target) := by
+  unfold ArrayConforms
+  infer_instance
 
 theorem ArrayConforms.take_succ_eq {source : Array RuntimeValue} {target : Array TypeAttr} :
     source.size = target.size →
