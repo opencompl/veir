@@ -5,7 +5,7 @@ open Lean Elab Tactic Meta
 
 namespace Veir.Data.PBV
 
-def pbvTranslate (g : MVarId) (bound : Nat) : TacticM MVarId := do
+def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
   logInfo s!"Deciding with bound {bound}"
 
 -- Start by only trying to apply width elim, and generating some new hyps
@@ -16,7 +16,7 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM MVarId := do
     for ldecl in ← getLCtx do
       unless ldecl.isImplementationDetail do
         if ← isDefEq ldecl.type (mkConst ``Nat) then
-          logInfo m!"Found a var! {ldecl.userName}"
+          logInfo m!"Applying width_elim to {ldecl.userName}"
           let applied := mkAppN width_elim_theorem #[mkNatLit bound, ldecl.toExpr, ← g.getType]
           let out ← g.apply applied
           let some out := out[0]? | throwError "Shuold have a goal here"
@@ -28,13 +28,21 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM MVarId := do
   let (mask, g_no_w) ← g_no_w.intro mask_name
   let (mask_hyp, g_no_w) ← g_no_w.intro (Name.mkSimple s!"h_{mask_name}")
 
+
+
 -- Not do var elim
   let var_elim_theorem ← mkConstWithFreshMVarLevels ``var_elim
 
   let g_no_w_no_v ← g_no_w.withContext do
     let width_var ← getFVarFromUserName widthName
-
     logInfo (width_var)
+
+  -- Assert that the width variable is less than the width bound
+    let width_le_bound_expr := mkAppN (Expr.const `Nat.le []) #[width_var, mkNatLit bound]
+    let width_le_bound ← mkFreshExprMVar width_le_bound_expr
+    logInfo (width_le_bound)
+
+    let mut out_goals := #[width_le_bound.mvarId!]
 
     for ldecl in ← getLCtx do
       unless ldecl.isImplementationDetail do
@@ -42,10 +50,16 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM MVarId := do
         if ← isDefEq ldecl.type (mkApp (mkConst ``BitVec) width_var) then
           logInfo s!"Applying var_elim to {ldecl.userName}"
           let (var_hyp, goal) ← g_no_w.revert #[ldecl.fvarId]
-          return goal
+          logInfo (← goal.getType)
+          -- not providing the `hwo` hypothesis but seems to work?
+          let applied := mkAppN var_elim_theorem #[mkNatLit bound, width_var, width_le_bound]
+          let out ← goal.apply applied
+          let some goal := out[0]? | throwError "ahhhh"
+          out_goals := out_goals.push goal
+          return out_goals
     throwError "Shouldn't get here"
 
-  return g_no_w_no_v
+  return g_no_w_no_v.toList
 
 
 syntax (name := pbvDecide) "pbv_decide" optConfig (ppSpace colGt num)? : tactic
@@ -54,7 +68,7 @@ syntax (name := pbvDecide) "pbv_decide" optConfig (ppSpace colGt num)? : tactic
 def evalPbvDecide : Tactic := fun stx => do
   match stx with
   | `(tactic| pbv_decide $n:num) => do
-      replaceMainGoal [← pbvTranslate (← getMainGoal) n.getNat]
+      replaceMainGoal (← pbvTranslate (← getMainGoal) n.getNat)
   | _ => throwUnsupportedSyntax
 
 
