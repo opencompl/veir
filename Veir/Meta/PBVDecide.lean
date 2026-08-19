@@ -1,7 +1,7 @@
 import Lean
 import Veir.Data.PBV
 
-open Lean Elab Tactic Meta
+open Lean Elab Tactic Meta Simp
 
 namespace Veir.Data.PBV
 
@@ -28,19 +28,15 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
   let (mask, g_no_w) ← g_no_w.intro mask_name
   let (mask_hyp, g_no_w) ← g_no_w.intro (Name.mkSimple s!"h_{mask_name}")
 
-
-
 -- Now do var elim
   let var_elim_theorem ← mkConstWithFreshMVarLevels ``var_elim
 
-  let g_no_w_no_v ← g_no_w.withContext do
+  let (g_no_w_no_v, w_expr) ← g_no_w.withContext do
     let width_var ← getFVarFromUserName widthName
-    logInfo (width_var)
 
   -- Assert that the width variable is less than the width bound
     let width_le_bound_expr := mkAppN (Expr.const `Nat.le []) #[width_var, mkNatLit bound]
     let width_le_bound ← mkFreshExprMVar width_le_bound_expr
-    logInfo (width_le_bound)
 
     let mut out_goal := g_no_w
 
@@ -61,9 +57,25 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
           let (new_hyp, goal) ← goal.intro (Name.mkSimple s!"h_m{name}")
 
           out_goal := goal
-    return [out_goal, width_le_bound.mvarId!]
+    return (out_goal, width_le_bound)
 
-  return g_no_w_no_v
+  let push_th := #[``eq_iff, ``setWidth_add, ``setWidth_setWidth]
+
+  let curried_push := push_th.map (mkAppM · #[w_expr])
+
+  let mut simpThms : SimpTheoremsArray := #[]
+
+  for n in push_th do
+    let push_thm ← mkAppM n #[w_expr]
+    simpThms ← simpThms.addTheorem (.other n) push_thm
+
+  let ctx ← Simp.mkContext (simpTheorems := simpThms)
+
+  let (result, _) ← simpTarget g_no_w_no_v ctx
+
+  let some goal_out := result | throwError "solved everything!"
+
+  return [goal_out, w_expr.mvarId!]
 
 
 syntax (name := pbvDecide) "pbv_decide" optConfig (ppSpace colGt num)? : tactic
@@ -80,3 +92,5 @@ def evalPbvDecide : Tactic := fun stx => do
 theorem trace_add_comm (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
   x + y = y + x := by
   pbv_decide 13
+  bv_decide
+  grind
