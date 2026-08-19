@@ -270,10 +270,8 @@ def Llvm.toAttrDict
     dict
   | .func => Id.run do
     let mut dict := Std.HashMap.ofList props.extra.entries.toList
-    if let some sym_name := props.sym_name then
-      dict := dict.insert "sym_name".toUTF8 (.stringAttr sym_name)
-    if let some function_type := props.function_type then
-      dict := dict.insert "function_type".toUTF8 function_type
+    dict := dict.insert "sym_name".toUTF8 (.stringAttr props.sym_name)
+    dict := dict.insert "function_type".toUTF8 (.llvmFunctionType props.function_type)
     dict
   | .module_flags =>
     (Std.HashMap.emptyWithCapacity 3).insert
@@ -348,10 +346,7 @@ def OperationPtr.verifyLLVMFuncReturnTypes {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Llvm] (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) (funcOp : OperationPtr) : Except String PUnit := do
   let props : Llvm.propertiesOf .func := funcOp.getProperties! ctx.raw Llvm.func
-  let some functionType := props.function_type
-    | throw "Expected enclosing llvm.func to have a function_type attribute"
-  let .llvmFunctionType functionType := functionType.val
-    | throw "Expected enclosing llvm.func to have a function_type attribute"
+  let functionType := props.function_type
   -- A single `llvm.void` result corresponds to no return operands.
   let outputs := match functionType.outputs with
     | #[.llvmVoidType _] => #[]
@@ -617,12 +612,6 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "Expected 1 region"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
-    let props : Llvm.propertiesOf .func := op.getProperties! ctx.raw Llvm.func
-    match props.function_type with
-    | some ⟨.llvmFunctionType _, _⟩ => pure ()
-    | _ => throw "Expected function type"
-    if props.sym_name.isNone then
-      throw "Expected symbol name"
   | .fadd | .fsub | .fmul | .fdiv | .frem => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 2 1

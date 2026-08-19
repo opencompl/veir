@@ -29,25 +29,19 @@ namespace FunctionOpInterface
 def getSymName? (funcOp : OperationPtr) (raw : IRContext OpCode) : Option StringAttr :=
   match funcOp.getOpType! raw with
   | .func .func =>
-    (funcOp.getProperties! raw Func.func : FuncFuncProperties).sym_name
+    some (funcOp.getProperties! raw Func.func : FuncFuncProperties).sym_name
   | .llvm .func =>
-    (funcOp.getProperties! raw Llvm.func : LLVMFuncProperties).sym_name
+    some (funcOp.getProperties! raw Llvm.func : LLVMFuncProperties).sym_name
   | _ => none
 
 /-- Returns the type of the function. -/
 def getFunctionType? (funcOp : OperationPtr) (raw : IRContext OpCode) :
-    Option FunctionType := do
+    Option FunctionType :=
   match funcOp.getOpType! raw with
   | .func .func =>
-    let ta ← (funcOp.getProperties! raw Func.func : FuncFuncProperties).function_type
-    match ta.val with
-    | .functionType ft => some ft
-    | _ => none
+    some (funcOp.getProperties! raw Func.func : FuncFuncProperties).function_type
   | .llvm .func =>
-    let ta ← (funcOp.getProperties! raw Llvm.func : LLVMFuncProperties).function_type
-    match ta.val with
-    | .llvmFunctionType ft => some ft
-    | _ => none
+    some (funcOp.getProperties! raw Llvm.func : LLVMFuncProperties).function_type
   | _ => none
 
 /-!
@@ -95,14 +89,12 @@ def setFunctionType (wfCtx : WfIRContext OpCode) (funcOp : OperationPtr)
     (opInBounds : funcOp.InBounds wfCtx.raw := by grind) : WfIRContext OpCode :=
   let opType := funcOp.getOpType! wfCtx.raw
   if h : opType = ofDialect OpCode Func.func then
-    let ftType : TypeAttr := ⟨.functionType { inputs, outputs }, by simp⟩
     let props : FuncFuncProperties := funcOp.getProperties! wfCtx.raw Func.func
-    let newProps : FuncFuncProperties := { props with function_type := some ftType }
+    let newProps : FuncFuncProperties := { props with function_type := { inputs, outputs } }
     WfRewriter.setProperties wfCtx funcOp Func.func newProps opInBounds
   else if h : opType = ofDialect OpCode Llvm.func then
-    let ftType : TypeAttr := ⟨.llvmFunctionType { inputs, outputs }, by simp⟩
     let props : LLVMFuncProperties := funcOp.getProperties! wfCtx.raw Llvm.func
-    let newProps : LLVMFuncProperties := { props with function_type := some ftType }
+    let newProps : LLVMFuncProperties := { props with function_type := { inputs, outputs } }
     WfRewriter.setProperties wfCtx funcOp Llvm.func newProps opInBounds
   else
     wfCtx

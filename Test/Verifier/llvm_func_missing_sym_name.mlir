@@ -7,4 +7,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: llvm.func: Expected symbol name
+// CHECK: llvm.func: missing 'sym_name' property

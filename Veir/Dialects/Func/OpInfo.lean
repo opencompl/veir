@@ -42,10 +42,8 @@ def Func.toAttrDict
     dict
   | .func => Id.run do
     let mut dict := Std.HashMap.ofList props.extra.entries.toList
-    if let some sym_name := props.sym_name then
-      dict := dict.insert "sym_name".toUTF8 (.stringAttr sym_name)
-    if let some function_type := props.function_type then
-      dict := dict.insert "function_type".toUTF8 function_type
+    dict := dict.insert "sym_name".toUTF8 (.stringAttr props.sym_name)
+    dict := dict.insert "function_type".toUTF8 (.functionType props.function_type)
     dict
   | _ => Std.HashMap.emptyWithCapacity 0
 
@@ -91,10 +89,7 @@ def OperationPtr.verifyFuncReturnTypes {OpInfo : Type} [IsOpCode OpInfo]
   let some .func := toDialect? Func (funcOp.getOpType! ctx.raw)
     | throw "Expected func.return to be enclosed by func.func"
   let props : Func.propertiesOf .func := funcOp.getProperties! ctx.raw Func.func
-  let some functionType := props.function_type
-    | throw "Expected enclosing func.func to have a function_type attribute"
-  let .functionType functionType := functionType.val
-    | throw "Expected enclosing func.func to have a function_type attribute"
+  let functionType := props.function_type
   let outputs := functionType.outputs
   if op.getNumOperands ctx.raw opIn ≠ outputs.size then
     throw s!"Expected func.return to have {outputs.size} operand(s)"
@@ -121,12 +116,6 @@ def Func.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "Expected 0 results"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
-    let props : Func.propertiesOf .func := op.getProperties! ctx.raw Func.func
-    match props.function_type with
-    | some ⟨.functionType _, _⟩ => pure ()
-    | _ => throw "Expected function type"
-    if props.sym_name.isNone then
-      throw "Expected symbol name"
   | .call => do
     if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
