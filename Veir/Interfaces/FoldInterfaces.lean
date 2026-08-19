@@ -17,21 +17,15 @@ public section
 
 namespace Veir
 
-/-- The result of an attempt to fold; failure is returned out of band.
-    For operations that return multiple results, we need to return an
-    array of these. -/
+/-- What one result of a folded operation is replaced with; failure to fold is
+    returned out of band. Folding an operation yields an array of these, one per
+    result and in result order: an operation folds entirely or not at all, so
+    the array has exactly as many entries as the operation has results. -/
 inductive FoldResult where
   /-- Use operand `j` of the folded operation in place of this result. -/
   | useOperand (j : Nat)
   /-- Use the runtime constant `rv` in place of this result. -/
   | useConstant (rv : RuntimeValue)
-
-/--
-  The outcome of folding an operation: one `FoldResult` per result of the
-  operation, in result order. An operation folds entirely or not at all, so a
-  decision has exactly as many entries as the operation has results.
--/
-abbrev FoldDecision := Array FoldResult
 
 /--
   Decide whether an operation folds, given its opcode, properties, result
@@ -40,7 +34,7 @@ abbrev FoldDecision := Array FoldResult
 -/
 def OpCode.foldsTo (opType : OpCode) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue))
-    : Option FoldDecision := do
+    : Option (Array FoldResult) := do
   guard (!opType.isConstantLike)
   let values ← constOperands.mapM id
   match ← (foldEvaluate opType properties resultTypes values : Option (UBOr _)) with
@@ -52,7 +46,7 @@ def OpCode.foldsTo (opType : OpCode) (properties : propertiesOf opType)
 -/
 def OperationPtr.foldsTo (op : OperationPtr)
     (ctx : WfIRContext OpCode) (opInBounds : op.InBounds ctx.raw)
-    (constOperands : Array (Option RuntimeValue)) : Option FoldDecision := do
+    (constOperands : Array (Option RuntimeValue)) : Option (Array FoldResult) := do
   guard (constOperands.size = op.getNumOperands ctx.raw opInBounds)
   let opType := op.getOpType ctx.raw opInBounds
   OpCode.foldsTo opType
