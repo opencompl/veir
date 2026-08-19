@@ -42,10 +42,8 @@ def Func.toAttrDict
     dict
   | .func => Id.run do
     let mut dict := Std.HashMap.ofList props.extra.entries.toList
-    if let some sym_name := props.sym_name then
-      dict := dict.insert "sym_name".toUTF8 (.stringAttr sym_name)
-    if let some function_type := props.function_type then
-      dict := dict.insert "function_type".toUTF8 function_type
+    dict := dict.insert "sym_name".toUTF8 (.stringAttr props.sym_name)
+    dict := dict.insert "function_type".toUTF8 (.functionType props.function_type)
     dict
   | _ => Std.HashMap.emptyWithCapacity 0
 
@@ -58,11 +56,6 @@ def Func.getEffects
 def Func.isConstantLike (_op : Func) : Bool :=
   false
 
-def Func.isFunctionLike (op : Func) : Bool :=
-  match op with
-  | .func => true
-  | .call | .return => false
-
 def Func.hasSSADominance (_op : Func) (_index : Nat) : Bool :=
   true
 
@@ -73,33 +66,35 @@ def Func.isTerminator (op : Func) : Bool :=
 
 #generate_dialect Func
 
-instance : HasOpInfo Func where
+instance : IsOpCode Func where
   fromName := Func.fromName
   name := Func.name
   propertiesOf := Func.propertiesOf
   fromAttrDict := Func.fromAttrDict
   toAttrDict := Func.toAttrDict
-  getEffects := Func.getEffects
-  isConstantLike := Func.isConstantLike
-  isFunctionLike := Func.isFunctionLike
-  hasSSADominance := Func.hasSSADominance
-  isTerminator := Func.isTerminator
+
+def Func.functionInterface? (op : Func) : Option (FunctionOpInterface (Func.propertiesOf op)) :=
+  match op with
+  | .func =>
+    some
+      { getSymName := fun props => props.sym_name
+        getFunctionType := fun props => props.function_type
+        setFunctionType := fun props functionType =>
+          { props with function_type := functionType } }
+  | _ => none
 
 /--
 Check that a `func.return` returns the declared result types of its enclosing
 `func.func`.
 -/
-def OperationPtr.verifyFuncReturnTypes {OpInfo : Type} [HasOpInfo OpInfo]
+def OperationPtr.verifyFuncReturnTypes {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Func] (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   let funcOp ← op.getEnclosingFunctionOp ctx "func.return"
   let some .func := toDialect? Func (funcOp.getOpType! ctx.raw)
     | throw "Expected func.return to be enclosed by func.func"
   let props : Func.propertiesOf .func := funcOp.getProperties! ctx.raw Func.func
-  let some functionType := props.function_type
-    | throw "Expected enclosing func.func to have a function_type attribute"
-  let .functionType functionType := functionType.val
-    | throw "Expected enclosing func.func to have a function_type attribute"
+  let functionType := props.function_type
   let outputs := functionType.outputs
   if op.getNumOperands ctx.raw opIn ≠ outputs.size then
     throw s!"Expected func.return to have {outputs.size} operand(s)"
@@ -113,7 +108,7 @@ Verify the local invariants of a `func` operation in any operation-info type
 containing the `func` dialect.
 -/
 @[expose]
-def Func.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
+def Func.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Func] (opType : Func) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
@@ -126,12 +121,6 @@ def Func.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
       throw "Expected 0 results"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
-    let props : Func.propertiesOf .func := op.getProperties! ctx.raw Func.func
-    match props.function_type with
-    | some ⟨.functionType _, _⟩ => pure ()
-    | _ => throw "Expected function type"
-    if props.sym_name.isNone then
-      throw "Expected symbol name"
   | .call => do
     if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
@@ -141,6 +130,14 @@ def Func.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
   | .return => do
     op.verifyTerminatorCounts ctx opIn 0
     op.verifyFuncReturnTypes ctx opIn
+
+instance : HasOpInfo Func where
+  verifyLocalInvariants := Func.verifyLocalInvariants
+  getEffects := Func.getEffects
+  isConstantLike := Func.isConstantLike
+  functionInterface? := Func.functionInterface?
+  hasSSADominance := Func.hasSSADominance
+  isTerminator := Func.isTerminator
 
 end
 

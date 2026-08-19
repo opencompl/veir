@@ -36,7 +36,7 @@ private def testFoldDecision : String := Id.run do
 
     -- All operands known: the interpreter supplies the constant.
     match add.foldsTo ctx addInBounds constants with
-    | some (.useConstant (.int 32 (.val value))) =>
+    | some #[.useConstant (.int 32 (.val value))] =>
       if value ≠ 15 then
         return s!"arith.addi folded to the wrong constant: {value}"
     | _ => return "arith.addi did not evaluate"
@@ -49,7 +49,7 @@ private def testFoldDecision : String := Id.run do
     -- Interpreter UB becomes poison.
     match OpCode.foldsTo (.arith .ceildivui) default i32Types
         #[some (.int 32 (.val 5)), some (.int 32 (.val 0))] with
-    | some (.useConstant (.int 32 .poison)) => pure ()
+    | some #[.useConstant (.int 32 .poison)] => pure ()
     | _ => return "arith.ceildivui by zero did not fold UB to poison"
 
     return "ok"
@@ -73,24 +73,24 @@ private def testFoldDecisionPreference : String := Id.run do
   -- Both mechanisms fold: the interpreter's concrete constant beats the
   -- table's request to reuse operand 0.
   match OpCode.foldsTo (.arith .addi) default #[i32] #[seven, zero] with
-  | some (.useConstant (.int 32 (.val value))) =>
+  | some #[.useConstant (.int 32 (.val value))] =>
     if value ≠ 7 then return s!"arith.addi folded to the wrong constant: {value}"
   | _ => return "a concrete constant did not beat an operand"
 
   -- Blanket propagation and evaluation agree on the preferred poison constant.
   match OpCode.foldsTo (.arith .addi) default #[i32] #[poison, zero] with
-  | some (.useConstant (.int 32 .poison)) => pure ()
+  | some #[.useConstant (.int 32 .poison)] => pure ()
   | _ => return "arith.addi with poison did not produce a poison constant"
 
   -- With an unknown left operand, evaluation declines and the table's operand
   -- result wins over no fold.
   match OpCode.foldsTo (.arith .addi) default #[i32] #[none, zero] with
-  | some (.useOperand 0) => pure ()
+  | some #[.useOperand 0] => pure ()
   | _ => return "an operand did not beat no fold"
 
   -- `llvm.add` carries the same identity fold as `arith.addi`.
   match OpCode.foldsTo (.llvm .add) default #[i32] #[none, zero] with
-  | some (.useOperand 0) => pure ()
+  | some #[.useOperand 0] => pure ()
   | _ => return "llvm.add x, 0 did not fold to its left operand"
   match OpCode.foldsTo (.llvm .add) default #[i32] #[none, some (.int 32 (.val 1))] with
   | none => pure ()
@@ -107,7 +107,7 @@ private def testFoldDecisionPreference : String := Id.run do
   let zeroProperties : propertiesOf (.riscv .andi : OpCode) :=
     RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 12))
   match OpCode.foldsTo (.riscv .andi) zeroProperties #[registerType] #[none] with
-  | some (.useConstant (.reg value)) =>
+  | some #[.useConstant (.reg value)] =>
     if value.val ≠ 0 then return "riscv.andi folded to a nonzero register"
     return "ok"
   | _ => return "a table constant did not beat no fold"
@@ -128,26 +128,26 @@ private def testBlanketPoisonFolds : String := Id.run do
   let floatPoison : Option RuntimeValue := some (.floatPoison 64)
 
   match OpCode.foldsTo (.arith .addi) default #[i32] #[none, poison] with
-  | some (.useConstant (.int 32 .poison)) => pure ()
+  | some #[.useConstant (.int 32 .poison)] => pure ()
   | _ => return "arith.addi x, poison did not fold to poison"
   match OpCode.foldsTo (.arith .addi) default #[i32] #[poison, none] with
-  | some (.useConstant (.int 32 .poison)) => pure ()
+  | some #[.useConstant (.int 32 .poison)] => pure ()
   | _ => return "arith.addi poison, x did not fold to poison"
   match OpCode.foldsTo (.arith .cmpi) default #[i1] #[none, poison] with
-  | some (.useConstant (.int 1 .poison)) => pure ()
+  | some #[.useConstant (.int 1 .poison)] => pure ()
   | _ => return "arith.cmpi x, poison did not produce an i1 poison"
 
   match OpCode.foldsTo (.llvm .add) default #[i32] #[none, poison] with
-  | some (.useConstant (.int 32 .poison)) => pure ()
+  | some #[.useConstant (.int 32 .poison)] => pure ()
   | _ => return "llvm.add x, poison did not fold to poison"
   match OpCode.foldsTo (.llvm .add) default #[i32] #[poison, none] with
-  | some (.useConstant (.int 32 .poison)) => pure ()
+  | some #[.useConstant (.int 32 .poison)] => pure ()
   | _ => return "llvm.add poison, x did not fold to poison"
   match OpCode.foldsTo (.llvm .icmp) default #[i1] #[none, poison] with
-  | some (.useConstant (.int 1 .poison)) => pure ()
+  | some #[.useConstant (.int 1 .poison)] => pure ()
   | _ => return "llvm.icmp x, poison did not produce an i1 poison"
   match OpCode.foldsTo (.llvm .fadd) default #[f64] #[none, floatPoison] with
-  | some (.useConstant (.floatPoison 64)) => pure ()
+  | some #[.useConstant (.floatPoison 64)] => pure ()
   | _ => return "llvm.fadd x, poison did not fold to floating-point poison"
 
   -- Poison on an unselected arm does not propagate through select.
@@ -162,7 +162,7 @@ private def testBlanketPoisonFolds : String := Id.run do
   -- Freeze consumes poison instead of propagating it; all-constant evaluation
   -- supplies the concrete frozen value.
   match OpCode.foldsTo (.llvm .freeze) () #[i32] #[poison] with
-  | some (.useConstant (.int 32 (.val value))) =>
+  | some #[.useConstant (.int 32 (.val value))] =>
     if value ≠ 0 then return "llvm.freeze produced the wrong concrete value"
     return "ok"
   | _ => return "llvm.freeze incorrectly propagated poison"
@@ -302,7 +302,7 @@ private def testNswOverflowFoldsToPoison : String := Id.run do
   let operands : Array (Option RuntimeValue) :=
     #[some (.int 32 (.val (BitVec.ofInt 32 2147483647))), some (.int 32 (.val 1))]
   match OpCode.foldsTo (.arith .addi) props #[i32] operands with
-  | some (.useConstant value) =>
+  | some #[.useConstant value] =>
     match (.arith .addi : OpCode).materializeConstant value i32 with
     | some ⟨.llvm .mlir__poison, _⟩ => return "ok"
     | _ => return "nsw overflow did not materialize llvm.mlir.poison"

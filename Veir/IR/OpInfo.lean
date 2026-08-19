@@ -1,6 +1,7 @@
 module
 
 public import Veir.IR.OpCode
+public import Veir.IR.WellFormed
 public import Veir.FoldDecision
 
 namespace Veir
@@ -42,8 +43,27 @@ def unknown : MemoryEffects :=
 
 end MemoryEffects
 
+/-- Information exposed by operations that behave like functions. -/
+structure FunctionOpInterface (Properties : Type) where
+  /-- Return the symbol name of the function. -/
+  getSymName : Properties → StringAttr
+  /-- Return the type of the function. -/
+  getFunctionType : Properties → FunctionType
+  /-- Return the properties with the function type replaced. -/
+  setFunctionType : Properties → FunctionType → Properties
+
 class HasOpInfo (opCode: Type)
     extends IsOpCode opCode where
+  /--
+  Verify the local invariants of an operation. This typically includes checking
+  that the number of operands, successors, results, and regions match the
+  expected values for the operation type, as well as checking that referenced
+  types are in bounds.
+  -/
+  verifyLocalInvariants :
+    (opType : opCode) → (op : OperationPtr) → (ctx : WfIRContext opCode) →
+    (opIn : op.InBounds ctx.raw) → Except String PUnit :=
+      fun _ _ _ _ => pure ()
   /--
   Apply this opcode set's dialect-local fold table. The array contains the
   known constant value of each operand, or `none` for a nonconstant operand.
@@ -66,10 +86,10 @@ class HasOpInfo (opCode: Type)
   -/
   isConstantLike : opCode → Bool := fun _ => false
   /--
-  Whether an operation with this opcode acts like a function: a symbol
-  whose single region is the function body.
+  Information about operations that act like functions.
   -/
-  isFunctionLike : opCode → Bool := fun _ => false
+  functionInterface? : (op : opCode) → Option (FunctionOpInterface (propertiesOf op)) :=
+    fun _ => none
   /--
   Return the kind of the indexed region inside an operation with this opcode.
   This mirrors MLIR's `RegionKindInterface` default: regions are SSACFG unless
@@ -100,6 +120,13 @@ class HasOpInfo (opCode: Type)
   Does this OpCode count as an MLIR basic block terminator?
   -/
   isTerminator : opCode → Bool := fun _ => false
+
+/-- Verify the local invariants of an operation using its opcode interface. -/
+@[inline]
+abbrev OperationPtr.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) :
+    Except String PUnit :=
+  HasOpInfo.verifyLocalInvariants (op.getOpType ctx.raw opIn) op ctx opIn
 
 end -- public section
 

@@ -26,10 +26,17 @@ private def FoldDecision.preference : Option FoldDecision → Nat
   | some (.useOperand _) => 1
   | some (.useConstant value) => if value.isPoison then 3 else 2
 
+/--
+  Rank the fold outcome of an entire operation by its first result. The dialect
+  fold tables that this ordering arbitrates are all single-result.
+-/
+private def foldPreference (results : Option (Array FoldDecision)) : Nat :=
+  FoldDecision.preference (results.bind (·[0]?))
+
 /-- Return the better fold outcome, retaining the first when both rank equally. -/
-private def FoldDecision.preferred (first second : Option FoldDecision) :
-    Option FoldDecision :=
-  if FoldDecision.preference first < FoldDecision.preference second then second else first
+private def preferredFold (first second : Option (Array FoldDecision)) :
+    Option (Array FoldDecision) :=
+  if foldPreference first < foldPreference second then second else first
 
 /--
   Decide whether an operation folds, given its opcode, properties, result
@@ -41,26 +48,25 @@ private def FoldDecision.preferred (first second : Option FoldDecision) :
 -/
 def OpCode.foldsTo (opType : OpCode) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue))
-    : Option FoldDecision := do
+    : Option (Array FoldDecision) := do
   guard (!opType.isConstantLike)
-  let #[resultType] := resultTypes | none
-  let tableDecision := HasOpInfo.fold opType properties resultTypes constOperands
-  let evaluationDecision : Option FoldDecision := do
+  let tableDecision : Option (Array FoldDecision) := do
+    -- Dialect fold tables only describe operations with a single result.
+    let #[_] := resultTypes | none
+    return #[← HasOpInfo.fold opType properties resultTypes constOperands]
+  let evaluationDecision : Option (Array FoldDecision) := do
     let values ← constOperands.mapM id
     match ← (foldEvaluate opType properties resultTypes values : Option (UBOr _)) with
-    | .ok results =>
-      let result ← results[0]?
-      guard (result.Conforms resultType)
-      return .useConstant result
-    | .ub => return .useConstant (← RuntimeValue.getPoisonForType resultType)
-  FoldDecision.preferred tableDecision evaluationDecision
+    | .ok results => return results.map .useConstant
+    | .ub => return (← resultTypes.mapM RuntimeValue.getPoisonForType).map .useConstant
+  preferredFold tableDecision evaluationDecision
 
 /--
   Convenience wrapper around `OpCode.foldsTo`.
 -/
 def OperationPtr.foldsTo (op : OperationPtr)
     (ctx : WfIRContext OpCode) (opInBounds : op.InBounds ctx.raw)
-    (constOperands : Array (Option RuntimeValue)) : Option FoldDecision := do
+    (constOperands : Array (Option RuntimeValue)) : Option (Array FoldDecision) := do
   guard (constOperands.size = op.getNumOperands ctx.raw opInBounds)
   let opType := op.getOpType ctx.raw opInBounds
   OpCode.foldsTo opType
@@ -87,23 +93,33 @@ def PatternRewriter.materializeConstant! (rewriter : PatternRewriter OpCode)
     (some insertionPoint)
   return (rewriter, some op)
 
-/-- Replace a foldable operation with an operand or a materialized constant. -/
+/--
+Replace every result of a foldable operation with an operand or a materialized
+constant, and erase it. Operations that do not fold, and constants that the
+dialect declines to represent, leave the IR alone.
+-/
 def foldOperation (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let operands := op.getOperands rewriter.ctx.raw opInBounds
   let constantOperands := operands.map (ValuePtr.constantValue · rewriter.ctx.raw)
-  match op.foldsTo rewriter.ctx opInBounds constantOperands with
-  | none => return rewriter
-  | some (.useOperand index) =>
-    let replacement ← operands[index]?
-    let rewriter := rewriter.replaceValue! (op.getResult 0) replacement
-    return rewriter.eraseOp! op
-  | some (.useConstant value) =>
-    let resultType ← (op.getResultTypes rewriter.ctx.raw opInBounds)[0]?
-    match rewriter.materializeConstant! (op.getOpType rewriter.ctx.raw opInBounds)
-        value resultType (.before op) with
-    | none => none
-    | some (rewriter, none) => some rewriter
-    | some (rewriter, some constantOp) => some (rewriter.replaceOp! op constantOp)
+  let some decision := op.foldsTo rewriter.ctx opInBounds constantOperands
+    | return rewriter
+  let opType := op.getOpType rewriter.ctx.raw opInBounds
+  let resultTypes := op.getResultTypes rewriter.ctx.raw opInBounds
+  -- Collect a replacement for every result before redirecting any of them
+  let mut rewriter := rewriter
+  let mut replacements : Array ValuePtr := #[]
+  for (foldResult, index) in decision.zipIdx do
+    match foldResult with
+    | .useOperand j => replacements := replacements.push operands[j]!
+    | .useConstant value =>
+      let (newRewriter, materialized) ←
+        rewriter.materializeConstant! opType value resultTypes[index]! (.before op)
+      let some constantOp := materialized | return rewriter
+      rewriter := newRewriter
+      replacements := replacements.push (constantOp.getResult 0)
+  for (replacement, index) in replacements.zipIdx do
+    rewriter := rewriter.replaceValue! (op.getResult index) replacement
+  return rewriter.eraseOp! op
 
 end Veir
