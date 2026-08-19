@@ -42,24 +42,23 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
     let width_le_bound ← mkFreshExprMVar width_le_bound_expr
     logInfo (width_le_bound)
 
-    let mut out_goals := #[width_le_bound.mvarId!]
+    let mut out_goal := g_no_w
 
     for ldecl in ← getLCtx do
       unless ldecl.isImplementationDetail do
         -- Find the BitVec {width_expr} variables
         if ← isDefEq ldecl.type (mkApp (mkConst ``BitVec) width_var) then
           logInfo s!"Applying var_elim to {ldecl.userName}"
-          let (var_hyp, goal) ← g_no_w.revert #[ldecl.fvarId]
+          let (var_hyp, goal) ← out_goal.revert #[ldecl.fvarId]
           logInfo (← goal.getType)
           -- not providing the `hwo` hypothesis but seems to work?
           let applied := mkAppN var_elim_theorem #[mkNatLit bound, width_var, width_le_bound]
           let out ← goal.apply applied
           let some goal := out[0]? | throwError "ahhhh"
-          out_goals := out_goals.push goal
-          return out_goals
-    throwError "Shouldn't get here"
+          out_goal := goal
+    return [out_goal, width_le_bound.mvarId!]
 
-  return g_no_w_no_v.toList
+  return g_no_w_no_v
 
 
 syntax (name := pbvDecide) "pbv_decide" optConfig (ppSpace colGt num)? : tactic
