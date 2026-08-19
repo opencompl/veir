@@ -17,7 +17,9 @@ public section
 
 namespace Veir
 
-/-- What one result of a folded operation is replaced by. -/
+/-- The result of an attempt to fold; failure is returned out of band.
+    For operations that return multiple results, we need to return an
+    array of these. -/
 inductive FoldResult where
   /-- Use operand `j` of the folded operation in place of this result. -/
   | useOperand (j : Nat)
@@ -40,19 +42,13 @@ def OpCode.foldsTo (opType : OpCode) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue))
     : Option FoldDecision := do
   guard (!opType.isConstantLike)
-  -- An operation with no results computes nothing to fold to: if it is pure it
-  -- is dead code, which is the business of DCE rather than of folding.
   guard (!resultTypes.isEmpty)
   let values ← constOperands.mapM id
   match ← (foldEvaluate opType properties resultTypes values : Option (UBOr _)) with
   | .ok results =>
-    -- `ArrayConforms` also settles that there is exactly one result per result
-    -- type, so the decision below is the right size.
     guard (RuntimeValue.ArrayConforms results resultTypes)
     return results.map .useConstant
   | .ub =>
-    -- Every result of an operation that triggers UB is poison, so the fold only
-    -- happens when every result type can spell poison.
     let poison ← resultTypes.mapM RuntimeValue.getPoisonForType
     guard (poison.size = resultTypes.size)
     return poison.map .useConstant
