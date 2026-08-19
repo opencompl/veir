@@ -12,7 +12,6 @@ width-sensitive operation. See `Veir.Data.PBV` for more details.
 
 namespace Veir.Data.PBV
 
-
 public section
 
 /-! ## Introducing `setWidth o` at the root -/

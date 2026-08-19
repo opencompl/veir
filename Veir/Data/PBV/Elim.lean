@@ -37,4 +37,4 @@ theorem var_elim (o w : Nat) (hwo : w ≤ o) (Q : BitVec w → Prop)
     rw [toNat_and_maskOfWidth hwo, BitVec.toNat_setWidth_of_le hwo,
       Nat.mod_eq_of_lt x.isLt]
   have hx := h (x.setWidth o) hinv
-  rwa [BitVec.setWidth_setWidth_eq_self_of_le hwo] at hx
+  simpa [hwo] using hx

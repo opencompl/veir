@@ -16,8 +16,8 @@ public section
 /-- `maskOfWidth o w : BitVec o` has its low `w` bits set. -/
 def maskOfWidth (o w : Nat) : BitVec o := BitVec.ofNat o (2 ^ w - 1)
 
-/-- `IsMask` encoded `m = 2^k - 1` for some `k` in terms of bitvector operations
-removing the dependency on 'k' and allowing it to be bitblasted. -/
+/-- `IsMask` encodes `m = 2^k - 1` for some `k : Nat` in terms of bitvector
+operations removing the dependency on `k` and allowing it to be bitblasted. -/
 def IsMask {o : Nat} (m : BitVec o) : Prop := m &&& (m + 1#o) = 0#o
 
 theorem toNat_maskOfWidth {o w : Nat} (h : w ≤ o) :
@@ -25,7 +25,7 @@ theorem toNat_maskOfWidth {o w : Nat} (h : w ≤ o) :
   rw [maskOfWidth, BitVec.toNat_ofNat, Nat.mod_eq_of_lt]
   have h1 : 2 ^ w ≤ 2 ^ o := Nat.pow_le_pow_right (by omega) h
   have h2 : 0 < 2 ^ w := Nat.two_pow_pos w
-  grind
+  lia
 
 /-- Soundness: every real mask satisfies the constraint. -/
 theorem isMask_maskOfWidth {o w : Nat} :
@@ -35,7 +35,7 @@ theorem isMask_maskOfWidth {o w : Nat} :
     Nat.and_two_pow_sub_one_eq_mod]
 
 /-- The mask constraint: the only fact about `m` surviving abstraction. -/
-theorem mask_isMask {o w : Nat} {m : BitVec o}
+theorem isMask_of_eq_maskOfWidth {o w : Nat} {m : BitVec o}
     (hm : m = maskOfWidth o w) : IsMask m := by
   subst hm
   exact isMask_maskOfWidth
