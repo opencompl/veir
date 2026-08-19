@@ -28,10 +28,12 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
   let (mask, g_no_w) ← g_no_w.intro mask_name
   let (mask_hyp, g_no_w) ← g_no_w.intro (Name.mkSimple s!"h_{mask_name}")
 
+  let mut hyps := #[mask_hyp]
+
 -- Now do var elim
   let var_elim_theorem ← mkConstWithFreshMVarLevels ``var_elim
 
-  let (g_no_w_no_v, w_expr) ← g_no_w.withContext do
+  let (g_no_w_no_v, w_expr, new_hyps) ← g_no_w.withContext do
     let width_var ← getFVarFromUserName widthName
 
   -- Assert that the width variable is less than the width bound
@@ -39,6 +41,8 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
     let width_le_bound ← mkFreshExprMVar width_le_bound_expr
 
     let mut out_goal := g_no_w
+
+    let mut hyps : Array FVarId := #[]
 
     for ldecl in ← getLCtx do
       unless ldecl.isImplementationDetail do
@@ -53,27 +57,48 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
 
           let some oldvar_name := var_hyp[0]? | throwError "no var name?"
           let name ← oldvar_name.getUserName
-          let (new_var, goal) ← goal.intro (name)
+          let (_new_var, goal) ← goal.intro (name)
           let (new_hyp, goal) ← goal.intro (Name.mkSimple s!"h_m{name}")
 
+          hyps := hyps.push new_hyp
+
           out_goal := goal
-    return (out_goal, width_le_bound)
+    return (out_goal, width_le_bound, hyps)
+
+  hyps := hyps ++ new_hyps
 
 -- Simp and push theorems
-  let push_th := #[``eq_iff, ``setWidth_add, ``setWidth_setWidth] -- hardcoded theorems
+  let final_goal ← g_no_w_no_v.withContext do
+    let push_th := #[``eq_iff, ``setWidth_add, ``setWidth_setWidth] -- hardcoded theorems
+    let others := #[``BitVec.setWidth_eq]
 
-  let mut simpThms : SimpTheoremsArray := #[]
-  for n in push_th do
-    let push_thm ← mkAppM n #[w_expr]
-    simpThms ← simpThms.addTheorem (.other n) push_thm
+    -- push theorems that need to be partially evealuted with the right
+    -- symbolic width and concrete bound width
+    let mut simpThms : SimpTheoremsArray := #[]
+    for n in push_th do
+      let push_thm ← mkAppM n #[w_expr]
+      simpThms ← simpThms.addTheorem (.other n) push_thm
 
-  let ctx ← Simp.mkContext (simpTheorems := simpThms)
+    -- other theorems that don't need bounds
+    for n in others do
+      let thm ← mkConstWithFreshMVarLevels n
+      simpThms ← simpThms.addTheorem (.other n) thm
 
-  let (result, _) ← simpTarget g_no_w_no_v ctx
+    -- the hypothesis
+    for h in hyps do
+      logInfo (← h.getUserName)
+      let thm := mkFVar h
+      simpThms ← simpThms.addTheorem (.other h.name) thm
 
-  let some goal_out := result | throwError "solved everything?"
+    let ctx ← Simp.mkContext (simpTheorems := simpThms)
 
-  return [goal_out, w_expr.mvarId!]
+    let (result, _) ← simpTarget g_no_w_no_v ctx
+
+    let some goal_out := result | throwError "solved everything?"
+
+    return goal_out
+
+  return [final_goal, w_expr.mvarId!]
 
 syntax (name := pbvDecide) "pbv_decide" optConfig (ppSpace colGt num)? : tactic
 
