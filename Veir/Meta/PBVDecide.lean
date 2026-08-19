@@ -30,7 +30,7 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
 
 
 
--- Not do var elim
+-- Now do var elim
   let var_elim_theorem ← mkConstWithFreshMVarLevels ``var_elim
 
   let g_no_w_no_v ← g_no_w.withContext do
@@ -50,11 +50,16 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
         if ← isDefEq ldecl.type (mkApp (mkConst ``BitVec) width_var) then
           logInfo s!"Applying var_elim to {ldecl.userName}"
           let (var_hyp, goal) ← out_goal.revert #[ldecl.fvarId]
-          logInfo (← goal.getType)
           -- not providing the `hwo` hypothesis but seems to work?
           let applied := mkAppN var_elim_theorem #[mkNatLit bound, width_var, width_le_bound]
           let out ← goal.apply applied
           let some goal := out[0]? | throwError "ahhhh"
+
+          let some oldvar_name := var_hyp[0]? | throwError "no var name?"
+          let name ← oldvar_name.getUserName
+          let (new_var, goal) ← goal.intro (name)
+          let (new_hyp, goal) ← goal.intro (Name.mkSimple s!"h_m{name}")
+
           out_goal := goal
     return [out_goal, width_le_bound.mvarId!]
 
