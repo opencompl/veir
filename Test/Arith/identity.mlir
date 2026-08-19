@@ -1,5 +1,6 @@
 // RUN: VEIR_ROUNDTRIP
 // RUN: MLIR_ROUNDTRIP
+// GOLOBAL CHANGE FOR TESTING
 
 "builtin.module"() ({
   "func.func"() <{function_type = () -> (), sym_name = "main"}> ({
