@@ -59,12 +59,10 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
           out_goal := goal
     return (out_goal, width_le_bound)
 
-  let push_th := #[``eq_iff, ``setWidth_add, ``setWidth_setWidth]
-
-  let curried_push := push_th.map (mkAppM · #[w_expr])
+-- Simp and push theorems
+  let push_th := #[``eq_iff, ``setWidth_add, ``setWidth_setWidth] -- hardcoded theorems
 
   let mut simpThms : SimpTheoremsArray := #[]
-
   for n in push_th do
     let push_thm ← mkAppM n #[w_expr]
     simpThms ← simpThms.addTheorem (.other n) push_thm
@@ -73,10 +71,9 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
 
   let (result, _) ← simpTarget g_no_w_no_v ctx
 
-  let some goal_out := result | throwError "solved everything!"
+  let some goal_out := result | throwError "solved everything?"
 
   return [goal_out, w_expr.mvarId!]
-
 
 syntax (name := pbvDecide) "pbv_decide" optConfig (ppSpace colGt num)? : tactic
 
