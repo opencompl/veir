@@ -1,5 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s --check-prefix=SRC
-// RUN: veir-opt %s -p=canonicalize,instcombine,canonicalize,cse,dce,isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,canonicalize,riscv-combine,coerce-function-boundaries-to-riscv-reg,reconcile-cast,dce > %t
+// RUN: veir-opt %s -p='canonicalize{fold=false},instcombine,canonicalize{fold=false},cse,dce,isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,canonicalize{fold=false},riscv-combine,coerce-function-boundaries-to-riscv-reg,reconcile-cast,dce' > %t
 // RUN: veir-interpret %t >> %t
 // RUN: filecheck %s < %t
 

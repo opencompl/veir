@@ -221,4 +221,4 @@ def main (args : List String) : IO Unit := do
         IO.eprintln s!"Error: {errMsg}"
         IO.Process.exit 1
       | .ok finalCtx =>
-        Veir.Printer.printOperation finalCtx op
+        Veir.Printer.printOperation finalCtx.raw op
