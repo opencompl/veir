@@ -133,9 +133,12 @@ def Arith.propagatesPoison : Arith → Bool
   | .addi | .andi | .ceildivsi | .ceildivui | .cmpi | .divsi | .divui
   | .extsi | .extui | .floordivsi | .maxsi | .maxui | .minsi | .minui
   | .muli | .ori | .remsi | .remui | .shli | .shrsi | .shrui | .subi
-  | .trunci | .xori => true
-  | .constant | .select | .addui_extended | .subui_extended
-  | .mulsi_extended | .mului_extended => false
+  | .trunci | .xori
+  -- The extended operations poison both of their results. `propagatePoison`
+  -- only emits a decision for a single result, so these do not fold yet.
+  | .addui_extended | .subui_extended
+  | .mulsi_extended | .mului_extended => true
+  | .constant | .select => false
 
 /--
 Apply the `arith` dialect's fold table. The operation is assumed to have passed
