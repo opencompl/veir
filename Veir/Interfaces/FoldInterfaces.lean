@@ -92,9 +92,7 @@ def foldOperation (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     | return rewriter
   let opType := op.getOpType rewriter.ctx.raw opInBounds
   let resultTypes := op.getResultTypes rewriter.ctx.raw opInBounds
-  -- Collect a replacement for every result before redirecting any of them: a
-  -- dialect that declines to represent one of the constants cancels the fold,
-  -- and a half-folded operation would be folded again on the next sweep.
+  -- Collect a replacement for every result before redirecting any of them
   let mut rewriter := rewriter
   let mut replacements : Array ValuePtr := #[]
   for (foldResult, index) in decision.zipIdx do
@@ -103,14 +101,11 @@ def foldOperation (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     | .useConstant value =>
       let (newRewriter, materialized) ←
         rewriter.materializeConstant! opType value resultTypes[index]! (.before op)
-      -- The constants materialized for earlier results are dead, so the greedy
-      -- driver erases them again.
       let some constantOp := materialized | return rewriter
       rewriter := newRewriter
       replacements := replacements.push (constantOp.getResult 0)
   for (replacement, index) in replacements.zipIdx do
     rewriter := rewriter.replaceValue! (op.getResult index) replacement
-  -- Every result has been replaced, so the operation is dead.
   return rewriter.eraseOp! op
 
 end Veir
