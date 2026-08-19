@@ -20,12 +20,13 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
           let applied := mkAppN width_elim_theorem #[mkNatLit bound, ldecl.toExpr, ← g.getType]
           let out ← g.apply applied
           let some out := out[0]? | throwError "Shuold have a goal here"
+          -- TODO, this shuold loop over all widths
           return (out, ldecl.userName)
 
     throwError "haven't thought about this yet"
 
   let mask_name := Name.mkSimple s!"m{widthName}"
-  let (mask, g_no_w) ← g_no_w.intro mask_name
+  let (_mask, g_no_w) ← g_no_w.intro mask_name
   let (mask_hyp, g_no_w) ← g_no_w.intro (Name.mkSimple s!"h_{mask_name}")
 
   let mut hyps := #[mask_hyp]
@@ -59,7 +60,7 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
           let name ← oldvar_name.getUserName
           let (_new_var, goal) ← goal.intro (name)
           let (new_hyp, goal) ← goal.intro (Name.mkSimple s!"h_m{name}")
-
+          -- Add the mask hypothesis to the running list
           hyps := hyps.push new_hyp
 
           out_goal := goal
