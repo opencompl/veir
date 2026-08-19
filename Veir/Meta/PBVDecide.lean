@@ -5,30 +5,47 @@ open Lean Elab Tactic Meta
 
 namespace Veir.Data.PBV
 
+def pbvTranslate (g : MVarId) (bound : Nat) : TacticM MVarId := do
+  logInfo s!"Deciding with bound {bound}"
+
 -- Start by only trying to apply width elim, and generating some new hyps
 -- The width_elim has type:  (o w : Nat) (Q : Prop) (h : ∀ (m : BitVec o), m = maskOfWidth o w → Q) : Q
 -- so, will "feed" the current o w and goal (Q) and it will generate a new hole with the hypothesis and the Q
-def pbvTranslate (g : MVarId) (bound : Nat) : TacticM MVarId := do
-  logInfo ("Deciding with bound")
   let width_elim_theorem ← mkConstWithFreshMVarLevels ``width_elim
-  let (out, widthName) ← g.withContext do
+  let (g_no_w, widthName) ← g.withContext do
     for ldecl in ← getLCtx do
       unless ldecl.isImplementationDetail do
         if ← isDefEq ldecl.type (mkConst ``Nat) then
           logInfo m!"Found a var! {ldecl.userName}"
           let applied := mkAppN width_elim_theorem #[mkNatLit bound, ldecl.toExpr, ← g.getType]
           let out ← g.apply applied
-          let some g_out := out[0]? | throwError "Shuold have a goal here"
+          let some out := out[0]? | throwError "Shuold have a goal here"
+          return (out, ldecl.userName)
 
-          return (g_out, ldecl.userName)
     throwError "haven't thought about this yet"
 
   let mask_name := Name.mkSimple s!"m{widthName}"
-  let (mask, g_out) ← out.intro mask_name
-  let (mask_hyp, g_out) ← g_out.intro (Name.mkSimple s!"h_{mask_name}")
+  let (mask, g_no_w) ← g_no_w.intro mask_name
+  let (mask_hyp, g_no_w) ← g_no_w.intro (Name.mkSimple s!"h_{mask_name}")
 
-  logInfo (toString width_elim_theorem)
-  return g_out
+-- Not do var elim
+  let var_elim_theorem ← mkConstWithFreshMVarLevels ``var_elim
+
+  let g_no_w_no_v ← g_no_w.withContext do
+    let width_var ← getFVarFromUserName widthName
+
+    logInfo (width_var)
+
+    for ldecl in ← getLCtx do
+      unless ldecl.isImplementationDetail do
+        -- Find the BitVec {width_expr} variables
+        if ← isDefEq ldecl.type (mkApp (mkConst ``BitVec) width_var) then
+          logInfo s!"Applying var_elim to {ldecl.userName}"
+          let (var_hyp, goal) ← g_no_w.revert #[ldecl.fvarId]
+          return goal
+    throwError "Shouldn't get here"
+
+  return g_no_w_no_v
 
 
 syntax (name := pbvDecide) "pbv_decide" optConfig (ppSpace colGt num)? : tactic
