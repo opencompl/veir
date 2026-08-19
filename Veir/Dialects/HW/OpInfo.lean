@@ -68,22 +68,18 @@ def HW.isTerminator (op : HW) : Bool :=
 
 #generate_dialect HW
 
-instance : HasOpInfo HW where
+instance : IsOpCode HW where
   fromName := HW.fromName
   name := HW.name
   propertiesOf := HW.propertiesOf
   fromAttrDict := HW.fromAttrDict
   toAttrDict := HW.toAttrDict
-  getEffects := HW.getEffects
-  isConstantLike := HW.isConstantLike
-  hasSSADominance := HW.hasSSADominance
-  isTerminator := HW.isTerminator
 
 /--
 Verify the local invariants of an `hw` operation in any operation-info type
 containing the `hw` dialect.
 -/
-def HW.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
+def HW.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo HW] (opType : HW) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
@@ -113,6 +109,13 @@ def HW.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpInfo
       some (.of HW.constant (HWConstantProperties.mk (IntegerAttr.mk value.toInt intType)))
     else none
   | _, _ => none
+
+instance : HasOpInfo HW where
+  verifyLocalInvariants := HW.verifyLocalInvariants
+  getEffects := HW.getEffects
+  isConstantLike := HW.isConstantLike
+  hasSSADominance := HW.hasSSADominance
+  isTerminator := HW.isTerminator
 
 end
 

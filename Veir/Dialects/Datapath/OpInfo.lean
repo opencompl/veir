@@ -42,22 +42,19 @@ def Datapath.hasSSADominance (_op : Datapath) (_index : Nat) : Bool :=
 
 #generate_dialect Datapath
 
-instance : HasOpInfo Datapath where
+instance : IsOpCode Datapath where
   fromName := Datapath.fromName
   name := Datapath.name
   propertiesOf := Datapath.propertiesOf
   fromAttrDict := Datapath.fromAttrDict
   toAttrDict := Datapath.toAttrDict
-  getEffects := Datapath.getEffects
-  isConstantLike := Datapath.isConstantLike
-  hasSSADominance := Datapath.hasSSADominance
 
 /--
 Verify the local invariants of a `datapath` operation in any operation-info
 type containing the `datapath` dialect.
 -/
 @[expose]
-def Datapath.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
+def Datapath.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Datapath] (opType : Datapath) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
@@ -87,6 +84,12 @@ def Datapath.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
+
+instance : HasOpInfo Datapath where
+  verifyLocalInvariants := Datapath.verifyLocalInvariants
+  getEffects := Datapath.getEffects
+  isConstantLike := Datapath.isConstantLike
+  hasSSADominance := Datapath.hasSSADominance
 
 end
 
