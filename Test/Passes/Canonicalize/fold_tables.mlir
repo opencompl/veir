@@ -65,6 +65,43 @@
       // CHECK-NEXT: "func.return"(%[[AND]]) : (!riscv.reg) -> ()
   }) : () -> ()
 
+  // The same identity fold is table-driven for `llvm.add`. It used to live in
+  // instcombine as a rewrite pattern, so it only fires under canonicalize now.
+  "func.func"() <{function_type = (i32) -> i32, sym_name = "add_zero_rhs"}> ({
+    ^bb0(%x : i32):
+      // CHECK-LABEL: "sym_name" = "add_zero_rhs"
+      // CHECK:      ^{{.*}}(%[[X:.*]] : i32):
+      %c0 = "llvm.mlir.constant"() <{"value" = 0 : i32}> : () -> i32
+      %sum = "llvm.add"(%x, %c0) : (i32, i32) -> i32
+      // CHECK-NEXT: "func.return"(%[[X]]) : (i32) -> ()
+      "func.return"(%sum) : (i32) -> ()
+  }) : () -> ()
+
+  // With the zero on the left, the commute-constant pattern moves it across
+  // first and the fold then fires as above.
+  "func.func"() <{function_type = (i32) -> i32, sym_name = "add_zero_lhs"}> ({
+    ^bb0(%x : i32):
+      // CHECK-LABEL: "sym_name" = "add_zero_lhs"
+      // CHECK:      ^{{.*}}(%[[X:.*]] : i32):
+      %c0 = "llvm.mlir.constant"() <{"value" = 0 : i32}> : () -> i32
+      %sum = "llvm.add"(%c0, %x) : (i32, i32) -> i32
+      // CHECK-NEXT: "func.return"(%[[X]]) : (i32) -> ()
+      "func.return"(%sum) : (i32) -> ()
+  }) : () -> ()
+
+  // A nonzero addend leaves the operation alone.
+  "func.func"() <{function_type = (i32) -> i32, sym_name = "add_nonzero"}> ({
+    ^bb0(%x : i32):
+      // CHECK-LABEL: "sym_name" = "add_nonzero"
+      // CHECK:      ^{{.*}}(%[[X:.*]] : i32):
+      %c1 = "llvm.mlir.constant"() <{"value" = 1 : i32}> : () -> i32
+      // CHECK-NEXT: %[[C1:.*]] = "llvm.mlir.constant"() <{"value" = 1 : i32}> : () -> i32
+      %sum = "llvm.add"(%x, %c1) : (i32, i32) -> i32
+      // CHECK-NEXT: %[[SUM:.*]] = "llvm.add"(%[[X]], %[[C1]]) : (i32, i32) -> i32
+      "func.return"(%sum) : (i32) -> ()
+      // CHECK-NEXT: "func.return"(%[[SUM]]) : (i32) -> ()
+  }) : () -> ()
+
   // LLVM floating-point binary operations propagate poison just like their
   // integer counterparts, even when the other operand is not constant.
   "func.func"() <{function_type = (f64) -> f64, sym_name = "fadd_poison"}> ({
