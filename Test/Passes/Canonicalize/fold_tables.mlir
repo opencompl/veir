@@ -101,16 +101,4 @@
       "func.return"(%sum) : (i32) -> ()
       // CHECK-NEXT: "func.return"(%[[SUM]]) : (i32) -> ()
   }) : () -> ()
-
-  // LLVM floating-point binary operations propagate poison just like their
-  // integer counterparts, even when the other operand is not constant.
-  "func.func"() <{function_type = (f64) -> f64, sym_name = "fadd_poison"}> ({
-    ^bb0(%x : f64):
-      // CHECK-LABEL: "sym_name" = "fadd_poison"
-      %poison = "llvm.mlir.poison"() : () -> f64
-      %sum = "llvm.fadd"(%x, %poison) : (f64, f64) -> f64
-      // CHECK: %[[POISON:.*]] = "llvm.mlir.poison"() : () -> f64
-      // CHECK-NEXT: "func.return"(%[[POISON]]) : (f64) -> ()
-      "func.return"(%sum) : (f64) -> ()
-  }) : () -> ()
 }) : () -> ()

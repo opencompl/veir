@@ -123,9 +123,7 @@ info: "ok"
 private def testBlanketPoisonFolds : String := Id.run do
   let i1 : TypeAttr := IntegerType.mk 1
   let i32 : TypeAttr := IntegerType.mk 32
-  let f64 : TypeAttr := FloatType.mk 64
   let poison : Option RuntimeValue := some (.int 32 .poison)
-  let floatPoison : Option RuntimeValue := some (.floatPoison 64)
 
   match OpCode.foldsTo (.arith .addi) default #[i32] #[none, poison] with
   | some #[.useConstant (.int 32 .poison)] => pure ()
@@ -146,9 +144,6 @@ private def testBlanketPoisonFolds : String := Id.run do
   match OpCode.foldsTo (.llvm .icmp) default #[i1] #[none, poison] with
   | some #[.useConstant (.int 1 .poison)] => pure ()
   | _ => return "llvm.icmp x, poison did not produce an i1 poison"
-  match OpCode.foldsTo (.llvm .fadd) default #[f64] #[none, floatPoison] with
-  | some #[.useConstant (.floatPoison 64)] => pure ()
-  | _ => return "llvm.fadd x, poison did not fold to floating-point poison"
 
   -- Poison on an unselected arm does not propagate through select.
   let trueValue : Option RuntimeValue := some (.int 1 (.val 1))

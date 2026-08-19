@@ -38,7 +38,6 @@ def RuntimeValue.isRefinedBy (source target : RuntimeValue) : Prop :=
   | .addr s, .addr t => s = t
   | .reg s, .reg t => s = t
   | .float bw s, .float bw' t => bw = bw' ∧ s = t
-  | .floatPoison bw, .float bw' _ | .floatPoison bw, .floatPoison bw' => bw = bw'
   | _, _ => False
 
 @[inherit_doc] infix:50 " ⊒ " => RuntimeValue.isRefinedBy

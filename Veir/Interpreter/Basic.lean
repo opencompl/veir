@@ -44,7 +44,6 @@ def Conforms (val : RuntimeValue) (ty : TypeAttr) : Prop :=
   | .float bw _, ⟨.floatType floatType, _⟩ => floatType.bitwidth = bw
   | .byte bw _, ⟨.byteType byteType, _⟩ => byteType.bitwidth = bw
   | .int bw _, ⟨.modArithType modArithType, _⟩ => modArithType.modulus.type.bitwidth = bw
-  | .floatPoison bw, ⟨.floatType floatType, _⟩ => floatType.bitwidth = bw
   | .reg _, ⟨.registerType _, _⟩ => True
   | .addr _, ⟨.llvmPointerType _, _⟩ => True
   | _, _ => False
@@ -80,15 +79,11 @@ theorem Conforms.byteType {runtimeValue byteType h} :
 @[grind <=]
 theorem Conforms.floatType :
     Conforms runtimeValue ⟨.floatType fltType, h⟩ →
-    (∃ val, runtimeValue = .float fltType.bitwidth val) ∨
-      runtimeValue = .floatPoison fltType.bitwidth := by
+    ∃ val, runtimeValue = .float fltType.bitwidth val := by
   simp only [Conforms]
   cases runtimeValue
   case float bw val =>
     simp only [float.injEq, exists_and_left]
-    intro _; subst bw
-    grind
-  case floatPoison bw =>
     intro _; subst bw
     grind
   all_goals grind
@@ -796,11 +791,8 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       none
   | .mlir__poison => do
     let some resType := resultTypes[0]? | none
-    match resType.val with
-    | .integerType bw =>
-      return (#[.int bw.bitwidth (LLVM.Int.mlir_poison bw.bitwidth)], mem, none)
-    | .floatType bw => return (#[.floatPoison bw.bitwidth], mem, none)
-    | _ => none
+    let .integerType bw := resType.val | none
+    return (#[.int bw.bitwidth (LLVM.Int.mlir_poison bw.bitwidth)], mem, none)
   | .add => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else

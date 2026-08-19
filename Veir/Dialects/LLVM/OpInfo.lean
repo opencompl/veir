@@ -333,8 +333,11 @@ def Llvm.propagatesPoison : Llvm → Bool
   | .intr__bitreverse | .intr__fshl | .intr__fshr
   | .intr__smax | .intr__smin | .intr__umax | .intr__umin | .intr__abs
   | .intr__sadd__sat | .intr__uadd__sat | .intr__ssub__sat | .intr__usub__sat
-  | .intr__sshl__sat | .intr__ushl__sat
-  | .fadd | .fsub | .fmul | .fdiv | .frem => true
+  | .intr__sshl__sat | .intr__ushl__sat => true
+  -- The floating-point arithmetic operations propagate poison too, but no
+  -- `RuntimeValue` represents a poisoned float yet, so listing them here would
+  -- claim a fold that can never fire.
+  | .fadd | .fsub | .fmul | .fdiv | .frem
   | .mlir__constant | .mlir__poison | .mlir__global | .mlir__addressof
   | .select | .br | .cond_br | .unreachable | .alloca | .load | .store
   | .getelementptr | .call | .return | .func | .module_flags | .freeze => false
@@ -694,8 +697,6 @@ def Llvm.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpIn
       some (.of Llvm.mlir__constant
         (LLVMConstantProperties.mk (.float (FloatAttr.mk value floatType))))
     else none
-  | .floatPoison bw, .floatType floatType =>
-    if bw = floatType.bitwidth then some (.of Llvm.mlir__poison ()) else none
   | _, _ => none
 
 instance : HasOpInfo Llvm where
