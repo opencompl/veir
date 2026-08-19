@@ -325,6 +325,23 @@ def Llvm.isTerminator (op : Llvm) : Bool :=
 
 #generate_dialect Llvm
 
+/-- Operations whose result is poison whenever any operand is poison. -/
+def Llvm.propagatesPoison : Llvm → Bool
+  | .and | .or | .xor | .add | .sub | .mul | .sdiv | .udiv | .srem | .urem
+  | .shl | .lshr | .ashr | .icmp | .trunc | .sext | .zext | .bitcast
+  | .intr__ctlz | .intr__cttz | .intr__ctpop | .intr__bswap
+  | .intr__bitreverse | .intr__fshl | .intr__fshr
+  | .intr__smax | .intr__smin | .intr__umax | .intr__umin | .intr__abs
+  | .intr__sadd__sat | .intr__uadd__sat | .intr__ssub__sat | .intr__usub__sat
+  | .intr__sshl__sat | .intr__ushl__sat => true
+  -- The floating-point arithmetic operations propagate poison too, but no
+  -- `RuntimeValue` represents a poisoned float yet, so listing them here would
+  -- claim a fold that cannot be materialized.
+  | .fadd | .fsub | .fmul | .fdiv | .frem
+  | .mlir__constant | .mlir__poison | .mlir__global | .mlir__addressof
+  | .select | .br | .cond_br | .unreachable | .alloca | .load | .store
+  | .getelementptr | .call | .return | .func | .module_flags | .freeze => false
+
 instance : IsOpCode Llvm where
   fromName := Llvm.fromName
   name := Llvm.name
@@ -661,6 +678,7 @@ def Llvm.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpIn
 
 instance : HasOpInfo Llvm where
   verifyLocalInvariants := Llvm.verifyLocalInvariants
+  propagatesPoison := Llvm.propagatesPoison
   getEffects := Llvm.getEffects
   isConstantLike := Llvm.isConstantLike
   functionInterface? := Llvm.functionInterface?

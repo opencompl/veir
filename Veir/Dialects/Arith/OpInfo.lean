@@ -128,6 +128,15 @@ def Arith.hasSSADominance (_op : Arith) (_index : Nat) : Bool :=
 
 #generate_dialect Arith
 
+/-- Operations whose result is poison whenever any operand is poison. -/
+def Arith.propagatesPoison : Arith → Bool
+  | .addi | .andi | .ceildivsi | .ceildivui | .cmpi | .divsi | .divui
+  | .extsi | .extui | .floordivsi | .maxsi | .maxui | .minsi | .minui
+  | .muli | .ori | .remsi | .remui | .shli | .shrsi | .shrui | .subi
+  | .trunci | .xori | .addui_extended | .subui_extended
+  | .mulsi_extended | .mului_extended => true
+  | .constant | .select => false
+
 instance : IsOpCode Arith where
   fromName := Arith.fromName
   name := Arith.name
@@ -234,6 +243,7 @@ def Arith.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect Op
 
 instance : HasOpInfo Arith where
   verifyLocalInvariants := Arith.verifyLocalInvariants
+  propagatesPoison := Arith.propagatesPoison
   getEffects := Arith.getEffects
   isConstantLike := Arith.isConstantLike
   hasSSADominance := Arith.hasSSADominance

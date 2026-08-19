@@ -168,6 +168,28 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | .pdl op => PDL.isConstantLike op
   | .test op => Test.isConstantLike op
 
+/--
+  Does an operation with this opcode produce a wholly poisoned result whenever
+  any one of its operands is wholly poison?
+-/
+def OpCode.propagatesPoison (opCode : OpCode) : Bool :=
+  match opCode with
+  | .arith op => HasOpInfo.propagatesPoison op
+  | .llvm op => HasOpInfo.propagatesPoison op
+  | .riscv op => HasOpInfo.propagatesPoison op
+  | .riscv_cf op => HasOpInfo.propagatesPoison op
+  | .riscv_stack op => HasOpInfo.propagatesPoison op
+  | .rv64 op => HasOpInfo.propagatesPoison op
+  | .mod_arith op => HasOpInfo.propagatesPoison op
+  | .cf op => HasOpInfo.propagatesPoison op
+  | .comb op => HasOpInfo.propagatesPoison op
+  | .hw op => HasOpInfo.propagatesPoison op
+  | .builtin op => HasOpInfo.propagatesPoison op
+  | .func op => HasOpInfo.propagatesPoison op
+  | .datapath op => HasOpInfo.propagatesPoison op
+  | .pdl op => HasOpInfo.propagatesPoison op
+  | .test op => HasOpInfo.propagatesPoison op
+
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (_propertiesOf opCode) :=
   match opCode with
@@ -262,6 +284,7 @@ instance : HasOpInfo OpCode where
   verifyLocalInvariants := OpCode.verifyLocalInvariants
   getEffects := OpCode.getEffects
   isConstantLike := OpCode.isConstantLike
+  propagatesPoison := OpCode.propagatesPoison
   functionInterface? := OpCode.functionInterface?
   getRegionKind := OpCode.getRegionKind
   hasSSADominance := OpCode.hasSSADominance

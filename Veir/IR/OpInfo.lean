@@ -77,6 +77,13 @@ class HasOpInfo (opCode: Type)
   -/
   isConstantLike : opCode → Bool := fun _ => false
   /--
+  Whether an operation with this opcode produces a wholly poisoned result
+  whenever any one of its operands is wholly poison, mirroring LLVM's
+  `propagatesPoison`. Defaults to `false` for every opcode, which
+  conservatively propagates nothing.
+  -/
+  propagatesPoison : opCode → Bool := fun _ => false
+  /--
   Information about operations that act like functions.
   -/
   functionInterface? : (op : opCode) → Option (FunctionOpInterface (propertiesOf op)) :=

@@ -28,6 +28,16 @@ instance : ToString RuntimeValue where
     | .addr val => ToString.toString val
     | .reg val => ToString.toString val
 
+/--
+  Whether a runtime value is wholly poison. A `byte` is wholly poison when
+  every one of its bits is, matching the value that `getPoisonForType`
+  constructs.
+-/
+def RuntimeValue.isPoison : RuntimeValue → Bool
+  | .int _ .poison => true
+  | .byte width value => value.poison == BitVec.allOnes width
+  | _ => false
+
 end
 
 end Veir

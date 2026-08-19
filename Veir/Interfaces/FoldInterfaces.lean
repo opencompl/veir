@@ -27,6 +27,36 @@ inductive FoldResult where
   /-- Use the runtime constant `rv` in place of this result. -/
   | useConstant (rv : RuntimeValue)
 
+/-- Every result of the operation folds to poison, for the result types that
+    have a poison representation. -/
+private def allResultsPoison (resultTypes : Array TypeAttr) : Option (Array FoldResult) := do
+  return (← resultTypes.mapM RuntimeValue.getPoisonForType).map .useConstant
+
+/--
+  Fold an operation by evaluating it, which requires every operand to be known.
+  Evaluation that triggers UB folds to poison.
+-/
+private def foldByEvaluation (opType : OpCode) (properties : propertiesOf opType)
+    (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue))
+    : Option (Array FoldResult) := do
+  let values ← constOperands.mapM id
+  match ← (foldEvaluate opType properties resultTypes values : Option (UBOr _)) with
+  | .ok results => return results.map .useConstant
+  | .ub => allResultsPoison resultTypes
+
+/--
+  Fold an operation that propagates poison and has a wholly poisoned operand.
+  Unlike evaluation, this fires whether or not the remaining operands are known.
+-/
+private def foldPoisonedOperand (opType : OpCode)
+    (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue))
+    : Option (Array FoldResult) := do
+  guard opType.propagatesPoison
+  guard (constOperands.any fun
+    | some value => value.isPoison
+    | none => false)
+  allResultsPoison resultTypes
+
 /--
   Decide whether an operation folds, given its opcode, properties, result
   types, and the values of its constant-defined operands (`constOperands[i] =
@@ -36,10 +66,8 @@ def OpCode.foldsTo (opType : OpCode) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue))
     : Option (Array FoldResult) := do
   guard (!opType.isConstantLike)
-  let values ← constOperands.mapM id
-  match ← (foldEvaluate opType properties resultTypes values : Option (UBOr _)) with
-  | .ok results => return results.map .useConstant
-  | .ub => return (← resultTypes.mapM RuntimeValue.getPoisonForType).map .useConstant
+  foldByEvaluation opType properties resultTypes constOperands <|>
+    foldPoisonedOperand opType resultTypes constOperands
 
 /--
   Convenience wrapper around `OpCode.foldsTo`.
