@@ -1,6 +1,7 @@
 module
 
 public import Veir.Verifier.Lemmas
+public import Veir.GlobalOpInfo
 public import Veir.Interfaces.FunctionInterfaces
 
 import all Veir.Verifier.Basic

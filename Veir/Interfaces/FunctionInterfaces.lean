@@ -1,6 +1,5 @@
 module
 
-public import Veir.GlobalOpInfo
 public import Veir.Rewriter.WfRewriter
 
 /-!
@@ -16,33 +15,27 @@ https://github.com/llvm/llvm-project/blob/main/mlir/include/mlir/Interfaces/Func
 
 namespace Veir
 
+variable {OpCode : Type} [HasOpInfo OpCode]
+
 public section
 
 /-- Whether this operation acts like a function. -/
-def OperationPtr.isFunctionLike {OpInfo : Type} [HasOpInfo OpInfo]
-    (op : OperationPtr) (ctx : IRContext OpInfo) : Bool :=
-  HasOpInfo.isFunctionLike (op.getOpType! ctx)
+def OperationPtr.isFunctionLike (op : OperationPtr) (ctx : IRContext OpCode) : Bool :=
+  (HasOpInfo.functionInterface? (op.getOpType! ctx)).isSome
 
 namespace FunctionOpInterface
 
 /-- Returns the symbol name of the function. -/
-def getSymName? (funcOp : OperationPtr) (raw : IRContext OpCode) : Option StringAttr :=
-  match funcOp.getOpType! raw with
-  | .func .func =>
-    some (funcOp.getProperties! raw Func.func : FuncFuncProperties).sym_name
-  | .llvm .func =>
-    some (funcOp.getProperties! raw Llvm.func : LLVMFuncProperties).sym_name
-  | _ => none
+def getSymName? (funcOp : OperationPtr) (raw : IRContext OpCode) : Option StringAttr := do
+  let opType := funcOp.getOpType! raw
+  let interface ← HasOpInfo.functionInterface? opType
+  return interface.getSymName (funcOp.getProperties! raw opType)
 
 /-- Returns the type of the function. -/
-def getFunctionType? (funcOp : OperationPtr) (raw : IRContext OpCode) :
-    Option FunctionType :=
-  match funcOp.getOpType! raw with
-  | .func .func =>
-    some (funcOp.getProperties! raw Func.func : FuncFuncProperties).function_type
-  | .llvm .func =>
-    some (funcOp.getProperties! raw Llvm.func : LLVMFuncProperties).function_type
-  | _ => none
+def getFunctionType? (funcOp : OperationPtr) (raw : IRContext OpCode) : Option FunctionType := do
+  let opType := funcOp.getOpType! raw
+  let interface ← HasOpInfo.functionInterface? opType
+  return interface.getFunctionType (funcOp.getProperties! raw opType)
 
 /-!
 ## Body Handling
@@ -65,6 +58,7 @@ theorem getFunctionBody!_eq_getFunctionBody {funcOp : OperationPtr} {raw : IRCon
   grind [getFunctionBody, getFunctionBody!]
 
 theorem getFunctionBody!_inBounds
+    {raw : IRContext OpCode}
     (ctxInBounds : raw.FieldsInBounds)
     (opInBounds : funcOp.InBounds raw)
     (hasRegion : 0 < funcOp.getNumRegions! raw) :
@@ -81,32 +75,24 @@ def getEntryBlock? (funcOp : OperationPtr) (raw : IRContext OpCode) : Option Blo
 ## Type Attribute Handling
 -/
 
-/-- Sets the function type to the given input/output type lists.
-    `llvm.func` is canonicalized to the `.llvmFunctionType` spelling, regardless of
-    which spelling the original attribute used. -/
-def setFunctionType (wfCtx : WfIRContext OpCode) (funcOp : OperationPtr)
+/-- Sets the function type to the given input/output type lists. -/
+def setFunctionTypeInBounds (wfCtx : WfIRContext OpCode) (funcOp : OperationPtr)
     (inputs outputs : Array Attribute)
     (opInBounds : funcOp.InBounds wfCtx.raw := by grind) : WfIRContext OpCode :=
   let opType := funcOp.getOpType! wfCtx.raw
-  if h : opType = ofDialect OpCode Func.func then
-    let props : FuncFuncProperties := funcOp.getProperties! wfCtx.raw Func.func
-    let newProps : FuncFuncProperties := { props with function_type := { inputs, outputs } }
-    WfRewriter.setProperties wfCtx funcOp Func.func newProps opInBounds
-  else if h : opType = ofDialect OpCode Llvm.func then
-    let props : LLVMFuncProperties := funcOp.getProperties! wfCtx.raw Llvm.func
-    let newProps : LLVMFuncProperties := { props with function_type := { inputs, outputs } }
-    WfRewriter.setProperties wfCtx funcOp Llvm.func newProps opInBounds
-  else
-    wfCtx
+  match HasOpInfo.functionInterface? opType with
+  | none => wfCtx
+  | some interface =>
+    let props := funcOp.getProperties! wfCtx.raw opType
+    let newProps := interface.setFunctionType props { inputs, outputs }
+    WfRewriter.setProperties wfCtx funcOp opType newProps opInBounds
 
 /-- Sets the function type to the given input/output type lists, panicking if the op
-    is out of bounds.
-    `llvm.func` is canonicalized to the `.llvmFunctionType` spelling, regardless of
-    which spelling the original attribute used. -/
+    is out of bounds. -/
 def setFunctionType! (c : WfIRContext OpCode) (funcOp : OperationPtr)
     (inputs outputs : Array Attribute) : WfIRContext OpCode :=
   if opInBounds : funcOp.InBounds c.raw then
-    setFunctionType c funcOp inputs outputs opInBounds
+    setFunctionTypeInBounds c funcOp inputs outputs opInBounds
   else
     panic "FunctionOpInterface.setFunctionType! failed: operation is out of bounds"
 

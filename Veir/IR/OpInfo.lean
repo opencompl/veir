@@ -42,6 +42,15 @@ def unknown : MemoryEffects :=
 
 end MemoryEffects
 
+/-- Information exposed by operations that behave like functions. -/
+structure FunctionOpInterface (Properties : Type) where
+  /-- Return the symbol name of the function. -/
+  getSymName : Properties → StringAttr
+  /-- Return the type of the function. -/
+  getFunctionType : Properties → FunctionType
+  /-- Return the properties with the function type replaced. -/
+  setFunctionType : Properties → FunctionType → Properties
+
 class HasOpInfo (opCode: Type)
     extends IsOpCode opCode where
   /--
@@ -68,10 +77,10 @@ class HasOpInfo (opCode: Type)
   -/
   isConstantLike : opCode → Bool := fun _ => false
   /--
-  Whether an operation with this opcode acts like a function: a symbol
-  whose single region is the function body.
+  Information about operations that act like functions.
   -/
-  isFunctionLike : opCode → Bool := fun _ => false
+  functionInterface? : (op : opCode) → Option (FunctionOpInterface (propertiesOf op)) :=
+    fun _ => none
   /--
   Return the kind of the indexed region inside an operation with this opcode.
   This mirrors MLIR's `RegionKindInterface` default: regions are SSACFG unless

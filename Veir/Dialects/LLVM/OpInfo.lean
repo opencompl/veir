@@ -315,11 +315,6 @@ def Llvm.isConstantLike (op : Llvm) : Bool :=
   | .mlir__constant | .mlir__poison | .mlir__addressof => true
   | _ => false
 
-def Llvm.isFunctionLike (op : Llvm) : Bool :=
-  match op with
-  | .func => true
-  | _ => false
-
 def Llvm.hasSSADominance (_op : Llvm) (_index : Nat) : Bool :=
   true
 
@@ -336,6 +331,16 @@ instance : IsOpCode Llvm where
   propertiesOf := Llvm.propertiesOf
   fromAttrDict := Llvm.fromAttrDict
   toAttrDict := Llvm.toAttrDict
+
+def Llvm.functionInterface? (op : Llvm) : Option (FunctionOpInterface (Llvm.propertiesOf op)) :=
+  match op with
+  | .func =>
+    some
+      { getSymName := fun props => props.sym_name
+        getFunctionType := fun props => props.function_type
+        setFunctionType := fun props functionType =>
+          { props with function_type := functionType } }
+  | _ => none
 
 /-- Whether `n` is a valid LLVM alignment: a strictly positive power of two. -/
 def isValidLLVMAlignment (n : Int) : Bool :=
@@ -658,7 +663,7 @@ instance : HasOpInfo Llvm where
   verifyLocalInvariants := Llvm.verifyLocalInvariants
   getEffects := Llvm.getEffects
   isConstantLike := Llvm.isConstantLike
-  isFunctionLike := Llvm.isFunctionLike
+  functionInterface? := Llvm.functionInterface?
   hasSSADominance := Llvm.hasSSADominance
   isTerminator := Llvm.isTerminator
 

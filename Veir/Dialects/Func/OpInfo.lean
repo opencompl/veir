@@ -56,11 +56,6 @@ def Func.getEffects
 def Func.isConstantLike (_op : Func) : Bool :=
   false
 
-def Func.isFunctionLike (op : Func) : Bool :=
-  match op with
-  | .func => true
-  | .call | .return => false
-
 def Func.hasSSADominance (_op : Func) (_index : Nat) : Bool :=
   true
 
@@ -77,6 +72,16 @@ instance : IsOpCode Func where
   propertiesOf := Func.propertiesOf
   fromAttrDict := Func.fromAttrDict
   toAttrDict := Func.toAttrDict
+
+def Func.functionInterface? (op : Func) : Option (FunctionOpInterface (Func.propertiesOf op)) :=
+  match op with
+  | .func =>
+    some
+      { getSymName := fun props => props.sym_name
+        getFunctionType := fun props => props.function_type
+        setFunctionType := fun props functionType =>
+          { props with function_type := functionType } }
+  | _ => none
 
 /--
 Check that a `func.return` returns the declared result types of its enclosing
@@ -130,7 +135,7 @@ instance : HasOpInfo Func where
   verifyLocalInvariants := Func.verifyLocalInvariants
   getEffects := Func.getEffects
   isConstantLike := Func.isConstantLike
-  isFunctionLike := Func.isFunctionLike
+  functionInterface? := Func.functionInterface?
   hasSSADominance := Func.hasSSADominance
   isTerminator := Func.isTerminator
 
