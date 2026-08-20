@@ -75,7 +75,7 @@ theorem trace_double_zero_extend (p q r : Nat) (x : BitVec p)
   -- Translate the condition on the natural number width
   -- into a fact about the bitvector masks
   have le_pq := mask_lt_mask p_le_bw q_le_bw h_mp h_mq hpq
-  simp only [IsMask] at mr_mask mq_mask mp_mask
+  simp only [isMask_eq] at mr_mask mq_mask mp_mask
 -- Step 6:
   simp only [
     eq_iff r_le_bw,
@@ -123,11 +123,11 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
   -- Translate the condition on the natural number width
   -- into a fact about the bitvector masks
   have le_pq := mask_lt_mask p_le_bw q_le_bw h_mp h_mq hpq
-  simp only [IsMask] at mr_mask mq_mask mp_mask
+  simp only [isMask_eq] at mr_mask mq_mask mp_mask
 -- Step 6:
   simp only [
     eq_iff r_le_bw,
-    setWidth_signExtend_eq_and_maskOfWidth r_le_bw,  -- Push `setWidth` down signExtend
+    setWidth_signExtend_eq_and_maskOfWidth,          -- Push `setWidth` down signExtend
     msb_eq_and_maskOfWidth_ne_zero q_le_bw,          -- Replace the sign bit test with a mask test
     setWidth_setWidth r_le_bw,
     setWidth_setWidth q_le_bw,
@@ -135,8 +135,8 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
     BitVec.zeroExtend_eq_setWidth,
     signBitOfMask,                 -- Unfold, else `bv_decide` abstracts it away
     BitVec.setWidth_eq,
-    q_le_bw,                       -- Lets simp discharge the `v ≤ o` side condition
-                                   -- of `setWidth_signExtend`
+    q_le_bw,                       -- Lets simp discharge the `v ≤ o` side condition of
+                                   -- `setWidth_signExtend_eq_and_maskOfWidth`
     ← h_mr,
     ← h_mq,
     ← h_mp,

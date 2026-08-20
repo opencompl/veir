@@ -20,6 +20,10 @@ def maskOfWidth (o w : Nat) : BitVec o := BitVec.ofNat o (2 ^ w - 1)
 operations removing the dependency on `k` and allowing it to be bitblasted. -/
 @[expose] def IsMask {o : Nat} (m : BitVec o) : Prop := m &&& (m + 1#o) = 0#o
 
+/-- Unfold `IsMask` into the constraint handed to the bitblaster. -/
+theorem isMask_eq {o : Nat} (m : BitVec o) :
+    IsMask m = (m &&& (m + 1#o) = 0#o) := rfl
+
 theorem toNat_maskOfWidth {o w : Nat} (h : w ≤ o) :
     (maskOfWidth o w).toNat = 2 ^ w - 1 := by
   rw [maskOfWidth, BitVec.toNat_ofNat, Nat.mod_eq_of_lt]
@@ -91,9 +95,13 @@ the index 'i' is inbounds of `o` and `w`. -/
 This is used to extract the sign bit of a width `m` bitvector. -/
 @[expose] def signBitOfMask {o : Nat} (m : BitVec o) := m - (m >>> 1)
 
+/-- The zero bitvector, which is the mask of width `0`, has no sign bit. -/
+@[simp] theorem signBitOfMask_zero {o : Nat} : signBitOfMask (0#o) = 0#o := by
+  simp [signBitOfMask]
+
 /--
-The nat denotation of `sigOfBitMask` of a mask of width `w`
-is given by `2^w` minus `2^w - 1`.
+The nat denotation of `signBitOfMask` of a mask of width `w`
+is given by `2^w` minus `2^(w - 1)`.
 -/
 theorem toNat_signBitOfMask_maskOfWidth {o w : Nat} (h : w ≤ o) :
     (signBitOfMask (maskOfWidth o w)).toNat = 2 ^ w - 2 ^ (w - 1) := by
@@ -108,14 +116,7 @@ theorem toNat_signBitOfMask_maskOfWidth {o w : Nat} (h : w ≤ o) :
     have h3 : 0 < 2 ^ (w - 1) := Nat.two_pow_pos _
     lia
 
-/-- The sign bit of a mask of non-zero width `w` is `the bitvector `2^(w - 1)`. -/
-@[simp] theorem signBitOfMask_maskOfWidth_eq_zero {o w : Nat} :
-    signBitOfMask (maskOfWidth o 0) = 0#o := by
-  apply BitVec.eq_of_toNat_eq
-  rw [toNat_signBitOfMask_maskOfWidth (by lia)]
-  grind only [= BitVec.toNat_ofNat, = BitVec.toNat_zero]
-
-/-- The sign bit of a mask of non-zero width `w` is `the bitvector `2^(w - 1)`. -/
+/-- The sign bit of a mask of non-zero width `w` is the bitvector `2^(w - 1)`. -/
 @[simp] theorem signBitOfMask_maskOfWidth_eq_twoPow_of_pos {o w : Nat} (h : w ≤ o) (hw : 0 < w) :
     signBitOfMask (maskOfWidth o w) = BitVec.twoPow o (w - 1) := by
   apply BitVec.eq_of_toNat_eq
