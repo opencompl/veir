@@ -8,6 +8,21 @@ on:
   merge_group:
 
 jobs:
+  check-orphan-modules:
+    name: Check orphan Lean modules
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3.13
+
+      - name: Check that every Lean module is built
+        run: ./Tools/check-orphan-modules
+
   build:
     runs-on: ubuntu-latest
     strategy:

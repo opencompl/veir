@@ -56,6 +56,11 @@ def Func.getEffects
 def Func.isConstantLike (_op : Func) : Bool :=
   false
 
+def Func.isIsolatedFromAbove (op : Func) : Bool :=
+  match op with
+  | .func => true
+  | _ => false
+
 def Func.hasSSADominance (_op : Func) (_index : Nat) : Bool :=
   true
 
@@ -138,6 +143,7 @@ instance : HasOpInfo Func where
   functionInterface? := Func.functionInterface?
   hasSSADominance := Func.hasSSADominance
   isTerminator := Func.isTerminator
+  isIsolatedFromAbove := Func.isIsolatedFromAbove
 
 end
 

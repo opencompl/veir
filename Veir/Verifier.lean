@@ -3,6 +3,7 @@ module
 public import Veir.Verifier.Lemmas
 public import Veir.GlobalOpInfo
 public import Veir.Interfaces.FunctionInterfaces
+public import Veir.IRNesting
 public import Veir.Interfaces.RegionKindInterfaces
 
 import all Veir.Verifier.Basic
@@ -22,6 +23,41 @@ def OperationPtr.verifyTerminatorPosition (op : OperationPtr) (ctx : WfIRContext
   let operation := op.get ctx.raw opIn
   if operation.opType.isTerminator && operation.next.isSome then
     throw "Expected a terminator to be the last operation of its block"
+
+/--
+Find the region that establishes the nearest `IsolatedFromAbove` scope around
+`region`. The returned region is one of the isolated operation's direct
+regions; different regions of the same isolated operation are separate scopes.
+-/
+private partial def RegionPtr.nearestIsolatedScope?
+    (region : RegionPtr) (ctx : WfIRContext OpCode) : Option RegionPtr := do
+  let parentOp ← (region.get! ctx.raw).parent
+  if (parentOp.getOpType! ctx.raw).isIsolatedFromAbove then
+    return region
+  let parentRegion ← parentOp.getParentRegion! ctx.raw
+  parentRegion.nearestIsolatedScope? ctx
+
+/--
+Verify MLIR's `IsolatedFromAbove` rule for one operation's operands. A use in
+an isolated operation's region may only reference a value defined in that same
+region or one of its nested regions. Looking for the nearest isolated scope
+also mirrors MLIR's behavior of checking nested isolated operations
+independently.
+-/
+def OperationPtr.verifyOperandIsolation
+    (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  if op.getNumOperands ctx.raw opIn == 0 then return
+  let some useRegion := op.getParentRegion! ctx.raw | return
+  let escaping := (op.getOperands ctx.raw opIn).filter
+    (·.getParentRegion! ctx.raw != some useRegion)
+  if escaping.isEmpty then return
+  let some isolatedScope := useRegion.nearestIsolatedScope? ctx | return
+  for value in escaping do
+    let some defRegion := value.getParentRegion! ctx.raw
+      | throw "operand is unlinked from any region"
+    if !isolatedScope.isAncestorOf defRegion ctx then
+      throw "operand uses a value defined outside the isolated region that encloses its use"
 
 /--
   Check that a block is non-empty and its last operation is a
@@ -125,7 +161,8 @@ def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
         op.verifyLocalInvariants ctx opIn
         match (op.get ctx.raw opIn).parent with
         | some _ => op.verifyTerminatorPosition ctx opIn
-        | none => pure ()))
+        | none => pure ()
+        op.verifyOperandIsolation ctx opIn))
   ctx.raw.forBlocksDepM (fun block blockIn => do
     match (block.get ctx.raw blockIn).parent with
     | some region =>
@@ -237,7 +274,7 @@ theorem OperationPtr.Verified.arith_constant {op : OperationPtr} {opInBounds}
     op.getNumSuccessors! ctx.raw = 0 ∧
     op.getNumRegions! ctx.raw = 0 ∧
     ((op.getResult 0).get! ctx.raw).type =
-      ⟨(op.getProperties! ctx.raw Arith.constant).value.type, (by grind)⟩ := by
+      Attribute.asType (op.getProperties! ctx.raw Arith.constant).value.type (by grind) := by
   simp only [Verified, verifyLocalInvariants, HasOpInfo.verifyLocalInvariants,
     OpCode.verifyLocalInvariants, Arith.verifyLocalInvariants,
     ← getOpType!_eq_getOpType, opType, ne_eq,
@@ -797,9 +834,9 @@ def OperationPtr.IsVerifiedModArithBinop (op : OperationPtr) (ctx : WfIRContext 
   ∃ modArithType,
     modArithType.modulus.value > 0 ∧
     modArithType.modulus.value < 2 ^ modArithType.modulus.type.bitwidth ∧
-    ((op.getResult 0).get! ctx.raw).type = ⟨.modArithType modArithType, (by grind)⟩ ∧
-    ((op.getOperand! ctx.raw 0).getType! ctx.raw) = ⟨.modArithType modArithType, (by grind)⟩ ∧
-    ((op.getOperand! ctx.raw 1).getType! ctx.raw) = ⟨.modArithType modArithType, (by grind)⟩
+    ((op.getResult 0).get! ctx.raw).type = Attribute.asType (.modArithType modArithType) (by grind) ∧
+    ((op.getOperand! ctx.raw 0).getType! ctx.raw) = Attribute.asType (.modArithType modArithType) (by grind) ∧
+    ((op.getOperand! ctx.raw 1).getType! ctx.raw) = Attribute.asType (.modArithType modArithType) (by grind)
 
 
 private theorem OperationPtr.verifyModArithBinOp_eq_ok {ctx : WfIRContext OpCode} {op : OperationPtr}
@@ -848,7 +885,7 @@ def OperationPtr.IsVerifiedModArithConstant (op : OperationPtr) (ctx : WfIRConte
   op.getNumSuccessors! ctx.raw = 0 ∧
   op.getNumRegions! ctx.raw = 0 ∧
   ∃ modArithType,
-    ((op.getResult 0).get! ctx.raw).type = ⟨.modArithType modArithType, (by grind)⟩ ∧
+    ((op.getResult 0).get! ctx.raw).type = Attribute.asType (.modArithType modArithType) (by grind) ∧
     modArithType.modulus.value > 0 ∧
     modArithType.modulus.value < 2 ^ modArithType.modulus.type.bitwidth ∧
     -(2 ^ (modArithType.modulus.type.bitwidth - 1) : Int)

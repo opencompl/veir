@@ -58,6 +58,11 @@ def HW.isConstantLike (op : HW) : Bool :=
   | .constant => true
   | _ => false
 
+def HW.isIsolatedFromAbove (op : HW) : Bool :=
+  match op with
+  | .module => true
+  | _ => false
+
 def HW.hasSSADominance (_op : HW) (_index : Nat) : Bool :=
   true
 
@@ -116,6 +121,7 @@ instance : HasOpInfo HW where
   isConstantLike := HW.isConstantLike
   hasSSADominance := HW.hasSSADominance
   isTerminator := HW.isTerminator
+  isIsolatedFromAbove := HW.isIsolatedFromAbove
 
 end
 

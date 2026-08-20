@@ -46,6 +46,11 @@ def Builtin.getEffects
 def Builtin.isConstantLike (_op : Builtin) : Bool :=
   false
 
+def Builtin.isIsolatedFromAbove (op : Builtin) : Bool :=
+  match op with
+  | .module => true
+  | _ => false
+
 def Builtin.getRegionKind (op : Builtin) (_index : Nat) : RegionKind :=
   match op with
   | .module | .unregistered => .Graph
@@ -103,6 +108,7 @@ instance : HasOpInfo Builtin where
   getRegionKind := Builtin.getRegionKind
   hasSSADominance := Builtin.hasSSADominance
   hasNoTerminator := Builtin.hasNoTerminator
+  isIsolatedFromAbove := Builtin.isIsolatedFromAbove
 
 end
 

@@ -96,7 +96,7 @@ def toString_rec {w : Nat} (b : Byte w) : String :=
 instance {w : Nat} : ToString (Byte w) where
   toString (b : Byte w) := s!"0b{b.toString_rec}#{w}"
 
-open Int
+open LLVM.Int
 
 /-- Convert from `Byte` and `Int`.
   A byte where no bit is poison is equal to an integer value.

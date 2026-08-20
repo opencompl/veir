@@ -1375,6 +1375,14 @@ theorem TypeAttr.inj {attr1 attr2 : TypeAttr} :
 def Attribute.asType (attr : Attribute) (isType : attr.isType := by grind) : TypeAttr :=
   ⟨attr, isType⟩
 
+/-- `Attribute.asType` is the identity on the underlying attribute. Stated so that `simp` and
+`grind` can see through it without unfolding the semireducible `TypeAttr`. -/
+@[simp, grind =]
+theorem Attribute.asType_val {attr : Attribute} {isType : attr.isType} :
+    (attr.asType isType).val = attr := by
+  unfold Attribute.asType
+  rfl
+
 /-!
   ## Coercion instances to TypeAttr
 
