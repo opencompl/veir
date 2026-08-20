@@ -270,10 +270,8 @@ def Llvm.toAttrDict
     dict
   | .func => Id.run do
     let mut dict := Std.HashMap.ofList props.extra.entries.toList
-    if let some sym_name := props.sym_name then
-      dict := dict.insert "sym_name".toUTF8 (.stringAttr sym_name)
-    if let some function_type := props.function_type then
-      dict := dict.insert "function_type".toUTF8 function_type
+    dict := dict.insert "sym_name".toUTF8 (.stringAttr props.sym_name)
+    dict := dict.insert "function_type".toUTF8 (.llvmFunctionType props.function_type)
     dict
   | .module_flags =>
     (Std.HashMap.emptyWithCapacity 3).insert
@@ -317,11 +315,6 @@ def Llvm.isConstantLike (op : Llvm) : Bool :=
   | .mlir__constant | .mlir__poison | .mlir__addressof => true
   | _ => false
 
-def Llvm.isFunctionLike (op : Llvm) : Bool :=
-  match op with
-  | .func => true
-  | _ => false
-
 def Llvm.isIsolatedFromAbove (op : Llvm) : Bool :=
   match op with
   | .mlir__global | .func => true
@@ -337,32 +330,33 @@ def Llvm.isTerminator (op : Llvm) : Bool :=
 
 #generate_dialect Llvm
 
-instance : HasOpInfo Llvm where
+instance : IsOpCode Llvm where
   fromName := Llvm.fromName
   name := Llvm.name
   propertiesOf := Llvm.propertiesOf
   fromAttrDict := Llvm.fromAttrDict
   toAttrDict := Llvm.toAttrDict
-  getEffects := Llvm.getEffects
-  isConstantLike := Llvm.isConstantLike
-  isFunctionLike := Llvm.isFunctionLike
-  hasSSADominance := Llvm.hasSSADominance
-  isTerminator := Llvm.isTerminator
-  isIsolatedFromAbove := Llvm.isIsolatedFromAbove
+
+def Llvm.functionInterface? (op : Llvm) : Option (FunctionOpInterface (Llvm.propertiesOf op)) :=
+  match op with
+  | .func =>
+    some
+      { getSymName := fun props => props.sym_name
+        getFunctionType := fun props => props.function_type
+        setFunctionType := fun props functionType =>
+          { props with function_type := functionType } }
+  | _ => none
 
 /-- Whether `n` is a valid LLVM alignment: a strictly positive power of two. -/
 def isValidLLVMAlignment (n : Int) : Bool :=
   decide (0 < n) && (n.toNat &&& (n.toNat - 1)) == 0
 
 /-- Check an `llvm.return` against its enclosing `llvm.func`'s declared results. -/
-def OperationPtr.verifyLLVMFuncReturnTypes {OpInfo : Type} [HasOpInfo OpInfo]
+def OperationPtr.verifyLLVMFuncReturnTypes {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Llvm] (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) (funcOp : OperationPtr) : Except String PUnit := do
   let props : Llvm.propertiesOf .func := funcOp.getProperties! ctx.raw Llvm.func
-  let some functionType := props.function_type
-    | throw "Expected enclosing llvm.func to have a function_type attribute"
-  let .llvmFunctionType functionType := functionType.val
-    | throw "Expected enclosing llvm.func to have a function_type attribute"
+  let functionType := props.function_type
   -- A single `llvm.void` result corresponds to no return operands.
   let outputs := match functionType.outputs with
     | #[.llvmVoidType _] => #[]
@@ -375,7 +369,7 @@ def OperationPtr.verifyLLVMFuncReturnTypes {OpInfo : Type} [HasOpInfo OpInfo]
       throw s!"llvm.return operand {i} type does not match the function's declared result type"
 
 /-- Check an `llvm.return` against its `llvm.mlir.global`'s `global_type`. -/
-def OperationPtr.verifyLLVMGlobalReturnTypes {OpInfo : Type} [HasOpInfo OpInfo]
+def OperationPtr.verifyLLVMGlobalReturnTypes {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Llvm] (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) (globalOp : OperationPtr) : Except String PUnit := do
   let globalType :=
@@ -390,7 +384,7 @@ def OperationPtr.verifyLLVMGlobalReturnTypes {OpInfo : Type} [HasOpInfo OpInfo]
 Check an `llvm.return`'s operands against its enclosing `llvm.func` or
 `llvm.mlir.global`.
 -/
-def OperationPtr.verifyLLVMReturnTypes {OpInfo : Type} [HasOpInfo OpInfo]
+def OperationPtr.verifyLLVMReturnTypes {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Llvm] (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   let enclosingOp ← op.getEnclosingFunctionOp ctx "llvm.return"
@@ -401,7 +395,7 @@ def OperationPtr.verifyLLVMReturnTypes {OpInfo : Type} [HasOpInfo OpInfo]
   | some .mlir__global => op.verifyLLVMGlobalReturnTypes ctx opIn enclosingOp
   | _ => badEnclosure
 
-def OperationPtr.verifyLLVMShift {OpInfo : Type} [HasOpInfo OpInfo]
+def OperationPtr.verifyLLVMShift {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 2 1
@@ -413,7 +407,7 @@ def OperationPtr.verifyLLVMShift {OpInfo : Type} [HasOpInfo OpInfo]
   op.verifyResultTypeMatches ctx ((op.getOperand! ctx.raw 0).getType! ctx.raw)
     s!"{instrName}: Expected result type to match first operand type"
 
-def OperationPtr.verifyLLVMICmp {OpInfo : Type} [HasOpInfo OpInfo]
+def OperationPtr.verifyLLVMICmp {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 2 1
@@ -431,7 +425,7 @@ def OperationPtr.verifyLLVMICmp {OpInfo : Type} [HasOpInfo OpInfo]
 Verify the local invariants of an `llvm` operation in any operation-info type
 containing the `llvm` dialect.
 -/
-def Llvm.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
+def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Llvm] (opType : Llvm) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
@@ -628,12 +622,6 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
       throw "Expected 1 region"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
-    let props : Llvm.propertiesOf .func := op.getProperties! ctx.raw Llvm.func
-    match props.function_type with
-    | some ⟨.llvmFunctionType _, _⟩ => pure ()
-    | _ => throw "Expected function type"
-    if props.sym_name.isNone then
-      throw "Expected symbol name"
   | .fadd | .fsub | .fmul | .fdiv | .frem => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 2 1
@@ -675,6 +663,15 @@ def Llvm.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpIn
         (LLVMConstantProperties.mk (.float (FloatAttr.mk value floatType))))
     else none
   | _, _ => none
+
+instance : HasOpInfo Llvm where
+  verifyLocalInvariants := Llvm.verifyLocalInvariants
+  getEffects := Llvm.getEffects
+  isConstantLike := Llvm.isConstantLike
+  functionInterface? := Llvm.functionInterface?
+  hasSSADominance := Llvm.hasSSADominance
+  isTerminator := Llvm.isTerminator
+  isIsolatedFromAbove := Llvm.isIsolatedFromAbove
 
 end
 

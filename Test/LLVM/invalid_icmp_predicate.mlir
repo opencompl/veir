@@ -1,7 +1,7 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
 
 "builtin.module"() ({
-  "func.func"() ({
+  "func.func"() <{sym_name = "foo", function_type = (i64, i64) -> ()}> ({
     ^bb0(%a: i64, %b: i64):
       %r = "llvm.icmp"(%a, %b) <{"predicate" = 11 : i64}> : (i64, i64) -> i1
   }) : () -> ()

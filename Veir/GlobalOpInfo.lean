@@ -187,32 +187,6 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | .pdl op => PDL.isConstantLike op
   | .test op => Test.isConstantLike op
 
-/--
-  Does this `OpCode` act like a function, i.e. a symbol whose single
-  region is the function body, with the signature carried in a
-  `function_type` property?
-
-  Dialects that do not override isFunctionLike default to false
-  for all operations.
--/
-def OpCode.isFunctionLike (opCode : OpCode) : Bool :=
-  match opCode with
-  | .arith op => HasOpInfo.isFunctionLike op
-  | .llvm op => HasOpInfo.isFunctionLike op
-  | .riscv op => HasOpInfo.isFunctionLike op
-  | .riscv_cf op => HasOpInfo.isFunctionLike op
-  | .riscv_stack op => HasOpInfo.isFunctionLike op
-  | .rv64 op => HasOpInfo.isFunctionLike op
-  | .mod_arith op => HasOpInfo.isFunctionLike op
-  | .cf op => HasOpInfo.isFunctionLike op
-  | .comb op => HasOpInfo.isFunctionLike op
-  | .hw op => HasOpInfo.isFunctionLike op
-  | .builtin op => HasOpInfo.isFunctionLike op
-  | .func op => HasOpInfo.isFunctionLike op
-  | .datapath op => HasOpInfo.isFunctionLike op
-  | .pdl op => HasOpInfo.isFunctionLike op
-  | .test op => HasOpInfo.isFunctionLike op
-
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (_propertiesOf opCode) :=
   match opCode with
@@ -255,22 +229,64 @@ def Properties.toAttrDict
   | .pdl op, props => PDL.toAttrDict op props
   | .test op, props => Test.toAttrDict op props
 
-instance : HasOpInfo OpCode where
+instance : IsOpCode OpCode where
   fromName := OpCode.fromName
   name := OpCode.name
   propertiesOf := _propertiesOf
   fromAttrDict := Properties.fromAttrDict
   toAttrDict := Properties.toAttrDict
+
+/-- Function-interface information assembled from the registered dialects. -/
+def OpCode.functionInterface? (opCode : OpCode) : Option (FunctionOpInterface (_propertiesOf opCode)) :=
+  match opCode with
+  | .arith op => HasOpInfo.functionInterface? op
+  | .llvm op => HasOpInfo.functionInterface? op
+  | .riscv op => HasOpInfo.functionInterface? op
+  | .riscv_cf op => HasOpInfo.functionInterface? op
+  | .riscv_stack op => HasOpInfo.functionInterface? op
+  | .rv64 op => HasOpInfo.functionInterface? op
+  | .mod_arith op => HasOpInfo.functionInterface? op
+  | .cf op => HasOpInfo.functionInterface? op
+  | .comb op => HasOpInfo.functionInterface? op
+  | .hw op => HasOpInfo.functionInterface? op
+  | .builtin op => HasOpInfo.functionInterface? op
+  | .func op => HasOpInfo.functionInterface? op
+  | .datapath op => HasOpInfo.functionInterface? op
+  | .pdl op => HasOpInfo.functionInterface? op
+  | .test op => HasOpInfo.functionInterface? op
+
+#generate_has_dialect_instances OpCode
+
+@[expose]
+def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
+    (ctx : WfIRContext OpCode) (opIn : op.InBounds ctx.raw) : Except String Unit :=
+  match opCode with
+  | .builtin opType => Builtin.verifyLocalInvariants opType op ctx opIn
+  | .arith opType => Arith.verifyLocalInvariants opType op ctx opIn
+  | .datapath opType => Datapath.verifyLocalInvariants opType op ctx opIn
+  | .func opType => Func.verifyLocalInvariants opType op ctx opIn
+  | .cf opType => Cf.verifyLocalInvariants opType op ctx opIn
+  | .pdl opType => PDL.verifyLocalInvariants opType op ctx opIn
+  | .test .test => pure ()
+  | .llvm opType => Llvm.verifyLocalInvariants opType op ctx opIn
+  | .mod_arith opType => Mod_Arith.verifyLocalInvariants opType op ctx opIn
+  | .riscv opType => Riscv.verifyLocalInvariants opType op ctx opIn
+  | .riscv_cf opType => Riscv_Cf.verifyLocalInvariants opType op ctx opIn
+  | .riscv_stack opType => Riscv_Stack.verifyLocalInvariants opType op ctx opIn
+  | .rv64 opType => Rv64.verifyLocalInvariants opType op ctx opIn
+  | .comb opType => Comb.verifyLocalInvariants opType op ctx opIn
+  | .hw opType => HW.verifyLocalInvariants opType op ctx opIn
+
+instance : HasOpInfo OpCode where
+  verifyLocalInvariants := OpCode.verifyLocalInvariants
   getEffects := OpCode.getEffects
   isConstantLike := OpCode.isConstantLike
-  isFunctionLike := OpCode.isFunctionLike
+  functionInterface? := OpCode.functionInterface?
   getRegionKind := OpCode.getRegionKind
   hasSSADominance := OpCode.hasSSADominance
   hasNoTerminator := OpCode.hasNoTerminator
   isTerminator := OpCode.isTerminator
   isIsolatedFromAbove := OpCode.isIsolatedFromAbove
-
-#generate_has_dialect_instances OpCode
 
 /--
 Ask the dialect of `opCode` how to represent a folded

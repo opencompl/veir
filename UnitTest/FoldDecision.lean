@@ -36,7 +36,7 @@ private def testFoldDecision : String := Id.run do
 
     -- All operands known: the interpreter supplies the constant.
     match add.foldsTo ctx addInBounds constants with
-    | some (.useConstant (.int 32 (.val value))) =>
+    | some #[.useConstant (.int 32 (.val value))] =>
       if value ≠ 15 then
         return s!"arith.addi folded to the wrong constant: {value}"
     | _ => return "arith.addi did not evaluate"
@@ -49,7 +49,7 @@ private def testFoldDecision : String := Id.run do
     -- Interpreter UB becomes poison.
     match OpCode.foldsTo (.arith .ceildivui) default i32Types
         #[some (.int 32 (.val 5)), some (.int 32 (.val 0))] with
-    | some (.useConstant (.int 32 .poison)) => pure ()
+    | some #[.useConstant (.int 32 .poison)] => pure ()
     | _ => return "arith.ceildivui by zero did not fold UB to poison"
 
     return "ok"
@@ -189,7 +189,7 @@ private def testNswOverflowFoldsToPoison : String := Id.run do
   let operands : Array (Option RuntimeValue) :=
     #[some (.int 32 (.val (BitVec.ofInt 32 2147483647))), some (.int 32 (.val 1))]
   match OpCode.foldsTo (.arith .addi) props #[i32] operands with
-  | some (.useConstant value) =>
+  | some #[.useConstant value] =>
     match (.arith .addi : OpCode).materializeConstant value i32 with
     | some ⟨.llvm .mlir__poison, _⟩ => return "ok"
     | _ => return "nsw overflow did not materialize llvm.mlir.poison"

@@ -128,15 +128,12 @@ def Arith.hasSSADominance (_op : Arith) (_index : Nat) : Bool :=
 
 #generate_dialect Arith
 
-instance : HasOpInfo Arith where
+instance : IsOpCode Arith where
   fromName := Arith.fromName
   name := Arith.name
   propertiesOf := Arith.propertiesOf
   fromAttrDict := Arith.fromAttrDict
   toAttrDict := Arith.toAttrDict
-  getEffects := Arith.getEffects
-  isConstantLike := Arith.isConstantLike
-  hasSSADominance := Arith.hasSSADominance
 
 /--
 Materialize integer results of folded arithmetic operations as `arith.constant`.
@@ -160,7 +157,7 @@ two results. The low result always matches the operand type; the high result
 is either an `i1` overflow flag (`addui_extended` / `subui_extended`) or
 another value of the operand type (`mulsi_extended` / `mului_extended`).
 -/
-def OperationPtr.verifyArithExtendedOp {OpInfo : Type} [HasOpInfo OpInfo]
+def OperationPtr.verifyArithExtendedOp {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) (secondResultIsI1 : Bool) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 2 2
@@ -184,7 +181,7 @@ Verify the local invariants of an `arith` operation in any operation-info type
 containing the `arith` dialect.
 -/
 @[expose]
-def Arith.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpInfo Arith]
+def Arith.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpInfo Arith]
     (opType : Arith) (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
@@ -234,6 +231,12 @@ def Arith.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect O
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyTruncTypes ctx opIn false
     pure ()
+
+instance : HasOpInfo Arith where
+  verifyLocalInvariants := Arith.verifyLocalInvariants
+  getEffects := Arith.getEffects
+  isConstantLike := Arith.isConstantLike
+  hasSSADominance := Arith.hasSSADominance
 
 end
 
