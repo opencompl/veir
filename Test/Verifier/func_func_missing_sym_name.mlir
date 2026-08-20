@@ -7,4 +7,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: func.func: Expected symbol name
+// CHECK: func.func: missing 'sym_name' property

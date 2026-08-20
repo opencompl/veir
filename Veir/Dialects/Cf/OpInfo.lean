@@ -56,22 +56,18 @@ def Cf.isTerminator (_op : Cf) : Bool :=
 
 #generate_dialect Cf
 
-instance : HasOpInfo Cf where
+instance : IsOpCode Cf where
   fromName := Cf.fromName
   name := Cf.name
   propertiesOf := Cf.propertiesOf
   fromAttrDict := Cf.fromAttrDict
   toAttrDict := Cf.toAttrDict
-  getEffects := Cf.getEffects
-  isConstantLike := Cf.isConstantLike
-  hasSSADominance := Cf.hasSSADominance
-  isTerminator := Cf.isTerminator
 
 /--
 Verify the local invariants of a `cf` operation in any operation-info type
 containing the `cf` dialect.
 -/
-def Cf.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpInfo Cf]
+def Cf.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpInfo Cf]
     (opType : Cf) (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
@@ -85,6 +81,13 @@ def Cf.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpIn
     if props.branch_weights.values.size ≠ 2 && props.branch_weights.values.size ≠ 0 then
       throw "Expected 0 or 2 branch weights"
     op.verifyCondBranchOperandSegmentSizes ctx opIn props.operandSegmentSizes 1
+
+instance : HasOpInfo Cf where
+  verifyLocalInvariants := Cf.verifyLocalInvariants
+  getEffects := Cf.getEffects
+  isConstantLike := Cf.isConstantLike
+  hasSSADominance := Cf.hasSSADominance
+  isTerminator := Cf.isTerminator
 
 end
 

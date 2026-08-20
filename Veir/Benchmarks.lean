@@ -5,6 +5,7 @@ public import Veir.GlobalOpInfo
 
 import Veir.Printer
 
+meta import Veir.GlobalOpInfo
 meta import Veir.PatternRewriter.Basic
 meta import Veir.Printer
 
@@ -497,7 +498,7 @@ def rewriteWorklist (program: WfIRContext OpCode) (_topOp : OperationPtr) (rewri
 
 def print (program: Option (WfIRContext OpCode × OperationPtr)) : IO Unit := do
   if let some (ctx, topOp) := program then
-    Printer.printModule ctx topOp
+    Printer.printModule ctx.raw topOp
 
 def time {α : Type} (name: String) (f: Unit → IO α) (quiet: Bool) : IO α := do
   let startTime ← IO.monoNanosNow

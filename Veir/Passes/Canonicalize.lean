@@ -2,7 +2,7 @@ module
 
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
-import Veir.Interfaces.ConstantLikeInterfaces
+import Veir.Interfaces.FoldInterfaces
 import Veir.Passes.Matching
 
 namespace Veir
@@ -10,9 +10,9 @@ namespace Veir
 /-!
   # Canonicalize pass
 
-  Rewrites operations into canonical forms, including moving constants
-  to the right side of commutative operations and reducing modular
-  constants to their canonical representatives.
+  Rewrites operations into canonical forms, including folding operations,
+  moving constants to the right side of commutative operations, and reducing
+  modular constants to their canonical representatives.
 -/
 
 def canonicalizeModArithConstant (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -49,6 +49,8 @@ def CanonicalizePass.impl (options : PassOptions) (ctx : WfIRContext OpCode)
     (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   let mut patterns : Array (RewritePattern OpCode) := #[]
+  if (options.get? "fold").getD true then
+    patterns := patterns.push foldOperation
   if (options.get? "mod-arith-constant").getD true then
     patterns := patterns.push canonicalizeModArithConstant
   if (options.get? "commutative-constant-rhs").getD true then
@@ -62,6 +64,9 @@ public def CanonicalizePass : Pass OpCode :=
   { name := "canonicalize"
     description := "Rewrite operations into a canonical form."
     options := .ofList [
+      ("fold",
+        { description := "Fold operations with constant operands to constants."
+          defaultValue := true }),
       ("mod-arith-constant",
         { description := "Reduce modular constants to their canonical representatives."
           defaultValue := true }),
