@@ -56,6 +56,8 @@ def targets():
     package_dir = REPO / config.get("srcDir", ".")
 
     for target in config.get("lean_lib", []):
+        if "globs" in target:
+            sys.exit(f"error: lean_lib {target['name']} sets globs, which this checker does not model")
         source_dir = package_dir / target.get("srcDir", ".")
         for root in target.get("roots", [target["name"]]):
             yield root, source_dir
