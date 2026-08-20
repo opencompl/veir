@@ -248,14 +248,11 @@ def Riscv.hasSSADominance (_op : Riscv) (_index : Nat) : Bool :=
 
 #generate_dialect Riscv
 
-/-- Apply the RISC-V dialect's fold table. -/
 def Riscv.fold (op : Riscv) (properties : Riscv.propertiesOf op)
     (_resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
     Option FoldDecision :=
   match op, constantOperands.toList with
   | .andi, [_] =>
-    -- The zero is an immediate property, not an SSA operand, so this fold must
-    -- request materialization of a new constant.
     if properties.value.value == 0 then some (.useConstant (.reg ⟨0⟩)) else none
   | _, _ => none
 

@@ -342,21 +342,11 @@ def Llvm.propagatesPoison : Llvm → Bool
   | .select | .br | .cond_br | .unreachable | .alloca | .load | .store
   | .getelementptr | .call | .return | .func | .module_flags | .freeze => false
 
-/--
-Apply the `llvm` dialect's fold table: the dialect's identity folds. The
-operation is assumed to have passed verification, so `add` has two operands of
-the result's own integer type and a concrete zero operand is a zero of the
-right width.
--/
 def Llvm.fold (op : Llvm) (_properties : Llvm.propertiesOf op)
     (_resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
     Option FoldDecision :=
   match op, constantOperands.toList with
   | .add, [_, some (.int _ (.val bits))] =>
-    -- Canonical Veir keeps the constant operand of a commutative operation on
-    -- the right, so only that side is worth testing. Reusing the left operand
-    -- preserves poison when it is not known at compile time and allows the
-    -- identity fold to fire without requiring every operand to be constant.
     if bits = 0 then some (.useOperand 0) else none
   | _, _ => none
 
