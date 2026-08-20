@@ -126,7 +126,8 @@ def addOtherTheorems (g : MVarId) (simp : SimpTheoremsArray) : MetaM SimpTheorem
 /--
 Add BitVecInfos theorems to the Simp theorem context that don't need special bindings
 -/
-def addBvInfos (g : MVarId) (bvInfos : BitVecInfos) (simp : SimpTheoremsArray) : MetaM SimpTheoremsArray := g.withContext do
+def addBvInfos (g : MVarId) (bvInfos : BitVecInfos)
+  (simp : SimpTheoremsArray) : MetaM SimpTheoremsArray := g.withContext do
   let mut simp := simp
   for info in bvInfos.infos do
       simp ← simp.addTheorem (.other info.bvHyp.name) (mkFVar info.bvHyp)
@@ -135,7 +136,8 @@ def addBvInfos (g : MVarId) (bvInfos : BitVecInfos) (simp : SimpTheoremsArray) :
 /--
 Add width mask hypothesis
 -/
-def addWidthHyp (g : MVarId) (widthInfo : WidthInfo) (simp : SimpTheoremsArray) : MetaM SimpTheoremsArray := g.withContext do
+def addWidthHyp (g : MVarId) (widthInfo : WidthInfo)
+  (simp : SimpTheoremsArray) : MetaM SimpTheoremsArray := g.withContext do
   -- TODO: make this cleaner by collecting them all into a single array.
   let simpThms : SimpTheorems := {}
   let simpThms ← do
