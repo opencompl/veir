@@ -243,7 +243,8 @@ theorem OperationPtr.Verified.arith_constant {op : OperationPtr} {opInBounds}
     ← getOpType!_eq_getOpType, opType, ne_eq,
     bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure, dite_not,
     ite_not] at opVerify
-  refine ⟨by grind, by grind, by grind, by grind, TypeAttr.inj.mpr (by grind)⟩
+  simp only [TypeAttr.inj]
+  grind
 
 /-- A verified `llvm.mlir.constant` whose value attribute is an integer has an integer result type. -/
 theorem OperationPtr.Verified.llvm_mlir__constant_resultType {op : OperationPtr} {opInBounds}
@@ -804,6 +805,7 @@ def OperationPtr.IsVerifiedModArithBinop (op : OperationPtr) (ctx : WfIRContext 
 private theorem OperationPtr.verifyModArithBinOp_eq_ok {ctx : WfIRContext OpCode} {op : OperationPtr}
     {opInBounds : op.InBounds ctx.raw} (h : op.verifyModArithBinOp ctx opInBounds = .ok ()) :
     op.IsVerifiedModArithBinop ctx := by
+  simp only [IsVerifiedModArithBinop, TypeAttr.inj]
   simp only [verifyModArithBinOp, verifyPlainOpCounts, verifyOperandTypesMatch,
              verifyResultTypeMatches, TypeAttr.verifyModArithType,
              Except_bind_ok_iff, exists_punit] at h
@@ -811,8 +813,7 @@ private theorem OperationPtr.verifyModArithBinOp_eq_ok {ctx : WfIRContext OpCode
           hResultTypeMatches, modArithType, hModArithType, _⟩ := h
   simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure]
     at hPlainOpCounts hOperandTypesMatch hResultTypeMatches hModArithType
-  refine ⟨by grind, by grind, by grind, by grind, modArithType, by grind, by grind,
-    ?_, ?_, ?_⟩ <;> exact TypeAttr.inj.mpr (by grind)
+  grind
 
 private theorem OperationPtr.Verified.modArithBinop {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds)
@@ -866,13 +867,13 @@ theorem OperationPtr.Verified.mod_arith_constant {op : OperationPtr} {opInBounds
     cases hb : op.verifyModArithConstantOp ctx opInBounds with
     | ok _ => rfl
     | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
+  simp only [IsVerifiedModArithConstant, TypeAttr.inj]
   simp only [verifyModArithConstantOp, verifyPlainOpCounts, TypeAttr.verifyModArithType,
             Except_bind_ok_iff, exists_punit] at h
   obtain ⟨hPlainOpCounts, modArithType, hModArithType, hAttr⟩ := h
   simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure]
     at hPlainOpCounts hModArithType hAttr
-  refine ⟨by grind, by grind, by grind, by grind, modArithType, TypeAttr.inj.mpr (by grind),
-    by grind, by grind, by grind, by grind⟩
+  grind
 
 /-- Structural facts guaranteed for a verified `func.func`: it has no operands, results, or
 successors, and exactly one region (its body). -/

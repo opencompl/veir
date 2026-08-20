@@ -287,7 +287,7 @@ theorem InterpreterState.DefinesDominating.interpretOpList_ne_fail
       state.DefinesDominating (.before head) (by grind [List.mem_of_head? hhead])) :
     interpretOpList ops state ≠ .fail := by
   induction ops generalizing state with
-  | nil => simp only [interpretOpList_nil]; exact Option.some_ne_none _
+  | nil => simp
   | cons a l ih =>
     have hDom : state.DefinesDominating (.before a) := stateDom a (by simp)
     obtain ⟨headInBounds, headParent, headNext, hChainTail⟩ := hChain

@@ -32,13 +32,11 @@ theorem OperationPtr.verifyIntegerBinop_eq_ok
     {opInBounds : op.InBounds ctx.raw}
     (h : op.verifyIntegerBinop ctx opInBounds = .ok ()) :
     op.IsVerifiedIntegerBinop ctx := by
-  simp only [verifyIntegerBinop, verifyPlainOpCounts, verifyOperandTypesMatch,
-    verifyResultTypeMatches, TypeAttr.verifyIntegerType, ne_eq, bind, Except.bind, throw, throwThe,
-    MonadExceptOf.throw, pure, Except.pure] at h
-  obtain ⟨integerType, _⟩ :
-      ∃ it, ((op.getOperand! ctx.raw 0).getType! ctx.raw).val = .integerType it := by grind
-  refine ⟨by grind, by grind, by grind, by grind, integerType, ?_, ?_, ?_⟩ <;>
-    exact TypeAttr.inj.mpr (by grind)
+  simp only [IsVerifiedIntegerBinop, verifyIntegerBinop, verifyPlainOpCounts,
+    verifyOperandTypesMatch, verifyResultTypeMatches, TypeAttr.verifyIntegerType, ne_eq, bind,
+    Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at h ⊢
+  simp only [TypeAttr.inj]
+  grind
 
 /--
   Structural facts shared by successful select-operation checks.
@@ -87,14 +85,11 @@ theorem OperationPtr.verifyIntegerUnop_eq_ok
     {opInBounds : op.InBounds ctx.raw} {ty}
     (h : op.verifyIntegerUnop ctx opInBounds = .ok ty) :
     op.IsVerifiedIntegerUnop ctx := by
-  simp only [verifyIntegerUnop, verifyPlainOpCounts, verifyResultTypeMatches,
-    TypeAttr.verifyIntegerType, ne_eq, bind, Except.bind, throw, throwThe, MonadExceptOf.throw,
-    pure, Except.pure] at h
-  obtain ⟨integerType, _⟩ :
-      ∃ it, ((op.getResult 0).get! ctx.raw).type.val = .integerType it := by
-    split at h <;> grind
-  refine ⟨by grind, by grind, by grind, by grind, TypeAttr.inj.mpr (by split at h <;> grind),
-    integerType, by grind, TypeAttr.inj.mpr (by grind)⟩
+  simp only [IsVerifiedIntegerUnop, verifyIntegerUnop, verifyPlainOpCounts,
+    verifyResultTypeMatches, TypeAttr.verifyIntegerType, ne_eq, bind, Except.bind, throw,
+    throwThe, MonadExceptOf.throw, pure, Except.pure] at h ⊢
+  simp only [TypeAttr.inj]
+  split at h <;> grind
 
 /--
   Structural facts shared by successful integer ternary-operation checks.
@@ -121,13 +116,11 @@ theorem OperationPtr.verifyIntegerTernop_eq_ok
     {opInBounds : op.InBounds ctx.raw}
     (h : op.verifyIntegerTernop ctx opInBounds = .ok ()) :
     op.IsVerifiedIntegerTernop ctx := by
-  simp only [verifyIntegerTernop, verifyPlainOpCounts, verifyOperandTypesMatch,
-    verifyResultTypeMatches, TypeAttr.verifyIntegerType, ne_eq, bind, Except.bind, throw, throwThe,
-    MonadExceptOf.throw, pure, Except.pure] at h
-  obtain ⟨integerType, _⟩ :
-      ∃ it, ((op.getOperand! ctx.raw 0).getType! ctx.raw).val = .integerType it := by grind
-  refine ⟨by grind, by grind, by grind, by grind, integerType, ?_, ?_, ?_, ?_⟩ <;>
-    exact TypeAttr.inj.mpr (by split at h <;> grind)
+  simp only [IsVerifiedIntegerTernop, verifyIntegerTernop, verifyPlainOpCounts,
+    verifyOperandTypesMatch, verifyResultTypeMatches, TypeAttr.verifyIntegerType, ne_eq, bind,
+    Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at h ⊢
+  simp only [TypeAttr.inj]
+  split at h <;> grind
 
 /--
   Structural facts shared by successful integer extension-operation checks.
@@ -151,16 +144,9 @@ theorem OperationPtr.verifyIntegerExtTypes_eq_ok
     {opInBounds : op.InBounds ctx.raw}
     (h : op.verifyIntegerExtTypes ctx opInBounds = .ok ()) :
     op.IsVerifiedIntegerExtop ctx := by
-  simp only [verifyIntegerExtTypes, verifyPlainOpCounts, ne_eq, bind, Except.bind, throw, throwThe,
-    MonadExceptOf.throw, pure, Except.pure] at h
-  obtain ⟨operandType, _⟩ :
-      ∃ it, ((op.getOperand! ctx.raw 0).getType! ctx.raw).val = .integerType it := by
-    split at h <;> grind
-  obtain ⟨resultType, _⟩ :
-      ∃ it, ((op.getResult 0).get! ctx.raw).type.val = .integerType it := by
-    split at h <;> grind
-  refine ⟨by grind, by grind, by grind, by grind, operandType, resultType,
-    TypeAttr.inj.mpr (by grind), TypeAttr.inj.mpr (by grind), ?_⟩
+  simp only [IsVerifiedIntegerExtop, verifyIntegerExtTypes, verifyPlainOpCounts, ne_eq, bind,
+    Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at h ⊢
+  simp only [TypeAttr.inj]
   split at h <;> grind
 
 end
