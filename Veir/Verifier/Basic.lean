@@ -17,7 +17,7 @@ namespace Veir
 
 public section
 
-variable {OpInfo : Type} [HasOpInfo OpInfo]
+variable {OpInfo : Type} [IsOpCode OpInfo]
 
 /--
   Type compatibility for values forwarded to block arguments or returned from

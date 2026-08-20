@@ -8,6 +8,7 @@ import Veir.Rewriter.LinkedList.WellFormed
 import Veir.Rewriter.WellFormed
 import Veir.Rewriter.InlineBlock
 import Veir.Rewriter.WfRewriter
+import Veir.PatternRewriter.Semantics
 import Veir.Printer
 import Veir.PatternRewriter.Basic
 import Veir.Interfaces.FoldInterfaces
@@ -22,3 +23,12 @@ import Veir.Dominance
 import Veir.Passes.InstructionSelection.Proofs
 import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.Legalization.Proofs
+
+-- FIXME: These modules are otherwise orphans and would not be compiled.
+import Veir.Analysis.DataFlow.SparseFact
+import Veir.Data.FP.EScientificBV
+import Veir.Data.FP.EScientificBV.Basic
+import Veir.Data.FP.EScientificBV.ToExtRat
+import Veir.Data.FP.ExtRat
+import Veir.Data.FP.FP
+import Veir.Interfaces

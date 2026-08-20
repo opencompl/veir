@@ -76,17 +76,17 @@ def FunctionResult.isRefinedBy (source target : MemoryState × Array RuntimeValu
 /--
 An interpretation result `source` is refined by `target` given a refinement relation `R`
 on the underlying values. This asserts:
-* every well-defined outcome `some (.ok a)` of `source` must be matched by an outcome
-  `some (.ok b)` of `target` with `R a b`;
-* when `source` is undefined behaviour (`some .ub`) or failed interpretation (`none`), `target`
+* every well-defined outcome `.ok a` of `source` must be matched by an outcome
+  `.ok b` of `target` with `R a b`;
+* when `source` is undefined behaviour (`.ub`) or failed interpretation (`.fail`), `target`
   is unconstrained
 -/
 @[expose]
 def Interp.isRefinedBy (R : α → β → Prop) (source : Interp α) (target : Interp β) : Prop :=
   match source, target with
-  | some (.ok a), some (.ok b) => R a b
-  | some .ub, _ => True
-  | none, _ => True
+  | .ok a, .ok b => R a b
+  | .ub, _ => True
+  | .fail, _ => True
   | _, _ => False
 
 /--

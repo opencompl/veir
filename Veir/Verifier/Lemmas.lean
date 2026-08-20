@@ -20,11 +20,11 @@ def OperationPtr.IsVerifiedIntegerBinop
   op.getNumRegions! ctx.raw = 0 ∧
   ∃ integerType,
     ((op.getResult 0).get! ctx.raw).type =
-      ⟨.integerType integerType, (by grind)⟩ ∧
+      Attribute.asType (.integerType integerType) (by grind) ∧
     ((op.getOperand! ctx.raw 0).getType! ctx.raw) =
-      ⟨.integerType integerType, (by grind)⟩ ∧
+      Attribute.asType (.integerType integerType) (by grind) ∧
     ((op.getOperand! ctx.raw 1).getType! ctx.raw) =
-      ⟨.integerType integerType, (by grind)⟩
+      Attribute.asType (.integerType integerType) (by grind)
 
 /-- Extract structural facts from a successful `verifyIntegerBinop` check. -/
 theorem OperationPtr.verifyIntegerBinop_eq_ok
@@ -77,7 +77,7 @@ def OperationPtr.IsVerifiedIntegerUnop
   ((op.getResult 0).get! ctx.raw).type =
     (op.getOperand! ctx.raw 0).getType! ctx.raw ∧
   ∃ integerType isT,
-    ((op.getResult 0).get! ctx.raw).type = ⟨.integerType integerType, isT⟩
+    ((op.getResult 0).get! ctx.raw).type = Attribute.asType (.integerType integerType) isT
 
 /-- Extract structural facts from a successful `verifyIntegerUnop` check. -/
 theorem OperationPtr.verifyIntegerUnop_eq_ok
@@ -102,13 +102,13 @@ def OperationPtr.IsVerifiedIntegerTernop
   op.getNumRegions! ctx.raw = 0 ∧
   ∃ integerType,
     ((op.getResult 0).get! ctx.raw).type =
-      ⟨.integerType integerType, (by grind)⟩ ∧
+      Attribute.asType (.integerType integerType) (by grind) ∧
     ((op.getOperand! ctx.raw 0).getType! ctx.raw) =
-      ⟨.integerType integerType, (by grind)⟩ ∧
+      Attribute.asType (.integerType integerType) (by grind) ∧
     ((op.getOperand! ctx.raw 1).getType! ctx.raw) =
-      ⟨.integerType integerType, (by grind)⟩ ∧
+      Attribute.asType (.integerType integerType) (by grind) ∧
     ((op.getOperand! ctx.raw 2).getType! ctx.raw) =
-      ⟨.integerType integerType, (by grind)⟩
+      Attribute.asType (.integerType integerType) (by grind)
 
 /-- Extract structural facts from a successful `verifyIntegerTernop` check. -/
 theorem OperationPtr.verifyIntegerTernop_eq_ok
@@ -133,9 +133,9 @@ def OperationPtr.IsVerifiedIntegerExtop
   op.getNumRegions! ctx.raw = 0 ∧
   ∃ operandType resultType,
     ((op.getOperand! ctx.raw 0).getType! ctx.raw) =
-      ⟨.integerType operandType, (by grind)⟩ ∧
+      Attribute.asType (.integerType operandType) (by grind) ∧
     ((op.getResult 0).get! ctx.raw).type =
-      ⟨.integerType resultType, (by grind)⟩ ∧
+      Attribute.asType (.integerType resultType) (by grind) ∧
     operandType.bitwidth < resultType.bitwidth
 
 /-- Extract structural facts from a successful `verifyIntegerExtTypes` check. -/

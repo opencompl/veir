@@ -14,7 +14,7 @@
               %c = "test.test"() : () -> i3
               "cf.br"() [^bb1] : () -> ()
           ^bb1:
-              "test.test"(%a, %b, %c) : (i1, i2, i3) -> ()
+              "test.test"(%c) : (i3) -> ()
               "func.return"() : () -> ()
           }) : () -> ()
   
@@ -23,7 +23,7 @@
               %c = "test.test"() : () -> i4
               "cf.br"() [^bb1] : () -> ()
           ^bb1:
-              "test.test"(%a, %b, %c) : (i1, i2, i4) -> ()
+              "test.test"(%c) : (i4) -> ()
               "func.return"() : () -> ()
           }) : () -> ()
   
@@ -53,7 +53,7 @@
 // CHECK-NEXT:                 %[[C3:.*]] = "test.test"() : () -> i3
 // CHECK-NEXT:                 "cf.br"() [^[[C3_USE:.*]]] : () -> ()
 // CHECK-NEXT:               ^[[C3_USE]]():
-// CHECK-NEXT:                 "test.test"(%[[A]], %[[B]], %[[C3]]) : (i1, i2, i3) -> ()
+// CHECK-NEXT:                 "test.test"(%[[C3]]) : (i3) -> ()
 // CHECK-NEXT:                 "func.return"() : () -> ()
 // CHECK-NEXT:             }) : () -> ()
 // CHECK-NEXT:             "func.func"() <{{.*}}> ({
@@ -61,7 +61,7 @@
 // CHECK-NEXT:                 %[[C4:.*]] = "test.test"() : () -> i4
 // CHECK-NEXT:                 "cf.br"() [^[[C4_USE:.*]]] : () -> ()
 // CHECK-NEXT:               ^[[C4_USE]]():
-// CHECK-NEXT:                 "test.test"(%[[A]], %[[B]], %[[C4]]) : (i1, i2, i4) -> ()
+// CHECK-NEXT:                 "test.test"(%[[C4]]) : (i4) -> ()
 // CHECK-NEXT:                 "func.return"() : () -> ()
 // CHECK-NEXT:             }) : () -> ()
 // CHECK-NEXT:             %[[C5:.*]] = "test.test"() : () -> i5

@@ -70,22 +70,18 @@ def Riscv_Cf.isTerminator (_op : Riscv_Cf) : Bool :=
 
 #generate_dialect Riscv_Cf
 
-instance : HasOpInfo Riscv_Cf where
+instance : IsOpCode Riscv_Cf where
   fromName := Riscv_Cf.fromName
   name := Riscv_Cf.name
   propertiesOf := Riscv_Cf.propertiesOf
   fromAttrDict := Riscv_Cf.fromAttrDict
   toAttrDict := Riscv_Cf.toAttrDict
-  getEffects := Riscv_Cf.getEffects
-  isConstantLike := Riscv_Cf.isConstantLike
-  hasSSADominance := Riscv_Cf.hasSSADominance
-  isTerminator := Riscv_Cf.isTerminator
 
 /--
 Verify the local invariants of a `riscv_cf` operation in any operation-info
 type containing the `riscv_cf` dialect.
 -/
-def Riscv_Cf.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
+def Riscv_Cf.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Riscv_Cf] (opType : Riscv_Cf) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
@@ -131,6 +127,13 @@ def Riscv_Cf.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
     let sizes := (op.getProperties! ctx.raw Riscv_Cf.bnez).operandSegmentSizes
     op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 1
     pure ()
+
+instance : HasOpInfo Riscv_Cf where
+  verifyLocalInvariants := Riscv_Cf.verifyLocalInvariants
+  getEffects := Riscv_Cf.getEffects
+  isConstantLike := Riscv_Cf.isConstantLike
+  hasSSADominance := Riscv_Cf.hasSSADominance
+  isTerminator := Riscv_Cf.isTerminator
 
 end
 

@@ -1,6 +1,7 @@
 module
 
 public import Veir.IR.OpCode
+public import Veir.IR.WellFormed
 
 namespace Veir
 
@@ -41,8 +42,27 @@ def unknown : MemoryEffects :=
 
 end MemoryEffects
 
+/-- Information exposed by operations that behave like functions. -/
+structure FunctionOpInterface (Properties : Type) where
+  /-- Return the symbol name of the function. -/
+  getSymName : Properties → StringAttr
+  /-- Return the type of the function. -/
+  getFunctionType : Properties → FunctionType
+  /-- Return the properties with the function type replaced. -/
+  setFunctionType : Properties → FunctionType → Properties
+
 class HasOpInfo (opCode: Type)
     extends IsOpCode opCode where
+  /--
+  Verify the local invariants of an operation. This typically includes checking
+  that the number of operands, successors, results, and regions match the
+  expected values for the operation type, as well as checking that referenced
+  types are in bounds.
+  -/
+  verifyLocalInvariants :
+    (opType : opCode) → (op : OperationPtr) → (ctx : WfIRContext opCode) →
+    (opIn : op.InBounds ctx.raw) → Except String PUnit :=
+      fun _ _ _ _ => pure ()
   /--
   The memory effects of an operation with this opcode and these properties,
   mirroring MLIR's `MemoryEffectOpInterface::getEffects`.
@@ -57,10 +77,17 @@ class HasOpInfo (opCode: Type)
   -/
   isConstantLike : opCode → Bool := fun _ => false
   /--
-  Whether an operation with this opcode acts like a function: a symbol
-  whose single region is the function body.
+  Whether an operation with this opcode produces a wholly poisoned result
+  whenever any one of its operands is wholly poison, mirroring LLVM's
+  `propagatesPoison`. Defaults to `false` for every opcode, which
+  conservatively propagates nothing.
   -/
-  isFunctionLike : opCode → Bool := fun _ => false
+  propagatesPoison : opCode → Bool := fun _ => false
+  /--
+  Information about operations that act like functions.
+  -/
+  functionInterface? : (op : opCode) → Option (FunctionOpInterface (propertiesOf op)) :=
+    fun _ => none
   /--
   Return the kind of the indexed region inside an operation with this opcode.
   This mirrors MLIR's `RegionKindInterface` default: regions are SSACFG unless
@@ -91,6 +118,32 @@ class HasOpInfo (opCode: Type)
   Does this OpCode count as an MLIR basic block terminator?
   -/
   isTerminator : opCode → Bool := fun _ => false
+  /--
+  Whether this operation has MLIR's `IsolatedFromAbove` trait. Operations in
+  each of its regions may only use values defined in that region or one of its
+  nested regions.
+  -/
+  isIsolatedFromAbove : opCode → Bool := fun _ => false
+
+variable {OpInfo : Type} [HasOpInfo OpInfo]
+
+/-- Verify the local invariants of an operation using its opcode interface. -/
+@[inline]
+abbrev OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit :=
+  HasOpInfo.verifyLocalInvariants (op.getOpType ctx.raw opIn) op ctx opIn
+
+/--
+  Whether this region is exempt from the requirement that each of its blocks
+  ends in a terminator.
+-/
+@[expose, inline]
+public def RegionPtr.hasNoTerminator (region : RegionPtr) (ctx : WfIRContext OpInfo) : Bool :=
+  match (region.get! ctx.raw).parent with
+  | some parentOp =>
+    let parent := parentOp.get! ctx.raw
+    HasOpInfo.hasNoTerminator parent.opType (parent.regions.idxOf region)
+  | none => false
 
 end -- public section
 
