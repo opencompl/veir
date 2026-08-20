@@ -75,10 +75,7 @@ def OperationPtr.verifyOperandIsolation
 
 /--
   Whether this operation might be a terminator, mirroring MLIR's
-  `mightHaveTrait<OpTrait::IsTerminator>` (`mlir/include/mlir/IR/OperationSupport.h`),
-  which is `!isRegistered() || hasTrait(...)`: a registered terminator is one, and an
-  operation with unknown semantics might be. Unregistered operations and the test
-  dialect are VeIR's stand-ins for MLIR's unregistered operations.
+  `mightHaveTrait<OpTrait::IsTerminator>`.
 -/
 def OpCode.mightBeTerminator (opCode : OpCode) : Bool :=
   opCode.isTerminator ||
@@ -88,27 +85,13 @@ def OpCode.mightBeTerminator (opCode : OpCode) : Bool :=
 
 /--
   Whether a block is exempt from the requirement that it end in a terminator,
-  mirroring `mayBeValidWithoutTerminator` in `mlir/lib/IR/Verifier.cpp`:
-
-      if (!block->getParent()) return true;
-      if (!llvm::hasSingleElement(*block->getParent())) return false;
-      Operation *op = block->getParentOp();
-      return !op || op->mightHaveTrait<OpTrait::NoTerminator>();
-
-  So a block is exempt only when it is *alone* in its region, and only when that
-  region carries no terminator (`RegionPtr.hasNoTerminator`) -- i.e. its owner
-  either has unknown semantics (unregistered and test-dialect operations, which
-  might carry MLIR's `NoTerminator` trait) or is known not to require one
-  (`builtin.module`, the body of a `pdl.rewrite`). Every block of a multi-block
-  region needs a terminator, whatever operation owns it.
+  mirroring `mayBeValidWithoutTerminator` in `mlir/lib/IR/Verifier.cpp`.
 -/
 def BlockPtr.mayBeValidWithoutTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
     (blockIn : block.InBounds ctx.raw) : Bool :=
   match (block.get ctx.raw blockIn).parent with
   | none => true
   | some region =>
-    -- `hasSingleElement (*block->getParent())`: this block is the region's first
-    -- block and nothing follows it, so it is the region's only block.
     (region.get! ctx.raw).firstBlock = some block &&
     (block.get ctx.raw blockIn).next.isNone &&
     match (region.get! ctx.raw).parent with
