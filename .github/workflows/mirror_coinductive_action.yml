@@ -1,0 +1,30 @@
+name: Mirror subfolder Coinductive
+on: 
+# only trigger the action when a push happens in main and changes happens in directory Coinductive
+  push: 
+    branches: [main]
+    paths: 
+      - 'Coinductive/**' 
+
+jobs: 
+  Mirror:
+  runs-on: ubuntu-latest
+  steps:
+    - name: Checkout full history
+      uses: actions/checkout@v4
+      with:
+        ref: main # fetch only branch main
+        fetch-depth: 0 # fetch all commit history
+
+    - name: Install git-filter-repo
+      run: pip3 install git-filter-repo
+
+    - name: Filter commits to subfolder only
+      run: git filter-repo --subdirectory-filter Coinductive
+
+    - name: Push updated history to mirror repo
+      run: | 
+        git remote add origin https://x-access-token:${{ secrets.MIRROR_REPO_TOKEN }}@github.com/Alicexiaoshuokeizer/Coinductive.git
+        git push -u origin main
+
+
