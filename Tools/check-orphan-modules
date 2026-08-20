@@ -30,14 +30,15 @@ IMPORT = re.compile(
 HEADER = re.compile(r"^(?:module\b|prelude\b|set_option\b|--|$)")
 
 
-def module_of(path):
-    """`Veir/IR/Basic.lean` -> `Veir.IR.Basic`."""
-    return ".".join(path.with_suffix("").parts)
+def module_of(path, source_dir):
+    """`src/Veir/IR/Basic.lean` -> `Veir.IR.Basic`."""
+    relative = path.relative_to(source_dir)
+    return ".".join(relative.with_suffix("").parts)
 
 
-def path_of(module):
-    """`Veir.IR.Basic` -> `Veir/IR/Basic.lean`."""
-    return pathlib.Path(*module.split(".")).with_suffix(".lean")
+def path_of(module, source_dir=pathlib.Path(".")):
+    """`Veir.IR.Basic` in `src` -> `src/Veir/IR/Basic.lean`."""
+    return source_dir.joinpath(*module.split(".")).with_suffix(".lean")
 
 
 def imports_of(path):
@@ -65,13 +66,14 @@ def imports_of(path):
 
 
 def roots_of(lakefile):
-    """The modules Lake starts building from, per `lakefile.toml`.
+    """The root modules and source directories from `lakefile.toml`.
 
     A target with an explicit `globs` pulls in whole directories rather than an
     import closure; that would need different handling, so bail out instead of
     reporting orphans that are in fact built.
     """
     config = tomllib.loads(lakefile.read_text(encoding="utf-8"))
+    package_source_dir = pathlib.Path(config.get("srcDir", "."))
     roots = []
     for target in config.get("lean_lib", []):
         if "globs" in target:
@@ -79,24 +81,28 @@ def roots_of(lakefile):
                 f"{lakefile}: target '{target['name']}' sets 'globs', which this "
                 f"script does not model; teach it about globs before trusting it."
             )
-        roots.extend(target.get("roots", [target["name"]]))
+        source_dir = package_source_dir / target.get("srcDir", ".")
+        roots.extend(
+            (root, source_dir) for root in target.get("roots", [target["name"]])
+        )
     for target in config.get("lean_exe", []):
-        roots.append(target.get("root", target["name"]))
+        source_dir = package_source_dir / target.get("srcDir", ".")
+        roots.append((target.get("root", target["name"]), source_dir))
     return roots
 
 
-def reachable(roots):
+def reachable(roots, source_paths):
     """Every local module reachable from `roots` by following imports.
 
     Imports that do not resolve to a file in this package are dependencies
     (`Std`, `Lean`, `ExArray`, ...) and are simply dropped.
     """
     seen = set()
-    work = list(roots)
+    work = [module for module, _source_dir in roots]
     while work:
         module = work.pop()
-        path = path_of(module)
-        if module in seen or not path.is_file():
+        path = source_paths.get(module)
+        if module in seen or path is None:
             continue
         seen.add(module)
         work.extend(imports_of(path))
@@ -104,17 +110,19 @@ def reachable(roots):
 
 
 def sources(roots):
-    """Every `.lean` file belonging to this package.
+    """Map every `.lean` module belonging to this package to its source path.
 
     That is the root files themselves plus everything under the directory each
     root names, which is where Lake looks for a submodule of that root.
     """
-    result = set()
-    for root in roots:
-        if path_of(root).is_file():
-            result.add(root)
-        for found in pathlib.Path(*root.split(".")).rglob("*.lean"):
-            result.add(module_of(found))
+    result = {}
+    for root, source_dir in roots:
+        root_path = path_of(root, source_dir)
+        if root_path.is_file():
+            result[root] = root_path
+        module_dir = source_dir.joinpath(*root.split("."))
+        for found in module_dir.rglob("*.lean"):
+            result[module_of(found, source_dir)] = found
     return result
 
 
@@ -124,13 +132,13 @@ def main():
     os.chdir(pathlib.Path(__file__).resolve().parent.parent)
 
     roots = roots_of(pathlib.Path("lakefile.toml"))
-    all_modules = sources(roots)
-    reached = reachable(roots)
-    orphans = sorted(all_modules - reached)
+    source_paths = sources(roots)
+    reached = reachable(roots, source_paths)
+    orphans = sorted(source_paths.keys() - reached)
 
     for module in orphans:
         print(
-            f"error: {path_of(module)} is never built, so Lean never checks it; "
+            f"error: {source_paths[module]} is never built, so Lean never checks it; "
             f"import it from the module that should own it, or delete it"
         )
     if orphans:
