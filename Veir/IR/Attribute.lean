@@ -1383,58 +1383,58 @@ def Attribute.asType (attr : Attribute) (isType : attr.isType := by grind) : Typ
 -/
 
 instance : Coe IntegerType TypeAttr where
-  coe type := ⟨.integerType type, by rfl⟩
+  coe type := Attribute.asType (.integerType type) (by rfl)
 
 instance : Coe FloatType TypeAttr where
-  coe type := ⟨.floatType type, by rfl⟩
+  coe type := Attribute.asType (.floatType type) (by rfl)
 
 instance : Coe LLVM.ByteType TypeAttr where
-  coe type := ⟨.byteType type, by rfl⟩
+  coe type := Attribute.asType (.byteType type) (by rfl)
 
 instance : Coe FunctionType TypeAttr where
-  coe type := ⟨.functionType type, by rfl⟩
+  coe type := Attribute.asType (.functionType type) (by rfl)
 
 instance : Coe ModArithType TypeAttr where
-  coe type := ⟨.modArithType type, by rfl⟩
+  coe type := Attribute.asType (.modArithType type) (by rfl)
 
 instance : CoeDep (Option Nat → RegisterType) RegisterType.mk TypeAttr where
-  coe := ⟨.registerType (.mk none), by rfl⟩
+  coe := Attribute.asType (.registerType (.mk none)) (by rfl)
 
 instance : Coe RegisterType TypeAttr where
-  coe type := ⟨.registerType type, by rfl⟩
+  coe type := Attribute.asType (.registerType type) (by rfl)
 
 instance : Coe LLVM.VoidType TypeAttr where
-  coe type := ⟨.llvmVoidType type, by rfl⟩
+  coe type := Attribute.asType (.llvmVoidType type) (by rfl)
 
 instance : Coe LLVM.PointerType TypeAttr where
-  coe type := ⟨.llvmPointerType type, by rfl⟩
+  coe type := Attribute.asType (.llvmPointerType type) (by rfl)
 
 instance : Coe LLVM.ArrayType TypeAttr where
-  coe type := ⟨.llvmArrayType type, by rfl⟩
+  coe type := Attribute.asType (.llvmArrayType type) (by rfl)
 
 instance : Coe CudaTile.PointerType TypeAttr where
-  coe type := ⟨.cudaTilePointerType type, by rfl⟩
+  coe type := Attribute.asType (.cudaTilePointerType type) (by rfl)
 
 instance : Coe HW.ModuleType TypeAttr where
-  coe type := ⟨.hwModuleType type, by rfl⟩
+  coe type := Attribute.asType (.hwModuleType type) (by rfl)
 
 instance : Coe PDL.RangeType TypeAttr where
-  coe type := ⟨.pdlRangeType type, by rfl⟩
+  coe type := Attribute.asType (.pdlRangeType type) (by rfl)
 
 instance : Coe Match.OptionalType TypeAttr where
-  coe type := ⟨.matchOptionalType type, by rfl⟩
+  coe type := Attribute.asType (.matchOptionalType type) (by rfl)
 
 instance : Coe PDL.AttributeType TypeAttr where
-  coe type := ⟨.pdlAttributeType type, by rfl⟩
+  coe type := Attribute.asType (.pdlAttributeType type) (by rfl)
 
 instance : Coe PDL.OperationType TypeAttr where
-  coe type := ⟨.pdlOperationType type, by rfl⟩
+  coe type := Attribute.asType (.pdlOperationType type) (by rfl)
 
 instance : Coe PDL.ValueType TypeAttr where
-  coe type := ⟨.pdlValueType type, by rfl⟩
+  coe type := Attribute.asType (.pdlValueType type) (by rfl)
 
 instance : Coe PDL.TypeType TypeAttr where
-  coe type := ⟨.pdlTypeType type, by rfl⟩
+  coe type := Attribute.asType (.pdlTypeType type) (by rfl)
 
 end
 end Veir
