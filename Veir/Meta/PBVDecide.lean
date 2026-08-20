@@ -62,7 +62,7 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
           out_goal := goal
     return (out_goal, width_le_bound, hyps)
 
--- -- IsMask theorem
+-- IsMask theorem
   let (g_no_w_no_v) ← g_no_w_no_v.withContext do
     let hyp_expr ← mkAppM ``isMask_of_eq_maskOfWidth #[mkFVar mask_hyp]
     let type ← inferType hyp_expr
@@ -114,20 +114,30 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
 
     -- clear `maskOfWidth` hypothesis
     goal_out ← goal_out.clear mask_hyp
-
-    -- clear "w" dependencies
-    let w_decl ← getLocalDeclFromUserName widthName
-
-    -- let mut goal := goal_out
-
-    -- (← getLCtx).foldlM (fun goal => do (fun localDecl => do
-    --   unless localDecl.fvarId == w_decl.fvarId do
-    --     if (← localDeclDependsOn localDecl w_decl.fvarId) then
-    --       goal ← goal.clear localDecl.fvarId
-    -- ))
-
     return goal_out
 
+
+-- Clear the last Nat hypotheses
+  let final_goal ← final_goal.withContext do
+    let w_decl ← getLocalDeclFromUserName widthName
+
+    let dependant ← (← getLCtx).foldrM (init := (#[] : Array LocalDecl )) fun localDecl acc => do
+      if localDecl.fvarId == w_decl.fvarId then
+        return acc
+      if (← localDeclDependsOn localDecl w_decl.fvarId) then
+        -- goal ← goal.clear localDecl.fvarId
+        logInfo s!"{localDecl.userName} depends on {w_decl.userName }"
+        return acc.push localDecl
+      else
+        return acc
+
+    let mut goal := final_goal
+    for hyp in dependant do
+      goal ← goal.clear hyp.fvarId
+
+    goal ← goal.clear w_decl.fvarId
+
+    return goal
 
   return [final_goal, w_expr.mvarId!]
 
@@ -145,9 +155,8 @@ def evalPbvDecide : Tactic := fun stx => do
 theorem trace_add_comm (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
   x + y = y + x := by
   pbv_decide 13
-
-  bv_decide
-  grind
+  · bv_decide
+  · grind
 
 -- theorem trace_add_test (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
 --   x + y = y + x + 0 := by
