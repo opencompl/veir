@@ -40,7 +40,8 @@ private def foldByEvaluation (opType : OpCode) (properties : propertiesOf opType
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue))
     : Option (Array FoldResult) := do
   let values ← constOperands.mapM id
-  match ← (foldEvaluate opType properties resultTypes values : Option (UBOr _)) with
+  match foldEvaluate opType properties resultTypes values with
+  | .fail => none
   | .ok results => return results.map .useConstant
   | .ub => allResultsPoison resultTypes
 
