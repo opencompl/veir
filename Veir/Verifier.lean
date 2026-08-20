@@ -15,14 +15,28 @@ namespace Veir
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 
 /--
-  Verify that a terminator only ever appears as the last operation of its block:
-  an operation that is a terminator must not be followed by another operation.
+  Verify operation/block control-flow position rules: a terminator only ever
+  appears as the last operation of its block, and any operation carrying block
+  successors must also be the last operation of its block.
+
+  The second rule is MLIR's, from `verifyOnEntrance(Block &)` in
+  `mlir/lib/IR/Verifier.cpp`:
+
+      // Only the last instructions is allowed to have successors.
+      if (op.getNumSuccessors() != 0 && &op != &block.back())
+
+  It is deliberately phrased in terms of successors rather than the
+  `IsTerminator` trait, so that an unregistered or test-dialect operation cannot
+  smuggle a CFG edge into the middle of a block where terminator-based analyses
+  would not see it.
 -/
 def OperationPtr.verifyTerminatorPosition (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   let operation := op.get ctx.raw opIn
   if operation.opType.isTerminator && operation.next.isSome then
     throw "Expected a terminator to be the last operation of its block"
+  if op.getNumSuccessors ctx.raw opIn ≠ 0 && operation.next.isSome then
+    throw "operation with block successors must terminate its parent block"
 
 /--
 Find the region that establishes the nearest `IsolatedFromAbove` scope around
@@ -60,11 +74,56 @@ def OperationPtr.verifyOperandIsolation
       throw "operand uses a value defined outside the isolated region that encloses its use"
 
 /--
-  Check that a block is non-empty and its last operation is a
-  terminator.
+  Whether this operation might be a terminator, mirroring MLIR's
+  `mightHaveTrait<OpTrait::IsTerminator>` (`mlir/include/mlir/IR/OperationSupport.h`),
+  which is `!isRegistered() || hasTrait(...)`: a registered terminator is one, and an
+  operation with unknown semantics might be. Unregistered operations and the test
+  dialect are VeIR's stand-ins for MLIR's unregistered operations.
+-/
+def OpCode.mightBeTerminator (opCode : OpCode) : Bool :=
+  opCode.isTerminator ||
+    match opCode with
+    | .builtin .unregistered | .test .test => true
+    | _ => false
+
+/--
+  Whether a block is exempt from the requirement that it end in a terminator,
+  mirroring `mayBeValidWithoutTerminator` in `mlir/lib/IR/Verifier.cpp`:
+
+      if (!block->getParent()) return true;
+      if (!llvm::hasSingleElement(*block->getParent())) return false;
+      Operation *op = block->getParentOp();
+      return !op || op->mightHaveTrait<OpTrait::NoTerminator>();
+
+  So a block is exempt only when it is *alone* in its region, and only when that
+  region carries no terminator (`RegionPtr.hasNoTerminator`) -- i.e. its owner
+  either has unknown semantics (unregistered and test-dialect operations, which
+  might carry MLIR's `NoTerminator` trait) or is known not to require one
+  (`builtin.module`, the body of a `pdl.rewrite`). Every block of a multi-block
+  region needs a terminator, whatever operation owns it.
+-/
+def BlockPtr.mayBeValidWithoutTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
+    (blockIn : block.InBounds ctx.raw) : Bool :=
+  match (block.get ctx.raw blockIn).parent with
+  | none => true
+  | some region =>
+    -- `hasSingleElement (*block->getParent())`: this block is the region's first
+    -- block and nothing follows it, so it is the region's only block.
+    (region.get! ctx.raw).firstBlock = some block &&
+    (block.get ctx.raw blockIn).next.isNone &&
+    match (region.get! ctx.raw).parent with
+    | none => true
+    | some _ => region.hasNoTerminator ctx
+
+/--
+  Check that a block is non-empty and ends in an operation that might be a
+  terminator, unless the block may be valid without one. Mirrors the terminator
+  half of `verifyOnEntrance`/`verifyOnExit` in `mlir/lib/IR/Verifier.cpp`.
 -/
 def BlockPtr.verifyTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
     (blockIn : block.InBounds ctx.raw) : Except String PUnit := do
+  if block.mayBeValidWithoutTerminator ctx blockIn then
+    return
   let b := block.get ctx.raw blockIn
   let named (msg : String) : String :=
     match b.parent with
@@ -76,7 +135,7 @@ def BlockPtr.verifyTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
   match b.lastOp with
   | none => throw (named "Expected the block to end in a terminator, but the block is empty")
   | some lastOp =>
-    if !(lastOp.getOpType! ctx.raw).isTerminator then
+    if !(lastOp.getOpType! ctx.raw).mightBeTerminator then
       throw (named "Expected the last operation of a block to be a terminator")
 
 /-- Check that a graph region contains at most one block. -/
@@ -163,12 +222,8 @@ def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
         | some _ => op.verifyTerminatorPosition ctx opIn
         | none => pure ()
         op.verifyOperandIsolation ctx opIn))
-  ctx.raw.forBlocksDepM (fun block blockIn => do
-    match (block.get ctx.raw blockIn).parent with
-    | some region =>
-      if !region.hasNoTerminator ctx then
-        block.verifyTerminator ctx blockIn
-    | none => pure ())
+  ctx.raw.forBlocksDepM (fun block blockIn =>
+    block.verifyTerminator ctx blockIn)
   ctx.verifyLLVMGlobalSymbols
   ctx.verifyPDLPatternBodies
 
