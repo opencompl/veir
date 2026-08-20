@@ -34,11 +34,9 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
     let width_var ← getFVarFromUserName widthName
 
   -- Assert that the width variable is less than the width bound
-    let width_le_bound_expr := mkAppN (Expr.const `Nat.le []) #[width_var, mkNatLit bound]
-    let width_le_bound ← mkFreshExprMVar width_le_bound_expr
+    let width_le_bound ← mkFreshExprMVar (mkAppN (Expr.const `Nat.le []) #[width_var, mkNatLit bound])
 
     let mut out_goal := g_no_w
-
     let mut hyps : Array FVarId := #[]
 
     for ldecl in ← getLCtx do
@@ -46,9 +44,10 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
         -- Find the BitVec {width_expr} variables
         if ← isDefEq ldecl.type (mkApp (mkConst ``BitVec) width_var) then
           logInfo s!"Applying var_elim to {ldecl.userName}"
+          -- Revert to expose forall with the BitVec
           let (var_hyp, goal) ← out_goal.revert #[ldecl.fvarId]
           let some oldvar_name := var_hyp[0]? | throwError "reverting shuold produce a var"
-          -- not providing the `hwo` hypothesis but seems to work?
+
           let applied := mkAppN var_elim_theorem #[mkNatLit bound, width_var, width_le_bound]
           let out ← goal.apply applied
           let some goal := out[0]? | throwError "var_elim should generate a goal"
@@ -56,20 +55,29 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
           let name ← oldvar_name.getUserName
           let (_new_var, goal) ← goal.intro (name)
           let (new_hyp, goal) ← goal.intro (Name.mkSimple s!"h_m{name}")
+
           -- Add the mask hypothesis to the running list
           hyps := hyps.push new_hyp
 
           out_goal := goal
     return (out_goal, width_le_bound, hyps)
 
+-- -- IsMask theorem
+  let (g_no_w_no_v) ← g_no_w_no_v.withContext do
+    let hyp_expr ← mkAppM ``isMask_of_eq_maskOfWidth #[mkFVar mask_hyp]
+    let type ← inferType hyp_expr
+    let (_new_hyps, goal) ← g_no_w_no_v.assertHypotheses #[{ userName := Name.mkSimple "test", type := type, value := hyp_expr}]
+    return goal
+
 -- Simp and push theorems
   let final_goal ← g_no_w_no_v.withContext do
     let push_th := #[``eq_iff, ``setWidth_add, ``setWidth_setWidth] -- hardcoded theorems
     let others := #[``BitVec.setWidth_eq]
 
+    let mut simpThms : SimpTheoremsArray := #[]
+
     -- push theorems that need to be partially evealuted with the right
     -- symbolic width and concrete bound width
-    let mut simpThms : SimpTheoremsArray := #[]
     for n in push_th do
       let push_thm ← mkAppM n #[w_expr]
       simpThms ← simpThms.addTheorem (.other n) push_thm
@@ -87,13 +95,39 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
     -- add the mask constraint as an inverse theorem, to remove `setWidths` from the goal
     simpThms ← simpThms.modifyM 0 fun thms => thms.add (.other mask_hyp.name) #[] (mkFVar mask_hyp) (inv := true)
 
+    -- apply simp
     let ctx ← Simp.mkContext (simpTheorems := simpThms)
-
     let (result, _) ← simpTarget g_no_w_no_v ctx
-
     let some goal_out := result | throwError "goal solved by simp"
 
+    let mut goal_out := goal_out
+
+    -- replace all occurences of `maskOfWidth` in the hypotheses
+    -- (hacky?) reverse because when a hypothesis is rewritten all hyps that come after it change FVarID
+    -- by reversing the `hyp` stays unchanged as the rewrites are applied
+    for hyp in hyps.reverse do
+      logInfo s!"rewriting {← hyp.getUserName}"
+      let test ← goal_out.rewrite (← hyp.getType) (.fvar mask_hyp) true
+      let replaced ← goal_out.replaceLocalDecl hyp test.eNew test.eqProof
+      -- logInfo (← replaced.mvarId.getType)
+      goal_out := replaced.mvarId
+
+    -- clear `maskOfWidth` hypothesis
+    goal_out ← goal_out.clear mask_hyp
+
+    -- clear "w" dependencies
+    let w_decl ← getLocalDeclFromUserName widthName
+
+    -- let mut goal := goal_out
+
+    -- (← getLCtx).foldlM (fun goal => do (fun localDecl => do
+    --   unless localDecl.fvarId == w_decl.fvarId do
+    --     if (← localDeclDependsOn localDecl w_decl.fvarId) then
+    --       goal ← goal.clear localDecl.fvarId
+    -- ))
+
     return goal_out
+
 
   return [final_goal, w_expr.mvarId!]
 
@@ -111,6 +145,7 @@ def evalPbvDecide : Tactic := fun stx => do
 theorem trace_add_comm (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
   x + y = y + x := by
   pbv_decide 13
+
   bv_decide
   grind
 
