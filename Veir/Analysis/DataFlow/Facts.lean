@@ -45,6 +45,9 @@ deriving BEq, Hashable
 instance : Coe InsertPoint LatticeAnchor where
   coe := .InsertPoint
 
+instance : Coe BlockPtr LatticeAnchor where
+  coe := .BlockPtr
+
 /-!
 # Analyses and facts
 -/

@@ -40,7 +40,7 @@ private partial def BlockPtr.dominatesWithinRegion
   if dominator = block then
     true
   else
-    let some idom := block.getIDom? dfCtx irCtx | return false
+    let some idom := block.getIDom? dfCtx | return false
     idom ≠ block && dominatesWithinRegion dominator idom dfCtx irCtx
 
 
@@ -137,9 +137,8 @@ initialized this block.
 def immediateDominator?
     [FactSpec .dominator]
     (block : BlockPtr)
-    (dfCtx : DataFlowContext)
-    (irCtx : WfIRContext OpCode) : Option BlockPtr :=
-  block.getIDom? dfCtx irCtx
+    (dfCtx : DataFlowContext) : Option BlockPtr :=
+  block.getIDom? dfCtx
 
 /--
 Dominance query between two blocks, where a block dominates itself.
