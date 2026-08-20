@@ -135,8 +135,7 @@ theorem isPoison_add {w : Nat} (x y : Int w) {nsw nuw : Bool} :
       else
         (nsw ∧ BitVec.saddOverflow x.getValue y.getValue) ∨
         (nuw ∧ BitVec.uaddOverflow x.getValue y.getValue) := by
-  simp only [isPoison, add, Id.run, getValue, Bool.decide_or, Bool.decide_and,
-    Bool.decide_eq_true]
+  simp only [isPoison, add, Id.run, getValue]
   simp only [pure]
   grind
 
@@ -153,9 +152,7 @@ theorem isPoison_sub {w : Nat} (x y : Int w) {nsw nuw : Bool} :
       else
         (nsw ∧ BitVec.ssubOverflow x.getValue y.getValue) ∨
         (nuw ∧ BitVec.usubOverflow x.getValue y.getValue) := by
-  simp only [isPoison, sub, Id.run, getValue, Bool.decide_or, Bool.decide_and,
-    Bool.decide_eq_true]
-  simp only [pure]
+  simp only [isPoison, sub, Id.run, getValue, pure]
   grind
 
 @[veir_bv_normalize, grind =]
@@ -523,8 +520,10 @@ theorem isPoison_select {w : Nat} (x y : Int w) (c : Int 1) :
 @[veir_bv_normalize, grind =]
 theorem getValue_select {w : Nat} (x y : Int w) (c : Int 1) (h : (select c x y).isPoison = false) :
     (select c x y).getValue h = if _ : c.getValue = 1#1 then x.getValue else y.getValue := by
-  simp [select, Id.run]
-  grind
+  /- TODO: use `grind` after https://github.com/leanprover/lean4/pull/14829 is resolved. -/
+  cases c with
+  | poison => simp [select, Id.run, isPoison] at h
+  | val c' => by_cases hc : c' = 1#1 <;> simp [select, Id.run, hc]
 
 @[veir_bv_normalize, grind =]
 theorem isPoison_smax {w : Nat} (x y : Int w) :
@@ -820,7 +819,16 @@ theorem icmp_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w) (p : IntPred)
 theorem select_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w) (c₁ c₂ : Int 1)
     (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) (h₃ : c₁ ⊒ c₂) :
     select c₁ x₁ x₂ ⊒ select c₂ y₁ y₂ := by
-  grind
+   /- TODO: use `grind` after https://github.com/leanprover/lean4/pull/14829 is resolved. -/
+  cases c₁ with
+  | poison => simp [select, Id.run, isRefinedBy_iff]
+  | val v =>
+    cases c₂ with
+    | poison => simp [isRefinedBy_iff] at h₃
+    | val v' =>
+      have hv : v = v' := by simp [isRefinedBy_iff] at h₃; grind
+      subst hv
+      by_cases hc : v = 1#1 <;> simp [select, Id.run, hc] <;> assumption
 
 @[veir_bv_normalize, grind =]
 theorem isPoison_freeze {w : Nat} (x : Int w) :

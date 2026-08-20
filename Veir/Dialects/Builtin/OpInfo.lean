@@ -46,6 +46,11 @@ def Builtin.getEffects
 def Builtin.isConstantLike (_op : Builtin) : Bool :=
   false
 
+def Builtin.isIsolatedFromAbove (op : Builtin) : Bool :=
+  match op with
+  | .module => true
+  | _ => false
+
 def Builtin.getRegionKind (op : Builtin) (_index : Nat) : RegionKind :=
   match op with
   | .module | .unregistered => .Graph
@@ -65,24 +70,19 @@ def Builtin.hasNoTerminator (op : Builtin) (_index : Nat) : Bool :=
 
 #generate_dialect Builtin
 
-instance : HasOpInfo Builtin where
+instance : IsOpCode Builtin where
   fromName := Builtin.fromName
   name := Builtin.name
   propertiesOf := Builtin.propertiesOf
   fromAttrDict := Builtin.fromAttrDict
   toAttrDict := Builtin.toAttrDict
-  getEffects := Builtin.getEffects
-  isConstantLike := Builtin.isConstantLike
-  getRegionKind := Builtin.getRegionKind
-  hasSSADominance := Builtin.hasSSADominance
-  hasNoTerminator := Builtin.hasNoTerminator
 
 /--
 Verify the local invariants of a `builtin` operation in any operation-info type
 containing the `builtin` dialect.
 -/
 @[expose]
-def Builtin.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
+def Builtin.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Builtin] (opType : Builtin) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
@@ -100,6 +100,15 @@ def Builtin.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
+
+instance : HasOpInfo Builtin where
+  verifyLocalInvariants := Builtin.verifyLocalInvariants
+  getEffects := Builtin.getEffects
+  isConstantLike := Builtin.isConstantLike
+  getRegionKind := Builtin.getRegionKind
+  hasSSADominance := Builtin.hasSSADominance
+  hasNoTerminator := Builtin.hasNoTerminator
+  isIsolatedFromAbove := Builtin.isIsolatedFromAbove
 
 end
 

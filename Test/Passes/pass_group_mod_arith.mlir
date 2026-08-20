@@ -21,8 +21,8 @@
 // CHECK:      "func.func"() <{"function_type" = (i32, i32) -> i32, "sym_name" = "chain"}> ({
 // CHECK-NEXT:   ^{{.*}}([[A:%.*]] : i32, [[B:%.*]] : i32):
 
-// The mod_arith.constant, and both arguments extended
-// CHECK-NEXT:     [[C5:%.*]] = "arith.constant"() <{"value" = 5 : i32}> : () -> i32
+// Both arguments extended. The lowered mod_arith constant is folded through
+// its extension at its eventual i64 use below.
 // CHECK-NEXT:     [[A33:%.*]] = "arith.extui"([[A]]) : (i32) -> i33
 // CHECK-NEXT:     [[B33:%.*]] = "arith.extui"([[B]]) : (i32) -> i33
 
@@ -75,7 +75,7 @@
 
 // r = (m * 5) mod q
 // CHECK-NEXT:     [[MW:%.*]] = "arith.extui"([[MRED]]) : (i32) -> i64
-// CHECK-NEXT:     [[C5W:%.*]] = "arith.extui"([[C5]]) : (i32) -> i64
+// CHECK-NEXT:     [[C5W:%.*]] = "arith.constant"() <{"value" = 5 : i64}> : () -> i64
 // CHECK-NEXT:     [[M5:%.*]] = "arith.muli"([[MW]], [[C5W]]) : (i64, i64) -> i64
 // CHECK-NEXT:     [[P4:%.*]] = "arith.muli"([[M5]], [[MU64]]) <{"overflowFlags" = #arith.overflow<nuw>}> : (i64, i64) -> i64
 // CHECK-NEXT:     [[E4:%.*]] = "arith.shrui"([[P4]], [[SH64]]) : (i64, i64) -> i64

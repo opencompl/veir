@@ -441,28 +441,27 @@ def LLVMCallProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute)
   return { callee, extra }
 
 /--
-  Properties of `llvm.func`. The `sym_name` and `function_type` attributes are
-  modelled explicitly; all other attributes (e.g. `CConv`, `linkage`, `visibility_`)
-  are preserved verbatim in `extra`.
+  Properties of `llvm.func`. Its required `sym_name` and `function_type`
+  attributes are modelled explicitly; all other attributes (e.g. `CConv`,
+  `linkage`, `visibility_`) are preserved verbatim in `extra`.
 -/
 structure LLVMFuncProperties where
-  sym_name : Option StringAttr
-  function_type : Option TypeAttr
+  sym_name : StringAttr
+  function_type : FunctionType
   extra : DictionaryAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 def LLVMFuncProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String LLVMFuncProperties := do
   let symName ← match attrDict["sym_name".toUTF8]? with
-    | some (.stringAttr s) => pure (some s)
+    | some (.stringAttr s) => pure s
     | some attr => throw s!"llvm.func: expected 'sym_name' to be a string attribute, but got {attr}"
-    | none => pure none
+    | none => throw "llvm.func: missing 'sym_name' property"
   let funcType ← match attrDict["function_type".toUTF8]? with
+    | some (.llvmFunctionType ft) => pure ft
     | some attr =>
-      if _ : attr.isType = false then
-        throw "llvm.func: expected 'function_type' to be a type attribute"
-      else pure (some attr.asType)
-    | none => pure none
+      throw s!"llvm.func: expected 'function_type' to be an LLVM function type, but got {attr}"
+    | none => throw "llvm.func: missing 'function_type' property"
   let extra := DictionaryAttr.fromArray
     (attrDict.toArray.filter fun (k, _) => k ≠ "sym_name".toUTF8 && k ≠ "function_type".toUTF8)
   return { sym_name := symName, function_type := funcType, extra }

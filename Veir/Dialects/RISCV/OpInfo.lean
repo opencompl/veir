@@ -248,15 +248,12 @@ def Riscv.hasSSADominance (_op : Riscv) (_index : Nat) : Bool :=
 
 #generate_dialect Riscv
 
-instance : HasOpInfo Riscv where
+instance : IsOpCode Riscv where
   fromName := Riscv.fromName
   name := Riscv.name
   propertiesOf := Riscv.propertiesOf
   fromAttrDict := Riscv.fromAttrDict
   toAttrDict := Riscv.toAttrDict
-  getEffects := Riscv.getEffects
-  isConstantLike := Riscv.isConstantLike
-  hasSSADominance := Riscv.hasSSADominance
 
 /--
 Materialize register-valued fold results as `riscv.li`. A register always holds
@@ -270,7 +267,7 @@ def Riscv.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpI
       (RISCVImmediateProperties.mk (IntegerAttr.mk value.val.toInt (IntegerType.mk 64))))
   | _, _ => none
 
-def OperationPtr.verifyRISCVimm12 {OpInfo : Type} [HasOpInfo OpInfo]
+def OperationPtr.verifyRISCVimm12 {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw)
     (operands results : Nat) (imm : Int) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn operands results
@@ -284,7 +281,7 @@ def OperationPtr.verifyRISCVimm12 {OpInfo : Type} [HasOpInfo OpInfo]
 Check that a shift-amount/bit-index immediate fits in an unsigned 5-bit field
 `[0, 31]`.
 -/
-def OperationPtr.verifyRISCVuimm5 {OpInfo : Type} [HasOpInfo OpInfo]
+def OperationPtr.verifyRISCVuimm5 {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw)
     (imm : Int) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 1 1
@@ -298,7 +295,7 @@ def OperationPtr.verifyRISCVuimm5 {OpInfo : Type} [HasOpInfo OpInfo]
 Check that a shift-amount/bit-index immediate fits in an unsigned 6-bit field
 `[0, 63]`.
 -/
-def OperationPtr.verifyRISCVuimm6 {OpInfo : Type} [HasOpInfo OpInfo]
+def OperationPtr.verifyRISCVuimm6 {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw)
     (imm : Int) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 1 1
@@ -308,7 +305,7 @@ def OperationPtr.verifyRISCVuimm6 {OpInfo : Type} [HasOpInfo OpInfo]
   else
     pure ()
 
-def OperationPtr.verifyRISCVneg {OpInfo : Type} [HasOpInfo OpInfo]
+def OperationPtr.verifyRISCVneg {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw)
     (operands results : Nat) (imm : Int) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn operands results
@@ -319,7 +316,7 @@ def OperationPtr.verifyRISCVneg {OpInfo : Type} [HasOpInfo OpInfo]
     pure ()
 
 /-- Ensure that every operand and result has type `!riscv.reg`. -/
-def OperationPtr.verifyRISCVRegisterTypes {OpInfo : Type} [HasOpInfo OpInfo]
+def OperationPtr.verifyRISCVRegisterTypes {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
@@ -337,7 +334,7 @@ def OperationPtr.verifyRISCVRegisterTypes {OpInfo : Type} [HasOpInfo OpInfo]
 Verify the local invariants of a `riscv` operation in any operation-info type
 containing the `riscv` dialect.
 -/
-def Riscv.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
+def Riscv.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Riscv] (opType : Riscv) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyRISCVRegisterTypes ctx opIn
@@ -478,6 +475,12 @@ def Riscv.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
   | .sltz | .sgtz => do
     op.verifyPlainOpCounts ctx opIn 1 1
     pure ()
+
+instance : HasOpInfo Riscv where
+  verifyLocalInvariants := Riscv.verifyLocalInvariants
+  getEffects := Riscv.getEffects
+  isConstantLike := Riscv.isConstantLike
+  hasSSADominance := Riscv.hasSSADominance
 
 end
 

@@ -42,27 +42,30 @@ def Rv64.hasSSADominance (_op : Rv64) (_index : Nat) : Bool :=
 
 #generate_dialect Rv64
 
-instance : HasOpInfo Rv64 where
+instance : IsOpCode Rv64 where
   fromName := Rv64.fromName
   name := Rv64.name
   propertiesOf := Rv64.propertiesOf
   fromAttrDict := Rv64.fromAttrDict
   toAttrDict := Rv64.toAttrDict
-  getEffects := Rv64.getEffects
-  isConstantLike := Rv64.isConstantLike
-  hasSSADominance := Rv64.hasSSADominance
 
 /--
 Verify the local invariants of an `rv64` operation in any operation-info type
 containing the `rv64` dialect.
 -/
-def Rv64.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
+def Rv64.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Rv64] (opType : Rv64) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
   | .get_register => do
     op.verifyPlainOpCounts ctx opIn 0 1
     pure ()
+
+instance : HasOpInfo Rv64 where
+  verifyLocalInvariants := Rv64.verifyLocalInvariants
+  getEffects := Rv64.getEffects
+  isConstantLike := Rv64.isConstantLike
+  hasSSADominance := Rv64.hasSSADominance
 
 end
 

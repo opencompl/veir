@@ -238,10 +238,6 @@ theorem idxOf_getElem [DecidableEq α] {l : List α} (H : l.Nodup) (i : Nat) (h 
     List.idxOf l[i] l = i := by
   induction l generalizing i <;> grind
 
-theorem getElem_idxOf [DecidableEq α] {l : List α} (h : l.idxOf x < l.length) :
-    l[l.idxOf x] = x := by
-  induction l <;> grind
-
 end ForLean.List
 
 section
@@ -250,12 +246,12 @@ open ForLean
 @[simp, grind =]
 theorem Array.getElem?_idxOf [DecidableEq α] {l : Array α} (h : l.idxOf x < l.size) :
     l[l.idxOf x]? = some x := by
-  rcases l; grind [List.getElem_idxOf]
+  rcases l; grind
 
 @[simp, grind =]
 theorem Array.getElem_idxOf [DecidableEq α] {l : Array α} (h : l.idxOf x < l.size) :
     l[l.idxOf x] = x := by
-  rcases l; grind [List.getElem_idxOf]
+  rcases l; grind
 
 end
 

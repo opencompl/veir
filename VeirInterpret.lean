@@ -110,9 +110,9 @@ def runInterpreter (filename : String) (memorySize : Option Nat) : IO Unit := do
       let result := bind (interpretFunction (ctx := ctx) mainOp arguments memory (by sorry))
                          (fun (_, r) => pure r)
       match result with
-      | some (.ok results) => IO.println s!"Program output: {results}"
-      | some .ub => IO.println "Undefined behavior"
-      | none =>
+      | .ok results => IO.println s!"Program output: {results}"
+      | .ub => IO.println "Undefined behavior"
+      | .fail =>
         IO.eprintln "Error while interpreting module"
         IO.Process.exit 1
     | .error errMsg =>

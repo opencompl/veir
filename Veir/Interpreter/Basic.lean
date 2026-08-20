@@ -317,56 +317,51 @@ inductive ControlFlowAction where
   | branch (vals : Array RuntimeValue) (dest : BlockPtr)
 
 /--
-  Wrapper for interpreter step results: either a successful value `ok` or the
-  program has triggered undefined behaviour (`ub`). UB is a property of the
-  execution, not of any value, so it lives here rather than inside `RuntimeValue`
-  or `LLVM.Int`.
+  The interpreter monad. An interpretation step has three outcomes. UB is a property
+  of the execution, not of any value, so it lives here rather than inside
+  `RuntimeValue` or `LLVM.Int`.
 -/
-inductive UBOr (α : Type) where
-  | ok : α → UBOr α
-  | ub : UBOr α
+inductive Interp (α : Type) where
+  /-- Interpreter could not proceed (malformed IR, unsupported op). -/
+  | fail
+  /-- Execution triggered undefined behaviour. -/
+  | ub
+  /-- Successful execution producing `a`. -/
+  | ok (a : α)
 deriving Inhabited
 
 @[expose]
-def UBOr.map {α β : Type} (f : α → β) : UBOr α → UBOr β
-  | .ok a => .ok (f a)
+def Interp.map {α β : Type} (f : α → β) : Interp α → Interp β
+  | .fail => .fail
   | .ub => .ub
+  | .ok a => .ok (f a)
 
-@[simp, grind =]
-theorem UBOr.map_ok : UBOr.map f (.ok a) = .ok (f a) := by grind [UBOr.map]
-
-@[simp, grind =]
-theorem UBOr.map_ub : UBOr.map f .ub = .ub := by grind [UBOr.map]
-
-/--
-  The interpreter monad. `Option (UBOr α)` has three states:
-  - `some (.ok x)` — successful execution producing `x`.
-  - `some .ub`     — execution triggered undefined behaviour.
-  - `none`         — interpreter could not proceed (malformed IR, unsupported op).
--/
-@[expose]
-def Interp (α : Type) : Type := Option (UBOr α)
-
-@[expose]
-def Interp.map {α β : Type} (f : α → β) : Interp α → Interp β :=
-  Option.map (UBOr.map f)
+@[simp, grind =] theorem Interp.map_fail : Interp.map f .fail = .fail := rfl
+@[simp, grind =] theorem Interp.map_ub : Interp.map f .ub = .ub := rfl
+@[simp, grind =] theorem Interp.map_ok : Interp.map f (.ok a) = .ok (f a) := rfl
 
 instance : Monad Interp where
-  pure x := (some (.ok x) : Option (UBOr _))
-  bind x f := match (x : Option (UBOr _)) with
-    | none => none
-    | some .ub => some .ub
-    | some (.ok a) => f a
+  pure x := .ok x
+  bind x f := match x with
+    | .fail => .fail
+    | .ub => .ub
+    | .ok a => f a
 
 instance : MonadLift Option Interp where
   monadLift
-    | none => none
-    | some v => some (.ok v)
+    | none => .fail
+    | some v => .ok v
 
-instance : Inhabited (Interp α) := ⟨(none : Option (UBOr α))⟩
+@[simp, grind =] theorem Interp.pure_eq (a : α) : (pure a : Interp α) = .ok a := rfl
+@[simp, grind =] theorem Interp.bind_ok (a : α) (f : α → Interp β) :
+    (Interp.ok a >>= f) = f a := rfl
+@[simp, grind =] theorem Interp.bind_ub (f : α → Interp β) :
+    ((.ub : Interp α) >>= f) = .ub := rfl
+@[simp, grind =] theorem Interp.bind_fail (f : α → Interp β) :
+    ((.fail : Interp α) >>= f) = .fail := rfl
+@[simp, grind =] theorem Interp.liftOption_none : ((none : Option α) : Interp α) = .fail := rfl
+@[simp, grind =] theorem Interp.liftOption_some (a : α) : ((some a : Option α) : Interp α) = .ok a := rfl
 
-/-- Signal undefined behaviour from inside the interpreter monad. -/
-@[inline] def Interp.ub : Interp α := some .ub
 
 /--
   Signal UB if the divisor `b` of an unsigned division or remainder could be
@@ -1027,8 +1022,8 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
   | .alloca => do
     let [.int _ (.val count)] := operands.toList | none
     let size ← match properties.elem_type.val with
-    | Attribute.integerType { bitwidth := bw } => some (.ok (bw / 8))
-    | .llvmPointerType _ => some (.ok 8)
+    | Attribute.integerType { bitwidth := bw } => .ok ((bw / 8))
+    | .llvmPointerType _ => .ok (8)
     | _ => none
     let totalSize := (size * count.toNat).toUInt64
     let (mem, addr) := mem.alloc totalSize
@@ -1062,18 +1057,18 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let [⟨type, _⟩] := resultTypes.toList | none
     let result ← do match val, type with
       | .int bw1 val', .integerType ⟨bw2⟩ =>
-          if bw1 ≠ bw2 then none else some (.ok val)
+          if bw1 ≠ bw2 then .fail else .ok (val)
       | .int bw1 val', .byteType ⟨bw2⟩ =>
-          if bw1 ≠ bw2 then none else some (.ok (.byte bw1 $ LLVM.Byte.fromInt val'))
+          if bw1 ≠ bw2 then .fail else .ok ((.byte bw1 $ LLVM.Byte.fromInt val'))
       | .byte bw1 val', .byteType ⟨bw2⟩ =>
-          if bw1 ≠ bw2 then none else some (.ok val)
+          if bw1 ≠ bw2 then .fail else .ok (val)
       | .byte bw1 val', .integerType ⟨bw2⟩ =>
-          if bw1 ≠ bw2 then none else some (.ok (.int bw1 $ val'.toInt))
+          if bw1 ≠ bw2 then .fail else .ok ((.int bw1 $ val'.toInt))
       | .byte bw val', .llvmPointerType _ =>
-          if h : bw = 64 then some (.ok (.addr (val'.cast h).toUInt64)) else none
-      | .addr val', .llvmPointerType _ => some (.ok val)
+          if h : bw = 64 then .ok ((.addr (val'.cast h).toUInt64)) else .fail
+      | .addr val', .llvmPointerType _ => .ok (val)
       | .addr val', .byteType ⟨bw⟩ =>
-          if h : bw = 64 then some (.ok (.byte 64 $ LLVM.Byte.fromUInt64 val')) else none
+          if h : bw = 64 then .ok ((.byte 64 $ LLVM.Byte.fromUInt64 val')) else .fail
       | _, _ => none
     return (#[result], mem, none)
   | _ => none
@@ -1808,14 +1803,14 @@ def interpretBlockCFG (blockPtr : BlockPtr) (values : Array RuntimeValue) {ctx :
     (state : InterpreterState ctx) (blockInBounds : blockPtr.InBounds ctx.raw := by grind) :
     Interp (InterpreterState ctx × Array RuntimeValue) := do
   match interpretBlock blockPtr values state blockInBounds with
-  | some (.ok (state, .return res)) => some (.ok (state, res))
-  | some (.ok (state, .branch res succ)) =>
+  | .ok (state, .return res) => .ok (state, res)
+  | .ok (state, .branch res succ) =>
     if h : succ.InBounds ctx.raw then
       interpretBlockCFG succ res state h
     else
-      none
-  | some .ub => Interp.ub
-  | none => none
+      .fail
+  | .ub => .ub
+  | .fail => .fail
 partial_fixpoint
 
 /--

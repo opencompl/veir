@@ -223,4 +223,17 @@ end Ancestor
 
 end IRNode
 
+/-! ## Executable nesting queries -/
+
+/--
+Whether `ancestor` is `descendant` or one of its enclosing regions. This is the
+executable counterpart of MLIR's `Region::isAncestor` query.
+-/
+partial def RegionPtr.isAncestorOf
+    (ancestor descendant : RegionPtr) (ctx : WfIRContext OpInfo) : Bool :=
+  ancestor = descendant ||
+    match (descendant.get! ctx.raw).parent.bind (·.getParentRegion! ctx.raw) with
+    | none => false
+    | some parentRegion => ancestor.isAncestorOf parentRegion ctx
+
 end Veir
