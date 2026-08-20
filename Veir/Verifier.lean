@@ -3,6 +3,7 @@ module
 public import Veir.Verifier.Lemmas
 public import Veir.GlobalOpInfo
 public import Veir.Interfaces.FunctionInterfaces
+public import Veir.Interfaces.RegionKindInterfaces
 
 import all Veir.Verifier.Basic
 import all Veir.Dialects.LLVM.OpInfo
@@ -11,27 +12,6 @@ import all Veir.Dialects.ModArith.OpInfo
 namespace Veir
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
-
-/--
-  Return the kind of this region.
--/
-public def RegionPtr.getRegionKind (region : RegionPtr) (ctx : WfIRContext OpCode) : RegionKind :=
-  match (region.get! ctx.raw).parent with
-  | some parentOp =>
-    let parent := parentOp.get! ctx.raw
-    parent.opType.getRegionKind (parent.regions.idxOf region)
-  | none => .SSACFG
-
-/--
-  Whether this region is exempt from the requirement that each of its blocks
-  ends in a terminator.
--/
-public def RegionPtr.hasNoTerminator (region : RegionPtr) (ctx : WfIRContext OpCode) : Bool :=
-  match (region.get! ctx.raw).parent with
-  | some parentOp =>
-    let parent := parentOp.get! ctx.raw
-    parent.opType.hasNoTerminator (parent.regions.idxOf region)
-  | none => false
 
 /--
   Verify that a terminator only ever appears as the last operation of its block:
@@ -66,7 +46,7 @@ def BlockPtr.verifyTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
 /-- Check that a graph region contains at most one block. -/
 private def WfIRContext.graphRegionsHaveAtMostOneBlock (ctx : WfIRContext OpCode) : Bool :=
   ctx.raw.regions.keys.all fun region =>
-    if region.getRegionKind ctx = .Graph then
+    if !region.hasSSADominance ctx then
       let body := region.get! ctx.raw
       body.firstBlock = body.lastBlock
     else
@@ -202,7 +182,7 @@ private theorem WfIRContext.Verified.graphRegionsHaveAtMostOneBlock
 theorem WfIRContext.Verified.graph_region_firstBlock_eq_lastBlock
     {ctx : WfIRContext OpCode} (ctxVerified : ctx.Verified)
     {region : RegionPtr} (regionIn : region.InBounds ctx.raw)
-    (hregionKind : region.getRegionKind ctx = .Graph) :
+    (hregionKind : ¬ region.hasSSADominance ctx) :
     (region.get! ctx.raw).firstBlock = (region.get! ctx.raw).lastBlock := by
   have hcheck := ctxVerified.graphRegionsHaveAtMostOneBlock
   have hregionKeys : region ∈ ctx.raw.regions.keys := by grind [region.inBounds_def]
@@ -257,7 +237,7 @@ theorem OperationPtr.Verified.arith_constant {op : OperationPtr} {opInBounds}
     op.getNumSuccessors! ctx.raw = 0 ∧
     op.getNumRegions! ctx.raw = 0 ∧
     ((op.getResult 0).get! ctx.raw).type =
-      ⟨(op.getProperties! ctx.raw Arith.constant).value.type, (by grind)⟩ := by
+      Attribute.asType (op.getProperties! ctx.raw Arith.constant).value.type (by grind) := by
   simp only [Verified, verifyLocalInvariants, HasOpInfo.verifyLocalInvariants,
     OpCode.verifyLocalInvariants, Arith.verifyLocalInvariants,
     ← getOpType!_eq_getOpType, opType, ne_eq,
@@ -817,9 +797,9 @@ def OperationPtr.IsVerifiedModArithBinop (op : OperationPtr) (ctx : WfIRContext 
   ∃ modArithType,
     modArithType.modulus.value > 0 ∧
     modArithType.modulus.value < 2 ^ modArithType.modulus.type.bitwidth ∧
-    ((op.getResult 0).get! ctx.raw).type = ⟨.modArithType modArithType, (by grind)⟩ ∧
-    ((op.getOperand! ctx.raw 0).getType! ctx.raw) = ⟨.modArithType modArithType, (by grind)⟩ ∧
-    ((op.getOperand! ctx.raw 1).getType! ctx.raw) = ⟨.modArithType modArithType, (by grind)⟩
+    ((op.getResult 0).get! ctx.raw).type = Attribute.asType (.modArithType modArithType) (by grind) ∧
+    ((op.getOperand! ctx.raw 0).getType! ctx.raw) = Attribute.asType (.modArithType modArithType) (by grind) ∧
+    ((op.getOperand! ctx.raw 1).getType! ctx.raw) = Attribute.asType (.modArithType modArithType) (by grind)
 
 
 private theorem OperationPtr.verifyModArithBinOp_eq_ok {ctx : WfIRContext OpCode} {op : OperationPtr}
@@ -868,7 +848,7 @@ def OperationPtr.IsVerifiedModArithConstant (op : OperationPtr) (ctx : WfIRConte
   op.getNumSuccessors! ctx.raw = 0 ∧
   op.getNumRegions! ctx.raw = 0 ∧
   ∃ modArithType,
-    ((op.getResult 0).get! ctx.raw).type = ⟨.modArithType modArithType, (by grind)⟩ ∧
+    ((op.getResult 0).get! ctx.raw).type = Attribute.asType (.modArithType modArithType) (by grind) ∧
     modArithType.modulus.value > 0 ∧
     modArithType.modulus.value < 2 ^ modArithType.modulus.type.bitwidth ∧
     -(2 ^ (modArithType.modulus.type.bitwidth - 1) : Int)
