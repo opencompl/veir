@@ -8,9 +8,7 @@ namespace Veir.Data.PBV
 def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
   logInfo s!"Deciding with bound {bound}"
 
--- Start by only trying to apply width elim, and generating some new hyps
--- The width_elim has type:  (o w : Nat) (Q : Prop) (h : ∀ (m : BitVec o), m = maskOfWidth o w → Q) : Q
--- so, will "feed" the current o w and goal (Q) and it will generate a new hole with the hypothesis and the Q
+-- Apply width_elim
   let width_elim_theorem ← mkConstWithFreshMVarLevels ``width_elim
   let (g_no_w, widthName) ← g.withContext do
     for ldecl in ← getLCtx do
@@ -19,17 +17,17 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
           logInfo m!"Applying width_elim to {ldecl.userName}"
           let applied := mkAppN width_elim_theorem #[mkNatLit bound, ldecl.toExpr, ← g.getType]
           let out ← g.apply applied
-          let some out := out[0]? | throwError "Shuold have a goal here"
-          -- TODO, this shuold loop over all widths
+          let some out := out[0]? | throwError "width_elim should generate a goal"
+          -- TODO, for multiwidth this needs to loop
           return (out, ldecl.userName)
 
-    throwError "haven't thought about this yet"
+    throwError "No width variables were found"
 
   let mask_name := Name.mkSimple s!"m{widthName}"
   let (_mask, g_no_w) ← g_no_w.intro mask_name
   let (mask_hyp, g_no_w) ← g_no_w.intro (Name.mkSimple s!"h_{mask_name}")
 
--- Now do var elim
+-- Apply var_elim
   let var_elim_theorem ← mkConstWithFreshMVarLevels ``var_elim
 
   let (g_no_w_no_v, w_expr, hyps) ← g_no_w.withContext do
@@ -49,12 +47,12 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
         if ← isDefEq ldecl.type (mkApp (mkConst ``BitVec) width_var) then
           logInfo s!"Applying var_elim to {ldecl.userName}"
           let (var_hyp, goal) ← out_goal.revert #[ldecl.fvarId]
+          let some oldvar_name := var_hyp[0]? | throwError "reverting shuold produce a var"
           -- not providing the `hwo` hypothesis but seems to work?
           let applied := mkAppN var_elim_theorem #[mkNatLit bound, width_var, width_le_bound]
           let out ← goal.apply applied
-          let some goal := out[0]? | throwError "ahhhh"
+          let some goal := out[0]? | throwError "var_elim should generate a goal"
 
-          let some oldvar_name := var_hyp[0]? | throwError "no var name?"
           let name ← oldvar_name.getUserName
           let (_new_var, goal) ← goal.intro (name)
           let (new_hyp, goal) ← goal.intro (Name.mkSimple s!"h_m{name}")
@@ -93,7 +91,7 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
 
     let (result, _) ← simpTarget g_no_w_no_v ctx
 
-    let some goal_out := result | throwError "solved everything?"
+    let some goal_out := result | throwError "goal solved by simp"
 
     return goal_out
 
