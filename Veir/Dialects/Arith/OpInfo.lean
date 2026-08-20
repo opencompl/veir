@@ -133,10 +133,7 @@ def Arith.propagatesPoison : Arith → Bool
   | .addi | .andi | .ceildivsi | .ceildivui | .cmpi | .divsi | .divui
   | .extsi | .extui | .floordivsi | .maxsi | .maxui | .minsi | .minui
   | .muli | .ori | .remsi | .remui | .shli | .shrsi | .shrui | .subi
-  | .trunci | .xori
-  -- The extended operations poison both of their results. `propagatePoison`
-  -- only emits a decision for a single result, so these do not fold yet.
-  | .addui_extended | .subui_extended
+  | .trunci | .xori | .addui_extended | .subui_extended
   | .mulsi_extended | .mului_extended => true
   | .constant | .select => false
 
@@ -146,20 +143,16 @@ verification, so `addi` has two operands of the result's own integer type and a
 concrete zero operand is a zero of the right width.
 -/
 def Arith.fold (op : Arith) (_properties : Arith.propertiesOf op)
-    (resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
+    (_resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
     Option FoldDecision :=
-  match if op.propagatesPoison then
-      FoldDecision.propagatePoison resultTypes constantOperands else none with
-  | some decision => some decision
-  | none =>
-    match op, constantOperands.toList with
-    | .addi, [_, some (.int _ (.val bits))] =>
-      -- Canonical Veir keeps the constant operand of a commutative operation on
-      -- the right, so only that side is worth testing. Reusing the left operand
-      -- preserves poison when it is not known at compile time and allows the
-      -- identity fold to fire without requiring every operand to be constant.
-      if bits = 0 then some (.useOperand 0) else none
-    | _, _ => none
+  match op, constantOperands.toList with
+  | .addi, [_, some (.int _ (.val bits))] =>
+    -- Canonical Veir keeps the constant operand of a commutative operation on
+    -- the right, so only that side is worth testing. Reusing the left operand
+    -- preserves poison when it is not known at compile time and allows the
+    -- identity fold to fire without requiring every operand to be constant.
+    if bits = 0 then some (.useOperand 0) else none
+  | _, _ => none
 
 instance : IsOpCode Arith where
   fromName := Arith.fromName
@@ -268,6 +261,7 @@ def Arith.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect Op
 instance : HasOpInfo Arith where
   verifyLocalInvariants := Arith.verifyLocalInvariants
   fold := Arith.fold
+  propagatesPoison := Arith.propagatesPoison
   getEffects := Arith.getEffects
   isConstantLike := Arith.isConstantLike
   hasSSADominance := Arith.hasSSADominance

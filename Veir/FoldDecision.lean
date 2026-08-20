@@ -21,18 +21,6 @@ inductive FoldDecision where
   /-- Use the runtime constant `rv` in place of the result. -/
   | useConstant (rv : RuntimeValue)
 
-/--
-Return a poison constant when at least one known operand is wholly poison and
-the single result type has a poison representation.
--/
-def FoldDecision.propagatePoison (resultTypes : Array TypeAttr)
-    (constantOperands : Array (Option RuntimeValue)) : Option FoldDecision := do
-  guard (constantOperands.any fun
-    | some value => value.isPoison
-    | none => false)
-  let #[resultType] := resultTypes | none
-  return .useConstant (← RuntimeValue.getPoisonForType resultType)
-
 end
 
 end Veir

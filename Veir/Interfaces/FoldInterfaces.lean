@@ -38,28 +38,63 @@ private def preferredFold (first second : Option (Array FoldDecision)) :
     Option (Array FoldDecision) :=
   if foldPreference first < foldPreference second then second else first
 
+/-- Every result of the operation folds to poison, for the result types that
+    have a poison representation. -/
+private def allResultsPoison (resultTypes : Array TypeAttr) : Option (Array FoldDecision) := do
+  return (← resultTypes.mapM RuntimeValue.getPoisonForType).map .useConstant
+
+/--
+  Fold an operation by consulting its dialect's fold table, which may fire
+  whether or not the operands are known.
+-/
+private def foldByTable (opType : OpCode) (properties : propertiesOf opType)
+    (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue))
+    : Option (Array FoldDecision) := do
+  -- Dialect fold tables only describe operations with a single result.
+  let #[_] := resultTypes | none
+  return #[← HasOpInfo.fold opType properties resultTypes constOperands]
+
+/--
+  Fold an operation by evaluating it, which requires every operand to be known.
+  Evaluation that triggers UB folds to poison.
+-/
+private def foldByEvaluation (opType : OpCode) (properties : propertiesOf opType)
+    (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue))
+    : Option (Array FoldDecision) := do
+  let values ← constOperands.mapM id
+  match ← (foldEvaluate opType properties resultTypes values : Option (UBOr _)) with
+  | .ok results => return results.map .useConstant
+  | .ub => allResultsPoison resultTypes
+
+/--
+  Fold an operation that propagates poison and has a wholly poisoned operand.
+  Unlike evaluation, this fires whether or not the remaining operands are known.
+-/
+private def foldPoisonedOperand (opType : OpCode)
+    (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue))
+    : Option (Array FoldDecision) := do
+  guard opType.propagatesPoison
+  guard (constOperands.any fun
+    | some value => value.isPoison
+    | none => false)
+  allResultsPoison resultTypes
+
 /--
   Decide whether an operation folds, given its opcode, properties, result
   types, and the values of its constant-defined operands (`constOperands[i] =
   some rv` iff operand `i` is known to hold the constant `rv`). The dialect
-  fold table and fully constant interpreter evaluation run independently. A
-  poison constant is preferred to a concrete constant, which is preferred to
-  an operand, which is preferred to no fold.
+  fold table, fully constant interpreter evaluation, and poison propagation run
+  independently. A poison constant is preferred to a concrete constant, which is
+  preferred to an operand, which is preferred to no fold.
 -/
 def OpCode.foldsTo (opType : OpCode) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue))
     : Option (Array FoldDecision) := do
   guard (!opType.isConstantLike)
-  let tableDecision : Option (Array FoldDecision) := do
-    -- Dialect fold tables only describe operations with a single result.
-    let #[_] := resultTypes | none
-    return #[← HasOpInfo.fold opType properties resultTypes constOperands]
-  let evaluationDecision : Option (Array FoldDecision) := do
-    let values ← constOperands.mapM id
-    match ← (foldEvaluate opType properties resultTypes values : Option (UBOr _)) with
-    | .ok results => return results.map .useConstant
-    | .ub => return (← resultTypes.mapM RuntimeValue.getPoisonForType).map .useConstant
-  preferredFold tableDecision evaluationDecision
+  let tableDecision := foldByTable opType properties resultTypes constOperands
+  let evaluationDecision := foldByEvaluation opType properties resultTypes constOperands
+  let poisonDecision := foldPoisonedOperand opType resultTypes constOperands
+  preferredFold (preferredFold tableDecision evaluationDecision) poisonDecision
 
 /--
   Convenience wrapper around `OpCode.foldsTo`.
