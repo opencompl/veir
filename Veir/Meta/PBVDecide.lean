@@ -5,7 +5,7 @@ open Lean Elab Tactic Meta Simp
 
 namespace Veir.Data.PBV
 
-def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
+def pbvTranslate (g : MVarId) (bound : Nat) : MetaM (List MVarId) := do
   logInfo s!"Deciding with bound {bound}"
 
 -- Apply width_elim
