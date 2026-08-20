@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+"""Report Lean source files that no build target reaches.
+
+Lake builds a `lean_lib` by starting at its root module and following imports,
+so a `.lean` file that nothing imports is never compiled: it is not type
+checked, its `sorry`s are not reported, and it silently rots. Mathlib guards
+against this by keeping a generated `Mathlib.lean` that imports every file and
+having CI check it is up to date. VeIR's roots are hand written, so this script
+takes the equivalent measurement directly: it walks the import graph from every
+target declared in `lakefile.toml` and reports the files it never reaches.
+
+The import graph is read out of the source text rather than from Lake, so the
+check needs no build and no Lean toolchain.
+"""
+
+import os
+import pathlib
+import re
+import sys
+import tomllib
+
+# `[public] [meta] import [all] Some.Module`, the full header syntax of the
+# Lean module system as VeIR uses it.
+IMPORT = re.compile(
+    r"^(?:public\s+)?(?:meta\s+)?import(?:\s+all)?\s+([A-Za-z_][A-Za-z0-9_.']*)"
+)
+
+# Lines that may appear in a module header without ending it. Anything else is
+# the first declaration, and imports cannot follow it.
+HEADER = re.compile(r"^(?:module\b|prelude\b|set_option\b|--|$)")
+
+
+def module_of(path):
+    """`Veir/IR/Basic.lean` -> `Veir.IR.Basic`."""
+    return ".".join(path.with_suffix("").parts)
+
+
+def path_of(module):
+    """`Veir.IR.Basic` -> `Veir/IR/Basic.lean`."""
+    return pathlib.Path(*module.split(".")).with_suffix(".lean")
+
+
+def imports_of(path):
+    """The modules imported by `path`, from its header alone.
+
+    Scanning stops at the first line that cannot belong to a header, so an
+    `import` written inside a docstring further down the file is never mistaken
+    for a real one. Block comments have to be skipped rather than treated as
+    the end of the header, because a couple of files put their module docstring
+    between `module` and their first import.
+    """
+    result = []
+    in_comment = False
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if in_comment:
+            in_comment = "-/" not in line
+        elif match := IMPORT.match(line):
+            result.append(match.group(1))
+        elif line.startswith("/-"):
+            in_comment = "-/" not in line
+        elif not HEADER.match(line):
+            break
+    return result
+
+
+def roots_of(lakefile):
+    """The modules Lake starts building from, per `lakefile.toml`.
+
+    A target with an explicit `globs` pulls in whole directories rather than an
+    import closure; that would need different handling, so bail out instead of
+    reporting orphans that are in fact built.
+    """
+    config = tomllib.loads(lakefile.read_text(encoding="utf-8"))
+    roots = []
+    for kind in ("lean_lib", "lean_exe"):
+        for target in config.get(kind, []):
+            if "globs" in target:
+                sys.exit(
+                    f"{lakefile}: target '{target['name']}' sets 'globs', which this "
+                    f"script does not model; teach it about globs before trusting it."
+                )
+            roots.append(target.get("root", target["name"]))
+    return roots
+
+
+def reachable(roots):
+    """Every local module reachable from `roots` by following imports.
+
+    Imports that do not resolve to a file in this package are dependencies
+    (`Std`, `Lean`, `ExArray`, ...) and are simply dropped.
+    """
+    seen = set()
+    work = list(roots)
+    while work:
+        module = work.pop()
+        path = path_of(module)
+        if module in seen or not path.is_file():
+            continue
+        seen.add(module)
+        work.extend(imports_of(path))
+    return seen
+
+
+def sources(roots):
+    """Every `.lean` file belonging to this package.
+
+    That is the root files themselves plus everything under the directory each
+    root names, which is where Lake looks for a submodule of that root.
+    """
+    result = set()
+    for root in roots:
+        if path_of(root).is_file():
+            result.add(root)
+        for found in pathlib.Path(*root.split(".")).rglob("*.lean"):
+            result.add(module_of(found))
+    return result
+
+
+def main():
+    # Paths here are relative to the repository root, so that the output does
+    # not depend on where the script was invoked from.
+    os.chdir(pathlib.Path(__file__).resolve().parent.parent)
+
+    roots = roots_of(pathlib.Path("lakefile.toml"))
+    all_modules = sources(roots)
+    reached = reachable(roots)
+    orphans = sorted(all_modules - reached)
+
+    for module in orphans:
+        print(
+            f"error: {path_of(module)} is never built, so Lean never checks it; "
+            f"import it from the module that should own it, or delete it"
+        )
+    if orphans:
+        return 1
+
+    print(f"{len(reached)} Lean modules reachable from a build target, no orphans")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
