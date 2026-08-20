@@ -137,20 +137,11 @@ def Arith.propagatesPoison : Arith → Bool
   | .mulsi_extended | .mului_extended => true
   | .constant | .select => false
 
-/--
-Apply the `arith` dialect's fold table. The operation is assumed to have passed
-verification, so `addi` has two operands of the result's own integer type and a
-concrete zero operand is a zero of the right width.
--/
 def Arith.fold (op : Arith) (_properties : Arith.propertiesOf op)
     (_resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
     Option FoldDecision :=
   match op, constantOperands.toList with
   | .addi, [_, some (.int _ (.val bits))] =>
-    -- Canonical Veir keeps the constant operand of a commutative operation on
-    -- the right, so only that side is worth testing. Reusing the left operand
-    -- preserves poison when it is not known at compile time and allows the
-    -- identity fold to fire without requiring every operand to be constant.
     if bits = 0 then some (.useOperand 0) else none
   | _, _ => none
 
