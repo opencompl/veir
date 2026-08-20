@@ -8,6 +8,16 @@ on:
   merge_group:
 
 jobs:
+  check-orphan-modules:
+    name: Check orphan Lean modules
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check that every Lean module is built
+        run: ./Tools/check-orphan-modules
+
   build:
     runs-on: ubuntu-latest
     strategy:
