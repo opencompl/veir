@@ -68,16 +68,6 @@ def OperationPtr.verifyOperandIsolation
       throw "operand uses a value defined outside the isolated region that encloses its use"
 
 /--
-  Whether this operation might be a terminator, mirroring MLIR's
-  `mightHaveTrait<OpTrait::IsTerminator>`.
--/
-def OpCode.mightBeTerminator (opCode : OpCode) : Bool :=
-  opCode.isTerminator ||
-    match opCode with
-    | .builtin .unregistered | .test .test => true
-    | _ => false
-
-/--
   Whether a block is exempt from the requirement that it end in a terminator,
   mirroring `mayBeValidWithoutTerminator` in `mlir/lib/IR/Verifier.cpp`.
 -/
@@ -112,7 +102,7 @@ def BlockPtr.verifyTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
   match b.lastOp with
   | none => throw (named "Expected the block to end in a terminator, but the block is empty")
   | some lastOp =>
-    if !(lastOp.getOpType! ctx.raw).mightBeTerminator then
+    if !(lastOp.getOpType! ctx.raw).isTerminator then
       throw (named "Expected the last operation of a block to be a terminator")
 
 /-- Check that a graph region contains at most one block. -/
