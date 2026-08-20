@@ -29,12 +29,10 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
   let (_mask, g_no_w) ← g_no_w.intro mask_name
   let (mask_hyp, g_no_w) ← g_no_w.intro (Name.mkSimple s!"h_{mask_name}")
 
-  let mut hyps := #[mask_hyp]
-
 -- Now do var elim
   let var_elim_theorem ← mkConstWithFreshMVarLevels ``var_elim
 
-  let (g_no_w_no_v, w_expr, new_hyps) ← g_no_w.withContext do
+  let (g_no_w_no_v, w_expr, hyps) ← g_no_w.withContext do
     let width_var ← getFVarFromUserName widthName
 
   -- Assert that the width variable is less than the width bound
@@ -66,8 +64,6 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
           out_goal := goal
     return (out_goal, width_le_bound, hyps)
 
-  hyps := hyps ++ new_hyps
-
 -- Simp and push theorems
   let final_goal ← g_no_w_no_v.withContext do
     let push_th := #[``eq_iff, ``setWidth_add, ``setWidth_setWidth] -- hardcoded theorems
@@ -85,11 +81,13 @@ def pbvTranslate (g : MVarId) (bound : Nat) : TacticM (List MVarId) := do
       let thm ← mkConstWithFreshMVarLevels n
       simpThms ← simpThms.addTheorem (.other n) thm
 
-    -- the hypothesis
+    -- the hypotheses enforcing the variables to "behave" like they have a certain width
     for h in hyps do
-      logInfo (← h.getUserName)
       let thm := mkFVar h
       simpThms ← simpThms.addTheorem (.other h.name) thm
+
+    -- add the mask constraint as an inverse theorem, to remove `setWidths` from the goal
+    simpThms ← simpThms.modifyM 0 fun thms => thms.add (.other mask_hyp.name) #[] (mkFVar mask_hyp) (inv := true)
 
     let ctx ← Simp.mkContext (simpTheorems := simpThms)
 
@@ -117,3 +115,9 @@ theorem trace_add_comm (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
   pbv_decide 13
   bv_decide
   grind
+
+-- theorem trace_add_test (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
+--   x + y = y + x + 0 := by
+--   pbv_decide 13
+--   bv_decide
+--   grind
