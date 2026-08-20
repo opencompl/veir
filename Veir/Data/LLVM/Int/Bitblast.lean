@@ -520,6 +520,7 @@ theorem isPoison_select {w : Nat} (x y : Int w) (c : Int 1) :
 @[veir_bv_normalize, grind =]
 theorem getValue_select {w : Nat} (x y : Int w) (c : Int 1) (h : (select c x y).isPoison = false) :
     (select c x y).getValue h = if _ : c.getValue = 1#1 then x.getValue else y.getValue := by
+  /- TODO: use `grind` after https://github.com/leanprover/lean4/pull/14829 is resolved. -/
   cases c with
   | poison => simp [select, Id.run, isPoison] at h
   | val c' => by_cases hc : c' = 1#1 <;> simp [select, Id.run, hc]
