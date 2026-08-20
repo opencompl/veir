@@ -73,14 +73,15 @@ def roots_of(lakefile):
     """
     config = tomllib.loads(lakefile.read_text(encoding="utf-8"))
     roots = []
-    for kind in ("lean_lib", "lean_exe"):
-        for target in config.get(kind, []):
-            if "globs" in target:
-                sys.exit(
-                    f"{lakefile}: target '{target['name']}' sets 'globs', which this "
-                    f"script does not model; teach it about globs before trusting it."
-                )
-            roots.append(target.get("root", target["name"]))
+    for target in config.get("lean_lib", []):
+        if "globs" in target:
+            sys.exit(
+                f"{lakefile}: target '{target['name']}' sets 'globs', which this "
+                f"script does not model; teach it about globs before trusting it."
+            )
+        roots.extend(target.get("roots", [target["name"]]))
+    for target in config.get("lean_exe", []):
+        roots.append(target.get("root", target["name"]))
     return roots
 
 
