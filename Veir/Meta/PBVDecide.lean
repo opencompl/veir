@@ -5,141 +5,148 @@ open Lean Elab Tactic Meta Simp
 
 namespace Veir.Data.PBV
 
-def pbvTranslate (g : MVarId) (bound : Nat) : MetaM (List MVarId) := do
-  logInfo s!"Deciding with bound {bound}"
+structure WidthInfo where
+  /-- The local decl corresponding to this width variable. -/
+  widthNatLocalDecl : LocalDecl
+  /-- The fvar corresponding to the new mask variable for this width. -/
+  widthMaskFvar : FVarId
+  /-- The FVarId of the pure-BV hypothesis that this width is a mask variable. -/
+  widthMaskHypFvar : FVarId
+  /-- The hypothesis that the width variable is less than the bmc bound. -/
+  hypWidthLeBound : MVarId
 
--- Apply width_elim
+def WidthInfo.widthFvarId (info : WidthInfo) : FVarId :=
+  info.widthNatLocalDecl.fvarId
+
+def WidthInfo.widthFvar (info : WidthInfo) : Expr :=
+  .fvar info.widthFvarId
+
+/--
+Read-only configuration for the tactic.
+-/
+structure PbvTranslateContext where
+  /-- the bound upto which we want to bitblast our widths. -/
+   bmcBound : Nat
+
+/-- Find the local declaration of the (single) width variable,
+and eliminate it, producing the mask variable, and the masking contstraint.
+-/
+def introMaskWidths (ctx : PbvTranslateContext) (g : MVarId) : MetaM (MVarId × WidthInfo) := do
   let width_elim_theorem ← mkConstWithFreshMVarLevels ``width_elim
-  let (g_no_w, widthName) ← g.withContext do
+  g.withContext do
     for ldecl in ← getLCtx do
       unless ldecl.isImplementationDetail do
         if ← isDefEq ldecl.type (mkConst ``Nat) then
           logInfo m!"Applying width_elim to {ldecl.userName}"
-          let applied := mkAppN width_elim_theorem #[mkNatLit bound, ldecl.toExpr, ← g.getType]
-          let out ← g.apply applied
-          let some out := out[0]? | throwError "width_elim should generate a goal"
-          -- TODO, for multiwidth this needs to loop
-          return (out, ldecl.userName)
-
-    throwError "No width variables were found"
-
-  let mask_name := Name.mkSimple s!"m{widthName}"
-  let (_mask, g_no_w) ← g_no_w.intro mask_name
-  let (mask_hyp, g_no_w) ← g_no_w.intro (Name.mkSimple s!"h_{mask_name}")
-
--- Apply var_elim
-  let var_elim_theorem ← mkConstWithFreshMVarLevels ``var_elim
-
-  let (g_no_w_no_v, w_expr, hyps) ← g_no_w.withContext do
-    let width_var ← getFVarFromUserName widthName
-
-  -- Assert that the width variable is less than the width bound
-    let width_le_bound ← mkFreshExprMVar (mkAppN (Expr.const `Nat.le []) #[width_var, mkNatLit bound])
-
-    let mut out_goal := g_no_w
-    let mut hyps : Array FVarId := #[]
-
-    for ldecl in ← getLCtx do
-      unless ldecl.isImplementationDetail do
-        -- Find the BitVec {width_expr} variables
-        if ← isDefEq ldecl.type (mkApp (mkConst ``BitVec) width_var) then
-          logInfo s!"Applying var_elim to {ldecl.userName}"
-          -- Revert to expose forall with the BitVec
-          let (var_hyp, goal) ← out_goal.revert #[ldecl.fvarId]
-          let some oldvar_name := var_hyp[0]? | throwError "reverting shuold produce a var"
-
-          let applied := mkAppN var_elim_theorem #[mkNatLit bound, width_var, width_le_bound]
-          let out ← goal.apply applied
-          let some goal := out[0]? | throwError "var_elim should generate a goal"
-
-          let name ← oldvar_name.getUserName
-          let (_new_var, goal) ← goal.intro (name)
-          let (new_hyp, goal) ← goal.intro (Name.mkSimple s!"h_m{name}")
-
-          -- Add the mask hypothesis to the running list
-          hyps := hyps.push new_hyp
-
-          out_goal := goal
-    return (out_goal, width_le_bound, hyps)
-
--- IsMask theorem
-  let (g_no_w_no_v) ← g_no_w_no_v.withContext do
-    let hyp_expr ← mkAppM ``isMask_of_eq_maskOfWidth #[mkFVar mask_hyp]
-    let type ← inferType hyp_expr
-    let (_new_hyps, goal) ← g_no_w_no_v.assertHypotheses #[{ userName := Name.mkSimple "test", type := type, value := hyp_expr}]
-    return goal
-
--- Simp and push theorems
-  let final_goal ← g_no_w_no_v.withContext do
-    let push_th := #[``eq_iff, ``setWidth_add, ``setWidth_setWidth] -- hardcoded theorems
-    let others := #[``BitVec.setWidth_eq]
-
-    let mut simpThms : SimpTheoremsArray := #[]
-
-    -- push theorems that need to be partially evealuted with the right
-    -- symbolic width and concrete bound width
-    for n in push_th do
-      let push_thm ← mkAppM n #[w_expr]
-      simpThms ← simpThms.addTheorem (.other n) push_thm
-
-    -- other theorems that don't need bounds
-    for n in others do
-      let thm ← mkConstWithFreshMVarLevels n
-      simpThms ← simpThms.addTheorem (.other n) thm
-
-    -- the hypotheses enforcing the variables to "behave" like they have a certain width
-    for h in hyps do
-      let thm := mkFVar h
-      simpThms ← simpThms.addTheorem (.other h.name) thm
-
-    -- add the mask constraint as an inverse theorem, to remove `setWidths` from the goal
-    simpThms ← simpThms.modifyM 0 fun thms => thms.add (.other mask_hyp.name) #[] (mkFVar mask_hyp) (inv := true)
-
-    -- apply simp
-    let ctx ← Simp.mkContext (simpTheorems := simpThms)
-    let (result, _) ← simpTarget g_no_w_no_v ctx
-    let some goal_out := result | throwError "goal solved by simp"
-
-    let mut goal_out := goal_out
-
-    -- replace all occurences of `maskOfWidth` in the hypotheses
-    -- (hacky?) reverse because when a hypothesis is rewritten all hyps that come after it change FVarID
-    -- by reversing the `hyp` stays unchanged as the rewrites are applied
-    for hyp in hyps.reverse do
-      logInfo s!"rewriting {← hyp.getUserName}"
-      let test ← goal_out.rewrite (← hyp.getType) (.fvar mask_hyp) true
-      let replaced ← goal_out.replaceLocalDecl hyp test.eNew test.eqProof
-      -- logInfo (← replaced.mvarId.getType)
-      goal_out := replaced.mvarId
-
-    -- clear `maskOfWidth` hypothesis
-    goal_out ← goal_out.clear mask_hyp
-    return goal_out
+          let applied := mkAppN width_elim_theorem #[mkNatLit ctx.bmcBound, ldecl.toExpr, ← g.getType]
+          let [g] ← g.withContext do g.apply applied | throwError "width_elim should generate a goal"
+          let widthName := ldecl.userName
+          let maskName := Name.mkSimple s!"m{widthName}"
+          let (mask, g) ← g.withContext do g.intro maskName
+          let (maskHyp, g) ← g.withContext do g.intro (Name.mkSimple s!"h_{maskName}")
+          let hypWidthLeBound <- g.withContext do
+            mkFreshExprMVar (mkAppN (Expr.const `Nat.le [])
+              #[Expr.fvar ldecl.fvarId, mkNatLit ctx.bmcBound])
+          g.withContext <| check hypWidthLeBound
+          let hypExpr ← g.withContext do mkAppM ``isMask_of_eq_maskOfWidth #[mkFVar maskHyp]
+          let (_hIsMaskOfEq, g) ← g.note (Name.mkSimple s!"h_isMask_of_eq_{maskName}") hypExpr
+          let info : WidthInfo := {
+            widthNatLocalDecl := ldecl,
+            widthMaskFvar := mask,
+            widthMaskHypFvar := maskHyp
+            hypWidthLeBound := hypWidthLeBound.mvarId!
+          }
+          return (g, info)
+    throwError "unable to find a valid width variable."
 
 
--- Clear the last Nat hypotheses
-  let final_goal ← final_goal.withContext do
-    let w_decl ← getLocalDeclFromUserName widthName
+structure BitVecInfo where
+  bvVar : FVarId
+  bvHyp : FVarId
 
-    let dependant ← (← getLCtx).foldrM (init := (#[] : Array LocalDecl )) fun localDecl acc => do
-      if localDecl.fvarId == w_decl.fvarId then
-        return acc
-      if (← localDeclDependsOn localDecl w_decl.fvarId) then
-        -- goal ← goal.clear localDecl.fvarId
-        logInfo s!"{localDecl.userName} depends on {w_decl.userName }"
-        return acc.push localDecl
-      else
-        return acc
+structure BitVecInfos where
+  infos : Array BitVecInfo := #[]
 
-    let mut goal := final_goal
-    for hyp in dependant do
-      goal ← goal.clear hyp.fvarId
+def BitVecInfos.push (this : BitVecInfos) (val : BitVecInfo) : BitVecInfos :=
+  { this with infos := this.infos.push val }
 
-    goal ← goal.clear w_decl.fvarId
 
-    return goal
 
-  return [final_goal, w_expr.mvarId!]
+#check isMask_of_eq_maskOfWidth
+/--
+Analyze a single local decl, and try to introduce it as a bitvec variable in our larger universe
+if it is in fact a bitvec variable.
+-/
+def introVar (ctx : PbvTranslateContext) (widthInfo : WidthInfo) (g : MVarId)
+      (infos : BitVecInfos) (ldecl : LocalDecl) :
+      MetaM (MVarId × BitVecInfos) := g.withContext do
+  unless ldecl.isImplementationDetail do
+    -- Find the BitVec {width_expr} variables
+    -- | TODO: replace defeq with syntactic eq, there are helpers in Lean/Meta or Lean/Tactic
+    -- inside the bv_decide implementation.
+    if ← isDefEq ldecl.type (mkApp (mkConst ``BitVec) widthInfo.widthFvar) then
+      -- Revert to expose forall with the BitVec
+      let (#[oldVar], g) ← g.revert #[ldecl.fvarId] | throwError "reverting shuold produce a var"
+      let (List.cons g _) ← g.withContext <|  g.apply <| ← mkAppM ``var_elim
+          #[mkNatLit ctx.bmcBound, widthInfo.widthFvar, .mvar widthInfo.hypWidthLeBound]
+        | throwError m!"{``var_elim} should generate a single goal. Produced {g}"
+      let name ← oldVar.getUserName
+      let (bvVar, g) ← g.intro name
+      let (bvHyp, g) ← g.intro <| Name.mkSimple s!"h_m{name}"
+      return (g, infos.push { bvVar, bvHyp})
+  return (g, infos)
+
+
+def introVars (ctx : PbvTranslateContext) (g : MVarId) (widthInfo : WidthInfo) : MetaM (MVarId × BitVecInfos) := do
+  let decls : LocalContext ← g.withContext getLCtx
+  decls.foldlM (init := (g, {})) fun (g, infos) ldecl =>
+    introVar ctx widthInfo g infos ldecl
+
+def addPushTheorems (g : MVarId)
+    (widthInfo : WidthInfo) (simp : SimpTheoremsArray) : MetaM SimpTheoremsArray := g.withContext do
+  let thms := #[``eq_iff, ``setWidth_add, ``setWidth_setWidth] -- hardcoded theorems
+  let mut simp := simp
+  for thm in thms do
+    let push_thm ← g.withContext do mkAppM thm #[.mvar widthInfo.hypWidthLeBound]
+    simp ← simp.addTheorem (.other thm) push_thm
+  return simp
+
+
+def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVarId) := do
+  -- throwError s!"Deciding with bound {ctx.bmcBound}"
+  let (g, widthInfo) ← introMaskWidths ctx g
+  -- Introduce bitvector variables
+  let (g, bvInfos) ← introVars ctx g widthInfo
+  g.withContext do check (← g.getType)
+  logInfo m!"intro mask widths done. {g}"
+  let mut simpThmsArray : SimpTheoremsArray := #[]
+  simpThmsArray ← addPushTheorems g widthInfo simpThmsArray
+  logInfo m!"added push theorems."
+
+  -- other theorems that don't need bounds
+  let others := #[``BitVec.setWidth_eq]
+  for n in others do
+    let thm ← mkConstWithFreshMVarLevels n
+    simpThmsArray ← simpThmsArray.addTheorem (.other n) thm
+
+  -- the hypotheses enforcing the variables to "behave" like they have a certain width
+  for info in bvInfos.infos do
+    simpThmsArray ← g.withContext do simpThmsArray.addTheorem (.other info.bvHyp.name) (mkFVar info.bvHyp)
+
+  -- TODO: make this cleaner by collecting them all into a single array.
+  let simpThms : SimpTheorems := {}
+  let simpThms ← g.withContext do
+    simpThms.add (.other widthInfo.widthMaskHypFvar.name)
+      #[] (mkFVar widthInfo.widthMaskHypFvar) (inv := true)
+  simpThmsArray := simpThmsArray.push simpThms
+
+  -- apply simp
+  let simpCtx ← Simp.mkContext (simpTheorems := simpThmsArray)
+  let (some g, _) ← g.withContext do simpTarget g simpCtx
+    | throwError "goal solved by simp"
+  logInfo m!"rewritten using simp theorems. {g}"
+
+  return [g, widthInfo.hypWidthLeBound]
 
 syntax (name := pbvDecide) "pbv_decide" optConfig (ppSpace colGt num)? : tactic
 
@@ -147,7 +154,8 @@ syntax (name := pbvDecide) "pbv_decide" optConfig (ppSpace colGt num)? : tactic
 def evalPbvDecide : Tactic := fun stx => do
   match stx with
   | `(tactic| pbv_decide $n:num) => do
-      replaceMainGoal (← pbvTranslate (← getMainGoal) n.getNat)
+      let ctx : PbvTranslateContext := { bmcBound := n.getNat }
+      replaceMainGoal (← pbvTranslate (← getMainGoal) ctx)
   | _ => throwUnsupportedSyntax
 
 
@@ -157,9 +165,3 @@ theorem trace_add_comm (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
   pbv_decide 13
   · bv_decide
   · grind
-
--- theorem trace_add_test (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
---   x + y = y + x + 0 := by
---   pbv_decide 13
---   bv_decide
---   grind
