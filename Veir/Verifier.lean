@@ -19,10 +19,7 @@ variable {OpInfo : Type} [HasOpInfo OpInfo]
   only ever appears as the last operation of its block, and any
   operation carrying block successors must also be the last operation
   of its block. The second rule is MLIR's, from
-  `verifyOnEntrance(Block &)` in `mlir/lib/IR/Verifier.cpp`. It is
-  deliberately phrased in terms of successors rather than the
-  `IsTerminator` trait, so that an unregistered or test-dialect
-  operation cannot smuggle a CFG edge into the middle of a block.
+  `verifyOnEntrance(Block &)` in `mlir/lib/IR/Verifier.cpp`.
 -/
 def OperationPtr.verifyTerminatorPosition (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
