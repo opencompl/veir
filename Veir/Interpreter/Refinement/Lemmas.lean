@@ -53,9 +53,9 @@ theorem FunctionResult.isRefinedBy_refl (r : MemoryState × Array RuntimeValue) 
   simp [FunctionResult.isRefinedBy]
 
 @[simp, grind .]
-theorem Interp.isRefinedBy_refl_of_ne_none {α : Type} {R : α → α → Prop}
-    (hR : ∀ a, R a a) (x : Interp α) (neNone : x ≠ none) : Interp.isRefinedBy R x x := by
-  rcases x with _ | (x | _) <;> grind [Interp.isRefinedBy]
+theorem Interp.isRefinedBy_refl_of_ne_fail {α : Type} {R : α → α → Prop}
+    (hR : ∀ a, R a a) (x : Interp α) (neFail : x ≠ .fail) : Interp.isRefinedBy R x x := by
+  rcases x with _ | _ | x <;> grind [Interp.isRefinedBy]
 
 @[simp, grind .]
 theorem VariableState.isRefinedBy_refl
@@ -173,23 +173,23 @@ theorem RuntimeValue.reg_of_isRefinedBy {v : Data.RISCV.Reg} {tv : RuntimeValue}
 
 /-! ## Interp refinements -/
 
-/-- `none` is refined by any value. -/
+/-- `fail` is refined by any value. -/
 @[simp, grind .]
-theorem Interp.isRefinedBy_none_target :
-    Interp.isRefinedBy R none target := by
+theorem Interp.isRefinedBy_fail_target :
+    Interp.isRefinedBy R .fail target := by
   simp [Interp.isRefinedBy]
 
 /-- `ub` is refined by any value. -/
 @[simp, grind .]
 theorem Interp.isRefinedBy_ub_target :
-    Interp.isRefinedBy R (some .ub) target := by
+    Interp.isRefinedBy R (.ub) target := by
   simp only [Interp.isRefinedBy]
 
 /-- `ok` is only refined by `ok` values that satisfy the given refinement relation. -/
 @[simp, grind =]
 theorem Interp.isRefinedBy_ok_target_iff :
-    Interp.isRefinedBy R (some (.ok sourceRes)) target ↔
-    ∃ targetRes, target = some (.ok targetRes) ∧ R sourceRes targetRes := by
+    Interp.isRefinedBy R (.ok sourceRes) target ↔
+    ∃ targetRes, target = .ok targetRes ∧ R sourceRes targetRes := by
   simp only [Interp.isRefinedBy]
   rcases target with _ | (_ | _) <;> grind
 

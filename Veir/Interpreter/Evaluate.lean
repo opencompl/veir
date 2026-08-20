@@ -23,7 +23,7 @@ private def isFoldEvaluationCandidate
 /--
   Evaluate an operation with the interpreter, given the runtime values of its
   operands. Returns the result values, `Interp.ub` if the operation triggers
-  UB, and `none` if the operation must not be evaluated or the interpreter
+  UB, and `Interp.fail` if the operation must not be evaluated or the interpreter
   cannot evaluate it.
 -/
 def foldEvaluate (opCode : OpCode) (properties : propertiesOf opCode)

@@ -55,15 +55,12 @@ def Mod_Arith.hasSSADominance (_op : Mod_Arith) (_index : Nat) : Bool :=
 
 #generate_dialect Mod_Arith
 
-instance : HasOpInfo Mod_Arith where
+instance : IsOpCode Mod_Arith where
   fromName := Mod_Arith.fromName
   name := Mod_Arith.name
   propertiesOf := Mod_Arith.propertiesOf
   fromAttrDict := Mod_Arith.fromAttrDict
   toAttrDict := Mod_Arith.toAttrDict
-  getEffects := Mod_Arith.getEffects
-  isConstantLike := Mod_Arith.isConstantLike
-  hasSSADominance := Mod_Arith.hasSSADominance
 
 /--
 Materialize concrete modular-integer fold results.
@@ -91,7 +88,7 @@ def TypeAttr.verifyModArithType (ty : TypeAttr) (msg : String) : Except String M
     pure type
   | type => throw s!"{msg} but found {type} instead."
 
-def OperationPtr.verifyModArithBinOp {OpInfo : Type} [HasOpInfo OpInfo]
+def OperationPtr.verifyModArithBinOp {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 2 1
@@ -102,7 +99,7 @@ def OperationPtr.verifyModArithBinOp {OpInfo : Type} [HasOpInfo OpInfo]
     s!"{instrName}: Expected result type to match operand type"
   let _ ← operandType.verifyModArithType s!"{instrName}: Expected ModArithType"
 
-def OperationPtr.verifyModArithConstantOp {OpInfo : Type} [HasOpInfo OpInfo]
+def OperationPtr.verifyModArithConstantOp {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Mod_Arith] (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 0 1
@@ -119,7 +116,7 @@ def OperationPtr.verifyModArithConstantOp {OpInfo : Type} [HasOpInfo OpInfo]
 Verify the local invariants of a `mod_arith` operation in any operation-info
 type containing the `mod_arith` dialect.
 -/
-def Mod_Arith.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
+def Mod_Arith.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Mod_Arith] (opType : Mod_Arith) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
@@ -129,3 +126,9 @@ def Mod_Arith.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
   | .constant => do
     op.verifyModArithConstantOp ctx opIn
     pure ()
+
+instance : HasOpInfo Mod_Arith where
+  verifyLocalInvariants := Mod_Arith.verifyLocalInvariants
+  getEffects := Mod_Arith.getEffects
+  isConstantLike := Mod_Arith.isConstantLike
+  hasSSADominance := Mod_Arith.hasSSADominance

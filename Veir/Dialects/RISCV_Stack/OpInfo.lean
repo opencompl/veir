@@ -48,21 +48,18 @@ def Riscv_Stack.hasSSADominance (_op : Riscv_Stack) (_index : Nat) : Bool :=
 
 #generate_dialect Riscv_Stack
 
-instance : HasOpInfo Riscv_Stack where
+instance : IsOpCode Riscv_Stack where
   fromName := Riscv_Stack.fromName
   name := Riscv_Stack.name
   propertiesOf := Riscv_Stack.propertiesOf
   fromAttrDict := Riscv_Stack.fromAttrDict
   toAttrDict := Riscv_Stack.toAttrDict
-  getEffects := Riscv_Stack.getEffects
-  isConstantLike := Riscv_Stack.isConstantLike
-  hasSSADominance := Riscv_Stack.hasSSADominance
 
 /--
 Verify the local invariants of a `riscv_stack` operation in any operation-info
 type containing the `riscv_stack` dialect.
 -/
-def Riscv_Stack.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
+def Riscv_Stack.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Riscv_Stack] (opType : Riscv_Stack) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
@@ -82,6 +79,12 @@ def Riscv_Stack.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
     if alignment &&& (alignment - 1) ≠ 0 then
       throw "alignment must be a positive power of two"
     pure ()
+
+instance : HasOpInfo Riscv_Stack where
+  verifyLocalInvariants := Riscv_Stack.verifyLocalInvariants
+  getEffects := Riscv_Stack.getEffects
+  isConstantLike := Riscv_Stack.isConstantLike
+  hasSSADominance := Riscv_Stack.hasSSADominance
 
 end
 

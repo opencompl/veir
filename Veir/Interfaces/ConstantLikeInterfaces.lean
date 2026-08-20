@@ -36,9 +36,9 @@ def ValuePtr.constantValue (val : ValuePtr) (ctx : IRContext OpCode) : Option Ru
   -- makes interpreting against an empty operand array and an empty memory
   -- produce exactly the value the operation materializes.
   if res.op.getNumOperands! ctx ≠ 0 then none else
-  match (res.op.interpret ctx #[] .empty : Option (UBOr _)) with
-  | some (.ok (results, _, none)) => results[res.index]?
-  | some .ub => RuntimeValue.getPoisonForType (val.getType! ctx)
+  match res.op.interpret ctx #[] .empty with
+  | .ok (results, _, none) => results[res.index]?
+  | .ub => RuntimeValue.getPoisonForType (val.getType! ctx)
   | _ => none
 
 end

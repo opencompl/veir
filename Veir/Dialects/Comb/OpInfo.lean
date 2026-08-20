@@ -75,15 +75,12 @@ def Comb.hasSSADominance (_op : Comb) (_index : Nat) : Bool :=
 
 #generate_dialect Comb
 
-instance : HasOpInfo Comb where
+instance : IsOpCode Comb where
   fromName := Comb.fromName
   name := Comb.name
   propertiesOf := Comb.propertiesOf
   fromAttrDict := Comb.fromAttrDict
   toAttrDict := Comb.toAttrDict
-  getEffects := Comb.getEffects
-  isConstantLike := Comb.isConstantLike
-  hasSSADominance := Comb.hasSSADominance
 
 /-- CIRCT combinational folds use the HW dialect's integer constant. -/
 def Comb.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpInfo HW]
@@ -99,7 +96,7 @@ def Comb.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpIn
 Verify the local invariants of a `comb` operation in any operation-info type
 containing the `comb` dialect.
 -/
-def Comb.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
+def Comb.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Comb] (opType : Comb) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
@@ -130,6 +127,12 @@ def Comb.verifyLocalInvariants {OpInfo : Type} [HasOpInfo OpInfo]
   | .mux => do
     op.verifyPlainOpCounts ctx opIn 3 1
     pure ()
+
+instance : HasOpInfo Comb where
+  verifyLocalInvariants := Comb.verifyLocalInvariants
+  getEffects := Comb.getEffects
+  isConstantLike := Comb.isConstantLike
+  hasSSADominance := Comb.hasSSADominance
 
 end
 

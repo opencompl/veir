@@ -63,7 +63,7 @@ private def testTopLevelAndFunctionEntryBlocksLive : String :=
   run
     r#""builtin.module"() ({
 ^bb0:
-  "func.func"() ({
+  "func.func"() <{sym_name = "f", function_type = () -> ()}> ({
   ^entry:
   }) : () -> ()
 }) : () -> ()"#

@@ -59,10 +59,10 @@ theorem interpretOp'_eq_interpretOp'_other_memory
 theorem interpretOp'_eq_ok_implies_memory_eq (h : op.Pure ctx) :
       interpretOp' (op.getOpType! ctx) (op.getProperties! ctx (op.getOpType! ctx))
         (op.getResultTypes! ctx) operands (op.getSuccessors! ctx) memory₁ =
-          some (.ok (resValues, memory₂, cf)) →
+          .ok (resValues, memory₂, cf) →
       memory₁ = memory₂ := by
   rw [h operands memory₁ memory₁]
-  simp only [Interp.map, Option.map, Interp, UBOr.map]
+  simp only [Interp.map]
   grind
 
 end OperationPtr.Pure
@@ -75,13 +75,13 @@ equivalent to saying that the results of interpreting `op` on the given `state` 
 -/
 def InterpreterState.EquationHolds {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
     (op : OperationPtr) (inBounds : op.InBounds ctx.raw := by grind) : Prop :=
-  ∃ controlFlow, interpretOp op state = some (.ok (state, controlFlow))
+  ∃ controlFlow, interpretOp op state = .ok (state, controlFlow)
 
 theorem interpretOp_equationHolds_self
     {ctx : WfIRContext OpCode} {state state' : InterpreterState ctx} (ctxDom : ctx.Dom)
     (inBounds : op.InBounds ctx.raw) :
     op.Pure ctx →
-    interpretOp op state = some (.ok (state', controlFlow)) →
+    interpretOp op state = .ok (state', controlFlow) →
     state'.EquationHolds op := by
   simp only [InterpreterState.EquationHolds]
   grind [OperationPtr.Pure.interpretOp'_eq_ok_implies_memory_eq, interpretOp_some_iff]
@@ -90,7 +90,7 @@ theorem interpretOp_equationHolds_other
     {ctx : WfIRContext OpCode} {state state' : InterpreterState ctx} (ctxDom : ctx.Dom)
     {inBounds₁ : op₁.InBounds ctx.raw} {inBounds₂ : op₂.InBounds ctx.raw} :
     op₂.Pure ctx →
-    interpretOp op₁ state inBounds₁ = some (.ok (state', cf₁)) →
+    interpretOp op₁ state inBounds₁ = .ok (state', cf₁) →
     op₂.dominates op₁ ctx →
     state.EquationHolds op₂ →
     state'.EquationHolds op₂ := by
@@ -105,7 +105,7 @@ theorem interpretOp_equationHolds_other
   simp only [VariableState.getOperandValues_setResultValues?_of_dominates ctxDom hDom hResValues₁]
   simp only [hOperandValues₂, OperationPtr.interpret]
   rw [OperationPtr.Pure.interpretOp'_eq_interpretOp'_other_memory op₂Pure memory₂]
-  simp only [hInterp₂', Interp.map, Option.map, UBOr.map]
+  simp only [hInterp₂', Interp.map]
   by_cases hOp : op₂ = op₁
   · grind
   · have := VariableState.setResultValues?_comm hOp hResValues₂ hResValues₁
@@ -132,7 +132,7 @@ theorem interpretOp_equationLemmaAt {ctx : WfIRContext OpCode} {opInBounds} {sta
     (ctxDom : ctx.Dom)
     (stateWf : state.EquationLemmaAt (InsertPoint.before op) opInBounds)
     (opHasParent : (op.get! ctx.raw).parent = some block) :
-    interpretOp op state = some (.ok (state', controlFlow)) →
+    interpretOp op state = .ok (state', controlFlow) →
     state'.EquationLemmaAt (InsertPoint.after op ctx.raw block) := by
   intro hInterp
   simp only [InterpreterState.EquationLemmaAt] at stateWf ⊢
@@ -194,7 +194,7 @@ theorem interpretOp_DefinesDominating {ctx : WfIRContext OpCode} {opInBounds}
     (ctxDom : ctx.Dom) {state state' : InterpreterState ctx}
     (stateDom : state.DefinesDominating (InsertPoint.before op) opInBounds)
     (opHasParent : (op.get! ctx.raw).parent = some block) :
-    interpretOp op state = some (.ok (state', controlFlow)) →
+    interpretOp op state = .ok (state', controlFlow) →
     state'.DefinesDominating (InsertPoint.after op ctx.raw block) := by
   intro hinterp
   simp only [InterpreterState.DefinesDominating] at stateDom ⊢
@@ -256,46 +256,46 @@ theorem InterpreterState.EquationLemmaAt.setArgumentValues?_succ_entry (ctxDom :
 
 /-- Interpreting a verified operation never fails on a state satisfying `DefinesDominating` at the
 operation's location. -/
-theorem InterpreterState.DefinesDominating.interpretOp_ne_none
+theorem InterpreterState.DefinesDominating.interpretOp_ne_fail
     (ctxDom : ctx.Dom) {state : InterpreterState ctx}
     (stateDom : state.DefinesDominating (InsertPoint.before op) ipInBounds)
     (opVerif : op.Verified ctx opInBounds) :
-    ∃ state', interpretOp op state opInBounds = some state' := by
+    interpretOp op state opInBounds ≠ .fail := by
   simp only [interpretOp]
   have ⟨operandValues, hOperandValues⟩ := stateDom.exists_getOperandValues_eq_some ctxDom
   simp only [hOperandValues]
   have hconforms : RuntimeValue.ArrayConforms operandValues (op.getOperandTypes! ctx.raw) := by
     grind [VariableState.getOperandValues_conforms]
-  have ⟨resValues, hresValues⟩ := exists_interpretOp'_eq_some opVerif hconforms state.memory
-  simp only [hresValues, bind]
-  rcases resValues with ⟨resValues, mem', act⟩ | _
-  · simp only [liftM, monadLift, MonadLift.monadLift, pure, Interp]
+  have hne := interpretOp'_ne_fail opVerif hconforms state.memory
+  rcases hresValues : op.interpret ctx operandValues state.memory with _ | _ | ⟨resValues, mem', act⟩
+  · exact absurd hresValues hne
+  · simp
+  · simp only [liftM, monadLift, MonadLift.monadLift]
     have := interpretOp'_results_conform opVerif hconforms hresValues
     have ⟨v, hv⟩ :=
       (VariableState.setResultValues?_isSome_iff_conforms state.variables opInBounds).mp this
     simp [hv]
-  · simp [Interp]
 
-/-- `interpretOpList` never fails (returns `none`) on a slice of an operation chain given a verified
+/-- `interpretOpList` never fails (returns `.fail`) on a slice of an operation chain given a verified
 and well-dominated context, on an interpreter state containing all values dominating the first
 operation in the slice. -/
-theorem InterpreterState.DefinesDominating.interpretOpList_ne_none
+theorem InterpreterState.DefinesDominating.interpretOpList_ne_fail
     (ctxVerif : ctx.Verified) (ctxDom : ctx.Dom) {block : BlockPtr}
     (hChain : block.OpChainSlice ctx.raw ops)
     {state : InterpreterState ctx}
     (stateDom : ∀ head, (hhead : ops.head? = some head) →
       state.DefinesDominating (.before head) (by grind [List.mem_of_head? hhead])) :
-    interpretOpList ops state ≠ none := by
+    interpretOpList ops state ≠ .fail := by
   induction ops generalizing state with
   | nil => simp
   | cons a l ih =>
     have hDom : state.DefinesDominating (.before a) := stateDom a (by simp)
     obtain ⟨headInBounds, headParent, headNext, hChainTail⟩ := hChain
     simp only [interpretOpList_cons]
-    rcases hi : interpretOp a state (by grind) with _ | (⟨s, act⟩ | _)
-    · grind [InterpreterState.DefinesDominating.interpretOp_ne_none ctxDom]
-    · grind [interpretOp_DefinesDominating ctxDom hDom headParent hi]
+    rcases hi : interpretOp a state (by grind) with _ | _ | ⟨s, act⟩
+    · grind [InterpreterState.DefinesDominating.interpretOp_ne_fail ctxDom]
     · simp
+    · grind [interpretOp_DefinesDominating ctxDom hDom headParent hi]
 
 /-- If the equation lemma holds at the point *before* an operation chain, interpreting the chain
 keeps the equation lemma valid at the point *after* the chain. -/
@@ -306,7 +306,7 @@ theorem interpretOpList_equationLemmaAt {ctx : WfIRContext OpCode}
     (eqLemma : state.EquationLemmaAt (.before fstOp) (by
       grind [List.head?_eq_getElem?, hChain.inBounds_of_mem]))
     (hLastElem : ops.getLast? = some lastOp)
-    (hrun : interpretOpList ops state (by grind) = some (.ok (state', none))) :
+    (hrun : interpretOpList ops state (by grind) = .ok (state', none)) :
     state'.EquationLemmaAt (InsertPoint.after lastOp ctx.raw block) := by
   induction ops generalizing state fstOp with
   | nil => grind
@@ -315,12 +315,12 @@ theorem interpretOpList_equationLemmaAt {ctx : WfIRContext OpCode}
     have : head = fstOp := by grind
     subst head
     simp only [interpretOpList_cons] at hrun
-    rcases hi : interpretOp fstOp state headInBounds with _ | (⟨s, act⟩ | _) <;>
+    rcases hi : interpretOp fstOp state headInBounds with _ | _ | ⟨s, act⟩ <;>
       simp only [hi] at hrun
     · simp at hrun
+    · grind
     · have hAfter := interpretOp_equationLemmaAt ctxDom eqLemma headParent hi
       cases tail <;> grind
-    · grind
 
 /-- If `DefinesDominating` holds at the point *before* an operation chain, interpreting the chain
 keeps `DefinesDominating` at the point *after* the chain. -/
@@ -331,7 +331,7 @@ theorem interpretOpList_DefinesDominating {ctx : WfIRContext OpCode}
     (stateDom : state.DefinesDominating (.before fstOp) (by
       grind [List.head?_eq_getElem?, hChain.inBounds_of_mem]))
     (hLastElem : ops.getLast? = some lastOp)
-    (hrun : interpretOpList ops state (by grind) = some (.ok (state', none))) :
+    (hrun : interpretOpList ops state (by grind) = .ok (state', none)) :
     state'.DefinesDominating (InsertPoint.after lastOp ctx.raw block) := by
   induction ops generalizing state fstOp with
   | nil => simp at hLastElem
@@ -339,12 +339,12 @@ theorem interpretOpList_DefinesDominating {ctx : WfIRContext OpCode}
     obtain ⟨headInBounds, headParent, headNext, hChainTail⟩ := hChain
     obtain rfl : a = fstOp := by simpa using head
     simp only [interpretOpList_cons] at hrun
-    rcases hi : interpretOp a state headInBounds with _ | (⟨s, act⟩ | _) <;>
+    rcases hi : interpretOp a state headInBounds with _ | _ | ⟨s, act⟩ <;>
       simp only [hi] at hrun
     · simp at hrun
+    · grind
     · cases act
       case none =>
         have hAfter := interpretOp_DefinesDominating ctxDom stateDom headParent hi
         cases tail <;> grind
       case some cf => grind
-    · grind
