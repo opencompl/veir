@@ -819,6 +819,7 @@ theorem icmp_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w) (p : IntPred)
 theorem select_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w) (c₁ c₂ : Int 1)
     (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) (h₃ : c₁ ⊒ c₂) :
     select c₁ x₁ x₂ ⊒ select c₂ y₁ y₂ := by
+   /- TODO: use `grind` after https://github.com/leanprover/lean4/pull/14829 is resolved. -/
   cases c₁ with
   | poison => simp [select, Id.run, isRefinedBy_iff]
   | val v =>
