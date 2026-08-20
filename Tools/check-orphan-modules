@@ -41,6 +41,31 @@ def path_of(module, source_dir=pathlib.Path(".")):
     return source_dir.joinpath(*module.split(".")).with_suffix(".lean")
 
 
+def without_comments(text):
+    """Remove Lean line comments and nested block comments."""
+    result = []
+    depth = 0
+    index = 0
+    while index < len(text):
+        if text.startswith("/-", index):
+            depth += 1
+            index += 2
+        elif depth and text.startswith("-/", index):
+            depth -= 1
+            index += 2
+        elif not depth and text.startswith("--", index):
+            index = text.find("\n", index)
+            if index == -1:
+                break
+        else:
+            if not depth or text[index] == "\n":
+                result.append(text[index])
+            index += 1
+    if depth:
+        raise ValueError("unterminated block comment")
+    return "".join(result)
+
+
 def imports_of(path):
     """The modules imported by `path`, from its header alone.
 
@@ -51,15 +76,11 @@ def imports_of(path):
     between `module` and their first import.
     """
     result = []
-    in_comment = False
-    for line in path.read_text(encoding="utf-8").splitlines():
+    text = without_comments(path.read_text(encoding="utf-8"))
+    for line in text.splitlines():
         line = line.strip()
-        if in_comment:
-            in_comment = "-/" not in line
-        elif match := IMPORT.match(line):
+        if match := IMPORT.match(line):
             result.append(match.group(1))
-        elif line.startswith("/-"):
-            in_comment = "-/" not in line
         elif not HEADER.match(line):
             break
     return result
