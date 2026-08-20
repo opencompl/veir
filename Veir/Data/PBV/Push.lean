@@ -43,7 +43,7 @@ theorem setWidth_add {w o : Nat} (h : w ≤ o) :
 
 /-- Sign extension fills above the source width `v` with the sign bit,
 and then masks to the target width. -/
-theorem setWidth_signExtend_eq_and_maskOfWidth {t o : Nat} (_h : t ≤ o) :
+theorem setWidth_signExtend_eq_and_maskOfWidth {t o : Nat} :
     ∀ {v : Nat} (a : BitVec v), v ≤ o →
       (a.signExtend t).setWidth o
         = ((a.setWidth o) ||| (cond a.msb (~~~(maskOfWidth o v)) 0#o)) &&& maskOfWidth o t := by
@@ -74,7 +74,6 @@ theorem msb_eq_and_maskOfWidth_ne_zero {w o : Nat} (h : w ≤ o) :
   rcases Nat.eq_zero_or_pos w with rfl | hw
   · -- `BitVec 0` has no bits, so both sides are `false`.
     rw [BitVec.msb_eq_getLsbD_last, BitVec.getLsbD_of_ge _ _ (by omega)]
-    rw [maskOfWidth_zero, signBitOfMask]
     simp
   · rw [signBitOfMask_maskOfWidth_eq_twoPow_of_pos h hw, 
       BitVec.and_twoPow, BitVec.getLsbD_setWidth,

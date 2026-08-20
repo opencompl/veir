@@ -22,12 +22,6 @@ theorem setWidth_inj {w o : Nat} (h : w ≤ o) {a b : BitVec w}
     (hab : a.setWidth o = b.setWidth o) : a = b := by
   simpa [h] using congrArg (BitVec.setWidth w) hab
 
-/-- Widening and truncating back is the identity. -/
-theorem setWidth_setWidth_eq_self_of_le {w o : Nat} (h : w ≤ o) (x : BitVec w) :
-    (x.setWidth o).setWidth w = x := by
-  apply eq_of_toNat_eq
-  rw [toNat_setWidth, toNat_setWidth_of_le h, Nat.mod_eq_of_lt x.isLt]
-
 theorem ushiftRight_one_le {o : Nat} (m : BitVec o) : m >>> 1 ≤ m := by
   rw [le_def, toNat_ushiftRight, Nat.shiftRight_eq_div_pow]
   exact Nat.div_le_self _ _
