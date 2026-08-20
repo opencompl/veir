@@ -53,7 +53,7 @@ theorem trace_double_zero_extend (p q r : Nat) (x : BitVec p)
   (hpq : p < q) :
   (x.zeroExtend q).zeroExtend r = x.zeroExtend r
   := by
--- Step 1: Bound widths to the provided blast width 
+-- Step 1: Bound widths to the provided blast width
   have r_le_bw : r <= 8 := by grind
   have q_le_bw : q <= 8 := by grind
   have p_le_bw : p <= 8 := by grind
@@ -102,30 +102,31 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
   (hpq : p < q) :
   (x.zeroExtend q).signExtend r = x.zeroExtend r
   := by
--- Step 1
+-- Step 1: Bound widths to the provided blast width
   have r_le_bw : r <= 8 := by grind
   have q_le_bw : q <= 8 := by grind
   have p_le_bw : p <= 8 := by grind
--- Step 2-3
+-- Step 2-3: Introduce mask to replace `w` Nat var
   apply width_elim 8 r
   intro mr h_mr
   apply width_elim 8 q
   intro mq h_mq
   apply width_elim 8 p
   intro mp h_mp
--- Step 4:
+-- Step 4: Eliminate the parametric bv var of width `w`
+--         enforcing width constraint with mask
   revert x
   apply var_elim 8 p p_le_bw
   intro x h_xmp
--- Step 5:
+-- Step 5: Convert width hypothesis to mask hypothesis
   have mr_mask := isMask_of_eq_maskOfWidth h_mr
   have mq_mask := isMask_of_eq_maskOfWidth h_mq
   have mp_mask := isMask_of_eq_maskOfWidth h_mp
-  -- Translate the condition on the natural number width
-  -- into a fact about the bitvector masks
+-- Step 5B: Translate the condition on the natural number width
+--   into a fact about the bitvector masks
   have le_pq := mask_lt_mask p_le_bw q_le_bw h_mp h_mq hpq
   simp only [isMask_eq] at mr_mask mq_mask mp_mask
--- Step 6:
+-- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [
     eq_iff r_le_bw,
     setWidth_signExtend_eq_and_maskOfWidth,          -- Push `setWidth` down signExtend
@@ -142,7 +143,7 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
     ← h_mq,
     ← h_mp,
   ] at h_xmp ⊢
--- Step 7:
+-- Step 7: Drop the Nat 'p', 'q', 'r'
   clear h_mp h_mq h_mr
   clear hr hqr hpq r_le_bw q_le_bw p_le_bw
   clear p q r
