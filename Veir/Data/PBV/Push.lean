@@ -54,12 +54,12 @@ theorem setWidth_signExtend_eq_and_maskOfWidth {t o : Nat} :
     BitVec.getLsbD_or, BitVec.getLsbD_setWidth, getLsbD_maskOfWidth]
   by_cases hiv : i < v
   · -- Below the source width: the sign fill is masked out.
-    have hio : i < o := by omega
+    have hio : i < o := by lia
     have hmask : (maskOfWidth o v)[i] = true := by
       rw [getElem_maskOfWidth i hio]; simp [hiv]
     cases hmsb : a.msb <;> grind
   · -- At or above the source width: `a` has no bit here, so the result is the sign bit.
-    rw [BitVec.getLsbD_of_ge a i (by omega)]
+    rw [BitVec.getLsbD_of_ge a i (by lia)]
     cases hmsb : a.msb <;>
       simp [hiv, getLsbD_maskOfWidth, Bool.and_comm]
 
@@ -73,13 +73,13 @@ theorem msb_eq_and_maskOfWidth_ne_zero {w o : Nat} (h : w ≤ o) :
   intro a
   rcases Nat.eq_zero_or_pos w with rfl | hw
   · -- `BitVec 0` has no bits, so both sides are `false`.
-    rw [BitVec.msb_eq_getLsbD_last, BitVec.getLsbD_of_ge _ _ (by omega)]
+    rw [BitVec.msb_eq_getLsbD_last, BitVec.getLsbD_of_ge _ _ (by lia)]
     simp
-  · rw [signBitOfMask_maskOfWidth_eq_twoPow_of_pos h hw, 
+  · rw [signBitOfMask_maskOfWidth_eq_twoPow_of_pos h hw,
       BitVec.and_twoPow, BitVec.getLsbD_setWidth,
       BitVec.msb_eq_getLsbD_last]
     have hlt : w - 1 < o := by lia
     simp only [hlt, decide_true, Bool.true_and]
     cases a.getLsbD (w - 1)
-    · simp 
+    · simp
     · simp [BitVec.twoPow_ne_zero hlt]

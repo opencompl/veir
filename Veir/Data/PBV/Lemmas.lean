@@ -30,7 +30,7 @@ theorem twoPow_ne_zero {o k : Nat} (h : k < o) : twoPow o k ≠ 0#o := by
   intro hcontra
   have hn := congrArg BitVec.toNat hcontra
   rw [toNat_twoPow, toNat_zero,
-    Nat.mod_eq_of_lt (Nat.pow_lt_pow_right (by omega) h)] at hn
+    Nat.mod_eq_of_lt (Nat.pow_lt_pow_right (by lia) h)] at hn
   exact absurd hn (Nat.ne_of_gt (Nat.two_pow_pos k))
 
 end BitVec

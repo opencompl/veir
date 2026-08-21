@@ -71,14 +71,14 @@ theorem setWidth_eq_and_maskOfWidth {o w : Nat} {a : BitVec w} {b : BitVec o}
   apply BitVec.eq_of_toNat_eq
   rw [toNat_and_maskOfWidth h, BitVec.toNat_setWidth_of_le h, hab]
 
-/-- The 'i'th bit of `maskOfWidth o w` is enabled iff 
+/-- The 'i'th bit of `maskOfWidth o w` is enabled iff
 the index 'i' is inbounds of `o` and `w`. -/
 @[simp] theorem getLsbD_maskOfWidth {o w : Nat} (i : Nat) :
     (maskOfWidth o w).getLsbD i = (decide (i < w) && decide (i < o)) := by
   rw [maskOfWidth, BitVec.getLsbD_ofNat, Nat.testBit_two_pow_sub_one]
   grind only
 
-/-- The 'i'th bit of `maskOfWidth o w` is enabled iff 
+/-- The 'i'th bit of `maskOfWidth o w` is enabled iff
 the index 'i' is inbounds of `o` and `w`. -/
 @[simp] theorem getElem_maskOfWidth {o w : Nat} (i : Nat) (hi : i < o) :
     (maskOfWidth o w)[i] = decide (i < w) := by
@@ -111,7 +111,7 @@ theorem toNat_signBitOfMask_maskOfWidth {o w : Nat} (h : w ≤ o) :
   rcases Nat.eq_zero_or_pos w with rfl | hw
   · simp
   · have hpow : 2 ^ w = 2 * 2 ^ (w - 1) := by
-      obtain ⟨w', rfl⟩ : ∃ w', w = w' + 1 := ⟨w - 1, by grind⟩
+      obtain ⟨w', rfl⟩ : ∃ w', w = w' + 1 := ⟨w - 1, by lia⟩
       lia
     have h3 : 0 < 2 ^ (w - 1) := Nat.two_pow_pos _
     lia
@@ -123,6 +123,6 @@ theorem toNat_signBitOfMask_maskOfWidth {o w : Nat} (h : w ≤ o) :
   rw [toNat_signBitOfMask_maskOfWidth h, BitVec.toNat_twoPow,
     Nat.mod_eq_of_lt (Nat.pow_lt_pow_right (by lia) (by lia : w - 1 < o))]
   have hpow : 2 ^ w = 2 * 2 ^ (w - 1) := by
-    obtain ⟨w', rfl⟩ : ∃ w', w = w' + 1 := ⟨w - 1, by omega⟩
+    obtain ⟨w', rfl⟩ : ∃ w', w = w' + 1 := ⟨w - 1, by lia⟩
     lia
   lia
