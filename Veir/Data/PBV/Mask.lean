@@ -18,11 +18,13 @@ def maskOfWidth (o w : Nat) : BitVec o := BitVec.ofNat o (2 ^ w - 1)
 
 /-- `IsMask` encodes `m = 2^k - 1` for some `k : Nat` in terms of bitvector
 operations removing the dependency on `k` and allowing it to be bitblasted. -/
-@[expose] def IsMask {o : Nat} (m : BitVec o) : Prop := m &&& (m + 1#o) = 0#o
+def IsMask {o : Nat} (m : BitVec o) : Prop := m &&& (m + 1#o) = 0#o
 
 /-- Unfold `IsMask` into the constraint handed to the bitblaster. -/
 theorem isMask_eq {o : Nat} (m : BitVec o) :
-    IsMask m = (m &&& (m + 1#o) = 0#o) := rfl
+    IsMask m = (m &&& (m + 1#o) = 0#o) := by
+    unfold IsMask
+    rfl
 
 theorem toNat_maskOfWidth {o w : Nat} (h : w ≤ o) :
     (maskOfWidth o w).toNat = 2 ^ w - 1 := by
