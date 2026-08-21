@@ -15,14 +15,19 @@ namespace Veir
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 
 /--
-  Verify that a terminator only ever appears as the last operation of its block:
-  an operation that is a terminator must not be followed by another operation.
+  Verify operation/block control-flow position rules: a terminator
+  only ever appears as the last operation of its block, and any
+  operation carrying block successors must also be the last operation
+  of its block. The second rule is MLIR's, from
+  `verifyOnEntrance(Block &)` in `mlir/lib/IR/Verifier.cpp`.
 -/
 def OperationPtr.verifyTerminatorPosition (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   let operation := op.get ctx.raw opIn
   if operation.opType.isTerminator && operation.next.isSome then
     throw "Expected a terminator to be the last operation of its block"
+  if op.getNumSuccessors ctx.raw opIn ≠ 0 && operation.next.isSome then
+    throw "operation with block successors must terminate its parent block"
 
 /--
 Find the region that establishes the nearest `IsolatedFromAbove` scope around
@@ -60,11 +65,29 @@ def OperationPtr.verifyOperandIsolation
       throw "operand uses a value defined outside the isolated region that encloses its use"
 
 /--
-  Check that a block is non-empty and its last operation is a
-  terminator.
+  Whether a block is exempt from the requirement that it end in a terminator,
+  mirroring `mayBeValidWithoutTerminator` in `mlir/lib/IR/Verifier.cpp`.
+-/
+def BlockPtr.mayBeValidWithoutTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
+    (blockIn : block.InBounds ctx.raw) : Bool :=
+  match (block.get ctx.raw blockIn).parent with
+  | none => true
+  | some region =>
+    (region.get! ctx.raw).firstBlock = some block &&
+    (block.get ctx.raw blockIn).next.isNone &&
+    match (region.get! ctx.raw).parent with
+    | none => true
+    | some _ => region.hasNoTerminator ctx
+
+/--
+  Check that a block is non-empty and ends in an operation that might be a
+  terminator, unless the block may be valid without one. Mirrors the terminator
+  half of `verifyOnEntrance`/`verifyOnExit` in `mlir/lib/IR/Verifier.cpp`.
 -/
 def BlockPtr.verifyTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
     (blockIn : block.InBounds ctx.raw) : Except String PUnit := do
+  if block.mayBeValidWithoutTerminator ctx blockIn then
+    return
   let b := block.get ctx.raw blockIn
   let named (msg : String) : String :=
     match b.parent with
@@ -78,6 +101,20 @@ def BlockPtr.verifyTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
   | some lastOp =>
     if !(lastOp.getOpType! ctx.raw).isTerminator then
       throw (named "Expected the last operation of a block to be a terminator")
+
+/--
+  Verify that the entry block of a region has no predecessors. A region is
+  entered exclusively through its entry block, and both the entry block's
+  arguments and dominance treat it as unconditionally reaching every other
+  block in the region. A branch back to it would contradict that.
+-/
+def BlockPtr.verifyNoEntryBlockPredecessors (block : BlockPtr) (ctx : WfIRContext OpCode)
+    (blockIn : block.InBounds ctx.raw) : Except String PUnit := do
+  let b := block.get ctx.raw blockIn
+  let some parent := b.parent | return
+  if (parent.get! ctx.raw).firstBlock ≠ some block then return
+  if b.firstUse.isSome then
+    throw "entry block of region may not have predecessors"
 
 /-- Check that a graph region contains at most one block. -/
 private def WfIRContext.graphRegionsHaveAtMostOneBlock (ctx : WfIRContext OpCode) : Bool :=
@@ -164,11 +201,8 @@ def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
         | none => pure ()
         op.verifyOperandIsolation ctx opIn))
   ctx.raw.forBlocksDepM (fun block blockIn => do
-    match (block.get ctx.raw blockIn).parent with
-    | some region =>
-      if !region.hasNoTerminator ctx then
-        block.verifyTerminator ctx blockIn
-    | none => pure ())
+    block.verifyTerminator ctx blockIn
+    block.verifyNoEntryBlockPredecessors ctx blockIn)
   ctx.verifyLLVMGlobalSymbols
   ctx.verifyPDLPatternBodies
 

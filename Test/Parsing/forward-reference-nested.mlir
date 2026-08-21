@@ -14,10 +14,8 @@
   "func.func"() <{sym_name = "main", function_type = () -> ()}> ({
     "test.use"(%a) : (i32) -> ()
     "test.wrapper"() ({
-    ^inner:
       "test.use"(%a) : (i32) -> ()
       %a = "test.def"() : () -> i32
-      "cf.br"() [^inner] : () -> ()
     }) : () -> ()
     %a = "test.def"() : () -> i32
     "func.return"() : () -> ()
