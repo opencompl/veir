@@ -14,13 +14,13 @@ Two invariants tie the recursion together, one per kind of reified term:
 
 * a bitvector term `a` at parametric width rewrites to `a' : BitVec o` with a certificate
   `a.setWidth o = a'`;
-* a predicate `P` rewrites to `P'` with a certificate `P' → P`, the direction that lets the
-  translated goal discharge the original.
+* a proposition `P` rewrites to a `Bool` formula `b` with a certificate `P = (b = true)`.
 
-The predicate direction is an implication rather than an equality on purpose. Hypotheses are
-reverted into the goal before reification, so `imp_cert` translates them covariantly and the
-conclusion contravariantly; asking for an equality would mean proving a converse for every width
-predicate, and `mask_lt_mask` only runs one way.
+Making the propositional side `Bool`-valued is what keeps both invariants equalities. An
+implication in `Prop` is contravariant in its hypothesis, which would force the translation to run
+in two directions at once; as the `Bool` operation `!h || c` the negation absorbs the flip, so
+every node travels the same way and one traversal suffices. It also leaves the goal as a single
+`b = true`, which is the shape `bv_decide` wants.
 -/
 
 namespace Veir.Data.PBV
@@ -29,36 +29,42 @@ public section
 
 variable {o : Nat}
 
-/-! ## Predicates: `P' → P` -/
+/-! ## Propositions: `P = (b = true)` -/
 
-/-- Implication is contravariant in its hypothesis: to translate `h → c` it is the *hypothesis*
-that travels forwards and the conclusion that travels backwards. -/
-theorem imp_cert {h h' c c' : Prop} (fh : h → h') (fc : c' → c) : (h' → c') → (h → c) :=
-  fun k hh => fc (k (fh hh))
+/-- A leaf the translation has no rule for, but which is at least decidable. -/
+theorem decide_cert (P : Prop) [Decidable P] : P = (decide P = true) :=
+  decide_eq_true_eq.symm
 
-/-- A bitvector equality in conclusion position. -/
+/-- Implication becomes `!h || c`, which is where the contravariance goes. -/
+theorem imp_cert {h c : Prop} {h' c' : Bool}
+    (fh : h = (h' = true)) (fc : c = (c' = true)) :
+    (h → c) = ((!h' || c') = true) := by
+  subst fh; subst fc
+  cases h' <;> cases c' <;> simp
+
+/-- A bitvector equality. -/
 theorem eq_cert {w : Nat} (hw : w ≤ o) {a b : BitVec w} {a' b' : BitVec o}
-    (ha : a.setWidth o = a') (hb : b.setWidth o = b') : (a' = b') → (a = b) := by
+    (ha : a.setWidth o = a') (hb : b.setWidth o = b') :
+    (a = b) = ((a' == b') = true) := by
   subst ha; subst hb
-  exact fun h => BitVec.setWidth_inj hw h
+  rw [eq_iff hw a b]
+  simp
 
-/-- A bitvector equality in hypothesis position, where the translation runs forwards. -/
-theorem eq_cert_fwd {w : Nat} {a b : BitVec w} {a' b' : BitVec o}
-    (ha : a.setWidth o = a') (hb : b.setWidth o = b') : (a = b) → (a' = b') := by
-  subst ha; subst hb
-  exact fun h => congrArg _ h
-
-/-- A width bound becomes a bound on the corresponding masks. -/
+/-- A width bound becomes an unsigned bound on the corresponding masks. -/
 theorem le_cert {w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
     (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂) :
-    (w₁ ≤ w₂) → (m₁ ≤ m₂) :=
-  fun hw => mask_le_mask h₁ h₂ hm₁ hm₂ hw
+    (w₁ ≤ w₂) = (m₁.ule m₂ = true) := by
+  subst hm₁; subst hm₂
+  rw [BitVec.ule_eq_decide_le, decide_eq_true_eq]
+  exact propext (maskOfWidth_le_maskOfWidth_iff h₁ h₂).symm
 
-/-- A strict width bound becomes a strict bound on the corresponding masks. -/
+/-- A strict width bound becomes a strict unsigned bound on the corresponding masks. -/
 theorem lt_cert {w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
     (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂) :
-    (w₁ < w₂) → (m₁ < m₂) :=
-  fun hw => mask_lt_mask h₁ h₂ hm₁ hm₂ hw
+    (w₁ < w₂) = (m₁.ult m₂ = true) := by
+  subst hm₁; subst hm₂
+  rw [BitVec.ult_eq_decide_lt, decide_eq_true_eq]
+  exact propext (maskOfWidth_lt_maskOfWidth_iff h₁ h₂).symm
 
 /-! ## Bitvectors: `a.setWidth o = a'` -/
 
@@ -95,8 +101,7 @@ theorem msb_cert {w : Nat} (hw : w ≤ o) {a : BitVec w} {a' m : BitVec o}
   subst ha; subst hm; exact msb_eq_and_maskOfWidth_ne_zero hw a
 
 /-- Sign extension fills above the source width with the sign bit, then masks to the target.
-`hc` is the `Bool` certificate for the operand's sign bit; it is the only place the reified
-language's `bool` kind is consumed. -/
+`hc` is the `Bool` certificate for the operand's sign bit. -/
 theorem signExtend_cert {v t : Nat} (hv : v ≤ o) {a : BitVec v} {c : Bool}
     {a' mv mt : BitVec o}
     (ha : a.setWidth o = a') (hc : a.msb = c)

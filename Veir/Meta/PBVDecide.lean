@@ -17,35 +17,35 @@ and fails as though the goal were false.
 
 /-- The sorts of the reified language. -/
 inductive TmKind where
-  | pred
+  | bool
   | width
   | bv
-  | bool
   deriving DecidableEq, Repr
 
 /--
-A reified goal. Deliberately untyped in the widths: a `Tm .bv` does not record its width in its
-Lean type, `bvAtom` records it as a field instead, which makes `Tm.bvWidth` structural.
+A reified goal. Propositions live at `bool`, because the translation sends them to `Bool`
+formulas; that is what keeps every certificate an equality (see `Veir.Data.PBV.Cert`).
+
+Deliberately untyped in the widths: a `Tm .bv` does not record its width in its Lean type,
+`bvAtom` records it as a field instead, which makes `Tm.bvWidth` structural.
 -/
 inductive Tm : TmKind → Type where
-  /-- An opaque predicate: anything the translation passes through unchanged. -/
-  | predAtom (e : Expr) : Tm .pred
+  /-- A decidable leaf the translation has no rule for. -/
+  | boolAtom (e : Expr) : Tm .bool
   /-- A `Nat` width variable. -/
   | widthAtom (e : Expr) : Tm .width
   /-- An opaque bitvector, tagged with the width it lives at. -/
   | bvAtom (w : Tm .width) (e : Expr) : Tm .bv
-  /-- An opaque `Bool`. -/
-  | boolAtom (e : Expr) : Tm .bool
   /-- A literal width. -/
   | widthLit (n : Nat) : Tm .width
-  /-- Implication, which is what the reverted hypotheses become. -/
-  | imp (a b : Tm .pred) : Tm .pred
+  /-- Implication, which becomes `!h || c`. -/
+  | imp (a b : Tm .bool) : Tm .bool
   /-- Equality of bitvectors. -/
-  | eq (a b : Tm .bv) : Tm .pred
+  | eq (a b : Tm .bv) : Tm .bool
   /-- `w₁ ≤ w₂` between widths. -/
-  | le (a b : Tm .width) : Tm .pred
+  | le (a b : Tm .width) : Tm .bool
   /-- `w₁ < w₂` between widths. -/
-  | lt (a b : Tm .width) : Tm .pred
+  | lt (a b : Tm .width) : Tm .bool
   | add (a b : Tm .bv) : Tm .bv
   | and (a b : Tm .bv) : Tm .bv
   /-- `BitVec.setWidth`, and hence `BitVec.zeroExtend`, an `abbrev` for it. -/
@@ -55,10 +55,9 @@ inductive Tm : TmKind → Type where
 instance : Inhabited (Tm k) where
   default :=
     match k with
-    | .pred => .predAtom default
+    | .bool => .boolAtom default
     | .width => .widthAtom default
     | .bv => .bvAtom (.widthAtom default) default
-    | .bool => .boolAtom default
 
 /-- The width a bitvector term lives at. Total and structural, because `bvAtom` carries its own
 width and every width-changing operation names its target. -/
@@ -117,19 +116,31 @@ partial def reifyBv (e : Expr) : MetaM (Tm .bv) := do
       throwError "pbv_decide: unsupported bitvector operation `{fn}` in{indentExpr e}"
     reifyBvAtom e
 
-partial def reifyPred (e : Expr) : MetaM (Tm .pred) := do
+/-- A leaf with no rule of its own is still usable if it is decidable. -/
+private def reifyDecidableAtom? (e : Expr) : MetaM (Option (Tm .bool)) := do
+  if (← synthInstance? (← mkAppM ``Decidable #[e])).isSome then
+    return some (.boolAtom e)
+  return none
+
+/-- Reify a proposition. `none` means the translation has no way to express it as a `Bool`, in
+which case the caller leaves it alone rather than folding it into the goal. -/
+partial def reifyBool? (e : Expr) : MetaM (Option (Tm .bool)) := do
   if e.isArrow then
-    return .imp (← reifyPred e.bindingDomain!) (← reifyPred e.bindingBody!)
+    let some a ← reifyBool? e.bindingDomain! | return none
+    let some b ← reifyBool? e.bindingBody! | return none
+    return some (.imp a b)
   match e.getAppFnArgs with
   | (``Eq, #[ty, a, b]) =>
     match (← whnf ty).getAppFnArgs with
-    | (``BitVec, _) => return .eq (← reifyBv a) (← reifyBv b)
-    | _ => return .predAtom e
+    | (``BitVec, _) => return some (.eq (← reifyBv a) (← reifyBv b))
+    | _ => reifyDecidableAtom? e
   | (``LE.le, #[ty, _, a, b]) =>
-    if ty.isConstOf ``Nat then return .le (← reifyWidth a) (← reifyWidth b) else return .predAtom e
+    if ty.isConstOf ``Nat then return some (.le (← reifyWidth a) (← reifyWidth b))
+    else reifyDecidableAtom? e
   | (``LT.lt, #[ty, _, a, b]) =>
-    if ty.isConstOf ``Nat then return .lt (← reifyWidth a) (← reifyWidth b) else return .predAtom e
-  | _ => return .predAtom e
+    if ty.isConstOf ``Nat then return some (.lt (← reifyWidth a) (← reifyWidth b))
+    else reifyDecidableAtom? e
+  | _ => reifyDecidableAtom? e
 
 /-! ## The environment produced by steps 3-5 -/
 
@@ -202,27 +213,15 @@ partial def pushBv (env : Env) (t : Tm .bv) : MetaM Expr := do
     let cmsb ← mkAppM ``msb_cert #[hBoundSrc, ca, hMaskSrc]
     mkAppM ``signExtend_cert #[hBoundSrc, ca, cmsb, hMaskSrc, hMaskTgt]
 
-mutual
-
-/-- `pushPredBwd env t : ⟦t'⟧ → ⟦t⟧`, the direction that lets the translated goal discharge the
-original. Used in conclusion position. -/
-partial def pushPredBwd (env : Env) (t : Tm .pred) : MetaM Expr := do
+/-- `pushBool env t : ⟦t⟧ = (t' = true)`. One direction, because the target is a `Bool` formula:
+`imp` becomes `!h || c`, so the hypothesis side no longer travels against the grain. -/
+partial def pushBool (env : Env) (t : Tm .bool) : MetaM Expr := do
   match t with
-  | .predAtom e => return mkApp (mkConst ``id [Level.zero]) e
-  | .imp a b => mkAppM ``imp_cert #[← pushPredFwd env a, ← pushPredBwd env b]
+  | .boolAtom e => mkAppM ``decide_cert #[e]
+  | .imp a b => mkAppM ``imp_cert #[← pushBool env a, ← pushBool env b]
   | .eq a b =>
     let (_, _, hBound) ← env.resolve a.bvWidth
     mkAppM ``eq_cert #[hBound, ← pushBv env a, ← pushBv env b]
-  | .le _ _ | .lt _ _ =>
-    throwError "pbv_decide: a width comparison cannot appear in conclusion position"
-
-/-- `pushPredFwd env t : ⟦t⟧ → ⟦t'⟧`. Used in hypothesis position, where implication is
-contravariant. -/
-partial def pushPredFwd (env : Env) (t : Tm .pred) : MetaM Expr := do
-  match t with
-  | .predAtom e => return mkApp (mkConst ``id [Level.zero]) e
-  | .imp a b => mkAppM ``imp_cert #[← pushPredBwd env a, ← pushPredFwd env b]
-  | .eq a b => mkAppM ``eq_cert_fwd #[← pushBv env a, ← pushBv env b]
   | .le a b =>
     let (_, hMaskA, hBoundA) ← env.resolve a
     let (_, hMaskB, hBoundB) ← env.resolve b
@@ -232,7 +231,13 @@ partial def pushPredFwd (env : Env) (t : Tm .pred) : MetaM Expr := do
     let (_, hMaskB, hBoundB) ← env.resolve b
     mkAppM ``lt_cert #[hBoundA, hBoundB, hMaskA, hMaskB]
 
-end
+/-- Whether a hypothesis can be folded into the goal at all. `reifyBv` throws on an operation
+with no rule, which for a hypothesis just means leaving it in the local context. -/
+private def reifiesAsBool (e : Expr) : MetaM Bool := do
+  try
+    return (← reifyBool? e).isSome
+  catch _ =>
+    return false
 
 /-! ## Steps 3-4: naming masks and eliminating parametric-width variables -/
 
@@ -310,7 +315,7 @@ def introVars (ctx : PbvTranslateContext) (g : MVarId) (widths : Array WidthInfo
 /-! ## The tactic -/
 
 def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVarId) := do
-  -- The hypotheses to translate, snapshotted before we add any of our own.
+  -- The hypotheses to fold into the goal, snapshotted before we add any of our own.
   let hyps ← g.withContext do
     (← getLCtx).foldlM (init := #[]) fun acc (ldecl : LocalDecl) => do
       if ldecl.isImplementationDetail then return acc
@@ -321,20 +326,24 @@ def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVarId) 
   let g ← introVars ctx g widths
   let env : Env := { blastWidth := ctx.bmcBound, widths }
   g.withContext do
-    -- Step 6: reify the goal with its hypotheses reverted into it, and rewrite that.
-    let hypExprs := hyps.map mkFVar
-    let reverted ← mkForallFVars hypExprs (← g.getType)
-    let proof ← pushPredBwd env (← reifyPred reverted)
-    let certTy ← inferType proof
-    unless certTy.isArrow do
-      throwError "pbv_decide: expected a certificate `translated → original`, got{indentExpr certTy}"
+    -- Only fold in hypotheses the translation can express as a `Bool`; the rest stay in the
+    -- local context, where `bv_decide` can still read them.
+    let mut folded : Array Expr := #[]
+    for h in hyps do
+      if ← reifiesAsBool (← h.getType) then folded := folded.push (mkFVar h)
+    -- Step 6: reify the goal with those hypotheses in front of it, and rewrite the lot into a
+    -- single `Bool` formula.
+    let reverted ← mkForallFVars folded (← g.getType)
+    let some tm ← reifyBool? reverted
+      | throwError "pbv_decide: cannot reify the goal{indentExpr reverted}"
+    let cert ← pushBool env tm
+    let some (_, _, newTarget) := (← inferType cert).eq?
+      | throwError "pbv_decide: expected an equality certificate for the goal"
     -- The certificate is applied back to the hypotheses immediately, so that the side goals
     -- created above keep those hypotheses in scope.
-    let newG ← mkFreshExprMVar certTy.bindingDomain!
-    g.assign (mkAppN (mkApp proof newG) hypExprs)
-    -- Put the translated hypotheses into the context, where `bv_decide` reads them.
-    let (_, newG) ← newG.mvarId!.intros
-    return newG :: (widths.map (·.bound)).toList
+    let newG ← mkFreshExprMVar newTarget
+    g.assign (mkAppN (← mkEqMPR cert newG) folded)
+    return newG.mvarId! :: (widths.map (·.bound)).toList
 
 /--
 `pbv_decide` takes a `Nat` bound as input argument and uses it to translate a parametric

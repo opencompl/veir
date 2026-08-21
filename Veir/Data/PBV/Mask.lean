@@ -79,6 +79,35 @@ theorem mask_le_mask {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤
   subst m₁ m₂
   grind only [maskOfWidth_le_maskOfWidth]
 
+/-- Mask order is *equivalent* to width order, not merely implied by it. The converse direction
+is what lets a width comparison be translated as an equality rather than an implication. -/
+theorem maskOfWidth_le_maskOfWidth_iff {o w₁ w₂ : Nat} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o) :
+    maskOfWidth o w₁ ≤ maskOfWidth o w₂ ↔ w₁ ≤ w₂ := by
+  rw [BitVec.le_def, toNat_maskOfWidth h₁, toNat_maskOfWidth h₂]
+  have p1 : 0 < 2 ^ w₁ := Nat.two_pow_pos _
+  have p2 : 0 < 2 ^ w₂ := Nat.two_pow_pos _
+  refine ⟨fun h => ?_, fun h => ?_⟩
+  · rcases Nat.lt_or_ge w₂ w₁ with hc | hc
+    · have hlt : 2 ^ w₂ < 2 ^ w₁ := Nat.pow_lt_pow_right (by lia) hc
+      lia
+    · lia
+  · have hle : 2 ^ w₁ ≤ 2 ^ w₂ := Nat.pow_le_pow_right (by lia) h
+    lia
+
+/-- Strict mask order is equivalent to strict width order. -/
+theorem maskOfWidth_lt_maskOfWidth_iff {o w₁ w₂ : Nat} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o) :
+    maskOfWidth o w₁ < maskOfWidth o w₂ ↔ w₁ < w₂ := by
+  rw [BitVec.lt_def, toNat_maskOfWidth h₁, toNat_maskOfWidth h₂]
+  have p1 : 0 < 2 ^ w₁ := Nat.two_pow_pos _
+  have p2 : 0 < 2 ^ w₂ := Nat.two_pow_pos _
+  refine ⟨fun h => ?_, fun h => ?_⟩
+  · rcases Nat.lt_or_ge w₁ w₂ with hc | hc
+    · exact hc
+    · have hle : 2 ^ w₂ ≤ 2 ^ w₁ := Nat.pow_le_pow_right (by lia) hc
+      lia
+  · have hlt : 2 ^ w₁ < 2 ^ w₂ := Nat.pow_lt_pow_right (by lia) h
+    lia
+
 /-- ANDing with `maskOfWidth o w` keeps exactly the low `w` bits. -/
 theorem toNat_and_maskOfWidth {o w : Nat} (h : w ≤ o) (x : BitVec o) :
     (x &&& maskOfWidth o w).toNat = x.toNat % 2 ^ w := by
