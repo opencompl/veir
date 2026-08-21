@@ -183,7 +183,7 @@ def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVarId) 
 
 /--
 `pbv_decide` takes a `Nat` bound as input argument and uses it to translate a
-parametric bitvector formula, containing a single width parameter, into a
+parametric bitvector formula, containing a single-width parameter, into a
 concrete width formula.
 
 The tactic generates two goals:
