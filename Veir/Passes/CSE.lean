@@ -35,11 +35,22 @@ instance : Hashable Kind where
     and B have the same Key and A dominates B, then we can remove B and
     switch every result's uses to the corresponding result of A.
     Proving this will be the crux of the eventual correctness proof for
-    this pass. -/
+    this pass.
+
+    `scope` is the nearest `IsolatedFromAbove` region enclosing the
+    operation. It is part of the Key because rewiring B's uses to A's
+    results makes those uses reference a value defined at A, which is
+    only legal when no isolated boundary separates the two. Operations
+    that take at least one operand already agree on their scope
+    whenever the rest of the Key matches, since they name the same
+    operand values; the field earns its keep for operations with no
+    operands at all -- `llvm.mlir.constant` and friends -- whose Keys
+    would otherwise collide across every function in the module. -/
 structure Key where
   kind : Kind
   resultTypes : Array TypeAttr
   operands : Array ValuePtr
+  scope : Option RegionPtr
 deriving DecidableEq, BEq, Hashable
 
 def makeKey
@@ -50,6 +61,7 @@ def makeKey
     kind
     resultTypes := op.getResultTypes! ctx
     operands
+    scope := do (← op.getParentRegion! ctx).nearestIsolatedScope? ctx
   }
 
 /-- Because ValuePtr is a sum type where the numeric IDs assigned to
@@ -135,7 +147,9 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
     candidates because the first equivalent operation we encounter may
     not dominate later equivalent operations in a different CFG
     branch. For any operation whose value is already available *and
-    dominates it*, replace it with the earlier one. -/
+    dominates it*, replace it with the earlier one. Candidates never
+    cross an `IsolatedFromAbove` boundary, because the Key records the
+    enclosing isolated scope. -/
 def run (ctx : WfIRContext OpCode) (top : OperationPtr) :
     WfIRContext OpCode := Id.run do
   let some dfCtx := Veir.fixpointSolve top #[Veir.DominanceAnalysis] ctx

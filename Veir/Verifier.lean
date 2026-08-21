@@ -30,19 +30,6 @@ def OperationPtr.verifyTerminatorPosition (op : OperationPtr) (ctx : WfIRContext
     throw "operation with block successors must terminate its parent block"
 
 /--
-Find the region that establishes the nearest `IsolatedFromAbove` scope around
-`region`. The returned region is one of the isolated operation's direct
-regions; different regions of the same isolated operation are separate scopes.
--/
-private partial def RegionPtr.nearestIsolatedScope?
-    (region : RegionPtr) (ctx : WfIRContext OpCode) : Option RegionPtr := do
-  let parentOp ← (region.get! ctx.raw).parent
-  if (parentOp.getOpType! ctx.raw).isIsolatedFromAbove then
-    return region
-  let parentRegion ← parentOp.getParentRegion! ctx.raw
-  parentRegion.nearestIsolatedScope? ctx
-
-/--
 Verify MLIR's `IsolatedFromAbove` rule for one operation's operands. A use in
 an isolated operation's region may only reference a value defined in that same
 region or one of its nested regions. Looking for the nearest isolated scope
@@ -57,7 +44,7 @@ def OperationPtr.verifyOperandIsolation
   let escaping := (op.getOperands ctx.raw opIn).filter
     (·.getParentRegion! ctx.raw != some useRegion)
   if escaping.isEmpty then return
-  let some isolatedScope := useRegion.nearestIsolatedScope? ctx | return
+  let some isolatedScope := useRegion.nearestIsolatedScope? ctx.raw | return
   for value in escaping do
     let some defRegion := value.getParentRegion! ctx.raw
       | throw "operand is unlinked from any region"

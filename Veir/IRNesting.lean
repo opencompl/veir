@@ -1,5 +1,6 @@
 module
 
+public import Veir.IR.OpInfo
 public import Veir.IR.WellFormed
 
 /-!
@@ -235,5 +236,22 @@ partial def RegionPtr.isAncestorOf
     match (descendant.get! ctx.raw).parent.bind (·.getParentRegion! ctx.raw) with
     | none => false
     | some parentRegion => ancestor.isAncestorOf parentRegion ctx
+
+/--
+Find the region that establishes the nearest `IsolatedFromAbove` scope around
+`region`, or `none` when no enclosing operation is isolated. The returned
+region is one of the isolated operation's direct regions; different regions of
+the same isolated operation are separate scopes.
+
+A value defined inside an isolated scope may only be used within that same
+scope, so an operation in one scope can never name a value produced in another.
+-/
+partial def RegionPtr.nearestIsolatedScope? {OpInfo : Type} [HasOpInfo OpInfo]
+    (region : RegionPtr) (ctx : IRContext OpInfo) : Option RegionPtr := do
+  let parentOp ← (region.get! ctx).parent
+  if HasOpInfo.isIsolatedFromAbove (parentOp.get! ctx).opType then
+    return region
+  let parentRegion ← parentOp.getParentRegion! ctx
+  parentRegion.nearestIsolatedScope? ctx
 
 end Veir
