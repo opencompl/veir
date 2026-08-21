@@ -166,9 +166,11 @@ end BlockPtr
 namespace OperationPtr
 
 /--
-Dominance query between two operations, where an operation dominates itself.
+Dominance query between two operations using a computed data-flow context, where an operation
+dominates itself. The qualified name distinguishes this executable query from the logical
+`OperationPtr.dominates` relation.
 -/
-def dominates
+def dominatesWithAnalysis
     (dominator op : OperationPtr)
     (dfCtx : DataFlowContext)
     (irCtx : WfIRContext OpCode) : Bool :=
