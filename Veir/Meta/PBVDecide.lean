@@ -4,10 +4,13 @@ import Veir.Data.PBV
 open Lean Elab Tactic Meta Simp
 namespace Veir.Data.PBV
 
+/--
+Information about the width variable and associated hypotheses.
+-/
 structure WidthInfo where
-  /-- The local decl corresponding to this width variable. -/
+  /-- The LocalDecl corresponding to this width variable. -/
   widthNatLocalDecl : LocalDecl
-  /-- The fvar corresponding to the new mask variable for this width. -/
+  /-- The FVarId corresponding to the new mask variable for this width. -/
   widthMaskFvar : FVarId
   /-- The FVarId of the pure-BV hypothesis that this width is a mask variable. -/
   widthMaskHypFvar : FVarId
@@ -28,7 +31,7 @@ structure PbvTranslateContext where
    bmcBound : Nat
 
 /-- Find the local declaration of the (single) width variable,
-and eliminate it, producing the mask variable, and the masking contstraint.
+and eliminate it, producing the mask variable, and the masking constraint.
 -/
 def introMaskWidths (ctx : PbvTranslateContext) (g : MVarId) : MetaM (MVarId × WidthInfo) := do
   g.withContext do
@@ -43,7 +46,7 @@ def introMaskWidths (ctx : PbvTranslateContext) (g : MVarId) : MetaM (MVarId × 
           let maskName := Name.mkSimple s!"m{ldecl.userName}"
           let (mask, g) ← g.withContext do g.intro maskName
           let (maskHyp, g) ← g.withContext do g.intro (Name.mkSimple s!"h_{maskName}")
-          -- Define bounding conditions
+          -- Define bounding conditions.
           let hypWidthLeBound <- g.withContext do
             mkFreshExprMVar (mkAppN (Expr.const `Nat.le [])
               #[Expr.fvar ldecl.fvarId, mkNatLit ctx.bmcBound])
@@ -60,19 +63,27 @@ def introMaskWidths (ctx : PbvTranslateContext) (g : MVarId) : MetaM (MVarId × 
           return (g, info)
     throwError "unable to find a valid width variable."
 
-
+/--
+Pair of local facts about the converted `BitVec` variables.
+-/
 structure BitVecInfo where
+  /-- The FVarId corresponding to the new concrete-width variable. -/
   bvVar : FVarId
+  /-- The FVarId of the hypothesis encoding the mask constraint on the variable. -/
   bvHyp : FVarId
 
+/--
+Store information for all translated `BitVec`s.
+-/
 structure BitVecInfos where
+  /-- The Array containing facts about each variable. -/
   infos : Array BitVecInfo := #[]
 
 def BitVecInfos.push (this : BitVecInfos) (val : BitVecInfo) : BitVecInfos :=
   { this with infos := this.infos.push val }
 
 /--
-Analyze a single local decl, and try to introduce it as a bitvec variable in our larger universe
+Analyze a single local decl, and try to introduce it as a `BitVec` variable in our larger universe
 if it is in fact a `BitVec` variable.
 -/
 def introVar (ctx : PbvTranslateContext) (widthInfo : WidthInfo) (g : MVarId)
