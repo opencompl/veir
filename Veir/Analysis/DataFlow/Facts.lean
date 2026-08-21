@@ -37,12 +37,16 @@ The control flow graph positions and SSA values where dataflow facts are attache
 -/
 inductive LatticeAnchor
   | InsertPoint (point : InsertPoint)
+  | BlockPtr (block : BlockPtr)
   | ValuePtr (value : ValuePtr)
   | CFGEdge (edge : CFGEdge)
 deriving BEq, Hashable
 
 instance : Coe InsertPoint LatticeAnchor where
   coe := .InsertPoint
+
+instance : Coe BlockPtr LatticeAnchor where
+  coe := .BlockPtr
 
 /-!
 # Analyses and facts
