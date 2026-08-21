@@ -30,20 +30,6 @@ def OperationPtr.verifyTerminatorPosition (op : OperationPtr) (ctx : WfIRContext
     throw "operation with block successors must terminate its parent block"
 
 /--
-  Verify that no operation branches to the entry block of a region. A
-  region is entered exclusively through its entry block, and both the
-  entry block's arguments and dominance treat it as unconditionally
-  reaching every other block in the region. A branch back to it would
-  contradict that.
--/
-def OperationPtr.verifyDoesNotBranchToEntryBlock (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
-  for succ in op.getSuccessors ctx.raw opIn do
-    let some region := (succ.get! ctx.raw).parent | pure ()
-    if (region.get! ctx.raw).firstBlock = some succ then
-      throw "entry block of region may not have predecessors"
-
-/--
 Find the region that establishes the nearest `IsolatedFromAbove` scope around
 `region`. The returned region is one of the isolated operation's direct
 regions; different regions of the same isolated operation are separate scopes.
@@ -115,6 +101,19 @@ def BlockPtr.verifyTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
   | some lastOp =>
     if !(lastOp.getOpType! ctx.raw).isTerminator then
       throw (named "Expected the last operation of a block to be a terminator")
+
+/--
+  Verify that the entry block of a region has no predecessors. A region is
+  entered exclusively through its entry block, and both the entry block's
+  arguments and dominance treat it as unconditionally reaching every other
+  block in the region. A branch back to it would contradict that.
+-/
+def BlockPtr.verifyNoEntryBlockPredecessors (block : BlockPtr) (ctx : WfIRContext OpCode)
+    (blockIn : block.InBounds ctx.raw) : Except String PUnit := do
+  let b := block.get ctx.raw blockIn
+  if (b.parent.get!.get! ctx.raw).firstBlock ≠ some block then return
+  if b.firstUse.isSome then
+    throw "entry block of region may not have predecessors"
 
 /-- Check that a graph region contains at most one block. -/
 private def WfIRContext.graphRegionsHaveAtMostOneBlock (ctx : WfIRContext OpCode) : Bool :=
@@ -199,10 +198,10 @@ def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
         match (op.get ctx.raw opIn).parent with
         | some _ => op.verifyTerminatorPosition ctx opIn
         | none => pure ()
-        op.verifyDoesNotBranchToEntryBlock ctx opIn
         op.verifyOperandIsolation ctx opIn))
-  ctx.raw.forBlocksDepM (fun block blockIn =>
-    block.verifyTerminator ctx blockIn)
+  ctx.raw.forBlocksDepM (fun block blockIn => do
+    block.verifyTerminator ctx blockIn
+    block.verifyNoEntryBlockPredecessors ctx blockIn)
   ctx.verifyLLVMGlobalSymbols
   ctx.verifyPDLPatternBodies
 
