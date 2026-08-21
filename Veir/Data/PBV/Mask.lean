@@ -44,6 +44,12 @@ theorem isMask_of_eq_maskOfWidth {o w : Nat} {m : BitVec o}
   subst hm
   exact isMask_maskOfWidth
 
+/-- The mask constraint, with `IsMask` already unfolded into the plain bitvector
+equation that the bitblaster consumes. -/
+theorem and_add_one_eq_zero_of_eq_maskOfWidth {o w : Nat} {m : BitVec o}
+    (hm : m = maskOfWidth o w) : m &&& (m + 1#o) = 0#o :=
+  isMask_of_eq_maskOfWidth hm
+
 /-- maskOfWidth is monotone with respect to unsigned bitvec comparison. -/
 theorem maskOfWidth_lt_maskOfWidth {o w₁ w₂ : Nat} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
     (h : w₁ < w₂) : maskOfWidth o w₁ < maskOfWidth o w₂ := by
