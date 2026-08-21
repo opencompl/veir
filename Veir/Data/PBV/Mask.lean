@@ -36,7 +36,7 @@ theorem isMask_maskOfWidth {o w : Nat} :
 
 /-- The mask constraint: the only fact about `m` surviving abstraction. -/
 theorem isMask_of_eq_maskOfWidth {o w : Nat} {m : BitVec o}
-    (hm : m = maskOfWidth o w) : m &&& (m + 1#o) = 0#o := by
+    (hm : m = maskOfWidth o w) : IsMask m := by
   subst hm
   exact isMask_maskOfWidth
 
