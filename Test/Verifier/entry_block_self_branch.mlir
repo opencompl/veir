@@ -5,9 +5,9 @@
 // a single-block region cannot loop back to its own entry.
 
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main", function_type = () -> ()}> ({
+  "llvm.func"() <{function_type = !llvm.func<void ()>, sym_name = "main"}> ({
   ^bb0:
-    "cf.br"() [^bb0] : () -> ()
+    "llvm.br"() [^bb0] : () -> ()
   }) : () -> ()
 }) : () -> ()
 
