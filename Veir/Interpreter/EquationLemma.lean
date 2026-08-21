@@ -91,7 +91,7 @@ theorem interpretOp_equationHolds_other
     {inBounds₁ : op₁.InBounds ctx.raw} {inBounds₂ : op₂.InBounds ctx.raw} :
     op₂.Pure ctx →
     interpretOp op₁ state inBounds₁ = .ok (state', cf₁) →
-    op₂.dominates op₁ ctx →
+    op₂.Dominates op₁ ctx →
     state.EquationHolds op₂ →
     state'.EquationHolds op₂ := by
   intro op₂Pure hInterp₁ hDom

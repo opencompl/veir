@@ -412,7 +412,7 @@ theorem VariableState.setResultValues?_setArgumentValues?_comm :
   grind [getVar?_setResultValues?, getVar?_setArgumentValues?]
 
 theorem VariableState.getVar?_setResultValues?_operand_of_dominates
-    (ctxDom : ctx.Dom) (hdom : op'.dominates op ctx) :
+    (ctxDom : ctx.Dom) (hdom : op'.Dominates op ctx) :
     value ∈ op'.getOperands! ctx.raw →
     varState.setResultValues? op resValues inBounds = some varState' →
     varState'.getVar? value =
@@ -430,7 +430,7 @@ theorem VariableState.getVar?_setResultValues?_operand_of_dominates
 
 @[grind =>]
 theorem VariableState.getOperandValues_setResultValues?_of_dominates
-    (ctxDom : ctx.Dom) (hdom : op'.dominates op ctx) :
+    (ctxDom : ctx.Dom) (hdom : op'.Dominates op ctx) :
     varState.setResultValues? op resValues inBounds = some varState' →
     varState'.getOperandValues op' = varState.getOperandValues op' := by
   intro h
