@@ -160,7 +160,7 @@ from the simp-set. This makes them user-extensible with no metaprogramming neede
 -/
 meta def addPushTheorems (g : MVarId) (simp : SimpTheoremsArray) :
     MetaM SimpTheoremsArray := g.withContext do
-  let others := #[``BitVec.setWidth_eq, ``eq_iff, ``setWidth_add, ``setWidth_setWidth]
+  let others := #[``BitVec.setWidth_eq, ``setWidth_add, ``setWidth_setWidth]
   let mut simp := simp
   for n in others do
     simp ← simp.addTheorem (.other n) (mkConst n [])
