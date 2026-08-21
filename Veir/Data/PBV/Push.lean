@@ -43,11 +43,11 @@ theorem setWidth_add {w o : Nat} (h : w ≤ o) :
 
 /-- Sign extension fills above the source width `v` with the sign bit,
 and then masks to the target width. -/
-theorem setWidth_signExtend_eq_and_maskOfWidth {t o : Nat} :
-    ∀ {v : Nat} (a : BitVec v), v ≤ o →
+theorem setWidth_signExtend_eq_and_maskOfWidth {t v o: Nat} (hvo : v ≤ o) :
+    ∀ (a : BitVec v),
       (a.signExtend t).setWidth o
         = ((a.setWidth o) ||| (cond a.msb (~~~(maskOfWidth o v)) 0#o)) &&& maskOfWidth o t := by
-  intro v a hv
+  intro a
   apply BitVec.eq_of_getLsbD_eq
   intro i _
   rw [BitVec.getLsbD_setWidth, BitVec.getLsbD_signExtend, BitVec.getLsbD_and,
