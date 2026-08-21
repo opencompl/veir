@@ -123,7 +123,6 @@ def introBitvecFVarUnchecked (ctx : PbvTranslateContext) (g : MVarId)
   let name ← oldVar.getUserName
   let (bvVar, g) ← g.withContext <| g.intro name
   let (bvHyp, g) ← g.withContext <| g.intro <| Name.mkSimple s!"h_m{name}"
-  logInfo m!"{g}"
   return (g, bvInfos.push { bvVar, bvHyp })
 
 /--
@@ -136,27 +135,53 @@ def BitVecFVarsToRevert.push (this : BitVecFVarsToRevert) (fvar : FVarId) (width
   if this.bvs.contains fvar then  this
   else { bvs := this.bvs.insert fvar widthInfo }
 
+
+
 /--
-Visit an expression, collecting all widths and introducing mask variables.
-For bitvectors, collect the bitvectors that need to be eliminated,
-and then eliminate them all in the next step.
+Visit the expression collecting widths, introducing masks,
+and then eliminating them all in the next step.
 -/
-partial def visitExpr (ctx : PbvTranslateContext) (g : MVarId)
+def visitExprNonrec (ctx : PbvTranslateContext) (g : MVarId)
     (widthInfos : WidthInfos) (bvs : BitVecFVarsToRevert)
     (e : Expr) :
     MetaM (MVarId × WidthInfos × BitVecFVarsToRevert) := g.withContext do
-  let (f, args) := (e.getAppFn, e.getAppArgs)
-  let (g, widthInfos, bvs) ← g.withContext do
-    args.foldlM (init := (g, widthInfos, bvs)) fun (g, widthInfos, bvs) arg => g.withContext do visitExpr ctx g widthInfos bvs arg
-  let tf ← g.withContext do inferType f
-  if let some wExpr := getBitvecType? tf then
+  let te ← g.withContext do inferType e
+  if let some wExpr := getBitvecType? te then
     let (g, widthInfo, widthInfos) ← widthInfos.getOrCreateInfo ctx g wExpr
-    if let some fvarId := f.fvarId? then
+    if let some fvarId := e.fvarId? then
       return (g, widthInfos, bvs.push fvarId widthInfo)
     else
       return (g, widthInfos, bvs)
   else
     return (g, widthInfos, bvs)
+
+/--
+Visit an expression, collecting all widths and introducing mask variables.
+For bitvectors, collect the bitvectors that need to be eliminated,
+and then eliminate them all in the next step.
+-/
+partial def visitExprRec (ctx : PbvTranslateContext) (g : MVarId)
+    (widthInfos : WidthInfos) (bvs : BitVecFVarsToRevert)
+    (e : Expr) :
+    MetaM (MVarId × WidthInfos × BitVecFVarsToRevert) := g.withContext do
+  let (g, widthInfos, bvs) ← visitExprNonrec ctx g widthInfos bvs e
+  if e.isApp then
+    let (f, args) := (e.getAppFn, e.getAppArgs)
+    let (g, widthInfos, bvs) ← g.withContext do
+      args.foldlM (init := (g, widthInfos, bvs)) fun (g, widthInfos, bvs) arg => g.withContext do visitExprRec ctx g widthInfos bvs arg
+    visitExprRec ctx g widthInfos bvs f
+  else
+    return (g, widthInfos, bvs)
+
+  -- let tf ← g.withContext do inferType f
+  -- if let some wExpr := getBitvecType? tf then
+  --   let (g, widthInfo, widthInfos) ← widthInfos.getOrCreateInfo ctx g wExpr
+  --   if let some fvarId := f.fvarId? then
+  --     return (g, widthInfos, bvs.push fvarId widthInfo)
+  --   else
+  --     return (g, widthInfos, bvs)
+  -- else
+  --   return (g, widthInfos, bvs)
 
 
 /--
@@ -164,7 +189,6 @@ eliminate the bitvector variables to introduce the masked versions
 -/
 def introMaskedBitvectors (ctx : PbvTranslateContext)
     (bvs : BitVecFVarsToRevert) (g : MVarId) : MetaM (MVarId × BitVecInfos) := do
-  logInfo m!"number of bvs to revert {bvs.bvs.size}"
   bvs.bvs.foldM (init := (g, {})) fun (g, bvInfos) bvFvarId widthInfo =>
     introBitvecFVarUnchecked ctx g bvInfos bvFvarId widthInfo
 
@@ -226,7 +250,10 @@ def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVarId) 
   -- throwError s!"Deciding with bound {ctx.bmcBound}"
   -- let (g, widthInfos) ← introMaskWidths ctx g
   -- Introduce bitvector variables
-  let (g, widthInfos, bvsToRevert) ← visitExpr ctx g {} {} (← g.getType)
+  let (g, widthInfos, bvsToRevert) ← visitExprRec ctx g {} {} (← g.getType)
+  for (w, _winfo) in widthInfos.infos do
+    g.withContext do logInfo m!"width: '{w}'"
+
   let (g, bvInfos) ← introMaskedBitvectors ctx bvsToRevert g
   -- Run simp
   let thms := ← addToplevelRewrites g widthInfos
@@ -290,18 +317,26 @@ theorem trace_add_comm_manual (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
 -- Step 8: Bitblast!
   bv_decide
 
-set_option trace.Meta.Tactic.simp.all true
-set_option trace.Meta.Tactic.simp true
 example (w : Nat) (x y: BitVec w) (hw : w ≤ 4) :
   x + y = y + x := by
   pbv_decide 4
   · bv_decide
   · grind
 
-set_option trace.Meta.Tactic.simp.all true
-set_option trace.Meta.Tactic.simp true
 example (v w : Nat) (x y: BitVec w) (z : BitVec v) (hw : w ≤ 4) (hv : v <= 4) :
   x + y = y + x := by
   pbv_decide 4
   · bv_decide
   · grind
+
+theorem trace_double_zero_extend (p q r : Nat) (x : BitVec p)
+  (hr : r <= 8)
+  (hqr : q < r)
+  (hpq : p < q) :
+  (x.zeroExtend q).zeroExtend r = x.zeroExtend r
+  := by
+  pbv_decide 8
+  · sorry
+  · sorry
+  · sorry
+  · sorry
