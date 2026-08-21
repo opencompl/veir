@@ -102,7 +102,7 @@ This is used to extract the sign bit of a width `m` bitvector. -/
   simp [signBitOfMask]
 
 /--
-The nat denotation of `signBitOfMask` of a mask of width `w`
+The `Nat` denotation of `signBitOfMask` of a mask of width `w`
 is given by `2^w` minus `2^(w - 1)`.
 -/
 theorem toNat_signBitOfMask_maskOfWidth {o w : Nat} (h : w ≤ o) :
