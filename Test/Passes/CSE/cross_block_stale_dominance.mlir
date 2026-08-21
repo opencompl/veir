@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=cse --allow-unregistered-dialect | filecheck %s
+// RUN: veir-opt %s -p=cse | filecheck %s
 
 // Regression test for stale dominance facts in cross-block CSE.
 //

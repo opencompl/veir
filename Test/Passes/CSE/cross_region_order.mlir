@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=cse --allow-unregistered-dialect | filecheck %s
+// RUN: veir-opt %s -p=cse | filecheck %s
 
 "builtin.module"() ({
   // The pass processes the outer block before the nested region. A candidate
@@ -6,7 +6,7 @@
   // inside that nested region, because it does not dominate the nested op.
   "llvm.func"() <{function_type = !llvm.func<void (i32, i32)>, sym_name = "region_order"}> ({
   ^entry(%a : i32, %b : i32):
-    "test.region"() ({
+    "test.test"() ({
     ^inner:
       %inner = "llvm.add"(%a, %b) : (i32, i32) -> i32
       "test.test"(%inner) : (i32) -> ()
@@ -17,7 +17,7 @@
   }) : () -> ()
 
   // CHECK-LABEL: void (i32, i32)>
-  // CHECK:       "test.region"() ({
+  // CHECK:       "test.test"() ({
   // CHECK-NEXT:  ^{{[0-9]+}}():
   // CHECK-NEXT:    %[[INNER:.*]] = "llvm.add"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
   // CHECK-NEXT:    "test.test"(%[[INNER]]) : (i32) -> ()

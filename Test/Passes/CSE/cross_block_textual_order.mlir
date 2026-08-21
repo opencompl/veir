@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=cse --allow-unregistered-dialect | filecheck %s
+// RUN: veir-opt %s -p=cse | filecheck %s
 
 "builtin.module"() ({
   // ^def dominates ^use in the CFG, but ^use appears first in textual order.

@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=cse --allow-unregistered-dialect | filecheck %s
+// RUN: veir-opt %s -p=cse | filecheck %s
 //
 // Eliminating the redundant %d1 in ^def rewrites (via RAUW) the operand of %u in
 // ^use, so %u becomes mul(%e, %z) and should merge with %u0 from the entry block.

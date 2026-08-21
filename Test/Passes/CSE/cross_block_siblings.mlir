@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=cse --allow-unregistered-dialect | filecheck %s
+// RUN: veir-opt %s -p=cse | filecheck %s
 
 "builtin.module"() ({
   // A candidate from the left sibling is encountered first but does not dominate
