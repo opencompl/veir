@@ -27,7 +27,7 @@ def WidthInfo.widthFvar (info : WidthInfo) : Expr :=
 Read-only configuration for the tactic.
 -/
 structure PbvTranslateContext where
-  /-- the bound upto which we want to bitblast our widths. -/
+  /-- The bound upto which we want to bitblast our widths. -/
    bmcBound : Nat
 
 /-- Find the local declaration of the (single) width variable,
