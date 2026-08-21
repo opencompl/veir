@@ -145,6 +145,20 @@ public def RegionPtr.hasNoTerminator (region : RegionPtr) (ctx : WfIRContext OpI
     HasOpInfo.hasNoTerminator parent.opType (parent.regions.idxOf region)
   | none => false
 
+/--
+Find the region that establishes the nearest `IsolatedFromAbove` scope around
+`region`, or `none` when no enclosing operation is isolated. The returned
+region is one of the isolated operation's direct regions; different regions of
+the same isolated operation are separate scopes.
+-/
+public partial def RegionPtr.nearestIsolatedScope?
+    (region : RegionPtr) (ctx : IRContext OpInfo) : Option RegionPtr := do
+  let parentOp ← (region.get! ctx).parent
+  if HasOpInfo.isIsolatedFromAbove (parentOp.get! ctx).opType then
+    return region
+  let parentRegion ← parentOp.getParentRegion! ctx
+  parentRegion.nearestIsolatedScope? ctx
+
 end -- public section
 
 end Veir

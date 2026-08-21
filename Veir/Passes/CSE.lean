@@ -2,7 +2,6 @@ module
 
 public import Veir.Pass
 import Veir.Rewriter.WfRewriter
-import Veir.Data.LLVM.Int.Basic
 import Veir.IR.Dominance
 
 import Veir.Interfaces.SideEffectInterfaces
