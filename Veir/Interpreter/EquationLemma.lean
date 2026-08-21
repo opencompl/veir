@@ -138,10 +138,10 @@ theorem interpretOp_equationLemmaAt {ctx : WfIRContext OpCode} {opInBounds} {sta
   simp only [InterpreterState.EquationLemmaAt] at stateWf ⊢
   intro op' op'InBounds hPure hDom
   simp [OperationPtr.dominatesIp_iff] at hDom
-  simp [OperationPtr.dominates_iff_strictlyDominates_or_eq] at hDom
+  simp [OperationPtr.dominates_iff_properlyDominates_or_eq] at hDom
   rcases hDom with hDom | hDom
   · apply interpretOp_equationHolds_other ctxDom (by grind) hInterp
-    · grind [OperationPtr.dominates_of_strictlyDominates]
+    · grind [OperationPtr.dominates_of_properlyDominates]
     · grind [interpretOp_equationHolds_other]
     · grind
   · grind [interpretOp_equationHolds_self]
