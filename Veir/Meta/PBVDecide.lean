@@ -138,7 +138,7 @@ def addOtherTheorems (g : MVarId) (simp : SimpTheoremsArray) : MetaM SimpTheorem
   return simp
 
 /--
-Add BitVecInfos theorems to the Simp theorem context that don't need special bindings
+Add BitVecInfos theorems to the Simp theorem context that don't need special bindings.
 -/
 def addBvInfos (g : MVarId) (bvInfos : BitVecInfos)
   (simp : SimpTheoremsArray) : MetaM SimpTheoremsArray := g.withContext do
