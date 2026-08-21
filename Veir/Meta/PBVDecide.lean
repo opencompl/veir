@@ -183,6 +183,24 @@ partial def visitExprRec (ctx : PbvTranslateContext) (g : MVarId)
   -- else
   --   return (g, widthInfos, bvs)
 
+def translateWidthPrecond (ctx : PbvTranslateContext) (winfos : WidthInfos) (g : MVarId) (e : Expr)  :
+    MetaM (MVarId × WidthInfos) := g.withContext do
+  match_expr e with
+  | LE.le ty inst ea eb =>
+    if ty == mkConst ``Nat then
+      -- ea ≤ eb
+      -- translate ea
+      -- translate eb
+      -- note the mask theorem for this particular.
+      sorry
+    else
+      return (g, winfos)
+  | _ => return (g, winfos)
+
+def translateWidthPreconds (ctx : PbvTranslateContext) (winfos: WidthInfos) (g : MVarId) : MetaM (MVarId × WidthInfos) := do
+  -- loop over ← getLCtx, call translateWidthPrecond
+  sorry
+  
 
 /--
 eliminate the bitvector variables to introduce the masked versions
@@ -196,13 +214,13 @@ def introMaskedBitvectors (ctx : PbvTranslateContext)
 These rewrites introduce the toplevel equality that convers `a = b` into
 `a.setWidth o &&& mask = b.setWidth o &&& mask`, which kickstarts the pushing process.
 -/
-def addToplevelRewrites (g : MVarId) (widthInfos : WidthInfos) (simp : SimpTheoremsArray) :
+def addToplevelRewrites (g : MVarId) (ctx : PbvTranslateContext) (simp : SimpTheoremsArray) :
     MetaM SimpTheoremsArray := g.withContext do
   let mut simp := simp
-  for (_widthExpr, widthInfo) in widthInfos.infos do
-    simp ← simp.addTheorem (.other ``eq_iff) <| (← mkAppM ``eq_iff #[mkFVar widthInfo.hypWidthLeBoundNote])
+  simp ← simp.addTheorem (.other ``eq_iff) <| (← mkAppM ``eq_iff #[mkNatLit ctx.bmcBound])
+  simp ← simp.addTheorem (.other ``nat_lt_nat_eq_mask_lt_mask) <| (← mkAppM ``nat_lt_nat_eq_mask_lt_mask #[mkNatLit ctx.bmcBound])
+  simp ← simp.addTheorem (.other ``nat_le_nat_eq_mask_le_mask) <| (← mkAppM ``nat_le_nat_eq_mask_le_mask #[mkNatLit ctx.bmcBound])
   return simp
-
 /--
 Add theorems to the Simp theorem context that push the `setWidth`s in.
 TODO: make this a simp-set, called `pbv_push`, and just gather these
@@ -256,7 +274,7 @@ def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVarId) 
 
   let (g, bvInfos) ← introMaskedBitvectors ctx bvsToRevert g
   -- Run simp
-  let thms := ← addToplevelRewrites g widthInfos
+  let thms := ← addToplevelRewrites g ctx
                       <| ← addPushTheorems g
                       <| ← addBvInfos g bvInfos
                       <| ← addWidthInfosSimpLemmas g widthInfos #[]
@@ -308,7 +326,7 @@ theorem trace_add_comm_manual (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
   have mw_mask := isMask_of_eq_maskOfWidth h_mw
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [
-      eq_iff w_le_bw,             -- Introduce `setWidth` to goal
+      eq_iff _ w_le_bw,             -- Introduce `setWidth` to goal
       setWidth_add,       -- Push `setWidth` down add
       setWidth_setWidth,  -- Push `setWidth` down setWidth
       BitVec.setWidth_eq,         -- Remove redundant setWidths
@@ -329,13 +347,15 @@ example (v w : Nat) (x y: BitVec w) (z : BitVec v) (hw : w ≤ 4) (hv : v <= 4) 
   · bv_decide
   · grind
 
+theorem imp_eq_not_or (P Q : Prop) : (P → Q) = (¬ P ∨ Q) := by grind
+
 theorem trace_double_zero_extend (p q r : Nat) (x : BitVec p)
   (hr : r <= 8)
   (hqr : q < r)
   (hpq : p < q) :
   (x.zeroExtend q).zeroExtend r = x.zeroExtend r
   := by
-  pbv_decide 8
+  pbv_decide 13
   · sorry
   · sorry
   · sorry
