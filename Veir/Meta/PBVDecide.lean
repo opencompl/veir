@@ -109,7 +109,7 @@ def getBitvecType? (e : Expr) : Option Expr :=
 Analyze a single local decl, and try to introduce it as a `BitVec` variable in our larger universe
 if it is in fact a `BitVec` variable.
 -/
-def introBitvecFVarChecked (ctx : PbvTranslateContext) (g : MVarId)
+def introBitvecFVarUnchecked (ctx : PbvTranslateContext) (g : MVarId)
       (bvInfos : BitVecInfos) (bvFVarId : FVarId) (widthInfo : WidthInfo) :
       MetaM (MVarId × BitVecInfos) := g.withContext do
   -- Find the BitVec {width_expr} variables.
@@ -121,31 +121,52 @@ def introBitvecFVarChecked (ctx : PbvTranslateContext) (g : MVarId)
     | throwError m!"{``var_elim} should generate a single goal. Produced {g}"
   -- Intros
   let name ← oldVar.getUserName
-  let (bvVar, g) ← g.intro name
-  let (bvHyp, g) ← g.intro <| Name.mkSimple s!"h_m{name}"
+  let (bvVar, g) ← g.withContext <| g.intro name
+  let (bvHyp, g) ← g.withContext <| g.intro <| Name.mkSimple s!"h_m{name}"
+  logInfo m!"{g}"
   return (g, bvInfos.push { bvVar, bvHyp })
 
+/--
+This creates a plan of bitvector fvars to be reverted, and their corresponding widths.
+-/
+structure BitVecFVarsToRevert where
+  bvs : HashMap FVarId WidthInfo := {}
+
+def BitVecFVarsToRevert.push (this : BitVecFVarsToRevert) (fvar : FVarId) (widthInfo : WidthInfo) : BitVecFVarsToRevert :=
+  if this.bvs.contains fvar then  this
+  else { bvs := this.bvs.insert fvar widthInfo }
 
 /--
-boo lean is stupid, it can't see that this will terminate.
+Visit an expression, collecting all widths and introducing mask variables.
+For bitvectors, collect the bitvectors that need to be eliminated,
+and then eliminate them all in the next step.
 -/
-partial def visitExpr (ctx : PbvTranslateContext) (g : MVarId) (widthInfos : WidthInfos) (bvInfos : BitVecInfos) (e : Expr) :
-    MetaM (MVarId × WidthInfos × BitVecInfos) := g.withContext do
+partial def visitExpr (ctx : PbvTranslateContext) (g : MVarId)
+    (widthInfos : WidthInfos) (bvs : BitVecFVarsToRevert)
+    (e : Expr) :
+    MetaM (MVarId × WidthInfos × BitVecFVarsToRevert) := g.withContext do
   let (f, args) := (e.getAppFn, e.getAppArgs)
-  let (g, widthInfos, bvInfos) ← g.withContext do
-    args.foldlM (init := (g, widthInfos, bvInfos)) fun (g, widthInfos, bvInfos) arg => visitExpr ctx g widthInfos bvInfos arg
-  let tf ← inferType f
+  let (g, widthInfos, bvs) ← g.withContext do
+    args.foldlM (init := (g, widthInfos, bvs)) fun (g, widthInfos, bvs) arg => g.withContext do visitExpr ctx g widthInfos bvs arg
+  let tf ← g.withContext do inferType f
   if let some wExpr := getBitvecType? tf then
     let (g, widthInfo, widthInfos) ← widthInfos.getOrCreateInfo ctx g wExpr
     if let some fvarId := f.fvarId? then
-      let (g, bvInfos) ← introBitvecFVarChecked ctx g bvInfos fvarId widthInfo
-      return (g, widthInfos, bvInfos)
+      return (g, widthInfos, bvs.push fvarId widthInfo)
     else
-      return (g, widthInfos, bvInfos)
+      return (g, widthInfos, bvs)
   else
-    return (g, widthInfos, bvInfos)
+    return (g, widthInfos, bvs)
 
 
+/--
+eliminate the bitvector variables to introduce the masked versions
+-/
+def introMaskedBitvectors (ctx : PbvTranslateContext)
+    (bvs : BitVecFVarsToRevert) (g : MVarId) : MetaM (MVarId × BitVecInfos) := do
+  logInfo m!"number of bvs to revert {bvs.bvs.size}"
+  bvs.bvs.foldM (init := (g, {})) fun (g, bvInfos) bvFvarId widthInfo =>
+    introBitvecFVarUnchecked ctx g bvInfos bvFvarId widthInfo
 
 /--
 These rewrites introduce the toplevel equality that convers `a = b` into
@@ -201,11 +222,12 @@ def applySimp (g : MVarId) (simp : SimpTheoremsArray) : MetaM MVarId := g.withCo
     | throwError "goal solved by simp"
   return g
 
-def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVarId) := do
+def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVarId) := g.withContext do
   -- throwError s!"Deciding with bound {ctx.bmcBound}"
   -- let (g, widthInfos) ← introMaskWidths ctx g
   -- Introduce bitvector variables
-  let (g, widthInfos, bvInfos) ← visitExpr ctx g {} {} (← g.getType)
+  let (g, widthInfos, bvsToRevert) ← visitExpr ctx g {} {} (← g.getType)
+  let (g, bvInfos) ← introMaskedBitvectors ctx bvsToRevert g
   -- Run simp
   let thms := ← addToplevelRewrites g widthInfos
                       <| ← addPushTheorems g
@@ -282,5 +304,4 @@ example (v w : Nat) (x y: BitVec w) (z : BitVec v) (hw : w ≤ 4) (hv : v <= 4) 
   x + y = y + x := by
   pbv_decide 4
   · bv_decide
-  · grind
   · grind
