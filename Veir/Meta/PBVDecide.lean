@@ -187,7 +187,7 @@ parametric bitvector formula, containing a single width parameter, into a
 concrete width formula. The tactic generates two goals: the first, containing
 the desired concrete width formula that can be decided using `bv_decide`; the
 second containing a side-goal to prove that the width parameter is bounded
-by the provided bound.
+by the provided bound, this should be solvable by grind.
 -/
 syntax (name := pbvDecide) "pbv_decide" optConfig (ppSpace colGt num)? : tactic
 
