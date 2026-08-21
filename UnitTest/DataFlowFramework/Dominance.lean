@@ -21,6 +21,28 @@ private structure ExpectedOperationDominance where
   properDom : Bool
 
 /--
+Whether `block` lies in a region without SSA dominance: a *single-block* graph
+region. There, source order is ignored, so dominance is reflexive even for the
+proper variant: a block (or op) properly dominates itself, and a dominator
+properly dominates every block it dominates, including itself. As in MLIR,
+multi-block regions always have SSA dominance, whatever their kind.
+-/
+private def blockInGraphRegion (block : BlockPtr) (irCtx : WfIRContext OpCode) : Bool :=
+  match (block.get! irCtx.raw).parent with
+  | some region =>
+    (match (region.get! irCtx.raw).firstBlock with
+     | some first => (first.get! irCtx.raw).next.isNone
+     | none => true) &&
+    match (region.get! irCtx.raw).parent with
+    | some parentOp =>
+      let parent := parentOp.get! irCtx.raw
+      match parent.opType.getRegionKind (parent.regions.idxOf region) with
+      | .Graph => true
+      | .SSACFG => false
+    | none => false
+  | none => false
+
+/--
 Compare one expected dominator label against the observed dominance information.
 
 This is the completeness half of the reachable block check: every expected
@@ -35,7 +57,10 @@ private def compareExpectedDominator
     (irCtx : WfIRContext OpCode) : MismatchReport := Id.run do
   let some expectedBlock := recovered.blocks[expectedDom]?
     | return #[s!"dominators {expected.name}: missing block label {expectedDom}"]
-  let shouldProperlyDom := expectedDom ≠ expected.name
+  -- In a graph region every dominator (including the block itself) properly
+  -- dominates the block; in an SSACFG region a block does not properly dominate
+  -- itself.
+  let shouldProperlyDom := blockInGraphRegion block irCtx || expectedDom ≠ expected.name
   let mut report := #[]
   if !expectedBlock.dominates block dfCtx irCtx then
     report := report.push s!"dominators {expected.name}: missing expected dominator {expectedDom}"
@@ -57,15 +82,18 @@ private def compareObservedDominator
     (expected : ExpectedBlockDominators)
     (dfCtx : DataFlowContext)
     (irCtx : WfIRContext OpCode) : MismatchReport := Id.run do
+  let inGraph := blockInGraphRegion block irCtx
   let observedByRelation := observedBlock.dominates block dfCtx irCtx
   let observedProperly := observedBlock.properlyDominates block dfCtx irCtx
   let mut report := #[]
-  if observedProperly ≠ (observedByRelation && observedBlock ≠ block) then
+  -- In a graph region proper dominance coincides with dominance (self included);
+  -- in an SSACFG region a block does not properly dominate itself.
+  if observedProperly ≠ (observedByRelation && (inGraph || observedBlock ≠ block)) then
     report := report.push
       s!"dominators {expected.name}: dominates/properlyDominates disagree on {observedName}"
   if observedByRelation && !expected.doms.contains observedName then
     report := report.push s!"dominators {expected.name}: unexpected dominator {observedName}"
-  if observedProperly && (!expected.doms.contains observedName || observedName = expected.name) then
+  if observedProperly && (!expected.doms.contains observedName || (!inGraph && observedName = expected.name)) then
     report := report.push s!"dominators {expected.name}: unexpected proper dominator {observedName}"
   report
 
@@ -251,7 +279,7 @@ def runOperationDominance
 -/
 def testDomLoop : String :=
   run
-    r#""builtin.module"() ({
+    r#""func.func"() <{function_type = () -> (), sym_name = "f"}> ({
 ^bb0:
   "test.test"() [^bb1] : () -> ()
 ^bb1:
@@ -278,7 +306,7 @@ def testDomLoop : String :=
 -/
 def testDomDiamond : String :=
   run
-    r#""builtin.module"() ({
+    r#""func.func"() <{function_type = () -> (), sym_name = "f"}> ({
 ^bb0:
   "test.test"() [^bb1, ^bb2] : () -> ()
 ^bb1:
@@ -314,7 +342,7 @@ def testDomDiamond : String :=
 -/
 def testDomLine : String :=
   run
-    r#""builtin.module"() ({
+    r#""func.func"() <{function_type = () -> (), sym_name = "f"}> ({
 ^bb0:
   "test.test"() [^bb1] : () -> ()
 ^bb1:
@@ -350,7 +378,7 @@ def testDomLine : String :=
 -/
 def testDomIfLoopIf : String :=
   run
-    r#""builtin.module"() ({
+    r#""func.func"() <{function_type = () -> (), sym_name = "f"}> ({
 ^bb0:
   "test.test"() [^bb1, ^bb2] : () -> ()
 ^bb1:
@@ -423,7 +451,7 @@ def testDomNestedRegions : String :=
           └───────┘
 -/
 def testDomDiamondNestedJoin : String :=
-  run r#""builtin.module"() ({
+  run r#""func.func"() <{function_type = () -> (), sym_name = "f"}> ({
 ^bb0:
   "test.test"() [^bb1, ^bb2] : () -> ()
 ^bb1:
@@ -460,10 +488,10 @@ def testDomTwoLevelNested : String :=
 ^bb0:
   "test.test"() : () -> ()
   "test.test"() ({
-^bb1:
+  ^bb1:
     "test.test"() : () -> ()
     "test.test"() ({
-^bb2:
+    ^bb2:
       "test.test"() : () -> ()
     }) : () -> ()
   }) : () -> ()
@@ -487,7 +515,7 @@ def testDomTwoLevelNested : String :=
   └────────┘
 -/
 def testDomDiamondLoop: String :=
-  run r#""builtin.module"() ({
+  run r#""func.func"() <{function_type = () -> (), sym_name = "f"}> ({
 ^bb0:
   "test.test"() [^bb1, ^bb2] : () -> ()
 ^bb1:
@@ -521,12 +549,15 @@ def testOpDomNestedRegions : String :=
     %siblingInner = "test.test"() : () -> i32
   }) : () -> i32
 }) : () -> ()"#
-    #[ { dominator := "outer",      dominated := "outer",        dominates := true,  properDom := false }
+    #[ -- `outer` and `otherOuter` share the module's graph region, so source order
+       -- is ignored: each properly dominates itself and `otherOuter` dominates
+       -- `inner` (nested in `outer`) despite appearing later.
+       { dominator := "outer",      dominated := "outer",        dominates := true,  properDom := true  }
      , { dominator := "outer",      dominated := "inner",        dominates := true,  properDom := true  }
      , { dominator := "outer",      dominated := "otherOuter",   dominates := true,  properDom := true  }
      , { dominator := "outer",      dominated := "siblingInner", dominates := true,  properDom := true  }
      , { dominator := "inner",      dominated := "siblingInner", dominates := false, properDom := false }
-     , { dominator := "otherOuter", dominated := "inner",        dominates := false, properDom := false }
+     , { dominator := "otherOuter", dominated := "inner",        dominates := true,  properDom := true  }
      , { dominator := "otherOuter", dominated := "siblingInner", dominates := true,  properDom := true  }
      ]
 
@@ -547,28 +578,23 @@ def testOpDomTwoLevelNested : String :=
     #[ { dominator := "top",    dominated := "middle", dominates := true, properDom := true  }
      , { dominator := "top",    dominated := "leaf",   dominates := true, properDom := true  }
      , { dominator := "middle", dominated := "leaf",   dominates := true, properDom := true  }
-     , { dominator := "leaf",   dominated := "leaf",   dominates := true, properDom := false }
+     , { dominator := "leaf",   dominated := "leaf",   dominates := true, properDom := true  }
      ]
 
 /-
   Test: operation dominance across two blocks in the same nested region.
 -/
 def testOpDomSameRegionTwoBlocks : String :=
-  runOperationDominance r#""builtin.module"() ({
-^bb0:
-  %outer = "test.test"() ({
-  ^bb1:
-    %entry = "test.test"() : () -> i32
-    "test.test"() [^bb2] : () -> ()
-  ^bb2:
-    %exit = "test.test"() : () -> i32
-  }) : () -> i32
+  runOperationDominance r#""func.func"() <{function_type = () -> (), sym_name = "f"}> ({
+^bb1:
+  %entry = "test.test"() : () -> i32
+  "test.test"() [^bb2] : () -> ()
+^bb2:
+  %exit = "test.test"() : () -> i32
 }) : () -> ()"#
     #[ { dominator := "entry", dominated := "entry", dominates := true,  properDom := false }
      , { dominator := "entry", dominated := "exit",  dominates := true,  properDom := true  }
      , { dominator := "exit",  dominated := "entry", dominates := false, properDom := false }
-     , { dominator := "outer", dominated := "entry", dominates := true,  properDom := true  }
-     , { dominator := "outer", dominated := "exit",  dominates := true,  properDom := true  }
      ]
 
 /-
@@ -576,7 +602,7 @@ def testOpDomSameRegionTwoBlocks : String :=
   intermediate block without changing the CFG.
 -/
 def testDomAfterFirstOpErasure : String :=
-  let mlir := r#""builtin.module"() ({
+  let mlir := r#""func.func"() <{function_type = () -> (), sym_name = "f"}> ({
 ^bb0:
   %dominator = "test.test"() : () -> i32
   "test.test"() [^bb1] : () -> ()

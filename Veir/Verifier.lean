@@ -1,6 +1,7 @@
 module
 
 public import Veir.Verifier.Lemmas
+public import Veir.IR.Dominance
 public import Veir.GlobalOpInfo
 public import Veir.Interfaces.FunctionInterfaces
 public import Veir.IRNesting
@@ -28,6 +29,21 @@ def OperationPtr.verifyTerminatorPosition (op : OperationPtr) (ctx : WfIRContext
     throw "Expected a terminator to be the last operation of its block"
   if op.getNumSuccessors ctx.raw opIn ≠ 0 && operation.next.isSome then
     throw "operation with block successors must terminate its parent block"
+
+/--
+  Verify that no operation branches to the entry block of a region. The entry
+  block of a region may not have predecessors: it is the unique block that the
+  region is entered through, and dominance assumes it dominates every other block
+  in the region.
+-/
+def OperationPtr.verifyDoesNotBranchToEntryBlock (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  for succ in op.getSuccessors ctx.raw opIn do
+    match (succ.get! ctx.raw).parent with
+    | some region =>
+      if (region.get! ctx.raw).firstBlock = some succ then
+        throw "entry block of a region may not have predecessors"
+    | none => pure ()
 
 /--
 Find the region that establishes the nearest `IsolatedFromAbove` scope around
@@ -65,6 +81,17 @@ def OperationPtr.verifyOperandIsolation
       throw "operand uses a value defined outside the isolated region that encloses its use"
 
 /--
+  Whether this operation might be a terminator, mirroring MLIR's
+  `mightHaveTrait<IsTerminator>`: registered terminators are, and unregistered
+  or test-dialect operations might be, since their traits are unknown.
+-/
+def OpCode.mightBeTerminator (opCode : OpCode) : Bool :=
+  opCode.isTerminator ||
+    match opCode with
+    | .builtin .unregistered | .test .test => true
+    | _ => false
+
+/--
   Whether a block is exempt from the requirement that it end in a terminator,
   mirroring `mayBeValidWithoutTerminator` in `mlir/lib/IR/Verifier.cpp`.
 -/
@@ -99,17 +126,144 @@ def BlockPtr.verifyTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
   match b.lastOp with
   | none => throw (named "Expected the block to end in a terminator, but the block is empty")
   | some lastOp =>
-    if !(lastOp.getOpType! ctx.raw).isTerminator then
+    if !(lastOp.getOpType! ctx.raw).mightBeTerminator then
       throw (named "Expected the last operation of a block to be a terminator")
 
-/-- Check that a graph region contains at most one block. -/
+/--
+  Whether this region is a graph region whose owning operation limits it to a
+  single block. Like MLIR, the limit applies only to registered operations:
+  unregistered operations and the test dialect have unknown semantics (they
+  stand in for operations that do not implement `RegionKindInterface`) and may
+  have multiple blocks in their regions. Such multi-block regions are then
+  treated as enforcing SSA dominance (see `RegionPtr.enforcesSSADominance` in
+  `Veir/IR/Dominance.lean`), so the
+  single-block limit is also what makes graph-region dominance leniency sound.
+-/
+public def RegionPtr.limitedToOneBlock (region : RegionPtr) (ctx : WfIRContext OpCode) : Bool :=
+  !region.hasSSADominance ctx &&
+    match (region.get! ctx.raw).parent with
+    | none => false
+    | some parentOp =>
+      match parentOp.getOpType! ctx.raw with
+      | .builtin .unregistered | .test .test => false
+      | _ => true
+
+/-- Check that a graph region of a registered operation contains at most one block. -/
 private def WfIRContext.graphRegionsHaveAtMostOneBlock (ctx : WfIRContext OpCode) : Bool :=
   ctx.raw.regions.keys.all fun region =>
-    if !region.hasSSADominance ctx then
+    if region.limitedToOneBlock ctx then
       let body := region.get! ctx.raw
       body.firstBlock = body.lastBlock
     else
       true
+
+/--
+  Decide the per-operand condition of `WfIRContext.Dom` (see `Veir/Dominance.lean`):
+  whether `value` dominates the program point immediately before `useOp`, i.e. the
+  proposition `value.dominatesIp (InsertPoint.before useOp) ctx`.
+
+  The two `ValuePtr` cases mirror the two ways a value is defined:
+
+  * `.opResult result` — the result is available immediately after `result.op`, so
+    it dominates the point before `useOp` exactly when `result.op` *properly*
+    dominates `useOp` (mirroring `OperationPtr.dominatesIp_before`, which relates
+    `dominatesIp (.before _)` to `properlyDominates`). `properlyDominates`
+    decides precisely that proper-dominance fact. It is asked with
+    `enclosingOk := false`, because a result is not available inside the regions of
+    the very operation that produces it — the same reason
+    `DominanceInfo::properlyDominates(Value, Operation *)` passes
+    `enclosingOpOk=false` in `mlir/lib/IR/Dominance.cpp`.
+
+  * `.blockArgument arg` — a block argument is live from the top of `arg.block`, so
+    it dominates the point before `useOp` exactly when `arg.block` dominates
+    `useOp`'s block (reflexively — the same block counts, since the argument
+    precedes every operation in it). `dominates` decides that.
+
+  So `dominatesBeforeOp? value useOp = true` is exactly the clause `ctx.Dom`
+  demands of the `(value, useOp)` pair.
+-/
+def ValuePtr.dominatesBeforeOp?
+    (value : ValuePtr) (useOp : OperationPtr)
+    (dfCtx : DataFlowContext) (ctx : WfIRContext OpCode) : Bool :=
+  match value with
+  | .opResult result =>
+      OperationPtr.properlyDominates result.op useOp dfCtx ctx (enclosingOk := false)
+  | .blockArgument arg =>
+      match (useOp.get! ctx.raw).parent with
+      | some useBlock => BlockPtr.dominates arg.block useBlock dfCtx ctx
+      | none => false
+
+def OperationPtr.verifyOperandDominance
+    (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (dfCtx : DataFlowContext) (opIn : op.InBounds ctx.raw) :
+    Except String PUnit := do
+  -- As in LLVM/MLIR, dominance is only checked in blocks reachable from their
+  -- region's entry. This matches MLIR's verifier, which gates the operand
+  -- dominance check on `DominanceInfo::isReachableFromEntry(block)`
+  -- (`mlir/lib/IR/Verifier.cpp`): the region's entry block is always reachable,
+  -- and every other block is reachable iff the region's dominator tree says so.
+  -- A block carries a dominator fact in exactly those cases, so fact presence is
+  -- the executable form of `isReachableFromEntry`.
+  --
+  -- A consequence, shared with MLIR, is that a use hidden in a *non-entry* block
+  -- with no incoming control-flow edges (e.g. in a multi-block region of an
+  -- unregistered operation) is unreachable and therefore not checked, even if it
+  -- captures a value that does not dominate the region-owning operation. (A use
+  -- in the region's *entry* block is still checked, because the entry block is
+  -- always reachable.)
+  let shouldCheck : Bool := Id.run do
+    let some useBlock := (op.get ctx.raw opIn).parent | return false
+    return (useBlock.getDominatorFact? dfCtx).isSome
+  if shouldCheck then
+    let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
+    -- The inner `∀ value ∈ op.getOperands!` of `ctx.Dom`: these indices enumerate
+    -- exactly `op.getOperands!`, and `dominatesBeforeOp?` decides the required
+    -- `value.dominatesIp (InsertPoint.before op) ctx` for each one.
+    for i in [0:op.getNumOperands ctx.raw opIn] do
+      let value := op.getOperand! ctx.raw i
+      if !value.dominatesBeforeOp? op dfCtx ctx then
+        throw s!"{instrName}: operand {i} ({reprStr value}) does not dominate its use in operation {reprStr op}"
+
+/--
+  Executable decision procedure for `WfIRContext.Dom` (defined in `Veir/Dominance.lean`).
+
+  `ctx.Dom` is:
+
+      ∀ (op) (_ : op.InBounds ctx.raw) (value),
+        value ∈ op.getOperands! ctx.raw →
+        value.dominatesIp (InsertPoint.before op) ctx
+
+  and this checker discharges that proposition clause for clause:
+
+  * `forOpsDepM` visits every in-bounds operation — the outer `∀ op`.
+  * `verifyOperandDominance` iterates `op`'s operands — the inner
+    `∀ value ∈ op.getOperands!`.
+  * `ValuePtr.dominatesBeforeOp?` decides `value.dominatesIp (InsertPoint.before op) ctx`
+    for each operand (see its docstring for the `opResult`/`blockArgument` cases).
+
+  Therefore `verifyDominance ctx top = .ok ()` means every operand of every operation
+  in a reachable block dominates its use according to the region-aware dominance
+  relation used by MLIR: multi-block regions always enforce control-flow and
+  same-block order (whatever their kind — see `getDominanceInfo` in
+  `mlir/lib/IR/Dominance.cpp`), single-block graph regions ignore same-block order,
+  and values captured into a region from outside must still dominate the enclosing
+  operation in the parent region. As in MLIR, blocks that are not reachable from
+  their region's entry are not checked, so a use in a non-entry, edgeless block of a
+  multi-block region is left unverified.
+
+  This is still an executable checker, not a Lean proof of `ctx.Dom`; it is written so
+  that each step lines up with a clause of the definition, which is what makes the
+  implication "the check succeeds ⇒ `ctx.Dom`" clear.
+-/
+def WfIRContext.verifyDominance
+    (ctx : WfIRContext OpCode) (top : OperationPtr) : Except String Unit := do
+  if _ : top.InBounds ctx.raw then
+    let some dfCtx := fixpointSolve top #[DominanceAnalysis] ctx
+      | throw "dominance analysis did not terminate"
+    ctx.raw.forOpsDepM fun op opIn =>
+      op.verifyOperandDominance ctx dfCtx opIn
+  else
+    throw s!"dominance root operation is not in bounds: {reprStr top}"
 
 /--
   Check the module-wide invariants needed by LLVM global references: global
@@ -168,9 +322,12 @@ private def WfIRContext.verifyPDLPatternBodies (ctx : WfIRContext OpCode) :
 public section
 
 /--
-Verify the structural invariants of the IR context and the local invariants of all its operations.
+Verify the structural invariants of the IR context and the local invariants of all its
+operations. If `top?` is provided, also run the dynamic SSA dominance checker rooted at
+that operation.
 -/
-def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
+def WfIRContext.verify (ctx : WfIRContext OpCode)
+    (top? : Option OperationPtr := none) : Except String Unit := do
   if !ctx.successorsHaveSameParent then
     throw "Block successors must belong to the same region as their predecessor"
   if !ctx.graphRegionsHaveAtMostOneBlock then
@@ -185,11 +342,15 @@ def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
         match (op.get ctx.raw opIn).parent with
         | some _ => op.verifyTerminatorPosition ctx opIn
         | none => pure ()
+        op.verifyDoesNotBranchToEntryBlock ctx opIn
         op.verifyOperandIsolation ctx opIn))
   ctx.raw.forBlocksDepM (fun block blockIn =>
     block.verifyTerminator ctx blockIn)
   ctx.verifyLLVMGlobalSymbols
   ctx.verifyPDLPatternBodies
+  match top? with
+  | some top => ctx.verifyDominance top
+  | none => pure ()
 
 attribute [simp] OpCode.verifyLocalInvariants HasOpInfo.verifyLocalInvariants
   OperationPtr.verifyLocalInvariants
@@ -238,7 +399,7 @@ private theorem WfIRContext.Verified.graphRegionsHaveAtMostOneBlock
 theorem WfIRContext.Verified.graph_region_firstBlock_eq_lastBlock
     {ctx : WfIRContext OpCode} (ctxVerified : ctx.Verified)
     {region : RegionPtr} (regionIn : region.InBounds ctx.raw)
-    (hregionKind : ¬ region.hasSSADominance ctx) :
+    (hregionKind : region.limitedToOneBlock ctx) :
     (region.get! ctx.raw).firstBlock = (region.get! ctx.raw).lastBlock := by
   have hcheck := ctxVerified.graphRegionsHaveAtMostOneBlock
   have hregionKeys : region ∈ ctx.raw.regions.keys := by grind [region.inBounds_def]
