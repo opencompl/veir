@@ -30,6 +30,26 @@ def OperationPtr.verifyTerminatorPosition (op : OperationPtr) (ctx : WfIRContext
     throw "operation with block successors must terminate its parent block"
 
 /--
+  Verify that no operation branches to the entry block of a region, mirroring
+  the "Verify the first block has no predecessors" check in
+  `OperationVerifier::verifyOnEntrance` (`mlir/lib/IR/Verifier.cpp`).
+
+  A region is entered exclusively through its entry block, and both the entry
+  block's arguments and dominance treat it as unconditionally reaching every
+  other block in the region. A branch back to it would contradict that.
+
+  MLIR states the rule over a block's predecessors; VeIR has no predecessor
+  index, so it is checked from the other end, over each operation's successors.
+  The two agree because every predecessor edge is some operation's successor.
+-/
+def OperationPtr.verifyDoesNotBranchToEntryBlock (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  for succ in op.getSuccessors ctx.raw opIn do
+    let some region := (succ.get! ctx.raw).parent | pure ()
+    if (region.get! ctx.raw).firstBlock = some succ then
+      throw "entry block of region may not have predecessors"
+
+/--
 Find the region that establishes the nearest `IsolatedFromAbove` scope around
 `region`. The returned region is one of the isolated operation's direct
 regions; different regions of the same isolated operation are separate scopes.
@@ -185,6 +205,7 @@ def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
         match (op.get ctx.raw opIn).parent with
         | some _ => op.verifyTerminatorPosition ctx opIn
         | none => pure ()
+        op.verifyDoesNotBranchToEntryBlock ctx opIn
         op.verifyOperandIsolation ctx opIn))
   ctx.raw.forBlocksDepM (fun block blockIn =>
     block.verifyTerminator ctx blockIn)
