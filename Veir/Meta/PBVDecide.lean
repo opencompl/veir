@@ -25,6 +25,13 @@ def WidthInfo.widthFvarId (info : WidthInfo) : FVarId :=
 def WidthInfo.widthFvar (info : WidthInfo) : Expr :=
   .fvar info.widthFvarId
 
+structure WidthInfos where
+    /-- One WidthInfo per width -/
+    infos : Array WidthInfo := #[]
+
+def WidthInfos.push (this : WidthInfos) (info : WidthInfo) : WidthInfos :=
+  { infos := this.infos.push info }
+
 /--
 Read-only configuration for the tactic.
 -/
@@ -32,41 +39,46 @@ structure PbvTranslateContext where
   /-- the bound upto which we want to bitblast our widths. -/
    bmcBound : Nat
 
+def introMaskWidth (ctx : PbvTranslateContext) (g : MVarId) (ldecl : LocalDecl) (infos : WidthInfos)
+  : MetaM (MVarId × WidthInfos) := g.withContext do
+    unless ldecl.isImplementationDetail do
+        if ← isDefEq ldecl.type (mkConst ``Nat) then
+        -- Apply ``width_elim
+        let [g] ← g.withContext do
+          g.apply <| ← mkAppM ``width_elim #[mkNatLit ctx.bmcBound, ldecl.toExpr, ← g.getType]
+          | throwError "width_elim should generate a goal"
+        -- Intros
+        let maskName := Name.mkSimple s!"m{ldecl.userName}"
+        let (mask, g) ← g.withContext do g.intro maskName
+        let (maskHyp, g) ← g.withContext do g.intro (Name.mkSimple s!"h_{maskName}")
+        -- Define bounding conditions.
+        let hypWidthLeBound <- g.withContext do
+          mkFreshExprMVar (userName := Name.mkSimple "foo") (kind := .syntheticOpaque) (mkAppN (Expr.const ``LE.le [.zero])
+            #[mkConst ``Nat, mkConst ``instLENat, Expr.fvar ldecl.fvarId, mkNatLit ctx.bmcBound])
+        g.withContext <| check hypWidthLeBound
+        let (hypWidthLeBoundNoteNote, g) ← g.withContext do g.note (Name.mkSimple s!"hack_hyp_width_le_bound_{maskName}") hypWidthLeBound
+        g.withContext <| check (mkFVar hypWidthLeBoundNoteNote)
+        -- Assert the BitVec mask constraint.
+        let hypExpr ← g.withContext do mkAppM ``isMask_of_eq_maskOfWidth #[mkFVar maskHyp]
+        let (_hIsMaskOfEq, g) ← g.note (Name.mkSimple s!"h_isMask_of_eq_{maskName}") hypExpr
+        let info : WidthInfo := {
+          widthNatLocalDecl := ldecl,
+          widthMaskFvar := mask,
+          widthMaskHypFvar := maskHyp
+          hypWidthLeBoundMVarId := hypWidthLeBound.mvarId!,
+          hypWidthLeBoundNoteNote
+        }
+        return (g, infos.push info)
+    return (g, infos)
+
+
 /-- Find the local declaration of the (single) width variable,
 and eliminate it, producing the mask variable, and the masking constraint.
 -/
-def introMaskWidths (ctx : PbvTranslateContext) (g : MVarId) : MetaM (MVarId × WidthInfo) := do
-  g.withContext do
-    for ldecl in ← getLCtx do
-      unless ldecl.isImplementationDetail do
-        if ← isDefEq ldecl.type (mkConst ``Nat) then
-          -- Apply ``width_elim
-          let [g] ← g.withContext do
-            g.apply <| ← mkAppM ``width_elim #[mkNatLit ctx.bmcBound, ldecl.toExpr, ← g.getType]
-            | throwError "width_elim should generate a goal"
-          -- Intros
-          let maskName := Name.mkSimple s!"m{ldecl.userName}"
-          let (mask, g) ← g.withContext do g.intro maskName
-          let (maskHyp, g) ← g.withContext do g.intro (Name.mkSimple s!"h_{maskName}")
-          -- Define bounding conditions.
-          let hypWidthLeBound <- g.withContext do
-            mkFreshExprMVar (userName := Name.mkSimple "foo") (kind := .syntheticOpaque) (mkAppN (Expr.const ``LE.le [.zero])
-              #[mkConst ``Nat, mkConst ``instLENat, Expr.fvar ldecl.fvarId, mkNatLit ctx.bmcBound])
-          g.withContext <| check hypWidthLeBound
-          let (hypWidthLeBoundNoteNote, g) ← g.withContext do g.note (Name.mkSimple s!"hack_hyp_width_le_bound_{maskName}") hypWidthLeBound
-          g.withContext <| check (mkFVar hypWidthLeBoundNoteNote)
-          -- Assert the BitVec mask constraint.
-          let hypExpr ← g.withContext do mkAppM ``isMask_of_eq_maskOfWidth #[mkFVar maskHyp]
-          let (_hIsMaskOfEq, g) ← g.note (Name.mkSimple s!"h_isMask_of_eq_{maskName}") hypExpr
-          let info : WidthInfo := {
-            widthNatLocalDecl := ldecl,
-            widthMaskFvar := mask,
-            widthMaskHypFvar := maskHyp
-            hypWidthLeBoundMVarId := hypWidthLeBound.mvarId!,
-            hypWidthLeBoundNoteNote
-          }
-          return (g, info)
-    throwError "unable to find a valid width variable."
+def introMaskWidths (ctx : PbvTranslateContext) (g : MVarId) : MetaM (MVarId × WidthInfos) := g.withContext do
+  (← getLCtx).foldrM (init := (g, {})) fun ldecl (g, infos) =>
+    introMaskWidth ctx g ldecl infos
+
 
 /--
 Pair of local facts about the converted `BitVec` variables.
@@ -174,14 +186,14 @@ def applySimp (g : MVarId) (simp : SimpTheoremsArray) : MetaM MVarId := g.withCo
 
 def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVarId) := do
   -- throwError s!"Deciding with bound {ctx.bmcBound}"
-  let (g, widthInfo) ← introMaskWidths ctx g
+  let (g, widthInfos) ← introMaskWidths ctx g
   -- Introduce bitvector variables
-  let (g, bvInfos) ← introVars ctx g widthInfo
+  let (g, bvInfos) ← introVars ctx g widthInfos
   -- Run simp
-  let thms := ← addToplevelRewrites g widthInfo
+  let thms := ← addToplevelRewrites g widthInfos
                       <| ← addPushTheorems g
                       <| ← addBvInfos g bvInfos
-                      <| ← addWidthInfo g widthInfo #[]
+                      <| ← addWidthInfo g widthInfos #[]
   let g ← applySimp g thms
 
   return [g, widthInfo.hypWidthLeBoundMVarId]
