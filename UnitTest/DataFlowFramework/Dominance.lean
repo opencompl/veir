@@ -2,6 +2,7 @@ import UnitTest.DataFlowFramework.Helpers
 
 import Veir.Analysis.DataFlow.DominanceAnalysis
 import Veir.IR.Dominance
+import Veir.Rewriter.WfRewriter.Basic
 
 open Std (HashSet)
 open Veir
@@ -75,11 +76,10 @@ Compare `BlockPtr.immediateDominator?` against the expected block label.
 private def compareImmediateDominator
     (recovered : RecoveredNames)
     (expected : ExpectedBlockDominators)
-    (dfCtx : DataFlowContext)
-    (irCtx : WfIRContext OpCode) : MismatchReport := Id.run do
+    (dfCtx : DataFlowContext) : MismatchReport := Id.run do
   let some block := recovered.blocks[expected.name]?
     | return #[s!"idom {expected.name}: missing block label"]
-  let some observedIDom := block.immediateDominator? dfCtx irCtx
+  let some observedIDom := block.immediateDominator? dfCtx
     | return #[s!"idom {expected.name}: expected immediate dominator {expected.immediateDom}, observed none"]
   let some expectedIDom := recovered.blocks[expected.immediateDom]?
     | return #[s!"idom {expected.name}: missing block label {expected.immediateDom}"]
@@ -126,7 +126,7 @@ private def compareDominators
     (irCtx : WfIRContext OpCode) : MismatchReport := Id.run do
   let some block := recovered.blocks[expected.name]?
     | return #[s!"dominators {expected.name}: missing block label"]
-  let observedFact? := block.getDominatorFact? dfCtx irCtx
+  let observedFact? := block.getDominatorFact? dfCtx
   match expected.doms.isEmpty, observedFact? with
   | true, none =>
       return #[]
@@ -149,7 +149,7 @@ private def compareNamedDominators
   let mut report := #[]
   for expected in expectations do
     report := report ++ compareDominators recovered expected dfCtx irCtx
-    report := report ++ compareImmediateDominator recovered expected dfCtx irCtx
+    report := report ++ compareImmediateDominator recovered expected dfCtx
   report
 
 /-- Resolve a named SSA value to the operation that defines it. -/
@@ -570,6 +570,44 @@ def testOpDomSameRegionTwoBlocks : String :=
      , { dominator := "outer", dominated := "entry", dominates := true,  properDom := true  }
      , { dominator := "outer", dominated := "exit",  dominates := true,  properDom := true  }
      ]
+
+/-
+  Test: dominance facts remain usable after deleting the first operation of an
+  intermediate block without changing the CFG.
+-/
+def testDomAfterFirstOpErasure : String :=
+  let mlir := r#""builtin.module"() ({
+^bb0:
+  %dominator = "test.test"() : () -> i32
+  "test.test"() [^bb1] : () -> ()
+^bb1:
+  %erased = "test.test"() : () -> i32
+  "test.test"() [^bb2] : () -> ()
+^bb2:
+  %dominated = "test.test"() : () -> i32
+  "test.test"() : () -> ()
+}) : () -> ()"#
+  runWithAnalyses mlir #[Veir.DominanceAnalysis] (fun top dfCtx parserState => Id.run do
+    let .ok recovered := recoverNames top parserState.ctx mlir
+      | return #["failed to recover names"]
+    let some dominator := getNamedOperation? recovered "dominator"
+      | return #["missing dominator operation"]
+    let some erased := getNamedOperation? recovered "erased"
+      | return #["missing operation to erase"]
+    let some dominated := getNamedOperation? recovered "dominated"
+      | return #["missing dominated operation"]
+    let some entryBlock := recovered.blocks["bb0"]?
+      | return #["missing entry block"]
+    let some middleBlock := recovered.blocks["bb1"]?
+      | return #["missing intermediate block"]
+
+    let newCtx := WfRewriter.eraseOp! parserState.ctx erased
+    let mut report := #[]
+    if !dominator.properlyDominates dominated dfCtx newCtx then
+      report := report.push "operation dominance was invalidated by erasing the first op of a block"
+    if middleBlock.immediateDominator? dfCtx ≠ some entryBlock then
+      report := report.push "intermediate block lost its immediate dominator fact"
+    report)
 /--
 info: "ok"
 -/
@@ -635,5 +673,11 @@ info: "ok"
 -/
 #guard_msgs in
 #eval! testOpDomSameRegionTwoBlocks
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testDomAfterFirstOpErasure
 
 end DominanceAnalysis
