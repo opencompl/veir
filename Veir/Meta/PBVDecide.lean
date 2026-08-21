@@ -69,8 +69,8 @@ meta def introMaskWidth (ctx : PbvTranslateContext) (g : MVarId) (ldecl : Expr) 
 /--
 Either get existing width info, or create one if it does not exist.
 -/
-meta def WidthInfos.getOrCreateInfo (ctx : PbvTranslateContext)
-    (g : MVarId) (this : WidthInfos) (wExpr : Expr) : MetaM (MVarId × WidthInfo × WidthInfos) := do
+def WidthInfos.getOrCreateInfo (ctx : PbvTranslateContext)
+    (g : MVarId) (this : WidthInfos) (wExpr : Expr) : MetaM (MVarId × WidthInfo × WidthInfos) := g.withContext do
   if let some info := this.infos[wExpr]? then
     return (g, info, this)
   else
@@ -111,35 +111,42 @@ def getBitvecType? (e : Expr) : Option Expr :=
 Analyze a single local decl, and try to introduce it as a `BitVec` variable in our larger universe
 if it is in fact a `BitVec` variable.
 -/
-meta def introBitvecVar (ctx : PbvTranslateContext) (widthInfos : WidthInfos) (g : MVarId)
-      (bvInfos : BitVecInfos) (ldecl : LocalDecl) :
-      MetaM (MVarId × WidthInfos × BitVecInfos) := g.withContext do
-  unless ldecl.isImplementationDetail do
-    -- Find the BitVec {width_expr} variables.
-    if let some wExpr := getBitvecType? ldecl.type then
-      let (g, widthInfo, widthInfos) ← widthInfos.getOrCreateInfo ctx g wExpr
-      -- Revert to expose forall with the BitVec.
-      let (#[oldVar], g) ← g.revert #[ldecl.fvarId] | throwError "reverting shuold produce a var"
-      -- Apply ``var_elim
-      let (List.cons g _) ← g.withContext <| g.apply <| ← mkAppM ``var_elim
-          #[mkNatLit ctx.bmcBound, widthInfo.widthExpr, .mvar widthInfo.hypWidthLeBoundMVarId]
-        | throwError m!"{``var_elim} should generate a single goal. Produced {g}"
-      -- Intros
-      let name ← oldVar.getUserName
-      let (bvVar, g) ← g.intro name
-      let (bvHyp, g) ← g.intro <| Name.mkSimple s!"h_m{name}"
-      return (g, widthInfos, bvInfos.push { bvVar, bvHyp })
-  return (g, widthInfos, bvInfos)
+def introBitvecFVarChecked (ctx : PbvTranslateContext) (g : MVarId)
+      (bvInfos : BitVecInfos) (bvFVarId : FVarId) (widthInfo : WidthInfo) :
+      MetaM (MVarId × BitVecInfos) := g.withContext do
+  -- Find the BitVec {width_expr} variables.
+    -- Revert to expose forall with the BitVec.
+  let (#[oldVar], g) ← g.revert #[bvFVarId] | throwError "reverting shuold produce a var"
+  -- Apply ``var_elim
+  let (List.cons g _) ← g.withContext <| g.apply <| ← mkAppM ``var_elim
+      #[mkNatLit ctx.bmcBound, widthInfo.widthExpr, .mvar widthInfo.hypWidthLeBoundMVarId]
+    | throwError m!"{``var_elim} should generate a single goal. Produced {g}"
+  -- Intros
+  let name ← oldVar.getUserName
+  let (bvVar, g) ← g.intro name
+  let (bvHyp, g) ← g.intro <| Name.mkSimple s!"h_m{name}"
+  return (g, bvInfos.push { bvVar, bvHyp })
+
 
 /--
-Apply the introVar to all localDecls to obtain concrete width bitvectors from parametric ones and the corresponding
-hypotheses.
+boo lean is stupid, it can't see that this will terminate.
 -/
-meta def introBitvecVars (ctx : PbvTranslateContext) (g : MVarId) :
-    MetaM (MVarId × WidthInfos × BitVecInfos) := do
-  let decls : LocalContext ← g.withContext getLCtx
-  decls.foldlM (init := (g, {}, {})) fun (g, widthInfos, bvInfos) ldecl =>
-    introBitvecVar ctx widthInfos g bvInfos ldecl
+partial def visitExpr (ctx : PbvTranslateContext) (g : MVarId) (widthInfos : WidthInfos) (bvInfos : BitVecInfos) (e : Expr) :
+    MetaM (MVarId × WidthInfos × BitVecInfos) := g.withContext do
+  let (f, args) := (e.getAppFn, e.getAppArgs)
+  let (g, widthInfos, bvInfos) ← g.withContext do
+    args.foldlM (init := (g, widthInfos, bvInfos)) fun (g, widthInfos, bvInfos) arg => visitExpr ctx g widthInfos bvInfos arg
+  let tf ← inferType f
+  if let some wExpr := getBitvecType? tf then
+    let (g, widthInfo, widthInfos) ← widthInfos.getOrCreateInfo ctx g wExpr
+    if let some fvarId := f.fvarId? then
+      let (g, bvInfos) ← introBitvecFVarChecked ctx g bvInfos fvarId widthInfo
+      return (g, widthInfos, bvInfos)
+    else
+      return (g, widthInfos, bvInfos)
+  else
+    return (g, widthInfos, bvInfos)
+
 
 
 /--
@@ -200,7 +207,7 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVa
   -- throwError s!"Deciding with bound {ctx.bmcBound}"
   -- let (g, widthInfos) ← introMaskWidths ctx g
   -- Introduce bitvector variables
-  let (g, widthInfos, bvInfos) ← introBitvecVars ctx g
+  let (g, widthInfos, bvInfos) ← visitExpr ctx g {} {} (← g.getType)
   -- Run simp
   let thms := ← addToplevelRewrites g widthInfos
                       <| ← addPushTheorems g
@@ -269,4 +276,13 @@ example (w : Nat) (x y: BitVec w) (hw : w ≤ 4) :
   x + y = y + x := by
   pbv_decide 4
   · bv_decide
+  · grind
+
+set_option trace.Meta.Tactic.simp.all true
+set_option trace.Meta.Tactic.simp true
+example (v w : Nat) (x y: BitVec w) (z : BitVec v) (hw : w ≤ 4) (hv : v <= 4) :
+  x + y = y + x := by
+  pbv_decide 4
+  · bv_decide
+  · grind
   · grind
