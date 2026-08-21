@@ -55,11 +55,6 @@ theorem maskOfWidth_lt_maskOfWidth {o w₁ w₂ : Nat} (h₁ : w₁ ≤ o) (h₂
   have : 0 < 2 ^ w₁ := by grind
   lia
 
-/-- Strict width order becomes strict mask order. -/
-theorem mask_lt_mask {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
-    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
-    (hw : w₁ < w₂) : m₁ < m₂ := by
-  grind only [maskOfWidth_lt_maskOfWidth]
 
 /-- ANDing with `maskOfWidth o w` keeps exactly the low `w` bits. -/
 theorem toNat_and_maskOfWidth {o w : Nat} (h : w ≤ o) (x : BitVec o) :
