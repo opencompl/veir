@@ -23,7 +23,7 @@ def IsMask {o : Nat} (m : BitVec o) : Prop := m &&& (m + 1#o) = 0#o
 theorem toNat_maskOfWidth {o w : Nat} (h : w ≤ o) :
     (maskOfWidth o w).toNat = 2 ^ w - 1 := by
   rw [maskOfWidth, BitVec.toNat_ofNat, Nat.mod_eq_of_lt]
-  have h1 : 2 ^ w ≤ 2 ^ o := Nat.pow_le_pow_right (by omega) h
+  have h1 : 2 ^ w ≤ 2 ^ o := Nat.pow_le_pow_right (by lia) h
   have h2 : 0 < 2 ^ w := Nat.two_pow_pos w
   lia
 
