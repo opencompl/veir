@@ -40,12 +40,7 @@ instance : Hashable Kind where
     `scope` is the nearest `IsolatedFromAbove` region enclosing the
     operation. It is part of the Key because rewiring B's uses to A's
     results makes those uses reference a value defined at A, which is
-    only legal when no isolated boundary separates the two. Operations
-    that take at least one operand already agree on their scope
-    whenever the rest of the Key matches, since they name the same
-    operand values; the field earns its keep for operations with no
-    operands at all -- `llvm.mlir.constant` and friends -- whose Keys
-    would otherwise collide across every function in the module. -/
+    only legal when no isolated boundary separates the two. -/
 structure Key where
   kind : Kind
   resultTypes : Array TypeAttr

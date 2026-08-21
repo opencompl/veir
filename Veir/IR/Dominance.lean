@@ -194,9 +194,6 @@ partial def opsInDominanceOrder
     (irCtx : WfIRContext OpCode) : Array OperationPtr := Id.run do
   let mut ops := #[]
   for region in (op.get! irCtx.raw).regions do
-    -- Reachable blocks of the region in reverse postorder. The dominance
-    -- analysis only caches each reachable block's postorder index, so recover
-    -- the ordering by sorting those blocks on descending index.
     let mut blocks := #[]
     if let some metadata := region.getRegionMetadataFact? dfCtx irCtx then
       blocks := (metadata.postOrderIndex.toArray.qsort (·.2 > ·.2)).map (·.1)

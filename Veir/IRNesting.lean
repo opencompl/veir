@@ -242,9 +242,6 @@ Find the region that establishes the nearest `IsolatedFromAbove` scope around
 `region`, or `none` when no enclosing operation is isolated. The returned
 region is one of the isolated operation's direct regions; different regions of
 the same isolated operation are separate scopes.
-
-A value defined inside an isolated scope may only be used within that same
-scope, so an operation in one scope can never name a value produced in another.
 -/
 partial def RegionPtr.nearestIsolatedScope? {OpInfo : Type} [HasOpInfo OpInfo]
     (region : RegionPtr) (ctx : IRContext OpInfo) : Option RegionPtr := do
