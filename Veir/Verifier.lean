@@ -30,17 +30,11 @@ def OperationPtr.verifyTerminatorPosition (op : OperationPtr) (ctx : WfIRContext
     throw "operation with block successors must terminate its parent block"
 
 /--
-  Verify that no operation branches to the entry block of a region, mirroring
-  the "Verify the first block has no predecessors" check in
-  `OperationVerifier::verifyOnEntrance` (`mlir/lib/IR/Verifier.cpp`).
-
-  A region is entered exclusively through its entry block, and both the entry
-  block's arguments and dominance treat it as unconditionally reaching every
-  other block in the region. A branch back to it would contradict that.
-
-  MLIR states the rule over a block's predecessors; VeIR has no predecessor
-  index, so it is checked from the other end, over each operation's successors.
-  The two agree because every predecessor edge is some operation's successor.
+  Verify that no operation branches to the entry block of a region. A
+  region is entered exclusively through its entry block, and both the
+  entry block's arguments and dominance treat it as unconditionally
+  reaching every other block in the region. A branch back to it would
+  contradict that.
 -/
 def OperationPtr.verifyDoesNotBranchToEntryBlock (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
