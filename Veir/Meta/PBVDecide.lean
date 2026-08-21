@@ -160,7 +160,7 @@ def addWidthHyp (g : MVarId) (widthInfo : WidthInfo)
   return simp.push simpThms
 
 /--
-Run simp on an MVarId given a set of simp theorems
+Run simp on an MVarId given a set of simp theorems.
 -/
 def applySimp (g : MVarId) (simp : SimpTheoremsArray) : MetaM MVarId := g.withContext do
   let simpCtx ← Simp.mkContext (simpTheorems := simp)
