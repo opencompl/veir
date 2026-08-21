@@ -15,9 +15,9 @@ structure WidthInfo where
   /-- The FVarId of the pure-BV hypothesis that this width is a mask variable. -/
   widthMaskHypFvar : FVarId
   /-- The hypothesis that the width variable is less than the bmc bound. -/
-  hypWidthLeBound : MVarId
+  hypWidthLeBoundMVarId : MVarId
   /-- Hack: intro the bound as an fvar so 'simp' rewrites with it? this is ludicrous if true. -/
-  hypWidthLeBoundNoteHACK : FVarId
+  hypWidthLeBoundNoteNote : FVarId
 
 def WidthInfo.widthFvarId (info : WidthInfo) : FVarId :=
   info.widthNatLocalDecl.fvarId
@@ -53,8 +53,8 @@ def introMaskWidths (ctx : PbvTranslateContext) (g : MVarId) : MetaM (MVarId × 
             mkFreshExprMVar (userName := Name.mkSimple "foo") (kind := .syntheticOpaque) (mkAppN (Expr.const ``LE.le [.zero])
               #[mkConst ``Nat, mkConst ``instLENat, Expr.fvar ldecl.fvarId, mkNatLit ctx.bmcBound])
           g.withContext <| check hypWidthLeBound
-          let (hypWidthLeBoundNoteHACK, g) ← g.withContext do g.note (Name.mkSimple s!"hack_hyp_width_le_bound_{maskName}") hypWidthLeBound
-          g.withContext <| check (mkFVar hypWidthLeBoundNoteHACK)
+          let (hypWidthLeBoundNoteNote, g) ← g.withContext do g.note (Name.mkSimple s!"hack_hyp_width_le_bound_{maskName}") hypWidthLeBound
+          g.withContext <| check (mkFVar hypWidthLeBoundNoteNote)
           -- Assert the BitVec mask constraint.
           let hypExpr ← g.withContext do mkAppM ``isMask_of_eq_maskOfWidth #[mkFVar maskHyp]
           let (_hIsMaskOfEq, g) ← g.note (Name.mkSimple s!"h_isMask_of_eq_{maskName}") hypExpr
@@ -62,8 +62,8 @@ def introMaskWidths (ctx : PbvTranslateContext) (g : MVarId) : MetaM (MVarId × 
             widthNatLocalDecl := ldecl,
             widthMaskFvar := mask,
             widthMaskHypFvar := maskHyp
-            hypWidthLeBound := hypWidthLeBound.mvarId!,
-            hypWidthLeBoundNoteHACK
+            hypWidthLeBoundMVarId := hypWidthLeBound.mvarId!,
+            hypWidthLeBoundNoteNote
           }
           return (g, info)
     throwError "unable to find a valid width variable."
@@ -101,7 +101,7 @@ def introVar (ctx : PbvTranslateContext) (widthInfo : WidthInfo) (g : MVarId)
       let (#[oldVar], g) ← g.revert #[ldecl.fvarId] | throwError "reverting shuold produce a var"
       -- Apply ``var_elim
       let (List.cons g _) ← g.withContext <| g.apply <| ← mkAppM ``var_elim
-          #[mkNatLit ctx.bmcBound, widthInfo.widthFvar, .mvar widthInfo.hypWidthLeBound]
+          #[mkNatLit ctx.bmcBound, widthInfo.widthFvar, .mvar widthInfo.hypWidthLeBoundMVarId]
         | throwError m!"{``var_elim} should generate a single goal. Produced {g}"
       -- Intros
       let name ← oldVar.getUserName
@@ -127,7 +127,7 @@ These rewrites introduce the toplevel equality that convers `a = b` into
 -/
 def addToplevelRewrites (g : MVarId) (widthInfo : WidthInfo) (simp : SimpTheoremsArray) :
     MetaM SimpTheoremsArray := g.withContext do
-  let simp ← simp.addTheorem (.other ``eq_iff) <| (← mkAppM ``eq_iff #[mkMVar widthInfo.hypWidthLeBound])
+  let simp ← simp.addTheorem (.other ``eq_iff) <| (← mkAppM ``eq_iff #[mkMVar widthInfo.hypWidthLeBoundMVarId])
   return simp
 
 /--
@@ -159,9 +159,8 @@ Add BitVecInfos theorems to the Simp theorem context that don't need special bin
 def addWidthInfo (g : MVarId) (info : WidthInfo)
   (simp : SimpTheoremsArray) : MetaM SimpTheoremsArray := g.withContext do
   let mut simp := simp
-  simp ← simp.addTheorem (.other info.hypWidthLeBound.name)
-      (mkMVar info.hypWidthLeBound)
-       --(mkFVar info.hypWidthLeBoundNoteHACK)
+  simp ← simp.addTheorem (.other info.hypWidthLeBoundMVarId.name)
+       (mkFVar info.hypWidthLeBoundNoteNote)
   return simp
 
 /--
@@ -185,7 +184,7 @@ def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVarId) 
                       <| ← addWidthInfo g widthInfo #[]
   let g ← applySimp g thms
 
-  return [g, widthInfo.hypWidthLeBound]
+  return [g, widthInfo.hypWidthLeBoundMVarId]
 
 
 
@@ -230,9 +229,6 @@ theorem trace_add_comm_manual (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
 -- Step 5: Convert width hypothesis to mask hypothesis
   have mw_mask := isMask_of_eq_maskOfWidth h_mw
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
-  simp only [eq_iff w_le_bw]
-  simp only [setWidth_add, w_le_bw]
-
   simp only [
       eq_iff w_le_bw,             -- Introduce `setWidth` to goal
       setWidth_add,       -- Push `setWidth` down add
