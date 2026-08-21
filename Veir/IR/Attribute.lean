@@ -373,6 +373,16 @@ structure FunctionType where
 deriving Inhabited, Repr, Hashable
 
 /--
+  The payload of an LLVM function type attribute.
+
+  This wrapper distinguishes `!llvm.func` types from builtin function types at
+  the Lean type level while reusing their common representation.
+-/
+structure LLVMFunctionType where
+  functionType : FunctionType
+deriving Inhabited, Repr, Hashable
+
+/--
   An attribute that holds a sequence of attributes.
 -/
 structure ArrayAttr where
@@ -484,7 +494,7 @@ inductive Attribute
 /-- LLVM array type -/
 | llvmArrayType (type : LLVM.ArrayType)
 /-- LLVM function type -/
-| llvmFunctionType (type : FunctionType)
+| llvmFunctionType (type : LLVMFunctionType)
 /-- Cuda Tile pointer type -/
 | cudaTilePointerType (type : CudaTile.PointerType)
 /-- CIRCT hw module type -/
@@ -504,6 +514,12 @@ inductive Attribute
 deriving Inhabited, Repr, Hashable
 
 end
+
+instance : Coe FunctionType LLVMFunctionType where
+  coe := .mk
+
+instance : Coe LLVMFunctionType FunctionType where
+  coe := LLVMFunctionType.functionType
 
 instance : Inhabited LLVM.ArrayType where
   default := { size := 0, type := .llvmPointerType .mk }
@@ -526,6 +542,10 @@ theorem FunctionType.sizeOf_elems_inputs {ft : FunctionType} (hx : x ∈ ft.inpu
 theorem FunctionType.sizeOf_elems_outputs {ft : FunctionType} (hx : x ∈ ft.outputs) :
     sizeOf x < sizeOf ft := by
   grind [Array.sizeOf_lt_of_mem hx, cases FunctionType]
+
+theorem LLVMFunctionType.sizeOf_functionType {ft : LLVMFunctionType} :
+    sizeOf ft.functionType < sizeOf ft := by
+  grind [cases LLVMFunctionType]
 
 theorem ArrayAttr.sizeOf_elems_value {aa : ArrayAttr} (hx : x ∈ aa.value) :
     sizeOf x < sizeOf aa := by
@@ -569,6 +589,14 @@ decreasing_by
     grind
   · have := @FunctionType.sizeOf_elems_outputs
     grind
+
+def LLVMFunctionType.decEq (type1 type2 : LLVMFunctionType) : Decidable (type1 = type2) :=
+  match FunctionType.decEq type1.functionType type2.functionType with
+  | isTrue _ => isTrue (by grind [cases LLVMFunctionType])
+  | isFalse _ => isFalse (by grind)
+termination_by sizeOf type1
+decreasing_by
+  apply LLVMFunctionType.sizeOf_functionType
 
 def ArrayAttr.decEq (arr1 arr2 : ArrayAttr) : Decidable (arr1 = arr2) :=
   let value1 := arr1.value
@@ -734,7 +762,7 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
   case llvmFunctionType.llvmFunctionType type1 type2 =>
-    exact (match FunctionType.decEq type1 type2 with
+    exact (match LLVMFunctionType.decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
   case cudaTilePointerType.cudaTilePointerType type1 type2 =>
@@ -779,6 +807,7 @@ end
 
 instance : DecidableEq Attribute := Attribute.decEq
 instance : DecidableEq FunctionType := FunctionType.decEq
+instance : DecidableEq LLVMFunctionType := LLVMFunctionType.decEq
 instance : DecidableEq ArrayAttr := ArrayAttr.decEq
 instance : DecidableEq DictionaryAttr := DictionaryAttr.decEq
 
@@ -996,6 +1025,12 @@ decreasing_by
   · apply FunctionType.sizeOf_elems_outputs
     grind
 
+def LLVMFunctionType.toString (type : LLVMFunctionType) : String :=
+  type.functionType.toLLVMString
+termination_by sizeOf type
+decreasing_by
+  apply LLVMFunctionType.sizeOf_functionType
+
 def FunctionType.toString (type : FunctionType) : String :=
   let inputs := String.intercalate ", " (type.inputs.toList.map Attribute.toString)
   let outputs := match _ : type.outputs.size with
@@ -1066,7 +1101,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .llvmVoidType type => ToString.toString type
   | .llvmPointerType type => ToString.toString type
   | .llvmArrayType type => type.toString
-  | .llvmFunctionType type => type.toLLVMString
+  | .llvmFunctionType type => type.toString
   | .cudaTilePointerType type => ToString.toString type
   | .hwModuleType type => ToString.toString type
   | .pdlRangeType type => ToString.toString type
@@ -1084,6 +1119,9 @@ instance : ToString Attribute where
 
 instance : ToString FunctionType where
   toString := FunctionType.toString
+
+instance : ToString LLVMFunctionType where
+  toString := LLVMFunctionType.toString
 
 instance : ToString ArrayAttr where
   toString := ArrayAttr.toString
@@ -1176,6 +1214,9 @@ instance : Coe DictionaryAttr Attribute where
 
 instance : Coe FunctionType Attribute where
   coe type := .functionType type
+
+instance : Coe LLVMFunctionType Attribute where
+  coe type := .llvmFunctionType type
 
 instance : Coe ModArithType Attribute where
   coe type := .modArithType type
@@ -1401,6 +1442,9 @@ instance : Coe LLVM.ByteType TypeAttr where
 
 instance : Coe FunctionType TypeAttr where
   coe type := Attribute.asType (.functionType type) (by rfl)
+
+instance : Coe LLVMFunctionType TypeAttr where
+  coe type := Attribute.asType (.llvmFunctionType type) (by rfl)
 
 instance : Coe ModArithType TypeAttr where
   coe type := Attribute.asType (.modArithType type) (by rfl)
