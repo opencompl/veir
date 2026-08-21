@@ -170,6 +170,14 @@ def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVarId) 
 
   return [g, widthInfo.hypWidthLeBound]
 
+/--
+`pbv_decide` takes a `Nat` bound as input argument and uses it to translate a
+parametric bitvector formula, containing a single width parameter, into a
+concrete width formula. The tactic generates two goals: the first, containing
+the desired concrete width formula that can be decided using `bv_decide`; the
+second containing a side-goal to prove that the width parameter is bounded
+by the provided bound.
+-/
 syntax (name := pbvDecide) "pbv_decide" optConfig (ppSpace colGt num)? : tactic
 
 @[tactic pbvDecide]
@@ -179,17 +187,3 @@ def evalPbvDecide : Tactic := fun stx => do
       let ctx : PbvTranslateContext := { bmcBound := n.getNat }
       replaceMainGoal (← pbvTranslate (← getMainGoal) ctx)
   | _ => throwUnsupportedSyntax
-
-
-
-theorem trace_add_comm (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
-  x + y = y + x := by
-  pbv_decide 13
-  · bv_decide
-  · grind
-
-theorem trace_add (w : Nat) (x y z : BitVec w) (hw : w ≤ 4) :
-  x + y + z = y + x + z := by
-  pbv_decide 13
-  · bv_decide
-  · grind
