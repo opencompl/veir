@@ -35,15 +35,11 @@ theorem trace_add_comm_manual (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [
       eq_iff w_le_bw,             -- Introduce `setWidth` to goal
-      setWidth_add w_le_bw,       -- Push `setWidth` down add
-      setWidth_setWidth w_le_bw,  -- Push `setWidth` down setWidth
+      setWidth_add,       -- Push `setWidth` down add
+      setWidth_setWidth,  -- Push `setWidth` down setWidth
       BitVec.setWidth_eq,         -- Remove redundant setWidths
-      ← h_mw]                     -- Replace mask with nat with bv constraint
+      w_le_bw]                     -- Replace mask with nat with bv constraint
       at h_xmw h_ymw ⊢
--- Step 7: Drop the Nat `w`
-  clear hw
-  clear w_le_bw h_mw
-  clear w
 -- Step 8: Bitblast!
   bv_decide
 
