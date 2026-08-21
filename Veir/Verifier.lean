@@ -111,7 +111,8 @@ def BlockPtr.verifyTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
 def BlockPtr.verifyNoEntryBlockPredecessors (block : BlockPtr) (ctx : WfIRContext OpCode)
     (blockIn : block.InBounds ctx.raw) : Except String PUnit := do
   let b := block.get ctx.raw blockIn
-  if (b.parent.get!.get! ctx.raw).firstBlock ≠ some block then return
+  let some parent := b.parent | return
+  if (parent.get! ctx.raw).firstBlock ≠ some block then return
   if b.firstUse.isSome then
     throw "entry block of region may not have predecessors"
 
