@@ -2,7 +2,6 @@ import Lean
 import Veir.Data.PBV
 
 open Lean Elab Tactic Meta Simp
-
 namespace Veir.Data.PBV
 
 structure WidthInfo where
