@@ -65,6 +65,20 @@ theorem mask_lt_mask {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤
   subst m₁ m₂
   grind only [maskOfWidth_lt_maskOfWidth]
 
+/-- maskOfWidth is monotone with respect to unsigned bitvec comparison. -/
+theorem maskOfWidth_le_maskOfWidth {o w₁ w₂ : Nat} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
+    (h : w₁ ≤ w₂) : maskOfWidth o w₁ ≤ maskOfWidth o w₂ := by
+  rw [BitVec.le_def, toNat_maskOfWidth h₁, toNat_maskOfWidth h₂]
+  have hle : 2 ^ w₁ ≤ 2 ^ w₂ := Nat.pow_le_pow_right (by lia) h
+  lia
+
+/-- Width order becomes mask order. -/
+theorem mask_le_mask {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
+    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
+    (hw : w₁ ≤ w₂) : m₁ ≤ m₂ := by
+  subst m₁ m₂
+  grind only [maskOfWidth_le_maskOfWidth]
+
 /-- ANDing with `maskOfWidth o w` keeps exactly the low `w` bits. -/
 theorem toNat_and_maskOfWidth {o w : Nat} (h : w ≤ o) (x : BitVec o) :
     (x &&& maskOfWidth o w).toNat = x.toNat % 2 ^ w := by

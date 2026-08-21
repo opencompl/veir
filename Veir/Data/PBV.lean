@@ -3,6 +3,7 @@ module
 public import Veir.Data.PBV.Mask
 public import Veir.Data.PBV.Elim
 public import Veir.Data.PBV.Push
+public import Veir.Data.PBV.Cert
 import Veir.Data.PBV.Examples
 
 /-!
@@ -51,6 +52,7 @@ which we wish to prove it, the tactic performs the following steps:
 * `Veir.Data.PBV.Elim` — steps 3 and 4: `width_elim` and `var_elim`.
 * `Veir.Data.PBV.Mask` — step 5: `maskOfWidth`, `IsMask`, the mask constraint.
 * `Veir.Data.PBV.Push` — step 6: pushing `setWidth` from the root to its leaves.
+* `Veir.Data.PBV.Cert` — step 6 in certificate form, consumed by the `pbv_decide` rewriter.
 * `Veir.Data.PBV.Examples` — a manual trace of the whole pipeline.
 
 -/
