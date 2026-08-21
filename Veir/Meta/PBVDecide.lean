@@ -48,7 +48,7 @@ def introMaskWidths (ctx : PbvTranslateContext) (g : MVarId) : MetaM (MVarId × 
             mkFreshExprMVar (mkAppN (Expr.const `Nat.le [])
               #[Expr.fvar ldecl.fvarId, mkNatLit ctx.bmcBound])
           g.withContext <| check hypWidthLeBound
-          -- Assert the BitVec mask constraint
+          -- Assert the BitVec mask constraint.
           let hypExpr ← g.withContext do mkAppM ``isMask_of_eq_maskOfWidth #[mkFVar maskHyp]
           let (_hIsMaskOfEq, g) ← g.note (Name.mkSimple s!"h_isMask_of_eq_{maskName}") hypExpr
           let info : WidthInfo := {
@@ -73,15 +73,15 @@ def BitVecInfos.push (this : BitVecInfos) (val : BitVecInfo) : BitVecInfos :=
 
 /--
 Analyze a single local decl, and try to introduce it as a bitvec variable in our larger universe
-if it is in fact a bitvec variable.
+if it is in fact a `BitVec` variable.
 -/
 def introVar (ctx : PbvTranslateContext) (widthInfo : WidthInfo) (g : MVarId)
       (infos : BitVecInfos) (ldecl : LocalDecl) :
       MetaM (MVarId × BitVecInfos) := g.withContext do
   unless ldecl.isImplementationDetail do
-    -- Find the BitVec {width_expr} variables
+    -- Find the BitVec {width_expr} variables.
     if Expr.equal ldecl.type (mkApp (mkConst ``BitVec) widthInfo.widthFvar) then
-      -- Revert to expose forall with the BitVec
+      -- Revert to expose forall with the BitVec.
       let (#[oldVar], g) ← g.revert #[ldecl.fvarId] | throwError "reverting shuold produce a var"
       -- Apply ``var_elim
       let (List.cons g _) ← g.withContext <| g.apply <| ← mkAppM ``var_elim
@@ -104,7 +104,7 @@ def introVars (ctx : PbvTranslateContext) (g : MVarId) (widthInfo : WidthInfo) :
     introVar ctx widthInfo g infos ldecl
 
 /--
-Add the harcoded push theorems to the Simp theorem context, bind each application to the
+Add the hardcoded push theorems to the Simp theorem context, bind each application to the
 concrete blast width (`o`) and parametric width (`w`).
 -/
 def addPushTheorems (g : MVarId)
