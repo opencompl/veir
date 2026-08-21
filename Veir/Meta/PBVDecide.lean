@@ -36,16 +36,20 @@ def introMaskWidths (ctx : PbvTranslateContext) (g : MVarId) : MetaM (MVarId × 
     for ldecl in ← getLCtx do
       unless ldecl.isImplementationDetail do
         if ← isDefEq ldecl.type (mkConst ``Nat) then
+          -- Apply ``width_elim
           let [g] ← g.withContext do
             g.apply <| ← mkAppM ``width_elim #[mkNatLit ctx.bmcBound, ldecl.toExpr, ← g.getType]
             | throwError "width_elim should generate a goal"
+          -- Intros
           let maskName := Name.mkSimple s!"m{ldecl.userName}"
           let (mask, g) ← g.withContext do g.intro maskName
           let (maskHyp, g) ← g.withContext do g.intro (Name.mkSimple s!"h_{maskName}")
+          -- Define bounding conditions
           let hypWidthLeBound <- g.withContext do
             mkFreshExprMVar (mkAppN (Expr.const `Nat.le [])
               #[Expr.fvar ldecl.fvarId, mkNatLit ctx.bmcBound])
           g.withContext <| check hypWidthLeBound
+          -- Assert the BitVec mask constraint
           let hypExpr ← g.withContext do mkAppM ``isMask_of_eq_maskOfWidth #[mkFVar maskHyp]
           let (_hIsMaskOfEq, g) ← g.note (Name.mkSimple s!"h_isMask_of_eq_{maskName}") hypExpr
           let info : WidthInfo := {
@@ -77,14 +81,14 @@ def introVar (ctx : PbvTranslateContext) (widthInfo : WidthInfo) (g : MVarId)
       MetaM (MVarId × BitVecInfos) := g.withContext do
   unless ldecl.isImplementationDetail do
     -- Find the BitVec {width_expr} variables
-    -- | TODO: replace defeq with syntactic eq, there are helpers in Lean/Meta or Lean/Tactic
-    -- inside the bv_decide implementation.
-    if ← isDefEq ldecl.type (mkApp (mkConst ``BitVec) widthInfo.widthFvar) then
+    if Expr.equal ldecl.type (mkApp (mkConst ``BitVec) widthInfo.widthFvar) then
       -- Revert to expose forall with the BitVec
       let (#[oldVar], g) ← g.revert #[ldecl.fvarId] | throwError "reverting shuold produce a var"
-      let (List.cons g _) ← g.withContext <|  g.apply <| ← mkAppM ``var_elim
+      -- Apply ``var_elim
+      let (List.cons g _) ← g.withContext <| g.apply <| ← mkAppM ``var_elim
           #[mkNatLit ctx.bmcBound, widthInfo.widthFvar, .mvar widthInfo.hypWidthLeBound]
         | throwError m!"{``var_elim} should generate a single goal. Produced {g}"
+      -- Intros
       let name ← oldVar.getUserName
       let (bvVar, g) ← g.intro name
       let (bvHyp, g) ← g.intro <| Name.mkSimple s!"h_m{name}"
@@ -186,7 +190,7 @@ theorem trace_add_comm (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
   · grind
 
 theorem trace_add (w : Nat) (x y z : BitVec w) (hw : w ≤ 4) :
-  x + y + z= y + x +z := by
+  x + y + z = y + x + z := by
   pbv_decide 13
   · bv_decide
   · grind
