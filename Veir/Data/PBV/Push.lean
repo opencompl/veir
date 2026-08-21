@@ -23,38 +23,11 @@ theorem eq_iff (o : Nat) {w : Nat} (h : w ≤ o) :
   exact ⟨fun hab => hab ▸ rfl, fun hab => BitVec.setWidth_inj h hab⟩
 
 /-- Strict width order becomes strict mask order. -/
-theorem nat_lt_nat_eq_mask_lt_mask (o : Nat) {w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
-    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂) :
-    (w₁ < w₂) = (m₁ < m₂) := by
+theorem mask_lt_mask {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
+    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
+    (hw₁w₂ :  w₁ < w₂) : m₁ < m₂ := by
   subst m₁ m₂
-  rw [BitVec.lt_def, toNat_maskOfWidth h₁, toNat_maskOfWidth h₂]
-  have : 0 < 2 ^ w₁ := by grind
-  simp only [eq_iff_iff]
-  constructor
-  · intros h
-    have hlt : 2 ^ w₁ < 2 ^ w₂ := Nat.pow_lt_pow_right (by lia) (by lia)
-    have : 0 < 2 ^ w₁ := by grind
-    lia
-  · intros h
-    apply Nat.pow_lt_pow_iff_right (a := 2) (h := by decide) .. |>.mp
-    · grind
-
-/-- Strict width order becomes strict mask order. -/
-theorem nat_le_nat_eq_mask_le_mask (o : Nat) {w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
-    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂) :
-    (w₁ ≤ w₂) = (m₁ ≤ m₂) := by
-  subst m₁ m₂
-  rw [BitVec.le_def, toNat_maskOfWidth h₁, toNat_maskOfWidth h₂]
-  have : 0 < 2 ^ w₁ := by grind
-  simp only [eq_iff_iff]
-  constructor
-  · intros h
-    have hlt : 2 ^ w₁ ≤ 2 ^ w₂ := Nat.pow_le_pow_right (by lia) (by lia)
-    have : 0 < 2 ^ w₁ := by grind
-    lia
-  · intros h
-    apply Nat.pow_le_pow_iff_right (a := 2) (h := by decide) .. |>.mp
-    · grind
+  grind only[maskOfWidth_lt_maskOfWidth]
 
 /-! ## Pushing `setWidth o` towards the leaves — leaves and width changes -/
 

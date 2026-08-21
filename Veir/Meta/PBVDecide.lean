@@ -175,35 +175,40 @@ partial def visitExprRec (ctx : PbvTranslateContext) (g : MVarId)
   else
     return (g, widthInfos, bvs)
 
-  -- let tf ← g.withContext do inferType f
-  -- if let some wExpr := getBitvecType? tf then
-  --   let (g, widthInfo, widthInfos) ← widthInfos.getOrCreateInfo ctx g wExpr
-  --   if let some fvarId := f.fvarId? then
-  --     return (g, widthInfos, bvs.push fvarId widthInfo)
-  --   else
-  --     return (g, widthInfos, bvs)
-  -- else
-  --   return (g, widthInfos, bvs)
-
-def translateWidthPrecond (ctx : PbvTranslateContext) (winfos : WidthInfos) (g : MVarId) (e : Expr)  :
-    MetaM (MVarId × WidthInfos) := g.withContext do
+/--
+Translate width precondition into BitVec hypothesis.
+TODO: consider more complicated exprs that might have additions...
+-/
+def translateWidthPrecond (winfos : WidthInfos) (g : MVarId) (e : Expr)  :
+    MetaM (MVarId) := g.withContext do
   match_expr e with
-  | LE.le ty inst ea eb =>
+  | LT.lt u ty _inst ea eb =>
+    throwError "foo"
+    -- ea ≤ eb
+    -- translate ea
+    -- translate eb
+    -- note the mask theorem for this particular.
     if ty == mkConst ``Nat then
-      -- ea ≤ eb
-      -- translate ea
-      -- translate eb
-      -- note the mask theorem for this particular.
-      sorry
-    else
-      return (g, winfos)
-  | _ => return (g, winfos)
+      if let some wa := winfos.infos[ea]? then
+        if let some wb := winfos.infos[eb]? then
+          -- Apply mask_lt_mask using the known facts of the widths
+          let bvLTExpr := mkAppN (mkConst ``mask_lt_mask [])
+            #[.fvar wa.hypWidthLeBoundNote,
+              .fvar wb.hypWidthLeBoundNote,
+              .fvar wa.widthMaskHypFvar,
+              .fvar wb.widthMaskHypFvar]
+          let (_mask_hyp, g) ← g.withContext do g.note (Name.mkSimple "a_lt_b") bvLTExpr
+          -- discard hyp, not needed
+          return g
+    return g
+  | _ => return g
 
-def translateWidthPreconds (ctx : PbvTranslateContext) (winfos: WidthInfos) (g : MVarId) : MetaM (MVarId × WidthInfos) := do
-  -- loop over ← getLCtx, call translateWidthPrecond
-  sorry
-
-
+def translateWidthPreconds (winfos: WidthInfos)
+    (g : MVarId) : MetaM MVarId := g.withContext do
+  let mut g := g
+  for ldecl in ← getLCtx do
+    g ← translateWidthPrecond winfos g ldecl.toExpr
+  return g
 /--
 eliminate the bitvector variables to introduce the masked versions
 -/
@@ -220,8 +225,6 @@ def addToplevelRewrites (g : MVarId) (ctx : PbvTranslateContext) (simp : SimpThe
     MetaM SimpTheoremsArray := g.withContext do
   let mut simp := simp
   simp ← simp.addTheorem (.other ``eq_iff) <| (← mkAppM ``eq_iff #[mkNatLit ctx.bmcBound])
-  simp ← simp.addTheorem (.other ``nat_lt_nat_eq_mask_lt_mask) <| (← mkAppM ``nat_lt_nat_eq_mask_lt_mask #[mkNatLit ctx.bmcBound])
-  simp ← simp.addTheorem (.other ``nat_le_nat_eq_mask_le_mask) <| (← mkAppM ``nat_le_nat_eq_mask_le_mask #[mkNatLit ctx.bmcBound])
   return simp
 /--
 Add theorems to the Simp theorem context that push the `setWidth`s in.
@@ -275,6 +278,8 @@ def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVarId) 
     g.withContext do logInfo m!"width: '{w}'"
 
   let (g, bvInfos) ← introMaskedBitvectors ctx bvsToRevert g
+  let g ← translateWidthPreconds widthInfos g
+
   -- Run simp
   let thms := ← addToplevelRewrites g ctx
                       <| ← addPushTheorems g
@@ -349,8 +354,6 @@ example (v w : Nat) (x y: BitVec w) (z : BitVec v) (hw : w ≤ 4) (hv : v <= 4) 
   · bv_decide
   · grind
 
-theorem imp_eq_not_or (P Q : Prop) : (P → Q) = (¬ P ∨ Q) := by grind
-
 theorem trace_double_zero_extend (p q r : Nat) (x : BitVec p)
   (hr : r <= 8)
   (hqr : q < r)
@@ -358,7 +361,3 @@ theorem trace_double_zero_extend (p q r : Nat) (x : BitVec p)
   (x.zeroExtend q).zeroExtend r = x.zeroExtend r
   := by
   pbv_decide 13
-  · sorry
-  · sorry
-  · sorry
-  · sorry
