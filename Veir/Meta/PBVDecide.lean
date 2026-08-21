@@ -184,10 +184,12 @@ def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVarId) 
 /--
 `pbv_decide` takes a `Nat` bound as input argument and uses it to translate a
 parametric bitvector formula, containing a single width parameter, into a
-concrete width formula. The tactic generates two goals: the first, containing
-the desired concrete width formula that can be decided using `bv_decide`; the
-second containing a side-goal to prove that the width parameter is bounded
-by the provided bound, this should be solvable by grind.
+concrete width formula.
+
+The tactic generates two goals:
+1. The desired concrete width formula that can be decided using `bv_decide`
+2. A side-goal to prove that the width parameter is bounded by the provided
+bound, this should be solvable by grind.
 -/
 syntax (name := pbvDecide) "pbv_decide" optConfig (ppSpace colGt num)? : tactic
 
