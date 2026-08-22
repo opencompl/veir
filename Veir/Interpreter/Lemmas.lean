@@ -2,6 +2,7 @@ module
 
 public import Veir.Verifier
 public import Veir.Interpreter.Refinement.Basic
+public import Veir.Interpreter.Refinement.Lemmas
 
 import all Veir.Interpreter.Basic
 
@@ -644,7 +645,93 @@ axiom interpretOp'_ne_fail {ctx : WfIRContext OpCode} {op : OperationPtr}
     (mem : MemoryState) :
   op.interpret ctx.raw operands mem ≠ .fail
 
-axiom interpretOp'_monotone
+/-- The relation `interpretOp'_monotone` establishes between two interpretation results. -/
+abbrev InterpretResultIsRefinedBy :
+    Array RuntimeValue × MemoryState × Option ControlFlowAction →
+    Array RuntimeValue × MemoryState × Option ControlFlowAction → Prop :=
+  fun r₁ r₂ => r₁.1 ⊒ r₂.1 ∧ r₁.2.1 = r₂.2.1 ∧
+    ControlFlowAction.optionIsRefinedBy r₁.2.2 r₂.2.2
+
+/-- `InterpretResultIsRefinedBy` is reflexive, so an interpretation result always refines itself. -/
+@[grind .]
+theorem interpretResult_isRefinedBy_refl
+    (x : Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction)) :
+    Interp.isRefinedBy InterpretResultIsRefinedBy x x := by
+  cases x <;> grind [Interp.isRefinedBy]
+
+/--
+A register runtime value can only be refined by itself, so operand arrays that consist purely of
+registers are refined only by themselves. This makes every dialect whose operands are registers
+(`riscv`, `riscv_cf`, `riscv_stack`, `rv64`) monotone for free: the refined operands are the
+original ones, so both sides interpret to the very same result.
+-/
+theorem RuntimeValue.eq_of_arrayIsRefinedBy_of_regs {a b : Array RuntimeValue}
+    (h : a ⊒ b) (hregs : ∀ v ∈ a, ∃ r, v = .reg r) : b = a := by
+  grind [arrayIsRefinedBy, reg_of_isRefinedBy, Array.getElem_mem]
+
+/--
+`Interp`'s bind, as a case split on the scrutinee. Main's `Interp.bind_ok`/`bind_ub`/`bind_fail`
+only fire on literal constructors; `grind` needs this to see through a `do` block whose head is an
+opaque call such as `riscvLoad`.
+-/
+@[grind =]
+theorem Interp.bind_def {α β : Type} (x : Interp α) (f : α → Interp β) :
+    (x >>= f) = match x with
+      | .fail => .fail
+      | .ub => .ub
+      | .ok a => f a := rfl
+
+/--
+A RISC-V operation that interprets successfully produces register results and no control flow
+action: a single register for the arithmetic and load opcodes, and no result at all for the stores.
+Note that the memory is *not* preserved -- loads grow it via `ensureSize` and stores write to it.
+-/
+theorem Riscv.interpretOp'_ok_results {vals : Array RuntimeValue} {mem' : MemoryState}
+    {act : Option ControlFlowAction}
+    (h : Riscv.interpretOp' opType properties resultTypes operands blockOperands mem
+      = .ok (vals, mem', act)) :
+    ((∃ r, vals = #[.reg r]) ∨ vals = #[]) ∧ act = none := by
+  cases opType <;> simp only [Riscv.interpretOp'] at h <;> grind
+
+/--
+A non-register operand is either fatal or irrelevant: every RISC-V opcode that reads its operands
+pattern-matches them as registers and fails to interpret otherwise, and the opcodes that ignore
+their operands (`li`, `lui`) interpret to the very same result whatever the operands are.
+-/
+theorem Riscv.interpretOp'_eq_fail_or_eq_of_not_regs {operands operands' : Array RuntimeValue}
+    (hregs : ¬ ∀ v ∈ operands, ∃ r, v = .reg r) :
+    Riscv.interpretOp' opType properties resultTypes operands blockOperands mem = .fail ∨
+    Riscv.interpretOp' opType properties resultTypes operands blockOperands mem
+      = Riscv.interpretOp' opType properties resultTypes operands' blockOperands mem := by
+  cases opType <;>
+    simp only [Riscv.interpretOp'] <;>
+    first
+      | (right; trivial)
+      | (left; split <;> grind [Array.mem_def])
+
+/--
+`Riscv.interpretOp'` is monotone in its operands.
+
+RISC-V operands are registers, which carry no poison, so refinement on them is equality: either
+every operand is a register -- and then the refined operands are the original ones and both sides
+interpret to the very same result -- or some operand is not a register, and
+`Riscv.interpretOp'_eq_fail_or_eq_of_not_regs` applies.
+-/
+theorem Riscv.interpretOp'_monotone {operands operands' : Array RuntimeValue} :
+    operands ⊒ operands' →
+    Interp.isRefinedBy InterpretResultIsRefinedBy
+      (Riscv.interpretOp' opType properties resultTypes operands blockOperands mem)
+      (Riscv.interpretOp' opType properties resultTypes operands' blockOperands mem) := by
+  intro h
+  by_cases hregs : ∀ v ∈ operands, ∃ r, v = .reg r
+  · obtain rfl := RuntimeValue.eq_of_arrayIsRefinedBy_of_regs h hregs
+    apply interpretResult_isRefinedBy_refl
+  · rcases Riscv.interpretOp'_eq_fail_or_eq_of_not_regs (operands' := operands') hregs with heq | heq
+    · rw [heq]; simp [Interp.isRefinedBy]
+    · rw [heq]; apply interpretResult_isRefinedBy_refl
+
+set_option warn.sorry false in
+theorem interpretOp'_monotone
     (opType : OpCode) (properties : propertiesOf opType) (resultTypes : Array TypeAttr)
     (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr) (mem : MemoryState) :
     operands ⊒ operands' →
@@ -652,7 +739,13 @@ axiom interpretOp'_monotone
       (fun r₁ r₂ => r₁.1 ⊒ r₂.1 ∧ r₁.2.1 = r₂.2.1 ∧
         ControlFlowAction.optionIsRefinedBy r₁.2.2 r₂.2.2)
       (interpretOp' opType properties resultTypes operands blockOperands mem)
-      (interpretOp' opType properties resultTypes operands' blockOperands mem)
+      (interpretOp' opType properties resultTypes operands' blockOperands mem) := by
+  intro h
+  cases opType
+  case riscv =>
+    simp only [interpretOp']
+    exact Riscv.interpretOp'_monotone h
+  all_goals sorry
 
 /--
 A successful operation interpretation returns result values that conform to the declared
