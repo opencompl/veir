@@ -131,4 +131,51 @@ def foldOperation (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     rewriter := rewriter.replaceValue! (op.getResult index) replacement
   return rewriter.eraseOp! op
 
+/--
+Create an operation, or fold it before it exists. If the operation would fold
+given the operands it is being built with, its results are taken from those
+operands or from freshly materialized constants and the operation is never
+created; otherwise it is created at `insertionPoint`. Either way the returned
+array holds one value per result, in result order.
+
+This is MLIR's `OpBuilder::createOrFold` with the order reversed: MLIR creates
+the operation, folds it, and erases it again, because its folders inspect a
+real `Operation *`. `OpCode.foldsTo` decides from the opcode, properties, result
+types, and operand values alone, so nothing needs to be built to ask it.
+-/
+def PatternRewriter.createOrFold! (rewriter : PatternRewriter OpCode) (opType : OpCode)
+    (resultTypes : Array TypeAttr) (operands : Array ValuePtr)
+    (blockOperands : Array BlockPtr) (regions : Array RegionPtr)
+    (properties : propertiesOf opType) (insertionPoint : InsertPoint) :
+    Option (PatternRewriter OpCode × Array ValuePtr) :=
+  foldedResults <|> created
+where
+  /-- The values replacing the operation's results when it folds. `none` when it
+      does not fold, or when its dialect declines one of the constants it folds
+      to, which is checked for every result before any constant is created. -/
+  foldedResults : Option (PatternRewriter OpCode × Array ValuePtr) := do
+    let constOperands := operands.map (ValuePtr.constantValue · rewriter.ctx.raw)
+    let some decision := opType.foldsTo properties resultTypes constOperands | none
+    guard <| decision.zipIdx.all fun (foldResult, index) =>
+      match foldResult with
+      | .useOperand _ => true
+      | .useConstant value => (opType.materializeConstant value resultTypes[index]!).isSome
+    let mut rewriter := rewriter
+    let mut results : Array ValuePtr := #[]
+    for (foldResult, index) in decision.zipIdx do
+      match foldResult with
+      | .useOperand j => results := results.push operands[j]!
+      | .useConstant value =>
+        let (newRewriter, materialized) ←
+          rewriter.materializeConstant! opType value resultTypes[index]! insertionPoint
+        let some constantOp := materialized | none
+        rewriter := newRewriter
+        results := results.push (constantOp.getResult 0)
+    return (rewriter, results)
+  /-- The operation, built as asked. -/
+  created : Option (PatternRewriter OpCode × Array ValuePtr) := do
+    let (rewriter, op) ← rewriter.createOp! opType resultTypes operands blockOperands regions
+      properties (some insertionPoint)
+    return (rewriter, op.getResults! rewriter.ctx.raw)
+
 end Veir
