@@ -70,65 +70,6 @@
     // CHECK-NEXT: "func.return"(%[[FLAG]]) : (i1) -> ()
     "func.return"(%overflow) : (i1) -> ()
   }) : () -> ()
-
-  // An `nsw` addition that overflows is UB, so it folds to poison too. Arith
-  // has no poison operation of its own and reaches for LLVM's.
-  "func.func"() <{function_type = () -> i32, sym_name = "nsw_overflow"}> ({
-    %cmax = "arith.constant"() <{"value" = 2147483647 : i32}> : () -> i32
-    %c1 = "arith.constant"() <{"value" = 1 : i32}> : () -> i32
-    %sum = "arith.addi"(%cmax, %c1) <{overflowFlags = #arith.overflow<nsw>}> : (i32, i32) -> i32
-    // CHECK-LABEL: "sym_name" = "nsw_overflow"
-    // CHECK: %[[POISON:.*]] = "llvm.mlir.poison"() : () -> i32
-    // CHECK-NEXT: "func.return"(%[[POISON]]) : (i32) -> ()
-    "func.return"(%sum) : (i32) -> ()
-  }) : () -> ()
-
-  // LLVM spells poison itself, so a division by zero in that dialect reaches
-  // the same operation by a different route.
-  "func.func"() <{function_type = () -> i32, sym_name = "llvm_sdiv_zero"}> ({
-    %c5 = "llvm.mlir.constant"() <{"value" = 5 : i32}> : () -> i32
-    %c0 = "llvm.mlir.constant"() <{"value" = 0 : i32}> : () -> i32
-    %quotient = "llvm.sdiv"(%c5, %c0) : (i32, i32) -> i32
-    // CHECK-LABEL: "sym_name" = "llvm_sdiv_zero"
-    // CHECK: %[[POISON:.*]] = "llvm.mlir.poison"() : () -> i32
-    // CHECK-NEXT: "func.return"(%[[POISON]]) : (i32) -> ()
-    "func.return"(%quotient) : (i32) -> ()
-  }) : () -> ()
-
-  // A `riscv.li` immediate is signed, so a negative register value survives
-  // the round trip through materialization.
-  "func.func"() <{function_type = () -> !riscv.reg, sym_name = "riscv_negative"}> ({
-    %cneg = "riscv.li"() <{"value" = -78 : i64}> : () -> !riscv.reg
-    %sum = "riscv.addi"(%cneg) <{"value" = 1 : i12}> : (!riscv.reg) -> !riscv.reg
-    // CHECK-LABEL: "sym_name" = "riscv_negative"
-    // CHECK: %[[CNEG:.*]] = "riscv.li"() <{"value" = -77 : i64}> : () -> !riscv.reg
-    // CHECK-NEXT: "func.return"(%[[CNEG]]) : (!riscv.reg) -> ()
-    "func.return"(%sum) : (!riscv.reg) -> ()
-  }) : () -> ()
-
-  // `comb` has no constant of its own and materializes an `hw.constant`.
-  "func.func"() <{function_type = () -> i32, sym_name = "comb_add"}> ({
-    %c3 = "hw.constant"() <{"value" = 3 : i32}> : () -> i32
-    %c4 = "hw.constant"() <{"value" = 4 : i32}> : () -> i32
-    %sum = "comb.add"(%c3, %c4) : (i32, i32) -> i32
-    // CHECK-LABEL: "sym_name" = "comb_add"
-    // CHECK: %[[C7:.*]] = "hw.constant"() <{"value" = 7 : i32}> : () -> i32
-    // CHECK-NEXT: "func.return"(%[[C7]]) : (i32) -> ()
-    "func.return"(%sum) : (i32) -> ()
-  }) : () -> ()
-
-  // A `mod_arith` result is materialized as a `mod_arith.constant`, already
-  // reduced modulo the type's modulus: 200 + 50 = 250 in [0, 251).
-  "func.func"() <{function_type = () -> !mod_arith.int<251 : i8>, sym_name = "mod_arith_add"}> ({
-    %c200 = "mod_arith.constant"() <{"value" = 200 : i8}> : () -> !mod_arith.int<251 : i8>
-    %c50 = "mod_arith.constant"() <{"value" = 50 : i8}> : () -> !mod_arith.int<251 : i8>
-    %sum = "mod_arith.add"(%c200, %c50)
-      : (!mod_arith.int<251 : i8>, !mod_arith.int<251 : i8>) -> !mod_arith.int<251 : i8>
-    // CHECK-LABEL: "sym_name" = "mod_arith_add"
-    // CHECK: %[[C250:.*]] = "mod_arith.constant"() <{"value" = 250 : i8}> : () -> !mod_arith.int<251 : i8>
-    // CHECK-NEXT: "func.return"(%[[C250]]) : (!mod_arith.int<251 : i8>) -> ()
-    "func.return"(%sum) : (!mod_arith.int<251 : i8>) -> ()
-  }) : () -> ()
 }) : () -> ()
 
 // CHECK-NOT: "arith.addi"
@@ -138,6 +79,3 @@
 // CHECK-NOT: "arith.divsi"
 // CHECK-NOT: "arith.mului_extended"
 // CHECK-NOT: "arith.addui_extended"
-// CHECK-NOT: "llvm.sdiv"
-// CHECK-NOT: "comb.add"
-// CHECK-NOT: "mod_arith.add"

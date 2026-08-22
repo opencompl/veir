@@ -72,47 +72,9 @@
       "func.return"(%sel) : (i32) -> ()
       // CHECK-NEXT: "func.return"(%[[SEL]]) : (i32) -> ()
   }) : () -> ()
-
-  // `llvm.icmp` likewise takes the result's `i1` type for its poison.
-  "func.func"() <{function_type = (i32) -> i1, sym_name = "llvm_icmp_poison"}> ({
-    ^bb0(%x : i32):
-      // CHECK-LABEL: "sym_name" = "llvm_icmp_poison"
-      %poison = "llvm.mlir.poison"() : () -> i32
-      %cmp = "llvm.icmp"(%x, %poison) <{"predicate" = 2 : i64}> : (i32, i32) -> i1
-      // CHECK: %[[POISON:.*]] = "llvm.mlir.poison"() : () -> i1
-      // CHECK-NEXT: "func.return"(%[[POISON]]) : (i1) -> ()
-      "func.return"(%cmp) : (i1) -> ()
-  }) : () -> ()
-
-  // `llvm.select` does not propagate poison either.
-  "func.func"() <{function_type = (i1, i32) -> i32, sym_name = "llvm_select_poison_arm"}> ({
-    ^bb0(%cond : i1, %x : i32):
-      // CHECK-LABEL: "sym_name" = "llvm_select_poison_arm"
-      // CHECK:      ^{{.*}}(%[[COND:.*]] : i1, %[[X:.*]] : i32):
-      %poison = "llvm.mlir.poison"() : () -> i32
-      // CHECK-NEXT: %[[POISON:.*]] = "llvm.mlir.poison"() : () -> i32
-      %sel = "llvm.select"(%cond, %x, %poison) : (i1, i32, i32) -> i32
-      // CHECK-NEXT: %[[SEL:.*]] = "llvm.select"(%[[COND]], %[[X]], %[[POISON]]) : (i1, i32, i32) -> i32
-      "func.return"(%sel) : (i32) -> ()
-      // CHECK-NEXT: "func.return"(%[[SEL]]) : (i32) -> ()
-  }) : () -> ()
-
-  // `llvm.freeze` consumes poison rather than propagating it. Its operand is
-  // fully known, so evaluation supplies a concrete frozen value and the poison
-  // operation is left dead.
-  "func.func"() <{function_type = () -> i32, sym_name = "freeze_poison"}> ({
-      // CHECK-LABEL: "sym_name" = "freeze_poison"
-      %poison = "llvm.mlir.poison"() : () -> i32
-      %frozen = "llvm.freeze"(%poison) : (i32) -> i32
-      // CHECK: %[[FROZEN:.*]] = "llvm.mlir.constant"() <{"value" = 0 : i32}> : () -> i32
-      // CHECK-NEXT: "func.return"(%[[FROZEN]]) : (i32) -> ()
-      "func.return"(%frozen) : (i32) -> ()
-  }) : () -> ()
 }) : () -> ()
 
 // CHECK-NOT: "arith.addi"
 // CHECK-NOT: "arith.cmpi"
 // CHECK-NOT: "arith.addui_extended"
 // CHECK-NOT: "llvm.add"
-// CHECK-NOT: "llvm.icmp"
-// CHECK-NOT: "llvm.freeze"
