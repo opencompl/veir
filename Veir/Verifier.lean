@@ -177,8 +177,6 @@ private def WfIRContext.verifyPDLPatternBodies (ctx : WfIRContext OpCode) :
 -/
 private def WfIRContext.verifyDominance
     (ctx : WfIRContext OpCode) (root : OperationPtr) : Except String Unit := do
-  if !root.InBounds ctx.raw then
-    throw "root operation is not in bounds"
   let some dfCtx := Veir.fixpointSolve root #[DominanceAnalysis] ctx
     | throw "dominance analysis did not reach a fixpoint"
   ctx.raw.forOpsDepM fun op opIn => do
