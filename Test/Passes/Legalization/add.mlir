@@ -1,4 +1,4 @@
-// RUN: veir-opt -p=legalize %s | filecheck %s
+// RUN: veir-opt -p=legalize-riscv64 %s | filecheck %s
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> i32}> ({
