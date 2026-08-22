@@ -5,6 +5,7 @@ public import Veir.GlobalOpInfo
 public import Veir.Interfaces.FunctionInterfaces
 public import Veir.IRNesting
 public import Veir.Interfaces.RegionKindInterfaces
+public import Veir.IR.Dominance
 
 import all Veir.Verifier.Basic
 import all Veir.Dialects.LLVM.OpInfo
@@ -166,6 +167,45 @@ private def WfIRContext.verifyPDLPatternBodies (ctx : WfIRContext OpCode) :
     if !hasOperation then
       throw "pdl.pattern: the pattern must contain at least one `pdl.operation`"
 
+/--
+  Verify SSA dominance of operand uses: every value an operation uses must be
+  defined at a program point that dominates the use. Mirrors
+  `verifyDominanceOfContainedRegions` in `mlir/lib/IR/Verifier.cpp`, together
+  with `DominanceInfo::properlyDominates(Value, Operation *)` in
+  `mlir/lib/IR/Dominance.cpp`, which splits on the kind of the used value:
+
+  * A block argument must have an owning block that *dominates* the using
+    block. The query is reflexive and allows the owner to enclose the use, so
+    an argument of an outer block dominates uses in nested regions.
+  * An operation result must have a defining operation that *properly*
+    dominates the use, with enclosing disallowed: a definition that encloses
+    its own use, as in `%0 = scf.if { use %0 }`, does not dominate it.
+
+  Two kinds of operation are skipped, as in MLIR. Operations in a graph region
+  are unordered with respect to their definitions, and operations in a block
+  that is unreachable from its region's entry have no meaningful dominance
+  relation. Nested regions of a skipped operation are still checked, since
+  `forOpsDepM` visits every operation independently and reachability is decided
+  per region.
+-/
+private def WfIRContext.verifyDominance (ctx : WfIRContext OpCode) : Except String Unit := do
+  let some dfCtx := DominanceAnalysis.solveAllRegions ctx
+    | throw "dominance analysis did not reach a fixpoint"
+  ctx.raw.forOpsDepM fun op opIn => do
+    let some block := (op.get ctx.raw opIn).parent | return
+    let some region := (block.get! ctx.raw).parent | return
+    if !region.hasSSADominance ctx then return
+    let some metadata := region.getRegionMetadataFact? dfCtx ctx | return
+    if !metadata.postOrderIndex.contains block then return
+    for (value, index) in (op.getOperands ctx.raw opIn).zipIdx do
+      let dominated :=
+        match value with
+        | .blockArgument arg => arg.block.dominates block dfCtx ctx
+        | .opResult result => result.op.properlyDominates op dfCtx ctx
+      if !dominated then
+        let opName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
+        throw s!"{opName}: operand #{index} does not dominate this use"
+
 public section
 
 /--
@@ -192,6 +232,7 @@ def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
     block.verifyNoEntryBlockPredecessors ctx blockIn)
   ctx.verifyLLVMGlobalSymbols
   ctx.verifyPDLPatternBodies
+  ctx.verifyDominance
 
 attribute [simp] OpCode.verifyLocalInvariants HasOpInfo.verifyLocalInvariants
   OperationPtr.verifyLocalInvariants
