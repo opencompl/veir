@@ -452,12 +452,24 @@ private partial def RewritePattern.applyOnceInContext
       failure
   pure (rewriter.hasDoneAction, rewriter.ctx)
 
-def RewritePattern.applyInContext (pattern: RewritePattern OpInfo)
-    (ctx: WfIRContext OpInfo) : Option (WfIRContext OpInfo) := do
+/--
+- Apply the given rewrite pattern in the context until it reaches a fixpoint.
+- Return a boolean indicating whether any changes were made, and the new context.
+- If any pattern failed, return none.
+-/
+def RewritePattern.applyInContextWithChange (pattern: RewritePattern OpInfo)
+    (ctx: WfIRContext OpInfo) : Option (Bool × WfIRContext OpInfo) := do
+  let mut changed := false
   let mut hasDoneAction := true
   let mut ctx := ctx
   while hasDoneAction do
     let (lastHasDoneAction, newCtx) ← pattern.applyOnceInContext ctx
     ctx := newCtx
     hasDoneAction := lastHasDoneAction
+    changed := changed || lastHasDoneAction
+  pure (changed, ctx)
+
+def RewritePattern.applyInContext (pattern: RewritePattern OpInfo)
+    (ctx: WfIRContext OpInfo) : Option (WfIRContext OpInfo) := do
+  let (_, ctx) ← pattern.applyInContextWithChange ctx
   pure ctx

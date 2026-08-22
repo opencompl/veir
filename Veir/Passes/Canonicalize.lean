@@ -55,10 +55,21 @@ def CanonicalizePass.impl (options : PassOptions) (ctx : WfIRContext OpCode)
     patterns := patterns.push canonicalizeModArithConstant
   if (options.get? "commutative-constant-rhs").getD true then
     patterns := patterns.push commutativeConstantRHS
-  let pattern := RewritePattern.GreedyRewritePattern patterns
-  match RewritePattern.applyInContext pattern ctx with
-  | none => throw "Error while applying canonicalization patterns"
-  | some ctx => pure ctx
+  /- Drive each enabled pattern to its own fixpoint, then repeat the sweep until
+     no pattern reports a change: a rewrite made by one pattern can re-enable
+     another one that had already run out of work. -/
+  let mut ctx := ctx
+  let mut changed := true
+  while changed do
+    changed := false
+    for pattern in patterns do
+      let single := RewritePattern.GreedyRewritePattern #[pattern]
+      match RewritePattern.applyInContextWithChange single ctx with
+      | none => throw "Error while applying canonicalization patterns"
+      | some (patternChanged, newCtx) =>
+        ctx := newCtx
+        changed := changed || patternChanged
+  return ctx
 
 public def CanonicalizePass : Pass OpCode :=
   { name := "canonicalize"
