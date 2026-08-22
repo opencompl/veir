@@ -196,19 +196,6 @@ def init
     (irCtx : WfIRContext OpCode) : DataFlowContext :=
   initializeRecursively top dfCtx irCtx
 
-/-- Initialize the analysis on every region in the context.
-
-`initializeRecursively` reaches regions by walking down from a single root
-operation. Callers that have no such root -- the verifier, which iterates the
-flat operation and block tables -- initialize from the flat region table
-instead. Regions of detached subtrees are covered too, which is harmless.
--/
-def initAllRegions
-    (dfCtx : DataFlowContext)
-    (irCtx : WfIRContext OpCode) : DataFlowContext :=
-  irCtx.raw.regions.keys.foldl (init := dfCtx) fun dfCtx region =>
-    initializeRegion region dfCtx irCtx
-
 /--
 Find the nearest common dominator of `block1` and `block2`.
 
@@ -292,12 +279,5 @@ def DominanceAnalysis : DataFlowAnalysis :=
   { kind := DominanceAnalysis.kind
     init := DominanceAnalysis.init
     visit := DominanceAnalysis.visit }
-
-/-- Run dominance analysis over every region in the context to a fixpoint,
-without needing a root operation. Returns `none` only if the solver fails to
-terminate. -/
-def DominanceAnalysis.solveAllRegions (irCtx : WfIRContext OpCode) : Option DataFlowContext :=
-  Veir.run ((∅ : RegisteredAnalyses).insert DominanceAnalysis.kind DominanceAnalysis)
-    (DominanceAnalysis.initAllRegions DataFlowContext.empty irCtx) irCtx
 
 end Veir

@@ -186,10 +186,14 @@ private def WfIRContext.verifyPDLPatternBodies (ctx : WfIRContext OpCode) :
   that is unreachable from its region's entry have no meaningful dominance
   relation. Nested regions of a skipped operation are still checked, since
   `forOpsDepM` visits every operation independently and reachability is decided
-  per region.
+  per region. Dominance is initialized recursively from `root`, using the same
+  data-flow entry point as passes such as CSE.
 -/
-private def WfIRContext.verifyDominance (ctx : WfIRContext OpCode) : Except String Unit := do
-  let some dfCtx := DominanceAnalysis.solveAllRegions ctx
+private def WfIRContext.verifyDominance
+    (ctx : WfIRContext OpCode) (root : OperationPtr) : Except String Unit := do
+  if !root.InBounds ctx.raw then
+    throw "root operation is not in bounds"
+  let some dfCtx := Veir.fixpointSolve root #[DominanceAnalysis] ctx
     | throw "dominance analysis did not reach a fixpoint"
   ctx.raw.forOpsDepM fun op opIn => do
     let some block := (op.get ctx.raw opIn).parent | return
@@ -209,9 +213,11 @@ private def WfIRContext.verifyDominance (ctx : WfIRContext OpCode) : Except Stri
 public section
 
 /--
-Verify the structural invariants of the IR context and the local invariants of all its operations.
+Verify the structural invariants of the IR context, the local invariants of all
+its operations, and SSA dominance in the operation tree rooted at `root`.
 -/
-def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
+def WfIRContext.verify
+    (ctx : WfIRContext OpCode) (root : OperationPtr) : Except String Unit := do
   if !ctx.successorsHaveSameParent then
     throw "Block successors must belong to the same region as their predecessor"
   if !ctx.graphRegionsHaveAtMostOneBlock then
@@ -232,23 +238,24 @@ def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
     block.verifyNoEntryBlockPredecessors ctx blockIn)
   ctx.verifyLLVMGlobalSymbols
   ctx.verifyPDLPatternBodies
-  ctx.verifyDominance
+  ctx.verifyDominance root
 
 attribute [simp] OpCode.verifyLocalInvariants HasOpInfo.verifyLocalInvariants
   OperationPtr.verifyLocalInvariants
   Llvm.verifyLocalInvariants Arith.verifyLocalInvariants Mod_Arith.verifyLocalInvariants
 
 /--
-Assert that the IR context satisfies its structural and local invariants.
+Assert that the IR context verifies successfully for some root operation.
 -/
 def WfIRContext.Verified (ctx : WfIRContext OpCode) : Prop :=
-  ctx.verify = .ok ()
+  ∃ root, ctx.verify root = .ok ()
 
 /-- A verified context satisfies the same-parent successor check. -/
 private theorem WfIRContext.Verified.successorsHaveSameParent
     {ctx : WfIRContext OpCode} (ctxVerified : ctx.Verified) :
     ctx.successorsHaveSameParent := by
-  simp only [WfIRContext.Verified, WfIRContext.verify] at ctxVerified
+  obtain ⟨root, ctxVerified⟩ := ctxVerified
+  simp only [WfIRContext.verify] at ctxVerified
   split at ctxVerified
   · trivial
   · grind
@@ -269,7 +276,8 @@ theorem WfIRContext.Verified.successor_parent
 private theorem WfIRContext.Verified.graphRegionsHaveAtMostOneBlock
     {ctx : WfIRContext OpCode} (ctxVerified : ctx.Verified) :
     ctx.graphRegionsHaveAtMostOneBlock := by
-  simp only [WfIRContext.Verified, WfIRContext.verify] at ctxVerified
+  obtain ⟨root, ctxVerified⟩ := ctxVerified
+  simp only [WfIRContext.verify] at ctxVerified
   split at ctxVerified
   · trivial
   · split at ctxVerified
