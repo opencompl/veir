@@ -168,26 +168,12 @@ private def WfIRContext.verifyPDLPatternBodies (ctx : WfIRContext OpCode) :
       throw "pdl.pattern: the pattern must contain at least one `pdl.operation`"
 
 /--
-  Verify SSA dominance of operand uses: every value an operation uses must be
-  defined at a program point that dominates the use. Mirrors
-  `verifyDominanceOfContainedRegions` in `mlir/lib/IR/Verifier.cpp`, together
-  with `DominanceInfo::properlyDominates(Value, Operation *)` in
-  `mlir/lib/IR/Dominance.cpp`, which splits on the kind of the used value:
-
-  * A block argument must have an owning block that *dominates* the using
-    block. The query is reflexive and allows the owner to enclose the use, so
-    an argument of an outer block dominates uses in nested regions.
-  * An operation result must have a defining operation that *properly*
-    dominates the use, with enclosing disallowed: a definition that encloses
-    its own use, as in `%0 = scf.if { use %0 }`, does not dominate it.
+  Verify SSA dominance of operand uses.
 
   Two kinds of operation are skipped, as in MLIR. Operations in a graph region
   are unordered with respect to their definitions, and operations in a block
   that is unreachable from its region's entry have no meaningful dominance
-  relation. Nested regions of a skipped operation are still checked, since
-  `forOpsDepM` visits every operation independently and reachability is decided
-  per region. Dominance is initialized recursively from `root`, using the same
-  data-flow entry point as passes such as CSE.
+  relation. Nested regions of a skipped operation are still checked.
 -/
 private def WfIRContext.verifyDominance
     (ctx : WfIRContext OpCode) (root : OperationPtr) : Except String Unit := do
