@@ -1,4 +1,5 @@
-// RUN: veir-opt %s --allow-unregistered-dialect | filecheck %s
+// RUN: veir-opt %s --allow-unregistered-dialect --disable-verifiers | filecheck %s
+// RUN: not veir-opt %s --allow-unregistered-dialect 2>&1 | filecheck %s --check-prefix=VERIFY
 
 // A value name forward-referenced before its definition resolves to the FIRST textual
 // definition of that name, wherever it appears -- following MLIR's generic-form parser,
@@ -7,7 +8,9 @@
 // the nested region; the later definition in the function body is an independent value.
 //
 // Whether this is legal under dominance / IsolatedFromAbove is a verifier concern that MLIR
-// checks after parsing. Implementation in VeIR TBD. For details see `ForwardValue` in 
+// checks after parsing, so the parse is checked with the verifier disabled. It is not legal:
+// the outer use reads a value defined in a child region, which does not dominate it, and the
+// verifier rejects it below exactly as MLIR does. For details see `ForwardValue` in
 // `Veir.Parser.MlirParser`.
 
 "builtin.module"() ({
@@ -29,3 +32,7 @@
 // ... and the later definition is an independent value.
 // CHECK:        %[[B:.*]] = "test.def"() : () -> i32
 // CHECK-NOT:    %[[A]] =
+
+// The nested use is fine: an unregistered operation's region is a graph region, where a
+// definition need not precede its use. The outer use is not.
+// VERIFY: operand #0 does not dominate this use

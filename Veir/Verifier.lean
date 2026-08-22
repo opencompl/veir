@@ -5,6 +5,7 @@ public import Veir.GlobalOpInfo
 public import Veir.Interfaces.FunctionInterfaces
 public import Veir.IRNesting
 public import Veir.Interfaces.RegionKindInterfaces
+public import Veir.IR.Dominance
 
 import all Veir.Verifier.Basic
 import all Veir.Dialects.LLVM.OpInfo
@@ -166,12 +167,41 @@ private def WfIRContext.verifyPDLPatternBodies (ctx : WfIRContext OpCode) :
     if !hasOperation then
       throw "pdl.pattern: the pattern must contain at least one `pdl.operation`"
 
+/--
+  Verify SSA dominance of operand uses.
+
+  Two kinds of operation are skipped, as in MLIR. Operations in a graph region
+  are unordered with respect to their definitions, and operations in a block
+  that is unreachable from its region's entry have no meaningful dominance
+  relation. Nested regions of a skipped operation are still checked.
+-/
+private def WfIRContext.verifyDominance
+    (ctx : WfIRContext OpCode) (root : OperationPtr) : Except String Unit := do
+  let some dfCtx := Veir.fixpointSolve root #[DominanceAnalysis] ctx
+    | throw "dominance analysis did not reach a fixpoint"
+  ctx.raw.forOpsDepM fun op opIn => do
+    let some block := (op.get ctx.raw opIn).parent | return
+    let some region := (block.get! ctx.raw).parent | return
+    if !region.hasSSADominance ctx then return
+    let some metadata := region.getRegionMetadataFact? dfCtx ctx | return
+    if !metadata.postOrderIndex.contains block then return
+    for (value, index) in (op.getOperands ctx.raw opIn).zipIdx do
+      let dominated :=
+        match value with
+        | .blockArgument arg => arg.block.dominates block dfCtx ctx
+        | .opResult result => result.op.properlyDominates op dfCtx ctx
+      if !dominated then
+        let opName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
+        throw s!"{opName}: operand #{index} does not dominate this use"
+
 public section
 
 /--
-Verify the structural invariants of the IR context and the local invariants of all its operations.
+Verify the structural invariants of the IR context, the local invariants of all
+its operations, and SSA dominance in the operation tree rooted at `root`.
 -/
-def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
+def WfIRContext.verify
+    (ctx : WfIRContext OpCode) (root : OperationPtr) : Except String Unit := do
   if !ctx.successorsHaveSameParent then
     throw "Block successors must belong to the same region as their predecessor"
   if !ctx.graphRegionsHaveAtMostOneBlock then
@@ -192,22 +222,24 @@ def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
     block.verifyNoEntryBlockPredecessors ctx blockIn)
   ctx.verifyLLVMGlobalSymbols
   ctx.verifyPDLPatternBodies
+  ctx.verifyDominance root
 
 attribute [simp] OpCode.verifyLocalInvariants HasOpInfo.verifyLocalInvariants
   OperationPtr.verifyLocalInvariants
   Llvm.verifyLocalInvariants Arith.verifyLocalInvariants Mod_Arith.verifyLocalInvariants
 
 /--
-Assert that the IR context satisfies its structural and local invariants.
+Assert that the IR context verifies successfully for some root operation.
 -/
 def WfIRContext.Verified (ctx : WfIRContext OpCode) : Prop :=
-  ctx.verify = .ok ()
+  ∃ root, ctx.verify root = .ok ()
 
 /-- A verified context satisfies the same-parent successor check. -/
 private theorem WfIRContext.Verified.successorsHaveSameParent
     {ctx : WfIRContext OpCode} (ctxVerified : ctx.Verified) :
     ctx.successorsHaveSameParent := by
-  simp only [WfIRContext.Verified, WfIRContext.verify] at ctxVerified
+  obtain ⟨root, ctxVerified⟩ := ctxVerified
+  simp only [WfIRContext.verify] at ctxVerified
   split at ctxVerified
   · trivial
   · grind
@@ -228,7 +260,8 @@ theorem WfIRContext.Verified.successor_parent
 private theorem WfIRContext.Verified.graphRegionsHaveAtMostOneBlock
     {ctx : WfIRContext OpCode} (ctxVerified : ctx.Verified) :
     ctx.graphRegionsHaveAtMostOneBlock := by
-  simp only [WfIRContext.Verified, WfIRContext.verify] at ctxVerified
+  obtain ⟨root, ctxVerified⟩ := ctxVerified
+  simp only [WfIRContext.verify] at ctxVerified
   split at ctxVerified
   · trivial
   · split at ctxVerified
