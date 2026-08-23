@@ -132,16 +132,7 @@ def foldOperation (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   return rewriter.eraseOp! op
 
 /--
-Create an operation, or fold it before it exists. If the operation would fold
-given the operands it is being built with, its results are taken from those
-operands or from freshly materialized constants and the operation is never
-created; otherwise it is created at `insertionPoint`. Either way the returned
-array holds one value per result, in result order.
-
-This is MLIR's `OpBuilder::createOrFold` with the order reversed: MLIR creates
-the operation, folds it, and erases it again, because its folders inspect a
-real `Operation *`. `OpCode.foldsTo` decides from the opcode, properties, result
-types, and operand values alone, so nothing needs to be built to ask it.
+Create an operation, but only if it can't fold first.
 -/
 def PatternRewriter.createOrFold! (rewriter : PatternRewriter OpCode) (opType : OpCode)
     (resultTypes : Array TypeAttr) (operands : Array ValuePtr)
@@ -150,9 +141,6 @@ def PatternRewriter.createOrFold! (rewriter : PatternRewriter OpCode) (opType : 
     Option (PatternRewriter OpCode × Array ValuePtr) :=
   foldedResults <|> created
 where
-  /-- The values replacing the operation's results when it folds. `none` when it
-      does not fold, or when its dialect declines one of the constants it folds
-      to, which is checked for every result before any constant is created. -/
   foldedResults : Option (PatternRewriter OpCode × Array ValuePtr) := do
     let constOperands := operands.map (ValuePtr.constantValue · rewriter.ctx.raw)
     let some decision := opType.foldsTo properties resultTypes constOperands | none
@@ -172,7 +160,6 @@ where
         rewriter := newRewriter
         results := results.push (constantOp.getResult 0)
     return (rewriter, results)
-  /-- The operation, built as asked. -/
   created : Option (PatternRewriter OpCode × Array ValuePtr) := do
     let (rewriter, op) ← rewriter.createOp! opType resultTypes operands blockOperands regions
       properties (some insertionPoint)

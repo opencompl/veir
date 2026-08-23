@@ -239,4 +239,3 @@ info: "ok"
 -/
 #guard_msgs in
 #eval! testBitwidthMismatchIsRejected
-
