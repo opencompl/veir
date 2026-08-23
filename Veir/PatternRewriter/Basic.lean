@@ -428,11 +428,6 @@ def RewritePattern.GreedyRewritePattern (patterns : Array (RewritePattern OpInfo
         failure
     return { rewriter with hasDoneAction := hasDoneAction }
 
-/--
-- Apply the given rewrite pattern to all operations in the context (possibly multiple times).
-- Return the new context, and a boolean indicating whether any changes were made.
-- If any pattern failed, return none.
--/
 private partial def RewritePattern.applyOnceInContext
     (pattern: RewritePattern OpInfo) (ctx: WfIRContext OpInfo) :
     Option (Bool × WfIRContext OpInfo) := do
