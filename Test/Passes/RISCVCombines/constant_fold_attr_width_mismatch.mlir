@@ -84,10 +84,11 @@
 //     ret i8 94
 //   }
 //   define i8 @sub_to_add_min(i8 %0) local_unnamed_addr #0 {
-//     %2 = xor i8 %0, -128          ; `sub i8 %0, -128` before -O1
+//     %2 = xor i8 %0, -128
 //     ret i8 %2
 //   }
 //
+// Without -O1 the last function is `sub i8 %0, -128`.
 // LLVM canonicalizes `x - (-128)` to `xor x, -128` for i8, which is the same
 // value as `x + (-128)`: the constant the pass should materialize is
 // `-128 : i8`, not the out-of-range `128 : i8`.
