@@ -59,6 +59,18 @@ def getIDom? [FactSpec .dominator]
     (block : BlockPtr) (dfCtx : DataFlowContext) : Option BlockPtr :=
   block.getDominatorFact? dfCtx >>= (·.iDom)
 
+/--
+Did the dominance analysis reach `block` from the entry of its enclosing region?
+
+`initializeRegion` creates a dominator fact for exactly the blocks of the region's
+postorder, so the presence of that fact is the record of reachability. Note that
+`getIDom?` is not a substitute: every non-entry block is initialized with no
+immediate dominator, and only gains one as the analysis converges.
+-/
+def isReachable [FactSpec .dominator]
+    (block : BlockPtr) (dfCtx : DataFlowContext) : Bool :=
+  (block.getDominatorFact? dfCtx).isSome
+
 end BlockPtr
 
 namespace RegionPtr
@@ -74,20 +86,6 @@ def getRegionMetadataFact? [FactSpec .regionMetadata] (region : RegionPtr) (dfCt
   (region.get! irCtx.raw).firstBlock >>= dfCtx.getFact? .regionMetadata ∘ .BlockPtr
 
 end RegionPtr
-
-namespace BlockPtr
-
-/--
-Did the dominance analysis reach `block` from the entry of its enclosing region?
--/
-def isReachable [FactSpec .regionMetadata]
-    (block : BlockPtr) (dfCtx : DataFlowContext)
-    (irCtx : WfIRContext OpCode) : Bool := Id.run do
-  let some region := (block.get! irCtx.raw).parent | return false
-  let some metadata := region.getRegionMetadataFact? dfCtx irCtx | return false
-  metadata.postOrderIndex.contains block
-
-end BlockPtr
 
 namespace DominatorFact
 
