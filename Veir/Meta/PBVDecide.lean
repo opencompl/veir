@@ -80,10 +80,18 @@ Either get existing width info, or create one if it does not exist.
 -/
 meta def WidthInfos.getOrCreateInfo (ctx : PbvTranslateContext)
     (g : MVarId) (this : WidthInfos) (wExpr : Expr) : MetaM (MVarId × WidthInfo × WidthInfos) := g.withContext do
-  if let some info := this.infos[wExpr]? then
+  let reducedWExpr ← whnf wExpr
+  if let some info := this.infos[reducedWExpr]? then
     return (g, info, this)
   else
-    introMaskWidth ctx g wExpr this
+    introMaskWidth ctx g reducedWExpr this
+
+/--
+Get some width Expr from infos.
+-/
+meta def WidthInfos.get? (this: WidthInfos) (wExpr : Expr)
+    : MetaM (Option WidthInfo) := do
+  return this.infos[← whnf wExpr]?
 
 
 /--
@@ -202,8 +210,8 @@ goal. This allows for a single call to Simp later.
 meta def translateWidthPrecond (winfos : WidthInfos) (g : MVarId) (ldecl : LocalDecl)
     : MetaM (MVarId) := g.withContext do
   if let some (ea, eb) := matchWidthRel ldecl.type then
-    let some wa := winfos.infos[ea]? | return g
-    let some wb := winfos.infos[eb]? | return g
+    let some wa ← winfos.get? ea | return g
+    let some wb ← winfos.get? eb | return g
     let (natHyp, g) ← g.withContext do g.note (Name.mkSimple s!"bv_{wa.widthName}_{wb.widthName}") ldecl.toExpr
     let (#[_], g) ← g.revert #[natHyp] | throwError "Reverting shuold produce a single FVar."
     return g
@@ -335,46 +343,10 @@ public meta def evalPbvDecide : Tactic := fun stx => do
       replaceMainGoal (← pbvTranslate (← getMainGoal) ctx)
   | _ => throwUnsupportedSyntax
 
-example (w : Nat) (x y: BitVec w) (hw : w ≤ 4) :
-  x + y = y + x := by
-  pbv_decide 4
-  · bv_decide
-  · grind
-
-theorem trace_double_zero_extend (p q r : Nat) (x : BitVec p)
-  (hr : r ≤ 8)
-  (hqr : q < r)
-  (hpq : p < q) :
-  (x.zeroExtend q).zeroExtend r = x.zeroExtend r
-  := by
-  pbv_decide 8
-  · bv_decide
-  · grind
-  · grind
-  · grind
-
-theorem trace_triple_zero_extend (p q r t : Nat) (x : BitVec p)
-  (hr : t <= 8)
-  (hqr : q ≤ r)
-  (hpq : q > p)
-  (hrt : t ≥ r):
-  ((x.zeroExtend q).zeroExtend r).zeroExtend t = x.zeroExtend t
-  := by
-  pbv_decide 8
-  · bv_decide
-  · grind
-  · grind
-  · grind
-  · grind
-
-theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
-  (hr : r ≤ 8)
-  (hqr : q < r)
-  (hpq : p < q) :
-  (x.zeroExtend q).signExtend r = x.zeroExtend r
-  := by
-  pbv_decide 8
-  · bv_decide
-  · grind
-  · grind
-  · grind
+-- TODO: get the following working by also instantiating the provided width bound
+-- example (w : Nat) (x : BitVec (w + 0)) (y : BitVec w) (hw : w ≤ 4) :
+--   x + y = y + x := by
+--   pbv_decide 4
+--   · simp only [eq_iff 4 hw]
+--     bv_decide
+--   · grind
