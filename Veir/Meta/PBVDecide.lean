@@ -1,6 +1,6 @@
 module
 
-public import Lean
+public meta import Lean
 public import Veir.Data.PBV
 
 open Lean Elab Tactic Meta Simp
@@ -9,7 +9,7 @@ namespace Veir.Data.PBV
 /--
 Information about the width variable and associated hypotheses.
 -/
-structure WidthInfo where
+meta structure WidthInfo where
   /-- The LocalDecl corresponding to this width variable. -/
   widthNatLocalDecl : LocalDecl
   /-- The FVarId corresponding to the new mask variable for this width. -/
@@ -28,7 +28,7 @@ meta def WidthInfo.widthFvar (info : WidthInfo) : Expr :=
 /--
 Read-only configuration for the tactic.
 -/
-structure PbvTranslateContext where
+meta structure PbvTranslateContext where
   /-- The bound upto which we want to bitblast our widths. -/
    bmcBound : Nat
 
@@ -68,7 +68,7 @@ meta def introMaskWidths (ctx : PbvTranslateContext) (g : MVarId) : MetaM (MVarI
 /--
 Pair of local facts about the converted `BitVec` variables.
 -/
-structure BitVecInfo where
+meta structure BitVecInfo where
   /-- The FVarId corresponding to the new concrete-width variable. -/
   bvVar : FVarId
   /-- The FVarId of the hypothesis encoding the mask constraint on the variable. -/
@@ -77,7 +77,7 @@ structure BitVecInfo where
 /--
 Store information for all translated `BitVec`s.
 -/
-structure BitVecInfos where
+meta structure BitVecInfos where
   /-- The Array containing facts about each variable. -/
   infos : Array BitVecInfo := #[]
 
