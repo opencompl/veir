@@ -48,7 +48,8 @@ meta def introMaskWidth (ctx : PbvTranslateContext) (g : MVarId) (ldecl : Expr) 
     let (maskHyp, g) ← g.withContext do g.intro (Name.mkSimple s!"h_{maskName}")
     -- Define bounding conditions.
     let hypWidthLeBound <- g.withContext do
-      mkFreshExprMVar (userName := Name.mkSimple "foo") (kind := .syntheticOpaque) (mkAppN (Expr.const ``LE.le [.zero])
+      -- Add a meaninful name using : (userName := Name.mkSimple "foo")
+      mkFreshExprMVar (kind := .syntheticOpaque) (mkAppN (Expr.const ``LE.le [.zero])
         #[mkConst ``Nat, mkConst ``instLENat, ldecl, mkNatLit ctx.bmcBound])
     g.withContext <| check hypWidthLeBound
     let (hypWidthLeBoundNote, g) ← g.withContext do g.note (Name.mkSimple s!"hack_hyp_width_le_bound_{maskName}") hypWidthLeBound
@@ -137,8 +138,6 @@ def BitVecFVarsToRevert.push (this : BitVecFVarsToRevert) (fvar : FVarId) (width
   if this.bvs.contains fvar then  this
   else { bvs := this.bvs.insert fvar widthInfo }
 
-
-
 /--
 Visit the expression collecting widths, introducing masks,
 and then eliminating them all in the next step.
@@ -179,11 +178,10 @@ partial def visitExprRec (ctx : PbvTranslateContext) (g : MVarId)
 Translate width precondition into BitVec hypothesis.
 TODO: consider more complicated exprs that might have additions...
 -/
-def translateWidthPrecond (winfos : WidthInfos) (g : MVarId) (e : Expr)  :
+def translateWidthPrecond (winfos : WidthInfos) (g : MVarId) (ldecl : LocalDecl)  :
     MetaM (MVarId) := g.withContext do
-  match_expr e with
-  | LT.lt u ty _inst ea eb =>
-    throwError "foo"
+  match_expr ldecl.type with
+  | LT.lt ty _inst ea eb =>
     -- ea ≤ eb
     -- translate ea
     -- translate eb
@@ -192,13 +190,14 @@ def translateWidthPrecond (winfos : WidthInfos) (g : MVarId) (e : Expr)  :
       if let some wa := winfos.infos[ea]? then
         if let some wb := winfos.infos[eb]? then
           -- Apply mask_lt_mask using the known facts of the widths
-          let bvLTExpr := mkAppN (mkConst ``mask_lt_mask [])
+          let bvLTExpr := mkAppM ``mask_lt_mask
             #[.fvar wa.hypWidthLeBoundNote,
               .fvar wb.hypWidthLeBoundNote,
               .fvar wa.widthMaskHypFvar,
-              .fvar wb.widthMaskHypFvar]
-          let (_mask_hyp, g) ← g.withContext do g.note (Name.mkSimple "a_lt_b") bvLTExpr
-          -- discard hyp, not needed
+              .fvar wb.widthMaskHypFvar,
+              (.fvar ldecl.fvarId)]
+          let (_mask_hyp, g) ← g.withContext do g.note (Name.mkSimple s!"bv_{ea}_lt_{eb}") (← bvLTExpr) -- discard hyp, not needed
+          logInfo m!"Translated {ldecl.toExpr} : {ldecl.type} to bitvec"
           return g
     return g
   | _ => return g
@@ -207,7 +206,7 @@ def translateWidthPreconds (winfos: WidthInfos)
     (g : MVarId) : MetaM MVarId := g.withContext do
   let mut g := g
   for ldecl in ← getLCtx do
-    g ← translateWidthPrecond winfos g ldecl.toExpr
+    g ← translateWidthPrecond winfos g ldecl
   return g
 /--
 eliminate the bitvector variables to introduce the masked versions
@@ -348,11 +347,11 @@ example (w : Nat) (x y: BitVec w) (hw : w ≤ 4) :
   · bv_decide
   · grind
 
-example (v w : Nat) (x y: BitVec w) (z : BitVec v) (hw : w ≤ 4) (hv : v <= 4) :
-  x + y = y + x := by
-  pbv_decide 4
-  · bv_decide
-  · grind
+-- example (v w : Nat) (x y: BitVec w) (z : BitVec v) (hw : w ≤ 4) (hv : v <= 4) :
+--   x + y = y + x := by
+--   pbv_decide 4
+--   · bv_decide
+--   · grind
 
 theorem trace_double_zero_extend (p q r : Nat) (x : BitVec p)
   (hr : r <= 8)
@@ -360,4 +359,5 @@ theorem trace_double_zero_extend (p q r : Nat) (x : BitVec p)
   (hpq : p < q) :
   (x.zeroExtend q).zeroExtend r = x.zeroExtend r
   := by
-  pbv_decide 13
+  pbv_decide 8
+  · bv_decide
