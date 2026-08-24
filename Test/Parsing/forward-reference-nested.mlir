@@ -1,5 +1,6 @@
 // RUN: veir-opt %s --allow-unregistered-dialect --disable-verifiers | filecheck %s
 // RUN: not veir-opt %s --allow-unregistered-dialect 2>&1 | filecheck %s --check-prefix=VERIFY
+// RUN: MLIR_INVALID
 
 // A value name forward-referenced before its definition resolves to the FIRST textual
 // definition of that name, wherever it appears -- following MLIR's generic-form parser,
@@ -7,11 +8,9 @@
 // body and the one inside the nested region) bind to the first definition, which is inside
 // the nested region; the later definition in the function body is an independent value.
 //
-// Whether this is legal under dominance / IsolatedFromAbove is a verifier concern that MLIR
-// checks after parsing, so the parse is checked with the verifier disabled. It is not legal:
-// the outer use reads a value defined in a child region, which does not dominate it, and the
-// verifier rejects it below exactly as MLIR does. For details see `ForwardValue` in
-// `Veir.Parser.MlirParser`.
+// This is not legal: the outer use reads a value defined in a child
+// region, which does not dominate it, and the Veir verifier rejects it
+// exactly as MLIR does.
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> ()}> ({
