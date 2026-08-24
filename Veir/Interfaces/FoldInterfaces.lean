@@ -124,8 +124,8 @@ def foldOperation (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     | .useConstant value =>
       let (newRewriter, materialized) ←
         rewriter.materializeConstant! opType value resultTypes[index]! (.before op)
-      let some constantOp := materialized | return rewriter
       rewriter := newRewriter
+      let some constantOp := materialized | return rewriter
       replacements := replacements.push (constantOp.getResult 0)
   for (replacement, index) in replacements.zipIdx do
     rewriter := rewriter.replaceValue! (op.getResult index) replacement
