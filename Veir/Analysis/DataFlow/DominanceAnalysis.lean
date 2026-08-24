@@ -61,11 +61,6 @@ def getIDom? [FactSpec .dominator]
 
 /--
 Did the dominance analysis reach `block` from the entry of its enclosing region?
-
-`initializeRegion` creates a dominator fact for exactly the blocks of the region's
-postorder, so the presence of that fact is the record of reachability. Note that
-`getIDom?` is not a substitute: every non-entry block is initialized with no
-immediate dominator, and only gains one as the analysis converges.
 -/
 def isReachable [FactSpec .dominator]
     (block : BlockPtr) (dfCtx : DataFlowContext) : Bool :=
