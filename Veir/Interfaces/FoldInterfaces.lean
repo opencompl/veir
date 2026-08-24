@@ -133,42 +133,41 @@ def foldOperation (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 
 /--
 Create an operation, but only if it can't fold first.
+
+Returns `none` when an operation could not be created; the entire pass should
+then generate a hard failure. An operation that does not fold, or whose folded
+constant the dialect declines to represent, is created rather than folded.
 -/
 def PatternRewriter.createOrFold! (rewriter : PatternRewriter OpCode) (opType : OpCode)
     (resultTypes : Array TypeAttr) (operands : Array ValuePtr)
     (blockOperands : Array BlockPtr) (regions : Array RegionPtr)
     (properties : propertiesOf opType) (insertionPoint : InsertPoint) :
     Option (PatternRewriter OpCode × Array ValuePtr) := do
-  match ← foldedResults with
-  | some folded => return folded
-  | none => created
+  let some plan := foldPlan | created
+  let mut rewriter := rewriter
+  let mut results : Array ValuePtr := #[]
+  for (step, index) in plan.zipIdx do
+    match step with
+    | .inl operand => results := results.push operand
+    | .inr ⟨constOpType, constProperties⟩ =>
+      let (newRewriter, constantOp) ← rewriter.createOp! constOpType #[resultTypes[index]!]
+        #[] #[] #[] constProperties (some insertionPoint)
+      rewriter := newRewriter
+      results := results.push (constantOp.getResult 0)
+  return (rewriter, results)
 where
   /--
-  `none` is a hard failure; `some none` means the operation does not fold and
-  should be created instead.
+  How each result would be replaced, or `none` if the operation does not fold.
+  Planning every result before creating anything keeps a dialect that declines
+  one constant from stranding the constants materialized for earlier results.
   -/
-  foldedResults : Option (Option (PatternRewriter OpCode × Array ValuePtr)) := do
+  foldPlan : Option (Array (ValuePtr ⊕ Materialized OpCode)) := do
     let constOperands := operands.map (ValuePtr.constantValue · rewriter.ctx.raw)
-    let some decision := opType.foldsTo properties resultTypes constOperands | return none
-    -- Check every constant up front, so that a dialect declining one result
-    -- cannot leave the constants materialized for earlier results behind.
-    let materializable := decision.zipIdx.all fun (foldResult, index) =>
+    let some decision := opType.foldsTo properties resultTypes constOperands | none
+    decision.zipIdx.mapM fun (foldResult, index) =>
       match foldResult with
-      | .useOperand _ => true
-      | .useConstant value => (opType.materializeConstant value resultTypes[index]!).isSome
-    unless materializable do return none
-    let mut rewriter := rewriter
-    let mut results : Array ValuePtr := #[]
-    for (foldResult, index) in decision.zipIdx do
-      match foldResult with
-      | .useOperand j => results := results.push operands[j]!
-      | .useConstant value =>
-        let (newRewriter, materialized) ←
-          rewriter.materializeConstant! opType value resultTypes[index]! insertionPoint
-        let some constantOp := materialized | return none
-        rewriter := newRewriter
-        results := results.push (constantOp.getResult 0)
-    return some (rewriter, results)
+      | .useOperand j => some (.inl operands[j]!)
+      | .useConstant value => (.inr ·) <$> opType.materializeConstant value resultTypes[index]!
   created : Option (PatternRewriter OpCode × Array ValuePtr) := do
     let (rewriter, op) ← rewriter.createOp! opType resultTypes operands blockOperands regions
       properties (some insertionPoint)
