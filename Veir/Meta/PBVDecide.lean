@@ -39,17 +39,24 @@ meta structure PbvTranslateContext where
   /-- The bound upto which we want to bitblast our widths. -/
    bmcBound : Nat
 
+meta def localDecl? (e : Expr) : MetaM (Option LocalDecl) := do
+  let some fvarId := e.fvarId? | return none
+  return (← getLCtx).find? fvarId
+
 meta def introMaskWidth (ctx : PbvTranslateContext) (g : MVarId) (widthExpr : Expr) (infos : WidthInfos)
   : MetaM (MVarId × WidthInfo × WidthInfos) := g.withContext do
     -- Retrieve the ldecl from the context.
-    let ldecl ← getFVarLocalDecl widthExpr
+    let ldeclOpt ← localDecl? widthExpr
+    let name := if let some ldecl := ldeclOpt then ldecl.userName else (Name.mkSimple "widthVar")
     -- Check that the Expr is of type Nat.
-    assert! ldecl.type == (mkConst ``Nat)
+    if (← inferType widthExpr) != (mkConst ``Nat) then
+      throwError s!"`BitVec` width {widthExpr} is not a `Nat`"
+
     let [g] ← g.withContext do
       g.apply <| ← mkAppM ``width_elim #[mkNatLit ctx.bmcBound, widthExpr, ← g.getType]
       | throwError "width_elim should generate a goal"
     -- Intros
-    let maskName := Name.mkSimple s!"m{ldecl.userName}"
+    let maskName := Name.mkSimple s!"m{name}"
     let (mask, g) ← g.withContext do g.intro maskName
     let (maskHyp, g) ← g.withContext do g.intro (Name.mkSimple s!"h_{maskName}")
     -- Define bounding conditions.
@@ -58,14 +65,14 @@ meta def introMaskWidth (ctx : PbvTranslateContext) (g : MVarId) (widthExpr : Ex
       mkFreshExprMVar (kind := .syntheticOpaque) (mkAppN (Expr.const ``LE.le [.zero])
         #[mkConst ``Nat, mkConst ``instLENat, widthExpr, mkNatLit ctx.bmcBound])
     g.withContext <| check hypWidthLeBound
-    let (hypWidthLeBoundNote, g) ← g.withContext do g.note (Name.mkSimple s!"h_{ldecl.userName}_le_bound") hypWidthLeBound
+    let (hypWidthLeBoundNote, g) ← g.withContext do g.note (Name.mkSimple s!"h_{name}_le_bound") hypWidthLeBound
     g.withContext <| check (mkFVar hypWidthLeBoundNote)
     -- Assert the BitVec mask constraint.
     let hypExpr ← g.withContext do mkAppM ``isMask_of_eq_maskOfWidth #[mkFVar maskHyp]
     let (_hIsMaskOfEq, g) ← g.withContext do g.note (Name.mkSimple s!"h_{maskName}_isMask") hypExpr
 
     let info : WidthInfo := {
-      widthName := ldecl.userName,
+      widthName := name,
       widthExpr := widthExpr,
       widthMaskFvar := mask,
       widthMaskHypFvar := maskHyp
@@ -349,4 +356,16 @@ public meta def evalPbvDecide : Tactic := fun stx => do
 --   pbv_decide 4
 --   · simp only [eq_iff 4 hw]
 --     bv_decide
+--   · grind
+
+-- TODO: handle addition inside of the mask widths.
+-- example (p q r : Nat) (x : BitVec p)
+--   (hr : q ≤ 8)
+--   (hpq : p < q) :
+--   (x.zeroExtend q).zeroExtend (q + q) = x.zeroExtend (q + q)
+--   := by
+--   pbv_decide 8
+--   · bv_decide
+--   · grind
+--   · grind
 --   · grind
