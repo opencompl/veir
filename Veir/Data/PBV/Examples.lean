@@ -137,7 +137,7 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
     setWidth_signExtend_eq_and_maskOfWidth,          -- Push `setWidth` down signExtend
     BitVec.zeroExtend_eq_setWidth,
     setWidth_setWidth,
-    signBitOfMask,                 -- Unfold, else `bv_decide` abstracts it away
+    signBitOfMask_eq,                 -- Unfold, else `bv_decide` abstracts it away
     BitVec.setWidth_eq,
     p_le_bw,
     r_le_bw,

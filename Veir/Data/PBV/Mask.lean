@@ -84,7 +84,12 @@ the index `i` is inbounds of `w`. -/
 
 /-- `signBitOfMask m` keeps only the top bit of the mask `m`.
 This is used to extract the sign bit of a width `o` bitvector. -/
-@[expose] def signBitOfMask {o : Nat} (m : BitVec o) := m - (m >>> 1)
+def signBitOfMask {o : Nat} (m : BitVec o) := m - (m >>> 1)
+
+theorem signBitOfMask_eq {o : Nat} (m : BitVec o) :
+    signBitOfMask m = m - (m >>> 1) := by
+  unfold signBitOfMask
+  rfl
 
 /-- The zero bitvector, which is the mask of width `0`, has no sign bit. -/
 @[simp] theorem signBitOfMask_zero {o : Nat} : signBitOfMask (0#o) = 0#o := by

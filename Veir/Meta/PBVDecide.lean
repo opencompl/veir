@@ -239,24 +239,24 @@ meta def addBoundRewrites (g : MVarId) (ctx : PbvTranslateContext) (simp : SimpT
         ``Nat_lt_eq_Mask_lt,
         ``Nat_le_eq_Mask_le,
         ``Nat_ge_eq_Mask_ge,
-        ``Nat_gt_eq_Mask_gt
+        ``Nat_gt_eq_Mask_gt,
+        ``msb_eq_and_signBitOfMask_maskOfWidth_ne_zero
   ]
 
   thms.foldlM (init := simp) fun simps name =>
     return ← simps.addTheorem (.other name) <| ← mkAppM name #[mkNatLit ctx.bmcBound]
 
-
 /--
 Add theorems to the Simp theorem context that push the `setWidth`s in.
-TODO: make this a simp-set, called `pbv_push`, and just gather these
-from the simp-set. This makes them user-extensible with no metaprogramming needed.
 -/
 meta def addPushTheorems (g : MVarId) (simp : SimpTheoremsArray) :
     MetaM SimpTheoremsArray := g.withContext do
   let others := #[
       ``BitVec.setWidth_eq,
       ``setWidth_add,
-      ``setWidth_setWidth
+      ``setWidth_setWidth,
+      ``signBitOfMask_eq,
+      ``setWidth_signExtend_eq_and_maskOfWidth
   ]
 
   let mut simp := simp
@@ -297,24 +297,22 @@ meta def applySimp (g : MVarId) (simp : SimpTheoremsArray) : MetaM MVarId := g.w
   return g
 
 meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVarId) := g.withContext do
-  -- throwError s!"Deciding with bound {ctx.bmcBound}"
-  -- let (g, widthInfos) ← introMaskWidths ctx g
-  -- Introduce bitvector variables
+  -- Find `BitVec`s and intro their widths
   let (g, widthInfos, bvsToRevert) ← visitExprRec ctx g {} {} (← g.getType)
-  for (w, _winfo) in widthInfos.infos do
-    g.withContext do logInfo m!"width: '{w}'"
-
+  -- Intro the `BitVec`s
   let (g, bvInfos) ← introMaskedBitvectors ctx bvsToRevert g
+  -- Find preconditions on the width `FVar`s
   let g ← translateWidthPreconds widthInfos g
-
-  -- Run simp
+  -- Create simp Set
+  -- TODO: make this a simp-set, called `pbv_push`, and just gather these
+  -- from the simp-set. This makes them user-extensible with no metaprogramming needed.
   let thms := ← addBoundRewrites g ctx
            <| ← addPushTheorems g
            <| ← addBvInfos g bvInfos -- This step is not strictly necessary.
            <| ← addWidthInfosSimpLemmas g widthInfos #[]
-
+  -- Run simp
   let g ← applySimp g thms
-
+  -- Return modified goal and subgoals
   return [g] ++ (widthInfos.infos.values.map (·.hypWidthLeBoundMVarId))
 
 /--
