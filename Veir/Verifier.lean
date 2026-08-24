@@ -181,9 +181,9 @@ private def WfIRContext.verifyDominance
     | throw "dominance analysis did not reach a fixpoint"
   ctx.raw.forOpsDepM fun op opIn => do
     let some block := (op.get ctx.raw opIn).parent | return
+    if !block.isReachable dfCtx ctx then return
     let some region := (block.get! ctx.raw).parent | return
     if !region.hasSSADominance ctx then return
-    if !block.isReachable dfCtx ctx then return
     for (value, index) in (op.getOperands ctx.raw opIn).zipIdx do
       if !value.dominatesUse op dfCtx ctx then
         let opName := String.fromUTF8! (op.getOpType ctx.raw opIn).name

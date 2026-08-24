@@ -211,14 +211,6 @@ namespace ValuePtr
 
 /--
 Does the definition of `value` dominate the use of it by `op`?
-
-An op result becomes available strictly after its defining operation, so it must
-*properly* dominate `op`. A block argument is available from its block's entry,
-so it dominates a use by that block's very first operation.
-
-This is the executable counterpart of the `ValuePtr.dominatesIp` relation in
-`Veir.Dominance`, specialized to the point before a using operation;
-`WfIRContext.Dom` is the closure of it over every operand of every operation.
 -/
 def dominatesUse
     (value : ValuePtr)

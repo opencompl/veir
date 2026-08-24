@@ -69,8 +69,7 @@ Look up the region metadata fact stored at the entry block of `region`.
 Returns `none` when the region has no entry block or when region metadata has
 not been attached to that entry block.
 -/
-def getRegionMetadataFact? [FactSpec .regionMetadata] (region : RegionPtr)
-    (dfCtx : DataFlowContext)
+def getRegionMetadataFact? [FactSpec .regionMetadata] (region : RegionPtr) (dfCtx : DataFlowContext)
     (irCtx : WfIRContext OpCode) : Option RegionMetadataFact :=
   (region.get! irCtx.raw).firstBlock >>= dfCtx.getFact? .regionMetadata ∘ .BlockPtr
 
@@ -80,13 +79,6 @@ namespace BlockPtr
 
 /--
 Did the dominance analysis reach `block` from the entry of its enclosing region?
-
-The analysis numbers exactly the blocks it visits walking forward from the entry
-block, so being numbered is the reachability answer. This is `false` both for a
-block that is genuinely unreachable and for one in a region the analysis never
-ran over: in neither case is anything known about how control arrives at
-`block`, and dominance queries against it are meaningless rather than merely
-negative.
 -/
 def isReachable [FactSpec .regionMetadata]
     (block : BlockPtr) (dfCtx : DataFlowContext)
