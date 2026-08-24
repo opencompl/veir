@@ -26,7 +26,7 @@ structure WidthInfos where
     /-- One WidthInfo per width -/
     infos : HashMap Expr WidthInfo := {}
 
-def WidthInfos.push (this : WidthInfos) (info : WidthInfo) : WidthInfos :=
+meta def WidthInfos.push (this : WidthInfos) (info : WidthInfo) : WidthInfos :=
   { infos := this.infos.insert info.widthExpr info }
 
 /--
@@ -36,7 +36,7 @@ meta structure PbvTranslateContext where
   /-- The bound upto which we want to bitblast our widths. -/
    bmcBound : Nat
 
-def introMaskWidth (ctx : PbvTranslateContext) (g : MVarId) (ldecl : Expr) (infos : WidthInfos)
+meta def introMaskWidth (ctx : PbvTranslateContext) (g : MVarId) (ldecl : Expr) (infos : WidthInfos)
   : MetaM (MVarId × WidthInfo × WidthInfos) := g.withContext do
     -- TODO: check that the value has Nat.
     let [g] ← g.withContext do
@@ -71,7 +71,7 @@ def introMaskWidth (ctx : PbvTranslateContext) (g : MVarId) (ldecl : Expr) (info
 /--
 Either get existing width info, or create one if it does not exist.
 -/
-def WidthInfos.getOrCreateInfo (ctx : PbvTranslateContext)
+meta def WidthInfos.getOrCreateInfo (ctx : PbvTranslateContext)
     (g : MVarId) (this : WidthInfos) (wExpr : Expr) : MetaM (MVarId × WidthInfo × WidthInfos) := g.withContext do
   if let some info := this.infos[wExpr]? then
     return (g, info, this)
@@ -104,7 +104,7 @@ meta def BitVecInfos.push (this : BitVecInfos) (val : BitVecInfo) : BitVecInfos 
 Match on an expression, and if it is a `BitVec w`, return the `w`.
 Otherwise, return `none`.
 -/
-def getBitvecType? (e : Expr) : Option Expr :=
+meta def getBitvecType? (e : Expr) : Option Expr :=
   match_expr e with
   | BitVec w => some w
   | _ => none
@@ -113,7 +113,7 @@ def getBitvecType? (e : Expr) : Option Expr :=
 Analyze a single local decl, and try to introduce it as a `BitVec` variable in our larger universe
 if it is in fact a `BitVec` variable.
 -/
-def introBitvecFVarUnchecked (ctx : PbvTranslateContext) (g : MVarId)
+meta def introBitvecFVarUnchecked (ctx : PbvTranslateContext) (g : MVarId)
       (bvInfos : BitVecInfos) (bvFVarId : FVarId) (widthInfo : WidthInfo) :
       MetaM (MVarId × BitVecInfos) := g.withContext do
   -- Find the BitVec {width_expr} variables.
@@ -135,7 +135,7 @@ This creates a plan of bitvector fvars to be reverted, and their corresponding w
 structure BitVecFVarsToRevert where
   bvs : HashMap FVarId WidthInfo := {}
 
-def BitVecFVarsToRevert.push (this : BitVecFVarsToRevert) (fvar : FVarId) (widthInfo : WidthInfo) : BitVecFVarsToRevert :=
+meta def BitVecFVarsToRevert.push (this : BitVecFVarsToRevert) (fvar : FVarId) (widthInfo : WidthInfo) : BitVecFVarsToRevert :=
   if this.bvs.contains fvar then  this
   else { bvs := this.bvs.insert fvar widthInfo }
 
@@ -143,7 +143,7 @@ def BitVecFVarsToRevert.push (this : BitVecFVarsToRevert) (fvar : FVarId) (width
 Visit the expression collecting widths, introducing masks,
 and then eliminating them all in the next step.
 -/
-def visitExprNonrec (ctx : PbvTranslateContext) (g : MVarId)
+meta def visitExprNonrec (ctx : PbvTranslateContext) (g : MVarId)
     (widthInfos : WidthInfos) (bvs : BitVecFVarsToRevert)
     (e : Expr) :
     MetaM (MVarId × WidthInfos × BitVecFVarsToRevert) := g.withContext do
@@ -162,7 +162,7 @@ Visit an expression, collecting all widths and introducing mask variables.
 For bitvectors, collect the bitvectors that need to be eliminated,
 and then eliminate them all in the next step.
 -/
-partial def visitExprRec (ctx : PbvTranslateContext) (g : MVarId)
+meta partial def visitExprRec (ctx : PbvTranslateContext) (g : MVarId)
     (widthInfos : WidthInfos) (bvs : BitVecFVarsToRevert)
     (e : Expr) :
     MetaM (MVarId × WidthInfos × BitVecFVarsToRevert) := g.withContext do
@@ -179,7 +179,7 @@ partial def visitExprRec (ctx : PbvTranslateContext) (g : MVarId)
 Translate width precondition into BitVec hypothesis.
 TODO: consider more complicated exprs that might have additions...
 -/
-def translateWidthPrecond (winfos : WidthInfos) (g : MVarId) (ldecl : LocalDecl)  :
+meta def translateWidthPrecond (winfos : WidthInfos) (g : MVarId) (ldecl : LocalDecl)  :
     MetaM (MVarId) := g.withContext do
   match_expr ldecl.type with
   | LT.lt ty _inst ea eb =>
@@ -203,7 +203,7 @@ def translateWidthPrecond (winfos : WidthInfos) (g : MVarId) (ldecl : LocalDecl)
     return g
   | _ => return g
 
-def translateWidthPreconds (winfos: WidthInfos)
+meta def translateWidthPreconds (winfos: WidthInfos)
     (g : MVarId) : MetaM MVarId := g.withContext do
   let mut g := g
   for ldecl in ← getLCtx do
@@ -212,7 +212,7 @@ def translateWidthPreconds (winfos: WidthInfos)
 /--
 eliminate the bitvector variables to introduce the masked versions
 -/
-def introMaskedBitvectors (ctx : PbvTranslateContext)
+meta def introMaskedBitvectors (ctx : PbvTranslateContext)
     (bvs : BitVecFVarsToRevert) (g : MVarId) : MetaM (MVarId × BitVecInfos) := do
   bvs.bvs.foldM (init := (g, {})) fun (g, bvInfos) bvFvarId widthInfo =>
     introBitvecFVarUnchecked ctx g bvInfos bvFvarId widthInfo
@@ -221,7 +221,7 @@ def introMaskedBitvectors (ctx : PbvTranslateContext)
 These rewrites introduce the toplevel equality that convers `a = b` into
 `a.setWidth o &&& mask = b.setWidth o &&& mask`, which kickstarts the pushing process.
 -/
-def addToplevelRewrites (g : MVarId) (ctx : PbvTranslateContext) (simp : SimpTheoremsArray) :
+meta def addToplevelRewrites (g : MVarId) (ctx : PbvTranslateContext) (simp : SimpTheoremsArray) :
     MetaM SimpTheoremsArray := g.withContext do
   let mut simp := simp
   simp ← simp.addTheorem (.other ``eq_iff) <| (← mkAppM ``eq_iff #[mkNatLit ctx.bmcBound])
@@ -269,7 +269,7 @@ meta def applySimp (g : MVarId) (simp : SimpTheoremsArray) : MetaM MVarId := g.w
     | throwError "goal solved by simp"
   return g
 
-def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVarId) := g.withContext do
+meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVarId) := g.withContext do
   -- throwError s!"Deciding with bound {ctx.bmcBound}"
   -- let (g, widthInfos) ← introMaskWidths ctx g
   -- Introduce bitvector variables
