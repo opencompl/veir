@@ -22,7 +22,7 @@ theorem eq_iff (o : Nat) {w : Nat} (h : w ≤ o) :
   apply propext
   exact ⟨fun hab => hab ▸ rfl, fun hab => BitVec.setWidth_inj h hab⟩
 
-/-- Inequality on the widths translates to inequality on the masks. -/
+/-- LT on the widths translates to the masks. -/
 theorem Nat_lt_eq_Mask_lt (o : Nat) {w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
     (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂) :
     (w₁ < w₂) = (m₁ < m₂) := by
@@ -32,6 +32,29 @@ theorem Nat_lt_eq_Mask_lt (o : Nat) {w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h�
   have := Nat.two_pow_pos w₁
   have := Nat.two_pow_pos w₂
   lia
+
+/-- LE on the widths translates to the masks. -/
+theorem Nat_le_eq_Mask_le (o : Nat) {w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
+    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂) :
+    (w₁ ≤ w₂) = (m₁ ≤ m₂) := by
+  subst m₁ m₂
+  rw [eq_iff_iff, BitVec.le_def, toNat_maskOfWidth h₁, toNat_maskOfWidth h₂,
+      ← Nat.pow_le_pow_iff_right (a := 2) (by lia)]
+  have := Nat.two_pow_pos w₁
+  have := Nat.two_pow_pos w₂
+  lia
+
+/-- GE on the widths translates to the masks. -/
+theorem Nat_ge_eq_Mask_ge (o : Nat) {w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
+    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂) :
+    (w₁ ≥ w₂) = (m₁ ≥ m₂) := by
+  grind [Nat_le_eq_Mask_le]
+
+/-- GT on the widths translates to the masks. -/
+theorem Nat_gt_eq_Mask_gt (o : Nat) {w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
+    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂) :
+    (w₁ > w₂) = (m₁ > m₂) := by
+  grind [Nat_lt_eq_Mask_lt]
 
 /-! ## Pushing `setWidth o` towards the leaves — leaves and width changes -/
 

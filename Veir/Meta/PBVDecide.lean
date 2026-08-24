@@ -183,26 +183,35 @@ meta partial def visitExprRec (ctx : PbvTranslateContext) (g : MVarId)
     return (g, widthInfos, bvs)
 
 /--
-Translate width precondition into BitVec hypothesis.
-TODO: Deal with constants.
+Match width relation.
 -/
-meta def translateWidthPrecond (winfos : WidthInfos) (g : MVarId) (ldecl : LocalDecl) :
-    MetaM (MVarId) := g.withContext do
-  match_expr ldecl.type with
-  | LT.lt ty _inst ea eb =>
-    if ty == mkConst ``Nat then
-      if let some wa := winfos.infos[ea]? then
-        if let some wb := winfos.infos[eb]? then
-          let (natLTHyp, g) ← g.withContext do
-            g.note (Name.mkSimple s!"bv_{wa.widthName}_lt_{wb.widthName}") ldecl.toExpr
-          let (#[_], g) ← g.revert #[natLTHyp] | throwError "Reverting shuold produce a single FVar."
-          return g
-    return g
-  | _ => return g
+meta def matchWidthRel (e : Expr) :
+    Option (Expr × Expr) :=
+  match_expr e with
+  | LT.lt ty _inst ea eb => if (ty.isConstOf ``Nat) then some (ea, eb) else none
+  | LE.le ty _inst ea eb => if (ty.isConstOf ``Nat) then some (ea, eb) else none
+  | GT.gt ty _inst ea eb => if (ty.isConstOf ``Nat) then some (ea, eb) else none
+  | GE.ge ty _inst ea eb => if (ty.isConstOf ``Nat) then some (ea, eb) else none
+  | _ => none
 
 /--
-Traverse the local context and translate any hypotheses on `Nat` widths into
-`BitVec` hypotheses.
+If a condition on the width hypothesis is found, and the widths are contained
+within the `WidthInfos` set, then duplicate the hypothesis and add it to the
+goal. This allows for a single call to Simp later.
+-/
+meta def translateWidthPrecond (winfos : WidthInfos) (g : MVarId) (ldecl : LocalDecl)
+    : MetaM (MVarId) := g.withContext do
+  if let some (ea, eb) := matchWidthRel ldecl.type then
+    let some wa := winfos.infos[ea]? | return g
+    let some wb := winfos.infos[eb]? | return g
+    let (natHyp, g) ← g.withContext do g.note (Name.mkSimple s!"bv_{wa.widthName}_{wb.widthName}") ldecl.toExpr
+    let (#[_], g) ← g.revert #[natHyp] | throwError "Reverting shuold produce a single FVar."
+    return g
+  else
+    return g
+
+/--
+Traverse the local context and add any width pre-conditions to the goal.
 -/
 meta def translateWidthPreconds (winfos: WidthInfos)
     (g : MVarId) : MetaM MVarId := g.withContext do
@@ -227,7 +236,11 @@ meta def addBoundRewrites (g : MVarId) (ctx : PbvTranslateContext) (simp : SimpT
     MetaM SimpTheoremsArray := g.withContext do
   let thms := #[
         ``eq_iff,
-        ``Nat_lt_eq_Mask_lt]
+        ``Nat_lt_eq_Mask_lt,
+        ``Nat_le_eq_Mask_le,
+        ``Nat_ge_eq_Mask_ge,
+        ``Nat_gt_eq_Mask_gt
+  ]
 
   thms.foldlM (init := simp) fun simps name =>
     return ← simps.addTheorem (.other name) <| ← mkAppM name #[mkNatLit ctx.bmcBound]
@@ -240,7 +253,12 @@ from the simp-set. This makes them user-extensible with no metaprogramming neede
 -/
 meta def addPushTheorems (g : MVarId) (simp : SimpTheoremsArray) :
     MetaM SimpTheoremsArray := g.withContext do
-  let others := #[``BitVec.setWidth_eq, ``setWidth_add, ``setWidth_setWidth]
+  let others := #[
+      ``BitVec.setWidth_eq,
+      ``setWidth_add,
+      ``setWidth_setWidth
+  ]
+
   let mut simp := simp
   for n in others do
     simp ← simp.addTheorem (.other n) (mkConst n [])
@@ -299,8 +317,6 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVa
 
   return [g] ++ (widthInfos.infos.values.map (·.hypWidthLeBoundMVarId))
 
-
-
 /--
 `pbv_decide` takes a `Nat` bound as input argument and uses it to translate a
 parametric bitvector formula, containing a single-width parameter, into a
@@ -341,9 +357,9 @@ theorem trace_double_zero_extend (p q r : Nat) (x : BitVec p)
 
 theorem trace_triple_zero_extend (p q r t : Nat) (x : BitVec p)
   (hr : t <= 8)
-  (hqr : q < r)
-  (hpq : p < q)
-  (hrt : r < t):
+  (hqr : q ≤ r)
+  (hpq : q > p)
+  (hrt : t ≥ r):
   ((x.zeroExtend q).zeroExtend r).zeroExtend t = x.zeroExtend t
   := by
   pbv_decide 8
