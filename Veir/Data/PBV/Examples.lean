@@ -124,7 +124,7 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
   have mp_mask := isMask_of_eq_maskOfWidth h_mp
 -- Step 5B: Translate the condition on the natural number width
 --   into a fact about the bitvector masks
-  have le_pq := mask_lt_mask p_le_bw q_le_bw h_mp h_mq hpq
+  have lt_pq := mask_lt_mask p_le_bw q_le_bw h_mp h_mq hpq
   simp only [isMask_eq] at mr_mask mq_mask mp_mask
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [

@@ -4,9 +4,10 @@ public import Veir.Data.PBV.Lemmas
 
 /-! # Masks as bitvector variables constrained by `m &&& (m + 1) = 0`.
 
-A width `w` is represented by the mask `2^w - 1` of the blast width, and the
-constraint `m &&& (m + 1) = 0` is the only fact about that mask the bitblaster
-is given. See `Veir.Data.PBV` for the pipeline this step belongs to.
+A width `w` is represented by the mask `2^w - 1` of the blast width, and it is
+encoded as a bitvector constraint `m &&& (m + 1) = 0` which the bitblaster
+can reason about. Other relations between bitwidths are encoded as bitvector
+inequalities and equalities.
 -/
 
 namespace Veir.Data.PBV
@@ -58,7 +59,6 @@ theorem maskOfWidth_lt_maskOfWidth {o w₁ w₂ : Nat} (h₁ : w₁ ≤ o) (h₂
 theorem mask_lt_mask {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
     (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
     (hw : w₁ < w₂) : m₁ < m₂ := by
-  subst m₁ m₂
   grind only [maskOfWidth_lt_maskOfWidth]
 
 /-- ANDing with `maskOfWidth o w` keeps exactly the low `w` bits. -/
