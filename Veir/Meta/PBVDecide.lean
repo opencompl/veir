@@ -11,6 +11,9 @@ namespace Veir.Data.PBV
 Information about the width variable and associated hypotheses.
 -/
 structure WidthInfo where
+  /-- The Name correspodning to this width. -/
+  widthName : Name
+  /-- The Expr corresponding to this width. -/
   widthExpr : Expr
   /-- The FVarId corresponding to the new mask variable for this width. -/
   widthMaskFvar : FVarId
@@ -36,30 +39,34 @@ meta structure PbvTranslateContext where
   /-- The bound upto which we want to bitblast our widths. -/
    bmcBound : Nat
 
-meta def introMaskWidth (ctx : PbvTranslateContext) (g : MVarId) (ldecl : Expr) (infos : WidthInfos)
+meta def introMaskWidth (ctx : PbvTranslateContext) (g : MVarId) (widthExpr : Expr) (infos : WidthInfos)
   : MetaM (MVarId × WidthInfo × WidthInfos) := g.withContext do
-    -- TODO: check that the value has Nat.
+    -- Retrieve the ldecl from the context
+    let ldecl ← getFVarLocalDecl widthExpr
+    -- Check that the Expr is of type Nat.
+    assert! ldecl.type == (mkConst ``Nat)
     let [g] ← g.withContext do
-      g.apply <| ← mkAppM ``width_elim #[mkNatLit ctx.bmcBound, ldecl, ← g.getType]
+      g.apply <| ← mkAppM ``width_elim #[mkNatLit ctx.bmcBound, widthExpr, ← g.getType]
       | throwError "width_elim should generate a goal"
     -- Intros
-    let maskName := Name.mkSimple s!"maskWidth_new_var" -- TODO: find the name if it's an Fvar, and otherwise abstract it into a new name.
+    let maskName := Name.mkSimple s!"m{ldecl.userName}"
     let (mask, g) ← g.withContext do g.intro maskName
     let (maskHyp, g) ← g.withContext do g.intro (Name.mkSimple s!"h_{maskName}")
     -- Define bounding conditions.
-    let hypWidthLeBound <- g.withContext do
+    let hypWidthLeBound ← g.withContext do
       -- Add a meaninful name using : (userName := Name.mkSimple "foo")
       mkFreshExprMVar (kind := .syntheticOpaque) (mkAppN (Expr.const ``LE.le [.zero])
-        #[mkConst ``Nat, mkConst ``instLENat, ldecl, mkNatLit ctx.bmcBound])
+        #[mkConst ``Nat, mkConst ``instLENat, widthExpr, mkNatLit ctx.bmcBound])
     g.withContext <| check hypWidthLeBound
-    let (hypWidthLeBoundNote, g) ← g.withContext do g.note (Name.mkSimple s!"hack_hyp_width_le_bound_{maskName}") hypWidthLeBound
+    let (hypWidthLeBoundNote, g) ← g.withContext do g.note (Name.mkSimple s!"h_{ldecl.userName}_le_bound") hypWidthLeBound
     g.withContext <| check (mkFVar hypWidthLeBoundNote)
     -- Assert the BitVec mask constraint.
     let hypExpr ← g.withContext do mkAppM ``isMask_of_eq_maskOfWidth #[mkFVar maskHyp]
-    let (_hIsMaskOfEq, g) ← g.withContext do g.note (Name.mkSimple s!"h_isMask_of_eq_{maskName}") hypExpr
+    let (_hIsMaskOfEq, g) ← g.withContext do g.note (Name.mkSimple s!"h_{maskName}_isMask") hypExpr
 
     let info : WidthInfo := {
-      widthExpr := ldecl,
+      widthName := ldecl.userName,
+      widthExpr := widthExpr,
       widthMaskFvar := mask,
       widthMaskHypFvar := maskHyp
       hypWidthLeBoundMVarId := hypWidthLeBound.mvarId!,
@@ -124,7 +131,8 @@ meta def introBitvecFVarUnchecked (ctx : PbvTranslateContext) (g : MVarId)
   -- Intros
   let name ← oldVar.getUserName
   let (bvVar, g) ← g.withContext <| g.intro name
-  let (bvHyp, g) ← g.withContext <| g.intro <| Name.mkSimple s!"h_m{name}"
+  let widthMaskName ← widthInfo.widthMaskFvar.getUserName
+  let (bvHyp, g) ← g.withContext <| g.intro <| Name.mkSimple s!"h_{name}_{widthMaskName}"
   return (g, bvInfos.push { bvVar, bvHyp })
 
 /--
@@ -138,8 +146,9 @@ meta def BitVecFVarsToRevert.push (this : BitVecFVarsToRevert) (fvar : FVarId) (
   else { bvs := this.bvs.insert fvar widthInfo }
 
 /--
-Visit the expression collecting widths, introducing masks,
-and then eliminating them all in the next step.
+Given an expression, if it is of `BitVec w` type then create a mask for the
+width `w`. If it is also an FVar, then it means it's a variable hence it has to
+be added to the set of FVars to be reverted.
 -/
 meta def visitExprNonrec (ctx : PbvTranslateContext) (g : MVarId)
     (widthInfos : WidthInfos) (bvs : BitVecFVarsToRevert)
@@ -175,15 +184,12 @@ meta partial def visitExprRec (ctx : PbvTranslateContext) (g : MVarId)
 
 /--
 Translate width precondition into BitVec hypothesis.
-TODO: consider more complicated exprs that might have additions...
+TODO: consider more complicated width exprs.
 -/
-meta def translateWidthPrecond (winfos : WidthInfos) (g : MVarId) (ldecl : LocalDecl)  :
+meta def translateWidthPrecond (winfos : WidthInfos) (g : MVarId) (ldecl : LocalDecl) :
     MetaM (MVarId) := g.withContext do
   match_expr ldecl.type with
   | LT.lt ty _inst ea eb =>
-    -- ea ≤ eb
-    -- translate ea
-    -- translate eb
     -- note the mask theorem for this particular.
     if ty == mkConst ``Nat then
       if let some wa := winfos.infos[ea]? then
@@ -194,8 +200,8 @@ meta def translateWidthPrecond (winfos : WidthInfos) (g : MVarId) (ldecl : Local
               .fvar wb.hypWidthLeBoundNote,
               .fvar wa.widthMaskHypFvar,
               .fvar wb.widthMaskHypFvar,
-              (.fvar ldecl.fvarId)]
-          let (_mask_hyp, g) ← g.withContext do g.note (Name.mkSimple s!"bv_{ea}_lt_{eb}") (← bvLTExpr) -- discard hyp, not needed
+              .fvar ldecl.fvarId]
+          let (_mask_hyp, g) ← g.withContext do g.note (Name.mkSimple s!"bv_{wa.widthName}_lt_{wb.widthName}") (← bvLTExpr)
           logInfo m!"Translated {ldecl.toExpr} : {ldecl.type} to bitvec"
           return g
     return g
@@ -224,6 +230,7 @@ meta def addToplevelRewrites (g : MVarId) (ctx : PbvTranslateContext) (simp : Si
   let mut simp := simp
   simp ← simp.addTheorem (.other ``eq_iff) <| (← mkAppM ``eq_iff #[mkNatLit ctx.bmcBound])
   return simp
+
 /--
 Add theorems to the Simp theorem context that push the `setWidth`s in.
 TODO: make this a simp-set, called `pbv_push`, and just gather these
@@ -294,10 +301,10 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVa
 parametric bitvector formula, containing a single-width parameter, into a
 concrete width formula.
 
-The tactic generates two goals:
+The tactic generates multiple goals:
 1. The desired concrete width formula that can be decided using `bv_decide`
-2. A side-goal to prove that the width parameter is bounded by the provided
-bound, this should be solvable by grind.
+2. Multiple side-goals to prove that the width parameters are bounded by the
+provided bound, these should be solvable by grind.
 -/
 syntax (name := pbvDecide) "pbv_decide" (ppSpace colGt num) : tactic
 
@@ -323,6 +330,20 @@ theorem trace_double_zero_extend (p q r : Nat) (x : BitVec p)
   := by
   pbv_decide 8
   · bv_decide
+  · grind
+  · grind
+  · grind
+
+theorem trace_triple_zero_extend (p q r t : Nat) (x : BitVec p)
+  (hr : t <= 8)
+  (hqr : q < r)
+  (hpq : p < q)
+  (hrt : r < t):
+  ((x.zeroExtend q).zeroExtend r).zeroExtend t = x.zeroExtend t
+  := by
+  pbv_decide 8
+  · bv_decide
+  · grind
   · grind
   · grind
   · grind
