@@ -69,24 +69,10 @@ Look up the region metadata fact stored at the entry block of `region`.
 Returns `none` when the region has no entry block or when region metadata has
 not been attached to that entry block.
 -/
-private def getRegionMetadataFact? [FactSpec .regionMetadata] (region : RegionPtr)
+def getRegionMetadataFact? [FactSpec .regionMetadata] (region : RegionPtr)
     (dfCtx : DataFlowContext)
     (irCtx : WfIRContext OpCode) : Option RegionMetadataFact :=
   (region.get! irCtx.raw).firstBlock >>= dfCtx.getFact? .regionMetadata ∘ .BlockPtr
-
-/--
-The blocks of `region` in reverse postorder, which is a dominance order: every
-block follows all of the blocks that dominate it.
-
-Blocks unreachable from the region's entry are omitted, as is every block of a
-region the analysis never ran over.
--/
-def blocksInReversePostOrder [FactSpec .regionMetadata]
-    (region : RegionPtr) (dfCtx : DataFlowContext)
-    (irCtx : WfIRContext OpCode) : Array BlockPtr :=
-  match region.getRegionMetadataFact? dfCtx irCtx with
-  | none => #[]
-  | some metadata => (metadata.postOrderIndex.toArray.qsort (·.2 > ·.2)).map (·.1)
 
 end RegionPtr
 

@@ -194,7 +194,10 @@ partial def opsInDominanceOrder
     (irCtx : WfIRContext OpCode) : Array OperationPtr := Id.run do
   let mut ops := #[]
   for region in (op.get! irCtx.raw).regions do
-    for block in region.blocksInReversePostOrder dfCtx irCtx do
+    let mut blocks := #[]
+    if let some metadata := region.getRegionMetadataFact? dfCtx irCtx then
+      blocks := (metadata.postOrderIndex.toArray.qsort (·.2 > ·.2)).map (·.1)
+    for block in blocks do
       let mut currentOp := (block.get! irCtx.raw).firstOp
       while let some innerOp := currentOp do
         ops := ops.push innerOp
