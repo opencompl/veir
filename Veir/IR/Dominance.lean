@@ -1,6 +1,7 @@
 module
 
 public import Veir.Analysis.DataFlow.DominanceAnalysis
+public import Veir.Interfaces.RegionKindInterfaces
 
 public section
 
@@ -81,23 +82,35 @@ private def dominatesWithinBlock
         false
 
 /--
-Dominance query between two insertion points.
+Proper dominance query between two insertion points.
 
 If `point` lies in a nested region outside the region containing `dominator`, it
 is normalized into the dominator's region by replacing it with the enclosing
 operation position. Once both insertion points lie in the same region,
 dominance is decided by same block insertion point order or by block
 dominance.
+
+In a graph region there is no ordering between points, so every point in the
+region properly dominates every other, including itself.
+
+If `enclosingOk` is set, `dominator` properly dominates `point` when it encloses
+it. Callers checking that a definition dominates a use pass `false`, since an
+operation's results are not available inside its own regions.
 -/
-private def dominates
+private def properlyDominates
     (dominator : InsertPoint)
     (point : InsertPoint)
     (dfCtx : DataFlowContext)
-    (irCtx : WfIRContext OpCode) : Bool := Id.run do
+    (irCtx : WfIRContext OpCode)
+    (enclosingOk : Bool := true) : Bool := Id.run do
   let some dominatorBlock := dominator.block! irCtx.raw
     | return false
   let some dominatorRegion := (dominatorBlock.get! irCtx.raw).parent
     | return false
+  let hasSSADominance := dominatorRegion.hasSSADominance irCtx
+
+  if dominator = point then
+    return !hasSSADominance
 
   -- If the point does not lie in the same region as `dominator`, scoot up
   -- the point's region tree until we find a location in the dominator's
@@ -108,22 +121,26 @@ private def dominates
   let some pointBlock := point.block! irCtx.raw
     | return false
 
+  if dominator = point then
+    return enclosingOk || !hasSSADominance
+
   if dominatorBlock = pointBlock then
-    dominator.dominatesWithinBlock point irCtx
+    return !hasSSADominance || dominator.dominatesWithinBlock point irCtx
   else
     return dominatorBlock.dominatesWithinRegion pointBlock dfCtx irCtx
 
 /--
-Proper dominance query between two insertion points.
+Dominance query between two insertion points.
 
-An insertion point does not properly dominate itself. Otherwise this is the same query as `InsertPoint.dominates`.
+A point always dominates itself. Otherwise this is the same query as
+`InsertPoint.properlyDominates`.
 -/
-private def properlyDominates
+private def dominates
     (dominator : InsertPoint)
     (point : InsertPoint)
     (dfCtx : DataFlowContext)
     (irCtx : WfIRContext OpCode) : Bool :=
-  dominator ≠ point && dominator.dominates point dfCtx irCtx
+  dominator = point || dominator.properlyDominates point dfCtx irCtx
 
 
 end InsertPoint
@@ -180,8 +197,10 @@ Dominance query between two operations, where an operation does not dominate its
 def properlyDominates
     (dominator op : OperationPtr)
     (dfCtx : DataFlowContext)
-    (irCtx : WfIRContext OpCode) : Bool :=
+    (irCtx : WfIRContext OpCode)
+    (enclosingOk : Bool := true) : Bool :=
   (InsertPoint.before dominator).properlyDominates (InsertPoint.before op) dfCtx irCtx
+    enclosingOk
 
 /-- Collect nested operations in reverse postorder. Unreachable blocks
 are omitted.  A region with no dominance metadata (including an empty
@@ -219,7 +238,7 @@ def properlyDominatesUse
     (irCtx : WfIRContext OpCode) : Bool :=
   match value with
   | .opResult result =>
-      result.op.properlyDominates op dfCtx irCtx
+      result.op.properlyDominates op dfCtx irCtx (enclosingOk := false)
   | .blockArgument argument =>
       (InsertPoint.atStart! argument.block irCtx.raw).dominates (.before op) dfCtx irCtx
 

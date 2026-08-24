@@ -21,6 +21,15 @@ private structure ExpectedOperationDominance where
   properDom : Bool
 
 /--
+Whether a block properly dominates itself, which it does exactly when it sits in
+a graph region: there is no ordering between points in such a region.
+-/
+private def selfProperlyDominates (block : BlockPtr) (irCtx : WfIRContext OpCode) : Bool :=
+  match (block.get! irCtx.raw).parent with
+  | none => false
+  | some region => !region.hasSSADominance irCtx
+
+/--
 Compare one expected dominator label against the observed dominance information.
 
 This is the completeness half of the reachable block check: every expected
@@ -35,7 +44,7 @@ private def compareExpectedDominator
     (irCtx : WfIRContext OpCode) : MismatchReport := Id.run do
   let some expectedBlock := recovered.blocks[expectedDom]?
     | return #[s!"dominators {expected.name}: missing block label {expectedDom}"]
-  let shouldProperlyDom := expectedDom ≠ expected.name
+  let shouldProperlyDom := expectedDom ≠ expected.name || selfProperlyDominates block irCtx
   let mut report := #[]
   if !expectedBlock.dominates block dfCtx irCtx then
     report := report.push s!"dominators {expected.name}: missing expected dominator {expectedDom}"
@@ -60,12 +69,14 @@ private def compareObservedDominator
   let observedByRelation := observedBlock.dominates block dfCtx irCtx
   let observedProperly := observedBlock.properlyDominates block dfCtx irCtx
   let mut report := #[]
-  if observedProperly ≠ (observedByRelation && observedBlock ≠ block) then
+  let selfProper := selfProperlyDominates block irCtx
+  if observedProperly ≠ (observedByRelation && (observedBlock ≠ block || selfProper)) then
     report := report.push
       s!"dominators {expected.name}: dominates/properlyDominates disagree on {observedName}"
   if observedByRelation && !expected.doms.contains observedName then
     report := report.push s!"dominators {expected.name}: unexpected dominator {observedName}"
-  if observedProperly && (!expected.doms.contains observedName || observedName = expected.name) then
+  if observedProperly &&
+      (!expected.doms.contains observedName || (observedName = expected.name && !selfProper)) then
     report := report.push s!"dominators {expected.name}: unexpected proper dominator {observedName}"
   report
 
@@ -521,12 +532,12 @@ def testOpDomNestedRegions : String :=
     %siblingInner = "test.test"() : () -> i32
   }) : () -> i32
 }) : () -> ()"#
-    #[ { dominator := "outer",      dominated := "outer",        dominates := true,  properDom := false }
+    #[ { dominator := "outer",      dominated := "outer",        dominates := true,  properDom := true  }
      , { dominator := "outer",      dominated := "inner",        dominates := true,  properDom := true  }
      , { dominator := "outer",      dominated := "otherOuter",   dominates := true,  properDom := true  }
      , { dominator := "outer",      dominated := "siblingInner", dominates := true,  properDom := true  }
      , { dominator := "inner",      dominated := "siblingInner", dominates := false, properDom := false }
-     , { dominator := "otherOuter", dominated := "inner",        dominates := false, properDom := false }
+     , { dominator := "otherOuter", dominated := "inner",        dominates := true,  properDom := true  }
      , { dominator := "otherOuter", dominated := "siblingInner", dominates := true,  properDom := true  }
      ]
 
@@ -547,7 +558,7 @@ def testOpDomTwoLevelNested : String :=
     #[ { dominator := "top",    dominated := "middle", dominates := true, properDom := true  }
      , { dominator := "top",    dominated := "leaf",   dominates := true, properDom := true  }
      , { dominator := "middle", dominated := "leaf",   dominates := true, properDom := true  }
-     , { dominator := "leaf",   dominated := "leaf",   dominates := true, properDom := false }
+     , { dominator := "leaf",   dominated := "leaf",   dominates := true, properDom := true  }
      ]
 
 /-
