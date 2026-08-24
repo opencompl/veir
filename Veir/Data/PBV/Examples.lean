@@ -48,15 +48,15 @@ theorem trace_add_comm_manual (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
   bv_decide
 
 theorem trace_double_zero_extend (p q r : Nat) (x : BitVec p)
-  (hr : r <= 8)
+  (hr : r ≤ 8)
   (hqr : q < r)
   (hpq : p < q) :
   (x.zeroExtend q).zeroExtend r = x.zeroExtend r
   := by
 -- Step 1: Bound widths to the provided blast width
-  have r_le_bw : r <= 8 := by grind
-  have q_le_bw : q <= 8 := by grind
-  have p_le_bw : p <= 8 := by grind
+  have r_le_bw : r ≤ 8 := by grind
+  have q_le_bw : q ≤ 8 := by grind
+  have p_le_bw : p ≤ 8 := by grind
 -- Step 2-3: Introduce mask to replace `w` Nat var
   apply width_elim 8 r
   intro mr h_mr
@@ -97,15 +97,15 @@ theorem trace_double_zero_extend (p q r : Nat) (x : BitVec p)
   bv_decide
 
 theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
-  (hr : r <= 8)
+  (hr : r ≤ 8)
   (hqr : q < r)
   (hpq : p < q) :
   (x.zeroExtend q).signExtend r = x.zeroExtend r
   := by
 -- Step 1: Bound widths to the provided blast width
-  have r_le_bw : r <= 8 := by grind
-  have q_le_bw : q <= 8 := by grind
-  have p_le_bw : p <= 8 := by grind
+  have r_le_bw : r ≤ 8 := by grind
+  have q_le_bw : q ≤ 8 := by grind
+  have p_le_bw : p ≤ 8 := by grind
 -- Step 2-3: Introduce mask to replace `w` Nat var
   apply width_elim 8 r
   intro mr h_mr
@@ -129,8 +129,8 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [
     eq_iff r_le_bw,
-    setWidth_signExtend_eq_and_maskOfWidth,          -- Push `setWidth` down signExtend
-    msb_eq_and_maskOfWidth_ne_zero q_le_bw,          -- Replace the sign bit test with a mask test
+    setWidth_signExtend_eq_and_maskOfWidth,                -- Push `setWidth` down signExtend
+    msb_eq_and_signBitOfMask_maskOfWidth_ne_zero q_le_bw,  -- Replace the sign bit test with a mask test
     setWidth_setWidth r_le_bw,
     setWidth_setWidth q_le_bw,
     setWidth_setWidth p_le_bw,

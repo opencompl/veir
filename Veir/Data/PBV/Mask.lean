@@ -81,7 +81,7 @@ the index 'i' is inbounds of `o` and `w`. -/
   grind only
 
 /-- The 'i'th bit of `maskOfWidth o w` is enabled iff
-the index 'i' is inbounds of `o` and `w`. -/
+the index 'i' is inbounds of `w`. -/
 @[simp] theorem getElem_maskOfWidth {o w : Nat} (i : Nat) (hi : i < o) :
     (maskOfWidth o w)[i] = decide (i < w) := by
   rw [← BitVec.getLsbD_eq_getElem, getLsbD_maskOfWidth]
@@ -94,7 +94,7 @@ the index 'i' is inbounds of `o` and `w`. -/
 /-! ## The sign bit helpers -/
 
 /-- `signBitOfMask m` keeps only the top bit of the mask `m`.
-This is used to extract the sign bit of a width `m` bitvector. -/
+This is used to extract the sign bit of a width `o` bitvector. -/
 @[expose] def signBitOfMask {o : Nat} (m : BitVec o) := m - (m >>> 1)
 
 /-- The zero bitvector, which is the mask of width `0`, has no sign bit. -/

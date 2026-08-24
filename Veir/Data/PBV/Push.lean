@@ -67,7 +67,7 @@ theorem setWidth_signExtend_eq_and_maskOfWidth {t v o: Nat} (hvo : v ≤ o) :
 
 /-- `a.msb` can be implemented by masking the sign bit,
 which are definitions the bitblaster can see. -/
-theorem msb_eq_and_maskOfWidth_ne_zero {w o : Nat} (h : w ≤ o) :
+theorem msb_eq_and_signBitOfMask_maskOfWidth_ne_zero {w o : Nat} (h : w ≤ o) :
     ∀ (a : BitVec w),
       a.msb = (((a.setWidth o) &&& signBitOfMask (maskOfWidth o w)) != 0#o) := by
   intro a
