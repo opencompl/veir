@@ -47,6 +47,8 @@ theorem trace_add_comm_manual (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
 -- Step 8: Bitblast!
   bv_decide
 
+/-- Manual trace of a zero extension to `q` followed by a zero extension to `r`,
+    which is a single zero extension to `r`, for all widths `p < q < r ≤ 8` -/
 theorem trace_double_zero_extend (p q r : Nat) (x : BitVec p)
   (hr : r ≤ 8)
   (hqr : q < r)
@@ -75,7 +77,7 @@ theorem trace_double_zero_extend (p q r : Nat) (x : BitVec p)
   have mp_mask := isMask_of_eq_maskOfWidth h_mp
 -- Step 5B: Translate the condition on the natural number width
 --   into a fact about the bitvector masks
-  have le_pq := mask_lt_mask p_le_bw q_le_bw h_mp h_mq hpq
+  have lt_pq := mask_lt_mask p_le_bw q_le_bw h_mp h_mq hpq
   simp only [isMask_eq] at mr_mask mq_mask mp_mask
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [
@@ -93,9 +95,12 @@ theorem trace_double_zero_extend (p q r : Nat) (x : BitVec p)
   clear h_mp h_mq h_mr
   clear hr hqr hpq r_le_bw q_le_bw p_le_bw
   clear p q r
--- Step 8:
+-- Step 8: Bitblast!
   bv_decide
 
+/-- Manual trace of a zero extension to `q` followed by a sign extension to `r`,
+    which is a single zero extension to `r`, since `p < q` leaves the sign bit
+    of the intermediate value clear -/
 theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
   (hr : r ≤ 8)
   (hqr : q < r)
@@ -130,7 +135,7 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
   simp only [
     eq_iff r_le_bw,
     setWidth_signExtend_eq_and_maskOfWidth,                -- Push `setWidth` down signExtend
-    msb_eq_and_signBitOfMask_maskOfWidth_ne_zero q_le_bw,  -- Replace the sign bit test with a mask test
+    msb_eq_and_signBitOfMask_maskOfWidth_ne_zero q_le_bw,  -- Sign bit test becomes a mask test
     setWidth_setWidth r_le_bw,
     setWidth_setWidth q_le_bw,
     setWidth_setWidth p_le_bw,
@@ -147,5 +152,5 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
   clear h_mp h_mq h_mr
   clear hr hqr hpq r_le_bw q_le_bw p_le_bw
   clear p q r
--- Step 8:
+-- Step 8: Bitblast!
   bv_decide

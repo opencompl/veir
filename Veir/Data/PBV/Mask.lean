@@ -24,8 +24,8 @@ def IsMask {o : Nat} (m : BitVec o) : Prop := m &&& (m + 1#o) = 0#o
 /-- Unfold `IsMask` into the constraint handed to the bitblaster. -/
 theorem isMask_eq {o : Nat} (m : BitVec o) :
     IsMask m = (m &&& (m + 1#o) = 0#o) := by
-    unfold IsMask
-    rfl
+  unfold IsMask
+  rfl
 
 theorem toNat_maskOfWidth {o w : Nat} (h : w ≤ o) :
     (maskOfWidth o w).toNat = 2 ^ w - 1 := by
@@ -47,7 +47,7 @@ theorem isMask_of_eq_maskOfWidth {o w : Nat} {m : BitVec o}
   subst hm
   exact isMask_maskOfWidth
 
-/-- maskOfWidth is monotone with respect to unsigned bitvec comparison. -/
+/-- `maskOfWidth` is monotone with respect to unsigned bitvec comparison. -/
 theorem maskOfWidth_lt_maskOfWidth {o w₁ w₂ : Nat} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
     (h : w₁ < w₂) : maskOfWidth o w₁ < maskOfWidth o w₂ := by
   rw [BitVec.lt_def, toNat_maskOfWidth h₁, toNat_maskOfWidth h₂]
@@ -73,15 +73,15 @@ theorem setWidth_eq_and_maskOfWidth {o w : Nat} {a : BitVec w} {b : BitVec o}
   apply BitVec.eq_of_toNat_eq
   rw [toNat_and_maskOfWidth h, BitVec.toNat_setWidth_of_le h, hab]
 
-/-- The 'i'th bit of `maskOfWidth o w` is enabled iff
-the index 'i' is inbounds of `o` and `w`. -/
+/-- The `i`th bit of `maskOfWidth o w` is enabled iff
+the index `i` is inbounds of `o` and `w`. -/
 @[simp] theorem getLsbD_maskOfWidth {o w : Nat} (i : Nat) :
     (maskOfWidth o w).getLsbD i = (decide (i < w) && decide (i < o)) := by
   rw [maskOfWidth, BitVec.getLsbD_ofNat, Nat.testBit_two_pow_sub_one]
   grind only
 
-/-- The 'i'th bit of `maskOfWidth o w` is enabled iff
-the index 'i' is inbounds of `w`. -/
+/-- The `i`th bit of `maskOfWidth o w` is enabled iff
+the index `i` is inbounds of `w`. -/
 @[simp] theorem getElem_maskOfWidth {o w : Nat} (i : Nat) (hi : i < o) :
     (maskOfWidth o w)[i] = decide (i < w) := by
   rw [← BitVec.getLsbD_eq_getElem, getLsbD_maskOfWidth]
@@ -101,10 +101,8 @@ This is used to extract the sign bit of a width `o` bitvector. -/
 @[simp] theorem signBitOfMask_zero {o : Nat} : signBitOfMask (0#o) = 0#o := by
   simp [signBitOfMask]
 
-/--
-The `Nat` denotation of `signBitOfMask` of a mask of width `w`
-is given by `2^w` minus `2^(w - 1)`.
--/
+/-- The `Nat` denotation of `signBitOfMask` of a mask of width `w`
+is given by `2^w` minus `2^(w - 1)`. -/
 theorem toNat_signBitOfMask_maskOfWidth {o w : Nat} (h : w ≤ o) :
     (signBitOfMask (maskOfWidth o w)).toNat = 2 ^ w - 2 ^ (w - 1) := by
   rw [signBitOfMask, BitVec.toNat_sub_of_le (BitVec.ushiftRight_one_le _),
