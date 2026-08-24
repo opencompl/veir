@@ -224,17 +224,16 @@ attribute [simp] OpCode.verifyLocalInvariants HasOpInfo.verifyLocalInvariants
   Llvm.verifyLocalInvariants Arith.verifyLocalInvariants Mod_Arith.verifyLocalInvariants
 
 /--
-Assert that the IR context verifies successfully for some root operation.
+Assert that the IR context verifies successfully with `root` as the root operation.
 -/
-def WfIRContext.Verified (ctx : WfIRContext OpCode) : Prop :=
-  ∃ root, ctx.verify root = .ok ()
+def WfIRContext.Verified (ctx : WfIRContext OpCode) (root : OperationPtr) : Prop :=
+  ctx.verify root = .ok ()
 
 /-- A verified context satisfies the same-parent successor check. -/
 private theorem WfIRContext.Verified.successorsHaveSameParent
-    {ctx : WfIRContext OpCode} (ctxVerified : ctx.Verified) :
+    {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root) :
     ctx.successorsHaveSameParent := by
-  obtain ⟨root, ctxVerified⟩ := ctxVerified
-  simp only [WfIRContext.verify] at ctxVerified
+  simp only [WfIRContext.Verified, WfIRContext.verify] at ctxVerified
   split at ctxVerified
   · trivial
   · grind
@@ -242,7 +241,7 @@ private theorem WfIRContext.Verified.successorsHaveSameParent
 /-- Every successor of a block in a verified context belongs to the block's parent region. -/
 @[grind →]
 theorem WfIRContext.Verified.successor_parent
-    {ctx : WfIRContext OpCode} (ctxVerified : ctx.Verified)
+    {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
     {source : BlockPtr} (sourceIn : source.InBounds ctx.raw)
     (hsourceParent : (source.get! ctx.raw).parent = some region)
     (hsuccessor : successor ∈ source.getSuccessors! ctx.raw) :
@@ -253,10 +252,9 @@ theorem WfIRContext.Verified.successor_parent
 
 /-- A verified context satisfies the single-block graph-region check. -/
 private theorem WfIRContext.Verified.graphRegionsHaveAtMostOneBlock
-    {ctx : WfIRContext OpCode} (ctxVerified : ctx.Verified) :
+    {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root) :
     ctx.graphRegionsHaveAtMostOneBlock := by
-  obtain ⟨root, ctxVerified⟩ := ctxVerified
-  simp only [WfIRContext.verify] at ctxVerified
+  simp only [WfIRContext.Verified, WfIRContext.verify] at ctxVerified
   split at ctxVerified
   · trivial
   · split at ctxVerified
@@ -266,7 +264,7 @@ private theorem WfIRContext.Verified.graphRegionsHaveAtMostOneBlock
 /-- The first and last block of a graph region in a verified context are the same. -/
 @[grind →]
 theorem WfIRContext.Verified.graph_region_firstBlock_eq_lastBlock
-    {ctx : WfIRContext OpCode} (ctxVerified : ctx.Verified)
+    {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
     {region : RegionPtr} (regionIn : region.InBounds ctx.raw)
     (hregionKind : ¬ region.hasSSADominance ctx) :
     (region.get! ctx.raw).firstBlock = (region.get! ctx.raw).lastBlock := by
@@ -287,7 +285,8 @@ If the context satisfies the invariants of all operations, any operation in boun
 -/
 @[grind →]
 axiom OperationPtr.satisfyInvariants_of_IRContext_satisfyOpInvariants {ctx : WfIRContext OpCode}
-    {op : OperationPtr} (ctxVerify : ctx.Verified) (opInBounds : op.InBounds ctx.raw := by grind) :
+    {op root : OperationPtr} (ctxVerify : ctx.Verified root)
+    (opInBounds : op.InBounds ctx.raw := by grind) :
     op.Verified ctx opInBounds
 
 /-!

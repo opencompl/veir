@@ -175,7 +175,8 @@ def LocalRewritePattern.PreservesSemantics
   (pattern : LocalRewritePattern OpCode)
   (_ : pattern.ReturnOps) (_ : pattern.ReturnCtxChanges)
   (_ : pattern.ReturnValuesInBounds) (_ : pattern.ReturnValues) : Prop :=
-  ∀ ctx (ctxDom : ctx.Dom) (ctxVerif : ctx.Verified) (op : OperationPtr) (opInBounds : op.InBounds ctx.raw),
+  ∀ ctx root (ctxDom : ctx.Dom) (ctxVerif : ctx.Verified root)
+    (op : OperationPtr) (opInBounds : op.InBounds ctx.raw),
   ∀ newCtx newOps newValues (hpattern : pattern ctx op = some (newCtx, some (newOps, newValues))),
   ∀ (state : InterpreterState ctx), state.EquationLemmaAt (InsertPoint.before op) →
   ∀ newState cf, interpretOp op state = some (newState, cf) →
@@ -206,7 +207,7 @@ def LocalRewritePattern.RewritePreservesVerified (pattern : LocalRewritePattern 
   ∀ (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) (rewriter' : PatternRewriter OpCode),
     RewritePattern.fromLocalRewrite pattern rewriter op opInBounds = some rewriter' →
-    rewriter.ctx.Verified → rewriter'.ctx.Verified
+    ∀ root, rewriter.ctx.Verified root → rewriter'.ctx.Verified root
 
 /--
 Preserves block-level dominance.
