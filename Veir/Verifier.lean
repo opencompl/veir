@@ -183,14 +183,9 @@ private def WfIRContext.verifyDominance
     let some block := (op.get ctx.raw opIn).parent | return
     let some region := (block.get! ctx.raw).parent | return
     if !region.hasSSADominance ctx then return
-    let some metadata := region.getRegionMetadataFact? dfCtx ctx | return
-    if !metadata.postOrderIndex.contains block then return
+    if !block.isReachable dfCtx ctx then return
     for (value, index) in (op.getOperands ctx.raw opIn).zipIdx do
-      let dominated :=
-        match value with
-        | .blockArgument arg => arg.block.dominates block dfCtx ctx
-        | .opResult result => result.op.properlyDominates op dfCtx ctx
-      if !dominated then
+      if !value.dominatesUse op dfCtx ctx then
         let opName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
         throw s!"{opName}: operand #{index} does not dominate this use"
 

@@ -69,11 +69,47 @@ Look up the region metadata fact stored at the entry block of `region`.
 Returns `none` when the region has no entry block or when region metadata has
 not been attached to that entry block.
 -/
-def getRegionMetadataFact? [FactSpec .regionMetadata] (region : RegionPtr) (dfCtx : DataFlowContext)
+private def getRegionMetadataFact? [FactSpec .regionMetadata] (region : RegionPtr)
+    (dfCtx : DataFlowContext)
     (irCtx : WfIRContext OpCode) : Option RegionMetadataFact :=
   (region.get! irCtx.raw).firstBlock >>= dfCtx.getFact? .regionMetadata ∘ .BlockPtr
 
+/--
+The blocks of `region` in reverse postorder, which is a dominance order: every
+block follows all of the blocks that dominate it.
+
+Blocks unreachable from the region's entry are omitted, as is every block of a
+region the analysis never ran over.
+-/
+def blocksInReversePostOrder [FactSpec .regionMetadata]
+    (region : RegionPtr) (dfCtx : DataFlowContext)
+    (irCtx : WfIRContext OpCode) : Array BlockPtr :=
+  match region.getRegionMetadataFact? dfCtx irCtx with
+  | none => #[]
+  | some metadata => (metadata.postOrderIndex.toArray.qsort (·.2 > ·.2)).map (·.1)
+
 end RegionPtr
+
+namespace BlockPtr
+
+/--
+Did the dominance analysis reach `block` from the entry of its enclosing region?
+
+The analysis numbers exactly the blocks it visits walking forward from the entry
+block, so being numbered is the reachability answer. This is `false` both for a
+block that is genuinely unreachable and for one in a region the analysis never
+ran over: in neither case is anything known about how control arrives at
+`block`, and dominance queries against it are meaningless rather than merely
+negative.
+-/
+def isReachable [FactSpec .regionMetadata]
+    (block : BlockPtr) (dfCtx : DataFlowContext)
+    (irCtx : WfIRContext OpCode) : Bool := Id.run do
+  let some region := (block.get! irCtx.raw).parent | return false
+  let some metadata := region.getRegionMetadataFact? dfCtx irCtx | return false
+  metadata.postOrderIndex.contains block
+
+end BlockPtr
 
 namespace DominatorFact
 

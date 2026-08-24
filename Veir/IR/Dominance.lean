@@ -194,10 +194,7 @@ partial def opsInDominanceOrder
     (irCtx : WfIRContext OpCode) : Array OperationPtr := Id.run do
   let mut ops := #[]
   for region in (op.get! irCtx.raw).regions do
-    let mut blocks := #[]
-    if let some metadata := region.getRegionMetadataFact? dfCtx irCtx then
-      blocks := (metadata.postOrderIndex.toArray.qsort (·.2 > ·.2)).map (·.1)
-    for block in blocks do
+    for block in region.blocksInReversePostOrder dfCtx irCtx do
       let mut currentOp := (block.get! irCtx.raw).firstOp
       while let some innerOp := currentOp do
         ops := ops.push innerOp
@@ -206,5 +203,31 @@ partial def opsInDominanceOrder
   return ops
 
 end OperationPtr
+
+namespace ValuePtr
+
+/--
+Does the definition of `value` dominate the use of it by `op`?
+
+An op result becomes available strictly after its defining operation, so it must
+*properly* dominate `op`. A block argument is available from its block's entry,
+so it dominates a use by that block's very first operation.
+
+This is the executable counterpart of the `ValuePtr.dominatesIp` relation in
+`Veir.Dominance`, specialized to the point before a using operation;
+`WfIRContext.Dom` is the closure of it over every operand of every operation.
+-/
+def dominatesUse
+    (value : ValuePtr)
+    (op : OperationPtr)
+    (dfCtx : DataFlowContext)
+    (irCtx : WfIRContext OpCode) : Bool :=
+  match value with
+  | .opResult result =>
+      result.op.properlyDominates op dfCtx irCtx
+  | .blockArgument argument =>
+      (InsertPoint.atStart! argument.block irCtx.raw).dominates (.before op) dfCtx irCtx
+
+end ValuePtr
 
 end Veir
