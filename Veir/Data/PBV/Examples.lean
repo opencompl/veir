@@ -34,7 +34,7 @@ theorem trace_add_comm_manual (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
   have mw_mask := isMask_of_eq_maskOfWidth h_mw
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [
-      eq_iff 4,             -- Introduce `setWidth` to goal
+      eq_iff (o := 4),             -- Introduce `setWidth` to goal
       setWidth_add,       -- Push `setWidth` down add
       setWidth_setWidth,  -- Push `setWidth` down setWidth
       BitVec.setWidth_eq,         -- Remove redundant setWidths
@@ -75,22 +75,21 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
   have mp_mask := isMask_of_eq_maskOfWidth h_mp
 -- Step 5B: Translate the condition on the natural number width
 --          into a fact about the bitvector masks
-  have le_pq := mask_lt_mask p_le_bw q_le_bw h_mp h_mq hpq
+  have bv_p_lt_q := mask_lt_mask p_le_bw q_le_bw h_mp h_mq hpq
 
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp  only [
     eq_iff (o := 8),
+    setWidth_setWidth (o := 8),
+    msb_eq_and_signBitOfMask_maskOfWidth_ne_zero (o := 8),          -- Replace the sign bit test with a mask test
     setWidth_signExtend_eq_and_maskOfWidth,          -- Push `setWidth` down signExtend
-    msb_eq_and_signBitOfMask_maskOfWidth_ne_zero q_le_bw,          -- Replace the sign bit test with a mask test
-    setWidth_setWidth r_le_bw,
-    setWidth_setWidth q_le_bw,
-    setWidth_setWidth p_le_bw,
     BitVec.zeroExtend_eq_setWidth,
     signBitOfMask,                 -- Unfold, else `bv_decide` abstracts it away
     BitVec.setWidth_eq,
+    p_le_bw,
     r_le_bw,
     q_le_bw,                       -- Lets simp discharge the `v ≤ o` side condition of
                                    -- `setWidth_signExtend_eq_and_maskOfWidth`
-  ]  at h_xmp ⊢
+  ] at h_xmp ⊢
 -- Step 7: Drop the Nat 'p', 'q', 'r'
   bv_decide
