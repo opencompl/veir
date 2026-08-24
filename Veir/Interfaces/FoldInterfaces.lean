@@ -138,16 +138,25 @@ def PatternRewriter.createOrFold! (rewriter : PatternRewriter OpCode) (opType : 
     (resultTypes : Array TypeAttr) (operands : Array ValuePtr)
     (blockOperands : Array BlockPtr) (regions : Array RegionPtr)
     (properties : propertiesOf opType) (insertionPoint : InsertPoint) :
-    Option (PatternRewriter OpCode × Array ValuePtr) :=
-  foldedResults <|> created
+    Option (PatternRewriter OpCode × Array ValuePtr) := do
+  match ← foldedResults with
+  | some folded => return folded
+  | none => created
 where
-  foldedResults : Option (PatternRewriter OpCode × Array ValuePtr) := do
+  /--
+  `none` is a hard failure; `some none` means the operation does not fold and
+  should be created instead.
+  -/
+  foldedResults : Option (Option (PatternRewriter OpCode × Array ValuePtr)) := do
     let constOperands := operands.map (ValuePtr.constantValue · rewriter.ctx.raw)
-    let some decision := opType.foldsTo properties resultTypes constOperands | none
-    guard <| decision.zipIdx.all fun (foldResult, index) =>
+    let some decision := opType.foldsTo properties resultTypes constOperands | return none
+    -- Check every constant up front, so that a dialect declining one result
+    -- cannot leave the constants materialized for earlier results behind.
+    let materializable := decision.zipIdx.all fun (foldResult, index) =>
       match foldResult with
       | .useOperand _ => true
       | .useConstant value => (opType.materializeConstant value resultTypes[index]!).isSome
+    unless materializable do return none
     let mut rewriter := rewriter
     let mut results : Array ValuePtr := #[]
     for (foldResult, index) in decision.zipIdx do
@@ -156,10 +165,10 @@ where
       | .useConstant value =>
         let (newRewriter, materialized) ←
           rewriter.materializeConstant! opType value resultTypes[index]! insertionPoint
-        let some constantOp := materialized | none
+        let some constantOp := materialized | return none
         rewriter := newRewriter
         results := results.push (constantOp.getResult 0)
-    return (rewriter, results)
+    return some (rewriter, results)
   created : Option (PatternRewriter OpCode × Array ValuePtr) := do
     let (rewriter, op) ← rewriter.createOp! opType resultTypes operands blockOperands regions
       properties (some insertionPoint)
