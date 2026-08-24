@@ -98,8 +98,6 @@ meta structure BitVecInfos where
 meta def BitVecInfos.push (this : BitVecInfos) (val : BitVecInfo) : BitVecInfos :=
   { this with infos := this.infos.push val }
 
-
-
 /--
 Match on an expression, and if it is a `BitVec w`, return the `w`.
 Otherwise, return `none`.
@@ -310,37 +308,6 @@ public meta def evalPbvDecide : Tactic := fun stx => do
       let ctx : PbvTranslateContext := { bmcBound := n.getNat }
       replaceMainGoal (← pbvTranslate (← getMainGoal) ctx)
   | _ => throwUnsupportedSyntax
-
-
-/-- Manual trace of the future tactic, transforming an unbounded parametric width
-    statement into a bounded one and solving it up to the bound (4 in this case) -/
-theorem trace_add_comm_manual (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
-  x + y = y + x := by
--- Step 1: Bound widths to the provided blast width (redundant in this case)
-  have w_le_bw :  w ≤ 4 := by grind
--- Step 2-3: Introduce mask to replace `w` Nat var
-  apply width_elim 4 w
-  intro mw h_mw
--- Step 4: Eliminate the parametric bv var of width `w`
---         enforcing width constraint with mask
-  revert x
-  apply var_elim 4 w w_le_bw
-  intro x h_xmw
-  revert y
-  apply var_elim 4 w w_le_bw
-  intro y h_ymw
--- Step 5: Convert width hypothesis to mask hypothesis
-  have mw_mask := isMask_of_eq_maskOfWidth h_mw
--- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
-  simp only [
-      eq_iff _ w_le_bw,             -- Introduce `setWidth` to goal
-      setWidth_add,       -- Push `setWidth` down add
-      setWidth_setWidth,  -- Push `setWidth` down setWidth
-      BitVec.setWidth_eq,         -- Remove redundant setWidths
-      w_le_bw]                     -- Replace mask with nat with bv constraint
-      at h_xmw h_ymw ⊢
--- Step 8: Bitblast!
-  bv_decide
 
 example (w : Nat) (x y: BitVec w) (hw : w ≤ 4) :
   x + y = y + x := by
