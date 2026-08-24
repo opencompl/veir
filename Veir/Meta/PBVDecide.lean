@@ -193,7 +193,7 @@ The tactic generates two goals:
 2. A side-goal to prove that the width parameter is bounded by the provided
 bound, this should be solvable by grind.
 -/
-syntax (name := pbvDecide) "pbv_decide" (ppSpace colGt num)? : tactic
+syntax (name := pbvDecide) "pbv_decide" (ppSpace colGt num) : tactic
 
 @[tactic pbvDecide]
 public meta def evalPbvDecide : Tactic := fun stx => do
