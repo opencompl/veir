@@ -185,7 +185,7 @@ private def WfIRContext.verifyDominance
     let some region := (block.get! ctx.raw).parent | return
     if !region.hasSSADominance ctx then return
     for (value, index) in (op.getOperands ctx.raw opIn).zipIdx do
-      if !value.dominatesUse op dfCtx ctx then
+      if !value.properlyDominatesUse op dfCtx ctx then
         let opName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
         throw s!"{opName}: operand #{index} does not dominate this use"
 

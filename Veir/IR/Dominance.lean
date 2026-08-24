@@ -210,9 +210,9 @@ end OperationPtr
 namespace ValuePtr
 
 /--
-Does the definition of `value` dominate the use of it by `op`?
+Does the definition of `value` properly dominate the use of it by `op`?
 -/
-def dominatesUse
+def properlyDominatesUse
     (value : ValuePtr)
     (op : OperationPtr)
     (dfCtx : DataFlowContext)
