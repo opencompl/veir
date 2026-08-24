@@ -144,10 +144,11 @@ def PatternRewriter.createOrFold! (rewriter : PatternRewriter OpCode) (opType : 
     Option (PatternRewriter OpCode × Array ValuePtr) := do
   let (rewriter, results) ←
     rewriter.tryFold! opType properties resultTypes operands insertionPoint
-  let some results := results | do
+  match results with
+  | some results => return (rewriter, results)
+  | none =>
     let (rewriter, op) ← rewriter.createOp! opType resultTypes operands blockOperands regions
       properties (some insertionPoint)
     return (rewriter, op.getResults! rewriter.ctx.raw)
-  return (rewriter, results)
 
 end Veir
