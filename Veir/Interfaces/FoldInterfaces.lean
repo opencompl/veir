@@ -83,25 +83,26 @@ def OperationPtr.foldsTo (op : OperationPtr)
     (op.getResultTypes ctx.raw opInBounds) constOperands
 
 /--
-Plan how to replace every result of a foldable operation. Planning all results
-before modifying the IR ensures that a dialect declining to materialize one
-constant prevents the entire fold.
+Try to fold an operation and materialize its replacement values. The return
+values distinguish three outcomes:
+* `some (rewriter, some results)` - the fold succeeded
+* `some (rewriter, none)` - the operation did not fold, or the dialect declined
+  to materialize one of its constants
+* `none` - a hard failure indicating some sort of serious problem
 -/
-private def foldPlan (ctx : IRContext OpCode) (opType : OpCode)
+private def PatternRewriter.tryFold! (rewriter : PatternRewriter OpCode) (opType : OpCode)
     (properties : propertiesOf opType) (resultTypes : Array TypeAttr)
-    (operands : Array ValuePtr) : Option (Array (ValuePtr ⊕ Materialized OpCode)) := do
-  let decision ← opType.foldsTo properties resultTypes
-    (operands.map (ValuePtr.constantValue · ctx))
-  decision.zipIdx.mapM fun (foldResult, index) =>
-    match foldResult with
-    | .useOperand j => some (.inl operands[j]!)
-    | .useConstant value =>
-      (.inr ·) <$> opType.materializeConstant value resultTypes[index]!
-
-/-- Materialize a fold plan and return its replacement values. -/
-private def PatternRewriter.materializeFoldPlan! (rewriter : PatternRewriter OpCode)
-    (resultTypes : Array TypeAttr) (plan : Array (ValuePtr ⊕ Materialized OpCode))
-    (insertionPoint : InsertPoint) : Option (PatternRewriter OpCode × Array ValuePtr) := do
+    (operands : Array ValuePtr) (insertionPoint : InsertPoint) :
+    Option (PatternRewriter OpCode × Option (Array ValuePtr)) := do
+  let some decision := opType.foldsTo properties resultTypes
+      (operands.map (ValuePtr.constantValue · rewriter.ctx.raw))
+    | return (rewriter, none)
+  let some plan := decision.zipIdx.mapM fun (foldResult, index) =>
+      match foldResult with
+      | .useOperand j => some (Sum.inl operands[j]! : ValuePtr ⊕ Materialized OpCode)
+      | .useConstant value =>
+        (Sum.inr ·) <$> opType.materializeConstant value resultTypes[index]!
+    | return (rewriter, none)
   let mut rewriter := rewriter
   let mut results : Array ValuePtr := #[]
   for (step, index) in plan.zipIdx do
@@ -112,27 +113,7 @@ private def PatternRewriter.materializeFoldPlan! (rewriter : PatternRewriter OpC
         #[] #[] #[] constProperties (some insertionPoint)
       rewriter := newRewriter
       results := results.push (constantOp.getResult 0)
-  return (rewriter, results)
-
-/--
-Materialize `value` using the materialization hook of `foldingOpType`'s dialect.
-The hook may select a constant-like operation from another dialect.
-
-The return values signal two different failure modes:
-* `some (rewriter, none)` - the constant cannot be materialized, this means the
-   rewrite doesn't happen but there's no cause for concern
-* `none` - the operation could not be created; in this case the entire pass
-   should generate a hard failure
--/
-def PatternRewriter.materializeConstant! (rewriter : PatternRewriter OpCode)
-    (foldingOpType : OpCode) (value : RuntimeValue) (resultType : TypeAttr)
-    (insertionPoint : InsertPoint) :
-    Option (PatternRewriter OpCode × Option OperationPtr) := do
-  let some ⟨opType, properties⟩ := foldingOpType.materializeConstant value resultType
-    | return (rewriter, none)
-  let (rewriter, op) ← rewriter.createOp! opType #[resultType] #[] #[] #[] properties
-    (some insertionPoint)
-  return (rewriter, some op)
+  return (rewriter, some results)
 
 /--
 Replace every result of a foldable operation with an operand or a materialized
@@ -145,28 +126,28 @@ def foldOperation (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let opType := op.getOpType rewriter.ctx.raw opInBounds
   let resultTypes := op.getResultTypes rewriter.ctx.raw opInBounds
   let properties := op.getProperties rewriter.ctx.raw opType opInBounds (by grind)
-  let some plan := foldPlan rewriter.ctx.raw opType properties resultTypes operands
-    | return rewriter
   let (newRewriter, replacements) ←
-    rewriter.materializeFoldPlan! resultTypes plan (.before op)
+    rewriter.tryFold! opType properties resultTypes operands (.before op)
+  let some replacements := replacements | return newRewriter
   let mut rewriter := newRewriter
   for (replacement, index) in replacements.zipIdx do
     rewriter := rewriter.replaceValue! (op.getResult index) replacement
   return rewriter.eraseOp! op
 
 /--
-Create an operation, but only if it can't fold first.
+Create an operation, but only if the supplied operands don't allow it to fold.
 -/
 def PatternRewriter.createOrFold! (rewriter : PatternRewriter OpCode) (opType : OpCode)
     (resultTypes : Array TypeAttr) (operands : Array ValuePtr)
     (blockOperands : Array BlockPtr) (regions : Array RegionPtr)
     (properties : propertiesOf opType) (insertionPoint : InsertPoint) :
     Option (PatternRewriter OpCode × Array ValuePtr) := do
-  let created : Option (PatternRewriter OpCode × Array ValuePtr) := do
+  let (rewriter, results) ←
+    rewriter.tryFold! opType properties resultTypes operands insertionPoint
+  let some results := results | do
     let (rewriter, op) ← rewriter.createOp! opType resultTypes operands blockOperands regions
       properties (some insertionPoint)
     return (rewriter, op.getResults! rewriter.ctx.raw)
-  let some plan := foldPlan rewriter.ctx.raw opType properties resultTypes operands | created
-  rewriter.materializeFoldPlan! resultTypes plan insertionPoint
+  return (rewriter, results)
 
 end Veir
