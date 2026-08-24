@@ -81,7 +81,7 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
   simp  only [
     eq_iff (o := 8),
     setWidth_signExtend_eq_and_maskOfWidth,          -- Push `setWidth` down signExtend
-    msb_eq_and_maskOfWidth_ne_zero q_le_bw,          -- Replace the sign bit test with a mask test
+    msb_eq_and_signBitOfMask_maskOfWidth_ne_zero q_le_bw,          -- Replace the sign bit test with a mask test
     setWidth_setWidth r_le_bw,
     setWidth_setWidth q_le_bw,
     setWidth_setWidth p_le_bw,
