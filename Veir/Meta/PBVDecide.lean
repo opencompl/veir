@@ -36,7 +36,16 @@ meta structure PbvTranslateContext where
   /-- The bound upto which we want to bitblast our widths. -/
    bmcBound : Nat
 
-meta def introMaskWidth (ctx : PbvTranslateContext) (g : MVarId) (ldecl : Expr) (infos : WidthInfos)
+/--
+Rewrite a local decl using a provided Expr
+-/
+def rewriteHypWith (g : MVarId) (h : FVarId) (eq : Expr) :
+    MetaM (MVarId × FVarId × List MVarId) := g.withContext do
+  let r ← g.rewrite (← h.getType) eq
+  let res ← g.replaceLocalDecl h r.eNew r.eqProof
+  return (res.mvarId, res.fvarId, r.mvarIds)
+
+def introMaskWidth (ctx : PbvTranslateContext) (g : MVarId) (ldecl : Expr) (infos : WidthInfos)
   : MetaM (MVarId × WidthInfo × WidthInfos) := g.withContext do
     -- TODO: check that the value has Nat.
     let [g] ← g.withContext do
@@ -56,7 +65,10 @@ meta def introMaskWidth (ctx : PbvTranslateContext) (g : MVarId) (ldecl : Expr) 
     g.withContext <| check (mkFVar hypWidthLeBoundNote)
     -- Assert the BitVec mask constraint.
     let hypExpr ← g.withContext do mkAppM ``isMask_of_eq_maskOfWidth #[mkFVar maskHyp]
-    let (_hIsMaskOfEq, g) ← g.note (Name.mkSimple s!"h_isMask_of_eq_{maskName}") hypExpr
+    let (hIsMaskOfEq, g) ← g.withContext do g.note (Name.mkSimple s!"h_isMask_of_eq_{maskName}") hypExpr
+    -- Express `IsMask` in terms on `BitVec`s
+    let (g, _hIsMaskOfEq, _) ← rewriteHypWith g hIsMaskOfEq (mkConst ``isMask_eq)
+
     let info : WidthInfo := {
       widthExpr := ldecl,
       widthMaskFvar := mask,
@@ -361,3 +373,6 @@ theorem trace_double_zero_extend (p q r : Nat) (x : BitVec p)
   := by
   pbv_decide 8
   · bv_decide
+  · grind
+  · grind
+  · grind
