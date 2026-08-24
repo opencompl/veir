@@ -1,6 +1,7 @@
 module
 
 import Veir.ForLean
+public import Lean.Elab.Command
 public import Std.Data.Iterators.Producers.Array
 
 /-!
@@ -373,6 +374,16 @@ structure FunctionType where
 deriving Inhabited, Repr, Hashable
 
 /--
+  The payload of an LLVM function type attribute.
+
+  This wrapper distinguishes `!llvm.func` types from builtin function types at
+  the Lean type level while reusing their common representation.
+-/
+structure LLVMFunctionType where
+  functionType : FunctionType
+deriving Inhabited, Repr, Hashable
+
+/--
   An attribute that holds a sequence of attributes.
 -/
 structure ArrayAttr where
@@ -484,7 +495,7 @@ inductive Attribute
 /-- LLVM array type -/
 | llvmArrayType (type : LLVM.ArrayType)
 /-- LLVM function type -/
-| llvmFunctionType (type : FunctionType)
+| llvmFunctionType (type : LLVMFunctionType)
 /-- Cuda Tile pointer type -/
 | cudaTilePointerType (type : CudaTile.PointerType)
 /-- CIRCT hw module type -/
@@ -505,8 +516,17 @@ deriving Inhabited, Repr, Hashable
 
 end
 
+instance : Coe FunctionType LLVMFunctionType where
+  coe := .mk
+
+instance : Coe LLVMFunctionType FunctionType where
+  coe := LLVMFunctionType.functionType
+
 instance : Inhabited LLVM.ArrayType where
   default := { size := 0, type := .llvmPointerType .mk }
+
+instance : Inhabited Match.OptionalType where
+  default := { innerType := .pdlValueType .mk }
 
 def ArrayAttr.empty : ArrayAttr := { value := #[] }
 
@@ -526,6 +546,10 @@ theorem FunctionType.sizeOf_elems_inputs {ft : FunctionType} (hx : x ∈ ft.inpu
 theorem FunctionType.sizeOf_elems_outputs {ft : FunctionType} (hx : x ∈ ft.outputs) :
     sizeOf x < sizeOf ft := by
   grind [Array.sizeOf_lt_of_mem hx, cases FunctionType]
+
+theorem LLVMFunctionType.sizeOf_functionType {ft : LLVMFunctionType} :
+    sizeOf ft.functionType < sizeOf ft := by
+  grind [cases LLVMFunctionType]
 
 theorem ArrayAttr.sizeOf_elems_value {aa : ArrayAttr} (hx : x ∈ aa.value) :
     sizeOf x < sizeOf aa := by
@@ -569,6 +593,14 @@ decreasing_by
     grind
   · have := @FunctionType.sizeOf_elems_outputs
     grind
+
+def LLVMFunctionType.decEq (type1 type2 : LLVMFunctionType) : Decidable (type1 = type2) :=
+  match FunctionType.decEq type1.functionType type2.functionType with
+  | isTrue _ => isTrue (by grind [cases LLVMFunctionType])
+  | isFalse _ => isFalse (by grind)
+termination_by sizeOf type1
+decreasing_by
+  apply LLVMFunctionType.sizeOf_functionType
 
 def ArrayAttr.decEq (arr1 arr2 : ArrayAttr) : Decidable (arr1 = arr2) :=
   let value1 := arr1.value
@@ -734,7 +766,7 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
   case llvmFunctionType.llvmFunctionType type1 type2 =>
-    exact (match FunctionType.decEq type1 type2 with
+    exact (match LLVMFunctionType.decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
   case cudaTilePointerType.cudaTilePointerType type1 type2 =>
@@ -779,6 +811,7 @@ end
 
 instance : DecidableEq Attribute := Attribute.decEq
 instance : DecidableEq FunctionType := FunctionType.decEq
+instance : DecidableEq LLVMFunctionType := LLVMFunctionType.decEq
 instance : DecidableEq ArrayAttr := ArrayAttr.decEq
 instance : DecidableEq DictionaryAttr := DictionaryAttr.decEq
 
@@ -996,6 +1029,12 @@ decreasing_by
   · apply FunctionType.sizeOf_elems_outputs
     grind
 
+def LLVMFunctionType.toString (type : LLVMFunctionType) : String :=
+  type.functionType.toLLVMString
+termination_by sizeOf type
+decreasing_by
+  apply LLVMFunctionType.sizeOf_functionType
+
 def FunctionType.toString (type : FunctionType) : String :=
   let inputs := String.intercalate ", " (type.inputs.toList.map Attribute.toString)
   let outputs := match _ : type.outputs.size with
@@ -1066,7 +1105,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .llvmVoidType type => ToString.toString type
   | .llvmPointerType type => ToString.toString type
   | .llvmArrayType type => type.toString
-  | .llvmFunctionType type => type.toLLVMString
+  | .llvmFunctionType type => type.toString
   | .cudaTilePointerType type => ToString.toString type
   | .hwModuleType type => ToString.toString type
   | .pdlRangeType type => ToString.toString type
@@ -1085,6 +1124,9 @@ instance : ToString Attribute where
 instance : ToString FunctionType where
   toString := FunctionType.toString
 
+instance : ToString LLVMFunctionType where
+  toString := LLVMFunctionType.toString
+
 instance : ToString ArrayAttr where
   toString := ArrayAttr.toString
 
@@ -1097,121 +1139,176 @@ instance : ToString LLVM.ArrayType where
 instance : ToString Match.OptionalType where
   toString := Match.OptionalType.toString
 
-/-!
-  ## Coercion instances to Attribute
+/-! ## Attribute Subtype Interface -/
 
-  We define a coercion from each attribute structure to `Attribute`.
+/--
+`IsAttr Attr` states that `Attr` is represented by a subset of `Attribute`.
+
+It defines an injection from the attribute-specific type to `Attribute` and a
+partial projection back to that type. Every attribute-specific type is also
+printable and inhabited.
 -/
-instance : Coe IntegerType Attribute where
-  coe type := .integerType type
+class IsAttr (Attr : Type) extends ToString Attr, Inhabited Attr where
+  /-- The name of the attribute type. -/
+  name : String
+  /-- Embed an attribute-specific value into `Attribute`. -/
+  inject : Attr → Attribute
+  /-- Project an `Attribute` to the attribute-specific type, when possible. -/
+  project : Attribute → Option Attr
+  /-- The projection recognizes exactly the values produced by the injection. -/
+  project_eq_some_iff (attr : Attribute) (specificAttr : Attr) :
+    project attr = some specificAttr ↔ inject specificAttr = attr
 
-instance : Coe FloatType Attribute where
-  coe type := .floatType type
+attribute [grind unfold] IsAttr.inject
 
-instance : Coe LLVM.ByteType Attribute where
-  coe type := .byteType type
+namespace Attribute
 
-instance : Coe FastMathFlagsAttr Attribute where
-  coe flags := .fastMathFlagsAttr flags
+/--
+Try to cast an attribute to a concrete attribute type.
 
-instance : Coe CConvAttr Attribute where
-  coe attr := .cconvAttr attr
+This is equivalent to `mlir::dyn_cast<Attr>(attr)` in MLIR.
+-/
+@[inline]
+def cast? (attr : Attribute) (Attr : Type) [IsAttr Attr] : Option Attr :=
+  IsAttr.project attr
 
-instance : Coe LinkageAttr Attribute where
-  coe attr := .linkageAttr attr
+/-- Try to cast an attribute to a concrete attribute type, and throw an error if the cast fails. -/
+@[inline]
+def cast! (attr : Attribute) (Attr : Type) [IsAttr Attr] : Attr :=
+  match cast? attr Attr with
+  | some specificAttr => specificAttr
+  | none =>
+    panic! s!"Attribute.cast!: attribute {attr} is not of the expected type {IsAttr.name Attr}."
 
-instance : Coe FramePointerKindAttr Attribute where
-  coe attr := .framePointerKindAttr attr
+/--
+Check if an attribute is of a specific type.
 
-instance : Coe UwtableKindAttr Attribute where
-  coe attr := .uwtableKindAttr attr
+This is equivalent to `mlir::isa<Attr>(attr)` in MLIR.
+-/
+@[inline]
+def isa (attr : Attribute) (Attr : Type) [IsAttr Attr] : Bool :=
+  match attr.cast? Attr with
+  | some _ => true
+  | none => false
 
-instance : Coe TailCallKindAttr Attribute where
-  coe attr := .tailCallKindAttr attr
+/--
+Cast an attribute to a concrete attribute type, assuming it is of the expected type.
 
-instance : Coe ModuleFlagAttr Attribute where
-  coe attr := .moduleFlagAttr attr
+This is equivalent to `mlir::cast<Attr>(attr)` in MLIR.
+-/
+@[inline]
+def cast (attr : Attribute) (Attr : Type) [IsAttr Attr] (h : attr.isa Attr) : Attr :=
+  (attr.cast? Attr).get (by grind [isa, cast?])
 
-instance : Coe TargetFeaturesAttr Attribute where
-  coe attr := .targetFeaturesAttr attr
+/-- Create an attribute from a concrete attribute type. -/
+@[inline, expose, grind unfold]
+def of (Attr : Type) [IsAttr Attr] (specificAttr : Attr) : Attribute :=
+  IsAttr.inject specificAttr
 
-instance : Coe DlSpecAttr Attribute where
-  coe attr := .dlSpecAttr attr
+/-- Coercion from attribute-specific type to `Attribute`. -/
+instance CoeHead (Attr : Type) [IsAttr Attr] : CoeHead Attr Attribute where
+  coe := Attribute.of Attr
 
-instance : Coe IntegerAttr Attribute where
-  coe attr := .integerAttr attr
+end Attribute
 
-instance : Coe StringAttr Attribute where
-  coe attr := .stringAttr attr
+namespace IsAttr
 
-instance : Coe UnitAttr Attribute where
-  coe attr := .unitAttr attr
+variable {Attr : Type} [IsAttr Attr]
 
-instance : Coe LocationAttr Attribute where
-  coe attr := .locationAttr attr
+@[simp, grind =]
+theorem cast?_of (specificAttr : Attr) :
+    (Attribute.of Attr specificAttr).cast? Attr = some specificAttr := by
+  simp [Attribute.of, Attribute.cast?, IsAttr.project_eq_some_iff]
 
-instance : Coe UnregisteredAttr Attribute where
-  coe attr := .unregisteredAttr attr
+theorem of_injective : Function.Injective (Attribute.of Attr) := by
+  intro attr₁ attr₂ h
+  grind [congrArg (Attribute.cast? · Attr) h]
 
-instance : Coe FlatSymbolRefAttr Attribute where
-  coe attr := .flatSymbolRefAttr attr
+@[simp]
+theorem cast?_eq_some_iff (attr : Attribute) (specificAttr : Attr) :
+    attr.cast? Attr = some specificAttr ↔ Attribute.of Attr specificAttr = attr := by
+  grind [IsAttr.project_eq_some_iff, Attribute.of, Attribute.cast?]
 
-instance : Coe ArrayAttr Attribute where
-  coe attr := .arrayAttr attr
+grind_pattern cast?_eq_some_iff =>
+  attr.cast? Attr, Attribute.of Attr specificAttr
 
-instance : Coe FloatAttr Attribute where
-  coe attr := .floatAttr attr
+@[simp, grind =]
+theorem isa_of (specificAttr : Attr) :
+    (Attribute.of Attr specificAttr).isa Attr := by
+  simp [Attribute.isa]
 
-instance : Coe ArithIntegerOverflowFlagsAttr Attribute where
-  coe attr := .arithIntegerOverflowFlagsAttr attr
+@[simp, grind =]
+theorem cast!_of (specificAttr : Attr) :
+    (Attribute.of Attr specificAttr).cast! Attr = specificAttr := by
+  simp [Attribute.cast!]
 
-instance : Coe DenseArrayAttr Attribute where
-  coe attr := .denseArrayAttr attr
+@[simp, grind =]
+theorem cast_of (specificAttr : Attr)
+    (h : (Attribute.of Attr specificAttr).isa Attr) :
+    (Attribute.of Attr specificAttr).cast Attr h = specificAttr := by
+  simp [Attribute.cast]
 
-instance : Coe DenseElementsAttr Attribute where
-  coe attr := .denseElementsAttr attr
+@[simp, grind =]
+theorem of_cast (attr : Attribute) (h : attr.isa Attr) :
+    Attribute.of Attr (attr.cast Attr h) = attr := by
+  simp only [Attribute.cast, Attribute.of]
+  grind [Attribute.isa, Attribute.cast?, IsAttr.project_eq_some_iff]
 
-instance : Coe DictionaryAttr Attribute where
-  coe attr := .dictionaryAttr attr
+end IsAttr
 
-instance : Coe FunctionType Attribute where
-  coe type := .functionType type
+/--
+Generate an `IsAttr` instance for an `Attribute` constructor with one payload.
 
-instance : Coe ModArithType Attribute where
-  coe type := .modArithType type
+For example, `attribute_instance IntegerType => Attribute.integerType` generates
+the inherited printing and inhabitation operations, the injection, and the
+constructor-discriminating partial projection.
+-/
+syntax "attribute_instance " term " => " ident : command
 
-instance : Coe LLVM.VoidType Attribute where
-  coe type := .llvmVoidType type
+macro_rules
+  | `(attribute_instance $attrType:term => $ctor:ident) => do
+    let attrName := Lean.Syntax.mkStrLit (toString attrType)
+    `(@[expose] instance : IsAttr $attrType where
+        toString := ToString.toString
+        default := Inhabited.default
+        name := $attrName
+        inject := $ctor
+        project
+          | $ctor value => some value
+          | _ => none
+        project_eq_some_iff attr _ := by
+          cases attr <;> simp_all [eq_comm])
 
-instance : Coe LLVM.PointerType Attribute where
-  coe type := .llvmPointerType type
+open Lean Elab Command Meta
 
-instance : Coe LLVM.ArrayType Attribute where
-  coe type := .llvmArrayType type
+/--
+Generate an `IsAttr` instance for every single-payload constructor of an
+attribute inductive.
+-/
+elab "#generate_attribute_instances" attrInductive:ident : command => do
+  let attributeName ← resolveGlobalConstNoOverload attrInductive
+  let env ← getEnv
+  let some (.inductInfo info) := env.find? attributeName
+    | throwError m!"Type {attributeName} is not defined or not an inductive."
+  for ctorName in info.ctors do
+    let some (.ctorInfo ctorInfo) := env.find? ctorName
+      | throwError m!"Constructor {ctorName} is not defined."
+    let .forallE _ (.const attrTypeName _) resultType _ := ctorInfo.type
+      | throwError m!"Constructor {ctorName} must have exactly one attribute payload."
+    unless resultType.isConstOf attributeName do
+      throwError m!"Constructor {ctorName} does not construct {attributeName}."
+    elabCommand <| ←
+      `(attribute_instance $(mkIdent attrTypeName) => $(mkIdent ctorName))
 
-instance : Coe CudaTile.PointerType Attribute where
-  coe type := .cudaTilePointerType type
+instance : IsAttr Attribute where
+  toString := Attribute.toString
+  default := Inhabited.default
+  name := "Attribute"
+  inject := id
+  project := some
+  project_eq_some_iff _ _ := by grind
 
-instance : Coe HW.ModuleType Attribute where
-  coe type := .hwModuleType type
-
-instance : Coe PDL.RangeType Attribute where
-  coe type := .pdlRangeType type
-
-instance : Coe Match.OptionalType Attribute where
-  coe type := .matchOptionalType type
-
-instance : Coe PDL.AttributeType Attribute where
-  coe type := .pdlAttributeType type
-
-instance : Coe PDL.OperationType Attribute where
-  coe type := .pdlOperationType type
-
-instance : Coe PDL.ValueType Attribute where
-  coe type := .pdlValueType type
-
-instance : Coe PDL.TypeType Attribute where
-  coe type := .pdlTypeType type
+#generate_attribute_instances Attribute
 
 /-!
   ## TypeAttr definition
@@ -1383,6 +1480,107 @@ theorem Attribute.asType_val {attr : Attribute} {isType : attr.isType} :
   unfold Attribute.asType
   rfl
 
+/--
+`IsTypeAttr Attr` states that `Attr` is an attribute-specific type that can also
+be converted to a `TypeAttr`.
+-/
+class IsTypeAttr (Attr : Type) extends IsAttr Attr, Coe Attr TypeAttr where
+  /-- Converting to `TypeAttr` agrees with the injection into `Attribute`. -/
+  coe_eq_inject (attr : Attr) : (coe attr).val = inject attr
+
+namespace TypeAttr
+
+/--
+Try to cast a type attribute to a concrete attribute type.
+
+This is equivalent to `mlir::dyn_cast<Attr>(attr)` in MLIR.
+-/
+@[inline]
+def cast? (attr : TypeAttr) (Attr : Type) [IsTypeAttr Attr] : Option Attr :=
+  attr.val.cast? Attr
+
+/-- Try to cast a type attribute to a concrete attribute type, and throw an error if the cast
+fails. -/
+@[inline]
+def cast! (attr : TypeAttr) (Attr : Type) [IsTypeAttr Attr] [Inhabited Attr] : Attr :=
+  (cast? attr Attr).get!
+
+/--
+Check if a type attribute is of a specific type.
+
+This is equivalent to `mlir::isa<Attr>(attr)` in MLIR.
+-/
+@[inline]
+def isa (attr : TypeAttr) (Attr : Type) [IsTypeAttr Attr] : Bool :=
+  match attr.cast? Attr with
+  | some _ => true
+  | none => false
+
+/--
+Cast a type attribute to a concrete attribute type, assuming it is of the expected type.
+
+This is equivalent to `mlir::cast<Attr>(attr)` in MLIR.
+-/
+@[inline]
+def cast (attr : TypeAttr) (Attr : Type) [IsTypeAttr Attr] [Inhabited Attr]
+    (h : attr.isa Attr) : Attr :=
+  (attr.cast? Attr).get (by grind [isa, cast?])
+
+/-- Create a type attribute from a concrete attribute type. -/
+@[inline]
+def of (Attr : Type) [IsTypeAttr Attr] (specificAttr : Attr) : TypeAttr :=
+  specificAttr
+
+end TypeAttr
+
+namespace IsTypeAttr
+
+variable {Attr : Type} [IsTypeAttr Attr]
+
+@[simp, grind =]
+theorem cast?_of (specificAttr : Attr) :
+    (TypeAttr.of Attr specificAttr).cast? Attr = some specificAttr := by
+  simp [TypeAttr.of, TypeAttr.cast?, Attribute.of, IsTypeAttr.coe_eq_inject]
+
+theorem of_injective : Function.Injective (TypeAttr.of Attr) := by
+  intro attr₁ attr₂ h
+  grind [congrArg (TypeAttr.cast? · Attr) h]
+
+@[simp]
+theorem cast?_eq_some_iff (attr : TypeAttr) (specificAttr : Attr) :
+    attr.cast? Attr = some specificAttr ↔ TypeAttr.of Attr specificAttr = attr := by
+  rw [TypeAttr.inj]
+  simp [TypeAttr.cast?, TypeAttr.of, Attribute.of, IsTypeAttr.coe_eq_inject,
+    IsAttr.cast?_eq_some_iff]
+
+grind_pattern cast?_eq_some_iff =>
+  attr.cast? Attr, TypeAttr.of Attr specificAttr
+
+@[simp, grind =]
+theorem isa_of (specificAttr : Attr) :
+    (TypeAttr.of Attr specificAttr).isa Attr := by
+  simp [TypeAttr.isa]
+
+@[simp, grind =]
+theorem cast!_of [Inhabited Attr] (specificAttr : Attr) :
+    (TypeAttr.of Attr specificAttr).cast! Attr = specificAttr := by
+  simp [TypeAttr.cast!]
+
+@[simp, grind =]
+theorem cast_of [Inhabited Attr] (specificAttr : Attr)
+    (h : (TypeAttr.of Attr specificAttr).isa Attr) :
+    (TypeAttr.of Attr specificAttr).cast Attr h = specificAttr := by
+  simp [TypeAttr.cast]
+
+@[simp, grind =]
+theorem of_cast [Inhabited Attr] (attr : TypeAttr) (h : attr.isa Attr) :
+    TypeAttr.of Attr (attr.cast Attr h) = attr := by
+  rw [TypeAttr.inj]
+  simp only [TypeAttr.of, IsTypeAttr.coe_eq_inject]
+  exact IsAttr.of_cast attr.val h
+
+end IsTypeAttr
+
 /-!
   ## Coercion instances to TypeAttr
 
@@ -1390,59 +1588,80 @@ theorem Attribute.asType_val {attr : Attribute} {isType : attr.isType} :
   can be used as a type annotation.
 -/
 
-instance : Coe IntegerType TypeAttr where
+instance : IsTypeAttr IntegerType where
   coe type := Attribute.asType (.integerType type) (by rfl)
+  coe_eq_inject _ := by rfl
 
-instance : Coe FloatType TypeAttr where
+instance : IsTypeAttr FloatType where
   coe type := Attribute.asType (.floatType type) (by rfl)
+  coe_eq_inject _ := by rfl
 
-instance : Coe LLVM.ByteType TypeAttr where
+instance : IsTypeAttr LLVM.ByteType where
   coe type := Attribute.asType (.byteType type) (by rfl)
+  coe_eq_inject _ := by rfl
 
-instance : Coe FunctionType TypeAttr where
+instance : IsTypeAttr FunctionType where
   coe type := Attribute.asType (.functionType type) (by rfl)
+  coe_eq_inject _ := by rfl
 
-instance : Coe ModArithType TypeAttr where
+instance : IsTypeAttr LLVMFunctionType where
+  coe type := Attribute.asType (.llvmFunctionType type) (by rfl)
+  coe_eq_inject _ := by rfl
+
+instance : IsTypeAttr ModArithType where
   coe type := Attribute.asType (.modArithType type) (by rfl)
+  coe_eq_inject _ := by rfl
 
 instance : CoeDep (Option Nat → RegisterType) RegisterType.mk TypeAttr where
   coe := Attribute.asType (.registerType (.mk none)) (by rfl)
 
-instance : Coe RegisterType TypeAttr where
+instance : IsTypeAttr RegisterType where
   coe type := Attribute.asType (.registerType type) (by rfl)
+  coe_eq_inject _ := by rfl
 
-instance : Coe LLVM.VoidType TypeAttr where
+instance : IsTypeAttr LLVM.VoidType where
   coe type := Attribute.asType (.llvmVoidType type) (by rfl)
+  coe_eq_inject _ := by rfl
 
-instance : Coe LLVM.PointerType TypeAttr where
+instance : IsTypeAttr LLVM.PointerType where
   coe type := Attribute.asType (.llvmPointerType type) (by rfl)
+  coe_eq_inject _ := by rfl
 
-instance : Coe LLVM.ArrayType TypeAttr where
+instance : IsTypeAttr LLVM.ArrayType where
   coe type := Attribute.asType (.llvmArrayType type) (by rfl)
+  coe_eq_inject _ := by rfl
 
-instance : Coe CudaTile.PointerType TypeAttr where
+instance : IsTypeAttr CudaTile.PointerType where
   coe type := Attribute.asType (.cudaTilePointerType type) (by rfl)
+  coe_eq_inject _ := by rfl
 
-instance : Coe HW.ModuleType TypeAttr where
+instance : IsTypeAttr HW.ModuleType where
   coe type := Attribute.asType (.hwModuleType type) (by rfl)
+  coe_eq_inject _ := by rfl
 
-instance : Coe PDL.RangeType TypeAttr where
+instance : IsTypeAttr PDL.RangeType where
   coe type := Attribute.asType (.pdlRangeType type) (by rfl)
+  coe_eq_inject _ := by rfl
 
-instance : Coe Match.OptionalType TypeAttr where
+instance : IsTypeAttr Match.OptionalType where
   coe type := Attribute.asType (.matchOptionalType type) (by rfl)
+  coe_eq_inject _ := by rfl
 
-instance : Coe PDL.AttributeType TypeAttr where
+instance : IsTypeAttr PDL.AttributeType where
   coe type := Attribute.asType (.pdlAttributeType type) (by rfl)
+  coe_eq_inject _ := by rfl
 
-instance : Coe PDL.OperationType TypeAttr where
+instance : IsTypeAttr PDL.OperationType where
   coe type := Attribute.asType (.pdlOperationType type) (by rfl)
+  coe_eq_inject _ := by rfl
 
-instance : Coe PDL.ValueType TypeAttr where
+instance : IsTypeAttr PDL.ValueType where
   coe type := Attribute.asType (.pdlValueType type) (by rfl)
+  coe_eq_inject _ := by rfl
 
-instance : Coe PDL.TypeType TypeAttr where
+instance : IsTypeAttr PDL.TypeType where
   coe type := Attribute.asType (.pdlTypeType type) (by rfl)
+  coe_eq_inject _ := by rfl
 
 end
 end Veir

@@ -22,7 +22,8 @@ module
             └─ targetBlock ◀─ ┘
 ```
 -/
-private def contextWithCrossRegionSuccessor : Except String (WfIRContext OpCode) := do
+private def contextWithCrossRegionSuccessor :
+    Except String (WfIRContext OpCode × OperationPtr) := do
   let (ctx, moduleOp) := WfIRContext.create! OpCode
   let moduleRegion := moduleOp.getRegion! ctx.raw 0
   let moduleBlock := (moduleRegion.get! ctx.raw).firstBlock.get!
@@ -45,11 +46,11 @@ private def contextWithCrossRegionSuccessor : Except String (WfIRContext OpCode)
   let (ctx, _) :=
       (WfRewriter.createOp! ctx Cf.br #[] #[] #[targetBlock] #[] ()
         (some (.atEnd sourceBlock))).get!
-  return ctx
+  return (ctx, moduleOp)
 
 private def verifyCrossRegionSuccessor : Except String Unit := do
-  let ctx ← contextWithCrossRegionSuccessor
-  ctx.verify
+  let (ctx, moduleOp) ← contextWithCrossRegionSuccessor
+  ctx.verify moduleOp
 
 #guard verifyCrossRegionSuccessor =
   .error "Block successors must belong to the same region as their predecessor"

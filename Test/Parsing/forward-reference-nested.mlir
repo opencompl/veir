@@ -1,4 +1,6 @@
-// RUN: not veir-opt %s --allow-unregistered-dialect 2>&1 | filecheck %s
+// RUN: veir-opt %s --allow-unregistered-dialect --disable-verifiers | filecheck %s
+// RUN: not veir-opt %s --allow-unregistered-dialect 2>&1 | filecheck %s --check-prefix=VERIFY
+// RUN: MLIR_INVALID
 
 // A value name forward-referenced before its definition resolves to the FIRST textual
 // definition of that name, wherever it appears -- following MLIR's generic-form parser,
@@ -25,4 +27,14 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: does not dominate its use
+// Both uses bind to the first (nested) definition ...
+// CHECK:        "test.use"(%[[A:.*]]) : (i32) -> ()
+// CHECK:            "test.use"(%[[A]]) : (i32) -> ()
+// CHECK-NEXT:       %[[A]] = "test.def"() : () -> i32
+// ... and the later definition is an independent value.
+// CHECK:        %[[B:.*]] = "test.def"() : () -> i32
+// CHECK-NOT:    %[[A]] =
+
+// The nested use is fine: an unregistered operation's region is a graph region, where a
+// definition need not precede its use. The outer use is not.
+// VERIFY: does not dominate its use
