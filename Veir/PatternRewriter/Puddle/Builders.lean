@@ -134,11 +134,13 @@ def MatchProg.root (opCode : OpCode) (operands : Array (Handle OpCode .value))
     MatchProg.Builder (RootHandle opCode) :=
   ⟨fun state =>
     let op := Handle.mk (OpInfo := OpCode) state.nextId
-    let properties := Handle.mk (OpInfo := OpCode) (state.nextId + 1)
+    let results := (Array.range returnTypes.size).map fun index =>
+      Handle.mk (OpInfo := OpCode) (state.nextId + index + 1)
+    let properties := Handle.mk (OpInfo := OpCode) (state.nextId + returnTypes.size + 1)
     (⟨properties⟩, {
-      nextId := state.nextId + 2
-      decls := .root opCode operands returnTypes property properties op ::
-        .operation opCode operands returnTypes property properties op #[] :: state.decls
+      nextId := state.nextId + returnTypes.size + 2
+      decls := .root op ::
+        .operation opCode operands returnTypes property properties op results :: state.decls
     })⟩
 
 /-- Build a match program using `MatchProg.Builder`. -/
