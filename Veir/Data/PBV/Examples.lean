@@ -76,7 +76,6 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
 -- Step 5B: Translate the condition on the natural number width
 --          into a fact about the bitvector masks
   have le_pq := mask_lt_mask p_le_bw q_le_bw h_mp h_mq hpq
-  simp only [isMask_eq] at mr_mask mq_mask mp_mask
 
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp  only [
@@ -89,8 +88,6 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
     BitVec.zeroExtend_eq_setWidth,
     signBitOfMask,                 -- Unfold, else `bv_decide` abstracts it away
     BitVec.setWidth_eq,
-    h_mq, h_mr, h_mp,
-    p_le_bw,
     r_le_bw,
     q_le_bw,                       -- Lets simp discharge the `v ≤ o` side condition of
                                    -- `setWidth_signExtend_eq_and_maskOfWidth`

@@ -21,12 +21,6 @@ def maskOfWidth (o w : Nat) : BitVec o := BitVec.ofNat o (2 ^ w - 1)
 operations removing the dependency on `k` and allowing it to be bitblasted. -/
 def IsMask {o : Nat} (m : BitVec o) : Prop := m &&& (m + 1#o) = 0#o
 
-/-- Unfold `IsMask` into the constraint handed to the bitblaster. -/
-theorem isMask_eq {o : Nat} (m : BitVec o) :
-    IsMask m = (m &&& (m + 1#o) = 0#o) := by
-  unfold IsMask
-  rfl
-
 theorem toNat_maskOfWidth {o w : Nat} (h : w ≤ o) :
     (maskOfWidth o w).toNat = 2 ^ w - 1 := by
   rw [maskOfWidth, BitVec.toNat_ofNat, Nat.mod_eq_of_lt]
@@ -43,7 +37,7 @@ theorem isMask_maskOfWidth {o w : Nat} :
 
 /-- The mask constraint: the only fact about `m` surviving abstraction. -/
 theorem isMask_of_eq_maskOfWidth {o w : Nat} {m : BitVec o}
-    (hm : m = maskOfWidth o w) : IsMask m := by
+    (hm : m = maskOfWidth o w) : m &&& (m + 1#o) = 0#o := by
   subst hm
   exact isMask_maskOfWidth
 
