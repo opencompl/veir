@@ -77,6 +77,8 @@ theorem trace_zero_zero_extend (p q r : Nat) (x : BitVec p)
 --          into a fact about the bitvector masks
   have bv_p_lt_q := h_pq
   revert bv_p_lt_q
+  have bv_q_lt_r := h_qr
+  revert bv_q_lt_r
 
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [
@@ -128,7 +130,7 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
   revert bv_p_lt_q
 
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
-  simp  only [
+  simp only [
     eq_iff (o := 8),
     Nat_lt_eq_Mask_lt (o := 8),
     msb_eq_and_signBitOfMask_maskOfWidth_ne_zero (o := 8),          -- Replace the sign bit test with a mask test

@@ -184,7 +184,7 @@ meta partial def visitExprRec (ctx : PbvTranslateContext) (g : MVarId)
 
 /--
 Translate width precondition into BitVec hypothesis.
-TODO: consider more complicated width exprs.
+TODO: Deal with constants.
 -/
 meta def translateWidthPrecond (winfos : WidthInfos) (g : MVarId) (ldecl : LocalDecl) :
     MetaM (MVarId) := g.withContext do
@@ -193,15 +193,9 @@ meta def translateWidthPrecond (winfos : WidthInfos) (g : MVarId) (ldecl : Local
     if ty == mkConst ``Nat then
       if let some wa := winfos.infos[ea]? then
         if let some wb := winfos.infos[eb]? then
-          -- Apply mask_lt_mask using the known facts of the widths
-          let bvLTExpr := mkAppM ``mask_lt_mask
-            #[.fvar wa.hypWidthLeBoundNote,
-              .fvar wb.hypWidthLeBoundNote,
-              .fvar wa.widthMaskHypFvar,
-              .fvar wb.widthMaskHypFvar,
-              .fvar ldecl.fvarId]
-          let (_mask_hyp, g) ← g.withContext do g.note (Name.mkSimple s!"bv_{wa.widthName}_lt_{wb.widthName}") (← bvLTExpr)
-          logInfo m!"Translated {ldecl.toExpr} : {ldecl.type} to bitvec"
+          let (natLTHyp, g) ← g.withContext do
+            g.note (Name.mkSimple s!"bv_{wa.widthName}_lt_{wb.widthName}") ldecl.toExpr
+          let (#[_], g) ← g.revert #[natLTHyp] | throwError "Reverting shuold produce a single FVar."
           return g
     return g
   | _ => return g
@@ -226,14 +220,18 @@ meta def introMaskedBitvectors (ctx : PbvTranslateContext)
     introBitvecFVarUnchecked ctx g bvInfos bvFvarId widthInfo
 
 /--
-These rewrites introduce the toplevel equality that convers `a = b` into
-`a.setWidth o &&& mask = b.setWidth o &&& mask`, which kickstarts the pushing process.
+These theorems require pre-filling the width bound in order to be used within
+the Simp set.
 -/
-meta def addToplevelRewrites (g : MVarId) (ctx : PbvTranslateContext) (simp : SimpTheoremsArray) :
+meta def addBoundRewrites (g : MVarId) (ctx : PbvTranslateContext) (simp : SimpTheoremsArray) :
     MetaM SimpTheoremsArray := g.withContext do
-  let mut simp := simp
-  simp ← simp.addTheorem (.other ``eq_iff) <| (← mkAppM ``eq_iff #[mkNatLit ctx.bmcBound])
-  return simp
+  let thms := #[
+        ``eq_iff,
+        ``Nat_lt_eq_Mask_lt]
+
+  thms.foldlM (init := simp) fun simps name =>
+    return ← simps.addTheorem (.other name) <| ← mkAppM name #[mkNatLit ctx.bmcBound]
+
 
 /--
 Add theorems to the Simp theorem context that push the `setWidth`s in.
@@ -292,7 +290,7 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVa
   let g ← translateWidthPreconds widthInfos g
 
   -- Run simp
-  let thms := ← addToplevelRewrites g ctx
+  let thms := ← addBoundRewrites g ctx
            <| ← addPushTheorems g
            <| ← addBvInfos g bvInfos -- This step is not strictly necessary.
            <| ← addWidthInfosSimpLemmas g widthInfos #[]
