@@ -21,7 +21,7 @@ structure WidthInfo where
   widthMaskHypFvar : FVarId
   /-- The hypothesis that the width variable is less than the bmc bound. -/
   hypWidthLeBoundMVarId : MVarId
-  /-- Hack: intro the bound as an fvar so 'simp' rewrites with it? this is ludicrous if true. -/
+  /-- The FVar of the bound hypothesis, necessary so 'simp' rewrites with it. -/
   hypWidthLeBoundNote : FVarId
 
 
@@ -41,7 +41,7 @@ meta structure PbvTranslateContext where
 
 meta def introMaskWidth (ctx : PbvTranslateContext) (g : MVarId) (widthExpr : Expr) (infos : WidthInfos)
   : MetaM (MVarId × WidthInfo × WidthInfos) := g.withContext do
-    -- Retrieve the ldecl from the context
+    -- Retrieve the ldecl from the context.
     let ldecl ← getFVarLocalDecl widthExpr
     -- Check that the Expr is of type Nat.
     assert! ldecl.type == (mkConst ``Nat)
@@ -190,7 +190,6 @@ meta def translateWidthPrecond (winfos : WidthInfos) (g : MVarId) (ldecl : Local
     MetaM (MVarId) := g.withContext do
   match_expr ldecl.type with
   | LT.lt ty _inst ea eb =>
-    -- note the mask theorem for this particular.
     if ty == mkConst ``Nat then
       if let some wa := winfos.infos[ea]? then
         if let some wb := winfos.infos[eb]? then
@@ -207,14 +206,19 @@ meta def translateWidthPrecond (winfos : WidthInfos) (g : MVarId) (ldecl : Local
     return g
   | _ => return g
 
+/--
+Traverse the local context and translate any hypotheses on `Nat` widths into
+`BitVec` hypotheses.
+-/
 meta def translateWidthPreconds (winfos: WidthInfos)
     (g : MVarId) : MetaM MVarId := g.withContext do
   let mut g := g
   for ldecl in ← getLCtx do
     g ← translateWidthPrecond winfos g ldecl
   return g
+
 /--
-eliminate the bitvector variables to introduce the masked versions
+Eliminate the bitvector variables to introduce the masked versions.
 -/
 meta def introMaskedBitvectors (ctx : PbvTranslateContext)
     (bvs : BitVecFVarsToRevert) (g : MVarId) : MetaM (MVarId × BitVecInfos) := do
@@ -245,7 +249,9 @@ meta def addPushTheorems (g : MVarId) (simp : SimpTheoremsArray) :
   return simp
 
 /--
-Add BitVecInfos theorems to the Simp theorem context that don't need special bindings.
+Add BitVecInfos theorems to the Simp theorem context. Simplify the final formula
+to remove redundant masking operations, not strictly necessary for `bv_decide`
+to decide the resulting formula.
 -/
 meta def addBvInfos (g : MVarId) (bvInfos : BitVecInfos)
   (simp : SimpTheoremsArray) : MetaM SimpTheoremsArray := g.withContext do
@@ -255,7 +261,7 @@ meta def addBvInfos (g : MVarId) (bvInfos : BitVecInfos)
   return simp
 
 /--
-Add BitVecInfos theorems to the Simp theorem context that don't need special bindings
+Add theorems bounding each of width to the provided bound to the simp set.
 -/
 meta def addWidthInfosSimpLemmas (g : MVarId) (widthInfos : WidthInfos)
   (simp : SimpTheoremsArray) : MetaM SimpTheoremsArray := g.withContext do
@@ -287,9 +293,10 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVa
 
   -- Run simp
   let thms := ← addToplevelRewrites g ctx
-                      <| ← addPushTheorems g
-                      <| ← addBvInfos g bvInfos
-                      <| ← addWidthInfosSimpLemmas g widthInfos #[]
+           <| ← addPushTheorems g
+           <| ← addBvInfos g bvInfos -- This step is not strictly necessary.
+           <| ← addWidthInfosSimpLemmas g widthInfos #[]
+
   let g ← applySimp g thms
 
   return [g] ++ (widthInfos.infos.values.map (·.hypWidthLeBoundMVarId))
@@ -323,7 +330,7 @@ example (w : Nat) (x y: BitVec w) (hw : w ≤ 4) :
   · grind
 
 theorem trace_double_zero_extend (p q r : Nat) (x : BitVec p)
-  (hr : r <= 8)
+  (hr : r ≤ 8)
   (hqr : q < r)
   (hpq : p < q) :
   (x.zeroExtend q).zeroExtend r = x.zeroExtend r
@@ -344,6 +351,18 @@ theorem trace_triple_zero_extend (p q r t : Nat) (x : BitVec p)
   pbv_decide 8
   · bv_decide
   · grind
+  · grind
+  · grind
+  · grind
+
+theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
+  (hr : r ≤ 8)
+  (hqr : q < r)
+  (hpq : p < q) :
+  (x.zeroExtend q).signExtend r = x.zeroExtend r
+  := by
+  pbv_decide 8
+  · bv_decide
   · grind
   · grind
   · grind
