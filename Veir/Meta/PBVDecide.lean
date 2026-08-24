@@ -1,5 +1,7 @@
-import Lean
-import Veir.Data.PBV
+module
+
+public import Lean
+public import Veir.Data.PBV
 
 open Lean Elab Tactic Meta Simp
 namespace Veir.Data.PBV
@@ -17,10 +19,10 @@ structure WidthInfo where
   /-- The hypothesis that the width variable is less than the bmc bound. -/
   hypWidthLeBound : MVarId
 
-def WidthInfo.widthFvarId (info : WidthInfo) : FVarId :=
+meta def WidthInfo.widthFvarId (info : WidthInfo) : FVarId :=
   info.widthNatLocalDecl.fvarId
 
-def WidthInfo.widthFvar (info : WidthInfo) : Expr :=
+meta def WidthInfo.widthFvar (info : WidthInfo) : Expr :=
   .fvar info.widthFvarId
 
 /--
@@ -33,7 +35,7 @@ structure PbvTranslateContext where
 /-- Find the local declaration of the (single) width variable,
 and eliminate it, producing the mask variable, and the masking constraint.
 -/
-def introMaskWidths (ctx : PbvTranslateContext) (g : MVarId) : MetaM (MVarId × WidthInfo) := do
+meta def introMaskWidths (ctx : PbvTranslateContext) (g : MVarId) : MetaM (MVarId × WidthInfo) := do
   g.withContext do
     for ldecl in ← getLCtx do
       unless ldecl.isImplementationDetail do
@@ -79,14 +81,14 @@ structure BitVecInfos where
   /-- The Array containing facts about each variable. -/
   infos : Array BitVecInfo := #[]
 
-def BitVecInfos.push (this : BitVecInfos) (val : BitVecInfo) : BitVecInfos :=
+meta def BitVecInfos.push (this : BitVecInfos) (val : BitVecInfo) : BitVecInfos :=
   { this with infos := this.infos.push val }
 
 /--
 Analyze a single local decl, and try to introduce it as a `BitVec` variable in our larger universe
 if it is in fact a `BitVec` variable.
 -/
-def introVar (ctx : PbvTranslateContext) (widthInfo : WidthInfo) (g : MVarId)
+meta def introVar (ctx : PbvTranslateContext) (widthInfo : WidthInfo) (g : MVarId)
       (infos : BitVecInfos) (ldecl : LocalDecl) :
       MetaM (MVarId × BitVecInfos) := g.withContext do
   unless ldecl.isImplementationDetail do
@@ -109,7 +111,7 @@ def introVar (ctx : PbvTranslateContext) (widthInfo : WidthInfo) (g : MVarId)
 Apply the introVar to all localDecls to obtain concrete width bitvectors from parametric ones and the corresponding
 hypotheses.
 -/
-def introVars (ctx : PbvTranslateContext) (g : MVarId) (widthInfo : WidthInfo) : MetaM (MVarId × BitVecInfos) := do
+meta def introVars (ctx : PbvTranslateContext) (g : MVarId) (widthInfo : WidthInfo) : MetaM (MVarId × BitVecInfos) := do
   let decls : LocalContext ← g.withContext getLCtx
   decls.foldlM (init := (g, {})) fun (g, infos) ldecl =>
     introVar ctx widthInfo g infos ldecl
@@ -118,7 +120,7 @@ def introVars (ctx : PbvTranslateContext) (g : MVarId) (widthInfo : WidthInfo) :
 Add the hardcoded push theorems to the Simp theorem context, bind each application to the
 concrete blast width (`o`) and parametric width (`w`).
 -/
-def addPushTheorems (g : MVarId)
+meta def addPushTheorems (g : MVarId)
     (widthInfo : WidthInfo) (simp : SimpTheoremsArray) : MetaM SimpTheoremsArray := g.withContext do
   let thms := #[``eq_iff, ``setWidth_add, ``setWidth_setWidth] -- hardcoded theorems
   let mut simp := simp
@@ -130,7 +132,7 @@ def addPushTheorems (g : MVarId)
 /--
 Add theorems to the Simp theorem context that don't need special bindings
 -/
-def addOtherTheorems (g : MVarId) (simp : SimpTheoremsArray) : MetaM SimpTheoremsArray := g.withContext do
+meta def addOtherTheorems (g : MVarId) (simp : SimpTheoremsArray) : MetaM SimpTheoremsArray := g.withContext do
   let others := #[``BitVec.setWidth_eq]
   let mut simp := simp
   for n in others do
@@ -140,7 +142,7 @@ def addOtherTheorems (g : MVarId) (simp : SimpTheoremsArray) : MetaM SimpTheorem
 /--
 Add BitVecInfos theorems to the Simp theorem context that don't need special bindings.
 -/
-def addBvInfos (g : MVarId) (bvInfos : BitVecInfos)
+meta def addBvInfos (g : MVarId) (bvInfos : BitVecInfos)
   (simp : SimpTheoremsArray) : MetaM SimpTheoremsArray := g.withContext do
   let mut simp := simp
   for info in bvInfos.infos do
@@ -150,7 +152,7 @@ def addBvInfos (g : MVarId) (bvInfos : BitVecInfos)
 /--
 Add width mask hypothesis
 -/
-def addWidthHyp (g : MVarId) (widthInfo : WidthInfo)
+meta def addWidthHyp (g : MVarId) (widthInfo : WidthInfo)
   (simp : SimpTheoremsArray) : MetaM SimpTheoremsArray := g.withContext do
   -- TODO: make this cleaner by collecting them all into a single array.
   let simpThms : SimpTheorems := {}
@@ -162,13 +164,13 @@ def addWidthHyp (g : MVarId) (widthInfo : WidthInfo)
 /--
 Run simp on an MVarId given a set of simp theorems.
 -/
-def applySimp (g : MVarId) (simp : SimpTheoremsArray) : MetaM MVarId := g.withContext do
+meta def applySimp (g : MVarId) (simp : SimpTheoremsArray) : MetaM MVarId := g.withContext do
   let simpCtx ← Simp.mkContext (simpTheorems := simp)
   let (some g, _) ← g.withContext do simpTarget g simpCtx
     | throwError "goal solved by simp"
   return g
 
-def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVarId) := do
+meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVarId) := do
   -- throwError s!"Deciding with bound {ctx.bmcBound}"
   let (g, widthInfo) ← introMaskWidths ctx g
   -- Introduce bitvector variables
@@ -194,7 +196,7 @@ bound, this should be solvable by grind.
 syntax (name := pbvDecide) "pbv_decide" optConfig (ppSpace colGt num)? : tactic
 
 @[tactic pbvDecide]
-def evalPbvDecide : Tactic := fun stx => do
+public meta def evalPbvDecide : Tactic := fun stx => do
   match stx with
   | `(tactic| pbv_decide $n:num) => do
       let ctx : PbvTranslateContext := { bmcBound := n.getNat }
