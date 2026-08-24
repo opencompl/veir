@@ -50,7 +50,7 @@ theorem trace_add_comm_manual (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
 theorem trace_zero_zero_extend (p q r : Nat) (x : BitVec p)
   (hr : r ≤ 8)
   (h_qr : q < r)
-  (h_pq : (p + 1) - 1 < q) :
+  (h_pq : p < q) :
   (x.zeroExtend q).zeroExtend r = x.zeroExtend r
   := by
 -- Step 1: Bound widths to the provided blast width
@@ -76,12 +76,13 @@ theorem trace_zero_zero_extend (p q r : Nat) (x : BitVec p)
 -- Step 5B: Translate the condition on the natural number width
 --          into a fact about the bitvector masks
   have bv_p_lt_q := h_pq
-  simp [Nat_lt_eq_Mask_lt (o := 8), p_le_bw, q_le_bw] at bv_p_lt_q
+  revert bv_p_lt_q
 
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
-  simp  only [
+  simp only [
     eq_iff (o := 8),
-    setWidth_setWidth (o := 8),
+    Nat_lt_eq_Mask_lt (o := 8),
+    setWidth_setWidth,
     BitVec.zeroExtend_eq_setWidth,
     BitVec.setWidth_eq,
     p_le_bw,
@@ -123,15 +124,17 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
   have mp_mask := isMask_of_eq_maskOfWidth h_mp
 -- Step 5B: Translate the condition on the natural number width
 --          into a fact about the bitvector masks
-  have bv_p_lt_q := mask_lt_mask p_le_bw q_le_bw h_mp h_mq hpq
+  have bv_p_lt_q := hpq
+  revert bv_p_lt_q
 
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp  only [
     eq_iff (o := 8),
-    setWidth_setWidth (o := 8),
+    Nat_lt_eq_Mask_lt (o := 8),
     msb_eq_and_signBitOfMask_maskOfWidth_ne_zero (o := 8),          -- Replace the sign bit test with a mask test
     setWidth_signExtend_eq_and_maskOfWidth,          -- Push `setWidth` down signExtend
     BitVec.zeroExtend_eq_setWidth,
+    setWidth_setWidth,
     signBitOfMask,                 -- Unfold, else `bv_decide` abstracts it away
     BitVec.setWidth_eq,
     p_le_bw,
