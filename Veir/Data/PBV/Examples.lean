@@ -44,6 +44,54 @@ theorem trace_add_comm_manual (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
   bv_decide
 
 
+/-- Manual trace of a zero extension to `q` followed by a zero extension to `r`,
+    which is a single zero extension to `r`, since `p < q`.
+-/
+theorem trace_zero_zero_extend (p q r : Nat) (x : BitVec p)
+  (hr : r ≤ 8)
+  (h_qr : q < r)
+  (h_pq : (p + 1) - 1 < q) :
+  (x.zeroExtend q).zeroExtend r = x.zeroExtend r
+  := by
+-- Step 1: Bound widths to the provided blast width
+  have r_le_bw : r ≤ 8 := by grind
+  have q_le_bw : q ≤ 8 := by grind
+  have p_le_bw : p ≤ 8 := by grind
+-- Step 2-3: Introduce mask to replace `w` Nat var
+  apply width_elim 8 r
+  intro mr h_mr
+  apply width_elim 8 q
+  intro mq h_mq
+  apply width_elim 8 p
+  intro mp h_mp
+-- Step 4: Eliminate the parametric bv var of width `w`
+--         enforcing width constraint with mask
+  revert x
+  apply var_elim 8 p p_le_bw
+  intro x h_xmp
+-- Step 5: Convert width hypothesis to mask hypothesis
+  have mr_mask := isMask_of_eq_maskOfWidth h_mr
+  have mq_mask := isMask_of_eq_maskOfWidth h_mq
+  have mp_mask := isMask_of_eq_maskOfWidth h_mp
+-- Step 5B: Translate the condition on the natural number width
+--          into a fact about the bitvector masks
+  have bv_p_lt_q := h_pq
+  simp [Nat_lt_eq_Mask_lt (o := 8), p_le_bw, q_le_bw] at bv_p_lt_q
+
+-- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
+  simp  only [
+    eq_iff (o := 8),
+    setWidth_setWidth (o := 8),
+    BitVec.zeroExtend_eq_setWidth,
+    BitVec.setWidth_eq,
+    p_le_bw,
+    r_le_bw,
+    q_le_bw,                       -- Lets simp discharge the `v ≤ o` side condition of
+                                   -- `setWidth_signExtend_eq_and_maskOfWidth`
+  ] at h_xmp ⊢
+-- Step 8: BitBlast!
+  bv_decide
+
 /-- Manual trace of a zero extension to `q` followed by a sign extension to `r`,
     which is a single zero extension to `r`, since `p < q` leaves the sign bit
     of the intermediate value clear -/
@@ -91,5 +139,5 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
     q_le_bw,                       -- Lets simp discharge the `v ≤ o` side condition of
                                    -- `setWidth_signExtend_eq_and_maskOfWidth`
   ] at h_xmp ⊢
--- Step 7: Drop the Nat 'p', 'q', 'r'
+-- Step 8: BitBlast!
   bv_decide
