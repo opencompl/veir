@@ -341,12 +341,12 @@ def CreateProg.run (prog : CreateProg OpInfo α) (assignment : Assignment OpInfo
     Option (WfIRContext OpInfo × Array OperationPtr × Assignment OpInfo) :=
   CreateProg.runDecls prog.decls ctx assignment
 
-/-- Compile a Puddle pattern to the local rewrite-pattern interface.
+/-- Interpret a Puddle pattern.
 
 Matcher rejection returns a nonfatal no-match result. After matching succeeds, any failure
 is a fatal rewrite error. -/
 @[expose, specialize rule]
-def Pattern.compile (rule : Pattern OpInfo) : LocalRewritePattern OpInfo :=
+def Pattern.interpret (rule : Pattern OpInfo) : LocalRewritePattern OpInfo :=
   fun ctx root =>
     /- First, run the matcher. -/
     match rule.matcher.run ctx.raw root with
@@ -360,6 +360,24 @@ def Pattern.compile (rule : Pattern OpInfo) : LocalRewritePattern OpInfo :=
         match assignment.getValues rule.replacement.values with
         | none => none
         | some newValues => some (newCtx, some (newOps, newValues))
+
+/--
+A compiled Puddle pattern stored as data rather than exposed directly as a function-valued
+definition. Closed values of this type can be initialized once and their rewrite closure reused
+for every operation visited by a rewrite driver.
+-/
+structure CompiledPattern (OpInfo : Type) [HasOpInfo OpInfo] where
+  /-- The reusable pattern-rewriter entry point. -/
+  run : RewritePattern OpInfo
+
+/--
+Compile a Puddle rule into a reusable rewrite-pattern value.
+This function is more efficient than `Pattern.interpret` because it allows the Lean compiler to
+initialize things only once, rather than reinitializing them for each application of the pattern.
+-/
+@[expose, specialize rule]
+def Pattern.compile (rule : Pattern OpInfo) : CompiledPattern OpInfo :=
+  ⟨RewritePattern.fromLocalRewrite (Pattern.interpret rule)⟩
 
 end
 
