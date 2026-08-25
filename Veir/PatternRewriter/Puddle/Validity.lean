@@ -40,6 +40,7 @@ property value.
 We could in the future support opcodes when we know that the properties matched or created by the
 pattern are such that the operation has no memory effects, but this is only happening in rare cases.
 -/
+@[expose]
 def SupportedOpCode (opCode : OpInfo) : Prop :=
   HasOpInfo.isTerminator opCode = false ∧
     ∀ property, HasOpInfo.getEffects opCode property = .none
@@ -157,6 +158,37 @@ def SemanticAssignment.getProperty (assignment : SemanticAssignment)
     else none
   | _ => none
 
+instance : MetadataStore OpCode SemanticAssignment where
+  getType := SemanticAssignment.getType
+  getProperty := fun store {_opCode} propertyHandle =>
+    SemanticAssignment.getProperty store propertyHandle
+  bindType := fun store typeHandle value =>
+    some (SemanticAssignment.bindType store typeHandle value)
+  bindProperty := fun store {_opCode} propertyHandle value =>
+    some (SemanticAssignment.bindProperty store propertyHandle value)
+
+@[simp]
+theorem MetadataStore.getType_semantic (assignment : SemanticAssignment)
+    (handle : Handle OpCode .type) :
+    MetadataStore.getType assignment handle = assignment.getType handle := rfl
+
+@[simp]
+theorem MetadataStore.getProperty_semantic (assignment : SemanticAssignment)
+    (handle : Handle OpCode (.prop opCode)) :
+    MetadataStore.getProperty assignment handle = assignment.getProperty handle := rfl
+
+@[simp]
+theorem MetadataStore.bindType_semantic (assignment : SemanticAssignment)
+    (handle : Handle OpCode .type) (value : TypeAttr) :
+    MetadataStore.bindType assignment handle value =
+      some (assignment.bindType handle value) := rfl
+
+@[simp]
+theorem MetadataStore.bindProperty_semantic (assignment : SemanticAssignment)
+    (handle : Handle OpCode (.prop opCode)) (value : propertiesOf opCode) :
+    MetadataStore.bindProperty assignment handle value =
+      some (assignment.bindProperty handle value) := rfl
+
 @[expose]
 def SemanticAssignment.getValues (assignment : SemanticAssignment)
     (handles : Array (Handle OpCode .value)) : Option (Array RuntimeValue) :=
@@ -196,6 +228,10 @@ def MatchDecl.Models (decl : MatchDecl OpCode) (assignment : SemanticAssignment)
         boundResults = results) ∧
       property actualProperty = true ∧
       InterpretsTo opCode actualProperty resultTypes operands results
+  | @MatchDecl.guard _ _ _ inputBundle inputs predicate =>
+    ∃ values,
+      MetadataTuple.resolve (self := inputBundle) assignment inputs = some values ∧
+      predicate values = true
 
 /-! ## Root Constraint -/
 
@@ -203,6 +239,7 @@ def MatchDecl.Models (decl : MatchDecl OpCode) (assignment : SemanticAssignment)
 The first declaration in the match program is an operation declaration whose operation handle is
 the program's distinguished root handle.
 -/
+@[expose]
 def MatchProg.ConstrainsRoot (prog : MatchProg OpInfo α) : Prop :=
   match prog.decls with
   | .operation _ _ _ _ _ opHandle _ _ :: _ => opHandle = prog.rootHandle
@@ -319,6 +356,37 @@ def forbidMany (handles : HandleContext) :
 
 end HandleContext
 
+/-- Require every handle in a metadata tuple to be available. -/
+@[expose]
+def MetadataTuple.Shape.require :
+    (shape : MetadataTuple.Shape OpCode Handles) →
+      HandleContext → Handles → Option HandleContext
+  | @MetadataTuple.Shape.unit _ _, defined, () => some defined
+  | @MetadataTuple.Shape.atom _ _ _ .type, defined, handle => defined.require handle
+  | @MetadataTuple.Shape.atom _ _ _ (.property _), defined, handle => defined.require handle
+  | @MetadataTuple.Shape.cons _ _ _ _ .type tail, defined, (headHandle, tailHandles) => do
+      let defined ← defined.require headHandle
+      tail.require defined tailHandles
+  | @MetadataTuple.Shape.cons _ _ _ _ (.property _) tail,
+      defined, (headHandle, tailHandles) => do
+      let defined ← defined.require headHandle
+      tail.require defined tailHandles
+
+/-- Insert all handles in a metadata output tuple, requiring each one to be fresh. -/
+@[expose]
+def MetadataTuple.Shape.insertFresh :
+    (shape : MetadataTuple.Shape OpCode Handles) → HandleContext → Handles → Option HandleContext
+  | @MetadataTuple.Shape.unit _ _, defined, () => some defined
+  | @MetadataTuple.Shape.atom _ _ _ .type, defined, handle => defined.insertFresh handle
+  | @MetadataTuple.Shape.atom _ _ _ (.property _), defined, handle => defined.insertFresh handle
+  | @MetadataTuple.Shape.cons _ _ _ _ .type tail, defined, (headHandle, tailHandles) => do
+      let defined ← defined.insertFresh headHandle
+      tail.insertFresh defined tailHandles
+  | @MetadataTuple.Shape.cons _ _ _ _ (.property _) tail,
+      defined, (headHandle, tailHandles) => do
+      let defined ← defined.insertFresh headHandle
+      tail.insertFresh defined tailHandles
+
 /-- Collect the handles that a matcher declaration can bind during a successful match. -/
 @[expose]
 def MatchDecl.collectBindings (decl : MatchDecl OpCode)
@@ -333,6 +401,8 @@ def MatchDecl.collectBindings (decl : MatchDecl OpCode)
   | .value typeHandle _ =>
       defined.insert typeHandle
   | .type .. =>
+      some defined
+  | @MatchDecl.guard _ _ _ _ _ _ =>
       some defined
 
 /-- Collect matcher-defined handles globally, without imposing matcher use-point ordering. -/
@@ -373,6 +443,9 @@ def CreateDecl.checkBindings (decl : CreateDecl OpCode)
       guard (resultHandles.size = resultTypes.size)
       let defined ← defined.insertFresh opHandle
       defined.insertManyFresh resultHandles.toList
+  | @CreateDecl.applyNative _ _ _ _ inputBundle outputBundle inputs _ outputs =>
+      let defined ← inputBundle.shape.require defined inputs
+      outputBundle.shape.insertFresh defined outputs
 
 /-- Traverse creation declarations in execution order, threading the available-handle context. -/
 @[expose]
@@ -430,6 +503,11 @@ def CreateDecl.Models (decl : CreateDecl OpCode) (assignment : SemanticAssignmen
         assignment.getOp opHandle = some results ∧
         assignment.getValues resultHandles = some results ∧
         InterpretsTo opCode property resultTypes operands results
+  | @CreateDecl.applyNative _ _ _ _ inputBundle outputBundle inputs rewrite outputs =>
+      ∃ inputValues outputValues,
+        MetadataTuple.resolve (self := inputBundle) assignment inputs = some inputValues ∧
+        rewrite inputValues = some outputValues ∧
+        MetadataTuple.resolve (self := outputBundle) assignment outputs = some outputValues
 
 /-- Pointwise semantic facts for every creation declaration. -/
 @[expose]
@@ -463,6 +541,10 @@ def CreateDecl.eval (decl : CreateDecl OpCode)
       let results ← decl.evalResults assignment
       pure ((assignment.bindOp opHandle results).bindValues
         resultHandles.toList results.toList)
+  | @CreateDecl.applyNative _ _ _ _ inputBundle outputBundle inputs rewrite outputs => do
+      let values ← MetadataTuple.resolve (self := inputBundle) assignment inputs
+      let outputValues ← rewrite values
+      MetadataTuple.bind (self := outputBundle) assignment outputs outputValues
 
 /-- Semantically execute creation declarations in program order. -/
 @[expose]

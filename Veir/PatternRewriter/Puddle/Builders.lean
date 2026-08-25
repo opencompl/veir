@@ -109,25 +109,42 @@ def MatchProg.value (type : Handle OpCode .type) : MatchProg.Builder (Handle OpC
 
 /--
 Match a non-root operation given its opcode, operands, result types, and properties. The operation
-is assumed to have no block arguments or regions, but can have any attribute dictionary. Returns
-a bundle of handles that contains the operation handle, an array of handles for its SSA results,
-and a handle for its concrete properties.
+is assumed to have no block arguments or regions, but can have any attribute dictionary. Returns a
+bundle containing the operation, its SSA results, and its concrete properties.
 -/
 @[expose, inline]
 def MatchProg.operation (opCode : OpCode) (operands : Array (Handle OpCode .value))
-    (returnTypes : Array (Handle OpCode .type))
+    (resultTypes : Array (Handle OpCode .type))
     (property : PropertyMatcher opCode := fun _ => true) :
     MatchProg.Builder (OpHandle opCode) :=
   ⟨fun state =>
     let op := Handle.mk (OpInfo := OpCode) state.nextId
-    let res := (Array.range returnTypes.size).map fun index =>
+    let res := (Array.range resultTypes.size).map fun index =>
       Handle.mk (OpInfo := OpCode) (state.nextId + index + 1)
-    let properties := Handle.mk (OpInfo := OpCode) (state.nextId + returnTypes.size + 1)
-    have hresults : res.size = returnTypes.size := by grind
+    let properties := Handle.mk (OpInfo := OpCode) (state.nextId + resultTypes.size + 1)
+    have hresults : res.size = resultTypes.size := by grind
     (⟨op, res, properties⟩, { state with
-      nextId := state.nextId + returnTypes.size + 2
-      decls := .operation opCode operands returnTypes property properties op res hresults ::
+      nextId := state.nextId + resultTypes.size + 2
+      decls := .operation opCode operands resultTypes property properties op res hresults ::
         state.decls
+    })⟩
+
+/--
+Require an inline native predicate over matched type/property metadata.
+
+Call `guard` after declaring every handle in `inputs`. It runs after those declarations have bound
+their concrete metadata; returning `true` keeps the match and returning `false` rejects it.
+-/
+@[expose, inline]
+protected def MatchProg.guard {Inputs : Type} [IsMetadataTuple OpCode Inputs]
+    (inputs : Inputs) (predicate : MetadataValues OpCode Inputs → Bool) :
+    MatchProg.Builder Unit :=
+  ⟨fun state =>
+    ((), {
+      state with
+      -- Match declarations normally execute in reverse authoring order. A guard consumes handles
+      -- declared before it, so place it after the declarations already accumulated.
+      decls := state.decls ++ [.guard inputs predicate]
     })⟩
 
 /--
@@ -139,20 +156,20 @@ root through already-bound handles.
 -/
 @[expose, inline]
 def MatchProg.root (opCode : OpCode) (operands : Array (Handle OpCode .value))
-    (returnTypes : Array (Handle OpCode .type))
+    (resultTypes : Array (Handle OpCode .type))
     (property : PropertyMatcher opCode := fun _ => true) :
     MatchProg.Builder (RootHandle opCode) :=
   ⟨fun state =>
     let op := Handle.mk (OpInfo := OpCode) state.nextId
-    let results := (Array.range returnTypes.size).map fun index =>
+    let results := (Array.range resultTypes.size).map fun index =>
       Handle.mk (OpInfo := OpCode) (state.nextId + index + 1)
-    let properties := Handle.mk (OpInfo := OpCode) (state.nextId + returnTypes.size + 1)
-    have hresults : results.size = returnTypes.size := by grind
+    let properties := Handle.mk (OpInfo := OpCode) (state.nextId + resultTypes.size + 1)
+    have hresults : results.size = resultTypes.size := by grind
     (⟨op, properties⟩, { state with
-      nextId := state.nextId + returnTypes.size + 2
+      nextId := state.nextId + resultTypes.size + 2
       root? := some op
       rootConstraints :=
-        .operation opCode operands returnTypes property properties op results hresults ::
+        .operation opCode operands resultTypes property properties op results hresults ::
           state.rootConstraints
       numRoots := state.numRoots + 1
     })⟩
@@ -179,6 +196,54 @@ def MatchProg.build (builder : MatchProg.Builder α) : MatchProg OpCode α :=
 `CreateProg` builder functions appends a logical step and returns fresh handles that later steps may
 consume.
 -/
+
+namespace MetadataTuple.Atom
+
+/-- Allocate the handle denoted by a metadata atom. -/
+@[expose]
+def fresh {Handle : Type} : MetadataTuple.Atom OpCode Handle → Nat → Handle × Nat
+| .type, nextId => (⟨nextId⟩, nextId + 1)
+| .property _, nextId => (⟨nextId⟩, nextId + 1)
+
+end MetadataTuple.Atom
+
+namespace MetadataTuple.Shape
+
+/-- Allocate every handle in a metadata-tuple shape. -/
+@[expose]
+def fresh : (shape : MetadataTuple.Shape OpCode Handles) → Nat → Handles × Nat
+| .unit, nextId => ((), nextId)
+| .atom metadataAtom, nextId => metadataAtom.fresh nextId
+| .cons head tail, nextId =>
+    let (headHandle, nextId) := head.fresh nextId
+    let (tailHandles, nextId) := tail.fresh nextId
+    ((headHandle, tailHandles), nextId)
+
+end MetadataTuple.Shape
+
+namespace MetadataTuple
+
+/-- Allocate all handles in a metadata tuple. -/
+@[expose]
+def fresh {Handles : Type} [self : IsMetadataTuple OpCode Handles] (nextId : Nat) : Handles × Nat :=
+  self.shape.fresh nextId
+
+@[simp]
+theorem fresh_unit (nextId : Nat) :
+    fresh (Handles := Unit) nextId = ((), nextId) := by
+  rfl
+
+@[simp]
+theorem fresh_type (nextId : Nat) :
+    fresh (Handles := Handle OpCode .type) nextId = (⟨nextId⟩, nextId + 1) := by
+  rfl
+
+@[simp]
+theorem fresh_property {opCode : OpCode} (nextId : Nat) :
+    fresh (Handles := Handle OpCode (.prop opCode)) nextId = (⟨nextId⟩, nextId + 1) := by
+  rfl
+
+end MetadataTuple
 
 /-- The operation and SSA-result handles introduced by a creation declaration. -/
 structure CreatedOpHandle where
@@ -249,6 +314,26 @@ def CreateProg.operation (opCode : OpCode) (operands : Array (Handle OpCode .val
     (⟨op, res⟩, {
       nextId := state.nextId + resultTypes.size + 1
       decls := .operation opCode operands resultTypes properties op res :: state.decls
+    })⟩
+
+/--
+Apply an inline native metadata function to a tuple of type/property handles.
+
+`Outputs` is a bundle type built from `Unit`, type handles, property handles, and products. The
+returned value has that same handle shape and may be consumed by later creation declarations.
+Returning `none` from `rewrite` rejects creation.
+-/
+@[expose, inline]
+def CreateProg.applyNative {Inputs Outputs : Type}
+    [IsMetadataTuple OpCode Inputs] [IsMetadataTuple OpCode Outputs]
+    (inputs : Inputs)
+    (rewrite : MetadataValues OpCode Inputs → Option (MetadataValues OpCode Outputs)) :
+    CreateProg.Builder Outputs :=
+  ⟨fun state =>
+    let (outputs, nextId) := MetadataTuple.fresh (Handles := Outputs) state.nextId
+    (outputs, {
+      nextId
+      decls := .applyNative inputs rewrite outputs :: state.decls
     })⟩
 
 /-- Build a creation program using the matcher's exports and continuing its handle numbering. -/

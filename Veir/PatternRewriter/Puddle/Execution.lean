@@ -1,6 +1,6 @@
 module
 
-public import Veir.PatternRewriter.Puddle.Definitions
+public import Veir.PatternRewriter.Puddle.Metadata
 public import Veir.PatternRewriter.Basic
 
 import all Veir.IR.Basic
@@ -160,6 +160,12 @@ def bindProperty (assignment : Assignment OpInfo)
     Option (Assignment OpInfo) :=
   Assignment.bind assignment handle (.property opCode value)
 
+instance : MetadataStore OpInfo (Assignment OpInfo) where
+  getType := Assignment.getType
+  getProperty := fun store {_opCode} handle => Assignment.getProperty store handle
+  bindType := Assignment.bindType
+  bindProperty := fun store {_opCode} handle value => Assignment.bindProperty store handle value
+
 /--
 Bind a list of value handles to values, or check that it already denotes the same values.
 Return `none` if the lists have different lengths.
@@ -228,19 +234,19 @@ def MatchDecl.run (decl : MatchDecl OpInfo) (ctx : IRContext OpInfo)
     let assignment ←
       Assignment.bindValues assignment results.toList (matchedOp.getResults! ctx).toList
     /- Check that the opcode is valid. -/
-    guard (matchedOp.getOpType! ctx = opCode)
+    _root_.guard (matchedOp.getOpType! ctx = opCode)
     let actualProperties := matchedOp.getProperties! ctx opCode
     /- Check that the properties are valid, and bind them. -/
-    guard (property actualProperties)
+    _root_.guard (property actualProperties)
     let assignment ← Assignment.bindProperty assignment propertyHandle actualProperties
     let actualResultTypes := matchedOp.getResultTypes! ctx
     /- Check that the result types are valid and bind them. -/
-    guard (actualResultTypes.size = resultTypes.size)
+    _root_.guard (actualResultTypes.size = resultTypes.size)
     let assignment ← Assignment.bindTypes assignment
       resultTypes.toList actualResultTypes.toList
     /- Check that the operands are valid and bind them. -/
     let actualOperands := matchedOp.getOperands! ctx
-    guard (actualOperands.size = operands.size)
+    _root_.guard (actualOperands.size = operands.size)
     Assignment.bindValues assignment operands.toList actualOperands.toList
   | .value typeHandle valueHandle =>
     /- Get the value from the assignment (as it should already be bound), and bind its type. -/
@@ -252,7 +258,12 @@ def MatchDecl.run (decl : MatchDecl OpInfo) (ctx : IRContext OpInfo)
     the matcher.
     -/
     let actual ← Assignment.getType assignment typeHandle
-    guard (matcher actual)
+    _root_.guard (matcher actual)
+    return assignment
+  | @MatchDecl.guard _ _ Inputs inputBundle inputs predicate =>
+    let values ← @MetadataTuple.resolve OpInfo _ Inputs (Assignment OpInfo) inputBundle
+      inferInstance assignment inputs
+    _root_.guard (predicate values)
     return assignment
 
 /--
@@ -286,6 +297,12 @@ def MatchProg.Matches (prog : MatchProg OpInfo α) (ctx : IRContext OpInfo)
     (root : OperationPtr) (assignment : Assignment OpInfo) : Prop :=
   prog.run ctx root = some assignment
 
+/-- Resolve the values selected by a replacement. -/
+@[expose]
+def Replacement.resolveValues (replacement : Replacement OpInfo)
+    (assignment : Assignment OpInfo) : Option (Array ValuePtr) :=
+  Assignment.getValues assignment replacement.values
+
 /--
 Execute one creation declaration, returning any operations it creates and the updated assignment.
 -/
@@ -316,6 +333,7 @@ def CreateDecl.run (decl : CreateDecl OpInfo) (assignment : Assignment OpInfo)
   | .type value result =>
     let assignment ← Assignment.bindType assignment result value
     return (ctx, #[], assignment)
+  | @CreateDecl.applyNative _ _ _ _ _ _ _ _ _ => none
 
 /--
 Execute creation declarations in program order, returning newly created operations as well as the
@@ -327,6 +345,15 @@ def CreateProg.runDecls (decls : List (CreateDecl OpInfo)) (ctx : WfIRContext Op
     Option (WfIRContext OpInfo × Array OperationPtr × Assignment OpInfo) :=
   match decls with
   | [] => some (ctx, #[], assignment)
+  | (.property _ value result) :: decls => do
+    let assignment ← Assignment.bindProperty assignment result value
+    CreateProg.runDecls decls ctx assignment
+  | (@CreateDecl.applyNative _ _ _ _ inputBundle outputBundle
+      inputs rewrite outputs) :: decls => do
+    let values ← MetadataTuple.resolve (self := inputBundle) assignment inputs
+    let outputValues ← rewrite values
+    let assignment ← MetadataTuple.bind (self := outputBundle) assignment outputs outputValues
+    CreateProg.runDecls decls ctx assignment
   | decl :: decls => do
     let (ctx, newOperations, assignment) ← decl.run assignment ctx
     let (ctx, operations, assignment) ← CreateProg.runDecls decls ctx assignment

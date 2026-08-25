@@ -32,6 +32,8 @@ match opCode with
 | .pdl op => PDL.propertiesOf op
 | .test op => Test.propertiesOf op
 
+attribute [reducible] _propertiesOf
+
 /--
   What are the memory effects of an operation with this opcode and these
   properties?
