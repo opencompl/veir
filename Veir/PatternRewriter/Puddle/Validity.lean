@@ -140,6 +140,7 @@ def requireMany (ctx : HandleContext) (handles : List (Handle OpCode kind)) : Bo
   handles.all ctx.require
 
 /-- Record an output, requiring its identifier to be fresh in the context. -/
+@[expose]
 def insertFresh (ctx : HandleContext) (handle : Handle OpCode kind) : Option HandleContext :=
   match ctx.lookup handle.id with
   | none => some ⟨(handle.id, kind) :: ctx.bindings, ctx.unavailable⟩
@@ -152,6 +153,7 @@ def insertManyFresh (ctx : HandleContext) (handles : List (Handle OpCode kind))
   handles.foldlM insertFresh ctx
 
 /-- Mark an allocated handle as unavailable to creation and replacement inputs. -/
+@[expose]
 def forbid (ctx : HandleContext) (handle : Handle OpCode kind) : HandleContext :=
   ⟨ctx.bindings, handle.id :: ctx.unavailable⟩
 
@@ -205,7 +207,12 @@ def MatchDecl.collectBindings (decl : MatchDecl OpCode)
       guard (defined.requireMany resultTypes.toList)
       let defined ← defined.insertManyFresh results.toList
       let defined ← defined.insertFresh propertyHandle
-      defined.insertFresh opHandle
+      let defined ← defined.insertFresh opHandle
+      if opHandle.id ∈ defined.unavailable ∨
+          ∃ result ∈ results.toList, result.id ∈ defined.unavailable then
+        return (defined.forbid opHandle).forbidMany results.toList
+      else
+        return defined
   | .value typeHandle result =>
       guard (defined.require typeHandle)
       defined.insertFresh result
@@ -235,6 +242,25 @@ def MatchProg.bindingDecls (prog : MatchProg OpInfo α) : List (MatchDecl OpInfo
     | _ => true
   structural.reverse ++ guards
 
+/-- Propagate root-alias unavailability through one matcher declaration. -/
+@[expose]
+def MatchDecl.propagateUnavailable (decl : MatchDecl OpCode)
+    (defined : HandleContext) : HandleContext :=
+  match decl with
+  | .operation _ _ _ _ _ opHandle results _ =>
+      if opHandle.id ∈ defined.unavailable ∨
+          ∃ result ∈ results.toList, result.id ∈ defined.unavailable then
+        (defined.forbid opHandle).forbidMany results.toList
+      else
+        defined
+  | _ => defined
+
+/-- Propagate root-alias unavailability through declarations in runtime order. -/
+@[expose]
+def MatchProg.propagateUnavailable (decls : List (MatchDecl OpCode))
+    (defined : HandleContext) : HandleContext :=
+  decls.foldl (fun defined decl => decl.propagateUnavailable defined) defined
+
 /--
 Collect every available handle that can be bound by a successful matcher, and mark as unavailable
 the root operation handle and its result handles.
@@ -245,7 +271,8 @@ def MatchProg.collectBindings (prog : MatchProg OpCode α) : Option HandleContex
     let rootResults ← prog.rootResults?
     let defined ← MatchProg.collectDeclBindings prog.bindingDecls .empty
     let defined := defined.forbid prog.rootHandle
-    return defined.forbidMany rootResults.toList
+    let defined := defined.forbidMany rootResults.toList
+    return MatchProg.propagateUnavailable prog.decls defined
 
 /--
 Check one creation declaration and extend the context with its outputs. Inputs must be available at

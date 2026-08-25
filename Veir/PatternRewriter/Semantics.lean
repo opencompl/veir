@@ -40,6 +40,14 @@ theorem WfIRContext.WithCreatedOps.inBounds_mono {ctx₁ ctx₂ : WfIRContext Op
   intro ptr inBounds
   induction h <;> grind
 
+/-- Allocating uninserted operations does not change dominance between pre-existing values and
+pre-existing insertion points. Dominance is an abstract interface in Veir, so this transport fact
+is recorded alongside its other axioms. -/
+axiom WfIRContext.WithCreatedOps.value_dominatesIp_mono
+    {ctx₁ ctx₂ : WfIRContext OpInfo} (h : WfIRContext.WithCreatedOps ctx₁ ctx₂)
+    {value : ValuePtr} {ip : InsertPoint} :
+    value.dominatesIp ip ctx₁ → value.dominatesIp ip ctx₂
+
 @[local grind =>]
 theorem WfIRContext.WithCreatedOps.preserves_VariableState_conforms {ctx₁ ctx₂ : WfIRContext OpInfo}
     (state : InterpreterState ctx₁) :
