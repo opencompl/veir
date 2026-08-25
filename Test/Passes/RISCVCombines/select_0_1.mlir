@@ -22,13 +22,13 @@
 }) : () -> ()
 
 // The select becomes zext(not c).
-// CHECK:      ^{{.*}}(%[[C:.*]] : i1):
+// CHECK:      func.func @foo(%[[C:.*]]: i1) -> i64 {
 // CHECK:      %[[M1:.*]] = "llvm.mlir.constant"() <{"value" = -1 : i1}> : () -> i1
 // CHECK:      %[[NOT:.*]] = "llvm.xor"(%[[C]], %[[M1]]) : (i1, i1) -> i1
 // CHECK:      %[[R:.*]] = "llvm.zext"(%[[NOT]]) : (i1) -> i64
 // CHECK:      "func.return"(%[[R]]) : (i64) -> ()
 
 // Non {0,1} arms: the select survives.
-// CHECK:      ^{{.*}}(%[[NC:.*]] : i1):
+// CHECK:      func.func @bar(%[[NC:.*]]: i1) -> i64 {
 // CHECK:      %[[NR:.*]] = "llvm.select"(%[[NC]],
 // CHECK:      "func.return"(%[[NR]]) : (i64) -> ()

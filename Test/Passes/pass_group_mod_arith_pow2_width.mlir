@@ -19,7 +19,7 @@
 }) : () -> ()
 
 // The boundary is coerced to the power-of-two-widened storage type (i29 -> i32) ...
-// CHECK: "func.func"() <{"function_type" = (i32, i32) -> i32, "sym_name" = "chain"}> ({
+// CHECK: func.func @chain(%{{.*}}: i32, %{{.*}}: i32) -> i32 {
 
 // ... and from here to the end of the output, nothing mod_arith-ish, no cast,
 // and no non-power-of-two width survives.

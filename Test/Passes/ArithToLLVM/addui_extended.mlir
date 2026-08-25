@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=arith-to-llvm > %t && veir-interpret %t | filecheck %s --check-prefix=EXEC
+// RUN: veir-opt %s --mlir-print-op-generic -p=arith-to-llvm > %t && veir-interpret %t | filecheck %s --check-prefix=EXEC
 // RUN: filecheck %s --check-prefix=LOWERED --input-file=%t
 
 // Exercise both results around the i8 carry boundary:

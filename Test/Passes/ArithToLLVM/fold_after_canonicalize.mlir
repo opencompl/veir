@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=canonicalize > %t
+// RUN: veir-opt %s --mlir-print-op-generic -p=canonicalize > %t
 // RUN: filecheck %s --check-prefix=AFTER-FOLDER --input-file=%t
 // RUN: veir-opt %t -p=arith-to-llvm | filecheck %s --check-prefix=LOWERED
 

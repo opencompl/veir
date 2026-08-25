@@ -24,13 +24,13 @@
 
 // What matters is that `riscv.sw` no longer reads through the `sextw`; the
 // greedy driver then erases it as trivially dead.
-// CHECK:      ^{{.*}}(%[[ADDR:.*]] : !riscv.reg, %[[VAL:.*]] : !riscv.reg):
+// CHECK:      func.func @foo(%[[ADDR:.*]]: !riscv.reg, %[[VAL:.*]]: !riscv.reg) {
 // CHECK:      "riscv.sw"(%[[VAL]], %[[ADDR]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT: "func.return"() : () -> ()
 
 // The address operand's `sextw` must survive unchanged (only the value operand
 // is stripped).
-// CHECK:      ^{{.*}}(%[[ADDR2:.*]] : !riscv.reg, %[[VAL2:.*]] : !riscv.reg):
+// CHECK:      func.func @bar(%[[ADDR2:.*]]: !riscv.reg, %[[VAL2:.*]]: !riscv.reg) {
 // CHECK:      %[[SADDR2:.*]] = "riscv.sextw"(%[[ADDR2]])
 // CHECK:      "riscv.sw"(%[[VAL2]], %[[SADDR2]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT: "func.return"() : () -> ()

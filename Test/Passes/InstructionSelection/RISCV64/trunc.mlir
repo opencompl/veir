@@ -7,7 +7,7 @@
         %truncc = "llvm.trunc"(%c) : (i32) -> i16
 	%truncd = "llvm.trunc"(%d) : (!llvm.byte<32>) -> !llvm.byte<16>
         
-        // CHECK:           ^{{.*}}([[B:.*]] : i16, [[C:.*]] : i32, [[D:.*]] : !llvm.byte<32>):
+        // CHECK:           func.func @foo([[B:.*]]: i16, [[C:.*]]: i32, [[D:.*]]: !llvm.byte<32>) {
         // CHECK-NEXT:      %[[H:.*]] = "builtin.unrealized_conversion_cast"([[B]]) : (i16) -> !riscv.reg
         // CHECK-NEXT:      %[[I:.*]] = "builtin.unrealized_conversion_cast"(%[[H]]) : (!riscv.reg) -> i8
         // CHECK-NEXT:      %[[K:.*]] = "builtin.unrealized_conversion_cast"([[C]]) : (i32) -> !riscv.reg

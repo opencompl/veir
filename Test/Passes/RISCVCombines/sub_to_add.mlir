@@ -19,12 +19,12 @@
 }) : () -> ()
 
 // The sub becomes an add against the negated constant.
-// CHECK:      ^{{.*}}(%[[X:.*]] : i32):
+// CHECK:      func.func @foo(%[[X:.*]]: i32) -> i32 {
 // CHECK:      %[[NC:.*]] = "llvm.mlir.constant"() <{"value" = -7 : i32}> : () -> i32
 // CHECK:      %[[R:.*]] = "llvm.add"(%[[X]], %[[NC]]) : (i32, i32) -> i32
 // CHECK:      "func.return"(%[[R]]) : (i32) -> ()
 
 // Non-constant second operand: the sub remains.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i32, %[[NY:.*]] : i32):
+// CHECK:      func.func @bar(%[[NX:.*]]: i32, %[[NY:.*]]: i32) -> i32 {
 // CHECK:      %[[NR:.*]] = "llvm.sub"(%[[NX]], %[[NY]]) : (i32, i32) -> i32
 // CHECK:      "func.return"(%[[NR]]) : (i32) -> ()

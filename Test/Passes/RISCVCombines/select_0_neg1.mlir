@@ -22,7 +22,7 @@
 }) : () -> ()
 
 // The select becomes sext(not c).
-// CHECK:      ^{{.*}}(%[[C:.*]] : i1):
+// CHECK:      func.func @foo(%[[C:.*]]: i1) -> i64 {
 // CHECK:      %[[M1:.*]] = "llvm.mlir.constant"() <{"value" = -1 : i1}> : () -> i1
 // CHECK:      %[[NOT:.*]] = "llvm.xor"(%[[C]], %[[M1]]) : (i1, i1) -> i1
 // CHECK:      %[[R:.*]] = "llvm.sext"(%[[NOT]]) : (i1) -> i64
@@ -31,7 +31,7 @@
 // Sibling-pattern check (not a no-op): `select c, 0, 1` is NOT this rule's shape,
 // so `select_0_neg1` must not fire. The `select_0_1` rule handles it instead,
 // yielding `zext (not c)` -- crucially a `zext`, not the `sext` this rule emits.
-// CHECK:      ^{{.*}}(%[[NC:.*]] : i1):
+// CHECK:      func.func @bar(%[[NC:.*]]: i1) -> i64 {
 // CHECK:      %[[NNOT:.*]] = "llvm.xor"(%[[NC]], %{{.*}}) : (i1, i1) -> i1
 // CHECK:      %[[NR:.*]] = "llvm.zext"(%[[NNOT]]) : (i1) -> i64
 // CHECK-NOT:  "llvm.sext"

@@ -22,12 +22,12 @@
 }) : () -> ()
 
 // The reverse/shl/reverse sandwich collapses to a single lshr.
-// CHECK:      ^{{.*}}(%[[X:.*]] : i64, %[[Y:.*]] : i64):
+// CHECK:      func.func @foo(%[[X:.*]]: i64, %[[Y:.*]]: i64) -> i64 {
 // CHECK:      %[[R:.*]] = "llvm.lshr"(%[[X]], %[[Y]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[R]]) : (i64) -> ()
 
 // Non-bitreverse inner operand: the outer bitreverse survives.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i64, %[[NY:.*]] : i64):
+// CHECK:      func.func @bar(%[[NX:.*]]: i64, %[[NY:.*]]: i64) -> i64 {
 // CHECK:      %[[NS:.*]] = "llvm.shl"(%[[NX]], %[[NY]]) : (i64, i64) -> i64
 // CHECK:      %[[NR:.*]] = "llvm.intr.bitreverse"(%[[NS]]) : (i64) -> i64
 // CHECK:      "func.return"(%[[NR]]) : (i64) -> ()

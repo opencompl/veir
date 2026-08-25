@@ -20,12 +20,12 @@
 }) : () -> ()
 
 // The shift collapses to the zero constant, returned directly.
-// CHECK:      ^{{.*}}(%[[X:.*]] : i64):
+// CHECK:      func.func @foo(%[[X:.*]]: i64) -> i64 {
 // CHECK:      %[[Z:.*]] = "llvm.mlir.constant"() <{"value" = 0 : i64}> : () -> i64
 // CHECK-NOT:  "llvm.shl"
 // CHECK:      "func.return"(%[[Z]]) : (i64) -> ()
 
 // Shifted value is nonzero: the shl survives.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i64):
+// CHECK:      func.func @bar(%[[NX:.*]]: i64) -> i64 {
 // CHECK:      %[[NR:.*]] = "llvm.shl"(%{{.*}}, %[[NX]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[NR]]) : (i64) -> ()

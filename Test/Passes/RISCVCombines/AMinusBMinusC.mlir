@@ -21,13 +21,13 @@
 }) : () -> ()
 
 // Rewritten to A + (C - B).
-// CHECK:      ^{{.*}}(%[[A:.*]] : i64, %[[B:.*]] : i64, %[[C:.*]] : i64):
+// CHECK:      func.func @foo(%[[A:.*]]: i64, %[[B:.*]]: i64, %[[C:.*]]: i64) -> i64 {
 // CHECK:      %[[CMB:.*]] = "llvm.sub"(%[[C]], %[[B]]) : (i64, i64) -> i64
 // CHECK:      %[[R:.*]] = "llvm.add"(%[[A]], %[[CMB]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[R]]) : (i64) -> ()
 
 // Inner op is an add: the outer sub survives.
-// CHECK:      ^{{.*}}(%[[NA:.*]] : i64, %[[NB:.*]] : i64, %[[NC:.*]] : i64):
+// CHECK:      func.func @bar(%[[NA:.*]]: i64, %[[NB:.*]]: i64, %[[NC:.*]]: i64) -> i64 {
 // CHECK:      %[[NINNER:.*]] = "llvm.add"(%[[NB]], %[[NC]]) : (i64, i64) -> i64
 // CHECK:      %[[NR:.*]] = "llvm.sub"(%[[NA]], %[[NINNER]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[NR]]) : (i64) -> ()

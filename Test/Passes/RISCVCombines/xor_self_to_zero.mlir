@@ -21,12 +21,11 @@
 }) : () -> ()
 
 // The i64 `xor` is replaced by a constant zero; the operand is now dead.
-// CHECK:      "func.func"() <{"function_type" = (i64) -> i64, "sym_name" = "foo"}>
+// CHECK:      func.func @foo(%{{.*}}: i64) -> i64 {
 // CHECK:      %[[Z:.*]] = "llvm.mlir.constant"() <{"value" = 0 : i64}> : () -> i64
 // CHECK-NEXT: "func.return"(%[[Z]]) : (i64) -> ()
 
 // Distinct operands: the `xor` survives untouched.
-// CHECK:      "func.func"() <{"function_type" = (i64, i64) -> i64, "sym_name" = "bar"}>
-// CHECK:      ^{{.*}}(%[[DX:.*]] : i64, %[[DY:.*]] : i64):
+// CHECK:      func.func @bar(%[[DX:.*]]: i64, %[[DY:.*]]: i64) -> i64 {
 // CHECK-NEXT: %[[DR:.*]] = "llvm.xor"(%[[DX]], %[[DY]]) : (i64, i64) -> i64
 // CHECK-NEXT: "func.return"(%[[DR]]) : (i64) -> ()

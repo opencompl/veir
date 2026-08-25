@@ -33,18 +33,18 @@
 }) : () -> ()
 
 // The OR collapses to the fshr (direct order).
-// CHECK:      ^{{.*}}(%[[Z:.*]] : i32, %[[X:.*]] : i32, %[[Y:.*]] : i32):
+// CHECK:      func.func @foo(%[[Z:.*]]: i32, %[[X:.*]]: i32, %[[Y:.*]]: i32) -> i32 {
 // CHECK:      %[[F:.*]] = "llvm.intr.fshr"(%[[Z]], %[[X]], %[[Y]]) : (i32, i32, i32) -> i32
 // CHECK-NOT:  "llvm.or"
 // CHECK:      "func.return"(%[[F]]) : (i32) -> ()
 
 // The OR collapses to the fshr (commuted order).
-// CHECK:      ^{{.*}}(%[[Z2:.*]] : i32, %[[X2:.*]] : i32, %[[Y2:.*]] : i32):
+// CHECK:      func.func @bar(%[[Z2:.*]]: i32, %[[X2:.*]]: i32, %[[Y2:.*]]: i32) -> i32 {
 // CHECK:      %[[F2:.*]] = "llvm.intr.fshr"(%[[Z2]], %[[X2]], %[[Y2]]) : (i32, i32, i32) -> i32
 // CHECK-NOT:  "llvm.or"
 // CHECK:      "func.return"(%[[F2]]) : (i32) -> ()
 
 // Mismatched lshr base: the OR survives.
-// CHECK:      ^{{.*}}(%[[NZ:.*]] : i32, %[[NX:.*]] : i32, %[[NY:.*]] : i32, %[[NW:.*]] : i32):
+// CHECK:      func.func @baz(%[[NZ:.*]]: i32, %[[NX:.*]]: i32, %[[NY:.*]]: i32, %[[NW:.*]]: i32) -> i32 {
 // CHECK:      %[[NR:.*]] = "llvm.or"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK:      "func.return"(%[[NR]]) : (i32) -> ()
