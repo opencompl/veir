@@ -9,7 +9,7 @@
         %sextd = "llvm.sext"(%a) : (i1) -> i64
         %sexte = "llvm.sext"(%a) : (i1) -> i32
         %sextf = "llvm.sext"(%e) : (i8) -> i64
-        // CHECK:           ^{{.*}}([[A:.*]] : i1, [[B:.*]] : i16, [[C:.*]] : i32, [[D:.*]] : i42, [[E:.*]] : i8):
+        // CHECK:           func.func @foo([[A:.*]]: i1, [[B:.*]]: i16, [[C:.*]]: i32, [[D:.*]]: i42, [[E:.*]]: i8) {
         // CHECK-NEXT:      %[[F:.*]] = "builtin.unrealized_conversion_cast"([[B]]) : (i16) -> !riscv.reg
         // CHECK-NEXT:      %[[G:.*]] = "riscv.sexth"(%[[F]]) : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT:      %[[H:.*]] = "builtin.unrealized_conversion_cast"(%[[G]]) : (!riscv.reg) -> i64

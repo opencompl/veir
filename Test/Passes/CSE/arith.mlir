@@ -26,9 +26,8 @@
     "test.test"(%add0, %add1, %mul0, %mul1, %and0, %and1, %or0, %or1, %xor0, %xor1, %max0, %max1, %min0, %min1, %sub0, %sub1, %sub2) : (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32) -> ()
     "func.return"() : () -> ()
 
-    // CHECK-LABEL: "sym_name" = "binops"
-    // CHECK:      ^{{[0-9]+}}(%[[A:[^ ]*]] : i32, %[[B:[^ ]*]] : i32):
-    // CHECK-NEXT: %[[ADD:.*]] = "arith.addi"(%[[A]], %[[B]]) : (i32, i32) -> i32
+    // CHECK-LABEL: func.func @binops(
+    // CHECK:      %[[ADD:.*]] = "arith.addi"(%[[A:[^ ]*]], %[[B:[^ ]*]]) : (i32, i32) -> i32
     // CHECK-NEXT: %[[MUL:.*]] = "arith.muli"(%[[A]], %[[B]]) : (i32, i32) -> i32
     // CHECK-NEXT: %[[AND:.*]] = "arith.andi"(%[[A]], %[[B]]) : (i32, i32) -> i32
     // CHECK-NEXT: %[[OR:.*]] = "arith.ori"(%[[A]], %[[B]]) : (i32, i32) -> i32
@@ -58,7 +57,7 @@
     "test.test"(%add_plain, %add_nsw, %add_nsw_comm, %add_nuw, %add_both, %or_plain, %or_disjoint, %or_disjoint_comm, %div_plain, %div_exact_1, %div_exact_2) : (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32) -> ()
     "func.return"() : () -> ()
 
-    // CHECK-LABEL: "sym_name" = "flags"
+    // CHECK-LABEL: func.func @flags(
     // CHECK:      %[[ADD_PLAIN:.*]] = "arith.addi"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
     // CHECK-NEXT: %[[ADD_NSW:.*]] = "arith.addi"(%{{.*}}, %{{.*}}) <{"overflowFlags" = #arith.overflow<nsw>}>
     // CHECK-NEXT: %[[ADD_NUW:.*]] = "arith.addi"(%{{.*}}, %{{.*}}) <{"overflowFlags" = #arith.overflow<nuw>}>
@@ -92,7 +91,7 @@
     "test.test"(%sgt, %slt_swapped, %sge, %sle_swapped, %ugt, %ult_swapped, %uge, %ule_swapped, %eq, %eq_comm, %ne, %ne_comm, %slt) : (i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1) -> ()
     "func.return"() : () -> ()
 
-    // CHECK-LABEL: "sym_name" = "cmpi"
+    // CHECK-LABEL: func.func @cmpi(
     // CHECK:      %[[SGT:.*]] = "arith.cmpi"(%{{.*}}, %{{.*}}) <{"predicate" = 4 : i64}>
     // CHECK-NEXT: %[[SGE:.*]] = "arith.cmpi"(%{{.*}}, %{{.*}}) <{"predicate" = 5 : i64}>
     // CHECK-NEXT: %[[UGT:.*]] = "arith.cmpi"(%{{.*}}, %{{.*}}) <{"predicate" = 8 : i64}>
@@ -122,7 +121,7 @@
     "test.test"(%c7_a, %c7_b, %c8, %c7_i8, %zext_1, %zext_2, %zext_nneg, %sext, %zext_i16, %trunc_1, %trunc_2, %trunc_nsw) : (i32, i32, i32, i8, i32, i32, i32, i32, i16, i8, i8, i8) -> ()
     "func.return"() : () -> ()
 
-    // CHECK-LABEL: "sym_name" = "constants_and_casts"
+    // CHECK-LABEL: func.func @constants_and_casts(
     // CHECK:      %[[C7:.*]] = "arith.constant"() <{"value" = 7 : i32}> : () -> i32
     // CHECK-NEXT: %[[C8:.*]] = "arith.constant"() <{"value" = 8 : i32}> : () -> i32
     // CHECK-NEXT: %[[C7_I8:.*]] = "arith.constant"() <{"value" = 7 : i8}> : () -> i8
@@ -144,7 +143,7 @@
     "test.test"(%sel0, %sel1, %sel_swapped) : (i32, i32, i32) -> ()
     "func.return"() : () -> ()
 
-    // CHECK-LABEL: "sym_name" = "select"
+    // CHECK-LABEL: func.func @select(
     // CHECK:      %[[SEL:.*]] = "arith.select"(%{{.*}}, %{{.*}}, %{{.*}}) : (i1, i32, i32) -> i32
     // CHECK-NEXT: %[[SEL_SWAPPED:.*]] = "arith.select"(%{{.*}}, %{{.*}}, %{{.*}}) : (i1, i32, i32) -> i32
     // CHECK-NEXT: "test.test"(%[[SEL]], %[[SEL]], %[[SEL_SWAPPED]])
@@ -161,7 +160,7 @@
     "test.test"(%arith_add, %llvm_add, %arith_eq, %llvm_eq) : (i32, i32, i1, i1) -> ()
     "func.return"() : () -> ()
 
-    // CHECK-LABEL: "sym_name" = "cross_dialect"
+    // CHECK-LABEL: func.func @cross_dialect(
     // CHECK:      %[[ARITH_ADD:.*]] = "arith.addi"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
     // CHECK-NEXT: %[[LLVM_ADD:.*]] = "llvm.add"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
     // CHECK-NEXT: %[[ARITH_EQ:.*]] = "arith.cmpi"(%{{.*}}, %{{.*}}) <{"predicate" = 0 : i64}>

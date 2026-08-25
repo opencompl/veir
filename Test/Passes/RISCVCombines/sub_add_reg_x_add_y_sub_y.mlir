@@ -21,12 +21,12 @@
 }) : () -> ()
 
 // The `sub` is gone; `x` is returned directly (the dead `add` may remain).
-// CHECK:      ^{{.*}}(%[[X:.*]] : i64, %{{.*}} : i64):
+// CHECK:      func.func @foo(%[[X:.*]]: i64, %{{.*}}: i64) -> i64 {
 // CHECK-NOT:  "llvm.sub"
 // CHECK:      "func.return"(%[[X]]) : (i64) -> ()
 
 // Unrelated subtrahend: the `sub` survives.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i64, %[[NY:.*]] : i64, %[[NW:.*]] : i64):
+// CHECK:      func.func @bar(%[[NX:.*]]: i64, %[[NY:.*]]: i64, %[[NW:.*]]: i64) -> i64 {
 // CHECK:      %[[NADD:.*]] = "llvm.add"(%[[NX]], %[[NY]]) : (i64, i64) -> i64
 // CHECK:      %[[NSUB:.*]] = "llvm.sub"(%[[NADD]], %[[NW]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[NSUB]]) : (i64) -> ()
