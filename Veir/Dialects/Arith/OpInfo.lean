@@ -65,6 +65,8 @@ match op with
 | .extui => NnegProperties
 | _ => Unit
 
+attribute [reducible] Arith.propertiesOf
+
 def Arith.fromAttrDict
     (op : Arith) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (Arith.propertiesOf op) := by

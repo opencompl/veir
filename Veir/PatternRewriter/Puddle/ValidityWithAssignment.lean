@@ -168,7 +168,47 @@ private theorem HandleContext.Extends.insertFresh
     next => exact hlookup
   next => contradiction
 
-private theorem HandleContext.lookup_insertFresh_self
+private theorem HandleContext.Extends.forbid
+    (ctx : HandleContext) (handle : Handle OpCode kind) :
+    (ctx.forbid handle).Extends ctx := by
+  intro id actualKind hlookup
+  exact hlookup
+
+private theorem HandleContext.Extends.forbidMany
+    (ctx : HandleContext) (handles : List (Handle OpCode kind)) :
+    (ctx.forbidMany handles).Extends ctx := by
+  induction handles generalizing ctx with
+  | nil => exact .refl ctx
+  | cons handle handles ih =>
+    exact (HandleContext.Extends.forbid ctx handle).trans
+      (ih (ctx := ctx.forbid handle))
+
+private theorem HandleContext.lookup_forbid
+    (ctx : HandleContext) (handle : Handle OpCode kind) (id : Nat) :
+    (ctx.forbid handle).lookup id = ctx.lookup id := rfl
+
+private theorem HandleContext.lookup_forbidMany
+    (ctx : HandleContext) (handles : List (Handle OpCode kind)) (id : Nat) :
+    (ctx.forbidMany handles).lookup id = ctx.lookup id := by
+  induction handles generalizing ctx with
+  | nil => rfl
+  | cons handle handles ih => exact ih (ctx := ctx.forbid handle)
+
+private theorem HandleContext.lookup_propagateUnavailable
+    (decls : List (MatchDecl OpCode)) (ctx : HandleContext) (id : Nat) :
+    (MatchProg.propagateUnavailable decls ctx).lookup id = ctx.lookup id := by
+  induction decls generalizing ctx with
+  | nil => rfl
+  | cons decl decls ih =>
+    rw [show MatchProg.propagateUnavailable (decl :: decls) ctx =
+      MatchProg.propagateUnavailable decls (decl.propagateUnavailable ctx) by rfl,
+      ih]
+    cases decl <;> simp only [MatchDecl.propagateUnavailable]
+    split
+    · simp [HandleContext.lookup_forbidMany, HandleContext.lookup_forbid]
+    · rfl
+
+theorem HandleContext.lookup_insertFresh_self
     {ctx ctx' : HandleContext} {handle : Handle OpCode kind}
     (hinsert : ctx.insertFresh handle = some ctx') :
     ctx'.lookup handle.id = some kind := by
@@ -222,9 +262,23 @@ private theorem MatchDecl.collectBindings_extends
           | none => simp [hproperty] at hcollect
           | some propertyCtx =>
             simp [hproperty] at hcollect
-            exact (HandleContext.Extends.insertManyFresh hresults).trans
-              ((HandleContext.Extends.insertFresh hproperty).trans
-                (HandleContext.Extends.insertFresh hcollect))
+            cases hop : propertyCtx.insertFresh opHandle with
+            | none => simp [hop] at hcollect
+            | some opCtx =>
+              simp [hop] at hcollect
+              have hextends := (HandleContext.Extends.insertManyFresh hresults).trans
+                ((HandleContext.Extends.insertFresh hproperty).trans
+                  (HandleContext.Extends.insertFresh hop))
+              split at hcollect
+              · simp only [Option.some.injEq] at hcollect
+                subst ctx'
+                exact hextends.trans
+                  ((HandleContext.Extends.forbid opCtx opHandle).trans
+                    (HandleContext.Extends.forbidMany (opCtx.forbid opHandle)
+                      resultHandles.toList))
+              · simp only [Option.some.injEq] at hcollect
+                subst ctx'
+                exact hextends
       next => contradiction
     next => contradiction
   | applyNative inputs predicate =>
@@ -293,10 +347,22 @@ private theorem MatchDecl.collectBindings_lookup_result
         | none => simp [hproperty] at hcollect
         | some propertyCtx =>
           simp [hproperty] at hcollect
-          intro result hmem
-          exact ((HandleContext.Extends.insertFresh hproperty).trans
-            (HandleContext.Extends.insertFresh hcollect)) result.id .value
-            (HandleContext.lookup_insertManyFresh hresults result hmem)
+          cases hop : propertyCtx.insertFresh opHandle with
+          | none => simp [hop] at hcollect
+          | some opCtx =>
+            simp [hop] at hcollect
+            have hlookup (result) (hmem : result ∈ results.toList) :=
+              ((HandleContext.Extends.insertFresh hproperty).trans
+                (HandleContext.Extends.insertFresh hop)) result.id .value
+                (HandleContext.lookup_insertManyFresh hresults result hmem)
+            split at hcollect
+            · simp only [Option.some.injEq] at hcollect
+              subst ctx'
+              simpa [HandleContext.lookup_forbidMany,
+                HandleContext.lookup_forbid] using hlookup
+            · simp only [Option.some.injEq] at hcollect
+              subst ctx'
+              exact hlookup
     next => contradiction
   next => contradiction
 
@@ -466,6 +532,20 @@ private theorem SemanticAssignment.Realizes.insertOp
       exact False.elim (hsemantic hlookup.symm)
     · exact hrealizes id kind hlookup hsemantic
   next => contradiction
+
+private theorem SemanticAssignment.Realizes.forbid
+    {ctx : HandleContext} {assignment : SemanticAssignment}
+    (hrealizes : Realizes ctx assignment) (handle : Handle OpCode kind) :
+    Realizes (ctx.forbid handle) assignment := by
+  exact hrealizes
+
+private theorem SemanticAssignment.Realizes.forbidMany
+    {ctx : HandleContext} {assignment : SemanticAssignment}
+    (hrealizes : Realizes ctx assignment) (handles : List (Handle OpCode kind)) :
+    Realizes (ctx.forbidMany handles) assignment := by
+  induction handles generalizing ctx with
+  | nil => exact hrealizes
+  | cons handle handles ih => exact ih (hrealizes.forbid handle)
 
 private theorem SemanticAssignment.Realizes.getType
     {ctx : HandleContext} {assignment : SemanticAssignment}
@@ -915,23 +995,37 @@ private theorem MatchDecl.models_apply_right
           | none => simp [hpropertyInsert] at hcheck
           | some propertyCtx =>
             simp [hpropertyInsert] at hcheck
-            simp only [MatchDecl.ModelsWithAssignment] at hright
-            rcases hright with
-              ⟨operandValues, actualResultTypes, results, actualProperty,
-                hoperands, htypes, hproperty, hresults, hpropertyPred, hinterp⟩
-            have hleftOperands : left.getValues operands.toList = some operandValues := by
-              rw [hagrees.getValues hoperandsRequire, hoperands]
-            have hleftTypes : left.getTypes resultTypes.toList = some actualResultTypes := by
-              rw [hagrees.getTypes htypesRequire, htypes]
-            simp only [MatchDecl.Models, hleftOperands, hleftTypes] at hmodels
-            rcases SemanticAssignment.forallValues_apply_right hagrees hresultsInsert hresults
-                (hmodels actualProperty) with ⟨withResults, hagreesResults, hnext⟩
-            have hrawProperty := SemanticAssignment.eq_of_getProperty_eq_some hproperty
-            have hagreesProperty :=
-              hagreesResults.insertFresh_right hpropertyInsert hrawProperty
-            have hagreesFinal := hagreesProperty.insertOp hcheck
-            exact ⟨withResults.bindProperty propertyHandle actualProperty,
-              hagreesFinal, hnext hpropertyPred (by simpa using hinterp)⟩
+            cases hopInsert : propertyCtx.insertFresh opHandle with
+            | none => simp [hopInsert] at hcheck
+            | some opCtx =>
+              simp [hopInsert] at hcheck
+              simp only [MatchDecl.ModelsWithAssignment] at hright
+              rcases hright with
+                ⟨operandValues, actualResultTypes, results, actualProperty,
+                  hoperands, htypes, hproperty, hresults, hpropertyPred, hinterp⟩
+              have hleftOperands : left.getValues operands.toList = some operandValues := by
+                rw [hagrees.getValues hoperandsRequire, hoperands]
+              have hleftTypes : left.getTypes resultTypes.toList = some actualResultTypes := by
+                rw [hagrees.getTypes htypesRequire, htypes]
+              simp only [MatchDecl.Models, hleftOperands, hleftTypes] at hmodels
+              rcases SemanticAssignment.forallValues_apply_right hagrees hresultsInsert hresults
+                  (hmodels actualProperty) with ⟨withResults, hagreesResults, hnext⟩
+              have hrawProperty := SemanticAssignment.eq_of_getProperty_eq_some hproperty
+              have hagreesProperty :=
+                hagreesResults.insertFresh_right hpropertyInsert hrawProperty
+              have hagreesOp := hagreesProperty.insertOp hopInsert
+              have hagreesFinal : SemanticAssignment.AgreeOn ctx'
+                  (withResults.bindProperty propertyHandle actualProperty)
+                  right := by
+                split at hcheck
+                · simp only [Option.some.injEq] at hcheck
+                  subst ctx'
+                  exact (hagreesOp.forbid opHandle).forbidMany resultHandles.toList
+                · simp only [Option.some.injEq] at hcheck
+                  subst ctx'
+                  exact hagreesOp
+              exact ⟨withResults.bindProperty propertyHandle actualProperty,
+                hagreesFinal, hnext hpropertyPred (by simpa using hinterp)⟩
       · simp only [hoperandsRequire, htypesRequire, if_true] at hcheck
         contradiction
     · simp only [hoperandsRequire] at hcheck
@@ -1076,53 +1170,77 @@ private theorem MatchDecl.models_generated
           | none => simp [hpropertyInsert] at hcheck
           | some propertyCtx =>
             simp [hpropertyInsert] at hcheck
-            rcases hrealizes.getValues hoperandsRequire with ⟨operandValues, hoperands⟩
-            rcases hrealizes.getTypes htypesRequire with ⟨actualResultTypes, htypes⟩
-            simp only [MatchDecl.Models, hoperands, htypes]
-            intro actualProperty
-            apply SemanticAssignment.forallValues_mono _
-              (SemanticAssignment.forallValues_and
-                (SemanticAssignment.forallValues_realizes hrealizes hresultsInsert)
-                (SemanticAssignment.forallValues_generated hresultsInsert))
-            intro results withResults hgenerated hpropertyPred hinterp
-            rcases hgenerated with ⟨hrealizesResults, hgenerated⟩
-            let withProperty := withResults.bindProperty propertyHandle actualProperty
-            let final := withProperty
-            have hrealizesProperty := hrealizesResults.insertFresh
-              (handle := propertyHandle) (binding := .property opCode actualProperty)
-              (by simp [SemanticBinding.HasKind]) hpropertyInsert
-            have hrealizesFinal := hrealizesProperty.insertOp hcheck
-            have hafterWithProperty :
-                SemanticAssignment.AgreeOn resultsCtx withResults withProperty :=
-              (SemanticAssignment.AgreeOn.bindFresh_preserves
-                (assignment := withResults) (binding := .property opCode actualProperty)
-                hpropertyInsert).symm
-            have hwithPropertyFinal :
-                SemanticAssignment.AgreeOn propertyCtx withProperty final :=
-              SemanticAssignment.AgreeOn.refl propertyCtx withProperty
-            have hresultsFinal := hafterWithProperty.trans
-              (hwithPropertyFinal.mono (HandleContext.Extends.insertFresh hpropertyInsert))
-            refine ⟨hrealizesFinal, ?_, ?_⟩
-            · exact (hgenerated final hresultsFinal).1
-            · intro right hagrees
-              have hresultsRight := hresultsFinal.trans
-                (hagrees.mono ((HandleContext.Extends.insertFresh hpropertyInsert).trans
-                  (HandleContext.Extends.insertFresh hcheck)))
-              rcases hgenerated right hresultsRight with ⟨hleftRight, hresultValues⟩
-              refine ⟨operandValues, actualResultTypes, results.toArray, actualProperty,
-                ?_, ?_, ?_, ?_, hpropertyPred, hinterp⟩
-              · rw [← hleftRight.getValues hoperandsRequire]
-                exact hoperands
-              · rw [← hleftRight.getTypes htypesRequire]
-                exact htypes
-              · have hpropertyLookup := HandleContext.lookup_insertFresh_self hpropertyInsert
-                rw [← hagrees.getProperty
-                  ((HandleContext.Extends.insertFresh hcheck) propertyHandle.id _ hpropertyLookup)]
-                change final.getProperty propertyHandle = some actualProperty
-                rw [← hwithPropertyFinal.getProperty hpropertyLookup]
-                simp [withProperty, SemanticAssignment.bindProperty,
-                  SemanticAssignment.getProperty]
-              · simpa using hresultValues
+            cases hopInsert : propertyCtx.insertFresh opHandle with
+            | none => simp [hopInsert] at hcheck
+            | some opCtx =>
+              simp [hopInsert] at hcheck
+              rcases hrealizes.getValues hoperandsRequire with ⟨operandValues, hoperands⟩
+              rcases hrealizes.getTypes htypesRequire with ⟨actualResultTypes, htypes⟩
+              simp only [MatchDecl.Models, hoperands, htypes]
+              intro actualProperty
+              apply SemanticAssignment.forallValues_mono _
+                (SemanticAssignment.forallValues_and
+                  (SemanticAssignment.forallValues_realizes hrealizes hresultsInsert)
+                  (SemanticAssignment.forallValues_generated hresultsInsert))
+              intro results withResults hgenerated hpropertyPred hinterp
+              rcases hgenerated with ⟨hrealizesResults, hgenerated⟩
+              let withProperty := withResults.bindProperty propertyHandle actualProperty
+              let final := withProperty
+              have hrealizesProperty := hrealizesResults.insertFresh
+                (handle := propertyHandle) (binding := .property opCode actualProperty)
+                (by simp [SemanticBinding.HasKind]) hpropertyInsert
+              have hrealizesOp := hrealizesProperty.insertOp hopInsert
+              have hrealizesFinal : SemanticAssignment.Realizes ctx' final := by
+                split at hcheck
+                · simp only [Option.some.injEq] at hcheck
+                  subst ctx'
+                  exact (hrealizesOp.forbid opHandle).forbidMany resultHandles.toList
+                · simp only [Option.some.injEq] at hcheck
+                  subst ctx'
+                  exact hrealizesOp
+              have hafterWithProperty :
+                  SemanticAssignment.AgreeOn resultsCtx withResults withProperty :=
+                (SemanticAssignment.AgreeOn.bindFresh_preserves
+                  (assignment := withResults) (binding := .property opCode actualProperty)
+                  hpropertyInsert).symm
+              have hwithPropertyFinal :
+                  SemanticAssignment.AgreeOn propertyCtx withProperty final :=
+                SemanticAssignment.AgreeOn.refl propertyCtx withProperty
+              have hresultsFinal := hafterWithProperty.trans
+                (hwithPropertyFinal.mono (HandleContext.Extends.insertFresh hpropertyInsert))
+              refine ⟨hrealizesFinal, ?_, ?_⟩
+              · exact (hgenerated final hresultsFinal).1
+              · intro right hagrees
+                have hfinalExtendsOp : ctx'.Extends opCtx := by
+                  split at hcheck
+                  · simp only [Option.some.injEq] at hcheck
+                    subst ctx'
+                    exact (HandleContext.Extends.forbid opCtx opHandle).trans
+                      (HandleContext.Extends.forbidMany (opCtx.forbid opHandle)
+                        resultHandles.toList)
+                  · simp only [Option.some.injEq] at hcheck
+                    subst ctx'
+                    exact .refl opCtx
+                have hresultsRight := hresultsFinal.trans
+                  (hagrees.mono ((HandleContext.Extends.insertFresh hpropertyInsert).trans
+                    ((HandleContext.Extends.insertFresh hopInsert).trans hfinalExtendsOp)))
+                rcases hgenerated right hresultsRight with ⟨hleftRight, hresultValues⟩
+                refine ⟨operandValues, actualResultTypes, results.toArray, actualProperty,
+                  ?_, ?_, ?_, ?_, hpropertyPred, hinterp⟩
+                · rw [← hleftRight.getValues hoperandsRequire]
+                  exact hoperands
+                · rw [← hleftRight.getTypes htypesRequire]
+                  exact htypes
+                · have hpropertyLookup := HandleContext.lookup_insertFresh_self hpropertyInsert
+                  rw [← hagrees.getProperty
+                    (hfinalExtendsOp propertyHandle.id _
+                      ((HandleContext.Extends.insertFresh hopInsert)
+                        propertyHandle.id _ hpropertyLookup))]
+                  change final.getProperty propertyHandle = some actualProperty
+                  rw [← hwithPropertyFinal.getProperty hpropertyLookup]
+                  simp [withProperty, SemanticAssignment.bindProperty,
+                    SemanticAssignment.getProperty]
+                · simpa using hresultValues
       · simp only [hoperandsRequire, htypesRequire, if_true] at hcheck
         contradiction
     · simp only [hoperandsRequire] at hcheck
@@ -1247,7 +1365,7 @@ theorem SemanticAssignment.bind_comm (assignment : SemanticAssignment)
   grind
 
 /-- Fresh result handles differ from all previously allocated handles. -/
-private theorem HandleContext.insertManyFresh_ne_bound
+theorem HandleContext.insertManyFresh_ne_bound
     {ctx ctx' : HandleContext} {handles : List (Handle OpCode .value)}
     {id : Nat} {kind : HandleType OpCode}
     (hinsert : ctx.insertManyFresh handles = some ctx')
@@ -1524,7 +1642,8 @@ private theorem Pattern.structure_components
       rule.matcher.rootResults? = some rootResults ∧
       MatchProg.collectDeclBindings rule.matcher.bindingDecls .empty = some matcherCtx ∧
       rule.creation.checkBindings
-          ((matcherCtx.forbid rule.matcher.rootHandle).forbidMany rootResults.toList) =
+          (MatchProg.propagateUnavailable rule.matcher.decls
+            ((matcherCtx.forbid rule.matcher.rootHandle).forbidMany rootResults.toList)) =
         some finalCtx ∧
       rule.replacement.checkBindings finalCtx = true := by
   unfold Pattern.StructurallyWellFormed at hstructure
@@ -1539,7 +1658,8 @@ private theorem Pattern.structure_components
     | some matcherCtx =>
       simp [hmatcher] at hcheck
       cases hcreation : rule.creation.checkBindings
-          ((matcherCtx.forbid rule.matcher.rootHandle).forbidMany rootResults.toList) with
+          (MatchProg.propagateUnavailable rule.matcher.decls
+            ((matcherCtx.forbid rule.matcher.rootHandle).forbidMany rootResults.toList)) with
       | none => simp [hcreation] at hcheck
       | some finalCtx =>
         simp [hcreation] at hcheck
@@ -1597,8 +1717,15 @@ theorem Pattern.preservesSemantics_iff_withAssignment
         (SemanticAssignment.AgreeOn.empty SemanticAssignment.empty assignment)
         hright hgenerated with
       ⟨matched, hagreesMatched, hcreationModels⟩
-    have hagreesCreation :=
-      (hagreesMatched.forbid rule.matcher.rootHandle).forbidMany rootResults.toList
+    have hagreesCreation : SemanticAssignment.AgreeOn
+        (MatchProg.propagateUnavailable rule.matcher.decls
+          ((matcherCtx.forbid rule.matcher.rootHandle).forbidMany rootResults.toList))
+        matched assignment := by
+      intro id kind hlookup
+      apply hagreesMatched id kind
+      rw [HandleContext.lookup_propagateUnavailable] at hlookup
+      rw [HandleContext.lookup_forbidMany, HandleContext.lookup_forbid] at hlookup
+      exact hlookup
     unfold CreateProg.Models at hcreationModels
     rcases (CreateProg.modelsDecls_iff_evalDecls rule.creation.decls matched
       (fun final => rule.replacement.refinesRoot rule.matcher.rootResults? matched final)).mp

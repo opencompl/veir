@@ -94,6 +94,11 @@ axiom ValuePtr.dominatesIp_before_of_properlyDominates {value : ValuePtr} :
   value.dominatesIp (InsertPoint.before op₁) ctx → op₁.ProperlyDominates op₂ ctx true →
   value.dominatesIp (InsertPoint.before op₂) ctx
 
+/-- A result of an operation properly dominating another operation is available before the latter. -/
+axiom ValuePtr.result_dominatesIp_before_of_properlyDominates {value : ValuePtr} :
+  value ∈ op₁.getResults! ctx.raw → op₁.ProperlyDominates op₂ ctx true →
+  value.dominatesIp (InsertPoint.before op₂) ctx
+
 /--
 If an operation `op₁` dominates an operation `op₂`, it dominates the operation after `op₂`,
 if it exists.

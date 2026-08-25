@@ -39,6 +39,8 @@ match opCode with
 | .function op => LLZK.Function.propertiesOf op
 | .seq op => Seq.propertiesOf op
 
+attribute [reducible] _propertiesOf
+
 /--
   What are the memory effects of an operation with this opcode and these
   properties?
