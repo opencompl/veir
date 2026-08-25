@@ -137,6 +137,85 @@ structure MatchProg (OpInfo : Type) [HasOpInfo OpInfo] (Exports : Type) where
   /-- Arbitrary builder output, typically handles needed by subsequent phases. -/
   exports : Exports
 
+/-!
+## Creation phase
+
+After a successful match, the creation phase may create new operations. Operations are created in
+declaration order, and their results can be used by later declarations or by the terminal
+replacement.
+
+Created operations may consume matched values or earlier-created values. Their result types and
+properties must be already-bound metadata handles. Those handles may come from the matcher or an
+earlier property declaration.
+-/
+
+/-- An internal declarative instruction in a creation program. -/
+inductive CreateDecl (OpInfo : Type) [HasOpInfo OpInfo] where
+/-- Bind a concrete property record to `result` for use by a later operation declaration. -/
+| property (opCode : OpInfo) (value : propertiesOf opCode) (result : Handle OpInfo (.prop opCode))
+/--
+Create an operation, resolving its operands, result types, and properties, and bind the newly
+created operation and SSA results to `result` and `results`.
+-/
+| operation (opCode : OpInfo) (operands : Array (Handle OpInfo .value))
+    (resultTypes : Array (Handle OpInfo .type))
+    (properties : Handle OpInfo (.prop opCode))
+    (result : Handle OpInfo .op)
+    (results : Array (Handle OpInfo .value))
+
+/--
+The ordered creation phase of a Puddle rule.
+
+Each declaration may consume metadata or values bound during matching or by earlier creation
+declarations. Every input must resolve through an already-bound handle. The creation builder starts
+allocating immediately after the matcher's handle range; `numHandles` records the first unused
+pattern-wide handle identifier after creation.
+-/
+structure CreateProg (OpInfo : Type) [HasOpInfo OpInfo] (Exports : Type) where
+  /-- Creation declarations in execution order. -/
+  decls : List (CreateDecl OpInfo)
+  /-- The first unused rule-wide handle identifier after the creation program. -/
+  numHandles : Nat
+  /-- Arbitrary builder output, typically handles needed by the replacement phase. -/
+  exports : Exports
+
+/-!
+## Replacement
+
+A terminal replacement specifies the SSA values that replace the matched root operation's results.
+Each selected handle may denote a non-root matched value or a value produced during creation.
+Execution will fail if the replacement differs in length from the root's result count or if the
+replacement includes one of the root's own results.
+-/
+
+/-- Value handles that replace the root operation's results. -/
+structure Replacement (OpInfo : Type) [HasOpInfo OpInfo] where
+  /-- The replacement values, in root-result order. -/
+  values : Array (Handle OpInfo .value)
+
+/-!
+## Puddle Pattern
+
+A Puddle rule packages its match program, ordered creation program, and terminal replacement. The
+exports types are used to pass handles between phases. The pattern is not meant to be constructed
+directly; use `Pattern.Builder` instead.
+-/
+
+/--
+A complete declarative Puddle rewrite pattern. Prefer constructing one with `Pattern.Builder`.
+-/
+structure Pattern (OpInfo : Type) [HasOpInfo OpInfo] where
+  /-- The type of data (usually handles) exported by the matching phase. -/
+  Exports : Type
+  /-- The graph pattern matched against a candidate root operation. -/
+  matcher : MatchProg OpInfo Exports
+  /-- The type of data (usually handles) exported by the creation phase. -/
+  CreationExports : Type
+  /-- The creation program run after a successful match. -/
+  creation : CreateProg OpInfo CreationExports
+  /-- Values used to replace the root's results. -/
+  replacement : Replacement OpInfo
+
 end
 
 end Veir.Puddle
