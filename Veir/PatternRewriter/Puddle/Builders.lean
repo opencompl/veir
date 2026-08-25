@@ -226,6 +226,21 @@ namespace MetadataTuple
 def fresh {Handles : Type} [self : IsMetadataTuple OpCode Handles] (nextId : Nat) : Handles × Nat :=
   self.shape.fresh nextId
 
+@[simp]
+theorem fresh_unit (nextId : Nat) :
+    fresh (Handles := Unit) nextId = ((), nextId) := by
+  rfl
+
+@[simp]
+theorem fresh_type (nextId : Nat) :
+    fresh (Handles := Handle OpCode .type) nextId = (⟨nextId⟩, nextId + 1) := by
+  rfl
+
+@[simp]
+theorem fresh_property {opCode : OpCode} (nextId : Nat) :
+    fresh (Handles := Handle OpCode (.prop opCode)) nextId = (⟨nextId⟩, nextId + 1) := by
+  rfl
+
 end MetadataTuple
 
 /-- The operation and SSA-result handles introduced by a creation declaration. -/
