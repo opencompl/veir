@@ -83,7 +83,7 @@ theorem trace_zero_zero_extend (p q r : Nat) (x : BitVec p)
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [
     eq_iff (o := 8),
-    Nat_lt_eq_Mask_lt (o := 8),
+    lt_eq_lt_of_eq_maskOfWidth (o := 8),
     setWidth_setWidth,
     BitVec.zeroExtend_eq_setWidth,
     BitVec.setWidth_eq,
@@ -132,7 +132,7 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [
     eq_iff (o := 8),
-    Nat_lt_eq_Mask_lt (o := 8),
+    lt_eq_lt_of_eq_maskOfWidth (o := 8),
     msb_eq_and_signBitOfMask_maskOfWidth_ne_zero (o := 8),          -- Replace the sign bit test with a mask test
     setWidth_signExtend_eq_and_maskOfWidth,          -- Push `setWidth` down signExtend
     BitVec.zeroExtend_eq_setWidth,

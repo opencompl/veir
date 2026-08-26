@@ -7,6 +7,9 @@ public import Veir.Data.PBV
 open Lean Elab Tactic Meta Simp Std
 namespace Veir.Data.PBV
 
+meta def Expr.isNat (e : Expr) : MetaM Bool := do
+  return (← inferType e).isConstOf ``Nat
+
 /--
 Information about the width variable and associated hypotheses.
 -/
@@ -21,7 +24,9 @@ structure WidthInfo where
   widthMaskHypFvar : FVarId
   /-- The hypothesis that the width variable is less than the bmc bound. -/
   hypWidthLeBoundMVarId : MVarId
-  /-- The FVar of the bound hypothesis, necessary so 'simp' rewrites with it. -/
+  /-- The FVar of the bound hypothesis, necessary so 'simp' rewrites with it.
+      TODO: it's not clear why we need a `FVar` for `simp` to decide to rewrite with it.
+  -/
   hypWidthLeBoundNote : FVarId
 
 
@@ -48,8 +53,9 @@ meta def introMaskWidth (ctx : PbvTranslateContext) (g : MVarId) (widthExpr : Ex
     -- Retrieve the ldecl from the context.
     let name := if let some ldecl := (← localDecl? widthExpr) then ldecl.userName else (Name.mkSimple "widthVar")
     -- Check that the Expr is of type Nat.
-    if (← inferType widthExpr) != (mkConst ``Nat) then
-      throwError s!"`BitVec` width {widthExpr} is not a `Nat`"
+
+    if !(← Expr.isNat widthExpr) then
+      throwError s!"`BitVec` width {← inferType widthExpr} is not a `Nat`"
 
     let [g] ← g.withContext do
       g.apply <| ← mkAppM ``width_elim #[mkNatLit ctx.bmcBound, widthExpr, ← g.getType]
@@ -60,7 +66,6 @@ meta def introMaskWidth (ctx : PbvTranslateContext) (g : MVarId) (widthExpr : Ex
     let (maskHyp, g) ← g.withContext do g.intro (Name.mkSimple s!"h_{maskName}")
     -- Define bounding conditions.
     let hypWidthLeBound ← g.withContext do
-      -- Add a meaninful name using : (userName := Name.mkSimple "foo")
       mkFreshExprMVar (kind := .syntheticOpaque) (mkAppN (Expr.const ``LE.le [.zero])
         #[mkConst ``Nat, mkConst ``instLENat, widthExpr, mkNatLit ctx.bmcBound])
     g.withContext <| check hypWidthLeBound
@@ -219,7 +224,7 @@ meta def translateWidthPrecond (winfos : WidthInfos) (g : MVarId) (ldecl : Local
     let some wa ← winfos.get? ea | return g
     let some wb ← winfos.get? eb | return g
     let (natHyp, g) ← g.withContext do g.note (Name.mkSimple s!"bv_{wa.widthName}_{wb.widthName}") ldecl.toExpr
-    let (#[_], g) ← g.revert #[natHyp] | throwError "Reverting shuold produce a single FVar."
+    let (#[_], g) ← g.revert #[natHyp] | throwError m!"Reverting {← natHyp.getType} shuold produce a single FVar."
     return g
   else
     return g
@@ -250,10 +255,10 @@ meta def addBoundRewrites (g : MVarId) (ctx : PbvTranslateContext) (simp : SimpT
     MetaM SimpTheoremsArray := g.withContext do
   let thms := #[
         ``eq_iff,
-        ``Nat_lt_eq_Mask_lt,
-        ``Nat_le_eq_Mask_le,
-        ``Nat_ge_eq_Mask_ge,
-        ``Nat_gt_eq_Mask_gt,
+        ``lt_eq_lt_of_eq_maskOfWidth,
+        ``le_eq_le_of_eq_maskOfWidth,
+        ``ge_eq_ge_of_eq_maskOfWidth,
+        ``gt_eq_gt_of_eq_maskOfWidth,
         ``msb_eq_and_signBitOfMask_maskOfWidth_ne_zero
   ]
 
