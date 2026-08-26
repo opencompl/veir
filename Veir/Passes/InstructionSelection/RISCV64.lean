@@ -63,26 +63,25 @@ def ctlz32 : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__ctlz 32 .clz
 /-- `llvm.intr.ctlz` (`i64`) -> `riscv.clz`. -/
 def ctlz64 : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__ctlz 64 .clz ()
 
-/-- `llvm.intr.cttz` (`i32`) -> `riscv.ctzw` -/
+/-- `llvm.intr.cttz` (`i32`) -> `riscv.ctzw`. -/
 def cttz32 : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__cttz 32 .ctzw ()
 
-/-- `llvm.intr.cttz` (`i64`) -> `riscv.ctz` -/
+/-- `llvm.intr.cttz` (`i64`) -> `riscv.ctz`. -/
 def cttz64 : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__cttz 64 .ctz ()
 
-/-- `llvm.intr.ctpop` (`i32`) -> `riscv.cpopw` -/
+/-- `llvm.intr.ctpop` (`i32`) -> `riscv.cpopw`. -/
 def ctpop32 : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__ctpop 32 .cpopw ()
 
-/-- `llvm.intr.ctpop` (`i64`) -> `riscv.cpop` -/
+/-- `llvm.intr.ctpop` (`i64`) -> `riscv.cpop`. -/
 def ctpop64 : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__ctpop 64 .cpop ()
+
+
+
 
 /--
   Shared shape of the unary RISC-V lowerings (`ctlz`/`cttz`/`ctpop`): match a single-operand
   LLVM op whose operand has integer type `i64` or `i32`, cast the operand to a register, apply
   `op64` (or its `W` variant `op32` for `i32`), and cast the result back to the source type.
-
-  This is the imperative `LocalRewritePattern` still wired into the pass (see `ctlz_local`,
-  `cttz_local`, `ctpop_local` below); `lowerUnaryWPuddle` above is its declarative Puddle
-  counterpart. There is no Puddle interpreter yet, so the two coexist for now.
 -/
 
 def lowerUnaryWLocal {P : Type}
