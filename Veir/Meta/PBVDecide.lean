@@ -27,22 +27,29 @@ inductive Tm : TmKind → Type
 -- Might have a problem reifying "atom" widths which are composite eg: BitVec (w + 1 - 1)
 -- TODO fixable by first traversing the BitVec definitions to obtain the atoms, and then look
 -- them up while reifying
-meta partial def Tm.reifyWidth (e : Expr) : Option (Tm .width) :=
+meta partial def Tm.reifyWidth (e : Expr) : MetaM (Option (Tm .width)) := do
   match_expr e with
-  | HAdd.hAdd Nat _Nat _Nat _instHAdd ae be =>
-    if let some a := Tm.reifyWidth ae then
-      if let some b := Tm.reifyWidth be then
-        some (.widthAdd a b)
-      else none
-    else none
+  | HAdd.hAdd ty _ _ _ ae be =>
+    if (← Expr.isNat ty) then
+      if let some a ← Tm.reifyWidth ae then
+        if let some b ← Tm.reifyWidth be then
+          pure (some (.widthAdd a b))
+        else pure none
+      else pure none
+    else pure none
   | _ =>
     match e with
-    | .fvar _ => some (.widthAtom (e))
-    | _ => none
+    | .fvar _ => pure (some (.widthAtom (e)))
+    | _ => pure none
 
 meta def Tm.toExpr : Tm .width → Expr
   | .widthAtom e => e
   | .widthAdd v w => mkNatAdd v.toExpr w.toExpr
+
+meta def Tm.toName (tm: Tm .width) (g : MVarId) : MetaM Name := g.withContext do
+  match tm with
+  | .widthAtom e => pure <| Name.mkSimple s!"{← e.fvarId!.getUserName}"
+  | .widthAdd v w => pure <| Name.mkSimple s!"{← v.toName g}_add_{← w.toName g}"
 
 /-- Computes the upper bound of widths needed to calculate this width without overflowing.
 That maximum such, across all widths, will be used to get the universal upper bound. -/
@@ -68,7 +75,7 @@ Either get existing width term, or try and reify one if it does not exist.
 -/
 meta def WidthTms.getOrCreateTm
     (g : MVarId) (this : WidthTms) (wExpr : Expr) : MetaM (MVarId × WidthTm × WidthTms) := g.withContext do
-  let some reified := Tm.reifyWidth wExpr | throwError m!"Failed to reify width expr: {wExpr}"
+  let some reified ← Tm.reifyWidth wExpr | throwError m!"Failed to reify width expr: {wExpr}"
   if let some info := this.terms[reified.toExpr]? then -- use reified.toExpr as a kind of "normal"/"canonical" form
     return (g, info, this)
   else
@@ -116,10 +123,7 @@ meta def localDecl? (e : Expr) : MetaM (Option LocalDecl) := do
 
 meta def introMaskWidth (maxBound : Nat) (g : MVarId) (widthTm : WidthTm) (infos : WidthInfos)
   : MetaM (MVarId × WidthInfos) := g.withContext do
-    -- Retrieve the ldecl from the context.
-    -- let name := if let some ldecl := (← localDecl? widthExpr) then ldecl.userName else (Name.mkSimple "widthVar")
-    -- let name := widthTm.term.getName
-    let name := Name.mkSimple "test"
+    let name ← widthTm.term.toName g
     -- Apply width_elim
     let [g] ← g.withContext do
       g.apply <| ← mkAppM ``width_elim #[mkNatLit maxBound, widthTm.term.toExpr, ← g.getType]
@@ -252,7 +256,8 @@ meta partial def visitExprRec (g : MVarId)
   if e.isApp then
     let (f, args) := (e.getAppFn, e.getAppArgs)
     let (g, widthTms, bvs) ← g.withContext do
-      args.foldlM (init := (g, widthTms, bvs)) fun (g, widthTms, bvs) arg => g.withContext do visitExprRec g widthTms bvs arg
+      args.foldlM (init := (g, widthTms, bvs)) fun (g, widthTms, bvs) arg =>
+      g.withContext do visitExprRec g widthTms bvs arg
     visitExprRec g widthTms bvs f
   else
     return (g, widthTms, bvs)
@@ -311,10 +316,7 @@ meta def introMaskedBitvectors (ctx : PbvTranslateContext)
     (bvs : BitVecFVarsToRevert) (g : MVarId) : MetaM (List MVarId × BitVecInfos) := do
   bvs.bvs.foldM (init := ([g], {})) fun (gs, bvInfos) bvFvarId widthTm => do
     let g :: other := gs | throwError m!"{gs} should always have at least one element"
-    logInfo g
     let (g', bvInfos) ← introBitvecFVarUnchecked ctx g bvInfos bvFvarId widthTm
-    for o in g' do
-      logInfo o
     return (g' ++ other, bvInfos)
 /--
 These theorems require pre-filling the width bound in order to be used within
@@ -387,26 +389,22 @@ meta def applySimp (g : MVarId) (simp : SimpTheoremsArray) : MetaM MVarId := g.w
 meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVarId) := g.withContext do
   -- Find `BitVec`s and intro their widths
   let (g, widthTms, bvsToRevert) ← visitExprRec g {} {} (← g.getType)
-  for (w, term) in widthTms.terms do
-    logInfo m!"{w}, {term.term.toExpr}"
-
   -- Introduce the width masks, bounded by the max width
   let (g, widthInfos) ← introMaskWidths widthTms g ctx
 
   -- Intro the `BitVec`s
-  let (gs, _bvInfos) ← introMaskedBitvectors ctx bvsToRevert g
+  let (gs, bvInfos) ← introMaskedBitvectors ctx bvsToRevert g
   let g :: secondaryGoals := gs | throwError "should have more than one"
   -- Find preconditions on the width `FVar`s
-  -- let g ← translateWidthPreconds widthInfos g
+  let g ← translateWidthPreconds widthInfos g
   -- Create simp set
   let thms := ← addBoundRewrites g ctx
            <| ← addPushTheorems g
-          --  <| ← addBvInfos g bvInfos -- This step is not strictly necessary.
+           <| ← addBvInfos g bvInfos -- This step is not strictly necessary.
            <| ← addWidthInfosSimpLemmas g widthInfos #[]
   -- Run simp
   let g ← applySimp g thms
   -- -- Return modified goal and subgoals
-  -- return [g] ++ (widthInfos.infos.values.map (·.hypWidthLeBoundMVarId))
   return g :: secondaryGoals ++ (widthInfos.infos.values.map (·.hypWidthLeBoundMVarId))
 /--
 `pbv_decide` takes a `Nat` bound as input argument and uses it to translate a
