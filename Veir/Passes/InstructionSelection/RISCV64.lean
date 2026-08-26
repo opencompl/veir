@@ -5,6 +5,7 @@ public import Veir.PatternRewriter.Basic
 import Veir.DataLayout.RISCV64
 import Veir.Passes.Matching.LLVM.Basic
 import Veir.Passes.InstructionSelection.Common
+import Veir.PatternRewriter.Puddle.Builders
 
 namespace Veir
 
@@ -32,10 +33,67 @@ def getIntByteTypeBitwidth (t : TypeAttr) : Option Nat :=
   | _ => none
 
 /--
+  Puddle rendition of the unary RISC-V lowerings (`ctlz`/`cttz`/`ctpop`), specialized to one
+  width `bw` (`32` or `64`): match a single-operand LLVM op `llvmOp` whose operand (and, since the
+  root's result type handle is reused for the operand, its result too) has integer type `i{bw}`,
+  cast the operand to a register, apply `riscvOp`, and cast the result back to the source type.
+
+  Puddle patterns are purely declarative and cannot branch on a runtime bitwidth the way
+  `lowerUnaryWLocal` does (picking `op64` vs. its `W` variant `op32` once the operand's width is
+  known): `riscvOp` is fixed when the pattern is built, so lowering an intrinsic for both `i32` and
+  `i64` needs two instantiations of this builder, one per width (see e.g. `ctlzPuddle32`/
+  `ctlzPuddle64` below).
+-/
+def lowerUnaryWPuddle (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Veir.Puddle.Pattern OpCode :=
+  Veir.Puddle.Pattern.Builder
+    (do
+      let returnType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == bw)
+      let x ← Veir.Puddle.MatchProg.value returnType
+      let _ ← Veir.Puddle.MatchProg.root (.llvm llvmOp) #[x] #[returnType]
+      return (returnType, x))
+    (fun (returnType, x) => do
+      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
+      let castProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[x] #[regType] castProps
+      let riscvOpProps ← Veir.Puddle.CreateProg.property (.riscv riscvOp) riscvProps
+      let riscvResOp ← Veir.Puddle.CreateProg.operation (.riscv riscvOp)
+          #[castOp.res[0]!] #[regType] riscvOpProps
+      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[riscvResOp.res[0]!] #[returnType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
+
+/-- `llvm.intr.ctlz` (`i32`) -> `riscv.clzw`, as a Puddle pattern. -/
+def ctlzPuddle32 : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__ctlz 32 .clzw ()
+
+/-- `llvm.intr.ctlz` (`i64`) -> `riscv.clz`, as a Puddle pattern. -/
+def ctlzPuddle64 : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__ctlz 64 .clz ()
+
+/-- `llvm.intr.cttz` (`i32`) -> `riscv.ctzw`, as a Puddle pattern. -/
+def cttzPuddle32 : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__cttz 32 .ctzw ()
+
+/-- `llvm.intr.cttz` (`i64`) -> `riscv.ctz`, as a Puddle pattern. -/
+def cttzPuddle64 : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__cttz 64 .ctz ()
+
+/-- `llvm.intr.ctpop` (`i32`) -> `riscv.cpopw`, as a Puddle pattern. -/
+def ctpopPuddle32 : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__ctpop 32 .cpopw ()
+
+/-- `llvm.intr.ctpop` (`i64`) -> `riscv.cpop`, as a Puddle pattern. -/
+def ctpopPuddle64 : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__ctpop 64 .cpop ()
+
+/--
   Shared shape of the unary RISC-V lowerings (`ctlz`/`cttz`/`ctpop`): match a single-operand
   LLVM op whose operand has integer type `i64` or `i32`, cast the operand to a register, apply
   `op64` (or its `W` variant `op32` for `i32`), and cast the result back to the source type.
+
+  This is the imperative `LocalRewritePattern` still wired into the pass (see `ctlz_local`,
+  `cttz_local`, `ctpop_local` below); `lowerUnaryWPuddle` above is its declarative Puddle
+  counterpart. There is no Puddle interpreter yet, so the two coexist for now.
 -/
+
 def lowerUnaryWLocal {P : Type}
     (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × P))
     (op64 op32 : Riscv)
