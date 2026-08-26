@@ -46,8 +46,7 @@ meta def localDecl? (e : Expr) : MetaM (Option LocalDecl) := do
 meta def introMaskWidth (ctx : PbvTranslateContext) (g : MVarId) (widthExpr : Expr) (infos : WidthInfos)
   : MetaM (MVarId × WidthInfo × WidthInfos) := g.withContext do
     -- Retrieve the ldecl from the context.
-    let ldeclOpt ← localDecl? widthExpr
-    let name := if let some ldecl := ldeclOpt then ldecl.userName else (Name.mkSimple "widthVar")
+    let name := if let some ldecl := (← localDecl? widthExpr) then ldecl.userName else (Name.mkSimple "widthVar")
     -- Check that the Expr is of type Nat.
     if (← inferType widthExpr) != (mkConst ``Nat) then
       throwError s!"`BitVec` width {widthExpr} is not a `Nat`"
