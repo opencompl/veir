@@ -53,20 +53,19 @@ meta def introMaskWidth (ctx : PbvTranslateContext) (g : MVarId) (widthExpr : Ex
     -- Retrieve the ldecl from the context.
     let name := if let some ldecl := (← localDecl? widthExpr) then ldecl.userName else (Name.mkSimple "widthVar")
     -- Check that the Expr is of type Nat.
-
     if !(← Expr.isNat widthExpr) then
       throwError s!"`BitVec` width {← inferType widthExpr} is not a `Nat`"
-
+    -- Apply width_elim
     let [g] ← g.withContext do
       g.apply <| ← mkAppM ``width_elim #[mkNatLit ctx.bmcBound, widthExpr, ← g.getType]
-      | throwError "width_elim should generate a goal"
+      | throwError m!"{``width_elim} should generate a goal"
     -- Intros
     let maskName := Name.mkSimple s!"m{name}"
-    let (mask, g) ← g.withContext do g.intro maskName
-    let (maskHyp, g) ← g.withContext do g.intro (Name.mkSimple s!"h_{maskName}")
+    let (#[mask, maskHyp], g) ← g.introN 2 [maskName, Name.mkSimple s!"h_{maskName}"]
+      | throwError m!"Failed to intro {``width_elim}"
     -- Define bounding conditions.
     let hypWidthLeBound ← g.withContext do
-      mkFreshExprMVar (kind := .syntheticOpaque) (mkAppN (Expr.const ``LE.le [.zero])
+      mkFreshExprMVar (mkAppN (Expr.const ``LE.le [.zero])
         #[mkConst ``Nat, mkConst ``instLENat, widthExpr, mkNatLit ctx.bmcBound])
     g.withContext <| check hypWidthLeBound
     let (hypWidthLeBoundNote, g) ← g.withContext do g.note (Name.mkSimple s!"h_{name}_le_bound") hypWidthLeBound
