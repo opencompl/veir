@@ -83,7 +83,6 @@ def ctpop64 : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__ctpop 64 .c
   LLVM op whose operand has integer type `i64` or `i32`, cast the operand to a register, apply
   `op64` (or its `W` variant `op32` for `i32`), and cast the result back to the source type.
 -/
-
 def lowerUnaryWLocal {P : Type}
     (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × P))
     (op64 op32 : Riscv)
