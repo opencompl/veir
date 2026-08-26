@@ -103,9 +103,9 @@ inductive MatchDecl (OpInfo : Type) [HasOpInfo OpInfo] where
 | value (type : Handle OpInfo .type) (result : Handle OpInfo .value)
 /-- Require the type bound to `result` to be accepted by `matcher`. -/
 | type (matcher : TypeMatcher) (result : Handle OpInfo .type)
-/-- Identify an operation from the already-bound `result` handle or first SSA-result handle in
-`results`, require the given opcode, operands, result types, and properties, and bind the discovered
-entities to their corresponding handles. -/
+/-- Identify an operation from the already-bound `result` or `results` handle, check every result
+handle against that operation, require the given opcode, operands, result types, and properties,
+and bind the discovered entities to their corresponding handles. -/
 | operation (opCode : OpInfo)
     (operands : Array (Handle OpInfo .value))
     (returnTypes : Array (Handle OpInfo .type))
@@ -113,14 +113,9 @@ entities to their corresponding handles. -/
     (propertyResult : Handle OpInfo (.prop opCode))
     (result : Handle OpInfo .op)
     (results : Array (Handle OpInfo .value))
-/-- Mark `result` as the root operation and record its expected opcode, operands, result types, and
-properties. `MatchProg.Builder` emits a companion `operation` declaration that enforces them. -/
-| root (opCode : OpInfo)
-    (operands : Array (Handle OpInfo .value))
-    (returnTypes : Array (Handle OpInfo .type))
-    (property : PropertyMatcher opCode)
-    (propertyResult : Handle OpInfo (.prop opCode))
-    (result : Handle OpInfo .op)
+/-- Bind `result` to the candidate root operation. `MatchProg.Builder` emits a companion `operation`
+declaration that constrains the root after this declaration seeds the assignment. -/
+| root (result : Handle OpInfo .op)
 
 /--
 A match program together with the value exported by its builder. Exports typically contain handles
