@@ -57,23 +57,23 @@ def lowerUnaryWPuddle (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
       return castBackOp)
     (fun castBackOp => castBackOp)
 
-/-- `llvm.intr.ctlz` (`i32`) -> `riscv.clzw`, as a Puddle pattern. -/
-def ctlzPuddle32 : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__ctlz 32 .clzw ()
+/-- `llvm.intr.ctlz` (`i32`) -> `riscv.clzw`. -/
+def ctlz32 : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__ctlz 32 .clzw ()
 
-/-- `llvm.intr.ctlz` (`i64`) -> `riscv.clz`, as a Puddle pattern. -/
-def ctlzPuddle64 : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__ctlz 64 .clz ()
+/-- `llvm.intr.ctlz` (`i64`) -> `riscv.clz`. -/
+def ctlz64 : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__ctlz 64 .clz ()
 
-/-- `llvm.intr.cttz` (`i32`) -> `riscv.ctzw`, as a Puddle pattern. -/
-def cttzPuddle32 : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__cttz 32 .ctzw ()
+/-- `llvm.intr.cttz` (`i32`) -> `riscv.ctzw` -/
+def cttz32 : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__cttz 32 .ctzw ()
 
-/-- `llvm.intr.cttz` (`i64`) -> `riscv.ctz`, as a Puddle pattern. -/
-def cttzPuddle64 : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__cttz 64 .ctz ()
+/-- `llvm.intr.cttz` (`i64`) -> `riscv.ctz` -/
+def cttz64 : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__cttz 64 .ctz ()
 
-/-- `llvm.intr.ctpop` (`i32`) -> `riscv.cpopw`, as a Puddle pattern. -/
-def ctpopPuddle32 : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__ctpop 32 .cpopw ()
+/-- `llvm.intr.ctpop` (`i32`) -> `riscv.cpopw` -/
+def ctpop32 : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__ctpop 32 .cpopw ()
 
-/-- `llvm.intr.ctpop` (`i64`) -> `riscv.cpop`, as a Puddle pattern. -/
-def ctpopPuddle64 : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__ctpop 64 .cpop ()
+/-- `llvm.intr.ctpop` (`i64`) -> `riscv.cpop` -/
+def ctpop64 : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__ctpop 64 .cpop ()
 
 /--
   Shared shape of the unary RISC-V lowerings (`ctlz`/`cttz`/`ctpop`): match a single-operand
