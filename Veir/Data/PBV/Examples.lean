@@ -20,8 +20,10 @@ theorem trace_add_comm_manual (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
 -- Step 1: Bound widths to the provided blast width (redundant in this case)
   have w_le_bw : w ≤ 4 := by grind
 -- Step 2-3: Introduce mask to replace `w` Nat var
-  apply width_elim 4 w
-  intro mw h_mw
+  -- apply width_elim 4 w
+  -- intro mw h_mw
+  let mw := maskOfWidth 4 w
+  -- obtain ⟨mw, h_mw⟩ : ∃ mw : BitVec 8, mw = maskOfWidth 8 w := ⟨_, rfl⟩
 -- Step 4: Eliminate the parametric bv var of width `w`
 --         enforcing width constraint with mask
   revert x
@@ -145,4 +147,64 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
                                    -- `setWidth_signExtend_eq_and_maskOfWidth`
   ] at h_xmp ⊢
 -- Step 8: BitBlast!
+  bv_decide
+
+theorem pbv_setWidth_append {w o : Nat} (h : w ≤ o) :
+    ∀ {v : Nat} (a : BitVec v) (b : BitVec w), v + w ≤ o →
+      (a ++ b).setWidth o
+        = ((a.setWidth o) * (maskOfWidth o w + 1#o)) ||| b.setWidth o := by
+  intro v a b hvw
+  have hv : v ≤ o := by omega
+  -- The shifted high part fits below `2^(v+w) ≤ 2^o`, so nothing wraps.
+  have hshift : a.toNat <<< w < 2 ^ o := by
+    rw [Nat.shiftLeft_eq]
+    calc a.toNat * 2 ^ w
+        < 2 ^ v * 2 ^ w := by
+          exact Nat.mul_lt_mul_of_lt_of_le a.isLt (Nat.le_refl _) (Nat.two_pow_pos w)
+      _ = 2 ^ (v + w) := (Nat.pow_add 2 v w).symm
+      _ ≤ 2 ^ o := Nat.pow_le_pow_right (by omega) hvw
+  have hb : b.toNat < 2 ^ o :=
+    Nat.lt_of_lt_of_le b.isLt (Nat.pow_le_pow_right (by omega) h)
+  apply BitVec.eq_of_toNat_eq
+  sorry
+
+
+
+
+theorem trace_append (w : Nat) (a b : BitVec w) (hw : w <= 8):
+  (a ++ b) + (b ++ a) = (a ++ a) + (b ++ b)
+  := by
+  -- have w_le_bw : w <= 8 := by grind
+  have w_le_o : w <= 16 := by grind
+
+  apply width_elim 16 w
+  intro mw h_mw
+
+  revert a
+  apply var_elim 8 w (by grind)
+  intro a a_mw
+
+  revert b
+  apply var_elim 8 w (by grind)
+  intro b b_mw
+
+  have mask := isMask_of_eq_maskOfWidth h_mw
+
+  have w_w_le_bw : w + w ≤ 16 := by grind
+
+  simp only [
+    w_w_le_bw,
+    eq_iff (o := 16),
+    setWidth_add,
+  ]
+  rw [pbv_setWidth_append (by grind) _ _ (by grind)]
+  rw [pbv_setWidth_append (by grind) _ _ (by grind)]
+  rw [pbv_setWidth_append (by grind) _ _ (by grind)]
+  rw [pbv_setWidth_append (by grind) _ _ (by grind)]
+  have : maskOfWidth 16 (w + w) = ((maskOfWidth 16 w + 1) * (maskOfWidth 16 w + 1)) - 1 := sorry
+
+  simp [
+    setWidth_setWidth,
+    w_le_o,
+  ]
   bv_decide

@@ -10,6 +10,33 @@ namespace Veir.Data.PBV
 meta def Expr.isNat (e : Expr) : MetaM Bool := do
   return (← inferType e).isConstOf ``Nat
 
+inductive TmKind
+| width
+
+inductive Tm : TmKind → Type
+| widthAtom (e : Expr) : Tm .width
+| widthAdd (v w : Tm .width) : Tm .width
+
+-- Might have a problem reifying "atom" widths which are composite eg: BitVec (w + 1 - 1)
+-- TODO fixable by first traversing the BitVec definitions to obtain the atoms, and then look
+-- them up while reifying
+meta partial def Tm.reifyWidth (e : Expr) : Option (Tm .width) :=
+  match_expr e with
+  | Nat.add ae be =>
+    if let some a := Tm.reifyWidth ae then
+      if let some b := Tm.reifyWidth be then
+        some (.widthAdd a b)
+      else none
+    else none
+  | _ =>
+    match e with
+    | .fvar _ => some (.widthAtom (e))
+    | _ => none
+
+meta def Tm.toExpr : Tm .width → Expr
+  | .widthAtom e => e
+  | .widthAdd v w => mkNatAdd v.toExpr w.toExpr
+
 /--
 Information about the width variable and associated hypotheses.
 -/
@@ -17,7 +44,7 @@ structure WidthInfo where
   /-- The Name correspodning to this width. -/
   widthName : Name
   /-- The Expr corresponding to this width. -/
-  widthExpr : Expr
+  widthExpr : Tm .width
   /-- The FVarId corresponding to the new mask variable for this width. -/
   widthMaskFvar : FVarId
   /-- The FVarId of the pure-BV hypothesis that this width is a mask variable. -/
@@ -35,7 +62,7 @@ structure WidthInfos where
     infos : HashMap Expr WidthInfo := {}
 
 meta def WidthInfos.push (this : WidthInfos) (info : WidthInfo) : WidthInfos :=
-  { infos := this.infos.insert info.widthExpr info }
+{ infos := this.infos.insert (info.widthExpr.toExpr) info }
 
 /--
 Read-only configuration for the tactic.
@@ -43,6 +70,20 @@ Read-only configuration for the tactic.
 meta structure PbvTranslateContext where
   /-- The bound upto which we want to bitblast our widths. -/
    bmcBound : Nat
+
+/-- Computes the upper bound of widths needed to calculate this width without overflowing.
+That maximum such, across all widths, will be used to get the universal upper bound. -/
+meta def Tm.getUniverseWidthUpperBound (tm : Tm .width) (ctx : PbvTranslateContext) : Nat :=
+  match tm with
+  | .widthAtom _ => ctx.bmcBound
+  | .widthAdd wa wb => wa.getUniverseWidthUpperBound ctx + wb.getUniverseWidthUpperBound ctx
+
+/-- Get the maximum width needed for blasting across all widths. -/
+meta def WidthInfos.getUniverseWidthUpperBound (ctx : PbvTranslateContext)
+    (winfos : WidthInfos) : Nat :=
+  winfos.infos.fold (fun val _e winfo =>
+        val.max (winfo.widthExpr.getUniverseWidthUpperBound ctx)) 1
+
 
 meta def localDecl? (e : Expr) : MetaM (Option LocalDecl) := do
   let some fvarId := e.fvarId? | return none
@@ -63,7 +104,7 @@ meta def introMaskWidth (ctx : PbvTranslateContext) (g : MVarId) (widthExpr : Ex
     let maskName := Name.mkSimple s!"m{name}"
     let (#[mask, maskHyp], g) ← g.introN 2 [maskName, Name.mkSimple s!"h_{maskName}"]
       | throwError m!"Failed to intro {``width_elim}"
-    -- Define bounding conditions.
+  -- Define bounding conditions.
     let hypWidthLeBound ← g.withContext do
       mkFreshExprMVar (mkAppN (Expr.const ``LE.le [.zero])
         #[mkConst ``Nat, mkConst ``instLENat, widthExpr, mkNatLit ctx.bmcBound])
@@ -74,9 +115,11 @@ meta def introMaskWidth (ctx : PbvTranslateContext) (g : MVarId) (widthExpr : Ex
     let hypExpr ← g.withContext do mkAppM ``maskOfWidth_and_add_one_eq_zero #[mkFVar maskHyp]
     let (_, g) ← g.withContext do g.note (Name.mkSimple s!"h_{maskName}_bv_mask") hypExpr
 
+    let some term := Tm.reifyWidth widthExpr | throwError m!"Failed to reify width expression: {widthExpr}"
+
     let info : WidthInfo := {
       widthName := name,
-      widthExpr := widthExpr,
+      widthExpr := term,
       widthMaskFvar := mask,
       widthMaskHypFvar := maskHyp
       hypWidthLeBoundMVarId := hypWidthLeBound.mvarId!,
@@ -143,7 +186,7 @@ meta def introBitvecFVarUnchecked (ctx : PbvTranslateContext) (g : MVarId)
   let (#[oldVar], g) ← g.revert #[bvFVarId] | throwError "reverting shuold produce a var"
   -- Apply ``var_elim
   let (List.cons g _) ← g.withContext <| g.apply <| ← mkAppM ``var_elim
-      #[mkNatLit ctx.bmcBound, widthInfo.widthExpr, .mvar widthInfo.hypWidthLeBoundMVarId]
+      #[mkNatLit ctx.bmcBound, widthInfo.widthExpr.toExpr, .mvar widthInfo.hypWidthLeBoundMVarId]
     | throwError m!"{``var_elim} should generate a single goal. Produced {g}"
   -- Intros
   let name ← oldVar.getUserName
