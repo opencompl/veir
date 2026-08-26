@@ -1,5 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s --check-prefix=SRC
-// RUN: veir-opt %s -p=canonicalize,instcombine,canonicalize,cse,dce,isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,canonicalize,riscv-combine,coerce-function-boundaries-to-riscv-reg,reconcile-cast,dce > %t && veir-interpret %t | filecheck %s
+// RUN: veir-opt %s -p=canonicalize,instcombine,canonicalize,cse,dce,isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,canonicalize,riscv-combine,coerce-function-boundaries-to-riscv-reg,reconcile-cast,dce | veir-interpret | filecheck %s
 
 // Functional check for `udivPow2`: unsigned division by a constant power of two,
 // including the `2^63` boundary (whose bit pattern is decoded as a negative `Int`

@@ -1,6 +1,7 @@
 import Veir.Parser.MlirParser
 import Veir.Printer
 import Veir.Panic
+import Veir.Input
 
 import Veir.Passes.PrintIR
 import Veir.Passes.InstCombine
@@ -19,6 +20,7 @@ import Veir.Passes.Legalization
 
 open Veir.Parser
 open Veir.Parser.ParserError
+open Veir.Input
 open Veir
 
 /--
@@ -152,44 +154,10 @@ def parseArgs (args : List String) : Except String VeirOptArgs := do
   if let some flag := flags.head? then
     .error s!"Unrecognized flag '{flag}'."
 
-  if positional.length == 0 then -- read from stdin
-    return { filename := none, passes := pipeline, allowUnregisteredDialect, disableVerifiers }
-
-  let [filename] := positional
-    | .error "Expected exactly one positional argument for the input filename."
-
-  if filename == "-" then
-    return { filename := none, passes := pipeline, allowUnregisteredDialect, disableVerifiers }
-
-  return { filename := some filename, passes := pipeline, allowUnregisteredDialect, disableVerifiers }
-
-def getFileContent (filename : Option String) : ExceptT String IO ByteArray := do
-  if let some f := filename then
-    try
-      return ← IO.FS.readBinFile f
-    catch e =>
-      throw s!"Error reading file '{filename}': {e}"
-
-  return ← IO.FS.Stream.readBinToEnd (←IO.getStdin)
-
-def parseOperation (filename : Option String) (allowUnregisteredDialect : Bool := false) :
-    ExceptT String IO (WfIRContext OpCode × OperationPtr) := do
-  let fileContent ← getFileContent filename
-  let some (ctx, _) := WfIRContext.create OpCode
-    | throw "Failed to create IR context"
-
-  let filename := if let some f := filename then f else "<stdin>"
-
-  match ParserState.fromInput fileContent with
-  | .ok parser =>
-    let state := MlirParserState.fromContext ctx allowUnregisteredDialect
-    match parseTopLevelOp.run state parser with
-    | .ok (op, state, _) =>
-      return (state.ctx, op)
-    | .error err =>
-      throw (err.format filename fileContent)
-  | .error err =>
-    throw (err.format filename fileContent)
+  match inputSourceOfArgs positional with
+  | .ok filename =>
+    return { filename, passes := pipeline, allowUnregisteredDialect, disableVerifiers }
+  | .error errMsg => .error errMsg
 
 set_option warn.sorry false in
 def main (args : List String) : IO Unit := do

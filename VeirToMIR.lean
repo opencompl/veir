@@ -1,30 +1,18 @@
 import Veir.Parser.MlirParser
+import Veir.Input
 import Veir.MIRPrinter
 
 /-!
   # veir2mir CLI tool
 
-  Reads an MLIR file whose `main` function has been lowered to the VeIR
-  `riscv` / `riscv_cf` dialects and prints LLVM pre-register-allocation MIR.
+  Reads an MLIR program from a file or from standard input, whose `main`
+  function has been lowered to the VeIR `riscv` / `riscv_cf` dialects, and
+  prints LLVM pre-register-allocation MIR.
 -/
 
 open Veir.Parser
+open Veir.Input
 open Veir
-
-def parseOperation (filename : String) : ExceptT String IO (WfIRContext OpCode × OperationPtr) := do
-  let fileContent ← IO.FS.readBinFile filename
-  let some (ctx, _) := WfIRContext.create OpCode
-    | throw "Failed to create IR context"
-  match ParserState.fromInput fileContent with
-  | .ok parser =>
-    let parserState := MlirParserState.fromContext ctx (allowUnregisteredDialect := true)
-    match parseTopLevelOp.run parserState parser with
-    | .ok (op, state, _) =>
-      return (state.ctx, op)
-    | .error errMsg =>
-      throw s!"Error parsing operation: {errMsg}"
-  | .error errMsg =>
-    throw s!"Error reading file: {errMsg}"
 
 /-- Find the first function-like operation in the module's top block. -/
 partial def findFunc (ctx : IRContext OpCode) (op : Option OperationPtr) : Option OperationPtr :=
@@ -35,9 +23,14 @@ partial def findFunc (ctx : IRContext OpCode) (op : Option OperationPtr) : Optio
     else findFunc ctx (op.get! ctx).next
 
 def main (args : List String) : IO Unit := do
-  match args with
-  | [filename] =>
-    match ← parseOperation filename with
+  match inputSourceOfArgs args with
+  | .error errMsg =>
+    IO.eprintln errMsg
+    IO.eprintln "Usage: veir2mir [filename]"
+    IO.eprintln "  Reads the program from standard input if no filename is given."
+    IO.Process.exit 2
+  | .ok filename =>
+    match ← parseOperation filename (allowUnregisteredDialect := true) with
     | .ok (ctx, moduleOp) =>
       let rawCtx : IRContext OpCode := ctx
       let region := moduleOp.getRegion! rawCtx 0
@@ -52,6 +45,3 @@ def main (args : List String) : IO Unit := do
     | .error errMsg =>
       IO.eprintln s!"Error: {errMsg}"
       IO.Process.exit 1
-  | _ =>
-    IO.eprintln "Usage: veir2mir <filename>"
-    IO.Process.exit 2
