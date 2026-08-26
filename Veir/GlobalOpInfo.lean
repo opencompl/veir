@@ -30,6 +30,7 @@ match opCode with
 | .func op => Func.propertiesOf op
 | .datapath op => Datapath.propertiesOf op
 | .pdl op => PDL.propertiesOf op
+| .gmir op =>Gmir.propertiesOf op
 | .test op => Test.propertiesOf op
 
 attribute [reducible] _propertiesOf
@@ -54,6 +55,7 @@ def OpCode.getEffects (opCode : OpCode) (props : _propertiesOf opCode) : MemoryE
   | .func op, props => Func.getEffects op props
   | .datapath op, props => Datapath.getEffects op props
   | .pdl op, props => PDL.getEffects op props
+  | .gmir op, props => Gmir.getEffects op props
   | .test op, props => Test.getEffects op props
 
 /--
@@ -75,6 +77,7 @@ def OpCode.getRegionKind (opCode : OpCode) (index : Nat) : RegionKind :=
   | .func op => HasOpInfo.getRegionKind op index
   | .datapath op => HasOpInfo.getRegionKind op index
   | .pdl op => HasOpInfo.getRegionKind op index
+  | .gmir op => HasOpInfo.getRegionKind op index
   | .test op => HasOpInfo.getRegionKind op index
 
 /--
@@ -97,6 +100,7 @@ def OpCode.hasSSADominance (opCode : OpCode) (index : Nat) : Bool :=
   | .func op => Func.hasSSADominance op index
   | .datapath op => Datapath.hasSSADominance op index
   | .pdl op => PDL.hasSSADominance op index
+  | .gmir op => Gmir.hasSSADominance op index
   | .test op => Test.hasSSADominance op index
 
 /--
@@ -120,6 +124,7 @@ def OpCode.hasNoTerminator (opCode : OpCode) (index : Nat) : Bool :=
   | .func op => HasOpInfo.hasNoTerminator op index
   | .datapath op => HasOpInfo.hasNoTerminator op index
   | .pdl op => HasOpInfo.hasNoTerminator op index
+  | .gmir op => HasOpInfo.hasNoTerminator op index
   | .test op => HasOpInfo.hasNoTerminator op index
 
 /-- Whether this opcode carries MLIR's `IsolatedFromAbove` trait. -/
@@ -139,6 +144,7 @@ def OpCode.isIsolatedFromAbove (opCode : OpCode) : Bool :=
   | .func op => HasOpInfo.isIsolatedFromAbove op
   | .datapath op => HasOpInfo.isIsolatedFromAbove op
   | .pdl op => HasOpInfo.isIsolatedFromAbove op
+  | .gmir op => HasOpInfo.isIsolatedFromAbove op
   | .test op => HasOpInfo.isIsolatedFromAbove op
 
 /--
@@ -161,6 +167,7 @@ def OpCode.isTerminator (opCode : OpCode) : Bool :=
   | .func op => HasOpInfo.isTerminator op
   | .datapath op => HasOpInfo.isTerminator op
   | .pdl op => HasOpInfo.isTerminator op
+  | .gmir op => HasOpInfo.isTerminator op
   | .test op => HasOpInfo.isTerminator op
 
 /--
@@ -187,6 +194,7 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | .func op => Func.isConstantLike op
   | .datapath op => Datapath.isConstantLike op
   | .pdl op => PDL.isConstantLike op
+  | .gmir op => Gmir.isConstantLike op
   | .test op => Test.isConstantLike op
 
 /--
@@ -209,6 +217,7 @@ def OpCode.propagatesPoison (opCode : OpCode) : Bool :=
   | .func op => HasOpInfo.propagatesPoison op
   | .datapath op => HasOpInfo.propagatesPoison op
   | .pdl op => HasOpInfo.propagatesPoison op
+  | .gmir op => HasOpInfo.propagatesPoison op
   | .test op => HasOpInfo.propagatesPoison op
 
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
@@ -228,6 +237,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   | .func op => Func.fromAttrDict op attrDict
   | .datapath op => Datapath.fromAttrDict op attrDict
   | .pdl op => PDL.fromAttrDict op attrDict
+  | .gmir op => Gmir.fromAttrDict op attrDict
   | .test op => Test.fromAttrDict op attrDict
 
 /--
@@ -251,6 +261,7 @@ def Properties.toAttrDict
   | .func op, props => Func.toAttrDict op props
   | .datapath op, props => Datapath.toAttrDict op props
   | .pdl op, props => PDL.toAttrDict op props
+  | .gmir op, props =>Gmir.toAttrDict op props
   | .test op, props => Test.toAttrDict op props
 
 instance : IsOpCode OpCode where
@@ -277,6 +288,7 @@ def OpCode.functionInterface? (opCode : OpCode) : Option (FunctionOpInterface (_
   | .func op => HasOpInfo.functionInterface? op
   | .datapath op => HasOpInfo.functionInterface? op
   | .pdl op => HasOpInfo.functionInterface? op
+  | .gmir op => HasOpInfo.functionInterface? op
   | .test op => HasOpInfo.functionInterface? op
 
 #generate_has_dialect_instances OpCode
@@ -297,6 +309,7 @@ def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
   | .riscv opType => Riscv.verifyLocalInvariants opType op ctx opIn
   | .riscv_cf opType => Riscv_Cf.verifyLocalInvariants opType op ctx opIn
   | .riscv_stack opType => Riscv_Stack.verifyLocalInvariants opType op ctx opIn
+  | .gmir opType => Gmir.verifyLocalInvariants (OpInfo := OpCode) opType op ctx opIn
   | .rv64 opType => Rv64.verifyLocalInvariants opType op ctx opIn
   | .comb opType => Comb.verifyLocalInvariants opType op ctx opIn
   | .hw opType => HW.verifyLocalInvariants opType op ctx opIn
@@ -331,7 +344,7 @@ def OpCode.materializeConstant (opCode : OpCode) (value : RuntimeValue)
     -- Listed rather than folded into a catch-all so that adding a dialect
     -- fails to compile until it decides how, or whether, to materialize.
     | .riscv_cf _ | .riscv_stack _ | .rv64 _ | .cf _ | .builtin _
-    | .func _ | .datapath _ | .pdl _ | .test _ => none
+    | .func _ | .datapath _ | .pdl _ | .gmir _ | .test _ => none
   guard materialized.fst.isConstantLike
   return materialized
 
