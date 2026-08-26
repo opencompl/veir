@@ -6,4 +6,4 @@ to represent and reason about the semantics of nondeterministic programs.
 ### License
 
 This project is made available under the Apache 2.0 license with LLVM exception.
-Parts of this project reuse code from [Coinductive](https://github.com/ISTA-PLV/coinductive/) and from EffectSSA, used with permission.
+Parts of this project reuse code from [Coinductive](https://github.com/ISTA-PLV/coinductive/) and from [EffectSSA](https://github.com/opencompl/EffectSSA/) with permission.
