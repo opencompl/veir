@@ -313,6 +313,7 @@ def CreateDecl.run (decl : CreateDecl OpInfo) (assignment : Assignment OpInfo)
       return (ctx, #[newOp], assignment)
     else
       none
+  | .type _ _ => sorry
 
 /--
 Execute creation declarations in program order, returning newly created operations as well as the
