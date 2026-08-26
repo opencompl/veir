@@ -14,8 +14,7 @@ meta structure PbvTranslateContext where
   /-- The bound upto which we want to bitblast our widths. -/
    bmcBound : Nat
 
-meta def Expr.isNat (e : Expr) : MetaM Bool := do
-  return (← inferType e).isConstOf ``Nat
+meta def Expr.isNat (e : Expr) : Bool := e.isConstOf ``Nat
 
 inductive TmKind
 | width
@@ -30,7 +29,7 @@ inductive Tm : TmKind → Type
 meta partial def Tm.reifyWidth (e : Expr) : MetaM (Option (Tm .width)) := do
   match_expr e with
   | HAdd.hAdd ty _ _ _ ae be =>
-    if (← Expr.isNat ty) then
+    if Expr.isNat ty then
       if let some a ← Tm.reifyWidth ae then
         if let some b ← Tm.reifyWidth be then
           pure (some (.widthAdd a b))
@@ -48,7 +47,7 @@ meta def Tm.toExpr : Tm .width → Expr
 
 meta def Tm.toName (tm: Tm .width) (g : MVarId) : MetaM Name := g.withContext do
   match tm with
-  | .widthAtom e => pure <| Name.mkSimple s!"{← e.fvarId!.getUserName}"
+  | .widthAtom e => pure <| Name.mkSimple s!"{← e.fvarId!.getUserName}" -- assume atom is Fvar for docs purposes
   | .widthAdd v w => pure <| Name.mkSimple s!"{← v.toName g}_add_{← w.toName g}"
 
 /-- Computes the upper bound of widths needed to calculate this width without overflowing.
@@ -58,6 +57,7 @@ meta def Tm.getUniverseWidthUpperBound (tm : Tm .width) (ctx : PbvTranslateConte
   | .widthAtom _ => ctx.bmcBound
   | .widthAdd wa wb => wa.getUniverseWidthUpperBound ctx + wb.getUniverseWidthUpperBound ctx
 
+-- TODO (see above)
 -- structure WidthAtoms where
   --
 
@@ -137,7 +137,7 @@ meta def introMaskWidth (maxBound : Nat) (g : MVarId) (widthTm : WidthTm) (infos
       mkFreshExprMVar (mkAppN (Expr.const ``LE.le [.zero])
         #[mkConst ``Nat, mkConst ``instLENat, widthTm.term.toExpr, mkNatLit maxBound])
     g.withContext <| check hypWidthLeBound
-    let (hypWidthLeBoundNote, g) ← g.withContext do g.note (Name.mkSimple s!"h_{name}_le_bound") hypWidthLeBound
+    let (hypWidthLeBoundNote, g) ← g.withContext do g.note (Name.mkSimple s!"h_{name}_le_blast") hypWidthLeBound
     g.withContext <| check (mkFVar hypWidthLeBoundNote)
     -- Assert the BitVec mask constraint.
     let hypExpr ← g.withContext do mkAppM ``maskOfWidth_and_add_one_eq_zero #[mkFVar maskHyp]
@@ -194,21 +194,21 @@ meta def getBitvecType? (e : Expr) : Option Expr :=
 Analyze a single bitvector FVarId, and try to introduce it as a `BitVec`
 variable in our larger universe.
 -/
-meta def introBitvecFVarUnchecked (ctx : PbvTranslateContext) (g : MVarId)
+meta def introBitvecFVarUnchecked (blastBound : Nat) (g : MVarId)
       (bvInfos : BitVecInfos) (bvFVarId : FVarId) (widthTm : WidthTm) :
       MetaM (List MVarId × BitVecInfos) := g.withContext do
   -- Find the BitVec {width_expr} variables.
     -- Revert to expose forall with the BitVec.
-  let (#[oldVar], g) ← g.revert #[bvFVarId] | throwError "reverting shuold produce a var"
+  let (#[oldVar], g) ← g.revert #[bvFVarId] | throwError m!"Reverting {g} shuold produce a var."
   -- Apply ``var_elim leaving a hole to be filled relating to the proof that the width expr is less than the bound width
   let [newGoal, g] ← g.withContext <| g.apply <| ← mkAppM ``var_elim
-      #[mkNatLit ctx.bmcBound, widthTm.term.toExpr]
+      #[mkNatLit blastBound, widthTm.term.toExpr]
     | throwError m!"{``var_elim} should generate a single goal. Produced {g}"
   -- logInfo m!"old goal: {g}"
   -- logInfo m!"new goal: {newGoal}"
   -- Intros
   let name ← oldVar.getUserName
-  let widthMaskName := "ahhh"
+  let widthMaskName := s!"maskOfWidth_{← widthTm.term.toName g}"
   let (#[bvVar, bvHyp], g) ← g.withContext <| g.introN 2 [name, Name.mkSimple s!"h_{name}_{widthMaskName}"]
     | throwError m!"Expecting two intros from {g}"
 
@@ -313,10 +313,10 @@ meta def introMaskWidths (widthTms : WidthTms) (g : MVarId) (ctx : PbvTranslateC
 Eliminate the bitvector variables to introduce the masked versions.
 -/
 meta def introMaskedBitvectors (ctx : PbvTranslateContext)
-    (bvs : BitVecFVarsToRevert) (g : MVarId) : MetaM (List MVarId × BitVecInfos) := do
+    (bvs : BitVecFVarsToRevert) (g : MVarId) (widthTms : WidthTms) : MetaM (List MVarId × BitVecInfos) := do
   bvs.bvs.foldM (init := ([g], {})) fun (gs, bvInfos) bvFvarId widthTm => do
     let g :: other := gs | throwError m!"{gs} should always have at least one element"
-    let (g', bvInfos) ← introBitvecFVarUnchecked ctx g bvInfos bvFvarId widthTm
+    let (g', bvInfos) ← introBitvecFVarUnchecked (widthTms.getUniverseWidthUpperBound ctx) g bvInfos bvFvarId widthTm
     return (g' ++ other, bvInfos)
 /--
 These theorems require pre-filling the width bound in order to be used within
@@ -393,8 +393,8 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVa
   let (g, widthInfos) ← introMaskWidths widthTms g ctx
 
   -- Intro the `BitVec`s
-  let (gs, bvInfos) ← introMaskedBitvectors ctx bvsToRevert g
-  let g :: secondaryGoals := gs | throwError "should have more than one"
+  let (g :: secondaryGoals, bvInfos) ← introMaskedBitvectors ctx bvsToRevert g widthTms
+    | throwError "Shuold always have more than one goal."
   -- Find preconditions on the width `FVar`s
   let g ← translateWidthPreconds widthInfos g
   -- Create simp set

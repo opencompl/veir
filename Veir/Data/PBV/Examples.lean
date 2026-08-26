@@ -178,11 +178,11 @@ theorem trace_append (w : Nat) (a b : BitVec w) (hw : w <= 8):
   intro mw h_mw
 
   revert a
-  apply var_elim 8 w (by grind)
+  apply var_elim 16 w (by grind)
   intro a a_mw
 
   revert b
-  apply var_elim 8 w (by grind)
+  apply var_elim 16 w (by grind)
   intro b b_mw
 
   have mask := isMask_of_eq_maskOfWidth h_mw
