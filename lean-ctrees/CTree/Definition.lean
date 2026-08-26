@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception AND BSD-3-Clause
+-- SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 -- definitions and monotonicity proofs partly adapted from the ones in Coinductive and EffectSSA
 
@@ -7,7 +7,7 @@ module
 public import Coinductive
 public import CTree.Effect
 
-@[expose] public section
+public section
 
 namespace CTree
 open Coinductive Lean.Order
@@ -16,26 +16,42 @@ open Coinductive Lean.Order
 inductive E1In : Type u where
 | e1
 
+@[expose]
 def E1 (e : E1In.{u}) : Type u :=
   match e with
   | .e1 => PUnit
 
-inductive CTreeF {EIn : Type u} (E : EIn → Type u) {CIn : Type u'} (C : CIn → Type u')
-    (R : Type v) (CTree : Type w) : Type (max u u' v w) where
+
+-- Low-level CTree definitions
+
+/--
+The basic coinductive functor for CTree, with constructor resp. for leaves, for n-ary choices, and for n-ary events
+-/
+inductive CTreeF {EIn : Type u} (E : EIn → Type u) {CIn : Type u} (C : CIn → Type u)
+    (R : Type v) (CTree : Type w) : Type (max u v w) where
   | ret (r : R)
   | tau (i : E1In ⊕ CIn) (k : (E1 ⊕ₑ C) i → CTree)
   | vis (i : EIn) (k : E i → CTree)
 
 open Subeffect (mapEff mapCont)
 
+/--
+The bottom element is defined as the spinning CTree
+-/
 instance {ι : Type u} {ε : ι → Type u} {κ : Type u} {σ : κ → Type u} {α : Type u} : Inhabited (CTreeF ε σ α PUnit) where
   default := .tau (.inl .e1) (fun _ => ⟨⟩)
 
+/--
+Auxiliary definition to encode CTree as a polynomial functor
+-/
 inductive CTreeF.In {ι : Type u} (ε : ι → Type u) {κ : Type u} (σ : κ → Type u) (α : Type u) : Type u where
   | ret (r : α)
   | tau (i : E1In ⊕ κ)
   | vis (i : ι)
 
+/--
+CTree as a polynomial functor
+-/
 instance {ι : Type u} (ε : ι → Type u) {κ : Type u} (σ : κ → Type u) (α : Type u) : PF (CTreeF ε σ α) where
   P := ⟨CTreeF.In ε σ α, fun
     | .ret _ => PEmpty
@@ -52,23 +68,68 @@ instance {ι : Type u} (ε : ι → Type u) {κ : Type u} (σ : κ → Type u) (
   unpack_pack := by rintro _ ⟨⟩ <;> simp
   pack_unpack := by rintro _ (⟨⟨⟩, _⟩ | ⟨⟨⟩⟩) <;> simp <;> funext x <;> cases x
 
+/--
+The high-level CTree datatype
+-/
 abbrev CTree {ι : Type u} (ε : ι → Type u) {κ : Type u} (σ : κ → Type u) (α : Type u) : Type u := CoInd (CTreeF ε σ α)
+
+/--
+A CTree limited to depth n
+-/
 abbrev CTreeN {ι : Type u} (ε : ι → Type u) {κ : Type u} (σ : κ → Type u) (α : Type u) (n : Nat) : Type u := CoIndN (CTreeF ε σ α) n
 
 
--- FIXME C'/D
-variable {EIn FIn CIn C'In DIn : Type u} {E : EIn → Type u} {F : FIn → Type u} {C : CIn → Type u} {C' : C'In → Type u} {D : DIn → Type u} {R R' : Type u} (RR : R → R' → Prop)
+variable {EIn FIn CIn : Type u} {E : EIn → Type u} {F : FIn → Type u} {C : CIn → Type u} {R R' : Type u} (RR : R → R' → Prop)
 
+/--
+Folding the head of a CTree
+-/
 def CTree.fold (t : CTreeF E C R (CTree E C R)) : CTree E C R := CoInd.fold _ t
-def CTree.ret (r : R) : CTree E C R := CTree.fold (.ret r)
-def CTree.tauG (i : E1In ⊕ CIn) (k : (E1 ⊕ₑ C) i → CTree E C R) : CTree E C R := CTree.fold (.tau i k)
-def CTree.tau (i : CIn) (k : C i → CTree E C R) : CTree E C R := CTree.fold (.tau (.inr i) k)
-def CTree.tau1 (t : CTree E C R) : CTree E C R := CTree.tauG (.inl .e1) λ _ => t
-def CTree.vis (i : EIn) (k : E i → CTree E C R) : CTree E C R := CTree.fold (.vis i k)
+
+/--
+Unfolding the head of a CTree
+-/
 def CTree.unfold (t : CTree E C R) : CTreeF E C R (CTree E C R) := CoInd.unfold _ t
 
+-- High-level CTree constructors
+
+/--
+A leaf returning a value
+-/
+def CTree.ret (r : R) : CTree E C R := CTree.fold (.ret r)
+
+/--
+An n-ary choice that generates a τ transition (general case)
+-/
+def CTree.tauG (i : E1In ⊕ CIn) (k : (E1 ⊕ₑ C) i → CTree E C R) : CTree E C R := CTree.fold (.tau i k)
+
+/--
+A custom n-ary choice that generates a τ transition
+-/
+def CTree.tau (i : CIn) (k : C i → CTree E C R) : CTree E C R := CTree.fold (.tau (.inr i) k)
+
+/--
+A unary choice that generates a τ transition
+-/
+def CTree.tau1 (t : CTree E C R) : CTree E C R := CTree.tauG (.inl .e1) λ _ => t
+
+/--
+A visible effect
+-/
+def CTree.vis (i : EIn) (k : E i → CTree E C R) : CTree E C R := CTree.fold (.vis i k)
+
+/--
+A CTree triggering the given effect and immediately returning
+-/
 def CTree.trigger (i : EIn) : CTree E C (E i) := CTree.vis i (fun x => CTree.ret x)
+
+/--
+A CTree making an n-ary choice and immediately returning
+-/
 def CTree.choose (i : CIn) : CTree E C (C i) := CTree.tau i (fun x => CTree.ret x)
+
+
+-- Basic simp lemmas, notably for proofs of monotonicity required to use partial_fixpoint
 
 @[simp]
 theorem CTree.unfold_fold (t : CTree E C R) :
@@ -193,6 +254,10 @@ theorem tau1_mono α [PartialOrder α] (f : α → CTree E C R) :
     apply h
     apply h'
 
+
+/--
+A single-state CTree that keeps emitting τ
+-/
 def CTree.spin : CTree E C R := CTree.tau1 spin
 partial_fixpoint
 
@@ -243,6 +308,9 @@ theorem CTree.le_unfold (t1 t2 : CTree E C R) :
         constructor <;> try rfl
         grind
 
+/--
+The monadic bind operator, that sequences a CTree and a continuation
+-/
 def bind (t : CTree E C X) (k : X → CTree E C Y) : CTree E C Y :=
   match t.unfold with
   | .ret r => k r
