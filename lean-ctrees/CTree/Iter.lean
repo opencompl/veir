@@ -4,7 +4,7 @@ module
 
 public import CTree.Definition
 
-@[expose] public section
+public section
 
 namespace CTree
 
