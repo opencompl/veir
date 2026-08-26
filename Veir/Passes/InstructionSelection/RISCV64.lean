@@ -33,16 +33,7 @@ def getIntByteTypeBitwidth (t : TypeAttr) : Option Nat :=
   | _ => none
 
 /--
-  Puddle rendition of the unary RISC-V lowerings (`ctlz`/`cttz`/`ctpop`), specialized to one
-  width `bw` (`32` or `64`): match a single-operand LLVM op `llvmOp` whose operand (and, since the
-  root's result type handle is reused for the operand, its result too) has integer type `i{bw}`,
-  cast the operand to a register, apply `riscvOp`, and cast the result back to the source type.
-
-  Puddle patterns are purely declarative and cannot branch on a runtime bitwidth the way
-  `lowerUnaryWLocal` does (picking `op64` vs. its `W` variant `op32` once the operand's width is
-  known): `riscvOp` is fixed when the pattern is built, so lowering an intrinsic for both `i32` and
-  `i64` needs two instantiations of this builder, one per width (see e.g. `ctlzPuddle32`/
-  `ctlzPuddle64` below).
+  RISC-V lowerings with Puddle for unary operations.
 -/
 def lowerUnaryWPuddle (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
     (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Veir.Puddle.Pattern OpCode :=
