@@ -168,9 +168,6 @@ theorem pbv_setWidth_append {w o : Nat} (h : w ≤ o) :
   apply BitVec.eq_of_toNat_eq
   sorry
 
-
-
-
 theorem trace_append (w : Nat) (a b : BitVec w) (hw : w <= 8):
   (a ++ b) + (b ++ a) = (a ++ a) + (b ++ b)
   := by
@@ -189,6 +186,7 @@ theorem trace_append (w : Nat) (a b : BitVec w) (hw : w <= 8):
   intro b b_mw
 
   have mask := isMask_of_eq_maskOfWidth h_mw
+  have : maskOfWidth 16 (w + w) = ((maskOfWidth 16 w + 1) * (maskOfWidth 16 w + 1)) - 1 := sorry
 
   have w_w_le_bw : w + w ≤ 16 := by grind
 
@@ -196,12 +194,9 @@ theorem trace_append (w : Nat) (a b : BitVec w) (hw : w <= 8):
     w_w_le_bw,
     eq_iff (o := 16),
     setWidth_add,
+    pbv_setWidth_append (o := 16),
+    w_le_o
   ]
-  rw [pbv_setWidth_append (by grind) _ _ (by grind)]
-  rw [pbv_setWidth_append (by grind) _ _ (by grind)]
-  rw [pbv_setWidth_append (by grind) _ _ (by grind)]
-  rw [pbv_setWidth_append (by grind) _ _ (by grind)]
-  have : maskOfWidth 16 (w + w) = ((maskOfWidth 16 w + 1) * (maskOfWidth 16 w + 1)) - 1 := sorry
 
   simp [
     setWidth_setWidth,
