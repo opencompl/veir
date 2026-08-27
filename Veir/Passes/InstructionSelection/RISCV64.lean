@@ -77,57 +77,6 @@ def ctpop32_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctpop 32 .
 def ctpop64_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctpop 64 .cpop ()
 
 /--
-  RISC-V lowerings with Puddle for the integer-extension operations (`sext`/`zext`): match a
-  single-operand LLVM extension op whose operand has a fixed legal integer width `opBw` (`8`, `16`,
-  or `32`, see `isLegalExtOpWidth`) and whose result is a strictly wider integer type of width at
-  most 64 (a 64-bit register cannot represent wider results, so e.g. `sext i8 to i128` is left
-  unselected; unlike `opBw`, the result width is matched generically rather than enumerated), cast
-  the operand to a register, apply the byte/halfword/word extension op matching `opBw`, and cast the
-  result back to the (generically-matched) result type.
--/
-def lowerExt (llvmOp : Llvm) (opBw : Nat) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
-    (do
-      let opType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == opBw)
-      let resType ← Veir.Puddle.MatchProg.type (Attr := IntegerType)
-          (fun t => opBw < t.bitwidth ∧ t.bitwidth ≤ 64)
-      let x ← Veir.Puddle.MatchProg.value opType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm llvmOp) #[x] #[resType]
-      return (resType, x))
-    (fun (resType, x) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let castProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[x] #[regType] castProps
-      let riscvOpProps ← Veir.Puddle.CreateProg.property (.riscv riscvOp) riscvProps
-      let riscvResOp ← Veir.Puddle.CreateProg.operation (.riscv riscvOp)
-          #[castOp.res[0]!] #[regType] riscvOpProps
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[riscvResOp.res[0]!] #[resType] castBackProps
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
-/-- `llvm.sext` (`i8` operand) -> `riscv.sextb`. -/
-def sext8_pattern : Veir.Puddle.Pattern OpCode := lowerExt .sext 8 .sextb ()
-
-/-- `llvm.sext` (`i16` operand) -> `riscv.sexth`. -/
-def sext16_pattern : Veir.Puddle.Pattern OpCode := lowerExt .sext 16 .sexth ()
-
-/-- `llvm.sext` (`i32` operand) -> `riscv.sextw`. -/
-def sext32_pattern : Veir.Puddle.Pattern OpCode := lowerExt .sext 32 .sextw ()
-
-/-- `llvm.zext` (`i8` operand) -> `riscv.zextb`. -/
-def zext8_pattern : Veir.Puddle.Pattern OpCode := lowerExt .zext 8 .zextb ()
-
-/-- `llvm.zext` (`i16` operand) -> `riscv.zexth`. -/
-def zext16_pattern : Veir.Puddle.Pattern OpCode := lowerExt .zext 16 .zexth ()
-
-/-- `llvm.zext` (`i32` operand) -> `riscv.zextw`. -/
-def zext32_pattern : Veir.Puddle.Pattern OpCode := lowerExt .zext 32 .zextw ()
-
-/--
   RISC-V lowerings with Puddle for binary operations that share a single integer type between both
   operands and the result: cast both operands to registers, apply a single `riscv` op to the two
   registers, and cast the result back to the source type. Instantiating this twice with the same
