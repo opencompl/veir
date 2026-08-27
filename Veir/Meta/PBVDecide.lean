@@ -211,8 +211,6 @@ meta def introMaskWidth (maxBound : Nat) (g : MVarId) (widthTm : WidthTm) (infos
     }
     return (g, infos.push info)
 
-
-
 /--
 Pair of local facts about the converted `BitVec` variables.
 -/
@@ -231,8 +229,6 @@ meta structure BitVecInfos where
 
 meta def BitVecInfos.push (this : BitVecInfos) (val : BitVecInfo) : BitVecInfos :=
   { this with infos := this.infos.push val }
-
-
 
 /--
 Analyze a single bitvector FVarId, and try to introduce it as a `BitVec`
