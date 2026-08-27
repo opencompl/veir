@@ -168,7 +168,7 @@ theorem trace_append (w : Nat) (a b : BitVec w) (hw : w <= 8):
   intro b b_mw
 
   have mask := isMask_of_eq_maskOfWidth h_mw
-  have mask_add := maskOfWidth_add_eq_mul_of_maskOfWidth w_le_o w_le_o w_add_w_le_o h_mw h_mw
+  -- have mask_add := maskOfWidth_add_eq_mul_of_maskOfWidth w_le_o w_le_o w_add_w_le_o h_mw h_mw
 
   simp only [
     eq_iff (o := 16),
@@ -176,7 +176,18 @@ theorem trace_append (w : Nat) (a b : BitVec w) (hw : w <= 8):
     setWidth_append_eq_mul_maskOfWidth (o := 16),
     setWidth_setWidth,
     w_add_w_le_o,
-    w_le_o
+    w_le_o,
+    ← h_mw,
+    BitVec.setWidth_eq
   ]
+
+  simp only [← h_mw] at a_mw b_mw
+
+  clear hw
+  clear h_mw
+  clear w_le_o w_add_w_le_o
+  clear a_mw b_mw
+
+  -- clear mask_add
 
   bv_decide

@@ -322,7 +322,7 @@ meta def introMaskedBitvectors (ctx : PbvTranslateContext)
 These theorems require pre-filling the width bound in order to be used within
 the Simp set.
 -/
-meta def addBoundRewrites (g : MVarId) (ctx : PbvTranslateContext) (simp : SimpTheoremsArray) :
+meta def addBoundRewrites (g : MVarId) (ctx : PbvTranslateContext) (widthTms : WidthTms) (simp : SimpTheoremsArray) :
     MetaM SimpTheoremsArray := g.withContext do
   let thms := #[
         ``eq_iff,
@@ -334,7 +334,7 @@ meta def addBoundRewrites (g : MVarId) (ctx : PbvTranslateContext) (simp : SimpT
   ]
 
   thms.foldlM (init := simp) fun simps name =>
-    return ← simps.addTheorem (.other name) <| ← mkAppM name #[mkNatLit ctx.bmcBound]
+    return ← simps.addTheorem (.other name) <| ← mkAppM name #[mkNatLit <| widthTms.getUniverseWidthUpperBound ctx]
 
 /--
 Add theorems to the Simp theorem context that push the `setWidth`s in.
@@ -346,7 +346,8 @@ meta def addPushTheorems (g : MVarId) (simp : SimpTheoremsArray) :
       ``setWidth_add,
       ``setWidth_setWidth,
       ``signBitOfMask_eq,
-      ``setWidth_signExtend_eq_and_maskOfWidth
+      ``setWidth_signExtend_eq_and_maskOfWidth,
+      ``setWidth_append_eq_mul_maskOfWidth
   ]
 
   let mut simp := simp
@@ -398,7 +399,7 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVa
   -- Find preconditions on the width `FVar`s
   let g ← translateWidthPreconds widthInfos g
   -- Create simp set
-  let thms := ← addBoundRewrites g ctx
+  let thms := ← addBoundRewrites g ctx widthTms
            <| ← addPushTheorems g
            <| ← addBvInfos g bvInfos -- This step is not strictly necessary.
            <| ← addWidthInfosSimpLemmas g widthInfos #[]
