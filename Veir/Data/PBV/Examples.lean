@@ -27,10 +27,10 @@ theorem trace_add_comm_manual (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
 -- Step 4: Eliminate the parametric bv var of width `w`
 --         enforcing width constraint with mask
   revert x
-  apply var_elim 4 w w_le_bw
+  apply var_elim w_le_bw
   intro x h_xmw
   revert y
-  apply var_elim 4 w w_le_bw
+  apply var_elim w_le_bw
   intro y h_ymw
 -- Step 5: Convert width hypothesis to mask hypothesis
   have mw_mask := maskOfWidth_and_add_one_eq_zero h_mw
@@ -69,7 +69,7 @@ theorem trace_zero_zero_extend (p q r : Nat) (x : BitVec p)
 -- Step 4: Eliminate the parametric bv var of width `w`
 --         enforcing width constraint with mask
   revert x
-  apply var_elim 8 p p_le_bw
+  apply var_elim p_le_bw
   intro x h_xmp
 -- Step 5: Convert width hypothesis to mask hypothesis
   have mr_mask := maskOfWidth_and_add_one_eq_zero h_mr
@@ -120,7 +120,7 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
 -- Step 4: Eliminate the parametric bv var of width `w`
 --         enforcing width constraint with mask
   revert x
-  apply var_elim 8 p p_le_bw
+  apply var_elim p_le_bw
   intro x h_xmp
 -- Step 5: Convert width hypothesis to mask hypothesis
   have mr_mask := maskOfWidth_and_add_one_eq_zero h_mr
@@ -160,11 +160,11 @@ theorem trace_append (w : Nat) (a b : BitVec w) (hw : w <= 8):
   intro mw h_mw
 
   revert a
-  apply var_elim 16 w (by grind)
+  apply var_elim w_le_o
   intro a a_mw
 
   revert b
-  apply var_elim 16 w (by grind)
+  apply var_elim w_le_o
   intro b b_mw
 
   have mask := isMask_of_eq_maskOfWidth h_mw
