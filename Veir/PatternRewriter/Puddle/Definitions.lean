@@ -146,6 +146,8 @@ earlier property declaration.
 
 /-- An internal declarative instruction in a creation program. -/
 inductive CreateDecl (OpInfo : Type) [HasOpInfo OpInfo] where
+/-- Bind a concrete type to `result` for use by a later operation declaration. -/
+| type (value : TypeAttr) (result : Handle OpInfo .type)
 /-- Bind a concrete property record to `result` for use by a later operation declaration. -/
 | property (opCode : OpInfo) (value : propertiesOf opCode) (result : Handle OpInfo (.prop opCode))
 /--

@@ -189,6 +189,19 @@ instance CreateProg.instMonadBuilder : Monad CreateProg.Builder where
     (next value).run state⟩
 
 /--
+Append a concrete type to the creation program and return the handle bound to it.
+-/
+@[expose, inline]
+def CreateProg.type {Attr : Type} [IsTypeAttr Attr] (value : Attr) :
+    CreateProg.Builder (Handle OpCode .type) :=
+  ⟨fun state =>
+    let result := Handle.mk (OpInfo := OpCode) state.nextId
+    (result, {
+      nextId := state.nextId + 1
+      decls := .type (value : TypeAttr) result :: state.decls
+    })⟩
+
+/--
 Append a concrete property record to the creation program and return the handle bound to it.
 -/
 @[expose, inline]

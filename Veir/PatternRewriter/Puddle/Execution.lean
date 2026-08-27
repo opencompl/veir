@@ -313,6 +313,9 @@ def CreateDecl.run (decl : CreateDecl OpInfo) (assignment : Assignment OpInfo)
       return (ctx, #[newOp], assignment)
     else
       none
+  | .type value result =>
+    let assignment ← Assignment.bindType assignment result value
+    return (ctx, #[], assignment)
 
 /--
 Execute creation declarations in program order, returning newly created operations as well as the
