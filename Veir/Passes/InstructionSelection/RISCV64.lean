@@ -36,7 +36,7 @@ def getIntByteTypeBitwidth (t : TypeAttr) : Option Nat :=
 /--
   RISC-V lowerings with Puddle for unary operations.
 -/
-def lowerUnaryWPuddle (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
+def lowerUnary (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
     (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Veir.Puddle.Pattern OpCode :=
   Veir.Puddle.Pattern.Builder
     (do
@@ -59,47 +59,22 @@ def lowerUnaryWPuddle (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
     (fun castBackOp => castBackOp)
 
 /-- `llvm.intr.ctlz` (`i32`) -> `riscv.clzw`. -/
-def ctlz32_pattern : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__ctlz 32 .clzw ()
+def ctlz32_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctlz 32 .clzw ()
 
 /-- `llvm.intr.ctlz` (`i64`) -> `riscv.clz`. -/
-def ctlz64_pattern : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__ctlz 64 .clz ()
+def ctlz64_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctlz 64 .clz ()
 
 /-- `llvm.intr.cttz` (`i32`) -> `riscv.ctzw`. -/
-def cttz32_pattern : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__cttz 32 .ctzw ()
+def cttz32_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__cttz 32 .ctzw ()
 
 /-- `llvm.intr.cttz` (`i64`) -> `riscv.ctz`. -/
-def cttz64_pattern : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__cttz 64 .ctz ()
+def cttz64_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__cttz 64 .ctz ()
 
 /-- `llvm.intr.ctpop` (`i32`) -> `riscv.cpopw`. -/
-def ctpop32_pattern : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__ctpop 32 .cpopw ()
+def ctpop32_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctpop 32 .cpopw ()
 
 /-- `llvm.intr.ctpop` (`i64`) -> `riscv.cpop`. -/
-def ctpop64_pattern : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__ctpop 64 .cpop ()
-
-/--
-  Shared shape of the unary RISC-V lowerings (`ctlz`/`cttz`/`ctpop`): match a single-operand
-  LLVM op whose operand has integer type `i64` or `i32`, cast the operand to a register, apply
-  `op64` (or its `W` variant `op32` for `i32`), and cast the result back to the source type.
--/
-def lowerUnaryWLocal {P : Type}
-    (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × P))
-    (op64 op32 : Riscv)
-    (props64 : propertiesOf (OpCode.riscv op64)) (props32 : propertiesOf (OpCode.riscv op32))
-    (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (operand, _) := match? op ctx | return (ctx, none)
-  let .integerType opType := (operand.getType! ctx.raw).val | return (ctx, none)
-  if opType.bitwidth ≠ 64 ∧ opType.bitwidth ≠ 32 then return (ctx, none)
-  let (ctx, castOp) ← castToRegLocal ctx operand
-  let (ctx, retOp) ←
-    if opType.bitwidth = 32 then
-      WfRewriter.createOp! ctx op32 #[RegisterType.mk] #[castOp.getResult 0]
-          #[] #[] props32 none
-    else
-      WfRewriter.createOp! ctx op64 #[RegisterType.mk] #[castOp.getResult 0]
-          #[] #[] props64 none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (retOp.getResult 0)
-  some (ctx, some (#[castOp, retOp, castBackOp], #[castBackOp.getResult 0]))
+def ctpop64_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctpop 64 .cpop ()
 
 /--
   Shared shape of the integer-extension lowerings (`sext`/`zext`): match a single-operand LLVM
