@@ -432,13 +432,10 @@ meta def applySimp (g : MVarId) (simp : SimpTheoremsArray) : MetaM MVarId := g.w
 meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVarId) := g.withContext do
   -- Construct the width environment
   let widthEnv ← createWidthEnv g
-  for w in widthEnv.width2expr do
-    logInfo m!"wenv : {w}"
   -- Find `BitVec`s and intro their widths
   let (g, widthTms, bvsToRevert) ← visitExprRec g { env := widthEnv } {} (← g.getType)
   -- Introduce the width masks, bounded by the max width
   let (g, widthInfos) ← introMaskWidths widthTms g ctx
-
   -- Intro the `BitVec`s
   let (g, bvInfos) ← introMaskedBitvectors bvsToRevert g widthInfos
   -- Find preconditions on the width `FVar`s
