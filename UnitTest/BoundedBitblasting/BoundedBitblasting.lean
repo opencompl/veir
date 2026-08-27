@@ -6,17 +6,12 @@ example (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
   pbv_decide 4
   · bv_decide
   · grind
-  · grind
-  · grind
 
 /-- Commutativity of addition for three variables -/
 example (w : Nat) (x y z : BitVec w) (hw : w ≤ 4) :
   x + y + z = y + x + z := by
   pbv_decide 4
   · bv_decide
-  · grind
-  · grind
-  · grind
   · grind
 
 /-- Zero extending a zero extension-/
@@ -28,9 +23,6 @@ example (p q r : Nat) (x : BitVec p)
   := by
   pbv_decide 8
   · bv_decide
-  · grind
-  · grind
-  · grind
   · grind
 
 /-- Sign extending a zero extensions -/
