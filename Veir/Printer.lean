@@ -15,64 +15,6 @@ namespace Veir.Printer
 
 variable {OpCode : Type} [IsOpCode OpCode] [HasDialect OpCode Builtin] [HasCustomPrinting OpCode]
 
-/-- Print operation results `%x =` / `%x:n =`. -/
-def printOpResults (op : OperationPtr) : OpPrinter OpCode Unit := do
-  let ctx ← OpPrinter.getContext
-  if op.getNumResults! ctx != 0 then
-    OpPrinter.printString s!"%{op.id}"
-    if op.getNumResults! ctx > 1 then
-      OpPrinter.printString s!":{op.getNumResults! ctx}"
-    OpPrinter.printString " = "
-
-/-- Print operands `( %a, %b )`. -/
-def printOpOperands (op : OperationPtr) : OpPrinter OpCode Unit := do
-  let ctx ← OpPrinter.getContext
-  OpPrinter.printString "("
-  if op.getNumOperands! ctx != 0 then
-    OpPrinter.printOperand (op.getOperand! ctx 0)
-    for index in List.range (op.getNumOperands! ctx - 1) do
-      OpPrinter.printString ", "
-      OpPrinter.printOperand (op.getOperand! ctx (index + 1))
-  OpPrinter.printString ")"
-
-/-- Print operation type ` : (i32) -> i32`. -/
-def printOperationType (op : OperationPtr) : OpPrinter OpCode Unit := do
-  let ctx ← OpPrinter.getContext
-  OpPrinter.printString " : ("
-  if op.getNumOperands! ctx != 0 then
-    let firstOpType := (op.getOperand! ctx 0).getType! ctx
-    OpPrinter.printString s!"{firstOpType}"
-    for index in List.range (op.getNumOperands! ctx - 1) do
-      let opType := (op.getOperand! ctx (index + 1)).getType! ctx
-      OpPrinter.printString s!", {opType}"
-  OpPrinter.printString ") -> "
-  if op.getNumResults! ctx == 0 then
-    OpPrinter.printString "()"
-    return
-  if op.getNumResults! ctx == 1 then
-    let resType := ((op.getResult 0).get! ctx).type
-    match resType.val with
-    | .functionType _ => OpPrinter.printString s!"({resType})"
-    | _ => OpPrinter.printString s!"{resType}"
-    return
-  OpPrinter.printString "("
-  let firstResType := ((op.getResult 0).get! ctx).type
-  OpPrinter.printString s!"{firstResType}"
-  for index in List.range (op.getNumResults! ctx - 1) do
-    let resType := ((op.getResult (index + 1)).get! ctx).type
-    OpPrinter.printString s!", {resType}"
-  OpPrinter.printString ")"
-
-/-- Print successors ` [^bb0, ^bb1]`. -/
-def printBlockOperands (op : OperationPtr) : OpPrinter OpCode Unit := do
-  let ctx ← OpPrinter.getContext
-  if op.getNumSuccessors! ctx == 0 then return
-  OpPrinter.printString " ["
-  OpPrinter.printString s!"^{(op.getSuccessor! ctx 0).id}"
-  for index in List.range (op.getNumSuccessors! ctx - 1) do
-    OpPrinter.printString s!", ^{(op.getSuccessor! ctx (index + 1)).id}"
-  OpPrinter.printString "]"
-
 def printAttrDictEntry (key : String) (value : Attribute) : OpPrinter OpCode Unit := do
   if value == UnitAttr.mk then
     OpPrinter.printString s!"\"{key}\""
@@ -187,41 +129,39 @@ partial def printOperation (op : OperationPtr) (options : PrinterOptions) : OpPr
     match HasCustomPrinting.customPrinter? opType with
     | some cp =>
         OpPrinter.printIndent
-        printOpResults op
+        OpPrinter.printOpResults op
         OpPrinter.printString s!"{String.fromUTF8! (IsOpCode.name opType)}"
-        let env : PrintEnv OpCode :=
-          { printOperand := OpPrinter.printOperand
-          , printRegionArgument := OpPrinter.printRegionArgument
-          , printSuccessor := OpPrinter.printSuccessor
-          , printOptionalAttrDict := fun attrs elided => OpPrinter.printOptionalAttrDict attrs elided
-          , printOptionalAttrDictWithKeyword := fun attrs elided => OpPrinter.printOptionalAttrDictWithKeyword attrs elided
-          , printRegion := fun region printEntryBlockArgs => printRegionImpl region printEntryBlockArgs options
-          }
-        cp env op
+        cp op
         OpPrinter.printNewline
         return
     | none => pure ()
   -- Generic form
   OpPrinter.printIndent
-  printOpResults op
+  OpPrinter.printOpResults op
   let nameBytes : ByteArray :=
     match toDialect? Builtin opStruct.opType with
     | some Builtin.unregistered =>
       (op.getProperties! ctx Builtin.unregistered).opName
     | _ => IsOpCode.name opStruct.opType
   OpPrinter.printString s!"\"{String.fromUTF8! nameBytes}\""
-  printOpOperands op
-  printBlockOperands op
+  OpPrinter.printOpOperands op
+  OpPrinter.printBlockOperands op
   printOpProperties op
   if op.getNumRegions! ctx > 0 then
     OpPrinter.printString " "
     printRegions op options
   printOpAttrDict op
-  printOperationType op
+  OpPrinter.printOperationType op
   OpPrinter.printNewline
 end
 
+/-- Build the reader context used by custom printers. -/
+private partial def makeOpPrinterContext (ctx : IRContext OpCode) (options : PrinterOptions) : OpPrinterContext OpCode :=
+  OpPrinterContext.create ctx fun region printEntryBlockArgs =>
+    ReaderT.run (printRegionImpl region printEntryBlockArgs options)
+      (makeOpPrinterContext ctx options)
+
 /-- Top-level entry: print a module operation. -/
 def printModule (ctx : IRContext OpCode) (op : OperationPtr) (options : PrinterOptions := {}) : IO Unit := do
-  OpPrinter.run ctx 0 (printOperation op options)
+  OpPrinter.run (makeOpPrinterContext ctx options) 0 (printOperation op options)
 

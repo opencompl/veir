@@ -21,6 +21,12 @@
     "func.return"() : () -> ()
   }) : () -> ()
 
+  // A malformed visibility attribute stays in the attribute dictionary.
+  "func.func"() <{function_type = () -> (), sym_name = "bad_visibility", sym_visibility = 1 : i32}> ({
+  ^bb0():
+    "func.return"() : () -> ()
+  }) : () -> ()
+
   // A symbol name that requires escaping.
   "func.func"() <{function_type = () -> (), sym_name = "name with spaces"}> ({
   ^bb0():
@@ -29,6 +35,15 @@
 
   // External function: no entry block, so argument types print without SSA names.
   "func.func"() <{function_type = (i32, f32) -> i64, sym_name = "external"}> ({}) : () -> ()
+
+  // External function whose single result is itself a function type: parenthesized.
+  "func.func"() <{function_type = () -> (() -> i32), sym_name = "fn_res"}> ({}) : () -> ()
+
+  // Default visibility is omitted.
+  "func.func"() <{function_type = () -> (), sym_name = "pub_fn", sym_visibility = "public"}> ({
+  ^bb0():
+    "func.return"() : () -> ()
+  }) : () -> ()
 
   // Multiple results.
   "func.func"() <{function_type = (i1, i8) -> (i32, i64), sym_name = "multi_result"}> ({
@@ -42,6 +57,9 @@
 // CHECK:      func.func @identity(%arg{{[0-9]+_[0-9]+}}: i32) -> i32 {
 // CHECK:      func.func private @private_fn(%arg{{[0-9]+_[0-9]+}}: i64) -> i64 attributes {"extra" = 7 : i64} {
 // CHECK:      func.func nested @nested_fn() {
+// CHECK:      func.func @bad_visibility() attributes {"sym_visibility" = 1 : i32} {
 // CHECK:      func.func @"name with spaces"() {
 // CHECK:      func.func @external(i32, f32) -> i64
+// CHECK:      func.func @fn_res() -> (() -> i32)
+// CHECK:      func.func @pub_fn() {
 // CHECK:      func.func @multi_result(%arg{{[0-9]+_[0-9]+}}: i1, %arg{{[0-9]+_[0-9]+}}: i8) -> (i32, i64) {
