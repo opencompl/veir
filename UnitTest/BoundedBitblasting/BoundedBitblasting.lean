@@ -46,3 +46,14 @@ example (p q r : Nat) (x : BitVec p)
   · grind
   · grind
   · grind
+
+/-- Appending and adding. -/
+example (w : Nat) (a b : BitVec w) (hw: w ≤ 8)
+  : (a ++ b) + (b ++ a) = (a ++ a) + (b ++ b)
+  := by
+  pbv_decide 8
+  · bv_decide
+  · grind
+  · grind
+  · grind
+  · grind
