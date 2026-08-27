@@ -77,12 +77,8 @@ def ctpop32_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctpop 32 .
 def ctpop64_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctpop 64 .cpop ()
 
 /--
-  RISC-V lowerings with Puddle for binary operations that share a single integer type between both
-  operands and the result: cast both operands to registers, apply a single `riscv` op to the two
-  registers, and cast the result back to the source type. Instantiating this twice with the same
-  `riscvOp` at two widths (e.g. `xor`) covers ops without a `W` variant; instantiating it once with
-  a `typeMatcher` accepting several widths (e.g. `and`/`or`/`umax`/`umin`) covers ops where the same
-  `riscv` instruction already works at every legal width.
+  RISC-V for binary operations that share a single integer type between both
+  operands and the result.
 -/
 def lowerBinary (llvmOp : Llvm) (typeMatcher : IntegerType → Bool) (riscvOp : Riscv)
     (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Veir.Puddle.Pattern OpCode :=
@@ -249,10 +245,8 @@ def smin64_pattern : Veir.Puddle.Pattern OpCode :=
 def smin32_pattern : Veir.Puddle.Pattern OpCode := lowerSignedMinMax32 .intr__smin .min ()
 
 /--
-  RISC-V lowerings with Puddle for funnel-shift rotates (`fshl`/`fshr` whose two data operands are
-  identical): reusing the same value handle `a` for both data-operand positions of the root requires
-  them to be equal at match time (so the funnel shift is a rotate), cast the value operand `a` and
-  the shift-amount operand `amt` to registers, and apply a single `riscv` op to `(value, amount)`.
+  RISC-V lowerings for funnel-shift rotates (`fshl`/`fshr` whose two data operands are
+  identical).
 -/
 def lowerRotate (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
     (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Veir.Puddle.Pattern OpCode :=
