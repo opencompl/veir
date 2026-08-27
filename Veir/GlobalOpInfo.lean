@@ -460,5 +460,5 @@ def OpCode.isCommutative (opCode : OpCode) : Bool :=
 instance : HasCustomPrinting OpCode where
   customPrinter? op :=
     match op with
-    | .func f => Func.customPrinter? (GlobalOpCode := OpCode) f
+    | .func f => f.customPrinter? (GlobalOpCode := OpCode)
     | _ => none

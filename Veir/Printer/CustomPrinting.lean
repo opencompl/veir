@@ -29,25 +29,36 @@ namespace Printer
 
 variable {OpCode : Type} [IsOpCode OpCode]
 
+/-- Context and recursive services for an `OpPrinter` action. -/
+structure OpPrinterContext (OpCode : Type) [IsOpCode OpCode] where
+  irContext : IRContext OpCode
+  private printRegion : Region → Bool → StateT Nat IO Unit
+deriving Inhabited
+
+/-- Create a print context. -/
+def OpPrinterContext.create (irContext : IRContext OpCode)
+    (printRegion : Region → Bool → StateT Nat IO Unit) : OpPrinterContext OpCode :=
+  { irContext, printRegion }
+
 /--
-Monadic printer. Threads the `IRContext` via `Reader` and the current
+Monadic printer. Threads the print context via `Reader` and the current
 indentation level via `State`. Base monad is `IO` so that the printer can write
-to the output stream. Custom printers run in this monad and call the helpers
-below instead of raw `IO.print`.
+to the output stream. Recursive services are supplied by the main printer and
+are not exposed directly to custom printer authors.
 -/
 abbrev OpPrinter (OpCode : Type) [IsOpCode OpCode] :=
-  ReaderT (IRContext OpCode) (StateT Nat IO)
+  ReaderT (OpPrinterContext OpCode) (StateT Nat IO)
 
 namespace OpPrinter
 
 /-- Run an `OpPrinter` action. -/
 def run {G : Type} [IsOpCode G]
-    (ctx : IRContext G) (indent : Nat) (action : OpPrinter G α) : IO α :=
-  StateT.run' (ReaderT.run action ctx) indent
+    (context : OpPrinterContext G) (indent : Nat) (action : OpPrinter G α) : IO α :=
+  StateT.run' (ReaderT.run action context) indent
 
 /-- The `IRContext` for the current print. -/
-def getContext : OpPrinter OpCode (IRContext OpCode) :=
-  read
+def getContext : OpPrinter OpCode (IRContext OpCode) := do
+  return (← read).irContext
 
 /-- Current indentation level. -/
 def getIndent : OpPrinter OpCode Nat :=
@@ -60,6 +71,20 @@ def printString (s : String) : OpPrinter OpCode Unit := do
 /-- Print a newline. -/
 def printNewline : OpPrinter OpCode Unit := do
   (IO.println "" : IO Unit)
+
+/-- Print a symbol reference `@name`, escaping when it is not a bare identifier. -/
+def printSymbolName (sym : ByteArray) : OpPrinter OpCode Unit := do
+  let s := String.fromUTF8! sym
+  let isAsciiAlpha (c : Char) : Bool :=
+    ('a' ≤ c && c ≤ 'z') || ('A' ≤ c && c ≤ 'Z')
+  let isBare : Bool :=
+    !s.isEmpty &&
+    (isAsciiAlpha s.front || s.front == '_') &&
+    s.all (fun c => isAsciiAlpha c || ('0' ≤ c && c ≤ '9') || c == '_' || c == '.' || c == '$')
+  if isBare then
+    printString s!"@{s}"
+  else
+    printString s!"@\"{escapeStringLiteral sym}\""
 
 /-- Increase indentation by one level. -/
 def increaseIndent : OpPrinter OpCode Unit :=
@@ -80,9 +105,17 @@ def printNewlineAndIndent : OpPrinter OpCode Unit := do
   printNewline
   printIndent
 
+/-- Print a type. -/
+def printType (t : Attribute) : OpPrinter OpCode Unit :=
+  printString s!"{t}"
+
+/-- Print an attribute. -/
+def printAttribute (a : Attribute) : OpPrinter OpCode Unit :=
+  printString s!"{a}"
+
 /-- Print an SSA value (`%x`, `%x#n`, or `%argN_M`). Uses the existing value name. -/
 def printOperand (value : ValuePtr) : OpPrinter OpCode Unit := do
-  let ctx ← read
+  let ctx ← getContext
   match value with
   | ValuePtr.opResult opResultPtr =>
     let opResult := opResultPtr.get! ctx
@@ -108,13 +141,72 @@ def printRegionArgument (value : ValuePtr) : OpPrinter OpCode Unit :=
 def printSuccessor (block : BlockPtr) : OpPrinter OpCode Unit := do
   printString s!"^{block.id}"
 
+/-- Print operation results `%x =` / `%x:n =`. -/
+def printOpResults (op : OperationPtr) : OpPrinter OpCode Unit := do
+  let ctx ← getContext
+  if op.getNumResults! ctx != 0 then
+    printString s!"%{op.id}"
+    if op.getNumResults! ctx > 1 then
+      printString s!":{op.getNumResults! ctx}"
+    printString " = "
+
+/-- Print operands `( %a, %b )`. -/
+def printOpOperands (op : OperationPtr) : OpPrinter OpCode Unit := do
+  let ctx ← getContext
+  printString "("
+  if op.getNumOperands! ctx != 0 then
+    printOperand (op.getOperand! ctx 0)
+    for index in List.range (op.getNumOperands! ctx - 1) do
+      printString ", "
+      printOperand (op.getOperand! ctx (index + 1))
+  printString ")"
+
+/-- Print successors ` [^bb0, ^bb1]`. -/
+def printBlockOperands (op : OperationPtr) : OpPrinter OpCode Unit := do
+  let ctx ← getContext
+  if op.getNumSuccessors! ctx == 0 then return
+  printString " ["
+  printSuccessor (op.getSuccessor! ctx 0)
+  for index in List.range (op.getNumSuccessors! ctx - 1) do
+    printString ", "
+    printSuccessor (op.getSuccessor! ctx (index + 1))
+  printString "]"
+
+/-- Print operation type ` : (i32) -> i32`. -/
+def printOperationType (op : OperationPtr) : OpPrinter OpCode Unit := do
+  let ctx ← getContext
+  printString " : ("
+  if op.getNumOperands! ctx != 0 then
+    let firstOpType := (op.getOperand! ctx 0).getType! ctx
+    printString s!"{firstOpType}"
+    for index in List.range (op.getNumOperands! ctx - 1) do
+      let opType := (op.getOperand! ctx (index + 1)).getType! ctx
+      printString s!", {opType}"
+  printString ") -> "
+  if op.getNumResults! ctx == 0 then
+    printString "()"
+    return
+  if op.getNumResults! ctx == 1 then
+    let resType := ((op.getResult 0).get! ctx).type
+    match resType.val with
+    | .functionType _ => printString s!"({resType})"
+    | _ => printString s!"{resType}"
+    return
+  printString "("
+  let firstResType := ((op.getResult 0).get! ctx).type
+  printString s!"{firstResType}"
+  for index in List.range (op.getNumResults! ctx - 1) do
+    let resType := ((op.getResult (index + 1)).get! ctx).type
+    printString s!", {resType}"
+  printString ")"
+
 /-- Print an attribute dictionary ` { "k" = v }` if non-empty after eliding. -/
 def printOptionalAttrDict (attrs : DictionaryAttr) (elided : Array String := #[]) : OpPrinter OpCode Unit := do
   let elidedBytes := elided.map (·.toUTF8)
   let filtered := attrs.entries.filter fun (k, _) => !elidedBytes.contains k
   if filtered.isEmpty then return
   printString " "
-  printString s!"{DictionaryAttr.fromArray filtered}"
+  printString s!"{{ attrs with entries := filtered }}"
 
 /-- Print ` attributes { ... }` if non-empty after eliding, like MLIR's `printOptionalAttrDictWithKeyword`. -/
 def printOptionalAttrDictWithKeyword (attrs : DictionaryAttr) (elided : Array String := #[]) : OpPrinter OpCode Unit := do
@@ -122,45 +214,25 @@ def printOptionalAttrDictWithKeyword (attrs : DictionaryAttr) (elided : Array St
   let filtered := attrs.entries.filter fun (k, _) => !elidedBytes.contains k
   if filtered.isEmpty then return
   printString " attributes "
-  printString s!"{DictionaryAttr.fromArray filtered}"
+  printString s!"{{ attrs with entries := filtered }}"
+
+/-- Recursively print a region with the main printer's options and dispatch. -/
+def printRegion (region : Region) (printEntryBlockArgs : Bool := false) : OpPrinter OpCode Unit := do
+  let context ← read
+  monadLift (context.printRegion region printEntryBlockArgs)
 
 end OpPrinter
 
 /--
-Printing capabilities available to a custom (non-generic) operation printer.
-
-A custom printer is defined outside of the recursive printer family (e.g., in
-the dialect's printing module), so it cannot call `printRegion` directly;
-instead it receives an `env` record with that entry point, mirroring MLIR's
-`OpAsmPrinter::printRegion`. Leaf helpers like `printOperand` are also
-exposed here for uniformity, but they are also available as `OpPrinter.*`
-free functions.
--/
-structure PrintEnv (OpCode : Type) [IsOpCode OpCode] where
-  /-- Print an SSA value. -/
-  printOperand : ValuePtr → OpPrinter OpCode Unit
-  /-- Print a region argument (block argument). -/
-  printRegionArgument : ValuePtr → OpPrinter OpCode Unit
-  /-- Print a successor block. -/
-  printSuccessor : BlockPtr → OpPrinter OpCode Unit
-  /-- Print an attribute dictionary if non-empty. -/
-  printOptionalAttrDict : DictionaryAttr → Array String → OpPrinter OpCode Unit
-  /-- Print `attributes` keyword and dictionary if non-empty. -/
-  printOptionalAttrDictWithKeyword : DictionaryAttr → Array String → OpPrinter OpCode Unit
-  /-- Print a region, optionally eliding the entry block's arguments. -/
-  printRegion : Region → (printEntryBlockArgs : Bool) → OpPrinter OpCode Unit
-
-/--
 A custom (non-generic) printer for one operation. The dispatcher prints the
 indentation, the `%x = ` prefix and the operation name; the registered printer
-handles everything after the name, recursing only through `env`.
+handles everything after the name.
 
-Runs in `OpPrinter` (so `indent` is in `State` and `IRContext` is in `Reader`);
-the custom printer should use `OpPrinter.printString` etc. instead of raw
-`IO.print`, and `env.printRegion` to recurse.
+Runs in `OpPrinter`; custom printers use its operations for output, values,
+attributes, and recursive regions.
 -/
 abbrev CustomPrinter (OpCode : Type) [IsOpCode OpCode] :=
-  PrintEnv OpCode → OperationPtr → OpPrinter OpCode Unit
+  OperationPtr → OpPrinter OpCode Unit
 
 end Printer
 
