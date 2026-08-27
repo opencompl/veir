@@ -32,6 +32,11 @@ meta structure TmWidthEnv where
 meta def TmWidthEnv.push (this : TmWidthEnv) (width : Expr) : TmWidthEnv :=
   { width2expr := this.width2expr.push width }
 
+/--
+Traverse the local context to extract the width 'atoms' that make up width
+expressions. These are either width `Expr`s coming from `BitVec w` or
+`Nat` variables in the local context.
+-/
 meta def createWidthEnv (g : MVarId) : MetaM TmWidthEnv := g.withContext do
   (← getLCtx).foldrM (init := {}) (fun ldecl (widthEnv : TmWidthEnv ) => do
       if let some width := getBitvecType? ldecl.type then
@@ -44,22 +49,28 @@ meta def createWidthEnv (g : MVarId) : MetaM TmWidthEnv := g.withContext do
           pure widthEnv
     )
 
-
+/--
+Type to capture the expressions this tactic will handle.
+Only capture `width` at the moment.
+-/
 inductive TmKind
 | width
 
-
+/--
+Inductive data structure to express the Terms that this tactic reasons about.
+-/
 inductive Tm : TmKind → Type
-| widthAtom (id : Nat) : Tm .width -- TODO: this should be Nat.
+| widthAtom (id : Nat) : Tm .width
 | widthAdd (v w : Tm .width) : Tm .width
--- | withPropLe (a b : Tm .width) : Tm .prop
 
--- Might have a problem reifying "atom" widths which are composite eg: BitVec (w + 1 - 1)
--- TODO fixable by first traversing the BitVec definitions to obtain the atoms, and then look
--- them up while reifying
+/--
+Function to Reify an `Expr` into a `Tm`. This function constructs the tree holding
+the width term. The environment holds the 'atom' `Expr`s which are the building
+blocks of the terms.
+-/
 meta partial def Tm.reifyWidth (env : TmWidthEnv) (e : Expr) : MetaM (Option (Tm .width)) := do
   if let some id := env.width2expr.idxOf? e then
-    -- The atom is whatever expression is present in the Env
+    -- An atom is an expression is present in the Env
     pure <| some (.widthAtom id)
   else
     match_expr e with
@@ -70,26 +81,30 @@ meta partial def Tm.reifyWidth (env : TmWidthEnv) (e : Expr) : MetaM (Option (Tm
         pure (some (.widthAdd a b))
     | _ => pure none
 
+/--
+Convert a `Tm` into an `Expr` provided and environment.
+-/
 meta def Tm.toExpr (this : Tm .width) (env : TmWidthEnv) : Expr :=
   match this with
   | .widthAtom id => env.width2expr[id]!
   | .widthAdd v w => mkNatAdd (v.toExpr env) (w.toExpr env)
 
+/--
+Generate a `Name` from a `Tm`. Uses the index of the atoms as the basic variable name.
+-/
 meta def Tm.toName (tm: Tm .width) : Name :=
   match tm with
   | .widthAtom e => Name.mkSimple s!"w{e}"
   | .widthAdd v w => Name.mkSimple s!"{v.toName}_add_{w.toName}"
 
-/-- Computes the upper bound of widths needed to calculate this width without overflowing.
-That maximum such, across all widths, will be used to get the universal upper bound. -/
+/--
+Compute the upper bound of widths needed to calculate this width without overflowing.
+The maximum, across all widths, will be used to get the universal upper bound.
+-/
 meta def Tm.getUniverseWidthUpperBound (tm : Tm .width) (ctx : PbvTranslateContext) : Nat :=
   match tm with
   | .widthAtom _ => ctx.bmcBound
   | .widthAdd wa wb => wa.getUniverseWidthUpperBound ctx + wb.getUniverseWidthUpperBound ctx
-
--- TODO (see above)
--- structure WidthAtoms where
-  --
 
 structure WidthTm where
   term : Tm .width
@@ -134,9 +149,7 @@ structure WidthInfo where
   widthMaskHypFvar : FVarId
   /-- The hypothesis that the width variable is less than the bmc bound. -/
   hypWidthLeBoundMVarId : MVarId
-  /-- The FVar of the bound hypothesis, necessary so 'simp' rewrites with it.
-      TODO: it's not clear why we need a `FVar` for `simp` to decide to rewrite with it.
-  -/
+  /-- The FVar of the bound hypothesis, necessary so 'simp' rewrites with it. -/
   hypWidthLeBoundNote : FVarId
 
 
