@@ -36,7 +36,7 @@ def getIntByteTypeBitwidth (t : TypeAttr) : Option Nat :=
 /--
   RISC-V lowerings with Puddle for unary operations.
 -/
-def lowerUnaryWPuddle (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
+def lowerUnary (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
     (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Veir.Puddle.Pattern OpCode :=
   Veir.Puddle.Pattern.Builder
     (do
@@ -59,22 +59,22 @@ def lowerUnaryWPuddle (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
     (fun castBackOp => castBackOp)
 
 /-- `llvm.intr.ctlz` (`i32`) -> `riscv.clzw`. -/
-def ctlz32_pattern : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__ctlz 32 .clzw ()
+def ctlz32_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctlz 32 .clzw ()
 
 /-- `llvm.intr.ctlz` (`i64`) -> `riscv.clz`. -/
-def ctlz64_pattern : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__ctlz 64 .clz ()
+def ctlz64_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctlz 64 .clz ()
 
 /-- `llvm.intr.cttz` (`i32`) -> `riscv.ctzw`. -/
-def cttz32_pattern : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__cttz 32 .ctzw ()
+def cttz32_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__cttz 32 .ctzw ()
 
 /-- `llvm.intr.cttz` (`i64`) -> `riscv.ctz`. -/
-def cttz64_pattern : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__cttz 64 .ctz ()
+def cttz64_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__cttz 64 .ctz ()
 
 /-- `llvm.intr.ctpop` (`i32`) -> `riscv.cpopw`. -/
-def ctpop32_pattern : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__ctpop 32 .cpopw ()
+def ctpop32_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctpop 32 .cpopw ()
 
 /-- `llvm.intr.ctpop` (`i64`) -> `riscv.cpop`. -/
-def ctpop64_pattern : Veir.Puddle.Pattern OpCode := lowerUnaryWPuddle .intr__ctpop 64 .cpop ()
+def ctpop64_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctpop 64 .cpop ()
 
 /--
   Shared shape of the integer-extension lowerings (`sext`/`zext`): match a single-operand LLVM
