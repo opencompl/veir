@@ -74,16 +74,12 @@ deriving Repr, DecidableEq, Inhabited
 the `MatchProg.Builder` API, which allocates fresh handles, rather than construct declarations
 directly.
 
-Stored matcher declarations are ordered top-down, in execution order. The first declaration marks
-the root operation; the remaining declarations constrain operations and operands recursively
-reachable from the root.
-
 Matching always proceeds from an entity already bound in the current assignment. The root
-declaration seeds the assignment with the candidate root operation; every subsequent declaration
-is anchored by an already-bound operation, SSA value, type, or metadata handle. A declaration may
-reject that binding by checking additional constraints, and it may extend the assignment with newly
-discovered operands, result types, properties, or results. Matching therefore expands outward from
-the root through already-bound handles.
+handle seeds the assignment with the candidate root operation before declarations execute; every
+declaration is anchored by an already-bound operation, SSA value, type, or metadata handle. A
+declaration may reject that binding by checking additional constraints, and it may extend the
+assignment with newly discovered operands, result types, properties, or results. Matching therefore
+expands outward from the root through already-bound handles.
 -/
 
 /--
@@ -113,19 +109,15 @@ and bind the discovered entities to their corresponding handles. -/
     (propertyResult : Handle OpInfo (.prop opCode))
     (result : Handle OpInfo .op)
     (results : Array (Handle OpInfo .value))
-/-- Bind `result` to the candidate root operation. `MatchProg.Builder` emits a companion `operation`
-declaration that constrains the root after this declaration seeds the assignment. -/
-| root (result : Handle OpInfo .op)
 
 /--
 A match program together with the value exported by its builder. Exports typically contain handles
 used by the creation or replacement phase of a `Pattern`.
-
-Declarations are stored in execution order, starting with the root marker and continuing through
-the operation and operand constraints recursively reachable from it.
 -/
 structure MatchProg (OpInfo : Type) [HasOpInfo OpInfo] (Exports : Type) where
-  /-- Match declarations in interpreter order, beginning with a root declaration. -/
+  /-- The root handle. -/
+  rootHandle : Handle OpInfo .op
+  /-- Match declarations in interpreter order, beginning with the root operation constraint. -/
   decls : List (MatchDecl OpInfo)
   /-- The number of rule-wide handle identifiers reserved by the matching phase. -/
   numHandles : Nat
