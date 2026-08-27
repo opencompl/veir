@@ -155,12 +155,16 @@ Get WidthInfo from a Term.
 meta def WidthInfos.getFromTm? (this : WidthInfos) (wTm : WidthTm) : Option WidthInfo :=
   this.infos[wTm.term.toName]?
 
--- /--
--- Get WidthInfo from an Expr.
--- -/
--- meta def WidthInfos.getFromExpr? (this: WidthInfos) (wExpr : Expr)
---     : MetaM (Option WidthInfo) := do
---   return this.infos[← whnf wExpr]?
+/--
+Get WidthInfo from an Expr.
+-/
+meta def WidthInfos.getFromExpr? (this: WidthInfos) (wExpr : Expr)
+    : MetaM (Option WidthInfo) := do
+  -- Reduce the expression (allows for cases such as (w + 0) to be reduced to w)
+  let reducedExpr ← whnf wExpr
+  -- Reify the expr using the env and then look for it in the Hashmap
+  let some reified ← Tm.reifyWidth this.env reducedExpr | pure none
+  return this.infos[reified.toName]?
 
 meta def introMaskWidth (maxBound : Nat) (g : MVarId) (widthTm : WidthTm) (infos : WidthInfos)
   : MetaM (MVarId × WidthInfos) := g.withContext do
@@ -301,31 +305,31 @@ meta def matchWidthRel (e : Expr) :
   | GE.ge ty _inst ea eb => if (ty.isConstOf ``Nat) then some (ea, eb) else none
   | _ => none
 
--- /--
--- If a condition on the width hypothesis is found, and the widths are contained
--- within the `WidthInfos` set, then duplicate the hypothesis and add it to the
--- goal. This allows for a single call to Simp later.
--- -/
--- meta def translateWidthPrecond (winfos : WidthInfos) (g : MVarId) (ldecl : LocalDecl)
---     : MetaM (MVarId) := g.withContext do
---   if let some (ea, eb) := matchWidthRel ldecl.type then
---     let some wa ← winfos.get? ea | return g
---     let some wb ← winfos.get? eb | return g
---     let (natHyp, g) ← g.withContext do g.note (Name.mkSimple s!"bv_{wa.widthName}_{wb.widthName}") ldecl.toExpr
---     let (#[_], g) ← g.revert #[natHyp] | throwError m!"Reverting {← natHyp.getType} shuold produce a single FVar."
---     return g
---   else
---     return g
+/--
+If a condition on the width hypothesis is found, and the widths are contained
+within the `WidthInfos` set, then restate (note) the hypothesis and add it to the
+goal. This allows for a single call to Simp later.
+-/
+meta def translateWidthPrecond (winfos : WidthInfos) (g : MVarId) (ldecl : LocalDecl)
+    : MetaM (MVarId) := g.withContext do
+  if let some (ea, eb) := matchWidthRel ldecl.type then
+    let some wa ← winfos.getFromExpr? ea | return g
+    let some wb ← winfos.getFromExpr? eb | return g
+    let (natHyp, g) ← g.withContext do g.note (Name.mkSimple s!"bv_{wa.widthName}_{wb.widthName}") ldecl.toExpr
+    let (#[_], g) ← g.revert #[natHyp] | throwError m!"Reverting {← natHyp.getType} shuold produce a single FVar."
+    return g
+  else
+    return g
 
--- /--
--- Traverse the local context and add any width pre-conditions to the goal.
--- -/
--- meta def translateWidthPreconds (winfos: WidthInfos)
---     (g : MVarId) : MetaM MVarId := g.withContext do
---   let mut g := g
---   for ldecl in ← getLCtx do
---     g ← translateWidthPrecond winfos g ldecl
---   return g
+/--
+Traverse the local context and add any width pre-conditions to the goal.
+-/
+meta def translateWidthPreconds (winfos: WidthInfos)
+    (g : MVarId) : MetaM MVarId := g.withContext do
+  let mut g := g
+  for ldecl in ← getLCtx do
+    g ← translateWidthPrecond winfos g ldecl
+  return g
 
 meta def introMaskWidths (widthTms : WidthTms) (g : MVarId) (ctx : PbvTranslateContext)
   : MetaM (MVarId × WidthInfos)
@@ -425,7 +429,7 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVa
   -- Intro the `BitVec`s
   let (g, bvInfos) ← introMaskedBitvectors bvsToRevert g widthInfos
   -- Find preconditions on the width `FVar`s
---   let g ← translateWidthPreconds widthInfos g
+  let g ← translateWidthPreconds widthInfos g
   -- Create simp set
   let thms := ← addBoundRewrites g ctx widthTms
            <| ← addPushTheorems g
@@ -433,7 +437,7 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVa
            <| ← addWidthInfosSimpLemmas g widthInfos #[]
   -- Run simp
   let g ← applySimp g thms
-  -- -- Return modified goal and subgoals
+  -- Return modified goal and subgoals
   return g :: (widthInfos.infos.values.map (·.hypWidthLeBoundMVarId))
 
 /--

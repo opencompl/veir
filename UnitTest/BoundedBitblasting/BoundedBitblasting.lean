@@ -24,6 +24,8 @@ example (p q r : Nat) (x : BitVec p)
   pbv_decide 8
   · bv_decide
   · grind
+  · grind
+  · grind
 
 /-- Sign extending a zero extensions -/
 example (p q r : Nat) (x : BitVec p)
@@ -37,7 +39,6 @@ example (p q r : Nat) (x : BitVec p)
   · grind
   · grind
   · grind
-  · grind
 
 /-- Appending and adding. -/
 example (w : Nat) (a b : BitVec w) (hw: w ≤ 8)
@@ -45,7 +46,5 @@ example (w : Nat) (a b : BitVec w) (hw: w ≤ 8)
   := by
   pbv_decide 8
   · bv_decide
-  · grind
-  · grind
   · grind
   · grind
