@@ -18,15 +18,15 @@ open Subeffect (mapEff mapCont)
 The unary choice has only one case
 -/
 inductive C1In : Type u where
-| e1
+| c1
 
 /--
 The only case of the unary choice gives a unit result
 -/
 @[expose]
-def C1 (e : C1In.{u}) : Type u :=
-  match e with
-  | .e1 => PUnit
+def C1 (c : C1In.{u}) : Type u :=
+  match c with
+  | .c1 => PUnit
 
 
 /-! Low-level CTree definitions -/
@@ -46,7 +46,7 @@ The coinductive library defines the bottom element as the cofixpoint of the prov
 Here, the bottom element is thus defined as the spinning CTree.
 -/
 instance {ι : Type u} {ε : ι → Type u} {κ : Type u} {σ : κ → Type u} {α : Type u} : Inhabited (CTreeF ε σ α PUnit) where
-  default := .tau (.inl .e1) (fun _ => ⟨⟩)
+  default := .tau (.inl .c1) (fun _ => ⟨⟩)
 
 /--
 Auxiliary definition to encode CTree as a polynomial functor
@@ -118,7 +118,7 @@ def CTree.tau (i : CIn) (k : C i → CTree E C R) : CTree E C R := CTree.fold (.
 /--
 A unary choice that generates a τ transition
 -/
-def CTree.tau1 (t : CTree E C R) : CTree E C R := CTree.tauG (.inl .e1) λ _ => t
+def CTree.tau1 (t : CTree E C R) : CTree E C R := CTree.tauG (.inl .c1) λ _ => t
 
 /--
 A visible effect
@@ -185,7 +185,7 @@ theorem unfold_tauG i (k : (C1 ⊕ₑ C) i → CTree E C R) :
 
 @[simp]
 theorem unfold_tau1 (t : CTree E C R) :
-    CTree.unfold (CTree.tau1 t) = CTreeF.tau (.inl .e1) (fun _ => t) := by
+    CTree.unfold (CTree.tau1 t) = CTreeF.tau (.inl .c1) (fun _ => t) := by
   apply unfold_tauG
 
 @[simp]
