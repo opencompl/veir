@@ -25,7 +25,7 @@ meta def getBitvecType? (e : Expr) : Option Expr :=
   | BitVec w => some w
   | _ => none
 
-/-- An environment that maps width atoms in 'Tm' into its 'Expr' -/
+/-- An environment that maps width atoms in `Tm` into its `Expr` -/
 meta structure TmWidthEnv where
   width2expr : Array Expr := #[]
 
@@ -34,11 +34,14 @@ meta def TmWidthEnv.push (this : TmWidthEnv) (width : Expr) : TmWidthEnv :=
 
 meta def createWidthEnv (g : MVarId) : MetaM TmWidthEnv := g.withContext do
   (← getLCtx).foldrM (init := {}) (fun ldecl (widthEnv : TmWidthEnv ) => do
-      let some width := getBitvecType? ldecl.type | pure widthEnv
-      if let some _ := widthEnv.width2expr.idxOf? width then
+      if let some width := getBitvecType? ldecl.type then
+        let some _ := widthEnv.width2expr.idxOf? width | pure <| widthEnv.push width
         pure widthEnv
       else
-        pure <| widthEnv.push width
+        if Expr.isNat ldecl.type then
+          pure <| widthEnv.push ldecl.toExpr
+        else
+          pure widthEnv
     )
 
 
@@ -412,6 +415,8 @@ meta def applySimp (g : MVarId) (simp : SimpTheoremsArray) : MetaM MVarId := g.w
 meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVarId) := g.withContext do
   -- Construct the width environment
   let widthEnv ← createWidthEnv g
+  for w in widthEnv.width2expr do
+    logInfo m!"wenv : {w}"
   -- Find `BitVec`s and intro their widths
   let (g, widthTms, bvsToRevert) ← visitExprRec g { env := widthEnv } {} (← g.getType)
   -- Introduce the width masks, bounded by the max width
