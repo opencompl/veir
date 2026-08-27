@@ -26,7 +26,7 @@ def SumE {ι₁ ι₂ : Type u} (ε₁ : ι₁ → Type u) (ε₂ : ι₂ → Ty
   | .inl i => ε₁ i
   | .inr i => ε₂ i
 
-@[inherit_doc] infixr:30 " ⊕ₑ " => CTree.SumE
+@[inherit_doc] infixr:30 " ⊕ₑ " => SumE
 
 @[simp, grind =] theorem SumE.eq_inl {ι₁ ι₂}
     {ε₁ : ι₁ → Type u} {ε₂ : ι₂ → Type u} (i : ι₁) :
@@ -102,7 +102,7 @@ instance [subl : ε₁ -< ε'] [subr : ε₂ -< ε'] : (ε₁ ⊕ₑ ε₂) -< �
     (mapEff (ε₁ ⊕ₑ ε₂) ε' <| .inr e) = mapEff ε₂ ε' e := rfl
 
 /-- `ε₁` is a sub-effect of `ε₁ ⊕ₑ ε₂`. -/
-instance (priority:=mid) instSubSumL [sub : ε₁ -< ε₂] : ε₁ -< (ε₂ ⊕ₑ ε') where
+instance (priority := mid) instSubSumL [sub : ε₁ -< ε₂] : ε₁ -< (ε₂ ⊕ₑ ε') where
   map t := let ⟨i, f⟩ := (sub.map t); ⟨.inl i, f⟩
 
 /-- The `ε' -< (ε₁ ⊕ₑ ε₂)` instance derived from `ε' -< ε₁` maps to `Sum.inl`. -/
@@ -112,7 +112,7 @@ instance (priority:=mid) instSubSumL [sub : ε₁ -< ε₂] : ε₁ -< (ε₂ �
     mapEff ε' (ε₁ ⊕ₑ ε₂) e = .inl (mapEff ε' ε₁ e) := rfl
 
 /-- `ε₂` is a sub-effect of `ε₁ ⊕ₑ ε₂`. -/
-instance (priority:=low) instSubSumR {ι₁ ι₂ ι'}
+instance (priority := low) instSubSumR {ι₁ ι₂ ι'}
     {ε₁ : ι₁ → Type u} {ε₂ : ι₂ → Type u} {ε' : ι' → Type u}
     [sub : ε₁ -< ε₂] : ε₁ -< ε' ⊕ₑ ε₂ where
   map t := let ⟨i, f⟩ := (sub.map t); ⟨.inr i, f⟩

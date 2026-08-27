@@ -2,7 +2,7 @@
 
 module
 
-public import CTree.Definition
+public import CTree.Defs
 public import CTree.Iter
 
 public section

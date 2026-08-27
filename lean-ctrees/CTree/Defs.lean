@@ -11,32 +11,39 @@ public section
 
 namespace CTree
 open Coinductive Lean.Order
+open Subeffect (mapEff mapCont)
 
 
-inductive E1In : Type u where
+/--
+The unary choice has only one case
+-/
+inductive C1In : Type u where
 | e1
 
+/--
+The only case of the unary choice gives a unit result
+-/
 @[expose]
-def E1 (e : E1In.{u}) : Type u :=
+def C1 (e : C1In.{u}) : Type u :=
   match e with
   | .e1 => PUnit
 
 
--- Low-level CTree definitions
+/-! Low-level CTree definitions -/
 
+-- FIXME is universe w needed?
 /--
-The basic coinductive functor for CTree, with constructor resp. for leaves, for n-ary choices, and for n-ary events
+The basic coinductive functor for CTree, with constructor resp. for leaves, for n-ary choices, and for n-ary events.
 -/
 inductive CTreeF {EIn : Type u} (E : EIn → Type u) {CIn : Type u} (C : CIn → Type u)
     (R : Type v) (CTree : Type w) : Type (max u v w) where
   | ret (r : R)
-  | tau (i : E1In ⊕ CIn) (k : (E1 ⊕ₑ C) i → CTree)
+  | tau (i : C1In ⊕ CIn) (k : (C1 ⊕ₑ C) i → CTree)
   | vis (i : EIn) (k : E i → CTree)
 
-open Subeffect (mapEff mapCont)
-
 /--
-The bottom element is defined as the spinning CTree
+The coinductive library defines the bottom element as the cofixpoint of the provided inhabitant of the functor applied to unit.
+Here, the bottom element is thus defined as the spinning CTree.
 -/
 instance {ι : Type u} {ε : ι → Type u} {κ : Type u} {σ : κ → Type u} {α : Type u} : Inhabited (CTreeF ε σ α PUnit) where
   default := .tau (.inl .e1) (fun _ => ⟨⟩)
@@ -46,7 +53,7 @@ Auxiliary definition to encode CTree as a polynomial functor
 -/
 inductive CTreeF.In {ι : Type u} (ε : ι → Type u) {κ : Type u} (σ : κ → Type u) (α : Type u) : Type u where
   | ret (r : α)
-  | tau (i : E1In ⊕ κ)
+  | tau (i : C1In ⊕ κ)
   | vis (i : ι)
 
 /--
@@ -55,7 +62,7 @@ CTree as a polynomial functor
 instance {ι : Type u} (ε : ι → Type u) {κ : Type u} (σ : κ → Type u) (α : Type u) : PF (CTreeF ε σ α) where
   P := ⟨CTreeF.In ε σ α, fun
     | .ret _ => PEmpty
-    | .tau i => (E1 ⊕ₑ σ) i
+    | .tau i => (C1 ⊕ₑ σ) i
     | .vis i => ε i⟩
   unpack
     | .ret r => .obj (.ret r) nofun
@@ -91,7 +98,7 @@ Unfolding the head of a CTree
 -/
 def CTree.unfold (t : CTree E C R) : CTreeF E C R (CTree E C R) := CoInd.unfold _ t
 
--- High-level CTree constructors
+/-! High-level CTree constructors -/
 
 /--
 A leaf returning a value
@@ -99,12 +106,12 @@ A leaf returning a value
 def CTree.ret (r : R) : CTree E C R := CTree.fold (.ret r)
 
 /--
-An n-ary choice that generates a τ transition (general case)
+An n-ary choice that generates τ transitions (general case)
 -/
-def CTree.tauG (i : E1In ⊕ CIn) (k : (E1 ⊕ₑ C) i → CTree E C R) : CTree E C R := CTree.fold (.tau i k)
+def CTree.tauG (i : C1In ⊕ CIn) (k : (C1 ⊕ₑ C) i → CTree E C R) : CTree E C R := CTree.fold (.tau i k)
 
 /--
-A custom n-ary choice that generates a τ transition
+A custom n-ary choice that generates τ transitions
 -/
 def CTree.tau (i : CIn) (k : C i → CTree E C R) : CTree E C R := CTree.fold (.tau (.inr i) k)
 
@@ -129,7 +136,7 @@ A CTree making an n-ary choice and immediately returning
 def CTree.choose (i : CIn) : CTree E C (C i) := CTree.tau i (fun x => CTree.ret x)
 
 
--- Basic simp lemmas, notably for proofs of monotonicity required to use partial_fixpoint
+/-! Basic simp lemmas, notably for proofs of monotonicity required to use partial_fixpoint -/
 
 @[simp]
 theorem CTree.unfold_fold (t : CTree E C R) :
@@ -146,13 +153,13 @@ theorem fold_ret_approx_1 (r : R) n :
     ret_approx_1 r n
 
 @[simp]
-theorem tau_approx_1 i (k : (E1 ⊕ₑ C) i → CTree E C R) n :
+theorem tau_approx_1 i (k : (C1 ⊕ₑ C) i → CTree E C R) n :
   (CTree.tauG i k).approx (n + 1) = CTreeF.tau i (fun c => (k c).approx n) := by
     simp [CTree.tauG, CTree.fold, CoInd.fold, PF.map, PF.pack, PF.unpack]
     rfl
 
 @[simp]
-theorem fold_tau_approx_1 i (k : (E1 ⊕ₑ C) i → CTree E C R) n :
+theorem fold_tau_approx_1 i (k : (C1 ⊕ₑ C) i → CTree E C R) n :
   (CTree.fold (CTreeF.tau i k)).approx (n + 1) = CTreeF.tau i (fun c => (k c).approx n) :=
     tau_approx_1 i k n
 
@@ -172,7 +179,7 @@ theorem unfold_ret (r : R) :
     simp [CTree.ret, CTree.fold, CTree.unfold]
 
 @[simp]
-theorem unfold_tauG i (k : (E1 ⊕ₑ C) i → CTree E C R) :
+theorem unfold_tauG i (k : (C1 ⊕ₑ C) i → CTree E C R) :
   CTree.unfold (CTree.tauG i k) = CTreeF.tau i k := by
     simp [CTree.tauG, CTree.fold, CTree.unfold]
 
@@ -191,7 +198,7 @@ theorem vis_monoN (i : EIn) (t1 t2 : E i → CTree E C R) n :
   CoIndN.le _ ((CTree.vis i t1).approx (n + 1)) ((CTree.vis i t2).approx (n + 1))
  := by
     intro hs
-    simp [CoIndN.le, PF.unpack]
+    simp only [vis_approx_1, CoIndN.le, PF.unpack]
     right
     constructor <;> try rfl
     grind [coherent1]
@@ -202,30 +209,30 @@ theorem vis_mono α [PartialOrder α] i (f : α → E i → CTree E C R) :
   monotone (λ x => CTree.vis i (f x)) := by
     intro hf t1 t2 hle
     apply CoInd.le_leN
-    rintro ⟨n⟩; simp [CoIndN.le]
+    rintro ⟨n⟩; simp only [CoIndN.le]
     apply vis_monoN
     intro o
     have := hf t1 t2 hle o
     grind [CoInd.leN_le]
 
 @[simp]
-theorem tauG_monoN (i : E1In ⊕ CIn) (t1 t2 : (E1 ⊕ₑ C) i → CTree E C R) n :
+theorem tauG_monoN (i : C1In ⊕ CIn) (t1 t2 : (C1 ⊕ₑ C) i → CTree E C R) n :
   (∀ o, CoIndN.le _ ((t1 o).approx n) ((t2 o).approx n)) →
   CoIndN.le _ ((CTree.tauG i t1).approx (n + 1)) ((CTree.tauG i t2).approx (n + 1))
  := by
     intro hs
-    simp [CoIndN.le, PF.unpack]
+    simp only [tau_approx_1, CoIndN.le, PF.unpack]
     right
     constructor <;> try rfl
     grind [coherent1]
 
 @[partial_fixpoint_monotone]
-theorem tauG_mono α [PartialOrder α] i (f : α → (E1 ⊕ₑ C) i → CTree E C R) :
+theorem tauG_mono α [PartialOrder α] i (f : α → (C1 ⊕ₑ C) i → CTree E C R) :
   monotone f →
   monotone (λ x => CTree.tauG i (f x)) := by
     intro hf t1 t2 hle
     apply CoInd.le_leN
-    rintro ⟨n⟩; simp [CoIndN.le]
+    rintro ⟨n⟩; simp only [CoIndN.le]
     apply tauG_monoN
     intro o
     have := hf t1 t2 hle o
@@ -247,9 +254,8 @@ theorem tau1_mono α [PartialOrder α] (f : α → CTree E C R) :
     simp only [CTree.tau1]
     intros h
     apply tauG_mono
-    simp [monotone]
     intros x y h'
-    simp [PartialOrder.rel]
+    simp only [PartialOrder.rel, SumE.eq_inl]
     intros
     apply h
     apply h'
@@ -279,32 +285,23 @@ theorem CTree.le_unfold (t1 t2 : CTree E C R) :
     constructor
     · intro h
       rw [CoInd.le_unfold] at h
-      rcases h with (rfl|⟨i, _, _, _, _, h1, h2⟩); simp
+      rcases h with (rfl|⟨i, _, _, _, _, h1, h2⟩); simp only [bot_eq, exists_and_left, true_or]
       rw [<-Coinductive.unfold_fold _ t1, <-Coinductive.unfold_fold _ t2]
       rw [<-PF.unpack_pack (CoInd.unfold _ t1), <-PF.unpack_pack (CoInd.unfold _ t2)]
       simp only [h1, h2]
       right
-      cases i <;> simp [PF.pack, ret, tauG, vis, fold]
-      · grind
-      · grind
-      · right
-        right
-        exists ?_, ?_; rotate_left 1
-        constructor; rfl
-        apply Exists.intro
-        constructor; rfl
-        simp_all
+      cases i <;> simp only [PF.pack, ret, fold, and_self, tauG, exists_and_left, vis] <;> grind
     · rintro (rfl| ⟨_, rfl, rfl⟩ | ⟨_, _, _, rfl, rfl, _⟩|⟨_, _, _, rfl, rfl, _⟩)
       · simp [CoInd.le_unfold]
       · apply PartialOrder.rel_refl
-      · simp [CoInd.le_unfold]
+      · simp only [CoInd.le_unfold]
         right
-        simp [PF.unpack, CTree.tauG, CTree.fold]
+        simp only [PF.unpack, tauG, fold, fold_unfold]
         constructor <;> try rfl
         grind
-      · simp [CoInd.le_unfold]
+      · simp only [CoInd.le_unfold]
         right
-        simp [PF.unpack, CTree.vis, CTree.fold]
+        simp only [PF.unpack, vis, fold, fold_unfold]
         constructor <;> try rfl
         grind
 
@@ -334,10 +331,10 @@ theorem bind_mono {γ} [PartialOrder γ]
     dsimp only
     have hlef : (f t1) ⊑ (f t2) := by apply hf; assumption
     generalize f t1 = t1, f t2 = t2 at hlef
-    induction n generalizing t1 t2; simp [CoIndN.le]
+    induction n generalizing t1 t2; simp only [CoIndN.le]
     unfold CTree.bind
     rw [CTree.le_unfold] at hlef
-    rcases hlef with (rfl|⟨_, rfl, rfl⟩|⟨_, _, _, rfl, rfl, _⟩|⟨_, _, _, rfl, rfl, _⟩)
+    rcases hlef with (rfl|⟨x, rfl, rfl⟩|⟨_, _, _, rfl, rfl, _⟩|⟨_, _, _, rfl, rfl, _⟩)
     · unfold CTree.spin
       simp [CoIndN.le, CoIndN.bot]
       left
@@ -350,8 +347,7 @@ theorem bind_mono {γ} [PartialOrder γ]
       induction n; congr 0
       unfold CTree.bind CTree.spin CTree.tau1
       simp_all
-    · rename_i x
-      simp
+    · simp
       have := hg t1 t2 hle x
       grind [CoInd.leN_le, monotone]
     · simp
