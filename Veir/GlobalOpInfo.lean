@@ -30,7 +30,7 @@ match opCode with
 | .func op => Func.propertiesOf op
 | .datapath op => Datapath.propertiesOf op
 | .pdl op => PDL.propertiesOf op
-| .gmir op =>Gmir.propertiesOf op
+| .gmir op => GMIR.propertiesOf op
 | .test op => Test.propertiesOf op
 
 attribute [reducible] _propertiesOf
@@ -55,7 +55,7 @@ def OpCode.getEffects (opCode : OpCode) (props : _propertiesOf opCode) : MemoryE
   | .func op, props => Func.getEffects op props
   | .datapath op, props => Datapath.getEffects op props
   | .pdl op, props => PDL.getEffects op props
-  | .gmir op, props => Gmir.getEffects op props
+  | .gmir op, props => GMIR.getEffects op props
   | .test op, props => Test.getEffects op props
 
 /--
@@ -100,7 +100,7 @@ def OpCode.hasSSADominance (opCode : OpCode) (index : Nat) : Bool :=
   | .func op => Func.hasSSADominance op index
   | .datapath op => Datapath.hasSSADominance op index
   | .pdl op => PDL.hasSSADominance op index
-  | .gmir op => Gmir.hasSSADominance op index
+  | .gmir op => GMIR.hasSSADominance op index
   | .test op => Test.hasSSADominance op index
 
 /--
@@ -194,7 +194,7 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | .func op => Func.isConstantLike op
   | .datapath op => Datapath.isConstantLike op
   | .pdl op => PDL.isConstantLike op
-  | .gmir op => Gmir.isConstantLike op
+  | .gmir op => GMIR.isConstantLike op
   | .test op => Test.isConstantLike op
 
 /--
@@ -237,7 +237,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   | .func op => Func.fromAttrDict op attrDict
   | .datapath op => Datapath.fromAttrDict op attrDict
   | .pdl op => PDL.fromAttrDict op attrDict
-  | .gmir op => Gmir.fromAttrDict op attrDict
+  | .gmir op => GMIR.fromAttrDict op attrDict
   | .test op => Test.fromAttrDict op attrDict
 
 /--
@@ -261,7 +261,7 @@ def Properties.toAttrDict
   | .func op, props => Func.toAttrDict op props
   | .datapath op, props => Datapath.toAttrDict op props
   | .pdl op, props => PDL.toAttrDict op props
-  | .gmir op, props =>Gmir.toAttrDict op props
+  | .gmir op, props =>GMIR.toAttrDict op props
   | .test op, props => Test.toAttrDict op props
 
 instance : IsOpCode OpCode where
@@ -309,7 +309,7 @@ def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
   | .riscv opType => Riscv.verifyLocalInvariants opType op ctx opIn
   | .riscv_cf opType => Riscv_Cf.verifyLocalInvariants opType op ctx opIn
   | .riscv_stack opType => Riscv_Stack.verifyLocalInvariants opType op ctx opIn
-  | .gmir opType => Gmir.verifyLocalInvariants (OpInfo := OpCode) opType op ctx opIn
+  | .gmir opType => GMIR.verifyLocalInvariants opType op ctx opIn
   | .rv64 opType => Rv64.verifyLocalInvariants opType op ctx opIn
   | .comb opType => Comb.verifyLocalInvariants opType op ctx opIn
   | .hw opType => HW.verifyLocalInvariants opType op ctx opIn

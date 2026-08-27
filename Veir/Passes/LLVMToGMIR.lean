@@ -23,7 +23,7 @@ namespace Veir
   This should mirror ArithToLLVM's lower1to1. To support variable result/operand counts, we would need
   a Puddle equivalent of `pdl.results` and `pdl.operands`.
 -/
-def lowerIntegerBinop (lOp : Llvm) (gOp : Gmir)
+def lowerIntegerBinop (lOp : Llvm) (gOp : GMIR)
     (h : propertiesOf (OpCode.llvm lOp) = propertiesOf (OpCode.gmir gOp) := by rfl) :
     Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder

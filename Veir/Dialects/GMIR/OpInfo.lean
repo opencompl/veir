@@ -10,7 +10,7 @@ namespace Veir
 public section
 
 @[opcodes]
-inductive Gmir where
+inductive GMIR where
 | g_anyext
 | g_trunc
 | g_add
@@ -34,7 +34,7 @@ This replicates LLVM's GenericOpcodes.td (llvm/include/llvm/Target/GenericOpcode
 Operands with `unknown` (special) or any immediate type in LLVM's `GenericOpcodes.td` are omitted here
 and represented in the operation properties instead.
 -/
-def Gmir.genericOpInfo : Gmir → GenericOpInfo
+def GMIR.genericOpInfo : GMIR → GenericOpInfo
   | .g_anyext | .g_trunc =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 1] }
@@ -46,21 +46,21 @@ def Gmir.genericOpInfo : Gmir → GenericOpInfo
       inOperandList := #[.type 1, .type 1] }
 
 @[expose, properties_of]
-def Gmir.propertiesOf : Gmir → Type
+def GMIR.propertiesOf : GMIR → Type
   | .g_add | .g_sub => NswNuwProperties
   | .g_icmp => IcmpProperties
   | _ => Unit
 
-def Gmir.fromAttrDict
-    (op : Gmir) (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String (Gmir.propertiesOf op) := by
+def GMIR.fromAttrDict
+    (op : GMIR) (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String (GMIR.propertiesOf op) := by
   cases op
   case g_add | g_sub => exact NswNuwProperties.fromAttrDict attrDict
   case g_icmp => exact IcmpProperties.fromAttrDict attrDict
   all_goals exact .ok ()
 
-def Gmir.toAttrDict
-    (op : Gmir) (props : Gmir.propertiesOf op) :
+def GMIR.toAttrDict
+    (op : GMIR) (props : GMIR.propertiesOf op) :
     Std.HashMap ByteArray Attribute :=
   match op with
   | .g_add | .g_sub => Id.run do
@@ -76,18 +76,18 @@ def Gmir.toAttrDict
       "predicate".toUTF8 (Attribute.integerAttr value)
   | _ => Std.HashMap.emptyWithCapacity 0
 
-#generate_dialect Gmir
+#generate_dialect GMIR
 
-instance : IsOpCode Gmir where
-  fromName := Gmir.fromName
-  name := Gmir.name
-  propertiesOf := Gmir.propertiesOf
-  fromAttrDict := Gmir.fromAttrDict
-  toAttrDict := Gmir.toAttrDict
+instance : IsOpCode GMIR where
+  fromName := GMIR.fromName
+  name := GMIR.name
+  propertiesOf := GMIR.propertiesOf
+  fromAttrDict := GMIR.fromAttrDict
+  toAttrDict := GMIR.toAttrDict
 
 -- Mirrors upstreams `MachineVerifier::verifyPreISelGenericInstruction`.
-def Gmir.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
-    [HasDialect OpInfo Gmir] (op : Gmir) (opPtr : OperationPtr)
+def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
+    [HasDialect OpInfo GMIR] (op : GMIR) (opPtr : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : opPtr.InBounds ctx.raw) :
     Except String PUnit :=
   let info := op.genericOpInfo
@@ -103,20 +103,20 @@ def Gmir.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       let name := String.fromUTF8! (IsOpCode.name (opPtr.getOpType ctx.raw opIn))
       throw s!"{name}: type mismatch: expected {expected}, got {type}"
 
-def Gmir.getEffects (_op : Gmir) (_props : Gmir.propertiesOf _op) : MemoryEffects :=
+def GMIR.getEffects (_op : GMIR) (_props : GMIR.propertiesOf _op) : MemoryEffects :=
   .none
 
-def Gmir.isConstantLike (_op : Gmir) : Bool :=
+def GMIR.isConstantLike (_op : GMIR) : Bool :=
   false
 
-def Gmir.hasSSADominance (_op : Gmir) (_index : Nat) : Bool :=
+def GMIR.hasSSADominance (_op : GMIR) (_index : Nat) : Bool :=
   true
 
-instance : HasOpInfo Gmir where
-  verifyLocalInvariants := Gmir.verifyLocalInvariants
-  getEffects := Gmir.getEffects
-  isConstantLike := Gmir.isConstantLike
-  hasSSADominance := Gmir.hasSSADominance
+instance : HasOpInfo GMIR where
+  verifyLocalInvariants := GMIR.verifyLocalInvariants
+  getEffects := GMIR.getEffects
+  isConstantLike := GMIR.isConstantLike
+  hasSSADominance := GMIR.hasSSADominance
 
 end
 
