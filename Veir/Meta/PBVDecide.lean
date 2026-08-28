@@ -62,7 +62,6 @@ Inductive data structure to express the Terms that this tactic reasons about.
 -/
 inductive Tm : TmKind → Type
 | widthAtom (id : Nat) : Tm .width
-| widthAdd (v w : Tm .width) : Tm .width
 
 /--
 Function to Reify an `Expr` into a `Tm`. This function constructs the tree holding
@@ -74,13 +73,7 @@ meta partial def Tm.reifyWidth (env : TmWidthEnv) (e : Expr) : MetaM (Option (Tm
     -- An atom is an expression is present in the Env
     pure <| some (.widthAtom id)
   else
-    match_expr e with
-    | HAdd.hAdd ty _ _ _ ae be =>
-        let .true := Expr.isNat ty | pure none
-        let some a ← Tm.reifyWidth env ae | pure none
-        let some b ← Tm.reifyWidth env be | pure none
-        pure (some (.widthAdd a b))
-    | _ => pure none
+    pure none
 
 /--
 Convert a `Tm` into an `Expr` provided and environment.
@@ -88,7 +81,6 @@ Convert a `Tm` into an `Expr` provided and environment.
 meta def Tm.toExpr (this : Tm .width) (env : TmWidthEnv) : Expr :=
   match this with
   | .widthAtom id => env.width2expr[id]!
-  | .widthAdd v w => mkNatAdd (v.toExpr env) (w.toExpr env)
 
 /--
 Generate a `Name` from a `Tm`. Uses the index of the atoms as the basic variable name.
@@ -96,16 +88,6 @@ Generate a `Name` from a `Tm`. Uses the index of the atoms as the basic variable
 meta def Tm.toName (tm: Tm .width) : Name :=
   match tm with
   | .widthAtom e => Name.mkSimple s!"w{e}"
-  | .widthAdd v w => Name.mkSimple s!"{v.toName}_add_{w.toName}"
-
-/--
-Compute the upper bound of widths needed to calculate this width without overflowing.
-The maximum, across all widths, will be used to get the universal upper bound.
--/
-meta def Tm.getUniverseWidthUpperBound (tm : Tm .width) (ctx : PbvTranslateContext) : Nat :=
-  match tm with
-  | .widthAtom _ => ctx.bmcBound
-  | .widthAdd wa wb => wa.getUniverseWidthUpperBound ctx + wb.getUniverseWidthUpperBound ctx
 
 structure WidthTm where
   term : Tm .width
@@ -129,13 +111,6 @@ meta def WidthTms.getOrCreateTm (g : MVarId) (this : WidthTms) (wExpr : Expr)
   else
     let widthTm := { term := reified }
     return (g, widthTm, this.push widthTm)
-
-
-/-- Get the maximum width needed for blasting across all widths. -/
-meta def WidthTms.getUniverseWidthUpperBound (ctx : PbvTranslateContext)
-    (winfos : WidthTms) : Nat :=
-  winfos.terms.fold (fun val _e wTm =>
-    val.max (wTm.term.getUniverseWidthUpperBound ctx)) 1
 
 /--
 Information about the width variable and associated hypotheses.
@@ -313,11 +288,9 @@ meta partial def visitExprRec (g : MVarId)
 meta def introMaskWidths (widthTms : WidthTms) (g : MVarId) (ctx : PbvTranslateContext)
   : MetaM (MVarId × WidthInfos)
   := g.withContext do
-  -- Compute max width
-  let maxWidth := widthTms.getUniverseWidthUpperBound ctx
   -- Intro all the masks
   widthTms.terms.foldM (init := (g, { env := widthTms.env })) (fun (g, widthInfos) _ widthTm =>
-    introMaskWidth maxWidth g widthTm widthInfos
+    introMaskWidth ctx.bmcBound g widthTm widthInfos
   )
 
 /--
@@ -332,13 +305,12 @@ These theorems require pre-filling the width bound in order to be used within
 the Simp set.
 -/
 meta def addBoundRewrites (g : MVarId) (ctx : PbvTranslateContext)
-  (widthTms : WidthTms) (simp : SimpTheoremsArray) :
-    MetaM SimpTheoremsArray := g.withContext do
+  (simp : SimpTheoremsArray) : MetaM SimpTheoremsArray := g.withContext do
   let thms := #[``eq_iff]
 
   thms.foldlM (init := simp) fun simps name =>
     return ← simps.addTheorem (.other name)
-      <| ← mkAppM name #[mkNatLit <| widthTms.getUniverseWidthUpperBound ctx]
+      <| ← mkAppM name #[mkNatLit <| ctx.bmcBound]
 
 /--
 Add theorems to the Simp theorem context that push the `setWidth`s in.
@@ -399,7 +371,7 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVa
   -- Intro the `BitVec`s
   let (g, bvInfos) ← introMaskedBitvectors bvsToRevert g widthInfos
   -- Create simp set
-  let thms := ← addBoundRewrites g ctx widthTms
+  let thms := ← addBoundRewrites g ctx
            <| ← addPushTheorems g
            <| ← addBvInfos g bvInfos -- This step is not strictly necessary.
            <| ← addWidthInfosSimpLemmas g widthInfos #[]
