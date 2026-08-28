@@ -20,10 +20,8 @@ theorem trace_add_comm_manual (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
 -- Step 1: Bound widths to the provided blast width (redundant in this case)
   have w_le_bw : w ≤ 4 := by grind
 -- Step 2-3: Introduce mask to replace `w` Nat var
-  -- apply width_elim 4 w
-  -- intro mw h_mw
-  let mw := maskOfWidth 4 w
-  -- obtain ⟨mw, h_mw⟩ : ∃ mw : BitVec 8, mw = maskOfWidth 8 w := ⟨_, rfl⟩
+  apply width_elim 4 w
+  intro mw h_mw
 -- Step 4: Eliminate the parametric bv var of width `w`
 --         enforcing width constraint with mask
   revert x
@@ -167,7 +165,7 @@ theorem trace_append (w : Nat) (a b : BitVec w) (hw : w <= 8):
   apply var_elim w_le_o
   intro b b_mw
 
-  have mask := isMask_of_eq_maskOfWidth h_mw
+  have mask := maskOfWidth_and_add_one_eq_zero h_mw
   -- have mask_add := maskOfWidth_add_eq_mul_of_maskOfWidth w_le_o w_le_o w_add_w_le_o h_mw h_mw
 
   simp only [
