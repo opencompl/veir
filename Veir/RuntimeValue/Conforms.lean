@@ -36,17 +36,20 @@ instance : Decidable (Conforms val ty) := by
   unfold Conforms
   split <;> infer_instance
 
-@[grind <=]
+@[grind =]
 theorem Conforms.integerType :
-    Conforms runtimeValue ⟨.integerType intType, h⟩ →
+    Conforms runtimeValue ⟨.integerType intType, h⟩ ↔
     ∃ val, runtimeValue = .int intType.bitwidth val := by
   simp only [Conforms]
-  cases runtimeValue
-  case int bw val =>
-    simp only [int.injEq, exists_and_left]
-    intro _; subst bw
+  constructor
+  . cases runtimeValue
+    case int bw val =>
+      simp only [int.injEq, exists_and_left]
+      intro _; subst bw
+      grind
+    all_goals grind
+  · rintro ⟨val, rfl⟩
     grind
-  all_goals grind
 
 @[grind <=]
 theorem Conforms.byteType {runtimeValue byteType h} :
