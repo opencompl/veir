@@ -56,6 +56,7 @@ Only capture `width` at the moment.
 -/
 inductive TmKind
 | width
+| prop
 
 /--
 Inductive data structure to express the Terms that this tactic reasons about.
@@ -63,6 +64,10 @@ Inductive data structure to express the Terms that this tactic reasons about.
 inductive Tm : TmKind → Type
 | widthAtom (id : Nat) : Tm .width
 | widthAdd (v w : Tm .width) : Tm .width
+| widthLT (v m : Tm .width) : Tm .prop
+| widthLE (v m : Tm .width) : Tm .prop
+| widthGT (v m : Tm .width) : Tm .prop
+| widthGE (v m : Tm .width) : Tm .prop
 
 /--
 Function to Reify an `Expr` into a `Tm`. This function constructs the tree holding
@@ -81,6 +86,26 @@ meta partial def Tm.reifyWidth (env : TmWidthEnv) (e : Expr) : MetaM (Option (Tm
         let some b ← Tm.reifyWidth env be | pure none
         pure (some (.widthAdd a b))
     | _ => pure none
+
+/--
+Match width relation.
+-/
+meta def matchWidthRel (e : Expr) :
+    Option ((Tm TmKind.width → Tm TmKind.width → Tm TmKind.prop) × Expr × Expr) :=
+  match_expr e with
+  | LT.lt ty _inst ea eb => if (ty.isConstOf ``Nat) then some (.widthLT, ea, eb) else none
+  | LE.le ty _inst ea eb => if (ty.isConstOf ``Nat) then some (.widthLE, ea, eb) else none
+  | GT.gt ty _inst ea eb => if (ty.isConstOf ``Nat) then some (.widthGT, ea, eb) else none
+  | GE.ge ty _inst ea eb => if (ty.isConstOf ``Nat) then some (.widthGE, ea, eb) else none
+  | _ => none
+
+meta partial def Tm.reifyProp (env : TmWidthEnv) (e : Expr) : MetaM (Option (Tm .prop)) := do
+  if let some (rel, ea, eb) := matchWidthRel e then
+    let some wa ← Tm.reifyWidth env ea | pure none
+    let some wb ← Tm.reifyWidth env eb | pure none
+    pure <| some (rel wa wb)
+  else
+    pure none
 
 /--
 Convert a `Tm` into an `Expr` provided and environment.
@@ -168,8 +193,8 @@ meta def WidthInfos.push (this : WidthInfos) (info : WidthInfo) : WidthInfos :=
 /--
 Get WidthInfo from a Term.
 -/
-meta def WidthInfos.getFromTm? (this : WidthInfos) (wTm : WidthTm) : Option WidthInfo :=
-  this.infos[wTm.term.toName]?
+meta def WidthInfos.getFromTm? (this : WidthInfos) (wTm : Tm .width) : Option WidthInfo :=
+  this.infos[wTm.toName]?
 
 /--
 Get WidthInfo from an Expr.
@@ -245,7 +270,7 @@ meta def introBitvecFVarUnchecked (widthInfos : WidthInfos) (g : MVarId)
     | throwError m!"Reverting {g} shuold produce a var."
   let wExpr := widthTm.term.toExpr widthInfos.env
   -- Apply ``var_elim.
-  let some infos := widthInfos.getFromTm? widthTm
+  let some infos := widthInfos.getFromTm? widthTm.term
     | throwError m!"{wExpr} Shuold have be defined in widthInfos."
   let [g] ← g.withContext <| g.apply <| ← mkAppM ``var_elim #[.fvar infos.hypWidthLeBoundNote]
     | throwError m!"{``var_elim} should generate a single goal. Produced {g}"
@@ -305,17 +330,27 @@ meta partial def visitExprRec (g : MVarId)
   else
     return (g, widthTms, bvs)
 
-/--
-Match width relation.
--/
-meta def matchWidthRel (e : Expr) :
-    Option (Expr × Expr) :=
-  match_expr e with
-  | LT.lt ty _inst ea eb => if (ty.isConstOf ``Nat) then some (ea, eb) else none
-  | LE.le ty _inst ea eb => if (ty.isConstOf ``Nat) then some (ea, eb) else none
-  | GT.gt ty _inst ea eb => if (ty.isConstOf ``Nat) then some (ea, eb) else none
-  | GE.ge ty _inst ea eb => if (ty.isConstOf ``Nat) then some (ea, eb) else none
-  | _ => none
+meta def tmToNote (term : Tm .prop) (widthInfos : WidthInfos) (g : MVarId) (fvar : FVarId) : MetaM MVarId := g.withContext do
+  -- WIP assume the two sides of the prop are width "atoms" that are inside of widthInfos
+  match term with
+  | .widthLT v w =>
+    let some vInfo := widthInfos.getFromTm? v |
+      logInfo m!"Skipping width condition transformation, term {v.toExpr widthInfos.env} is not a mask."
+      return g
+    let some wInfo := widthInfos.getFromTm? w |
+      logInfo m!"Skipping width condition transformation, term {w.toExpr widthInfos.env} is not a mask."
+      return g
+    let (_newFvar, g) ← g.withContext <| g.note (Name.mkSimple s!"bv_{v.toName}_lt_{w.toName}")
+      <| ← mkAppM ``lt_eq_lt_of_eq_maskOfWidth #[
+          .fvar vInfo.hypWidthLeBoundNote,
+          .fvar wInfo.hypWidthLeBoundNote,
+          .fvar vInfo.widthMaskHypFvar,
+          .fvar wInfo.widthMaskHypFvar,
+          .fvar fvar,
+          ]
+    return g
+  | _ => return g
+
 
 /--
 If a condition on the width hypothesis is found, and the widths are contained
@@ -324,15 +359,11 @@ goal. This allows for a single call to Simp later.
 -/
 meta def translateWidthPrecond (winfos : WidthInfos) (g : MVarId) (ldecl : LocalDecl)
     : MetaM (MVarId) := g.withContext do
-  if let some (ea, eb) := matchWidthRel ldecl.type then
-    let some wa ← winfos.getFromExpr? ea | return g
-    let some wb ← winfos.getFromExpr? eb | return g
-    let (natHyp, g) ← g.withContext do g.note (Name.mkSimple s!"bv_{wa.name}_{wb.name}") ldecl.toExpr
-    let (#[_], g) ← g.revert #[natHyp] | throwError m!"Reverting {← natHyp.getType} shuold produce a single FVar."
-    return g
-  else
-    return g
-
+  let reified ← Tm.reifyProp winfos.env (ldecl.type)
+  if let some prop := reified then
+    logInfo m!"Managed to reify `{ldecl.toExpr}: {ldecl.type}`"
+    return ← tmToNote prop winfos g ldecl.fvarId
+  return g
 /--
 Traverse the local context and add any width pre-conditions to the goal.
 -/
@@ -367,10 +398,6 @@ meta def addBoundRewrites (g : MVarId) (ctx : PbvTranslateContext) (widthTms : W
     MetaM SimpTheoremsArray := g.withContext do
   let thms := #[
         ``eq_iff,
-        ``lt_eq_lt_of_eq_maskOfWidth,
-        ``le_eq_le_of_eq_maskOfWidth,
-        ``ge_eq_ge_of_eq_maskOfWidth,
-        ``gt_eq_gt_of_eq_maskOfWidth,
         ``msb_eq_and_signBitOfMask_maskOfWidth_ne_zero
   ]
 
@@ -468,3 +495,16 @@ public meta def evalPbvDecide : Tactic := fun stx => do
       let ctx : PbvTranslateContext := { bmcBound := n.getNat }
       replaceMainGoal (← pbvTranslate (← getMainGoal) ctx)
   | _ => throwUnsupportedSyntax
+
+/-- Zero extending a zero extension-/
+example (p q r : Nat) (x : BitVec p)
+  (hr : r ≤ 8)
+  (hqr : q < r)
+  (hpq : p < q) :
+  (x.zeroExtend q).zeroExtend r = x.zeroExtend r
+  := by
+  pbv_decide 8
+  · bv_decide
+  · grind
+  · grind
+  · grind
