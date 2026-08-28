@@ -25,7 +25,9 @@ meta def getBitvecType? (e : Expr) : Option Expr :=
   | BitVec w => some w
   | _ => none
 
-/-- An environment that maps width atoms in `Tm` into its `Expr` -/
+/--
+An environment that maps width atoms in `Tm` into its `Expr`
+-/
 meta structure TmWidthEnv where
   width2expr : Array Expr := #[]
 
@@ -38,7 +40,7 @@ expressions. These are either width `Expr`s coming from `BitVec w` or
 `Nat` variables in the local context.
 -/
 meta def createWidthEnv (g : MVarId) : MetaM TmWidthEnv := g.withContext do
-  (← getLCtx).foldrM (init := {}) (fun ldecl (widthEnv : TmWidthEnv ) => do
+  (← getLCtx).foldrM (init := {}) fun ldecl (widthEnv : TmWidthEnv ) => do
       if let some width := getBitvecType? ldecl.type then
         let some _ := widthEnv.width2expr.idxOf? width | pure <| widthEnv.push width
         pure widthEnv
@@ -47,7 +49,6 @@ meta def createWidthEnv (g : MVarId) : MetaM TmWidthEnv := g.withContext do
           pure <| widthEnv.push ldecl.toExpr
         else
           pure widthEnv
-    )
 
 /--
 Type to capture the expressions this tactic will handle.
@@ -152,6 +153,8 @@ structure WidthInfo where
   /-- The FVar of the bound hypothesis, necessary so 'simp' rewrites with it. -/
   hypWidthLeBoundNote : FVarId
 
+meta def WidthInfo.name (this : WidthInfo) : Name :=
+  this.widthTm.toName
 
 structure WidthInfos where
   /-- One WidthInfo per width -/
@@ -324,7 +327,7 @@ meta def translateWidthPrecond (winfos : WidthInfos) (g : MVarId) (ldecl : Local
   if let some (ea, eb) := matchWidthRel ldecl.type then
     let some wa ← winfos.getFromExpr? ea | return g
     let some wb ← winfos.getFromExpr? eb | return g
-    let (natHyp, g) ← g.withContext do g.note (Name.mkSimple s!"bv_{wa.widthName}_{wb.widthName}") ldecl.toExpr
+    let (natHyp, g) ← g.withContext do g.note (Name.mkSimple s!"bv_{wa.name}_{wb.name}") ldecl.toExpr
     let (#[_], g) ← g.revert #[natHyp] | throwError m!"Reverting {← natHyp.getType} shuold produce a single FVar."
     return g
   else
