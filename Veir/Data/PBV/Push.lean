@@ -14,13 +14,15 @@ namespace Veir.Data.PBV
 
 public section
 
-/-! ## Introducing `setWidth o` at the root -/
 
+/-- Introducing `setWidth o` at the root -/
 theorem eq_iff (o : Nat) {w : Nat} (h : w ≤ o) :
     ∀ (a b : BitVec w), (a = b) = (a.setWidth o = b.setWidth o) := by
   intro a b
   apply propext
   exact ⟨fun hab => hab ▸ rfl, fun hab => BitVec.setWidth_inj h hab⟩
+
+/-! ## Translating conditions on `Nat` widths into conditions on masks -/
 
 /-- LT on the widths translates to the masks. -/
 theorem lt_eq_lt_of_eq_maskOfWidth (o : Nat) {w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
@@ -64,8 +66,6 @@ theorem setWidth_setWidth {w o : Nat} (h : w ≤ o) :
   intro u a
   refine setWidth_eq_and_maskOfWidth h ?_
   rw [BitVec.toNat_setWidth, BitVec.toNat_setWidth, Nat.mod_mod_pow_of_le h]
-
-/-! ## Width-sensitive arithmetic: mask the result -/
 
 theorem setWidth_add {w o : Nat} (h : w ≤ o) :
     ∀ (a b : BitVec w),

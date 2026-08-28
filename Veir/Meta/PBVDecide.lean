@@ -71,8 +71,8 @@ meta def introMaskWidth (ctx : PbvTranslateContext) (g : MVarId) (widthExpr : Ex
     let (hypWidthLeBoundNote, g) ← g.withContext do g.note (Name.mkSimple s!"h_{name}_le_bound") hypWidthLeBound
     g.withContext <| check (mkFVar hypWidthLeBoundNote)
     -- Assert the BitVec mask constraint.
-    let hypExpr ← g.withContext do mkAppM ``isMask_of_eq_maskOfWidth #[mkFVar maskHyp]
-    let (_hIsMaskOfEq, g) ← g.withContext do g.note (Name.mkSimple s!"h_{maskName}_isMask") hypExpr
+    let hypExpr ← g.withContext do mkAppM ``maskOfWidth_and_add_one_eq_zero #[mkFVar maskHyp]
+    let (_, g) ← g.withContext do g.note (Name.mkSimple s!"h_{maskName}_bv_mask") hypExpr
 
     let info : WidthInfo := {
       widthName := name,
@@ -83,7 +83,6 @@ meta def introMaskWidth (ctx : PbvTranslateContext) (g : MVarId) (widthExpr : Ex
       hypWidthLeBoundNote
     }
     return (g, info, infos.push info)
-    -- return (g, infos)
 
 /--
 Either get existing width info, or create one if it does not exist.
@@ -321,9 +320,7 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVa
   let (g, bvInfos) ← introMaskedBitvectors ctx bvsToRevert g
   -- Find preconditions on the width `FVar`s
   let g ← translateWidthPreconds widthInfos g
-  -- Create simp Set
-  -- TODO: make this a simp-set, called `pbv_push`, and just gather these
-  -- from the simp-set. This makes them user-extensible with no metaprogramming needed.
+  -- Create simp set
   let thms := ← addBoundRewrites g ctx
            <| ← addPushTheorems g
            <| ← addBvInfos g bvInfos -- This step is not strictly necessary.
@@ -352,23 +349,3 @@ public meta def evalPbvDecide : Tactic := fun stx => do
       let ctx : PbvTranslateContext := { bmcBound := n.getNat }
       replaceMainGoal (← pbvTranslate (← getMainGoal) ctx)
   | _ => throwUnsupportedSyntax
-
--- TODO: get the following working by also instantiating the provided width bound
--- example (w : Nat) (x : BitVec (w + 0)) (y : BitVec w) (hw : w ≤ 4) :
---   x + y = y + x := by
---   pbv_decide 4
---   · simp only [eq_iff 4 hw]
---     bv_decide
---   · grind
-
--- TODO: handle addition inside of the mask widths.
--- example (p q r : Nat) (x : BitVec p)
---   (hr : q ≤ 8)
---   (hpq : p < q) :
---   (x.zeroExtend q).zeroExtend (q + q) = x.zeroExtend (q + q)
---   := by
---   pbv_decide 8
---   · bv_decide
---   · grind
---   · grind
---   · grind

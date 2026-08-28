@@ -17,10 +17,6 @@ public section
 /-- `maskOfWidth o w : BitVec o` has its low `w` bits set. -/
 def maskOfWidth (o w : Nat) : BitVec o := BitVec.ofNat o (2 ^ w - 1)
 
-/-- `IsMask` encodes `m = 2^k - 1` for some `k : Nat` in terms of bitvector
-operations removing the dependency on `k` and allowing it to be bitblasted. -/
-def IsMask {o : Nat} (m : BitVec o) : Prop := m &&& (m + 1#o) = 0#o
-
 theorem toNat_maskOfWidth {o w : Nat} (h : w ≤ o) :
     (maskOfWidth o w).toNat = 2 ^ w - 1 := by
   rw [maskOfWidth, BitVec.toNat_ofNat, Nat.mod_eq_of_lt]
@@ -28,27 +24,15 @@ theorem toNat_maskOfWidth {o w : Nat} (h : w ≤ o) :
   have h2 : 0 < 2 ^ w := Nat.two_pow_pos w
   lia
 
-/-- Soundness: every real mask satisfies the constraint. -/
-theorem isMask_maskOfWidth {o w : Nat} :
-    IsMask (maskOfWidth o w) := by
-  simp [IsMask, maskOfWidth, BitVec.ofNat_add_ofNat, ← BitVec.ofNat_and,
-    Nat.sub_add_cancel Nat.one_le_two_pow, Nat.and_comm (2 ^ w - 1),
-    Nat.and_two_pow_sub_one_eq_mod]
-
-/-- The mask constraint: the only fact about `m` surviving abstraction. -/
-theorem isMask_of_eq_maskOfWidth {o w : Nat} {m : BitVec o}
+/-- The mask constraint: the only fact about `m` surviving abstraction. This
+encodes `m = 2^k - 1` for some `k : Nat` in terms of bitvector operations
+removing the dependency on `k` and allowing it to be bitblasted. -/
+theorem maskOfWidth_and_add_one_eq_zero {o w : Nat} {m : BitVec o}
     (hm : m = maskOfWidth o w) : m &&& (m + 1#o) = 0#o := by
   subst hm
-  exact isMask_maskOfWidth
-
-/-- `maskOfWidth` is monotone with respect to unsigned bitvec comparison. -/
-theorem maskOfWidth_lt_maskOfWidth {o w₁ w₂ : Nat} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
-    (h : w₁ < w₂) : maskOfWidth o w₁ < maskOfWidth o w₂ := by
-  rw [BitVec.lt_def, toNat_maskOfWidth h₁, toNat_maskOfWidth h₂]
-  have hlt : 2 ^ w₁ < 2 ^ w₂ := Nat.pow_lt_pow_right (by lia) (by lia)
-  have : 0 < 2 ^ w₁ := by grind
-  lia
-
+  simp [maskOfWidth, BitVec.ofNat_add_ofNat, ← BitVec.ofNat_and,
+    Nat.sub_add_cancel Nat.one_le_two_pow, Nat.and_comm (2 ^ w - 1),
+    Nat.and_two_pow_sub_one_eq_mod]
 
 /-- ANDing with `maskOfWidth o w` keeps exactly the low `w` bits. -/
 theorem toNat_and_maskOfWidth {o w : Nat} (h : w ≤ o) (x : BitVec o) :

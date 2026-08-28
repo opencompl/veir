@@ -31,7 +31,7 @@ theorem trace_add_comm_manual (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
   apply var_elim 4 w w_le_bw
   intro y h_ymw
 -- Step 5: Convert width hypothesis to mask hypothesis
-  have mw_mask := isMask_of_eq_maskOfWidth h_mw
+  have mw_mask := maskOfWidth_and_add_one_eq_zero h_mw
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [
       eq_iff (o := 4),             -- Introduce `setWidth` to goal
@@ -70,9 +70,9 @@ theorem trace_zero_zero_extend (p q r : Nat) (x : BitVec p)
   apply var_elim 8 p p_le_bw
   intro x h_xmp
 -- Step 5: Convert width hypothesis to mask hypothesis
-  have mr_mask := isMask_of_eq_maskOfWidth h_mr
-  have mq_mask := isMask_of_eq_maskOfWidth h_mq
-  have mp_mask := isMask_of_eq_maskOfWidth h_mp
+  have mr_mask := maskOfWidth_and_add_one_eq_zero h_mr
+  have mq_mask := maskOfWidth_and_add_one_eq_zero h_mq
+  have mp_mask := maskOfWidth_and_add_one_eq_zero h_mp
 -- Step 5B: Translate the condition on the natural number width
 --          into a fact about the bitvector masks
   have bv_p_lt_q := h_pq
@@ -121,9 +121,9 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
   apply var_elim 8 p p_le_bw
   intro x h_xmp
 -- Step 5: Convert width hypothesis to mask hypothesis
-  have mr_mask := isMask_of_eq_maskOfWidth h_mr
-  have mq_mask := isMask_of_eq_maskOfWidth h_mq
-  have mp_mask := isMask_of_eq_maskOfWidth h_mp
+  have mr_mask := maskOfWidth_and_add_one_eq_zero h_mr
+  have mq_mask := maskOfWidth_and_add_one_eq_zero h_mq
+  have mp_mask := maskOfWidth_and_add_one_eq_zero h_mp
 -- Step 5B: Translate the condition on the natural number width
 --          into a fact about the bitvector masks
   have bv_p_lt_q := hpq
