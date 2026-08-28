@@ -330,40 +330,36 @@ meta partial def visitExprRec (g : MVarId)
   else
     return (g, widthTms, bvs)
 
-meta def tmToNote (term : Tm .prop) (widthInfos : WidthInfos) (g : MVarId) (fvar : FVarId) : MetaM MVarId := g.withContext do
-  -- WIP assume the two sides of the prop are width "atoms" that are inside of widthInfos
+meta def getThmFromTm (term : Tm .prop) : Option (Name × Tm .width × Tm .width) :=
   match term with
-  | .widthLT v w =>
-    let some vInfo := widthInfos.getFromTm? v |
-      logInfo m!"Skipping width condition transformation, term {v.toExpr widthInfos.env} is not a mask."
-      return g
-    let some wInfo := widthInfos.getFromTm? w |
-      logInfo m!"Skipping width condition transformation, term {w.toExpr widthInfos.env} is not a mask."
-      return g
-    let (_newFvar, g) ← g.withContext <| g.note (Name.mkSimple s!"bv_{v.toName}_lt_{w.toName}")
-      <| ← mkAppM ``lt_eq_lt_of_eq_maskOfWidth #[
-          .fvar vInfo.hypWidthLeBoundNote,
-          .fvar wInfo.hypWidthLeBoundNote,
-          .fvar vInfo.widthMaskHypFvar,
-          .fvar wInfo.widthMaskHypFvar,
-          .fvar fvar,
-          ]
-    return g
-  | _ => return g
-
+  | .widthLT v w => (``lt_eq_lt_of_eq_maskOfWidth, v, w)
+  | _ => none
 
 /--
 If a condition on the width hypothesis is found, and the widths are contained
-within the `WidthInfos` set, then restate (note) the hypothesis and add it to the
-goal. This allows for a single call to Simp later.
+within the `WidthInfos` set, then convert into a statement about the width masks.
 -/
-meta def translateWidthPrecond (winfos : WidthInfos) (g : MVarId) (ldecl : LocalDecl)
+meta def translateWidthPrecond (widthInfos : WidthInfos) (g : MVarId) (ldecl : LocalDecl)
     : MetaM (MVarId) := g.withContext do
-  let reified ← Tm.reifyProp winfos.env (ldecl.type)
-  if let some prop := reified then
-    logInfo m!"Managed to reify `{ldecl.toExpr}: {ldecl.type}`"
-    return ← tmToNote prop winfos g ldecl.fvarId
+  let some prop ← Tm.reifyProp widthInfos.env (ldecl.type) | return g
+  let some (thm, v, w) := getThmFromTm prop | return g
+  let some vInfo := widthInfos.getFromTm? v |
+    logInfo m!"Skipping width condition transformation, term {v.toExpr widthInfos.env} is not a mask."
+    return g
+  let some wInfo := widthInfos.getFromTm? w |
+    logInfo m!"Skipping width condition transformation, term {w.toExpr widthInfos.env} is not a mask."
+    return g
+  let (_, g) ← g.withContext
+    <| g.note (Name.mkSimple s!"bv_{v.toName}_lt_{w.toName}")
+    <| ← mkAppM thm <| #[
+        wInfo.hypWidthLeBoundNote,
+        vInfo.hypWidthLeBoundNote,
+        vInfo.widthMaskHypFvar,
+        wInfo.widthMaskHypFvar,
+        ldecl.fvarId,
+        ].map mkFVar
   return g
+
 /--
 Traverse the local context and add any width pre-conditions to the goal.
 -/
@@ -495,16 +491,3 @@ public meta def evalPbvDecide : Tactic := fun stx => do
       let ctx : PbvTranslateContext := { bmcBound := n.getNat }
       replaceMainGoal (← pbvTranslate (← getMainGoal) ctx)
   | _ => throwUnsupportedSyntax
-
-/-- Zero extending a zero extension-/
-example (p q r : Nat) (x : BitVec p)
-  (hr : r ≤ 8)
-  (hqr : q < r)
-  (hpq : p < q) :
-  (x.zeroExtend q).zeroExtend r = x.zeroExtend r
-  := by
-  pbv_decide 8
-  · bv_decide
-  · grind
-  · grind
-  · grind
