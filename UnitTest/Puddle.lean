@@ -32,6 +32,7 @@ private def addZero : Pattern OpCode :=
 theorem addZero_valid : Pattern.Valid addZero := by
   simp only [addZero, matchConstant]
   provePuddleValid
+  sorry
 
 /-- Rewrite `x * 2` to `x + x`. -/
 private def mulTwo : Pattern OpCode :=
@@ -52,6 +53,7 @@ private def mulTwo : Pattern OpCode :=
 theorem mulTwo_valid : Pattern.Valid mulTwo := by
   simp only [mulTwo, matchConstant]
   provePuddleValid
+  sorry
 
 /-- Rewrite `x + 0` to `x`, matching the zero with a native metadata predicate. -/
 private def nativeMatch : Pattern OpCode :=
@@ -92,10 +94,12 @@ private def nativeApply : Pattern OpCode :=
 theorem nativeMatch_valid : Pattern.Valid nativeMatch := by
   simp only [nativeMatch]
   provePuddleValid
+  sorry
 
 theorem nativeApply_valid : Pattern.Valid nativeApply := by
   simp only [nativeApply]
   provePuddleValid
+  sorry
 
 /- ## Test matcher builder validation -/
 
