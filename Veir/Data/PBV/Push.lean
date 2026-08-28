@@ -22,49 +22,7 @@ theorem eq_iff (o : Nat) {w : Nat} (h : w ≤ o) :
   apply propext
   exact ⟨fun hab => hab ▸ rfl, fun hab => BitVec.setWidth_inj h hab⟩
 
-/-! ## Translating conditions on `Nat` widths into conditions on masks -/
-
-/-- LT on the widths translates to the masks. -/
-theorem lt_eq_lt_of_eq_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
-    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
-    (hw₁w₂ : w₁ < w₂) : (m₁ < m₂) := by
-  subst m₁ m₂
-  rw [BitVec.lt_def, toNat_maskOfWidth h₁, toNat_maskOfWidth h₂,
-      Nat.sub_lt_sub_iff_right (by grind), Nat.pow_lt_pow_iff_right (by grind)]
-  exact hw₁w₂
-
-/-- LE on the widths translates to the masks. -/
-theorem le_eq_le_of_eq_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
-    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
-    (hw₁w₂ : w₁ ≤ w₂) : (m₁ ≤ m₂) := by
-  subst m₁ m₂
-  rw [BitVec.le_def, toNat_maskOfWidth h₁, toNat_maskOfWidth h₂,
-      Nat.sub_le_sub_iff_right (by grind), Nat.pow_le_pow_iff_right (by grind)]
-  exact hw₁w₂
-
-/-- LE on the widths translates to the masks. -/
-theorem ge_eq_ge_of_eq_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
-    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
-    (hw₁w₂ : w₁ ≥ w₂) : (m₁ ≥ m₂) := by
-  grind [le_eq_le_of_eq_maskOfWidth]
-
-/-- LE on the widths translates to the masks. -/
-theorem gt_eq_gt_of_eq_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
-    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
-    (hw₁w₂ : w₁ > w₂) : (m₁ > m₂) := by
-  grind [lt_eq_lt_of_eq_maskOfWidth]
-
-theorem maskOfWidth_add_eq_mul_of_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o}
-    (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o) (h₁₂ : w₁ + w₂ ≤ o)
-    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
-  : maskOfWidth o (w₁ + w₂) = (m₁ + 1#o) * (m₂ + 1#o) - 1#o
-  := by
-  cases o
-  · simp [hm₁, hm₂, maskOfWidth_zero_eq_zero, h₁, h₂, h₁₂]
-  · rw [hm₁, add_one_maskOfWidth_eq_twoPow h₁, hm₂, add_one_maskOfWidth_eq_twoPow h₂, BitVec.twoPow_mul_twoPow_eq]
-    apply maskOfWidth_eq_twoPow_sub_one h₁₂
-
-/-! # Pushing `setWidth o` towards the leaves — leaves and width changes -/
+/-! ## Pushing `setWidth o` towards the leaves — leaves and width changes -/
 
 theorem setWidth_setWidth {w o : Nat} (h : w ≤ o) :
     ∀ {u : Nat} (a : BitVec u),
@@ -72,6 +30,8 @@ theorem setWidth_setWidth {w o : Nat} (h : w ≤ o) :
   intro u a
   refine setWidth_eq_and_maskOfWidth h ?_
   rw [BitVec.toNat_setWidth, BitVec.toNat_setWidth, Nat.mod_mod_pow_of_le h]
+
+/-! ## Width-sensitive arithmetic: mask the result -/
 
 theorem setWidth_add {w o : Nat} (h : w ≤ o) :
     ∀ (a b : BitVec w),

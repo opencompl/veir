@@ -34,6 +34,20 @@ theorem maskOfWidth_and_add_one_eq_zero {o w : Nat} {m : BitVec o}
     Nat.sub_add_cancel Nat.one_le_two_pow, Nat.and_comm (2 ^ w - 1),
     Nat.and_two_pow_sub_one_eq_mod]
 
+/-- `maskOfWidth` is monotone with respect to unsigned bitvec comparison. -/
+theorem maskOfWidth_lt_maskOfWidth {o w₁ w₂ : Nat} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
+    (h : w₁ < w₂) : maskOfWidth o w₁ < maskOfWidth o w₂ := by
+  rw [BitVec.lt_def, toNat_maskOfWidth h₁, toNat_maskOfWidth h₂]
+  have hlt : 2 ^ w₁ < 2 ^ w₂ := Nat.pow_lt_pow_right (by lia) (by lia)
+  have : 0 < 2 ^ w₁ := by grind
+  lia
+
+/-- Strict width order becomes strict mask order. -/
+theorem mask_lt_mask {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
+    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
+    (hw : w₁ < w₂) : m₁ < m₂ := by
+  grind only [maskOfWidth_lt_maskOfWidth]
+
 /-- ANDing with `maskOfWidth o w` keeps exactly the low `w` bits. -/
 theorem toNat_and_maskOfWidth {o w : Nat} (h : w ≤ o) (x : BitVec o) :
     (x &&& maskOfWidth o w).toNat = x.toNat % 2 ^ w := by
@@ -45,28 +59,6 @@ theorem setWidth_eq_and_maskOfWidth {o w : Nat} {a : BitVec w} {b : BitVec o}
     a.setWidth o = b &&& maskOfWidth o w := by
   apply BitVec.eq_of_toNat_eq
   rw [toNat_and_maskOfWidth h, BitVec.toNat_setWidth_of_le h, hab]
-
-/-- Adding one to a mask makes it a twoPow BitVec. -/
-theorem add_one_maskOfWidth_eq_twoPow {o w : Nat} (h : w ≤ o) : maskOfWidth o w + 1#o = BitVec.twoPow o w := by
-  apply BitVec.eq_of_toNat_eq
-  rw [BitVec.toNat_add, toNat_maskOfWidth h, BitVec.toNat_twoPow]
-  cases o
-  · have w_zero : w = 0 := by grind
-    simp [w_zero]
-  · congr
-    simp [BitVec.toNat_ofNat, Nat.mod_eq_of_lt]
-    grind
-
-/-- Mask is BitVec.twoPow minus one. -/
-theorem maskOfWidth_eq_twoPow_sub_one {o w : Nat} (h : w ≤ o) : maskOfWidth o w = BitVec.twoPow o w - 1#o := by
-  apply BitVec.eq_of_toNat_eq
-  grind [add_one_maskOfWidth_eq_twoPow]
-
-/-- Mask of zero is zero. -/
-theorem maskOfWidth_zero_eq_zero {w : Nat} (h : w ≤ 0) : maskOfWidth 0 w = 0 := by
-  apply BitVec.eq_of_toNat_eq
-  have : w = 0 := by grind
-  simp [maskOfWidth, this]
 
 /-- The `i`th bit of `maskOfWidth o w` is enabled iff
 the index `i` is inbounds of `o` and `w`. -/
