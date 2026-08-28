@@ -51,7 +51,7 @@ example (p q r : Nat) (x : BitVec p)
 /-- Double zero extending with composite width. -/
 example (p q : Nat) (x : BitVec p)
   (hr : q ≤ 8)
-  (hpq : p < q) :
+  (hpq : q > p) :
   (x.zeroExtend q).zeroExtend (q + q) = x.zeroExtend (q + q)
   := by
   pbv_decide 8

@@ -145,9 +145,10 @@ meta def WidthTms.push (this : WidthTms) (width : WidthTm) : WidthTms :=
 /--
 Either get existing width term, or try and reify one if it does not exist.
 -/
-meta def WidthTms.getOrCreateTm
-    (g : MVarId) (this : WidthTms) (wExpr : Expr) : MetaM (MVarId × WidthTm × WidthTms) := g.withContext do
-  let some reified ← Tm.reifyWidth this.env wExpr | throwError m!"Failed to reify width expr: {wExpr}"
+meta def WidthTms.getOrCreateTm (g : MVarId) (this : WidthTms) (wExpr : Expr)
+  : MetaM (MVarId × WidthTm × WidthTms) := g.withContext do
+  let some reified ← Tm.reifyWidth this.env wExpr
+    | throwError m!"Failed to reify width expr: {wExpr}"
   if let some info := this.terms[reified.toName]? then -- use reified.toExpr as a kind of "normal"/"canonical" form
     return (g, info, this)
   else
@@ -216,12 +217,16 @@ meta def introMaskWidth (maxBound : Nat) (g : MVarId) (widthTm : WidthTm) (infos
     -- Intros
     let name := widthTm.term.toName
     let maskName := Name.mkSimple s!"m_{name}"
-    let (#[mask, maskHyp], g) ← g.withContext <| g.introN 2 [maskName, Name.mkSimple s!"h_{maskName}"]
+    let (#[mask, maskHyp], g) ← g.withContext
+      <| g.introN 2 [maskName, Name.mkSimple s!"h_{maskName}"]
       | throwError m!"Failed to intro {``width_elim}"
     -- Introduce width bound on the variable.
     let hypWidthLeBound ← g.withContext do
       mkFreshExprMVar (mkAppN (Expr.const ``LE.le [.zero])
-        #[mkConst ``Nat, mkConst ``instLENat, widthTm.term.toExpr infos.env, mkNatLit maxBound])
+        #[mkConst ``Nat,
+          mkConst ``instLENat,
+          widthTm.term.toExpr infos.env,
+          mkNatLit maxBound])
     g.withContext <| check hypWidthLeBound
     let (hypWidthLeBoundNote, g) ← g.withContext do g.note (Name.mkSimple s!"h_{name}_le_blast") hypWidthLeBound
     g.withContext <| check (mkFVar hypWidthLeBoundNote)
@@ -330,9 +335,15 @@ meta partial def visitExprRec (g : MVarId)
   else
     return (g, widthTms, bvs)
 
+/--
+Extract `Tm .width`s and corresponding theorem from `Tm .prop`.
+-/
 meta def getThmFromTm (term : Tm .prop) : Option (Name × Tm .width × Tm .width) :=
   match term with
   | .widthLT v w => (``lt_eq_lt_of_eq_maskOfWidth, v, w)
+  | .widthLE v w => (``le_eq_le_of_eq_maskOfWidth, v, w)
+  | .widthGT v w => (``gt_eq_gt_of_eq_maskOfWidth, v, w)
+  | .widthGE v w => (``ge_eq_ge_of_eq_maskOfWidth, v, w)
   | _ => none
 
 /--
@@ -352,8 +363,8 @@ meta def translateWidthPrecond (widthInfos : WidthInfos) (g : MVarId) (ldecl : L
   let (_, g) ← g.withContext
     <| g.note (Name.mkSimple s!"bv_{v.toName}_lt_{w.toName}")
     <| ← mkAppM thm <| #[
-        wInfo.hypWidthLeBoundNote,
         vInfo.hypWidthLeBoundNote,
+        wInfo.hypWidthLeBoundNote,
         vInfo.widthMaskHypFvar,
         wInfo.widthMaskHypFvar,
         ldecl.fvarId,
@@ -365,16 +376,14 @@ Traverse the local context and add any width pre-conditions to the goal.
 -/
 meta def translateWidthPreconds (winfos: WidthInfos)
     (g : MVarId) : MetaM MVarId := g.withContext do
-  let mut g := g
-  for ldecl in ← getLCtx do
-    g ← translateWidthPrecond winfos g ldecl
-  return g
+  (← getLCtx).foldlM (translateWidthPrecond winfos) g
 
 meta def introMaskWidths (widthTms : WidthTms) (g : MVarId) (ctx : PbvTranslateContext)
   : MetaM (MVarId × WidthInfos)
   := g.withContext do
+  -- Compute max width
   let maxWidth := widthTms.getUniverseWidthUpperBound ctx
-
+  -- Intro all the masks
   widthTms.terms.foldM (init := (g, { env := widthTms.env })) (fun (g, widthInfos) _ widthTm =>
     introMaskWidth maxWidth g widthTm widthInfos
   )
@@ -390,7 +399,8 @@ meta def introMaskedBitvectors (bvs : BitVecFVarsToRevert) (g : MVarId)
 These theorems require pre-filling the width bound in order to be used within
 the Simp set.
 -/
-meta def addBoundRewrites (g : MVarId) (ctx : PbvTranslateContext) (widthTms : WidthTms) (simp : SimpTheoremsArray) :
+meta def addBoundRewrites (g : MVarId) (ctx : PbvTranslateContext)
+  (widthTms : WidthTms) (simp : SimpTheoremsArray) :
     MetaM SimpTheoremsArray := g.withContext do
   let thms := #[
         ``eq_iff,
@@ -398,7 +408,8 @@ meta def addBoundRewrites (g : MVarId) (ctx : PbvTranslateContext) (widthTms : W
   ]
 
   thms.foldlM (init := simp) fun simps name =>
-    return ← simps.addTheorem (.other name) <| ← mkAppM name #[mkNatLit <| widthTms.getUniverseWidthUpperBound ctx]
+    return ← simps.addTheorem (.other name)
+      <| ← mkAppM name #[mkNatLit <| widthTms.getUniverseWidthUpperBound ctx]
 
 /--
 Add theorems to the Simp theorem context that push the `setWidth`s in.
@@ -451,7 +462,8 @@ meta def applySimp (g : MVarId) (simp : SimpTheoremsArray) : MetaM MVarId := g.w
     | throwError "goal solved by simp"
   return g
 
-meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVarId) := g.withContext do
+meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVarId)
+  := g.withContext do
   -- Construct the width environment
   let widthEnv ← createWidthEnv g
   -- Find `BitVec`s and intro their widths

@@ -27,35 +27,35 @@ theorem eq_iff (o : Nat) {w : Nat} (h : w ≤ o) :
 /-- LT on the widths translates to the masks. -/
 theorem lt_eq_lt_of_eq_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
     (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
-    (hw1w2 : w₁ < w₂) : (m₁ < m₂) := by
+    (hw₁w₂ : w₁ < w₂) : (m₁ < m₂) := by
   subst m₁ m₂
-  rw [BitVec.lt_def, toNat_maskOfWidth h₁, toNat_maskOfWidth h₂, Nat.sub_lt_sub_iff_right (by grind), Nat.pow_lt_pow_iff_right (by grind)]
-  exact hw1w2
+  rw [BitVec.lt_def, toNat_maskOfWidth h₁, toNat_maskOfWidth h₂,
+      Nat.sub_lt_sub_iff_right (by grind), Nat.pow_lt_pow_iff_right (by grind)]
+  exact hw₁w₂
 
 /-- LE on the widths translates to the masks. -/
--- theorem le_eq_le_of_eq_maskOfWidth (o : Nat) {w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
---     (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂) :
---     (w₁ ≤ w₂) = (m₁ ≤ m₂) := by
---   subst m₁ m₂
---   rw [eq_iff_iff, BitVec.le_def, toNat_maskOfWidth h₁, toNat_maskOfWidth h₂,
---       ← Nat.pow_le_pow_iff_right (a := 2) (by lia)]
---   have := Nat.two_pow_pos w₁
---   have := Nat.two_pow_pos w₂
---   lia
+theorem le_eq_le_of_eq_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
+    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
+    (hw₁w₂ : w₁ ≤ w₂) : (m₁ ≤ m₂) := by
+  subst m₁ m₂
+  rw [BitVec.le_def, toNat_maskOfWidth h₁, toNat_maskOfWidth h₂,
+      Nat.sub_le_sub_iff_right (by grind), Nat.pow_le_pow_iff_right (by grind)]
+  exact hw₁w₂
 
--- /-- GE on the widths translates to the masks. -/
--- theorem ge_eq_ge_of_eq_maskOfWidth (o : Nat) {w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
---     (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂) :
---     (w₁ ≥ w₂) = (m₁ ≥ m₂) := by
---   grind [le_eq_le_of_eq_maskOfWidth]
+/-- LE on the widths translates to the masks. -/
+theorem ge_eq_ge_of_eq_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
+    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
+    (hw₁w₂ : w₁ ≥ w₂) : (m₁ ≥ m₂) := by
+  grind [le_eq_le_of_eq_maskOfWidth]
 
--- /-- GT on the widths translates to the masks. -/
--- theorem gt_eq_gt_of_eq_maskOfWidth (o : Nat) {w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
---     (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂) :
---     (w₁ > w₂) = (m₁ > m₂) := by
---   grind [lt_eq_lt_of_eq_maskOfWidth]
+/-- LE on the widths translates to the masks. -/
+theorem gt_eq_gt_of_eq_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
+    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
+    (hw₁w₂ : w₁ > w₂) : (m₁ > m₂) := by
+  grind [lt_eq_lt_of_eq_maskOfWidth]
 
-theorem maskOfWidth_add_eq_mul_of_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o) (h₁₂ : w₁ + w₂ ≤ o)
+theorem maskOfWidth_add_eq_mul_of_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o}
+    (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o) (h₁₂ : w₁ + w₂ ≤ o)
     (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
   : maskOfWidth o (w₁ + w₂) = (m₁ + 1#o) * (m₂ + 1#o) - 1#o
   := by
