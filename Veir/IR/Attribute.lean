@@ -1858,6 +1858,7 @@ theorem TypeAttr.inj {attr1 attr2 : TypeAttr} :
 /--
   Convert an attribute to a type attribute.
 -/
+@[grind]
 def Attribute.asType (attr : Attribute) (isType : attr.isType := by grind) : TypeAttr :=
   ⟨attr, isType⟩
 

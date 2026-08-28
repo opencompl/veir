@@ -163,6 +163,24 @@ instance (opCode : OpInfo) [tail : IsMetadataTuple OpInfo Tail] :
     IsMetadataTuple OpInfo (Handle OpInfo (.prop opCode) × Tail) :=
   ⟨.cons (.property opCode) tail.shape⟩
 
+/-! Simplification rules for metadata tuple shapes. -/
+
+@[simp] theorem IsMetadataTuple.shape_unit :
+    shape (OpInfo := OpInfo) (Handles := Unit) = .unit := rfl
+
+@[simp] theorem IsMetadataTuple.shape_type :
+    shape (Handles := Handle OpInfo .type) = .atom .type := rfl
+
+@[simp] theorem IsMetadataTuple.shape_property :
+    shape (Handles := Handle OpInfo (.prop opCode)) = .atom (.property opCode) := rfl
+
+@[simp] theorem IsMetadataTuple.shape_type_cons [tail : IsMetadataTuple OpInfo Tail] :
+    shape (Handles := Handle OpInfo .type × Tail) = .cons .type tail.shape := rfl
+
+@[simp] theorem IsMetadataTuple.shape_property_cons [tail : IsMetadataTuple OpInfo Tail] :
+    shape (Handles := Handle OpInfo (.prop opCode) × Tail) =
+.cons (.property opCode) tail.shape := rfl
+
 /-!
 ## Matcher phase
 
@@ -196,7 +214,7 @@ inductive MatchDecl (OpInfo : Type) [HasOpInfo OpInfo] where
 /-- Require the type bound to `result` to be accepted by `matcher`. -/
 | type (matcher : TypeMatcher) (result : Handle OpInfo .type)
 /-- Require the concrete metadata denoted by `inputs` to satisfy `predicate`. -/
-| applyNative {Inputs : Type} [IsMetadataTuple OpInfo Inputs]
+| applyNative {Inputs : Type} [hInputs : IsMetadataTuple OpInfo Inputs]
     (inputs : Inputs) (predicate : MetadataValues OpInfo Inputs → Bool)
 /-- Identify an operation from the already-bound `result` or `results` handle, check every result
 handle against that operation, require the given opcode, operands, result types, and properties,
