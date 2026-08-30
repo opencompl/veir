@@ -1,5 +1,6 @@
 import Veir.PatternRewriter.Puddle.Builders
 import Veir.PatternRewriter.Puddle.Execution
+import Veir.PatternRewriter.Puddle.Validity
 import Veir.Parser.MlirParser
 import Veir.Printer
 
@@ -28,6 +29,10 @@ private def addZero : Pattern OpCode :=
     pure
     (fun x => x)
 
+theorem addZero_valid : Pattern.Valid addZero := by
+  simp only [addZero, matchConstant]
+  provePuddleValid
+
 /-- Rewrite `x * 2` to `x + x`. -/
 private def mulTwo : Pattern OpCode :=
   Pattern.Builder
@@ -43,6 +48,10 @@ private def mulTwo : Pattern OpCode :=
       let add ← CreateProg.operation (.arith .addi) #[x, x] #[returnType] properties
       return add)
     (fun result => result)
+
+theorem mulTwo_valid : Pattern.Valid mulTwo := by
+  simp only [mulTwo, matchConstant]
+  provePuddleValid
 
 /- ## Test matcher builder validation -/
 
