@@ -48,13 +48,13 @@ namespace Subeffect
 
 /-- `mapEff` is an abbreviation of the first component of `map`. -/
 @[simp, grind]
-abbrev mapEff {ι₁ ι₂} (ε₁ : ι₁ → Type u) (ε₂ : ι₂ → Type u)
+abbrev mapEff {ι₁ ι₂} (ε₁ : ι₁ → Type u) (ε₂ : ι₂ → Type v)
     [s : ε₁ -< ε₂] (i₁ : ι₁) : ι₂ :=
   (s.map i₁).1
 
 /-- `mapCont` is an abbreviation of the second component of `map`. -/
 @[simp, grind]
-abbrev mapCont {ι₁ ι₂} (ε₁ : ι₁ → Type u) (ε₂ : ι₂ → Type u) [s : ε₁ -< ε₂]
+abbrev mapCont {ι₁ ι₂} (ε₁ : ι₁ → Type u) (ε₂ : ι₂ → Type v) [s : ε₁ -< ε₂]
     (i₁ : ι₁) : ε₂ (s.mapEff _ _ i₁) → ε₁ i₁ :=
   (s.map i₁).2
 
