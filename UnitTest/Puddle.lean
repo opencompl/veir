@@ -75,8 +75,8 @@ private def mulTwoProgram := r#""builtin.module"() ({
 /-- Parse a program, apply a compiled Puddle pattern, and print the resulting module. -/
 private def rewriteAndPrint (source : String) (rule : Pattern OpCode) : IO Unit := do
   let some program := parseBinaryProgram source | IO.println "parse failed"
-  let pattern := RewritePattern.fromLocalRewrite (Pattern.compile rule)
-  let some ctx := RewritePattern.applyInContext pattern program.ctx | IO.println "rewrite failed"
+  let pattern := Pattern.compile rule
+  let some ctx := RewritePattern.applyInContext pattern.run program.ctx | IO.println "rewrite failed"
   Printer.printModule ctx.raw program.moduleOp
 
 /--
