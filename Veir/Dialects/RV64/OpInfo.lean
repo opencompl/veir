@@ -30,6 +30,7 @@ def Rv64.toAttrDict
     Std.HashMap ByteArray Attribute :=
   Std.HashMap.emptyWithCapacity 0
 
+@[get_effects]
 def Rv64.getEffects
     (_op : Rv64) (_props : Rv64.propertiesOf _op) : MemoryEffects :=
   .none

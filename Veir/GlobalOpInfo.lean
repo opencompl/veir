@@ -36,6 +36,7 @@ match opCode with
   What are the memory effects of an operation with this opcode and these
   properties?
 -/
+@[get_effects]
 def OpCode.getEffects (opCode : OpCode) (props : _propertiesOf opCode) : MemoryEffects :=
   match opCode, props with
   | .arith op, props => Arith.getEffects op props
@@ -143,6 +144,7 @@ def OpCode.isIsolatedFromAbove (opCode : OpCode) : Bool :=
   Does this OpCode count as an MLIR basic block terminator? Dialects that do
   not say otherwise inherit the `HasOpInfo` default of `false`.
 -/
+@[is_terminator]
 def OpCode.isTerminator (opCode : OpCode) : Bool :=
   match opCode with
   | .arith op => HasOpInfo.isTerminator op
