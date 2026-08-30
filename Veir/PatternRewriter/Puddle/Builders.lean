@@ -31,8 +31,14 @@ are prepended so the finished program can be interpreted from root to leaves.
 structure MatchProg.BuilderState where
   /-- The next free identifier for a handle. -/
   nextId : Nat := 0
-  /-- Declarations in interpreter order; after a well-formed build, the root is first. -/
+  /-- Non-root declarations in interpreter order. -/
   decls : List (MatchDecl OpCode) := []
+  /-- The most recently designated root. -/
+  root? : Option (Handle OpCode .op) := none
+  /-- Operation constraints created by root designations. -/
+  rootConstraints : List (MatchDecl OpCode) := []
+  /-- Number of root designations, used to reject missing or duplicate roots structurally. -/
+  numRoots : Nat := 0
 
 /--
 A stateful builder for a match program that exports a value of type `α`.
@@ -59,6 +65,8 @@ structure OpHandle (opCode : OpCode) where
 
 /-- Handles exported by a matched root without exposing the root's SSA results. -/
 structure RootHandle (opCode : OpCode) where
+  /-- The root operation handle. -/
+  op : Handle OpCode .op
   /-- The matched root's concrete properties. -/
   properties : Handle OpCode (.prop opCode)
 
@@ -81,7 +89,7 @@ def MatchProg.type (Attr : Type) [IsTypeAttr Attr] (matcher : Attr → Bool := f
   ⟨fun state =>
     let result := Handle.mk (OpInfo := OpCode) state.nextId
     let matcher := fun (attr : TypeAttr) => ((attr.cast? Attr).map matcher).getD false
-    (result, {
+    (result, { state with
       nextId := state.nextId + 1
       decls := .type matcher result :: state.decls
     })⟩
@@ -94,7 +102,7 @@ Match a value with a given type. This should be used to match values where their
 def MatchProg.value (type : Handle OpCode .type) : MatchProg.Builder (Handle OpCode .value) :=
   ⟨fun state =>
     let result := Handle.mk (OpInfo := OpCode) state.nextId
-    (result, {
+    (result, { state with
       nextId := state.nextId + 1
       decls := .value type result :: state.decls
     })⟩
@@ -115,17 +123,17 @@ def MatchProg.operation (opCode : OpCode) (operands : Array (Handle OpCode .valu
     let res := (Array.range returnTypes.size).map fun index =>
       Handle.mk (OpInfo := OpCode) (state.nextId + index + 1)
     let properties := Handle.mk (OpInfo := OpCode) (state.nextId + returnTypes.size + 1)
-    (⟨op, res, properties⟩, {
+    (⟨op, res, properties⟩, { state with
       nextId := state.nextId + returnTypes.size + 2
       decls := .operation opCode operands returnTypes property properties op res :: state.decls
     })⟩
 
 /--
 Match a root operation given its opcode, operands, result types, and properties. This should be the
-last declaration in a Puddle match. At runtime, this is the entry point of the matcher. It returns
-a handle for accessing its concrete properties, but in particular does not return handles for its
-results or the operation itself, since those are accessible from the root through already-bound
-handles.
+last declaration in a Puddle match, and should be called exactly once. At runtime, this is the entry
+point of the matcher. It returns a handle for accessing its concrete properties, but in particular
+does not return handles for its results or the operation itself, since those are accessible from the
+root through already-bound handles.
 -/
 @[expose, inline]
 def MatchProg.root (opCode : OpCode) (operands : Array (Handle OpCode .value))
@@ -137,17 +145,29 @@ def MatchProg.root (opCode : OpCode) (operands : Array (Handle OpCode .value))
     let results := (Array.range returnTypes.size).map fun index =>
       Handle.mk (OpInfo := OpCode) (state.nextId + index + 1)
     let properties := Handle.mk (OpInfo := OpCode) (state.nextId + returnTypes.size + 1)
-    (⟨properties⟩, {
+    (⟨op, properties⟩, { state with
       nextId := state.nextId + returnTypes.size + 2
-      decls := .root op ::
-        .operation opCode operands returnTypes property properties op results :: state.decls
+      root? := some op
+      rootConstraints :=
+        .operation opCode operands returnTypes property properties op results ::
+          state.rootConstraints
+      numRoots := state.numRoots + 1
     })⟩
 
-/-- Build a match program using `MatchProg.Builder`. -/
+/-- Build a match program, panicking unless exactly one call to `MatchProg.root` was made. -/
 @[expose, inline]
 def MatchProg.build (builder : MatchProg.Builder α) : MatchProg OpCode α :=
   let (exports, state) := builder.run {}
-  ⟨state.decls, state.nextId, exports⟩
+  let rootHandle :=
+    match state.numRoots, state.root? with
+    | 1, some root => root
+    | _, _ => panic! "MatchProg.build requires exactly one call to MatchProg.root"
+  {
+    rootHandle
+    decls := state.rootConstraints ++ state.decls
+    numHandles := state.nextId
+    exports
+  }
 
 /-!
 ## Creation builder

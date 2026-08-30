@@ -218,11 +218,8 @@ assignment if it succeeds.
 -/
 @[expose, inline_if_reduce]
 def MatchDecl.run (decl : MatchDecl OpInfo) (ctx : IRContext OpInfo)
-    (root : OperationPtr) (assignment : Assignment OpInfo) : Option (Assignment OpInfo) := do
+    (assignment : Assignment OpInfo) : Option (Assignment OpInfo) := do
   match decl with
-  | .root opHandle =>
-    /- A root instruction only binds the root operation to the given handle. -/
-    Assignment.bindOp assignment opHandle root
   | .operation opCode operands resultTypes property propertyHandle opHandle results =>
     /- First, find the matched operation through its handle or one of its result handles. -/
     let matchedOp ← Assignment.findOp assignment opHandle results
@@ -264,12 +261,12 @@ updated assignment if all matches succeed.
 -/
 @[expose, inline_if_reduce]
 def MatchProg.runDecls (decls : List (MatchDecl OpInfo)) (ctx : IRContext OpInfo)
-    (root : OperationPtr) (assignment : Assignment OpInfo) : Option (Assignment OpInfo) :=
+    (assignment : Assignment OpInfo) : Option (Assignment OpInfo) :=
   match decls with
   | [] => some assignment
   | decl :: decls => do
-    let assignment ← decl.run ctx root assignment
-    runDecls decls ctx root assignment
+    let assignment ← decl.run ctx assignment
+    runDecls decls ctx assignment
 
 /--
 Interpret a match program, returning `none` if any match fails, or an updated assignment if the
@@ -278,7 +275,10 @@ match succeeds.
 @[expose, inline]
 def MatchProg.run (prog : MatchProg OpInfo α) (ctx : IRContext OpInfo)
     (root : OperationPtr) : Option (Assignment OpInfo) :=
-  MatchProg.runDecls prog.decls ctx root (Assignment.empty OpInfo prog.numHandles)
+  do
+    let assignment ← Assignment.bindOp
+      (Assignment.empty OpInfo prog.numHandles) prog.rootHandle root
+    MatchProg.runDecls prog.decls ctx assignment
 
 /-- Successful matching of `root` by `prog`. -/
 @[expose]
