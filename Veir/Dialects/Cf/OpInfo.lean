@@ -40,6 +40,7 @@ def Cf.toAttrDict
       (Attribute.denseArrayAttr props.operandSegmentSizes)
   | _ => Std.HashMap.emptyWithCapacity 0
 
+@[get_effects]
 def Cf.getEffects
     (_op : Cf) (_props : Cf.propertiesOf _op) : MemoryEffects :=
   .none
@@ -51,6 +52,7 @@ def Cf.hasSSADominance (_op : Cf) (_index : Nat) : Bool :=
   true
 
 /-- Every `cf` operation is a branch, and so terminates its block. -/
+@[is_terminator]
 def Cf.isTerminator (_op : Cf) : Bool :=
   true
 

@@ -47,6 +47,7 @@ def Func.toAttrDict
     dict
   | _ => Std.HashMap.emptyWithCapacity 0
 
+@[get_effects]
 def Func.getEffects
     (op : Func) (_props : Func.propertiesOf op) : MemoryEffects :=
   match op with
@@ -64,6 +65,7 @@ def Func.isIsolatedFromAbove (op : Func) : Bool :=
 def Func.hasSSADominance (_op : Func) (_index : Nat) : Bool :=
   true
 
+@[is_terminator]
 def Func.isTerminator (op : Func) : Bool :=
   match op with
   | .return => true
