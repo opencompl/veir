@@ -201,6 +201,7 @@ def Riscv.toAttrDict
     dict
   | _ => Std.HashMap.emptyWithCapacity 0
 
+@[get_effects]
 def Riscv.getEffects (op : Riscv) (props : Riscv.propertiesOf op) : MemoryEffects :=
   match op, props with
   | .ld, props | .lw, props | .lwu, props

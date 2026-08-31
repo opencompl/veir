@@ -124,6 +124,7 @@ def PDL.toAttrDict
 /-- MLIR marks only `pdl.range`, `pdl.result` and `pdl.results` `Pure` (see
     `PDLOps.td`). The rest describe or perform rewrite actions and carry no
     memory-effect interface, so we report the conservative answer for them. -/
+@[get_effects]
 def PDL.getEffects (op : PDL) (_props : PDL.propertiesOf op) : MemoryEffects :=
   match op with
   | .range | .result | .results => .none
@@ -149,6 +150,7 @@ def PDL.hasNoTerminator (op : PDL) (_index : Nat) : Bool :=
 
 /-- MLIR marks `pdl.rewrite` itself a `Terminator`: it is the last operation of
     the `pdl.pattern` body it lives in. -/
+@[is_terminator]
 def PDL.isTerminator (op : PDL) : Bool :=
   match op with
   | .rewrite => true

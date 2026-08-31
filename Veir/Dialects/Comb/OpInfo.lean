@@ -63,6 +63,7 @@ def Comb.toAttrDict
       "predicate".toUTF8 (Attribute.integerAttr props.predicate)
   | _ => Std.HashMap.emptyWithCapacity 0
 
+@[get_effects]
 def Comb.getEffects
     (_op : Comb) (_props : Comb.propertiesOf _op) : MemoryEffects :=
   .none

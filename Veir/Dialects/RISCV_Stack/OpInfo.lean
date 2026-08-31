@@ -36,6 +36,7 @@ def Riscv_Stack.toAttrDict
     dict := dict.insert "size".toUTF8 (Attribute.integerAttr props.size)
     dict.insert "alignment".toUTF8 (Attribute.integerAttr props.alignment)
 
+@[get_effects]
 def Riscv_Stack.getEffects
     (_op : Riscv_Stack) (_props : Riscv_Stack.propertiesOf _op) : MemoryEffects :=
   .allocate

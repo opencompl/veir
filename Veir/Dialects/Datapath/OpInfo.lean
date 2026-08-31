@@ -30,6 +30,7 @@ def Datapath.toAttrDict
     Std.HashMap ByteArray Attribute :=
   Std.HashMap.emptyWithCapacity 0
 
+@[get_effects]
 def Datapath.getEffects
     (_op : Datapath) (_props : Datapath.propertiesOf _op) : MemoryEffects :=
   .none
