@@ -123,9 +123,11 @@ def MatchProg.operation (opCode : OpCode) (operands : Array (Handle OpCode .valu
     let res := (Array.range returnTypes.size).map fun index =>
       Handle.mk (OpInfo := OpCode) (state.nextId + index + 1)
     let properties := Handle.mk (OpInfo := OpCode) (state.nextId + returnTypes.size + 1)
+    have hresults : res.size = returnTypes.size := by grind
     (⟨op, res, properties⟩, { state with
       nextId := state.nextId + returnTypes.size + 2
-      decls := .operation opCode operands returnTypes property properties op res :: state.decls
+      decls := .operation opCode operands returnTypes property properties op res hresults ::
+        state.decls
     })⟩
 
 /--
@@ -145,11 +147,12 @@ def MatchProg.root (opCode : OpCode) (operands : Array (Handle OpCode .value))
     let results := (Array.range returnTypes.size).map fun index =>
       Handle.mk (OpInfo := OpCode) (state.nextId + index + 1)
     let properties := Handle.mk (OpInfo := OpCode) (state.nextId + returnTypes.size + 1)
+    have hresults : results.size = returnTypes.size := by grind
     (⟨op, properties⟩, { state with
       nextId := state.nextId + returnTypes.size + 2
       root? := some op
       rootConstraints :=
-        .operation opCode operands returnTypes property properties op results ::
+        .operation opCode operands returnTypes property properties op results hresults ::
           state.rootConstraints
       numRoots := state.numRoots + 1
     })⟩

@@ -104,11 +104,12 @@ handle against that operation, require the given opcode, operands, result types,
 and bind the discovered entities to their corresponding handles. -/
 | operation (opCode : OpInfo)
     (operands : Array (Handle OpInfo .value))
-    (returnTypes : Array (Handle OpInfo .type))
+    (resultTypes : Array (Handle OpInfo .type))
     (property : PropertyMatcher opCode)
     (propertyResult : Handle OpInfo (.prop opCode))
     (result : Handle OpInfo .op)
     (results : Array (Handle OpInfo .value))
+    (resultsSize : results.size = resultTypes.size)
 
 /--
 A match program together with the value exported by its builder. Exports typically contain handles

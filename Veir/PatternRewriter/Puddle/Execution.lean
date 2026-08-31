@@ -220,7 +220,7 @@ assignment if it succeeds.
 def MatchDecl.run (decl : MatchDecl OpInfo) (ctx : IRContext OpInfo)
     (assignment : Assignment OpInfo) : Option (Assignment OpInfo) := do
   match decl with
-  | .operation opCode operands resultTypes property propertyHandle opHandle results =>
+  | .operation opCode operands resultTypes property propertyHandle opHandle results _ =>
     /- First, find the matched operation through its handle or one of its result handles. -/
     let matchedOp ← Assignment.findOp assignment opHandle results
     /- Then, bind the operation and result handles. -/
