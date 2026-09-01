@@ -150,7 +150,8 @@ structure WidthInfo where
   widthMaskHypFvar : FVarId
   /-- The hypothesis that the width variable is less than the bmc bound. -/
   hypWidthLeBoundMVarId : MVarId
-  /-- The FVar of the bound hypothesis, necessary so 'simp' rewrites with it. -/
+  /-- The hypothesis that the width variable is less than the bmc bound.
+      (FVar necessary so 'simp' rewrites with it.) -/
   hypWidthLeBoundNote : FVarId
 
 meta def WidthInfo.name (this : WidthInfo) : Name :=
@@ -182,14 +183,14 @@ meta def WidthInfos.getFromExpr? (this: WidthInfos) (wExpr : Expr)
   let some reified ← Tm.reifyWidth this.env reducedExpr | pure none
   return this.infos[reified.toName]?
 
-meta def introMaskWidth (maxBound : Nat) (g : MVarId) (widthTm : WidthTm) (infos : WidthInfos)
-  : MetaM (MVarId × WidthInfos) := g.withContext do
+meta def introMaskWidth (maxBound : Nat) (g : MVarId) (widthTm : Tm .width) (infos : WidthInfos)
+  : MetaM (MVarId × WidthInfo × WidthInfos) := g.withContext do
     -- Apply width_elim
     let [g] ← g.withContext do
-      g.apply <| ← mkAppM ``width_elim #[mkNatLit maxBound, widthTm.term.toExpr infos.env, ← g.getType]
+      g.apply <| ← mkAppM ``width_elim #[mkNatLit maxBound, widthTm.toExpr infos.env, ← g.getType]
       | throwError m!"{``width_elim} should generate a goal"
     -- Intros
-    let name := widthTm.term.toName
+    let name := widthTm.toName
     let maskName := Name.mkSimple s!"m_{name}"
     let (#[mask, maskHyp], g) ← g.withContext
       <| g.introN 2 [maskName, Name.mkSimple s!"h_{maskName}"]
@@ -199,7 +200,7 @@ meta def introMaskWidth (maxBound : Nat) (g : MVarId) (widthTm : WidthTm) (infos
       mkFreshExprMVar (mkAppN (Expr.const ``LE.le [.zero])
         #[mkConst ``Nat,
           mkConst ``instLENat,
-          widthTm.term.toExpr infos.env,
+          widthTm.toExpr infos.env,
           mkNatLit maxBound])
     g.withContext <| check hypWidthLeBound
     let (hypWidthLeBoundNote, g) ← g.withContext do g.note (Name.mkSimple s!"h_{name}_le_blast") hypWidthLeBound
@@ -210,13 +211,44 @@ meta def introMaskWidth (maxBound : Nat) (g : MVarId) (widthTm : WidthTm) (infos
 
     let info : WidthInfo := {
       widthName := name,
-      widthTm := widthTm.term,
+      widthTm := widthTm,
       widthMaskFvar := mask,
       widthMaskHypFvar := maskHyp
       hypWidthLeBoundMVarId := hypWidthLeBound.mvarId!,
       hypWidthLeBoundNote
     }
-    return (g, infos.push info)
+    return (g, info, infos.push info)
+
+meta def WidthInfos.getOrCreateTm (this : WidthInfos) (g : MVarId) (term : Tm .width) (maxBound : Nat)
+  : MetaM (MVarId × WidthInfo × WidthInfos) := g.withContext do
+  if let some info := this.getFromTm? term then -- use reified.toExpr as a kind of "normal"/"canonical" form
+    return (g, info, this)
+  else
+    introMaskWidth maxBound g term this
+
+meta def introMaskRec (maxBound : Nat) (g : MVarId) (widthTm : Tm .width) (infos : WidthInfos)
+  : MetaM (MVarId × WidthInfo × WidthInfos) :=
+
+  match widthTm with
+  | .widthAtom _ => infos.getOrCreateTm g widthTm maxBound
+  | .widthAdd v w => do
+    let (g, vInfo, infos) ← introMaskRec maxBound g v infos
+    let (g, wInfo, infos) ← introMaskRec maxBound g w infos
+    let (g, thisInfo, infos) ← infos.getOrCreateTm g widthTm maxBound
+
+    -- Apply the thoerem to convert a sum of widths into a product of masks
+    let (_hyp, g) ← g.withContext do
+      g.note (Name.mkSimple s!"htest") <|
+      ← mkAppM ``maskOfWidth_add_eq_mul_of_maskOfWidth #[
+        .fvar vInfo.hypWidthLeBoundNote,
+        .fvar wInfo.hypWidthLeBoundNote,
+        .fvar thisInfo.hypWidthLeBoundNote,
+        .fvar vInfo.widthMaskHypFvar,
+        .fvar wInfo.widthMaskHypFvar,
+      ]
+
+    return (g, thisInfo, infos)
+
 
 /--
 Pair of local facts about the converted `BitVec` variables.
@@ -315,10 +347,11 @@ meta def introMaskWidths (widthTms : WidthTms) (g : MVarId) (ctx : PbvTranslateC
   -- Compute max width
   let maxWidth := widthTms.getUniverseWidthUpperBound ctx
   -- Intro all the masks
-  widthTms.terms.foldM (init := (g, { env := widthTms.env })) (fun (g, widthInfos) _ widthTm =>
-    introMaskWidth maxWidth g widthTm widthInfos
-  )
-
+  widthTms.terms.foldM
+    (init := (g, { env := widthTms.env }))
+    fun (g, widthInfos) _ widthTm => do
+      let (g, _, infos) ← introMaskRec maxWidth g widthTm.term widthInfos
+      return (g, infos)
 /--
 Eliminate the bitvector variables to introduce the masked versions.
 -/
