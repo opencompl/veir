@@ -27,6 +27,7 @@ def Test.toAttrDict
     Std.HashMap ByteArray Attribute :=
   Std.HashMap.emptyWithCapacity 0
 
+@[get_effects]
 def Test.getEffects
     (_op : Test) (_props : Test.propertiesOf _op) : MemoryEffects :=
   .unknown
