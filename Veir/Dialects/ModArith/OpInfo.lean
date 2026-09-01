@@ -41,6 +41,7 @@ def Mod_Arith.toAttrDict
       "value".toUTF8 (Attribute.integerAttr props.value)
   | _ => Std.HashMap.emptyWithCapacity 0
 
+@[get_effects]
 def Mod_Arith.getEffects
     (_op : Mod_Arith) (_props : Mod_Arith.propertiesOf _op) : MemoryEffects :=
   .none

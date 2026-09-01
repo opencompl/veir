@@ -74,16 +74,12 @@ deriving Repr, DecidableEq, Inhabited
 the `MatchProg.Builder` API, which allocates fresh handles, rather than construct declarations
 directly.
 
-Stored matcher declarations are ordered top-down, in execution order. The first declaration marks
-the root operation; the remaining declarations constrain operations and operands recursively
-reachable from the root.
-
 Matching always proceeds from an entity already bound in the current assignment. The root
-declaration seeds the assignment with the candidate root operation; every subsequent declaration
-is anchored by an already-bound operation, SSA value, type, or metadata handle. A declaration may
-reject that binding by checking additional constraints, and it may extend the assignment with newly
-discovered operands, result types, properties, or results. Matching therefore expands outward from
-the root through already-bound handles.
+handle seeds the assignment with the candidate root operation before declarations execute; every
+declaration is anchored by an already-bound operation, SSA value, type, or metadata handle. A
+declaration may reject that binding by checking additional constraints, and it may extend the
+assignment with newly discovered operands, result types, properties, or results. Matching therefore
+expands outward from the root through already-bound handles.
 -/
 
 /--
@@ -103,39 +99,112 @@ inductive MatchDecl (OpInfo : Type) [HasOpInfo OpInfo] where
 | value (type : Handle OpInfo .type) (result : Handle OpInfo .value)
 /-- Require the type bound to `result` to be accepted by `matcher`. -/
 | type (matcher : TypeMatcher) (result : Handle OpInfo .type)
-/-- Identify an operation from the already-bound `result` handle or first SSA-result handle in
-`results`, require the given opcode, operands, result types, and properties, and bind the discovered
-entities to their corresponding handles. -/
+/-- Identify an operation from the already-bound `result` or `results` handle, check every result
+handle against that operation, require the given opcode, operands, result types, and properties,
+and bind the discovered entities to their corresponding handles. -/
 | operation (opCode : OpInfo)
     (operands : Array (Handle OpInfo .value))
-    (returnTypes : Array (Handle OpInfo .type))
+    (resultTypes : Array (Handle OpInfo .type))
     (property : PropertyMatcher opCode)
     (propertyResult : Handle OpInfo (.prop opCode))
     (result : Handle OpInfo .op)
     (results : Array (Handle OpInfo .value))
-/-- Mark `result` as the root operation and record its expected opcode, operands, result types, and
-properties. `MatchProg.Builder` emits a companion `operation` declaration that enforces them. -/
-| root (opCode : OpInfo)
-    (operands : Array (Handle OpInfo .value))
-    (returnTypes : Array (Handle OpInfo .type))
-    (property : PropertyMatcher opCode)
-    (propertyResult : Handle OpInfo (.prop opCode))
-    (result : Handle OpInfo .op)
+    (resultsSize : results.size = resultTypes.size)
 
 /--
 A match program together with the value exported by its builder. Exports typically contain handles
 used by the creation or replacement phase of a `Pattern`.
-
-Declarations are stored in execution order, starting with the root marker and continuing through
-the operation and operand constraints recursively reachable from it.
 -/
 structure MatchProg (OpInfo : Type) [HasOpInfo OpInfo] (Exports : Type) where
-  /-- Match declarations in interpreter order, beginning with a root declaration. -/
+  /-- The root handle. -/
+  rootHandle : Handle OpInfo .op
+  /-- Match declarations in interpreter order, beginning with the root operation constraint. -/
   decls : List (MatchDecl OpInfo)
   /-- The number of rule-wide handle identifiers reserved by the matching phase. -/
   numHandles : Nat
   /-- Arbitrary builder output, typically handles needed by subsequent phases. -/
   exports : Exports
+
+/-!
+## Creation phase
+
+After a successful match, the creation phase may create new operations. Operations are created in
+declaration order, and their results can be used by later declarations or by the terminal
+replacement.
+
+Created operations may consume matched values or earlier-created values. Their result types and
+properties must be already-bound metadata handles. Those handles may come from the matcher or an
+earlier property declaration.
+-/
+
+/-- An internal declarative instruction in a creation program. -/
+inductive CreateDecl (OpInfo : Type) [HasOpInfo OpInfo] where
+/-- Bind a concrete type to `result` for use by a later operation declaration. -/
+| type (value : TypeAttr) (result : Handle OpInfo .type)
+/-- Bind a concrete property record to `result` for use by a later operation declaration. -/
+| property (opCode : OpInfo) (value : propertiesOf opCode) (result : Handle OpInfo (.prop opCode))
+/--
+Create an operation, resolving its operands, result types, and properties, and bind the newly
+created operation and SSA results to `result` and `results`.
+-/
+| operation (opCode : OpInfo) (operands : Array (Handle OpInfo .value))
+    (resultTypes : Array (Handle OpInfo .type))
+    (properties : Handle OpInfo (.prop opCode))
+    (result : Handle OpInfo .op)
+    (results : Array (Handle OpInfo .value))
+
+/--
+The ordered creation phase of a Puddle rule.
+
+Each declaration may consume metadata or values bound during matching or by earlier creation
+declarations. Every input must resolve through an already-bound handle. The creation builder starts
+allocating immediately after the matcher's handle range; `numHandles` records the first unused
+pattern-wide handle identifier after creation.
+-/
+structure CreateProg (OpInfo : Type) [HasOpInfo OpInfo] (Exports : Type) where
+  /-- Creation declarations in execution order. -/
+  decls : List (CreateDecl OpInfo)
+  /-- The first unused rule-wide handle identifier after the creation program. -/
+  numHandles : Nat
+  /-- Arbitrary builder output, typically handles needed by the replacement phase. -/
+  exports : Exports
+
+/-!
+## Replacement
+
+A terminal replacement specifies the SSA values that replace the matched root operation's results.
+Each selected handle may denote a non-root matched value or a value produced during creation.
+Execution will fail if the replacement differs in length from the root's result count or if the
+replacement includes one of the root's own results.
+-/
+
+/-- Value handles that replace the root operation's results. -/
+structure Replacement (OpInfo : Type) [HasOpInfo OpInfo] where
+  /-- The replacement values, in root-result order. -/
+  values : Array (Handle OpInfo .value)
+
+/-!
+## Puddle Pattern
+
+A Puddle rule packages its match program, ordered creation program, and terminal replacement. The
+exports types are used to pass handles between phases. The pattern is not meant to be constructed
+directly; use `Pattern.Builder` instead.
+-/
+
+/--
+A complete declarative Puddle rewrite pattern. Prefer constructing one with `Pattern.Builder`.
+-/
+structure Pattern (OpInfo : Type) [HasOpInfo OpInfo] where
+  /-- The type of data (usually handles) exported by the matching phase. -/
+  Exports : Type
+  /-- The graph pattern matched against a candidate root operation. -/
+  matcher : MatchProg OpInfo Exports
+  /-- The type of data (usually handles) exported by the creation phase. -/
+  CreationExports : Type
+  /-- The creation program run after a successful match. -/
+  creation : CreateProg OpInfo CreationExports
+  /-- Values used to replace the root's results. -/
+  replacement : Replacement OpInfo
 
 end
 
