@@ -5,6 +5,8 @@ public import Veir.PatternRewriter.Basic
 import Veir.DataLayout.RISCV64
 import Veir.Passes.Matching.LLVM.Basic
 import Veir.Passes.InstructionSelection.Common
+import Veir.PatternRewriter.Puddle.Builders
+import Veir.PatternRewriter.Puddle.Execution
 
 namespace Veir
 
@@ -32,29 +34,47 @@ def getIntByteTypeBitwidth (t : TypeAttr) : Option Nat :=
   | _ => none
 
 /--
-  Shared shape of the unary RISC-V lowerings (`ctlz`/`cttz`/`ctpop`): match a single-operand
-  LLVM op whose operand has integer type `i64` or `i32`, cast the operand to a register, apply
-  `op64` (or its `W` variant `op32` for `i32`), and cast the result back to the source type.
+  RISC-V lowerings with Puddle for unary operations.
 -/
-def lowerUnaryWLocal {P : Type}
-    (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × P))
-    (op64 op32 : Riscv)
-    (props64 : propertiesOf (OpCode.riscv op64)) (props32 : propertiesOf (OpCode.riscv op32))
-    (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (operand, _) := match? op ctx | return (ctx, none)
-  let .integerType opType := (operand.getType! ctx.raw).val | return (ctx, none)
-  if opType.bitwidth ≠ 64 ∧ opType.bitwidth ≠ 32 then return (ctx, none)
-  let (ctx, castOp) ← castToRegLocal ctx operand
-  let (ctx, retOp) ←
-    if opType.bitwidth = 32 then
-      WfRewriter.createOp! ctx op32 #[RegisterType.mk] #[castOp.getResult 0]
-          #[] #[] props32 none
-    else
-      WfRewriter.createOp! ctx op64 #[RegisterType.mk] #[castOp.getResult 0]
-          #[] #[] props64 none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (retOp.getResult 0)
-  some (ctx, some (#[castOp, retOp, castBackOp], #[castBackOp.getResult 0]))
+def lowerUnary (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Veir.Puddle.Pattern OpCode :=
+  Veir.Puddle.Pattern.Builder
+    (do
+      let returnType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == bw)
+      let x ← Veir.Puddle.MatchProg.value returnType
+      let _ ← Veir.Puddle.MatchProg.root (.llvm llvmOp) #[x] #[returnType]
+      return (returnType, x))
+    (fun (returnType, x) => do
+      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
+      let castProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[x] #[regType] castProps
+      let riscvOpProps ← Veir.Puddle.CreateProg.property (.riscv riscvOp) riscvProps
+      let riscvResOp ← Veir.Puddle.CreateProg.operation (.riscv riscvOp)
+          #[castOp.res[0]!] #[regType] riscvOpProps
+      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[riscvResOp.res[0]!] #[returnType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
+
+/-- `llvm.intr.ctlz` (`i32`) -> `riscv.clzw`. -/
+def ctlz32_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctlz 32 .clzw ()
+
+/-- `llvm.intr.ctlz` (`i64`) -> `riscv.clz`. -/
+def ctlz64_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctlz 64 .clz ()
+
+/-- `llvm.intr.cttz` (`i32`) -> `riscv.ctzw`. -/
+def cttz32_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__cttz 32 .ctzw ()
+
+/-- `llvm.intr.cttz` (`i64`) -> `riscv.ctz`. -/
+def cttz64_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__cttz 64 .ctz ()
+
+/-- `llvm.intr.ctpop` (`i32`) -> `riscv.cpopw`. -/
+def ctpop32_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctpop 32 .cpopw ()
+
+/-- `llvm.intr.ctpop` (`i64`) -> `riscv.cpop`. -/
+def ctpop64_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctpop 64 .cpop ()
 
 /--
   Shared shape of the integer-extension lowerings (`sext`/`zext`): match a single-operand LLVM
@@ -251,44 +271,20 @@ def lowerRotateLocal
 /--
   `llvm.intr.ctlz` -> `riscv.clz`.
 -/
-def ctlz_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerUnaryWLocal matchCtlz .clz .clzw () () ctx op
-
-/--
-  `llvm.intr.ctlz` -> `riscv.clz`.
--/
-def ctlz (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite ctlz_local rewriter op opInBounds
+def ctlz32 : Puddle.CompiledPattern OpCode := ctlz32_pattern.compile
+def ctlz64 : Puddle.CompiledPattern OpCode := ctlz64_pattern.compile
 
 /--
   `llvm.intr.cttz` -> `riscv.ctz`.
 -/
-def cttz_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerUnaryWLocal matchCttz .ctz .ctzw () () ctx op
-
-/--
-  `llvm.intr.cttz` -> `riscv.ctz`.
--/
-def cttz (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite cttz_local rewriter op opInBounds
+def cttz32 : Puddle.CompiledPattern OpCode := cttz32_pattern.compile
+def cttz64 : Puddle.CompiledPattern OpCode := cttz64_pattern.compile
 
 /--
   `llvm.intr.ctpop` -> `riscv.cpop`.
 -/
-def ctpop_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerUnaryWLocal matchCtpop .cpop .cpopw () () ctx op
-
-/--
-  `llvm.intr.ctpop` -> `riscv.cpop`.
--/
-def ctpop (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite ctpop_local rewriter op opInBounds
+def ctpop32 : Puddle.CompiledPattern OpCode := ctpop32_pattern.compile
+def ctpop64 : Puddle.CompiledPattern OpCode := ctpop64_pattern.compile
 
 /--
   `llvm.intr.bswap` -> `riscv.rev8`.
@@ -1748,7 +1744,8 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   | some ctx => pure ctx
   /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern #[selectCzeroeqz, selectCzeronez, selectGeneral,
-    ctlz, cttz, ctpop, bswap, bitreverse, constant, add, and, ashr, icmp, or, xor, mul,
+    ctlz32.run, ctlz64.run, cttz32.run, cttz64.run, ctpop32.run, ctpop64.run, bswap, bitreverse,
+    constant, add, and, ashr, icmp, or, xor, mul,
     sdiv, udiv, srem, urem, sext, zext, trunc, shl, lshr, sub, bitcast, load, getelementptr, store,
     smax, smin, umax, umin, saddSat, ssubSat, uaddSat, usubSat, sshlSat, ushlSat, abs,
     fshlConst, fshrConst, fshl, fshr, fshlGeneral, fshrGeneral, poisonConst, freeze]

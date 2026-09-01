@@ -37,6 +37,7 @@ def Builtin.toAttrDict
   | .unregistered => Std.HashMap.ofList props.properties.entries.toList
   | _ => Std.HashMap.emptyWithCapacity 0
 
+@[get_effects]
 def Builtin.getEffects
     (op : Builtin) (_props : Builtin.propertiesOf op) : MemoryEffects :=
   match op with

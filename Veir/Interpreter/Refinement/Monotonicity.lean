@@ -157,7 +157,7 @@ refinement over an *identical* list of operations modulus α-renaming
 *identical* slice of a block operation chain (the same `OperationPtr`s, whose intrinsic data agrees
 modulo renaming `mapping`). -/
 theorem interpretOpList_mono
-    {ctx ctx' : WfIRContext OpCode} (hVerif : ctx'.Verified)
+    {ctx ctx' : WfIRContext OpCode} {root : OperationPtr} (hVerif : ctx'.Verified root)
     {ops : List OperationPtr}
     (opsInBounds : ∀ op, op ∈ ops → op.InBounds ctx.raw)
     (opsInBounds' : ∀ op, op ∈ ops → op.InBounds ctx'.raw)
@@ -209,7 +209,7 @@ over an *identical* list of operations. The proof is derived from `interpretOpLi
 `interpretTerminatedOpList` is a wrapper around `interpretOpList` that checks that the list of
 operation has reached a terminator. -/
 theorem interpretTerminatedOpList_mono
-    {ctx ctx' : WfIRContext OpCode} (ctx'Verif : ctx'.Verified)
+    {ctx ctx' : WfIRContext OpCode} {root : OperationPtr} (ctx'Verif : ctx'.Verified root)
     {state : InterpreterState ctx} {state' : InterpreterState ctx'}
     {mapping : ValueMapping ctx ctx'}
     (opsInBounds : ∀ op, op ∈ ops → op.InBounds ctx.raw)

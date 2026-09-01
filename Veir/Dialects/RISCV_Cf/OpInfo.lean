@@ -54,6 +54,7 @@ def Riscv_Cf.toAttrDict
       (Attribute.denseArrayAttr props.operandSegmentSizes)
   | _ => Std.HashMap.emptyWithCapacity 0
 
+@[get_effects]
 def Riscv_Cf.getEffects
     (_op : Riscv_Cf) (_props : Riscv_Cf.propertiesOf _op) : MemoryEffects :=
   .none
@@ -65,6 +66,7 @@ def Riscv_Cf.hasSSADominance (_op : Riscv_Cf) (_index : Nat) : Bool :=
   true
 
 /-- Every `riscv_cf` operation is a branch, and so terminates its block. -/
+@[is_terminator]
 def Riscv_Cf.isTerminator (_op : Riscv_Cf) : Bool :=
   true
 

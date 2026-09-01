@@ -1,9 +1,10 @@
 module
 
+public import Std.Data.HashSet
 public import Veir.Analysis.DataFlow.Facts
 public import Veir.IR.WellFormed
 
-open Std (DHashMap HashMap)
+open Std (DHashMap HashMap HashSet)
 
 public section
 
@@ -19,10 +20,12 @@ to call transfer functions on.
 -/
 structure DataFlowContext where
   lattice : HashMap LatticeAnchor (DHashMap FactKind Fact)
+  registeredAnalyses : HashSet AnalysisKind
   workList : WorkList
 
 def DataFlowContext.empty : DataFlowContext :=
   { lattice := ∅
+    registeredAnalyses := ∅
     workList := .empty }
 
 /--
@@ -86,6 +89,10 @@ Enqueue one transfer problem onto the worklist.
 -/
 def enqueue (ctx : DataFlowContext) (workItem : WorkItem) : DataFlowContext :=
   { ctx with workList := ctx.workList.enqueue workItem }
+
+/-- Return whether the given analysis is registered in the current fixpoint loop. -/
+def hasAnalysis (ctx : DataFlowContext) (analysisKind : AnalysisKind) : Bool :=
+  ctx.registeredAnalyses.contains analysisKind
 
 /--
 Read the fact of kind `kind` stored at `anchor`, if any.
@@ -175,6 +182,7 @@ def fixpointSolve (top : OperationPtr) (analyses : Array DataFlowAnalysis)
   let mut registeredAnalyses : RegisteredAnalyses := ∅
   for analysis in analyses do
     registeredAnalyses := registeredAnalyses.insert analysis.kind analysis
+    ctx := { ctx with registeredAnalyses := ctx.registeredAnalyses.insert analysis.kind }
   for analysis in analyses do
     ctx := analysis.init top ctx irCtx
   run registeredAnalyses ctx irCtx
