@@ -38,6 +38,7 @@ def transfer
     (operandLatticeElements : Array AbstractConstant)
     (irCtx : WfIRContext OpCode) : Array (Option AbstractConstant) :=
   let numResults := op.getNumResults! irCtx.raw
+  let opType := op.getOpType! irCtx.raw
 
   -- Don't try to simulate the results of a region operation as we can't
   -- guarantee that folding will be out-of-place. We don't allow in-place
@@ -51,23 +52,22 @@ def transfer
   else if operandLatticeElements.any (· = ⊥) then
     Array.replicate numResults none
 
-  else
-    let opType := op.getOpType! irCtx.raw
-    if opType.isConstantLike then
-      (op.getResults! irCtx.raw).map fun result =>
-        some <| (result.constantValue irCtx.raw).map abstractConstantOfRuntimeValue |>.getD ⊤
-    else
-      let constantOperands := operandLatticeElements.map fun
-        | .constant ⟨bitwidth, value⟩ => some (.int bitwidth value)
-        | _ => none
-      if opInBounds : op.InBounds irCtx.raw then
-        match op.foldsTo irCtx opInBounds constantOperands with
-        | some results =>
-          results.map fun result => some (abstractConstantOfFoldResult result operandLatticeElements)
-        | none =>
-          Array.replicate numResults (some ⊤)
-      else
+  else if opType.isConstantLike then
+    (op.getResults! irCtx.raw).map fun result =>
+      some <| (result.constantValue irCtx.raw).map abstractConstantOfRuntimeValue |>.getD ⊤
+
+  else if opInBounds : op.InBounds irCtx.raw then
+    let constantOperands := operandLatticeElements.map fun
+      | .constant ⟨bitwidth, value⟩ => some (.int bitwidth value)
+      | _ => none
+    match op.foldsTo irCtx opInBounds constantOperands with
+    | some results =>
+      results.map fun result => some (abstractConstantOfFoldResult result operandLatticeElements)
+    | none =>
         Array.replicate numResults (some ⊤)
+
+  else
+    Array.replicate numResults (some ⊤)
 
 end SparseConstantPropagation
 
