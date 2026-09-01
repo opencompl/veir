@@ -37,6 +37,7 @@ match opCode with
 | .cir op => Cir.propertiesOf op
 | .include op => LLZK.Include.propertiesOf op
 | .function op => LLZK.Function.propertiesOf op
+| .seq op => Seq.propertiesOf op
 
 /--
   What are the memory effects of an operation with this opcode and these
@@ -66,6 +67,7 @@ def OpCode.getEffects (opCode : OpCode) (props : _propertiesOf opCode) : MemoryE
   | .cir op, props => Cir.getEffects op props
   | .include op, props => LLZK.Include.getEffects op props
   | .function op, props => LLZK.Function.getEffects op props
+  | .seq op, props => Seq.getEffects op props
 
 /--
   Return the kind of the region with the given index inside this operation.
@@ -93,6 +95,7 @@ def OpCode.getRegionKind (opCode : OpCode) (index : Nat) : RegionKind :=
   | .cir op => HasOpInfo.getRegionKind op index
   | .include op => HasOpInfo.getRegionKind op index
   | .function op => HasOpInfo.getRegionKind op index
+  | .seq op => HasOpInfo.getRegionKind op index
 
 /--
   Whether definitions in the indexed region of this opcode must dominate
@@ -121,6 +124,7 @@ def OpCode.hasSSADominance (opCode : OpCode) (index : Nat) : Bool :=
   | .cir op => Cir.hasSSADominance op index
   | .include op => LLZK.Include.hasSSADominance op index
   | .function op => LLZK.Function.hasSSADominance op index
+  | .seq op => Seq.hasSSADominance op index
 
 /--
   Whether the indexed region of this opcode is exempt from the requirement
@@ -150,6 +154,7 @@ def OpCode.hasNoTerminator (opCode : OpCode) (index : Nat) : Bool :=
   | .cir op => HasOpInfo.hasNoTerminator op index
   | .include op => HasOpInfo.hasNoTerminator op index
   | .function op => HasOpInfo.hasNoTerminator op index
+  | .seq op => HasOpInfo.hasNoTerminator op index
 
 /-- Whether this opcode carries MLIR's `IsolatedFromAbove` trait. -/
 def OpCode.isIsolatedFromAbove (opCode : OpCode) : Bool :=
@@ -175,6 +180,7 @@ def OpCode.isIsolatedFromAbove (opCode : OpCode) : Bool :=
   | .cir op => HasOpInfo.isIsolatedFromAbove op
   | .include op => HasOpInfo.isIsolatedFromAbove op
   | .function op => HasOpInfo.isIsolatedFromAbove op
+  | .seq op => HasOpInfo.isIsolatedFromAbove op
 
 /--
   Does this OpCode count as an MLIR basic block terminator? Dialects that do
@@ -204,6 +210,7 @@ def OpCode.isTerminator (opCode : OpCode) : Bool :=
   | .cir op => HasOpInfo.isTerminator op
   | .include op => HasOpInfo.isTerminator op
   | .function op => HasOpInfo.isTerminator op
+  | .seq op => HasOpInfo.isTerminator op
 
 /--
   Does this `OpCode` materialize a literal constant value, i.e. an op
@@ -236,6 +243,7 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | .cir op => Cir.isConstantLike op
   | .include op => LLZK.Include.isConstantLike op
   | .function op => LLZK.Function.isConstantLike op
+  | .seq op => Seq.isConstantLike op
 
 /--
   Does an operation with this opcode produce a wholly poisoned result whenever
@@ -264,6 +272,7 @@ def OpCode.propagatesPoison (opCode : OpCode) : Bool :=
   | .cir op => HasOpInfo.propagatesPoison op
   | .include op => HasOpInfo.propagatesPoison op
   | .function op => HasOpInfo.propagatesPoison op
+  | .seq op => HasOpInfo.propagatesPoison op
 
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (_propertiesOf opCode) :=
@@ -289,6 +298,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   | .cir op => Cir.fromAttrDict op attrDict
   | .include op => LLZK.Include.fromAttrDict op attrDict
   | .function op => LLZK.Function.fromAttrDict op attrDict
+  | .seq op => Seq.fromAttrDict op attrDict
 
 /--
   Converts the properties of an operation into a dictionary of attributes.
@@ -318,6 +328,7 @@ def Properties.toAttrDict
   | .cir op, props => Cir.toAttrDict op props
   | .include op, props => LLZK.Include.toAttrDict op props
   | .function op, props => LLZK.Function.toAttrDict op props
+  | .seq op, props => Seq.toAttrDict op props
 
 instance : IsOpCode OpCode where
   fromName := OpCode.fromName
@@ -350,6 +361,7 @@ def OpCode.functionInterface? (opCode : OpCode) : Option (FunctionOpInterface (_
   | .cir op => HasOpInfo.functionInterface? op
   | .include op => HasOpInfo.functionInterface? op
   | .function op => HasOpInfo.functionInterface? op
+  | .seq op => HasOpInfo.functionInterface? op
 
 #generate_has_dialect_instances OpCode
 
@@ -378,6 +390,7 @@ def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
   | .io opType => Io.verifyLocalInvariants opType op ctx opIn
   | .include opType => LLZK.Include.verifyLocalInvariants opType op ctx opIn
   | .function opType => LLZK.Function.verifyLocalInvariants opType op ctx opIn
+  | .seq opType => Seq.verifyLocalInvariants opType op ctx opIn
 
 instance : HasOpInfo OpCode where
   verifyLocalInvariants := OpCode.verifyLocalInvariants
@@ -412,7 +425,7 @@ def OpCode.materializeConstant (opCode : OpCode) (value : RuntimeValue)
     | .riscv_cf _ | .riscv_stack _ | .rv64 _ | .cf _ | .builtin _
     | .verif _
     | .func _ | .datapath _ | .pdl _ | .test _ | .cir _ | .io _ | .include _
-    | .function _ => none
+    | .function _ | .seq _ => none
   guard materialized.fst.isConstantLike
   return materialized
 
