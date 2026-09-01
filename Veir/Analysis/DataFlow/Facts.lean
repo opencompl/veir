@@ -1,6 +1,7 @@
 module
 
 public import Veir.GlobalOpInfo
+public import Veir.Analysis.DataFlow.Domains.IntegerRangeDomain
 public import Veir.Analysis.DataFlow.Domains.LivenessDomain
 public import Veir.Rewriter.InsertPoint
 
@@ -70,6 +71,7 @@ inductive AnalysisKind where
   | deadCode
   /-- Analysis tag reserved for dataflow framework unit tests. -/
   | test
+  | integerRange
 deriving BEq, Hashable, Repr, DecidableEq
 
 /--
@@ -81,6 +83,7 @@ inductive FactKind where
   | liveness
   /-- Sparse fact tag reserved for dataflow framework unit tests. -/
   | test
+  | integerRange
 deriving BEq, ReflBEq, LawfulBEq, Hashable, Repr, DecidableEq
 
 abbrev WorkItem := InsertPoint × AnalysisKind
@@ -120,6 +123,7 @@ The fact specific data stored for each fact kind.
   | .regionMetadata => RegionMetadataPayload
   | .liveness => LivenessPayload
   | .test => SparsePayload TestDomain
+  | .integerRange => SparsePayload IntegerRangeLattice
 
 /--
 A dataflow fact stored by the framework.

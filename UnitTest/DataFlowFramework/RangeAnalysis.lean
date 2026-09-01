@@ -1,6 +1,6 @@
 import UnitTest.DataFlowFramework.Helpers
 
-import Veir.Dialects.ModArith.Analysis.RangeAnalysis
+import Veir.Analysis.DataFlow.IntegerRangeAnalysis
 
 open Veir
 
@@ -17,19 +17,15 @@ private def rangeToString : IntegerRangeLattice → String
   | .interval r => s!"[{r.lower}, {r.upper}]"
 
 private def compareRanges
+    (dfCtx : DataFlowContext)
     (recovered : RecoveredNames)
-    (expected : Array ExpectedRange)
-    (irCtx : IRContext OpCode) : MismatchReport := Id.run do
-  let mut knownRanges : IntegerRangeLattice.KnownRanges := {}
+    (expected : Array ExpectedRange) : MismatchReport := Id.run do
   let mut report := #[]
   for e in expected do
     let some value := recovered.values[e.name]?
       | report := report.push s!"range {e.name}: missing SSA value"
         continue
-    let some observed := IntegerRangeLattice.inferModArithRange? value knownRanges irCtx
-      | report := report.push s!"range {e.name}: no inferred mod_arith range"
-        continue
-    knownRanges := knownRanges.insert value observed
+    let observed := IntegerRangeAnalysis.getRange value dfCtx
     if observed != e.range then
       report := report.push
         s!"range {e.name}: expected {rangeToString e.range}, observed {rangeToString observed}"
@@ -38,6 +34,12 @@ private def compareRanges
 private def interval (lower upper : Int) (h : lower ≤ upper := by omega) : IntegerRangeLattice :=
   .interval { lower, upper, lower_le_upper := h }
 
+private def run (mlir : String) (expected : Array ExpectedRange) : String :=
+  runWithAnalyses mlir #[Veir.IntegerRangeAnalysis] fun top dfCtx parserState =>
+    match recoverNames top parserState.ctx mlir with
+    | .error err => #[err]
+    | .ok recovered => compareRanges dfCtx recovered expected
+
 /--
 Mod_Arith range example with default reduction.
 
@@ -45,6 +47,7 @@ a, b ∈ [0, q)
 c = 46
 s = 3
 add₀ = (a + c) mod q
+sub = (a - c) mod q
 add₁ = (add₀ + b) mod q
 add₂ = (add₁ + a) mod q
 out = (add₂ · s) mod q
@@ -60,6 +63,7 @@ def runModArithDefaultReductionExample : String :=
     %c = "mod_arith.constant"() <{"value" = 46 : i32}> : () -> !mod_arith.int<12289 : i32>
     %small = "mod_arith.constant"() <{"value" = 3 : i32}> : () -> !mod_arith.int<12289 : i32>
     %add0 = "mod_arith.add"(%a, %c) : (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>
+    %sub = "mod_arith.sub"(%a, %c) : (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>
     %add1 = "mod_arith.add"(%add0, %b) : (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>
     %add2 = "mod_arith.add"(%add1, %a) : (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>
     %out = "mod_arith.mul"(%add2, %small) : (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>
@@ -72,16 +76,12 @@ def runModArithDefaultReductionExample : String :=
       , { name := "c",     range := interval 46 46 }
       , { name := "small", range := interval 3 3 }
       , { name := "add0",  range := interval 0 12288 }
+      , { name := "sub",   range := interval 0 12288 }
       , { name := "add1",  range := interval 0 12288 }
       , { name := "add2",  range := interval 0 12288 }
       , { name := "out",   range := interval 0 12288 }
       ]
-  match parseTopLevelOp mlir with
-  | .error err => s!"parse failed: {err}"
-  | .ok (top, parserState) =>
-      match recoverNames top parserState.ctx mlir with
-      | .error err => err
-      | .ok recovered => renderReport (compareRanges recovered expected parserState.ctx)
+  run mlir expected
 
 /--
 Mod_Arith range example without reduction.
@@ -90,13 +90,15 @@ a, b ∈ [0, q)
 c = 46
 s = 3
 add₀ = a + c
+sub = a - c
 add₁ = add₀ + b
 add₂ = add₁ + a
 out = add₂ · s
 
 The input block arguments are assumed to already be canonical values in `[0, q)`.
 Since every operation in this example has `reduction = "none"`, operation results
-keep their raw integer ranges instead of being folded back to `[0, q)`.
+keep their raw integer ranges while they fit the storage type instead of being folded
+back to `[0, q)`.
 Constants are tracked exactly.
 -/
 
@@ -109,6 +111,7 @@ def runModArithNoneReductionExample : String :=
     %c = "mod_arith.constant"() <{"value" = 46 : i32}> : () -> !mod_arith.int<12289 : i32>
     %small = "mod_arith.constant"() <{"value" = 3 : i32}> : () -> !mod_arith.int<12289 : i32>
     %add0 = "mod_arith.add"(%a, %c) {"reduction" = "none"} : (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>
+    %sub = "mod_arith.sub"(%a, %c) {"reduction" = "none"} : (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>
     %add1 = "mod_arith.add"(%add0, %b) {"reduction" = "none"} : (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>
     %add2 = "mod_arith.add"(%add1, %a) {"reduction" = "none"} : (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>
     %out = "mod_arith.mul"(%add2, %small) {"reduction" = "none"} : (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>
@@ -121,17 +124,36 @@ def runModArithNoneReductionExample : String :=
      , { name := "c",     range := interval 46 46 }
      , { name := "small", range := interval 3 3 }
      , { name := "add0",  range := interval 46 12334 }
+     , { name := "sub",   range := interval 12243 24531 }
      , { name := "add1",  range := interval 46 24622 }
      , { name := "add2",  range := interval 46 36910 }
      , { name := "out",   range := interval 138 110730 }
      ]
-  match parseTopLevelOp mlir with
-  | .error err => s!"parse failed: {err}"
-  | .ok (top, parserState) =>
-      match recoverNames top parserState.ctx mlir with
-      | .error err => err
-      | .ok recovered => renderReport (compareRanges recovered expected parserState.ctx)
+  run mlir expected
 
+/-- Raw results that may overflow their storage type conservatively use its full range. -/
+def runModArithStorageOverflowExample : String :=
+  let mlir := r#""builtin.module"() ({
+^bb0:
+  "func.func"() <{
+    function_type = (!mod_arith.int<251 : i8>, !mod_arith.int<251 : i8>) -> (),
+    sym_name = "storage_overflow"
+  }> ({
+  ^entry(%a : !mod_arith.int<251 : i8>, %b : !mod_arith.int<251 : i8>):
+    %sum = "mod_arith.add"(%a, %b) {"reduction" = "none"}
+      : (!mod_arith.int<251 : i8>, !mod_arith.int<251 : i8>) -> !mod_arith.int<251 : i8>
+    %product = "mod_arith.mul"(%a, %b) {"reduction" = "none"}
+      : (!mod_arith.int<251 : i8>, !mod_arith.int<251 : i8>) -> !mod_arith.int<251 : i8>
+    "func.return"() : () -> ()
+  }) : () -> ()
+}) : () -> ()"#
+  let expected :=
+    #[ { name := "a",       range := interval 0 250 }
+     , { name := "b",       range := interval 0 250 }
+     , { name := "sum",     range := interval 0 255 }
+     , { name := "product", range := interval 0 255 }
+     ]
+  run mlir expected
 
 /--
 info: "ok"
@@ -144,5 +166,11 @@ info: "ok"
 -/
 #guard_msgs in
 #eval! runModArithNoneReductionExample
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! runModArithStorageOverflowExample
 
 end ModArithDataflow
