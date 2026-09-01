@@ -68,15 +68,11 @@ instance : FactSpec kind where
 
 end
 
-def getElement? (kind : FactKind) [SparseFactSpec kind Domain] [FactSpec kind]
-    (ssaValue : ValuePtr) (dfCtx : DataFlowContext) : Option Domain := do
-  let state ← dfCtx.getFact? kind (.ValuePtr ssaValue)
-  return latticeElement state
-
-def getElementD (kind : FactKind) [SparseFactSpec kind Domain] [FactSpec kind]
-    (ssaValue : ValuePtr) (fallback : Domain)
-    (dfCtx : DataFlowContext) : Domain :=
-  (getElement? kind ssaValue dfCtx).getD fallback
+def getElement (kind : FactKind) [SparseFactSpec kind Domain] [FactSpec kind]
+    [Bot Domain] (ssaValue : ValuePtr) (dfCtx : DataFlowContext) : Domain :=
+  match dfCtx.getFact? kind (.ValuePtr ssaValue) with
+  | some state => latticeElement state
+  | none => ⊥
 
 end SparseFact
 
