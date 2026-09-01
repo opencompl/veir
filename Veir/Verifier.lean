@@ -5,6 +5,7 @@ public import Veir.GlobalOpInfo
 public import Veir.Interfaces.FunctionInterfaces
 public import Veir.IRNesting
 public import Veir.Interfaces.RegionKindInterfaces
+public import Veir.IR.Dominance
 
 import all Veir.Verifier.Basic
 import all Veir.Dialects.LLVM.OpInfo
@@ -30,19 +31,6 @@ def OperationPtr.verifyTerminatorPosition (op : OperationPtr) (ctx : WfIRContext
     throw "operation with block successors must terminate its parent block"
 
 /--
-Find the region that establishes the nearest `IsolatedFromAbove` scope around
-`region`. The returned region is one of the isolated operation's direct
-regions; different regions of the same isolated operation are separate scopes.
--/
-private partial def RegionPtr.nearestIsolatedScope?
-    (region : RegionPtr) (ctx : WfIRContext OpCode) : Option RegionPtr := do
-  let parentOp ← (region.get! ctx.raw).parent
-  if (parentOp.getOpType! ctx.raw).isIsolatedFromAbove then
-    return region
-  let parentRegion ← parentOp.getParentRegion! ctx.raw
-  parentRegion.nearestIsolatedScope? ctx
-
-/--
 Verify MLIR's `IsolatedFromAbove` rule for one operation's operands. A use in
 an isolated operation's region may only reference a value defined in that same
 region or one of its nested regions. Looking for the nearest isolated scope
@@ -57,7 +45,7 @@ def OperationPtr.verifyOperandIsolation
   let escaping := (op.getOperands ctx.raw opIn).filter
     (·.getParentRegion! ctx.raw != some useRegion)
   if escaping.isEmpty then return
-  let some isolatedScope := useRegion.nearestIsolatedScope? ctx | return
+  let some isolatedScope := useRegion.nearestIsolatedScope? ctx.raw | return
   for value in escaping do
     let some defRegion := value.getParentRegion! ctx.raw
       | throw "operand is unlinked from any region"
@@ -179,12 +167,36 @@ private def WfIRContext.verifyPDLPatternBodies (ctx : WfIRContext OpCode) :
     if !hasOperation then
       throw "pdl.pattern: the pattern must contain at least one `pdl.operation`"
 
+/--
+  Verify SSA dominance of operand uses.
+
+  Two kinds of operation are skipped, as in MLIR. Operations in a graph region
+  are unordered with respect to their definitions, and operations in a block
+  that is unreachable from its region's entry have no meaningful dominance
+  relation. Nested regions of a skipped operation are still checked.
+-/
+private def WfIRContext.verifyDominance
+    (ctx : WfIRContext OpCode) (root : OperationPtr) : Except String Unit := do
+  let some dfCtx := Veir.fixpointSolve root #[DominanceAnalysis] ctx
+    | throw "dominance analysis did not reach a fixpoint"
+  ctx.raw.forOpsDepM fun op opIn => do
+    let some block := (op.get ctx.raw opIn).parent | return
+    if !block.isReachable dfCtx then return
+    let some region := (block.get! ctx.raw).parent | return
+    if !region.hasSSADominance ctx then return
+    for (value, index) in (op.getOperands ctx.raw opIn).zipIdx do
+      if !value.properlyDominatesUse op dfCtx ctx then
+        let opName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
+        throw s!"{opName}: operand #{index} does not dominate this use"
+
 public section
 
 /--
-Verify the structural invariants of the IR context and the local invariants of all its operations.
+Verify the structural invariants of the IR context, the local invariants of all
+its operations, and SSA dominance in the operation tree rooted at `root`.
 -/
-def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
+def WfIRContext.verify
+    (ctx : WfIRContext OpCode) (root : OperationPtr) : Except String Unit := do
   if !ctx.successorsHaveSameParent then
     throw "Block successors must belong to the same region as their predecessor"
   if !ctx.graphRegionsHaveAtMostOneBlock then
@@ -205,20 +217,21 @@ def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
     block.verifyNoEntryBlockPredecessors ctx blockIn)
   ctx.verifyLLVMGlobalSymbols
   ctx.verifyPDLPatternBodies
+  ctx.verifyDominance root
 
 attribute [simp] OpCode.verifyLocalInvariants HasOpInfo.verifyLocalInvariants
   OperationPtr.verifyLocalInvariants
   Llvm.verifyLocalInvariants Arith.verifyLocalInvariants Mod_Arith.verifyLocalInvariants
 
 /--
-Assert that the IR context satisfies its structural and local invariants.
+Assert that the IR context verifies successfully with `root` as the root operation.
 -/
-def WfIRContext.Verified (ctx : WfIRContext OpCode) : Prop :=
-  ctx.verify = .ok ()
+def WfIRContext.Verified (ctx : WfIRContext OpCode) (root : OperationPtr) : Prop :=
+  ctx.verify root = .ok ()
 
 /-- A verified context satisfies the same-parent successor check. -/
 private theorem WfIRContext.Verified.successorsHaveSameParent
-    {ctx : WfIRContext OpCode} (ctxVerified : ctx.Verified) :
+    {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root) :
     ctx.successorsHaveSameParent := by
   simp only [WfIRContext.Verified, WfIRContext.verify] at ctxVerified
   split at ctxVerified
@@ -228,7 +241,7 @@ private theorem WfIRContext.Verified.successorsHaveSameParent
 /-- Every successor of a block in a verified context belongs to the block's parent region. -/
 @[grind →]
 theorem WfIRContext.Verified.successor_parent
-    {ctx : WfIRContext OpCode} (ctxVerified : ctx.Verified)
+    {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
     {source : BlockPtr} (sourceIn : source.InBounds ctx.raw)
     (hsourceParent : (source.get! ctx.raw).parent = some region)
     (hsuccessor : successor ∈ source.getSuccessors! ctx.raw) :
@@ -239,7 +252,7 @@ theorem WfIRContext.Verified.successor_parent
 
 /-- A verified context satisfies the single-block graph-region check. -/
 private theorem WfIRContext.Verified.graphRegionsHaveAtMostOneBlock
-    {ctx : WfIRContext OpCode} (ctxVerified : ctx.Verified) :
+    {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root) :
     ctx.graphRegionsHaveAtMostOneBlock := by
   simp only [WfIRContext.Verified, WfIRContext.verify] at ctxVerified
   split at ctxVerified
@@ -251,7 +264,7 @@ private theorem WfIRContext.Verified.graphRegionsHaveAtMostOneBlock
 /-- The first and last block of a graph region in a verified context are the same. -/
 @[grind →]
 theorem WfIRContext.Verified.graph_region_firstBlock_eq_lastBlock
-    {ctx : WfIRContext OpCode} (ctxVerified : ctx.Verified)
+    {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
     {region : RegionPtr} (regionIn : region.InBounds ctx.raw)
     (hregionKind : ¬ region.hasSSADominance ctx) :
     (region.get! ctx.raw).firstBlock = (region.get! ctx.raw).lastBlock := by
@@ -272,7 +285,8 @@ If the context satisfies the invariants of all operations, any operation in boun
 -/
 @[grind →]
 axiom OperationPtr.satisfyInvariants_of_IRContext_satisfyOpInvariants {ctx : WfIRContext OpCode}
-    {op : OperationPtr} (ctxVerify : ctx.Verified) (opInBounds : op.InBounds ctx.raw := by grind) :
+    {op root : OperationPtr} (ctxVerify : ctx.Verified root)
+    (opInBounds : op.InBounds ctx.raw := by grind) :
     op.Verified ctx opInBounds
 
 /-!

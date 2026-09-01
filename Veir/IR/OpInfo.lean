@@ -125,6 +125,9 @@ class HasOpInfo (opCode: Type)
   -/
   isIsolatedFromAbove : opCode → Bool := fun _ => false
 
+attribute [get_effects] HasOpInfo.getEffects
+attribute [is_terminator] HasOpInfo.isTerminator
+
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 
 /-- Verify the local invariants of an operation using its opcode interface. -/
@@ -144,6 +147,20 @@ public def RegionPtr.hasNoTerminator (region : RegionPtr) (ctx : WfIRContext OpI
     let parent := parentOp.get! ctx.raw
     HasOpInfo.hasNoTerminator parent.opType (parent.regions.idxOf region)
   | none => false
+
+/--
+Find the region that establishes the nearest `IsolatedFromAbove` scope around
+`region`, or `none` when no enclosing operation is isolated. The returned
+region is one of the isolated operation's direct regions; different regions of
+the same isolated operation are separate scopes.
+-/
+public partial def RegionPtr.nearestIsolatedScope?
+    (region : RegionPtr) (ctx : IRContext OpInfo) : Option RegionPtr := do
+  let parentOp ← (region.get! ctx).parent
+  if HasOpInfo.isIsolatedFromAbove (parentOp.get! ctx).opType then
+    return region
+  let parentRegion ← parentOp.getParentRegion! ctx
+  parentRegion.nearestIsolatedScope? ctx
 
 end -- public section
 

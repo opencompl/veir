@@ -280,7 +280,7 @@ theorem InterpreterState.DefinesDominating.interpretOp_ne_fail
 and well-dominated context, on an interpreter state containing all values dominating the first
 operation in the slice. -/
 theorem InterpreterState.DefinesDominating.interpretOpList_ne_fail
-    (ctxVerif : ctx.Verified) (ctxDom : ctx.Dom) {block : BlockPtr}
+    {root : OperationPtr} (ctxVerif : ctx.Verified root) (ctxDom : ctx.Dom) {block : BlockPtr}
     (hChain : block.OpChainSlice ctx.raw ops)
     {state : InterpreterState ctx}
     (stateDom : ∀ head, (hhead : ops.head? = some head) →

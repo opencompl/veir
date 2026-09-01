@@ -1,14 +1,16 @@
 module
 
 public import Veir.Pass
+import Veir.Rewriter.WfRewriter
+import Veir.IR.Dominance
 
 import Veir.Interfaces.SideEffectInterfaces
 
 /-!
-  # Local common subexpression elimination
+  # A simple common subexpression elimination pass:
 
   This pass implements a small, conservative CSE:
-  * it only reasons within one basic block;
+  * it reasons across basic blocks, using dominance;
   * it only considers memory-independent operations with no successors,
     regions, or extra attributes;
   * distinct UB flags are treated as distinct instructions;
@@ -21,21 +23,28 @@ namespace Veir
 namespace CSE
 
 /-- Here we package up an opcode with its UB flags; we don't want to
-   mix up, e.g., "add" and "add nsw". -/
+    mix up, e.g., "add" and "add nsw". -/
 abbrev Kind := (op : OpCode) × propertiesOf op
 
 instance : Hashable Kind where
   hash k := mixHash (hash k.fst) (hash k.snd)
 
 /-- This is the basis for CSE: if two instructions have the same Key,
-    then they compute the same ordered sequence of result values. In
-    that case we can remove one of them and switch every result's uses
-    to the corresponding result of the other. Proving this will be the
-    crux of the eventual correctness proof for this pass. -/
+    then they compute the same ordered sequence of result values. If A
+    and B have the same Key and A dominates B, then we can remove B and
+    switch every result's uses to the corresponding result of A.
+    Proving this will be the crux of the eventual correctness proof for
+    this pass.
+
+    `scope` is the nearest `IsolatedFromAbove` region enclosing the
+    operation. It is part of the Key because rewiring B's uses to A's
+    results makes those uses reference a value defined at A, which is
+    only legal when no isolated boundary separates the two. -/
 structure Key where
   kind : Kind
   resultTypes : Array TypeAttr
   operands : Array ValuePtr
+  scope : Option RegionPtr
 deriving DecidableEq, BEq, Hashable
 
 def makeKey
@@ -46,6 +55,7 @@ def makeKey
     kind
     resultTypes := op.getResultTypes! ctx
     operands
+    scope := do (← op.getParentRegion! ctx).nearestIsolatedScope? ctx
   }
 
 /-- Because ValuePtr is a sum type where the numeric IDs assigned to
@@ -126,43 +136,41 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
       else
         return ordinaryKey ctx op kind
 
-/-- Perform CSE on a single BB: Walk the operations, building up a
-    hash of available values. For any operation whose value is already
-    available, replace it with the earlier one. -/
-def processBlock
-    (ctx : WfIRContext OpCode) (block : BlockPtr) :
+/-- Perform CSE: walk operations in dominance-friendly order, building
+    up a single map of available values. Each key may have multiple
+    candidates because the first equivalent operation we encounter may
+    not dominate later equivalent operations in a different CFG
+    branch. For any operation whose value is already available *and
+    dominates it*, replace it with the earlier one. Candidates never
+    cross an `IsolatedFromAbove` boundary, because the Key records the
+    enclosing isolated scope. -/
+def run (ctx : WfIRContext OpCode) (top : OperationPtr) :
     WfIRContext OpCode := Id.run do
+  let some dfCtx := Veir.fixpointSolve top #[Veir.DominanceAnalysis] ctx
+    | panic! "Dominance analysis not expected to fail"
+  let ops := top.opsInDominanceOrder dfCtx ctx
   let mut ctx := ctx
-  let mut available : Std.HashMap Key OperationPtr := Std.HashMap.emptyWithCapacity
-  let mut current := (block.get! ctx.raw).firstOp
-  while current.isSome do
-    let op := current.get!
-    let next := (op.get! ctx.raw).next
-    if let some key := key? ctx.raw op then
-        match available[key]? with
+  let mut available : Std.HashMap Key (Array OperationPtr) := Std.HashMap.emptyWithCapacity
+  for op in ops do
+    if _h : op.InBounds ctx.raw then
+      if let some key := key? ctx.raw op then
+        let candidates := available.getD key #[]
+        match candidates.find? (·.properlyDominates op dfCtx ctx) with
         | some earlier =>
             ctx := WfRewriter.replaceOp! ctx op earlier
         | none =>
-            available := available.insert key op
-    current := next
+            available := available.insert key (candidates.push op)
   return ctx
 
-def processAllBlocks (ctx : WfIRContext OpCode) :
-    WfIRContext OpCode := Id.run do
-  let mut ctx := ctx
-  for block in ctx.raw.blocks.keys do
-    ctx := processBlock ctx block
-  return ctx
-
-def CSEPass.impl (ctx : WfIRContext OpCode) (_op : OperationPtr) (_ : _op.InBounds ctx.raw) :
+def CSEPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
-  pure (CSE.processAllBlocks ctx)
+  pure (CSE.run ctx op)
 
 end CSE
 
 public def CSEPass : Pass OpCode :=
   { name := "cse"
-    description := "Eliminate common memory-independent SSA expressions within each basic block."
+    description := "Eliminate common memory-independent SSA expressions."
     run := fun _ => CSE.CSEPass.impl }
 
 end Veir
