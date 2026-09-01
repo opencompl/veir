@@ -2,6 +2,7 @@ module
 
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
+import Veir.Interfaces.FoldInterfaces
 import Veir.Passes.Matching
 
 namespace Veir
@@ -36,23 +37,23 @@ def emitLLVMIntConst (rewriter : PatternRewriter OpCode) (value : Int) (width : 
 def emitLLVMBin (rewriter : PatternRewriter OpCode) (lOp : Llvm)
     (props : propertiesOf (OpCode.llvm lOp)) (resTy : TypeAttr) (a b : ValuePtr)
     (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do
-  let (rewriter, op) ← rewriter.createOp! (.llvm lOp) #[resTy] #[a, b] #[] #[] props (some ip)
-  return (rewriter, op.getResult 0)
+  let (rewriter, results) ← rewriter.createOrFold! (.llvm lOp) #[resTy] #[a, b] #[] #[] props ip
+  return (rewriter, results[0]!)
 
 /-- Emit a unary `llvm` op `lOp` (e.g. `sext`/`zext`/`trunc`) with result type `resTy`. -/
 def emitLLVMUnary (rewriter : PatternRewriter OpCode) (lOp : Llvm)
     (props : propertiesOf (OpCode.llvm lOp)) (resTy : TypeAttr) (a : ValuePtr)
     (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do
-  let (rewriter, op) ← rewriter.createOp! (.llvm lOp) #[resTy] #[a] #[] #[] props (some ip)
-  return (rewriter, op.getResult 0)
+  let (rewriter, results) ← rewriter.createOrFold! (.llvm lOp) #[resTy] #[a] #[] #[] props ip
+  return (rewriter, results[0]!)
 
 /-- Emit `llvm.select cond, t, f : resTy`. -/
 def emitLLVMSelect (rewriter : PatternRewriter OpCode) (resTy : TypeAttr)
     (cond t f : ValuePtr) (ip : InsertPoint) :
     Option (PatternRewriter OpCode × ValuePtr) := do
-  let (rewriter, op) ← rewriter.createOp! (.llvm .select) #[resTy] #[cond, t, f] #[] #[] ()
-    (some ip)
-  return (rewriter, op.getResult 0)
+  let (rewriter, results) ← rewriter.createOrFold! (.llvm .select) #[resTy] #[cond, t, f] #[] #[] ()
+    ip
+  return (rewriter, results[0]!)
 
 /-- The integer bitwidth of value `v`, if it has an integer type. -/
 def intBitwidth (rewriter : PatternRewriter OpCode) (v : ValuePtr) : Option Nat := do
@@ -62,9 +63,9 @@ def intBitwidth (rewriter : PatternRewriter OpCode) (v : ValuePtr) : Option Nat 
 /-! ## Generic 1:1 lowering -/
 
 /--
-  Lower a single-result `arith` op `aOp` (with `numOperands` operands) to the
-  `llvm` op `lOp`, carrying over operands and result type unchanged and mapping
-  the properties with `convert`.
+  Lower an `arith` op `aOp` (with `numOperands` operands) to the `llvm` op
+  `lOp`, carrying over operands and result types unchanged and mapping the
+  properties with `convert`.
 -/
 def lower1to1 (aOp : Arith) (lOp : Llvm)
     (convert : propertiesOf (OpCode.arith aOp) → propertiesOf (OpCode.llvm lOp)) (numOperands : Nat)
@@ -73,9 +74,11 @@ def lower1to1 (aOp : Arith) (lOp : Llvm)
   let some (operands, props) := matchOp op rewriter.ctx.raw aOp numOperands
     | return rewriter
   let ip := InsertPoint.before op
-  let (rewriter, newOp) ← rewriter.createOp! (.llvm lOp)
-    (op.getResultTypes! rewriter.ctx.raw) operands #[] #[] (convert props) (some ip)
-  let rewriter := rewriter.replaceValue! (op.getResult 0) (newOp.getResult 0)
+  let (rewriter, results) ← rewriter.createOrFold! (.llvm lOp)
+    (op.getResultTypes! rewriter.ctx.raw) operands #[] #[] (convert props) ip
+  let mut rewriter := rewriter
+  for (result, index) in results.zipIdx do
+    rewriter := rewriter.replaceValue! (op.getResult index) result
   return rewriter.eraseOp! op
 
 /-- Translate `arith` integer-overflow flags to the `llvm` `nsw`/`nuw` properties. -/

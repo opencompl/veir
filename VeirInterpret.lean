@@ -86,7 +86,7 @@ set_option warn.sorry false in
 def runInterpreter (filename : String) (memorySize : Option Nat) : IO Unit := do
   match ← parseOperation filename with
   | .ok (ctx, op) =>
-    match ctx.verify with
+    match ctx.verify op with
     | .ok _ =>
       let rawCtx : IRContext OpCode := ctx
       let numArgs := if memorySize.isSome then 1 else 0
