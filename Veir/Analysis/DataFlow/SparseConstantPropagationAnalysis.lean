@@ -3,6 +3,8 @@ module
 public import Veir.Analysis.DataFlow.Domains.ConstantDomain
 public import Veir.Analysis.DataFlow.SparseForwardDataFlowAnalysis
 
+import Veir.Interfaces.FoldInterfaces
+
 public section
 
 namespace Veir
@@ -15,46 +17,15 @@ instance : SparseFactSpec .sparseConstant AbstractConstant where
 def kind : AnalysisKind :=
   .sparseConstantPropagation
 
-/--
-Fold a binary operation on known constants when bitwidths agree.
-Returns `none` if widths mismatch or folding yields no value.
--/
-def foldKnownBinary?
-    (lhs rhs : ConcreteConstant)
-    (f : {w : Nat} -> Data.LLVM.Int w -> Data.LLVM.Int w -> Option (Data.LLVM.Int w))
-    : Option ConcreteConstant :=
-  if h : lhs.bitwidth = rhs.bitwidth then
-    let rhsValue := Data.LLVM.Int.cast rhs.value (Eq.symm h)
-    f lhs.value rhsValue |> .map ({ bitwidth := lhs.bitwidth, value := · })
-  else
-    none
+private def abstractConstantOfRuntimeValue : RuntimeValue → AbstractConstant
+  | .int bitwidth value => .constant ⟨bitwidth, value⟩
+  | _ => ⊤
 
-/--
-Try to fold a binary op from operand lattice elements.
-Only folds when there are exactly two operands and both are known constants.
--/
-def foldBinaryOp?
-    (operandLatticeElements : Array AbstractConstant)
-    (f : {w : Nat} -> Data.LLVM.Int w -> Data.LLVM.Int w -> Option (Data.LLVM.Int w))
-    : Option AbstractConstant :=
-  if operandLatticeElements.size ≠ 2 then
-    none
-  else
-    match operandLatticeElements[0]?, operandLatticeElements[1]? with
-    | some (AbstractConstant.constant lhs), some (AbstractConstant.constant rhs) =>
-      foldKnownBinary? lhs rhs f |> .map (.constant ·)
-    | _, _ =>
-      none
-
-/-- Produce a folded constant when possible, otherwise conservatively yield `⊤`. -/
-def foldedOrUnknown
-    (numResults : Nat)
-    (folded : Option AbstractConstant) : Array (Option AbstractConstant) :=
-  match folded with
-  | some constant =>
-    #[some constant]
-  | none =>
-    Array.replicate numResults (some ⊤)
+private def abstractConstantOfFoldResult
+    (result : FoldResult) (operands : Array AbstractConstant) : AbstractConstant :=
+  match result with
+  | .useOperand index => operands[index]?.getD ⊤
+  | .useConstant value => abstractConstantOfRuntimeValue value
 
 /--
 Sparse constant propagation transfer function.
@@ -80,43 +51,23 @@ def transfer
   else if operandLatticeElements.any (· = ⊥) then
     Array.replicate numResults none
 
-  -- TODO: Mirror MLIR's generic `op->fold` path once Veir has an operation
-  -- folder and fold-result representation. For now we manually handle the
-  -- arithmetic ops.
   else
-    match (op.get! irCtx.raw).opType with
-    | .arith .constant =>
-      if numResults > 0 then
-        let intAttr := (op.getProperties! irCtx.raw Arith.constant).value
-        #[some (.constant ⟨intAttr.type.bitwidth,
-            Data.LLVM.Int.constant intAttr.type.bitwidth intAttr.value⟩)]
+    let opType := op.getOpType! irCtx.raw
+    if opType.isConstantLike then
+      (op.getResults! irCtx.raw).map fun result =>
+        some <| (result.constantValue irCtx.raw).map abstractConstantOfRuntimeValue |>.getD ⊤
+    else
+      let constantOperands := operandLatticeElements.map fun
+        | .constant ⟨bitwidth, value⟩ => some (.int bitwidth value)
+        | _ => none
+      if opInBounds : op.InBounds irCtx.raw then
+        match op.foldsTo irCtx opInBounds constantOperands with
+        | some results =>
+          results.map fun result => some (abstractConstantOfFoldResult result operandLatticeElements)
+        | none =>
+          Array.replicate numResults (some ⊤)
       else
-        #[]
-    | .arith .addi =>
-      let flags := op.getProperties! irCtx.raw Arith.addi
-      foldedOrUnknown numResults <| foldBinaryOp? operandLatticeElements (fun lhs rhs =>
-        match Data.LLVM.Int.add lhs rhs flags.attr.nsw flags.attr.nuw with
-        | .val v => some (.val v)
-        | .poison => none)
-    | .arith .muli =>
-      let flags := op.getProperties! irCtx.raw Arith.muli
-      foldedOrUnknown numResults <| foldBinaryOp? operandLatticeElements (fun lhs rhs =>
-        match Data.LLVM.Int.mul lhs rhs flags.attr.nsw flags.attr.nuw with
-        | .val v => some (.val v)
-        | .poison => none)
-    | .arith .andi =>
-      foldedOrUnknown numResults <| foldBinaryOp? operandLatticeElements (fun lhs rhs =>
-        match lhs, rhs with
-        | .val lhs', .val rhs' => some (.val (BitVec.and lhs' rhs'))
-        | _, _ => none)
-    | .arith .subi =>
-      let flags := op.getProperties! irCtx.raw Arith.subi
-      foldedOrUnknown numResults <| foldBinaryOp? operandLatticeElements (fun lhs rhs =>
-        match Data.LLVM.Int.sub lhs rhs flags.attr.nsw flags.attr.nuw with
-        | .val v => some (.val v)
-        | .poison => none)
-    | _ =>
-      Array.replicate numResults (some ⊤)
+        Array.replicate numResults (some ⊤)
 
 end SparseConstantPropagation
 

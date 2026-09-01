@@ -71,6 +71,19 @@ private def testSubiAllConstant : String :=
      , ("c", constInt 32 (-25))
      ]
 
+private def testDivsiUsesGenericFolder : String :=
+  run
+    r#""builtin.module"() ({
+^bb0:
+  %a = "arith.constant"() <{ value = 42 : i32 }> : () -> i32
+  %b = "arith.constant"() <{ value = 6 : i32 }> : () -> i32
+  %c = "arith.divsi"(%a, %b) : (i32, i32) -> i32
+}) : () -> ()"#
+    #[ ("a", constInt 32 42)
+     , ("b", constInt 32 6)
+     , ("c", constInt 32 7)
+     ]
+
 private def testAddiUnknownOperand : String :=
   run
     r#""builtin.module"() ({
@@ -160,6 +173,12 @@ info: "ok"
 -/
 #guard_msgs in
 #eval! testSubiAllConstant
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testDivsiUsesGenericFolder
 
 /--
 info: "ok"
