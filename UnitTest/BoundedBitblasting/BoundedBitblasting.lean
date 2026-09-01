@@ -68,3 +68,16 @@ example (w : Nat) (a b : BitVec w) (hw: w ≤ 8)
   · bv_decide
   · grind
   · grind
+
+example {w t v: Nat} (a b : BitVec w)
+  (exta extb : BitVec v)
+  (hqw : w ≤ t)
+  (hv : t = v + w)
+  (bound : t ≤ 32):
+  a + b = ((exta ++ a) + (extb ++ b)).zeroExtend w
+  := by
+  pbv_decide 16
+  · bv_decide
+  · grind
+  · grind
+  · grind
