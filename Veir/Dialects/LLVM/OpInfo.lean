@@ -283,6 +283,7 @@ def Llvm.toAttrDict
     dict
   | _ => Std.HashMap.emptyWithCapacity 0
 
+@[get_effects]
 def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :=
   match op, props with
   | .alloca, _ => .allocate
@@ -323,6 +324,7 @@ def Llvm.isIsolatedFromAbove (op : Llvm) : Bool :=
 def Llvm.hasSSADominance (_op : Llvm) (_index : Nat) : Bool :=
   true
 
+@[is_terminator]
 def Llvm.isTerminator (op : Llvm) : Bool :=
   match op with
   | .br | .cond_br | .return | .unreachable => true

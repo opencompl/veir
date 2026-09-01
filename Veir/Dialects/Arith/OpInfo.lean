@@ -114,6 +114,7 @@ def Arith.toAttrDict
     dict
   | _ => Std.HashMap.emptyWithCapacity 0
 
+@[get_effects]
 def Arith.getEffects
     (_op : Arith) (_props : Arith.propertiesOf _op) : MemoryEffects :=
   .none

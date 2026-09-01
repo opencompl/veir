@@ -49,6 +49,7 @@ def HW.toAttrDict
     dict
   | _ => Std.HashMap.emptyWithCapacity 0
 
+@[get_effects]
 def HW.getEffects
     (_op : HW) (_props : HW.propertiesOf _op) : MemoryEffects :=
   .none
@@ -66,6 +67,7 @@ def HW.isIsolatedFromAbove (op : HW) : Bool :=
 def HW.hasSSADominance (_op : HW) (_index : Nat) : Bool :=
   true
 
+@[is_terminator]
 def HW.isTerminator (op : HW) : Bool :=
   match op with
   | .output => true

@@ -59,6 +59,13 @@ def getIDom? [FactSpec .dominator]
     (block : BlockPtr) (dfCtx : DataFlowContext) : Option BlockPtr :=
   block.getDominatorFact? dfCtx >>= (·.iDom)
 
+/--
+Did the dominance analysis reach `block` from the entry of its enclosing region?
+-/
+def isReachable [FactSpec .dominator]
+    (block : BlockPtr) (dfCtx : DataFlowContext) : Bool :=
+  (block.getDominatorFact? dfCtx).isSome
+
 end BlockPtr
 
 namespace RegionPtr
