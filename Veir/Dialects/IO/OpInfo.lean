@@ -10,8 +10,22 @@ public section
 
 @[opcodes]
 inductive Io where
+/--
+`io.send` writes its single operand, an `!llvm.array<N x i8>`, to the
+environment. It has no results and is never dead, since sending is observable.
+-/
 | send
+/--
+`io.recv` reads `N` bytes from the environment and returns them as an
+`!llvm.array<N x i8>`. It consumes input, so it is modelled as both reading
+and writing to keep it from being removed or reordered.
+-/
 | recv
+/--
+`io.rand` returns `N` random bytes as an `!llvm.array<N x i8>`. Two `rand`
+operations must not be reordered, since that changes the observable trace, so
+it is modelled as both reading and writing.
+-/
 | rand
 deriving Inhabited, Repr, Hashable, DecidableEq
 
