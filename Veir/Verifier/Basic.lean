@@ -181,6 +181,12 @@ def TypeAttr.verifyI1
       pure ()
   | _ => throw errMsg
 
+def TypeAttr.verifyI8ArrayType
+    (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
+  match ty.val with
+  | .llvmArrayType { type := .integerType ⟨8⟩, .. } => pure ()
+  | _ => throw errMsg
+
 /--
   Verify the operand and result counts of a "plain" operation: one that has no
   regions and no successors. The instruction name is included in each error
