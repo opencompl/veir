@@ -26,6 +26,7 @@ match opCode with
 | .cf op => Cf.propertiesOf op
 | .comb op => Comb.propertiesOf op
 | .hw op => HW.propertiesOf op
+| .verif op => Verif.propertiesOf op
 | .builtin op => Builtin.propertiesOf op
 | .func op => Func.propertiesOf op
 | .datapath op => Datapath.propertiesOf op
@@ -49,6 +50,7 @@ def OpCode.getEffects (opCode : OpCode) (props : _propertiesOf opCode) : MemoryE
   | .cf op, props => Cf.getEffects op props
   | .comb op, props => Comb.getEffects op props
   | .hw op, props => HW.getEffects op props
+  | .verif op, props => Verif.getEffects op props
   | .builtin op, props => Builtin.getEffects op props
   | .func op, props => Func.getEffects op props
   | .datapath op, props => Datapath.getEffects op props
@@ -70,6 +72,7 @@ def OpCode.getRegionKind (opCode : OpCode) (index : Nat) : RegionKind :=
   | .cf op => HasOpInfo.getRegionKind op index
   | .comb op => HasOpInfo.getRegionKind op index
   | .hw op => HasOpInfo.getRegionKind op index
+  | .verif op => HasOpInfo.getRegionKind op index
   | .builtin op => HasOpInfo.getRegionKind op index
   | .func op => HasOpInfo.getRegionKind op index
   | .datapath op => HasOpInfo.getRegionKind op index
@@ -92,6 +95,7 @@ def OpCode.hasSSADominance (opCode : OpCode) (index : Nat) : Bool :=
   | .cf op => Cf.hasSSADominance op index
   | .comb op => Comb.hasSSADominance op index
   | .hw op => HW.hasSSADominance op index
+  | .verif op => Verif.hasSSADominance op index
   | .builtin op => Builtin.hasSSADominance op index
   | .func op => Func.hasSSADominance op index
   | .datapath op => Datapath.hasSSADominance op index
@@ -115,6 +119,7 @@ def OpCode.hasNoTerminator (opCode : OpCode) (index : Nat) : Bool :=
   | .cf op => HasOpInfo.hasNoTerminator op index
   | .comb op => HasOpInfo.hasNoTerminator op index
   | .hw op => HasOpInfo.hasNoTerminator op index
+  | .verif op => HasOpInfo.hasNoTerminator op index
   | .builtin op => HasOpInfo.hasNoTerminator op index
   | .func op => HasOpInfo.hasNoTerminator op index
   | .datapath op => HasOpInfo.hasNoTerminator op index
@@ -134,6 +139,7 @@ def OpCode.isIsolatedFromAbove (opCode : OpCode) : Bool :=
   | .cf op => HasOpInfo.isIsolatedFromAbove op
   | .comb op => HasOpInfo.isIsolatedFromAbove op
   | .hw op => HasOpInfo.isIsolatedFromAbove op
+  | .verif op => HasOpInfo.isIsolatedFromAbove op
   | .builtin op => HasOpInfo.isIsolatedFromAbove op
   | .func op => HasOpInfo.isIsolatedFromAbove op
   | .datapath op => HasOpInfo.isIsolatedFromAbove op
@@ -157,6 +163,7 @@ def OpCode.isTerminator (opCode : OpCode) : Bool :=
   | .cf op => HasOpInfo.isTerminator op
   | .comb op => HasOpInfo.isTerminator op
   | .hw op => HasOpInfo.isTerminator op
+  | .verif op => HasOpInfo.isTerminator op
   | .builtin op => HasOpInfo.isTerminator op
   | .func op => HasOpInfo.isTerminator op
   | .datapath op => HasOpInfo.isTerminator op
@@ -183,6 +190,7 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | .cf op => Cf.isConstantLike op
   | .comb op => Comb.isConstantLike op
   | .hw op => HW.isConstantLike op
+  | .verif op => Verif.isConstantLike op
   | .builtin op => Builtin.isConstantLike op
   | .func op => Func.isConstantLike op
   | .datapath op => Datapath.isConstantLike op
@@ -205,6 +213,7 @@ def OpCode.propagatesPoison (opCode : OpCode) : Bool :=
   | .cf op => HasOpInfo.propagatesPoison op
   | .comb op => HasOpInfo.propagatesPoison op
   | .hw op => HasOpInfo.propagatesPoison op
+  | .verif op => HasOpInfo.propagatesPoison op
   | .builtin op => HasOpInfo.propagatesPoison op
   | .func op => HasOpInfo.propagatesPoison op
   | .datapath op => HasOpInfo.propagatesPoison op
@@ -224,6 +233,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   | .cf op => Cf.fromAttrDict op attrDict
   | .comb op => Comb.fromAttrDict op attrDict
   | .hw op => HW.fromAttrDict op attrDict
+  | .verif op => Verif.fromAttrDict op attrDict
   | .builtin op => Builtin.fromAttrDict op attrDict
   | .func op => Func.fromAttrDict op attrDict
   | .datapath op => Datapath.fromAttrDict op attrDict
@@ -247,6 +257,7 @@ def Properties.toAttrDict
   | .cf op, props => Cf.toAttrDict op props
   | .comb op, props => Comb.toAttrDict op props
   | .hw op, props => HW.toAttrDict op props
+  | .verif op, props => Verif.toAttrDict op props
   | .builtin op, props => Builtin.toAttrDict op props
   | .func op, props => Func.toAttrDict op props
   | .datapath op, props => Datapath.toAttrDict op props
@@ -273,6 +284,7 @@ def OpCode.functionInterface? (opCode : OpCode) : Option (FunctionOpInterface (_
   | .cf op => HasOpInfo.functionInterface? op
   | .comb op => HasOpInfo.functionInterface? op
   | .hw op => HasOpInfo.functionInterface? op
+  | .verif op => HasOpInfo.functionInterface? op
   | .builtin op => HasOpInfo.functionInterface? op
   | .func op => HasOpInfo.functionInterface? op
   | .datapath op => HasOpInfo.functionInterface? op
@@ -300,6 +312,7 @@ def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
   | .rv64 opType => Rv64.verifyLocalInvariants opType op ctx opIn
   | .comb opType => Comb.verifyLocalInvariants opType op ctx opIn
   | .hw opType => HW.verifyLocalInvariants opType op ctx opIn
+  | .verif opType => Verif.verifyLocalInvariants opType op ctx opIn
 
 instance : HasOpInfo OpCode where
   verifyLocalInvariants := OpCode.verifyLocalInvariants
@@ -331,6 +344,7 @@ def OpCode.materializeConstant (opCode : OpCode) (value : RuntimeValue)
     -- Listed rather than folded into a catch-all so that adding a dialect
     -- fails to compile until it decides how, or whether, to materialize.
     | .riscv_cf _ | .riscv_stack _ | .rv64 _ | .cf _ | .builtin _
+    | .verif _
     | .func _ | .datapath _ | .pdl _ | .test _ => none
   guard materialized.fst.isConstantLike
   return materialized
