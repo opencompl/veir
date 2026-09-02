@@ -7,6 +7,17 @@ public import CTree.Effect
 
 public section
 
+/-!
+Choice Trees (CTrees) are a data structure for representing and reasoning about
+nondeterministic programs.
+These semantics are represented as a (possibly infinitely deep) tree shallowly embedded in a theorem prover,
+with "Vis" nodes for various kinds of runtime effects, and "Tau"/"Br"/"Choice" (name varies) nodes
+for (demonic) nondeterministic choices happening.
+
+The first implementation of CTrees is in Rocq (https://doi.org/10.1017/S0956796825100105).
+the present implementation makes slightly different design choices in how nondeterminism is handled.
+-/
+
 /-! Definitions and monotonicity proofs are partly adapted from the ones in Coinductive and EffectSSA. -/
 
 namespace CTree
@@ -16,14 +27,14 @@ open Subeffect (mapEff mapCont)
 
 /--
 Type of the unary choice.
-It is used to encode Itree-style tau nodes.
+It is used to encode ITree-style tau nodes.
 -/
 inductive C1In : Type u where
 | c1
 
 /--
 The only case of the unary choice gives a unit result.
-Itree-style tau nodes only have a single child.
+ITree-style tau nodes only have a single child.
 -/
 @[expose]
 def C1 (c : C1In.{u}) : Type u :=
@@ -35,7 +46,8 @@ def C1 (c : C1In.{u}) : Type u :=
 
 -- TODO is universe w needed?
 /--
-The basic coinductive functor for CTree, with constructor resp. for leaves (`ret`), for n-ary choices (`tau`), and for n-ary events (`vis`).
+The basic coinductive functor for CTree, with constructor resp. for leaves (`ret`),
+for n-ary nondeterministic choices (`tau`), and for n-ary events/effects (`vis`).
 In the `tau` case, the `C1` effect for a unary choice is hardcoded.
 -/
 inductive CTreeF {EIn : Type u} (E : EIn → Type u) {CIn : Type u} (C : CIn → Type u)
@@ -97,7 +109,7 @@ Folds the head of a CTree
 def CTree.fold (t : CTreeF E C R (CTree E C R)) : CTree E C R := CoInd.fold _ t
 
 /--
-Unfols the head of a CTree
+Unfolds the head of a CTree
 -/
 def CTree.unfold (t : CTree E C R) : CTreeF E C R (CTree E C R) := CoInd.unfold _ t
 
