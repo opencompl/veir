@@ -106,14 +106,12 @@ def LLZK.Function.functionInterface? (op : LLZK.Function) :
           { props with function_type := functionType } }
   | .return | .call => none
 
-/-- The currently representable subset of the types checked by LLZK's `FuncDefOp::verify`:
-https://github.com/project-llzk/llzk-lib/blob/265d68f678ab15018e3f6253b85557fbaeac9c0d/lib/Dialect/Function/IR/Ops.cpp#L338-L383
-
-This is deliberately narrower until VeIR ports LLZK's aggregate and polymorphic types. -/
+/-- The types accepted by LLZK function definitions:
+https://github.com/project-llzk/llzk-lib/blob/265d68f678ab15018e3f6253b85557fbaeac9c0d/lib/Dialect/Function/IR/Ops.cpp#L338-L383 -/
 def Attribute.isSupportedLLZKFunctionType (type : Attribute) : Bool :=
   match type with
   | .integerType intType => intType.bitwidth = 1
-  | .indexType _ | .feltType _ => true
+  | .indexType _ | .feltType _ | .structType _ | .arrayType _ => true
   | _ => false
 
 private partial def OperationPtr.getEnclosingBuiltinModule? {OpInfo : Type} [IsOpCode OpInfo]
@@ -195,13 +193,13 @@ def LLZK.Function.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "function.def: Expected 1 region (the function body)"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "function.def: Expected 0 successors"
-    -- LLZK allows module, struct, and polymorphic-template parents. VeIR only supports the first
-    -- until those other dialects are ported:
+    -- LLZK also allows polymorphic-template parents, which VeIR does not yet support:
     -- https://github.com/project-llzk/llzk-lib/blob/265d68f678ab15018e3f6253b85557fbaeac9c0d/include/llzk/Dialect/Function/IR/Ops.td#L38-L45
     match op.getParentOp! ctx.raw with
     | some parent =>
-      if IsOpCode.name (parent.getOpType! ctx.raw) != "builtin.module".toUTF8 then
-        throw "function.def: expected parent to be builtin.module; struct.def and poly.template are not yet supported"
+      let parentName := IsOpCode.name (parent.getOpType! ctx.raw)
+      if parentName != "builtin.module".toUTF8 && parentName != "struct.def".toUTF8 then
+        throw "function.def: expected parent to be builtin.module or struct.def; poly.template is not yet supported"
     | none =>
       throw "function.def: expected parent to be builtin.module"
     let props : LLZK.Function.propertiesOf .«def» :=
