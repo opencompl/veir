@@ -888,6 +888,25 @@ def Felt.interpretOp' (opType : Veir.Felt) (properties : propertiesOf opType)
   | _ => none
 
 
+/-- Compare two canonical runtime Felt values from the same field. -/
+private def LLZK.Constrain.feltEq? (operands : _root_.Array RuntimeValue) : Option _root_.Bool := do
+  let [.felt lhsType lhs, .felt rhsType rhs] := operands.toList | none
+  guard (lhsType = rhsType)
+  return decide (lhs = rhs)
+
+/-- Interpret the executable scalar fragment of the LLZK Constrain dialect. -/
+def LLZK.Constrain.interpretOp' (opType : LLZK.Constrain)
+    (operands : _root_.Array RuntimeValue) :
+    Interp (_root_.Array RuntimeValue × Option ControlFlowAction) :=
+  match opType with
+  | .eq => do
+    let satisfied ← LLZK.Constrain.feltEq? operands
+    match satisfied with
+    | true => return (#[], none)
+    | false => .fail
+  | .«in» => .fail
+
+
 def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     (mem : MemoryState)
@@ -1788,6 +1807,9 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
   | .felt feltOp => do
     let (vals, act) ← Felt.interpretOp' feltOp properties resultTypes operands blockOperands
     return (vals, mem, act)
+  | .constrain constrainOp => do
+    let (vals, act) ← LLZK.Constrain.interpretOp' constrainOp operands
+    return (vals, mem, act)
   | .llvm llvmOp => do
     Llvm.interpretOp' llvmOp properties resultTypes operands blockOperands mem
   | .riscv riscvOp => do
@@ -1810,6 +1832,8 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     let (vals, act) ← HW.interpretOp' hwOp properties resultTypes blockOperands
     return (vals, mem, act)
   | .func .return => do
+    return (#[], mem, some (.return operands))
+  | .function .return => do
     return (#[], mem, some (.return operands))
   | .cir .return => do
     return (#[], mem, some (.return operands))
