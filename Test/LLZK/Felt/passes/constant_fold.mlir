@@ -9,7 +9,7 @@
     %a = "felt.const"() <{value = #felt<const 10 : <"babybear">> : !felt.type<"babybear">}> : () -> !felt.type<"babybear">
     // CHECK-NOT: #felt<const 32
     %b = "felt.const"() <{value = #felt<const 32 : <"babybear">> : !felt.type<"babybear">}> : () -> !felt.type<"babybear">
-    // CHECK: %[[FORTY_TWO:.*]] = "felt.const"() <{"value" = #felt<const 42 : <"babybear">> : !felt.type<"babybear">}> : () -> !felt.type<"babybear">
+    // CHECK: %[[FORTY_TWO:.*]] = "felt.const"() <{"value" = #felt<const 42 : !felt.type<"babybear">>}> : () -> !felt.type<"babybear">
     %sum = "felt.add"(%a, %b) : (!felt.type<"babybear">, !felt.type<"babybear">) -> !felt.type<"babybear">
     // CHECK-NEXT: "func.return"(%[[FORTY_TWO]])
     "func.return"(%sum) : (!felt.type<"babybear">) -> ()

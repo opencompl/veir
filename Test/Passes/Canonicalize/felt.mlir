@@ -15,7 +15,7 @@
     %product = "felt.mul"(%difference, %difference) : (!felt.type<"babybear">, !felt.type<"babybear">) -> !felt.type<"babybear">
     // CHECK-NOT: "felt.neg"
     %negated = "felt.neg"(%product) : (!felt.type<"babybear">) -> !felt.type<"babybear">
-    // CHECK: %[[RESULT:.*]] = "felt.const"() <{"value" = #felt<const 2013265917 : <"babybear">> : !felt.type<"babybear">}> : () -> !felt.type<"babybear">
+    // CHECK: %[[RESULT:.*]] = "felt.const"() <{"value" = #felt<const 2013265917 : !felt.type<"babybear">>}> : () -> !felt.type<"babybear">
     // CHECK-NEXT: "func.return"(%[[RESULT]]) : (!felt.type<"babybear">) -> ()
     "func.return"(%negated) : (!felt.type<"babybear">) -> ()
   }) : () -> ()
@@ -26,7 +26,7 @@
   "func.func"() <{function_type = (!felt.type<"babybear">) -> !felt.type<"babybear">, sym_name = "commute"}> ({
     // CHECK: ^{{.*}}(%[[X:.*]] : !felt.type<"babybear">):
     ^bb0(%x : !felt.type<"babybear">):
-      // CHECK-NEXT: %[[FIVE:.*]] = "felt.const"() <{"value" = #felt<const 5 : <"babybear">> : !felt.type<"babybear">}> : () -> !felt.type<"babybear">
+      // CHECK-NEXT: %[[FIVE:.*]] = "felt.const"() <{"value" = #felt<const 5 : !felt.type<"babybear">>}> : () -> !felt.type<"babybear">
       %five = "felt.const"() <{value = #felt<const 5 : <"babybear">> : !felt.type<"babybear">}> : () -> !felt.type<"babybear">
       // CHECK-NEXT: %[[SUM:.*]] = "felt.add"(%[[X]], %[[FIVE]])
       %sum = "felt.add"(%five, %x) : (!felt.type<"babybear">, !felt.type<"babybear">) -> !felt.type<"babybear">
