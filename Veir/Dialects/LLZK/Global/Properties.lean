@@ -20,7 +20,7 @@ https://github.com/project-llzk/llzk-lib/blob/265d68f678ab15018e3f6253b85557fbae
 def TypeAttr.isSupportedLLZKGlobalType (type : TypeAttr) : Bool :=
   match type.val with
   | .integerType intType => intType.bitwidth = 1
-  | .indexType _ | .feltType _ | .stringType _ => true
+  | .indexType _ | .feltType _ | .stringType _ | .structType _ | .arrayType _ => true
   | _ => false
 
 /-- Whether an attribute can initialize a supported LLZK global type.
