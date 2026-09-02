@@ -1625,6 +1625,30 @@ def drop_zextw_addiw := drop_ext_unary_imm_low_word .zextw .addiw
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L170 -/
 def drop_zextw_roriw := drop_ext_unary_imm_low_word .zextw .roriw
 
+/-- `riscv.roriw (riscv.xor (riscv.zextw x) (riscv.zextw y)), imm ->
+    riscv.roriw (riscv.xor x y), imm`. This rewrites the parent `roriw` and
+    creates a fresh XOR so simultaneous full-width uses retain the original,
+    zero-extended XOR result. -/
+def drop_zextw_xor_roriw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (roriwOperands, roriwProps) := matchOp op ctx.raw (OpCode.riscv .roriw) 1
+    | return (ctx, none)
+  let some xorOp := roriwOperands[0]!.definingOp? | return (ctx, none)
+  let some (xorOperands, _) := matchOp xorOp ctx.raw (OpCode.riscv .xor) 2
+    | return (ctx, none)
+  let (x, xChanged) := stripDefiningExt .zextw xorOperands[0]! ctx.raw
+  let (y, yChanged) := stripDefiningExt .zextw xorOperands[1]! ctx.raw
+  if !xChanged || !yChanged then return (ctx, none)
+  let (ctx, newXor) ← WfRewriter.createOp! ctx Riscv.xor #[RegisterType.mk] #[x, y]
+    #[] #[] () none
+  let (ctx, newRoriw) ← WfRewriter.createOp! ctx Riscv.roriw #[RegisterType.mk]
+    #[newXor.getResult 0] #[] #[] roriwProps none
+  some (ctx, some (#[newXor, newRoriw], #[newRoriw.getResult 0]))
+
+def drop_zextw_xor_roriw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite drop_zextw_xor_roriw_local rewriter op opInBounds
+
 /-- `riscv.srliw (riscv.zextw x), imm -> riscv.srliw x, imm`.
     LLVM: `SRLIW` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L165 -/
@@ -2584,6 +2608,7 @@ def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds
      , drop_zextw_addw
      , drop_zextw_addiw
      , drop_zextw_roriw
+     , drop_zextw_xor_roriw
      , drop_zextw_srliw
      , drop_zextw_sextw
      , zextw_and

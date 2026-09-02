@@ -140,6 +140,13 @@ theorem drop_zextw_roriw {rs1 : Reg} {shamt : BitVec 5} :
     RISCV.roriw shamt (RISCV.zextw rs1) = RISCV.roriw shamt rs1 := by
   veir_bv_decide
 
+/-- A word rotate observes only the low 32 bits of the XOR result, so two
+    zero-extensions feeding that XOR are redundant for this use. -/
+theorem drop_zextw_xor_roriw {x y : Reg} {shamt : BitVec 5} :
+    RISCV.roriw shamt (RISCV.xor (RISCV.zextw x) (RISCV.zextw y)) =
+      RISCV.roriw shamt (RISCV.xor x y) := by
+  veir_bv_decide
+
 /--
   Prove the correctness of `riscv.srliw (riscv.zextw x), imm ->
   riscv.srliw x, imm`. `srliw` shifts only the low 32-bit word.
