@@ -585,6 +585,85 @@ def parseOptionalModArithType : AttrParserM (Option TypeAttr) := do
   return some (ModArithType.mk modulus)
 
 /--
+  Parse an optional felt-type field-name annotation: `<"name">`.
+-/
+def parseOptionalFeltFieldName : AttrParserM (Option ByteArray) := do
+  if ← parseOptionalPunctuation "<" then
+    let some name ← parseOptionalStringLiteral
+      | throwString "felt type field name (string literal) expected"
+    parsePunctuation ">"
+    return some name
+  return none
+
+/--
+  Parse an LLZK felt type, if present.
+  Its syntax is `!felt.type` or `!felt.type<"name">`.
+-/
+def parseOptionalFeltType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "felt.type".toByteArray then
+    return none
+  let _ ← consumeToken
+  let fieldName ← parseOptionalFeltFieldName
+  return some (FeltType.mk fieldName)
+
+/--
+  Parse an LLZK felt-const attribute, if present.
+  Current named-field syntax is `#felt<const N : !felt.type<"name">>`;
+  unnamed constants use `#felt<const N> : !felt.type`. Legacy named-field
+  spellings are accepted and canonicalized when printed.
+-/
+def parseOptionalFeltConstAttr : AttrParserM (Option FeltConstAttr) := do
+  let token ← peekToken
+  let .hashIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let name := { token.slice with start := token.slice.start + 1 }.of input
+  if name ≠ "felt".toByteArray then return none
+  let _ ← consumeToken
+  parsePunctuation "<"
+  if !(← parseOptionalKeyword "const".toByteArray) then
+    throwString "#felt<...> attribute body must begin with `const`"
+  let some val ← parseOptionalInteger false true
+    | throwString "#felt<const ...> expects an integer value"
+
+  -- Current LLZK syntax carries a named felt type inside the attribute body.
+  if ← parseOptionalPunctuation ":" then
+    if let some ftAttr ← parseOptionalFeltType then
+      parsePunctuation ">"
+      let Attribute.feltType ft := ftAttr.val
+        | throwString "#felt<const N>'s type annotation must be !felt.type"
+      return some (FeltConstAttr.mk val ft)
+
+    -- Compatibility with the historical `: <"name">` spelling.
+    let some innerFieldName ← parseOptionalFeltFieldName
+      | throwString "#felt<const N : ...> expects a !felt.type"
+    parsePunctuation ">"
+    parsePunctuation ":"
+    let some ftAttr ← parseOptionalFeltType
+      | throwString "#felt<const N> expects a !felt.type annotation"
+    let Attribute.feltType ft := ftAttr.val
+      | throwString "#felt<const N>'s type annotation must be !felt.type"
+    if ft.fieldName ≠ some innerFieldName then
+      throwString "#felt<const N : <\"...\">> inner field name disagrees with outer !felt.type<\"...\"> annotation"
+    return some (FeltConstAttr.mk val ft)
+
+  -- Also accept the original legacy body `N <"name">`.
+  let innerFieldName ← parseOptionalFeltFieldName
+  parsePunctuation ">"
+  parsePunctuation ":"
+  let some ftAttr ← parseOptionalFeltType
+    | throwString "#felt<const N> expects a !felt.type annotation"
+  let Attribute.feltType ft := ftAttr.val
+    | throwString "#felt<const N>'s type annotation must be !felt.type"
+  if let some inner := innerFieldName then
+    if ft.fieldName ≠ some inner then
+      throwString "#felt<const N : <\"...\">> inner field name disagrees with outer !felt.type<\"...\"> annotation"
+  return some (FeltConstAttr.mk val ft)
+
+/--
   Parse CIRCT's HW dialect's `ModulePort::Direction` type.
   Its syntax is `(input|output|inout)`.
 -/
@@ -816,6 +895,8 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some registerType
   if let some modArithType ← parseOptionalModArithType then
     return some modArithType
+  if let some feltType ← parseOptionalFeltType then
+    return some feltType
   if let some llvmVoidType := ← parseOptionalLLVMVoidType then
     return some llvmVoidType
   if let some llvmPointerType := ← parseOptionalLLVMPointerType then
@@ -931,6 +1012,8 @@ partial def parseOptionalDictionaryAttr : AttrParserM (Option DictionaryAttr) :=
   Parse an attribute, if present.
 -/
 partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
+  if let some feltConstAttr ← parseOptionalFeltConstAttr then
+    return some feltConstAttr
   if let some dialectAttr ← parseOptionalDialectAttr then
     return some dialectAttr
   else if let some locationAttr ← parseOptionalLocationAttr then

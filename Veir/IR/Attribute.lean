@@ -295,6 +295,25 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 
 end PDL
 
+/--
+  The `!felt.type` from LLZK's felt dialect.
+  An element of a finite field. The field is specified by an optional
+  name, e.g. `!felt.type<"bn254">`. When omitted, the field is left
+  unspecified and is filled in by the backend.
+-/
+structure FeltType where
+  fieldName : Option ByteArray
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
+  The `#felt<const N> : !felt.type` attribute from LLZK's felt dialect
+  — a structured, typed field-element constant.
+-/
+structure FeltConstAttr where
+  value : Int
+  fieldType : FeltType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
 namespace LLVM
 
 structure VoidType
@@ -486,6 +505,10 @@ inductive Attribute
 | flatSymbolRefAttr (attr : FlatSymbolRefAttr)
 /-- HEIR modarith type -/
 | modArithType (type : ModArithType)
+/-- LLZK felt type -/
+| feltType (type : FeltType)
+/-- LLZK felt-const attribute (`#felt<const N> : !felt.type`) -/
+| feltConstAttr (attr : FeltConstAttr)
 /-- LLVM void type -/
 | llvmVoidType (type : LLVM.VoidType)
 /-- LLVM byte type -/
@@ -749,6 +772,14 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case feltType.feltType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case feltConstAttr.feltConstAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case registerType.registerType type1 type2 =>
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
@@ -938,6 +969,18 @@ instance : ToString FlatSymbolRefAttr where
 instance : ToString ModArithType where
   toString type := s!"!mod_arith.int<{type.modulus}>"
 
+instance : ToString FeltType where
+  toString type := match type.fieldName with
+    | some name => s!"!felt.type<\"{escapeStringLiteral name}\">"
+    | none => "!felt.type"
+
+instance : ToString FeltConstAttr where
+  toString attr :=
+    match attr.fieldType.fieldName with
+    | some name =>
+      s!"#felt<const {attr.value} : <\"{escapeStringLiteral name}\">> : {attr.fieldType}"
+    | none => s!"#felt<const {attr.value}> : {attr.fieldType}"
+
 instance : ToString PDL.RangeElement where
   toString element :=
     match element with
@@ -1102,6 +1145,8 @@ def Attribute.toString (attr : Attribute) : String :=
   | .flatSymbolRefAttr attr => ToString.toString attr
   | .functionType type => type.toString
   | .modArithType type => ToString.toString type
+  | .feltType type => ToString.toString type
+  | .feltConstAttr attr => ToString.toString attr
   | .llvmVoidType type => ToString.toString type
   | .llvmPointerType type => ToString.toString type
   | .llvmArrayType type => type.toString
@@ -1351,6 +1396,8 @@ def isType (attr : Attribute) : Bool :=
   | .flatSymbolRefAttr _ => false
   | .functionType _ => true
   | .modArithType _ => true
+  | .feltType _ => true
+  | .feltConstAttr _ => false
   | .registerType _ => true
   | .registerAttr _ => false
   | .llvmVoidType _ => true
@@ -1418,6 +1465,8 @@ theorem isType_unregistered unregistered :
 theorem isType_functionType type : (functionType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_modArithType type : (modArithType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_feltType type : (feltType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_registerType type : (registerType type).isType = true := by rfl
 @[simp, grind =]
@@ -1610,6 +1659,10 @@ instance : IsTypeAttr LLVMFunctionType where
 
 instance : IsTypeAttr ModArithType where
   coe type := Attribute.asType (.modArithType type) (by rfl)
+  coe_eq_inject _ := by rfl
+
+instance : IsTypeAttr FeltType where
+  coe type := Attribute.asType (.feltType type) (by rfl)
   coe_eq_inject _ := by rfl
 
 instance : CoeDep (Option Nat → RegisterType) RegisterType.mk TypeAttr where
