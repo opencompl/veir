@@ -40,6 +40,7 @@ match opCode with
 | .ram op => LLZK.Ram.propertiesOf op
 | .cast op => LLZK.Cast.propertiesOf op
 | .bool op => LLZK.Bool.propertiesOf op
+| .constrain op => LLZK.Constrain.propertiesOf op
 | .global op => LLZK.Global.propertiesOf op
 | .function op => LLZK.Function.propertiesOf op
 
@@ -74,6 +75,7 @@ def OpCode.getEffects (opCode : OpCode) (props : _propertiesOf opCode) : MemoryE
   | .ram op, props => LLZK.Ram.getEffects op props
   | .cast op, props => LLZK.Cast.getEffects op props
   | .bool op, props => LLZK.Bool.getEffects op props
+  | .constrain op, props => LLZK.Constrain.getEffects op props
   | .global op, props => LLZK.Global.getEffects op props
   | .function op, props => LLZK.Function.getEffects op props
 
@@ -106,6 +108,7 @@ def OpCode.getRegionKind (opCode : OpCode) (index : Nat) : RegionKind :=
   | .ram op => HasOpInfo.getRegionKind op index
   | .cast op => HasOpInfo.getRegionKind op index
   | .bool op => HasOpInfo.getRegionKind op index
+  | .constrain op => HasOpInfo.getRegionKind op index
   | .global op => HasOpInfo.getRegionKind op index
   | .function op => HasOpInfo.getRegionKind op index
 
@@ -139,6 +142,7 @@ def OpCode.hasSSADominance (opCode : OpCode) (index : Nat) : Bool :=
   | .ram op => LLZK.Ram.hasSSADominance op index
   | .cast op => LLZK.Cast.hasSSADominance op index
   | .bool op => LLZK.Bool.hasSSADominance op index
+  | .constrain op => LLZK.Constrain.hasSSADominance op index
   | .global op => LLZK.Global.hasSSADominance op index
   | .function op => LLZK.Function.hasSSADominance op index
 
@@ -173,6 +177,7 @@ def OpCode.hasNoTerminator (opCode : OpCode) (index : Nat) : Bool :=
   | .ram op => HasOpInfo.hasNoTerminator op index
   | .cast op => HasOpInfo.hasNoTerminator op index
   | .bool op => HasOpInfo.hasNoTerminator op index
+  | .constrain op => HasOpInfo.hasNoTerminator op index
   | .global op => HasOpInfo.hasNoTerminator op index
   | .function op => HasOpInfo.hasNoTerminator op index
 
@@ -203,6 +208,7 @@ def OpCode.isIsolatedFromAbove (opCode : OpCode) : Bool :=
   | .ram op => HasOpInfo.isIsolatedFromAbove op
   | .cast op => HasOpInfo.isIsolatedFromAbove op
   | .bool op => HasOpInfo.isIsolatedFromAbove op
+  | .constrain op => HasOpInfo.isIsolatedFromAbove op
   | .global op => HasOpInfo.isIsolatedFromAbove op
   | .function op => HasOpInfo.isIsolatedFromAbove op
 
@@ -237,6 +243,7 @@ def OpCode.isTerminator (opCode : OpCode) : Bool :=
   | .ram op => HasOpInfo.isTerminator op
   | .cast op => HasOpInfo.isTerminator op
   | .bool op => HasOpInfo.isTerminator op
+  | .constrain op => HasOpInfo.isTerminator op
   | .global op => HasOpInfo.isTerminator op
   | .function op => HasOpInfo.isTerminator op
 
@@ -274,6 +281,7 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | .ram op => LLZK.Ram.isConstantLike op
   | .cast op => LLZK.Cast.isConstantLike op
   | .bool op => LLZK.Bool.isConstantLike op
+  | .constrain op => LLZK.Constrain.isConstantLike op
   | .global op => LLZK.Global.isConstantLike op
   | .function op => LLZK.Function.isConstantLike op
 
@@ -307,6 +315,7 @@ def OpCode.propagatesPoison (opCode : OpCode) : Bool :=
   | .ram op => HasOpInfo.propagatesPoison op
   | .cast op => HasOpInfo.propagatesPoison op
   | .bool op => HasOpInfo.propagatesPoison op
+  | .constrain op => HasOpInfo.propagatesPoison op
   | .global op => HasOpInfo.propagatesPoison op
   | .function op => HasOpInfo.propagatesPoison op
 
@@ -337,6 +346,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   | .ram op => LLZK.Ram.fromAttrDict op attrDict
   | .cast op => LLZK.Cast.fromAttrDict op attrDict
   | .bool op => LLZK.Bool.fromAttrDict op attrDict
+  | .constrain op => LLZK.Constrain.fromAttrDict op attrDict
   | .global op => LLZK.Global.fromAttrDict op attrDict
   | .function op => LLZK.Function.fromAttrDict op attrDict
 
@@ -371,6 +381,7 @@ def Properties.toAttrDict
   | .ram op, props => LLZK.Ram.toAttrDict op props
   | .cast op, props => LLZK.Cast.toAttrDict op props
   | .bool op, props => LLZK.Bool.toAttrDict op props
+  | .constrain op, props => LLZK.Constrain.toAttrDict op props
   | .global op, props => LLZK.Global.toAttrDict op props
   | .function op, props => LLZK.Function.toAttrDict op props
 
@@ -408,6 +419,7 @@ def OpCode.functionInterface? (opCode : OpCode) : Option (FunctionOpInterface (_
   | .ram op => HasOpInfo.functionInterface? op
   | .cast op => HasOpInfo.functionInterface? op
   | .bool op => HasOpInfo.functionInterface? op
+  | .constrain op => HasOpInfo.functionInterface? op
   | .global op => HasOpInfo.functionInterface? op
   | .function op => HasOpInfo.functionInterface? op
 
@@ -441,6 +453,7 @@ def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
   | .ram opType => LLZK.Ram.verifyLocalInvariants opType op ctx opIn
   | .cast opType => LLZK.Cast.verifyLocalInvariants opType op ctx opIn
   | .bool opType => LLZK.Bool.verifyLocalInvariants opType op ctx opIn
+  | .constrain opType => LLZK.Constrain.verifyLocalInvariants opType op ctx opIn
   | .global opType => LLZK.Global.verifyLocalInvariants opType op ctx opIn
   | .function opType => LLZK.Function.verifyLocalInvariants opType op ctx opIn
 
@@ -477,7 +490,7 @@ def OpCode.materializeConstant (opCode : OpCode) (value : RuntimeValue)
     | .riscv_cf _ | .riscv_stack _ | .rv64 _ | .cf _ | .builtin _
     | .verif _
     | .func _ | .datapath _ | .pdl _ | .test _ | .cir _ | .io _ | .string _
-    | .include _ | .ram _ | .cast _ | .bool _ | .global _ | .function _ => none
+    | .include _ | .ram _ | .cast _ | .bool _ | .constrain _ | .global _ | .function _ => none
   guard materialized.fst.isConstantLike
   return materialized
 
