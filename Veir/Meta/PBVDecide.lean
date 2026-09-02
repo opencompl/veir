@@ -534,5 +534,20 @@ public meta def evalPbvDecide : Tactic := fun stx => do
   match stx with
   | `(tactic| pbv_decide $n:num) => do
       let ctx : PbvTranslateContext := { bmcBound := n.getNat }
-      replaceMainGoal (← pbvTranslate (← getMainGoal) ctx)
+      let mainGoal :: sideGoals ← pbvTranslate (← getMainGoal) ctx
+        | throwError "``pbvTranslate didn't generate sideGoals"
+
+      let mut nonDischargedGoals : List MVarId := []
+      for sideGoal in sideGoals do
+        let gs ← (Tactic.run sideGoal (evalTactic (← `(tactic| try lia)))).run'
+        if !gs.isEmpty then
+          logInfo m!"Grind could not discharge {sideGoal}"
+        nonDischargedGoals := nonDischargedGoals ++ gs
+
+      let decided ← (Tactic.run mainGoal (evalTactic (← `(tactic| try bv_decide)))).run'
+      if !decided.isEmpty then
+        logInfo "Main goal could not be discharged with ``bv_decide"
+        nonDischargedGoals := decided ++ nonDischargedGoals
+
+      replaceMainGoal nonDischargedGoals
   | _ => throwUnsupportedSyntax
