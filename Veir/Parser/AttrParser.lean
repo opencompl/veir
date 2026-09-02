@@ -613,8 +613,8 @@ def parseOptionalFeltType : AttrParserM (Option TypeAttr) := do
 /--
   Parse an LLZK felt-const attribute, if present.
   Current named-field syntax is `#felt<const N : !felt.type<"name">>`;
-  unnamed constants use `#felt<const N> : !felt.type`. Legacy named-field
-  spellings are accepted and canonicalized when printed.
+  unnamed constants use `#felt<const N>`. Legacy named-field spellings and
+  outer type annotations are accepted and canonicalized when printed.
 -/
 def parseOptionalFeltConstAttr : AttrParserM (Option FeltConstAttr) := do
   let token ← peekToken
