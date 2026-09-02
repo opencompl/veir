@@ -857,7 +857,8 @@ partial def parseType (errorMsg : String := "type expected") : AttrParserM TypeA
 
 /--
   Parse a dense elements attribute, if present.
-  Its syntax is `dense<value> : type`, e.g. `dense<0> : tensor<4xi8>`.
+  Its syntax is `dense<value> : type`, e.g. `dense<0> : tensor<4xi8>`
+  or `dense<[32, 64]> : vector<2xi64>`.
   Both the value body and the type are stored as raw strings pending full
   tensor/vector type support.
 -/
@@ -868,10 +869,12 @@ partial def parseOptionalDenseElementsAttr : AttrParserM (Option DenseElementsAt
   let value ← parseUnregisteredAttrBody
   parsePunctuation ">"
   parsePunctuation ":"
-  -- tensor<4xi8> is an unregistered type: capture it as a balanced string
+  -- tensor<4xi8> and vector<2xi64> are unregistered types: capture them as a balanced string
   -- using the same scheme as parseOptionalDialectAttr's fallback case.
   let typeStartPos ← getPos
-  parseKeyword "tensor".toByteArray
+  if !(← parseOptionalKeyword "tensor".toByteArray) then
+    parseKeyword "vector".toByteArray
+      "'tensor' or 'vector' type expected in dense elements attribute"
   parsePunctuation "<"
   let _ ← parseUnregisteredAttrBody
   let typeEndPos := (← peekToken).slice.stop

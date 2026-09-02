@@ -338,7 +338,7 @@ def OperationPtr.checkIsNonNullIntegerType (op : OperationPtr)
 def denseElementsElementType? (typeStr : String) : Option String :=
   let s := typeStr.replace " " ""
   let segments := s.splitOn "x"
-  if "tensor<".isPrefixOf s && s.endsWith ">" && segments.length ≥ 2 then
+  if ("tensor<".isPrefixOf s || "vector<".isPrefixOf s) && s.endsWith ">" && segments.length ≥ 2 then
     some ((segments.getLast!.splitOn ">").head!)
   else
     none

@@ -180,6 +180,16 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "array<i16: 0>" (DenseArrayAttr.mk (IntegerType.mk 16) #[0])
 #assert expectErrorAttr "array<>" "integer type expected in dense array attribute" (some 6)
 
+/-! ## Dense elements attribute -/
+
+#assert expectSuccessAttr "dense<0> : tensor<4xi8>" (DenseElementsAttr.mk "0" "tensor<4xi8>")
+#assert expectSuccessAttr "dense<0> : vector<4xi8>" (DenseElementsAttr.mk "0" "vector<4xi8>")
+#assert expectSuccessAttr "dense<[32, 64]> : vector<2xi64>"
+  (DenseElementsAttr.mk "[32, 64]" "vector<2xi64>")
+#assert expectSuccessAttr "dense<0> : vector<[4]xi8>" (DenseElementsAttr.mk "0" "vector<[4]xi8>")
+#assert expectErrorAttr "dense<0> : memref<4xi8>"
+  "'tensor' or 'vector' type expected in dense elements attribute" (some 11)
+
 /-! ## Unregistered dialect type -/
 
 #assert expectSuccessType "!foo.bar" ⟨UnregisteredAttr.mk "!foo.bar" true, by grind⟩ true
