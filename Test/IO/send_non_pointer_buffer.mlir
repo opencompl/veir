@@ -2,10 +2,11 @@
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> ()}> ({
+    %len = "llvm.mlir.constant"() <{value = 4 : i64}> : () -> i64
     %x = "arith.constant"() <{value = 3 : i32}> : () -> i32
-    "io.send"(%x) : (i32) -> ()
+    "io.send"(%x, %len) : (i32, i64) -> ()
     "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: io.send: Expected operand 0 to have i8 array type
+// CHECK: io.send: Expected operand 0 to have !llvm.ptr type

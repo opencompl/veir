@@ -2,9 +2,10 @@
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> ()}> ({
-    %x = "io.recv"() : () -> i32
+    %len = "llvm.mlir.constant"() <{value = 4 : i64}> : () -> i64
+    "io.recv"(%len, %len) : (i64, i64) -> ()
     "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: io.recv: Expected result 0 to have i8 array type
+// CHECK: io.recv: Expected operand 0 to have !llvm.ptr type

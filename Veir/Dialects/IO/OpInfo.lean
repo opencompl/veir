@@ -8,23 +8,29 @@ namespace Veir
 
 public section
 
+/--
+Operations that exchange bytes with the environment. Every operation takes a
+buffer pointer and a byte count, `(ptr : !llvm.ptr, len : integer)`, and has
+no results, mirroring the shape of the system calls they lower to.
+-/
 @[opcodes]
 inductive Io where
 /--
-`io.send` writes its single operand, an `!llvm.array<N x i8>`, to the
-environment. It has no results and is never dead, since sending is observable.
+`io.send` writes the `len` bytes starting at `ptr` to the environment. It reads
+the buffer, and its output is observable, so it is modelled as both reading and
+writing memory to keep it from being removed or reordered.
 -/
 | send
 /--
-`io.recv` reads `N` bytes from the environment and returns them as an
-`!llvm.array<N x i8>`. It consumes input, so it is modelled as both reading
-and writing to keep it from being removed or reordered.
+`io.recv` reads `len` bytes from the environment and stores them starting at
+`ptr`. It consumes input and writes the buffer, so it is modelled as both
+reading and writing memory to keep it from being removed or reordered.
 -/
 | recv
 /--
-`io.rand` returns `N` random bytes as an `!llvm.array<N x i8>`. Two `rand`
+`io.rand` fills the `len` bytes starting at `ptr` with random bytes. Two `rand`
 operations must not be reordered, since that changes the observable trace, so
-it is modelled as both reading and writing.
+it is modelled as both reading and writing memory.
 -/
 | rand
 deriving Inhabited, Repr, Hashable, DecidableEq
@@ -45,13 +51,15 @@ def Io.toAttrDict
   match op with
   | _ => Std.HashMap.emptyWithCapacity 0
 
+/--
+Every `io` operation accesses the buffer it is given and interacts with the
+environment, so none of them may be removed when unused or reordered with
+respect to each other or to loads and stores.
+-/
 @[get_effects]
 def Io.getEffects
-    (op : Io) (props : Io.propertiesOf op) : MemoryEffects :=
-  match op with
-  | .send => .write
-  | .recv => .readWrite -- recv is treated as read & write as it consumes input, thus, modifying the environment
-  | .rand => .readWrite -- rand is treated as read & write to avoid optimizations that reorder two rand operations as that results in different observable traces
+    (_op : Io) (_props : Io.propertiesOf _op) : MemoryEffects :=
+  .readWrite
 
 def Io.isConstantLike (_op : Io) : Bool :=
   false
@@ -69,8 +77,9 @@ instance : IsOpCode Io where
   toAttrDict := Io.toAttrDict
 
 /--
-Verify the local invariants of an `Io` operation in any operation-info type
-containing the `Io` dialect.
+Verify the local invariants of an `io` operation in any operation-info type
+containing the `io` dialect: two operands, a `!llvm.ptr` buffer followed by an
+integer byte count, and no results.
 -/
 @[expose]
 def Io.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpInfo Io]
@@ -78,14 +87,13 @@ def Io.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpInf
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   match opType with
-  | .send =>
-    op.verifyPlainOpCounts ctx opIn 1 0
-    ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyI8ArrayType
-      s!"{instrName}: Expected operand 0 to have i8 array type"
-  | .recv | .rand =>
-    op.verifyPlainOpCounts ctx opIn 0 1
-    ((op.getResult 0).get! ctx.raw).type.verifyI8ArrayType
-      s!"{instrName}: Expected result 0 to have i8 array type"
+  | .send | .recv | .rand =>
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyPlainOpCounts ctx opIn 2 0
+    ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyLlvmPointerType
+      s!"{instrName}: Expected operand 0 to have !llvm.ptr type"
+    ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerType
+      s!"{instrName}: Expected operand 1 to have integer type"
 
 instance : HasOpInfo Io where
   verifyLocalInvariants := Io.verifyLocalInvariants

@@ -1,21 +1,25 @@
 // RUN: VEIR_ROUNDTRIP
 
 "builtin.module"() ({
-    "func.func"() <{sym_name = "main", function_type = () -> ()}> ({
-        %r = "io.rand"() : () -> !llvm.array<32 x i8>
-        "io.send"(%r) : (!llvm.array<32 x i8>) -> ()
-        %msg = "io.recv"() : () -> !llvm.array<8 x i8>
-        "io.send"(%msg) : (!llvm.array<8 x i8>) -> ()
-        "func.return"() : () -> ()
-    }) : () -> ()
+  "func.func"() <{sym_name = "main", function_type = () -> ()}> ({
+    %len = "llvm.mlir.constant"() <{value = 32 : i64}> : () -> i64
+    %buf = "llvm.alloca"(%len) <{elem_type = i8}> : (i64) -> !llvm.ptr
+    "io.rand"(%buf, %len) : (!llvm.ptr, i64) -> ()
+    "io.send"(%buf, %len) : (!llvm.ptr, i64) -> ()
+    "io.recv"(%buf, %len) : (!llvm.ptr, i64) -> ()
+    "io.send"(%buf, %len) : (!llvm.ptr, i64) -> ()
+    "func.return"() : () -> ()
+  }) : () -> ()
 }) : () -> ()
 
 // CHECK:      "builtin.module"() ({
 // CHECK-NEXT:   ^{{.*}}():
 // CHECK-NEXT:     "func.func"() <{"function_type" = () -> (), "sym_name" = "main"}> ({
 // CHECK-NEXT:       ^{{.*}}():
-// CHECK-NEXT:         %[[r:.*]] = "io.rand"() : () -> !llvm.array<32 x i8>
-// CHECK-NEXT:         "io.send"(%[[r]]) : (!llvm.array<32 x i8>) -> ()
-// CHECK-NEXT:         %[[msg:.*]] = "io.recv"() : () -> !llvm.array<8 x i8>
-// CHECK-NEXT:         "io.send"(%[[msg]]) : (!llvm.array<8 x i8>) -> ()
+// CHECK-NEXT:         %[[len:.*]] = "llvm.mlir.constant"() <{"value" = 32 : i64}> : () -> i64
+// CHECK-NEXT:         %[[buf:.*]] = "llvm.alloca"(%[[len]]) <{"alignment" = 0 : i64, "elem_type" = i8}> : (i64) -> !llvm.ptr
+// CHECK-NEXT:         "io.rand"(%[[buf]], %[[len]]) : (!llvm.ptr, i64) -> ()
+// CHECK-NEXT:         "io.send"(%[[buf]], %[[len]]) : (!llvm.ptr, i64) -> ()
+// CHECK-NEXT:         "io.recv"(%[[buf]], %[[len]]) : (!llvm.ptr, i64) -> ()
+// CHECK-NEXT:         "io.send"(%[[buf]], %[[len]]) : (!llvm.ptr, i64) -> ()
 // CHECK-NEXT:         "func.return"() : () -> ()

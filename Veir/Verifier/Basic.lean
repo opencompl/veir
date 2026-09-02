@@ -171,6 +171,12 @@ def TypeAttr.verifyIntegerOrPointerType
   | .llvmPointerType _ => pure ()
   | _ => throw errMsg
 
+def TypeAttr.verifyLlvmPointerType
+    (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
+  match ty.val with
+  | .llvmPointerType _ => pure ()
+  | _ => throw errMsg
+
 def TypeAttr.verifyI1
     (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
   match ty.val with
@@ -179,12 +185,6 @@ def TypeAttr.verifyI1
       throw errMsg
     else
       pure ()
-  | _ => throw errMsg
-
-def TypeAttr.verifyI8ArrayType
-    (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
-  match ty.val with
-  | .llvmArrayType { type := .integerType ⟨8⟩, .. } => pure ()
   | _ => throw errMsg
 
 /--
