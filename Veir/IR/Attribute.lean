@@ -467,6 +467,18 @@ structure Match.OptionalType where
   innerType : Attribute
 deriving Repr, Hashable
 
+/-- The `!struct.type<@Name<[params]>>` type from LLZK's struct dialect. -/
+structure LLZK.StructType where
+  nameRef : SymbolRefAttr
+  params : Option (Array Attribute)
+deriving Repr, Hashable
+
+/-- The `!array.type<d1,d2,... x elemType>` type from LLZK's array dialect. -/
+structure LLZK.ArrayType where
+  dims : Array Int
+  elementType : Attribute
+deriving Repr, Hashable
+
 /--
   A data structure that represents compile-time information in the IR.
   Attributes are used either as type annotations for SSA values, or
@@ -564,6 +576,10 @@ inductive Attribute
 | pdlTypeType (type : PDL.TypeType)
 /-- Match optional handle type -/
 | matchOptionalType (type : Match.OptionalType)
+/-- LLZK struct type, e.g. `!struct.type<@Add<[]>>` -/
+| structType (type : LLZK.StructType)
+/-- LLZK array type, e.g. `!array.type<3 x !felt.type>` -/
+| arrayType (type : LLZK.ArrayType)
 deriving Inhabited, Repr, Hashable
 
 end
@@ -579,6 +595,12 @@ instance : Inhabited LLVM.ArrayType where
 
 instance : Inhabited Match.OptionalType where
   default := { innerType := .pdlValueType .mk }
+
+instance : Inhabited LLZK.StructType where
+  default := { nameRef := default, params := none }
+
+instance : Inhabited LLZK.ArrayType where
+  default := { dims := #[], elementType := .feltType (.mk none) }
 
 def ArrayAttr.empty : ArrayAttr := { value := #[] }
 
@@ -618,6 +640,16 @@ theorem LLVM.ArrayType.sizeOf_elems_type {t : ArrayType} :
 theorem Match.OptionalType.sizeOf_innerType {t : Match.OptionalType} :
     sizeOf t.innerType < sizeOf t := by
   grind [cases Match.OptionalType]
+
+theorem LLZK.StructType.sizeOf_elems_params {t : LLZK.StructType}
+    {ps : Array Attribute} (hps : t.params = some ps) (hx : x ∈ ps) :
+    sizeOf x < sizeOf t := by
+  have := Array.sizeOf_lt_of_mem hx
+  grind [cases LLZK.StructType]
+
+theorem LLZK.ArrayType.sizeOf_elementType {t : LLZK.ArrayType} :
+    sizeOf t.elementType < sizeOf t := by
+  grind [cases LLZK.ArrayType]
 
 /-!
   ## DecidableEq instances
@@ -689,6 +721,35 @@ def Match.OptionalType.decEq (opt1 opt2 : Match.OptionalType) : Decidable (opt1 
 termination_by sizeOf opt1
 decreasing_by
   have := @Match.OptionalType.sizeOf_innerType
+  grind
+
+def LLZK.StructType.decEq (t1 t2 : LLZK.StructType) : Decidable (t1 = t2) :=
+  match decEq t1.nameRef t2.nameRef with
+  | isTrue _ =>
+    match h1 : t1.params, h2 : t2.params with
+    | Option.none, Option.none => isTrue (by grind [cases LLZK.StructType])
+    | Option.some ps1, Option.some ps2 =>
+      match Array.instDecidabelEq' ps1 ps2 (fun x y _ _ => Attribute.decEq x y) with
+      | isTrue _ => isTrue (by grind [cases LLZK.StructType])
+      | isFalse _ => isFalse (by grind)
+    | Option.none, Option.some _ => isFalse (by grind)
+    | Option.some _, Option.none => isFalse (by grind)
+  | isFalse _ => isFalse (by grind)
+termination_by sizeOf t1
+decreasing_by
+  have := @LLZK.StructType.sizeOf_elems_params
+  grind
+
+def LLZK.ArrayType.decEq (t1 t2 : LLZK.ArrayType) : Decidable (t1 = t2) :=
+  match decEq t1.dims t2.dims with
+  | isTrue _ =>
+    match Attribute.decEq t1.elementType t2.elementType with
+    | isTrue _ => isTrue (by grind [cases LLZK.ArrayType])
+    | isFalse _ => isFalse (by grind)
+  | isFalse _ => isFalse (by grind)
+termination_by sizeOf t1
+decreasing_by
+  have := @LLZK.ArrayType.sizeOf_elementType
   grind
 
 def DictionaryAttr.decEq (dict1 dict2 : DictionaryAttr) : Decidable (dict1 = dict2) :=
@@ -873,6 +934,14 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match Match.OptionalType.decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case structType.structType type1 type2 =>
+    exact (match LLZK.StructType.decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case arrayType.arrayType type1 type2 =>
+    exact (match LLZK.ArrayType.decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case pdlAttributeType.pdlAttributeType type1 type2 =>
     exact (isTrue (by grind))
   case pdlOperationType.pdlOperationType type1 type2 =>
@@ -890,6 +959,8 @@ instance : DecidableEq FunctionType := FunctionType.decEq
 instance : DecidableEq LLVMFunctionType := LLVMFunctionType.decEq
 instance : DecidableEq ArrayAttr := ArrayAttr.decEq
 instance : DecidableEq DictionaryAttr := DictionaryAttr.decEq
+instance : DecidableEq LLZK.StructType := LLZK.StructType.decEq
+instance : DecidableEq LLZK.ArrayType := LLZK.ArrayType.decEq
 
 /-!
   ## ToString implementation
@@ -1173,6 +1244,25 @@ termination_by sizeOf type
 decreasing_by
   apply Match.OptionalType.sizeOf_innerType
 
+def LLZK.StructType.toString (type : LLZK.StructType) : String :=
+  let name := ToString.toString type.nameRef
+  match _h : type.params with
+  | none => s!"!struct.type<{name}>"
+  | some ps =>
+    let params := String.intercalate ", " (ps.toList.map Attribute.toString)
+    s!"!struct.type<{name}<[{params}]>>"
+termination_by sizeOf type
+decreasing_by
+  have := @LLZK.StructType.sizeOf_elems_params
+  grind
+
+def LLZK.ArrayType.toString (type : LLZK.ArrayType) : String :=
+  let dims := String.intercalate "," (type.dims.toList.map ToString.toString)
+  s!"!array.type<{dims} x {Attribute.toString type.elementType}>"
+termination_by sizeOf type
+decreasing_by
+  apply LLZK.ArrayType.sizeOf_elementType
+
 /--
   Convert an attribute to a string representation.
 -/
@@ -1224,6 +1314,8 @@ def Attribute.toString (attr : Attribute) : String :=
   | .pdlValueType type => ToString.toString type
   | .pdlTypeType type => ToString.toString type
   | .matchOptionalType type => type.toString
+  | .structType type => type.toString
+  | .arrayType type => type.toString
 termination_by sizeOf attr
 
 end
@@ -1248,6 +1340,12 @@ instance : ToString LLVM.ArrayType where
 
 instance : ToString Match.OptionalType where
   toString := Match.OptionalType.toString
+
+instance : ToString LLZK.StructType where
+  toString := LLZK.StructType.toString
+
+instance : ToString LLZK.ArrayType where
+  toString := LLZK.ArrayType.toString
 
 /-! ## Attribute Subtype Interface -/
 
@@ -1481,6 +1579,8 @@ def isType (attr : Attribute) : Bool :=
   | .pdlValueType _ => true
   | .pdlTypeType _ => true
   | .matchOptionalType _ => true
+  | .structType _ => true
+  | .arrayType _ => true
 
 /--
   Returns the size, in bits, that an LLVM type would use if stored to memory.
@@ -1567,6 +1667,10 @@ theorem isType_pdlOperationType type : (pdlOperationType type).isType = true := 
 theorem isType_pdlValueType type : (pdlValueType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_pdlTypeType type : (pdlTypeType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_structType type : (structType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_arrayType type : (arrayType type).isType = true := by rfl
 
 end Attribute
 
@@ -1782,6 +1886,14 @@ instance : IsTypeAttr PDL.RangeType where
 
 instance : IsTypeAttr Match.OptionalType where
   coe type := Attribute.asType (.matchOptionalType type) (by rfl)
+  coe_eq_inject _ := by rfl
+
+instance : IsTypeAttr LLZK.StructType where
+  coe type := Attribute.asType (.structType type) (by rfl)
+  coe_eq_inject _ := by rfl
+
+instance : IsTypeAttr LLZK.ArrayType where
+  coe type := Attribute.asType (.arrayType type) (by rfl)
   coe_eq_inject _ := by rfl
 
 instance : IsTypeAttr PDL.AttributeType where

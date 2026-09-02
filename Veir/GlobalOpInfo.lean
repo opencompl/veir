@@ -40,6 +40,8 @@ match opCode with
 | .bool op => Bool_.propertiesOf op
 | .constrain op => Constrain.propertiesOf op
 | .global op => Global.propertiesOf op
+| .struct op => Struct.propertiesOf op
+| .array op => Array_.propertiesOf op
 | .function op => Function_.propertiesOf op
 
 /--
@@ -73,6 +75,8 @@ def OpCode.getEffects (opCode : OpCode) (props : _propertiesOf opCode) : MemoryE
   | .bool op, props => Bool_.getEffects op props
   | .constrain op, props => Constrain.getEffects op props
   | .global op, props => Global.getEffects op props
+  | .struct op, props => Struct.getEffects op props
+  | .array op, props => Array_.getEffects op props
   | .function op, props => Function_.getEffects op props
 
 /--
@@ -104,6 +108,8 @@ def OpCode.getRegionKind (opCode : OpCode) (index : Nat) : RegionKind :=
   | .bool op => HasOpInfo.getRegionKind op index
   | .constrain op => HasOpInfo.getRegionKind op index
   | .global op => HasOpInfo.getRegionKind op index
+  | .struct op => HasOpInfo.getRegionKind op index
+  | .array op => HasOpInfo.getRegionKind op index
   | .function op => HasOpInfo.getRegionKind op index
 
 /--
@@ -136,6 +142,8 @@ def OpCode.hasSSADominance (opCode : OpCode) (index : Nat) : Bool :=
   | .bool op => Bool_.hasSSADominance op index
   | .constrain op => Constrain.hasSSADominance op index
   | .global op => Global.hasSSADominance op index
+  | .struct op => Struct.hasSSADominance op index
+  | .array op => Array_.hasSSADominance op index
   | .function op => Function_.hasSSADominance op index
 
 /--
@@ -169,6 +177,8 @@ def OpCode.hasNoTerminator (opCode : OpCode) (index : Nat) : Bool :=
   | .bool op => HasOpInfo.hasNoTerminator op index
   | .constrain op => HasOpInfo.hasNoTerminator op index
   | .global op => HasOpInfo.hasNoTerminator op index
+  | .struct op => HasOpInfo.hasNoTerminator op index
+  | .array op => HasOpInfo.hasNoTerminator op index
   | .function op => HasOpInfo.hasNoTerminator op index
 
 /-- Whether this opcode carries MLIR's `IsolatedFromAbove` trait. -/
@@ -198,6 +208,8 @@ def OpCode.isIsolatedFromAbove (opCode : OpCode) : Bool :=
   | .bool op => HasOpInfo.isIsolatedFromAbove op
   | .constrain op => HasOpInfo.isIsolatedFromAbove op
   | .global op => HasOpInfo.isIsolatedFromAbove op
+  | .struct op => HasOpInfo.isIsolatedFromAbove op
+  | .array op => HasOpInfo.isIsolatedFromAbove op
   | .function op => HasOpInfo.isIsolatedFromAbove op
 
 /--
@@ -231,6 +243,8 @@ def OpCode.isTerminator (opCode : OpCode) : Bool :=
   | .bool op => HasOpInfo.isTerminator op
   | .constrain op => HasOpInfo.isTerminator op
   | .global op => HasOpInfo.isTerminator op
+  | .struct op => HasOpInfo.isTerminator op
+  | .array op => HasOpInfo.isTerminator op
   | .function op => HasOpInfo.isTerminator op
 
 /--
@@ -267,6 +281,8 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | .bool op => Bool_.isConstantLike op
   | .constrain op => Constrain.isConstantLike op
   | .global op => Global.isConstantLike op
+  | .struct op => Struct.isConstantLike op
+  | .array op => Array_.isConstantLike op
   | .function op => Function_.isConstantLike op
 
 /--
@@ -299,6 +315,8 @@ def OpCode.propagatesPoison (opCode : OpCode) : Bool :=
   | .bool op => HasOpInfo.propagatesPoison op
   | .constrain op => HasOpInfo.propagatesPoison op
   | .global op => HasOpInfo.propagatesPoison op
+  | .struct op => HasOpInfo.propagatesPoison op
+  | .array op => HasOpInfo.propagatesPoison op
   | .function op => HasOpInfo.propagatesPoison op
 
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
@@ -328,6 +346,8 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   | .bool op => Bool_.fromAttrDict op attrDict
   | .constrain op => Constrain.fromAttrDict op attrDict
   | .global op => Global.fromAttrDict op attrDict
+  | .struct op => Struct.fromAttrDict op attrDict
+  | .array op => Array_.fromAttrDict op attrDict
   | .function op => Function_.fromAttrDict op attrDict
 
 /--
@@ -361,6 +381,8 @@ def Properties.toAttrDict
   | .bool op, props => Bool_.toAttrDict op props
   | .constrain op, props => Constrain.toAttrDict op props
   | .global op, props => Global.toAttrDict op props
+  | .struct op, props => Struct.toAttrDict op props
+  | .array op, props => Array_.toAttrDict op props
   | .function op, props => Function_.toAttrDict op props
 
 instance : IsOpCode OpCode where
@@ -397,6 +419,8 @@ def OpCode.functionInterface? (opCode : OpCode) : Option (FunctionOpInterface (_
   | .bool op => HasOpInfo.functionInterface? op
   | .constrain op => HasOpInfo.functionInterface? op
   | .global op => HasOpInfo.functionInterface? op
+  | .struct op => HasOpInfo.functionInterface? op
+  | .array op => HasOpInfo.functionInterface? op
   | .function op => HasOpInfo.functionInterface? op
 
 #generate_has_dialect_instances OpCode
@@ -429,6 +453,8 @@ def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
   | .bool opType => Bool_.verifyLocalInvariants opType op ctx opIn
   | .constrain opType => Constrain.verifyLocalInvariants opType op ctx opIn
   | .global opType => Global.verifyLocalInvariants opType op ctx opIn
+  | .struct opType => Struct.verifyLocalInvariants opType op ctx opIn
+  | .array opType => Array_.verifyLocalInvariants opType op ctx opIn
   | .function opType => Function_.verifyLocalInvariants opType op ctx opIn
 
 instance : HasOpInfo OpCode where
@@ -464,7 +490,7 @@ def OpCode.materializeConstant (opCode : OpCode) (value : RuntimeValue)
     | .riscv_cf _ | .riscv_stack _ | .rv64 _ | .cf _ | .builtin _
     | .verif _
     | .func _ | .datapath _ | .pdl _ | .test _ | .string _ | .include _ | .ram _ | .cast _
-    | .bool _ | .constrain _ | .global _
+    | .bool _ | .constrain _ | .global _ | .struct _ | .array _
     | .function _ => none
   guard materialized.fst.isConstantLike
   return materialized

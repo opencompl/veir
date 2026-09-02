@@ -33,6 +33,8 @@ public import Veir.Dialects.LLZK.Cast.OpInfo
 public import Veir.Dialects.LLZK.Bool.OpInfo
 public import Veir.Dialects.LLZK.Constrain.OpInfo
 public import Veir.Dialects.LLZK.Global.OpInfo
+public import Veir.Dialects.LLZK.Struct.OpInfo
+public import Veir.Dialects.LLZK.Array.OpInfo
 public import Veir.Dialects.LLZK.Function.OpInfo
 
 open Std

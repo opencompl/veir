@@ -943,6 +943,48 @@ partial def parseOptionalMatchOptionalType : AttrParserM (Option TypeAttr) := do
   parsePunctuation ">"
   return some (Match.OptionalType.mk inner)
 
+/-- Parse an LLZK struct type, if present. -/
+partial def parseOptionalLLZKStructType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "struct.type".toByteArray then return none
+  let _ ← consumeToken
+  parsePunctuation "<"
+  let some symRef ← parseOptionalAnySymbolRef
+    | throwString "!struct.type expects a symbol reference (`@Name`)"
+  let nameRef : SymbolRefAttr := match symRef with
+    | .flatSymbolRefAttr flat => { rootRef := flat.value, nestedRefs := #[] }
+    | .symbolRefAttr nested => nested
+    | _ => { rootRef := "", nestedRefs := #[] }
+  let params ← do
+    if ← parseOptionalPunctuation "<" then
+      let some elems ← parseOptionalDelimitedList .square parseAttribute
+        | throwString "!struct.type parameter list (`[...]`) expected"
+      parsePunctuation ">"
+      pure (some elems)
+    else
+      pure none
+  parsePunctuation ">"
+  return some (LLZK.StructType.mk nameRef params)
+
+/-- Parse an LLZK array type, if present. -/
+partial def parseOptionalLLZKArrayType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "array.type".toByteArray then return none
+  let _ ← consumeToken
+  parsePunctuation "<"
+  let dims ← parseList
+    (parseInteger false false "!array.type dimension expected (only concrete integer dimensions are supported)")
+  parseKeyword "x".toByteArray
+  let elemType ← parseType "!array.type element type expected"
+  parsePunctuation ">"
+  return some (LLZK.ArrayType.mk dims elemType)
+
 /--
   Parse a type, if present.
 -/
@@ -963,6 +1005,10 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some feltType
   if let some stringType ← parseOptionalStringType then
     return some stringType
+  if let some llzkStructType ← parseOptionalLLZKStructType then
+    return some llzkStructType
+  if let some llzkArrayType ← parseOptionalLLZKArrayType then
+    return some llzkArrayType
   if let some llvmVoidType := ← parseOptionalLLVMVoidType then
     return some llvmVoidType
   if let some llvmPointerType := ← parseOptionalLLVMPointerType then
