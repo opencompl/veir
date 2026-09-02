@@ -322,6 +322,10 @@ structure FeltType where
   fieldName : Option ByteArray
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+/-- The `!string.type` from LLZK's string dialect. -/
+structure StringType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
 /--
   The `#felt<const N> : !felt.type` attribute from LLZK's felt dialect
   — a structured, typed field-element constant.
@@ -613,6 +617,8 @@ inductive Attribute
 | feltType (type : FeltType)
 /-- LLZK felt-const attribute (`#felt<const N> : !felt.type`) -/
 | feltConstAttr (attr : FeltConstAttr)
+/-- LLZK string type -/
+| stringType (type : StringType)
 /-- MLIR builtin index type -/
 | indexType (type : IndexType)
 /-- ClangIR integer type (`!cir.int<s|u, N>`) -/
@@ -963,6 +969,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case stringType.stringType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case indexType.indexType type1 type2 =>
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
@@ -1205,6 +1215,12 @@ instance : ToString CirIntAttr where
 instance : ToString CirBoolAttr where
   toString attr := s!"#cir.bool<{attr.value}> : !cir.bool"
 
+instance : ToString StringType where
+  toString _ := "!string.type"
+
+instance : ToString IndexType where
+  toString _ := "index"
+
 instance : ToString PDL.RangeElement where
   toString element :=
     match element with
@@ -1227,9 +1243,6 @@ instance : ToString PDL.ValueType where
 
 instance : ToString PDL.TypeType where
   toString _ := "!pdl.type"
-
-instance : ToString IndexType where
-  toString _ := "index"
 
 instance : ToString LLVM.VoidType where
   toString _ := "!llvm.void"
@@ -1421,6 +1434,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .modArithType type => ToString.toString type
   | .feltType type => ToString.toString type
   | .feltConstAttr attr => ToString.toString attr
+  | .stringType type => ToString.toString type
   | .indexType type => ToString.toString type
   | .cirIntType type => ToString.toString type
   | .cirBoolType type => ToString.toString type
@@ -1691,6 +1705,7 @@ def isType (attr : Attribute) : Bool :=
   | .modArithType _ => true
   | .feltType _ => true
   | .feltConstAttr _ => false
+  | .stringType _ => true
   | .indexType _ => true
   | .cirIntType _ => true
   | .cirBoolType _ => true
@@ -1779,6 +1794,8 @@ theorem isType_functionType type : (functionType type).isType = true := by rfl
 theorem isType_modArithType type : (modArithType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_feltType type : (feltType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_stringType type : (stringType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_indexType type : (indexType type).isType = true := by rfl
 @[simp, grind =]
@@ -1993,6 +2010,10 @@ instance : IsTypeAttr ModArithType where
 
 instance : IsTypeAttr FeltType where
   coe type := Attribute.asType (.feltType type) (by rfl)
+  coe_eq_inject _ := by rfl
+
+instance : IsTypeAttr StringType where
+  coe type := Attribute.asType (.stringType type) (by rfl)
   coe_eq_inject _ := by rfl
 
 instance : IsTypeAttr IndexType where
