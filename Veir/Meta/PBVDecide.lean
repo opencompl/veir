@@ -58,7 +58,7 @@ inductive TmKind
 | width
 
 /--
-Inductive data structure to express the Terms that this tactic reasons about.
+Inductive data structure to express the terms that this tactic reasons about.
 -/
 inductive Tm : TmKind → Type
 | widthAtom (id : Nat) : Tm .width
@@ -70,13 +70,13 @@ blocks of the terms.
 -/
 meta partial def Tm.reifyWidth (env : TmWidthEnv) (e : Expr) : MetaM (Option (Tm .width)) := do
   if let some id := env.width2expr.idxOf? e then
-    -- An atom is an expression is present in the Env
+    -- An atom is an expression that is present in the Env.
     pure <| some (.widthAtom id)
   else
     pure none
 
 /--
-Convert a `Tm` into an `Expr` provided and environment.
+Convert a `Tm` into an `Expr` given an environment.
 -/
 meta def Tm.toExpr (this : Tm .width) (env : TmWidthEnv) : Expr :=
   match this with
@@ -116,7 +116,7 @@ meta def WidthTms.getOrCreateTm (g : MVarId) (this : WidthTms) (wExpr : Expr)
 Information about the width variable and associated hypotheses.
 -/
 structure WidthInfo where
-  /-- The Name correspodning to this width. -/
+  /-- The Name corresponding to this width. -/
   widthName : Name
   /-- The Expr corresponding to this width. -/
   widthTm : Tm .width
@@ -152,9 +152,9 @@ Get WidthInfo from an Expr.
 -/
 meta def WidthInfos.getFromExpr? (this: WidthInfos) (wExpr : Expr)
     : MetaM (Option WidthInfo) := do
-  -- Reduce the expression (allows for cases such as (w + 0) to be reduced to w)
+  -- Reduce the expression (allows for cases such as (w + 0) to be reduced to w).
   let reducedExpr ← whnf wExpr
-  -- Reify the expr using the env and then look for it in the Hashmap
+  -- Reify the expr using the env and then look for it in the Hashmap.
   let some reified ← Tm.reifyWidth this.env reducedExpr | pure none
   return this.infos[reified.toName]?
 
@@ -341,7 +341,7 @@ meta def addBvInfos (g : MVarId) (bvInfos : BitVecInfos)
   return simp
 
 /--
-Add theorems bounding each of width to the provided bound to the simp set.
+Add theorems bounding each width to the provided bound to the simp set.
 -/
 meta def addWidthInfosSimpLemmas (g : MVarId) (widthInfos : WidthInfos)
   (simp : SimpTheoremsArray) : MetaM SimpTheoremsArray := g.withContext do
@@ -377,7 +377,7 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVa
            <| ← addWidthInfosSimpLemmas g widthInfos #[]
   -- Run simp
   let g ← applySimp g thms
-  -- Return modified goal and subgoals
+  -- Return modified goal and subgoals.
   return g :: (widthInfos.infos.values.map (·.hypWidthLeBoundMVarId))
 
 /--

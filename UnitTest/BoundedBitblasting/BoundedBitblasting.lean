@@ -7,7 +7,7 @@ example (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
   · bv_decide
   · grind
 
-/-- Commutativity of addition with definitionally-not-syntactically equal widths-/
+/-- Commutativity of addition with definitionally-not-syntactically equal widths -/
 example (w : Nat) (x : BitVec (w + 0)) (y : BitVec w) (hw : w ≤ 4) :
   x + y = y + x := by
   pbv_decide 4
