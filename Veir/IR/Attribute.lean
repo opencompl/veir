@@ -313,6 +313,10 @@ structure FeltType where
   fieldName : Option ByteArray
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+/-- The `!string.type` from LLZK's string dialect. -/
+structure StringType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
 /--
   The `#felt<const N> : !felt.type` attribute from LLZK's felt dialect
   — a structured, typed field-element constant.
@@ -518,6 +522,8 @@ inductive Attribute
 | feltType (type : FeltType)
 /-- LLZK felt-const attribute (`#felt<const N> : !felt.type`) -/
 | feltConstAttr (attr : FeltConstAttr)
+/-- LLZK string type -/
+| stringType (type : StringType)
 /-- LLVM void type -/
 | llvmVoidType (type : LLVM.VoidType)
 /-- LLVM byte type -/
@@ -789,6 +795,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case stringType.stringType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case registerType.registerType type1 type2 =>
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
@@ -997,6 +1007,9 @@ instance : ToString FeltConstAttr where
     | some _ => s!"#felt<const {attr.value} : {attr.fieldType}>"
     | none => s!"#felt<const {attr.value}>"
 
+instance : ToString StringType where
+  toString _ := "!string.type"
+
 instance : ToString PDL.RangeElement where
   toString element :=
     match element with
@@ -1164,6 +1177,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .modArithType type => ToString.toString type
   | .feltType type => ToString.toString type
   | .feltConstAttr attr => ToString.toString attr
+  | .stringType type => ToString.toString type
   | .llvmVoidType type => ToString.toString type
   | .llvmPointerType type => ToString.toString type
   | .llvmArrayType type => type.toString
@@ -1416,6 +1430,7 @@ def isType (attr : Attribute) : Bool :=
   | .modArithType _ => true
   | .feltType _ => true
   | .feltConstAttr _ => false
+  | .stringType _ => true
   | .registerType _ => true
   | .registerAttr _ => false
   | .llvmVoidType _ => true
@@ -1485,6 +1500,8 @@ theorem isType_functionType type : (functionType type).isType = true := by rfl
 theorem isType_modArithType type : (modArithType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_feltType type : (feltType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_stringType type : (stringType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_registerType type : (registerType type).isType = true := by rfl
 @[simp, grind =]
@@ -1681,6 +1698,10 @@ instance : IsTypeAttr ModArithType where
 
 instance : IsTypeAttr FeltType where
   coe type := Attribute.asType (.feltType type) (by rfl)
+  coe_eq_inject _ := by rfl
+
+instance : IsTypeAttr StringType where
+  coe type := Attribute.asType (.stringType type) (by rfl)
   coe_eq_inject _ := by rfl
 
 instance : CoeDep (Option Nat → RegisterType) RegisterType.mk TypeAttr where
