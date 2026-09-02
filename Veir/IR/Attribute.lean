@@ -239,6 +239,14 @@ structure FlatSymbolRefAttr where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
+  A nested symbol reference attribute, e.g., `@Outer::@Inner`.
+-/
+structure SymbolRefAttr where
+  rootRef : String
+  nestedRefs : Array String
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
   The `!mod_arith.int` type from HEIR's modarith dialect.
 -/
 structure ModArithType where
@@ -503,6 +511,7 @@ inductive Attribute
 | unregisteredAttr (attr : UnregisteredAttr)
 /-- A flat symbol reference, e.g., `@foo` or `@"my.func"`. -/
 | flatSymbolRefAttr (attr : FlatSymbolRefAttr)
+| symbolRefAttr (attr : SymbolRefAttr)
 /-- HEIR modarith type -/
 | modArithType (type : ModArithType)
 /-- LLZK felt type -/
@@ -816,6 +825,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case symbolRefAttr.symbolRefAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case hwModuleType.hwModuleType type1 type2 =>
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
@@ -965,6 +978,10 @@ instance : ToString UnregisteredAttr where
 
 instance : ToString FlatSymbolRefAttr where
   toString attr := attr.value
+
+instance : ToString SymbolRefAttr where
+  toString attr :=
+    attr.nestedRefs.foldl (fun acc nested => s!"{acc}::{nested}") attr.rootRef
 
 instance : ToString ModArithType where
   toString type := s!"!mod_arith.int<{type.modulus}>"
@@ -1142,6 +1159,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .dictionaryAttr attr => attr.toString
   | .unregisteredAttr attr => ToString.toString attr
   | .flatSymbolRefAttr attr => ToString.toString attr
+  | .symbolRefAttr attr => ToString.toString attr
   | .functionType type => type.toString
   | .modArithType type => ToString.toString type
   | .feltType type => ToString.toString type
@@ -1393,6 +1411,7 @@ def isType (attr : Attribute) : Bool :=
   | .dictionaryAttr _ => false
   | .unregisteredAttr attr => attr.isType
   | .flatSymbolRefAttr _ => false
+  | .symbolRefAttr _ => false
   | .functionType _ => true
   | .modArithType _ => true
   | .feltType _ => true

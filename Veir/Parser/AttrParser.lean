@@ -438,6 +438,29 @@ def parseOptionalFlatSymbolRefAttr : AttrParserM (Option FlatSymbolRefAttr) := d
   let some name ← parseOptionalPrefixedKeyword .atIdent | return none
   return some (FlatSymbolRefAttr.mk ("@" ++ String.fromUTF8! name))
 
+/-- Parse either a flat or nested symbol reference. -/
+def parseOptionalAnySymbolRef : AttrParserM (Option Attribute) := do
+  let some flat ← parseOptionalFlatSymbolRefAttr | return none
+  let mut nestedRefs : Array String := #[]
+  repeat
+    let saved ← getThe ParserState
+    let t1 ← peekToken
+    if t1.kind ≠ .colon then break
+    let _ ← consumeToken
+    let t2 ← peekToken
+    if t2.kind ≠ .colon || t2.slice.start.byteOffset ≠ t1.slice.stop.byteOffset then
+      set saved
+      break
+    let _ ← consumeToken
+    match ← parseOptionalFlatSymbolRefAttr with
+    | some seg => nestedRefs := nestedRefs.push seg.value
+    | none =>
+      set saved
+      break
+  if nestedRefs.isEmpty then
+    return some (.flatSymbolRefAttr flat)
+  return some (.symbolRefAttr { rootRef := flat.value, nestedRefs })
+
 /--
   Parse a location attribute, if present.
   A location attribute has the form `loc(body)`.
@@ -1037,8 +1060,8 @@ partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
     return some arrayAttr
   else if let some dictAttr ← parseOptionalDictionaryAttr then
     return some dictAttr
-  else if let some symRefAttr ← parseOptionalFlatSymbolRefAttr then
-    return some symRefAttr
+  else if let some symRef ← parseOptionalAnySymbolRef then
+    return some symRef
   else
     return none
 

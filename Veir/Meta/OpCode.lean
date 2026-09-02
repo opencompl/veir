@@ -29,8 +29,12 @@ meta def mkCtorWithType (n : Name × Name) : TermElabM (TSyntax `Lean.Parser.Com
 namespace Dialect
 
 meta def getName (d : Dialect) : String :=
+  -- Trailing underscore is stripped: lets the Lean inductive name avoid clashes
+  -- with built-in types (`String_`, `Bool_`, `Array_`, `Function_`) while
+  -- keeping the dialect mnemonic equal to the LLZK/MLIR name (`string`, etc.).
   -- TODO: should we add underscores to translate from CamelCase to snake_case?
-  d.name.toLower
+  let n := if d.name.endsWith "_" then (d.name.dropEnd 1).toString else d.name
+  n.toLower
 
 /--
 The dialect name as a Lean `Name` in lowercase for the `OpCode` inductive.

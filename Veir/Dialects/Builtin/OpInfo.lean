@@ -100,6 +100,12 @@ def Builtin.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "Expected 1 region"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    let body := op.getRegion! ctx.raw 0
+    match (body.get! ctx.raw).firstBlock with
+    | some block =>
+      if block.getNumArguments! ctx.raw ≠ 0 then
+        throw "builtin.module: Expected the body block to have 0 arguments"
+    | none => pure ()
     pure ()
 
 instance : HasOpInfo Builtin where
