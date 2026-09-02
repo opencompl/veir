@@ -28,6 +28,9 @@ public import Veir.Dialects.Test.OpInfo
 public import Veir.Dialects.LLZK.Felt.OpInfo
 public import Veir.Dialects.LLZK.String.OpInfo
 public import Veir.Dialects.LLZK.Include.OpInfo
+public import Veir.Dialects.LLZK.RAM.OpInfo
+public import Veir.Dialects.LLZK.Cast.OpInfo
+public import Veir.Dialects.LLZK.Bool.OpInfo
 public import Veir.Dialects.LLZK.Global.OpInfo
 public import Veir.Dialects.LLZK.Function.OpInfo
 

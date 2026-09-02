@@ -59,6 +59,10 @@ structure RegisterType where
   index: Option Nat := none
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+/-- The MLIR builtin `index` type. -/
+structure IndexType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
 /--
   An integer literal with an associated integer type.
 -/
@@ -326,6 +330,12 @@ structure FeltConstAttr where
   fieldType : FeltType
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+/-- LLZK's `#bool<cmp ...>` comparison-predicate attribute. -/
+structure BoolCmpPredicateAttr where
+  value : Int
+  withCmp : Bool
+deriving Inhabited, Repr, DecidableEq, Hashable
+
 namespace LLVM
 
 structure VoidType
@@ -524,6 +534,10 @@ inductive Attribute
 | feltConstAttr (attr : FeltConstAttr)
 /-- LLZK string type -/
 | stringType (type : StringType)
+/-- MLIR builtin index type -/
+| indexType (type : IndexType)
+/-- LLZK bool.cmp predicate, e.g. `#bool<lt>` / `#bool<cmp lt>` -/
+| boolCmpPredicateAttr (attr : BoolCmpPredicateAttr)
 /-- LLVM void type -/
 | llvmVoidType (type : LLVM.VoidType)
 /-- LLVM byte type -/
@@ -799,6 +813,14 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case indexType.indexType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case boolCmpPredicateAttr.boolCmpPredicateAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case registerType.registerType type1 type2 =>
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
@@ -1010,6 +1032,16 @@ instance : ToString FeltConstAttr where
 instance : ToString StringType where
   toString _ := "!string.type"
 
+instance : ToString IndexType where
+  toString _ := "index"
+
+instance : ToString BoolCmpPredicateAttr where
+  toString attr :=
+    let pred := match attr.value with
+      | 0 => "eq" | 1 => "ne" | 2 => "lt" | 3 => "le" | 4 => "gt" | 5 => "ge"
+      | v => ToString.toString v
+    s!"#bool<{if attr.withCmp then "cmp " else ""}{pred}>"
+
 instance : ToString PDL.RangeElement where
   toString element :=
     match element with
@@ -1178,6 +1210,8 @@ def Attribute.toString (attr : Attribute) : String :=
   | .feltType type => ToString.toString type
   | .feltConstAttr attr => ToString.toString attr
   | .stringType type => ToString.toString type
+  | .indexType type => ToString.toString type
+  | .boolCmpPredicateAttr attr => ToString.toString attr
   | .llvmVoidType type => ToString.toString type
   | .llvmPointerType type => ToString.toString type
   | .llvmArrayType type => type.toString
@@ -1431,6 +1465,8 @@ def isType (attr : Attribute) : Bool :=
   | .feltType _ => true
   | .feltConstAttr _ => false
   | .stringType _ => true
+  | .indexType _ => true
+  | .boolCmpPredicateAttr _ => false
   | .registerType _ => true
   | .registerAttr _ => false
   | .llvmVoidType _ => true
@@ -1502,6 +1538,11 @@ theorem isType_modArithType type : (modArithType type).isType = true := by rfl
 theorem isType_feltType type : (feltType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_stringType type : (stringType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_indexType type : (indexType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_boolCmpPredicateAttr attr :
+  (boolCmpPredicateAttr attr).isType = false := by rfl
 @[simp, grind =]
 theorem isType_registerType type : (registerType type).isType = true := by rfl
 @[simp, grind =]
@@ -1702,6 +1743,10 @@ instance : IsTypeAttr FeltType where
 
 instance : IsTypeAttr StringType where
   coe type := Attribute.asType (.stringType type) (by rfl)
+  coe_eq_inject _ := by rfl
+
+instance : IsTypeAttr IndexType where
+  coe type := Attribute.asType (.indexType type) (by rfl)
   coe_eq_inject _ := by rfl
 
 instance : CoeDep (Option Nat → RegisterType) RegisterType.mk TypeAttr where

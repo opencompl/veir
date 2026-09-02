@@ -56,6 +56,12 @@ def parseOptionalIntegerType : AttrParserM (Option IntegerType) := do
     return none
   | _ => return none
 
+/-- Parse the MLIR builtin `index` type. -/
+def parseOptionalIndexType : AttrParserM (Option IndexType) := do
+  if ← parseOptionalKeyword "index".toByteArray then
+    return some IndexType.mk
+  return none
+
 /--
   Parse an optional float type.
   A float type is represented as `f` followed by a positive integer indicating its width, e.g., `f32`.
@@ -698,6 +704,27 @@ def parseOptionalFeltConstAttr : AttrParserM (Option FeltConstAttr) := do
     return some (FeltConstAttr.mk val ft)
   return some (FeltConstAttr.mk val (FeltType.mk innerFieldName))
 
+/-- Parse LLZK's `#bool<cmp pred>` comparison-predicate attribute. -/
+def parseOptionalBoolCmpPredicateAttr : AttrParserM (Option Attribute) := do
+  let token ← peekToken
+  let .hashIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let name := { token.slice with start := token.slice.start + 1 }.of input
+  if name ≠ "bool".toByteArray then return none
+  let _ ← consumeToken
+  parsePunctuation "<"
+  let withCmp ← parseOptionalKeyword "cmp".toByteArray
+  let value ←
+    if (← parseOptionalKeyword "eq".toByteArray) then pure (0 : Int)
+    else if (← parseOptionalKeyword "ne".toByteArray) then pure 1
+    else if (← parseOptionalKeyword "lt".toByteArray) then pure 2
+    else if (← parseOptionalKeyword "le".toByteArray) then pure 3
+    else if (← parseOptionalKeyword "gt".toByteArray) then pure 4
+    else if (← parseOptionalKeyword "ge".toByteArray) then pure 5
+    else throwString "#bool<...> expects one of eq, ne, lt, le, gt, ge"
+  parsePunctuation ">"
+  return some (Attribute.boolCmpPredicateAttr { value, withCmp })
+
 /--
   Parse CIRCT's HW dialect's `ModulePort::Direction` type.
   Its syntax is `(input|output|inout)`.
@@ -922,6 +949,8 @@ partial def parseOptionalMatchOptionalType : AttrParserM (Option TypeAttr) := do
 partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
   if let some integerType ← parseOptionalIntegerType then
     return some integerType
+  if let some indexType ← parseOptionalIndexType then
+    return some indexType
   if let some floatType ← parseOptionalFloatType then
     return some floatType
   if let some byteType ← parseOptionalByteType then
@@ -1051,6 +1080,8 @@ partial def parseOptionalDictionaryAttr : AttrParserM (Option DictionaryAttr) :=
 partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
   if let some feltConstAttr ← parseOptionalFeltConstAttr then
     return some feltConstAttr
+  if let some boolCmpAttr ← parseOptionalBoolCmpPredicateAttr then
+    return some boolCmpAttr
   if let some dialectAttr ← parseOptionalDialectAttr then
     return some dialectAttr
   else if let some locationAttr ← parseOptionalLocationAttr then
