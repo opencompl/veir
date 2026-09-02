@@ -1,13 +1,13 @@
 import Veir.Meta.PBVDecide
 
-/-- Commutativity of addition -/
+/-- Commutativity of addition. -/
 example (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
   x + y = y + x := by
   pbv_decide 4
   · bv_decide
   · grind
 
-/-- Commutativity of addition with definitionally-not-syntactically equal widths -/
+/-- Commutativity of addition with definitionally-not-syntactically equal widths. -/
 example (w : Nat) (x : BitVec (w + 0)) (y : BitVec w) (hw : w ≤ 4) :
   x + y = y + x := by
   pbv_decide 4
@@ -15,9 +15,17 @@ example (w : Nat) (x : BitVec (w + 0)) (y : BitVec w) (hw : w ≤ 4) :
   · grind
   · grind
 
-/-- Commutativity of addition for three variables -/
+/-- Commutativity of addition for three variables. -/
 example (w : Nat) (x y z : BitVec w) (hw : w ≤ 4) :
   x + y + z = y + x + z := by
   pbv_decide 4
   · bv_decide
+  · grind
+
+/-- Appending and adding. -/
+example (w : Nat) (a b : BitVec w) (hw : w ≤ 8) :
+  (a ++ b) + (b ++ a) = (a ++ a) + (b ++ b) := by
+  pbv_decide 8
+  · bv_decide
+  · grind
   · grind

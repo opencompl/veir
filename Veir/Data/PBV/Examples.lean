@@ -45,8 +45,7 @@ theorem trace_add_comm_manual (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
 
 
 /-- Manual trace of a zero extension to `q` followed by a zero extension to `r`,
-    which is a single zero extension to `r`, since `p < q`.
--/
+    which is a single zero extension to `r`, since `p < q`. -/
 theorem trace_zero_zero_extend (p q r : Nat) (x : BitVec p)
   (hr : r ≤ 8)
   (h_qr : q < r)
@@ -74,8 +73,9 @@ theorem trace_zero_zero_extend (p q r : Nat) (x : BitVec p)
   have mq_mask := maskOfWidth_and_add_one_eq_zero h_mq
   have mp_mask := maskOfWidth_and_add_one_eq_zero h_mp
 -- Step 5B: Translate the condition on the natural number width
---   into a fact about the bitvector masks
-  have lt_pq := mask_lt_mask p_le_bw q_le_bw h_mp h_mq h_pq
+--          into a fact about the bitvector masks
+  have bv_p_lt_q := lt_eq_lt_of_eq_maskOfWidth p_le_bw q_le_bw h_mp h_mq h_pq
+  have bv_q_lt_r := lt_eq_lt_of_eq_maskOfWidth q_le_bw r_le_bw h_mq h_mr h_qr
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [
     eq_iff (o := 8),
@@ -120,8 +120,8 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
   have mq_mask := maskOfWidth_and_add_one_eq_zero h_mq
   have mp_mask := maskOfWidth_and_add_one_eq_zero h_mp
 -- Step 5B: Translate the condition on the natural number width
---   into a fact about the bitvector masks
-  have lt_pq := mask_lt_mask p_le_bw q_le_bw h_mp h_mq hpq
+--          into a fact about the bitvector masks
+  have bv_p_lt_q := lt_eq_lt_of_eq_maskOfWidth p_le_bw q_le_bw h_mp h_mq hpq
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [
     eq_iff (o := 8),
@@ -136,5 +136,45 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
     q_le_bw,                       -- Lets simp discharge the `v ≤ o` side condition of
                                    -- `setWidth_signExtend_eq_and_maskOfWidth`
   ] at h_xmp ⊢
+-- Step 8: BitBlast!
+  bv_decide
+
+/-- Manual trace of an append, whose result is twice as wide as its operands,
+    so the blast width has to cover `w + w` rather than just `w`. -/
+theorem trace_append (w : Nat) (a b : BitVec w) (hw : w ≤ 8) :
+  (a ++ b) + (b ++ a) = (a ++ a) + (b ++ b)
+  := by
+-- Step 1: Bound widths to the provided blast width. The blast width is 16, not
+--         8, because every append here has width `w + w`.
+  have w_le_bw : w ≤ 16 := by grind
+  have w_add_w_le_bw : w + w ≤ 16 := by grind
+-- Step 2-3: Introduce mask to replace `w` Nat var
+  apply width_elim 16 w
+  intro mw h_mw
+-- Step 4: Eliminate the parametric bv vars of width `w`
+--         enforcing width constraint with mask
+  revert a
+  apply var_elim w_le_bw
+  intro a h_amw
+  revert b
+  apply var_elim w_le_bw
+  intro b h_bmw
+-- Step 5: Convert width hypothesis to mask hypothesis
+  have mw_mask := maskOfWidth_and_add_one_eq_zero h_mw
+  have w_add_w_mask := maskOfWidth_add_eq_mul_of_maskOfWidth w_le_bw w_le_bw w_add_w_le_bw h_mw h_mw
+-- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
+  simp only [
+    eq_iff (o := 16),
+    setWidth_add,
+    setWidth_append_eq_or_mul_maskOfWidth_add_one (o := 16),
+    setWidth_setWidth,
+    w_add_w_le_bw,                 -- Lets simp discharge the `v + w ≤ o` side condition of
+                                   -- `setWidth_append_eq_or_mul_maskOfWidth_add_one`
+    w_le_bw,
+    ← h_mw,
+    BitVec.setWidth_eq
+  ]
+-- Step 7: Rewrite the mask into the hypotheses too
+  simp only [← h_mw] at h_amw h_bmw
 -- Step 8: BitBlast!
   bv_decide
