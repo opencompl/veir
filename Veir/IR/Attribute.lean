@@ -1663,5 +1663,15 @@ instance : IsTypeAttr PDL.TypeType where
   coe type := Attribute.asType (.pdlTypeType type) (by rfl)
   coe_eq_inject _ := by rfl
 
+instance : IsTypeAttr TypeAttr where
+  name := "TypeAttr"
+  inject := fun x => x.val
+  project := fun attr => if h: attr.isType then attr.asType else none
+  coe := id
+  coe_eq_inject := by simp
+  project_eq_some_iff _ _ := by
+    simp only [Option.dite_none_right_eq_some, Option.some.injEq, TypeAttr.inj]
+    grind
+
 end
 end Veir
