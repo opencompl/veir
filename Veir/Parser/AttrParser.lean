@@ -345,7 +345,8 @@ partial def parseOptionalDialectType : AttrParserM (Option TypeAttr) := do
   let dialectName ← parseOptionalPrefixedKeyword .exclamationIdent
   let some dialectName := dialectName | return none
   if !(← getThe AttrParserState).allowUnregisteredDialect then
-    throwAt startPos s!"type is not registered. Consider using --allow-unregistered-dialect."
+    throwAt startPos s!"type '!{String.fromUTF8! dialectName}' is not registered. \
+      Consider using --allow-unregistered-dialect."
   if let true ← parseOptionalPunctuation "<" then
     let _ ← parseUnregisteredAttrBody
     let endPos := (← peekToken).slice.stop
@@ -420,7 +421,8 @@ partial def parseOptionalDialectAttr : AttrParserM (Option Attribute) := do
     return some (DlSpecAttr.mk body : Attribute)
 
   if !(← getThe AttrParserState).allowUnregisteredDialect then
-    throwAt startPos s!"attribute is not registered. Consider using --allow-unregistered-dialect."
+    throwAt startPos s!"attribute '#{String.fromUTF8! dialectName}' is not registered. \
+      Consider using --allow-unregistered-dialect."
   parsePunctuation "<"
   let _ ← parseUnregisteredAttrBody
   let endPos := (← peekToken).slice.stop

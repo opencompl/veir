@@ -4,6 +4,6 @@
     "func.return"() : () -> !bar.baz
 }) : () -> ()
 
-// CHECK:unregistered_type_error.mlir:4:29: error: type is not registered. Consider using --allow-unregistered-dialect.
+// CHECK:unregistered_type_error.mlir:4:29: error: type '!bar.baz' is not registered. Consider using --allow-unregistered-dialect.
 // CHECK-NEXT:    "func.return"() : () -> !bar.baz
 // CHECK-NEXT:                            ^

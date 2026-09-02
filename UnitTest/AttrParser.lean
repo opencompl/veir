@@ -186,9 +186,9 @@ macro "#assert " e:term : command =>
 #assert expectSuccessType "!foo<bar>" ⟨UnregisteredAttr.mk "!foo<bar>" true, by grind⟩ true
 #assert expectSuccessType "!test.test<bar>" ⟨UnregisteredAttr.mk "!test.test<bar>" true, by grind⟩ true
 
-#assert expectErrorType "!foo.bar" "type is not registered. Consider using --allow-unregistered-dialect." (some 0) false
-#assert expectErrorType "!foo<bar>" "type is not registered. Consider using --allow-unregistered-dialect." (some 0) false
-#assert expectErrorType "!test.test<bar>" "type is not registered. Consider using --allow-unregistered-dialect." (some 0) false
+#assert expectErrorType "!foo.bar" "type '!foo.bar' is not registered. Consider using --allow-unregistered-dialect." (some 0) false
+#assert expectErrorType "!foo<bar>" "type '!foo' is not registered. Consider using --allow-unregistered-dialect." (some 0) false
+#assert expectErrorType "!test.test<bar>" "type '!test.test' is not registered. Consider using --allow-unregistered-dialect." (some 0) false
 
 
 /-! ## Unregistered dialect attribute -/
@@ -196,8 +196,8 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "#foo<bar>" (UnregisteredAttr.mk "#foo<bar>" false) true
 #assert expectSuccessAttr "#test.test<bar>" (UnregisteredAttr.mk "#test.test<bar>" false) true
 
-#assert expectErrorAttr "#foo<bar>" "attribute is not registered. Consider using --allow-unregistered-dialect." (some 0) false
-#assert expectErrorAttr "#test.test<bar>" "attribute is not registered. Consider using --allow-unregistered-dialect." (some 0) false
+#assert expectErrorAttr "#foo<bar>" "attribute '#foo' is not registered. Consider using --allow-unregistered-dialect." (some 0) false
+#assert expectErrorAttr "#test.test<bar>" "attribute '#test.test' is not registered. Consider using --allow-unregistered-dialect." (some 0) false
 
 
 /-! ## Location attribute -/
