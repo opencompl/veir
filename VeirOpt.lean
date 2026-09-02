@@ -17,6 +17,7 @@ import Veir.Passes.ArithToLLVM
 import Veir.Passes.Canonicalize
 import Veir.Passes.Legalization
 import Veir.Passes.Felt.Combine
+import Veir.Passes.LLZK.DedupConstraints
 
 open Veir.Parser
 open Veir.Parser.ParserError
@@ -40,6 +41,7 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
      ModArithToArithPass,
      ArithToLLVMPass,
      CanonicalizePass,
+     LLZK.DedupConstraintsPass,
      LegalizePass,
      FeltPass.Combine ] : List (Pass OpCode)).foldl
     (fun m pass => m.insert pass.name pass)
