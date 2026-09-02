@@ -361,6 +361,12 @@ structure CirBoolAttr where
   value : Bool
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+/-- LLZK's `#bool<cmp ...>` comparison-predicate attribute. -/
+structure BoolCmpPredicateAttr where
+  value : Int
+  withCmp : Bool
+deriving Inhabited, Repr, DecidableEq, Hashable
+
 namespace LLVM
 
 structure VoidType
@@ -621,6 +627,8 @@ inductive Attribute
 | stringType (type : StringType)
 /-- MLIR builtin index type -/
 | indexType (type : IndexType)
+/-- LLZK bool.cmp predicate, e.g. `#bool<lt>` / `#bool<cmp lt>` -/
+| boolCmpPredicateAttr (attr : BoolCmpPredicateAttr)
 /-- ClangIR integer type (`!cir.int<s|u, N>`) -/
 | cirIntType (type : CirIntType)
 /-- ClangIR boolean type (`!cir.bool`) -/
@@ -977,6 +985,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case boolCmpPredicateAttr.boolCmpPredicateAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case cirIntType.cirIntType type1 type2 =>
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
@@ -1221,6 +1233,13 @@ instance : ToString StringType where
 instance : ToString IndexType where
   toString _ := "index"
 
+instance : ToString BoolCmpPredicateAttr where
+  toString attr :=
+    let pred := match attr.value with
+      | 0 => "eq" | 1 => "ne" | 2 => "lt" | 3 => "le" | 4 => "gt" | 5 => "ge"
+      | v => ToString.toString v
+    s!"#bool<{if attr.withCmp then "cmp " else ""}{pred}>"
+
 instance : ToString PDL.RangeElement where
   toString element :=
     match element with
@@ -1436,6 +1455,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .feltConstAttr attr => ToString.toString attr
   | .stringType type => ToString.toString type
   | .indexType type => ToString.toString type
+  | .boolCmpPredicateAttr attr => ToString.toString attr
   | .cirIntType type => ToString.toString type
   | .cirBoolType type => ToString.toString type
   | .cirFuncType type => type.toString
@@ -1707,6 +1727,7 @@ def isType (attr : Attribute) : Bool :=
   | .feltConstAttr _ => false
   | .stringType _ => true
   | .indexType _ => true
+  | .boolCmpPredicateAttr _ => false
   | .cirIntType _ => true
   | .cirBoolType _ => true
   | .cirFuncType _ => true
@@ -1798,6 +1819,9 @@ theorem isType_feltType type : (feltType type).isType = true := by rfl
 theorem isType_stringType type : (stringType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_indexType type : (indexType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_boolCmpPredicateAttr attr :
+  (boolCmpPredicateAttr attr).isType = false := by rfl
 @[simp, grind =]
 theorem isType_cirIntType type : (cirIntType type).isType = true := by rfl
 @[simp, grind =]
