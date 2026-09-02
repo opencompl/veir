@@ -59,6 +59,10 @@ structure RegisterType where
   index: Option Nat := none
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+/-- The MLIR builtin `index` type. -/
+structure IndexType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
 /--
   An integer literal with an associated integer type.
 -/
@@ -227,6 +231,14 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 -/
 structure FlatSymbolRefAttr where
   value : String
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
+  A nested symbol reference attribute, e.g., `@Outer::@Inner`.
+-/
+structure SymbolRefAttr where
+  rootRef : String
+  nestedRefs : Array String
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
@@ -560,12 +572,15 @@ inductive Attribute
 | unregisteredAttr (attr : UnregisteredAttr)
 /-- A flat symbol reference, e.g., `@foo` or `@"my.func"`. -/
 | flatSymbolRefAttr (attr : FlatSymbolRefAttr)
+| symbolRefAttr (attr : SymbolRefAttr)
 /-- HEIR modarith type -/
 | modArithType (type : ModArithType)
 /-- LLZK felt type -/
 | feltType (type : FeltType)
 /-- LLZK felt-const attribute (`#felt<const N> : !felt.type`) -/
 | feltConstAttr (attr : FeltConstAttr)
+/-- MLIR builtin index type -/
+| indexType (type : IndexType)
 /-- ClangIR integer type (`!cir.int<s|u, N>`) -/
 | cirIntType (type : CirIntType)
 /-- ClangIR boolean type (`!cir.bool`) -/
@@ -884,6 +899,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case indexType.indexType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case cirIntType.cirIntType type1 type2 =>
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
@@ -937,6 +956,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
   case flatSymbolRefAttr.flatSymbolRefAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case symbolRefAttr.symbolRefAttr attr1 attr2 =>
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
@@ -1089,6 +1112,10 @@ instance : ToString DenseElementsAttr where
 instance : ToString FlatSymbolRefAttr where
   toString attr := attr.value
 
+instance : ToString SymbolRefAttr where
+  toString attr :=
+    attr.nestedRefs.foldl (fun acc nested => s!"{acc}::{nested}") attr.rootRef
+
 instance : ToString ModArithType where
   toString type := s!"!mod_arith.int<{type.modulus}>"
 
@@ -1137,6 +1164,9 @@ instance : ToString PDL.ValueType where
 
 instance : ToString PDL.TypeType where
   toString _ := "!pdl.type"
+
+instance : ToString IndexType where
+  toString _ := "index"
 
 instance : ToString LLVM.VoidType where
   toString _ := "!llvm.void"
@@ -1313,10 +1343,12 @@ def Attribute.toString (attr : Attribute) : String :=
   | .dictionaryAttr attr => attr.toString
   | .unregisteredAttr attr => attr.toString
   | .flatSymbolRefAttr attr => ToString.toString attr
+  | .symbolRefAttr attr => ToString.toString attr
   | .functionType type => type.toString
   | .modArithType type => ToString.toString type
   | .feltType type => ToString.toString type
   | .feltConstAttr attr => ToString.toString attr
+  | .indexType type => ToString.toString type
   | .cirIntType type => ToString.toString type
   | .cirBoolType type => ToString.toString type
   | .cirFuncType type => type.toString
@@ -1576,10 +1608,12 @@ def isType (attr : Attribute) : Bool :=
   | .dictionaryAttr _ => false
   | .unregisteredAttr attr => attr.isType
   | .flatSymbolRefAttr _ => false
+  | .symbolRefAttr _ => false
   | .functionType _ => true
   | .modArithType _ => true
   | .feltType _ => true
   | .feltConstAttr _ => false
+  | .indexType _ => true
   | .cirIntType _ => true
   | .cirBoolType _ => true
   | .cirFuncType _ => true
@@ -1655,6 +1689,8 @@ theorem isType_functionType type : (functionType type).isType = true := by rfl
 theorem isType_modArithType type : (modArithType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_feltType type : (feltType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_indexType type : (indexType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_cirIntType type : (cirIntType type).isType = true := by rfl
 @[simp, grind =]
@@ -1863,6 +1899,10 @@ instance : IsTypeAttr ModArithType where
 
 instance : IsTypeAttr FeltType where
   coe type := Attribute.asType (.feltType type) (by rfl)
+  coe_eq_inject _ := by rfl
+
+instance : IsTypeAttr IndexType where
+  coe type := Attribute.asType (.indexType type) (by rfl)
   coe_eq_inject _ := by rfl
 
 instance : IsTypeAttr CirIntType where

@@ -59,6 +59,12 @@ def parseOptionalIntegerType : AttrParserM (Option IntegerType) := do
     return none
   | _ => return none
 
+/-- Parse the MLIR builtin `index` type. -/
+def parseOptionalIndexType : AttrParserM (Option IndexType) := do
+  if ← parseOptionalKeyword "index".toByteArray then
+    return some IndexType.mk
+  return none
+
 /--
   Parse an optional float type.
   A float type is represented as `f` followed by a positive integer indicating its width, e.g., `f32`.
@@ -484,6 +490,29 @@ partial def parseOptionalDialectAttr : AttrParserM (Option Attribute) := do
 def parseOptionalFlatSymbolRefAttr : AttrParserM (Option FlatSymbolRefAttr) := do
   let some name ← parseOptionalPrefixedKeyword .atIdent | return none
   return some (FlatSymbolRefAttr.mk ("@" ++ String.fromUTF8! name))
+
+/-- Parse either a flat or nested symbol reference. -/
+def parseOptionalAnySymbolRef : AttrParserM (Option Attribute) := do
+  let some flat ← parseOptionalFlatSymbolRefAttr | return none
+  let mut nestedRefs : Array String := #[]
+  repeat
+    let saved ← getThe ParserState
+    let t1 ← peekToken
+    if t1.kind ≠ .colon then break
+    let _ ← consumeToken
+    let t2 ← peekToken
+    if t2.kind ≠ .colon || t2.slice.start.byteOffset ≠ t1.slice.stop.byteOffset then
+      set saved
+      break
+    let _ ← consumeToken
+    match ← parseOptionalFlatSymbolRefAttr with
+    | some seg => nestedRefs := nestedRefs.push seg.value
+    | none =>
+      set saved
+      break
+  if nestedRefs.isEmpty then
+    return some (.flatSymbolRefAttr flat)
+  return some (.symbolRefAttr { rootRef := flat.value, nestedRefs })
 
 /--
   Parse a location attribute, if present.
@@ -1056,6 +1085,8 @@ partial def parseOptionalMatchOptionalType : AttrParserM (Option TypeAttr) := do
 partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
   if let some integerType ← parseOptionalIntegerType then
     return some integerType
+  if let some indexType ← parseOptionalIndexType then
+    return some indexType
   if let some floatType ← parseOptionalFloatType then
     return some floatType
   if let some byteType ← parseOptionalByteType then
@@ -1231,8 +1262,8 @@ partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
     return some arrayAttr
   else if let some dictAttr ← parseOptionalDictionaryAttr then
     return some dictAttr
-  else if let some symRefAttr ← parseOptionalFlatSymbolRefAttr then
-    return some symRefAttr
+  else if let some symRef ← parseOptionalAnySymbolRef then
+    return some symRef
   else
     return none
 
