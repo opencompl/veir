@@ -42,6 +42,8 @@ match opCode with
 | .bool op => LLZK.Bool.propertiesOf op
 | .constrain op => LLZK.Constrain.propertiesOf op
 | .global op => LLZK.Global.propertiesOf op
+| .struct op => LLZK.Struct.propertiesOf op
+| .array op => LLZK.Array.propertiesOf op
 | .function op => LLZK.Function.propertiesOf op
 
 /--
@@ -77,6 +79,8 @@ def OpCode.getEffects (opCode : OpCode) (props : _propertiesOf opCode) : MemoryE
   | .bool op, props => LLZK.Bool.getEffects op props
   | .constrain op, props => LLZK.Constrain.getEffects op props
   | .global op, props => LLZK.Global.getEffects op props
+  | .struct op, props => LLZK.Struct.getEffects op props
+  | .array op, props => LLZK.Array.getEffects op props
   | .function op, props => LLZK.Function.getEffects op props
 
 /--
@@ -110,6 +114,8 @@ def OpCode.getRegionKind (opCode : OpCode) (index : Nat) : RegionKind :=
   | .bool op => HasOpInfo.getRegionKind op index
   | .constrain op => HasOpInfo.getRegionKind op index
   | .global op => HasOpInfo.getRegionKind op index
+  | .struct op => HasOpInfo.getRegionKind op index
+  | .array op => HasOpInfo.getRegionKind op index
   | .function op => HasOpInfo.getRegionKind op index
 
 /--
@@ -144,6 +150,8 @@ def OpCode.hasSSADominance (opCode : OpCode) (index : Nat) : Bool :=
   | .bool op => LLZK.Bool.hasSSADominance op index
   | .constrain op => LLZK.Constrain.hasSSADominance op index
   | .global op => LLZK.Global.hasSSADominance op index
+  | .struct op => LLZK.Struct.hasSSADominance op index
+  | .array op => LLZK.Array.hasSSADominance op index
   | .function op => LLZK.Function.hasSSADominance op index
 
 /--
@@ -179,6 +187,8 @@ def OpCode.hasNoTerminator (opCode : OpCode) (index : Nat) : Bool :=
   | .bool op => HasOpInfo.hasNoTerminator op index
   | .constrain op => HasOpInfo.hasNoTerminator op index
   | .global op => HasOpInfo.hasNoTerminator op index
+  | .struct op => HasOpInfo.hasNoTerminator op index
+  | .array op => HasOpInfo.hasNoTerminator op index
   | .function op => HasOpInfo.hasNoTerminator op index
 
 /-- Whether this opcode carries MLIR's `IsolatedFromAbove` trait. -/
@@ -210,6 +220,8 @@ def OpCode.isIsolatedFromAbove (opCode : OpCode) : Bool :=
   | .bool op => HasOpInfo.isIsolatedFromAbove op
   | .constrain op => HasOpInfo.isIsolatedFromAbove op
   | .global op => HasOpInfo.isIsolatedFromAbove op
+  | .struct op => HasOpInfo.isIsolatedFromAbove op
+  | .array op => HasOpInfo.isIsolatedFromAbove op
   | .function op => HasOpInfo.isIsolatedFromAbove op
 
 /--
@@ -245,6 +257,8 @@ def OpCode.isTerminator (opCode : OpCode) : Bool :=
   | .bool op => HasOpInfo.isTerminator op
   | .constrain op => HasOpInfo.isTerminator op
   | .global op => HasOpInfo.isTerminator op
+  | .struct op => HasOpInfo.isTerminator op
+  | .array op => HasOpInfo.isTerminator op
   | .function op => HasOpInfo.isTerminator op
 
 /--
@@ -283,6 +297,8 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | .bool op => LLZK.Bool.isConstantLike op
   | .constrain op => LLZK.Constrain.isConstantLike op
   | .global op => LLZK.Global.isConstantLike op
+  | .struct op => LLZK.Struct.isConstantLike op
+  | .array op => LLZK.Array.isConstantLike op
   | .function op => LLZK.Function.isConstantLike op
 
 /--
@@ -317,6 +333,8 @@ def OpCode.propagatesPoison (opCode : OpCode) : Bool :=
   | .bool op => HasOpInfo.propagatesPoison op
   | .constrain op => HasOpInfo.propagatesPoison op
   | .global op => HasOpInfo.propagatesPoison op
+  | .struct op => HasOpInfo.propagatesPoison op
+  | .array op => HasOpInfo.propagatesPoison op
   | .function op => HasOpInfo.propagatesPoison op
 
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
@@ -348,6 +366,8 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   | .bool op => LLZK.Bool.fromAttrDict op attrDict
   | .constrain op => LLZK.Constrain.fromAttrDict op attrDict
   | .global op => LLZK.Global.fromAttrDict op attrDict
+  | .struct op => LLZK.Struct.fromAttrDict op attrDict
+  | .array op => LLZK.Array.fromAttrDict op attrDict
   | .function op => LLZK.Function.fromAttrDict op attrDict
 
 /--
@@ -383,6 +403,8 @@ def Properties.toAttrDict
   | .bool op, props => LLZK.Bool.toAttrDict op props
   | .constrain op, props => LLZK.Constrain.toAttrDict op props
   | .global op, props => LLZK.Global.toAttrDict op props
+  | .struct op, props => LLZK.Struct.toAttrDict op props
+  | .array op, props => LLZK.Array.toAttrDict op props
   | .function op, props => LLZK.Function.toAttrDict op props
 
 instance : IsOpCode OpCode where
@@ -421,6 +443,8 @@ def OpCode.functionInterface? (opCode : OpCode) : Option (FunctionOpInterface (_
   | .bool op => HasOpInfo.functionInterface? op
   | .constrain op => HasOpInfo.functionInterface? op
   | .global op => HasOpInfo.functionInterface? op
+  | .struct op => HasOpInfo.functionInterface? op
+  | .array op => HasOpInfo.functionInterface? op
   | .function op => HasOpInfo.functionInterface? op
 
 #generate_has_dialect_instances OpCode
@@ -455,6 +479,8 @@ def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
   | .bool opType => LLZK.Bool.verifyLocalInvariants opType op ctx opIn
   | .constrain opType => LLZK.Constrain.verifyLocalInvariants opType op ctx opIn
   | .global opType => LLZK.Global.verifyLocalInvariants opType op ctx opIn
+  | .struct opType => LLZK.Struct.verifyLocalInvariants opType op ctx opIn
+  | .array opType => LLZK.Array.verifyLocalInvariants opType op ctx opIn
   | .function opType => LLZK.Function.verifyLocalInvariants opType op ctx opIn
 
 instance : HasOpInfo OpCode where
@@ -490,7 +516,8 @@ def OpCode.materializeConstant (opCode : OpCode) (value : RuntimeValue)
     | .riscv_cf _ | .riscv_stack _ | .rv64 _ | .cf _ | .builtin _
     | .verif _
     | .func _ | .datapath _ | .pdl _ | .test _ | .cir _ | .io _ | .string _
-    | .include _ | .ram _ | .cast _ | .bool _ | .constrain _ | .global _ | .function _ => none
+    | .include _ | .ram _ | .cast _ | .bool _ | .constrain _ | .global _
+    | .struct _ | .array _ | .function _ => none
   guard materialized.fst.isConstantLike
   return materialized
 
