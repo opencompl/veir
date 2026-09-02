@@ -354,11 +354,12 @@ def OpCode.materializeConstant (opCode : OpCode) (value : RuntimeValue)
     | .llvm op => Llvm.materializeConstant op value type
     | .mod_arith op => Mod_Arith.materializeConstant op value type
     | .riscv op => Riscv.materializeConstant op value type
+    | .felt op => Felt.materializeConstant op value type
     -- Listed rather than folded into a catch-all so that adding a dialect
     -- fails to compile until it decides how, or whether, to materialize.
     | .riscv_cf _ | .riscv_stack _ | .rv64 _ | .cf _ | .builtin _
     | .verif _
-    | .func _ | .datapath _ | .pdl _ | .test _ | .felt _ => none
+    | .func _ | .datapath _ | .pdl _ | .test _ => none
   guard materialized.fst.isConstantLike
   return materialized
 
@@ -382,5 +383,7 @@ def OpCode.isCommutative (opCode : OpCode) : Bool :=
   | .riscv .mul | .riscv .mulh | .riscv .mulhu
   | .riscv .max | .riscv .maxu | .riscv .min | .riscv .minu
   | .riscv .addw | .riscv .mulw
-  | .mod_arith .add | .mod_arith .mul => true
+  | .mod_arith .add | .mod_arith .mul
+  | .felt .add | .felt .mul
+  | .felt .bit_and | .felt .bit_or | .felt .bit_xor => true
   | _ => false

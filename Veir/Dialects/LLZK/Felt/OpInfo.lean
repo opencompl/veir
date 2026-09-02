@@ -4,6 +4,7 @@ public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Verifier.Basic
 public import Veir.Dialects.LLZK.Felt.Properties
+public import Veir.ConstantMaterialization
 meta import Veir.Meta.OpCode
 
 namespace Veir
@@ -86,6 +87,17 @@ instance : IsOpCode Felt where
   propertiesOf := Felt.propertiesOf
   fromAttrDict := Felt.fromAttrDict
   toAttrDict := Felt.toAttrDict
+
+/-- Materialize a concrete Felt interpreter value as `felt.const`. -/
+def Felt.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpInfo Felt]
+    (_op : Felt) (value : RuntimeValue) (type : TypeAttr) : Option (Materialized OpInfo) :=
+  match value, type.val with
+  | .felt valueType value, .feltType resultType =>
+    if valueType = resultType then
+      some (.of Felt.const
+        (FeltConstProperties.mk (FeltConstAttr.mk (Int.ofNat value) resultType)))
+    else none
+  | _, _ => none
 
 /-- Verify that a type is an LLZK felt type. -/
 def TypeAttr.verifyFeltType (ty : TypeAttr) (msg : String) : Except String FeltType :=

@@ -3,6 +3,7 @@ module
 public import Veir.RuntimeValue
 public import Veir.IR.WellFormed
 public import Veir.GlobalOpInfo
+public import Veir.Dialects.LLZK.Felt.Semantics
 
 import Veir.Data.Comb.Basic
 import Veir.Data.HW.Basic
@@ -46,6 +47,8 @@ def Conforms (val : RuntimeValue) (ty : TypeAttr) : Prop :=
   | .int bw _, ⟨.modArithType modArithType, _⟩ => modArithType.modulus.type.bitwidth = bw
   | .reg _, ⟨.registerType _, _⟩ => True
   | .addr _, ⟨.llvmPointerType _, _⟩ => True
+  | .felt fieldType value, ⟨.feltType expectedType, _⟩ =>
+    fieldType = expectedType ∧ FeltSemantics.IsCanonical fieldType value
   | _, _ => False
 
 instance : Decidable (Conforms val ty) := by
@@ -113,6 +116,12 @@ theorem Conforms.llvmPointerType :
     ∃ val, runtimeValue = .addr val := by
   simp only [Conforms]
   cases runtimeValue <;> grind
+
+@[grind <=]
+theorem Conforms.feltType {runtimeValue feltTy h} :
+    Conforms runtimeValue ⟨.feltType feltTy, h⟩ →
+    ∃ val, runtimeValue = .felt feltTy val := by
+  cases runtimeValue <;> simp_all [Conforms]
 
 /--
   The wholly-poisoned `RuntimeValue` of type `ty`, for the types that have one.
@@ -770,6 +779,57 @@ def ModArith.interpretOp' (opType : Veir.Mod_Arith) (properties : propertiesOf o
       | some lhs, some rhs => LLVM.Int.constant bw ((lhs * rhs) % mod)
       | _, _ => LLVM.Int.poison
     return (#[RuntimeValue.int bw res], none)
+
+
+/-- Match two felt operands whose field type is exactly `fieldType`. -/
+private def Felt.binaryOperands (fieldType : FeltType) (operands : Array RuntimeValue) :
+    Option (Nat × Nat) := do
+  let [RuntimeValue.felt lhsType lhs, RuntimeValue.felt rhsType rhs] := operands.toList
+    | none
+  guard (lhsType = fieldType ∧ rhsType = fieldType)
+  return (lhs, rhs)
+
+/-- Match one felt operand whose field type is exactly `fieldType`. -/
+private def Felt.unaryOperand (fieldType : FeltType) (operands : Array RuntimeValue) :
+    Option Nat := do
+  let [RuntimeValue.felt operandType operand] := operands.toList | none
+  guard (operandType = fieldType)
+  return operand
+
+/-- Resolve the named field carried by the unique Felt result type. -/
+private def Felt.resultField? (resultTypes : Array TypeAttr) : Option (FeltType × Nat) := do
+  let [⟨.feltType fieldType, _⟩] := resultTypes.toList | none
+  let prime ← FeltSemantics.prime? fieldType
+  return (fieldType, prime)
+
+/-- Interpret the field-native Felt operations supported by the core interpreter. -/
+def Felt.interpretOp' (opType : Veir.Felt) (properties : propertiesOf opType)
+    (resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
+    (_blockOperands : Array BlockPtr) :
+    Interp (Array RuntimeValue × Option ControlFlowAction) :=
+  match opType with
+  | .const => do
+    let (fieldType, prime) ← Felt.resultField? resultTypes
+    if properties.value.fieldType ≠ fieldType then none else
+      let value := FeltSemantics.reduce prime properties.value.value
+      return (#[.felt fieldType value], none)
+  | .add => do
+    let (fieldType, prime) ← Felt.resultField? resultTypes
+    let (lhs, rhs) ← Felt.binaryOperands fieldType operands
+    return (#[.felt fieldType (FeltSemantics.add prime lhs rhs)], none)
+  | .sub => do
+    let (fieldType, prime) ← Felt.resultField? resultTypes
+    let (lhs, rhs) ← Felt.binaryOperands fieldType operands
+    return (#[.felt fieldType (FeltSemantics.sub prime lhs rhs)], none)
+  | .mul => do
+    let (fieldType, prime) ← Felt.resultField? resultTypes
+    let (lhs, rhs) ← Felt.binaryOperands fieldType operands
+    return (#[.felt fieldType (FeltSemantics.mul prime lhs rhs)], none)
+  | .neg => do
+    let (fieldType, prime) ← Felt.resultField? resultTypes
+    let operand ← Felt.unaryOperand fieldType operands
+    return (#[.felt fieldType (FeltSemantics.neg prime operand)], none)
+  | _ => none
 
 
 def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
@@ -1656,6 +1716,9 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     return (vals, mem, act)
   | .mod_arith modArithOp => do
     let (vals, act) ← ModArith.interpretOp' modArithOp properties resultTypes operands blockOperands
+    return (vals, mem, act)
+  | .felt feltOp => do
+    let (vals, act) ← Felt.interpretOp' feltOp properties resultTypes operands blockOperands
     return (vals, mem, act)
   | .llvm llvmOp => do
     Llvm.interpretOp' llvmOp properties resultTypes operands blockOperands mem
