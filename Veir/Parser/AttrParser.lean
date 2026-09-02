@@ -653,15 +653,16 @@ def parseOptionalFeltConstAttr : AttrParserM (Option FeltConstAttr) := do
   -- Also accept the original legacy body `N <"name">`.
   let innerFieldName ← parseOptionalFeltFieldName
   parsePunctuation ">"
-  parsePunctuation ":"
-  let some ftAttr ← parseOptionalFeltType
-    | throwString "#felt<const N> expects a !felt.type annotation"
-  let Attribute.feltType ft := ftAttr.val
-    | throwString "#felt<const N>'s type annotation must be !felt.type"
-  if let some inner := innerFieldName then
-    if ft.fieldName ≠ some inner then
-      throwString "#felt<const N : <\"...\">> inner field name disagrees with outer !felt.type<\"...\"> annotation"
-  return some (FeltConstAttr.mk val ft)
+  if ← parseOptionalPunctuation ":" then
+    let some ftAttr ← parseOptionalFeltType
+      | throwString "#felt<const N> expects a !felt.type annotation"
+    let Attribute.feltType ft := ftAttr.val
+      | throwString "#felt<const N>'s type annotation must be !felt.type"
+    if let some inner := innerFieldName then
+      if ft.fieldName ≠ some inner then
+        throwString "#felt<const N : <\"...\">> inner field name disagrees with outer !felt.type<\"...\"> annotation"
+    return some (FeltConstAttr.mk val ft)
+  return some (FeltConstAttr.mk val (FeltType.mk innerFieldName))
 
 /--
   Parse CIRCT's HW dialect's `ModulePort::Direction` type.

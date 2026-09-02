@@ -977,9 +977,8 @@ instance : ToString FeltType where
 instance : ToString FeltConstAttr where
   toString attr :=
     match attr.fieldType.fieldName with
-    | some name =>
-      s!"#felt<const {attr.value} : <\"{escapeStringLiteral name}\">> : {attr.fieldType}"
-    | none => s!"#felt<const {attr.value}> : {attr.fieldType}"
+    | some _ => s!"#felt<const {attr.value} : {attr.fieldType}>"
+    | none => s!"#felt<const {attr.value}>"
 
 instance : ToString PDL.RangeElement where
   toString element :=

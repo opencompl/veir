@@ -4,9 +4,9 @@
 "builtin.module"() ({
 // CHECK-NEXT:    ^{{.*}}():
 ^bb0():
-  // CHECK-NEXT:      %{{.*}} = "felt.const"() <{"value" = #felt<const 42> : !felt.type}> : () -> !felt.type
+  // CHECK-NEXT:      %{{.*}} = "felt.const"() <{"value" = #felt<const 42>}> : () -> !felt.type
   %0 = "felt.const"() <{"value" = #felt<const 42> : !felt.type}> : () -> !felt.type
-  // CHECK-NEXT:      %{{.*}} = "felt.const"() <{"value" = #felt<const 7 : <"bn254">> : !felt.type<"bn254">}> : () -> !felt.type<"bn254">
+  // CHECK-NEXT:      %{{.*}} = "felt.const"() <{"value" = #felt<const 7 : !felt.type<"bn254">>}> : () -> !felt.type<"bn254">
   %1 = "felt.const"() <{"value" = #felt<const 7 : !felt.type<"bn254">>}> : () -> !felt.type<"bn254">
   // CHECK-NEXT:      %{{.*}} = "felt.add"(%{{.*}}, %{{.*}}) : (!felt.type, !felt.type) -> !felt.type
   %2 = "felt.add"(%0, %0) : (!felt.type, !felt.type) -> !felt.type
