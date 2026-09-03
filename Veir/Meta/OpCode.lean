@@ -10,15 +10,18 @@ open Lean Elab Command Meta
 namespace Veir
 
 meta structure Dialect where
-  name : String
+  leanName : String
+  mnemonic : String
   operations : Array String
   deriving Inhabited, Repr
 
-meta def mkDialect (n : String) (info : InductiveVal) : Dialect := Id.run do
+meta def mkDialect (env : Environment) (n : Name) (info : InductiveVal) : Dialect := Id.run do
   let mut ops := #[]
   for ctor in info.ctors do
     ops := ops.push ctor.getString!
-  pure ⟨n, ops⟩
+  let leanName := n.getString!
+  let mnemonic := (dialectNameAttr.getParam? env n).getD leanName.toLower
+  pure ⟨leanName, mnemonic, ops⟩
 
 meta def mkCtor (n : Name) : TermElabM (TSyntax `Lean.Parser.Command.ctor) :=
   `(Lean.Parser.Command.ctor | | $(mkIdent n):ident)
@@ -29,8 +32,7 @@ meta def mkCtorWithType (n : Name × Name) : TermElabM (TSyntax `Lean.Parser.Com
 namespace Dialect
 
 meta def getName (d : Dialect) : String :=
-  -- TODO: should we add underscores to translate from CamelCase to snake_case?
-  d.name.toLower
+  d.mnemonic
 
 /--
 The dialect name as a Lean `Name` in lowercase for the `OpCode` inductive.
@@ -42,7 +44,7 @@ meta def mkDialectCode (d : Dialect) : Name :=
 The dialect name as a Lean `Name`.
 -/
 meta def mkDialectCodeSimple (d : Dialect) : Name :=
-  .mkSimple <| d.name
+  .mkSimple <| d.leanName
 
 /--
 The name of an operation as a `String`. Used for `fromByteArray` and `fromName`.
@@ -79,10 +81,10 @@ meta def emitDialectFromName (d : Dialect) : TermElabM Command := do
   for op in d.operations do
     res ←
       `(if name = $(Syntax.mkStrLit (d.mkOpName op)).toByteArray then
-          some $(mkIdent (.mkStr2 d.name op))
+          some $(mkIdent (.mkStr2 d.leanName op))
         else
           $res)
-  `(def $(mkIdent (.mkStr2 d.name "fromName"))
+  `(def $(mkIdent (.mkStr2 d.leanName "fromName"))
       (name : $(mkIdent ``ByteArray)) : Option $(mkIdent d.mkDialectCodeSimple) := $res)
 
 /--
@@ -94,8 +96,8 @@ meta def emitDialectName (d : Dialect) : TermElabM Command := do
   for op in d.operations do
     alts := alts.push <| ←
       `(Lean.Parser.Term.matchAltExpr |
-         | $(mkIdent (.mkStr2 d.name op)) => $(Syntax.mkStrLit (d.mkOpName op)).toByteArray)
-  `(def $(mkIdent (.mkStr2 d.name "name"))
+         | $(mkIdent (.mkStr2 d.leanName op)) => $(Syntax.mkStrLit (d.mkOpName op)).toByteArray)
+  `(def $(mkIdent (.mkStr2 d.leanName "name"))
       (op : $(mkIdent d.mkDialectCodeSimple)) : ByteArray := match op with $alts:matchAlt* )
 
 /-- Generate `OpCode.fromName : ByteArray → Option OpCode` from a given array of dialects. -/
@@ -103,7 +105,7 @@ meta def emitGlobalFromName (ds : Array Dialect) : TermElabM Command := do
   let mut res : TSyntax `term ← `(none)
   for d in ds do
     res ←
-      `(match ($(mkIdent (.mkStr2 d.name "fromName")) name) with
+      `(match ($(mkIdent (.mkStr2 d.leanName "fromName")) name) with
         | some op => some ($(mkIdent d.mkDialectCode) op)
         | none => $res)
   `(def $(mkIdent `OpCode.fromName)
@@ -115,7 +117,7 @@ meta def emitGlobalName (ds : Array Dialect) : TermElabM Command := do
   for d in ds do
     alts := alts.push <| ←
       `(Lean.Parser.Term.matchAltExpr |
-         | $(mkIdent d.mkDialectCode) op => $(mkIdent (.mkStr2 d.name "name")) op)
+         | $(mkIdent d.mkDialectCode) op => $(mkIdent (.mkStr2 d.leanName "name")) op)
   `(def $(mkIdent `OpCode.name)
       (op : $(mkIdent `OpCode)) : ByteArray := match op with $alts:matchAlt* )
 
@@ -128,7 +130,7 @@ elab "#generate_dialect" dialect:ident : command => do
   let env ← getEnv
   let some (.inductInfo info) := env.find? dialectName
     | throwError m!"Type {dialectName} is not defined or not an inductive."
-  let d := mkDialect dialectName.getString! info
+  let d := mkDialect env dialectName info
   elabCommand <| ← Command.liftTermElabM <| emitDialectFromName d
   elabCommand <| ← Command.liftTermElabM <| emitDialectName d
 
@@ -189,7 +191,7 @@ elab "#generate_op_codes" : command => do
   for t in ts do
     let some (.inductInfo info) := env.find? t
       | throwError m!"Type {t} is not defined or not an inductive."
-    dialects := dialects.push <| mkDialect t.getString! info
+    dialects := dialects.push <| mkDialect env t info
 
   elabCommand <| ← Command.liftTermElabM <| mkOpCodeInductive dialects
   elabCommand <| ← Command.liftTermElabM <| emitGlobalFromName dialects
