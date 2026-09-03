@@ -1,6 +1,7 @@
 module
 
 public import Veir.Analysis.DataFlow.Domains.AbstractDomain
+public import Veir.Interpreter.Evaluate
 
 public section
 
@@ -112,6 +113,18 @@ def unknown (bitwidth : Nat) : KnownBitsLattice :=
 def constant (bitwidth : Nat) (value : Int) : KnownBitsLattice :=
   .known (KnownBits.constant bitwidth value)
 
+/-- The concrete runtime values represented by a known-bits lattice element. -/
+@[expose] def γ : KnownBitsLattice → Set RuntimeValue
+  | .bottom => ⊥
+  | .top => ⊤
+  | .known bits => fun concrete =>
+      match concrete with
+      | .int bitwidth (.val value) =>
+        ∃ h : bitwidth = bits.bitwidth,
+          let value := value.cast h
+          value &&& bits.zero = 0 ∧ value &&& bits.one = bits.one
+      | _ => False
+
 /-- Join facts arriving along different control-flow paths. -/
 def join : KnownBitsLattice → KnownBitsLattice → KnownBitsLattice
   | .bottom, rhs => rhs
@@ -136,6 +149,76 @@ def bitwiseAnd : KnownBitsLattice → KnownBitsLattice → KnownBitsLattice
       match lhs.bitwiseAnd? rhs with
       | some bits => .known bits
       | none => .top
+
+/--
+Known-bits AND soundly over-approximates every result produced by the LLVM
+interpreter from concrete values represented by its abstract operands.
+-/
+theorem bitwiseAnd_sound
+    (lhs rhs : KnownBitsLattice)
+    (bitwidth : Nat)
+    (lhsValue rhsValue resultValue : BitVec bitwidth)
+    (hlhs : RuntimeValue.int bitwidth (.val lhsValue) ∈ γ lhs)
+    (hrhs : RuntimeValue.int bitwidth (.val rhsValue) ∈ γ rhs)
+    (heval :
+      foldEvaluate (.llvm .and) () #[IntegerType.mk bitwidth]
+          #[.int bitwidth (.val lhsValue), .int bitwidth (.val rhsValue)] =
+        .ok #[.int bitwidth (.val resultValue)]) :
+    RuntimeValue.int bitwidth (.val resultValue) ∈ γ (bitwiseAnd lhs rhs) := by
+  have hresult : resultValue = lhsValue &&& rhsValue := by
+    rw [foldEvaluate_llvm_and] at heval
+    simpa using heval.symm
+  subst resultValue
+  cases lhs with
+  | bottom => exact hlhs.elim
+  | top =>
+    cases rhs with
+    | bottom => exact hrhs.elim
+    | top => trivial
+    | known rhsBits =>
+      rcases hrhs with ⟨hwidth, hzero, _⟩
+      subst bitwidth
+      refine ⟨rfl, ?_, by simp⟩
+      ext i hi
+      have hzeroBit := congrArg (fun value => value[i]) hzero
+      simp at hzeroBit ⊢
+      intro _ hrhsValue
+      exact hzeroBit hrhsValue
+  | known lhsBits =>
+    cases rhs with
+    | bottom => exact hrhs.elim
+    | top =>
+      rcases hlhs with ⟨hwidth, hzero, _⟩
+      subst bitwidth
+      refine ⟨rfl, ?_, by simp⟩
+      ext i hi
+      have hzeroBit := congrArg (fun value => value[i]) hzero
+      simp at hzeroBit ⊢
+      intro hlhsValue _
+      exact hzeroBit hlhsValue
+    | known rhsBits =>
+      rcases lhsBits with ⟨lhsWidth, lhsZero, lhsOne⟩
+      rcases rhsBits with ⟨rhsWidth, rhsZero, rhsOne⟩
+      rcases hlhs with ⟨hlwidth, hlzero, hlone⟩
+      subst bitwidth
+      rcases hrhs with ⟨hrwidth, hrzero, hrone⟩
+      simp at hlzero hlone hrwidth
+      subst rhsWidth
+      simp at hrzero hrone
+      simp only [bitwiseAnd, KnownBits.bitwiseAnd?, γ]
+      refine ⟨rfl, ?_, ?_⟩
+      · ext i hi
+        have hlzeroBit := congrArg (fun value => value[i]) hlzero
+        have hrzeroBit := congrArg (fun value => value[i]) hrzero
+        simp at hlzeroBit hrzeroBit ⊢
+        intro hlhsValue hrhsValue
+        exact ⟨hlzeroBit hlhsValue, hrzeroBit hrhsValue⟩
+      · ext i hi
+        have hloneBit := congrArg (fun value => value[i]) hlone
+        have hroneBit := congrArg (fun value => value[i]) hrone
+        simp at hloneBit hroneBit ⊢
+        intro lhsOne rhsOne
+        exact ⟨hloneBit lhsOne, hroneBit rhsOne⟩
 
 /-- Transfer known bits through bitwise OR. -/
 def bitwiseOr : KnownBitsLattice → KnownBitsLattice → KnownBitsLattice
