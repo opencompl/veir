@@ -1,17 +1,17 @@
 """Shared mechanics of the sqlite3 boards: baselines, digests, deltas, exit codes.
 
-Used by the sqlite3 board tools (Tools/sqlite-scoreboard and the others
-built on it). Nothing here knows about sqlite, corpora or veir-opt; it
+Used by Tools/sqlite-scoreboard, Tools/mlir-feature-census, Tools/sqlite-report
+and Tools/sqlite-ci. Nothing here knows about sqlite, corpora or veir-opt; it
 only defines how a board's statuses are stored, compared and reported.
 
 Baseline file (Test/sqlite3/<corpus>/<board>-baseline.txt)
     # corpus-digest: <16 hex>          digest of the chunk set the statuses are for
     <name>\\t<status>                   one line per item, sorted by name
   A status is one of the board's ranked statuses (scoreboard: fail < parsed <
-  supported). "timeout" is never written: a timed-out
+  supported; census: missing < ok). "timeout" is never written: a timed-out
   item keeps its previous status, or is left out if it has none.
 
-Report JSON (what --json-out writes)
+Report JSON (what --json-out writes; Tools/sqlite-report renders it)
     {"tool": str, "veir_opt": hash, "exit_code": int,
      "corpora": {<corpus>: {"label": str, "boards": {<board>: BOARD}}}}
     BOARD = {"digest": str, "items": {<name>: {"status": str, "detail": str, ...}},
@@ -223,10 +223,10 @@ def finish(args, report: dict, quiet: bool = False) -> None:
             {c: {b: board.get("delta") for b, board in corpus["boards"].items()}
              for c, corpus in report["corpora"].items()}, indent=1))
     if not quiet:
-        for c in report["corpora"].values():
-            for name, b in c["boards"].items():
-                counts = ", ".join(f"{n} {s}" for s, n in b["counts"].items() if n)
-                print(f"{c['label']} {name}: {counts} / {len(b['items'])}")
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import sqlite_report
+        print(sqlite_report.render(*(
+            (report, {}) if report["tool"] == "sqlite-scoreboard" else ({}, report))))
     sys.exit(code)
 
 

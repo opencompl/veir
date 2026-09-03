@@ -1,0 +1,45 @@
+#!/usr/bin/env python3
+"""Render sqlite3 board reports (the --json-out of Tools/sqlite-scoreboard and
+Tools/mlir-feature-census) as Markdown, or as the baseline-update commit
+message CI uses.
+
+    Tools/sqlite-report SCOREBOARD_JSON [CENSUS_JSON]
+    Tools/sqlite-report SCOREBOARD_JSON [CENSUS_JSON] --commit-message [--run-url URL]
+
+A missing file counts as an empty report.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sqlite_report
+
+
+def load(path: Path | None) -> dict:
+    return json.loads(path.read_text()) if path and path.exists() else {}
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(prog="sqlite-report", description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("scoreboard", type=Path, help="sqlite-scoreboard --json-out file")
+    parser.add_argument("census", type=Path, nargs="?", help="mlir-feature-census --json-out file")
+    parser.add_argument("--commit-message", action="store_true",
+                        help="print the baseline-update commit message instead of the report")
+    parser.add_argument("--run-url", metavar="URL",
+                        help="workflow run to cite in the commit message")
+    args = parser.parse_args()
+    score, census = load(args.scoreboard), load(args.census)
+    if args.commit_message:
+        print(sqlite_report.commit_message(score, census, args.run_url), end="")
+    else:
+        print(sqlite_report.render(score, census), end="")
+
+
+if __name__ == "__main__":
+    main()
