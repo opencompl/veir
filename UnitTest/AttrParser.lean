@@ -68,12 +68,18 @@ def expectSuccessType (s : String) (expected : TypeAttr)
   testType s allowUnregisteredDialect = .ok expected
 
 /--
-  Test that parsing an attribute in the given string succeeds and matches the expected attribute.
+   Test that parsing an attribute in the given string succeeds and matches the expected attribute.
 -/
 def expectSuccessAttr (s : String) (expected : Attribute)
     (allowUnregisteredDialect : Bool := false) : Bool :=
   testOptionalAttr s allowUnregisteredDialect = .ok (some expected) ∧
   testAttr s allowUnregisteredDialect = .ok expected
+
+/--
+   Build a `FloatAttr` from an IEEE-754 bit pattern (given as a `Nat`), for use in assertions.
+-/
+def fpAttr (type : FloatType) (bits : Nat) : FloatAttr :=
+  FloatAttr.mk type (BitVec.ofNat type.bitwidth bits)
 
 /--
   Extract the message and byte offset of a parser error, so tests can assert
@@ -164,6 +170,45 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "#arith.overflow<nsw, nuw>" (ArithIntegerOverflowFlagsAttr.mk true true)
 #assert expectErrorAttr "#arith.overflow<>"
   "expected integer overflow flag to be one of: none, nsw, nuw" (some 16)
+
+/-! ## Float types -/
+
+#assert expectSuccessType "f16" FloatType.f16
+#assert expectSuccessType "f32" FloatType.f32
+#assert expectSuccessType "f64" FloatType.f64
+#assert expectSuccessType "bf16" FloatType.bf16
+#assert expectSuccessType "f8E5M2" FloatType.f8E5M2
+#assert expectSuccessType "f8E4M3FN" FloatType.f8E4M3FN
+#assert expectSuccessType "f8E4M3FNUZ" FloatType.f8E4M3FNUZ
+-- Unknown / unsupported float widths are not types.
+#assert expectMissingType "f128"
+#assert expectMissingType "f8"
+#assert expectSuccessAttr "f64" FloatType.f64
+
+/-! ## Float attributes -/
+
+-- Exactly representable values (positive and negative).
+#assert expectSuccessAttr "1.0 : f64"  (fpAttr FloatType.f64 0x3ff0000000000000)
+#assert expectSuccessAttr "1.5 : f64"  (fpAttr FloatType.f64 0x3ff8000000000000)
+#assert expectSuccessAttr "-1.5 : f64" (fpAttr FloatType.f64 0xbff8000000000000)
+#assert expectSuccessAttr "2.25 : f64" (fpAttr FloatType.f64 0x4002000000000000)
+#assert expectSuccessAttr "-2.25 : f64" (fpAttr FloatType.f64 0xc002000000000000)
+#assert expectSuccessAttr "3.5 : f64"  (fpAttr FloatType.f64 0x400c000000000000)
+#assert expectSuccessAttr "100.0 : f64" (fpAttr FloatType.f64 0x4059000000000000)
+#assert expectSuccessAttr "1000.0 : f64" (fpAttr FloatType.f64 0x408f400000000000)
+-- Values not exactly representable in binary (round to nearest, ties to even).
+#assert expectSuccessAttr "0.1 : f64" (fpAttr FloatType.f64 0x3fb999999999999a)
+-- Zero and negative zero.
+#assert expectSuccessAttr "0.0 : f64"  (fpAttr FloatType.f64 0x0000000000000000)
+#assert expectSuccessAttr "-0.0 : f64" (fpAttr FloatType.f64 0x8000000000000000)
+-- Other float types.
+#assert expectSuccessAttr "1.0 : f32"   (fpAttr FloatType.f32 0x3f800000)
+#assert expectSuccessAttr "1.5 : f32"   (fpAttr FloatType.f32 0x3fc00000)
+#assert expectSuccessAttr "-2.25 : f32" (fpAttr FloatType.f32 0xc0100000)
+#assert expectSuccessAttr "0.1 : f32"   (fpAttr FloatType.f32 0x3dcccccd)
+#assert expectSuccessAttr "1.5 : f16"   (fpAttr FloatType.f16 0x3e00)
+#assert expectSuccessAttr "2.25 : f16"  (fpAttr FloatType.f16 0x4080)
+#assert expectSuccessAttr "1.5 : bf16"  (fpAttr FloatType.bf16 0x3fc0)
 
 /-! ## String attributes -/
 

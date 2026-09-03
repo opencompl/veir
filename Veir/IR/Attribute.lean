@@ -46,11 +46,53 @@ structure IntegerType where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
- A floating point type with a given bitwidth.
+  A floating point type. There are lots of them in MLIR, and their
+  differences can be summarised into the following fields:
+
+  - sign (implicit): always 1 bit, not stored.
+  - mantissa, exponent: bits of storage.
+  - bias: term added to exponent when storing it as a binary number.
+  - hasInf: whether Infinity is expressible.
+  - hasNaN: whether NaN is expressible.
+  - hasNegZero: whether -0.0 is expressible.
 -/
 structure FloatType where
-  bitwidth : Nat
+  mantissa : Nat
+  exponent : Nat
+  bias: Nat
+  hasInf : Bool := true
+  hasNaN : Bool := true
+  hasNegZero : Bool := true
+  canonicalName : String
 deriving Inhabited, Repr, DecidableEq, Hashable
+
+def FloatType.bitwidth (type: FloatType) : Nat :=
+  1 + type.exponent + type.mantissa
+
+def FloatType.f16 : FloatType := { exponent := 5, mantissa := 10, bias := 15, canonicalName := "f16" }
+def FloatType.f32 : FloatType := { exponent := 8, mantissa := 23, bias := 127, canonicalName := "f32" }
+def FloatType.f64 : FloatType := { exponent := 11, mantissa := 52, bias := 1023, canonicalName := "f64" }
+def FloatType.bf16 : FloatType := { exponent := 8, mantissa := 7, bias := 127, canonicalName := "bf16" }
+def FloatType.f8E5M2 : FloatType := { exponent := 5, mantissa := 2, bias := 15, canonicalName := "f8E5M2" }
+
+-- FN (finite only). No infinity, non-standard NaN.
+def FloatType.f8E4M3FN : FloatType := {
+  exponent := 4,
+  mantissa := 3,
+  bias := 7,
+  hasInf := false,
+  canonicalName := "f8E4M3FN"
+}
+
+-- UZ (unsigned zero). No -0.0, 0x80 repurposed as NaN.
+def FloatType.f8E4M3FNUZ : FloatType := {
+  exponent := 4,
+  mantissa := 3,
+  bias := 8,
+  hasInf := false,
+  hasNegZero := false,
+  canonicalName := "f8E4M3FNUZ"
+}
 
 /--
   A register type is an integer type with width 64.
@@ -150,31 +192,25 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 A floating point attribute storing a Lean `Float` value with an associated float type.
 -/
 structure FloatAttr where
-  value : Float
   type : FloatType
-deriving Inhabited, Repr
-
-/--
-Temporary bridge lemma for deciding `FloatAttr` equality via `Float.toBits`.
--/
-axiom floatEqOfToBitsEq {a b : Float} : a.toBits = b.toBits → a = b
-
-instance : DecidableEq FloatAttr
-  | a, b =>
-    if hv : a.value.toBits = b.value.toBits then
-      if ht : a.type = b.type then
-        have hval : a.value = b.value := floatEqOfToBitsEq hv
-        isTrue (by
-          cases a
-          cases b
-          simp_all)
-      else
-        isFalse (by intro h; exact ht (congrArg FloatAttr.type h))
-    else
-      isFalse (by intro h; exact hv (congrArg (Float.toBits ∘ FloatAttr.value) h))
+  value : BitVec type.bitwidth
+deriving Inhabited, Repr, DecidableEq
 
 instance : Hashable FloatAttr where
-  hash a := mixHash (hash a.value.toBits) (hash a.type)
+  hash a := mixHash (hash a.value) (hash a.type)
+
+/-- Extract exponent bits as a BitVec. -/
+def FloatAttr.exponent (attr : FloatAttr) : BitVec attr.type.exponent :=
+  BitVec.truncate attr.type.exponent (attr.value >>> attr.type.mantissa)
+
+/-- Extract mantissa bits as a BitVec. -/
+def FloatAttr.mantissa (attr : FloatAttr) : BitVec attr.type.mantissa :=
+  BitVec.truncate attr.type.mantissa attr.value
+
+/-- Extract sign bit (true for negative). -/
+def FloatAttr.sign (attr : FloatAttr) : Bool :=
+  let shift := attr.type.exponent + attr.type.mantissa
+  ((attr.value >>> shift) &&& 1) == 1
 
 /--
   An attribute containing a string.
@@ -964,7 +1000,7 @@ instance : ToString IntegerType where
   toString type := s!"i{type.bitwidth}"
 
 instance : ToString FloatType where
-  toString type := s!"f{type.bitwidth}"
+  toString type := type.canonicalName
 
 instance : ToString LLVM.ByteType where
   toString type := s!"!llvm.byte<{type.bitwidth}>"
@@ -1019,7 +1055,11 @@ instance : ToString IntegerAttr where
   toString attr := s!"{attr.value} : {attr.type}"
 
 instance : ToString FloatAttr where
-  toString attr := s!"{attr.value} : {attr.type}"
+  toString attr :=
+  -- Of the form 0x<bits>#<bitwidth>, e.g. 0xff#8
+  let str := s!"{attr.value}"
+  let front := (str.split '#').toArray.getD 0 ""
+  s!"{front} : {attr.type}"
 
 instance : ToString RegisterType where
   toString type :=
@@ -1582,7 +1622,8 @@ def isType (attr : Attribute) : Bool :=
 -/
 def bitwidthOfType (type : Attribute) : Option Nat :=
   match type with
-  | .integerType { bitwidth } | .floatType { bitwidth } | .byteType { bitwidth } => some bitwidth
+  | .integerType { bitwidth } | .byteType { bitwidth } => some bitwidth
+  | .floatType type => some type.bitwidth
   | .llvmPointerType _ => some 64
   | _ => none
 
@@ -1591,7 +1632,8 @@ def bitwidthOfType (type : Attribute) : Option Nat :=
 -/
 def sizeOfType (type : Attribute) : Option Nat :=
   match type with
-  | .integerType { bitwidth } | .floatType { bitwidth } | .byteType { bitwidth } => some ((bitwidth + 7) / 8)
+  | .integerType { bitwidth } | .byteType { bitwidth } => some ((bitwidth + 7) / 8)
+  | .floatType type => some type.bitwidth
   | .llvmPointerType _ => some 8
   | .llvmArrayType { size, type } => do
       let inner ← sizeOfType type

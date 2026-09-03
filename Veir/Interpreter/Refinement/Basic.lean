@@ -37,8 +37,12 @@ def RuntimeValue.isRefinedBy (source target : RuntimeValue) : Prop :=
   | .byte bw s, .byte bw' t => ∃ h : bw = bw', s.cast h ⊒ t
   | .addr s, .addr t => s = t
   | .reg s, .reg t => s = t
-  | .float bw s, .float bw' t => bw = bw' ∧ s = t
   | .felt fieldType s, .felt fieldType' t => fieldType = fieldType' ∧ s = t
+  | .float ty s, .float ty' t =>
+      if h : ty = ty' then
+        s = h ▸ t
+      else
+        False
   | _, _ => False
 
 @[inherit_doc] infix:50 " ⊒ " => RuntimeValue.isRefinedBy

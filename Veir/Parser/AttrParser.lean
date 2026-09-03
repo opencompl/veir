@@ -68,13 +68,19 @@ def parseOptionalFloatType : AttrParserM (Option FloatType) := do
   | { kind := .bareIdent, slice := slice } =>
     if slice.size < 2 then
       return none
-    if (← (getThe ParserState)).input.getD slice.start.byteOffset 0 == 'f'.toUInt8 then
-      let bitwidthSlice : Slice := {start := slice.start + 1, stop := slice.stop}
-      let identifier := bitwidthSlice.of (← (getThe ParserState)).input
-      let some bitwidth := (String.fromUTF8? identifier).bind String.toNat? | return none
+    let giveOut (type : FloatType) := do
       let _ ← consumeToken
-      return some (FloatType.mk bitwidth)
-    return none
+      return some type
+    let input := slice.of (← (getThe ParserState)).input
+    match String.fromUTF8? input with
+    | some "f16" => giveOut FloatType.f16
+    | some "f32" => giveOut FloatType.f32
+    | some "f64" => giveOut FloatType.f64
+    | some "bf16" => giveOut FloatType.bf16
+    | some "f8E5M2" => giveOut FloatType.f8E5M2
+    | some "f8E4M3FN" => giveOut FloatType.f8E4M3FN
+    | some "f8E4M3FNUZ" => giveOut FloatType.f8E4M3FNUZ
+    | _ => return none
   | _ => return none
 
 /--
@@ -206,19 +212,198 @@ def parseOptionalStringAttr : AttrParserM (Option StringAttr) := do
   return some (StringAttr.mk bytes)
 
 /--
-Parse a float attribute, if present.
-Only `1.0 : f64` is supported; the value is stored as Lean's `Float`.
+  The base-10 floating point representation parsed directly from string.
+  The number is equal to:
+    (-1)^negative * significand * 10^exponent
+-/
+structure ParsedFloat where
+  negative : Bool
+  significand : Nat
+  exponent : Int
+  deriving Repr, BEq
+
+/--
+  The floating point specification.
+  Example: `float` (32 bit) has 8-bit exponent and 23-bit mantissa.
+-/
+structure FloatFormat where
+  mantissa: Nat
+  exponent: Nat
+
+def FloatFormat.bitwidth (fmt : FloatFormat) : Nat :=
+  1 + fmt.exponent + fmt.mantissa
+
+/--
+  Parses a string of digits into a Nat.
+-/
+def parseDigits (s : String.Slice) : Option Nat :=
+  if s.isEmpty then none
+  else s.foldl (fun acc c => match acc with
+    | some x => if c.isDigit then x * 10 + c.toNat - '0'.toNat else none
+    | none => none) (some 0)
+
+/--
+  Parses a string of float into sign, significand and exponent under base 10.s
+-/
+def parseDecimalFloat (s : String) : Option ParsedFloat := do
+  let s := s.trimAscii
+  if s.isEmpty then none
+
+  -- Parse sign
+  let (negative, tail) := match s.front with
+    | '-' => (true, s.drop 1)
+    | '+' => (false, s.drop 1)
+    | _ => (false, s)
+
+  -- Split into significand and exponent
+  let delim := fun c => c == 'e' || c == 'E'
+  let (sig, exp) ← match (tail.split delim).toList with
+    | [sig] => some (sig, Int.ofNat 0)
+    | [sig, exp] =>
+      let (sign, tail) := match exp.front with
+        | '-' => (-1, exp.drop 1)
+        | '+' => (1, exp.drop 1)
+        | _ => (1, exp)
+      match parseDigits tail with
+        | some x => some (sig, sign * Int.ofNat x)
+        | none => none
+    | _ => none
+
+  -- Split significand to integral part and fractional part.
+  -- Combine the digits and record where the '.' is.
+  let (digits, fracLen) ← match (sig.split (fun c => c == '.')).toList with
+    | [int] => some (int, 0)
+    | [int, frac] => some (int.toString ++ frac, frac.positions.length)
+    | _ => none
+
+  let significand ← parseDigits digits
+  let exponent : Int := exp - fracLen
+
+  some { negative, significand, exponent }
+
+/--
+  Converts a base-10 float to the exact IEEE-754 bit pattern of the given type,
+  using round-to-nearest, ties-to-even. Overflow saturates to infinity (or the
+  largest finite value for types without infinity), and underflow produces a
+  subnormal value or zero.
+-/
+def convertFPToBitvec (f: ParsedFloat) (type: Veir.FloatType) : BitVec (type.bitwidth) :=
+  let signBits : Nat := (if f.negative then 1 else 0) <<< (type.exponent + type.mantissa)
+  let zeroBits : Nat := if f.negative && type.hasNegZero then signBits else 0
+  if f.significand == 0 then
+    -- Special case: Exact zero
+    BitVec.ofNat _ zeroBits
+  else
+    -- Form exact fraction: num / den.
+    let (num, den) := match f.exponent with
+      | Int.ofNat e => (f.significand * (10 ^ e), 1)
+      | Int.negSucc e => (f.significand, 10 ^ (e + 1))
+
+    -- Binary normalization.
+    -- We should find a new exponent E under base 2,
+    -- such that 1 <= (N * 2^E) / D < 2.
+
+    -- To make termination proving easier, we split it into 2 functions.
+    let rec scaleNumerator (n d : Nat) (e: Int) : Int × Nat × Nat :=
+      if h : n > 0 ∧ d > 0 ∧ 2 * n < d then scaleNumerator (n * 2) d (e - 1)
+      else (e, n, d)
+    termination_by d / n
+    decreasing_by
+      have nPos: n > 0 := h.left
+      rw [Nat.lt_div_iff_mul_lt]
+      generalize eDefn : d / (n * 2) = e
+      rw [Nat.div_eq_iff] at eDefn
+      have assoc : e * (n * 2) = e * n * 2 := by rw [Nat.mul_assoc]
+      rw [assoc] at eDefn
+      omega; omega; omega
+
+    let rec scaleDenominator (n d : Nat) (e: Int) : Int × Nat × Nat :=
+      if h : n > 0 ∧ d > 0 ∧ 2 * d <= n then scaleDenominator n (d * 2) (e + 1)
+      else (e, n, d)
+    termination_by n / d
+    decreasing_by
+      have dPos: d > 0 := h.right.left
+      rw [Nat.lt_div_iff_mul_lt]
+      generalize eDefn : n / (d * 2) = e
+      rw [Nat.div_eq_iff] at eDefn
+      have assoc : e * (d * 2) = e * d * 2 := by rw [Nat.mul_assoc]
+      rw [assoc] at eDefn
+      omega; omega; omega
+
+    let rec findBase2Exp (n d : Nat) (e : Int) : Int × Nat × Nat :=
+      if n >= 2 * d then scaleDenominator n (d * 2) (e + 1)
+      else if 2 * n < d then scaleNumerator (n * 2) d (e - 1)
+      else (e, n, d)
+
+    -- Now the float is nNorm / dNorm * 2^exp (which is equal to N / D).
+    let (exp, nNorm, dNorm) := findBase2Exp num den 0
+
+    -- Prepare for rounding: shift by mantissa + 2 bits.
+    --
+    -- Per IEEE-754, the rounding works as follows:
+    -- [ ... Upper Mantissa Bits ... ] | [ Guard Bit ] [ Round Bit ] [ Remaining Discarded Bits ]
+    -- ^1                            ^m  ^ 1st dropped ^ 2nd dropped
+    --
+    -- The sticky bit is defined as the logical OR of round bit and all other bits after it.
+    -- If remainder is non-zero, then the remaining bits must have at least an 1;
+    -- that's why we test `roundBit != 0 || remainder != 0`.
+    let scaledNum := nNorm <<< (type.mantissa + 2)
+    let quotient := scaledNum / dNorm
+    let remainder := scaledNum % dNorm
+    let upperBits := quotient >>> 2
+    let guardBit := (quotient >>> 1) &&& 1
+    let roundBit := quotient &&& 1
+    let stickyBit := if roundBit != 0 || remainder != 0 then 1 else 0
+
+    -- Round to nearest, ties to even.
+    -- Consider these cases:
+    -- (1) guard = 0: less than half, round to low.
+    -- (2) guard = 1:
+    --   (2.i)  sticky = 1: more than half, round to high.
+    --   (2.ii) sticky = 0: exactly half, round to even;
+    --          so if raw &&& 1 == 1 (odd), then plus 1 to even.
+    let raw := upperBits
+    let rounded :=
+      if guardBit == 1 && (stickyBit == 1 || (raw &&& 1) == 1) then
+        raw + 1
+      else
+        raw
+
+    -- Handle potential mantissa overflow from rounding.
+    let (finalMantissa, finalExp) :=
+      if rounded >= (1 <<< (type.mantissa + 1)) then
+        (rounded >>> 1, exp + 1)
+      else
+        (rounded, exp)
+
+    -- Bit packing.
+    let biasedExp := finalExp + type.bias
+    let signBit : Nat := if f.negative then 1 else 0
+    let mantissaPayload := finalMantissa &&& ((1 <<< type.mantissa) - 1)
+
+    let packed := (signBit <<< (type.exponent + type.mantissa))
+              ||| ((biasedExp.toNat) <<< type.mantissa)
+              ||| mantissaPayload
+
+    BitVec.ofNat type.bitwidth packed
+
+/--
+  Parse a float attribute, if present.
+  Supports most floating point attributes.
 -/
 def parseOptionalFloatAttr : AttrParserM (Option FloatAttr) := do
   let some tok ← parseOptionalToken .floatLit | return none
   let str := String.fromUTF8! (tok.slice.of (← getThe ParserState).input)
-  if str ≠ "1.0" then
-    throwAtCurrentPos s!"unsupported floating-point literal '{str}', only '1.0 : f64' is supported"
+
   parsePunctuation ":"
-  let floatType ← parseFloatType "float type expected after ':' in float attribute"
-  if floatType.bitwidth ≠ 64 then
-    throwAtCurrentPos "unsupported float type, only f64 is supported"
-  return some (Veir.FloatAttr.mk 1.0 floatType)
+  let some floatType ← parseOptionalFloatType
+    | throwAtCurrentPos "float type expected after ':' in float attribute"
+
+  let val ← match parseDecimalFloat str with
+    | some f => pure (convertFPToBitvec f floatType)
+    | none   => throwAtCurrentPos s!"invalid floating-point literal '{str}'"
+
+  return some (Veir.FloatAttr.mk floatType val)
 
 /--
   Parse a string attribute.

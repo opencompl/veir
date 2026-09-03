@@ -40,7 +40,8 @@ private def queryRISCV64 (type : Attribute) : Option DataLayoutTypeInfo :=
       else
         let size := (bitwidth + 7) / 8
         some (scalarInfo size (rv64IntegerAlignment bitwidth))
-  | .floatType { bitwidth } =>
+  | .floatType type =>
+      let bitwidth := type.bitwidth
       if bitwidth = 0 then none
       else
         let size := (bitwidth + 7) / 8

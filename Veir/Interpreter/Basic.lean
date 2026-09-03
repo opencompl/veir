@@ -98,7 +98,7 @@ namespace RuntimeValue
 def Conforms (val : RuntimeValue) (ty : TypeAttr) : Prop :=
   match val, ty with
   | .int bw _, ⟨.integerType intType, _⟩ => intType.bitwidth = bw
-  | .float bw _, ⟨.floatType floatType, _⟩ => floatType.bitwidth = bw
+  | .float type _, ⟨.floatType floatType, _⟩ => floatType = type
   | .byte bw _, ⟨.byteType byteType, _⟩ => byteType.bitwidth = bw
   | .int bw _, ⟨.modArithType modArithType, _⟩ => modArithType.modulus.type.bitwidth = bw
   | .reg _, ⟨.registerType _, _⟩ => True
@@ -138,7 +138,7 @@ theorem Conforms.byteType {runtimeValue byteType h} :
 @[grind <=]
 theorem Conforms.floatType :
     Conforms runtimeValue ⟨.floatType fltType, h⟩ →
-    ∃ val, runtimeValue = .float fltType.bitwidth val := by
+    ∃ val, runtimeValue = .float fltType val := by
   simp only [Conforms]
   cases runtimeValue
   case float bw val =>
@@ -908,9 +908,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     | .float floatAttr =>
       let .floatType bw := resType.val
         | none
-      if bw.bitwidth ≠ 64 then
-        none
-      return (#[.float 64 floatAttr.value], mem, none)
+      return (#[.float floatAttr.type floatAttr.value], mem, none)
     | .dense denseAttr =>
       none
     | .string _ =>
