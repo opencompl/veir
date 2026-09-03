@@ -10,6 +10,10 @@
     "struct.member"() <{sym_name = "x", type = !felt.type}> {llzk.pub} : () -> ()
     // CHECK-NEXT: "struct.member"() <{"sym_name" = "y", "type" = !felt.type}> : () -> ()
     "struct.member"() <{sym_name = "y", type = !felt.type}> : () -> ()
+    // CHECK-NEXT: "struct.member"() <{"sym_name" = "flag", "type" = i1}> : () -> ()
+    "struct.member"() <{sym_name = "flag", type = i1}> : () -> ()
+    // CHECK-NEXT: "struct.member"() <{"sym_name" = "position", "type" = index}> : () -> ()
+    "struct.member"() <{sym_name = "position", type = index}> : () -> ()
     // CHECK-NEXT: "function.def"() <{"function_type" = (!felt.type) -> !struct.type<@Add>, "sym_name" = "compute"}> ({
     "function.def"() <{function_type = (!felt.type) -> !struct.type<@Add>, sym_name = "compute"}> ({
     // CHECK-NEXT: ^{{.*}}(%{{.*}} : !felt.type):
