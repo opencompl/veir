@@ -53,6 +53,50 @@ theorem mulTwo_valid : Pattern.Valid mulTwo := by
   simp only [mulTwo, matchConstant]
   provePuddleValid
 
+/-- Rewrite `x + 0` to `x`, matching the zero with a native metadata predicate. -/
+private def nativeMatch : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let returnType ← MatchProg.type (Attr := IntegerType)
+      let x ← MatchProg.value returnType
+      let cst ← MatchProg.operation (.arith .constant) #[] #[returnType]
+      MatchProg.matchNative (returnType, cst.properties)
+        (fun (type, properties) =>
+          type = IntegerType.mk 32 && properties.value.value = 0)
+      let _ ← MatchProg.root (.arith .addi) #[x, cst.res[0]!] #[returnType]
+      return x)
+    pure
+    (fun x => x)
+
+/-- Rewrite `x * 2` to `x + 3`, creating the constant metadata with a native function. -/
+private def nativeApply : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let returnType ← MatchProg.type (Attr := IntegerType)
+      let x ← MatchProg.value returnType
+      let cst ← MatchProg.operation (.arith .constant) #[] #[returnType]
+        (fun properties => properties.value.value = 2)
+      let _ ← MatchProg.root (.arith .muli) #[x, cst.res[0]!] #[returnType]
+      return (returnType, x, cst.properties))
+    (fun (returnType, x, properties) => do
+      let (newType, newProperties) ← CreateProg.applyNative (returnType, properties)
+        (fun (type, properties) =>
+          some (type, { properties with
+            value := { properties.value with value := properties.value.value + 1 } }))
+      let constant ← CreateProg.operation (.arith .constant) #[] #[newType] newProperties
+      let addProperties ← CreateProg.property (.arith .addi) default
+      let add ← CreateProg.operation (.arith .addi) #[x, constant.res[0]!] #[newType] addProperties
+      return add)
+    (fun result => result)
+
+theorem nativeMatch_valid : Pattern.Valid nativeMatch := by
+  simp only [nativeMatch]
+  provePuddleValid
+
+theorem nativeApply_valid : Pattern.Valid nativeApply := by
+  simp only [nativeApply]
+  provePuddleValid
+
 /- ## Test matcher builder validation -/
 
 /-- A matcher that is missing a root declaration. -/
@@ -125,3 +169,25 @@ info: "builtin.module"() ({
 -/
 #guard_msgs in
 #eval! rewriteAndPrint mulTwoProgram mulTwo
+
+/--
+info: "builtin.module"() ({
+  ^4():
+    %5 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+    "test.test"(%5) : (i32) -> ()
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! rewriteAndPrint addZeroProgram nativeMatch
+
+/--
+info: "builtin.module"() ({
+  ^4():
+    %5 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+    %10 = "arith.constant"() <{"value" = 3 : i32}> : () -> i32
+    %11 = "arith.addi"(%5, %10) : (i32, i32) -> i32
+    "test.test"(%11) : (i32) -> ()
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! rewriteAndPrint mulTwoProgram nativeApply

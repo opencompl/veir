@@ -176,6 +176,36 @@ def forbidMany (ctx : HandleContext) (handles : List (Handle OpCode kind)) : Han
 
 end HandleContext
 
+namespace MetadataTuple.Shape
+
+/-- Require every handle described by a metadata tuple shape to be available. -/
+@[expose]
+def requireBindings (shape : MetadataTuple.Shape OpCode Handles) (ctx : HandleContext)
+    (handles : Handles) : Bool :=
+  match shape with
+  | .unit => true
+  | .atom .type => ctx.require handles
+  | .atom (.property _) => ctx.require handles
+  | .cons .type tail => ctx.require handles.1 && tail.requireBindings ctx handles.2
+  | .cons (.property _) tail => ctx.require handles.1 && tail.requireBindings ctx handles.2
+
+/-- Insert every handle described by a metadata tuple shape, requiring each one to be fresh. -/
+@[expose]
+def insertFreshBindings (shape : MetadataTuple.Shape OpCode Handles) (ctx : HandleContext)
+    (handles : Handles) : Option HandleContext :=
+  match shape with
+  | .unit => some ctx
+  | .atom .type => ctx.insertFresh handles
+  | .atom (.property _) => ctx.insertFresh handles
+  | .cons .type tail => do
+      let ctx ← ctx.insertFresh handles.1
+      tail.insertFreshBindings ctx handles.2
+  | .cons (.property _) tail => do
+      let ctx ← ctx.insertFresh handles.1
+      tail.insertFreshBindings ctx handles.2
+
+end MetadataTuple.Shape
+
 /-- Collect the handles that a matcher declaration binds during a successful match. -/
 @[expose]
 def MatchDecl.collectBindings (decl : MatchDecl OpCode)
@@ -191,6 +221,9 @@ def MatchDecl.collectBindings (decl : MatchDecl OpCode)
       defined.insert typeHandle
   | .type _ _ =>
       some defined
+  | @MatchDecl.applyNative _ _ _ inputBundle inputs _ => do
+      guard (inputBundle.shape.requireBindings defined inputs)
+      return defined
 
 /--
 Collect all the handles that a list of matcher declarations bind during a successful match.
@@ -236,6 +269,9 @@ def CreateDecl.checkBindings (ctx : HandleContext) (decl : CreateDecl OpCode)
       guard (resultHandles.size = resultTypes.size)
       let defined ← ctx.insertFresh opHandle
       defined.insertManyFresh resultHandles.toList
+  | @CreateDecl.applyNative _ _ _ _ inputBundle outputBundle inputs _ outputs => do
+      guard (inputBundle.shape.requireBindings ctx inputs)
+      outputBundle.shape.insertFreshBindings ctx outputs
 
 /-- Validate a creation program from a matcher-defined handle context. -/
 @[expose]
@@ -305,10 +341,11 @@ macro "unfoldPuddleBuilder" : tactic =>
   `(tactic| (
     /- Unfold the builder functions -/
     simp only [Pattern.Builder, MatchProg.build, CreateProg.build, bind, pure,
-      MatchProg.value, MatchProg.type, MatchProg.root, MatchProg.operation, CreateProg.operation,
-      CreateProg.property];
-    /- Simplify the resulting expressions with standard simplifications -/
-    simp only [Nat.zero_add, Nat.reduceAdd, List.size_toArray, List.length_cons, List.length_nil,
+      MatchProg.value, MatchProg.type, MatchProg.root, MatchProg.operation, MatchProg.matchNative,
+      CreateProg.operation, CreateProg.property, CreateProg.applyNative, MetadataTuple.fresh,
+      MetadataTuple.Shape.fresh, MetadataTuple.Atom.fresh,
+      /- Simplify the resulting expressions with standard simplifications -/
+      Nat.zero_add, Nat.reduceAdd, List.size_toArray, List.length_cons, List.length_nil,
       Array.size_map, Array.size_range, Nat.lt_add_one, getElem!_pos, Array.getElem_map,
       Array.getElem_range, Nat.add_zero, List.cons_append, List.nil_append, List.reverse_nil,
       List.reverse_cons, List.reverse_nil, List.nil_append, List.cons_append]))

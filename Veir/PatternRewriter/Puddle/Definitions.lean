@@ -69,6 +69,101 @@ structure Handle (OpInfo : Type) [HasOpInfo OpInfo] (handleType : HandleType OpI
 deriving Repr, DecidableEq, Inhabited
 
 /-!
+## Metadata tuples
+
+In the Puddle DSL, metadata is a generic term for types and operation properties. Both
+`MatchDecl.applyNative` and `CreateDecl.applyNative` need to translate between the concrete metadata
+values and the handles that denote them. We thus need to define a translation between the two
+representation types.
+
+`MetadataTuple.Atom` describes a single type or property handle, and `MetadataTuple.Shape`
+describes flat, right-associated tuples of those atoms. `IsMetadataTuple` witnesses that a type is
+a valid metadata tuple, and `MetadataTuple.Shape.Values` gives the corresponding concrete metadata
+type used during execution.
+-/
+
+/--
+An atom of a metadata tuple, which is either a type handle or a property handle.
+Its type parameter represents the kind of handle it denotes.
+-/
+inductive MetadataTuple.Atom (OpInfo : Type) [HasOpInfo OpInfo] : Type → Type 1 where
+/-- A type handle. -/
+| type : MetadataTuple.Atom OpInfo (Handle OpInfo .type)
+/-- A property handle for an operation with opcode `opCode`. -/
+| property (opCode : OpInfo) : MetadataTuple.Atom OpInfo (Handle OpInfo (.prop opCode))
+
+/-- The concrete metadata type denoted by an atom's handle. -/
+@[expose, reducible]
+def MetadataTuple.Atom.Value {Handle : Type} : MetadataTuple.Atom OpInfo Handle → Type
+| .type => TypeAttr
+| .property opCode => propertiesOf opCode
+
+/--
+A flat right-associated tuple of type and property handles.
+Its type parameter represents the tuple type it denotes.
+
+It includes `unit` for empty tuples and `atom` to avoid a trailing `a × Unit` at the leaves.
+-/
+inductive MetadataTuple.Shape (OpInfo : Type) [HasOpInfo OpInfo] : Type → Type 1 where
+/-- The shape of an empty metadata tuple. -/
+| unit : MetadataTuple.Shape OpInfo Unit
+/-- The shape of a single metadata handle. -/
+| atom {Handle : Type} :
+    MetadataTuple.Atom OpInfo Handle → MetadataTuple.Shape OpInfo Handle
+/-- Prepend a metadata atom to an existing tuple shape. -/
+| cons {Head Tail : Type} :
+    MetadataTuple.Atom OpInfo Head → MetadataTuple.Shape OpInfo Tail →
+      MetadataTuple.Shape OpInfo (Head × Tail)
+
+/-- The concrete metadata type corresponding to a tuple shape. -/
+@[expose, reducible]
+def MetadataTuple.Shape.Values : MetadataTuple.Shape OpInfo Handles → Type
+| .unit => Unit
+| .atom metadataAtom => metadataAtom.Value
+| .cons head tail => head.Value × tail.Values
+
+/--
+Witness that `Handles` is a tuple of property and type handle types.
+
+The class only contains a `MetadataTuple.Shape` witness of the tuple type, which is used to
+translate a tuple of handles into its tuple of concrete metadata values.
+
+For example, `Handle OpInfo .type × Handle OpInfo (.prop opCode)` receives the shape
+`.cons .type (.atom (.property opCode))` automatically.
+-/
+class IsMetadataTuple (OpInfo : Type) [HasOpInfo OpInfo] (Handles : Type) where
+  shape : MetadataTuple.Shape OpInfo Handles
+
+/--
+The concrete metadata type denoted by a tuple of type and property handles.
+For example, `Handle OpInfo .type × Handle OpInfo (.prop opCode)` denotes
+`TypeAttr × propertiesOf opCode`.
+-/
+abbrev MetadataValues (OpInfo : Type) [HasOpInfo OpInfo] (Handles : Type)
+    [self : IsMetadataTuple OpInfo Handles] : Type := self.shape.Values
+
+/-!
+The following instances synthesize `IsMetadataTuple` recursively for tuples of type and property
+handles.
+-/
+
+instance : IsMetadataTuple OpInfo Unit := ⟨.unit⟩
+
+instance : IsMetadataTuple OpInfo (Handle OpInfo .type) :=
+  ⟨.atom .type⟩
+
+instance (opCode : OpInfo) : IsMetadataTuple OpInfo (Handle OpInfo (.prop opCode)) :=
+  ⟨.atom (.property opCode)⟩
+
+instance [tail : IsMetadataTuple OpInfo Tail] :
+    IsMetadataTuple OpInfo (Handle OpInfo .type × Tail) :=
+  ⟨.cons .type tail.shape⟩
+
+instance (opCode : OpInfo) [tail : IsMetadataTuple OpInfo Tail] :
+    IsMetadataTuple OpInfo (Handle OpInfo (.prop opCode) × Tail) :=
+  ⟨.cons (.property opCode) tail.shape⟩
+
+/-!
 ## Matcher phase
 
 `MatchDecl` is the internal declarative representation of a pattern constraint. Users should use
@@ -100,6 +195,9 @@ inductive MatchDecl (OpInfo : Type) [HasOpInfo OpInfo] where
 | value (type : Handle OpInfo .type) (result : Handle OpInfo .value)
 /-- Require the type bound to `result` to be accepted by `matcher`. -/
 | type (matcher : TypeMatcher) (result : Handle OpInfo .type)
+/-- Require the concrete metadata denoted by `inputs` to satisfy `predicate`. -/
+| applyNative {Inputs : Type} [IsMetadataTuple OpInfo Inputs]
+    (inputs : Inputs) (predicate : MetadataValues OpInfo Inputs → Bool)
 /-- Identify an operation from the already-bound `result` or `results` handle, check every result
 handle against that operation, require the given opcode, operands, result types, and properties,
 and bind the discovered entities to their corresponding handles. -/
@@ -153,6 +251,14 @@ created operation and SSA results to `result` and `results`.
     (properties : Handle OpInfo (.prop opCode))
     (result : Handle OpInfo .op)
     (results : Array (Handle OpInfo .value))
+/-- Run a pure metadata transformation and bind its output values to `outputs`. Returning `none`
+rejects the creation phase and invalidates the entire IR context. -/
+| applyNative {Inputs Outputs : Type}
+    [IsMetadataTuple OpInfo Inputs]
+    [IsMetadataTuple OpInfo Outputs]
+    (inputs : Inputs)
+    (rewrite : MetadataValues OpInfo Inputs → Option (MetadataValues OpInfo Outputs))
+    (outputs : Outputs)
 
 /--
 The ordered creation phase of a Puddle rule.
