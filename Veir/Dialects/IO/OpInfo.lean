@@ -9,28 +9,34 @@ namespace Veir
 public section
 
 /--
-Operations that exchange bytes with the environment. Every operation takes a
-buffer pointer and a byte count, `(ptr : !llvm.ptr, len : integer)`, and has
-no results, mirroring the shape of the system calls they lower to.
+Operations that exchange bytes with the environment. Buffers are passed as a
+pointer and a byte count, `(ptr : !llvm.ptr, len : integer)`, mirroring the
+shape of the system calls they lower to. Peers are named by an opaque
+`!io.address` value.
 -/
 @[opcodes]
 inductive Io where
 /--
-`io.send` writes the `len` bytes starting at `ptr` to the environment. It reads
-the buffer, and its output is observable, so it is modelled as both reading and
-writing memory to keep it from being removed or reordered.
+`io.send` writes the `len` bytes starting at `ptr` to the peer `dest`. Its
+operands are `(dest : !io.address, ptr : !llvm.ptr, len : integer)` and it has
+no results. It reads the buffer, and its output is observable, so it is
+modelled as both reading and writing memory to keep it from being removed or
+reordered.
 -/
 | send
 /--
-`io.recv` reads `len` bytes from the environment and stores them starting at
-`ptr`. It consumes input and writes the buffer, so it is modelled as both
-reading and writing memory to keep it from being removed or reordered.
+`io.recv` reads `len` bytes from the peer `src` and stores them starting at
+`ptr`. Its operands are `(src : !io.address, ptr : !llvm.ptr, len : integer)`
+and it has no results. It consumes input and writes the buffer, so it is
+modelled as both reading and writing memory to keep it from being removed or
+reordered.
 -/
 | recv
 /--
-`io.rand` fills the `len` bytes starting at `ptr` with random bytes. Two `rand`
-operations must not be reordered, since that changes the observable trace, so
-it is modelled as both reading and writing memory.
+`io.rand` fills the `len` bytes starting at `ptr` with random bytes. Its
+operands are `(ptr : !llvm.ptr, len : integer)` and it has no results. Two
+`rand` operations must not be reordered, since that changes the observable
+trace, so it is modelled as both reading and writing memory.
 -/
 | rand
 deriving Inhabited, Repr, Hashable, DecidableEq
@@ -76,24 +82,46 @@ instance : IsOpCode Io where
   fromAttrDict := Io.fromAttrDict
   toAttrDict := Io.toAttrDict
 
+/-- Check that a type is the `!io.address` type. -/
+def TypeAttr.verifyIoAddressType
+    (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
+  match ty.val with
+  | .ioAddressType _ => pure ()
+  | _ => throw errMsg
+
+/--
+Check that operands `base` and `base + 1` of `op` are a `!llvm.ptr` buffer
+followed by an integer byte count.
+-/
+def Io.verifyBufferOperands {OpInfo : Type} [IsOpCode OpInfo]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo) (base : Nat) (instrName : String) :
+    Except String PUnit := do
+  ((op.getOperand! ctx.raw base).getType! ctx.raw).verifyLlvmPointerType
+    s!"{instrName}: Expected operand {base} to have !llvm.ptr type"
+  ((op.getOperand! ctx.raw (base + 1)).getType! ctx.raw).verifyIntegerType
+    s!"{instrName}: Expected operand {base + 1} to have integer type"
+
 /--
 Verify the local invariants of an `io` operation in any operation-info type
-containing the `io` dialect: two operands, a `!llvm.ptr` buffer followed by an
-integer byte count, and no results.
+containing the `io` dialect. `send` and `recv` take a peer address, a
+`!llvm.ptr` buffer, and an integer byte count; `rand` takes only the buffer
+and the count. None of them has results.
 -/
 @[expose]
 def Io.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpInfo Io]
     (opType : Io) (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  op.checkIsNonNullIntegerType ctx opIn
   match opType with
-  | .send | .recv | .rand =>
-    op.checkIsNonNullIntegerType ctx opIn
+  | .send | .recv =>
+    op.verifyPlainOpCounts ctx opIn 3 0
+    ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIoAddressType
+      s!"{instrName}: Expected operand 0 to have !io.address type"
+    Io.verifyBufferOperands op ctx 1 instrName
+  | .rand =>
     op.verifyPlainOpCounts ctx opIn 2 0
-    ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyLlvmPointerType
-      s!"{instrName}: Expected operand 0 to have !llvm.ptr type"
-    ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerType
-      s!"{instrName}: Expected operand 1 to have integer type"
+    Io.verifyBufferOperands op ctx 0 instrName
 
 instance : HasOpInfo Io where
   verifyLocalInvariants := Io.verifyLocalInvariants
