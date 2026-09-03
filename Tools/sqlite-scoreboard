@@ -1,0 +1,395 @@
+#!/usr/bin/env python3
+"""Per-function sqlite3 scoreboard for VeIR (#947).
+
+Splits the sqlite3 amalgamation into one generic-MLIR chunk per function
+with llvm-extract, runs each chunk through veir-opt on its own, and places it
+in a tier:
+  supported  passes veir-opt as is: every op and attribute registered,
+             verified, and round-tripped;
+  parsed     passes only with --allow-unregistered-dialect: some op or
+             attribute is carried opaquely (the first one is the blocker);
+  fail       fails even with the flag (the normalized error is the detail).
+A timed-out chunk is retried once, sequentially; a lasting timeout is its own
+status and only ever a warning.
+
+The amalgamation is compiled with clang -O0 and opt -passes=sroa, vcc's
+pipeline (the -O0+sroa corpus). The toolchain is
+pinned to what CI uses: clang/opt/llvm-extract 19 and mlir-translate/mlir-opt
+22 (veir needs mlir-translate >= 21 for the integer overflowFlags encoding);
+chunks and therefore baselines depend on both. Baselines live in
+Test/sqlite3/<corpus>/<board>-baseline.txt and carry a digest of the chunk
+set; see Tools/sqlite_board.py for the file and JSON formats and exit codes.
+
+Local loop while fixing a blocker:
+  lake build veir-opt
+  Tools/sqlite-scoreboard --check-baseline --list-changed   # what moved
+  Tools/sqlite-scoreboard --only NAME                       # one item, raw stderr
+  Tools/sqlite-scoreboard --check-baseline --write-baseline # accept, then commit
+Run without arguments the amalgamation is downloaded (pinned, checksummed)
+into .lake/ and the toolchain located from llvm-extract on PATH.
+"""
+
+from __future__ import annotations
+
+import argparse
+import concurrent.futures
+import hashlib
+import os
+import re
+import shutil
+import subprocess
+import sys
+import urllib.request
+import zipfile
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sqlite_board as board
+from sqlite_board import BASELINE_DIR, CORPORA, STORE, TIMEOUT, VEIR_OPT
+
+# board name, llvm-nm symbol types, llvm-extract flag
+BOARDS = (("functions", ("t", "T"), "-func"),)
+TIERS = {"fail": 0, "parsed": 1, "supported": 2}
+UNREGISTERED = re.compile(r"(op|attribute|type) '([^']+)' is not registered")
+CACHE_SCHEMA = 7
+
+SQLITE_VERSION = "3530300"
+SQLITE_URL = f"https://sqlite.org/2026/sqlite-amalgamation-{SQLITE_VERSION}.zip"
+SQLITE3_C_SHA256 = "87497ab605bedd0dbee27a209c1eeff8c89b229b13f921a7efdbb81a13f779fd"
+LLVM_TOOLS = ("clang", "opt", "llvm-extract", "llvm-nm")
+MLIR_TOOLS = ("mlir-translate", "mlir-opt")
+TOOLCHAIN = (19, 22)  # (clang, mlir) majors the baselines were generated with
+
+
+# ----------------------------------------------------------- toolchain --
+
+def resolve_source(arg: Path | None) -> Path:
+    if arg:
+        return arg
+    if env := os.environ.get("SQLITE3_C"):
+        return Path(env)
+    dest = STORE / f"sqlite-amalgamation-{SQLITE_VERSION}" / "sqlite3.c"
+    if not dest.exists():
+        print(f"downloading {SQLITE_URL} ...", flush=True)
+        STORE.mkdir(parents=True, exist_ok=True)
+        zip_path, _ = urllib.request.urlretrieve(SQLITE_URL)
+        with zipfile.ZipFile(zip_path) as z:
+            z.extract(f"sqlite-amalgamation-{SQLITE_VERSION}/sqlite3.c", STORE)
+        os.unlink(zip_path)
+    if hashlib.sha256(dest.read_bytes()).hexdigest() != SQLITE3_C_SHA256:
+        dest.unlink()
+        raise SystemExit(f"checksum mismatch for {dest}; removed it, re-run to download again")
+    return dest
+
+
+def tool_major(exe: str) -> int | None:
+    out = subprocess.run([exe, "--version"], capture_output=True, text=True).stdout
+    m = re.search(r"version (\d+)", out)
+    return int(m.group(1)) if m else None
+
+
+def find_tools(llvm_bindir: str | None, mlir_bindir: str | None) -> dict[str, str]:
+    """clang/opt/llvm-extract from one LLVM (they share a bitcode version);
+    the MLIR tools from --mlir-bindir, PATH, or that same LLVM."""
+    if not llvm_bindir:
+        exe = shutil.which("llvm-extract")
+        found = sorted(Path("/usr/lib").glob("llvm-*/bin/llvm-extract"),
+                       key=lambda p: int(p.parent.parent.name.split("-")[1]))
+        llvm_bindir = str(Path(exe).resolve().parent) if exe else \
+            (str(found[-1].parent) if found else None)
+    if not llvm_bindir:
+        raise SystemExit("llvm-extract not found (try --llvm-bindir)")
+    tools = {}
+    for t in LLVM_TOOLS:
+        if not (Path(llvm_bindir) / t).exists():
+            raise SystemExit(f"{t} not found in {llvm_bindir} (try --llvm-bindir)")
+        tools[t] = str(Path(llvm_bindir) / t)
+    for t in MLIR_TOOLS:
+        path = (Path(mlir_bindir) / t if mlir_bindir else None) or shutil.which(t) \
+            or (Path(llvm_bindir) / t if (Path(llvm_bindir) / t).exists() else None)
+        if not path or not Path(path).exists():
+            raise SystemExit(f"{t} not found (try --mlir-bindir)")
+        tools[t] = str(path)
+    if not VEIR_OPT.exists():
+        raise SystemExit(f"{VEIR_OPT} not built (run: lake build veir-opt)")
+    clang, mlir = tool_major(tools["clang"]), tool_major(tools["mlir-translate"])
+    if mlir is not None and mlir < 21:
+        raise SystemExit(f"mlir-translate {mlir} is too old; veir needs the integer "
+                         "overflowFlags encoding emitted from LLVM 21 on")
+    if (clang, mlir) != TOOLCHAIN:
+        print(f"warning: clang {clang} + mlir {mlir} differ from the baseline toolchain "
+              f"{TOOLCHAIN}: chunks, results and digests will not match CI's "
+              "(use --llvm-bindir/--mlir-bindir)", file=sys.stderr)
+    return tools
+
+
+# ---------------------------------------------------------- generation --
+
+def run(cmd: list[str], stdin: bytes | None = None) -> bytes:
+    result = subprocess.run(cmd, input=stdin, capture_output=True)
+    if result.returncode != 0:
+        raise SystemExit(f"{cmd[0]} failed:\n{result.stderr.decode('utf-8', 'replace')}")
+    return result.stdout
+
+
+def compile_module(src: Path, cache: Path, tools: dict[str, str], corpus: str) -> Path:
+    """clang -O0 + sroa, vcc's default pipeline."""
+    bc, stamp = cache / "sqlite3.bc", cache / "sqlite3.bc.src-sha256"
+    src_hash = hashlib.sha256(src.read_bytes()).hexdigest()
+    if bc.exists() and stamp.exists() and stamp.read_text() == src_hash:
+        return bc
+    print(f"compiling sqlite3.c ({corpus}) ...", flush=True)
+    raw = cache / "sqlite3-raw.bc"
+    run([tools["clang"], "-O0", "-Xclang", "-disable-O0-optnone", "-c", "-emit-llvm",
+         str(src), "-o", str(raw)])
+    run([tools["opt"], "-passes=sroa", str(raw), "-o", str(bc)])
+    stamp.write_text(src_hash)
+    return bc
+
+
+def list_symbols(bc: Path, tools: dict[str, str], kinds: tuple[str, ...]) -> list[str]:
+    out = run([tools["llvm-nm"], "--defined-only", str(bc)]).decode()
+    return sorted(sym for line in out.splitlines()
+                  for _, kind, sym in [line.split(None, 2)] if kind in kinds)
+
+
+def prepare_chunks_dir(cache: Path, name: str, bc: Path, tools: dict[str, str]) -> Path:
+    """Chunks are a function of the bitcode and the MLIR tools that print them:
+    regenerate them when either changes, so stale chunks are never reused."""
+    chunks = cache / name
+    identity = hashlib.sha256(bc.read_bytes())
+    for t in MLIR_TOOLS:
+        identity.update(subprocess.run([tools[t], "--version"], capture_output=True).stdout)
+    stamp = chunks / ".stamp"
+    if not (stamp.exists() and stamp.read_text() == identity.hexdigest()):
+        if chunks.exists():
+            print(f"bitcode or MLIR tools changed: regenerating {chunks.name}", flush=True)
+            shutil.rmtree(chunks)
+        chunks.mkdir(parents=True)
+        stamp.write_text(identity.hexdigest())
+    return chunks
+
+
+def extract_chunk(name: str, bc: Path, chunks: Path, flag: str,
+                  tools: dict[str, str]) -> Path | None:
+    """One function as a self-contained generic-MLIR module; cross-references
+    become declarations."""
+    chunk = chunks / f"{name}.mlir"
+    if chunk.exists():
+        return chunk
+    data = b""
+    for cmd in ([tools["llvm-extract"], f"{flag}={name}", str(bc), "-o", "-"],
+                [tools["mlir-translate"], "--import-llvm"],
+                [tools["mlir-opt"], "--mlir-print-op-generic", "--mlir-print-local-scope"]):
+        result = subprocess.run(cmd, input=data, capture_output=True)
+        if result.returncode != 0:
+            return None
+        data = result.stdout
+    tmp = chunk.with_suffix(".mlir.tmp")  # write-then-rename: never a truncated chunk
+    tmp.write_bytes(data)
+    tmp.replace(chunk)
+    return chunk
+
+
+# ------------------------------------------------------------- testing --
+
+def normalize_error(stderr: str) -> str:
+    """Error class: the first error line with positions and values stripped."""
+    msg = next((line.split("rror: ", 1)[1] for line in stderr.splitlines() if "rror: " in line),
+               stderr.strip().splitlines()[-1] if stderr.strip() else "<no output>")
+    msg = re.sub(r"\d+\.\d+(?:e[+-]?\d+)?", "<float>", msg)
+    msg = re.sub(r"0x[0-9a-fA-F]+", "<hex>", msg)
+    msg = re.sub(r'@("[^"]*"|\w+)', "<sym>", msg)
+    return re.sub(r'"[^"]*"', "<str>", msg)
+
+
+def run_veir_opt(chunk: Path, timeout: float, allow_unregistered: bool) -> tuple[int, str]:
+    cmd = [str(VEIR_OPT)] + (["--allow-unregistered-dialect"] if allow_unregistered else [])
+    try:
+        result = subprocess.run(cmd + [str(chunk)], capture_output=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return -1, ""
+    return result.returncode, result.stderr.decode("utf-8", "replace")
+
+
+def classify(chunk: Path, timeout: float) -> dict:
+    """Strict first; only a registration failure earns the rerun with the flag,
+    and its first unregistered op or attribute is the blocker."""
+    rc, err = run_veir_opt(chunk, timeout, allow_unregistered=False)
+    if rc == -1:
+        return {"status": TIMEOUT, "detail": "", "blocker": ""}
+    if rc == 0:
+        return {"status": "supported", "detail": "", "blocker": ""}
+    m = UNREGISTERED.search(err)
+    if not m:
+        return {"status": "fail", "detail": normalize_error(err), "blocker": ""}
+    blocker = f"{m.group(1)} {m.group(2)}"
+    rc, err = run_veir_opt(chunk, timeout, allow_unregistered=True)
+    if rc == -1:
+        return {"status": TIMEOUT, "detail": "", "blocker": blocker}
+    if rc == 0:
+        return {"status": "parsed", "detail": blocker, "blocker": blocker}
+    return {"status": "fail", "detail": normalize_error(err), "blocker": blocker}
+
+
+def test_board(names: list[str], bc: Path, chunks: Path, flag: str, tools: dict[str, str],
+               cached: dict, args) -> dict[str, dict]:
+    """Classify every item, in parallel, reusing cached results for unchanged
+    chunks (never a cached timeout); timed-out items are retried once, alone."""
+    def process(name: str) -> tuple[str, dict]:
+        chunk = extract_chunk(name, bc, chunks, flag, tools)
+        if chunk is None:
+            return name, {"status": "fail", "detail": "<chunking failed>", "blocker": "",
+                          "chunk": "", "canon": ""}
+        hashes = {"chunk": board.file_hash(chunk), "canon": board.canonical_hash(chunk)}
+        known = cached.get(name)
+        if known and known.get("chunk") == hashes["chunk"] and known["status"] != TIMEOUT:
+            return name, known
+        return name, {**classify(chunk, args.timeout), **hashes}
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
+        items = dict(pool.map(process, names))
+    for name, item in items.items():
+        if item["status"] == TIMEOUT:
+            items[name] = {**classify(chunks / f"{name}.mlir", args.timeout),
+                           "chunk": item["chunk"], "canon": item["canon"]}
+    return items
+
+
+def summarize(name: str, items: dict[str, dict], chunks: Path) -> dict:
+    """The board's report entry: counts, distinct errors, blockers, and for
+    functions the parsed rate by chunk size."""
+    counts = {tier: sum(1 for i in items.values() if i["status"] == tier) for tier in TIERS}
+    counts[TIMEOUT] = sum(1 for i in items.values() if i["status"] == TIMEOUT)
+    errors: dict[str, list[str]] = {}
+    for item_name, i in items.items():
+        if i["status"] == "fail":
+            errors.setdefault(i["detail"], []).append(item_name)
+    blockers: dict[str, int] = {}
+    for i in items.values():
+        if i["status"] == "parsed":
+            blockers[i["blocker"]] = blockers.get(i["blocker"], 0) + 1
+    entry = {"digest": board.corpus_digest({n: i["canon"] for n, i in items.items()}),
+             "items": items, "counts": counts,
+             "distinct_errors": dict(sorted(errors.items(), key=lambda kv: -len(kv[1]))),
+             "blockers": dict(sorted(blockers.items(), key=lambda kv: -kv[1])), "delta": None}
+    if name == "functions":
+        bins: dict[int, list[bool]] = {}
+        for item_name, i in items.items():
+            path = chunks / f"{item_name}.mlir"
+            lines = 0
+            if path.exists():
+                with open(path, errors="replace") as f:
+                    lines = sum(1 for _ in f)
+            bins.setdefault(max(lines, 1).bit_length() - 1, []).append(
+                i["status"] in ("supported", "parsed"))
+        entry["histogram"] = [(2 ** b, sum(bins[b]), len(bins[b])) for b in sorted(bins)]
+    return entry
+
+
+# ------------------------------------------------------- orchestration --
+
+def run_corpus(corpus: str, label: str, src: Path, cache: Path, tools: dict[str, str],
+               cached: dict, args) -> dict:
+    ccache = cache / corpus
+    ccache.mkdir(exist_ok=True)
+    bc = compile_module(src, ccache, tools, corpus)
+    boards = {}
+    for name, kinds, flag in BOARDS:
+        symbols = list_symbols(bc, tools, kinds)
+        if args.limit and name == "functions":
+            symbols = symbols[: args.limit]
+        chunks = prepare_chunks_dir(ccache, "chunks" if name == "functions" else f"chunks-{name}",
+                                    bc, tools)
+        if args.only:
+            if args.only in symbols:
+                show_one(label, name, args.only, bc, chunks, flag, tools, args.timeout)
+            continue
+        if not args.quiet:
+            print(f"{label}: {len(symbols)} {name}", file=sys.stderr, flush=True)
+        items = test_board(symbols, bc, chunks, flag, tools, cached.get(name, {}), args)
+        boards[name] = summarize(name, items, chunks)
+    return {"label": label, "boards": boards}
+
+
+def show_one(label: str, board_name: str, name: str, bc: Path, chunks: Path, flag: str,
+             tools: dict[str, str], timeout: float) -> None:
+    """--only: veir-opt's full stderr for one item, strict then (if that failed
+    on registration) with --allow-unregistered-dialect."""
+    chunk = extract_chunk(name, bc, chunks, flag, tools)
+    print(f"== {label} {board_name} {name}: {chunk}")
+    for strict in (True, False):
+        rc, err = run_veir_opt(chunk, timeout, allow_unregistered=not strict)
+        print(f"-- veir-opt{'' if strict else ' --allow-unregistered-dialect'}: exit {rc}\n{err}",
+              end="" if err.endswith("\n") else "\n")
+        if rc == 0 or not (strict and UNREGISTERED.search(err)):
+            break
+
+
+def check_baselines(report: dict, args) -> None:
+    for corpus, c in report["corpora"].items():
+        for name, b in c["boards"].items():
+            path = BASELINE_DIR / corpus / f"{name}-baseline.txt"
+            if args.check_baseline:
+                b["delta"] = board.diff_baseline(path, b["digest"], b["items"], TIERS)
+                if args.list_changed:
+                    for key in ("improved", "regressed", "timeouts"):
+                        for e in b["delta"][key]:
+                            print(f"{corpus}\t{name}\t{e['name']}\t{e['from']}\t{e['to']}")
+            if args.write_baseline:
+                board.write_baseline(path, b["digest"],
+                                     {n: i["status"] for n, i in b["items"].items()})
+                if not args.quiet:
+                    print(f"baseline written to {path}", file=sys.stderr)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(prog="sqlite-scoreboard", description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    board.add_common_args(parser)
+    parser.add_argument("--list-changed", action="store_true",
+                        help="with --check-baseline: print only the items whose status changed, "
+                             "tab-separated: corpus, board, name, old, new")
+    parser.add_argument("--only", metavar="NAME",
+                        help="run just this function and print veir-opt's stderr")
+    parser.add_argument("--limit", type=int, metavar="N",
+                        help="only the first N functions per corpus")
+    parser.add_argument("--fresh", action="store_true", help="ignore cached results")
+    parser.add_argument("--sqlite3-c", dest="source", type=Path, metavar="PATH",
+                        help="sqlite3.c (default: $SQLITE3_C, else the pinned download)")
+    parser.add_argument("--llvm-bindir", metavar="DIR",
+                        help="clang/opt/llvm-extract (default: via PATH)")
+    parser.add_argument("--mlir-bindir", metavar="DIR",
+                        help="mlir-translate/mlir-opt (default: PATH, then --llvm-bindir)")
+    args = parser.parse_args()
+    args.jobs = args.jobs or os.cpu_count() or 4
+    args.quiet = args.list_changed or bool(args.only)
+    return args
+
+
+def main() -> None:
+    args = parse_args()
+    tools = find_tools(args.llvm_bindir, args.mlir_bindir)
+    src = resolve_source(args.source)
+    cache = src.resolve().parent / ".scoreboard"
+    cache.mkdir(parents=True, exist_ok=True)
+    key = {"schema": CACHE_SCHEMA, "veir_opt": board.file_hash(VEIR_OPT)}
+    cached = {} if args.fresh else board.load_cache(cache / "results.json", key)
+
+    report = {"tool": "sqlite-scoreboard", "veir_opt": key["veir_opt"], "corpora": {}}
+    for corpus, label in CORPORA.items():
+        if args.corpus and corpus not in args.corpus:
+            continue
+        report["corpora"][corpus] = run_corpus(corpus, label, src, cache, tools,
+                                               cached.get(corpus, {}), args)
+    if args.only:
+        return
+    board.save_cache(cache / "results.json", key, {
+        **cached, **{c: {n: b["items"] for n, b in r["boards"].items()}
+                     for c, r in report["corpora"].items()}})
+    check_baselines(report, args)
+    board.finish(args, report, args.quiet)
+
+
+if __name__ == "__main__":
+    board.run_main(main)
