@@ -6,8 +6,7 @@
     %len = "llvm.mlir.constant"() <{value = 4 : i64}> : () -> i64
     %buf = "llvm.alloca"(%len) <{elem_type = i8}> : (i64) -> !llvm.ptr
     %n = "io.send"(%peer, %buf, %len) : (!io.address, !llvm.ptr, i64) -> i32
+// CHECK: io.send: Expected result 0 to have i64 type
     "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
-
-// CHECK: io.send: Expected result 0 to have i64 type

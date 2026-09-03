@@ -372,9 +372,8 @@ end CudaTile
 namespace Io
 
 /--
-  An opaque endpoint address, `!io.address`, naming the peer that `io.send`
-  writes to and `io.recv` reads from. It carries no structure at the IR level,
-  so the encoding of real addresses is left to the lowering.
+  `!io.address`: an opaque peer address for `io.send` and `io.recv`. Its
+  encoding is left to the lowering.
 -/
 structure AddressType
 deriving Inhabited, Repr, DecidableEq, Hashable

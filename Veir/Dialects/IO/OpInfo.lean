@@ -9,52 +9,28 @@ namespace Veir
 public section
 
 /--
-Operations that exchange bytes with the environment. Buffers are passed as a
-pointer and a byte count, `(ptr : !llvm.ptr, len : integer)`, and peers are
-named by an opaque `!io.address` value, mirroring the shape of the system
-calls the operations lower to.
-
-Every operation returns an `i64` status, following the system call convention.
-A non-negative status is the number of bytes transferred, which may be smaller
-than `len`. A negative status is one of the error codes in `Io.Error`.
+Byte exchange with the environment. Buffers are `(ptr : !llvm.ptr, len : integer)`
+and peers are `!io.address` values. Every operation returns an `i64` status:
+non-negative is the number of bytes transferred, which may be below `len`;
+negative is an `Io.Error` code.
 -/
 @[opcodes]
 inductive Io where
-/--
-`io.send` writes the `len` bytes starting at `ptr` to the peer `dest`. Its
-operands are `(dest : !io.address, ptr : !llvm.ptr, len : integer)` and its
-result is the `i64` status. It reads the buffer, and its output is observable,
-so it is modelled as both reading and writing memory to keep it from being
-removed or reordered.
--/
+/-- `(dest : !io.address, ptr : !llvm.ptr, len : integer) -> i64`: send `len` bytes at `ptr` to `dest`. -/
 | send
-/--
-`io.recv` reads up to `len` bytes from the peer `src` and stores them starting
-at `ptr`. Its operands are `(src : !io.address, ptr : !llvm.ptr, len : integer)`
-and its result is the `i64` status. It consumes input and writes the buffer,
-so it is modelled as both reading and writing memory to keep it from being
-removed or reordered.
--/
+/-- `(src : !io.address, ptr : !llvm.ptr, len : integer) -> i64`: receive up to `len` bytes from `src` into `ptr`. -/
 | recv
-/--
-`io.rand` fills up to `len` bytes starting at `ptr` with random bytes. Its
-operands are `(ptr : !llvm.ptr, len : integer)` and its result is the `i64`
-status. Two `rand` operations must not be reordered, since that changes the
-observable trace, so it is modelled as both reading and writing memory.
--/
+/-- `(ptr : !llvm.ptr, len : integer) -> i64`: fill up to `len` bytes at `ptr` with random bytes. -/
 | rand
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-/-!
-Error codes returned as negative `i64` statuses by `io` operations. A
-non-negative status is a byte count, never an error.
--/
+/-! Error codes, returned as negative `i64` statuses. -/
 namespace Io.Error
 
-/-- The peer is unreachable or has closed the channel. -/
+/-- Peer unreachable or channel closed. -/
 def closed : Int := -1
 
-/-- The environment has no more input or entropy to supply. -/
+/-- No input or entropy left. -/
 def exhausted : Int := -2
 
 end Io.Error
@@ -76,9 +52,9 @@ def Io.toAttrDict
   | _ => Std.HashMap.emptyWithCapacity 0
 
 /--
-Every `io` operation accesses the buffer it is given and interacts with the
-environment, so none of them may be removed when its status is unused or
-reordered with respect to each other or to loads and stores.
+All `io` operations access their buffer and have observable effects, so they
+are `readWrite`: never dead, and never reordered with each other or with memory
+accesses.
 -/
 @[get_effects]
 def Io.getEffects
@@ -100,17 +76,14 @@ instance : IsOpCode Io where
   fromAttrDict := Io.fromAttrDict
   toAttrDict := Io.toAttrDict
 
-/-- Check that a type is the `!io.address` type. -/
+/-- Check that `ty` is `!io.address`. -/
 def TypeAttr.verifyIoAddressType
     (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
   match ty.val with
   | .ioAddressType _ => pure ()
   | _ => throw errMsg
 
-/--
-Check that operands `base` and `base + 1` of `op` are a `!llvm.ptr` buffer
-followed by an integer byte count.
--/
+/-- Operands `base` and `base + 1` must be a `!llvm.ptr` and an integer byte count, respectively. -/
 def Io.verifyBufferOperands {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo) (base : Nat) (instrName : String) :
     Except String PUnit := do
@@ -120,10 +93,8 @@ def Io.verifyBufferOperands {OpInfo : Type} [IsOpCode OpInfo]
     s!"{instrName}: Expected operand {base + 1} to have integer type"
 
 /--
-Verify the local invariants of an `io` operation in any operation-info type
-containing the `io` dialect. `send` and `recv` take a peer address, a
-`!llvm.ptr` buffer, and an integer byte count; `rand` takes only the buffer
-and the count. Each returns a single `i64` status.
+Verify an `io` operation: `send` and `recv` take `(address, ptr, len)`, `rand`
+takes `(ptr, len)`; all return one `i64`.
 -/
 @[expose]
 def Io.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpInfo Io]
