@@ -3,6 +3,13 @@ module
 public import Veir.Parser.Parser
 public import Veir.IR.Attribute
 public import Std.Data.HashMap
+import Init.Data.Float.Model.Unpacked
+import Init.Data.Float.Model.Unpacked.Round
+import Init.Data.Float.Model.Format.Basic
+import Init.Data.Float.Model
+import Init.Data.Float.Model.Unpacked.Basic
+import Init.Data.Float.Model.Format.Basic
+
 
 public section
 
@@ -194,6 +201,46 @@ def parseOptionalStringAttr : AttrParserM (Option StringAttr) := do
     | return none
   return some (StringAttr.mk bytes)
 
+-- def targetExponent (spec : Format) (totalExponent : Int) : Int :=
+--   max (totalExponent - spec.mantissaBits) spec.minExponent
+
+
+
+open Lean Float Model
+/--
+An adaptation of Lean's builtin floating point packing algorithm
+that uses a custom bias instead of the default exponent bias for a floating point format.
+-/
+def packUnpackedFloatToType 
+     (type : FloatType) : UnpackedFloat → BitVec type.bitwidth
+  | .notANumber =>
+    (UnpackedFloat.packedNaN type.toFormat).cast 
+      (by simp [FloatType.numBits_toFormat_eq_bitwidth])
+  | .infinity s => 
+    (UnpackedFloat.packedInfinity type.toFormat s).cast 
+      (by simp [FloatType.numBits_toFormat_eq_bitwidth])
+  | .zero s => (UnpackedFloat.packedZero type.toFormat s).cast 
+      (by simp [FloatType.numBits_toFormat_eq_bitwidth])
+  | .finite s m e _ =>
+    let actualMantissaBits := m.log2
+    let biasedExponent := (e + type.bias + type.mantissa).toNat
+    if 2 ^ type.exponent ≤ biasedExponent + 1 then
+      (UnpackedFloat.packedInfinity type.toFormat s).cast
+        (by simp [FloatType.numBits_toFormat_eq_bitwidth])
+    else if actualMantissaBits + 1 = type.mantissa then
+      -- normal
+      -- Observe that the transformation of the mantissa clears the implicit bit
+      let pf := UnpackedFloat.packComponents type.toFormat 
+        s (BitVec.ofNat _ biasedExponent) (BitVec.ofNat _ m)
+      pf.cast (by simp [FloatType.numBits_toFormat_eq_bitwidth])
+      
+    else
+      -- subnormal
+      let pf := UnpackedFloat.packComponents type.toFormat s 0#_ (BitVec.ofNat _ m)
+      pf.cast (by simp [FloatType.numBits_toFormat_eq_bitwidth])
+
+
+open Lean Float Model
 /--
   Converts a base-10 float to the exact IEEE-754 bit pattern of the given type,
   using round-to-nearest, ties-to-even. Overflow saturates to infinity (or the
@@ -201,12 +248,27 @@ def parseOptionalStringAttr : AttrParserM (Option StringAttr) := do
   subnormal value or zero.
 -/
 def convertFPToBitvec (f: ParsedFloat) (type: Veir.FloatType) : BitVec (type.bitwidth) :=
+    
   let signBits : Nat := (if f.negative then 1 else 0) <<< (type.exponent + type.mantissa)
   let zeroBits : Nat := if f.negative && type.hasNegZero then signBits else 0
-  if f.significand == 0 then
+  if hfsig : f.significand == 0 then
     -- Special case: Exact zero
     BitVec.ofNat _ zeroBits
   else
+    -- TODO: check what we do with infinity or NaN for FloatAttr
+    let sign : UnpackedFloat.Sign := if f.negative then .negative else .positive
+    -- let uf : UnpackedFloat := UnpackedFloat.finite sign f.significand f.exponent (by lia)
+    let format : Model.Format := {
+      exponentBits := type.exponent,
+      mantissaBitsWithoutImplicit := type.mantissa
+      hm := by sorry -- 0 < type.mantissa. We need to throw an error if mantissa size is zero.
+      he := by sorry -- 0 < type.exponent. We need to throw an error if exponent size is zero.
+    }
+    let ufRounded := UnpackedFloat.round format sign f.significand f.exponent
+    packUnpackedFloatToType type ufRounded
+
+
+    /-
     -- Form exact fraction: num / den.
     let (num, den) := match f.exponent with
       | Int.ofNat e => (f.significand * (10 ^ e), 1)
@@ -308,6 +370,7 @@ def convertFPToBitvec (f: ParsedFloat) (type: Veir.FloatType) : BitVec (type.bit
               ||| mantissaPayload
 
     BitVec.ofNat type.bitwidth packed
+    -/
 
 /--
   Returns `true` if the numeric literal is in `0x`-prefixed hexadecimal form.

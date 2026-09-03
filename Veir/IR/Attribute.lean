@@ -69,6 +69,21 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 def FloatType.bitwidth (type: FloatType) : Nat :=
   1 + type.exponent + type.mantissa
 
+open Lean 
+/--
+Convert Veir's `FloatType` into Lean's floating type `Float.Model.Format`
+that reprsents IEEE-style floating point formats.
+-/
+def FloatType.toFormat (type : FloatType) : Float.Model.Format where
+  exponentBits := type.exponent
+  mantissaBitsWithoutImplicit := type.mantissa
+  hm := by sorry -- 0 < type.mantissa. We need to throw an error if mantissa size is zero.
+  he := by sorry -- 0 < type.exponent. We need to throw an error if exponent size is zero.
+
+theorem FloatType.numBits_toFormat_eq_bitwidth {type : FloatType} :
+      type.toFormat.numBits = type.bitwidth := by 
+    simp [toFormat, Float.Model.Format.numBits, bitwidth]
+
 def FloatType.f16 : FloatType := { exponent := 5, mantissa := 10, bias := 15, canonicalName := "f16" }
 def FloatType.f32 : FloatType := { exponent := 8, mantissa := 23, bias := 127, canonicalName := "f32" }
 def FloatType.f64 : FloatType := { exponent := 11, mantissa := 52, bias := 1023, canonicalName := "f64" }
