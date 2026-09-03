@@ -103,7 +103,7 @@ def Function_.functionInterface? (op : Function_) :
   | .return | .call => none
 
 /-- The currently representable subset of the types checked by LLZK's `FuncDefOp::verify`:
-https://github.com/project-llzk/llzk-lib/blob/main/lib/Dialect/Function/IR/Ops.cpp#L338-L383
+https://github.com/project-llzk/llzk-lib/blob/32b6baefea43db82014028661a62946da0f00250/lib/Dialect/Function/IR/Ops.cpp#L338-L383
 
 This is deliberately narrower until VeIR ports LLZK's aggregate and polymorphic types. -/
 def Attribute.isSupportedLLZKFunctionType (type : Attribute) : Bool :=
@@ -126,8 +126,8 @@ private def OperationPtr.verifyModuleFunctionCall {OpInfo : Type} [IsOpCode OpIn
     [HasDialect OpInfo Function_] (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (props : FunctionCallProperties) (argumentCount : Nat) : Except String PUnit := do
   -- Verify calls to module-level function definitions.
-  -- https://github.com/project-llzk/llzk-lib/blob/main/lib/Dialect/Function/IR/Ops.cpp#L938-L954
-  -- https://github.com/project-llzk/llzk-lib/blob/main/lib/Dialect/Function/IR/Ops.cpp#L1103-L1141
+  -- https://github.com/project-llzk/llzk-lib/blob/32b6baefea43db82014028661a62946da0f00250/lib/Dialect/Function/IR/Ops.cpp#L938-L954
+  -- https://github.com/project-llzk/llzk-lib/blob/32b6baefea43db82014028661a62946da0f00250/lib/Dialect/Function/IR/Ops.cpp#L1103-L1141
   let some moduleOp := op.getEnclosingBuiltinModule? ctx.raw
     | throw "function.call: expected an enclosing builtin.module"
   let mut target : Option OperationPtr := none
@@ -193,7 +193,7 @@ def Function_.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "function.def: Expected 0 successors"
     -- LLZK allows module, struct, and polymorphic-template parents. VeIR only supports the first
     -- until those other dialects are ported:
-    -- https://github.com/project-llzk/llzk-lib/blob/main/include/llzk/Dialect/Function/IR/Ops.td#L38-L45
+    -- https://github.com/project-llzk/llzk-lib/blob/32b6baefea43db82014028661a62946da0f00250/include/llzk/Dialect/Function/IR/Ops.td#L38-L45
     match op.getParentOp! ctx.raw with
     | some parent =>
       if IsOpCode.name (parent.getOpType! ctx.raw) != "builtin.module".toUTF8 then
