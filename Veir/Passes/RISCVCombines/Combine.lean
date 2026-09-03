@@ -1562,7 +1562,7 @@ def sexth_sexth := drop_redundant_ext .sexth
 
 /-- `riscv.zextw (riscv.zextb x) -> riscv.zextb x`. A byte zero-extension
     already clears every bit which `zextw` would clear. -/
-def zextw_zextb_pattern : Puddle.Pattern OpCode :=
+private def zextw_zextb_pattern : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
       let xType ← Puddle.MatchProg.type (Attr := RegisterType)
@@ -1574,65 +1574,8 @@ def zextw_zextb_pattern : Puddle.Pattern OpCode :=
     pure
     (fun zextb => zextb)
 
-def zextw_zextb : Puddle.CompiledPattern OpCode :=
-  zextw_zextb_pattern.compile
-
-/-- Physical-register form of `zextw_zextb`. When the inner and outer results
-    have distinct register types, create an equivalent `zextb` at the root type
-    instead of forwarding the inner result. -/
-def zextw_zextb_retarget_pattern : Puddle.Pattern OpCode :=
-  Puddle.Pattern.Builder
-    (do
-      let xType ← Puddle.MatchProg.type (Attr := RegisterType)
-      let x ← Puddle.MatchProg.value xType
-      let zextbType ← Puddle.MatchProg.type (Attr := RegisterType)
-      let zextb ← Puddle.MatchProg.operation (.riscv .zextb) #[x] #[zextbType]
-      let zextwType ← Puddle.MatchProg.type (Attr := RegisterType)
-      let _ ← Puddle.MatchProg.root (.riscv .zextw) #[zextb.res[0]!] #[zextwType]
-      return (x, zextwType))
-    (fun (x, zextwType) => do
-      let zextbProps ← Puddle.CreateProg.property (.riscv .zextb) ()
-      let zextb ← Puddle.CreateProg.operation (.riscv .zextb) #[x] #[zextwType] zextbProps
-      return zextb)
-    (fun zextb => zextb)
-
-def zextw_zextb_retarget : Puddle.CompiledPattern OpCode :=
-  zextw_zextb_retarget_pattern.compile
-
-/-- `riscv.zextw (riscv.slliw (riscv.zextb x), shamt) ->
-    riscv.slli (riscv.zextb x), shamt` when `shamt ≤ 24`.
-
-    The byte input has no set bit above bit 7, so these shifts cannot set a bit
-    above bit 31. Consequently the word shift's sign extension followed by
-    `zextw` equals an ordinary 64-bit shift. The bound is essential: at shift
-    25 or greater, `slliw` truncates bits which `slli` preserves.
-
-    Puddle creation properties are concrete, so this definition is instantiated
-    once for each valid shift amount rather than extending Puddle to transfer a
-    matched immediate between opcodes. -/
-private def zextw_slliw_zextb_pattern (shamt : Int) : Puddle.Pattern OpCode :=
-  Puddle.Pattern.Builder
-    (do
-      let xType ← Puddle.MatchProg.type (Attr := RegisterType)
-      let x ← Puddle.MatchProg.value xType
-      let zextbType ← Puddle.MatchProg.type (Attr := RegisterType)
-      let zextb ← Puddle.MatchProg.operation (.riscv .zextb) #[x] #[zextbType]
-      let slliwType ← Puddle.MatchProg.type (Attr := RegisterType)
-      let slliw ← Puddle.MatchProg.operation (.riscv .slliw) #[zextb.res[0]!] #[slliwType]
-        (fun properties => decide (properties.value.value = shamt))
-      let zextwType ← Puddle.MatchProg.type (Attr := RegisterType)
-      let _ ← Puddle.MatchProg.root (.riscv .zextw) #[slliw.res[0]!] #[zextwType]
-      return (zextb.res[0]!, zextwType))
-    (fun (zextb, zextwType) => do
-      let slliProps ← Puddle.CreateProg.property (.riscv .slli)
-        (RISCVImmediateProperties.mk (IntegerAttr.mk shamt (IntegerType.mk 64)))
-      let slli ← Puddle.CreateProg.operation (.riscv .slli) #[zextb] #[zextwType] slliProps
-      return slli)
-    (fun slli => slli)
-
-private def zextw_slliw_zextb_patterns : Array (Puddle.CompiledPattern OpCode) :=
-  (Array.range 25).map fun shamt =>
-    (zextw_slliw_zextb_pattern (Int.ofNat shamt)).compile
+def zextw_zextb : RewritePattern OpCode :=
+  zextw_zextb_pattern.compile.run
 
 /-- If `val` is defined by a `riscv.<ext>` op (`ext` being `zextw`/`sextw`),
     return its source operand and `true`; otherwise `val` unchanged and `false`. -/
@@ -1705,7 +1648,7 @@ def drop_zextw_roriw := drop_ext_unary_imm_low_word .zextw .roriw
     riscv.roriw (riscv.xor x y), imm`. This rewrites the parent `roriw` and
     creates a fresh XOR so simultaneous full-width uses retain the original,
     zero-extended XOR result. -/
-def drop_zextw_xor_roriw_pattern : Puddle.Pattern OpCode :=
+private def drop_zextw_xor_roriw_pattern : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
       let xType ← Puddle.MatchProg.type (Attr := RegisterType)
@@ -1729,8 +1672,8 @@ def drop_zextw_xor_roriw_pattern : Puddle.Pattern OpCode :=
       return roriw)
     (fun roriw => roriw)
 
-def drop_zextw_xor_roriw : Puddle.CompiledPattern OpCode :=
-  drop_zextw_xor_roriw_pattern.compile
+def drop_zextw_xor_roriw : RewritePattern OpCode :=
+  drop_zextw_xor_roriw_pattern.compile.run
 
 /-- `riscv.srliw (riscv.zextw x), imm -> riscv.srliw x, imm`.
     LLVM: `SRLIW` case of `hasAllNBitUsers`.
@@ -2688,14 +2631,11 @@ def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds
      , drop_slli_srli_sltz
      , drop_slli_srli_sgtz
      , zextw_zextw
-     , zextw_zextb.run
-     , zextw_zextb_retarget.run
-     ] ++
-    zextw_slliw_zextb_patterns.map (fun pattern => pattern.run) ++
-    #[ drop_zextw_addw
+     , zextw_zextb
+     , drop_zextw_addw
      , drop_zextw_addiw
      , drop_zextw_roriw
-     , drop_zextw_xor_roriw.run
+     , drop_zextw_xor_roriw
      , drop_zextw_srliw
      , drop_zextw_sextw
      , zextw_and
