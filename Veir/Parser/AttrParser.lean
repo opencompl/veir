@@ -209,10 +209,10 @@ Use Lean's builtin floating point packing algorithm,
 with a custom bias instead of the default IEEE-based exponent bias
 for floating point packing. This is an adaptation of `UnpackedFloat.pack`
 -/
-def packUnpackedFloatToType 
+def packUnpackedFloatToFloatType 
      (type : FloatType) (uf : UnpackedFloat)
      (hm : 0 < type.mantissa := by grind)
-     (he : 0 < type.exponent := by grind) :BitVec type.bitwidth :=
+     (he : 0 < type.exponent := by grind) : BitVec type.bitwidth :=
   match uf with
   | .notANumber =>
     (UnpackedFloat.packedNaN type.toFormat).cast (by simp)
@@ -221,14 +221,10 @@ def packUnpackedFloatToType
   | .zero s => (UnpackedFloat.packedZero type.toFormat s).cast (by simp)
   | .finite s m e _ =>
     let actualMantissaBits := m.log2
-    dbg_trace "type.bias: {type.bias} | spec.exponentBias: {type.toFormat.exponentBias}"
-    dbg_trace "type.mantissa: {type.mantissa} | spec.mantissaBitsWithoutImplicit: {type.toFormat.mantissaBitsWithoutImplicit}"
-    dbg_trace "type.exponent: {type.exponent} | spec.exponentBits: {type.toFormat.exponentBits}"
     let biasedExponent := (e + type.bias + type.mantissa).toNat
     if 2 ^ type.exponent ≤ biasedExponent + 1 then
       (UnpackedFloat.packedInfinity type.toFormat s).cast (by simp)
-    -- | This is the cause of the issue.
-    else if actualMantissaBits + 1 = type.mantissa + 1 then
+    else if actualMantissaBits = type.mantissa then
       -- normal
       let pf := UnpackedFloat.packComponents type.toFormat 
         s (BitVec.ofNat _ biasedExponent) (BitVec.ofNat _ m)
@@ -252,31 +248,9 @@ def convertFPToBitvec (f : ParsedFloat) (type: Veir.FloatType) : BitVec (type.bi
     0#_
   else 
      let format : Model.Format := type.toFormat
-     let rat : Rat := (if f.negative then -1 else 1) * f.significand * ((10 : Rat) ^ f.exponent)
-     dbg_trace f!"rat: {rat}"
-     let dyadic : Dyadic := rat.toDyadic (type.mantissa + 4)
-     dbg_trace f!"dyadic: {dyadic.toRat}"
-     dbg_trace f!"sig: {f.significand} | exp: {f.exponent}"
      let ufRounded := UnpackedFloat.ofScientific format f.significand f.exponent
      let ufRounded := if f.negative then ufRounded.neg else ufRounded
-     dbg_trace f!"ufRounded:{repr ufRounded}"
-     let out := UnpackedFloat.pack format ufRounded |>.cast (by simp [format]) 
-     dbg_trace f!"out:{repr out}"
-     let outOurs := packUnpackedFloatToType type ufRounded
-     dbg_trace f!"out[ours]:{repr outOurs}"
-     out
-     /-
-     match dyadic with 
-     | .zero => (BitVec.ofNat type.bitwidth (if f.negative then 1 else 0)) <<< (type.bitwidth - 1)
-     | .ofOdd n k _hnk => -- n * 2^(-k)
-       dbg_trace f!"dyadic is ofOdd: n:{n}*2^-(k:{k})"
-        -- dbg_trace f!"sig: {repr f.significand} | exp: {repr f.exponent} | format: (expbits:{format.exponentBits} mantissa:{type.mantissa})"
-        -- let ufRounded := UnpackedFloat.normalize format n (-k) .positive
-
-        let ufRounded := UnpackedFloat.ofScientific format f.significand f.exponent
-        dbg_trace f!"foo {repr ufRounded}"
-        packUnpackedFloatToType type ufRounded
-      -/
+     packUnpackedFloatToFloatType type ufRounded
 
 /--
   Returns `true` if the numeric literal is in `0x`-prefixed hexadecimal form.
