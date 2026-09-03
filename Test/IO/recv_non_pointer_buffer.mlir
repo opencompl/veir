@@ -5,7 +5,7 @@
     %peer = "test.test"() : () -> !io.address
     %len = "llvm.mlir.constant"() <{value = 4 : i64}> : () -> i64
     %n = "io.recv"(%peer, %len, %len) : (!io.address, i64, i64) -> i64
-// CHECK: io.recv: Expected operand 1 to have !llvm.ptr type
+    // CHECK: io.recv: Expected operand 1 to have !llvm.ptr type
     "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

@@ -5,7 +5,7 @@
     %len = "llvm.mlir.constant"() <{value = 4 : i64}> : () -> i64
     %buf = "llvm.alloca"(%len) <{elem_type = i8}> : (i64) -> !llvm.ptr
     %n = "io.rand"(%buf, %buf) : (!llvm.ptr, !llvm.ptr) -> i64
-// CHECK: io.rand: Expected operand 1 to have integer type
+    // CHECK: io.rand: Expected operand 1 to have integer type
     "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

@@ -6,7 +6,7 @@
     %len = "llvm.mlir.constant"() <{value = 4 : i64}> : () -> i64
     %buf = "llvm.alloca"(%len) <{elem_type = i8}> : (i64) -> !llvm.ptr
     %n = "io.rand"(%peer, %buf, %len) : (!io.address, !llvm.ptr, i64) -> i64
-// CHECK: io.rand: Expected 2 operand(s)
+    // CHECK: io.rand: Expected 2 operand(s)
     "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
