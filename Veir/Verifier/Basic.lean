@@ -187,6 +187,16 @@ def TypeAttr.verifyI1
       pure ()
   | _ => throw errMsg
 
+def TypeAttr.verifyI64
+    (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
+  match ty.val with
+  | .integerType intType =>
+    if intType.bitwidth ≠ 64 then
+      throw errMsg
+    else
+      pure ()
+  | _ => throw errMsg
+
 /--
   Verify the operand and result counts of a "plain" operation: one that has no
   regions and no successors. The instruction name is included in each error

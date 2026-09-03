@@ -2,12 +2,12 @@
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> ()}> ({
-    %peer = "test.test"() : () -> !io.address
     %len = "llvm.mlir.constant"() <{value = 4 : i64}> : () -> i64
     %buf = "llvm.alloca"(%len) <{elem_type = i8}> : (i64) -> !llvm.ptr
-    %n = "io.send"(%peer, %buf, %buf) : (!io.address, !llvm.ptr, !llvm.ptr) -> i64
+    %dest = "arith.constant"() <{value = 7 : i32}> : () -> i32
+    %n = "io.send"(%dest, %buf, %len) : (i32, !llvm.ptr, i64) -> i64
     "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: io.send: Expected operand 2 to have integer type
+// CHECK: io.send: Expected operand 0 to have !io.address type

@@ -4,10 +4,10 @@
   "func.func"() <{sym_name = "main", function_type = () -> ()}> ({
     %peer = "test.test"() : () -> !io.address
     %len = "llvm.mlir.constant"() <{value = 4 : i64}> : () -> i64
-    %x = "arith.constant"() <{value = 3 : i32}> : () -> i32
-    %n = "io.send"(%peer, %x, %len) : (!io.address, i32, i64) -> i64
+    %buf = "llvm.alloca"(%len) <{elem_type = i8}> : (i64) -> !llvm.ptr
+    %n = "io.send"(%peer, %buf, %len) : (!io.address, !llvm.ptr, i64) -> i32
     "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: io.send: Expected operand 1 to have !llvm.ptr type
+// CHECK: io.send: Expected result 0 to have i64 type

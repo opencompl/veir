@@ -4,7 +4,7 @@
   "func.func"() <{sym_name = "main", function_type = () -> ()}> ({
     %peer = "test.test"() : () -> !io.address
     %len = "llvm.mlir.constant"() <{value = 4 : i64}> : () -> i64
-    "io.recv"(%peer, %len, %len) : (!io.address, i64, i64) -> ()
+    %n = "io.recv"(%peer, %len, %len) : (!io.address, i64, i64) -> i64
     "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
