@@ -227,31 +227,36 @@ def packUnpackedFloatToType
       let pf := UnpackedFloat.packComponents type.toFormat 
         s (BitVec.ofNat _ biasedExponent) (BitVec.ofNat _ m)
       pf.cast (by simp)
+      
     else
       -- subnormal
       let pf := UnpackedFloat.packComponents type.toFormat s 0#_ (BitVec.ofNat _ m)
       pf.cast (by simp)
 
+
 open Lean Float Model
 /--
-  Converts a base-10 float to the exact IEEE-754 bit pattern of the given type,
-  using round-to-nearest, ties-to-even. Overflow saturates to infinity (or the
-  largest finite value for types without infinity), and underflow produces a
-  subnormal value or zero.
+Converts a base-10 float to the exact IEEE-754 bit pattern of the given type,
+using round-to-nearest, ties-to-even. Overflow saturates to infinity (or the
+largest finite value for types without infinity), and underflow produces a
+subnormal value or zero.
 -/
 def convertFPToBitvec (f : ParsedFloat) (type: Veir.FloatType) : BitVec (type.bitwidth) :=
   if hty : type.mantissa = 0 ∨ type.exponent = 0 then 
     0#_
   else 
-    let sign : UnpackedFloat.Sign := if f.negative then .negative else .positive
-    let format : Model.Format := {
-      exponentBits := type.exponent,
-      mantissaBitsWithoutImplicit := type.mantissa
-      hm := by grind only
-      he := by grind only
-    }
-    let ufRounded := UnpackedFloat.round format sign f.significand f.exponent
-    packUnpackedFloatToType type ufRounded
+      -- TODO: check what we do with infinity or NaN for FloatAttr
+      let sign : UnpackedFloat.Sign := if f.negative then .negative else .positive
+      let format : Model.Format := {
+        exponentBits := type.exponent,
+        mantissaBitsWithoutImplicit := type.mantissa
+        hm := by grind only
+        he := by grind only
+      }
+      dbg_trace f!"sig: {repr f.significand} | exp: {repr f.exponent} | format: (expbits:{format.exponentBits} mantissa:{type.mantissa})"
+      let ufRounded := UnpackedFloat.round format sign f.significand f.exponent
+      dbg_trace f!"foo {repr ufRounded}"
+      packUnpackedFloatToType type ufRounded
 
 /--
   Returns `true` if the numeric literal is in `0x`-prefixed hexadecimal form.
