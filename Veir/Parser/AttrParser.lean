@@ -209,27 +209,28 @@ Use Lean's builtin floating point packing algorithm,
 with a custom bias instead of the default IEEE-based exponent bias
 for floating point packing. This is an adaptation of `UnpackedFloat.pack`
 -/
-def packUnpackedFloatToFloatType 
+def packUnpackedFloatToFloatType
      (type : FloatType) (uf : UnpackedFloat)
      (hm : 0 < type.mantissa := by grind)
      (he : 0 < type.exponent := by grind) : BitVec type.bitwidth :=
   match uf with
   | .notANumber =>
     (UnpackedFloat.packedNaN type.toFormat).cast (by simp)
-  | .infinity s => 
+  | .infinity s =>
     (UnpackedFloat.packedInfinity type.toFormat s).cast (by simp)
   | .zero s => (UnpackedFloat.packedZero type.toFormat s).cast (by simp)
   | .finite s m e _ =>
     let actualMantissaBits := m.log2
+    -- mantissa * 2^exp
     let biasedExponent := (e + type.bias + type.mantissa).toNat
-    if 2 ^ type.exponent ≤ biasedExponent + 1 then
+    if 2 ^ type.exponent < biasedExponent then
       (UnpackedFloat.packedInfinity type.toFormat s).cast (by simp)
     else if actualMantissaBits = type.mantissa then
       -- normal
-      let pf := UnpackedFloat.packComponents type.toFormat 
+      let pf := UnpackedFloat.packComponents type.toFormat
         s (BitVec.ofNat _ biasedExponent) (BitVec.ofNat _ m)
       pf.cast (by simp)
-      
+
     else
       -- subnormal
       let pf := UnpackedFloat.packComponents type.toFormat s 0#_ (BitVec.ofNat _ m)
@@ -244,13 +245,13 @@ largest finite value for types without infinity), and underflow produces a
 subnormal value or zero.
 -/
 def convertFPToBitvec (f : ParsedFloat) (type: Veir.FloatType) : BitVec (type.bitwidth) :=
-  if hty : type.mantissa = 0 ∨ type.exponent = 0 then 
+  if hty : type.mantissa = 0 ∨ type.exponent = 0 then
     0#_
-  else 
+  else
      let format : Model.Format := type.toFormat
-     let ufRounded := UnpackedFloat.ofScientific format f.significand f.exponent
-     let ufRounded := if f.negative then ufRounded.neg else ufRounded
-     packUnpackedFloatToFloatType type ufRounded
+     let uf := UnpackedFloat.ofScientific format f.significand f.exponent
+     let uf := if f.negative then uf.neg else uf
+     packUnpackedFloatToFloatType type uf
 
 /--
   Returns `true` if the numeric literal is in `0x`-prefixed hexadecimal form.

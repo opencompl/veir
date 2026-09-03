@@ -211,6 +211,7 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "1.5 : bf16"  (fpAttr FloatType.bf16 0x3fc0)
 #assert expectSuccessAttr "0.125 : f8E4M3FN" (fpAttr FloatType.f8E4M3FN 0x20)
 #assert expectSuccessAttr "7.701 : f8E4M3FN" (fpAttr FloatType.f8E4M3FN 0x4f)
+#assert expectSuccessAttr "448.0 : f8E4M3FN" (fpAttr FloatType.f8E4M3FN 0x7e)
 #assert expectSuccessAttr "0.125 : f8E4M3FNUZ" (fpAttr FloatType.f8E4M3FNUZ 0x28)
 #assert expectSuccessAttr "7.701 : f8E4M3FNUZ" (fpAttr FloatType.f8E4M3FNUZ 0x57)
 -- Scientific Notation.
@@ -220,6 +221,13 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "19.80e5 : f32" (fpAttr FloatType.f32 0x49f1b300)
 #assert expectSuccessAttr "100000000000000000000000000000000000000000000000000.0e-50 : f32"
   (fpAttr FloatType.f32 0x3f800000)
+#assert expectSuccessAttr "1.0e60 : f32" (fpAttr FloatType.f32 0x7f800000)
+#assert expectSuccessAttr "1.0e-40 : f32" (fpAttr FloatType.f32 0x000116c2)
+-- Minimum subnormal number
+#assert expectSuccessAttr "1.0e-45 : f32" (fpAttr FloatType.f32 1)
+#assert expectSuccessAttr "1.0e-100 : f32" (fpAttr FloatType.f32 0)
+-- Maximum normal nunmber
+#assert expectSuccessAttr "3.4028235e38 : f32" (fpAttr FloatType.f32 0x7f7fffff)
 -- Omitted numbers after the decimal point.
 #assert expectSuccessAttr "1. : f32" (fpAttr FloatType.f32 0x3f800000)
 -- A 0x-prefixed hexadecimal literal is accepted as the raw IEEE-754 bit pattern of the type.
