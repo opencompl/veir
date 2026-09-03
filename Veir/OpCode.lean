@@ -22,8 +22,11 @@ public import Veir.Dialects.ModArith.OpInfo
 public import Veir.Dialects.Datapath.OpInfo
 public import Veir.Dialects.Comb.OpInfo
 public import Veir.Dialects.HW.OpInfo
+public import Veir.Dialects.Verif.OpInfo
 public import Veir.Dialects.PDL.OpInfo
 public import Veir.Dialects.Test.OpInfo
+public import Veir.Dialects.LLZK.Felt.OpInfo
+public import Veir.Dialects.Cir.OpInfo
 
 open Std
 

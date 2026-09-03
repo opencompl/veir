@@ -404,3 +404,64 @@ info: "builtin.module"() ({
 #eval! testParseOp r#""builtin.module"() ({
   "test.test"(%a) : (i32) -> ()
 }) : () -> ()"#
+
+/-! ## Type aliases -/
+
+/--
+  info: "builtin.module"() ({
+  ^4():
+    "func.func"() <{"function_type" = (i32) -> i32, "sym_name" = "f"}> ({
+      ^6(%arg6_0 : i32):
+        %7 = "arith.constant"() <{"value" = 1 : i32}> : () -> i32
+        %8 = "arith.addi"(%arg6_0, %7) : (i32, i32) -> i32
+        "func.return"(%8) : (i32) -> ()
+    }) : () -> ()
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! testParseOp r#"!int = i32
+!fn = (!int) -> !int
+"builtin.module"() ({
+  "func.func"() <{function_type = !fn, sym_name = "f"}> ({
+  ^bb0(%a: !int):
+    %c = "arith.constant"() <{value = 1 : !int}> : () -> !int
+    %s = "arith.addi"(%a, %c) : (!int, !int) -> !int
+    "func.return"(%s) : (!int) -> ()
+  }) : () -> ()
+}) : () -> ()"#
+
+/--
+  error: redefinition of type alias id 'int'
+-/
+#guard_msgs in
+#eval! testParseOp r#"!int = i32
+!int = i64
+"builtin.module"() ({}) : () -> ()"#
+
+/--
+  error: type names with a '.' are reserved for dialect-defined names
+-/
+#guard_msgs in
+#eval! testParseOp r#"!my.int = i32
+"builtin.module"() ({}) : () -> ()"#
+
+/--
+  error: expected '=' in type alias definition
+-/
+#guard_msgs in
+#eval! testParseOp r#"!int i32
+"builtin.module"() ({}) : () -> ()"#
+
+/--
+  error: undefined symbol alias id 'other'
+-/
+#guard_msgs in
+#eval! testParseOp r#"!int = !other
+"builtin.module"() ({}) : () -> ()"#
+
+/--
+  error: type '!foo.bar' is not registered. Consider using --allow-unregistered-dialect.
+-/
+#guard_msgs in
+#eval! testParseOp r#"!t = !foo.bar
+"builtin.module"() ({}) : () -> ()"#

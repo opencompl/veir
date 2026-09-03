@@ -218,12 +218,9 @@ assignment if it succeeds.
 -/
 @[expose, inline_if_reduce]
 def MatchDecl.run (decl : MatchDecl OpInfo) (ctx : IRContext OpInfo)
-    (root : OperationPtr) (assignment : Assignment OpInfo) : Option (Assignment OpInfo) := do
+    (assignment : Assignment OpInfo) : Option (Assignment OpInfo) := do
   match decl with
-  | .root opHandle =>
-    /- A root instruction only binds the root operation to the given handle. -/
-    Assignment.bindOp assignment opHandle root
-  | .operation opCode operands resultTypes property propertyHandle opHandle results =>
+  | .operation opCode operands resultTypes property propertyHandle opHandle results _ =>
     /- First, find the matched operation through its handle or one of its result handles. -/
     let matchedOp ← Assignment.findOp assignment opHandle results
     /- Then, bind the operation and result handles. -/
@@ -264,12 +261,12 @@ updated assignment if all matches succeed.
 -/
 @[expose, inline_if_reduce]
 def MatchProg.runDecls (decls : List (MatchDecl OpInfo)) (ctx : IRContext OpInfo)
-    (root : OperationPtr) (assignment : Assignment OpInfo) : Option (Assignment OpInfo) :=
+    (assignment : Assignment OpInfo) : Option (Assignment OpInfo) :=
   match decls with
   | [] => some assignment
   | decl :: decls => do
-    let assignment ← decl.run ctx root assignment
-    runDecls decls ctx root assignment
+    let assignment ← decl.run ctx assignment
+    runDecls decls ctx assignment
 
 /--
 Interpret a match program, returning `none` if any match fails, or an updated assignment if the
@@ -278,7 +275,10 @@ match succeeds.
 @[expose, inline]
 def MatchProg.run (prog : MatchProg OpInfo α) (ctx : IRContext OpInfo)
     (root : OperationPtr) : Option (Assignment OpInfo) :=
-  MatchProg.runDecls prog.decls ctx root (Assignment.empty OpInfo prog.numHandles)
+  do
+    let assignment ← Assignment.bindOp
+      (Assignment.empty OpInfo prog.numHandles) prog.rootHandle root
+    MatchProg.runDecls prog.decls ctx assignment
 
 /-- Successful matching of `root` by `prog`. -/
 @[expose]
@@ -341,12 +341,12 @@ def CreateProg.run (prog : CreateProg OpInfo α) (assignment : Assignment OpInfo
     Option (WfIRContext OpInfo × Array OperationPtr × Assignment OpInfo) :=
   CreateProg.runDecls prog.decls ctx assignment
 
-/-- Compile a Puddle pattern to the local rewrite-pattern interface.
+/-- Interpret a Puddle pattern.
 
 Matcher rejection returns a nonfatal no-match result. After matching succeeds, any failure
 is a fatal rewrite error. -/
 @[expose, specialize rule]
-def Pattern.compile (rule : Pattern OpInfo) : LocalRewritePattern OpInfo :=
+def Pattern.interpret (rule : Pattern OpInfo) : LocalRewritePattern OpInfo :=
   fun ctx root =>
     /- First, run the matcher. -/
     match rule.matcher.run ctx.raw root with
@@ -360,6 +360,24 @@ def Pattern.compile (rule : Pattern OpInfo) : LocalRewritePattern OpInfo :=
         match assignment.getValues rule.replacement.values with
         | none => none
         | some newValues => some (newCtx, some (newOps, newValues))
+
+/--
+A compiled Puddle pattern stored as data rather than exposed directly as a function-valued
+definition. Closed values of this type can be initialized once and their rewrite closure reused
+for every operation visited by a rewrite driver.
+-/
+structure CompiledPattern (OpInfo : Type) [HasOpInfo OpInfo] where
+  /-- The reusable pattern-rewriter entry point. -/
+  run : RewritePattern OpInfo
+
+/--
+Compile a Puddle rule into a reusable rewrite-pattern value.
+This function is more efficient than `Pattern.interpret` because it allows the Lean compiler to
+initialize things only once, rather than reinitializing them for each application of the pattern.
+-/
+@[expose, specialize rule]
+def Pattern.compile (rule : Pattern OpInfo) : CompiledPattern OpInfo :=
+  ⟨RewritePattern.fromLocalRewrite (Pattern.interpret rule)⟩
 
 end
 

@@ -44,6 +44,23 @@ private def mulTwo : Pattern OpCode :=
       return add)
     (fun result => result)
 
+/- ## Test matcher builder validation -/
+
+/-- A matcher that is missing a root declaration. -/
+private def missingRootBuilder : MatchProg.Builder Unit := pure ()
+
+#guard_panic in
+#eval (MatchProg.build missingRootBuilder).rootHandle.id
+
+/-- A matcher that has a duplicate root declaration. -/
+private def duplicateRootBuilder : MatchProg.Builder Unit := do
+  let _ ← MatchProg.root (.arith .addi) #[] #[]
+  let _ ← MatchProg.root (.arith .addi) #[] #[]
+  return ()
+
+#guard_panic in
+#eval (MatchProg.build duplicateRootBuilder).rootHandle.id
+
 /- ## Test pattern execution -/
 
 private structure BinaryProgram where
@@ -75,8 +92,8 @@ private def mulTwoProgram := r#""builtin.module"() ({
 /-- Parse a program, apply a compiled Puddle pattern, and print the resulting module. -/
 private def rewriteAndPrint (source : String) (rule : Pattern OpCode) : IO Unit := do
   let some program := parseBinaryProgram source | IO.println "parse failed"
-  let pattern := RewritePattern.fromLocalRewrite (Pattern.compile rule)
-  let some ctx := RewritePattern.applyInContext pattern program.ctx | IO.println "rewrite failed"
+  let pattern := Pattern.compile rule
+  let some ctx := RewritePattern.applyInContext pattern.run program.ctx | IO.println "rewrite failed"
   Printer.printModule ctx.raw program.moduleOp
 
 /--

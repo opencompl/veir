@@ -125,6 +125,9 @@ class HasOpInfo (opCode: Type)
   -/
   isIsolatedFromAbove : opCode → Bool := fun _ => false
 
+attribute [get_effects] HasOpInfo.getEffects
+attribute [is_terminator] HasOpInfo.isTerminator
+
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 
 /-- Verify the local invariants of an operation using its opcode interface. -/

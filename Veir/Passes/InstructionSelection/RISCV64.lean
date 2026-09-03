@@ -340,35 +340,20 @@ def fshr32_pattern : Veir.Puddle.Pattern OpCode := lowerRotate .intr__fshr 32 .r
 /--
   `llvm.intr.ctlz` -> `riscv.clz`.
 -/
-def ctlz32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite ctlz32_pattern.compile rewriter op opInBounds
-
-def ctlz64 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite ctlz64_pattern.compile rewriter op opInBounds
+def ctlz32 : Puddle.CompiledPattern OpCode := ctlz32_pattern.compile
+def ctlz64 : Puddle.CompiledPattern OpCode := ctlz64_pattern.compile
 
 /--
   `llvm.intr.cttz` -> `riscv.ctz`.
 -/
-def cttz32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite cttz32_pattern.compile rewriter op opInBounds
-
-def cttz64 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite cttz64_pattern.compile rewriter op opInBounds
+def cttz32 : Puddle.CompiledPattern OpCode := cttz32_pattern.compile
+def cttz64 : Puddle.CompiledPattern OpCode := cttz64_pattern.compile
 
 /--
   `llvm.intr.ctpop` -> `riscv.cpop`.
 -/
-def ctpop32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite ctpop32_pattern.compile rewriter op opInBounds
-
-def ctpop64 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite ctpop64_pattern.compile rewriter op opInBounds
+def ctpop32 : Puddle.CompiledPattern OpCode := ctpop32_pattern.compile
+def ctpop64 : Puddle.CompiledPattern OpCode := ctpop64_pattern.compile
 
 /--
   `llvm.intr.bswap` -> `riscv.rev8`.
@@ -1732,12 +1717,11 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   | some ctx => pure ctx
   /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern #[selectCzeroeqz, selectCzeronez, selectGeneral,
-    ctlz32, ctlz64, cttz32, cttz64, ctpop32, ctpop64, bswap, bitreverse, constant, add32, add64, and,
-    ashr, icmp, or, xor32, xor64, mul32, mul64,
-    sdiv32, sdiv64, udiv32, udiv64, srem32, srem64, urem32, urem64, sext8, sext16, sext32,
-    zext8, zext16, zext32, trunc, shl, lshr, sub32, sub64, bitcast, load, getelementptr, store,
-    smax32, smax64, smin32, smin64, umax, umin, saddSat, ssubSat, uaddSat, usubSat, sshlSat, ushlSat, abs,
-    fshlConst, fshrConst, fshl32, fshl64, fshr32, fshr64, fshlGeneral, fshrGeneral, poisonConst, freeze]
+    ctlz32.run, ctlz64.run, cttz32.run, cttz64.run, ctpop32.run, ctpop64.run, bswap, bitreverse,
+    constant, add, and, ashr, icmp, or, xor, mul,
+    sdiv, udiv, srem, urem, sext, zext, trunc, shl, lshr, sub, bitcast, load, getelementptr, store,
+    smax, smin, umax, umin, saddSat, ssubSat, uaddSat, usubSat, sshlSat, ushlSat, abs,
+    fshlConst, fshrConst, fshl, fshr, fshlGeneral, fshrGeneral, poisonConst, freeze]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying main instruction-selection patterns"
   | some ctx => pure ctx
