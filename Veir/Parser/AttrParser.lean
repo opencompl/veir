@@ -201,11 +201,6 @@ def parseOptionalStringAttr : AttrParserM (Option StringAttr) := do
     | return none
   return some (StringAttr.mk bytes)
 
--- def targetExponent (spec : Format) (totalExponent : Int) : Int :=
---   max (totalExponent - spec.mantissaBits) spec.minExponent
-
-
-
 open Lean Float Model
 /--
 Use Lean's builtin floating point packing algorithm,
@@ -229,16 +224,13 @@ def packUnpackedFloatToType
       (UnpackedFloat.packedInfinity type.toFormat s).cast (by simp)
     else if actualMantissaBits + 1 = type.mantissa then
       -- normal
-      -- Observe that the transformation of the mantissa clears the implicit bit
       let pf := UnpackedFloat.packComponents type.toFormat 
         s (BitVec.ofNat _ biasedExponent) (BitVec.ofNat _ m)
       pf.cast (by simp)
-      
     else
       -- subnormal
       let pf := UnpackedFloat.packComponents type.toFormat s 0#_ (BitVec.ofNat _ m)
       pf.cast (by simp)
-
 
 open Lean Float Model
 /--
@@ -248,26 +240,18 @@ open Lean Float Model
   subnormal value or zero.
 -/
 def convertFPToBitvec (f : ParsedFloat) (type: Veir.FloatType) : BitVec (type.bitwidth) :=
-  let signBits : Nat := (if f.negative then 1 else 0) <<< (type.exponent + type.mantissa)
-  let zeroBits : Nat := if f.negative && type.hasNegZero then signBits else 0
   if hty : type.mantissa = 0 ∨ type.exponent = 0 then 
-    BitVec.ofNat _ zeroBits
+    0#_
   else 
-    if hfsig : f.significand == 0 then
-    -- Special case: Exact zero
-    BitVec.ofNat _ zeroBits
-    else
-      -- TODO: check what we do with infinity or NaN for FloatAttr
-      let sign : UnpackedFloat.Sign := if f.negative then .negative else .positive
-      -- let uf : UnpackedFloat := UnpackedFloat.finite sign f.significand f.exponent (by lia)
-      let format : Model.Format := {
-        exponentBits := type.exponent,
-        mantissaBitsWithoutImplicit := type.mantissa
-        hm := by grind only
-        he := by grind only
-      }
-      let ufRounded := UnpackedFloat.round format sign f.significand f.exponent
-      packUnpackedFloatToType type ufRounded
+    let sign : UnpackedFloat.Sign := if f.negative then .negative else .positive
+    let format : Model.Format := {
+      exponentBits := type.exponent,
+      mantissaBitsWithoutImplicit := type.mantissa
+      hm := by grind only
+      he := by grind only
+    }
+    let ufRounded := UnpackedFloat.round format sign f.significand f.exponent
+    packUnpackedFloatToType type ufRounded
 
 /--
   Returns `true` if the numeric literal is in `0x`-prefixed hexadecimal form.
