@@ -384,6 +384,7 @@ macro "#assert " e:term : command =>
 
 /-! ## LLVM Byte type -/
 #assert expectSuccessType "!llvm.byte<64>" (LLVM.ByteType.mk 64)
+#assert expectSuccessType "!llvm.array<2 x byte<8>>" (LLVM.ArrayType.mk 2 $ LLVM.ByteType.mk 8)
 
 /-! ## LLVM Struct type (parsed opaquely; see `parseOptionalLLVMStructType`)
 
