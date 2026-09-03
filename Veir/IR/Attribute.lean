@@ -329,6 +329,22 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 
 end CudaTile
 
+/-!
+  # IO types
+-/
+
+namespace Io
+
+/--
+  An opaque endpoint address, `!io.address`, naming the peer that `io.send`
+  writes to and `io.recv` reads from. It carries no structure at the IR level,
+  so the encoding of real addresses is left to the lowering.
+-/
+structure AddressType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+end Io
+
 namespace HW
 
 /--
@@ -498,6 +514,8 @@ inductive Attribute
 | llvmFunctionType (type : LLVMFunctionType)
 /-- Cuda Tile pointer type -/
 | cudaTilePointerType (type : CudaTile.PointerType)
+/-- IO address type -/
+| ioAddressType (type : Io.AddressType)
 /-- CIRCT hw module type -/
 | hwModuleType (type : HW.ModuleType)
 /-- PDL range handle type -/
@@ -773,6 +791,8 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case ioAddressType.ioAddressType type1 type2 =>
+    exact (isTrue (by grind))
   case denseElementsAttr.denseElementsAttr attr1 attr2 =>
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
@@ -970,6 +990,9 @@ instance : ToString LLVM.PointerType where
 instance : ToString CudaTile.PointerType where
   toString ptr := s!"!cuda_tile.ptr<{ptr.pointeeType}>"
 
+instance : ToString Io.AddressType where
+  toString _ := "!io.address"
+
 instance : ToString HW.ModulePort.Direction where
   toString
   | .input => "input"
@@ -1107,6 +1130,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .llvmArrayType type => type.toString
   | .llvmFunctionType type => type.toString
   | .cudaTilePointerType type => ToString.toString type
+  | .ioAddressType type => ToString.toString type
   | .hwModuleType type => ToString.toString type
   | .pdlRangeType type => ToString.toString type
   | .pdlAttributeType type => ToString.toString type
@@ -1358,6 +1382,7 @@ def isType (attr : Attribute) : Bool :=
   | .llvmArrayType _ => true
   | .llvmFunctionType _ => true
   | .cudaTilePointerType _ => true
+  | .ioAddressType _ => true
   | .hwModuleType _ => true
   | .pdlRangeType _ => true
   | .pdlAttributeType _ => true
@@ -1430,6 +1455,8 @@ theorem isType_llvmArrayType type : (llvmArrayType type).isType = true := by rfl
 theorem isType_llvmFunctionType type : (llvmFunctionType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_cudaTilePointerType type : (cudaTilePointerType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_ioAddressType type : (ioAddressType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_hwModuleType type : (hwModuleType type).isType = true := by rfl
 @[simp, grind =]
@@ -1633,6 +1660,10 @@ instance : IsTypeAttr LLVM.ArrayType where
 
 instance : IsTypeAttr CudaTile.PointerType where
   coe type := Attribute.asType (.cudaTilePointerType type) (by rfl)
+  coe_eq_inject _ := by rfl
+
+instance : IsTypeAttr Io.AddressType where
+  coe type := Attribute.asType (.ioAddressType type) (by rfl)
   coe_eq_inject _ := by rfl
 
 instance : IsTypeAttr HW.ModuleType where

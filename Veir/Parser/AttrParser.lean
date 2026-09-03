@@ -565,6 +565,18 @@ partial def parseOptionalCudaTilePointerType : AttrParserM (Option TypeAttr) := 
   return some (CudaTile.PointerType.mk intTy)
 
 /--
+  Parse the IO address type `!io.address`, if present.
+-/
+partial def parseOptionalIoAddressType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "io.address".toByteArray then return none
+  let _ ← consumeToken
+  return some Io.AddressType.mk
+
+/--
   Parse HEIR's modarith type, if present.
   Its syntax is `!mod_arith.int<{IntegerAttr}>`, e.g., `!mod_arith.int<17 : i32>`.
 -/
@@ -826,6 +838,8 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some llvmFunctionType
   if let some cudaTilePointerType := ← parseOptionalCudaTilePointerType then
     return some cudaTilePointerType
+  if let some ioAddressType := ← parseOptionalIoAddressType then
+    return some ioAddressType
   if let some hwModuleType ← parseOptionalHWModuleType then
     return some hwModuleType
   if let some pdlRangeType ← parseOptionalPDLRangeType then
