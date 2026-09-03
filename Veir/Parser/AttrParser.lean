@@ -238,8 +238,6 @@ def packUnpackedFloatToFloatType
       -- subnormal
       let pf := UnpackedFloat.packComponents type.toFormat s 0#_ (BitVec.ofNat _ m)
       pf.cast (by simp)
-
-
 /--
 Converts a base-10 float to the exact IEEE-754 bit pattern of the given type,
 using round-to-nearest, ties-to-even. Overflow saturates to infinity (or the
