@@ -356,6 +356,17 @@ private def visit
     | none =>
       dfCtx
 
+/-- Build a sparse forward analysis with an explicitly supplied entry state. -/
+def newWithEntryState
+    (kind : FactKind)
+    [SparseFactSpec kind Domain]
+    (analysisKind : AnalysisKind)
+    (transfer : TransferFn Domain)
+    (entryState : EntryStateFn Domain) : DataFlowAnalysis :=
+  { kind := analysisKind
+    init := init kind analysisKind entryState transfer
+    visit := visit kind analysisKind entryState transfer }
+
 /--
 Build a sparse forward analysis over one abstract value domain.
 
@@ -370,11 +381,8 @@ def new
     [Top Domain]
     (analysisKind : AnalysisKind)
     (transfer : TransferFn Domain)
-    (entryState : EntryStateFn Domain := fun _ _ => ⊤)
-    : DataFlowAnalysis :=
-  { kind := analysisKind
-    init := init kind analysisKind entryState transfer
-    visit := visit kind analysisKind entryState transfer }
+    (entryState : EntryStateFn Domain := fun _ _ => ⊤) : DataFlowAnalysis :=
+  newWithEntryState kind analysisKind transfer entryState
 
 end SparseForwardDataFlowAnalysis
 
