@@ -17,8 +17,8 @@
   }) : () -> ()
   // CHECK:         "function.def"() <{"function_type" = () -> (), "sym_name" = "caller"}> ({
   "function.def"() <{sym_name = "caller", function_type = () -> ()}> ({
-    // CHECK:           "function.call"() <{"callee" = @nested::@empty, "mapOpGroupSizes" = array<i32>, "operandSegmentSizes" = array<i32: 0, 0>}> : () -> ()
-    "function.call"() <{callee = @nested::@empty, mapOpGroupSizes = array<i32>, operandSegmentSizes = array<i32: 0, 0>}> : () -> ()
+    // CHECK:           "function.call"() <{"callee" = @empty, "mapOpGroupSizes" = array<i32>, "operandSegmentSizes" = array<i32: 0, 0>}> : () -> ()
+    "function.call"() <{callee = @empty, mapOpGroupSizes = array<i32>, operandSegmentSizes = array<i32: 0, 0>}> : () -> ()
     // CHECK:           "function.return"() : () -> ()
     "function.return"() : () -> ()
   // CHECK:         }) : () -> ()

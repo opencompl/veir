@@ -102,6 +102,68 @@ def Function_.functionInterface? (op : Function_) :
           { props with function_type := functionType } }
   | .return | .call => none
 
+/-- The currently representable subset of the types checked by LLZK's `FuncDefOp::verify`:
+https://github.com/project-llzk/llzk-lib/blob/main/lib/Dialect/Function/IR/Ops.cpp#L338-L383
+
+This is deliberately narrower until VeIR ports LLZK's aggregate and polymorphic types. -/
+def Attribute.isSupportedLLZKFunctionType (type : Attribute) : Bool :=
+  match type with
+  | .integerType intType => intType.bitwidth = 1
+  | .indexType _ | .feltType _ => true
+  | _ => false
+
+private partial def OperationPtr.getEnclosingBuiltinModule? {OpInfo : Type} [IsOpCode OpInfo]
+    (op : OperationPtr) (ctx : IRContext OpInfo) : Option OperationPtr :=
+  match op.getParentOp! ctx with
+  | none => none
+  | some parent =>
+    if IsOpCode.name (parent.getOpType! ctx) = "builtin.module".toUTF8 then
+      some parent
+    else
+      parent.getEnclosingBuiltinModule? ctx
+
+private def OperationPtr.verifyModuleFunctionCall {OpInfo : Type} [IsOpCode OpInfo]
+    [HasDialect OpInfo Function_] (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (props : FunctionCallProperties) (argumentCount : Nat) : Except String PUnit := do
+  -- This is the module-level subset of LLZK's `CallOp::verifySymbolUses` and
+  -- `KnownTargetVerifier::verifyTypesMatch`. Nested struct/template lookup remains unsupported:
+  -- https://github.com/project-llzk/llzk-lib/blob/main/lib/Dialect/Function/IR/Ops.cpp#L938-L954
+  -- https://github.com/project-llzk/llzk-lib/blob/main/lib/Dialect/Function/IR/Ops.cpp#L1103-L1141
+  if !props.callee.nestedRefs.isEmpty then
+    throw s!"function.call: nested callee '{props.callee}' is unsupported until nested LLZK symbol tables are ported"
+  let some moduleOp := op.getEnclosingBuiltinModule? ctx.raw
+    | throw "function.call: expected an enclosing builtin.module"
+  let mut target : Option OperationPtr := none
+  for candidate in ctx.raw.operations.keys do
+    if candidate.getParentOp! ctx.raw = some moduleOp then
+      match toDialect? Function_ (candidate.getOpType! ctx.raw) with
+      | some .«def» =>
+        let candidateProps : Function_.propertiesOf .«def» :=
+          candidate.getProperties! ctx.raw Function_.«def»
+        let candidateName := "@" ++ String.fromUTF8! candidateProps.sym_name.value
+        if candidateName = props.callee.rootRef then
+          if target.isSome then
+            throw s!"function.call: callee '{props.callee}' is ambiguous because the symbol is defined more than once"
+          target := some candidate
+      | _ => pure ()
+  let some targetOp := target
+    | throw s!"function.call: callee '{props.callee}' does not name a module-level function.def"
+  let targetProps : Function_.propertiesOf .«def» :=
+    targetOp.getProperties! ctx.raw Function_.«def»
+  let targetType := targetProps.function_type
+  if argumentCount != targetType.inputs.size then
+    throw s!"function.call: incorrect number of operands for callee, expected {targetType.inputs.size}, got {argumentCount}"
+  let operandTypes := op.getOperandTypes! ctx.raw
+  for i in [0:argumentCount] do
+    if !Attribute.branchArgCompatible operandTypes[i]!.val targetType.inputs[i]! then
+      throw s!"function.call: operand {i} type does not match the callee's input type"
+  let resultTypes := op.getResultTypes! ctx.raw
+  if resultTypes.size != targetType.outputs.size then
+    throw s!"function.call: incorrect number of results for callee, expected {targetType.outputs.size}, got {resultTypes.size}"
+  for i in [0:resultTypes.size] do
+    if !Attribute.branchArgCompatible resultTypes[i]!.val targetType.outputs[i]! then
+      throw s!"function.call: result {i} type does not match the callee's result type"
+
 /-- Check that `function.return` matches its enclosing `function.def` result types. -/
 def OperationPtr.verifyLLZKFunctionReturnTypes {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Function_] (op : OperationPtr) (ctx : WfIRContext OpInfo)
@@ -132,8 +194,24 @@ def Function_.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "function.def: Expected 1 region (the function body)"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "function.def: Expected 0 successors"
+    -- LLZK allows module, struct, and polymorphic-template parents. VeIR only supports the first
+    -- until those other dialects are ported:
+    -- https://github.com/project-llzk/llzk-lib/blob/main/include/llzk/Dialect/Function/IR/Ops.td#L38-L45
+    match op.getParentOp! ctx.raw with
+    | some parent =>
+      if IsOpCode.name (parent.getOpType! ctx.raw) != "builtin.module".toUTF8 then
+        throw "function.def: expected parent to be builtin.module; struct.def and poly.template are not yet supported"
+    | none =>
+      throw "function.def: expected parent to be builtin.module"
     let props : Function_.propertiesOf .«def» :=
       op.getProperties! ctx.raw Function_.«def»
+    if props.extra.entries.any fun (name, _) => name = "function.arg_name".toUTF8 then
+      throw "function.def: 'function.arg_name' is only valid on function arguments"
+    if props.extra.entries.any fun (name, _) => name = "function.res_name".toUTF8 then
+      throw "function.def: 'function.res_name' is only valid on function results"
+    for type in props.function_type.inputs ++ props.function_type.outputs do
+      if !type.isSupportedLLZKFunctionType then
+        throw s!"function.def: expected a supported LLZK type, got {type}"
     let body := op.getRegion! ctx.raw 0
     match (body.get! ctx.raw).firstBlock with
     | none => pure ()
@@ -158,6 +236,7 @@ def Function_.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       op.getProperties! ctx.raw Function_.call
     let segments ←
       op.verifyOperandSegmentSizes ctx opIn props.operandSegmentSizes 2
+    let argumentCount := segments[0]!
     let mapOperandCount := segments[1]!
     let mut mapGroupSizes : Array Nat := #[]
     for size in props.mapOpGroupSizes.values do
@@ -177,6 +256,12 @@ def Function_.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
         throw s!"function.call: numDimsPerMap contains negative size {numDims}"
       if numDims.toNat > mapGroupSizes[i]! then
         throw s!"function.call: map group {i} has {mapGroupSizes[i]!} operand(s), fewer than its {numDims} dimension(s)"
+    for i in [argumentCount:op.getNumOperands ctx.raw opIn] do
+      let mapType := (op.getOperandTypes! ctx.raw)[i]!.val
+      match mapType with
+      | .indexType _ => pure ()
+      | _ => throw s!"function.call: map operand {i - argumentCount} must have index type"
+    op.verifyModuleFunctionCall ctx props argumentCount
 
 instance : HasOpInfo Function_ where
   verifyLocalInvariants := Function_.verifyLocalInvariants
