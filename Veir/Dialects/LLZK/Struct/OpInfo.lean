@@ -117,8 +117,16 @@ def LLZK.Struct.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "struct.def: Expected 1 region (the struct body)"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "struct.def: Expected 0 successors"
-  | .member => op.verifyPlainOpCounts ctx opIn 0 0
-  | .new => op.verifyPlainOpCounts ctx opIn 0 1
+  | .member => do
+    let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+    op.verifyPlainOpCounts ctx opIn 0 0
+    (op.getProperties! ctx.raw Struct.member).type.verifyLLZKType
+      s!"{instrName}: Expected 'type' attribute be (any) LLZK type"
+  | .new => do
+    let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+    op.verifyPlainOpCounts ctx opIn 0 1
+    (op.getOperandTypes! ctx.raw)[0]!.verifyLLZKType
+      s!"{instrName}: Expected return to have (any) LLZK type"
   | .readm => do
     let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
     if op.getNumOperands ctx.raw opIn < 1 then
@@ -129,7 +137,17 @@ def LLZK.Struct.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw s!"{instrName}: Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw s!"{instrName}: Expected 0 successors"
-  | .writem => op.verifyPlainOpCounts ctx opIn 2 0
+    if ((op.getOperandTypes! ctx.raw)[0]!.val matches Attribute.structType _ ) then
+      throw s!"{instrName}: Expected operand 0 to have type structType"
+    (op.getResultTypes! ctx.raw)[0]!.verifyLLZKType
+      s!"{instrName}: Expected return to have (any) LLZK type"
+  | .writem => do
+    let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+    op.verifyPlainOpCounts ctx opIn 2 0
+    if ((op.getOperandTypes! ctx.raw)[0]!.val matches Attribute.structType _ ) then
+      throw s!"{instrName}: Expected operand 0 to have type structType"
+    (op.getOperandTypes! ctx.raw)[0]!.verifyLLZKType
+      s!"{instrName}: Expected operand 1 to have (any) LLZK type"
 
 instance : HasOpInfo LLZK.Struct where
   verifyLocalInvariants := LLZK.Struct.verifyLocalInvariants
