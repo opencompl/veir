@@ -426,7 +426,7 @@ def parseDigits (s : String.Slice) : Option Nat :=
     | none => none) (some 0)
 
 /--
-  Parses a string of float into sign, significand and exponent under base 10.s
+  Parses a string of floats into sign, significand and exponent under base 10.
 -/
 def parseDecimalFloat (s : String) : Option ParsedFloat := do
   let s := s.trimAscii

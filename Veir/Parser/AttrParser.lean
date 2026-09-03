@@ -8,7 +8,6 @@ import Init.Data.Float.Model.Unpacked.Round
 import Init.Data.Float.Model.Format.Basic
 import Init.Data.Float.Model
 import Init.Data.Float.Model.Unpacked.Basic
-import Init.Data.Float.Model.Format.Basic
 import Init.Data.Float.Model.Unpacked.Operations.OfScientific
 import Init.Data.Float.Model.Unpacked.Operations
 
@@ -326,7 +325,9 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
       | some f => return convertFPToBitvec f floatType
       | none   => throwAtCurrentPos s!"invalid floating-point literal '{str}'"
     else
-      if isHexValue value then
+      if isNegative then
+        throwAt valueStartPos "unexpected '-' before 0x-prefixed float bit pattern"
+      else if isHexValue value then
         let some n := numericValueToNat? value
           | throwAt valueStartPos s!"invalid hex bit pattern '{String.fromUTF8! value}'"
         return (BitVec.ofNat floatType.bitwidth n)

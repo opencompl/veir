@@ -36,14 +36,7 @@ def Attribute.branchArgCompatible (opTy argTy : Attribute) : Bool :=
 def Attribute.isKnownNonZero (attr : Attribute) : Bool :=
   match attr with
   | .integerAttr intAttr => intAttr.value != 0
-  | .floatAttr fltAttr =>
-      let zeroBits := fltAttr.type.exponent == 0 && fltAttr.type.mantissa == 0
-      if !zeroBits then
-        false
-      else if fltAttr.type.hasNegZero then
-        fltAttr.sign
-      else
-        true
+  | .floatAttr fltAttr => fltAttr.value != 0#_
   | _ => false
 
 /--
