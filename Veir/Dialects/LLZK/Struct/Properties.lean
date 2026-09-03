@@ -26,10 +26,20 @@ def StructDefProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute
 /-- Properties of the `struct.member` operation. -/
 structure StructMemberProperties where
   sym_name : StringAttr
-  type : Attribute
+  type : TypeAttr
   column : Bool
   signal : Bool
 deriving Inhabited, Repr, Hashable, DecidableEq
+
+/- verify that `ty` is one of the LLZK types
+  TODO: this function will be needed for many LLZK dialects,
+  so it should be moved somewhere common
+-/
+def TypeAttr.verifyLLZKType (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
+  match ty.val with
+  | .feltType _ | .structType _ | .stringType _ | .arrayType _ => pure ()
+  | _ => throw errMsg
+
 
 def StructMemberProperties.fromAttrDict (opName : String)
     (attrDict : Std.HashMap ByteArray Attribute) :
@@ -38,8 +48,15 @@ def StructMemberProperties.fromAttrDict (opName : String)
     | throw s!"{opName}: missing 'sym_name' property"
   let .stringAttr sym := symAttr
     | throw s!"{opName}: expected 'sym_name' to be a string attribute, got {symAttr}"
-  let some typeAttr := attrDict["type".toUTF8]?
-    | throw s!"{opName}: missing 'type' property"
+  let typeAttr ← match attrDict["type".toUTF8]? with
+    | some attr =>
+      if _ : attr.isType = true then
+        attr.asType.verifyLLZKType s!"{opName}: expected 'type' to be (any) LLZK type"
+        pure (attr.asType)
+      else
+        throw s!"{opName}: 'type' property is not a type attribute"
+    | _ =>
+      throw s!"{opName}: missing 'type' property"
   let column ← getUnitAttr "column" attrDict
   let signal ← getUnitAttr "signal" attrDict
   let expected := 2 + (if column then 1 else 0) + (if signal then 1 else 0)
