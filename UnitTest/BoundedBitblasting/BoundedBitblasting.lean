@@ -35,7 +35,7 @@ example {w t v: Nat} (a b : BitVec w)
   (hqw : w ≤ t)
   (hv : t = v + w)
   (bound : t ≤ 32):
-  a + b = ((exta ++ a) + (extb ++ b)).zeroExtend w
+  a + b = ((exta ++ a) + (extb ++ b)).setWidth w
   := by
   pbv_decide 16
   · bv_decide
