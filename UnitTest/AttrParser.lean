@@ -471,6 +471,8 @@ macro "#assert " e:term : command =>
 #assert expectSuccessType "(!cuda_tile.ptr<i1>) -> ()"
   (FunctionType.mk #[(CudaTile.PointerType.mk (IntegerType.mk 1) : Attribute)] #[] (isVarArg := false))
 #assert expectSuccessType "!io.address" Io.AddressType.mk
+#assert expectSuccessType "(!io.address) -> ()"
+  (FunctionType.mk #[(Io.AddressType.mk : Attribute)] #[] (isVarArg := false))
 
 /-! ## RISCV Register type -/
 #assert expectSuccessType "!riscv.reg" (RegisterType.mk)
