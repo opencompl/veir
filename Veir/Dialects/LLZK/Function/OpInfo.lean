@@ -113,7 +113,7 @@ This is deliberately narrower until VeIR ports LLZK's aggregate and polymorphic 
 def Attribute.isSupportedLLZKFunctionType (type : Attribute) : Bool :=
   match type with
   | .integerType intType => intType.bitwidth = 1
-  | .indexType _ | .feltType _ => true
+  | .indexType _ | .feltType _ | .stringType _ => true
   | _ => false
 
 private partial def OperationPtr.getEnclosingBuiltinModule? {OpInfo : Type} [IsOpCode OpInfo]

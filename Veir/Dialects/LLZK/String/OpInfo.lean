@@ -59,7 +59,10 @@ def LLZK.String.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo LLZK.String] (opType : LLZK.String) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) := do
   match opType with
-  | .new => op.verifyPlainOpCounts ctx opIn 0 1
+  | .new => do
+    op.verifyPlainOpCounts ctx opIn 0 1
+    if !((op.getResultTypes! ctx.raw)[0]!.val matches Attribute.stringType _) then
+      throw "string.new: expected result 0 to have !string.type"
 
 instance : HasOpInfo LLZK.String where
   verifyLocalInvariants := LLZK.String.verifyLocalInvariants
