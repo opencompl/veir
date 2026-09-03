@@ -208,36 +208,36 @@ def parseOptionalStringAttr : AttrParserM (Option StringAttr) := do
 
 open Lean Float Model
 /--
-An adaptation of Lean's builtin floating point packing algorithm
-that uses a custom bias instead of the default exponent bias for a floating point format.
+Use Lean's builtin floating point packing algorithm,
+with a custom bias instead of the default IEEE-based exponent bias
+for floating point packing
 -/
 def packUnpackedFloatToType 
-     (type : FloatType) : UnpackedFloat → BitVec type.bitwidth
+     (type : FloatType) (uf : UnpackedFloat)
+     (hm : 0 < type.mantissa := by grind)
+     (he : 0 < type.exponent := by grind) :BitVec type.bitwidth :=
+  match uf with
   | .notANumber =>
-    (UnpackedFloat.packedNaN type.toFormat).cast 
-      (by simp [FloatType.numBits_toFormat_eq_bitwidth])
+    (UnpackedFloat.packedNaN type.toFormat).cast (by simp)
   | .infinity s => 
-    (UnpackedFloat.packedInfinity type.toFormat s).cast 
-      (by simp [FloatType.numBits_toFormat_eq_bitwidth])
-  | .zero s => (UnpackedFloat.packedZero type.toFormat s).cast 
-      (by simp [FloatType.numBits_toFormat_eq_bitwidth])
+    (UnpackedFloat.packedInfinity type.toFormat s).cast (by simp)
+  | .zero s => (UnpackedFloat.packedZero type.toFormat s).cast (by simp)
   | .finite s m e _ =>
     let actualMantissaBits := m.log2
     let biasedExponent := (e + type.bias + type.mantissa).toNat
     if 2 ^ type.exponent ≤ biasedExponent + 1 then
-      (UnpackedFloat.packedInfinity type.toFormat s).cast
-        (by simp [FloatType.numBits_toFormat_eq_bitwidth])
+      (UnpackedFloat.packedInfinity type.toFormat s).cast (by simp)
     else if actualMantissaBits + 1 = type.mantissa then
       -- normal
       -- Observe that the transformation of the mantissa clears the implicit bit
       let pf := UnpackedFloat.packComponents type.toFormat 
         s (BitVec.ofNat _ biasedExponent) (BitVec.ofNat _ m)
-      pf.cast (by simp [FloatType.numBits_toFormat_eq_bitwidth])
+      pf.cast (by simp)
       
     else
       -- subnormal
       let pf := UnpackedFloat.packComponents type.toFormat s 0#_ (BitVec.ofNat _ m)
-      pf.cast (by simp [FloatType.numBits_toFormat_eq_bitwidth])
+      pf.cast (by simp)
 
 
 open Lean Float Model
@@ -247,130 +247,27 @@ open Lean Float Model
   largest finite value for types without infinity), and underflow produces a
   subnormal value or zero.
 -/
-def convertFPToBitvec (f: ParsedFloat) (type: Veir.FloatType) : BitVec (type.bitwidth) :=
-    
+def convertFPToBitvec (f : ParsedFloat) (type: Veir.FloatType) : BitVec (type.bitwidth) :=
   let signBits : Nat := (if f.negative then 1 else 0) <<< (type.exponent + type.mantissa)
   let zeroBits : Nat := if f.negative && type.hasNegZero then signBits else 0
-  if hfsig : f.significand == 0 then
+  if hty : type.mantissa = 0 ∨ type.exponent = 0 then 
+    BitVec.ofNat _ zeroBits
+  else 
+    if hfsig : f.significand == 0 then
     -- Special case: Exact zero
     BitVec.ofNat _ zeroBits
-  else
-    -- TODO: check what we do with infinity or NaN for FloatAttr
-    let sign : UnpackedFloat.Sign := if f.negative then .negative else .positive
-    -- let uf : UnpackedFloat := UnpackedFloat.finite sign f.significand f.exponent (by lia)
-    let format : Model.Format := {
-      exponentBits := type.exponent,
-      mantissaBitsWithoutImplicit := type.mantissa
-      hm := by sorry -- 0 < type.mantissa. We need to throw an error if mantissa size is zero.
-      he := by sorry -- 0 < type.exponent. We need to throw an error if exponent size is zero.
-    }
-    let ufRounded := UnpackedFloat.round format sign f.significand f.exponent
-    packUnpackedFloatToType type ufRounded
-
-
-    /-
-    -- Form exact fraction: num / den.
-    let (num, den) := match f.exponent with
-      | Int.ofNat e => (f.significand * (10 ^ e), 1)
-      | Int.negSucc e => (f.significand, 10 ^ (e + 1))
-
-    -- Binary normalization.
-    -- We should find a new exponent E under base 2,
-    -- such that 1 <= (N * 2^E) / D < 2.
-
-    -- To make termination proving easier, we split it into 2 functions.
-    let rec scaleNumerator (n d : Nat) (e: Int) : Int × Nat × Nat :=
-      if h : n > 0 ∧ d > 0 ∧ 2 * n < d then scaleNumerator (n * 2) d (e - 1)
-      else (e, n, d)
-    termination_by d / n
-    decreasing_by
-      have nPos: n > 0 := h.left
-      rw [Nat.lt_div_iff_mul_lt]
-      generalize eDefn : d / (n * 2) = e
-      rw [Nat.div_eq_iff] at eDefn
-      have assoc : e * (n * 2) = e * n * 2 := by rw [Nat.mul_assoc]
-      rw [assoc] at eDefn
-      omega; omega; omega
-
-    let rec scaleDenominator (n d : Nat) (e: Int) : Int × Nat × Nat :=
-      if h : n > 0 ∧ d > 0 ∧ 2 * d <= n then scaleDenominator n (d * 2) (e + 1)
-      else (e, n, d)
-    termination_by n / d
-    decreasing_by
-      have dPos: d > 0 := h.right.left
-      rw [Nat.lt_div_iff_mul_lt]
-      generalize eDefn : n / (d * 2) = e
-      rw [Nat.div_eq_iff] at eDefn
-      have assoc : e * (d * 2) = e * d * 2 := by rw [Nat.mul_assoc]
-      rw [assoc] at eDefn
-      omega; omega; omega
-
-    let rec findBase2ExpAux (n d : Nat) (e : Int) :=
-      if n >= 2 * d then scaleDenominator n (d * 2) (e + 1)
-      else if 2 * n < d then scaleNumerator (n * 2) d (e - 1)
-      else (e, n, d)
-
-    let findBase2Exp (n d : Nat) (e : Int) :=
-      -- The auxiliary recursive function makes sure log2(n) - log2(d) < 1.
-      -- But that's not enough; we now have n < 2d, but we need n >= d,
-      -- while we only have n >= d/2 at this point.
-      --
-      -- Therefore, we must check one extra time.
-       let (e, n, d) := findBase2ExpAux n d e
-       if n < d then (e - 1, n * 2, d) else (e, n, d)
-
-    -- Now the float is nNorm / dNorm * 2^exp (which is equal to N / D).
-    let (exp, nNorm, dNorm) := findBase2Exp num den 0
-
-    -- Prepare for rounding: shift by mantissa + 2 bits.
-    --
-    -- Per IEEE-754, the rounding works as follows:
-    -- [ ... Upper Mantissa Bits ... ] | [ Guard Bit ] [ Round Bit ] [ Remaining Discarded Bits ]
-    -- ^1                            ^m  ^ 1st dropped ^ 2nd dropped
-    --
-    -- The sticky bit is defined as the logical OR of round bit and all other bits after it.
-    -- If remainder is non-zero, then the remaining bits must have at least an 1;
-    -- that's why we test `roundBit != 0 || remainder != 0`.
-    let scaledNum := nNorm <<< (type.mantissa + 2)
-    let quotient := scaledNum / dNorm
-    let remainder := scaledNum % dNorm
-    let upperBits := quotient >>> 2
-    let guardBit := (quotient >>> 1) &&& 1
-    let roundBit := quotient &&& 1
-    let stickyBit := if roundBit != 0 || remainder != 0 then 1 else 0
-
-    -- Round to nearest, ties to even.
-    -- Consider these cases:
-    -- (1) guard = 0: less than half, round to low.
-    -- (2) guard = 1:
-    --   (2.i)  sticky = 1: more than half, round to high.
-    --   (2.ii) sticky = 0: exactly half, round to even;
-    --          so if raw &&& 1 == 1 (odd), then plus 1 to even.
-    let raw := upperBits
-    let rounded :=
-      if guardBit == 1 && (stickyBit == 1 || (raw &&& 1) == 1) then
-        raw + 1
-      else
-        raw
-
-    -- Handle potential mantissa overflow from rounding.
-    let (finalMantissa, finalExp) :=
-      if rounded >= (1 <<< (type.mantissa + 1)) then
-        (rounded >>> 1, exp + 1)
-      else
-        (rounded, exp)
-
-    -- Bit packing.
-    let biasedExp := finalExp + type.bias
-    let signBit : Nat := if f.negative then 1 else 0
-    let mantissaPayload := finalMantissa &&& ((1 <<< type.mantissa) - 1)
-
-    let packed := (signBit <<< (type.exponent + type.mantissa))
-              ||| ((biasedExp.toNat) <<< type.mantissa)
-              ||| mantissaPayload
-
-    BitVec.ofNat type.bitwidth packed
-    -/
+    else
+      -- TODO: check what we do with infinity or NaN for FloatAttr
+      let sign : UnpackedFloat.Sign := if f.negative then .negative else .positive
+      -- let uf : UnpackedFloat := UnpackedFloat.finite sign f.significand f.exponent (by lia)
+      let format : Model.Format := {
+        exponentBits := type.exponent,
+        mantissaBitsWithoutImplicit := type.mantissa
+        hm := by grind only
+        he := by grind only
+      }
+      let ufRounded := UnpackedFloat.round format sign f.significand f.exponent
+      packUnpackedFloatToType type ufRounded
 
 /--
   Returns `true` if the numeric literal is in `0x`-prefixed hexadecimal form.

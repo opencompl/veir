@@ -74,15 +74,20 @@ open Lean
 Convert Veir's `FloatType` into Lean's floating type `Float.Model.Format`
 that reprsents IEEE-style floating point formats.
 -/
-def FloatType.toFormat (type : FloatType) : Float.Model.Format where
+def FloatType.toFormat (type : FloatType)
+    (hm : 0 < type.mantissa := by grind)
+    (he : 0 < type.exponent := by grind) : Float.Model.Format where
   exponentBits := type.exponent
   mantissaBitsWithoutImplicit := type.mantissa
-  hm := by sorry -- 0 < type.mantissa. We need to throw an error if mantissa size is zero.
-  he := by sorry -- 0 < type.exponent. We need to throw an error if exponent size is zero.
+  hm := hm
+  he := he
 
-theorem FloatType.numBits_toFormat_eq_bitwidth {type : FloatType} :
-      type.toFormat.numBits = type.bitwidth := by 
-    simp [toFormat, Float.Model.Format.numBits, bitwidth]
+@[simp]
+theorem FloatType.numBits_toFormat_eq_bitwidth
+    (type : FloatType)
+    (hm : 0 < type.mantissa) (he : 0 < type.exponent) :
+    (type.toFormat hm he).numBits = type.bitwidth := by 
+  simp [toFormat, Float.Model.Format.numBits, bitwidth]
 
 def FloatType.f16 : FloatType := { exponent := 5, mantissa := 10, bias := 15, canonicalName := "f16" }
 def FloatType.f32 : FloatType := { exponent := 8, mantissa := 23, bias := 127, canonicalName := "f32" }
