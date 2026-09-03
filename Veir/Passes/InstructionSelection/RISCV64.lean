@@ -128,11 +128,15 @@ def zext16_pattern : Veir.Puddle.Pattern OpCode := lowerExt .zext 16 .zexth ()
 def zext32_pattern : Veir.Puddle.Pattern OpCode := lowerExt .zext 32 .zextw ()
 
 /--
-  RISC-V for binary operations that share a single integer type between both
-  operands and the result.
+  RISC-V for binary operations that share a single integer type between both operands and the
+  result: cast both operands to registers, optionally apply `extend` to each register first (e.g.
+  `riscv.sextw` for the signed min/max `i32` arms, since `castToRegLocal`'s zero-extension does not
+  preserve signed order), apply `riscvOp`, and cast the result back to the source type.
 -/
 def lowerBinary (llvmOp : Llvm) (typeMatcher : IntegerType → Bool) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Veir.Puddle.Pattern OpCode :=
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp))
+    (extend : Option (Σ extOp : Riscv, propertiesOf (OpCode.riscv extOp)) := none) :
+    Veir.Puddle.Pattern OpCode :=
   Veir.Puddle.Pattern.Builder
     (do
       let opType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) typeMatcher
@@ -148,9 +152,16 @@ def lowerBinary (llvmOp : Llvm) (typeMatcher : IntegerType → Bool) (riscvOp : 
       let rcastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let rcastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[rhs] #[regType] rcastProps
+      let (lval, rval) ← match extend with
+        | some ⟨extOp, extProps'⟩ => do
+          let extProps ← Veir.Puddle.CreateProg.property (.riscv extOp) extProps'
+          let lextOp ← Veir.Puddle.CreateProg.operation (.riscv extOp) #[lcastOp.res[0]!] #[regType] extProps
+          let rextOp ← Veir.Puddle.CreateProg.operation (.riscv extOp) #[rcastOp.res[0]!] #[regType] extProps
+          pure (lextOp.res[0]!, rextOp.res[0]!)
+        | none => pure (lcastOp.res[0]!, rcastOp.res[0]!)
       let riscvOpProps ← Veir.Puddle.CreateProg.property (.riscv riscvOp) riscvProps
       let riscvResOp ← Veir.Puddle.CreateProg.operation (.riscv riscvOp)
-          #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType] riscvOpProps
+          #[lval, rval] #[regType] riscvOpProps
       let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[riscvResOp.res[0]!] #[opType] castBackProps
@@ -247,53 +258,23 @@ def lowerByteBinaryWLocal {P : Type}
   let (ctx, castBackOp) ← replaceWithRegLocal ctx op (retOp.getResult 0)
   some (ctx, some (#[lcastOp, rcastOp, retOp, castBackOp], #[castBackOp.getResult 0]))
 
-/--
-  RISC-V lowerings with Puddle for the `i32` signed min/max intrinsics (`smax`/`smin`): as
-  `lowerBinary`, but the operand registers are sign-extended (`riscv.sextw`) before the comparison
-  so negative values order correctly.
--/
-def lowerSignedMinMax32 (llvmOp : Llvm) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
-    (do
-      let opType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 32)
-      let lhs ← Veir.Puddle.MatchProg.value opType
-      let rhs ← Veir.Puddle.MatchProg.value opType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm llvmOp) #[lhs, rhs] #[opType]
-      return (opType, lhs, rhs))
-    (fun (opType, lhs, rhs) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let lcastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let lcastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[lhs] #[regType] lcastProps
-      let rcastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let rcastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rhs] #[regType] rcastProps
-      let sextProps ← Veir.Puddle.CreateProg.property (.riscv .sextw) ()
-      let lsOp ← Veir.Puddle.CreateProg.operation (.riscv .sextw) #[lcastOp.res[0]!] #[regType] sextProps
-      let rsOp ← Veir.Puddle.CreateProg.operation (.riscv .sextw) #[rcastOp.res[0]!] #[regType] sextProps
-      let riscvOpProps ← Veir.Puddle.CreateProg.property (.riscv riscvOp) riscvProps
-      let riscvResOp ← Veir.Puddle.CreateProg.operation (.riscv riscvOp)
-          #[lsOp.res[0]!, rsOp.res[0]!] #[regType] riscvOpProps
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[riscvResOp.res[0]!] #[opType] castBackProps
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
 /-- `llvm.intr.smax` (`i64`) -> `riscv.max`. -/
 def smax64_pattern : Veir.Puddle.Pattern OpCode :=
   lowerBinary .intr__smax (fun t => t.bitwidth == 64) .max ()
 
-/-- `llvm.intr.smax` (`i32`) -> sign-extend then `riscv.max` (see `lowerSignedMinMax32`). -/
-def smax32_pattern : Veir.Puddle.Pattern OpCode := lowerSignedMinMax32 .intr__smax .max ()
+/-- `llvm.intr.smax` (`i32`) -> sign-extend (so negative values order correctly, since
+    `castToRegLocal` zero-extends) then `riscv.max`. -/
+def smax32_pattern : Veir.Puddle.Pattern OpCode :=
+  lowerBinary .intr__smax (fun t => t.bitwidth == 32) .max () (extend := some ⟨.sextw, ()⟩)
 
 /-- `llvm.intr.smin` (`i64`) -> `riscv.min`. -/
 def smin64_pattern : Veir.Puddle.Pattern OpCode :=
   lowerBinary .intr__smin (fun t => t.bitwidth == 64) .min ()
 
-/-- `llvm.intr.smin` (`i32`) -> sign-extend then `riscv.min` (see `lowerSignedMinMax32`). -/
-def smin32_pattern : Veir.Puddle.Pattern OpCode := lowerSignedMinMax32 .intr__smin .min ()
+/-- `llvm.intr.smin` (`i32`) -> sign-extend (so negative values order correctly, since
+    `castToRegLocal` zero-extends) then `riscv.min`. -/
+def smin32_pattern : Veir.Puddle.Pattern OpCode :=
+  lowerBinary .intr__smin (fun t => t.bitwidth == 32) .min () (extend := some ⟨.sextw, ()⟩)
 
 /--
   RISC-V lowerings for funnel-shift rotates (`fshl`/`fshr` whose two data operands are
