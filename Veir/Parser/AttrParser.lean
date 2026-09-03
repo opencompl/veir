@@ -247,12 +247,7 @@ def convertFPToBitvec (f : ParsedFloat) (type: Veir.FloatType) : BitVec (type.bi
   if hty : type.mantissa = 0 ∨ type.exponent = 0 then 
     0#_
   else 
-     let format : Model.Format := {
-       exponentBits := type.exponent,
-       mantissaBitsWithoutImplicit := type.mantissa
-       hm := by grind only
-       he := by grind only
-     }
+     let format : Model.Format := type.toFormat
      let rat : Rat := (if f.negative then -1 else 1) * f.significand * ((10 : Rat) ^ f.exponent)
      dbg_trace f!"rat: {rat}"
      let dyadic : Dyadic := rat.toDyadic (type.mantissa + 4)
@@ -261,7 +256,7 @@ def convertFPToBitvec (f : ParsedFloat) (type: Veir.FloatType) : BitVec (type.bi
      let ufRounded := UnpackedFloat.ofScientific format f.significand f.exponent
      let ufRounded := if f.negative then ufRounded.neg else ufRounded
      dbg_trace f!"ufRounded:{repr ufRounded}"
-     let out := UnpackedFloat.pack format ufRounded |>.cast (by sorry) 
+     let out := UnpackedFloat.pack format ufRounded |>.cast (by simp [format]) 
      -- packUnpackedFloatToType type ufRounded
      dbg_trace f!"out:{repr out}"
      out
