@@ -190,11 +190,7 @@ def TypeAttr.verifyI1
 def TypeAttr.verifyI64
     (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
   match ty.val with
-  | .integerType intType =>
-    if intType.bitwidth ≠ 64 then
-      throw errMsg
-    else
-      pure ()
+  | .integerType { bitwidth := 64 } => pure ()
   | _ => throw errMsg
 
 /--
