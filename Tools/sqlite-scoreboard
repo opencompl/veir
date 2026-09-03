@@ -2,8 +2,8 @@
 """Per-function sqlite3 scoreboard for VeIR (#947).
 
 Splits the sqlite3 amalgamation into one generic-MLIR chunk per function
-with llvm-extract, runs each chunk through veir-opt on its own, and places it
-in a tier:
+(and per defined global) with llvm-extract, runs each chunk through veir-opt
+on its own, and places it in a tier:
   supported  passes veir-opt as is: every op and attribute registered,
              verified, and round-tripped;
   parsed     passes only with --allow-unregistered-dialect: some op or
@@ -12,15 +12,17 @@ in a tier:
 A timed-out chunk is retried once, sequentially; a lasting timeout is its own
 status and only ever a warning.
 
-The amalgamation is compiled with clang -O0 and opt -passes=sroa, vcc's
-pipeline (the -O0+sroa corpus). The toolchain is
+Corpora: -O0+sroa (vcc's pipeline, the primary board) and -O3. Boards per
+corpus: functions and globals (llvm-extract -func keeps only declarations of
+globals, so their initializers get a board of their own). The toolchain is
 pinned to what CI uses: clang/opt/llvm-extract 19 and mlir-translate/mlir-opt
 22 (veir needs mlir-translate >= 21 for the integer overflowFlags encoding);
 chunks and therefore baselines depend on both. Baselines live in
 Test/sqlite3/<corpus>/<board>-baseline.txt and carry a digest of the chunk
 set; see Tools/sqlite_board.py for the file and JSON formats and exit codes.
 
-Local loop while fixing a blocker:
+The report is printed as Markdown (the same Tools/sqlite-report output CI
+posts). Local loop while fixing a blocker:
   lake build veir-opt
   Tools/sqlite-scoreboard --check-baseline --list-changed   # what moved
   Tools/sqlite-scoreboard --only NAME                       # one item, raw stderr
@@ -48,7 +50,8 @@ import sqlite_board as board
 from sqlite_board import BASELINE_DIR, CORPORA, STORE, TIMEOUT, VEIR_OPT
 
 # board name, llvm-nm symbol types, llvm-extract flag
-BOARDS = (("functions", ("t", "T"), "-func"),)
+BOARDS = (("functions", ("t", "T"), "-func"),
+          ("globals", ("d", "D", "b", "B", "r", "R"), "--glob"))
 TIERS = {"fail": 0, "parsed": 1, "supported": 2}
 UNREGISTERED = re.compile(r"(op|attribute|type) '([^']+)' is not registered")
 CACHE_SCHEMA = 7
@@ -133,16 +136,19 @@ def run(cmd: list[str], stdin: bytes | None = None) -> bytes:
 
 
 def compile_module(src: Path, cache: Path, tools: dict[str, str], corpus: str) -> Path:
-    """clang -O0 + sroa, vcc's default pipeline."""
+    """O0: clang -O0 + sroa, vcc's default pipeline. O3: clang -O3."""
     bc, stamp = cache / "sqlite3.bc", cache / "sqlite3.bc.src-sha256"
     src_hash = hashlib.sha256(src.read_bytes()).hexdigest()
     if bc.exists() and stamp.exists() and stamp.read_text() == src_hash:
         return bc
     print(f"compiling sqlite3.c ({corpus}) ...", flush=True)
-    raw = cache / "sqlite3-raw.bc"
-    run([tools["clang"], "-O0", "-Xclang", "-disable-O0-optnone", "-c", "-emit-llvm",
-         str(src), "-o", str(raw)])
-    run([tools["opt"], "-passes=sroa", str(raw), "-o", str(bc)])
+    if corpus == "O0":
+        raw = cache / "sqlite3-raw.bc"
+        run([tools["clang"], "-O0", "-Xclang", "-disable-O0-optnone", "-c", "-emit-llvm",
+             str(src), "-o", str(raw)])
+        run([tools["opt"], "-passes=sroa", str(raw), "-o", str(bc)])
+    else:
+        run([tools["clang"], "-O3", "-c", "-emit-llvm", str(src), "-o", str(bc)])
     stamp.write_text(src_hash)
     return bc
 
@@ -172,8 +178,8 @@ def prepare_chunks_dir(cache: Path, name: str, bc: Path, tools: dict[str, str]) 
 
 def extract_chunk(name: str, bc: Path, chunks: Path, flag: str,
                   tools: dict[str, str]) -> Path | None:
-    """One function as a self-contained generic-MLIR module; cross-references
-    become declarations."""
+    """One function (-func) or global (--glob) as a self-contained generic-MLIR
+    module; cross-references become declarations."""
     chunk = chunks / f"{name}.mlir"
     if chunk.exists():
         return chunk
@@ -351,7 +357,7 @@ def parse_args():
                         help="with --check-baseline: print only the items whose status changed, "
                              "tab-separated: corpus, board, name, old, new")
     parser.add_argument("--only", metavar="NAME",
-                        help="run just this function and print veir-opt's stderr")
+                        help="run just this function or global and print veir-opt's stderr")
     parser.add_argument("--limit", type=int, metavar="N",
                         help="only the first N functions per corpus")
     parser.add_argument("--fresh", action="store_true", help="ignore cached results")

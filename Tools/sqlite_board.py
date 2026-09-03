@@ -46,7 +46,7 @@ EXIT_UNCHANGED, EXIT_IMPROVED, EXIT_REGRESSED, EXIT_NOT_COMPARABLE = 0, 1, 2, 3
 EXIT_TOOL_ERROR = 64
 TIMEOUT = "timeout"
 # The sqlite3 corpora, primary first: directory name -> label used everywhere.
-CORPORA = {"O0": "-O0+sroa"}
+CORPORA = {"O0": "-O0+sroa", "O3": "-O3"}
 
 
 # ------------------------------------------------------------- digests --
