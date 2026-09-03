@@ -42,6 +42,11 @@ def testParseOp (s : String) : IO Unit :=
   %x = \"arith.muli\"() : () -> i32
 }, {}) : () -> ()"
 
+/--
+  info: %3 = "test.test"() : () -> vector<2x4xi32>
+-/
+#guard_msgs in
+#eval! testParseOp "%x = \"test.test\"() : () -> vector<2 x 4 x i32>"
 
 /--
   info: "arith.addi"() ({

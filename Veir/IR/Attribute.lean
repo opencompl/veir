@@ -364,6 +364,21 @@ end HW
 mutual
 
 /--
+  A builtin fixed-size vector type.
+
+  The shape contains one entry per dimension, and `elementType` is expected to
+  be a valid vector element type. For example, `vector<2x4xi32>` is represented
+  by shape `#[2, 4]` and element type `i32`.
+
+  The element-type invariant is not proof-enforced in VeIR; MLIR enforces it
+  through `VectorElementTypeInterface`.
+-/
+structure VectorType where
+  shape : Array Nat
+  elementType : Attribute
+deriving Repr, Hashable
+
+/--
   The signature of a function, consisting of an array of input attributes
   and an array of output attributes.
 -/
@@ -436,6 +451,8 @@ inductive Attribute
 | integerType (type : IntegerType)
 /-- Float type -/
 | floatType (type : FloatType)
+/-- Builtin fixed-size vector type -/
+| vectorType (type : VectorType)
 /-- Integer attribute -/
 | integerAttr (attr : IntegerAttr)
 /-- Float attribute -/
@@ -516,6 +533,9 @@ deriving Inhabited, Repr, Hashable
 
 end
 
+instance : Inhabited VectorType where
+  default := { shape := #[], elementType := .integerType (IntegerType.mk 0) }
+
 instance : Coe FunctionType LLVMFunctionType where
   coe := .mk
 
@@ -547,6 +567,10 @@ theorem FunctionType.sizeOf_elems_outputs {ft : FunctionType} (hx : x ∈ ft.out
     sizeOf x < sizeOf ft := by
   grind [Array.sizeOf_lt_of_mem hx, cases FunctionType]
 
+theorem VectorType.sizeOf_elementType {t : VectorType} :
+    sizeOf t.elementType < sizeOf t := by
+  grind [cases VectorType]
+
 theorem LLVMFunctionType.sizeOf_functionType {ft : LLVMFunctionType} :
     sizeOf ft.functionType < sizeOf ft := by
   grind [cases LLVMFunctionType]
@@ -572,6 +596,17 @@ theorem Match.OptionalType.sizeOf_innerType {t : Match.OptionalType} :
 -/
 
 mutual
+def VectorType.decEq (type1 type2 : VectorType) : Decidable (type1 = type2) :=
+  if hshape : type1.shape = type2.shape then
+    match Attribute.decEq type1.elementType type2.elementType with
+    | isTrue _ => isTrue (by grind [cases VectorType])
+    | isFalse _ => isFalse (by grind)
+  else
+    isFalse (by grind)
+termination_by sizeOf type1
+decreasing_by
+  apply VectorType.sizeOf_elementType
+
 def FunctionType.decEq (type1 type2 : FunctionType) : Decidable (type1 = type2) :=
   let inputs1 := type1.inputs
   let outputs1 := type1.outputs
@@ -663,6 +698,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
       | isFalse hEq => isFalse (by grind))
   case floatType.floatType type1 type2 =>
     exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case vectorType.vectorType type1 type2 =>
+    exact (match VectorType.decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
   case byteType.byteType type1 type2 =>
@@ -810,6 +849,7 @@ termination_by sizeOf attr1
 end
 
 instance : DecidableEq Attribute := Attribute.decEq
+instance : DecidableEq VectorType := VectorType.decEq
 instance : DecidableEq FunctionType := FunctionType.decEq
 instance : DecidableEq LLVMFunctionType := LLVMFunctionType.decEq
 instance : DecidableEq ArrayAttr := ArrayAttr.decEq
@@ -986,6 +1026,14 @@ instance : ToString HW.ModuleType where
 
 mutual
 
+def VectorType.toString (type : VectorType) : String :=
+  let shape := String.intercalate "x" (type.shape.toList.map ToString.toString)
+  let shape := if shape.isEmpty then "" else shape ++ "x"
+  s!"vector<{shape}{Attribute.toString type.elementType}>"
+termination_by sizeOf type
+decreasing_by
+  apply VectorType.sizeOf_elementType
+
 def ArrayAttr.toString (attr : ArrayAttr) : String :=
   let elems := String.intercalate ", " (attr.value.toList.map Attribute.toString)
   s!"[{elems}]"
@@ -1076,6 +1124,7 @@ def Attribute.toString (attr : Attribute) : String :=
   match attr with
   | .integerType type => ToString.toString type
   | .floatType type => ToString.toString type
+  | .vectorType type => type.toString
   | .byteType type => ToString.toString type
   | .fastMathFlagsAttr attr => ToString.toString attr
   | .arithIntegerOverflowFlagsAttr attr => ToString.toString attr
@@ -1120,6 +1169,9 @@ end
 
 instance : ToString Attribute where
   toString := Attribute.toString
+
+instance : ToString VectorType where
+  toString := VectorType.toString
 
 instance : ToString FunctionType where
   toString := FunctionType.toString
@@ -1327,6 +1379,7 @@ def isType (attr : Attribute) : Bool :=
   match attr with
   | .integerType _ => true
   | .floatType _ => true
+  | .vectorType _ => true
   | .byteType _ => true
   | .fastMathFlagsAttr _ => false
   | .arithIntegerOverflowFlagsAttr _ => false
@@ -1372,6 +1425,9 @@ def isType (attr : Attribute) : Bool :=
 def bitwidthOfType (type : Attribute) : Option Nat :=
   match type with
   | .integerType { bitwidth } | .floatType { bitwidth } | .byteType { bitwidth } => some bitwidth
+  | .vectorType { shape, elementType } => do
+      let elementBitwidth ← bitwidthOfType elementType
+      some (shape.foldl (· * ·) elementBitwidth)
   | .llvmPointerType _ => some 64
   | _ => none
 
@@ -1381,6 +1437,9 @@ def bitwidthOfType (type : Attribute) : Option Nat :=
 def sizeOfType (type : Attribute) : Option Nat :=
   match type with
   | .integerType { bitwidth } | .floatType { bitwidth } | .byteType { bitwidth } => some ((bitwidth + 7) / 8)
+  | .vectorType { shape, elementType } => do
+      let elementSize ← sizeOfType elementType
+      some (shape.foldl (· * ·) elementSize)
   | .llvmPointerType _ => some 8
   | .llvmArrayType { size, type } => do
       let inner ← sizeOfType type
@@ -1391,6 +1450,8 @@ def sizeOfType (type : Attribute) : Option Nat :=
 theorem isType_integerType type : (integerType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_floatType type : (floatType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_vectorType type : (vectorType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_byteType type : (byteType type).isType = true := by rfl
 @[simp, grind =]
@@ -1594,6 +1655,10 @@ instance : IsTypeAttr IntegerType where
 
 instance : IsTypeAttr FloatType where
   coe type := Attribute.asType (.floatType type) (by rfl)
+  coe_eq_inject _ := by rfl
+
+instance : IsTypeAttr VectorType where
+  coe type := Attribute.asType (.vectorType type) (by rfl)
   coe_eq_inject _ := by rfl
 
 instance : IsTypeAttr LLVM.ByteType where

@@ -123,6 +123,20 @@ macro "#assert " e:term : command =>
 
 #assert expectSuccessAttr "i32" (IntegerType.mk 32)
 
+/-! ## Vector types -/
+
+#assert expectSuccessType "vector<4xi32>" (VectorType.mk #[4] (IntegerType.mk 32))
+#assert expectSuccessType "vector<2x4xf64>" (VectorType.mk #[2, 4] (FloatType.mk 64))
+#assert expectSuccessType "vector<2 x 4 x i32>" (VectorType.mk #[2, 4] (IntegerType.mk 32))
+#assert expectSuccessType "vector<i32>" (VectorType.mk #[] (IntegerType.mk 32))
+#assert expectSuccessAttr "vector<4xi32>" (VectorType.mk #[4] (IntegerType.mk 32))
+#assert ToString.toString (VectorType.mk #[2, 4] (IntegerType.mk 32) : VectorType) ==
+  "vector<2x4xi32>"
+#assert ToString.toString (VectorType.mk #[] (IntegerType.mk 32) : VectorType) == "vector<i32>"
+#assert expectErrorType "vector<4x>" "vector element type expected" (some 9)
+#assert expectErrorType "vector<0xi32>" "0 is not a supported dimension" (some 7)
+#assert expectErrorType "vector<0x32xi32>" "0 is not a supported dimension" (some 7)
+
 /-! ## Integer attributes -/
 
 #assert expectErrorAttr "0 : 2" "integer type expected after ':' in integer attribute" (some 4)
