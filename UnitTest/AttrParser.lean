@@ -454,6 +454,13 @@ macro "#assert " e:term : command =>
     #[(LLVM.PointerType.mk : Attribute)] #[(IntegerType.mk 32 : Attribute)] (isVarArg := true)), by rfl⟩
 #assert expectSuccessType "!llvm.func<i32 (...)>"
   ⟨.llvmFunctionType (FunctionType.mk #[] #[(IntegerType.mk 32 : Attribute)] (isVarArg := true)), by rfl⟩
+-- An LLVM function type may omit the `!llvm.` prefix in PrettyLLVMType syntax.
+#assert (do
+  let parser ← ParserState.fromInput "func<i32 (ptr)>".toByteArray
+  parseLLVMType.run' {} parser) = .ok
+    ⟨.llvmFunctionType (FunctionType.mk
+      #[(LLVM.PointerType.mk : Attribute)]
+      #[(IntegerType.mk 32 : Attribute)] (isVarArg := false)), by rfl⟩
 
 /-! ## LLVM calling convention and linkage attributes -/
 #assert expectSuccessAttr "#llvm.cconv<ccc>" (CConvAttr.mk "ccc")
