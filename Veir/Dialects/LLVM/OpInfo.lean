@@ -702,6 +702,12 @@ instance : HasOpInfo Llvm where
   isTerminator := Llvm.isTerminator
   isIsolatedFromAbove := Llvm.isIsolatedFromAbove
 
+/-- LLVM integer AND has no memory effects. -/
+@[simp] theorem Llvm.getEffects_and :
+    HasOpInfo.getEffects Llvm.and () = .none := by
+  change Llvm.getEffects Llvm.and () = .none
+  rfl
+
 end
 
 end Veir
