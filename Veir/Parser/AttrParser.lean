@@ -207,7 +207,7 @@ open Lean Float Model
 /--
 Use Lean's builtin floating point packing algorithm,
 with a custom bias instead of the default IEEE-based exponent bias
-for floating point packing
+for floating point packing. This is an adaptation of `UnpackedFloat.pack`
 -/
 def packUnpackedFloatToType 
      (type : FloatType) (uf : UnpackedFloat)
@@ -221,10 +221,14 @@ def packUnpackedFloatToType
   | .zero s => (UnpackedFloat.packedZero type.toFormat s).cast (by simp)
   | .finite s m e _ =>
     let actualMantissaBits := m.log2
+    dbg_trace "type.bias: {type.bias} | spec.exponentBias: {type.toFormat.exponentBias}"
+    dbg_trace "type.mantissa: {type.mantissa} | spec.mantissaBitsWithoutImplicit: {type.toFormat.mantissaBitsWithoutImplicit}"
+    dbg_trace "type.exponent: {type.exponent} | spec.exponentBits: {type.toFormat.exponentBits}"
     let biasedExponent := (e + type.bias + type.mantissa).toNat
     if 2 ^ type.exponent ≤ biasedExponent + 1 then
       (UnpackedFloat.packedInfinity type.toFormat s).cast (by simp)
-    else if actualMantissaBits + 1 = type.mantissa then
+    -- | This is the cause of the issue.
+    else if actualMantissaBits + 1 = type.mantissa + 1 then
       -- normal
       let pf := UnpackedFloat.packComponents type.toFormat 
         s (BitVec.ofNat _ biasedExponent) (BitVec.ofNat _ m)
@@ -257,8 +261,9 @@ def convertFPToBitvec (f : ParsedFloat) (type: Veir.FloatType) : BitVec (type.bi
      let ufRounded := if f.negative then ufRounded.neg else ufRounded
      dbg_trace f!"ufRounded:{repr ufRounded}"
      let out := UnpackedFloat.pack format ufRounded |>.cast (by simp [format]) 
-     -- packUnpackedFloatToType type ufRounded
      dbg_trace f!"out:{repr out}"
+     let outOurs := packUnpackedFloatToType type ufRounded
+     dbg_trace f!"out[ours]:{repr outOurs}"
      out
      /-
      match dyadic with 
