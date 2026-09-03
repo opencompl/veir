@@ -187,14 +187,8 @@ macro "#assert " e:term : command =>
 
 /-! ## Float attributes -/
 
-open Lean Float Model
-#eval (10e-1 : Float)
-#eval UnpackedFloat.ofScientific ⟨3, by simp, 3, by grind⟩ 1 0
-#eval Float.ofScientific 1 false 1
-
 -- Exactly representable values (positive and negative).
 #assert expectSuccessAttr "1.0 : f64"  (fpAttr FloatType.f64 0x3ff0000000000000)
-#eval testOptionalAttr "1.0 : f64"  
 #assert expectSuccessAttr "1.5 : f64"  (fpAttr FloatType.f64 0x3ff8000000000000)
 #assert expectSuccessAttr "-1.5 : f64" (fpAttr FloatType.f64 0xbff8000000000000)
 #assert expectSuccessAttr "2.25 : f64" (fpAttr FloatType.f64 0x4002000000000000)
@@ -245,7 +239,6 @@ open Lean Float Model
   "integer literal expected in integer attribute" (some 9)
 -- Bad floating point syntax.
 -- MLIR only allows: [-+]?[0-9]+[.][0-9]*([eE][-+]?[0-9]+)?
-#eval testOptionalAttr "1.5 : f32"
 #assert expectErrorAttr "1.5.2 : f32"
   "expected three consecutive '.' for an ellipsis" none
 #assert expectErrorAttr "1.2. : f32"
