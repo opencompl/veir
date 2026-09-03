@@ -32,9 +32,11 @@ RUN apt-get update \
  && apt-get update \
  && apt-get install -y --no-install-recommends \
       mlir-22-tools \
+      llvm-22-tools \
       # leanc links through the system toolchain.
       build-essential \
  && ln -s /usr/bin/mlir-opt-22 /usr/bin/mlir-opt \
+ && ln -s /usr/bin/split-file-22 /usr/bin/split-file \
  && rm -rf /var/lib/apt/lists/*
 
 # `uv` provides both the Python interpreter and the test dependencies, so no
@@ -70,6 +72,7 @@ RUN curl -fsSL https://elan.lean-lang.org/elan-init.sh \
 # reachable as `runner`. If a run reports `command not found` for one of these,
 # the image did not build and the profile fell back to the stock base image.
 RUN mlir-opt --version \
+ && split-file --version \
  && uv --version \
  && lit --version \
  && filecheck --version \

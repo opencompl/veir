@@ -56,14 +56,16 @@ jobs:
           component: main
           suite: llvm-toolchain-noble-22
 
-      - name: Install mlir-opt
+      - name: Install LLVM test tools
         uses: gerlero/apt-install@v1
         with:
-          packages: mlir-22-tools
+          packages: mlir-22-tools llvm-22-tools
 
-      - name: Rename MLIR-opt
+      - name: Expose LLVM tools
         run: |
           sudo ln -s /usr/bin/mlir-opt-22 /usr/bin/mlir-opt
+          sudo ln -s /usr/bin/split-file-22 /usr/bin/split-file
+          split-file --version
 
       - name: Build the project
         uses: leanprover/lean-action@v1
