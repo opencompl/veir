@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+"""The sqlite scoreboard workflow's decisions, after both board tools ran.
+
+    Tools/sqlite-ci [--dry-run]
+
+Reads the environment the workflow sets:
+    SCOREBOARD_CODE, CENSUS_CODE   exit codes of the two tools
+    SCOREBOARD_JSON, CENSUS_JSON   their --json-out files
+    REPORT                         the rendered Markdown report (Tools/sqlite-report)
+    GITHUB_STEP_SUMMARY            appended with the report
+    GITHUB_EVENT_NAME, GITHUB_REPOSITORY, HEAD_REPO, HEAD_REF, PR_NUMBER, RUN_URL
+    GH_TOKEN                       for gh (comments)
+and does, in order:
+  1. Anything but a result code (0-3) from either tool fails the job.
+  2. Quiet run (both 0): nothing else; job passes.
+  3. On a pull request from an in-repo branch with a changed baseline (codes 1
+     or 2, none 3): commit the baselines the tools already wrote to the PR
+     branch, as github-actions[bot], with the message from
+     Tools/sqlite-report --commit-message; a rejected push is reported.
+  4. On a pull request from an in-repo branch with any non-zero code
+     (including 3, which needs a human decision): post or update one sticky
+     comment carrying the report.
+  5. Outcome: 3 -> fail (not comparable); 2 -> fail (regression; the baselines
+     were still committed, by policy); 1 -> pass if committed, else fail with
+     the manual instructions.
+--dry-run prints the git and gh commands instead of running them and
+pretends the push succeeded.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+TOOLS = Path(__file__).resolve().parent
+sys.path.insert(0, str(TOOLS))
+from sqlite_board import (BASELINE_DIR, EXIT_IMPROVED, EXIT_NOT_COMPARABLE,  # noqa: E402
+                          EXIT_REGRESSED, EXIT_UNCHANGED, REPO_ROOT)
+from sqlite_report import PULL_NOTE  # noqa: E402
+
+MARKER = "<!-- sqlite-scoreboard -->"
+BOT = ("github-actions[bot]", "41898282+github-actions[bot]@users.noreply.github.com")
+RESULT_CODES = {str(c) for c in (EXIT_UNCHANGED, EXIT_IMPROVED, EXIT_REGRESSED, EXIT_NOT_COMPARABLE)}
+# GitHub rejects comment bodies over 65536 characters; leave room for the footer.
+COMMENT_LIMIT = 60000
+ALREADY_COMMITTED = "already committed"
+
+
+class CI:
+    def __init__(self, dry_run: bool):
+        self.dry_run = dry_run
+        env = os.environ
+        self.codes = {k: env.get(f"{k.upper()}_CODE", "") for k in ("scoreboard", "census")}
+        self.jsons = [p for p in (env.get("SCOREBOARD_JSON"), env.get("CENSUS_JSON")) if p]
+        self.report = Path(env.get("REPORT", "")) if env.get("REPORT") else None
+        self.in_repo_pr = (env.get("GITHUB_EVENT_NAME") == "pull_request"
+                           and env.get("HEAD_REPO") == env.get("GITHUB_REPOSITORY"))
+        self.repo, self.head_ref = env.get("GITHUB_REPOSITORY", ""), env.get("HEAD_REF", "")
+        self.pr, self.run_url = env.get("PR_NUMBER", ""), env.get("RUN_URL", "")
+
+    def sh(self, cmd: list[str], check: bool = True, capture: bool = False) -> str:
+        if self.dry_run:
+            print("+ " + " ".join(cmd))
+            return ""
+        result = subprocess.run(cmd, capture_output=capture, text=True)
+        if check and result.returncode != 0:
+            raise SystemExit(f"command failed ({result.returncode}): {' '.join(cmd)}")
+        return result.stdout if capture else ""
+
+    def summary(self) -> None:
+        if self.report and self.report.exists() and os.environ.get("GITHUB_STEP_SUMMARY"):
+            with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+                f.write(self.report.read_text())
+
+    def commit_baselines(self) -> str | None:
+        """Commit Test/sqlite3 (already updated by the tools) to the PR branch;
+        returns the pushed sha, or None if the push was rejected."""
+        message = subprocess.run([str(TOOLS / "sqlite-report"), *self.jsons, "--commit-message",
+                                  "--run-url", self.run_url], capture_output=True, text=True).stdout
+        print(message)
+        with tempfile.TemporaryDirectory() as tmp:
+            shutil.copytree(BASELINE_DIR, Path(tmp) / "sqlite3")
+            self.sh(["git", "stash", "--quiet"])  # the checkout is the PR merge commit
+            self.sh(["git", "fetch", "--quiet", "origin", self.head_ref])
+            self.sh(["git", "checkout", "--quiet", "-B", self.head_ref, "FETCH_HEAD"])
+            if not self.dry_run:
+                shutil.copytree(Path(tmp) / "sqlite3", BASELINE_DIR, dirs_exist_ok=True)
+        self.sh(["git", "config", "user.name", BOT[0]])
+        self.sh(["git", "config", "user.email", BOT[1]])
+        self.sh(["git", "add", str(BASELINE_DIR.relative_to(REPO_ROOT))])
+        if not self.dry_run and subprocess.run(
+                ["git", "diff", "--cached", "--quiet"]).returncode == 0:
+            # A re-run after the bot already pushed: the branch has these baselines.
+            print(f"Baselines on {self.head_ref} are already up to date; nothing to commit.")
+            return ALREADY_COMMITTED
+        self.sh(["git", "commit", "--quiet", "-m", message])
+        pushed = self.dry_run or subprocess.run(
+            ["git", "push", "origin", f"HEAD:{self.head_ref}"]).returncode == 0
+        if not pushed:
+            print(f"Push to {self.head_ref} rejected (branch moved?); "
+                  "update the baselines manually.")
+            return None
+        sha = "<dry-run>" if self.dry_run else subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
+        print(f"Committed updated baselines to {self.head_ref}: {sha}")
+        return sha
+
+    def sticky_comment(self, sha: str | None) -> None:
+        report = self.report.read_text() if self.report and self.report.exists() else ""
+        if len(report) > COMMENT_LIMIT:
+            report = report[:COMMENT_LIMIT] + "\n\n... (report truncated; see the job summary)\n"
+        body = MARKER + "\n" + report
+        if sha == ALREADY_COMMITTED:
+            body += f"\nThe updated baselines are already on this branch. {PULL_NOTE}\n"
+        elif sha:
+            body += f"\nUpdated baselines were committed to this branch as {sha}. {PULL_NOTE}\n"
+        with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as f:
+            f.write(body)
+        comments = f"repos/{self.repo}/issues/{self.pr}/comments"
+        # The lookup must succeed: a failed lookup would post a second, non-sticky comment.
+        existing = self.sh(["gh", "api", comments, "--paginate",
+                            "--jq", f'.[] | select(.body | startswith("{MARKER}")) | .id'],
+                           capture=True).split()
+        if existing:
+            self.sh(["gh", "api", "-X", "PATCH", f"repos/{self.repo}/issues/comments/{existing[0]}",
+                     "-F", f"body=@{f.name}"], capture=True)
+        else:
+            self.sh(["gh", "api", "-X", "POST", comments, "-F", f"body=@{f.name}"], capture=True)
+
+    def run(self) -> int:
+        self.summary()
+        codes = self.codes
+        if any(c not in RESULT_CODES for c in codes.values()):
+            print(f"::error::sqlite scoreboard tooling failed (exit codes {codes}); "
+                  "see the step logs")
+            return 1
+        if all(c == str(EXIT_UNCHANGED) for c in codes.values()):
+            return 0
+        comparable = str(EXIT_NOT_COMPARABLE) not in codes.values()
+        sha = None
+        if self.in_repo_pr and comparable:
+            sha = self.commit_baselines()
+        if self.in_repo_pr:
+            self.sticky_comment(sha)
+        if not comparable:
+            print("::error::sqlite corpus changed (toolchain drift?): results are not comparable "
+                  "to the baselines; regenerate them deliberately with --write-baseline")
+            return 1
+        if str(EXIT_REGRESSED) in codes.values():
+            print("::error::sqlite REGRESSION: see the report "
+                  f"(baselines committed: {'yes' if sha else 'no'})")
+            return 1
+        if sha:
+            print("Improvements only; updated baselines committed to the PR branch.")
+            return 0
+        print("::warning::baselines changed; commit them: Tools/sqlite-scoreboard --write-baseline "
+              "&& Tools/mlir-feature-census --write-baseline")
+        return 1
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(prog="sqlite-ci", description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--dry-run", action="store_true", help="print the git/gh commands instead")
+    sys.exit(CI(parser.parse_args().dry_run).run())
+
+
+if __name__ == "__main__":
+    main()

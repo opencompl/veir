@@ -1,0 +1,131 @@
+name: sqlite scoreboard
+
+# Runs Tools/sqlite-scoreboard and Tools/mlir-feature-census against the
+# checked-in baselines (Test/sqlite3/<corpus>/) and lets Tools/sqlite-ci act on
+# the outcome. Two corpora are scored, -O0+sroa (primary) and -O3; in each,
+# every sqlite3 function and every defined global lands in a tier -- supported
+# (passes veir-opt as is), parsed (only with --allow-unregistered-dialect),
+# fail -- and any move down a tier is a regression. Timeouts are warnings.
+# Each baseline carries a digest of its corpus: a mismatch (toolchain drift)
+# fails the job as "not comparable" without counting flips and without
+# touching the baselines. Quiet runs (no baseline changed) only write the job
+# summary: no comment, no commit, green check.
+#
+# When a PR from an in-repo branch changes a baseline, Tools/sqlite-ci commits
+# the updated baselines to the PR branch (subject: counts; body: each
+# regression with the error it now hits, then the pull-before-push note) and
+# posts the report as one sticky comment, updated in place. Improvements then
+# pass. Policy: on regressions the baselines are still committed and the job
+# fails (red check); merging a red PR bakes the regression into main's
+# baseline, so the red check is the guard. The commit is made with
+# GITHUB_TOKEN, so it triggers no workflows: no loop, but also no check runs
+# on that sha -- with required status checks the PR needs one more push (or a
+# bot PAT) before it can merge. pull_request_target is deliberately not used:
+# it would run PR code with a write token from the base context. Fork PRs and
+# pushes to main cannot be committed to: an improvement then fails with the
+# commands to run, a regression with the error alone.
+#
+# Toolchain: clang/opt/llvm-extract 19 and mlir-translate/mlir-opt 22 (the
+# MLIR version lean_action_ci.yml uses; veir needs mlir-translate >= 21 for
+# the integer overflowFlags encoding). Chunks, and so the
+# baselines, depend on both: bump the versions, the cache key and the
+# baselines together.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  scoreboard:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build veir
+        uses: leanprover/lean-action@v1
+        with:
+          build-args: "--iofail"
+
+      - name: Build veir-opt
+        run: lake build veir-opt
+
+      - name: Add LLVM 19 apt repository
+        uses: gerlero/add-apt-repository@v1
+        with:
+          uri: http://apt.llvm.org/noble/
+          key: https://apt.llvm.org/llvm-snapshot.gpg.key
+          component: main
+          suite: llvm-toolchain-noble-19
+
+      - name: Add LLVM 22 apt repository
+        uses: gerlero/add-apt-repository@v1
+        with:
+          uri: http://apt.llvm.org/noble/
+          key: https://apt.llvm.org/llvm-snapshot.gpg.key
+          component: main
+          suite: llvm-toolchain-noble-22
+
+      - name: Install LLVM tools
+        uses: gerlero/apt-install@v1
+        with:
+          packages: clang-19 llvm-19 mlir-22-tools
+
+      # The whole working set (amalgamation, bitcode, chunks, result caches):
+      # restore the newest by key prefix; save only from main, even when the
+      # checks fail, so PRs read main's entries and never grow the cache.
+      - name: Restore sqlite scoreboard state
+        uses: actions/cache/restore@v4
+        with:
+          path: .lake/sqlite3-scoreboard
+          key: sqlite-scoreboard-3530300-clang19-mlir22-v3-${{ github.sha }}
+          restore-keys: sqlite-scoreboard-3530300-clang19-mlir22-v3-
+
+      # Both tools always run; their exit codes (0 unchanged, 1 improvements,
+      # 2 regression, 3 not comparable, 64 tool error) drive Tools/sqlite-ci.
+      # --write-baseline runs after the check in the same invocation, so the
+      # updated files are ready in the tree if they are needed.
+      - name: Run scoreboard against baselines
+        id: scoreboard
+        run: |
+          set +e
+          Tools/sqlite-scoreboard --llvm-bindir /usr/lib/llvm-19/bin --mlir-bindir /usr/lib/llvm-22/bin \
+            --check-baseline --write-baseline --json-out "$RUNNER_TEMP/scoreboard.json" > /dev/null
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Run feature census against baselines
+        id: census
+        run: |
+          set +e
+          Tools/mlir-feature-census --check-baseline --write-baseline --json-out "$RUNNER_TEMP/census.json" > /dev/null
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Save sqlite scoreboard state
+        if: always() && github.event_name != 'pull_request'
+        uses: actions/cache/save@v4
+        with:
+          path: .lake/sqlite3-scoreboard
+          key: sqlite-scoreboard-3530300-clang19-mlir22-v3-${{ github.sha }}
+
+      - name: Report, commit, comment, decide
+        if: always() && steps.scoreboard.outcome == 'success' && steps.census.outcome == 'success'
+        env:
+          SCOREBOARD_CODE: ${{ steps.scoreboard.outputs.code }}
+          CENSUS_CODE: ${{ steps.census.outputs.code }}
+          SCOREBOARD_JSON: ${{ runner.temp }}/scoreboard.json
+          CENSUS_JSON: ${{ runner.temp }}/census.json
+          REPORT: ${{ runner.temp }}/report.md
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_REF: ${{ github.head_ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          Tools/sqlite-report "$SCOREBOARD_JSON" "$CENSUS_JSON" > "$REPORT"
+          Tools/sqlite-ci
