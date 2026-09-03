@@ -36,6 +36,10 @@ def HW.fromAttrDict
   case «instance» => exact HWInstanceProperties.fromAttrDict attrDict
   all_goals exact .ok ()
 
+/--
+We chose not to add support for `inner_sym` and `doNotPrint` for `instance`
+because we don't have support for circt::hw::InnerSymAttr and mlir::UnitAttr yet.
+-/
 def HW.toAttrDict
     (op : HW) (props : HW.propertiesOf op) :
     Std.HashMap ByteArray Attribute :=
