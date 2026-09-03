@@ -68,6 +68,46 @@ structure IntegerAttr where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
+  The bits this attribute denotes when it is materialized at `width`.
+
+  MLIR reads the literal as an `APInt` of the attribute's *own* width and only
+  then adjusts it to the target width: a width-1 (or unsigned) attribute is
+  zero-extended, any other is sign-extended, and both truncate when the target
+  is narrower. See the `IntegerAttr` case of `getLLVMConstant` in
+  `mlir/lib/Target/LLVMIR/ModuleTranslation.cpp`. VeIR's integer types are
+  signless, so width 1 is the only zero-extending case.
+
+  `llvm.mlir.constant` is the only op whose two widths can differ; everywhere
+  else they agree and this just reads the literal at its own width.
+-/
+def IntegerAttr.bitsAt (attr : IntegerAttr) (width : Nat) : BitVec width :=
+  let bits := BitVec.ofInt attr.type.bitwidth attr.value
+  match attr.type.bitwidth with
+  | 1 => bits.zeroExtend width
+  | _ => bits.signExtend width
+
+/--
+  `attr` restated at `type`: the same denoted value, with the literal reduced to
+  the signed range of `type` so it prints as an attribute MLIR accepts.
+
+  An attribute already at `type` is returned verbatim. There is nothing to
+  restate, and at width 1 the two spellings `1 : i1` and `-1 : i1` denote the
+  same value, so rewriting one into the other would only churn what callers
+  match against.
+-/
+def IntegerAttr.atType (attr : IntegerAttr) (type : IntegerType) : IntegerAttr :=
+  if attr.type = type then attr
+  else { value := (attr.bitsAt type.bitwidth).toInt, type := type }
+
+/--
+  An `IntegerAttr` holding `value` reduced to the signed range of `type`, for
+  callers that compute a literal (a fold result, a negated constant) which may
+  not fit. The denoted value is unchanged: reduction is congruence mod `2^w`.
+-/
+def IntegerAttr.ofInt (value : Int) (type : IntegerType) : IntegerAttr :=
+  { value := (BitVec.ofInt type.bitwidth value).toInt, type := type }
+
+/--
  Floating point fastmath flags attribute.
 -/
 structure FastMathFlagsAttr where

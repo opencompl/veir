@@ -98,11 +98,17 @@ theorem matchXori_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs}
   simp only [matchXori, bind, Option.bind, pure] at hmatch
   grind
 
-/-- What matching `llvm.mlir.constant` (via `matchConstantIntOp`) syntactically guarantees. -/
+/-- What matching `llvm.mlir.constant` (via `matchConstantIntOp`) syntactically guarantees.
+
+  The attribute handed back is the stored one restated at the result type, not the
+  stored one itself: see `matchConstantIntOp`. -/
 theorem matchConstantIntOp_implies {op : OperationPtr} {ctx : IRContext OpCode} {intAttr} :
     matchConstantIntOp op ctx = some intAttr →
     op.getOpType! ctx = Llvm.mlir__constant ∧
-    (op.getProperties! ctx Llvm.mlir__constant).value = .integer intAttr := by
+    ∃ stored resType,
+      (op.getProperties! ctx Llvm.mlir__constant).value = .integer stored ∧
+      ((op.getResult 0 : ValuePtr).getType! ctx).val = .integerType resType ∧
+      intAttr = stored.atType resType := by
   intro hmatch
   simp only [matchConstantIntOp, pure] at hmatch
   grind

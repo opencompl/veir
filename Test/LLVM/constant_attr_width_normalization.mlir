@@ -1,7 +1,10 @@
 // RUN: VEIR_ROUNDTRIP
 // RUN: MLIR_ROUNDTRIP
-// Expected to fail until `llvm.mlir.constant` handles the value attribute's
-// integer width the way MLIR does; drop the XFAIL with the fix.
+// Expected to fail until the parser normalizes an integer attribute's literal to
+// its own declared width, the way an `APInt` does; drop the XFAIL with that.
+// The interpreter and the rewrite patterns already read a mismatched literal
+// correctly (`IntegerAttr.bitsAt`), so what is left here is purely the
+// round-tripped spelling.
 // XFAIL: *
 
 // An MLIR `IntegerAttr` *is* an APInt of its declared width, so MLIR normalizes
@@ -14,8 +17,8 @@
 //              llvm.mlir.constant(-1 : i1)          -> llvm.mlir.constant(true)
 //
 // Veir keeps the literal as an unbounded `Int` and prints it back verbatim.
-// Adopting MLIR's normalization is what makes the interpreter cases in
-// Test/Interpreter/LLVM/constant_attr_*.mlir come out right for free.
+// Adopting MLIR's normalization would make `IntegerAttr.bitsAt` -- the extension
+// the interpreter and the matchers apply on the way out -- the identity.
 //
 // Note: Veir prints a width-1 attribute as `1 : i1` where MLIR prints `true`.
 // Both denote the same attribute and each parser accepts the other's form, so

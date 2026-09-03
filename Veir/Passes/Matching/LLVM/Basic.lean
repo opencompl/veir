@@ -51,12 +51,24 @@ def matchXori (op : OperationPtr) (ctx : IRContext OpCode) :
   let (op, _) ← matchOp op ctx (Llvm.xor) 2
   return (op[0]!, op[1]!)
 
+/--
+  Match `llvm.mlir.constant` with an integer value, returning that value *at the
+  op's result type*.
+
+  `llvm.mlir.constant` is the one op whose value attribute may carry a different
+  integer width than its result (the verifier allows it deliberately), and the
+  literal alone is then not the operand's runtime value: `-1 : i1` in an `i32`
+  result is `1`, and `300 : i32` in an `i8` result is `44`. Callers compare the
+  returned value against `0`, `1` and `-1` and fold on it, so hand them the value
+  the interpreter will produce rather than the raw literal.
+-/
 def matchConstantIntOp (op : OperationPtr) (ctx : IRContext OpCode) :
     Option IntegerAttr := do
   let Llvm.mlir__constant := toDialect? Llvm (op.getOpType! ctx) | none
   let properties := op.getProperties! ctx Llvm.mlir__constant
   let .integer intAttr := properties.value | none
-  return intAttr
+  let .integerType resType := ((op.getResult 0 : ValuePtr).getType! ctx).val | none
+  return intAttr.atType resType
 
 def matchConstantIntVal (val : ValuePtr) (ctx : IRContext OpCode) :
     Option IntegerAttr := do
