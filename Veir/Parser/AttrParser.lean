@@ -18,6 +18,7 @@ public section
 open Veir.Parser.Lexer
 open Veir.Parser
 open Veir
+open Lean Float Model
 
 namespace Veir.AttrParser
 
@@ -203,7 +204,6 @@ def parseOptionalStringAttr : AttrParserM (Option StringAttr) := do
     | return none
   return some (StringAttr.mk bytes)
 
-open Lean Float Model
 /--
 Use Lean's builtin floating point packing algorithm,
 with a custom bias instead of the default IEEE-based exponent bias
@@ -221,12 +221,16 @@ def packUnpackedFloatToFloatType
   | .zero s => (UnpackedFloat.packedZero type.toFormat s).cast (by simp)
   | .finite s m e _ =>
     let actualMantissaBits := m.log2
-    -- mantissa * 2^exp
+    -- The floating point is stored mantissa * 2^exp without leading 1.
+    -- So we need to add `type.mantissa` to compensate.
     let biasedExponent := (e + type.bias + type.mantissa).toNat
-    if 2 ^ type.exponent < biasedExponent then
+    -- Overflow: biased exponent cannot be represented.
+    if 2 ^ type.exponent ≤ biasedExponent then
       (UnpackedFloat.packedInfinity type.toFormat s).cast (by simp)
+
+    -- For normal floating point numbers, mantissa should start with a 1,
+    -- so actual mantissa bits is equal to mantissa bitwidth.
     else if actualMantissaBits = type.mantissa then
-      -- normal
       let pf := UnpackedFloat.packComponents type.toFormat
         s (BitVec.ofNat _ biasedExponent) (BitVec.ofNat _ m)
       pf.cast (by simp)
@@ -237,7 +241,6 @@ def packUnpackedFloatToFloatType
       pf.cast (by simp)
 
 
-open Lean Float Model
 /--
 Converts a base-10 float to the exact IEEE-754 bit pattern of the given type,
 using round-to-nearest, ties-to-even. Overflow saturates to infinity (or the
