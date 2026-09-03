@@ -466,19 +466,13 @@ def constant (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   RewritePattern.fromLocalRewrite constant_local rewriter op opInBounds
 
 /-- llvm.add -> riscv.add -/
-def add64 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite add64_pattern.compile rewriter op opInBounds
+def add64 : Puddle.CompiledPattern OpCode := add64_pattern.compile
 
 /-- llvm.add -> riscv.addw (riscv.addw for i32, keeps the result sign-extended) -/
-def add32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite add32_pattern.compile rewriter op opInBounds
+def add32 : Puddle.CompiledPattern OpCode := add32_pattern.compile
 
 /-- llvm.and -> riscv.and (bitwise, so one instruction for every legal width) -/
-def and (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite and_pattern.compile rewriter op opInBounds
+def and : Puddle.CompiledPattern OpCode := and_pattern.compile
 
 /-- llvm.ashr -> riscv.sra -/
 def ashr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
@@ -695,79 +689,49 @@ def icmp (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   RewritePattern.fromLocalRewrite icmp_local rewriter op opInBounds
 
 /-- llvm.or -> riscv.or (bitwise, so one instruction for every legal width) -/
-def or (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite or_pattern.compile rewriter op opInBounds
+def or : Puddle.CompiledPattern OpCode := or_pattern.compile
 
 /-- llvm.xor -> riscv.xor -/
-def xor64 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite xor64_pattern.compile rewriter op opInBounds
+def xor64 : Puddle.CompiledPattern OpCode := xor64_pattern.compile
 
 /-- llvm.xor -> riscv.xor (no `W` variant needed: xor is bitwise) -/
-def xor32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite xor32_pattern.compile rewriter op opInBounds
+def xor32 : Puddle.CompiledPattern OpCode := xor32_pattern.compile
 
 /-- llvm.mul -> riscv.mul -/
-def mul64 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite mul64_pattern.compile rewriter op opInBounds
+def mul64 : Puddle.CompiledPattern OpCode := mul64_pattern.compile
 
 /-- llvm.mul -> riscv.mulw (sign-extends the result) -/
-def mul32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite mul32_pattern.compile rewriter op opInBounds
+def mul32 : Puddle.CompiledPattern OpCode := mul32_pattern.compile
 
 /-- llvm.sdiv -> riscv.div -/
-def sdiv64 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite sdiv64_pattern.compile rewriter op opInBounds
+def sdiv64 : Puddle.CompiledPattern OpCode := sdiv64_pattern.compile
 
 /-- llvm.sdiv -> riscv.divw -/
-def sdiv32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite sdiv32_pattern.compile rewriter op opInBounds
+def sdiv32 : Puddle.CompiledPattern OpCode := sdiv32_pattern.compile
 
 /-- llvm.udiv -> riscv.divu -/
-def udiv64 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite udiv64_pattern.compile rewriter op opInBounds
+def udiv64 : Puddle.CompiledPattern OpCode := udiv64_pattern.compile
 
 /-- llvm.udiv -> riscv.divuw -/
-def udiv32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite udiv32_pattern.compile rewriter op opInBounds
+def udiv32 : Puddle.CompiledPattern OpCode := udiv32_pattern.compile
 
 /-- llvm.srem -> riscv.rem -/
-def srem64 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite srem64_pattern.compile rewriter op opInBounds
+def srem64 : Puddle.CompiledPattern OpCode := srem64_pattern.compile
 
 /-- llvm.srem -> riscv.remw -/
-def srem32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite srem32_pattern.compile rewriter op opInBounds
+def srem32 : Puddle.CompiledPattern OpCode := srem32_pattern.compile
 
 /-- llvm.urem -> riscv.remu -/
-def urem64 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite urem64_pattern.compile rewriter op opInBounds
+def urem64 : Puddle.CompiledPattern OpCode := urem64_pattern.compile
 
 /-- llvm.urem -> riscv.remuw -/
-def urem32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite urem32_pattern.compile rewriter op opInBounds
+def urem32 : Puddle.CompiledPattern OpCode := urem32_pattern.compile
 
 /-- llvm.sub -> riscv.sub -/
-def sub64 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite sub64_pattern.compile rewriter op opInBounds
+def sub64 : Puddle.CompiledPattern OpCode := sub64_pattern.compile
 
 /-- llvm.sub -> riscv.subw -/
-def sub32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite sub32_pattern.compile rewriter op opInBounds
+def sub32 : Puddle.CompiledPattern OpCode := sub32_pattern.compile
 
 /--
   llvm.sext %x `i8`  to `i32` -> riscv.sextb %x
@@ -776,18 +740,11 @@ def sub32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   llvm.sext %x `i16` to `i32` -> riscv.sexth %x
   llvm.sext %x `i32` to `i64` -> riscv.sextw %x
 -/
-def sext8 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite sext8_pattern.compile rewriter op opInBounds
+def sext8 : Puddle.CompiledPattern OpCode := sext8_pattern.compile
 
-def sext16 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite sext16_pattern.compile rewriter op opInBounds
+def sext16 : Puddle.CompiledPattern OpCode := sext16_pattern.compile
 
-def sext32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite sext32_pattern.compile rewriter op opInBounds
-
+def sext32 : Puddle.CompiledPattern OpCode := sext32_pattern.compile
 /--
   llvm.zext %x `i8`  to `i32` -> riscv.zextb %x
   llvm.zext %x `i8`  to `i64` -> riscv.zextb %x
@@ -795,18 +752,11 @@ def sext32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   llvm.zext %x `i16` to `i32` -> riscv.zexth %x
   llvm.zext %x `i32` to `i64` -> riscv.zextw %x
 -/
-def zext8 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite zext8_pattern.compile rewriter op opInBounds
+def zext8 : Puddle.CompiledPattern OpCode := zext8_pattern.compile
 
-def zext16 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite zext16_pattern.compile rewriter op opInBounds
+def zext16 : Puddle.CompiledPattern OpCode := zext16_pattern.compile
 
-def zext32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite zext32_pattern.compile rewriter op opInBounds
-
+def zext32 : Puddle.CompiledPattern OpCode := zext32_pattern.compile
 /--
   llvm.trunc %x iX to iY -> builtin_unrealized_conversion_cast (!riscv.reg) : iY
   where `iY`'s width is smaller than `iX`'s.
@@ -1176,42 +1126,26 @@ def selectGeneral (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 -/
 
 /-- llvm.intr.smax -> riscv.max -/
-def smax64 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite smax64_pattern.compile rewriter op opInBounds
+def smax64 : Puddle.CompiledPattern OpCode := smax64_pattern.compile
 
-def smax32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite smax32_pattern.compile rewriter op opInBounds
+def smax32 : Puddle.CompiledPattern OpCode := smax32_pattern.compile
 
 /-- llvm.intr.smin -> riscv.min -/
-def smin64 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite smin64_pattern.compile rewriter op opInBounds
+def smin64 : Puddle.CompiledPattern OpCode := smin64_pattern.compile
 
-def smin32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite smin32_pattern.compile rewriter op opInBounds
+def smin32 : Puddle.CompiledPattern OpCode := smin32_pattern.compile
 
 /-- llvm.intr.umax -> riscv.maxu -/
-def umax (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite umax_pattern.compile rewriter op opInBounds
+def umax : Puddle.CompiledPattern OpCode := umax_pattern.compile
 
 /-- llvm.intr.umin -> riscv.minu -/
-def umin (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite umin_pattern.compile rewriter op opInBounds
+def umin : Puddle.CompiledPattern OpCode := umin_pattern.compile
 
 /-- llvm.intr.fshl with identical data operands is a rotate-left: -> riscv.rol (riscv.rolw for i32).
     The general (distinct-operand) funnel shift is left unselected. -/
-def fshl64 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite fshl64_pattern.compile rewriter op opInBounds
+def fshl64 : Puddle.CompiledPattern OpCode := fshl64_pattern.compile
 
-def fshl32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite fshl32_pattern.compile rewriter op opInBounds
+def fshl32 : Puddle.CompiledPattern OpCode := fshl32_pattern.compile
 
 /-! ## Saturating integer intrinsics
 
@@ -1473,14 +1407,9 @@ def abs (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 
 /-- llvm.intr.fshr with identical data operands is a rotate-right: -> riscv.ror (riscv.rorw for i32).
     The general (distinct-operand) funnel shift is left unselected. -/
-def fshr64 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite fshr64_pattern.compile rewriter op opInBounds
+def fshr64 : Puddle.CompiledPattern OpCode := fshr64_pattern.compile
 
-def fshr32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite fshr32_pattern.compile rewriter op opInBounds
-
+def fshr32 : Puddle.CompiledPattern OpCode := fshr32_pattern.compile
 /-- llvm.intr.fshr with identical data operands and a constant shift amount is a
     constant rotate-right: -> riscv.rori (mirrors `PatGprImm<rotr, RORI>`). -/
 def fshrConst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
@@ -1718,10 +1647,12 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern #[selectCzeroeqz, selectCzeronez, selectGeneral,
     ctlz32.run, ctlz64.run, cttz32.run, cttz64.run, ctpop32.run, ctpop64.run, bswap, bitreverse,
-    constant, add, and, ashr, icmp, or, xor, mul,
-    sdiv, udiv, srem, urem, sext, zext, trunc, shl, lshr, sub, bitcast, load, getelementptr, store,
-    smax, smin, umax, umin, saddSat, ssubSat, uaddSat, usubSat, sshlSat, ushlSat, abs,
-    fshlConst, fshrConst, fshl, fshr, fshlGeneral, fshrGeneral, poisonConst, freeze]
+    constant, add32.run, add64.run, and.run, ashr, icmp, or.run, xor32.run, xor64.run, mul32.run, mul64.run,
+    sdiv32.run, sdiv64.run, udiv32.run, udiv64.run, srem32.run, srem64.run, urem32.run, urem64.run,
+    sext32.run, sext16.run, sext8.run, zext32.run, zext16.run, zext8.run, trunc, shl, lshr,
+    sub64.run, sub32.run, bitcast, load, getelementptr, store,
+    smax64.run, smax32.run, smin64.run, smin32.run, umax.run, umin.run, saddSat, ssubSat, uaddSat, usubSat, sshlSat, ushlSat, abs,
+    fshlConst, fshrConst, fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral, fshrGeneral, poisonConst, freeze]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying main instruction-selection patterns"
   | some ctx => pure ctx
