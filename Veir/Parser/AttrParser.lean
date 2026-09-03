@@ -276,6 +276,9 @@ private def numericValueToNat? (value : ByteArray) : Option Nat :=
   For a floating-point type, `value` may be a (possibly negated) decimal floating-point
   literal, or a `0x`-prefixed hexadecimal integer literal interpreted as the raw IEEE-754
   bit pattern of the type. A decimal integer literal is rejected for a floating-point type.
+
+  MLIR accepts the following floating point numbers: [-+]?[0-9]+[.][0-9]*([eE][-+]?[0-9]+)?
+  The regex is taken from AsmParser/Lexer.cpp in LLVM repository.
 -/
 def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
   if (← parseOptionalKeyword "false".toByteArray) then

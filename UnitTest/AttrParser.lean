@@ -207,10 +207,6 @@ open Lean Float Model
 -- Zero and negative zero.
 #assert expectSuccessAttr "0.0 : f64"  (fpAttr FloatType.f64 0x0000000000000000)
 #assert expectSuccessAttr "-0.0 : f64" (fpAttr FloatType.f64 0x8000000000000000)
--- Scientific Notation.
-#assert expectSuccessAttr "1.3e7 : f32" (fpAttr FloatType.f32 0x4b465d40)
-#assert expectSuccessAttr "1.3e-5 : f32" (fpAttr FloatType.f32 0x375a1a93)
-#assert expectSuccessAttr "-2.2e+8 : f32" (fpAttr FloatType.f32 0xcd51cef0)
 -- Other float types.
 #assert expectSuccessAttr "1.0 : f32"   (fpAttr FloatType.f32 0x3f800000)
 #assert expectSuccessAttr "1.5 : f32"   (fpAttr FloatType.f32 0x3fc00000)
@@ -219,6 +215,19 @@ open Lean Float Model
 #assert expectSuccessAttr "1.5 : f16"   (fpAttr FloatType.f16 0x3e00)
 #assert expectSuccessAttr "2.25 : f16"  (fpAttr FloatType.f16 0x4080)
 #assert expectSuccessAttr "1.5 : bf16"  (fpAttr FloatType.bf16 0x3fc0)
+#assert expectSuccessAttr "0.125 : f8E4M3FN" (fpAttr FloatType.f8E4M3FN 0x20)
+#assert expectSuccessAttr "7.701 : f8E4M3FN" (fpAttr FloatType.f8E4M3FN 0x4f)
+#assert expectSuccessAttr "0.125 : f8E4M3FNUZ" (fpAttr FloatType.f8E4M3FNUZ 0x28)
+#assert expectSuccessAttr "7.701 : f8E4M3FNUZ" (fpAttr FloatType.f8E4M3FNUZ 0x57)
+-- Scientific Notation.
+#assert expectSuccessAttr "1.3e7 : f32" (fpAttr FloatType.f32 0x4b465d40)
+#assert expectSuccessAttr "1.3e-5 : f32" (fpAttr FloatType.f32 0x375a1a93)
+#assert expectSuccessAttr "-2.2e+8 : f32" (fpAttr FloatType.f32 0xcd51cef0)
+#assert expectSuccessAttr "19.80e5 : f32" (fpAttr FloatType.f32 0x49f1b300)
+#assert expectSuccessAttr "100000000000000000000000000000000000000000000000000.0e-50 : f32"
+  (fpAttr FloatType.f32 0x3f800000)
+-- Omitted numbers after the decimal point.
+#assert expectSuccessAttr "1. : f32" (fpAttr FloatType.f32 0x3f800000)
 -- A 0x-prefixed hexadecimal literal is accepted as the raw IEEE-754 bit pattern of the type.
 #assert expectSuccessAttr "0x3f000000 : f32" (fpAttr FloatType.f32 0x3f000000)
 #assert expectSuccessAttr "0x3ff8000000000000 : f64" (fpAttr FloatType.f64 0x3ff8000000000000)
@@ -229,10 +238,26 @@ open Lean Float Model
   "expected a decimal float or 0x-prefixed hex bit pattern in float attribute" (some 0)
 #assert expectErrorAttr "-10 : f32"
   "expected a decimal float or 0x-prefixed hex bit pattern in float attribute" (some 1)
-
 -- Bad floating point types.
 #assert expectErrorAttr "1.5 : f900"
   "integer or float type expected after ':' in numeric attribute" (some 6)
+#assert expectErrorAttr "1.5 : i32"
+  "integer literal expected in integer attribute" (some 9)
+-- Bad floating point syntax.
+-- MLIR only allows: [-+]?[0-9]+[.][0-9]*([eE][-+]?[0-9]+)?
+#eval testOptionalAttr "1.5 : f32"
+#assert expectErrorAttr "1.5.2 : f32"
+  "expected three consecutive '.' for an ellipsis" none
+#assert expectErrorAttr "1.2. : f32"
+  "expected three consecutive '.' for an ellipsis" none
+#assert expectErrorAttr ".1 : f32"
+  "expected three consecutive '.' for an ellipsis" none
+#assert expectErrorAttr "1.0e*8 : f32"
+  "Expected punctuation ':'" (some 4)
+#assert expectErrorAttr "1e1 : f32"
+  "Expected punctuation ':'" (some 1)
+#assert expectErrorAttr "1.0e1e1 : f32"
+  "Expected punctuation ':'" (some 5)
 
 
 /-! ## String attributes -/
