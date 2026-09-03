@@ -1,0 +1,261 @@
+#!/usr/bin/env python3
+"""MLIR feature census: which distinct constructs does a corpus need?
+
+Scans the generic-MLIR chunks that Tools/sqlite-scoreboard generated, extracts
+the deduplicated syntactic features they use -- operation names, types,
+attribute literals -- and tests each feature on its own against veir-opt,
+wrapped in a minimal synthetic module: ops for registration (no
+--allow-unregistered-dialect), types and attributes for syntax (with it). One
+unsupported feature cannot shadow another, so the result is a complete
+checklist of what the corpus needs, ranked by how many files use each missing
+feature, with a minimal reproducer each. Statuses: ok, missing, timeout (a
+probe is retried once; a lasting timeout is only ever a warning).
+
+Parse-stage features only: whether an op accepts a given attribute as a typed
+property, and whole-module verification, are beyond a wrapped one-liner.
+Features inside #dlti.dl_spec and inside string literals are skipped: veir
+stores the data layout opaquely, and string contents are not syntax.
+
+Each scoreboard corpus (-O0+sroa, -O3; functions and globals together) is
+censused against Test/sqlite3/<corpus>/features-baseline.txt, whose header
+carries the corpus digest; formats and exit codes are in
+Tools/sqlite_board.py. The report is printed as Markdown, like CI's.
+"""
+
+from __future__ import annotations
+
+import argparse
+import concurrent.futures
+import hashlib
+import os
+import re
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sqlite_board as board
+from sqlite_board import BASELINE_DIR, CORPORA, STORE, TIMEOUT, VEIR_OPT
+
+KINDS = ("op", "type", "attr")
+RANK = {"missing": 0, "ok": 1}
+# The extractor and normalizer define the feature set: a cache written by a
+# different version of this file is not reused.
+TOOL_HASH = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()[:16]
+
+
+# ---------------------------------------------------------- extraction --
+
+def scan_balanced(text: str, i: int) -> int | None:
+    """text[i] == '<'; the index just past the matching '>' (quote-aware)."""
+    depth = 0
+    while i < len(text):
+        c = text[i]
+        if c == '"':
+            i += 1
+            while i < len(text) and text[i] != '"':
+                i += 2 if text[i] == "\\" else 1
+        elif c == "<":
+            depth += 1
+        elif c == ">":
+            depth -= 1
+            if depth == 0:
+                return i + 1
+        i += 1
+    return None
+
+
+def extract_ops(text: str) -> list[str]:
+    return re.findall(r'"([a-z_]+\.[\w.$]+)"\(', text)
+
+
+def extract_types(text: str) -> list[str]:
+    feats = []
+    for m in re.finditer(r"!\w[\w.$]*", text):
+        j = m.end()
+        if j < len(text) and text[j] == "<":
+            j = scan_balanced(text, j)
+            if j is None:
+                continue
+        feats.append(text[m.start():j])
+    for m in re.finditer(r"\b(vector|tensor|memref)<", text):
+        j = scan_balanced(text, m.end() - 1)
+        if j is not None:
+            feats.append(text[m.start():j])
+    return feats
+
+
+TYPED_FLOAT = re.compile(r"-?(?:\d+\.\d+(?:[eE][+-]?\d+)?|0x[0-9A-Fa-f]+)\s*:\s*f\d+")
+TYPED_INT = re.compile(r"-?\d+\s*:\s*i\d+\b")
+
+
+def extract_attrs(text: str) -> list[str]:
+    feats = []
+    for m in re.finditer(r"\bdense<", text):
+        j = scan_balanced(text, m.end() - 1)
+        if j is None:
+            continue
+        colon = re.match(r"\s*:\s*(vector|tensor)<", text[j:])
+        if colon:
+            end = scan_balanced(text, j + colon.end() - 1)
+            if end is not None:
+                feats.append(text[m.start():end])
+    for m in re.finditer(r"#\w[\w.$]*", text):
+        j = m.end()
+        if j < len(text) and text[j] == "<":
+            j = scan_balanced(text, j)
+            if j is None:
+                continue
+        feats.append(text[m.start():j])
+    feats += (m.group() for m in TYPED_FLOAT.finditer(text))
+    feats += (m.group() for m in TYPED_INT.finditer(text))
+    return feats
+
+
+EXTRACTORS = {"op": extract_ops, "type": extract_types, "attr": extract_attrs}
+
+
+def normalize(feature: str) -> str:
+    """Dedup key: same shape, different payload -> same feature."""
+    s = re.sub(r'"(?:[^"\\]|\\.)*"', '"S"', feature)
+    s = re.sub(r"0x[0-9A-Fa-f]+", "HEX", s)
+    # Digit runs are payload unless they follow a letter (i32, f64, bb1, 4xi8's x).
+    s = re.sub(r"(?<![A-Za-z0-9])\d+", "N", s)
+    return re.sub(r"-?N(?:,\s*-?N)+", "N, ..", s)  # a list is one feature at any length
+
+
+def extract_features(files: list[Path]) -> dict[str, dict]:
+    """{"kind name": {"kind", "example", "files"}} over the corpus."""
+    features: dict[str, dict] = {}
+    for path in files:
+        text = path.read_text(errors="replace")
+        for m in list(re.finditer(r"#dlti\.dl_spec<", text))[::-1]:
+            end = scan_balanced(text, m.end() - 1)
+            if end is not None:
+                text = text[:m.start()] + text[end:]
+        blanked = re.sub(r'"(?:[^"\\]|\\.)*"', '""', text)  # op names live in quotes
+        seen: set[str] = set()
+        for kind, extract in EXTRACTORS.items():
+            for feat in extract(text if kind == "op" else blanked):
+                key = f"{kind} {normalize(feat)}"
+                features.setdefault(key, {"kind": kind, "example": feat, "files": 0})
+                if key not in seen:
+                    seen.add(key)
+                    features[key]["files"] += 1
+    return features
+
+
+# ------------------------------------------------------------- probing --
+
+def wrap(kind: str, feature: str) -> str:
+    if kind == "op":
+        body = f'  "{feature}"() : () -> ()'
+    elif kind == "type":
+        body = f'  %0 = "test.op"() : () -> ({feature})'
+    else:
+        body = f'  "test.op"() {{x = {feature}}} : () -> ()'
+    return f'"builtin.module"() ({{\n{body}\n}}) : () -> ()\n'
+
+
+def probe(kind: str, feature: str, tmpdir: str, timeout: float) -> tuple[str, str]:
+    """(status, detail) for one feature in isolation."""
+    with tempfile.NamedTemporaryFile("w", dir=tmpdir, suffix=".mlir", delete=False) as f:
+        f.write(wrap(kind, feature))
+        path = Path(f.name)
+    cmd = [str(VEIR_OPT)] + ([] if kind == "op" else ["--allow-unregistered-dialect"])
+    try:
+        result = subprocess.run(cmd + [str(path)], capture_output=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return TIMEOUT, ""
+    finally:
+        path.unlink(missing_ok=True)
+    if result.returncode == 0:
+        return "ok", ""
+    stderr = result.stderr.decode("utf-8", "replace")
+    err = next((line.split("error: ", 1)[1] for line in stderr.splitlines() if "error: " in line),
+               stderr.strip().splitlines()[0] if stderr.strip() else "<no output>")
+    if result.returncode != 1 or "PANIC" in stderr:
+        return "missing", f"<veir-opt crashed: exit {result.returncode}> {err}"
+    if kind == "op" and "is not registered" not in err:
+        return "ok", ""  # a registered op rejecting a degenerate instance
+    return "missing", err
+
+
+def census_corpus(dirs: list[Path], args) -> dict:
+    """One corpus's board: every distinct feature with its status."""
+    files = sorted(f for d in dirs for f in d.glob("*.mlir"))
+    if not files:
+        raise SystemExit(f"no .mlir files in {[str(d) for d in dirs]} "
+                         "(run Tools/sqlite-scoreboard first)")
+    digest = board.corpus_digest({f.name: board.canonical_hash(f) for f in files})
+    key = {"veir_opt": board.file_hash(VEIR_OPT), "tool": TOOL_HASH, "corpus": digest}
+    cache_file = dirs[0] / ".census-cache.json"
+    cached = board.load_cache(cache_file, key)
+    features = cached.get("features") or extract_features(files)
+    verdicts: dict[str, list] = cached.get("verdicts", {})
+
+    todo = [k for k in features if k not in verdicts or verdicts[k][0] == TIMEOUT]
+    with tempfile.TemporaryDirectory() as tmpdir, \
+         concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
+        def run(k: str) -> list:
+            return list(probe(features[k]["kind"], features[k]["example"], tmpdir, args.timeout))
+        verdicts.update(zip(todo, pool.map(run, todo)))
+        for k in [k for k in todo if verdicts[k][0] == TIMEOUT]:  # retry once, alone
+            verdicts[k] = run(k)
+    try:
+        board.save_cache(cache_file, key, {"features": features, "verdicts": verdicts})
+    except OSError:
+        pass  # read-only corpus: just don't cache
+
+    items = {k: {"status": verdicts[k][0], "detail": verdicts[k][1], "kind": f["kind"],
+                 "example": f["example"], "files": f["files"]} for k, f in features.items()}
+    counts = {s: sum(1 for i in items.values() if i["status"] == s) for s in (*RANK, TIMEOUT)}
+    kinds = {kind: {"ok": sum(1 for i in items.values()
+                              if i["kind"] == kind and i["status"] == "ok"),
+                    "total": sum(1 for i in items.values() if i["kind"] == kind)}
+             for kind in KINDS}
+    return {"digest": digest, "files": len(files), "items": items, "counts": counts,
+            "kinds": kinds, "delta": None}
+
+
+def discover_corpora() -> dict[str, list[Path]]:
+    """{corpus: [chunk dirs]} for every corpus the scoreboard generated."""
+    found = {}
+    for chunks in sorted(STORE.glob("*/.scoreboard/*/chunks")):
+        found[chunks.parent.name] = [chunks] + sorted(chunks.parent.glob("chunks-*"))
+    order = [c for c in CORPORA if c in found] + sorted(set(found) - set(CORPORA))
+    return {c: found[c] for c in order}
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(prog="mlir-feature-census", description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    board.add_common_args(parser)
+    args = parser.parse_args()
+    args.jobs = args.jobs or os.cpu_count() or 4
+    if not VEIR_OPT.exists():
+        raise SystemExit(f"{VEIR_OPT} not built (run: lake build veir-opt)")
+    corpora = discover_corpora()
+    if not corpora:
+        raise SystemExit("no corpora found (run Tools/sqlite-scoreboard first)")
+
+    report = {"tool": "mlir-feature-census", "veir_opt": board.file_hash(VEIR_OPT), "corpora": {}}
+    for corpus, dirs in corpora.items():
+        if args.corpus and corpus not in args.corpus:
+            continue
+        entry = census_corpus(dirs, args)
+        path = BASELINE_DIR / corpus / "features-baseline.txt"
+        if args.check_baseline:
+            entry["delta"] = board.diff_baseline(path, entry["digest"], entry["items"], RANK)
+        if args.write_baseline:
+            board.write_baseline(path, entry["digest"],
+                                 {k: i["status"] for k, i in entry["items"].items()})
+            print(f"baseline written to {path}", file=sys.stderr)
+        report["corpora"][corpus] = {"label": CORPORA.get(corpus, corpus),
+                                     "boards": {"features": entry}}
+    board.finish(args, report)
+
+
+if __name__ == "__main__":
+    board.run_main(main)
