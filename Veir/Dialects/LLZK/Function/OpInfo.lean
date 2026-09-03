@@ -10,15 +10,19 @@ namespace Veir
 
 public section
 
-@[opcodes, dialect_name "function"]
-inductive Function_ where
+namespace LLZK
+
+@[opcodes]
+inductive Function where
 | «def»
 | return
 | call
 deriving Inhabited, Repr, Hashable, DecidableEq
 
+end LLZK
+
 @[expose, properties_of]
-def Function_.propertiesOf (op : Function_) : Type :=
+def LLZK.Function.propertiesOf (op : LLZK.Function) : Type :=
 match op with
 | .«def» => FunctionDefProperties
 | .return => Unit
@@ -33,16 +37,16 @@ private def noProperties (opName : String) (attrDict : Std.HashMap ByteArray Att
   else
     .ok ()
 
-def Function_.fromAttrDict
-    (op : Function_) (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String (Function_.propertiesOf op) :=
+def LLZK.Function.fromAttrDict
+    (op : LLZK.Function) (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String (LLZK.Function.propertiesOf op) :=
   match op with
   | .«def» => FunctionDefProperties.fromAttrDict attrDict
   | .return => noProperties "function.return" attrDict
   | .call => FunctionCallProperties.fromAttrDict attrDict
 
-def Function_.toAttrDict
-    (op : Function_) (props : Function_.propertiesOf op) :
+def LLZK.Function.toAttrDict
+    (op : LLZK.Function) (props : LLZK.Function.propertiesOf op) :
     Std.HashMap ByteArray Attribute :=
   match op with
   | .«def» => Id.run do
@@ -59,40 +63,40 @@ def Function_.toAttrDict
 or a `compute` function writing struct members.
 -/
 @[get_effects]
-def Function_.getEffects
-    (op : Function_) (_props : Function_.propertiesOf op) : MemoryEffects :=
+def LLZK.Function.getEffects
+    (op : LLZK.Function) (_props : LLZK.Function.propertiesOf op) : MemoryEffects :=
   match op with
   | .call => .unknown
   | _ => .none
 
-def Function_.isConstantLike (_op : Function_) : Bool := false
+def LLZK.Function.isConstantLike (_op : LLZK.Function) : Bool := false
 
 /-- A `function.def` body cannot reference SSA values from enclosing regions. -/
-def Function_.isIsolatedFromAbove (op : Function_) : Bool :=
+def LLZK.Function.isIsolatedFromAbove (op : LLZK.Function) : Bool :=
   match op with
   | .«def» => true
   | _ => false
 
-def Function_.hasSSADominance (_op : Function_) (_index : Nat) : Bool :=
+def LLZK.Function.hasSSADominance (_op : LLZK.Function) (_index : Nat) : Bool :=
   true
 
 @[is_terminator]
-def Function_.isTerminator (op : Function_) : Bool :=
+def LLZK.Function.isTerminator (op : LLZK.Function) : Bool :=
   match op with
   | .return => true
   | .«def» | .call => false
 
-#generate_dialect Function_
+#generate_dialect LLZK.Function
 
-instance : IsOpCode Function_ where
-  fromName := Function_.fromName
-  name := Function_.name
-  propertiesOf := Function_.propertiesOf
-  fromAttrDict := Function_.fromAttrDict
-  toAttrDict := Function_.toAttrDict
+instance : IsOpCode LLZK.Function where
+  fromName := LLZK.Function.fromName
+  name := LLZK.Function.name
+  propertiesOf := LLZK.Function.propertiesOf
+  fromAttrDict := LLZK.Function.fromAttrDict
+  toAttrDict := LLZK.Function.toAttrDict
 
-def Function_.functionInterface? (op : Function_) :
-    Option (FunctionOpInterface (Function_.propertiesOf op)) :=
+def LLZK.Function.functionInterface? (op : LLZK.Function) :
+    Option (FunctionOpInterface (LLZK.Function.propertiesOf op)) :=
   match op with
   | .«def» =>
     some
@@ -103,7 +107,7 @@ def Function_.functionInterface? (op : Function_) :
   | .return | .call => none
 
 /-- The currently representable subset of the types checked by LLZK's `FuncDefOp::verify`:
-https://github.com/project-llzk/llzk-lib/blob/32b6baefea43db82014028661a62946da0f00250/lib/Dialect/Function/IR/Ops.cpp#L338-L383
+https://github.com/project-llzk/llzk-lib/blob/265d68f678ab15018e3f6253b85557fbaeac9c0d/lib/Dialect/Function/IR/Ops.cpp#L338-L383
 
 This is deliberately narrower until VeIR ports LLZK's aggregate and polymorphic types. -/
 def Attribute.isSupportedLLZKFunctionType (type : Attribute) : Bool :=
@@ -123,20 +127,20 @@ private partial def OperationPtr.getEnclosingBuiltinModule? {OpInfo : Type} [IsO
       parent.getEnclosingBuiltinModule? ctx
 
 private def OperationPtr.verifyModuleFunctionCall {OpInfo : Type} [IsOpCode OpInfo]
-    [HasDialect OpInfo Function_] (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    [HasDialect OpInfo LLZK.Function] (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (props : FunctionCallProperties) (argumentCount : Nat) : Except String PUnit := do
   -- Verify calls to module-level function definitions.
-  -- https://github.com/project-llzk/llzk-lib/blob/32b6baefea43db82014028661a62946da0f00250/lib/Dialect/Function/IR/Ops.cpp#L938-L954
-  -- https://github.com/project-llzk/llzk-lib/blob/32b6baefea43db82014028661a62946da0f00250/lib/Dialect/Function/IR/Ops.cpp#L1103-L1141
+  -- https://github.com/project-llzk/llzk-lib/blob/265d68f678ab15018e3f6253b85557fbaeac9c0d/lib/Dialect/Function/IR/Ops.cpp#L938-L954
+  -- https://github.com/project-llzk/llzk-lib/blob/265d68f678ab15018e3f6253b85557fbaeac9c0d/lib/Dialect/Function/IR/Ops.cpp#L1103-L1141
   let some moduleOp := op.getEnclosingBuiltinModule? ctx.raw
     | throw "function.call: expected an enclosing builtin.module"
   let mut target : Option OperationPtr := none
   for candidate in ctx.raw.operations.keys do
     if candidate.getParentOp! ctx.raw = some moduleOp then
-      match toDialect? Function_ (candidate.getOpType! ctx.raw) with
+      match toDialect? LLZK.Function (candidate.getOpType! ctx.raw) with
       | some .«def» =>
-        let candidateProps : Function_.propertiesOf .«def» :=
-          candidate.getProperties! ctx.raw Function_.«def»
+        let candidateProps : LLZK.Function.propertiesOf .«def» :=
+          candidate.getProperties! ctx.raw LLZK.Function.«def»
         let candidateName := "@" ++ String.fromUTF8! candidateProps.sym_name.value
         if candidateName = props.callee.value then
           if target.isSome then
@@ -145,8 +149,8 @@ private def OperationPtr.verifyModuleFunctionCall {OpInfo : Type} [IsOpCode OpIn
       | _ => pure ()
   let some targetOp := target
     | throw s!"function.call: callee '{props.callee}' does not name a function.def"
-  let targetProps : Function_.propertiesOf .«def» :=
-    targetOp.getProperties! ctx.raw Function_.«def»
+  let targetProps : LLZK.Function.propertiesOf .«def» :=
+    targetOp.getProperties! ctx.raw LLZK.Function.«def»
   let targetType := targetProps.function_type
   if argumentCount != targetType.inputs.size then
     throw s!"function.call: incorrect number of operands for callee, expected {targetType.inputs.size}, got {argumentCount}"
@@ -163,13 +167,13 @@ private def OperationPtr.verifyModuleFunctionCall {OpInfo : Type} [IsOpCode OpIn
 
 /-- Check that `function.return` matches its enclosing `function.def` result types. -/
 def OperationPtr.verifyLLZKFunctionReturnTypes {OpInfo : Type} [IsOpCode OpInfo]
-    [HasDialect OpInfo Function_] (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    [HasDialect OpInfo LLZK.Function] (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   let funcOp ← op.getEnclosingFunctionOp ctx "function.return"
-  let some .«def» := toDialect? Function_ (funcOp.getOpType! ctx.raw)
+  let some .«def» := toDialect? LLZK.Function (funcOp.getOpType! ctx.raw)
     | throw "Expected function.return to be enclosed by function.def"
-  let props : Function_.propertiesOf .«def» :=
-    funcOp.getProperties! ctx.raw Function_.«def»
+  let props : LLZK.Function.propertiesOf .«def» :=
+    funcOp.getProperties! ctx.raw LLZK.Function.«def»
   let outputs := props.function_type.outputs
   if op.getNumOperands ctx.raw opIn ≠ outputs.size then
     throw s!"Expected function.return to have {outputs.size} operand(s)"
@@ -178,8 +182,8 @@ def OperationPtr.verifyLLZKFunctionReturnTypes {OpInfo : Type} [IsOpCode OpInfo]
     if !Attribute.branchArgCompatible (opTypes[i]!).val outputs[i]! then
       throw s!"function.return operand {i} type does not match the function's declared result type"
 
-def Function_.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
-    [HasDialect OpInfo Function_] (opType : Function_) (op : OperationPtr)
+def LLZK.Function.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
+    [HasDialect OpInfo LLZK.Function] (opType : LLZK.Function) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
   | .«def» => do
@@ -193,15 +197,15 @@ def Function_.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "function.def: Expected 0 successors"
     -- LLZK allows module, struct, and polymorphic-template parents. VeIR only supports the first
     -- until those other dialects are ported:
-    -- https://github.com/project-llzk/llzk-lib/blob/32b6baefea43db82014028661a62946da0f00250/include/llzk/Dialect/Function/IR/Ops.td#L38-L45
+    -- https://github.com/project-llzk/llzk-lib/blob/265d68f678ab15018e3f6253b85557fbaeac9c0d/include/llzk/Dialect/Function/IR/Ops.td#L38-L45
     match op.getParentOp! ctx.raw with
     | some parent =>
       if IsOpCode.name (parent.getOpType! ctx.raw) != "builtin.module".toUTF8 then
         throw "function.def: expected parent to be builtin.module; struct.def and poly.template are not yet supported"
     | none =>
       throw "function.def: expected parent to be builtin.module"
-    let props : Function_.propertiesOf .«def» :=
-      op.getProperties! ctx.raw Function_.«def»
+    let props : LLZK.Function.propertiesOf .«def» :=
+      op.getProperties! ctx.raw LLZK.Function.«def»
     if props.extra.entries.any fun (name, _) => name = "function.arg_name".toUTF8 then
       throw "function.def: 'function.arg_name' is only valid on function arguments"
     if props.extra.entries.any fun (name, _) => name = "function.res_name".toUTF8 then
@@ -229,8 +233,8 @@ def Function_.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "function.call: Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "function.call: Expected 0 successors"
-    let props : Function_.propertiesOf .call :=
-      op.getProperties! ctx.raw Function_.call
+    let props : LLZK.Function.propertiesOf .call :=
+      op.getProperties! ctx.raw LLZK.Function.call
     let segments ←
       op.verifyOperandSegmentSizes ctx opIn props.operandSegmentSizes 2
     let argumentCount := segments[0]!
@@ -260,14 +264,14 @@ def Function_.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       | _ => throw s!"function.call: map operand {i - argumentCount} must have index type"
     op.verifyModuleFunctionCall ctx props argumentCount
 
-instance : HasOpInfo Function_ where
-  verifyLocalInvariants := Function_.verifyLocalInvariants
-  getEffects := Function_.getEffects
-  isConstantLike := Function_.isConstantLike
-  functionInterface? := Function_.functionInterface?
-  hasSSADominance := Function_.hasSSADominance
-  isTerminator := Function_.isTerminator
-  isIsolatedFromAbove := Function_.isIsolatedFromAbove
+instance : HasOpInfo LLZK.Function where
+  verifyLocalInvariants := LLZK.Function.verifyLocalInvariants
+  getEffects := LLZK.Function.getEffects
+  isConstantLike := LLZK.Function.isConstantLike
+  functionInterface? := LLZK.Function.functionInterface?
+  hasSSADominance := LLZK.Function.hasSSADominance
+  isTerminator := LLZK.Function.isTerminator
+  isIsolatedFromAbove := LLZK.Function.isIsolatedFromAbove
 
 end
 

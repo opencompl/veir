@@ -18,7 +18,7 @@ structure FunctionDefProperties where
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 /-- Port of LLZK's `verifyArgOrResNameAttrs`:
-https://github.com/project-llzk/llzk-lib/blob/32b6baefea43db82014028661a62946da0f00250/lib/Dialect/Function/IR/Ops.cpp#L73-L121 -/
+https://github.com/project-llzk/llzk-lib/blob/265d68f678ab15018e3f6253b85557fbaeac9c0d/lib/Dialect/Function/IR/Ops.cpp#L73-L121 -/
 private def validateFunctionMetadataArray (key ownName crossName ownLabel crossLabel : String)
     (expectedSize : Nat) (attrDict : Std.HashMap ByteArray Attribute) : Except String Unit := do
   let some attr := attrDict[key.toUTF8]? | return
@@ -82,7 +82,7 @@ def FunctionCallProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
     | none => throw s!"function.call: missing '{key}' property"
     | some (.denseArrayAttr arr) =>
       -- These properties are `DenseI32ArrayAttr` in LLZK's `CallOp` definition:
-      -- https://github.com/project-llzk/llzk-lib/blob/32b6baefea43db82014028661a62946da0f00250/include/llzk/Dialect/Function/IR/Ops.td#L355-L372
+      -- https://github.com/project-llzk/llzk-lib/blob/265d68f678ab15018e3f6253b85557fbaeac9c0d/include/llzk/Dialect/Function/IR/Ops.td#L355-L372
       if arr.elementType.bitwidth != 32 then
         throw s!"function.call: expected '{key}' to be an array<i32> attribute, got array<i{arr.elementType.bitwidth}>"
       return arr

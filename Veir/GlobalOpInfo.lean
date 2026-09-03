@@ -35,8 +35,8 @@ match opCode with
 | .test op => Test.propertiesOf op
 | .felt op => Felt.propertiesOf op
 | .cir op => Cir.propertiesOf op
-| .include op => Include_.propertiesOf op
-| .function op => Function_.propertiesOf op
+| .include op => LLZK.Include.propertiesOf op
+| .function op => LLZK.Function.propertiesOf op
 
 /--
   What are the memory effects of an operation with this opcode and these
@@ -64,8 +64,8 @@ def OpCode.getEffects (opCode : OpCode) (props : _propertiesOf opCode) : MemoryE
   | .test op, props => Test.getEffects op props
   | .felt op, props => Felt.getEffects op props
   | .cir op, props => Cir.getEffects op props
-  | .include op, props => Include_.getEffects op props
-  | .function op, props => Function_.getEffects op props
+  | .include op, props => LLZK.Include.getEffects op props
+  | .function op, props => LLZK.Function.getEffects op props
 
 /--
   Return the kind of the region with the given index inside this operation.
@@ -119,8 +119,8 @@ def OpCode.hasSSADominance (opCode : OpCode) (index : Nat) : Bool :=
   | .test op => Test.hasSSADominance op index
   | .felt op => Felt.hasSSADominance op index
   | .cir op => Cir.hasSSADominance op index
-  | .include op => Include_.hasSSADominance op index
-  | .function op => Function_.hasSSADominance op index
+  | .include op => LLZK.Include.hasSSADominance op index
+  | .function op => LLZK.Function.hasSSADominance op index
 
 /--
   Whether the indexed region of this opcode is exempt from the requirement
@@ -234,8 +234,8 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | .test op => Test.isConstantLike op
   | .felt op => Felt.isConstantLike op
   | .cir op => Cir.isConstantLike op
-  | .include op => Include_.isConstantLike op
-  | .function op => Function_.isConstantLike op
+  | .include op => LLZK.Include.isConstantLike op
+  | .function op => LLZK.Function.isConstantLike op
 
 /--
   Does an operation with this opcode produce a wholly poisoned result whenever
@@ -287,8 +287,8 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   | .test op => Test.fromAttrDict op attrDict
   | .felt op => Felt.fromAttrDict op attrDict
   | .cir op => Cir.fromAttrDict op attrDict
-  | .include op => Include_.fromAttrDict op attrDict
-  | .function op => Function_.fromAttrDict op attrDict
+  | .include op => LLZK.Include.fromAttrDict op attrDict
+  | .function op => LLZK.Function.fromAttrDict op attrDict
 
 /--
   Converts the properties of an operation into a dictionary of attributes.
@@ -316,8 +316,8 @@ def Properties.toAttrDict
   | .test op, props => Test.toAttrDict op props
   | .felt op, props => Felt.toAttrDict op props
   | .cir op, props => Cir.toAttrDict op props
-  | .include op, props => Include_.toAttrDict op props
-  | .function op, props => Function_.toAttrDict op props
+  | .include op, props => LLZK.Include.toAttrDict op props
+  | .function op, props => LLZK.Function.toAttrDict op props
 
 instance : IsOpCode OpCode where
   fromName := OpCode.fromName
@@ -376,8 +376,8 @@ def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
   | .felt opType => Felt.verifyLocalInvariants opType op ctx opIn
   | .cir opType => Cir.verifyLocalInvariants opType op ctx opIn
   | .io opType => Io.verifyLocalInvariants opType op ctx opIn
-  | .include opType => Include_.verifyLocalInvariants opType op ctx opIn
-  | .function opType => Function_.verifyLocalInvariants opType op ctx opIn
+  | .include opType => LLZK.Include.verifyLocalInvariants opType op ctx opIn
+  | .function opType => LLZK.Function.verifyLocalInvariants opType op ctx opIn
 
 instance : HasOpInfo OpCode where
   verifyLocalInvariants := OpCode.verifyLocalInvariants

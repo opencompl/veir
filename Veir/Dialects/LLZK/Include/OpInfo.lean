@@ -10,24 +10,28 @@ namespace Veir
 
 public section
 
-@[opcodes, dialect_name "include"]
-inductive Include_ where
+namespace LLZK
+
+@[opcodes]
+inductive Include where
 | from
 deriving Inhabited, Repr, Hashable, DecidableEq
 
+end LLZK
+
 @[expose, properties_of]
-def Include_.propertiesOf (op : Include_) : Type :=
+def LLZK.Include.propertiesOf (op : LLZK.Include) : Type :=
 match op with
 | .from => IncludeFromProperties
 
-def Include_.fromAttrDict
-    (op : Include_) (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String (Include_.propertiesOf op) := by
-  cases op
-  exact IncludeFromProperties.fromAttrDict attrDict
+def LLZK.Include.fromAttrDict
+    (op : LLZK.Include) (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String (LLZK.Include.propertiesOf op) :=
+  match op with
+  | .from => IncludeFromProperties.fromAttrDict attrDict
 
-def Include_.toAttrDict
-    (op : Include_) (props : Include_.propertiesOf op) :
+def LLZK.Include.toAttrDict
+    (op : LLZK.Include) (props : LLZK.Include.propertiesOf op) :
     Std.HashMap ByteArray Attribute :=
   match op with
   | .from =>
@@ -36,25 +40,25 @@ def Include_.toAttrDict
       "path".toUTF8 (Attribute.stringAttr props.path)
 
 @[get_effects]
-def Include_.getEffects
-    (_op : Include_) (_props : Include_.propertiesOf _op) : MemoryEffects :=
+def LLZK.Include.getEffects
+    (_op : LLZK.Include) (_props : LLZK.Include.propertiesOf _op) : MemoryEffects :=
   .unknown
 
-def Include_.isConstantLike (_op : Include_) : Bool := false
+def LLZK.Include.isConstantLike (_op : LLZK.Include) : Bool := false
 
-def Include_.hasSSADominance (_op : Include_) (_index : Nat) : Bool := true
+def LLZK.Include.hasSSADominance (_op : LLZK.Include) (_index : Nat) : Bool := true
 
-#generate_dialect Include_
+#generate_dialect LLZK.Include
 
-instance : IsOpCode Include_ where
-  fromName := Include_.fromName
-  name := Include_.name
-  propertiesOf := Include_.propertiesOf
-  fromAttrDict := Include_.fromAttrDict
-  toAttrDict := Include_.toAttrDict
+instance : IsOpCode LLZK.Include where
+  fromName := LLZK.Include.fromName
+  name := LLZK.Include.name
+  propertiesOf := LLZK.Include.propertiesOf
+  fromAttrDict := LLZK.Include.fromAttrDict
+  toAttrDict := LLZK.Include.toAttrDict
 
-def Include_.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
-    [HasDialect OpInfo Include_] (opType : Include_) (op : OperationPtr)
+def LLZK.Include.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
+    [HasDialect OpInfo LLZK.Include] (opType : LLZK.Include) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
   | .from => do
@@ -65,11 +69,11 @@ def Include_.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
         throw "include.from: Expected the parent operation to be a builtin.module"
     | none => throw "include.from: Expected the parent operation to be a builtin.module"
 
-instance : HasOpInfo Include_ where
-  verifyLocalInvariants := Include_.verifyLocalInvariants
-  getEffects := Include_.getEffects
-  isConstantLike := Include_.isConstantLike
-  hasSSADominance := Include_.hasSSADominance
+instance : HasOpInfo LLZK.Include where
+  verifyLocalInvariants := LLZK.Include.verifyLocalInvariants
+  getEffects := LLZK.Include.getEffects
+  isConstantLike := LLZK.Include.isConstantLike
+  hasSSADominance := LLZK.Include.hasSSADominance
 
 end
 
