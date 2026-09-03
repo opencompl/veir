@@ -2,6 +2,7 @@ module
 
 public import Veir.GlobalOpInfo
 public import Veir.Analysis.DataFlow.Domains.IntegerRangeDomain
+public import Veir.Analysis.DataFlow.Domains.KnownBitsDomain
 public import Veir.Analysis.DataFlow.Domains.LivenessDomain
 public import Veir.Rewriter.InsertPoint
 public import Veir.Analysis.DataFlow.Domains.ConstantDomain
@@ -74,6 +75,7 @@ inductive AnalysisKind where
   | sparseConstantPropagation
   | integerRange
   | modArithRange
+  | knownBits
 deriving BEq, Hashable, Repr, DecidableEq
 
 /--
@@ -87,6 +89,7 @@ inductive FactKind where
   | sparseConstant
   | integerRange
   | modArithRange
+  | knownBits
 deriving BEq, ReflBEq, LawfulBEq, Hashable, Repr, DecidableEq
 
 /--
@@ -160,6 +163,7 @@ The fact specific data stored for each fact kind.
   | .sparseConstant => SparsePayload AbstractConstant (Option OpCode)
   | .integerRange => SparsePayload IntegerRangeLattice Unit
   | .modArithRange => SparsePayload IntegerRangeLattice Unit
+  | .knownBits => SparsePayload KnownBitsLattice
 
 /--
 A dataflow fact stored by the framework.
