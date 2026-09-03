@@ -1,0 +1,684 @@
+# corpus-digest: 7c0208ef4fe8dad5
+attr #llvm.cconv<ccc>	ok
+attr #llvm.fastmath<none>	ok
+attr #llvm.framePointerKind<all>	ok
+attr #llvm.linkage<external>	ok
+attr #llvm.loop_annotation<mustProgress = true>	ok
+attr #llvm.memory_effects<other = none, argMem = none, inaccessibleMem = none, errnoMem = none, targetMem0 = none, targetMem1 = none>	ok
+attr #llvm.memory_effects<other = read, argMem = read, inaccessibleMem = read, errnoMem = read, targetMem0 = none, targetMem1 = none>	ok
+attr #llvm.mlir.module_flag<error, "S", N : i32>	ok
+attr #llvm.mlir.module_flag<max, "S", N : i32>	ok
+attr #llvm.mlir.module_flag<min, "S", N : i32>	ok
+attr #llvm.tailcallkind<none>	ok
+attr #llvm.target_features<["S", "S", "S", "S", "S", "S", "S"]>	ok
+attr #llvm.uwtableKind<async>	ok
+attr -N : i16	ok
+attr -N : i32	ok
+attr -N : i64	ok
+attr -N : i8	ok
+attr -N.NE+N : f64	missing
+attr -N.Ne+N : f64	missing
+attr -N.Ne-N : f64	missing
+attr HEX : f32	missing
+attr HEX : f64	missing
+attr N : i128	ok
+attr N : i16	ok
+attr N : i32	ok
+attr N : i64	ok
+attr N : i8	ok
+attr N.N : f64	missing
+attr N.NE+N : f64	missing
+attr N.Ne+N : f32	missing
+attr N.Ne+N : f64	missing
+attr N.Ne-N : f64	missing
+attr N: i1	ok
+attr N: i16	ok
+attr N: i32	ok
+attr N: i64	ok
+attr N: i8	ok
+attr dense<"S"> : tensor<Nxi16>	ok
+attr dense<"S"> : vector<Nxi32>	ok
+attr dense<N> : tensor<Nxi16>	ok
+attr dense<N> : tensor<Nxi32>	ok
+attr dense<N> : tensor<Nxi64>	ok
+attr dense<N> : tensor<Nxi8>	ok
+attr dense<[N, ..]> : tensor<Nxi16>	ok
+attr dense<[N, ..]> : tensor<Nxi32>	ok
+attr dense<[N, ..]> : tensor<Nxi64>	ok
+attr dense<[N, ..]> : vector<Nxi32>	ok
+attr dense<[[N, ..], [N, ..], [N, ..], [N, ..], [N, ..], [N, ..], [N, ..], [N, ..]]> : tensor<Nx8xi8>	ok
+op builtin.module	ok
+op llvm.add	ok
+op llvm.alloca	ok
+op llvm.and	ok
+op llvm.ashr	ok
+op llvm.bitcast	ok
+op llvm.br	ok
+op llvm.call	ok
+op llvm.cond_br	ok
+op llvm.fadd	ok
+op llvm.fcmp	missing
+op llvm.fdiv	ok
+op llvm.fence	missing
+op llvm.fmul	ok
+op llvm.fneg	missing
+op llvm.fpext	missing
+op llvm.fptosi	missing
+op llvm.fptoui	missing
+op llvm.fsub	ok
+op llvm.func	ok
+op llvm.getelementptr	ok
+op llvm.icmp	ok
+op llvm.insertvalue	missing
+op llvm.intr.ctlz	ok
+op llvm.intr.fabs	missing
+op llvm.intr.fmuladd	missing
+op llvm.intr.memcpy	missing
+op llvm.intr.memmove	missing
+op llvm.intr.memset	missing
+op llvm.intr.vaend	missing
+op llvm.intr.vastart	missing
+op llvm.inttoptr	missing
+op llvm.load	ok
+op llvm.lshr	ok
+op llvm.mlir.addressof	ok
+op llvm.mlir.constant	ok
+op llvm.mlir.global	ok
+op llvm.mlir.undef	missing
+op llvm.mlir.zero	missing
+op llvm.module_flags	ok
+op llvm.mul	ok
+op llvm.or	ok
+op llvm.ptrtoint	missing
+op llvm.return	ok
+op llvm.sdiv	ok
+op llvm.select	ok
+op llvm.sext	ok
+op llvm.shl	ok
+op llvm.sitofp	missing
+op llvm.srem	ok
+op llvm.store	ok
+op llvm.sub	ok
+op llvm.switch	missing
+op llvm.trunc	ok
+op llvm.udiv	ok
+op llvm.uitofp	missing
+op llvm.urem	ok
+op llvm.xor	ok
+op llvm.zext	ok
+type !llvm.array<N x array<N x i8>>	ok
+type !llvm.array<N x i16>	ok
+type !llvm.array<N x i32>	ok
+type !llvm.array<N x i64>	ok
+type !llvm.array<N x i8>	ok
+type !llvm.array<N x ptr>	ok
+type !llvm.array<N x struct<"S", (i16, i16, struct<"S", (struct<"S", (ptr, i32)>)>)>>	ok
+type !llvm.array<N x struct<"S", (i16, i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, struct<"S", (ptr)>)>>	ok
+type !llvm.array<N x struct<"S", (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, ptr, i8, i8, i8, i8, i32, i32, struct<"S", (struct<"S", (i32, ptr)>)>, ptr, i64)>>	ok
+type !llvm.array<N x struct<"S", (i32, i32, i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr)>>	ok
+type !llvm.array<N x struct<"S", (i32, i32, ptr, ptr)>>	ok
+type !llvm.array<N x struct<"S", (i32, i64)>>	ok
+type !llvm.array<N x struct<"S", (i32, ptr)>>	ok
+type !llvm.array<N x struct<"S", (i32, ptr, ptr, i32, i32)>>	ok
+type !llvm.array<N x struct<"S", (i64, i16, i16)>>	ok
+type !llvm.array<N x struct<"S", (i64, ptr, ptr)>>	ok
+type !llvm.array<N x struct<"S", (i8, array<N x i8>, f32, f32)>>	ok
+type !llvm.array<N x struct<"S", (i8, i8, i8)>>	ok
+type !llvm.array<N x struct<"S", (i8, i8, i8, i32, struct<"S", (ptr)>, ptr, ptr, struct<"S", (ptr)>, i32, i32, i16, i16, struct<"S", (i32)>, ptr, struct<"S", (ptr)>)>>	ok
+type !llvm.array<N x struct<"S", (i8, i8, i8, i8)>>	ok
+type !llvm.array<N x struct<"S", (i8, i8, i8, i8, i8, i8, i8)>>	ok
+type !llvm.array<N x struct<"S", (i8, i8, i8, i8, i8, ptr, ptr)>>	ok
+type !llvm.array<N x struct<"S", (ptr)>>	ok
+type !llvm.array<N x struct<"S", (ptr, i32)>>	ok
+type !llvm.array<N x struct<"S", (ptr, i32, i32, i32)>>	ok
+type !llvm.array<N x struct<"S", (ptr, i32, i32, ptr, ptr, struct<"S", (ptr, ptr, i64)>, ptr, struct<"S", (ptr, i64)>, struct<"S", (ptr, i64)>, i64)>>	ok
+type !llvm.array<N x struct<"S", (ptr, i64)>>	ok
+type !llvm.array<N x struct<"S", (ptr, i8)>>	ok
+type !llvm.array<N x struct<"S", (ptr, i8, i8, i8, i8, i64)>>	ok
+type !llvm.array<N x struct<"S", (ptr, ptr)>>	ok
+type !llvm.array<N x struct<"S", (ptr, ptr, i16, i16, i16, i8, i8, i32, i32, struct<"S", (ptr)>, i64, i64)>>	ok
+type !llvm.array<N x struct<"S", (ptr, ptr, i8, i8, ptr)>>	ok
+type !llvm.array<N x struct<"S", (ptr, ptr, ptr)>>	ok
+type !llvm.array<N x struct<"S", (ptr, ptr, ptr, ptr, ptr, i8)>>	ok
+type !llvm.array<N x struct<"S", (ptr, ptr, ptr, struct<"S", packed (i8, i16, i8)>, i32, i64, struct<"S", (ptr)>, struct<"S", (ptr)>, struct<"S", (ptr)>, struct<"S", (ptr)>)>>	ok
+type !llvm.array<N x struct<"S", (ptr, ptr, struct<"S", packed (i8, i16, i8)>, struct<"S", (i32)>)>>	ok
+type !llvm.array<N x struct<"S", (struct<"S", (struct<"S", (i32, i32, i32, i32, i32, i16, i16, struct<"S", (ptr, ptr)>)>)>)>>	ok
+type !llvm.func<f64 (i64, i32)>	ok
+type !llvm.func<f64 (ptr)>	ok
+type !llvm.func<f64 (ptr, i32)>	ok
+type !llvm.func<i16 (f64)>	ok
+type !llvm.func<i16 (i16)>	ok
+type !llvm.func<i16 (i16, i16)>	ok
+type !llvm.func<i16 (i32)>	ok
+type !llvm.func<i16 (i64)>	ok
+type !llvm.func<i16 (ptr)>	ok
+type !llvm.func<i16 (ptr, i16)>	ok
+type !llvm.func<i16 (ptr, i16, i32, i32)>	ok
+type !llvm.func<i16 (ptr, i32)>	ok
+type !llvm.func<i16 (ptr, i32, i32, ptr, i32, ptr)>	ok
+type !llvm.func<i16 (ptr, ptr)>	ok
+type !llvm.func<i32 ()>	ok
+type !llvm.func<i32 (f64)>	ok
+type !llvm.func<i32 (f64, i64)>	ok
+type !llvm.func<i32 (i32)>	ok
+type !llvm.func<i32 (i32, ...)>	ok
+type !llvm.func<i32 (i32, i32)>	ok
+type !llvm.func<i32 (i32, i32, ...)>	ok
+type !llvm.func<i32 (i32, i32, i32)>	ok
+type !llvm.func<i32 (i32, i32, i32, ptr, ptr, ptr)>	ok
+type !llvm.func<i32 (i32, i32, ptr)>	ok
+type !llvm.func<i32 (i32, i64)>	ok
+type !llvm.func<i32 (i32, i64, ptr, i32, ptr)>	ok
+type !llvm.func<i32 (i32, i8, ptr, ptr)>	ok
+type !llvm.func<i32 (i32, ptr)>	ok
+type !llvm.func<i32 (i32, ptr, ptr)>	ok
+type !llvm.func<i32 (i32, ptr, ptr, i32)>	ok
+type !llvm.func<i32 (i64)>	ok
+type !llvm.func<i32 (i64, f64)>	ok
+type !llvm.func<i32 (i64, i32, ptr, ptr, i32)>	ok
+type !llvm.func<i32 (i64, ptr)>	ok
+type !llvm.func<i32 (i8)>	ok
+type !llvm.func<i32 (ptr)>	ok
+type !llvm.func<i32 (ptr, f64, ptr)>	ok
+type !llvm.func<i32 (ptr, i16)>	ok
+type !llvm.func<i32 (ptr, i32)>	ok
+type !llvm.func<i32 (ptr, i32, ...)>	ok
+type !llvm.func<i32 (ptr, i32, f64)>	ok
+type !llvm.func<i32 (ptr, i32, i32)>	ok
+type !llvm.func<i32 (ptr, i32, i32, i32)>	ok
+type !llvm.func<i32 (ptr, i32, i32, i32, i32)>	ok
+type !llvm.func<i32 (ptr, i32, i32, i32, i32, i32)>	ok
+type !llvm.func<i32 (ptr, i32, i32, i32, i32, ptr, i32)>	ok
+type !llvm.func<i32 (ptr, i32, i32, i32, ptr)>	ok
+type !llvm.func<i32 (ptr, i32, i32, i32, ptr, i32)>	ok
+type !llvm.func<i32 (ptr, i32, i32, i64, i32, i32, ptr)>	ok
+type !llvm.func<i32 (ptr, i32, i32, i8)>	ok
+type !llvm.func<i32 (ptr, i32, i32, ptr)>	ok
+type !llvm.func<i32 (ptr, i32, i32, ptr, i32)>	ok
+type !llvm.func<i32 (ptr, i32, i32, ptr, i32, i32)>	ok
+type !llvm.func<i32 (ptr, i32, i32, ptr, ptr)>	ok
+type !llvm.func<i32 (ptr, i32, i32, ptr, ptr, ptr, i32)>	ok
+type !llvm.func<i32 (ptr, i32, i64)>	ok
+type !llvm.func<i32 (ptr, i32, i64, ptr, ptr)>	ok
+type !llvm.func<i32 (ptr, i32, i8)>	ok
+type !llvm.func<i32 (ptr, i32, ptr)>	ok
+type !llvm.func<i32 (ptr, i32, ptr, i32)>	ok
+type !llvm.func<i32 (ptr, i32, ptr, i32, i32)>	ok
+type !llvm.func<i32 (ptr, i32, ptr, i32, i32, i32)>	ok
+type !llvm.func<i32 (ptr, i32, ptr, i32, ptr)>	ok
+type !llvm.func<i32 (ptr, i32, ptr, i32, ptr, i32)>	ok
+type !llvm.func<i32 (ptr, i32, ptr, i32, ptr, ptr)>	ok
+type !llvm.func<i32 (ptr, i32, ptr, i64)>	ok
+type !llvm.func<i32 (ptr, i32, ptr, i64, ptr)>	ok
+type !llvm.func<i32 (ptr, i32, ptr, i64, ptr, i8)>	ok
+type !llvm.func<i32 (ptr, i32, ptr, ptr)>	ok
+type !llvm.func<i32 (ptr, i32, ptr, ptr, i32)>	ok
+type !llvm.func<i32 (ptr, i32, ptr, ptr, ptr)>	ok
+type !llvm.func<i32 (ptr, i64)>	ok
+type !llvm.func<i32 (ptr, i64, i16, i16)>	ok
+type !llvm.func<i32 (ptr, i64, i32)>	ok
+type !llvm.func<i32 (ptr, i64, i32, ptr)>	ok
+type !llvm.func<i32 (ptr, i64, i64)>	ok
+type !llvm.func<i32 (ptr, i64, i64, i16, ptr, i16, ptr, ptr)>	ok
+type !llvm.func<i32 (ptr, i64, ptr)>	ok
+type !llvm.func<i32 (ptr, i64, ptr, i32)>	ok
+type !llvm.func<i32 (ptr, i8)>	ok
+type !llvm.func<i32 (ptr, i8, i8)>	ok
+type !llvm.func<i32 (ptr, i8, ptr, ...)>	ok
+type !llvm.func<i32 (ptr, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, ...)>	ok
+type !llvm.func<i32 (ptr, ptr, i16)>	ok
+type !llvm.func<i32 (ptr, ptr, i32)>	ok
+type !llvm.func<i32 (ptr, ptr, i32, i32)>	ok
+type !llvm.func<i32 (ptr, ptr, i32, i32, i32, i8)>	ok
+type !llvm.func<i32 (ptr, ptr, i32, i32, i32, ptr, ptr, i32)>	ok
+type !llvm.func<i32 (ptr, ptr, i32, i32, i8)>	ok
+type !llvm.func<i32 (ptr, ptr, i32, i32, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, i32, i32, ptr, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, i32, i32, ptr, ptr, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, i32, i32, ptr, ptr, ptr, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, i32, i32, ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, i32, i32, ptr, ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, i32, i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, i32, i64)>	ok
+type !llvm.func<i32 (ptr, ptr, i32, i8)>	ok
+type !llvm.func<i32 (ptr, ptr, i32, i8, i32, ptr, ptr, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, i32, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, i32, ptr, i32)>	ok
+type !llvm.func<i32 (ptr, ptr, i32, ptr, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, i32, ptr, ptr, i32, i32, ptr, ptr, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, i32, ptr, ptr, i32, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, i32, ptr, ptr, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, i64)>	ok
+type !llvm.func<i32 (ptr, ptr, i64, i32, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, i64, i8, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, i64, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, i64, ptr, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, i8, i32, i32, i32)>	ok
+type !llvm.func<i32 (ptr, ptr, i8, i8, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, i8, i8, ptr, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, i8, ptr, ptr, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, ptr, ...)>	ok
+type !llvm.func<i32 (ptr, ptr, ptr, i16)>	ok
+type !llvm.func<i32 (ptr, ptr, ptr, i32)>	ok
+type !llvm.func<i32 (ptr, ptr, ptr, i32, i32)>	ok
+type !llvm.func<i32 (ptr, ptr, ptr, i32, i32, i32)>	ok
+type !llvm.func<i32 (ptr, ptr, ptr, i32, i32, i32, i32, i32, i32)>	ok
+type !llvm.func<i32 (ptr, ptr, ptr, i32, i32, i32, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, ptr, i32, i32, ptr, i32)>	ok
+type !llvm.func<i32 (ptr, ptr, ptr, i32, i64, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, ptr, i32, i8)>	ok
+type !llvm.func<i32 (ptr, ptr, ptr, i32, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, ptr, i32, ptr, i32)>	ok
+type !llvm.func<i32 (ptr, ptr, ptr, i64)>	ok
+type !llvm.func<i32 (ptr, ptr, ptr, i64, i64, i32)>	ok
+type !llvm.func<i32 (ptr, ptr, ptr, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, ptr, ptr, i32)>	ok
+type !llvm.func<i32 (ptr, ptr, ptr, ptr, i32, i32)>	ok
+type !llvm.func<i32 (ptr, ptr, ptr, ptr, i32, i32, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, ptr, ptr, i32, i32, ptr, i32)>	ok
+type !llvm.func<i32 (ptr, ptr, ptr, ptr, i32, i32, ptr, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, ptr, ptr, i64, i32, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.func<i32 (ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.func<i64 ()>	ok
+type !llvm.func<i64 (f64)>	ok
+type !llvm.func<i64 (i16)>	ok
+type !llvm.func<i64 (i32)>	ok
+type !llvm.func<i64 (i32, ptr)>	ok
+type !llvm.func<i64 (i32, ptr, i64)>	ok
+type !llvm.func<i64 (i32, ptr, i64, i64)>	ok
+type !llvm.func<i64 (i64)>	ok
+type !llvm.func<i64 (i64, i32, i64, ptr)>	ok
+type !llvm.func<i64 (i64, i64, ptr)>	ok
+type !llvm.func<i64 (ptr)>	ok
+type !llvm.func<i64 (ptr, i32)>	ok
+type !llvm.func<i64 (ptr, i64)>	ok
+type !llvm.func<i64 (ptr, i64, ptr)>	ok
+type !llvm.func<i64 (ptr, ptr)>	ok
+type !llvm.func<i64 (ptr, ptr, i64)>	ok
+type !llvm.func<i64 (ptr, ptr, ptr, i32, ptr, i64)>	ok
+type !llvm.func<i8 (i32)>	ok
+type !llvm.func<i8 (i8)>	ok
+type !llvm.func<i8 (ptr)>	ok
+type !llvm.func<i8 (ptr, i32)>	ok
+type !llvm.func<i8 (ptr, i32, i8)>	ok
+type !llvm.func<i8 (ptr, i8)>	ok
+type !llvm.func<i8 (ptr, ptr)>	ok
+type !llvm.func<i8 (ptr, ptr, i32)>	ok
+type !llvm.func<i8 (ptr, ptr, ptr)>	ok
+type !llvm.func<i8 (ptr, ptr, ptr, i16, i16, ptr, ptr)>	ok
+type !llvm.func<ptr ()>	ok
+type !llvm.func<ptr (i32)>	ok
+type !llvm.func<ptr (i32, i32, i32)>	ok
+type !llvm.func<ptr (i32, ptr)>	ok
+type !llvm.func<ptr (i32, ptr, ptr, ...)>	ok
+type !llvm.func<ptr (i32, ptr, ptr, ptr)>	ok
+type !llvm.func<ptr (i64)>	ok
+type !llvm.func<ptr (i8)>	ok
+type !llvm.func<ptr (ptr)>	ok
+type !llvm.func<ptr (ptr, ...)>	ok
+type !llvm.func<ptr (ptr, i32)>	ok
+type !llvm.func<ptr (ptr, i32, i32)>	ok
+type !llvm.func<ptr (ptr, i32, i32, i32)>	ok
+type !llvm.func<ptr (ptr, i32, i32, i64, i32, ptr)>	ok
+type !llvm.func<ptr (ptr, i32, i32, i8)>	ok
+type !llvm.func<ptr (ptr, i32, i32, ptr)>	ok
+type !llvm.func<ptr (ptr, i32, i32, ptr, i32, ptr, i8)>	ok
+type !llvm.func<ptr (ptr, i32, i64)>	ok
+type !llvm.func<ptr (ptr, i32, i8)>	ok
+type !llvm.func<ptr (ptr, i32, ptr)>	ok
+type !llvm.func<ptr (ptr, i32, ptr, i32)>	ok
+type !llvm.func<ptr (ptr, i32, ptr, ptr)>	ok
+type !llvm.func<ptr (ptr, i64)>	ok
+type !llvm.func<ptr (ptr, i64, i32, i32, i32, i64)>	ok
+type !llvm.func<ptr (ptr, i64, i64, i32, ...)>	ok
+type !llvm.func<ptr (ptr, i64, ptr)>	ok
+type !llvm.func<ptr (ptr, i8)>	ok
+type !llvm.func<ptr (ptr, i8, ptr, i32)>	ok
+type !llvm.func<ptr (ptr, i8, ptr, ptr)>	ok
+type !llvm.func<ptr (ptr, i8, ptr, ptr, ptr)>	ok
+type !llvm.func<ptr (ptr, ptr)>	ok
+type !llvm.func<ptr (ptr, ptr, ...)>	ok
+type !llvm.func<ptr (ptr, ptr, i32)>	ok
+type !llvm.func<ptr (ptr, ptr, i32, i16)>	ok
+type !llvm.func<ptr (ptr, ptr, i32, i32)>	ok
+type !llvm.func<ptr (ptr, ptr, i32, i32, i32, ptr)>	ok
+type !llvm.func<ptr (ptr, ptr, i32, i8)>	ok
+type !llvm.func<ptr (ptr, ptr, i32, i8, i8)>	ok
+type !llvm.func<ptr (ptr, ptr, i32, ptr)>	ok
+type !llvm.func<ptr (ptr, ptr, i32, ptr, ptr)>	ok
+type !llvm.func<ptr (ptr, ptr, i64)>	ok
+type !llvm.func<ptr (ptr, ptr, i64, ptr, ptr)>	ok
+type !llvm.func<ptr (ptr, ptr, i8)>	ok
+type !llvm.func<ptr (ptr, ptr, ptr)>	ok
+type !llvm.func<ptr (ptr, ptr, ptr, i32)>	ok
+type !llvm.func<ptr (ptr, ptr, ptr, i32, i32)>	ok
+type !llvm.func<ptr (ptr, ptr, ptr, i32, ptr)>	ok
+type !llvm.func<ptr (ptr, ptr, ptr, ptr)>	ok
+type !llvm.func<ptr (ptr, ptr, ptr, ptr, i32)>	ok
+type !llvm.func<ptr (ptr, ptr, ptr, ptr, i8)>	ok
+type !llvm.func<ptr (ptr, ptr, ptr, ptr, i8, ptr, ptr, ptr)>	ok
+type !llvm.func<ptr (ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.func<ptr (ptr, ptr, ptr, ptr, ptr, i8, ptr, ptr)>	ok
+type !llvm.func<ptr (ptr, ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.func<ptr (ptr, ptr, ptr, ptr, ptr, ptr, i16, i32)>	ok
+type !llvm.func<ptr (ptr, ptr, ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.func<ptr (ptr, ptr, ptr, ptr, ptr, ptr, ptr, i32, ptr)>	ok
+type !llvm.func<void ()>	ok
+type !llvm.func<void (i32)>	ok
+type !llvm.func<void (i32, i32)>	ok
+type !llvm.func<void (i32, ptr)>	ok
+type !llvm.func<void (i32, ptr, ...)>	ok
+type !llvm.func<void (i32, ptr, i32, ptr, ptr)>	ok
+type !llvm.func<void (i32, ptr, ptr)>	ok
+type !llvm.func<void (i32, ptr, ptr, ...)>	ok
+type !llvm.func<void (i64, i32, i32, ptr, ptr)>	ok
+type !llvm.func<void (ptr)>	ok
+type !llvm.func<void (ptr, f64)>	ok
+type !llvm.func<void (ptr, f64, i32, i32)>	ok
+type !llvm.func<void (ptr, i16)>	ok
+type !llvm.func<void (ptr, i16, i16, ptr, i32)>	ok
+type !llvm.func<void (ptr, i16, ptr)>	ok
+type !llvm.func<void (ptr, i32)>	ok
+type !llvm.func<void (ptr, i32, i16)>	ok
+type !llvm.func<void (ptr, i32, i32)>	ok
+type !llvm.func<void (ptr, i32, i32, i32)>	ok
+type !llvm.func<void (ptr, i32, i32, i32, i32)>	ok
+type !llvm.func<void (ptr, i32, i32, i32, i32, i32)>	ok
+type !llvm.func<void (ptr, i32, i32, i8, ptr)>	ok
+type !llvm.func<void (ptr, i32, i32, ptr)>	ok
+type !llvm.func<void (ptr, i32, i32, ptr, i32)>	ok
+type !llvm.func<void (ptr, i32, i32, ptr, i8, i8)>	ok
+type !llvm.func<void (ptr, i32, i32, ptr, ptr)>	ok
+type !llvm.func<void (ptr, i32, i64)>	ok
+type !llvm.func<void (ptr, i32, i64, i32)>	ok
+type !llvm.func<void (ptr, i32, i8)>	ok
+type !llvm.func<void (ptr, i32, i8, i32)>	ok
+type !llvm.func<void (ptr, i32, i8, i32, ptr)>	ok
+type !llvm.func<void (ptr, i32, ptr)>	ok
+type !llvm.func<void (ptr, i32, ptr, ...)>	ok
+type !llvm.func<void (ptr, i32, ptr, i16)>	ok
+type !llvm.func<void (ptr, i32, ptr, i32)>	ok
+type !llvm.func<void (ptr, i32, ptr, i32, i32)>	ok
+type !llvm.func<void (ptr, i32, ptr, i32, ptr)>	ok
+type !llvm.func<void (ptr, i32, ptr, i64)>	ok
+type !llvm.func<void (ptr, i32, ptr, i8, ptr)>	ok
+type !llvm.func<void (ptr, i32, ptr, ptr)>	ok
+type !llvm.func<void (ptr, i32, ptr, ptr, i16)>	ok
+type !llvm.func<void (ptr, i32, ptr, ptr, ptr)>	ok
+type !llvm.func<void (ptr, i32, ptr, ptr, ptr, ptr, i32, i32, i32)>	ok
+type !llvm.func<void (ptr, i32, ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.func<void (ptr, i32, ptr, ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.func<void (ptr, i64)>	ok
+type !llvm.func<void (ptr, i8)>	ok
+type !llvm.func<void (ptr, i8, i64, ptr)>	ok
+type !llvm.func<void (ptr, i8, i8)>	ok
+type !llvm.func<void (ptr, i8, ptr)>	ok
+type !llvm.func<void (ptr, ptr)>	ok
+type !llvm.func<void (ptr, ptr, ...)>	ok
+type !llvm.func<void (ptr, ptr, i16)>	ok
+type !llvm.func<void (ptr, ptr, i32)>	ok
+type !llvm.func<void (ptr, ptr, i32, i32)>	ok
+type !llvm.func<void (ptr, ptr, i32, i32, i32)>	ok
+type !llvm.func<void (ptr, ptr, i32, i32, i32, ptr)>	ok
+type !llvm.func<void (ptr, ptr, i32, i32, i32, ptr, i32, i32, i32)>	ok
+type !llvm.func<void (ptr, ptr, i32, i32, i64)>	ok
+type !llvm.func<void (ptr, ptr, i32, i32, ptr)>	ok
+type !llvm.func<void (ptr, ptr, i32, i32, ptr, i32)>	ok
+type !llvm.func<void (ptr, ptr, i32, i64)>	ok
+type !llvm.func<void (ptr, ptr, i32, i8)>	ok
+type !llvm.func<void (ptr, ptr, i32, i8, i8)>	ok
+type !llvm.func<void (ptr, ptr, i32, i8, ptr)>	ok
+type !llvm.func<void (ptr, ptr, i32, ptr)>	ok
+type !llvm.func<void (ptr, ptr, i32, ptr, i32)>	ok
+type !llvm.func<void (ptr, ptr, i32, ptr, i32, ptr, i32, i32, i32)>	ok
+type !llvm.func<void (ptr, ptr, i32, ptr, ptr)>	ok
+type !llvm.func<void (ptr, ptr, i32, ptr, ptr, ptr)>	ok
+type !llvm.func<void (ptr, ptr, i32, ptr, ptr, ptr, i32, i32)>	ok
+type !llvm.func<void (ptr, ptr, i64)>	ok
+type !llvm.func<void (ptr, ptr, i64, ptr)>	ok
+type !llvm.func<void (ptr, ptr, i64, ptr, i8)>	ok
+type !llvm.func<void (ptr, ptr, i8)>	ok
+type !llvm.func<void (ptr, ptr, ptr)>	ok
+type !llvm.func<void (ptr, ptr, ptr, i16)>	ok
+type !llvm.func<void (ptr, ptr, ptr, i32)>	ok
+type !llvm.func<void (ptr, ptr, ptr, i32, i32)>	ok
+type !llvm.func<void (ptr, ptr, ptr, i32, i32, i32)>	ok
+type !llvm.func<void (ptr, ptr, ptr, i32, i32, i32, i16, i8, i8, i8, i32)>	ok
+type !llvm.func<void (ptr, ptr, ptr, i32, i32, i32, i32)>	ok
+type !llvm.func<void (ptr, ptr, ptr, i32, i32, i32, i32, i8, i8, i32, ptr, ptr, ptr)>	ok
+type !llvm.func<void (ptr, ptr, ptr, i32, i32, ptr, ptr, ptr, i32, i32)>	ok
+type !llvm.func<void (ptr, ptr, ptr, i32, ptr)>	ok
+type !llvm.func<void (ptr, ptr, ptr, i32, ptr, i32)>	ok
+type !llvm.func<void (ptr, ptr, ptr, i8)>	ok
+type !llvm.func<void (ptr, ptr, ptr, ptr)>	ok
+type !llvm.func<void (ptr, ptr, ptr, ptr, i32)>	ok
+type !llvm.func<void (ptr, ptr, ptr, ptr, i32, ptr)>	ok
+type !llvm.func<void (ptr, ptr, ptr, ptr, i32, ptr, ptr, ptr)>	ok
+type !llvm.func<void (ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.func<void (ptr, ptr, ptr, ptr, ptr, i32)>	ok
+type !llvm.func<void (ptr, ptr, ptr, ptr, ptr, i32, ptr)>	ok
+type !llvm.func<void (ptr, ptr, ptr, ptr, ptr, i32, ptr, ptr, i32, i32, i8)>	ok
+type !llvm.func<void (ptr, ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.func<void (ptr, ptr, ptr, ptr, ptr, ptr, i32, i32)>	ok
+type !llvm.func<void (ptr, ptr, ptr, ptr, ptr, ptr, ptr, i32)>	ok
+type !llvm.ptr	ok
+type !llvm.struct<"S", (array<N x i32>, array<N x i8>, i8)>	ok
+type !llvm.struct<"S", (array<N x i64>, array<N x i64>)>	ok
+type !llvm.struct<"S", (array<N x ptr>)>	ok
+type !llvm.struct<"S", (f64)>	ok
+type !llvm.struct<"S", (f64, f64, i64, i64, i8, i8)>	ok
+type !llvm.struct<"S", (i16, array<N x i8>)>	ok
+type !llvm.struct<"S", (i16, array<N x struct<"S", (i64, i16, i16)>>)>	ok
+type !llvm.struct<"S", (i16, i16)>	ok
+type !llvm.struct<"S", (i16, i16, i16, i16, ptr, ptr)>	ok
+type !llvm.struct<"S", (i16, i16, i64, i64, i32)>	ok
+type !llvm.struct<"S", (i16, i16, struct<"S", (struct<"S", (ptr, i32)>)>)>	ok
+type !llvm.struct<"S", (i16, i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, struct<"S", (ptr)>)>	ok
+type !llvm.struct<"S", (i32)>	ok
+type !llvm.struct<"S", (i32, array<N x i32>, array<N x i8>, i32, i32)>	ok
+type !llvm.struct<"S", (i32, array<N x struct<"S", (ptr)>>)>	ok
+type !llvm.struct<"S", (i32, i16, i16, i8, i32, array<N x i32>, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (i32, i32)>	ok
+type !llvm.struct<"S", (i32, i32, array<N x i32>)>	ok
+type !llvm.struct<"S", (i32, i32, array<N x struct<"S", (i32, ptr, ptr, i32, i32)>>)>	ok
+type !llvm.struct<"S", (i32, i32, array<N x struct<"S", (ptr, ptr, ptr, struct<"S", packed (i8, i16, i8)>, i32, i64, struct<"S", (ptr)>, struct<"S", (ptr)>, struct<"S", (ptr)>, struct<"S", (ptr)>)>>)>	ok
+type !llvm.struct<"S", (i32, i32, array<N x struct<"S", (ptr, ptr, struct<"S", packed (i8, i16, i8)>, struct<"S", (i32)>)>>)>	ok
+type !llvm.struct<"S", (i32, i32, i16, ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (i32, i32, i32, i32, i16, i8)>	ok
+type !llvm.struct<"S", (i32, i32, i32, i32, i32)>	ok
+type !llvm.struct<"S", (i32, i32, i32, i32, i32, i16, i16, struct<"S", (ptr, ptr)>)>	ok
+type !llvm.struct<"S", (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, ptr, i8, i8, i8, i8, i32, i32, struct<"S", (struct<"S", (i32, ptr)>)>, ptr, i64)>	ok
+type !llvm.struct<"S", (i32, i32, i32, i32, i32, i32, i32, i32, i32, i64, ptr)>	ok
+type !llvm.struct<"S", (i32, i32, i32, i32, i64)>	ok
+type !llvm.struct<"S", (i32, i32, i32, i32, i8)>	ok
+type !llvm.struct<"S", (i32, i32, i32, i32, ptr, ptr, ptr, ptr, ptr, struct<"S", (ptr, ptr, i64)>, i32, i32, i8, i8, i8, i8, i8, array<N x struct<"S", (ptr, i32, i32, ptr, ptr, struct<"S", (ptr, ptr, i64)>, ptr, struct<"S", (ptr, i64)>, struct<"S", (ptr, i64)>, i64)>>)>	ok
+type !llvm.struct<"S", (i32, i32, i32, i8, i8, i16, i32, i32, array<N x i32>, array<N x i32>, array<N x i32>)>	ok
+type !llvm.struct<"S", (i32, i32, i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (i32, i32, i32, struct<"S", (array<N x ptr>)>)>	ok
+type !llvm.struct<"S", (i32, i32, i32, struct<"S", (ptr, i32)>)>	ok
+type !llvm.struct<"S", (i32, i32, i8, ptr)>	ok
+type !llvm.struct<"S", (i32, i32, ptr)>	ok
+type !llvm.struct<"S", (i32, i32, ptr, array<N x i8>, i8, i8)>	ok
+type !llvm.struct<"S", (i32, i32, ptr, array<N x struct<"S", (ptr, ptr, ptr, ptr, ptr, i8)>>)>	ok
+type !llvm.struct<"S", (i32, i32, ptr, i32, i32)>	ok
+type !llvm.struct<"S", (i32, i32, ptr, ptr)>	ok
+type !llvm.struct<"S", (i32, i32, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (i32, i32, struct<"S", (i32, i32, ptr, ptr)>, struct<"S", (i32, i32, ptr, ptr)>, struct<"S", (i32, i32, ptr, ptr)>, struct<"S", (i32, i32, ptr, ptr)>, ptr, i8, i8, i16, i32)>	ok
+type !llvm.struct<"S", (i32, i32, struct<"S", (struct<"S", (i32, ptr)>)>)>	ok
+type !llvm.struct<"S", (i32, i64)>	ok
+type !llvm.struct<"S", (i32, i8)>	ok
+type !llvm.struct<"S", (i32, i8, i16, i16, ptr, ptr, array<N x ptr>)>	ok
+type !llvm.struct<"S", (i32, i8, i8, i16, ptr, i32)>	ok
+type !llvm.struct<"S", (i32, i8, i8, i32)>	ok
+type !llvm.struct<"S", (i32, i8, i8, i8, i8, i8, i8, i32, i32, i32, i32, i32, struct<"S", (ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr)>, struct<"S", (ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr)>, struct<"S", (i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr)>, ptr, i32, i32, i32, i64, i64, ptr, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, ptr, ptr, ptr, i64, ptr, i32, ptr, i32, i32, i32)>	ok
+type !llvm.struct<"S", (i32, i8, i8, i8, ptr)>	ok
+type !llvm.struct<"S", (i32, i8, ptr, i32, i32, i32)>	ok
+type !llvm.struct<"S", (i32, ptr)>	ok
+type !llvm.struct<"S", (i32, ptr, i32, i32, i32, i64, ptr, i64)>	ok
+type !llvm.struct<"S", (i32, ptr, i32, ptr, ptr, i32, ptr, i32, i32, f64, i64, i32, i64)>	ok
+type !llvm.struct<"S", (i32, ptr, ptr)>	ok
+type !llvm.struct<"S", (i32, ptr, ptr, i32, i32)>	ok
+type !llvm.struct<"S", (i32, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (i32, ptr, ptr, ptr, array<N x ptr>, array<N x i32>)>	ok
+type !llvm.struct<"S", (i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (i32, struct<"S", (ptr)>)>	ok
+type !llvm.struct<"S", (i64)>	ok
+type !llvm.struct<"S", (i64, i16, i16)>	ok
+type !llvm.struct<"S", (i64, i32, i32, i32, i32, i32, i32, f64, i8, i8, i8, i8, i8)>	ok
+type !llvm.struct<"S", (i64, i32, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (i64, i64)>	ok
+type !llvm.struct<"S", (i64, i64, i16, i16, i16, i8, ptr)>	ok
+type !llvm.struct<"S", (i64, i64, i32, i32, ptr, ptr, ptr, ptr, i32, ptr, ptr)>	ok
+type !llvm.struct<"S", (i64, i64, i64)>	ok
+type !llvm.struct<"S", (i64, i64, i64, i32, i32, i32, i32, i64, i64, i64, i64, struct<"S", (i64, i64)>, struct<"S", (i64, i64)>, struct<"S", (i64, i64)>, array<N x i64>)>	ok
+type !llvm.struct<"S", (i64, i64, i64, ptr, ptr, i32, i32, i32, i32, i32, ptr)>	ok
+type !llvm.struct<"S", (i64, i64, i8, i8, i16, i16, i16, struct<"S", (struct<"S", (i16, i16, i16, i16, ptr, ptr)>)>, i32, i16, i16, i16, ptr, ptr, array<N x ptr>)>	ok
+type !llvm.struct<"S", (i64, i64, ptr, i32, i32, i32, array<N x i32>)>	ok
+type !llvm.struct<"S", (i64, ptr)>	ok
+type !llvm.struct<"S", (i64, ptr, i32, i16, i16)>	ok
+type !llvm.struct<"S", (i64, ptr, ptr)>	ok
+type !llvm.struct<"S", (i8, array<N x i8>, f32, f32)>	ok
+type !llvm.struct<"S", (i8, i16, i32, i32, i32, i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (i8, i32, i32, i32, i32, ptr, ptr)>	ok
+type !llvm.struct<"S", (i8, i8, i16, i32, i32, i32, struct<"S", (ptr)>)>	ok
+type !llvm.struct<"S", (i8, i8, i32, i32)>	ok
+type !llvm.struct<"S", (i8, i8, i32, i32, i32, i32, ptr, ptr, i32, i32, ptr, i32, i32)>	ok
+type !llvm.struct<"S", (i8, i8, i8)>	ok
+type !llvm.struct<"S", (i8, i8, i8, i32, i8, i8, i8, i8, i8, i16, i16, i16, i32, i16, i16, array<N x i16>, array<N x ptr>, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (i8, i8, i8, i32, struct<"S", (ptr)>, ptr, ptr, struct<"S", (ptr)>, i32, i32, i16, i16, struct<"S", (i32)>, ptr, struct<"S", (ptr)>)>	ok
+type !llvm.struct<"S", (i8, i8, i8, i8)>	ok
+type !llvm.struct<"S", (i8, i8, i8, i8, i32, ptr, ptr, ptr, ptr, ptr, struct<"S", (i64, ptr, i32, i16, i16)>, i64, i32, i8, i8, i16, array<N x i16>, ptr, ptr, array<N x ptr>)>	ok
+type !llvm.struct<"S", (i8, i8, i8, i8, i8, i8, i16, struct<"S", (ptr)>, i64, i32, i32, ptr, struct<"S", (ptr)>, ptr, i32, i32, i16, i16, i64, ptr, ptr, i32, i32, ptr, array<N x i32>)>	ok
+type !llvm.struct<"S", (i8, i8, i8, i8, i8, i8, i8)>	ok
+type !llvm.struct<"S", (i8, i8, i8, i8, i8, ptr, ptr)>	ok
+type !llvm.struct<"S", (i8, i8, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (ptr)>	ok
+type !llvm.struct<"S", (ptr, array<N x i8>)>	ok
+type !llvm.struct<"S", (ptr, array<N x struct<"S", (i64, ptr, ptr)>>)>	ok
+type !llvm.struct<"S", (ptr, i32)>	ok
+type !llvm.struct<"S", (ptr, i32, array<N x ptr>)>	ok
+type !llvm.struct<"S", (ptr, i32, i32, i32)>	ok
+type !llvm.struct<"S", (ptr, i32, i32, i32, i32, i32, i32, i32, i8, ptr)>	ok
+type !llvm.struct<"S", (ptr, i32, i32, i32, i32, ptr, ptr)>	ok
+type !llvm.struct<"S", (ptr, i32, i32, i32, i32, struct<"S", (struct<"S", (ptr, ptr)>, i32, i16, i16, ptr, ptr, ptr, ptr)>)>	ok
+type !llvm.struct<"S", (ptr, i32, i32, i32, i8, i8, ptr)>	ok
+type !llvm.struct<"S", (ptr, i32, i32, i32, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (ptr, i32, i32, ptr)>	ok
+type !llvm.struct<"S", (ptr, i32, i32, ptr, ptr)>	ok
+type !llvm.struct<"S", (ptr, i32, i32, ptr, ptr, i32, i32, i32, i16, i8, i8, i8, i8, i8, i8, i32, i32, i32, ptr)>	ok
+type !llvm.struct<"S", (ptr, i32, i32, ptr, ptr, struct<"S", (ptr, ptr, i64)>, ptr, struct<"S", (ptr, i64)>, struct<"S", (ptr, i64)>, i64)>	ok
+type !llvm.struct<"S", (ptr, i32, i32, ptr, struct<"S", (i64, ptr)>, struct<"S", (i64, ptr)>, i32, ptr, ptr)>	ok
+type !llvm.struct<"S", (ptr, i32, i8, i8)>	ok
+type !llvm.struct<"S", (ptr, i32, i8, ptr)>	ok
+type !llvm.struct<"S", (ptr, i32, ptr)>	ok
+type !llvm.struct<"S", (ptr, i64)>	ok
+type !llvm.struct<"S", (ptr, i64, i32, i32, i32)>	ok
+type !llvm.struct<"S", (ptr, i64, i64)>	ok
+type !llvm.struct<"S", (ptr, i64, i64, i32)>	ok
+type !llvm.struct<"S", (ptr, i64, i64, i32, i32, i32, i8, struct<"S", (ptr)>)>	ok
+type !llvm.struct<"S", (ptr, i64, i64, ptr)>	ok
+type !llvm.struct<"S", (ptr, i64, ptr, ptr, i16, i32, i32)>	ok
+type !llvm.struct<"S", (ptr, i8)>	ok
+type !llvm.struct<"S", (ptr, i8, i8, i8, i8, i16, i16)>	ok
+type !llvm.struct<"S", (ptr, i8, i8, i8, i8, i64)>	ok
+type !llvm.struct<"S", (ptr, i8, i8, i8, i8, i8, i8, i8, i8, i8, i8, i8, i8, i8, i8, i8, i8, i8, i8, i8, i8, i8, i32, i32, i32, i32, i32, i32, i32, i32, ptr, ptr, ptr, ptr, i64, i64, ptr, ptr, i32, i32, array<N x i8>, i32, i64, ptr, i16, i16, i32, i32, i32, i32, i64, i64, ptr, ptr, ptr, ptr, array<N x i32>, ptr, ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (ptr, i8, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (ptr, ptr)>	ok
+type !llvm.struct<"S", (ptr, ptr, i16, i16, i16, i8, i8, i32, i32, struct<"S", (ptr)>, i64, i64)>	ok
+type !llvm.struct<"S", (ptr, ptr, i32)>	ok
+type !llvm.struct<"S", (ptr, ptr, i32, i32)>	ok
+type !llvm.struct<"S", (ptr, ptr, i32, i32, i32)>	ok
+type !llvm.struct<"S", (ptr, ptr, i32, i32, i32, array<N x ptr>)>	ok
+type !llvm.struct<"S", (ptr, ptr, i32, i32, i32, i32, i32)>	ok
+type !llvm.struct<"S", (ptr, ptr, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (ptr, ptr, i32, i32, i32, i32, ptr)>	ok
+type !llvm.struct<"S", (ptr, ptr, i32, i32, i32, i8, i8)>	ok
+type !llvm.struct<"S", (ptr, ptr, i32, i32, i32, i8, i8, i8)>	ok
+type !llvm.struct<"S", (ptr, ptr, i32, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (ptr, ptr, i64)>	ok
+type !llvm.struct<"S", (ptr, ptr, i64, i32, i32)>	ok
+type !llvm.struct<"S", (ptr, ptr, i64, i32, i32, i32, array<N x struct<"S", (ptr, i64)>>)>	ok
+type !llvm.struct<"S", (ptr, ptr, i64, i64, i8, i8, array<N x i8>)>	ok
+type !llvm.struct<"S", (ptr, ptr, i64, ptr)>	ok
+type !llvm.struct<"S", (ptr, ptr, i8, i8, i16, i16)>	ok
+type !llvm.struct<"S", (ptr, ptr, i8, i8, i32, i32, i32, ptr, array<N x struct<"S", (ptr, ptr, i16, i16, i16, i8, i8, i32, i32, struct<"S", (ptr)>, i64, i64)>>)>	ok
+type !llvm.struct<"S", (ptr, ptr, i8, i8, i8, i8, i32, i32, i32, ptr, ptr, struct<"S", (ptr, i32, i8, ptr)>)>	ok
+type !llvm.struct<"S", (ptr, ptr, i8, i8, i8, ptr, ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (ptr, ptr, i8, i8, ptr)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, array<N x i8>)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, i32)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, i32, array<N x i32>)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, i32, i32)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, i32, i32, i16, i8, i8, ptr, i32, ptr, array<N x i32>)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, i32, i32, i32, i32, i32, ptr, i32, i32, i32, struct<"S", (ptr, ptr, i32, i32, i32, i8, i8)>, ptr, ptr, i64)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, i32, i32, i32, i32, i32, struct<"S", (i32, i32)>, struct<"S", (i32, i32)>, struct<"S", (i32, i32)>)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, i32, i32, i32, ptr, ptr, i32, i32, i32, i32, ptr)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, i32, i64, i32, i32, ptr, i32, i16, i8, i8, i8, i8, i8, i8, i8, i8, i8, struct<"S", (i32, i32, i32, i8, i8, i16, i32, i32, array<N x i32>, array<N x i32>, array<N x i32>)>, i32, i32, ptr, i32)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, i32, i8, i16, i32, ptr, ptr, ptr, ptr, i32, i32, i64, i64, i64, ptr, i32, i32)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, i32, i8, i8, i8, i32, ptr)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, i64, i32, i32, i32, i32, i8, i8, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, ptr, array<N x struct<"S", (i16, i16, struct<"S", (struct<"S", (ptr, i32)>)>)>>)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, ptr, i16, i32, i32, i32, i32, i32, i64, i32, i64, i64, i64, i64, ptr, ptr, ptr, ptr, ptr, i32, i32, ptr, ptr, ptr, ptr, i64, i16, i16, i8, i8, i8, i8, i16, i32, i32, array<N x i32>, ptr, ptr, ptr, ptr, i32, i32, ptr, ptr)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, ptr, i32)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, ptr, i32, i16, i16, struct<"S", (ptr)>)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, ptr, i32, i32, i8, i8, i16, array<N x ptr>)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, ptr, i32, i32, i8, i8, i8, array<N x i32>, array<N x i16>)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, ptr, i8, i8, i32)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, ptr, i8, i8, i8, i8, i8, i8, i8, i16, i16, i16, i16, i16, i32, i32, i32, i32, ptr, ptr, ptr, ptr, i32, ptr, ptr, ptr, ptr, i32)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, ptr, i8, i8, i8, i8, i8, ptr, ptr, ptr, ptr, ptr, ptr, i32, i32, i32, i32, i32, i32, ptr, i32, i32, i32, i32, i32, i8)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, ptr, ptr, array<N x i32>, i32, i32, i32, i16, i16, i8, i8, i8, i8, i8, i16, i32, i32, ptr, ptr, i64, struct<"S", (ptr, ptr, i8, i8, i32, i32, i32, ptr, array<N x struct<"S", (ptr, ptr, i16, i16, i16, i8, i8, i32, i32, struct<"S", (ptr)>, i64, i64)>>)>, struct<"S", (i32, i32, array<N x i32>)>, array<N x struct<"S", (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, ptr, i8, i8, i8, i8, i32, i32, struct<"S", (struct<"S", (i32, ptr)>)>, ptr, i64)>>)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, ptr, ptr, i32, i32, i32, i16, i16, i16, i16, i16, i8, i8, struct<"S", (struct<"S", (i32, ptr, ptr)>)>, ptr, ptr, array<N x i8>)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, ptr, ptr, i32, i32, i64, i64, i64, i32, i32, i32, i32, i32, i32, i32, i8, i8, i8, i8, i8, i8, i8, i8, i8, i8, i8, i8, i8, i8, i8, i32, i64, i64, array<N x i32>, i32, struct<"S", (i32, i8, i8, i8, ptr)>, i32, i32, i32, i32, i32, i32, ptr, struct<"S", (ptr)>, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, struct<"S", (f64)>, struct<"S", (i32, i16, i16, i8, i32, array<N x i32>, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr)>, ptr, ptr, ptr, ptr, i32, i32, struct<"S", (i32, i32, ptr, ptr)>, ptr, ptr, ptr, struct<"S", (i32, i32, ptr, ptr)>, struct<"S", (i32, i32, ptr, ptr)>, struct<"S", (ptr, ptr, i32)>, array<N x struct<"S", (ptr, ptr, i8, i8, ptr)>>, ptr, i32, i32, i32, i32, i64, i64, ptr, ptr, i64)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, ptr, ptr, i32, i8, array<N x i8>, array<N x ptr>, array<N x struct<"S", (i32, ptr)>>)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, ptr, ptr, i8)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, ptr, ptr, i8, i8, ptr, ptr, ptr, i32, i32, i32)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, ptr, ptr, ptr, i16, i16, i32)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, ptr, ptr, ptr, i32, i16, i64, ptr, ptr)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, ptr, ptr, ptr, ptr, i64, ptr, i32, i32, i32, i32, i32, i32, i64, i64)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (ptr, ptr, ptr, struct<"S", packed (i8, i16, i8)>, i32, i64, struct<"S", (ptr)>, struct<"S", (ptr)>, struct<"S", (ptr)>, struct<"S", (ptr)>)>	ok
+type !llvm.struct<"S", (ptr, ptr, struct<"S", (ptr)>, i32, i16, i8, i8, i8, i8, i8)>	ok
+type !llvm.struct<"S", (ptr, ptr, struct<"S", (ptr)>, ptr, i32, i32, i32, i32, ptr)>	ok
+type !llvm.struct<"S", (ptr, ptr, struct<"S", (ptr, ptr, i8, i8, i8, ptr, ptr, ptr, ptr, ptr, ptr)>, struct<"S", (i8, i8, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr)>, i32, i32, i32, array<N x i8>)>	ok
+type !llvm.struct<"S", (ptr, ptr, struct<"S", packed (i8, i16, i8)>, struct<"S", (i32)>)>	ok
+type !llvm.struct<"S", (ptr, struct<"S", (ptr, i32)>, ptr)>	ok
+type !llvm.struct<"S", (ptr, struct<"S", (ptr, ptr, ptr, ptr, i32, i16, i16, struct<"S", (ptr)>)>, ptr, i8, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (struct<"S", (f64)>, ptr, i32, i16, i8, i8, ptr, i32, i32, ptr, ptr)>	ok
+type !llvm.struct<"S", (struct<"S", (i32, i32, array<N x struct<"S", (ptr, ptr, ptr, struct<"S", packed (i8, i16, i8)>, i32, i64, struct<"S", (ptr)>, struct<"S", (ptr)>, struct<"S", (ptr)>, struct<"S", (ptr)>)>>)>, array<N x i8>)>	ok
+type !llvm.struct<"S", (struct<"S", (i32, i32, i32, i32, i32, i16, i16, struct<"S", (ptr, ptr)>)>)>	ok
+type !llvm.struct<"S", (struct<"S", (i64, i64)>, ptr, i32, i32, i8, i8, ptr, i32, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (struct<"S", (ptr)>, i32, i32, i32, i32, i8, i8, i8, i32, i32, ptr, ptr, struct<"S", (ptr, ptr, i64, i64, i8, i8, array<N x i8>)>, struct<"S", (ptr, i32, i32, ptr, ptr, i32, i32, i32, i16, i8, i8, i8, i8, i8, i8, i32, i32, i32, ptr)>)>	ok
+type !llvm.struct<"S", (struct<"S", (ptr)>, ptr, i32)>	ok
+type !llvm.struct<"S", (struct<"S", (ptr)>, ptr, i64, array<N x ptr>)>	ok
+type !llvm.struct<"S", (struct<"S", (ptr, i32)>)>	ok
+type !llvm.struct<"S", (struct<"S", (ptr, i32, i32, i32, i32, struct<"S", (struct<"S", (ptr, ptr)>, i32, i16, i16, ptr, ptr, ptr, ptr)>)>, i32, i32, i32, i32, i32, i32, ptr, ptr, ptr, ptr, i32, i32)>	ok
+type !llvm.struct<"S", (struct<"S", (ptr, i32, ptr)>, ptr, i8, i8)>	ok
+type !llvm.struct<"S", (struct<"S", (ptr, i32, ptr)>, ptr, ptr, i8, i8)>	ok
+type !llvm.struct<"S", (struct<"S", (ptr, ptr)>, i32, i16, i16, ptr, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", (struct<"S", (ptr, ptr, i32, i32, i32, i8, i8)>, i32, i32, ptr)>	ok
+type !llvm.struct<"S", (struct<"S", (ptr, ptr, i8, i8, i32, i32, i32, ptr, array<N x struct<"S", (ptr, ptr, i16, i16, i16, i8, i8, i32, i32, struct<"S", (ptr)>, i64, i64)>>)>)>	ok
+type !llvm.struct<"S", (struct<"S", (ptr, ptr, i8, i8, i32, i32, i32, ptr, array<N x struct<"S", (ptr, ptr, i16, i16, i16, i8, i8, i32, i32, struct<"S", (ptr)>, i64, i64)>>)>, i64)>	ok
+type !llvm.struct<"S", (struct<"S", (struct<"S", (i32, i32, i32, i32, i32, i16, i16, struct<"S", (ptr, ptr)>)>)>)>	ok
+type !llvm.struct<"S", packed (i8, i16, i8)>	ok
+type !llvm.struct<"S", packed (ptr, ptr, ptr, i32, i16, i8, i8, i8, i8, i8, i8, i8, i8, i8, i16, array<N x i8>, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, array<N x i8>, ptr, ptr, ptr, ptr, i32, i32, i32, i32, i32, i32, ptr, ptr, ptr, ptr, ptr, ptr, array<N x i32>, ptr, struct<"S", (ptr, i32)>, i32, i32, struct<"S", (struct<"S", (i32, i32, i32, struct<"S", (ptr, i32)>)>)>, struct<"S", (ptr, i32)>, i16, i8, i8, i8, array<N x i8>, i32, i32, i32, array<N x i8>, ptr, ptr, ptr, ptr, ptr, ptr, ptr, struct<"S", (ptr, i32)>, ptr, ptr, ptr)>	ok
+type !llvm.struct<"S", packed (ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, i32, i16, i16, i16, i8, i16, array<N x i8>, i64)>	ok
+type !llvm.struct<(array<N x i8>, i8)>	ok
+type !llvm.struct<(ptr, i32)>	ok
+type !llvm.struct<packed (array<N x i16>, array<N x i16>)>	ok
+type !llvm.struct<packed (array<N x i8>, array<N x i8>)>	ok
+type tensor<Nx8xi8>	missing
+type tensor<Nxi16>	missing
+type tensor<Nxi32>	missing
+type tensor<Nxi64>	missing
+type tensor<Nxi8>	missing
+type vector<Nxi32>	missing
