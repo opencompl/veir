@@ -100,6 +100,19 @@ theorem zextw_zextw {x : Reg} :
     RISCV.zextw (RISCV.zextw x) = RISCV.zextw x := by
   veir_bv_decide
 
+/-- A byte zero-extension is already a word zero-extension. -/
+theorem zextw_zextb {x : Reg} :
+    RISCV.zextw (RISCV.zextb x) = RISCV.zextb x := by
+  veir_bv_decide
+
+/-- A byte shifted by at most 24 positions still fits in the low word.  Thus
+    zero-extending the result of a word shift is exactly an ordinary RV64
+    shift of the byte-zero-extended input. -/
+theorem zextw_slliw_zextb {x : Reg} {shamt : BitVec 5} (h : shamt ≤ 24#5) :
+    RISCV.zextw (RISCV.slliw shamt (RISCV.zextb x)) =
+      RISCV.slli (shamt.setWidth 6) (RISCV.zextb x) := by
+  veir_bv_decide
+
 /--
   Prove the correctness of dropping a `riscv.zextw` from the `rs2` operand of
   `riscv.addw`. The instruction reads only bits 31:0 of both operands.

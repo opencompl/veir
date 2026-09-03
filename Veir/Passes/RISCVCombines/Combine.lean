@@ -3,6 +3,8 @@ module
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
 import Veir.Passes.RISCVCombines.MIRCombinesVeir
+import Veir.PatternRewriter.Puddle.Builders
+import Veir.PatternRewriter.Puddle.Execution
 
 namespace Veir.RISCV
 
@@ -1558,6 +1560,80 @@ def zexth_zexth := drop_redundant_ext .zexth
 def sextb_sextb := drop_redundant_ext .sextb
 def sexth_sexth := drop_redundant_ext .sexth
 
+/-- `riscv.zextw (riscv.zextb x) -> riscv.zextb x`. A byte zero-extension
+    already clears every bit which `zextw` would clear. -/
+def zextw_zextb_pattern : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let xType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let x ← Puddle.MatchProg.value xType
+      let zextbType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let zextb ← Puddle.MatchProg.operation (.riscv .zextb) #[x] #[zextbType]
+      let _ ← Puddle.MatchProg.root (.riscv .zextw) #[zextb.res[0]!] #[zextbType]
+      return zextb.res[0]!)
+    pure
+    (fun zextb => zextb)
+
+def zextw_zextb : Puddle.CompiledPattern OpCode :=
+  zextw_zextb_pattern.compile
+
+/-- Physical-register form of `zextw_zextb`. When the inner and outer results
+    have distinct register types, create an equivalent `zextb` at the root type
+    instead of forwarding the inner result. -/
+def zextw_zextb_retarget_pattern : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let xType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let x ← Puddle.MatchProg.value xType
+      let zextbType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let zextb ← Puddle.MatchProg.operation (.riscv .zextb) #[x] #[zextbType]
+      let zextwType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let _ ← Puddle.MatchProg.root (.riscv .zextw) #[zextb.res[0]!] #[zextwType]
+      return (x, zextwType))
+    (fun (x, zextwType) => do
+      let zextbProps ← Puddle.CreateProg.property (.riscv .zextb) ()
+      let zextb ← Puddle.CreateProg.operation (.riscv .zextb) #[x] #[zextwType] zextbProps
+      return zextb)
+    (fun zextb => zextb)
+
+def zextw_zextb_retarget : Puddle.CompiledPattern OpCode :=
+  zextw_zextb_retarget_pattern.compile
+
+/-- `riscv.zextw (riscv.slliw (riscv.zextb x), shamt) ->
+    riscv.slli (riscv.zextb x), shamt` when `shamt ≤ 24`.
+
+    The byte input has no set bit above bit 7, so these shifts cannot set a bit
+    above bit 31. Consequently the word shift's sign extension followed by
+    `zextw` equals an ordinary 64-bit shift. The bound is essential: at shift
+    25 or greater, `slliw` truncates bits which `slli` preserves.
+
+    Puddle creation properties are concrete, so this definition is instantiated
+    once for each valid shift amount rather than extending Puddle to transfer a
+    matched immediate between opcodes. -/
+private def zextw_slliw_zextb_pattern (shamt : Int) : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let xType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let x ← Puddle.MatchProg.value xType
+      let zextbType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let zextb ← Puddle.MatchProg.operation (.riscv .zextb) #[x] #[zextbType]
+      let slliwType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let slliw ← Puddle.MatchProg.operation (.riscv .slliw) #[zextb.res[0]!] #[slliwType]
+        (fun properties => decide (properties.value.value = shamt))
+      let zextwType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let _ ← Puddle.MatchProg.root (.riscv .zextw) #[slliw.res[0]!] #[zextwType]
+      return (zextb.res[0]!, zextwType))
+    (fun (zextb, zextwType) => do
+      let slliProps ← Puddle.CreateProg.property (.riscv .slli)
+        (RISCVImmediateProperties.mk (IntegerAttr.mk shamt (IntegerType.mk 64)))
+      let slli ← Puddle.CreateProg.operation (.riscv .slli) #[zextb] #[zextwType] slliProps
+      return slli)
+    (fun slli => slli)
+
+private def zextw_slliw_zextb_patterns : Array (Puddle.CompiledPattern OpCode) :=
+  (Array.range 25).map fun shamt =>
+    (zextw_slliw_zextb_pattern (Int.ofNat shamt)).compile
+
 /-- If `val` is defined by a `riscv.<ext>` op (`ext` being `zextw`/`sextw`),
     return its source operand and `true`; otherwise `val` unchanged and `false`. -/
 private def stripDefiningExt (ext : Riscv) (val : ValuePtr) (ctx : IRContext OpCode) :
@@ -1629,25 +1705,32 @@ def drop_zextw_roriw := drop_ext_unary_imm_low_word .zextw .roriw
     riscv.roriw (riscv.xor x y), imm`. This rewrites the parent `roriw` and
     creates a fresh XOR so simultaneous full-width uses retain the original,
     zero-extended XOR result. -/
-def drop_zextw_xor_roriw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (roriwOperands, roriwProps) := matchOp op ctx.raw (OpCode.riscv .roriw) 1
-    | return (ctx, none)
-  let some xorOp := roriwOperands[0]!.definingOp? | return (ctx, none)
-  let some (xorOperands, _) := matchOp xorOp ctx.raw (OpCode.riscv .xor) 2
-    | return (ctx, none)
-  let (x, xChanged) := stripDefiningExt .zextw xorOperands[0]! ctx.raw
-  let (y, yChanged) := stripDefiningExt .zextw xorOperands[1]! ctx.raw
-  if !xChanged || !yChanged then return (ctx, none)
-  let (ctx, newXor) ← WfRewriter.createOp! ctx Riscv.xor #[RegisterType.mk] #[x, y]
-    #[] #[] () none
-  let (ctx, newRoriw) ← WfRewriter.createOp! ctx Riscv.roriw #[RegisterType.mk]
-    #[newXor.getResult 0] #[] #[] roriwProps none
-  some (ctx, some (#[newXor, newRoriw], #[newRoriw.getResult 0]))
+def drop_zextw_xor_roriw_pattern : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let xType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let x ← Puddle.MatchProg.value xType
+      let zextwXType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let zextwX ← Puddle.MatchProg.operation (.riscv .zextw) #[x] #[zextwXType]
+      let yType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let y ← Puddle.MatchProg.value yType
+      let zextwYType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let zextwY ← Puddle.MatchProg.operation (.riscv .zextw) #[y] #[zextwYType]
+      let xorType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let xor ← Puddle.MatchProg.operation (.riscv .xor) #[zextwX.res[0]!, zextwY.res[0]!]
+        #[xorType]
+      let roriwType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let roriw ← Puddle.MatchProg.root (.riscv .roriw) #[xor.res[0]!] #[roriwType]
+      return (x, y, xorType, roriwType, roriw.properties))
+    (fun (x, y, xorType, roriwType, roriwProps) => do
+      let xorProps ← Puddle.CreateProg.property (.riscv .xor) ()
+      let xor ← Puddle.CreateProg.operation (.riscv .xor) #[x, y] #[xorType] xorProps
+      let roriw ← Puddle.CreateProg.operation (.riscv .roriw) #[xor.res[0]!] #[roriwType] roriwProps
+      return roriw)
+    (fun roriw => roriw)
 
-def drop_zextw_xor_roriw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite drop_zextw_xor_roriw_local rewriter op opInBounds
+def drop_zextw_xor_roriw : Puddle.CompiledPattern OpCode :=
+  drop_zextw_xor_roriw_pattern.compile
 
 /-- `riscv.srliw (riscv.zextw x), imm -> riscv.srliw x, imm`.
     LLVM: `SRLIW` case of `hasAllNBitUsers`.
@@ -2605,10 +2688,14 @@ def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds
      , drop_slli_srli_sltz
      , drop_slli_srli_sgtz
      , zextw_zextw
-     , drop_zextw_addw
+     , zextw_zextb.run
+     , zextw_zextb_retarget.run
+     ] ++
+    zextw_slliw_zextb_patterns.map (fun pattern => pattern.run) ++
+    #[ drop_zextw_addw
      , drop_zextw_addiw
      , drop_zextw_roriw
-     , drop_zextw_xor_roriw
+     , drop_zextw_xor_roriw.run
      , drop_zextw_srliw
      , drop_zextw_sextw
      , zextw_and
