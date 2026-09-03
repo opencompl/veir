@@ -675,8 +675,7 @@ def Llvm.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpIn
   | .int bw .poison, .integerType intType =>
     if bw = intType.bitwidth then some (.of Llvm.mlir__poison ()) else none
   | .float type value, .floatType floatType =>
-    -- `llvm.mlir.constant` only interprets 64-bit floats, so anything narrower
-    -- would materialize a constant that cannot be read back.
+    -- Materialize the constant as long as the runtime float type matches the result type.
     if type = floatType then
       some (.of Llvm.mlir__constant
         (LLVMConstantProperties.mk (.float (FloatAttr.mk type value))))

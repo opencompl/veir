@@ -329,7 +329,7 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
       | none   => throwAtCurrentPos s!"invalid floating-point literal '{str}'"
     else
       if isNegative then
-        throwAt valueStartPos "unexpected '-' before 0x-prefixed float bit pattern"
+        throwAt valueStartPos "unexpected '-' before float bit pattern"
       else if isHexValue value then
         let some n := numericValueToNat? value
           | throwAt valueStartPos s!"invalid hex bit pattern '{String.fromUTF8! value}'"

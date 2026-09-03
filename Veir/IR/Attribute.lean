@@ -69,7 +69,7 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 def FloatType.bitwidth (type: FloatType) : Nat :=
   1 + type.exponent + type.mantissa
 
-open Lean 
+open Lean
 /--
 Convert Veir's `FloatType` into Lean's floating type `Float.Model.Format`
 that reprsents IEEE-style floating point formats.
@@ -86,7 +86,7 @@ def FloatType.toFormat (type : FloatType)
 theorem FloatType.numBits_toFormat_eq_bitwidth
     (type : FloatType)
     (hm : 0 < type.mantissa) (he : 0 < type.exponent) :
-    (type.toFormat hm he).numBits = type.bitwidth := by 
+    (type.toFormat hm he).numBits = type.bitwidth := by
   simp [toFormat, Float.Model.Format.numBits, bitwidth]
 
 def FloatType.f16 : FloatType := { exponent := 5, mantissa := 10, bias := 15, canonicalName := "f16" }
@@ -1653,7 +1653,7 @@ def bitwidthOfType (type : Attribute) : Option Nat :=
 def sizeOfType (type : Attribute) : Option Nat :=
   match type with
   | .integerType { bitwidth } | .byteType { bitwidth } => some ((bitwidth + 7) / 8)
-  | .floatType type => some type.bitwidth
+  | .floatType type => some ((type.bitwidth + 7) / 8)
   | .llvmPointerType _ => some 8
   | .llvmArrayType { size, type } => do
       let inner ← sizeOfType type

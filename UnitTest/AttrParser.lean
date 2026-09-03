@@ -233,13 +233,16 @@ macro "#assert " e:term : command =>
 -- A 0x-prefixed hexadecimal literal is accepted as the raw IEEE-754 bit pattern of the type.
 #assert expectSuccessAttr "0x3f000000 : f32" (fpAttr FloatType.f32 0x3f000000)
 #assert expectSuccessAttr "0x3ff8000000000000 : f64" (fpAttr FloatType.f64 0x3ff8000000000000)
+-- But a hexadecimal preceded by minus sign is not.
+#assert expectErrorAttr "-0x3f000000 : f32"
+  "unexpected '-' before float bit pattern" (some 1)
 -- A decimal integer literal is not a valid bit pattern for a float type (only 0x... hex is).
 #assert expectErrorAttr "1 : f64"
   "expected a decimal float or 0x-prefixed hex bit pattern in float attribute" (some 0)
 #assert expectErrorAttr "10 : f32"
   "expected a decimal float or 0x-prefixed hex bit pattern in float attribute" (some 0)
 #assert expectErrorAttr "-10 : f32"
-  "expected a decimal float or 0x-prefixed hex bit pattern in float attribute" (some 1)
+  "unexpected '-' before float bit pattern" (some 1)
 -- Bad floating point types.
 #assert expectErrorAttr "1.5 : f900"
   "integer or float type expected after ':' in numeric attribute" (some 6)
