@@ -187,9 +187,14 @@ macro "#assert " e:term : command =>
 
 /-! ## Float attributes -/
 
+open Lean Float Model
+#eval (10e-1 : Float)
+#eval UnpackedFloat.ofScientific ⟨3, by simp, 3, by grind⟩ 1 0
+#eval Float.ofScientific 1 false 1
+
 -- Exactly representable values (positive and negative).
 #assert expectSuccessAttr "1.0 : f64"  (fpAttr FloatType.f64 0x3ff0000000000000)
-#eval testOptionalAttr "1.0 : f32"  
+#eval testOptionalAttr "1.0 : f64"  
 #assert expectSuccessAttr "1.5 : f64"  (fpAttr FloatType.f64 0x3ff8000000000000)
 #assert expectSuccessAttr "-1.5 : f64" (fpAttr FloatType.f64 0xbff8000000000000)
 #assert expectSuccessAttr "2.25 : f64" (fpAttr FloatType.f64 0x4002000000000000)

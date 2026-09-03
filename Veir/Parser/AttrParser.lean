@@ -9,6 +9,8 @@ import Init.Data.Float.Model.Format.Basic
 import Init.Data.Float.Model
 import Init.Data.Float.Model.Unpacked.Basic
 import Init.Data.Float.Model.Format.Basic
+import Init.Data.Float.Model.Unpacked.Operations.OfScientific
+import Init.Data.Float.Model.Unpacked.Operations
 
 
 public section
@@ -245,18 +247,36 @@ def convertFPToBitvec (f : ParsedFloat) (type: Veir.FloatType) : BitVec (type.bi
   if hty : type.mantissa = 0 ∨ type.exponent = 0 then 
     0#_
   else 
-      -- TODO: check what we do with infinity or NaN for FloatAttr
-      let sign : UnpackedFloat.Sign := if f.negative then .negative else .positive
-      let format : Model.Format := {
-        exponentBits := type.exponent,
-        mantissaBitsWithoutImplicit := type.mantissa
-        hm := by grind only
-        he := by grind only
-      }
-      dbg_trace f!"sig: {repr f.significand} | exp: {repr f.exponent} | format: (expbits:{format.exponentBits} mantissa:{type.mantissa})"
-      let ufRounded := UnpackedFloat.round format sign f.significand f.exponent
-      dbg_trace f!"foo {repr ufRounded}"
-      packUnpackedFloatToType type ufRounded
+     let format : Model.Format := {
+       exponentBits := type.exponent,
+       mantissaBitsWithoutImplicit := type.mantissa
+       hm := by grind only
+       he := by grind only
+     }
+     let rat : Rat := (if f.negative then -1 else 1) * f.significand * ((10 : Rat) ^ f.exponent)
+     dbg_trace f!"rat: {rat}"
+     let dyadic : Dyadic := rat.toDyadic (type.mantissa + 4)
+     dbg_trace f!"dyadic: {dyadic.toRat}"
+     dbg_trace f!"sig: {f.significand} | exp: {f.exponent}"
+     let ufRounded := UnpackedFloat.ofScientific format f.significand f.exponent
+     let ufRounded := if f.negative then ufRounded.neg else ufRounded
+     dbg_trace f!"ufRounded:{repr ufRounded}"
+     let out := UnpackedFloat.pack format ufRounded |>.cast (by sorry) 
+     -- packUnpackedFloatToType type ufRounded
+     dbg_trace f!"out:{repr out}"
+     out
+     /-
+     match dyadic with 
+     | .zero => (BitVec.ofNat type.bitwidth (if f.negative then 1 else 0)) <<< (type.bitwidth - 1)
+     | .ofOdd n k _hnk => -- n * 2^(-k)
+       dbg_trace f!"dyadic is ofOdd: n:{n}*2^-(k:{k})"
+        -- dbg_trace f!"sig: {repr f.significand} | exp: {repr f.exponent} | format: (expbits:{format.exponentBits} mantissa:{type.mantissa})"
+        -- let ufRounded := UnpackedFloat.normalize format n (-k) .positive
+
+        let ufRounded := UnpackedFloat.ofScientific format f.significand f.exponent
+        dbg_trace f!"foo {repr ufRounded}"
+        packUnpackedFloatToType type ufRounded
+      -/
 
 /--
   Returns `true` if the numeric literal is in `0x`-prefixed hexadecimal form.
