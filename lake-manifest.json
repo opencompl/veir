@@ -19,7 +19,7 @@
    "type": "git",
    "subDir": null,
    "scope": "",
-   "rev": "ebef122542279afa186791dee6e8f18f3c3ab862",
+   "rev": "a63e4d1905b50da0523e131842fae3fa12027e58",
    "name": "Coinductive",
    "manifestFile": "lake-manifest.json",
    "inputRev": "main",

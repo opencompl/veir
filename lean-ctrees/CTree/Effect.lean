@@ -22,6 +22,7 @@ namespace CTree
 Sum of two effect families: on the sum of the index types, dispatches to the
 corresponding component family.
 -/
+@[implicit_reducible]
 def SumE {ι₁ ι₂ : Type u} (ε₁ : ι₁ → Type u) (ε₂ : ι₂ → Type u) : (ι₁ ⊕ ι₂) → Type u
   | .inl i => ε₁ i
   | .inr i => ε₂ i

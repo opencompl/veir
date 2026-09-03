@@ -381,13 +381,13 @@ instance : MonoBind (CTree E C) where
   bind_mono_left := by
     intro _ _ _ _ _ _
     dsimp only [Bind.bind]
-    apply bind_mono (λ x => x) <;> grind [monotone, PartialOrder.rel_refl]
+    apply bind_mono (λ x => x) <;> grind [monotone]
   bind_mono_right := by
     intro _ _ a _ _ _
     dsimp only [Bind.bind]
     apply bind_mono (λ x => a) (λ x => x)
-    · grind [monotone, PartialOrder.rel_refl]
-    · grind [monotone, PartialOrder.rel_refl]
+    · grind [monotone]
+    · grind [monotone]
     · intro _; grind
 
 end CTree

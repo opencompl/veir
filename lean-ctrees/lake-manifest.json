@@ -5,7 +5,7 @@
    "type": "git",
    "subDir": null,
    "scope": "",
-   "rev": "75a82d8129612e056ce9ab620bdff562f2d9fae1",
+   "rev": "a63e4d1905b50da0523e131842fae3fa12027e58",
    "name": "Coinductive",
    "manifestFile": "lake-manifest.json",
    "inputRev": "main",
