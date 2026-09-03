@@ -2,6 +2,7 @@ module
 
 public import Veir.Analysis.DataFlow.Domains.AbstractDomain
 public import Veir.Interpreter.Evaluate
+import Veir.Meta.BVDecide
 
 public section
 
@@ -125,6 +126,62 @@ def constant (bitwidth : Nat) (value : Int) : KnownBitsLattice :=
           value &&& bits.zero = 0 ∧ value &&& bits.one = bits.one
       | _ => False
 
+@[simp] theorem not_mem_γ_bottom (value : RuntimeValue) : value ∉ γ .bottom := fun h => h.elim
+
+@[simp] theorem mem_γ_top (value : RuntimeValue) : value ∈ γ .top := trivial
+
+/-- Normalize membership in a known-bits value to masks at the concrete value's width. -/
+theorem mem_γ_known_masks_iff
+    {bits : KnownBits}
+    {bitwidth : Nat}
+    {value : BitVec bitwidth} :
+    RuntimeValue.int bitwidth (.val value) ∈ γ (.known bits) ↔
+      ∃ zero one : BitVec bitwidth,
+        bits = ⟨bitwidth, zero, one⟩ ∧
+        value &&& zero = 0 ∧ value &&& one = one := by
+  constructor
+  · rcases bits with ⟨bitsWidth, zero, one⟩
+    rintro ⟨hwidth, hzero, hone⟩
+    change bitwidth = bitsWidth at hwidth
+    subst bitsWidth
+    simp at hzero hone
+    exact ⟨zero, one, rfl, hzero, hone⟩
+  · rintro ⟨zero, one, rfl, hzero, hone⟩
+    exact ⟨rfl, hzero, hone⟩
+
+/-- Characterize known-bits membership as facts about each concrete bit. -/
+theorem mem_γ_known_iff
+    {bits : KnownBits}
+    {bitwidth : Nat}
+    {value : BitVec bitwidth} :
+    RuntimeValue.int bitwidth (.val value) ∈ γ (.known bits) ↔
+      ∃ zero one : BitVec bitwidth,
+        bits = ⟨bitwidth, zero, one⟩ ∧
+        (∀ i (hi : i < bitwidth), zero[i] = true → value[i] = false) ∧
+        (∀ i (hi : i < bitwidth), one[i] = true → value[i] = true) := by
+  rw [mem_γ_known_masks_iff]
+  constructor
+  · rintro ⟨zero, one, hbits, hzero, hone⟩
+    refine ⟨zero, one, hbits, ?_, ?_⟩
+    · intro i hi hzeroTrue
+      have hzeroBit := congrArg (fun value => value[i]) hzero
+      simp at hzeroBit
+      veir_bv_decide
+    · intro i hi honeTrue
+      have honeBit := congrArg (fun value => value[i]) hone
+      simp at honeBit
+      veir_bv_decide
+  · rintro ⟨zero, one, hbits, hzero, hone⟩
+    refine ⟨zero, one, hbits, ?_, ?_⟩
+    · ext i hi
+      have hzeroBit := hzero i hi
+      simp at hzeroBit ⊢
+      veir_bv_decide
+    · ext i hi
+      have honeBit := hone i hi
+      simp at honeBit ⊢
+      veir_bv_decide
+
 /-- Join facts arriving along different control-flow paths. -/
 def join : KnownBitsLattice → KnownBitsLattice → KnownBitsLattice
   | .bottom, rhs => rhs
@@ -165,60 +222,26 @@ theorem bitwiseAnd_sound
           #[.int bitwidth (.val lhsValue), .int bitwidth (.val rhsValue)] =
         .ok #[.int bitwidth (.val resultValue)]) :
     RuntimeValue.int bitwidth (.val resultValue) ∈ γ (bitwiseAnd lhs rhs) := by
-  have hresult : resultValue = lhsValue &&& rhsValue := by
-    rw [foldEvaluate_llvm_and] at heval
-    simpa using heval.symm
-  subst resultValue
-  cases lhs with
-  | bottom => exact hlhs.elim
-  | top =>
-    cases rhs with
-    | bottom => exact hrhs.elim
-    | top => trivial
-    | known rhsBits =>
-      rcases hrhs with ⟨hwidth, hzero, _⟩
-      subst bitwidth
-      refine ⟨rfl, ?_, by simp⟩
-      ext i hi
-      have hzeroBit := congrArg (fun value => value[i]) hzero
-      simp at hzeroBit ⊢
-      intro _ hrhsValue
-      exact hzeroBit hrhsValue
-  | known lhsBits =>
-    cases rhs with
-    | bottom => exact hrhs.elim
-    | top =>
-      rcases hlhs with ⟨hwidth, hzero, _⟩
-      subst bitwidth
-      refine ⟨rfl, ?_, by simp⟩
-      ext i hi
-      have hzeroBit := congrArg (fun value => value[i]) hzero
-      simp at hzeroBit ⊢
-      intro hlhsValue _
-      exact hzeroBit hlhsValue
-    | known rhsBits =>
-      rcases lhsBits with ⟨lhsWidth, lhsZero, lhsOne⟩
-      rcases rhsBits with ⟨rhsWidth, rhsZero, rhsOne⟩
-      rcases hlhs with ⟨hlwidth, hlzero, hlone⟩
-      subst bitwidth
-      rcases hrhs with ⟨hrwidth, hrzero, hrone⟩
-      simp at hlzero hlone hrwidth
-      subst rhsWidth
-      simp at hrzero hrone
-      simp only [bitwiseAnd, KnownBits.bitwiseAnd?, γ]
-      refine ⟨rfl, ?_, ?_⟩
-      · ext i hi
-        have hlzeroBit := congrArg (fun value => value[i]) hlzero
-        have hrzeroBit := congrArg (fun value => value[i]) hrzero
-        simp at hlzeroBit hrzeroBit ⊢
-        intro hlhsValue hrhsValue
-        exact ⟨hlzeroBit hlhsValue, hrzeroBit hrhsValue⟩
-      · ext i hi
-        have hloneBit := congrArg (fun value => value[i]) hlone
-        have hroneBit := congrArg (fun value => value[i]) hrone
-        simp at hloneBit hroneBit ⊢
-        intro lhsOne rhsOne
-        exact ⟨hloneBit lhsOne, hroneBit rhsOne⟩
+  obtain rfl : resultValue = lhsValue &&& rhsValue := by
+    simpa [foldEvaluate_llvm_and] using heval.symm
+  cases lhs <;> cases rhs <;> simp_all only [not_mem_γ_bottom, mem_γ_top, bitwiseAnd]
+  case known.top | top.known =>
+    first
+      | (obtain ⟨zero, _, rfl, hzero, _⟩ := mem_γ_known_iff.mp hlhs)
+      | (obtain ⟨zero, _, rfl, hzero, _⟩ := mem_γ_known_iff.mp hrhs)
+    refine mem_γ_known_iff.mpr
+      ⟨zero, 0, rfl, fun i hi h => by simp [hzero i hi h], by simp⟩
+  case known.known =>
+    obtain ⟨lhsZero, lhsOne, rfl, hlzero, hlone⟩ := mem_γ_known_iff.mp hlhs
+    obtain ⟨rhsZero, rhsOne, rfl, hrzero, hrone⟩ := mem_γ_known_iff.mp hrhs
+    simp only [KnownBits.bitwiseAnd?]
+    refine mem_γ_known_iff.mpr
+      ⟨lhsZero ||| rhsZero, lhsOne &&& rhsOne, rfl, ?_,
+        fun i hi h => by simp_all [hlone i hi, hrone i hi]⟩
+    · intro i hi hresultZero
+      specialize hlzero i hi
+      specialize hrzero i hi
+      simp_all <;> veir_bv_decide
 
 /-- Transfer known bits through bitwise OR. -/
 def bitwiseOr : KnownBitsLattice → KnownBitsLattice → KnownBitsLattice
