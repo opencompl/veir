@@ -1802,6 +1802,8 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     return (vals, mem, act)
   | .func .return => do
     return (#[], mem, some (.return operands))
+  | .cir .return => do
+    return (#[], mem, some (.return operands))
   | .builtin .unrealized_conversion_cast => do
     let some resType := resultTypes[0]? | none
     match resType.val, operands.toList with

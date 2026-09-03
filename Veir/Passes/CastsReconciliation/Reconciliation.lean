@@ -34,6 +34,16 @@ def isPreservingModArithToIntCast (inputType interType : TypeAttr) : Bool :=
   | .integerType _, .modArithType _ => True
   | _, _ => false
 
+/- We reconcile casts from `!cir.int<s|u, N>` to `iN` and from `!cir.bool` to `i1` (and back):
+   the lowering keeps every bit, so the round trip is the identity. -/
+def isCirToIntRoundTrip (inputType interType : TypeAttr) : Bool :=
+  match inputType.val, interType.val with
+  | .cirIntType it, .integerType i => i.bitwidth = it.width
+  | .integerType i, .cirIntType it => i.bitwidth = it.width
+  | .cirBoolType _, .integerType i => i.bitwidth = 1
+  | .integerType i, .cirBoolType _ => i.bitwidth = 1
+  | _, _ => false
+
 
 /-- Reconciles round-trip casts of the form X->Y->X if allowed for these types by `legal X Y`.
 
@@ -111,6 +121,7 @@ def CastReconcilePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : o
     .fromLocalRewrite (reconcilePairingCastLocal isRegToI64RoundTrip),
     .fromLocalRewrite (reconcilePairingCastLocal isRiscvRegToPtrCast),
     .fromLocalRewrite (reconcilePairingCastLocal isPreservingModArithToIntCast),
+    .fromLocalRewrite (reconcilePairingCastLocal isCirToIntRoundTrip),
     .fromLocalRewrite reconcileRegIntCastLocal]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying cast reconciliation"
