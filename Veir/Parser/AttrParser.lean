@@ -186,23 +186,6 @@ def parseRegisterType (errorMsg : String := "register type expected") : AttrPars
   | none => throwAtCurrentPos errorMsg
 
 /--
-  Parse an integer attribute, if present.
-  An integer attribute has the form `false`, `true` or `value : type`, where `value` is an
-  integer literal and `type` is an integer type.
--/
-def parseOptionalIntegerAttr : AttrParserM (Option IntegerAttr) := do
-  if (← parseOptionalKeyword "false".toByteArray) then
-    return some (IntegerAttr.mk 0 (IntegerType.mk 1))
-  if (← parseOptionalKeyword "true".toByteArray) then
-    return some (IntegerAttr.mk 1 (IntegerType.mk 1))
-
-  let some value ← parseOptionalInteger false true
-    | return none
-  parsePunctuation ":"
-  let integerType ← parseIntegerType "integer type expected after ':' in integer attribute"
-  return some (IntegerAttr.mk value integerType)
-
-/--
   Parse a string attribute, if present.
   Its syntax is a string literal enclosed in double quotes, e.g., `"foo"`.
 -/
@@ -210,76 +193,6 @@ def parseOptionalStringAttr : AttrParserM (Option StringAttr) := do
   let some bytes ← parseOptionalStringLiteral
     | return none
   return some (StringAttr.mk bytes)
-
-/--
-  The base-10 floating point representation parsed directly from string.
-  The number is equal to:
-    (-1)^negative * significand * 10^exponent
--/
-structure ParsedFloat where
-  negative : Bool
-  significand : Nat
-  exponent : Int
-  deriving Repr, BEq
-
-/--
-  The floating point specification.
-  Example: `float` (32 bit) has 8-bit exponent and 23-bit mantissa.
--/
-structure FloatFormat where
-  mantissa: Nat
-  exponent: Nat
-
-def FloatFormat.bitwidth (fmt : FloatFormat) : Nat :=
-  1 + fmt.exponent + fmt.mantissa
-
-/--
-  Parses a string of digits into a Nat.
--/
-def parseDigits (s : String.Slice) : Option Nat :=
-  if s.isEmpty then none
-  else s.foldl (fun acc c => match acc with
-    | some x => if c.isDigit then x * 10 + c.toNat - '0'.toNat else none
-    | none => none) (some 0)
-
-/--
-  Parses a string of float into sign, significand and exponent under base 10.s
--/
-def parseDecimalFloat (s : String) : Option ParsedFloat := do
-  let s := s.trimAscii
-  if s.isEmpty then none
-
-  -- Parse sign
-  let (negative, tail) := match s.front with
-    | '-' => (true, s.drop 1)
-    | '+' => (false, s.drop 1)
-    | _ => (false, s)
-
-  -- Split into significand and exponent
-  let delim := fun c => c == 'e' || c == 'E'
-  let (sig, exp) ← match (tail.split delim).toList with
-    | [sig] => some (sig, Int.ofNat 0)
-    | [sig, exp] =>
-      let (sign, tail) := match exp.front with
-        | '-' => (-1, exp.drop 1)
-        | '+' => (1, exp.drop 1)
-        | _ => (1, exp)
-      match parseDigits tail with
-        | some x => some (sig, sign * Int.ofNat x)
-        | none => none
-    | _ => none
-
-  -- Split significand to integral part and fractional part.
-  -- Combine the digits and record where the '.' is.
-  let (digits, fracLen) ← match (sig.split (fun c => c == '.')).toList with
-    | [int] => some (int, 0)
-    | [int, frac] => some (int.toString ++ frac, frac.positions.length)
-    | _ => none
-
-  let significand ← parseDigits digits
-  let exponent : Int := exp - fracLen
-
-  some { negative, significand, exponent }
 
 /--
   Converts a base-10 float to the exact IEEE-754 bit pattern of the given type,
@@ -330,10 +243,19 @@ def convertFPToBitvec (f: ParsedFloat) (type: Veir.FloatType) : BitVec (type.bit
       rw [assoc] at eDefn
       omega; omega; omega
 
-    let rec findBase2Exp (n d : Nat) (e : Int) : Int × Nat × Nat :=
+    let rec findBase2ExpAux (n d : Nat) (e : Int) :=
       if n >= 2 * d then scaleDenominator n (d * 2) (e + 1)
       else if 2 * n < d then scaleNumerator (n * 2) d (e - 1)
       else (e, n, d)
+
+    let findBase2Exp (n d : Nat) (e : Int) :=
+      -- The auxiliary recursive function makes sure log2(n) - log2(d) < 1.
+      -- But that's not enough; we now have n < 2d, but we need n >= d,
+      -- while we only have n >= d/2 at this point.
+      --
+      -- Therefore, we must check one extra time.
+       let (e, n, d) := findBase2ExpAux n d e
+       if n < d then (e - 1, n * 2, d) else (e, n, d)
 
     -- Now the float is nNorm / dNorm * 2^exp (which is equal to N / D).
     let (exp, nNorm, dNorm) := findBase2Exp num den 0
@@ -388,22 +310,98 @@ def convertFPToBitvec (f: ParsedFloat) (type: Veir.FloatType) : BitVec (type.bit
     BitVec.ofNat type.bitwidth packed
 
 /--
-  Parse a float attribute, if present.
-  Supports most floating point attributes.
+  Returns `true` if the numeric literal is in `0x`-prefixed hexadecimal form.
 -/
-def parseOptionalFloatAttr : AttrParserM (Option FloatAttr) := do
-  let some tok ← parseOptionalToken .floatLit | return none
-  let str := String.fromUTF8! (tok.slice.of (← getThe ParserState).input)
+private def isHexValue (value : ByteArray) : Bool :=
+  value.size > 2 && (value[1]! == 'x'.toUInt8 || value[1]! == 'X'.toUInt8)
+
+/--
+  Convert a numeric literal byte sequence to a `Nat`, accepting decimal and `0x`-prefixed
+  hexadecimal forms.
+-/
+private def numericValueToNat? (value : ByteArray) : Option Nat :=
+  if isHexValue value then
+    value.hexToNat?
+  else
+    (String.fromUTF8? value).bind String.toNat?
+
+/--
+  Parse an integer or floating-point attribute, if present.
+  The attribute has the form `false`, `true` or `value : type`.
+  For an integer type, `value` must be a (possibly negated) integer literal in decimal or
+  `0x`-prefixed hexadecimal form.
+  For a floating-point type, `value` may be a (possibly negated) decimal floating-point
+  literal, or a `0x`-prefixed hexadecimal integer literal interpreted as the raw IEEE-754
+  bit pattern of the type. A decimal integer literal is rejected for a floating-point type.
+-/
+def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
+  if (← parseOptionalKeyword "false".toByteArray) then
+    return some (IntegerAttr.mk 0 (IntegerType.mk 1) : Attribute)
+  if (← parseOptionalKeyword "true".toByteArray) then
+    return some (IntegerAttr.mk 1 (IntegerType.mk 1) : Attribute)
+
+  -- Parse the optional leading '-'.
+  let isNegative := Option.isSome (← parseOptionalToken .minus)
+
+  -- Parse the value literal (integer or floating-point). At most one of the two is present.
+  let valueStartPos ← getPos
+  let valueInput := (← getThe ParserState).input
+  let intTok : Option Token ← parseOptionalToken .intLit
+  let floatTok : Option Token ← parseOptionalToken .floatLit
+  let valueTokOpt : Option Token := match intTok, floatTok with
+    | some t, _ => some t
+    | none, some t => some t
+    | none, none => none
+  let some valueToken := valueTokOpt
+    | if isNegative then
+        throwAtCurrentPos "expected number after '-'"
+      else
+        return none
+  let value := valueToken.slice.of valueInput
+  let isFloatLit : Bool := valueToken.kind == .floatLit
 
   parsePunctuation ":"
-  let some floatType ← parseOptionalFloatType
-    | throwAtCurrentPos "float type expected after ':' in float attribute"
+  let startPos ← getPos
 
-  let val ← match parseDecimalFloat str with
-    | some f => pure (convertFPToBitvec f floatType)
-    | none   => throwAtCurrentPos s!"invalid floating-point literal '{str}'"
+  -- Compute the integer value from the parsed literal.
+  let integerValue : AttrParserM Int := do
+    if isFloatLit then
+      throwAtCurrentPos "integer literal expected in integer attribute"
+    let some n := numericValueToNat? value
+      | throwAt startPos s!"invalid integer literal '{String.fromUTF8! value}'"
+    return (if isNegative then Int.negOfNat n else Int.ofNat n)
 
-  return some (Veir.FloatAttr.mk floatType val)
+  -- Compute the raw IEEE-754 bit pattern for a floating-point type.
+  let floatBits (floatType : FloatType) : AttrParserM (BitVec floatType.bitwidth) := do
+    if isFloatLit then
+      let str := if isNegative then "-" ++ String.fromUTF8! value else String.fromUTF8! value
+      match parseDecimalFloat str with
+      | some f => return convertFPToBitvec f floatType
+      | none   => throwAtCurrentPos s!"invalid floating-point literal '{str}'"
+    else
+      if isHexValue value then
+        let some n := numericValueToNat? value
+          | throwAt valueStartPos s!"invalid hex bit pattern '{String.fromUTF8! value}'"
+        return (BitVec.ofNat floatType.bitwidth n)
+      else
+        throwAt valueStartPos "expected a decimal float or 0x-prefixed hex bit pattern in float attribute"
+
+  -- Determine the type after ':'.
+  if let some integerType ← parseOptionalIntegerType then
+    return some (IntegerAttr.mk (← integerValue) integerType : Attribute)
+  else if let some floatType ← parseOptionalFloatType then
+    return some (FloatAttr.mk floatType (← floatBits floatType) : Attribute)
+  else if let some name ← parseOptionalPrefixedKeyword .exclamationIdent then
+    let some typeAttr := (← resolveOptionalTypeAlias startPos name)
+      | throwAt startPos "integer or float type expected after ':' in numeric attribute"
+    if let some integerType := typeAttr.cast? IntegerType then
+      return some (IntegerAttr.mk (← integerValue) integerType : Attribute)
+    else if let some floatType := typeAttr.cast? FloatType then
+      return some (FloatAttr.mk floatType (← floatBits floatType) : Attribute)
+    else
+      throwAt startPos "integer or float type expected after ':' in numeric attribute"
+  else
+    throwAt startPos "integer or float type expected after ':' in numeric attribute"
 
 /--
   Parse a string attribute.
@@ -810,7 +808,9 @@ def parseOptionalModArithType : AttrParserM (Option TypeAttr) := do
     return none
   let _ ← consumeToken
   parsePunctuation "<"
-  let some modulus ← parseOptionalIntegerAttr
+  let some modulus ← parseOptionalNumericAttr
+    | throwAtCurrentPos "modarith type modulus expected"
+  let some modulus := modulus.cast? IntegerAttr
     | throwAtCurrentPos "modarith type modulus expected"
   parsePunctuation ">"
   return some (ModArithType.mk modulus)
@@ -1386,10 +1386,8 @@ partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
     return some locationAttr
   else if let some type ← parseOptionalType then
     return some type.val
-  else if let some integerAttr ← parseOptionalIntegerAttr then
-    return some integerAttr
-  else if let some floatAttr ← parseOptionalFloatAttr then
-    return some floatAttr
+  else if let some numericAttr ← parseOptionalNumericAttr then
+    return some numericAttr
   else if let some stringAttr ← parseOptionalStringAttr then
     return some stringAttr
   else if let some denseArrayAttr ← parseOptionalDenseArrayAttr then

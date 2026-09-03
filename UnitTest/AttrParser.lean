@@ -157,7 +157,7 @@ macro "#assert " e:term : command =>
 
 /-! ## Integer attributes -/
 
-#assert expectErrorAttr "0 : 2" "integer type expected after ':' in integer attribute" (some 4)
+#assert expectErrorAttr "0 : 2" "integer or float type expected after ':' in numeric attribute" (some 4)
 #assert expectSuccessAttr "0 : i32" (IntegerAttr.mk 0 (IntegerType.mk 32))
 #assert expectSuccessAttr "false" (IntegerAttr.mk 0 (IntegerType.mk 1))
 #assert expectSuccessAttr "true" (IntegerAttr.mk 1 (IntegerType.mk 1))
@@ -201,6 +201,10 @@ macro "#assert " e:term : command =>
 -- Zero and negative zero.
 #assert expectSuccessAttr "0.0 : f64"  (fpAttr FloatType.f64 0x0000000000000000)
 #assert expectSuccessAttr "-0.0 : f64" (fpAttr FloatType.f64 0x8000000000000000)
+-- Scientific Notation.
+#assert expectSuccessAttr "1.3e7 : f32" (fpAttr FloatType.f32 0x4b465d40)
+#assert expectSuccessAttr "1.3e-5 : f32" (fpAttr FloatType.f32 0x375a1a93)
+#assert expectSuccessAttr "-2.2e+8 : f32" (fpAttr FloatType.f32 0xcd51cef0)
 -- Other float types.
 #assert expectSuccessAttr "1.0 : f32"   (fpAttr FloatType.f32 0x3f800000)
 #assert expectSuccessAttr "1.5 : f32"   (fpAttr FloatType.f32 0x3fc00000)
@@ -209,6 +213,21 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "1.5 : f16"   (fpAttr FloatType.f16 0x3e00)
 #assert expectSuccessAttr "2.25 : f16"  (fpAttr FloatType.f16 0x4080)
 #assert expectSuccessAttr "1.5 : bf16"  (fpAttr FloatType.bf16 0x3fc0)
+-- A 0x-prefixed hexadecimal literal is accepted as the raw IEEE-754 bit pattern of the type.
+#assert expectSuccessAttr "0x3f000000 : f32" (fpAttr FloatType.f32 0x3f000000)
+#assert expectSuccessAttr "0x3ff8000000000000 : f64" (fpAttr FloatType.f64 0x3ff8000000000000)
+-- A decimal integer literal is not a valid bit pattern for a float type (only 0x... hex is).
+#assert expectErrorAttr "1 : f64"
+  "expected a decimal float or 0x-prefixed hex bit pattern in float attribute" (some 0)
+#assert expectErrorAttr "10 : f32"
+  "expected a decimal float or 0x-prefixed hex bit pattern in float attribute" (some 0)
+#assert expectErrorAttr "-10 : f32"
+  "expected a decimal float or 0x-prefixed hex bit pattern in float attribute" (some 1)
+
+-- Bad floating point types.
+#assert expectErrorAttr "1.5 : f900"
+  "integer or float type expected after ':' in numeric attribute" (some 6)
+
 
 /-! ## String attributes -/
 
@@ -310,7 +329,7 @@ macro "#assert " e:term : command =>
 #assert ((testAttrWithAliases "array<!p: 1>" [("p", LLVM.PointerType.mk)]).mapError errorInfo
   = .error ("integer type expected in dense array attribute", some 6))
 #assert ((testAttrWithAliases "1 : !p" [("p", LLVM.PointerType.mk)]).mapError errorInfo
-  = .error ("integer type expected after ':' in integer attribute", some 4))
+  = .error ("integer or float type expected after ':' in numeric attribute", some 4))
 
 /-! ## Unregistered dialect attribute -/
 
@@ -373,7 +392,7 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "!mod_arith.int<17 : i64>" (ModArithType.mk (IntegerAttr.mk 17 (IntegerType.mk 64)))
 #assert expectErrorType "!mod_arith.int<>" "modarith type modulus expected" (some 15)
 #assert expectErrorType "!mod_arith.int<17>" "Expected punctuation ':'" (some 17)
-#assert expectErrorType "!mod_arith.int<17 : x>" "integer type expected after ':' in integer attribute" (some 20)
+#assert expectErrorType "!mod_arith.int<17 : x>" "integer or float type expected after ':' in numeric attribute" (some 20)
 
 /-! ## ClangIR types -/
 

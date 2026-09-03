@@ -404,6 +404,66 @@ def parseInteger (allowBoolean : Bool) (allowNegative : Bool) (errorMsg : String
   | some i => return i
   | none => throwAtCurrentPos errorMsg
 
+
+/--
+  The base-10 floating point representation parsed directly from string.
+  The number is equal to:
+    (-1)^negative * significand * 10^exponent
+-/
+structure ParsedFloat where
+  negative : Bool
+  significand : Nat
+  exponent : Int
+  deriving Repr, BEq
+
+/--
+  Parses a string of digits into a Nat.
+-/
+def parseDigits (s : String.Slice) : Option Nat :=
+  if s.isEmpty then none
+  else s.foldl (fun acc c => match acc with
+    | some x => if c.isDigit then x * 10 + c.toNat - '0'.toNat else none
+    | none => none) (some 0)
+
+/--
+  Parses a string of float into sign, significand and exponent under base 10.s
+-/
+def parseDecimalFloat (s : String) : Option ParsedFloat := do
+  let s := s.trimAscii
+  if s.isEmpty then none
+
+  -- Parse sign
+  let (negative, tail) := match s.front with
+    | '-' => (true, s.drop 1)
+    | '+' => (false, s.drop 1)
+    | _ => (false, s)
+
+  -- Split into significand and exponent
+  let delim := fun c => c == 'e' || c == 'E'
+  let (sig, exp) ← match (tail.split delim).toList with
+    | [sig] => some (sig, Int.ofNat 0)
+    | [sig, exp] =>
+      let (sign, tail) := match exp.front with
+        | '-' => (-1, exp.drop 1)
+        | '+' => (1, exp.drop 1)
+        | _ => (1, exp)
+      match parseDigits tail with
+        | some x => some (sig, sign * Int.ofNat x)
+        | none => none
+    | _ => none
+
+  -- Split significand to integral part and fractional part.
+  -- Combine the digits and record where the '.' is.
+  let (digits, fracLen) ← match (sig.split (fun c => c == '.')).toList with
+    | [int] => some (int, 0)
+    | [int, frac] => some (int.toString ++ frac, frac.positions.length)
+    | _ => none
+
+  let significand ← parseDigits digits
+  let exponent : Int := exp - fracLen
+
+  some { negative, significand, exponent }
+
 /--
   Delimiters that are supported when parsing lists.
 -/
