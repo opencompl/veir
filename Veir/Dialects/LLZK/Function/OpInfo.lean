@@ -125,12 +125,9 @@ private partial def OperationPtr.getEnclosingBuiltinModule? {OpInfo : Type} [IsO
 private def OperationPtr.verifyModuleFunctionCall {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Function_] (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (props : FunctionCallProperties) (argumentCount : Nat) : Except String PUnit := do
-  -- This is the module-level subset of LLZK's `CallOp::verifySymbolUses` and
-  -- `KnownTargetVerifier::verifyTypesMatch`. Nested struct/template lookup remains unsupported:
+  -- Verify calls to module-level function definitions.
   -- https://github.com/project-llzk/llzk-lib/blob/main/lib/Dialect/Function/IR/Ops.cpp#L938-L954
   -- https://github.com/project-llzk/llzk-lib/blob/main/lib/Dialect/Function/IR/Ops.cpp#L1103-L1141
-  if !props.callee.nestedRefs.isEmpty then
-    throw s!"function.call: nested callee '{props.callee}' is unsupported until nested LLZK symbol tables are ported"
   let some moduleOp := op.getEnclosingBuiltinModule? ctx.raw
     | throw "function.call: expected an enclosing builtin.module"
   let mut target : Option OperationPtr := none
@@ -141,13 +138,13 @@ private def OperationPtr.verifyModuleFunctionCall {OpInfo : Type} [IsOpCode OpIn
         let candidateProps : Function_.propertiesOf .«def» :=
           candidate.getProperties! ctx.raw Function_.«def»
         let candidateName := "@" ++ String.fromUTF8! candidateProps.sym_name.value
-        if candidateName = props.callee.rootRef then
+        if candidateName = props.callee.value then
           if target.isSome then
             throw s!"function.call: callee '{props.callee}' is ambiguous because the symbol is defined more than once"
           target := some candidate
       | _ => pure ()
   let some targetOp := target
-    | throw s!"function.call: callee '{props.callee}' does not name a module-level function.def"
+    | throw s!"function.call: callee '{props.callee}' does not name a function.def"
   let targetProps : Function_.propertiesOf .«def» :=
     targetOp.getProperties! ctx.raw Function_.«def»
   let targetType := targetProps.function_type

@@ -63,7 +63,7 @@ def FunctionDefProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribu
 
 /-- Properties of the `function.call` operation. -/
 structure FunctionCallProperties where
-  callee : SymbolRefAttr
+  callee : FlatSymbolRefAttr
   operandSegmentSizes : DenseArrayAttr
   numDimsPerMap : Option DenseArrayAttr
   mapOpGroupSizes : DenseArrayAttr
@@ -73,10 +73,9 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 def FunctionCallProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String FunctionCallProperties := do
   let callee ← match attrDict["callee".toUTF8]? with
-    | some (.symbolRefAttr ref) => pure ref
-    | some (.flatSymbolRefAttr flat) => pure { rootRef := flat.value, nestedRefs := #[] }
+    | some (.flatSymbolRefAttr ref) => pure ref
     | some attr =>
-      throw s!"function.call: expected 'callee' to be a symbol reference, got {attr}"
+      throw s!"function.call: expected 'callee' to be a flat symbol reference, got {attr}"
     | none => throw "function.call: missing 'callee' property"
   let getDense (key : String) : Except String DenseArrayAttr := do
     match attrDict[key.toUTF8]? with
@@ -113,7 +112,7 @@ def FunctionCallProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
 def FunctionCallProperties.toAttrDict (props : FunctionCallProperties) :
     Std.HashMap ByteArray Attribute := Id.run do
   let mut dict := Std.HashMap.emptyWithCapacity 5
-  dict := dict.insert "callee".toUTF8 (Attribute.symbolRefAttr props.callee)
+  dict := dict.insert "callee".toUTF8 (Attribute.flatSymbolRefAttr props.callee)
   dict := dict.insert "operandSegmentSizes".toUTF8
     (Attribute.denseArrayAttr props.operandSegmentSizes)
   dict := dict.insert "mapOpGroupSizes".toUTF8

@@ -2,7 +2,7 @@
 
 "builtin.module"() ({
   "function.def"() <{sym_name = "caller", function_type = () -> ()}> ({
-    // CHECK: function.call: callee '@missing' does not name a module-level function.def
+    // CHECK: function.call: callee '@missing' does not name a function.def
     "function.call"() <{callee = @missing, mapOpGroupSizes = array<i32>, operandSegmentSizes = array<i32: 0, 0>}> : () -> ()
     "function.return"() : () -> ()
   }) : () -> ()
