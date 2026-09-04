@@ -59,6 +59,10 @@ structure RegisterType where
   index: Option Nat := none
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+/-- The MLIR builtin `index` type. -/
+structure IndexType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
 /--
   An integer literal with an associated integer type.
 -/
@@ -124,6 +128,50 @@ deriving Inhabited, Repr, DecidableEq, Hashable
   LLVM module flag attribute, e.g. `#llvm.mlir.module_flag<error, "wchar_size", 4 : i32>`.
 -/
 structure ModuleFlagAttr where
+  value : String
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
+  LLVM constant range attribute, e.g. `#llvm.constant_range<i32, 0, 19>`: the
+  half-open range `[0, 19)` a value is known to lie in. LLVM lets a range wrap,
+  so the upper bound may read as negative.
+
+  The body is kept as a string until VeIR uses it.
+-/
+structure ConstantRangeAttr where
+  value : String
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
+  LLVM TBAA tag attribute, e.g.
+  `#llvm.tbaa_tag<base_type = <id = "int", members = {<#llvm.tbaa_root<id = "x">, 0>}>,
+  access_type = <id = "int", members = {<#llvm.tbaa_root<id = "x">, 0>}>, offset = 0>`.
+
+  The body is kept as a string until we have a need to inspect it.
+-/
+structure TbaaTagAttr where
+  value : String
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
+  LLVM memory effects attribute, e.g.
+  `#llvm.memory_effects<other = none, argMem = read, inaccessibleMem = none>`:
+  what a function may do to each class of memory location.
+
+  The body is kept as a string until VeIR reasons about the effects.
+-/
+structure MemoryEffectsAttr where
+  value : String
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
+  LLVM loop annotation attribute, e.g.
+  `#llvm.loop_annotation<unroll = <disable = true>, mustProgress = true>`: the
+  `!llvm.loop` metadata a branch carries back to its loop header.
+
+  The body is kept as a string until VeIR acts on the hints.
+-/
+structure LoopAnnotationAttr where
   value : String
 deriving Inhabited, Repr, DecidableEq, Hashable
 
@@ -222,15 +270,6 @@ structure DenseElementsAttr where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
-  An attribute from an unknown dialect.
-  It can be either a type attribute or a non-type attribute.
--/
-structure UnregisteredAttr where
-  value : String
-  isType : Bool
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/--
   A flat symbol reference attribute, e.g., `@foo` or `@"my.func"`.
   The value stores the raw text including the `@` prefix.
 -/
@@ -295,6 +334,51 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 
 end PDL
 
+/--
+  The `!felt.type` from LLZK's felt dialect.
+  An element of a finite field. The field is specified by an optional
+  name, e.g. `!felt.type<"bn254">`. When omitted, the field is left
+  unspecified and is filled in by the backend.
+-/
+structure FeltType where
+  fieldName : Option ByteArray
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
+  The `#felt<const N> : !felt.type` attribute from LLZK's felt dialect
+  — a structured, typed field-element constant.
+-/
+structure FeltConstAttr where
+  value : Int
+  fieldType : FeltType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/-! ## ClangIR (`cir`) types and attributes -/
+
+/-- The `!cir.int<s, N>` / `!cir.int<u, N>` type from ClangIR. -/
+structure CirIntType where
+  isSigned : Bool
+  width : Nat
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/-- The builtin integer type a `!cir.int` lowers to (signedness is dropped). -/
+def CirIntType.toIntegerType (type : CirIntType) : IntegerType := { bitwidth := type.width }
+
+/-- The `!cir.bool` type from ClangIR. -/
+structure CirBoolType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/-- The `#cir.int<N> : !cir.int<s|u, W>` attribute from ClangIR. -/
+structure CirIntAttr where
+  value : Int
+  type : CirIntType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/-- The `#cir.bool<true|false> : !cir.bool` attribute from ClangIR. -/
+structure CirBoolAttr where
+  value : Bool
+deriving Inhabited, Repr, DecidableEq, Hashable
+
 namespace LLVM
 
 structure VoidType
@@ -329,6 +413,21 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 
 end CudaTile
 
+/-!
+  # IO types
+-/
+
+namespace Io
+
+/--
+  `!io.address`: an opaque peer address for `io.send` and `io.recv`. Its
+  encoding is left to the lowering.
+-/
+structure AddressType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+end Io
+
 namespace HW
 
 /--
@@ -361,7 +460,33 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 
 end HW
 
+namespace Seq
+
+/--
+  The `!seq.clock` type from CIRCT's seq dialect.
+  This represents a clock.
+-/
+structure ClockType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+end Seq
+
 mutual
+
+/--
+  A builtin fixed-size vector type.
+
+  The shape contains one entry per dimension, and `elementType` is expected to
+  be a valid vector element type. For example, `vector<2x4xi32>` is represented
+  by shape `#[2, 4]` and element type `i32`.
+
+  The element-type invariant is not proof-enforced in VeIR; MLIR enforces it
+  through `VectorElementTypeInterface`.
+-/
+structure VectorType where
+  shape : Array Nat
+  elementType : Attribute
+deriving Repr, Hashable
 
 /--
   The signature of a function, consisting of an array of input attributes
@@ -380,6 +505,14 @@ deriving Inhabited, Repr, Hashable
   the Lean type level while reusing their common representation.
 -/
 structure LLVMFunctionType where
+  functionType : FunctionType
+deriving Inhabited, Repr, Hashable
+
+/--
+  The payload of a ClangIR function type `!cir.func<(inputs) -> result>`.
+  A function without results is spelled `!cir.func<(inputs)>`.
+-/
+structure CirFuncType where
   functionType : FunctionType
 deriving Inhabited, Repr, Hashable
 
@@ -427,6 +560,23 @@ structure Match.OptionalType where
 deriving Repr, Hashable
 
 /--
+  An attribute from an unknown dialect, kept as its source text.
+  It can be either a type attribute or a non-type attribute.
+
+  A non-type attribute may carry a trailing `: type`, as in
+  `#foo.bar<baz> : i32` or `#foo.bar : !foo.ty`. MLIR's generic parser accepts
+  this suffix on any dialect attribute and hands the type to the dialect, so it
+  is parsed structurally here and printed back after the body; this mirrors
+  `mlir::OpaqueAttr`. `type` is always `none` when `isType` is true, as types
+  never carry a trailing type.
+-/
+structure UnregisteredAttr where
+  value : String
+  isType : Bool
+  type : Option Attribute := none
+deriving Inhabited, Repr, Hashable
+
+/--
   A data structure that represents compile-time information in the IR.
   Attributes are used either as type annotations for SSA values, or
   as extra information stored in operations.
@@ -436,6 +586,8 @@ inductive Attribute
 | integerType (type : IntegerType)
 /-- Float type -/
 | floatType (type : FloatType)
+/-- Builtin fixed-size vector type -/
+| vectorType (type : VectorType)
 /-- Integer attribute -/
 | integerAttr (attr : IntegerAttr)
 /-- Float attribute -/
@@ -456,6 +608,14 @@ inductive Attribute
 | tailCallKindAttr (attr : TailCallKindAttr)
 /-- LLVM module flag attribute -/
 | moduleFlagAttr (attr : ModuleFlagAttr)
+/-- LLVM TBAA tag attribute -/
+| tbaaTagAttr (attr : TbaaTagAttr)
+/-- LLVM constant range attribute -/
+| constantRangeAttr (attr : ConstantRangeAttr)
+/-- LLVM memory effects attribute -/
+| memoryEffectsAttr (attr : MemoryEffectsAttr)
+/-- LLVM loop annotation attribute -/
+| loopAnnotationAttr (attr : LoopAnnotationAttr)
 /-- LLVM target features attribute -/
 | targetFeaturesAttr (attr : TargetFeaturesAttr)
 /-- DLTI data layout spec attribute -/
@@ -486,6 +646,22 @@ inductive Attribute
 | flatSymbolRefAttr (attr : FlatSymbolRefAttr)
 /-- HEIR modarith type -/
 | modArithType (type : ModArithType)
+/-- LLZK felt type -/
+| feltType (type : FeltType)
+/-- LLZK felt-const attribute (`#felt<const N> : !felt.type`) -/
+| feltConstAttr (attr : FeltConstAttr)
+/-- MLIR builtin index type -/
+| indexType (type : IndexType)
+/-- ClangIR integer type (`!cir.int<s|u, N>`) -/
+| cirIntType (type : CirIntType)
+/-- ClangIR boolean type (`!cir.bool`) -/
+| cirBoolType (type : CirBoolType)
+/-- ClangIR function type (`!cir.func<(..) -> T>`) -/
+| cirFuncType (type : CirFuncType)
+/-- ClangIR integer attribute (`#cir.int<N> : !cir.int<..>`) -/
+| cirIntAttr (attr : CirIntAttr)
+/-- ClangIR boolean attribute (`#cir.bool<b> : !cir.bool`) -/
+| cirBoolAttr (attr : CirBoolAttr)
 /-- LLVM void type -/
 | llvmVoidType (type : LLVM.VoidType)
 /-- LLVM byte type -/
@@ -498,6 +674,8 @@ inductive Attribute
 | llvmFunctionType (type : LLVMFunctionType)
 /-- Cuda Tile pointer type -/
 | cudaTilePointerType (type : CudaTile.PointerType)
+/-- IO address type -/
+| ioAddressType (type : Io.AddressType)
 /-- CIRCT hw module type -/
 | hwModuleType (type : HW.ModuleType)
 /-- PDL range handle type -/
@@ -512,9 +690,14 @@ inductive Attribute
 | pdlTypeType (type : PDL.TypeType)
 /-- Match optional handle type -/
 | matchOptionalType (type : Match.OptionalType)
+/-- CIRCT seq clock type -/
+| seqClockType (type : Seq.ClockType)
 deriving Inhabited, Repr, Hashable
 
 end
+
+instance : Inhabited VectorType where
+  default := { shape := #[], elementType := .integerType (IntegerType.mk 0) }
 
 instance : Coe FunctionType LLVMFunctionType where
   coe := .mk
@@ -547,9 +730,17 @@ theorem FunctionType.sizeOf_elems_outputs {ft : FunctionType} (hx : x ∈ ft.out
     sizeOf x < sizeOf ft := by
   grind [Array.sizeOf_lt_of_mem hx, cases FunctionType]
 
+theorem VectorType.sizeOf_elementType {t : VectorType} :
+    sizeOf t.elementType < sizeOf t := by
+  grind [cases VectorType]
+
 theorem LLVMFunctionType.sizeOf_functionType {ft : LLVMFunctionType} :
     sizeOf ft.functionType < sizeOf ft := by
   grind [cases LLVMFunctionType]
+
+theorem CirFuncType.sizeOf_functionType {ft : CirFuncType} :
+    sizeOf ft.functionType < sizeOf ft := by
+  grind [cases CirFuncType]
 
 theorem ArrayAttr.sizeOf_elems_value {aa : ArrayAttr} (hx : x ∈ aa.value) :
     sizeOf x < sizeOf aa := by
@@ -567,11 +758,26 @@ theorem Match.OptionalType.sizeOf_innerType {t : Match.OptionalType} :
     sizeOf t.innerType < sizeOf t := by
   grind [cases Match.OptionalType]
 
+theorem UnregisteredAttr.sizeOf_type {a : UnregisteredAttr} (h : a.type = some t) :
+    sizeOf t < sizeOf a := by
+  grind [cases UnregisteredAttr]
+
 /-!
   ## DecidableEq instances
 -/
 
 mutual
+def VectorType.decEq (type1 type2 : VectorType) : Decidable (type1 = type2) :=
+  if hshape : type1.shape = type2.shape then
+    match Attribute.decEq type1.elementType type2.elementType with
+    | isTrue _ => isTrue (by grind [cases VectorType])
+    | isFalse _ => isFalse (by grind)
+  else
+    isFalse (by grind)
+termination_by sizeOf type1
+decreasing_by
+  apply VectorType.sizeOf_elementType
+
 def FunctionType.decEq (type1 type2 : FunctionType) : Decidable (type1 = type2) :=
   let inputs1 := type1.inputs
   let outputs1 := type1.outputs
@@ -601,6 +807,14 @@ def LLVMFunctionType.decEq (type1 type2 : LLVMFunctionType) : Decidable (type1 =
 termination_by sizeOf type1
 decreasing_by
   apply LLVMFunctionType.sizeOf_functionType
+
+def CirFuncType.decEq (type1 type2 : CirFuncType) : Decidable (type1 = type2) :=
+  match FunctionType.decEq type1.functionType type2.functionType with
+  | isTrue _ => isTrue (by grind [cases CirFuncType])
+  | isFalse _ => isFalse (by grind)
+termination_by sizeOf type1
+decreasing_by
+  apply CirFuncType.sizeOf_functionType
 
 def ArrayAttr.decEq (arr1 arr2 : ArrayAttr) : Decidable (arr1 = arr2) :=
   let value1 := arr1.value
@@ -639,6 +853,25 @@ decreasing_by
   have := @Match.OptionalType.sizeOf_innerType
   grind
 
+def UnregisteredAttr.decEq (attr1 attr2 : UnregisteredAttr) : Decidable (attr1 = attr2) :=
+  let type1 := attr1.type
+  let type2 := attr2.type
+  if _ : attr1.value = attr2.value ∧ attr1.isType = attr2.isType then
+    match h1 : type1, h2 : type2 with
+    | none, none => isTrue (by grind [cases UnregisteredAttr])
+    | some t1, some t2 =>
+      match Attribute.decEq t1 t2 with
+      | isTrue _ => isTrue (by grind [cases UnregisteredAttr])
+      | isFalse _ => isFalse (by grind)
+    | none, some _ => isFalse (by grind)
+    | some _, none => isFalse (by grind)
+  else
+    isFalse (by grind)
+termination_by sizeOf attr1
+decreasing_by
+  have := @UnregisteredAttr.sizeOf_type
+  grind
+
 def DictionaryAttr.decEq (dict1 dict2 : DictionaryAttr) : Decidable (dict1 = dict2) :=
   let entries1 := dict1.entries
   let entries2 := dict2.entries
@@ -663,6 +896,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
       | isFalse hEq => isFalse (by grind))
   case floatType.floatType type1 type2 =>
     exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case vectorType.vectorType type1 type2 =>
+    exact (match VectorType.decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
   case byteType.byteType type1 type2 =>
@@ -693,6 +930,22 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case constantRangeAttr.constantRangeAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case tbaaTagAttr.tbaaTagAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case memoryEffectsAttr.memoryEffectsAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case loopAnnotationAttr.loopAnnotationAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case moduleFlagAttr.moduleFlagAttr attr1 attr2 =>
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
@@ -706,7 +959,7 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
   case unregisteredAttr.unregisteredAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
+    exact (match UnregisteredAttr.decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
   case functionType.functionType type1 type2 =>
@@ -749,6 +1002,36 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case feltType.feltType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case feltConstAttr.feltConstAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case indexType.indexType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case cirIntType.cirIntType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case cirBoolType.cirBoolType type1 type2 =>
+    exact (isTrue (by grind))
+  case cirFuncType.cirFuncType type1 type2 =>
+    exact (match CirFuncType.decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case cirIntAttr.cirIntAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case cirBoolAttr.cirBoolAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case registerType.registerType type1 type2 =>
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
@@ -773,6 +1056,8 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case ioAddressType.ioAddressType type1 type2 =>
+    exact (isTrue (by grind))
   case denseElementsAttr.denseElementsAttr attr1 attr2 =>
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
@@ -805,15 +1090,20 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (isTrue (by grind))
   case pdlTypeType.pdlTypeType type1 type2 =>
     exact (isTrue (by grind))
+  case seqClockType.seqClockType =>
+    exact (isTrue (by grind))
   all_goals exact isFalse (by grind)
 termination_by sizeOf attr1
 end
 
 instance : DecidableEq Attribute := Attribute.decEq
+instance : DecidableEq VectorType := VectorType.decEq
 instance : DecidableEq FunctionType := FunctionType.decEq
 instance : DecidableEq LLVMFunctionType := LLVMFunctionType.decEq
+instance : DecidableEq CirFuncType := CirFuncType.decEq
 instance : DecidableEq ArrayAttr := ArrayAttr.decEq
 instance : DecidableEq DictionaryAttr := DictionaryAttr.decEq
+instance : DecidableEq UnregisteredAttr := UnregisteredAttr.decEq
 
 /-!
   ## ToString implementation
@@ -870,6 +1160,18 @@ instance : ToString TailCallKindAttr where
 
 instance : ToString ModuleFlagAttr where
   toString attr := s!"#llvm.mlir.module_flag<{attr.value}>"
+
+instance : ToString ConstantRangeAttr where
+  toString attr := s!"#llvm.constant_range<{attr.value}>"
+
+instance : ToString TbaaTagAttr where
+  toString attr := s!"#llvm.tbaa_tag<{attr.value}>"
+
+instance : ToString MemoryEffectsAttr where
+  toString attr := s!"#llvm.memory_effects<{attr.value}>"
+
+instance : ToString LoopAnnotationAttr where
+  toString attr := s!"#llvm.loop_annotation<{attr.value}>"
 
 instance : ToString TargetFeaturesAttr where
   toString attr := s!"#llvm.target_features<{attr.value}>"
@@ -929,14 +1231,34 @@ instance : ToString DenseArrayAttr where
 instance : ToString DenseElementsAttr where
   toString attr := s!"dense<{attr.value}> : {attr.type}"
 
-instance : ToString UnregisteredAttr where
-  toString attr := attr.value
-
 instance : ToString FlatSymbolRefAttr where
   toString attr := attr.value
 
 instance : ToString ModArithType where
   toString type := s!"!mod_arith.int<{type.modulus}>"
+
+instance : ToString FeltType where
+  toString type := match type.fieldName with
+    | some name => s!"!felt.type<\"{escapeStringLiteral name}\">"
+    | none => "!felt.type"
+
+instance : ToString FeltConstAttr where
+  toString attr :=
+    match attr.fieldType.fieldName with
+    | some _ => s!"#felt<const {attr.value} : {attr.fieldType}>"
+    | none => s!"#felt<const {attr.value}>"
+
+instance : ToString CirIntType where
+  toString type := s!"!cir.int<{if type.isSigned then "s" else "u"}, {type.width}>"
+
+instance : ToString CirBoolType where
+  toString _ := "!cir.bool"
+
+instance : ToString CirIntAttr where
+  toString attr := s!"#cir.int<{attr.value}> : {attr.type}"
+
+instance : ToString CirBoolAttr where
+  toString attr := s!"#cir.bool<{attr.value}> : !cir.bool"
 
 instance : ToString PDL.RangeElement where
   toString element :=
@@ -961,6 +1283,9 @@ instance : ToString PDL.ValueType where
 instance : ToString PDL.TypeType where
   toString _ := "!pdl.type"
 
+instance : ToString IndexType where
+  toString _ := "index"
+
 instance : ToString LLVM.VoidType where
   toString _ := "!llvm.void"
 
@@ -969,6 +1294,9 @@ instance : ToString LLVM.PointerType where
 
 instance : ToString CudaTile.PointerType where
   toString ptr := s!"!cuda_tile.ptr<{ptr.pointeeType}>"
+
+instance : ToString Io.AddressType where
+  toString _ := "!io.address"
 
 instance : ToString HW.ModulePort.Direction where
   toString
@@ -984,7 +1312,19 @@ instance : ToString HW.ModuleType where
     let values := attr.ports.iter.map ToString.toString |>.intercalateString ", "
     s!"!hw.modty<{values}>"
 
+instance : ToString Seq.ClockType where
+  toString _ :=
+    s!"!seq.clock"
+
 mutual
+
+def VectorType.toString (type : VectorType) : String :=
+  let shape := String.intercalate "x" (type.shape.toList.map ToString.toString)
+  let shape := if shape.isEmpty then "" else shape ++ "x"
+  s!"vector<{shape}{Attribute.toString type.elementType}>"
+termination_by sizeOf type
+decreasing_by
+  apply VectorType.sizeOf_elementType
 
 def ArrayAttr.toString (attr : ArrayAttr) : String :=
   let elems := String.intercalate ", " (attr.value.toList.map Attribute.toString)
@@ -1035,6 +1375,31 @@ termination_by sizeOf type
 decreasing_by
   apply LLVMFunctionType.sizeOf_functionType
 
+/--
+  Print a function type in ClangIR spelling: `!cir.func<(inputs) -> result>`, or
+  `!cir.func<(inputs)>` when there are no results.
+-/
+def FunctionType.toCirString (type : FunctionType) : String :=
+  let paramStrs := type.inputs.toList.map Attribute.toString
+  let paramStrs := if type.isVarArg then paramStrs ++ ["..."] else paramStrs
+  let params := String.intercalate ", " paramStrs
+  match _ : type.outputs.size with
+  | 0 => s!"!cir.func<({params})>"
+  | _ =>
+    let results := String.intercalate ", " (type.outputs.toList.map Attribute.toString)
+    s!"!cir.func<({params}) -> {results}>"
+termination_by sizeOf type
+decreasing_by
+  all_goals first
+    | (apply FunctionType.sizeOf_elems_inputs; grind)
+    | (apply FunctionType.sizeOf_elems_outputs; grind)
+
+def CirFuncType.toString (type : CirFuncType) : String :=
+  type.functionType.toCirString
+termination_by sizeOf type
+decreasing_by
+  apply CirFuncType.sizeOf_functionType
+
 def FunctionType.toString (type : FunctionType) : String :=
   let inputs := String.intercalate ", " (type.inputs.toList.map Attribute.toString)
   let outputs := match _ : type.outputs.size with
@@ -1069,6 +1434,14 @@ termination_by sizeOf type
 decreasing_by
   apply Match.OptionalType.sizeOf_innerType
 
+def UnregisteredAttr.toString (attr : UnregisteredAttr) : String :=
+  match _h : attr.type with
+  | none => attr.value
+  | some type => s!"{attr.value} : {Attribute.toString type}"
+termination_by sizeOf attr
+decreasing_by
+  exact UnregisteredAttr.sizeOf_type _h
+
 /--
   Convert an attribute to a string representation.
 -/
@@ -1076,6 +1449,7 @@ def Attribute.toString (attr : Attribute) : String :=
   match attr with
   | .integerType type => ToString.toString type
   | .floatType type => ToString.toString type
+  | .vectorType type => type.toString
   | .byteType type => ToString.toString type
   | .fastMathFlagsAttr attr => ToString.toString attr
   | .arithIntegerOverflowFlagsAttr attr => ToString.toString attr
@@ -1085,6 +1459,10 @@ def Attribute.toString (attr : Attribute) : String :=
   | .uwtableKindAttr attr => ToString.toString attr
   | .tailCallKindAttr attr => ToString.toString attr
   | .moduleFlagAttr attr => ToString.toString attr
+  | .tbaaTagAttr attr => ToString.toString attr
+  | .constantRangeAttr attr => ToString.toString attr
+  | .memoryEffectsAttr attr => ToString.toString attr
+  | .loopAnnotationAttr attr => ToString.toString attr
   | .targetFeaturesAttr attr => ToString.toString attr
   | .dlSpecAttr attr => ToString.toString attr
   | .integerAttr attr => ToString.toString attr
@@ -1098,15 +1476,24 @@ def Attribute.toString (attr : Attribute) : String :=
   | .denseElementsAttr attr => ToString.toString attr
   | .denseArrayAttr attr => ToString.toString attr
   | .dictionaryAttr attr => attr.toString
-  | .unregisteredAttr attr => ToString.toString attr
+  | .unregisteredAttr attr => attr.toString
   | .flatSymbolRefAttr attr => ToString.toString attr
   | .functionType type => type.toString
   | .modArithType type => ToString.toString type
+  | .feltType type => ToString.toString type
+  | .feltConstAttr attr => ToString.toString attr
+  | .indexType type => ToString.toString type
+  | .cirIntType type => ToString.toString type
+  | .cirBoolType type => ToString.toString type
+  | .cirFuncType type => type.toString
+  | .cirIntAttr attr => ToString.toString attr
+  | .cirBoolAttr attr => ToString.toString attr
   | .llvmVoidType type => ToString.toString type
   | .llvmPointerType type => ToString.toString type
   | .llvmArrayType type => type.toString
   | .llvmFunctionType type => type.toString
   | .cudaTilePointerType type => ToString.toString type
+  | .ioAddressType type => ToString.toString type
   | .hwModuleType type => ToString.toString type
   | .pdlRangeType type => ToString.toString type
   | .pdlAttributeType type => ToString.toString type
@@ -1114,6 +1501,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .pdlValueType type => ToString.toString type
   | .pdlTypeType type => ToString.toString type
   | .matchOptionalType type => type.toString
+  | .seqClockType type => ToString.toString type
 termination_by sizeOf attr
 
 end
@@ -1121,11 +1509,17 @@ end
 instance : ToString Attribute where
   toString := Attribute.toString
 
+instance : ToString VectorType where
+  toString := VectorType.toString
+
 instance : ToString FunctionType where
   toString := FunctionType.toString
 
 instance : ToString LLVMFunctionType where
   toString := LLVMFunctionType.toString
+
+instance : ToString CirFuncType where
+  toString := CirFuncType.toString
 
 instance : ToString ArrayAttr where
   toString := ArrayAttr.toString
@@ -1138,6 +1532,9 @@ instance : ToString LLVM.ArrayType where
 
 instance : ToString Match.OptionalType where
   toString := Match.OptionalType.toString
+
+instance : ToString UnregisteredAttr where
+  toString := UnregisteredAttr.toString
 
 /-! ## Attribute Subtype Interface -/
 
@@ -1327,6 +1724,7 @@ def isType (attr : Attribute) : Bool :=
   match attr with
   | .integerType _ => true
   | .floatType _ => true
+  | .vectorType _ => true
   | .byteType _ => true
   | .fastMathFlagsAttr _ => false
   | .arithIntegerOverflowFlagsAttr _ => false
@@ -1336,6 +1734,10 @@ def isType (attr : Attribute) : Bool :=
   | .uwtableKindAttr _ => false
   | .tailCallKindAttr _ => false
   | .moduleFlagAttr _ => false
+  | .tbaaTagAttr _ => false
+  | .constantRangeAttr _ => false
+  | .memoryEffectsAttr _ => false
+  | .loopAnnotationAttr _ => false
   | .targetFeaturesAttr _ => false
   | .dlSpecAttr _ => false
   | .integerAttr _ => false
@@ -1351,6 +1753,14 @@ def isType (attr : Attribute) : Bool :=
   | .flatSymbolRefAttr _ => false
   | .functionType _ => true
   | .modArithType _ => true
+  | .feltType _ => true
+  | .feltConstAttr _ => false
+  | .indexType _ => true
+  | .cirIntType _ => true
+  | .cirBoolType _ => true
+  | .cirFuncType _ => true
+  | .cirIntAttr _ => false
+  | .cirBoolAttr _ => false
   | .registerType _ => true
   | .registerAttr _ => false
   | .llvmVoidType _ => true
@@ -1358,6 +1768,7 @@ def isType (attr : Attribute) : Bool :=
   | .llvmArrayType _ => true
   | .llvmFunctionType _ => true
   | .cudaTilePointerType _ => true
+  | .ioAddressType _ => true
   | .hwModuleType _ => true
   | .pdlRangeType _ => true
   | .pdlAttributeType _ => true
@@ -1365,6 +1776,7 @@ def isType (attr : Attribute) : Bool :=
   | .pdlValueType _ => true
   | .pdlTypeType _ => true
   | .matchOptionalType _ => true
+  | .seqClockType _ => true
 
 /--
   Returns the size, in bits, that an LLVM type would use if stored to memory.
@@ -1372,6 +1784,9 @@ def isType (attr : Attribute) : Bool :=
 def bitwidthOfType (type : Attribute) : Option Nat :=
   match type with
   | .integerType { bitwidth } | .floatType { bitwidth } | .byteType { bitwidth } => some bitwidth
+  | .vectorType { shape, elementType } => do
+      let elementBitwidth ← bitwidthOfType elementType
+      some (shape.foldl (· * ·) elementBitwidth)
   | .llvmPointerType _ => some 64
   | _ => none
 
@@ -1379,6 +1794,8 @@ def bitwidthOfType (type : Attribute) : Option Nat :=
 theorem isType_integerType type : (integerType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_floatType type : (floatType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_vectorType type : (vectorType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_byteType type : (byteType type).isType = true := by rfl
 @[simp, grind =]
@@ -1396,6 +1813,14 @@ theorem isType_tailCallKind attr : (tailCallKindAttr attr).isType = false := by 
 @[simp, grind =]
 theorem isType_moduleFlag attr : (moduleFlagAttr attr).isType = false := by rfl
 @[simp, grind =]
+theorem isType_tbaaTag attr : (tbaaTagAttr attr).isType = false := by rfl
+@[simp, grind =]
+theorem isType_constantRange attr : (constantRangeAttr attr).isType = false := by rfl
+@[simp, grind =]
+theorem isType_memoryEffects attr : (memoryEffectsAttr attr).isType = false := by rfl
+@[simp, grind =]
+theorem isType_loopAnnotation attr : (loopAnnotationAttr attr).isType = false := by rfl
+@[simp, grind =]
 theorem isType_targetFeatures attr : (targetFeaturesAttr attr).isType = false := by rfl
 @[simp, grind =]
 theorem isType_dlSpec attr : (dlSpecAttr attr).isType = false := by rfl
@@ -1406,6 +1831,20 @@ theorem isType_unregistered unregistered :
 theorem isType_functionType type : (functionType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_modArithType type : (modArithType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_feltType type : (feltType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_indexType type : (indexType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_cirIntType type : (cirIntType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_cirBoolType type : (cirBoolType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_cirFuncType type : (cirFuncType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_cirIntAttr attr : (cirIntAttr attr).isType = false := by rfl
+@[simp, grind =]
+theorem isType_cirBoolAttr attr : (cirBoolAttr attr).isType = false := by rfl
 @[simp, grind =]
 theorem isType_registerType type : (registerType type).isType = true := by rfl
 @[simp, grind =]
@@ -1419,6 +1858,8 @@ theorem isType_llvmFunctionType type : (llvmFunctionType type).isType = true := 
 @[simp, grind =]
 theorem isType_cudaTilePointerType type : (cudaTilePointerType type).isType = true := by rfl
 @[simp, grind =]
+theorem isType_ioAddressType type : (ioAddressType type).isType = true := by rfl
+@[simp, grind =]
 theorem isType_hwModuleType type : (hwModuleType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_pdlAttributeType type : (pdlAttributeType type).isType = true := by rfl
@@ -1430,6 +1871,8 @@ theorem isType_pdlOperationType type : (pdlOperationType type).isType = true := 
 theorem isType_pdlValueType type : (pdlValueType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_pdlTypeType type : (pdlTypeType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_seqClockType type : (seqClockType type).isType = true := by rfl
 
 end Attribute
 
@@ -1584,6 +2027,10 @@ instance : IsTypeAttr FloatType where
   coe type := Attribute.asType (.floatType type) (by rfl)
   coe_eq_inject _ := by rfl
 
+instance : IsTypeAttr VectorType where
+  coe type := Attribute.asType (.vectorType type) (by rfl)
+  coe_eq_inject _ := by rfl
+
 instance : IsTypeAttr LLVM.ByteType where
   coe type := Attribute.asType (.byteType type) (by rfl)
   coe_eq_inject _ := by rfl
@@ -1598,6 +2045,26 @@ instance : IsTypeAttr LLVMFunctionType where
 
 instance : IsTypeAttr ModArithType where
   coe type := Attribute.asType (.modArithType type) (by rfl)
+  coe_eq_inject _ := by rfl
+
+instance : IsTypeAttr FeltType where
+  coe type := Attribute.asType (.feltType type) (by rfl)
+  coe_eq_inject _ := by rfl
+
+instance : IsTypeAttr IndexType where
+  coe type := Attribute.asType (.indexType type) (by rfl)
+  coe_eq_inject _ := by rfl
+
+instance : IsTypeAttr CirIntType where
+  coe type := Attribute.asType (.cirIntType type) (by rfl)
+  coe_eq_inject _ := by rfl
+
+instance : IsTypeAttr CirBoolType where
+  coe type := Attribute.asType (.cirBoolType type) (by rfl)
+  coe_eq_inject _ := by rfl
+
+instance : IsTypeAttr CirFuncType where
+  coe type := Attribute.asType (.cirFuncType type) (by rfl)
   coe_eq_inject _ := by rfl
 
 instance : CoeDep (Option Nat → RegisterType) RegisterType.mk TypeAttr where
@@ -1621,6 +2088,10 @@ instance : IsTypeAttr LLVM.ArrayType where
 
 instance : IsTypeAttr CudaTile.PointerType where
   coe type := Attribute.asType (.cudaTilePointerType type) (by rfl)
+  coe_eq_inject _ := by rfl
+
+instance : IsTypeAttr Io.AddressType where
+  coe type := Attribute.asType (.ioAddressType type) (by rfl)
   coe_eq_inject _ := by rfl
 
 instance : IsTypeAttr HW.ModuleType where
@@ -1649,6 +2120,20 @@ instance : IsTypeAttr PDL.ValueType where
 
 instance : IsTypeAttr PDL.TypeType where
   coe type := Attribute.asType (.pdlTypeType type) (by rfl)
+  coe_eq_inject _ := by rfl
+
+instance : IsTypeAttr TypeAttr where
+  name := "TypeAttr"
+  inject := fun x => x.val
+  project := fun attr => if h: attr.isType then attr.asType else none
+  coe := id
+  coe_eq_inject := by simp
+  project_eq_some_iff _ _ := by
+    simp only [Option.dite_none_right_eq_some, Option.some.injEq, TypeAttr.inj]
+    grind
+
+instance : IsTypeAttr Seq.ClockType where
+  coe type := Attribute.asType (.seqClockType type) (by rfl)
   coe_eq_inject _ := by rfl
 
 end

@@ -171,6 +171,12 @@ def TypeAttr.verifyIntegerOrPointerType
   | .llvmPointerType _ => pure ()
   | _ => throw errMsg
 
+def TypeAttr.verifyLlvmPointerType
+    (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
+  match ty.val with
+  | .llvmPointerType _ => pure ()
+  | _ => throw errMsg
+
 def TypeAttr.verifyI1
     (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
   match ty.val with
@@ -179,6 +185,12 @@ def TypeAttr.verifyI1
       throw errMsg
     else
       pure ()
+  | _ => throw errMsg
+
+def TypeAttr.verifyI64
+    (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
+  match ty.val with
+  | .integerType { bitwidth := 64 } => pure ()
   | _ => throw errMsg
 
 /--
@@ -338,7 +350,7 @@ def OperationPtr.checkIsNonNullIntegerType (op : OperationPtr)
 def denseElementsElementType? (typeStr : String) : Option String :=
   let s := typeStr.replace " " ""
   let segments := s.splitOn "x"
-  if "tensor<".isPrefixOf s && s.endsWith ">" && segments.length ≥ 2 then
+  if ("tensor<".isPrefixOf s || "vector<".isPrefixOf s) && s.endsWith ">" && segments.length ≥ 2 then
     some ((segments.getLast!.splitOn ">").head!)
   else
     none

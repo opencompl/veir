@@ -212,6 +212,125 @@ def findOp (assignment : Assignment OpInfo) (opHandle : Handle OpInfo .op)
 
 end Assignment
 
+namespace MetadataTuple.Atom
+
+/-- Resolve a metadata atom's handle against a concrete assignment. -/
+@[expose]
+def resolve (metadataAtom : MetadataTuple.Atom OpInfo T) (assignment : Assignment OpInfo)
+    (handle : T) : Option metadataAtom.Value :=
+  match metadataAtom with
+  | .type => assignment.getType handle
+  | .property _ => assignment.getProperty handle
+
+/-- Bind a metadata atom's handle in a concrete assignment. -/
+@[expose]
+def bind (metadataAtom : MetadataTuple.Atom OpInfo T) (assignment : Assignment OpInfo)
+    (handle : T) (value : metadataAtom.Value) : Option (Assignment OpInfo) :=
+  match metadataAtom with
+  | .type => assignment.bindType handle value
+  | .property _ => assignment.bindProperty handle value
+
+end MetadataTuple.Atom
+
+namespace MetadataTuple.Shape
+
+/-- Resolve every handle in a metadata-tuple shape against a concrete assignment. -/
+@[expose]
+def resolve (shape : MetadataTuple.Shape OpInfo Handles) (assignment : Assignment OpInfo)
+  (handles : Handles) : Option shape.Values :=
+match shape with
+| .unit => some ()
+| .atom metadataAtom => metadataAtom.resolve assignment handles
+| .cons head tail => do
+    let headValue ← head.resolve assignment handles.1
+    let tailValues ← tail.resolve assignment handles.2
+    return (headValue, tailValues)
+
+/-- Bind every handle in a metadata-tuple shape in a concrete assignment. -/
+@[expose]
+def bind (shape : MetadataTuple.Shape OpInfo Handles) (assignment : Assignment OpInfo)
+    (handles : Handles) (values : shape.Values) : Option (Assignment OpInfo) :=
+match shape with
+| .unit => some assignment
+| .atom metadataAtom => metadataAtom.bind assignment handles values
+| .cons head tail => do
+    let assignment ← head.bind assignment handles.1 values.1
+    tail.bind assignment handles.2 values.2
+
+end MetadataTuple.Shape
+
+namespace MetadataTuple
+
+/-- Resolve all handles in a metadata tuple against a concrete assignment. -/
+@[expose]
+def resolve {Handles : Type} [self : IsMetadataTuple OpInfo Handles]
+    (assignment : Assignment OpInfo) (handles : Handles) : Option (MetadataValues OpInfo Handles) :=
+  self.shape.resolve assignment handles
+
+/-- Bind all handles in a metadata tuple in a concrete assignment. -/
+@[expose]
+def bind {Handles : Type} [self : IsMetadataTuple OpInfo Handles]
+    (assignment : Assignment OpInfo) (handles : Handles) (values : MetadataValues OpInfo Handles) :
+    Option (Assignment OpInfo) :=
+  self.shape.bind assignment handles values
+
+
+/-! Canonical tuple equations used when reducing inline native declarations in proofs. -/
+
+@[simp]
+theorem resolve_unit (assignment : Assignment OpInfo) (handles : Unit) :
+    resolve assignment handles = some () := by
+  rfl
+
+@[simp]
+theorem resolve_type (assignment : Assignment OpInfo) (handle : Handle OpInfo .type) :
+    resolve assignment handle = assignment.getType handle := by
+  rfl
+
+@[simp]
+theorem resolve_property (assignment : Assignment OpInfo) {opCode : OpInfo}
+    (handle : Handle OpInfo (.prop opCode)) :
+    resolve assignment handle = assignment.getProperty handle := by
+  rfl
+
+@[simp]
+theorem resolve_type_cons {Tail : Type} [IsMetadataTuple OpInfo Tail]
+    (assignment : Assignment OpInfo) (handles : Handle OpInfo .type × Tail) :
+    resolve assignment handles = do
+      let headValue ← assignment.getType handles.1
+      let tailValues ← resolve assignment handles.2
+      return (headValue, tailValues) := by
+  rfl
+
+@[simp]
+theorem resolve_property_cons {Tail : Type} [IsMetadataTuple OpInfo Tail]
+    (assignment : Assignment OpInfo) {opCode : OpInfo}
+    (handles : Handle OpInfo (.prop opCode) × Tail) :
+    resolve assignment handles = do
+      let headValue ← assignment.getProperty handles.1
+      let tailValues ← resolve assignment handles.2
+      return (headValue, tailValues) := by
+  rfl
+
+@[simp]
+theorem bind_unit (assignment : Assignment OpInfo) (handles values : Unit) :
+    bind assignment handles values = some assignment := by
+  rfl
+
+@[simp]
+theorem bind_type (assignment : Assignment OpInfo) (handle : Handle OpInfo .type)
+    (value : TypeAttr) :
+    bind assignment handle value = assignment.bindType handle value := by
+  rfl
+
+@[simp]
+theorem bind_property (assignment : Assignment OpInfo) {opCode : OpInfo}
+    (handle : Handle OpInfo (.prop opCode)) (value : propertiesOf opCode) :
+    bind assignment handle value = assignment.bindProperty handle value := by
+  rfl
+
+end MetadataTuple
+
 /--
 Interpret a single declarative match instruction, returning `none` if the match fails, or an updated
 assignment if it succeeds.
@@ -253,6 +372,10 @@ def MatchDecl.run (decl : MatchDecl OpInfo) (ctx : IRContext OpInfo)
     -/
     let actual ← Assignment.getType assignment typeHandle
     guard (matcher actual)
+    return assignment
+  | @MatchDecl.applyNative _ _ _Inputs inputBundle inputs predicate =>
+    let values ← MetadataTuple.resolve (self := inputBundle) assignment inputs
+    guard (predicate values)
     return assignment
 
 /--
@@ -315,6 +438,11 @@ def CreateDecl.run (decl : CreateDecl OpInfo) (assignment : Assignment OpInfo)
       none
   | .type value result =>
     let assignment ← Assignment.bindType assignment result value
+    return (ctx, #[], assignment)
+  | @CreateDecl.applyNative _ _ _ _ inputBundle outputBundle inputs rewrite outputs =>
+    let values ← MetadataTuple.resolve (self := inputBundle) assignment inputs
+    let outputValues ← rewrite values
+    let assignment ← MetadataTuple.bind (self := outputBundle) assignment outputs outputValues
     return (ctx, #[], assignment)
 
 /--

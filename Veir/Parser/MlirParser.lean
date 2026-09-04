@@ -81,6 +81,8 @@ structure MlirParserState (OpInfo : Type) [HasOpInfo OpInfo] where
   blocks : Std.HashMap ByteArray BlockEntry
   /-- Whether to accept ops/types/attrs from unregistered dialects. -/
   allowUnregisteredDialect : Bool := false
+  /-- Type aliases defined so far, keyed by name without the `!`. -/
+  typeAliases : Std.HashMap ByteArray TypeAttr := {}
   deriving Inhabited
 
 def MlirParserState.fromContext (ctx : WfIRContext OpInfo)
@@ -509,12 +511,19 @@ def resolveOperand (operand : UnresolvedOperand) (expectedType : TypeAttr) :
               pos := some operand.pos } : ParserError).addNote defPos "value defined here")
   return value
 
+/-- The attribute parser state derived from the current parser state. -/
+def attrParserState : MlirParserM OpInfo AttrParserState := do
+  let state ← get
+  return {
+    allowUnregisteredDialect := state.allowUnregisteredDialect
+    typeAliases := state.typeAliases
+  }
+
 /--
   Parse a type, if present.
 -/
 def parseOptionalType : MlirParserM OpInfo (Option TypeAttr) := do
-  let allowUnregisteredDialect := (← get).allowUnregisteredDialect
-  match AttrParser.parseOptionalType.run { allowUnregisteredDialect } (← getThe ParserState) with
+  match AttrParser.parseOptionalType.run (← attrParserState) (← getThe ParserState) with
   | .ok (ty, _, parserState) =>
     set parserState
     return ty
@@ -566,8 +575,7 @@ def parseOpProperties (opCode : OpInfo) : MlirParserM OpInfo (propertiesOf opCod
     match IsOpCode.fromAttrDict opCode {} with
     | .ok properties => return properties
     | .error err => throwAtCurrentPos err
-  let allowUnregisteredDialect := (← get).allowUnregisteredDialect
-  match AttrParser.parseAttributeDictionary.run { allowUnregisteredDialect } (← getThe ParserState) with
+  match AttrParser.parseAttributeDictionary.run (← attrParserState) (← getThe ParserState) with
   | .ok (properties, _, parserState) =>
     set parserState
     parsePunctuation ">"
@@ -598,7 +606,7 @@ private def optionallySetUnregisteredOpName (opCode : OpInfo)
   to parse valid MLIR syntax.
 -/
 def parseOpAttributes : MlirParserM OpInfo DictionaryAttr := do
-  match AttrParser.parseOptionalAttributeDictionary.run { allowUnregisteredDialect := (← get).allowUnregisteredDialect } (← getThe ParserState) with
+  match AttrParser.parseOptionalAttributeDictionary.run (← attrParserState) (← getThe ParserState) with
   | .ok (attrs, _, parserState) =>
     set parserState
     match attrs with
@@ -796,8 +804,28 @@ def checkNoUnresolvedForwardValues : MlirParserM OpInfo Unit := do
   for (valueName, fwd) in (← get).forwardValues do
     throwAt fwd.loc s!"use of undefined value %{String.fromUTF8! valueName}"
 
-/-- Parse a top-level operation and report any unresolved SSA forward references. -/
+/--
+  Parse the `!name = type` alias definitions preceding the top-level operation. As in MLIR, a
+  definition may use earlier aliases, a name may not be redefined, and names containing a `.` are
+  reserved for dialect types.
+-/
+def parseTypeAliasDefs : MlirParserM OpInfo Unit := do
+  repeat
+    let startPos ← getPos
+    let some name ← parseOptionalPrefixedKeyword .exclamationIdent | break
+    if (← get).typeAliases.contains name then
+      throwAt startPos s!"redefinition of type alias id '{String.fromUTF8! name}'"
+    if name.toList.contains '.'.toUInt8 then
+      throwAt startPos "type names with a '.' are reserved for dialect-defined names"
+    parsePunctuation "=" "expected '=' in type alias definition"
+    let type ← parseType
+    modify fun state => { state with typeAliases := state.typeAliases.insert name type }
+
+/--
+  Parse the top-level alias definitions and operation, and report unresolved forward references.
+-/
 partial def parseTopLevelOp : MlirParserM OpInfo OperationPtr := do
+  parseTypeAliasDefs
   let op ← parseOp none
   checkNoUnresolvedForwardValues
   return op

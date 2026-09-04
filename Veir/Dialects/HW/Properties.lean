@@ -34,6 +34,14 @@ structure HWModuleProperties where
   parameters : ArrayAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
+structure HWInstanceProperties where
+  instanceName : StringAttr
+  moduleName : FlatSymbolRefAttr
+  argNames : ArrayAttr
+  resultNames : ArrayAttr
+  parameters : ArrayAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
 def HWModuleProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String HWModuleProperties := do
   let some module_type := attrDict["module_type".toUTF8]? | throw "hw.module: requires attribute 'module_type'"
@@ -49,6 +57,26 @@ def HWModuleProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute)
   let .arrayAttr parameters := parameters | throw s!"hw.module: expected 'parameters' to be an array attribute, but got {parameters}"
 
   return { module_type, sym_name, per_port_attrs, parameters }
+
+def HWInstanceProperties.fromAttrDict
+    (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String HWInstanceProperties := do
+  let some instanceName := attrDict["instanceName".toUTF8]? | throw "hw.instance: requires attribute 'instanceName'"
+  let .stringAttr instanceName := instanceName | throw s!"hw.instance: expected 'instanceName' to be a string attribute, but got {instanceName}"
+
+  let some moduleName := attrDict["moduleName".toUTF8]? | throw "hw.instance: requires attribute 'moduleName'"
+  let .flatSymbolRefAttr moduleName := moduleName | throw s!"hw.instance: expected 'moduleName' to be a flat symbol reference attribute, but got {moduleName}"
+
+  let some argNames := attrDict["argNames".toUTF8]? | throw "hw.instance: requires attribute 'argNames'"
+  let .arrayAttr argNames := argNames | throw s!"hw.instance: expected 'argNames' to be an array attribute, but got {argNames}"
+
+  let some resultNames := attrDict["resultNames".toUTF8]? | throw "hw.instance: requires attribute 'resultNames'"
+  let .arrayAttr resultNames := resultNames | throw s!"hw.instance: expected 'resultNames' to be an array attribute, but got {resultNames}"
+
+  let some parameters := attrDict["parameters".toUTF8]? | throw "hw.instance: requires attribute 'parameters'"
+  let .arrayAttr parameters := parameters | throw s!"hw.instance: expected 'parameters' to be an array attribute, but got {parameters}"
+
+  return { instanceName, moduleName, argNames, resultNames, parameters }
 
 end
 
