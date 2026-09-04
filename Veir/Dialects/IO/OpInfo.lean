@@ -10,12 +10,14 @@ public section
 
 /--
 Byte exchange with the environment. Buffers are `(ptr : !llvm.ptr, len : integer)`
-and peers are `!io.address` values. Result 0 of every operation is an `i64`
-status: non-negative is the number of bytes transferred, which may be below
-`len`; negative is an `Io.Error` code.
+and peers are `!io.address` values. `self` yields the program's own address;
+result 0 of every other operation is an `i64` status: non-negative is the number of bytes
+transferred, which may be below `len`; negative is an `Io.Error` code.
 -/
 @[opcodes]
 inductive Io where
+/-- `() -> !io.address`: the address of the running program, fixed by the environment. -/
+| self
 /-- `(dest : !io.address, ptr : !llvm.ptr, len : integer) -> i64`: send `len` bytes at `ptr` to `dest`. -/
 | send
 /--
@@ -59,15 +61,18 @@ def Io.toAttrDict
   | _ => Std.HashMap.emptyWithCapacity 0
 
 /--
-All `io` operations access their buffer and have observable effects, so they
-are `readWrite`: never dead, and never reordered with each other or with memory
-accesses.
+`self` only reads the environment. Every other `io` operation accesses its buffer
+and has observable effects, so it is `readWrite`: never dead, and never
+reordered with each other or with memory accesses.
 -/
 @[get_effects]
 def Io.getEffects
-    (_op : Io) (_props : Io.propertiesOf _op) : MemoryEffects :=
-  .readWrite
+    (op : Io) (_props : Io.propertiesOf op) : MemoryEffects :=
+  match op with
+  | .self => .none
+  | _ => .readWrite
 
+/-- `self` is fixed by the environment, not by the operation, so it is not a literal. -/
 def Io.isConstantLike (_op : Io) : Bool :=
   false
 
@@ -99,9 +104,17 @@ def Io.verifyBufferOperands {OpInfo : Type} [IsOpCode OpInfo]
   ((op.getOperand! ctx.raw (base + 1)).getType! ctx.raw).verifyIntegerType
     s!"{instrName}: Expected operand {base + 1} to have integer type"
 
+/-- Result 0 must be the `i64` status. -/
+def Io.verifyStatusResult {OpInfo : Type} [IsOpCode OpInfo]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo) (instrName : String) :
+    Except String PUnit :=
+  ((op.getResult 0).get! ctx.raw).type.verifyI64
+    s!"{instrName}: Expected result 0 to have i64 type"
+
 /--
-Verify an `io` operation: `send` takes `(address, ptr, len)`, `recv` and `rand`
-take `(ptr, len)`; result 0 is always `i64`, and `recv` adds an `!io.address`.
+Verify an `io` operation: `self` takes nothing and returns an `!io.address`;
+`send` takes `(address, ptr, len)`, `recv` and `rand` take `(ptr, len)`, and
+their result 0 is an `i64` status, with `recv` adding an `!io.address`.
 -/
 @[expose]
 def Io.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpInfo Io]
@@ -110,21 +123,26 @@ def Io.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpInf
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   op.checkIsNonNullIntegerType ctx opIn
   match opType with
+  | .self =>
+    op.verifyPlainOpCounts ctx opIn 0 1
+    ((op.getResult 0).get! ctx.raw).type.verifyIoAddressType
+      s!"{instrName}: Expected result 0 to have !io.address type"
   | .send =>
     op.verifyPlainOpCounts ctx opIn 3 1
     ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIoAddressType
       s!"{instrName}: Expected operand 0 to have !io.address type"
     Io.verifyBufferOperands op ctx 1 instrName
+    Io.verifyStatusResult op ctx instrName
   | .recv =>
     op.verifyPlainOpCounts ctx opIn 2 2
     Io.verifyBufferOperands op ctx 0 instrName
+    Io.verifyStatusResult op ctx instrName
     ((op.getResult 1).get! ctx.raw).type.verifyIoAddressType
       s!"{instrName}: Expected result 1 to have !io.address type"
   | .rand =>
     op.verifyPlainOpCounts ctx opIn 2 1
     Io.verifyBufferOperands op ctx 0 instrName
-  ((op.getResult 0).get! ctx.raw).type.verifyI64
-    s!"{instrName}: Expected result 0 to have i64 type"
+    Io.verifyStatusResult op ctx instrName
 
 instance : HasOpInfo Io where
   verifyLocalInvariants := Io.verifyLocalInvariants
