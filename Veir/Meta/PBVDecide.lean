@@ -150,7 +150,7 @@ structure WidthInfo where
   widthMaskHypFvar : FVarId
   /-- The hypothesis that the width variable is less than the bmc bound. -/
   hypWidthLeBoundMVarId : MVarId
-  /-- The hypothesis that the width variable is less than the bmc bound.
+  /-- The hypothesis that the width variable is less than the bounded model checking bound.
       (FVar necessary so 'simp' rewrites with it.) -/
   hypWidthLeBoundNote : FVarId
 
