@@ -242,6 +242,26 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "1.0e-100 : f32" (fpAttr FloatType.f32 0)
 -- Maximum normal nunmber
 #assert expectSuccessAttr "3.4028235e38 : f32" (fpAttr FloatType.f32 0x7f7fffff)
+-- Values in the binade above the largest finite number round to a signed
+-- infinity, not to a NaN.
+#assert expectSuccessAttr "3.5e38 : f32" (fpAttr FloatType.f32 0x7f800000)
+#assert expectSuccessAttr "-3.5e38 : f32" (fpAttr FloatType.f32 0xff800000)
+#assert expectSuccessAttr "2.0e308 : f64" (fpAttr FloatType.f64 0x7ff0000000000000)
+#assert expectSuccessAttr "70000.0 : f16" (fpAttr FloatType.f16 0x7c00)
+#assert expectSuccessAttr "4.0e38 : bf16" (fpAttr FloatType.bf16 0x7f80)
+#assert expectSuccessAttr "1.0e5 : f8E5M2" (fpAttr FloatType.f8E5M2 0x7c)
+-- Formats without infinity overflow to a NaN instead: f8E4M3FN to the
+-- all-ones pattern (sign preserved), f8E4M3FNUZ to the repurposed
+-- negative-zero pattern.
+#assert expectSuccessAttr "500.0 : f8E4M3FN" (fpAttr FloatType.f8E4M3FN 0x7f)
+#assert expectSuccessAttr "-500.0 : f8E4M3FN" (fpAttr FloatType.f8E4M3FN 0xff)
+#assert expectSuccessAttr "480.0 : f8E4M3FN" (fpAttr FloatType.f8E4M3FN 0x7f)
+#assert expectSuccessAttr "300.0 : f8E4M3FNUZ" (fpAttr FloatType.f8E4M3FNUZ 0x80)
+#assert expectSuccessAttr "-300.0 : f8E4M3FNUZ" (fpAttr FloatType.f8E4M3FNUZ 0x80)
+-- 248.0 ties between 240.0 and the (unrepresentable) next slot, and rounds to the NaN.
+#assert expectSuccessAttr "248.0 : f8E4M3FNUZ" (fpAttr FloatType.f8E4M3FNUZ 0x80)
+-- 240.0 is the largest finite f8E4M3FNUZ value (0x7f is not a NaN in this format).
+#assert expectSuccessAttr "240.0 : f8E4M3FNUZ" (fpAttr FloatType.f8E4M3FNUZ 0x7f)
 -- Omitted numbers after the decimal point.
 #assert expectSuccessAttr "1. : f32" (fpAttr FloatType.f32 0x3f800000)
 -- A 0x-prefixed hexadecimal literal is accepted as the raw IEEE-754 bit pattern of the type.

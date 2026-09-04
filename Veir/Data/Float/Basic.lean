@@ -134,9 +134,20 @@ def ofUnpackedFloat (format : FloatFormat) (uf : UnpackedFloat)
     -- The floating point is stored mantissa * 2^exp without leading 1.
     -- So we add `format.mantissa` to compensate.
     let biasedExponent := (e + format.bias + format.mantissa).toNat
-    -- Overflow: biased exponent cannot be represented.
-    if 2 ^ format.exponent ≤ biasedExponent then
-      (UnpackedFloat.packedInfinity format.toLeanFormat s).cast (by simp)
+    -- Overflow: the value is larger than the largest finite value of the
+    -- format. The all-ones exponent field is reserved for infinity when the
+    -- format has one, so the largest representable exponent field is
+    -- `2 ^ format.exponent - 2` there, and `2 ^ format.exponent - 1` in
+    -- formats without infinity.
+    if (if format.hasInf then biasedExponent + 1 else biasedExponent) ≥ 2 ^ format.exponent then
+      if format.hasInf then
+        (UnpackedFloat.packedInfinity format.toLeanFormat s).cast (by simp)
+      else if format.hasNegZero then
+        -- NaN: the all-ones exponent and mantissa, with the sign of the value.
+        (UnpackedFloat.packComponents format.toLeanFormat s (-1#_) (-1#_)).cast (by simp)
+      else
+        -- No negative zero: the negative-zero pattern is repurposed as the NaN.
+        (UnpackedFloat.packedZero format.toLeanFormat .negative).cast (by simp)
 
     -- For normal floating point numbers, mantissa should start with a 1,
     -- so actual mantissa bits is equal to mantissa bitwidth.
