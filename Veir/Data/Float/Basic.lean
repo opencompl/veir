@@ -54,6 +54,61 @@ theorem FloatFormat.numBits_toLeanFormat_eq_bitwidth
     (format.toLeanFormat hm he).numBits = format.bitwidth := by
   simp [toLeanFormat, _root_.Float.Model.Format.numBits, bitwidth]
 
+/--
+The value of a floating point number in format `format`, stored as its raw bit
+pattern: the sign bit, followed by the biased exponent, followed by the mantissa
+without its implicit leading bit.
+
+The `BitVec` is deliberately wrapped, in the same way `Veir.Data.LLVM.Int` wraps
+the `BitVec` of an LLVM integer: indexing on the `FloatFormat` means a value can
+only ever be used at the format it was built for, and bit-level manipulation has
+to go through the accessors below.
+-/
+structure FloatValue (format : FloatFormat) where
+  /-- Build a value from its raw bit pattern. -/
+  ofBits ::
+  /-- The raw bit pattern of the value. -/
+  toBits : BitVec format.bitwidth
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+namespace FloatValue
+
+variable {format format' : FloatFormat}
+
+/-- The value whose bit pattern is `n`, truncated to the width of `format`. -/
+def ofNat (format : FloatFormat) (n : Nat) : FloatValue format :=
+  .ofBits (BitVec.ofNat format.bitwidth n)
+
+/-- `+0.0`, the value all of whose bits are zero. -/
+def positiveZero (format : FloatFormat) : FloatValue format :=
+  .ofBits 0#_
+
+/-- Whether the value is `+0.0`, i.e. all of its bits are zero. -/
+def isPositiveZero (value : FloatValue format) : Bool :=
+  value.toBits == 0#_
+
+/-- The sign bit; `true` when the value is negative. -/
+def sign (value : FloatValue format) : Bool :=
+  value.toBits.getLsbD (format.exponent + format.mantissa)
+
+/-- The biased exponent bits. -/
+def exponent (value : FloatValue format) : BitVec format.exponent :=
+  BitVec.truncate format.exponent (value.toBits >>> format.mantissa)
+
+/-- The mantissa bits, without the implicit leading bit. -/
+def mantissa (value : FloatValue format) : BitVec format.mantissa :=
+  BitVec.truncate format.mantissa value.toBits
+
+/-- Reinterpret the bit pattern at a format that is equal to `format`. -/
+def cast (h : format = format') (value : FloatValue format) : FloatValue format' :=
+  .ofBits (value.toBits.cast (by rw [h]))
+
+/-- Values are printed as their bit pattern, e.g. `0xff#8`. -/
+instance : ToString (FloatValue format) where
+  toString value := toString value.toBits
+
+end FloatValue
+
 def FloatFormat.f16 : FloatFormat := { exponent := 5, mantissa := 10, bias := 15, canonicalName := "f16" }
 def FloatFormat.f32 : FloatFormat := { exponent := 8, mantissa := 23, bias := 127, canonicalName := "f32" }
 def FloatFormat.f64 : FloatFormat := { exponent := 11, mantissa := 52, bias := 1023, canonicalName := "f64" }

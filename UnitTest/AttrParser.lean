@@ -79,7 +79,7 @@ def expectSuccessAttr (s : String) (expected : Attribute)
    Build a `FloatAttr` from an IEEE-754 bit pattern (given as a `Nat`), for use in assertions.
 -/
 def fpAttr (type : FloatType) (bits : Nat) : FloatAttr :=
-  FloatAttr.mk type (BitVec.ofNat type.bitwidth bits)
+  FloatAttr.mk type (.ofNat _ bits)
 
 /--
   Extract the message and byte offset of a parser error, so tests can assert

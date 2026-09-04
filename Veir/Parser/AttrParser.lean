@@ -256,8 +256,8 @@ for floating point packing. This is an adaptation of `UnpackedFloat.pack`
 def packUnpackedFloatToFloatType
      (type : FloatType) (uf : UnpackedFloat)
      (hm : 0 < type.mantissa := by grind)
-     (he : 0 < type.exponent := by grind) : BitVec type.bitwidth :=
-  match uf with
+     (he : 0 < type.exponent := by grind) : Data.Float.FloatValue type.format :=
+  Data.Float.FloatValue.ofBits <| match uf with
   | .notANumber =>
     (UnpackedFloat.packedNaN type.toFormat).cast (by simp)
   | .infinity s =>
@@ -289,9 +289,10 @@ using round-to-nearest, ties-to-even. Overflow saturates to infinity (or the
 largest finite value for types without infinity), and underflow produces a
 subnormal value or zero.
 -/
-def convertFPToBitvec (f : ParsedFloat) (type: Veir.FloatType) : BitVec (type.bitwidth) :=
+def convertFPToFloatValue (f : ParsedFloat) (type : Veir.FloatType) :
+    Data.Float.FloatValue type.format :=
   if hty : type.mantissa = 0 ∨ type.exponent = 0 then
-    0#_
+    .ofBits 0#_
   else
      let format : Model.Format := type.toFormat
      let uf := UnpackedFloat.ofScientific format f.significand f.exponent
@@ -347,12 +348,13 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
       | throwAt startPos s!"invalid integer literal '{String.fromUTF8! value}'"
     return (if isNegative then Int.negOfNat n else Int.ofNat n)
 
-  -- Compute the raw IEEE-754 bit pattern for a floating-point type.
-  let floatBits (floatType : FloatType) : AttrParserM (BitVec floatType.bitwidth) := do
+  -- Compute the floating-point value from the parsed literal.
+  let floatValue (floatType : FloatType) :
+      AttrParserM (Data.Float.FloatValue floatType.format) := do
     if isFloatLit then
       let str := if isNegative then "-" ++ String.fromUTF8! value else String.fromUTF8! value
       match parseDecimalFloat str with
-      | some f => return convertFPToBitvec f floatType
+      | some f => return convertFPToFloatValue f floatType
       | none   => throwAtCurrentPos s!"invalid floating-point literal '{str}'"
     else
       if isNegative then
@@ -360,7 +362,7 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
       else if isHexValue value then
         let some n := numericValueToNat? value
           | throwAt valueStartPos s!"invalid hex bit pattern '{String.fromUTF8! value}'"
-        return (BitVec.ofNat floatType.bitwidth n)
+        return .ofNat _ n
       else
         throwAt valueStartPos "expected a decimal float or 0x-prefixed hex bit pattern in float attribute"
 
@@ -368,14 +370,14 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
   if let some integerType ← parseOptionalIntegerType then
     return some (IntegerAttr.mk (← integerValue) integerType : Attribute)
   else if let some floatType ← parseOptionalFloatType then
-    return some (FloatAttr.mk floatType (← floatBits floatType) : Attribute)
+    return some (FloatAttr.mk floatType (← floatValue floatType) : Attribute)
   else if let some name ← parseOptionalPrefixedKeyword .exclamationIdent then
     let some typeAttr := (← resolveOptionalTypeAlias startPos name)
       | throwAt startPos "integer or float type expected after ':' in numeric attribute"
     if let some integerType := typeAttr.cast? IntegerType then
       return some (IntegerAttr.mk (← integerValue) integerType : Attribute)
     else if let some floatType := typeAttr.cast? FloatType then
-      return some (FloatAttr.mk floatType (← floatBits floatType) : Attribute)
+      return some (FloatAttr.mk floatType (← floatValue floatType) : Attribute)
     else
       throwAt startPos "integer or float type expected after ':' in numeric attribute"
   else

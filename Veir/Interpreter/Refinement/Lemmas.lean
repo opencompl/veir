@@ -154,7 +154,8 @@ theorem RuntimeValue.byte_of_isRefinedBy {bw : Nat} {v : Data.LLVM.Byte bw} {tv 
   cases tv <;> grind [RuntimeValue.isRefinedBy]
 
 /-- A runtime value `tv` that refines a float runtime value `v` is equal to it. -/
-theorem RuntimeValue.float_of_isRefinedBy {ty : FloatType} {v : BitVec ty.bitwidth} {tv : RuntimeValue}
+theorem RuntimeValue.float_of_isRefinedBy {ty : FloatType} {v : Data.Float.FloatValue ty.format}
+    {tv : RuntimeValue}
     (h : RuntimeValue.float ty v ⊒ tv) :
     tv = RuntimeValue.float ty v := by
   cases tv <;> grind [RuntimeValue.isRefinedBy]

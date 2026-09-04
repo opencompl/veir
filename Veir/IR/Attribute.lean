@@ -184,11 +184,12 @@ structure RegisterAttr where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
-A floating point attribute storing a Lean `Float` value with an associated float type.
+A floating point attribute storing the bit pattern of a floating point value
+together with the float type it is a value of.
 -/
 structure FloatAttr where
   type : FloatType
-  value : BitVec type.bitwidth
+  value : Data.Float.FloatValue type.format
 deriving Inhabited, Repr, DecidableEq
 
 instance : Hashable FloatAttr where
@@ -196,16 +197,15 @@ instance : Hashable FloatAttr where
 
 /-- Extract exponent bits as a BitVec. -/
 def FloatAttr.exponent (attr : FloatAttr) : BitVec attr.type.exponent :=
-  BitVec.truncate attr.type.exponent (attr.value >>> attr.type.mantissa)
+  attr.value.exponent
 
 /-- Extract mantissa bits as a BitVec. -/
 def FloatAttr.mantissa (attr : FloatAttr) : BitVec attr.type.mantissa :=
-  BitVec.truncate attr.type.mantissa attr.value
+  attr.value.mantissa
 
 /-- Extract sign bit (true for negative). -/
 def FloatAttr.sign (attr : FloatAttr) : Bool :=
-  let shift := attr.type.exponent + attr.type.mantissa
-  ((attr.value >>> shift) &&& 1) == 1
+  attr.value.sign
 
 /--
   An attribute containing a string.
