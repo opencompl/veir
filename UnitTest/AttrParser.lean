@@ -477,6 +477,17 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "#llvm.tailcallkind<none>" (TailCallKindAttr.mk "none")
 #assert expectSuccessAttr "#llvm.tailcallkind<musttail>" (TailCallKindAttr.mk "musttail")
 
+/-! ## LLVM memory effects -/
+#assert expectSuccessAttr
+  "#llvm.memory_effects<other = none, argMem = read, inaccessibleMem = none>"
+  (MemoryEffectsAttr.mk "other = none, argMem = read, inaccessibleMem = none")
+-- The field set is not fixed and VeIR is not tied to one: it keeps the body
+-- verbatim, so it takes both a short list (which `mlir-opt` 22 rejects) and
+-- whatever classes a later LLVM adds.
+#assert expectSuccessAttr
+  "#llvm.memory_effects<other = read, argMem = read, errnoMem = read, targetMem0 = none>"
+  (MemoryEffectsAttr.mk "other = read, argMem = read, errnoMem = read, targetMem0 = none")
+
 /-! ## LLVM constant ranges -/
 #assert expectSuccessAttr "#llvm.constant_range<i32, 0, 19>"
   (ConstantRangeAttr.mk "i32, 0, 19")

@@ -132,6 +132,18 @@ structure ModuleFlagAttr where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
+  LLVM memory effects attribute, e.g. `#llvm.memory_effects<other = none, argMem
+  = read, inaccessibleMem = none>`: which classes of memory a function may read
+  or write. Newer LLVM adds further classes (`errnoMem`, `targetMem0`), so the
+  set of fields is not fixed.
+
+  The body is kept as a string until VeIR uses it.
+-/
+structure MemoryEffectsAttr where
+  value : String
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
   LLVM constant range attribute, e.g. `#llvm.constant_range<i32, 0, 19>`: the
   half-open range `[0, 19)` a value is known to lie in. LLVM lets a range wrap,
   so the upper bound may read as negative.
@@ -579,6 +591,8 @@ inductive Attribute
 | tbaaTagAttr (attr : TbaaTagAttr)
 /-- LLVM constant range attribute -/
 | constantRangeAttr (attr : ConstantRangeAttr)
+/-- LLVM memory effects attribute -/
+| memoryEffectsAttr (attr : MemoryEffectsAttr)
 /-- LLVM target features attribute -/
 | targetFeaturesAttr (attr : TargetFeaturesAttr)
 /-- DLTI data layout spec attribute -/
@@ -891,6 +905,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case memoryEffectsAttr.memoryEffectsAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case constantRangeAttr.constantRangeAttr attr1 attr2 =>
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
@@ -1111,6 +1129,9 @@ instance : ToString TailCallKindAttr where
 
 instance : ToString ModuleFlagAttr where
   toString attr := s!"#llvm.mlir.module_flag<{attr.value}>"
+
+instance : ToString MemoryEffectsAttr where
+  toString attr := s!"#llvm.memory_effects<{attr.value}>"
 
 instance : ToString ConstantRangeAttr where
   toString attr := s!"#llvm.constant_range<{attr.value}>"
@@ -1402,6 +1423,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .moduleFlagAttr attr => ToString.toString attr
   | .tbaaTagAttr attr => ToString.toString attr
   | .constantRangeAttr attr => ToString.toString attr
+  | .memoryEffectsAttr attr => ToString.toString attr
   | .targetFeaturesAttr attr => ToString.toString attr
   | .dlSpecAttr attr => ToString.toString attr
   | .integerAttr attr => ToString.toString attr
@@ -1674,6 +1696,7 @@ def isType (attr : Attribute) : Bool :=
   | .moduleFlagAttr _ => false
   | .tbaaTagAttr _ => false
   | .constantRangeAttr _ => false
+  | .memoryEffectsAttr _ => false
   | .targetFeaturesAttr _ => false
   | .dlSpecAttr _ => false
   | .integerAttr _ => false
@@ -1766,6 +1789,8 @@ theorem isType_moduleFlag attr : (moduleFlagAttr attr).isType = false := by rfl
 theorem isType_tbaaTag attr : (tbaaTagAttr attr).isType = false := by rfl
 @[simp, grind =]
 theorem isType_constantRange attr : (constantRangeAttr attr).isType = false := by rfl
+@[simp, grind =]
+theorem isType_memoryEffects attr : (memoryEffectsAttr attr).isType = false := by rfl
 @[simp, grind =]
 theorem isType_targetFeatures attr : (targetFeaturesAttr attr).isType = false := by rfl
 @[simp, grind =]
