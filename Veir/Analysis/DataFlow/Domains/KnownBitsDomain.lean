@@ -1,7 +1,7 @@
 module
 
 public import Veir.Analysis.DataFlow.Domains.AbstractDomain
-public import Veir.Interpreter.Evaluate
+public import Veir.RuntimeValue
 import Veir.Meta.BVDecide
 
 public section
@@ -47,42 +47,6 @@ def join? (lhs rhs : KnownBits) : Option KnownBits :=
       { bitwidth := lhs.bitwidth
         zero := lhs.zero &&& rhsZero
         one := lhs.one &&& rhsOne }
-  else
-    none
-
-/-- Known bits produced by bitwise AND. -/
-def bitwiseAnd? (lhs rhs : KnownBits) : Option KnownBits :=
-  if h : lhs.bitwidth = rhs.bitwidth then
-    let rhsZero := h ▸ rhs.zero
-    let rhsOne := h ▸ rhs.one
-    some
-      { bitwidth := lhs.bitwidth
-        zero := lhs.zero ||| rhsZero
-        one := lhs.one &&& rhsOne }
-  else
-    none
-
-/-- Known bits produced by bitwise OR. -/
-def bitwiseOr? (lhs rhs : KnownBits) : Option KnownBits :=
-  if h : lhs.bitwidth = rhs.bitwidth then
-    let rhsZero := h ▸ rhs.zero
-    let rhsOne := h ▸ rhs.one
-    some
-      { bitwidth := lhs.bitwidth
-        zero := lhs.zero &&& rhsZero
-        one := lhs.one ||| rhsOne }
-  else
-    none
-
-/-- Known bits produced by bitwise XOR. -/
-def bitwiseXor? (lhs rhs : KnownBits) : Option KnownBits :=
-  if h : lhs.bitwidth = rhs.bitwidth then
-    let rhsZero := h ▸ rhs.zero
-    let rhsOne := h ▸ rhs.one
-    some
-      { bitwidth := lhs.bitwidth
-        zero := (lhs.zero &&& rhsZero) ||| (lhs.one &&& rhsOne)
-        one := (lhs.zero &&& rhsOne) ||| (lhs.one &&& rhsZero) }
   else
     none
 
@@ -195,74 +159,6 @@ def join : KnownBitsLattice → KnownBitsLattice → KnownBitsLattice
 
 instance : Join KnownBitsLattice where
   join := join
-
-/-- Transfer known bits through bitwise AND. -/
-def bitwiseAnd : KnownBitsLattice → KnownBitsLattice → KnownBitsLattice
-  | .bottom, _ | _, .bottom => .bottom
-  | .top, .top => .top
-  | .known lhs, .top | .top, .known lhs =>
-      .known { lhs with one := 0 }
-  | .known lhs, .known rhs =>
-      match lhs.bitwiseAnd? rhs with
-      | some bits => .known bits
-      | none => .top
-
-/--
-Known-bits AND soundly over-approximates every result produced by the LLVM
-interpreter from concrete values represented by its abstract operands.
--/
-theorem bitwiseAnd_sound
-    (lhs rhs : KnownBitsLattice)
-    (bitwidth : Nat)
-    (lhsValue rhsValue resultValue : BitVec bitwidth)
-    (hlhs : RuntimeValue.int bitwidth (.val lhsValue) ∈ γ lhs)
-    (hrhs : RuntimeValue.int bitwidth (.val rhsValue) ∈ γ rhs)
-    (heval :
-      foldEvaluate (.llvm .and) () #[IntegerType.mk bitwidth]
-          #[.int bitwidth (.val lhsValue), .int bitwidth (.val rhsValue)] =
-        .ok #[.int bitwidth (.val resultValue)]) :
-    RuntimeValue.int bitwidth (.val resultValue) ∈ γ (bitwiseAnd lhs rhs) := by
-  obtain rfl : resultValue = lhsValue &&& rhsValue := by
-    simpa [foldEvaluate_llvm_and] using heval.symm
-  cases lhs <;> cases rhs <;> simp_all only [not_mem_γ_bottom, mem_γ_top, bitwiseAnd]
-  case known.top | top.known =>
-    first
-      | (obtain ⟨zero, _, rfl, hzero, _⟩ := mem_γ_known_iff.mp hlhs)
-      | (obtain ⟨zero, _, rfl, hzero, _⟩ := mem_γ_known_iff.mp hrhs)
-    refine mem_γ_known_iff.mpr
-      ⟨zero, 0, rfl, fun i hi h => by simp [hzero i hi h], by simp⟩
-  case known.known =>
-    obtain ⟨lhsZero, lhsOne, rfl, hlzero, hlone⟩ := mem_γ_known_iff.mp hlhs
-    obtain ⟨rhsZero, rhsOne, rfl, hrzero, hrone⟩ := mem_γ_known_iff.mp hrhs
-    simp only [KnownBits.bitwiseAnd?]
-    refine mem_γ_known_iff.mpr
-      ⟨lhsZero ||| rhsZero, lhsOne &&& rhsOne, rfl, ?_,
-        fun i hi h => by simp_all [hlone i hi, hrone i hi]⟩
-    · intro i hi hresultZero
-      specialize hlzero i hi
-      specialize hrzero i hi
-      simp_all <;> veir_bv_decide
-
-/-- Transfer known bits through bitwise OR. -/
-def bitwiseOr : KnownBitsLattice → KnownBitsLattice → KnownBitsLattice
-  | .bottom, _ | _, .bottom => .bottom
-  | .top, .top => .top
-  | .known lhs, .top | .top, .known lhs =>
-      .known { lhs with zero := 0 }
-  | .known lhs, .known rhs =>
-      match lhs.bitwiseOr? rhs with
-      | some bits => .known bits
-      | none => .top
-
-/-- Transfer known bits through bitwise XOR. -/
-def bitwiseXor : KnownBitsLattice → KnownBitsLattice → KnownBitsLattice
-  | .bottom, _ | _, .bottom => .bottom
-  | .top, .top => .top
-  | .known lhs, .top | .top, .known lhs => .unknown lhs.bitwidth
-  | .known lhs, .known rhs =>
-      match lhs.bitwiseXor? rhs with
-      | some bits => .known bits
-      | none => .top
 
 end KnownBitsLattice
 
