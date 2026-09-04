@@ -492,6 +492,17 @@ macro "#assert " e:term : command =>
   "#llvm.tbaa_tag<base_type = <id = \"a\", members = {<#llvm.tbaa_root<id = \"r\">, 0>}>, offset = 8>"
   (TbaaTagAttr.mk "base_type = <id = \"a\", members = {<#llvm.tbaa_root<id = \"r\">, 0>}>, offset = 8")
 
+/-! ## LLVM memory effects -/
+#assert expectSuccessAttr
+  "#llvm.memory_effects<other = none, argMem = read, inaccessibleMem = none>"
+  (MemoryEffectsAttr.mk "other = none, argMem = read, inaccessibleMem = none")
+-- The LLVM 22 spelling: three more location classes than the original three.
+#assert expectSuccessAttr
+  "#llvm.memory_effects<other = readwrite, argMem = readwrite, inaccessibleMem = none, \
+    errnoMem = readwrite, targetMem0 = none, targetMem1 = none>"
+  (MemoryEffectsAttr.mk "other = readwrite, argMem = readwrite, inaccessibleMem = none, \
+    errnoMem = readwrite, targetMem0 = none, targetMem1 = none")
+
 /-! ## CUDA Pointer type -/
 #assert expectSuccessType "!cuda_tile.ptr<i1>" (CudaTile.PointerType.mk (IntegerType.mk 1))
 #assert expectSuccessType "!cuda_tile.ptr<i32>" (CudaTile.PointerType.mk (IntegerType.mk 32))

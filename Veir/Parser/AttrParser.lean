@@ -456,6 +456,7 @@ private def verbatimBodyAttrs : List (ByteArray × (String → Attribute)) :=
     ("llvm.mlir.module_flag".toByteArray, fun body => (ModuleFlagAttr.mk body : Attribute)),
     ("llvm.constant_range".toByteArray, fun body => (ConstantRangeAttr.mk body : Attribute)),
     ("llvm.tbaa_tag".toByteArray, fun body => (TbaaTagAttr.mk body : Attribute)),
+    ("llvm.memory_effects".toByteArray, fun body => (MemoryEffectsAttr.mk body : Attribute)),
     ("llvm.target_features".toByteArray, fun body => (TargetFeaturesAttr.mk body : Attribute)),
     ("dlti.dl_spec".toByteArray, fun body => (DlSpecAttr.mk body : Attribute)) ]
 
