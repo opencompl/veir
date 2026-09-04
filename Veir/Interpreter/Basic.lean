@@ -1819,8 +1819,8 @@ def Io.interpretOp' (opType : Veir.Io) (properties : propertiesOf opType)
     (_blockOperands : Array BlockPtr) (mem : MemoryState)
     : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
   match opType with
-  | .address => do
-    return (#[.ioAddr properties.id.value.toNat], mem, none)
+  | .self => do
+    return (#[.ioAddr mem.selfAddress], mem, none)
   | .send => do
     let [.ioAddr dest, .addr ptr, .int _ len] := operands.toList | none
     let .val len := len | Interp.ub
