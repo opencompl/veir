@@ -46,6 +46,7 @@ inductive Llvm where
 | zext
 | br
 | cond_br
+| switch
 | unreachable
 | alloca
 | load
@@ -97,6 +98,7 @@ match op with
 | .icmp => IcmpProperties
 | .br => LLVMBrProperties
 | .cond_br => LLVMCondBrProperties
+| .switch => LLVMSwitchProperties
 | .alloca => AllocaProperties
 | .load => LoadProperties
 | .store => StoreProperties
@@ -128,6 +130,7 @@ def Llvm.fromAttrDict
   case icmp => exact IcmpProperties.fromAttrDict attrDict
   case br => exact LLVMBrProperties.fromAttrDict attrDict
   case cond_br => exact LLVMCondBrProperties.fromAttrDict attrDict
+  case switch => exact LLVMSwitchProperties.fromAttrDict attrDict
   case alloca => exact AllocaProperties.fromAttrDict attrDict
   case load => exact LoadProperties.fromAttrDict attrDict
   case store => exact StoreProperties.fromAttrDict attrDict
@@ -203,6 +206,17 @@ def Llvm.toAttrDict
       "branch_weights".toUTF8 (Attribute.denseArrayAttr props.branch_weights)
     if let some annotation := props.loop_annotation then
       dict := dict.insert "loop_annotation".toUTF8 (.loopAnnotationAttr annotation)
+    dict := dict.insert "operandSegmentSizes".toUTF8
+      (Attribute.denseArrayAttr props.operandSegmentSizes)
+    dict
+  | .switch => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 4
+    if let some values := props.case_values then
+      dict := dict.insert "case_values".toUTF8 (.denseElementsAttr values)
+    dict := dict.insert "case_operand_segments".toUTF8
+      (Attribute.denseArrayAttr props.case_operand_segments)
+    if let some weights := props.branch_weights then
+      dict := dict.insert "branch_weights".toUTF8 (Attribute.denseArrayAttr weights)
     dict := dict.insert "operandSegmentSizes".toUTF8
       (Attribute.denseArrayAttr props.operandSegmentSizes)
     dict
@@ -312,7 +326,7 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
   | .icmp, _ | .select, _
   | .trunc, _ | .sext, _ | .zext, _
   | .getelementptr, _
-  | .br, _ | .cond_br, _ | .return, _
+  | .br, _ | .cond_br, _ | .switch, _ | .return, _
   | .freeze, _ | .bitcast, _
   | .intr__smax, _ | .intr__smin, _ | .intr__umax, _ | .intr__umin, _
   | .intr__abs, _
@@ -339,7 +353,7 @@ def Llvm.hasSSADominance (_op : Llvm) (_index : Nat) : Bool :=
 @[is_terminator]
 def Llvm.isTerminator (op : Llvm) : Bool :=
   match op with
-  | .br | .cond_br | .return | .unreachable => true
+  | .br | .cond_br | .switch | .return | .unreachable => true
   | _ => false
 
 #generate_dialect Llvm
@@ -358,7 +372,7 @@ def Llvm.propagatesPoison : Llvm → Bool
   -- claim a fold that cannot be materialized.
   | .fadd | .fsub | .fmul | .fdiv | .frem
   | .mlir__constant | .mlir__poison | .mlir__zero | .mlir__global | .mlir__addressof
-  | .select | .br | .cond_br | .unreachable | .alloca | .load | .store
+  | .select | .br | .cond_br | .switch | .unreachable | .alloca | .load | .store
   | .getelementptr | .call | .return | .func | .module_flags | .freeze => false
 
 instance : IsOpCode Llvm where
@@ -600,6 +614,35 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .br => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyUnconditionalBranch ctx opIn
+  | .switch => do
+    op.checkIsNonNullIntegerType ctx opIn
+    let props := op.getProperties! ctx.raw Llvm.switch
+    let caseSegments := props.case_operand_segments.values
+    op.verifyTerminatorCounts ctx opIn (caseSegments.size + 1)
+    let sizes ← op.verifyOperandSegmentSizes ctx opIn props.operandSegmentSizes 3
+    if sizes[0]! ≠ 1 then
+      throw s!"llvm.switch: expected a single value operand, got {sizes[0]!}"
+    /- The default destination takes the second operand segment. -/
+    let defaultDest := op.getSuccessor! ctx.raw 0
+    if sizes[1]! ≠ defaultDest.getNumArguments! ctx.raw then
+      throw s!"llvm.switch: default operand segment expected operand count \
+        {defaultDest.getNumArguments! ctx.raw}, got {sizes[1]!}"
+    op.verifyBranchSuccessorArgTypes ctx (1 : Nat) defaultDest "llvm.switch: default successor"
+    /- `case_operand_segments` splits the third segment one group per case. -/
+    let mut base := 1 + sizes[1]!
+    for i in [0:caseSegments.size] do
+      let count := caseSegments[i]!
+      if count < 0 then
+        throw s!"llvm.switch: case_operand_segments contains negative size {count}"
+      let dest := op.getSuccessor! ctx.raw (i + 1)
+      if count.toNat ≠ dest.getNumArguments! ctx.raw then
+        throw s!"llvm.switch: case {i} operand segment expected operand count \
+          {dest.getNumArguments! ctx.raw}, got {count.toNat}"
+      op.verifyBranchSuccessorArgTypes ctx base dest s!"llvm.switch: case {i} successor"
+      base := base + count.toNat
+    if base ≠ 1 + sizes[1]! + sizes[2]! then
+      throw s!"llvm.switch: case_operand_segments describes {base - 1 - sizes[1]!} case \
+        operands, but operandSegmentSizes reserves {sizes[2]!}"
   | .cond_br => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyTerminatorCounts ctx opIn 2
