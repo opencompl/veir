@@ -16,6 +16,7 @@ public section
 inductive Llvm where
 | mlir__constant
 | mlir__poison
+| mlir__zero
 | mlir__global
 | mlir__addressof
 | and
@@ -289,7 +290,7 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
   | .alloca, _ => .allocate
   | .load, props => if props.volatile_ then .readWrite else .read
   | .store, props => if props.volatile_ then .readWrite else .write
-  | .mlir__constant, _ | .mlir__poison, _ | .mlir__addressof, _
+  | .mlir__constant, _ | .mlir__poison, _ | .mlir__zero, _ | .mlir__addressof, _
   | .and, _ | .or, _ | .xor, _
   | .add, _ | .sub, _ | .mul, _
   | .sdiv, _ | .udiv, _ | .srem, _ | .urem, _
@@ -313,7 +314,7 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
 
 def Llvm.isConstantLike (op : Llvm) : Bool :=
   match op with
-  | .mlir__constant | .mlir__poison | .mlir__addressof => true
+  | .mlir__constant | .mlir__poison | .mlir__zero | .mlir__addressof => true
   | _ => false
 
 def Llvm.isIsolatedFromAbove (op : Llvm) : Bool :=
@@ -345,7 +346,7 @@ def Llvm.propagatesPoison : Llvm → Bool
   -- `RuntimeValue` represents a poisoned float yet, so listing them here would
   -- claim a fold that cannot be materialized.
   | .fadd | .fsub | .fmul | .fdiv | .frem
-  | .mlir__constant | .mlir__poison | .mlir__global | .mlir__addressof
+  | .mlir__constant | .mlir__poison | .mlir__zero | .mlir__global | .mlir__addressof
   | .select | .br | .cond_br | .unreachable | .alloca | .load | .store
   | .getelementptr | .call | .return | .func | .module_flags | .freeze => false
 
@@ -516,6 +517,14 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       if properties.linkage.value == "common" && value.isKnownNonZero then
         throw "expected zero value for 'common' linkage"
     pure ()
+  | .mlir__zero => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyPlainOpCounts ctx opIn 0 1
+    let resultType := ((op.getResult 0).get! ctx.raw).type
+    match resultType.val with
+    | .llvmVoidType _ | .llvmFunctionType _ =>
+      throw "llvm.mlir.zero: Expected result to have a type with a zero value"
+    | _ => pure ()
   | .mlir__addressof => do
     op.verifyPlainOpCounts ctx opIn 0 1
     let resultType := ((op.getResult 0).get! ctx.raw).type

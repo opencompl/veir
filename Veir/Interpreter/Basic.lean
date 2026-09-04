@@ -919,6 +919,13 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let some resType := resultTypes[0]? | none
     let .integerType bw := resType.val | none
     return (#[.int bw.bitwidth (LLVM.Int.mlir_poison bw.bitwidth)], mem, none)
+  | .mlir__zero => do
+    let some resType := resultTypes[0]? | none
+    match resType.val with
+    | .integerType bw =>
+      return (#[.int bw.bitwidth (LLVM.Int.val (BitVec.ofNat bw.bitwidth 0))], mem, none)
+    | .llvmPointerType _ => return (#[.addr 0], mem, none)
+    | _ => none
   | .add => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
