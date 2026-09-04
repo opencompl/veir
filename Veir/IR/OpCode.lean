@@ -136,6 +136,38 @@ theorem ofDialect_injective {op₁ op₂ : Dialect} :
   intro h
   grind [congrArg (toDialect? Dialect) h]
 
+/-- Compose two dialect embeddings. -/
+@[instance_reducible]
+def comp
+    {OpInfo Dialect₁ Dialect₂ : Type}
+    [IsOpCode OpInfo] [IsOpCode Dialect₁] [IsOpCode Dialect₂]
+    (outer : HasDialect OpInfo Dialect₁)
+    (inner : HasDialect Dialect₁ Dialect₂) :
+    HasDialect OpInfo Dialect₂ where
+  inject op := outer.inject (inner.inject op)
+  project op := do
+    let dialectOp ← outer.project op
+    inner.project dialectOp
+  project_eq_some_iff opInfo op := by
+    change (outer.project opInfo).bind inner.project = some op ↔ _
+    simp only [Option.bind_eq_some_iff]
+    constructor
+    · rintro ⟨dialectOp, hOuter, hInner⟩
+      have hOuterInject : outer.inject dialectOp = opInfo :=
+        (outer.project_eq_some_iff opInfo dialectOp).mp hOuter
+      have hInnerInject : inner.inject op = dialectOp :=
+        (inner.project_eq_some_iff dialectOp op).mp hInner
+      calc
+        outer.inject (inner.inject op) = outer.inject dialectOp :=
+          congrArg outer.inject hInnerInject
+        _ = opInfo := hOuterInject
+    · intro h
+      refine ⟨inner.inject op, ?_, ?_⟩
+      · exact (outer.project_eq_some_iff opInfo (inner.inject op)).mpr h
+      · exact (inner.project_eq_some_iff (inner.inject op) op).mpr rfl
+  properties_eq op := by
+    exact (outer.properties_eq (inner.inject op)).trans (inner.properties_eq op)
+
 /-- Equal global opcodes have equal dialect-local property types. -/
 theorem properties_eq_of_ofDialect_eq
     {Dialect₁ Dialect₂ : Type}

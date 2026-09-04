@@ -236,10 +236,20 @@ abbrev CustomPrinter (OpCode : Type) [IsOpCode OpCode] :=
 
 end Printer
 
-/-- Interface that stores each operation's custom printer. -/
-class HasCustomPrinting (OpCode : Type) [IsOpCode OpCode] where
+/-- Interface that stores each operation's custom printer.
+
+The printer target may be a larger opcode aggregate containing this dialect. This
+keeps dialect registration polymorphic, like context-sensitive `HasOpInfo`
+helpers such as `Func.verifyLocalInvariants`.
+-/
+class HasCustomPrinting (Dialect : Type) [IsOpCode Dialect] where
   /-- The custom printer for an operation of this type, if it has one. -/
-  customPrinter? : OpCode → Option (Printer.CustomPrinter OpCode) := fun _ => none
+  customPrinter? :
+    {GlobalOpCode : Type} →
+    [IsOpCode GlobalOpCode] →
+    [HasDialect GlobalOpCode Dialect] →
+    Dialect → Option (Printer.CustomPrinter GlobalOpCode) :=
+      fun {_} _ _ _ => none
 
 end -- public section
 

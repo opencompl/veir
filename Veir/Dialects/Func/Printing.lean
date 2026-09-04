@@ -86,8 +86,9 @@ def Func.printFuncFunc : Printer.CustomPrinter GlobalOpCode := fun op => do
     printRegion region
 
 instance : HasCustomPrinting Func where
-  customPrinter?
-    | .func => some (Func.printFuncFunc (GlobalOpCode := Func))
+  customPrinter? := fun {GlobalOpCode} _ _ op =>
+    match op with
+    | .func => some (Func.printFuncFunc (GlobalOpCode := GlobalOpCode))
     | _ => none
 
 end
