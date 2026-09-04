@@ -1,0 +1,12 @@
+name = "lean-ctrees"
+version = "0.1.0"
+defaultTargets = ["CTree"]
+
+[[require]]
+name = "Coinductive"
+git = "https://github.com/ISTA-PLV/coinductive"
+rev = "main"
+
+[[lean_lib]]
+name = "CTree"
+root = "CTree"

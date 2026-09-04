@@ -18,6 +18,8 @@ inductive RuntimeValue where
 | float (bitwidth : Nat) (value : Float)
 | addr (value : UInt64)
 | reg (value : Data.RISCV.Reg)
+/-- A canonical natural-number representative in the field identified by `fieldType`. -/
+| felt (fieldType : FeltType) (value : Nat)
 deriving Inhabited
 
 instance : ToString RuntimeValue where
@@ -27,6 +29,7 @@ instance : ToString RuntimeValue where
     | .float _ val => ToString.toString val
     | .addr val => ToString.toString val
     | .reg val => ToString.toString val
+    | .felt fieldType val => s!"{val} : {fieldType}"
 
 /--
   Whether a runtime value is wholly poison. A `byte` is wholly poison when

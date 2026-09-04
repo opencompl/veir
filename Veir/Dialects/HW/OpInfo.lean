@@ -16,6 +16,7 @@ inductive HW where
 | constant
 | module
 | output
+| instance
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, properties_of]
@@ -23,14 +24,20 @@ def HW.propertiesOf (op : HW) : Type :=
 match op with
 | .constant => HWConstantProperties
 | .module => HWModuleProperties
+| .instance => HWInstanceProperties
 | _ => Unit
 
+/--
+We chose not to add support for `inner_sym` and `doNotPrint` for `instance`
+because we don't have support for circt::hw::InnerSymAttr and mlir::UnitAttr yet.
+-/
 def HW.fromAttrDict
     (op : HW) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (HW.propertiesOf op) := by
   cases op
   case constant => exact HWConstantProperties.fromAttrDict attrDict
   case module => exact HWModuleProperties.fromAttrDict attrDict
+  case «instance» => exact HWInstanceProperties.fromAttrDict attrDict
   all_goals exact .ok ()
 
 def HW.toAttrDict
@@ -45,6 +52,14 @@ def HW.toAttrDict
     let dict := dict.insert "module_type".toUTF8 (.hwModuleType props.module_type)
     let dict := dict.insert "sym_name".toUTF8 (.stringAttr props.sym_name)
     let dict := dict.insert "per_port_attrs".toUTF8 (.arrayAttr props.per_port_attrs)
+    let dict := dict.insert "parameters".toUTF8 (.arrayAttr props.parameters)
+    dict
+  | .instance => Id.run do
+    let dict := Std.HashMap.emptyWithCapacity 5
+    let dict := dict.insert "instanceName".toUTF8 (.stringAttr props.instanceName)
+    let dict := dict.insert "moduleName".toUTF8 (.flatSymbolRefAttr props.moduleName)
+    let dict := dict.insert "argNames".toUTF8 (.arrayAttr props.argNames)
+    let dict := dict.insert "resultNames".toUTF8 (.arrayAttr props.resultNames)
     let dict := dict.insert "parameters".toUTF8 (.arrayAttr props.parameters)
     dict
   | _ => Std.HashMap.emptyWithCapacity 0
@@ -105,6 +120,12 @@ def HW.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     pure ()
   | .output => do
     op.verifyTerminatorCounts ctx opIn 0
+    pure ()
+  | .instance => do
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
     pure ()
 
 /-- Materialize integer results as `hw.constant`. -/
