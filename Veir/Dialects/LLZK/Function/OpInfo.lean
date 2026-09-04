@@ -95,6 +95,49 @@ instance : IsOpCode LLZK.Function where
   fromAttrDict := LLZK.Function.fromAttrDict
   toAttrDict := LLZK.Function.toAttrDict
 
+/-- Return the closest enclosing LLZK `function.def`, if one exists. -/
+partial def OperationPtr.getEnclosingLLZKFunctionDef? {OpInfo : Type} [IsOpCode OpInfo]
+    [HasDialect OpInfo LLZK.Function]
+    (op : OperationPtr) (ctx : IRContext OpInfo) : Option OperationPtr := do
+  let parent ← op.getParentOp! ctx
+  match toDialect? LLZK.Function (parent.getOpType! ctx) with
+  | some .«def» => some parent
+  | _ => parent.getEnclosingLLZKFunctionDef? ctx
+
+private def OperationPtr.enclosingLLZKFunctionHasAttr {OpInfo : Type} [IsOpCode OpInfo]
+    [HasDialect OpInfo LLZK.Function]
+    (op : OperationPtr) (ctx : IRContext OpInfo) (attrName : String) : Bool :=
+  match op.getEnclosingLLZKFunctionDef? ctx with
+  | none => false
+  | some funcOp =>
+    (funcOp.get! ctx).attrs.entries.any fun (name, attr) =>
+      name = attrName.toUTF8 && (attr matches .unitAttr _)
+
+/-- Verify LLZK's `WitnessGen` operation trait. -/
+def OperationPtr.verifyLLZKWitnessGen {OpInfo : Type} [IsOpCode OpInfo]
+    [HasDialect OpInfo LLZK.Function]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo) : Except String Unit := do
+  if !op.enclosingLLZKFunctionHasAttr ctx.raw "function.allow_witness" then
+    let opName := String.fromUTF8! (IsOpCode.name (op.getOpType! ctx.raw))
+    throw s!"{opName}: only valid within a 'function.def' with 'function.allow_witness' attribute"
+
+/-- Verify LLZK's `ConstraintGen` operation trait. -/
+def OperationPtr.verifyLLZKConstraintGen {OpInfo : Type} [IsOpCode OpInfo]
+    [HasDialect OpInfo LLZK.Function]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo) : Except String Unit := do
+  if !op.enclosingLLZKFunctionHasAttr ctx.raw "function.allow_constraint" then
+    let opName := String.fromUTF8! (IsOpCode.name (op.getOpType! ctx.raw))
+    throw s!"{opName}: only valid within a 'function.def' with 'function.allow_constraint' attribute"
+
+/-- Verify LLZK's `NotFieldNative` operation trait. -/
+def OperationPtr.verifyLLZKNotFieldNative {OpInfo : Type} [IsOpCode OpInfo]
+    [HasDialect OpInfo LLZK.Function]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo) : Except String Unit := do
+  if (op.getEnclosingLLZKFunctionDef? ctx.raw).isSome &&
+      !op.enclosingLLZKFunctionHasAttr ctx.raw "function.allow_non_native_field_ops" then
+    let opName := String.fromUTF8! (IsOpCode.name (op.getOpType! ctx.raw))
+    throw s!"{opName}: cannot be used within a 'function.def' without the 'function.allow_non_native_field_ops' attribute"
+
 def LLZK.Function.functionInterface? (op : LLZK.Function) :
     Option (FunctionOpInterface (LLZK.Function.propertiesOf op)) :=
   match op with

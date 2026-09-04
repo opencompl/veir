@@ -433,14 +433,29 @@ def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
   | .comb opType => Comb.verifyLocalInvariants opType op ctx opIn
   | .hw opType => HW.verifyLocalInvariants opType op ctx opIn
   | .verif opType => Verif.verifyLocalInvariants opType op ctx opIn
-  | .felt opType => Felt.verifyLocalInvariants opType op ctx opIn
+  | .felt opType => do
+    Felt.verifyLocalInvariants opType op ctx opIn
+    match opType with
+    | .pow | .uintdiv | .sintdiv | .umod | .smod | .inv
+    | .bit_and | .bit_or | .bit_xor | .bit_not | .shl | .shr =>
+      op.verifyLLZKNotFieldNative ctx
+    | .const | .add | .sub | .mul | .div | .neg => pure ()
   | .cir opType => Cir.verifyLocalInvariants opType op ctx opIn
   | .io opType => Io.verifyLocalInvariants opType op ctx opIn
   | .string opType => LLZK.String.verifyLocalInvariants opType op ctx opIn
   | .include opType => LLZK.Include.verifyLocalInvariants opType op ctx opIn
-  | .ram opType => LLZK.Ram.verifyLocalInvariants opType op ctx opIn
-  | .cast opType => LLZK.Cast.verifyLocalInvariants opType op ctx opIn
-  | .bool opType => LLZK.Bool.verifyLocalInvariants opType op ctx opIn
+  | .ram opType => do
+    LLZK.Ram.verifyLocalInvariants opType op ctx opIn
+    op.verifyLLZKWitnessGen ctx
+  | .cast opType => do
+    LLZK.Cast.verifyLocalInvariants opType op ctx opIn
+    if opType = .toindex then
+      op.verifyLLZKNotFieldNative ctx
+  | .bool opType => do
+    LLZK.Bool.verifyLocalInvariants opType op ctx opIn
+    match opType with
+    | .and | .or | .xor | .not => op.verifyLLZKNotFieldNative ctx
+    | .assert | .cmp => pure ()
   | .global opType => LLZK.Global.verifyLocalInvariants opType op ctx opIn
   | .function opType => LLZK.Function.verifyLocalInvariants opType op ctx opIn
 

@@ -25,7 +25,7 @@ def BoolAssertProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribut
 
 /-- Properties of the `bool.cmp` operation. -/
 structure BoolCmpProperties where
-  predicate : IntegerAttr
+  predicate : BoolCmpPredicateAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 def BoolCmpProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
@@ -34,20 +34,12 @@ def BoolCmpProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) 
     throw s!"bool.cmp: expected only 'predicate' property, got {attrDict.size}"
   let some attr := attrDict["predicate".toUTF8]?
     | throw "bool.cmp: missing 'predicate' property"
-  let value ← match attr with
-    | .integerAttr intAttr => pure intAttr
-    | .boolCmpPredicateAttr pred =>
-      pure ({ value := pred.value, type := { bitwidth := 32 } } : IntegerAttr)
-    | _ =>
-      throw s!"bool.cmp: expected 'predicate' to be an integer attribute or #bool<...>, got {attr}"
-  if value.type.bitwidth ≠ 32 then
-    throw s!"bool.cmp: 'predicate' must have type i32, got i{value.type.bitwidth}"
-  if value.value < 0 ∨ value.value > 5 then
-    throw s!"bool.cmp: 'predicate' must be in 0..5 (eq/ne/lt/le/gt/ge), got {value.value}"
-  return { predicate := value }
+  let .boolCmpPredicateAttr predicate := attr
+    | throw s!"bool.cmp: expected 'predicate' to be a #bool<cmp ...> attribute, got {attr}"
+  return { predicate }
 
 def BoolCmpProperties.predicateAttr (props : BoolCmpProperties) : Attribute :=
-  Attribute.boolCmpPredicateAttr { value := props.predicate.value }
+  Attribute.boolCmpPredicateAttr props.predicate
 
 end
 
