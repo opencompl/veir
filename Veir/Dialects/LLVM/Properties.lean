@@ -484,12 +484,7 @@ def LLVMBrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
   | none => return { loop_annotation := none }
 
 /--
-  Properties of `llvm.cond_br`: the three attributes MLIR gives it, and no
-  others. `loop_annotation` is optional and omitted again when absent, while
-  `branch_weights` defaults to the empty array the verifier accepts.
-
-  `cf.cond_br` carries no `loop_annotation`, so `llvm.cond_br` cannot share
-  `CondBrProperties` with it.
+  Properties of `llvm.cond_br`
 -/
 structure LLVMCondBrProperties where
   branch_weights : DenseArrayAttr
