@@ -79,7 +79,7 @@ meta partial def Tm.reifyWidth (env : TmWidthEnv) (e : Expr) : MetaM (Option (Tm
         let .true := Expr.isNat ty | pure none
         let some a ← Tm.reifyWidth env ae | pure none
         let some b ← Tm.reifyWidth env be | pure none
-        pure (some (.widthAdd a b))
+        return some (.widthAdd a b)
     | _ => pure none
 
 /--
@@ -221,6 +221,8 @@ meta def introMaskWidth (maxBound : Nat) (g : MVarId) (widthTm : Tm .width) (inf
 
 meta def WidthInfos.getOrCreateTm (this : WidthInfos) (g : MVarId) (term : Tm .width) (maxBound : Nat)
   : MetaM (MVarId × WidthInfo × WidthInfos) := g.withContext do
+  -- Reuse an existing width term entry when available, otherwise introduce
+  -- fresh mask and width-bound hypotheses for this term.
   if let some info := this.getFromTm? term then -- use reified.toExpr as a kind of "normal"/"canonical" form
     return (g, info, this)
   else
@@ -229,6 +231,8 @@ meta def WidthInfos.getOrCreateTm (this : WidthInfos) (g : MVarId) (term : Tm .w
 meta def introMaskRec (maxBound : Nat) (g : MVarId) (widthTm : Tm .width) (infos : WidthInfos)
   : MetaM (MVarId × WidthInfo × WidthInfos) :=
 
+  -- Recursively ensure masks exist for all sub-terms before creating one for
+  -- the current term.
   match widthTm with
   | .widthAtom _ => infos.getOrCreateTm g widthTm maxBound
   | .widthAdd v w => do
@@ -346,7 +350,7 @@ meta def introMaskWidths (widthTms : WidthTms) (g : MVarId) (ctx : PbvTranslateC
   := g.withContext do
   -- Compute max width
   let maxWidth := widthTms.getUniverseWidthUpperBound ctx
-  -- Intro all the masks
+  -- Introduce mask hypotheses for each collected width term.
   widthTms.terms.foldM
     (init := (g, { env := widthTms.env }))
     fun (g, widthInfos) _ widthTm => do

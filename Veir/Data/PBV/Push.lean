@@ -111,7 +111,7 @@ theorem setWidth_append_eq_or_mul_maskOfWidth_add_one {w o : Nat} (h : w ≤ o) 
   have h2 : (2 ^ w - 1 + 1 % 2 ^ o) % 2 ^ o = 2 ^ w % 2 ^ o := by
     rw [Nat.add_mod_mod]
     congr 1
-    have := Nat.two_pow_pos w
+    have hpow : 0 < 2 ^ w := Nat.two_pow_pos w
     lia
   rw [h2, Nat.mul_mod_mod, Nat.shiftLeft_eq, Nat.mod_eq_of_lt ha]
 
