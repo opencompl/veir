@@ -477,6 +477,13 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "#llvm.tailcallkind<none>" (TailCallKindAttr.mk "none")
 #assert expectSuccessAttr "#llvm.tailcallkind<musttail>" (TailCallKindAttr.mk "musttail")
 
+/-! ## LLVM constant ranges -/
+#assert expectSuccessAttr "#llvm.constant_range<i32, 0, 19>"
+  (ConstantRangeAttr.mk "i32, 0, 19")
+-- A wrapping range: LLVM allows `hi < lo`, and the bound reads back negative.
+#assert expectSuccessAttr "#llvm.constant_range<i32, 0, -7>"
+  (ConstantRangeAttr.mk "i32, 0, -7")
+
 /-! ## LLVM TBAA tags -/
 #assert expectSuccessAttr
   "#llvm.tbaa_tag<base_type = <id = \"int\">, access_type = <id = \"int\">, offset = 0>"
