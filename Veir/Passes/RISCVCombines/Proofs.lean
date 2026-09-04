@@ -105,6 +105,65 @@ theorem zextw_zextb {x : Reg} :
     RISCV.zextw (RISCV.zextb x) = RISCV.zextb x := by
   veir_bv_decide
 
+/-! ## Byte-load and byte-packing combines.
+
+    The register-level model below represents the byte fetched from memory by
+    an arbitrary `Reg`: `lb` produces its `sextb` form and `lbu` its `zextb`
+    form.  The combine preserves the memory access (including its address and
+    offset); the equalities here establish the value transformations. -/
+
+/-- `zextb (lb byte) = lbu byte`: zero-extending a sign-extended byte gives
+    exactly the zero-extended byte. -/
+theorem zextb_lb {byte : Reg} :
+    RISCV.zextb (RISCV.sextb byte) = RISCV.zextb byte := by
+  veir_bv_decide
+
+/-- `zextb (lbu byte) = lbu byte`: an unsigned byte load is already
+    zero-extended. -/
+theorem zextb_lbu {byte : Reg} :
+    RISCV.zextb (RISCV.zextb byte) = RISCV.zextb byte := by
+  veir_bv_decide
+
+/-- The byte-packing pre-canonicalization is valid for each selected shift:
+    a word shift of a zero-extended byte, followed by `zextw`, is the same as
+    the corresponding full-width shift. -/
+theorem zextw_slliw_lbu_8 {byte : Reg} :
+    RISCV.zextw (RISCV.slliw 8 (RISCV.zextb byte)) = RISCV.slli 8 (RISCV.zextb byte) := by
+  veir_bv_decide
+
+theorem zextw_slliw_lbu_16 {byte : Reg} :
+    RISCV.zextw (RISCV.slliw 16 (RISCV.zextb byte)) = RISCV.slli 16 (RISCV.zextb byte) := by
+  veir_bv_decide
+
+theorem zextw_slliw_lbu_24 {byte : Reg} :
+    RISCV.zextw (RISCV.slliw 24 (RISCV.zextb byte)) = RISCV.slli 24 (RISCV.zextb byte) := by
+  veir_bv_decide
+
+/-- The two-byte `packh` low-pair combine.  The argument order of the
+    register-level operation is `(rs2, rs1)`, hence `hi` precedes `lo`. -/
+theorem packh_low_bytes {lo hi : Reg} :
+    RISCV.or (RISCV.slli 8 (RISCV.zextb hi)) (RISCV.zextb lo) =
+      RISCV.packh (RISCV.zextb hi) (RISCV.zextb lo) := by
+  veir_bv_decide
+
+/-- Operand-order mirror of `packh_low_bytes`. -/
+theorem packh_low_bytes_commuted {lo hi : Reg} :
+    RISCV.or (RISCV.zextb lo) (RISCV.slli 8 (RISCV.zextb hi)) =
+      RISCV.packh (RISCV.zextb hi) (RISCV.zextb lo) := by
+  veir_bv_decide
+
+/-- The two-byte `packh` high-pair combine. -/
+theorem packh_high_bytes {b2 b3 : Reg} :
+    RISCV.or (RISCV.slli 24 (RISCV.zextb b3)) (RISCV.slli 16 (RISCV.zextb b2)) =
+      RISCV.slli 16 (RISCV.packh (RISCV.zextb b3) (RISCV.zextb b2)) := by
+  veir_bv_decide
+
+/-- Operand-order mirror of `packh_high_bytes`. -/
+theorem packh_high_bytes_commuted {b2 b3 : Reg} :
+    RISCV.or (RISCV.slli 16 (RISCV.zextb b2)) (RISCV.slli 24 (RISCV.zextb b3)) =
+      RISCV.slli 16 (RISCV.packh (RISCV.zextb b3) (RISCV.zextb b2)) := by
+  veir_bv_decide
+
 /--
   Prove the correctness of dropping a `riscv.zextw` from the `rs2` operand of
   `riscv.addw`. The instruction reads only bits 31:0 of both operands.
@@ -143,13 +202,6 @@ theorem drop_zextw_addiw {rs1 : Reg} {imm : BitVec 12} :
 -/
 theorem drop_zextw_roriw {rs1 : Reg} {shamt : BitVec 5} :
     RISCV.roriw shamt (RISCV.zextw rs1) = RISCV.roriw shamt rs1 := by
-  veir_bv_decide
-
-/-- A word rotate observes only the low 32 bits of the XOR result, so two
-    zero-extensions feeding that XOR are redundant for this use. -/
-theorem drop_zextw_xor_roriw {x y : Reg} {shamt : BitVec 5} :
-    RISCV.roriw shamt (RISCV.xor (RISCV.zextw x) (RISCV.zextw y)) =
-      RISCV.roriw shamt (RISCV.xor x y) := by
   veir_bv_decide
 
 /--
@@ -215,6 +267,13 @@ theorem zextw_xor {a b : Reg} :
 -/
 theorem drop_zextw_sw {rs1 : Reg} :
     (RISCV.zextw rs1).val.extractLsb 31 0 = rs1.val.extractLsb 31 0 := by
+  veir_bv_decide
+
+/-- `sb` observes only bits 7:0 of its value operand.  `zextw` leaves those
+    bits unchanged, so the new `drop_zextw_sb` combine preserves the stored
+    byte. -/
+theorem drop_zextw_sb {rs1 : Reg} :
+    (RISCV.zextw rs1).val.extractLsb 7 0 = rs1.val.extractLsb 7 0 := by
   veir_bv_decide
 
 /--
@@ -311,6 +370,13 @@ theorem sextw_xor {a b : Reg} :
     value operand, which `sextw` leaves unchanged. -/
 theorem drop_sextw_sw {rs1 : Reg} :
     (RISCV.sextw rs1).val.extractLsb 31 0 = rs1.val.extractLsb 31 0 := by
+  veir_bv_decide
+
+/-- `sb` observes only bits 7:0 of its value operand.  `sextw` leaves those
+    bits unchanged, so the new `drop_sextw_sb` combine preserves the stored
+    byte. -/
+theorem drop_sextw_sb {rs1 : Reg} :
+    (RISCV.sextw rs1).val.extractLsb 7 0 = rs1.val.extractLsb 7 0 := by
   veir_bv_decide
 
 /-- Sext mirror of `zextw_x0`: sign-extending the value 0 (what `x0` reads as) is
