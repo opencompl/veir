@@ -558,4 +558,20 @@ def parseDelimitedList (delimiter : Delimiter) (parseItem : M α) : M (Array α)
 
 end ParserStateMethods
 
+/--
+  Returns `true` if the numeric literal is in `0x`-prefixed hexadecimal form.
+-/
+def isHexValue (value : ByteArray) : Bool :=
+  value.size > 2 && (value[1]! == 'x'.toUInt8 || value[1]! == 'X'.toUInt8)
+
+/--
+  Convert a numeric literal byte sequence to a `Nat`, accepting decimal and `0x`-prefixed
+  hexadecimal forms.
+-/
+def numericValueToNat? (value : ByteArray) : Option Nat :=
+  if isHexValue value then
+    value.hexToNat?
+  else
+    (String.fromUTF8? value).bind String.toNat?
+
 end Veir.Parser

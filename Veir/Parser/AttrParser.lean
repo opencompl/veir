@@ -299,22 +299,6 @@ def convertFPToBitvec (f : ParsedFloat) (type: Veir.FloatType) : BitVec (type.bi
      packUnpackedFloatToFloatType type uf
 
 /--
-  Returns `true` if the numeric literal is in `0x`-prefixed hexadecimal form.
--/
-private def isHexValue (value : ByteArray) : Bool :=
-  value.size > 2 && (value[1]! == 'x'.toUInt8 || value[1]! == 'X'.toUInt8)
-
-/--
-  Convert a numeric literal byte sequence to a `Nat`, accepting decimal and `0x`-prefixed
-  hexadecimal forms.
--/
-private def numericValueToNat? (value : ByteArray) : Option Nat :=
-  if isHexValue value then
-    value.hexToNat?
-  else
-    (String.fromUTF8? value).bind String.toNat?
-
-/--
   Parse an integer or floating-point attribute, if present.
   The attribute has the form `false`, `true` or `value : type`.
   For an integer type, `value` must be a (possibly negated) integer literal in decimal or
