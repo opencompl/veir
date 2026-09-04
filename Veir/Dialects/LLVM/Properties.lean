@@ -467,48 +467,62 @@ def LLVMFuncProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute)
   return { sym_name := symName, function_type := funcType, extra }
 
 /--
-  Properties of `llvm.br`. It has no required attributes; the optional ones --
-  today only `loop_annotation`, the `!llvm.loop` metadata a back edge carries --
-  are preserved verbatim in `extra`.
+  Properties of `llvm.br`: `loop_annotation`, the `!llvm.loop` metadata a back
+  edge carries, and nothing else. It is the op's only attribute in MLIR, and it
+  is optional, so an absent one is omitted again when printing.
 
   `cf.br` has no attributes at all, so `llvm.br` cannot borrow its properties.
 -/
 structure LLVMBrProperties where
-  extra : DictionaryAttr
+  loop_annotation : Option LoopAnnotationAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 def LLVMBrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String LLVMBrProperties :=
-  .ok { extra := DictionaryAttr.fromArray attrDict.toArray }
+    Except String LLVMBrProperties := do
+  if let some (key, _) := attrDict.toArray.find? (fun (k, _) => k ≠ "loop_annotation".toUTF8) then
+    throw s!"llvm.br: unexpected property '{String.fromUTF8! key}'"
+  match attrDict["loop_annotation".toUTF8]? with
+  | some (.loopAnnotationAttr annotation) => return { loop_annotation := some annotation }
+  | some attr =>
+    throw s!"llvm.br: expected 'loop_annotation' to be a loop annotation attribute, but got {attr}"
+  | none => return { loop_annotation := none }
 
 /--
-  Properties of `llvm.cond_br`. `branch_weights` and `operandSegmentSizes` are
-  modelled explicitly because the verifier checks them; every other attribute,
-  `loop_annotation` above all, is preserved verbatim in `extra`.
+  Properties of `llvm.cond_br`: the three attributes MLIR gives it, and no
+  others. `loop_annotation` is optional and omitted again when absent, while
+  `branch_weights` defaults to the empty array the verifier accepts.
 
   `cf.cond_br` carries no `loop_annotation`, so `llvm.cond_br` cannot share
   `CondBrProperties` with it.
 -/
 structure LLVMCondBrProperties where
   branch_weights : DenseArrayAttr
+  loop_annotation : Option LoopAnnotationAttr
   operandSegmentSizes : DenseArrayAttr
-  extra : DictionaryAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 def LLVMCondBrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String LLVMCondBrProperties := do
+  if let some (key, _) := attrDict.toArray.find? (fun (k, _) =>
+      k ≠ "branch_weights".toUTF8 && k ≠ "loop_annotation".toUTF8
+        && k ≠ "operandSegmentSizes".toUTF8) then
+    throw s!"llvm.cond_br: unexpected property '{String.fromUTF8! key}'"
   let weightsAttr ← match attrDict["branch_weights".toUTF8]? with
     | some (.denseArrayAttr weightsAttr) => .ok weightsAttr
     | some attr =>
       throw s!"llvm.cond_br: expected 'branch_weights' to be a dense array attribute, but got {attr}"
     | none => .ok { elementType := { bitwidth := 32 }, values := #[] }
+  let annotation ← match attrDict["loop_annotation".toUTF8]? with
+    | some (.loopAnnotationAttr annotation) => .ok (some annotation)
+    | some attr =>
+      throw s!"llvm.cond_br: expected 'loop_annotation' to be a loop annotation attribute, but got {attr}"
+    | none => .ok none
   let some sizesAttr := attrDict["operandSegmentSizes".toUTF8]?
     | throw "llvm.cond_br: missing 'operandSegmentSizes' property"
   let .denseArrayAttr sizesAttr := sizesAttr
     | throw s!"llvm.cond_br: expected 'operandSegmentSizes' to be a dense array attribute, but got {sizesAttr}"
-  let extra := DictionaryAttr.fromArray (attrDict.toArray.filter fun (k, _) =>
-    k ≠ "branch_weights".toUTF8 && k ≠ "operandSegmentSizes".toUTF8)
-  return { branch_weights := weightsAttr, operandSegmentSizes := sizesAttr, extra }
+  return { branch_weights := weightsAttr, loop_annotation := annotation,
+           operandSegmentSizes := sizesAttr }
 
 structure LLVMModuleFlagsProperties where
   flags : ArrayAttr

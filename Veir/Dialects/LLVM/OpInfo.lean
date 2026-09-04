@@ -192,11 +192,17 @@ def Llvm.toAttrDict
     let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) (IntegerType.mk 64)
     (Std.HashMap.emptyWithCapacity 1).insert
       "predicate".toUTF8 (Attribute.integerAttr value)
-  | .br => Std.HashMap.ofList props.extra.entries.toList
+  | .br => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 1
+    if let some annotation := props.loop_annotation then
+      dict := dict.insert "loop_annotation".toUTF8 (.loopAnnotationAttr annotation)
+    dict
   | .cond_br => Id.run do
-    let mut dict := Std.HashMap.ofList props.extra.entries.toList
+    let mut dict := Std.HashMap.emptyWithCapacity 3
     dict := dict.insert
       "branch_weights".toUTF8 (Attribute.denseArrayAttr props.branch_weights)
+    if let some annotation := props.loop_annotation then
+      dict := dict.insert "loop_annotation".toUTF8 (.loopAnnotationAttr annotation)
     dict := dict.insert "operandSegmentSizes".toUTF8
       (Attribute.denseArrayAttr props.operandSegmentSizes)
     dict
