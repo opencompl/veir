@@ -42,7 +42,9 @@ def Io.interpretOp' (opType : Veir.Io) (properties : propertiesOf opType)
     let [.ioAddr dest, .addr ptr, .int _ len] := operands.toList | none
     let .val len := len | Interp.ub none
     let .val ptr := ptr | Interp.ub none
-    let len := len.toNat.toUInt64
+    let lenNat := len.toNat
+    if lenNat ≥ UInt64.size then Interp.ub none
+    let len : UInt64 := UInt64.ofNat lenNat
     if ← mem.hasPoison ptr len then Interp.ub none
     let buf ← mem.load ptr len
     let mem := mem.sendMessage dest buf
@@ -68,7 +70,9 @@ def Io.interpretOp' (opType : Veir.Io) (properties : propertiesOf opType)
     let [.addr addr, .int _ len] := operands.toList | none
     let .val len := len | Interp.ub none
     let .val addr := addr | Interp.ub none
-    let len := len.toNat.toUInt64
+    let lenNat := len.toNat
+    if lenNat ≥ UInt64.size then Interp.ub none
+    let len : UInt64 := UInt64.ofNat lenNat
     let ⟨mem, buf⟩ ← mem.entropyLoad len
     let mem ← mem.store addr buf
     return  (#[.int 64 (.val len.toNat)], mem, none)
