@@ -444,6 +444,22 @@ partial def parseOptionalDialectType : AttrParserM (Option TypeAttr) := do
     return some (⟨UnregisteredAttr.mk ("!" ++ String.fromUTF8! dialectName) true none, by grind⟩)
 
 /--
+  Attributes VeIR registers but does not interpret: everything between `<` and
+  `>` is kept verbatim and printed back unchanged.
+-/
+private def verbatimBodyAttrs : List (ByteArray × (String → Attribute)) :=
+  [ ("llvm.cconv".toByteArray, fun body => (CConvAttr.mk body : Attribute)),
+    ("llvm.linkage".toByteArray, fun body => (LinkageAttr.mk body : Attribute)),
+    ("llvm.framePointerKind".toByteArray, fun body => (FramePointerKindAttr.mk body : Attribute)),
+    ("llvm.uwtableKind".toByteArray, fun body => (UwtableKindAttr.mk body : Attribute)),
+    ("llvm.tailcallkind".toByteArray, fun body => (TailCallKindAttr.mk body : Attribute)),
+    ("llvm.mlir.module_flag".toByteArray, fun body => (ModuleFlagAttr.mk body : Attribute)),
+    ("llvm.constant_range".toByteArray, fun body => (ConstantRangeAttr.mk body : Attribute)),
+    ("llvm.tbaa_tag".toByteArray, fun body => (TbaaTagAttr.mk body : Attribute)),
+    ("llvm.target_features".toByteArray, fun body => (TargetFeaturesAttr.mk body : Attribute)),
+    ("dlti.dl_spec".toByteArray, fun body => (DlSpecAttr.mk body : Attribute)) ]
+
+/--
   Parse a dialect attribute, if present.
   A dialect attribute has the form `#dialect.name` or `#dialect.name<body>`. Attributes VeIR
   understands are decoded; any other one is kept as an `UnregisteredAttr` when unregistered
@@ -462,59 +478,11 @@ partial def parseOptionalDialectAttr : AttrParserM (Option Attribute) := do
     let (nsw, nuw) ← parseIntegerOverflowFlags
     return some (ArithIntegerOverflowFlagsAttr.mk nsw nuw : Attribute)
 
-  if dialectName = "llvm.cconv".toByteArray then do
+  if let some (_, toAttr) := verbatimBodyAttrs.find? (fun (name, _) => dialectName == name) then
     parsePunctuation "<"
     let body ← parseUnregisteredAttrBody
     parsePunctuation ">"
-    return some (CConvAttr.mk body : Attribute)
-
-  if dialectName = "llvm.linkage".toByteArray then do
-    parsePunctuation "<"
-    let body ← parseUnregisteredAttrBody
-    parsePunctuation ">"
-    return some (LinkageAttr.mk body : Attribute)
-
-  if dialectName = "llvm.framePointerKind".toByteArray then do
-    parsePunctuation "<"
-    let body ← parseUnregisteredAttrBody
-    parsePunctuation ">"
-    return some (FramePointerKindAttr.mk body : Attribute)
-
-  if dialectName = "llvm.uwtableKind".toByteArray then do
-    parsePunctuation "<"
-    let body ← parseUnregisteredAttrBody
-    parsePunctuation ">"
-    return some (UwtableKindAttr.mk body : Attribute)
-
-  if dialectName = "llvm.tailcallkind".toByteArray then do
-    parsePunctuation "<"
-    let body ← parseUnregisteredAttrBody
-    parsePunctuation ">"
-    return some (TailCallKindAttr.mk body : Attribute)
-
-  if dialectName = "llvm.mlir.module_flag".toByteArray then do
-    parsePunctuation "<"
-    let body ← parseUnregisteredAttrBody
-    parsePunctuation ">"
-    return some (ModuleFlagAttr.mk body : Attribute)
-
-  if dialectName = "llvm.tbaa_tag".toByteArray then do
-    parsePunctuation "<"
-    let body ← parseUnregisteredAttrBody
-    parsePunctuation ">"
-    return some (TbaaTagAttr.mk body : Attribute)
-
-  if dialectName = "llvm.target_features".toByteArray then do
-    parsePunctuation "<"
-    let body ← parseUnregisteredAttrBody
-    parsePunctuation ">"
-    return some (TargetFeaturesAttr.mk body : Attribute)
-
-  if dialectName = "dlti.dl_spec".toByteArray then do
-    parsePunctuation "<"
-    let body ← parseUnregisteredAttrBody
-    parsePunctuation ">"
-    return some (DlSpecAttr.mk body : Attribute)
+    return some (toAttr body)
 
   if !(← getThe AttrParserState).allowUnregisteredDialect then
     throwAt startPos s!"attribute '#{String.fromUTF8! dialectName}' is not registered. \
