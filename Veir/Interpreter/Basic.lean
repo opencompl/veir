@@ -570,6 +570,21 @@ def MemoryState.store (state : MemoryState) (addr : UInt64) (val : ByteArray)
   else
     Interp.ub
 
+def MemoryState.storeCTree [ErrorE -< F] (state : MemoryState) (addr : UInt64) (val : ByteArray)
+  (poison : ByteArray := ByteArray.replicate val.size 0) (h : poison.size = val.size := by grind)
+    : CTree F C MemoryState :=
+  if addr.toNat + val.size ≤ state.contents.size then
+    return {
+      contents := val.copySlice 0 state.contents addr.toNat val.size false,
+      poisonMask := poison.copySlice 0 state.poisonMask addr.toNat val.size false,
+      entropySource := state.entropySource,
+      selfAddress := state.selfAddress,
+      messages := state.messages,
+      consistentSize := (by simp [ByteArray.copySlice_eq_append, state.consistentSize, h])
+    }
+  else
+    ub
+
 /--
   Poison the given number n of bytes, starting from the given address in memory.
   Yields UB if the access is out of bounds.
@@ -619,6 +634,13 @@ def MemoryState.load (state : MemoryState) (addr size : UInt64)
   else
     Interp.ub
 
+def MemoryState.loadCTree [ErrorE -< F] (state : MemoryState) (addr size : UInt64)
+    : CTree F C ByteArray :=
+  if addr.toNat + size.toNat <= state.contents.size then
+    return state.contents.extract addr.toNat (addr + size).toNat
+  else
+    ub
+
 /--
   Load bitwise poison status of the given memory address.
   Yields UB if the access is out of bounds.
@@ -630,6 +652,13 @@ def MemoryState.loadPoison (state : MemoryState) (addr size : UInt64)
   else
     Interp.ub
 
+def MemoryState.loadPoisonCTree [ErrorE -< F] (state : MemoryState) (addr size : UInt64)
+    : CTree F C ByteArray :=
+  if addr.toNat + size.toNat <= state.poisonMask.size then
+    return state.poisonMask.extract addr.toNat (addr + size).toNat
+  else
+    ub
+
 /--
   Check if any of the `size` bytes at the given memory address `addr` is poison.
   Yields UB if the access is out of bounds.
@@ -637,6 +666,16 @@ def MemoryState.loadPoison (state : MemoryState) (addr size : UInt64)
 def MemoryState.hasPoison (state : MemoryState) (addr size : UInt64)
     : Interp Bool := do
   let poisonMask ← state.loadPoison addr size
+  let mut poison := false
+  for b in poisonMask do
+    if b ≠ 0 then
+      poison := true
+      break
+  return poison
+
+def MemoryState.hasPoisonCTree [ErrorE -< F] (state : MemoryState) (addr size : UInt64)
+    : CTree F C Bool := do
+  let poisonMask ← state.loadPoisonCTree addr size
   let mut poison := false
   for b in poisonMask do
     if b ≠ 0 then
