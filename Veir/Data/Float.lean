@@ -1,2 +1,3 @@
-import Veir.Data.Float.Basic
+module
 
+public import Veir.Data.Float.Basic

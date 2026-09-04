@@ -1,6 +1,7 @@
 module
 
 import Veir.ForLean
+public import Veir.Data.Float
 public import Lean.Elab.Command
 public import Std.Data.Iterators.Producers.Array
 
@@ -46,73 +47,43 @@ structure IntegerType where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
-  A floating point type. There are lots of them in MLIR, and their
-  differences can be summarised into the following fields:
-
-  - sign (implicit): always 1 bit, not stored.
-  - mantissa, exponent: bits of storage.
-  - bias: term added to exponent when storing it as a binary number.
-  - hasInf: whether Infinity is expressible.
-  - hasNaN: whether NaN is expressible.
-  - hasNegZero: whether -0.0 is expressible.
+  A floating point type.
 -/
 structure FloatType where
-  mantissa : Nat
-  exponent : Nat
-  bias: Nat
-  hasInf : Bool := true
-  hasNaN : Bool := true
-  hasNegZero : Bool := true
-  canonicalName : String
+  format : Data.Float.FloatFormat
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-def FloatType.bitwidth (type: FloatType) : Nat :=
-  1 + type.exponent + type.mantissa
+namespace FloatType
 
-open Lean
+abbrev mantissa (type : FloatType) : Nat := type.format.mantissa
+abbrev exponent (type : FloatType) : Nat := type.format.exponent
+abbrev bias (type : FloatType) : Nat := type.format.bias
+abbrev hasInf (type : FloatType) : Bool := type.format.hasInf
+abbrev hasNaN (type : FloatType) : Bool := type.format.hasNaN
+abbrev hasNegZero (type : FloatType) : Bool := type.format.hasNegZero
+abbrev canonicalName (type : FloatType) : String := type.format.canonicalName
+
+abbrev bitwidth (type : FloatType) : Nat := type.format.bitwidth
+
 /--
 Convert Veir's `FloatType` into Lean's floating type `Float.Model.Format`
-that reprsents IEEE-style floating point formats.
+that represents IEEE-style floating point formats.
 -/
-def FloatType.toFormat (type : FloatType)
+abbrev toFormat (type : FloatType)
     (hm : 0 < type.mantissa := by grind)
-    (he : 0 < type.exponent := by grind) : Float.Model.Format where
-  exponentBits := type.exponent
-  mantissaBitsWithoutImplicit := type.mantissa
-  hm := hm
-  he := he
+    (he : 0 < type.exponent := by grind) : Float.Model.Format :=
+  type.format.toLeanFormat hm he
 
-@[simp]
-theorem FloatType.numBits_toFormat_eq_bitwidth
-    (type : FloatType)
-    (hm : 0 < type.mantissa) (he : 0 < type.exponent) :
-    (type.toFormat hm he).numBits = type.bitwidth := by
-  simp [toFormat, Float.Model.Format.numBits, bitwidth]
+def f16 : FloatType := { format := .f16 }
+def f32 : FloatType := { format := .f32 }
+def f64 : FloatType := { format := .f64 }
+def bf16 : FloatType := { format := .bf16 }
+def f8E5M2 : FloatType := { format := .f8E5M2 }
+def f8E4M3FN : FloatType := { format := .f8E4M3FN }
+def f8E4M3FNUZ : FloatType := { format := .f8E4M3FNUZ }
 
-def FloatType.f16 : FloatType := { exponent := 5, mantissa := 10, bias := 15, canonicalName := "f16" }
-def FloatType.f32 : FloatType := { exponent := 8, mantissa := 23, bias := 127, canonicalName := "f32" }
-def FloatType.f64 : FloatType := { exponent := 11, mantissa := 52, bias := 1023, canonicalName := "f64" }
-def FloatType.bf16 : FloatType := { exponent := 8, mantissa := 7, bias := 127, canonicalName := "bf16" }
-def FloatType.f8E5M2 : FloatType := { exponent := 5, mantissa := 2, bias := 15, canonicalName := "f8E5M2" }
+end FloatType
 
--- FN (finite only). No infinity, non-standard NaN.
-def FloatType.f8E4M3FN : FloatType := {
-  exponent := 4,
-  mantissa := 3,
-  bias := 7,
-  hasInf := false,
-  canonicalName := "f8E4M3FN"
-}
-
--- UZ (unsigned zero). No -0.0, 0x80 repurposed as NaN.
-def FloatType.f8E4M3FNUZ : FloatType := {
-  exponent := 4,
-  mantissa := 3,
-  bias := 8,
-  hasInf := false,
-  hasNegZero := false,
-  canonicalName := "f8E4M3FNUZ"
-}
 
 /--
   A register type is an integer type with width 64.
