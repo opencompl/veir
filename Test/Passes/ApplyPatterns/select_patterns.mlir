@@ -1,5 +1,5 @@
 // RUN: veir-opt %s '-p=apply-patterns{muli-two-to-addi}' | filecheck %s --check-prefix=SELECTED
-// RUN: veir-opt %s '-p=apply-patterns{addi-zero-to-x}' | filecheck %s --check-prefix=UNSELECTED
+// RUN: veir-opt %s '-p=apply-patterns{subi-zero-to-x}' | filecheck %s --check-prefix=UNSELECTED
 
 "builtin.module"() ({
   "func.func"() <{function_type = () -> (), sym_name = "main"}> ({

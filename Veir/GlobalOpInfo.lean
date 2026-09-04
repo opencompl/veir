@@ -84,11 +84,18 @@ def OpCode.fold (opCode : OpCode) (props : _propertiesOf opCode)
   | .cf op, props => HasOpInfo.fold op props resultTypes constantOperands
   | .comb op, props => HasOpInfo.fold op props resultTypes constantOperands
   | .hw op, props => HasOpInfo.fold op props resultTypes constantOperands
+  | .verif op, props => HasOpInfo.fold op props resultTypes constantOperands
   | .builtin op, props => HasOpInfo.fold op props resultTypes constantOperands
   | .func op, props => HasOpInfo.fold op props resultTypes constantOperands
   | .datapath op, props => HasOpInfo.fold op props resultTypes constantOperands
   | .pdl op, props => HasOpInfo.fold op props resultTypes constantOperands
+  | .io op, props => HasOpInfo.fold op props resultTypes constantOperands
   | .test op, props => HasOpInfo.fold op props resultTypes constantOperands
+  | .felt op, props => HasOpInfo.fold op props resultTypes constantOperands
+  | .cir op, props => HasOpInfo.fold op props resultTypes constantOperands
+  | .include op, props => HasOpInfo.fold op props resultTypes constantOperands
+  | .function op, props => HasOpInfo.fold op props resultTypes constantOperands
+  | .seq op, props => HasOpInfo.fold op props resultTypes constantOperands
 
 /--
   Return the kind of the region with the given index inside this operation.
