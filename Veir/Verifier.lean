@@ -113,18 +113,52 @@ private def WfIRContext.graphRegionsHaveAtMostOneBlock (ctx : WfIRContext OpCode
     else
       true
 
+private def hexDigit? (c : Char) : Option UInt8 :=
+  if '0' ≤ c && c ≤ '9' then some (c.toNat - '0'.toNat).toUInt8
+  else if 'a' ≤ c && c ≤ 'f' then some (c.toNat - 'a'.toNat + 10).toUInt8
+  else if 'A' ≤ c && c ≤ 'F' then some (c.toNat - 'A'.toNat + 10).toUInt8
+  else none
+
+/--
+  Decode the escapes MLIR writes inside a quoted name: `\\` and `\"` for the two
+  characters that would otherwise end the literal, and `\HH` for any byte it
+  will not print, which is how clang's `\01` no-mangle prefix survives. `none`
+  if the text holds an escape of some other shape.
+-/
+private def decodeSymbolEscapes (acc : ByteArray) : List Char → Option ByteArray
+  | [] => some acc
+  | '\\' :: '\\' :: rest => decodeSymbolEscapes (acc.push 0x5c) rest
+  | '\\' :: '"' :: rest => decodeSymbolEscapes (acc.push 0x22) rest
+  | '\\' :: hi :: lo :: rest => do
+    let hi ← hexDigit? hi
+    let lo ← hexDigit? lo
+    decodeSymbolEscapes (acc.push (hi * 16 + lo)) rest
+  | '\\' :: _ => none
+  | c :: rest => decodeSymbolEscapes (acc ++ c.toString.toUTF8) rest
+
+/--
+  The bytes a symbol reference names, `@` included. MLIR spells a name that is
+  not a bare identifier as `@"..."`, with the escapes above; a `sym_name` holds
+  the same name unquoted and decoded. Reducing the reference to those bytes is
+  what lets it match the definition it names -- `@".str.1"` finds `.str.1`, and
+  `@"\01_lstat"` finds the name whose first byte is `0x01`.
+-/
+private def symbolRefBytes (name : String) : Option ByteArray :=
+  if name.length ≥ 3 && name.startsWith "@\"" && name.endsWith "\"" then
+    decodeSymbolEscapes "@".toUTF8 ((name.drop 2).dropEnd 1).toString.toList
+  else
+    some name.toUTF8
+
 /--
   Check the module-wide invariants needed by LLVM global references: global
-  names are unique and every `llvm.mlir.addressof` names a declared global.
-
-  TODO: This is stricter than MLIR, which lets `llvm.mlir.addressof` name either
-  an `llvm.mlir.global` or an `llvm.func`, so taking the address of a function
-  (function pointers, vtables, globals initialized with a function address) is
-  currently rejected.
+  names are unique, and every `llvm.mlir.addressof` names either an
+  `llvm.mlir.global` or an `llvm.func` -- as in MLIR, where taking the address
+  of a function is how function pointers and vtables are spelled.
 -/
 private def WfIRContext.verifyLLVMGlobalSymbols (ctx : WfIRContext OpCode) :
     Except String Unit := do
   let mut globals : Std.HashMap ByteArray OperationPtr := Std.HashMap.emptyWithCapacity
+  let mut functions : Std.HashSet ByteArray := Std.HashSet.emptyWithCapacity
   for op in ctx.raw.operations.keys do
     if op.getOpType! ctx.raw = .llvm .mlir__global then
       let props := op.getProperties! ctx.raw Llvm.mlir__global
@@ -133,11 +167,16 @@ private def WfIRContext.verifyLLVMGlobalSymbols (ctx : WfIRContext OpCode) :
         let displayName := String.fromUTF8? symbolName |>.getD "<non-UTF8 global symbol>"
         throw s!"llvm.mlir.global: duplicate global symbol '{displayName}'"
       globals := globals.insert symbolName op
+    if op.getOpType! ctx.raw = .llvm .func then
+      let props := op.getProperties! ctx.raw Llvm.func
+      functions := functions.insert ("@".toUTF8 ++ props.sym_name.value)
   for op in ctx.raw.operations.keys do
     if op.getOpType! ctx.raw = .llvm .mlir__addressof then
       let props := op.getProperties! ctx.raw Llvm.mlir__addressof
-      if !globals.contains props.global_name.value.toUTF8 then
-        throw s!"llvm.mlir.addressof: symbol '{props.global_name.value}' does not name an llvm.mlir.global"
+      let symbolName := (symbolRefBytes props.global_name.value).getD ByteArray.empty
+      if !globals.contains symbolName && !functions.contains symbolName then
+        throw s!"llvm.mlir.addressof: symbol '{props.global_name.value}' does not name an \
+          llvm.mlir.global or llvm.func"
 
 /--
   Check the whole-pattern invariants that MLIR verifies in
