@@ -288,27 +288,22 @@ theorem ArrayConforms.take_succ_eq {source : Array RuntimeValue} {target : Array
 
 end RuntimeValue
 
-structure NetworkState where
-  /-- Address of this run. -/
-  selfAddress : Nat
-  /-- in-flight messages in the network. -/
-  messages : List Message
-
 /--
   Memory state during interpretation.
   Set bits in the poison mask represent poison bits.
 -/
 @[ext]
-structure MemoryState extends NetworkState where
+structure MemoryState where
   contents : ByteArray
   poisonMask : ByteArray
+  /-- I/O address of this run. -/
+  selfAddress : Nat
   consistentSize : contents.size = poisonMask.size
 
 def MemoryState.empty : MemoryState := {
   contents := (ByteArray.emptyWithCapacity 1024).extend 8 0xff,
   poisonMask := (ByteArray.emptyWithCapacity 1024).extend 8 0xff,
   selfAddress := 0,
-  messages := [],
   consistentSize := (by grind)
 }
 
@@ -317,7 +312,6 @@ def MemoryState.ensureSize (mem : MemoryState) (size : Nat) : MemoryState :=
     {contents := mem.contents.extend (size - mem.contents.size) 0,
       poisonMask := mem.poisonMask.extend (size - mem.contents.size) 0xff,
       selfAddress := mem.selfAddress,
-      messages := mem.messages,
       consistentSize := (by simp [mem.consistentSize])}
   else
     mem
@@ -540,7 +534,6 @@ def MemoryState.alloc (state : MemoryState) (size : UInt64)
   ({contents := state.contents.extend size.toNat 0,
     poisonMask := state.poisonMask.extend size.toNat 0xff,
     selfAddress := state.selfAddress,
-    messages := state.messages,
     consistentSize := (by simp [state.consistentSize])}, state.contents.size.toUInt64)
 
 /--
@@ -556,7 +549,6 @@ def MemoryState.store (state : MemoryState) (addr : UInt64) (val : ByteArray)
       contents := val.copySlice 0 state.contents addr.toNat val.size false,
       poisonMask := poison.copySlice 0 state.poisonMask addr.toNat val.size false,
       selfAddress := state.selfAddress,
-      messages := state.messages,
       consistentSize := (by simp [ByteArray.copySlice_eq_append, state.consistentSize, h])
     }
   else
@@ -570,7 +562,6 @@ def MemoryState.storeCTree [ErrorE -< F] (state : MemoryState) (addr : UInt64) (
       contents := val.copySlice 0 state.contents addr.toNat val.size false,
       poisonMask := poison.copySlice 0 state.poisonMask addr.toNat val.size false,
       selfAddress := state.selfAddress,
-      messages := state.messages,
       consistentSize := (by simp [ByteArray.copySlice_eq_append, state.consistentSize, h])
     }
   else
@@ -588,7 +579,6 @@ def MemoryState.empoison (state : MemoryState) (addr : UInt64) (n : Nat)
       contents := state.contents,
       poisonMask := mask.copySlice 0 state.poisonMask addr.toNat n false,
       selfAddress := state.selfAddress,
-      messages := state.messages,
       consistentSize := (by
         simp [ByteArray.copySlice_eq_append, state.consistentSize]
         grind)
@@ -708,33 +698,6 @@ def MemoryState.llvmLoad (state : MemoryState) (addr : UInt64) (type : TypeAttr)
       if ← state.hasPoison addr 8 then return .addr 0
       return .addr ba.toUInt64LE!
   | _ => none
-
-/--
-  Add an inflight message to the network
--/
-def MemoryState.sendMessage (state : MemoryState) (dest : Nat) (payload : ByteArray) : MemoryState :=
-  let msg : Message := { src := state.selfAddress, dest := dest, payload := payload }
-  { contents := state.contents,
-    poisonMask := state.poisonMask,
-    selfAddress := state.selfAddress,
-    messages := state.messages ++ [msg],
-    consistentSize := state.consistentSize
-  }
-
-/--
-  Consume the next inflight message destined for the current address
--/
-def MemoryState.consumeMessage (state : MemoryState) : Option (MemoryState × Message) :=
-  let optMsg := state.messages.find? (fun msg => msg.dest = state.selfAddress)
-  optMsg.map fun msg =>
-    let newState := {
-      contents := state.contents,
-      poisonMask := state.poisonMask,
-      selfAddress := state.selfAddress,
-      messages := state.messages.erase msg,
-      consistentSize := state.consistentSize
-    }
-    (newState, msg)
 
 def Arith.interpretOp' (opType : Veir.Arith) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
