@@ -507,7 +507,15 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
           if elemType ≠ baseType then
             throw s!"llvm.mlir.constant: dense elements type '{elemType}' does not match array element type '{baseType}'"
         | none => pure ()
-      | _ => throw "llvm.mlir.constant: Expected array result type for a dense elements constant"
+      | .vectorType vecType =>
+        match denseElementsElementType? denseAttr.type with
+        | some elemType =>
+          let baseType := toString vecType.elementType
+          if elemType ≠ baseType then
+            throw s!"llvm.mlir.constant: dense elements type '{elemType}' does not match vector element type '{baseType}'"
+        | none => pure ()
+      | _ =>
+        throw "llvm.mlir.constant: Expected array or vector result type for a dense elements constant"
     | .string stringAttr =>
       match resultType with
       | .llvmArrayType arrType =>
