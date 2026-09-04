@@ -247,7 +247,8 @@ def parseOptionalStringAttr : AttrParserM (Option StringAttr) := do
   `0x`-prefixed hexadecimal form.
   For a floating-point type, `value` may be a (possibly negated) decimal floating-point
   literal, or a `0x`-prefixed hexadecimal integer literal interpreted as the raw IEEE-754
-  bit pattern of the type. A decimal integer literal is rejected for a floating-point type.
+  bit pattern of the type. A decimal integer literal is rejected for a floating-point type,
+  and a hex bit pattern wider than the type's bitwidth is rejected as well.
 
   MLIR accepts the following floating point numbers: [-+]?[0-9]+[.][0-9]*([eE][-+]?[0-9]+)?
   The regex is taken from AsmParser/Lexer.cpp in LLVM repository.
@@ -304,6 +305,10 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
       else if isHexValue value then
         let some n := numericValueToNat? value
           | throwAt valueStartPos s!"invalid hex bit pattern '{String.fromUTF8! value}'"
+        -- Reject a bit pattern that does not fit in the type, rather than
+        -- silently truncating it to the type's low bits (as `ofNat` would).
+        if n ≥ 2 ^ floatType.bitwidth then
+          throwAt valueStartPos "hexadecimal float constant out of range for type"
         return .ofNat _ n
       else
         throwAt valueStartPos "expected a decimal float or 0x-prefixed hex bit pattern in float attribute"

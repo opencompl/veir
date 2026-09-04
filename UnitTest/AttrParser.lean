@@ -257,6 +257,18 @@ macro "#assert " e:term : command =>
   "expected a decimal float or 0x-prefixed hex bit pattern in float attribute" (some 0)
 #assert expectErrorAttr "-10 : f32"
   "unexpected '-' before float bit pattern" (some 1)
+-- A hex bit pattern must fit in the type's bitwidth; a wider one is rejected,
+-- not silently truncated to the type's low bits.
+#assert expectSuccessAttr "0xffffffff : f32" (fpAttr FloatType.f32 0xffffffff)
+#assert expectSuccessAttr "0xffff : f16" (fpAttr FloatType.f16 0xffff)
+#assert expectErrorAttr "0x100000000 : f32"
+  "hexadecimal float constant out of range for type" (some 0)
+#assert expectErrorAttr "0xdeadbeefdeadbeef : f32"
+  "hexadecimal float constant out of range for type" (some 0)
+#assert expectErrorAttr "0x10000 : f16"
+  "hexadecimal float constant out of range for type" (some 0)
+#assert expectErrorAttr "0x10000000000000000 : f64"
+  "hexadecimal float constant out of range for type" (some 0)
 -- Bad floating point types.
 #assert expectErrorAttr "1.5 : f900"
   "integer or float type expected after ':' in numeric attribute" (some 6)
