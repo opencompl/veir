@@ -17,16 +17,6 @@ public section
 /-- `maskOfWidth o w : BitVec o` has its low `w` bits set. -/
 def maskOfWidth (o w : Nat) : BitVec o := BitVec.ofNat o (2 ^ w - 1)
 
-/-- `IsMask` encodes `m = 2^k - 1` for some `k : Nat` in terms of bitvector
-operations removing the dependency on `k` and allowing it to be bitblasted. -/
-def IsMask {o : Nat} (m : BitVec o) : Prop := m &&& (m + 1#o) = 0#o
-
-/-- Unfold `IsMask` into the constraint handed to the bitblaster. -/
-theorem isMask_eq {o : Nat} (m : BitVec o) :
-    IsMask m = (m &&& (m + 1#o) = 0#o) := by
-  unfold IsMask
-  rfl
-
 theorem toNat_maskOfWidth {o w : Nat} (h : w ≤ o) :
     (maskOfWidth o w).toNat = 2 ^ w - 1 := by
   rw [maskOfWidth, BitVec.toNat_ofNat, Nat.mod_eq_of_lt]
@@ -34,18 +24,15 @@ theorem toNat_maskOfWidth {o w : Nat} (h : w ≤ o) :
   have h2 : 0 < 2 ^ w := Nat.two_pow_pos w
   lia
 
-/-- Soundness: every real mask satisfies the constraint. -/
-theorem isMask_maskOfWidth {o w : Nat} :
-    IsMask (maskOfWidth o w) := by
-  simp [IsMask, maskOfWidth, BitVec.ofNat_add_ofNat, ← BitVec.ofNat_and,
+/-- The mask constraint: the only fact about `m` surviving abstraction. This
+encodes `m = 2^k - 1` for some `k : Nat` in terms of bitvector operations
+removing the dependency on `k` and allowing it to be bitblasted. -/
+theorem maskOfWidth_and_add_one_eq_zero {o w : Nat} {m : BitVec o}
+    (hm : m = maskOfWidth o w) : m &&& (m + 1#o) = 0#o := by
+  subst hm
+  simp [maskOfWidth, BitVec.ofNat_add_ofNat, ← BitVec.ofNat_and,
     Nat.sub_add_cancel Nat.one_le_two_pow, Nat.and_comm (2 ^ w - 1),
     Nat.and_two_pow_sub_one_eq_mod]
-
-/-- The mask constraint: the only fact about `m` surviving abstraction. -/
-theorem isMask_of_eq_maskOfWidth {o w : Nat} {m : BitVec o}
-    (hm : m = maskOfWidth o w) : IsMask m := by
-  subst hm
-  exact isMask_maskOfWidth
 
 /-- `maskOfWidth` is monotone with respect to unsigned bitvec comparison. -/
 theorem maskOfWidth_lt_maskOfWidth {o w₁ w₂ : Nat} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
@@ -95,7 +82,12 @@ the index `i` is inbounds of `w`. -/
 
 /-- `signBitOfMask m` keeps only the top bit of the mask `m`.
 This is used to extract the sign bit of a width `o` bitvector. -/
-@[expose] def signBitOfMask {o : Nat} (m : BitVec o) := m - (m >>> 1)
+def signBitOfMask {o : Nat} (m : BitVec o) := m - (m >>> 1)
+
+theorem signBitOfMask_eq {o : Nat} (m : BitVec o) :
+    signBitOfMask m = m - (m >>> 1) := by
+  unfold signBitOfMask
+  rfl
 
 /-- The zero bitvector, which is the mask of width `0`, has no sign bit. -/
 @[simp] theorem signBitOfMask_zero {o : Nat} : signBitOfMask (0#o) = 0#o := by

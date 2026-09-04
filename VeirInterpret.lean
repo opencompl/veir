@@ -1,14 +1,16 @@
 import Veir.Parser.MlirParser
 import Veir.Verifier
 import Veir.Interpreter.Basic
+import Veir.Input
 import Veir.Panic
 
 /-!
   # Veir Interpreter CLI Tool
 
-  This file implements a simple command-line tool that reads an MLIR file,
-  finds a func.func or llvm.func named `main`, and executes that function using
-  the interpreter defined in `Veir.Interpreter`.
+  This file implements a simple command-line tool that reads an MLIR program
+  from a file or from standard input, finds a func.func or llvm.func named
+  `main`, and executes that function using the interpreter defined in
+  `Veir.Interpreter`.
 
   By default `main` must take no arguments. With `--memory-size N`, `main`
   instead takes one `!llvm.ptr` or `!riscv.reg` argument, backed by N bytes of
@@ -16,22 +18,8 @@ import Veir.Panic
  -/
 
 open Veir.Parser
+open Veir.Input
 open Veir
-
-def parseOperation (filename : String) : ExceptT String IO (WfIRContext OpCode × OperationPtr) := do
-  let fileContent ← IO.FS.readBinFile filename
-  let some (ctx, _) := WfIRContext.create OpCode
-    | throw "Failed to create IR context"
-  match ParserState.fromInput fileContent with
-  | .ok parser =>
-    let parserState := MlirParserState.fromContext ctx (allowUnregisteredDialect := true)
-    match parseTopLevelOp.run parserState parser with
-    | .ok (op, state, _) =>
-      return (state.ctx, op)
-    | .error errMsg =>
-      throw s!"Error parsing operation: {errMsg}"
-  | .error errMsg =>
-    throw s!"Error reading file: {errMsg}"
 
 /-- Returns true if `op` is a viable `@main` with `numArgs` arguments. -/
 private def isMainFunc (ctx : IRContext OpCode) (op : OperationPtr) (numArgs : Nat) : Bool :=
@@ -83,8 +71,8 @@ def resolveEntryPoint (ctx : IRContext OpCode) (moduleOp : OperationPtr)
     IO.Process.exit 1
 
 set_option warn.sorry false in
-def runInterpreter (filename : String) (memorySize : Option Nat) : IO Unit := do
-  match ← parseOperation filename with
+def runInterpreter (filename : Option String) (memorySize : Option Nat) : IO Unit := do
+  match ← parseOperation filename (allowUnregisteredDialect := true) with
   | .ok (ctx, op) =>
     match ctx.verify op with
     | .ok _ =>
@@ -122,15 +110,31 @@ def runInterpreter (filename : String) (memorySize : Option Nat) : IO Unit := do
     IO.eprintln s!"Error: {errMsg}"
     IO.Process.exit 1
 
+/-- Consume a leading `--memory-size N` flag, returning it and the remaining
+    arguments. -/
+def parseMemorySizeOption (args : List String) : Except String (Option Nat × List String) :=
+  match args with
+  | "--memory-size" :: sizeString :: rest =>
+    match sizeString.toNat? with
+    | some size => .ok (some size, rest)
+    | none => .error "--memory-size expects a nonnegative integer"
+  | _ => .ok (none, args)
+
+/-- Report a command-line usage error and exit. -/
+private def usageError (errMsg : String) : IO α := do
+  IO.eprintln errMsg
+  IO.eprintln "Usage: veir-interpret [--memory-size N] [filename]"
+  IO.eprintln "  Reads the program from standard input if no filename is given."
+  IO.Process.exit 2
+
 def main (args : List String) : IO Unit := do
   enableExitOnPanic
-  match args with
-  | [filename] => runInterpreter filename none
-  | ["--memory-size", sizeString, filename] =>
-    let some size := sizeString.toNat?
-      | IO.eprintln "Error: --memory-size expects a nonnegative integer"
-        IO.Process.exit 2
-    runInterpreter filename (some size)
-  | _ =>
-    IO.eprintln "Usage: veir-interpret [--memory-size N] <filename>"
-    IO.Process.exit 2
+  let (memorySize, positional) ←
+    match parseMemorySizeOption args with
+    | .ok result => pure result
+    | .error errMsg => usageError errMsg
+  let filename ←
+    match inputSourceOfArgs positional with
+    | .ok filename => pure filename
+    | .error errMsg => usageError errMsg
+  runInterpreter filename memorySize

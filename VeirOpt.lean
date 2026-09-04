@@ -1,9 +1,11 @@
 import Veir.Parser.MlirParser
 import Veir.Printer
 import Veir.Panic
+import Veir.Input
 
 import Veir.Passes.PrintIR
 import Veir.Passes.InstCombine
+import Veir.Passes.ApplyPatterns
 import Veir.Passes.CSE
 import Veir.Passes.InstructionSelection.RISCV64
 import Veir.Passes.InstructionSelection.RISCV64Sdag
@@ -16,9 +18,11 @@ import Veir.Passes.ModArithToArith
 import Veir.Passes.ArithToLLVM
 import Veir.Passes.Canonicalize
 import Veir.Passes.Legalization
+import Veir.Passes.CirToStd
 
 open Veir.Parser
 open Veir.Parser.ParserError
+open Veir.Input
 open Veir
 
 /--
@@ -27,6 +31,7 @@ open Veir
 def availablePasses : Std.HashMap String (Pass OpCode) :=
   ([ PrintIRPass,
      InstCombinePass,
+     ApplyPatternsPass,
      CSEPass,
      IselRISCV64,
      IselSDAG,
@@ -35,11 +40,13 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
      CastReconcilePass,
      CoerceFunctionBoundariesToRiscvRegPass,
      CoerceModArithFunctionBoundariesPass,
+     CoerceCirFunctionBoundariesPass,
      RISCV.Combine,
      ModArithToArithPass,
      ArithToLLVMPass,
      CanonicalizePass,
-     LegalizePass ] : List (Pass OpCode)).foldl
+     LegalizePass,
+     CirToStdPass ] : List (Pass OpCode)).foldl
     (fun m pass => m.insert pass.name pass)
     (Std.HashMap.emptyWithCapacity 16)
 
@@ -57,6 +64,8 @@ def passGroups : Std.HashMap String String :=
         "mod-arith-to-arith{barrett pow2-width},cse,coerce-mod-arith-function-boundaries{pow2-width},reconcile-cast,canonicalize,cse,dce"
     |>.insert "riscv"
         "legalize,isel-sdag-riscv64,isel-br-riscv64,isel-riscv64,coerce-function-boundaries-to-riscv-reg,reconcile-cast,riscv-combine,dce"
+    |>.insert "cir"
+        "cir-to-std,cse,coerce-cir-function-boundaries,reconcile-cast,canonicalize,cse,dce"
 
 /--
   A human-readable description of every pass group and the passes it expands to,
@@ -152,44 +161,10 @@ def parseArgs (args : List String) : Except String VeirOptArgs := do
   if let some flag := flags.head? then
     .error s!"Unrecognized flag '{flag}'."
 
-  if positional.length == 0 then -- read from stdin
-    return { filename := none, passes := pipeline, allowUnregisteredDialect, disableVerifiers }
-
-  let [filename] := positional
-    | .error "Expected exactly one positional argument for the input filename."
-
-  if filename == "-" then
-    return { filename := none, passes := pipeline, allowUnregisteredDialect, disableVerifiers }
-
-  return { filename := some filename, passes := pipeline, allowUnregisteredDialect, disableVerifiers }
-
-def getFileContent (filename : Option String) : ExceptT String IO ByteArray := do
-  if let some f := filename then
-    try
-      return ← IO.FS.readBinFile f
-    catch e =>
-      throw s!"Error reading file '{filename}': {e}"
-
-  return ← IO.FS.Stream.readBinToEnd (←IO.getStdin)
-
-def parseOperation (filename : Option String) (allowUnregisteredDialect : Bool := false) :
-    ExceptT String IO (WfIRContext OpCode × OperationPtr) := do
-  let fileContent ← getFileContent filename
-  let some (ctx, _) := WfIRContext.create OpCode
-    | throw "Failed to create IR context"
-
-  let filename := if let some f := filename then f else "<stdin>"
-
-  match ParserState.fromInput fileContent with
-  | .ok parser =>
-    let state := MlirParserState.fromContext ctx allowUnregisteredDialect
-    match parseTopLevelOp.run state parser with
-    | .ok (op, state, _) =>
-      return (state.ctx, op)
-    | .error err =>
-      throw (err.format filename fileContent)
-  | .error err =>
-    throw (err.format filename fileContent)
+  match inputSourceOfArgs positional with
+  | .ok filename =>
+    return { filename, passes := pipeline, allowUnregisteredDialect, disableVerifiers }
+  | .error errMsg => .error errMsg
 
 set_option warn.sorry false in
 def main (args : List String) : IO Unit := do

@@ -49,4 +49,20 @@
         // CHECK-NEXT: "test.test"(%{{.*}}) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
+
+  // Side-effecting operations whose results are unused
+    "func.func"()  <{function_type = (!io.address, !llvm.ptr, i64) -> (), sym_name = "io"}> ({
+      ^6(%peer : !io.address, %buf : !llvm.ptr, %len : i64):
+        %1 = "io.rand"(%buf, %len) : (!llvm.ptr, i64) -> i64
+        %2 = "io.recv"(%peer, %buf, %len) : (!io.address, !llvm.ptr, i64) -> i64
+        %3 = "io.send"(%peer, %buf, %len) : (!io.address, !llvm.ptr, i64) -> i64
+        // The unused statuses do not make the operations dead.
+        // CHECK:      "func.func"() <{"function_type" = (!io.address, !llvm.ptr, i64) -> (), "sym_name" = "io"}> ({
+        // CHECK-NEXT: ^{{.*}}(%{{.*}} : !io.address, %{{.*}} : !llvm.ptr, %{{.*}} : i64):
+        // CHECK-NEXT: %{{.*}} = "io.rand"(%{{.*}}, %{{.*}}) : (!llvm.ptr, i64) -> i64
+        // CHECK-NEXT: %{{.*}} = "io.recv"(%{{.*}}, %{{.*}}, %{{.*}}) : (!io.address, !llvm.ptr, i64) -> i64
+        // CHECK-NEXT: %{{.*}} = "io.send"(%{{.*}}, %{{.*}}, %{{.*}}) : (!io.address, !llvm.ptr, i64) -> i64
+        // CHECK-NEXT: "func.return"() : () -> ()
+        "func.return"() : () -> ()
+    }) : () -> ()
 }) : () -> ()

@@ -31,7 +31,6 @@ theorem Rewriter.pushBlockOperand_DefUse_getElem?
     := by
   apply BlockOperand.ext <;> grind [BlockPtr.DefUse]
 
-set_option maxHeartbeats 4000000 in -- TODO
 theorem Rewriter.pushBlockOperand_DefUse (hOpWf : ctx.WellFormed) (blockPtr'InBounds : blockPtr'.InBounds ctx) :
     ∃ array, BlockPtr.DefUse blockPtr' (Rewriter.pushBlockOperand ctx opPtr blockPtr opPtrInBounds blockPtrInBounds ctxInBounds) array := by
   have ⟨array', arrayWf'⟩ := hOpWf.blockDefUseChains blockPtr' blockPtr'InBounds
@@ -42,8 +41,7 @@ theorem Rewriter.pushBlockOperand_DefUse (hOpWf : ctx.WellFormed) (blockPtr'InBo
     subst blockPtr'
     exists (#[opPtr.nextBlockOperand ctx] ++ array)
     constructor
-    case arrayInBounds =>
-      grind [ValuePtr.DefUse]
+    case arrayInBounds => grind [ValuePtr.DefUse]
     case firstElem => grind
     case nextElems =>
       intros i hi
@@ -52,7 +50,11 @@ theorem Rewriter.pushBlockOperand_DefUse (hOpWf : ctx.WellFormed) (blockPtr'InBo
       rw [Array.getElem?_append_right (by grind)]
       simp only [List.size_toArray, List.length_cons, List.length_nil, Nat.zero_add,
         Nat.add_one_sub_one]
-      by_cases hi0 : i = 0 <;> grind [BlockOperandPtr.get!_pushBlockOperand', BlockPtr.DefUse]
+      by_cases hi0 : i = 0
+      · grind [BlockOperandPtr.get!_pushBlockOperand', BlockPtr.DefUse]
+      · rw [Array.getElem_append_right]
+        · grind [BlockOperandPtr.get!_pushBlockOperand', BlockPtr.DefUse]
+        · grind
     case useValue =>
       intro use hUse
       have ⟨i, hI, hUseI⟩ := Array.mem_iff_getElem.mp hUse
