@@ -8,7 +8,7 @@ public section
 namespace Veir
 
 /-!
-# Integer range analysis
+# ModArith range analysis
 
 This module implements a sparse forward dataflow analysis that approximates each
 ModArith SSA value with an interval of its possible unsigned integer representations.
@@ -21,17 +21,17 @@ arithmetic operations preserve their raw computed interval. Unknown operations u
 Ranges are joined along control flow edges.
 -/
 
-namespace IntegerRangeAnalysis
+namespace ModArithRangeAnalysis
 
-instance : SparseFactSpec .integerRange IntegerRangeLattice where
+instance : SparseFactSpec .modArithRange IntegerRangeLattice where
   payloadEq := rfl
 
 def kind : AnalysisKind :=
-  .integerRange
+  .modArithRange
 
 /-- Read the current integer range attached to an SSA value. -/
 def getRange (value : ValuePtr) (dfCtx : DataFlowContext) : IntegerRangeLattice :=
-  SparseFact.getElement .integerRange value dfCtx
+  SparseFact.getElement .modArithRange value dfCtx
 
 /--
 The canonical range contains the normalized representatives of a ModArith value:
@@ -135,14 +135,14 @@ def transfer
       | _, _ => pessimisticUpdates
     | _ => pessimisticUpdates
 
-end IntegerRangeAnalysis
+end ModArithRangeAnalysis
 
-/-- Sparse forward integer-range analysis for supported integer-like dialects. -/
-def IntegerRangeAnalysis : DataFlowAnalysis :=
+/-- Sparse forward range analysis for ModArith values. -/
+def ModArithRangeAnalysis : DataFlowAnalysis :=
   SparseForwardDataFlowAnalysis.new
-    .integerRange
-    IntegerRangeAnalysis.kind
-    IntegerRangeAnalysis.transfer
-    (entryState := fun value irCtx => IntegerRangeAnalysis.canonicalRange value irCtx.raw)
+    .modArithRange
+    ModArithRangeAnalysis.kind
+    ModArithRangeAnalysis.transfer
+    (entryState := fun value irCtx => ModArithRangeAnalysis.canonicalRange value irCtx.raw)
 
 end Veir
