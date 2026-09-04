@@ -27,7 +27,7 @@ private def compareKnownBits
     let some value := recovered.values[e.name]?
       | report := report.push s!"known bits {e.name}: missing SSA value"
         continue
-    let observed := KnownBitsAnalysis.getKnownBits value dfCtx
+    let observed : KnownBitsLattice := SparseFact.getElement .knownBits value dfCtx
     let expectedValue := KnownBitsLattice.known
       { bitwidth := e.bitwidth
         zero := BitVec.ofNat e.bitwidth e.zero
