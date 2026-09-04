@@ -65,12 +65,23 @@ instance : IsOpCode LLZK.Constrain where
   fromAttrDict := LLZK.Constrain.fromAttrDict
   toAttrDict := LLZK.Constrain.toAttrDict
 
-/-- The scalar types accepted by `constrain.eq` before aggregate types are registered. -/
 private def Attribute.isSupportedLLZKConstrainEqType (type : Attribute) : Bool :=
   match type with
   | .integerType intType => intType.bitwidth = 1
-  | .indexType _ | .feltType _ => true
+  | .indexType _ | .feltType _ | .arrayType _ => true
   | _ => false
+
+/-- Whether `candidate` is an element or trailing-dimensional subarray of `arrayType`. -/
+private def isLLZKSubArrayOrElementType
+    (arrayType : LLZK.ArrayType) (candidate : Attribute) : Bool :=
+  match candidate with
+  | .arrayType subArrayType =>
+    if subArrayType.dims.size > arrayType.dims.size then
+      false
+    else
+      decide (arrayType.dims.toList.drop (arrayType.dims.size - subArrayType.dims.size) =
+        subArrayType.dims.toList ∧ arrayType.elementType = subArrayType.elementType)
+  | elementType => decide (arrayType.elementType = elementType)
 
 def LLZK.Constrain.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo LLZK.Constrain] (opType : LLZK.Constrain) (op : OperationPtr)
@@ -82,7 +93,16 @@ def LLZK.Constrain.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       "constrain.eq: expected operands to have the same type"
     if !operandType.val.isSupportedLLZKConstrainEqType then
       throw s!"constrain.eq: unsupported operand type {operandType}"
-  | .«in» => op.verifyPlainOpCounts ctx opIn 2 0
+  | .«in» => do
+    op.verifyPlainOpCounts ctx opIn 2 0
+    let lhsType := (op.getOperand! ctx.raw 0).getType! ctx.raw
+    let rhsType := (op.getOperand! ctx.raw 1).getType! ctx.raw
+    let .arrayType arrayType := lhsType.val
+      | throw s!"constrain.in: expected first operand to have array type, got {lhsType}"
+    if !arrayType.elementType.isSupportedLLZKConstrainEqType then
+      throw s!"constrain.in: unsupported array element type {arrayType.elementType}"
+    if !isLLZKSubArrayOrElementType arrayType rhsType.val then
+      throw s!"constrain.in: {rhsType} is not an element or compatible subarray of {lhsType}"
 
 instance : HasOpInfo LLZK.Constrain where
   verifyLocalInvariants := LLZK.Constrain.verifyLocalInvariants
