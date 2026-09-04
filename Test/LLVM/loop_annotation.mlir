@@ -5,9 +5,6 @@
 // its loop header. It rides on `llvm.br` and `llvm.cond_br`, which is why both
 // get LLVM-specific properties: `cf`'s have no room for it, and an attribute
 // the properties do not model is dropped rather than round-tripped.
-//
-// The body is kept verbatim, so the case that matters is the nested one: a
-// transformation option is itself written `<...>` and must not end the body.
 
 "builtin.module"() ({
   "llvm.func"() <{function_type = !llvm.func<void (i1)>, linkage = #llvm.linkage<external>, sym_name = "loop"}> ({
