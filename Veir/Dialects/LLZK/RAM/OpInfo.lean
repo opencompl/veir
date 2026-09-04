@@ -3,6 +3,7 @@ module
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Verifier.Basic
+public import Veir.Dialects.LLZK.Function.OpInfo
 meta import Veir.Meta.OpCode
 
 namespace Veir
@@ -72,6 +73,7 @@ def LLZK.Ram.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     let resultType := (op.getResultTypes! ctx.raw)[0]!
     if !(resultType.val matches Attribute.feltType _) then
       throw "ram.load: Expected result to have FeltType"
+    op.verifyLLZKWitnessGen ctx
   | .store => do
     op.verifyPlainOpCounts ctx opIn 2 0
     let addressType := (op.getOperandTypes! ctx.raw)[0]!
@@ -80,6 +82,7 @@ def LLZK.Ram.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     let valueType := (op.getOperandTypes! ctx.raw)[1]!
     if !(valueType.val matches Attribute.feltType _) then
       throw "ram.store: Expected value operand to have FeltType"
+    op.verifyLLZKWitnessGen ctx
 
 instance : HasOpInfo LLZK.Ram where
   verifyLocalInvariants := LLZK.Ram.verifyLocalInvariants

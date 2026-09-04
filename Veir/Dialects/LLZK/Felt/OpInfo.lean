@@ -4,6 +4,7 @@ public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Verifier.Basic
 public import Veir.Dialects.LLZK.Felt.Properties
+public import Veir.Dialects.LLZK.Function.OpInfo
 public import Veir.ConstantMaterialization
 meta import Veir.Meta.OpCode
 
@@ -151,11 +152,16 @@ def Felt.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
   | .const => op.verifyFeltConstOp ctx opIn
-  | .add | .sub | .mul | .pow | .div
-  | .uintdiv | .sintdiv | .umod | .smod
+  | .add | .sub | .mul | .div => op.verifyFeltBinOp ctx opIn
+  | .pow | .uintdiv | .sintdiv | .umod | .smod
   | .bit_and | .bit_or | .bit_xor
-  | .shl | .shr => op.verifyFeltBinOp ctx opIn
-  | .neg | .inv | .bit_not => op.verifyFeltUnOp ctx opIn
+  | .shl | .shr => do
+    op.verifyFeltBinOp ctx opIn
+    op.verifyLLZKNotFieldNative ctx
+  | .neg => op.verifyFeltUnOp ctx opIn
+  | .inv | .bit_not => do
+    op.verifyFeltUnOp ctx opIn
+    op.verifyLLZKNotFieldNative ctx
 
 instance : HasOpInfo Felt where
   verifyLocalInvariants := Felt.verifyLocalInvariants

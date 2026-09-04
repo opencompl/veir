@@ -4,6 +4,7 @@ public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Verifier.Basic
 public import Veir.Dialects.LLZK.Cast.Properties
+public import Veir.Dialects.LLZK.Function.OpInfo
 meta import Veir.Meta.OpCode
 
 namespace Veir
@@ -70,6 +71,7 @@ def LLZK.Cast.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     let resultType := (op.getResultTypes! ctx.raw)[0]!
     if !(resultType.val matches Attribute.indexType _) then
       throw "cast.toindex: Expected result to have index type"
+    op.verifyLLZKNotFieldNative ctx
 
 instance : HasOpInfo LLZK.Cast where
   verifyLocalInvariants := LLZK.Cast.verifyLocalInvariants

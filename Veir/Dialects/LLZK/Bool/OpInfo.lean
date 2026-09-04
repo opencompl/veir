@@ -4,6 +4,7 @@ public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Verifier.Basic
 public import Veir.Dialects.LLZK.Bool.Properties
+public import Veir.Dialects.LLZK.Function.OpInfo
 meta import Veir.Meta.OpCode
 
 namespace Veir
@@ -104,9 +105,11 @@ def LLZK.Bool.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .and | .or | .xor => do
     op.verifyPlainOpCounts ctx opIn 2 1
     op.verifyBoolTypes ctx 2 1
+    op.verifyLLZKNotFieldNative ctx
   | .not => do
     op.verifyPlainOpCounts ctx opIn 1 1
     op.verifyBoolTypes ctx 1 1
+    op.verifyLLZKNotFieldNative ctx
   | .assert => do
     op.verifyPlainOpCounts ctx opIn 1 0
     op.verifyBoolTypes ctx 1 0
