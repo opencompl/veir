@@ -12,6 +12,7 @@
         "x86_64-linux"
       ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
+      llvmPackages = pkgs: pkgs.llvmPackages_23;
 
       developmentPackages = pkgs: with pkgs; [
         bash
@@ -19,7 +20,14 @@
         elan
         gmp
         gnumake
-        llvmPackages.llvm
+        (llvmPackages pkgs).llvm
+        ((llvmPackages pkgs).mlir.overrideAttrs (oldAttrs: {
+          # Nixpkgs does not enable MLIR's test dialect. VeIR's PDL tests
+          # use that dialect when checking compatibility with mlir-opt.
+          cmakeFlags = oldAttrs.cmakeFlags ++ [
+            (lib.cmakeBool "MLIR_INCLUDE_TESTS" true)
+          ];
+        }))
         pkg-config
         uv
       ];
@@ -32,7 +40,7 @@
             name = "veir-${suffix}";
             runtimeInputs = developmentPackages pkgs;
             text = ''
-              export LEAN_AR="${pkgs.llvmPackages.llvm}/bin/llvm-ar"
+              export LEAN_AR="${(llvmPackages pkgs).llvm}/bin/llvm-ar"
               export LEAN_CC="${self}/ExArray/compiler"
               exec ${command} "$@"
             '';
@@ -58,7 +66,7 @@
 
             # ExArray uses Clang LTO and therefore needs its compiler wrapper
             # together with LLVM's archiver.
-            LEAN_AR = "${pkgs.llvmPackages.llvm}/bin/llvm-ar";
+            LEAN_AR = "${(llvmPackages pkgs).llvm}/bin/llvm-ar";
             LEAN_CC = "${self}/ExArray/compiler";
           };
         });
