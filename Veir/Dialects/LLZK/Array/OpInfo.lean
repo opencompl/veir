@@ -102,7 +102,7 @@ def LLZK.Array.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     for (operType,idx) in (op.getOperandTypes! ctx.raw).zipIdx do
       if idx = 0 && !operType.val.isLLZKArrayType then
         throw s!"{instrName}: Expected operand 0 to have a valid LLZK array type"
-      else if !(operType.val matches .indexType _) then
+      if idx ≠ 0 && !(operType.val matches .indexType _) then
         throw s!"{instrName}: Expected operand {idx} to have an index type"
     if !(op.getResultTypes! ctx.raw)[0]!.val.isLLZKArrayElemType then
       throw s!"{instrName}: Expected return to have a valid LLZK array element type"
@@ -112,7 +112,7 @@ def LLZK.Array.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     for (operType,idx) in (op.getOperandTypes! ctx.raw).zipIdx do
       if idx = 0 && !operType.val.isLLZKArrayType then
         throw s!"{instrName}: Expected operand 0 to have a valid LLZK array type"
-      else if !(operType.val matches .indexType _) then
+      if idx ≠ 0 && !(operType.val matches .indexType _) then
         throw s!"{instrName}: Expected operand {idx} to have an index type"
     if !(op.getResultTypes! ctx.raw)[0]!.val.isLLZKArrayType then
       throw s!"{instrName}: Expected return to have a valid LLZK array type"
@@ -122,9 +122,9 @@ def LLZK.Array.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     for (operType,idx) in (op.getOperandTypes! ctx.raw).zipIdx do
       if idx = 0 && !operType.val.isLLZKArrayType then
         throw s!"{instrName}: Expected operand 0 to be a valid LLZK array"
-      else if idx ≠ (op.getNumOperands! ctx.raw)-1 && !(operType.val matches .indexType _) then
+      if idx ≠ 0 && idx ≠ (op.getNumOperands! ctx.raw)-1 && !(operType.val matches .indexType _) then
         throw s!"{instrName}: Expected operand {idx} to have an index type"
-      else if !operType.val.isLLZKArrayElemType then
+      if idx = (op.getNumOperands! ctx.raw)-1 && !operType.val.isLLZKArrayElemType then
         throw s!"{instrName}: Expected operand {idx} to have a valid LLZK array element type"
   | .insert => do
     requireAtLeastOperands 2
@@ -132,9 +132,9 @@ def LLZK.Array.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     for (operType,idx) in (op.getOperandTypes! ctx.raw).zipIdx do
       if idx = 0 && !operType.val.isLLZKArrayType then
         throw s!"{instrName}: Expected operand 0 to be a valid LLZK array"
-      else if idx ≠ (op.getNumOperands! ctx.raw)-1 && !(operType.val matches .indexType _) then
+      if idx ≠ 0 && idx ≠ (op.getNumOperands! ctx.raw)-1 && !(operType.val matches .indexType _) then
         throw s!"{instrName}: Expected operand {idx} to have an index type"
-      else if !operType.val.isLLZKArrayType then
+      if idx = (op.getNumOperands! ctx.raw)-1 && !operType.val.isLLZKArrayType then
         throw s!"{instrName}: Expected operand {idx} to have a valid LLZK array type"
   | .len => do
     requireResults 1

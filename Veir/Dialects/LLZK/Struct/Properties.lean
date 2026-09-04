@@ -44,7 +44,7 @@ def StructMemberProperties.fromAttrDict (opName : String)
       if _ : attr.isType = true && attr.isLLZKType then
         pure (attr.asType)
       else
-        throw s!"{opName}: expected 'type' be a supported LLZK type"
+        throw s!"{opName}: expected 'type' to be a supported LLZK type"
     | _ =>
       throw s!"{opName}: missing 'type' property"
   let column ← getUnitAttr "column" attrDict
