@@ -47,7 +47,7 @@ def BoolCmpProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) 
   return { predicate := value }
 
 def BoolCmpProperties.predicateAttr (props : BoolCmpProperties) : Attribute :=
-  Attribute.boolCmpPredicateAttr { value := props.predicate.value, withCmp := true }
+  Attribute.boolCmpPredicateAttr { value := props.predicate.value }
 
 end
 

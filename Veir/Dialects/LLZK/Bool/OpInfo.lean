@@ -31,14 +31,23 @@ match op with
 | .cmp => BoolCmpProperties
 | _ => Unit
 
+/-- Reject properties on an operation whose schema has none. -/
+private def noProperties (opName : String) (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String Unit :=
+  if attrDict.size > 0 then
+    let plural := if attrDict.size = 1 then "property" else "properties"
+    .error s!"{opName}: expected no properties, but got {attrDict.size} {plural}"
+  else
+    .ok ()
+
 def LLZK.Bool.fromAttrDict
     (op : LLZK.Bool) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (LLZK.Bool.propertiesOf op) :=
   match op with
-  | .and => .ok ()
-  | .or => .ok ()
-  | .xor => .ok ()
-  | .not => .ok ()
+  | .and => noProperties "bool.and" attrDict
+  | .or => noProperties "bool.or" attrDict
+  | .xor => noProperties "bool.xor" attrDict
+  | .not => noProperties "bool.not" attrDict
   | .assert => BoolAssertProperties.fromAttrDict attrDict
   | .cmp => BoolCmpProperties.fromAttrDict attrDict
 
@@ -77,14 +86,38 @@ instance : IsOpCode LLZK.Bool where
   fromAttrDict := LLZK.Bool.fromAttrDict
   toAttrDict := LLZK.Bool.toAttrDict
 
+private def OperationPtr.verifyBoolTypes {OpInfo : Type} [IsOpCode OpInfo]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo) (operandCount resultCount : Nat) :
+    Except String PUnit := do
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType! ctx.raw))
+  for i in [0:operandCount] do
+    (op.getOperandTypes! ctx.raw)[i]!.verifyI1
+      s!"{instrName}: Expected operand {i} to have i1 type"
+  for i in [0:resultCount] do
+    (op.getResultTypes! ctx.raw)[i]!.verifyI1
+      s!"{instrName}: Expected result {i} to have i1 type"
+
 def LLZK.Bool.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo LLZK.Bool] (opType : LLZK.Bool) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
-  | .and | .or | .xor => op.verifyPlainOpCounts ctx opIn 2 1
-  | .not => op.verifyPlainOpCounts ctx opIn 1 1
-  | .assert => op.verifyPlainOpCounts ctx opIn 1 0
-  | .cmp => op.verifyPlainOpCounts ctx opIn 2 1
+  | .and | .or | .xor => do
+    op.verifyPlainOpCounts ctx opIn 2 1
+    op.verifyBoolTypes ctx 2 1
+  | .not => do
+    op.verifyPlainOpCounts ctx opIn 1 1
+    op.verifyBoolTypes ctx 1 1
+  | .assert => do
+    op.verifyPlainOpCounts ctx opIn 1 0
+    op.verifyBoolTypes ctx 1 0
+  | .cmp => do
+    op.verifyPlainOpCounts ctx opIn 2 1
+    let operandType ← op.verifyOperandTypesMatch ctx 0 1
+      "bool.cmp: Expected operands to have the same type"
+    if !(operandType.val matches Attribute.feltType _) then
+      throw "bool.cmp: Expected operands to have FeltType"
+    (op.getResultTypes! ctx.raw)[0]!.verifyI1
+      "bool.cmp: Expected result 0 to have i1 type"
 
 instance : HasOpInfo LLZK.Bool where
   verifyLocalInvariants := LLZK.Bool.verifyLocalInvariants

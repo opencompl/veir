@@ -837,7 +837,8 @@ def parseOptionalBoolCmpPredicateAttr : AttrParserM (Option Attribute) := do
   if name ≠ "bool".toByteArray then return none
   let _ ← consumeToken
   parsePunctuation "<"
-  let withCmp ← parseOptionalKeyword "cmp".toByteArray
+  if !(← parseOptionalKeyword "cmp".toByteArray) then
+    throwAtCurrentPos "#bool<...> expects `cmp` before the predicate"
   let value ←
     if (← parseOptionalKeyword "eq".toByteArray) then pure (0 : Int)
     else if (← parseOptionalKeyword "ne".toByteArray) then pure 1
@@ -847,7 +848,27 @@ def parseOptionalBoolCmpPredicateAttr : AttrParserM (Option Attribute) := do
     else if (← parseOptionalKeyword "ge".toByteArray) then pure 5
     else throwString "#bool<...> expects one of eq, ne, lt, le, gt, ge"
   parsePunctuation ">"
-  return some (Attribute.boolCmpPredicateAttr { value, withCmp })
+  return some (Attribute.boolCmpPredicateAttr { value })
+
+/-- Parse LLZK's `#cast<overflow kind>` attribute, if present. -/
+def parseOptionalCastOverflowSemanticsAttr : AttrParserM (Option Attribute) := do
+  let token ← peekToken
+  let .hashIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let name := { token.slice with start := token.slice.start + 1 }.of input
+  if name ≠ "cast".toByteArray then return none
+  let _ ← consumeToken
+  parsePunctuation "<"
+  if !(← parseOptionalKeyword "overflow".toByteArray) then
+    throwAtCurrentPos "#cast<...> expects `overflow`"
+  let value ←
+    if ← parseOptionalKeyword "assert".toByteArray then pure CastOverflowSemantics.assert
+    else if ← parseOptionalKeyword "sat".toByteArray then pure .sat
+    else if ← parseOptionalKeyword "wrap".toByteArray then pure .wrap
+    else if ← parseOptionalKeyword "trunc".toByteArray then pure .trunc
+    else throwAtCurrentPos "#cast<overflow ...> expects one of assert, sat, wrap, trunc"
+  parsePunctuation ">"
+  return some (Attribute.castOverflowSemanticsAttr { value })
 
 /--
   Parse CIRCT's HW dialect's `ModulePort::Direction` type.
@@ -1281,6 +1302,8 @@ partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
     return some feltConstAttr
   if let some boolCmpAttr ← parseOptionalBoolCmpPredicateAttr then
     return some boolCmpAttr
+  if let some castOverflowAttr ← parseOptionalCastOverflowSemanticsAttr then
+    return some castOverflowAttr
   if let some cirIntAttr ← parseOptionalCirIntAttr then
     return some cirIntAttr
   if let some cirBoolAttr ← parseOptionalCirBoolAttr then
