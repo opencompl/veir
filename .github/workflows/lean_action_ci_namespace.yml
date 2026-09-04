@@ -18,7 +18,7 @@ jobs:
     runs-on: namespace-profile-veir
 
     steps:
-      - uses: namespacelabs/nscloud-checkout-action@v9
+      - uses: namespacelabs/nscloud-checkout-action@66f2dc6f6c42a8ac6c4e53473c4840006822831e # v9.0.1
 
       # The checkout wipes the workspace, so `.lake` does not exist when the
       # cache action runs and it has nothing to bind the volume onto. It skips
@@ -30,7 +30,7 @@ jobs:
       # `~/.elan` holds the Lean toolchain and `.lake` the build tree; together
       # they dominate the run.
       - name: Set up caches
-        uses: namespacelabs/nscloud-cache-action@v1
+        uses: namespacelabs/nscloud-cache-action@c5f8dab7560444c4bf8dbc64f1b203431873c547 # v1.6.1
         with:
           path: |
             ~/.elan
@@ -39,7 +39,7 @@ jobs:
       # One invocation: `lean-action` runs `lake build` and then `lake test`,
       # so a second one only repeated the build as a no-op.
       - name: Build and test the project
-        uses: leanprover/lean-action@v1
+        uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596 # v1.6.0
         with:
           build-args: "--iofail"
           test-args: "--iofail"

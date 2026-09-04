@@ -7,19 +7,21 @@ namespace Veir
 
 /-! ## Coercing function boundaries
 
-  Rewrite each `func.func`/`llvm.func`'s arguments and return values to a coerced type,
-  inserting`unrealized_conversion_cast`s to bridge to/from the original types.
+  Rewrite each `func.func`/`llvm.func`/`cir.func`'s arguments and return values to a coerced
+  type, inserting`unrealized_conversion_cast`s to bridge to/from the original types.
 
   The coercion applied is selected by a `BoundaryCoercion` flag;
   each variant is  exposed as its own pass:
   - `.riscvReg`: i32-, i64-, and pointer-typed boundaries become `!riscv.reg`.
   - `.modArithToInt legalizeWidth`: `!mod_arith.int<q : iN>`-typed boundaries become `i(legalizeWidth N)`
+  - `.cirToStd`: `!cir.int<s|u, N>`- and `!cir.bool`-typed boundaries become `iN` and `i1`
 -/
 
 /-- Selects which boundary coercion the shared implementation applies. -/
 inductive BoundaryCoercion where
   | riscvReg
   | modArithToInt (legalizeWidth : Nat → Nat)
+  | cirToStd
 
 /-- The type a boundary value of type `t` is coerced to, or `none` to leave it alone. -/
 def BoundaryCoercion.target : BoundaryCoercion → TypeAttr → Option TypeAttr
@@ -33,17 +35,23 @@ def BoundaryCoercion.target : BoundaryCoercion → TypeAttr → Option TypeAttr
     match t.val with
     | .modArithType mt => some (IntegerType.mk (legalizeWidth mt.bitwidth) : TypeAttr)
     | _ => none
+  | .cirToStd, t =>
+    match t.val with
+    | .cirIntType it => some (IntegerType.mk it.width : TypeAttr)
+    | .cirBoolType _ => some (IntegerType.mk 1 : TypeAttr)
+    | _ => none
 
 /-- The return-terminator opcode paired with a function op (`func.return` for
-    `func.func`, `llvm.return` for `llvm.func`). -/
+    `func.func`, `llvm.return` for `llvm.func`, `cir.return` for `cir.func`). -/
 def returnOpCodeFor : OpCode → OpCode
   | .llvm .func => .llvm .return
+  | .cir .func => .cir .return
   | _ => .func .return
 
 set_option warn.sorry false in
 /-- Coerce one function's arguments and return values as dictated by `coercion`,
-    inserting bridging casts and rewriting the `function_type` to match. Handles both
-    `func.func` and `llvm.func`. -/
+    inserting bridging casts and rewriting the `function_type` to match. Handles
+    `func.func`, `llvm.func` and `cir.func`. -/
 def coerceFunction (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
     (funcOp : OperationPtr) : ExceptT String IO (WfIRContext OpCode) := do
   -- Shadow the parameter: from here on `ctx` always names the latest version, with no
@@ -124,3 +132,8 @@ public def CoerceModArithFunctionBoundariesPass : Pass OpCode :=
       CoerceFunctionBoundariesPass.impl
         (.modArithToInt
           (if (options.get? "pow2-width").getD false then Nat.nextPowerOfTwo else id)) }
+
+public def CoerceCirFunctionBoundariesPass : Pass OpCode :=
+  { name := "coerce-cir-function-boundaries"
+    description := "Coerce `!cir.int` and `!cir.bool` function boundaries to the builtin integer of the same width."
+    run := fun _ => CoerceFunctionBoundariesPass.impl .cirToStd }

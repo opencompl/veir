@@ -52,12 +52,24 @@ instance : Coe BlockPtr LatticeAnchor where
 # Analyses and facts
 -/
 
+/-- Test-only domain used to exercise hooks in the sparse dataflow framework. -/
+inductive TestDomain where
+  /-- No information has reached the fact. -/
+  | bottom
+  /-- A natural-number value supplied by the test analysis. -/
+  | value (n : Nat)
+  /-- The conservative state used when no more precise entry state is available. -/
+  | top
+deriving BEq, DecidableEq, Repr
+
 /--
 Tags to match on for different `DataFlowAnalysis` types.
 -/
 inductive AnalysisKind where
   | dominance
   | deadCode
+  /-- Analysis tag reserved for dataflow framework unit tests. -/
+  | test
 deriving BEq, Hashable, Repr, DecidableEq
 
 /--
@@ -67,6 +79,8 @@ inductive FactKind where
   | dominator
   | regionMetadata
   | liveness
+  /-- Sparse fact tag reserved for dataflow framework unit tests. -/
+  | test
 deriving BEq, ReflBEq, LawfulBEq, Hashable, Repr, DecidableEq
 
 abbrev WorkItem := InsertPoint × AnalysisKind
@@ -105,6 +119,7 @@ The fact specific data stored for each fact kind.
   | .dominator => DominatorPayload
   | .regionMetadata => RegionMetadataPayload
   | .liveness => LivenessPayload
+  | .test => SparsePayload TestDomain
 
 /--
 A dataflow fact stored by the framework.

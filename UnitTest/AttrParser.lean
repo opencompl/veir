@@ -149,6 +149,20 @@ macro "#assert " e:term : command =>
 
 #assert expectSuccessAttr "i32" (IntegerType.mk 32)
 
+/-! ## Vector types -/
+
+#assert expectSuccessType "vector<4xi32>" (VectorType.mk #[4] (IntegerType.mk 32))
+#assert expectSuccessType "vector<2x4xf64>" (VectorType.mk #[2, 4] (FloatType.mk 64))
+#assert expectSuccessType "vector<2 x 4 x i32>" (VectorType.mk #[2, 4] (IntegerType.mk 32))
+#assert expectSuccessType "vector<i32>" (VectorType.mk #[] (IntegerType.mk 32))
+#assert expectSuccessAttr "vector<4xi32>" (VectorType.mk #[4] (IntegerType.mk 32))
+#assert ToString.toString (VectorType.mk #[2, 4] (IntegerType.mk 32) : VectorType) ==
+  "vector<2x4xi32>"
+#assert ToString.toString (VectorType.mk #[] (IntegerType.mk 32) : VectorType) == "vector<i32>"
+#assert expectErrorType "vector<4x>" "vector element type expected" (some 9)
+#assert expectErrorType "vector<0xi32>" "0 is not a supported dimension" (some 7)
+#assert expectErrorType "vector<0x32xi32>" "0 is not a supported dimension" (some 7)
+
 /-! ## Integer attributes -/
 
 #assert expectErrorAttr "0 : 2" "integer type expected after ':' in integer attribute" (some 4)
@@ -463,6 +477,42 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "#llvm.tailcallkind<none>" (TailCallKindAttr.mk "none")
 #assert expectSuccessAttr "#llvm.tailcallkind<musttail>" (TailCallKindAttr.mk "musttail")
 
+/-! ## LLVM constant ranges -/
+#assert expectSuccessAttr "#llvm.constant_range<i32, 0, 19>"
+  (ConstantRangeAttr.mk "i32, 0, 19")
+-- A wrapping range: LLVM allows `hi < lo`, and the bound reads back negative.
+#assert expectSuccessAttr "#llvm.constant_range<i32, 0, -7>"
+  (ConstantRangeAttr.mk "i32, 0, -7")
+
+/-! ## LLVM TBAA tags -/
+#assert expectSuccessAttr
+  "#llvm.tbaa_tag<base_type = <id = \"int\">, access_type = <id = \"int\">, offset = 0>"
+  (TbaaTagAttr.mk "base_type = <id = \"int\">, access_type = <id = \"int\">, offset = 0")
+#assert expectSuccessAttr
+  "#llvm.tbaa_tag<base_type = <id = \"a\", members = {<#llvm.tbaa_root<id = \"r\">, 0>}>, offset = 8>"
+  (TbaaTagAttr.mk "base_type = <id = \"a\", members = {<#llvm.tbaa_root<id = \"r\">, 0>}>, offset = 8")
+
+/-! ## LLVM memory effects -/
+#assert expectSuccessAttr
+  "#llvm.memory_effects<other = none, argMem = read, inaccessibleMem = none>"
+  (MemoryEffectsAttr.mk "other = none, argMem = read, inaccessibleMem = none")
+-- The LLVM 22 spelling: three more location classes than the original three.
+#assert expectSuccessAttr
+  "#llvm.memory_effects<other = readwrite, argMem = readwrite, inaccessibleMem = none, \
+    errnoMem = readwrite, targetMem0 = none, targetMem1 = none>"
+  (MemoryEffectsAttr.mk "other = readwrite, argMem = readwrite, inaccessibleMem = none, \
+    errnoMem = readwrite, targetMem0 = none, targetMem1 = none")
+
+/-! ## LLVM loop annotations -/
+#assert expectSuccessAttr "#llvm.loop_annotation<mustProgress = true>"
+  (LoopAnnotationAttr.mk "mustProgress = true")
+#assert expectSuccessAttr
+  "#llvm.loop_annotation<unroll = <runtimeDisable = true>, mustProgress = true, isVectorized = true>"
+  (LoopAnnotationAttr.mk
+    "unroll = <runtimeDisable = true>, mustProgress = true, isVectorized = true")
+#assert expectSuccessAttr "#llvm.loop_annotation<peeled = <count = 2 : i32>>"
+  (LoopAnnotationAttr.mk "peeled = <count = 2 : i32>")
+
 /-! ## CUDA Pointer type -/
 #assert expectSuccessType "!cuda_tile.ptr<i1>" (CudaTile.PointerType.mk (IntegerType.mk 1))
 #assert expectSuccessType "!cuda_tile.ptr<i32>" (CudaTile.PointerType.mk (IntegerType.mk 32))
@@ -470,6 +520,9 @@ macro "#assert " e:term : command =>
 -- A `!cuda_tile.ptr<...>` may appear as a (parenthesized) function-type input. See #675.
 #assert expectSuccessType "(!cuda_tile.ptr<i1>) -> ()"
   (FunctionType.mk #[(CudaTile.PointerType.mk (IntegerType.mk 1) : Attribute)] #[] (isVarArg := false))
+#assert expectSuccessType "!io.address" Io.AddressType.mk
+#assert expectSuccessType "(!io.address) -> ()"
+  (FunctionType.mk #[(Io.AddressType.mk : Attribute)] #[] (isVarArg := false))
 
 /-! ## RISCV Register type -/
 #assert expectSuccessType "!riscv.reg" (RegisterType.mk)
