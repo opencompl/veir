@@ -2,12 +2,14 @@ module
 
 public import Veir.ForLean
 public import Veir.Interpreter.RuntimeValue.Basic
+public import Veir.Interpreter.CTree
 public import Veir.Interpreter.Interp
 public import Std.Data.ExtHashMap
 import Veir.Data.Casting
 
 public section
 
+open CTree
 open Veir.Data
 open Veir.Data.LLVM (Ptr)
 
@@ -150,6 +152,17 @@ def MemoryState.store (mem : MemoryState) (p : Pointer) (val : ByteArray)
   return { mem with bytes }
 
 /--
+  Store raw bytes to the given address in memory using the CTree interpreter,
+  and set the corresponding poison bits as requested (by default, unset).
+  Yields UB if the access is out of bounds.
+-/
+def MemoryState.storeCTree [ErrorE -< E] [UBE -< E] (mem : MemoryState) (p : Pointer)
+    (val : ByteArray) (poison : ByteArray := ByteArray.replicate val.size 0)
+    (h : poison.size = val.size := by grind)
+    : CTree E C MemoryState :=
+  monadLift (mem.store p val poison h)
+
+/--
   Poison the given number n of bytes, starting from the given address in memory.
   Yields UB if the access is out of bounds.
 -/
@@ -210,6 +223,14 @@ def MemoryState.load (mem : MemoryState) (p : Pointer) (size : UInt64) : Interp 
   return ⟨Array.ofFn fun (i : Fin size.toNat) => (mem.byte (p.address + i.val.toUInt64)).value⟩
 
 /--
+  Load raw bytes from the given memory address using the CTree interpreter.
+  Yields UB if the access is out of bounds.
+-/
+def MemoryState.loadCTree [ErrorE -< E] [UBE -< E] (mem : MemoryState) (p : Pointer) (size : UInt64)
+    : CTree E C ByteArray :=
+  monadLift (mem.load p size)
+
+/--
   Load bitwise poison status of the given memory address.
   Yields UB if the access is out of bounds.
 -/
@@ -218,11 +239,34 @@ def MemoryState.loadPoison (mem : MemoryState) (p : Pointer) (size : UInt64) : I
   return ⟨Array.ofFn fun (i : Fin size.toNat) => (mem.byte (p.address + i.val.toUInt64)).poison⟩
 
 /--
+  Load bitwise poison status of the given memory address using the CTree interpreter.
+  Yields UB if the access is out of bounds.
+-/
+def MemoryState.loadPoisonCTree [ErrorE -< E] [UBE -< E] (mem : MemoryState) (p : Pointer)
+    (size : UInt64) : CTree E C ByteArray :=
+  monadLift (mem.loadPoison p size)
+
+/--
   Check if any of the `size` bytes at the given memory address `p` is poison.
   Yields UB if the access is out of bounds.
 -/
 def MemoryState.hasPoison (mem : MemoryState) (p : Pointer) (size : UInt64) : Interp Bool := do
   let poisonMask ← mem.loadPoison p size
+  let mut poison := false
+  for b in poisonMask do
+    if b ≠ 0 then
+      poison := true
+      break
+  return poison
+
+/--
+  Check if any of the `size` bytes at the given memory address `p` is poison
+  using the CTree interpreter.
+  Yields UB if the access is out of bounds.
+-/
+def MemoryState.hasPoisonCTree [ErrorE -< E] [UBE -< E] (mem : MemoryState) (p : Pointer)
+    (size : UInt64) : CTree E C Bool := do
+  let poisonMask ← mem.loadPoisonCTree p size
   let mut poison := false
   for b in poisonMask do
     if b ≠ 0 then
