@@ -1,6 +1,10 @@
 module
 
 public import Init.Data.Float.Model.Format.Basic
+public import Init.Data.Float.Model.Unpacked.Basic
+import Init.Data.Float.Model.Unpacked.Pack.Basic
+import Init.Data.Float.Model.Unpacked.Operations.OfScientific
+import Init.Data.Float.Model.Unpacked.Operations.Sign
 
 namespace Veir.Data.Float
 
@@ -106,6 +110,60 @@ def cast (h : format = format') (value : FloatValue format) : FloatValue format'
 /-- Values are printed as their bit pattern, e.g. `0xff#8`. -/
 instance : ToString (FloatValue format) where
   toString value := toString value.toBits
+
+
+open Float.Model (UnpackedFloat)
+/--
+Pack an `UnpackedFloat` into `format`.
+
+This uses Lean's builtin floating point packing algorithm, but with `format`'s
+own bias instead of the default IEEE-based exponent bias. It is an adaptation
+of `UnpackedFloat.pack`.
+-/
+def ofUnpackedFloat (format : FloatFormat) (uf : UnpackedFloat)
+    (hm : 0 < format.mantissa := by grind)
+    (he : 0 < format.exponent := by grind) : FloatValue format :=
+  .ofBits <| match uf with
+  | .notANumber =>
+    (UnpackedFloat.packedNaN format.toLeanFormat).cast (by simp)
+  | .infinity s =>
+    (UnpackedFloat.packedInfinity format.toLeanFormat s).cast (by simp)
+  | .zero s => (UnpackedFloat.packedZero format.toLeanFormat s).cast (by simp)
+  | .finite s m e _ =>
+    let actualMantissaBits := m.log2
+    -- The floating point is stored mantissa * 2^exp without leading 1.
+    -- So we add `format.mantissa` to compensate.
+    let biasedExponent := (e + format.bias + format.mantissa).toNat
+    -- Overflow: biased exponent cannot be represented.
+    if 2 ^ format.exponent ≤ biasedExponent then
+      (UnpackedFloat.packedInfinity format.toLeanFormat s).cast (by simp)
+
+    -- For normal floating point numbers, mantissa should start with a 1,
+    -- so actual mantissa bits is equal to mantissa bitwidth.
+    else if actualMantissaBits = format.mantissa then
+      let pf := UnpackedFloat.packComponents format.toLeanFormat
+        s (BitVec.ofNat _ biasedExponent) (BitVec.ofNat _ m)
+      pf.cast (by simp)
+
+    else
+      -- subnormal
+      let pf := UnpackedFloat.packComponents format.toLeanFormat s 0#_ (BitVec.ofNat _ m)
+      pf.cast (by simp)
+
+/--
+The value of `(-1)^negative * significand * 10^exponent` in `format`.
+
+Converts a base-10 float to the exact IEEE-754 bit pattern of `format`,
+using round-to-nearest, ties-to-even. 
+-/
+def ofScientific (format : FloatFormat)
+    (negative : Bool) (significand : Nat) (exponent : Int) : FloatValue format :=
+  if hty : format.mantissa = 0 ∨ format.exponent = 0 then
+    .ofBits 0#_
+  else
+    let uf := UnpackedFloat.ofScientific format.toLeanFormat significand exponent
+    let uf := if negative then uf.neg else uf
+    .ofUnpackedFloat format uf
 
 end FloatValue
 

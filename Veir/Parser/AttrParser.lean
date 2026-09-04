@@ -3,21 +3,13 @@ module
 public import Veir.Parser.Parser
 public import Veir.IR.Attribute
 public import Std.Data.HashMap
-import Init.Data.Float.Model.Unpacked
-import Init.Data.Float.Model.Unpacked.Round
-import Init.Data.Float.Model.Format.Basic
-import Init.Data.Float.Model
-import Init.Data.Float.Model.Unpacked.Basic
-import Init.Data.Float.Model.Unpacked.Operations.OfScientific
-import Init.Data.Float.Model.Unpacked.Operations
-
 
 public section
 
 open Veir.Parser.Lexer
 open Veir.Parser
 open Veir
-open Lean Float Model
+open Lean
 
 namespace Veir.AttrParser
 
@@ -249,57 +241,6 @@ def parseOptionalStringAttr : AttrParserM (Option StringAttr) := do
   return some (StringAttr.mk bytes)
 
 /--
-Use Lean's builtin floating point packing algorithm,
-with a custom bias instead of the default IEEE-based exponent bias
-for floating point packing. This is an adaptation of `UnpackedFloat.pack`
--/
-def packUnpackedFloatToFloatType
-     (type : FloatType) (uf : UnpackedFloat)
-     (hm : 0 < type.mantissa := by grind)
-     (he : 0 < type.exponent := by grind) : Data.Float.FloatValue type.format :=
-  Data.Float.FloatValue.ofBits <| match uf with
-  | .notANumber =>
-    (UnpackedFloat.packedNaN type.toFormat).cast (by simp)
-  | .infinity s =>
-    (UnpackedFloat.packedInfinity type.toFormat s).cast (by simp)
-  | .zero s => (UnpackedFloat.packedZero type.toFormat s).cast (by simp)
-  | .finite s m e _ =>
-    let actualMantissaBits := m.log2
-    -- The floating point is stored mantissa * 2^exp without leading 1.
-    -- So we need to add `type.mantissa` to compensate.
-    let biasedExponent := (e + type.bias + type.mantissa).toNat
-    -- Overflow: biased exponent cannot be represented.
-    if 2 ^ type.exponent ≤ biasedExponent then
-      (UnpackedFloat.packedInfinity type.toFormat s).cast (by simp)
-
-    -- For normal floating point numbers, mantissa should start with a 1,
-    -- so actual mantissa bits is equal to mantissa bitwidth.
-    else if actualMantissaBits = type.mantissa then
-      let pf := UnpackedFloat.packComponents type.toFormat
-        s (BitVec.ofNat _ biasedExponent) (BitVec.ofNat _ m)
-      pf.cast (by simp)
-
-    else
-      -- subnormal
-      let pf := UnpackedFloat.packComponents type.toFormat s 0#_ (BitVec.ofNat _ m)
-      pf.cast (by simp)
-/--
-Converts a base-10 float to the exact IEEE-754 bit pattern of the given type,
-using round-to-nearest, ties-to-even. Overflow saturates to infinity (or the
-largest finite value for types without infinity), and underflow produces a
-subnormal value or zero.
--/
-def convertFPToFloatValue (f : ParsedFloat) (type : Veir.FloatType) :
-    Data.Float.FloatValue type.format :=
-  if hty : type.mantissa = 0 ∨ type.exponent = 0 then
-    .ofBits 0#_
-  else
-     let format : Model.Format := type.toFormat
-     let uf := UnpackedFloat.ofScientific format f.significand f.exponent
-     let uf := if f.negative then uf.neg else uf
-     packUnpackedFloatToFloatType type uf
-
-/--
   Parse an integer or floating-point attribute, if present.
   The attribute has the form `false`, `true` or `value : type`.
   For an integer type, `value` must be a (possibly negated) integer literal in decimal or
@@ -354,7 +295,8 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
     if isFloatLit then
       let str := if isNegative then "-" ++ String.fromUTF8! value else String.fromUTF8! value
       match parseDecimalFloat str with
-      | some f => return convertFPToFloatValue f floatType
+      | some f =>
+        return .ofScientific floatType.format f.negative f.significand f.exponent
       | none   => throwAtCurrentPos s!"invalid floating-point literal '{str}'"
     else
       if isNegative then
