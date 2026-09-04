@@ -20,7 +20,7 @@ namespace Veir
 
 /-- Input type for an IO effect -/
 inductive IoEIn where
-  | sendE (msg : ByteArray)
+  | sendE (msg : Message)
   | recvE
   | randE (len : Nat)
 
@@ -28,13 +28,13 @@ inductive IoEIn where
 abbrev IoE (e : IoEIn) :=
   match e with
   | .sendE _ => Unit
-  | .recvE => Option (Nat × ByteArray) -- sender & payload
+  | .recvE => Option Message
   | .randE _ => ByteArray
 
 /-- Emit an IO send effect -/
-def ioSend [IoE -< E] (msg : ByteArray) : CTree E C Unit := CTree.trigger (SubE := IoE) (.sendE msg)
+def ioSend [IoE -< E] (msg : Message) : CTree E C Unit := CTree.trigger (SubE := IoE) (.sendE msg)
 /-- Emit an IO receive effect -/
-def ioRecv [IoE -< E] : CTree E C (Option (Nat × ByteArray)) := CTree.trigger (SubE := IoE) (.recvE)
+def ioRecv [IoE -< E] : CTree E C (Option Message) := CTree.trigger (SubE := IoE) (.recvE)
 /-- Emit an IO random number generation effect -/
 def ioRand [IoE -< E] (len : Nat) : CTree E C ByteArray := CTree.trigger (SubE := IoE) (.randE len)
 
@@ -53,17 +53,18 @@ def Io.interpretOpCTree [UBE -< E] [IoE -< E] (opType : Veir.Io) (properties : p
     let len : UInt64 := UInt64.ofNat lenNat
     if ← mem.hasPoisonCTree ptr len then ub
     let buf ← mem.loadCTree ptr len
-    ioSend buf
-    let mem := mem.sendMessage dest buf
+    -- note that we update the CTree but not the MemoryState's NetworkState
+    ioSend { src := mem.selfAddress, dest, payload := buf }
     return (#[.int 64 (.val buf.size)], mem, none)
   | .recv => do
     let [.addr ptr, .int _ len] := operands.toList | ub
     let .val len := len | ub
     let len := len.toNat
+    -- note that we use the CTree to receive a message without using MemoryState's NetworkState
     let optResult ← ioRecv
     let (status, src, mem) ← match optResult with
     | none => pure (Io.Error.exhausted, 0, mem)
-    | some (src, payload) =>
+    | some { src := src, dest := _, payload := payload } =>
       if payload.size > len then
         pure (Io.Error.messageTooLong, 0, mem)
       else do
@@ -75,6 +76,7 @@ def Io.interpretOpCTree [UBE -< E] [IoE -< E] (opType : Veir.Io) (properties : p
     let .val len := len | ub
     let lenNat := len.toNat
     if lenNat ≥ UInt64.size then ub
+    -- note that we use the CTree to obtain a buffer with random data without using MemoryState's EntropyState
     let buf ← ioRand lenNat
     let mem ← mem.storeCTree addr buf
     return  (#[.int 64 (.val len.toNat)], mem, none)
