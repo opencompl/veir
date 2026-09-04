@@ -146,6 +146,15 @@ def TypeAttr.verifyCirIntOrBoolType (ty : TypeAttr) (msg : String) : Except Stri
   | .cirIntType _ | .cirBoolType _ => pure ()
   | type => throw s!"{msg}, but found {type} instead"
 
+/--
+  Verify that a type can be compared by `cir.cmp`: a ClangIR integer or boolean type, or a
+  type VeIR does not model (ClangIR also compares pointers and floats).
+-/
+def TypeAttr.verifyCirComparableType (ty : TypeAttr) (msg : String) : Except String PUnit :=
+  match ty.val with
+  | .cirIntType _ | .cirBoolType _ | .unregisteredAttr _ => pure ()
+  | type => throw s!"{msg}, but found {type} instead"
+
 /-- Verify a binary integer operation: two operands of one `!cir.int` type and a like result. -/
 def OperationPtr.verifyCirBinOp {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
@@ -195,8 +204,8 @@ def OperationPtr.verifyCirCmpOp {OpInfo : Type} [IsOpCode OpInfo]
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   let operandType ← op.verifyOperandTypesMatch ctx 0 1
     s!"{instrName}: Expected operands to have the same type"
-  operandType.verifyCirIntOrBoolType
-    s!"{instrName}: Expected operands to have !cir.int or !cir.bool type"
+  operandType.verifyCirComparableType
+    s!"{instrName}: Expected operands to have a comparable type"
   ((op.getResult 0).get! ctx.raw).type.verifyCirBoolType
     s!"{instrName}: Expected result to have !cir.bool type"
 
@@ -248,8 +257,9 @@ def OperationPtr.verifyCirConstOp {OpInfo : Type} [IsOpCode OpInfo]
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   let props := op.getProperties! ctx.raw Cir.const
   let resultType := ((op.getResult 0).get! ctx.raw).type
-  if props.value.type ≠ resultType.val then
-    throw s!"{instrName}: Expected result type to match the constant's type"
+  if let some type := props.value.type then
+    if type ≠ resultType.val then
+      throw s!"{instrName}: Expected result type to match the constant's type"
   if let .int attr := props.value then
     let width := attr.type.width
     let (lo, hi) : Int × Int :=

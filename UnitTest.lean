@@ -10,6 +10,7 @@ import UnitTest.FP
 import UnitTest.Bitblasting.Bitblasting
 import UnitTest.DataFlowFramework.Dominance
 import UnitTest.DataFlowFramework.DeadCodeAnalysis
+import UnitTest.DataFlowFramework.EntryState
 import UnitTest.ModArithRangeAnalysis
 import UnitTest.ConstantValue
 import UnitTest.Evaluate

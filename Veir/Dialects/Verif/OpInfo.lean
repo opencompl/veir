@@ -2,6 +2,7 @@ module
 
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
+public import Veir.Dialects.Verif.Properties
 public import Veir.Verifier.Basic
 meta import Veir.Meta.OpCode
 
@@ -16,19 +17,27 @@ inductive Verif where
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, properties_of]
-def Verif.propertiesOf (_op : Verif) : Type :=
-  Unit
+def Verif.propertiesOf (op : Verif) : Type :=
+  match op with
+  | .assume => VerifAssumeAssertProperties
+  | .assert => VerifAssumeAssertProperties
 
 def Verif.fromAttrDict
-    (op : Verif) (_attrDict : Std.HashMap ByteArray Attribute) :
+    (op : Verif) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (Verif.propertiesOf op) := by
   cases op
+  case assume => exact VerifAssumeAssertProperties.fromAttrDict attrDict
+  case assert => exact VerifAssumeAssertProperties.fromAttrDict attrDict
   all_goals exact .ok ()
 
 def Verif.toAttrDict
-    (op : Verif) (_props : Verif.propertiesOf op) :
+    (op : Verif) (props : Verif.propertiesOf op) :
     Std.HashMap ByteArray Attribute :=
-  Std.HashMap.emptyWithCapacity 0
+  match op with
+  | .assume | .assert => Id.run do
+    match props.label with
+    | some label => (Std.HashMap.emptyWithCapacity 1).insert "label".toUTF8 (.stringAttr label)
+    | none => Std.HashMap.emptyWithCapacity 0
 
 @[get_effects]
 def Verif.getEffects

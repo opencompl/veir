@@ -63,20 +63,30 @@ def CirCastKind.toNat : CirCastKind → Nat
   | .bool_to_int => 38
   | .other code => code
 
-/-- The value of a `cir.const`: a typed integer or boolean constant. -/
+/--
+  The value of a `cir.const`: a typed integer or boolean constant, or any other attribute
+  (a null pointer, a float, an aggregate) kept verbatim so that the operation round-trips.
+-/
 inductive CirConstValue where
   | int (attr : CirIntAttr)
   | bool (attr : CirBoolAttr)
+  | other (attr : Attribute)
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 def CirConstValue.toAttribute : CirConstValue → Attribute
   | .int attr => .cirIntAttr attr
   | .bool attr => .cirBoolAttr attr
+  | .other attr => attr
 
-/-- The type a constant value carries, which its result must match. -/
-def CirConstValue.type : CirConstValue → Attribute
-  | .int attr => .cirIntType attr.type
-  | .bool _ => .cirBoolType {}
+/--
+  The type a constant value carries, which its result must match. An unmodelled value only
+  has a type when it was written with a trailing `: type`.
+-/
+def CirConstValue.type : CirConstValue → Option Attribute
+  | .int attr => some (.cirIntType attr.type)
+  | .bool _ => some (.cirBoolType {})
+  | .other (.unregisteredAttr attr) => attr.type
+  | .other _ => none
 
 /-! ## Helpers -/
 
@@ -148,7 +158,7 @@ def CirConstProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute)
   match attr with
   | .cirIntAttr intAttr => return { value := .int intAttr }
   | .cirBoolAttr boolAttr => return { value := .bool boolAttr }
-  | attr => throw s!"cir.const: expected 'value' to be a #cir.int or #cir.bool attribute, but got {attr}"
+  | attr => return { value := .other attr }
 
 /--
   Properties of `cir.add`, `cir.sub` and `cir.minus`. ClangIR always prints their

@@ -42,6 +42,45 @@ def AttrParserM.run' (self : AttrParserM α)
   | .error err => .error err
 
 /--
+  Parse the `x` separator in a shaped type.
+
+  The lexer treats canonical fragments such as `x4xi32` as one identifier. If
+  the current identifier starts with `x`, consume just that leading byte and
+  re-lex the suffix so the following dimension or element type can be parsed
+  normally.
+-/
+private def parseShapeSeparator : AttrParserM Unit := do
+  let token ← peekToken
+  let input := (← getThe ParserState).input
+  if token.kind != .bareIdent || input.getD token.slice.start.byteOffset 0 != 'x'.toUInt8 then
+    throwAtCurrentPos "expected keyword 'x'"
+  resetToken (token.slice.start + 1)
+
+/--
+Parse one decimal vector dimension, if present.
+
+Numbers in the form `0x...` are parsed as `0`, since `x` is the separator for the next vector
+dimension, rather than a hexadecimal prefix.
+-/
+private def parseOptionalVectorDimension : AttrParserM (Option Nat) := do
+  let token ← peekToken
+  let .intLit := token.kind | return none
+  let spelling := token.slice.of (← getThe ParserState).input
+  let mut decimalLength := 0
+  while h : decimalLength < spelling.size do
+    if spelling[decimalLength].isDigit then
+      decimalLength := decimalLength + 1
+    else
+      break
+  let decimalSpelling := spelling.extract 0 decimalLength
+  let some dimension := (String.fromUTF8? decimalSpelling).bind String.toNat?
+    | throwAtCurrentPos "vector dimension must be a decimal integer"
+  if dimension = 0 then
+    throwAt token.slice.start "0 is not a supported dimension"
+  resetToken (token.slice.start + decimalLength)
+  return some dimension
+
+/--
   Parse an optional integer type.
   An integer type is represented as `i` followed by a positive integer indicating its width, e.g., `i32`.
 -/
@@ -58,6 +97,12 @@ def parseOptionalIntegerType : AttrParserM (Option IntegerType) := do
       return some (IntegerType.mk bitwidth)
     return none
   | _ => return none
+
+/-- Parse the MLIR builtin `index` type. -/
+def parseOptionalIndexType : AttrParserM (Option IndexType) := do
+  if ← parseOptionalKeyword "index".toByteArray then
+    return some IndexType.mk
+  return none
 
 /--
   Parse an optional float type.
@@ -399,6 +444,24 @@ partial def parseOptionalDialectType : AttrParserM (Option TypeAttr) := do
     return some (⟨UnregisteredAttr.mk ("!" ++ String.fromUTF8! dialectName) true none, by grind⟩)
 
 /--
+  Attributes VeIR registers but does not interpret: everything between `<` and
+  `>` is kept verbatim and printed back unchanged.
+-/
+private def verbatimBodyAttrs : List (ByteArray × (String → Attribute)) :=
+  [ ("llvm.cconv".toByteArray, fun body => (CConvAttr.mk body : Attribute)),
+    ("llvm.linkage".toByteArray, fun body => (LinkageAttr.mk body : Attribute)),
+    ("llvm.framePointerKind".toByteArray, fun body => (FramePointerKindAttr.mk body : Attribute)),
+    ("llvm.uwtableKind".toByteArray, fun body => (UwtableKindAttr.mk body : Attribute)),
+    ("llvm.tailcallkind".toByteArray, fun body => (TailCallKindAttr.mk body : Attribute)),
+    ("llvm.mlir.module_flag".toByteArray, fun body => (ModuleFlagAttr.mk body : Attribute)),
+    ("llvm.constant_range".toByteArray, fun body => (ConstantRangeAttr.mk body : Attribute)),
+    ("llvm.tbaa_tag".toByteArray, fun body => (TbaaTagAttr.mk body : Attribute)),
+    ("llvm.memory_effects".toByteArray, fun body => (MemoryEffectsAttr.mk body : Attribute)),
+    ("llvm.loop_annotation".toByteArray, fun body => (LoopAnnotationAttr.mk body : Attribute)),
+    ("llvm.target_features".toByteArray, fun body => (TargetFeaturesAttr.mk body : Attribute)),
+    ("dlti.dl_spec".toByteArray, fun body => (DlSpecAttr.mk body : Attribute)) ]
+
+/--
   Parse a dialect attribute, if present.
   A dialect attribute has the form `#dialect.name` or `#dialect.name<body>`. Attributes VeIR
   understands are decoded; any other one is kept as an `UnregisteredAttr` when unregistered
@@ -417,53 +480,11 @@ partial def parseOptionalDialectAttr : AttrParserM (Option Attribute) := do
     let (nsw, nuw) ← parseIntegerOverflowFlags
     return some (ArithIntegerOverflowFlagsAttr.mk nsw nuw : Attribute)
 
-  if dialectName = "llvm.cconv".toByteArray then do
+  if let some (_, toAttr) := verbatimBodyAttrs.find? (fun (name, _) => dialectName == name) then
     parsePunctuation "<"
     let body ← parseUnregisteredAttrBody
     parsePunctuation ">"
-    return some (CConvAttr.mk body : Attribute)
-
-  if dialectName = "llvm.linkage".toByteArray then do
-    parsePunctuation "<"
-    let body ← parseUnregisteredAttrBody
-    parsePunctuation ">"
-    return some (LinkageAttr.mk body : Attribute)
-
-  if dialectName = "llvm.framePointerKind".toByteArray then do
-    parsePunctuation "<"
-    let body ← parseUnregisteredAttrBody
-    parsePunctuation ">"
-    return some (FramePointerKindAttr.mk body : Attribute)
-
-  if dialectName = "llvm.uwtableKind".toByteArray then do
-    parsePunctuation "<"
-    let body ← parseUnregisteredAttrBody
-    parsePunctuation ">"
-    return some (UwtableKindAttr.mk body : Attribute)
-
-  if dialectName = "llvm.tailcallkind".toByteArray then do
-    parsePunctuation "<"
-    let body ← parseUnregisteredAttrBody
-    parsePunctuation ">"
-    return some (TailCallKindAttr.mk body : Attribute)
-
-  if dialectName = "llvm.mlir.module_flag".toByteArray then do
-    parsePunctuation "<"
-    let body ← parseUnregisteredAttrBody
-    parsePunctuation ">"
-    return some (ModuleFlagAttr.mk body : Attribute)
-
-  if dialectName = "llvm.target_features".toByteArray then do
-    parsePunctuation "<"
-    let body ← parseUnregisteredAttrBody
-    parsePunctuation ">"
-    return some (TargetFeaturesAttr.mk body : Attribute)
-
-  if dialectName = "dlti.dl_spec".toByteArray then do
-    parsePunctuation "<"
-    let body ← parseUnregisteredAttrBody
-    parsePunctuation ">"
-    return some (DlSpecAttr.mk body : Attribute)
+    return some (toAttr body)
 
   if !(← getThe AttrParserState).allowUnregisteredDialect then
     throwAt startPos s!"attribute '#{String.fromUTF8! dialectName}' is not registered. \
@@ -611,6 +632,18 @@ partial def parseOptionalCudaTilePointerType : AttrParserM (Option TypeAttr) := 
   let intTy ← parseIntegerType
   parsePunctuation ">"
   return some (CudaTile.PointerType.mk intTy)
+
+/--
+  Parse the IO address type `!io.address`, if present.
+-/
+partial def parseOptionalIoAddressType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "io.address".toByteArray then return none
+  let _ ← consumeToken
+  return some Io.AddressType.mk
 
 /--
   Parse HEIR's modarith type, if present.
@@ -829,12 +862,42 @@ def parseOptionalHWModuleType : AttrParserM (Option HW.ModuleType) := do
   let ports ← parseDelimitedList .angle parseHWModulePort
   return some { ports }
 
+/--
+  Parse CIRCT's `seq` dialect's `ClockType` type.
+  Its syntax is `!seq.clock` (no parameters).
+-/
+def parseOptionalSeqClockType : AttrParserM (Option Seq.ClockType) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "seq.clock".toByteArray then return none
+  let _ ← consumeToken
+  return some {}
+
 /-- A parsed entry in an LLVM function type's parameter list. -/
 inductive LLVMFuncParam
   | type (ty : TypeAttr)
   | ellipsis
 
 mutual
+
+/--
+  Parse a builtin fixed-size vector type, if present.
+  Its syntax is `vector<dimension-list x element-type>`, e.g. `vector<2x4xi32>`;
+  the dimension list may be empty, as in `vector<i32>`.
+-/
+partial def parseOptionalVectorType : AttrParserM (Option TypeAttr) := do
+  if !(← parseOptionalKeyword "vector".toByteArray) then
+    return none
+  parsePunctuation "<"
+  let mut shape := #[]
+  while let some dim ← parseOptionalVectorDimension do
+    shape := shape.push dim
+    parseShapeSeparator
+  let elementType ← parseType "vector element type expected"
+  parsePunctuation ">"
+  return some (VectorType.mk shape elementType)
 
 /--
   Parse an LLVM array type, if present.
@@ -1044,8 +1107,12 @@ partial def parseOptionalMatchOptionalType : AttrParserM (Option TypeAttr) := do
 partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
   if let some integerType ← parseOptionalIntegerType then
     return some integerType
+  if let some indexType ← parseOptionalIndexType then
+    return some indexType
   if let some floatType ← parseOptionalFloatType then
     return some floatType
+  if let some vectorType ← parseOptionalVectorType then
+    return some vectorType
   if let some byteType ← parseOptionalByteType then
     return some byteType
   if let some registerType ← parseOptionalRegisterType then
@@ -1072,8 +1139,12 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some llvmFunctionType
   if let some cudaTilePointerType := ← parseOptionalCudaTilePointerType then
     return some cudaTilePointerType
+  if let some ioAddressType := ← parseOptionalIoAddressType then
+    return some ioAddressType
   if let some hwModuleType ← parseOptionalHWModuleType then
     return some hwModuleType
+  if let some seqClockType ← parseOptionalSeqClockType then
+    return some seqClockType
   if let some pdlRangeType ← parseOptionalPDLRangeType then
     return some pdlRangeType
   if let some pdlAttributeType ← parseOptionalPDLAttributeType then

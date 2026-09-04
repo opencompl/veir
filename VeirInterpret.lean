@@ -1,34 +1,21 @@
 import Veir.Parser.MlirParser
 import Veir.Verifier
 import Veir.Interpreter.Basic
+import Veir.Input
 import Veir.Panic
 
 /-!
   # Veir Interpreter CLI Tool
 
   This file implements a simple command-line tool that reads an MLIR
-  file, finds a zero-argument func.func or llvm.func named `main`, and
-  then executes that function using the interpreter defined in
-  `Veir.Interpreter`.
+  program from a file or from standard input, finds a zero-argument
+  func.func or llvm.func named `main`, and then executes that function
+  using the interpreter defined in `Veir.Interpreter`.
  -/
 
 open Veir.Parser
+open Veir.Input
 open Veir
-
-def parseOperation (filename : String) : ExceptT String IO (WfIRContext OpCode × OperationPtr) := do
-  let fileContent ← IO.FS.readBinFile filename
-  let some (ctx, _) := WfIRContext.create OpCode
-    | throw "Failed to create IR context"
-  match ParserState.fromInput fileContent with
-  | .ok parser =>
-    let parserState := MlirParserState.fromContext ctx (allowUnregisteredDialect := true)
-    match parseTopLevelOp.run parserState parser with
-    | .ok (op, state, _) =>
-      return (state.ctx, op)
-    | .error errMsg =>
-      throw s!"Error parsing operation: {errMsg}"
-  | .error errMsg =>
-    throw s!"Error reading file: {errMsg}"
 
 /-- Returns true if `op` is a viable zero-argument `@main` function. -/
 private def isZeroArgMainFunc (ctx : IRContext OpCode) (op : OperationPtr) : Bool :=
@@ -75,29 +62,31 @@ def resolveEntryPoint (ctx : IRContext OpCode) (moduleOp : OperationPtr) : IO Op
 set_option warn.sorry false in
 def main (args : List String) : IO Unit := do
   enableExitOnPanic
-  match args with
-  | [filename] =>
-    match ← parseOperation filename with
-    | .ok (ctx, op) =>
-      match ctx.verify op with
-      | .ok _ =>
-        let rawCtx : IRContext OpCode := ctx
-        let mainOp ← resolveEntryPoint rawCtx op
-        let result := bind (interpretFunction (ctx := ctx) mainOp #[] MemoryState.empty (by sorry))
-                           (fun (_, r) => pure r)
-        match result with
-        | .ok results => IO.println s!"Program output: {results}"
-        | .ub => IO.println "Undefined behavior"
-        | .fail =>
-          IO.eprintln "Error while interpreting module"
-          IO.Process.exit 1
-      | .error errMsg =>
-        IO.eprintln s!"Error verifying input program: {errMsg}"
+  let filename ←
+    match inputSourceOfArgs args with
+    | .ok filename => pure filename
+    | .error errMsg =>
+      IO.eprintln errMsg
+      IO.eprintln "Usage: veir-interpret [filename]"
+      IO.eprintln "  Reads the program from standard input if no filename is given."
+      IO.Process.exit 2
+  match ← parseOperation filename (allowUnregisteredDialect := true) with
+  | .ok (ctx, op) =>
+    match ctx.verify op with
+    | .ok _ =>
+      let rawCtx : IRContext OpCode := ctx
+      let mainOp ← resolveEntryPoint rawCtx op
+      let result := bind (interpretFunction (ctx := ctx) mainOp #[] MemoryState.empty (by sorry))
+                         (fun (_, r) => pure r)
+      match result with
+      | .ok results => IO.println s!"Program output: {results}"
+      | .ub => IO.println "Undefined behavior"
+      | .fail =>
+        IO.eprintln "Error while interpreting module"
         IO.Process.exit 1
     | .error errMsg =>
-      IO.eprintln s!"Error: {errMsg}"
+      IO.eprintln s!"Error verifying input program: {errMsg}"
       IO.Process.exit 1
-  | _ =>
-    IO.eprintln "Wrong number of arguments."
-    IO.eprintln "Usage: veir-interpret <filename>"
-    IO.Process.exit 2
+  | .error errMsg =>
+    IO.eprintln s!"Error: {errMsg}"
+    IO.Process.exit 1

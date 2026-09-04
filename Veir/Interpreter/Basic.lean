@@ -39,6 +39,72 @@ namespace Veir
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 variable {ctx : WfIRContext OpInfo}
 
+namespace CTreeInterpreter
+
+structure FreezeCIn : Type u where
+  bw : Nat
+  val : LLVM.Int bw
+
+@[expose]
+def FreezeC (c : FreezeCIn.{u}) : Type :=
+  match c with
+  | .mk bw _ => LLVM.Int bw
+
+structure UBEIn : Type u where
+
+def UBE (e : UBEIn.{u}) :=
+  match e with
+  | .mk => False
+
+structure ErrorEIn : Type u where
+
+inductive Void where
+
+@[expose]
+def ErrorE (e : ErrorEIn.{u}) :=
+  match e with
+  | .mk => Void
+
+structure Message where
+  src : Nat
+  dest : Nat
+  payload : ByteArray
+
+inductive IoEIn where
+  | sendE (msg : Message)
+  | recvE
+  | randE (len : Nat)
+
+@[expose]
+def IoE (e : IoEIn) :=
+  match e with
+  | .sendE _ => Unit
+  | .recvE => Option (Message)
+  | .randE _ => ByteArray
+
+def trigger {EIn FIn CIn : Type u} {E : EIn → Type u} {F : FIn → Type u} {C : CIn → Type u}
+    [s : E -< F] (i : EIn) : CTree F C (E i) :=
+  CTree.vis (Subeffect.mapEff E F i) fun x => CTree.ret (Subeffect.mapCont E F i x)
+
+def error [ErrorE -< F] : CTree F C R := do
+  let v ← trigger (E := ErrorE) .mk
+  nomatch v
+-- FIXME
+def ub [ErrorE -< F] : CTree F C R := do
+  let v ← trigger (E := ErrorE) .mk
+  nomatch v
+def ioSend [IoE -< F] (msg : Message) : CTree F C Unit := trigger (E := IoE) (.sendE msg)
+def ioRecv [IoE -< F] : CTree F C (Option (Message)) := trigger (E := IoE) (.recvE)
+def ioRand [IoE -< F] (len : Nat) : CTree F C ByteArray := trigger (E := IoE) (.randE len)
+
+instance : MonadLift Option (CTree ErrorE FreezeC) where
+  monadLift
+    | none => error
+    | some v => return v
+
+end CTreeInterpreter
+open CTreeInterpreter
+
 namespace FeltSemantics
 
 /-- Resolve the modulus of an LLZK built-in field. -/
@@ -113,6 +179,7 @@ def Conforms (val : RuntimeValue) (ty : TypeAttr) : Prop :=
   | .addr _, ⟨.llvmPointerType _, _⟩ => True
   | .felt fieldType value, ⟨.feltType expectedType, _⟩ =>
     fieldType = expectedType ∧ FeltSemantics.IsCanonical fieldType value
+  | .ioAddr _, ⟨.ioAddressType _, _⟩ => True
   | _, _ => False
 
 instance : Decidable (Conforms val ty) := by
@@ -229,19 +296,23 @@ end RuntimeValue
 structure MemoryState where
   contents : ByteArray
   poisonMask : ByteArray
+  /-- I/O address of this run. -/
+  selfAddress : Nat
   consistentSize : contents.size = poisonMask.size
 
 def MemoryState.empty : MemoryState := {
   contents := (ByteArray.emptyWithCapacity 1024).extend 8 0xff,
   poisonMask := (ByteArray.emptyWithCapacity 1024).extend 8 0xff,
+  selfAddress := 0,
   consistentSize := (by grind)
 }
 
 def MemoryState.ensureSize (mem : MemoryState) (size : Nat) : MemoryState :=
   if mem.contents.size < size then
-    ⟨mem.contents.extend (size - mem.contents.size) 0,
-      mem.poisonMask.extend (size - mem.contents.size) 0xff,
-      (by simp [mem.consistentSize])⟩
+    {contents := mem.contents.extend (size - mem.contents.size) 0,
+      poisonMask := mem.poisonMask.extend (size - mem.contents.size) 0xff,
+      selfAddress := mem.selfAddress,
+      consistentSize := (by simp [mem.consistentSize])}
   else
     mem
 
@@ -460,9 +531,10 @@ instance : MonadLift Option Interp where
 -/
 def MemoryState.alloc (state : MemoryState) (size : UInt64)
     : MemoryState × UInt64 :=
-  (⟨state.contents.extend size.toNat 0,
-    state.poisonMask.extend size.toNat 0xff,
-    by simp [state.consistentSize]⟩, state.contents.size.toUInt64)
+  ({contents := state.contents.extend size.toNat 0,
+    poisonMask := state.poisonMask.extend size.toNat 0xff,
+    selfAddress := state.selfAddress,
+    consistentSize := (by simp [state.consistentSize])}, state.contents.size.toUInt64)
 
 /--
   Store raw bytes to the given address in memory,
@@ -473,13 +545,27 @@ def MemoryState.store (state : MemoryState) (addr : UInt64) (val : ByteArray)
   (poison : ByteArray := ByteArray.replicate val.size 0) (h : poison.size = val.size := by grind)
     : Interp MemoryState :=
   if addr.toNat + val.size ≤ state.contents.size then
-    return ⟨val.copySlice 0 state.contents addr.toNat val.size false,
-      poison.copySlice 0 state.poisonMask addr.toNat val.size false,
-      by
-        simp [ByteArray.copySlice_eq_append, state.consistentSize, h]
-      ⟩
+    return {
+      contents := val.copySlice 0 state.contents addr.toNat val.size false,
+      poisonMask := poison.copySlice 0 state.poisonMask addr.toNat val.size false,
+      selfAddress := state.selfAddress,
+      consistentSize := (by simp [ByteArray.copySlice_eq_append, state.consistentSize, h])
+    }
   else
     Interp.ub
+
+def MemoryState.storeCTree [ErrorE -< F] (state : MemoryState) (addr : UInt64) (val : ByteArray)
+  (poison : ByteArray := ByteArray.replicate val.size 0) (h : poison.size = val.size := by grind)
+    : CTree F C MemoryState :=
+  if addr.toNat + val.size ≤ state.contents.size then
+    return {
+      contents := val.copySlice 0 state.contents addr.toNat val.size false,
+      poisonMask := poison.copySlice 0 state.poisonMask addr.toNat val.size false,
+      selfAddress := state.selfAddress,
+      consistentSize := (by simp [ByteArray.copySlice_eq_append, state.consistentSize, h])
+    }
+  else
+    ub
 
 /--
   Poison the given number n of bytes, starting from the given address in memory.
@@ -489,15 +575,14 @@ def MemoryState.empoison (state : MemoryState) (addr : UInt64) (n : Nat)
     : Interp MemoryState :=
   if h : addr.toNat + n ≤ state.poisonMask.size then
     let mask := ByteArray.replicate n 0xff
-    return ⟨state.contents,
-      mask.copySlice 0 state.poisonMask addr.toNat n false,
-      by
-        have h' : min n mask.size = n := by grind
-        have h'' : min addr.toNat state.poisonMask.size = addr.toNat := by grind
-        simp [ByteArray.copySlice_eq_append, state.consistentSize, h', h'']
-        grind
-
-      ⟩
+    return {
+      contents := state.contents,
+      poisonMask := mask.copySlice 0 state.poisonMask addr.toNat n false,
+      selfAddress := state.selfAddress,
+      consistentSize := (by
+        simp [ByteArray.copySlice_eq_append, state.consistentSize]
+        grind)
+    }
   else
     Interp.ub
 
@@ -529,6 +614,13 @@ def MemoryState.load (state : MemoryState) (addr size : UInt64)
   else
     Interp.ub
 
+def MemoryState.loadCTree [ErrorE -< F] (state : MemoryState) (addr size : UInt64)
+    : CTree F C ByteArray :=
+  if addr.toNat + size.toNat <= state.contents.size then
+    return state.contents.extract addr.toNat (addr + size).toNat
+  else
+    ub
+
 /--
   Load bitwise poison status of the given memory address.
   Yields UB if the access is out of bounds.
@@ -540,6 +632,13 @@ def MemoryState.loadPoison (state : MemoryState) (addr size : UInt64)
   else
     Interp.ub
 
+def MemoryState.loadPoisonCTree [ErrorE -< F] (state : MemoryState) (addr size : UInt64)
+    : CTree F C ByteArray :=
+  if addr.toNat + size.toNat <= state.poisonMask.size then
+    return state.poisonMask.extract addr.toNat (addr + size).toNat
+  else
+    ub
+
 /--
   Check if any of the `size` bytes at the given memory address `addr` is poison.
   Yields UB if the access is out of bounds.
@@ -547,6 +646,16 @@ def MemoryState.loadPoison (state : MemoryState) (addr size : UInt64)
 def MemoryState.hasPoison (state : MemoryState) (addr size : UInt64)
     : Interp Bool := do
   let poisonMask ← state.loadPoison addr size
+  let mut poison := false
+  for b in poisonMask do
+    if b ≠ 0 then
+      poison := true
+      break
+  return poison
+
+def MemoryState.hasPoisonCTree [ErrorE -< F] (state : MemoryState) (addr size : UInt64)
+    : CTree F C Bool := do
+  let poisonMask ← state.loadPoisonCTree addr size
   let mut poison := false
   for b in poisonMask do
     if b ≠ 0 then
@@ -589,8 +698,6 @@ def MemoryState.llvmLoad (state : MemoryState) (addr : UInt64) (type : TypeAttr)
       if ← state.hasPoison addr 8 then return .addr 0
       return .addr ba.toUInt64LE!
   | _ => none
-
-
 
 def Arith.interpretOp' (opType : Veir.Arith) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
@@ -896,39 +1003,6 @@ def Felt.interpretOp' (opType : Veir.Felt) (properties : propertiesOf opType)
   | _ => none
 
 
-structure FreezeCIn : Type u where
-  bw : Nat
-  val : LLVM.Int bw
-
-@[expose]
-def FreezeC (c : FreezeCIn.{u}) : Type :=
-  match c with
-  | .mk bw _ => LLVM.Int bw
-
-structure UBEIn : Type u where
-
-def UBE (e : UBEIn.{u}) :=
-  match e with
-  | .mk => False
-
-structure ErrorEIn : Type u where
-
-inductive Void where
-
-@[expose]
-def ErrorE (e : ErrorEIn.{u}) :=
-  match e with
-  | .mk => Void
-
-def error {CIn} {C : CIn → Type} {R} := CTree.vis (E := ErrorE) (C := C) (R := R) ErrorEIn.mk (fun x => by (cases x))
--- FIXME
-def ub {CIn} {C : CIn → Type} {R} := CTree.vis (E := ErrorE) (C := C) (R := R) ErrorEIn.mk (fun x => by (cases x))
-
-instance : MonadLift Option (CTree ErrorE FreezeC) where
-  monadLift
-    | none => error
-    | some v => return v
-
 def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     (mem : MemoryState)
@@ -940,7 +1014,12 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     | .integer intAttr =>
       let .integerType bw := resType.val
         | error
-      return (#[.int bw.bitwidth (LLVM.Int.constant bw.bitwidth intAttr.value)], mem, none)
+      let origbw := intAttr.type.bitwidth
+      let rawbits := BitVec.ofInt origbw intAttr.value
+      let extended := match origbw with
+        | 1 => rawbits.zeroExtend bw.bitwidth
+        | _ => rawbits.signExtend bw.bitwidth
+      return (#[.int bw.bitwidth (LLVM.Int.val extended)], mem, none)
     | .float floatAttr =>
       let .floatType bw := resType.val
         | error
@@ -955,6 +1034,13 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let some resType := resultTypes[0]? | error
     let .integerType bw := resType.val | error
     return (#[.int bw.bitwidth (LLVM.Int.mlir_poison bw.bitwidth)], mem, none)
+  | .mlir__zero => do
+    let some resType := resultTypes[0]? | error
+    match resType.val with
+    | .integerType bw =>
+      return (#[.int bw.bitwidth (LLVM.Int.val (BitVec.ofNat bw.bitwidth 0))], mem, none)
+    | .llvmPointerType _ => return (#[.addr 0], mem, none)
+    | _ => error
   | .add => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | error
     if h: bw' ≠ bw then error else
@@ -1773,6 +1859,46 @@ def Cf.interpretOp' (opType : Veir.Cf) (properties : propertiesOf opType)
     | .int 1 .poison => Interp.ub
     | _ => none
 
+def Io.interpretOp' [ErrorE -< F] [IoE -< F] (opType : Veir.Io) (properties : propertiesOf opType)
+    (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
+    (_blockOperands : Array BlockPtr) (mem : MemoryState)
+    : CTree F C ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
+  match opType with
+  | .self => do
+    return (#[.ioAddr mem.selfAddress], mem, none)
+  | .send => do
+    let [.ioAddr dest, .addr ptr, .int _ len] := operands.toList | ub
+    let .val len := len | ub
+    let lenNat := len.toNat
+    if lenNat ≥ UInt64.size then ub
+    let len : UInt64 := UInt64.ofNat lenNat
+    if ← mem.hasPoisonCTree ptr len then ub
+    let buf ← mem.loadCTree ptr len
+    ioSend { src := mem.selfAddress, dest, payload := buf }
+    return (#[.int 64 (.val buf.size)], mem, none)
+  | .recv => do
+    let [.addr ptr, .int _ len] := operands.toList | ub
+    let .val len := len | ub
+    let len := len.toNat
+    let optResult ← ioRecv
+    let (status, src, mem) ← match optResult with
+    | none => pure (Io.Error.exhausted, 0, mem)
+    | some { src := src, dest := _, payload := payload } =>
+      if payload.size > len then
+        pure (Io.Error.messageTooLong, 0, mem)
+      else do
+        let mem ← mem.storeCTree ptr payload
+        pure (payload.size, src, mem)
+    return (#[.int 64 (.val (BitVec.ofInt 64 status)), .ioAddr src], mem, none)
+  | .rand => do
+    let [.addr addr, .int _ len] := operands.toList | ub
+    let .val len := len | ub
+    let lenNat := len.toNat
+    if lenNat ≥ UInt64.size then ub
+    let buf ← ioRand lenNat
+    let mem ← mem.storeCTree addr buf
+    return  (#[.int 64 (.val len.toNat)], mem, none)
+
 def Comb.interpretOp' (opType : Veir.Comb) (properties : propertiesOf opType)
     (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
     : Option ((Array RuntimeValue) × Option ControlFlowAction) :=
@@ -1836,6 +1962,8 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
   | .cf cfOp => do
     let (vals, act) ← Cf.interpretOp' cfOp properties resultTypes operands blockOperands
     return (vals, mem, act)
+  --| .io ioOp => do
+    -- Io.interpretOp' ioOp properties resultTypes operands blockOperands mem
   | .comb combOp => do
     let (vals, act) ← Comb.interpretOp' combOp properties operands blockOperands
     return (vals, mem, act)
@@ -1843,6 +1971,8 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     let (vals, act) ← HW.interpretOp' hwOp properties resultTypes blockOperands
     return (vals, mem, act)
   | .func .return => do
+    return (#[], mem, some (.return operands))
+  | .cir .return => do
     return (#[], mem, some (.return operands))
   | .builtin .unrealized_conversion_cast => do
     let some resType := resultTypes[0]? | none

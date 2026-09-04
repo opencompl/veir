@@ -1,7 +1,4 @@
 // RUN: veir-interpret %s | filecheck %s
-// Expected to fail until `llvm.mlir.constant` handles the value attribute's
-// integer width the way MLIR does; drop the XFAIL with the fix.
-// XFAIL: *
 
 // `llvm.mlir.constant` permits the value attribute's integer type to differ
 // from the result type. MLIR reads the literal as an APInt of the *attribute's*
