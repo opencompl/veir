@@ -1926,48 +1926,47 @@ def Cf.interpretOp' (opType : Veir.Cf) (properties : propertiesOf opType)
     | .int 1 .poison => Interp.ub
     | _ => none
 
-def Io.interpretOp' (opType : Veir.Io) (properties : propertiesOf opType)
+def Io.interpretOp' [ErrorE -< F] [IoE -< F] (opType : Veir.Io) (properties : propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
     (_blockOperands : Array BlockPtr) (mem : MemoryState)
-    : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
+    : CTree F C ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
   match opType with
   | .self => do
     return (#[.ioAddr mem.selfAddress], mem, none)
   | .send => do
-    let [.ioAddr dest, .addr ptr, .int _ len] := operands.toList | none
-    let .val len := len | Interp.ub
+    let [.ioAddr dest, .addr ptr, .int _ len] := operands.toList | ub
+    let .val len := len | ub
     let lenNat := len.toNat
-    if lenNat ≥ UInt64.size then Interp.ub
+    if lenNat ≥ UInt64.size then ub
     let len : UInt64 := UInt64.ofNat lenNat
-    if ← mem.hasPoison ptr len then Interp.ub
-    let buf ← mem.load ptr len
+    if ← mem.hasPoisonCTree ptr len then ub
+    let buf ← mem.loadCTree ptr len
+    ioSend buf
     let mem := mem.sendMessage dest buf
     return (#[.int 64 (.val buf.size)], mem, none)
   | .recv => do
-    let [.addr ptr, .int _ len] := operands.toList | none
-    let .val len := len | Interp.ub
+    let [.addr ptr, .int _ len] := operands.toList | ub
+    let .val len := len | ub
     let len := len.toNat
-    -- `status` is the number of bytes written, or an `Io.Error` code.
-    -- `src` is the source address of the message, or 0 if no message was received.
-    let (status, src, mem) ← match mem.consumeMessage with
-      | none => pure (Io.Error.exhausted, 0, mem)
-      | some (mem', msg) =>
-        if msg.payload.size > len then
-          -- Leave the message in flight so a larger buffer can retry.
-          pure (Io.Error.messageTooLong, 0, mem)
-        else do
-          let mem' ← mem'.store ptr msg.payload
-          pure ((msg.payload.size : Int), msg.src, mem')
+    let optResult ← ioRecv
+    let (status, src, mem) ← match optResult with
+    | none => pure (Io.Error.exhausted, 0, mem)
+    | some (src, payload) =>
+      if payload.size > len then
+        pure (Io.Error.messageTooLong, 0, mem)
+      else do
+        let mem ← mem.storeCTree ptr payload
+        pure (payload.size, src, mem)
     return (#[.int 64 (.val (BitVec.ofInt 64 status)), .ioAddr src], mem, none)
   | .rand => do
-    let [.addr addr, .int _ len] := operands.toList | none
-    let .val len := len | Interp.ub
+    let [.addr addr, .int _ len] := operands.toList | ub
+    let .val len := len | ub
     let lenNat := len.toNat
-    if lenNat ≥ UInt64.size then Interp.ub
-    let len : UInt64 := UInt64.ofNat lenNat
-    let ⟨mem, buf⟩ ← mem.entropyLoad len
-    let mem ← mem.store addr buf
+    if lenNat ≥ UInt64.size then ub
+    let buf ← ioRand lenNat
+    let mem ← mem.storeCTree addr buf
     return  (#[.int 64 (.val len.toNat)], mem, none)
+
 def Comb.interpretOp' (opType : Veir.Comb) (properties : propertiesOf opType)
     (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
     : Option ((Array RuntimeValue) × Option ControlFlowAction) :=
@@ -2031,8 +2030,8 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
   | .cf cfOp => do
     let (vals, act) ← Cf.interpretOp' cfOp properties resultTypes operands blockOperands
     return (vals, mem, act)
-  | .io ioOp => do
-    Io.interpretOp' ioOp properties resultTypes operands blockOperands mem
+  --| .io ioOp => do
+    -- Io.interpretOp' ioOp properties resultTypes operands blockOperands mem
   | .comb combOp => do
     let (vals, act) ← Comb.interpretOp' combOp properties operands blockOperands
     return (vals, mem, act)
