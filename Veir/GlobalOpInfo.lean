@@ -35,7 +35,9 @@ match opCode with
 | .test op => Test.propertiesOf op
 | .felt op => Felt.propertiesOf op
 | .cir op => Cir.propertiesOf op
+| .string op => LLZK.String.propertiesOf op
 | .include op => LLZK.Include.propertiesOf op
+| .global op => LLZK.Global.propertiesOf op
 | .function op => LLZK.Function.propertiesOf op
 
 /--
@@ -64,7 +66,9 @@ def OpCode.getEffects (opCode : OpCode) (props : _propertiesOf opCode) : MemoryE
   | .test op, props => Test.getEffects op props
   | .felt op, props => Felt.getEffects op props
   | .cir op, props => Cir.getEffects op props
+  | .string op, props => LLZK.String.getEffects op props
   | .include op, props => LLZK.Include.getEffects op props
+  | .global op, props => LLZK.Global.getEffects op props
   | .function op, props => LLZK.Function.getEffects op props
 
 /--
@@ -91,7 +95,9 @@ def OpCode.getRegionKind (opCode : OpCode) (index : Nat) : RegionKind :=
   | .test op => HasOpInfo.getRegionKind op index
   | .felt op => HasOpInfo.getRegionKind op index
   | .cir op => HasOpInfo.getRegionKind op index
+  | .string op => HasOpInfo.getRegionKind op index
   | .include op => HasOpInfo.getRegionKind op index
+  | .global op => HasOpInfo.getRegionKind op index
   | .function op => HasOpInfo.getRegionKind op index
 
 /--
@@ -119,7 +125,9 @@ def OpCode.hasSSADominance (opCode : OpCode) (index : Nat) : Bool :=
   | .test op => Test.hasSSADominance op index
   | .felt op => Felt.hasSSADominance op index
   | .cir op => Cir.hasSSADominance op index
+  | .string op => LLZK.String.hasSSADominance op index
   | .include op => LLZK.Include.hasSSADominance op index
+  | .global op => LLZK.Global.hasSSADominance op index
   | .function op => LLZK.Function.hasSSADominance op index
 
 /--
@@ -148,7 +156,9 @@ def OpCode.hasNoTerminator (opCode : OpCode) (index : Nat) : Bool :=
   | .test op => HasOpInfo.hasNoTerminator op index
   | .felt op => HasOpInfo.hasNoTerminator op index
   | .cir op => HasOpInfo.hasNoTerminator op index
+  | .string op => HasOpInfo.hasNoTerminator op index
   | .include op => HasOpInfo.hasNoTerminator op index
+  | .global op => HasOpInfo.hasNoTerminator op index
   | .function op => HasOpInfo.hasNoTerminator op index
 
 /-- Whether this opcode carries MLIR's `IsolatedFromAbove` trait. -/
@@ -173,7 +183,9 @@ def OpCode.isIsolatedFromAbove (opCode : OpCode) : Bool :=
   | .test op => HasOpInfo.isIsolatedFromAbove op
   | .felt op => HasOpInfo.isIsolatedFromAbove op
   | .cir op => HasOpInfo.isIsolatedFromAbove op
+  | .string op => HasOpInfo.isIsolatedFromAbove op
   | .include op => HasOpInfo.isIsolatedFromAbove op
+  | .global op => HasOpInfo.isIsolatedFromAbove op
   | .function op => HasOpInfo.isIsolatedFromAbove op
 
 /--
@@ -202,7 +214,9 @@ def OpCode.isTerminator (opCode : OpCode) : Bool :=
   | .test op => HasOpInfo.isTerminator op
   | .felt op => HasOpInfo.isTerminator op
   | .cir op => HasOpInfo.isTerminator op
+  | .string op => HasOpInfo.isTerminator op
   | .include op => HasOpInfo.isTerminator op
+  | .global op => HasOpInfo.isTerminator op
   | .function op => HasOpInfo.isTerminator op
 
 /--
@@ -234,7 +248,9 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | .test op => Test.isConstantLike op
   | .felt op => Felt.isConstantLike op
   | .cir op => Cir.isConstantLike op
+  | .string op => LLZK.String.isConstantLike op
   | .include op => LLZK.Include.isConstantLike op
+  | .global op => LLZK.Global.isConstantLike op
   | .function op => LLZK.Function.isConstantLike op
 
 /--
@@ -262,7 +278,9 @@ def OpCode.propagatesPoison (opCode : OpCode) : Bool :=
   | .test op => HasOpInfo.propagatesPoison op
   | .felt op => HasOpInfo.propagatesPoison op
   | .cir op => HasOpInfo.propagatesPoison op
+  | .string op => HasOpInfo.propagatesPoison op
   | .include op => HasOpInfo.propagatesPoison op
+  | .global op => HasOpInfo.propagatesPoison op
   | .function op => HasOpInfo.propagatesPoison op
 
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
@@ -287,7 +305,9 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   | .test op => Test.fromAttrDict op attrDict
   | .felt op => Felt.fromAttrDict op attrDict
   | .cir op => Cir.fromAttrDict op attrDict
+  | .string op => LLZK.String.fromAttrDict op attrDict
   | .include op => LLZK.Include.fromAttrDict op attrDict
+  | .global op => LLZK.Global.fromAttrDict op attrDict
   | .function op => LLZK.Function.fromAttrDict op attrDict
 
 /--
@@ -316,7 +336,9 @@ def Properties.toAttrDict
   | .test op, props => Test.toAttrDict op props
   | .felt op, props => Felt.toAttrDict op props
   | .cir op, props => Cir.toAttrDict op props
+  | .string op, props => LLZK.String.toAttrDict op props
   | .include op, props => LLZK.Include.toAttrDict op props
+  | .global op, props => LLZK.Global.toAttrDict op props
   | .function op, props => LLZK.Function.toAttrDict op props
 
 instance : IsOpCode OpCode where
@@ -348,7 +370,9 @@ def OpCode.functionInterface? (opCode : OpCode) : Option (FunctionOpInterface (_
   | .test op => HasOpInfo.functionInterface? op
   | .felt op => HasOpInfo.functionInterface? op
   | .cir op => HasOpInfo.functionInterface? op
+  | .string op => HasOpInfo.functionInterface? op
   | .include op => HasOpInfo.functionInterface? op
+  | .global op => HasOpInfo.functionInterface? op
   | .function op => HasOpInfo.functionInterface? op
 
 #generate_has_dialect_instances OpCode
@@ -376,7 +400,9 @@ def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
   | .felt opType => Felt.verifyLocalInvariants opType op ctx opIn
   | .cir opType => Cir.verifyLocalInvariants opType op ctx opIn
   | .io opType => Io.verifyLocalInvariants opType op ctx opIn
+  | .string opType => LLZK.String.verifyLocalInvariants opType op ctx opIn
   | .include opType => LLZK.Include.verifyLocalInvariants opType op ctx opIn
+  | .global opType => LLZK.Global.verifyLocalInvariants opType op ctx opIn
   | .function opType => LLZK.Function.verifyLocalInvariants opType op ctx opIn
 
 instance : HasOpInfo OpCode where
@@ -411,8 +437,8 @@ def OpCode.materializeConstant (opCode : OpCode) (value : RuntimeValue)
     -- fails to compile until it decides how, or whether, to materialize.
     | .riscv_cf _ | .riscv_stack _ | .rv64 _ | .cf _ | .builtin _
     | .verif _
-    | .func _ | .datapath _ | .pdl _ | .test _ | .cir _ | .io _ | .include _
-    | .function _ => none
+    | .func _ | .datapath _ | .pdl _ | .test _ | .cir _ | .io _ | .string _
+    | .include _ | .global _ | .function _ => none
   guard materialized.fst.isConstantLike
   return materialized
 

@@ -661,6 +661,17 @@ def parseOptionalModArithType : AttrParserM (Option TypeAttr) := do
   parsePunctuation ">"
   return some (ModArithType.mk modulus)
 
+/-- Parse an LLZK string type, if present. -/
+def parseOptionalStringType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "string.type".toByteArray then
+    return none
+  let _ ← consumeToken
+  return some StringType.mk
+
 /--
   Parse an optional felt-type field-name annotation: `<"name">`.
 -/
@@ -1106,6 +1117,8 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some modArithType
   if let some feltType ← parseOptionalFeltType then
     return some feltType
+  if let some stringType ← parseOptionalStringType then
+    return some stringType
   if let some cirIntType ← parseOptionalCirIntType then
     return some cirIntType
   if let some cirBoolType ← parseOptionalCirBoolType then
