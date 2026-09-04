@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=riscv-combine | filecheck %s
+// RUN: veir-opt %s -p=riscv-combine,dce | filecheck %s
 
 // `zextb(lb)` becomes `lbu` only for non-volatile loads. The replacement
 // preserves the load's memory properties, including its offset. The combine's

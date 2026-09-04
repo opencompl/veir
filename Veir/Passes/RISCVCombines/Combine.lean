@@ -1585,18 +1585,26 @@ def zextw_zextb : RewritePattern OpCode :=
 
     LLVM: `zextloadi8 -> LBU`.
     https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1989-L2002 -/
-private def zextb_lb_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lbValue, _) := matchRVZextb op ctx.raw | return (ctx, none)
-  let some lb := lbValue.definingOp? | return (ctx, none)
-  let some (addr, properties) := matchRVLb lb ctx.raw | return (ctx, none)
-  if properties.volatile_ then return (ctx, none)
-  let (ctx, lbu) ← WfRewriter.createOp! ctx Riscv.lbu
-    #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[addr] #[] #[] properties none
-  some (ctx, some (#[lbu], #[lbu.getResult 0]))
+private def zextb_lb_pattern : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let addrType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let addr ← Puddle.MatchProg.value addrType
+      let lbType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let lb ← Puddle.MatchProg.operation (.riscv .lb) #[addr] #[lbType]
+      let _ ← Puddle.MatchProg.matchNative lb.properties (fun properties => !properties.volatile_)
+      let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let _ ← Puddle.MatchProg.root (.riscv .zextb) #[lb.res[0]!] #[resultType]
+      return (addr, resultType, lb.properties))
+    (fun (addr, resultType, lbProperties) => do
+      let lbuProperties : Puddle.Handle OpCode (.prop (.riscv .lbu)) ←
+        Puddle.CreateProg.applyNative lbProperties (fun properties => some properties)
+      let lbu ← Puddle.CreateProg.operation (.riscv .lbu) #[addr] #[resultType] lbuProperties
+      return lbu)
+    (fun lbu => lbu)
 
 def zextb_lb : RewritePattern OpCode :=
-  RewritePattern.fromLocalRewrite zextb_lb_local
+  zextb_lb_pattern.compile.run
 
 /-- `riscv.zextb (riscv.lbu addr) -> riscv.lbu addr`.  An `lbu` has already
     cleared bits 63:8, so the additional byte extension is redundant.
