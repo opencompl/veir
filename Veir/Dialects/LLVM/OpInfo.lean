@@ -65,6 +65,8 @@ inductive Llvm where
 | frem
 | freeze
 | bitcast
+| inttoptr
+| ptrtoint
 | intr__smax
 | intr__smin
 | intr__umax
@@ -330,6 +332,7 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
   | .getelementptr, _
   | .br, _ | .cond_br, _ | .switch, _ | .return, _
   | .freeze, _ | .bitcast, _
+  | .inttoptr, _ | .ptrtoint, _
   | .intr__smax, _ | .intr__smin, _ | .intr__umax, _ | .intr__umin, _
   | .intr__abs, _
   | .intr__sadd__sat, _ | .intr__uadd__sat, _
@@ -364,6 +367,7 @@ def Llvm.isTerminator (op : Llvm) : Bool :=
 def Llvm.propagatesPoison : Llvm → Bool
   | .and | .or | .xor | .add | .sub | .mul | .sdiv | .udiv | .srem | .urem
   | .shl | .lshr | .ashr | .icmp | .trunc | .sext | .zext | .bitcast
+  | .inttoptr | .ptrtoint
   | .intr__ctlz | .intr__cttz | .intr__ctpop | .intr__bswap
   | .intr__bitreverse | .intr__fshl | .intr__fshr
   | .intr__smax | .intr__smin | .intr__umax | .intr__umin | .intr__abs
@@ -566,6 +570,22 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
     let .llvmPointerType _ := operandType.val
       | throw "Expected operand 0 to have !llvm.ptr type"
+    pure ()
+  | .inttoptr | .ptrtoint => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyPlainOpCounts ctx opIn 1 1
+    let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
+    let resultType := ((op.getResult 0).get! ctx.raw).type
+    let (fromType, toType) := if opType = .ptrtoint then
+      (operandType, resultType)
+    else
+      (resultType, operandType)
+    let .llvmPointerType _ := fromType.val
+      | throw s!"llvm.{if opType = .ptrtoint then "ptrtoint" else "inttoptr"}: \
+        Expected the pointer side to have !llvm.ptr type"
+    let .integerType _ := toType.val
+      | throw s!"llvm.{if opType = .ptrtoint then "ptrtoint" else "inttoptr"}: \
+        Expected the integer side to have integer type"
     pure ()
   | .mlir__addressof => do
     op.verifyPlainOpCounts ctx opIn 0 1
