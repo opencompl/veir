@@ -558,6 +558,26 @@ def LLVMSwitchProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribut
   return { case_values := caseValues, case_operand_segments := segmentsAttr,
            branch_weights := weights, operandSegmentSizes := sizesAttr }
 
+/--
+  The case values as integers, `#[]` when the attribute is absent.
+
+  `case_values` is a dense elements attribute VeIR keeps as text, so its body --
+  `5` for one case, `[13, 35]` for several -- is read back here. `none` if the
+  body is not a list of integer literals.
+-/
+def LLVMSwitchProperties.caseValues? (props : LLVMSwitchProperties) : Option (Array Int) := do
+  let some attr := props.case_values | return #[]
+  /- Strip the brackets a multi-element body carries, and all whitespace. -/
+  let body := attr.value.foldl (init := "") fun acc c =>
+    if c = '[' || c = ']' || c = ' ' || c = '\t' || c = '\n' then acc else acc.push c
+  if body.isEmpty then
+    return #[]
+  let mut values : Array Int := #[]
+  for piece in body.splitOn "," do
+    let some value := piece.toInt? | none
+    values := values.push value
+  return values
+
 structure LLVMModuleFlagsProperties where
   flags : ArrayAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
