@@ -6,8 +6,8 @@
   "func.func"() <{sym_name = "main", function_type = () -> ()}> ({
     // CHECK-NEXT:     "func.func"() <{"function_type" = () -> (), "sym_name" = "main"}> ({
     // CHECK-NEXT:       ^{{.*}}():
-    %peer = "test.test"() : () -> !io.address
-    // CHECK-NEXT:         %[[peer:.*]] = "test.test"() : () -> !io.address
+    %peer = "io.self"() : () -> !io.address
+    // CHECK-NEXT:         %[[peer:.*]] = "io.self"() : () -> !io.address
     %len = "llvm.mlir.constant"() <{value = 32 : i64}> : () -> i64
     // CHECK-NEXT:         %[[len:.*]] = "llvm.mlir.constant"() <{"value" = 32 : i64}> : () -> i64
     %buf = "llvm.alloca"(%len) <{elem_type = i8}> : (i64) -> !llvm.ptr
