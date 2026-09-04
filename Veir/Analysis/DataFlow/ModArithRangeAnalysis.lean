@@ -8,7 +8,7 @@ public section
 namespace Veir
 
 /-!
-# Integer range analysis
+# ModArith range analysis
 
 This module implements a sparse forward dataflow analysis that approximates each
 ModArith SSA value with an interval of its possible unsigned integer representations.
@@ -21,17 +21,17 @@ arithmetic operations preserve their raw computed interval. Unknown operations u
 Ranges are joined along control flow edges.
 -/
 
-namespace IntegerRangeAnalysis
+namespace ModArithRangeAnalysis
 
-instance : SparseFactSpec .integerRange IntegerRangeLattice where
+instance : SparseFactSpec .modArithRange IntegerRangeLattice where
   payloadEq := rfl
 
 def kind : AnalysisKind :=
-  .integerRange
+  .modArithRange
 
 /-- Read the current integer range attached to an SSA value. -/
 def getRange (value : ValuePtr) (dfCtx : DataFlowContext) : IntegerRangeLattice :=
-  SparseFact.getElement .integerRange value dfCtx
+  SparseFact.getElement .modArithRange value dfCtx
 
 /--
 The canonical range contains the normalized representatives of a ModArith value:
@@ -83,37 +83,36 @@ private def constantRange
 Infer result ranges for one operation.
 
 Unknown operations that produce ModArith values conservatively receive `⊤`; unrelated
-results receive no update. Operations with an uninitialized operand wait for more
+results receive `⊥`. Operations with an uninitialized operand wait for more
 information.
 -/
 def transfer
     (op : OperationPtr)
     (operands : Array IntegerRangeLattice)
-    (irCtx : WfIRContext OpCode) : Array (Option IntegerRangeLattice) :=
+    (irCtx : WfIRContext OpCode) : Array IntegerRangeLattice :=
   let numResults := op.getNumResults! irCtx.raw
   let pessimisticUpdates := (op.getResults! irCtx.raw).map fun result =>
     match (result.getType! irCtx.raw).val with
-    | .modArithType _ => some ⊤
-    | _ => none
+    | .modArithType _ => ⊤
+    | _ => ⊥
 
   if op.getNumRegions! irCtx.raw ≠ 0 then
     pessimisticUpdates
   else
     match op.getOpType! irCtx.raw with
     | OpCode.mod_arith Mod_Arith.constant =>
-      Array.replicate numResults (some (constantRange op irCtx))
+      Array.replicate numResults (constantRange op irCtx)
     | OpCode.mod_arith Mod_Arith.add =>
       match operands[0]?, operands[1]? with
       | some IntegerRangeLattice.bottom, _
-      | _, some IntegerRangeLattice.bottom => Array.replicate numResults none
+      | _, some IntegerRangeLattice.bottom => Array.replicate numResults ⊥
       | some lhs, some rhs =>
-        Array.replicate numResults <| some <|
-          applyReduction op (IntegerRangeLattice.add lhs rhs) irCtx
+        Array.replicate numResults <| applyReduction op (IntegerRangeLattice.add lhs rhs) irCtx
       | _, _ => pessimisticUpdates
     | OpCode.mod_arith Mod_Arith.sub =>
       match operands[0]?, operands[1]? with
       | some IntegerRangeLattice.bottom, _
-      | _, some IntegerRangeLattice.bottom => Array.replicate numResults none
+      | _, some IntegerRangeLattice.bottom => Array.replicate numResults ⊥
       | some lhs, some rhs =>
         match ((op.getResult 0 : ValuePtr).getType! irCtx.raw).val with
         | .modArithType mt =>
@@ -121,28 +120,26 @@ def transfer
           -- unsigned underflow for canonical operands.
           let shifted := IntegerRangeLattice.add lhs <|
             IntegerRangeLattice.singleton mt.modulus.value
-          Array.replicate numResults <| some <|
-            applyReduction op (IntegerRangeLattice.sub shifted rhs) irCtx
+          Array.replicate numResults <| applyReduction op (IntegerRangeLattice.sub shifted rhs) irCtx
         | _ => pessimisticUpdates
       | _, _ => pessimisticUpdates
     | OpCode.mod_arith Mod_Arith.mul =>
       match operands[0]?, operands[1]? with
       | some IntegerRangeLattice.bottom, _
-      | _, some IntegerRangeLattice.bottom => Array.replicate numResults none
+      | _, some IntegerRangeLattice.bottom => Array.replicate numResults ⊥
       | some lhs, some rhs =>
-        Array.replicate numResults <| some <|
-          applyReduction op (IntegerRangeLattice.mul lhs rhs) irCtx
+        Array.replicate numResults <| applyReduction op (IntegerRangeLattice.mul lhs rhs) irCtx
       | _, _ => pessimisticUpdates
     | _ => pessimisticUpdates
 
-end IntegerRangeAnalysis
+end ModArithRangeAnalysis
 
-/-- Sparse forward integer-range analysis for supported integer-like dialects. -/
-def IntegerRangeAnalysis : DataFlowAnalysis :=
+/-- Sparse forward range analysis for ModArith values. -/
+def ModArithRangeAnalysis : DataFlowAnalysis :=
   SparseForwardDataFlowAnalysis.new
-    .integerRange
-    IntegerRangeAnalysis.kind
-    IntegerRangeAnalysis.transfer
-    (entryState := fun value irCtx => IntegerRangeAnalysis.canonicalRange value irCtx.raw)
+    .modArithRange
+    ModArithRangeAnalysis.kind
+    ModArithRangeAnalysis.transfer
+    (entryState := fun value irCtx => ModArithRangeAnalysis.canonicalRange value irCtx.raw)
 
 end Veir

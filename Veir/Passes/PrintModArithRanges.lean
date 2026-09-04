@@ -1,7 +1,7 @@
 module
 
 public import Veir.Pass
-public import Veir.Analysis.DataFlow.IntegerRangeAnalysis
+public import Veir.Analysis.DataFlow.ModArithRangeAnalysis
 
 namespace Veir
 
@@ -16,7 +16,7 @@ private def printRange
     (dfCtx : DataFlowContext)
     (irCtx : WfIRContext OpCode) : IO Unit := do
   let .modArithType _ := (value.getType! irCtx.raw).val | return
-  let range := IntegerRangeAnalysis.getRange value dfCtx
+  let range := ModArithRangeAnalysis.getRange value dfCtx
   IO.println s!"// mod_arith.range {label} = {range.format}"
 
 private partial def printRangesRecursively
@@ -44,7 +44,7 @@ private def PrintModArithRangesPass.impl
     (ctx : WfIRContext OpCode)
     (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
-  let some dfCtx := fixpointSolve op #[IntegerRangeAnalysis] ctx
+  let some dfCtx := fixpointSolve op #[ModArithRangeAnalysis] ctx
     | throw "ModArith range analysis did not converge"
   printRangesRecursively op dfCtx ctx
   return ctx

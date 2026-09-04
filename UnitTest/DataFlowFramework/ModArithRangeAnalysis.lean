@@ -1,10 +1,10 @@
 import UnitTest.DataFlowFramework.Helpers
 
-import Veir.Analysis.DataFlow.IntegerRangeAnalysis
+import Veir.Analysis.DataFlow.ModArithRangeAnalysis
 
 open Veir
 
-namespace ModArithDataflow
+namespace ModArithRangeAnalysisTest
 
 /-- Expected range for one named SSA value. -/
 private structure ExpectedRange where
@@ -25,7 +25,7 @@ private def compareRanges
     let some value := recovered.values[e.name]?
       | report := report.push s!"range {e.name}: missing SSA value"
         continue
-    let observed := IntegerRangeAnalysis.getRange value dfCtx
+    let observed := ModArithRangeAnalysis.getRange value dfCtx
     if observed != e.range then
       report := report.push
         s!"range {e.name}: expected {rangeToString e.range}, observed {rangeToString observed}"
@@ -35,7 +35,7 @@ private def interval (lower upper : Int) (h : lower ≤ upper := by omega) : Int
   .interval { lower, upper, lower_le_upper := h }
 
 private def run (mlir : String) (expected : Array ExpectedRange) : String :=
-  runWithAnalyses mlir #[Veir.IntegerRangeAnalysis] fun top dfCtx parserState =>
+  runWithAnalyses mlir #[Veir.ModArithRangeAnalysis] fun top dfCtx parserState =>
     match recoverNames top parserState.ctx mlir with
     | .error err => #[err]
     | .ok recovered => compareRanges dfCtx recovered expected
@@ -172,4 +172,4 @@ info: "ok"
 #guard_msgs in
 #eval! runModArithUnboundedStorageExample
 
-end ModArithDataflow
+end ModArithRangeAnalysisTest
