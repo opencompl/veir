@@ -28,7 +28,7 @@ theorem width_elim (o w : Nat) (Q : Prop)
 /-- This theorem states that if some Prop `Q` holds for a bitvector variable `x`
 of width `o` that is masked to "behave" as if it had width `w` (where `w ≤ o`)
 then it also holds for a bitvector `x` of width `w`. -/
-theorem var_elim (o w : Nat) (hwo : w ≤ o) (Q : BitVec w → Prop)
+theorem var_elim {o w : Nat} (hwo : w ≤ o) (Q : BitVec w → Prop)
     (h : ∀ (x : BitVec o), x &&& maskOfWidth o w = x → Q (x.setWidth w)) :
     ∀ (x : BitVec w), Q x := by
   intro x

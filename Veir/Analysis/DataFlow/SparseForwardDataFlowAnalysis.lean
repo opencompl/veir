@@ -13,7 +13,7 @@ namespace SparseForwardDataFlowAnalysis
 variable {kind : FactKind} {Domain : Type}
 
 -- TODO: When this is verified, we will need something stronger than this for `Domain`
-variable [Top Domain] [Bot Domain] [Join Domain] [DecidableEq Domain]
+variable [Bot Domain] [Join Domain] [DecidableEq Domain]
 
 /--
 The transfer function signature used for custom sparse analyses.
@@ -25,6 +25,10 @@ for that result.
 -/
 abbrev VisitOperationFn (Domain : Type) :=
   OperationPtr -> Array Domain -> WfIRContext OpCode -> Array (Option Domain)
+
+/-- Compute the analysis specific pessimistic state when control flow loses precision. -/
+abbrev EntryStateFn (Domain : Type) :=
+  ValuePtr -> WfIRContext OpCode -> Domain
 
 /--
 Join a sparse lattice fact into the target value state and propagate updates
@@ -44,7 +48,7 @@ def joinAndPropagate
   let newValue := oldValue ⊔ incoming
   if newValue = oldValue then
     return dfCtx
-  dfCtx.modifyFactAndPropagate kind (.ValuePtr target) 
+  dfCtx.modifyFactAndPropagate kind (.ValuePtr target)
     (SparseFact.setLatticeElement · newValue, true) irCtx
 
 /--
@@ -110,6 +114,7 @@ private def visitBlock
     (kind : FactKind)
     [SparseFactSpec kind Domain]
     (analysisKind : AnalysisKind)
+    (entryState : EntryStateFn Domain)
     (block : BlockPtr)
     (dfCtx : DataFlowContext)
     (irCtx : WfIRContext OpCode) : DataFlowContext := Id.run do
@@ -126,10 +131,14 @@ private def visitBlock
 
   -- The argument lattices of entry blocks are set by region control flow or
   -- the callgraph.
+  -- TODO: Until those are modeled, conservatively apply the analysis specific entry state.
   if (parentRegion.get! irCtx.raw).firstBlock = some block then
     -- TODO: Mirror MLIR's handling of `visitCallableOperation` and
     -- `visitRegionSuccessors` and `visitNonControlFlowArgumentsImpl`
     -- for entry blocks.
+    let mut dfCtx := dfCtx
+    for argument in block.getArguments! irCtx.raw do
+      dfCtx := joinAndPropagate kind argument (entryState argument irCtx) dfCtx irCtx
     return dfCtx
 
   let mut dfCtx := dfCtx
@@ -156,13 +165,13 @@ private def visitBlock
     -- Check if we can reason about the dataflow from the predecessor.
     if !(predecessorOp.getOpType! irCtx.raw).isTerminator then
       for target in block.getArguments! irCtx.raw do
-        dfCtx := joinAndPropagate kind target ⊤ dfCtx irCtx
+        dfCtx := joinAndPropagate kind target (entryState target irCtx) dfCtx irCtx
       return dfCtx
 
     let some successorOperands :=
         BranchOpInterface.getSuccessorOperands? predecessorOp predUse.index irCtx.raw
       | for target in block.getArguments! irCtx.raw do
-          dfCtx := joinAndPropagate kind target ⊤ dfCtx irCtx
+          dfCtx := joinAndPropagate kind target (entryState target irCtx) dfCtx irCtx
         return dfCtx
 
     for i in [0:block.getNumArguments! irCtx.raw] do
@@ -189,7 +198,7 @@ private def visitBlock
       | none =>
         -- Conservatively consider internally produced arguments to be at the
         -- pessimistic sparse state.
-        dfCtx := joinAndPropagate kind arg ⊤ dfCtx irCtx
+        dfCtx := joinAndPropagate kind arg (entryState arg irCtx) dfCtx irCtx
 
   return dfCtx
 
@@ -259,6 +268,7 @@ partial def initializeRecursively
     (kind : FactKind)
     [SparseFactSpec kind Domain]
     (analysisKind : AnalysisKind)
+    (entryState : EntryStateFn Domain)
     (visitOperationImpl : VisitOperationFn Domain)
     (op : OperationPtr)
     (dfCtx : DataFlowContext)
@@ -274,11 +284,12 @@ partial def initializeRecursively
 
     while let some block := maybeBlock do
       dfCtx := subscribeToBlockLiveness analysisKind block dfCtx irCtx
-      dfCtx := visitBlock kind analysisKind block dfCtx irCtx
+      dfCtx := visitBlock kind analysisKind entryState block dfCtx irCtx
       let mut maybeOp := (block.get! irCtx.raw).firstOp
 
       while let some nestedOp := maybeOp do
-        dfCtx := initializeRecursively kind analysisKind visitOperationImpl nestedOp dfCtx irCtx
+        dfCtx := initializeRecursively kind analysisKind entryState visitOperationImpl
+          nestedOp dfCtx irCtx
         maybeOp := (nestedOp.get! irCtx.raw).next
 
       maybeBlock := (block.get! irCtx.raw).next
@@ -294,20 +305,19 @@ private def init
     (kind : FactKind)
     [SparseFactSpec kind Domain]
     (analysisKind : AnalysisKind)
+    (entryState : EntryStateFn Domain)
     (visitOperationImpl : VisitOperationFn Domain)
     (top : OperationPtr)
     (dfCtx : DataFlowContext)
     (irCtx : WfIRContext OpCode) : DataFlowContext := Id.run do
   -- Mark the entry block arguments as having reached their pessimistic
-  -- fixpoints.
+  -- fixpoints
   let mut dfCtx := dfCtx
   for regionPtr in (top.get! irCtx.raw).regions do
-    let region := regionPtr.get! irCtx.raw
-    if let some firstBlock := region.firstBlock then
-      for arg in firstBlock.getArguments! irCtx.raw do
-        dfCtx := joinAndPropagate kind arg ⊤ dfCtx irCtx
-
-  initializeRecursively kind analysisKind visitOperationImpl top dfCtx irCtx
+    if let some firstBlock := (regionPtr.get! irCtx.raw).firstBlock then
+      for argument in firstBlock.getArguments! irCtx.raw do
+        dfCtx := joinAndPropagate kind argument (entryState argument irCtx) dfCtx irCtx
+  initializeRecursively kind analysisKind entryState visitOperationImpl top dfCtx irCtx
 
 /--
 Visit an insertion point. If this is at beginning of block and all
@@ -320,6 +330,7 @@ private def visit
     (kind : FactKind)
     [SparseFactSpec kind Domain]
     (analysisKind : AnalysisKind)
+    (entryState : EntryStateFn Domain)
     (visitOperationImpl : VisitOperationFn Domain)
     (point : InsertPoint)
     (dfCtx : DataFlowContext)
@@ -330,7 +341,7 @@ private def visit
   | none =>
     match point.block! irCtx.raw with
     | some block =>
-      visitBlock kind analysisKind block dfCtx irCtx
+      visitBlock kind analysisKind entryState block dfCtx irCtx
     | none =>
       dfCtx
 
@@ -338,17 +349,21 @@ private def visit
 Build a sparse forward analysis over one abstract value domain.
 
 Sparse facts default to `⊥`. Whenever control flow or transfer functions lose
-precision, the framework conservatively joins `⊤` into the affected values.
+precision, the framework conservatively joins the pessimistic entry state into
+the affected values. The entry state defaults to `⊤`; analyses only need to
+override it when they have a more precise analysis-specific state.
 -/
 def new
     (kind : FactKind)
     [SparseFactSpec kind Domain]
+    [Top Domain]
     (analysisKind : AnalysisKind)
     (visitOperationImpl : VisitOperationFn Domain)
+    (entryState : EntryStateFn Domain := fun _ _ => ⊤)
     : DataFlowAnalysis :=
   { kind := analysisKind
-    init := init kind analysisKind visitOperationImpl
-    visit := visit kind analysisKind visitOperationImpl }
+    init := init kind analysisKind entryState visitOperationImpl
+    visit := visit kind analysisKind entryState visitOperationImpl }
 
 end SparseForwardDataFlowAnalysis
 

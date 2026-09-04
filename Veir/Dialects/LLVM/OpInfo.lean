@@ -16,6 +16,7 @@ public section
 inductive Llvm where
 | mlir__constant
 | mlir__poison
+| mlir__zero
 | mlir__global
 | mlir__addressof
 | and
@@ -94,7 +95,8 @@ match op with
 | .trunc => NswNuwProperties
 | .zext => NnegProperties
 | .icmp => IcmpProperties
-| .cond_br => CondBrProperties
+| .br => LLVMBrProperties
+| .cond_br => LLVMCondBrProperties
 | .alloca => AllocaProperties
 | .load => LoadProperties
 | .store => StoreProperties
@@ -124,7 +126,8 @@ def Llvm.fromAttrDict
   case or => exact DisjointProperties.fromAttrDict attrDict
   case zext => exact NnegProperties.fromAttrDict attrDict
   case icmp => exact IcmpProperties.fromAttrDict attrDict
-  case cond_br => exact CondBrProperties.fromAttrDict attrDict
+  case br => exact LLVMBrProperties.fromAttrDict attrDict
+  case cond_br => exact LLVMCondBrProperties.fromAttrDict attrDict
   case alloca => exact AllocaProperties.fromAttrDict attrDict
   case load => exact LoadProperties.fromAttrDict attrDict
   case store => exact StoreProperties.fromAttrDict attrDict
@@ -189,11 +192,20 @@ def Llvm.toAttrDict
     let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) (IntegerType.mk 64)
     (Std.HashMap.emptyWithCapacity 1).insert
       "predicate".toUTF8 (Attribute.integerAttr value)
-  | .cond_br =>
-    let dict := (Std.HashMap.emptyWithCapacity 2).insert
+  | .br => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 1
+    if let some annotation := props.loop_annotation then
+      dict := dict.insert "loop_annotation".toUTF8 (.loopAnnotationAttr annotation)
+    dict
+  | .cond_br => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 3
+    dict := dict.insert
       "branch_weights".toUTF8 (Attribute.denseArrayAttr props.branch_weights)
-    dict.insert "operandSegmentSizes".toUTF8
+    if let some annotation := props.loop_annotation then
+      dict := dict.insert "loop_annotation".toUTF8 (.loopAnnotationAttr annotation)
+    dict := dict.insert "operandSegmentSizes".toUTF8
       (Attribute.denseArrayAttr props.operandSegmentSizes)
+    dict
   | .udiv | .sdiv | .lshr | .ashr => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
     if props.exact then
@@ -289,7 +301,7 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
   | .alloca, _ => .allocate
   | .load, props => if props.volatile_ then .readWrite else .read
   | .store, props => if props.volatile_ then .readWrite else .write
-  | .mlir__constant, _ | .mlir__poison, _ | .mlir__addressof, _
+  | .mlir__constant, _ | .mlir__poison, _ | .mlir__zero, _ | .mlir__addressof, _
   | .and, _ | .or, _ | .xor, _
   | .add, _ | .sub, _ | .mul, _
   | .sdiv, _ | .udiv, _ | .srem, _ | .urem, _
@@ -313,7 +325,7 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
 
 def Llvm.isConstantLike (op : Llvm) : Bool :=
   match op with
-  | .mlir__constant | .mlir__poison | .mlir__addressof => true
+  | .mlir__constant | .mlir__poison | .mlir__zero | .mlir__addressof => true
   | _ => false
 
 def Llvm.isIsolatedFromAbove (op : Llvm) : Bool :=
@@ -345,7 +357,7 @@ def Llvm.propagatesPoison : Llvm → Bool
   -- `RuntimeValue` represents a poisoned float yet, so listing them here would
   -- claim a fold that cannot be materialized.
   | .fadd | .fsub | .fmul | .fdiv | .frem
-  | .mlir__constant | .mlir__poison | .mlir__global | .mlir__addressof
+  | .mlir__constant | .mlir__poison | .mlir__zero | .mlir__global | .mlir__addressof
   | .select | .br | .cond_br | .unreachable | .alloca | .load | .store
   | .getelementptr | .call | .return | .func | .module_flags | .freeze => false
 
@@ -516,6 +528,14 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       if properties.linkage.value == "common" && value.isKnownNonZero then
         throw "expected zero value for 'common' linkage"
     pure ()
+  | .mlir__zero => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyPlainOpCounts ctx opIn 0 1
+    let resultType := ((op.getResult 0).get! ctx.raw).type
+    match resultType.val with
+    | .llvmVoidType _ | .llvmFunctionType _ =>
+      throw "llvm.mlir.zero: Expected result to have a type with a zero value"
+    | _ => pure ()
   | .mlir__addressof => do
     op.verifyPlainOpCounts ctx opIn 0 1
     let resultType := ((op.getResult 0).get! ctx.raw).type
