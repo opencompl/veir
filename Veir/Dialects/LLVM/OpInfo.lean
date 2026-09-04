@@ -32,6 +32,9 @@ inductive Llvm where
 | intr__cttz
 | intr__lifetime__start
 | intr__lifetime__end
+| intr__memset
+| intr__memcpy
+| intr__memmove
 | intr__ctpop
 | intr__bswap
 | intr__bitreverse
@@ -104,6 +107,7 @@ match op with
 | .br => LLVMBrProperties
 | .cond_br => LLVMCondBrProperties
 | .switch => LLVMSwitchProperties
+| .intr__memset | .intr__memcpy | .intr__memmove => LLVMMemIntrinsicProperties
 | .alloca => AllocaProperties
 | .load => LoadProperties
 | .store => StoreProperties
@@ -137,6 +141,12 @@ def Llvm.fromAttrDict
   case br => exact LLVMBrProperties.fromAttrDict attrDict
   case cond_br => exact LLVMCondBrProperties.fromAttrDict attrDict
   case switch => exact LLVMSwitchProperties.fromAttrDict attrDict
+  case intr__memset =>
+    exact LLVMMemIntrinsicProperties.fromAttrDictFor "llvm.intr.memset" attrDict
+  case intr__memcpy =>
+    exact LLVMMemIntrinsicProperties.fromAttrDictFor "llvm.intr.memcpy" attrDict
+  case intr__memmove =>
+    exact LLVMMemIntrinsicProperties.fromAttrDictFor "llvm.intr.memmove" attrDict
   case alloca => exact AllocaProperties.fromAttrDict attrDict
   case load => exact LoadProperties.fromAttrDict attrDict
   case store => exact StoreProperties.fromAttrDict attrDict
@@ -214,6 +224,15 @@ def Llvm.toAttrDict
       dict := dict.insert "loop_annotation".toUTF8 (.loopAnnotationAttr annotation)
     dict := dict.insert "operandSegmentSizes".toUTF8
       (Attribute.denseArrayAttr props.operandSegmentSizes)
+    dict
+  | .intr__memset | .intr__memcpy | .intr__memmove => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 3
+    if let some argAttrs := props.arg_attrs then
+      dict := dict.insert "arg_attrs".toUTF8 (.arrayAttr argAttrs)
+    let volatileAttr := IntegerAttr.mk (if props.isVolatile then 1 else 0) (IntegerType.mk 1)
+    dict := dict.insert "isVolatile".toUTF8 (.integerAttr volatileAttr)
+    if let some tbaa := props.tbaa then
+      dict := dict.insert "tbaa".toUTF8 (.arrayAttr tbaa)
     dict
   | .switch => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 4
@@ -388,6 +407,7 @@ def Llvm.propagatesPoison : Llvm → Bool
   | .mlir__addressof
   | .select | .br | .cond_br | .switch | .unreachable | .alloca | .load | .store
   | .intr__lifetime__start | .intr__lifetime__end | .intr__assume
+  | .intr__memset | .intr__memcpy | .intr__memmove
   | .getelementptr | .call | .return | .func | .module_flags | .freeze => false
 
 instance : IsOpCode Llvm where
@@ -573,6 +593,18 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     | .llvmVoidType _ | .llvmFunctionType _ =>
       throw "llvm.mlir.zero: Expected result to have a type with a zero value"
     | _ => pure ()
+  | .intr__memset | .intr__memcpy | .intr__memmove => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyPlainOpCounts ctx opIn 3 0
+    let pointerOperands := if opType = .intr__memset then 1 else 2
+    for i in [0:pointerOperands] do
+      let operandType := (op.getOperand! ctx.raw i).getType! ctx.raw
+      let .llvmPointerType _ := operandType.val
+        | throw s!"Expected operand {i} to have !llvm.ptr type"
+    let lengthType := (op.getOperand! ctx.raw 2).getType! ctx.raw
+    let .integerType _ := lengthType.val
+      | throw "Expected operand 2 to have integer type"
+    pure ()
   | .intr__lifetime__start | .intr__lifetime__end => do
     op.verifyPlainOpCounts ctx opIn 1 0
     let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
