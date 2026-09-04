@@ -252,4 +252,40 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
+
+    "func.func"()  <{function_type = (i32) -> (), sym_name = "f19"}> ({
+      ^1(%0 : i32):
+        // `i32 -> !cir.int<s, 32> -> i32` keeps every bit, so the round trip is the identity.
+        %1 = "builtin.unrealized_conversion_cast"(%0) : (i32) -> !cir.int<s, 32>
+        %2 = "builtin.unrealized_conversion_cast"(%1) : (!cir.int<s, 32>) -> i32
+        "test.test"(%2) : (i32) -> ()
+        // CHECK:        ^{{.*}}([[ARG:%.*]] : i32):
+        // CHECK-NEXT:   "test.test"([[ARG]]) : (i32) -> ()
+        "func.return"() : () -> ()
+    }) : () -> ()
+
+    "func.func"()  <{function_type = (!cir.bool) -> (), sym_name = "f20"}> ({
+      ^1(%0 : !cir.bool):
+        // `!cir.bool -> i1 -> !cir.bool` is the identity as well.
+        %1 = "builtin.unrealized_conversion_cast"(%0) : (!cir.bool) -> i1
+        %2 = "builtin.unrealized_conversion_cast"(%1) : (i1) -> !cir.bool
+        "test.test"(%2) : (!cir.bool) -> ()
+        // CHECK:        ^{{.*}}([[ARG:%.*]] : !cir.bool):
+        // CHECK-NEXT:   "test.test"([[ARG]]) : (!cir.bool) -> ()
+        "func.return"() : () -> ()
+    }) : () -> ()
+
+    "func.func"()  <{function_type = (!cir.int<s, 32>) -> (), sym_name = "f21"}> ({
+      ^1(%0 : !cir.int<s, 32>):
+        // `!cir.int<s, 32> -> i64 -> !cir.int<s, 32>` changes the width, so the casts stay.
+        %1 = "builtin.unrealized_conversion_cast"(%0) : (!cir.int<s, 32>) -> i64
+        %2 = "builtin.unrealized_conversion_cast"(%1) : (i64) -> !cir.int<s, 32>
+        "test.test"(%2) : (!cir.int<s, 32>) -> ()
+        // CHECK:        ^{{.*}}([[ARG:%.*]] : !cir.int<s, 32>):
+        // CHECK-NEXT:   [[C1:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (!cir.int<s, 32>) -> i64
+        // CHECK-NEXT:   [[C2:%.*]] = "builtin.unrealized_conversion_cast"([[C1]]) : (i64) -> !cir.int<s, 32>
+        // CHECK-NEXT:   "test.test"([[C2]]) : (!cir.int<s, 32>) -> ()
+        "func.return"() : () -> ()
+    }) : () -> ()
+
 }) : () -> ()

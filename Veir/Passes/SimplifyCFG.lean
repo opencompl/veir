@@ -58,9 +58,11 @@ def SimplifyCFG.foldLLVMSameSuccessorCondBr (rewriter : PatternRewriter OpCode) 
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   if op.getOpType! rewriter.ctx.raw ≠ .llvm .cond_br then
     return rewriter
+  let props := op.getProperties! rewriter.ctx.raw Llvm.cond_br
   let some (args, dest) := SimplifyCFG.sameSuccessorCondBrArgsAndDest? rewriter op
     | return rewriter
-  let (rewriter, newOp) ← rewriter.createOp! (.llvm .br) #[] args #[dest] #[] () (some (.before op))
+  let (rewriter, newOp) ← rewriter.createOp! (.llvm .br) #[] args #[dest] #[]
+    { loop_annotation := props.loop_annotation } (some (.before op))
   return rewriter.replaceOp! op newOp
 
 def SimplifyCFG.foldCfConstantCondBr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -75,8 +77,10 @@ def SimplifyCFG.foldLLVMConstantCondBr (rewriter : PatternRewriter OpCode) (op :
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   if op.getOpType! rewriter.ctx.raw ≠ .llvm .cond_br then
     return rewriter
+  let props := op.getProperties! rewriter.ctx.raw Llvm.cond_br
   let some (args, dest) := SimplifyCFG.condBrArgsAndDest? rewriter op | return rewriter
-  let (rewriter, newOp) ← rewriter.createOp! (.llvm .br) #[] args #[dest] #[] () (some (.before op))
+  let (rewriter, newOp) ← rewriter.createOp! (.llvm .br) #[] args #[dest] #[]
+    { loop_annotation := props.loop_annotation } (some (.before op))
   return rewriter.replaceOp! op newOp
 
 def SimplifyCFG.substituteTrampolineArg? (block : BlockPtr) (incomingArgs : SuccessorOperands)
@@ -125,6 +129,15 @@ def SimplifyCFG.condBrPropertiesForArgs (oldProps : CondBrProperties)
         values := #[1, Int.ofNat trueArgs.forwardedOperands.size,
           Int.ofNat falseArgs.forwardedOperands.size] } }
 
+def SimplifyCFG.llvmCondBrPropertiesForArgs (oldProps : LLVMCondBrProperties)
+    (trueArgs falseArgs : SuccessorOperands) : LLVMCondBrProperties :=
+  { branch_weights := oldProps.branch_weights
+    loop_annotation := oldProps.loop_annotation
+    operandSegmentSizes :=
+      { elementType := { bitwidth := 32 }
+        values := #[1, Int.ofNat trueArgs.forwardedOperands.size,
+          Int.ofNat falseArgs.forwardedOperands.size] } }
+
 def SimplifyCFG.bypassCfUnconditionalBranch (rewriter : PatternRewriter OpCode)
     (op : OperationPtr) (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   if op.getOpType! rewriter.ctx.raw != .cf .br then
@@ -143,14 +156,15 @@ def SimplifyCFG.bypassLLVMUnconditionalBranch (rewriter : PatternRewriter OpCode
     (op : OperationPtr) (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   if op.getOpType! rewriter.ctx.raw != .llvm .br then
     return rewriter
+  let props := op.getProperties! rewriter.ctx.raw Llvm.br
   let dest := op.getSuccessor! rewriter.ctx.raw 0
   let some incomingArgs := BranchOpInterface.getSuccessorOperands? op 0 rewriter.ctx.raw
     | return rewriter
   let some (args, newDest) :=
     SimplifyCFG.bypassBlock? rewriter.ctx.raw dest incomingArgs (.llvm .br)
     | return rewriter
-  let (rewriter, newOp) ← rewriter.createOp! (.llvm .br) #[] args.forwardedOperands #[newDest] #[] ()
-    (some (.before op))
+  let (rewriter, newOp) ← rewriter.createOp! (.llvm .br) #[] args.forwardedOperands #[newDest] #[]
+    props (some (.before op))
   return rewriter.replaceOp! op newOp
 
 def SimplifyCFG.bypassCfCondBranch (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -199,7 +213,7 @@ def SimplifyCFG.bypassLLVMCondBranch (rewriter : PatternRewriter OpCode) (op : O
     | none => (falseArgs, falseDest, false)
   if !changedTrue && !changedFalse then
     return rewriter
-  let newProps := SimplifyCFG.condBrPropertiesForArgs props trueArgs falseArgs
+  let newProps := SimplifyCFG.llvmCondBrPropertiesForArgs props trueArgs falseArgs
   let args := #[cond] ++ trueArgs.forwardedOperands ++ falseArgs.forwardedOperands
   let (rewriter, newOp) ←
     rewriter.createOp! (.llvm .cond_br) #[] args #[trueDest, falseDest] #[] newProps (some (.before op))

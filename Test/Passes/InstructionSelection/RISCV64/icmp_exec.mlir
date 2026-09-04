@@ -1,5 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s --check-prefix=SRC
-// RUN: veir-opt %s -p=riscv > %t && veir-interpret %t | filecheck %s
+// RUN: veir-opt %s -p=riscv | veir-interpret | filecheck %s
 
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i64 ()>}> ({

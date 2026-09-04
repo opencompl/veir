@@ -1,7 +1,4 @@
 // RUN: veir-interpret %s | filecheck %s
-// Expected to fail until `llvm.mlir.constant` handles the value attribute's
-// integer width the way MLIR does; drop the XFAIL with the fix.
-// XFAIL: *
 
 // MLIR special-cases width-1 (and unsigned) integer attributes: they are
 // *zero*-extended to the result width, not sign-extended.  See

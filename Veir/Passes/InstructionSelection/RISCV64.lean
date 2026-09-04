@@ -77,67 +77,161 @@ def ctpop32_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctpop 32 .
 def ctpop64_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctpop 64 .cpop ()
 
 /--
-  Shared shape of the integer-extension lowerings (`sext`/`zext`): match a single-operand LLVM
-  extension op whose operand has integer type `i8`, `i16`, or `i32` (see `isLegalExtOpWidth`) and
-  whose result is a strictly wider integer type of width at most 64 (a 64-bit register cannot
-  represent wider results, so e.g. `sext i8 to i128` is left unselected), cast the operand to a
-  register, apply the byte/halfword/word extension op matching the *operand* width (`op8`/`op16`/
-  `op32`), and cast the result back to the result type.
+  RISC-V lowerings with Puddle for the integer-extension operations (`sext`/`zext`): match a
+  single-operand LLVM extension op whose operand has a fixed legal integer width `opBw` (`8`, `16`,
+  or `32`, see `isLegalExtOpWidth`) and whose result is a strictly wider integer type of width at
+  most 64 (a 64-bit register cannot represent wider results, so e.g. `sext i8 to i128` is left
+  unselected; unlike `opBw`, the result width is matched generically rather than enumerated), cast
+  the operand to a register, apply the byte/halfword/word extension op matching `opBw`, and cast the
+  result back to the (generically-matched) result type.
 -/
-def lowerExtLocal {P : Type}
-    (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × P))
-    (op8 op16 op32 : Riscv)
-    (props8 : propertiesOf (OpCode.riscv op8)) (props16 : propertiesOf (OpCode.riscv op16))
-    (props32 : propertiesOf (OpCode.riscv op32))
-    (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (operand, _) := match? op ctx | return (ctx, none)
-  let .integerType opType := (operand.getType! ctx.raw).val | return (ctx, none)
-  if ¬ isLegalExtOpWidth opType.bitwidth then return (ctx, none)
-  let .integerType retType := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if retType.bitwidth ≤ opType.bitwidth ∨ 64 < retType.bitwidth then return (ctx, none)
-  let (ctx, castOp) ← castToRegLocal ctx operand
-  let (ctx, retOp) ←
-    if opType.bitwidth = 8 then
-      WfRewriter.createOp! ctx op8 #[RegisterType.mk] #[castOp.getResult 0]
-          #[] #[] props8 none
-    else if opType.bitwidth = 16 then
-      WfRewriter.createOp! ctx op16 #[RegisterType.mk] #[castOp.getResult 0]
-          #[] #[] props16 none
-    else
-      WfRewriter.createOp! ctx op32 #[RegisterType.mk] #[castOp.getResult 0]
-          #[] #[] props32 none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (retOp.getResult 0)
-  some (ctx, some (#[castOp, retOp, castBackOp], #[castBackOp.getResult 0]))
+def lowerExt (llvmOp : Llvm) (opBw : Nat) (riscvOp : Riscv)
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Veir.Puddle.Pattern OpCode :=
+  Veir.Puddle.Pattern.Builder
+    (do
+      let opType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == opBw)
+      let resType ← Veir.Puddle.MatchProg.type (Attr := IntegerType)
+          (fun t => opBw < t.bitwidth ∧ t.bitwidth ≤ 64)
+      let x ← Veir.Puddle.MatchProg.value opType
+      let _ ← Veir.Puddle.MatchProg.root (.llvm llvmOp) #[x] #[resType]
+      return (resType, x))
+    (fun (resType, x) => do
+      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
+      let castProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[x] #[regType] castProps
+      let riscvOpProps ← Veir.Puddle.CreateProg.property (.riscv riscvOp) riscvProps
+      let riscvResOp ← Veir.Puddle.CreateProg.operation (.riscv riscvOp)
+          #[castOp.res[0]!] #[regType] riscvOpProps
+      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[riscvResOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
+
+/-- `llvm.sext` (`i8` operand) -> `riscv.sextb`. -/
+def sext8_pattern : Veir.Puddle.Pattern OpCode := lowerExt .sext 8 .sextb ()
+
+/-- `llvm.sext` (`i16` operand) -> `riscv.sexth`. -/
+def sext16_pattern : Veir.Puddle.Pattern OpCode := lowerExt .sext 16 .sexth ()
+
+/-- `llvm.sext` (`i32` operand) -> `riscv.sextw`. -/
+def sext32_pattern : Veir.Puddle.Pattern OpCode := lowerExt .sext 32 .sextw ()
+
+/-- `llvm.zext` (`i8` operand) -> `riscv.zextb`. -/
+def zext8_pattern : Veir.Puddle.Pattern OpCode := lowerExt .zext 8 .zextb ()
+
+/-- `llvm.zext` (`i16` operand) -> `riscv.zexth`. -/
+def zext16_pattern : Veir.Puddle.Pattern OpCode := lowerExt .zext 16 .zexth ()
+
+/-- `llvm.zext` (`i32` operand) -> `riscv.zextw`. -/
+def zext32_pattern : Veir.Puddle.Pattern OpCode := lowerExt .zext 32 .zextw ()
 
 /--
-  Shared shape of the binary RISC-V lowerings (`add`/`sub`/`mul`/`sdiv`/…): match a two-operand
-  LLVM op whose operands have integer type `i64` or `i32`, cast both operands to registers, apply
-  `op64` (or its `W` variant `op32` for `i32`) to the two registers, and cast the result back to
-  the source type. Ops without a `W` variant (e.g. `xor`) pass the same opcode twice.
+  RISC-V for binary operations that share a single integer type between both operands and the
+  result: cast both operands to registers, optionally apply `extend` to each register first (e.g.
+  `riscv.sextw` for the signed min/max `i32` arms, since `castToRegLocal`'s zero-extension does not
+  preserve signed order), apply `riscvOp`, and cast the result back to the source type.
 -/
-def lowerBinaryWLocal {P : Type}
-    (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr × P))
-    (op64 op32 : Riscv)
-    (props64 : propertiesOf (OpCode.riscv op64)) (props32 : propertiesOf (OpCode.riscv op32))
-    (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := match? op ctx | return (ctx, none)
-  let .integerType ltype := (lhs.getType! ctx.raw).val | return (ctx, none)
-  if ltype.bitwidth ≠ 64 ∧ ltype.bitwidth ≠ 32 then return (ctx, none)
-  let .integerType rtype := (rhs.getType! ctx.raw).val | return (ctx, none)
-  if rtype.bitwidth ≠ 64 ∧ rtype.bitwidth ≠ 32 then return (ctx, none)
-  let (ctx, lcastOp) ← castToRegLocal ctx lhs
-  let (ctx, rcastOp) ← castToRegLocal ctx rhs
-  let (ctx, retOp) ←
-    if ltype.bitwidth = 32 then
-      WfRewriter.createOp! ctx op32 #[RegisterType.mk]
-          #[lcastOp.getResult 0, rcastOp.getResult 0] #[] #[] props32 none
-    else
-      WfRewriter.createOp! ctx op64 #[RegisterType.mk]
-          #[lcastOp.getResult 0, rcastOp.getResult 0] #[] #[] props64 none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (retOp.getResult 0)
-  some (ctx, some (#[lcastOp, rcastOp, retOp, castBackOp], #[castBackOp.getResult 0]))
+def lowerBinary (llvmOp : Llvm) (typeMatcher : IntegerType → Bool) (riscvOp : Riscv)
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp))
+    (extend : Option (Σ extOp : Riscv, propertiesOf (OpCode.riscv extOp)) := none) :
+    Veir.Puddle.Pattern OpCode :=
+  Veir.Puddle.Pattern.Builder
+    (do
+      let opType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) typeMatcher
+      let lhs ← Veir.Puddle.MatchProg.value opType
+      let rhs ← Veir.Puddle.MatchProg.value opType
+      let _ ← Veir.Puddle.MatchProg.root (.llvm llvmOp) #[lhs, rhs] #[opType]
+      return (opType, lhs, rhs))
+    (fun (opType, lhs, rhs) => do
+      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
+      let lcastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lcastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[lhs] #[regType] lcastProps
+      let rcastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let rcastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[rhs] #[regType] rcastProps
+      let (lval, rval) ← match extend with
+        | some ⟨extOp, extProps'⟩ => do
+          let extProps ← Veir.Puddle.CreateProg.property (.riscv extOp) extProps'
+          let lextOp ← Veir.Puddle.CreateProg.operation (.riscv extOp) #[lcastOp.res[0]!] #[regType] extProps
+          let rextOp ← Veir.Puddle.CreateProg.operation (.riscv extOp) #[rcastOp.res[0]!] #[regType] extProps
+          pure (lextOp.res[0]!, rextOp.res[0]!)
+        | none => pure (lcastOp.res[0]!, rcastOp.res[0]!)
+      let riscvOpProps ← Veir.Puddle.CreateProg.property (.riscv riscvOp) riscvProps
+      let riscvResOp ← Veir.Puddle.CreateProg.operation (.riscv riscvOp)
+          #[lval, rval] #[regType] riscvOpProps
+      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[riscvResOp.res[0]!] #[opType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
+
+/-- `llvm.add` (`i64`) -> `riscv.add`. -/
+def add64_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .add (fun t => t.bitwidth == 64) .add ()
+
+/-- `llvm.add` (`i32`) -> `riscv.addw` (keeps the result sign-extended). -/
+def add32_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .add (fun t => t.bitwidth == 32) .addw ()
+
+/-- `llvm.sub` (`i64`) -> `riscv.sub`. -/
+def sub64_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .sub (fun t => t.bitwidth == 64) .sub ()
+
+/-- `llvm.sub` (`i32`) -> `riscv.subw`. -/
+def sub32_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .sub (fun t => t.bitwidth == 32) .subw ()
+
+/-- `llvm.mul` (`i64`) -> `riscv.mul`. -/
+def mul64_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .mul (fun t => t.bitwidth == 64) .mul ()
+
+/-- `llvm.mul` (`i32`) -> `riscv.mulw` (sign-extends the result). -/
+def mul32_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .mul (fun t => t.bitwidth == 32) .mulw ()
+
+/-- `llvm.sdiv` (`i64`) -> `riscv.div`. -/
+def sdiv64_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .sdiv (fun t => t.bitwidth == 64) .div ()
+
+/-- `llvm.sdiv` (`i32`) -> `riscv.divw`. -/
+def sdiv32_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .sdiv (fun t => t.bitwidth == 32) .divw ()
+
+/-- `llvm.udiv` (`i64`) -> `riscv.divu`. -/
+def udiv64_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .udiv (fun t => t.bitwidth == 64) .divu ()
+
+/-- `llvm.udiv` (`i32`) -> `riscv.divuw`. -/
+def udiv32_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .udiv (fun t => t.bitwidth == 32) .divuw ()
+
+/-- `llvm.srem` (`i64`) -> `riscv.rem`. -/
+def srem64_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .srem (fun t => t.bitwidth == 64) .rem ()
+
+/-- `llvm.srem` (`i32`) -> `riscv.remw`. -/
+def srem32_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .srem (fun t => t.bitwidth == 32) .remw ()
+
+/-- `llvm.urem` (`i64`) -> `riscv.remu`. -/
+def urem64_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .urem (fun t => t.bitwidth == 64) .remu ()
+
+/-- `llvm.urem` (`i32`) -> `riscv.remuw`. -/
+def urem32_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .urem (fun t => t.bitwidth == 32) .remuw ()
+
+/-- `llvm.xor` (`i64`) -> `riscv.xor`. -/
+def xor64_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .xor (fun t => t.bitwidth == 64) .xor ()
+
+/-- `llvm.xor` (`i32`) -> `riscv.xor` (no `W` variant needed: xor is bitwise). -/
+def xor32_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .xor (fun t => t.bitwidth == 32) .xor ()
+
+/-- `llvm.and` -> `riscv.and` (bitwise, so one instruction for every legal width). -/
+def and_pattern : Veir.Puddle.Pattern OpCode :=
+  lowerBinary .and (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32 ∨ t.bitwidth = 8 ∨ t.bitwidth = 1) .and ()
+
+/-- `llvm.or` -> `riscv.or` (bitwise, so one instruction for every legal width). -/
+def or_pattern : Veir.Puddle.Pattern OpCode :=
+  lowerBinary .or (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32 ∨ t.bitwidth = 8 ∨ t.bitwidth = 1) .or ()
+
+/-- `llvm.intr.umax` -> `riscv.maxu`. Width-agnostic: unlike `add`/`sub`/…, the same instruction
+    is used at both bitwidths, since the register already holds the correctly-represented value. -/
+def umax_pattern : Veir.Puddle.Pattern OpCode :=
+  lowerBinary .intr__umax (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32) .maxu ()
+
+/-- `llvm.intr.umin` -> `riscv.minu`. -/
+def umin_pattern : Veir.Puddle.Pattern OpCode :=
+  lowerBinary .intr__umin (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32) .minu ()
 
 /--
   Shared shape of the binary RISC-V lowerings that accept both integer and byte values (`shl`/`lshr`).
@@ -164,109 +258,65 @@ def lowerByteBinaryWLocal {P : Type}
   let (ctx, castBackOp) ← replaceWithRegLocal ctx op (retOp.getResult 0)
   some (ctx, some (#[lcastOp, rcastOp, retOp, castBackOp], #[castBackOp.getResult 0]))
 
-/--
-  Shared shape of the width-agnostic binary RISC-V lowerings (`umax`/`umin`): match a two-operand
-  LLVM integer op whose result has integer type `i64` or `i32`, cast both operands to registers,
-  apply a single `riscv` op `rop` to the two registers, and cast the result back to the source
-  type. Unlike `lowerBinaryWLocal`, `rop` is the *same* instruction at both bitwidths (the register
-  already holds the correctly-represented value, so no `W` variant is needed), and the type guard
-  reads the *result* type rather than the operands'.
--/
-def lowerBinaryRegLocal
-    (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr))
-    (rop : Riscv) (props : propertiesOf (OpCode.riscv rop))
-    (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs) := match? op ctx | return (ctx, none)
-  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
-  let (ctx, lCastOp) ← castToRegLocal ctx lhs
-  let (ctx, rCastOp) ← castToRegLocal ctx rhs
-  let (ctx, mOp) ← WfRewriter.createOp! ctx rop #[RegisterType.mk]
-      #[lCastOp.getResult 0, rCastOp.getResult 0] #[] #[] props none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (mOp.getResult 0)
-  some (ctx, some (#[lCastOp, rCastOp, mOp, castBackOp], #[castBackOp.getResult 0]))
+/-- `llvm.intr.smax` (`i64`) -> `riscv.max`. -/
+def smax64_pattern : Veir.Puddle.Pattern OpCode :=
+  lowerBinary .intr__smax (fun t => t.bitwidth == 64) .max ()
+
+/-- `llvm.intr.smax` (`i32`) -> sign-extend (so negative values order correctly, since
+    `castToRegLocal` zero-extends) then `riscv.max`. -/
+def smax32_pattern : Veir.Puddle.Pattern OpCode :=
+  lowerBinary .intr__smax (fun t => t.bitwidth == 32) .max () (extend := some ⟨.sextw, ()⟩)
+
+/-- `llvm.intr.smin` (`i64`) -> `riscv.min`. -/
+def smin64_pattern : Veir.Puddle.Pattern OpCode :=
+  lowerBinary .intr__smin (fun t => t.bitwidth == 64) .min ()
+
+/-- `llvm.intr.smin` (`i32`) -> sign-extend (so negative values order correctly, since
+    `castToRegLocal` zero-extends) then `riscv.min`. -/
+def smin32_pattern : Veir.Puddle.Pattern OpCode :=
+  lowerBinary .intr__smin (fun t => t.bitwidth == 32) .min () (extend := some ⟨.sextw, ()⟩)
 
 /--
-  Shared shape of the width-agnostic *bitwise* binary RISC-V lowerings (`and`/`or`): match a
-  two-operand LLVM integer op whose result has integer type `i64`, `i32`, `i8`, or `i1`, cast both
-  operands to registers, apply a single bitwise `riscv` op `rop` to the two registers, and cast the
-  result back to the source type.
+  RISC-V lowerings for funnel-shift rotates (`fshl`/`fshr` whose two data operands are
+  identical).
 -/
-def lowerBitwiseRegLocal {P : Type}
-    (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr × P))
-    (rop : Riscv) (props : propertiesOf (OpCode.riscv rop))
-    (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := match? op ctx | return (ctx, none)
-  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 ∧ t.bitwidth ≠ 8 ∧ t.bitwidth ≠ 1 then return (ctx, none)
-  let (ctx, lCastOp) ← castToRegLocal ctx lhs
-  let (ctx, rCastOp) ← castToRegLocal ctx rhs
-  let (ctx, mOp) ← WfRewriter.createOp! ctx rop #[RegisterType.mk]
-      #[lCastOp.getResult 0, rCastOp.getResult 0] #[] #[] props none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (mOp.getResult 0)
-  some (ctx, some (#[lCastOp, rCastOp, mOp, castBackOp], #[castBackOp.getResult 0]))
+def lowerRotate (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Veir.Puddle.Pattern OpCode :=
+  Veir.Puddle.Pattern.Builder
+    (do
+      let opType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == bw)
+      let a ← Veir.Puddle.MatchProg.value opType
+      let amt ← Veir.Puddle.MatchProg.value opType
+      let _ ← Veir.Puddle.MatchProg.root (.llvm llvmOp) #[a, a, amt] #[opType]
+      return (opType, a, amt))
+    (fun (opType, a, amt) => do
+      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
+      let aCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let aCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[a] #[regType] aCastProps
+      let amtCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let amtCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[amt] #[regType] amtCastProps
+      let riscvOpProps ← Veir.Puddle.CreateProg.property (.riscv riscvOp) riscvProps
+      let rotOp ← Veir.Puddle.CreateProg.operation (.riscv riscvOp)
+          #[aCastOp.res[0]!, amtCastOp.res[0]!] #[regType] riscvOpProps
+      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[rotOp.res[0]!] #[opType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
-/--
-  Shared shape of the *signed* min/max RISC-V lowerings (`smax`/`smin`): match a two-operand LLVM
-  integer op whose result has type `i64` or `i32`, cast both operands to registers, and apply a
-  single signed `riscv` op `rop` (`max`/`min`).
--/
-def lowerSignedMinMaxLocal
-    (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr))
-    (rop : Riscv) (props : propertiesOf (OpCode.riscv rop))
-    (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs) := match? op ctx | return (ctx, none)
-  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
-  let (ctx, lCastOp) ← castToRegLocal ctx lhs
-  let (ctx, rCastOp) ← castToRegLocal ctx rhs
-  /- For i32, sign-extend before the compare so negative values order correctly. -/
-  if t.bitwidth = 32 then
-    let (ctx, ls) ← WfRewriter.createOp! ctx Riscv.sextw #[RegisterType.mk] #[lCastOp.getResult 0]
-        #[] #[] () none
-    let (ctx, rs) ← WfRewriter.createOp! ctx Riscv.sextw #[RegisterType.mk] #[rCastOp.getResult 0]
-        #[] #[] () none
-    let (ctx, mOp) ← WfRewriter.createOp! ctx rop #[RegisterType.mk]
-        #[ls.getResult 0, rs.getResult 0] #[] #[] props none
-    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (mOp.getResult 0)
-    some (ctx, some (#[lCastOp, rCastOp, ls, rs, mOp, castBackOp], #[castBackOp.getResult 0]))
-  else
-    let (ctx, mOp) ← WfRewriter.createOp! ctx rop #[RegisterType.mk]
-        #[lCastOp.getResult 0, rCastOp.getResult 0] #[] #[] props none
-    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (mOp.getResult 0)
-    some (ctx, some (#[lCastOp, rCastOp, mOp, castBackOp], #[castBackOp.getResult 0]))
+/-- `llvm.intr.fshl` with identical data operands (`i64`) -> `riscv.rol`. -/
+def fshl64_pattern : Veir.Puddle.Pattern OpCode := lowerRotate .intr__fshl 64 .rol ()
 
-/--
-  Shared shape of the *rotate* RISC-V lowerings (`fshl`/`fshr` whose two data operands are
-  identical): match a funnel-shift LLVM op returning `(a, b, amt)`, require `a = b` (so the funnel
-  shift is a rotate), require the result to have integer type `i64` or `i32`, cast the value operand
-  `a` and the shift-amount operand `amt` to registers, apply `op64` (or its `W` variant `op32` for
-  `i32`) to `(value, amount)`, and cast the result back to the source type.
--/
-def lowerRotateLocal
-    (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr × ValuePtr))
-    (op64 op32 : Riscv)
-    (props64 : propertiesOf (OpCode.riscv op64)) (props32 : propertiesOf (OpCode.riscv op32))
-    (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (a, b, amt) := match? op ctx | return (ctx, none)
-  if a ≠ b then return (ctx, none)
-  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
-  let (ctx, valCastOp) ← castToRegLocal ctx a
-  let (ctx, amtCastOp) ← castToRegLocal ctx amt
-  let (ctx, rotOp) ←
-    if t.bitwidth = 32 then
-      WfRewriter.createOp! ctx op32 #[RegisterType.mk]
-          #[valCastOp.getResult 0, amtCastOp.getResult 0] #[] #[] props32 none
-    else
-      WfRewriter.createOp! ctx op64 #[RegisterType.mk]
-          #[valCastOp.getResult 0, amtCastOp.getResult 0] #[] #[] props64 none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (rotOp.getResult 0)
-  some (ctx, some (#[valCastOp, amtCastOp, rotOp, castBackOp], #[castBackOp.getResult 0]))
+/-- `llvm.intr.fshl` with identical data operands (`i32`) -> `riscv.rolw`. -/
+def fshl32_pattern : Veir.Puddle.Pattern OpCode := lowerRotate .intr__fshl 32 .rolw ()
+
+/-- `llvm.intr.fshr` with identical data operands (`i64`) -> `riscv.ror`. -/
+def fshr64_pattern : Veir.Puddle.Pattern OpCode := lowerRotate .intr__fshr 64 .ror ()
+
+/-- `llvm.intr.fshr` with identical data operands (`i32`) -> `riscv.rorw`. -/
+def fshr32_pattern : Veir.Puddle.Pattern OpCode := lowerRotate .intr__fshr 32 .rorw ()
 
 /--
   `llvm.intr.ctlz` -> `riscv.clz`.
@@ -396,25 +446,14 @@ def constant (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite constant_local rewriter op opInBounds
 
-/-- llvm.add -> riscv.add (riscv.addw for i32, keeps the result sign-extended) -/
-def add_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerBinaryWLocal matchAdd .add .addw () () ctx op
-
 /-- llvm.add -> riscv.add -/
-def add (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite add_local rewriter op opInBounds
+def add64 : Puddle.CompiledPattern OpCode := add64_pattern.compile
+
+/-- llvm.add -> riscv.addw (riscv.addw for i32, keeps the result sign-extended) -/
+def add32 : Puddle.CompiledPattern OpCode := add32_pattern.compile
 
 /-- llvm.and -> riscv.and (bitwise, so one instruction for every legal width) -/
-def and_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerBitwiseRegLocal matchAnd .and () ctx op
-
-/-- llvm.and -> riscv.and -/
-def and (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite and_local rewriter op opInBounds
+def and : Puddle.CompiledPattern OpCode := and_pattern.compile
 
 /-- llvm.ashr -> riscv.sra -/
 def ashr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
@@ -631,84 +670,49 @@ def icmp (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   RewritePattern.fromLocalRewrite icmp_local rewriter op opInBounds
 
 /-- llvm.or -> riscv.or (bitwise, so one instruction for every legal width) -/
-def or_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerBitwiseRegLocal matchOr .or () ctx op
-
-/-- llvm.or -> riscv.or -/
-def or (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite or_local rewriter op opInBounds
-
-/-- llvm.xor -> riscv.xor (no `W` variant needed: xor is bitwise) -/
-def xor_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerBinaryWLocal matchXor .xor .xor () () ctx op
+def or : Puddle.CompiledPattern OpCode := or_pattern.compile
 
 /-- llvm.xor -> riscv.xor -/
-def xor (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite xor_local rewriter op opInBounds
+def xor64 : Puddle.CompiledPattern OpCode := xor64_pattern.compile
 
-/-- llvm.mul -> riscv.mul (riscv.mulw for i32, sign-extends the result) -/
-def mul_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerBinaryWLocal matchMul .mul .mulw () () ctx op
+/-- llvm.xor -> riscv.xor (no `W` variant needed: xor is bitwise) -/
+def xor32 : Puddle.CompiledPattern OpCode := xor32_pattern.compile
 
 /-- llvm.mul -> riscv.mul -/
-def mul (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite mul_local rewriter op opInBounds
+def mul64 : Puddle.CompiledPattern OpCode := mul64_pattern.compile
 
-/-- llvm.sdiv -> riscv.div (riscv.divw for i32) -/
-def sdiv_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerBinaryWLocal matchSdiv .div .divw () () ctx op
+/-- llvm.mul -> riscv.mulw (sign-extends the result) -/
+def mul32 : Puddle.CompiledPattern OpCode := mul32_pattern.compile
 
 /-- llvm.sdiv -> riscv.div -/
-def sdiv (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite sdiv_local rewriter op opInBounds
+def sdiv64 : Puddle.CompiledPattern OpCode := sdiv64_pattern.compile
 
-/-- llvm.udiv -> riscv.divu (riscv.divuw for i32) -/
-def udiv_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerBinaryWLocal matchUdiv .divu .divuw () () ctx op
+/-- llvm.sdiv -> riscv.divw -/
+def sdiv32 : Puddle.CompiledPattern OpCode := sdiv32_pattern.compile
 
 /-- llvm.udiv -> riscv.divu -/
-def udiv (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite udiv_local rewriter op opInBounds
+def udiv64 : Puddle.CompiledPattern OpCode := udiv64_pattern.compile
 
-/-- llvm.srem -> riscv.rem (riscv.remw for i32) -/
-def srem_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerBinaryWLocal matchSrem .rem .remw () () ctx op
+/-- llvm.udiv -> riscv.divuw -/
+def udiv32 : Puddle.CompiledPattern OpCode := udiv32_pattern.compile
 
 /-- llvm.srem -> riscv.rem -/
-def srem (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite srem_local rewriter op opInBounds
+def srem64 : Puddle.CompiledPattern OpCode := srem64_pattern.compile
 
-/-- llvm.urem -> riscv.remu (riscv.remuw for i32) -/
-def urem_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerBinaryWLocal matchUrem .remu .remuw () () ctx op
+/-- llvm.srem -> riscv.remw -/
+def srem32 : Puddle.CompiledPattern OpCode := srem32_pattern.compile
 
 /-- llvm.urem -> riscv.remu -/
-def urem (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite urem_local rewriter op opInBounds
+def urem64 : Puddle.CompiledPattern OpCode := urem64_pattern.compile
 
-/-- llvm.sub -> riscv.sub (riscv.subw for i32) -/
-def sub_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerBinaryWLocal matchSub .sub .subw () () ctx op
+/-- llvm.urem -> riscv.remuw -/
+def urem32 : Puddle.CompiledPattern OpCode := urem32_pattern.compile
 
 /-- llvm.sub -> riscv.sub -/
-def sub (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite sub_local rewriter op opInBounds
+def sub64 : Puddle.CompiledPattern OpCode := sub64_pattern.compile
+
+/-- llvm.sub -> riscv.subw -/
+def sub32 : Puddle.CompiledPattern OpCode := sub32_pattern.compile
 
 /--
   llvm.sext %x `i8`  to `i32` -> riscv.sextb %x
@@ -717,17 +721,11 @@ def sub (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   llvm.sext %x `i16` to `i32` -> riscv.sexth %x
   llvm.sext %x `i32` to `i64` -> riscv.sextw %x
 -/
-def sext_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerExtLocal matchSext .sextb .sexth .sextw () () () ctx op
+def sext8 : Puddle.CompiledPattern OpCode := sext8_pattern.compile
 
-/--
-  llvm.sext -> riscv.sextb/sexth/sextw (see `sext_local`).
--/
-def sext (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite sext_local rewriter op opInBounds
+def sext16 : Puddle.CompiledPattern OpCode := sext16_pattern.compile
 
+def sext32 : Puddle.CompiledPattern OpCode := sext32_pattern.compile
 /--
   llvm.zext %x `i8`  to `i32` -> riscv.zextb %x
   llvm.zext %x `i8`  to `i64` -> riscv.zextb %x
@@ -735,17 +733,11 @@ def sext (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   llvm.zext %x `i16` to `i32` -> riscv.zexth %x
   llvm.zext %x `i32` to `i64` -> riscv.zextw %x
 -/
-def zext_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerExtLocal matchZext .zextb .zexth .zextw () () () ctx op
+def zext8 : Puddle.CompiledPattern OpCode := zext8_pattern.compile
 
-/--
-  llvm.zext -> riscv.zexth/zextw (see `zext_local`).
--/
-def zext (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite zext_local rewriter op opInBounds
+def zext16 : Puddle.CompiledPattern OpCode := zext16_pattern.compile
 
+def zext32 : Puddle.CompiledPattern OpCode := zext32_pattern.compile
 /--
   llvm.trunc %x iX to iY -> builtin_unrealized_conversion_cast (!riscv.reg) : iY
   where `iY`'s width is smaller than `iX`'s.
@@ -1115,50 +1107,26 @@ def selectGeneral (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 -/
 
 /-- llvm.intr.smax -> riscv.max -/
-def smax_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerSignedMinMaxLocal matchSmax .max () ctx op
+def smax64 : Puddle.CompiledPattern OpCode := smax64_pattern.compile
 
-/-- llvm.intr.smax -> riscv.max -/
-def smax (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite smax_local rewriter op opInBounds
+def smax32 : Puddle.CompiledPattern OpCode := smax32_pattern.compile
 
 /-- llvm.intr.smin -> riscv.min -/
-def smin_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerSignedMinMaxLocal matchSmin .min () ctx op
+def smin64 : Puddle.CompiledPattern OpCode := smin64_pattern.compile
 
-/-- llvm.intr.smin -> riscv.min -/
-def smin (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite smin_local rewriter op opInBounds
+def smin32 : Puddle.CompiledPattern OpCode := smin32_pattern.compile
 
 /-- llvm.intr.umax -> riscv.maxu -/
-def umax_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerBinaryRegLocal matchUmax .maxu () ctx op
-
-/-- llvm.intr.umax -> riscv.maxu -/
-def umax (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite umax_local rewriter op opInBounds
+def umax : Puddle.CompiledPattern OpCode := umax_pattern.compile
 
 /-- llvm.intr.umin -> riscv.minu -/
-def umin_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerBinaryRegLocal matchUmin .minu () ctx op
-
-/-- llvm.intr.umin -> riscv.minu -/
-def umin (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite umin_local rewriter op opInBounds
+def umin : Puddle.CompiledPattern OpCode := umin_pattern.compile
 
 /-- llvm.intr.fshl with identical data operands is a rotate-left: -> riscv.rol (riscv.rolw for i32).
     The general (distinct-operand) funnel shift is left unselected. -/
-def fshl_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerRotateLocal matchFshl .rol .rolw () () ctx op
+def fshl64 : Puddle.CompiledPattern OpCode := fshl64_pattern.compile
+
+def fshl32 : Puddle.CompiledPattern OpCode := fshl32_pattern.compile
 
 /-! ## Saturating integer intrinsics
 
@@ -1418,24 +1386,11 @@ def abs (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite abs_local rewriter op opInBounds
 
-/-- llvm.intr.fshl with identical data operands is a rotate-left: -> riscv.rol.
-    The general (distinct-operand) funnel shift is left unselected. -/
-def fshl (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite fshl_local rewriter op opInBounds
-
 /-- llvm.intr.fshr with identical data operands is a rotate-right: -> riscv.ror (riscv.rorw for i32).
     The general (distinct-operand) funnel shift is left unselected. -/
-def fshr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerRotateLocal matchFshr .ror .rorw () () ctx op
+def fshr64 : Puddle.CompiledPattern OpCode := fshr64_pattern.compile
 
-/-- llvm.intr.fshr with identical data operands is a rotate-right: -> riscv.ror.
-    The general (distinct-operand) funnel shift is left unselected. -/
-def fshr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite fshr_local rewriter op opInBounds
-
+def fshr32 : Puddle.CompiledPattern OpCode := fshr32_pattern.compile
 /-- llvm.intr.fshr with identical data operands and a constant shift amount is a
     constant rotate-right: -> riscv.rori (mirrors `PatGprImm<rotr, RORI>`). -/
 def fshrConst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
@@ -1673,10 +1628,12 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern #[selectCzeroeqz, selectCzeronez, selectGeneral,
     ctlz32.run, ctlz64.run, cttz32.run, cttz64.run, ctpop32.run, ctpop64.run, bswap, bitreverse,
-    constant, add, and, ashr, icmp, or, xor, mul,
-    sdiv, udiv, srem, urem, sext, zext, trunc, shl, lshr, sub, bitcast, load, getelementptr, store,
-    smax, smin, umax, umin, saddSat, ssubSat, uaddSat, usubSat, sshlSat, ushlSat, abs,
-    fshlConst, fshrConst, fshl, fshr, fshlGeneral, fshrGeneral, poisonConst, freeze]
+    constant, add32.run, add64.run, and.run, ashr, icmp, or.run, xor32.run, xor64.run, mul32.run, mul64.run,
+    sdiv32.run, sdiv64.run, udiv32.run, udiv64.run, srem32.run, srem64.run, urem32.run, urem64.run,
+    sext32.run, sext16.run, sext8.run, zext32.run, zext16.run, zext8.run, trunc, shl, lshr,
+    sub64.run, sub32.run, bitcast, load, getelementptr, store,
+    smax64.run, smax32.run, smin64.run, smin32.run, umax.run, umin.run, saddSat, ssubSat, uaddSat, usubSat, sshlSat, ushlSat, abs,
+    fshlConst, fshrConst, fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral, fshrGeneral, poisonConst, freeze]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying main instruction-selection patterns"
   | some ctx => pure ctx
