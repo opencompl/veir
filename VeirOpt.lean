@@ -4,6 +4,7 @@ import Veir.Panic
 
 import Veir.Passes.PrintIR
 import Veir.Passes.InstCombine
+import Veir.Passes.ApplyPatterns
 import Veir.Passes.CSE
 import Veir.Passes.InstructionSelection.RISCV64
 import Veir.Passes.InstructionSelection.RISCV64Sdag
@@ -28,6 +29,7 @@ open Veir
 def availablePasses : Std.HashMap String (Pass OpCode) :=
   ([ PrintIRPass,
      InstCombinePass,
+     ApplyPatternsPass,
      CSEPass,
      IselRISCV64,
      IselSDAG,

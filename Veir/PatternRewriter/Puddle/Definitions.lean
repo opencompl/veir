@@ -56,6 +56,7 @@ inductive HandleType (OpInfo : Type) [HasOpInfo OpInfo] where
 | value
 /-- A VeIR IR type. -/
 | type
+deriving Repr, DecidableEq, Inhabited
 
 /--
 A typed symbolic reference to an entity matched or created by a Puddle rule.

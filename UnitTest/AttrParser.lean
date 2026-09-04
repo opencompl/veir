@@ -155,6 +155,20 @@ macro "#assert " e:term : command =>
 
 #assert expectSuccessAttr "i32" (IntegerType.mk 32)
 
+/-! ## Vector types -/
+
+#assert expectSuccessType "vector<4xi32>" (VectorType.mk #[4] (IntegerType.mk 32))
+#assert expectSuccessType "vector<2x4xf64>" (VectorType.mk #[2, 4] FloatType.f64)
+#assert expectSuccessType "vector<2 x 4 x i32>" (VectorType.mk #[2, 4] (IntegerType.mk 32))
+#assert expectSuccessType "vector<i32>" (VectorType.mk #[] (IntegerType.mk 32))
+#assert expectSuccessAttr "vector<4xi32>" (VectorType.mk #[4] (IntegerType.mk 32))
+#assert ToString.toString (VectorType.mk #[2, 4] (IntegerType.mk 32) : VectorType) ==
+  "vector<2x4xi32>"
+#assert ToString.toString (VectorType.mk #[] (IntegerType.mk 32) : VectorType) == "vector<i32>"
+#assert expectErrorType "vector<4x>" "vector element type expected" (some 9)
+#assert expectErrorType "vector<0xi32>" "0 is not a supported dimension" (some 7)
+#assert expectErrorType "vector<0x32xi32>" "0 is not a supported dimension" (some 7)
+
 /-! ## Integer attributes -/
 
 #assert expectErrorAttr "0 : 2" "integer or float type expected after ':' in numeric attribute" (some 4)
@@ -569,6 +583,9 @@ macro "#assert " e:term : command =>
 -- A `!cuda_tile.ptr<...>` may appear as a (parenthesized) function-type input. See #675.
 #assert expectSuccessType "(!cuda_tile.ptr<i1>) -> ()"
   (FunctionType.mk #[(CudaTile.PointerType.mk (IntegerType.mk 1) : Attribute)] #[] (isVarArg := false))
+#assert expectSuccessType "!io.address" Io.AddressType.mk
+#assert expectSuccessType "(!io.address) -> ()"
+  (FunctionType.mk #[(Io.AddressType.mk : Attribute)] #[] (isVarArg := false))
 
 /-! ## RISCV Register type -/
 #assert expectSuccessType "!riscv.reg" (RegisterType.mk)

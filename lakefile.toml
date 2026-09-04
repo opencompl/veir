@@ -7,6 +7,10 @@ moreLeanArgs = ["--tstack=400000"]
 moreServerArgs = ["--tstack=400000"]
 
 [[require]]
+name = "lean-ctrees"
+path = "lean-ctrees"
+
+[[require]]
 name = "ExArray"
 path = "ExArray"
 

@@ -51,6 +51,45 @@ def AttrParserM.run' (self : AttrParserM α)
   | .error err => .error err
 
 /--
+  Parse the `x` separator in a shaped type.
+
+  The lexer treats canonical fragments such as `x4xi32` as one identifier. If
+  the current identifier starts with `x`, consume just that leading byte and
+  re-lex the suffix so the following dimension or element type can be parsed
+  normally.
+-/
+private def parseShapeSeparator : AttrParserM Unit := do
+  let token ← peekToken
+  let input := (← getThe ParserState).input
+  if token.kind != .bareIdent || input.getD token.slice.start.byteOffset 0 != 'x'.toUInt8 then
+    throwAtCurrentPos "expected keyword 'x'"
+  resetToken (token.slice.start + 1)
+
+/--
+Parse one decimal vector dimension, if present.
+
+Numbers in the form `0x...` are parsed as `0`, since `x` is the separator for the next vector
+dimension, rather than a hexadecimal prefix.
+-/
+private def parseOptionalVectorDimension : AttrParserM (Option Nat) := do
+  let token ← peekToken
+  let .intLit := token.kind | return none
+  let spelling := token.slice.of (← getThe ParserState).input
+  let mut decimalLength := 0
+  while h : decimalLength < spelling.size do
+    if spelling[decimalLength].isDigit then
+      decimalLength := decimalLength + 1
+    else
+      break
+  let decimalSpelling := spelling.extract 0 decimalLength
+  let some dimension := (String.fromUTF8? decimalSpelling).bind String.toNat?
+    | throwAtCurrentPos "vector dimension must be a decimal integer"
+  if dimension = 0 then
+    throwAt token.slice.start "0 is not a supported dimension"
+  resetToken (token.slice.start + decimalLength)
+  return some dimension
+
+/--
   Parse an optional integer type.
   An integer type is represented as `i` followed by a positive integer indicating its width, e.g., `i32`.
 -/
@@ -67,6 +106,12 @@ def parseOptionalIntegerType : AttrParserM (Option IntegerType) := do
       return some (IntegerType.mk bitwidth)
     return none
   | _ => return none
+
+/-- Parse the MLIR builtin `index` type. -/
+def parseOptionalIndexType : AttrParserM (Option IndexType) := do
+  if ← parseOptionalKeyword "index".toByteArray then
+    return some IndexType.mk
+  return none
 
 /--
   Parse an optional float type.
@@ -745,6 +790,18 @@ partial def parseOptionalCudaTilePointerType : AttrParserM (Option TypeAttr) := 
   return some (CudaTile.PointerType.mk intTy)
 
 /--
+  Parse the IO address type `!io.address`, if present.
+-/
+partial def parseOptionalIoAddressType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "io.address".toByteArray then return none
+  let _ ← consumeToken
+  return some Io.AddressType.mk
+
+/--
   Parse HEIR's modarith type, if present.
   Its syntax is `!mod_arith.int<{IntegerAttr}>`, e.g., `!mod_arith.int<17 : i32>`.
 -/
@@ -971,6 +1028,23 @@ inductive LLVMFuncParam
 mutual
 
 /--
+  Parse a builtin fixed-size vector type, if present.
+  Its syntax is `vector<dimension-list x element-type>`, e.g. `vector<2x4xi32>`;
+  the dimension list may be empty, as in `vector<i32>`.
+-/
+partial def parseOptionalVectorType : AttrParserM (Option TypeAttr) := do
+  if !(← parseOptionalKeyword "vector".toByteArray) then
+    return none
+  parsePunctuation "<"
+  let mut shape := #[]
+  while let some dim ← parseOptionalVectorDimension do
+    shape := shape.push dim
+    parseShapeSeparator
+  let elementType ← parseType "vector element type expected"
+  parsePunctuation ">"
+  return some (VectorType.mk shape elementType)
+
+/--
   Parse an LLVM array type, if present.
   Its syntax is `!llvm.array<size x type>`,
   or (exclusively) the shorter form `array<size x type>` if the corresponding argument is set.
@@ -1178,8 +1252,12 @@ partial def parseOptionalMatchOptionalType : AttrParserM (Option TypeAttr) := do
 partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
   if let some integerType ← parseOptionalIntegerType then
     return some integerType
+  if let some indexType ← parseOptionalIndexType then
+    return some indexType
   if let some floatType ← parseOptionalFloatType then
     return some floatType
+  if let some vectorType ← parseOptionalVectorType then
+    return some vectorType
   if let some byteType ← parseOptionalByteType then
     return some byteType
   if let some registerType ← parseOptionalRegisterType then
@@ -1206,6 +1284,8 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some llvmFunctionType
   if let some cudaTilePointerType := ← parseOptionalCudaTilePointerType then
     return some cudaTilePointerType
+  if let some ioAddressType := ← parseOptionalIoAddressType then
+    return some ioAddressType
   if let some hwModuleType ← parseOptionalHWModuleType then
     return some hwModuleType
   if let some pdlRangeType ← parseOptionalPDLRangeType then

@@ -214,7 +214,7 @@ private def testDialectsWithoutMaterializerDecline : String := Id.run do
     ("riscv_cf", .riscv_cf .branch), ("riscv_stack", .riscv_stack .alloca),
     ("rv64", .rv64 .get_register), ("cf", .cf .br), ("builtin", .builtin .module),
     ("func", .func .call), ("datapath", .datapath .compress),
-    ("pdl", .pdl .operation), ("test", .test .test)
+    ("pdl", .pdl .operation), ("io", .io .send), ("test", .test .test)
   ]
   for (name, opCode) in cases do
     if (opCode.materializeConstant value i32).isSome then
