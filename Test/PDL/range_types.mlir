@@ -1,5 +1,5 @@
-// RUN: VEIR_ROUNDTRIP
-// RUN: MLIR_ROUNDTRIP
+// RUN: VEIR_UNREGISTERED_ROUNDTRIP
+// RUN: MLIR_UNREGISTERED_ROUNDTRIP
 
 "builtin.module"() ({
   %0 = "test.test"() : () -> !pdl.range<attribute>
