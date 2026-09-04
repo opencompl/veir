@@ -498,6 +498,12 @@ partial def parseOptionalDialectAttr : AttrParserM (Option Attribute) := do
     parsePunctuation ">"
     return some (ModuleFlagAttr.mk body : Attribute)
 
+  if dialectName = "llvm.tbaa_tag".toByteArray then do
+    parsePunctuation "<"
+    let body ← parseUnregisteredAttrBody
+    parsePunctuation ">"
+    return some (TbaaTagAttr.mk body : Attribute)
+
   if dialectName = "llvm.target_features".toByteArray then do
     parsePunctuation "<"
     let body ← parseUnregisteredAttrBody

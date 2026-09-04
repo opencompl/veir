@@ -132,6 +132,17 @@ structure ModuleFlagAttr where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
+  LLVM TBAA tag attribute, e.g.
+  `#llvm.tbaa_tag<base_type = <id = "int", members = {<#llvm.tbaa_root<id = "x">, 0>}>,
+  access_type = <id = "int", members = {<#llvm.tbaa_root<id = "x">, 0>}>, offset = 0>`.
+
+  The body is kept as a string until we have a need to inspect it.
+-/
+structure TbaaTagAttr where
+  value : String
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
   LLVM target features attribute, e.g. `#llvm.target_features<["+cmov", "+sse"]>`.
 -/
 structure TargetFeaturesAttr where
@@ -553,6 +564,8 @@ inductive Attribute
 | tailCallKindAttr (attr : TailCallKindAttr)
 /-- LLVM module flag attribute -/
 | moduleFlagAttr (attr : ModuleFlagAttr)
+/-- LLVM TBAA tag attribute -/
+| tbaaTagAttr (attr : TbaaTagAttr)
 /-- LLVM target features attribute -/
 | targetFeaturesAttr (attr : TargetFeaturesAttr)
 /-- DLTI data layout spec attribute -/
@@ -865,6 +878,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case tbaaTagAttr.tbaaTagAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case moduleFlagAttr.moduleFlagAttr attr1 attr2 =>
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
@@ -1077,6 +1094,9 @@ instance : ToString TailCallKindAttr where
 
 instance : ToString ModuleFlagAttr where
   toString attr := s!"#llvm.mlir.module_flag<{attr.value}>"
+
+instance : ToString TbaaTagAttr where
+  toString attr := s!"#llvm.tbaa_tag<{attr.value}>"
 
 instance : ToString TargetFeaturesAttr where
   toString attr := s!"#llvm.target_features<{attr.value}>"
@@ -1360,6 +1380,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .uwtableKindAttr attr => ToString.toString attr
   | .tailCallKindAttr attr => ToString.toString attr
   | .moduleFlagAttr attr => ToString.toString attr
+  | .tbaaTagAttr attr => ToString.toString attr
   | .targetFeaturesAttr attr => ToString.toString attr
   | .dlSpecAttr attr => ToString.toString attr
   | .integerAttr attr => ToString.toString attr
@@ -1630,6 +1651,7 @@ def isType (attr : Attribute) : Bool :=
   | .uwtableKindAttr _ => false
   | .tailCallKindAttr _ => false
   | .moduleFlagAttr _ => false
+  | .tbaaTagAttr _ => false
   | .targetFeaturesAttr _ => false
   | .dlSpecAttr _ => false
   | .integerAttr _ => false
@@ -1718,6 +1740,8 @@ theorem isType_uwtableKind attr : (uwtableKindAttr attr).isType = false := by rf
 theorem isType_tailCallKind attr : (tailCallKindAttr attr).isType = false := by rfl
 @[simp, grind =]
 theorem isType_moduleFlag attr : (moduleFlagAttr attr).isType = false := by rfl
+@[simp, grind =]
+theorem isType_tbaaTag attr : (tbaaTagAttr attr).isType = false := by rfl
 @[simp, grind =]
 theorem isType_targetFeatures attr : (targetFeaturesAttr attr).isType = false := by rfl
 @[simp, grind =]
