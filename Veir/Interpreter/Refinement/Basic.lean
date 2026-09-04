@@ -43,6 +43,7 @@ def RuntimeValue.isRefinedBy (source target : RuntimeValue) : Prop :=
         s = h ▸ t
       else
         False
+  | .ioAddr s, .ioAddr t => s = t
   | _, _ => False
 
 @[inherit_doc] infix:50 " ⊒ " => RuntimeValue.isRefinedBy
