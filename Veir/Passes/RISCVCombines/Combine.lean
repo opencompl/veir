@@ -3,6 +3,8 @@ module
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
 import Veir.Passes.RISCVCombines.MIRCombinesVeir
+import Veir.PatternRewriter.Puddle.Builders
+import Veir.PatternRewriter.Puddle.Execution
 
 namespace Veir.RISCV
 
@@ -1558,6 +1560,202 @@ def zexth_zexth := drop_redundant_ext .zexth
 def sextb_sextb := drop_redundant_ext .sextb
 def sexth_sexth := drop_redundant_ext .sexth
 
+/-- `riscv.zextw (riscv.zextb x) -> riscv.zextb x`. A byte zero-extension
+    already clears every bit which `zextw` would clear.
+
+    LLVM: `CastInst::isEliminableCastPair` folds a `ZExt` followed by a `ZExt`
+    to the first cast.
+    https://github.com/llvm/llvm-project/blob/c536b0aa030474672e293dccdb27b97c36c4e1af/llvm/lib/IR/Instructions.cpp#L2922-L2967 -/
+private def zextw_zextb_pattern : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let xType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let x ← Puddle.MatchProg.value xType
+      let zextbType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let zextb ← Puddle.MatchProg.operation (.riscv .zextb) #[x] #[zextbType]
+      let _ ← Puddle.MatchProg.root (.riscv .zextw) #[zextb.res[0]!] #[zextbType]
+      return zextb.res[0]!)
+    pure
+    (fun zextb => zextb)
+
+def zextw_zextb : RewritePattern OpCode :=
+  zextw_zextb_pattern.compile.run
+
+/-- `riscv.zextb (riscv.lb addr) -> riscv.lbu addr` for non-volatile loads.
+    `lbu` performs the zero extension as part of the load, so it has the same
+    result as extending an `lb`; its offset and all other memory properties are
+    forwarded unchanged. Volatile loads are deliberately excluded, since this
+    rewrite creates a replacement load while the original remains live.
+
+    LLVM: `zextloadi8 -> LBU`.
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1989-L2002 -/
+private def zextb_lb_pattern : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let addrType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let addr ← Puddle.MatchProg.value addrType
+      let lbType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let lb ← Puddle.MatchProg.operation (.riscv .lb) #[addr] #[lbType]
+      let _ ← Puddle.MatchProg.matchNative lb.properties (fun properties => !properties.volatile_)
+      let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let _ ← Puddle.MatchProg.root (.riscv .zextb) #[lb.res[0]!] #[resultType]
+      return (addr, resultType, lb.properties))
+    (fun (addr, resultType, lbProperties) => do
+      let lbuProperties : Puddle.Handle OpCode (.prop (.riscv .lbu)) ←
+        Puddle.CreateProg.applyNative lbProperties (fun properties => some properties)
+      let lbu ← Puddle.CreateProg.operation (.riscv .lbu) #[addr] #[resultType] lbuProperties
+      return lbu)
+    (fun lbu => lbu)
+
+def zextb_lb : RewritePattern OpCode :=
+  zextb_lb_pattern.compile.run
+
+/-- `riscv.zextb (riscv.lbu addr) -> riscv.lbu addr`.  An `lbu` has already
+    cleared bits 63:8, so the additional byte extension is redundant.
+
+    LLVM: `zextloadi8 -> LBU` uses the load's zero extension directly.
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1989-L2002 -/
+private def zextb_lbu_pattern : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let addrType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let addr ← Puddle.MatchProg.value addrType
+      let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let lbu ← Puddle.MatchProg.operation (.riscv .lbu) #[addr] #[resultType]
+      let _ ← Puddle.MatchProg.root (.riscv .zextb) #[lbu.res[0]!] #[resultType]
+      return lbu.res[0]!)
+    pure
+    (fun lbu => lbu)
+
+def zextb_lbu : RewritePattern OpCode :=
+  zextb_lbu_pattern.compile.run
+
+/-- `riscv.zextw (riscv.slliw (riscv.lbu addr), shamt) ->
+    riscv.slli (riscv.lbu addr), shamt`, where `shamt` is 8, 16, or 24.
+    The `lbu` source is already zero-extended, so the full-width shift has the
+    same result and exposes the byte-insertion form selected by LLVM.
+
+    LLVM: `PACKH` byte-packing patterns.
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L632-L714 -/
+private def zextw_slliw_lbu_pattern (shamt : Int) : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let addrType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let addr ← Puddle.MatchProg.value addrType
+      let lbuType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let lbu ← Puddle.MatchProg.operation (.riscv .lbu) #[addr] #[lbuType]
+      let slliwType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let slliw ← Puddle.MatchProg.operation (.riscv .slliw) #[lbu.res[0]!] #[slliwType]
+        (fun properties => properties.value.value == shamt)
+      let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let _ ← Puddle.MatchProg.root (.riscv .zextw) #[slliw.res[0]!] #[resultType]
+      return (lbu.res[0]!, resultType))
+    (fun (lbu, resultType) => do
+      let slliProperties ← Puddle.CreateProg.property (.riscv .slli)
+        (RISCVImmediateProperties.mk (IntegerAttr.mk shamt (IntegerType.mk 64)))
+      let slli ← Puddle.CreateProg.operation (.riscv .slli) #[lbu] #[resultType] slliProperties
+      return slli)
+    (fun slli => slli)
+
+private def zextw_slliw_lbu (shamt : Int) : RewritePattern OpCode :=
+  (zextw_slliw_lbu_pattern shamt).compile.run
+
+private def matchLbu : Puddle.MatchProg.Builder (Puddle.Handle OpCode .value) := do
+  let addrType ← Puddle.MatchProg.type (Attr := RegisterType)
+  let addr ← Puddle.MatchProg.value addrType
+  let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
+  let lbu ← Puddle.MatchProg.operation (.riscv .lbu) #[addr] #[resultType]
+  return lbu.res[0]!
+
+/-- `or (lbu lo) (slli (lbu hi), 8) -> packh lo hi`.
+
+    LLVM: `PACKH` byte-pair pattern.
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L632-L649 -/
+private def packh_low_bytes_pattern (commuted : Bool) :
+    Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let lo ← matchLbu
+      let hi ← matchLbu
+      let shiftedType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let shifted ← Puddle.MatchProg.operation (.riscv .slli) #[hi] #[shiftedType]
+        (fun properties => properties.value.value == 8)
+      let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let _ ← if commuted then
+        Puddle.MatchProg.root (.riscv .or) #[shifted.res[0]!, lo] #[resultType]
+      else
+        Puddle.MatchProg.root (.riscv .or) #[lo, shifted.res[0]!] #[resultType]
+      return (lo, hi, resultType))
+    (fun (lo, hi, resultType) => do
+      let properties ← Puddle.CreateProg.property (.riscv .packh) ()
+      let packh ← Puddle.CreateProg.operation (.riscv .packh) #[lo, hi] #[resultType] properties
+      return packh)
+    (fun packh => packh)
+
+/-- `or (slli (lbu b2), 16) (slli (lbu b3), 24) ->
+    slli (packh b2 b3), 16`.  Both operand orders are matched.
+
+    LLVM: `PACKH` byte-pair patterns.
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L632-L649 -/
+private def packh_high_bytes_pattern (commuted : Bool) :
+    Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let b2 ← matchLbu
+      let b3 ← matchLbu
+      let b2ShiftedType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let b2Shifted ← Puddle.MatchProg.operation (.riscv .slli) #[b2] #[b2ShiftedType]
+        (fun properties => properties.value.value == 16)
+      let b3ShiftedType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let b3Shifted ← Puddle.MatchProg.operation (.riscv .slli) #[b3] #[b3ShiftedType]
+        (fun properties => properties.value.value == 24)
+      let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let _ ← if commuted then
+        Puddle.MatchProg.root (.riscv .or) #[b3Shifted.res[0]!, b2Shifted.res[0]!] #[resultType]
+      else
+        Puddle.MatchProg.root (.riscv .or) #[b2Shifted.res[0]!, b3Shifted.res[0]!] #[resultType]
+      return (b2, b3, resultType))
+    (fun (b2, b3, resultType) => do
+      let packhProperties ← Puddle.CreateProg.property (.riscv .packh) ()
+      let packh ← Puddle.CreateProg.operation (.riscv .packh) #[b2, b3] #[resultType]
+        packhProperties
+      let slliProperties ← Puddle.CreateProg.property (.riscv .slli)
+        (RISCVImmediateProperties.mk (IntegerAttr.mk 16 (IntegerType.mk 64)))
+      let shifted ← Puddle.CreateProg.operation (.riscv .slli) #[packh.res[0]!] #[resultType]
+        slliProperties
+      return shifted)
+    (fun shifted => shifted)
+
+/-- `or (lbu lo) (slli (lbu hi), 8) -> packh lo hi`.
+
+    LLVM: `PACKH` byte-pair pattern.
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L632-L649 -/
+private def packh_low_bytes : RewritePattern OpCode :=
+  (packh_low_bytes_pattern false).compile.run
+
+/-- `or (slli (lbu hi), 8) (lbu lo) -> packh lo hi`.
+
+    LLVM: commuted `PACKH` byte-pair pattern.
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L632-L649 -/
+private def packh_low_bytes_commuted : RewritePattern OpCode :=
+  (packh_low_bytes_pattern true).compile.run
+
+/-- `or (slli (lbu b2), 16) (slli (lbu b3), 24) ->
+    slli (packh b2 b3), 16`.
+
+    LLVM: `PACKH` high-byte pair pattern.
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L632-L649 -/
+private def packh_high_bytes : RewritePattern OpCode :=
+  (packh_high_bytes_pattern false).compile.run
+
+/-- `or (slli (lbu b3), 24) (slli (lbu b2), 16) ->
+    slli (packh b2 b3), 16`.
+
+    LLVM: commuted `PACKH` high-byte pair pattern.
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L632-L649 -/
+private def packh_high_bytes_commuted : RewritePattern OpCode :=
+  (packh_high_bytes_pattern true).compile.run
+
 /-- If `val` is defined by a `riscv.<ext>` op (`ext` being `zextw`/`sextw`),
     return its source operand and `true`; otherwise `val` unchanged and `false`. -/
 private def stripDefiningExt (ext : Riscv) (val : ValuePtr) (ctx : IRContext OpCode) :
@@ -1765,13 +1963,13 @@ private def matchRiscvStore (store : Riscv) (op : OperationPtr) (ctx : IRContext
   let properties := op.getProperties! ctx store
   return (operands[0]!, operands[1]!, properties)
 
-/-- Drop a `riscv.<ext>` from the value operand of a `riscv.<store>` whose width
-    matches the extension's: a word store (`sw`) writes only bits 31:0, a halfword
-    store (`sh`) only bits 15:0, and a byte store (`sb`) only bits 7:0 (see the
+/-- Drop a `riscv.<ext>` from the value operand of a `riscv.<store>` when the
+    extension preserves every stored low bit. A word store (`sw`) writes bits 31:0,
+    a halfword store (`sh`) bits 15:0, and a byte store (`sb`) bits 7:0 (see the
     store cases of `Interpreter.Basic.exec`, which keep just the low 4/2/1 bytes).
-    An extension of the matching width leaves exactly those bits unchanged -- it
-    only rewrites higher bits -- so extending the stored value first is redundant.
-    The address operand is left untouched: it needs the full 64 bits.
+    The existing instances use `zextw`/`sextw` for `sw` and `sb`,
+    `zexth`/`sexth` for `sh`, and `zextb`/`sextb` for `sb`. The address operand
+    is left untouched: it needs the full 64 bits.
 
     LLVM: the `SW`/`SH`/`SB` cases of `hasAllNBitUsers` demand only the low 32/16/8
     bits of the store's value operand (operand index 0), and nothing of the address.
@@ -1795,13 +1993,25 @@ def drop_zextw_sw := drop_ext_store .zextw .sw
 /-- `riscv.sw (riscv.sextw val), addr -> riscv.sw val, addr`. -/
 def drop_sextw_sw := drop_ext_store .sextw .sw
 
-/-- Halfword- and byte-store mirrors of `drop_zextw_sw`/`drop_sextw_sw`: `sh` writes
-    only bits 15:0 (matched by `zexth`/`sexth`) and `sb` only bits 7:0 (matched by
-    `zextb`/`sextb`). -/
+/-- `riscv.sh` observes only its value operand's low 16 bits. -/
 def drop_zexth_sh := drop_ext_store .zexth .sh
 def drop_sexth_sh := drop_ext_store .sexth .sh
+
+/-- `riscv.sb` observes only its value operand's low 8 bits. -/
 def drop_zextb_sb := drop_ext_store .zextb .sb
 def drop_sextb_sb := drop_ext_store .sextb .sb
+
+/-- `riscv.sb (riscv.zextw val), addr -> riscv.sb val, addr`.
+
+    LLVM: `SB` low-bit user case.
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L294-L308 -/
+def drop_zextw_sb := drop_ext_store .zextw .sb
+
+/-- `riscv.sb (riscv.sextw val), addr -> riscv.sb val, addr`.
+
+    LLVM: `SB` low-bit user case.
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L294-L308 -/
+def drop_sextw_sb := drop_ext_store .sextw .sb
 
 /-- riscv.li 0 -> rv64.get_register (x0)
 
@@ -2569,7 +2779,16 @@ def constant_fold_binop (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   let patterns : Array (RewritePattern OpCode) :=
-    #[ right_identity_zero_add
+    #[ packh_low_bytes
+     , packh_low_bytes_commuted
+     , packh_high_bytes
+     , packh_high_bytes_commuted
+     , zextb_lb
+     , zextb_lbu
+     , zextw_slliw_lbu 8
+     , zextw_slliw_lbu 16
+     , zextw_slliw_lbu 24
+     , right_identity_zero_add
      , srl_sra_signbit
      , srlw_sraw_signbit
      , drop_slli_srli_slt
@@ -2581,6 +2800,7 @@ def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds
      , drop_slli_srli_sltz
      , drop_slli_srli_sgtz
      , zextw_zextw
+     , zextw_zextb
      , drop_zextw_addw
      , drop_zextw_addiw
      , drop_zextw_roriw
@@ -2624,6 +2844,8 @@ def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds
      , drop_sexth_sh
      , drop_zextb_sb
      , drop_sextb_sb
+     , drop_zextw_sb
+     , drop_sextw_sb
      , zextb_x0
      , zexth_x0
      , sextb_x0
