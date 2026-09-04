@@ -36,6 +36,7 @@ inductive Llvm where
 | intr__bitreverse
 | intr__fshl
 | intr__fshr
+| intr__assume
 | mul
 | sdiv
 | udiv
@@ -94,6 +95,7 @@ match op with
 | .ashr => ExactProperties
 | .intr__ctlz | .intr__cttz => ZeroPoisonProperties
 | .intr__abs => IntMinPoisonProperties
+| .intr__assume => LLVMAssumeProperties
 | .or => DisjointProperties
 | .trunc => NswNuwProperties
 | .zext => NnegProperties
@@ -127,6 +129,7 @@ def Llvm.fromAttrDict
   case intr__cttz =>
     exact ZeroPoisonProperties.fromAttrDictFor "llvm.intr.cttz" attrDict
   case intr__abs => exact IntMinPoisonProperties.fromAttrDict attrDict
+  case intr__assume => exact LLVMAssumeProperties.fromAttrDict attrDict
   case or => exact DisjointProperties.fromAttrDict attrDict
   case zext => exact NnegProperties.fromAttrDict attrDict
   case icmp => exact IcmpProperties.fromAttrDict attrDict
@@ -247,6 +250,12 @@ def Llvm.toAttrDict
     let attr := IntegerAttr.mk value (IntegerType.mk 1)
     (Std.HashMap.emptyWithCapacity 1).insert
       "is_int_min_poison".toUTF8 (Attribute.integerAttr attr)
+  | .intr__assume => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 2
+    dict := dict.insert "op_bundle_sizes".toUTF8 (Attribute.denseArrayAttr props.op_bundle_sizes)
+    if let some tags := props.op_bundle_tags then
+      dict := dict.insert "op_bundle_tags".toUTF8 (.arrayAttr tags)
+    dict
   | .alloca => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 3
     dict := dict.insert "alignment".toUTF8 (Attribute.integerAttr props.alignment)
@@ -375,7 +384,7 @@ def Llvm.propagatesPoison : Llvm → Bool
   | .fadd | .fsub | .fmul | .fdiv | .frem
   | .mlir__constant | .mlir__poison | .mlir__zero | .mlir__global | .mlir__addressof
   | .select | .br | .cond_br | .switch | .unreachable | .alloca | .load | .store
-  | .intr__lifetime__start | .intr__lifetime__end
+  | .intr__lifetime__start | .intr__lifetime__end | .intr__assume
   | .getelementptr | .call | .return | .func | .module_flags | .freeze => false
 
 instance : IsOpCode Llvm where
@@ -567,6 +576,28 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     let .llvmPointerType _ := operandType.val
       | throw "Expected operand 0 to have !llvm.ptr type"
     pure ()
+  | .intr__assume => do
+    op.checkIsNonNullIntegerType ctx opIn
+    let props := op.getProperties! ctx.raw Llvm.intr__assume
+    let sizes := props.op_bundle_sizes
+    if sizes.elementType.bitwidth ≠ 32 then
+      throw "llvm.intr.assume: Expected 'op_bundle_sizes' to be an i32 dense array attribute"
+    if sizes.values.any (· < 0) then
+      throw "llvm.intr.assume: op_bundle_sizes contains a negative size"
+    let bundleOperands := (sizes.values.foldl (· + ·) 0).toNat
+    let numOperands := op.getNumOperands ctx.raw opIn
+    if numOperands ≠ 1 + bundleOperands then
+      throw s!"llvm.intr.assume: Expected 1 condition and {bundleOperands} operand bundle \
+        operand(s) per 'op_bundle_sizes', but got {numOperands} operand(s)"
+    op.verifyPlainOpCounts ctx opIn numOperands 0
+    ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyI1 "llvm.intr.assume: Expected i1 condition"
+    let tags := (props.op_bundle_tags.map (·.value)).getD #[]
+    if tags.size ≠ sizes.values.size then
+      throw s!"llvm.intr.assume: Expected {sizes.values.size} operand bundle tag(s), \
+        but got {tags.size}"
+    for tag in tags do
+      let .stringAttr _ := tag
+        | throw "llvm.intr.assume: Expected operand bundle tags to be string attributes"
   | .mlir__addressof => do
     op.verifyPlainOpCounts ctx opIn 0 1
     let resultType := ((op.getResult 0).get! ctx.raw).type

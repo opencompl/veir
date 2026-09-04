@@ -125,6 +125,35 @@ def IntMinPoisonProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
   else
     throw s!"llvm.intr.abs: expected 'is_int_min_poison' to be 0 or 1, but got {intAttr.value}"
 
+/--
+  Properties of the `llvm.intr.assume` intrinsic. The condition is followed by
+  the operands of its operand bundles: `op_bundle_sizes` gives the operand
+  count of each bundle and `op_bundle_tags` its name. MLIR omits
+  `op_bundle_tags` when there are no bundles.
+-/
+structure LLVMAssumeProperties where
+  op_bundle_sizes : DenseArrayAttr
+  op_bundle_tags : Option ArrayAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMAssumeProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMAssumeProperties := do
+  if let some (key, _) := attrDict.toArray.find? (fun (k, _) =>
+      k ≠ "op_bundle_sizes".toUTF8 && k ≠ "op_bundle_tags".toUTF8) then
+    throw s!"llvm.intr.assume: unexpected property '{String.fromUTF8! key}'"
+  let sizes ← match attrDict["op_bundle_sizes".toUTF8]? with
+    | some (.denseArrayAttr sizes) => pure sizes
+    | some attr =>
+      throw s!"llvm.intr.assume: expected 'op_bundle_sizes' to be a dense array attribute, \
+        but got {attr}"
+    | none => throw "llvm.intr.assume: missing 'op_bundle_sizes' property"
+  let tags ← match attrDict["op_bundle_tags".toUTF8]? with
+    | some (.arrayAttr tags) => pure (some tags)
+    | some attr =>
+      throw s!"llvm.intr.assume: expected 'op_bundle_tags' to be an array attribute, but got {attr}"
+    | none => pure none
+  return { op_bundle_sizes := sizes, op_bundle_tags := tags }
+
 structure FastMathFlagsProperties where
   attr : FastMathFlagsAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
