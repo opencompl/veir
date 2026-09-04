@@ -283,9 +283,6 @@ theorem ArrayConforms.take_succ_eq {source : Array RuntimeValue} {target : Array
 
 end RuntimeValue
 
-structure EntropyState where
-  entropySource : ByteArray
-
 structure Message where
   src : Nat
   dest : Nat
@@ -303,7 +300,7 @@ structure NetworkState where
   Set bits in the poison mask represent poison bits.
 -/
 @[ext]
-structure MemoryState extends EntropyState, NetworkState where
+structure MemoryState extends NetworkState where
   contents : ByteArray
   poisonMask : ByteArray
   consistentSize : contents.size = poisonMask.size
@@ -311,7 +308,6 @@ structure MemoryState extends EntropyState, NetworkState where
 def MemoryState.empty : MemoryState := {
   contents := (ByteArray.emptyWithCapacity 1024).extend 8 0xff,
   poisonMask := (ByteArray.emptyWithCapacity 1024).extend 8 0xff,
-  entropySource := ByteArray.empty,
   selfAddress := 0,
   messages := [],
   consistentSize := (by grind)
@@ -321,7 +317,6 @@ def MemoryState.ensureSize (mem : MemoryState) (size : Nat) : MemoryState :=
   if mem.contents.size < size then
     {contents := mem.contents.extend (size - mem.contents.size) 0,
       poisonMask := mem.poisonMask.extend (size - mem.contents.size) 0xff,
-      entropySource := mem.entropySource,
       selfAddress := mem.selfAddress,
       messages := mem.messages,
       consistentSize := (by simp [mem.consistentSize])}
@@ -545,7 +540,6 @@ def MemoryState.alloc (state : MemoryState) (size : UInt64)
     : MemoryState × UInt64 :=
   ({contents := state.contents.extend size.toNat 0,
     poisonMask := state.poisonMask.extend size.toNat 0xff,
-    entropySource := state.entropySource,
     selfAddress := state.selfAddress,
     messages := state.messages,
     consistentSize := (by simp [state.consistentSize])}, state.contents.size.toUInt64)
@@ -562,7 +556,6 @@ def MemoryState.store (state : MemoryState) (addr : UInt64) (val : ByteArray)
     return {
       contents := val.copySlice 0 state.contents addr.toNat val.size false,
       poisonMask := poison.copySlice 0 state.poisonMask addr.toNat val.size false,
-      entropySource := state.entropySource,
       selfAddress := state.selfAddress,
       messages := state.messages,
       consistentSize := (by simp [ByteArray.copySlice_eq_append, state.consistentSize, h])
@@ -577,7 +570,6 @@ def MemoryState.storeCTree [ErrorE -< F] (state : MemoryState) (addr : UInt64) (
     return {
       contents := val.copySlice 0 state.contents addr.toNat val.size false,
       poisonMask := poison.copySlice 0 state.poisonMask addr.toNat val.size false,
-      entropySource := state.entropySource,
       selfAddress := state.selfAddress,
       messages := state.messages,
       consistentSize := (by simp [ByteArray.copySlice_eq_append, state.consistentSize, h])
@@ -596,7 +588,6 @@ def MemoryState.empoison (state : MemoryState) (addr : UInt64) (n : Nat)
     return {
       contents := state.contents,
       poisonMask := mask.copySlice 0 state.poisonMask addr.toNat n false,
-      entropySource := state.entropySource,
       selfAddress := state.selfAddress,
       messages := state.messages,
       consistentSize := (by
@@ -720,31 +711,12 @@ def MemoryState.llvmLoad (state : MemoryState) (addr : UInt64) (type : TypeAttr)
   | _ => none
 
 /--
-  Consume bytes from the entropy source.
-  Yields UB if the access is out of bounds.
--/
-def MemoryState.entropyLoad (state : MemoryState) (size : UInt64)
-    : Interp (MemoryState × ByteArray) := do
-  if state.entropySource.size < size.toNat then Interp.ub else
-  let ba := state.entropySource.extract 0 size.toNat
-  let newState := {
-    contents := state.contents,
-    poisonMask := state.poisonMask,
-    entropySource := state.entropySource.extract size.toNat state.entropySource.size,
-    selfAddress := state.selfAddress,
-    messages := state.messages,
-    consistentSize := state.consistentSize
-  }
-  return (newState, ba)
-
-/--
   Add an inflight message to the network
 -/
 def MemoryState.sendMessage (state : MemoryState) (dest : Nat) (payload : ByteArray) : MemoryState :=
   let msg : Message := { src := state.selfAddress, dest := dest, payload := payload }
   { contents := state.contents,
     poisonMask := state.poisonMask,
-    entropySource := state.entropySource,
     selfAddress := state.selfAddress,
     messages := state.messages ++ [msg],
     consistentSize := state.consistentSize
@@ -759,7 +731,6 @@ def MemoryState.consumeMessage (state : MemoryState) : Option (MemoryState × Me
     let newState := {
       contents := state.contents,
       poisonMask := state.poisonMask,
-      entropySource := state.entropySource,
       selfAddress := state.selfAddress,
       messages := state.messages.erase msg,
       consistentSize := state.consistentSize
