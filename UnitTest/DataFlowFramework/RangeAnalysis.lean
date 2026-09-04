@@ -97,8 +97,7 @@ out = add₂ · s
 
 The input block arguments are assumed to already be canonical values in `[0, q)`.
 Since every operation in this example has `reduction = "none"`, operation results
-keep their raw integer ranges while they fit the storage type instead of being folded
-back to `[0, q)`.
+keep their raw integer ranges instead of being folded back to `[0, q)`.
 Constants are tracked exactly.
 -/
 
@@ -131,13 +130,13 @@ def runModArithNoneReductionExample : String :=
      ]
   run mlir expected
 
-/-- Raw results that may overflow their storage type conservatively use its full range. -/
-def runModArithStorageOverflowExample : String :=
+/-- Raw results are not bounded by the result's storage type. -/
+def runModArithUnboundedStorageExample : String :=
   let mlir := r#""builtin.module"() ({
 ^bb0:
   "func.func"() <{
     function_type = (!mod_arith.int<251 : i8>, !mod_arith.int<251 : i8>) -> (),
-    sym_name = "storage_overflow"
+    sym_name = "unbounded_storage"
   }> ({
   ^entry(%a : !mod_arith.int<251 : i8>, %b : !mod_arith.int<251 : i8>):
     %sum = "mod_arith.add"(%a, %b) {"reduction" = "none"}
@@ -150,8 +149,8 @@ def runModArithStorageOverflowExample : String :=
   let expected :=
     #[ { name := "a",       range := interval 0 250 }
      , { name := "b",       range := interval 0 250 }
-     , { name := "sum",     range := interval 0 255 }
-     , { name := "product", range := interval 0 255 }
+     , { name := "sum",     range := interval 0 500 }
+     , { name := "product", range := interval 0 62500 }
      ]
   run mlir expected
 
@@ -171,6 +170,6 @@ info: "ok"
 info: "ok"
 -/
 #guard_msgs in
-#eval! runModArithStorageOverflowExample
+#eval! runModArithUnboundedStorageExample
 
 end ModArithDataflow

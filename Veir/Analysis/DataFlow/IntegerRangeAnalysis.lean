@@ -13,12 +13,10 @@ namespace Veir
 This module implements a sparse forward dataflow analysis that approximates each
 ModArith SSA value with an interval of its possible unsigned integer representations.
 
-The analysis distinguishes the canonical range `[0, modulus - 1]` from the maximum
-storage range `[0, 2^bitwidth - 1]`. Region entry arguments and fully reduced operation
-results use the canonical range. Constants receive singleton ranges, while supported
-unreduced arithmetic operations preserve their computed interval when it fits in the
-storage type. Unknown operations and results that may exceed the storage type use the
-maximum storage range conservatively.
+Region entry arguments and fully reduced operation results use the canonical range
+`[0, modulus - 1]`. Constants receive singleton ranges, while supported unreduced
+arithmetic operations preserve their raw computed interval. Unknown operations use
+`⊤` conservatively.
 
 Ranges are joined along control flow edges.
 -/
@@ -53,38 +51,6 @@ def canonicalRange (value : ValuePtr) (irCtx : IRContext OpCode) : IntegerRangeL
       ⊤
   | _ => ⊤
 
-/--
-The maximum range contains every unsigned value representable by a ModArith value's
-storage type: `[0, 2^bitwidth - 1]`. Unlike `canonicalRange`, it may include values at
-least as large as the modulus. It is the conservative bound for unreduced results,
-and unknown operations.
--/
-def maxRange (value : ValuePtr) (irCtx : IRContext OpCode) : IntegerRangeLattice :=
-  match (value.getType! irCtx).val with
-  | .modArithType mt =>
-    let storageCardinality : Nat := 2 ^ mt.bitwidth
-    .interval
-      { lower := 0
-        upper := (storageCardinality : Int) - 1
-        lower_le_upper := by
-          have := Nat.two_pow_pos mt.bitwidth
-          omega }
-  | _ => ⊤
-
-/-- Keep a raw result when it fits; otherwise conservatively use its storage range. -/
-private def boundToMaxRange
-    (raw maximum : IntegerRangeLattice) : IntegerRangeLattice :=
-  match raw, maximum with
-  | .bottom, _ => .bottom
-  | raw, .top => raw
-  | raw, .bottom => raw
-  | .top, .interval maximum => .interval maximum
-  | .interval raw, .interval maximum =>
-    if maximum.lower ≤ raw.lower ∧ raw.upper ≤ maximum.upper then
-      .interval raw
-    else
-      .interval maximum
-
 private def applyReduction
     (op : OperationPtr)
     (raw : IntegerRangeLattice)
@@ -95,8 +61,7 @@ private def applyReduction
     | some (_, .stringAttr attr) => attr.value == "none".toUTF8
     | _ => false
   if hasNoReduction then
-    let maximum := maxRange (op.getResult 0) irCtx.raw
-    boundToMaxRange raw maximum
+    raw
   else
     -- Match the lowering pass default: a missing reduction attribute means `full`.
     canonicalRange (op.getResult 0) irCtx.raw
@@ -117,9 +82,9 @@ private def constantRange
 /--
 Infer result ranges for one operation.
 
-Unknown operations that produce ModArith values conservatively receive their type's
-maximum storage range; unrelated results receive no update. Operations with an
-uninitialized operand wait for more information.
+Unknown operations that produce ModArith values conservatively receive `⊤`; unrelated
+results receive no update. Operations with an uninitialized operand wait for more
+information.
 -/
 def transfer
     (op : OperationPtr)
@@ -128,7 +93,7 @@ def transfer
   let numResults := op.getNumResults! irCtx.raw
   let pessimisticUpdates := (op.getResults! irCtx.raw).map fun result =>
     match (result.getType! irCtx.raw).val with
-    | .modArithType _ => some (maxRange result irCtx.raw)
+    | .modArithType _ => some ⊤
     | _ => none
 
   if op.getNumRegions! irCtx.raw ≠ 0 then
