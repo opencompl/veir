@@ -564,6 +564,10 @@ partial def lex (state : LexerState) : Except ParserError (Token × LexerState) 
     else
       .error { msg := s!"Unexpected character '{Char.ofUInt8 c}' at position {state.pos.byteOffset}" }
 
+/-- Set the lexer position to a given location. -/
+def LexerState.resetPosition (state : LexerState) (pos : Location) : LexerState :=
+  { state with pos }
+
 end Lexer
 
 end Veir.Parser

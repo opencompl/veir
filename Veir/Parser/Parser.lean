@@ -79,6 +79,13 @@ def consumeToken : M Token := do
   set { lexer := lexerState, currentToken := nextToken : ParserState }
   return token
 
+/-- Move the lexer position to `pos` current token. -/
+def resetToken (pos : Location) : M Unit := do
+  let parserState ← get
+  let lexer := parserState.lexer.resetPosition pos
+  let (currentToken, lexer) ← ofExcept <| lex lexer
+  set { lexer, currentToken : ParserState }
+
 /--
   If the current token is of the expected kind, consume it and return it.
   Otherwise, return none.
