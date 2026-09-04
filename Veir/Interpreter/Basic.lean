@@ -105,6 +105,7 @@ def Conforms (val : RuntimeValue) (ty : TypeAttr) : Prop :=
   | .addr _, ⟨.llvmPointerType _, _⟩ => True
   | .felt fieldType value, ⟨.feltType expectedType, _⟩ =>
     fieldType = expectedType ∧ FeltSemantics.IsCanonical fieldType value
+  | .ioAddr _, ⟨.ioAddressType _, _⟩ => True
   | _, _ => False
 
 instance : Decidable (Conforms val ty) := by
@@ -213,12 +214,27 @@ theorem ArrayConforms.take_succ_eq {source : Array RuntimeValue} {target : Array
 
 end RuntimeValue
 
+structure EntropyState where
+  entropySource : ByteArray
+
+structure Message where
+  src : Nat
+  dest : Nat
+  payload : ByteArray
+deriving BEq
+
+structure NetworkState where
+  /-- Address of this run. -/
+  selfAddress : Nat
+  /-- in-flight messages in the network. -/
+  messages : List Message
+
 /--
   Memory state during interpretation.
   Set bits in the poison mask represent poison bits.
 -/
 @[ext]
-structure MemoryState where
+structure MemoryState extends EntropyState, NetworkState where
   contents : ByteArray
   poisonMask : ByteArray
   consistentSize : contents.size = poisonMask.size
@@ -226,14 +242,20 @@ structure MemoryState where
 def MemoryState.empty : MemoryState := {
   contents := (ByteArray.emptyWithCapacity 1024).extend 8 0xff,
   poisonMask := (ByteArray.emptyWithCapacity 1024).extend 8 0xff,
+  entropySource := ByteArray.empty,
+  selfAddress := 0,
+  messages := [],
   consistentSize := (by grind)
 }
 
 def MemoryState.ensureSize (mem : MemoryState) (size : Nat) : MemoryState :=
   if mem.contents.size < size then
-    ⟨mem.contents.extend (size - mem.contents.size) 0,
-      mem.poisonMask.extend (size - mem.contents.size) 0xff,
-      (by simp [mem.consistentSize])⟩
+    {contents := mem.contents.extend (size - mem.contents.size) 0,
+      poisonMask := mem.poisonMask.extend (size - mem.contents.size) 0xff,
+      entropySource := mem.entropySource,
+      selfAddress := mem.selfAddress,
+      messages := mem.messages,
+      consistentSize := (by simp [mem.consistentSize])}
   else
     mem
 
@@ -452,9 +474,12 @@ instance : MonadLift Option Interp where
 -/
 def MemoryState.alloc (state : MemoryState) (size : UInt64)
     : MemoryState × UInt64 :=
-  (⟨state.contents.extend size.toNat 0,
-    state.poisonMask.extend size.toNat 0xff,
-    by simp [state.consistentSize]⟩, state.contents.size.toUInt64)
+  ({contents := state.contents.extend size.toNat 0,
+    poisonMask := state.poisonMask.extend size.toNat 0xff,
+    entropySource := state.entropySource,
+    selfAddress := state.selfAddress,
+    messages := state.messages,
+    consistentSize := (by simp [state.consistentSize])}, state.contents.size.toUInt64)
 
 /--
   Store raw bytes to the given address in memory,
@@ -465,11 +490,14 @@ def MemoryState.store (state : MemoryState) (addr : UInt64) (val : ByteArray)
   (poison : ByteArray := ByteArray.replicate val.size 0) (h : poison.size = val.size := by grind)
     : Interp MemoryState :=
   if addr.toNat + val.size ≤ state.contents.size then
-    return ⟨val.copySlice 0 state.contents addr.toNat val.size false,
-      poison.copySlice 0 state.poisonMask addr.toNat val.size false,
-      by
-        simp [ByteArray.copySlice_eq_append, state.consistentSize, h]
-      ⟩
+    return {
+      contents := val.copySlice 0 state.contents addr.toNat val.size false,
+      poisonMask := poison.copySlice 0 state.poisonMask addr.toNat val.size false,
+      entropySource := state.entropySource,
+      selfAddress := state.selfAddress,
+      messages := state.messages,
+      consistentSize := (by simp [ByteArray.copySlice_eq_append, state.consistentSize, h])
+    }
   else
     Interp.ub
 
@@ -481,15 +509,16 @@ def MemoryState.empoison (state : MemoryState) (addr : UInt64) (n : Nat)
     : Interp MemoryState :=
   if h : addr.toNat + n ≤ state.poisonMask.size then
     let mask := ByteArray.replicate n 0xff
-    return ⟨state.contents,
-      mask.copySlice 0 state.poisonMask addr.toNat n false,
-      by
-        have h' : min n mask.size = n := by grind
-        have h'' : min addr.toNat state.poisonMask.size = addr.toNat := by grind
-        simp [ByteArray.copySlice_eq_append, state.consistentSize, h', h'']
-        grind
-
-      ⟩
+    return {
+      contents := state.contents,
+      poisonMask := mask.copySlice 0 state.poisonMask addr.toNat n false,
+      entropySource := state.entropySource,
+      selfAddress := state.selfAddress,
+      messages := state.messages,
+      consistentSize := (by
+        simp [ByteArray.copySlice_eq_append, state.consistentSize]
+        grind)
+    }
   else
     Interp.ub
 
@@ -582,7 +611,52 @@ def MemoryState.llvmLoad (state : MemoryState) (addr : UInt64) (type : TypeAttr)
       return .addr ba.toUInt64LE!
   | _ => none
 
+/--
+  Consume bytes from the entropy source.
+  Yields UB if the access is out of bounds.
+-/
+def MemoryState.entropyLoad (state : MemoryState) (size : UInt64)
+    : Interp (MemoryState × ByteArray) := do
+  if state.entropySource.size < size.toNat then Interp.ub else
+  let ba := state.entropySource.extract 0 size.toNat
+  let newState := {
+    contents := state.contents,
+    poisonMask := state.poisonMask,
+    entropySource := state.entropySource.extract size.toNat state.entropySource.size,
+    selfAddress := state.selfAddress,
+    messages := state.messages,
+    consistentSize := state.consistentSize
+  }
+  return (newState, ba)
 
+/--
+  Add an inflight message to the network
+-/
+def MemoryState.sendMessage (state : MemoryState) (dest : Nat) (payload : ByteArray) : MemoryState :=
+  let msg : Message := { src := state.selfAddress, dest := dest, payload := payload }
+  { contents := state.contents,
+    poisonMask := state.poisonMask,
+    entropySource := state.entropySource,
+    selfAddress := state.selfAddress,
+    messages := state.messages ++ [msg],
+    consistentSize := state.consistentSize
+  }
+
+/--
+  Consume the next inflight message destined for the current address
+-/
+def MemoryState.consumeMessage (state : MemoryState) : Option (MemoryState × Message) :=
+  let optMsg := state.messages.find? (fun msg => msg.dest = state.selfAddress)
+  optMsg.map fun msg =>
+    let newState := {
+      contents := state.contents,
+      poisonMask := state.poisonMask,
+      entropySource := state.entropySource,
+      selfAddress := state.selfAddress,
+      messages := state.messages.erase msg,
+      consistentSize := state.consistentSize
+    }
+    (newState, msg)
 
 def Arith.interpretOp' (opType : Veir.Arith) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
@@ -1740,6 +1814,44 @@ def Cf.interpretOp' (opType : Veir.Cf) (properties : propertiesOf opType)
     | .int 1 .poison => Interp.ub
     | _ => none
 
+def Io.interpretOp' (opType : Veir.Io) (properties : propertiesOf opType)
+    (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
+    (_blockOperands : Array BlockPtr) (mem : MemoryState)
+    : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
+  match opType with
+  | .address => do
+    return (#[.ioAddr properties.id.value.toNat], mem, none)
+  | .send => do
+    let [.ioAddr dest, .addr ptr, .int _ len] := operands.toList | none
+    let .val len := len | Interp.ub
+    let len := len.toNat.toUInt64
+    if ← mem.hasPoison ptr len then Interp.ub
+    let buf ← mem.load ptr len
+    let mem := mem.sendMessage dest buf
+    return (#[.int 64 (.val buf.size)], mem, none)
+  | .recv => do
+    let [.addr ptr, .int _ len] := operands.toList | none
+    let .val len := len | Interp.ub
+    let len := len.toNat
+    -- `status` is the number of bytes written, or an `Io.Error` code.
+    -- `src` is the source address of the message, or 0 if no message was received.
+    let (status, src, mem) ← match mem.consumeMessage with
+      | none => pure (Io.Error.exhausted, 0, mem)
+      | some (mem', msg) =>
+        if msg.payload.size > len then
+          -- Leave the message in flight so a larger buffer can retry.
+          pure (Io.Error.messageTooLong, 0, mem)
+        else do
+          let mem' ← mem'.store ptr msg.payload
+          pure ((msg.payload.size : Int), msg.src, mem')
+    return (#[.int 64 (.val status), .ioAddr src], mem, none)
+  | .rand => do
+    let [.addr addr, .int _ len] := operands.toList | none
+    let .val len := len | Interp.ub
+    let len := len.toNat.toUInt64
+    let ⟨mem, buf⟩ ← mem.entropyLoad len
+    let mem ← mem.store addr buf
+    return  (#[.int 64 (.val len.toNat)], mem, none)
 def Comb.interpretOp' (opType : Veir.Comb) (properties : propertiesOf opType)
     (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
     : Option ((Array RuntimeValue) × Option ControlFlowAction) :=
@@ -1803,6 +1915,8 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
   | .cf cfOp => do
     let (vals, act) ← Cf.interpretOp' cfOp properties resultTypes operands blockOperands
     return (vals, mem, act)
+  | .io ioOp => do
+    Io.interpretOp' ioOp properties resultTypes operands blockOperands mem
   | .comb combOp => do
     let (vals, act) ← Comb.interpretOp' combOp properties operands blockOperands
     return (vals, mem, act)
