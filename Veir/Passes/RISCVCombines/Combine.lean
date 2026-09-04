@@ -1561,7 +1561,11 @@ def sextb_sextb := drop_redundant_ext .sextb
 def sexth_sexth := drop_redundant_ext .sexth
 
 /-- `riscv.zextw (riscv.zextb x) -> riscv.zextb x`. A byte zero-extension
-    already clears every bit which `zextw` would clear. -/
+    already clears every bit which `zextw` would clear.
+
+    LLVM: `CastInst::isEliminableCastPair` folds a `ZExt` followed by a `ZExt`
+    to the first cast.
+    https://github.com/llvm/llvm-project/blob/c536b0aa030474672e293dccdb27b97c36c4e1af/llvm/lib/IR/Instructions.cpp#L2922-L2967 -/
 private def zextw_zextb_pattern : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
