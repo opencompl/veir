@@ -16,8 +16,8 @@
     // CHECK-NEXT:         %{{.*}} = "io.rand"(%[[buf]], %[[len]]) : (!llvm.ptr, i64) -> i64
     %n1 = "io.send"(%peer, %buf, %len) : (!io.address, !llvm.ptr, i64) -> i64
     // CHECK-NEXT:         %{{.*}} = "io.send"(%[[peer]], %[[buf]], %[[len]]) : (!io.address, !llvm.ptr, i64) -> i64
-    %n2 = "io.recv"(%peer, %buf, %len) : (!io.address, !llvm.ptr, i64) -> i64
-    // CHECK-NEXT:         %{{.*}} = "io.recv"(%[[peer]], %[[buf]], %[[len]]) : (!io.address, !llvm.ptr, i64) -> i64
+    %n2, %from = "io.recv"(%buf, %len) : (!llvm.ptr, i64) -> (i64, !io.address)
+    // CHECK-NEXT:         %{{.*}}:2 = "io.recv"(%[[buf]], %[[len]]) : (!llvm.ptr, i64) -> (i64, !io.address)
     "func.return"() : () -> ()
     // CHECK-NEXT:         "func.return"() : () -> ()
   }) : () -> ()

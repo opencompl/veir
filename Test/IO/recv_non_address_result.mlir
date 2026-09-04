@@ -3,8 +3,9 @@
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> ()}> ({
     %len = "llvm.mlir.constant"() <{value = 4 : i64}> : () -> i64
-    %n, %from = "io.recv"(%len, %len) : (i64, i64) -> (i64, !io.address)
-    // CHECK: io.recv: Expected operand 0 to have !llvm.ptr type
+    %buf = "llvm.alloca"(%len) <{elem_type = i8}> : (i64) -> !llvm.ptr
+    %n, %from = "io.recv"(%buf, %len) : (!llvm.ptr, i64) -> (i64, i32)
+    // CHECK: io.recv: Expected result 1 to have !io.address type
     "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
