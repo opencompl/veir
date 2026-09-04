@@ -65,8 +65,13 @@ def ErrorE (e : ErrorEIn.{u}) :=
   match e with
   | .mk => Void
 
+structure Message where
+  src : Nat
+  dest : Nat
+  payload : ByteArray
+
 inductive IoEIn where
-  | sendE (msg : ByteArray)
+  | sendE (msg : Message)
   | recvE
   | randE (len : Nat)
 
@@ -74,7 +79,7 @@ inductive IoEIn where
 def IoE (e : IoEIn) :=
   match e with
   | .sendE _ => Unit
-  | .recvE => Option (Nat × ByteArray) -- sender & payload
+  | .recvE => Option (Message)
   | .randE _ => ByteArray
 
 def trigger {EIn FIn CIn : Type u} {E : EIn → Type u} {F : FIn → Type u} {C : CIn → Type u}
@@ -88,8 +93,8 @@ def error [ErrorE -< F] : CTree F C R := do
 def ub [ErrorE -< F] : CTree F C R := do
   let v ← trigger (E := ErrorE) .mk
   nomatch v
-def ioSend [IoE -< F] (msg : ByteArray) : CTree F C Unit := trigger (E := IoE) (.sendE msg)
-def ioRecv [IoE -< F] : CTree F C (Option (Nat × ByteArray)) := trigger (E := IoE) (.recvE)
+def ioSend [IoE -< F] (msg : Message) : CTree F C Unit := trigger (E := IoE) (.sendE msg)
+def ioRecv [IoE -< F] : CTree F C (Option (Message)) := trigger (E := IoE) (.recvE)
 def ioRand [IoE -< F] (len : Nat) : CTree F C ByteArray := trigger (E := IoE) (.randE len)
 
 instance : MonadLift Option (CTree ErrorE FreezeC) where
@@ -282,12 +287,6 @@ theorem ArrayConforms.take_succ_eq {source : Array RuntimeValue} {target : Array
     grind [h i]
 
 end RuntimeValue
-
-structure Message where
-  src : Nat
-  dest : Nat
-  payload : ByteArray
-deriving BEq
 
 structure NetworkState where
   /-- Address of this run. -/
@@ -1912,8 +1911,7 @@ def Io.interpretOp' [ErrorE -< F] [IoE -< F] (opType : Veir.Io) (properties : pr
     let len : UInt64 := UInt64.ofNat lenNat
     if ← mem.hasPoisonCTree ptr len then ub
     let buf ← mem.loadCTree ptr len
-    ioSend buf
-    let mem := mem.sendMessage dest buf
+    ioSend { src := mem.selfAddress, dest, payload := buf }
     return (#[.int 64 (.val buf.size)], mem, none)
   | .recv => do
     let [.addr ptr, .int _ len] := operands.toList | ub
@@ -1922,7 +1920,7 @@ def Io.interpretOp' [ErrorE -< F] [IoE -< F] (opType : Veir.Io) (properties : pr
     let optResult ← ioRecv
     let (status, src, mem) ← match optResult with
     | none => pure (Io.Error.exhausted, 0, mem)
-    | some (src, payload) =>
+    | some { src := src, dest := _, payload := payload } =>
       if payload.size > len then
         pure (Io.Error.messageTooLong, 0, mem)
       else do
