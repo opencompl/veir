@@ -1,7 +1,9 @@
 // RUN: veir-opt %s -p=riscv-combine,dce | filecheck %s
 
-// Pack bytes 2 and 3, shifted into the high half of the low word. Both OR
-// operand orders are valid; a different shift amount is not.
+// `packh_high_bytes`: `or (slli (lbu b2), 16) (slli (lbu b3), 24) ->
+// slli (packh b2 b3), 16`.
+// `packh_high_bytes_commuted`: `or (slli (lbu b3), 24) (slli (lbu b2), 16) ->
+// slli (packh b2 b3), 16`. A different shift amount must not match either rule.
 
 "builtin.module"() ({
   "func.func"() <{function_type = (!riscv.reg) -> (!riscv.reg, !riscv.reg, !riscv.reg), sym_name = "packh_high_bytes"}> ({

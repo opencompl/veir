@@ -1722,12 +1722,35 @@ private def packh_high_bytes_pattern (commuted : Bool) :
       return shifted)
     (fun shifted => shifted)
 
-/-- The byte-packing Puddle rules. -/
-private def byte_packing_patterns : Array (RewritePattern OpCode) :=
-  #[(packh_low_bytes_pattern false).compile.run,
-    (packh_low_bytes_pattern true).compile.run,
-    (packh_high_bytes_pattern false).compile.run,
-    (packh_high_bytes_pattern true).compile.run]
+/-- `or (lbu lo) (slli (lbu hi), 8) -> packh lo hi`.
+
+    LLVM: `PACKH` byte-pair pattern.
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L632-L649 -/
+private def packh_low_bytes : RewritePattern OpCode :=
+  (packh_low_bytes_pattern false).compile.run
+
+/-- `or (slli (lbu hi), 8) (lbu lo) -> packh lo hi`.
+
+    LLVM: commuted `PACKH` byte-pair pattern.
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L632-L649 -/
+private def packh_low_bytes_commuted : RewritePattern OpCode :=
+  (packh_low_bytes_pattern true).compile.run
+
+/-- `or (slli (lbu b2), 16) (slli (lbu b3), 24) ->
+    slli (packh b2 b3), 16`.
+
+    LLVM: `PACKH` high-byte pair pattern.
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L632-L649 -/
+private def packh_high_bytes : RewritePattern OpCode :=
+  (packh_high_bytes_pattern false).compile.run
+
+/-- `or (slli (lbu b3), 24) (slli (lbu b2), 16) ->
+    slli (packh b2 b3), 16`.
+
+    LLVM: commuted `PACKH` high-byte pair pattern.
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L632-L649 -/
+private def packh_high_bytes_commuted : RewritePattern OpCode :=
+  (packh_high_bytes_pattern true).compile.run
 
 /-- If `val` is defined by a `riscv.<ext>` op (`ext` being `zextw`/`sextw`),
     return its source operand and `true`; otherwise `val` unchanged and `false`. -/
@@ -2752,8 +2775,11 @@ def constant_fold_binop (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   let patterns : Array (RewritePattern OpCode) :=
-    byte_packing_patterns ++
-    #[ zextb_lb
+    #[ packh_low_bytes
+     , packh_low_bytes_commuted
+     , packh_high_bytes
+     , packh_high_bytes_commuted
+     , zextb_lb
      , zextb_lbu
      , zextw_slliw_lbu 8
      , zextw_slliw_lbu 16

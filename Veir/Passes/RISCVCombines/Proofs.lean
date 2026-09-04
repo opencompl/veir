@@ -139,26 +139,33 @@ theorem zextw_slliw_lbu_24 {byte : Reg} :
     RISCV.zextw (RISCV.slliw 24 (RISCV.zextb byte)) = RISCV.slli 24 (RISCV.zextb byte) := by
   veir_bv_decide
 
-/-- The two-byte `packh` low-pair combine.  The argument order of the
-    register-level operation is `(rs2, rs1)`, hence `hi` precedes `lo`. -/
+/-- `or (lbu lo) (slli (lbu hi), 8) -> packh lo hi`.
+
+    `RISCV.or` takes its operands as `(rs2, rs1)`, so the register-level
+    expression lists the shifted `hi` before `lo`. -/
 theorem packh_low_bytes {lo hi : Reg} :
     RISCV.or (RISCV.slli 8 (RISCV.zextb hi)) (RISCV.zextb lo) =
       RISCV.packh (RISCV.zextb hi) (RISCV.zextb lo) := by
   veir_bv_decide
 
-/-- Operand-order mirror of `packh_low_bytes`. -/
+/-- `or (slli (lbu hi), 8) (lbu lo) -> packh lo hi`. -/
 theorem packh_low_bytes_commuted {lo hi : Reg} :
     RISCV.or (RISCV.zextb lo) (RISCV.slli 8 (RISCV.zextb hi)) =
       RISCV.packh (RISCV.zextb hi) (RISCV.zextb lo) := by
   veir_bv_decide
 
-/-- The two-byte `packh` high-pair combine. -/
+/-- `or (slli (lbu b2), 16) (slli (lbu b3), 24) ->
+    slli (packh b2 b3), 16`.
+
+    `RISCV.or` takes its operands as `(rs2, rs1)`, so the register-level
+    expression lists the `b3` shift before the `b2` shift. -/
 theorem packh_high_bytes {b2 b3 : Reg} :
     RISCV.or (RISCV.slli 24 (RISCV.zextb b3)) (RISCV.slli 16 (RISCV.zextb b2)) =
       RISCV.slli 16 (RISCV.packh (RISCV.zextb b3) (RISCV.zextb b2)) := by
   veir_bv_decide
 
-/-- Operand-order mirror of `packh_high_bytes`. -/
+/-- `or (slli (lbu b3), 24) (slli (lbu b2), 16) ->
+    slli (packh b2 b3), 16`. -/
 theorem packh_high_bytes_commuted {b2 b3 : Reg} :
     RISCV.or (RISCV.slli 16 (RISCV.zextb b2)) (RISCV.slli 24 (RISCV.zextb b3)) =
       RISCV.slli 16 (RISCV.packh (RISCV.zextb b3) (RISCV.zextb b2)) := by

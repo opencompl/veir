@@ -1,7 +1,8 @@
 // RUN: veir-opt %s -p=riscv-combine,dce | filecheck %s
 
-// Pack two adjacent zero-extended bytes. Both OR operand orders are valid;
-// a different shift amount is not.
+// `packh_low_bytes`: `or (lbu lo) (slli (lbu hi), 8) -> packh lo hi`.
+// `packh_low_bytes_commuted`: `or (slli (lbu hi), 8) (lbu lo) -> packh lo hi`.
+// A different shift amount must not match either rule.
 
 "builtin.module"() ({
   "func.func"() <{function_type = (!riscv.reg) -> (!riscv.reg, !riscv.reg, !riscv.reg), sym_name = "packh_low_bytes"}> ({
