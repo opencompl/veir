@@ -35,6 +35,21 @@ structure MemoryByte where
 /-- The byte that memory holds before anything is stored to it. -/
 def MemoryByte.poisoned : MemoryByte := ⟨0, 0xff⟩
 
+structure EntropyState where
+  entropySource : ByteArray
+
+structure Message where
+  src : Nat
+  dest : Nat
+  payload : ByteArray
+deriving BEq
+
+structure NetworkState where
+  /-- Address of this run. -/
+  selfAddress : Nat
+  /-- in-flight messages in the network. -/
+  messages : List Message
+
 /--
   Memory state during interpretation. Memory is one byte store keyed by
   physical address, and an object is a range of it; a byte nothing stored to
@@ -44,7 +59,7 @@ def MemoryByte.poisoned : MemoryByte := ⟨0, 0xff⟩
   present, which `alloc` maintains but nothing here enforces.
 -/
 @[ext]
-structure MemoryState where
+structure MemoryState extends EntropyState, NetworkState where
   bytes : Std.ExtHashMap UInt64 MemoryByte
   objects : Array MemoryObject
   /-- The object of each global and function, by its symbol, such as `@g`. -/
@@ -54,7 +69,13 @@ structure MemoryState where
   Object 0 is the null object at address 0. It holds no bytes, so every access
   through a null pointer is out of bounds.
 -/
-def MemoryState.empty : MemoryState := { bytes := {}, objects := #[⟨0, 0⟩] }
+def MemoryState.empty : MemoryState := {
+  bytes := {},
+  objects := #[⟨0, 0⟩],
+  entropySource := ByteArray.empty,
+  selfAddress := 0,
+  messages := []
+}
 
 instance : Inhabited MemoryState where
   default := MemoryState.empty
@@ -341,5 +362,33 @@ def MemoryState.memmove (mem : MemoryState) (dst src : Pointer) (len : Nat)
   for i in [0:len] do
     mem ← mem.llvmStore (dst.addBytes i) bytes[i]!
   return mem
+
+/--
+  Consume bytes from the entropy source.
+  Yields UB if the access is out of bounds.
+-/
+def MemoryState.entropyLoad (state : MemoryState) (size : UInt64)
+    : Interp (MemoryState × ByteArray) := do
+  if state.entropySource.size < size.toNat then Interp.ub none else
+  let ba := state.entropySource.extract 0 size.toNat
+  let newState := { state with
+    entropySource := state.entropySource.extract size.toNat state.entropySource.size }
+  return (newState, ba)
+
+/--
+  Add an inflight message to the network
+-/
+def MemoryState.sendMessage (state : MemoryState) (dest : Nat) (payload : ByteArray) : MemoryState :=
+  let msg : Message := { src := state.selfAddress, dest := dest, payload := payload }
+  { state with messages := state.messages ++ [msg] }
+
+/--
+  Consume the next inflight message destined for the current address
+-/
+def MemoryState.consumeMessage (state : MemoryState) : Option (MemoryState × Message) :=
+  let optMsg := state.messages.find? (fun msg => msg.dest = state.selfAddress)
+  optMsg.map fun msg =>
+    let newState := { state with messages := state.messages.erase msg }
+    (newState, msg)
 
 end Veir

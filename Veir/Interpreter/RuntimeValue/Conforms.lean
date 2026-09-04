@@ -31,6 +31,7 @@ def Conforms (val : RuntimeValue) (ty : TypeAttr) : Prop :=
   | .addr _, ⟨.llvmPointerType _, _⟩ => True
   | .felt fieldType value, ⟨.feltType expectedType, _⟩ =>
     fieldType = expectedType ∧ FeltSemantics.IsCanonical fieldType value
+  | .ioAddr _, ⟨.ioAddressType _, _⟩ => True
   | _, _ => False
 
 instance : Decidable (Conforms val ty) := by
@@ -42,42 +43,42 @@ theorem Conforms.integerType :
     Conforms runtimeValue (.of IntegerType intType) ↔
     ∃ val, runtimeValue = .int intType.bitwidth val := by
   simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
-  grind
+  grind (splits := 10)
 
 @[simp, grind =]
 theorem Conforms.byteType {runtimeValue byteType} :
     Conforms runtimeValue (.of LLVM.ByteType byteType) ↔
     ∃ val, runtimeValue = .byte byteType.bitwidth val := by
   simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
-  grind
+  grind (splits := 10)
 
 @[simp, grind =]
 theorem Conforms.floatType :
     Conforms runtimeValue (.of FloatType fltType) ↔
     ∃ val, runtimeValue = .float fltType val := by
   simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
-  grind
+  grind (splits := 10)
 
 @[simp, grind =]
 theorem Conforms.modArithType {runtimeValue modArithType} :
     Conforms runtimeValue (.of ModArithType modArithType) ↔
     ∃ val, runtimeValue = .int modArithType.modulus.type.bitwidth val := by
   simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
-  grind
+  grind (splits := 10)
 
 @[simp, grind =]
 theorem Conforms.indexType :
     Conforms runtimeValue (.of IndexType idxType) ↔
     ∃ val, runtimeValue = .int IndexType.bitwidth val := by
   simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
-  grind
+  grind (splits := 10)
 
 @[simp, grind =]
 theorem Conforms.registerType :
     Conforms runtimeValue (.of RegisterType regType) ↔
     ∃ val, runtimeValue = .reg val := by
   simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
-  grind
+  grind (splits := 10)
 
 @[simp, grind =]
 theorem Conforms.llvmPointerType :

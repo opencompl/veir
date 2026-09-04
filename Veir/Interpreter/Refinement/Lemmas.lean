@@ -283,6 +283,12 @@ theorem RuntimeValue.Conforms.of_isRefinedBy {source target : RuntimeValue}
     cases attr <;>
     simp_all only [RuntimeValue.Conforms, Ptr.isRefinedBy, dite_false_right, true_and] <;> grind
 
+/-- A runtime value `tv` that refines an I/O address runtime value `v` is equal to it. -/
+theorem RuntimeValue.ioAddr_of_isRefinedBy {v : Nat} {tv : RuntimeValue}
+    (h : RuntimeValue.ioAddr v ⊒ tv) :
+    tv = RuntimeValue.ioAddr v := by
+  cases tv <;> grind [RuntimeValue.isRefinedBy]
+
 /-! ## Interp refinements -/
 
 /-- `fail` is refined by any value. -/
