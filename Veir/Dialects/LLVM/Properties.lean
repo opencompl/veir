@@ -467,11 +467,7 @@ def LLVMFuncProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute)
   return { sym_name := symName, function_type := funcType, extra }
 
 /--
-  Properties of `llvm.br`: `loop_annotation`, the `!llvm.loop` metadata a back
-  edge carries, and nothing else. It is the op's only attribute in MLIR, and it
-  is optional, so an absent one is omitted again when printing.
-
-  `cf.br` has no attributes at all, so `llvm.br` cannot borrow its properties.
+  Properties of `llvm.br`
 -/
 structure LLVMBrProperties where
   loop_annotation : Option LoopAnnotationAttr
