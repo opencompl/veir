@@ -1889,7 +1889,7 @@ def Io.interpretOp' (opType : Veir.Io) (properties : propertiesOf opType)
         else do
           let mem' ← mem'.store ptr msg.payload
           pure ((msg.payload.size : Int), msg.src, mem')
-    return (#[.int 64 (.val status), .ioAddr src], mem, none)
+    return (#[.int 64 (.val (BitVec.ofInt 64 status)), .ioAddr src], mem, none)
   | .rand => do
     let [.addr addr, .int _ len] := operands.toList | none
     let .val len := len | Interp.ub
