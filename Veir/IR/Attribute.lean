@@ -165,6 +165,17 @@ structure MemoryEffectsAttr where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
+  LLVM loop annotation attribute, e.g.
+  `#llvm.loop_annotation<unroll = <disable = true>, mustProgress = true>`: the
+  `!llvm.loop` metadata a branch carries back to its loop header.
+
+  The body is kept as a string until VeIR acts on the hints.
+-/
+structure LoopAnnotationAttr where
+  value : String
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
   LLVM target features attribute, e.g. `#llvm.target_features<["+cmov", "+sse"]>`.
 -/
 structure TargetFeaturesAttr where
@@ -603,6 +614,8 @@ inductive Attribute
 | constantRangeAttr (attr : ConstantRangeAttr)
 /-- LLVM memory effects attribute -/
 | memoryEffectsAttr (attr : MemoryEffectsAttr)
+/-- LLVM loop annotation attribute -/
+| loopAnnotationAttr (attr : LoopAnnotationAttr)
 /-- LLVM target features attribute -/
 | targetFeaturesAttr (attr : TargetFeaturesAttr)
 /-- DLTI data layout spec attribute -/
@@ -929,6 +942,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case loopAnnotationAttr.loopAnnotationAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case moduleFlagAttr.moduleFlagAttr attr1 attr2 =>
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
@@ -1152,6 +1169,9 @@ instance : ToString TbaaTagAttr where
 
 instance : ToString MemoryEffectsAttr where
   toString attr := s!"#llvm.memory_effects<{attr.value}>"
+
+instance : ToString LoopAnnotationAttr where
+  toString attr := s!"#llvm.loop_annotation<{attr.value}>"
 
 instance : ToString TargetFeaturesAttr where
   toString attr := s!"#llvm.target_features<{attr.value}>"
@@ -1442,6 +1462,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .tbaaTagAttr attr => ToString.toString attr
   | .constantRangeAttr attr => ToString.toString attr
   | .memoryEffectsAttr attr => ToString.toString attr
+  | .loopAnnotationAttr attr => ToString.toString attr
   | .targetFeaturesAttr attr => ToString.toString attr
   | .dlSpecAttr attr => ToString.toString attr
   | .integerAttr attr => ToString.toString attr
@@ -1716,6 +1737,7 @@ def isType (attr : Attribute) : Bool :=
   | .tbaaTagAttr _ => false
   | .constantRangeAttr _ => false
   | .memoryEffectsAttr _ => false
+  | .loopAnnotationAttr _ => false
   | .targetFeaturesAttr _ => false
   | .dlSpecAttr _ => false
   | .integerAttr _ => false
@@ -1811,6 +1833,8 @@ theorem isType_tbaaTag attr : (tbaaTagAttr attr).isType = false := by rfl
 theorem isType_constantRange attr : (constantRangeAttr attr).isType = false := by rfl
 @[simp, grind =]
 theorem isType_memoryEffects attr : (memoryEffectsAttr attr).isType = false := by rfl
+@[simp, grind =]
+theorem isType_loopAnnotation attr : (loopAnnotationAttr attr).isType = false := by rfl
 @[simp, grind =]
 theorem isType_targetFeatures attr : (targetFeaturesAttr attr).isType = false := by rfl
 @[simp, grind =]

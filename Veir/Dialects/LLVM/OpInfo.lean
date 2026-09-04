@@ -95,7 +95,8 @@ match op with
 | .trunc => NswNuwProperties
 | .zext => NnegProperties
 | .icmp => IcmpProperties
-| .cond_br => CondBrProperties
+| .br => LLVMBrProperties
+| .cond_br => LLVMCondBrProperties
 | .alloca => AllocaProperties
 | .load => LoadProperties
 | .store => StoreProperties
@@ -125,7 +126,8 @@ def Llvm.fromAttrDict
   case or => exact DisjointProperties.fromAttrDict attrDict
   case zext => exact NnegProperties.fromAttrDict attrDict
   case icmp => exact IcmpProperties.fromAttrDict attrDict
-  case cond_br => exact CondBrProperties.fromAttrDict attrDict
+  case br => exact LLVMBrProperties.fromAttrDict attrDict
+  case cond_br => exact LLVMCondBrProperties.fromAttrDict attrDict
   case alloca => exact AllocaProperties.fromAttrDict attrDict
   case load => exact LoadProperties.fromAttrDict attrDict
   case store => exact StoreProperties.fromAttrDict attrDict
@@ -190,11 +192,14 @@ def Llvm.toAttrDict
     let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) (IntegerType.mk 64)
     (Std.HashMap.emptyWithCapacity 1).insert
       "predicate".toUTF8 (Attribute.integerAttr value)
-  | .cond_br =>
-    let dict := (Std.HashMap.emptyWithCapacity 2).insert
+  | .br => Std.HashMap.ofList props.extra.entries.toList
+  | .cond_br => Id.run do
+    let mut dict := Std.HashMap.ofList props.extra.entries.toList
+    dict := dict.insert
       "branch_weights".toUTF8 (Attribute.denseArrayAttr props.branch_weights)
-    dict.insert "operandSegmentSizes".toUTF8
+    dict := dict.insert "operandSegmentSizes".toUTF8
       (Attribute.denseArrayAttr props.operandSegmentSizes)
+    dict
   | .udiv | .sdiv | .lshr | .ashr => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
     if props.exact then

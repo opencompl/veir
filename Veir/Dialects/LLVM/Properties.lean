@@ -466,6 +466,50 @@ def LLVMFuncProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute)
     (attrDict.toArray.filter fun (k, _) => k ≠ "sym_name".toUTF8 && k ≠ "function_type".toUTF8)
   return { sym_name := symName, function_type := funcType, extra }
 
+/--
+  Properties of `llvm.br`. It has no required attributes; the optional ones --
+  today only `loop_annotation`, the `!llvm.loop` metadata a back edge carries --
+  are preserved verbatim in `extra`.
+
+  `cf.br` has no attributes at all, so `llvm.br` cannot borrow its properties.
+-/
+structure LLVMBrProperties where
+  extra : DictionaryAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMBrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMBrProperties :=
+  .ok { extra := DictionaryAttr.fromArray attrDict.toArray }
+
+/--
+  Properties of `llvm.cond_br`. `branch_weights` and `operandSegmentSizes` are
+  modelled explicitly because the verifier checks them; every other attribute,
+  `loop_annotation` above all, is preserved verbatim in `extra`.
+
+  `cf.cond_br` carries no `loop_annotation`, so `llvm.cond_br` cannot share
+  `CondBrProperties` with it.
+-/
+structure LLVMCondBrProperties where
+  branch_weights : DenseArrayAttr
+  operandSegmentSizes : DenseArrayAttr
+  extra : DictionaryAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMCondBrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMCondBrProperties := do
+  let weightsAttr ← match attrDict["branch_weights".toUTF8]? with
+    | some (.denseArrayAttr weightsAttr) => .ok weightsAttr
+    | some attr =>
+      throw s!"llvm.cond_br: expected 'branch_weights' to be a dense array attribute, but got {attr}"
+    | none => .ok { elementType := { bitwidth := 32 }, values := #[] }
+  let some sizesAttr := attrDict["operandSegmentSizes".toUTF8]?
+    | throw "llvm.cond_br: missing 'operandSegmentSizes' property"
+  let .denseArrayAttr sizesAttr := sizesAttr
+    | throw s!"llvm.cond_br: expected 'operandSegmentSizes' to be a dense array attribute, but got {sizesAttr}"
+  let extra := DictionaryAttr.fromArray (attrDict.toArray.filter fun (k, _) =>
+    k ≠ "branch_weights".toUTF8 && k ≠ "operandSegmentSizes".toUTF8)
+  return { branch_weights := weightsAttr, operandSegmentSizes := sizesAttr, extra }
+
 structure LLVMModuleFlagsProperties where
   flags : ArrayAttr
 deriving Inhabited, Repr, Hashable, DecidableEq

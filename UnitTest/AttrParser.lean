@@ -503,6 +503,16 @@ macro "#assert " e:term : command =>
   (MemoryEffectsAttr.mk "other = readwrite, argMem = readwrite, inaccessibleMem = none, \
     errnoMem = readwrite, targetMem0 = none, targetMem1 = none")
 
+/-! ## LLVM loop annotations -/
+#assert expectSuccessAttr "#llvm.loop_annotation<mustProgress = true>"
+  (LoopAnnotationAttr.mk "mustProgress = true")
+#assert expectSuccessAttr
+  "#llvm.loop_annotation<unroll = <runtimeDisable = true>, mustProgress = true, isVectorized = true>"
+  (LoopAnnotationAttr.mk
+    "unroll = <runtimeDisable = true>, mustProgress = true, isVectorized = true")
+#assert expectSuccessAttr "#llvm.loop_annotation<peeled = <count = 2 : i32>>"
+  (LoopAnnotationAttr.mk "peeled = <count = 2 : i32>")
+
 /-! ## CUDA Pointer type -/
 #assert expectSuccessType "!cuda_tile.ptr<i1>" (CudaTile.PointerType.mk (IntegerType.mk 1))
 #assert expectSuccessType "!cuda_tile.ptr<i32>" (CudaTile.PointerType.mk (IntegerType.mk 32))
