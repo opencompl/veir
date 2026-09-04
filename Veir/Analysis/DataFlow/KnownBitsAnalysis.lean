@@ -3,6 +3,8 @@ module
 public import Veir.Analysis.DataFlow.Domains.KnownBitsDomain
 public import Veir.Analysis.DataFlow.SparseForwardDataFlowAnalysis
 
+import Veir.Interfaces.FoldInterfaces
+
 public section
 
 namespace Veir
@@ -37,7 +39,32 @@ def unknownFor (value : ValuePtr) (irCtx : IRContext OpCode) : KnownBitsLattice 
 private def constant (attr : IntegerAttr) : KnownBitsLattice :=
   .constant attr.type.bitwidth attr.value
 
-private def foldOperands
+private def runtimeValueOfExactKnownBits : KnownBitsLattice → Option RuntimeValue
+  | .known bits =>
+      if bits.zero = ~~~bits.one then
+        some (.int bits.bitwidth (.val bits.one))
+      else
+        none
+  | _ => none
+
+private def updateOfFoldResult
+    (result : FoldResult)
+    (resultType : TypeAttr)
+    (operands : Array KnownBitsLattice) : Option KnownBitsLattice :=
+  match resultType.val with
+  | .integerType intType =>
+      match result with
+      | .useOperand index => some (operands[index]?.getD ⊤)
+      | .useConstant (.int bitwidth (.val value)) =>
+          if h : bitwidth = intType.bitwidth then
+            let value := value.cast h
+            some (.known { bitwidth := intType.bitwidth, zero := ~~~value, one := value })
+          else
+            some ⊤
+      | .useConstant _ => some ⊤
+  | _ => none
+
+private def foldAbstractOperands
     (operation : KnownBitsLattice → KnownBitsLattice → KnownBitsLattice)
     (operands : List KnownBitsLattice) : Option KnownBitsLattice :=
   match operands with
@@ -57,7 +84,7 @@ private def transferBitwise
     (operation : KnownBitsLattice → KnownBitsLattice → KnownBitsLattice)
     (numResults : Nat)
     (operands : Array KnownBitsLattice) : Array (Option KnownBitsLattice) :=
-  match foldOperands operation operands.toList with
+  match foldAbstractOperands operation operands.toList with
   | some result => Array.replicate numResults (some result)
   | none => Array.replicate numResults none
 
@@ -77,32 +104,45 @@ def transfer
 
   if op.getNumRegions! irCtx.raw ≠ 0 then
     pessimisticUpdates
+  else if operands.any (· = ⊥) then
+    Array.replicate numResults none
   else
-    match op.getOpType! irCtx.raw with
-    | OpCode.arith Arith.constant =>
-      let props := op.getProperties! irCtx.raw (OpCode.arith Arith.constant)
-      Array.replicate numResults (some (constant props.value))
-    | OpCode.llvm Llvm.mlir__constant =>
-      let props := op.getProperties! irCtx.raw (OpCode.llvm Llvm.mlir__constant)
-      match props.value with
-      | .integer attr => Array.replicate numResults (some (constant attr))
-      | _ => pessimisticUpdates
-    | OpCode.hw HW.constant =>
-      let props := op.getProperties! irCtx.raw (OpCode.hw HW.constant)
-      Array.replicate numResults (some (constant props.value))
-    | OpCode.arith Arith.andi
-    | OpCode.llvm Llvm.and
-    | OpCode.comb Comb.and =>
-      transferBitwise KnownBitsLattice.bitwiseAnd numResults operands
-    | OpCode.arith Arith.ori
-    | OpCode.llvm Llvm.or
-    | OpCode.comb Comb.or =>
-      transferBitwise KnownBitsLattice.bitwiseOr numResults operands
-    | OpCode.arith Arith.xori
-    | OpCode.llvm Llvm.xor
-    | OpCode.comb Comb.xor =>
-      transferBitwise KnownBitsLattice.bitwiseXor numResults operands
-    | _ => pessimisticUpdates
+    let exactOperands := operands.map runtimeValueOfExactKnownBits
+    if opInBounds : op.InBounds irCtx.raw then
+      match op.foldsTo irCtx opInBounds exactOperands with
+      | some results =>
+          results.zipIdx.map fun (result, index) =>
+            match (op.getResultTypes irCtx.raw opInBounds)[index]? with
+            | some resultType => updateOfFoldResult result resultType operands
+            | none => some ⊤
+      | none =>
+          match op.getOpType irCtx.raw opInBounds with
+          | OpCode.arith Arith.constant =>
+            let props := op.getProperties! irCtx.raw (OpCode.arith Arith.constant)
+            Array.replicate numResults (some (constant props.value))
+          | OpCode.llvm Llvm.mlir__constant =>
+            let props := op.getProperties! irCtx.raw (OpCode.llvm Llvm.mlir__constant)
+            match props.value with
+            | .integer attr => Array.replicate numResults (some (constant attr))
+            | _ => pessimisticUpdates
+          | OpCode.hw HW.constant =>
+            let props := op.getProperties! irCtx.raw (OpCode.hw HW.constant)
+            Array.replicate numResults (some (constant props.value))
+          | OpCode.arith Arith.andi
+          | OpCode.llvm Llvm.and
+          | OpCode.comb Comb.and =>
+            transferBitwise KnownBitsLattice.bitwiseAnd numResults operands
+          | OpCode.arith Arith.ori
+          | OpCode.llvm Llvm.or
+          | OpCode.comb Comb.or =>
+            transferBitwise KnownBitsLattice.bitwiseOr numResults operands
+          | OpCode.arith Arith.xori
+          | OpCode.llvm Llvm.xor
+          | OpCode.comb Comb.xor =>
+            transferBitwise KnownBitsLattice.bitwiseXor numResults operands
+          | _ => pessimisticUpdates
+    else
+      pessimisticUpdates
 
 end KnownBitsAnalysis
 

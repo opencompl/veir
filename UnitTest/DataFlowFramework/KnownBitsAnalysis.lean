@@ -53,6 +53,7 @@ def runArithKnownBitsExample : String :=
     %c240 = "arith.constant"() <{value = 240 : i8}> : () -> i8
     %c3 = "arith.constant"() <{value = 3 : i8}> : () -> i8
     %c5 = "arith.constant"() <{value = 5 : i8}> : () -> i8
+    %sum = "arith.addi"(%c3, %c5) : (i8, i8) -> i8
     %anded = "arith.andi"(%x, %c240) : (i8, i8) -> i8
     %ored = "arith.ori"(%anded, %c3) : (i8, i8) -> i8
     %xored = "arith.xori"(%ored, %c5) : (i8, i8) -> i8
@@ -64,6 +65,7 @@ def runArithKnownBitsExample : String :=
      , { name := "c240",  bitwidth := 8, zero := 15,  one := 240 }
      , { name := "c3",    bitwidth := 8, zero := 252, one := 3 }
      , { name := "c5",    bitwidth := 8, zero := 250, one := 5 }
+     , { name := "sum",   bitwidth := 8, zero := 247, one := 8 }
      , { name := "anded", bitwidth := 8, zero := 15,  one := 0 }
      , { name := "ored",  bitwidth := 8, zero := 12,  one := 3 }
      , { name := "xored", bitwidth := 8, zero := 9,   one := 6 }
