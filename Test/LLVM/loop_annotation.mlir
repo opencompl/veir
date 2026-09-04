@@ -1,11 +1,6 @@
 // RUN: VEIR_ROUNDTRIP
 // RUN: MLIR_ROUNDTRIP
 //
-// `#llvm.loop_annotation` is the `!llvm.loop` metadata a branch carries back to
-// its loop header. It rides on `llvm.br` and `llvm.cond_br`, which is why both
-// get LLVM-specific properties: `cf`'s have no room for it, and an attribute
-// the properties do not model is dropped rather than round-tripped.
-
 "builtin.module"() ({
   "llvm.func"() <{function_type = !llvm.func<void (i1)>, linkage = #llvm.linkage<external>, sym_name = "loop"}> ({
   ^bb0(%c: i1):
