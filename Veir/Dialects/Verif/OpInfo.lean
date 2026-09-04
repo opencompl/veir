@@ -18,9 +18,9 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, properties_of]
 def Verif.propertiesOf (op : Verif) : Type :=
-match op with
-| .assume => VerifAssumeAssertProperties
-| .assert => VerifAssumeAssertProperties
+  match op with
+  | .assume => VerifAssumeAssertProperties
+  | .assert => VerifAssumeAssertProperties
 
 def Verif.fromAttrDict
     (op : Verif) (attrDict : Std.HashMap ByteArray Attribute) :
