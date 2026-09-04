@@ -91,12 +91,62 @@ def LLZK.Array.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   if op.getNumSuccessors ctx.raw opIn ≠ 0 then
     throw s!"{instrName}: Expected 0 successors"
   match opType with
-  | .new => requireResults 1
-  | .read | .extract => do requireAtLeastOperands 1; requireResults 1
-  | .write | .insert => do requireAtLeastOperands 2; requireResults 0
+  | .new => do
+    requireResults 1
+    if !(op.getResultTypes! ctx.raw)[0]!.val.isLLZKArrayType then
+      throw s!"{instrName}: Expected valid LLZK array.type return type"
+    -- TODO: check operands types/count
+  | .read => do
+    requireAtLeastOperands 1
+    requireResults 1
+    for (operType,idx) in (op.getOperandTypes! ctx.raw).zipIdx do
+      if idx = 0 && !operType.val.isLLZKArrayType then
+        throw s!"{instrName}: Expected operand 0 to have a valid LLZK array type"
+      else if !(operType.val matches .indexType _) then
+        throw s!"{instrName}: Expected operand {idx} to have an index type"
+    if !(op.getResultTypes! ctx.raw)[0]!.val.isLLZKArrayElemType then
+      throw s!"{instrName}: Expected return to have a valid LLZK array element type"
+  | .extract => do
+    requireAtLeastOperands 1
+    requireResults 1
+    for (operType,idx) in (op.getOperandTypes! ctx.raw).zipIdx do
+      if idx = 0 && !operType.val.isLLZKArrayType then
+        throw s!"{instrName}: Expected operand 0 to have a valid LLZK array type"
+      else if !(operType.val matches .indexType _) then
+        throw s!"{instrName}: Expected operand {idx} to have an index type"
+    if !(op.getResultTypes! ctx.raw)[0]!.val.isLLZKArrayType then
+      throw s!"{instrName}: Expected return to have a valid LLZK array type"
+  | .write => do
+    requireAtLeastOperands 2
+    requireResults 0
+    for (operType,idx) in (op.getOperandTypes! ctx.raw).zipIdx do
+      if idx = 0 && !operType.val.isLLZKArrayType then
+        throw s!"{instrName}: Expected operand 0 to be a valid LLZK array"
+      else if idx ≠ (op.getNumOperands! ctx.raw)-1 && !(operType.val matches .indexType _) then
+        throw s!"{instrName}: Expected operand {idx} to have an index type"
+      else if !operType.val.isLLZKArrayElemType then
+        throw s!"{instrName}: Expected operand {idx} to have a valid LLZK array element type"
+  | .insert => do
+    requireAtLeastOperands 2
+    requireResults 0
+    for (operType,idx) in (op.getOperandTypes! ctx.raw).zipIdx do
+      if idx = 0 && !operType.val.isLLZKArrayType then
+        throw s!"{instrName}: Expected operand 0 to be a valid LLZK array"
+      else if idx ≠ (op.getNumOperands! ctx.raw)-1 && !(operType.val matches .indexType _) then
+        throw s!"{instrName}: Expected operand {idx} to have an index type"
+      else if !operType.val.isLLZKArrayType then
+        throw s!"{instrName}: Expected operand {idx} to have a valid LLZK array type"
   | .len => do
+    requireResults 1
     if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw s!"{instrName}: Expected 2 operands (the array and the dimension)"
+    if !(op.getOperandTypes! ctx.raw)[0]!.val.isLLZKArrayType then
+      throw s!"{instrName}: Expected operand 0 to be a valid LLZK array"
+    if !((op.getOperandTypes! ctx.raw)[1]!.val matches .indexType _) then
+      throw s!"{instrName}: Expected operand 1 to have an index type"
+    if !((op.getResultTypes! ctx.raw)[0]!.val matches .indexType _) then
+      throw s!"{instrName}: Expected return to have index type"
+
     requireResults 1
 
 instance : HasOpInfo LLZK.Array where

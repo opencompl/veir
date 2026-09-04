@@ -107,6 +107,7 @@ instance : IsOpCode LLZK.Struct where
 def LLZK.Struct.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo LLZK.Struct] (opType : LLZK.Struct) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   match opType with
   | .«def» => do
     if op.getNumOperands ctx.raw opIn ≠ 0 then
@@ -118,17 +119,14 @@ def LLZK.Struct.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "struct.def: Expected 0 successors"
   | .member => do
-    let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
     op.verifyPlainOpCounts ctx opIn 0 0
-    (op.getProperties! ctx.raw LLZK.Struct.member).type.verifySupportedLLZKType
-      s!"{instrName}: expected 'type' to be a supported LLZK type"
+    if !(op.getProperties! ctx.raw LLZK.Struct.member).type.val.isLLZKType then
+      throw s!"{instrName}: expected 'type' to be a supported LLZK type"
   | .new => do
-    let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
     op.verifyPlainOpCounts ctx opIn 0 1
     if !((op.getResultTypes! ctx.raw)[0]!.val matches Attribute.structType _) then
       throw s!"{instrName}: expected result 0 to have !struct.type"
   | .readm => do
-    let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
     if op.getNumOperands ctx.raw opIn < 1 then
       throw s!"{instrName}: Expected at least 1 operand (the component)"
     if op.getNumResults ctx.raw opIn ≠ 1 then
@@ -139,15 +137,14 @@ def LLZK.Struct.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw s!"{instrName}: Expected 0 successors"
     if !((op.getOperandTypes! ctx.raw)[0]!.val matches Attribute.structType _ ) then
       throw s!"{instrName}: expected operand 0 to have !struct.type"
-    (op.getResultTypes! ctx.raw)[0]!.verifySupportedLLZKType
-      s!"{instrName}: expected result 0 to have a supported LLZK type"
+    if !(op.getResultTypes! ctx.raw)[0]!.val.isLLZKType then
+      throw s!"{instrName}: expected result 0 to have a supported LLZK type"
   | .writem => do
-    let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
     op.verifyPlainOpCounts ctx opIn 2 0
     if !((op.getOperandTypes! ctx.raw)[0]!.val matches Attribute.structType _ ) then
       throw s!"{instrName}: expected operand 0 to have !struct.type"
-    (op.getOperandTypes! ctx.raw)[1]!.verifySupportedLLZKType
-      s!"{instrName}: expected operand 1 to have a supported LLZK type"
+    if !(op.getOperandTypes! ctx.raw)[1]!.val.isLLZKType then
+      throw s!"{instrName}: expected operand 1 to have a supported LLZK type"
 
 instance : HasOpInfo LLZK.Struct where
   verifyLocalInvariants := LLZK.Struct.verifyLocalInvariants
