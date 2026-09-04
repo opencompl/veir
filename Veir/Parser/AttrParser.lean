@@ -57,6 +57,15 @@ def parseOptionalIntegerType : AttrParserM (Option IntegerType) := do
   | _ => return none
 
 /--
+  Parse an optional index type.
+  An index type is just the string "index".
+-/
+def parseOptionalIndexType : AttrParserM (Option IndexType) := do
+  if ← parseOptionalKeyword "index".toByteArray then
+    return some IndexType.mk
+  return none
+
+/--
   Parse an optional float type.
   A float type is represented as `f` followed by a positive integer indicating its width, e.g., `f32`.
 -/
@@ -128,6 +137,15 @@ def parseOptionalRegisterType : AttrParserM (Option RegisterType) := do
 def parseIntegerType (errorMsg : String := "integer type expected") : AttrParserM IntegerType := do
   match ← parseOptionalIntegerType with
   | some integerType => return integerType
+  | none => throwAtCurrentPos errorMsg
+
+/--
+  Parse an index type, throwing an error if it is not present.
+  An index type is simply the string `index`.
+-/
+def parseIndexType (errorMsg : String := "index type expected") : AttrParserM IndexType := do
+  match ← parseOptionalIndexType with
+  | some indexType => return indexType
   | none => throwAtCurrentPos errorMsg
 
 /--
@@ -806,6 +824,8 @@ partial def parseOptionalMatchOptionalType : AttrParserM (Option TypeAttr) := do
 partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
   if let some integerType ← parseOptionalIntegerType then
     return some integerType
+  if let some indexType ← parseOptionalIndexType then
+    return some indexType
   if let some floatType ← parseOptionalFloatType then
     return some floatType
   if let some byteType ← parseOptionalByteType then

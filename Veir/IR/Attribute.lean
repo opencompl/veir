@@ -45,6 +45,9 @@ structure IntegerType where
   bitwidth : Nat
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+structure IndexType where
+deriving Inhabited, Repr, DecidableEq, Hashable
+
 /--
  A floating point type with a given bitwidth.
 -/
@@ -434,6 +437,8 @@ deriving Repr, Hashable
 inductive Attribute
 /-- Integer type -/
 | integerType (type : IntegerType)
+/-- Index type -/
+| indexType (type : IndexType)
 /-- Float type -/
 | floatType (type : FloatType)
 /-- Integer attribute -/
@@ -661,6 +666,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case indexType.indexType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case floatType.floatType type1 type2 =>
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
@@ -824,6 +833,9 @@ instance : DecidableEq DictionaryAttr := DictionaryAttr.decEq
 
 instance : ToString IntegerType where
   toString type := s!"i{type.bitwidth}"
+
+instance : ToString IndexType where
+  toString _ := "index"
 
 instance : ToString FloatType where
   toString type := s!"f{type.bitwidth}"
@@ -1075,6 +1087,7 @@ decreasing_by
 def Attribute.toString (attr : Attribute) : String :=
   match attr with
   | .integerType type => ToString.toString type
+  | .indexType type => ToString.toString type
   | .floatType type => ToString.toString type
   | .byteType type => ToString.toString type
   | .fastMathFlagsAttr attr => ToString.toString attr
@@ -1326,6 +1339,7 @@ namespace Attribute
 def isType (attr : Attribute) : Bool :=
   match attr with
   | .integerType _ => true
+  | .indexType _ => true
   | .floatType _ => true
   | .byteType _ => true
   | .fastMathFlagsAttr _ => false
@@ -1590,6 +1604,10 @@ end IsTypeAttr
 
 instance : IsTypeAttr IntegerType where
   coe type := Attribute.asType (.integerType type) (by rfl)
+  coe_eq_inject _ := by rfl
+
+instance : IsTypeAttr IndexType where
+  coe type := Attribute.asType (.indexType type) (by rfl)
   coe_eq_inject _ := by rfl
 
 instance : IsTypeAttr FloatType where

@@ -119,6 +119,11 @@ macro "#assert " e:term : command =>
 #assert expectSuccessType "i0" (IntegerType.mk 0)
 #assert expectMissingType "i0x4"
 
+/-! ## Index type -/
+#assert expectSuccessType "index" IndexType.mk
+#assert expectMissingType "indexx"
+#assert expectMissingType "Index"
+
 /-! ## Types parsed as attributes -/
 
 #assert expectSuccessAttr "i32" (IntegerType.mk 32)

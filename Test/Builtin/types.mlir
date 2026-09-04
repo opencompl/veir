@@ -6,7 +6,8 @@
       %0 = "test.test"() : () -> i32
       %1 = "test.test"() : () -> ((i32) -> (i32))
       %2 = "test.test"() : () -> ((i32) -> ((i32) -> i32))
-      %3 = "test.test"() : () -> !unregistered.dialect<foo 3 + 2 - 4>
+      %3 = "test.test"() : () -> ((index) -> (index))
+      %4 = "test.test"() : () -> !unregistered.dialect<foo 3 + 2 - 4>
       "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
@@ -18,6 +19,7 @@
 // CHECK-NEXT:         %{{.*}} = "test.test"() : () -> i32
 // CHECK-NEXT:         %{{.*}} = "test.test"() : () -> ((i32) -> i32)
 // CHECK-NEXT:         %{{.*}} = "test.test"() : () -> ((i32) -> ((i32) -> i32))
+// CHECK-NEXT:         %{{.*}} = "test.test"() : () -> ((index) -> index)
 // CHECK-NEXT:         %{{.*}} = "test.test"() : () -> !unregistered.dialect<foo 3 + 2 - 4>
 // CHECK-NEXT:         "func.return"() : () -> ()
 // CHECK-NEXT:     }) : () -> ()
