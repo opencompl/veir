@@ -29,6 +29,8 @@ inductive Llvm where
 | ashr
 | intr__ctlz
 | intr__cttz
+| intr__lifetime__start
+| intr__lifetime__end
 | intr__ctpop
 | intr__bswap
 | intr__bitreverse
@@ -373,6 +375,7 @@ def Llvm.propagatesPoison : Llvm → Bool
   | .fadd | .fsub | .fmul | .fdiv | .frem
   | .mlir__constant | .mlir__poison | .mlir__zero | .mlir__global | .mlir__addressof
   | .select | .br | .cond_br | .switch | .unreachable | .alloca | .load | .store
+  | .intr__lifetime__start | .intr__lifetime__end
   | .getelementptr | .call | .return | .func | .module_flags | .freeze => false
 
 instance : IsOpCode Llvm where
@@ -550,6 +553,12 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     | .llvmVoidType _ | .llvmFunctionType _ =>
       throw "llvm.mlir.zero: Expected result to have a type with a zero value"
     | _ => pure ()
+  | .intr__lifetime__start | .intr__lifetime__end => do
+    op.verifyPlainOpCounts ctx opIn 1 0
+    let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
+    let .llvmPointerType _ := operandType.val
+      | throw "Expected operand 0 to have !llvm.ptr type"
+    pure ()
   | .mlir__addressof => do
     op.verifyPlainOpCounts ctx opIn 0 1
     let resultType := ((op.getResult 0).get! ctx.raw).type
