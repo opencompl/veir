@@ -458,7 +458,14 @@ def OpCode.isCommutative (opCode : OpCode) : Bool :=
   | _ => false
 
 instance : HasCustomPrinting OpCode where
-  customPrinter? op :=
+  customPrinter? := fun {GlobalOpCode} _ _ op =>
     match op with
-    | .func f => f.customPrinter? (GlobalOpCode := OpCode)
+    | .func f =>
+      -- TODO(gzgz): automatically generate this
+      let : HasDialect GlobalOpCode Func :=
+        HasDialect.comp
+          (inferInstance : HasDialect GlobalOpCode OpCode)
+          (inferInstance : HasDialect OpCode Func)
+      HasCustomPrinting.customPrinter?
+        (Dialect := Func) (GlobalOpCode := GlobalOpCode) f
     | _ => none
