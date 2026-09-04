@@ -39,6 +39,67 @@ namespace Veir
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 variable {ctx : WfIRContext OpInfo}
 
+namespace CTreeInterpreter
+
+structure FreezeCIn : Type u where
+  bw : Nat
+  val : LLVM.Int bw
+
+@[expose]
+def FreezeC (c : FreezeCIn.{u}) : Type :=
+  match c with
+  | .mk bw _ => LLVM.Int bw
+
+structure UBEIn : Type u where
+
+def UBE (e : UBEIn.{u}) :=
+  match e with
+  | .mk => False
+
+structure ErrorEIn : Type u where
+
+inductive Void where
+
+@[expose]
+def ErrorE (e : ErrorEIn.{u}) :=
+  match e with
+  | .mk => Void
+
+inductive IoEIn where
+  | sendE (msg : ByteArray)
+  | recvE
+  | randE (len : Nat)
+
+@[expose]
+def IoE (e : IoEIn) :=
+  match e with
+  | .sendE _ => Unit
+  | .recvE => Option (Nat × ByteArray) -- sender & payload
+  | .randE _ => ByteArray
+
+def trigger {EIn FIn CIn : Type u} {E : EIn → Type u} {F : FIn → Type u} {C : CIn → Type u}
+    [s : E -< F] (i : EIn) : CTree F C (E i) :=
+  CTree.vis (Subeffect.mapEff E F i) fun x => CTree.ret (Subeffect.mapCont E F i x)
+
+def error [ErrorE -< F] : CTree F C R := do
+  let v ← trigger (E := ErrorE) .mk
+  nomatch v
+-- FIXME
+def ub [ErrorE -< F] : CTree F C R := do
+  let v ← trigger (E := ErrorE) .mk
+  nomatch v
+def ioSend [IoE -< F] (msg : ByteArray) : CTree F C Unit := trigger (E := IoE) (.sendE msg)
+def ioRecv [IoE -< F] : CTree F C (Option (Nat × ByteArray)) := trigger (E := IoE) (.recvE)
+def ioRand [IoE -< F] (len : Nat) : CTree F C ByteArray := trigger (E := IoE) (.randE len)
+
+instance : MonadLift Option (CTree ErrorE FreezeC) where
+  monadLift
+    | none => error
+    | some v => return v
+
+end CTreeInterpreter
+open CTreeInterpreter
+
 namespace FeltSemantics
 
 /-- Resolve the modulus of an LLZK built-in field. -/
@@ -969,39 +1030,6 @@ def Felt.interpretOp' (opType : Veir.Felt) (properties : propertiesOf opType)
     return (#[.felt fieldType (FeltSemantics.neg prime operand)], none)
   | _ => none
 
-
-structure FreezeCIn : Type u where
-  bw : Nat
-  val : LLVM.Int bw
-
-@[expose]
-def FreezeC (c : FreezeCIn.{u}) : Type :=
-  match c with
-  | .mk bw _ => LLVM.Int bw
-
-structure UBEIn : Type u where
-
-def UBE (e : UBEIn.{u}) :=
-  match e with
-  | .mk => False
-
-structure ErrorEIn : Type u where
-
-inductive Void where
-
-@[expose]
-def ErrorE (e : ErrorEIn.{u}) :=
-  match e with
-  | .mk => Void
-
-def error {CIn} {C : CIn → Type} {R} := CTree.vis (E := ErrorE) (C := C) (R := R) ErrorEIn.mk (fun x => by (cases x))
--- FIXME
-def ub {CIn} {C : CIn → Type} {R} := CTree.vis (E := ErrorE) (C := C) (R := R) ErrorEIn.mk (fun x => by (cases x))
-
-instance : MonadLift Option (CTree ErrorE FreezeC) where
-  monadLift
-    | none => error
-    | some v => return v
 
 def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
