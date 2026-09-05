@@ -1011,40 +1011,26 @@ instance : ToString Seq.ClockType where
 
 mutual
 
-def VectorType.toString (type : VectorType) : String :=
+partial def VectorType.toString (type : VectorType) : String :=
   let shape := String.intercalate "x" (type.shape.toList.map ToString.toString)
   let shape := if shape.isEmpty then "" else shape ++ "x"
   s!"vector<{shape}{Attribute.toString type.elementType}>"
-termination_by sizeOf type
-decreasing_by
-  apply VectorType.sizeOf_elementType
 
-def ArrayAttr.toString (attr : ArrayAttr) : String :=
+partial def ArrayAttr.toString (attr : ArrayAttr) : String :=
   let elems := String.intercalate ", " (attr.value.toList.map Attribute.toString)
   s!"[{elems}]"
-termination_by sizeOf attr
-decreasing_by
-  apply ArrayAttr.sizeOf_elems_value
-  grind
 
-def DictionaryAttr.entryToString (entry : ByteArray × Attribute) : String :=
+partial def DictionaryAttr.entryToString (entry : ByteArray × Attribute) : String :=
   let key := String.fromUTF8! entry.1
   match entry.2 with
   | .unitAttr _ => key
   | _ => s!"\"{key}\" = {Attribute.toString entry.2}"
-termination_by sizeOf entry
-decreasing_by grind
 
-def DictionaryAttr.toString (attr : DictionaryAttr) : String :=
+partial def DictionaryAttr.toString (attr : DictionaryAttr) : String :=
   let entries := attr.entries.toList.map DictionaryAttr.entryToString
   s!"\{{String.intercalate ", " entries}}"
-termination_by sizeOf attr
-decreasing_by
-  rename_i entry _
-  have : entry ∈ attr.entries := by grind
-  grind [Array.sizeOf_lt_of_mem this, cases DictionaryAttr]
 
-def FunctionType.toLLVMString (type : FunctionType) : String :=
+partial def FunctionType.toLLVMString (type : FunctionType) : String :=
   let paramStrs := type.inputs.toList.map Attribute.toString
   let paramStrs := if type.isVarArg then paramStrs ++ ["..."] else paramStrs
   let params := String.intercalate ", " paramStrs
@@ -1055,24 +1041,15 @@ def FunctionType.toLLVMString (type : FunctionType) : String :=
       | _ => Attribute.toString type.outputs[0]
     | _ => "<invalid>"
   s!"!llvm.func<{result} ({params})>"
-termination_by sizeOf type
-decreasing_by
-  · apply FunctionType.sizeOf_elems_inputs
-    grind
-  · apply FunctionType.sizeOf_elems_outputs
-    grind
 
-def LLVMFunctionType.toString (type : LLVMFunctionType) : String :=
+partial def LLVMFunctionType.toString (type : LLVMFunctionType) : String :=
   type.functionType.toLLVMString
-termination_by sizeOf type
-decreasing_by
-  apply LLVMFunctionType.sizeOf_functionType
 
 /--
   Print a function type in ClangIR spelling: `!cir.func<(inputs) -> result>`, or
   `!cir.func<(inputs)>` when there are no results.
 -/
-def FunctionType.toCirString (type : FunctionType) : String :=
+partial def FunctionType.toCirString (type : FunctionType) : String :=
   let paramStrs := type.inputs.toList.map Attribute.toString
   let paramStrs := if type.isVarArg then paramStrs ++ ["..."] else paramStrs
   let params := String.intercalate ", " paramStrs
@@ -1081,19 +1058,11 @@ def FunctionType.toCirString (type : FunctionType) : String :=
   | _ =>
     let results := String.intercalate ", " (type.outputs.toList.map Attribute.toString)
     s!"!cir.func<({params}) -> {results}>"
-termination_by sizeOf type
-decreasing_by
-  all_goals first
-    | (apply FunctionType.sizeOf_elems_inputs; grind)
-    | (apply FunctionType.sizeOf_elems_outputs; grind)
 
-def CirFuncType.toString (type : CirFuncType) : String :=
+partial def CirFuncType.toString (type : CirFuncType) : String :=
   type.functionType.toCirString
-termination_by sizeOf type
-decreasing_by
-  apply CirFuncType.sizeOf_functionType
 
-def FunctionType.toString (type : FunctionType) : String :=
+partial def FunctionType.toString (type : FunctionType) : String :=
   let inputs := String.intercalate ", " (type.inputs.toList.map Attribute.toString)
   let outputs := match _ : type.outputs.size with
   | 0 => "()"
@@ -1104,41 +1073,22 @@ def FunctionType.toString (type : FunctionType) : String :=
   | _ =>
     s!"({String.intercalate ", " (type.outputs.toList.map Attribute.toString)})"
   s!"({inputs}) -> {outputs}"
-termination_by sizeOf type
-decreasing_by
-  · apply FunctionType.sizeOf_elems_inputs
-    grind
-  · apply FunctionType.sizeOf_elems_outputs
-    grind
-  · apply FunctionType.sizeOf_elems_outputs
-    grind
-  · apply FunctionType.sizeOf_elems_outputs
-    grind
 
-def LLVM.ArrayType.toString (type : LLVM.ArrayType) : String :=
+partial def LLVM.ArrayType.toString (type : LLVM.ArrayType) : String :=
   s!"!llvm.array<{type.size} x {Attribute.toString type.type}>"
-termination_by sizeOf type
-decreasing_by
-  apply LLVM.ArrayType.sizeOf_elems_type
 
-def Match.OptionalType.toString (type : Match.OptionalType) : String :=
+partial def Match.OptionalType.toString (type : Match.OptionalType) : String :=
   s!"!match.optional<{Attribute.toString type.innerType}>"
-termination_by sizeOf type
-decreasing_by
-  apply Match.OptionalType.sizeOf_innerType
 
-def UnregisteredAttr.toString (attr : UnregisteredAttr) : String :=
+partial def UnregisteredAttr.toString (attr : UnregisteredAttr) : String :=
   match _h : attr.type with
   | none => attr.value
   | some type => s!"{attr.value} : {Attribute.toString type}"
-termination_by sizeOf attr
-decreasing_by
-  exact UnregisteredAttr.sizeOf_type _h
 
 /--
   Convert an attribute to a string representation.
 -/
-def Attribute.toString (attr : Attribute) : String :=
+partial def Attribute.toString (attr : Attribute) : String :=
   match attr with
   | .integerType type => ToString.toString type
   | .floatType type => ToString.toString type
@@ -1195,7 +1145,6 @@ def Attribute.toString (attr : Attribute) : String :=
   | .pdlTypeType type => ToString.toString type
   | .matchOptionalType type => type.toString
   | .seqClockType type => ToString.toString type
-termination_by sizeOf attr
 
 end
 
