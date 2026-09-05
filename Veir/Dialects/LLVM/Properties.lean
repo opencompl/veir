@@ -607,6 +607,46 @@ def LLVMSwitchProperties.caseValues? (props : LLVMSwitchProperties) : Option (Ar
     values := values.push value
   return values
 
+/--
+  Properties of the memory intrinsics `llvm.intr.memset` and
+  `llvm.intr.memcpy`. `isVolatile` is always present -- MLIR materializes its
+  default on parse -- while `arg_attrs`, which carries the alignment and
+  dereferenceability clang knows about each argument, and `tbaa` are optional
+  and omitted again when absent.
+-/
+structure LLVMMemIntrinsicProperties where
+  arg_attrs : Option ArrayAttr
+  isVolatile : Bool
+  tbaa : Option ArrayAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMMemIntrinsicProperties.fromAttrDictFor (opName : String)
+    (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMMemIntrinsicProperties := do
+  if let some (key, _) := attrDict.toArray.find? (fun (k, _) =>
+      k ≠ "arg_attrs".toUTF8 && k ≠ "isVolatile".toUTF8 && k ≠ "tbaa".toUTF8) then
+    throw s!"{opName}: unexpected property '{String.fromUTF8! key}'"
+  let argAttrs ← match attrDict["arg_attrs".toUTF8]? with
+    | some (.arrayAttr argAttrs) => .ok (some argAttrs)
+    | some attr =>
+      throw s!"{opName}: expected 'arg_attrs' to be an array attribute, but got {attr}"
+    | none => .ok none
+  let some volatileAttr := attrDict["isVolatile".toUTF8]?
+    | throw s!"{opName}: missing 'isVolatile' property"
+  let .integerAttr volatileAttr := volatileAttr
+    | throw s!"{opName}: expected 'isVolatile' to be an i1 integer attribute, but got {volatileAttr}"
+  if volatileAttr.type.bitwidth ≠ 1 then
+    throw s!"{opName}: expected 'isVolatile' to be an i1 integer attribute, but got i{volatileAttr.type.bitwidth}"
+  let tbaa ← match attrDict["tbaa".toUTF8]? with
+    | some (.arrayAttr tbaa) => .ok (some tbaa)
+    | some attr => throw s!"{opName}: expected 'tbaa' to be an array attribute, but got {attr}"
+    | none => .ok none
+  return { arg_attrs := argAttrs, isVolatile := volatileAttr.value ≠ 0, tbaa := tbaa }
+
+def LLVMMemIntrinsicProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMMemIntrinsicProperties :=
+  LLVMMemIntrinsicProperties.fromAttrDictFor "llvm.intr.memset" attrDict
+
 structure LLVMModuleFlagsProperties where
   flags : ArrayAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
