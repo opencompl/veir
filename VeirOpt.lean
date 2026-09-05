@@ -19,6 +19,7 @@ import Veir.Passes.ArithToLLVM
 import Veir.Passes.Canonicalize
 import Veir.Passes.Legalization
 import Veir.Passes.CirToStd
+import Veir.Passes.LLVMToGMIR
 
 open Veir.Parser
 open Veir.Parser.ParserError
@@ -46,7 +47,8 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
      ArithToLLVMPass,
      CanonicalizePass,
      LegalizePass,
-     CirToStdPass ] : List (Pass OpCode)).foldl
+     CirToStdPass,
+     LLVMToGMIRPass ] : List (Pass OpCode)).foldl
     (fun m pass => m.insert pass.name pass)
     (Std.HashMap.emptyWithCapacity 16)
 
