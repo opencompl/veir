@@ -1055,8 +1055,8 @@ partial def parseOptionalLLVMStructType (short := false) : AttrParserM (Option T
 
 /--
   Parse a type within an LLVM-dialect type body, accepting the LLVM "pretty-print"
-  sugar keywords `void`, `ptr`, and the bare nested forms `array<...>` and
-  `struct<...>` in addition to the regular MLIR type forms.
+  sugar keywords `void`, `ptr`, and the bare nested forms `array<...>`,
+  `struct<...>`, and `func<...>` in addition to the regular MLIR type forms.
 
   The bare nested form exists because the LLVM dialect has a custom directive
   `PrettyLLVMType`, which allows types from the LLVM dialect to be written
@@ -1084,20 +1084,25 @@ partial def parseLLVMType (errorMsg : String := "type expected") : AttrParserM T
     return type
   if let some type ← parseOptionalLLVMStructType true then
     return type
+  if let some type ← parseOptionalLLVMFunctionType true then
+    return type
   parseType errorMsg
 
 /--
-  Parse an LLVM function type `!llvm.func<resultType (paramTypes,...)>`, if present.
+  Parse an LLVM function type `!llvm.func<...>`, or `func<...>` when `short`, if present.
   A trailing `...` parameter marks the function as variadic; the ellipsis is invalid
   in any position other than the last.
 -/
-partial def parseOptionalLLVMFunctionType : AttrParserM (Option TypeAttr) := do
-  let token ← peekToken
-  let .exclamationIdent := token.kind | return none
-  let input := (← getThe ParserState).input
-  let typeName := { token.slice with start := token.slice.start + 1 }.of input
-  if typeName ≠ "llvm.func".toByteArray then return none
-  let _ ← consumeToken
+partial def parseOptionalLLVMFunctionType (short := false) : AttrParserM (Option TypeAttr) := do
+  if short then
+    let .true ← parseOptionalKeyword "func".toByteArray | return none
+  else
+    let token ← peekToken
+    let .exclamationIdent := token.kind | return none
+    let input := (← getThe ParserState).input
+    let typeName := { token.slice with start := token.slice.start + 1 }.of input
+    if typeName ≠ "llvm.func".toByteArray then return none
+    let _ ← consumeToken
   parsePunctuation "<"
   let result ← parseLLVMType "llvm.func result type expected"
   let params ← parseDelimitedList .paren do
