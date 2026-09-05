@@ -5,6 +5,8 @@ public import Veir.Data.Float
 public import Lean.Elab.Command
 public import Std.Data.Iterators.Producers.Array
 
+meta import Veir.Meta.Deriving
+
 /-!
   # Attributes
 
@@ -513,7 +515,6 @@ mutual
 structure VectorType where
   shape : Array Nat
   elementType : Attribute
-deriving Repr, Hashable
 
 /--
   The signature of a function, consisting of an array of input attributes
@@ -523,7 +524,7 @@ structure FunctionType where
   inputs : Array Attribute
   outputs : Array Attribute
   isVarArg : Bool := false
-deriving Inhabited, Repr, Hashable
+deriving Inhabited
 
 /--
   The payload of an LLVM function type attribute.
@@ -533,7 +534,7 @@ deriving Inhabited, Repr, Hashable
 -/
 structure LLVMFunctionType where
   functionType : FunctionType
-deriving Inhabited, Repr, Hashable
+deriving Inhabited
 
 /--
   The payload of a ClangIR function type `!cir.func<(inputs) -> result>`.
@@ -541,14 +542,14 @@ deriving Inhabited, Repr, Hashable
 -/
 structure CirFuncType where
   functionType : FunctionType
-deriving Inhabited, Repr, Hashable
+deriving Inhabited
 
 /--
   An attribute that holds a sequence of attributes.
 -/
 structure ArrayAttr where
   value : Array Attribute
-deriving Inhabited, Repr, Hashable
+deriving Inhabited
 
 /--
   A dictionary attribute that maps byte array keys to attribute values.
@@ -563,7 +564,7 @@ structure DictionaryAttr where
   -/
   entries : Array (ByteArray × Attribute)
   /- TODO: figure out how to maintain a proof of sorted-ness and uniqueness. -/
-deriving Inhabited, Repr, Hashable
+deriving Inhabited
 
 /--
   An attribute representing a fixed-sized array type
@@ -571,7 +572,6 @@ deriving Inhabited, Repr, Hashable
 structure LLVM.ArrayType where
   size : Nat
   type : Attribute
-deriving Repr, Hashable
 
 /--
   The `!match.optional<...>` type, wrapping a PDL handle type whose value may
@@ -584,7 +584,6 @@ deriving Repr, Hashable
 -/
 structure Match.OptionalType where
   innerType : Attribute
-deriving Repr, Hashable
 
 /--
   An attribute from an unknown dialect, kept as its source text.
@@ -601,7 +600,7 @@ structure UnregisteredAttr where
   value : String
   isType : Bool
   type : Option Attribute := none
-deriving Inhabited, Repr, Hashable
+deriving Inhabited
 
 /--
   A data structure that represents compile-time information in the IR.
@@ -719,9 +718,19 @@ inductive Attribute
 | matchOptionalType (type : Match.OptionalType)
 /-- CIRCT seq clock type -/
 | seqClockType (type : Seq.ClockType)
-deriving Inhabited, Repr, Hashable
+deriving Inhabited
 
 end
+
+/- Derive Repr and Hashable instances for the mutual group. -/
+derive_mutual_repr for
+  VectorType, FunctionType, LLVMFunctionType, CirFuncType,
+  ArrayAttr, DictionaryAttr, LLVM.ArrayType, Match.OptionalType,
+  UnregisteredAttr, Attribute
+derive_mutual_hashable for
+  VectorType, FunctionType, LLVMFunctionType, CirFuncType,
+  ArrayAttr, DictionaryAttr, LLVM.ArrayType, Match.OptionalType,
+  UnregisteredAttr, Attribute
 
 instance : Inhabited VectorType where
   default := { shape := #[], elementType := .integerType (IntegerType.mk 0) }
