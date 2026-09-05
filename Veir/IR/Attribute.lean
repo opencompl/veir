@@ -790,349 +790,6 @@ theorem UnregisteredAttr.sizeOf_type {a : UnregisteredAttr} (h : a.type = some t
   grind [cases UnregisteredAttr]
 
 /-!
-  ## DecidableEq instances
--/
-
-mutual
-def VectorType.decEq (type1 type2 : VectorType) : Decidable (type1 = type2) :=
-  if hshape : type1.shape = type2.shape then
-    match Attribute.decEq type1.elementType type2.elementType with
-    | isTrue _ => isTrue (by grind [cases VectorType])
-    | isFalse _ => isFalse (by grind)
-  else
-    isFalse (by grind)
-termination_by sizeOf type1
-decreasing_by
-  apply VectorType.sizeOf_elementType
-
-def FunctionType.decEq (type1 type2 : FunctionType) : Decidable (type1 = type2) :=
-  let inputs1 := type1.inputs
-  let outputs1 := type1.outputs
-  let inputs2 := type2.inputs
-  let outputs2 := type2.outputs
-  match Array.instDecidabelEq' inputs1 inputs2 (fun x y _ _ => Attribute.decEq x y) with
-  | isTrue _ =>
-    match Array.instDecidabelEq' outputs1 outputs2 (fun x y _ _ => Attribute.decEq x y) with
-    | isTrue _ =>
-      if h : type1.isVarArg = type2.isVarArg then
-        isTrue (by grind [cases FunctionType])
-      else
-        isFalse (by grind)
-    | isFalse _ => isFalse (by grind)
-  | isFalse _ => isFalse (by grind)
-termination_by sizeOf type1
-decreasing_by
-  · have := @FunctionType.sizeOf_elems_inputs
-    grind
-  · have := @FunctionType.sizeOf_elems_outputs
-    grind
-
-def LLVMFunctionType.decEq (type1 type2 : LLVMFunctionType) : Decidable (type1 = type2) :=
-  match FunctionType.decEq type1.functionType type2.functionType with
-  | isTrue _ => isTrue (by grind [cases LLVMFunctionType])
-  | isFalse _ => isFalse (by grind)
-termination_by sizeOf type1
-decreasing_by
-  apply LLVMFunctionType.sizeOf_functionType
-
-def CirFuncType.decEq (type1 type2 : CirFuncType) : Decidable (type1 = type2) :=
-  match FunctionType.decEq type1.functionType type2.functionType with
-  | isTrue _ => isTrue (by grind [cases CirFuncType])
-  | isFalse _ => isFalse (by grind)
-termination_by sizeOf type1
-decreasing_by
-  apply CirFuncType.sizeOf_functionType
-
-def ArrayAttr.decEq (arr1 arr2 : ArrayAttr) : Decidable (arr1 = arr2) :=
-  let value1 := arr1.value
-  let value2 := arr2.value
-  match Array.instDecidabelEq' value1 value2 (fun x y _ _ => x.decEq y) with
-  | isTrue _ => isTrue (by grind [cases ArrayAttr])
-  | isFalse _ => isFalse (by grind)
-termination_by sizeOf arr1
-decreasing_by
-  have := @ArrayAttr.sizeOf_elems_value
-  grind
-
-def LLVM.ArrayType.decEq (arr1 arr2 : LLVM.ArrayType) : Decidable (arr1 = arr2) :=
-  let size1 := arr1.size
-  let size2 := arr2.size
-  let type1 := arr1.type
-  let type2 := arr2.type
-  match Int.instDecidableEq size1 size2 with
-  | isTrue _ =>
-    match Attribute.decEq type1 type2 with
-    | isTrue _ => isTrue (by grind [cases LLVM.ArrayType])
-    | isFalse _ => isFalse (by grind)
-  | isFalse _ => isFalse (by grind)
-
-termination_by sizeOf arr1
-decreasing_by
-  have := @LLVM.ArrayType.sizeOf_elems_type
-  grind
-
-def Match.OptionalType.decEq (opt1 opt2 : Match.OptionalType) : Decidable (opt1 = opt2) :=
-  match Attribute.decEq opt1.innerType opt2.innerType with
-  | isTrue _ => isTrue (by grind [cases Match.OptionalType])
-  | isFalse _ => isFalse (by grind)
-termination_by sizeOf opt1
-decreasing_by
-  have := @Match.OptionalType.sizeOf_innerType
-  grind
-
-def UnregisteredAttr.decEq (attr1 attr2 : UnregisteredAttr) : Decidable (attr1 = attr2) :=
-  let type1 := attr1.type
-  let type2 := attr2.type
-  if _ : attr1.value = attr2.value ∧ attr1.isType = attr2.isType then
-    match h1 : type1, h2 : type2 with
-    | none, none => isTrue (by grind [cases UnregisteredAttr])
-    | some t1, some t2 =>
-      match Attribute.decEq t1 t2 with
-      | isTrue _ => isTrue (by grind [cases UnregisteredAttr])
-      | isFalse _ => isFalse (by grind)
-    | none, some _ => isFalse (by grind)
-    | some _, none => isFalse (by grind)
-  else
-    isFalse (by grind)
-termination_by sizeOf attr1
-decreasing_by
-  have := @UnregisteredAttr.sizeOf_type
-  grind
-
-def DictionaryAttr.decEq (dict1 dict2 : DictionaryAttr) : Decidable (dict1 = dict2) :=
-  let entries1 := dict1.entries
-  let entries2 := dict2.entries
-  match Array.instDecidabelEq' entries1 entries2 fun ⟨k₁, v₁⟩ ⟨k₂, v₂⟩ hx hy =>
-    if _ : k₁ = k₂ then
-      match v₁.decEq v₂ with
-      | isTrue _ => isTrue (by grind)
-      | isFalse _ => isFalse (by grind)
-    else isFalse (by grind)
-  with
-  | isTrue _ => isTrue (by grind [cases DictionaryAttr])
-  | isFalse _ => isFalse (by grind)
-termination_by sizeOf dict1
-decreasing_by
-  have := @DictionaryAttr.sizeOf_elems_entries
-  grind
-def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
-  cases h1 : attr1 <;> cases h2 : attr2
-  case integerType.integerType type1 type2 =>
-    exact (match decEq type1 type2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case floatType.floatType type1 type2 =>
-    exact (match decEq type1 type2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case vectorType.vectorType type1 type2 =>
-    exact (match VectorType.decEq type1 type2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case byteType.byteType type1 type2 =>
-    exact (match decEq type1 type2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case fastMathFlagsAttr.fastMathFlagsAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case cconvAttr.cconvAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case linkageAttr.linkageAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case framePointerKindAttr.framePointerKindAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case uwtableKindAttr.uwtableKindAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case tailCallKindAttr.tailCallKindAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case constantRangeAttr.constantRangeAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case tbaaTagAttr.tbaaTagAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case memoryEffectsAttr.memoryEffectsAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case loopAnnotationAttr.loopAnnotationAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case moduleFlagAttr.moduleFlagAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case targetFeaturesAttr.targetFeaturesAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case dlSpecAttr.dlSpecAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case unregisteredAttr.unregisteredAttr attr1 attr2 =>
-    exact (match UnregisteredAttr.decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case functionType.functionType type1 type2 =>
-    exact (match FunctionType.decEq type1 type2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case dictionaryAttr.dictionaryAttr attr1 attr2 =>
-    exact (match DictionaryAttr.decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case integerAttr.integerAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case floatAttr.floatAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case arithIntegerOverflowFlagsAttr.arithIntegerOverflowFlagsAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case stringAttr.stringAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case unitAttr.unitAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case locationAttr.locationAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case arrayAttr.arrayAttr attr1 attr2 =>
-    exact (match ArrayAttr.decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case modArithType.modArithType type1 type2 =>
-    exact (match decEq type1 type2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case feltType.feltType type1 type2 =>
-    exact (match decEq type1 type2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case feltConstAttr.feltConstAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case indexType.indexType type1 type2 =>
-    exact (match decEq type1 type2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case cirIntType.cirIntType type1 type2 =>
-    exact (match decEq type1 type2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case cirBoolType.cirBoolType type1 type2 =>
-    exact (isTrue (by grind))
-  case cirFuncType.cirFuncType type1 type2 =>
-    exact (match CirFuncType.decEq type1 type2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case cirIntAttr.cirIntAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case cirBoolAttr.cirBoolAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case registerType.registerType type1 type2 =>
-    exact (match decEq type1 type2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case registerAttr.registerAttr type1 type2 =>
-    exact (match decEq type1 type2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case llvmVoidType.llvmVoidType type1 type2 =>
-    exact (isTrue (by grind))
-  case llvmPointerType.llvmPointerType type1 type2 =>
-    exact (isTrue (by grind))
-  case llvmArrayType.llvmArrayType type1 type2 =>
-    exact (match LLVM.ArrayType.decEq type1 type2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case llvmFunctionType.llvmFunctionType type1 type2 =>
-    exact (match LLVMFunctionType.decEq type1 type2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case cudaTilePointerType.cudaTilePointerType type1 type2 =>
-    exact (match decEq type1 type2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case ioAddressType.ioAddressType type1 type2 =>
-    exact (isTrue (by grind))
-  case denseElementsAttr.denseElementsAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case denseArrayAttr.denseArrayAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case flatSymbolRefAttr.flatSymbolRefAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case hwModuleType.hwModuleType type1 type2 =>
-    exact (match decEq type1 type2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case pdlRangeType.pdlRangeType type1 type2 =>
-    exact (match decEq type1 type2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case matchOptionalType.matchOptionalType type1 type2 =>
-    exact (match Match.OptionalType.decEq type1 type2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case pdlAttributeType.pdlAttributeType type1 type2 =>
-    exact (isTrue (by grind))
-  case pdlOperationType.pdlOperationType type1 type2 =>
-    exact (isTrue (by grind))
-  case pdlValueType.pdlValueType type1 type2 =>
-    exact (isTrue (by grind))
-  case pdlTypeType.pdlTypeType type1 type2 =>
-    exact (isTrue (by grind))
-  case seqClockType.seqClockType =>
-    exact (isTrue (by grind))
-  all_goals exact isFalse (by grind)
-termination_by sizeOf attr1
-end
-
-instance : DecidableEq Attribute := Attribute.decEq
-instance : DecidableEq VectorType := VectorType.decEq
-instance : DecidableEq FunctionType := FunctionType.decEq
-instance : DecidableEq LLVMFunctionType := LLVMFunctionType.decEq
-instance : DecidableEq CirFuncType := CirFuncType.decEq
-instance : DecidableEq ArrayAttr := ArrayAttr.decEq
-instance : DecidableEq DictionaryAttr := DictionaryAttr.decEq
-instance : DecidableEq UnregisteredAttr := UnregisteredAttr.decEq
-
-/-!
   ## ToString implementation
 
   `ToString` is used to convert attributes to their MLIR textual representation.
@@ -1733,6 +1390,278 @@ instance : IsAttr Attribute where
   project_eq_some_iff _ _ := by grind
 
 #generate_attribute_instances Attribute
+
+/-!
+## DecidableEq instances
+
+We implement `DecidableEq` in a linear fashion to avoid quadratic case splits by first doing a case
+analysis on the first attribute constructor, and then checking whether or not the second attribute
+has the same constructor (which is done in constant time with).
+-/
+
+/--
+Implement decidable equality between an attribute of a known kind with an arbitrary attribute,
+given a decidable equality function for the specific attribute kind.
+
+This function does not do a linear case split on the attribute kind at runtime, and instead only
+checks whether the attribute constructor is the expected one.
+
+This function is mostly useful to define a `DecidableEq` instance for `Attribute` in linear time.
+-/
+private def IsAttr.decEqAgainst [IsAttr Attr]
+    (specificAttr : Attr) (attr : Attribute)
+    (decEq : (other : Attr) → Decidable (specificAttr = other)) :
+    Decidable (Attribute.of Attr specificAttr = attr) :=
+  match hcast : attr.cast? Attr with
+  | some other =>
+    match decEq other with
+    | isTrue h => isTrue (by grind)
+    | isFalse h => isFalse (by grind)
+  | none => isFalse (by grind)
+
+mutual
+def VectorType.decEq (type1 type2 : VectorType) : Decidable (type1 = type2) :=
+  if hshape : type1.shape = type2.shape then
+    match Attribute.decEq type1.elementType type2.elementType with
+    | isTrue _ => isTrue (by grind [cases VectorType])
+    | isFalse _ => isFalse (by grind)
+  else
+    isFalse (by grind)
+termination_by sizeOf type1
+decreasing_by exact VectorType.sizeOf_elementType
+
+def FunctionType.decEq (type1 type2 : FunctionType) : Decidable (type1 = type2) :=
+  let inputs1 := type1.inputs
+  let outputs1 := type1.outputs
+  let inputs2 := type2.inputs
+  let outputs2 := type2.outputs
+  match Array.instDecidabelEq' inputs1 inputs2 (fun x y _ _ => Attribute.decEq x y) with
+  | isTrue _ =>
+    match Array.instDecidabelEq' outputs1 outputs2 (fun x y _ _ => Attribute.decEq x y) with
+    | isTrue _ =>
+      if h : type1.isVarArg = type2.isVarArg then
+        isTrue (by grind [cases FunctionType])
+      else
+        isFalse (by grind)
+    | isFalse _ => isFalse (by grind)
+  | isFalse _ => isFalse (by grind)
+termination_by sizeOf type1
+decreasing_by
+  · have := @FunctionType.sizeOf_elems_inputs
+    grind
+  · have := @FunctionType.sizeOf_elems_outputs
+    grind
+
+def LLVMFunctionType.decEq (type1 type2 : LLVMFunctionType) : Decidable (type1 = type2) :=
+  match FunctionType.decEq type1.functionType type2.functionType with
+  | isTrue _ => isTrue (by grind [cases LLVMFunctionType])
+  | isFalse _ => isFalse (by grind)
+termination_by sizeOf type1
+decreasing_by exact LLVMFunctionType.sizeOf_functionType
+
+def CirFuncType.decEq (type1 type2 : CirFuncType) : Decidable (type1 = type2) :=
+  match FunctionType.decEq type1.functionType type2.functionType with
+  | isTrue _ => isTrue (by grind [cases CirFuncType])
+  | isFalse _ => isFalse (by grind)
+termination_by sizeOf type1
+decreasing_by exact CirFuncType.sizeOf_functionType
+
+def ArrayAttr.decEq (arr1 arr2 : ArrayAttr) : Decidable (arr1 = arr2) :=
+  let value1 := arr1.value
+  let value2 := arr2.value
+  match Array.instDecidabelEq' value1 value2 (fun x y _ _ => x.decEq y) with
+  | isTrue _ => isTrue (by grind [cases ArrayAttr])
+  | isFalse _ => isFalse (by grind)
+termination_by sizeOf arr1
+decreasing_by
+  have := @ArrayAttr.sizeOf_elems_value
+  grind
+
+def LLVM.ArrayType.decEq (arr1 arr2 : LLVM.ArrayType) : Decidable (arr1 = arr2) :=
+  let size1 := arr1.size
+  let size2 := arr2.size
+  let type1 := arr1.type
+  let type2 := arr2.type
+  match Nat.decEq size1 size2 with
+  | isTrue _ =>
+    match Attribute.decEq type1 type2 with
+    | isTrue _ => isTrue (by grind [cases LLVM.ArrayType])
+    | isFalse _ => isFalse (by grind)
+  | isFalse _ => isFalse (by grind)
+
+termination_by sizeOf arr1
+decreasing_by
+  have := @LLVM.ArrayType.sizeOf_elems_type
+  grind
+
+def Match.OptionalType.decEq (opt1 opt2 : Match.OptionalType) : Decidable (opt1 = opt2) :=
+  match Attribute.decEq opt1.innerType opt2.innerType with
+  | isTrue _ => isTrue (by grind [cases Match.OptionalType])
+  | isFalse _ => isFalse (by grind)
+termination_by sizeOf opt1
+decreasing_by
+  have := @Match.OptionalType.sizeOf_innerType
+  grind
+
+def UnregisteredAttr.decEq (attr1 attr2 : UnregisteredAttr) : Decidable (attr1 = attr2) :=
+  let type1 := attr1.type
+  let type2 := attr2.type
+  if _ : attr1.value = attr2.value ∧ attr1.isType = attr2.isType then
+    match h1 : type1, h2 : type2 with
+    | none, none => isTrue (by grind [cases UnregisteredAttr])
+    | some t1, some t2 =>
+      match Attribute.decEq t1 t2 with
+      | isTrue _ => isTrue (by grind [cases UnregisteredAttr])
+      | isFalse _ => isFalse (by grind)
+    | none, some _ => isFalse (by grind)
+    | some _, none => isFalse (by grind)
+  else
+    isFalse (by grind)
+termination_by sizeOf attr1
+decreasing_by
+  have := @UnregisteredAttr.sizeOf_type
+  grind
+
+def DictionaryAttr.decEq (dict1 dict2 : DictionaryAttr) : Decidable (dict1 = dict2) :=
+  let entries1 := dict1.entries
+  let entries2 := dict2.entries
+  match Array.instDecidabelEq' entries1 entries2 fun ⟨k₁, v₁⟩ ⟨k₂, v₂⟩ hx hy =>
+    if _ : k₁ = k₂ then
+      match v₁.decEq v₂ with
+      | isTrue _ => isTrue (by grind)
+      | isFalse _ => isFalse (by grind)
+    else isFalse (by grind)
+  with
+  | isTrue _ => isTrue (by grind [cases DictionaryAttr])
+  | isFalse _ => isFalse (by grind)
+termination_by sizeOf dict1
+decreasing_by
+  have := @DictionaryAttr.sizeOf_elems_entries
+  grind
+
+def Attribute.decEq (attr1 attr2 : @& Attribute) : Decidable (attr1 = attr2) := by
+  cases attr1
+  case integerType x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case floatType x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case vectorType x =>
+    exact IsAttr.decEqAgainst x attr2 (VectorType.decEq x)
+  case integerAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case floatAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case fastMathFlagsAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case arithIntegerOverflowFlagsAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case cconvAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case linkageAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case framePointerKindAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case uwtableKindAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case tailCallKindAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case moduleFlagAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case tbaaTagAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case constantRangeAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case memoryEffectsAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case loopAnnotationAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case targetFeaturesAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case dlSpecAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case registerType x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case registerAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case stringAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case unitAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case locationAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case arrayAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (ArrayAttr.decEq x)
+  case denseArrayAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case denseElementsAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case dictionaryAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (DictionaryAttr.decEq x)
+  case functionType x =>
+    exact IsAttr.decEqAgainst x attr2 (FunctionType.decEq x)
+  case unregisteredAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (UnregisteredAttr.decEq x)
+  case flatSymbolRefAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case modArithType x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case feltType x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case feltConstAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case indexType x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case cirIntType x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case cirBoolType x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case cirFuncType x =>
+    exact IsAttr.decEqAgainst x attr2 (CirFuncType.decEq x)
+  case cirIntAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case cirBoolAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case llvmVoidType x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case byteType x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case llvmPointerType x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case llvmArrayType x =>
+    exact IsAttr.decEqAgainst x attr2 (LLVM.ArrayType.decEq x)
+  case llvmFunctionType x =>
+    exact IsAttr.decEqAgainst x attr2 (LLVMFunctionType.decEq x)
+  case cudaTilePointerType x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case ioAddressType x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case hwModuleType x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case pdlRangeType x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case pdlAttributeType x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case pdlOperationType x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case pdlValueType x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case pdlTypeType x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case matchOptionalType x =>
+    exact IsAttr.decEqAgainst x attr2 (Match.OptionalType.decEq x)
+  case seqClockType x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
+termination_by sizeOf attr1
+end
+
+instance : DecidableEq Attribute := Attribute.decEq
+instance : DecidableEq VectorType := VectorType.decEq
+instance : DecidableEq FunctionType := FunctionType.decEq
+instance : DecidableEq LLVMFunctionType := LLVMFunctionType.decEq
+instance : DecidableEq CirFuncType := CirFuncType.decEq
+instance : DecidableEq ArrayAttr := ArrayAttr.decEq
+instance : DecidableEq DictionaryAttr := DictionaryAttr.decEq
+instance : DecidableEq UnregisteredAttr := UnregisteredAttr.decEq
 
 /-!
   ## TypeAttr definition
