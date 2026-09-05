@@ -404,6 +404,12 @@ instance : HasOpInfo OpCode where
   isTerminator := OpCode.isTerminator
   isIsolatedFromAbove := OpCode.isIsolatedFromAbove
 
+/-- LLVM integer AND has no memory effects. -/
+@[simp] theorem getEffects_llvm_and :
+    HasOpInfo.getEffects (OpCode.llvm Llvm.and) () = .none := by
+  simp only [get_effects]
+  exact Llvm.getEffects_and
+
 /--
 Ask the dialect of `opCode` how to represent a folded
 constant. Dialects without a materializer, and values a dialect cannot

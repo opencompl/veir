@@ -1853,6 +1853,18 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     | _ , _ => none
   | _ => none
 
+/-- Interpreter equation for LLVM's bitwise AND on concrete integer operands. -/
+@[simp] theorem interpretOp'_llvm_and
+    (bitwidth : Nat)
+    (lhs rhs : BitVec bitwidth)
+    (resultTypes : Array TypeAttr)
+    (blockOperands : Array BlockPtr)
+    (mem : MemoryState) :
+    interpretOp' (.llvm .and) () resultTypes
+        #[.int bitwidth (.val lhs), .int bitwidth (.val rhs)] blockOperands mem =
+      .ok (#[.int bitwidth (.val (lhs &&& rhs))], mem, none) := by
+  simp [interpretOp', Llvm.interpretOp']
+
 /-- Wrapper around `interpretOp'` that retrieves the operation type, properties,
 result types, and successor blocks from the operation pointer. -/
 abbrev OperationPtr.interpret (op : OperationPtr) (ctx : IRContext OpCode)
