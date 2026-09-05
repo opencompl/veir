@@ -131,15 +131,18 @@ def parseOptionalFloatType : AttrParserM (Option FloatType) := do
 
 /--
   Parse an optional byte type.
-  A byte type is represented as `!llvm.byte<bitwidth>` where bitwidth is a positive integer.
+  A byte type is represented as `!llvm.byte<bitwidth>`, or `byte<bitwidth>` when `short`.
 -/
-def parseOptionalByteType : AttrParserM (Option LLVM.ByteType) := do
-  let token ← peekToken
-  let .exclamationIdent := token.kind | return none
-  let input := (← getThe ParserState).input
-  let typeName := { token.slice with start := token.slice.start + 1 }.of input
-  if typeName ≠ "llvm.byte".toByteArray then return none
-  let _ ← consumeToken
+def parseOptionalByteType (short := false) : AttrParserM (Option LLVM.ByteType) := do
+  if short then
+    let .true ← parseOptionalKeyword "byte".toByteArray | return none
+  else
+    let token ← peekToken
+    let .exclamationIdent := token.kind | return none
+    let input := (← getThe ParserState).input
+    let typeName := { token.slice with start := token.slice.start + 1 }.of input
+    if typeName ≠ "llvm.byte".toByteArray then return none
+    let _ ← consumeToken
   parsePunctuation "<"
   let bitwidth ← parseInteger false false
   parsePunctuation ">"
@@ -1055,8 +1058,8 @@ partial def parseOptionalLLVMStructType (short := false) : AttrParserM (Option T
 
 /--
   Parse a type within an LLVM-dialect type body, accepting the LLVM "pretty-print"
-  sugar keywords `void`, `ptr`, and the bare nested forms `array<...>` and
-  `struct<...>` in addition to the regular MLIR type forms.
+  sugar keywords `void`, `ptr`, and the bare nested forms `byte<...>`,
+  `array<...>`, and `struct<...>` in addition to the regular MLIR type forms.
 
   The bare nested form exists because the LLVM dialect has a custom directive
   `PrettyLLVMType`, which allows types from the LLVM dialect to be written
@@ -1080,6 +1083,8 @@ partial def parseLLVMType (errorMsg : String := "type expected") : AttrParserM T
     return LLVM.VoidType.mk
   if ← parseOptionalKeyword "ptr".toByteArray then
     return (LLVM.PointerType.mk : TypeAttr)
+  if let some type ← parseOptionalByteType true then
+    return type
   if let some type ← parseOptionalLLVMArrayType true then
     return type
   if let some type ← parseOptionalLLVMStructType true then
