@@ -18,3 +18,5 @@ import UnitTest.FoldDecision
 import UnitTest.SideEffectInterfaces
 import UnitTest.Puddle
 import UnitTest.BoundedBitblasting.BoundedBitblasting
+import UnitTest.DataFlowFramework.SparseConstantPropagation
+import UnitTest.DataFlowFramework.SCCP

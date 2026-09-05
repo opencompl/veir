@@ -18,6 +18,7 @@ import Veir.Interfaces.ControlFlowInterfaces
 import Veir.Passes.ArithToLLVM.Proofs
 import Veir.Passes.Canonicalize.Proofs
 import Veir.Passes.RISCVCombines.Proofs
+import Veir.Transforms.SCCP
 import Veir.Benchmarks
 import Veir.Parser.Lexer
 import Veir.Interpreter
@@ -27,8 +28,6 @@ import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.Legalization.Proofs
 
 -- FIXME: These modules are otherwise orphans and would not be compiled.
-import Veir.Analysis.DataFlow.SparseFact
-import Veir.Analysis.DataFlow.SparseForwardDataFlowAnalysis
 import Veir.Data.FP.EScientificBV
 import Veir.Data.FP.EScientificBV.Basic
 import Veir.Data.FP.EScientificBV.ToExtRat

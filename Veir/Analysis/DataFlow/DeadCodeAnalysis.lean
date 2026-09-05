@@ -1,7 +1,9 @@
 module
 
 public import Veir.Analysis.DataFlowFramework
-import Veir.Analysis.DataFlow.Domains.ConstantDomain
+public import Veir.Analysis.DataFlow.SparseFact
+public import Veir.Analysis.DataFlow.Domains.ConstantDomain
+public import Std.Data.HashSet
 
 public section
 
@@ -52,7 +54,7 @@ end LivenessFact
 
 namespace DeadCodeAnalysis
 
-variable [FactSpec .liveness]
+variable [FactSpec .liveness] [SparseFactSpec .sparseConstant AbstractConstant]
 
 def kind : AnalysisKind :=
   .deadCode
@@ -89,20 +91,19 @@ def markEntryBlocksLive
   dfCtx
 
 /--
-Return whether the given operation is a branch op.
-TODO: This function likely needs to be replaced with
-an interface much like what MLIR has.
+Return whether the given operation is a supported branch op.
 -/
 private def isBranchOp
     (op : OperationPtr)
     (irCtx : WfIRContext OpCode) : Bool :=
-  -- TODO: Replace this `.test .test` check once VeIR has proper branch ops.
   match (op.get! irCtx.raw).opType with
-  | .test .test => true
+  | .cf .br | .cf .cond_br => true
   | _ => false
 
 /--
 Read a literal constant directly from the defining operation when possible.
+
+TODO: Use constant folder for this!
 -/
 private def getLiteralConstant?
     (value : ValuePtr)
@@ -123,29 +124,43 @@ private def getLiteralConstant?
 
 /--
 Get the constant domain lattice elements of the operands of an operation.
-Non-literal operands are conservatively treated as `top`, so standalone dead
-code analysis remains useful without any external constant information.
+If sparse constant propagation is absent, unknown non-literal operands are treated
+as `top` so dead code analysis acts conservative instead of marking all branches
+as dead. When sparse constant propagation is registered but has not yet produced
+lattice facts for at least one of the operands, return `none` to indicate that dead
+code analysis should bail out until sparse constant propagation changes the facts.
+When sparse constant propagation is registered, this function also subscribes dead
+code analysis to the operand lattice facts so the branch is revisited when those
+facts change.
 -/
 private def getOperandValues
     (op : OperationPtr)
     (dfCtx : DataFlowContext)
     (irCtx : WfIRContext OpCode) : DataFlowContext × Option (Array AbstractConstant) := Id.run do
-  let operands := (op.getOperands! irCtx.raw).map fun operand =>
+  let mut dfCtx := dfCtx
+  let mut operands : Array AbstractConstant := #[]
+  for operand in op.getOperands! irCtx.raw do
     match getLiteralConstant? operand irCtx with
-    | some literal => literal
-    | none => .top
+    | some literal =>
+        operands := operands.push literal
+    | none =>
+      if !dfCtx.hasAnalysis .sparseConstantPropagation then
+        operands := operands.push .top
+      else
+        dfCtx := dfCtx.modifyFact .sparseConstant (.ValuePtr operand) (fun fact =>
+          fact.subscribe kind)
+        let latticeElement :=
+          SparseFact.getElement .sparseConstant operand dfCtx
+        if latticeElement == AbstractConstant.bottom then
+          return (dfCtx, none)
+        operands := operands.push latticeElement
   (dfCtx, some operands)
 
 /--
 Returns the successor that would be chosen with the given constant operands.
 Returns `none` if a single successor could not be chosen.
 
-TODO: Replace this once VeIR supports branch operators! For now, we treat
-`.test .test` as a branch operator with the following semantics:
-- one successor: always take it
-- two successors: inspect the first operand as a boolean-like integer,
-  taking successor 0 when nonzero and successor 1 when zero
-- otherwise: unknown
+TODO: This should be in a control flow interface!
 -/
 private def getSuccessorForOperands?
     (op : OperationPtr)
@@ -311,7 +326,7 @@ def init
 
 end DeadCodeAnalysis
 
-def DeadCodeAnalysis [FactSpec .liveness] : DataFlowAnalysis :=
+def DeadCodeAnalysis [FactSpec .liveness] [SparseFactSpec .sparseConstant AbstractConstant] : DataFlowAnalysis :=
   { kind := DeadCodeAnalysis.kind
     init := DeadCodeAnalysis.init
     visit := DeadCodeAnalysis.visit }
