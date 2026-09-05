@@ -16,6 +16,7 @@ public section
 inductive Llvm where
 | mlir__constant
 | mlir__poison
+| mlir__undef
 | mlir__zero
 | mlir__global
 | mlir__addressof
@@ -326,7 +327,8 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
   | .alloca, _ => .allocate
   | .load, props => if props.volatile_ then .readWrite else .read
   | .store, props => if props.volatile_ then .readWrite else .write
-  | .mlir__constant, _ | .mlir__poison, _ | .mlir__zero, _ | .mlir__addressof, _
+  | .mlir__constant, _ | .mlir__poison, _ | .mlir__undef, _ | .mlir__zero, _
+  | .mlir__addressof, _
   | .and, _ | .or, _ | .xor, _
   | .add, _ | .sub, _ | .mul, _
   | .sdiv, _ | .udiv, _ | .srem, _ | .urem, _
@@ -350,7 +352,7 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
 
 def Llvm.isConstantLike (op : Llvm) : Bool :=
   match op with
-  | .mlir__constant | .mlir__poison | .mlir__zero | .mlir__addressof => true
+  | .mlir__constant | .mlir__poison | .mlir__undef | .mlir__zero | .mlir__addressof => true
   | _ => false
 
 def Llvm.isIsolatedFromAbove (op : Llvm) : Bool :=
@@ -382,7 +384,8 @@ def Llvm.propagatesPoison : Llvm → Bool
   -- `RuntimeValue` represents a poisoned float yet, so listing them here would
   -- claim a fold that cannot be materialized.
   | .fadd | .fsub | .fmul | .fdiv | .frem
-  | .mlir__constant | .mlir__poison | .mlir__zero | .mlir__global | .mlir__addressof
+  | .mlir__constant | .mlir__poison | .mlir__undef | .mlir__zero | .mlir__global
+  | .mlir__addressof
   | .select | .br | .cond_br | .switch | .unreachable | .alloca | .load | .store
   | .intr__lifetime__start | .intr__lifetime__end | .intr__assume
   | .getelementptr | .call | .return | .func | .module_flags | .freeze => false
@@ -534,7 +537,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
           throw s!"llvm.mlir.constant: string length {stringAttr.value.size} does not match declared array size {arrType.size}"
       | _ => throw "llvm.mlir.constant: Expected array result type for a string constant"
       pure ()
-  | .mlir__poison => do
+  | .mlir__poison | .mlir__undef => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 0 1
     pure ()
