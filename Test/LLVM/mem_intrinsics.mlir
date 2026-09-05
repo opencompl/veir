@@ -14,9 +14,12 @@
     "llvm.intr.memset"(%dst, %byte, %len) <{arg_attrs = [{llvm.align = 8 : i64, llvm.nonnull, llvm.noundef}, {}, {}], isVolatile = false}> : (!llvm.ptr, i8, i64) -> ()
     // Volatile, and with nothing known about the arguments.
     "llvm.intr.memcpy"(%dst, %src, %len) <{isVolatile = true}> : (!llvm.ptr, !llvm.ptr, i64) -> ()
+    // `memmove` has the same shape as `memcpy`; only overlap tells them apart.
+    "llvm.intr.memmove"(%dst, %src, %len) <{isVolatile = false}> : (!llvm.ptr, !llvm.ptr, i64) -> ()
     "llvm.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
 
 // CHECK: "llvm.intr.memset"({{.*}}) <{"arg_attrs" = [{"llvm.align" = 8 : i64, llvm.nonnull, llvm.noundef}, {}, {}], "isVolatile" = 0 : i1}> : (!llvm.ptr, i8, i64) -> ()
 // CHECK: "llvm.intr.memcpy"({{.*}}) <{"isVolatile" = 1 : i1}> : (!llvm.ptr, !llvm.ptr, i64) -> ()
+// CHECK: "llvm.intr.memmove"({{.*}}) <{"isVolatile" = 0 : i1}> : (!llvm.ptr, !llvm.ptr, i64) -> ()

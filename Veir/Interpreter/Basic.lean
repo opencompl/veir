@@ -1198,7 +1198,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       Interp.ub
     let mem ← mem.store dst (ByteArray.replicate len byte.toNat.toUInt8)
     return (#[], mem, none)
-  | .intr__memcpy => do
+  | .intr__memcpy | .intr__memmove => do
     let [.addr dst, .addr src, .int _ len] := operands.toList | none
     let .val len := len | Interp.ub
     let len := len.toNat
@@ -1206,9 +1206,11 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       return (#[], mem, none)
     if dst = 0 || src = 0 then
       Interp.ub
-    /- `memcpy` requires the two ranges not to overlap; that is what separates
-       it from `memmove`. -/
-    if dst.toNat < src.toNat + len && src.toNat < dst.toNat + len then
+    /- `memcpy` requires the two ranges not to overlap; `memmove` is the one
+       that allows it, and copies as if through a temporary -- which is what
+       `copyBytes` does, since it takes the source slices before storing. -/
+    if opType = .intr__memcpy
+        && dst.toNat < src.toNat + len && src.toNat < dst.toNat + len then
       Interp.ub
     /- A copy carries the poison of what it copied, byte for byte. -/
     let mem ← mem.copyBytes dst src len.toUInt64
