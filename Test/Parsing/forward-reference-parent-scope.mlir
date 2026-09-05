@@ -12,13 +12,12 @@
 
 // CHECK:      "builtin.module"() ({
 // CHECK-NEXT:   ^{{.*}}():
-// CHECK-NEXT:     "func.func"() <{{.*}}> ({
-// CHECK-NEXT:       ^{{.*}}():
-// CHECK-NEXT:         "test.test"() ({
-// CHECK-NEXT:           ^{{.*}}():
-// CHECK-NEXT:             "test.test"(%[[A:.*]]) : (i32) -> ()
-// CHECK-NEXT:         }) : () -> ()
-// CHECK-NEXT:         %[[A]] = "test.test"() : () -> i32
-// CHECK-NEXT:         "func.return"() : () -> ()
-// CHECK-NEXT:     }) : () -> ()
+// CHECK-NEXT:     func.func @main() {
+// CHECK-NEXT:       "test.test"() ({
+// CHECK-NEXT:         ^{{.*}}():
+// CHECK-NEXT:           "test.test"(%[[A:.*]]) : (i32) -> ()
+// CHECK-NEXT:       }) : () -> ()
+// CHECK-NEXT:       %[[A]] = "test.test"() : () -> i32
+// CHECK-NEXT:       "func.return"() : () -> ()
+// CHECK-NEXT:     }
 // CHECK-NEXT: }) : () -> ()

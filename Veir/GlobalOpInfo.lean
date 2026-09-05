@@ -4,6 +4,8 @@ import Veir.Meta.OpCode
 
 public import Veir.IR.Basic
 public import Veir.OpCode
+public import Veir.Printer.CustomPrinting
+public import Veir.Dialects.Func.Printing
 
 namespace Veir
 
@@ -454,3 +456,16 @@ def OpCode.isCommutative (opCode : OpCode) : Bool :=
   | .felt .bit_and | .felt .bit_or | .felt .bit_xor
   | .cir .add | .cir .mul | .cir .and | .cir .or | .cir .xor | .cir .min | .cir .max => true
   | _ => false
+
+instance : HasCustomPrinting OpCode where
+  customPrinter? := fun {GlobalOpCode} _ _ op =>
+    match op with
+    | .func f =>
+      -- TODO(gzgz): automatically generate this
+      let : HasDialect GlobalOpCode Func :=
+        HasDialect.comp
+          (inferInstance : HasDialect GlobalOpCode OpCode)
+          (inferInstance : HasDialect OpCode Func)
+      HasCustomPrinting.customPrinter?
+        (Dialect := Func) (GlobalOpCode := GlobalOpCode) f
+    | _ => none

@@ -9,7 +9,7 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK:      ^{{.*}}([[ARG0:%.*]] : !mod_arith.int<7 : i32>, [[ARG1:%.*]] : !mod_arith.int<7 : i32>):
+// CHECK:      func.func @main([[ARG0:%.*]]: !mod_arith.int<7 : i32>, [[ARG1:%.*]]: !mod_arith.int<7 : i32>) -> !mod_arith.int<7 : i32> {
 // input casts are kept
 // CHECK-NEXT:   [[C0:%.*]] = "builtin.unrealized_conversion_cast"([[ARG0]]) : (!mod_arith.int<7 : i32>) -> i32
 // CHECK-NEXT:   [[E0:%.*]] = "arith.extui"([[C0]]) : (i32) -> i33

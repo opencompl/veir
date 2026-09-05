@@ -23,7 +23,7 @@
 }) : () -> ()
 
 // Rewritten to add(xor(B, -1), A).
-// CHECK:      ^{{.*}}(%[[A:.*]] : i64, %[[B:.*]] : i64):
+// CHECK:      func.func @foo(%[[A:.*]]: i64, %[[B:.*]]: i64) -> i64 {
 // CHECK:      %[[M1:.*]] = "llvm.mlir.constant"() <{"value" = -1 : i64}> : () -> i64
 // CHECK:      %[[NB:.*]] = "llvm.xor"(%[[B]], %[[M1]]) : (i64, i64) -> i64
 // CHECK:      %[[R:.*]] = "llvm.add"(%[[NB]], %[[A]]) : (i64, i64) -> i64
@@ -31,7 +31,7 @@
 
 // Subtracting 2: `sub_one_from_sub_rw` does not fire (it needs a 1), but the
 // generic `sub_to_add` rewrites `(A - B) - 2` into `(A - B) + (-2)`.
-// CHECK:      ^{{.*}}(%[[NA:.*]] : i64, %[[NB2:.*]] : i64):
+// CHECK:      func.func @bar(%[[NA:.*]]: i64, %[[NB2:.*]]: i64) -> i64 {
 // CHECK:      %[[NSUB:.*]] = "llvm.sub"(%[[NA]], %[[NB2]]) : (i64, i64) -> i64
 // CHECK:      %[[NC:.*]] = "llvm.mlir.constant"() <{"value" = -2 : i64}> : () -> i64
 // CHECK:      %[[NR:.*]] = "llvm.add"(%[[NSUB]], %[[NC]]) : (i64, i64) -> i64

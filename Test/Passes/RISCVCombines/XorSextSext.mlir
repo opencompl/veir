@@ -23,13 +23,13 @@
 }) : () -> ()
 
 // The bitwise op runs on the narrow operands, then a single `sext` widens.
-// CHECK:      ^{{.*}}(%[[X:.*]] : i32, %[[Y:.*]] : i32):
+// CHECK:      func.func @foo(%[[X:.*]]: i32, %[[Y:.*]]: i32) -> i64 {
 // CHECK:      %[[OP:.*]] = "llvm.xor"(%[[X]], %[[Y]]) : (i32, i32) -> i32
 // CHECK-NEXT: %[[E:.*]] = "llvm.sext"(%[[OP]]) : (i32) -> i64
 // CHECK:      "func.return"(%[[E]]) : (i64) -> ()
 
 // Single cast: the pattern does not fire.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i32, %[[NY:.*]] : i64):
+// CHECK:      func.func @bar(%[[NX:.*]]: i32, %[[NY:.*]]: i64) -> i64 {
 // CHECK:      %[[NEX:.*]] = "llvm.sext"(%[[NX]]) : (i32) -> i64
 // CHECK:      %[[NR:.*]] = "llvm.xor"(%[[NEX]], %[[NY]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[NR]]) : (i64) -> ()

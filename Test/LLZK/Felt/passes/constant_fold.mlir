@@ -3,7 +3,7 @@
 // Registered-field constants fold through the generic interpreter-backed
 // canonicalizer. A nonconstant operand prevents folding.
 "builtin.module"() ({
-  // CHECK-LABEL: "sym_name" = "constant_fold"
+  // CHECK-LABEL: func.func @constant_fold() -> !felt.type<"babybear"> {
   "func.func"() <{sym_name = "constant_fold", function_type = () -> !felt.type<"babybear">}> ({
     // CHECK-NOT: #felt<const 10
     %a = "felt.const"() <{value = #felt<const 10 : <"babybear">> : !felt.type<"babybear">}> : () -> !felt.type<"babybear">
@@ -15,7 +15,7 @@
     "func.return"(%sum) : (!felt.type<"babybear">) -> ()
   }) : () -> ()
 
-  // CHECK-LABEL: "sym_name" = "mixed"
+  // CHECK-LABEL: func.func @mixed(%{{.*}}: !felt.type<"babybear">) -> !felt.type<"babybear"> {
   "func.func"() <{sym_name = "mixed", function_type = (!felt.type<"babybear">) -> !felt.type<"babybear">}> ({
   ^bb0(%v : !felt.type<"babybear">):
     %five = "felt.const"() <{value = #felt<const 5 : <"babybear">> : !felt.type<"babybear">}> : () -> !felt.type<"babybear">

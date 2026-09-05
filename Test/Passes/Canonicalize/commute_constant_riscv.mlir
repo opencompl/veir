@@ -5,7 +5,7 @@
 "builtin.module"() ({
   "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "foo"}> ({
     ^bb0(%x : !riscv.reg):
-      // CHECK:      ^{{.*}}(%[[X:.*]] : !riscv.reg):
+      // CHECK:      func.func @foo(%[[X:.*]]: !riscv.reg) -> !riscv.reg {
       %c = "riscv.li"() <{"value" = 5 : i64}> : () -> !riscv.reg
       // CHECK-NEXT: %[[C:.*]] = "riscv.li"() <{"value" = 5 : i64}> : () -> !riscv.reg
       %add = "riscv.add"(%c, %x) : (!riscv.reg, !riscv.reg) -> !riscv.reg

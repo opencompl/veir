@@ -24,13 +24,13 @@
 }) : () -> ()
 
 // Rewritten to X & ~Y: the `and` now takes X directly, dropping the `or`.
-// CHECK:      ^{{.*}}(%[[X:.*]] : i64, %[[Y:.*]] : i64):
+// CHECK:      func.func @foo(%[[X:.*]]: i64, %[[Y:.*]]: i64) -> i64 {
 // CHECK:      %[[NOTY:.*]] = "llvm.xor"(%[[Y]], %{{.*}}) : (i64, i64) -> i64
 // CHECK:      %[[R:.*]] = "llvm.and"(%[[X]], %[[NOTY]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[R]]) : (i64) -> ()
 
 // Not a real `~Y`: the `or` feeding the `and` survives.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i64, %[[NY:.*]] : i64):
+// CHECK:      func.func @bar(%[[NX:.*]]: i64, %[[NY:.*]]: i64) -> i64 {
 // CHECK:      %[[NOR:.*]] = "llvm.or"(%[[NX]], %[[NY]]) : (i64, i64) -> i64
 // CHECK:      %[[NR:.*]] = "llvm.and"(%[[NOR]], %{{.*}}) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[NR]]) : (i64) -> ()

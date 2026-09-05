@@ -54,16 +54,16 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK-LABEL: "sym_name" = "smin_narrowed"
+// CHECK-LABEL: func.func @smin_narrowed() -> i8 {
 // CHECK:         "llvm.mlir.constant"() <{"value" = 44 : i8}> : () -> i8
 
-// CHECK-LABEL: "sym_name" = "smax_widened"
+// CHECK-LABEL: func.func @smax_widened() -> i32 {
 // CHECK:         "llvm.mlir.constant"() <{"value" = 0 : i32}> : () -> i32
 
-// CHECK-LABEL: "sym_name" = "add_narrowed"
+// CHECK-LABEL: func.func @add_narrowed() -> i8 {
 // CHECK:         "llvm.mlir.constant"() <{"value" = 94 : i8}> : () -> i8
 
-// CHECK-LABEL: "sym_name" = "sub_to_add_min"
+// CHECK-LABEL: func.func @sub_to_add_min(%{{.*}}: i8) -> i8 {
 // CHECK:         "llvm.mlir.constant"() <{"value" = -128 : i8}> : () -> i8
 
 // Reference lowering of the *input* with upstream MLIR, which is what the

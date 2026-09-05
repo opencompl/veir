@@ -1,5 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s --check-prefix=SRC
-// RUN: veir-opt %s -p=riscv > %t && veir-interpret %t | filecheck %s
+// RUN: veir-opt %s --mlir-print-op-generic -p=riscv > %t && veir-interpret %t | filecheck %s
 // RUN: filecheck %s --check-prefix=ISEL --input-file=%t
 
 // smax(-1, 1) = 1 (signed); distinct from umax. -> riscv.max

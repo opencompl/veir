@@ -26,11 +26,11 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK:      ^{{.*}}(%[[X:.*]] : i64):
+// CHECK:      func.func @foo(%[[X:.*]]: i64) -> i64 {
 // CHECK-DAG:  %[[MAX:.*]] = "llvm.intr.smax"(%[[X]], %[[SUB:.*]]) : (i64, i64) -> i64
 // CHECK-DAG:  %[[SUB]] = "llvm.sub"(%{{.*}}, %[[X]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[MAX]]) : (i64) -> ()
 
 // Unsigned min: the signed pattern does not fire, so no smax is produced.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i64):
+// CHECK:      func.func @bar(%[[NX:.*]]: i64) -> i64 {
 // CHECK-NOT:  "llvm.intr.smax"

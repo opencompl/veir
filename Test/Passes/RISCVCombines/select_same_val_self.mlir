@@ -20,11 +20,11 @@
 }) : () -> ()
 
 // The `select` is gone; the function returns its operand directly.
-// CHECK:      ^{{.*}}(%{{.*}} : i1, %[[X:.*]] : i64):
+// CHECK:      func.func @foo(%{{.*}}: i1, %[[X:.*]]: i64) -> i64 {
 // CHECK-NOT:  "llvm.select"
 // CHECK:      "func.return"(%[[X]]) : (i64) -> ()
 
 // The distinct-arm `select` survives.
-// CHECK:      ^{{.*}}(%[[C:.*]] : i1, %[[NX:.*]] : i64, %[[NY:.*]] : i64):
+// CHECK:      func.func @bar(%[[C:.*]]: i1, %[[NX:.*]]: i64, %[[NY:.*]]: i64) -> i64 {
 // CHECK:      %[[SEL:.*]] = "llvm.select"(%[[C]], %[[NX]], %[[NY]])
 // CHECK:      "func.return"(%[[SEL]]) : (i64) -> ()
