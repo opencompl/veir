@@ -46,6 +46,24 @@
             then "Show VeIR's Make targets"
             else "Run VeIR's make ${target} target";
         };
+
+      makeLeanApp = pkgs: target:
+        let
+          package = pkgs.writeShellApplication {
+            name = target;
+            runtimeInputs = developmentPackages pkgs;
+            text = ''
+              export LEAN_AR="${pkgs.llvmPackages.llvm}/bin/llvm-ar"
+              export LEAN_CC="${self}/ExArray/compiler"
+              exec lake exe ${target} "$@"
+            '';
+          };
+        in
+        {
+          type = "app";
+          program = "${package}/bin/${target}";
+          meta.description = "Run VeIR's ${target} executable";
+        };
     in
     {
       devShells = forAllSystems (system:
@@ -71,6 +89,10 @@
           default = makeApp pkgs null;
           build = makeApp pkgs "build";
           tests = makeApp pkgs "tests";
+          "veir-opt" = makeLeanApp pkgs "veir-opt";
+          "veir-interpret" = makeLeanApp pkgs "veir-interpret";
+          "veir2mir" = makeLeanApp pkgs "veir2mir";
+          "run-benchmarks" = makeLeanApp pkgs "run-benchmarks";
         });
     };
 }
