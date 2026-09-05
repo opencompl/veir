@@ -1251,6 +1251,24 @@ class IsAttr (Attr : Type) extends ToString Attr, Inhabited Attr where
 
 attribute [grind unfold] IsAttr.inject
 
+/--
+Derive `project_eq_some_iff` from a projection that carries its correctness certificate.
+
+This is useful for efficiently deriving `IsAttr` instances for each attribute kind.
+-/
+theorem IsAttr.projectSubtype_eq_some_iff_of_projectSubtype
+    (inject : Attr → Attribute)
+    (projectSubtype : (attr : Attribute) → Option { specificAttr : Attr // inject specificAttr = attr })
+    (projectSubtype_inject : (specificAttr : Attr) →
+      projectSubtype (inject specificAttr) = some ⟨specificAttr, rfl⟩)
+    (attr : Attribute) (specificAttr : Attr) :
+    (projectSubtype attr).map Subtype.val = some specificAttr ↔ inject specificAttr = attr := by
+  constructor
+  · grind [Option.map_eq_some_iff]
+  · intro h
+    subst attr
+    simp [projectSubtype_inject]
+
 namespace Attribute
 
 /--
@@ -1358,16 +1376,21 @@ syntax "attribute_instance " term " => " ident : command
 macro_rules
   | `(attribute_instance $attrType:term => $ctor:ident) => do
     let attrName := Lean.Syntax.mkStrLit (toString attrType)
-    `(@[expose] instance : IsAttr $attrType where
-        toString := ToString.toString
-        default := Inhabited.default
-        name := $attrName
-        inject := $ctor
-        project
-          | $ctor value => some value
-          | _ => none
-        project_eq_some_iff attr _ := by
-          cases attr <;> simp_all [eq_comm])
+    `(@[expose] instance : IsAttr $attrType := by
+        let projectSubtype : (attr : Attribute) →
+            Option { specificAttr : $attrType // $ctor specificAttr = attr } :=
+          fun
+            | $ctor value => some ⟨value, rfl⟩
+            | _ => none
+        exact {
+          toString := ToString.toString
+          default := Inhabited.default
+          name := $attrName
+          inject := $ctor
+          project := fun attr => (projectSubtype attr).map Subtype.val
+          project_eq_some_iff := IsAttr.projectSubtype_eq_some_iff_of_projectSubtype
+            $ctor projectSubtype (fun _ => rfl)
+        })
 
 open Lean Elab Command Meta
 
