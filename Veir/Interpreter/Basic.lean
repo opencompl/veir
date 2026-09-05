@@ -533,6 +533,24 @@ def MemoryState.loadPoison (state : MemoryState) (addr size : UInt64)
     Interp.ub
 
 /--
+  Copy `size` bytes, poison and all, from one address to another. Yields UB if
+  either access is out of bounds.
+
+  The two slices are taken from `contents` and `poisonMask` at the same offsets,
+  so `consistentSize` is what makes them the same length -- which is why this
+  cannot be written as a `load` followed by a `store`.
+-/
+def MemoryState.copyBytes (state : MemoryState) (dst src size : UInt64)
+    : Interp MemoryState :=
+  if src.toNat + size.toNat ≤ state.contents.size then
+    state.store dst
+      (state.contents.extract src.toNat (src + size).toNat)
+      (state.poisonMask.extract src.toNat (src + size).toNat)
+      (by simp [state.consistentSize])
+  else
+    Interp.ub
+
+/--
   Check if any of the `size` bytes at the given memory address `addr` is poison.
   Yields UB if the access is out of bounds.
 -/
@@ -1167,6 +1185,34 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       return (#[], mem, some (.branch (operands.extract 1 (1 + defaultSize)) destDefault))
     | .int _ .poison => Interp.ub
     | _ => none
+  | .intr__memset => do
+    let [.addr dst, .int 8 byte, .int _ len] := operands.toList | none
+    /- The byte and the length are read, so poison in either is immediate UB
+       rather than a poisoned result: `llvm.intr.memset` has none. -/
+    let .val byte := byte | Interp.ub
+    let .val len := len | Interp.ub
+    let len := len.toNat
+    if len = 0 then
+      return (#[], mem, none)
+    if dst = 0 then
+      Interp.ub
+    let mem ← mem.store dst (ByteArray.replicate len byte.toNat.toUInt8)
+    return (#[], mem, none)
+  | .intr__memcpy => do
+    let [.addr dst, .addr src, .int _ len] := operands.toList | none
+    let .val len := len | Interp.ub
+    let len := len.toNat
+    if len = 0 then
+      return (#[], mem, none)
+    if dst = 0 || src = 0 then
+      Interp.ub
+    /- `memcpy` requires the two ranges not to overlap; that is what separates
+       it from `memmove`. -/
+    if dst.toNat < src.toNat + len && src.toNat < dst.toNat + len then
+      Interp.ub
+    /- A copy carries the poison of what it copied, byte for byte. -/
+    let mem ← mem.copyBytes dst src len.toUInt64
+    return (#[], mem, none)
   | .alloca => do
     let [.int _ (.val count)] := operands.toList | none
     let size ← match properties.elem_type.val with
