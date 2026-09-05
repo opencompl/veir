@@ -282,6 +282,22 @@ theorem Rewriter.detachOperands_fieldsInBounds :
     ctx.spec.FieldsInBounds → (detachOperands ctx op hCtx hOp hCap).spec.FieldsInBounds := by
   grind [detachOperands_def, detachOperandsSim]
 
+@[simp, grind =]
+theorem Rewriter.detachOperands_preserves_numSuccessors
+    (hctx : ctx.spec.FieldsInBounds) {op' : Veir.OperationPtr} :
+    op'.getNumSuccessors! (detachOperands ctx op hctx hOp hCap).spec =
+      op'.getNumSuccessors! ctx.spec := by
+  simp [detachOperands_def, detachOperandsSim]
+  split <;> grind
+
+@[simp, grind =]
+theorem Rewriter.detachOperands_preserves_capSuccessors
+    (hctx : ctx.spec.FieldsInBounds) {op' : Veir.OperationPtr} :
+    (op'.get! (detachOperands ctx op hctx hOp hCap).spec).capBlockOperands =
+      (op'.get! ctx.spec).capBlockOperands := by
+  simp [detachOperands_def, detachOperandsSim]
+  split <;> grind
+
 buffed
 def Rewriter.detachBlockOperands.loopSim (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr) (index : UInt64)
     (hCtx : ctx.spec.FieldsInBounds := by grind)
@@ -328,17 +344,37 @@ theorem Rewriter.detachBlockOperands_fieldsInBounds :
     ctx.spec.FieldsInBounds → (detachBlockOperands ctx op hCtx hOp hCap).spec.FieldsInBounds := by
   grind [detachBlockOperands_def, detachBlockOperandsSim]
 
+/-- Proof-only side condition needed to pair `eraseOp`'s unchanged byte buffer with the
+specification context in which the erased operation has been deallocated. -/
+def Rewriter.EraseOpDeallocFieldsInBounds (ctx : Sim.IRContext OpInfo)
+    (op : Sim.OperationPtr) : Prop :=
+  ∀ (hCtx : ctx.spec.FieldsInBounds) (hOp : op.InBounds ctx)
+    (hOpers : (op.spec.get! ctx.spec).capOperands = op.spec.getNumOperands! ctx.spec)
+    (hBlOpers : (op.spec.get! ctx.spec).capBlockOperands = op.spec.getNumSuccessors! ctx.spec),
+    let ctx := Rewriter.detachOpIfAttached ctx op
+    let ctx := Rewriter.detachOperands ctx op (by grind) (by grind [generic_ptr_grind]) (by grind)
+    let ctx := Rewriter.detachBlockOperands ctx op (by grind) (by grind [generic_ptr_grind])
+      (by grind [detachOperands_def, detachOperandsSim])
+    ∀ hOpAfter : op.InBounds ctx,
+      (op.spec.dealloc ctx.spec hOpAfter.ib).FieldsInBounds
+
 buffed (inline := false)
 def Rewriter.eraseOpSim (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr)
     (hCtx : ctx.spec.FieldsInBounds := by grind)
     (hOp : op.InBounds ctx := by grind)
     (hOpers : (op.spec.get! ctx.spec).capOperands = op.spec.getNumOperands! ctx.spec)
-    (hBlOpers : (op.spec.get! ctx.spec).capBlockOperands = op.spec.getNumSuccessors! ctx.spec) : Sim.IRContext OpInfo :=
+    (hBlOpers : (op.spec.get! ctx.spec).capBlockOperands = op.spec.getNumSuccessors! ctx.spec)
+    (hDealloc : Rewriter.EraseOpDeallocFieldsInBounds ctx op := by grind) : Sim.IRContext OpInfo :=
   let ctx := Rewriter.detachOpIfAttached ctx op
   let ctx := Rewriter.detachOperands ctx op (by grind) (by grind [generic_ptr_grind]) (by grind)
   let ctx := Rewriter.detachBlockOperands ctx op (by grind) (by grind [generic_ptr_grind]) (by grind [detachOperands_def, detachOperandsSim])
-  ctx
-  -- op.dealloc ctx
+  have hOpAfter : op.InBounds ctx := by
+    apply (Sim.GenericPtr.iff_operation op).mp
+    rw [Rewriter.detachBlockOperands_inBounds]
+    rw [Rewriter.detachOperands_inBounds]
+    rw [Rewriter.detachOpIfAttached_inBounds]
+    exact (Sim.GenericPtr.iff_operation op).mpr hOp
+  op.dealloc ctx hOpAfter (hDealloc hCtx hOp hOpers hBlOpers hOpAfter)
 
 /- Remark: the fact that `eraseOp` preserves `FieldsInBounds` relies on the fact that the context is well formed. -/
 
@@ -556,26 +592,45 @@ def Rewriter.replaceOp?Sim (ctx: Sim.IRContext OpInfo) (oldOp newOp: Sim.Operati
     (newIn: newOp.InBounds ctx := by grind)
     (ctxIn: ctx.spec.WellFormed := by grind)
     (_hpar : (oldOp.spec.get! ctx.spec).parent.isSome = true)
-    (wf : ctx.spec.WellFormed) : Option (Sim.IRContext OpInfo) := do
+    (wf : ctx.spec.WellFormed)
+    (hErase : ∀ (index : UInt64)
+      (hNumFrom : index.toNat ≤ oldOp.spec.getNumResults! ctx.spec)
+      (hNumTo : index.toNat ≤ newOp.spec.getNumResults! ctx.spec)
+      (ctxInBounds : ctx.spec.FieldsInBounds) (newCtx : Sim.IRContext OpInfo),
+      index.toNat = oldOp.spec.getNumResults! ctx.spec →
+      Rewriter.replaceOpResults ctx oldOp newOp index oldIn newIn hNumFrom hNumTo
+        ctxInBounds = some newCtx →
+      Rewriter.EraseOpDeallocFieldsInBounds newCtx oldOp := by grind) : Option (Sim.IRContext OpInfo) := do
   let numOldResults := oldOp.getNumResults ctx (by grind)
   let numNewResults := newOp.getNumResults ctx (by grind)
   if h : numOldResults ≠ numNewResults then
     none
   else
-    rlet newCtx ← replaceOpResults ctx oldOp newOp numOldResults (by grind) (by grind) (by grind [
+    rlet hreplace : newCtx ← replaceOpResults ctx oldOp newOp numOldResults (by grind) (by grind) (by grind [
       UInt64.toNat_mod_size, UInt64.toNat_ofNat, UInt64.toNat_ofNat_of_lt, UInt64.toNat_lt]) (by grind [
         UInt64.toNat_mod_size, UInt64.toNat_ofNat, UInt64.toNat_ofNat_of_lt, UInt64.toNat_lt]) (by grind)
+    have hNumOld : numOldResults.toNat = oldOp.spec.getNumResults! ctx.spec := by
+      have oldWf := wf.operations oldOp.spec oldIn.ib
+      have henc := ctx.sim.encoding_op oldOp.spec oldIn.ib
+      have hNumResultsLt : oldOp.spec.getNumResults! ctx.spec < UInt64.size := by
+        rw [← oldWf.capResults_eq_numResults, henc.numResults]
+        exact UInt64.toNat_lt _
+      dsimp [numOldResults]
+      rw [Sim.OperationPtr.getNumResults_eq_getNumResults! ctx oldOp oldIn,
+        Sim.OperationPtr.getNumResults!_spec_of_wf ctx oldOp (ib := oldIn) wf]
+      exact UInt64.toNat_ofNat_of_lt hNumResultsLt
     eraseOp newCtx oldOp (by grind) (by grind [generic_ptr_grind]) (by
-      rename_i h
       have := wf.operations oldOp.spec
-      have := replaceOpResults_preserves_capOperands oldOp (by grind) h
-      have := replaceOpResults_preserves_numOperands oldOp (by grind) h
+      have := replaceOpResults_preserves_capOperands oldOp (by grind) hreplace
+      have := replaceOpResults_preserves_numOperands oldOp (by grind) hreplace
       grind) (by
-      rename_i h
       have := wf.operations oldOp.spec
-      have := replaceOpResults_preserves_capBlockOperands oldOp (by grind) h
-      have := replaceOpResults_preserves_numSuccessors oldOp (by grind) h
-      grind)
+      have := replaceOpResults_preserves_capBlockOperands oldOp (by grind) hreplace
+      have := replaceOpResults_preserves_numSuccessors oldOp (by grind) hreplace
+      grind) (hErase numOldResults (by grind [
+        UInt64.toNat_mod_size, UInt64.toNat_ofNat, UInt64.toNat_ofNat_of_lt, UInt64.toNat_lt]) (by grind [
+        UInt64.toNat_mod_size, UInt64.toNat_ofNat, UInt64.toNat_ofNat_of_lt, UInt64.toNat_lt]) (by grind)
+        newCtx hNumOld hreplace)
 
 protected buffed
 def Rewriter.pushBlockArgumentAtSim (blockPtr : Sim.BlockPtr) (ctx : Sim.IRContext OpInfo)
