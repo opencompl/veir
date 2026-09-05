@@ -27,8 +27,6 @@ import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.Legalization.Proofs
 
 -- FIXME: These modules are otherwise orphans and would not be compiled.
-import Veir.Analysis.DataFlow.SparseFact
-import Veir.Analysis.DataFlow.SparseForwardDataFlowAnalysis
 import Veir.Data.FP.EScientificBV
 import Veir.Data.FP.EScientificBV.Basic
 import Veir.Data.FP.EScientificBV.ToExtRat
