@@ -1485,7 +1485,7 @@ def srlw_sraw_signbit := srl_sra_signbitGen .srliw rfl .sraiw 32
     DAGCombiner folds the `(srl (shl X, XLen-1), XLen-1)` round trip away through
     known/demanded bits -- there is no RISC-V-specific peephole for it.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVISelLowering.cpp#L919 -/
-private def drop_slli_srli_boolGen_local (boolDst : Riscv) (arity : Nat) (ctx : WfIRContext OpCode) (op : OperationPtr) :
+def drop_slli_srli_boolGen_local (boolDst : Riscv) (arity : Nat) (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (srliSrc, outerImm) := matchRVSrli op ctx.raw | return (ctx, none)
   if outerImm.value.value ≠ 63 then return (ctx, none)
@@ -1496,7 +1496,7 @@ private def drop_slli_srli_boolGen_local (boolDst : Riscv) (arity : Nat) (ctx : 
   let some (_, _) := matchOp boolOp ctx.raw (OpCode.riscv boolDst) arity | return (ctx, none)
   some (ctx, some (#[], #[slliSrc]))
 
-private def drop_slli_srli_boolGen (boolDst : Riscv) (arity : Nat) (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+def drop_slli_srli_boolGen (boolDst : Riscv) (arity : Nat) (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite (drop_slli_srli_boolGen_local boolDst arity) rewriter op opInBounds
 
@@ -1534,7 +1534,7 @@ def drop_slli_srli_sgtz := drop_slli_srli_boolGen .sgtz 1
     away generically (by `SimplifyDemandedBits`, or by sext.w removal --
     `hasAllNBitUsers` treats an outer `sext.w` as a low-32-bit user).
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L120 -/
-private def drop_redundant_ext_local (ext : Riscv) (ctx : WfIRContext OpCode) (op : OperationPtr) :
+def drop_redundant_ext_local (ext : Riscv) (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (operands, _) := matchOp op ctx.raw (OpCode.riscv ext) 1 | return (ctx, none)
   let outerSrc := operands[0]!
@@ -1542,7 +1542,7 @@ private def drop_redundant_ext_local (ext : Riscv) (ctx : WfIRContext OpCode) (o
   let some (_, _) := matchOp innerOp ctx.raw (OpCode.riscv ext) 1 | return (ctx, none)
   some (ctx, some (#[], #[outerSrc]))
 
-private def drop_redundant_ext (ext : Riscv) (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+def drop_redundant_ext (ext : Riscv) (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite (drop_redundant_ext_local ext) rewriter op opInBounds
 
@@ -1563,10 +1563,10 @@ def sexth_sexth := drop_redundant_ext .sexth
 /-- `riscv.zextw (riscv.zextb x) -> riscv.zextb x`. A byte zero-extension
     already clears every bit which `zextw` would clear.
 
-    LLVM: `CastInst::isEliminableCastPair` folds a `ZExt` followed by a `ZExt`
-    to the first cast.
-    https://github.com/llvm/llvm-project/blob/c536b0aa030474672e293dccdb27b97c36c4e1af/llvm/lib/IR/Instructions.cpp#L2922-L2967 -/
-private def zextw_zextb_pattern : Puddle.Pattern OpCode :=
+    LLVM: InstCombine's common cast rewrite eliminates a cast-of-cast when
+    `isEliminableCastPair` selects a replacement opcode.
+    https://github.com/llvm/llvm-project/blob/c536b0aa030474672e293dccdb27b97c36c4e1af/llvm/lib/Transforms/InstCombine/InstCombineCasts.cpp#L222-L241 -/
+def zextw_zextb_pattern : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
       let xType ← Puddle.MatchProg.type (Attr := RegisterType)
@@ -1587,9 +1587,9 @@ def zextw_zextb : RewritePattern OpCode :=
     forwarded unchanged. Volatile loads are deliberately excluded, since this
     rewrite creates a replacement load while the original remains live.
 
-    LLVM: `zextloadi8 -> LBU`.
-    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1989-L2002 -/
-private def zextb_lb_pattern : Puddle.Pattern OpCode :=
+    LLVM: DAGCombiner folds `zext_inreg (sextload x)` to `zextload x`.
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L7877-L7897 -/
+def zextb_lb_pattern : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
       let addrType ← Puddle.MatchProg.type (Attr := RegisterType)
@@ -1613,9 +1613,10 @@ def zextb_lb : RewritePattern OpCode :=
 /-- `riscv.zextb (riscv.lbu addr) -> riscv.lbu addr`.  An `lbu` has already
     cleared bits 63:8, so the additional byte extension is redundant.
 
-    LLVM: `zextloadi8 -> LBU` uses the load's zero extension directly.
-    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1989-L2002 -/
-private def zextb_lbu_pattern : Puddle.Pattern OpCode :=
+    LLVM: DAGCombiner removes the redundant mask through demanded-bits
+    simplification before folding extended loads.
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L7872-L7897 -/
+def zextb_lbu_pattern : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
       let addrType ← Puddle.MatchProg.type (Attr := RegisterType)
@@ -1635,9 +1636,10 @@ def zextb_lbu : RewritePattern OpCode :=
     The `lbu` source is already zero-extended, so the full-width shift has the
     same result and exposes the byte-insertion form selected by LLVM.
 
-    LLVM: `PACKH` byte-packing patterns.
-    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L632-L714 -/
-private def zextw_slliw_lbu_pattern (shamt : Int) : Puddle.Pattern OpCode :=
+    LLVM: DAGCombiner rewrites `zext (shl (zext x), cst)` to the wider `shl`
+    when the shift does not discard set bits.
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L15353-L15382 -/
+def zextw_slliw_lbu_pattern (shamt : Int) : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
       let addrType ← Puddle.MatchProg.type (Attr := RegisterType)
@@ -1657,21 +1659,18 @@ private def zextw_slliw_lbu_pattern (shamt : Int) : Puddle.Pattern OpCode :=
       return slli)
     (fun slli => slli)
 
-private def zextw_slliw_lbu (shamt : Int) : RewritePattern OpCode :=
+def zextw_slliw_lbu (shamt : Int) : RewritePattern OpCode :=
   (zextw_slliw_lbu_pattern shamt).compile.run
 
-private def matchLbu : Puddle.MatchProg.Builder (Puddle.Handle OpCode .value) := do
+def matchLbu : Puddle.MatchProg.Builder (Puddle.Handle OpCode .value) := do
   let addrType ← Puddle.MatchProg.type (Attr := RegisterType)
   let addr ← Puddle.MatchProg.value addrType
   let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
   let lbu ← Puddle.MatchProg.operation (.riscv .lbu) #[addr] #[resultType]
   return lbu.res[0]!
 
-/-- `or (lbu lo) (slli (lbu hi), 8) -> packh lo hi`.
-
-    LLVM: `PACKH` byte-pair pattern.
-    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L632-L649 -/
-private def packh_low_bytes_pattern (commuted : Bool) :
+/-- `or (lbu lo) (slli (lbu hi), 8) -> packh lo hi`. -/
+def packh_low_bytes_pattern (commuted : Bool) :
     Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -1693,11 +1692,8 @@ private def packh_low_bytes_pattern (commuted : Bool) :
     (fun packh => packh)
 
 /-- `or (slli (lbu b2), 16) (slli (lbu b3), 24) ->
-    slli (packh b2 b3), 16`.  Both operand orders are matched.
-
-    LLVM: `PACKH` byte-pair patterns.
-    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L632-L649 -/
-private def packh_high_bytes_pattern (commuted : Bool) :
+    slli (packh b2 b3), 16`.  Both operand orders are matched. -/
+def packh_high_bytes_pattern (commuted : Bool) :
     Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -1726,39 +1722,27 @@ private def packh_high_bytes_pattern (commuted : Bool) :
       return shifted)
     (fun shifted => shifted)
 
-/-- `or (lbu lo) (slli (lbu hi), 8) -> packh lo hi`.
-
-    LLVM: `PACKH` byte-pair pattern.
-    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L632-L649 -/
-private def packh_low_bytes : RewritePattern OpCode :=
+/-- `or (lbu lo) (slli (lbu hi), 8) -> packh lo hi`. -/
+def packh_low_bytes : RewritePattern OpCode :=
   (packh_low_bytes_pattern false).compile.run
 
-/-- `or (slli (lbu hi), 8) (lbu lo) -> packh lo hi`.
-
-    LLVM: commuted `PACKH` byte-pair pattern.
-    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L632-L649 -/
-private def packh_low_bytes_commuted : RewritePattern OpCode :=
+/-- `or (slli (lbu hi), 8) (lbu lo) -> packh lo hi`. -/
+def packh_low_bytes_commuted : RewritePattern OpCode :=
   (packh_low_bytes_pattern true).compile.run
 
 /-- `or (slli (lbu b2), 16) (slli (lbu b3), 24) ->
-    slli (packh b2 b3), 16`.
-
-    LLVM: `PACKH` high-byte pair pattern.
-    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L632-L649 -/
-private def packh_high_bytes : RewritePattern OpCode :=
+    slli (packh b2 b3), 16`. -/
+def packh_high_bytes : RewritePattern OpCode :=
   (packh_high_bytes_pattern false).compile.run
 
 /-- `or (slli (lbu b3), 24) (slli (lbu b2), 16) ->
-    slli (packh b2 b3), 16`.
-
-    LLVM: commuted `PACKH` high-byte pair pattern.
-    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L632-L649 -/
-private def packh_high_bytes_commuted : RewritePattern OpCode :=
+    slli (packh b2 b3), 16`. -/
+def packh_high_bytes_commuted : RewritePattern OpCode :=
   (packh_high_bytes_pattern true).compile.run
 
 /-- If `val` is defined by a `riscv.<ext>` op (`ext` being `zextw`/`sextw`),
     return its source operand and `true`; otherwise `val` unchanged and `false`. -/
-private def stripDefiningExt (ext : Riscv) (val : ValuePtr) (ctx : IRContext OpCode) :
+def stripDefiningExt (ext : Riscv) (val : ValuePtr) (ctx : IRContext OpCode) :
     ValuePtr × Bool :=
   match val.definingOp? with
   | none => (val, false)
@@ -1777,7 +1761,7 @@ private def stripDefiningExt (ext : Riscv) (val : ValuePtr) (ctx : IRContext OpC
     `zext.w`/`sext.w` is redundant and drops out via `SimplifyDemandedBits` /
     sext.w removal.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L120 -/
-private def drop_ext_binary_low_word_local (ext dst : Riscv) (ctx : WfIRContext OpCode) (op : OperationPtr) :
+def drop_ext_binary_low_word_local (ext dst : Riscv) (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (operands, props) := matchOp op ctx.raw (OpCode.riscv dst) 2 | return (ctx, none)
   let (lhs, lhsChanged) := stripDefiningExt ext operands[0]! ctx.raw
@@ -1787,14 +1771,14 @@ private def drop_ext_binary_low_word_local (ext dst : Riscv) (ctx : WfIRContext 
       #[] #[] props none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
-private def drop_ext_binary_low_word (ext dst : Riscv) (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+def drop_ext_binary_low_word (ext dst : Riscv) (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite (drop_ext_binary_low_word_local ext dst) rewriter op opInBounds
 
 /-- Drop a `riscv.<ext>` operand feeding a unary immediate op whose semantics use
     only operand bits 31:0. Same reasoning (and same LLVM `hasAllNBitUsers`
     enumeration) as `drop_ext_binary_low_word`. -/
-private def drop_ext_unary_imm_low_word_local (ext dst : Riscv) (ctx : WfIRContext OpCode) (op : OperationPtr) :
+def drop_ext_unary_imm_low_word_local (ext dst : Riscv) (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (operands, props) := matchOp op ctx.raw (OpCode.riscv dst) 1 | return (ctx, none)
   let (src, changed) := stripDefiningExt ext operands[0]! ctx.raw
@@ -1803,7 +1787,7 @@ private def drop_ext_unary_imm_low_word_local (ext dst : Riscv) (ctx : WfIRConte
       #[] #[] props none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
-private def drop_ext_unary_imm_low_word (ext dst : Riscv) (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+def drop_ext_unary_imm_low_word (ext dst : Riscv) (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite (drop_ext_unary_imm_low_word_local ext dst) rewriter op opInBounds
 
@@ -1883,7 +1867,7 @@ def drop_sextw_zextw := drop_ext_unary_imm_low_word .sextw .zextw
     users; combined with the known high bits of the operands this lets
     `SimplifyDemandedBits` / sext.w removal drop the outer extension.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L317-L321 -/
-private def drop_ext_of_bitwise_local (ext dst : Riscv) (oneOperandSuffices : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr) :
+def drop_ext_of_bitwise_local (ext dst : Riscv) (oneOperandSuffices : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (operands, _) := matchOp op ctx.raw (OpCode.riscv ext) 1 | return (ctx, none)
   let inner := operands[0]!
@@ -1895,7 +1879,7 @@ private def drop_ext_of_bitwise_local (ext dst : Riscv) (oneOperandSuffices : Bo
   if !guarded then return (ctx, none)
   some (ctx, some (#[], #[inner]))
 
-private def drop_ext_of_bitwise (ext dst : Riscv) (oneOperandSuffices : Bool) (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+def drop_ext_of_bitwise (ext dst : Riscv) (oneOperandSuffices : Bool) (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite (drop_ext_of_bitwise_local ext dst oneOperandSuffices) rewriter op opInBounds
 
@@ -1955,7 +1939,7 @@ def sexth_xor := drop_ext_of_bitwise .sexth .xor false
 /-- Match a `riscv.<store>` (`sw`/`sh`/`sb`), returning `(val, addr, properties)`.
     These stores have no results, so they can't go through `matchOp` (which
     requires exactly one). -/
-private def matchRiscvStore (store : Riscv) (op : OperationPtr) (ctx : IRContext OpCode) :
+def matchRiscvStore (store : Riscv) (op : OperationPtr) (ctx : IRContext OpCode) :
     Option (ValuePtr × ValuePtr × propertiesOf (OpCode.riscv store)) := do
   guard (op.getOpType! ctx = .riscv store)
   guard (op.getNumOperands! ctx = 2)
@@ -1974,7 +1958,7 @@ private def matchRiscvStore (store : Riscv) (op : OperationPtr) (ctx : IRContext
     LLVM: the `SW`/`SH`/`SB` cases of `hasAllNBitUsers` demand only the low 32/16/8
     bits of the store's value operand (operand index 0), and nothing of the address.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L304-L311 -/
-private def drop_ext_store_local (ext store : Riscv) (ctx : WfIRContext OpCode) (op : OperationPtr) :
+def drop_ext_store_local (ext store : Riscv) (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (val, addr, props) := matchRiscvStore store op ctx.raw | return (ctx, none)
   let (val, changed) := stripDefiningExt ext val ctx.raw
@@ -1983,7 +1967,7 @@ private def drop_ext_store_local (ext store : Riscv) (ctx : WfIRContext OpCode) 
       #[] #[] props none
   some (ctx, some (#[newOp], #[]))
 
-private def drop_ext_store (ext store : Riscv) (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+def drop_ext_store (ext store : Riscv) (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite (drop_ext_store_local ext store) rewriter op opInBounds
 
@@ -2042,10 +2026,10 @@ def li_zero_to_x0 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     no-op: `x0` reads as 0 in any source position (see `li_zero_to_x0`), and 0 is
     both its own zero-extension and its own sign-extension.
 
-    LLVM: `zext.w`/`sext.w` of a value known to be `0` (the `X0` register / an
-    `ISD::Constant` 0) folds away via generic known-bits.
-    https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L759 -/
-private def ext_x0_local (ext : Riscv) (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    LLVM: DAGCombiner folds extensions of constants, so extending zero remains
+    zero.
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L14097-L14117 -/
+def ext_x0_local (ext : Riscv) (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (operands, _) := matchOp op ctx.raw (OpCode.riscv ext) 1 | return (ctx, none)
   let src := operands[0]!
@@ -2053,7 +2037,7 @@ private def ext_x0_local (ext : Riscv) (ctx : WfIRContext OpCode) (op : Operatio
   if regType.index ≠ some 0 then return (ctx, none)
   some (ctx, some (#[], #[src]))
 
-private def ext_x0 (ext : Riscv) (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+def ext_x0 (ext : Riscv) (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite (ext_x0_local ext) rewriter op opInBounds
 
@@ -2074,10 +2058,9 @@ def sexth_x0 := ext_x0 .sexth
     materialized 64-bit value (`BitVec.ofInt 64 v`) already has bits 63:32
     clear in that range, so zero-extending it again is redundant.
 
-    LLVM: `zext.w` is `(and X, 0xffffffff)` (isel pattern in RISCVInstrInfoZb.td);
-    with `X` a constant whose bits 63:32 are already clear the mask folds away
-    via generic constant folding / known-bits.
-    https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L759 -/
+    LLVM: DAGCombiner constant-folds bitwise `and`, eliminating the `zext.w`
+    mask for a constant whose high 32 bits are already clear.
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L7507-L7519 -/
 def zextw_li_low32_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (src, _) := matchRVZextw op ctx.raw | return (ctx, none)
@@ -2118,7 +2101,7 @@ def sextw_li_low32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     range below `2^width` (bits above `width` clear); for a sign-extension the
     *signed* range `[-2^(width-1), 2^(width-1))` (bits above `width` all equal the
     sign bit). `ext`/`width` picks the op and its bit width. -/
-private def ext_li_range_local (ext : Riscv) (lo hi : Int) (ctx : WfIRContext OpCode) (op : OperationPtr) :
+def ext_li_range_local (ext : Riscv) (lo hi : Int) (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (operands, _) := matchOp op ctx.raw (OpCode.riscv ext) 1 | return (ctx, none)
   let src := operands[0]!
@@ -2127,7 +2110,7 @@ private def ext_li_range_local (ext : Riscv) (lo hi : Int) (ctx : WfIRContext Op
   if cst.value.value < lo ∨ cst.value.value ≥ hi then return (ctx, none)
   some (ctx, some (#[], #[src]))
 
-private def ext_li_range (ext : Riscv) (lo hi : Int) (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+def ext_li_range (ext : Riscv) (lo hi : Int) (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite (ext_li_range_local ext lo hi) rewriter op opInBounds
 
