@@ -1669,7 +1669,13 @@ def matchLbu : Puddle.MatchProg.Builder (Puddle.Handle OpCode .value) := do
   let lbu ← Puddle.MatchProg.operation (.riscv .lbu) #[addr] #[resultType]
   return lbu.res[0]!
 
-/-- `or (lbu lo) (slli (lbu hi), 8) -> packh lo hi`. -/
+/-- `or (lbu lo) (slli (lbu hi), 8) -> packh lo hi`.
+
+    This mirrors an LLVM instruction-selection rewrite and should move to
+    VeIR's instruction selection once it is ready.
+
+    LLVM instruction-selection rewrite:
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L636-L638 -/
 def packh_low_bytes_pattern (commuted : Bool) :
     Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
@@ -1692,7 +1698,14 @@ def packh_low_bytes_pattern (commuted : Bool) :
     (fun packh => packh)
 
 /-- `or (slli (lbu b2), 16) (slli (lbu b3), 24) ->
-    slli (packh b2 b3), 16`.  Both operand orders are matched. -/
+    slli (packh b2 b3), 16`.  Both operand orders are matched.
+
+    This mirrors LLVM instruction-selection rewrites and should move to
+    VeIR's instruction selection once it is ready.
+
+    LLVM instruction-selection rewrites for RV32 and RV64:
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L656-L658
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L676-L681 -/
 def packh_high_bytes_pattern (commuted : Bool) :
     Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
@@ -1722,21 +1735,47 @@ def packh_high_bytes_pattern (commuted : Bool) :
       return shifted)
     (fun shifted => shifted)
 
-/-- `or (lbu lo) (slli (lbu hi), 8) -> packh lo hi`. -/
+/-- `or (lbu lo) (slli (lbu hi), 8) -> packh lo hi`.
+
+    This mirrors an LLVM instruction-selection rewrite and should move to
+    VeIR's instruction selection once it is ready.
+
+    LLVM instruction-selection rewrite:
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L636-L638 -/
 def packh_low_bytes : RewritePattern OpCode :=
   (packh_low_bytes_pattern false).compile.run
 
-/-- `or (slli (lbu hi), 8) (lbu lo) -> packh lo hi`. -/
+/-- `or (slli (lbu hi), 8) (lbu lo) -> packh lo hi`.
+
+    This mirrors an LLVM instruction-selection rewrite and should move to
+    VeIR's instruction selection once it is ready.
+
+    LLVM instruction-selection rewrite:
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L636-L638 -/
 def packh_low_bytes_commuted : RewritePattern OpCode :=
   (packh_low_bytes_pattern true).compile.run
 
 /-- `or (slli (lbu b2), 16) (slli (lbu b3), 24) ->
-    slli (packh b2 b3), 16`. -/
+    slli (packh b2 b3), 16`.
+
+    This mirrors LLVM instruction-selection rewrites and should move to
+    VeIR's instruction selection once it is ready.
+
+    LLVM instruction-selection rewrites for RV32 and RV64:
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L656-L658
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L676-L681 -/
 def packh_high_bytes : RewritePattern OpCode :=
   (packh_high_bytes_pattern false).compile.run
 
 /-- `or (slli (lbu b3), 24) (slli (lbu b2), 16) ->
-    slli (packh b2 b3), 16`. -/
+    slli (packh b2 b3), 16`.
+
+    This mirrors LLVM instruction-selection rewrites and should move to
+    VeIR's instruction selection once it is ready.
+
+    LLVM instruction-selection rewrites for RV32 and RV64:
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L656-L658
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L676-L681 -/
 def packh_high_bytes_commuted : RewritePattern OpCode :=
   (packh_high_bytes_pattern true).compile.run
 
