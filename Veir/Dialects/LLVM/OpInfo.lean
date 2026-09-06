@@ -226,13 +226,16 @@ def Llvm.toAttrDict
       (Attribute.denseArrayAttr props.operandSegmentSizes)
     dict
   | .intr__memset | .intr__memcpy | .intr__memmove => Id.run do
-    let mut dict := Std.HashMap.emptyWithCapacity 3
-    if let some argAttrs := props.arg_attrs then
-      dict := dict.insert "arg_attrs".toUTF8 (.arrayAttr argAttrs)
+    let mut dict := Std.HashMap.emptyWithCapacity 6
     let volatileAttr := IntegerAttr.mk (if props.isVolatile then 1 else 0) (IntegerType.mk 1)
     dict := dict.insert "isVolatile".toUTF8 (.integerAttr volatileAttr)
-    if let some tbaa := props.tbaa then
-      dict := dict.insert "tbaa".toUTF8 (.arrayAttr tbaa)
+    for (name, value) in [("arg_attrs", props.arg_attrs),
+                          ("access_groups", props.access_groups),
+                          ("alias_scopes", props.alias_scopes),
+                          ("noalias_scopes", props.noalias_scopes),
+                          ("tbaa", props.tbaa)] do
+      if let some value := value then
+        dict := dict.insert name.toUTF8 (.arrayAttr value)
     dict
   | .switch => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 4
