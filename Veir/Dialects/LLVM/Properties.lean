@@ -623,18 +623,23 @@ private def optionalArrayAttr (opName name : String)
 structure LLVMMemIntrinsicProperties where
   isVolatile : Bool
   arg_attrs : Option ArrayAttr
+  res_attrs : Option ArrayAttr
   access_groups : Option ArrayAttr
   alias_scopes : Option ArrayAttr
   noalias_scopes : Option ArrayAttr
   tbaa : Option ArrayAttr
+  op_bundle_sizes : Option DenseArrayAttr
+  op_bundle_tags : Option ArrayAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 def LLVMMemIntrinsicProperties.fromAttrDictFor (opName : String)
     (attrDict : Std.HashMap ByteArray Attribute) :
     Except String LLVMMemIntrinsicProperties := do
   if let some (key, _) := attrDict.toArray.find? (fun (k, _) =>
-      k ≠ "isVolatile".toUTF8 && k ≠ "arg_attrs".toUTF8 && k ≠ "access_groups".toUTF8
-        && k ≠ "alias_scopes".toUTF8 && k ≠ "noalias_scopes".toUTF8 && k ≠ "tbaa".toUTF8) then
+      k ≠ "isVolatile".toUTF8 && k ≠ "arg_attrs".toUTF8 && k ≠ "res_attrs".toUTF8
+        && k ≠ "access_groups".toUTF8 && k ≠ "alias_scopes".toUTF8
+        && k ≠ "noalias_scopes".toUTF8 && k ≠ "tbaa".toUTF8
+        && k ≠ "op_bundle_sizes".toUTF8 && k ≠ "op_bundle_tags".toUTF8) then
     throw s!"{opName}: unexpected property '{String.fromUTF8! key}'"
   let some volatileAttr := attrDict["isVolatile".toUTF8]?
     | throw s!"{opName}: missing 'isVolatile' property"
@@ -643,13 +648,21 @@ def LLVMMemIntrinsicProperties.fromAttrDictFor (opName : String)
   if volatileAttr.type.bitwidth ≠ 1 then
     throw s!"{opName}: expected 'isVolatile' to be an i1 integer attribute, but got i{volatileAttr.type.bitwidth}"
   let argAttrs ← optionalArrayAttr opName "arg_attrs" attrDict
+  let resAttrs ← optionalArrayAttr opName "res_attrs" attrDict
   let accessGroups ← optionalArrayAttr opName "access_groups" attrDict
   let aliasScopes ← optionalArrayAttr opName "alias_scopes" attrDict
   let noaliasScopes ← optionalArrayAttr opName "noalias_scopes" attrDict
   let tbaa ← optionalArrayAttr opName "tbaa" attrDict
+  let bundleSizes ← match attrDict["op_bundle_sizes".toUTF8]? with
+    | some (.denseArrayAttr sizes) => .ok (some sizes)
+    | some attr =>
+      throw s!"{opName}: expected 'op_bundle_sizes' to be a dense array attribute, but got {attr}"
+    | none => .ok none
+  let bundleTags ← optionalArrayAttr opName "op_bundle_tags" attrDict
   return { isVolatile := volatileAttr.value ≠ 0, arg_attrs := argAttrs,
-           access_groups := accessGroups, alias_scopes := aliasScopes,
-           noalias_scopes := noaliasScopes, tbaa := tbaa }
+           res_attrs := resAttrs, access_groups := accessGroups,
+           alias_scopes := aliasScopes, noalias_scopes := noaliasScopes,
+           tbaa := tbaa, op_bundle_sizes := bundleSizes, op_bundle_tags := bundleTags }
 
 def LLVMMemIntrinsicProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String LLVMMemIntrinsicProperties :=
