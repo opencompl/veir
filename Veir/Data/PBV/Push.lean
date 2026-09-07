@@ -97,23 +97,14 @@ theorem setWidth_append_eq_or_mul_maskOfWidth_add_one {w o : Nat} (h : w ≤ o) 
       (a ++ b).setWidth o
         = ((a.setWidth o) * (maskOfWidth o w + 1#o)) ||| b.setWidth o := by
   intro v a b hvw
-  have hv : v ≤ o := by lia
-  have ha : a.toNat * 2 ^ w < 2 ^ o := by
-    calc a.toNat * 2 ^ w < 2 ^ v * 2 ^ w :=
-          Nat.mul_lt_mul_of_lt_of_le a.isLt (Nat.le_refl _) (Nat.two_pow_pos w)
-      _ = 2 ^ (v + w) := (Nat.pow_add 2 v w).symm
-      _ ≤ 2 ^ o := Nat.pow_le_pow_right (by lia) hvw
   apply BitVec.eq_of_toNat_eq
-  rw [BitVec.toNat_setWidth_of_le hvw, BitVec.toNat_or, BitVec.toNat_append,
-      BitVec.toNat_setWidth_of_le h, BitVec.toNat_mul, BitVec.toNat_add,
-      BitVec.toNat_setWidth_of_le hv, toNat_maskOfWidth h, BitVec.toNat_ofNat]
+  simp only [BitVec.toNat_or, BitVec.toNat_setWidth_of_le, hvw, h,
+      BitVec.toNat_append, maskOfWidth_add_one_eq_twoPow h,
+      BitVec.mul_twoPow_eq_shiftLeft, BitVec.toNat_shiftLeft]
   congr 1
-  have h2 : (2 ^ w - 1 + 1 % 2 ^ o) % 2 ^ o = 2 ^ w % 2 ^ o := by
-    rw [Nat.add_mod_mod]
-    congr 1
-    have := Nat.two_pow_pos w
-    lia
-  rw [h2, Nat.mul_mod_mod, Nat.shiftLeft_eq, Nat.mod_eq_of_lt ha]
+  rw [Nat.shiftLeft_eq, Nat.shiftLeft_eq, BitVec.toNat_setWidth_of_le (by lia), Nat.mod_eq_of_lt]
+  have a_lt_vw := Nat.mul_lt_mul_of_lt_of_le a.isLt (Nat.le_refl _) (Nat.two_pow_pos w)
+  grind [Nat.pow_le_pow_right (n := 2) (by lia) hvw]
 
 /-! ### The sign bit: a test against the mask's top bit -/
 
