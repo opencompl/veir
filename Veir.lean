@@ -14,6 +14,7 @@ import Veir.GlobalOpInfo
 import Veir.Printer
 import Veir.PatternRewriter.Basic
 import Veir.PatternRewriter.Puddle
+import Veir.PatternRewriter.Puddle.ValidityWithAssignment
 import Veir.Interfaces.FoldInterfaces
 import Veir.Interfaces.ControlFlowInterfaces
 import Veir.Passes.ArithToLLVM.Proofs
