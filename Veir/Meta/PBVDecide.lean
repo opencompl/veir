@@ -52,26 +52,30 @@ meta def createWidthEnv (g : MVarId) : MetaM TmWidthEnv := g.withContext do
 
 /--
 Type to capture the expressions this tactic will handle.
-Only captures `width` at the moment.
 -/
 inductive TmKind
 | width
+| prop
 
 /--
-Inductive data structure to express the terms that this tactic reasons about.
+Inductive data structure to express the Terms that this tactic reasons about.
 -/
 inductive Tm : TmKind → Type
 | widthAtom (id : Nat) : Tm .width
 | widthAdd (v w : Tm .width) : Tm .width
+| widthLT (v m : Tm .width) : Tm .prop
+| widthLE (v m : Tm .width) : Tm .prop
+| widthGT (v m : Tm .width) : Tm .prop
+| widthGE (v m : Tm .width) : Tm .prop
 
 /--
-Function to reify an `Expr` into a `Tm`. This function constructs the tree holding
+Function to Reify an `Expr` into a `Tm`. This function constructs the tree holding
 the width term. The environment holds the 'atom' `Expr`s which are the building
 blocks of the terms.
 -/
 meta partial def Tm.reifyWidth (env : TmWidthEnv) (e : Expr) : MetaM (Option (Tm .width)) := do
   if let some id := env.width2expr.idxOf? e then
-    -- An atom is an expression that is present in the Env.
+    -- An atom is an expression is present in the Env
     pure <| some (.widthAtom id)
   else
     match_expr e with
@@ -79,8 +83,28 @@ meta partial def Tm.reifyWidth (env : TmWidthEnv) (e : Expr) : MetaM (Option (Tm
         let .true := Expr.isNat ty | pure none
         let some a ← Tm.reifyWidth env ae | pure none
         let some b ← Tm.reifyWidth env be | pure none
-        return some (widthAdd a b)
+        pure (some (.widthAdd a b))
     | _ => pure none
+
+/--
+Match width relation.
+-/
+meta def matchWidthRel (e : Expr) :
+    Option ((Tm TmKind.width → Tm TmKind.width → Tm TmKind.prop) × Expr × Expr) :=
+  match_expr e with
+  | LT.lt ty _inst ea eb => if (ty.isConstOf ``Nat) then some (.widthLT, ea, eb) else none
+  | LE.le ty _inst ea eb => if (ty.isConstOf ``Nat) then some (.widthLE, ea, eb) else none
+  | GT.gt ty _inst ea eb => if (ty.isConstOf ``Nat) then some (.widthGT, ea, eb) else none
+  | GE.ge ty _inst ea eb => if (ty.isConstOf ``Nat) then some (.widthGE, ea, eb) else none
+  | _ => none
+
+meta partial def Tm.reifyProp (env : TmWidthEnv) (e : Expr) : MetaM (Option (Tm .prop)) := do
+  if let some (rel, ea, eb) := matchWidthRel e then
+    let some wa ← Tm.reifyWidth env ea | pure none
+    let some wb ← Tm.reifyWidth env eb | pure none
+    pure <| some (rel wa wb)
+  else
+    pure none
 
 /--
 Convert a `Tm` into an `Expr` given an environment.
@@ -366,6 +390,49 @@ meta partial def visitExprRec (g : MVarId)
     return (g, widthTms, bvs)
 
 /--
+Extract `Tm .width`s and corresponding theorem from `Tm .prop`.
+-/
+meta def getThmFromTm (term : Tm .prop) : Option (Name × Tm .width × Tm .width) :=
+  match term with
+  | .widthLT v w => (``lt_eq_lt_of_eq_maskOfWidth, v, w)
+  | .widthLE v w => (``le_eq_le_of_eq_maskOfWidth, v, w)
+  | .widthGT v w => (``gt_eq_gt_of_eq_maskOfWidth, v, w)
+  | .widthGE v w => (``ge_eq_ge_of_eq_maskOfWidth, v, w)
+  | _ => none
+
+/--
+If a condition on the width hypothesis is found, and the widths are contained
+within the `WidthInfos` set, then convert into a statement about the width masks.
+-/
+meta def translateWidthPrecond (widthInfos : WidthInfos) (g : MVarId) (ldecl : LocalDecl)
+    : MetaM (MVarId) := g.withContext do
+  let some prop ← Tm.reifyProp widthInfos.env (ldecl.type) | return g
+  let some (thm, v, w) := getThmFromTm prop | return g
+  let some vInfo := widthInfos.getFromTm? v |
+    logInfo m!"Skipping width condition transformation, term {v.toExpr widthInfos.env} is not a mask."
+    return g
+  let some wInfo := widthInfos.getFromTm? w |
+    logInfo m!"Skipping width condition transformation, term {w.toExpr widthInfos.env} is not a mask."
+    return g
+  let (_, g) ← g.withContext
+    <| g.note (Name.mkSimple s!"bv_{v.toName}_lt_{w.toName}")
+    <| ← mkAppM thm <| #[
+        vInfo.hypWidthLeBoundNote,
+        wInfo.hypWidthLeBoundNote,
+        vInfo.widthMaskHypFvar,
+        wInfo.widthMaskHypFvar,
+        ldecl.fvarId,
+        ].map mkFVar
+  return g
+
+/--
+Traverse the local context and add any width pre-conditions to the goal.
+-/
+meta def translateWidthPreconds (winfos: WidthInfos)
+    (g : MVarId) : MetaM MVarId := g.withContext do
+  (← getLCtx).foldlM (translateWidthPrecond winfos) g
+
+/--
 Given the width terms in the formula, translate all `Nat` widths into `BitVec`
 masks and introduce the hypotheses that model the masks.
 -/
@@ -391,12 +458,15 @@ meta def introMaskedBitvectors (bvs : BitVecFVarsToRevert) (g : MVarId)
 
 /--
 Add the theorems that need the blast width pre-filled before they can be used
-within the Simp set (currently just `eq_iff`).
+within the Simp set.
 -/
 meta def addBoundRewrites (g : MVarId) (ctx : PbvTranslateContext)
   (widthTms : WidthTms) (simp : SimpTheoremsArray) :
     MetaM SimpTheoremsArray := g.withContext do
-  let thms := #[``eq_iff]
+  let thms := #[
+        ``eq_iff,
+        ``msb_eq_and_signBitOfMask_maskOfWidth_ne_zero
+  ]
 
   thms.foldlM (init := simp) fun simps name =>
     return ← simps.addTheorem (.other name)
@@ -412,6 +482,8 @@ meta def addPushTheorems (g : MVarId) (simp : SimpTheoremsArray) :
       ``setWidth_add,
       ``setWidth_setWidth,
       ``setWidth_append_eq_or_mul_maskOfWidth_add_one,
+      ``signBitOfMask_eq,
+        ``setWidth_signExtend_eq_and_maskOfWidth,
   ]
 
   let mut simp := simp
@@ -420,9 +492,9 @@ meta def addPushTheorems (g : MVarId) (simp : SimpTheoremsArray) :
   return simp
 
 /--
-Add the mask hypotheses of the translated `BitVec`s to the Simp theorem context.
-These simplify the final formula by removing redundant masking operations; they
-are not strictly necessary for `bv_decide` to decide the resulting formula.
+Add BitVecInfos theorems to the Simp theorem context. Simplify the final formula
+to remove redundant masking operations, not strictly necessary for `bv_decide`
+to decide the resulting formula.
 -/
 meta def addBvInfos (g : MVarId) (bvInfos : BitVecInfos)
   (simp : SimpTheoremsArray) : MetaM SimpTheoremsArray := g.withContext do
@@ -475,6 +547,8 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVa
   let (g, widthInfos) ← introMaskWidths widthTms g ctx
   -- Intro the `BitVec`s
   let (g, bvInfos) ← introMaskedBitvectors bvsToRevert g widthInfos
+  -- Find and translate conditions on the width vars
+  let g ← translateWidthPreconds widthInfos g
   -- Create simp set
   let thms := ← addBoundRewrites g ctx widthTms
            <| ← addPushTheorems g
