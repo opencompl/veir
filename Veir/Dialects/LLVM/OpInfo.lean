@@ -113,7 +113,7 @@ match op with
 | .intr__assume => LLVMAssumeProperties
 | .or => DisjointProperties
 | .trunc => NswNuwProperties
-| .zext => NnegProperties
+| .zext | .uitofp => NnegProperties
 | .icmp => IcmpProperties
 | .br => LLVMBrProperties
 | .cond_br => LLVMCondBrProperties
@@ -149,7 +149,7 @@ def Llvm.fromAttrDict
   case intr__abs => exact IntMinPoisonProperties.fromAttrDict attrDict
   case intr__assume => exact LLVMAssumeProperties.fromAttrDict attrDict
   case or => exact DisjointProperties.fromAttrDict attrDict
-  case zext => exact NnegProperties.fromAttrDict attrDict
+  case zext | uitofp => exact NnegProperties.fromAttrDict attrDict
   case icmp => exact IcmpProperties.fromAttrDict attrDict
   case br => exact LLVMBrProperties.fromAttrDict attrDict
   case cond_br => exact LLVMCondBrProperties.fromAttrDict attrDict
@@ -279,7 +279,7 @@ def Llvm.toAttrDict
     if props.disjoint then
       dict := dict.insert "disjoint".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
-  | .zext => props.toAttrDict
+  | .zext | .uitofp => props.toAttrDict
   | .intr__ctlz | .intr__cttz =>
     let value := if props.is_zero_poison then 1 else 0
     let attr := IntegerAttr.mk value (IntegerType.mk 1)

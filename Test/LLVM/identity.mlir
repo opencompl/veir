@@ -77,6 +77,7 @@
       %fma = "llvm.intr.fmuladd"(%fcst, %fcst, %fcst) <{fastmathFlags = #llvm.fastmath<none>}> : (f64, f64, f64) -> f64
       %si2fp = "llvm.sitofp"(%5) : (i32) -> f64
       %ui2fp = "llvm.uitofp"(%5) : (i32) -> f64
+      %uitofp_nn = "llvm.uitofp"(%5) <{nonNeg}> : (i32) -> f64
       %fp2si = "llvm.fptosi"(%fcst) : (f64) -> i32
       %fabs = "llvm.intr.fabs"(%fcst) <{fastmathFlags = #llvm.fastmath<none>}> : (f64) -> f64
       %fp2ui = "llvm.fptoui"(%fcst) : (f64) -> i32
@@ -169,6 +170,7 @@
 // CHECK-NEXT:       %{{.*}} = "llvm.intr.fmuladd"(%arg7_0, %arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<none>}> : (f64, f64, f64) -> f64
 // CHECK-NEXT:       %{{.*}} = "llvm.sitofp"(%{{.*}}) : (i32) -> f64
 // CHECK-NEXT:       %{{.*}} = "llvm.uitofp"(%{{.*}}) : (i32) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.uitofp"(%{{.*}}) <{nonNeg}> : (i32) -> f64
 // CHECK-NEXT:       %{{.*}} = "llvm.fptosi"(%arg7_0) : (f64) -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.intr.fabs"(%arg7_0) <{"fastmathFlags" = #llvm.fastmath<none>}> : (f64) -> f64
 // CHECK-NEXT:       %{{.*}} = "llvm.fptoui"(%arg7_0) : (f64) -> i32
