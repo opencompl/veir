@@ -74,6 +74,7 @@ inductive Llvm where
 | uitofp
 | fptosi
 | fptoui
+| fpext
 | intr__fmuladd
 | intr__fabs
 | freeze
@@ -387,7 +388,7 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
   | .intr__sshl__sat, _ | .intr__ushl__sat, _
   | .fadd, _ | .fsub, _ | .fmul, _ | .fdiv, _ | .frem, _
   | .fneg, _ | .fcmp, _ | .sitofp, _ | .uitofp, _ | .fptosi, _ | .fptoui, _
-  | .intr__fmuladd, _ | .intr__fabs, _ => .none
+  | .fpext, _ | .intr__fmuladd, _ | .intr__fabs, _ => .none
   -- For everything else: be conservative!
   | _, _ => .unknown
 
@@ -426,7 +427,7 @@ def Llvm.propagatesPoison : Llvm → Bool
   -- `RuntimeValue` represents a poisoned float yet, so listing them here would
   -- claim a fold that cannot be materialized.
   | .fadd | .fsub | .fmul | .fdiv | .frem
-  | .fneg | .fcmp | .sitofp | .uitofp | .fptosi | .fptoui
+  | .fneg | .fcmp | .sitofp | .uitofp | .fptosi | .fptoui | .fpext
   | .intr__fmuladd | .intr__fabs
   | .mlir__constant | .mlir__poison | .mlir__undef | .mlir__zero | .mlir__global
   | .mlir__addressof
@@ -870,7 +871,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 2 1
     ((op.getResult 0).get! ctx.raw).type.verifyI1 "llvm.fcmp: Expected an i1 result"
-  | .sitofp | .uitofp | .fptosi | .fptoui => do
+  | .sitofp | .uitofp | .fptosi | .fptoui | .fpext => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 1 1
     pure ()
