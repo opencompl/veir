@@ -15,3 +15,8 @@ tests: build ## run all tests
 	lake test
 	uv run lit Test/ -v
 	. ./.envrc && cd ExArray && lake exe test
+
+.PHONY: sqlite
+sqlite: build ## test sqlite3 parsing (expected to fail until fully supported)
+	test -f /tmp/sqlite3.c || (curl -sfL https://sqlite.org/2026/sqlite-amalgamation-3530300.zip -o /tmp/sqlite.zip && unzip -oqj /tmp/sqlite.zip '*/sqlite3.c' -d /tmp && rm /tmp/sqlite.zip)
+	Tools/vcc --emit-mlir /tmp/sqlite3.c -o /dev/null
