@@ -3,8 +3,7 @@
 
 // In a graph region every point properly dominates every other, including
 // itself, so a value may be used by its own defining operation and two
-// operations may use each other's results. The body of `builtin.module` is a
-// graph region.
+// operations may use each other's results.
 
 "builtin.module"() ({
   %a = "arith.addi"(%a, %b) : (i32, i32) -> i32
