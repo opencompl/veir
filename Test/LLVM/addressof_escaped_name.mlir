@@ -1,11 +1,10 @@
 // RUN: VEIR_ROUNDTRIP
+// RUN: MLIR_ROUNDTRIP
 //
-// A symbol name holding a byte the printer writes as `\n` rather than as hex.
-// The escaper and the unescaper have to agree on every escape either uses, or
-// VeIR cannot read back the name it just wrote.
-//
-// There is no MLIR run line: `mlir-opt` writes this name `@"a\0Ab"`, so the
-// two printers disagree on the spelling even though both accept either.
+// A symbol name holding a byte that has to be escaped. Both the name and the
+// reference to it are reprinted from their bytes, so `\n` on input comes back
+// as `\0A` -- the spelling `mlir-opt` writes, which is what lets this test
+// compare the two.
 
 "builtin.module"() ({
   "llvm.mlir.global"() <{addr_space = 0 : i32, global_type = i32, linkage = #llvm.linkage<external>, sym_name = "a\nb"}> ({
@@ -16,4 +15,5 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: "llvm.mlir.addressof"() <{"global_name" = @"a\nb"}> : () -> !llvm.ptr
+// CHECK: "sym_name" = "a\0Ab"
+// CHECK: "llvm.mlir.addressof"() <{"global_name" = @"a\0Ab"}> : () -> !llvm.ptr

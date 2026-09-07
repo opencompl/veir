@@ -927,10 +927,9 @@ def escapeStringLiteral (b : ByteArray) : String := Id.run do
   let mut result := ""
   for byte in b do
     if byte == '\\'.toUInt8 then result := result ++ "\\\\"
-    else if byte == '"'.toUInt8 then result := result ++ "\\\""
-    else if byte == '\n'.toUInt8 then result := result ++ "\\n"
-    else if byte == '\t'.toUInt8 then result := result ++ "\\t"
-    else if byte >= 0x20 && byte < 0x7F then result := result.push (Char.ofNat byte.toNat)
+    /- A quote takes the hex path below, as `\22`, which is what MLIR writes. -/
+    else if byte >= 0x20 && byte < 0x7F && byte != '"'.toUInt8 then
+      result := result.push (Char.ofNat byte.toNat)
     else
       /- LLVM convention: encode hex as \HH. -/
       result := result.push '\\'
@@ -956,8 +955,19 @@ instance : ToString DenseArrayAttr where
 instance : ToString DenseElementsAttr where
   toString attr := s!"dense<{attr.value}> : {attr.type}"
 
+/--
+  A quoted symbol reference is reprinted from its bytes, so that a name spelled
+  `@"a\n"` on input comes back as `@"a\0A"` -- the spelling MLIR writes. A bare
+  reference, and one whose escapes do not decode, is left as it was read.
+-/
 instance : ToString FlatSymbolRefAttr where
-  toString attr := attr.value
+  toString attr :=
+    if attr.value.length ≥ 3 && attr.value.startsWith "@\"" && attr.value.endsWith "\"" then
+      match unescapeStringLiteral ((attr.value.drop 2).dropEnd 1).toString with
+      | some bytes => "@\"" ++ escapeStringLiteral bytes ++ "\""
+      | none => attr.value
+    else
+      attr.value
 
 instance : ToString ModArithType where
   toString type := s!"!mod_arith.int<{type.modulus}>"
