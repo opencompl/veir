@@ -827,6 +827,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     pure ()
   | .call_intrinsic => do
     op.checkIsNonNullIntegerType ctx opIn
+    op.verifyLLVMCompatibleTypes ctx opIn
     let props := op.getProperties! ctx.raw Llvm.call_intrinsic
     if !(String.fromUTF8? props.intrin.value).any (·.startsWith "llvm.") then
       throw "intrinsic name must start with 'llvm.'"

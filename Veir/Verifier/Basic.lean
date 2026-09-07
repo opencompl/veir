@@ -350,6 +350,32 @@ def OperationPtr.verifyIntegerExtTypes (op : OperationPtr)
     pure ()
 
 /--
+  Whether `type` is compatible with the LLVM dialect: integers, floats,
+  pointers, arrays and vectors of compatible types, void, and the `!llvm.*`
+  types VeIR keeps opaque, such as structs.
+-/
+partial def Attribute.isLLVMCompatibleType : Attribute → Bool
+  | .integerType _ | .floatType _ | .llvmPointerType _ | .llvmVoidType _ => true
+  | .llvmArrayType arrType => arrType.type.isLLVMCompatibleType
+  | .vectorType vecType => vecType.elementType.isLLVMCompatibleType
+  | .unregisteredAttr attr => attr.isType && attr.value.startsWith "!llvm."
+  | _ => false
+
+/-- Check that every operand and result has an LLVM dialect-compatible type. -/
+def OperationPtr.verifyLLVMCompatibleTypes (op : OperationPtr)
+    (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  let opTypes := op.getOperandTypes! ctx.raw
+  for i in [0:opTypes.size] do
+    if !(opTypes[i]!).val.isLLVMCompatibleType then
+      throw s!"{instrName}: operand {i} must be an LLVM dialect-compatible type, but got {opTypes[i]!}"
+  for i in [0:op.getNumResults ctx.raw opIn] do
+    let type := ((op.getResult i).get! ctx.raw).type
+    if !type.val.isLLVMCompatibleType then
+      throw s!"{instrName}: result {i} must be an LLVM dialect-compatible type, but got {type}"
+
+/--
   Reject any operand or result whose type is a zero-width integer (`i0`).
   Whether `i0` is legal is a per-dialect policy, so callers must apply this
   check explicitly to operations that forbid it.
