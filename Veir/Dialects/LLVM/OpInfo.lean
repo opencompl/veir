@@ -234,12 +234,9 @@ def Llvm.toAttrDict
                           ("access_groups", props.access_groups),
                           ("alias_scopes", props.alias_scopes),
                           ("noalias_scopes", props.noalias_scopes),
-                          ("tbaa", props.tbaa),
-                          ("op_bundle_tags", props.op_bundle_tags)] do
+                          ("tbaa", props.tbaa)] do
       if let some value := value then
         dict := dict.insert name.toUTF8 (.arrayAttr value)
-    if let some sizes := props.op_bundle_sizes then
-      dict := dict.insert "op_bundle_sizes".toUTF8 (.denseArrayAttr sizes)
     dict
   | .switch => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 4
@@ -509,19 +506,6 @@ def OperationPtr.verifyLLVMICmp {OpInfo : Type} [IsOpCode OpInfo]
   ((op.getResult 0).get! ctx.raw).type.verifyI1 s!"{instrName}: Expected i1 result"
 
 /--
-The properties of a memory intrinsic, whichever of the three it is. An
-alternation pattern does not refine `opType`, so the three are named here.
--/
-private def memIntrinsicProperties {OpInfo : Type} [IsOpCode OpInfo]
-    [HasDialect OpInfo Llvm] (opType : Llvm) (op : OperationPtr)
-    (ctx : WfIRContext OpInfo) : Option LLVMMemIntrinsicProperties :=
-  match opType with
-  | .intr__memset => some (op.getProperties! ctx.raw Llvm.intr__memset)
-  | .intr__memcpy => some (op.getProperties! ctx.raw Llvm.intr__memcpy)
-  | .intr__memmove => some (op.getProperties! ctx.raw Llvm.intr__memmove)
-  | _ => none
-
-/--
 Verify the local invariants of an `llvm` operation in any operation-info type
 containing the `llvm` dialect.
 -/
@@ -615,28 +599,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     | _ => pure ()
   | .intr__memset | .intr__memcpy | .intr__memmove => do
     op.checkIsNonNullIntegerType ctx opIn
-    let some props := memIntrinsicProperties opType op ctx
-      | throw "Expected a memory intrinsic"
     op.verifyPlainOpCounts ctx opIn 3 0
-    /- MLIR parses `op_bundle_sizes` and `op_bundle_tags` on these intrinsics
-       and then discards them, holding the operand count at three: an operand
-       bundle has nowhere to put its operands here. VeIR keeps the attributes
-       rather than dropping them silently, and refuses a size that would ask
-       for an operand the intrinsic cannot have. -/
-    if let some sizes := props.op_bundle_sizes then
-      if sizes.elementType.bitwidth ≠ 32 then
-        throw "Expected 'op_bundle_sizes' to be an i32 dense array attribute"
-      if sizes.values.any (· ≠ 0) then
-        throw "Expected 'op_bundle_sizes' to be all zero: a memory intrinsic \
-          takes three operands, leaving none for an operand bundle"
-    /- A tag names each bundle, so there are as many tags as sizes. -/
-    let tags := (props.op_bundle_tags.map (·.value)).getD #[]
-    let bundleCount := (props.op_bundle_sizes.map (·.values.size)).getD 0
-    if tags.size ≠ bundleCount then
-      throw s!"Expected {bundleCount} operand bundle tag(s), but got {tags.size}"
-    for tag in tags do
-      let .stringAttr _ := tag
-        | throw "Expected operand bundle tags to be string attributes"
     let pointerOperands := if opType = .intr__memset then 1 else 2
     for i in [0:pointerOperands] do
       let operandType := (op.getOperand! ctx.raw i).getType! ctx.raw

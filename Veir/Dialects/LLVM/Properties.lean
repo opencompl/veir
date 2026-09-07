@@ -628,8 +628,6 @@ structure LLVMMemIntrinsicProperties where
   alias_scopes : Option ArrayAttr
   noalias_scopes : Option ArrayAttr
   tbaa : Option ArrayAttr
-  op_bundle_sizes : Option DenseArrayAttr
-  op_bundle_tags : Option ArrayAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 def LLVMMemIntrinsicProperties.fromAttrDictFor (opName : String)
@@ -653,16 +651,19 @@ def LLVMMemIntrinsicProperties.fromAttrDictFor (opName : String)
   let aliasScopes ← optionalArrayAttr opName "alias_scopes" attrDict
   let noaliasScopes ← optionalArrayAttr opName "noalias_scopes" attrDict
   let tbaa ← optionalArrayAttr opName "tbaa" attrDict
-  let bundleSizes ← match attrDict["op_bundle_sizes".toUTF8]? with
-    | some (.denseArrayAttr sizes) => .ok (some sizes)
+  /- Parsed and dropped, as MLIR does: these are vestigial on the memory
+     intrinsics, which take three operands and leave a bundle nowhere to put
+     its own. They are still type-checked, so a malformed one is refused
+     rather than quietly ignored. -/
+  match attrDict["op_bundle_sizes".toUTF8]? with
+    | some (.denseArrayAttr _) | none => pure ()
     | some attr =>
       throw s!"{opName}: expected 'op_bundle_sizes' to be a dense array attribute, but got {attr}"
-    | none => .ok none
-  let bundleTags ← optionalArrayAttr opName "op_bundle_tags" attrDict
+  let _ ← optionalArrayAttr opName "op_bundle_tags" attrDict
   return { isVolatile := volatileAttr.value ≠ 0, arg_attrs := argAttrs,
            res_attrs := resAttrs, access_groups := accessGroups,
            alias_scopes := aliasScopes, noalias_scopes := noaliasScopes,
-           tbaa := tbaa, op_bundle_sizes := bundleSizes, op_bundle_tags := bundleTags }
+           tbaa := tbaa }
 
 def LLVMMemIntrinsicProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String LLVMMemIntrinsicProperties :=
