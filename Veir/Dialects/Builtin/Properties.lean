@@ -42,7 +42,7 @@ def getI64Attr (errorCtx key : String) (attrDict : Std.HashMap ByteArray Attribu
 
 /-- Re-encode a `getI64Attr` value as the `i64` attribute it is printed as. -/
 def i64Attr (value : BitVec 64) : Attribute :=
-  .integerAttr (IntegerAttr.mk value.toInt (IntegerType.mk 64))
+  .integerAttr (IntegerAttr.mk value.toInt { bitwidth := 64 })
 
 def getUnitAttr (key : String) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String Bool := do
