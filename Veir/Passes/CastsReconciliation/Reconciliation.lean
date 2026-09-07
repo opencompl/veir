@@ -85,7 +85,7 @@ def reconcileRegIntCastLocal (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if resultType ≠ inputType then return (ctx, none)
   /- And the reconciliation involves the right types -/
   if inputType ≠ RegisterType.mk then return (ctx, none)
-  let .integerType ⟨ interBw ⟩ := interType.val | return (ctx, none)
+  let .integerType ⟨ interBw, _ ⟩ := interType.val | return (ctx, none)
   /- Replace the initial operation's output with a zero-extension of the parent's input -/
   match interBw with
   | 8 =>
@@ -107,7 +107,7 @@ def reconcileRegIntCastLocal (ctx : WfIRContext OpCode) (op : OperationPtr) :
       if bw = 0 then return (ctx, none)
       /- for bitwidths with no dedicated instruction, shift left then right -/
       if bw >= 64 then none else
-      let imm := IntegerAttr.mk (64-bw) (.mk 64)
+      let imm := IntegerAttr.mk (64-bw) ({ bitwidth := 64 })
       let (ctx, shlOp) ← WfRewriter.createOp! ctx Riscv.slli #[RegisterType.mk] #[parentInput]
         #[] #[] (⟨imm⟩ : RISCVImmediateProperties) none
       let (ctx, srlOp) ← WfRewriter.createOp! ctx Riscv.srli #[RegisterType.mk]

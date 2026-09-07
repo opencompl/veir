@@ -90,12 +90,24 @@ def parseOptionalIntegerType : AttrParserM (Option IntegerType) := do
   | { kind := .bareIdent, slice := slice } =>
     if slice.size < 2 then
       return none
-    if (← (getThe ParserState)).input.getD slice.start.byteOffset 0 == 'i'.toUInt8 then
+    let input := (← (getThe ParserState)).input
+    let first := input.getD slice.start.byteOffset 0
+    if first == 's'.toUInt8 || first == 'u'.toUInt8 then
+      let second := input.getD (slice.start.byteOffset + 1) 0
+      if second == 'i'.toUInt8 then
+        let bitwidthSlice : Slice := {start := slice.start + 2, stop := slice.stop}
+        let identifier := bitwidthSlice.of input
+        let some bitwidth := (String.fromUTF8? identifier).bind String.toNat? | return none
+        let _ ← consumeToken
+        let signedness := if first == 's'.toUInt8 then IntegerType.Signedness.signed
+                          else IntegerType.Signedness.unsigned
+        return some { bitwidth, signedness }
+    if first == 'i'.toUInt8 then
       let bitwidthSlice : Slice := {start := slice.start + 1, stop := slice.stop}
-      let identifier := bitwidthSlice.of (← (getThe ParserState)).input
+      let identifier := bitwidthSlice.of input
       let some bitwidth := (String.fromUTF8? identifier).bind String.toNat? | return none
       let _ ← consumeToken
-      return some (IntegerType.mk bitwidth)
+      return some { bitwidth }
     return none
   | _ => return none
 
@@ -255,9 +267,9 @@ def parseOptionalStringAttr : AttrParserM (Option StringAttr) := do
 -/
 def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
   if (← parseOptionalKeyword "false".toByteArray) then
-    return some (IntegerAttr.mk 0 (IntegerType.mk 1) : Attribute)
+    return some (IntegerAttr.mk 0 { bitwidth := 1 } : Attribute)
   if (← parseOptionalKeyword "true".toByteArray) then
-    return some (IntegerAttr.mk 1 (IntegerType.mk 1) : Attribute)
+    return some (IntegerAttr.mk 1 { bitwidth := 1 } : Attribute)
 
   -- Parse the optional leading '-'.
   let isNegative := Option.isSome (← parseOptionalToken .minus)

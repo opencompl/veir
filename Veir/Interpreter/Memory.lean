@@ -141,19 +141,19 @@ def MemoryState.llvmLoad (state : MemoryState) (addr : UInt64) (type : TypeAttr)
     : Interp RuntimeValue := do
   if addr == 0 then Interp.ub else
   match type.val with
-  | Attribute.integerType { bitwidth := 8 } =>
+  | Attribute.integerType { bitwidth := 8, .. } =>
       let ba ← state.load addr 1
       if ← state.hasPoison addr 1 then return .int 8 .poison
       return .int 8 (.val ba[0]!.toNat)
-  | Attribute.integerType { bitwidth := 16 } =>
+  | Attribute.integerType { bitwidth := 16, .. } =>
       let ba ← state.load addr 2
       if ← state.hasPoison addr 2 then return .int 16 .poison
       return .int 16 (.val (ba.toBitVecLE 2))
-  | Attribute.integerType { bitwidth := 32 } =>
+  | Attribute.integerType { bitwidth := 32, .. } =>
       let ba ← state.load addr 4
       if ← state.hasPoison addr 4 then return .int 32 .poison
       return .int 32 (.val (ba.toBitVecLE 4))
-  | Attribute.integerType { bitwidth := 64 } =>
+  | Attribute.integerType { bitwidth := 64, .. } =>
       let ba ← state.load addr 8
       if ← state.hasPoison addr 8 then return .int 64 .poison
       return .int 64 (.val (BitVec.ofNat 64 ba.toUInt64LE!.toNat))
