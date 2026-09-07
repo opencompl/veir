@@ -8,8 +8,8 @@
     "llvm.intr.memcpy"(%dst, %src, %len) <{isVolatile = true}> : (!llvm.ptr, !llvm.ptr, i64) -> ()
     "llvm.intr.memmove"(%dst, %src, %len) <{isVolatile = false}> : (!llvm.ptr, !llvm.ptr, i64) -> ()
     "llvm.intr.memcpy"(%dst, %src, %len) <{isVolatile = false, access_groups = [], alias_scopes = [], noalias_scopes = [], tbaa = [#llvm.tbaa_tag<base_type = <id = "int", members = {<#llvm.tbaa_root<id = "Simple C/C++ TBAA">, 0>}>, access_type = <id = "int", members = {<#llvm.tbaa_root<id = "Simple C/C++ TBAA">, 0>}>, offset = 0>]}> : (!llvm.ptr, !llvm.ptr, i64) -> ()
-    // `res_attrs` says nothing on an operation with no results, but MLIR takes
-    // it, so it round-trips rather than being refused.
+    // `res_attrs` is not meaningful given that memset has no results, but MLIR accepts it,
+    // so we round-trip it rather than refuse it.
     "llvm.intr.memset"(%dst, %byte, %len) <{isVolatile = false, res_attrs = [{llvm.noundef}]}> : (!llvm.ptr, i8, i64) -> ()
     "llvm.return"() : () -> ()
   }) : () -> ()

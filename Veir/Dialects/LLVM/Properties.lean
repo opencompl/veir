@@ -651,10 +651,8 @@ def LLVMMemIntrinsicProperties.fromAttrDictFor (opName : String)
   let aliasScopes ← optionalArrayAttr opName "alias_scopes" attrDict
   let noaliasScopes ← optionalArrayAttr opName "noalias_scopes" attrDict
   let tbaa ← optionalArrayAttr opName "tbaa" attrDict
-  /- Parsed and dropped, as MLIR does: these are vestigial on the memory
-     intrinsics, which take three operands and leave a bundle nowhere to put
-     its own. They are still type-checked, so a malformed one is refused
-     rather than quietly ignored. -/
+  /- Parsed and dropped, as MLIR does.
+     They are still type-checked, so a malformed one is refused. -/
   match attrDict["op_bundle_sizes".toUTF8]? with
     | some (.denseArrayAttr _) | none => pure ()
     | some attr =>

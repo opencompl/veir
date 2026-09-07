@@ -1,7 +1,6 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
 
-// The bundle attributes are dropped, but not before they are type-checked: a
-// malformed one is refused rather than quietly ignored.
+// Typecheck bundle attributes (before they are dropped).
 "builtin.module"() ({
   "llvm.func"() <{function_type = !llvm.func<void (!llvm.ptr, !llvm.ptr, i64)>, linkage = #llvm.linkage<external>, sym_name = "f"}> ({
   ^bb0(%dst: !llvm.ptr, %src: !llvm.ptr, %len: i64):

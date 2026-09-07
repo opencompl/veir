@@ -1,11 +1,8 @@
 // RUN: VEIR_ROUNDTRIP
 // RUN: MLIR_ROUNDTRIP
 //
-// `op_bundle_sizes` and `op_bundle_tags` are vestigial on the memory
-// intrinsics: the operand count is fixed at three, leaving an operand bundle
-// nowhere to put its own operands. MLIR parses both and drops them, and VeIR
-// does the same -- so the round trip prints an intrinsic that carries neither,
-// through either tool.
+// MLIR parses and drops `op_bundle_sizes` and `op_bundle_tags`. VeIR does
+// the same.
 
 "builtin.module"() ({
   "llvm.func"() <{function_type = !llvm.func<void (!llvm.ptr, !llvm.ptr, i64)>, linkage = #llvm.linkage<external>, sym_name = "bundles"}> ({
