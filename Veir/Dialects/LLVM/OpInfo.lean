@@ -60,6 +60,7 @@ inductive Llvm where
 | store
 | getelementptr
 | call
+| call_intrinsic
 | return
 | func
 | module_flags
@@ -116,6 +117,7 @@ match op with
 | .getelementptr => GetelementptrProperties
 | .fadd | .fsub | .fmul | .fdiv | .frem => FastMathFlagsProperties
 | .call => LLVMCallProperties
+| .call_intrinsic => LLVMCallIntrinsicProperties
 | .func => LLVMFuncProperties
 | .module_flags => LLVMModuleFlagsProperties
 | _ => Unit
@@ -158,6 +160,7 @@ def Llvm.fromAttrDict
   case func => exact LLVMFuncProperties.fromAttrDict attrDict
   case module_flags => exact LLVMModuleFlagsProperties.fromAttrDict attrDict
   case call => exact LLVMCallProperties.fromAttrDict attrDict
+  case call_intrinsic => exact LLVMCallIntrinsicProperties.fromAttrDict attrDict
   all_goals exact .ok ()
 
 def Llvm.toAttrDict
@@ -344,6 +347,20 @@ def Llvm.toAttrDict
     if let some callee := props.callee then
       dict := dict.insert "callee".toUTF8 (.flatSymbolRefAttr callee)
     dict
+  | .call_intrinsic => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 7
+    dict := dict.insert "intrin".toUTF8 (.stringAttr props.intrin)
+    dict := dict.insert "operandSegmentSizes".toUTF8
+      (Attribute.denseArrayAttr props.operandSegmentSizes)
+    dict := dict.insert "op_bundle_sizes".toUTF8
+      (Attribute.denseArrayAttr props.op_bundle_sizes)
+    dict := dict.insert "fastmathFlags".toUTF8 (Attribute.fastMathFlagsAttr props.fastmathFlags)
+    for (name, value) in [("op_bundle_tags", props.op_bundle_tags),
+                          ("arg_attrs", props.arg_attrs),
+                          ("res_attrs", props.res_attrs)] do
+      if let some value := value then
+        dict := dict.insert name.toUTF8 (.arrayAttr value)
+    dict
   | _ => Std.HashMap.emptyWithCapacity 0
 
 @[get_effects]
@@ -416,7 +433,8 @@ def Llvm.propagatesPoison : Llvm → Bool
   | .select | .br | .cond_br | .switch | .unreachable | .alloca | .load | .store
   | .intr__lifetime__start | .intr__lifetime__end | .intr__assume
   | .intr__memset | .intr__memcpy | .intr__memmove
-  | .getelementptr | .call | .return | .func | .module_flags | .freeze => false
+  | .getelementptr | .call | .call_intrinsic | .return | .func | .module_flags
+  | .freeze => false
 
 instance : IsOpCode Llvm where
   fromName := Llvm.fromName
@@ -818,6 +836,25 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    pure ()
+  | .call_intrinsic => do
+    op.checkIsNonNullIntegerType ctx opIn
+    if op.getNumResults ctx.raw opIn > 1 then
+      throw "Expected at most 1 result"
+    let props := op.getProperties! ctx.raw Llvm.call_intrinsic
+    let sizes ← op.verifyOperandSegmentSizes ctx opIn props.operandSegmentSizes 2
+    /- The second segment holds the operands of the bundles, which
+       `op_bundle_sizes` splits again, one entry per bundle. -/
+    let bundleSizes := props.op_bundle_sizes.values
+    if bundleSizes.any (· < 0) then
+      throw "op_bundle_sizes contains a negative size"
+    let bundleOperands := (bundleSizes.foldl (· + ·) 0).toNat
+    if bundleOperands ≠ sizes[1]! then
+      throw s!"op_bundle_sizes describes {bundleOperands} operand(s), but \
+        operandSegmentSizes reserves {sizes[1]!}"
+    if let some tags := props.op_bundle_tags then
+      if tags.value.size ≠ bundleSizes.size then
+        throw s!"Expected {bundleSizes.size} operand bundle tag(s), but got {tags.value.size}"
     pure ()
   | .call => do
     op.checkIsNonNullIntegerType ctx opIn

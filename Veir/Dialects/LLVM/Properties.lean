@@ -675,6 +675,51 @@ def LLVMMemIntrinsicProperties.fromAttrDict (attrDict : Std.HashMap ByteArray At
     Except String LLVMMemIntrinsicProperties :=
   LLVMMemIntrinsicProperties.fromAttrDictFor "llvm.intr.memset" attrDict
 
+/--
+  Properties of `llvm.call_intrinsic`.
+-/
+structure LLVMCallIntrinsicProperties where
+  intrin : StringAttr
+  operandSegmentSizes : DenseArrayAttr
+  op_bundle_sizes : DenseArrayAttr
+  op_bundle_tags : Option ArrayAttr
+  fastmathFlags : FastMathFlagsAttr
+  arg_attrs : Option ArrayAttr
+  res_attrs : Option ArrayAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMCallIntrinsicProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMCallIntrinsicProperties := do
+  if let some (key, _) := attrDict.toArray.find? (fun (k, _) =>
+      k ≠ "intrin".toUTF8 && k ≠ "operandSegmentSizes".toUTF8 && k ≠ "op_bundle_sizes".toUTF8
+        && k ≠ "op_bundle_tags".toUTF8 && k ≠ "fastmathFlags".toUTF8
+        && k ≠ "arg_attrs".toUTF8 && k ≠ "res_attrs".toUTF8) then
+    throw s!"llvm.call_intrinsic: unexpected property '{String.fromUTF8! key}'"
+  let some intrin := attrDict["intrin".toUTF8]?
+    | throw "llvm.call_intrinsic: missing 'intrin' property"
+  let .stringAttr intrin := intrin
+    | throw s!"llvm.call_intrinsic: expected 'intrin' to be a string attribute, but got {intrin}"
+  let some sizes := attrDict["operandSegmentSizes".toUTF8]?
+    | throw "llvm.call_intrinsic: missing 'operandSegmentSizes' property"
+  let .denseArrayAttr sizes := sizes
+    | throw s!"llvm.call_intrinsic: expected 'operandSegmentSizes' to be a dense array attribute, but got {sizes}"
+  let some bundleSizes := attrDict["op_bundle_sizes".toUTF8]?
+    | throw "llvm.call_intrinsic: missing 'op_bundle_sizes' property"
+  let .denseArrayAttr bundleSizes := bundleSizes
+    | throw s!"llvm.call_intrinsic: expected 'op_bundle_sizes' to be a dense array attribute, but got {bundleSizes}"
+  let tags ← optionalArrayAttr "llvm.call_intrinsic" "op_bundle_tags" attrDict
+  let argAttrs ← optionalDictArrayAttr "llvm.call_intrinsic" "arg_attrs" attrDict
+  let resAttrs ← optionalDictArrayAttr "llvm.call_intrinsic" "res_attrs" attrDict
+  /- MLIR materializes the default on parse, so it is always present. -/
+  let flags ← match attrDict["fastmathFlags".toUTF8]? with
+    | some (.fastMathFlagsAttr flags) => .ok flags
+    | some attr =>
+      throw s!"llvm.call_intrinsic: expected 'fastmathFlags' to be a fast math flags attribute, but got {attr}"
+    | none => .ok { nnan := false, ninf := false, nsz := false }
+  return { intrin, operandSegmentSizes := sizes, op_bundle_sizes := bundleSizes,
+           op_bundle_tags := tags, fastmathFlags := flags,
+           arg_attrs := argAttrs, res_attrs := resAttrs }
+
 structure LLVMModuleFlagsProperties where
   flags : ArrayAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
