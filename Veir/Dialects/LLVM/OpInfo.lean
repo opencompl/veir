@@ -44,6 +44,7 @@ inductive Llvm where
 | intr__fshl
 | intr__fshr
 | intr__assume
+| intr__vector__reduce__or
 | mul
 | sdiv
 | udiv
@@ -419,6 +420,7 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
   | .inttoptr, _ | .ptrtoint, _
   | .intr__smax, _ | .intr__smin, _ | .intr__umax, _ | .intr__umin, _
   | .intr__abs, _
+  | .intr__vector__reduce__or, _
   | .intr__sadd__sat, _ | .intr__uadd__sat, _
   | .intr__ssub__sat, _ | .intr__usub__sat, _
   | .intr__sshl__sat, _ | .intr__ushl__sat, _
@@ -457,6 +459,7 @@ def Llvm.propagatesPoison : Llvm → Bool
   | .intr__ctlz | .intr__cttz | .intr__ctpop | .intr__bswap
   | .intr__bitreverse | .intr__fshl | .intr__fshr
   | .intr__smax | .intr__smin | .intr__umax | .intr__umin | .intr__abs
+  | .intr__vector__reduce__or
   | .intr__sadd__sat | .intr__uadd__sat | .intr__ssub__sat | .intr__usub__sat
   | .intr__sshl__sat | .intr__ushl__sat => true
   -- The floating-point arithmetic operations propagate poison too, but no
@@ -899,6 +902,20 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     match props.ordering with
     | .acquire | .release | .acq_rel | .seq_cst => pure ()
     | _ => throw "llvm.fence: can be given only acquire, release, acq_rel and seq_cst orderings"
+  | .intr__vector__reduce__or => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyPlainOpCounts ctx opIn 1 1
+    let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
+    let .vectorType vecType := operandType.val
+      | throw "Expected operand 0 to have vector type"
+    if vecType.shape.size ≠ 1 || vecType.shape[0]! = 0 then
+      throw "Expected a nonempty one-dimensional vector"
+    let .integerType _ := vecType.elementType
+      | throw "Expected vector elements to have integer type"
+    let resultType := ((op.getResult 0).get! ctx.raw).type
+    if resultType.val ≠ vecType.elementType then
+      throw "Expected result type to match vector element type"
+    pure ()
   | .getelementptr => do
     op.checkIsNonNullIntegerType ctx opIn
     let props := op.getProperties! ctx.raw Llvm.getelementptr
