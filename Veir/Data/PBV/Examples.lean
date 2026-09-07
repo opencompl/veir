@@ -45,7 +45,8 @@ theorem trace_add_comm_manual (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
 
 
 /-- Manual trace of a zero extension to `q` followed by a zero extension to `r`,
-    which is a single zero extension to `r`, since `p < q`. -/
+    which is a single zero extension to `r`, since `p < q`.
+-/
 theorem trace_zero_zero_extend (p q r : Nat) (x : BitVec p)
   (hr : r ≤ 8)
   (h_qr : q < r)
@@ -148,33 +149,33 @@ theorem trace_append (w : Nat) (a b : BitVec w) (hw : w ≤ 8) :
 --         8, because every append here has width `w + w`.
   have w_le_bw : w ≤ 16 := by grind
   have w_add_w_le_bw : w + w ≤ 16 := by grind
--- Step 2-3: Introduce mask to replace `w` Nat var
+-- Step 2-3: Introduce mask to replace `w` Nat var.
   apply width_elim 16 w
   intro mw h_mw
 -- Step 4: Eliminate the parametric bv vars of width `w`
---         enforcing width constraint with mask
+--         enforcing width constraint with mask.
   revert a
   apply var_elim w_le_bw
   intro a h_amw
   revert b
   apply var_elim w_le_bw
   intro b h_bmw
--- Step 5: Convert width hypothesis to mask hypothesis
+-- Step 5: Convert width hypothesis to mask hypothesis.
   have mw_mask := maskOfWidth_and_add_one_eq_zero h_mw
   have w_add_w_mask := maskOfWidth_add_eq_mul_of_maskOfWidth w_le_bw w_le_bw w_add_w_le_bw h_mw h_mw
--- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
+-- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down.
   simp only [
     eq_iff (o := 16),
     setWidth_add,
     setWidth_append_eq_or_mul_maskOfWidth_add_one (o := 16),
     setWidth_setWidth,
     w_add_w_le_bw,                 -- Lets simp discharge the `v + w ≤ o` side condition of
-                                   -- `setWidth_append_eq_or_mul_maskOfWidth_add_one`
+                                   -- `setWidth_append_eq_or_mul_maskOfWidth_add_one`.
     w_le_bw,
     ← h_mw,
     BitVec.setWidth_eq
   ]
--- Step 7: Rewrite the mask into the hypotheses too
+-- Step 7: Rewrite the mask into the hypotheses too.
   simp only [← h_mw] at h_amw h_bmw
 -- Step 8: BitBlast!
   bv_decide

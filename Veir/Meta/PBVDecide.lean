@@ -156,9 +156,9 @@ structure WidthInfo where
   widthMaskFvar : FVarId
   /-- The FVarId of the pure-BV hypothesis that this width is a mask variable. -/
   widthMaskHypFvar : FVarId
-  /-- The hypothesis that the width variable is less than the bmc bound. -/
+  /-- The hypothesis that the width variable is less than the blast bound. -/
   hypWidthLeBoundMVarId : MVarId
-  /-- The hypothesis that the width variable is less than the bmc bound.
+  /-- The hypothesis that the width variable is less than the blast bound.
       (FVar necessary so 'simp' rewrites with it.) -/
   hypWidthLeBoundNote : FVarId
 
