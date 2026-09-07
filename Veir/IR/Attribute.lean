@@ -1225,10 +1225,6 @@ instance : ToString RegisterType where
 instance : ToString RegisterAttr where
   toString attr := s!"{attr.value} : !riscv.reg"
 
-private def hexDigit (n : UInt8) : Char :=
-  if n < 10 then Char.ofNat (n.toNat + '0'.toNat)
-  else Char.ofNat (n.toNat - 10 + 'A'.toNat)
-
 def escapeStringLiteral (b : ByteArray) : String := Id.run do
   let mut result := ""
   for byte in b do
@@ -1240,8 +1236,8 @@ def escapeStringLiteral (b : ByteArray) : String := Id.run do
     else
       /- LLVM convention: encode hex as \HH. -/
       result := result.push '\\'
-      result := result.push (hexDigit (byte >>> 4))
-      result := result.push (hexDigit (byte &&& 0x0F))
+      result := result.push (byte >>> 4).toHexDigit
+      result := result.push (byte &&& 0x0F).toHexDigit
   return result
 
 instance : ToString StringAttr where

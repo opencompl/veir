@@ -113,12 +113,6 @@ private def WfIRContext.graphRegionsHaveAtMostOneBlock (ctx : WfIRContext OpCode
     else
       true
 
-private def hexDigit? (c : Char) : Option UInt8 :=
-  if '0' ≤ c && c ≤ '9' then some (c.toNat - '0'.toNat).toUInt8
-  else if 'a' ≤ c && c ≤ 'f' then some (c.toNat - 'a'.toNat + 10).toUInt8
-  else if 'A' ≤ c && c ≤ 'F' then some (c.toNat - 'A'.toNat + 10).toUInt8
-  else none
-
 /--
   Decode the escapes MLIR writes inside a quoted name: `\\` and `\"` for the two
   characters that would otherwise end the literal, and `\HH` for any byte it
@@ -130,8 +124,8 @@ private def decodeSymbolEscapes (acc : ByteArray) : List Char → Option ByteArr
   | '\\' :: '\\' :: rest => decodeSymbolEscapes (acc.push 0x5c) rest
   | '\\' :: '"' :: rest => decodeSymbolEscapes (acc.push 0x22) rest
   | '\\' :: hi :: lo :: rest => do
-    let hi ← hexDigit? hi
-    let lo ← hexDigit? lo
+    let hi ← Char.hexDigit? hi
+    let lo ← Char.hexDigit? lo
     decodeSymbolEscapes (acc.push (hi * 16 + lo)) rest
   | '\\' :: _ => none
   | c :: rest => decodeSymbolEscapes (acc ++ c.toString.toUTF8) rest
