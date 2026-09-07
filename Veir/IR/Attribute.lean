@@ -905,6 +905,18 @@ private def unescapeBytes (acc : ByteArray) : List Char → Option ByteArray
   | c :: rest => unescapeBytes (acc ++ c.toString.toUTF8) rest
 
 /--
+  Every byte survives the `\HH` escape: what `escapeStringLiteral` writes for a
+  byte it will not print, `unescapeBytes` reads back as that same byte.
+-/
+private theorem unescapeBytes_hexEscape (acc : ByteArray) (cs : List Char) (b : UInt8) :
+    unescapeBytes acc ('\\' :: (b >>> 4).toHexDigit :: (b &&& 15).toHexDigit :: cs)
+      = unescapeBytes (acc.push b) cs := by
+  obtain ⟨h1, h2, h3, h4⟩ := UInt8.toHexDigit_ne _ (UInt8.toNat_shiftRight_four_lt b)
+  rw [unescapeBytes.eq_def]
+  simp_all [Char.hexDigit?_toHexDigit _ (UInt8.toNat_shiftRight_four_lt b),
+            Char.hexDigit?_toHexDigit _ (UInt8.toNat_and_fifteen_lt b), UInt8.nibbles_recombine]
+
+/--
   The bytes a string literal denotes, undoing `escapeStringLiteral`. `none` if
   the text holds an escape neither writes.
 -/

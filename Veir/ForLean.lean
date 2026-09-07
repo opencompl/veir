@@ -42,6 +42,47 @@ def UInt8.toHexDigit (n : UInt8) : Char :=
   if n < 10 then Char.ofNat (n.toNat + '0'.toNat)
   else Char.ofNat (n.toNat - 10 + 'A'.toNat)
 
+private theorem hexDigit?_toHexDigit_lt_16 :
+    ∀ n < 16, (UInt8.toHexDigit (UInt8.ofNat n)).hexDigit? = some (UInt8.ofNat n) := by
+  decide
+
+/-- Reading back a hexadecimal digit gives the value it was written from. -/
+theorem Char.hexDigit?_toHexDigit (n : UInt8) (h : n.toNat < 16) :
+    n.toHexDigit.hexDigit? = some n := by
+  simpa using hexDigit?_toHexDigit_lt_16 n.toNat h
+
+private theorem toHexDigit_ne_lt_16 :
+    ∀ n < 16, (UInt8.ofNat n).toHexDigit ≠ '\\' ∧ (UInt8.ofNat n).toHexDigit ≠ '"'
+      ∧ (UInt8.ofNat n).toHexDigit ≠ 'n' ∧ (UInt8.ofNat n).toHexDigit ≠ 't' := by
+  decide
+
+/-- A hexadecimal digit is never one of the characters an escape starts with. -/
+theorem UInt8.toHexDigit_ne (n : UInt8) (h : n.toNat < 16) :
+    n.toHexDigit ≠ '\\' ∧ n.toHexDigit ≠ '"' ∧ n.toHexDigit ≠ 'n' ∧ n.toHexDigit ≠ 't' := by
+  simpa using toHexDigit_ne_lt_16 n.toNat h
+
+set_option maxRecDepth 8000 in
+private theorem nibbles_lt_16 : ∀ n < 256,
+    ((UInt8.ofNat n) >>> 4).toNat < 16 ∧ ((UInt8.ofNat n) &&& 15).toNat < 16 := by
+  decide
+
+/-- The high nibble of a byte is below 16. -/
+theorem UInt8.toNat_shiftRight_four_lt (b : UInt8) : (b >>> 4).toNat < 16 := by
+  simpa using (nibbles_lt_16 b.toNat b.toNat_lt_size).1
+
+/-- The low nibble of a byte is below 16. -/
+theorem UInt8.toNat_and_fifteen_lt (b : UInt8) : (b &&& 15).toNat < 16 := by
+  simpa using (nibbles_lt_16 b.toNat b.toNat_lt_size).2
+
+set_option maxRecDepth 8000 in
+private theorem nibbles_recombine_lt_256 : ∀ n < 256,
+    ((UInt8.ofNat n) >>> 4) * 16 + ((UInt8.ofNat n) &&& 15) = UInt8.ofNat n := by
+  decide
+
+/-- A byte is its two nibbles. -/
+theorem UInt8.nibbles_recombine (b : UInt8) : (b >>> 4) * 16 + (b &&& 15) = b := by
+  simpa using nibbles_recombine_lt_256 b.toNat b.toNat_lt_size
+
 def UInt16.toByteArrayLE (u : UInt16) : ByteArray :=
   ByteArray.mk (Array.mk [
     u.toUInt8,
