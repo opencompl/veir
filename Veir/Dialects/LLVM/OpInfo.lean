@@ -605,6 +605,12 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       let operandType := (op.getOperand! ctx.raw i).getType! ctx.raw
       let .llvmPointerType _ := operandType.val
         | throw s!"Expected operand {i} to have !llvm.ptr type"
+    if opType = .intr__memset then
+      let byteType := (op.getOperand! ctx.raw 1).getType! ctx.raw
+      let .integerType byteType := byteType.val
+        | throw "operand #1 must be 8-bit signless integer"
+      if byteType.bitwidth ≠ 8 then
+        throw s!"operand #1 must be 8-bit signless integer, but got i{byteType.bitwidth}"
     let lengthType := (op.getOperand! ctx.raw 2).getType! ctx.raw
     let .integerType _ := lengthType.val
       | throw "Expected operand 2 to have integer type"
