@@ -147,12 +147,12 @@ def ModArith.interpretOp' (opType : Veir.Mod_Arith) (properties : propertiesOf o
   match opType with
   | .constant => do
     let some resType := resultTypes[0]? | none
-    let .modArithType ⟨⟨mod, ⟨bw⟩⟩⟩ := resType.val | none
+    let .modArithType ⟨⟨mod, ⟨bw, _⟩⟩⟩ := resType.val | none
     let res := LLVM.Int.constant bw (properties.value.value % mod)
     return (#[RuntimeValue.int bw res], none)
   | .add => do
     let some resType := resultTypes[0]? | none
-    let .modArithType ⟨⟨mod, ⟨bw⟩⟩⟩ := resType.val | none
+    let .modArithType ⟨⟨mod, ⟨bw, _⟩⟩⟩ := resType.val | none
     let some (lhs, rhs) := ModArith.binaryOperands bw operands | none
     let res :=
       match lhs.toNat?, rhs.toNat? with
@@ -161,7 +161,7 @@ def ModArith.interpretOp' (opType : Veir.Mod_Arith) (properties : propertiesOf o
     return (#[RuntimeValue.int bw res], none)
   | .sub => do
     let some resType := resultTypes[0]? | none
-    let .modArithType ⟨⟨mod, ⟨bw⟩⟩⟩ := resType.val | none
+    let .modArithType ⟨⟨mod, ⟨bw, _⟩⟩⟩ := resType.val | none
     let some (lhs, rhs) := ModArith.binaryOperands bw operands | none
     let res :=
       match lhs.toNat?, rhs.toNat? with
@@ -170,7 +170,7 @@ def ModArith.interpretOp' (opType : Veir.Mod_Arith) (properties : propertiesOf o
     return (#[RuntimeValue.int bw res], none)
   | .mul => do
     let some resType := resultTypes[0]? | none
-    let .modArithType ⟨⟨mod, ⟨bw⟩⟩⟩ := resType.val | none
+    let .modArithType ⟨⟨mod, ⟨bw, _⟩⟩⟩ := resType.val | none
     let some (lhs, rhs) := ModArith.binaryOperands bw operands | none
     let res :=
       match lhs.toNat?, rhs.toNat? with

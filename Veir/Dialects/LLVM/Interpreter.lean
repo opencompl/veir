@@ -355,13 +355,13 @@ def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType
     let [val] := operands.toList | fail
     let [⟨type, _⟩] := resultTypes.toList | fail
     let result ← monadLift $ do match val, type with
-      | .int bw1 val', .integerType ⟨bw2⟩ =>
+      | .int bw1 val', .integerType ⟨bw2, _⟩ =>
           if bw1 ≠ bw2 then Interp.fail else .ok (val)
       | .int bw1 val', .byteType ⟨bw2⟩ =>
           if bw1 ≠ bw2 then .fail else .ok ((.byte bw1 $ LLVM.Byte.fromInt val'))
       | .byte bw1 val', .byteType ⟨bw2⟩ =>
           if bw1 ≠ bw2 then .fail else .ok (val)
-      | .byte bw1 val', .integerType ⟨bw2⟩ =>
+      | .byte bw1 val', .integerType ⟨bw2, _⟩ =>
           if bw1 ≠ bw2 then .fail else .ok ((.int bw1 $ val'.toInt))
       | .byte bw val', .llvmPointerType _ =>
           if h : bw = 64 then .ok (.addr (mem.ptrFromInt (val'.cast h).toInt)) else .fail

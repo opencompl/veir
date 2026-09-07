@@ -216,19 +216,19 @@ def MemoryState.llvmLoad (mem : MemoryState) (p : Pointer) (type : TypeAttr)
     : Interp RuntimeValue := do
   if p = .null then Interp.ub else
   match type.val with
-  | Attribute.integerType { bitwidth := 8 } =>
+  | Attribute.integerType { bitwidth := 8, .. } =>
       let ba ← mem.load p 1
       if ← mem.hasPoison p 1 then return .int 8 .poison
       return .int 8 (.val ba[0]!.toNat)
-  | Attribute.integerType { bitwidth := 16 } =>
+  | Attribute.integerType { bitwidth := 16, .. } =>
       let ba ← mem.load p 2
       if ← mem.hasPoison p 2 then return .int 16 .poison
       return .int 16 (.val (ba.toBitVecLE 2))
-  | Attribute.integerType { bitwidth := 32 } =>
+  | Attribute.integerType { bitwidth := 32, .. } =>
       let ba ← mem.load p 4
       if ← mem.hasPoison p 4 then return .int 32 .poison
       return .int 32 (.val (ba.toBitVecLE 4))
-  | Attribute.integerType { bitwidth := 64 } =>
+  | Attribute.integerType { bitwidth := 64, .. } =>
       let ba ← mem.load p 8
       if ← mem.hasPoison p 8 then return .int 64 .poison
       return .int 64 (.val (BitVec.ofNat 64 ba.toUInt64LE!.toNat))
