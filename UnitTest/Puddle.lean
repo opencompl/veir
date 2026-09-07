@@ -62,7 +62,7 @@ private def nativeMatch : Pattern OpCode :=
       let cst ← MatchProg.operation (.arith .constant) #[] #[returnType]
       MatchProg.matchNative (returnType, cst.properties)
         (fun (type, properties) =>
-          type = IntegerType.mk 32 && properties.value.value = 0)
+          type = ({ bitwidth := 32 } : IntegerType) && properties.value.value = 0)
       let _ ← MatchProg.root (.arith .addi) #[x, cst.res[0]!] #[returnType]
       return x)
     pure
