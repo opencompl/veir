@@ -891,6 +891,26 @@ instance : ToString RegisterType where
 instance : ToString RegisterAttr where
   toString attr := s!"{attr.value} : !riscv.reg"
 
+private def unescapeBytes (acc : ByteArray) : List Char → Option ByteArray
+  | [] => some acc
+  | '\\' :: '\\' :: rest => unescapeBytes (acc.push '\\'.toUInt8) rest
+  | '\\' :: '"' :: rest => unescapeBytes (acc.push '"'.toUInt8) rest
+  | '\\' :: 'n' :: rest => unescapeBytes (acc.push '\n'.toUInt8) rest
+  | '\\' :: 't' :: rest => unescapeBytes (acc.push '\t'.toUInt8) rest
+  | '\\' :: hi :: lo :: rest => do
+    let hi ← Char.hexDigit? hi
+    let lo ← Char.hexDigit? lo
+    unescapeBytes (acc.push (hi * 16 + lo)) rest
+  | '\\' :: _ => none
+  | c :: rest => unescapeBytes (acc ++ c.toString.toUTF8) rest
+
+/--
+  The bytes a string literal denotes, undoing `escapeStringLiteral`. `none` if
+  the text holds an escape neither writes.
+-/
+def unescapeStringLiteral (s : String) : Option ByteArray :=
+  unescapeBytes ByteArray.empty s.toList
+
 def escapeStringLiteral (b : ByteArray) : String := Id.run do
   let mut result := ""
   for byte in b do
