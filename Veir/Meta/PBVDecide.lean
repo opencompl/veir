@@ -99,7 +99,7 @@ meta def Tm.toName (tm: Tm .width) : Name :=
   | .widthAdd v w => Name.mkSimple s!"{v.toName}_add_{w.toName}"
 
 /--
-Compute how many bits are needed to hold this width's value without overflowing.
+Compute an upper bound of the width of a width term.
 The maximum over all widths gives the blast width used for the whole goal.
 -/
 meta def Tm.getUniverseWidthUpperBound (tm : Tm .width) (ctx : PbvTranslateContext) : Nat :=
@@ -126,13 +126,13 @@ meta def WidthTms.push (this : WidthTms) (width : WidthTm) : WidthTms :=
 { terms := this.terms.insert (width.term.toName) width, env := this.env }
 
 /--
-Either get existing width term, or try and reify one if it does not exist.
+Reify a width term, and either get and existing term, or create one.
 -/
 meta def WidthTms.getOrCreateTm (g : MVarId) (this : WidthTms) (wExpr : Expr)
   : MetaM (MVarId × WidthTm × WidthTms) := g.withContext do
   let some reified ← Tm.reifyWidth this.env wExpr
     | throwError m!"Failed to reify width expr: {wExpr}"
-  if let some info := this.terms[reified.toName]? then -- use reified.toExpr as a kind of "normal"/"canonical" form
+  if let some info := this.terms[reified.toName]? then
     return (g, info, this)
   else
     let widthTm := { term := reified }
@@ -150,16 +150,17 @@ Information about the width variable and associated hypotheses.
 structure WidthInfo where
   /-- The Name corresponding to this width. -/
   widthName : Name
-  /-- The Expr corresponding to this width. -/
+  /-- The `Tm` corresponding to this width. -/
   widthTm : Tm .width
   /-- The FVarId corresponding to the new mask variable for this width. -/
   widthMaskFvar : FVarId
   /-- The FVarId of the pure-BV hypothesis that this width is a mask variable. -/
   widthMaskHypFvar : FVarId
-  /-- The hypothesis that the width variable is less than the blast bound. -/
+  /-- The proof obligation that the width variable is less than or equal to
+      the blast bound. -/
   hypWidthLeBoundMVarId : MVarId
-  /-- The hypothesis that the width variable is less than the blast bound.
-      (FVar necessary so 'simp' rewrites with it.) -/
+  /-- The hypothesis that the width variable is less than or equal to the blast
+      bound. -/
   hypWidthLeBoundNote : FVarId
 
 meta def WidthInfo.name (this : WidthInfo) : Name :=
@@ -192,8 +193,8 @@ meta def WidthInfos.getFromExpr? (this: WidthInfos) (wExpr : Expr)
   return this.infos[reified.toName]?
 
 /--
-Given a width term (`widthTm`), introduce the a `BitVec` variable correspoding
-to the mask of that width. Then introduce hypothesis bounding the width to the
+Given a width term (`widthTm`), introduce a `BitVec` variable corresponding
+to the mask of that width. Then introduce a hypothesis bounding the width to the
 provided `maxBound` and enforce it as a mask with `maskOfWidth_and_add_one_eq_zero`.
 -/
 meta def introMaskWidth (maxBound : Nat) (g : MVarId) (widthTm : Tm .width) (infos : WidthInfos)
@@ -324,7 +325,7 @@ meta def BitVecFVarsToRevert.push (this : BitVecFVarsToRevert) (fvar : FVarId) (
   else { bvs := this.bvs.insert fvar widthTm }
 
 /--
-Given an expression, if it is of `BitVec w` type then create a mask for the
+Given an expression, if it is of `BitVec w` type then create a term `Tm` for the
 width `w`. If it is also an FVar, then it means it's a variable hence it has to
 be added to the set of FVars to be reverted.
 -/
@@ -343,9 +344,8 @@ meta def visitExprNonrec (g : MVarId)
     return (g, widthTms, bvs)
 
 /--
-Visit an expression, collecting all widths and introducing mask variables.
-For bitvectors, collect the bitvectors that need to be eliminated,
-and then eliminate them all in the next step.
+Visit an expression, collecting all widths and all bitvectors `FVars` that
+correspond to individual bitvector variables.
 -/
 meta partial def visitExprRec (g : MVarId)
     (widthTms : WidthTms) (bvs : BitVecFVarsToRevert)
@@ -469,13 +469,12 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVa
 
 /--
 `pbv_decide` takes a `Nat` bound as input argument and uses it to translate a
-parametric bitvector formula, containing a single-width parameter, into a
-concrete width formula.
+parametric bitvector formula into a concrete width formula.
 
 The tactic generates multiple goals:
 1. The desired concrete width formula that can be decided using `bv_decide`
 2. Multiple side-goals to prove that the width parameters are bounded by the
-provided bound, these should be solvable by grind.
+computed blast width, these should be solvable by grind.
 -/
 syntax (name := pbvDecide) "pbv_decide" (ppSpace colGt num) : tactic
 
