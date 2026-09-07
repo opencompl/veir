@@ -261,11 +261,7 @@ def Llvm.toAttrDict
     if props.disjoint then
       dict := dict.insert "disjoint".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
-  | .zext => Id.run do
-    let mut dict := Std.HashMap.emptyWithCapacity 1
-    if props.nneg then
-      dict := dict.insert "nneg".toUTF8 (Attribute.unitAttr UnitAttr.mk)
-    dict
+  | .zext => props.toAttrDict
   | .intr__ctlz | .intr__cttz =>
     let value := if props.is_zero_poison then 1 else 0
     let attr := IntegerAttr.mk value (IntegerType.mk 1)

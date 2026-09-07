@@ -66,8 +66,14 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 def NnegProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String NnegProperties := do
-  let nneg ← getUnitAttr "nneg" attrDict
+  let nneg ← getUnitAttr "nonNeg" attrDict
   return { nneg := nneg }
+
+def NnegProperties.toAttrDict (props : NnegProperties) : Std.HashMap ByteArray Attribute :=
+  if props.nneg then
+    (Std.HashMap.emptyWithCapacity 1).insert "nonNeg".toUTF8 (.unitAttr UnitAttr.mk)
+  else
+    Std.HashMap.emptyWithCapacity 0
 
 /--
   Properties of LLVM count-zero intrinsics. In LLVM IR, the second intrinsic
