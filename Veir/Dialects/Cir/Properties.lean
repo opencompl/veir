@@ -114,7 +114,7 @@ private def getKind (opName : String) (attrDict : Std.HashMap ByteArray Attribut
   return intAttr.value.toNat
 
 private def kindAttr (kind : Nat) : Attribute :=
-  .integerAttr (IntegerAttr.mk (Int.ofNat kind) (IntegerType.mk 32))
+  .integerAttr (IntegerAttr.mk (Int.ofNat kind) { bitwidth := 32 })
 
 /-! ## Properties -/
 

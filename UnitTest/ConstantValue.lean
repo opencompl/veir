@@ -88,7 +88,7 @@ private def testLlvmIntegerExtension : Bool := Id.run do
         let expected := if attrWidth = 1 then raw.zeroExtend resultWidth
           else raw.signExtend resultWidth
         let actual := BitVec.ofInt resultWidth
-          (decodeLLVMIntegerConstant (IntegerAttr.mk literal (IntegerType.mk attrWidth)))
+          (decodeLLVMIntegerConstant (IntegerAttr.mk literal { bitwidth := attrWidth }))
         if actual ≠ expected then return false
   return true
 
