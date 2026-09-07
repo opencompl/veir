@@ -630,6 +630,20 @@ structure LLVMMemIntrinsicProperties where
   tbaa : Option ArrayAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
+/--
+  An optional array of dictionaries, as MLIR requires of `arg_attrs` and
+  `res_attrs`. MLIR does not check the array's length against the operand or
+  result count, so neither does this.
+-/
+private def optionalDictArrayAttr (opName name : String)
+    (attrDict : Std.HashMap ByteArray Attribute) : Except String (Option ArrayAttr) := do
+  let some value ← optionalArrayAttr opName name attrDict
+    | return none
+  if value.value.any (fun attr => match attr with | .dictionaryAttr _ => false | _ => true) then
+    throw s!"{opName}: attribute '{name}' failed to satisfy constraint: \
+      Array of dictionary attributes"
+  return some value
+
 def LLVMMemIntrinsicProperties.fromAttrDictFor (opName : String)
     (attrDict : Std.HashMap ByteArray Attribute) :
     Except String LLVMMemIntrinsicProperties := do
@@ -645,8 +659,8 @@ def LLVMMemIntrinsicProperties.fromAttrDictFor (opName : String)
     | throw s!"{opName}: expected 'isVolatile' to be an i1 integer attribute, but got {volatileAttr}"
   if volatileAttr.type.bitwidth ≠ 1 then
     throw s!"{opName}: expected 'isVolatile' to be an i1 integer attribute, but got i{volatileAttr.type.bitwidth}"
-  let argAttrs ← optionalArrayAttr opName "arg_attrs" attrDict
-  let resAttrs ← optionalArrayAttr opName "res_attrs" attrDict
+  let argAttrs ← optionalDictArrayAttr opName "arg_attrs" attrDict
+  let resAttrs ← optionalDictArrayAttr opName "res_attrs" attrDict
   let accessGroups ← optionalArrayAttr opName "access_groups" attrDict
   let aliasScopes ← optionalArrayAttr opName "alias_scopes" attrDict
   let noaliasScopes ← optionalArrayAttr opName "noalias_scopes" attrDict
