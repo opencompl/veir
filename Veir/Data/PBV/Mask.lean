@@ -60,6 +60,29 @@ theorem setWidth_eq_and_maskOfWidth {o w : Nat} {a : BitVec w} {b : BitVec o}
   apply BitVec.eq_of_toNat_eq
   rw [toNat_and_maskOfWidth h, BitVec.toNat_setWidth_of_le h, hab]
 
+/-- Adding one to a mask makes it a `BitVec.twoPow`. -/
+theorem maskOfWidth_add_one_eq_twoPow {o w : Nat} (h : w ≤ o) :
+    maskOfWidth o w + 1#o = BitVec.twoPow o w := by
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_add, toNat_maskOfWidth h, BitVec.toNat_twoPow]
+  cases o
+  · have w_zero : w = 0 := by grind
+    simp [w_zero]
+  · congr
+    simp [BitVec.toNat_ofNat, Nat.mod_eq_of_lt]
+    grind
+
+/-- A mask is `BitVec.twoPow` minus one. -/
+theorem maskOfWidth_eq_twoPow_sub_one {o w : Nat} (h : w ≤ o) :
+    maskOfWidth o w = BitVec.twoPow o w - 1#o := by
+  apply BitVec.eq_of_toNat_eq
+  grind [maskOfWidth_add_one_eq_twoPow]
+
+/-- Every mask of blast width `0` is the empty bitvector. -/
+@[simp] theorem maskOfWidth_zero_eq_zero {w : Nat} : maskOfWidth 0 w = 0#0 := by
+  apply BitVec.eq_of_toNat_eq
+  simp [maskOfWidth, Nat.mod_one]
+
 /-- The `i`th bit of `maskOfWidth o w` is enabled iff
 the index `i` is inbounds of `o` and `w`. -/
 @[simp] theorem getLsbD_maskOfWidth {o w : Nat} (i : Nat) :

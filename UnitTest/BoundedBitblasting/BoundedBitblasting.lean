@@ -21,3 +21,25 @@ example (w : Nat) (x y z : BitVec w) (hw : w ≤ 4) :
   pbv_decide 4
   · bv_decide
   · grind
+
+/-- Appending and adding -/
+example (w : Nat) (a b : BitVec w) (hw : w ≤ 8) :
+  (a ++ b) + (b ++ a) = (a ++ a) + (b ++ b) := by
+  pbv_decide 8
+  · bv_decide
+  · grind
+  · grind
+
+/-- Extending, adding and truncating is the same as adding -/
+example {w t v: Nat} (a b : BitVec w)
+  (exta extb : BitVec v)
+  (hqw : w ≤ t)
+  (hv : t = v + w)
+  (bound : t ≤ 32):
+  a + b = ((exta ++ a) + (extb ++ b)).setWidth w
+  := by
+  pbv_decide 16
+  · bv_decide
+  · grind
+  · grind
+  · grind
