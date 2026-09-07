@@ -17,21 +17,12 @@ public section
 
 namespace Veir
 
-/--
-  Rank fold outcomes from least to most preferred: no fold, an operand, a
-  concrete constant, and a poison constant.
--/
-private def FoldDecision.preference : Option FoldDecision → Nat
-  | none => 0
-  | some (.useOperand _) => 1
-  | some (.useConstant value) => if value.isPoison then 3 else 2
-
-/--
-  Rank the fold outcome of an entire operation by its first result. The dialect
-  fold tables that this ordering arbitrates are all single-result.
--/
+/-- Rank the fold outcome of an entire operation by its first result -/
 private def foldPreference (results : Option (Array FoldDecision)) : Nat :=
-  FoldDecision.preference (results.bind (·[0]?))
+  match results.bind (·[0]?) with
+  | none => 0
+  | some (FoldDecision.useOperand _) => 1
+  | some (FoldDecision.useConstant value) => if value.isPoison then 3 else 2
 
 /-- Return the better fold outcome, retaining the first when both rank equally. -/
 private def preferredFold (first second : Option (Array FoldDecision)) :

@@ -365,7 +365,6 @@ instance : IsOpCode OpCode where
   fromAttrDict := Properties.fromAttrDict
   toAttrDict := Properties.toAttrDict
 
-
 /-- Function-interface information assembled from the registered dialects. -/
 def OpCode.functionInterface? (opCode : OpCode) : Option (FunctionOpInterface (_propertiesOf opCode)) :=
   match opCode with

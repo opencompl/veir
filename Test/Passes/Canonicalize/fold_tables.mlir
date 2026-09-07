@@ -101,4 +101,36 @@
       "func.return"(%sum) : (i32) -> ()
       // CHECK-NEXT: "func.return"(%[[SUM]]) : (i32) -> ()
   }) : () -> ()
+
+  // Both the table and the interpreter can fold this operation. The table
+  // would reuse the LLVM constant in operand 0, while evaluation produces a
+  // concrete constant and therefore wins. The arith spelling of the result
+  // makes that choice observable.
+  "func.func"() <{function_type = () -> i32, sym_name = "constant_beats_operand"}> ({
+    ^bb0():
+      // CHECK-LABEL: "sym_name" = "constant_beats_operand"
+      %c7 = "llvm.mlir.constant"() <{"value" = 7 : i32}> : () -> i32
+      %c0 = "llvm.mlir.constant"() <{"value" = 0 : i32}> : () -> i32
+      %sum = "arith.addi"(%c7, %c0) : (i32, i32) -> i32
+      // CHECK: %[[SEVEN:.*]] = "arith.constant"() <{"value" = 7 : i32}> : () -> i32
+      // CHECK-NEXT: "func.return"(%[[SEVEN]]) : (i32) -> ()
+      "func.return"(%sum) : (i32) -> ()
+  }) : () -> ()
+
+  // Here the table would reuse operand 0, but evaluation and poison
+  // propagation both produce a poison constant, which has higher preference.
+  // Keeping the original poison live makes the fresh folded value observable.
+  "func.func"() <{function_type = () -> i32, sym_name = "poison_beats_operand"}> ({
+    ^bb0():
+      // CHECK-LABEL: "sym_name" = "poison_beats_operand"
+      %poison = "llvm.mlir.poison"() : () -> i32
+      // CHECK: %[[ORIGINAL:.*]] = "llvm.mlir.poison"() : () -> i32
+      %c0 = "llvm.mlir.constant"() <{"value" = 0 : i32}> : () -> i32
+      %sum = "llvm.add"(%poison, %c0) : (i32, i32) -> i32
+      // CHECK-NEXT: %[[FOLDED:.*]] = "llvm.mlir.poison"() : () -> i32
+      "test.test"(%poison) : (i32) -> ()
+      // CHECK-NEXT: "test.test"(%[[ORIGINAL]]) : (i32) -> ()
+      // CHECK-NEXT: "func.return"(%[[FOLDED]]) : (i32) -> ()
+      "func.return"(%sum) : (i32) -> ()
+  }) : () -> ()
 }) : () -> ()
