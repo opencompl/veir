@@ -315,14 +315,28 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
 
   -- Determine the type after ':'.
   if let some integerType ← parseOptionalIntegerType then
-    return some (IntegerAttr.mk (← integerValue) integerType : Attribute)
+    let val ← integerValue
+    let n := integerType.bitwidth
+    if n > 0 then
+      let lo : Int := -(2 ^ (n - 1))
+      let hi : Int := 2 ^ n
+      if val < lo || val ≥ hi then
+        throwAt valueStartPos "integer constant out of range for attribute"
+    return some (IntegerAttr.mk val integerType : Attribute)
   else if let some floatType ← parseOptionalFloatType then
     return some (FloatAttr.mk floatType (← floatValue floatType) : Attribute)
   else if let some name ← parseOptionalPrefixedKeyword .exclamationIdent then
     let some typeAttr := (← resolveOptionalTypeAlias startPos name)
       | throwAt startPos "integer or float type expected after ':' in numeric attribute"
     if let some integerType := typeAttr.cast? IntegerType then
-      return some (IntegerAttr.mk (← integerValue) integerType : Attribute)
+      let val ← integerValue
+      let n := integerType.bitwidth
+      if n > 0 then
+        let lo : Int := -(2 ^ (n - 1))
+        let hi : Int := 2 ^ n
+        if val < lo || val ≥ hi then
+          throwAt valueStartPos "integer constant out of range for attribute"
+      return some (IntegerAttr.mk val integerType : Attribute)
     else if let some floatType := typeAttr.cast? FloatType then
       return some (FloatAttr.mk floatType (← floatValue floatType) : Attribute)
     else

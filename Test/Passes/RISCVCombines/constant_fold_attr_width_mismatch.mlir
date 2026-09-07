@@ -1,8 +1,5 @@
 // RUN: veir-opt %s -p=riscv-combine | filecheck %s
 // RUN: %if mlir-min-22 %{ veir-opt %s -p=riscv-combine | mlir-opt --mlir-print-op-generic %}
-// Expected to fail until `llvm.mlir.constant` handles the value attribute's
-// integer width the way MLIR does; drop the XFAIL with the fix.
-// XFAIL: *
 
 // `matchConstantIntOp` (Veir/Passes/Matching/LLVM/Basic.lean) hands callers the
 // raw `IntegerAttr.value`, and `constant_fold_binop_local`

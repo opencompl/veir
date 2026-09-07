@@ -104,6 +104,16 @@ structure IntegerAttr where
   type : IntegerType
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+def IntegerAttr.normalize (value : Int) (bitwidth : Nat) : Int :=
+  if bitwidth == 0 then 0
+  else
+    let modulus : Int := 2 ^ bitwidth
+    let reduced := value % modulus
+    let unsigned := if reduced < 0 then reduced + modulus else reduced
+    if bitwidth == 1 then unsigned
+    else if unsigned ≥ modulus / 2 then unsigned - modulus
+    else unsigned
+
 /--
  Floating point fastmath flags attribute.
 -/

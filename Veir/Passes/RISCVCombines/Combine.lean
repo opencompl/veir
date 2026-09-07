@@ -1208,7 +1208,7 @@ def APlusC1MinusC2_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (a, c1v, ap) := matchAdd dAdd ctx.raw | return (ctx, none)
   let some c1 := matchConstantIntVal c1v ctx.raw | return (ctx, none)
   let .integerType aty := (a.getType! ctx.raw).val | return (ctx, none)
-  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c1.value - c2.value) aty))
+  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (IntegerAttr.normalize (c1.value - c2.value) aty.bitwidth) aty))
   let (ctx, cf) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[a.getType! ctx.raw] #[]
     #[] #[] folded none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.add #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[a, (cf.getResult 0)]
@@ -1229,7 +1229,7 @@ def C2MinusAPlusC1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (a, c1v, _ap) := matchAdd dAdd ctx.raw | return (ctx, none)
   let some c1 := matchConstantIntVal c1v ctx.raw | return (ctx, none)
   let .integerType aty := (a.getType! ctx.raw).val | return (ctx, none)
-  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c2.value - c1.value) aty))
+  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (IntegerAttr.normalize (c2.value - c1.value) aty.bitwidth) aty))
   let (ctx, cf) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[a.getType! ctx.raw] #[]
     #[] #[] folded none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[(cf.getResult 0), a]
@@ -1250,7 +1250,7 @@ def AMinusC1MinusC2_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (a, c1v, _sp2) := matchSub dSub ctx.raw | return (ctx, none)
   let some c1 := matchConstantIntVal c1v ctx.raw | return (ctx, none)
   let .integerType aty := (a.getType! ctx.raw).val | return (ctx, none)
-  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c1.value + c2.value) aty))
+  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (IntegerAttr.normalize (c1.value + c2.value) aty.bitwidth) aty))
   let (ctx, cf) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[a.getType! ctx.raw] #[]
     #[] #[] folded none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[a, (cf.getResult 0)]
@@ -1271,7 +1271,7 @@ def C1MinusAMinusC2_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (c1v, a, _sp2) := matchSub dSub ctx.raw | return (ctx, none)
   let some c1 := matchConstantIntVal c1v ctx.raw | return (ctx, none)
   let .integerType aty := (a.getType! ctx.raw).val | return (ctx, none)
-  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c1.value - c2.value) aty))
+  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (IntegerAttr.normalize (c1.value - c2.value) aty.bitwidth) aty))
   let (ctx, cf) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[a.getType! ctx.raw] #[]
     #[] #[] folded none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[(cf.getResult 0), a]
@@ -1292,7 +1292,7 @@ def AMinusC1PlusC2_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (a, c1v, _sp) := matchSub dSub ctx.raw | return (ctx, none)
   let some c1 := matchConstantIntVal c1v ctx.raw | return (ctx, none)
   let .integerType aty := (a.getType! ctx.raw).val | return (ctx, none)
-  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c2.value - c1.value) aty))
+  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (IntegerAttr.normalize (c2.value - c1.value) aty.bitwidth) aty))
   let (ctx, cf) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[a.getType! ctx.raw] #[]
     #[] #[] folded none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.add #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[a, (cf.getResult 0)]
@@ -2108,7 +2108,7 @@ def sub_to_add_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (x, cval, _sp) := matchSub op ctx.raw | return (ctx, none)
   let some c := matchConstantIntVal cval ctx.raw | return (ctx, none)
   let .integerType xty := (x.getType! ctx.raw).val | return (ctx, none)
-  let negC := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-c.value) xty))
+  let negC := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (IntegerAttr.normalize (-c.value) xty.bitwidth) xty))
   let (ctx, cn) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[x.getType! ctx.raw] #[]
     #[] #[] negC none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.add #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[x, (cn.getResult 0)]
@@ -2128,7 +2128,7 @@ def sub_of_mul_const_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (x, cval, mp) := matchMul dMul ctx.raw | return (ctx, none)
   let some c := matchConstantIntVal cval ctx.raw | return (ctx, none)
   let .integerType xty := (x.getType! ctx.raw).val | return (ctx, none)
-  let negC := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-c.value) xty))
+  let negC := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (IntegerAttr.normalize (-c.value) xty.bitwidth) xty))
   let (ctx, cn) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[x.getType! ctx.raw] #[]
     #[] #[] negC none
   let (ctx, newMul) ← WfRewriter.createOp! ctx Llvm.mul #[x.getType! ctx.raw] #[x, (cn.getResult 0)]
@@ -2294,7 +2294,7 @@ def lshr_of_trunc_of_lshr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (x, c1v, ip) := matchLshr dInner ctx.raw | return (ctx, none)
   let some c1 := matchConstantIntVal c1v ctx.raw | return (ctx, none)
   let .integerType xty := (x.getType! ctx.raw).val | return (ctx, none)
-  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c1.value + c2.value) xty))
+  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (IntegerAttr.normalize (c1.value + c2.value) xty.bitwidth) xty))
   let (ctx, cf) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[x.getType! ctx.raw] #[]
     #[] #[] folded none
   let (ctx, newLshr) ← WfRewriter.createOp! ctx Llvm.lshr #[x.getType! ctx.raw] #[x, (cf.getResult 0)]
@@ -2457,7 +2457,7 @@ def funnel_shift_overshift_l_local (ctx : WfIRContext OpCode) (op : OperationPtr
   let .integerType aty := (amt.getType! ctx.raw).val | return (ctx, none)
   let bw : Int := (aty.bitwidth : Int)
   if c.value < bw then return (ctx, none)
-  let newAmt := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c.value % bw) aty))
+  let newAmt := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (IntegerAttr.normalize (c.value % bw) aty.bitwidth) aty))
   let (ctx, cn) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[amt.getType! ctx.raw] #[]
     #[] #[] newAmt none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.intr__fshl #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[x, y, (cn.getResult 0)]
@@ -2475,7 +2475,7 @@ def funnel_shift_overshift_r_local (ctx : WfIRContext OpCode) (op : OperationPtr
   let .integerType aty := (amt.getType! ctx.raw).val | return (ctx, none)
   let bw : Int := (aty.bitwidth : Int)
   if c.value < bw then return (ctx, none)
-  let newAmt := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c.value % bw) aty))
+  let newAmt := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (IntegerAttr.normalize (c.value % bw) aty.bitwidth) aty))
   let (ctx, cn) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[amt.getType! ctx.raw] #[]
     #[] #[] newAmt none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.intr__fshr #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[x, y, (cn.getResult 0)]
@@ -2542,8 +2542,9 @@ def constant_fold_binop_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if operands.size ≠ 2 then return (ctx, none)
   let some c1 := matchConstantIntVal operands[0]! ctx.raw | return (ctx, none)
   let some c2 := matchConstantIntVal operands[1]! ctx.raw | return (ctx, none)
-  let a := c1.value
-  let b := c2.value
+  let .integerType rty := ((op.getResult 0 : ValuePtr).getType! ctx.raw).val | return (ctx, none)
+  let a := IntegerAttr.normalize (IntegerAttr.normalize c1.value c1.type.bitwidth) rty.bitwidth
+  let b := IntegerAttr.normalize (IntegerAttr.normalize c2.value c2.type.bitwidth) rty.bitwidth
   -- Only opcodes whose result is well-defined over unbounded `Int` (no fixed-width
   -- wrapping / signedness ambiguity) are folded. The bitwise ops (`and/or/xor`),
   -- the shifts, and the div/rem family need width-dependent semantics and are
@@ -2556,8 +2557,7 @@ def constant_fold_binop_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     | .llvm .intr__smax => some (max a b)
     | _ => none
   let some result := folded | return (ctx, none)
-  let .integerType rty := ((op.getResult 0 : ValuePtr).getType! ctx.raw).val | return (ctx, none)
-  let foldedProps := LLVMConstantProperties.mk (.integer (IntegerAttr.mk result rty))
+  let foldedProps := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (IntegerAttr.normalize result rty.bitwidth) rty))
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[]
     #[] #[] foldedProps none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
