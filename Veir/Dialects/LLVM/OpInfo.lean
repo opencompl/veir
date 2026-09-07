@@ -59,6 +59,7 @@ inductive Llvm where
 | load
 | store
 | getelementptr
+| insertvalue
 | call
 | call_intrinsic
 | return
@@ -124,6 +125,7 @@ match op with
 | .load => LoadProperties
 | .store => StoreProperties
 | .getelementptr => GetelementptrProperties
+| .insertvalue => LLVMInsertValueProperties
 | .fadd | .fsub | .fmul | .fdiv | .frem | .fneg | .intr__fmuladd | .intr__fabs =>
   FastMathFlagsProperties
 | .fcmp => FcmpProperties
@@ -166,6 +168,7 @@ def Llvm.fromAttrDict
   case load => exact LoadProperties.fromAttrDict attrDict
   case store => exact StoreProperties.fromAttrDict attrDict
   case getelementptr => exact GetelementptrProperties.fromAttrDict attrDict
+  case insertvalue => exact LLVMInsertValueProperties.fromAttrDict attrDict
   case fadd | fsub | fmul | fdiv | frem | fneg | intr__fmuladd | intr__fabs =>
     exact FastMathFlagsProperties.fromAttrDict attrDict
   case fcmp => exact FcmpProperties.fromAttrDict attrDict
@@ -340,6 +343,9 @@ def Llvm.toAttrDict
     dict := dict.insert "noalias_scopes".toUTF8 (.arrayAttr props.noalias_scopes)
     dict := dict.insert "tbaa".toUTF8 (.arrayAttr props.tbaa)
     dict
+  | .insertvalue =>
+    (Std.HashMap.emptyWithCapacity 1).insert
+      "position".toUTF8 (Attribute.denseArrayAttr props.position)
   | .getelementptr => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 3
     dict := dict.insert
@@ -451,7 +457,8 @@ def Llvm.propagatesPoison : Llvm → Bool
   | .select | .br | .cond_br | .switch | .unreachable | .alloca | .load | .store
   | .intr__lifetime__start | .intr__lifetime__end | .intr__assume
   | .intr__memset | .intr__memcpy | .intr__memmove
-  | .getelementptr | .call | .call_intrinsic | .return | .func | .module_flags
+  | .getelementptr | .insertvalue | .call | .call_intrinsic | .return | .func
+  | .module_flags
   | .freeze => false
 
 instance : IsOpCode Llvm where
@@ -829,6 +836,15 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     let properties := op.getProperties! ctx.raw Llvm.store
     if properties.alignment.type.bitwidth ≠ 64 then
       throw "'llvm.store' op attribute 'alignment' failed to satisfy constraint: 64-bit signless integer attribute"
+    pure ()
+  | .insertvalue => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyPlainOpCounts ctx opIn 2 1
+    let props := op.getProperties! ctx.raw Llvm.insertvalue
+    if props.position.values.isEmpty then
+      throw "llvm.insertvalue: Expected at least one index in 'position'"
+    if props.position.values.any (· < 0) then
+      throw "llvm.insertvalue: 'position' contains a negative index"
     pure ()
   | .getelementptr => do
     op.checkIsNonNullIntegerType ctx opIn
