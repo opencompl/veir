@@ -1086,6 +1086,17 @@ partial def parseLLVMType (errorMsg : String := "type expected") : AttrParserM T
     return type
   if let some type ← parseOptionalLLVMFunctionType true then
     return type
+  for kw in #["x86_amx", "ppc_fp128", "label", "metadata"] do
+    if ← parseOptionalKeyword kw.toByteArray then
+      return ⟨UnregisteredAttr.mk s!"!llvm.{kw}" true none, by grind⟩
+  if ← parseOptionalKeyword "target".toByteArray then
+    let startPos ← getPos
+    parsePunctuation "<"
+    let _ ← parseUnregisteredAttrBody
+    let endPos := (← peekToken).slice.stop
+    parsePunctuation ">"
+    let body := (Slice.mk startPos endPos).of (← getThe ParserState).input
+    return ⟨UnregisteredAttr.mk ("!llvm.target" ++ String.fromUTF8! body) true none, by grind⟩
   parseType errorMsg
 
 /--
@@ -1209,6 +1220,23 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some llvmStructType
   if let some llvmFunctionType ← parseOptionalLLVMFunctionType then
     return some llvmFunctionType
+  if let .exclamationIdent := (← peekToken).kind then
+    let input := (← getThe ParserState).input
+    let token ← peekToken
+    let typeName := { token.slice with start := token.slice.start + 1 }.of input
+    for kw in #["x86_amx", "ppc_fp128", "label", "metadata"] do
+      if typeName == s!"llvm.{kw}".toByteArray then
+        let _ ← consumeToken
+        return some ⟨UnregisteredAttr.mk s!"!llvm.{kw}" true none, by grind⟩
+    if typeName == "llvm.target".toByteArray then
+      let _ ← consumeToken
+      let startPos ← getPos
+      parsePunctuation "<"
+      let _ ← parseUnregisteredAttrBody
+      let endPos := (← peekToken).slice.stop
+      parsePunctuation ">"
+      let body := (Slice.mk startPos endPos).of input
+      return some ⟨UnregisteredAttr.mk ("!llvm.target" ++ String.fromUTF8! body) true none, by grind⟩
   if let some cudaTilePointerType := ← parseOptionalCudaTilePointerType then
     return some cudaTilePointerType
   if let some ioAddressType := ← parseOptionalIoAddressType then
