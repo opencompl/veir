@@ -8,9 +8,8 @@
     "llvm.intr.memcpy"(%dst, %src, %len) <{isVolatile = true}> : (!llvm.ptr, !llvm.ptr, i64) -> ()
     "llvm.intr.memmove"(%dst, %src, %len) <{isVolatile = false}> : (!llvm.ptr, !llvm.ptr, i64) -> ()
     "llvm.intr.memcpy"(%dst, %src, %len) <{isVolatile = false, access_groups = [], alias_scopes = [], noalias_scopes = [], tbaa = [#llvm.tbaa_tag<base_type = <id = "int", members = {<#llvm.tbaa_root<id = "Simple C/C++ TBAA">, 0>}>, access_type = <id = "int", members = {<#llvm.tbaa_root<id = "Simple C/C++ TBAA">, 0>}>, offset = 0>]}> : (!llvm.ptr, !llvm.ptr, i64) -> ()
-    // `res_attrs` is not meaningful given that memset has no results, but MLIR accepts it,
-    // so we round-trip it rather than refuse it.
-    "llvm.intr.memset"(%dst, %byte, %len) <{isVolatile = false, res_attrs = [{llvm.noundef}]}> : (!llvm.ptr, i8, i64) -> ()
+    // `res_attrs` has one entry per result, so an empty one is all a memset can carry.
+    "llvm.intr.memset"(%dst, %byte, %len) <{isVolatile = false, res_attrs = []}> : (!llvm.ptr, i8, i64) -> ()
     "llvm.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
@@ -19,4 +18,4 @@
 // CHECK: "llvm.intr.memcpy"({{.*}}) <{"isVolatile" = 1 : i1}> : (!llvm.ptr, !llvm.ptr, i64) -> ()
 // CHECK: "llvm.intr.memmove"({{.*}}) <{"isVolatile" = 0 : i1}> : (!llvm.ptr, !llvm.ptr, i64) -> ()
 // CHECK: "llvm.intr.memcpy"({{.*}}) <{"access_groups" = [], "alias_scopes" = [], "isVolatile" = 0 : i1, "noalias_scopes" = [], "tbaa" = [#llvm.tbaa_tag<
-// CHECK: "llvm.intr.memset"({{.*}}) <{"isVolatile" = 0 : i1, "res_attrs" = [{llvm.noundef}]}> : (!llvm.ptr, i8, i64) -> ()
+// CHECK: "llvm.intr.memset"({{.*}}) <{"isVolatile" = 0 : i1, "res_attrs" = []}> : (!llvm.ptr, i8, i64) -> ()

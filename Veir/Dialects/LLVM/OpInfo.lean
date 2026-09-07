@@ -505,6 +505,16 @@ def OperationPtr.verifyLLVMICmp {OpInfo : Type} [IsOpCode OpInfo]
     s!"{instrName}: Expected operands to have the same type"
   ((op.getResult 0).get! ctx.raw).type.verifyI1 s!"{instrName}: Expected i1 result"
 
+/-- The properties of a memory intrinsic, whichever of the three it is. -/
+private def memIntrinsicProperties {OpInfo : Type} [IsOpCode OpInfo]
+    [HasDialect OpInfo Llvm] (opType : Llvm) (op : OperationPtr)
+    (ctx : WfIRContext OpInfo) : Option LLVMMemIntrinsicProperties :=
+  match opType with
+  | .intr__memset => some (op.getProperties! ctx.raw Llvm.intr__memset)
+  | .intr__memcpy => some (op.getProperties! ctx.raw Llvm.intr__memcpy)
+  | .intr__memmove => some (op.getProperties! ctx.raw Llvm.intr__memmove)
+  | _ => none
+
 /--
 Verify the local invariants of an `llvm` operation in any operation-info type
 containing the `llvm` dialect.
@@ -614,6 +624,17 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     let lengthType := (op.getOperand! ctx.raw 2).getType! ctx.raw
     let .integerType _ := lengthType.val
       | throw "Expected operand 2 to have integer type"
+    /- One entry per operand and per result. MLIR accepts any length here. -/
+    let some props := memIntrinsicProperties opType op ctx
+      | throw "Expected a memory intrinsic"
+    if let some argAttrs := props.arg_attrs then
+      let expected := op.getNumOperands ctx.raw opIn
+      if argAttrs.value.size ≠ expected then
+        throw s!"Expected {expected} 'arg_attrs' entries, but got {argAttrs.value.size}"
+    if let some resAttrs := props.res_attrs then
+      let expected := op.getNumResults ctx.raw opIn
+      if resAttrs.value.size ≠ expected then
+        throw s!"Expected {expected} 'res_attrs' entries, but got {resAttrs.value.size}"
     pure ()
   | .intr__lifetime__start | .intr__lifetime__end => do
     op.verifyPlainOpCounts ctx opIn 1 0
