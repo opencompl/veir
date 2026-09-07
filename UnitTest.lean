@@ -1,4 +1,5 @@
 import UnitTest.Lexer
+import UnitTest.Deriving
 import UnitTest.ParserError
 import UnitTest.Parser
 import UnitTest.AttrParser
