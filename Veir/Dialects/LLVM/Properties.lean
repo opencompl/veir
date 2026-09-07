@@ -651,13 +651,7 @@ def LLVMMemIntrinsicProperties.fromAttrDictFor (opName : String)
   let aliasScopes ← optionalArrayAttr opName "alias_scopes" attrDict
   let noaliasScopes ← optionalArrayAttr opName "noalias_scopes" attrDict
   let tbaa ← optionalArrayAttr opName "tbaa" attrDict
-  /- Parsed and dropped, as MLIR does.
-     They are still type-checked, so a malformed one is refused. -/
-  match attrDict["op_bundle_sizes".toUTF8]? with
-    | some (.denseArrayAttr _) | none => pure ()
-    | some attr =>
-      throw s!"{opName}: expected 'op_bundle_sizes' to be a dense array attribute, but got {attr}"
-  let _ ← optionalArrayAttr opName "op_bundle_tags" attrDict
+  /- Parse and drop `op_bundle_sizes` and `op_bundle_tags` to match MLIR. -/
   return { isVolatile := volatileAttr.value ≠ 0, arg_attrs := argAttrs,
            res_attrs := resAttrs, access_groups := accessGroups,
            alias_scopes := aliasScopes, noalias_scopes := noaliasScopes,
