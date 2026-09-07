@@ -99,6 +99,8 @@ def OperationPtr.verifyOperandSegmentSizes
     (sizes : DenseArrayAttr) (expectedSegments : Nat) :
     Except String (Array Nat) := do
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  if sizes.elementType.bitwidth ≠ 32 then
+    throw s!"{instrName}: Expected 'operandSegmentSizes' to be an i32 dense array attribute"
   if sizes.values.size ≠ expectedSegments then
     throw s!"{instrName}: operandSegmentSizes expected {expectedSegments} entries, got {sizes.values.size}"
   let mut segmentSizes : Array Nat := #[]
@@ -110,6 +112,24 @@ def OperationPtr.verifyOperandSegmentSizes
   if segmentSum ≠ op.getNumOperands ctx.raw opIn then
     throw s!"{instrName}: operandSegmentSizes describes {segmentSum} operands, got {op.getNumOperands ctx.raw opIn}"
   return segmentSizes
+
+/--
+  Check the operand bundles described by `op_bundle_sizes` and `op_bundle_tags`
+  as MLIR's `verifyOperandBundles` does, and return the number of bundle operands.
+-/
+def verifyOperandBundles (sizes : DenseArrayAttr) (tags : Option ArrayAttr) :
+    Except String Nat := do
+  if sizes.elementType.bitwidth ≠ 32 then
+    throw "Expected 'op_bundle_sizes' to be an i32 dense array attribute"
+  if sizes.values.any (· < 0) then
+    throw "op_bundle_sizes contains a negative size"
+  let tags := (tags.map (·.value)).getD #[]
+  if tags.size ≠ sizes.values.size then
+    throw s!"Expected {sizes.values.size} operand bundle tag(s), but got {tags.size}"
+  for tag in tags do
+    let .stringAttr _ := tag
+      | throw "Expected operand bundle tags to be string attributes"
+  return (sizes.values.foldl (· + ·) 0).toNat
 
 def OperationPtr.verifyCondBranchOperandSegmentSizes
     (op : OperationPtr) (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw)

@@ -667,25 +667,13 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .intr__assume => do
     op.checkIsNonNullIntegerType ctx opIn
     let props := op.getProperties! ctx.raw Llvm.intr__assume
-    let sizes := props.op_bundle_sizes
-    if sizes.elementType.bitwidth ≠ 32 then
-      throw "llvm.intr.assume: Expected 'op_bundle_sizes' to be an i32 dense array attribute"
-    if sizes.values.any (· < 0) then
-      throw "llvm.intr.assume: op_bundle_sizes contains a negative size"
-    let bundleOperands := (sizes.values.foldl (· + ·) 0).toNat
+    let bundleOperands ← verifyOperandBundles props.op_bundle_sizes props.op_bundle_tags
     let numOperands := op.getNumOperands ctx.raw opIn
     if numOperands ≠ 1 + bundleOperands then
-      throw s!"llvm.intr.assume: Expected 1 condition and {bundleOperands} operand bundle \
+      throw s!"Expected 1 condition and {bundleOperands} operand bundle \
         operand(s) per 'op_bundle_sizes', but got {numOperands} operand(s)"
     op.verifyPlainOpCounts ctx opIn numOperands 0
-    ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyI1 "llvm.intr.assume: Expected i1 condition"
-    let tags := (props.op_bundle_tags.map (·.value)).getD #[]
-    if tags.size ≠ sizes.values.size then
-      throw s!"llvm.intr.assume: Expected {sizes.values.size} operand bundle tag(s), \
-        but got {tags.size}"
-    for tag in tags do
-      let .stringAttr _ := tag
-        | throw "llvm.intr.assume: Expected operand bundle tags to be string attributes"
+    ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyI1 "Expected i1 condition"
   | .inttoptr | .ptrtoint => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 1 1
@@ -839,23 +827,19 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     pure ()
   | .call_intrinsic => do
     op.checkIsNonNullIntegerType ctx opIn
+    let props := op.getProperties! ctx.raw Llvm.call_intrinsic
+    if !(String.fromUTF8? props.intrin.value).any (·.startsWith "llvm.") then
+      throw "intrinsic name must start with 'llvm.'"
     if op.getNumResults ctx.raw opIn > 1 then
       throw "Expected at most 1 result"
-    let props := op.getProperties! ctx.raw Llvm.call_intrinsic
     let sizes ← op.verifyOperandSegmentSizes ctx opIn props.operandSegmentSizes 2
+    op.verifyPlainOpCounts ctx opIn (op.getNumOperands ctx.raw opIn) (op.getNumResults ctx.raw opIn)
     /- The second segment holds the operands of the bundles, which
        `op_bundle_sizes` splits again, one entry per bundle. -/
-    let bundleSizes := props.op_bundle_sizes.values
-    if bundleSizes.any (· < 0) then
-      throw "op_bundle_sizes contains a negative size"
-    let bundleOperands := (bundleSizes.foldl (· + ·) 0).toNat
+    let bundleOperands ← verifyOperandBundles props.op_bundle_sizes props.op_bundle_tags
     if bundleOperands ≠ sizes[1]! then
       throw s!"op_bundle_sizes describes {bundleOperands} operand(s), but \
         operandSegmentSizes reserves {sizes[1]!}"
-    if let some tags := props.op_bundle_tags then
-      if tags.value.size ≠ bundleSizes.size then
-        throw s!"Expected {bundleSizes.size} operand bundle tag(s), but got {tags.value.size}"
-    pure ()
   | .call => do
     op.checkIsNonNullIntegerType ctx opIn
     if op.getNumResults ctx.raw opIn > 1 then

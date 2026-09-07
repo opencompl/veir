@@ -710,12 +710,8 @@ def LLVMCallIntrinsicProperties.fromAttrDict (attrDict : Std.HashMap ByteArray A
   let tags ← optionalArrayAttr "llvm.call_intrinsic" "op_bundle_tags" attrDict
   let argAttrs ← optionalDictArrayAttr "llvm.call_intrinsic" "arg_attrs" attrDict
   let resAttrs ← optionalDictArrayAttr "llvm.call_intrinsic" "res_attrs" attrDict
-  /- MLIR materializes the default on parse, so it is always present. -/
-  let flags ← match attrDict["fastmathFlags".toUTF8]? with
-    | some (.fastMathFlagsAttr flags) => .ok flags
-    | some attr =>
-      throw s!"llvm.call_intrinsic: expected 'fastmathFlags' to be a fast math flags attribute, but got {attr}"
-    | none => .ok { nnan := false, ninf := false, nsz := false }
+  let ⟨flags⟩ ← (FastMathFlagsProperties.fromAttrDict attrDict).mapError
+    (s!"llvm.call_intrinsic: {·}")
   return { intrin, operandSegmentSizes := sizes, op_bundle_sizes := bundleSizes,
            op_bundle_tags := tags, fastmathFlags := flags,
            arg_attrs := argAttrs, res_attrs := resAttrs }
