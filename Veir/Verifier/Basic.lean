@@ -158,6 +158,12 @@ def TypeAttr.verifyIntegerType
   | .integerType _ => pure ()
   | _ => throw errMsg
 
+def TypeAttr.verifyFloatType
+    (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
+  match ty.val with
+  | .floatType _ => pure ()
+  | _ => throw errMsg
+
 def TypeAttr.verifyIntegerOrByteType
     (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
   match ty.val with
@@ -236,6 +242,20 @@ def OperationPtr.verifyIntegerBinop (op : OperationPtr)
     s!"{instrName}: Expected operand 0 to have integer type"
   ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerType
     s!"{instrName}: Expected operand 1 to have integer type"
+  let operandType ← op.verifyOperandTypesMatch ctx 0 1
+    s!"{instrName}: Expected operands to have the same type"
+  op.verifyResultTypeMatches ctx operandType
+    s!"{instrName}: Expected result type to match operand type"
+
+def OperationPtr.verifyFloatBinop (op : OperationPtr)
+    (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 2 1
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyFloatType
+    s!"{instrName}: Expected operand 0 to have floating point type"
+  ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyFloatType
+    s!"{instrName}: Expected operand 1 to have floating point type"
   let operandType ← op.verifyOperandTypesMatch ctx 0 1
     s!"{instrName}: Expected operands to have the same type"
   op.verifyResultTypeMatches ctx operandType
