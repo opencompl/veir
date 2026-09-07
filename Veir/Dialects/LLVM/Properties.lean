@@ -2,6 +2,7 @@ module
 
 public import Veir.Data.LLVM.Int.Basic
 public import Veir.Data.LLVM.FloatPred
+public import Veir.Data.LLVM.AtomicOrdering
 public import Std.Data.HashMap
 public import Veir.IR.Attribute
 
@@ -767,6 +768,34 @@ def LLVMInsertValueProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Att
   let .denseArrayAttr position := position
     | throw s!"llvm.insertvalue: expected 'position' to be a dense array attribute, but got {position}"
   return { position }
+
+/-- Properties of `llvm.fence`: how strongly it orders, and over what scope. -/
+structure LLVMFenceProperties where
+  ordering : Data.LLVM.AtomicOrdering
+  syncscope : Option StringAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMFenceProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMFenceProperties := do
+  if let some (key, _) := attrDict.toArray.find? (fun (k, _) =>
+      k ≠ "ordering".toUTF8 && k ≠ "syncscope".toUTF8) then
+    throw s!"llvm.fence: unexpected property '{String.fromUTF8! key}'"
+  let some attr := attrDict["ordering".toUTF8]?
+    | throw "llvm.fence: missing 'ordering' property"
+  let .integerAttr intAttr := attr
+    | throw s!"llvm.fence: expected 'ordering' to be an integer attribute, but got {attr}"
+  if intAttr.type.bitwidth ≠ 64 then
+    throw s!"llvm.fence: expected 'ordering' to be an i64 integer attribute, but got {attr}"
+  if intAttr.value < 0 then
+    throw s!"llvm.fence: invalid ordering {intAttr.value}"
+  let some ordering := Data.LLVM.AtomicOrdering.fromNat intAttr.value.toNat
+    | throw s!"llvm.fence: invalid ordering {intAttr.value}"
+  let syncscope ← match attrDict["syncscope".toUTF8]? with
+    | some (.stringAttr syncscope) => .ok (some syncscope)
+    | some attr =>
+      throw s!"llvm.fence: expected 'syncscope' to be a string attribute, but got {attr}"
+    | none => .ok none
+  return { ordering, syncscope }
 
 structure LLVMModuleFlagsProperties where
   flags : ArrayAttr

@@ -55,6 +55,7 @@ inductive Llvm where
 | cond_br
 | switch
 | unreachable
+| fence
 | alloca
 | load
 | store
@@ -126,6 +127,7 @@ match op with
 | .store => StoreProperties
 | .getelementptr => GetelementptrProperties
 | .insertvalue => LLVMInsertValueProperties
+| .fence => LLVMFenceProperties
 | .fadd | .fsub | .fmul | .fdiv | .frem | .fneg | .intr__fmuladd | .intr__fabs =>
   FastMathFlagsProperties
 | .fcmp => FcmpProperties
@@ -169,6 +171,7 @@ def Llvm.fromAttrDict
   case store => exact StoreProperties.fromAttrDict attrDict
   case getelementptr => exact GetelementptrProperties.fromAttrDict attrDict
   case insertvalue => exact LLVMInsertValueProperties.fromAttrDict attrDict
+  case fence => exact LLVMFenceProperties.fromAttrDict attrDict
   case fadd | fsub | fmul | fdiv | frem | fneg | intr__fmuladd | intr__fabs =>
     exact FastMathFlagsProperties.fromAttrDict attrDict
   case fcmp => exact FcmpProperties.fromAttrDict attrDict
@@ -346,6 +349,13 @@ def Llvm.toAttrDict
   | .insertvalue =>
     (Std.HashMap.emptyWithCapacity 1).insert
       "position".toUTF8 (Attribute.denseArrayAttr props.position)
+  | .fence => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 2
+    let ordering := IntegerAttr.mk (Int.ofNat props.ordering.toNat) (IntegerType.mk 64)
+    dict := dict.insert "ordering".toUTF8 (Attribute.integerAttr ordering)
+    if let some syncscope := props.syncscope then
+      dict := dict.insert "syncscope".toUTF8 (.stringAttr syncscope)
+    dict
   | .getelementptr => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 3
     dict := dict.insert
@@ -454,7 +464,7 @@ def Llvm.propagatesPoison : Llvm → Bool
   | .intr__fmuladd | .intr__fabs
   | .mlir__constant | .mlir__poison | .mlir__undef | .mlir__zero | .mlir__global
   | .mlir__addressof
-  | .select | .br | .cond_br | .switch | .unreachable | .alloca | .load | .store
+  | .select | .br | .cond_br | .switch | .unreachable | .fence | .alloca | .load | .store
   | .intr__lifetime__start | .intr__lifetime__end | .intr__assume
   | .intr__memset | .intr__memcpy | .intr__memmove
   | .getelementptr | .insertvalue | .call | .call_intrinsic | .return | .func
@@ -869,6 +879,13 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       current := arrType.type
     if current ≠ valueType.val then
       throw s!"Type mismatch: cannot insert {valueType} into {containerType}"
+  | .fence => do
+    op.verifyPlainOpCounts ctx opIn 0 0
+    /- A fence orders other accesses, so the weaker orderings say nothing. -/
+    let props := op.getProperties! ctx.raw Llvm.fence
+    match props.ordering with
+    | .acquire | .release | .acq_rel | .seq_cst => pure ()
+    | _ => throw "llvm.fence: can be given only acquire, release, acq_rel and seq_cst orderings"
   | .getelementptr => do
     op.checkIsNonNullIntegerType ctx opIn
     let props := op.getProperties! ctx.raw Llvm.getelementptr
