@@ -2,6 +2,7 @@ module
 
 public import Veir.IR.OpInfo
 public import Veir.IR.WellFormed
+public import Veir.IR.Attribute
 
 /-!
 # Verifier
@@ -35,7 +36,7 @@ def Attribute.branchArgCompatible (opTy argTy : Attribute) : Bool :=
 def Attribute.isKnownNonZero (attr : Attribute) : Bool :=
   match attr with
   | .integerAttr intAttr => intAttr.value != 0
-  | .floatAttr fltAttr => fltAttr.value != 0.0
+  | .floatAttr fltAttr => !fltAttr.value.isPositiveZero
   | _ => false
 
 /--

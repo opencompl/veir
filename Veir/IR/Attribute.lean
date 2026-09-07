@@ -1,6 +1,7 @@
 module
 
 import Veir.ForLean
+public import Veir.Data.Float
 public import Lean.Elab.Command
 public import Std.Data.Iterators.Producers.Array
 
@@ -46,11 +47,43 @@ structure IntegerType where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
- A floating point type with a given bitwidth.
+  A floating point type.
 -/
 structure FloatType where
-  bitwidth : Nat
+  format : Data.Float.FloatFormat
 deriving Inhabited, Repr, DecidableEq, Hashable
+
+namespace FloatType
+
+abbrev mantissa (type : FloatType) : Nat := type.format.mantissa
+abbrev exponent (type : FloatType) : Nat := type.format.exponent
+abbrev bias (type : FloatType) : Nat := type.format.bias
+abbrev hasInf (type : FloatType) : Bool := type.format.hasInf
+abbrev hasNaN (type : FloatType) : Bool := type.format.hasNaN
+abbrev hasNegZero (type : FloatType) : Bool := type.format.hasNegZero
+abbrev canonicalName (type : FloatType) : String := type.format.canonicalName
+
+abbrev bitwidth (type : FloatType) : Nat := type.format.bitwidth
+
+/--
+Convert Veir's `FloatType` into Lean's floating type `Float.Model.Format`
+that represents IEEE-style floating point formats.
+-/
+abbrev toFormat (type : FloatType)
+    (hm : 0 < type.mantissa := by grind)
+    (he : 0 < type.exponent := by grind) : Float.Model.Format :=
+  type.format.toLeanFormat hm he
+
+def f16 : FloatType := { format := .f16 }
+def f32 : FloatType := { format := .f32 }
+def f64 : FloatType := { format := .f64 }
+def bf16 : FloatType := { format := .bf16 }
+def f8E5M2 : FloatType := { format := .f8E5M2 }
+def f8E4M3FN : FloatType := { format := .f8E4M3FN }
+def f8E4M3FNUZ : FloatType := { format := .f8E4M3FNUZ }
+
+end FloatType
+
 
 /--
   A register type is an integer type with width 64.
@@ -195,34 +228,28 @@ structure RegisterAttr where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
-A floating point attribute storing a Lean `Float` value with an associated float type.
+A floating point attribute storing the bit pattern of a floating point value
+together with the float type it is a value of.
 -/
 structure FloatAttr where
-  value : Float
   type : FloatType
-deriving Inhabited, Repr
-
-/--
-Temporary bridge lemma for deciding `FloatAttr` equality via `Float.toBits`.
--/
-axiom floatEqOfToBitsEq {a b : Float} : a.toBits = b.toBits → a = b
-
-instance : DecidableEq FloatAttr
-  | a, b =>
-    if hv : a.value.toBits = b.value.toBits then
-      if ht : a.type = b.type then
-        have hval : a.value = b.value := floatEqOfToBitsEq hv
-        isTrue (by
-          cases a
-          cases b
-          simp_all)
-      else
-        isFalse (by intro h; exact ht (congrArg FloatAttr.type h))
-    else
-      isFalse (by intro h; exact hv (congrArg (Float.toBits ∘ FloatAttr.value) h))
+  value : Data.Float.FloatValue type.format
+deriving Inhabited, Repr, DecidableEq
 
 instance : Hashable FloatAttr where
-  hash a := mixHash (hash a.value.toBits) (hash a.type)
+  hash a := mixHash (hash a.value) (hash a.type)
+
+/-- Extract exponent bits as a BitVec. -/
+def FloatAttr.exponent (attr : FloatAttr) : BitVec attr.type.exponent :=
+  attr.value.exponent
+
+/-- Extract mantissa bits as a BitVec. -/
+def FloatAttr.mantissa (attr : FloatAttr) : BitVec attr.type.mantissa :=
+  attr.value.mantissa
+
+/-- Extract sign bit (true for negative). -/
+def FloatAttr.sign (attr : FloatAttr) : Bool :=
+  attr.value.sign
 
 /--
   An attribute containing a string.
@@ -1116,7 +1143,7 @@ instance : ToString IntegerType where
   toString type := s!"i{type.bitwidth}"
 
 instance : ToString FloatType where
-  toString type := s!"f{type.bitwidth}"
+  toString type := type.canonicalName
 
 instance : ToString LLVM.ByteType where
   toString type := s!"!llvm.byte<{type.bitwidth}>"
@@ -1183,7 +1210,11 @@ instance : ToString IntegerAttr where
   toString attr := s!"{attr.value} : {attr.type}"
 
 instance : ToString FloatAttr where
-  toString attr := s!"{attr.value} : {attr.type}"
+  toString attr :=
+  -- Of the form 0x<bits>#<bitwidth>, e.g. 0xff#8
+  let str := s!"{attr.value}"
+  let front := (str.split '#').toArray.getD 0 ""
+  s!"{front} : {attr.type}"
 
 instance : ToString RegisterType where
   toString type :=
@@ -1193,10 +1224,6 @@ instance : ToString RegisterType where
 
 instance : ToString RegisterAttr where
   toString attr := s!"{attr.value} : !riscv.reg"
-
-private def hexDigit (n : UInt8) : Char :=
-  if n < 10 then Char.ofNat (n.toNat + '0'.toNat)
-  else Char.ofNat (n.toNat - 10 + 'A'.toNat)
 
 def escapeStringLiteral (b : ByteArray) : String := Id.run do
   let mut result := ""
@@ -1209,8 +1236,8 @@ def escapeStringLiteral (b : ByteArray) : String := Id.run do
     else
       /- LLVM convention: encode hex as \HH. -/
       result := result.push '\\'
-      result := result.push (hexDigit (byte >>> 4))
-      result := result.push (hexDigit (byte &&& 0x0F))
+      result := result.push (byte >>> 4).toHexDigit
+      result := result.push (byte &&& 0x0F).toHexDigit
   return result
 
 instance : ToString StringAttr where
@@ -1783,7 +1810,8 @@ def isType (attr : Attribute) : Bool :=
 -/
 def bitwidthOfType (type : Attribute) : Option Nat :=
   match type with
-  | .integerType { bitwidth } | .floatType { bitwidth } | .byteType { bitwidth } => some bitwidth
+  | .integerType { bitwidth } | .byteType { bitwidth } => some bitwidth
+  | .floatType type => some type.bitwidth
   | .vectorType { shape, elementType } => do
       let elementBitwidth ← bitwidthOfType elementType
       some (shape.foldl (· * ·) elementBitwidth)
@@ -1795,7 +1823,8 @@ def bitwidthOfType (type : Attribute) : Option Nat :=
 -/
 def sizeOfType (type : Attribute) : Option Nat :=
   match type with
-  | .integerType { bitwidth } | .floatType { bitwidth } | .byteType { bitwidth } => some ((bitwidth + 7) / 8)
+  | .integerType { bitwidth } | .byteType { bitwidth } => some ((bitwidth + 7) / 8)
+  | .floatType type => some ((type.bitwidth + 7) / 8)
   | .vectorType { shape, elementType } => do
       let elementSize ← sizeOfType elementType
       some (shape.foldl (· * ·) elementSize)

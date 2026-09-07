@@ -16,6 +16,7 @@ public section
 inductive Llvm where
 | mlir__constant
 | mlir__poison
+| mlir__undef
 | mlir__zero
 | mlir__global
 | mlir__addressof
@@ -29,11 +30,17 @@ inductive Llvm where
 | ashr
 | intr__ctlz
 | intr__cttz
+| intr__lifetime__start
+| intr__lifetime__end
+| intr__memset
+| intr__memcpy
+| intr__memmove
 | intr__ctpop
 | intr__bswap
 | intr__bitreverse
 | intr__fshl
 | intr__fshr
+| intr__assume
 | mul
 | sdiv
 | udiv
@@ -46,6 +53,7 @@ inductive Llvm where
 | zext
 | br
 | cond_br
+| switch
 | unreachable
 | alloca
 | load
@@ -62,6 +70,8 @@ inductive Llvm where
 | frem
 | freeze
 | bitcast
+| inttoptr
+| ptrtoint
 | intr__smax
 | intr__smin
 | intr__umax
@@ -91,12 +101,15 @@ match op with
 | .ashr => ExactProperties
 | .intr__ctlz | .intr__cttz => ZeroPoisonProperties
 | .intr__abs => IntMinPoisonProperties
+| .intr__assume => LLVMAssumeProperties
 | .or => DisjointProperties
 | .trunc => NswNuwProperties
 | .zext => NnegProperties
 | .icmp => IcmpProperties
 | .br => LLVMBrProperties
 | .cond_br => LLVMCondBrProperties
+| .switch => LLVMSwitchProperties
+| .intr__memset | .intr__memcpy | .intr__memmove => LLVMMemIntrinsicProperties
 | .alloca => AllocaProperties
 | .load => LoadProperties
 | .store => StoreProperties
@@ -123,11 +136,19 @@ def Llvm.fromAttrDict
   case intr__cttz =>
     exact ZeroPoisonProperties.fromAttrDictFor "llvm.intr.cttz" attrDict
   case intr__abs => exact IntMinPoisonProperties.fromAttrDict attrDict
+  case intr__assume => exact LLVMAssumeProperties.fromAttrDict attrDict
   case or => exact DisjointProperties.fromAttrDict attrDict
   case zext => exact NnegProperties.fromAttrDict attrDict
   case icmp => exact IcmpProperties.fromAttrDict attrDict
   case br => exact LLVMBrProperties.fromAttrDict attrDict
   case cond_br => exact LLVMCondBrProperties.fromAttrDict attrDict
+  case switch => exact LLVMSwitchProperties.fromAttrDict attrDict
+  case intr__memset =>
+    exact LLVMMemIntrinsicProperties.fromAttrDictFor "llvm.intr.memset" attrDict
+  case intr__memcpy =>
+    exact LLVMMemIntrinsicProperties.fromAttrDictFor "llvm.intr.memcpy" attrDict
+  case intr__memmove =>
+    exact LLVMMemIntrinsicProperties.fromAttrDictFor "llvm.intr.memmove" attrDict
   case alloca => exact AllocaProperties.fromAttrDict attrDict
   case load => exact LoadProperties.fromAttrDict attrDict
   case store => exact StoreProperties.fromAttrDict attrDict
@@ -206,6 +227,30 @@ def Llvm.toAttrDict
     dict := dict.insert "operandSegmentSizes".toUTF8
       (Attribute.denseArrayAttr props.operandSegmentSizes)
     dict
+  | .intr__memset | .intr__memcpy | .intr__memmove => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 6
+    let volatileAttr := IntegerAttr.mk (if props.isVolatile then 1 else 0) (IntegerType.mk 1)
+    dict := dict.insert "isVolatile".toUTF8 (.integerAttr volatileAttr)
+    for (name, value) in [("arg_attrs", props.arg_attrs),
+                          ("res_attrs", props.res_attrs),
+                          ("access_groups", props.access_groups),
+                          ("alias_scopes", props.alias_scopes),
+                          ("noalias_scopes", props.noalias_scopes),
+                          ("tbaa", props.tbaa)] do
+      if let some value := value then
+        dict := dict.insert name.toUTF8 (.arrayAttr value)
+    dict
+  | .switch => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 4
+    if let some values := props.case_values then
+      dict := dict.insert "case_values".toUTF8 (.denseElementsAttr values)
+    dict := dict.insert "case_operand_segments".toUTF8
+      (Attribute.denseArrayAttr props.case_operand_segments)
+    if let some weights := props.branch_weights then
+      dict := dict.insert "branch_weights".toUTF8 (Attribute.denseArrayAttr weights)
+    dict := dict.insert "operandSegmentSizes".toUTF8
+      (Attribute.denseArrayAttr props.operandSegmentSizes)
+    dict
   | .udiv | .sdiv | .lshr | .ashr => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
     if props.exact then
@@ -231,6 +276,12 @@ def Llvm.toAttrDict
     let attr := IntegerAttr.mk value (IntegerType.mk 1)
     (Std.HashMap.emptyWithCapacity 1).insert
       "is_int_min_poison".toUTF8 (Attribute.integerAttr attr)
+  | .intr__assume => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 2
+    dict := dict.insert "op_bundle_sizes".toUTF8 (Attribute.denseArrayAttr props.op_bundle_sizes)
+    if let some tags := props.op_bundle_tags then
+      dict := dict.insert "op_bundle_tags".toUTF8 (.arrayAttr tags)
+    dict
   | .alloca => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 3
     dict := dict.insert "alignment".toUTF8 (Attribute.integerAttr props.alignment)
@@ -301,7 +352,8 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
   | .alloca, _ => .allocate
   | .load, props => if props.volatile_ then .readWrite else .read
   | .store, props => if props.volatile_ then .readWrite else .write
-  | .mlir__constant, _ | .mlir__poison, _ | .mlir__zero, _ | .mlir__addressof, _
+  | .mlir__constant, _ | .mlir__poison, _ | .mlir__undef, _ | .mlir__zero, _
+  | .mlir__addressof, _
   | .and, _ | .or, _ | .xor, _
   | .add, _ | .sub, _ | .mul, _
   | .sdiv, _ | .udiv, _ | .srem, _ | .urem, _
@@ -312,8 +364,9 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
   | .icmp, _ | .select, _
   | .trunc, _ | .sext, _ | .zext, _
   | .getelementptr, _
-  | .br, _ | .cond_br, _ | .return, _
+  | .br, _ | .cond_br, _ | .switch, _ | .return, _
   | .freeze, _ | .bitcast, _
+  | .inttoptr, _ | .ptrtoint, _
   | .intr__smax, _ | .intr__smin, _ | .intr__umax, _ | .intr__umin, _
   | .intr__abs, _
   | .intr__sadd__sat, _ | .intr__uadd__sat, _
@@ -325,7 +378,7 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
 
 def Llvm.isConstantLike (op : Llvm) : Bool :=
   match op with
-  | .mlir__constant | .mlir__poison | .mlir__zero | .mlir__addressof => true
+  | .mlir__constant | .mlir__poison | .mlir__undef | .mlir__zero | .mlir__addressof => true
   | _ => false
 
 def Llvm.isIsolatedFromAbove (op : Llvm) : Bool :=
@@ -339,7 +392,7 @@ def Llvm.hasSSADominance (_op : Llvm) (_index : Nat) : Bool :=
 @[is_terminator]
 def Llvm.isTerminator (op : Llvm) : Bool :=
   match op with
-  | .br | .cond_br | .return | .unreachable => true
+  | .br | .cond_br | .switch | .return | .unreachable => true
   | _ => false
 
 #generate_dialect Llvm
@@ -348,6 +401,7 @@ def Llvm.isTerminator (op : Llvm) : Bool :=
 def Llvm.propagatesPoison : Llvm → Bool
   | .and | .or | .xor | .add | .sub | .mul | .sdiv | .udiv | .srem | .urem
   | .shl | .lshr | .ashr | .icmp | .trunc | .sext | .zext | .bitcast
+  | .inttoptr | .ptrtoint
   | .intr__ctlz | .intr__cttz | .intr__ctpop | .intr__bswap
   | .intr__bitreverse | .intr__fshl | .intr__fshr
   | .intr__smax | .intr__smin | .intr__umax | .intr__umin | .intr__abs
@@ -357,8 +411,11 @@ def Llvm.propagatesPoison : Llvm → Bool
   -- `RuntimeValue` represents a poisoned float yet, so listing them here would
   -- claim a fold that cannot be materialized.
   | .fadd | .fsub | .fmul | .fdiv | .frem
-  | .mlir__constant | .mlir__poison | .mlir__zero | .mlir__global | .mlir__addressof
-  | .select | .br | .cond_br | .unreachable | .alloca | .load | .store
+  | .mlir__constant | .mlir__poison | .mlir__undef | .mlir__zero | .mlir__global
+  | .mlir__addressof
+  | .select | .br | .cond_br | .switch | .unreachable | .alloca | .load | .store
+  | .intr__lifetime__start | .intr__lifetime__end | .intr__assume
+  | .intr__memset | .intr__memcpy | .intr__memmove
   | .getelementptr | .call | .return | .func | .module_flags | .freeze => false
 
 instance : IsOpCode Llvm where
@@ -452,6 +509,16 @@ def OperationPtr.verifyLLVMICmp {OpInfo : Type} [IsOpCode OpInfo]
     s!"{instrName}: Expected operands to have the same type"
   ((op.getResult 0).get! ctx.raw).type.verifyI1 s!"{instrName}: Expected i1 result"
 
+/-- The properties of a memory intrinsic, whichever of the three it is. -/
+private def memIntrinsicProperties {OpInfo : Type} [IsOpCode OpInfo]
+    [HasDialect OpInfo Llvm] (opType : Llvm) (op : OperationPtr)
+    (ctx : WfIRContext OpInfo) : Option LLVMMemIntrinsicProperties :=
+  match opType with
+  | .intr__memset => some (op.getProperties! ctx.raw Llvm.intr__memset)
+  | .intr__memcpy => some (op.getProperties! ctx.raw Llvm.intr__memcpy)
+  | .intr__memmove => some (op.getProperties! ctx.raw Llvm.intr__memmove)
+  | _ => none
+
 /--
 Verify the local invariants of an `llvm` operation in any operation-info type
 containing the `llvm` dialect.
@@ -490,7 +557,15 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
           if elemType ≠ baseType then
             throw s!"llvm.mlir.constant: dense elements type '{elemType}' does not match array element type '{baseType}'"
         | none => pure ()
-      | _ => throw "llvm.mlir.constant: Expected array result type for a dense elements constant"
+      | .vectorType vecType =>
+        match denseElementsElementType? denseAttr.type with
+        | some elemType =>
+          let baseType := toString vecType.elementType
+          if elemType ≠ baseType then
+            throw s!"llvm.mlir.constant: dense elements type '{elemType}' does not match vector element type '{baseType}'"
+        | none => pure ()
+      | _ =>
+        throw "llvm.mlir.constant: Expected array or vector result type for a dense elements constant"
     | .string stringAttr =>
       match resultType with
       | .llvmArrayType arrType =>
@@ -500,7 +575,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
           throw s!"llvm.mlir.constant: string length {stringAttr.value.size} does not match declared array size {arrType.size}"
       | _ => throw "llvm.mlir.constant: Expected array result type for a string constant"
       pure ()
-  | .mlir__poison => do
+  | .mlir__poison | .mlir__undef => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 0 1
     pure ()
@@ -536,6 +611,79 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     | .llvmVoidType _ | .llvmFunctionType _ =>
       throw "llvm.mlir.zero: Expected result to have a type with a zero value"
     | _ => pure ()
+  | .intr__memset | .intr__memcpy | .intr__memmove => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyPlainOpCounts ctx opIn 3 0
+    let pointerOperands := if opType = .intr__memset then 1 else 2
+    for i in [0:pointerOperands] do
+      let operandType := (op.getOperand! ctx.raw i).getType! ctx.raw
+      let .llvmPointerType _ := operandType.val
+        | throw s!"Expected operand {i} to have !llvm.ptr type"
+    if opType = .intr__memset then
+      let byteType := (op.getOperand! ctx.raw 1).getType! ctx.raw
+      let .integerType byteType := byteType.val
+        | throw "operand #1 must be 8-bit signless integer"
+      if byteType.bitwidth ≠ 8 then
+        throw s!"operand #1 must be 8-bit signless integer, but got i{byteType.bitwidth}"
+    let lengthType := (op.getOperand! ctx.raw 2).getType! ctx.raw
+    let .integerType _ := lengthType.val
+      | throw "Expected operand 2 to have integer type"
+    /- One entry per operand and per result. MLIR accepts any length here. -/
+    let some props := memIntrinsicProperties opType op ctx
+      | throw "Expected a memory intrinsic"
+    if let some argAttrs := props.arg_attrs then
+      let expected := op.getNumOperands ctx.raw opIn
+      if argAttrs.value.size ≠ expected then
+        throw s!"Expected {expected} 'arg_attrs' entries, but got {argAttrs.value.size}"
+    if let some resAttrs := props.res_attrs then
+      let expected := op.getNumResults ctx.raw opIn
+      if resAttrs.value.size ≠ expected then
+        throw s!"Expected {expected} 'res_attrs' entries, but got {resAttrs.value.size}"
+    pure ()
+  | .intr__lifetime__start | .intr__lifetime__end => do
+    op.verifyPlainOpCounts ctx opIn 1 0
+    let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
+    let .llvmPointerType _ := operandType.val
+      | throw "Expected operand 0 to have !llvm.ptr type"
+    pure ()
+  | .intr__assume => do
+    op.checkIsNonNullIntegerType ctx opIn
+    let props := op.getProperties! ctx.raw Llvm.intr__assume
+    let sizes := props.op_bundle_sizes
+    if sizes.elementType.bitwidth ≠ 32 then
+      throw "llvm.intr.assume: Expected 'op_bundle_sizes' to be an i32 dense array attribute"
+    if sizes.values.any (· < 0) then
+      throw "llvm.intr.assume: op_bundle_sizes contains a negative size"
+    let bundleOperands := (sizes.values.foldl (· + ·) 0).toNat
+    let numOperands := op.getNumOperands ctx.raw opIn
+    if numOperands ≠ 1 + bundleOperands then
+      throw s!"llvm.intr.assume: Expected 1 condition and {bundleOperands} operand bundle \
+        operand(s) per 'op_bundle_sizes', but got {numOperands} operand(s)"
+    op.verifyPlainOpCounts ctx opIn numOperands 0
+    ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyI1 "llvm.intr.assume: Expected i1 condition"
+    let tags := (props.op_bundle_tags.map (·.value)).getD #[]
+    if tags.size ≠ sizes.values.size then
+      throw s!"llvm.intr.assume: Expected {sizes.values.size} operand bundle tag(s), \
+        but got {tags.size}"
+    for tag in tags do
+      let .stringAttr _ := tag
+        | throw "llvm.intr.assume: Expected operand bundle tags to be string attributes"
+  | .inttoptr | .ptrtoint => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyPlainOpCounts ctx opIn 1 1
+    let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
+    let resultType := ((op.getResult 0).get! ctx.raw).type
+    let (fromType, toType) := if opType = .ptrtoint then
+      (operandType, resultType)
+    else
+      (resultType, operandType)
+    let .llvmPointerType _ := fromType.val
+      | throw s!"llvm.{if opType = .ptrtoint then "ptrtoint" else "inttoptr"}: \
+        Expected the pointer side to have !llvm.ptr type"
+    let .integerType _ := toType.val
+      | throw s!"llvm.{if opType = .ptrtoint then "ptrtoint" else "inttoptr"}: \
+        Expected the integer side to have integer type"
+    pure ()
   | .mlir__addressof => do
     op.verifyPlainOpCounts ctx opIn 0 1
     let resultType := ((op.getResult 0).get! ctx.raw).type
@@ -600,6 +748,35 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .br => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyUnconditionalBranch ctx opIn
+  | .switch => do
+    op.checkIsNonNullIntegerType ctx opIn
+    let props := op.getProperties! ctx.raw Llvm.switch
+    let caseSegments := props.case_operand_segments.values
+    op.verifyTerminatorCounts ctx opIn (caseSegments.size + 1)
+    let sizes ← op.verifyOperandSegmentSizes ctx opIn props.operandSegmentSizes 3
+    if sizes[0]! ≠ 1 then
+      throw s!"llvm.switch: expected a single value operand, got {sizes[0]!}"
+    /- The default destination takes the second operand segment. -/
+    let defaultDest := op.getSuccessor! ctx.raw 0
+    if sizes[1]! ≠ defaultDest.getNumArguments! ctx.raw then
+      throw s!"llvm.switch: default operand segment expected operand count \
+        {defaultDest.getNumArguments! ctx.raw}, got {sizes[1]!}"
+    op.verifyBranchSuccessorArgTypes ctx (1 : Nat) defaultDest "llvm.switch: default successor"
+    /- `case_operand_segments` splits the third segment one group per case. -/
+    let mut base := 1 + sizes[1]!
+    for i in [0:caseSegments.size] do
+      let count := caseSegments[i]!
+      if count < 0 then
+        throw s!"llvm.switch: case_operand_segments contains negative size {count}"
+      let dest := op.getSuccessor! ctx.raw (i + 1)
+      if count.toNat ≠ dest.getNumArguments! ctx.raw then
+        throw s!"llvm.switch: case {i} operand segment expected operand count \
+          {dest.getNumArguments! ctx.raw}, got {count.toNat}"
+      op.verifyBranchSuccessorArgTypes ctx base dest s!"llvm.switch: case {i} successor"
+      base := base + count.toNat
+    if base ≠ 1 + sizes[1]! + sizes[2]! then
+      throw s!"llvm.switch: case_operand_segments describes {base - 1 - sizes[1]!} case \
+        operands, but operandSegmentSizes reserves {sizes[2]!}"
   | .cond_br => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyTerminatorCounts ctx opIn 2
@@ -694,12 +871,11 @@ def Llvm.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpIn
     else none
   | .int bw .poison, .integerType intType =>
     if bw = intType.bitwidth then some (.of Llvm.mlir__poison ()) else none
-  | .float bw value, .floatType floatType =>
-    -- `llvm.mlir.constant` only interprets 64-bit floats, so anything narrower
-    -- would materialize a constant that cannot be read back.
-    if bw = floatType.bitwidth ∧ bw = 64 then
+  | .float type value, .floatType floatType =>
+    -- Materialize the constant as long as the runtime float type matches the result type.
+    if type = floatType then
       some (.of Llvm.mlir__constant
-        (LLVMConstantProperties.mk (.float (FloatAttr.mk value floatType))))
+        (LLVMConstantProperties.mk (.float (FloatAttr.mk type value))))
     else none
   | _, _ => none
 
