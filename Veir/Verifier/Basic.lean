@@ -261,6 +261,43 @@ def OperationPtr.verifyFloatBinop (op : OperationPtr)
   op.verifyResultTypeMatches ctx operandType
     s!"{instrName}: Expected result type to match operand type"
 
+def OperationPtr.verifyFloatUnop (op : OperationPtr)
+    (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 1 1
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
+  operandType.verifyFloatType s!"{instrName}: Expected operand 0 to have floating point type"
+  op.verifyResultTypeMatches ctx operandType
+    s!"{instrName}: Expected result type to match operand type"
+
+def OperationPtr.verifyFloatTernop (op : OperationPtr)
+    (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 3 1
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  for i in [0:3] do
+    ((op.getOperand! ctx.raw i).getType! ctx.raw).verifyFloatType
+      s!"{instrName}: Expected operand {i} to have floating point type"
+  let operandType ← op.verifyOperandTypesMatch ctx 0 1
+    s!"{instrName}: Expected operands to have the same type"
+  let _ ← op.verifyOperandTypesMatch ctx 1 2
+    s!"{instrName}: Expected operands to have the same type"
+  op.verifyResultTypeMatches ctx operandType
+    s!"{instrName}: Expected result type to match operand type"
+
+def OperationPtr.verifyFCmp (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 2 1
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyFloatType
+    s!"{instrName}: Expected operand 0 to have floating point type"
+  ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyFloatType
+    s!"{instrName}: Expected operand 1 to have floating point type"
+  let _ ← op.verifyOperandTypesMatch ctx 0 1
+    s!"{instrName}: Expected operands to have the same type"
+  ((op.getResult 0).get! ctx.raw).type.verifyI1 s!"{instrName}: Expected i1 result"
+
 def OperationPtr.verifyIntegerTernop (op : OperationPtr)
     (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
@@ -332,6 +369,40 @@ def OperationPtr.verifyTruncTypes (op : OperationPtr)
     else
       pure ()
   | _, _, _ => throw s!"{instrName}: Expected 1 integer operand and 1 integer result"
+
+def OperationPtr.verifyIntToFloatTypes (op : OperationPtr)
+    (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 1 1
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType
+    s!"{instrName}: Expected operand 0 to have integer type"
+  ((op.getResult 0).get! ctx.raw).type.verifyFloatType
+    s!"{instrName}: Expected floating point result type"
+
+def OperationPtr.verifyFloatToIntTypes (op : OperationPtr)
+    (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 1 1
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyFloatType
+    s!"{instrName}: Expected operand 0 to have floating point type"
+  ((op.getResult 0).get! ctx.raw).type.verifyIntegerType
+    s!"{instrName}: Expected integer result type"
+
+/--
+  A conversion between floating point types. MLIR does not check that
+  `llvm.fpext` widens, so neither does this.
+-/
+def OperationPtr.verifyFloatExtTypes (op : OperationPtr)
+    (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 1 1
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyFloatType
+    s!"{instrName}: Expected operand 0 to have floating point type"
+  ((op.getResult 0).get! ctx.raw).type.verifyFloatType
+    s!"{instrName}: Expected floating point result type"
 
 def OperationPtr.verifyIntegerExtTypes (op : OperationPtr)
     (ctx : WfIRContext OpInfo)

@@ -861,20 +861,22 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.verifyFloatBinop ctx opIn
   | .fneg | .intr__fabs => do
     op.checkIsNonNullIntegerType ctx opIn
-    op.verifyPlainOpCounts ctx opIn 1 1
-    pure ()
+    op.verifyFloatUnop ctx opIn
   | .intr__fmuladd => do
     op.checkIsNonNullIntegerType ctx opIn
-    op.verifyPlainOpCounts ctx opIn 3 1
-    pure ()
+    op.verifyFloatTernop ctx opIn
   | .fcmp => do
     op.checkIsNonNullIntegerType ctx opIn
-    op.verifyPlainOpCounts ctx opIn 2 1
-    ((op.getResult 0).get! ctx.raw).type.verifyI1 "llvm.fcmp: Expected an i1 result"
-  | .sitofp | .uitofp | .fptosi | .fptoui | .fpext => do
+    op.verifyFCmp ctx opIn
+  | .sitofp | .uitofp => do
     op.checkIsNonNullIntegerType ctx opIn
-    op.verifyPlainOpCounts ctx opIn 1 1
-    pure ()
+    op.verifyIntToFloatTypes ctx opIn
+  | .fptosi | .fptoui => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyFloatToIntTypes ctx opIn
+  | .fpext => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyFloatExtTypes ctx opIn
   | .module_flags => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 0 0

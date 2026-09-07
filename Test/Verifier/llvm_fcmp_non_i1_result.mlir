@@ -9,4 +9,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: llvm.fcmp: Expected an i1 result
+// CHECK: llvm.fcmp: Expected i1 result
