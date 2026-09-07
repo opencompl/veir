@@ -1,6 +1,7 @@
 module
 
 public import Veir.Data.LLVM.Int.Basic
+public import Veir.Data.LLVM.FloatPred
 public import Std.Data.HashMap
 public import Veir.IR.Attribute
 
@@ -323,6 +324,34 @@ def IcmpProperties.fromAttrDictFor (opName : String) (attrDict : Std.HashMap Byt
 def IcmpProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String IcmpProperties :=
   IcmpProperties.fromAttrDictFor "llvm.icmp" attrDict
+
+/-- Properties of `llvm.fcmp`. -/
+structure FcmpProperties where
+  predicate : Data.LLVM.FloatPred
+  fastmathFlags : FastMathFlagsAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def FcmpProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String FcmpProperties := do
+  if let some (key, _) := attrDict.toArray.find? (fun (k, _) =>
+      k ≠ "predicate".toUTF8 && k ≠ "fastmathFlags".toUTF8) then
+    throw s!"llvm.fcmp: unexpected property '{String.fromUTF8! key}'"
+  let some attr := attrDict["predicate".toUTF8]?
+    | throw "llvm.fcmp: missing predicate"
+  let .integerAttr intAttr := attr
+    | throw s!"llvm.fcmp: expected predicate to be an integer attribute, but got {attr}"
+  if intAttr.type.bitwidth ≠ 64 then
+    throw s!"llvm.fcmp: expected predicate to be an i64 integer attribute, but got {attr}"
+  if intAttr.value < 0 then
+    throw s!"llvm.fcmp: invalid predicate {intAttr.value}"
+  let some predicate := Data.LLVM.FloatPred.fromNat intAttr.value.toNat
+    | throw s!"llvm.fcmp: invalid predicate {intAttr.value}"
+  let flags ← match attrDict["fastmathFlags".toUTF8]? with
+    | some (.fastMathFlagsAttr flags) => .ok flags
+    | some attr =>
+      throw s!"llvm.fcmp: expected 'fastmathFlags' to be a fast math flags attribute, but got {attr}"
+    | none => .ok { nnan := false, ninf := false, nsz := false }
+  return { predicate, fastmathFlags := flags }
 
 /--
   Properties of LLVM memory operations.
