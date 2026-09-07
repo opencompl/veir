@@ -400,7 +400,7 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
   | .intr__fshl, _ | .intr__fshr, _
   | .icmp, _ | .select, _
   | .trunc, _ | .sext, _ | .zext, _
-  | .getelementptr, _
+  | .getelementptr, _ | .insertvalue, _
   | .br, _ | .cond_br, _ | .switch, _ | .return, _
   | .freeze, _ | .bitcast, _
   | .inttoptr, _ | .ptrtoint, _
@@ -841,11 +841,34 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 2 1
     let props := op.getProperties! ctx.raw Llvm.insertvalue
-    if props.position.values.isEmpty then
-      throw "llvm.insertvalue: Expected at least one index in 'position'"
-    if props.position.values.any (· < 0) then
-      throw "llvm.insertvalue: 'position' contains a negative index"
-    pure ()
+    if props.position.elementType.bitwidth ≠ 64 then
+      throw "Expected 'position' to be an i64 dense array attribute"
+    let containerType := (op.getOperand! ctx.raw 0).getType! ctx.raw
+    let valueType := (op.getOperand! ctx.raw 1).getType! ctx.raw
+    op.verifyResultTypeMatches ctx containerType "Expected the result to have the container type"
+    let isStruct : Attribute → Bool
+      | .unregisteredAttr attr => attr.isType && attr.value.startsWith "!llvm.struct"
+      | _ => false
+    let isArray : Attribute → Bool
+      | .llvmArrayType _ => true
+      | _ => false
+    if !(isArray containerType.val || isStruct containerType.val) then
+      throw s!"Expected an aggregate container, but got {containerType}"
+    for index in props.position.values do
+      if index < 0 then
+        throw s!"position out of bounds: {index}"
+    /- Arrays are modelled, so their indices and element types are checked.
+       Struct bodies are opaque, so the walk trusts everything below a struct. -/
+    let mut current := containerType.val
+    for index in props.position.values do
+      let .llvmArrayType arrType := current
+        | if isStruct current then return
+          throw s!"Expected LLVM IR structure/array type, got: {current}"
+      if index ≥ arrType.size then
+        throw s!"position out of bounds: {index}"
+      current := arrType.type
+    if current ≠ valueType.val then
+      throw s!"Type mismatch: cannot insert {valueType} into {containerType}"
   | .getelementptr => do
     op.checkIsNonNullIntegerType ctx opIn
     let props := op.getProperties! ctx.raw Llvm.getelementptr

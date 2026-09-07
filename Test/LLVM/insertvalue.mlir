@@ -13,10 +13,15 @@
     %u = "llvm.mlir.undef"() : () -> !llvm.struct<(i32, !llvm.struct<(i64, i8)>)>
     %v = "llvm.mlir.constant"() <{value = 7 : i64}> : () -> i64
     %r = "llvm.insertvalue"(%u, %v) <{position = array<i64: 1, 0>}> : (!llvm.struct<(i32, !llvm.struct<(i64, i8)>)>, i64) -> !llvm.struct<(i32, !llvm.struct<(i64, i8)>)>
+    %w = "llvm.insertvalue"(%u, %r) <{position = array<i64>}> : (!llvm.struct<(i32, !llvm.struct<(i64, i8)>)>, !llvm.struct<(i32, !llvm.struct<(i64, i8)>)>) -> !llvm.struct<(i32, !llvm.struct<(i64, i8)>)>
+    %s = "llvm.mlir.undef"() : () -> !llvm.array<2 x !llvm.struct<(i64, i8)>>
+    %t = "llvm.insertvalue"(%s, %v) <{position = array<i64: 1, 0>}> : (!llvm.array<2 x !llvm.struct<(i64, i8)>>, i64) -> !llvm.array<2 x !llvm.struct<(i64, i8)>>
     "llvm.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
 
 // CHECK: "llvm.insertvalue"({{.*}}) <{"position" = array<i64: 0>}> : (!llvm.array<2 x !llvm.ptr>, !llvm.ptr) -> !llvm.array<2 x !llvm.ptr>
 // CHECK: "llvm.insertvalue"({{.*}}) <{"position" = array<i64: 1>}> : (!llvm.array<2 x !llvm.ptr>, !llvm.ptr) -> !llvm.array<2 x !llvm.ptr>
-// CHECK: "llvm.insertvalue"({{.*}}) <{"position" = array<i64: 1, 0>}>
+// CHECK: "llvm.insertvalue"({{.*}}) <{"position" = array<i64: 1, 0>}> : (!llvm.struct<(i32, {{(!llvm.)?}}struct<(i64, i8)>)>, i64) -> !llvm.struct<(i32, {{(!llvm.)?}}struct<(i64, i8)>)>
+// CHECK: "llvm.insertvalue"({{.*}}) <{"position" = array<i64>}> : (!llvm.struct<(i32, {{(!llvm.)?}}struct<(i64, i8)>)>, !llvm.struct<(i32, {{(!llvm.)?}}struct<(i64, i8)>)>) -> !llvm.struct<(i32, {{(!llvm.)?}}struct<(i64, i8)>)>
+// CHECK: "llvm.insertvalue"({{.*}}) <{"position" = array<i64: 1, 0>}> : (!llvm.array<2 x {{(!llvm.)?}}struct<(i64, i8)>>, i64) -> !llvm.array<2 x {{(!llvm.)?}}struct<(i64, i8)>>
