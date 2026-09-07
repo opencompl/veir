@@ -15,7 +15,7 @@ public section
 inductive RuntimeValue where
 | int (bitwidth : Nat) (value : Data.LLVM.Int bitwidth)
 | byte (bitwidth : Nat) (value : Data.LLVM.Byte bitwidth)
-| float (bitwidth : Nat) (value : Float)
+| float (type : FloatType) (value : Data.Float.FloatValue type.format)
 | addr (value : UInt64)
 | reg (value : Data.RISCV.Reg)
 /-- A canonical natural-number representative in the field identified by `fieldType`. -/

@@ -19,8 +19,8 @@
   ^bb0(%peer : !io.address, %buf : !llvm.ptr, %len : i64):
     %rand0 = "io.rand"(%buf, %len) : (!llvm.ptr, i64) -> i64
     %rand1 = "io.rand"(%buf, %len) : (!llvm.ptr, i64) -> i64
-    %recv0 = "io.recv"(%peer, %buf, %len) : (!io.address, !llvm.ptr, i64) -> i64
-    %recv1 = "io.recv"(%peer, %buf, %len) : (!io.address, !llvm.ptr, i64) -> i64
+    %recv0, %from0 = "io.recv"(%buf, %len) : (!llvm.ptr, i64) -> (i64, !io.address)
+    %recv1, %from1 = "io.recv"(%buf, %len) : (!llvm.ptr, i64) -> (i64, !io.address)
     %send0 = "io.send"(%peer, %buf, %len) : (!io.address, !llvm.ptr, i64) -> i64
     %send1 = "io.send"(%peer, %buf, %len) : (!io.address, !llvm.ptr, i64) -> i64
     "test.test"(%rand0, %rand1, %recv0, %recv1, %send0, %send1) : (i64, i64, i64, i64, i64, i64) -> ()
@@ -28,11 +28,11 @@
     // CHECK-LABEL: ^{{.*}}(%{{.*}} : !io.address, %{{.*}} : !llvm.ptr, %{{.*}} : i64):
     // CHECK-NEXT: %[[RAND0:.*]] = "io.rand"(%{{.*}}, %{{.*}}) : (!llvm.ptr, i64) -> i64
     // CHECK-NEXT: %[[RAND1:.*]] = "io.rand"(%{{.*}}, %{{.*}}) : (!llvm.ptr, i64) -> i64
-    // CHECK-NEXT: %[[RECV0:.*]] = "io.recv"(%{{.*}}, %{{.*}}, %{{.*}}) : (!io.address, !llvm.ptr, i64) -> i64
-    // CHECK-NEXT: %[[RECV1:.*]] = "io.recv"(%{{.*}}, %{{.*}}, %{{.*}}) : (!io.address, !llvm.ptr, i64) -> i64
+    // CHECK-NEXT: %[[RECV0:.*]]:2 = "io.recv"(%{{.*}}, %{{.*}}) : (!llvm.ptr, i64) -> (i64, !io.address)
+    // CHECK-NEXT: %[[RECV1:.*]]:2 = "io.recv"(%{{.*}}, %{{.*}}) : (!llvm.ptr, i64) -> (i64, !io.address)
     // CHECK-NEXT: %[[SEND0:.*]] = "io.send"(%{{.*}}, %{{.*}}, %{{.*}}) : (!io.address, !llvm.ptr, i64) -> i64
     // CHECK-NEXT: %[[SEND1:.*]] = "io.send"(%{{.*}}, %{{.*}}, %{{.*}}) : (!io.address, !llvm.ptr, i64) -> i64
-    // CHECK-NEXT: "test.test"(%[[RAND0]], %[[RAND1]], %[[RECV0]], %[[RECV1]], %[[SEND0]], %[[SEND1]]) : (i64, i64, i64, i64, i64, i64) -> ()
+    // CHECK-NEXT: "test.test"(%[[RAND0]], %[[RAND1]], %[[RECV0]]#0, %[[RECV1]]#0, %[[SEND0]], %[[SEND1]]) : (i64, i64, i64, i64, i64, i64) -> ()
     "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

@@ -98,7 +98,7 @@ namespace RuntimeValue
 def Conforms (val : RuntimeValue) (ty : TypeAttr) : Prop :=
   match val, ty with
   | .int bw _, ⟨.integerType intType, _⟩ => intType.bitwidth = bw
-  | .float bw _, ⟨.floatType floatType, _⟩ => floatType.bitwidth = bw
+  | .float type _, ⟨.floatType floatType, _⟩ => floatType = type
   | .byte bw _, ⟨.byteType byteType, _⟩ => byteType.bitwidth = bw
   | .int bw _, ⟨.modArithType modArithType, _⟩ => modArithType.modulus.type.bitwidth = bw
   | .reg _, ⟨.registerType _, _⟩ => True
@@ -138,7 +138,7 @@ theorem Conforms.byteType {runtimeValue byteType h} :
 @[grind <=]
 theorem Conforms.floatType :
     Conforms runtimeValue ⟨.floatType fltType, h⟩ →
-    ∃ val, runtimeValue = .float fltType.bitwidth val := by
+    ∃ val, runtimeValue = .float fltType val := by
   simp only [Conforms]
   cases runtimeValue
   case float bw val =>
@@ -898,9 +898,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     | .float floatAttr =>
       let .floatType bw := resType.val
         | none
-      if bw.bitwidth ≠ 64 then
-        none
-      return (#[.float 64 floatAttr.value], mem, none)
+      return (#[.float floatAttr.type floatAttr.value], mem, none)
     | .dense denseAttr =>
       none
     | .string _ =>
@@ -1136,6 +1134,28 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       else
         return (#[], mem, some (.branch (operands.extract (trueSize + 1) operands.size) destFalse))
     | .int 1 .poison => Interp.ub
+    | _ => none
+  | .switch => do
+    let some destDefault := blockOperands[0]? | none
+    let some value := operands[0]? | none
+    let some (defaultSizeInt : Int) := properties.operandSegmentSizes.values[1]? | none
+    let defaultSize := defaultSizeInt.toNat
+    let caseSegments := properties.case_operand_segments.values
+    let some caseValues := properties.caseValues? | none
+    /- A case value per case, or the switch cannot be read. -/
+    if caseValues.size ≠ caseSegments.size then none else
+    match value with
+    | .int bw (.val v) =>
+      let mut base := 1 + defaultSize
+      for i in [0:caseSegments.size] do
+        let some (countInt : Int) := caseSegments[i]? | none
+        let count := countInt.toNat
+        if v = BitVec.ofInt bw caseValues[i]! then
+          let some dest := blockOperands[i + 1]? | none
+          return (#[], mem, some (.branch (operands.extract base (base + count)) dest))
+        base := base + count
+      return (#[], mem, some (.branch (operands.extract 1 (1 + defaultSize)) destDefault))
+    | .int _ .poison => Interp.ub
     | _ => none
   | .alloca => do
     let [.int _ (.val count)] := operands.toList | none
