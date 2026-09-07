@@ -16,6 +16,5 @@ import UnitTest.ConstantValue
 import UnitTest.Evaluate
 import UnitTest.FoldDecision
 import UnitTest.SideEffectInterfaces
-import UnitTest.DataLayout
 import UnitTest.Puddle
 import UnitTest.BoundedBitblasting.BoundedBitblasting
