@@ -296,7 +296,6 @@ meta def introMaskRec (maxBound : Nat) (g : MVarId) (widthTm : Tm .width) (infos
 
     return (g, thisInfo, infos)
 
-
 /--
 The `BitVec` variable that a parametric-width variable was converted into,
 together with the hypothesis constraining it.
@@ -392,60 +391,61 @@ meta partial def visitExprRec (g : MVarId)
 /--
 Extract `Tm .width`s and corresponding theorem from `Tm .prop`.
 -/
-meta def getThmFromTm (term : Tm .prop) : Option (Name × Tm .width × Tm .width) :=
+meta def getThmFromProp (term : Tm .prop) : Name × Tm .width × Tm .width :=
   match term with
   | .widthLT v w => (``lt_eq_lt_of_eq_maskOfWidth, v, w)
   | .widthLE v w => (``le_eq_le_of_eq_maskOfWidth, v, w)
   | .widthGT v w => (``gt_eq_gt_of_eq_maskOfWidth, v, w)
   | .widthGE v w => (``ge_eq_ge_of_eq_maskOfWidth, v, w)
-  | _ => none
 
 /--
 If a condition on the width hypothesis is found, and the widths are contained
 within the `WidthInfos` set, then convert into a statement about the width masks.
 -/
-meta def translateWidthPrecond (widthInfos : WidthInfos) (g : MVarId) (ldecl : LocalDecl)
-    : MetaM (MVarId) := g.withContext do
-  let some prop ← Tm.reifyProp widthInfos.env (ldecl.type) | return g
-  let some (thm, v, w) := getThmFromTm prop | return g
-  let some vInfo := widthInfos.getFromTm? v |
-    logInfo m!"Skipping width condition transformation, term {v.toExpr widthInfos.env} is not a mask."
-    return g
-  let some wInfo := widthInfos.getFromTm? w |
-    logInfo m!"Skipping width condition transformation, term {w.toExpr widthInfos.env} is not a mask."
-    return g
+meta def translateWidthPrecond (blastWidth : Nat) (widthInfos : WidthInfos) (g : MVarId) (ldecl : LocalDecl)
+    : MetaM (MVarId × WidthInfos) := g.withContext do
+  let some prop ← Tm.reifyProp widthInfos.env (ldecl.type) |
+    -- logWarning m!"{ldecl.toExpr} : {ldecl.type} could not be reified into a `Tm .prop`, it will not be used as a `BitVec` hypothesis."
+    return (g, widthInfos)
+  logInfo m!"Managed to reify {ldecl.type}"
+  -- Get the theorem matching the prop
+  let (thm, v, w) := getThmFromProp prop
+  -- Get or create the masks for the width terms
+  let (g, vInfo, widthInfos) ← introMaskRec blastWidth g v widthInfos
+  let (g, wInfo, widthInfos) ← introMaskRec blastWidth g w widthInfos
+  -- Apply the theorem to convert the width condition into a `BitVec` condition.
   let (_, g) ← g.withContext
     <| g.note (Name.mkSimple s!"bv_{v.toName}_lt_{w.toName}")
-    <| ← mkAppM thm <| #[
+    <| ← g.withContext <| mkAppM thm <| #[
         vInfo.hypWidthLeBoundNote,
         wInfo.hypWidthLeBoundNote,
         vInfo.widthMaskHypFvar,
         wInfo.widthMaskHypFvar,
         ldecl.fvarId,
-        ].map mkFVar
-  return g
+      ].map mkFVar
+
+  return (g, widthInfos)
 
 /--
 Traverse the local context and add any width pre-conditions to the goal.
 -/
-meta def translateWidthPreconds (winfos: WidthInfos)
-    (g : MVarId) : MetaM MVarId := g.withContext do
-  (← getLCtx).foldlM (translateWidthPrecond winfos) g
+meta def translateWidthPreconds (blastWidth : Nat) (winfos: WidthInfos)
+    (g : MVarId) : MetaM (MVarId × WidthInfos) := g.withContext do
+  (← getLCtx).foldlM (init := (g, winfos)) fun (g, widthInfos) ldecl =>
+    translateWidthPrecond blastWidth widthInfos g ldecl
 
 /--
 Given the width terms in the formula, translate all `Nat` widths into `BitVec`
 masks and introduce the hypotheses that model the masks.
 -/
-meta def introMaskWidths (widthTms : WidthTms) (g : MVarId) (ctx : PbvTranslateContext)
+meta def introMaskWidths (blastWidth : Nat) (widthTms : WidthTms) (g : MVarId)
   : MetaM (MVarId × WidthInfos)
   := g.withContext do
-  -- Compute max width
-  let maxWidth := widthTms.getUniverseWidthUpperBound ctx
   -- Intro all the masks
   widthTms.terms.foldM
     (init := (g, { env := widthTms.env }))
     fun (g, widthInfos) _ widthTm => do
-      let (g, _, infos) ← introMaskRec maxWidth g widthTm.term widthInfos
+      let (g, _, infos) ← introMaskRec blastWidth g widthTm.term widthInfos
       return (g, infos)
 
 /--
@@ -543,12 +543,14 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVa
   let widthEnv ← createWidthEnv g
   -- Find `BitVec`s and intro their widths
   let (g, widthTms, bvsToRevert) ← visitExprRec g { env := widthEnv } {} (← g.getType)
+  -- Compute the blast width
+  let blastWidth := widthTms.getUniverseWidthUpperBound ctx
   -- Introduce the width masks, bounded by the max width
-  let (g, widthInfos) ← introMaskWidths widthTms g ctx
+  let (g, widthInfos) ← introMaskWidths blastWidth widthTms g
+  -- Find and translate conditions on the width vars
+  let (g, widthInfos) ← translateWidthPreconds blastWidth widthInfos g
   -- Intro the `BitVec`s
   let (g, bvInfos) ← introMaskedBitvectors bvsToRevert g widthInfos
-  -- Find and translate conditions on the width vars
-  let g ← translateWidthPreconds widthInfos g
   -- Create simp set
   let thms := ← addBoundRewrites g ctx widthTms
            <| ← addPushTheorems g
