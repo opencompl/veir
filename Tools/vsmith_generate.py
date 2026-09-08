@@ -391,7 +391,7 @@ class Generator:
                     if src_w >= 95:
                         continue
                     dst = f"i{self.rng.randint(src_w + 1, 95)}"
-                props = " <{nneg}>" if op == "llvm.zext" and self.rng.random() < 0.5 else ""
+                props = " <{nonNeg}>" if op == "llvm.zext" and self.rng.random() < 0.5 else ""
                 operand = self.random_dominating_value(src_w)
                 self.add_operation(op, [operand], [src], dst, props)
             elif choice < 0.82:

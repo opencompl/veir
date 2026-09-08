@@ -21,6 +21,8 @@ private def volatileMemProperties : RISCVMemProperties :=
 
 #guard OpCode.getEffects (.llvm .alloca) (default : AllocaProperties) == .allocate
 
+#guard OpCode.getEffects (.llvm .insertvalue) (default : LLVMInsertValueProperties) == .none
+
 #guard OpCode.getEffects (.arith .addi) (default : ArithIntegerOverflowFlagsProperties) == .none
 
 /- RISC-V models volatility the same way, on its own load and store opcodes. -/

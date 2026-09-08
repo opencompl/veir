@@ -1,6 +1,8 @@
 module
 
 public import Veir.Data.LLVM.Int.Basic
+public import Veir.Data.LLVM.FloatPred
+public import Veir.Data.LLVM.AtomicOrdering
 public import Std.Data.HashMap
 public import Veir.IR.Attribute
 
@@ -66,8 +68,14 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 def NnegProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String NnegProperties := do
-  let nneg ← getUnitAttr "nneg" attrDict
+  let nneg ← getUnitAttr "nonNeg" attrDict
   return { nneg := nneg }
+
+def NnegProperties.toAttrDict (props : NnegProperties) : Std.HashMap ByteArray Attribute :=
+  if props.nneg then
+    (Std.HashMap.emptyWithCapacity 1).insert "nonNeg".toUTF8 (.unitAttr UnitAttr.mk)
+  else
+    Std.HashMap.emptyWithCapacity 0
 
 /--
   Properties of LLVM count-zero intrinsics. In LLVM IR, the second intrinsic
@@ -317,6 +325,34 @@ def IcmpProperties.fromAttrDictFor (opName : String) (attrDict : Std.HashMap Byt
 def IcmpProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String IcmpProperties :=
   IcmpProperties.fromAttrDictFor "llvm.icmp" attrDict
+
+/-- Properties of `llvm.fcmp`. -/
+structure FcmpProperties where
+  predicate : Data.LLVM.FloatPred
+  fastmathFlags : FastMathFlagsAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def FcmpProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String FcmpProperties := do
+  if let some (key, _) := attrDict.toArray.find? (fun (k, _) =>
+      k ≠ "predicate".toUTF8 && k ≠ "fastmathFlags".toUTF8) then
+    throw s!"llvm.fcmp: unexpected property '{String.fromUTF8! key}'"
+  let some attr := attrDict["predicate".toUTF8]?
+    | throw "llvm.fcmp: missing predicate"
+  let .integerAttr intAttr := attr
+    | throw s!"llvm.fcmp: expected predicate to be an integer attribute, but got {attr}"
+  if intAttr.type.bitwidth ≠ 64 then
+    throw s!"llvm.fcmp: expected predicate to be an i64 integer attribute, but got {attr}"
+  if intAttr.value < 0 then
+    throw s!"llvm.fcmp: invalid predicate {intAttr.value}"
+  let some predicate := Data.LLVM.FloatPred.fromNat intAttr.value.toNat
+    | throw s!"llvm.fcmp: invalid predicate {intAttr.value}"
+  let flags ← match attrDict["fastmathFlags".toUTF8]? with
+    | some (.fastMathFlagsAttr flags) => .ok flags
+    | some attr =>
+      throw s!"llvm.fcmp: expected 'fastmathFlags' to be a fast math flags attribute, but got {attr}"
+    | none => .ok { nnan := false, ninf := false, nsz := false }
+  return { predicate, fastmathFlags := flags }
 
 /--
   Properties of LLVM memory operations.
@@ -674,6 +710,92 @@ def LLVMMemIntrinsicProperties.fromAttrDictFor (opName : String)
 def LLVMMemIntrinsicProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String LLVMMemIntrinsicProperties :=
   LLVMMemIntrinsicProperties.fromAttrDictFor "llvm.intr.memset" attrDict
+
+/--
+  Properties of `llvm.call_intrinsic`.
+-/
+structure LLVMCallIntrinsicProperties where
+  intrin : StringAttr
+  operandSegmentSizes : DenseArrayAttr
+  op_bundle_sizes : DenseArrayAttr
+  op_bundle_tags : Option ArrayAttr
+  fastmathFlags : FastMathFlagsAttr
+  arg_attrs : Option ArrayAttr
+  res_attrs : Option ArrayAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMCallIntrinsicProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMCallIntrinsicProperties := do
+  if let some (key, _) := attrDict.toArray.find? (fun (k, _) =>
+      k ≠ "intrin".toUTF8 && k ≠ "operandSegmentSizes".toUTF8 && k ≠ "op_bundle_sizes".toUTF8
+        && k ≠ "op_bundle_tags".toUTF8 && k ≠ "fastmathFlags".toUTF8
+        && k ≠ "arg_attrs".toUTF8 && k ≠ "res_attrs".toUTF8) then
+    throw s!"llvm.call_intrinsic: unexpected property '{String.fromUTF8! key}'"
+  let some intrin := attrDict["intrin".toUTF8]?
+    | throw "llvm.call_intrinsic: missing 'intrin' property"
+  let .stringAttr intrin := intrin
+    | throw s!"llvm.call_intrinsic: expected 'intrin' to be a string attribute, but got {intrin}"
+  let some sizes := attrDict["operandSegmentSizes".toUTF8]?
+    | throw "llvm.call_intrinsic: missing 'operandSegmentSizes' property"
+  let .denseArrayAttr sizes := sizes
+    | throw s!"llvm.call_intrinsic: expected 'operandSegmentSizes' to be a dense array attribute, but got {sizes}"
+  let some bundleSizes := attrDict["op_bundle_sizes".toUTF8]?
+    | throw "llvm.call_intrinsic: missing 'op_bundle_sizes' property"
+  let .denseArrayAttr bundleSizes := bundleSizes
+    | throw s!"llvm.call_intrinsic: expected 'op_bundle_sizes' to be a dense array attribute, but got {bundleSizes}"
+  let tags ← optionalArrayAttr "llvm.call_intrinsic" "op_bundle_tags" attrDict
+  let argAttrs ← optionalDictArrayAttr "llvm.call_intrinsic" "arg_attrs" attrDict
+  let resAttrs ← optionalDictArrayAttr "llvm.call_intrinsic" "res_attrs" attrDict
+  let ⟨flags⟩ ← (FastMathFlagsProperties.fromAttrDict attrDict).mapError
+    (s!"llvm.call_intrinsic: {·}")
+  return { intrin, operandSegmentSizes := sizes, op_bundle_sizes := bundleSizes,
+           op_bundle_tags := tags, fastmathFlags := flags,
+           arg_attrs := argAttrs, res_attrs := resAttrs }
+
+/--
+  Properties of `llvm.insertvalue`.
+-/
+structure LLVMInsertValueProperties where
+  position : DenseArrayAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMInsertValueProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMInsertValueProperties := do
+  if let some (key, _) := attrDict.toArray.find? (fun (k, _) => k ≠ "position".toUTF8) then
+    throw s!"llvm.insertvalue: unexpected property '{String.fromUTF8! key}'"
+  let some position := attrDict["position".toUTF8]?
+    | throw "llvm.insertvalue: missing 'position' property"
+  let .denseArrayAttr position := position
+    | throw s!"llvm.insertvalue: expected 'position' to be a dense array attribute, but got {position}"
+  return { position }
+
+/-- Properties of `llvm.fence`: how strongly it orders, and over what scope. -/
+structure LLVMFenceProperties where
+  ordering : Data.LLVM.AtomicOrdering
+  syncscope : Option StringAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMFenceProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMFenceProperties := do
+  if let some (key, _) := attrDict.toArray.find? (fun (k, _) =>
+      k ≠ "ordering".toUTF8 && k ≠ "syncscope".toUTF8) then
+    throw s!"llvm.fence: unexpected property '{String.fromUTF8! key}'"
+  let some attr := attrDict["ordering".toUTF8]?
+    | throw "llvm.fence: missing 'ordering' property"
+  let .integerAttr intAttr := attr
+    | throw s!"llvm.fence: expected 'ordering' to be an integer attribute, but got {attr}"
+  if intAttr.type.bitwidth ≠ 64 then
+    throw s!"llvm.fence: expected 'ordering' to be an i64 integer attribute, but got {attr}"
+  if intAttr.value < 0 then
+    throw s!"llvm.fence: invalid ordering {intAttr.value}"
+  let some ordering := Data.LLVM.AtomicOrdering.fromNat intAttr.value.toNat
+    | throw s!"llvm.fence: invalid ordering {intAttr.value}"
+  let syncscope ← match attrDict["syncscope".toUTF8]? with
+    | some (.stringAttr syncscope) => .ok (some syncscope)
+    | some attr =>
+      throw s!"llvm.fence: expected 'syncscope' to be a string attribute, but got {attr}"
+    | none => .ok none
+  return { ordering, syncscope }
 
 structure LLVMModuleFlagsProperties where
   flags : ArrayAttr

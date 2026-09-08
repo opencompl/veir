@@ -1,4 +1,4 @@
-// RUN: VEIR_UNREGISTERED_ROUNDTRIP
+// RUN: VEIR_ROUNDTRIP
 
 // Reduced from sqlite3.c
 "builtin.module"() ({
