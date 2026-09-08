@@ -1,4 +1,5 @@
 // RUN: VEIR_ROUNDTRIP
+// RUN: MLIR_ROUNDTRIP
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "f", sym_visibility = "private", function_type = (i32) -> i32}> ({

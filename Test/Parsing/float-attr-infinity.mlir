@@ -1,4 +1,5 @@
 // RUN: VEIR_ROUNDTRIP
+// RUN: MLIR_UNREGISTERED_ROUNDTRIP
 
 // A decimal literal that overflows the type must round to a signed infinity, not
 // to a NaN.  These values sit in the binade immediately above the largest finite

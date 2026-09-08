@@ -32,6 +32,9 @@ inductive Llvm where
 | intr__cttz
 | intr__lifetime__start
 | intr__lifetime__end
+| intr__vastart
+| intr__vaend
+| va_arg
 | intr__memset
 | intr__memcpy
 | intr__memmove
@@ -466,6 +469,7 @@ def Llvm.propagatesPoison : Llvm → Bool
   | .mlir__addressof
   | .select | .br | .cond_br | .switch | .unreachable | .fence | .alloca | .load | .store
   | .intr__lifetime__start | .intr__lifetime__end | .intr__assume
+  | .intr__vastart | .intr__vaend | .va_arg
   | .intr__memset | .intr__memcpy | .intr__memmove
   | .getelementptr | .insertvalue | .call | .call_intrinsic | .return | .func
   | .module_flags
@@ -695,6 +699,15 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     pure ()
   | .intr__lifetime__start | .intr__lifetime__end => do
     op.verifyPlainOpCounts ctx opIn 1 0
+    let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
+    let .llvmPointerType _ := operandType.val
+      | throw "Expected operand 0 to have !llvm.ptr type"
+    pure ()
+  | .intr__vastart | .intr__vaend | .va_arg => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyLLVMCompatibleTypes ctx opIn
+    let results := if opType = .va_arg then 1 else 0
+    op.verifyPlainOpCounts ctx opIn 1 results
     let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
     let .llvmPointerType _ := operandType.val
       | throw "Expected operand 0 to have !llvm.ptr type"
