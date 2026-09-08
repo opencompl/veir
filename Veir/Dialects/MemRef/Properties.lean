@@ -9,12 +9,6 @@ public section
 
 /--
   Properties of the `memref.global` operation.
-
-  VeIR models only the declaration form: `sym_name` names the symbol and `type`
-  gives its statically shaped memref type. Whatever else MLIR may attach --
-  `sym_visibility`, `constant`, `initial_value`, `alignment` -- is carried
-  through `extra` so that it survives a round trip, but VeIR gives it no
-  meaning. In particular, a `constant` global is not enforced to be read-only.
 -/
 structure MemRefGlobalProperties where
   sym_name : StringAttr

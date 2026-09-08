@@ -3,18 +3,7 @@
 
 // memref.load and memref.store on a rank-1 memref, each with one `index`
 // operand -- the register-file read and write in t2-generic.mlir's `X` and
-// `X_write`.  Operand order differs between the two: the load takes the memref
-// then the indices, the store takes the value, then the memref, then the
-// indices.
-//
-// Each index must satisfy 0 <= idx < 32.  Nothing checks that; violating it is
-// undefined behavior, and MLIR's -generate-runtime-verification pass is what
-// inserts the check.  The ASL frontend produces the indices with `index.casts`
-// from an i64; VeIR has no `index` dialect, so they arrive as block arguments
-// here.
-//
-// One get_global feeds both accesses: the op is pure and always yields the
-// same memref, so re-fetching it per use would be equivalent.
+// `X_write`.
 
 "builtin.module"() ({
   "memref.global"() <{sym_name = "_X", type = memref<32xi128>}> : () -> ()

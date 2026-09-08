@@ -517,7 +517,7 @@ structure VectorType where
   elementType : Attribute
 
 /--
-  A builtin `memref` type, restricted to the fragment VeIR currently needs:
+  A builtin `memref` type, restricted to the fragment VeIR currently supports:
   a statically shaped memref with the implicit identity layout and the default
   memory space.
 

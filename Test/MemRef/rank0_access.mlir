@@ -1,15 +1,6 @@
 // RUN: VEIR_ROUNDTRIP
 // RUN: MLIR_ROUNDTRIP
 
-// memref.load and memref.store on rank-0 memrefs.  The number of indices must
-// equal the rank, so a rank-0 access names the memref and nothing else: the
-// load takes just the memref, and the store takes just the value and the
-// memref, in that order.  This is how t2-generic.mlir reads and writes its
-// scalar state cells (`Halted`, `_PC`, `_NextPC`).
-//
-// The store is legal only because `_PC` is not `constant`; storing through a
-// get_global of a constant global is undefined behavior.
-
 "builtin.module"() ({
   "memref.global"() <{sym_name = "Halted", type = memref<i1>}> : () -> ()
   "memref.global"() <{sym_name = "_PC", type = memref<i128>}> : () -> ()

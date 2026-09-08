@@ -11,23 +11,12 @@ public section
 
 /--
 Access to statically shaped memrefs.
-
-VeIR covers only the fragment needed to read and write named global state:
-`global` declares a symbol, `get_global` turns that symbol into a memref
-value, and `load`/`store` access it at rank-many `index` positions. The
-allocation, view, and metadata operations of MLIR's `memref` dialect, dynamic
-shapes, layouts, and memory spaces are all outside this fragment; see
-`MemRefType`.
 -/
 @[opcodes]
 inductive MemRef where
-/-- `() -> ()`: declare a global memref symbol with a statically shaped type. -/
 | global
-/-- `() -> memref<...>`: the memref for a named `memref.global`. -/
 | get_global
-/-- `(memref<...>, index...) -> T`: read the element at the given indices. -/
 | load
-/-- `(T, memref<...>, index...) -> ()`: write the element at the given indices. -/
 | store
 deriving Inhabited, Repr, Hashable, DecidableEq
 
@@ -39,12 +28,7 @@ match op with
 | .load | .store => Unit
 
 /--
-Reject any property on an operation that carries none.
-
-MLIR gives `load` and `store` an optional `nontemporal`, `alignment`, and
-`invariant` attribute, none of which is modelled here. Each one changes what
-the operation means, so accepting it and dropping it would silently alter the
-program; carrying one is an error instead.
+To avoid silent loss of information, reject properties we don't support yet.
 -/
 private def noProperties (opName : String) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String Unit :=
@@ -80,16 +64,6 @@ def MemRef.toAttrDict
     dict
   | .load | .store => Std.HashMap.emptyWithCapacity 0
 
-/--
-`get_global` is pure: MLIR guarantees it always yields the same memref, so
-common subexpression elimination may share it and dead code elimination may
-drop it when unused.
-
-`global` is given unknown effects for the same reason `llvm.mlir.global` is:
-it declares storage that `get_global` reaches by symbol rather than by SSA use,
-so claiming it has no effects would make it trivially dead and let DCE erase a
-declaration that is still referenced.
--/
 @[get_effects]
 def MemRef.getEffects
     (op : MemRef) (_props : MemRef.propertiesOf op) : MemoryEffects :=
@@ -131,13 +105,6 @@ def MemRef.verifyIndexOperands {OpInfo : Type} [IsOpCode OpInfo]
 
 /--
 Verify a `memref` operation.
-
-`global` takes and produces nothing and its `type` property must be a memref
-type; `get_global` produces one memref and nothing else. `load` and `store`
-take a memref followed by exactly rank-many `index` operands -- so a rank-0
-memref is accessed with no indices at all -- and the loaded result, or the
-stored value, has the memref's element type. That the indices are in bounds is
-a precondition, not a checked invariant: violating it is undefined behavior.
 -/
 @[expose]
 def MemRef.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpInfo MemRef]
