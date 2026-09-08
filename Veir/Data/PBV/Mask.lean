@@ -6,8 +6,8 @@ public import Veir.Data.PBV.Lemmas
 
 A width `w` is represented by the mask `2^w - 1` of the blast width, and it is
 encoded as a bitvector constraint `m &&& (m + 1) = 0` which the bitblaster
-can reason about. Other relations between bitwidths are encoded as bitvector
-inequalities and equalities.
+can reason about. Relations between bitwidths are encoded as bitvector
+inequalities and equalities in `Veir.Data.PBV.Push`.
 -/
 
 namespace Veir.Data.PBV
@@ -27,7 +27,7 @@ theorem toNat_maskOfWidth {o w : Nat} (h : w ≤ o) :
 /-- The mask constraint: the only fact about `m` surviving abstraction. This
 encodes `m = 2^k - 1` for some `k : Nat` in terms of bitvector operations
 removing the dependency on `k` and allowing it to be bitblasted. -/
-theorem maskOfWidth_and_add_one_eq_zero {o w : Nat} {m : BitVec o}
+theorem and_add_one_eq_zero_of_maskOfWidth {o w : Nat} {m : BitVec o}
     (hm : m = maskOfWidth o w) : m &&& (m + 1#o) = 0#o := by
   subst hm
   simp [maskOfWidth, BitVec.ofNat_add_ofNat, ← BitVec.ofNat_and,

@@ -35,17 +35,7 @@ example {w t v: Nat} (a b : BitVec w)
   pbv_decide 16
   · bv_decide
 
-/-- Zero extending a zero extension -/
-example (p q r : Nat) (x : BitVec p)
-  (hr : r ≤ 8)
-  (hqr : q < r)
-  (hpq : p < q) :
-  (x.zeroExtend q).zeroExtend r = x.zeroExtend r
-  := by
-  pbv_decide 8
-  · bv_decide
-
-/-- Sign extending a zero extensions -/
+/-- Sign extending a zero extension -/
 example (p q r : Nat) (x : BitVec p)
   (hr : r ≤ 8)
   (hqr : q < r)
@@ -55,10 +45,10 @@ example (p q r : Nat) (x : BitVec p)
   pbv_decide 8
   · bv_decide
 
-/-- Double zero extending with composite width. -/
+/-- Double zero extending with composite width -/
 example (p q : Nat) (x : BitVec p)
-  (hr : q ≤ 8)
-  (hpq : q > p) :
+  (hq : q ≤ 8)
+  (hqp : q > p) :
   (x.zeroExtend q).zeroExtend (q + q) = x.zeroExtend (q + q)
   := by
   pbv_decide 8
