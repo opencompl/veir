@@ -1,4 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
+// RUN: MLIR_INVALID
 
 // `attributeValueNames` is required on a `pdl.operation`.
 "builtin.module"() ({

@@ -1,4 +1,5 @@
 // RUN: VEIR_UNREGISTERED_ROUNDTRIP
+// RUN: MLIR_UNREGISTERED_ROUNDTRIP
 
 // Attributes from unregistered dialects may omit the `<body>` and may carry a
 // trailing `: type`, as MLIR's generic parser allows for any dialect attribute.

@@ -1,4 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
+// RUN: MLIR_INVALID
 
 // A `pdl.attribute` produces an `!pdl.attribute` handle, not an arbitrary type.
 "builtin.module"() ({

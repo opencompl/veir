@@ -1,4 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
+// RUN: MLIR_INVALID
 
 // An `arith` operation may not produce an `i0` value.
 "builtin.module"() ({

@@ -1,4 +1,5 @@
 // RUN: VEIR_ROUNDTRIP
+// RUN: MLIR_UNREGISTERED_ROUNDTRIP
 
 // Verify that a 0x-prefixed hexadecimal literal is parsed as the raw IEEE-754
 // bit pattern of the type and round-trips. The printer emits the bit pattern,
