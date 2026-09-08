@@ -55,11 +55,14 @@ inductive Llvm where
 | cond_br
 | switch
 | unreachable
+| fence
 | alloca
 | load
 | store
 | getelementptr
+| insertvalue
 | call
+| call_intrinsic
 | return
 | func
 | module_flags
@@ -68,6 +71,15 @@ inductive Llvm where
 | fmul
 | fdiv
 | frem
+| fneg
+| fcmp
+| sitofp
+| uitofp
+| fptosi
+| fptoui
+| fpext
+| intr__fmuladd
+| intr__fabs
 | freeze
 | bitcast
 | inttoptr
@@ -104,7 +116,7 @@ match op with
 | .intr__assume => LLVMAssumeProperties
 | .or => DisjointProperties
 | .trunc => NswNuwProperties
-| .zext => NnegProperties
+| .zext | .uitofp => NnegProperties
 | .icmp => IcmpProperties
 | .br => LLVMBrProperties
 | .cond_br => LLVMCondBrProperties
@@ -114,8 +126,13 @@ match op with
 | .load => LoadProperties
 | .store => StoreProperties
 | .getelementptr => GetelementptrProperties
-| .fadd | .fsub | .fmul | .fdiv | .frem => FastMathFlagsProperties
+| .insertvalue => LLVMInsertValueProperties
+| .fence => LLVMFenceProperties
+| .fadd | .fsub | .fmul | .fdiv | .frem | .fneg | .intr__fmuladd | .intr__fabs =>
+  FastMathFlagsProperties
+| .fcmp => FcmpProperties
 | .call => LLVMCallProperties
+| .call_intrinsic => LLVMCallIntrinsicProperties
 | .func => LLVMFuncProperties
 | .module_flags => LLVMModuleFlagsProperties
 | _ => Unit
@@ -138,7 +155,7 @@ def Llvm.fromAttrDict
   case intr__abs => exact IntMinPoisonProperties.fromAttrDict attrDict
   case intr__assume => exact LLVMAssumeProperties.fromAttrDict attrDict
   case or => exact DisjointProperties.fromAttrDict attrDict
-  case zext => exact NnegProperties.fromAttrDict attrDict
+  case zext | uitofp => exact NnegProperties.fromAttrDict attrDict
   case icmp => exact IcmpProperties.fromAttrDict attrDict
   case br => exact LLVMBrProperties.fromAttrDict attrDict
   case cond_br => exact LLVMCondBrProperties.fromAttrDict attrDict
@@ -153,11 +170,15 @@ def Llvm.fromAttrDict
   case load => exact LoadProperties.fromAttrDict attrDict
   case store => exact StoreProperties.fromAttrDict attrDict
   case getelementptr => exact GetelementptrProperties.fromAttrDict attrDict
-  case fadd | fsub | fmul | fdiv | frem =>
+  case insertvalue => exact LLVMInsertValueProperties.fromAttrDict attrDict
+  case fence => exact LLVMFenceProperties.fromAttrDict attrDict
+  case fadd | fsub | fmul | fdiv | frem | fneg | intr__fmuladd | intr__fabs =>
     exact FastMathFlagsProperties.fromAttrDict attrDict
+  case fcmp => exact FcmpProperties.fromAttrDict attrDict
   case func => exact LLVMFuncProperties.fromAttrDict attrDict
   case module_flags => exact LLVMModuleFlagsProperties.fromAttrDict attrDict
   case call => exact LLVMCallProperties.fromAttrDict attrDict
+  case call_intrinsic => exact LLVMCallIntrinsicProperties.fromAttrDict attrDict
   all_goals exact .ok ()
 
 def Llvm.toAttrDict
@@ -206,9 +227,15 @@ def Llvm.toAttrDict
       let attr := IntegerAttr.mk (Int.ofNat val) (IntegerType.mk 32)
       dict := dict.insert "overflowFlags".toUTF8 (Attribute.integerAttr attr)
     dict
-  | .fadd | .fsub | .fmul | .fdiv | .frem =>
+  | .fadd | .fsub | .fmul | .fdiv | .frem | .fneg | .intr__fmuladd | .intr__fabs =>
     (Std.HashMap.emptyWithCapacity 1).insert
       "fastmathFlags".toUTF8 (Attribute.fastMathFlagsAttr props.attr)
+  | .fcmp => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 2
+    dict := dict.insert "fastmathFlags".toUTF8 (Attribute.fastMathFlagsAttr props.fastmathFlags)
+    let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) (IntegerType.mk 64)
+    dict := dict.insert "predicate".toUTF8 (Attribute.integerAttr value)
+    dict
   | .icmp =>
     let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) (IntegerType.mk 64)
     (Std.HashMap.emptyWithCapacity 1).insert
@@ -261,11 +288,7 @@ def Llvm.toAttrDict
     if props.disjoint then
       dict := dict.insert "disjoint".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
-  | .zext => Id.run do
-    let mut dict := Std.HashMap.emptyWithCapacity 1
-    if props.nneg then
-      dict := dict.insert "nneg".toUTF8 (Attribute.unitAttr UnitAttr.mk)
-    dict
+  | .zext | .uitofp => props.toAttrDict
   | .intr__ctlz | .intr__cttz =>
     let value := if props.is_zero_poison then 1 else 0
     let attr := IntegerAttr.mk value (IntegerType.mk 1)
@@ -323,6 +346,16 @@ def Llvm.toAttrDict
     dict := dict.insert "noalias_scopes".toUTF8 (.arrayAttr props.noalias_scopes)
     dict := dict.insert "tbaa".toUTF8 (.arrayAttr props.tbaa)
     dict
+  | .insertvalue =>
+    (Std.HashMap.emptyWithCapacity 1).insert
+      "position".toUTF8 (Attribute.denseArrayAttr props.position)
+  | .fence => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 2
+    let ordering := IntegerAttr.mk (Int.ofNat props.ordering.toNat) (IntegerType.mk 64)
+    dict := dict.insert "ordering".toUTF8 (Attribute.integerAttr ordering)
+    if let some syncscope := props.syncscope then
+      dict := dict.insert "syncscope".toUTF8 (.stringAttr syncscope)
+    dict
   | .getelementptr => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 3
     dict := dict.insert
@@ -344,6 +377,20 @@ def Llvm.toAttrDict
     if let some callee := props.callee then
       dict := dict.insert "callee".toUTF8 (.flatSymbolRefAttr callee)
     dict
+  | .call_intrinsic => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 7
+    dict := dict.insert "intrin".toUTF8 (.stringAttr props.intrin)
+    dict := dict.insert "operandSegmentSizes".toUTF8
+      (Attribute.denseArrayAttr props.operandSegmentSizes)
+    dict := dict.insert "op_bundle_sizes".toUTF8
+      (Attribute.denseArrayAttr props.op_bundle_sizes)
+    dict := dict.insert "fastmathFlags".toUTF8 (Attribute.fastMathFlagsAttr props.fastmathFlags)
+    for (name, value) in [("op_bundle_tags", props.op_bundle_tags),
+                          ("arg_attrs", props.arg_attrs),
+                          ("res_attrs", props.res_attrs)] do
+      if let some value := value then
+        dict := dict.insert name.toUTF8 (.arrayAttr value)
+    dict
   | _ => Std.HashMap.emptyWithCapacity 0
 
 @[get_effects]
@@ -363,7 +410,7 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
   | .intr__fshl, _ | .intr__fshr, _
   | .icmp, _ | .select, _
   | .trunc, _ | .sext, _ | .zext, _
-  | .getelementptr, _
+  | .getelementptr, _ | .insertvalue, _
   | .br, _ | .cond_br, _ | .switch, _ | .return, _
   | .freeze, _ | .bitcast, _
   | .inttoptr, _ | .ptrtoint, _
@@ -372,7 +419,9 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
   | .intr__sadd__sat, _ | .intr__uadd__sat, _
   | .intr__ssub__sat, _ | .intr__usub__sat, _
   | .intr__sshl__sat, _ | .intr__ushl__sat, _
-  | .fadd, _ | .fsub, _ | .fmul, _ | .fdiv, _ | .frem, _ => .none
+  | .fadd, _ | .fsub, _ | .fmul, _ | .fdiv, _ | .frem, _
+  | .fneg, _ | .fcmp, _ | .sitofp, _ | .uitofp, _ | .fptosi, _ | .fptoui, _
+  | .fpext, _ | .intr__fmuladd, _ | .intr__fabs, _ => .none
   -- For everything else: be conservative!
   | _, _ => .unknown
 
@@ -411,12 +460,16 @@ def Llvm.propagatesPoison : Llvm → Bool
   -- `RuntimeValue` represents a poisoned float yet, so listing them here would
   -- claim a fold that cannot be materialized.
   | .fadd | .fsub | .fmul | .fdiv | .frem
+  | .fneg | .fcmp | .sitofp | .uitofp | .fptosi | .fptoui | .fpext
+  | .intr__fmuladd | .intr__fabs
   | .mlir__constant | .mlir__poison | .mlir__undef | .mlir__zero | .mlir__global
   | .mlir__addressof
-  | .select | .br | .cond_br | .switch | .unreachable | .alloca | .load | .store
+  | .select | .br | .cond_br | .switch | .unreachable | .fence | .alloca | .load | .store
   | .intr__lifetime__start | .intr__lifetime__end | .intr__assume
   | .intr__memset | .intr__memcpy | .intr__memmove
-  | .getelementptr | .call | .return | .func | .module_flags | .freeze => false
+  | .getelementptr | .insertvalue | .call | .call_intrinsic | .return | .func
+  | .module_flags
+  | .freeze => false
 
 def Llvm.fold (op : Llvm) (_properties : Llvm.propertiesOf op)
     (_resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
@@ -657,25 +710,13 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .intr__assume => do
     op.checkIsNonNullIntegerType ctx opIn
     let props := op.getProperties! ctx.raw Llvm.intr__assume
-    let sizes := props.op_bundle_sizes
-    if sizes.elementType.bitwidth ≠ 32 then
-      throw "llvm.intr.assume: Expected 'op_bundle_sizes' to be an i32 dense array attribute"
-    if sizes.values.any (· < 0) then
-      throw "llvm.intr.assume: op_bundle_sizes contains a negative size"
-    let bundleOperands := (sizes.values.foldl (· + ·) 0).toNat
+    let bundleOperands ← verifyOperandBundles props.op_bundle_sizes props.op_bundle_tags
     let numOperands := op.getNumOperands ctx.raw opIn
     if numOperands ≠ 1 + bundleOperands then
-      throw s!"llvm.intr.assume: Expected 1 condition and {bundleOperands} operand bundle \
+      throw s!"Expected 1 condition and {bundleOperands} operand bundle \
         operand(s) per 'op_bundle_sizes', but got {numOperands} operand(s)"
     op.verifyPlainOpCounts ctx opIn numOperands 0
-    ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyI1 "llvm.intr.assume: Expected i1 condition"
-    let tags := (props.op_bundle_tags.map (·.value)).getD #[]
-    if tags.size ≠ sizes.values.size then
-      throw s!"llvm.intr.assume: Expected {sizes.values.size} operand bundle tag(s), \
-        but got {tags.size}"
-    for tag in tags do
-      let .stringAttr _ := tag
-        | throw "llvm.intr.assume: Expected operand bundle tags to be string attributes"
+    ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyI1 "Expected i1 condition"
   | .inttoptr | .ptrtoint => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 1 1
@@ -814,6 +855,45 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     if properties.alignment.type.bitwidth ≠ 64 then
       throw "'llvm.store' op attribute 'alignment' failed to satisfy constraint: 64-bit signless integer attribute"
     pure ()
+  | .insertvalue => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyPlainOpCounts ctx opIn 2 1
+    let props := op.getProperties! ctx.raw Llvm.insertvalue
+    if props.position.elementType.bitwidth ≠ 64 then
+      throw "Expected 'position' to be an i64 dense array attribute"
+    let containerType := (op.getOperand! ctx.raw 0).getType! ctx.raw
+    let valueType := (op.getOperand! ctx.raw 1).getType! ctx.raw
+    op.verifyResultTypeMatches ctx containerType "Expected the result to have the container type"
+    let isStruct : Attribute → Bool
+      | .unregisteredAttr attr => attr.isType && attr.value.startsWith "!llvm.struct"
+      | _ => false
+    let isArray : Attribute → Bool
+      | .llvmArrayType _ => true
+      | _ => false
+    if !(isArray containerType.val || isStruct containerType.val) then
+      throw s!"Expected an aggregate container, but got {containerType}"
+    for index in props.position.values do
+      if index < 0 then
+        throw s!"position out of bounds: {index}"
+    /- Arrays are modelled, so their indices and element types are checked.
+       Struct bodies are opaque, so the walk trusts everything below a struct. -/
+    let mut current := containerType.val
+    for index in props.position.values do
+      let .llvmArrayType arrType := current
+        | if isStruct current then return
+          throw s!"Expected LLVM IR structure/array type, got: {current}"
+      if index ≥ arrType.size then
+        throw s!"position out of bounds: {index}"
+      current := arrType.type
+    if current ≠ valueType.val then
+      throw s!"Type mismatch: cannot insert {valueType} into {containerType}"
+  | .fence => do
+    op.verifyPlainOpCounts ctx opIn 0 0
+    /- A fence orders other accesses, so the weaker orderings say nothing. -/
+    let props := op.getProperties! ctx.raw Llvm.fence
+    match props.ordering with
+    | .acquire | .release | .acq_rel | .seq_cst => pure ()
+    | _ => throw "llvm.fence: can be given only acquire, release, acq_rel and seq_cst orderings"
   | .getelementptr => do
     op.checkIsNonNullIntegerType ctx opIn
     let props := op.getProperties! ctx.raw Llvm.getelementptr
@@ -827,6 +907,22 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
+  | .call_intrinsic => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyLLVMCompatibleTypes ctx opIn
+    let props := op.getProperties! ctx.raw Llvm.call_intrinsic
+    if !(String.fromUTF8? props.intrin.value).any (·.startsWith "llvm.") then
+      throw "intrinsic name must start with 'llvm.'"
+    if op.getNumResults ctx.raw opIn > 1 then
+      throw "Expected at most 1 result"
+    let sizes ← op.verifyOperandSegmentSizes ctx opIn props.operandSegmentSizes 2
+    op.verifyPlainOpCounts ctx opIn (op.getNumOperands ctx.raw opIn) (op.getNumResults ctx.raw opIn)
+    /- The second segment holds the operands of the bundles, which
+       `op_bundle_sizes` splits again, one entry per bundle. -/
+    let bundleOperands ← verifyOperandBundles props.op_bundle_sizes props.op_bundle_tags
+    if bundleOperands ≠ sizes[1]! then
+      throw s!"op_bundle_sizes describes {bundleOperands} operand(s), but \
+        operandSegmentSizes reserves {sizes[1]!}"
   | .call => do
     op.checkIsNonNullIntegerType ctx opIn
     if op.getNumResults ctx.raw opIn > 1 then
@@ -848,8 +944,25 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "Expected 0 successors"
   | .fadd | .fsub | .fmul | .fdiv | .frem => do
     op.checkIsNonNullIntegerType ctx opIn
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
+    op.verifyFloatBinop ctx opIn
+  | .fneg | .intr__fabs => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyFloatUnop ctx opIn
+  | .intr__fmuladd => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyFloatTernop ctx opIn
+  | .fcmp => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyFCmp ctx opIn
+  | .sitofp | .uitofp => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyIntToFloatTypes ctx opIn
+  | .fptosi | .fptoui => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyFloatToIntTypes ctx opIn
+  | .fpext => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyFloatExtTypes ctx opIn
   | .module_flags => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 0 0

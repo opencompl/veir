@@ -436,14 +436,14 @@ def flags_from_attrs(op: str, attr: str) -> list[str]:
         flags.append("exact")
     if op == "llvm.or" and "disjoint" in items:
         flags.append("disjoint")
-    if op == "llvm.zext" and "nneg" in items:
+    if op == "llvm.zext" and "nonNeg" in items:
         flags.append("nneg")
     unsupported = items - {
         "nuw",
         "nsw",
         "exact",
         "disjoint",
-        "nneg",
+        "nonNeg",
         "predicate",
         "operandSegmentSizes",
         "overflowFlags",
