@@ -5,30 +5,24 @@ example (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
   x + y = y + x := by
   pbv_decide 4
   · bv_decide
-  · grind
 
 /-- Commutativity of addition with definitionally-not-syntactically equal widths -/
 example (w : Nat) (x : BitVec (w + 0)) (y : BitVec w) (hw : w ≤ 4) :
   x + y = y + x := by
   pbv_decide 4
   · bv_decide
-  · grind
-  · grind
 
 /-- Commutativity of addition for three variables -/
 example (w : Nat) (x y z : BitVec w) (hw : w ≤ 4) :
   x + y + z = y + x + z := by
   pbv_decide 4
   · bv_decide
-  · grind
 
 /-- Appending and adding -/
 example (w : Nat) (a b : BitVec w) (hw : w ≤ 8) :
   (a ++ b) + (b ++ a) = (a ++ a) + (b ++ b) := by
   pbv_decide 8
   · bv_decide
-  · grind
-  · grind
 
 /-- Extending, adding and truncating is the same as adding -/
 example {w t v: Nat} (a b : BitVec w)
@@ -40,6 +34,3 @@ example {w t v: Nat} (a b : BitVec w)
   := by
   pbv_decide 16
   · bv_decide
-  · grind
-  · grind
-  · grind
