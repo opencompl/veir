@@ -120,7 +120,7 @@ theorem BlockPtr.opChain_rewriter_createBlock {block : BlockPtr} {array : Array 
   split at h; grind
   rename_i ctx₁ newBlock₁ hAlloc
   have hc1 : BlockPtr.OpChain block ctx₁ array := by
-    apply BlockPtr.OpChain_unchanged (ctx := ctx) hWf <;> grind
+    apply BlockPtr.OpChain_unchanged (ctx := ctx) hWf <;> grind (gen := 20)
   have hc2 : BlockPtr.OpChain block (Rewriter.initBlockArguments ctx₁ newBlock₁ types) array :=
     BlockPtr.opChain_Rewriter_initBlockArguments hc1
   split at h
