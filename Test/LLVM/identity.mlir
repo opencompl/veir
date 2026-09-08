@@ -73,6 +73,16 @@
       %57 = "llvm.frem"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<ninf>}> : (f64, f64) -> f64
       %58 = "llvm.frem"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<nsz>}> : (f64, f64) -> f64
       %59 = "llvm.frem"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<nsz, nnan, ninf>}> : (f64, f64) -> f64
+      %fneg = "llvm.fneg"(%fcst) <{fastmathFlags = #llvm.fastmath<none>}> : (f64) -> f64
+      %fma = "llvm.intr.fmuladd"(%fcst, %fcst, %fcst) <{fastmathFlags = #llvm.fastmath<none>}> : (f64, f64, f64) -> f64
+      %si2fp = "llvm.sitofp"(%5) : (i32) -> f64
+      %ui2fp = "llvm.uitofp"(%5) : (i32) -> f64
+      %uitofp_nn = "llvm.uitofp"(%5) <{nonNeg}> : (i32) -> f64
+      %fp2si = "llvm.fptosi"(%fcst) : (f64) -> i32
+      %fabs = "llvm.intr.fabs"(%fcst) <{fastmathFlags = #llvm.fastmath<none>}> : (f64) -> f64
+      %fp2ui = "llvm.fptoui"(%fcst) : (f64) -> i32
+      %f32 = "llvm.mlir.constant"() <{value = 1.000000e+00 : f32}> : () -> f32
+      %fpext = "llvm.fpext"(%f32) : (f32) -> f64
       %60 = "llvm.freeze"(%5) : (i32) -> i32
       %61 = "llvm.mlir.poison"() : () -> i64
       %62 = "llvm.bitcast"(%5) : (i32) -> !llvm.byte<32>
@@ -156,6 +166,16 @@
 // CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<ninf>}> : (f64, f64) -> f64
 // CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<nsz>}> : (f64, f64) -> f64
 // CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<fast>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fneg"(%arg7_0) <{"fastmathFlags" = #llvm.fastmath<none>}> : (f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.intr.fmuladd"(%arg7_0, %arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<none>}> : (f64, f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.sitofp"(%{{.*}}) : (i32) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.uitofp"(%{{.*}}) : (i32) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.uitofp"(%{{.*}}) <{nonNeg}> : (i32) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fptosi"(%arg7_0) : (f64) -> i32
+// CHECK-NEXT:       %{{.*}} = "llvm.intr.fabs"(%arg7_0) <{"fastmathFlags" = #llvm.fastmath<none>}> : (f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fptoui"(%arg7_0) : (f64) -> i32
+// CHECK-NEXT:       %{{.*}} = "llvm.mlir.constant"() <{"value" = 0x3f800000 : f32}> : () -> f32
+// CHECK-NEXT:       %{{.*}} = "llvm.fpext"(%{{.*}}) : (f32) -> f64
 // CHECK-NEXT:       %{{.*}} = "llvm.freeze"(%{{.*}}) : (i32) -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.mlir.poison"() : () -> i64
 // CHECK-NEXT:       %{{.*}} = "llvm.bitcast"(%{{.*}}) : (i32) -> !llvm.byte<32>

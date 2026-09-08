@@ -76,13 +76,13 @@
     %q_to_i8 = "llvm.trunc"(%q) : (i32) -> i8
     "llvm.br"(%q_to_i8) [^zext_nneg] : (i8) -> ()
 ^zext_nneg(%s : i8):
-    %zext_nneg_1 = "llvm.zext"(%s) <{nneg}> : (i8) -> i32
-    %zext_nneg_2 = "llvm.zext"(%s) <{nneg}> : (i8) -> i32
+    %zext_nneg_1 = "llvm.zext"(%s) <{nonNeg}> : (i8) -> i32
+    %zext_nneg_2 = "llvm.zext"(%s) <{nonNeg}> : (i8) -> i32
     %zext_plain  = "llvm.zext"(%s) : (i8) -> i32
     "test.test"(%zext_nneg_1, %zext_nneg_2, %zext_plain) : (i32, i32, i32) -> ()
 
     // CHECK-LABEL: ^{{.*}}(%{{.*}} : i8):
-    // CHECK-NEXT: %[[ZEXT_NNEG:.*]] = "llvm.zext"(%{{.*}}) <{nneg}> : (i8) -> i32
+    // CHECK-NEXT: %[[ZEXT_NNEG:.*]] = "llvm.zext"(%{{.*}}) <{nonNeg}> : (i8) -> i32
     // CHECK-NEXT: %[[ZEXT_PLAIN:.*]] = "llvm.zext"(%{{.*}}) : (i8) -> i32
     // CHECK-NEXT: "test.test"(%[[ZEXT_NNEG]], %[[ZEXT_NNEG]], %[[ZEXT_PLAIN]])
     "llvm.return"() : () -> ()

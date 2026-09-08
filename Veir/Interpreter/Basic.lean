@@ -3,6 +3,7 @@ module
 public import Veir.RuntimeValue
 public import Veir.IR.WellFormed
 public import Veir.GlobalOpInfo
+public import Veir.DataLayout.RISCV64
 
 import Veir.Data.Comb.Basic
 import Veir.Data.HW.Basic
@@ -98,7 +99,7 @@ namespace RuntimeValue
 def Conforms (val : RuntimeValue) (ty : TypeAttr) : Prop :=
   match val, ty with
   | .int bw _, ⟨.integerType intType, _⟩ => intType.bitwidth = bw
-  | .float bw _, ⟨.floatType floatType, _⟩ => floatType.bitwidth = bw
+  | .float type _, ⟨.floatType floatType, _⟩ => floatType = type
   | .byte bw _, ⟨.byteType byteType, _⟩ => byteType.bitwidth = bw
   | .int bw _, ⟨.modArithType modArithType, _⟩ => modArithType.modulus.type.bitwidth = bw
   | .reg _, ⟨.registerType _, _⟩ => True
@@ -138,7 +139,7 @@ theorem Conforms.byteType {runtimeValue byteType h} :
 @[grind <=]
 theorem Conforms.floatType :
     Conforms runtimeValue ⟨.floatType fltType, h⟩ →
-    ∃ val, runtimeValue = .float fltType.bitwidth val := by
+    ∃ val, runtimeValue = .float fltType val := by
   simp only [Conforms]
   cases runtimeValue
   case float bw val =>
@@ -890,7 +891,7 @@ def Felt.interpretOp' (opType : Veir.Felt) (properties : propertiesOf opType)
 
 def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
-    (mem : MemoryState)
+    (mem : MemoryState) (layout : DataLayout := .riscv64)
     : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
   match opType with
   | .mlir__constant => do
@@ -908,9 +909,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     | .float floatAttr =>
       let .floatType bw := resType.val
         | none
-      if bw.bitwidth ≠ 64 then
-        none
-      return (#[.float 64 floatAttr.value], mem, none)
+      return (#[.float floatAttr.type floatAttr.value], mem, none)
     | .dense denseAttr =>
       none
     | .string _ =>
@@ -1147,12 +1146,32 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
         return (#[], mem, some (.branch (operands.extract (trueSize + 1) operands.size) destFalse))
     | .int 1 .poison => Interp.ub
     | _ => none
+  | .switch => do
+    let some destDefault := blockOperands[0]? | none
+    let some value := operands[0]? | none
+    let some (defaultSizeInt : Int) := properties.operandSegmentSizes.values[1]? | none
+    let defaultSize := defaultSizeInt.toNat
+    let caseSegments := properties.case_operand_segments.values
+    let some caseValues := properties.caseValues? | none
+    /- A case value per case, or the switch cannot be read. -/
+    if caseValues.size ≠ caseSegments.size then none else
+    match value with
+    | .int bw (.val v) =>
+      let mut base := 1 + defaultSize
+      for i in [0:caseSegments.size] do
+        let some (countInt : Int) := caseSegments[i]? | none
+        let count := countInt.toNat
+        if v = BitVec.ofInt bw caseValues[i]! then
+          let some dest := blockOperands[i + 1]? | none
+          return (#[], mem, some (.branch (operands.extract base (base + count)) dest))
+        base := base + count
+      return (#[], mem, some (.branch (operands.extract 1 (1 + defaultSize)) destDefault))
+    | .int _ .poison => Interp.ub
+    | _ => none
   | .alloca => do
     let [.int _ (.val count)] := operands.toList | none
-    let size ← match properties.elem_type.val with
-    | Attribute.integerType { bitwidth := bw } => .ok ((bw / 8))
-    | .llvmPointerType _ => .ok (8)
-    | _ => none
+    /- `alloca T, N` reserves `N` strides of `T`, as in LLVM. -/
+    let size ← layout.getTypeAllocSize properties.elem_type.val
     let totalSize := (size * count.toNat).toUInt64
     let (mem, addr) := mem.alloc totalSize
     return (#[.addr addr], mem, none)
@@ -1168,7 +1187,9 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
   | .getelementptr => do
     /- only supports exactly one dynamic index for now -/
     let [.addr ptr, .int _ idx] := operands.toList | none
-    let size ← Attribute.sizeOfType properties.elem_type.val
+    /- The index scales by the element's stride, matching the `getTypeAllocSize`
+       that `isel-riscv64` uses to lower this operation. -/
+    let size ← layout.getTypeAllocSize properties.elem_type.val
     match idx with
     | .val idx => return (#[.addr (ptr.toNat + idx.toNat * size).toUInt64], mem, none)
     | .poison => Interp.ub
@@ -1776,7 +1797,7 @@ def HW.interpretOp' (opType : Veir.HW) (properties : propertiesOf opType)
 -/
 def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
-    (mem : MemoryState)
+    (mem : MemoryState) (layout : DataLayout := .riscv64)
     : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
   match opType with
   | .arith arithOp => do
@@ -1789,7 +1810,7 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     let (vals, act) ← Felt.interpretOp' feltOp properties resultTypes operands blockOperands
     return (vals, mem, act)
   | .llvm llvmOp => do
-    Llvm.interpretOp' llvmOp properties resultTypes operands blockOperands mem
+    Llvm.interpretOp' llvmOp properties resultTypes operands blockOperands mem layout
   | .riscv riscvOp => do
     Riscv.interpretOp' riscvOp properties resultTypes operands blockOperands mem
   | .riscv_cf riscvCfOp => do
@@ -1836,9 +1857,10 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
 /-- Wrapper around `interpretOp'` that retrieves the operation type, properties,
 result types, and successor blocks from the operation pointer. -/
 abbrev OperationPtr.interpret (op : OperationPtr) (ctx : IRContext OpCode)
-    (operandValues : Array RuntimeValue) (memory : MemoryState) :=
+    (operandValues : Array RuntimeValue) (memory : MemoryState)
+    (layout : DataLayout := .riscv64) :=
     interpretOp' (op.getOpType! ctx) (op.getProperties! ctx (op.getOpType! ctx))
-    (op.getResultTypes! ctx) operandValues (op.getSuccessors! ctx) memory
+    (op.getResultTypes! ctx) operandValues (op.getSuccessors! ctx) memory layout
 
 /--
   Interpret a single operation given the current interpreter state.

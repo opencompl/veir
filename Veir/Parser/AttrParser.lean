@@ -9,6 +9,7 @@ public section
 open Veir.Parser.Lexer
 open Veir.Parser
 open Veir
+open Lean
 
 namespace Veir.AttrParser
 
@@ -113,13 +114,19 @@ def parseOptionalFloatType : AttrParserM (Option FloatType) := do
   | { kind := .bareIdent, slice := slice } =>
     if slice.size < 2 then
       return none
-    if (← (getThe ParserState)).input.getD slice.start.byteOffset 0 == 'f'.toUInt8 then
-      let bitwidthSlice : Slice := {start := slice.start + 1, stop := slice.stop}
-      let identifier := bitwidthSlice.of (← (getThe ParserState)).input
-      let some bitwidth := (String.fromUTF8? identifier).bind String.toNat? | return none
+    let giveOut (type : FloatType) := do
       let _ ← consumeToken
-      return some (FloatType.mk bitwidth)
-    return none
+      return some type
+    let input := slice.of (← (getThe ParserState)).input
+    match String.fromUTF8? input with
+    | some "f16" => giveOut FloatType.f16
+    | some "f32" => giveOut FloatType.f32
+    | some "f64" => giveOut FloatType.f64
+    | some "bf16" => giveOut FloatType.bf16
+    | some "f8E5M2" => giveOut FloatType.f8E5M2
+    | some "f8E4M3FN" => giveOut FloatType.f8E4M3FN
+    | some "f8E4M3FNUZ" => giveOut FloatType.f8E4M3FNUZ
+    | _ => return none
   | _ => return none
 
 /--
@@ -225,23 +232,6 @@ def parseRegisterType (errorMsg : String := "register type expected") : AttrPars
   | none => throwAtCurrentPos errorMsg
 
 /--
-  Parse an integer attribute, if present.
-  An integer attribute has the form `false`, `true` or `value : type`, where `value` is an
-  integer literal and `type` is an integer type.
--/
-def parseOptionalIntegerAttr : AttrParserM (Option IntegerAttr) := do
-  if (← parseOptionalKeyword "false".toByteArray) then
-    return some (IntegerAttr.mk 0 (IntegerType.mk 1))
-  if (← parseOptionalKeyword "true".toByteArray) then
-    return some (IntegerAttr.mk 1 (IntegerType.mk 1))
-
-  let some value ← parseOptionalInteger false true
-    | return none
-  parsePunctuation ":"
-  let integerType ← parseIntegerType "integer type expected after ':' in integer attribute"
-  return some (IntegerAttr.mk value integerType)
-
-/--
   Parse a string attribute, if present.
   Its syntax is a string literal enclosed in double quotes, e.g., `"foo"`.
 -/
@@ -251,19 +241,94 @@ def parseOptionalStringAttr : AttrParserM (Option StringAttr) := do
   return some (StringAttr.mk bytes)
 
 /--
-Parse a float attribute, if present.
-Only `1.0 : f64` is supported; the value is stored as Lean's `Float`.
+  Parse an integer or floating-point attribute, if present.
+  The attribute has the form `false`, `true` or `value : type`.
+  For an integer type, `value` must be a (possibly negated) integer literal in decimal or
+  `0x`-prefixed hexadecimal form.
+  For a floating-point type, `value` may be a (possibly negated) decimal floating-point
+  literal, or a `0x`-prefixed hexadecimal integer literal interpreted as the raw IEEE-754
+  bit pattern of the type. A decimal integer literal is rejected for a floating-point type,
+  and a hex bit pattern wider than the type's bitwidth is rejected as well.
+
+  MLIR accepts the following floating point numbers: [-+]?[0-9]+[.][0-9]*([eE][-+]?[0-9]+)?
+  The regex is taken from AsmParser/Lexer.cpp in LLVM repository.
 -/
-def parseOptionalFloatAttr : AttrParserM (Option FloatAttr) := do
-  let some tok ← parseOptionalToken .floatLit | return none
-  let str := String.fromUTF8! (tok.slice.of (← getThe ParserState).input)
-  if str ≠ "1.0" then
-    throwAtCurrentPos s!"unsupported floating-point literal '{str}', only '1.0 : f64' is supported"
+def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
+  if (← parseOptionalKeyword "false".toByteArray) then
+    return some (IntegerAttr.mk 0 (IntegerType.mk 1) : Attribute)
+  if (← parseOptionalKeyword "true".toByteArray) then
+    return some (IntegerAttr.mk 1 (IntegerType.mk 1) : Attribute)
+
+  -- Parse the optional leading '-'.
+  let isNegative := Option.isSome (← parseOptionalToken .minus)
+
+  -- Parse the value literal (integer or floating-point). At most one of the two is present.
+  let valueStartPos ← getPos
+  let valueInput := (← getThe ParserState).input
+  let intTok : Option Token ← parseOptionalToken .intLit
+  let floatTok : Option Token ← parseOptionalToken .floatLit
+  let valueTokOpt : Option Token := match intTok, floatTok with
+    | some t, _ => some t
+    | none, some t => some t
+    | none, none => none
+  let some valueToken := valueTokOpt
+    | if isNegative then
+        throwAtCurrentPos "expected number after '-'"
+      else
+        return none
+  let value := valueToken.slice.of valueInput
+  let isFloatLit : Bool := valueToken.kind == .floatLit
+
   parsePunctuation ":"
-  let floatType ← parseFloatType "float type expected after ':' in float attribute"
-  if floatType.bitwidth ≠ 64 then
-    throwAtCurrentPos "unsupported float type, only f64 is supported"
-  return some (Veir.FloatAttr.mk 1.0 floatType)
+  let startPos ← getPos
+
+  -- Compute the integer value from the parsed literal.
+  let integerValue : AttrParserM Int := do
+    if isFloatLit then
+      throwAtCurrentPos "integer literal expected in integer attribute"
+    let some n := numericValueToNat? value
+      | throwAt startPos s!"invalid integer literal '{String.fromUTF8! value}'"
+    return (if isNegative then Int.negOfNat n else Int.ofNat n)
+
+  -- Compute the floating-point value from the parsed literal.
+  let floatValue (floatType : FloatType) :
+      AttrParserM (Data.Float.FloatValue floatType.format) := do
+    if isFloatLit then
+      let str := if isNegative then "-" ++ String.fromUTF8! value else String.fromUTF8! value
+      match parseDecimalFloat str with
+      | some f =>
+        return .ofScientific floatType.format f.negative f.significand f.exponent
+      | none   => throwAtCurrentPos s!"invalid floating-point literal '{str}'"
+    else
+      if isNegative then
+        throwAt valueStartPos "unexpected '-' before float bit pattern"
+      else if isHexValue value then
+        let some n := numericValueToNat? value
+          | throwAt valueStartPos s!"invalid hex bit pattern '{String.fromUTF8! value}'"
+        -- Reject a bit pattern that does not fit in the type, rather than
+        -- silently truncating it to the type's low bits (as `ofNat` would).
+        if n ≥ 2 ^ floatType.bitwidth then
+          throwAt valueStartPos "hexadecimal float constant out of range for type"
+        return .ofNat _ n
+      else
+        throwAt valueStartPos "expected a decimal float or 0x-prefixed hex bit pattern in float attribute"
+
+  -- Determine the type after ':'.
+  if let some integerType ← parseOptionalIntegerType then
+    return some (IntegerAttr.mk (← integerValue) integerType : Attribute)
+  else if let some floatType ← parseOptionalFloatType then
+    return some (FloatAttr.mk floatType (← floatValue floatType) : Attribute)
+  else if let some name ← parseOptionalPrefixedKeyword .exclamationIdent then
+    let some typeAttr := (← resolveOptionalTypeAlias startPos name)
+      | throwAt startPos "integer or float type expected after ':' in numeric attribute"
+    if let some integerType := typeAttr.cast? IntegerType then
+      return some (IntegerAttr.mk (← integerValue) integerType : Attribute)
+    else if let some floatType := typeAttr.cast? FloatType then
+      return some (FloatAttr.mk floatType (← floatValue floatType) : Attribute)
+    else
+      throwAt startPos "integer or float type expected after ':' in numeric attribute"
+  else
+    throwAt startPos "integer or float type expected after ':' in numeric attribute"
 
 /--
   Parse a string attribute.
@@ -658,7 +723,9 @@ def parseOptionalModArithType : AttrParserM (Option TypeAttr) := do
     return none
   let _ ← consumeToken
   parsePunctuation "<"
-  let some modulus ← parseOptionalIntegerAttr
+  let some modulus ← parseOptionalNumericAttr
+    | throwAtCurrentPos "modarith type modulus expected"
+  let some modulus := modulus.cast? IntegerAttr
     | throwAtCurrentPos "modarith type modulus expected"
   parsePunctuation ">"
   return some (ModArithType.mk modulus)
@@ -988,8 +1055,8 @@ partial def parseOptionalLLVMStructType (short := false) : AttrParserM (Option T
 
 /--
   Parse a type within an LLVM-dialect type body, accepting the LLVM "pretty-print"
-  sugar keywords `void`, `ptr`, and the bare nested forms `array<...>` and
-  `struct<...>` in addition to the regular MLIR type forms.
+  sugar keywords `void`, `ptr`, and the bare nested forms `array<...>`,
+  `struct<...>`, and `func<...>` in addition to the regular MLIR type forms.
 
   The bare nested form exists because the LLVM dialect has a custom directive
   `PrettyLLVMType`, which allows types from the LLVM dialect to be written
@@ -1017,20 +1084,25 @@ partial def parseLLVMType (errorMsg : String := "type expected") : AttrParserM T
     return type
   if let some type ← parseOptionalLLVMStructType true then
     return type
+  if let some type ← parseOptionalLLVMFunctionType true then
+    return type
   parseType errorMsg
 
 /--
-  Parse an LLVM function type `!llvm.func<resultType (paramTypes,...)>`, if present.
+  Parse an LLVM function type `!llvm.func<...>`, or `func<...>` when `short`, if present.
   A trailing `...` parameter marks the function as variadic; the ellipsis is invalid
   in any position other than the last.
 -/
-partial def parseOptionalLLVMFunctionType : AttrParserM (Option TypeAttr) := do
-  let token ← peekToken
-  let .exclamationIdent := token.kind | return none
-  let input := (← getThe ParserState).input
-  let typeName := { token.slice with start := token.slice.start + 1 }.of input
-  if typeName ≠ "llvm.func".toByteArray then return none
-  let _ ← consumeToken
+partial def parseOptionalLLVMFunctionType (short := false) : AttrParserM (Option TypeAttr) := do
+  if short then
+    let .true ← parseOptionalKeyword "func".toByteArray | return none
+  else
+    let token ← peekToken
+    let .exclamationIdent := token.kind | return none
+    let input := (← getThe ParserState).input
+    let typeName := { token.slice with start := token.slice.start + 1 }.of input
+    if typeName ≠ "llvm.func".toByteArray then return none
+    let _ ← consumeToken
   parsePunctuation "<"
   let result ← parseLLVMType "llvm.func result type expected"
   let params ← parseDelimitedList .paren do
@@ -1272,10 +1344,8 @@ partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
     return some locationAttr
   else if let some type ← parseOptionalType then
     return some type.val
-  else if let some integerAttr ← parseOptionalIntegerAttr then
-    return some integerAttr
-  else if let some floatAttr ← parseOptionalFloatAttr then
-    return some floatAttr
+  else if let some numericAttr ← parseOptionalNumericAttr then
+    return some numericAttr
   else if let some stringAttr ← parseOptionalStringAttr then
     return some stringAttr
   else if let some denseArrayAttr ← parseOptionalDenseArrayAttr then

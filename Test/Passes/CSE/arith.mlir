@@ -113,7 +113,7 @@
     %c7_i8 = "arith.constant"() <{"value" = 7 : i8}> : () -> i8
     %zext_1 = "arith.extui"(%c7_i8) : (i8) -> i32
     %zext_2 = "arith.extui"(%c7_i8) : (i8) -> i32
-    %zext_nneg = "arith.extui"(%c7_i8) <{nneg}> : (i8) -> i32
+    %zext_nneg = "arith.extui"(%c7_i8) <{nonNeg}> : (i8) -> i32
     %sext = "arith.extsi"(%c7_i8) : (i8) -> i32
     %zext_i16 = "arith.extui"(%c7_i8) : (i8) -> i16
     %trunc_1 = "arith.trunci"(%a) : (i32) -> i8
@@ -127,7 +127,7 @@
     // CHECK-NEXT: %[[C8:.*]] = "arith.constant"() <{"value" = 8 : i32}> : () -> i32
     // CHECK-NEXT: %[[C7_I8:.*]] = "arith.constant"() <{"value" = 7 : i8}> : () -> i8
     // CHECK-NEXT: %[[ZEXT:.*]] = "arith.extui"(%[[C7_I8]]) : (i8) -> i32
-    // CHECK-NEXT: %[[ZEXT_NNEG:.*]] = "arith.extui"(%[[C7_I8]]) <{nneg}> : (i8) -> i32
+    // CHECK-NEXT: %[[ZEXT_NNEG:.*]] = "arith.extui"(%[[C7_I8]]) <{nonNeg}> : (i8) -> i32
     // CHECK-NEXT: %[[SEXT:.*]] = "arith.extsi"(%[[C7_I8]]) : (i8) -> i32
     // CHECK-NEXT: %[[ZEXT_I16:.*]] = "arith.extui"(%[[C7_I8]]) : (i8) -> i16
     // CHECK-NEXT: %[[TRUNC:.*]] = "arith.trunci"(%{{.*}}) : (i32) -> i8

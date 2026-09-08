@@ -6,8 +6,8 @@
   "func.func"() <{sym_name = "main", function_type = () -> ()}> ({
     // CHECK-NEXT:     "func.func"() <{"function_type" = () -> (), "sym_name" = "main"}> ({
     // CHECK-NEXT:       ^{{.*}}():
-    %peer = "test.test"() : () -> !io.address
-    // CHECK-NEXT:         %[[peer:.*]] = "test.test"() : () -> !io.address
+    %peer = "io.self"() : () -> !io.address
+    // CHECK-NEXT:         %[[peer:.*]] = "io.self"() : () -> !io.address
     %len = "llvm.mlir.constant"() <{value = 32 : i64}> : () -> i64
     // CHECK-NEXT:         %[[len:.*]] = "llvm.mlir.constant"() <{"value" = 32 : i64}> : () -> i64
     %buf = "llvm.alloca"(%len) <{elem_type = i8}> : (i64) -> !llvm.ptr
@@ -16,8 +16,8 @@
     // CHECK-NEXT:         %{{.*}} = "io.rand"(%[[buf]], %[[len]]) : (!llvm.ptr, i64) -> i64
     %n1 = "io.send"(%peer, %buf, %len) : (!io.address, !llvm.ptr, i64) -> i64
     // CHECK-NEXT:         %{{.*}} = "io.send"(%[[peer]], %[[buf]], %[[len]]) : (!io.address, !llvm.ptr, i64) -> i64
-    %n2 = "io.recv"(%peer, %buf, %len) : (!io.address, !llvm.ptr, i64) -> i64
-    // CHECK-NEXT:         %{{.*}} = "io.recv"(%[[peer]], %[[buf]], %[[len]]) : (!io.address, !llvm.ptr, i64) -> i64
+    %n2, %from = "io.recv"(%buf, %len) : (!llvm.ptr, i64) -> (i64, !io.address)
+    // CHECK-NEXT:         %{{.*}}:2 = "io.recv"(%[[buf]], %[[len]]) : (!llvm.ptr, i64) -> (i64, !io.address)
     "func.return"() : () -> ()
     // CHECK-NEXT:         "func.return"() : () -> ()
   }) : () -> ()

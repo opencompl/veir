@@ -1,4 +1,4 @@
-// RUN: not veir-opt %s --allow-unregistered-dialect 2>&1 | filecheck %s
+// RUN: not veir-opt %s 2>&1 | filecheck %s
 // RUN: MLIR_INVALID
 
 "builtin.module"() ({
