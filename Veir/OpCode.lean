@@ -31,6 +31,7 @@ public import Veir.Dialects.LLZK.Include.OpInfo
 public import Veir.Dialects.LLZK.Function.OpInfo
 public import Veir.Dialects.Cir.OpInfo
 public import Veir.Dialects.Seq.OpInfo
+public import Veir.Dialects.MemRef.OpInfo
 
 open Std
 

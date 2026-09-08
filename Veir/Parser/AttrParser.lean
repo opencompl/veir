@@ -967,6 +967,26 @@ partial def parseOptionalVectorType : AttrParserM (Option TypeAttr) := do
   return some (VectorType.mk shape elementType)
 
 /--
+  Parse a `memref` type, if present.
+
+  Only the statically shaped fragment is accepted: `memref<32xi128>` and the
+  rank-0 `memref<i128>`. A dynamic dimension (`?`), an unranked shape (`*`), an
+  explicit layout, or a memory space all fail to parse, since `MemRefType`
+  cannot represent them.
+-/
+partial def parseOptionalMemRefType : AttrParserM (Option TypeAttr) := do
+  if !(← parseOptionalKeyword "memref".toByteArray) then
+    return none
+  parsePunctuation "<"
+  let mut shape := #[]
+  while let some dim ← parseOptionalVectorDimension do
+    shape := shape.push dim
+    parseShapeSeparator
+  let elementType ← parseType "memref element type expected"
+  parsePunctuation ">"
+  return some (MemRefType.mk shape elementType)
+
+/--
   Parse an LLVM array type, if present.
   Its syntax is `!llvm.array<size x type>`,
   or (exclusively) the shorter form `array<size x type>` if the corresponding argument is set.
@@ -1185,6 +1205,8 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some floatType
   if let some vectorType ← parseOptionalVectorType then
     return some vectorType
+  if let some memRefType ← parseOptionalMemRefType then
+    return some memRefType
   if let some byteType ← parseOptionalByteType then
     return some byteType
   if let some registerType ← parseOptionalRegisterType then

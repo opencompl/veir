@@ -517,6 +517,21 @@ structure VectorType where
   elementType : Attribute
 
 /--
+  A builtin `memref` type, restricted to the fragment VeIR currently needs:
+  a statically shaped memref with the implicit identity layout and the default
+  memory space.
+
+  The shape holds one entry per dimension, so the rank-0 `memref<i128>` has an
+  empty shape and `memref<32xi128>` has shape `#[32]`. Dynamic dimensions
+  (`?`), explicit affine-map and strided layouts, non-default memory spaces,
+  and unranked memrefs (`memref<*xf32>`) are all outside this fragment and are
+  rejected by the parser rather than represented here.
+-/
+structure MemRefType where
+  shape : Array Nat
+  elementType : Attribute
+
+/--
   The signature of a function, consisting of an array of input attributes
   and an array of output attributes.
 -/
@@ -718,21 +733,26 @@ inductive Attribute
 | matchOptionalType (type : Match.OptionalType)
 /-- CIRCT seq clock type -/
 | seqClockType (type : Seq.ClockType)
+/-- MLIR builtin memref type -/
+| memRefType (type : MemRefType)
 deriving Inhabited
 
 end
 
 /- Derive Repr and Hashable instances for the mutual group. -/
 derive_mutual_repr for
-  VectorType, FunctionType, LLVMFunctionType, CirFuncType,
+  VectorType, MemRefType, FunctionType, LLVMFunctionType, CirFuncType,
   ArrayAttr, DictionaryAttr, LLVM.ArrayType, Match.OptionalType,
   UnregisteredAttr, Attribute
 derive_mutual_hashable for
-  VectorType, FunctionType, LLVMFunctionType, CirFuncType,
+  VectorType, MemRefType, FunctionType, LLVMFunctionType, CirFuncType,
   ArrayAttr, DictionaryAttr, LLVM.ArrayType, Match.OptionalType,
   UnregisteredAttr, Attribute
 
 instance : Inhabited VectorType where
+  default := { shape := #[], elementType := .integerType (IntegerType.mk 0) }
+
+instance : Inhabited MemRefType where
   default := { shape := #[], elementType := .integerType (IntegerType.mk 0) }
 
 instance : Coe FunctionType LLVMFunctionType where
@@ -769,6 +789,10 @@ theorem FunctionType.sizeOf_elems_outputs {ft : FunctionType} (hx : x ∈ ft.out
 theorem VectorType.sizeOf_elementType {t : VectorType} :
     sizeOf t.elementType < sizeOf t := by
   grind [cases VectorType]
+
+theorem MemRefType.sizeOf_elementType {t : MemRefType} :
+    sizeOf t.elementType < sizeOf t := by
+  grind [cases MemRefType]
 
 theorem LLVMFunctionType.sizeOf_functionType {ft : LLVMFunctionType} :
     sizeOf ft.functionType < sizeOf ft := by
@@ -1016,6 +1040,11 @@ partial def VectorType.toString (type : VectorType) : String :=
   let shape := if shape.isEmpty then "" else shape ++ "x"
   s!"vector<{shape}{Attribute.toString type.elementType}>"
 
+partial def MemRefType.toString (type : MemRefType) : String :=
+  let shape := String.intercalate "x" (type.shape.toList.map ToString.toString)
+  let shape := if shape.isEmpty then "" else shape ++ "x"
+  s!"memref<{shape}{Attribute.toString type.elementType}>"
+
 partial def ArrayAttr.toString (attr : ArrayAttr) : String :=
   let elems := String.intercalate ", " (attr.value.toList.map Attribute.toString)
   s!"[{elems}]"
@@ -1145,6 +1174,7 @@ partial def Attribute.toString (attr : Attribute) : String :=
   | .pdlTypeType type => ToString.toString type
   | .matchOptionalType type => type.toString
   | .seqClockType type => ToString.toString type
+  | .memRefType type => type.toString
 
 end
 
@@ -1153,6 +1183,9 @@ instance : ToString Attribute where
 
 instance : ToString VectorType where
   toString := VectorType.toString
+
+instance : ToString MemRefType where
+  toString := MemRefType.toString
 
 instance : ToString FunctionType where
   toString := FunctionType.toString
@@ -1411,6 +1444,16 @@ def VectorType.decEq (type1 type2 : VectorType) : Decidable (type1 = type2) :=
 termination_by sizeOf type1
 decreasing_by exact VectorType.sizeOf_elementType
 
+def MemRefType.decEq (type1 type2 : MemRefType) : Decidable (type1 = type2) :=
+  if hshape : type1.shape = type2.shape then
+    match Attribute.decEq type1.elementType type2.elementType with
+    | isTrue _ => isTrue (by grind [cases MemRefType])
+    | isFalse _ => isFalse (by grind)
+  else
+    isFalse (by grind)
+termination_by sizeOf type1
+decreasing_by exact MemRefType.sizeOf_elementType
+
 def FunctionType.decEq (type1 type2 : FunctionType) : Decidable (type1 = type2) :=
   let inputs1 := type1.inputs
   let outputs1 := type1.outputs
@@ -1632,11 +1675,14 @@ def Attribute.decEq (attr1 attr2 : @& Attribute) : Decidable (attr1 = attr2) := 
     exact IsAttr.decEqAgainst x attr2 (Match.OptionalType.decEq x)
   case seqClockType x =>
     exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case memRefType x =>
+    exact IsAttr.decEqAgainst x attr2 (MemRefType.decEq x)
 termination_by sizeOf attr1
 end
 
 instance : DecidableEq Attribute := Attribute.decEq
 instance : DecidableEq VectorType := VectorType.decEq
+instance : DecidableEq MemRefType := MemRefType.decEq
 instance : DecidableEq FunctionType := FunctionType.decEq
 instance : DecidableEq LLVMFunctionType := LLVMFunctionType.decEq
 instance : DecidableEq CirFuncType := CirFuncType.decEq
@@ -1714,6 +1760,7 @@ def isType (attr : Attribute) : Bool :=
   | .pdlTypeType _ => true
   | .matchOptionalType _ => true
   | .seqClockType _ => true
+  | .memRefType _ => true
 
 /--
   Returns the size, in bits, that an LLVM type would use if stored to memory.
@@ -1811,6 +1858,8 @@ theorem isType_pdlValueType type : (pdlValueType type).isType = true := by rfl
 theorem isType_pdlTypeType type : (pdlTypeType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_seqClockType type : (seqClockType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_memRefType type : (memRefType type).isType = true := by rfl
 
 end Attribute
 
@@ -2072,6 +2121,10 @@ instance : IsTypeAttr TypeAttr where
 
 instance : IsTypeAttr Seq.ClockType where
   coe type := Attribute.asType (.seqClockType type) (by rfl)
+  coe_eq_inject _ := by rfl
+
+instance : IsTypeAttr MemRefType where
+  coe type := Attribute.asType (.memRefType type) (by rfl)
   coe_eq_inject _ := by rfl
 
 end
