@@ -70,7 +70,7 @@ class HasOpInfo (opCode: Type)
   Implementations are responsible for returning an in-range operand or a
   constant conforming to the operation's result type.
   -/
-  fold : (op : opCode) → propertiesOf op → Array TypeAttr →
+  tryFold : (op : opCode) → propertiesOf op → Array TypeAttr →
     Array (Option RuntimeValue) → Option FoldDecision := fun _ _ _ _ => none
   /--
   The memory effects of an operation with this opcode and these properties,

@@ -249,7 +249,7 @@ def Riscv.hasSSADominance (_op : Riscv) (_index : Nat) : Bool :=
 
 #generate_dialect Riscv
 
-def Riscv.fold (op : Riscv) (properties : Riscv.propertiesOf op)
+def Riscv.tryFold (op : Riscv) (properties : Riscv.propertiesOf op)
     (_resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
     Option FoldDecision :=
   match op, constantOperands.toList with
@@ -487,7 +487,7 @@ def Riscv.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
 
 instance : HasOpInfo Riscv where
   verifyLocalInvariants := Riscv.verifyLocalInvariants
-  fold := Riscv.fold
+  tryFold := Riscv.tryFold
   getEffects := Riscv.getEffects
   isConstantLike := Riscv.isConstantLike
   hasSSADominance := Riscv.hasSSADominance

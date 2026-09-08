@@ -471,7 +471,7 @@ def Llvm.propagatesPoison : Llvm → Bool
   | .module_flags
   | .freeze => false
 
-def Llvm.fold (op : Llvm) (_properties : Llvm.propertiesOf op)
+def Llvm.tryFold (op : Llvm) (_properties : Llvm.propertiesOf op)
     (_resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
     Option FoldDecision :=
   match op, constantOperands.toList with
@@ -1002,7 +1002,7 @@ def Llvm.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpIn
 
 instance : HasOpInfo Llvm where
   verifyLocalInvariants := Llvm.verifyLocalInvariants
-  fold := Llvm.fold
+  tryFold := Llvm.tryFold
   propagatesPoison := Llvm.propagatesPoison
   getEffects := Llvm.getEffects
   isConstantLike := Llvm.isConstantLike

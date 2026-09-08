@@ -134,7 +134,7 @@ def Arith.propagatesPoison : Arith → Bool
   | .mulsi_extended | .mului_extended => true
   | .constant | .select => false
 
-def Arith.fold (op : Arith) (_properties : Arith.propertiesOf op)
+def Arith.tryFold (op : Arith) (_properties : Arith.propertiesOf op)
     (_resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
     Option FoldDecision :=
   match op, constantOperands.toList with
@@ -248,7 +248,7 @@ def Arith.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect Op
 
 instance : HasOpInfo Arith where
   verifyLocalInvariants := Arith.verifyLocalInvariants
-  fold := Arith.fold
+  tryFold := Arith.tryFold
   propagatesPoison := Arith.propagatesPoison
   getEffects := Arith.getEffects
   isConstantLike := Arith.isConstantLike
