@@ -299,13 +299,16 @@ private theorem WfIRContext.Verified.graphRegionsHaveAtMostOneBlock
 /-- The first and last block of a graph region in a verified context are the same. -/
 @[grind →]
 theorem WfIRContext.Verified.graph_region_firstBlock_eq_lastBlock
-    {ctx : WfIRContext OpCode} {root : OperationPtr} (_ctxVerified : ctx.Verified root)
-    {region : RegionPtr} (_regionIn : region.InBounds ctx.raw)
-    (hregionKind : ¬ region.hasSSADominance ctx) :
+    {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
+    {region : RegionPtr} (regionIn : region.InBounds ctx.raw)
+    {parent : OperationPtr} (hregionParent : (region.get! ctx.raw).parent = some parent)
+    (hparentRegistered : parent.getOpType! ctx.raw ≠ .builtin .unregistered)
+    (hregionKind : region.getRegionKind ctx = .Graph) :
     (region.get! ctx.raw).firstBlock = (region.get! ctx.raw).lastBlock := by
-  -- A region with more than one block has SSA dominance by definition.
-  simp only [RegionPtr.hasSSADominance] at hregionKind
-  grind
+  have hcheck := ctxVerified.graphRegionsHaveAtMostOneBlock
+  have hregionKeys : region ∈ ctx.raw.regions.keys := by grind [region.inBounds_def]
+  have hregionCheck := (List.all_eq_true.mp hcheck) region hregionKeys
+  grind [WfIRContext.graphRegionsHaveAtMostOneBlock]
 
 /--
 Assert that a given operation satisfies its local invariants.

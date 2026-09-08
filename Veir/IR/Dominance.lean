@@ -168,7 +168,9 @@ def dominates
   (InsertPoint.atStart! dominator irCtx.raw).dominates (InsertPoint.atStart! block irCtx.raw) dfCtx irCtx
 
 /--
-Dominance query between two blocks, where a block does not dominate itself.
+Proper dominance query between two blocks. A block does not properly dominate
+itself in an SSACFG region, while the sole block of a graph region properly
+dominates itself.
 -/
 def properlyDominates
     [FactSpec .dominator]
@@ -192,7 +194,9 @@ def dominates
   (InsertPoint.before dominator).dominates (InsertPoint.before op) dfCtx irCtx
 
 /--
-Dominance query between two operations, where an operation does not dominate itself.
+Proper dominance query between two operations. An operation does not properly
+dominate itself in an SSACFG region, while operations in a graph region properly
+dominate every operation in the same block, including themselves.
 -/
 def properlyDominates
     (dominator op : OperationPtr)
