@@ -74,19 +74,21 @@ private def foldPoisonedOperand (opType : OpCode)
 /--
   Decide whether an operation folds, given its opcode, properties, result
   types, and the values of its constant-defined operands (`constOperands[i] =
-  some rv` iff operand `i` is known to hold the constant `rv`). The dialect
-  fold table, fully constant interpreter evaluation, and poison propagation run
-  independently. A poison constant is preferred to a concrete constant, which is
-  preferred to an operand, which is preferred to no fold.
+  some rv` iff operand `i` is known to hold the constant `rv`). Poison
+  propagation is tried first and returns immediately on success. Otherwise, the
+  dialect fold table and fully constant interpreter evaluation run independently.
+  A poison constant is preferred to a concrete constant, which is preferred to
+  an operand, which is preferred to no fold.
 -/
 def OpCode.foldsTo (opType : OpCode) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue))
     : Option (Array FoldDecision) := do
   guard (!opType.isConstantLike)
+  if let some poisonDecision := foldPoisonedOperand opType resultTypes constOperands then
+    return poisonDecision
   let tableDecision := foldByTable opType properties resultTypes constOperands
   let evaluationDecision := foldByEvaluation opType properties resultTypes constOperands
-  let poisonDecision := foldPoisonedOperand opType resultTypes constOperands
-  preferredFold (preferredFold tableDecision evaluationDecision) poisonDecision
+  preferredFold tableDecision evaluationDecision
 
 /--
   Convenience wrapper around `OpCode.foldsTo`.
