@@ -167,13 +167,13 @@ class Generator:
         if op in ("llvm.add", "llvm.sub", "llvm.mul"):
             return self.nsw_nuw_props()
         if op == "llvm.or":
-            return self.rng.choice(("", " <{disjoint}>"))
+            return self.rng.choice(("", " <{isDisjoint}>"))
         return ""
 
     def shift_props(self, op: str) -> str:
         if op == "llvm.shl":
             return self.nsw_nuw_props()
-        return self.rng.choice(("", " <{exact}>"))
+        return self.rng.choice(("", " <{isExact}>"))
 
     def shift_amount(self, width: int) -> str:
         """Generate a shift amount for a width-`width` shift.
@@ -195,7 +195,7 @@ class Generator:
 
     def div_props(self, op: str) -> str:
         if op in ("llvm.sdiv", "llvm.udiv"):
-            return self.rng.choice(("", " <{exact}>"))
+            return self.rng.choice(("", " <{isExact}>"))
         return ""
 
     def divisor(self, width: int) -> str:

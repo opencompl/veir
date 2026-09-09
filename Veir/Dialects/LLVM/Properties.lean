@@ -43,7 +43,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 def ExactProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String ExactProperties := do
-  let exact ← getUnitAttr "exact" attrDict
+  let exact ← getUnitAttr "isExact" attrDict
   return { exact := exact }
 
 /--
@@ -56,7 +56,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 def DisjointProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String DisjointProperties := do
-  let disjoint ← getUnitAttr "disjoint" attrDict
+  let disjoint ← getUnitAttr "isDisjoint" attrDict
   return { disjoint := disjoint }
 
 /--
