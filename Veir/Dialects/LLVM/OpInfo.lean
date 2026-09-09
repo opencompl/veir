@@ -252,8 +252,9 @@ def Llvm.toAttrDict
     dict
   | .cond_br => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 3
-    dict := dict.insert
-      "branch_weights".toUTF8 (Attribute.denseArrayAttr props.branch_weights)
+    if props.branch_weights.values.size ≠ 0 then
+      dict := dict.insert
+        "branch_weights".toUTF8 (Attribute.denseArrayAttr props.branch_weights)
     if let some annotation := props.loop_annotation then
       dict := dict.insert "loop_annotation".toUTF8 (.loopAnnotationAttr annotation)
     dict := dict.insert "operandSegmentSizes".toUTF8
@@ -330,10 +331,14 @@ def Llvm.toAttrDict
       dict := dict.insert "invariantGroup".toUTF8 (.unitAttr UnitAttr.mk)
     if let some syncscope := props.syncscope then
       dict := dict.insert "syncscope".toUTF8 (.stringAttr syncscope)
-    dict := dict.insert "access_groups".toUTF8 (.arrayAttr props.access_groups)
-    dict := dict.insert "alias_scopes".toUTF8 (.arrayAttr props.alias_scopes)
-    dict := dict.insert "noalias_scopes".toUTF8 (.arrayAttr props.noalias_scopes)
-    dict := dict.insert "tbaa".toUTF8 (.arrayAttr props.tbaa)
+    if props.access_groups.value.size ≠ 0 then
+      dict := dict.insert "access_groups".toUTF8 (.arrayAttr props.access_groups)
+    if props.alias_scopes.value.size ≠ 0 then
+      dict := dict.insert "alias_scopes".toUTF8 (.arrayAttr props.alias_scopes)
+    if props.noalias_scopes.value.size ≠ 0 then
+      dict := dict.insert "noalias_scopes".toUTF8 (.arrayAttr props.noalias_scopes)
+    if props.tbaa.value.size ≠ 0 then
+      dict := dict.insert "tbaa".toUTF8 (.arrayAttr props.tbaa)
     dict
   | .store => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 9
@@ -346,10 +351,14 @@ def Llvm.toAttrDict
       dict := dict.insert "invariantGroup".toUTF8 (.unitAttr UnitAttr.mk)
     if let some syncscope := props.syncscope then
       dict := dict.insert "syncscope".toUTF8 (.stringAttr syncscope)
-    dict := dict.insert "access_groups".toUTF8 (.arrayAttr props.access_groups)
-    dict := dict.insert "alias_scopes".toUTF8 (.arrayAttr props.alias_scopes)
-    dict := dict.insert "noalias_scopes".toUTF8 (.arrayAttr props.noalias_scopes)
-    dict := dict.insert "tbaa".toUTF8 (.arrayAttr props.tbaa)
+    if props.access_groups.value.size ≠ 0 then
+      dict := dict.insert "access_groups".toUTF8 (.arrayAttr props.access_groups)
+    if props.alias_scopes.value.size ≠ 0 then
+      dict := dict.insert "alias_scopes".toUTF8 (.arrayAttr props.alias_scopes)
+    if props.noalias_scopes.value.size ≠ 0 then
+      dict := dict.insert "noalias_scopes".toUTF8 (.arrayAttr props.noalias_scopes)
+    if props.tbaa.value.size ≠ 0 then
+      dict := dict.insert "tbaa".toUTF8 (.arrayAttr props.tbaa)
     dict
   | .insertvalue | .extractvalue =>
     (Std.HashMap.emptyWithCapacity 1).insert
