@@ -19,15 +19,6 @@ open Veir.Data
 
 namespace Veir
 
-/-- Choice of a bitvector of a given bitwidth (input type) -/
-structure FreezeCIn : Type u where
-  bw : Nat
-
-/-- Choice of a bitvector of a given bitwidth (output type) -/
-abbrev FreezeC (c : FreezeCIn.{u}) : Type :=
-  match c with
-  | .mk bw => BitVec bw
-
 def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     (mem : MemoryState) (layout : DataLayout := .riscv64)
