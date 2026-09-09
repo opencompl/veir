@@ -274,7 +274,7 @@ meta def introMaskWidth (blastWidth : Nat) (g : MVarId) (widthTm : Tm .width) (i
 Recurse through a `.width Tm`, converting `Nat` term into a `BitVec` mask, and
 translating relations on the terms into relations on the `BitVec` (eg. add).
 -/
-meta def introMaskRec (blastWidth : Nat) (g : MVarId) (widthTm : Tm .width) (infos : WidthInfos)
+meta def getOrCreateWidthMask (blastWidth : Nat) (g : MVarId) (widthTm : Tm .width) (infos : WidthInfos)
   : MetaM (MVarId × WidthInfo × WidthInfos) := do
   -- Check if this width term is already in widthInfos
   if let some info := infos.getFromTm? widthTm then
@@ -284,8 +284,8 @@ meta def introMaskRec (blastWidth : Nat) (g : MVarId) (widthTm : Tm .width) (inf
   | .widthAtom _ => introMaskWidth blastWidth g widthTm infos
   | .widthAdd v w => do
     -- Get or create masks of the children
-    let (g, vInfo, infos)    ← introMaskRec blastWidth g v infos
-    let (g, wInfo, infos)    ← introMaskRec blastWidth g w infos
+    let (g, vInfo, infos) ← getOrCreateWidthMask blastWidth g v infos
+    let (g, wInfo, infos) ← getOrCreateWidthMask blastWidth g w infos
     -- Intro the mask for this term
     let (g, thisInfo, infos) ← introMaskWidth blastWidth g widthTm infos
     -- Rewrite the mask of a sum of widths into a product of the masks (+ 1).
@@ -293,15 +293,16 @@ meta def introMaskRec (blastWidth : Nat) (g : MVarId) (widthTm : Tm .width) (inf
       g.note (Name.mkSimple s!"bv_{widthTm.toName}")
       <| ← mkAppM ``add_eq_mul_of_maskOfWidth
       <| #[
-        vInfo.hypWidthLeBoundNote,
-        wInfo.hypWidthLeBoundNote,
-        thisInfo.hypWidthLeBoundNote,
-        vInfo.widthMaskHypFvar,
-        wInfo.widthMaskHypFvar,
-        thisInfo.widthMaskHypFvar
-      ].map mkFVar
+        .fvar vInfo.hypWidthLeBoundNote,
+        .fvar wInfo.hypWidthLeBoundNote,
+        .fvar thisInfo.hypWidthLeBoundNote,
+        .fvar vInfo.widthMaskHypFvar,
+        .fvar wInfo.widthMaskHypFvar,
+        .fvar thisInfo.widthMaskHypFvar
+      ]
 
     return (g, thisInfo, infos)
+
 
 /--
 The `BitVec` variable that a parametric-width variable was converted into,
@@ -416,18 +417,18 @@ meta def translateWidthPrecond (blastWidth : Nat) (widthInfos : WidthInfos)
   -- Get the theorem matching the prop
   let (thm, v, w) := getThmFromProp prop
   -- Get or create the masks for the width terms
-  let (g, vInfo, widthInfos) ← introMaskRec blastWidth g v widthInfos
-  let (g, wInfo, widthInfos) ← introMaskRec blastWidth g w widthInfos
+  let (g, vInfo, widthInfos) ← getOrCreateWidthMask blastWidth g v widthInfos
+  let (g, wInfo, widthInfos) ← getOrCreateWidthMask blastWidth g w widthInfos
   -- Apply the theorem to convert the width condition into a `BitVec` condition.
   let (_, g) ← g.withContext
     <| g.note (Name.mkSimple s!"bv_{prop.toName}")
     <| ← g.withContext <| mkAppM thm <| #[
-        vInfo.hypWidthLeBoundNote,
-        wInfo.hypWidthLeBoundNote,
-        vInfo.widthMaskHypFvar,
-        wInfo.widthMaskHypFvar,
-        ldecl.fvarId,
-      ].map mkFVar
+        .fvar vInfo.hypWidthLeBoundNote,
+        .fvar wInfo.hypWidthLeBoundNote,
+        .fvar vInfo.widthMaskHypFvar,
+        .fvar wInfo.widthMaskHypFvar,
+        .fvar ldecl.fvarId,
+      ]
 
   return (g, widthInfos)
 
@@ -452,7 +453,7 @@ meta def introMaskWidths (blastWidth : Nat) (widthTms : WidthTms) (g : MVarId)
   widthTms.terms.foldM
     (init := (g, { env := widthTms.env }))
     fun (g, widthInfos) _ widthTm => do
-      let (g, _, infos) ← introMaskRec blastWidth g widthTm.term widthInfos
+      let (g, _, infos) ← getOrCreateWidthMask blastWidth g widthTm.term widthInfos
       return (g, infos)
 
 /--
