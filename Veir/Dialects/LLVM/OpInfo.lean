@@ -63,6 +63,7 @@ inductive Llvm where
 | load
 | store
 | getelementptr
+| insertelement
 | insertvalue
 | extractvalue
 | call
@@ -415,7 +416,7 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
   | .intr__fshl, _ | .intr__fshr, _
   | .icmp, _ | .select, _
   | .trunc, _ | .sext, _ | .zext, _
-  | .getelementptr, _ | .insertvalue, _ | .extractvalue, _
+  | .getelementptr, _ | .insertelement, _ | .insertvalue, _ | .extractvalue, _
   | .br, _ | .cond_br, _ | .switch, _ | .return, _
   | .freeze, _ | .bitcast, _
   | .inttoptr, _ | .ptrtoint, _
@@ -473,6 +474,10 @@ def Llvm.propagatesPoison : Llvm → Bool
   | .intr__lifetime__start | .intr__lifetime__end | .intr__assume
   | .intr__vastart | .intr__vaend | .va_arg
   | .intr__memset | .intr__memcpy | .intr__memmove
+  -- Inserting into a poison vector can define a lane, and a poison element
+  -- only poisons the inserted lane. A poison index does poison the whole
+  -- result, but the interface is per-op.
+  | .insertelement
   | .getelementptr | .insertvalue | .extractvalue | .call | .call_intrinsic | .return
   | .func
   | .module_flags
@@ -894,6 +899,26 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     if properties.alignment.type.bitwidth ≠ 64 then
       throw "'llvm.store' op attribute 'alignment' failed to satisfy constraint: 64-bit signless integer attribute"
     pure ()
+  | .insertelement => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyPlainOpCounts ctx opIn 3 1
+    let containerType := (op.getOperand! ctx.raw 0).getType! ctx.raw
+    let .vectorType vectorType := containerType.val
+      | throw "Expected operand 0 to have an LLVM-compatible vector type"
+    let #[_] := vectorType.shape
+      | throw "Expected a one-dimensional vector"
+    let validElementType := match vectorType.elementType with
+      | .integerType _ | .llvmPointerType _ | .byteType _ => true
+      | .floatType type => #[FloatType.bf16, FloatType.f16, FloatType.f32, FloatType.f64].contains type
+      | _ => false
+    if !validElementType then
+      throw s!"Expected an LLVM-compatible vector element type, but got {vectorType.elementType}"
+    let valueType := (op.getOperand! ctx.raw 1).getType! ctx.raw
+    if valueType.val != vectorType.elementType then
+      throw s!"Expected operand 1 to have vector element type {vectorType.elementType}, but got {valueType}"
+    ((op.getOperand! ctx.raw 2).getType! ctx.raw).verifyIntegerType
+      "Expected operand 2 to have integer type"
+    op.verifyResultTypeMatches ctx containerType "Expected the result to have the vector type"
   | .insertvalue => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 2 1
