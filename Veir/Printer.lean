@@ -13,7 +13,8 @@ public section
 
 namespace Veir.Printer
 
-variable {OpCode : Type} [IsOpCode OpCode] [HasDialect OpCode Builtin] [HasCustomPrinting OpCode]
+variable {OpCode : Type} [IsOpCode OpCode] [HasDialect OpCode Builtin]
+  [HasCustomPrinting OpCode OpCode]
 
 def printAttrDictEntry (key : String) (value : Attribute) : OpPrinter OpCode Unit := do
   if value == UnitAttr.mk then
@@ -126,7 +127,8 @@ partial def printOperation (op : OperationPtr) (options : PrinterOptions) : OpPr
   let opStruct := op.get! ctx
   let opType := opStruct.opType
   if !options.printGenericOpForm then
-    match HasCustomPrinting.customPrinter? opType with
+    match HasCustomPrinting.customPrinter?
+      (Dialect := OpCode) (GlobalOpCode := OpCode) opType with
     | some cp =>
         OpPrinter.printIndent
         OpPrinter.printOpResults op
