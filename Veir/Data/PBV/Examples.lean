@@ -91,6 +91,53 @@ theorem trace_zero_zero_extend (p q r : Nat) (x : BitVec p)
 -- Step 8: BitBlast!
   bv_decide
 
+/-- Manual trace of a double zero extension where the width condition is encoded
+    as a conjunction of two inequalities. Only step 5B differs from the above. -/
+theorem trace_zero_zero_extend_conj (p q r : Nat) (x : BitVec p)
+  (hr : r ≤ 8)
+  (h : q < r ∧ p < q) :
+  (x.zeroExtend q).zeroExtend r = x.zeroExtend r
+  := by
+-- Step 1: Bound widths to the provided blast width
+  have r_le_bw : r ≤ 8 := by grind
+  have q_le_bw : q ≤ 8 := by grind
+  have p_le_bw : p ≤ 8 := by grind
+-- Step 2-3: Introduce mask to replace `w` Nat var
+  apply width_elim 8 r
+  intro mr h_mr
+  apply width_elim 8 q
+  intro mq h_mq
+  apply width_elim 8 p
+  intro mp h_mp
+-- Step 4: Eliminate the parametric bv var of width `w`
+--         enforcing width constraint with mask
+  revert x
+  apply var_elim p_le_bw
+  intro x h_xmp
+-- Step 5: Convert width hypothesis to mask hypothesis
+  have mr_mask := and_add_one_eq_zero_of_maskOfWidth h_mr
+  have mq_mask := and_add_one_eq_zero_of_maskOfWidth h_mq
+  have mp_mask := and_add_one_eq_zero_of_maskOfWidth h_mp
+-- Step 5B: Translate the condition on the natural number width
+--          into a fact about the bitvector masks
+  have bv_h := by
+    apply And.intro
+    · apply lt_of_lt_of_eq_maskOfWidth q_le_bw r_le_bw h_mq h_mr (And.left h)
+    · apply lt_of_lt_of_eq_maskOfWidth p_le_bw q_le_bw h_mp h_mq (And.right h)
+
+  simp only [
+    eq_iff (o := 8),
+    setWidth_setWidth,
+    BitVec.zeroExtend_eq_setWidth,
+    BitVec.setWidth_eq,
+    p_le_bw,
+    r_le_bw,
+    q_le_bw,                       -- Lets simp discharge the `w ≤ o` side condition of
+                                   -- `setWidth_setWidth`
+  ] at h_xmp ⊢
+-- Step 8: BitBlast!
+  bv_decide
+
 /-- Manual trace of a zero extension to `q` followed by a sign extension to `r`,
     which is a single zero extension to `r`, since `p < q` leaves the sign bit
     of the intermediate value clear -/

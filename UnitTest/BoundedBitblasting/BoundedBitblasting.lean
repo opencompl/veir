@@ -35,6 +35,15 @@ example {w t v: Nat} (a b : BitVec w)
   pbv_decide 16
   · bv_decide
 
+/-- Double zero extend with conjunction condition -/
+example (p q r : Nat) (x : BitVec p)
+  (hr : r ≤ 8)
+  (h : q < r ∧ p < q)
+  : (x.zeroExtend q).zeroExtend r = x.zeroExtend r
+  := by
+  pbv_decide 8
+  · bv_decide
+
 /-- Sign extending a zero extension -/
 example (p q r : Nat) (x : BitVec p)
   (hr : r ≤ 8)

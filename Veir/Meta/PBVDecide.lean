@@ -5,15 +5,8 @@ public meta import Std
 public import Veir.Data.PBV
 
 open Lean Elab Tactic Meta Simp Std
-namespace Veir.Data.PBV
 
-/--
-Read-only configuration for the tactic.
--/
-meta structure PbvTranslateContext where
-  /-- The bound up to which we want to bitblast our widths. -/
-  bmcBound : Nat
-
+/-- Check if an `Expr` is a `Nat`. -/
 meta def Expr.isNat (e : Expr) : Bool := e.isConstOf ``Nat
 
 /--
@@ -24,6 +17,19 @@ meta def getBitvecType? (e : Expr) : Option Expr :=
   match_expr e with
   | BitVec w => some w
   | _ => none
+
+/-- Given `a b : Nat`, return `a < b` -/
+meta def mkNatLT (a b : Expr) : Expr :=
+  mkApp2 (mkApp2 (mkConst ``LT.lt [0]) Nat.mkType Nat.mkInstLT) a b
+
+namespace Veir.Data.PBV
+
+/--
+Read-only configuration for the tactic.
+-/
+meta structure PbvTranslateContext where
+  /-- The bound up to which we want to bitblast our widths. -/
+  bmcBound : Nat
 
 /--
 An environment that maps the width atoms of a `Tm` to their `Expr`s.
@@ -67,6 +73,7 @@ inductive Tm : TmKind → Type
 | widthLT (v w : Tm .width) : Tm .prop
 | widthLE (v w : Tm .width) : Tm .prop
 | widthEQ (v w : Tm .width) : Tm .prop
+| AND (v w : Tm .prop) : Tm .prop
 
 /--
 Function to reify an `Expr` into a `Tm`. This function constructs the tree holding
@@ -106,21 +113,30 @@ meta def matchWidthRel (e : Expr) :
 Reify an `Expr` into a `Tm .prop`. Returns `none` if the expression is not a
 width relation, or if either side of the relation fails to reify as a width.
 -/
-meta def Tm.reifyProp (env : TmWidthEnv) (e : Expr) : MetaM (Option (Tm .prop)) := do
+meta partial def Tm.reifyProp (env : TmWidthEnv) (e : Expr) : MetaM (Option (Tm .prop)) := do
   if let some (rel, ea, eb) := matchWidthRel e then
     let some wa ← Tm.reifyWidth env ea | return none
     let some wb ← Tm.reifyWidth env eb | return none
     return some (rel wa wb)
   else
-    return none
+    match_expr e with
+    | And ea eb => do
+      let some pa ← Tm.reifyProp env ea | return none
+      let some pb ← Tm.reifyProp env eb | return none
+      return some (.AND pa pb)
+    | _ => return none
 
 /--
 Convert a `Tm` into an `Expr` given an environment.
 -/
-meta def Tm.toExpr (this : Tm .width) (env : TmWidthEnv) : Expr :=
+meta def Tm.toExpr {k : TmKind} (this : Tm k) (env : TmWidthEnv) : Expr :=
   match this with
   | .widthAtom id => env.width2expr[id]!
   | .widthAdd v w => mkNatAdd (v.toExpr env) (w.toExpr env)
+  | .widthLT  v w => mkNatLT (v.toExpr env) (w.toExpr env)
+  | .widthLE  v w => mkNatLE (v.toExpr env) (w.toExpr env)
+  | .widthEQ  v w => mkNatEq (v.toExpr env) (w.toExpr env)
+  | .AND a b => mkAnd (a.toExpr env) (b.toExpr env)
 
 /--
 Generate a `Name` from a `Tm`. Uses the index of the atoms as the basic variable name.
@@ -132,6 +148,7 @@ meta def Tm.toName {k : TmKind} (tm : Tm k) : Name :=
   | .widthLT  v w => Name.mkSimple s!"{v.toName}_lt_{w.toName}"
   | .widthLE  v w => Name.mkSimple s!"{v.toName}_le_{w.toName}"
   | .widthEQ  v w => Name.mkSimple s!"{v.toName}_eq_{w.toName}"
+  | .AND a b => Name.mkSimple s!"{a.toName}_and_{a.toName}"
 
 /--
 Compute an upper bound on the value of this width term: an atom is bounded by
@@ -397,40 +414,48 @@ meta partial def visitExprRec (g : MVarId)
     return (g, widthTms, bvs)
 
 /--
-Extract `Tm .width`s and corresponding theorem from `Tm .prop`.
+Given a `Tm .prop` and the `Expr` is was reified from, construct the expr that
+corresponds to the `Prop` expressed in terms of the masks.
 -/
-meta def getThmFromProp (term : Tm .prop) : Name × Tm .width × Tm .width :=
-  match term with
-  | .widthLT v w => (``lt_of_lt_of_eq_maskOfWidth, v, w)
-  | .widthLE v w => (``le_of_le_of_eq_maskOfWidth, v, w)
-  | .widthEQ v w => (``eq_of_eq_of_eq_maskOfWidth, v, w)
+meta def getExprFromProp (propTm : Tm .prop) (prop : Expr) (blastWidth : Nat) (g : MVarId)
+    (wInfos: WidthInfos) : MetaM (MVarId × WidthInfos × Expr) := g.withContext do
+  -- Helper to apply a theorem for a binary operation on widths.
+  let applyPropBinop (thm : Name) (v w : Tm .width) : MetaM (MVarId × WidthInfos × Expr) := do
+    let (g, vInfo, wInfos) ← getOrCreateWidthMask blastWidth g v wInfos
+    let (g, wInfo, wInfos) ← getOrCreateWidthMask blastWidth g w wInfos
+    let expr ← g.withContext <| mkAppM thm <| #[
+          .fvar vInfo.hypWidthLeBoundNote,
+          .fvar wInfo.hypWidthLeBoundNote,
+          .fvar vInfo.widthMaskHypFvar,
+          .fvar wInfo.widthMaskHypFvar,
+          prop,
+        ]
+    return (g, wInfos, expr)
+  -- Recurse over the prop structure
+  match propTm with
+  | .widthLT v w => applyPropBinop ``lt_of_lt_of_eq_maskOfWidth v w
+  | .widthLE v w => applyPropBinop ``le_of_le_of_eq_maskOfWidth v w
+  | .widthEQ v w => applyPropBinop ``eq_of_eq_of_eq_maskOfWidth v w
+  | .AND a b => do
+    let (g, wInfos, aExpr) ← getExprFromProp a (← mkAppM ``And.left  #[prop]) blastWidth g wInfos
+    let (g, wInfos, bExpr) ← getExprFromProp b (← mkAppM ``And.right #[prop]) blastWidth g wInfos
+    let expr ← g.withContext <| mkAppM ``And.intro <| #[aExpr, bExpr]
+    return (g, wInfos, expr)
 
 /--
 If a statament in the local context that can be reified as a prop is found, then
-convert into a statement about the width masks, instantiating new masks if needed.
+convert into a statement about the width masks, creatingg new masks if needed.
 -/
 meta def translateWidthPrecond (blastWidth : Nat) (widthInfos : WidthInfos)
     (g : MVarId) (ldecl : LocalDecl)
     : MetaM (MVarId × WidthInfos) := g.withContext do
-  -- If the hypothesis cannot be reified, skip it
+  -- If the hypothesis cannot be reified, skip it.
   let some prop ← Tm.reifyProp widthInfos.env (ldecl.type) | return (g, widthInfos)
-  -- Get the theorem matching the prop
-  let (thm, v, w) := getThmFromProp prop
-  -- Get or create the masks for the width terms
-  let (g, vInfo, widthInfos) ← getOrCreateWidthMask blastWidth g v widthInfos
-  let (g, wInfo, widthInfos) ← getOrCreateWidthMask blastWidth g w widthInfos
-  -- Apply the theorem to convert the width condition into a `BitVec` condition.
-  let (_, g) ← g.withContext
-    <| g.note (Name.mkSimple s!"bv_{prop.toName}")
-    <| ← g.withContext <| mkAppM thm <| #[
-        .fvar vInfo.hypWidthLeBoundNote,
-        .fvar wInfo.hypWidthLeBoundNote,
-        .fvar vInfo.widthMaskHypFvar,
-        .fvar wInfo.widthMaskHypFvar,
-        .fvar ldecl.fvarId,
-      ]
-
-  return (g, widthInfos)
+  -- Obtain the `Expr` of the prop in terms of the mask.
+  let (g, wInfos, expr) ← getExprFromProp prop (ldecl.toExpr) blastWidth g widthInfos
+  -- State the mask version of the prop
+  let (_, g) ← g.note (Name.mkSimple s!"bv_{prop.toName}") expr
+  return (g, wInfos)
 
 /--
 Traverse the local context and add any width pre-conditions to the goal.
