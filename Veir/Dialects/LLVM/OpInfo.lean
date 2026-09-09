@@ -64,6 +64,7 @@ inductive Llvm where
 | store
 | getelementptr
 | insertvalue
+| extractvalue
 | call
 | call_intrinsic
 | return
@@ -129,7 +130,7 @@ match op with
 | .load => LoadProperties
 | .store => StoreProperties
 | .getelementptr => GetelementptrProperties
-| .insertvalue => LLVMInsertValueProperties
+| .insertvalue | .extractvalue => LLVMPositionProperties
 | .fence => LLVMFenceProperties
 | .fadd | .fsub | .fmul | .fdiv | .frem | .fneg | .intr__fmuladd | .intr__fabs =>
   FastMathFlagsProperties
@@ -173,7 +174,8 @@ def Llvm.fromAttrDict
   case load => exact LoadProperties.fromAttrDict attrDict
   case store => exact StoreProperties.fromAttrDict attrDict
   case getelementptr => exact GetelementptrProperties.fromAttrDict attrDict
-  case insertvalue => exact LLVMInsertValueProperties.fromAttrDict attrDict
+  case insertvalue => exact LLVMPositionProperties.fromAttrDictFor "llvm.insertvalue" attrDict
+  case extractvalue => exact LLVMPositionProperties.fromAttrDictFor "llvm.extractvalue" attrDict
   case fence => exact LLVMFenceProperties.fromAttrDict attrDict
   case fadd | fsub | fmul | fdiv | frem | fneg | intr__fmuladd | intr__fabs =>
     exact FastMathFlagsProperties.fromAttrDict attrDict
@@ -349,7 +351,7 @@ def Llvm.toAttrDict
     dict := dict.insert "noalias_scopes".toUTF8 (.arrayAttr props.noalias_scopes)
     dict := dict.insert "tbaa".toUTF8 (.arrayAttr props.tbaa)
     dict
-  | .insertvalue =>
+  | .insertvalue | .extractvalue =>
     (Std.HashMap.emptyWithCapacity 1).insert
       "position".toUTF8 (Attribute.denseArrayAttr props.position)
   | .fence => Id.run do
@@ -413,7 +415,7 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
   | .intr__fshl, _ | .intr__fshr, _
   | .icmp, _ | .select, _
   | .trunc, _ | .sext, _ | .zext, _
-  | .getelementptr, _ | .insertvalue, _
+  | .getelementptr, _ | .insertvalue, _ | .extractvalue, _
   | .br, _ | .cond_br, _ | .switch, _ | .return, _
   | .freeze, _ | .bitcast, _
   | .inttoptr, _ | .ptrtoint, _
@@ -471,7 +473,8 @@ def Llvm.propagatesPoison : Llvm → Bool
   | .intr__lifetime__start | .intr__lifetime__end | .intr__assume
   | .intr__vastart | .intr__vaend | .va_arg
   | .intr__memset | .intr__memcpy | .intr__memmove
-  | .getelementptr | .insertvalue | .call | .call_intrinsic | .return | .func
+  | .getelementptr | .insertvalue | .extractvalue | .call | .call_intrinsic | .return
+  | .func
   | .module_flags
   | .freeze => false
 
@@ -575,6 +578,37 @@ private def memIntrinsicProperties {OpInfo : Type} [IsOpCode OpInfo]
   | .intr__memcpy => some (op.getProperties! ctx.raw Llvm.intr__memcpy)
   | .intr__memmove => some (op.getProperties! ctx.raw Llvm.intr__memmove)
   | _ => none
+
+/--
+  Walk `position` through an aggregate type, as MLIR does for `insertvalue` and
+  `extractvalue`, and return the element type it reaches. Arrays are modelled,
+  so their indices and element types are checked. Struct bodies are opaque, so
+  the walk stops at a struct with indices left and returns `none`.
+-/
+def Llvm.verifyAggregatePosition (containerType : TypeAttr) (position : DenseArrayAttr) :
+    Except String (Option Attribute) := do
+  let isStruct : Attribute → Bool
+    | .unregisteredAttr attr => attr.isType && attr.value.startsWith "!llvm.struct"
+    | _ => false
+  let isArray : Attribute → Bool
+    | .llvmArrayType _ => true
+    | _ => false
+  if position.elementType.bitwidth ≠ 64 then
+    throw "Expected 'position' to be an i64 dense array attribute"
+  if !(isArray containerType.val || isStruct containerType.val) then
+    throw s!"Expected an aggregate container, but got {containerType}"
+  for index in position.values do
+    if index < 0 then
+      throw s!"position out of bounds: {index}"
+  let mut current := containerType.val
+  for index in position.values do
+    let .llvmArrayType arrType := current
+      | if isStruct current then return none
+        throw s!"Expected LLVM IR structure/array type, got: {current}"
+    if index ≥ arrType.size then
+      throw s!"position out of bounds: {index}"
+    current := arrType.type
+  return some current
 
 /--
 Verify the local invariants of an `llvm` operation in any operation-info type
@@ -864,34 +898,24 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 2 1
     let props := op.getProperties! ctx.raw Llvm.insertvalue
-    if props.position.elementType.bitwidth ≠ 64 then
-      throw "Expected 'position' to be an i64 dense array attribute"
     let containerType := (op.getOperand! ctx.raw 0).getType! ctx.raw
     let valueType := (op.getOperand! ctx.raw 1).getType! ctx.raw
     op.verifyResultTypeMatches ctx containerType "Expected the result to have the container type"
-    let isStruct : Attribute → Bool
-      | .unregisteredAttr attr => attr.isType && attr.value.startsWith "!llvm.struct"
-      | _ => false
-    let isArray : Attribute → Bool
-      | .llvmArrayType _ => true
-      | _ => false
-    if !(isArray containerType.val || isStruct containerType.val) then
-      throw s!"Expected an aggregate container, but got {containerType}"
-    for index in props.position.values do
-      if index < 0 then
-        throw s!"position out of bounds: {index}"
-    /- Arrays are modelled, so their indices and element types are checked.
-       Struct bodies are opaque, so the walk trusts everything below a struct. -/
-    let mut current := containerType.val
-    for index in props.position.values do
-      let .llvmArrayType arrType := current
-        | if isStruct current then return
-          throw s!"Expected LLVM IR structure/array type, got: {current}"
-      if index ≥ arrType.size then
-        throw s!"position out of bounds: {index}"
-      current := arrType.type
-    if current ≠ valueType.val then
-      throw s!"Type mismatch: cannot insert {valueType} into {containerType}"
+    let elementType? ← Llvm.verifyAggregatePosition containerType props.position
+    if let some elementType := elementType? then
+      if elementType ≠ valueType.val then
+        throw s!"Type mismatch: cannot insert {valueType} into {containerType}"
+  | .extractvalue => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyPlainOpCounts ctx opIn 1 1
+    let props := op.getProperties! ctx.raw Llvm.extractvalue
+    let containerType := (op.getOperand! ctx.raw 0).getType! ctx.raw
+    let resultType := ((op.getResult 0).get! ctx.raw).type
+    let elementType? ← Llvm.verifyAggregatePosition containerType props.position
+    if let some elementType := elementType? then
+      if elementType ≠ resultType.val then
+        throw s!"Type mismatch: extracting from {containerType} should produce {elementType} \
+          but this op returns {resultType}"
   | .fence => do
     op.verifyPlainOpCounts ctx opIn 0 0
     /- A fence orders other accesses, so the weaker orderings say nothing. -/
