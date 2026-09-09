@@ -43,7 +43,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 def ExactProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String ExactProperties := do
-  let exact ← getUnitAttr "exact" attrDict
+  let exact ← getUnitAttr "isExact" attrDict
   return { exact := exact }
 
 /--
@@ -56,7 +56,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 def DisjointProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String DisjointProperties := do
-  let disjoint ← getUnitAttr "disjoint" attrDict
+  let disjoint ← getUnitAttr "isDisjoint" attrDict
   return { disjoint := disjoint }
 
 /--
@@ -753,20 +753,21 @@ def LLVMCallIntrinsicProperties.fromAttrDict (attrDict : Std.HashMap ByteArray A
            arg_attrs := argAttrs, res_attrs := resAttrs }
 
 /--
-  Properties of `llvm.insertvalue`.
+  Properties of `llvm.insertvalue` and `llvm.extractvalue`: the path into the
+  aggregate.
 -/
-structure LLVMInsertValueProperties where
+structure LLVMPositionProperties where
   position : DenseArrayAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-def LLVMInsertValueProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String LLVMInsertValueProperties := do
+def LLVMPositionProperties.fromAttrDictFor (opName : String)
+    (attrDict : Std.HashMap ByteArray Attribute) : Except String LLVMPositionProperties := do
   if let some (key, _) := attrDict.toArray.find? (fun (k, _) => k ≠ "position".toUTF8) then
-    throw s!"llvm.insertvalue: unexpected property '{String.fromUTF8! key}'"
+    throw s!"{opName}: unexpected property '{String.fromUTF8! key}'"
   let some position := attrDict["position".toUTF8]?
-    | throw "llvm.insertvalue: missing 'position' property"
+    | throw s!"{opName}: missing 'position' property"
   let .denseArrayAttr position := position
-    | throw s!"llvm.insertvalue: expected 'position' to be a dense array attribute, but got {position}"
+    | throw s!"{opName}: expected 'position' to be a dense array attribute, but got {position}"
   return { position }
 
 /-- Properties of `llvm.fence`: how strongly it orders, and over what scope. -/

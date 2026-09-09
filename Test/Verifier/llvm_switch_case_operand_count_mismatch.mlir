@@ -1,4 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
+// RUN: MLIR_INVALID
 
 // The case forwards one operand, but its destination takes two arguments.
 "builtin.module"() ({
