@@ -40,10 +40,8 @@ private def allResultsPoison (resultTypes : Array TypeAttr) : Option (Array Fold
 -/
 private def foldByTable (opType : OpCode) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue))
-    : Option (Array FoldDecision) := do
-  -- Dialect fold tables only describe operations with a single result.
-  let #[_] := resultTypes | none
-  return #[← HasOpInfo.tryFold opType properties resultTypes constOperands]
+    : Option (Array FoldDecision) :=
+  HasOpInfo.tryFold opType properties resultTypes constOperands
 
 /--
   Fold an operation by evaluating it, which requires every operand to be known.

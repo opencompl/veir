@@ -42,6 +42,33 @@
       // CHECK-NEXT: "func.return"(%[[SUM]]) : (i32) -> ()
   }) : () -> ()
 
+  // A table entry decides every result of a multi-result operation:
+  // `arith.addui_extended x, 0` is `x` with a false overflow flag, so one
+  // result reuses an operand while the other materializes a constant.
+  "func.func"() <{function_type = (i32) -> (i32, i1), sym_name = "addui_extended_zero"}> ({
+    ^bb0(%x : i32):
+      // CHECK-LABEL: "sym_name" = "addui_extended_zero"
+      // CHECK:      ^{{.*}}(%[[X:.*]] : i32):
+      %c0 = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
+      %sum, %overflow = "arith.addui_extended"(%x, %c0) : (i32, i32) -> (i32, i1)
+      // CHECK-NEXT: %[[OVERFLOW:.*]] = "arith.constant"() <{"value" = 0 : i1}> : () -> i1
+      // CHECK-NEXT: "func.return"(%[[X]], %[[OVERFLOW]]) : (i32, i1) -> ()
+      "func.return"(%sum, %overflow) : (i32, i1) -> ()
+  }) : () -> ()
+
+  // A nonzero addend leaves the multi-result operation alone.
+  "func.func"() <{function_type = (i32) -> (i32, i1), sym_name = "addui_extended_nonzero"}> ({
+    ^bb0(%x : i32):
+      // CHECK-LABEL: "sym_name" = "addui_extended_nonzero"
+      // CHECK:      ^{{.*}}(%[[X:.*]] : i32):
+      %c1 = "arith.constant"() <{"value" = 1 : i32}> : () -> i32
+      // CHECK-NEXT: %[[C1:.*]] = "arith.constant"() <{"value" = 1 : i32}> : () -> i32
+      %sum, %overflow = "arith.addui_extended"(%x, %c1) : (i32, i32) -> (i32, i1)
+      // CHECK-NEXT: %[[R:.*]]:2 = "arith.addui_extended"(%[[X]], %[[C1]]) : (i32, i32) -> (i32, i1)
+      "func.return"(%sum, %overflow) : (i32, i1) -> ()
+      // CHECK-NEXT: "func.return"(%[[R]]#0, %[[R]]#1) : (i32, i1) -> ()
+  }) : () -> ()
+
   // `riscv.andi x, 0` is zero regardless of `x`. The zero lives in an
   // immediate rather than an operand, so this fold materializes a new
   // constant instead of reusing an operand.

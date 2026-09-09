@@ -72,7 +72,7 @@ def OpCode.getEffects (opCode : OpCode) (props : _propertiesOf opCode) : MemoryE
 /-- Delegate folding to the operation's dialect-local `HasOpInfo` instance. -/
 def OpCode.tryFold (opCode : OpCode) (props : _propertiesOf opCode)
     (resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
-    Option FoldDecision :=
+    Option (Array FoldDecision) :=
   match opCode, props with
   | .arith op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .llvm op, props => HasOpInfo.tryFold op props resultTypes constantOperands

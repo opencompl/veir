@@ -251,10 +251,10 @@ def Riscv.hasSSADominance (_op : Riscv) (_index : Nat) : Bool :=
 
 def Riscv.tryFold (op : Riscv) (properties : Riscv.propertiesOf op)
     (_resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
-    Option FoldDecision :=
+    Option (Array FoldDecision) :=
   match op, constantOperands.toList with
   | .andi, [_] =>
-    if properties.value.value == 0 then some (.useConstant (.reg ⟨0⟩)) else none
+    if properties.value.value == 0 then some #[.useConstant (.reg ⟨0⟩)] else none
   | _, _ => none
 
 instance : IsOpCode Riscv where

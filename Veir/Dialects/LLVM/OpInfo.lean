@@ -480,10 +480,10 @@ def Llvm.propagatesPoison : Llvm → Bool
 
 def Llvm.tryFold (op : Llvm) (_properties : Llvm.propertiesOf op)
     (_resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
-    Option FoldDecision :=
+    Option (Array FoldDecision) :=
   match op, constantOperands.toList with
   | .add, [_, some (.int _ (.val bits))] =>
-    if bits = 0 then some (.useOperand 0) else none
+    if bits = 0 then some #[.useOperand 0] else none
   | _, _ => none
 
 instance : IsOpCode Llvm where

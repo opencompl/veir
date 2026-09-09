@@ -136,10 +136,13 @@ def Arith.propagatesPoison : Arith → Bool
 
 def Arith.tryFold (op : Arith) (_properties : Arith.propertiesOf op)
     (_resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
-    Option FoldDecision :=
+    Option (Array FoldDecision) :=
   match op, constantOperands.toList with
   | .addi, [_, some (.int _ (.val bits))] =>
-    if bits = 0 then some (.useOperand 0) else none
+    if bits = 0 then some #[.useOperand 0] else none
+  -- Adding zero cannot carry, so the overflow flag is a false `i1`.
+  | .addui_extended, [_, some (.int _ (.val bits))] =>
+    if bits = 0 then some #[.useOperand 0, .useConstant (.int 1 (.val 0#1))] else none
   | _, _ => none
 
 instance : IsOpCode Arith where
