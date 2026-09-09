@@ -32,6 +32,12 @@ to lie in the same region.
 
 This follows the immediate dominator chain from `block` 
 upward until it either reaches `dominator` or the chain ends.
+
+A block the dominance analysis never reached has no immediate dominator, so its
+chain ends immediately. As in LLVM and MLIR, such a block is dominated by
+anything and dominates nothing, so the walk answers `true` there. The entry
+block is its own immediate dominator, which is how the walk terminates on a
+reachable chain without claiming that anything else dominates the entry.
 -/
 private partial def BlockPtr.dominatesWithinRegion
     (dominator block : BlockPtr)
@@ -40,7 +46,7 @@ private partial def BlockPtr.dominatesWithinRegion
   if dominator = block then
     true
   else
-    let some idom := block.getIDom? dfCtx | return false
+    let some idom := block.getIDom? dfCtx | return true
     idom ≠ block && dominatesWithinRegion dominator idom dfCtx irCtx
 
 
