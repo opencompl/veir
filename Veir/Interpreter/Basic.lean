@@ -369,7 +369,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     match resType.val with
     | .integerType bw =>
       return (#[.int bw.bitwidth (LLVM.Int.val (BitVec.ofNat bw.bitwidth 0))], mem, none)
-    | .llvmPointerType _ => return (#[.addr 0], mem, none)
+    | .llvmPointerType _ => return (#[.addr .null], mem, none)
     | _ => none
   | .add => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
@@ -614,13 +614,27 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       return (#[], mem, some (.branch (operands.extract 1 (1 + defaultSize)) destDefault))
     | .int _ .poison => Interp.ub
     | _ => none
+  | .call => do
+    /- Only the C allocation functions are modelled. Each `malloc` yields a
+       fresh object, so pointers into different allocations never alias. -/
+    let some callee := properties.callee | none
+    match callee.value, operands.toList with
+    | "@malloc", [.int _ size] =>
+      match size with
+      | .val size =>
+        let (mem, ptr) := mem.alloc size.toNat
+        return (#[.addr ptr], mem, none)
+      | .poison => Interp.ub
+    | "@free", [.addr ptr] =>
+      let mem ← mem.free ptr
+      return (#[], mem, none)
+    | _, _ => none
   | .alloca => do
     let [.int _ (.val count)] := operands.toList | none
     /- `alloca T, N` reserves `N` strides of `T`, as in LLVM. -/
     let size ← layout.getTypeAllocSize properties.elem_type.val
-    let totalSize := (size * count.toNat).toUInt64
-    let (mem, addr) := mem.alloc totalSize
-    return (#[.addr addr], mem, none)
+    let (mem, ptr) := mem.alloc (size * count.toNat)
+    return (#[.addr ptr], mem, none)
   | .load => do
     let [.addr addr] := operands.toList | none
     let [type] := resultTypes.toList | none
@@ -637,7 +651,8 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
        that `isel-riscv64` uses to lower this operation. -/
     let size ← layout.getTypeAllocSize properties.elem_type.val
     match idx with
-    | .val idx => return (#[.addr (ptr.toNat + idx.toNat * size).toUInt64], mem, none)
+    | .val idx =>
+      return (#[.addr { ptr with offset := UInt32.ofNat (ptr.offset.toNat + idx.toNat * size) }], mem, none)
     | .poison => Interp.ub
   | .freeze => do
     let [val] := operands.toList | none
@@ -660,10 +675,10 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       | .byte bw1 val', .integerType ⟨bw2⟩ =>
           if bw1 ≠ bw2 then .fail else .ok ((.int bw1 $ val'.toInt))
       | .byte bw val', .llvmPointerType _ =>
-          if h : bw = 64 then .ok ((.addr (val'.cast h).toUInt64)) else .fail
+          if h : bw = 64 then .ok (.addr (Pointer.ofUInt64 (val'.cast h).toUInt64)) else .fail
       | .addr val', .llvmPointerType _ => .ok (val)
       | .addr val', .byteType ⟨bw⟩ =>
-          if h : bw = 64 then .ok ((.byte 64 $ LLVM.Byte.fromUInt64 val')) else .fail
+          if h : bw = 64 then .ok ((.byte 64 $ LLVM.Byte.fromUInt64 val'.toUInt64)) else .fail
       | _, _ => none
     return (#[result], mem, none)
   | _ => none
@@ -683,8 +698,9 @@ inductive LoadExtension
     grown so that the access is in bounds and cannot raise UB. -/
 def riscvLoad (mem : MemoryState) (eaddr : BitVec 64) (bytes : Nat) (ext : LoadExtension) :
     Interp (BitVec 64 × MemoryState) := do
-  let mem := mem.ensureSize (eaddr.toNat + bytes)
-  let ba ← mem.load eaddr.toNat.toUInt64 bytes.toUInt64
+  let p := Pointer.ofUInt64 (UInt64.ofBitVec eaddr)
+  let mem := mem.ensureSize p bytes
+  let ba ← mem.load p bytes
   let val := ba.toBitVecLE bytes
   let extended := match ext with
     | .signExt => val.signExtend 64
@@ -1055,29 +1071,33 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : propertiesOf opType)
   | .sd => do
     let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.value.value
-    let mem := mem.ensureSize (eaddr.toNat + 8)
-    let mem ← mem.store eaddr.toNat.toUInt64 (UInt64.ofBitVec val).toByteArrayLE
+    let p := Pointer.ofUInt64 (UInt64.ofBitVec eaddr)
+    let mem := mem.ensureSize p 8
+    let mem ← mem.store p (UInt64.ofBitVec val).toByteArrayLE
     return (#[], mem, none)
   | .sw => do
     let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.value.value
-    let mem := mem.ensureSize (eaddr.toNat + 4)
+    let p := Pointer.ofUInt64 (UInt64.ofBitVec eaddr)
+    let mem := mem.ensureSize p 4
     -- store only the low 4 bytes of the register
-    let mem ← mem.store eaddr.toNat.toUInt64 ((UInt64.ofBitVec val).toByteArrayLE.extract 0 4)
+    let mem ← mem.store p ((UInt64.ofBitVec val).toByteArrayLE.extract 0 4)
     return (#[], mem, none)
   | .sh => do
     let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.value.value
-    let mem := mem.ensureSize (eaddr.toNat + 2)
+    let p := Pointer.ofUInt64 (UInt64.ofBitVec eaddr)
+    let mem := mem.ensureSize p 2
     -- store only the low 2 bytes of the register
-    let mem ← mem.store eaddr.toNat.toUInt64 ((UInt64.ofBitVec val).toByteArrayLE.extract 0 2)
+    let mem ← mem.store p ((UInt64.ofBitVec val).toByteArrayLE.extract 0 2)
     return (#[], mem, none)
   | .sb => do
     let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.value.value
-    let mem := mem.ensureSize (eaddr.toNat + 1)
+    let p := Pointer.ofUInt64 (UInt64.ofBitVec eaddr)
+    let mem := mem.ensureSize p 1
     -- store only the low byte of the register
-    let mem ← mem.store eaddr.toNat.toUInt64 ((UInt64.ofBitVec val).toByteArrayLE.extract 0 1)
+    let mem ← mem.store p ((UInt64.ofBitVec val).toByteArrayLE.extract 0 1)
     return (#[], mem, none)
 
 def Riscv_Stack.interpretOp' (opType : Veir.Riscv_Stack) (properties : propertiesOf opType)
@@ -1086,8 +1106,8 @@ def Riscv_Stack.interpretOp' (opType : Veir.Riscv_Stack) (properties : propertie
     : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
   match opType with
   | .alloca => do
-    let (mem, addr) := mem.alloc properties.size.value.toNat.toUInt64
-    return (#[.reg ⟨.ofNat 64 addr.toNat⟩], mem, none)
+    let (mem, ptr) := mem.alloc properties.size.value.toNat
+    return (#[.reg ⟨ptr.toUInt64.toBitVec⟩], mem, none)
 
 def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
@@ -1288,7 +1308,7 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     | .registerType _, [.byte _bw val] =>
       return (#[.reg (LLVM.Byte.toReg val)], mem, none)
     | .registerType _, [.addr val] =>
-      return (#[.reg ⟨val.toNat⟩], mem, none)
+      return (#[.reg ⟨val.toUInt64.toBitVec⟩], mem, none)
     | .integerType _bw, [.reg val] =>
       let .integerType resBw := resType.val | none
       return (#[.int resBw.bitwidth (RISCV.Reg.toInt val resBw.bitwidth)], mem, none)
@@ -1296,7 +1316,7 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
       let .byteType resBw := resType.val | none
       return (#[.byte resBw.bitwidth (RISCV.Reg.toByte val resBw.bitwidth)], mem, none)
     | .llvmPointerType _, [.reg val] =>
-      return (#[.addr ⟨val.val⟩], mem, none)
+      return (#[.addr (Pointer.ofUInt64 ⟨val.val⟩)], mem, none)
     | _ , _ => none
   | _ => none
 
