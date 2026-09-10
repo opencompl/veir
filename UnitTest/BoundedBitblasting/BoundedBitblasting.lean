@@ -290,3 +290,9 @@ example {w v : Nat} (x y : BitVec v) (hw : w ≤ v) (hv : v ≤ 8) :
 example {w v : Nat} (x : BitVec w) (hx : x.msb = false) (hwv : w ≤ v) (hv : v ≤ 8) :
     -(x.signExtend v) = (-x).signExtend v := by
   pbv_decide 8
+
+/-- Shifting left appends same as appending zero -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8)
+  : x <<< 1 = (x ++ 0#1).setWidth w
+  := by
+  pbv_decide 8
