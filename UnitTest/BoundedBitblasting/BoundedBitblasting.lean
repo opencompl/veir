@@ -225,3 +225,9 @@ example (w v : Nat) (x : BitVec w) (z : BitVec v) (hz : z = 0) (hxz : x = z.setW
     (hw : w ≤ 4) (hv : v ≤ 4) :
     x + 1 = 1 := by
   pbv_decide 4
+
+/-- Multiplying commutes -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 8)
+  : x * y = y * x
+  := by
+  pbv_decide 8
