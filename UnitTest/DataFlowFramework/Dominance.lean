@@ -572,6 +572,25 @@ def testOpDomSameRegionTwoBlocks : String :=
      ]
 
 /-
+  Test: an operation in the entry block properly dominates an operation in an
+  unreachable block, which has no immediate dominator. The reverse is false,
+  and an operation in the unreachable block dominates itself only non-properly.
+-/
+def testOpDomUnreachableBlock : String :=
+  runOperationDominance r#""builtin.module"() ({
+^bb0:
+  %entry = "test.test"() : () -> i32
+  "test.test"() : () -> ()
+^bb1:
+  %dead = "test.test"() : () -> i32
+  "test.test"() : () -> ()
+}) : () -> ()"#
+    #[ { dominator := "entry", dominated := "dead",  dominates := true,  properDom := true  }
+     , { dominator := "dead",  dominated := "entry", dominates := false, properDom := false }
+     , { dominator := "dead",  dominated := "dead",  dominates := true,  properDom := false }
+     ]
+
+/-
   Test: dominance facts remain usable after deleting the first operation of an
   intermediate block without changing the CFG.
 -/
@@ -673,6 +692,12 @@ info: "ok"
 -/
 #guard_msgs in
 #eval! testOpDomSameRegionTwoBlocks
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testOpDomUnreachableBlock
 
 /--
 info: "ok"
