@@ -16,7 +16,7 @@
 
       developmentPackages = pkgs: with pkgs; [
         bash
-        clang
+        (llvmPackages pkgs).clang
         elan
         gmp
         gnumake
@@ -61,7 +61,7 @@
             name = target;
             runtimeInputs = developmentPackages pkgs;
             text = ''
-              export LEAN_AR="${pkgs.llvmPackages.llvm}/bin/llvm-ar"
+              export LEAN_AR="${(llvmPackages pkgs).llvm}/bin/llvm-ar"
               export LEAN_CC="${self}/ExArray/compiler"
               exec lake exe ${target} "$@"
             '';
