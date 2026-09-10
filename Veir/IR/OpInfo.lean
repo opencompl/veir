@@ -71,7 +71,13 @@ class HasOpInfo (opCode: Type)
   operation folds entirely or not at all, so a table entry for a multi-result
   operation must decide every result. Implementations are responsible for
   returning an in-range operand or a constant conforming to the corresponding
-  result type.
+  result type. Operand replacements must have the corresponding result type.
+
+  The local semantic contract is `FoldTable.CorrectAt`, defined separately in
+  `Veir.Interfaces.FoldInterfaces.Correctness` to keep this interface independent
+  of the interpreter. It requires refinement for every well-typed completion
+  of the known operands, with no memory or control-flow effects, and does not
+  treat interpreter failure as evidence of correctness.
   -/
   tryFold : (op : opCode) → propertiesOf op → Array TypeAttr →
     Array (Option RuntimeValue) → Option (Array FoldDecision) := fun _ _ _ _ => none
