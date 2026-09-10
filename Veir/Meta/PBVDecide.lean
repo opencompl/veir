@@ -419,8 +419,11 @@ meta partial def visitExprRec (g : MVarId)
 Given a `Tm .prop` and the `Expr` is was reified from, construct the expr that
 corresponds to the `Prop` expressed in terms of the masks.
 -/
-meta def getExprFromProp (propTm : Tm .prop) (prop : Expr) (g : MVarId)
+meta def getMaskedExprFromProp (prop : Tm .prop) (proof : Expr) (g : MVarId)
     (wInfos: WidthInfos) : MetaM (MVarId × WidthInfos × Expr) := g.withContext do
+  -- Ensure the proof and prop match.
+  unless ← isDefEq (← inferType proof) (prop.toExpr wInfos.env)
+    do throwError m!"Prop : {prop.toExpr wInfos.env} doesn't match the proof : {← inferType proof}"
   -- Helper to apply a theorem for a binary operation on widths.
   let applyPropBinop (thm : Name) (v w : Tm .width) : MetaM (MVarId × WidthInfos × Expr) := do
     let (g, vInfo, wInfos) ← getOrCreateWidthMask g v wInfos
@@ -430,17 +433,17 @@ meta def getExprFromProp (propTm : Tm .prop) (prop : Expr) (g : MVarId)
           .fvar wInfo.hypWidthLeBoundNote,
           .fvar vInfo.widthMaskHypFvar,
           .fvar wInfo.widthMaskHypFvar,
-          prop,
+          proof,
         ]
     return (g, wInfos, expr)
   -- Recurse over the prop structure
-  match propTm with
+  match prop with
   | .widthLT v w => applyPropBinop ``lt_of_lt_of_eq_maskOfWidth v w
   | .widthLE v w => applyPropBinop ``le_of_le_of_eq_maskOfWidth v w
   | .widthEQ v w => applyPropBinop ``eq_of_eq_of_eq_maskOfWidth v w
   | .AND a b => do
-    let (g, wInfos, aExpr) ← getExprFromProp a (← mkAppM ``And.left  #[prop]) g wInfos
-    let (g, wInfos, bExpr) ← getExprFromProp b (← mkAppM ``And.right #[prop]) g wInfos
+    let (g, wInfos, aExpr) ← getMaskedExprFromProp a (← mkAppM ``And.left  #[proof]) g wInfos
+    let (g, wInfos, bExpr) ← getMaskedExprFromProp b (← mkAppM ``And.right #[proof]) g wInfos
     let expr ← g.withContext <| mkAppM ``And.intro <| #[aExpr, bExpr]
     return (g, wInfos, expr)
 
@@ -454,7 +457,7 @@ meta def translateWidthPrecond (widthInfos : WidthInfos)
   -- If the hypothesis cannot be reified, skip it.
   let some prop ← Tm.reifyProp widthInfos.env (ldecl.type) | return (g, widthInfos)
   -- Obtain the `Expr` of the prop in terms of the mask.
-  let (g, wInfos, expr) ← getExprFromProp prop (ldecl.toExpr) g widthInfos
+  let (g, wInfos, expr) ← getMaskedExprFromProp prop (ldecl.toExpr) g widthInfos
   -- State the mask version of the prop
   let (_, g) ← g.note (Name.mkSimple s!"bv_{prop.toName}") expr
   return (g, wInfos)
