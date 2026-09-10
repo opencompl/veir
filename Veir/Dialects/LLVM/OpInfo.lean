@@ -44,6 +44,7 @@ inductive Llvm where
 | intr__fshl
 | intr__fshr
 | intr__assume
+| intr__vector__reduce__or
 | mul
 | sdiv
 | udiv
@@ -252,8 +253,9 @@ def Llvm.toAttrDict
     dict
   | .cond_br => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 3
-    dict := dict.insert
-      "branch_weights".toUTF8 (Attribute.denseArrayAttr props.branch_weights)
+    if props.branch_weights.values.size ≠ 0 then
+      dict := dict.insert
+        "branch_weights".toUTF8 (Attribute.denseArrayAttr props.branch_weights)
     if let some annotation := props.loop_annotation then
       dict := dict.insert "loop_annotation".toUTF8 (.loopAnnotationAttr annotation)
     dict := dict.insert "operandSegmentSizes".toUTF8
@@ -286,12 +288,12 @@ def Llvm.toAttrDict
   | .udiv | .sdiv | .lshr | .ashr => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
     if props.exact then
-      dict := dict.insert "exact".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+      dict := dict.insert "isExact".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
   | .or => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
     if props.disjoint then
-      dict := dict.insert "disjoint".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+      dict := dict.insert "isDisjoint".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
   | .zext | .uitofp => props.toAttrDict
   | .intr__ctlz | .intr__cttz =>
@@ -330,10 +332,14 @@ def Llvm.toAttrDict
       dict := dict.insert "invariantGroup".toUTF8 (.unitAttr UnitAttr.mk)
     if let some syncscope := props.syncscope then
       dict := dict.insert "syncscope".toUTF8 (.stringAttr syncscope)
-    dict := dict.insert "access_groups".toUTF8 (.arrayAttr props.access_groups)
-    dict := dict.insert "alias_scopes".toUTF8 (.arrayAttr props.alias_scopes)
-    dict := dict.insert "noalias_scopes".toUTF8 (.arrayAttr props.noalias_scopes)
-    dict := dict.insert "tbaa".toUTF8 (.arrayAttr props.tbaa)
+    if props.access_groups.value.size ≠ 0 then
+      dict := dict.insert "access_groups".toUTF8 (.arrayAttr props.access_groups)
+    if props.alias_scopes.value.size ≠ 0 then
+      dict := dict.insert "alias_scopes".toUTF8 (.arrayAttr props.alias_scopes)
+    if props.noalias_scopes.value.size ≠ 0 then
+      dict := dict.insert "noalias_scopes".toUTF8 (.arrayAttr props.noalias_scopes)
+    if props.tbaa.value.size ≠ 0 then
+      dict := dict.insert "tbaa".toUTF8 (.arrayAttr props.tbaa)
     dict
   | .store => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 9
@@ -346,10 +352,14 @@ def Llvm.toAttrDict
       dict := dict.insert "invariantGroup".toUTF8 (.unitAttr UnitAttr.mk)
     if let some syncscope := props.syncscope then
       dict := dict.insert "syncscope".toUTF8 (.stringAttr syncscope)
-    dict := dict.insert "access_groups".toUTF8 (.arrayAttr props.access_groups)
-    dict := dict.insert "alias_scopes".toUTF8 (.arrayAttr props.alias_scopes)
-    dict := dict.insert "noalias_scopes".toUTF8 (.arrayAttr props.noalias_scopes)
-    dict := dict.insert "tbaa".toUTF8 (.arrayAttr props.tbaa)
+    if props.access_groups.value.size ≠ 0 then
+      dict := dict.insert "access_groups".toUTF8 (.arrayAttr props.access_groups)
+    if props.alias_scopes.value.size ≠ 0 then
+      dict := dict.insert "alias_scopes".toUTF8 (.arrayAttr props.alias_scopes)
+    if props.noalias_scopes.value.size ≠ 0 then
+      dict := dict.insert "noalias_scopes".toUTF8 (.arrayAttr props.noalias_scopes)
+    if props.tbaa.value.size ≠ 0 then
+      dict := dict.insert "tbaa".toUTF8 (.arrayAttr props.tbaa)
     dict
   | .insertvalue | .extractvalue =>
     (Std.HashMap.emptyWithCapacity 1).insert
@@ -421,6 +431,7 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
   | .inttoptr, _ | .ptrtoint, _
   | .intr__smax, _ | .intr__smin, _ | .intr__umax, _ | .intr__umin, _
   | .intr__abs, _
+  | .intr__vector__reduce__or, _
   | .intr__sadd__sat, _ | .intr__uadd__sat, _
   | .intr__ssub__sat, _ | .intr__usub__sat, _
   | .intr__sshl__sat, _ | .intr__ushl__sat, _
@@ -459,6 +470,7 @@ def Llvm.propagatesPoison : Llvm → Bool
   | .intr__ctlz | .intr__cttz | .intr__ctpop | .intr__bswap
   | .intr__bitreverse | .intr__fshl | .intr__fshr
   | .intr__smax | .intr__smin | .intr__umax | .intr__umin | .intr__abs
+  | .intr__vector__reduce__or
   | .intr__sadd__sat | .intr__uadd__sat | .intr__ssub__sat | .intr__usub__sat
   | .intr__sshl__sat | .intr__ushl__sat => true
   -- The floating-point arithmetic operations propagate poison too, but no
@@ -923,6 +935,20 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     match props.ordering with
     | .acquire | .release | .acq_rel | .seq_cst => pure ()
     | _ => throw "llvm.fence: can be given only acquire, release, acq_rel and seq_cst orderings"
+  | .intr__vector__reduce__or => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyPlainOpCounts ctx opIn 1 1
+    let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
+    let .vectorType vecType := operandType.val
+      | throw "Expected operand 0 to have vector type"
+    if vecType.shape.size ≠ 1 || vecType.shape[0]! = 0 then
+      throw "Expected a nonempty one-dimensional vector"
+    let .integerType _ := vecType.elementType
+      | throw "Expected vector elements to have integer type"
+    let resultType := ((op.getResult 0).get! ctx.raw).type
+    if resultType.val ≠ vecType.elementType then
+      throw "Expected result type to match vector element type"
+    pure ()
   | .getelementptr => do
     op.checkIsNonNullIntegerType ctx opIn
     let props := op.getProperties! ctx.raw Llvm.getelementptr

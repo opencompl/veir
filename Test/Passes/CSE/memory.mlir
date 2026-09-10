@@ -3,8 +3,8 @@
 "builtin.module"() ({
   "llvm.func"()  <{function_type = !llvm.func<void (!llvm.ptr)>, sym_name = "foo"}> ({
 ^bb0(%ptr : !llvm.ptr):
-    %load0 = "llvm.load"(%ptr) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-    %load1 = "llvm.load"(%ptr) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+    %load0 = "llvm.load"(%ptr) <{"alignment" = 4 : i64}> : (!llvm.ptr) -> i32
+    %load1 = "llvm.load"(%ptr) <{"alignment" = 4 : i64}> : (!llvm.ptr) -> i32
     "test.test"(%load0, %load1) : (i32, i32) -> ()
 
     // CHECK-LABEL: ^{{.*}}(%{{.*}} : !llvm.ptr):
