@@ -316,15 +316,15 @@ def addIConstantFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) 
   let insertPoint := InsertPoint.before ⟨op.impl.toNat⟩
   let (ctx, newOp) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ({ value := sumValue } : ArithConstantProperties) insertPoint sorry sorry sorry sorry sorry sorry
 
-  let ctx ← Rewriter.replaceOp? ctx op newOp sorry sorry sorry sorry sorry
+  let ctx ← Rewriter.replaceOp? ctx op newOp sorry sorry sorry sorry sorry sorry
 
   match (lhsOpResultPtr.getFirstUse ctx sorry).toOption, (rhsOpResultPtr.getFirstUse ctx sorry).toOption with
   | some _, some _ => ctx
-  | none, some _ => (Rewriter.eraseOp ctx lhsOpPtr sorry sorry sorry sorry : Option (Sim.IRContext OpCode))
-  | some _, none => (Rewriter.eraseOp ctx rhsOpPtr sorry sorry sorry sorry : Option (Sim.IRContext OpCode))
+  | none, some _ => (Rewriter.eraseOp ctx lhsOpPtr sorry sorry sorry sorry sorry : Option (Sim.IRContext OpCode))
+  | some _, none => (Rewriter.eraseOp ctx rhsOpPtr sorry sorry sorry sorry sorry : Option (Sim.IRContext OpCode))
   | none, none =>
-    let ctx ← (Rewriter.eraseOp ctx lhsOpPtr sorry sorry sorry sorry : Option (Sim.IRContext OpCode))
-    (Rewriter.eraseOp ctx rhsOpPtr sorry sorry sorry sorry : Option (Sim.IRContext OpCode))
+    let ctx ← (Rewriter.eraseOp ctx lhsOpPtr sorry sorry sorry sorry sorry : Option (Sim.IRContext OpCode))
+    (Rewriter.eraseOp ctx rhsOpPtr sorry sorry sorry sorry sorry : Option (Sim.IRContext OpCode))
 
 
 buffed (def_lemma := false)
@@ -372,10 +372,10 @@ def addIZeroFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Op
   let oldValue : Sim.ValuePtr := ⟨oldValuePtr.impl, default⟩
   let ctx ← Rewriter.replaceValue? ctx oldValue lhsValue sorry sorry
 
-  let ctx ← Rewriter.eraseOp ctx op sorry sorry sorry sorry
+  let ctx ← Rewriter.eraseOp ctx op sorry sorry sorry sorry sorry
 
   if (rhsOpResultPtr.getFirstUse ctx sorry).toOption.isNone then
-    return Rewriter.eraseOp ctx rhsOpPtr sorry sorry sorry sorry
+    return Rewriter.eraseOp ctx rhsOpPtr sorry sorry sorry sorry sorry
 
   return ctx
 
@@ -441,10 +441,10 @@ def mulITwoReduceSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Opti
 
   let insertPoint := InsertPoint.before ⟨op.impl.toNat⟩
   let (ctx, newOp) ← Rewriter.createOp ctx (.arith .addi) #[IntegerType.mk 32] ⟨#[lhsValue.impl, lhsValue.impl], #[default, default], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ ⟨#[], #[], by grind, by grind⟩ () insertPoint sorry sorry sorry sorry sorry sorry
-  let ctx ← Rewriter.replaceOp? ctx op newOp sorry sorry sorry sorry sorry
+  let ctx ← Rewriter.replaceOp? ctx op newOp sorry sorry sorry sorry sorry sorry
 
   if (rhsOpResultPtr.getFirstUse ctx sorry).toOption.isNone then
-    return Rewriter.eraseOp ctx rhsOpPtr sorry sorry sorry sorry
+    return Rewriter.eraseOp ctx rhsOpPtr sorry sorry sorry sorry sorry
 
   return ctx
 
@@ -532,7 +532,7 @@ def replaceOps.loopSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) (dep
       -- let prevval := oper.getValue ctx (by sorry)
       -- let some ctx := Rewriter.replaceOp? ctx op prevop sorry sorry sorry sorry | none
       let prevop := op.getPrevOp ctx (by sorry) |>.toOption.get sorry
-      let some ctx := Rewriter.replaceOp? ctx op prevop sorry sorry sorry sorry sorry | none
+      let some ctx := Rewriter.replaceOp? ctx op prevop sorry sorry sorry sorry sorry sorry | none
       replaceOps.loopSim ctx nextOp (depth - 1)
     else
       none

@@ -145,6 +145,9 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
   have hattr : (Rewriter.setRegion opPtr.impl ctx.buf idx region.impl hregion hnum hslot).attributes
       = ctx.buf.attributes := by
     simp only [Rewriter.setRegion, Buffed.RegionMPtr.writeParent]
+  have hfree : (Rewriter.setRegion opPtr.impl ctx.buf idx region.impl hregion hnum hslot).freeList
+      = ctx.buf.freeList := by
+    simp only [Rewriter.setRegion, Buffed.RegionMPtr.writeParent]
   have hrange : (Rewriter.setRegion opPtr.impl ctx.buf idx region.impl hregion hnum hslot).mem.range
       = ctx.buf.mem.range := by
     simp only [Rewriter.setRegion, Buffed.RegionMPtr.writeParent, ExArray.range_blit64]
@@ -671,6 +674,16 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
     (try dsimp only)
     rw [hattr]
     exact ctx.sim.attr_empty
+  · (try dsimp only)
+    rw [hfree]
+    exact ctx.sim.free_valid.mono (hsizele)
+  · (try dsimp only)
+    intro size address hm p hp
+    rw [hfree] at hm
+    have hold : p.InBounds ctx.spec := by grind [Rewriter.pushRegion, TopLevelPtr]
+    have hd := ctx.sim.free_disjoint size address hm p hold
+    cases p <;> grind [Rewriter.pushRegion, TopLevelPtr]
+
 
 end Veir
 

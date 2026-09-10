@@ -1019,6 +1019,13 @@ structure Sim (ctx : Sim.RawIRContext OpInfo) where
     rg.Matches ctx ib
   /-- Attribute-table slot 0 canonically holds the empty dictionary, so the zero-initialized `attrs` field of a freshly allocated operation denotes the empty dictionary. -/
   attr_empty : ctx.buf.attributes[0]? = some (.dictionaryAttr DictionaryAttr.empty)
+  /-- Free slots are bounded, nonempty, and pairwise disjoint. -/
+  free_valid : ctx.buf.freeList.Valid ctx.buf.mem.size
+  /-- A free slot never overlaps an allocation that still exists in the spec. -/
+  free_disjoint (size address : UInt64) (hm : address ∈ ctx.buf.freeList.bucket size)
+      (ptr : TopLevelPtr) (ib : ptr.InBounds ctx.spec) :
+    (ptr.range ctx.spec).upper ≤ address.toNat ∨
+      (address.toNat : Int) + size.toNat ≤ (ptr.range ctx.spec).lower
 
 variable (OpInfo) [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo] in
 structure Sim.IRContext where
@@ -1036,6 +1043,8 @@ instance : Inhabited (Sim.IRContext OpInfo) where
     · grind
     · simp only [IRContext.default_def]; grind
     case attr_empty => simp [IRBufContext.default_def]
+    case free_valid => exact Buffed.FreeList.valid_empty _
+    case free_disjoint => simp [IRBufContext.default_def, Buffed.FreeList.bucket]
     all_goals
     · simp only [IRContext.default_def]
       intros ptr

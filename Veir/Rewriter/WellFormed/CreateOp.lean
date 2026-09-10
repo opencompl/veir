@@ -74,7 +74,7 @@ theorem Rewriter.createOp_preserves_wellFormed
   split at h
   · contradiction
   · rename_i allocated allocatedCtx halloc
-    have hallocWf := Sim.OperationPtr.allocEmpty_constructionWellFormed wf halloc
+    have hallocWf := Sim.OperationPtr.allocRecycled_constructionWellFormed wf halloc
     split at h
     · contradiction
     · split at h
@@ -82,7 +82,7 @@ theorem Rewriter.createOp_preserves_wellFormed
       · rename_i regionsCtx hregionsCtx
         have hregionsWf := Rewriter.initOpRegions_constructionWellFormed
           (Rewriter.initOpResults_constructionWellFormed rfl hallocWf) hregionsCtx
-        have hspecAlloc := Sim.OperationPtr.allocEmpty_spec' halloc
+        have hspecAlloc := Sim.OperationPtr.allocRecycled_spec' halloc
         have hresultsFull : (allocated.spec.get! regionsCtx.spec).capResults =
             allocated.spec.getNumResults! regionsCtx.spec := by
           rw [Rewriter.initOpRegions_preserves_capResults _ hregionsCtx,

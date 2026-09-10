@@ -110,3 +110,48 @@ _end_
 
 Tools/vcc hello.c -o hello
 ```
+
+## Reusing deleted IR storage
+
+The buffered context has an exact-size free list. Erasing an operation, block,
+or region releases its complete byte allocation; subsequent rewriter
+construction reuses a free allocation of the same size before extending the
+arena. Operation allocations include the results preceding the operation header
+and all reserved capacity. Live pointers do not move.
+
+Free-list lookup, insertion, and removal take expected amortized O(1) time.
+Reallocation clears the reused range with `memset`, taking O(allocation size),
+then initializes its header and properties. Deletion does not scan or compact
+the arena. The existing operand/use unlinking costs still apply to operation
+erasure. As with other persistent buffer mutations, keeping an old context
+snapshot can require copying the backing buffer on the next write.
+
+`Rewriter.eraseOp` now releases storage after detaching the operation and its
+operands. `Rewriter.eraseBlock` and `Rewriter.eraseRegion` release detached
+containers; callers must first remove their contents and uses and supply the
+`FieldsInBounds` proof ruling out dangling references. These APIs do not
+recursively delete a subtree. Their well-formedness theorems, together with the
+updated construction and replacement proofs, are exported by
+`Veir.Rewriter.WellFormed`.
+
+The free-list invariant proves that free ranges are in bounds, mutually
+disjoint, and disjoint from every live allocation. Allocation consumes its slot
+and preserves the encoding of all other objects. These invariants and the
+specification context are erased from the generated executable rewriter code.
+
+This is arena reuse: memory is retained for future allocations, rather than
+returned to the operating system. Free ranges are neither split nor coalesced,
+so a workload that continually requests new sizes can still grow the arena.
+The separate attribute table remains append-only.
+
+Validation:
+
+```sh
+lake build Veir.Rewriter.WellFormed allocator-tests ir-reuse-tests
+lake exe allocator-tests
+lake exe ir-reuse-tests
+```
+
+The tests cover slot clearing, neighboring bytes, shared snapshots, distinct
+size classes, spare capacity, and 10,000 allocation/erasure cycles for each IR
+object kind without arena growth after warmup.

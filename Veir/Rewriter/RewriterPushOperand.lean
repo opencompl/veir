@@ -109,6 +109,9 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
   have hattr : (Rewriter.setOperand opPtr.impl (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum) ctx.buf idx hnum rfl hslot valuePtr.impl).attributes = ctx.buf.attributes := by
     simp only [Rewriter.setOperand, Buffed.OpOperandMPtr.writeValue, Buffed.OpOperandMPtr.writeOwner,
       Buffed.OpOperandMPtr.writeBack, Buffed.OpOperandMPtr.writeNextUse]
+  have hfree : (Rewriter.setOperand opPtr.impl (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum) ctx.buf idx hnum rfl hslot valuePtr.impl).freeList = ctx.buf.freeList := by
+    simp only [Rewriter.setOperand, Buffed.OpOperandMPtr.writeValue, Buffed.OpOperandMPtr.writeOwner,
+      Buffed.OpOperandMPtr.writeBack, Buffed.OpOperandMPtr.writeNextUse]
   have hlay : ctx.spec.LayoutPreserved (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind)) :=
     IRContext.LayoutPreserved.of_layoutUnchanged_ltr (by grind [Rewriter.pushOperand])
   -- The four writes stay inside the fresh 32-byte slot; any window disjoint from it agrees.
@@ -482,6 +485,16 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
     (try dsimp only)
     rw [hattr]
     exact ctx.sim.attr_empty
+  · (try dsimp only)
+    rw [hfree]
+    exact ctx.sim.free_valid.mono (hsizele)
+  · (try dsimp only)
+    intro size address hm p hp
+    rw [hfree] at hm
+    have hold : p.InBounds ctx.spec := by grind [Rewriter.pushOperand, TopLevelPtr]
+    have hd := ctx.sim.free_disjoint size address hm p hold
+    cases p <;> grind [Rewriter.pushOperand, TopLevelPtr]
+
 
 end Veir
 

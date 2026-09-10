@@ -68,7 +68,8 @@ def ArithConstantProperties.writeProperty (a : ArithConstantProperties) (addr: U
     { bctx with mem := bctx.mem.blit64 addr w (by grind) }
   else
     let idx : UInt64 := UInt64.ofNat bctx.attributes.size + ((1 : UInt64) <<< 63)
-    { mem := bctx.mem.blit64 addr idx (by grind),
+    { bctx with
+      mem := bctx.mem.blit64 addr idx (by grind)
       attributes := bctx.attributes.push (.integerAttr a.value) }
 
 def ArithConstantProperties.readProperty (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 8 ≤ bctx.mem.size) : Option ArithConstantProperties :=
@@ -256,6 +257,12 @@ theorem ArithConstantProperties.readProperty_frame {addr : UInt64} {bctx bctx' :
     next v hm => rw [hattrs _ _ hm]; exact hp
     next => simp at hp
 
+@[simp]
+theorem ArithConstantProperties.writeProperty_freeList (p : ArithConstantProperties) (addr : UInt64)
+    (bctx : Buffed.IRBufContext) (h ha) : (p.writeProperty addr bctx h ha).freeList = bctx.freeList := by
+  unfold writeProperty
+  split <;> rfl
+
 @[inline]
 instance : HasBuffedProperties Arith where
   writePropertyAt op p addr bctx h hattrs :=
@@ -332,6 +339,8 @@ instance : HasBuffedProperties Arith where
     case cmpi => simpa using hsome
     case extui => simpa using hsome
     all_goals exact hsome
+  preserves_freeList {op p addr bctx h hattrs} := by
+    cases op <;> first | simp | rfl
   preserves_size {op p addr bctx h hattrs} := by
     cases op
     case constant => simp

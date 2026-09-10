@@ -18,3 +18,11 @@ root = "BuffedBenchmark"
 name = "buffed-benchmark"
 root = "BuffedBenchmark"
 # moreLeancArgs = ["-g", "-O0"]
+
+[[lean_exe]]
+name = "allocator-tests"
+root = "AllocatorTests"
+
+[[lean_exe]]
+name = "ir-reuse-tests"
+root = "IRReuseTests"

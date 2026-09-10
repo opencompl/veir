@@ -249,6 +249,13 @@ def blitNat (buf : ExArray) (n : UInt64) (len : UInt64) (x : Nat)
      : ExArray :=
   blit buf n len (BitVec.ofNat (8 * len.toNat) x)
 
+/-- Clear a byte range before reusing an arena allocation. The native implementation
+uses `memset`, including for ranges larger than a machine word. -/
+@[extern "buffed_ex_array_zero"]
+def zero (buf : ExArray) (n len : UInt64)
+    (h : IsIncluded (n.toNat...(n.toNat + len.toNat)) buf.range := by grind) : ExArray :=
+  buf.blit n len (0 : BitVec 0) h
+
 def readRec (buf : ExArray) (n : UInt64) (numBytes : Nat)
     (h : IsIncluded (n.toNat...(n.toNat + numBytes)) buf.range := by grind) : BitVec w :=
   match numBytes with
@@ -355,6 +362,11 @@ theorem blitRec_size (buf: ExArray) n numBytes x h :
 theorem blit_size (buf: ExArray) n numBytes x h :
     (buf.blit (w := w) n numBytes x h).size = buf.size := by
   grind
+
+@[simp, grind =]
+theorem zero_size (buf : ExArray) n len h :
+    (buf.zero n len h).size = buf.size := by
+  simp [zero]
 
 @[simp, grind =]
 theorem blit32_size (buf: ExArray) n x h :
@@ -581,6 +593,13 @@ theorem read!_blit_disjoint (buf : ExArray) (n n' : UInt64) (x : BitVec w') h :
     IsDisjoint (n.toNat ... (n.toNat + len.toNat)) (n'.toNat ... (n'.toNat + len'.toNat)) →
     (buf.blit (w := w') n' len' x h).read! (w := w) n len = buf.read! n len := by
   grind [read!]
+
+@[simp]
+theorem read!_zero_disjoint (buf : ExArray) (n n' len len' : UInt64) h
+    (hd : IsDisjoint (n.toNat...(n.toNat + len.toNat))
+      (n'.toNat...(n'.toNat + len'.toNat))) :
+    (buf.zero n' len' h).read! (w := w) n len = buf.read! n len := by
+  exact read!_blit_disjoint buf n n' (0 : BitVec 0) h hd
 
 @[simp, grind =]
 theorem read!_blit32_disjoint (buf : ExArray) (n n' : UInt64) (x : UInt32) h :

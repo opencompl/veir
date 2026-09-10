@@ -137,6 +137,14 @@ lean_obj_res buffed_ex_array_extend(lean_obj_arg a, size_t len) {
     return r;
 }
 
+lean_obj_res buffed_ex_array_zero(lean_obj_arg a, uint64_t offset, uint64_t len) {
+    assert(offset <= buffed_sarray_size(a));
+    assert(len <= buffed_sarray_size(a) - offset);
+    lean_object *r = buffed_ex_array_ensure_exclusive(a);
+    memset(buffed_ex_array_cptr(r) + offset, 0, len);
+    return r;
+}
+
 __attribute__((always_inline))
 uint8_t buffed_ex_array_uget(b_lean_obj_arg a, size_t i) {
     assert(i < buffed_sarray_size(a));

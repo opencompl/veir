@@ -283,6 +283,8 @@ instance : HasBuffedProperties Llvm where
         | exact AttrCodec.writeProperty_attributes _ p addr bctx h hattrs hsome
         | simpa using hsome
         | exact hsome
+  preserves_freeList {op p addr bctx h hattrs} := by
+    cases op <;> first | simp | rfl
   preserves_size {op p addr bctx h hattrs} := by
     cases op <;> first | simp | rfl
   only_modifies_properties {op p addr bctx h hattrs w n len} hd := by

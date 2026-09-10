@@ -64,6 +64,7 @@ theorem Rewriter.setBlockArgumentRaw_pushBlockArgument_sim (blockPtr : Sim.Block
     (hidx : idx.toNat = blockPtr.spec.getNumArguments! ctx.spec)
     (hcap : idx.toNat < (blockPtr.spec.get! ctx.spec).capArguments)
     (buf₁ : Buffed.IRBufContext) (typeIdx : UInt64)
+    (hfree : buf₁.freeList = ctx.buf.freeList)
     (hmem : buf₁.mem = ctx.buf.mem)
     (hattrs : buf₁.attributes = ctx.buf.attributes.push type)
     (htidx : typeIdx.toNat = ctx.buf.attributes.size)
@@ -126,6 +127,11 @@ theorem Rewriter.setBlockArgumentRaw_pushBlockArgument_sim (blockPtr : Sim.Block
     simp only [Rewriter.setBlockArgumentRaw, Buffed.BlockArgumentMPtr.writeOwner,
       Buffed.BlockArgumentMPtr.writeIndex, Buffed.BlockArgumentMPtr.writeFirstUse,
       Buffed.BlockArgumentMPtr.writeType, Buffed.ValueImplMPtr.writeKind, hattrs]
+  have hfreeOut : (Rewriter.setBlockArgumentRaw blockPtr.impl buf₁ idx typeIdx hslot').freeList
+      = ctx.buf.freeList := by
+    simp only [Rewriter.setBlockArgumentRaw, Buffed.BlockArgumentMPtr.writeOwner,
+      Buffed.BlockArgumentMPtr.writeIndex, Buffed.BlockArgumentMPtr.writeFirstUse,
+      Buffed.BlockArgumentMPtr.writeType, Buffed.ValueImplMPtr.writeKind, hfree]
   have hattrget : ∀ (i : Nat) (t : Attribute), ctx.buf.attributes[i]? = some t →
       (ctx.buf.attributes.push type)[i]? = some t := by
     grind
@@ -464,6 +470,16 @@ theorem Rewriter.setBlockArgumentRaw_pushBlockArgument_sim (blockPtr : Sim.Block
     rw [hattr]
     exact hattrget 0 _ ctx.sim.attr_empty
 
+  · (try dsimp only)
+    rw [hfreeOut]
+    exact ctx.sim.free_valid.mono hsizele
+  · (try dsimp only)
+    intro size address hm p hp
+    rw [hfreeOut] at hm
+    have hold : p.InBounds ctx.spec := by grind [Rewriter.pushBlockArgument, TopLevelPtr]
+    have hd := ctx.sim.free_disjoint size address hm p hold
+    cases p <;> grind [Rewriter.pushBlockArgument, TopLevelPtr]
+
 /-- Option-level wrapper of `setBlockArgumentRaw_pushBlockArgument_sim`: destructures the `insertAttrs` success and hands the pieces to the raw theorem. -/
 theorem Rewriter.setBlockArgument_pushBlockArgument_sim (blockPtr : Sim.BlockPtr) (ctx : Sim.IRContext OpInfo)
     (idx : UInt64) (type : TypeAttr)
@@ -491,6 +507,6 @@ theorem Rewriter.setBlockArgument_pushBlockArgument_sim (blockPtr : Sim.BlockPtr
       simp only [Buffed.IRBufContext.insertAttrs] at hattr
       split at hattr <;> grind [Nat.toUInt64_eq, UInt64.toNat_ofNat']
     exact Rewriter.setBlockArgumentRaw_pushBlockArgument_sim blockPtr ctx idx type
-      blockPtrInBounds hidx hcap buf₁ typeIdx hmem hattrs htidx _
+      blockPtrInBounds hidx hcap buf₁ typeIdx (by grind [Buffed.IRBufContext.insertAttrs]) hmem hattrs htidx _
 
 end Veir

@@ -1,5 +1,10 @@
 module
 
+public import Veir.IR.Buffed.RecycledBlock
+public import Veir.IR.Buffed.RecycledRegion
+public import Veir.IR.Buffed.RecycledOperation
+public import Veir.Rewriter.EraseContainers
+
 public import ExArray.CompilerExtras
 public import Veir.IR
 public import Veir.Rewriter.InsertPoint
@@ -817,17 +822,17 @@ def Rewriter.createBlockSim (ctx: Sim.IRContext OpInfo) (argTypes : Array TypeAt
     : Option (Sim.IRContext OpInfo × Sim.BlockPtr) := do
   -- A block whose argument array reaches `countCard` (`2^32`) cannot be laid out without its size overflowing, so it is not creatable; reject it here.
   if hsz : argTypes.size < Buffed.countCard then
-  rlet ⟨newBlockPtr, ctx⟩ ← Sim.BlockPtr.allocEmpty ctx (numArgs := argTypes.size.toUInt64)
+  rlet ⟨newBlockPtr, ctx⟩ ← Sim.BlockPtr.allocRecycled ctx (numArgs := argTypes.size.toUInt64)
   have : newBlockPtr.InBounds ctx := by grind
   rlet ctx ← Rewriter.initBlockArguments newBlockPtr ctx argTypes 0 (by grind) (by
     rename_i heq
-    have ⟨addr, heq'⟩ := Sim.BlockPtr.allocEmpty_spec _ heq
+    have ⟨addr, heq'⟩ := Sim.BlockPtr.allocRecycled_spec _ heq
     have : newBlockPtr.spec.get! ctx.spec = .empty argTypes.size := by
       have := BlockPtr.get!_BlockPtr_allocEmptyAtAddress (block := newBlockPtr.spec) heq'
       grind [=_ Array.size_toUInt64_toNat]
     grind) (by
     rename_i heq
-    have ⟨addr, heq'⟩ := Sim.BlockPtr.allocEmpty_spec _ heq
+    have ⟨addr, heq'⟩ := Sim.BlockPtr.allocRecycled_spec _ heq
     have : newBlockPtr.spec.get! ctx.spec = .empty argTypes.size := by
       have := BlockPtr.get!_BlockPtr_allocEmptyAtAddress (block := newBlockPtr.spec) heq'
       grind [=_ Array.size_toUInt64_toNat]
@@ -871,7 +876,7 @@ theorem Rewriter.createBlock_fieldsInBounds_mono
 
 buffed
 def Rewriter.createRegionSim (ctx: Sim.IRContext OpInfo) : Option (Sim.IRContext OpInfo × Sim.RegionPtr) := do
-  rlet ⟨reg, ctx⟩ ← Sim.RegionPtr.allocEmpty ctx
+  rlet ⟨reg, ctx⟩ ← Sim.RegionPtr.allocRecycled ctx
   some (ctx, reg)
 
 @[grind .]
@@ -1650,7 +1655,7 @@ def Rewriter.createOpSim (ctx: Sim.IRContext OpInfo) (opType: OpInfo)
   have := regions.max_size
   have := operands.max_size
   have := blockOperands.max_size
-  rlet ⟨newOpPtr, ctx⟩ ← Sim.OperationPtr.allocEmpty ctx opType properties
+  rlet ⟨newOpPtr, ctx⟩ ← Sim.OperationPtr.allocRecycled ctx opType properties
     resultTypes.sizeU64 operands.usize blockOperands.usize regions.usize
     (by grind [Array.sizeU64_toNat]) (by grind [Sim.ArrayValuePtr.size])
     (by grind [Sim.ArrayBlockPtr.size]) (by grind [Sim.ArrayRegionPtr.size])
@@ -1828,7 +1833,8 @@ theorem Rewriter.createOp_fieldsInBounds
 buffed
 def Sim.IRContext.emptySim : Sim.IRContext OpInfo :=
   -- Slot 0 of the attribute table is reserved for the empty dictionary (see `Sim.attr_empty`).
-  ⟨⟨.emptyWithCapacity (256 * 1024 * 1024), #[.dictionaryAttr DictionaryAttr.empty]⟩, IRContext.empty OpInfo, by constructor <;> grind [TopLevelPtr]⟩
+  ⟨⟨.emptyWithCapacity (256 * 1024 * 1024), #[.dictionaryAttr DictionaryAttr.empty], ∅⟩, IRContext.empty OpInfo, by
+    constructor <;> first | exact Buffed.FreeList.valid_empty _ | (solve | simp [Buffed.FreeList.bucket]) | grind [TopLevelPtr]⟩
 
 buffed
 def IRContext.createSim OpInfo [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo] : Option (Sim.IRContext OpInfo × Sim.OperationPtr) := do

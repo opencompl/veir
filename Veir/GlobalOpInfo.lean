@@ -146,6 +146,13 @@ instance : HasBuffedOpCode OpCode where
       case func => exact AttrCodec.writeProperty_attributes _ p addr bctx h hattrs hsome
       all_goals exact hsome
     case test op => cases op <;> exact hsome
+  preserves_freeList {op p addr bctx h hattrs} := by
+    cases op
+    case arith op => exact HasBuffedProperties.preserves_freeList
+    case llvm op => exact HasBuffedProperties.preserves_freeList
+    case builtin op => cases op <;> first | simp | rfl
+    case func op => cases op <;> first | simp | rfl
+    case test op => cases op <;> rfl
   preserves_size {op p addr bctx h hattrs} := by
     cases op
     case arith op => exact HasBuffedProperties.preserves_size

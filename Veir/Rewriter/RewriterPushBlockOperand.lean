@@ -104,6 +104,9 @@ theorem Rewriter.setBlockOperand_pushBlockOperand_sim (opPtr : Sim.OperationPtr)
   have hattr : (Rewriter.setBlockOperand opPtr.impl ctx.buf idx hnum hslot blockPtr.impl).attributes = ctx.buf.attributes := by
     simp only [Rewriter.setBlockOperand, Buffed.BlockOperandMPtr.writeValue, Buffed.BlockOperandMPtr.writeOwner,
       Buffed.BlockOperandMPtr.writeBack, Buffed.BlockOperandMPtr.writeNextUse]
+  have hfree : (Rewriter.setBlockOperand opPtr.impl ctx.buf idx hnum hslot blockPtr.impl).freeList = ctx.buf.freeList := by
+    simp only [Rewriter.setBlockOperand, Buffed.BlockOperandMPtr.writeValue, Buffed.BlockOperandMPtr.writeOwner,
+      Buffed.BlockOperandMPtr.writeBack, Buffed.BlockOperandMPtr.writeNextUse]
   have hlay : ctx.spec.LayoutPreserved (Rewriter.pushBlockOperand ctx.spec opPtr.spec blockPtr.spec (by grind) (by grind)) :=
     IRContext.LayoutPreserved.of_layoutUnchanged_ltr (by grind [Rewriter.pushBlockOperand])
   -- The four writes stay inside the fresh 32-byte slot; any window disjoint from it agrees.
@@ -468,6 +471,16 @@ theorem Rewriter.setBlockOperand_pushBlockOperand_sim (opPtr : Sim.OperationPtr)
     (try dsimp only)
     rw [hattr]
     exact ctx.sim.attr_empty
+  · (try dsimp only)
+    rw [hfree]
+    exact ctx.sim.free_valid.mono (hsizele)
+  · (try dsimp only)
+    intro size address hm p hp
+    rw [hfree] at hm
+    have hold : p.InBounds ctx.spec := by grind [Rewriter.pushBlockOperand, TopLevelPtr]
+    have hd := ctx.sim.free_disjoint size address hm p hold
+    cases p <;> grind [Rewriter.pushBlockOperand, TopLevelPtr]
+
 
 end Veir
 

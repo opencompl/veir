@@ -444,6 +444,8 @@ meta def mkMain (cfg : Cfg) (spec : Term) (wAttr : TSyntax ``Parser.Tactic.grind
      tNumRS tRSslots tBlBase tNumArgs tBAslots tRegion : TSyntax `tactic) :
     MacroM (TSyntax `tactic) := do
   let ctx := cfg.ctx
+  let writer := cfg.w
+  let writerSimp ← `(Parser.Tactic.simpLemma| $writer:term)
   `(tactic|
     (have hFIB : ($ctx).spec.FieldsInBounds := Veir.Sim.IRContext.fieldsInBounds $ctx
      have hlay : ($ctx).spec.LayoutPreserved $spec :=
@@ -498,7 +500,12 @@ meta def mkMain (cfg : Cfg) (spec : Term) (wAttr : TSyntax ``Parser.Tactic.grind
        have hrrange := Sim.RegionPtr.range_linear rg hrgin
        $tRegion:tactic
      · have := ($ctx).sim.attr_empty
-       grind only [$wAttr:grindParam]))
+       grind only [$wAttr:grindParam]
+     · simpa [$writerSimp:simpLemma] using ($ctx).sim.free_valid
+     · simp only [$writerSimp:simpLemma]
+       intros size address hm ptr hib
+       have := ($ctx).sim.free_disjoint size address hm ptr (by grind)
+       grind [TopLevelPtr]))
 
 end ProveSetLinkSim
 

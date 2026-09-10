@@ -103,4 +103,13 @@ theorem Sim.OperationPtr.allocEmpty_constructionWellFormed
   exact OperationPtr.allocEmptyAt_constructionWellFormed wf ctx'.sim.fieldsInBounds
     (Sim.OperationPtr.allocEmpty_spec' halloc)
 
+theorem Sim.OperationPtr.allocRecycled_constructionWellFormed
+    [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
+    {ctx ctx' : Sim.IRContext OpInfo}
+    (wf : ctx.spec.WellFormed)
+    (halloc : Sim.OperationPtr.allocRecycled ctx ty properties cr co cb cg h₁ h₂ h₃ h₄ = some (newOp, ctx')) :
+    ConstructionWellFormed ctx'.spec newOp.spec ∅ ∅ := by
+  exact OperationPtr.allocEmptyAt_constructionWellFormed wf ctx'.sim.fieldsInBounds
+    (Sim.OperationPtr.allocRecycled_spec' halloc)
+
 end Veir

@@ -129,6 +129,11 @@ theorem Rewriter.setResult_pushResult_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
     simp only [Buffed.OpResultMPtr.writeOwner, Buffed.OpResultMPtr.writeIndex,
       Buffed.OpResultMPtr.writeFirstUse, Buffed.OpResultMPtr.writeType, Buffed.ValueImplMPtr.writeKind]
     exact hattr1
+  have hfree : bufctx.freeList = ctx.buf.freeList := by
+    rw [← heq]
+    simp only [Buffed.OpResultMPtr.writeOwner, Buffed.OpResultMPtr.writeIndex,
+      Buffed.OpResultMPtr.writeFirstUse, Buffed.OpResultMPtr.writeType, Buffed.ValueImplMPtr.writeKind]
+    rfl
   have hbsz : bufctx.mem.size = ctx.buf.mem.size := by
     rw [← heq]
     simp only [Buffed.OpResultMPtr.writeOwner, Buffed.OpResultMPtr.writeIndex,
@@ -544,5 +549,17 @@ theorem Rewriter.setResult_pushResult_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
     have := ctx.sim.attr_empty
     clear hread ek hagreeD heq
     grind
+  · (try dsimp only)
+    rw [hfree]
+    simpa only [hbsz] using ctx.sim.free_valid
+  · (try dsimp only)
+    intro size address hm p hp
+    rw [hfree] at hm
+    clear hread ek hagreeD heq hoff hslotaddr husz hincl hmul hidxlt
+    (try clear hslotB hattrB hbsz hbrange hmem1 hattr1 htidx)
+    have hold : p.InBounds ctx.spec := by grind [Rewriter.pushResult, TopLevelPtr]
+    have hd := ctx.sim.free_disjoint size address hm p hold
+    cases p <;> grind [Rewriter.pushResult, TopLevelPtr]
+
 
 end Veir

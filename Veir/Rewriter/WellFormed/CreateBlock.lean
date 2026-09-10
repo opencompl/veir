@@ -26,8 +26,8 @@ theorem Rewriter.createBlock_preserves_wellFormed
   · split at h
     · contradiction
     · rename_i allocated allocatedCtx halloc
-      have allocatedWf := Sim.BlockPtr.allocEmpty_constructionWellFormed wf halloc
-      have hallocSpec := Sim.BlockPtr.allocEmpty_spec' _ halloc
+      have allocatedWf := Sim.BlockPtr.allocRecycled_constructionWellFormed wf halloc
+      have hallocSpec := Sim.BlockPtr.allocRecycled_spec' _ halloc
       have capacity : (allocated.spec.get! allocatedCtx.spec).capArguments = argTypes.size := by
         grind [Block.empty, Array.size_toUInt64_toNat]
       split at h
