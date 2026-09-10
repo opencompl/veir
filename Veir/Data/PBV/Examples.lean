@@ -228,3 +228,37 @@ theorem trace_append (w : Nat) (a b : BitVec w) (hw : w ≤ 8) :
   simp only [← h_mw] at h_amw h_bmw
 -- Step 8: BitBlast!
   bv_decide
+
+theorem trace_mul_by_two_eq_add {w : Nat} (x y : BitVec w) (hw : w ≤ 4) (h : y = 2)
+  : x * y = x + x
+  := by
+-- Step 1: Bound widths to the provided blast width (redundant in this case)
+  have w_le_bw : w ≤ 4 := by grind
+-- Step 2-3: Introduce mask to replace `w` Nat var
+  apply width_elim 4 w
+  intro mw h_mw
+-- Step 4: Eliminate the parametric bv var of width `w`
+--         enforcing width constraint with mask
+  revert x
+  apply var_elim w_le_bw
+  intro x h_xmw
+  revert y
+  apply var_elim w_le_bw
+  intro y h_ymw
+
+-- Step 5: Convert width hypothesis to mask hypothesis
+  have mw_mask := and_add_one_eq_zero_of_maskOfWidth h_mw
+-- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
+  simp only [
+      eq_iff (o := 4),             -- Introduce `setWidth` to goal
+      setWidth_mul,       -- Push `setWidth` down mul
+      setWidth_add,       -- Push `setWidth` down add
+      setWidth_setWidth,  -- Push `setWidth` down setWidth
+      BitVec.setWidth_eq,         -- Remove redundant setWidths
+      setWidth_ofNat,
+      BitVec.ofNat_eq_ofNat,
+      w_le_bw]                     -- Replace mask with nat with bv constraint
+      at h_xmw h_ymw ⊢
+  -- rw [BitVec.ofNat_eq_ofNat, const_hyp] at h
+-- Step 8: Bitblast!
+  bv_decide
