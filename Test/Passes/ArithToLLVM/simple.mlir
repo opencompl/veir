@@ -12,7 +12,7 @@
     %wrapped = "arith.subi"(%c0, %c1) : (i8, i8) -> i8
     %difference = "arith.subi"(%c48, %c16)
       <{overflowFlags = #arith.overflow<nsw, nuw>}> : (i8, i8) -> i8
-    %combined = "arith.ori"(%difference, %c16) <{disjoint}> : (i8, i8) -> i8
+    %combined = "arith.ori"(%difference, %c16) <{isDisjoint}> : (i8, i8) -> i8
     "func.return"(%wrapped, %combined) : (i8, i8) -> ()
   }) : () -> ()
 }) : () -> ()

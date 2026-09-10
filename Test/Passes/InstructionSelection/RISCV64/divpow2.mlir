@@ -56,7 +56,7 @@
     "func.func"() <{function_type = (i64) -> i64, sym_name = "f5"}> ({
     ^bb(%a: i64):
         %c = "llvm.mlir.constant"() <{value = 8 : i64}> : () -> i64
-        %r = "llvm.sdiv"(%a, %c) <{exact}> : (i64, i64) -> i64
+        %r = "llvm.sdiv"(%a, %c) <{isExact}> : (i64, i64) -> i64
         // CHECK:      %{{.*}} = "riscv.srai"(%{{.*}}) <{"value" = 3 : i64}> : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
         "func.return"(%r) : (i64) -> ()
@@ -66,7 +66,7 @@
     "func.func"() <{function_type = (i64) -> i64, sym_name = "f6"}> ({
     ^bb(%a: i64):
         %c = "llvm.mlir.constant"() <{value = -8 : i64}> : () -> i64
-        %r = "llvm.sdiv"(%a, %c) <{exact}> : (i64, i64) -> i64
+        %r = "llvm.sdiv"(%a, %c) <{isExact}> : (i64, i64) -> i64
         // CHECK:      %{{.*}} = "riscv.srai"(%{{.*}}) <{"value" = 3 : i64}> : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "riscv.li"() <{"value" = 0 : i64}> : () -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "riscv.sub"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
@@ -77,7 +77,7 @@
     "func.func"() <{function_type = (i32) -> i32, sym_name = "f7"}> ({
     ^bb(%a: i32):
         %c = "llvm.mlir.constant"() <{value = 8 : i32}> : () -> i32
-        %r = "llvm.sdiv"(%a, %c) <{exact}> : (i32, i32) -> i32
+        %r = "llvm.sdiv"(%a, %c) <{isExact}> : (i32, i32) -> i32
         // CHECK: %{{.*}} = "riscv.sraiw"(%{{.*}}) <{"value" = 3 : i64}> : (!riscv.reg) -> !riscv.reg
         "func.return"(%r) : (i32) -> ()
     }) : () -> ()
