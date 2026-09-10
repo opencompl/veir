@@ -891,14 +891,45 @@ instance : ToString RegisterType where
 instance : ToString RegisterAttr where
   toString attr := s!"{attr.value} : !riscv.reg"
 
+private def unescapeBytes (acc : ByteArray) : List Char → Option ByteArray
+  | [] => some acc
+  | '\\' :: '\\' :: rest => unescapeBytes (acc.push '\\'.toUInt8) rest
+  | '\\' :: '"' :: rest => unescapeBytes (acc.push '"'.toUInt8) rest
+  | '\\' :: 'n' :: rest => unescapeBytes (acc.push '\n'.toUInt8) rest
+  | '\\' :: 't' :: rest => unescapeBytes (acc.push '\t'.toUInt8) rest
+  | '\\' :: hi :: lo :: rest => do
+    let hi ← Char.hexDigit? hi
+    let lo ← Char.hexDigit? lo
+    unescapeBytes (acc.push (hi * 16 + lo)) rest
+  | '\\' :: _ => none
+  | c :: rest => unescapeBytes (acc ++ c.toString.toUTF8) rest
+
+/--
+  Every byte survives the `\HH` escape: what `escapeStringLiteral` writes for a
+  byte it will not print, `unescapeBytes` reads back as that same byte.
+-/
+private theorem unescapeBytes_hexEscape (acc : ByteArray) (cs : List Char) (b : UInt8) :
+    unescapeBytes acc ('\\' :: (b >>> 4).toHexDigit :: (b &&& 15).toHexDigit :: cs)
+      = unescapeBytes (acc.push b) cs := by
+  obtain ⟨h1, h2, h3, h4⟩ := UInt8.toHexDigit_ne _ (UInt8.toNat_shiftRight_four_lt b)
+  rw [unescapeBytes.eq_def]
+  simp_all [Char.hexDigit?_toHexDigit _ (UInt8.toNat_shiftRight_four_lt b),
+            Char.hexDigit?_toHexDigit _ (UInt8.toNat_and_fifteen_lt b), UInt8.nibbles_recombine]
+
+/--
+  The bytes a string literal denotes, undoing `escapeStringLiteral`. `none` if
+  the text holds an escape neither writes.
+-/
+def unescapeStringLiteral (s : String) : Option ByteArray :=
+  unescapeBytes ByteArray.empty s.toList
+
 def escapeStringLiteral (b : ByteArray) : String := Id.run do
   let mut result := ""
   for byte in b do
     if byte == '\\'.toUInt8 then result := result ++ "\\\\"
-    else if byte == '"'.toUInt8 then result := result ++ "\\\""
-    else if byte == '\n'.toUInt8 then result := result ++ "\\n"
-    else if byte == '\t'.toUInt8 then result := result ++ "\\t"
-    else if byte >= 0x20 && byte < 0x7F then result := result.push (Char.ofNat byte.toNat)
+    /- A quote takes the hex path below, as `\22`, which is what MLIR writes. -/
+    else if byte >= 0x20 && byte < 0x7F && byte != '"'.toUInt8 then
+      result := result.push (Char.ofNat byte.toNat)
     else
       /- LLVM convention: encode hex as \HH. -/
       result := result.push '\\'
@@ -924,8 +955,19 @@ instance : ToString DenseArrayAttr where
 instance : ToString DenseElementsAttr where
   toString attr := s!"dense<{attr.value}> : {attr.type}"
 
+/--
+  A quoted symbol reference is reprinted from its bytes, so that a name spelled
+  `@"a\n"` on input comes back as `@"a\0A"` -- the spelling MLIR writes. A bare
+  reference, and one whose escapes do not decode, is left as it was read.
+-/
 instance : ToString FlatSymbolRefAttr where
-  toString attr := attr.value
+  toString attr :=
+    if attr.value.length ≥ 3 && attr.value.startsWith "@\"" && attr.value.endsWith "\"" then
+      match unescapeStringLiteral ((attr.value.drop 2).dropEnd 1).toString with
+      | some bytes => "@\"" ++ escapeStringLiteral bytes ++ "\""
+      | none => attr.value
+    else
+      attr.value
 
 instance : ToString ModArithType where
   toString type := s!"!mod_arith.int<{type.modulus}>"

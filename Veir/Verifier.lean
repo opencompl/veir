@@ -114,23 +114,6 @@ private def WfIRContext.graphRegionsHaveAtMostOneBlock (ctx : WfIRContext OpCode
       true
 
 /--
-  Decode the escapes MLIR writes inside a quoted name: `\\` and `\"` for the two
-  characters that would otherwise end the literal, and `\HH` for any byte it
-  will not print, which is how clang's `\01` no-mangle prefix survives. `none`
-  if the text holds an escape of some other shape.
--/
-private def decodeSymbolEscapes (acc : ByteArray) : List Char → Option ByteArray
-  | [] => some acc
-  | '\\' :: '\\' :: rest => decodeSymbolEscapes (acc.push 0x5c) rest
-  | '\\' :: '"' :: rest => decodeSymbolEscapes (acc.push 0x22) rest
-  | '\\' :: hi :: lo :: rest => do
-    let hi ← Char.hexDigit? hi
-    let lo ← Char.hexDigit? lo
-    decodeSymbolEscapes (acc.push (hi * 16 + lo)) rest
-  | '\\' :: _ => none
-  | c :: rest => decodeSymbolEscapes (acc ++ c.toString.toUTF8) rest
-
-/--
   The bytes a symbol reference names, `@` included. MLIR spells a name that is
   not a bare identifier as `@"..."`, with the escapes above; a `sym_name` holds
   the same name unquoted and decoded. Reducing the reference to those bytes is
@@ -139,7 +122,7 @@ private def decodeSymbolEscapes (acc : ByteArray) : List Char → Option ByteArr
 -/
 private def symbolRefBytes (name : String) : Option ByteArray :=
   if name.length ≥ 3 && name.startsWith "@\"" && name.endsWith "\"" then
-    decodeSymbolEscapes "@".toUTF8 ((name.drop 2).dropEnd 1).toString.toList
+    ("@".toUTF8 ++ ·) <$> unescapeStringLiteral ((name.drop 2).dropEnd 1).toString
   else
     some name.toUTF8
 
