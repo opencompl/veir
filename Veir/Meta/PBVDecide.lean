@@ -519,6 +519,9 @@ meta def addPushTheorems (g : MVarId) (simp : SimpTheoremsArray) :
       ``setWidth_append_eq_or_mul_maskOfWidth_add_one,
       ``signBitOfMask_eq,
       ``setWidth_signExtend_eq_and_maskOfWidth,
+      ``maskOfWidth_zero,
+      ``BitVec.ofNat_eq_ofNat,
+      ``BitVec.setWidth_zero
   ]
 
   let mut simp := simp
