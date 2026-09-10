@@ -584,6 +584,20 @@ private def memIntrinsicProperties {OpInfo : Type} [IsOpCode OpInfo]
   | .intr__memmove => some (op.getProperties! ctx.raw Llvm.intr__memmove)
   | _ => none
 
+def TypeAttr.verifyLLVMVectorType (ty : TypeAttr) (errMsg : String) :
+    Except String VectorType := do
+  let .vectorType vectorType := ty.val
+    | throw errMsg
+  let #[_] := vectorType.shape
+    | throw "Expected a one-dimensional vector"
+  let validElementType := match vectorType.elementType with
+    | .integerType _ | .llvmPointerType _ | .byteType _ => true
+    | .floatType type => #[FloatType.bf16, FloatType.f16, FloatType.f32, FloatType.f64].contains type
+    | _ => false
+  if !validElementType then
+    throw s!"Expected an LLVM-compatible vector element type, but got {vectorType.elementType}"
+  return vectorType
+
 /--
   Walk `position` through an aggregate type, as MLIR does for `insertvalue` and
   `extractvalue`, and return the element type it reaches. Arrays are modelled,
@@ -903,16 +917,8 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 3 1
     let containerType := (op.getOperand! ctx.raw 0).getType! ctx.raw
-    let .vectorType vectorType := containerType.val
-      | throw "Expected operand 0 to have an LLVM-compatible vector type"
-    let #[_] := vectorType.shape
-      | throw "Expected a one-dimensional vector"
-    let validElementType := match vectorType.elementType with
-      | .integerType _ | .llvmPointerType _ | .byteType _ => true
-      | .floatType type => #[FloatType.bf16, FloatType.f16, FloatType.f32, FloatType.f64].contains type
-      | _ => false
-    if !validElementType then
-      throw s!"Expected an LLVM-compatible vector element type, but got {vectorType.elementType}"
+    let vectorType ← containerType.verifyLLVMVectorType
+      "Expected operand 0 to have an LLVM-compatible vector type"
     let valueType := (op.getOperand! ctx.raw 1).getType! ctx.raw
     if valueType.val != vectorType.elementType then
       throw s!"Expected operand 1 to have vector element type {vectorType.elementType}, but got {valueType}"
