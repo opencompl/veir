@@ -40,7 +40,7 @@
       "llvm.store"(%5, %24) <{alignment = 1 : i64, volatile_, nontemporal, invariantGroup, access_groups = [], alias_scopes = [], noalias_scopes = [], tbaa = []}> : (i32, !llvm.ptr) -> ()
       %26 = "llvm.load"(%24) : (!llvm.ptr) -> i32
       %27 = "llvm.load"(%24) <{alignment = 1 : i64, volatile_, nontemporal, invariant, invariantGroup, access_groups = [], alias_scopes = [], noalias_scopes = [], tbaa = []}> : (!llvm.ptr) -> i32
-      "llvm.cond_br"(%6, %5, %5) [^7, ^7] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 1, 1>}> : (i1, i32, i32) -> ()
+      "llvm.cond_br"(%6, %5, %5) [^7, ^7] <{"operandSegmentSizes" = array<i32: 1, 1, 1>}> : (i1, i32, i32) -> ()
     ^7(%arg6_0 : i32):
       "llvm.br"(%arg6_0) [^8] : (i32) -> ()
     ^8(%arg7_0 : i32):
@@ -129,11 +129,11 @@
 // CHECK-NEXT:       %{{.*}} = "llvm.zext"(%{{.*}}) : (i1) -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.alloca"(%{{.*}}) <{"alignment" = 0 : i64, "elem_type" = i32}> : (i32) -> !llvm.ptr
 // CHECK-NEXT:       %{{.*}} = "llvm.alloca"(%{{.*}}) <{"alignment" = 4 : i64, "elem_type" = i32, inalloca}> : (i32) -> !llvm.ptr
-// CHECK-NEXT:       "llvm.store"(%{{.*}}, %{{.*}}) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 0 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:       "llvm.store"(%{{.*}}, %{{.*}}) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, invariantGroup, "noalias_scopes" = [], nontemporal, "tbaa" = [], volatile_}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:       %{{.*}} = "llvm.load"(%{{.*}}) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 0 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:       %{{.*}} = "llvm.load"(%{{.*}}) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, invariant, invariantGroup, "noalias_scopes" = [], nontemporal, "tbaa" = [], volatile_}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:       "llvm.cond_br"(%{{.*}}, %{{.*}}, %{{.*}}) [^[[b1:.*]], ^[[b1]]] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 1, 1>}> : (i1, i32, i32) -> ()
+// CHECK-NEXT:       "llvm.store"(%{{.*}}, %{{.*}}) <{"alignment" = 0 : i64}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:       "llvm.store"(%{{.*}}, %{{.*}}) <{"alignment" = 1 : i64, invariantGroup, nontemporal, volatile_}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:       %{{.*}} = "llvm.load"(%{{.*}}) <{"alignment" = 0 : i64}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:       %{{.*}} = "llvm.load"(%{{.*}}) <{"alignment" = 1 : i64, invariant, invariantGroup, nontemporal, volatile_}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:       "llvm.cond_br"(%{{.*}}, %{{.*}}, %{{.*}}) [^[[b1:.*]], ^[[b1]]] <{"operandSegmentSizes" = array<i32: 1, 1, 1>}> : (i1, i32, i32) -> ()
 // CHECK-NEXT:     ^[[b1]](%{{.*}} : i32):
 // CHECK-NEXT:       "llvm.br"(%{{.*}}) [^[[b2:.*]]] : (i32) -> ()
 // CHECK-NEXT:     ^[[b2]](%{{.*}} : i32):
