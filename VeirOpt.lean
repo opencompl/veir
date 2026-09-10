@@ -1,4 +1,5 @@
 import Veir.Parser.MlirParser
+import Veir.GlobalOpInfo
 import Veir.Printer
 import Veir.Panic
 import Veir.Input
@@ -159,9 +160,9 @@ def parseArgs (args : List String) : Except String VeirOptArgs := do
   -- Consume `--disable-verifiers` if present.
   let disableVerifiers := flags.contains "--disable-verifiers"
   let flags := flags.filter (· != "--disable-verifiers")
-  -- Consume `--mlir-print-op-generic` if present.
-  let printGenericOpForm := flags.contains "--mlir-print-op-generic"
-  let flags := flags.filter (· != "--mlir-print-op-generic")
+  -- Consume `--print-op-generic` if present.
+  let printGenericOpForm := flags.contains "--print-op-generic"
+  let flags := flags.filter (· != "--print-op-generic")
   -- If anything survived, it was unrecognized and we error out.
   if let some flag := flags.head? then
     .error s!"Unrecognized flag '{flag}'."
@@ -177,7 +178,7 @@ def main (args : List String) : IO Unit := do
   match parseArgs args with
   | .error errMsg =>
     IO.eprintln s!"Error: {errMsg}"
-    IO.eprintln "Usage: veir-opt <filename> [-p=\"pass1,pass2,...\"]... [--allow-unregistered-dialect] [--disable-verifiers] [--mlir-print-op-generic]"
+    IO.eprintln "Usage: veir-opt <filename> [-p=\"pass1,pass2,...\"]... [--allow-unregistered-dialect] [--disable-verifiers] [--print-op-generic]"
     IO.eprintln "  -p may be repeated; passes run in the order the flags appear."
     IO.eprintln "  A pass name may be followed by boolean options: pass{opt1 opt2=false}."
     IO.eprintln "  Bare option names mean true; omitted options take their declared defaults."

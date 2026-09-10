@@ -32,9 +32,8 @@ def Func.printFuncFunc : Printer.CustomPrinter GlobalOpCode := fun op => do
   -- `visibility` is stored in `extra` if present (e.g. `"private"`).
   let visibility? := props.extra.entries.find? fun (k, _) => k == "sym_visibility".toUTF8
   let extraWithoutVisibility := DictionaryAttr.fromArray (props.extra.entries.filter fun (k, value) =>
-    k != "sym_visibility".toUTF8 || match value with
-      | .stringAttr _ => false
-      | _ => true)
+    k != "sym_visibility".toUTF8 || !value.isa StringAttr)
+  let operationAttrs := (op.get! ctx).attrs
   printString " "
   if let some (_, .stringAttr vis) := visibility? then
     unless vis.value == "public".toUTF8 do
@@ -77,9 +76,10 @@ def Func.printFuncFunc : Printer.CustomPrinter GlobalOpCode := fun op => do
     for i in List.range (outs.size - 1) do
       printString s!", {outs[i + 1]!}"
     printString ")"
-  -- Function attributes via `printOptionalAttrDictWithKeyword`, like MLIR's `printFunctionAttributes`.
-  -- `extraWithoutVisibility` already excludes `sym_visibility`, and `extra` excludes `sym_name`/`function_type`.
+  -- Property attributes and operation attributes use separate dictionaries in VeIR.
   printOptionalAttrDictWithKeyword extraWithoutVisibility
+  printOptionalAttrDictWithKeyword operationAttrs
+    #["sym_name", "sym_visibility", "function_type"]
   -- Body if not external, like MLIR's `if (!body.empty()) p.printRegion(body, false)`
   if !isExternal then
     printString " "

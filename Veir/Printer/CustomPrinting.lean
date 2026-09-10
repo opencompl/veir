@@ -1,15 +1,11 @@
 module
 
 /-
-# Custom printing interface
+# Custom printer support
 
-Types for custom (non-generic) operation printing, plus the `HasCustomPrinting`
-interface through which dialects expose their operations' custom printers.
-
-This module sits below the printer machinery (`Veir/Printer.lean`): it only
-contains the types, so that dialect printing modules can define custom
-printers without depending on the printer itself, and so that the printer can
-depend on the dialect modules without an import cycle.
+Core types and operations used by custom operation printers. The main printer
+implementation lives in `Veir/Printer.lean`; this module stays below it so
+that dialect printing modules can register printers without an import cycle.
 -/
 
 public import Veir.IR.OpCode
@@ -19,12 +15,6 @@ namespace Veir
 
 public section
 
-/-- Options controlling printing. Mirrors MLIR's `AsmPrinter` options. -/
-structure PrinterOptions where
-  /-- If true, print every operation in generic form, ignoring custom printers. -/
-  printGenericOpForm : Bool := false
-deriving Inhabited, DecidableEq, Repr
-
 namespace Printer
 
 variable {OpCode : Type} [IsOpCode OpCode]
@@ -32,7 +22,8 @@ variable {OpCode : Type} [IsOpCode OpCode]
 /-- Context and recursive services for an `OpPrinter` action. -/
 structure OpPrinterContext (OpCode : Type) [IsOpCode OpCode] where
   irContext : IRContext OpCode
-  private printRegion : Region → Bool → StateT Nat IO Unit
+  private printRegion :
+    Region → (printEntryBlockArgs : Bool) → StateT Nat IO Unit
 deriving Inhabited
 
 /-- Create a print context. -/
@@ -60,10 +51,6 @@ def run {G : Type} [IsOpCode G]
 def getContext : OpPrinter OpCode (IRContext OpCode) := do
   return (← read).irContext
 
-/-- Current indentation level. -/
-def getIndent : OpPrinter OpCode Nat :=
-  get
-
 /-- Print a raw string to the output stream. -/
 def printString (s : String) : OpPrinter OpCode Unit := do
   (IO.print s : IO Unit)
@@ -85,25 +72,6 @@ def printSymbolName (sym : ByteArray) : OpPrinter OpCode Unit := do
     printString s!"@{s}"
   else
     printString s!"@\"{escapeStringLiteral sym}\""
-
-/-- Increase indentation by one level. -/
-def increaseIndent : OpPrinter OpCode Unit :=
-  modify (· + 1)
-
-/-- Decrease indentation by one level. -/
-def decreaseIndent : OpPrinter OpCode Unit :=
-  modify fun n => if n == 0 then 0 else n - 1
-
-/-- Print `indent` levels of indentation (`  ` per level). -/
-def printIndent : OpPrinter OpCode Unit := do
-  let n ← (get : OpPrinter OpCode Nat)
-  for _ in List.range n do
-    printString "  "
-
-/-- Print a newline and then the current indentation. -/
-def printNewlineAndIndent : OpPrinter OpCode Unit := do
-  printNewline
-  printIndent
 
 /-- Print a type. -/
 def printType (t : Attribute) : OpPrinter OpCode Unit :=
@@ -141,41 +109,14 @@ def printRegionArgument (value : ValuePtr) : OpPrinter OpCode Unit :=
 def printSuccessor (block : BlockPtr) : OpPrinter OpCode Unit := do
   printString s!"^{block.id}"
 
-/-- Print operation results `%x =` / `%x:n =`. -/
-def printOpResults (op : OperationPtr) : OpPrinter OpCode Unit := do
-  let ctx ← getContext
-  if op.getNumResults! ctx != 0 then
-    printString s!"%{op.id}"
-    if op.getNumResults! ctx > 1 then
-      printString s!":{op.getNumResults! ctx}"
-    printString " = "
-
-/-- Print operands `( %a, %b )`. -/
-def printOpOperands (op : OperationPtr) : OpPrinter OpCode Unit := do
+/--
+Print operation operand and result types in functional form, like MLIR's
+`OpAsmPrinter::printFunctionalType`. The caller prints any preceding syntax,
+such as ` : `.
+-/
+def printFunctionalType (op : OperationPtr) : OpPrinter OpCode Unit := do
   let ctx ← getContext
   printString "("
-  if op.getNumOperands! ctx != 0 then
-    printOperand (op.getOperand! ctx 0)
-    for index in List.range (op.getNumOperands! ctx - 1) do
-      printString ", "
-      printOperand (op.getOperand! ctx (index + 1))
-  printString ")"
-
-/-- Print successors ` [^bb0, ^bb1]`. -/
-def printBlockOperands (op : OperationPtr) : OpPrinter OpCode Unit := do
-  let ctx ← getContext
-  if op.getNumSuccessors! ctx == 0 then return
-  printString " ["
-  printSuccessor (op.getSuccessor! ctx 0)
-  for index in List.range (op.getNumSuccessors! ctx - 1) do
-    printString ", "
-    printSuccessor (op.getSuccessor! ctx (index + 1))
-  printString "]"
-
-/-- Print operation type ` : (i32) -> i32`. -/
-def printOperationType (op : OperationPtr) : OpPrinter OpCode Unit := do
-  let ctx ← getContext
-  printString " : ("
   if op.getNumOperands! ctx != 0 then
     let firstOpType := (op.getOperand! ctx 0).getType! ctx
     printString s!"{firstOpType}"

@@ -2,7 +2,6 @@ module
 
 public import Veir.IR.Basic
 public import Veir.Dialects.Builtin.OpInfo
-public import Veir.GlobalOpInfo
 public import Veir.Printer.CustomPrinting
 
 import Veir.Rewriter.Basic
@@ -11,18 +10,65 @@ open Veir
 
 public section
 
+namespace Veir
+
+/-- Options controlling operation printing. -/
+structure PrinterOptions where
+  /-- Print operations in generic form instead of using custom printers. -/
+  printGenericOpForm : Bool := false
+deriving Inhabited, DecidableEq, Repr
+
+end Veir
+
 namespace Veir.Printer
 
 variable {OpCode : Type} [IsOpCode OpCode] [HasDialect OpCode Builtin]
   [HasCustomPrinting OpCode OpCode]
 
-def printAttrDictEntry (key : String) (value : Attribute) : OpPrinter OpCode Unit := do
-  if value == UnitAttr.mk then
-    OpPrinter.printString s!"\"{key}\""
-  else
-    OpPrinter.printString s!"\"{key}\" = {value}"
+namespace OpPrinter
 
-def printOpAttrDict (op : OperationPtr) : OpPrinter OpCode Unit := do
+private def increaseIndent : OpPrinter OpCode Unit :=
+  modify (· + 1)
+
+private def decreaseIndent : OpPrinter OpCode Unit :=
+  modify fun n => if n == 0 then 0 else n - 1
+
+private def printIndent : OpPrinter OpCode Unit := do
+  let n ← (get : OpPrinter OpCode Nat)
+  for _ in List.range n do
+    printString "  "
+
+private def printOpResults (op : OperationPtr) : OpPrinter OpCode Unit := do
+  let ctx ← getContext
+  if op.getNumResults! ctx != 0 then
+    printString s!"%{op.id}"
+    if op.getNumResults! ctx > 1 then
+      printString s!":{op.getNumResults! ctx}"
+    printString " = "
+
+private def printOpOperands (op : OperationPtr) : OpPrinter OpCode Unit := do
+  let ctx ← getContext
+  printString "("
+  if op.getNumOperands! ctx != 0 then
+    printOperand (op.getOperand! ctx 0)
+    for index in List.range (op.getNumOperands! ctx - 1) do
+      printString ", "
+      printOperand (op.getOperand! ctx (index + 1))
+  printString ")"
+
+private def printBlockOperands (op : OperationPtr) : OpPrinter OpCode Unit := do
+  let ctx ← getContext
+  if op.getNumSuccessors! ctx == 0 then return
+  printString " ["
+  printSuccessor (op.getSuccessor! ctx 0)
+  for index in List.range (op.getNumSuccessors! ctx - 1) do
+    printString ", "
+    printSuccessor (op.getSuccessor! ctx (index + 1))
+  printString "]"
+
+end OpPrinter
+
+private def printOpAttrDict (op : OperationPtr) : OpPrinter OpCode Unit := do
   let ctx ← OpPrinter.getContext
   let attrs := (op.get! ctx).attrs
   if attrs.entries.size == 0 then return
@@ -30,7 +76,7 @@ def printOpAttrDict (op : OperationPtr) : OpPrinter OpCode Unit := do
   -- `attrs` already prints as `{ "k" = v, ... }` via its Repr
   OpPrinter.printString s!"{attrs}"
 
-def printOpProperties (op : OperationPtr) : OpPrinter OpCode Unit := do
+private def printOpProperties (op : OperationPtr) : OpPrinter OpCode Unit := do
   let ctx ← OpPrinter.getContext
   let opType := (op.get! ctx).opType
   let properties := op.getProperties! ctx opType
@@ -80,7 +126,7 @@ private partial def printBlockList (block : BlockPtr) (options : PrinterOptions)
   | none => pure ()
 
 /-- Print a region `{ ... }`. If `printEntryBlockArgs` is false, elide the entry block's label and arguments. -/
-partial def printRegionImpl (region : Region) (printEntryBlockArgs : Bool) (options : PrinterOptions) : OpPrinter OpCode Unit := do
+private partial def printRegionImpl (region : Region) (printEntryBlockArgs : Bool) (options : PrinterOptions) : OpPrinter OpCode Unit := do
   let ctx ← OpPrinter.getContext
   OpPrinter.printString "{"
   match region.firstBlock with
@@ -109,7 +155,7 @@ partial def printRegionImpl (region : Region) (printEntryBlockArgs : Bool) (opti
       OpPrinter.printString "}"
 
 /-- Print all regions of an operation `( {..}, {..} )`. -/
-partial def printRegions (op : OperationPtr) (options : PrinterOptions) : OpPrinter OpCode Unit := do
+private partial def printRegions (op : OperationPtr) (options : PrinterOptions) : OpPrinter OpCode Unit := do
   let ctx ← OpPrinter.getContext
   if op.getNumRegions! ctx == 0 then return
   OpPrinter.printString "("
@@ -122,7 +168,7 @@ partial def printRegions (op : OperationPtr) (options : PrinterOptions) : OpPrin
   OpPrinter.printString ")"
 
 /-- Print a single operation, dispatching to a custom printer when available and not in generic form. -/
-partial def printOperation (op : OperationPtr) (options : PrinterOptions) : OpPrinter OpCode Unit := do
+private partial def printOperation (op : OperationPtr) (options : PrinterOptions) : OpPrinter OpCode Unit := do
   let ctx ← OpPrinter.getContext
   let opStruct := op.get! ctx
   let opType := opStruct.opType
@@ -153,7 +199,8 @@ partial def printOperation (op : OperationPtr) (options : PrinterOptions) : OpPr
     OpPrinter.printString " "
     printRegions op options
   printOpAttrDict op
-  OpPrinter.printOperationType op
+  OpPrinter.printString " : "
+  OpPrinter.printFunctionalType op
   OpPrinter.printNewline
 end
 

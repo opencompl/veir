@@ -33,6 +33,12 @@
     "func.return"() : () -> ()
   }) : () -> ()
 
+  // Extra operation attributes are printed after the function signature.
+  "func.func"() <{function_type = () -> (), sym_name = "op_attr"}> ({
+  ^bb0():
+    "func.return"() : () -> ()
+  }) {extra_op = 42 : i32} : () -> ()
+
   // External function: no entry block, so argument types print without SSA names.
   "func.func"() <{function_type = (i32, f32) -> i64, sym_name = "external"}> ({}) : () -> ()
 
@@ -59,6 +65,7 @@
 // CHECK:      func.func nested @nested_fn() {
 // CHECK:      func.func @bad_visibility() attributes {"sym_visibility" = 1 : i32} {
 // CHECK:      func.func @"name with spaces"() {
+// CHECK:      func.func @op_attr() attributes {"extra_op" = 42 : i32} {
 // CHECK:      func.func @external(i32, f32) -> i64
 // CHECK:      func.func @fn_res() -> (() -> i32)
 // CHECK:      func.func @pub_fn() {
