@@ -474,9 +474,6 @@ def Llvm.propagatesPoison : Llvm → Bool
   | .intr__lifetime__start | .intr__lifetime__end | .intr__assume
   | .intr__vastart | .intr__vaend | .va_arg
   | .intr__memset | .intr__memcpy | .intr__memmove
-  -- Inserting into a poison vector can define a lane, and a poison element
-  -- only poisons the inserted lane. A poison index does poison the whole
-  -- result, but the interface is per-op.
   | .insertelement
   | .getelementptr | .insertvalue | .extractvalue | .call | .call_intrinsic | .return
   | .func
