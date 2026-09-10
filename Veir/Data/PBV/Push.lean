@@ -44,7 +44,7 @@ theorem lt_of_lt_of_eq_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h
       Nat.sub_lt_sub_iff_right (by grind), Nat.pow_lt_pow_iff_right (by grind)]
   exact hw₁w₂
 
-/-- LE on the widths translates to the masks. -/
+/-- LE on the widths translates to LE on the masks. -/
 theorem le_of_le_of_eq_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
     (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
     (hw₁w₂ : w₁ ≤ w₂) : (m₁ ≤ m₂) := by

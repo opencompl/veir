@@ -120,11 +120,11 @@ theorem trace_zero_zero_extend_conj (p q r : Nat) (x : BitVec p)
   have mp_mask := and_add_one_eq_zero_of_maskOfWidth h_mp
 -- Step 5B: Translate the condition on the natural number width
 --          into a fact about the bitvector masks
-  have bv_h := by
+  have bv_h : mq < mr ∧ mp < mq := by
     apply And.intro
     · apply lt_of_lt_of_eq_maskOfWidth q_le_bw r_le_bw h_mq h_mr (And.left h)
     · apply lt_of_lt_of_eq_maskOfWidth p_le_bw q_le_bw h_mp h_mq (And.right h)
-
+-- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [
     eq_iff (o := 8),
     setWidth_setWidth,
