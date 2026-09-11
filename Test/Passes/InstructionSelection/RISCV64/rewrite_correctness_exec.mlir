@@ -5,7 +5,7 @@
 
 // Decode attributes at their own widths, including zero-extension of i1.
 // Exercise both constant rotates, both folded memory operations, and both
-// constant-index and dynamic-index GEPs with incompatible ABI/interpreter sizes.
+// constant-index and dynamic-index GEPs whose ABI strides include tail padding.
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (i64, i64, i64, i64, i64, i32, i32, i8, i8, i8, i8)}> ({
     %signed = "llvm.mlir.constant"() <{value = 255 : i8}> : () -> i64
@@ -49,12 +49,13 @@
   }) : () -> ()
 }) : () -> ()
 
-// RESULT: Program output: #[0xffffffffffffffff#64, 0x0000000000000001#64, 0xffffffffffffffff#64, 0x8000000000000000#64, 0x0000000000000002#64, 0x80000000#32, 0x00000002#32, 0x2a#8, 0x2b#8, 0x2a#8, 0x2a#8]
+// RESULT: Program output: #[0xffffffffffffffff#64, 0x0000000000000001#64, 0xffffffffffffffff#64, 0x8000000000000000#64, 0x0000000000000002#64, 0x80000000#32, 0x00000002#32, 0x2a#8, 0x2b#8, 0x63#8, 0x63#8]
 // ISEL: "riscv.rori"({{.*}}) <{"value" = 1 : i64}>
 // ISEL: "riscv.rori"({{.*}}) <{"value" = 63 : i64}>
 // ISEL: "riscv.roriw"({{.*}}) <{"value" = 1 : i64}>
 // ISEL: "riscv.roriw"({{.*}}) <{"value" = 31 : i64}>
 // ISEL: "riscv.sb"({{.*}}) <{"value" = -1 : i64}>
 // ISEL: "riscv.lb"({{.*}}) <{"value" = 1 : i64}>
-// ISEL: "llvm.getelementptr"({{.*}}) <{"elem_type" = i24,
-// ISEL: "llvm.getelementptr"({{.*}}) <{"elem_type" = i24,
+// ISEL: "riscv.lb"({{.*}}) <{"value" = 4 : i64}>
+// ISEL: "riscv.sh2add"({{.*}}, {{.*}})
+// ISEL: "riscv.lb"({{.*}}) <{"value" = 0 : i64}>

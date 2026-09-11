@@ -842,15 +842,6 @@ def bitcast (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite bitcast_local rewriter op opInBounds
 
-/-- Only lower GEPs when the ABI stride agrees with the source interpreter.
-For example, i24 has ABI stride 4 but `Attribute.sizeOfType` returns 3.
-Keep such GEPs intact until the layout semantics are reconciled. -/
-def compatibleGepScale (elementType : TypeAttr) : Option Nat := do
-  let scale ← DataLayout.riscv64.getTypeAllocSize elementType.val
-  let size ← Attribute.sizeOfType elementType.val
-  guard (scale = size)
-  return scale
-
 /--
   Split a load/store address into a base register operand and a signed 12-bit
   immediate offset, mirroring the `isBaseWithConstantOffset` case of LLVM's
@@ -865,7 +856,7 @@ def selectAddrRegImm (ptr : ValuePtr) (ctx : IRContext OpCode) : ValuePtr × Int
     let .integerType itype := (idx.getType! ctx).val | none
     guard (itype.bitwidth = 64)
     let c ← matchConstantIntVal idx ctx
-    let scale ← compatibleGepScale properties.elem_type
+    let scale ← DataLayout.riscv64.getTypeAllocSize properties.elem_type.val
     let offset := decodeLLVMIntegerConstant c * (scale : Int)
     guard (-2048 ≤ offset ∧ offset ≤ 2047)
     return (base, offset)
@@ -955,7 +946,7 @@ def getelementptr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   /- The index must be `i64`. -/
   let .integerType itype := (idx.getType! ctx.raw).val | return (ctx, none)
   if itype.bitwidth ≠ 64 then return (ctx, none)
-  let some scale := compatibleGepScale properties.elem_type
+  let some scale := DataLayout.riscv64.getTypeAllocSize properties.elem_type.val
     | return (ctx, none)
   let type := ((op.getResult 0).get! ctx.raw).type
   let (ctx, pcastOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[RegisterType.mk] #[ptr]
