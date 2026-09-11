@@ -3,6 +3,7 @@ module
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
 import Veir.DataLayout.RISCV64
+import Veir.Interfaces.FunctionInterfaces
 import Veir.Passes.Matching.LLVM.Basic
 import Veir.Passes.InstructionSelection.Common
 import Veir.PatternRewriter.Puddle.Builders
@@ -837,6 +838,52 @@ def bitcast (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   RewritePattern.fromLocalRewrite bitcast_local rewriter op opInBounds
 
 /--
+  Lower a constant-count entry-block allocation to a fixed RISC-V stack object.
+  Dynamic allocations and `inalloca` need additional stack-lifetime support in the backend.
+  Run before constant selection so the count is still an `llvm.mlir.constant`.
+-/
+def alloca_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (operands, properties) := matchOp op ctx.raw Llvm.alloca 1 | return (ctx, none)
+  if properties.inalloca then return (ctx, none)
+  let .llvmPointerType _ := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
+  let some func := op.getParentOp! ctx.raw | return (ctx, none)
+  if !func.isFunctionLike ctx.raw then return (ctx, none)
+  let some entry := FunctionOpInterface.getEntryBlock? func ctx.raw | return (ctx, none)
+  if (op.get! ctx.raw).parent != some entry then return (ctx, none)
+  let countOperand := operands[0]!
+  let .integerType countType := (countOperand.getType! ctx.raw).val | return (ctx, none)
+  let some countAttr := matchConstantIntVal countOperand ctx.raw | return (ctx, none)
+  if countType.bitwidth = 0 || countAttr.type.bitwidth = 0 then return (ctx, none)
+  /- Match LLVM constant interpretation: i1 zero-extends, other widths sign-extend
+     (or truncate) to the SSA type. `alloca` reads the resulting bits as unsigned. -/
+  let rawCount := BitVec.ofInt countAttr.type.bitwidth countAttr.value
+  let count := if countAttr.type.bitwidth = 1 then rawCount.zeroExtend countType.bitwidth
+    else rawCount.signExtend countType.bitwidth
+  let some layout := DataLayout.riscv64.query properties.elem_type.val | return (ctx, none)
+  let size := count.toNat * layout.allocSize
+  /- Do not silently wrap the fixed object's size to 64 bits. -/
+  if size >= 2 ^ 64 then return (ctx, none)
+  if properties.alignment.type.bitwidth != 64 || properties.alignment.value < 0 then
+    return (ctx, none)
+  let alignment := if properties.alignment.value = 0 then layout.abiAlignment
+    else properties.alignment.value.toNat
+  if alignment = 0 || alignment >= 2 ^ 64 || alignment &&& (alignment - 1) != 0 then
+    return (ctx, none)
+  let props : RISCVStackAllocaProperties :=
+    { size := IntegerAttr.mk size (IntegerType.mk 64)
+      alignment := IntegerAttr.mk alignment (IntegerType.mk 64) }
+  let (ctx, stackOp) ← WfRewriter.createOp! ctx Riscv_Stack.alloca #[RegisterType.mk]
+      #[] #[] #[] props none
+  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (stackOp.getResult 0)
+  some (ctx, some (#[stackOp, castBackOp], #[castBackOp.getResult 0]))
+
+/-- `llvm.alloca` -> `riscv_stack.alloca` and a cast back to the pointer type. -/
+def alloca (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite alloca_local rewriter op opInBounds
+
+/--
   Split a load/store address into a base register operand and a signed 12-bit
   immediate offset, mirroring the `isBaseWithConstantOffset` case of LLVM's
   [`RISCVDAGToDAGISel::SelectAddrRegImm`](https://github.com/llvm/llvm-project/blob/llvmorg-22.1.8/llvm/lib/Target/RISCV/RISCVISelDAGToDAG.cpp#L3175-L3206).
@@ -1619,11 +1666,11 @@ def freeze (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 
 def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
-  /- Early loop: multi-instruction fusion patterns that must run before the
-     per-op lowerings consume their operands. -/
-  let early := RewritePattern.GreedyRewritePattern #[load, store]
+  /- Early loop: address folding and fixed stack allocations must inspect LLVM
+     constants before the per-op lowerings consume them. -/
+  let early := RewritePattern.GreedyRewritePattern #[alloca, load, store]
   let ctx ← match RewritePattern.applyInContext early ctx with
-  | none => throw "Error while applying early address-folding patterns"
+  | none => throw "Error while applying early memory-lowering patterns"
   | some ctx => pure ctx
   /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern #[selectCzeroeqz, selectCzeronez, selectGeneral,
