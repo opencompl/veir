@@ -50,7 +50,9 @@ which we wish to prove it, the tactic performs the following steps:
 * `Veir.Data.PBV.Lemmas` — `Nat` and `BitVec` lemmas used by the translation.
 * `Veir.Data.PBV.Elim` — steps 3 and 4: `width_elim` and `var_elim`.
 * `Veir.Data.PBV.Mask` — step 5: `maskOfWidth`, the mask constraint.
-* `Veir.Data.PBV.Push` — step 6: pushing `setWidth` from the root to its leaves.
+* `Veir.Data.PBV.Push` — step 5: translating width relations and width
+  arithmetic into mask relations; step 6: pushing `setWidth` from the root to
+  its leaves.
 * `Veir.Data.PBV.Examples` — a manual trace of the whole pipeline.
 
 -/
