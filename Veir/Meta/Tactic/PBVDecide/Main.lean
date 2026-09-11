@@ -390,6 +390,14 @@ our larger universe. `Unchecked` because `widthTm` is trusted to be the width of
 meta def introBitvecFVarUnchecked (widthInfos : WidthInfos) (g : MVarId)
       (bvInfos : BitVecInfos) (bvFVarId : FVarId) (widthTm : WidthTm) :
       MetaM (MVarId × BitVecInfos) := g.withContext do
+  -- Revert any hypothesis in the local context that depend on this bitvec var.
+  let g ← (← getLCtx).foldlM (init := g) fun g' ldecl => do
+    if ← localDeclDependsOn ldecl bvFVarId then
+      logInfo m!"Moving {ldecl.toExpr}: {ldecl.type} into the goal as it depends on {← bvFVarId.getUserName}"
+      let (#[_hyp], g') ← g'.revert #[ldecl.fvarId]
+        | throwError m!"Reverting {ldecl.toExpr} should produce a single var."
+      return g'
+    return g'
   -- Revert to expose forall with the BitVec.
   let (#[oldVar], g) ← g.revert #[bvFVarId]
     | throwError m!"Reverting {g} should produce a var."
