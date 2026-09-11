@@ -435,8 +435,14 @@ def constant_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let type := ((op.getResult 0).get! ctx.raw).type
   let .integerType type' := type.val | return (ctx, none)
   if type'.bitwidth ≠ 64 ∧ type'.bitwidth ≠ 32 ∧ type'.bitwidth ≠ 8 ∧ type'.bitwidth ≠ 1 then return (ctx, none)
+  /- The immediate is the constant's value at the result width, sign-extended into
+     the 64-bit register. Decoding alone is not enough: when the attribute is wider
+     than the result, its bits above the result width are not part of the value. -/
+  let imm := RISCVImmediateProperties.mk
+      (IntegerAttr.mk (BitVec.ofInt type'.bitwidth (decodeLLVMIntegerConstant const)).toInt
+        (IntegerType.mk 64))
   let (ctx, newOp) ← WfRewriter.createOp! ctx Riscv.li #[RegisterType.mk] #[]
-      #[] #[] ({value := {const with value := decodeLLVMIntegerConstant const}} : RISCVImmediateProperties) none
+      #[] #[] imm none
   let (ctx, castOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[type]
       #[newOp.getResult 0] #[] #[] () none
   some (ctx, some (#[newOp, castOp], #[castOp.getResult 0]))
