@@ -4,9 +4,6 @@ import Veir.Interfaces.FoldInterfaces
 
 open Veir
 
--- A poison vector or inserted element does not poison every result lane.
-#guard !OpCode.propagatesPoison (.llvm .insertelement)
-
 /-- Find the first in-bounds operation with the given opcode. -/
 private def findOp (ctx : IRContext OpCode) (opType : OpCode) :
     Option { op : OperationPtr // op.InBounds ctx } := Id.run do
