@@ -69,6 +69,34 @@ def OpCode.getEffects (opCode : OpCode) (props : _propertiesOf opCode) : MemoryE
   | .function op, props => LLZK.Function.getEffects op props
   | .seq op, props => Seq.getEffects op props
 
+/-- Delegate folding to the operation's dialect-local `HasOpInfo` instance. -/
+def OpCode.tryFold (opCode : OpCode) (props : _propertiesOf opCode)
+    (resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
+    Option (Array FoldDecision) :=
+  match opCode, props with
+  | .arith op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .llvm op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .riscv op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .riscv_cf op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .riscv_stack op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .rv64 op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .mod_arith op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .cf op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .comb op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .hw op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .verif op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .builtin op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .func op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .datapath op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .pdl op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .io op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .test op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .felt op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .cir op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .include op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .function op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .seq op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+
 /--
   Return the kind of the region with the given index inside this operation.
 -/
@@ -394,6 +422,7 @@ def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
 
 instance : HasOpInfo OpCode where
   verifyLocalInvariants := OpCode.verifyLocalInvariants
+  tryFold := OpCode.tryFold
   getEffects := OpCode.getEffects
   isConstantLike := OpCode.isConstantLike
   propagatesPoison := OpCode.propagatesPoison

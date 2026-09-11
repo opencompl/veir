@@ -70,6 +70,20 @@
     // CHECK-NEXT: "func.return"(%[[FLAG]]) : (i1) -> ()
     "func.return"(%overflow) : (i1) -> ()
   }) : () -> ()
+
+  // A signed extended multiply whose product overflows `i8` by a wide margin:
+  // 50 * 100 = 5000 = 0x1388, so the low word is 0x88, which prints as -120,
+  // and the high word is 0x13. Neither word alone resembles the product.
+  "func.func"() <{function_type = () -> (i8, i8), sym_name = "extended_multiply_overflow"}> ({
+    %c50 = "arith.constant"() <{"value" = 50 : i8}> : () -> i8
+    %c100 = "arith.constant"() <{"value" = 100 : i8}> : () -> i8
+    %lo, %hi = "arith.mulsi_extended"(%c50, %c100) : (i8, i8) -> (i8, i8)
+    // CHECK-LABEL: "sym_name" = "extended_multiply_overflow"
+    // CHECK: %[[LO:.*]] = "arith.constant"() <{"value" = -120 : i8}> : () -> i8
+    // CHECK-NEXT: %[[HI:.*]] = "arith.constant"() <{"value" = 19 : i8}> : () -> i8
+    // CHECK-NEXT: "func.return"(%[[LO]], %[[HI]]) : (i8, i8) -> ()
+    "func.return"(%lo, %hi) : (i8, i8) -> ()
+  }) : () -> ()
 }) : () -> ()
 
 // CHECK-NOT: "arith.addi"
@@ -78,4 +92,5 @@
 // CHECK-NOT: "riscv.addi"
 // CHECK-NOT: "arith.divsi"
 // CHECK-NOT: "arith.mului_extended"
+// CHECK-NOT: "arith.mulsi_extended"
 // CHECK-NOT: "arith.addui_extended"
