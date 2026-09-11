@@ -195,6 +195,11 @@ structure LLVMConstantProperties where
   value : LLVMConstantValue
 deriving Inhabited, Repr, Hashable, DecidableEq
 
+/-- Materialize an integer at the requested result width, using a signed literal
+that fits the attribute type even when the arithmetic producing it overflowed. -/
+def LLVMConstantProperties.ofInt (value : Int) (type : IntegerType) : LLVMConstantProperties :=
+  ⟨.integer ⟨(BitVec.ofInt type.bitwidth value).toInt, type⟩⟩
+
 def LLVMConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String LLVMConstantProperties := do
   if attrDict.size > 1 then
