@@ -61,10 +61,7 @@ def matchConstantIntOp (op : OperationPtr) (ctx : IRContext OpCode) :
   let .integer intAttr := properties.value | none
   return intAttr
 
-/-- Match the signed integer produced by an LLVM constant. Attribute decoding
-and truncation to the result width happen here, so callers can compare and
-compute with ordinary `Int`s. In particular, all-ones is always `-1`, including
-at `i1`; a widened `-1 : i1` attribute instead produces `1`.
+/-- Match the signed integer produced by an LLVM constant.
 
 Use `matchConstantUIntVal` for unsigned arithmetic such as shift amounts, and
 `isConstantOne` for the multiplicative identity or a true boolean. -/
