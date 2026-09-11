@@ -1,4 +1,9 @@
-// RUN: veir-opt %s -p=isel-riscv64 | filecheck %s --implicit-check-not=riscv_stack.alloca
+// RUN: veir-opt %s -p=isel-riscv64 > %t
+// RUN: filecheck %s --input-file=%t
+// RUN: filecheck %s --input-file=%t --check-prefix=ABSENT
+
+// ABSENT: "builtin.module"
+// ABSENT-NOT: riscv_stack.alloca
 
 // Unsupported allocations remain LLVM operations. Keep their results live so
 // the greedy driver's ordinary dead-code elimination does not erase them.

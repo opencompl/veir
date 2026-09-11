@@ -1,4 +1,10 @@
-// RUN: veir-opt %s -p=isel-riscv64 | filecheck %s --implicit-check-not=llvm.alloca --implicit-check-not=llvm.mlir.constant
+// RUN: veir-opt %s -p=isel-riscv64 > %t
+// RUN: filecheck %s --input-file=%t
+// RUN: filecheck %s --input-file=%t --check-prefix=ABSENT
+
+// ABSENT: "builtin.module"
+// ABSENT-NOT: llvm.alloca
+// ABSENT-NOT: llvm.mlir.constant
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "layout", function_type = () -> ()}> ({

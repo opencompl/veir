@@ -3,7 +3,12 @@
 // RUN: veir-interpret %t.partial | filecheck %s --check-prefix=EXEC
 // RUN: veir-opt %s -p=riscv > %t
 // RUN: veir-interpret %t | filecheck %s --check-prefix=EXEC
-// RUN: filecheck %s --input-file=%t --implicit-check-not=llvm.alloca --implicit-check-not=builtin.unrealized_conversion_cast
+// RUN: filecheck %s --input-file=%t
+// RUN: filecheck %s --input-file=%t --check-prefix=ABSENT
+
+// ABSENT: "builtin.module"
+// ABSENT-NOT: llvm.alloca
+// ABSENT-NOT: builtin.unrealized_conversion_cast
 
 // i24 occupies four bytes per element. Keep a second object live and store it
 // first, so omitting padding would let the subsequent array store corrupt it.
