@@ -27,7 +27,7 @@ namespace Veir
 /-- Emit `llvm.mlir.constant value : i<width>`. -/
 def emitLLVMIntConst (rewriter : PatternRewriter OpCode) (value : Int) (width : Nat)
     (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do
-  let ty := IntegerType.mk width
+  let ty : IntegerType := { bitwidth := width }
   let props := { value := .integer (IntegerAttr.mk value ty) }
   let (rewriter, op) ← rewriter.createOp! (.llvm .mlir__constant)
     #[ty] #[] #[] #[] props (some ip)
@@ -131,8 +131,8 @@ def lowerCeilDivUI (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let a := operands[0]!
   let b := operands[1]!
   let some width := intBitwidth rewriter a | return rewriter
-  let iN : TypeAttr := IntegerType.mk width
-  let i1 : TypeAttr := IntegerType.mk 1
+  let iN : TypeAttr := ({ bitwidth := width } : IntegerType)
+  let i1 : TypeAttr := ({ bitwidth := 1 } : IntegerType)
   let ip := InsertPoint.before op
   let (rewriter, zero) ← emitLLVMIntConst rewriter 0 width ip
   let (rewriter, one) ← emitLLVMIntConst rewriter 1 width ip
@@ -156,8 +156,8 @@ def lowerCeilDivSI (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let a := operands[0]!
   let b := operands[1]!
   let some width := intBitwidth rewriter a | return rewriter
-  let iN : TypeAttr := IntegerType.mk width
-  let i1 : TypeAttr := IntegerType.mk 1
+  let iN : TypeAttr := ({ bitwidth := width } : IntegerType)
+  let i1 : TypeAttr := ({ bitwidth := 1 } : IntegerType)
   let ip := InsertPoint.before op
   let (rewriter, zero) ← emitLLVMIntConst rewriter 0 width ip
   let (rewriter, one) ← emitLLVMIntConst rewriter 1 width ip
@@ -184,8 +184,8 @@ def lowerFloorDivSI (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let a := operands[0]!
   let b := operands[1]!
   let some width := intBitwidth rewriter a | return rewriter
-  let iN : TypeAttr := IntegerType.mk width
-  let i1 : TypeAttr := IntegerType.mk 1
+  let iN : TypeAttr := ({ bitwidth := width } : IntegerType)
+  let i1 : TypeAttr := ({ bitwidth := 1 } : IntegerType)
   let ip := InsertPoint.before op
   let (rewriter, zero) ← emitLLVMIntConst rewriter 0 width ip
   let (rewriter, negOne) ← emitLLVMIntConst rewriter (-1) width ip
@@ -215,8 +215,8 @@ def lowerAddUIExtended (rewriter : PatternRewriter OpCode) (op : OperationPtr)
       let a := operands[0]!
       let b := operands[1]!
       let some width := intBitwidth rewriter a | return rewriter
-      let iN : TypeAttr := IntegerType.mk width
-      let i1 : TypeAttr := IntegerType.mk 1
+      let iN : TypeAttr := ({ bitwidth := width } : IntegerType)
+      let i1 : TypeAttr := ({ bitwidth := 1 } : IntegerType)
       let ip := InsertPoint.before op
       let (rewriter, sum) ← emitLLVMBin rewriter .add { nsw := false, nuw := false } iN a b ip
       let (rewriter, carry) ← emitLLVMBin rewriter .icmp { predicate := .ult } i1 sum a ip
@@ -241,8 +241,8 @@ def lowerSubUIExtended (rewriter : PatternRewriter OpCode) (op : OperationPtr)
       let a := operands[0]!
       let b := operands[1]!
       let some width := intBitwidth rewriter a | return rewriter
-      let iN : TypeAttr := IntegerType.mk width
-      let i1 : TypeAttr := IntegerType.mk 1
+      let iN : TypeAttr := ({ bitwidth := width } : IntegerType)
+      let i1 : TypeAttr := ({ bitwidth := 1 } : IntegerType)
       let ip := InsertPoint.before op
       let (rewriter, diff) ← emitLLVMBin rewriter .sub { nsw := false, nuw := false } iN a b ip
       let (rewriter, borrow) ← emitLLVMBin rewriter .icmp { predicate := .ult } i1 a b ip
@@ -276,8 +276,8 @@ def lowerMulExtended (theArithOp : Arith)
       let a := operands[0]!
       let b := operands[1]!
       let some width := intBitwidth rewriter a | return rewriter
-      let iN : TypeAttr := IntegerType.mk width
-      let i2N : TypeAttr := IntegerType.mk (2 * width)
+      let iN : TypeAttr := ({ bitwidth := width } : IntegerType)
+      let i2N : TypeAttr := ({ bitwidth := 2 * width } : IntegerType)
       let ip := InsertPoint.before op
       let (rewriter, aExt) ← emitExt rewriter i2N a ip
       let (rewriter, bExt) ← emitExt rewriter i2N b ip

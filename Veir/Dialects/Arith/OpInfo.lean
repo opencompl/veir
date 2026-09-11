@@ -94,7 +94,7 @@ def Arith.toAttrDict
         (Attribute.arithIntegerOverflowFlagsAttr props.attr)
     dict
   | .cmpi =>
-    let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) (IntegerType.mk 64)
+    let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) ({ bitwidth := 64 })
     (Std.HashMap.emptyWithCapacity 1).insert
       "predicate".toUTF8 (Attribute.integerAttr value)
   | .divsi | .divui | .shrsi | .shrui => Id.run do

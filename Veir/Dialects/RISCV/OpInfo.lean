@@ -273,7 +273,7 @@ def Riscv.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpI
   match value, type.val with
   | .reg value, .registerType _ =>
     some (.of Riscv.li
-      (RISCVImmediateProperties.mk (IntegerAttr.mk value.val.toInt (IntegerType.mk 64))))
+      (RISCVImmediateProperties.mk (IntegerAttr.mk value.val.toInt ({ bitwidth := 64 }))))
   | _, _ => none
 
 def OperationPtr.verifyRISCVimm12 {OpInfo : Type} [IsOpCode OpInfo]
