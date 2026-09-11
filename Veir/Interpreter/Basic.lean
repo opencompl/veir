@@ -1,8 +1,12 @@
 module
 
 public import Veir.RuntimeValue
+public import Veir.Interpreter.Memory
+public import Veir.Interpreter.Util
 public import Veir.IR.WellFormed
 public import Veir.GlobalOpInfo
+public import Veir.DataLayout.RISCV64
+public import Veir.Data.Felt
 
 import Veir.Data.Comb.Basic
 import Veir.Data.HW.Basic
@@ -17,10 +21,6 @@ open Veir.Data
 
   This file contains a simple interpreter for a subset of the Veir IR.
 
-  The interpreter maintains a mapping from IR values (`ValuePtr`) to runtime
-  values (`UInt64`). Each supported operation reads its operands from this
-  mapping and writes its results back into it.
-
   The interpreter walks the linked list of operations in a block. It continues
   until a `func.return` is encountered, at which point the returned values are
   collected and propagated to the caller.
@@ -30,559 +30,6 @@ namespace Veir
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 variable {ctx : WfIRContext OpInfo}
-
-namespace FeltSemantics
-
-/-- Resolve the modulus of an LLZK built-in field. -/
-def prime? (type : FeltType) : Option Nat :=
-  match type.fieldName with
-  | none => none
-  | some name =>
-    if name = "bn254".toUTF8 then
-      some 21888242871839275222246405745257275088548364400416034343698204186575808495617
-    else if name = "bn128".toUTF8 then
-      some 21888242871839275222246405745257275088548364400416034343698204186575808495617
-    else if name = "grumpkin".toUTF8 then
-      some 21888242871839275222246405745257275088696311157297823662689037894645226208583
-    else if name = "babybear".toUTF8 then some 2013265921
-    else if name = "goldilocks".toUTF8 then some 18446744069414584321
-    else if name = "mersenne31".toUTF8 then some 2147483647
-    else if name = "koalabear".toUTF8 then some 2130706433
-    else none
-
-/-- Whether `value` is the canonical representative of an element of `type`.
-    Unknown and unnamed fields remain uninterpreted. -/
-def IsCanonical (type : FeltType) (value : Nat) : Prop :=
-  match prime? type with
-  | some p => value < p
-  | none => False
-
-instance (type : FeltType) (value : Nat) : Decidable (IsCanonical type value) :=
-  match h : prime? type with
-  | none => isFalse (by simp [IsCanonical, h])
-  | some p =>
-    if hvalue : value < p then
-      isTrue (by simp [IsCanonical, h, hvalue])
-    else
-      isFalse (by simp [IsCanonical, h, hvalue])
-
-/-- Reduce an integer to its canonical representative modulo `p`. -/
-def reduce (p : Nat) (value : Int) : Nat :=
-  (value % (p : Int)).toNat
-
-/-- Addition of canonical field representatives. -/
-def add (p lhs rhs : Nat) : Nat :=
-  (lhs + rhs) % p
-
-/-- Subtraction of field representatives, returning a canonical representative. -/
-def sub (p lhs rhs : Nat) : Nat :=
-  reduce p (Int.ofNat lhs - Int.ofNat rhs)
-
-/-- Multiplication of canonical field representatives. -/
-def mul (p lhs rhs : Nat) : Nat :=
-  (lhs * rhs) % p
-
-/-- Negation of a field representative, returning a canonical representative. -/
-def neg (p value : Nat) : Nat :=
-  reduce p (-Int.ofNat value)
-
-end FeltSemantics
-
-namespace RuntimeValue
-
-/--
-  A predicate indicating whether a `RuntimeValue` is a value that is a runtime value
-  of a given `TypeAttr`.
--/
-@[expose]
-def Conforms (val : RuntimeValue) (ty : TypeAttr) : Prop :=
-  match val, ty with
-  | .int bw _, ⟨.integerType intType, _⟩ => intType.bitwidth = bw
-  | .float bw _, ⟨.floatType floatType, _⟩ => floatType.bitwidth = bw
-  | .byte bw _, ⟨.byteType byteType, _⟩ => byteType.bitwidth = bw
-  | .int bw _, ⟨.modArithType modArithType, _⟩ => modArithType.modulus.type.bitwidth = bw
-  | .reg _, ⟨.registerType _, _⟩ => True
-  | .addr _, ⟨.llvmPointerType _, _⟩ => True
-  | .felt fieldType value, ⟨.feltType expectedType, _⟩ =>
-    fieldType = expectedType ∧ FeltSemantics.IsCanonical fieldType value
-  | _, _ => False
-
-instance : Decidable (Conforms val ty) := by
-  unfold Conforms
-  split <;> infer_instance
-
-@[grind <=]
-theorem Conforms.integerType :
-    Conforms runtimeValue ⟨.integerType intType, h⟩ →
-    ∃ val, runtimeValue = .int intType.bitwidth val := by
-  simp only [Conforms]
-  cases runtimeValue
-  case int bw val =>
-    simp only [int.injEq, exists_and_left]
-    intro _; subst bw
-    grind
-  all_goals grind
-
-@[grind <=]
-theorem Conforms.byteType {runtimeValue byteType h} :
-    Conforms runtimeValue ⟨.byteType byteType, h⟩ →
-    ∃ val, runtimeValue = .byte byteType.bitwidth val := by
-  simp only [Conforms]
-  cases runtimeValue
-  case byte bw val =>
-    simp only [byte.injEq, exists_and_left]
-    intro _; subst bw
-    grind
-  all_goals grind
-
-@[grind <=]
-theorem Conforms.floatType :
-    Conforms runtimeValue ⟨.floatType fltType, h⟩ →
-    ∃ val, runtimeValue = .float fltType.bitwidth val := by
-  simp only [Conforms]
-  cases runtimeValue
-  case float bw val =>
-    simp only [float.injEq, exists_and_left]
-    intro _; subst bw
-    grind
-  all_goals grind
-
-@[grind <=]
-theorem Conforms.modArithType {runtimeValue modArithType h} :
-    Conforms runtimeValue ⟨.modArithType modArithType, h⟩ →
-    ∃ val, runtimeValue = .int modArithType.modulus.type.bitwidth val := by
-  simp only [Conforms]
-  cases runtimeValue
-  case int bw val =>
-    simp only [int.injEq, exists_and_left]
-    intro _; subst bw
-    grind
-  all_goals grind
-
-@[grind <=]
-theorem Conforms.registerType :
-    Conforms runtimeValue ⟨.registerType regType, h⟩ →
-    ∃ val, runtimeValue = .reg val := by
-  simp only [Conforms]
-  cases runtimeValue <;> grind
-
-@[grind <=]
-theorem Conforms.llvmPointerType :
-    Conforms runtimeValue ⟨.llvmPointerType _, h⟩ →
-    ∃ val, runtimeValue = .addr val := by
-  simp only [Conforms]
-  cases runtimeValue <;> grind
-
-@[grind <=]
-theorem Conforms.feltType {runtimeValue feltTy h} :
-    Conforms runtimeValue ⟨.feltType feltTy, h⟩ →
-    ∃ val, runtimeValue = .felt feltTy val := by
-  cases runtimeValue <;> simp_all [Conforms]
-
-/--
-  The wholly-poisoned `RuntimeValue` of type `ty`, for the types that have one.
-  Used to materialize a result for an operation whose evaluation triggers UB.
--/
-def getPoisonForType (ty : TypeAttr) : Option RuntimeValue :=
-  match ty.val with
-  | .integerType intTy => some (.int intTy.bitwidth .poison)
-  | .byteType byteTy => some (.byte byteTy.bitwidth LLVM.Byte.allPoison)
-  | _ => none
-
-def ArrayConforms (source : Array RuntimeValue) (target : Array TypeAttr) : Prop :=
-  source.size = target.size ∧ ∀ (i : Nat) (_ : i < source.size), source[i]!.Conforms target[i]!
-
-theorem ArrayConforms.take_succ_eq {source : Array RuntimeValue} {target : Array TypeAttr} :
-    source.size = target.size →
-    n < source.size →
-    (ArrayConforms (source.take (n + 1)) (target.take (n + 1)) ↔
-    (ArrayConforms (source.take n) (target.take n) ∧ (source[n]!).Conforms target[n]!)) := by
-  simp only [ArrayConforms]
-  intro hsize hn
-  constructor
-  · rintro ⟨_, h⟩
-    constructor
-    · constructor; grind
-      intro i hi
-      grind [h i]
-    · grind [h n]
-  · rintro ⟨⟨_, h⟩, hn⟩
-    constructor; grind
-    intro i hi
-    grind [h i]
-
-end RuntimeValue
-
-/--
-  Memory state during interpretation.
-  Set bits in the poison mask represent poison bits.
--/
-@[ext]
-structure MemoryState where
-  contents : ByteArray
-  poisonMask : ByteArray
-  consistentSize : contents.size = poisonMask.size
-
-def MemoryState.empty : MemoryState := {
-  contents := (ByteArray.emptyWithCapacity 1024).extend 8 0xff,
-  poisonMask := (ByteArray.emptyWithCapacity 1024).extend 8 0xff,
-  consistentSize := (by grind)
-}
-
-def MemoryState.ensureSize (mem : MemoryState) (size : Nat) : MemoryState :=
-  if mem.contents.size < size then
-    ⟨mem.contents.extend (size - mem.contents.size) 0,
-      mem.poisonMask.extend (size - mem.contents.size) 0xff,
-      (by simp [mem.consistentSize])⟩
-  else
-    mem
-
-/--
-  Property that a hash map from `ValuePtr` to `RuntimeValue` conforms to the value types in the
-  IR context. This is an invariant that must be maintained by the variable state of the interpreter.
--/
-def VariableState.ValuesConform (state : Std.ExtHashMap ValuePtr RuntimeValue)
-    (ctx : WfIRContext OpInfo) : Prop :=
-  ∀ val var, (h : val ∈ state) → state[val] = var → var.Conforms (val.getType! ctx.raw)
-
-structure VariableState (ctx : WfIRContext OpInfo) where
-  variables : Std.ExtHashMap ValuePtr RuntimeValue
-  conforms : VariableState.ValuesConform variables ctx
-  variablesIn : ∀ val, val ∈ variables → val.InBounds ctx.raw
-
-/--
-  Create a variable state with no variables defined.
--/
-def VariableState.empty (ctx : WfIRContext OpInfo) : VariableState ctx :=
-  ⟨Std.ExtHashMap.emptyWithCapacity 8, by simp [VariableState.ValuesConform], by simp⟩
-
-/--
-  The state of the interpreter at a given point in time.
-  It includes a mapping from IR values to their runtime values.
--/
-@[ext]
-structure InterpreterState (ctx : WfIRContext OpInfo) where
-  variables : VariableState ctx
-  memory : MemoryState
-
-/--
-  Create an interpreter state with no variables defined.
--/
-def InterpreterState.empty (ctx : WfIRContext OpInfo) : InterpreterState ctx :=
-  { variables := .empty ctx, memory := .empty }
-
-/--
-  Set the runtime value of a variable.
-  This function dynamically checks that the runtime value conforms to the variable type, and
-  return `none` otherwise.
--/
-def VariableState.setVar? (state : VariableState ctx) (var : ValuePtr)
-    (val : RuntimeValue) (inBounds : var.InBounds ctx.raw := by grind) :
-    Option (VariableState ctx) :=
-  if h : val.Conforms (var.getType! ctx.raw) then
-    some ⟨state.variables.insert var val,
-      by grind [VariableState.ValuesConform, cases VariableState],
-      by grind [cases VariableState]⟩
-  else
-    none
-
-/--
-  Set the runtime value of a variable.
-  This function requires a proof that the runtime value conforms to the variable type.
--/
-def VariableState.setVar (state : VariableState ctx) (var : ValuePtr)
-    (val : RuntimeValue) (h : val.Conforms (var.getType! ctx.raw) := by grind)
-    (inBounds : var.InBounds ctx.raw := by grind) :
-    VariableState ctx :=
-  ⟨state.variables.insert var val,
-    by grind [VariableState.ValuesConform, cases VariableState],
-    by grind [cases VariableState]⟩
-
-/--
-  Get the value of a variable, if the variable exists.
--/
-def VariableState.getVar? (state : VariableState ctx) (var : ValuePtr)
-    : Option RuntimeValue :=
-  state.variables[var]?
-
-@[ext]
-theorem VariableState.ext {s₁ s₂ : VariableState ctx} :
-    (∀ var, s₁.getVar? var = s₂.getVar? var) →
-    s₁ = s₂ := by
-  rcases s₁; rcases s₂
-  simp only [VariableState.getVar?, mk.injEq]
-  grind
-
-/--
-  Get the value of the operands of an operation.
-  If any operand is not in the state, return `none`.
--/
-@[expose]
-def VariableState.getOperandValues (state : VariableState ctx)
-    (op : OperationPtr) : Option (Array RuntimeValue) := do
-  (op.getOperands! ctx.raw).mapM state.getVar?
-
-def VariableState.setResultValues?_loop (state : VariableState ctx)
-    (op : OperationPtr) (resultValues : Array RuntimeValue) (i : Nat)
-    (opInBounds : op.InBounds ctx.raw := by grind)
-    (iInBounds : i ≤ op.getNumResults! ctx.raw := by grind)
-    (hsizes : resultValues.size = op.getNumResults! ctx.raw := by grind)
-    : Option (VariableState ctx) :=
-  match i with
-  | 0 => state
-  | i + 1 => do
-    let result := op.getResult i
-    let value := resultValues[i]
-    let newState ← state.setVar? result value
-    VariableState.setResultValues?_loop newState op resultValues i
-
-/--
-  Set the values of the results of an operation.
--/
-def VariableState.setResultValues? (state : VariableState ctx)
-    (op : OperationPtr) (resultValues : Array RuntimeValue) (opInBounds : op.InBounds ctx.raw := by grind)
-    : Option (VariableState ctx) :=
-  if hsize : resultValues.size = op.getNumResults! ctx.raw then
-    VariableState.setResultValues?_loop state op resultValues (op.getNumResults! ctx.raw)
-  else
-    none
-
-/--
-  Implementation loop for setting the values of block arguments.
--/
-def VariableState.setArgumentValues?_loop (state : VariableState ctx)
-    (block : BlockPtr) (values : Array RuntimeValue) (i : Nat)
-    (blockInBounds : block.InBounds ctx.raw := by grind)
-    (iInBounds : i ≤ block.getNumArguments! ctx.raw := by grind)
-    : Option (VariableState ctx) :=
-  match i with
-  | 0 => state
-  | i + 1 => do
-    let arg := block.getArgument i
-    let value := values[i]!
-    let newState ← state.setVar? arg value
-    VariableState.setArgumentValues?_loop newState block values i
-
-/--
-  Set the values of block arguments.
--/
-def VariableState.setArgumentValues? (state : VariableState ctx)
-    (block : BlockPtr) (values : Array RuntimeValue)
-    (blockInBounds : block.InBounds ctx.raw := by grind)
-    : Option (VariableState ctx) :=
-  VariableState.setArgumentValues?_loop state block values (block.getNumArguments! ctx.raw)
-
-/--
-  How the control flow should proceed after interpreting a terminator.
-  - `return` indicates that the current block should return with the given values.
-  - `branch` indicates that the interpreter should jump to another block
--/
-inductive ControlFlowAction where
-  | return (vals : Array RuntimeValue)
-  | branch (vals : Array RuntimeValue) (dest : BlockPtr)
-
-/--
-  The interpreter monad. An interpretation step has three outcomes. UB is a property
-  of the execution, not of any value, so it lives here rather than inside
-  `RuntimeValue` or `LLVM.Int`.
--/
-inductive Interp (α : Type) where
-  /-- Interpreter could not proceed (malformed IR, unsupported op). -/
-  | fail
-  /-- Execution triggered undefined behaviour. -/
-  | ub
-  /-- Successful execution producing `a`. -/
-  | ok (a : α)
-deriving Inhabited
-
-@[expose]
-def Interp.map {α β : Type} (f : α → β) : Interp α → Interp β
-  | .fail => .fail
-  | .ub => .ub
-  | .ok a => .ok (f a)
-
-@[simp, grind =] theorem Interp.map_fail : Interp.map f .fail = .fail := rfl
-@[simp, grind =] theorem Interp.map_ub : Interp.map f .ub = .ub := rfl
-@[simp, grind =] theorem Interp.map_ok : Interp.map f (.ok a) = .ok (f a) := rfl
-
-instance : Monad Interp where
-  pure x := .ok x
-  bind x f := match x with
-    | .fail => .fail
-    | .ub => .ub
-    | .ok a => f a
-
-instance : MonadLift Option Interp where
-  monadLift
-    | none => .fail
-    | some v => .ok v
-
-@[simp, grind =] theorem Interp.pure_eq (a : α) : (pure a : Interp α) = .ok a := rfl
-@[simp, grind =] theorem Interp.bind_ok (a : α) (f : α → Interp β) :
-    (Interp.ok a >>= f) = f a := rfl
-@[simp, grind =] theorem Interp.bind_ub (f : α → Interp β) :
-    ((.ub : Interp α) >>= f) = .ub := rfl
-@[simp, grind =] theorem Interp.bind_fail (f : α → Interp β) :
-    ((.fail : Interp α) >>= f) = .fail := rfl
-@[simp, grind =] theorem Interp.liftOption_none : ((none : Option α) : Interp α) = .fail := rfl
-@[simp, grind =] theorem Interp.liftOption_some (a : α) : ((some a : Option α) : Interp α) = .ok a := rfl
-
-
-/--
-  Signal UB if the divisor `b` of an unsigned division or remainder could be
-  zero. A poison divisor may refine to zero, so it is immediate UB just like a
-  concretely-zero one.
--/
-@[inline] def Interp.checkUnsignedDivision {w : Nat} (b : LLVM.Int w) : Interp Unit :=
-  if b = .poison ∨ b = .val 0 then Interp.ub else pure ()
-
-/--
-  Signal UB if the signed division or remainder `a / b` could be undefined:
-  a zero divisor, or the `intMin / -1` overflow case. As above, poison operands
-  may refine to any value, so they count as possibly triggering either case.
--/
-@[inline] def Interp.checkSignedDivision {w : Nat} (a b : LLVM.Int w) : Interp Unit := do
-  Interp.checkUnsignedDivision b
-  -- The divisor is now concretely nonzero, so only a concrete `-1` can overflow.
-  if b = .val (-1) ∧ (a = .poison ∨ a = .val (BitVec.intMin w)) then Interp.ub
-
-/--
-  Allocate the given number of bytes of memory.
-  Return the updated memory state and the freshly allocated address.
--/
-def MemoryState.alloc (state : MemoryState) (size : UInt64)
-    : MemoryState × UInt64 :=
-  (⟨state.contents.extend size.toNat 0,
-    state.poisonMask.extend size.toNat 0xff,
-    by simp [state.consistentSize]⟩, state.contents.size.toUInt64)
-
-/--
-  Store raw bytes to the given address in memory,
-  and set the corresponding poison bits as requested (by default, unset).
-  Yields UB if the access is out of bounds.
--/
-def MemoryState.store (state : MemoryState) (addr : UInt64) (val : ByteArray)
-  (poison : ByteArray := ByteArray.replicate val.size 0) (h : poison.size = val.size := by grind)
-    : Interp MemoryState :=
-  if addr.toNat + val.size ≤ state.contents.size then
-    return ⟨val.copySlice 0 state.contents addr.toNat val.size false,
-      poison.copySlice 0 state.poisonMask addr.toNat val.size false,
-      by
-        simp [ByteArray.copySlice_eq_append, state.consistentSize, h]
-      ⟩
-  else
-    Interp.ub
-
-/--
-  Poison the given number n of bytes, starting from the given address in memory.
-  Yields UB if the access is out of bounds.
--/
-def MemoryState.empoison (state : MemoryState) (addr : UInt64) (n : Nat)
-    : Interp MemoryState :=
-  if h : addr.toNat + n ≤ state.poisonMask.size then
-    let mask := ByteArray.replicate n 0xff
-    return ⟨state.contents,
-      mask.copySlice 0 state.poisonMask addr.toNat n false,
-      by
-        have h' : min n mask.size = n := by grind
-        have h'' : min addr.toNat state.poisonMask.size = addr.toNat := by grind
-        simp [ByteArray.copySlice_eq_append, state.consistentSize, h', h'']
-        grind
-
-      ⟩
-  else
-    Interp.ub
-
-/--
-  Store an LLVM value to memory.
-  Yields UB if the access is out of bounds or the address is 0.
--/
-def MemoryState.llvmStore (state : MemoryState) (addr : UInt64) (val : RuntimeValue)
-    : Interp MemoryState :=
-  if addr.toNat == 0 then Interp.ub else
-  match val with
-  | .int 8 (.val v) => state.store addr (ByteArray.empty.push (UInt8.ofBitVec v))
-  | .int 16 (.val v) => state.store addr (UInt16.ofBitVec v).toByteArrayLE
-  | .int 32 (.val v) => state.store addr (UInt32.ofBitVec v).toByteArrayLE
-  | .int 64 (.val v) => state.store addr (UInt64.ofBitVec v).toByteArrayLE
-  | .byte 64 v => state.store addr (UInt64.ofBitVec v.val).toByteArrayLE (UInt64.ofBitVec v.poison).toByteArrayLE (by simp)
-  | .int n .poison => state.empoison addr (n / 8)
-  | .addr v => state.store addr v.toByteArrayLE
-  | _ => none
-
-/--
-  Load raw bytes from the given memory address.
-  Yields UB if the access is out of bounds.
--/
-def MemoryState.load (state : MemoryState) (addr size : UInt64)
-    : Interp ByteArray :=
-  if addr.toNat + size.toNat <= state.contents.size then
-    return state.contents.extract addr.toNat (addr + size).toNat
-  else
-    Interp.ub
-
-/--
-  Load bitwise poison status of the given memory address.
-  Yields UB if the access is out of bounds.
--/
-def MemoryState.loadPoison (state : MemoryState) (addr size : UInt64)
-    : Interp ByteArray :=
-  if addr.toNat + size.toNat <= state.poisonMask.size then
-    return state.poisonMask.extract addr.toNat (addr + size).toNat
-  else
-    Interp.ub
-
-/--
-  Check if any of the `size` bytes at the given memory address `addr` is poison.
-  Yields UB if the access is out of bounds.
--/
-def MemoryState.hasPoison (state : MemoryState) (addr size : UInt64)
-    : Interp Bool := do
-  let poisonMask ← state.loadPoison addr size
-  let mut poison := false
-  for b in poisonMask do
-    if b ≠ 0 then
-      poison := true
-      break
-  return poison
-
-/--
-  Load an LLVM value from the given memory address.
-  Yields UB if access is out of bounds or the address is 0.
--/
-def MemoryState.llvmLoad (state : MemoryState) (addr : UInt64) (type : TypeAttr)
-    : Interp RuntimeValue := do
-  if addr == 0 then Interp.ub else
-  match type.val with
-  | Attribute.integerType { bitwidth := 8 } =>
-      let ba ← state.load addr 1
-      if ← state.hasPoison addr 1 then return .int 8 .poison
-      return .int 8 (.val ba[0]!.toNat)
-  | Attribute.integerType { bitwidth := 16 } =>
-      let ba ← state.load addr 2
-      if ← state.hasPoison addr 2 then return .int 16 .poison
-      return .int 16 (.val (ba.toBitVecLE 2))
-  | Attribute.integerType { bitwidth := 32 } =>
-      let ba ← state.load addr 4
-      if ← state.hasPoison addr 4 then return .int 32 .poison
-      return .int 32 (.val (ba.toBitVecLE 4))
-  | Attribute.integerType { bitwidth := 64 } =>
-      let ba ← state.load addr 8
-      if ← state.hasPoison addr 8 then return .int 64 .poison
-      return .int 64 (.val (BitVec.ofNat 64 ba.toUInt64LE!.toNat))
-  | Attribute.byteType { bitwidth := 64 } =>
-      let ba ← state.load addr 8
-      let baPoison ← state.loadPoison addr 8
-      let poison := baPoison.toUInt64LE!.toBitVec
-      return .byte 64 ⟨ba.toUInt64LE!.toBitVec &&& ~~~poison, poison, by bv_decide⟩
-  | Attribute.llvmPointerType _ =>
-      let ba ← state.load addr 8
-      -- FIXME poison address
-      if ← state.hasPoison addr 8 then return .addr 0
-      return .addr ba.toUInt64LE!
-  | _ => none
-
-
 
 def Arith.interpretOp' (opType : Veir.Arith) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
@@ -890,7 +337,7 @@ def Felt.interpretOp' (opType : Veir.Felt) (properties : propertiesOf opType)
 
 def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
-    (mem : MemoryState)
+    (mem : MemoryState) (layout : DataLayout := .riscv64)
     : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
   match opType with
   | .mlir__constant => do
@@ -908,9 +355,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     | .float floatAttr =>
       let .floatType bw := resType.val
         | none
-      if bw.bitwidth ≠ 64 then
-        none
-      return (#[.float 64 floatAttr.value], mem, none)
+      return (#[.float floatAttr.type floatAttr.value], mem, none)
     | .dense denseAttr =>
       none
     | .string _ =>
@@ -1147,12 +592,32 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
         return (#[], mem, some (.branch (operands.extract (trueSize + 1) operands.size) destFalse))
     | .int 1 .poison => Interp.ub
     | _ => none
+  | .switch => do
+    let some destDefault := blockOperands[0]? | none
+    let some value := operands[0]? | none
+    let some (defaultSizeInt : Int) := properties.operandSegmentSizes.values[1]? | none
+    let defaultSize := defaultSizeInt.toNat
+    let caseSegments := properties.case_operand_segments.values
+    let some caseValues := properties.caseValues? | none
+    /- A case value per case, or the switch cannot be read. -/
+    if caseValues.size ≠ caseSegments.size then none else
+    match value with
+    | .int bw (.val v) =>
+      let mut base := 1 + defaultSize
+      for i in [0:caseSegments.size] do
+        let some (countInt : Int) := caseSegments[i]? | none
+        let count := countInt.toNat
+        if v = BitVec.ofInt bw caseValues[i]! then
+          let some dest := blockOperands[i + 1]? | none
+          return (#[], mem, some (.branch (operands.extract base (base + count)) dest))
+        base := base + count
+      return (#[], mem, some (.branch (operands.extract 1 (1 + defaultSize)) destDefault))
+    | .int _ .poison => Interp.ub
+    | _ => none
   | .alloca => do
     let [.int _ (.val count)] := operands.toList | none
-    let size ← match properties.elem_type.val with
-    | Attribute.integerType { bitwidth := bw } => .ok ((bw / 8))
-    | .llvmPointerType _ => .ok (8)
-    | _ => none
+    /- `alloca T, N` reserves `N` strides of `T`, as in LLVM. -/
+    let size ← layout.getTypeAllocSize properties.elem_type.val
     let totalSize := (size * count.toNat).toUInt64
     let (mem, addr) := mem.alloc totalSize
     return (#[.addr addr], mem, none)
@@ -1168,7 +633,9 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
   | .getelementptr => do
     /- only supports exactly one dynamic index for now -/
     let [.addr ptr, .int _ idx] := operands.toList | none
-    let size ← Attribute.sizeOfType properties.elem_type.val
+    /- The index scales by the element's stride, matching the `getTypeAllocSize`
+       that `isel-riscv64` uses to lower this operation. -/
+    let size ← layout.getTypeAllocSize properties.elem_type.val
     match idx with
     | .val idx => return (#[.addr (ptr.toNat + idx.toNat * size).toUInt64], mem, none)
     | .poison => Interp.ub
@@ -1776,7 +1243,7 @@ def HW.interpretOp' (opType : Veir.HW) (properties : propertiesOf opType)
 -/
 def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
-    (mem : MemoryState)
+    (mem : MemoryState) (layout : DataLayout := .riscv64)
     : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
   match opType with
   | .arith arithOp => do
@@ -1789,7 +1256,7 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     let (vals, act) ← Felt.interpretOp' feltOp properties resultTypes operands blockOperands
     return (vals, mem, act)
   | .llvm llvmOp => do
-    Llvm.interpretOp' llvmOp properties resultTypes operands blockOperands mem
+    Llvm.interpretOp' llvmOp properties resultTypes operands blockOperands mem layout
   | .riscv riscvOp => do
     Riscv.interpretOp' riscvOp properties resultTypes operands blockOperands mem
   | .riscv_cf riscvCfOp => do
@@ -1836,9 +1303,10 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
 /-- Wrapper around `interpretOp'` that retrieves the operation type, properties,
 result types, and successor blocks from the operation pointer. -/
 abbrev OperationPtr.interpret (op : OperationPtr) (ctx : IRContext OpCode)
-    (operandValues : Array RuntimeValue) (memory : MemoryState) :=
+    (operandValues : Array RuntimeValue) (memory : MemoryState)
+    (layout : DataLayout := .riscv64) :=
     interpretOp' (op.getOpType! ctx) (op.getProperties! ctx (op.getOpType! ctx))
-    (op.getResultTypes! ctx) operandValues (op.getSuccessors! ctx) memory
+    (op.getResultTypes! ctx) operandValues (op.getSuccessors! ctx) memory layout
 
 /--
   Interpret a single operation given the current interpreter state.

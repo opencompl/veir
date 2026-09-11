@@ -25,6 +25,29 @@ theorem eq_iff (o : Nat) {w : Nat} (h : w ≤ o) :
   apply propext
   exact ⟨fun hab => hab ▸ rfl, fun hab => BitVec.setWidth_inj h hab⟩
 
+/-! ## Translating `Nat` width relations and arithmetic into mask operations -/
+
+/-- `<` on the widths translates to `<` on the masks. -/
+theorem lt_eq_lt_of_eq_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
+    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
+    (hw₁w₂ : w₁ < w₂) : (m₁ < m₂) := by
+  subst m₁ m₂
+  rw [BitVec.lt_def, toNat_maskOfWidth h₁, toNat_maskOfWidth h₂,
+      Nat.sub_lt_sub_iff_right (by grind), Nat.pow_lt_pow_iff_right (by grind)]
+  exact hw₁w₂
+
+/-- Adding widths becomes multiplying masks: `2^(w₁ + w₂) - 1` is
+`2^w₁ * 2^w₂ - 1`, written in terms of the masks `m₁` and `m₂`. -/
+theorem maskOfWidth_add_eq_mul_of_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o}
+    (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o) (h₁₂ : w₁ + w₂ ≤ o)
+    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂) :
+    maskOfWidth o (w₁ + w₂) = (m₁ + 1#o) * (m₂ + 1#o) - 1#o := by
+  cases o
+  · simp [hm₁, hm₂, maskOfWidth_zero_eq_zero]
+  · rw [hm₁, maskOfWidth_add_one_eq_twoPow h₁, hm₂, maskOfWidth_add_one_eq_twoPow h₂,
+      BitVec.twoPow_mul_twoPow_eq]
+    apply maskOfWidth_eq_twoPow_sub_one h₁₂
+
 /-! ## Pushing `setWidth o` towards the leaves — leaves and width changes -/
 
 theorem setWidth_setWidth {w o : Nat} (h : w ≤ o) :
@@ -65,6 +88,23 @@ theorem setWidth_signExtend_eq_and_maskOfWidth {t v o : Nat} (hvo : v ≤ o) :
     rw [BitVec.getLsbD_of_ge a i (by lia)]
     cases hmsb : a.msb <;>
       simp [hiv, getLsbD_maskOfWidth, Bool.and_comm]
+
+/-- `a ++ b` shifts `a` up by the width of `b`; at the blast width that shift
+is a multiplication by `2^w = maskOfWidth o w + 1`, and the two halves no
+longer overlap, so they can be recombined with `|||`. -/
+theorem setWidth_append_eq_or_mul_maskOfWidth_add_one {w o : Nat} (h : w ≤ o) :
+    ∀ {v : Nat} (a : BitVec v) (b : BitVec w), v + w ≤ o →
+      (a ++ b).setWidth o
+        = ((a.setWidth o) * (maskOfWidth o w + 1#o)) ||| b.setWidth o := by
+  intro v a b hvw
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.toNat_or, BitVec.toNat_setWidth_of_le, hvw, h,
+      BitVec.toNat_append, maskOfWidth_add_one_eq_twoPow h,
+      BitVec.mul_twoPow_eq_shiftLeft, BitVec.toNat_shiftLeft]
+  congr 1
+  rw [Nat.shiftLeft_eq, Nat.shiftLeft_eq, BitVec.toNat_setWidth_of_le (by lia), Nat.mod_eq_of_lt]
+  have a_lt_vw := Nat.mul_lt_mul_of_lt_of_le a.isLt (Nat.le_refl _) (Nat.two_pow_pos w)
+  grind [Nat.pow_le_pow_right (n := 2) (by lia) hvw]
 
 /-! ### The sign bit: a test against the mask's top bit -/
 

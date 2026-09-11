@@ -50,11 +50,11 @@
     %add_nuw = "arith.addi"(%a, %b) <{"overflowFlags" = #arith.overflow<nuw>}> : (i32, i32) -> i32
     %add_both = "arith.addi"(%a, %b) <{"overflowFlags" = #arith.overflow<nsw, nuw>}> : (i32, i32) -> i32
     %or_plain = "arith.ori"(%a, %b) : (i32, i32) -> i32
-    %or_disjoint = "arith.ori"(%a, %b) <{disjoint}> : (i32, i32) -> i32
-    %or_disjoint_comm = "arith.ori"(%b, %a) <{disjoint}> : (i32, i32) -> i32
+    %or_disjoint = "arith.ori"(%a, %b) <{isDisjoint}> : (i32, i32) -> i32
+    %or_disjoint_comm = "arith.ori"(%b, %a) <{isDisjoint}> : (i32, i32) -> i32
     %div_plain = "arith.divsi"(%a, %b) : (i32, i32) -> i32
-    %div_exact_1 = "arith.divsi"(%a, %b) <{exact}> : (i32, i32) -> i32
-    %div_exact_2 = "arith.divsi"(%a, %b) <{exact}> : (i32, i32) -> i32
+    %div_exact_1 = "arith.divsi"(%a, %b) <{isExact}> : (i32, i32) -> i32
+    %div_exact_2 = "arith.divsi"(%a, %b) <{isExact}> : (i32, i32) -> i32
     "test.test"(%add_plain, %add_nsw, %add_nsw_comm, %add_nuw, %add_both, %or_plain, %or_disjoint, %or_disjoint_comm, %div_plain, %div_exact_1, %div_exact_2) : (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32) -> ()
     "func.return"() : () -> ()
 
@@ -64,9 +64,9 @@
     // CHECK-NEXT: %[[ADD_NUW:.*]] = "arith.addi"(%{{.*}}, %{{.*}}) <{"overflowFlags" = #arith.overflow<nuw>}>
     // CHECK-NEXT: %[[ADD_BOTH:.*]] = "arith.addi"(%{{.*}}, %{{.*}}) <{"overflowFlags" = #arith.overflow<nsw, nuw>}>
     // CHECK-NEXT: %[[OR_PLAIN:.*]] = "arith.ori"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
-    // CHECK-NEXT: %[[OR_DISJOINT:.*]] = "arith.ori"(%{{.*}}, %{{.*}}) <{disjoint}>
+    // CHECK-NEXT: %[[OR_DISJOINT:.*]] = "arith.ori"(%{{.*}}, %{{.*}}) <{isDisjoint}>
     // CHECK-NEXT: %[[DIV_PLAIN:.*]] = "arith.divsi"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
-    // CHECK-NEXT: %[[DIV_EXACT:.*]] = "arith.divsi"(%{{.*}}, %{{.*}}) <{exact}>
+    // CHECK-NEXT: %[[DIV_EXACT:.*]] = "arith.divsi"(%{{.*}}, %{{.*}}) <{isExact}>
     // CHECK-NEXT: "test.test"(%[[ADD_PLAIN]], %[[ADD_NSW]], %[[ADD_NSW]], %[[ADD_NUW]], %[[ADD_BOTH]], %[[OR_PLAIN]], %[[OR_DISJOINT]], %[[OR_DISJOINT]], %[[DIV_PLAIN]], %[[DIV_EXACT]], %[[DIV_EXACT]])
   }) : () -> ()
 
@@ -113,7 +113,7 @@
     %c7_i8 = "arith.constant"() <{"value" = 7 : i8}> : () -> i8
     %zext_1 = "arith.extui"(%c7_i8) : (i8) -> i32
     %zext_2 = "arith.extui"(%c7_i8) : (i8) -> i32
-    %zext_nneg = "arith.extui"(%c7_i8) <{nneg}> : (i8) -> i32
+    %zext_nneg = "arith.extui"(%c7_i8) <{nonNeg}> : (i8) -> i32
     %sext = "arith.extsi"(%c7_i8) : (i8) -> i32
     %zext_i16 = "arith.extui"(%c7_i8) : (i8) -> i16
     %trunc_1 = "arith.trunci"(%a) : (i32) -> i8
@@ -127,7 +127,7 @@
     // CHECK-NEXT: %[[C8:.*]] = "arith.constant"() <{"value" = 8 : i32}> : () -> i32
     // CHECK-NEXT: %[[C7_I8:.*]] = "arith.constant"() <{"value" = 7 : i8}> : () -> i8
     // CHECK-NEXT: %[[ZEXT:.*]] = "arith.extui"(%[[C7_I8]]) : (i8) -> i32
-    // CHECK-NEXT: %[[ZEXT_NNEG:.*]] = "arith.extui"(%[[C7_I8]]) <{nneg}> : (i8) -> i32
+    // CHECK-NEXT: %[[ZEXT_NNEG:.*]] = "arith.extui"(%[[C7_I8]]) <{nonNeg}> : (i8) -> i32
     // CHECK-NEXT: %[[SEXT:.*]] = "arith.extsi"(%[[C7_I8]]) : (i8) -> i32
     // CHECK-NEXT: %[[ZEXT_I16:.*]] = "arith.extui"(%[[C7_I8]]) : (i8) -> i16
     // CHECK-NEXT: %[[TRUNC:.*]] = "arith.trunci"(%{{.*}}) : (i32) -> i8

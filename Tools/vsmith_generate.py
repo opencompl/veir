@@ -167,13 +167,13 @@ class Generator:
         if op in ("llvm.add", "llvm.sub", "llvm.mul"):
             return self.nsw_nuw_props()
         if op == "llvm.or":
-            return self.rng.choice(("", " <{disjoint}>"))
+            return self.rng.choice(("", " <{isDisjoint}>"))
         return ""
 
     def shift_props(self, op: str) -> str:
         if op == "llvm.shl":
             return self.nsw_nuw_props()
-        return self.rng.choice(("", " <{exact}>"))
+        return self.rng.choice(("", " <{isExact}>"))
 
     def shift_amount(self, width: int) -> str:
         """Generate a shift amount for a width-`width` shift.
@@ -195,7 +195,7 @@ class Generator:
 
     def div_props(self, op: str) -> str:
         if op in ("llvm.sdiv", "llvm.udiv"):
-            return self.rng.choice(("", " <{exact}>"))
+            return self.rng.choice(("", " <{isExact}>"))
         return ""
 
     def divisor(self, width: int) -> str:
@@ -391,7 +391,7 @@ class Generator:
                     if src_w >= 95:
                         continue
                     dst = f"i{self.rng.randint(src_w + 1, 95)}"
-                props = " <{nneg}>" if op == "llvm.zext" and self.rng.random() < 0.5 else ""
+                props = " <{nonNeg}>" if op == "llvm.zext" and self.rng.random() < 0.5 else ""
                 operand = self.random_dominating_value(src_w)
                 self.add_operation(op, [operand], [src], dst, props)
             elif choice < 0.82:

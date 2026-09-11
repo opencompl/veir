@@ -52,21 +52,6 @@ def mulIZeroToCst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite mulIZeroToCst_local rewriter op opInBounds
 
-/-- Rewrites `x + 0` to `x`. -/
-def addiZeroToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := matchAddi op ctx.raw
-    | return (ctx, none)
-  let some cst := matchConstantIntVal rhs ctx.raw
-    | return (ctx, none)
-  if cst.value ≠ 0 then
-    return (ctx, none)
-  some (ctx, some (#[], #[lhs]))
-
-def addiZeroToX (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite addiZeroToX_local rewriter op opInBounds
-
 /-- Rewrites `x * 1` to `x`. -/
 def mulIOneToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
@@ -273,7 +258,6 @@ def InstCombinePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.
     ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[
     mulITwoToAddi, mulIZeroToCst, mulIOneToX,
-    addiZeroToX,
     subiZeroToX, subiSelfToZero,
     andiSelfToX, andiZeroToZero,
     oriZeroToX, oriSelfToX,

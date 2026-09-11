@@ -27,14 +27,14 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl \
  && curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key \
       -o /etc/apt/trusted.gpg.d/llvm-snapshot.asc \
- && echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-22 main" \
+ && echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-23 main" \
       > /etc/apt/sources.list.d/llvm.list \
  && apt-get update \
  && apt-get install -y --no-install-recommends \
-      mlir-22-tools \
+      mlir-23-tools \
       # leanc links through the system toolchain.
       build-essential \
- && ln -s /usr/bin/mlir-opt-22 /usr/bin/mlir-opt \
+ && ln -s /usr/bin/mlir-opt-23 /usr/bin/mlir-opt \
  && rm -rf /var/lib/apt/lists/*
 
 # `uv` provides both the Python interpreter and the test dependencies, so no
