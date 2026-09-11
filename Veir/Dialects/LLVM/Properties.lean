@@ -12,6 +12,13 @@ namespace Veir
 
 public section
 
+/-- Decode an LLVM integer constant at its attribute width. LLVM sign-extends
+integer attributes, except that `i1` is zero-extended. To obtain the value of an
+`llvm.mlir.constant`, truncate this integer to the operation's result width. -/
+def decodeLLVMIntegerConstant (attr : IntegerAttr) : Int :=
+  if attr.type.bitwidth = 1 then (BitVec.ofInt 1 attr.value).toNat
+  else (BitVec.ofInt attr.type.bitwidth attr.value).toInt
+
 /-- Properties of LLVM operations that can have `nsw` and `nuw` flags, such as `llvm.add` or `llvm.mul`. -/
 structure NswNuwProperties where
   nsw : Bool
@@ -194,6 +201,11 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 structure LLVMConstantProperties where
   value : LLVMConstantValue
 deriving Inhabited, Repr, Hashable, DecidableEq
+
+/-- Materialize an integer at the requested result width, using a signed literal
+that fits the attribute type even when the arithmetic producing it overflowed. -/
+def LLVMConstantProperties.ofInt (value : Int) (type : IntegerType) : LLVMConstantProperties :=
+  ⟨.integer ⟨(BitVec.ofInt type.bitwidth value).toInt, type⟩⟩
 
 def LLVMConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String LLVMConstantProperties := do

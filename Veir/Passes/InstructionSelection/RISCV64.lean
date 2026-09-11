@@ -377,11 +377,11 @@ def bitreverseStageLocal (mask shamt : Int) (ctx : WfIRContext OpCode) (input : 
       #[] #[] maskAttr none
   let (ctx, lowOp) ← WfRewriter.createOp! ctx Riscv.and #[RegisterType.mk]
       #[maskOp.getResult 0, input] #[] #[] () none
-  let shamtAttr := RISCVImmediateProperties.mk (IntegerAttr.mk shamt (IntegerType.mk 64))
+  let shamount := RISCVImmediateProperties.mk (IntegerAttr.mk shamt (IntegerType.mk 64))
   let (ctx, lowShiftOp) ← WfRewriter.createOp! ctx Riscv.slli #[RegisterType.mk]
-      #[lowOp.getResult 0] #[] #[] shamtAttr none
+      #[lowOp.getResult 0] #[] #[] shamount none
   let (ctx, highShiftOp) ← WfRewriter.createOp! ctx Riscv.srli #[RegisterType.mk]
-      #[input] #[] #[] shamtAttr none
+      #[input] #[] #[] shamount none
   let (ctx, highOp) ← WfRewriter.createOp! ctx Riscv.and #[RegisterType.mk]
       #[maskOp.getResult 0, highShiftOp.getResult 0] #[] #[] () none
   let (ctx, orOp) ← WfRewriter.createOp! ctx Riscv.or #[RegisterType.mk]
@@ -425,12 +425,6 @@ def bitreverse_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
 def bitreverse (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite bitreverse_local rewriter op opInBounds
-
-/-- Decode an LLVM integer attribute before using it as a RISC-V immediate.
-LLVM sign-extends from the attribute width, except that i1 is zero-extended. -/
-def decodeLLVMIntegerConstant (attr : IntegerAttr) : Int :=
-  if attr.type.bitwidth = 1 then (BitVec.ofInt 1 attr.value).toNat
-  else (BitVec.ofInt attr.type.bitwidth attr.value).toInt
 
 /-- llvm.constant -> riscv.li -/
 def constant_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
@@ -857,7 +851,7 @@ def selectAddrRegImm (ptr : ValuePtr) (ctx : IRContext OpCode) : ValuePtr × Int
     guard (itype.bitwidth = 64)
     let c ← matchConstantIntVal idx ctx
     let scale ← DataLayout.riscv64.getTypeAllocSize properties.elem_type.val
-    let offset := decodeLLVMIntegerConstant c * (scale : Int)
+    let offset := c * (scale : Int)
     guard (-2048 ≤ offset ∧ offset ≤ 2047)
     return (base, offset)
   folded.getD (ptr, 0)
@@ -1403,12 +1397,12 @@ def fshrConst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (a, b, amt) := matchFshr op ctx.raw | return (ctx, none)
   if a ≠ b then return (ctx, none)
-  let some amtAttr := matchConstantIntVal amt ctx.raw | return (ctx, none)
+  let some amount := matchConstantUIntVal amt ctx.raw | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
   let (ctx, valCastOp) ← castToRegLocal ctx a
   if t.bitwidth = 32 then
-    let sh : Int := ((decodeLLVMIntegerConstant amtAttr % 32) + 32) % 32
+    let sh := amount % 32
     let imm := RISCVImmediateProperties.mk (IntegerAttr.mk sh (IntegerType.mk 64))
     let (ctx, roriOp) ← WfRewriter.createOp! ctx Riscv.roriw #[RegisterType.mk] #[valCastOp.getResult 0]
         #[] #[] imm none
@@ -1416,7 +1410,7 @@ def fshrConst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     some (ctx, some (#[valCastOp, roriOp, castBackOp], #[castBackOp.getResult 0]))
   else
     /- The funnel-shift amount is taken modulo the bit width. -/
-    let sh : Int := ((decodeLLVMIntegerConstant amtAttr % 64) + 64) % 64
+    let sh := amount % 64
     let imm := RISCVImmediateProperties.mk (IntegerAttr.mk sh (IntegerType.mk 64))
     let (ctx, roriOp) ← WfRewriter.createOp! ctx Riscv.rori #[RegisterType.mk] #[valCastOp.getResult 0]
         #[] #[] imm none
@@ -1436,14 +1430,14 @@ def fshlConst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (a, b, amt) := matchFshl op ctx.raw | return (ctx, none)
   if a ≠ b then return (ctx, none)
-  let some amtAttr := matchConstantIntVal amt ctx.raw | return (ctx, none)
+  let some amount := matchConstantUIntVal amt ctx.raw | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
   let (ctx, valCastOp) ← castToRegLocal ctx a
   if t.bitwidth = 32 then
     /- rotate-left by `sh` == rotate-right by `32 - sh` (mod 32). -/
-    let sh : Int := ((decodeLLVMIntegerConstant amtAttr % 32) + 32) % 32
-    let imm : Int := (32 - sh) % 32
+    let sh := amount % 32
+    let imm := (32 - sh) % 32
     let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk imm (IntegerType.mk 64))
     let (ctx, roriOp) ← WfRewriter.createOp! ctx Riscv.roriw #[RegisterType.mk] #[valCastOp.getResult 0]
         #[] #[] immProps none
@@ -1451,8 +1445,8 @@ def fshlConst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     some (ctx, some (#[valCastOp, roriOp, castBackOp], #[castBackOp.getResult 0]))
   else
     /- rotate-left by `sh` == rotate-right by `64 - sh` (mod 64). -/
-    let sh : Int := ((decodeLLVMIntegerConstant amtAttr % 64) + 64) % 64
-    let imm : Int := (64 - sh) % 64
+    let sh := amount % 64
+    let imm := (64 - sh) % 64
     let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk imm (IntegerType.mk 64))
     let (ctx, roriOp) ← WfRewriter.createOp! ctx Riscv.rori #[RegisterType.mk] #[valCastOp.getResult 0]
         #[] #[] immProps none

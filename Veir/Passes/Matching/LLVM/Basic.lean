@@ -51,6 +51,9 @@ def matchXori (op : OperationPtr) (ctx : IRContext OpCode) :
   let (op, _) ← matchOp op ctx (Llvm.xor) 2
   return (op[0]!, op[1]!)
 
+/-- Read the raw integer attribute of an LLVM constant. Its value and type need
+not match the value and type of the result; use `matchConstantIntVal` for rewrites
+that inspect the value, or `decodeLLVMIntegerConstant` when lowering the attribute. -/
 def matchConstantIntOp (op : OperationPtr) (ctx : IRContext OpCode) :
     Option IntegerAttr := do
   let Llvm.mlir__constant := toDialect? Llvm (op.getOpType! ctx) | none
@@ -58,16 +61,38 @@ def matchConstantIntOp (op : OperationPtr) (ctx : IRContext OpCode) :
   let .integer intAttr := properties.value | none
   return intAttr
 
+/-- Match the signed integer produced by an LLVM constant. Attribute decoding
+and truncation to the result width happen here, so callers can compare and
+compute with ordinary `Int`s. In particular, all-ones is always `-1`, including
+at `i1`; a widened `-1 : i1` attribute instead produces `1`.
+
+Use `matchConstantUIntVal` for unsigned arithmetic such as shift amounts, and
+`isConstantOne` for the multiplicative identity or a true boolean. -/
 def matchConstantIntVal (val : ValuePtr) (ctx : IRContext OpCode) :
-    Option IntegerAttr := do
+    Option Int := do
   let .opResult opResultPtr := val | none
   let op := opResultPtr.op
-  matchConstantIntOp op ctx
+  let attr ← matchConstantIntOp op ctx
+  let .integerType type := (val.getType! ctx).val | none
+  return (BitVec.ofInt type.bitwidth (decodeLLVMIntegerConstant attr)).toInt
+
+/-- Match the unsigned integer produced by an LLVM constant. This uses the same
+decoding as `matchConstantIntVal`, interpreting the result as a nonnegative
+number. Use this for unsigned division, powers of two, and shift amounts. -/
+def matchConstantUIntVal (val : ValuePtr) (ctx : IRContext OpCode) : Option Nat := do
+  let value ← matchConstantIntVal val ctx
+  let .integerType type := (val.getType! ctx).val | none
+  return (BitVec.ofInt type.bitwidth value).toNat
+
+/-- Is this the value one, including `i1` true? Its unsigned value is one even
+though its signed value at `i1` is `-1`. -/
+def isConstantOne (val : ValuePtr) (ctx : IRContext OpCode) : Bool :=
+  matchConstantUIntVal val ctx == some 1
 
 /-- Match a constant integer with value zero, returning `val` itself. -/
 def matchConstantZero (val : ValuePtr) (ctx : IRContext OpCode) : Option ValuePtr := do
-  let attr ← matchConstantIntVal val ctx
-  guard (attr.value = 0)
+  let value ← matchConstantIntVal val ctx
+  guard (value = 0)
   return val
 
 def matchAshr (op : OperationPtr) (ctx : IRContext OpCode) :
@@ -163,7 +188,7 @@ def matchNot (val : ValuePtr) (ctx : IRContext OpCode) : Option ValuePtr := do
   let op := opResultPtr.op
   let (lhs, rhs) ← matchXori op ctx
   let cst ← matchConstantIntVal rhs ctx
-  guard (cst.value = -1)
+  guard (cst = -1)
   return lhs
 
 def matchMul (op : OperationPtr) (ctx : IRContext OpCode) :

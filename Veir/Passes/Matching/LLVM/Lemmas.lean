@@ -108,18 +108,20 @@ theorem matchConstantIntOp_implies {op : OperationPtr} {ctx : IRContext OpCode} 
   grind
 
 /-- What matching a constant integer value (via `matchConstantIntVal`) syntactically guarantees. -/
-theorem matchConstantIntVal_implies {val : ValuePtr} {ctx : IRContext OpCode} {intAttr} :
-    matchConstantIntVal val ctx = some intAttr →
-    ∃ opResultPtr, val = .opResult opResultPtr ∧
-      matchConstantIntOp opResultPtr.op ctx = some intAttr := by
+theorem matchConstantIntVal_implies {val : ValuePtr} {ctx : IRContext OpCode} {value} :
+    matchConstantIntVal val ctx = some value →
+    ∃ opResultPtr attr type, val = .opResult opResultPtr ∧
+      matchConstantIntOp opResultPtr.op ctx = some attr ∧
+      (val.getType! ctx).val = .integerType type ∧
+      value = (BitVec.ofInt type.bitwidth (decodeLLVMIntegerConstant attr)).toInt := by
   intro hmatch
-  simp only [matchConstantIntVal] at hmatch
+  simp only [matchConstantIntVal, bind, Option.bind, pure] at hmatch
   grind
 
 /-- What matching a zero constant (via `matchConstantZero`) syntactically guarantees. -/
 theorem matchConstantZero_implies {val : ValuePtr} {ctx : IRContext OpCode} {result} :
     matchConstantZero val ctx = some result →
-    result = val ∧ ∃ attr, matchConstantIntVal val ctx = some attr ∧ attr.value = 0 := by
+    result = val ∧ matchConstantIntVal val ctx = some 0 := by
   intro hmatch
   simp only [matchConstantZero, bind, pure, Option.bind, guard, failure] at hmatch
   grind
@@ -301,11 +303,10 @@ theorem matchFshr_implies {op : OperationPtr} {ctx : IRContext OpCode} {a b amt}
 /-- What matching `xor X, -1` (the canonical "not X", via `matchNot`) syntactically guarantees. -/
 theorem matchNot_implies {val : ValuePtr} {ctx : IRContext OpCode} {lhs} :
     matchNot val ctx = some lhs →
-    ∃ opResultPtr rhs cst,
+    ∃ opResultPtr rhs,
       val = .opResult opResultPtr ∧
       matchXori opResultPtr.op ctx = some (lhs, rhs) ∧
-      matchConstantIntVal rhs ctx = some cst ∧
-      cst.value = -1 := by
+      matchConstantIntVal rhs ctx = some (-1) := by
   intro hmatch
   simp only [matchNot, bind, pure, Option.bind, guard, failure] at hmatch
   grind
