@@ -104,10 +104,14 @@ def BlockPtr.verifyNoEntryBlockPredecessors (block : BlockPtr) (ctx : WfIRContex
   if b.firstUse.isSome then
     throw "entry block of region may not have predecessors"
 
-/-- Check that a graph region contains at most one block. -/
+/-- Check that a graph region contains at most one block. An unregistered
+    operation makes no promise about its regions, so it is exempt. -/
 private def WfIRContext.graphRegionsHaveAtMostOneBlock (ctx : WfIRContext OpCode) : Bool :=
   ctx.raw.regions.keys.all fun region =>
-    if !region.hasSSADominance ctx then
+    let isUnregistered := match (region.get! ctx.raw).parent with
+      | none => false
+      | some parent => parent.getOpType! ctx.raw = .builtin .unregistered
+    if region.getRegionKind ctx = .Graph && !isUnregistered then
       let body := region.get! ctx.raw
       body.firstBlock = body.lastBlock
     else
@@ -215,8 +219,6 @@ private def WfIRContext.verifyDominance
   ctx.raw.forOpsDepM fun op opIn => do
     let some block := (op.get ctx.raw opIn).parent | return
     if !block.isReachable dfCtx then return
-    let some region := (block.get! ctx.raw).parent | return
-    if !region.hasSSADominance ctx then return
     for (value, index) in (op.getOperands ctx.raw opIn).zipIdx do
       if !value.properlyDominatesUse op dfCtx ctx then
         let opName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
@@ -299,12 +301,14 @@ private theorem WfIRContext.Verified.graphRegionsHaveAtMostOneBlock
 theorem WfIRContext.Verified.graph_region_firstBlock_eq_lastBlock
     {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
     {region : RegionPtr} (regionIn : region.InBounds ctx.raw)
-    (hregionKind : ¬ region.hasSSADominance ctx) :
+    {parent : OperationPtr} (hregionParent : (region.get! ctx.raw).parent = some parent)
+    (hparentRegistered : parent.getOpType! ctx.raw ≠ .builtin .unregistered)
+    (hregionKind : region.getRegionKind ctx = .Graph) :
     (region.get! ctx.raw).firstBlock = (region.get! ctx.raw).lastBlock := by
   have hcheck := ctxVerified.graphRegionsHaveAtMostOneBlock
   have hregionKeys : region ∈ ctx.raw.regions.keys := by grind [region.inBounds_def]
   have hregionCheck := (List.all_eq_true.mp hcheck) region hregionKeys
-  grind
+  grind [WfIRContext.graphRegionsHaveAtMostOneBlock]
 
 /--
 Assert that a given operation satisfies its local invariants.
