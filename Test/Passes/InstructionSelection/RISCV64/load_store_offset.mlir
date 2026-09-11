@@ -32,7 +32,8 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
-    // i33 has ABI stride 8, including tail padding: index 2 -> byte offset 16.
+    // Folding uses allocation stride, not store size: i33 has store size 5 but
+    // RV64 allocation stride 8, so index 2 gives byte offset 16.
     "func.func"()  <{function_type = (!llvm.ptr) -> (), sym_name = "fold_i33_stride"}> ({
     ^bb0(%p: !llvm.ptr):
         %i = "llvm.mlir.constant"() <{value = 2 : i64}> : () -> i64
