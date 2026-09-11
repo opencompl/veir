@@ -287,6 +287,81 @@ def LLVMGlobalProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribut
     extra
   }
 
+/--
+  Properties of `llvm.mlir.alias`.
+
+  MLIR 23 spells thread-locality as the unit attribute `thread_local_` instead
+  of `tls_mode`, so both are accepted. Newer MLIR also carries the symbol's
+  `sym_visibility` (public, private or nested) as a property; MLIR 23 drops it.
+  We support both MLIR 23 as well as newer versions.
+-/
+structure LLVMAliasProperties where
+  sym_name : StringAttr
+  sym_visibility : Option StringAttr
+  alias_type : TypeAttr
+  linkage : LinkageAttr
+  dso_local : Bool
+  thread_local_ : Bool
+  tls_mode : Option IntegerAttr
+  unnamed_addr : Option IntegerAttr
+  visibility_ : IntegerAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+/-- An optional i64 enumeration property with values `0` to `max`. -/
+private def getSmallI64Attr (opName key : String) (max : Int)
+    (attrDict : Std.HashMap ByteArray Attribute) : Except String (Option IntegerAttr) :=
+  match attrDict[key.toUTF8]? with
+  | none => pure none
+  | some attr =>
+    match attr with
+    | .integerAttr intAttr =>
+      if intAttr.type.bitwidth ≠ 64 ∨ intAttr.value < 0 ∨ intAttr.value > max then
+        throw s!"{opName}: expected '{key}' to be an i64 integer attribute between 0 and {max}, \
+          but got {attr}"
+      else
+        pure (some intAttr)
+    | _ => throw s!"{opName}: expected '{key}' to be an integer attribute, but got {attr}"
+
+def LLVMAliasProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMAliasProperties := do
+  let symName ← match attrDict["sym_name".toUTF8]? with
+    | some (.stringAttr attr) => pure attr
+    | some attr =>
+      throw s!"llvm.mlir.alias: expected 'sym_name' to be a string attribute, but got {attr}"
+    | none => throw "llvm.mlir.alias: missing 'sym_name' property"
+  let aliasType ← match attrDict["alias_type".toUTF8]? with
+    | some attr =>
+      if _ : attr.isType = false then
+        throw "llvm.mlir.alias: expected 'alias_type' to be a type attribute"
+      else
+        pure attr.asType
+    | none => throw "llvm.mlir.alias: missing 'alias_type' property"
+  let linkage ← match attrDict["linkage".toUTF8]? with
+    | some (.linkageAttr attr) => pure attr
+    | some attr =>
+      throw s!"llvm.mlir.alias: expected 'linkage' to be an LLVM linkage attribute, but got {attr}"
+    | none => throw "llvm.mlir.alias: missing 'linkage' property"
+  let dsoLocal ← (getUnitAttr "dso_local" attrDict).mapError (s!"llvm.mlir.alias: {·}")
+  let threadLocal ← (getUnitAttr "thread_local_" attrDict).mapError (s!"llvm.mlir.alias: {·}")
+  let symVisibility ← match attrDict["sym_visibility".toUTF8]? with
+    | none => pure none
+    | some attr =>
+      match attr with
+      | .stringAttr s =>
+        if ["public".toUTF8, "private".toUTF8, "nested".toUTF8].contains s.value then
+          pure (some s)
+        else
+          throw s!"llvm.mlir.alias: expected 'sym_visibility' to be \"public\", \"private\" or \"nested\", \
+            but got {attr}"
+      | _ => throw s!"llvm.mlir.alias: expected 'sym_visibility' to be a string attribute, but got {attr}"
+  let tlsMode ← getSmallI64Attr "llvm.mlir.alias" "tls_mode" 4 attrDict
+  let unnamedAddr ← getSmallI64Attr "llvm.mlir.alias" "unnamed_addr" 2 attrDict
+  let visibility ← getSmallI64Attr "llvm.mlir.alias" "visibility_" 2 attrDict
+  return { sym_name := symName, sym_visibility := symVisibility, alias_type := aliasType, linkage,
+           dso_local := dsoLocal,
+           thread_local_ := threadLocal, tls_mode := tlsMode, unnamed_addr := unnamedAddr,
+           visibility_ := visibility.getD { value := 0, type := { bitwidth := 64 } } }
+
 /-- Properties of `llvm.mlir.addressof`. -/
 structure LLVMAddressOfProperties where
   global_name : FlatSymbolRefAttr

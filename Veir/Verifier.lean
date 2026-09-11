@@ -3,6 +3,7 @@ module
 public import Veir.Verifier.Lemmas
 public import Veir.GlobalOpInfo
 public import Veir.Interfaces.FunctionInterfaces
+public import Veir.Interfaces.SideEffectInterfaces
 public import Veir.IRNesting
 public import Veir.Interfaces.RegionKindInterfaces
 public import Veir.IR.Dominance
@@ -168,13 +169,34 @@ private def WfIRContext.verifyLLVMGlobalSymbols (ctx : WfIRContext OpCode) :
     if op.getOpType! ctx.raw = .llvm .func then
       let props := op.getProperties! ctx.raw Llvm.func
       functions := functions.insert ("@".toUTF8 ++ props.sym_name.value)
+  /- Aliases share the symbol table with globals and functions; check them
+     after both are known so the order of traversal does not matter. -/
+  let mut aliases : Std.HashSet ByteArray := Std.HashSet.emptyWithCapacity
+  for op in ctx.raw.operations.keys do
+    if op.getOpType! ctx.raw = .llvm .mlir__alias then
+      let props := op.getProperties! ctx.raw Llvm.mlir__alias
+      let symbolName := "@".toUTF8 ++ props.sym_name.value
+      if globals.contains symbolName || functions.contains symbolName || aliases.contains symbolName then
+        let displayName := String.fromUTF8? props.sym_name.value |>.getD "<non-UTF8 symbol>"
+        throw s!"llvm.mlir.alias: redefinition of symbol named '{displayName}'"
+      aliases := aliases.insert symbolName
   for op in ctx.raw.operations.keys do
     if op.getOpType! ctx.raw = .llvm .mlir__addressof then
       let props := op.getProperties! ctx.raw Llvm.mlir__addressof
       let symbolName := (symbolRefBytes props.global_name.value).getD ByteArray.empty
-      if !globals.contains symbolName && !functions.contains symbolName then
+      if !globals.contains symbolName && !functions.contains symbolName
+          && !aliases.contains symbolName then
         throw s!"llvm.mlir.addressof: symbol '{props.global_name.value}' does not name an \
-          llvm.mlir.global or llvm.func"
+          llvm.mlir.global, llvm.mlir.alias or llvm.func"
+
+private def WfIRContext.verifyLLVMAliasInitializers (ctx : WfIRContext OpCode) :
+    Except String Unit := do
+  for op in ctx.raw.operations.keys do
+    match op.getParentOp! ctx.raw with
+    | some parent =>
+      if parent.getOpType! ctx.raw = .llvm .mlir__alias && !op.isMemoryIndependent ctx.raw then
+        throw "llvm.mlir.alias: ops with side effects are not allowed in alias initializers"
+    | none => pure ()
 
 /-- The decoded bytes of a symbol reference, with nested references joined by `::`. -/
 private def symbolRefAttrBytes : Attribute → Option ByteArray
@@ -301,6 +323,7 @@ def WfIRContext.verify
     block.verifyNoEntryBlockPredecessors ctx blockIn)
   ctx.verifyLLVMGlobalSymbols
   ctx.verifyLLVMComdats
+  ctx.verifyLLVMAliasInitializers
   ctx.verifyPDLPatternBodies
   ctx.verifyDominance root
 

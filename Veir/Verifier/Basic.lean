@@ -447,6 +447,7 @@ def OperationPtr.verifyIntegerExtTypes (op : OperationPtr)
 -/
 partial def Attribute.isLLVMCompatibleType : Attribute → Bool
   | .integerType _ | .floatType _ | .llvmPointerType _ | .llvmVoidType _ => true
+  | .llvmFunctionType _ => true
   | .llvmArrayType arrType => arrType.type.isLLVMCompatibleType
   | .vectorType vecType => vecType.elementType.isLLVMCompatibleType
   | .unregisteredAttr attr => attr.isType && attr.value.startsWith "!llvm."
