@@ -23,6 +23,10 @@ structure KnownBits where
   one : BitVec bitwidth
 deriving DecidableEq, Repr
 
+instance : ToString KnownBits where
+  toString bits :=
+    s!"i{bits.bitwidth}(zero={bits.zero.toNat}, one={bits.one.toNat})"
+
 namespace KnownBits
 
 /-- No bits are known for an integer of the given width. -/
@@ -61,6 +65,12 @@ inductive KnownBitsLattice where
   | known (bits : KnownBits)
   | top
 deriving DecidableEq, Repr
+
+instance : ToString KnownBitsLattice where
+  toString
+    | .bottom => "bottom"
+    | .known bits => toString bits
+    | .top => "top"
 
 namespace KnownBitsLattice
 

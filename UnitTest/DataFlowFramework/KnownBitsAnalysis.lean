@@ -13,11 +13,6 @@ private structure ExpectedKnownBits where
   zero : Nat
   one : Nat
 
-private def knownBitsToString : KnownBitsLattice → String
-  | .bottom => "bottom"
-  | .top => "top"
-  | .known bits => s!"i{bits.bitwidth}(zero={bits.zero.toNat}, one={bits.one.toNat})"
-
 private def compareKnownBits
     (dfCtx : DataFlowContext)
     (recovered : RecoveredNames)
@@ -34,8 +29,7 @@ private def compareKnownBits
         one := BitVec.ofNat e.bitwidth e.one }
     if observed ≠ expectedValue then
       report := report.push <|
-        s!"known bits {e.name}: expected {knownBitsToString expectedValue}, " ++
-        s!"observed {knownBitsToString observed}"
+        s!"known bits {e.name}: expected {expectedValue}, observed {observed}"
   report
 
 private def run (mlir : String) (expected : Array ExpectedKnownBits) : String :=
@@ -114,7 +108,7 @@ def testKnownBitsJoin : String :=
       { bitwidth := 8
         zero := BitVec.ofNat 8 88
         one := BitVec.ofNat 8 165 }
-  if joined = expected then "ok" else s!"unexpected join: {knownBitsToString joined}"
+  if joined = expected then "ok" else s!"unexpected join: {joined}"
 
 /--
 info: "ok"
