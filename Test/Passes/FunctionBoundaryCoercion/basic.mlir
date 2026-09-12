@@ -19,9 +19,8 @@
       %s = "riscv.addi"(%r) <{value = 1 : i64}> : (!riscv.reg) -> !riscv.reg
       %o = "builtin.unrealized_conversion_cast"(%s) : (!riscv.reg) -> i64
       "func.return"(%o) : (i64) -> ()
-      // CHECK:      "func.func"() <{"function_type" = (!riscv.reg) -> !riscv.reg, "sym_name" = "lowered"}>
-      // CHECK-NEXT: ^{{.*}}([[ARG:%.*]] : !riscv.reg):
-      // CHECK-NEXT:   [[R:%.*]] = "riscv.addi"([[ARG]]) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
+      // CHECK:      func.func @lowered(%[[ARG:.*]]: !riscv.reg) -> !riscv.reg {
+      // CHECK-NEXT:   [[R:%.*]] = "riscv.addi"(%[[ARG]]) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
       // CHECK-NEXT:   "func.return"([[R]]) : (!riscv.reg) -> ()
     }) : () -> ()
 
@@ -48,9 +47,8 @@
       %s = "riscv.addi"(%r) <{value = 8 : i64}> : (!riscv.reg) -> !riscv.reg
       %o = "builtin.unrealized_conversion_cast"(%s) : (!riscv.reg) -> !llvm.ptr
       "func.return"(%o) : (!llvm.ptr) -> ()
-      // CHECK:      "func.func"() <{"function_type" = (!riscv.reg) -> !riscv.reg, "sym_name" = "ptrfn"}>
-      // CHECK-NEXT: ^{{.*}}([[PARG:%.*]] : !riscv.reg):
-      // CHECK-NEXT:   [[PR:%.*]] = "riscv.addi"([[PARG]]) <{"value" = 8 : i64}> : (!riscv.reg) -> !riscv.reg
+      // CHECK:      func.func @ptrfn(%[[PARG:.*]]: !riscv.reg) -> !riscv.reg {
+      // CHECK-NEXT:   [[PR:%.*]] = "riscv.addi"(%[[PARG]]) <{"value" = 8 : i64}> : (!riscv.reg) -> !riscv.reg
       // CHECK-NEXT:   "func.return"([[PR]]) : (!riscv.reg) -> ()
     }) : () -> ()
 
@@ -65,9 +63,8 @@
       %s = "riscv.addi"(%r) <{value = 1 : i64}> : (!riscv.reg) -> !riscv.reg
       %o = "builtin.unrealized_conversion_cast"(%s) : (!riscv.reg) -> i32
       "func.return"(%o) : (i32) -> ()
-      // CHECK:      "func.func"() <{"function_type" = (!riscv.reg) -> !riscv.reg, "sym_name" = "i32fn"}>
-      // CHECK-NEXT: ^{{.*}}([[IARG:%.*]] : !riscv.reg):
-      // CHECK-NEXT:   [[IZ:%.*]] = "riscv.zextw"([[IARG]]) : (!riscv.reg) -> !riscv.reg
+      // CHECK:      func.func @i32fn(%[[IARG:.*]]: !riscv.reg) -> !riscv.reg {
+      // CHECK-NEXT:   [[IZ:%.*]] = "riscv.zextw"(%[[IARG]]) : (!riscv.reg) -> !riscv.reg
       // CHECK-NEXT:   [[IS:%.*]] = "riscv.addi"([[IZ]]) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
       // CHECK-NEXT:   [[IRET:%.*]] = "riscv.zextw"([[IS]]) : (!riscv.reg) -> !riscv.reg
       // CHECK-NEXT:   "func.return"([[IRET]]) : (!riscv.reg) -> ()

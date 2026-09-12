@@ -25,7 +25,7 @@
     %send1 = "io.send"(%peer, %buf, %len) : (!io.address, !llvm.ptr, i64) -> i64
     "test.test"(%rand0, %rand1, %recv0, %recv1, %send0, %send1) : (i64, i64, i64, i64, i64, i64) -> ()
 
-    // CHECK-LABEL: ^{{.*}}(%{{.*}} : !io.address, %{{.*}} : !llvm.ptr, %{{.*}} : i64):
+    // CHECK-LABEL: func.func @io(%{{.*}}: !io.address, %{{.*}}: !llvm.ptr, %{{.*}}: i64) {
     // CHECK-NEXT: %[[RAND0:.*]] = "io.rand"(%{{.*}}, %{{.*}}) : (!llvm.ptr, i64) -> i64
     // CHECK-NEXT: %[[RAND1:.*]] = "io.rand"(%{{.*}}, %{{.*}}) : (!llvm.ptr, i64) -> i64
     // CHECK-NEXT: %[[RECV0:.*]]:2 = "io.recv"(%{{.*}}, %{{.*}}) : (!llvm.ptr, i64) -> (i64, !io.address)

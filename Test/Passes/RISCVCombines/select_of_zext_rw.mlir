@@ -21,14 +21,14 @@
 }) : () -> ()
 
 // The zext is distributed over both select arms.
-// CHECK:      ^{{.*}}(%[[C:.*]] : i1, %[[T:.*]] : i32, %[[F:.*]] : i32):
+// CHECK:      func.func @foo(%[[C:.*]]: i1, %[[T:.*]]: i32, %[[F:.*]]: i32) -> i64 {
 // CHECK:      %[[ZT:.*]] = "llvm.zext"(%[[T]]) : (i32) -> i64
 // CHECK:      %[[ZF:.*]] = "llvm.zext"(%[[F]]) : (i32) -> i64
 // CHECK:      %[[SEL:.*]] = "llvm.select"(%[[C]], %[[ZT]], %[[ZF]]) : (i1, i64, i64) -> i64
 // CHECK:      "func.return"(%[[SEL]]) : (i64) -> ()
 
 // Not a select underneath: pattern does not fire.
-// CHECK:      ^{{.*}}(%[[NA:.*]] : i32, %[[NB:.*]] : i32):
+// CHECK:      func.func @bar(%[[NA:.*]]: i32, %[[NB:.*]]: i32) -> i64 {
 // CHECK:      %[[NADD:.*]] = "llvm.add"(%[[NA]], %[[NB]]) : (i32, i32) -> i32
 // CHECK:      %[[NZ:.*]] = "llvm.zext"(%[[NADD]]) : (i32) -> i64
 // CHECK:      "func.return"(%[[NZ]]) : (i64) -> ()

@@ -7,10 +7,10 @@
 "builtin.module"() ({
   "func.func"() <{function_type = (i32) -> i32, sym_name = "main"}> ({
     ^bb0(%x : i32):
-      // DEFAULT:      ^{{.*}}(%[[DEFAULT_X:.*]] : i32):
-      // NO-MOD:       ^{{.*}}(%[[NO_MOD_X:.*]] : i32):
-      // NO-COMMUTE:   ^{{.*}}(%[[NO_COMMUTE_X:.*]] : i32):
-      // NEITHER:      ^{{.*}}(%[[NEITHER_X:.*]] : i32):
+      // DEFAULT:      func.func @main(%[[DEFAULT_X:.*]]: i32) -> i32 {
+      // NO-MOD:       func.func @main(%[[NO_MOD_X:.*]]: i32) -> i32 {
+      // NO-COMMUTE:   func.func @main(%[[NO_COMMUTE_X:.*]]: i32) -> i32 {
+      // NEITHER:      func.func @main(%[[NEITHER_X:.*]]: i32) -> i32 {
       %mod = "mod_arith.constant"() <{"value" = 37 : i8}> : () -> !mod_arith.int<17 : i8>
       // DEFAULT-NEXT:    %[[DEFAULT_MOD:.*]] = "mod_arith.constant"() <{"value" = 3 : i8}>
       // NO-MOD-NEXT:     %[[NO_MOD_MOD:.*]] = "mod_arith.constant"() <{"value" = 37 : i8}>

@@ -71,6 +71,8 @@ inductive Llvm where
 | return
 | func
 | module_flags
+| comdat
+| comdat_selector
 | fadd
 | fsub
 | fmul
@@ -133,6 +135,8 @@ match op with
 | .getelementptr => GetelementptrProperties
 | .insertvalue | .extractvalue => LLVMPositionProperties
 | .fence => LLVMFenceProperties
+| .comdat => LLVMComdatProperties
+| .comdat_selector => LLVMComdatSelectorProperties
 | .fadd | .fsub | .fmul | .fdiv | .frem | .fneg | .intr__fmuladd | .intr__fabs =>
   FastMathFlagsProperties
 | .fcmp => FcmpProperties
@@ -178,6 +182,8 @@ def Llvm.fromAttrDict
   case insertvalue => exact LLVMPositionProperties.fromAttrDictFor "llvm.insertvalue" attrDict
   case extractvalue => exact LLVMPositionProperties.fromAttrDictFor "llvm.extractvalue" attrDict
   case fence => exact LLVMFenceProperties.fromAttrDict attrDict
+  case comdat => exact LLVMComdatProperties.fromAttrDict attrDict
+  case comdat_selector => exact LLVMComdatSelectorProperties.fromAttrDict attrDict
   case fadd | fsub | fmul | fdiv | frem | fneg | intr__fmuladd | intr__fabs =>
     exact FastMathFlagsProperties.fromAttrDict attrDict
   case fcmp => exact FcmpProperties.fromAttrDict attrDict
@@ -364,6 +370,14 @@ def Llvm.toAttrDict
   | .insertvalue | .extractvalue =>
     (Std.HashMap.emptyWithCapacity 1).insert
       "position".toUTF8 (Attribute.denseArrayAttr props.position)
+  | .comdat =>
+    (Std.HashMap.emptyWithCapacity 1).insert "sym_name".toUTF8 (.stringAttr props.sym_name)
+  | .comdat_selector => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 2
+    dict := dict.insert "comdat".toUTF8
+      (Attribute.integerAttr (IntegerAttr.mk (Int.ofNat props.comdat.toNat) (IntegerType.mk 64)))
+    dict := dict.insert "sym_name".toUTF8 (.stringAttr props.sym_name)
+    dict
   | .fence => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
     let ordering := IntegerAttr.mk (Int.ofNat props.ordering.toNat) (IntegerType.mk 64)
@@ -448,7 +462,13 @@ def Llvm.isConstantLike (op : Llvm) : Bool :=
 
 def Llvm.isIsolatedFromAbove (op : Llvm) : Bool :=
   match op with
-  | .mlir__global | .func => true
+  | .mlir__global | .func | .comdat => true
+  | _ => false
+
+/-- A `llvm.comdat` body only lists selectors, so it ends without a terminator. -/
+def Llvm.hasNoTerminator (op : Llvm) (_index : Nat) : Bool :=
+  match op with
+  | .comdat => true
   | _ => false
 
 def Llvm.hasSSADominance (_op : Llvm) (_index : Nat) : Bool :=
@@ -488,6 +508,7 @@ def Llvm.propagatesPoison : Llvm → Bool
   | .getelementptr | .insertvalue | .extractvalue | .call | .call_intrinsic | .return
   | .func
   | .module_flags
+  | .comdat | .comdat_selector
   | .freeze => false
 
 def Llvm.tryFold (op : Llvm) (_properties : Llvm.propertiesOf op)
@@ -936,6 +957,24 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       if elementType ≠ resultType.val then
         throw s!"Type mismatch: extracting from {containerType} should produce {elementType} \
           but this op returns {resultType}"
+  | .comdat => do
+    if op.getNumOperands ctx.raw opIn ≠ 0 then
+      throw "Expected 0 operands"
+    if op.getNumResults ctx.raw opIn ≠ 0 then
+      throw "Expected 0 results"
+    if op.getNumRegions ctx.raw opIn ≠ 1 then
+      throw "Expected 1 region"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    let body := (op.getRegion! ctx.raw 0).get! ctx.raw
+    let some block := body.firstBlock
+      | throw "region should have exactly one block"
+    if body.lastBlock ≠ some block then
+      throw "region should have exactly one block"
+    if block.getNumArguments! ctx.raw ≠ 0 then
+      throw "region should have no arguments"
+  | .comdat_selector => do
+    op.verifyPlainOpCounts ctx opIn 0 0
   | .fence => do
     op.verifyPlainOpCounts ctx opIn 0 0
     /- A fence orders other accesses, so the weaker orderings say nothing. -/
@@ -1073,6 +1112,7 @@ instance : HasOpInfo Llvm where
   hasSSADominance := Llvm.hasSSADominance
   isTerminator := Llvm.isTerminator
   isIsolatedFromAbove := Llvm.isIsolatedFromAbove
+  hasNoTerminator := Llvm.hasNoTerminator
 
 end
 
