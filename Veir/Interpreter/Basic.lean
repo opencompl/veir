@@ -673,11 +673,11 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
   | .load => do
     let [.addr addr] := operands.toList | none
     let [type] := resultTypes.toList | none
-    let val ← mem.llvmLoad addr type
+    let val ← mem.llvmLoad addr type properties.alignment.value.toNat
     return (#[val], mem, none)
   | .store => do
     let [val, .addr addr] := operands.toList | none
-    let mem ← mem.llvmStore addr val
+    let mem ← mem.llvmStore addr val properties.alignment.value.toNat
     return (#[], mem, none)
   | .getelementptr => do
     /- only supports exactly one dynamic index for now -/
