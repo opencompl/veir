@@ -27,6 +27,15 @@ inductive IntegerRangeLattice where
   | interval (range : IntegerRange)
 deriving BEq, DecidableEq, Repr
 
+instance : ToString IntegerRange where
+  toString range := s!"[{range.lower}, {range.upper}]"
+
+instance : ToString IntegerRangeLattice where
+  toString
+    | .bottom => "bottom"
+    | .top => "top"
+    | .interval range => toString range
+
 namespace IntegerRangeLattice
 
 /-- Defines the precision ordering of abstract integer ranges. -/

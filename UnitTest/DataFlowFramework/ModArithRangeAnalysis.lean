@@ -11,11 +11,6 @@ private structure ExpectedRange where
   name : String
   range : IntegerRangeLattice
 
-private def rangeToString : IntegerRangeLattice → String
-  | .bottom => "bottom"
-  | .top => "top"
-  | .interval r => s!"[{r.lower}, {r.upper}]"
-
 private def compareRanges
     (dfCtx : DataFlowContext)
     (recovered : RecoveredNames)
@@ -28,7 +23,7 @@ private def compareRanges
     let observed := ModArithRangeAnalysis.getRange value dfCtx
     if observed != e.range then
       report := report.push
-        s!"range {e.name}: expected {rangeToString e.range}, observed {rangeToString observed}"
+        s!"range {e.name}: expected {e.range}, observed {observed}"
   report
 
 private def interval (lower upper : Int) (h : lower ≤ upper := by omega) : IntegerRangeLattice :=
