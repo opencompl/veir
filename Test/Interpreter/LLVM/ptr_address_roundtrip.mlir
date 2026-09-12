@@ -1,8 +1,9 @@
 // RUN: veir-interpret %s | filecheck %s
 
 // A pointer cast to an integer is its physical address, and casting that
-// address back yields a pointer into the same object. Object 0 is null, so
-// the first allocation lands at address 16.
+// address back yields a pointer into the same object. Objects start past the
+// 64 KiB machine arena: `@main` is object 1 at 0x10000 and the alloca follows
+// at 0x10010.
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (i64, !llvm.byte<64>)}> ({
@@ -17,4 +18,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Program output: #[0x000000000000002a#64, 0b0000000000000000000000000000000000000000000000000000000000010000#64]
+// CHECK: Program output: #[0x000000000000002a#64, 0b0000000000000000000000000000000000000000000000010000000000010000#64]

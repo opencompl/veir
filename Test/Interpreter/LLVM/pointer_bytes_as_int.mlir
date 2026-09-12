@@ -1,7 +1,7 @@
 // RUN: veir-interpret %s | filecheck %s
 
-// A stored pointer reads back as an integer: its physical address. The
-// first alloca is object 1 at address 16.
+// A stored pointer reads back as an integer: its physical address. `@main`
+// is object 1 at 0x10000, and the first alloca follows at 0x10010.
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> i64}> ({
@@ -14,4 +14,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Program output: #[0x0000000000000010#64]
+// CHECK: Program output: #[0x0000000000010010#64]
