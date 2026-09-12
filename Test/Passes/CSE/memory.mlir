@@ -3,8 +3,8 @@
 "builtin.module"() ({
   "llvm.func"()  <{function_type = !llvm.func<void (!llvm.ptr)>, sym_name = "foo"}> ({
 ^bb0(%ptr : !llvm.ptr):
-    %load0 = "llvm.load"(%ptr) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-    %load1 = "llvm.load"(%ptr) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+    %load0 = "llvm.load"(%ptr) <{"alignment" = 4 : i64}> : (!llvm.ptr) -> i32
+    %load1 = "llvm.load"(%ptr) <{"alignment" = 4 : i64}> : (!llvm.ptr) -> i32
     "test.test"(%load0, %load1) : (i32, i32) -> ()
 
     // CHECK-LABEL: ^{{.*}}(%{{.*}} : !llvm.ptr):
@@ -25,7 +25,7 @@
     %send1 = "io.send"(%peer, %buf, %len) : (!io.address, !llvm.ptr, i64) -> i64
     "test.test"(%rand0, %rand1, %recv0, %recv1, %send0, %send1) : (i64, i64, i64, i64, i64, i64) -> ()
 
-    // CHECK-LABEL: ^{{.*}}(%{{.*}} : !io.address, %{{.*}} : !llvm.ptr, %{{.*}} : i64):
+    // CHECK-LABEL: func.func @io(%{{.*}}: !io.address, %{{.*}}: !llvm.ptr, %{{.*}}: i64) {
     // CHECK-NEXT: %[[RAND0:.*]] = "io.rand"(%{{.*}}, %{{.*}}) : (!llvm.ptr, i64) -> i64
     // CHECK-NEXT: %[[RAND1:.*]] = "io.rand"(%{{.*}}, %{{.*}}) : (!llvm.ptr, i64) -> i64
     // CHECK-NEXT: %[[RECV0:.*]]:2 = "io.recv"(%{{.*}}, %{{.*}}) : (!llvm.ptr, i64) -> (i64, !io.address)

@@ -2,6 +2,7 @@
 // (clang --target=riscv64 -march=rva23u64 -O0).
 //
 // RUN: VEIR_ROUNDTRIP
+// RUN: MLIR_UNREGISTERED_ROUNDTRIP
 
 // CHECK: "func.func"() <{"function_type" = (!riscv.reg) -> !riscv.reg, "sym_name" = "main"}>
 

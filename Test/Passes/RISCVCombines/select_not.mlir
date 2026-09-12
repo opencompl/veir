@@ -20,11 +20,11 @@
 }) : () -> ()
 
 // The not is folded away and the arms are swapped: select c, y, x.
-// CHECK:      ^{{.*}}(%[[C:.*]] : i1, %[[X:.*]] : i32, %[[Y:.*]] : i32):
+// CHECK:      func.func @foo(%[[C:.*]]: i1, %[[X:.*]]: i32, %[[Y:.*]]: i32) -> i32 {
 // CHECK:      %[[R:.*]] = "llvm.select"(%[[C]], %[[Y]], %[[X]]) : (i1, i32, i32) -> i32
 // CHECK:      "func.return"(%[[R]]) : (i32) -> ()
 
 // Plain condition: the select is unchanged.
-// CHECK:      ^{{.*}}(%[[NC:.*]] : i1, %[[NX:.*]] : i32, %[[NY:.*]] : i32):
+// CHECK:      func.func @bar(%[[NC:.*]]: i1, %[[NX:.*]]: i32, %[[NY:.*]]: i32) -> i32 {
 // CHECK:      %[[NR:.*]] = "llvm.select"(%[[NC]], %[[NX]], %[[NY]]) : (i1, i32, i32) -> i32
 // CHECK:      "func.return"(%[[NR]]) : (i32) -> ()

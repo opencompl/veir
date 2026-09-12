@@ -2,6 +2,7 @@ module
 
 public import Veir.Data.LLVM.Int.Basic
 public import Veir.Analysis.DataFlow.Domains.AbstractDomain
+public import Veir.FoldDecision
 
 public section
 
@@ -26,6 +27,12 @@ inductive AbstractConstant where
   | bottom
   | constant (value : ConcreteConstant)
 deriving BEq, DecidableEq, TypeName
+
+instance : ToString AbstractConstant where
+  toString
+    | .top => "top"
+    | .bottom => "bottom"
+    | .constant constant => s!"const({constant.value} : i{constant.bitwidth})"
 
 namespace AbstractConstant
 
@@ -55,6 +62,16 @@ instance : BoundedOrder AbstractConstant where
   bot := .bottom
   le_top := le_top
   bot_le := bot_le
+
+def ofRuntimeValue : RuntimeValue → AbstractConstant
+  | .int bitwidth value => .constant ⟨bitwidth, value⟩
+  | _ => ⊤
+
+def ofFoldDecision
+    (result : FoldDecision) (operands : Array AbstractConstant) : AbstractConstant :=
+  match result with
+  | .useOperand index => operands[index]?.getD ⊤
+  | .useConstant value => .ofRuntimeValue value
 
 @[expose] def γ (absVal : AbstractConstant) : Set ConcreteConstant :=
   match absVal with

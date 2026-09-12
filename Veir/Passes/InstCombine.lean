@@ -22,7 +22,7 @@ def mulITwoToAddi_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     | return (ctx, none)
   let some cst := matchConstantIntVal rhs ctx.raw
     | return (ctx, none)
-  if cst.value ≠ 2 then
+  if cst ≠ 2 then
     return (ctx, none)
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.add #[lhs.getType! ctx.raw] #[lhs, lhs]
     #[] #[] properties none
@@ -39,7 +39,7 @@ def mulIZeroToCst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     | return (ctx, none)
   let some cst := matchConstantIntVal rhs ctx.raw
     | return (ctx, none)
-  if cst.value ≠ 0 then
+  if cst ≠ 0 then
     return (ctx, none)
   let .integerType type := (lhs.getType! ctx.raw).val
     | return (ctx, none)
@@ -52,21 +52,6 @@ def mulIZeroToCst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite mulIZeroToCst_local rewriter op opInBounds
 
-/-- Rewrites `x + 0` to `x`. -/
-def addiZeroToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := matchAddi op ctx.raw
-    | return (ctx, none)
-  let some cst := matchConstantIntVal rhs ctx.raw
-    | return (ctx, none)
-  if cst.value ≠ 0 then
-    return (ctx, none)
-  some (ctx, some (#[], #[lhs]))
-
-def addiZeroToX (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite addiZeroToX_local rewriter op opInBounds
-
 /-- Rewrites `x * 1` to `x`. -/
 def mulIOneToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
@@ -74,7 +59,7 @@ def mulIOneToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     | return (ctx, none)
   let some cst := matchConstantIntVal rhs ctx.raw
     | return (ctx, none)
-  if cst.value ≠ 1 then
+  if cst ≠ 1 then
     return (ctx, none)
   some (ctx, some (#[], #[lhs]))
 
@@ -89,7 +74,7 @@ def subiZeroToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     | return (ctx, none)
   let some cst := matchConstantIntVal rhs ctx.raw
     | return (ctx, none)
-  if cst.value ≠ 0 then
+  if cst ≠ 0 then
     return (ctx, none)
   some (ctx, some (#[], #[lhs]))
 
@@ -135,7 +120,7 @@ def andiZeroToZero_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     | return (ctx, none)
   let some cst := matchConstantIntVal rhs ctx.raw
     | return (ctx, none)
-  if cst.value ≠ 0 then
+  if cst ≠ 0 then
     return (ctx, none)
   let .integerType type := (lhs.getType! ctx.raw).val
     | return (ctx, none)
@@ -155,7 +140,7 @@ def oriZeroToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     | return (ctx, none)
   let some cst := matchConstantIntVal rhs ctx.raw
     | return (ctx, none)
-  if cst.value ≠ 0 then
+  if cst ≠ 0 then
     return (ctx, none)
   some (ctx, some (#[], #[lhs]))
 
@@ -183,7 +168,7 @@ def xoriZeroToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     | return (ctx, none)
   let some cst := matchConstantIntVal rhs ctx.raw
     | return (ctx, none)
-  if cst.value ≠ 0 then
+  if cst ≠ 0 then
     return (ctx, none)
   some (ctx, some (#[], #[lhs]))
 
@@ -273,7 +258,6 @@ def InstCombinePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.
     ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[
     mulITwoToAddi, mulIZeroToCst, mulIOneToX,
-    addiZeroToX,
     subiZeroToX, subiSelfToZero,
     andiSelfToX, andiZeroToZero,
     oriZeroToX, oriSelfToX,

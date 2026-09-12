@@ -1,4 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
+// RUN: MLIR_INVALID
 
 // Two case operand segments name two cases, so the op needs three successors:
 // the default destination and one per case.

@@ -432,17 +432,17 @@ def flags_from_attrs(op: str, attr: str) -> list[str]:
         for flag in ("nuw", "nsw"):
             if flag in items and flag not in flags:
                 flags.append(flag)
-    if op in {"llvm.udiv", "llvm.sdiv", "llvm.lshr", "llvm.ashr"} and "exact" in items:
+    if op in {"llvm.udiv", "llvm.sdiv", "llvm.lshr", "llvm.ashr"} and "isExact" in items:
         flags.append("exact")
-    if op == "llvm.or" and "disjoint" in items:
+    if op == "llvm.or" and "isDisjoint" in items:
         flags.append("disjoint")
     if op == "llvm.zext" and "nonNeg" in items:
         flags.append("nneg")
     unsupported = items - {
         "nuw",
         "nsw",
-        "exact",
-        "disjoint",
+        "isExact",
+        "isDisjoint",
         "nonNeg",
         "predicate",
         "operandSegmentSizes",

@@ -1,4 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
+// RUN: MLIR_INVALID
 
 "builtin.module"() ({
   "func.func"() <{function_type = () -> f64, sym_name = "main"}> ({

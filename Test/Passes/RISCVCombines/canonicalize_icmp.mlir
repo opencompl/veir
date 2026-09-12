@@ -32,19 +32,19 @@
 }) : () -> ()
 
 // slt C, x  ->  sgt x, C  (predicate 2 = slt, 4 = sgt in the LLVM encoding).
-// CHECK:      ^{{.*}}(%[[X0:.*]] : i32):
+// CHECK:      func.func @foo(%[[X0:.*]]: i32) -> i1 {
 // CHECK:      %[[C0:.*]] = "llvm.mlir.constant"() <{"value" = 5 : i32}> : () -> i32
 // CHECK:      %[[R0:.*]] = "llvm.icmp"(%[[X0]], %[[C0]]) <{"predicate" = 4 : i64}> : (i32, i32) -> i1
 // CHECK:      "func.return"(%[[R0]]) : (i1) -> ()
 
 // eq C, x  ->  eq x, C  (predicate 0 unchanged).
-// CHECK:      ^{{.*}}(%[[X1:.*]] : i32):
+// CHECK:      func.func @bar(%[[X1:.*]]: i32) -> i1 {
 // CHECK:      %[[C1:.*]] = "llvm.mlir.constant"() <{"value" = 5 : i32}> : () -> i32
 // CHECK:      %[[R1:.*]] = "llvm.icmp"(%[[X1]], %[[C1]]) <{"predicate" = 0 : i64}> : (i32, i32) -> i1
 // CHECK:      "func.return"(%[[R1]]) : (i1) -> ()
 
 // Constant already on the right: unchanged (still slt x, C — no re-canonicalize).
-// CHECK:      ^{{.*}}(%[[X2:.*]] : i32):
+// CHECK:      func.func @baz(%[[X2:.*]]: i32) -> i1 {
 // CHECK:      %[[C2:.*]] = "llvm.mlir.constant"() <{"value" = 5 : i32}> : () -> i32
 // CHECK:      %[[R2:.*]] = "llvm.icmp"(%[[X2]], %[[C2]]) <{"predicate" = 2 : i64}> : (i32, i32) -> i1
 // CHECK:      "func.return"(%[[R2]]) : (i1) -> ()

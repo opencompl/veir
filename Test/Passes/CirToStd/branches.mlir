@@ -24,7 +24,7 @@
 // The forwarded operand is cast to the retyped block argument; the block arguments of the
 // successors are already `i32`, so no cast survives inside them.
 // CHECK-NEXT: [[A1:%.*]] = "builtin.unrealized_conversion_cast"([[A]]) : (!cir.int<s, 32>) -> i32
-// CHECK-NEXT: "cf.cond_br"([[COND]], [[A1]]) [^{{.*}}, ^{{.*}}] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 1, 0>}> : (i1, i32) -> ()
+// CHECK-NEXT: "cf.cond_br"([[COND]], [[A1]]) [^{{.*}}, ^{{.*}}] <{"operandSegmentSizes" = array<i32: 1, 1, 0>}> : (i1, i32) -> ()
 // CHECK-NEXT: ^{{.*}}([[X:%.*]] : i32):
 // CHECK-NEXT: "cf.br"([[X]]) [^{{.*}}] : (i32) -> ()
 // CHECK-NEXT: ^{{.*}}():

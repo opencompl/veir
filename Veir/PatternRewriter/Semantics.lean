@@ -5,7 +5,7 @@ public import Veir.Passes.Matching
 public import Veir.PatternRewriter.Basic
 import Veir.Dominance.Basic
 
-import all Veir.Interpreter.Basic
+import all Veir.Interpreter.Util
 
 public section
 

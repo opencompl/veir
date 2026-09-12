@@ -1,4 +1,5 @@
 // RUN: VEIR_ROUNDTRIP
+// RUN: MLIR_UNREGISTERED_ROUNDTRIP
 
 // The RISC-V memory operations carry a `volatile_` flag alongside their offset
 // immediate. Like the LLVM dialect's `volatile_`, it is printed only when set,

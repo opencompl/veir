@@ -1,9 +1,10 @@
 module
 
 public import Veir.Verifier
+import all Veir.Interpreter.Util
+import all Veir.Interpreter.Basic
 public import Veir.Interpreter.Refinement.Basic
 
-import all Veir.Interpreter.Basic
 
 namespace Veir
 public section

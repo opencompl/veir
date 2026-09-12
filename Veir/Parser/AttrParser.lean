@@ -572,6 +572,25 @@ def parseOptionalFlatSymbolRefAttr : AttrParserM (Option FlatSymbolRefAttr) := d
   return some (FlatSymbolRefAttr.mk ("@" ++ String.fromUTF8! name))
 
 /--
+  Parse a symbol reference attribute, if present: a flat reference `@root`,
+  optionally followed by nested references as in `@comdat::@selector`.
+-/
+def parseOptionalSymbolRefAttr : AttrParserM (Option Attribute) := do
+  let some root ← parseOptionalFlatSymbolRefAttr | return none
+  let mut nested := #[]
+  repeat
+    if (← peekToken).kind != .colon then break
+    parsePunctuation ":"
+    parsePunctuation ":" "Expected '::' before a nested symbol reference"
+    let pos := (← peekToken).slice.start
+    let some name ← parseOptionalFlatSymbolRefAttr
+      | throwAt pos "Expected a symbol reference after '::'"
+    nested := nested.push name
+  if nested.isEmpty then
+    return some (.flatSymbolRefAttr root)
+  return some (.symbolRefAttr ⟨root, nested⟩)
+
+/--
   Parse a location attribute, if present.
   A location attribute has the form `loc(body)`.
 -/
@@ -1380,7 +1399,7 @@ partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
     return some arrayAttr
   else if let some dictAttr ← parseOptionalDictionaryAttr then
     return some dictAttr
-  else if let some symRefAttr ← parseOptionalFlatSymbolRefAttr then
+  else if let some symRefAttr ← parseOptionalSymbolRefAttr then
     return some symRefAttr
   else
     return none

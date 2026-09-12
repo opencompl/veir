@@ -452,6 +452,19 @@ meta def applySimp (g : MVarId) (simp : SimpTheoremsArray) : MetaM MVarId := g.w
     | throwError "goal solved by simp"
   return g
 
+/-- Helper to run grind on a given `MVarId`. Returns a `some MVarId`
+    if the goal couldn't be proven. -/
+meta def runGrind (g : MVarId) : MetaM (Option MVarId) := g.withContext do
+  let result ← Grind.main g <| ← Grind.mkDefaultParams {}
+  return result.failure?.map (·.mvarId)
+
+/-- Run `grind` on each `MVarId` in widthInfos. -/
+meta def runGrindOnSubgoals (g : MVarId) (infos : WidthInfos) : MetaM (List MVarId) := g.withContext do
+  let subgoals := List.reduceOption <| ← infos.infos.values.mapM (runGrind ·.hypWidthLeBoundMVarId)
+  for remainingSubgoal in subgoals do
+    logWarning m!"`grind` could not prove the following : {remainingSubgoal}"
+  return subgoals
+
 meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVarId)
   := g.withContext do
   -- Construct the width environment
@@ -469,8 +482,10 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVa
            <| ← addWidthInfosSimpLemmas g widthInfos #[]
   -- Run simp
   let g ← applySimp g thms
+  -- Run grind on subgoals
+  let subgoals ← runGrindOnSubgoals g widthInfos
   -- Return modified goal and subgoals.
-  return g :: (widthInfos.infos.values.map (·.hypWidthLeBoundMVarId))
+  return g :: subgoals
 
 /--
 `pbv_decide` takes a `Nat` bound as input argument and uses it to translate a
