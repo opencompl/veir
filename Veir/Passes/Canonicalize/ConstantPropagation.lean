@@ -6,10 +6,10 @@ import Veir.Interfaces.FoldInterfaces
 
 namespace Veir.Canonicalize
 
-/-- Materialize one inferred constant at a point that dominates all its uses. -/
+/-- Materialize one inferred constant at the definition point of `value`. -/
 private def replaceConstant (rewriter : PatternRewriter OpCode)
-    (dfCtx : DataFlowContext) (value : ValuePtr) (materializer : OpCode)
-    (insertionPoint : InsertPoint) : Option (PatternRewriter OpCode) := do
+    (dfCtx : DataFlowContext) (value : ValuePtr) (materializer : OpCode) :
+    Option (PatternRewriter OpCode) := do
   if !value.hasUses! rewriter.ctx.raw then return rewriter
   let .constant constant := SparseFact.getElement .sparseConstant value dfCtx
     | return rewriter
@@ -17,6 +17,9 @@ private def replaceConstant (rewriter : PatternRewriter OpCode)
   let some ⟨constOp, properties⟩ := materializer.materializeConstant
       (.int constant.bitwidth constant.value) type
     | return rewriter
+  let insertionPoint : InsertPoint := match value with
+    | .opResult result => .before result.op
+    | .blockArgument argument => InsertPoint.atStart! argument.block rewriter.ctx.raw
   let (rewriter, op) ← rewriter.createOp! constOp #[type] #[] #[] #[] properties
     (some insertionPoint)
   return rewriter.replaceValue! value (op.getResult 0)
@@ -29,15 +32,14 @@ private def propagateConstants (dfCtx : DataFlowContext)
   if opType.isConstantLike then return rewriter
   let mut rewriter := rewriter
   for result in op.getResults! rewriter.ctx.raw do
-    rewriter ← replaceConstant rewriter dfCtx result opType (.before op)
+    rewriter ← replaceConstant rewriter dfCtx result opType
   for operand in operands do
-    let .blockArgument argument := operand | continue
+    let .blockArgument _ := operand | continue
     -- Block arguments have no defining dialect. The materializer checks the type.
     let materializer : OpCode := match (operand.getType! rewriter.ctx.raw).val with
       | .modArithType _ => .mod_arith .constant
       | _ => .arith .constant
     rewriter ← replaceConstant rewriter dfCtx operand materializer
-      (InsertPoint.atStart! argument.block rewriter.ctx.raw)
   return rewriter
 
 /--
