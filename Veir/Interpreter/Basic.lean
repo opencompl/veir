@@ -346,11 +346,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     | .integer intAttr =>
       let .integerType bw := resType.val
         | none
-      let origbw := intAttr.type.bitwidth
-      let rawbits := BitVec.ofInt origbw intAttr.value
-      let extended := match origbw with
-        | 1 => rawbits.zeroExtend bw.bitwidth
-        | _ => rawbits.signExtend bw.bitwidth
+      let extended := BitVec.ofInt bw.bitwidth (decodeLLVMIntegerConstant intAttr)
       return (#[.int bw.bitwidth (LLVM.Int.val extended)], mem, none)
     | .float floatAttr =>
       let .floatType bw := resType.val
