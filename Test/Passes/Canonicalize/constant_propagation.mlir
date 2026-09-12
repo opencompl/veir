@@ -182,4 +182,22 @@
   // CHECK-NEXT: ^{{.*}}(%{{.*}}: !mod_arith.int<17 : i8>):
   // CHECK-NEXT: %[[MOD_RESULT:.*]] = "mod_arith.constant"() <{"value" = 3 : i8}>
   // CHECK-NEXT: "func.return"(%[[MOD_RESULT]])
+
+  // The fold table recognizes zero only on the right, so the initial analysis
+  // cannot infer the carry. Commuting and folding create a new constant, but
+  // analysis is not rerun: only the initially known offset propagates.
+  "func.func"() <{function_type = (i32) -> (i1, i32), sym_name = "single_analysis"}> ({
+  ^entry(%unknown : i32):
+    %zero = "arith.constant"() <{value = 0 : i32}> : () -> i32
+    %offset = "arith.constant"() <{value = 9 : i32}> : () -> i32
+    %sum, %carry = "arith.addui_extended"(%zero, %unknown) : (i32, i32) -> (i32, i1)
+    "cf.br"(%carry, %offset) [^exit] : (i1, i32) -> ()
+  ^exit(%value : i1, %offsetArg : i32):
+    "func.return"(%value, %offsetArg) : (i1, i32) -> ()
+  }) : () -> ()
+  // CHECK-LABEL: func.func @single_analysis
+  // CHECK: "cf.br"
+  // CHECK-NEXT: ^{{.*}}(%[[CARRY:[^ ]+]] : i1, %{{.*}}: i32):
+  // CHECK-NEXT: %[[SNAPSHOT_OFFSET:.*]] = "arith.constant"() <{"value" = 9 : i32}>
+  // CHECK-NEXT: "func.return"(%[[CARRY]], %[[SNAPSHOT_OFFSET]])
 }) : () -> ()

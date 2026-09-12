@@ -13,8 +13,8 @@ namespace Veir
 
   Rewrites operations into canonical forms, including folding operations,
   moving constants to the right side of commutative operations, and reducing
-  modular constants to their canonical representatives. Greedy rewriting is
-  followed by one round of sparse constant propagation, without further folding.
+  modular constants to their canonical representatives. Folding falls back to
+  sparse constant propagation computed once before greedy rewriting.
 -/
 
 def canonicalizeModArithConstant (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -61,27 +61,24 @@ def CanonicalizePass.impl (options : PassOptions) (ctx : WfIRContext OpCode)
     ExceptT String IO (WfIRContext OpCode) := do
   let mut patterns : Array (RewritePattern OpCode) := #[]
   if (options.get? "fold").getD true then
-    patterns := patterns.push foldOperation
+    let some dfCtx := fixpointSolve op #[SparseConstantPropagationAnalysis] ctx
+      | throw "Error while computing constant propagation"
+    patterns := patterns.push (Canonicalize.tryFoldWithAnalysis dfCtx)
   if (options.get? "mod-arith-constant").getD true then
     patterns := patterns.push canonicalizeModArithConstant
   if (options.get? "commutative-constant-rhs").getD true then
     patterns := patterns.push commutativeConstantRHS
   let pattern := RewritePattern.GreedyRewritePattern patterns
-  let some ctx := RewritePattern.applyInContext pattern ctx
+  let some ctx := pattern.applyInContext ctx
     | throw "Error while applying canonicalization patterns"
-  if (options.get? "fold").getD true then
-    let some ctx := Canonicalize.propagateConstants ctx op
-      | throw "Error while applying constant propagation"
-    pure ctx
-  else
-    pure ctx
+  pure ctx
 
 public def CanonicalizePass : Pass OpCode :=
   { name := "canonicalize"
     description := "Rewrite operations into a canonical form."
     options := .ofList [
       ("fold",
-        { description := "Fold operations, then propagate constants through SSA values."
+        { description := "Fold operations using constant propagation computed once before rewriting."
           defaultValue := true }),
       ("mod-arith-constant",
         { description := "Reduce modular constants to their canonical representatives."

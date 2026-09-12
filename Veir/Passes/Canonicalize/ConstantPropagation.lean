@@ -2,7 +2,8 @@ module
 
 public import Veir.PatternRewriter.Basic
 public import Veir.GlobalOpInfo
-import Veir.Analysis.DataFlow.SparseConstantPropagationAnalysis
+public import Veir.Analysis.DataFlow.SparseConstantPropagationAnalysis
+import Veir.Interfaces.FoldInterfaces
 
 namespace Veir.Canonicalize
 
@@ -29,56 +30,39 @@ private def blockArgumentMaterializer (type : TypeAttr) : Option OpCode :=
   | _ => none
 
 /--
-Walk the analyzed IR snapshot, replacing constant results and block arguments.
-Only substitutions and removal of dead operations happen during this walk, so
-facts about the original values remain applicable. Newly created constants are
-not visited.
+Try ordinary folding first. If it does not produce replacements, use the
+analysis to materialize constant results and constant block arguments used by
+this operation. Replacing a block argument enqueues its users, so the greedy
+driver retries folding with the newly materialized operands.
 -/
-private partial def rewriteConstants (op : OperationPtr) (irCtx : WfIRContext OpCode)
-    (dfCtx : DataFlowContext) (rewriter : PatternRewriter OpCode) :
-    Option (PatternRewriter OpCode) := do
+public def tryFoldWithAnalysis (dfCtx : DataFlowContext)
+    (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let opType := op.getOpType rewriter.ctx.raw opInBounds
+  let operands := op.getOperands rewriter.ctx.raw opInBounds
+  let resultTypes := op.getResultTypes rewriter.ctx.raw opInBounds
+  let properties := op.getProperties rewriter.ctx.raw opType opInBounds (by grind)
+  let (rewriter, replacements) ←
+    rewriter.tryFold! opType properties resultTypes operands (.before op)
+  if let some replacements := replacements then
+    let mut rewriter := rewriter
+    for (replacement, index) in replacements.zipIdx do
+      rewriter := rewriter.replaceValue! (op.getResult index) replacement
+    return rewriter.eraseOp! op
+
   let mut rewriter := rewriter
-  let operation := op.get! irCtx.raw
-  if operation.parent.isSome && !operation.opType.isConstantLike then
-    for result in op.getResults! irCtx.raw do
-      rewriter ← replaceConstant rewriter dfCtx result operation.opType (.before op)
-
-  for region in operation.regions do
-    let mut maybeBlock := (region.get! irCtx.raw).firstBlock
-    while let some block := maybeBlock do
-      for argument in block.getArguments! irCtx.raw do
-        let some materializer := blockArgumentMaterializer (argument.getType! irCtx.raw)
-          | continue
-        rewriter ← replaceConstant rewriter dfCtx argument materializer
-          (InsertPoint.atStart! block rewriter.ctx.raw)
-      let mut maybeOp := (block.get! irCtx.raw).firstOp
-      while let some nestedOp := maybeOp do
-        rewriter ← rewriteConstants nestedOp irCtx dfCtx rewriter
-        maybeOp := (nestedOp.get! irCtx.raw).next
-      maybeBlock := (block.get! irCtx.raw).next
-
-  if operation.parent.isSome && op.isTriviallyDead rewriter.ctx.raw then
+  -- Replacing an existing constant would keep creating equivalent constants.
+  if !opType.isConstantLike then
+    for result in op.getResults! rewriter.ctx.raw do
+      rewriter ← replaceConstant rewriter dfCtx result opType (.before op)
+  for operand in operands do
+    let .blockArgument argument := operand | continue
+    let some materializer := blockArgumentMaterializer (operand.getType! rewriter.ctx.raw)
+      | continue
+    rewriter ← replaceConstant rewriter dfCtx operand materializer
+      (InsertPoint.atStart! argument.block rewriter.ctx.raw)
+  if op.isTriviallyDead rewriter.ctx.raw then
     rewriter := rewriter.eraseOp! op
   return rewriter
-
-/--
-Run sparse constant propagation once and apply its constant facts. Clean up
-operations made dead by substitution without performing any further folding.
--/
-public def propagateConstants (ctx : WfIRContext OpCode) (top : OperationPtr) :
-    Option (WfIRContext OpCode) := do
-  let dfCtx ← fixpointSolve top #[SparseConstantPropagationAnalysis] ctx
-  let mut rewriter ← rewriteConstants top ctx dfCtx
-    { ctx, hasDoneAction := false, worklist := .empty }
-  -- Erasing an operation enqueues its operand definitions, so this also removes
-  -- dead intermediate constants and producers left behind by the forward walk.
-  while !rewriter.worklist.isEmpty do
-    let (maybeOp, worklist) := rewriter.worklist.pop
-    rewriter := { rewriter with worklist }
-    if let some op := maybeOp then
-      if op.InBounds rewriter.ctx.raw then
-        if op.isTriviallyDead rewriter.ctx.raw then
-          rewriter := rewriter.eraseOp! op
-  return rewriter.ctx
 
 end Veir.Canonicalize
