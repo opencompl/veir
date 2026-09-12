@@ -100,6 +100,7 @@ def OpCode.tryFold (opCode : OpCode) (props : _propertiesOf opCode)
   | .include op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .function op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .seq op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .memref op, props => HasOpInfo.tryFold op props resultTypes constantOperands
 
 /--
   Return the kind of the region with the given index inside this operation.
