@@ -1306,7 +1306,7 @@ def AMinusC1PlusC2 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /-! ### or_and_xor_to_xor_or :  (X & Y) | ~Y  →  X | ~Y -/
 def or_and_xor_to_xor_or_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (andV, notV, oprops) := matchOr op ctx.raw | return (ctx, none)
+  let some (andV, notV, _oprops) := matchOr op ctx.raw | return (ctx, none)
   let some dAnd := andV.definingOp? | return (ctx, none)
   let some (x, y, _aprops) := matchAnd dAnd ctx.raw | return (ctx, none)
   let some dNot := notV.definingOp? | return (ctx, none)
@@ -1314,8 +1314,9 @@ def or_and_xor_to_xor_or_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if y1 != y then return (ctx, none)
   let some cst := matchConstantIntVal m1v ctx.raw | return (ctx, none)
   if cst ≠ -1 then return (ctx, none)
+  /- Removing the AND can introduce overlap between the OR operands. -/
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.or #[andV.getType! ctx.raw] #[x, notV]
-    #[] #[] oprops none
+    #[] #[] ({ disjoint := false } : DisjointProperties) none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
 def or_and_xor_to_xor_or (rewriter : PatternRewriter OpCode) (op : OperationPtr)
