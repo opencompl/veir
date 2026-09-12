@@ -104,7 +104,7 @@ values distinguish three outcomes:
   to materialize one of its constants
 * `none` - a hard failure indicating some sort of serious problem
 -/
-def PatternRewriter.tryFold! (rewriter : PatternRewriter OpCode) (opType : OpCode)
+private def PatternRewriter.tryFold! (rewriter : PatternRewriter OpCode) (opType : OpCode)
     (properties : propertiesOf opType) (resultTypes : Array TypeAttr)
     (operands : Array ValuePtr) (insertionPoint : InsertPoint) :
     Option (PatternRewriter OpCode × Option (Array ValuePtr)) := do
