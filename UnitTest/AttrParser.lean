@@ -194,9 +194,11 @@ macro "#assert " e:term : command =>
 #assert expectSuccessType "f8E5M2" FloatType.f8E5M2
 #assert expectSuccessType "f8E4M3FN" FloatType.f8E4M3FN
 #assert expectSuccessType "f8E4M3FNUZ" FloatType.f8E4M3FNUZ
+#assert expectSuccessType "f80" FloatType.f80
+#assert expectSuccessType "f128" FloatType.f128
 -- Unknown / unsupported float widths are not types.
-#assert expectMissingType "f128"
 #assert expectMissingType "f8"
+#assert expectMissingType "f256"
 #assert expectSuccessAttr "f64" FloatType.f64
 
 /-! ## Float attributes -/
