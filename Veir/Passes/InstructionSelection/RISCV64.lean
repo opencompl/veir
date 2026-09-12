@@ -3,6 +3,7 @@ module
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
 import Veir.DataLayout.RISCV64
+import Veir.Interfaces.ConstantLikeInterfaces
 import Veir.Interfaces.FunctionInterfaces
 import Veir.Passes.Matching.LLVM.Basic
 import Veir.Passes.InstructionSelection.Common
@@ -840,7 +841,7 @@ def bitcast (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /--
   Lower a constant-count entry-block allocation to a fixed RISC-V stack object.
   Dynamic allocations and `inalloca` need additional stack-lifetime support in the backend.
-  Run before constant selection so the count is still an `llvm.mlir.constant`.
+  Run before constant selection so the count still has an integer runtime value.
 -/
 def alloca_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
@@ -851,25 +852,14 @@ def alloca_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if !func.isFunctionLike ctx.raw then return (ctx, none)
   let some entry := FunctionOpInterface.getEntryBlock? func ctx.raw | return (ctx, none)
   if (op.get! ctx.raw).parent != some entry then return (ctx, none)
-  let countOperand := operands[0]!
-  let .integerType countType := (countOperand.getType! ctx.raw).val | return (ctx, none)
-  let some countOp := countOperand.definingOp? | return (ctx, none)
-  let some countAttr := matchConstantIntOp countOp ctx.raw | return (ctx, none)
-  if countType.bitwidth = 0 || countAttr.type.bitwidth = 0 then return (ctx, none)
-  /- Match LLVM constant interpretation: i1 zero-extends, other widths sign-extend
-     (or truncate) to the SSA type. `alloca` reads the resulting bits as unsigned. -/
-  let rawCount := BitVec.ofInt countAttr.type.bitwidth countAttr.value
-  let count := if countAttr.type.bitwidth = 1 then rawCount.zeroExtend countType.bitwidth
-    else rawCount.signExtend countType.bitwidth
+  let some (.int _ (.val count)) := operands[0]!.constantValue ctx.raw | return (ctx, none)
   let some layout := DataLayout.riscv64.query properties.elem_type.val | return (ctx, none)
   let size := count.toNat * layout.allocSize
   /- Do not silently wrap the fixed object's size to 64 bits. -/
   if size >= 2 ^ 64 then return (ctx, none)
-  if properties.alignment.type.bitwidth != 64 || properties.alignment.value < 0 then
-    return (ctx, none)
-  let alignment := if properties.alignment.value = 0 then layout.abiAlignment
-    else properties.alignment.value.toNat
-  if alignment = 0 || alignment >= 2 ^ 64 || alignment &&& (alignment - 1) != 0 then
+  let alignment : Int := if properties.alignment.value = 0 then layout.abiAlignment
+    else properties.alignment.value
+  if !isValidLLVMAlignment alignment || alignment >= 2 ^ 64 then
     return (ctx, none)
   let props : RISCVStackAllocaProperties :=
     { size := IntegerAttr.mk size (IntegerType.mk 64)

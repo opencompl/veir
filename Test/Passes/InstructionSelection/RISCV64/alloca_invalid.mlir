@@ -13,6 +13,12 @@
     %one = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64
     %large = "llvm.mlir.constant"() <{value = 2305843009213693952 : i64}> : () -> i64
     %wide = "llvm.mlir.constant"() <{value = 18446744073709551616 : i128}> : () -> i128
+    %poison = "llvm.mlir.poison"() : () -> i64
+
+    // Constant-like poison is not a concrete allocation count.
+    %poison_count = "llvm.alloca"(%poison) <{elem_type = i64}> : (i64) -> !llvm.ptr
+    // CHECK: "llvm.alloca"({{.*}}) <{"alignment" = 0 : i64, "elem_type" = i64}>
+    "test.test"(%poison_count) : (!llvm.ptr) -> ()
 
     %dynamic = "llvm.alloca"(%n) <{elem_type = i64}> : (i64) -> !llvm.ptr
     // CHECK: "llvm.alloca"({{.*}}) <{"alignment" = 0 : i64, "elem_type" = i64}>
