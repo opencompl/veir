@@ -776,15 +776,17 @@ def add_shift_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (a, shlNeg, _ap) := matchAdd op ctx.raw | return (ctx, none)
   let some dShl := shlNeg.definingOp? | return (ctx, none)
-  let some (negB, c, shp) := matchShl dShl ctx.raw | return (ctx, none)
+  let some (negB, c, _shp) := matchShl dShl ctx.raw | return (ctx, none)
   let some dSub := negB.definingOp? | return (ctx, none)
-  let some (zeroV, b, subp) := matchSub dSub ctx.raw | return (ctx, none)
+  let some (zeroV, b, _subp) := matchSub dSub ctx.raw | return (ctx, none)
   let some zc := matchConstantIntVal zeroV ctx.raw | return (ctx, none)
   if zc ≠ 0 then return (ctx, none)
+  /- Shifting B can overflow even when shifting -B does not, and the negation's
+     flags do not constrain the replacement subtraction from A. -/
   let (ctx, newShl) ← WfRewriter.createOp! ctx Llvm.shl #[b.getType! ctx.raw] #[b, c]
-    #[] #[] shp none
+    #[] #[] (NswNuwProperties.mk false false) none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[a, (newShl.getResult 0)]
-    #[] #[] subp none
+    #[] #[] (NswNuwProperties.mk false false) none
   some (ctx, some (#[newShl, newOp], #[newOp.getResult 0]))
 
 def add_shift (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -796,15 +798,16 @@ def add_shift_commute_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (shlNeg, a, _ap) := matchAdd op ctx.raw | return (ctx, none)
   let some dShl := shlNeg.definingOp? | return (ctx, none)
-  let some (negB, c, shp) := matchShl dShl ctx.raw | return (ctx, none)
+  let some (negB, c, _shp) := matchShl dShl ctx.raw | return (ctx, none)
   let some dSub := negB.definingOp? | return (ctx, none)
-  let some (zeroV, b, subp) := matchSub dSub ctx.raw | return (ctx, none)
+  let some (zeroV, b, _subp) := matchSub dSub ctx.raw | return (ctx, none)
   let some zc := matchConstantIntVal zeroV ctx.raw | return (ctx, none)
   if zc ≠ 0 then return (ctx, none)
+  /- As in add_shift_local, neither replacement inherits the overflow flags. -/
   let (ctx, newShl) ← WfRewriter.createOp! ctx Llvm.shl #[b.getType! ctx.raw] #[b, c]
-    #[] #[] shp none
+    #[] #[] (NswNuwProperties.mk false false) none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[a, (newShl.getResult 0)]
-    #[] #[] subp none
+    #[] #[] (NswNuwProperties.mk false false) none
   some (ctx, some (#[newShl, newOp], #[newOp.getResult 0]))
 
 def add_shift_commute (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -1312,7 +1315,7 @@ def AMinusC1PlusC2 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /-! ### or_and_xor_to_xor_or :  (X & Y) | ~Y  →  X | ~Y -/
 def or_and_xor_to_xor_or_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (andV, notV, oprops) := matchOr op ctx.raw | return (ctx, none)
+  let some (andV, notV, _oprops) := matchOr op ctx.raw | return (ctx, none)
   let some dAnd := andV.definingOp? | return (ctx, none)
   let some (x, y, _aprops) := matchAnd dAnd ctx.raw | return (ctx, none)
   let some dNot := notV.definingOp? | return (ctx, none)
@@ -1320,8 +1323,9 @@ def or_and_xor_to_xor_or_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if y1 != y then return (ctx, none)
   let some cst := matchConstantIntVal m1v ctx.raw | return (ctx, none)
   if cst ≠ -1 then return (ctx, none)
+  /- Removing the AND can introduce overlap between the OR operands. -/
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.or #[andV.getType! ctx.raw] #[x, notV]
-    #[] #[] oprops none
+    #[] #[] ({ disjoint := false } : DisjointProperties) none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
 def or_and_xor_to_xor_or (rewriter : PatternRewriter OpCode) (op : OperationPtr)

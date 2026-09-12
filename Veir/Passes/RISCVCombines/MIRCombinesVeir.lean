@@ -208,8 +208,9 @@ def or_and_xor_to_or_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if y != y1 then return (ctx, none)
   let some cst := matchConstantIntVal rhs ctx.raw | return (ctx, none)
   if cst ≠ -1 then return (ctx, none)
+  /- Removing the AND can introduce overlap between the OR operands. -/
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.or #[and.getType! ctx.raw] #[x, y]
-    #[] #[] _props none
+    #[] #[] ({ disjoint := false } : DisjointProperties) none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
 def or_and_xor_to_or (rewriter : PatternRewriter OpCode) (op : OperationPtr)
