@@ -3,10 +3,10 @@ module
 public import Veir.PatternRewriter.Basic
 public import Veir.Analysis.DataFlow.SparseConstantPropagationAnalysis
 import Veir.Interfaces.FoldInterfaces
+import Veir.Interfaces.ControlFlowInterfaces
 
 namespace Veir.Canonicalize
 
-/-- Materialize one inferred constant at the definition point of `value`. -/
 private def replaceConstant (rewriter : PatternRewriter OpCode)
     (dfCtx : DataFlowContext) (value : ValuePtr) (materializer : OpCode) :
     Option (PatternRewriter OpCode) := do
@@ -24,6 +24,23 @@ private def replaceConstant (rewriter : PatternRewriter OpCode)
     (some insertionPoint)
   return rewriter.replaceValue! value (op.getResult 0)
 
+/--
+A block argument has no defining operation, so take the dialect from a value some
+predecessor forwards into this argument position.
+-/
+private def blockArgumentMaterializer
+    (argument : BlockArgumentPtr) (ctx : IRContext OpCode) : OpCode := Id.run do
+  let mut maybeUse := (argument.block.get! ctx).firstUse
+  while let some use := maybeUse do
+    let useStruct := use.get! ctx
+    maybeUse := useStruct.nextUse
+    let some forwarded :=
+        BranchOpInterface.getSuccessorOperand? useStruct.owner use.index argument.index ctx
+      | continue
+    let some definingOp := forwarded.definingOp? | continue
+    return definingOp.getOpType! ctx
+  .arith .constant
+
 private def propagateConstants (dfCtx : DataFlowContext)
     (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
@@ -34,12 +51,9 @@ private def propagateConstants (dfCtx : DataFlowContext)
   for result in op.getResults! rewriter.ctx.raw do
     rewriter ← replaceConstant rewriter dfCtx result opType
   for operand in operands do
-    let .blockArgument _ := operand | continue
-    -- Block arguments have no defining dialect. The materializer checks the type.
-    let materializer : OpCode := match (operand.getType! rewriter.ctx.raw).val with
-      | .modArithType _ => .mod_arith .constant
-      | _ => .arith .constant
-    rewriter ← replaceConstant rewriter dfCtx operand materializer
+    let .blockArgument argument := operand | continue
+    rewriter ← replaceConstant rewriter dfCtx operand
+      (blockArgumentMaterializer argument rewriter.ctx.raw)
   return rewriter
 
 /--

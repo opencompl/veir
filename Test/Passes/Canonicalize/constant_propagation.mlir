@@ -22,6 +22,8 @@
   // CHECK-NEXT: "func.return"(%[[RESULT]])
 
   // Both successor edges target the same block, with distinct equal constants.
+  // The materializer follows the dialect of a value a predecessor forwards in;
+  // when the predecessors disagree the choice between them is arbitrary.
   "func.func"() <{function_type = (i1) -> i32, sym_name = "equal_join"}> ({
   ^entry(%cond : i1):
     %left = "arith.constant"() <{value = 42 : i32}> : () -> i32
@@ -34,7 +36,7 @@
   // CHECK-LABEL: func.func @equal_join
   // CHECK: "cf.cond_br"
   // CHECK-NEXT: ^{{.*}}(%{{.*}}: i32):
-  // CHECK-NEXT: %[[JOINED:.*]] = "arith.constant"() <{"value" = 42 : i32}>
+  // CHECK-NEXT: %[[JOINED:.*]] = "llvm.mlir.constant"() <{"value" = 42 : i32}>
   // CHECK-NEXT: "func.return"(%[[JOINED]])
 
   "func.func"() <{function_type = (i1) -> i32, sym_name = "conflicting_join"}> ({
@@ -154,6 +156,22 @@
   // CHECK-NEXT: ^{{.*}}(%{{.*}}: i32):
   // CHECK-NEXT: %[[LLVM_RESULT:.*]] = "llvm.mlir.constant"() <{"value" = 42 : i32}>
   // CHECK-NEXT: "func.return"(%[[LLVM_RESULT]])
+
+  // The block argument keeps a surviving `llvm` user, so the materialized
+  // constant must stay in the `llvm` dialect rather than reintroducing `arith`.
+  "func.func"() <{function_type = (!llvm.ptr) -> (), sym_name = "llvm_argument"}> ({
+  ^entry(%ptr : !llvm.ptr):
+    %value = "llvm.mlir.constant"() <{value = 41 : i32}> : () -> i32
+    "llvm.br"(%value) [^exit] : (i32) -> ()
+  ^exit(%input : i32):
+    "llvm.store"(%input, %ptr) <{ordering = 0 : i64}> : (i32, !llvm.ptr) -> ()
+    "func.return"() : () -> ()
+  }) : () -> ()
+  // CHECK-LABEL: func.func @llvm_argument
+  // CHECK: "llvm.br"
+  // CHECK-NEXT: ^{{.*}}(%{{.*}}: i32):
+  // CHECK-NEXT: %[[LLVM_ARG:.*]] = "llvm.mlir.constant"() <{"value" = 41 : i32}>
+  // CHECK-NEXT: "llvm.store"(%[[LLVM_ARG]]
 
   "func.func"() <{function_type = () -> !mod_arith.int<17 : i8>, sym_name = "modular_argument"}> ({
   ^entry:
