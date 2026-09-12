@@ -80,6 +80,8 @@ def f16 : FloatType := { format := .f16 }
 def f32 : FloatType := { format := .f32 }
 def f64 : FloatType := { format := .f64 }
 def bf16 : FloatType := { format := .bf16 }
+def f80 : FloatType := { format := .f80 }
+def f128 : FloatType := { format := .f128 }
 def f8E5M2 : FloatType := { format := .f8E5M2 }
 def f8E4M3FN : FloatType := { format := .f8E4M3FN }
 def f8E4M3FNUZ : FloatType := { format := .f8E4M3FNUZ }
