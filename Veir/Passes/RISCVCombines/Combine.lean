@@ -932,6 +932,7 @@ def redundant_binop_in_equality_XXorYNeX (rewriter : PatternRewriter OpCode) (op
 
 /-! ### match_selects -/
 
+-- When the result is already i1, return the condition or its inverse directly.
 -- select c, 1, 0 → zext c
 def select_1_0_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
@@ -939,6 +940,8 @@ def select_1_0_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if !isConstantOne tv ctx.raw then return (ctx, none)
   let some cf := matchConstantIntVal fv ctx.raw | return (ctx, none)
   if cf ≠ 0 then return (ctx, none)
+  if (op.getResult 0 : ValuePtr).getType! ctx.raw = cond.getType! ctx.raw then
+    return (ctx, some (#[], #[cond]))
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.zext #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[cond]
     #[] #[] ({ nneg := false } : NnegProperties) none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
@@ -955,6 +958,8 @@ def select_neg1_0_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if ct ≠ -1 then return (ctx, none)
   let some cf := matchConstantIntVal fv ctx.raw | return (ctx, none)
   if cf ≠ 0 then return (ctx, none)
+  if (op.getResult 0 : ValuePtr).getType! ctx.raw = cond.getType! ctx.raw then
+    return (ctx, some (#[], #[cond]))
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sext #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[cond]
     #[] #[] () none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
@@ -976,6 +981,8 @@ def select_0_1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     #[] #[] m1 none
   let (ctx, ncond) ← WfRewriter.createOp! ctx Llvm.xor #[cond.getType! ctx.raw] #[cond, (c1.getResult 0)]
     #[] #[] () none
+  if (op.getResult 0 : ValuePtr).getType! ctx.raw = cond.getType! ctx.raw then
+    return (ctx, some (#[c1, ncond], #[ncond.getResult 0]))
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.zext #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[(ncond.getResult 0)]
     #[] #[] ({ nneg := false } : NnegProperties) none
   some (ctx, some (#[c1, ncond, newOp], #[newOp.getResult 0]))
@@ -998,6 +1005,8 @@ def select_0_neg1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     #[] #[] m1 none
   let (ctx, ncond) ← WfRewriter.createOp! ctx Llvm.xor #[cond.getType! ctx.raw] #[cond, (c1.getResult 0)]
     #[] #[] () none
+  if (op.getResult 0 : ValuePtr).getType! ctx.raw = cond.getType! ctx.raw then
+    return (ctx, some (#[c1, ncond], #[ncond.getResult 0]))
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sext #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[(ncond.getResult 0)]
     #[] #[] () none
   some (ctx, some (#[c1, ncond, newOp], #[newOp.getResult 0]))
@@ -1175,7 +1184,7 @@ def NotAPlusNegOne_rw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 
 def sub_one_from_sub_rw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (subVal, c1v, sp) := matchSub op ctx.raw | return (ctx, none)
+  let some (subVal, c1v, _sp) := matchSub op ctx.raw | return (ctx, none)
   if !isConstantOne c1v ctx.raw then return (ctx, none)
   let some dSub := subVal.definingOp? | return (ctx, none)
   let some (x, y, _sp2) := matchSub dSub ctx.raw | return (ctx, none)
@@ -1185,8 +1194,10 @@ def sub_one_from_sub_rw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     #[] #[] m1 none
   let (ctx, xorOp) ← WfRewriter.createOp! ctx Llvm.xor #[y.getType! ctx.raw] #[y, (cm1.getResult 0)]
     #[] #[] () none
+  /- The addition can overflow even when the outer subtraction does not,
+     including signed overflow when the unflagged inner subtraction wraps. -/
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.add #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[(xorOp.getResult 0), x]
-    #[] #[] sp none
+    #[] #[] (NswNuwProperties.mk false false) none
   some (ctx, some (#[cm1, xorOp, newOp], #[newOp.getResult 0]))
 
 def sub_one_from_sub_rw (rewriter : PatternRewriter OpCode) (op : OperationPtr)

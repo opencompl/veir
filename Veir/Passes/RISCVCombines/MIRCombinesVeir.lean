@@ -181,15 +181,17 @@ def binop_right_to_zero (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 
 def mul_by_neg_one_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (x, rhs, _props) := matchMul op ctx.raw | return (ctx, none)
+  let some (x, rhs, props) := matchMul op ctx.raw | return (ctx, none)
   let some cst := matchConstantIntVal rhs ctx.raw | return (ctx, none)
   if cst ≠ -1 then return (ctx, none)
   let .integerType ctype := (x.getType! ctx.raw).val | return (ctx, none)
   let cstOpProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) ctype))
   let (ctx, cstOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[x.getType! ctx.raw] #[]
     #[] #[] cstOpProp none
+  /- Signed negation preserves `nsw`, but `nuw` does not carry over: multiplying
+     1 by the all-ones value is defined unsigned, while subtracting 1 from 0 is not. -/
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[x.getType! ctx.raw] #[(cstOp.getResult 0), x]
-    #[] #[] _props none
+    #[] #[] { props with nuw := false } none
   some (ctx, some (#[cstOp, newOp], #[newOp.getResult 0]))
 
 def mul_by_neg_one (rewriter : PatternRewriter OpCode) (op : OperationPtr)
