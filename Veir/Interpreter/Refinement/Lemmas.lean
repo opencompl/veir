@@ -57,8 +57,56 @@ theorem MemoryState.isRefinedBy_refl (m : MemoryState) :
   ⟨rfl, fun _ => MemoryObject.isRefinedBy_refl _⟩
 
 @[simp, grind .]
-theorem FunctionResult.isRefinedBy_refl (r : MemoryState × Array RuntimeValue) : r ⊒ r := by
-  simp [FunctionResult.isRefinedBy]
+theorem RuntimeValue.isRefinedByUnder_id_refl (v : RuntimeValue) :
+    RuntimeValue.isRefinedByUnder id v v := by
+  cases v <;> simp [RuntimeValue.isRefinedByUnder]
+
+@[simp, grind .]
+theorem RuntimeValue.arrayIsRefinedByUnder_id_refl (a : Array RuntimeValue) :
+    RuntimeValue.arrayIsRefinedByUnder id a a := by
+  simp [RuntimeValue.arrayIsRefinedByUnder]
+
+@[simp, grind .]
+theorem MemoryByte.isRefinedByUnder_id_refl (b : MemoryByte) :
+    MemoryByte.isRefinedByUnder id b b := by
+  cases b <;> simp only [isRefinedByUnder, id, and_self]
+  bv_decide
+
+@[simp, grind .]
+theorem MemoryObject.isRefinedByUnder_id_refl (m : MemoryObject) :
+    MemoryObject.isRefinedByUnder id m m :=
+  ⟨rfl, rfl, id, fun _ => MemoryByte.isRefinedByUnder_id_refl _⟩
+
+/-- Under the identity renaming, value refinement is the plain one. -/
+@[simp, grind =]
+theorem RuntimeValue.isRefinedByUnder_id_iff {s t : RuntimeValue} :
+    RuntimeValue.isRefinedByUnder id s t ↔ s ⊒ t := by
+  cases s <;> cases t <;> simp only [RuntimeValue.isRefinedByUnder, RuntimeValue.isRefinedBy, id]
+  constructor
+  · rintro ⟨h1, h2⟩
+    cases ‹Pointer›; cases ‹Pointer›
+    simp_all
+  · rintro rfl
+    exact ⟨rfl, rfl⟩
+
+@[simp, grind =]
+theorem RuntimeValue.arrayIsRefinedByUnder_id_iff {a b : Array RuntimeValue} :
+    RuntimeValue.arrayIsRefinedByUnder id a b ↔ a ⊒ b := by
+  simp [RuntimeValue.arrayIsRefinedByUnder, RuntimeValue.arrayIsRefinedBy]
+
+/-- Equal final memories with refining results refine as function results, under the identity renaming. -/
+theorem FunctionResult.isRefinedBy_of_memory_eq {init mem : MemoryState} {vs vs' : Array RuntimeValue}
+    (h : vs ⊒ vs') : FunctionResult.isRefinedBy init (mem, vs) (mem, vs') :=
+  ⟨id, fun _ _ => rfl, fun _ h => h,
+    fun i hi _ => ⟨i, hi, rfl, MemoryObject.isRefinedByUnder_id_refl _⟩,
+    RuntimeValue.arrayIsRefinedByUnder_id_iff.mpr h⟩
+
+@[simp, grind .]
+theorem FunctionResult.isRefinedBy_refl (init : MemoryState) (r : MemoryState × Array RuntimeValue) :
+    FunctionResult.isRefinedBy init r r :=
+  ⟨id, fun _ _ => rfl, fun _ h => h,
+    fun i hi _ => ⟨i, hi, rfl, MemoryObject.isRefinedByUnder_id_refl _⟩,
+    RuntimeValue.arrayIsRefinedByUnder_id_refl _⟩
 
 @[simp, grind .]
 theorem Interp.isRefinedBy_refl_of_ne_fail {α : Type} {R : α → α → Prop}
@@ -114,9 +162,57 @@ theorem RuntimeValue.arrayIsRefinedBy_trans {a b c : Array RuntimeValue}
     (h12 : a ⊒ b) (h23 : b ⊒ c) : a ⊒ c := by
   grind [RuntimeValue.arrayIsRefinedBy, RuntimeValue.isRefinedBy_trans]
 
-theorem FunctionResult.isRefinedBy_trans {r₁ r₂ r₃ : MemoryState × Array RuntimeValue}
-    (h12 : r₁ ⊒ r₂) (h23 : r₂ ⊒ r₃) : r₁ ⊒ r₃ := by
-  grind [FunctionResult.isRefinedBy, RuntimeValue.arrayIsRefinedBy_trans]
+theorem RuntimeValue.isRefinedByUnder_trans {f g : Nat → Nat} {v₁ v₂ v₃ : RuntimeValue}
+    (h12 : RuntimeValue.isRefinedByUnder f v₁ v₂) (h23 : RuntimeValue.isRefinedByUnder g v₂ v₃) :
+    RuntimeValue.isRefinedByUnder (fun j => f (g j)) v₁ v₃ := by
+  cases v₁ <;> cases v₂ <;> cases v₃ <;>
+    simp only [RuntimeValue.isRefinedByUnder] at * <;>
+    grind [RuntimeValue.isRefinedBy, RuntimeValue.isRefinedBy_trans]
+
+theorem RuntimeValue.arrayIsRefinedByUnder_trans {f g : Nat → Nat} {a b c : Array RuntimeValue}
+    (h12 : RuntimeValue.arrayIsRefinedByUnder f a b) (h23 : RuntimeValue.arrayIsRefinedByUnder g b c) :
+    RuntimeValue.arrayIsRefinedByUnder (fun j => f (g j)) a c := by
+  grind [RuntimeValue.arrayIsRefinedByUnder, RuntimeValue.isRefinedByUnder_trans]
+
+theorem MemoryByte.isRefinedByUnder_trans {f g : Nat → Nat} {b₁ b₂ b₃ : MemoryByte}
+    (h12 : MemoryByte.isRefinedByUnder f b₁ b₂) (h23 : MemoryByte.isRefinedByUnder g b₂ b₃) :
+    MemoryByte.isRefinedByUnder (fun j => f (g j)) b₁ b₃ := by
+  cases b₁ <;> cases b₂ <;> cases b₃ <;> simp only [isRefinedByUnder] at * <;> try grind
+  all_goals bv_decide
+
+theorem MemoryObject.isRefinedByUnder_trans {f g : Nat → Nat} {m₁ m₂ m₃ : MemoryObject}
+    (h12 : MemoryObject.isRefinedByUnder f m₁ m₂) (h23 : MemoryObject.isRefinedByUnder g m₂ m₃) :
+    MemoryObject.isRefinedByUnder (fun j => f (g j)) m₁ m₃ :=
+  ⟨h12.1.trans h23.1, h12.2.1.trans h23.2.1, fun h => h23.2.2.1 (h12.2.2.1 h),
+    fun i => MemoryByte.isRefinedByUnder_trans (h12.2.2.2 i) (h23.2.2.2 i)⟩
+
+theorem FunctionResult.isRefinedBy_trans {init : MemoryState}
+    {r₁ r₂ r₃ : MemoryState × Array RuntimeValue}
+    (h12 : FunctionResult.isRefinedBy init r₁ r₂) (h23 : FunctionResult.isRefinedBy init r₂ r₃) :
+    FunctionResult.isRefinedBy init r₁ r₃ := by
+  obtain ⟨f, hfId, hfLocal, hfObj, hfVals⟩ := h12
+  obtain ⟨g, hgId, hgLocal, hgObj, hgVals⟩ := h23
+  refine ⟨fun j => f (g j), ?_, ?_, ?_, RuntimeValue.arrayIsRefinedByUnder_trans hfVals hgVals⟩
+  · intro i hi
+    show f (g i) = i
+    rw [hgId i hi, hfId i hi]
+  · intro j hj
+    show init.objects.size ≤ f (g j)
+    exact hfLocal _ (hgLocal j hj)
+  · intro i hi hObs
+    obtain ⟨j, hj, hfj, hObj12⟩ := hfObj i hi hObs
+    /- `j` is observable in `r₂`: it is a pre-existing object, or it inherited the escape. -/
+    have hObs2 : r₂.1.Observable init.objects.size j := by
+      rcases hObs with hlt | hEsc
+      · left
+        rcases Nat.lt_or_ge j init.objects.size with hj' | hj'
+        · exact hj'
+        · have := hfLocal j hj'
+          omega
+      · right
+        exact hObj12.2.2.1 (by simpa [hfj] using hEsc)
+    obtain ⟨k, hk, hgk, hObj23⟩ := hgObj j hj hObs2
+    exact ⟨k, hk, by simp [hgk, hfj], MemoryObject.isRefinedByUnder_trans hObj12 hObj23⟩
 
 theorem Interp.isRefinedBy_trans {α : Type} {R : α → α → Prop}
     (hR : ∀ a b c, R a b → R b c → R a c)
