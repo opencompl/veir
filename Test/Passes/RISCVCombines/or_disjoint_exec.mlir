@@ -10,7 +10,7 @@
     %zero = "llvm.mlir.constant"() <{value = 0 : i8}> : () -> i8
     "cf.br"(%one, %zero, %one) [^test] : (i8, i8, i8) -> ()
   ^test(%x: i8, %y: i8, %z: i8):
-    %ones = "llvm.mlir.constant"() <{value = 255 : i8}> : () -> i8
+    %ones = "llvm.mlir.constant"() <{value = -1 : i8}> : () -> i8
     %ny = "llvm.xor"(%y, %ones) : (i8, i8) -> i8
     %xy = "llvm.and"(%x, %y) : (i8, i8) -> i8
     // (1 & 0) | ~0 = 255, but 1 and ~0 overlap after removing the AND.
