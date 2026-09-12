@@ -28,6 +28,12 @@ inductive AbstractConstant where
   | constant (value : ConcreteConstant)
 deriving BEq, DecidableEq, TypeName
 
+instance : ToString AbstractConstant where
+  toString
+    | .top => "top"
+    | .bottom => "bottom"
+    | .constant constant => s!"const({constant.value} : i{constant.bitwidth})"
+
 namespace AbstractConstant
 
 /-- Defines the ordering of abstract values in the constant domain. -/

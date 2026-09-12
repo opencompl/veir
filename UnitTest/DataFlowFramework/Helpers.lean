@@ -169,15 +169,6 @@ def runWithAnalyses
         | return "analysis did not converge"
       return renderReport (check top dfCtx parserState)
 
-/-- Sparse constant propagation helpers. -/
-def showConstantDomain : AbstractConstant -> String
-  | .top =>
-    "top"
-  | .bottom =>
-    "bottom"
-  | .constant c =>
-    s!"const({c.value} : i{c.bitwidth})"
-
 def checkNamedConstants
     (dfCtx : DataFlowContext)
     (valueDefs : HashMap String ValuePtr)
@@ -191,5 +182,5 @@ def checkNamedConstants
       SparseFact.getElement .sparseConstant value dfCtx
     if observedValue != expectedValue then
       report := report.push
-        s!"constant {name}: expected {showConstantDomain expectedValue}, observed {showConstantDomain observedValue}"
+        s!"constant {name}: expected {expectedValue}, observed {observedValue}"
   report
