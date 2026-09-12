@@ -10,32 +10,59 @@ open Veir.Data
 namespace Veir
 
 /--
-  One allocation during interpretation: its bytes, a poison mask in which set
-  bits mark poison bits, and the physical address `base` at which the object
-  starts, so that byte `i` of the object lives at address `base + i`.
+  One byte of interpreter memory. A byte either holds a value, with set bits
+  of `poison` marking poison bits, or one of the eight bytes of a pointer that
+  was stored to memory, which remembers the pointer so that loading it back
+  keeps its provenance.
+-/
+inductive MemoryByte where
+  | value (bits poison : UInt8)
+  | fragment (ptr : Pointer) (index : Fin 8)
+deriving Inhabited, Repr, DecidableEq
+
+namespace MemoryByte
+
+/-- A byte all of whose bits are poison. -/
+def poison : MemoryByte := .value 0 0xff
+
+/-- The eight bytes that a stored pointer occupies. -/
+def fragmentsOf (p : Pointer) : Array MemoryByte := Array.ofFn fun i => .fragment p i
+
+/-- Value bytes for `val`, with the poison mask `poisonMask` (by default, none). -/
+def ofByteArray (val : ByteArray) (poisonMask : ByteArray := ByteArray.replicate val.size 0)
+    : Array MemoryByte :=
+  Array.ofFn fun (i : Fin val.size) => .value val[i] (poisonMask.getD i 0)
+
+/-- Whether `bytes` are, in order, the eight fragments of one pointer. -/
+def pointerOf? (bytes : Array MemoryByte) : Option Pointer :=
+  match bytes[0]? with
+  | some (MemoryByte.fragment p _) => if bytes = fragmentsOf p then some p else none
+  | _ => none
+
+end MemoryByte
+
+/--
+  One allocation during interpretation: its bytes and the physical address
+  `base` at which the object starts, so that byte `i` of the object lives at
+  address `base + i`.
 -/
 @[ext]
 structure MemoryObject where
-  contents : ByteArray
-  poisonMask : ByteArray
-  consistentSize : contents.size = poisonMask.size
+  bytes : Array MemoryByte
   base : UInt64
 
 /-- An object of `size` bytes at address `base`, all of them poison. -/
 def MemoryObject.ofSize (base : UInt64) (size : Nat) : MemoryObject :=
-  ⟨ByteArray.replicate size 0, ByteArray.replicate size 0xff, by grind, base⟩
+  ⟨Array.replicate size .poison, base⟩
 
 instance : Inhabited MemoryObject := ⟨MemoryObject.ofSize 0 0⟩
 
-def MemoryObject.size (obj : MemoryObject) : Nat := obj.contents.size
+def MemoryObject.size (obj : MemoryObject) : Nat := obj.bytes.size
 
 /-- Grow the object to at least `size` bytes; the new bytes are poison. -/
 def MemoryObject.ensureSize (obj : MemoryObject) (size : Nat) : MemoryObject :=
-  if obj.contents.size < size then
-    { obj with
-      contents := obj.contents.extend (size - obj.contents.size) 0,
-      poisonMask := obj.poisonMask.extend (size - obj.contents.size) 0xff,
-      consistentSize := by simp [obj.consistentSize] }
+  if obj.bytes.size < size then
+    { obj with bytes := obj.bytes ++ Array.replicate (size - obj.bytes.size) .poison }
   else
     obj
 
@@ -102,6 +129,23 @@ def MemoryState.address (mem : MemoryState) (p : Pointer) : UInt64 :=
   (mem.objects[p.object]?.map (·.base)).getD 0 + p.offset
 
 /--
+  The value of a byte as seen by an integer load: a pointer fragment reads as
+  the corresponding byte of the pointer's physical address, so pointers leak
+  into integers through memory as they do in LLVM.
+-/
+def MemoryState.byteValue (mem : MemoryState) (b : MemoryByte) : UInt8 × UInt8 :=
+  match b with
+  | .value bits poison => (bits, poison)
+  | .fragment p i => ((mem.address p).toByteArrayLE.getD i 0, 0)
+
+/-- The contents and poison mask of `bytes` as seen by an integer load. -/
+def MemoryState.valueBytes (mem : MemoryState) (bytes : Array MemoryByte) : ByteArray × ByteArray :=
+  bytes.foldl (init := (ByteArray.emptyWithCapacity bytes.size, ByteArray.emptyWithCapacity bytes.size))
+    fun (val, poison) b =>
+      let (v, p) := mem.byteValue b
+      (val.push v, poison.push p)
+
+/--
   Grow the object `p` points into so that `size` bytes at `p` are in bounds,
   as far as the gap before the next object allows. The RISC-V interpreter
   uses this to give machine code a memory that does not fault; LLVM accesses
@@ -134,83 +178,55 @@ def MemoryState.free (mem : MemoryState) (p : Pointer) : Interp MemoryState :=
   | some obj =>
     if p.offset ≠ 0 then Interp.ub else return mem.setObject p (MemoryObject.ofSize obj.base 0)
 
+/-- Store `bytes` at `p`. Yields UB if the access leaves the object. -/
+def MemoryState.storeBytes (mem : MemoryState) (p : Pointer) (bytes : Array MemoryByte)
+    : Interp MemoryState :=
+  match mem.getObject? p with
+  | none => Interp.ub
+  | some obj =>
+    if p.offset.toNat + bytes.size ≤ obj.bytes.size then
+      let stored := (bytes.size.fold (init := obj.bytes) fun i _ acc =>
+        acc.setIfInBounds (p.offset.toNat + i) bytes[i]!)
+      return mem.setObject p { obj with bytes := stored }
+    else
+      Interp.ub
+
 /--
   Store raw bytes at `p`, and set the corresponding poison bits as requested
   (by default, unset). Yields UB if the access leaves the object.
 -/
 def MemoryState.store (mem : MemoryState) (p : Pointer) (val : ByteArray)
-    (poison : ByteArray := ByteArray.replicate val.size 0) (h : poison.size = val.size := by grind)
-    : Interp MemoryState :=
-  match mem.getObject? p with
-  | none => Interp.ub
-  | some obj =>
-    if p.offset.toNat + val.size ≤ obj.contents.size then
-      return mem.setObject p { obj with
-        contents := val.copySlice 0 obj.contents p.offset.toNat val.size false,
-        poisonMask := poison.copySlice 0 obj.poisonMask p.offset.toNat val.size false,
-        consistentSize := by simp [ByteArray.copySlice_eq_append, obj.consistentSize, h] }
-    else
-      Interp.ub
+    (poison : ByteArray := ByteArray.replicate val.size 0) : Interp MemoryState :=
+  mem.storeBytes p (MemoryByte.ofByteArray val poison)
 
 /--
   Poison `n` bytes starting at `p`. Yields UB if the access leaves the object.
 -/
 def MemoryState.empoison (mem : MemoryState) (p : Pointer) (n : Nat) : Interp MemoryState :=
+  mem.storeBytes p (Array.replicate n .poison)
+
+/-- Load `size` bytes at `p`. Yields UB if the access leaves the object. -/
+def MemoryState.loadBytes (mem : MemoryState) (p : Pointer) (size : Nat) : Interp (Array MemoryByte) :=
   match mem.getObject? p with
   | none => Interp.ub
   | some obj =>
-    if h : p.offset.toNat + n ≤ obj.poisonMask.size then
-      let mask := ByteArray.replicate n 0xff
-      return mem.setObject p { obj with
-        poisonMask := mask.copySlice 0 obj.poisonMask p.offset.toNat n false,
-        consistentSize := by
-          have h' : min n mask.size = n := by grind
-          have h'' : min p.offset.toNat obj.poisonMask.size = p.offset.toNat := by grind
-          simp [ByteArray.copySlice_eq_append, obj.consistentSize, h', h'']
-          grind }
+    if p.offset.toNat + size ≤ obj.bytes.size then
+      return obj.bytes.extract p.offset.toNat (p.offset.toNat + size)
     else
       Interp.ub
 
 /--
-  Store an LLVM value at `p`. A pointer is stored as its physical address.
-  Yields UB if the access leaves the object or the pointer is null.
+  Load `size` raw bytes at `p` as an integer load sees them.
+  Yields UB if the access leaves the object.
 -/
-def MemoryState.llvmStore (mem : MemoryState) (p : Pointer) (val : RuntimeValue)
-    : Interp MemoryState :=
-  if p.isNull then Interp.ub else
-  match val with
-  | .int 8 (.val v) => mem.store p (ByteArray.empty.push (UInt8.ofBitVec v))
-  | .int 16 (.val v) => mem.store p (UInt16.ofBitVec v).toByteArrayLE
-  | .int 32 (.val v) => mem.store p (UInt32.ofBitVec v).toByteArrayLE
-  | .int 64 (.val v) => mem.store p (UInt64.ofBitVec v).toByteArrayLE
-  | .byte 64 v => mem.store p (UInt64.ofBitVec v.val).toByteArrayLE (UInt64.ofBitVec v.poison).toByteArrayLE (by simp)
-  | .int n .poison => mem.empoison p (n / 8)
-  | .addr v => mem.store p (mem.address v).toByteArrayLE
-  | _ => none
-
-/--
-  Load `size` raw bytes at `p`. Yields UB if the access leaves the object.
--/
-def MemoryState.load (mem : MemoryState) (p : Pointer) (size : Nat) : Interp ByteArray :=
-  match mem.getObject? p with
-  | none => Interp.ub
-  | some obj =>
-    if p.offset.toNat + size ≤ obj.contents.size then
-      return obj.contents.extract p.offset.toNat (p.offset.toNat + size)
-    else
-      Interp.ub
+def MemoryState.load (mem : MemoryState) (p : Pointer) (size : Nat) : Interp ByteArray := do
+  return (mem.valueBytes (← mem.loadBytes p size)).1
 
 /--
   Load the poison mask of `size` bytes at `p`. Yields UB if the access leaves the object.
 -/
-def MemoryState.loadPoison (mem : MemoryState) (p : Pointer) (size : Nat) : Interp ByteArray :=
-  match mem.getObject? p with
-  | none => Interp.ub
-  | some obj =>
-    if p.offset.toNat + size ≤ obj.poisonMask.size then
-      return obj.poisonMask.extract p.offset.toNat (p.offset.toNat + size)
-    else
-      Interp.ub
+def MemoryState.loadPoison (mem : MemoryState) (p : Pointer) (size : Nat) : Interp ByteArray := do
+  return (mem.valueBytes (← mem.loadBytes p size)).2
 
 /--
   Check if any of the `size` bytes at `p` is poison. Yields UB if the access leaves the object.
@@ -225,8 +241,41 @@ def MemoryState.hasPoison (mem : MemoryState) (p : Pointer) (size : Nat) : Inter
   return poison
 
 /--
-  Load an LLVM value of type `type` from `p`. A pointer is read back from the
-  physical address stored in memory.
+  Store an LLVM value at `p`. A pointer is stored as eight fragments that
+  remember it. Yields UB if the access leaves the object or the pointer is null.
+-/
+def MemoryState.llvmStore (mem : MemoryState) (p : Pointer) (val : RuntimeValue)
+    : Interp MemoryState :=
+  if p.isNull then Interp.ub else
+  match val with
+  | .int 8 (.val v) => mem.store p (ByteArray.empty.push (UInt8.ofBitVec v))
+  | .int 16 (.val v) => mem.store p (UInt16.ofBitVec v).toByteArrayLE
+  | .int 32 (.val v) => mem.store p (UInt32.ofBitVec v).toByteArrayLE
+  | .int 64 (.val v) => mem.store p (UInt64.ofBitVec v).toByteArrayLE
+  | .byte 64 v => mem.store p (UInt64.ofBitVec v.val).toByteArrayLE (UInt64.ofBitVec v.poison).toByteArrayLE
+  | .int n .poison => mem.empoison p (n / 8)
+  | .addr v => mem.storeBytes p (MemoryByte.fragmentsOf v)
+  | _ => none
+
+/--
+  The pointer that eight bytes of memory denote: the pointer whose fragments
+  they are, or, when they are all defined value bytes, the pointer at that
+  physical address. Any other mix stands for a poison pointer, which the
+  interpreter cannot represent yet and reads as null.
+-/
+def MemoryState.pointerOfBytes (mem : MemoryState) (bytes : Array MemoryByte) : Pointer :=
+  match MemoryByte.pointerOf? bytes with
+  | some p => p
+  | none =>
+    let (val, poison) := mem.valueBytes bytes
+    if bytes.all (· matches .value _ _) ∧ poison.toList.all (· == 0) then
+      mem.decode val.toUInt64LE!
+    else
+      -- FIXME poison pointer
+      .null
+
+/--
+  Load an LLVM value of type `type` from `p`.
   Yields UB if the access leaves the object or the pointer is null.
 -/
 def MemoryState.llvmLoad (mem : MemoryState) (p : Pointer) (type : TypeAttr)
@@ -255,10 +304,7 @@ def MemoryState.llvmLoad (mem : MemoryState) (p : Pointer) (type : TypeAttr)
       let poison := baPoison.toUInt64LE!.toBitVec
       return .byte 64 ⟨ba.toUInt64LE!.toBitVec &&& ~~~poison, poison, by bv_decide⟩
   | Attribute.llvmPointerType _ =>
-      let ba ← mem.load p 8
-      -- FIXME poison address
-      if ← mem.hasPoison p 8 then return .addr .null
-      return .addr (mem.decode ba.toUInt64LE!)
+      return .addr (mem.pointerOfBytes (← mem.loadBytes p 8))
   | _ => none
 
 end Veir
