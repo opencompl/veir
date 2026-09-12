@@ -436,8 +436,7 @@ def constant_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let .integerType type' := type.val | return (ctx, none)
   if type'.bitwidth ≠ 64 ∧ type'.bitwidth ≠ 32 ∧ type'.bitwidth ≠ 8 ∧ type'.bitwidth ≠ 1 then return (ctx, none)
   let imm := RISCVImmediateProperties.mk
-      (IntegerAttr.mk (BitVec.ofInt type'.bitwidth (decodeLLVMIntegerConstant const)).toInt
-        (IntegerType.mk 64))
+      { const with value := (BitVec.ofInt type'.bitwidth (decodeLLVMIntegerConstant const)).toInt }
   let (ctx, newOp) ← WfRewriter.createOp! ctx Riscv.li #[RegisterType.mk] #[]
       #[] #[] imm none
   let (ctx, castOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[type]
