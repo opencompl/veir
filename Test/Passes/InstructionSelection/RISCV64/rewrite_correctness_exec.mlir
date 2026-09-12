@@ -1,5 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s --check-prefix=RESULT
-// RUN: veir-opt %s -p=isel-riscv64 > %t
+// RUN: veir-opt %s --print-op-generic -p=isel-riscv64 > %t
 // RUN: veir-interpret %t | filecheck %s --check-prefix=RESULT
 // RUN: filecheck %s --check-prefix=ISEL --input-file=%t
 

@@ -1,11 +1,11 @@
 // RUN: veir-interpret %s | filecheck %s
-// RUN: veir-opt %s -p=instcombine > %t.instcombine
+// RUN: veir-opt %s --print-op-generic -p=instcombine > %t.instcombine
 // RUN: veir-interpret %t.instcombine | filecheck %s
-// RUN: veir-opt %s -p=riscv-combine > %t.combine
+// RUN: veir-opt %s --print-op-generic -p=riscv-combine > %t.combine
 // RUN: veir-interpret %t.combine | filecheck %s
-// RUN: veir-opt %s -p=isel-sdag-riscv64 > %t.sdag
+// RUN: veir-opt %s --print-op-generic -p=isel-sdag-riscv64 > %t.sdag
 // RUN: veir-interpret %t.sdag | filecheck %s
-// RUN: veir-opt %s -p=isel-sdag-riscv64,isel-riscv64 > %t.isel
+// RUN: veir-opt %s --print-op-generic -p=isel-sdag-riscv64,isel-riscv64 > %t.isel
 // RUN: veir-interpret %t.isel | filecheck %s
 
 // Attribute widths can differ from result widths. Exercise immediate selection,
