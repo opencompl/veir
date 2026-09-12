@@ -630,6 +630,11 @@ def and {w : Nat} (x y : Int w) : Int w := Id.run do
 
   val (x' &&& y')
 
+/-- Bitwise AND of two concrete integers agrees with `BitVec.and`. -/
+@[simp, grind =] theorem and_val {w : Nat} (x y : BitVec w) :
+    and (.val x) (.val y) = .val (x &&& y) := by
+  rfl
+
 
 /--
 The ‘or’ instruction returns the bitwise logical inclusive or of its two operands.

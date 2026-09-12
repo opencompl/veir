@@ -13,6 +13,8 @@ import UnitTest.DataFlowFramework.Dominance
 import UnitTest.DataFlowFramework.DeadCodeAnalysis
 import UnitTest.DataFlowFramework.EntryState
 import UnitTest.DataFlowFramework.ModArithRangeAnalysis
+import UnitTest.DataFlowFramework.KnownBitsAnalysis
+import UnitTest.ModArithRangeAnalysis
 import UnitTest.ConstantValue
 import UnitTest.Evaluate
 import UnitTest.FoldDecision
