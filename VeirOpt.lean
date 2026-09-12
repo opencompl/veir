@@ -1,9 +1,11 @@
 import Veir.Parser.MlirParser
+import Veir.GlobalOpInfo
 import Veir.Printer
 import Veir.Panic
 import Veir.Input
 
 import Veir.Passes.PrintIR
+import Veir.Passes.PrintModArithRanges
 import Veir.Passes.InstCombine
 import Veir.Passes.ApplyPatterns
 import Veir.Passes.CSE
@@ -30,6 +32,7 @@ open Veir
 -/
 def availablePasses : Std.HashMap String (Pass OpCode) :=
   ([ PrintIRPass,
+     PrintModArithRangesPass,
      InstCombinePass,
      ApplyPatternsPass,
      CSEPass,
@@ -101,6 +104,8 @@ structure VeirOptArgs where
   allowUnregisteredDialect : Bool
   /-- Whether to disable IR verification -/
   disableVerifiers : Bool
+  /-- Whether to print operations in generic form. -/
+  printGenericOpForm : Bool
 
 /--
   Replace every pass-group name in a pipeline string by the passes it stands for, leaving
@@ -157,13 +162,16 @@ def parseArgs (args : List String) : Except String VeirOptArgs := do
   -- Consume `--disable-verifiers` if present.
   let disableVerifiers := flags.contains "--disable-verifiers"
   let flags := flags.filter (· != "--disable-verifiers")
+  -- Consume `--print-op-generic` if present.
+  let printGenericOpForm := flags.contains "--print-op-generic"
+  let flags := flags.filter (· != "--print-op-generic")
   -- If anything survived, it was unrecognized and we error out.
   if let some flag := flags.head? then
     .error s!"Unrecognized flag '{flag}'."
 
   match inputSourceOfArgs positional with
   | .ok filename =>
-    return { filename, passes := pipeline, allowUnregisteredDialect, disableVerifiers }
+    return { filename, passes := pipeline, allowUnregisteredDialect, disableVerifiers, printGenericOpForm }
   | .error errMsg => .error errMsg
 
 set_option warn.sorry false in
@@ -172,7 +180,7 @@ def main (args : List String) : IO Unit := do
   match parseArgs args with
   | .error errMsg =>
     IO.eprintln s!"Error: {errMsg}"
-    IO.eprintln "Usage: veir-opt <filename> [-p=\"pass1,pass2,...\"]... [--allow-unregistered-dialect] [--disable-verifiers]"
+    IO.eprintln "Usage: veir-opt <filename> [-p=\"pass1,pass2,...\"]... [--allow-unregistered-dialect] [--disable-verifiers] [--print-op-generic]"
     IO.eprintln "  -p may be repeated; passes run in the order the flags appear."
     IO.eprintln "  A pass name may be followed by boolean options: pass{opt1 opt2=false}."
     IO.eprintln "  Bare option names mean true; omitted options take their declared defaults."
@@ -181,7 +189,7 @@ def main (args : List String) : IO Unit := do
     IO.eprintln "  A pass list may also contain pass-group names, which expand in place:"
     IO.eprintln passGroupsUsage
     IO.Process.exit 1
-  | .ok { filename, passes, allowUnregisteredDialect, disableVerifiers } =>
+  | .ok { filename, passes, allowUnregisteredDialect, disableVerifiers, printGenericOpForm } =>
     match ← parseOperation filename allowUnregisteredDialect with
     | .error errMsg =>
       IO.eprintln errMsg
@@ -196,4 +204,4 @@ def main (args : List String) : IO Unit := do
         IO.eprintln s!"Error: {errMsg}"
         IO.Process.exit 1
       | .ok finalCtx =>
-        Veir.Printer.printOperation finalCtx.raw op
+        Veir.Printer.printModule finalCtx.raw op { printGenericOpForm }

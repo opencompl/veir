@@ -14,8 +14,7 @@
     %out = "mod_arith.mul"(%add2, %small) : (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>
     "func.return"(%out) : (!mod_arith.int<12289 : i32>) -> ()
 
-    // CHECK:      "func.func"() <{"function_type" = (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>, "sym_name" = "mod_arith_add_chain"}> ({
-    // CHECK-NEXT: ^{{.*}}([[A:%.*]] : !mod_arith.int<12289 : i32>, [[B:%.*]] : !mod_arith.int<12289 : i32>):
+    // CHECK:      func.func @mod_arith_add_chain([[A:%.*]]: !mod_arith.int<12289 : i32>, [[B:%.*]]: !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32> {
     // CHECK-NEXT:   [[C46:%.*]] = "arith.constant"() <{"value" = 46 : i32}> : () -> i32
     // CHECK-NEXT:   [[C46_MOD:%.*]] = "builtin.unrealized_conversion_cast"([[C46]]) : (i32) -> !mod_arith.int<12289 : i32>
     // CHECK-NEXT:   [[C3:%.*]] = "arith.constant"() <{"value" = 3 : i32}> : () -> i32

@@ -15,7 +15,7 @@
   }) : () -> ()
 }) : () -> ()
 
-// REMUI:      ^{{.*}}([[ARG0:%.*]] : !mod_arith.int<7 : i32>, [[ARG1:%.*]] : !mod_arith.int<7 : i32>):
+// REMUI:      func.func @main([[ARG0:%.*]]: !mod_arith.int<7 : i32>, [[ARG1:%.*]]: !mod_arith.int<7 : i32>) -> !mod_arith.int<7 : i32> {
 // REMUI-NEXT:   [[C0:%.*]] = "builtin.unrealized_conversion_cast"([[ARG0]]) : (!mod_arith.int<7 : i32>) -> i32
 // REMUI-NEXT:   [[E0:%.*]] = "arith.extui"([[C0]]) : (i32) -> i33
 // REMUI-NEXT:   [[C1:%.*]] = "builtin.unrealized_conversion_cast"([[ARG1]]) : (!mod_arith.int<7 : i32>) -> i32
@@ -27,7 +27,7 @@
 // REMUI-NEXT:   [[RES:%.*]] = "builtin.unrealized_conversion_cast"([[T]]) : (i32) -> !mod_arith.int<7 : i32>
 // REMUI-NEXT:   "func.return"([[RES]]) : (!mod_arith.int<7 : i32>) -> ()
 
-// BARRETT:      ^{{.*}}([[ARG0:%.*]] : !mod_arith.int<7 : i32>, [[ARG1:%.*]] : !mod_arith.int<7 : i32>):
+// BARRETT:      func.func @main([[ARG0:%.*]]: !mod_arith.int<7 : i32>, [[ARG1:%.*]]: !mod_arith.int<7 : i32>) -> !mod_arith.int<7 : i32> {
 // BARRETT-NEXT:   [[C0:%.*]] = "builtin.unrealized_conversion_cast"([[ARG0]]) : (!mod_arith.int<7 : i32>) -> i32
 // BARRETT-NEXT:   [[E0:%.*]] = "arith.extui"([[C0]]) : (i32) -> i33
 // BARRETT-NEXT:   [[C1:%.*]] = "builtin.unrealized_conversion_cast"([[ARG1]]) : (!mod_arith.int<7 : i32>) -> i32
@@ -47,7 +47,7 @@
 // BARRETT-NEXT:   [[RES:%.*]] = "builtin.unrealized_conversion_cast"([[T]]) : (i32) -> !mod_arith.int<7 : i32>
 // BARRETT-NEXT:   "func.return"([[RES]]) : (!mod_arith.int<7 : i32>) -> ()
 
-// REMUI_POW2:      ^{{.*}}([[ARG0:%.*]] : !mod_arith.int<7 : i32>, [[ARG1:%.*]] : !mod_arith.int<7 : i32>):
+// REMUI_POW2:      func.func @main([[ARG0:%.*]]: !mod_arith.int<7 : i32>, [[ARG1:%.*]]: !mod_arith.int<7 : i32>) -> !mod_arith.int<7 : i32> {
 // REMUI_POW2-NEXT:   [[C0:%.*]] = "builtin.unrealized_conversion_cast"([[ARG0]]) : (!mod_arith.int<7 : i32>) -> i32
 // REMUI_POW2-NEXT:   [[E0:%.*]] = "arith.extui"([[C0]]) : (i32) -> i64
 // REMUI_POW2-NEXT:   [[C1:%.*]] = "builtin.unrealized_conversion_cast"([[ARG1]]) : (!mod_arith.int<7 : i32>) -> i32
@@ -59,7 +59,7 @@
 // REMUI_POW2-NEXT:   [[RES:%.*]] = "builtin.unrealized_conversion_cast"([[T]]) : (i32) -> !mod_arith.int<7 : i32>
 // REMUI_POW2-NEXT:   "func.return"([[RES]]) : (!mod_arith.int<7 : i32>) -> ()
 
-// BARRETT_POW2:      ^{{.*}}([[ARG0:%.*]] : !mod_arith.int<7 : i32>, [[ARG1:%.*]] : !mod_arith.int<7 : i32>):
+// BARRETT_POW2:      func.func @main([[ARG0:%.*]]: !mod_arith.int<7 : i32>, [[ARG1:%.*]]: !mod_arith.int<7 : i32>) -> !mod_arith.int<7 : i32> {
 // BARRETT_POW2-NEXT:   [[C0:%.*]] = "builtin.unrealized_conversion_cast"([[ARG0]]) : (!mod_arith.int<7 : i32>) -> i32
 // BARRETT_POW2-NEXT:   [[E0:%.*]] = "arith.extui"([[C0]]) : (i32) -> i64
 // BARRETT_POW2-NEXT:   [[C1:%.*]] = "builtin.unrealized_conversion_cast"([[ARG1]]) : (!mod_arith.int<7 : i32>) -> i32

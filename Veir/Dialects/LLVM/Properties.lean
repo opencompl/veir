@@ -3,6 +3,7 @@ module
 public import Veir.Data.LLVM.Int.Basic
 public import Veir.Data.LLVM.FloatPred
 public import Veir.Data.LLVM.AtomicOrdering
+public import Veir.Data.LLVM.ComdatKind
 public import Std.Data.HashMap
 public import Veir.IR.Attribute
 
@@ -809,6 +810,49 @@ def LLVMFenceProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute
       throw s!"llvm.fence: expected 'syncscope' to be a string attribute, but got {attr}"
     | none => .ok none
   return { ordering, syncscope }
+
+/-- Properties of `llvm.comdat`: the name of the comdat group. -/
+structure LLVMComdatProperties where
+  sym_name : StringAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMComdatProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMComdatProperties := do
+  if let some (key, _) := attrDict.toArray.find? (fun (k, _) => k ≠ "sym_name".toUTF8) then
+    throw s!"llvm.comdat: unexpected property '{String.fromUTF8! key}'"
+  let symName ← match attrDict["sym_name".toUTF8]? with
+    | some (.stringAttr s) => pure s
+    | some attr => throw s!"llvm.comdat: expected 'sym_name' to be a string attribute, but got {attr}"
+    | none => throw "llvm.comdat: missing 'sym_name' property"
+  return { sym_name := symName }
+
+/-- Properties of `llvm.comdat_selector`: its name and how duplicates are resolved. -/
+structure LLVMComdatSelectorProperties where
+  sym_name : StringAttr
+  comdat : Data.LLVM.ComdatKind
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMComdatSelectorProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMComdatSelectorProperties := do
+  if let some (key, _) := attrDict.toArray.find? (fun (k, _) =>
+      k ≠ "sym_name".toUTF8 && k ≠ "comdat".toUTF8) then
+    throw s!"llvm.comdat_selector: unexpected property '{String.fromUTF8! key}'"
+  let symName ← match attrDict["sym_name".toUTF8]? with
+    | some (.stringAttr s) => pure s
+    | some attr =>
+      throw s!"llvm.comdat_selector: expected 'sym_name' to be a string attribute, but got {attr}"
+    | none => throw "llvm.comdat_selector: missing 'sym_name' property"
+  let some attr := attrDict["comdat".toUTF8]?
+    | throw "llvm.comdat_selector: missing 'comdat' property"
+  let .integerAttr intAttr := attr
+    | throw s!"llvm.comdat_selector: expected 'comdat' to be an integer attribute, but got {attr}"
+  if intAttr.type.bitwidth ≠ 64 then
+    throw s!"llvm.comdat_selector: expected 'comdat' to be an i64 integer attribute, but got {attr}"
+  if intAttr.value < 0 then
+    throw s!"llvm.comdat_selector: invalid comdat kind {intAttr.value}"
+  let some kind := Data.LLVM.ComdatKind.fromNat intAttr.value.toNat
+    | throw s!"llvm.comdat_selector: invalid comdat kind {intAttr.value}"
+  return { sym_name := symName, comdat := kind }
 
 structure LLVMModuleFlagsProperties where
   flags : ArrayAttr
