@@ -1,8 +1,6 @@
 // RUN: veir-opt %s -p=canonicalize | filecheck %s
 
 "builtin.module"() ({
-  // Propagation evaluates the multiplication across a block boundary and
-  // replaces the argument returned by the last block.
   "func.func"() <{function_type = () -> i32, sym_name = "chain"}> ({
   ^entry:
     %two = "arith.constant"() <{value = 2 : i32}> : () -> i32
@@ -39,8 +37,6 @@
   // CHECK-NEXT: %[[JOINED:.*]] = "arith.constant"() <{"value" = 42 : i32}>
   // CHECK-NEXT: "func.return"(%[[JOINED]])
 
-  // The first argument joins conflicting constants; the second joins the same
-  // offset on both edges. Only the offset may be propagated into the addition.
   "func.func"() <{function_type = (i1) -> i32, sym_name = "conflicting_join"}> ({
   ^entry(%cond : i1):
     %left = "arith.constant"() <{value = 1 : i32}> : () -> i32
@@ -59,8 +55,6 @@
   // CHECK-NEXT: %[[CONFLICT_RESULT:.*]] = "arith.addi"(%[[CONFLICT]], %[[OFFSET]])
   // CHECK-NEXT: "func.return"(%[[CONFLICT_RESULT]])
 
-  // An unknown incoming value prevents propagation of the first argument while
-  // the second argument still supplies a constant operand to the addition.
   "func.func"() <{function_type = (i1, i32) -> i32, sym_name = "unknown_join"}> ({
   ^entry(%cond : i1, %unknown : i32):
     %known = "arith.constant"() <{value = 7 : i32}> : () -> i32
@@ -77,7 +71,6 @@
   // CHECK-NEXT: %[[UNKNOWN_RESULT:.*]] = "arith.addi"(%[[UNKNOWN]], %[[KNOWN_OFFSET]])
   // CHECK-NEXT: "func.return"(%[[UNKNOWN_RESULT]])
 
-  // The backedge preserves the entry constant.
   "func.func"() <{function_type = (i1) -> i32, sym_name = "constant_loop"}> ({
   ^entry(%cond : i1):
     %seven = "arith.constant"() <{value = 7 : i32}> : () -> i32
@@ -94,8 +87,6 @@
   // CHECK-NEXT: %[[LOOP_RESULT:.*]] = "arith.constant"() <{"value" = 7 : i32}>
   // CHECK-NEXT: "func.return"(%[[LOOP_RESULT]])
 
-  // The induction variable becomes unknown after the backedge is processed,
-  // but the loop-carried step remains constant and must be propagated.
   "func.func"() <{function_type = (i1) -> i32, sym_name = "varying_loop"}> ({
   ^entry(%cond : i1):
     %zero = "arith.constant"() <{value = 0 : i32}> : () -> i32
@@ -117,7 +108,6 @@
   // CHECK-NEXT: ^{{.*}}(%[[VARYING:[^ ]+]] : i32):
   // CHECK-NEXT: "func.return"(%[[VARYING]])
 
-  // The predecessor appears after its successor in the operation tree.
   "func.func"() <{function_type = () -> i32, sym_name = "late_predecessor"}> ({
   ^entry:
     "cf.br"() [^source] : () -> ()
@@ -133,8 +123,6 @@
   // CHECK-NEXT: %[[LATE:.*]] = "arith.constant"() <{"value" = 19 : i32}>
   // CHECK-NEXT: "func.return"(%[[LATE]])
 
-  // Poison propagates across the branch, even with an unknown other operand.
-  // Materialization respects each result's width and preserves observable uses.
   "func.func"() <{function_type = (i8) -> (i8, i1), sym_name = "poison"}> ({
   ^entry(%unknown : i8):
     %poison = "llvm.mlir.poison"() : () -> i8
@@ -152,7 +140,6 @@
   // CHECK-NEXT: "test.test"(%[[POISON_SUM]])
   // CHECK-NEXT: "func.return"(%[[POISON_SUM]], %[[POISON_FLAG]])
 
-  // An operation result uses its defining dialect's materializer.
   "func.func"() <{function_type = () -> i32, sym_name = "llvm_result"}> ({
   ^entry:
     %value = "llvm.mlir.constant"() <{value = 41 : i32}> : () -> i32
@@ -168,8 +155,6 @@
   // CHECK-NEXT: %[[LLVM_RESULT:.*]] = "llvm.mlir.constant"() <{"value" = 42 : i32}>
   // CHECK-NEXT: "func.return"(%[[LLVM_RESULT]])
 
-  // Modular integers also inhabit the integer constant domain, but need their
-  // own materializer when replacing a block argument.
   "func.func"() <{function_type = () -> !mod_arith.int<17 : i8>, sym_name = "modular_argument"}> ({
   ^entry:
     %value = "mod_arith.constant"() <{value = 3 : i8}> : () -> !mod_arith.int<17 : i8>
@@ -183,9 +168,6 @@
   // CHECK-NEXT: %[[MOD_RESULT:.*]] = "mod_arith.constant"() <{"value" = 3 : i8}>
   // CHECK-NEXT: "func.return"(%[[MOD_RESULT]])
 
-  // The fold table recognizes zero only on the right, so the initial analysis
-  // cannot infer the carry. Commuting and folding create a new constant, but
-  // analysis is not rerun: only the initially known offset propagates.
   "func.func"() <{function_type = (i32) -> (i1, i32), sym_name = "single_analysis"}> ({
   ^entry(%unknown : i32):
     %zero = "arith.constant"() <{value = 0 : i32}> : () -> i32
