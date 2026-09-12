@@ -1,7 +1,11 @@
 module
 
 public import Veir.Analysis.DataFlowFramework
-import Veir.Analysis.DataFlow.Domains.ConstantDomain
+public import Veir.Analysis.DataFlow.SparseFact
+public import Veir.Analysis.DataFlow.Domains.ConstantDomain
+public import Veir.Interfaces.ConstantLikeInterfaces
+public import Veir.Interfaces.ControlFlowInterfaces
+public import Std.Data.HashSet
 
 public section
 
@@ -52,7 +56,7 @@ end LivenessFact
 
 namespace DeadCodeAnalysis
 
-variable [FactSpec .liveness]
+variable [FactSpec .liveness] [SparseFactSpec .sparseConstant AbstractConstant]
 
 def kind : AnalysisKind :=
   .deadCode
@@ -89,85 +93,47 @@ def markEntryBlocksLive
   dfCtx
 
 /--
-Return whether the given operation is a branch op.
-TODO: This function likely needs to be replaced with
-an interface much like what MLIR has.
--/
-private def isBranchOp
-    (op : OperationPtr)
-    (irCtx : WfIRContext OpCode) : Bool :=
-  -- TODO: Replace this `.test .test` check once VeIR has proper branch ops.
-  match (op.get! irCtx.raw).opType with
-  | .test .test => true
-  | _ => false
-
-/--
-Read a literal constant directly from the defining operation when possible.
--/
-private def getLiteralConstant?
-    (value : ValuePtr)
-    (irCtx : WfIRContext OpCode) : Option AbstractConstant :=
-  match value with
-  | .opResult result =>
-    if result.index ≠ 0 then
-      none
-    else
-      match (result.op.get! irCtx.raw).opType with
-      | .arith .constant =>
-        let intAttr := (result.op.getProperties! irCtx.raw Arith.constant).value
-        some (.constant ⟨intAttr.type.bitwidth, Data.LLVM.Int.constant intAttr.type.bitwidth intAttr.value⟩)
-      | _ =>
-        none
-  | .blockArgument _ =>
-    none
-
-/--
-Get the constant domain lattice elements of the operands of an operation.
-Non-literal operands are conservatively treated as `top`, so standalone dead
-code analysis remains useful without any external constant information.
+Get the known constant values of the operands of an operation.
+Literal operands are read with the same `ValuePtr.constantValue` query that the
+folder uses to collect constant operands. `foldsTo` itself deliberately excludes
+constant-like operations and is used by sparse constant propagation instead.
+If sparse constant propagation is absent, unknown non-literal operands are treated
+as `none` so dead code analysis acts conservative instead of marking all branches
+as dead. When sparse constant propagation is registered but has not yet produced
+lattice facts for at least one of the operands, the outer `Option` is `none` to
+indicate that dead code analysis should bail out until sparse constant propagation
+changes the facts.
+When sparse constant propagation is registered, this function also subscribes dead
+code analysis to the operand lattice facts so the branch is revisited when those
+facts change.
 -/
 private def getOperandValues
     (op : OperationPtr)
     (dfCtx : DataFlowContext)
-    (irCtx : WfIRContext OpCode) : DataFlowContext × Option (Array AbstractConstant) := Id.run do
-  let operands := (op.getOperands! irCtx.raw).map fun operand =>
-    match getLiteralConstant? operand irCtx with
-    | some literal => literal
-    | none => .top
+    (irCtx : WfIRContext OpCode) :
+    DataFlowContext × Option (Array (Option RuntimeValue)) := Id.run do
+  let mut dfCtx := dfCtx
+  let mut operands : Array (Option RuntimeValue) := #[]
+  for operand in op.getOperands! irCtx.raw do
+    match operand.constantValue irCtx.raw with
+    | some literal =>
+        operands := operands.push (some literal)
+    | none =>
+      if !dfCtx.hasAnalysis .sparseConstantPropagation then
+        operands := operands.push none
+      else
+        dfCtx := dfCtx.modifyFact .sparseConstant (.ValuePtr operand) (fun fact =>
+          fact.subscribe kind)
+        let latticeElement :=
+          SparseFact.getElement .sparseConstant operand dfCtx
+        match latticeElement with
+        | .bottom =>
+          return (dfCtx, none)
+        | .top =>
+          operands := operands.push none
+        | .constant ⟨bitwidth, value⟩ =>
+          operands := operands.push (some (.int bitwidth value))
   (dfCtx, some operands)
-
-/--
-Returns the successor that would be chosen with the given constant operands.
-Returns `none` if a single successor could not be chosen.
-
-TODO: Replace this once VeIR supports branch operators! For now, we treat
-`.test .test` as a branch operator with the following semantics:
-- one successor: always take it
-- two successors: inspect the first operand as a boolean-like integer,
-  taking successor 0 when nonzero and successor 1 when zero
-- otherwise: unknown
--/
-private def getSuccessorForOperands?
-    (op : OperationPtr)
-    (operands : Array AbstractConstant)
-    (irCtx : WfIRContext OpCode) : Option BlockPtr :=
-  if op.getNumSuccessors! irCtx.raw = 1 then
-    some (op.getSuccessor! irCtx.raw 0)
-  else if op.getNumSuccessors! irCtx.raw = 2 then
-    match operands[0]? with
-    | some (AbstractConstant.constant constant) =>
-      match constant.value with
-      | Data.LLVM.Int.val value =>
-        if value = 0 then
-          some (op.getSuccessor! irCtx.raw 1)
-        else
-          some (op.getSuccessor! irCtx.raw 0)
-      | Data.LLVM.Int.poison =>
-        none
-    | _ =>
-      none
-  else
-    none
 
 /--
 Visit the given region branch operation, which defines regions, and
@@ -185,7 +151,7 @@ def visitBranchOperation
   let some parentBlock := (branch.get! irCtx.raw).parent
     | return dfCtx
 
-  match getSuccessorForOperands? branch operands irCtx with
+  match BranchOpInterface.getSuccessorForOperands? branch operands irCtx.raw with
   | some successor =>
     markEdgeLive parentBlock successor dfCtx irCtx
   | none =>
@@ -236,7 +202,7 @@ private def visitOp
       let parentBlock := (op.get! irCtx.raw).parent.get hParent
 
       -- Check if we can reason about the control-flow.
-      if isBranchOp op irCtx then
+      if (BranchOpInterface.getSuccessorOperands? op 0 irCtx.raw).isSome then
         dfCtx := visitBranchOperation op dfCtx irCtx
       else
         -- Conservatively mark all successors as live.
@@ -311,7 +277,7 @@ def init
 
 end DeadCodeAnalysis
 
-def DeadCodeAnalysis [FactSpec .liveness] : DataFlowAnalysis :=
+def DeadCodeAnalysis [FactSpec .liveness] [SparseFactSpec .sparseConstant AbstractConstant] : DataFlowAnalysis :=
   { kind := DeadCodeAnalysis.kind
     init := DeadCodeAnalysis.init
     visit := DeadCodeAnalysis.visit }
