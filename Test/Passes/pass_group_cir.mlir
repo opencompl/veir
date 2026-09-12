@@ -44,7 +44,7 @@
 // CHECK-NEXT: ^{{.*}}([[A:%.*]] : i32):
 // CHECK-NEXT: [[ZERO:%.*]] = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
 // CHECK-NEXT: [[COND:%.*]] = "arith.cmpi"([[A]], [[ZERO]]) <{"predicate" = 1 : i64}> : (i32, i32) -> i1
-// CHECK-NEXT: "cf.cond_br"([[COND]], [[A]]) [^{{.*}}, ^{{.*}}] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 1, 0>}> : (i1, i32) -> ()
+// CHECK-NEXT: "cf.cond_br"([[COND]], [[A]]) [^{{.*}}, ^{{.*}}] <{"operandSegmentSizes" = array<i32: 1, 1, 0>}> : (i1, i32) -> ()
 // CHECK-NEXT: ^{{.*}}([[X:%.*]] : i32):
 // CHECK-NEXT: "cf.br"([[X]]) [^{{.*}}] : (i32) -> ()
 // CHECK-NEXT: ^{{.*}}():

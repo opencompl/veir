@@ -16,9 +16,8 @@
     "test.test"(%add0, %add1, %mul0, %mul1, %sub0, %sub1, %sub2) : (!mod_arith.int<7 : i32>, !mod_arith.int<7 : i32>, !mod_arith.int<7 : i32>, !mod_arith.int<7 : i32>, !mod_arith.int<7 : i32>, !mod_arith.int<7 : i32>, !mod_arith.int<7 : i32>) -> ()
     "func.return"() : () -> ()
 
-    // CHECK-LABEL: "sym_name" = "binops"
-    // CHECK:      ^{{[0-9]+}}(%[[A:[^ ]*]] : !mod_arith.int<7 : i32>, %[[B:[^ ]*]] : !mod_arith.int<7 : i32>):
-    // CHECK-NEXT: %[[ADD:.*]] = "mod_arith.add"(%[[A]], %[[B]])
+    // CHECK-LABEL: func.func @binops(
+    // CHECK:      %[[ADD:.*]] = "mod_arith.add"(%[[A:[^ ]*]], %[[B:[^ ]*]])
     // CHECK-NEXT: %[[MUL:.*]] = "mod_arith.mul"(%[[A]], %[[B]])
     // CHECK-NEXT: %[[SUB:.*]] = "mod_arith.sub"(%[[A]], %[[B]])
     // CHECK-NEXT: %[[SUBR:.*]] = "mod_arith.sub"(%[[B]], %[[A]])
@@ -38,7 +37,7 @@
     "test.test"(%s7, %s11, %c3_7a, %c3_7b, %c5_7, %c3_11) : (!mod_arith.int<7 : i32>, !mod_arith.int<11 : i32>, !mod_arith.int<7 : i32>, !mod_arith.int<7 : i32>, !mod_arith.int<7 : i32>, !mod_arith.int<11 : i32>) -> ()
     "func.return"() : () -> ()
 
-    // CHECK-LABEL: "sym_name" = "moduli"
+    // CHECK-LABEL: func.func @moduli(
     // CHECK:      %[[S7:.*]] = "mod_arith.add"({{.*}}) : (!mod_arith.int<7 : i32>, !mod_arith.int<7 : i32>) -> !mod_arith.int<7 : i32>
     // CHECK-NEXT: %[[S11:.*]] = "mod_arith.add"({{.*}}) : (!mod_arith.int<11 : i32>, !mod_arith.int<11 : i32>) -> !mod_arith.int<11 : i32>
     // CHECK-NEXT: %[[C3_7:.*]] = "mod_arith.constant"() <{"value" = 3 : i32}> : () -> !mod_arith.int<7 : i32>

@@ -22,10 +22,10 @@
 }) : () -> ()
 
 // The `select` is gone; the false operand is returned directly.
-// CHECK:      ^{{.*}}(%{{.*}} : i64, %[[F:.*]] : i64):
+// CHECK:      func.func @foo(%{{.*}}: i64, %[[F:.*]]: i64) -> i64 {
 // CHECK-NOT:  "llvm.select"
 // CHECK:      "func.return"(%[[F]]) : (i64) -> ()
 
 // The constant-`1` case folds to the true operand, not the false one.
-// CHECK:      ^{{.*}}(%[[T:.*]] : i64, %{{.*}} : i64):
+// CHECK:      func.func @bar(%[[T:.*]]: i64, %{{.*}}: i64) -> i64 {
 // CHECK:      "func.return"(%[[T]]) : (i64) -> ()

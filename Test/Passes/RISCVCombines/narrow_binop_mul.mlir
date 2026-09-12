@@ -23,14 +23,14 @@
 }) : () -> ()
 
 // The mul runs on the narrowed operands.
-// CHECK:      ^{{.*}}(%[[X:.*]] : i64):
+// CHECK:      func.func @foo(%[[X:.*]]: i64) -> i32 {
 // CHECK:      %[[TX:.*]] = "llvm.trunc"(%[[X]]) : (i64) -> i32
 // CHECK:      %[[TC:.*]] = "llvm.trunc"(%{{.*}}) : (i64) -> i32
 // CHECK:      %[[R:.*]] = "llvm.mul"(%[[TX]], %[[TC]]) : (i32, i32) -> i32
 // CHECK:      "func.return"(%[[R]]) : (i32) -> ()
 
 // Non-constant second operand: the pattern does not fire.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i64, %[[NY:.*]] : i64):
+// CHECK:      func.func @bar(%[[NX:.*]]: i64, %[[NY:.*]]: i64) -> i32 {
 // CHECK:      %[[NMUL:.*]] = "llvm.mul"(%[[NX]], %[[NY]]) : (i64, i64) -> i64
 // CHECK:      %[[NR:.*]] = "llvm.trunc"(%[[NMUL]]) : (i64) -> i32
 // CHECK:      "func.return"(%[[NR]]) : (i32) -> ()

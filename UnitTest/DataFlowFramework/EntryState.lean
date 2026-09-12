@@ -29,7 +29,7 @@ private instance : SparseFactSpec .test TestDomain where
   payloadEq := rfl
 
 /--
-Use an integer value's bitwidth as its pessimistic entry state.
+Use an integer value's bitwidth as its entry state.
 
 Returning distinct values for `i8` and `i16` arguments verifies that the hook
 receives the target SSA value and IR context rather than applying a fixed state.
@@ -43,8 +43,8 @@ private def entryState (value : ValuePtr) (irCtx : WfIRContext OpCode) : TestDom
 private def transfer
     (op : OperationPtr)
     (_operands : Array TestDomain)
-    (irCtx : WfIRContext OpCode) : Array (Option TestDomain) :=
-  Array.replicate (op.getNumResults! irCtx.raw) none
+    (irCtx : WfIRContext OpCode) : Array TestDomain :=
+  Array.replicate (op.getNumResults! irCtx.raw) ⊥
 
 /-- Sparse test analysis configured with the type-sensitive entry-state hook. -/
 private def customEntryStateAnalysis : DataFlowAnalysis :=
@@ -72,6 +72,17 @@ private def checkValue
   else
     return #[s!"{name}: expected {repr expected}, observed {repr observed}"]
 
+/-- Check that an implicit bottom value has no stored sparse fact. -/
+private def checkNoFact
+    (name : String)
+    (recovered : RecoveredNames)
+    (dfCtx : DataFlowContext) : MismatchReport := Id.run do
+  let some value := recovered.values[name]?
+    | return #[s!"{name}: missing SSA value"]
+  match dfCtx.getFact? .test (.ValuePtr value) with
+  | none => return #[]
+  | some _ => return #[s!"{name}: expected no stored fact for bottom"]
+
 /--
 Input shared by the custom and default entry-state checks. It exercises both places
 where the sparse framework must use `entryState`:
@@ -84,6 +95,7 @@ private def testInput := r#""builtin.module"() ({
 ^module:
   "func.func"() <{function_type = (i8) -> (), sym_name = "entry_state"}> ({
   ^entry(%entryArg : i8):
+    %implicitBottom = "test.test"() : () -> i32
     "test.test"() [^fallback] : () -> ()
   ^fallback(%fallbackArg : i16):
     "func.return"() : () -> ()
@@ -97,7 +109,8 @@ private def testCustomEntryState : String :=
     | .error err => #[err]
     | .ok recovered =>
       checkValue "entryArg" (.value 8) recovered dfCtx ++
-        checkValue "fallbackArg" (.value 16) recovered dfCtx
+        checkValue "fallbackArg" (.value 16) recovered dfCtx ++
+        checkNoFact "implicitBottom" recovered dfCtx
 
 /-- Verify that omitting the entry-state hook conservatively assigns top. -/
 private def testDefaultEntryState : String :=
@@ -106,7 +119,8 @@ private def testDefaultEntryState : String :=
     | .error err => #[err]
     | .ok recovered =>
       checkValue "entryArg" .top recovered dfCtx ++
-        checkValue "fallbackArg" .top recovered dfCtx
+        checkValue "fallbackArg" .top recovered dfCtx ++
+        checkNoFact "implicitBottom" recovered dfCtx
 
 /--
 info: "ok"

@@ -104,10 +104,14 @@ def BlockPtr.verifyNoEntryBlockPredecessors (block : BlockPtr) (ctx : WfIRContex
   if b.firstUse.isSome then
     throw "entry block of region may not have predecessors"
 
-/-- Check that a graph region contains at most one block. -/
+/-- Check that a graph region contains at most one block. An unregistered
+    operation makes no promise about its regions, so it is exempt. -/
 private def WfIRContext.graphRegionsHaveAtMostOneBlock (ctx : WfIRContext OpCode) : Bool :=
   ctx.raw.regions.keys.all fun region =>
-    if !region.hasSSADominance ctx then
+    let isUnregistered := match (region.get! ctx.raw).parent with
+      | none => false
+      | some parent => parent.getOpType! ctx.raw = .builtin .unregistered
+    if region.getRegionKind ctx = .Graph && !isUnregistered then
       let body := region.get! ctx.raw
       body.firstBlock = body.lastBlock
     else
@@ -172,6 +176,55 @@ private def WfIRContext.verifyLLVMGlobalSymbols (ctx : WfIRContext OpCode) :
         throw s!"llvm.mlir.addressof: symbol '{props.global_name.value}' does not name an \
           llvm.mlir.global or llvm.func"
 
+/-- The decoded bytes of a symbol reference, with nested references joined by `::`. -/
+private def symbolRefAttrBytes : Attribute → Option ByteArray
+  | .flatSymbolRefAttr f => symbolRefBytes f.value
+  | .symbolRefAttr s => do
+    let mut bytes ← symbolRefBytes s.root.value
+    for n in s.nested do
+      bytes := bytes ++ "::".toUTF8 ++ (← symbolRefBytes n.value)
+    return bytes
+  | _ => none
+
+/--
+  Check the comdat invariants MLIR enforces through its symbol tables: a
+  `llvm.comdat` body holds only `llvm.comdat_selector` operations with distinct
+  names, and the `comdat` of a function or global names a selector, either as
+  `@comdat::@selector` or as `@selector` for a selector outside any comdat.
+-/
+private def WfIRContext.verifyLLVMComdats (ctx : WfIRContext OpCode) :
+    Except String Unit := do
+  let mut selectors : Std.HashSet ByteArray := Std.HashSet.emptyWithCapacity
+  for op in ctx.raw.operations.keys do
+    let parent? := op.getParentOp! ctx.raw
+    let comdatParent? := parent?.filter (fun parent => parent.getOpType! ctx.raw = .llvm .comdat)
+    if comdatParent?.isSome && op.getOpType! ctx.raw ≠ .llvm .comdat_selector then
+      throw "llvm.comdat: only comdat selector symbols can appear in a comdat region"
+    if op.getOpType! ctx.raw = .llvm .comdat_selector then
+      let props := op.getProperties! ctx.raw Llvm.comdat_selector
+      let name := "@".toUTF8 ++ props.sym_name.value
+      let key := match comdatParent? with
+        | some parent =>
+          "@".toUTF8 ++ (parent.getProperties! ctx.raw Llvm.comdat).sym_name.value ++ "::".toUTF8 ++ name
+        | none => name
+      if selectors.contains key then
+        throw s!"llvm.comdat_selector: redefinition of symbol named \
+          '{String.fromUTF8? props.sym_name.value |>.getD "<non-UTF8 symbol>"}'"
+      selectors := selectors.insert key
+  for op in ctx.raw.operations.keys do
+    let opType := op.getOpType! ctx.raw
+    let extra? : Option DictionaryAttr :=
+      if opType = .llvm .func then some (op.getProperties! ctx.raw Llvm.func).extra
+      else if opType = .llvm .mlir__global then some (op.getProperties! ctx.raw Llvm.mlir__global).extra
+      else none
+    let some extra := extra? | continue
+    let some (_, attr) := extra.entries.find? (fun (k, _) => k == "comdat".toUTF8) | continue
+    let opName := String.fromUTF8! opType.name
+    let some ref := symbolRefAttrBytes attr
+      | throw s!"{opName}: expected 'comdat' to be a symbol reference, but got {attr}"
+    if !selectors.contains ref then
+      throw s!"{opName}: expected comdat symbol"
+
 /--
   Check the whole-pattern invariants that MLIR verifies in
   `PatternOp::verifyRegions`: a `pdl.pattern` body holds only `pdl` operations,
@@ -215,8 +268,6 @@ private def WfIRContext.verifyDominance
   ctx.raw.forOpsDepM fun op opIn => do
     let some block := (op.get ctx.raw opIn).parent | return
     if !block.isReachable dfCtx then return
-    let some region := (block.get! ctx.raw).parent | return
-    if !region.hasSSADominance ctx then return
     for (value, index) in (op.getOperands ctx.raw opIn).zipIdx do
       if !value.properlyDominatesUse op dfCtx ctx then
         let opName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
@@ -249,6 +300,7 @@ def WfIRContext.verify
     block.verifyTerminator ctx blockIn
     block.verifyNoEntryBlockPredecessors ctx blockIn)
   ctx.verifyLLVMGlobalSymbols
+  ctx.verifyLLVMComdats
   ctx.verifyPDLPatternBodies
   ctx.verifyDominance root
 
@@ -299,12 +351,14 @@ private theorem WfIRContext.Verified.graphRegionsHaveAtMostOneBlock
 theorem WfIRContext.Verified.graph_region_firstBlock_eq_lastBlock
     {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
     {region : RegionPtr} (regionIn : region.InBounds ctx.raw)
-    (hregionKind : ¬ region.hasSSADominance ctx) :
+    {parent : OperationPtr} (hregionParent : (region.get! ctx.raw).parent = some parent)
+    (hparentRegistered : parent.getOpType! ctx.raw ≠ .builtin .unregistered)
+    (hregionKind : region.getRegionKind ctx = .Graph) :
     (region.get! ctx.raw).firstBlock = (region.get! ctx.raw).lastBlock := by
   have hcheck := ctxVerified.graphRegionsHaveAtMostOneBlock
   have hregionKeys : region ∈ ctx.raw.regions.keys := by grind [region.inBounds_def]
   have hregionCheck := (List.all_eq_true.mp hcheck) region hregionKeys
-  grind
+  grind [WfIRContext.graphRegionsHaveAtMostOneBlock]
 
 /--
 Assert that a given operation satisfies its local invariants.

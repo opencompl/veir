@@ -20,11 +20,11 @@
 }) : () -> ()
 
 // The `select` is gone; the true operand is returned directly.
-// CHECK:      ^{{.*}}(%[[T:.*]] : i64, %{{.*}} : i64):
+// CHECK:      func.func @foo(%[[T:.*]]: i64, %{{.*}}: i64) -> i64 {
 // CHECK-NOT:  "llvm.select"
 // CHECK:      "func.return"(%[[T]]) : (i64) -> ()
 
 // The non-constant-condition `select` survives.
-// CHECK:      ^{{.*}}(%[[C:.*]] : i1, %[[NT:.*]] : i64, %[[NF:.*]] : i64):
+// CHECK:      func.func @bar(%[[C:.*]]: i1, %[[NT:.*]]: i64, %[[NF:.*]]: i64) -> i64 {
 // CHECK:      %[[SEL:.*]] = "llvm.select"(%[[C]], %[[NT]], %[[NF]])
 // CHECK:      "func.return"(%[[SEL]]) : (i64) -> ()
