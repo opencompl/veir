@@ -853,7 +853,8 @@ def alloca_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if (op.get! ctx.raw).parent != some entry then return (ctx, none)
   let countOperand := operands[0]!
   let .integerType countType := (countOperand.getType! ctx.raw).val | return (ctx, none)
-  let some countAttr := matchConstantIntVal countOperand ctx.raw | return (ctx, none)
+  let some countOp := countOperand.definingOp? | return (ctx, none)
+  let some countAttr := matchConstantIntOp countOp ctx.raw | return (ctx, none)
   if countType.bitwidth = 0 || countAttr.type.bitwidth = 0 then return (ctx, none)
   /- Match LLVM constant interpretation: i1 zero-extends, other widths sign-extend
      (or truncate) to the SSA type. `alloca` reads the resulting bits as unsigned. -/
