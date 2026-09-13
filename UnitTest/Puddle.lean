@@ -14,7 +14,7 @@ open Veir.Parser
 def matchConstant (returnType : Handle OpCode .type) (constant : Int)
     : MatchProg.Builder (Handle OpCode .value) := do
   let op ← MatchProg.operation (.arith .constant) #[] #[returnType]
-    (fun properties => properties.value.value = constant)
+    (fun properties => properties.value.toInt = constant)
   return op.res[0]!
 
 /-- Rewrite `x + 0` to `x`. -/
@@ -62,7 +62,7 @@ private def nativeMatch : Pattern OpCode :=
       let cst ← MatchProg.operation (.arith .constant) #[] #[returnType]
       MatchProg.matchNative (returnType, cst.properties)
         (fun (type, properties) =>
-          type = IntegerType.mk 32 && properties.value.value = 0)
+          type = IntegerType.mk 32 && properties.value.toInt = 0)
       let _ ← MatchProg.root (.arith .addi) #[x, cst.res[0]!] #[returnType]
       return x)
     pure
@@ -75,14 +75,14 @@ private def nativeApply : Pattern OpCode :=
       let returnType ← MatchProg.type (Attr := IntegerType)
       let x ← MatchProg.value returnType
       let cst ← MatchProg.operation (.arith .constant) #[] #[returnType]
-        (fun properties => properties.value.value = 2)
+        (fun properties => properties.value.toInt = 2)
       let _ ← MatchProg.root (.arith .muli) #[x, cst.res[0]!] #[returnType]
       return (returnType, x, cst.properties))
     (fun (returnType, x, properties) => do
       let (newType, newProperties) ← CreateProg.applyNative (returnType, properties)
         (fun (type, properties) =>
           some (type, { properties with
-            value := { properties.value with value := properties.value.value + 1 } }))
+            value := { properties.value with value := properties.value.toInt + 1 } }))
       let constant ← CreateProg.operation (.arith .constant) #[] #[newType] newProperties
       let addProperties ← CreateProg.property (.arith .addi) default
       let add ← CreateProg.operation (.arith .addi) #[x, constant.res[0]!] #[newType] addProperties

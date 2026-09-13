@@ -306,8 +306,8 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpIn
     /- MLIR confines `benefit` to a non-negative 16-bit attribute. -/
     if props.benefit.type.bitwidth ≠ 16 then
       throw "Expected 'benefit' to be a 16-bit signless integer attribute"
-    if props.benefit.value < 0 then
-      throw s!"Expected 'benefit' to be non-negative, but got {props.benefit.value}"
+    if props.benefit.toInt < 0 then
+      throw s!"Expected 'benefit' to be non-negative, but got {props.benefit.toInt}"
     /- The matcher body is a single block terminated by a `pdl.rewrite`. -/
     let body := (op.getRegion! ctx.raw 0).get! ctx.raw
     let some bodyBlock := body.firstBlock

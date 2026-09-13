@@ -41,7 +41,7 @@ determined by the modulus, not by the width of the underlying storage type.
 def canonicalRange (value : ValuePtr) (irCtx : IRContext OpCode) : IntegerRangeLattice :=
   match (value.getType! irCtx).val with
   | .modArithType mt =>
-    let modulus := mt.modulus.value
+    let modulus := (mt.modulus.toNat : Int)
     if h : 0 < modulus then
       .interval
         { lower := 0
@@ -72,9 +72,9 @@ private def constantRange
   let props := op.getProperties! irCtx.raw (OpCode.mod_arith Mod_Arith.constant)
   match ((op.getResult 0 : ValuePtr).getType! irCtx.raw).val with
   | .modArithType mt =>
-    let modulus := mt.modulus.value
+    let modulus := (mt.modulus.toNat : Int)
     if 0 < modulus then
-      IntegerRangeLattice.singleton (props.value.value % modulus)
+      IntegerRangeLattice.singleton (props.value.toInt % modulus)
     else
       ⊤
   | _ => ⊤
@@ -119,7 +119,7 @@ def transfer
           -- Match lowering: subtraction is formed as `(lhs + q) - rhs` to avoid
           -- unsigned underflow for canonical operands.
           let shifted := IntegerRangeLattice.add lhs <|
-            IntegerRangeLattice.singleton mt.modulus.value
+            IntegerRangeLattice.singleton (mt.modulus.toNat : Int)
           Array.replicate numResults <| applyReduction op (IntegerRangeLattice.sub shifted rhs) irCtx
         | _ => pessimisticUpdates
       | _, _ => pessimisticUpdates

@@ -26,12 +26,12 @@ def NswNuwProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
       if flags.type.bitwidth ≠ 32 then
         .error s!"expected 'overflowFlags' to be an integer attribute of bitwidth 32, but got i{flags.type.bitwidth}"
       else
-        .ok flags.value
+        .ok flags.toNat
     | some attr => .error s!"expected 'overflowFlags' to be an optional integer attribute, but got {attr}"
     | none => .ok 0
 
-  let nsw := (value.toNat &&& 1) ≠ 0
-  let nuw := (value.toNat &&& 2) ≠ 0
+  let nsw := (value &&& 1) ≠ 0
+  let nuw := (value &&& 2) ≠ 0
   return { nsw := nsw, nuw := nuw }
 
 /--
@@ -102,7 +102,7 @@ def ZeroPoisonProperties.fromAttrDictFor (opName : String)
   else if intAttr.value = 1 then
     return { is_zero_poison := true }
   else
-    throw s!"{opName}: expected 'is_zero_poison' to be 0 or 1, but got {intAttr.value}"
+    throw s!"{opName}: expected 'is_zero_poison' to be 0 or 1, but got {intAttr.toInt}"
 
 def ZeroPoisonProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String ZeroPoisonProperties :=
@@ -132,7 +132,7 @@ def IntMinPoisonProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
   else if intAttr.value = 1 then
     return { is_int_min_poison := true }
   else
-    throw s!"llvm.intr.abs: expected 'is_int_min_poison' to be 0 or 1, but got {intAttr.value}"
+    throw s!"llvm.intr.abs: expected 'is_int_min_poison' to be 0 or 1, but got {intAttr.toInt}"
 
 /--
   Properties of the `llvm.intr.assume` intrinsic. The condition is followed by
@@ -317,10 +317,10 @@ def IcmpProperties.fromAttrDictFor (opName : String) (attrDict : Std.HashMap Byt
     | throw s!"{opName}: missing predicate"
   let .integerAttr intAttr := attr
     | throw s!"{opName}: expected predicate to be an integer attribute, but got {attr}"
-  if intAttr.value < 0 then
-    throw s!"{opName}: invalid predicate {intAttr.value}"
-  let some predicate := Data.LLVM.IntPred.fromNat intAttr.value.toNat
-    | throw s!"{opName}: invalid predicate {intAttr.value}"
+  if intAttr.toInt < 0 then
+    throw s!"{opName}: invalid predicate {intAttr.toInt}"
+  let some predicate := Data.LLVM.IntPred.fromNat intAttr.toNat
+    | throw s!"{opName}: invalid predicate {intAttr.toInt}"
   return { predicate }
 
 def IcmpProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
@@ -344,10 +344,10 @@ def FcmpProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     | throw s!"llvm.fcmp: expected predicate to be an integer attribute, but got {attr}"
   if intAttr.type.bitwidth ≠ 64 then
     throw s!"llvm.fcmp: expected predicate to be an i64 integer attribute, but got {attr}"
-  if intAttr.value < 0 then
-    throw s!"llvm.fcmp: invalid predicate {intAttr.value}"
-  let some predicate := Data.LLVM.FloatPred.fromNat intAttr.value.toNat
-    | throw s!"llvm.fcmp: invalid predicate {intAttr.value}"
+  if intAttr.toInt < 0 then
+    throw s!"llvm.fcmp: invalid predicate {intAttr.toInt}"
+  let some predicate := Data.LLVM.FloatPred.fromNat intAttr.toNat
+    | throw s!"llvm.fcmp: invalid predicate {intAttr.toInt}"
   let flags ← match attrDict["fastmathFlags".toUTF8]? with
     | some (.fastMathFlagsAttr flags) => .ok flags
     | some attr =>
@@ -788,10 +788,10 @@ def LLVMFenceProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute
     | throw s!"llvm.fence: expected 'ordering' to be an integer attribute, but got {attr}"
   if intAttr.type.bitwidth ≠ 64 then
     throw s!"llvm.fence: expected 'ordering' to be an i64 integer attribute, but got {attr}"
-  if intAttr.value < 0 then
-    throw s!"llvm.fence: invalid ordering {intAttr.value}"
+  if intAttr.toInt < 0 then
+    throw s!"llvm.fence: invalid ordering {intAttr.toInt}"
   let some ordering := Data.LLVM.AtomicOrdering.fromNat intAttr.value.toNat
-    | throw s!"llvm.fence: invalid ordering {intAttr.value}"
+    | throw s!"llvm.fence: invalid ordering {intAttr.toInt}"
   let syncscope ← match attrDict["syncscope".toUTF8]? with
     | some (.stringAttr syncscope) => .ok (some syncscope)
     | some attr =>
@@ -836,10 +836,10 @@ def LLVMComdatSelectorProperties.fromAttrDict (attrDict : Std.HashMap ByteArray 
     | throw s!"llvm.comdat_selector: expected 'comdat' to be an integer attribute, but got {attr}"
   if intAttr.type.bitwidth ≠ 64 then
     throw s!"llvm.comdat_selector: expected 'comdat' to be an i64 integer attribute, but got {attr}"
-  if intAttr.value < 0 then
-    throw s!"llvm.comdat_selector: invalid comdat kind {intAttr.value}"
+  if intAttr.toInt < 0 then
+    throw s!"llvm.comdat_selector: invalid comdat kind {intAttr.toInt}"
   let some kind := Data.LLVM.ComdatKind.fromNat intAttr.value.toNat
-    | throw s!"llvm.comdat_selector: invalid comdat kind {intAttr.value}"
+    | throw s!"llvm.comdat_selector: invalid comdat kind {intAttr.toInt}"
   return { sym_name := symName, comdat := kind }
 
 structure LLVMModuleFlagsProperties where

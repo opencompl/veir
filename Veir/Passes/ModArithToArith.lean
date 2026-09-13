@@ -82,7 +82,7 @@ def packValue (legalizeWidth : Nat → Nat) (rewriter : PatternRewriter OpCode) 
 def emitArithConstant (rewriter : PatternRewriter OpCode) (c : Int) (width : Nat)
     (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do
   let ty : TypeAttr := IntegerType.mk width
-  let props : ArithConstantProperties := { value := IntegerAttr.mk c (IntegerType.mk width) }
+  let props : ArithConstantProperties := { value := IntegerAttr.ofInt c (IntegerType.mk width) }
   let (rewriter, c) ← rewriter.createOp! (.arith .constant)
     #[ty] #[] #[] #[] props (some ip)
   return (rewriter, (c.getResult 0 : ValuePtr))
@@ -229,8 +229,10 @@ def lowerModArithBinOp (modOp : Mod_Arith) (widen : Nat → Nat) (legalizeWidth 
     | .barrett => emitBarrettReduction
     | .full => emitFullReduction
   -- type setup
-  let .modArithType modArithType@⟨⟨modulus, storageType⟩⟩ := ((op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw).val
+  let .modArithType modArithType@⟨modulusAttr⟩ := ((op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw).val
     | return rewriter
+  let modulus := (modulusAttr.toNat : Int)
+  let storageType := modulusAttr.type
   let intermediateWidth := legalizeWidth (widen storageType.bitwidth)
   let intermediateType  := IntegerType.mk intermediateWidth
   -- actual lowering:
@@ -279,10 +281,12 @@ def lowerModArithConstantOp (legalizeWidth : Nat → Nat) (rewriter : PatternRew
   -- match op and extract attribute:
   let some (_, props) := matchOp op rewriter.ctx.raw Mod_Arith.constant 0
     | return rewriter
-  let c := props.value.value
+  let c := props.value.toInt
   -- type setup
-  let .modArithType modArithType@⟨⟨q, storageType⟩⟩ := ((op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw).val
+  let .modArithType modArithType@⟨modulusAttr⟩ := ((op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw).val
     | return rewriter
+  let q := (modulusAttr.toNat : Int)
+  let storageType := modulusAttr.type
   -- actual lowering:
   let ip := InsertPoint.before op
   let (rewriter, r) ← emitArithConstant rewriter (c % q) (legalizeWidth storageType.bitwidth) ip

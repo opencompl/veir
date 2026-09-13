@@ -44,7 +44,7 @@ def immValue? (ctx : IRContext OpCode) (op : OperationPtr) : Option Int :=
   let opType := op.getOpType! ctx
   let d := Properties.toAttrDict opType (op.getProperties! ctx opType)
   match d["value".toUTF8]? with
-  | some (.integerAttr a) => some a.value
+  | some (.integerAttr a) => some a.toInt
   | _ => none
 
 /-- Whether an op carries the optional `volatile_` unit property. -/

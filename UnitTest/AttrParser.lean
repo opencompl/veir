@@ -172,9 +172,9 @@ macro "#assert " e:term : command =>
 /-! ## Integer attributes -/
 
 #assert expectErrorAttr "0 : 2" "integer or float type expected after ':' in numeric attribute" (some 4)
-#assert expectSuccessAttr "0 : i32" (IntegerAttr.mk 0 (IntegerType.mk 32))
-#assert expectSuccessAttr "false" (IntegerAttr.mk 0 (IntegerType.mk 1))
-#assert expectSuccessAttr "true" (IntegerAttr.mk 1 (IntegerType.mk 1))
+#assert expectSuccessAttr "0 : i32" (IntegerAttr.ofInt 0 (IntegerType.mk 32))
+#assert expectSuccessAttr "false" (IntegerAttr.ofInt 0 (IntegerType.mk 1))
+#assert expectSuccessAttr "true" (IntegerAttr.ofInt 1 (IntegerType.mk 1))
 
 /-! ## Integer overflow flags attributes -/
 
@@ -340,7 +340,7 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "[]" (ArrayAttr.mk #[])
 #assert expectSuccessAttr "[unit]" (ArrayAttr.mk #[UnitAttr.mk])
 #assert expectSuccessAttr "[1 : i32, \"foo\"]"
-  (ArrayAttr.mk #[IntegerAttr.mk 1 (IntegerType.mk 32), StringAttr.mk "foo".toByteArray])
+  (ArrayAttr.mk #[IntegerAttr.ofInt 1 (IntegerType.mk 32), StringAttr.mk "foo".toByteArray])
 #assert expectSuccessAttr "[[]]" (ArrayAttr.mk #[ArrayAttr.mk #[]])
 
 /-! ## Dense array attribute -/
@@ -399,7 +399,7 @@ macro "#assert " e:term : command =>
   = .error ("undefined symbol alias id 'foo'", some 0))
 -- Aliases also resolve where a specific builtin type is required.
 #assert (testAttrWithAliases "1 : !int" [("int", IntegerType.mk 32)]
-  = .ok (IntegerAttr.mk 1 (IntegerType.mk 32)))
+  = .ok (IntegerAttr.ofInt 1 (IntegerType.mk 32)))
 #assert (testAttrWithAliases "array<!int: 1, 2>" [("int", IntegerType.mk 32)]
   = .ok (DenseArrayAttr.mk (IntegerType.mk 32) #[1, 2]))
 #assert (testTypeWithAliases "!cuda_tile.ptr<!int>" [("int", IntegerType.mk 32)]
@@ -468,9 +468,9 @@ macro "#assert " e:term : command =>
 
 /-! ## Modarith type -/
 
-#assert expectSuccessType "!mod_arith.int<17 : i64>" (ModArithType.mk (IntegerAttr.mk 17 (IntegerType.mk 64)))
-#assert expectSuccessType "!mod_arith.int<257 : i32>" (ModArithType.mk (IntegerAttr.mk 257 (IntegerType.mk 32)))
-#assert expectSuccessAttr "!mod_arith.int<17 : i64>" (ModArithType.mk (IntegerAttr.mk 17 (IntegerType.mk 64)))
+#assert expectSuccessType "!mod_arith.int<17 : i64>" (ModArithType.mk (IntegerAttr.ofInt 17 (IntegerType.mk 64)))
+#assert expectSuccessType "!mod_arith.int<257 : i32>" (ModArithType.mk (IntegerAttr.ofInt 257 (IntegerType.mk 32)))
+#assert expectSuccessAttr "!mod_arith.int<17 : i64>" (ModArithType.mk (IntegerAttr.ofInt 17 (IntegerType.mk 64)))
 #assert expectErrorType "!mod_arith.int<>" "modarith type modulus expected" (some 15)
 #assert expectErrorType "!mod_arith.int<17>" "Expected punctuation ':'" (some 17)
 #assert expectErrorType "!mod_arith.int<17 : x>" "integer or float type expected after ':' in numeric attribute" (some 20)

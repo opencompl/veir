@@ -115,7 +115,7 @@ private def getLiteralConstant?
       match (result.op.get! irCtx.raw).opType with
       | .arith .constant =>
         let intAttr := (result.op.getProperties! irCtx.raw Arith.constant).value
-        some (.constant ⟨intAttr.type.bitwidth, Data.LLVM.Int.constant intAttr.type.bitwidth intAttr.value⟩)
+        some (.constant ⟨intAttr.type.bitwidth, Data.LLVM.Int.constant intAttr.type.bitwidth intAttr.toInt⟩)
       | _ =>
         none
   | .blockArgument _ =>

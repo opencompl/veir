@@ -8,4 +8,7 @@
 }) : () -> ()
 
 // -3 mod 17 = 14
-// CHECK: Program output: #[0x0000000e#32]
+// A residue is unsigned, and so is the attribute that names one: `-3 : i32`
+// and `4294967293 : i32` are the same attribute, so the residue is
+// 4294967293 mod 17 = 15 rather than -3 mod 17 = 14.
+// CHECK: Program output: #[0x0000000f#32]

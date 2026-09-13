@@ -140,11 +140,11 @@
 // CHECK-NEXT:         %{{.*}} = "riscv.xori"(%{{.*}}) <{"value" = 23 : i12}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %{{.*}} = "riscv.addiw"(%{{.*}}) <{"value" = 29 : i12}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %{{.*}} = "riscv.slli"(%{{.*}}) <{"value" = 31 : i6}> : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:         %{{.*}} = "riscv.srli"(%{{.*}}) <{"value" = 33 : i6}> : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:         %{{.*}} = "riscv.srai"(%{{.*}}) <{"value" = 37 : i6}> : (!riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %{{.*}} = "riscv.srli"(%{{.*}}) <{"value" = -31 : i6}> : (!riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %{{.*}} = "riscv.srai"(%{{.*}}) <{"value" = -27 : i6}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %{{.*}} = "riscv.slliw"(%{{.*}}) <{"value" = 13 : i5}> : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:         %{{.*}} = "riscv.srliw"(%{{.*}}) <{"value" = 17 : i5}> : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:         %{{.*}} = "riscv.sraiw"(%{{.*}}) <{"value" = 19 : i5}> : (!riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %{{.*}} = "riscv.srliw"(%{{.*}}) <{"value" = -15 : i5}> : (!riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %{{.*}} = "riscv.sraiw"(%{{.*}}) <{"value" = -13 : i5}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %{{.*}} = "riscv.slliuw"(%{{.*}}) <{"value" = 13 : i6}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %{{.*}} = "riscv.roriw"(%{{.*}}) <{"value" = 13 : i5}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %{{.*}} = "riscv.rori"(%{{.*}}) <{"value" = 13 : i6}> : (!riscv.reg) -> !riscv.reg

@@ -73,19 +73,19 @@ def Mod_Arith.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect
     if bw = modType.modulus.type.bitwidth then
       some (.of Mod_Arith.constant
         (ModArithConstantProperties.mk
-          (IntegerAttr.mk (Int.ofNat value.toNat) modType.modulus.type)))
+          (IntegerAttr.ofNat value.toNat modType.modulus.type)))
     else none
   | _, _ => none
 
 def TypeAttr.verifyModArithType (ty : TypeAttr) (msg : String) : Except String ModArithType :=
   match ty.val with
   | .modArithType type => do
-    let modulus := type.modulus.value
-    let bitWidth := type.modulus.type.bitwidth
-    if modulus ≤ 0 then
+    /- The modulus is an unsigned quantity, and it is an attribute of the
+       storage type, so it cannot be wider than that type: the parser rejects
+       a literal the type cannot hold. Zero is all that remains to check. -/
+    let modulus := type.modulus.value.toNat
+    if modulus = 0 then
       throw s!"{msg} but found invalid ModArithType type: modulus {modulus} must be positive."
-    if modulus ≥ (2 ^ bitWidth) then
-      throw s!"{msg} but found invalid ModArithType type: modulus {modulus} does not fit into the underlying storage type 'i{bitWidth}'."
     pure type
   | type => throw s!"{msg} but found {type} instead."
 
@@ -107,7 +107,7 @@ def OperationPtr.verifyModArithConstantOp {OpInfo : Type} [IsOpCode OpInfo]
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   let mat ← ((op.getResult 0).get! ctx.raw).type.verifyModArithType
     s!"{instrName}: Expected result to have ModArithType"
-  let value := (op.getProperties! ctx.raw Mod_Arith.constant).value.value
+  let value := (op.getProperties! ctx.raw Mod_Arith.constant).value.toInt
   let bw := mat.modulus.type.bitwidth
   -- Slightly odd range because the storage type is signless.
   if value < -(2 ^ (bw - 1) : Int) ∨ (2 ^ bw : Int) ≤ value then

@@ -22,10 +22,10 @@ def canonicalizeModArithConstant (rewriter : PatternRewriter OpCode) (op : Opera
   let resultType := (op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw
   let .modArithType modArithType := resultType.val
     | return rewriter
-  let canonicalValue := props.value.value % modArithType.modulus.value
-  if canonicalValue = props.value.value then return rewriter
+  let canonicalValue := props.value.toInt % (modArithType.modulus.toNat : Int)
+  if canonicalValue = props.value.toInt then return rewriter
   let canonicalProps : ModArithConstantProperties :=
-    { value := { props.value with value := canonicalValue } }
+    { value := IntegerAttr.ofInt canonicalValue props.value.type }
   return rewriter.setProperties! op Mod_Arith.constant canonicalProps
 
 def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPtr)
