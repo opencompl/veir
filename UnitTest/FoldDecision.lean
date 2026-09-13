@@ -80,7 +80,7 @@ private def testRiscvConstantMaterialization : String := Id.run do
   let value : RuntimeValue := .reg ⟨BitVec.ofInt 64 (-77)⟩
   match (.riscv .add : OpCode).materializeConstant value regType with
   | some ⟨.riscv .li, props⟩ =>
-    if props.value ≠ IntegerAttr.mk (-77) (IntegerType.mk 64) then
+    if props.value ≠ BitVec.ofInt 64 (-77) then
       return "RISC-V materialized the wrong immediate"
     return "ok"
   | _ => return "RISC-V did not materialize riscv.li"

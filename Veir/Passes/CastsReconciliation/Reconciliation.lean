@@ -107,7 +107,7 @@ def reconcileRegIntCastLocal (ctx : WfIRContext OpCode) (op : OperationPtr) :
       if bw = 0 then return (ctx, none)
       /- for bitwidths with no dedicated instruction, shift left then right -/
       if bw >= 64 then none else
-      let imm := IntegerAttr.mk (64-bw) (.mk 64)
+      let imm := BitVec.ofInt 64 (64-bw)
       let (ctx, shlOp) ← WfRewriter.createOp! ctx Riscv.slli #[RegisterType.mk] #[parentInput]
         #[] #[] (⟨imm⟩ : RISCVImmediateProperties) none
       let (ctx, srlOp) ← WfRewriter.createOp! ctx Riscv.srli #[RegisterType.mk]

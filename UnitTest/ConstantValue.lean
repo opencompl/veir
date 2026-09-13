@@ -37,7 +37,7 @@ info: "ok"
 
 private def testRiscvLi : String := Id.run do
   let .ok (some (.reg value)) :=
-    constantValueOf r#"%x = "riscv.li"() <{"value" = -77 : i32}> : () -> !riscv.reg"#
+    constantValueOf r#"%x = "riscv.li"() <{"value" = -77 : i64}> : () -> !riscv.reg"#
     | return "failed to read riscv.li"
   if value.val ≠ BitVec.ofInt 64 (-77) then
     return "riscv.li produced the wrong register value"
@@ -51,7 +51,7 @@ info: "ok"
 
 private def testRiscvLui : String := Id.run do
   let .ok (some (.reg value)) :=
-    constantValueOf r#"%x = "riscv.lui"() <{"value" = 5 : i20}> : () -> !riscv.reg"#
+    constantValueOf r#"%x = "riscv.lui"() <{"value" = 5 : i64}> : () -> !riscv.reg"#
     | return "failed to read riscv.lui"
   if value.val ≠ (BitVec.ofInt 20 5 ++ (0 : BitVec 12)).signExtend 64 then
     return "riscv.lui produced the wrong register value"
