@@ -338,8 +338,12 @@ class Generator:
             # that `--ub 0` promised not to generate.
             safe = self.safe_ptrs(need, align)
             return self.rng.choice(safe).name if safe else None
-        any_ptr = self.any_ptr()
-        return any_ptr.name if any_ptr is not None else None
+        # A deliberately undefined access may now be undefined for any of the
+        # reasons the model has, alignment included. Pointers whose provenance
+        # the generator lost are still excluded: those are poison, and what
+        # happens to them is a question about poison rather than about memory.
+        known = [q for q in self.ptrs if q.obj is not None]
+        return self.rng.choice(known).name if known else None
 
     def access_width(self, align_ok: bool) -> tuple[int, int]:
         width = self.rng.choice(INT_WIDTHS)
@@ -559,14 +563,14 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--ops", type=int, default=12, help="number of random operations (default: 12)")
     ap.add_argument("--fold", type=int, default=4,
                     help="how many loaded values feed the result (default: 4)")
-    ap.add_argument("--oob", type=float, default=0.0,
+    ap.add_argument("--oob", type=float, default=0.25,
                     help="probability a getelementptr leaves its object")
-    ap.add_argument("--ub", type=float, default=0.0,
+    ap.add_argument("--ub", type=float, default=0.2,
                     help="probability an access ignores what is in bounds")
     ap.add_argument("--defined", type=float, default=0.8,
                     help="probability a load prefers bytes already written (default: 0.8)")
-    ap.add_argument("--misalign", type=float, default=0.0,
-                    help="probability an access claims alignment 1")
+    ap.add_argument("--misalign", type=float, default=0.15,
+                    help="probability an access claims alignment 1 (default: 0.15)")
     ap.add_argument("--null", type=float, default=0.05,
                     help="probability an access goes through null")
     # alive-exec resolves calloc to a block but does not zero it, so a load

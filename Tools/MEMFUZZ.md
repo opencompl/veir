@@ -17,15 +17,13 @@ values, over objects addressed through `getelementptr`. What it may contain is
 set by the generator's options, and their defaults track what the interpreter
 models, so a run with the defaults is always one the interpreter is expected to
 survive. Today that is `alloca`, `getelementptr` and integer loads and stores,
-all of them in bounds.
+with out-of-bounds offsets, misalignment and null dereferences drawn at tunable
+rates.
 
 Everything past that is behind an option until the model catches up:
-`--ub` and `--oob` for accesses that leave their object, `--null` for
-dereferencing null, `--misalign` for accesses that claim an alignment they do
-not have, `--ptr-values` for storing and loading pointers, and the `--w-`
-weights for the heap family, the memory intrinsics and the pointer/integer
-casts. Raising one before the interpreter implements it is how you see what is
-missing.
+`--ptr-values` for storing and loading pointers, and the `--w-` weights for
+the heap family, the memory intrinsics and the pointer/integer casts. Raising
+one before the interpreter implements it is how you see what is missing.
 
 ## Running
 
