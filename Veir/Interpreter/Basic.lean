@@ -616,7 +616,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let [.int _ (.val count)] := operands.toList | none
     /- `alloca T, N` reserves `N` strides of `T`, as in LLVM. -/
     let size ← layout.getTypeAllocSize properties.elem_type.val
-    let (mem, ptr) := mem.alloc (size * count.toNat) properties.alignment.value.toNat.toUInt64
+    let (mem, ptr) := mem.alloc (size * count.toNat) .stack properties.alignment.value.toNat.toUInt64
     return (#[.addr (.val ptr)], mem, none)
   | .load => do
     let [.addr addr] := operands.toList | none
@@ -640,6 +640,16 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       /- Offsets wrap at 64 bits, so a negative index steps backwards. -/
       return (#[.addr (.val ⟨ptr.object, UInt64.ofNat (ptr.offset.toNat + idx.toNat * size)⟩)], mem, none)
     | _, _ => return (#[.addr .poison], mem, none)
+  | .intr__lifetime__start => do
+    let [.addr ptr] := operands.toList | none
+    let .val ptr := ptr | Interp.ub
+    let mem ← mem.lifetimeStart ptr
+    return (#[], mem, none)
+  | .intr__lifetime__end => do
+    let [.addr ptr] := operands.toList | none
+    let .val ptr := ptr | Interp.ub
+    let mem ← mem.lifetimeEnd ptr
+    return (#[], mem, none)
   | .intr__memcpy | .intr__memmove => do
     /- Bytes are copied as they are, so a pointer stored in the source keeps
        its provenance in the destination. `memcpy` additionally requires the
@@ -1137,7 +1147,7 @@ def Riscv_Stack.interpretOp' (opType : Veir.Riscv_Stack) (properties : propertie
     : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
   match opType with
   | .alloca => do
-    let (mem, ptr) := mem.alloc properties.size.value.toNat properties.alignment.value.toNat.toUInt64
+    let (mem, ptr) := mem.alloc properties.size.value.toNat .stack properties.alignment.value.toNat.toUInt64
     return (#[.reg ⟨(mem.address ptr).toBitVec⟩], mem, none)
 
 def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : propertiesOf opType)
@@ -1495,8 +1505,10 @@ def interpretFunction (op : OperationPtr) (values : Array RuntimeValue) {ctx : W
     none
   else
     let state : InterpreterState ctx := ⟨.empty ctx, mem⟩
+    let frameStart := mem.objects.size
     let (state, results) ← interpretRegion (FunctionOpInterface.getFunctionBody op ctx.raw) values state
-    return (state.memory, results)
+    /- The function's stack objects die when it returns. -/
+    return (state.memory.killStackObjectsFrom frameStart, results)
 
 /--
   Interpret a builtin.module operation.
