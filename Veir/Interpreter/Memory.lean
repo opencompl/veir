@@ -2,6 +2,7 @@ module
 
 public import Veir.RuntimeValue
 public import Veir.Interpreter.Interp
+public import Std.Data.HashMap
 
 public section
 
@@ -123,10 +124,12 @@ instance : Inhabited MemoryOracle := ⟨{}⟩
   (`MemoryState.decode`). Object 0 is the null object at address 0. It holds
   no bytes, so every access through a null pointer is out of bounds, until
   machine code grows it into the arena below `arenaSize`.
+  `globals` maps a symbol such as `@g` to the object that holds it.
 -/
 @[ext]
 structure MemoryState where
   objects : Array MemoryObject
+  globals : Std.HashMap String Nat := {}
   oracle : MemoryOracle := {}
   /-- How many heap allocations were requested so far, to index the oracle. -/
   heapAllocs : Nat := 0

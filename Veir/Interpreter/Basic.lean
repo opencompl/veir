@@ -682,6 +682,9 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       let mem ← mem.free ptr
       return (#[], mem, none)
     | _, _ => none
+  | .mlir__addressof => do
+    let some object := mem.globals[properties.global_name.value]? | none
+    return (#[.addr (.val ⟨object, 0⟩)], mem, none)
   | .intr__lifetime__start => do
     let [.addr ptr] := operands.toList | none
     let .val ptr := ptr | Interp.ub
