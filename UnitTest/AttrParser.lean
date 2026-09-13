@@ -560,6 +560,33 @@ macro "#assert " e:term : command =>
 #assert expectSuccessType "!llvm.array<4 x struct<packed (i8, i32)>>"
   (LLVM.ArrayType.mk 4 (UnregisteredAttr.mk "!llvm.struct<packed (i8, i32)>" true none : Attribute)) true
 
+
+/-! ## LLVM parameterless types -/
+#assert expectSuccessType "!llvm.x86_amx"
+  ⟨UnregisteredAttr.mk "!llvm.x86_amx" true none, by grind⟩
+#assert expectSuccessType "!llvm.token"
+  ⟨UnregisteredAttr.mk "!llvm.token" true none, by grind⟩
+#assert expectSuccessType "!llvm.array<2 x x86_amx>"
+  (LLVM.ArrayType.mk 2 (UnregisteredAttr.mk "!llvm.x86_amx" true none : Attribute))
+#assert expectSuccessType "!llvm.array<2 x !llvm.x86_amx>"
+  (LLVM.ArrayType.mk 2 (UnregisteredAttr.mk "!llvm.x86_amx" true none : Attribute))
+#assert expectSuccessType "!llvm.array<4 x ppc_fp128>"
+  (LLVM.ArrayType.mk 4 (UnregisteredAttr.mk "!llvm.ppc_fp128" true none : Attribute))
+#assert expectSuccessType "!llvm.array<1 x metadata>"
+  (LLVM.ArrayType.mk 1 (UnregisteredAttr.mk "!llvm.metadata" true none : Attribute))
+#assert expectSuccessType "!llvm.array<1 x label>"
+  (LLVM.ArrayType.mk 1 (UnregisteredAttr.mk "!llvm.label" true none : Attribute))
+#assert expectSuccessType "!llvm.array<1 x token>"
+  (LLVM.ArrayType.mk 1 (UnregisteredAttr.mk "!llvm.token" true none : Attribute))
+-- The bare form only works nested inside another LLVM type.
+#assert expectMissingType "x86_amx"
+-- The target body is kept as written.
+#assert expectSuccessType "!llvm.target<\"aarch64.svcount\">"
+  ⟨UnregisteredAttr.mk "!llvm.target<\"aarch64.svcount\">" true none, by grind⟩
+#assert expectSuccessType "!llvm.array<1 x target<\"spirv.Image\", i32, 0>>"
+  (LLVM.ArrayType.mk 1
+    (UnregisteredAttr.mk "!llvm.target<\"spirv.Image\", i32, 0>" true none : Attribute))
+
 /-! ## LLVM Function type -/
 #assert expectSuccessType "!llvm.func<i32 (i32)>"
   ⟨.llvmFunctionType (FunctionType.mk
