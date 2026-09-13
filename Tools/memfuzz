@@ -1,0 +1,458 @@
+#!/usr/bin/env python3
+"""Differentially test VeIR's interpreter memory model against Alive2.
+
+`Tools/memfuzz_generate.py` writes each random program twice, once as VeIR's
+generic LLVM-dialect MLIR and once as LLVM IR, so the two inputs mean the same
+thing without a translation step in between.  This driver runs the MLIR under
+`veir-interpret` and the LLVM IR under `alive-exec`, classifies both outcomes
+as a value, poison or undefined behaviour, and records every case where they
+disagree.
+
+Work is split by seed, not by handing programs around: case `n` of a run is
+generated from a seed derived from the run identifier and `n` alone, so shard
+`i` of `N` covers a block of indices that no other shard touches, and any
+result can be reproduced anywhere from its index.  That is what makes a
+hundred machines a matter of launching a hundred shards.
+
+Subcommands:
+  run      test one block of cases and write a JSONL report
+  collect  merge the reports from every shard and rank the disagreements
+  repro    regenerate one case by index and show both tools' output
+  farm     launch shards over ssh, through SLURM, or across local cores
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import random
+import shlex
+import shutil
+import subprocess
+import sys
+import time
+from collections import Counter, defaultdict
+from dataclasses import asdict, dataclass
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import memfuzz_generate  # noqa: E402
+
+REPO = Path(__file__).resolve().parent.parent
+
+# Outcomes both tools are reduced to before they are compared.
+OK, POISON, UB, SKIP = "value", "poison", "ub", "skip"
+
+# Verdicts, worst first.
+#
+# The first four are the ones that point at a real difference in the model: the
+# two tools compute different values, VeIR invents undefined behaviour the
+# reference does not have, VeIR misses undefined behaviour the reference
+# reports, or VeIR loses a value the reference defines.
+#
+# `alive-imprecise` is the other direction of the poison question, and is not a
+# bug.  Poison stands for any value, so a defined result that agrees bit for
+# bit with what Alive2 computed is a refinement of it.  Alive2 reaches poison
+# here through the granularity of its byte encoding, which a concrete
+# interpreter does not share, so these are listed apart from the findings.
+VERDICTS = (
+    "value-mismatch",
+    "veir-ub-only",
+    "alive-ub-only",
+    "veir-poison-only",
+    "veir-failed",
+    "alive-imprecise",
+    "agree",
+    "skipped",
+)
+
+# Verdicts that are neither agreement nor a finding worth acting on.
+BENIGN = ("agree", "skipped", "alive-imprecise")
+
+
+@dataclass
+class Case:
+    index: int
+    seed: int
+    verdict: str
+    veir: str
+    alive: str
+    veir_raw: str = ""
+    alive_raw: str = ""
+    ms: int = 0
+
+
+def case_seed(run_id: str, index: int) -> int:
+    """The seed of case `index`, fixed by the run identifier alone."""
+    digest = hashlib.blake2b(f"{run_id}:{index}".encode(), digest_size=8).digest()
+    return int.from_bytes(digest, "big")
+
+
+# -- classification ------------------------------------------------------
+
+def classify_veir(log: str) -> tuple[str, str]:
+    lines = [ln for ln in log.splitlines() if ln.startswith("Program output:")]
+    if lines:
+        out = lines[-1]
+        return (POISON, out) if "poison" in out else (OK, out)
+    if "Undefined behavior" in log:
+        return UB, "Undefined behavior"
+    return SKIP, (log.strip().splitlines() or ["no output"])[-1]
+
+
+def classify_alive(log: str) -> tuple[str, str]:
+    # The solver gives up on some programs; that is the reference declining to
+    # answer, not a disagreement.
+    if "Error in SMT solver" in log or "ERROR: Unsupported" in log:
+        return SKIP, "alive-exec could not decide"
+    if "UB triggered!" in log:
+        return UB, "UB triggered"
+    returned = [ln.strip() for ln in log.splitlines() if ln.strip().startswith("Returned ")]
+    if not returned:
+        return SKIP, (log.strip().splitlines() or ["no output"])[-1]
+    line = returned[-1]
+    if "non-poison=false" in line:
+        return POISON, line
+    value = line.split("Returned ", 1)[1].split(" /")[0].strip()
+    if value.startswith("#x"):
+        return OK, f"0x{value[2:]}"
+    if value.startswith("#b"):
+        return OK, hex(int(value[2:], 2))
+    return SKIP, line
+
+
+def veir_value(out: str) -> str | None:
+    """The single returned value in `Program output: #[0x...#64]`."""
+    if "#[" not in out:
+        return None
+    body = out.split("#[", 1)[1].rstrip("]").strip()
+    if not body.startswith("0x"):
+        return None
+    return body.split("#")[0]
+
+
+def compare(vk: str, vout: str, ak: str, aout: str) -> str:
+    if ak == SKIP:
+        return "skipped"
+    if vk == SKIP:
+        return "veir-failed"
+    if vk == ak == OK:
+        v, a = veir_value(vout), aout
+        if v is None or a is None:
+            return "skipped"
+        return "agree" if int(v, 16) == int(a, 16) else "value-mismatch"
+    if vk == ak:
+        return "agree"
+    if vk == UB:
+        return "veir-ub-only"
+    if ak == UB:
+        return "alive-ub-only"
+    if vk == POISON:
+        return "veir-poison-only"
+    # VeIR defined it and Alive2 did not: a refinement, provided the bits match.
+    a = aout.split("Returned ", 1)[1].split(" /")[0].strip() if "Returned " in aout else ""
+    v = veir_value(vout)
+    if v and a.startswith("#x") and int(v, 16) == int(a[2:], 16):
+        return "alive-imprecise"
+    return "value-mismatch"
+
+
+# -- running one case ----------------------------------------------------
+
+def gen_opts(argv: list[str]) -> argparse.Namespace:
+    return memfuzz_generate.build_parser().parse_args(argv)
+
+
+def run_case(index: int, run_id: str, opts: argparse.Namespace, workdir: Path,
+             veir: Path, alive: Path, timeout: int) -> Case:
+    seed = case_seed(run_id, index)
+    mlir_text, ll_text = memfuzz_generate.generate(random.Random(seed), opts)
+    mlir = workdir / f"c{index}.mlir"
+    ll = workdir / f"c{index}.ll"
+    mlir.write_text(mlir_text)
+    ll.write_text(ll_text)
+    started = time.time()
+
+    def run(cmd: list[str], limit: int) -> str:
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=limit)
+            return r.stdout + r.stderr
+        except subprocess.TimeoutExpired:
+            return "TIMEOUT"
+        except OSError as e:
+            return f"could not run {cmd[0]}: {e}"
+
+    veir_log = run([str(veir), str(mlir)], timeout)
+    alive_log = run([str(alive), str(ll)], timeout)
+    vk, vout = classify_veir(veir_log)
+    ak, aout = classify_alive(alive_log)
+    if veir_log == "TIMEOUT":
+        vk, vout = SKIP, "veir-interpret timed out"
+    if alive_log == "TIMEOUT":
+        ak, aout = SKIP, "alive-exec timed out"
+    verdict = compare(vk, vout, ak, aout)
+    ms = int((time.time() - started) * 1000)
+    keep = verdict not in BENIGN
+    if not keep:
+        mlir.unlink(missing_ok=True)
+        ll.unlink(missing_ok=True)
+    return Case(index, seed, verdict, f"{vk}: {vout}", f"{ak}: {aout}",
+                veir_log[-4000:] if keep else "", alive_log[-4000:] if keep else "", ms)
+
+
+# -- subcommands ---------------------------------------------------------
+
+def cmd_run(args: argparse.Namespace) -> int:
+    veir = Path(args.veir or REPO / ".lake" / "build" / "bin" / "veir-interpret")
+    alive = Path(args.alive or shutil.which("alive-exec") or "alive-exec")
+    if not veir.exists():
+        sys.exit(f"veir-interpret not found at {veir}; build it with `lake build veir-interpret`")
+    if shutil.which(str(alive)) is None and not Path(alive).exists():
+        sys.exit(f"alive-exec not found at {alive}; pass --alive")
+
+    opts = gen_opts(shlex.split(args.gen))
+    out_dir = Path(args.out)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    corpus = out_dir / f"corpus-{args.shard:04d}"
+    corpus.mkdir(parents=True, exist_ok=True)
+    report = out_dir / f"shard-{args.shard:04d}.jsonl"
+
+    first = args.shard * args.cases
+    counts: Counter[str] = Counter()
+    with report.open("w") as fh:
+        meta = {"kind": "meta", "run_id": args.run_id, "shard": args.shard,
+                "shards": args.shards, "first": first, "cases": args.cases,
+                "gen": args.gen, "host": os.uname().nodename}
+        fh.write(json.dumps(meta) + "\n")
+        for k in range(args.cases):
+            case = run_case(first + k, args.run_id, opts, corpus, veir, alive, args.timeout)
+            counts[case.verdict] += 1
+            fh.write(json.dumps(asdict(case)) + "\n")
+            fh.flush()
+            if args.progress and (k + 1) % args.progress == 0:
+                done = dict(counts)
+                print(f"shard {args.shard}: {k + 1}/{args.cases} {done}", flush=True)
+            if args.stop_after and counts_bad(counts) >= args.stop_after:
+                break
+    print(f"shard {args.shard}: {dict(counts)}  report: {report}")
+    return 1 if counts_bad(counts) else 0
+
+
+def counts_bad(counts: Counter[str]) -> int:
+    return sum(n for v, n in counts.items() if v not in BENIGN)
+
+
+def cmd_collect(args: argparse.Namespace) -> int:
+    reports = sorted(Path(args.out).glob("shard-*.jsonl"))
+    if not reports:
+        sys.exit(f"no shard reports under {args.out}")
+    counts: Counter[str] = Counter()
+    by_verdict: defaultdict[str, list[dict]] = defaultdict(list)
+    runs, hosts, total = set(), set(), 0
+    for path in reports:
+        for line in path.read_text().splitlines():
+            if not line.strip():
+                continue
+            rec = json.loads(line)
+            if rec.get("kind") == "meta":
+                runs.add(rec["run_id"])
+                hosts.add(rec.get("host", "?"))
+                continue
+            total += 1
+            counts[rec["verdict"]] += 1
+            if rec["verdict"] not in BENIGN:
+                by_verdict[rec["verdict"]].append(rec)
+
+    run_id = sorted(runs)[0] if len(runs) == 1 else ", ".join(sorted(runs))
+    print(f"run {run_id}")
+    print(f"shards {len(reports)} on {len(hosts)} host(s), {total} cases")
+    print()
+    width = max(len(v) for v in VERDICTS)
+    for verdict in VERDICTS:
+        if counts[verdict]:
+            print(f"  {verdict:<{width}}  {counts[verdict]}")
+    bad = counts_bad(counts)
+    if not bad:
+        print("\nno disagreements")
+        return 0
+    print(f"\n{bad} disagreement(s); worst first\n")
+    for verdict in VERDICTS:
+        rows = by_verdict.get(verdict)
+        if not rows:
+            continue
+        print(f"== {verdict} ({len(rows)})")
+        for rec in rows[: args.examples]:
+            print(f"   case {rec['index']}")
+            print(f"     veir : {rec['veir']}")
+            print(f"     alive: {rec['alive']}")
+            print(f"     repro: Tools/memfuzz repro --run-id {run_id} "
+                  f"--index {rec['index']} --gen {shlex.quote(args.gen)}")
+        if len(rows) > args.examples:
+            print(f"   ... and {len(rows) - args.examples} more")
+        print()
+    return 1
+
+
+def cmd_repro(args: argparse.Namespace) -> int:
+    opts = gen_opts(shlex.split(args.gen))
+    seed = case_seed(args.run_id, args.index)
+    mlir_text, ll_text = memfuzz_generate.generate(random.Random(seed), opts)
+    out = Path(args.dir)
+    out.mkdir(parents=True, exist_ok=True)
+    mlir, ll = out / f"case_{args.index}.mlir", out / f"case_{args.index}.ll"
+    mlir.write_text(mlir_text)
+    ll.write_text(ll_text)
+    print(f"seed {seed}\n  {mlir}\n  {ll}\n")
+    veir = Path(args.veir or REPO / ".lake" / "build" / "bin" / "veir-interpret")
+    alive = Path(args.alive or shutil.which("alive-exec") or "alive-exec")
+    for name, cmd in (("veir-interpret", [str(veir), str(mlir)]),
+                      ("alive-exec", [str(alive), str(ll)])):
+        print(f"== {name}")
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=args.timeout)
+            print((r.stdout + r.stderr).strip()[-2000:])
+        except subprocess.TimeoutExpired:
+            print("timed out")
+        except OSError as e:
+            print(f"could not run: {e}")
+        print()
+    return 0
+
+
+def cmd_farm(args: argparse.Namespace) -> int:
+    """Start one shard per machine and leave the reports in a shared place."""
+    shards = args.shards
+    common = (f"run --run-id {shlex.quote(args.run_id)} --shards {shards} "
+              f"--cases {args.cases} --out {shlex.quote(args.out)} "
+              f"--gen {shlex.quote(args.gen)} --timeout {args.timeout}")
+    if args.veir:
+        common += f" --veir {shlex.quote(args.veir)}"
+    if args.alive:
+        common += f" --alive {shlex.quote(args.alive)}"
+
+    if args.slurm:
+        script = (
+            "#!/bin/bash\n"
+            f"#SBATCH --job-name=memfuzz-{args.run_id}\n"
+            f"#SBATCH --array=0-{shards - 1}\n"
+            f"#SBATCH --output={args.out}/slurm-%a.log\n"
+            f"cd {shlex.quote(str(args.chdir or REPO))}\n"
+            f"exec Tools/memfuzz {common} --shard $SLURM_ARRAY_TASK_ID\n"
+        )
+        path = Path(args.out)
+        path.mkdir(parents=True, exist_ok=True)
+        job = path / f"memfuzz-{args.run_id}.sbatch"
+        job.write_text(script)
+        job.chmod(0o755)
+        if args.dry_run:
+            print(script)
+            return 0
+        subprocess.run(["sbatch", str(job)], check=True)
+        print(f"submitted {shards} shards; collect with "
+              f"Tools/memfuzz collect --out {args.out}")
+        return 0
+
+    if args.hosts:
+        hosts = [h.strip() for h in Path(args.hosts).read_text().splitlines()
+                 if h.strip() and not h.startswith("#")]
+        if not hosts:
+            sys.exit(f"no hosts in {args.hosts}")
+        procs = []
+        for shard in range(shards):
+            host = hosts[shard % len(hosts)]
+            remote = (f"cd {shlex.quote(str(args.chdir or REPO))} && "
+                      f"Tools/memfuzz {common} --shard {shard}")
+            cmd = ["ssh", host, remote]
+            if args.dry_run:
+                print(" ".join(shlex.quote(c) for c in cmd))
+                continue
+            procs.append((host, shard, subprocess.Popen(cmd)))
+        if args.dry_run:
+            return 0
+        failed = 0
+        for host, shard, proc in procs:
+            if proc.wait() != 0:
+                failed += 1
+                print(f"shard {shard} on {host} reported disagreements or failed")
+        print(f"{len(procs)} shards finished, {failed} with findings; collect with "
+              f"Tools/memfuzz collect --out {args.out}")
+        return 1 if failed else 0
+
+    # Local fan-out, which is also how a single machine reproduces a shard.
+    procs = []
+    for shard in range(shards):
+        cmd = [sys.executable, str(Path(__file__).resolve())] + shlex.split(common) + \
+              ["--shard", str(shard)]
+        if args.dry_run:
+            print(" ".join(shlex.quote(c) for c in cmd))
+            continue
+        procs.append(subprocess.Popen(cmd, stdout=subprocess.DEVNULL))
+    if args.dry_run:
+        return 0
+    failed = sum(1 for p in procs if p.wait() != 0)
+    print(f"{len(procs)} local shards finished, {failed} with findings")
+    return 1 if failed else 0
+
+
+GEN_DEFAULT = "--ops 12"
+
+
+def main(argv: list[str]) -> int:
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    def common(p: argparse.ArgumentParser) -> None:
+        p.add_argument("--run-id", required=True,
+                       help="names the run; with the case index it fixes every seed")
+        p.add_argument("--gen", default=GEN_DEFAULT,
+                       help=f"arguments for memfuzz_generate.py (default: {GEN_DEFAULT!r})")
+        p.add_argument("--veir", help="path to veir-interpret")
+        p.add_argument("--alive", help="path to alive-exec")
+        p.add_argument("--timeout", type=int, default=120,
+                       help="seconds allowed per tool per case (default: 120)")
+
+    r = sub.add_parser("run", help="test one block of cases")
+    common(r)
+    r.add_argument("--shard", type=int, required=True)
+    r.add_argument("--shards", type=int, default=1)
+    r.add_argument("--cases", type=int, default=100, help="cases in this shard")
+    r.add_argument("--out", default="memfuzz-out", help="directory for reports")
+    r.add_argument("--progress", type=int, default=0, help="print every N cases")
+    r.add_argument("--stop-after", type=int, default=0,
+                   help="stop the shard after this many disagreements")
+    r.set_defaults(func=cmd_run)
+
+    c = sub.add_parser("collect", help="merge shard reports")
+    c.add_argument("--out", default="memfuzz-out")
+    c.add_argument("--examples", type=int, default=3,
+                   help="examples to print per verdict (default: 3)")
+    c.add_argument("--gen", default=GEN_DEFAULT, help="generator arguments, for repro lines")
+    c.set_defaults(func=cmd_collect)
+
+    p = sub.add_parser("repro", help="regenerate and rerun one case")
+    common(p)
+    p.add_argument("--index", type=int, required=True)
+    p.add_argument("--dir", default="memfuzz-repro")
+    p.set_defaults(func=cmd_repro)
+
+    f = sub.add_parser("farm", help="launch shards on many machines")
+    common(f)
+    f.add_argument("--shards", type=int, default=100)
+    f.add_argument("--cases", type=int, default=100, help="cases per shard")
+    f.add_argument("--out", default="memfuzz-out",
+                   help="report directory, shared between machines for ssh and SLURM")
+    f.add_argument("--hosts", help="file of ssh destinations, one per line")
+    f.add_argument("--slurm", action="store_true", help="submit a SLURM array job")
+    f.add_argument("--chdir", help="repository path on the remote machines")
+    f.add_argument("--dry-run", action="store_true", help="print what would run")
+    f.set_defaults(func=cmd_farm)
+
+    args = ap.parse_args(argv)
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

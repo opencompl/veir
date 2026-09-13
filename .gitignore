@@ -34,3 +34,7 @@ lakefile.olean
 Test/**/Output/**
 
 **/.ruff_cache
+
+# Python bytecode from the tools in Tools/
+__pycache__/
+*.pyc
