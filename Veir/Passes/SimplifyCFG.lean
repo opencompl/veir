@@ -88,7 +88,7 @@ private def simplifyBranch (ctx : WfIRContext OpCode) (op : OperationPtr) :
 
 /-- Visit the pass root and its nested operations. Bypassed blocks remain in the
     region; this pass only forwards branches. -/
-private partial def run (ctx : WfIRContext OpCode) (op : OperationPtr) :
+public partial def run (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Except String (WfIRContext OpCode) := do
   let mut ctx := ctx
   for region in op.getRegions! ctx.raw do
