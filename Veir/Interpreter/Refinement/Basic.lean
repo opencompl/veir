@@ -14,6 +14,9 @@ relate a program to a rewritten or lowered version of it). Refinement is defined
 
 * `RuntimeValue.isRefinedBy` relates two runtime values: integers refine via the `· ⊒ ·` ordering on
   `LLVM.Int`, while other types of values must match exactly.
+* `FunctionResult.isRefinedBy` relates the results of two function interpretations in the manner
+  of Alive2: the objects the caller can observe and the returned values refine under a renaming of
+  the target's objects to the source's.
 * `OperationPtr.isRefinedByAsFunction` relates two function-like operations: interpreting the source
   with any arguments and memory is refined by interpreting the target.
 * `OperationPtr.isRefinedByAsModule` relates two modules: every top-level `func.func` of the source
@@ -59,24 +62,108 @@ def RuntimeValue.arrayIsRefinedBy (source target : Array RuntimeValue) : Prop :=
 @[inherit_doc] infix:50 " ⊒ " => RuntimeValue.arrayIsRefinedBy
 
 /--
-Refinement of memory states, which can involve poison bits being refined into concrete bits.
+Refinement of memory bytes. A value byte is refined by a value byte in which poison bits may
+have become concrete, and a fully poison value byte is refined by anything. A pointer fragment
+is refined only by the same fragment.
 This should be kept consistent with the definition of refinement on the byte type.
 -/
 @[expose]
+def MemoryByte.isRefinedBy : MemoryByte → MemoryByte → Prop
+  | .value b p, .value b' p' => p ||| ((b ^^^ ~~~b') &&& ~~~p') = 0xff
+  | .value _ p, .fragment _ _ => p = 0xff
+  | .fragment q i, .fragment q' i' => q = q' ∧ i = i'
+  | .fragment _ _, .value _ _ => False
+
+@[inherit_doc] infix:50 " ⊒ " => MemoryByte.isRefinedBy
+
+/-- Refinement of memory objects: the same address and size, and bytes refined pointwise. -/
+@[expose]
+def MemoryObject.isRefinedBy (source target : MemoryObject) : Prop :=
+  source.base = target.base ∧ source.bytes.size = target.bytes.size ∧
+  ∀ i : Nat, source.bytes.getD i .poison ⊒ target.bytes.getD i .poison
+
+@[inherit_doc] infix:50 " ⊒ " => MemoryObject.isRefinedBy
+
+/-- Refinement of memory states: the same objects, each refined bytewise. -/
+@[expose]
 def MemoryState.isRefinedBy (source target : MemoryState) : Prop :=
-  ∀ addr, source.poisonMask.getD addr 0 ||| ((source.contents.getD addr 0 ^^^ ~~~target.contents.getD addr 0) &&& ~~~target.poisonMask.getD addr 0) = 0xff
+  source.objects.size = target.objects.size ∧ ∀ i : Nat, source.objects[i]! ⊒ target.objects[i]!
 
 @[inherit_doc] infix:50 " ⊒ " => MemoryState.isRefinedBy
 
+/-!
+## Refinement under a renaming of objects
+
+A transformation may allocate different objects than the program it refines: it may drop an
+allocation whose address never leaks, or allocate in another order. Following Alive2, the
+results of two function interpretations are therefore compared under a renaming `f` that sends
+the objects of the target to the objects of the source, and only the objects the caller can
+observe are compared.
+-/
+
 /--
-A function interpretation `source` is refined by `target`. This asserts that the final memories
-are equal, and the returned values refine pointwise.
+Refinement of runtime values under a renaming `f` of target objects to source objects: as
+`RuntimeValue.isRefinedBy`, except that a target pointer into object `j` refines a source
+pointer into object `f j` at the same offset.
 -/
 @[expose]
-def FunctionResult.isRefinedBy (source target : MemoryState × Array RuntimeValue) : Prop :=
-  source.1 = target.1 ∧ source.2 ⊒ target.2
+def RuntimeValue.isRefinedByUnder (f : Nat → Nat) (source target : RuntimeValue) : Prop :=
+  match source, target with
+  | .addr s, .addr t => s.object = f t.object ∧ s.offset = t.offset
+  | s, t => s ⊒ t
 
-@[inherit_doc] infix:50 " ⊒ " => FunctionResult.isRefinedBy
+/-- Arrays of runtime values refine under `f` when they have the same size and refine pointwise. -/
+@[expose]
+def RuntimeValue.arrayIsRefinedByUnder (f : Nat → Nat) (source target : Array RuntimeValue) : Prop :=
+  source.size = target.size ∧
+    ∀ (i : Nat) (_ : i < source.size), RuntimeValue.isRefinedByUnder f source[i]! target[i]!
+
+/-- Refinement of memory bytes under a renaming `f`, as `MemoryByte.isRefinedBy` with pointer
+fragments related through `f`. -/
+@[expose]
+def MemoryByte.isRefinedByUnder (f : Nat → Nat) : MemoryByte → MemoryByte → Prop
+  | .value b p, .value b' p' => p ||| ((b ^^^ ~~~b') &&& ~~~p') = 0xff
+  | .value _ p, .fragment _ _ => p = 0xff
+  | .fragment q i, .fragment q' i' => q.object = f q'.object ∧ q.offset = q'.offset ∧ i = i'
+  | .fragment _ _, .value _ _ => False
+
+/--
+Refinement of memory objects under a renaming `f`: the same size and liveness, an escaped
+source object is matched by an escaped target object, and the bytes refine pointwise under `f`.
+-/
+@[expose]
+def MemoryObject.isRefinedByUnder (f : Nat → Nat) (source target : MemoryObject) : Prop :=
+  source.bytes.size = target.bytes.size ∧ source.alive = target.alive ∧
+  (source.escaped = true → target.escaped = true) ∧
+  ∀ i : Nat, MemoryByte.isRefinedByUnder f (source.bytes.getD i .poison) (target.bytes.getD i .poison)
+
+/--
+Whether the caller of a function that started with `n` objects can observe object `i` of the
+memory `mem` the function ends with: the object existed before the call, or its address escaped.
+-/
+@[expose]
+def MemoryState.Observable (mem : MemoryState) (n i : Nat) : Prop :=
+  i < n ∨ mem.objects[i]!.escaped = true
+
+/--
+A function interpretation `source` is refined by `target`, relative to the memory `init` the
+function started with, in the manner of Alive2. A renaming `f` sends the target's objects to the
+source's: it is the identity on the objects that existed before the call and sends objects the
+target allocated to objects the source allocated. Every source object the caller can observe
+(`MemoryState.Observable`) must be refined under `f` by a target object that `f` sends to it,
+and the returned values refine pointwise under `f`. Objects the source allocated but never
+leaked are unconstrained, so the target may drop them.
+-/
+@[expose]
+def FunctionResult.isRefinedBy (init : MemoryState)
+    (source target : MemoryState × Array RuntimeValue) : Prop :=
+  ∃ f : Nat → Nat,
+    (∀ i, i < init.objects.size → f i = i) ∧
+    (∀ j, init.objects.size ≤ j → init.objects.size ≤ f j) ∧
+    (∀ i, i < source.1.objects.size → source.1.Observable init.objects.size i →
+      ∃ j, j < target.1.objects.size ∧ f j = i ∧
+        MemoryObject.isRefinedByUnder f source.1.objects[i]! target.1.objects[j]!) ∧
+    RuntimeValue.arrayIsRefinedByUnder f source.2 target.2
 
 /--
 An interpretation result `source` is refined by `target` given a refinement relation `R`
@@ -119,7 +206,7 @@ def ControlFlowAction.optionIsRefinedBy : Option ControlFlowAction → Option Co
 /--
 The function described by source `op₁` (in `ctx₁`) is *refined by* target `op₂` (in `ctx₂`) when,
 for every argument `values` and initial memory `mem`, interpreting `op₁` is refined by interpreting
-`op₂`.
+`op₂`, with the results compared relative to `mem` by `FunctionResult.isRefinedBy`.
 -/
 @[expose]
 def OperationPtr.isRefinedByAsFunction (op₁ : OperationPtr) (ctx₁ : WfIRContext OpCode)
@@ -128,7 +215,7 @@ def OperationPtr.isRefinedByAsFunction (op₁ : OperationPtr) (ctx₁ : WfIRCont
     (op₂In : op₂.InBounds ctx₂.raw := by grind) : Prop :=
   ∀ (valuesSource valuesTarget : Array RuntimeValue) (mem : MemoryState),
     valuesSource ⊒ valuesTarget →
-    Interp.isRefinedBy FunctionResult.isRefinedBy
+    Interp.isRefinedBy (FunctionResult.isRefinedBy mem)
       (interpretFunction op₁ valuesSource mem (ctx := ctx₁) op₁In)
       (interpretFunction op₂ valuesTarget mem (ctx := ctx₂) op₂In)
 
