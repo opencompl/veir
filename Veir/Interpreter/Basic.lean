@@ -640,6 +640,42 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       /- Offsets wrap at 64 bits, so a negative index steps backwards. -/
       return (#[.addr (.val ⟨ptr.object, UInt64.ofNat (ptr.offset.toNat + idx.toNat * size)⟩)], mem, none)
     | _, _ => return (#[.addr .poison], mem, none)
+  | .intr__memcpy | .intr__memmove => do
+    /- Bytes are copied as they are, so a pointer stored in the source keeps
+       its provenance in the destination. `memcpy` additionally requires the
+       two ranges to be equal or not to overlap at all, which is the only
+       thing that separates it from `memmove`. -/
+    let [.addr dst, .addr src, .int _ len] := operands.toList | none
+    let .val dst := dst | Interp.ub
+    let .val src := src | Interp.ub
+    let .val len := len | Interp.ub
+    let n := len.toNat
+    if opType = .intr__memcpy ∧ dst.object = src.object ∧ dst.offset ≠ src.offset then
+      let lo := min dst.offset.toNat src.offset.toNat
+      let hi := max dst.offset.toNat src.offset.toNat
+      if lo + n > hi then Interp.ub
+    let bytes ← mem.loadBytes src n
+    let mem ← mem.storeBytes dst bytes
+    return (#[], mem, none)
+  | .intr__memset => do
+    let [.addr dst, .int 8 v, .int _ len] := operands.toList | none
+    let .val dst := dst | Interp.ub
+    let .val len := len | Interp.ub
+    let byte : MemoryByte := match v with
+      | .val v => .value (UInt8.ofBitVec v) 0
+      | .poison => .poison
+    let mem ← mem.storeBytes dst (Array.replicate len.toNat byte)
+    return (#[], mem, none)
+  | .ptrtoint => do
+    let [.addr p] := operands.toList | none
+    let [⟨.integerType bw, _⟩] := resultTypes.toList | none
+    let .val p := p | return (#[.int bw.bitwidth .poison], mem, none)
+    return (#[.int bw.bitwidth (.val (BitVec.ofNat bw.bitwidth (mem.address p).toNat))], mem, none)
+  | .inttoptr => do
+    let [.int _ v] := operands.toList | none
+    match v with
+    | .val v => return (#[.addr (.val (mem.decode (UInt64.ofNat v.toNat)))], mem, none)
+    | .poison => return (#[.addr .poison], mem, none)
   | .freeze => do
     let [val] := operands.toList | none
     match val with

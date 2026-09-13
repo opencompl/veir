@@ -16,14 +16,17 @@ A program is a straight-line `@main` returning an `i64` folded from loaded
 values, over objects addressed through `getelementptr`. What it may contain is
 set by the generator's options, and their defaults track what the interpreter
 models, so a run with the defaults is always one the interpreter is expected to
-survive. Today that is `alloca`, `getelementptr` and integer loads and stores,
-with out-of-bounds offsets, misalignment and null dereferences drawn at tunable
-rates.
+survive. Today that is `alloca`, `getelementptr`, loads and stores of both integers and
+pointers, `memcpy`, and the pointer/integer casts, with out-of-bounds offsets,
+misalignment and null dereferences drawn at tunable rates.
 
-Everything past that is behind an option until the model catches up:
-`--ptr-values` for storing and loading pointers, and the `--w-` weights for
-the heap family, the memory intrinsics and the pointer/integer casts. Raising
-one before the interpreter implements it is how you see what is missing.
+Everything past that is behind an option until the model catches up: the
+`--w-` weights for the heap family. Raising one before the interpreter
+implements it is how you see what is missing.
+
+Two more stay off because the reference cannot answer for them. `alive-exec`
+computes the right bytes for `--memset` and `--calloc` but leaves them marked
+poison, so a later load disagrees on definedness while agreeing on the value.
 
 ## Running
 

@@ -446,9 +446,15 @@ class Generator:
         addresses in the same object, and a round trip through an integer,
         mean the same under both.
         """
-        src = self.any_ptr()
-        if src is None:
+        # Only a pointer whose provenance the generator knows is used here.
+        # The difference of two addresses derived from a poison pointer is
+        # poison in VeIR and zero in Alive2, which folds it without carrying
+        # the poison, and that difference is about poison rather than about
+        # memory.
+        known = [q for q in self.ptrs if q.obj is not None]
+        if not known:
             return
+        src = self.rng.choice(known)
         delta = self.rng.randrange(0, 8)
         idx = self.const_int(64, delta)
         off = self.p.fresh()
@@ -578,8 +584,8 @@ def build_parser() -> argparse.ArgumentParser:
     # gap in the reference, not in the model, so calloc is off by default.
     ap.add_argument("--calloc", dest="calloc", action="store_true",
                     help="also generate calloc, which alive-exec does not zero")
-    ap.add_argument("--ptr-values", action="store_true",
-                    help="also store and load pointers")
+    ap.add_argument("--no-ptr-values", dest="ptr_values", action="store_false",
+                    help="do not store or load pointers")
     # alive-exec computes the right bytes for memset but leaves them marked
     # poison, so a load after one disagrees on definedness while agreeing on
     # the value.  That is a gap in the reference, so memset is off by default.
@@ -598,7 +604,7 @@ def build_parser() -> argparse.ArgumentParser:
     # models today and are raised as it grows, so a run with the defaults is
     # always one the interpreter is expected to survive.
     for name, default in (("alloca", 2), ("malloc", 0), ("free", 0), ("gep", 3),
-                          ("store", 4), ("load", 4), ("mem", 0), ("ptr", 0)):
+                          ("store", 4), ("load", 4), ("mem", 1), ("ptr", 1)):
         ap.add_argument(f"--w-{name}", type=int, default=default,
                         help=f"relative weight of {name} operations (default: {default})")
     return ap
