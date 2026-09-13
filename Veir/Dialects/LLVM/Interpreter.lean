@@ -313,8 +313,7 @@ def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType
     let [.int _ (.val count)] := operands.toList | fail
     /- `alloca T, N` reserves `N` strides of `T`, as in LLVM. -/
     let size ← monadLift $ layout.getTypeAllocSize properties.elem_type.val
-    let totalSize := (size * count.toNat).toUInt64
-    let (mem, addr) := mem.alloc totalSize
+    let (mem, addr) := mem.alloc (size * count.toNat) properties.alignment.value.toNat.toUInt64
     return (#[.addr (.val addr)], mem, none)
   | .load => do
     let [.addr addr] := operands.toList | fail
@@ -334,7 +333,9 @@ def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType
        that `isel-riscv64` uses to lower this operation. -/
     let size ← monadLift $ layout.getTypeAllocSize properties.elem_type.val
     match ptr, idx with
-    | .val ptr, .val idx => return (#[.addr (.val (ptr.toNat + idx.toNat * size).toUInt64)], mem, none)
+    | .val ptr, .val idx =>
+      /- Offsets wrap at 64 bits, so a negative index steps backwards. -/
+      return (#[.addr (.val ⟨ptr.object, UInt64.ofNat (ptr.offset.toNat + idx.toNat * size)⟩)], mem, none)
     | _, _ => return (#[.addr .poison], mem, none)
   | .freeze => do
     let [val] := operands.toList | fail
@@ -364,12 +365,16 @@ def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType
       | .byte bw1 val', .integerType ⟨bw2⟩ =>
           if bw1 ≠ bw2 then .fail else .ok ((.int bw1 $ val'.toInt))
       | .byte bw val', .llvmPointerType _ =>
-          if h : bw = 64 then .ok (.addr (LLVM.Ptr.ofByte (val'.cast h))) else .fail
+          if h : bw = 64 then .ok (.addr (mem.ptrOfByte (val'.cast h))) else .fail
       | .addr val', .llvmPointerType _ => .ok (val)
       | .addr val', .byteType ⟨bw⟩ =>
-          if bw = 64 then .ok (.byte 64 val'.toByte) else .fail
+          if bw = 64 then .ok (.byte 64 (mem.byteOfPtr val')) else .fail
       | .addr val', .integerType ⟨bw⟩ =>
-          if bw = 64 then .ok (.int 64 val'.toInt) else .fail
+          if bw = 64 then
+            match val' with
+            | .val v => .ok (.int 64 (LLVM.Int.val (mem.address v).toBitVec))
+            | .poison => .ok (.int 64 .poison)
+          else .fail
       | _, _ => none
     return (#[result], mem, none)
   | _ => fail
