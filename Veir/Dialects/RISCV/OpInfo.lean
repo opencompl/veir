@@ -5,6 +5,7 @@ public import Veir.IR.OpInfo
 public import Veir.Verifier.Basic
 public import Veir.Dialects.RISCV.Properties
 public import Veir.ConstantMaterialization
+import Veir.Dialects.Builtin.Properties
 meta import Veir.Meta.OpCode
 
 namespace Veir
@@ -190,12 +191,12 @@ def Riscv.toAttrDict
   | .slliw | .srliw | .sraiw | .rori | .roriw | .slliuw
   | .bclri | .bexti | .binvi | .bseti =>
     (Std.HashMap.emptyWithCapacity 2).insert
-      "value".toUTF8 (encodeRISCVImmediate props.value)
+      "value".toUTF8 (i64Attr props.value)
   -- The memory ops additionally carry a volatile flag, printed only when set.
   | .ld | .lw | .lwu | .lh | .lhu | .lb | .lbu
   | .sd | .sw | .sh | .sb => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
-    dict := dict.insert "value".toUTF8 (encodeRISCVImmediate props.value)
+    dict := dict.insert "value".toUTF8 (i64Attr props.value)
     if props.volatile_ then
       dict := dict.insert "volatile_".toUTF8 (.unitAttr UnitAttr.mk)
     dict

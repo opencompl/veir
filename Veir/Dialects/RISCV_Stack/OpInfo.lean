@@ -5,6 +5,7 @@ public import Veir.IR.OpInfo
 public import Veir.Verifier.Basic
 public import Veir.Dialects.RISCV_Stack.Properties
 public import Veir.Dialects.RISCV.OpInfo
+import Veir.Dialects.Builtin.Properties
 meta import Veir.Meta.OpCode
 
 namespace Veir
@@ -33,8 +34,8 @@ def Riscv_Stack.toAttrDict
   match op with
   | .alloca => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
-    dict := dict.insert "size".toUTF8 (Attribute.integerAttr props.size)
-    dict.insert "alignment".toUTF8 (Attribute.integerAttr props.alignment)
+    dict := dict.insert "size".toUTF8 (i64Attr props.size)
+    dict.insert "alignment".toUTF8 (i64Attr props.alignment)
 
 @[get_effects]
 def Riscv_Stack.getEffects
@@ -68,15 +69,13 @@ def Riscv_Stack.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.verifyPlainOpCounts ctx opIn 0 1
     op.verifyRISCVRegisterTypes ctx opIn
     let properties := op.getProperties! ctx.raw Riscv_Stack.alloca
-    if properties.size.type.bitwidth ≠ 64 then
-      throw "attribute 'size' must be a 64-bit signless integer attribute"
-    if properties.size.value < 0 then
+    /- The declared widths are checked once, at the parse boundary, and are not
+       stored: `size` and `alignment` are `BitVec 64`. See `getI64Attr`. -/
+    if properties.size.toInt < 0 then
       throw "size must be nonnegative"
-    if properties.alignment.type.bitwidth ≠ 64 then
-      throw "attribute 'alignment' must be a 64-bit signless integer attribute"
-    if properties.alignment.value ≤ 0 then
+    if properties.alignment.toInt ≤ 0 then
       throw "alignment must be a positive power of two"
-    let alignment := properties.alignment.value.toNat
+    let alignment := properties.alignment.toNat
     if alignment &&& (alignment - 1) ≠ 0 then
       throw "alignment must be a positive power of two"
     pure ()
