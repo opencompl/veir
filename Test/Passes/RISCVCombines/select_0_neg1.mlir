@@ -23,7 +23,7 @@
 
 // The select becomes sext(not c).
 // CHECK:      func.func @foo(%[[C:.*]]: i1) -> i64 {
-// CHECK:      %[[M1:.*]] = "llvm.mlir.constant"() <{"value" = -1 : i1}> : () -> i1
+// CHECK:      %[[M1:.*]] = "llvm.mlir.constant"() <{"value" = 1 : i1}> : () -> i1
 // CHECK:      %[[NOT:.*]] = "llvm.xor"(%[[C]], %[[M1]]) : (i1, i1) -> i1
 // CHECK:      %[[R:.*]] = "llvm.sext"(%[[NOT]]) : (i1) -> i64
 // CHECK:      "func.return"(%[[R]]) : (i64) -> ()

@@ -39,7 +39,7 @@ def right_identity_zero_add_local (ctx : WfIRContext OpCode) (op : OperationPtr)
   let some (lhs, rhs, _) := matchRVAdd op ctx.raw | return (ctx, none)
   let some liOp := rhs.definingOp? | return (ctx, none)
   let some cst := matchRVLi liOp ctx.raw | return (ctx, none)
-  if cst.value.value ≠ 0 then return (ctx, none)
+  if cst.value.toInt ≠ 0 then return (ctx, none)
   some (ctx, some (#[], #[lhs]))
 
 def right_identity_zero_add (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -64,7 +64,10 @@ def select_constant_cmp_true_local (ctx : WfIRContext OpCode) (op : OperationPtr
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (cond, tval, _fval) := matchSelect op ctx.raw | return (ctx, none)
   let some cst := matchConstantIntVal cond ctx.raw | return (ctx, none)
-  if cst ≠ 1 then return (ctx, none)
+  /- The condition is a boolean, so it is true when any bit is set. Read as a
+     two's complement integer a set `i1` is -1, not 1, which is why this asks
+     whether the value is non-zero rather than naming it. -/
+  if cst = 0 then return (ctx, none)
   some (ctx, some (#[], #[tval]))
 
 def select_constant_cmp_true (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -510,7 +513,7 @@ def sub_add_reg_x_sub_y_add_x_local (ctx : WfIRContext OpCode) (op : OperationPt
   let some (y, x, _ap) := matchAdd dAdd ctx.raw | return (ctx, none)
   if x != s0 then return (ctx, none)
   let .integerType yty := (y.getType! ctx.raw).val | return (ctx, none)
-  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) yty))
+  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (0) yty))
   let (ctx, c0) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[y.getType! ctx.raw] #[]
     #[] #[] z none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[s0.getType! ctx.raw] #[(c0.getResult 0), y]
@@ -529,7 +532,7 @@ def sub_add_reg_x_sub_x_add_y_local (ctx : WfIRContext OpCode) (op : OperationPt
   let some (x, y, _ap) := matchAdd dAdd ctx.raw | return (ctx, none)
   if x != s0 then return (ctx, none)
   let .integerType yty := (y.getType! ctx.raw).val | return (ctx, none)
-  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) yty))
+  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (0) yty))
   let (ctx, c0) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[y.getType! ctx.raw] #[]
     #[] #[] z none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[s0.getType! ctx.raw] #[(c0.getResult 0), y]
@@ -549,7 +552,7 @@ def xor_of_and_with_same_reg_local (ctx : WfIRContext OpCode) (op : OperationPtr
   let some (x, y2, _) := matchAnd dA ctx.raw | return (ctx, none)
   if y2 != yval then return (ctx, none)
   let .integerType xty := (x.getType! ctx.raw).val | return (ctx, none)
-  let m1 := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-1) xty))
+  let m1 := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (-1) xty))
   let (ctx, c1) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[x.getType! ctx.raw] #[]
     #[] #[] m1 none
   let (ctx, notx) ← WfRewriter.createOp! ctx Llvm.xor #[x.getType! ctx.raw] #[x, (c1.getResult 0)]
@@ -826,7 +829,7 @@ def redundant_binop_in_equality_XPlusYEqX_local (ctx : WfIRContext OpCode) (op :
   let some (x, y, _ap) := matchAdd dAdd ctx.raw | return (ctx, none)
   if x != xval then return (ctx, none)
   let .integerType yty := (y.getType! ctx.raw).val | return (ctx, none)
-  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) yty))
+  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (0) yty))
   let (ctx, c0) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[y.getType! ctx.raw] #[]
     #[] #[] z none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.icmp #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[y, (c0.getResult 0)]
@@ -845,7 +848,7 @@ def redundant_binop_in_equality_XPlusYNeX_local (ctx : WfIRContext OpCode) (op :
   let some (x, y, _ap) := matchAdd dAdd ctx.raw | return (ctx, none)
   if x != xval then return (ctx, none)
   let .integerType yty := (y.getType! ctx.raw).val | return (ctx, none)
-  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) yty))
+  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (0) yty))
   let (ctx, c0) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[y.getType! ctx.raw] #[]
     #[] #[] z none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.icmp #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[y, (c0.getResult 0)]
@@ -864,7 +867,7 @@ def redundant_binop_in_equality_XMinusYEqX_local (ctx : WfIRContext OpCode) (op 
   let some (x, y, _sp) := matchSub dSub ctx.raw | return (ctx, none)
   if x != xval then return (ctx, none)
   let .integerType yty := (y.getType! ctx.raw).val | return (ctx, none)
-  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) yty))
+  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (0) yty))
   let (ctx, c0) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[y.getType! ctx.raw] #[]
     #[] #[] z none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.icmp #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[y, (c0.getResult 0)]
@@ -883,7 +886,7 @@ def redundant_binop_in_equality_XMinusYNeX_local (ctx : WfIRContext OpCode) (op 
   let some (x, y, _sp) := matchSub dSub ctx.raw | return (ctx, none)
   if x != xval then return (ctx, none)
   let .integerType yty := (y.getType! ctx.raw).val | return (ctx, none)
-  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) yty))
+  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (0) yty))
   let (ctx, c0) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[y.getType! ctx.raw] #[]
     #[] #[] z none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.icmp #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[y, (c0.getResult 0)]
@@ -902,7 +905,7 @@ def redundant_binop_in_equality_XXorYEqX_local (ctx : WfIRContext OpCode) (op : 
   let some (x, y, _xp) := matchXor dXor ctx.raw | return (ctx, none)
   if x != xval then return (ctx, none)
   let .integerType yty := (y.getType! ctx.raw).val | return (ctx, none)
-  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) yty))
+  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (0) yty))
   let (ctx, c0) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[y.getType! ctx.raw] #[]
     #[] #[] z none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.icmp #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[y, (c0.getResult 0)]
@@ -921,7 +924,7 @@ def redundant_binop_in_equality_XXorYNeX_local (ctx : WfIRContext OpCode) (op : 
   let some (x, y, _xp) := matchXor dXor ctx.raw | return (ctx, none)
   if x != xval then return (ctx, none)
   let .integerType yty := (y.getType! ctx.raw).val | return (ctx, none)
-  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) yty))
+  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (0) yty))
   let (ctx, c0) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[y.getType! ctx.raw] #[]
     #[] #[] z none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.icmp #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[y, (c0.getResult 0)]
@@ -975,7 +978,7 @@ def select_0_1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some cf := matchConstantIntVal fv ctx.raw | return (ctx, none)
   if cf ≠ 1 then return (ctx, none)
   let .integerType cty := (cond.getType! ctx.raw).val | return (ctx, none)
-  let m1 := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-1) cty))
+  let m1 := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (-1) cty))
   let (ctx, c1) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[cond.getType! ctx.raw] #[]
     #[] #[] m1 none
   let (ctx, ncond) ← WfRewriter.createOp! ctx Llvm.xor #[cond.getType! ctx.raw] #[cond, (c1.getResult 0)]
@@ -997,7 +1000,7 @@ def select_0_neg1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some cf := matchConstantIntVal fv ctx.raw | return (ctx, none)
   if cf ≠ -1 then return (ctx, none)
   let .integerType cty := (cond.getType! ctx.raw).val | return (ctx, none)
-  let m1 := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-1) cty))
+  let m1 := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (-1) cty))
   let (ctx, c1) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[cond.getType! ctx.raw] #[]
     #[] #[] m1 none
   let (ctx, ncond) ← WfRewriter.createOp! ctx Llvm.xor #[cond.getType! ctx.raw] #[cond, (c1.getResult 0)]
@@ -1113,7 +1116,7 @@ def double_icmp_zero_and_combine_local (ctx : WfIRContext OpCode) (op : Operatio
   let some cyv := matchConstantIntVal cy ctx.raw | return (ctx, none)
   if cyv ≠ 0 then return (ctx, none)
   let .integerType xty := (x.getType! ctx.raw).val | return (ctx, none)
-  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) xty))
+  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (0) xty))
   let (ctx, orOp) ← WfRewriter.createOp! ctx Llvm.or #[x.getType! ctx.raw] #[x, y]
     #[] #[] ({ disjoint := false } : DisjointProperties) none
   let (ctx, c0) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[x.getType! ctx.raw] #[]
@@ -1141,7 +1144,7 @@ def double_icmp_zero_or_combine_local (ctx : WfIRContext OpCode) (op : Operation
   let some cyv := matchConstantIntVal cy ctx.raw | return (ctx, none)
   if cyv ≠ 0 then return (ctx, none)
   let .integerType xty := (x.getType! ctx.raw).val | return (ctx, none)
-  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) xty))
+  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (0) xty))
   let (ctx, orOp) ← WfRewriter.createOp! ctx Llvm.or #[x.getType! ctx.raw] #[x, y]
     #[] #[] oprops none
   let (ctx, c0) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[x.getType! ctx.raw] #[]
@@ -1164,7 +1167,7 @@ def NotAPlusNegOne_rw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some cst := matchConstantIntVal cm1 ctx.raw | return (ctx, none)
   if cst ≠ -1 then return (ctx, none)
   let .integerType xty := (x.getType! ctx.raw).val | return (ctx, none)
-  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) xty))
+  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (0) xty))
   let (ctx, c0) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[x.getType! ctx.raw] #[]
     #[] #[] z none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[x.getType! ctx.raw] #[(c0.getResult 0), x]
@@ -1185,7 +1188,7 @@ def sub_one_from_sub_rw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some dSub := subVal.definingOp? | return (ctx, none)
   let some (x, y, _sp2) := matchSub dSub ctx.raw | return (ctx, none)
   let .integerType yty := (y.getType! ctx.raw).val | return (ctx, none)
-  let m1 := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-1) yty))
+  let m1 := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (-1) yty))
   let (ctx, cm1) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[y.getType! ctx.raw] #[]
     #[] #[] m1 none
   let (ctx, xorOp) ← WfRewriter.createOp! ctx Llvm.xor #[y.getType! ctx.raw] #[y, (cm1.getResult 0)]
@@ -1208,7 +1211,7 @@ def APlusC1MinusC2_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (a, c1v, ap) := matchAdd dAdd ctx.raw | return (ctx, none)
   let some c1 := matchConstantIntVal c1v ctx.raw | return (ctx, none)
   let .integerType aty := (a.getType! ctx.raw).val | return (ctx, none)
-  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c1 - c2) aty))
+  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (c1 - c2) aty))
   let (ctx, cf) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[a.getType! ctx.raw] #[]
     #[] #[] folded none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.add #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[a, (cf.getResult 0)]
@@ -1229,7 +1232,7 @@ def C2MinusAPlusC1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (a, c1v, _ap) := matchAdd dAdd ctx.raw | return (ctx, none)
   let some c1 := matchConstantIntVal c1v ctx.raw | return (ctx, none)
   let .integerType aty := (a.getType! ctx.raw).val | return (ctx, none)
-  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c2 - c1) aty))
+  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (c2 - c1) aty))
   let (ctx, cf) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[a.getType! ctx.raw] #[]
     #[] #[] folded none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[(cf.getResult 0), a]
@@ -1250,7 +1253,7 @@ def AMinusC1MinusC2_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (a, c1v, _sp2) := matchSub dSub ctx.raw | return (ctx, none)
   let some c1 := matchConstantIntVal c1v ctx.raw | return (ctx, none)
   let .integerType aty := (a.getType! ctx.raw).val | return (ctx, none)
-  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c1 + c2) aty))
+  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (c1 + c2) aty))
   let (ctx, cf) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[a.getType! ctx.raw] #[]
     #[] #[] folded none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[a, (cf.getResult 0)]
@@ -1271,7 +1274,7 @@ def C1MinusAMinusC2_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (c1v, a, _sp2) := matchSub dSub ctx.raw | return (ctx, none)
   let some c1 := matchConstantIntVal c1v ctx.raw | return (ctx, none)
   let .integerType aty := (a.getType! ctx.raw).val | return (ctx, none)
-  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c1 - c2) aty))
+  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (c1 - c2) aty))
   let (ctx, cf) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[a.getType! ctx.raw] #[]
     #[] #[] folded none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[(cf.getResult 0), a]
@@ -1292,7 +1295,7 @@ def AMinusC1PlusC2_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (a, c1v, _sp) := matchSub dSub ctx.raw | return (ctx, none)
   let some c1 := matchConstantIntVal c1v ctx.raw | return (ctx, none)
   let .integerType aty := (a.getType! ctx.raw).val | return (ctx, none)
-  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c2 - c1) aty))
+  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (c2 - c1) aty))
   let (ctx, cf) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[a.getType! ctx.raw] #[]
     #[] #[] folded none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.add #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[a, (cf.getResult 0)]
@@ -1449,7 +1452,7 @@ def srl_sra_signbitGen_local (srlDst : Riscv)
     (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (operands, outerImm) := matchOp op ctx.raw (OpCode.riscv srlDst) 1 | return (ctx, none)
-  if (cast hSrl outerImm : RISCVImmediateProperties).value.value ≠ (width : Int) - 1 then
+  if (cast hSrl outerImm : RISCVImmediateProperties).value.toInt ≠ (width : Int) - 1 then
     return (ctx, none)
   let some sraOp := operands[0]!.definingOp? | return (ctx, none)
   let some (sraOperands, _) := matchOp sraOp ctx.raw (OpCode.riscv sraDst) 1 | return (ctx, none)
@@ -1487,10 +1490,10 @@ def srlw_sraw_signbit := srl_sra_signbitGen .srliw rfl .sraiw 32
 private def drop_slli_srli_boolGen_local (boolDst : Riscv) (arity : Nat) (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (srliSrc, outerImm) := matchRVSrli op ctx.raw | return (ctx, none)
-  if outerImm.value.value ≠ 63 then return (ctx, none)
+  if outerImm.value.toInt ≠ 63 then return (ctx, none)
   let some slliOp := srliSrc.definingOp? | return (ctx, none)
   let some (slliSrc, innerImm) := matchRVSlli slliOp ctx.raw | return (ctx, none)
-  if innerImm.value.value ≠ 63 then return (ctx, none)
+  if innerImm.value.toInt ≠ 63 then return (ctx, none)
   let some boolOp := slliSrc.definingOp? | return (ctx, none)
   let some (_, _) := matchOp boolOp ctx.raw (OpCode.riscv boolDst) arity | return (ctx, none)
   some (ctx, some (#[], #[slliSrc]))
@@ -1818,7 +1821,7 @@ def drop_sextb_sb := drop_ext_store .sextb .sb
 def li_zero_to_x0_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some cst := matchRVLi op ctx.raw | return (ctx, none)
-  if cst.value.value ≠ 0 then return (ctx, none)
+  if cst.value.toInt ≠ 0 then return (ctx, none)
   /- Nothing to do for a dead `li 0`; leave it for DCE and avoid creating a dead x0. -/
   if !op.hasUses! ctx.raw then return (ctx, none)
   let (ctx, x0Op) ← WfRewriter.createOp! ctx Rv64.get_register
@@ -1874,7 +1877,7 @@ def zextw_li_low32_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (src, _) := matchRVZextw op ctx.raw | return (ctx, none)
   let some srcOp := src.definingOp? | return (ctx, none)
   let some cst := matchRVLi srcOp ctx.raw | return (ctx, none)
-  if cst.value.value < 0 ∨ cst.value.value ≥ 4294967296 then return (ctx, none)
+  if cst.value.toInt < 0 ∨ cst.value.toInt ≥ 4294967296 then return (ctx, none)
   some (ctx, some (#[], #[src]))
 
 def zextw_li_low32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -1896,7 +1899,7 @@ def sextw_li_low32_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (src, _) := matchRVSextw op ctx.raw | return (ctx, none)
   let some srcOp := src.definingOp? | return (ctx, none)
   let some cst := matchRVLi srcOp ctx.raw | return (ctx, none)
-  if cst.value.value < -2147483648 ∨ cst.value.value ≥ 2147483648 then return (ctx, none)
+  if cst.value.toInt < -2147483648 ∨ cst.value.toInt ≥ 2147483648 then return (ctx, none)
   some (ctx, some (#[], #[src]))
 
 def sextw_li_low32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -1915,7 +1918,7 @@ private def ext_li_range_local (ext : Riscv) (lo hi : Int) (ctx : WfIRContext Op
   let src := operands[0]!
   let some srcOp := src.definingOp? | return (ctx, none)
   let some cst := matchRVLi srcOp ctx.raw | return (ctx, none)
-  if cst.value.value < lo ∨ cst.value.value ≥ hi then return (ctx, none)
+  if cst.value.toInt < lo ∨ cst.value.toInt ≥ hi then return (ctx, none)
   some (ctx, some (#[], #[src]))
 
 private def ext_li_range (ext : Riscv) (lo hi : Int) (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -1953,7 +1956,7 @@ def SubSmaxSub_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some _ := matchConstantZero zeroInner ctx.raw | return (ctx, none)
   if a2 != a then return (ctx, none)
   let .integerType aty := (a.getType! ctx.raw).val | return (ctx, none)
-  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 aty))
+  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt 0 aty))
   let (ctx, c0) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[a.getType! ctx.raw] #[]
     #[] #[] z none
   let (ctx, sub1) ← WfRewriter.createOp! ctx Llvm.sub #[a.getType! ctx.raw] #[(c0.getResult 0), a]
@@ -1977,7 +1980,7 @@ def SubUmaxSub_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some _ := matchConstantZero zeroInner ctx.raw | return (ctx, none)
   if a2 != a then return (ctx, none)
   let .integerType aty := (a.getType! ctx.raw).val | return (ctx, none)
-  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 aty))
+  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt 0 aty))
   let (ctx, c0) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[a.getType! ctx.raw] #[]
     #[] #[] z none
   let (ctx, sub1) ← WfRewriter.createOp! ctx Llvm.sub #[a.getType! ctx.raw] #[(c0.getResult 0), a]
@@ -2109,7 +2112,7 @@ def sub_to_add_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (x, cval, _sp) := matchSub op ctx.raw | return (ctx, none)
   let some c := matchConstantIntVal cval ctx.raw | return (ctx, none)
   let .integerType xty := (x.getType! ctx.raw).val | return (ctx, none)
-  let negC := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-c) xty))
+  let negC := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (-c) xty))
   let (ctx, cn) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[x.getType! ctx.raw] #[]
     #[] #[] negC none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.add #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[x, (cn.getResult 0)]
@@ -2129,7 +2132,7 @@ def sub_of_mul_const_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (x, cval, mp) := matchMul dMul ctx.raw | return (ctx, none)
   let some c := matchConstantIntVal cval ctx.raw | return (ctx, none)
   let .integerType xty := (x.getType! ctx.raw).val | return (ctx, none)
-  let negC := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-c) xty))
+  let negC := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (-c) xty))
   let (ctx, cn) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[x.getType! ctx.raw] #[]
     #[] #[] negC none
   let (ctx, newMul) ← WfRewriter.createOp! ctx Llvm.mul #[x.getType! ctx.raw] #[x, (cn.getResult 0)]
@@ -2243,7 +2246,7 @@ def SubSminSub_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some _ := matchConstantZero zeroInner ctx.raw | return (ctx, none)
   if a2 != a then return (ctx, none)
   let .integerType aty := (a.getType! ctx.raw).val | return (ctx, none)
-  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 aty))
+  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt 0 aty))
   let (ctx, c0) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[a.getType! ctx.raw] #[]
     #[] #[] z none
   let (ctx, sub1) ← WfRewriter.createOp! ctx Llvm.sub #[a.getType! ctx.raw] #[(c0.getResult 0), a]
@@ -2267,7 +2270,7 @@ def SubUminSub_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some _ := matchConstantZero zeroInner ctx.raw | return (ctx, none)
   if a2 != a then return (ctx, none)
   let .integerType aty := (a.getType! ctx.raw).val | return (ctx, none)
-  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 aty))
+  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt 0 aty))
   let (ctx, c0) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[a.getType! ctx.raw] #[]
     #[] #[] z none
   let (ctx, sub1) ← WfRewriter.createOp! ctx Llvm.sub #[a.getType! ctx.raw] #[(c0.getResult 0), a]
@@ -2295,7 +2298,7 @@ def lshr_of_trunc_of_lshr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (x, c1v, ip) := matchLshr dInner ctx.raw | return (ctx, none)
   let some c1 := matchConstantIntVal c1v ctx.raw | return (ctx, none)
   let .integerType xty := (x.getType! ctx.raw).val | return (ctx, none)
-  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c1 + c2) xty))
+  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (c1 + c2) xty))
   let (ctx, cf) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[x.getType! ctx.raw] #[]
     #[] #[] folded none
   let (ctx, newLshr) ← WfRewriter.createOp! ctx Llvm.lshr #[x.getType! ctx.raw] #[x, (cf.getResult 0)]
@@ -2402,7 +2405,7 @@ def udiv_by_pow2_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (x, yv, _) := matchUdiv op ctx.raw | return (ctx, none)
   let some k := isConstantPowerOfTwo yv ctx.raw | return (ctx, none)
   let .integerType xty := (x.getType! ctx.raw).val | return (ctx, none)
-  let kConst := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (k : Int) xty))
+  let kConst := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (k : Int) xty))
   let (ctx, ck) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[x.getType! ctx.raw] #[]
     #[] #[] kConst none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.lshr #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[x, (ck.getResult 0)]
@@ -2418,7 +2421,7 @@ def mul_to_shl_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (x, yv, mp) := matchMul op ctx.raw | return (ctx, none)
   let some k := isConstantPowerOfTwo yv ctx.raw | return (ctx, none)
   let .integerType xty := (x.getType! ctx.raw).val | return (ctx, none)
-  let kConst := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (k : Int) xty))
+  let kConst := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (k : Int) xty))
   let (ctx, ck) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[x.getType! ctx.raw] #[]
     #[] #[] kConst none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.shl #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[x, (ck.getResult 0)]
@@ -2435,7 +2438,7 @@ def urem_pow2_to_mask_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some k := isConstantPowerOfTwo yv ctx.raw | return (ctx, none)
   let .integerType xty := (x.getType! ctx.raw).val | return (ctx, none)
   let mask : Int := (2 ^ k : Int) - 1
-  let maskConst := LLVMConstantProperties.mk (.integer (IntegerAttr.mk mask xty))
+  let maskConst := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt mask xty))
   let (ctx, cm) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[x.getType! ctx.raw] #[]
     #[] #[] maskConst none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.and #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[x, (cm.getResult 0)]
@@ -2458,7 +2461,7 @@ def funnel_shift_overshift_l_local (ctx : WfIRContext OpCode) (op : OperationPtr
   let .integerType aty := (amt.getType! ctx.raw).val | return (ctx, none)
   let bw : Int := (aty.bitwidth : Int)
   if c < bw then return (ctx, none)
-  let newAmt := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c % bw) aty))
+  let newAmt := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (c % bw) aty))
   let (ctx, cn) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[amt.getType! ctx.raw] #[]
     #[] #[] newAmt none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.intr__fshl #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[x, y, (cn.getResult 0)]
@@ -2476,7 +2479,7 @@ def funnel_shift_overshift_r_local (ctx : WfIRContext OpCode) (op : OperationPtr
   let .integerType aty := (amt.getType! ctx.raw).val | return (ctx, none)
   let bw : Int := (aty.bitwidth : Int)
   if c < bw then return (ctx, none)
-  let newAmt := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c % bw) aty))
+  let newAmt := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (c % bw) aty))
   let (ctx, cn) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[amt.getType! ctx.raw] #[]
     #[] #[] newAmt none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.intr__fshr #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[x, y, (cn.getResult 0)]
@@ -2558,7 +2561,7 @@ def constant_fold_binop_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     | _ => none
   let some result := folded | return (ctx, none)
   let .integerType rty := ((op.getResult 0 : ValuePtr).getType! ctx.raw).val | return (ctx, none)
-  let foldedProps := LLVMConstantProperties.mk (.integer (IntegerAttr.mk result rty))
+  let foldedProps := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt result rty))
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[]
     #[] #[] foldedProps none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))

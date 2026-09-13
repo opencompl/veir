@@ -241,6 +241,17 @@ def parseOptionalStringAttr : AttrParserM (Option StringAttr) := do
   return some (StringAttr.mk bytes)
 
 /--
+  Build an integer attribute, rejecting a literal the type cannot hold. An
+  attribute of width N holds exactly N bits, so MLIR accepts a literal that
+  reads either as signed or as unsigned and nothing else.
+-/
+private def integerAttr (pos : Location) (value : Int) (type : IntegerType)
+    : AttrParserM Attribute := do
+  if !IntegerAttr.literalInRange value type.bitwidth then
+    throwAt pos "integer constant out of range for attribute"
+  return IntegerAttr.ofInt value type
+
+/--
   Parse an integer or floating-point attribute, if present.
   The attribute has the form `false`, `true` or `value : type`.
   For an integer type, `value` must be a (possibly negated) integer literal in decimal or
@@ -255,9 +266,9 @@ def parseOptionalStringAttr : AttrParserM (Option StringAttr) := do
 -/
 def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
   if (← parseOptionalKeyword "false".toByteArray) then
-    return some (IntegerAttr.mk 0 (IntegerType.mk 1) : Attribute)
+    return some (IntegerAttr.ofNat 0 (IntegerType.mk 1) : Attribute)
   if (← parseOptionalKeyword "true".toByteArray) then
-    return some (IntegerAttr.mk 1 (IntegerType.mk 1) : Attribute)
+    return some (IntegerAttr.ofNat 1 (IntegerType.mk 1) : Attribute)
 
   -- Parse the optional leading '-'.
   let isNegative := Option.isSome (← parseOptionalToken .minus)
@@ -315,14 +326,14 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
 
   -- Determine the type after ':'.
   if let some integerType ← parseOptionalIntegerType then
-    return some (IntegerAttr.mk (← integerValue) integerType : Attribute)
+    return some (← integerAttr valueStartPos (← integerValue) integerType)
   else if let some floatType ← parseOptionalFloatType then
     return some (FloatAttr.mk floatType (← floatValue floatType) : Attribute)
   else if let some name ← parseOptionalPrefixedKeyword .exclamationIdent then
     let some typeAttr := (← resolveOptionalTypeAlias startPos name)
       | throwAt startPos "integer or float type expected after ':' in numeric attribute"
     if let some integerType := typeAttr.cast? IntegerType then
-      return some (IntegerAttr.mk (← integerValue) integerType : Attribute)
+      return some (← integerAttr valueStartPos (← integerValue) integerType)
     else if let some floatType := typeAttr.cast? FloatType then
       return some (FloatAttr.mk floatType (← floatValue floatType) : Attribute)
     else

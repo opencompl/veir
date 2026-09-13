@@ -1,8 +1,5 @@
 // RUN: VEIR_ROUNDTRIP
 // RUN: MLIR_ROUNDTRIP
-// Expected to fail until `llvm.mlir.constant` handles the value attribute's
-// integer width the way MLIR does; drop the XFAIL with the fix.
-// XFAIL: *
 
 // An MLIR `IntegerAttr` *is* an APInt of its declared width, so MLIR normalizes
 // the literal at parse time and only later extends it to the result type.  The

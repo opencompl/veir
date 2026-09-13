@@ -112,7 +112,7 @@ theorem matchConstantIntVal_implies {val : ValuePtr} {ctx : IRContext OpCode} {v
     matchConstantIntVal val ctx = some value →
     ∃ opResultPtr intAttr, val = .opResult opResultPtr ∧
       matchConstantIntOp opResultPtr.op ctx = some intAttr ∧
-      intAttr.value = value := by
+      intAttr.toInt = value := by
   intro hmatch
   simp only [matchConstantIntVal, bind, Option.bind, pure] at hmatch
   grind

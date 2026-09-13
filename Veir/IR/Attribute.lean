@@ -99,12 +99,51 @@ structure IndexType
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
-  An integer literal with an associated integer type.
+  An integer literal of a given width, as LLVM's `APInt` is: the width comes
+  from the type and the value is exactly that many bits, so a literal outside
+  the type's range cannot be represented and two literals with the same bits
+  are the same attribute.
+
+  Reading the value back asks for an interpretation. `toInt` reads the bits as
+  two's complement and `toNat` reads them as unsigned, matching `APInt`'s
+  `getSExtValue` and `getZExtValue`.
 -/
 structure IntegerAttr where
-  value : Int
   type : IntegerType
+  value : BitVec type.bitwidth
 deriving Inhabited, Repr, DecidableEq, Hashable
+
+namespace IntegerAttr
+
+/-- The value read as a two's complement integer, as `APInt::getSExtValue`. -/
+def toInt (attr : IntegerAttr) : Int := attr.value.toInt
+
+/-- The value read as an unsigned integer, as `APInt::getZExtValue`. -/
+def toNat (attr : IntegerAttr) : Nat := attr.value.toNat
+
+/--
+  Whether the literal `value` names a bit pattern of width `bitwidth`. MLIR
+  accepts a literal that reads either as signed or as unsigned, so the range
+  is `[-2 ^ (bitwidth - 1), 2 ^ bitwidth)`, and rejects anything else with
+  "integer constant out of range for attribute".
+-/
+def literalInRange (value : Int) (bitwidth : Nat) : Bool :=
+  -(2 ^ (bitwidth - 1) : Int) ≤ value && value < (2 ^ bitwidth : Int)
+
+/--
+  The attribute of type `type` whose bits are those of `value`, which is
+  truncated to the width if it does not fit. Parsers should check
+  `literalInRange` first; this is for values already known to fit, and for
+  arithmetic that is congruent modulo the width.
+-/
+def ofInt (value : Int) (type : IntegerType) : IntegerAttr :=
+  ⟨type, BitVec.ofInt type.bitwidth value⟩
+
+/-- The attribute of type `type` whose bits are those of the natural number `value`. -/
+def ofNat (value : Nat) (type : IntegerType) : IntegerAttr :=
+  ⟨type, BitVec.ofNat type.bitwidth value⟩
+
+end IntegerAttr
 
 /--
  Floating point fastmath flags attribute.
@@ -884,7 +923,12 @@ instance : ToString DlSpecAttr where
   toString attr := s!"#dlti.dl_spec<{attr.value}>"
 
 instance : ToString IntegerAttr where
-  toString attr := s!"{attr.value} : {attr.type}"
+  /- A width-1 attribute prints unsigned, as `0 : i1` or `1 : i1`, which is
+     what MLIR's `true` and `false` denote. Every wider one prints as two's
+     complement, so `200 : i8` comes back as `-56 : i8`, as MLIR does. -/
+  toString attr :=
+    let value := if attr.type.bitwidth = 1 then (attr.toNat : Int) else attr.toInt
+    s!"{value} : {attr.type}"
 
 instance : ToString FloatAttr where
   toString attr :=

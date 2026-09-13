@@ -28,7 +28,7 @@ namespace Veir
 def emitLLVMIntConst (rewriter : PatternRewriter OpCode) (value : Int) (width : Nat)
     (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do
   let ty := IntegerType.mk width
-  let props := { value := .integer (IntegerAttr.mk value ty) }
+  let props := { value := .integer (IntegerAttr.ofInt value ty) }
   let (rewriter, op) ← rewriter.createOp! (.llvm .mlir__constant)
     #[ty] #[] #[] #[] props (some ip)
   return (rewriter, op.getResult 0)

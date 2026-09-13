@@ -58,14 +58,15 @@ def matchConstantIntOp (op : OperationPtr) (ctx : IRContext OpCode) :
   let .integer intAttr := properties.value | none
   return intAttr
 
-/-- Match the raw integer attribute value of an LLVM constant, without adjusting
-it to the attribute or result width. -/
+/-- Match the value of an LLVM constant's integer attribute, read as a two's
+complement integer of the attribute's own width. It is not adjusted to the
+result width, which `llvm.mlir.constant` extends or truncates it to. -/
 def matchConstantIntVal (val : ValuePtr) (ctx : IRContext OpCode) :
     Option Int := do
   let .opResult opResultPtr := val | none
   let op := opResultPtr.op
   let attr ← matchConstantIntOp op ctx
-  return attr.value
+  return attr.toInt
 
 /-- Match a constant integer with value zero, returning `val` itself. -/
 def matchConstantZero (val : ValuePtr) (ctx : IRContext OpCode) : Option ValuePtr := do

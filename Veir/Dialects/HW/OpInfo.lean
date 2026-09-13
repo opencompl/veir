@@ -134,7 +134,7 @@ def HW.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpInfo
   match value, type.val with
   | .int bw (.val value), .integerType intType =>
     if bw = intType.bitwidth then
-      some (.of HW.constant (HWConstantProperties.mk (IntegerAttr.mk value.toInt intType)))
+      some (.of HW.constant (HWConstantProperties.mk (IntegerAttr.ofInt value.toInt intType)))
     else none
   | _, _ => none
 

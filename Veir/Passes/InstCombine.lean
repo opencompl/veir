@@ -43,7 +43,7 @@ def mulIZeroToCst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     return (ctx, none)
   let .integerType type := (lhs.getType! ctx.raw).val
     | return (ctx, none)
-  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 type))
+  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt 0 type))
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[lhs.getType! ctx.raw] #[]
     #[] #[] cstProp none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
@@ -91,7 +91,7 @@ def subiSelfToZero_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     return (ctx, none)
   let .integerType type := (lhs.getType! ctx.raw).val
     | return (ctx, none)
-  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 type))
+  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt 0 type))
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[lhs.getType! ctx.raw] #[]
     #[] #[] cstProp none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
@@ -124,7 +124,7 @@ def andiZeroToZero_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     return (ctx, none)
   let .integerType type := (lhs.getType! ctx.raw).val
     | return (ctx, none)
-  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 type))
+  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt 0 type))
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[lhs.getType! ctx.raw] #[]
     #[] #[] cstProp none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
@@ -185,7 +185,7 @@ def xoriSelfToZero_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     return (ctx, none)
   let .integerType type := (lhs.getType! ctx.raw).val
     | return (ctx, none)
-  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 type))
+  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt 0 type))
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[lhs.getType! ctx.raw] #[]
     #[] #[] cstProp none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))

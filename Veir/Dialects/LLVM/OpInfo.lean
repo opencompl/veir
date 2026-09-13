@@ -236,7 +236,7 @@ def Llvm.toAttrDict
     if props.nuw then
       val := val + 2
     if val > 0 then
-      let attr := IntegerAttr.mk (Int.ofNat val) (IntegerType.mk 32)
+      let attr := IntegerAttr.ofInt (Int.ofNat val) (IntegerType.mk 32)
       dict := dict.insert "overflowFlags".toUTF8 (Attribute.integerAttr attr)
     dict
   | .fadd | .fsub | .fmul | .fdiv | .frem | .fneg | .intr__fmuladd | .intr__fabs =>
@@ -245,11 +245,11 @@ def Llvm.toAttrDict
   | .fcmp => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
     dict := dict.insert "fastmathFlags".toUTF8 (Attribute.fastMathFlagsAttr props.fastmathFlags)
-    let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) (IntegerType.mk 64)
+    let value := IntegerAttr.ofInt (Int.ofNat props.predicate.toNat) (IntegerType.mk 64)
     dict := dict.insert "predicate".toUTF8 (Attribute.integerAttr value)
     dict
   | .icmp =>
-    let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) (IntegerType.mk 64)
+    let value := IntegerAttr.ofInt (Int.ofNat props.predicate.toNat) (IntegerType.mk 64)
     (Std.HashMap.emptyWithCapacity 1).insert
       "predicate".toUTF8 (Attribute.integerAttr value)
   | .br => Id.run do
@@ -269,7 +269,7 @@ def Llvm.toAttrDict
     dict
   | .intr__memset | .intr__memcpy | .intr__memmove => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 6
-    let volatileAttr := IntegerAttr.mk (if props.isVolatile then 1 else 0) (IntegerType.mk 1)
+    let volatileAttr := IntegerAttr.ofInt (if props.isVolatile then 1 else 0) (IntegerType.mk 1)
     dict := dict.insert "isVolatile".toUTF8 (.integerAttr volatileAttr)
     for (name, value) in [("arg_attrs", props.arg_attrs),
                           ("res_attrs", props.res_attrs),
@@ -304,12 +304,12 @@ def Llvm.toAttrDict
   | .zext | .uitofp => props.toAttrDict
   | .intr__ctlz | .intr__cttz =>
     let value := if props.is_zero_poison then 1 else 0
-    let attr := IntegerAttr.mk value (IntegerType.mk 1)
+    let attr := IntegerAttr.ofInt value (IntegerType.mk 1)
     (Std.HashMap.emptyWithCapacity 1).insert
       "is_zero_poison".toUTF8 (Attribute.integerAttr attr)
   | .intr__abs =>
     let value := if props.is_int_min_poison then 1 else 0
-    let attr := IntegerAttr.mk value (IntegerType.mk 1)
+    let attr := IntegerAttr.ofInt value (IntegerType.mk 1)
     (Std.HashMap.emptyWithCapacity 1).insert
       "is_int_min_poison".toUTF8 (Attribute.integerAttr attr)
   | .intr__assume => Id.run do
@@ -375,12 +375,12 @@ def Llvm.toAttrDict
   | .comdat_selector => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
     dict := dict.insert "comdat".toUTF8
-      (Attribute.integerAttr (IntegerAttr.mk (Int.ofNat props.comdat.toNat) (IntegerType.mk 64)))
+      (Attribute.integerAttr (IntegerAttr.ofInt (Int.ofNat props.comdat.toNat) (IntegerType.mk 64)))
     dict := dict.insert "sym_name".toUTF8 (.stringAttr props.sym_name)
     dict
   | .fence => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
-    let ordering := IntegerAttr.mk (Int.ofNat props.ordering.toNat) (IntegerType.mk 64)
+    let ordering := IntegerAttr.ofInt (Int.ofNat props.ordering.toNat) (IntegerType.mk 64)
     dict := dict.insert "ordering".toUTF8 (Attribute.integerAttr ordering)
     if let some syncscope := props.syncscope then
       dict := dict.insert "syncscope".toUTF8 (.stringAttr syncscope)
@@ -724,7 +724,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     if let some alignment := properties.alignment then
       if alignment.type.bitwidth ≠ 64 then
         throw "'alignment' must be a 64-bit signless integer attribute"
-      if !isValidLLVMAlignment alignment.value then
+      if !isValidLLVMAlignment alignment.toInt then
         throw "alignment attribute is not a power of 2"
     if properties.addr_space.type.bitwidth ≠ 32 then
       throw "'addr_space' must be a 32-bit signless integer attribute"
@@ -1090,7 +1090,7 @@ def Llvm.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpIn
   | .int bw (.val value), .integerType intType =>
     if bw = intType.bitwidth then
       some (.of Llvm.mlir__constant
-        (LLVMConstantProperties.mk (.integer (IntegerAttr.mk value.toInt intType))))
+        (LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt value.toInt intType))))
     else none
   | .int bw .poison, .integerType intType =>
     if bw = intType.bitwidth then some (.of Llvm.mlir__poison ()) else none

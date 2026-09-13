@@ -967,8 +967,8 @@ def OperationPtr.IsVerifiedModArithBinop (op : OperationPtr) (ctx : WfIRContext 
   op.getNumSuccessors! ctx.raw = 0 ∧
   op.getNumRegions! ctx.raw = 0 ∧
   ∃ modArithType,
-    modArithType.modulus.value > 0 ∧
-    modArithType.modulus.value < 2 ^ modArithType.modulus.type.bitwidth ∧
+    modArithType.modulus.value.toNat > 0 ∧
+    modArithType.modulus.value.toNat < 2 ^ modArithType.modulus.type.bitwidth ∧
     ((op.getResult 0).get! ctx.raw).type = Attribute.asType (.modArithType modArithType) (by grind) ∧
     ((op.getOperand! ctx.raw 0).getType! ctx.raw) = Attribute.asType (.modArithType modArithType) (by grind) ∧
     ((op.getOperand! ctx.raw 1).getType! ctx.raw) = Attribute.asType (.modArithType modArithType) (by grind)
@@ -985,6 +985,7 @@ private theorem OperationPtr.verifyModArithBinOp_eq_ok {ctx : WfIRContext OpCode
           hResultTypeMatches, modArithType, hModArithType, _⟩ := h
   simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure]
     at hPlainOpCounts hOperandTypesMatch hResultTypeMatches hModArithType
+  have hlt : ∀ {w : Nat} (x : BitVec w), x.toNat < 2 ^ w := fun x => x.isLt
   grind
 
 private theorem OperationPtr.Verified.modArithBinop {op : OperationPtr} {opInBounds}
@@ -1021,11 +1022,11 @@ def OperationPtr.IsVerifiedModArithConstant (op : OperationPtr) (ctx : WfIRConte
   op.getNumRegions! ctx.raw = 0 ∧
   ∃ modArithType,
     ((op.getResult 0).get! ctx.raw).type = Attribute.asType (.modArithType modArithType) (by grind) ∧
-    modArithType.modulus.value > 0 ∧
-    modArithType.modulus.value < 2 ^ modArithType.modulus.type.bitwidth ∧
+    modArithType.modulus.value.toNat > 0 ∧
+    modArithType.modulus.value.toNat < 2 ^ modArithType.modulus.type.bitwidth ∧
     -(2 ^ (modArithType.modulus.type.bitwidth - 1) : Int)
-        ≤ (op.getProperties! ctx.raw Mod_Arith.constant).value.value ∧
-    (op.getProperties! ctx.raw Mod_Arith.constant).value.value
+        ≤ (op.getProperties! ctx.raw Mod_Arith.constant).value.toInt ∧
+    (op.getProperties! ctx.raw Mod_Arith.constant).value.toInt
         < 2 ^ modArithType.modulus.type.bitwidth
 
 theorem OperationPtr.Verified.mod_arith_constant {op : OperationPtr} {opInBounds}
@@ -1045,6 +1046,7 @@ theorem OperationPtr.Verified.mod_arith_constant {op : OperationPtr} {opInBounds
   obtain ⟨hPlainOpCounts, modArithType, hModArithType, hAttr⟩ := h
   simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure]
     at hPlainOpCounts hModArithType hAttr
+  have hlt : ∀ {w : Nat} (x : BitVec w), x.toNat < 2 ^ w := fun x => x.isLt
   grind
 
 /-- Structural facts guaranteed for a verified `func.func`: it has no operands, results, or

@@ -16,7 +16,7 @@ def sub_minus_one_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some cst := matchConstantIntVal lhs ctx.raw | return (ctx, none)
   if cst ≠ -1 then return (ctx, none)
   let .integerType ctype := (op1.getType! ctx.raw).val | return (ctx, none)
-  let cstOpProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-1) ctype))
+  let cstOpProp := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (-1) ctype))
   let (ctx, cstOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[op1.getType! ctx.raw] #[]
     #[] #[] cstOpProp none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.xor #[op1.getType! ctx.raw] #[op1, (cstOp.getResult 0)]
@@ -140,7 +140,7 @@ def same_val_zero_0_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (x, x1, _props) := matchSub op ctx.raw | return (ctx, none)
   if x != x1 then return (ctx, none)
   let .integerType type := (x.getType! ctx.raw).val | return (ctx, none)
-  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) type))
+  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (0) type))
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[x.getType! ctx.raw] #[]
     #[] #[] cstProp none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
@@ -160,7 +160,7 @@ def same_val_zero_1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let type := ((op.getResult 0).get! ctx.raw).type
   let .integerType type' := type.val | return (ctx, none)
   if type'.bitwidth ≠ 64 then return (ctx, none)
-  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 type'))
+  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt 0 type'))
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[type] #[]
       #[] #[] cstProp none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
@@ -186,7 +186,7 @@ def mul_by_neg_one_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some cst := matchConstantIntVal rhs ctx.raw | return (ctx, none)
   if cst ≠ -1 then return (ctx, none)
   let .integerType ctype := (x.getType! ctx.raw).val | return (ctx, none)
-  let cstOpProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) ctype))
+  let cstOpProp := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (0) ctype))
   let (ctx, cstOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[x.getType! ctx.raw] #[]
     #[] #[] cstOpProp none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[x.getType! ctx.raw] #[(cstOp.getResult 0), x]

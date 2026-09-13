@@ -64,7 +64,7 @@ private def testArithConstantMaterialization : String := Id.run do
   let i32 : TypeAttr := IntegerType.mk 32
   match (.arith .addi : OpCode).materializeConstant (.int 32 (.val 15)) i32 with
   | some ⟨.arith .constant, props⟩ =>
-    if props.value ≠ IntegerAttr.mk 15 (IntegerType.mk 32) then
+    if props.value ≠ IntegerAttr.ofInt 15 (IntegerType.mk 32) then
       return "arith materialized the wrong constant"
     return "ok"
   | _ => return "arith did not materialize arith.constant"
@@ -80,7 +80,7 @@ private def testRiscvConstantMaterialization : String := Id.run do
   let value : RuntimeValue := .reg ⟨BitVec.ofInt 64 (-77)⟩
   match (.riscv .add : OpCode).materializeConstant value regType with
   | some ⟨.riscv .li, props⟩ =>
-    if props.value ≠ IntegerAttr.mk (-77) (IntegerType.mk 64) then
+    if props.value ≠ IntegerAttr.ofInt (-77) (IntegerType.mk 64) then
       return "RISC-V materialized the wrong immediate"
     return "ok"
   | _ => return "RISC-V did not materialize riscv.li"
@@ -92,10 +92,10 @@ info: "ok"
 #eval! testRiscvConstantMaterialization
 
 private def testModArithConstantMaterialization : String := Id.run do
-  let type : TypeAttr := ModArithType.mk (IntegerAttr.mk 251 (IntegerType.mk 8))
+  let type : TypeAttr := ModArithType.mk (IntegerAttr.ofInt 251 (IntegerType.mk 8))
   match (.mod_arith .add : OpCode).materializeConstant (.int 8 (.val 250)) type with
   | some ⟨.mod_arith .constant, props⟩ =>
-    if props.value ≠ IntegerAttr.mk 250 (IntegerType.mk 8) then
+    if props.value ≠ IntegerAttr.ofInt 250 (IntegerType.mk 8) then
       return "mod_arith materialized the wrong constant"
     return "ok"
   | _ => return "mod_arith did not materialize mod_arith.constant"
@@ -111,7 +111,7 @@ private def testCombConstantMaterialization : String := Id.run do
   let i32 : TypeAttr := IntegerType.mk 32
   match (.comb .add : OpCode).materializeConstant (.int 32 (.val 7)) i32 with
   | some ⟨.hw .constant, props⟩ =>
-    if props.value ≠ IntegerAttr.mk 7 (IntegerType.mk 32) then
+    if props.value ≠ IntegerAttr.ofInt 7 (IntegerType.mk 32) then
       return "comb materialized the wrong constant"
     return "ok"
   | _ => return "comb did not materialize hw.constant"
@@ -126,7 +126,7 @@ private def testHWConstantMaterialization : String := Id.run do
   let i16 : TypeAttr := IntegerType.mk 16
   match (.hw .output : OpCode).materializeConstant (.int 16 (.val 9)) i16 with
   | some ⟨.hw .constant, props⟩ =>
-    if props.value ≠ IntegerAttr.mk 9 (IntegerType.mk 16) then
+    if props.value ≠ IntegerAttr.ofInt 9 (IntegerType.mk 16) then
       return "hw materialized the wrong constant"
     return "ok"
   | _ => return "hw did not materialize hw.constant"
@@ -141,7 +141,7 @@ private def testLlvmConstantMaterialization : String := Id.run do
   let i32 : TypeAttr := IntegerType.mk 32
   match (.llvm .add : OpCode).materializeConstant (.int 32 (.val 21)) i32 with
   | some ⟨.llvm .mlir__constant, props⟩ =>
-    if props.value ≠ .integer (IntegerAttr.mk 21 (IntegerType.mk 32)) then
+    if props.value ≠ .integer (IntegerAttr.ofInt 21 (IntegerType.mk 32)) then
       return "LLVM materialized the wrong constant"
     return "ok"
   | _ => return "LLVM did not materialize llvm.mlir.constant"

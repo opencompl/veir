@@ -12,4 +12,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: "mod_arith.add"(%{{.*}}, %{{.*}}) : (!mod_arith.int<7 : i3>, !mod_arith.int<7 : i3>) -> !mod_arith.int<7 : i3>
+// CHECK: "mod_arith.add"(%{{.*}}, %{{.*}}) : (!mod_arith.int<-1 : i3>, !mod_arith.int<-1 : i3>) -> !mod_arith.int<-1 : i3>

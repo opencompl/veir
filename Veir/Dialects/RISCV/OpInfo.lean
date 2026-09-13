@@ -254,7 +254,7 @@ def Riscv.tryFold (op : Riscv) (properties : Riscv.propertiesOf op)
     Option (Array FoldDecision) :=
   match op, constantOperands.toList with
   | .andi, [_] =>
-    if properties.value.value == 0 then some #[.useConstant (.reg ⟨0⟩)] else none
+    if properties.value.toInt == 0 then some #[.useConstant (.reg ⟨0⟩)] else none
   | _, _ => none
 
 instance : IsOpCode Riscv where
@@ -273,7 +273,7 @@ def Riscv.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpI
   match value, type.val with
   | .reg value, .registerType _ =>
     some (.of Riscv.li
-      (RISCVImmediateProperties.mk (IntegerAttr.mk value.val.toInt (IntegerType.mk 64))))
+      (RISCVImmediateProperties.mk (IntegerAttr.ofInt value.val.toInt (IntegerType.mk 64))))
   | _, _ => none
 
 def OperationPtr.verifyRISCVimm12 {OpInfo : Type} [IsOpCode OpInfo]
@@ -352,53 +352,53 @@ def Riscv.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.verifyPlainOpCounts ctx opIn 0 1
     pure ()
   | .lui => do
-    op.verifyRISCVneg ctx opIn 0 1 (op.getProperties! ctx.raw Riscv.lui).value.value
+    op.verifyRISCVneg ctx opIn 0 1 ((op.getProperties! ctx.raw Riscv.lui).value.toNat : Int)
     pure ()
   | .auipc => do
-    op.verifyRISCVneg ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.auipc).value.value
+    op.verifyRISCVneg ctx opIn 1 1 ((op.getProperties! ctx.raw Riscv.auipc).value.toNat : Int)
     pure ()
   | .addi => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.addi).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.addi).value.toInt
     pure ()
   | .slti => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.slti).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.slti).value.toInt
     pure ()
   | .sltiu => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.sltiu).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.sltiu).value.toInt
     pure ()
   | .andi => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.andi).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.andi).value.toInt
     pure ()
   | .ori => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.ori).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.ori).value.toInt
     pure ()
   | .xori => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.xori).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.xori).value.toInt
     pure ()
   | .addiw => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.addiw).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.addiw).value.toInt
     pure ()
   | .slli => do
-    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.slli).value.value
+    op.verifyRISCVuimm6 ctx opIn ((op.getProperties! ctx.raw Riscv.slli).value.toNat : Int)
     pure ()
   | .srli => do
-    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.srli).value.value
+    op.verifyRISCVuimm6 ctx opIn ((op.getProperties! ctx.raw Riscv.srli).value.toNat : Int)
     pure ()
   | .srai => do
-    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.srai).value.value
+    op.verifyRISCVuimm6 ctx opIn ((op.getProperties! ctx.raw Riscv.srai).value.toNat : Int)
     pure ()
   | .add | .sub | .sll | .slt | .sltu
   | .xor | .srl | .sra | .or | .and => do
     op.verifyPlainOpCounts ctx opIn 2 1
     pure ()
   | .slliw => do
-    op.verifyRISCVuimm5 ctx opIn (op.getProperties! ctx.raw Riscv.slliw).value.value
+    op.verifyRISCVuimm5 ctx opIn ((op.getProperties! ctx.raw Riscv.slliw).value.toNat : Int)
     pure ()
   | .srliw => do
-    op.verifyRISCVuimm5 ctx opIn (op.getProperties! ctx.raw Riscv.srliw).value.value
+    op.verifyRISCVuimm5 ctx opIn ((op.getProperties! ctx.raw Riscv.srliw).value.toNat : Int)
     pure ()
   | .sraiw => do
-    op.verifyRISCVuimm5 ctx opIn (op.getProperties! ctx.raw Riscv.sraiw).value.value
+    op.verifyRISCVuimm5 ctx opIn ((op.getProperties! ctx.raw Riscv.sraiw).value.toNat : Int)
     pure ()
   | .addw | .subw | .sllw | .srlw | .sraw
   | .rem | .remu | .remw | .remuw
@@ -409,7 +409,7 @@ def Riscv.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.verifyPlainOpCounts ctx opIn 2 1
     pure ()
   | .slliuw => do
-    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.slliuw).value.value
+    op.verifyRISCVuimm6 ctx opIn ((op.getProperties! ctx.raw Riscv.slliuw).value.toNat : Int)
     pure ()
   | .andn | .orn | .xnor
   | .max | .maxu | .min | .minu
@@ -422,62 +422,62 @@ def Riscv.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.verifyPlainOpCounts ctx opIn 1 1
     pure ()
   | .roriw => do
-    op.verifyRISCVuimm5 ctx opIn (op.getProperties! ctx.raw Riscv.roriw).value.value
+    op.verifyRISCVuimm5 ctx opIn ((op.getProperties! ctx.raw Riscv.roriw).value.toNat : Int)
     pure ()
   | .rori => do
-    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.rori).value.value
+    op.verifyRISCVuimm6 ctx opIn ((op.getProperties! ctx.raw Riscv.rori).value.toNat : Int)
     pure ()
   | .bclr | .bext | .binv | .bset => do
     op.verifyPlainOpCounts ctx opIn 2 1
     pure ()
   | .bclri => do
-    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.bclri).value.value
+    op.verifyRISCVuimm6 ctx opIn ((op.getProperties! ctx.raw Riscv.bclri).value.toNat : Int)
     pure ()
   | .bexti => do
-    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.bexti).value.value
+    op.verifyRISCVuimm6 ctx opIn ((op.getProperties! ctx.raw Riscv.bexti).value.toNat : Int)
     pure ()
   | .binvi => do
-    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.binvi).value.value
+    op.verifyRISCVuimm6 ctx opIn ((op.getProperties! ctx.raw Riscv.binvi).value.toNat : Int)
     pure ()
   | .bseti => do
-    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw Riscv.bseti).value.value
+    op.verifyRISCVuimm6 ctx opIn ((op.getProperties! ctx.raw Riscv.bseti).value.toNat : Int)
     pure ()
   | .pack | .packh | .packw
   | .czeroeqz | .czeronez => do
     op.verifyPlainOpCounts ctx opIn 2 1
     pure ()
   | .ld => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.ld).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.ld).value.toInt
     pure ()
   | .lw => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.lw).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.lw).value.toInt
     pure ()
   | .lwu => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.lwu).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.lwu).value.toInt
     pure ()
   | .lh => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.lh).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.lh).value.toInt
     pure ()
   | .lhu => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.lhu).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.lhu).value.toInt
     pure ()
   | .lb => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.lb).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.lb).value.toInt
     pure ()
   | .lbu => do
-    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.lbu).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw Riscv.lbu).value.toInt
     pure ()
   | .sd => do
-    op.verifyRISCVimm12 ctx opIn 2 0 (op.getProperties! ctx.raw Riscv.sd).value.value
+    op.verifyRISCVimm12 ctx opIn 2 0 (op.getProperties! ctx.raw Riscv.sd).value.toInt
     pure ()
   | .sw => do
-    op.verifyRISCVimm12 ctx opIn 2 0 (op.getProperties! ctx.raw Riscv.sw).value.value
+    op.verifyRISCVimm12 ctx opIn 2 0 (op.getProperties! ctx.raw Riscv.sw).value.toInt
     pure ()
   | .sh => do
-    op.verifyRISCVimm12 ctx opIn 2 0 (op.getProperties! ctx.raw Riscv.sh).value.value
+    op.verifyRISCVimm12 ctx opIn 2 0 (op.getProperties! ctx.raw Riscv.sh).value.toInt
     pure ()
   | .sb => do
-    op.verifyRISCVimm12 ctx opIn 2 0 (op.getProperties! ctx.raw Riscv.sb).value.value
+    op.verifyRISCVimm12 ctx opIn 2 0 (op.getProperties! ctx.raw Riscv.sb).value.toInt
     pure ()
   | .mv | .not | .neg | .negw | .sextw
   | .zextb | .zextw | .seqz | .snez
