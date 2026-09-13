@@ -1,26 +1,46 @@
 module
 
-public import Veir.Data.LLVM.Byte.Basic
-
-import all Veir.Data.LLVM.Byte.Basic
-
 namespace Veir.Data.LLVM
 
 public section
 
 /--
-  A pointer-typed value: an address, or poison.
+  A pointer into interpreter memory: the object it may access and a byte
+  offset into it. Pointers derived from different objects never alias, and an
+  access outside the object is undefined behaviour. Every object has a
+  physical address, so a pointer converts to an integer with
+  `MemoryState.address` and an integer converts back with `MemoryState.decode`.
+-/
+structure Pointer where
+  object : Nat
+  offset : UInt64
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+namespace Pointer
+
+/-- The null pointer. Object 0 holds no bytes, so every access through it is UB. -/
+def null : Pointer := ⟨0, 0⟩
+
+def isNull (p : Pointer) : Bool := p == null
+
+instance : ToString Pointer where
+  toString p := s!"ptr({p.object}, {p.offset})"
+
+end Pointer
+
+/--
+  A pointer-typed value: a pointer, or poison.
 -/
 inductive Ptr where
-  /-- An address. -/
-  | val (p : UInt64)
+  /-- A pointer to an object. -/
+  | val (p : Pointer)
   /-- A poison value indicating deferred undefined behavior. -/
   | poison
 deriving Inhabited, Repr, DecidableEq
 
 namespace Ptr
 
-def null : Ptr := .val 0
+def null : Ptr := .val Pointer.null
 
 @[expose, simp, grind .]
 def isRefinedBy : Ptr → Ptr → Prop
@@ -41,29 +61,13 @@ theorem isRefinedBy_trans {p₁ p₂ p₃ : Ptr}
 
 /-- Only the same pointer refines a pointer that is not poison. -/
 @[grind .]
-theorem eq_of_val_isRefinedBy {p : UInt64} {q : Ptr}
+theorem eq_of_val_isRefinedBy {p : Pointer} {q : Ptr}
     (h : Ptr.val p ⊒ q) : q = .val p := by
   cases q <;> simp_all
 
-/-- The pointer whose bits are `b`, poison if any bit is poison. -/
-def ofByte (b : Byte 64) : Ptr :=
-  if b.poison = 0 then .val b.toUInt64 else .poison
-
-/-- The bits of a pointer: all poison for a poison pointer. -/
-def toByte : Ptr → Byte 64
-  | .val p => Byte.fromUInt64 p
-  | .poison => Byte.allPoison
-
-@[simp, grind =]
-theorem ofByte_toByte (p : Ptr) : ofByte p.toByte = p := by
-  cases p <;> simp [ofByte, toByte, Byte.toUInt64, Byte.allPoison]
-
-/-- Prints as `ptr(0x…)`, so a pointer is told apart from an integer in program output. -/
 instance : ToString Ptr where
   toString
-    | .val p =>
-      let digits := String.ofList (Nat.toDigits 16 p.toNat)
-      s!"ptr(0x{"".pushn '0' (16 - digits.length) ++ digits})"
+    | .val p => ToString.toString p
     | .poison => "poison"
 
 end Ptr

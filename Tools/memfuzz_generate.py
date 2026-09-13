@@ -567,7 +567,7 @@ def build_parser() -> argparse.ArgumentParser:
                     help="probability a load prefers bytes already written (default: 0.8)")
     ap.add_argument("--misalign", type=float, default=0.0,
                     help="probability an access claims alignment 1")
-    ap.add_argument("--null", type=float, default=0.0,
+    ap.add_argument("--null", type=float, default=0.05,
                     help="probability an access goes through null")
     # alive-exec resolves calloc to a block but does not zero it, so a load
     # from fresh calloc memory is poison there and zero in VeIR.  That is a
