@@ -9,6 +9,7 @@ import Veir.Passes.PrintModArithRanges
 import Veir.Passes.InstCombine
 import Veir.Passes.ApplyPatterns
 import Veir.Passes.CSE
+import Veir.Passes.SimplifyCFG
 import Veir.Passes.InstructionSelection.RISCV64
 import Veir.Passes.InstructionSelection.RISCV64Sdag
 import Veir.Passes.InstructionSelection.RISCV64Branches
@@ -36,6 +37,7 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
      InstCombinePass,
      ApplyPatternsPass,
      CSEPass,
+     SimplifyCFGPass,
      IselRISCV64,
      IselSDAG,
      IselBrRISCV64,
