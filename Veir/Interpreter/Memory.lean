@@ -103,6 +103,18 @@ def MemoryObject.ensureSize (obj : MemoryObject) (size : Nat) : MemoryObject :=
     obj
 
 /--
+  The choices the interpreter makes where the memory model is nondeterministic.
+  The interpreter is a function, so every such choice is drawn from the
+  oracle, indexed by how many choices of that kind were made before, and two
+  programs being compared are run against the same oracle.
+-/
+structure MemoryOracle where
+  /-- Whether the `n`-th heap allocation fails and yields null. -/
+  allocFails : Nat → Bool := fun _ => false
+
+instance : Inhabited MemoryOracle := ⟨{}⟩
+
+/--
   Memory state during interpretation: one object per allocation, addressed by
   `Pointer`. The objects share one physical address space. They are laid out
   in allocation order, each starting past the end of the previous one with at
@@ -115,8 +127,11 @@ def MemoryObject.ensureSize (obj : MemoryObject) (size : Nat) : MemoryObject :=
 @[ext]
 structure MemoryState where
   objects : Array MemoryObject
+  oracle : MemoryOracle := {}
+  /-- How many heap allocations were requested so far, to index the oracle. -/
+  heapAllocs : Nat := 0
 
-def MemoryState.empty : MemoryState := ⟨#[MemoryObject.ofSize 0 0 .null]⟩
+def MemoryState.empty : MemoryState := { objects := #[MemoryObject.ofSize 0 0 .null] }
 
 /-- Every object starts at a multiple of at least this many bytes. -/
 def MemoryState.objectAlignment : UInt64 := 16
@@ -215,8 +230,33 @@ def MemoryState.ensureSize (mem : MemoryState) (p : Pointer) (size : Nat) : Memo
 def MemoryState.alloc (mem : MemoryState) (size : Nat) (kind : ObjectKind := .stack)
     (align : UInt64 := objectAlignment) (isConst : Bool := false) : MemoryState × Pointer :=
   let align := max align objectAlignment
-  (⟨mem.objects.push (MemoryObject.ofSize (mem.nextBase align) size kind align isConst)⟩,
+  ({ mem with
+      objects := mem.objects.push (MemoryObject.ofSize (mem.nextBase align) size kind align isConst) },
    ⟨mem.objects.size, 0⟩)
+
+/--
+  Allocate `size` bytes on the heap, as `malloc` does. The oracle decides
+  whether the allocation fails, in which case the result is null.
+-/
+def MemoryState.heapAlloc (mem : MemoryState) (size : Nat) (align : UInt64 := objectAlignment)
+    : MemoryState × Pointer :=
+  let n := mem.heapAllocs
+  let mem := { mem with heapAllocs := n + 1 }
+  if mem.oracle.allocFails n then (mem, .null) else mem.alloc size .heap align
+
+/--
+  Free the heap object `p` points to. Freeing the null pointer does nothing,
+  as in C. Freeing through an offset pointer, a pointer to no object, an
+  object that is not on the heap, or one that is already freed is UB. The
+  object dies but keeps its address, which is never reused.
+-/
+def MemoryState.free (mem : MemoryState) (p : Pointer) : Interp MemoryState :=
+  if p.isNull then return mem else
+  match mem.getObject? p with
+  | none => Interp.ub
+  | some obj =>
+    if p.offset ≠ 0 ∨ obj.kind ≠ .heap ∨ !obj.alive then Interp.ub
+    else return mem.setObject p { obj with alive := false }
 
 /-- Kill every stack object allocated since there were `n` objects: they belong to a frame that returns. -/
 def MemoryState.killStackObjectsFrom (mem : MemoryState) (n : Nat) : MemoryState :=

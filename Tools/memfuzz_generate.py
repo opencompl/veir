@@ -179,15 +179,22 @@ class Generator:
             elif not known:
                 d.obj.unknown.add(off)
 
-    def holds_pointer(self, ptr_name: str) -> bool:
-        """Whether these eight bytes are one pointer's eight bytes, in order."""
+    def loaded_pointer(self, ptr_name: str) -> "Ptr | None":
+        """The pointer these eight bytes hold, if they hold one whole pointer.
+
+        Reading it back gives that pointer again, so the generator can keep
+        following it: where it points is known, and an access through it can
+        be aimed as precisely as through the original.
+        """
         q = self.find(ptr_name)
         if q is None or q.obj is None:
-            return False
+            return None
         first = q.obj.frag.get(q.offset)
         if first is None or first[1] != 0:
-            return False
-        return all(q.obj.frag.get(q.offset + k) == (first[0], k) for k in range(PTR_SIZE))
+            return None
+        if not all(q.obj.frag.get(q.offset + k) == (first[0], k) for k in range(PTR_SIZE)):
+            return None
+        return self.find(first[0])
 
     def reads_address(self, ptr_name: str, size: int) -> bool:
         """Whether an integer load here would read bytes of an address."""
@@ -385,11 +392,15 @@ class Generator:
                 f": (!llvm.ptr) -> !llvm.ptr",
                 f"{name} = load ptr, ptr {ptr}, align {PTR_ALIGN}",
             )
-            # A pointer read out of bytes that a pointer was stored into is a
-            # real pointer; read out of anything else it is poison. Both are
-            # worth keeping, so that provenance through memory and the
-            # handling of poison pointers are both exercised.
-            if self.o.poison_pointers or self.holds_pointer(ptr):
+            # A pointer read out of bytes that a pointer was stored into is
+            # that pointer, and keeps its provenance; read out of anything
+            # else it is poison. Both are worth keeping, so that provenance
+            # through memory and the handling of poison pointers are both
+            # exercised.
+            src = self.loaded_pointer(ptr)
+            if src is not None:
+                self.ptrs.append(Ptr(name, src.obj, src.offset))
+            elif self.o.poison_pointers:
                 self.ptrs.append(Ptr(name, None, 0))
             return
         width, align = self.access_width(not self.maybe(self.o.misalign))
@@ -412,7 +423,10 @@ class Generator:
     def gen_mem_intrinsic(self) -> None:
         if not self.ptrs:
             return
-        length = self.rng.choice([0, 1, 4, 8, 16])
+        # A copy of no bytes is left to the dedicated tests: Alive2 is not
+        # self-consistent about whether one through a poison pointer is
+        # undefined, so asking produces noise rather than a finding.
+        length = self.rng.choice([1, 4, 8, 16])
         dst = self.pick_target(length, 1)
         if dst is None:
             return
@@ -603,7 +617,7 @@ def build_parser() -> argparse.ArgumentParser:
     # The weights and the probabilities above start at what the interpreter
     # models today and are raised as it grows, so a run with the defaults is
     # always one the interpreter is expected to survive.
-    for name, default in (("alloca", 2), ("malloc", 0), ("free", 0), ("gep", 3),
+    for name, default in (("alloca", 2), ("malloc", 2), ("free", 1), ("gep", 3),
                           ("store", 4), ("load", 4), ("mem", 1), ("ptr", 1)):
         ap.add_argument(f"--w-{name}", type=int, default=default,
                         help=f"relative weight of {name} operations (default: {default})")

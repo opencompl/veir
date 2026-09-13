@@ -640,6 +640,48 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       /- Offsets wrap at 64 bits, so a negative index steps backwards. -/
       return (#[.addr (.val ⟨ptr.object, UInt64.ofNat (ptr.offset.toNat + idx.toNat * size)⟩)], mem, none)
     | _, _ => return (#[.addr .poison], mem, none)
+  | .call => do
+    /- The C and C++ allocation functions are modelled by name. Each
+       allocation yields a fresh object, so pointers into different
+       allocations never alias. The oracle decides whether `malloc`,
+       `calloc` and `realloc` fail; `operator new` never does. -/
+    let some callee := properties.callee | none
+    match callee.value, operands.toList with
+    | "@malloc", [.int _ size] =>
+      let .val size := size | Interp.ub
+      let (mem, ptr) := mem.heapAlloc size.toNat
+      return (#[.addr (.val ptr)], mem, none)
+    | "@calloc", [.int _ count, .int _ size] =>
+      let .val count := count | Interp.ub
+      let .val size := size | Interp.ub
+      let total := count.toNat * size.toNat
+      let (mem, ptr) := mem.heapAlloc total
+      if ptr.isNull then return (#[.addr (.val ptr)], mem, none)
+      let mem ← mem.storeBytes ptr (Array.replicate total (.value 0 0))
+      return (#[.addr (.val ptr)], mem, none)
+    | "@realloc", [.addr old, .int _ size] =>
+      let .val size := size | Interp.ub
+      let .val old := old | Interp.ub
+      if old.isNull then
+        let (mem, ptr) := mem.heapAlloc size.toNat
+        return (#[.addr (.val ptr)], mem, none)
+      let some obj := mem.getObject? old | Interp.ub
+      if old.offset ≠ 0 ∨ obj.kind ≠ .heap ∨ !obj.alive then Interp.ub
+      let (mem', ptr) := mem.heapAlloc size.toNat
+      if ptr.isNull then return (#[.addr (.val ptr)], mem', none)
+      let mem ← mem'.storeBytes ptr (obj.bytes.extract 0 (min obj.bytes.size size.toNat))
+      let mem ← mem.free old
+      return (#[.addr (.val ptr)], mem, none)
+    | "@_Znwm", [.int _ size] | "@_Znam", [.int _ size] =>
+      let .val size := size | Interp.ub
+      let (mem, ptr) := mem.alloc size.toNat .heap
+      return (#[.addr (.val ptr)], mem, none)
+    | "@free", [.addr ptr] | "@_ZdlPv", [.addr ptr] | "@_ZdaPv", [.addr ptr]
+    | "@_ZdlPvm", [.addr ptr, _] | "@_ZdaPvm", [.addr ptr, _] =>
+      let .val ptr := ptr | Interp.ub
+      let mem ← mem.free ptr
+      return (#[], mem, none)
+    | _, _ => none
   | .intr__lifetime__start => do
     let [.addr ptr] := operands.toList | none
     let .val ptr := ptr | Interp.ub
@@ -656,10 +698,13 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
        two ranges to be equal or not to overlap at all, which is the only
        thing that separates it from `memmove`. -/
     let [.addr dst, .addr src, .int _ len] := operands.toList | none
-    let .val dst := dst | Interp.ub
-    let .val src := src | Interp.ub
     let .val len := len | Interp.ub
     let n := len.toNat
+    /- A copy of no bytes reaches no memory, so it is allowed through any
+       pointer at all, which is the rule `checkAccess` already applies. -/
+    if n = 0 then return (#[], mem, none)
+    let .val dst := dst | Interp.ub
+    let .val src := src | Interp.ub
     if opType = .intr__memcpy ∧ dst.object = src.object ∧ dst.offset ≠ src.offset then
       let lo := min dst.offset.toNat src.offset.toNat
       let hi := max dst.offset.toNat src.offset.toNat
@@ -669,8 +714,9 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     return (#[], mem, none)
   | .intr__memset => do
     let [.addr dst, .int 8 v, .int _ len] := operands.toList | none
-    let .val dst := dst | Interp.ub
     let .val len := len | Interp.ub
+    if len.toNat = 0 then return (#[], mem, none)
+    let .val dst := dst | Interp.ub
     let byte : MemoryByte := match v with
       | .val v => .value (UInt8.ofBitVec v) 0
       | .poison => .poison
