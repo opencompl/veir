@@ -35,7 +35,7 @@ def RuntimeValue.isRefinedBy (source target : RuntimeValue) : Prop :=
   match source, target with
   | .int bw s, .int bw' t => ∃ h : bw = bw', s.cast h ⊒ t
   | .byte bw s, .byte bw' t => ∃ h : bw = bw', s.cast h ⊒ t
-  | .addr s, .addr t => s = t
+  | .addr s, .addr t => s ⊒ t
   | .reg s, .reg t => s = t
   | .felt fieldType s, .felt fieldType' t => fieldType = fieldType' ∧ s = t
   | .float ty s, .float ty' t =>
