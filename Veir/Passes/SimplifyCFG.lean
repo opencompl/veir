@@ -30,6 +30,14 @@ private def forwardingBranch? (ctx : IRContext OpCode) (block : BlockPtr) :
       use := (operand.get! ctx).nextUse
   return branch
 
+/-- Replace a forwarded block argument with its incoming SSA value. -/
+private def substituteArgument (block : BlockPtr) (arguments : Array ValuePtr)
+    (value : ValuePtr) : ValuePtr :=
+  match value with
+  | .blockArgument arg =>
+      if arg.block = block then arguments[arg.index]! else value
+  | _ => value
+
 /-- Follow an empty-block chain, substituting each block's incoming arguments.
     Leave cycles unchanged, including self-loops. -/
 private def forward (ctx : IRContext OpCode) (target : BlockPtr)
@@ -40,11 +48,7 @@ private def forward (ctx : IRContext OpCode) (target : BlockPtr)
   while let some branch := forwardingBranch? ctx target' do
     if visited.contains target' then return (target, arguments)
     visited := visited.insert target'
-    let nextArguments := (branch.getOperands! ctx).map fun value =>
-      match value with
-      | .blockArgument arg =>
-          if arg.block == target' then arguments'[arg.index]! else value
-      | _ => value
+    let nextArguments := (branch.getOperands! ctx).map (substituteArgument target' arguments')
     target' := branch.getSuccessor! ctx 0
     arguments' := nextArguments
   return (target', arguments')
@@ -86,20 +90,43 @@ private def simplifyBranch (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let ctx' := WfRewriter.setAttributes! ctx' replacement (op.get! ctx.raw).attrs
   return WfRewriter.eraseOp! ctx' op
 
+/-- Explicit traversal frames keep the recursive driver transparent to proofs. -/
+private inductive WorkItem where
+  | operation (op : OperationPtr)
+  | rewrite (op : OperationPtr)
+  | region (region : RegionPtr)
+  | blocks (block : BlockPtr)
+  | operations (op : OperationPtr)
+
+/-- Traverse in postorder, saving each next-operation pointer before rewriting
+    its predecessor. `none` is the logical result of a nonterminating traversal. -/
+private def runWorklist (ctx : WfIRContext OpCode) (pending : List WorkItem) :
+    Option (Except String (WfIRContext OpCode)) :=
+  match pending with
+  | [] => some (.ok ctx)
+  | .operation op :: rest =>
+      runWorklist ctx
+        ((op.getRegions! ctx.raw).toList.map .region ++ .rewrite op :: rest)
+  | .rewrite op :: rest =>
+      match simplifyBranch ctx op with
+      | .ok ctx' => runWorklist ctx' rest
+      | .error err => some (.error err)
+  | .region region :: rest =>
+      runWorklist ctx (((region.get! ctx.raw).firstBlock.toList.map .blocks) ++ rest)
+  | .blocks block :: rest =>
+      let body := block.get! ctx.raw
+      runWorklist ctx (body.firstOp.toList.map .operations ++
+        body.next.toList.map .blocks ++ rest)
+  | .operations op :: rest =>
+      runWorklist ctx (.operation op ::
+        ((op.get! ctx.raw).next.toList.map .operations ++ rest))
+partial_fixpoint
+
 /-- Visit the pass root and its nested operations. Bypassed blocks remain in the
     region; this pass only forwards branches. -/
-public partial def run (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Except String (WfIRContext OpCode) := do
-  let mut ctx := ctx
-  for region in op.getRegions! ctx.raw do
-    let mut block := (region.get! ctx.raw).firstBlock
-    while let some current := block do
-      let mut inner := (current.get! ctx.raw).firstOp
-      while let some child := inner do
-        inner := (child.get! ctx.raw).next
-        ctx ← run ctx child
-      block := (current.get! ctx.raw).next
-  simplifyBranch ctx op
+public def run (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Except String (WfIRContext OpCode) :=
+  (runWorklist ctx [.operation op]).getD (.error "nonterminating IR traversal")
 
 end SimplifyCFG
 

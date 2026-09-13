@@ -1,5 +1,7 @@
 module
 
+public import Init.Internal.Order.Basic
+
 public section
 
 namespace Veir
@@ -17,6 +19,14 @@ inductive Interp (α : Type) where
   /-- Successful execution producing `a`. -/
   | ok (a : α)
 deriving Inhabited
+
+/-- Nontermination is the least defined interpreter outcome. Choosing `.fail`
+    explicitly keeps `partial_fixpoint` from selecting an arbitrary result. -/
+instance : Lean.Order.PartialOrder (Interp α) :=
+  inferInstanceAs (Lean.Order.PartialOrder (Lean.Order.FlatOrder (Interp.fail : Interp α)))
+
+instance : Lean.Order.CCPO (Interp α) :=
+  inferInstanceAs (Lean.Order.CCPO (Lean.Order.FlatOrder (Interp.fail : Interp α)))
 
 @[expose]
 def Interp.map {α β : Type} (f : α → β) : Interp α → Interp β

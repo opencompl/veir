@@ -5,3 +5,4 @@ public import Veir.Interpreter.Evaluate
 public import Veir.Interpreter.Lemmas
 public import Veir.Interpreter.EquationLemma
 public import Veir.Interpreter.Refinement
+public import Veir.Interpreter.CFG
