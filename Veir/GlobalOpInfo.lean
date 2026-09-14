@@ -94,6 +94,7 @@ def OpCode.tryFold (opCode : OpCode) (props : _propertiesOf opCode)
   | .datapath op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .pdl op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .io op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .gmir op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .test op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .felt op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .cir op, props => HasOpInfo.tryFold op props resultTypes constantOperands
