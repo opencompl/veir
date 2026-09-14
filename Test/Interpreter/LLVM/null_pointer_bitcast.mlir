@@ -1,6 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
 
-// The null pointer prints as address zero, and bitcasting it gives that address
+// The operation `llvm.mlir.zero` yields the zero address (null-pointer). Bitcasting it gives that address
 // with no poison bits, both as an `llvm.byte` and as an integer.
 
 "builtin.module"() ({
