@@ -59,6 +59,73 @@ def resolveEntryPoint (ctx : IRContext OpCode) (moduleOp : OperationPtr) : IO Op
     IO.eprintln "Error: Multiple entry points: define exactly one zero-argument function named 'main'"
     IO.Process.exit 1
 
+/--
+  The initial bytes of a global of `size` bytes with the attribute `value`:
+  integers little-endian, strings verbatim, anything else poison.
+-/
+private def globalInitBytes (value : Attribute) (size : Nat) : Array MemoryByte :=
+  let bytes : Array MemoryByte := match value with
+    | .integerAttr a => MemoryByte.ofByteArray (UInt64.ofBitVec (BitVec.ofInt 64 a.value)).toByteArrayLE
+    | .stringAttr str => MemoryByte.ofByteArray str.value
+    | _ => #[]
+  (bytes ++ Array.replicate size MemoryByte.poison).extract 0 size
+
+private def exitOnInterp (what : String) : Interp α → IO α
+  | .ok a => pure a
+  | .ub => do
+    IO.println "Undefined behavior"
+    IO.Process.exit 0
+  | .fail => do
+    IO.eprintln s!"Error while interpreting {what}"
+    IO.Process.exit 1
+
+set_option warn.sorry false in
+/--
+  Materialize the module's globals and functions as objects that live for
+  the whole run, before `main` executes. A global with a `value` attribute
+  starts with its bytes; one with an initializer region starts with the
+  value that region returns; any other global starts as poison. Functions
+  get empty objects so that their addresses are distinct.
+-/
+partial def materializeGlobals (ctx : WfIRContext OpCode) (op : Option OperationPtr)
+    (mem : MemoryState) : IO MemoryState := do
+  let some op := op | return mem
+  let raw : IRContext OpCode := ctx
+  let mem ← match op.getOpType! raw with
+    | .llvm .mlir__global => do
+      let props : LLVMGlobalProperties := op.getProperties! raw (OpCode.llvm .mlir__global)
+      let name := "@" ++ String.fromUTF8! props.sym_name.value
+      let some size := DataLayout.riscv64.getTypeAllocSize props.global_type.val
+        | IO.eprintln s!"Error: cannot size global {name}"; IO.Process.exit 1
+      let align := (props.alignment.map (·.value.toNat.toUInt64)).getD MemoryState.objectAlignment
+      /- The object becomes constant only after its initializer is stored. -/
+      let (mem, ptr) := mem.alloc size .global align
+      let mem ← match props.value with
+        | some value => exitOnInterp name (mem.storeBytes ptr (globalInitBytes value size))
+        | none =>
+          let region := op.getRegion! raw 0
+          match (region.get! raw).firstBlock with
+          | none => pure mem
+          | some _ => do
+            let (state, results) ← exitOnInterp name
+              (interpretRegion region #[] (ctx := ctx) ⟨.empty ctx, mem⟩ (by sorry))
+            let some value := results[0]? | pure state.memory
+            exitOnInterp name (state.memory.llvmStore ptr value)
+      let mem := match mem.getObject? ptr with
+        | some obj => mem.setObject ptr { obj with isConst := props.constant }
+        | none => mem
+      pure { mem with globals := mem.globals.insert name ptr.object }
+    | _ =>
+      if op.isFunctionLike raw then
+        match FunctionOpInterface.getSymName? op raw with
+        | some sym =>
+          let name := "@" ++ String.fromUTF8! sym.value
+          let (mem, ptr) := mem.alloc 0 .global MemoryState.objectAlignment true
+          pure { mem with globals := mem.globals.insert name ptr.object }
+        | none => pure mem
+      else pure mem
+  materializeGlobals ctx (op.get! raw).next mem
+
 set_option warn.sorry false in
 def main (args : List String) : IO Unit := do
   enableExitOnPanic
@@ -76,7 +143,9 @@ def main (args : List String) : IO Unit := do
     | .ok _ =>
       let rawCtx : IRContext OpCode := ctx
       let mainOp ← resolveEntryPoint rawCtx op
-      let result := bind (interpretFunction (ctx := ctx) mainOp #[] MemoryState.empty (by sorry))
+      let firstOp := ((op.getRegion! rawCtx 0).get! rawCtx).firstBlock.bind fun b => (b.get! rawCtx).firstOp
+      let mem ← materializeGlobals ctx firstOp MemoryState.empty
+      let result := bind (interpretFunction (ctx := ctx) mainOp #[] mem (by sorry))
                          (fun (_, r) => pure r)
       match result with
       | .ok results => IO.println s!"Program output: {results}"

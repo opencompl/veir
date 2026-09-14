@@ -335,6 +335,36 @@ def Felt.interpretOp' (opType : Veir.Felt) (properties : propertiesOf opType)
   | _ => none
 
 
+/-- The `arg_attrs` of an `llvm.func`, if `opType` is one. -/
+def funcArgAttrs? (opType : OpCode) (properties : propertiesOf opType) : Option Attribute :=
+  match opType, properties with
+  | .llvm .func, props => (props.extra.entries.find? (·.1 == "arg_attrs".toUTF8)).map (·.2)
+  | _, _ => none
+
+/--
+  Check the LLVM argument attributes `argAttrs`, an array of dictionaries one
+  per argument, against the pointer arguments in `values`: `llvm.nonnull`
+  forbids null, `llvm.dereferenceable = n` demands `n` readable bytes, and
+  `llvm.align = n` demands an address that is a multiple of `n`. A violation
+  is undefined behaviour. Attributes that only constrain the callee are not
+  checked.
+-/
+def checkArgAttrs (mem : MemoryState) (argAttrs : Option Attribute) (values : Array RuntimeValue)
+    : Interp Unit := do
+  let some (.arrayAttr attrs) := argAttrs | return ()
+  for h : i in [0:values.size] do
+    let .addr p := values[i] | continue
+    let some (.dictionaryAttr dict) := attrs.value[i]? | continue
+    let .val p := p | Interp.ub
+    for (key, attr) in dict.entries do
+      if key == "llvm.nonnull".toUTF8 ∧ p.isNull then Interp.ub
+      if key == "llvm.dereferenceable".toUTF8 then
+        let .integerAttr n := attr | continue
+        let _ ← mem.checkAccess p n.value.toNat false
+      if key == "llvm.align".toUTF8 then
+        let .integerAttr n := attr | continue
+        if 1 < n.value ∧ (mem.address p).toNat % n.value.toNat ≠ 0 then Interp.ub
+
 def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     (mem : MemoryState) (layout : DataLayout := .riscv64)
@@ -358,14 +388,16 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       none
   | .mlir__poison => do
     let some resType := resultTypes[0]? | none
-    let .integerType bw := resType.val | none
-    return (#[.int bw.bitwidth (LLVM.Int.mlir_poison bw.bitwidth)], mem, none)
+    match resType.val with
+    | .integerType bw => return (#[.int bw.bitwidth (LLVM.Int.mlir_poison bw.bitwidth)], mem, none)
+    | .llvmPointerType _ => return (#[.addr .poison], mem, none)
+    | _ => none
   | .mlir__zero => do
     let some resType := resultTypes[0]? | none
     match resType.val with
     | .integerType bw =>
       return (#[.int bw.bitwidth (LLVM.Int.val (BitVec.ofNat bw.bitwidth 0))], mem, none)
-    | .llvmPointerType _ => return (#[.addr 0], mem, none)
+    | .llvmPointerType _ => return (#[.addr LLVM.Ptr.null], mem, none)
     | _ => none
   | .add => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
@@ -614,17 +646,18 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let [.int _ (.val count)] := operands.toList | none
     /- `alloca T, N` reserves `N` strides of `T`, as in LLVM. -/
     let size ← layout.getTypeAllocSize properties.elem_type.val
-    let totalSize := (size * count.toNat).toUInt64
-    let (mem, addr) := mem.alloc totalSize
-    return (#[.addr addr], mem, none)
+    let (mem, ptr) := mem.alloc (size * count.toNat) .stack properties.alignment.value.toNat.toUInt64
+    return (#[.addr (.val ptr)], mem, none)
   | .load => do
     let [.addr addr] := operands.toList | none
+    let .val addr := addr | Interp.ub
     let [type] := resultTypes.toList | none
-    let val ← mem.llvmLoad addr type
+    let val ← mem.llvmLoad addr type properties.alignment.value.toNat
     return (#[val], mem, none)
   | .store => do
     let [val, .addr addr] := operands.toList | none
-    let mem ← mem.llvmStore addr val
+    let .val addr := addr | Interp.ub
+    let mem ← mem.llvmStore addr val properties.alignment.value.toNat
     return (#[], mem, none)
   | .getelementptr => do
     /- only supports exactly one dynamic index for now -/
@@ -632,9 +665,115 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     /- The index scales by the element's stride, matching the `getTypeAllocSize`
        that `isel-riscv64` uses to lower this operation. -/
     let size ← layout.getTypeAllocSize properties.elem_type.val
-    match idx with
-    | .val idx => return (#[.addr (ptr.toNat + idx.toNat * size).toUInt64], mem, none)
-    | .poison => Interp.ub
+    match ptr, idx with
+    | .val ptr, .val idx =>
+      /- Offsets wrap at 64 bits, so a negative index steps backwards. -/
+      return (#[.addr (.val ⟨ptr.object, UInt64.ofNat (ptr.offset.toNat + idx.toNat * size)⟩)], mem, none)
+    | _, _ => return (#[.addr .poison], mem, none)
+  | .call => do
+    /- The C and C++ allocation functions are modelled by name. Each
+       allocation yields a fresh object, so pointers into different
+       allocations never alias. The oracle decides whether `malloc`,
+       `calloc` and `realloc` fail; `operator new` never does. -/
+    let _ ← checkArgAttrs mem ((properties.extra.entries.find? (·.1 == "arg_attrs".toUTF8)).map (·.2))
+      operands
+    let callee := (properties.callee.map (·.value)).getD ""
+    match callee, operands.toList with
+    | "@malloc", [.int _ size] =>
+      let .val size := size | Interp.ub
+      let (mem, ptr) := mem.heapAlloc size.toNat
+      return (#[.addr (.val ptr)], mem, none)
+    | "@calloc", [.int _ count, .int _ size] =>
+      let .val count := count | Interp.ub
+      let .val size := size | Interp.ub
+      let total := count.toNat * size.toNat
+      let (mem, ptr) := mem.heapAlloc total
+      if ptr.isNull then return (#[.addr (.val ptr)], mem, none)
+      let mem ← mem.storeBytes ptr (Array.replicate total (.value 0 0))
+      return (#[.addr (.val ptr)], mem, none)
+    | "@realloc", [.addr old, .int _ size] =>
+      let .val size := size | Interp.ub
+      let .val old := old | Interp.ub
+      if old.isNull then
+        let (mem, ptr) := mem.heapAlloc size.toNat
+        return (#[.addr (.val ptr)], mem, none)
+      let some obj := mem.getObject? old | Interp.ub
+      if old.offset ≠ 0 ∨ obj.kind ≠ .heap ∨ !obj.alive then Interp.ub
+      let (mem', ptr) := mem.heapAlloc size.toNat
+      if ptr.isNull then return (#[.addr (.val ptr)], mem', none)
+      let mem ← mem'.storeBytes ptr (obj.bytes.extract 0 (min obj.bytes.size size.toNat))
+      let mem ← mem.free old
+      return (#[.addr (.val ptr)], mem, none)
+    | "@_Znwm", [.int _ size] | "@_Znam", [.int _ size] =>
+      let .val size := size | Interp.ub
+      let (mem, ptr) := mem.alloc size.toNat .heap
+      return (#[.addr (.val ptr)], mem, none)
+    | "@free", [.addr ptr] | "@_ZdlPv", [.addr ptr] | "@_ZdaPv", [.addr ptr]
+    | "@_ZdlPvm", [.addr ptr, _] | "@_ZdaPvm", [.addr ptr, _] =>
+      let .val ptr := ptr | Interp.ub
+      let mem ← mem.free ptr
+      return (#[], mem, none)
+    | _, _ =>
+      /- A call the interpreter cannot enter. The callee may keep the pointers
+         it receives, may write anything to every object it can reach, and
+         returns whatever it likes, which the oracle resolves to poison. -/
+      let mem := (mem.escapeValues operands).havoc
+      let results ← resultTypes.mapM fun ty => RuntimeValue.getPoisonForType ty
+      return (results, mem, none)
+  | .mlir__addressof => do
+    let some object := mem.globals[properties.global_name.value]? | none
+    return (#[.addr (.val ⟨object, 0⟩)], mem, none)
+  | .intr__lifetime__start => do
+    let [.addr ptr] := operands.toList | none
+    let .val ptr := ptr | Interp.ub
+    let mem ← mem.lifetimeStart ptr
+    return (#[], mem, none)
+  | .intr__lifetime__end => do
+    let [.addr ptr] := operands.toList | none
+    let .val ptr := ptr | Interp.ub
+    let mem ← mem.lifetimeEnd ptr
+    return (#[], mem, none)
+  | .intr__memcpy | .intr__memmove => do
+    /- Bytes are copied as they are, so a pointer stored in the source keeps
+       its provenance in the destination. `memcpy` additionally requires the
+       two ranges to be equal or not to overlap at all, which is the only
+       thing that separates it from `memmove`. -/
+    let [.addr dst, .addr src, .int _ len] := operands.toList | none
+    let .val len := len | Interp.ub
+    let n := len.toNat
+    /- A copy of no bytes reaches no memory, so it is allowed through any
+       pointer at all, which is the rule `checkAccess` already applies. -/
+    if n = 0 then return (#[], mem, none)
+    let .val dst := dst | Interp.ub
+    let .val src := src | Interp.ub
+    if opType = .intr__memcpy ∧ dst.object = src.object ∧ dst.offset ≠ src.offset then
+      let lo := min dst.offset.toNat src.offset.toNat
+      let hi := max dst.offset.toNat src.offset.toNat
+      if lo + n > hi then Interp.ub
+    let bytes ← mem.loadBytes src n
+    let mem ← mem.storeBytes dst bytes
+    return (#[], mem, none)
+  | .intr__memset => do
+    let [.addr dst, .int 8 v, .int _ len] := operands.toList | none
+    let .val len := len | Interp.ub
+    if len.toNat = 0 then return (#[], mem, none)
+    let .val dst := dst | Interp.ub
+    let byte : MemoryByte := match v with
+      | .val v => .value (UInt8.ofBitVec v) 0
+      | .poison => .poison
+    let mem ← mem.storeBytes dst (Array.replicate len.toNat byte)
+    return (#[], mem, none)
+  | .ptrtoint => do
+    let [.addr p] := operands.toList | none
+    let [⟨.integerType bw, _⟩] := resultTypes.toList | none
+    let .val p := p | return (#[.int bw.bitwidth .poison], mem, none)
+    return (#[.int bw.bitwidth (.val (BitVec.ofNat bw.bitwidth (mem.address p).toNat))],
+      mem.escape p, none)
+  | .inttoptr => do
+    let [.int _ v] := operands.toList | none
+    match v with
+    | .val v => return (#[.addr (.val (mem.decode (UInt64.ofNat v.toNat)))], mem, none)
+    | .poison => return (#[.addr .poison], mem, none)
   | .freeze => do
     let [val] := operands.toList | none
     match val with
@@ -642,6 +781,8 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
         return (#[.int w val.freeze], mem, none)
     | .byte w val =>
         return (#[.byte w val.freeze], mem, none)
+    | .addr .poison => return (#[.addr LLVM.Ptr.null], mem, none)
+    | .addr (.val p) => return (#[.addr (.val p)], mem, none)
     | _ => none
   | .bitcast => do
     let [val] := operands.toList | none
@@ -656,11 +797,21 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       | .byte bw1 val', .integerType ⟨bw2⟩ =>
           if bw1 ≠ bw2 then .fail else .ok ((.int bw1 $ val'.toInt))
       | .byte bw val', .llvmPointerType _ =>
-          if h : bw = 64 then .ok ((.addr (val'.cast h).toUInt64)) else .fail
+          if h : bw = 64 then .ok (.addr (mem.ptrOfByte (val'.cast h))) else .fail
       | .addr val', .llvmPointerType _ => .ok (val)
       | .addr val', .byteType ⟨bw⟩ =>
-          if h : bw = 64 then .ok ((.byte 64 $ LLVM.Byte.fromUInt64 val')) else .fail
+          if bw = 64 then .ok (.byte 64 (mem.byteOfPtr val')) else .fail
+      | .addr val', .integerType ⟨bw⟩ =>
+          if bw = 64 then
+            match val' with
+            | .val v => .ok (.int 64 (LLVM.Int.val (mem.address v).toBitVec))
+            | .poison => .ok (.int 64 .poison)
+          else .fail
       | _, _ => none
+    /- A pointer turned into bits has escaped. -/
+    let mem := match val, type with
+      | .addr (.val val'), .byteType _ => mem.escape val'
+      | _, _ => mem
     return (#[result], mem, none)
   | _ => none
 
@@ -674,13 +825,15 @@ inductive LoadExtension
   | signExt
   | zeroExt
 
-/-- Read `bytes` of little-endian data from memory starting at
-    `eaddr` and extend it to 64 bits according to `ext`. Memory is
-    grown so that the access is in bounds and cannot raise UB. -/
+/-- Read `bytes` of little-endian data from memory starting at the physical
+    address `eaddr` and extend it to 64 bits according to `ext`. The object
+    the address falls into is grown so that the access is in bounds where the
+    gap to the next object allows it. -/
 def riscvLoad (mem : MemoryState) (eaddr : BitVec 64) (bytes : Nat) (ext : LoadExtension) :
     Interp (BitVec 64 × MemoryState) := do
-  let mem := mem.ensureSize (eaddr.toNat + bytes)
-  let ba ← mem.load eaddr.toNat.toUInt64 bytes.toUInt64
+  let p := mem.decode (UInt64.ofBitVec eaddr)
+  let mem := mem.ensureSize p bytes
+  let ba ← mem.load p bytes
   let val := ba.toBitVecLE bytes
   let extended := match ext with
     | .signExt => val.signExtend 64
@@ -1051,29 +1204,33 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : propertiesOf opType)
   | .sd => do
     let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.value.value
-    let mem := mem.ensureSize (eaddr.toNat + 8)
-    let mem ← mem.store eaddr.toNat.toUInt64 (UInt64.ofBitVec val).toByteArrayLE
+    let p := mem.decode (UInt64.ofBitVec eaddr)
+    let mem := mem.ensureSize p 8
+    let mem ← mem.store p (UInt64.ofBitVec val).toByteArrayLE
     return (#[], mem, none)
   | .sw => do
     let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.value.value
-    let mem := mem.ensureSize (eaddr.toNat + 4)
+    let p := mem.decode (UInt64.ofBitVec eaddr)
+    let mem := mem.ensureSize p 4
     -- store only the low 4 bytes of the register
-    let mem ← mem.store eaddr.toNat.toUInt64 ((UInt64.ofBitVec val).toByteArrayLE.extract 0 4)
+    let mem ← mem.store p ((UInt64.ofBitVec val).toByteArrayLE.extract 0 4)
     return (#[], mem, none)
   | .sh => do
     let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.value.value
-    let mem := mem.ensureSize (eaddr.toNat + 2)
+    let p := mem.decode (UInt64.ofBitVec eaddr)
+    let mem := mem.ensureSize p 2
     -- store only the low 2 bytes of the register
-    let mem ← mem.store eaddr.toNat.toUInt64 ((UInt64.ofBitVec val).toByteArrayLE.extract 0 2)
+    let mem ← mem.store p ((UInt64.ofBitVec val).toByteArrayLE.extract 0 2)
     return (#[], mem, none)
   | .sb => do
     let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.value.value
-    let mem := mem.ensureSize (eaddr.toNat + 1)
+    let p := mem.decode (UInt64.ofBitVec eaddr)
+    let mem := mem.ensureSize p 1
     -- store only the low byte of the register
-    let mem ← mem.store eaddr.toNat.toUInt64 ((UInt64.ofBitVec val).toByteArrayLE.extract 0 1)
+    let mem ← mem.store p ((UInt64.ofBitVec val).toByteArrayLE.extract 0 1)
     return (#[], mem, none)
 
 def Riscv_Stack.interpretOp' (opType : Veir.Riscv_Stack) (properties : propertiesOf opType)
@@ -1082,8 +1239,8 @@ def Riscv_Stack.interpretOp' (opType : Veir.Riscv_Stack) (properties : propertie
     : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
   match opType with
   | .alloca => do
-    let (mem, addr) := mem.alloc properties.size.value.toNat.toUInt64
-    return (#[.reg ⟨.ofNat 64 addr.toNat⟩], mem, none)
+    let (mem, ptr) := mem.alloc properties.size.value.toNat .stack properties.alignment.value.toNat.toUInt64
+    return (#[.reg ⟨(mem.address ptr).toBitVec⟩], mem, none)
 
 def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
@@ -1284,7 +1441,9 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     | .registerType _, [.byte _bw val] =>
       return (#[.reg (LLVM.Byte.toReg val)], mem, none)
     | .registerType _, [.addr val] =>
-      return (#[.reg ⟨val.toNat⟩], mem, none)
+      /- A register has no poison to carry, so a poison pointer cannot be cast into one. -/
+      let .val val := val | Interp.fail
+      return (#[.reg ⟨(mem.address val).toBitVec⟩], mem.escape val, none)
     | .integerType _bw, [.reg val] =>
       let .integerType resBw := resType.val | none
       return (#[.int resBw.bitwidth (RISCV.Reg.toInt val resBw.bitwidth)], mem, none)
@@ -1292,7 +1451,7 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
       let .byteType resBw := resType.val | none
       return (#[.byte resBw.bitwidth (RISCV.Reg.toByte val resBw.bitwidth)], mem, none)
     | .llvmPointerType _, [.reg val] =>
-      return (#[.addr ⟨val.val⟩], mem, none)
+      return (#[.addr (.val (mem.decode ⟨val.val⟩))], mem, none)
     | _ , _ => none
   | _ => none
 
@@ -1437,9 +1596,15 @@ def interpretFunction (op : OperationPtr) (values : Array RuntimeValue) {ctx : W
   if h : op.getNumRegions ctx.raw ≠ 1 then
     none
   else
+    /- The argument attributes of an `llvm.func` are checked on entry. -/
+    let _ ← checkArgAttrs mem
+      (funcArgAttrs? (op.getOpType! ctx.raw) (op.getProperties! ctx.raw (op.getOpType! ctx.raw)))
+      values
     let state : InterpreterState ctx := ⟨.empty ctx, mem⟩
+    let frameStart := mem.objects.size
     let (state, results) ← interpretRegion (FunctionOpInterface.getFunctionBody op ctx.raw) values state
-    return (state.memory, results)
+    /- Returned pointers escape, and the function's stack objects die. -/
+    return ((state.memory.escapeValues results).killStackObjectsFrom frameStart, results)
 
 /--
   Interpret a builtin.module operation.
