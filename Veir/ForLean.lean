@@ -25,6 +25,23 @@ def UInt8.isDigit (c : UInt8) : Bool :=
 def UInt8.isHexDigit (c : UInt8) : Bool :=
   c.isDigit || (c >= 'a'.toUInt8 && c <= 'f'.toUInt8) || (c >= 'A'.toUInt8 && c <= 'F'.toUInt8)
 
+/--
+  The value of a hexadecimal digit. Lean has `Char.isHexDigit`, but the
+  conversion to a value is `private` in `Init.Meta`.
+-/
+@[inline]
+def Char.hexDigit? (c : Char) : Option UInt8 :=
+  if c.isDigit then some (c.toNat - '0'.toNat).toUInt8
+  else if 'a' ≤ c && c ≤ 'f' then some (c.toNat - 'a'.toNat + 10).toUInt8
+  else if 'A' ≤ c && c ≤ 'F' then some (c.toNat - 'A'.toNat + 10).toUInt8
+  else none
+
+/-- The hexadecimal digit of a value below 16, in upper case. -/
+@[inline]
+def UInt8.toHexDigit (n : UInt8) : Char :=
+  if n < 10 then Char.ofNat (n.toNat + '0'.toNat)
+  else Char.ofNat (n.toNat - 10 + 'A'.toNat)
+
 def UInt16.toByteArrayLE (u : UInt16) : ByteArray :=
   ByteArray.mk (Array.mk [
     u.toUInt8,

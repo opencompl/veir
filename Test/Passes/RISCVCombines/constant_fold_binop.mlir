@@ -34,16 +34,16 @@
 }) : () -> ()
 
 // add folds to 12.
-// CHECK:      ^{{.*}}():
+// CHECK:      func.func @foo() -> i32 {
 // CHECK:      %[[R:.*]] = "llvm.mlir.constant"() <{"value" = 12 : i32}> : () -> i32
 // CHECK:      "func.return"(%[[R]]) : (i32) -> ()
 
 // sub folds to 12.
-// CHECK:      ^{{.*}}():
+// CHECK:      func.func @bar() -> i32 {
 // CHECK:      %[[R2:.*]] = "llvm.mlir.constant"() <{"value" = 12 : i32}> : () -> i32
 // CHECK:      "func.return"(%[[R2]]) : (i32) -> ()
 
 // smin folds to a constant (the smin op is gone).
-// CHECK:      ^{{.*}}():
+// CHECK:      func.func @baz() -> i32 {
 // CHECK-NOT:  "llvm.intr.smin"
 // CHECK:      "func.return"(%{{.*}}) : (i32) -> ()

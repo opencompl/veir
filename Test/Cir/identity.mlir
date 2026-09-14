@@ -1,4 +1,5 @@
 // RUN: VEIR_ROUNDTRIP
+// RUN: MLIR_UNREGISTERED_ROUNDTRIP
 
 // Every registered cir operation, in the generic form ClangIR prints after
 // `cir-opt -cir-flatten-cfg`. Flag properties keep ClangIR's spelling; a `false`

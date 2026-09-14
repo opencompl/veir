@@ -14,8 +14,7 @@
       %sum = "arith.addi"(%ai, %bi) : (i64, i64) -> i64
       %out = "builtin.unrealized_conversion_cast"(%sum) : (i64) -> !mod_arith.int<7 : i33>
       "func.return"(%out) : (!mod_arith.int<7 : i33>) -> ()
-      // CHECK:      "func.func"() <{"function_type" = (i64, i64) -> i64, "sym_name" = "arith_add"}>
-      // CHECK-NEXT: ^{{.*}}([[A:%.*]] : i64, [[B:%.*]] : i64):
+      // CHECK:      func.func @arith_add([[A:%.*]]: i64, [[B:%.*]]: i64) -> i64 {
       // CHECK-NEXT:   [[SUM:%.*]] = "arith.addi"([[A]], [[B]]) : (i64, i64) -> i64
       // CHECK-NEXT:   "func.return"([[SUM]]) : (i64) -> ()
     }) : () -> ()

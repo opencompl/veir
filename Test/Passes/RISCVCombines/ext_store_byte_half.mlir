@@ -36,18 +36,18 @@
 
 // What matters is that the store no longer reads through the extension; the
 // greedy driver then erases it as trivially dead.
-// CHECK:      ^{{.*}}(%[[ZH_A:.*]] : !riscv.reg, %[[ZH_V:.*]] : !riscv.reg):
+// CHECK:      func.func @f0(%[[ZH_A:.*]]: !riscv.reg, %[[ZH_V:.*]]: !riscv.reg) {
 // CHECK:      "riscv.sh"(%[[ZH_V]], %[[ZH_A]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT: "func.return"() : () -> ()
 
-// CHECK:      ^{{.*}}(%[[SH_A:.*]] : !riscv.reg, %[[SH_V:.*]] : !riscv.reg):
+// CHECK:      func.func @f1(%[[SH_A:.*]]: !riscv.reg, %[[SH_V:.*]]: !riscv.reg) {
 // CHECK:      "riscv.sh"(%[[SH_V]], %[[SH_A]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT: "func.return"() : () -> ()
 
-// CHECK:      ^{{.*}}(%[[ZB_A:.*]] : !riscv.reg, %[[ZB_V:.*]] : !riscv.reg):
+// CHECK:      func.func @f2(%[[ZB_A:.*]]: !riscv.reg, %[[ZB_V:.*]]: !riscv.reg) {
 // CHECK:      "riscv.sb"(%[[ZB_V]], %[[ZB_A]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT: "func.return"() : () -> ()
 
-// CHECK:      ^{{.*}}(%[[SB_A:.*]] : !riscv.reg, %[[SB_V:.*]] : !riscv.reg):
+// CHECK:      func.func @f3(%[[SB_A:.*]]: !riscv.reg, %[[SB_V:.*]]: !riscv.reg) {
 // CHECK:      "riscv.sb"(%[[SB_V]], %[[SB_A]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT: "func.return"() : () -> ()

@@ -17,20 +17,31 @@ public section
 
 namespace Veir
 
-/-- What one result of a folded operation is replaced with; failure to fold is
-    returned out of band. Folding an operation yields an array of these, one per
-    result and in result order: an operation folds entirely or not at all, so
-    the array has exactly as many entries as the operation has results. -/
-inductive FoldResult where
-  /-- Use operand `j` of the folded operation in place of this result. -/
-  | useOperand (j : Nat)
-  /-- Use the runtime constant `rv` in place of this result. -/
-  | useConstant (rv : RuntimeValue)
+/-- Rank the fold outcome of an entire operation by its first result -/
+private def foldPreference (results : Option (Array FoldDecision)) : Nat :=
+  match results.bind (·[0]?) with
+  | none => 0
+  | some (FoldDecision.useOperand _) => 1
+  | some (FoldDecision.useConstant value) => if value.isPoison then 3 else 2
+
+/-- Return the better fold outcome, retaining the first when both rank equally. -/
+private def preferredFold (first second : Option (Array FoldDecision)) :
+    Option (Array FoldDecision) :=
+  if foldPreference first < foldPreference second then second else first
 
 /-- Every result of the operation folds to poison, for the result types that
     have a poison representation. -/
-private def allResultsPoison (resultTypes : Array TypeAttr) : Option (Array FoldResult) := do
+private def allResultsPoison (resultTypes : Array TypeAttr) : Option (Array FoldDecision) := do
   return (← resultTypes.mapM RuntimeValue.getPoisonForType).map .useConstant
+
+/--
+  Fold an operation by consulting its dialect's fold table, which may fire
+  whether or not the operands are known.
+-/
+private def foldByTable (opType : OpCode) (properties : propertiesOf opType)
+    (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue))
+    : Option (Array FoldDecision) :=
+  HasOpInfo.tryFold opType properties resultTypes constOperands
 
 /--
   Fold an operation by evaluating it, which requires every operand to be known.
@@ -38,7 +49,7 @@ private def allResultsPoison (resultTypes : Array TypeAttr) : Option (Array Fold
 -/
 private def foldByEvaluation (opType : OpCode) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue))
-    : Option (Array FoldResult) := do
+    : Option (Array FoldDecision) := do
   let values ← constOperands.mapM id
   match foldEvaluate opType properties resultTypes values with
   | .fail => none
@@ -51,7 +62,7 @@ private def foldByEvaluation (opType : OpCode) (properties : propertiesOf opType
 -/
 private def foldPoisonedOperand (opType : OpCode)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue))
-    : Option (Array FoldResult) := do
+    : Option (Array FoldDecision) := do
   guard opType.propagatesPoison
   guard (constOperands.any fun
     | some value => value.isPoison
@@ -65,17 +76,20 @@ private def foldPoisonedOperand (opType : OpCode)
 -/
 def OpCode.foldsTo (opType : OpCode) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue))
-    : Option (Array FoldResult) := do
+    : Option (Array FoldDecision) := do
   guard (!opType.isConstantLike)
-  foldByEvaluation opType properties resultTypes constOperands <|>
-    foldPoisonedOperand opType resultTypes constOperands
+  if let some poisonDecision := foldPoisonedOperand opType resultTypes constOperands then
+    return poisonDecision
+  let tableDecision := foldByTable opType properties resultTypes constOperands
+  let evaluationDecision := foldByEvaluation opType properties resultTypes constOperands
+  preferredFold tableDecision evaluationDecision
 
 /--
   Convenience wrapper around `OpCode.foldsTo`.
 -/
 def OperationPtr.foldsTo (op : OperationPtr)
     (ctx : WfIRContext OpCode) (opInBounds : op.InBounds ctx.raw)
-    (constOperands : Array (Option RuntimeValue)) : Option (Array FoldResult) := do
+    (constOperands : Array (Option RuntimeValue)) : Option (Array FoldDecision) := do
   guard (constOperands.size = op.getNumOperands ctx.raw opInBounds)
   let opType := op.getOpType ctx.raw opInBounds
   OpCode.foldsTo opType

@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=arith-to-llvm > %t && veir-interpret %t | filecheck %s --check-prefix=EXEC
+// RUN: veir-opt %s --print-op-generic -p=arith-to-llvm > %t && veir-interpret %t | filecheck %s --check-prefix=EXEC
 // RUN: filecheck %s --check-prefix=LOWERED --input-file=%t
 
 // Exercise direct 1:1 lowerings, including wrapping subtraction and valid
@@ -12,7 +12,7 @@
     %wrapped = "arith.subi"(%c0, %c1) : (i8, i8) -> i8
     %difference = "arith.subi"(%c48, %c16)
       <{overflowFlags = #arith.overflow<nsw, nuw>}> : (i8, i8) -> i8
-    %combined = "arith.ori"(%difference, %c16) <{disjoint}> : (i8, i8) -> i8
+    %combined = "arith.ori"(%difference, %c16) <{isDisjoint}> : (i8, i8) -> i8
     "func.return"(%wrapped, %combined) : (i8, i8) -> ()
   }) : () -> ()
 }) : () -> ()

@@ -33,9 +33,18 @@ def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPt
   let opType := op.getOpType! rewriter.ctx.raw
   if ¬ opType.isCommutative then return rewriter
   let operands := op.getOperands! rewriter.ctx.raw
-  /- Stable partition: non-constant operands first, then the constants. -/
-  let (nonConsts, consts) := operands.partition (!·.isConstantLike rewriter.ctx.raw)
-  let reordered := nonConsts ++ consts
+  let reordered :=
+    if operands.size = 2 then
+      let lhs := operands[0]!
+      let rhs := operands[1]!
+      if lhs.isConstantLike rewriter.ctx.raw && !rhs.isConstantLike rewriter.ctx.raw then
+        #[rhs, lhs]
+      else
+        operands
+    else
+      /- Stable partition: non-constant operands first, then the constants. -/
+      let (nonConsts, consts) := operands.partition (!·.isConstantLike rewriter.ctx.raw)
+      nonConsts ++ consts
   if reordered == operands then return rewriter
   let resultTypes := op.getResultTypes! rewriter.ctx.raw
   let properties := op.getProperties! rewriter.ctx.raw opType

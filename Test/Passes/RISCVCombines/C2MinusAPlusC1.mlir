@@ -33,19 +33,19 @@
 }) : () -> ()
 
 // Folds to (10 - 3) - A = 7 - A.
-// CHECK:      ^{{.*}}(%[[A:.*]] : i64):
+// CHECK:      func.func @foo(%[[A:.*]]: i64) -> i64 {
 // CHECK:      %[[C:.*]] = "llvm.mlir.constant"(){{.*}}value{{.*}}= 7 : i64{{.*}} : () -> i64
 // CHECK:      %[[R:.*]] = "llvm.sub"(%[[C]], %[[A]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[R]]) : (i64) -> ()
 
 // Non-constant minuend: the pattern does not fire.
-// CHECK:      ^{{.*}}(%[[NA:.*]] : i64, %[[NY:.*]] : i64):
+// CHECK:      func.func @bar(%[[NA:.*]]: i64, %[[NY:.*]]: i64) -> i64 {
 // CHECK:      %[[NADD:.*]] = "llvm.add"(%[[NA]], %{{.*}}) : (i64, i64) -> i64
 // CHECK:      %[[NR:.*]] = "llvm.sub"(%[[NY]], %[[NADD]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[NR]]) : (i64) -> ()
 
 // Non-constant addend: the pattern does not fire.
-// CHECK:      ^{{.*}}(%[[MA:.*]] : i64, %[[MX:.*]] : i64):
+// CHECK:      func.func @baz(%[[MA:.*]]: i64, %[[MX:.*]]: i64) -> i64 {
 // CHECK:      %[[MADD:.*]] = "llvm.add"(%[[MA]], %[[MX]]) : (i64, i64) -> i64
 // CHECK:      %[[MR:.*]] = "llvm.sub"(%{{.*}}, %[[MADD]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[MR]]) : (i64) -> ()

@@ -14,8 +14,7 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK:      "func.func"
-// CHECK-NEXT:   ^{{.*}}():
+// CHECK:      func.func @main() -> !mod_arith.int<17 : i32> {
 // CHECK-NEXT:   [[C:%.*]] = "arith.constant"() <{"value" = 3 : i32}> : () -> i32
 // CHECK-NEXT:   [[RES:%.*]] = "builtin.unrealized_conversion_cast"([[C]]) : (i32) -> !mod_arith.int<17 : i32>
 // CHECK-NEXT:   "func.return"([[RES]]) : (!mod_arith.int<17 : i32>) -> ()

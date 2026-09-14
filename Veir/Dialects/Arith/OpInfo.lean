@@ -100,18 +100,14 @@ def Arith.toAttrDict
   | .divsi | .divui | .shrsi | .shrui => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
     if props.exact then
-      dict := dict.insert "exact".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+      dict := dict.insert "isExact".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
   | .ori => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
     if props.disjoint then
-      dict := dict.insert "disjoint".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+      dict := dict.insert "isDisjoint".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
-  | .extui => Id.run do
-    let mut dict := Std.HashMap.emptyWithCapacity 1
-    if props.nneg then
-      dict := dict.insert "nneg".toUTF8 (Attribute.unitAttr UnitAttr.mk)
-    dict
+  | .extui => props.toAttrDict
   | _ => Std.HashMap.emptyWithCapacity 0
 
 @[get_effects]
@@ -137,6 +133,17 @@ def Arith.propagatesPoison : Arith → Bool
   | .trunci | .xori | .addui_extended | .subui_extended
   | .mulsi_extended | .mului_extended => true
   | .constant | .select => false
+
+def Arith.tryFold (op : Arith) (_properties : Arith.propertiesOf op)
+    (_resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
+    Option (Array FoldDecision) :=
+  match op, constantOperands.toList with
+  | .addi, [_, some (.int _ (.val bits))] =>
+    if bits = 0 then some #[.useOperand 0] else none
+  -- Adding zero cannot carry, so the overflow flag is a false `i1`.
+  | .addui_extended, [_, some (.int _ (.val bits))] =>
+    if bits = 0 then some #[.useOperand 0, .useConstant (.int 1 (.val 0#1))] else none
+  | _, _ => none
 
 instance : IsOpCode Arith where
   fromName := Arith.fromName
@@ -244,6 +251,7 @@ def Arith.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect Op
 
 instance : HasOpInfo Arith where
   verifyLocalInvariants := Arith.verifyLocalInvariants
+  tryFold := Arith.tryFold
   propagatesPoison := Arith.propagatesPoison
   getEffects := Arith.getEffects
   isConstantLike := Arith.isConstantLike

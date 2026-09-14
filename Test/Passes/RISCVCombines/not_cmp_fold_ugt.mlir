@@ -23,12 +23,12 @@
 }) : () -> ()
 
 // The not folds into the comparison with the inverted predicate.
-// CHECK:      ^{{.*}}(%[[X:.*]] : i64, %[[Y:.*]] : i64):
+// CHECK:      func.func @foo(%[[X:.*]]: i64, %[[Y:.*]]: i64) -> i1 {
 // CHECK:      %[[R:.*]] = "llvm.icmp"(%[[X]], %[[Y]]) <{"predicate" = 7 : i64}> : (i64, i64) -> i1
 // CHECK:      "func.return"(%[[R]]) : (i1) -> ()
 
 // Not a negated icmp: the xor survives.
-// CHECK:      ^{{.*}}(%{{.*}} : i64, %{{.*}} : i64, %[[B:.*]] : i1):
+// CHECK:      func.func @bar(%{{.*}}: i64, %{{.*}}: i64, %[[B:.*]]: i1) -> i1 {
 // CHECK:      %[[NM1:.*]] = "llvm.mlir.constant"() <{"value" = -1 : i1}> : () -> i1
 // CHECK:      %[[NR:.*]] = "llvm.xor"(%[[B]], %[[NM1]]) : (i1, i1) -> i1
 // CHECK:      "func.return"(%[[NR]]) : (i1) -> ()

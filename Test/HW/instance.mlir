@@ -1,4 +1,5 @@
 // RUN: VEIR_ROUNDTRIP
+// RUN: MLIR_UNREGISTERED_ROUNDTRIP
 
 "builtin.module"() ({
   "hw.module"() <{comment = "", module_type = !hw.modty<input a : i8, input b : i8, output out : i8>, parameters = [], per_port_attrs = [], result_locs = [loc(unknown)], sym_name = "add2"}> ({

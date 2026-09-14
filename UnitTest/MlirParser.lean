@@ -14,7 +14,7 @@ def testParseOp (s : String) : IO Unit :=
     match ParserState.fromInput (s.toByteArray) with
     | .ok parser =>
       match parseTopLevelOp.run (MlirParserState.fromContext ctx) parser with
-      | .ok (op, state, _) => Printer.printOperation state.ctx.raw op
+      | .ok (op, state, _) => Printer.printModule state.ctx.raw op { printGenericOpForm := true }
       | .error err => .error (toString err)
     | .error err => .error (toString err)
   | none => .error "internal error: failed to create IR context"
@@ -172,7 +172,7 @@ def testParseOp (s : String) : IO Unit :=
 /--
   info: "builtin.module"() ({
   ^4():
-    "test.test"() [^5] ({    }) : () -> ()
+    "test.test"() [^5] ({}) : () -> ()
   ^5():
     "test.test"() : () -> ()
 }) : () -> ()-/

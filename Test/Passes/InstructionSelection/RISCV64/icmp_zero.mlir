@@ -13,7 +13,7 @@
         %z = "llvm.mlir.constant"() <{value = 0 : i64}> : () -> i64
         %r = "llvm.icmp"(%a, %z) <{predicate = 0 : i64}> : (i64, i64) -> i1
         "func.return"(%r) : (i1) -> ()
-        // CHECK-LABEL: "func.func"
+        // CHECK-LABEL: func.func @foo(%{{.*}}: i64) -> i1 {
         // CHECK: "riscv.sltiu"(%{{.*}}) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
         // CHECK-NOT: "riscv.xor"
     }) : () -> ()
@@ -24,7 +24,7 @@
         %z = "llvm.mlir.constant"() <{value = 0 : i64}> : () -> i64
         %r = "llvm.icmp"(%a, %z) <{predicate = 1 : i64}> : (i64, i64) -> i1
         "func.return"(%r) : (i1) -> ()
-        // CHECK-LABEL: "func.func"
+        // CHECK-LABEL: func.func @bar(%{{.*}}: i64) -> i1 {
         // CHECK: "riscv.sltu"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NOT: "riscv.xor"
     }) : () -> ()

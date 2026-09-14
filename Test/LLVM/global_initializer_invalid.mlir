@@ -1,4 +1,5 @@
 // RUN: not veir-opt --allow-unregistered-dialect %s 2>&1 | filecheck %s
+// RUN: MLIR_INVALID
 
 "builtin.module"() ({
   "llvm.mlir.global"() <{addr_space = 0 : i32, alignment = 1 : i64, constant, dso_local, global_type = i32, linkage = #llvm.linkage<internal>, sym_name = "g", unnamed_addr = 0 : i64, visibility_ = 0 : i64}> ({

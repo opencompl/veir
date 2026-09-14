@@ -108,18 +108,19 @@ theorem matchConstantIntOp_implies {op : OperationPtr} {ctx : IRContext OpCode} 
   grind
 
 /-- What matching a constant integer value (via `matchConstantIntVal`) syntactically guarantees. -/
-theorem matchConstantIntVal_implies {val : ValuePtr} {ctx : IRContext OpCode} {intAttr} :
-    matchConstantIntVal val ctx = some intAttr →
-    ∃ opResultPtr, val = .opResult opResultPtr ∧
-      matchConstantIntOp opResultPtr.op ctx = some intAttr := by
+theorem matchConstantIntVal_implies {val : ValuePtr} {ctx : IRContext OpCode} {value} :
+    matchConstantIntVal val ctx = some value →
+    ∃ opResultPtr intAttr, val = .opResult opResultPtr ∧
+      matchConstantIntOp opResultPtr.op ctx = some intAttr ∧
+      intAttr.value = value := by
   intro hmatch
-  simp only [matchConstantIntVal] at hmatch
+  simp only [matchConstantIntVal, bind, Option.bind, pure] at hmatch
   grind
 
 /-- What matching a zero constant (via `matchConstantZero`) syntactically guarantees. -/
 theorem matchConstantZero_implies {val : ValuePtr} {ctx : IRContext OpCode} {result} :
     matchConstantZero val ctx = some result →
-    result = val ∧ ∃ attr, matchConstantIntVal val ctx = some attr ∧ attr.value = 0 := by
+    result = val ∧ ∃ attr, matchConstantIntVal val ctx = some attr ∧ attr = 0 := by
   intro hmatch
   simp only [matchConstantZero, bind, pure, Option.bind, guard, failure] at hmatch
   grind
@@ -305,7 +306,7 @@ theorem matchNot_implies {val : ValuePtr} {ctx : IRContext OpCode} {lhs} :
       val = .opResult opResultPtr ∧
       matchXori opResultPtr.op ctx = some (lhs, rhs) ∧
       matchConstantIntVal rhs ctx = some cst ∧
-      cst.value = -1 := by
+      cst = -1 := by
   intro hmatch
   simp only [matchNot, bind, pure, Option.bind, guard, failure] at hmatch
   grind

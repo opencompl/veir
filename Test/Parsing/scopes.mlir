@@ -41,36 +41,33 @@
 
 // CHECK:      "builtin.module"() ({
 // CHECK-NEXT:   ^{{.*}}():
-// CHECK-NEXT:     "func.func"() <{{.*}}> ({
-// CHECK-NEXT:       ^{{.*}}():
-// CHECK-NEXT:         %[[A:.*]] = "test.test"() : () -> i1
-// CHECK-NEXT:         "test.test"() ({
-// CHECK-NEXT:           ^{{.*}}():
-// CHECK-NEXT:             "test.test"(%[[A]]) : (i1) -> ()
-// CHECK-NEXT:             %[[B:.*]] = "test.test"() : () -> i2
-// CHECK-NEXT:             "func.func"() <{{.*}}> ({
-// CHECK-NEXT:               ^{{.*}}():
-// CHECK-NEXT:                 %[[C3:.*]] = "test.test"() : () -> i3
-// CHECK-NEXT:                 "cf.br"() [^[[C3_USE:.*]]] : () -> ()
-// CHECK-NEXT:               ^[[C3_USE]]():
-// CHECK-NEXT:                 "test.test"(%[[C3]]) : (i3) -> ()
-// CHECK-NEXT:                 "func.return"() : () -> ()
-// CHECK-NEXT:             }) : () -> ()
-// CHECK-NEXT:             "func.func"() <{{.*}}> ({
-// CHECK-NEXT:               ^{{.*}}():
-// CHECK-NEXT:                 %[[C4:.*]] = "test.test"() : () -> i4
-// CHECK-NEXT:                 "cf.br"() [^[[C4_USE:.*]]] : () -> ()
-// CHECK-NEXT:               ^[[C4_USE]]():
-// CHECK-NEXT:                 "test.test"(%[[C4]]) : (i4) -> ()
-// CHECK-NEXT:                 "func.return"() : () -> ()
-// CHECK-NEXT:             }) : () -> ()
-// CHECK-NEXT:             %[[C5:.*]] = "test.test"() : () -> i5
-// CHECK-NEXT:             "test.test"(%[[A]], %[[B]], %[[C5]]) : (i1, i2, i5) -> ()
-// CHECK-NEXT:         }) : () -> ()
-// CHECK-NEXT:         "cf.br"() [^[[OUTER_USE:.*]]] : () -> ()
+// CHECK-NEXT:     func.func @outer() {
+// CHECK-NEXT:       %[[A:.*]] = "test.test"() : () -> i1
+// CHECK-NEXT:       "test.test"() ({
+// CHECK-NEXT:         ^{{.*}}():
+// CHECK-NEXT:           "test.test"(%[[A]]) : (i1) -> ()
+// CHECK-NEXT:           %[[B:.*]] = "test.test"() : () -> i2
+// CHECK-NEXT:           func.func @inner_i3() {
+// CHECK-NEXT:             %[[C3:.*]] = "test.test"() : () -> i3
+// CHECK-NEXT:             "cf.br"() [^[[C3_USE:.*]]] : () -> ()
+// CHECK-NEXT:             ^[[C3_USE]]():
+// CHECK-NEXT:               "test.test"(%[[C3]]) : (i3) -> ()
+// CHECK-NEXT:               "func.return"() : () -> ()
+// CHECK-NEXT:           }
+// CHECK-NEXT:           func.func @inner_i4() {
+// CHECK-NEXT:             %[[C4:.*]] = "test.test"() : () -> i4
+// CHECK-NEXT:             "cf.br"() [^[[C4_USE:.*]]] : () -> ()
+// CHECK-NEXT:             ^[[C4_USE]]():
+// CHECK-NEXT:               "test.test"(%[[C4]]) : (i4) -> ()
+// CHECK-NEXT:               "func.return"() : () -> ()
+// CHECK-NEXT:           }
+// CHECK-NEXT:           %[[C5:.*]] = "test.test"() : () -> i5
+// CHECK-NEXT:           "test.test"(%[[A]], %[[B]], %[[C5]]) : (i1, i2, i5) -> ()
+// CHECK-NEXT:       }) : () -> ()
+// CHECK-NEXT:       "cf.br"() [^[[OUTER_USE:.*]]] : () -> ()
 // CHECK-NEXT:       ^[[OUTER_USE]]():
 // CHECK-NEXT:         %[[B6C7:.*]]:2 = "test.test"() : () -> (i6, i7)
 // CHECK-NEXT:         "test.test"(%[[A]], %[[B6C7]]#0, %[[B6C7]]#1) : (i1, i6, i7) -> ()
 // CHECK-NEXT:         "func.return"() : () -> ()
-// CHECK-NEXT:     }) : () -> ()
+// CHECK-NEXT:     }
 // CHECK-NEXT: }) : () -> ()

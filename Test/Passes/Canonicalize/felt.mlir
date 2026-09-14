@@ -3,7 +3,7 @@
 // Felt operations participate in the generic interpreter-backed folder. The
 // folded value is materialized back into the source dialect as `felt.const`.
 "builtin.module"() ({
-  // CHECK-LABEL: "sym_name" = "fold"
+  // CHECK-LABEL: func.func @fold() -> !felt.type<"babybear"> {
   "func.func"() <{function_type = () -> !felt.type<"babybear">, sym_name = "fold"}> ({
     %max = "felt.const"() <{value = #felt<const 2013265920 : <"babybear">> : !felt.type<"babybear">}> : () -> !felt.type<"babybear">
     %two = "felt.const"() <{value = #felt<const 2 : <"babybear">> : !felt.type<"babybear">}> : () -> !felt.type<"babybear">
@@ -22,9 +22,8 @@
 
   // Constants move to the right of commutative operations. Subtraction is
   // non-commutative, so its original operand order is retained.
-  // CHECK-LABEL: "sym_name" = "commute"
+  // CHECK: func.func @commute(%[[X:.*]]: !felt.type<"babybear">) -> !felt.type<"babybear"> {
   "func.func"() <{function_type = (!felt.type<"babybear">) -> !felt.type<"babybear">, sym_name = "commute"}> ({
-    // CHECK: ^{{.*}}(%[[X:.*]] : !felt.type<"babybear">):
     ^bb0(%x : !felt.type<"babybear">):
       // CHECK-NEXT: %[[FIVE:.*]] = "felt.const"() <{"value" = #felt<const 5 : !felt.type<"babybear">>}> : () -> !felt.type<"babybear">
       %five = "felt.const"() <{value = #felt<const 5 : <"babybear">> : !felt.type<"babybear">}> : () -> !felt.type<"babybear">

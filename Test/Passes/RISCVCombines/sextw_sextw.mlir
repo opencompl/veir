@@ -11,6 +11,6 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK:      ^{{.*}}(%[[X:.*]] : !riscv.reg):
+// CHECK:      func.func @foo(%[[X:.*]]: !riscv.reg) -> !riscv.reg {
 // CHECK-NEXT: %[[INNER:.*]] = "riscv.sextw"(%[[X]]) : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT: "func.return"(%[[INNER]]) : (!riscv.reg) -> ()

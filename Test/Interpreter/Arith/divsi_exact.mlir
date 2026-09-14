@@ -4,7 +4,7 @@
   "func.func"() <{sym_name = "main", function_type = () -> i32}> ({
     %lhs = "arith.constant"() <{ "value" = 7 : i32 }> : () -> i32
     %rhs = "arith.constant"() <{ "value" = 2 : i32 }> : () -> i32
-    %x = "arith.divsi"(%lhs, %rhs) <{exact}> : (i32, i32) -> i32
+    %x = "arith.divsi"(%lhs, %rhs) <{isExact}> : (i32, i32) -> i32
     "func.return"(%x) : (i32) -> ()
   }) : () -> ()
 }) : () -> ()

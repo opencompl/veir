@@ -19,6 +19,11 @@ inductive Liveness where
   | live
 deriving BEq, DecidableEq, TypeName
 
+instance : ToString Liveness where
+  toString
+    | .dead => "dead"
+    | .live => "live"
+
 namespace Liveness
 
 /-- Defines the ordering of abstract values in the liveness domain. -/

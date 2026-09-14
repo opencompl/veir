@@ -7,7 +7,7 @@
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> i8
         %2 = "builtin.unrealized_conversion_cast"(%1) : (i8) -> i64
         "test.test"(%2) : (i64) -> ()
-        // CHECK:         ^{{.*}}([[ARG:%.*]] : i64):
+        // CHECK:         func.func @foo([[ARG:%.*]]: i64) {
         // CHECK-NEXT:    [[C1:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (i64) -> i8
         // CHECK-NEXT:    [[C2:%.*]] = "builtin.unrealized_conversion_cast"([[C1]]) : (i8) -> i64
         // CHECK-NEXT:    "test.test"([[C2]]) : (i64) -> ()
@@ -21,7 +21,7 @@
         %3 = "builtin.unrealized_conversion_cast"(%2) : (i32) -> i64
         "test.test"(%3) : (i64) -> ()
         // No pair of adjacent casts returns to its own input type, so the chain stays.
-        // CHECK:         ^{{.*}}([[ARG:%.*]] : i64):
+        // CHECK:         func.func @bar([[ARG:%.*]]: i64) {
         // CHECK-NEXT:    [[C1:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (i64) -> !riscv.reg
         // CHECK-NEXT:    [[C2:%.*]] = "builtin.unrealized_conversion_cast"([[C1]]) : (!riscv.reg) -> i32
         // CHECK-NEXT:    [[C3:%.*]] = "builtin.unrealized_conversion_cast"([[C2]]) : (i32) -> i64

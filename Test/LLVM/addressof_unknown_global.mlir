@@ -9,4 +9,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: llvm.mlir.addressof: symbol '@missing' does not name an llvm.mlir.global
+// CHECK: llvm.mlir.addressof: symbol '@missing' does not name an llvm.mlir.global or llvm.func

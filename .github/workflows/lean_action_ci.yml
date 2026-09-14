@@ -54,16 +54,16 @@ jobs:
           uri: http://apt.llvm.org/noble/ 
           key: https://apt.llvm.org/llvm-snapshot.gpg.key
           component: main
-          suite: llvm-toolchain-noble-22
+          suite: llvm-toolchain-noble-23
 
       - name: Install mlir-opt
         uses: gerlero/apt-install@c0fa73fe5c4a22deecf6d629565be92a15dd2026 # v1.3.12
         with:
-          packages: mlir-22-tools
+          packages: mlir-23-tools
 
       - name: Rename MLIR-opt
         run: |
-          sudo ln -s /usr/bin/mlir-opt-22 /usr/bin/mlir-opt
+          sudo ln -s /usr/bin/mlir-opt-23 /usr/bin/mlir-opt
 
       - name: Build the project
         uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596 # v1.6.0

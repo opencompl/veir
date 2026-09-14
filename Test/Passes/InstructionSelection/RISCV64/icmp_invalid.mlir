@@ -1,4 +1,5 @@
 // RUN: not veir-opt %s -p=isel-riscv64 2>&1 | filecheck %s
+// RUN: MLIR_INVALID
 
 "builtin.module"() ({
   "func.func"()  <{sym_name = "foo", function_type = (i32, i32, i64) -> ()}> ({

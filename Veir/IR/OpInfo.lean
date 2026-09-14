@@ -2,6 +2,7 @@ module
 
 public import Veir.IR.OpCode
 public import Veir.IR.WellFormed
+public import Veir.FoldDecision
 
 namespace Veir
 
@@ -63,6 +64,17 @@ class HasOpInfo (opCode: Type)
     (opType : opCode) → (op : OperationPtr) → (ctx : WfIRContext opCode) →
     (opIn : op.InBounds ctx.raw) → Except String PUnit :=
       fun _ _ _ _ => pure ()
+  /--
+  Apply this opcode set's dialect-local fold table. The input array contains
+  the known constant value of each operand, or `none` for a nonconstant
+  operand. The output array holds one decision per result, in result order: an
+  operation folds entirely or not at all, so a table entry for a multi-result
+  operation must decide every result. Implementations are responsible for
+  returning an in-range operand or a constant conforming to the corresponding
+  result type.
+  -/
+  tryFold : (op : opCode) → propertiesOf op → Array TypeAttr →
+    Array (Option RuntimeValue) → Option (Array FoldDecision) := fun _ _ _ _ => none
   /--
   The memory effects of an operation with this opcode and these properties,
   mirroring MLIR's `MemoryEffectOpInterface::getEffects`.

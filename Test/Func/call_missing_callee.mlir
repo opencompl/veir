@@ -1,4 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
+// RUN: MLIR_INVALID
 
 // Unlike `llvm.call`, `func.call` is never indirect: `FuncCallProperties`
 // requires the `callee` symbol, so omitting it must be rejected.

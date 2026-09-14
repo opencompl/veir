@@ -23,13 +23,13 @@
 }) : () -> ()
 
 // The `xor` now feeds a single `shl`.
-// CHECK:      ^{{.*}}(%[[X:.*]] : i64, %[[Y:.*]] : i64, %[[Z:.*]] : i64):
+// CHECK:      func.func @foo(%[[X:.*]]: i64, %[[Y:.*]]: i64, %[[Z:.*]]: i64) -> i64 {
 // CHECK:      %[[OUT:.*]] = "llvm.xor"(%[[X]], %[[Y]]) : (i64, i64) -> i64
 // CHECK-NEXT: %[[SH:.*]] = "llvm.shl"(%[[OUT]], %[[Z]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[SH]]) : (i64) -> ()
 
 // Distinct second operands: nothing is combined.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i64, %[[NY:.*]] : i64, %[[NZ0:.*]] : i64, %[[NZ1:.*]] : i64):
+// CHECK:      func.func @bar(%[[NX:.*]]: i64, %[[NY:.*]]: i64, %[[NZ0:.*]]: i64, %[[NZ1:.*]]: i64) -> i64 {
 // CHECK:      %[[NSX:.*]] = "llvm.shl"(%[[NX]], %[[NZ0]])
 // CHECK:      %[[NSY:.*]] = "llvm.shl"(%[[NY]], %[[NZ1]])
 // CHECK:      %[[NR:.*]] = "llvm.xor"(%[[NSX]], %[[NSY]]) : (i64, i64) -> i64

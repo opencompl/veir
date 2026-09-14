@@ -1,4 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
+// RUN: MLIR_INVALID
 
 // A `pdl.operation` produces an `!pdl.operation` handle, not an arbitrary type.
 "builtin.module"() ({

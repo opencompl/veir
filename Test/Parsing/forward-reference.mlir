@@ -19,14 +19,13 @@
 
 // CHECK:      "builtin.module"() ({
 // CHECK-NEXT:   ^{{.*}}():
-// CHECK-NEXT:     "func.func"() <{{.*}}> ({
-// CHECK-NEXT:       ^{{.*}}():
-// CHECK-NEXT:         "cf.br"() [^[[DEF:.*]]] : () -> ()
+// CHECK-NEXT:     func.func @main() {
+// CHECK-NEXT:       "cf.br"() [^[[DEF:.*]]] : () -> ()
 // CHECK-NEXT:       ^[[USE:.*]]():
 // CHECK-NEXT:         "test.test"(%[[V:.*]]) : (i32) -> ()
 // CHECK-NEXT:         "func.return"() : () -> ()
 // CHECK-NEXT:       ^[[DEF]]():
 // CHECK-NEXT:         %[[V]] = "test.test"() : () -> i32
 // CHECK-NEXT:         "cf.br"() [^[[USE]]] : () -> ()
-// CHECK-NEXT:     }) : () -> ()
+// CHECK-NEXT:     }
 // CHECK-NEXT: }) : () -> ()

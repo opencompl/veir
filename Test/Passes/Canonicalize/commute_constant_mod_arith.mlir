@@ -7,7 +7,7 @@
 "builtin.module"() ({
   "func.func"() <{function_type = (!mod_arith.int<17 : i32>) -> (), sym_name = "main"}> ({
     ^bb0(%x : !mod_arith.int<17 : i32>):
-      // CHECK:      ^{{.*}}(%[[X:.*]] : !mod_arith.int<17 : i32>):
+      // CHECK:      func.func @main(%[[X:.*]]: !mod_arith.int<17 : i32>) {
       %c = "mod_arith.constant"() <{"value" = 5 : i32}> : () -> !mod_arith.int<17 : i32>
       // CHECK-NEXT: %[[C:.*]] = "mod_arith.constant"() <{"value" = 5 : i32}> : () -> !mod_arith.int<17 : i32>
 

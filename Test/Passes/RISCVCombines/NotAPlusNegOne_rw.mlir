@@ -23,13 +23,13 @@
 }) : () -> ()
 
 // Rewritten to 0 - X.
-// CHECK:      ^{{.*}}(%[[X:.*]] : i64):
+// CHECK:      func.func @foo(%[[X:.*]]: i64) -> i64 {
 // CHECK:      %[[Z:.*]] = "llvm.mlir.constant"() <{"value" = 0 : i64}> : () -> i64
 // CHECK:      %[[R:.*]] = "llvm.sub"(%[[Z]], %[[X]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[R]]) : (i64) -> ()
 
 // Added constant is not -1: the not/add survive.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i64):
+// CHECK:      func.func @bar(%[[NX:.*]]: i64) -> i64 {
 // CHECK:      %[[NADD:.*]] = "llvm.add"(%[[NX]],
 // CHECK:      %[[NR:.*]] = "llvm.xor"(%[[NADD]],
 // CHECK:      "func.return"(%[[NR]]) : (i64) -> ()

@@ -1,4 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
+// RUN: MLIR_INVALID
 
 // `attributeValueNames` names the attribute operands positionally, so it must
 // hold exactly one name per attribute operand.

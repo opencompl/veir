@@ -20,11 +20,11 @@
 }) : () -> ()
 
 // mul-by-2 rewritten to x + x.
-// CHECK:      ^{{.*}}(%[[X:.*]] : i64):
+// CHECK:      func.func @foo(%[[X:.*]]: i64) -> i64 {
 // CHECK:      %[[R:.*]] = "llvm.add"(%[[X]], %[[X]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[R]]) : (i64) -> ()
 
 // mul-by-3 is left as a mul.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i64):
+// CHECK:      func.func @bar(%[[NX:.*]]: i64) -> i64 {
 // CHECK:      %[[NR:.*]] = "llvm.mul"(%[[NX]],
 // CHECK:      "func.return"(%[[NR]]) : (i64) -> ()

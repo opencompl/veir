@@ -33,18 +33,18 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK:      ^{{.*}}(%[[ZB_X:.*]] : !riscv.reg):
+// CHECK:      func.func @f0(%[[ZB_X:.*]]: !riscv.reg) -> !riscv.reg {
 // CHECK-NEXT: %[[ZB_I:.*]] = "riscv.zextb"(%[[ZB_X]]) : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT: "func.return"(%[[ZB_I]]) : (!riscv.reg) -> ()
 
-// CHECK:      ^{{.*}}(%[[ZH_X:.*]] : !riscv.reg):
+// CHECK:      func.func @f1(%[[ZH_X:.*]]: !riscv.reg) -> !riscv.reg {
 // CHECK-NEXT: %[[ZH_I:.*]] = "riscv.zexth"(%[[ZH_X]]) : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT: "func.return"(%[[ZH_I]]) : (!riscv.reg) -> ()
 
-// CHECK:      ^{{.*}}(%[[SB_X:.*]] : !riscv.reg):
+// CHECK:      func.func @f2(%[[SB_X:.*]]: !riscv.reg) -> !riscv.reg {
 // CHECK-NEXT: %[[SB_I:.*]] = "riscv.sextb"(%[[SB_X]]) : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT: "func.return"(%[[SB_I]]) : (!riscv.reg) -> ()
 
-// CHECK:      ^{{.*}}(%[[SH_X:.*]] : !riscv.reg):
+// CHECK:      func.func @f3(%[[SH_X:.*]]: !riscv.reg) -> !riscv.reg {
 // CHECK-NEXT: %[[SH_I:.*]] = "riscv.sexth"(%[[SH_X]]) : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT: "func.return"(%[[SH_I]]) : (!riscv.reg) -> ()

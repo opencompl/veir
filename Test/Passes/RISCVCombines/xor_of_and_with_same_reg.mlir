@@ -22,14 +22,14 @@
 }) : () -> ()
 
 // Rewritten to (x ^ -1) & y.
-// CHECK:      ^{{.*}}(%[[X:.*]] : i64, %[[Y:.*]] : i64):
+// CHECK:      func.func @foo(%[[X:.*]]: i64, %[[Y:.*]]: i64) -> i64 {
 // CHECK:      %[[M1:.*]] = "llvm.mlir.constant"() <{"value" = -1 : i64}> : () -> i64
 // CHECK-NEXT: %[[NOTX:.*]] = "llvm.xor"(%[[X]], %[[M1]]) : (i64, i64) -> i64
 // CHECK-NEXT: %[[RES:.*]] = "llvm.and"(%[[NOTX]], %[[Y]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[RES]]) : (i64) -> ()
 
 // Unrelated `xor` operand: the original ops survive.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i64, %[[NY:.*]] : i64, %[[NW:.*]] : i64):
+// CHECK:      func.func @bar(%[[NX:.*]]: i64, %[[NY:.*]]: i64, %[[NW:.*]]: i64) -> i64 {
 // CHECK:      %[[NA:.*]] = "llvm.and"(%[[NX]], %[[NY]]) : (i64, i64) -> i64
 // CHECK:      %[[NR:.*]] = "llvm.xor"(%[[NA]], %[[NW]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[NR]]) : (i64) -> ()

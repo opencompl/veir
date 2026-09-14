@@ -21,13 +21,13 @@
 }) : () -> ()
 
 // Rewritten to `Y eq 0`.
-// CHECK:      ^{{.*}}(%[[X:.*]] : i64, %[[Y:.*]] : i64):
+// CHECK:      func.func @foo(%[[X:.*]]: i64, %[[Y:.*]]: i64) -> i1 {
 // CHECK:      %[[Z:.*]] = "llvm.mlir.constant"() <{"value" = 0 : i64}> : () -> i64
 // CHECK:      %[[R:.*]] = "llvm.icmp"(%[[Y]], %[[Z]]) <{"predicate" = 0 : i64}> : (i64, i64) -> i1
 // CHECK:      "func.return"(%[[R]]) : (i1) -> ()
 
 // Unshared operand: the comparison is left intact.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i64, %[[NY:.*]] : i64, %[[NW:.*]] : i64):
+// CHECK:      func.func @bar(%[[NX:.*]]: i64, %[[NY:.*]]: i64, %[[NW:.*]]: i64) -> i1 {
 // CHECK:      %[[NOP:.*]] = "llvm.xor"(%[[NX]], %[[NY]]) : (i64, i64) -> i64
 // CHECK:      %[[NR:.*]] = "llvm.icmp"(%[[NOP]], %[[NW]]) <{"predicate" = 0 : i64}> : (i64, i64) -> i1
 // CHECK:      "func.return"(%[[NR]]) : (i1) -> ()

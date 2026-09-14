@@ -142,14 +142,16 @@ A visible effect
 def CTree.vis (i : EIn) (k : E i → CTree E C R) : CTree E C R := CTree.fold (.vis i k)
 
 /--
-A CTree triggering the given effect and immediately returning
+A CTree triggering the given sub-effect and immediately returning.
 -/
-def CTree.trigger (i : EIn) : CTree E C (E i) := CTree.vis i (fun x => CTree.ret x)
+def CTree.trigger {SubEIn : Type u} {SubE : SubEIn → Type u} [SubE -< E] (i : SubEIn) : CTree E C (SubE i) :=
+  CTree.vis (Subeffect.mapEff SubE E i) (fun x => CTree.ret (Subeffect.mapCont SubE E i x))
 
 /--
-A CTree making an n-ary choice and immediately returning
+A CTree making an n-ary sub-choice and immediately returning
 -/
-def CTree.choose (i : CIn) : CTree E C (C i) := CTree.tau i (fun x => CTree.ret x)
+def CTree.choose {SubCIn : Type u} {SubC : SubCIn → Type u} [SubC -< C] (i : SubCIn) : CTree E C (SubC i) :=
+  CTree.tau (Subeffect.mapEff SubC C i) (fun x => CTree.ret (Subeffect.mapCont SubC C i x))
 
 
 /-!

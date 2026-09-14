@@ -1,4 +1,5 @@
 // RUN: VEIR_ROUNDTRIP
+// RUN: MLIR_ROUNDTRIP
 // RUN: MLIR_UNREGISTERED_ROUNDTRIP
 
 // `llvm.call` doubles as an indirect call: the callee is passed as an SSA

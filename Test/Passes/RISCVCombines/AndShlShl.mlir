@@ -24,13 +24,13 @@
 }) : () -> ()
 
 // The `and` now feeds a single shift: (X & Y) << Z.
-// CHECK:      ^{{.*}}(%[[X:.*]] : i64, %[[Y:.*]] : i64, %[[Z:.*]] : i64):
+// CHECK:      func.func @foo(%[[X:.*]]: i64, %[[Y:.*]]: i64, %[[Z:.*]]: i64) -> i64 {
 // CHECK:      %[[AND:.*]] = "llvm.and"(%[[X]], %[[Y]]) : (i64, i64) -> i64
 // CHECK-NEXT: %[[SHL:.*]] = "llvm.shl"(%[[AND]], %[[Z]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[SHL]]) : (i64) -> ()
 
 // Distinct shift amounts: the two shifts and the outer `and` are untouched.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i64, %[[NY:.*]] : i64, %[[NZ0:.*]] : i64, %[[NZ1:.*]] : i64):
+// CHECK:      func.func @bar(%[[NX:.*]]: i64, %[[NY:.*]]: i64, %[[NZ0:.*]]: i64, %[[NZ1:.*]]: i64) -> i64 {
 // CHECK:      %[[NSX:.*]] = "llvm.shl"(%[[NX]], %[[NZ0]])
 // CHECK:      %[[NSY:.*]] = "llvm.shl"(%[[NY]], %[[NZ1]])
 // CHECK:      %[[NR:.*]] = "llvm.and"(%[[NSX]], %[[NSY]]) : (i64, i64) -> i64

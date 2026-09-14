@@ -22,14 +22,14 @@
 }) : () -> ()
 
 // The select becomes a sext of the condition.
-// CHECK:      ^{{.*}}(%[[C:.*]] : i1):
+// CHECK:      func.func @foo(%[[C:.*]]: i1) -> i64 {
 // CHECK:      %[[R:.*]] = "llvm.sext"(%[[C]]) : (i1) -> i64
 // CHECK:      "func.return"(%[[R]]) : (i64) -> ()
 
 // Sibling-pattern check (not a no-op): `select c, 1, 0` is NOT this rule's shape,
 // so `select_neg1_0` must not fire. The `select_1_0` rule handles it instead,
 // yielding `zext c` -- crucially a `zext`, not the `sext` this rule emits.
-// CHECK:      ^{{.*}}(%[[NC:.*]] : i1):
+// CHECK:      func.func @bar(%[[NC:.*]]: i1) -> i64 {
 // CHECK:      %[[NR:.*]] = "llvm.zext"(%[[NC]]) : (i1) -> i64
 // CHECK-NOT:  "llvm.sext"
 // CHECK:      "func.return"(%[[NR]]) : (i64) -> ()

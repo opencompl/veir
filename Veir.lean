@@ -10,6 +10,7 @@ import Veir.Rewriter.WellFormed
 import Veir.Rewriter.InlineBlock
 import Veir.Rewriter.WfRewriter
 import Veir.PatternRewriter.Semantics
+import Veir.GlobalOpInfo
 import Veir.Printer
 import Veir.PatternRewriter.Basic
 import Veir.PatternRewriter.Puddle
@@ -35,3 +36,4 @@ import Veir.Data.FP.EScientificBV.ToExtRat
 import Veir.Data.FP.ExtRat
 import Veir.Data.FP.FP
 import Veir.Interfaces
+import Veir.Interpreter.CTree
