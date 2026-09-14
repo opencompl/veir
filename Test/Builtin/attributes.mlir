@@ -29,7 +29,7 @@
 // CHECK-NEXT:       ^{{.*}}():
 // CHECK-NEXT:         %{{.*}} = "test.test"() {"str" = "hello world"} : () -> i32
 // CHECK-NEXT:         %{{.*}} = "test.test"() {"empty" = ""} : () -> i32
-// CHECK-NEXT:         %{{.*}} = "test.test"() {"escaped" = "line1\nline2\ttab"} : () -> i32
+// CHECK-NEXT:         %{{.*}} = "test.test"() {"escaped" = "line1\0Aline2\09tab"} : () -> i32
 // CHECK-NEXT:         %{{.*}} = "test.test"() {"unregistered" = #unregistered.dialect<foo 3 + 2>} : () -> i32
 // CHECK-NEXT:         %{{.*}} = "test.test"() {u} : () -> i32
 // CHECK-NEXT:         %{{.*}} = "test.test"() {u} : () -> i32
