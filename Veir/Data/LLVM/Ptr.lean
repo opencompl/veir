@@ -43,7 +43,7 @@ theorem isRefinedBy_trans {p₁ p₂ p₃ : Ptr}
 @[grind .]
 theorem eq_of_val_isRefinedBy {p : UInt64} {q : Ptr}
     (h : Ptr.val p ⊒ q) : q = .val p := by
-  cases q <;> simp_all [isRefinedBy]
+  cases q <;> simp_all
 
 /-- The pointer whose bits are `b`, poison if any bit is poison. -/
 def ofByte (b : Byte 64) : Ptr :=
