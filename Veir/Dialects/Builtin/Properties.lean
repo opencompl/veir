@@ -27,14 +27,6 @@ def UnregisteredProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
 /--
   Read a required integer attribute that must be declared `i64`, returning the
   value it denotes as a `BitVec 64`.
-
-  A dialect whose integer width is fixed by the target rather than by upstream
-  compatibility -- as the RISC-V dialects' is, they being ours alone -- uses this
-  to check the width once, here at the parse boundary, and then store only the
-  decoded value. Nothing downstream holds a width, so nothing downstream can
-  disagree about one. Contrast `llvm.mlir.constant`, which must keep the
-  attribute's own width because MLIR lets it differ from the result width; see
-  `decodeLLVMIntegerConstant`.
 -/
 def getI64Attr (what key : String) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (BitVec 64) := do
@@ -44,6 +36,8 @@ def getI64Attr (what key : String) (attrDict : Std.HashMap ByteArray Attribute) 
     | throw s!"{what}: expected '{key}' to be an integer attribute, but got {attr}"
   if intAttr.type.bitwidth ≠ 64 then
     throw s!"{what}: expected '{key}' to be a 64-bit signless integer attribute, but got i{intAttr.type.bitwidth}"
+  if intAttr.value < -(2 ^ 63) ∨ 2 ^ 64 ≤ intAttr.value then
+    throw s!"{what}: '{key}' value {intAttr.value} does not fit in i64"
   return BitVec.ofInt 64 intAttr.value
 
 /-- Re-encode a `getI64Attr` value as the `i64` attribute it is printed as. -/

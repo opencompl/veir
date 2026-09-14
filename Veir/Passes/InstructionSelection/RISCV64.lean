@@ -435,10 +435,6 @@ def constant_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let type := ((op.getResult 0).get! ctx.raw).type
   let .integerType type' := type.val | return (ctx, none)
   if type'.bitwidth ≠ 64 ∧ type'.bitwidth ≠ 32 ∧ type'.bitwidth ≠ 8 ∧ type'.bitwidth ≠ 1 then return (ctx, none)
-  /- Read the literal at the attribute's own width, narrow it to the result width,
-     then sign-extend into the register -- the RISC-V convention for holding a
-     narrow value. `{const with ...}` used to keep the *LLVM* attribute's width
-     here, which is why `riscv.li` immediates were not uniformly `i64`. -/
   let imm := RISCVImmediateProperties.mk
       ((BitVec.ofInt type'.bitwidth (decodeLLVMIntegerConstant const)).signExtend 64)
   let (ctx, newOp) ← WfRewriter.createOp! ctx Riscv.li #[RegisterType.mk] #[]

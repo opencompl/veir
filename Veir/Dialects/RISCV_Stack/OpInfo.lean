@@ -69,8 +69,6 @@ def Riscv_Stack.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.verifyPlainOpCounts ctx opIn 0 1
     op.verifyRISCVRegisterTypes ctx opIn
     let properties := op.getProperties! ctx.raw Riscv_Stack.alloca
-    /- The declared widths are checked once, at the parse boundary, and are not
-       stored: `size` and `alignment` are `BitVec 64`. See `getI64Attr`. -/
     if properties.size.toInt < 0 then
       throw "size must be nonnegative"
     if properties.alignment.toInt ≤ 0 then

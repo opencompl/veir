@@ -11,10 +11,6 @@ public section
 
 /--
   Properties of the RISC-V immediate operations.
-
-  The immediate is held as a `BitVec 64` -- the width a register holds -- not as
-  an `IntegerAttr`, so an immediate whose declared width disagrees with that is
-  not representable. See `getI64Attr`.
 -/
 structure RISCVImmediateProperties where
   value : BitVec 64
