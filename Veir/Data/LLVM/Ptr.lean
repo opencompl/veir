@@ -32,7 +32,7 @@ def isRefinedBy : Ptr → Ptr → Prop
 
 @[simp, grind .]
 theorem isRefinedBy_refl (p : Ptr) : p ⊒ p := by
-  cases p <;> simp [isRefinedBy]
+  cases p <;> simp
 
 @[grind .]
 theorem isRefinedBy_trans {p₁ p₂ p₃ : Ptr}
