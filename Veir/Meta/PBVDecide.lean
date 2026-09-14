@@ -5,8 +5,15 @@ public meta import Std
 public import Veir.Data.PBV
 
 open Lean Elab Tactic Meta Simp Std
+namespace Veir.Data.PBV
 
-/-- Check if an `Expr` is a `Nat`. -/
+/--
+Read-only configuration for the tactic.
+-/
+meta structure PbvTranslateContext where
+  /-- The bound up to which we want to bitblast our widths. -/
+  bmcBound : Nat
+
 meta def Expr.isNat (e : Expr) : Bool := e.isConstOf ``Nat
 
 /--
@@ -21,15 +28,6 @@ meta def getBitvecType? (e : Expr) : Option Expr :=
 /-- Given `a b : Nat`, return `a < b`. -/
 meta def mkNatLT (a b : Expr) : Expr :=
   mkApp2 (mkApp2 (mkConst ``LT.lt [0]) Nat.mkType Nat.mkInstLT) a b
-
-namespace Veir.Data.PBV
-
-/--
-Read-only configuration for the tactic.
--/
-meta structure PbvTranslateContext where
-  /-- The bound up to which we want to bitblast our widths. -/
-  bmcBound : Nat
 
 /--
 An environment that maps the width atoms of a `Tm` to their `Expr`s.

@@ -35,11 +35,50 @@ example {w t v: Nat} (a b : BitVec w)
   pbv_decide 16
   · bv_decide
 
-/-- Double zero extend with conjunction condition -/
+/-- Zero extending a zero extension (≤, <) -/
 example (p q r : Nat) (x : BitVec p)
   (hr : r ≤ 8)
-  (h : q < r ∧ p < q)
-  : (x.zeroExtend q).zeroExtend r = x.zeroExtend r
+  (hqr : q < r)
+  (hpq : p ≤ q) :
+  (x.zeroExtend q).zeroExtend r = x.zeroExtend r
+  := by
+  pbv_decide 8
+  · bv_decide
+
+/-- Zero extending a zero extension (≥, >) -/
+example (p q r : Nat) (x : BitVec p)
+  (hr : r ≤ 8)
+  (hqr : r > q)
+  (hpq : q ≥ p) :
+  (x.zeroExtend q).zeroExtend r = x.zeroExtend r
+  := by
+  pbv_decide 8
+  · bv_decide
+
+/-- Double zero extending with conjunction condition -/
+example (p q r : Nat) (x : BitVec p)
+  (hr : r ≤ 8)
+  (h : q < r ∧ p < q) :
+  (x.zeroExtend q).zeroExtend r = x.zeroExtend r
+  := by
+  pbv_decide 8
+  · bv_decide
+
+/-- Double zero extending with composite width -/
+example (p q : Nat) (x : BitVec p)
+  (hq : q ≤ 8)
+  (hqp : q > p) :
+  (x.zeroExtend q).zeroExtend (q + q) = x.zeroExtend (q + q)
+  := by
+  pbv_decide 8
+  · bv_decide
+
+/-- Sign extending a sign extension -/
+example (p q r : Nat) (x : BitVec p)
+  (hr : r ≤ 8)
+  (hqr : q ≤ r)
+  (hpq : p ≤ q) :
+  (x.signExtend q).signExtend r = x.signExtend r
   := by
   pbv_decide 8
   · bv_decide
@@ -54,11 +93,11 @@ example (p q r : Nat) (x : BitVec p)
   pbv_decide 8
   · bv_decide
 
-/-- Double zero extending with composite width -/
-example (p q : Nat) (x : BitVec p)
-  (hq : q ≤ 8)
-  (hqp : q > p) :
-  (x.zeroExtend q).zeroExtend (q + q) = x.zeroExtend (q + q)
+/-- Resizing preserves the msb iff the width is unchanged -/
+example (p w : Nat) (x : BitVec p)
+  (hp : p ≤ 8)
+  (hwp : w = p) :
+  (x.setWidth w).msb = x.msb
   := by
   pbv_decide 8
   · bv_decide
