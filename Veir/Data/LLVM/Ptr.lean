@@ -37,7 +37,7 @@ theorem isRefinedBy_refl (p : Ptr) : p ⊒ p := by
 @[grind .]
 theorem isRefinedBy_trans {p₁ p₂ p₃ : Ptr}
     (h12 : p₁ ⊒ p₂) (h23 : p₂ ⊒ p₃) : p₁ ⊒ p₃ := by
-  cases p₁ <;> cases p₂ <;> cases p₃ <;> simp_all [isRefinedBy]
+  cases p₁ <;> cases p₂ <;> cases p₃ <;> simp_all
 
 /-- Only the same pointer refines a pointer that is not poison. -/
 @[grind .]
