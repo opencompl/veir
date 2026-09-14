@@ -16,6 +16,10 @@ structure RISCVImmediateProperties where
   value : BitVec 64
 deriving Inhabited, Repr, Hashable, DecidableEq
 
+/-- The low `w` bits of the immediate: the field the instruction encodes. -/
+def RISCVImmediateProperties.immField (props : RISCVImmediateProperties) (w : Nat) : BitVec w :=
+  props.value.setWidth w
+
 def RISCVImmediateProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String RISCVImmediateProperties := do
   if attrDict.size > 1 then
@@ -37,6 +41,10 @@ structure RISCVMemProperties where
   value : BitVec 64
   volatile_ : Bool
 deriving Inhabited, Repr, Hashable, DecidableEq
+
+/-- The low 12 bits of the offset: the I/S-type field the memory instruction encodes. -/
+def RISCVMemProperties.imm12 (props : RISCVMemProperties) : BitVec 12 :=
+  props.value.setWidth 12
 
 def RISCVMemProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String RISCVMemProperties := do
