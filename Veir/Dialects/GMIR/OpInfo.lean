@@ -78,15 +78,26 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
     { outOperandList := #[.type 0]
       inOperandList := #[.type 1, .type 1] }
 
+def OperationPtr.verifyGMIRICmp {OpInfo : Type} [IsOpCode OpInfo]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  -- `gmir.icmp` also compares pointers.
+  for i in [0, 1]  do
+    ((op.getOperand! ctx.raw i).getType! ctx.raw).verifyIntegerOrPointerType
+      s!"{instrName}: Expected operand {i} to have integer or pointer type"
+  let resultType := ((op.getResult 0).get! ctx.raw).type
+  resultType.verifyIntegerType s!"{instrName}: Expected result to have integer type"
+
 /--
 Verify the local invariants of a `gmir` operation in any operation-info type
 containing the `gmir` dialect.
 -/
 def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
-    [HasDialect OpInfo GMIR] (op : GMIR) (opPtr : OperationPtr)
+    [HasDialect OpInfo GMIR] (opCode : GMIR) (opPtr : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : opPtr.InBounds ctx.raw) :
     Except String PUnit := do
-  let info := op.genericOpInfo
+  let info := opCode.genericOpInfo
   -- Verify operand and result counts.
   opPtr.verifyPlainOpCounts ctx opIn info.inOperandList.size info.outOperandList.size
   -- Verify that every member of a type group has the same concrete type.
@@ -97,8 +108,16 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   for (group, type) in typedGroups do
     let expected := canon[group]!
     if expected != type then
-      let name := String.fromUTF8! (IsOpCode.name (opPtr.getOpType ctx.raw opIn))
-      throw s!"{name}: type mismatch: expected {expected}, got {type}"
+      let instrName := String.fromUTF8! (IsOpCode.name (opPtr.getOpType ctx.raw opIn))
+      throw s!"{instrName}: type mismatch: expected {expected}, got {type}"
+  -- Verify opcode-specific type invariants
+  match opCode with
+  | .g_add | .g_sub =>
+    opPtr.checkIsNonNullIntegerType ctx opIn
+    opPtr.verifyIntegerBinop ctx opIn
+  | .g_icmp =>
+    opPtr.checkIsNonNullIntegerType ctx opIn
+    opPtr.verifyGMIRICmp ctx opIn
 
 def GMIR.propagatesPoison : GMIR → Bool
   | .g_add | .g_sub | .g_icmp => true
