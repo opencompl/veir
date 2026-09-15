@@ -66,6 +66,7 @@ inductive TmKind
 Inductive data structure to express the terms that this tactic reasons about.
 -/
 inductive Tm : TmKind → Type
+| widthLit (val : Nat) : Tm .width
 | widthAtom (id : Nat) : Tm .width
 | widthAdd (v w : Tm .width) : Tm .width
 | widthLt (v w : Tm .width) : Tm .prop
@@ -81,7 +82,9 @@ blocks of the terms.
 meta partial def Tm.reifyWidth (env : TmWidthEnv) (e : Expr) : MetaM (Option (Tm .width)) := do
   if let some id := env.width2expr.idxOf? e then
     -- An atom is an expression that is present in the Env.
-    pure <| some (.widthAtom id)
+    return some (.widthAtom id)
+  else if let some val := e.rawNatLit? then
+    return some (.widthLit val)
   else
     match_expr e with
     | HAdd.hAdd ty _ _ _ ae be =>
@@ -89,7 +92,11 @@ meta partial def Tm.reifyWidth (env : TmWidthEnv) (e : Expr) : MetaM (Option (Tm
         let some a ← Tm.reifyWidth env ae | pure none
         let some b ← Tm.reifyWidth env be | pure none
         return some (widthAdd a b)
-    | _ => pure none
+    | OfNat.ofNat ty valExpr _ =>
+        let true := Expr.isNat ty | return none
+        let some val := valExpr.rawNatLit? | return none
+        return some (widthLit val)
+    | _ => return none
 
 /--
 Match a width relation over `Nat`, returning the `Tm .prop` constructor for it
@@ -129,6 +136,7 @@ Convert a `Tm` into an `Expr` given an environment.
 -/
 meta def Tm.toExpr {k : TmKind} (this : Tm k) (env : TmWidthEnv) : Expr :=
   match this with
+  | .widthLit val => mkNatLit val
   | .widthAtom id => env.width2expr[id]!
   | .widthAdd v w => mkNatAdd (v.toExpr env) (w.toExpr env)
   | .widthLt  v w => mkNatLT (v.toExpr env) (w.toExpr env)
@@ -141,6 +149,7 @@ Generate a `Name` from a `Tm`. Uses the index of the atoms as the basic variable
 -/
 meta def Tm.toName {k : TmKind} (tm : Tm k) : Name :=
   match tm with
+  | .widthLit val => Name.mkSimple s!"lit{val}"
   | .widthAtom e  => Name.mkSimple s!"w{e}"
   | .widthAdd v w => Name.mkSimple s!"{v.toName}_add_{w.toName}"
   | .widthLt  v w => Name.mkSimple s!"{v.toName}_lt_{w.toName}"
@@ -157,6 +166,7 @@ whole goal.
 -/
 meta def Tm.getWidthUpperBound {k : TmKind} (tm : Tm k) (ctx : PbvTranslateContext) : Nat :=
   match tm with
+  | .widthLit val => val
   | .widthAtom _ => ctx.bmcBound
   | .widthAdd wa wb => wa.getWidthUpperBound ctx + wb.getWidthUpperBound ctx
   | .widthLt  v w
@@ -305,7 +315,7 @@ meta def getOrCreateWidthMask (g : MVarId) (widthTm : Tm .width) (infos : WidthI
     return (g, info, infos)
   -- Otherwise, recurse through the term to create it
   match widthTm with
-  | .widthAtom _ => introMaskWidth g widthTm infos
+  | .widthAtom _ | .widthLit _ => introMaskWidth g widthTm infos
   | .widthAdd v w => do
     -- Get or create masks of the children
     let (g, vInfo, infos) ← getOrCreateWidthMask g v infos
@@ -631,7 +641,7 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVa
 `pbv_decide` takes a `Nat` bound as input argument and uses it to translate a
 parametric bitvector formula into a concrete width formula.
 
-Widths built out of width variables and `+` are supported. So are the width
+Widths built out of width variables, numeric literals and `+` are supported. So are the width
 relations `<`, `≤`, `>`, `≥` and `=`, and conjunctions (`∧`) of them, when they
 occur as hypotheses: each is translated into the corresponding relation on the
 width masks.
