@@ -864,8 +864,8 @@ def alloca_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if !isValidLLVMAlignment alignment || alignment >= 2 ^ 64 then
     return (ctx, none)
   let props : RISCVStackAllocaProperties :=
-    { size := IntegerAttr.mk size (IntegerType.mk 64)
-      alignment := IntegerAttr.mk alignment (IntegerType.mk 64) }
+    { size := BitVec.ofNat 64 size
+      alignment := BitVec.ofInt 64 alignment }
   let (ctx, stackOp) ← WfRewriter.createOp! ctx Riscv_Stack.alloca #[RegisterType.mk]
       #[] #[] #[] props none
   let (ctx, castBackOp) ← replaceWithRegLocal ctx op (stackOp.getResult 0)
