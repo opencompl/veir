@@ -542,8 +542,8 @@ def parseOptionalUnregisteredSingletonType (name : String) (short := false) :
   return some ⟨UnregisteredAttr.mk ("!" ++ name) true none, by grind⟩
 
 /--
-  Parse the type `!name<...>`, or (exclusively) `name<...>` without the dialect prefix when
-  `short`. The body is kept as written, so both spellings print as `!name<...>`.
+  Parse the type `!dialect.name<...>`, or (exclusively) `name<...>` without the dialect prefix when
+  `short`. The body is kept as written, so both spellings print as `!dialect.name<...>`.
 -/
 def parseOptionalUnregisteredType (name : String) (short := false) :
     AttrParserM (Option TypeAttr) := do
