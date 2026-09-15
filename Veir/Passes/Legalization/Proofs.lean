@@ -25,11 +25,10 @@ theorem add_widening (w t : Nat) (i i' : LLVM.Int w) (ext ext' : BitVec (t - w))
           (LLVM.Int.ext i' t ext' hIsWiden) false false)
         w false false hIsWiden := by
   veir_bv_normalize
-  constructor
-  · simp
-  · intros
-    pbv_decide 16
-    · bv_decide
+  refine ⟨by simp, fun _ _ => ?_⟩
+  intros
+  pbv_decide 16
+  bv_decide
 
 end Veir.Data.LLVM
 
