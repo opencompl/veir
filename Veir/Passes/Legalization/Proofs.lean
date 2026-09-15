@@ -17,8 +17,7 @@ namespace Veir.Data.LLVM
   Prove the correctness of `llvm.add` widening with anyext.
   Currently bounded to 16 bits for performance.
 -/
-theorem add_widening (w t : Nat) (i i' : LLVM.Int w)
-    (ext ext' : BitVec (t - w)) (nuw nsw : Bool)
+theorem add_widening (w t : Nat) (i i' : LLVM.Int w) (ext ext' : BitVec (t - w)) (nuw nsw : Bool)
     (hIsWiden : w < t) (h : t < 16) :
     LLVM.Int.add i i' nuw nsw ⊒
       LLVM.Int.trunc
