@@ -155,10 +155,10 @@ def MemoryState.loadByte64 (state : MemoryState) (addr : UInt64) : Interp (Data.
   Together with fresh memory being poison, this is the semantics proposed in
   "Towards Removing Undef Values from LLVM IR" (Lobo et al., PLDI 2026), not
   LangRef's, where uninitialized memory reads as `undef`.
-  As Clang on still on poison, e.g., for a bitfield or an integer copy of a
-  struct with uninitialized padding, we sometimes introduce UB where we should
-  not. The solution is to introduce a freezing load to LLVM and VeIR and ensure
-  that all frontends are using them.
+  As Clang relies still on `undef` semantics, e.g., for a bitfield or an integer
+  copy of a struct with uninitialized padding, we sometimes introduce UB where
+  we should not. The solution is to introduce a freezing load to LLVM and VeIR
+  and ensure that all frontends are using them.
 -/
 def MemoryState.llvmLoad (state : MemoryState) (addr : UInt64) (type : TypeAttr)
     : Interp RuntimeValue := do

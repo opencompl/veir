@@ -10,6 +10,8 @@ public section
 
 /--
   A pointer-typed value: an address, or poison.
+
+  We currently model a 64-bit system.
 -/
 inductive Ptr where
   /-- An address. -/
