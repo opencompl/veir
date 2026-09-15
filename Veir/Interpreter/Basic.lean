@@ -666,8 +666,8 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
 
 /-- Effective address of a RISC-V load/store: the base register value plus the
     sign-extended 12-bit immediate offset. -/
-def riscvEffectiveAddr (base : BitVec 64) (offset : Int) : BitVec 64 :=
-  base + (BitVec.ofInt 12 offset).signExtend 64
+def riscvEffectiveAddr (base : BitVec 64) (offset : BitVec 12) : BitVec 64 :=
+  base + offset.signExtend 64
 
 /-- For RISC-V sub-register loads. -/
 inductive LoadExtension
@@ -693,54 +693,54 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : propertiesOf opType)
     : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
   match opType with
   | .li => do
-    let imm := BitVec.ofInt 64 properties.value.value
+    let imm := properties.value
     return (#[.reg (RISCV.li imm)], mem, none)
   | .lui => do
-    let imm := BitVec.ofInt 20 properties.value.value
+    let imm := properties.immField 20
     return (#[.reg (RISCV.lui imm)], mem, none)
   | .auipc => do
     let [.reg op] := operands.toList | none
-    let imm := BitVec.ofInt 20 properties.value.value
+    let imm := properties.immField 20
     return (#[.reg (RISCV.auipc imm op)], mem, none)
   | .addi => do
     let [.reg op] := operands.toList | none
-    let imm := BitVec.ofInt 12 properties.value.value
+    let imm := properties.immField 12
     return (#[.reg (RISCV.addi imm op)], mem, none)
   | .slti => do
     let [.reg op] := operands.toList | none
-    let imm := BitVec.ofInt 12 properties.value.value
+    let imm := properties.immField 12
     return (#[.reg (RISCV.slti imm op)], mem, none)
   | .sltiu => do
     let [.reg op] := operands.toList | none
-    let imm := BitVec.ofInt 12 properties.value.value
+    let imm := properties.immField 12
     return (#[.reg (RISCV.sltiu imm op)], mem, none)
   | .andi => do
     let [.reg op] := operands.toList | none
-    let imm := BitVec.ofInt 12 properties.value.value
+    let imm := properties.immField 12
     return (#[.reg (RISCV.andi imm op)], mem, none)
   | .ori => do
     let [.reg op] := operands.toList | none
-    let imm := BitVec.ofInt 12 properties.value.value
+    let imm := properties.immField 12
     return (#[.reg (RISCV.ori imm op)], mem, none)
   | .xori => do
     let [.reg op] := operands.toList | none
-    let imm := BitVec.ofInt 12 properties.value.value
+    let imm := properties.immField 12
     return (#[.reg (RISCV.xori imm op)], mem, none)
   | .addiw => do
     let [.reg op] := operands.toList | none
-    let imm := BitVec.ofInt 12 properties.value.value
+    let imm := properties.immField 12
     return (#[.reg (RISCV.addiw imm op)], mem, none)
   | .slli => do
     let [.reg op] := operands.toList | none
-    let imm := BitVec.ofInt 6 properties.value.value
+    let imm := properties.immField 6
     return (#[.reg (RISCV.slli imm op)], mem, none)
   | .srli => do
     let [.reg op] := operands.toList | none
-    let imm := BitVec.ofInt 6 properties.value.value
+    let imm := properties.immField 6
     return (#[.reg (RISCV.srli imm op)], mem, none)
   | .srai => do
     let [.reg op] := operands.toList | none
-    let imm := BitVec.ofInt 6 properties.value.value
+    let imm := properties.immField 6
     return (#[.reg (RISCV.srai imm op)], mem, none)
   | .add => do
     let [.reg op1, .reg op2] := operands.toList | none
@@ -774,15 +774,15 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : propertiesOf opType)
     return (#[.reg (RISCV.and op2 op1)], mem, none)
   | .slliw => do
     let [.reg op1] := operands.toList | none
-    let imm := BitVec.ofInt 5 properties.value.value
+    let imm := properties.immField 5
     return (#[.reg (RISCV.slliw imm op1)], mem, none)
   | .srliw => do
     let [.reg op1] := operands.toList | none
-    let imm := BitVec.ofInt 5 properties.value.value
+    let imm := properties.immField 5
     return (#[.reg (RISCV.srliw imm op1)], mem, none)
   | .sraiw => do
     let [.reg op1] := operands.toList | none
-    let imm := BitVec.ofInt 5 properties.value.value
+    let imm := properties.immField 5
     return (#[.reg (RISCV.sraiw imm op1)], mem, none)
   | .addw => do
     let [.reg op1, .reg op2] := operands.toList | none
@@ -861,7 +861,7 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : propertiesOf opType)
     return (#[.reg (RISCV.sh3add op2 op1)], mem, none)
   | .slliuw => do
     let [.reg op1] := operands.toList | none
-    let imm := BitVec.ofInt 6 properties.value.value
+    let imm := properties.immField 6
     return (#[.reg (RISCV.slliuw imm op1)], mem, none)
   | .andn => do
     let [.reg op1, .reg op2,] := operands.toList | none
@@ -931,11 +931,11 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : propertiesOf opType)
     return (#[.reg (RISCV.rev8 op)], mem, none)
   | .roriw => do
     let [.reg op1] := operands.toList | none
-    let imm := BitVec.ofInt 5 properties.value.value
+    let imm := properties.immField 5
     return (#[.reg (RISCV.roriw imm op1)], mem, none)
   | .rori => do
     let [.reg op1] := operands.toList | none
-    let imm := BitVec.ofInt 6 properties.value.value
+    let imm := properties.immField 6
     return (#[.reg (RISCV.rori imm op1)], mem, none)
   | .bclr => do
     let [.reg op1, .reg op2] := operands.toList | none
@@ -951,19 +951,19 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : propertiesOf opType)
     return (#[.reg (RISCV.bset op2 op1)], mem, none)
   | .bclri => do
     let [.reg op] := operands.toList | none
-    let imm := BitVec.ofInt 6 properties.value.value
+    let imm := properties.immField 6
     return (#[.reg (RISCV.bclri imm op)], mem, none)
   | .bexti => do
     let [.reg op] := operands.toList | none
-    let imm := BitVec.ofInt 6 properties.value.value
+    let imm := properties.immField 6
     return (#[.reg (RISCV.bexti imm op)], mem, none)
   | .binvi => do
     let [.reg op] := operands.toList | none
-    let imm := BitVec.ofInt 6 properties.value.value
+    let imm := properties.immField 6
     return (#[.reg (RISCV.binvi imm op)], mem, none)
   | .bseti => do
     let [.reg op] := operands.toList | none
-    let imm := BitVec.ofInt 6 properties.value.value
+    let imm := properties.immField 6
     return (#[.reg (RISCV.bseti imm op)], mem, none)
   | .pack => do
     let [.reg op1, .reg op2] := operands.toList | none
@@ -1015,62 +1015,62 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : propertiesOf opType)
     return (#[.reg (RISCV.sgtz op)], mem, none)
   | .ld => do
     let [.reg addr] := operands.toList | none
-    let eaddr := riscvEffectiveAddr addr.val properties.value.value
+    let eaddr := riscvEffectiveAddr addr.val properties.imm12
     let (val, mem) ← riscvLoad mem eaddr 8 .zeroExt
     return (#[.reg $ .mk val], mem, none)
   | .lw => do
     let [.reg addr] := operands.toList | none
-    let eaddr := riscvEffectiveAddr addr.val properties.value.value
+    let eaddr := riscvEffectiveAddr addr.val properties.imm12
     let (val, mem) ← riscvLoad mem eaddr 4 .signExt
     return (#[.reg $ .mk val], mem, none)
   | .lwu => do
     let [.reg addr] := operands.toList | none
-    let eaddr := riscvEffectiveAddr addr.val properties.value.value
+    let eaddr := riscvEffectiveAddr addr.val properties.imm12
     let (val, mem) ← riscvLoad mem eaddr 4 .zeroExt
     return (#[.reg $ .mk val], mem, none)
   | .lh => do
     let [.reg addr] := operands.toList | none
-    let eaddr := riscvEffectiveAddr addr.val properties.value.value
+    let eaddr := riscvEffectiveAddr addr.val properties.imm12
     let (val, mem) ← riscvLoad mem eaddr 2 .signExt
     return (#[.reg $ .mk val], mem, none)
   | .lhu => do
     let [.reg addr] := operands.toList | none
-    let eaddr := riscvEffectiveAddr addr.val properties.value.value
+    let eaddr := riscvEffectiveAddr addr.val properties.imm12
     let (val, mem) ← riscvLoad mem eaddr 2 .zeroExt
     return (#[.reg $ .mk val], mem, none)
   | .lb => do
     let [.reg addr] := operands.toList | none
-    let eaddr := riscvEffectiveAddr addr.val properties.value.value
+    let eaddr := riscvEffectiveAddr addr.val properties.imm12
     let (val, mem) ← riscvLoad mem eaddr 1 .signExt
     return (#[.reg $ .mk val], mem, none)
   | .lbu => do
     let [.reg addr] := operands.toList | none
-    let eaddr := riscvEffectiveAddr addr.val properties.value.value
+    let eaddr := riscvEffectiveAddr addr.val properties.imm12
     let (val, mem) ← riscvLoad mem eaddr 1 .zeroExt
     return (#[.reg $ .mk val], mem, none)
   | .sd => do
     let [.reg { val }, .reg addr] := operands.toList | none
-    let eaddr := riscvEffectiveAddr addr.val properties.value.value
+    let eaddr := riscvEffectiveAddr addr.val properties.imm12
     let mem := mem.ensureSize (eaddr.toNat + 8)
     let mem ← mem.store eaddr.toNat.toUInt64 (UInt64.ofBitVec val).toByteArrayLE
     return (#[], mem, none)
   | .sw => do
     let [.reg { val }, .reg addr] := operands.toList | none
-    let eaddr := riscvEffectiveAddr addr.val properties.value.value
+    let eaddr := riscvEffectiveAddr addr.val properties.imm12
     let mem := mem.ensureSize (eaddr.toNat + 4)
     -- store only the low 4 bytes of the register
     let mem ← mem.store eaddr.toNat.toUInt64 ((UInt64.ofBitVec val).toByteArrayLE.extract 0 4)
     return (#[], mem, none)
   | .sh => do
     let [.reg { val }, .reg addr] := operands.toList | none
-    let eaddr := riscvEffectiveAddr addr.val properties.value.value
+    let eaddr := riscvEffectiveAddr addr.val properties.imm12
     let mem := mem.ensureSize (eaddr.toNat + 2)
     -- store only the low 2 bytes of the register
     let mem ← mem.store eaddr.toNat.toUInt64 ((UInt64.ofBitVec val).toByteArrayLE.extract 0 2)
     return (#[], mem, none)
   | .sb => do
     let [.reg { val }, .reg addr] := operands.toList | none
-    let eaddr := riscvEffectiveAddr addr.val properties.value.value
+    let eaddr := riscvEffectiveAddr addr.val properties.imm12
     let mem := mem.ensureSize (eaddr.toNat + 1)
     -- store only the low byte of the register
     let mem ← mem.store eaddr.toNat.toUInt64 ((UInt64.ofBitVec val).toByteArrayLE.extract 0 1)
@@ -1082,7 +1082,7 @@ def Riscv_Stack.interpretOp' (opType : Veir.Riscv_Stack) (properties : propertie
     : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
   match opType with
   | .alloca => do
-    let (mem, addr) := mem.alloc properties.size.value.toNat.toUInt64
+    let (mem, addr) := mem.alloc properties.size.toNat.toUInt64
     return (#[.reg ⟨.ofNat 64 addr.toNat⟩], mem, none)
 
 def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : propertiesOf opType)

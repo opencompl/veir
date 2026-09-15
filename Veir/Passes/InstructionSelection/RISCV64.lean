@@ -352,7 +352,7 @@ def bswap_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let (ctx, rev8Op) ← WfRewriter.createOp! ctx Riscv.rev8 #[RegisterType.mk] #[castOp.getResult 0]
       #[] #[] () none
   if opType.bitwidth = 32 then
-    let sh32 := RISCVImmediateProperties.mk (IntegerAttr.mk 32 (IntegerType.mk 64))
+    let sh32 := RISCVImmediateProperties.mk 32#64
     let (ctx, srliOp) ← WfRewriter.createOp! ctx Riscv.srli #[RegisterType.mk] #[rev8Op.getResult 0]
         #[] #[] sh32 none
     let (ctx, castBackOp) ← replaceWithRegLocal ctx op (srliOp.getResult 0)
@@ -374,12 +374,12 @@ def bswap (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 -/
 def bitreverseStageLocal (mask shamt : Int) (ctx : WfIRContext OpCode) (input : ValuePtr) :
     Option (WfIRContext OpCode × Array OperationPtr × ValuePtr) := do
-  let maskAttr := RISCVImmediateProperties.mk (IntegerAttr.mk mask (IntegerType.mk 64))
+  let maskAttr := RISCVImmediateProperties.mk (BitVec.ofInt 64 mask)
   let (ctx, maskOp) ← WfRewriter.createOp! ctx Riscv.li #[RegisterType.mk] #[]
       #[] #[] maskAttr none
   let (ctx, lowOp) ← WfRewriter.createOp! ctx Riscv.and #[RegisterType.mk]
       #[maskOp.getResult 0, input] #[] #[] () none
-  let shamount := RISCVImmediateProperties.mk (IntegerAttr.mk shamt (IntegerType.mk 64))
+  let shamount := RISCVImmediateProperties.mk (BitVec.ofInt 64 shamt)
   let (ctx, lowShiftOp) ← WfRewriter.createOp! ctx Riscv.slli #[RegisterType.mk]
       #[lowOp.getResult 0] #[] #[] shamount none
   let (ctx, highShiftOp) ← WfRewriter.createOp! ctx Riscv.srli #[RegisterType.mk]
@@ -407,7 +407,7 @@ def bitreverse_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     let (ctx, ops3, x3) ← bitreverseStageLocal 0x0f0f0f0f 4 ctx x2
     let (ctx, rev8Op) ← WfRewriter.createOp! ctx Riscv.rev8 #[RegisterType.mk] #[x3]
         #[] #[] () none
-    let sh32 := RISCVImmediateProperties.mk (IntegerAttr.mk 32 (IntegerType.mk 64))
+    let sh32 := RISCVImmediateProperties.mk 32#64
     let (ctx, srliOp) ← WfRewriter.createOp! ctx Riscv.srli #[RegisterType.mk] #[rev8Op.getResult 0]
         #[] #[] sh32 none
     let (ctx, castBackOp) ← replaceWithRegLocal ctx op (srliOp.getResult 0)
@@ -441,8 +441,7 @@ def constant_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
      the 64-bit register. Decoding alone is not enough: when the attribute is wider
      than the result, its bits above the result width are not part of the value. -/
   let imm := RISCVImmediateProperties.mk
-      (IntegerAttr.mk (BitVec.ofInt type'.bitwidth (decodeLLVMIntegerConstant const)).toInt
-        (IntegerType.mk 64))
+      ((BitVec.ofInt type'.bitwidth (decodeLLVMIntegerConstant const)).signExtend 64)
   let (ctx, newOp) ← WfRewriter.createOp! ctx Riscv.li #[RegisterType.mk] #[]
       #[] #[] imm none
   let (ctx, castOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[type]
@@ -527,11 +526,11 @@ def ashr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 
 /-- The `i1` constant `1`, the immediate shared by the `sltiu`/`xori` arms. -/
 def icmpOneImm : RISCVImmediateProperties :=
-  RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
+  RISCVImmediateProperties.mk 1#64
 
 /-- The immediate `0`, materialized by the `li` feeding the `sltu` of the `≠` arms. -/
 def icmpZeroImm : RISCVImmediateProperties :=
-  RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
+  RISCVImmediateProperties.mk 0#64
 
 /-- A `riscv` sign-extension instruction usable as an `icmp` prologue: an opcode with no
     properties (`riscv.sextw`, `riscv.sextb`). Bundling the opcode with the proof keeps the
@@ -861,15 +860,15 @@ def alloca_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (.int _ (.val count)) := operands[0]!.constantValue ctx.raw | return (ctx, none)
   let some layout := DataLayout.riscv64.query properties.elem_type.val | return (ctx, none)
   let size := count.toNat * layout.allocSize
-  /- Do not silently wrap the fixed object's size to 64 bits. -/
-  if size >= 2 ^ 64 then return (ctx, none)
+  /- Do not silently wrap the fixed object's size to a signed 64-bit value. -/
+  if size >= 2 ^ 63 then return (ctx, none)
   let alignment : Int := if properties.alignment.value = 0 then layout.abiAlignment
     else properties.alignment.value
-  if !isValidLLVMAlignment alignment || alignment >= 2 ^ 64 then
+  if !isValidLLVMAlignment alignment || alignment >= 2 ^ 63 then
     return (ctx, none)
   let props : RISCVStackAllocaProperties :=
-    { size := IntegerAttr.mk size (IntegerType.mk 64)
-      alignment := IntegerAttr.mk alignment (IntegerType.mk 64) }
+    { size := BitVec.ofNat 64 size
+      alignment := BitVec.ofInt 64 alignment }
   let (ctx, stackOp) ← WfRewriter.createOp! ctx Riscv_Stack.alloca #[RegisterType.mk]
       #[] #[] #[] props none
   let (ctx, castBackOp) ← replaceWithRegLocal ctx op (stackOp.getResult 0)
@@ -916,7 +915,7 @@ def load_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   /- 64-bit `riscv.ld`, or its `lw` (i32) / `lb` (i8) variants. Volatility carries
      over from the `llvm.load`: the riscv op encodes the same, but the flag keeps
      later passes from deleting or duplicating the access. -/
-  let immProps := RISCVMemProperties.mk (IntegerAttr.mk offset (IntegerType.mk 64)) llvmProps.volatile_
+  let immProps := RISCVMemProperties.mk (BitVec.ofInt 64 offset) llvmProps.volatile_
   let (ctx, ldOp) ←
     if type'.bitwidth = 8 then
       WfRewriter.createOp! ctx Riscv.lb #[RegisterType.mk] #[pcastOp.getResult 0]
@@ -954,7 +953,7 @@ def store_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
       #[] #[] () none
   /- 64-bit `riscv.sd`, or its `sw` (i32, low 4 bytes) / `sb` (i8, low byte): operands are (val, addr), no results.
      Volatility carries over from the `llvm.store`, as in `load_local`. -/
-  let immProps := RISCVMemProperties.mk (IntegerAttr.mk offset (IntegerType.mk 64)) llvmProps.volatile_
+  let immProps := RISCVMemProperties.mk (BitVec.ofInt 64 offset) llvmProps.volatile_
   let (ctx, sdOp) ←
     if type'.bitwidth = 8 then
       WfRewriter.createOp! ctx Riscv.sb #[] #[valcastOp.getResult 0, pcastOp.getResult 0]
@@ -1022,7 +1021,7 @@ def getelementptr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
          `li`/`mul` form below, which truncates modulo `2^64` exactly as the source does. -/
       if 0 < scale ∧ scale &&& (scale - 1) = 0 ∧ Nat.log2 scale < 64 then
         /- scale is a power of two: ptr + (idx << log2 scale) -/
-        let k := RISCVImmediateProperties.mk (IntegerAttr.mk (Nat.log2 scale) (IntegerType.mk 64))
+        let k := RISCVImmediateProperties.mk (BitVec.ofInt 64 (Nat.log2 scale))
         let (ctx, slliOp) ← WfRewriter.createOp! ctx Riscv.slli #[RegisterType.mk] #[iReg]
           #[] #[] k none
         let (ctx, addOp) ← WfRewriter.createOp! ctx Riscv.add #[RegisterType.mk] #[pReg, slliOp.getResult 0]
@@ -1030,7 +1029,7 @@ def getelementptr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
         pure (ctx, #[slliOp, addOp], addOp)
       else
         /- arbitrary scale: ptr + idx * scale -/
-        let s := RISCVImmediateProperties.mk (IntegerAttr.mk scale (IntegerType.mk 64))
+        let s := RISCVImmediateProperties.mk (BitVec.ofInt 64 scale)
         let (ctx, liOp) ← WfRewriter.createOp! ctx Riscv.li #[RegisterType.mk] #[]
           #[] #[] s none
         let (ctx, mulOp) ← WfRewriter.createOp! ctx Riscv.mul #[RegisterType.mk] #[iReg, liOp.getResult 0]
@@ -1195,7 +1194,7 @@ def fshl32 : Puddle.CompiledPattern OpCode := fshl32_pattern.compile
 -/
 
 def mkRISCVImm (value : Int) : RISCVImmediateProperties :=
-  RISCVImmediateProperties.mk (IntegerAttr.mk value (IntegerType.mk 64))
+  RISCVImmediateProperties.mk (BitVec.ofInt 64 value)
 
 def createRISCVImmLocal (ctx : WfIRContext OpCode)
     (dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties)
@@ -1447,7 +1446,7 @@ def fshrConst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let (ctx, valCastOp) ← castToRegLocal ctx a
   if t.bitwidth = 32 then
     let sh := amount % 32
-    let imm := RISCVImmediateProperties.mk (IntegerAttr.mk sh (IntegerType.mk 64))
+    let imm := RISCVImmediateProperties.mk (BitVec.ofNat 64 sh)
     let (ctx, roriOp) ← WfRewriter.createOp! ctx Riscv.roriw #[RegisterType.mk] #[valCastOp.getResult 0]
         #[] #[] imm none
     let (ctx, castBackOp) ← replaceWithRegLocal ctx op (roriOp.getResult 0)
@@ -1455,7 +1454,7 @@ def fshrConst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   else
     /- The funnel-shift amount is taken modulo the bit width. -/
     let sh := amount % 64
-    let imm := RISCVImmediateProperties.mk (IntegerAttr.mk sh (IntegerType.mk 64))
+    let imm := RISCVImmediateProperties.mk (BitVec.ofNat 64 sh)
     let (ctx, roriOp) ← WfRewriter.createOp! ctx Riscv.rori #[RegisterType.mk] #[valCastOp.getResult 0]
         #[] #[] imm none
     let (ctx, castBackOp) ← replaceWithRegLocal ctx op (roriOp.getResult 0)
@@ -1482,7 +1481,7 @@ def fshlConst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     /- rotate-left by `sh` == rotate-right by `32 - sh` (mod 32). -/
     let sh := amount % 32
     let imm := (32 - sh) % 32
-    let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk imm (IntegerType.mk 64))
+    let immProps := RISCVImmediateProperties.mk (BitVec.ofNat 64 imm)
     let (ctx, roriOp) ← WfRewriter.createOp! ctx Riscv.roriw #[RegisterType.mk] #[valCastOp.getResult 0]
         #[] #[] immProps none
     let (ctx, castBackOp) ← replaceWithRegLocal ctx op (roriOp.getResult 0)
@@ -1491,7 +1490,7 @@ def fshlConst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     /- rotate-left by `sh` == rotate-right by `64 - sh` (mod 64). -/
     let sh := amount % 64
     let imm := (64 - sh) % 64
-    let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk imm (IntegerType.mk 64))
+    let immProps := RISCVImmediateProperties.mk (BitVec.ofNat 64 imm)
     let (ctx, roriOp) ← WfRewriter.createOp! ctx Riscv.rori #[RegisterType.mk] #[valCastOp.getResult 0]
         #[] #[] immProps none
     let (ctx, castBackOp) ← replaceWithRegLocal ctx op (roriOp.getResult 0)
@@ -1537,10 +1536,10 @@ def fshlGeneral_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let (ctx, yCastOp) ← castToRegLocal ctx b
   let (ctx, zCastOp) ← castToRegLocal ctx amt
   /- ~z, the inverse shift amount; the shift instruction masks it modulo `w`. -/
-  let notImm := RISCVImmediateProperties.mk (IntegerAttr.mk (-1) (IntegerType.mk 64))
+  let notImm := RISCVImmediateProperties.mk (-1#64)
   let (ctx, notzOp) ← WfRewriter.createOp! ctx Riscv.xori #[RegisterType.mk] #[zCastOp.getResult 0]
       #[] #[] notImm none
-  let oneImm := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
+  let oneImm := RISCVImmediateProperties.mk 1#64
   /- shx = x << z ; shy = (y >> 1) >> ~z ; result = shx | shy. The i32 form uses
      the `w` shifts (only the low 32 bits of the `or` are observed). -/
   if t.bitwidth = 32 then
@@ -1584,10 +1583,10 @@ def fshrGeneral_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let (ctx, yCastOp) ← castToRegLocal ctx b
   let (ctx, zCastOp) ← castToRegLocal ctx amt
   /- ~z, the inverse shift amount; the shift instruction masks it modulo `w`. -/
-  let notImm := RISCVImmediateProperties.mk (IntegerAttr.mk (-1) (IntegerType.mk 64))
+  let notImm := RISCVImmediateProperties.mk (-1#64)
   let (ctx, notzOp) ← WfRewriter.createOp! ctx Riscv.xori #[RegisterType.mk] #[zCastOp.getResult 0]
       #[] #[] notImm none
-  let oneImm := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
+  let oneImm := RISCVImmediateProperties.mk 1#64
   /- shx = (x << 1) << ~z ; shy = y >> z ; result = shx | shy. The i32 form uses
      the `w` shifts (only the low 32 bits of the `or` are observed). -/
   if t.bitwidth = 32 then
@@ -1625,7 +1624,7 @@ def fshrGeneral (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def poisonConst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some _ := matchPoison op ctx.raw | return (ctx, none)
-  let imm := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
+  let imm := RISCVImmediateProperties.mk 0#64
   let (ctx, liOp) ← WfRewriter.createOp! ctx Riscv.li #[RegisterType.mk] #[]
       #[] #[] imm none
   let (ctx, castBackOp) ← replaceWithRegLocal ctx op (liOp.getResult 0)

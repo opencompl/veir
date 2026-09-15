@@ -768,7 +768,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     let properties := op.getProperties! ctx.raw Llvm.mlir__global
     if let some alignment := properties.alignment then
       if alignment.type.bitwidth ≠ 64 then
-        throw "'alignment' must be a 64-bit signless integer attribute"
+        throw "'alignment' must be a 64-bit integer attribute"
       if !isValidLLVMAlignment alignment.value then
         throw "alignment attribute is not a power of 2"
     if properties.addr_space.type.bitwidth ≠ 32 then
@@ -995,21 +995,21 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.verifyPlainOpCounts ctx opIn 1 1
     let properties := op.getProperties! ctx.raw Llvm.alloca
     if properties.alignment.type.bitwidth ≠ 64 then
-      throw "'llvm.alloca' op attribute 'alignment' failed to satisfy constraint: 64-bit signless integer attribute"
+      throw "'llvm.alloca' op attribute 'alignment' failed to satisfy constraint: 64-bit integer attribute"
     pure ()
   | .load => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 1 1
     let properties := op.getProperties! ctx.raw Llvm.load
     if properties.alignment.type.bitwidth ≠ 64 then
-      throw "'llvm.load' op attribute 'alignment' failed to satisfy constraint: 64-bit signless integer attribute"
+      throw "'llvm.load' op attribute 'alignment' failed to satisfy constraint: 64-bit integer attribute"
     pure ()
   | .store => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 2 0
     let properties := op.getProperties! ctx.raw Llvm.store
     if properties.alignment.type.bitwidth ≠ 64 then
-      throw "'llvm.store' op attribute 'alignment' failed to satisfy constraint: 64-bit signless integer attribute"
+      throw "'llvm.store' op attribute 'alignment' failed to satisfy constraint: 64-bit integer attribute"
     pure ()
   | .insertelement => do
     op.checkIsNonNullIntegerType ctx opIn

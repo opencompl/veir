@@ -6,8 +6,8 @@ public import Veir.Data.PBV.Lemmas
 
 A width `w` is represented by the mask `2^w - 1` of the blast width, and it is
 encoded as a bitvector constraint `m &&& (m + 1) = 0` which the bitblaster
-can reason about. Other relations between bitwidths are encoded as bitvector
-inequalities and equalities.
+can reason about. Relations between bitwidths are encoded as bitvector
+inequalities and equalities in `Veir.Data.PBV.Push`.
 -/
 
 namespace Veir.Data.PBV
@@ -27,26 +27,12 @@ theorem toNat_maskOfWidth {o w : Nat} (h : w ≤ o) :
 /-- The mask constraint: the only fact about `m` surviving abstraction. This
 encodes `m = 2^k - 1` for some `k : Nat` in terms of bitvector operations
 removing the dependency on `k` and allowing it to be bitblasted. -/
-theorem maskOfWidth_and_add_one_eq_zero {o w : Nat} {m : BitVec o}
+theorem and_add_one_eq_zero_of_maskOfWidth {o w : Nat} {m : BitVec o}
     (hm : m = maskOfWidth o w) : m &&& (m + 1#o) = 0#o := by
   subst hm
   simp [maskOfWidth, BitVec.ofNat_add_ofNat, ← BitVec.ofNat_and,
     Nat.sub_add_cancel Nat.one_le_two_pow, Nat.and_comm (2 ^ w - 1),
     Nat.and_two_pow_sub_one_eq_mod]
-
-/-- `maskOfWidth` is monotone with respect to unsigned bitvec comparison. -/
-theorem maskOfWidth_lt_maskOfWidth {o w₁ w₂ : Nat} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
-    (h : w₁ < w₂) : maskOfWidth o w₁ < maskOfWidth o w₂ := by
-  rw [BitVec.lt_def, toNat_maskOfWidth h₁, toNat_maskOfWidth h₂]
-  have hlt : 2 ^ w₁ < 2 ^ w₂ := Nat.pow_lt_pow_right (by lia) (by lia)
-  have : 0 < 2 ^ w₁ := by grind
-  lia
-
-/-- Strict width order becomes strict mask order. -/
-theorem mask_lt_mask {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
-    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
-    (hw : w₁ < w₂) : m₁ < m₂ := by
-  grind only [maskOfWidth_lt_maskOfWidth]
 
 /-- ANDing with `maskOfWidth o w` keeps exactly the low `w` bits. -/
 theorem toNat_and_maskOfWidth {o w : Nat} (h : w ≤ o) (x : BitVec o) :
@@ -100,6 +86,48 @@ the index `i` is inbounds of `w`. -/
 /-- Mask of width 0 is the zero bitvector. -/
 @[simp] theorem maskOfWidth_zero (o : Nat) : maskOfWidth o 0 = 0#o := by
   simp [maskOfWidth]
+
+/-! ## Translating `Nat` width relations and arithmetic into mask operations -/
+
+/-- Equality on the widths translates to equality on the masks.
+    (Redundant hypotheses needed to match the shape of other width-to-bv theorems.) -/
+theorem eq_of_eq_of_eq_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (_h₁ : w₁ ≤ o) (_h₂ : w₂ ≤ o)
+    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
+    (hw₁w₂ : w₁ = w₂) : (m₁ = m₂) := by
+  subst m₁ m₂
+  congr
+
+/-- LT on the widths translates to LT on the masks. -/
+theorem lt_of_lt_of_eq_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
+    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
+    (hw₁w₂ : w₁ < w₂) : (m₁ < m₂) := by
+  subst m₁ m₂
+  rw [BitVec.lt_def, toNat_maskOfWidth h₁, toNat_maskOfWidth h₂,
+      Nat.sub_lt_sub_iff_right (by grind), Nat.pow_lt_pow_iff_right (by grind)]
+  exact hw₁w₂
+
+/-- LE on the widths translates to LE on the masks. -/
+theorem le_of_le_of_eq_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
+    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
+    (hw₁w₂ : w₁ ≤ w₂) : (m₁ ≤ m₂) := by
+  subst m₁ m₂
+  rw [BitVec.le_def, toNat_maskOfWidth h₁, toNat_maskOfWidth h₂,
+      Nat.sub_le_sub_iff_right (by grind), Nat.pow_le_pow_iff_right (by grind)]
+  exact hw₁w₂
+
+/-- Adding widths becomes multiplying masks: the mask `m₃` of `w₁ + w₂` is
+`2^w₁ * 2^w₂ - 1`, written in terms of the masks `m₁` and `m₂`. -/
+theorem add_eq_mul_of_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ m₃ : BitVec o}
+    (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o) (h₁₂ : w₁ + w₂ ≤ o)
+    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
+    (hm₃ : m₃ = maskOfWidth o (w₁ + w₂)) :
+    m₃ = (m₁ + 1#o) * (m₂ + 1#o) - 1#o := by
+  subst m₃
+  cases o
+  · simp [hm₁, hm₂, maskOfWidth_zero_eq_zero]
+  · rw [hm₁, maskOfWidth_add_one_eq_twoPow h₁, hm₂, maskOfWidth_add_one_eq_twoPow h₂,
+      BitVec.twoPow_mul_twoPow_eq]
+    apply maskOfWidth_eq_twoPow_sub_one h₁₂
 
 /-! ## The sign bit helpers -/
 
