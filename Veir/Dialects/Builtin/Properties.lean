@@ -28,16 +28,16 @@ def UnregisteredProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
   Read a required integer attribute that must be declared `i64`, returning the
   value it denotes as a `BitVec 64`.
 -/
-def getI64Attr (what key : String) (attrDict : Std.HashMap ByteArray Attribute) :
+def getI64Attr (errorCtx key : String) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (BitVec 64) := do
   let some attr := attrDict[key.toUTF8]?
-    | throw s!"{what}: missing '{key}' property"
+    | throw s!"{errorCtx}: missing '{key}' property"
   let .integerAttr intAttr := attr
-    | throw s!"{what}: expected '{key}' to be an integer attribute, but got {attr}"
+    | throw s!"{errorCtx}: expected '{key}' to be an integer attribute, but got {attr}"
   if intAttr.type.bitwidth ≠ 64 then
-    throw s!"{what}: expected '{key}' to be a 64-bit integer attribute, but got i{intAttr.type.bitwidth}"
+    throw s!"{errorCtx}: expected '{key}' to be a 64-bit integer attribute, but got i{intAttr.type.bitwidth}"
   if intAttr.value < -(2 ^ 63) ∨ 2 ^ 64 ≤ intAttr.value then
-    throw s!"{what}: '{key}' value {intAttr.value} does not fit in i64"
+    throw s!"{errorCtx}: '{key}' value {intAttr.value} does not fit in i64"
   return BitVec.ofInt 64 intAttr.value
 
 /-- Re-encode a `getI64Attr` value as the `i64` attribute it is printed as. -/
