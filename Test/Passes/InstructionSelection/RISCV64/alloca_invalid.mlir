@@ -27,9 +27,12 @@
     %layout = "llvm.alloca"(%one) <{elem_type = !llvm.struct<(i32, i64)>}> : (i64) -> !llvm.ptr
     // CHECK: "llvm.alloca"({{.*}}) <{"alignment" = 0 : i64, "elem_type" = !llvm.struct<(i32, i64)>}>
 
-    // The byte size must fit 64 bits without wrapping, even for a wide count.
+    // The byte size must fit a signed 64-bit value without wrapping, even for a
+    // wide count: `riscv_stack.alloca` stores it as a nonnegative `BitVec 64`.
     %overflow = "llvm.alloca"(%large) <{elem_type = i64}> : (i64) -> !llvm.ptr
     // CHECK: "llvm.alloca"({{.*}}) <{"alignment" = 0 : i64, "elem_type" = i64}>
+    %signed_overflow = "llvm.alloca"(%large) <{elem_type = i32}> : (i64) -> !llvm.ptr
+    // CHECK: "llvm.alloca"({{.*}}) <{"alignment" = 0 : i64, "elem_type" = i32}>
     %wide_count = "llvm.alloca"(%wide) <{elem_type = i8}> : (i128) -> !llvm.ptr
     // CHECK: "llvm.alloca"({{.*}}) <{"alignment" = 0 : i64, "elem_type" = i8}>
 
@@ -41,9 +44,11 @@
     // CHECK: "llvm.alloca"({{.*}}) <{"alignment" = -8 : i64, "elem_type" = i8}>
     %wide_align = "llvm.alloca"(%one) <{elem_type = i8, alignment = 18446744073709551616 : i64}> : (i64) -> !llvm.ptr
     // CHECK: "llvm.alloca"({{.*}}) <{"alignment" = 18446744073709551616 : i64, "elem_type" = i8}>
+    %signed_align = "llvm.alloca"(%one) <{elem_type = i8, alignment = 9223372036854775808 : i64}> : (i64) -> !llvm.ptr
+    // CHECK: "llvm.alloca"({{.*}}) <{"alignment" = 9223372036854775808 : i64, "elem_type" = i8}>
     %not_pointer = "llvm.alloca"(%one) <{elem_type = i8}> : (i64) -> i64
     // CHECK: "llvm.alloca"({{.*}}) <{"alignment" = 0 : i64, "elem_type" = i8}> : (i64) -> i64
-    "test.test"(%dynamic, %special, %layout, %overflow, %wide_count, %bad_align, %negative_align, %wide_align, %not_pointer) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, i64) -> ()
+    "test.test"(%dynamic, %special, %layout, %overflow, %signed_overflow, %wide_count, %bad_align, %negative_align, %wide_align, %signed_align, %not_pointer) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, i64) -> ()
     "llvm.br"()[^later] : () -> ()
   ^later:
     // A constant-count alloca outside the entry block is still dynamic.

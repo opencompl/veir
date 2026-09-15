@@ -857,11 +857,11 @@ def alloca_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (.int _ (.val count)) := operands[0]!.constantValue ctx.raw | return (ctx, none)
   let some layout := DataLayout.riscv64.query properties.elem_type.val | return (ctx, none)
   let size := count.toNat * layout.allocSize
-  /- Do not silently wrap the fixed object's size to 64 bits. -/
-  if size >= 2 ^ 64 then return (ctx, none)
+  /- Do not silently wrap the fixed object's size to a signed 64-bit value. -/
+  if size >= 2 ^ 63 then return (ctx, none)
   let alignment : Int := if properties.alignment.value = 0 then layout.abiAlignment
     else properties.alignment.value
-  if !isValidLLVMAlignment alignment || alignment >= 2 ^ 64 then
+  if !isValidLLVMAlignment alignment || alignment >= 2 ^ 63 then
     return (ctx, none)
   let props : RISCVStackAllocaProperties :=
     { size := BitVec.ofNat 64 size
