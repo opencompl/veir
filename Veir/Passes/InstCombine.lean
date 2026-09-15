@@ -57,9 +57,7 @@ def mulIOneToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (lhs, rhs, _) := matchMuli op ctx.raw
     | return (ctx, none)
-  let some cst := matchConstantIntVal rhs ctx.raw
-    | return (ctx, none)
-  if cst ≠ 1 then
+  if !isConstantOne rhs ctx.raw then
     return (ctx, none)
   some (ctx, some (#[], #[lhs]))
 

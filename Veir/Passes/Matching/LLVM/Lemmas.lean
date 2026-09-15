@@ -110,9 +110,10 @@ theorem matchConstantIntOp_implies {op : OperationPtr} {ctx : IRContext OpCode} 
 /-- What matching a constant integer value (via `matchConstantIntVal`) syntactically guarantees. -/
 theorem matchConstantIntVal_implies {val : ValuePtr} {ctx : IRContext OpCode} {value} :
     matchConstantIntVal val ctx = some value →
-    ∃ opResultPtr intAttr, val = .opResult opResultPtr ∧
-      matchConstantIntOp opResultPtr.op ctx = some intAttr ∧
-      intAttr.value = value := by
+    ∃ opResultPtr attr type, val = .opResult opResultPtr ∧
+      matchConstantIntOp opResultPtr.op ctx = some attr ∧
+      (val.getType! ctx).val = .integerType type ∧
+      value = (BitVec.ofInt type.bitwidth (decodeLLVMIntegerConstant attr)).toInt := by
   intro hmatch
   simp only [matchConstantIntVal, bind, Option.bind, pure] at hmatch
   grind

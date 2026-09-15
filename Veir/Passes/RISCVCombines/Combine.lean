@@ -63,8 +63,7 @@ def select_same_val_self (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def select_constant_cmp_true_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (cond, tval, _fval) := matchSelect op ctx.raw | return (ctx, none)
-  let some cst := matchConstantIntVal cond ctx.raw | return (ctx, none)
-  if cst ≠ 1 then return (ctx, none)
+  if !isConstantOne cond ctx.raw then return (ctx, none)
   some (ctx, some (#[], #[tval]))
 
 def select_constant_cmp_true (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -958,6 +957,9 @@ def select_neg1_0_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if ct ≠ -1 then return (ctx, none)
   let some cf := matchConstantIntVal fv ctx.raw | return (ctx, none)
   if cf ≠ 0 then return (ctx, none)
+  -- At i1, -1 is true and no extension is needed.
+  if (op.getResult 0 : ValuePtr).getType! ctx.raw = cond.getType! ctx.raw then
+    return (ctx, some (#[], #[cond]))
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sext #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[cond]
     #[] #[] () none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
@@ -1002,6 +1004,8 @@ def select_0_neg1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     #[] #[] m1 none
   let (ctx, ncond) ← WfRewriter.createOp! ctx Llvm.xor #[cond.getType! ctx.raw] #[cond, (c1.getResult 0)]
     #[] #[] () none
+  if (op.getResult 0 : ValuePtr).getType! ctx.raw = cond.getType! ctx.raw then
+    return (ctx, some (#[c1, ncond], #[ncond.getResult 0]))
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sext #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[(ncond.getResult 0)]
     #[] #[] () none
   some (ctx, some (#[c1, ncond, newOp], #[newOp.getResult 0]))

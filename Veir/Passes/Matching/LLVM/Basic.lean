@@ -51,6 +51,7 @@ def matchXori (op : OperationPtr) (ctx : IRContext OpCode) :
   let (op, _) ← matchOp op ctx (Llvm.xor) 2
   return (op[0]!, op[1]!)
 
+/-- Match the raw integer attribute; use `matchConstantIntVal` for the result's value. -/
 def matchConstantIntOp (op : OperationPtr) (ctx : IRContext OpCode) :
     Option IntegerAttr := do
   let Llvm.mlir__constant := toDialect? Llvm (op.getOpType! ctx) | none
@@ -58,14 +59,23 @@ def matchConstantIntOp (op : OperationPtr) (ctx : IRContext OpCode) :
   let .integer intAttr := properties.value | none
   return intAttr
 
-/-- Match the raw integer attribute value of an LLVM constant, without adjusting
-it to the attribute or result width. -/
+/-- Match an LLVM constant's signed value. Decode at the attribute width
+(zero-extending i1), then truncate to the result width. At i1, true is -1;
+use `isConstantOne` to recognize the multiplicative identity at any width. -/
 def matchConstantIntVal (val : ValuePtr) (ctx : IRContext OpCode) :
     Option Int := do
   let .opResult opResultPtr := val | none
   let op := opResultPtr.op
   let attr ← matchConstantIntOp op ctx
-  return attr.value
+  let .integerType type := (val.getType! ctx).val | none
+  return (BitVec.ofInt type.bitwidth (decodeLLVMIntegerConstant attr)).toInt
+
+/-- Recognize the one bit pattern, including i1 true whose signed value is -1. -/
+def isConstantOne (val : ValuePtr) (ctx : IRContext OpCode) : Bool :=
+  match matchConstantIntVal val ctx, (val.getType! ctx).val with
+  | some value, .integerType type =>
+    (BitVec.ofInt type.bitwidth value).toNat == 1
+  | _, _ => false
 
 /-- Match a constant integer with value zero, returning `val` itself. -/
 def matchConstantZero (val : ValuePtr) (ctx : IRContext OpCode) : Option ValuePtr := do
