@@ -5,8 +5,9 @@ public import Veir.GlobalOpInfo
 /-!
 # ControlFlowInterfaces
 
-This file provides support for querying which operands are forwarded to a successor
-and mapping those operands to successor block arguments.
+This file provides support for querying which operands are forwarded to a successor,
+mapping those operands to successor block arguments, and selecting a successor from
+known constant operands.
 -/
 
 namespace Veir
@@ -28,6 +29,12 @@ instance : GetElem? SuccessorOperands Nat ValuePtr
   getElem? := fun operands blockArgumentIndex => operands.forwardedOperands[blockArgumentIndex]?
 
 namespace BranchOpInterface
+
+/-- Return the true or false successor of a conditional branch. -/
+private def getConditionalSuccessor?
+    (branchOp : OperationPtr) (condition : Bool) (raw : IRContext OpCode) : Option BlockPtr :=
+  let successors := branchOp.getSuccessors! raw
+  if condition then successors[0]? else successors[1]?
 
 /--
   Return the operands passed to `successorIndex` of a branch operation.
@@ -81,6 +88,52 @@ def getSuccessorOperand?
     (raw : IRContext OpCode) : Option ValuePtr :=
   getSuccessorOperands? branchOp successorIndex raw >>= fun operands =>
     operands[blockArgumentIndex]?
+
+/--
+Return the successor selected by the known constant operands of a branch operation.
+An operand is `none` when its value is unknown. Returns `none` when the operation is
+not a supported branch or a single successor cannot be determined.
+-/
+def getSuccessorForOperands?
+    (branchOp : OperationPtr) (operands : Array (Option RuntimeValue))
+    (raw : IRContext OpCode) : Option BlockPtr :=
+  match branchOp.getOpType! raw with
+  | .cf .br | .llvm .br | .riscv_cf .branch =>
+    (branchOp.getSuccessors! raw)[0]?
+  | .cf .cond_br | .llvm .cond_br => do
+    let some (.int _ (.val condition)) ← operands[0]? | none
+    getConditionalSuccessor? branchOp (condition ≠ 0) raw
+  | .riscv_cf .beqz => do
+    let some (.reg condition) ← operands[0]? | none
+    getConditionalSuccessor? branchOp (condition.val = 0#64) raw
+  | .riscv_cf .bnez => do
+    let some (.reg condition) ← operands[0]? | none
+    getConditionalSuccessor? branchOp (condition.val ≠ 0#64) raw
+  | .riscv_cf .beq => do
+    let some (.reg lhs) ← operands[0]? | none
+    let some (.reg rhs) ← operands[1]? | none
+    getConditionalSuccessor? branchOp (lhs = rhs) raw
+  | .riscv_cf .bne => do
+    let some (.reg lhs) ← operands[0]? | none
+    let some (.reg rhs) ← operands[1]? | none
+    getConditionalSuccessor? branchOp (lhs ≠ rhs) raw
+  | .riscv_cf .blt => do
+    let some (.reg lhs) ← operands[0]? | none
+    let some (.reg rhs) ← operands[1]? | none
+    getConditionalSuccessor? branchOp (BitVec.slt lhs.val rhs.val) raw
+  | .riscv_cf .bge => do
+    let some (.reg lhs) ← operands[0]? | none
+    let some (.reg rhs) ← operands[1]? | none
+    getConditionalSuccessor? branchOp (!BitVec.slt lhs.val rhs.val) raw
+  | .riscv_cf .bltu => do
+    let some (.reg lhs) ← operands[0]? | none
+    let some (.reg rhs) ← operands[1]? | none
+    getConditionalSuccessor? branchOp (BitVec.ult lhs.val rhs.val) raw
+  | .riscv_cf .bgeu => do
+    let some (.reg lhs) ← operands[0]? | none
+    let some (.reg rhs) ← operands[1]? | none
+    getConditionalSuccessor? branchOp (!BitVec.ult lhs.val rhs.val) raw
+  | _ => none
 
 end BranchOpInterface
 
