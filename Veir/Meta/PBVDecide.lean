@@ -390,7 +390,7 @@ meta def introBitvecFVarUnchecked (widthInfos : WidthInfos) (g : MVarId)
   -- Apply ``var_elim.
   let some infos := widthInfos.getFromTm? widthTm.term
     | throwError m!"{wExpr} should have been defined in widthInfos."
-  let [g] ← g.withContext <| g.apply <| ← mkAppM ``var_elim #[.fvar infos.hypWidthLeBoundNote]
+  let [g] ← g.withContext <| g.apply <| ← mkAppM ``var_elim #[.fvar infos.hypWidthLeBoundNote, .fvar infos.widthMaskHypFvar]
     | throwError m!"{``var_elim} should generate a single goal. Produced {g}"
 
   let name ← oldVar.getUserName
