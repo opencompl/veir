@@ -24,12 +24,22 @@
         %c6 = "llvm.mlir.constant"() <{"value" = -1 : i1 }> : () -> i64
         // CHECK: %[[A:.*]] = "riscv.li"() <{"value" = 1 : i64}> : () -> !riscv.reg
         // CHECK-NEXT: {{.*}} = "builtin.unrealized_conversion_cast"(%[[A]]) : (!riscv.reg) -> i64
+        // A non-i1 attribute is sign-extended, so `255 : i8` in an i64 result is -1.
+        %c7 = "llvm.mlir.constant"() <{"value" = 255 : i8 }> : () -> i64
+        // CHECK: %[[A:.*]] = "riscv.li"() <{"value" = -1 : i64}> : () -> !riscv.reg
+        // CHECK-NEXT: {{.*}} = "builtin.unrealized_conversion_cast"(%[[A]]) : (!riscv.reg) -> i64
+        // Likewise `4294967295 : i32` in an i64 result is -1.
+        %c8 = "llvm.mlir.constant"() <{"value" = 4294967295 : i32 }> : () -> i64
+        // CHECK: %[[A:.*]] = "riscv.li"() <{"value" = -1 : i64}> : () -> !riscv.reg
+        // CHECK-NEXT: {{.*}} = "builtin.unrealized_conversion_cast"(%[[A]]) : (!riscv.reg) -> i64
         "test.test"(%c1) : (i64) -> ()
         "test.test"(%c2) : (i32) -> ()
         "test.test"(%c3) : (i8) -> ()
         "test.test"(%c4) : (i1) -> ()
         "test.test"(%c5) : (i8) -> ()
         "test.test"(%c6) : (i64) -> ()
+        "test.test"(%c7) : (i64) -> ()
+        "test.test"(%c8) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

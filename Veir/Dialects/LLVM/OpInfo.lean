@@ -19,6 +19,7 @@ inductive Llvm where
 | mlir__undef
 | mlir__zero
 | mlir__global
+| mlir__alias
 | mlir__addressof
 | and
 | or
@@ -64,6 +65,7 @@ inductive Llvm where
 | load
 | store
 | getelementptr
+| insertelement
 | insertvalue
 | extractvalue
 | call
@@ -109,6 +111,7 @@ def Llvm.propertiesOf (op : Llvm) : Type :=
 match op with
 | .mlir__constant => LLVMConstantProperties
 | .mlir__global => LLVMGlobalProperties
+| .mlir__alias => LLVMAliasProperties
 | .mlir__addressof => LLVMAddressOfProperties
 | .add => NswNuwProperties
 | .sub => NswNuwProperties
@@ -152,6 +155,7 @@ def Llvm.fromAttrDict
   cases op
   case mlir__constant => exact LLVMConstantProperties.fromAttrDict attrDict
   case mlir__global => exact LLVMGlobalProperties.fromAttrDict attrDict
+  case mlir__alias => exact LLVMAliasProperties.fromAttrDict attrDict
   case mlir__addressof => exact LLVMAddressOfProperties.fromAttrDict attrDict
   case add | sub | mul | shl | trunc =>
     exact NswNuwProperties.fromAttrDict attrDict
@@ -227,6 +231,23 @@ def Llvm.toAttrDict
   | .mlir__addressof => Id.run do
     let mut dict := Std.HashMap.ofList props.extra.entries.toList
     dict := dict.insert "global_name".toUTF8 (.flatSymbolRefAttr props.global_name)
+    dict
+  | .mlir__alias => Id.run do
+    let mut dict : Std.HashMap ByteArray Attribute := Std.HashMap.emptyWithCapacity 7
+    dict := dict.insert "sym_name".toUTF8 (.stringAttr props.sym_name)
+    if let some symVisibility := props.sym_visibility then
+      dict := dict.insert "sym_visibility".toUTF8 (.stringAttr symVisibility)
+    dict := dict.insert "alias_type".toUTF8 props.alias_type
+    dict := dict.insert "linkage".toUTF8 (.linkageAttr props.linkage)
+    if props.dso_local then
+      dict := dict.insert "dso_local".toUTF8 (.unitAttr UnitAttr.mk)
+    if props.thread_local_ then
+      dict := dict.insert "thread_local_".toUTF8 (.unitAttr UnitAttr.mk)
+    if let some tlsMode := props.tls_mode then
+      dict := dict.insert "tls_mode".toUTF8 (.integerAttr tlsMode)
+    if let some unnamedAddr := props.unnamed_addr then
+      dict := dict.insert "unnamed_addr".toUTF8 (.integerAttr unnamedAddr)
+    dict := dict.insert "visibility_".toUTF8 (.integerAttr props.visibility_)
     dict
   | .add | .sub | .mul | .shl | .trunc => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 1
@@ -439,7 +460,7 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
   | .intr__fshl, _ | .intr__fshr, _
   | .icmp, _ | .select, _
   | .trunc, _ | .sext, _ | .zext, _
-  | .getelementptr, _ | .insertvalue, _ | .extractvalue, _
+  | .getelementptr, _ | .insertelement, _ | .insertvalue, _ | .extractvalue, _
   | .br, _ | .cond_br, _ | .switch, _ | .return, _
   | .freeze, _ | .bitcast, _
   | .inttoptr, _ | .ptrtoint, _
@@ -462,7 +483,7 @@ def Llvm.isConstantLike (op : Llvm) : Bool :=
 
 def Llvm.isIsolatedFromAbove (op : Llvm) : Bool :=
   match op with
-  | .mlir__global | .func | .comdat => true
+  | .mlir__global | .mlir__alias | .func | .comdat => true
   | _ => false
 
 /-- A `llvm.comdat` body only lists selectors, so it ends without a terminator. -/
@@ -499,12 +520,13 @@ def Llvm.propagatesPoison : Llvm → Bool
   | .fadd | .fsub | .fmul | .fdiv | .frem
   | .fneg | .fcmp | .sitofp | .uitofp | .fptosi | .fptoui | .fpext
   | .intr__fmuladd | .intr__fabs
-  | .mlir__constant | .mlir__poison | .mlir__undef | .mlir__zero | .mlir__global
+  | .mlir__constant | .mlir__poison | .mlir__undef | .mlir__zero | .mlir__global | .mlir__alias
   | .mlir__addressof
   | .select | .br | .cond_br | .switch | .unreachable | .fence | .alloca | .load | .store
   | .intr__lifetime__start | .intr__lifetime__end | .intr__assume
   | .intr__vastart | .intr__vaend | .va_arg
   | .intr__memset | .intr__memcpy | .intr__memmove
+  | .insertelement
   | .getelementptr | .insertvalue | .extractvalue | .call | .call_intrinsic | .return
   | .func
   | .module_flags
@@ -569,19 +591,28 @@ def OperationPtr.verifyLLVMGlobalReturnTypes {OpInfo : Type} [IsOpCode OpInfo]
   if (opTypes[0]!).val ≠ globalType.val then
     throw "llvm.return operand type does not match the global's declared global_type"
 
+def OperationPtr.verifyLLVMAliasReturnTypes {OpInfo : Type} [IsOpCode OpInfo]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  if op.getNumOperands ctx.raw opIn ≠ 1 then
+    throw "Expected llvm.return in llvm.mlir.alias to have 1 operand"
+  let .llvmPointerType _ := ((op.getOperandTypes! ctx.raw)[0]!).val
+    | throw "llvm.mlir.alias initializer region must always return a pointer"
+
 /--
-Check an `llvm.return`'s operands against its enclosing `llvm.func` or
-`llvm.mlir.global`.
+Check an `llvm.return`'s operands against its enclosing `llvm.func`,
+`llvm.mlir.global` or `llvm.mlir.alias`.
 -/
 def OperationPtr.verifyLLVMReturnTypes {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Llvm] (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   let enclosingOp ← op.getEnclosingFunctionOp ctx "llvm.return"
   let badEnclosure : Except String PUnit :=
-    throw "Expected llvm.return to be enclosed by llvm.func or llvm.mlir.global"
+    throw "Expected llvm.return to be enclosed by llvm.func, llvm.mlir.global or llvm.mlir.alias"
   match toDialect? Llvm (enclosingOp.getOpType! ctx.raw) with
   | some .func => op.verifyLLVMFuncReturnTypes ctx opIn enclosingOp
   | some .mlir__global => op.verifyLLVMGlobalReturnTypes ctx opIn enclosingOp
+  | some .mlir__alias => op.verifyLLVMAliasReturnTypes ctx opIn
   | _ => badEnclosure
 
 def OperationPtr.verifyLLVMShift {OpInfo : Type} [IsOpCode OpInfo]
@@ -619,6 +650,20 @@ private def memIntrinsicProperties {OpInfo : Type} [IsOpCode OpInfo]
   | .intr__memcpy => some (op.getProperties! ctx.raw Llvm.intr__memcpy)
   | .intr__memmove => some (op.getProperties! ctx.raw Llvm.intr__memmove)
   | _ => none
+
+def TypeAttr.verifyLLVMVectorType (ty : TypeAttr) (errMsg : String) :
+    Except String VectorType := do
+  let .vectorType vectorType := ty.val
+    | throw errMsg
+  let #[_] := vectorType.shape
+    | throw "Expected a one-dimensional vector"
+  let validElementType := match vectorType.elementType with
+    | .integerType _ | .llvmPointerType _ | .byteType _ => true
+    | .floatType type => #[FloatType.bf16, FloatType.f16, FloatType.f32, FloatType.f64].contains type
+    | _ => false
+  if !validElementType then
+    throw s!"Expected an LLVM-compatible vector element type, but got {vectorType.elementType}"
+  return vectorType
 
 /--
   Walk `position` through an aggregate type, as MLIR does for `insertvalue` and
@@ -735,6 +780,37 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       if properties.linkage.value == "common" && value.isKnownNonZero then
         throw "expected zero value for 'common' linkage"
     pure ()
+  | .mlir__alias => do
+    if op.getNumOperands ctx.raw opIn ≠ 0 then
+      throw "Expected 0 operands"
+    if op.getNumResults ctx.raw opIn ≠ 0 then
+      throw "Expected 0 results"
+    if op.getNumRegions ctx.raw opIn ≠ 1 then
+      throw "Expected 1 region"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    let properties := op.getProperties! ctx.raw Llvm.mlir__alias
+    let isStorageType : Attribute → Bool
+      | .llvmVoidType _ => false
+      | .unregisteredAttr attr =>
+        !["!llvm.token", "!llvm.metadata", "!llvm.label"].contains attr.value
+      | _ => true
+    if !properties.alias_type.val.isLLVMCompatibleType || !isStorageType properties.alias_type.val then
+      throw "expects type to be a valid element type for an LLVM global alias"
+    let body := (op.getRegion! ctx.raw 0).get! ctx.raw
+    let some block := body.firstBlock
+      | throw "initializer region must have exactly one block"
+    if body.lastBlock ≠ some block then
+      throw "initializer region must have exactly one block"
+    if let some lastOp := (block.get! ctx.raw).lastOp then
+      let lastType := lastOp.getOpType! ctx.raw
+      if toDialect? Llvm lastType ≠ some .return then
+        throw s!"expects regions to end with 'llvm.return', found '{String.fromUTF8! (IsOpCode.name lastType)}'"
+    let allowed := ["private", "internal", "linkonce", "weak", "linkonce_odr", "weak_odr",
+      "external", "available_externally"]
+    if !allowed.contains properties.linkage.value then
+      throw s!"'{properties.linkage.value}' linkage not supported in aliases, available options: \
+        private, internal, linkonce, weak, linkonce_odr, weak_odr, external or available_externally"
   | .mlir__zero => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 0 1
@@ -935,6 +1011,18 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     if properties.alignment.type.bitwidth ≠ 64 then
       throw "'llvm.store' op attribute 'alignment' failed to satisfy constraint: 64-bit signless integer attribute"
     pure ()
+  | .insertelement => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyPlainOpCounts ctx opIn 3 1
+    let containerType := (op.getOperand! ctx.raw 0).getType! ctx.raw
+    let vectorType ← containerType.verifyLLVMVectorType
+      "Expected operand 0 to have an LLVM-compatible vector type"
+    let valueType := (op.getOperand! ctx.raw 1).getType! ctx.raw
+    if valueType.val != vectorType.elementType then
+      throw s!"Expected operand 1 to have vector element type {vectorType.elementType}, but got {valueType}"
+    ((op.getOperand! ctx.raw 2).getType! ctx.raw).verifyIntegerType
+      "Expected operand 2 to have integer type"
+    op.verifyResultTypeMatches ctx containerType "Expected the result to have the vector type"
   | .insertvalue => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 2 1

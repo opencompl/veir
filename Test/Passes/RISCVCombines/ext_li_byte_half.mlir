@@ -9,7 +9,7 @@
   // zextb: 200 is in [0, 2^8) -> fold.
   "func.func"() <{function_type = () -> !riscv.reg, sym_name = "f0"}> ({
   ^bb0():
-    %c = "riscv.li"() <{"value" = 200 : i32}> : () -> !riscv.reg
+    %c = "riscv.li"() <{"value" = 200 : i64}> : () -> !riscv.reg
     %z = "riscv.zextb"(%c) : (!riscv.reg) -> !riscv.reg
     "func.return"(%z) : (!riscv.reg) -> ()
   }) : () -> ()
@@ -17,7 +17,7 @@
   // zexth: 1000 is in [0, 2^16) -> fold.
   "func.func"() <{function_type = () -> !riscv.reg, sym_name = "f1"}> ({
   ^bb0():
-    %c = "riscv.li"() <{"value" = 1000 : i32}> : () -> !riscv.reg
+    %c = "riscv.li"() <{"value" = 1000 : i64}> : () -> !riscv.reg
     %z = "riscv.zexth"(%c) : (!riscv.reg) -> !riscv.reg
     "func.return"(%z) : (!riscv.reg) -> ()
   }) : () -> ()
@@ -25,7 +25,7 @@
   // sextb: -100 is in [-2^7, 2^7) -> fold.
   "func.func"() <{function_type = () -> !riscv.reg, sym_name = "f2"}> ({
   ^bb0():
-    %c = "riscv.li"() <{"value" = -100 : i32}> : () -> !riscv.reg
+    %c = "riscv.li"() <{"value" = -100 : i64}> : () -> !riscv.reg
     %z = "riscv.sextb"(%c) : (!riscv.reg) -> !riscv.reg
     "func.return"(%z) : (!riscv.reg) -> ()
   }) : () -> ()
@@ -33,7 +33,7 @@
   // sexth: -1000 is in [-2^15, 2^15) -> fold.
   "func.func"() <{function_type = () -> !riscv.reg, sym_name = "f3"}> ({
   ^bb0():
-    %c = "riscv.li"() <{"value" = -1000 : i32}> : () -> !riscv.reg
+    %c = "riscv.li"() <{"value" = -1000 : i64}> : () -> !riscv.reg
     %z = "riscv.sexth"(%c) : (!riscv.reg) -> !riscv.reg
     "func.return"(%z) : (!riscv.reg) -> ()
   }) : () -> ()
@@ -42,7 +42,7 @@
   // sign-extension differs -- the `sextb` must stay.
   "func.func"() <{function_type = () -> !riscv.reg, sym_name = "f4"}> ({
   ^bb0():
-    %c = "riscv.li"() <{"value" = 200 : i32}> : () -> !riscv.reg
+    %c = "riscv.li"() <{"value" = 200 : i64}> : () -> !riscv.reg
     %z = "riscv.sextb"(%c) : (!riscv.reg) -> !riscv.reg
     "func.return"(%z) : (!riscv.reg) -> ()
   }) : () -> ()
@@ -51,28 +51,28 @@
   // aren't clear -- the `zextb` must stay.
   "func.func"() <{function_type = () -> !riscv.reg, sym_name = "f5"}> ({
   ^bb0():
-    %c = "riscv.li"() <{"value" = -1 : i32}> : () -> !riscv.reg
+    %c = "riscv.li"() <{"value" = -1 : i64}> : () -> !riscv.reg
     %z = "riscv.zextb"(%c) : (!riscv.reg) -> !riscv.reg
     "func.return"(%z) : (!riscv.reg) -> ()
   }) : () -> ()
 }) : () -> ()
 
-// CHECK:      %[[ZB:.*]] = "riscv.li"() <{"value" = 200 : i32}> : () -> !riscv.reg
+// CHECK:      %[[ZB:.*]] = "riscv.li"() <{"value" = 200 : i64}> : () -> !riscv.reg
 // CHECK-NEXT: "func.return"(%[[ZB]]) : (!riscv.reg) -> ()
 
-// CHECK:      %[[ZH:.*]] = "riscv.li"() <{"value" = 1000 : i32}> : () -> !riscv.reg
+// CHECK:      %[[ZH:.*]] = "riscv.li"() <{"value" = 1000 : i64}> : () -> !riscv.reg
 // CHECK-NEXT: "func.return"(%[[ZH]]) : (!riscv.reg) -> ()
 
-// CHECK:      %[[SB:.*]] = "riscv.li"() <{"value" = -100 : i32}> : () -> !riscv.reg
+// CHECK:      %[[SB:.*]] = "riscv.li"() <{"value" = -100 : i64}> : () -> !riscv.reg
 // CHECK-NEXT: "func.return"(%[[SB]]) : (!riscv.reg) -> ()
 
-// CHECK:      %[[SH:.*]] = "riscv.li"() <{"value" = -1000 : i32}> : () -> !riscv.reg
+// CHECK:      %[[SH:.*]] = "riscv.li"() <{"value" = -1000 : i64}> : () -> !riscv.reg
 // CHECK-NEXT: "func.return"(%[[SH]]) : (!riscv.reg) -> ()
 
-// CHECK:      %[[NSB_C:.*]] = "riscv.li"() <{"value" = 200 : i32}> : () -> !riscv.reg
+// CHECK:      %[[NSB_C:.*]] = "riscv.li"() <{"value" = 200 : i64}> : () -> !riscv.reg
 // CHECK-NEXT: %[[NSB_Z:.*]] = "riscv.sextb"(%[[NSB_C]]) : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT: "func.return"(%[[NSB_Z]]) : (!riscv.reg) -> ()
 
-// CHECK:      %[[NZB_C:.*]] = "riscv.li"() <{"value" = -1 : i32}> : () -> !riscv.reg
+// CHECK:      %[[NZB_C:.*]] = "riscv.li"() <{"value" = -1 : i64}> : () -> !riscv.reg
 // CHECK-NEXT: %[[NZB_Z:.*]] = "riscv.zextb"(%[[NZB_C]]) : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT: "func.return"(%[[NZB_Z]]) : (!riscv.reg) -> ()
