@@ -160,12 +160,6 @@ theorem RuntimeValue.float_of_isRefinedBy {ty : FloatType} {v : Data.Float.Float
     tv = RuntimeValue.float ty v := by
   cases tv <;> grind [RuntimeValue.isRefinedBy]
 
-/-- A runtime value `tv` that refines an address runtime value `v` is equal to it. -/
-theorem RuntimeValue.addr_of_isRefinedBy {v : UInt64} {tv : RuntimeValue}
-    (h : RuntimeValue.addr v ⊒ tv) :
-    tv = RuntimeValue.addr v := by
-  cases tv <;> grind [RuntimeValue.isRefinedBy]
-
 /-- A runtime value `tv` that refines a register runtime value `v` is equal to it. -/
 theorem RuntimeValue.reg_of_isRefinedBy {v : Data.RISCV.Reg} {tv : RuntimeValue}
     (h : RuntimeValue.reg v ⊒ tv) :

@@ -1,6 +1,7 @@
 module
 
 public import Veir.Data.LLVM.Byte.Basic
+public import Veir.Data.LLVM.Ptr
 public import Veir.Data.RISCV.Reg.Basic
 public import Veir.IR.Attribute
 
@@ -16,7 +17,7 @@ inductive RuntimeValue where
 | int (bitwidth : Nat) (value : Data.LLVM.Int bitwidth)
 | byte (bitwidth : Nat) (value : Data.LLVM.Byte bitwidth)
 | float (type : FloatType) (value : Data.Float.FloatValue type.format)
-| addr (value : UInt64)
+| addr (value : Data.LLVM.Ptr)
 | reg (value : Data.RISCV.Reg)
 /-- A canonical natural-number representative in the field identified by `fieldType`. -/
 | felt (fieldType : FeltType) (value : Nat)
@@ -39,6 +40,7 @@ instance : ToString RuntimeValue where
 def RuntimeValue.isPoison : RuntimeValue → Bool
   | .int _ .poison => true
   | .byte width value => value.poison == BitVec.allOnes width
+  | .addr .poison => true
   | _ => false
 
 /--
@@ -49,6 +51,7 @@ def RuntimeValue.getPoisonForType (ty : TypeAttr) : Option RuntimeValue :=
   match ty.val with
   | .integerType intTy => some (.int intTy.bitwidth .poison)
   | .byteType byteTy => some (.byte byteTy.bitwidth Data.LLVM.Byte.allPoison)
+  | .llvmPointerType _ => some (.addr .poison)
   | _ => none
 
 end Veir
