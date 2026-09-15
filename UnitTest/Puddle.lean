@@ -97,6 +97,23 @@ theorem nativeApply_valid : Pattern.Valid nativeApply := by
   simp only [nativeApply]
   provePuddleValid
 
+/-- A native guard authored after the root can inspect its properties. -/
+private def nativeRootGuard (expectNsw : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let ty ← MatchProg.type (Attr := IntegerType)
+      let x ← MatchProg.value ty
+      let zero ← matchConstant ty 0
+      let root ← MatchProg.root (.arith .addi) #[x, zero] #[ty]
+      MatchProg.matchNative root.properties (fun properties => properties.attr.nsw == expectNsw)
+      return x)
+    pure
+    (fun x => x)
+
+example : (nativeRootGuard false).StructurallyWellFormed := by native_decide
+
+example : (nativeRootGuard false).matcher.ConstrainsRoot := by cbv
+
 /- ## Test matcher builder validation -/
 
 /-- A matcher that is missing a root declaration. -/
@@ -179,6 +196,28 @@ info: "builtin.module"() ({
 -/
 #guard_msgs in
 #eval! rewriteAndPrint addZeroProgram nativeMatch
+
+/--
+info: "builtin.module"() ({
+  ^4():
+    %5 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+    "test.test"(%5) : (i32) -> ()
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! rewriteAndPrint addZeroProgram (nativeRootGuard false)
+
+/--
+info: "builtin.module"() ({
+  ^4():
+    %5 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+    %6 = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
+    %7 = "arith.addi"(%5, %6) : (i32, i32) -> i32
+    "test.test"(%7) : (i32) -> ()
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! rewriteAndPrint addZeroProgram (nativeRootGuard true)
 
 /--
 info: "builtin.module"() ({

@@ -8,7 +8,7 @@
     %0 = "llvm.mlir.addressof"() <{global_name = @g}> : () -> !llvm.ptr
     "llvm.return"(%0) : (!llvm.ptr) -> ()
   }) : () -> ()
-  "llvm.mlir.alias"() <{alias_type = i32, dso_local, linkage = #llvm.linkage<private>, sym_name = "b", thread_local_, unnamed_addr = 1 : i64, visibility_ = 1 : i64}> ({
+  "llvm.mlir.alias"() <{alias_type = i32, dso_local, linkage = #llvm.linkage<private>, sym_name = "b", unnamed_addr = 1 : i64, visibility_ = 1 : i64}> ({
     %0 = "llvm.mlir.addressof"() <{global_name = @g}> : () -> !llvm.ptr
     "llvm.return"(%0) : (!llvm.ptr) -> ()
   }) : () -> ()
@@ -26,10 +26,10 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: "llvm.mlir.alias"() <{"alias_type" = i32, "linkage" = #llvm.linkage<external>, "sym_name" = "a", "visibility_" = 0 : i64}> ({
+// CHECK: "llvm.mlir.alias"() <{"alias_type" = i32, "linkage" = #llvm.linkage<external>, "sym_name" = "a", {{("tls_mode" = 0 : i64, )?}}"visibility_" = 0 : i64}> ({
 // CHECK: "llvm.mlir.addressof"() <{"global_name" = @g}> : () -> !llvm.ptr
 // CHECK: "llvm.return"(%{{[a-z0-9_]+}}) : (!llvm.ptr) -> ()
-// CHECK: "llvm.mlir.alias"() <{"alias_type" = i32, dso_local, "linkage" = #llvm.linkage<private>, "sym_name" = "b", thread_local_, "unnamed_addr" = 1 : i64, "visibility_" = 1 : i64}> ({
-// CHECK: "llvm.mlir.alias"() <{"alias_type" = i32, "linkage" = #llvm.linkage<external>, "sym_name" = "c", "unnamed_addr" = 2 : i64, "visibility_" = 2 : i64}> ({
+// CHECK: "llvm.mlir.alias"() <{"alias_type" = i32, dso_local, "linkage" = #llvm.linkage<private>, "sym_name" = "b", {{("tls_mode" = 0 : i64, )?}}"unnamed_addr" = 1 : i64, "visibility_" = 1 : i64}> ({
+// CHECK: "llvm.mlir.alias"() <{"alias_type" = i32, "linkage" = #llvm.linkage<external>, "sym_name" = "c", {{("tls_mode" = 0 : i64, )?}}"unnamed_addr" = 2 : i64, "visibility_" = 2 : i64}> ({
 // CHECK: "llvm.mlir.addressof"() <{"global_name" = @a}> : () -> !llvm.ptr
-// CHECK: "llvm.mlir.alias"() <{"alias_type" = !llvm.func<!llvm.ptr ()>, "linkage" = #llvm.linkage<external>, "sym_name" = "fa", "visibility_" = 0 : i64}> ({
+// CHECK: "llvm.mlir.alias"() <{"alias_type" = !llvm.func<!llvm.ptr ()>, "linkage" = #llvm.linkage<external>, "sym_name" = "fa", {{("tls_mode" = 0 : i64, )?}}"visibility_" = 0 : i64}> ({

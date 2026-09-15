@@ -138,28 +138,13 @@ def require (ctx : HandleContext) (handle : Handle OpCode kind) : Bool :=
 def requireMany (ctx : HandleContext) (handles : List (Handle OpCode kind)) : Bool :=
   handles.all ctx.require
 
-/--
-Record a matcher-defined handle. Repeated definitions of the same typed handle are permitted,
-but reusing an identifier at another kind is rejected.
--/
-def insert (ctx : HandleContext) (handle : Handle OpCode kind) : Option HandleContext :=
-  match ctx.lookup handle.id with
-  | none => some ⟨(handle.id, kind) :: ctx.bindings, ctx.unavailable⟩
-  | some actual => if actual = kind then some ctx else none
-
-/-- Record several matcher-defined handles. -/
-@[expose]
-def insertMany (ctx : HandleContext) (handles : List (Handle OpCode kind))
-    : Option HandleContext :=
-  handles.foldlM insert ctx
-
-/-- Record a creation output, requiring its identifier to be fresh in the context. -/
+/-- Record an output, requiring its identifier to be fresh in the context. -/
 def insertFresh (ctx : HandleContext) (handle : Handle OpCode kind) : Option HandleContext :=
   match ctx.lookup handle.id with
   | none => some ⟨(handle.id, kind) :: ctx.bindings, ctx.unavailable⟩
   | some _ => none
 
-/-- Record several creation outputs, checking freshness between the outputs as well. -/
+/-- Record several outputs, checking freshness between the outputs as well. -/
 @[expose]
 def insertManyFresh (ctx : HandleContext) (handles : List (Handle OpCode kind))
     : Option HandleContext :=
@@ -206,21 +191,25 @@ def insertFreshBindings (shape : MetadataTuple.Shape OpCode Handles) (ctx : Hand
 
 end MetadataTuple.Shape
 
-/-- Collect the handles that a matcher declaration binds during a successful match. -/
+/--
+Collect the handles that a matcher declaration binds during a successful match.
+Requires that all inputs are available in the context, and that all outputs are fresh.
+-/
 @[expose]
 def MatchDecl.collectBindings (decl : MatchDecl OpCode)
     (defined : HandleContext) : Option HandleContext := do
   match decl with
   | .operation _ operands resultTypes _ propertyHandle opHandle results _ =>
-      let defined ← defined.insert opHandle
-      let defined ← defined.insertMany results.toList
-      let defined ← defined.insert propertyHandle
-      let defined ← defined.insertMany resultTypes.toList
-      defined.insertMany operands.toList
-  | .value typeHandle _ =>
-      defined.insert typeHandle
-  | .type _ _ =>
-      some defined
+      guard (defined.requireMany operands.toList)
+      guard (defined.requireMany resultTypes.toList)
+      let defined ← defined.insertManyFresh results.toList
+      let defined ← defined.insertFresh propertyHandle
+      defined.insertFresh opHandle
+  | .value typeHandle result =>
+      guard (defined.require typeHandle)
+      defined.insertFresh result
+  | .type _ result =>
+      defined.insertFresh result
   | @MatchDecl.applyNative _ _ _ inputBundle inputs _ => do
       guard (inputBundle.shape.requireBindings defined inputs)
       return defined
@@ -237,6 +226,14 @@ def MatchProg.collectDeclBindings :
       let defined ← decl.collectBindings defined
       MatchProg.collectDeclBindings decls defined
 
+/-- Order the matching declarations from leaves to root, then native guards. -/
+@[expose]
+def MatchProg.bindingDecls (prog : MatchProg OpInfo α) : List (MatchDecl OpInfo) :=
+  let (structural, guards) := prog.decls.partition fun
+    | @MatchDecl.applyNative _ _ _ _ _ _ => false
+    | _ => true
+  structural.reverse ++ guards
+
 /--
 Collect every available handle that can be bound by a successful matcher, and mark as unavailable
 the root operation handle and its result handles.
@@ -245,8 +242,7 @@ the root operation handle and its result handles.
 def MatchProg.collectBindings (prog : MatchProg OpCode α) : Option HandleContext :=
   do
     let rootResults ← prog.rootResults?
-    let defined ← HandleContext.empty.insert prog.rootHandle
-    let defined ← MatchProg.collectDeclBindings prog.decls defined
+    let defined ← MatchProg.collectDeclBindings prog.bindingDecls .empty
     let defined := defined.forbid prog.rootHandle
     return defined.forbidMany rootResults.toList
 
@@ -295,8 +291,9 @@ def Pattern.checkStructure (rule : Pattern OpCode) : Option HandleContext := do
 
 /--
 Structural validity of a Puddle pattern. It checks that:
-* the match program begins with an operation declaration for its root;
-* matcher bindings that share an identifier also share a runtime kind;
+* the match program executes an operation declaration for its root first;
+* when the declarations are processed in reverse order, inputs are introduced before
+  use and outputs are fresh
 * every creation input is bound by the matcher or by an earlier creation declaration;
 * every creation output has an identifier that is globally fresh;
 * each created operation has as many result handles as result-type handles;
@@ -323,7 +320,7 @@ with `Pattern.compile` should produce a rewrite pattern that satisfies `LocalRew
 structure Pattern.Valid (rule : Pattern OpCode) : Prop where
   /-- Every operation declaration in the pattern uses a supported opcode. -/
   Supported : rule.Supported
-  /-- The match program starts with an operation declaration constraining its root handle. -/
+  /-- The first executed declaration constrains the match program's root handle. -/
   ConstrainsRoot : rule.matcher.ConstrainsRoot
   /-- Structural validity of the pattern. -/
   structurallyWellFormed : rule.StructurallyWellFormed
