@@ -1,4 +1,5 @@
 // RUN: VEIR_ROUNDTRIP
+// RUN: %if mlir-min-24 %{ MLIR_ROUNDTRIP %}
 
 "builtin.module"() ({
   "llvm.mlir.global"() <{addr_space = 0 : i32, global_type = i32, linkage = #llvm.linkage<external>, sym_name = "g", value = 0 : i32}> ({
