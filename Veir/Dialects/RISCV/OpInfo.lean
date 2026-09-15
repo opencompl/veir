@@ -295,7 +295,7 @@ def OperationPtr.verifyRISCVuimm5 {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw)
     (imm : BitVec 64) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 1 1
-  if imm.toInt < 0 ∨ imm.toInt > 31 then
+  if imm > 31#64 then
     let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
     throw s!"{instrName} immediate out of bounds: must fit in an unsigned 5-bit field [0, 31]"
   else
@@ -309,7 +309,7 @@ def OperationPtr.verifyRISCVuimm6 {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw)
     (imm : BitVec 64) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 1 1
-  if imm.toInt < 0 ∨ imm.toInt > 63 then
+  if imm > 63#64 then
     let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
     throw s!"{instrName} immediate out of bounds: must fit in an unsigned 6-bit field [0, 63]"
   else
@@ -319,7 +319,7 @@ def OperationPtr.verifyRISCVneg {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw)
     (operands results : Nat) (imm : BitVec 64) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn operands results
-  if imm.toInt < 0 ∨ 1048575 < imm.toInt then
+  if imm > 1048575#64 then
     let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
     throw s!"{instrName} immediate out of bounds: must fit in an unsigned 20-bit field."
   else

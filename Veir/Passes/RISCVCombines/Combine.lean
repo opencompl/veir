@@ -39,7 +39,7 @@ def right_identity_zero_add_local (ctx : WfIRContext OpCode) (op : OperationPtr)
   let some (lhs, rhs, _) := matchRVAdd op ctx.raw | return (ctx, none)
   let some liOp := rhs.definingOp? | return (ctx, none)
   let some cst := matchRVLi liOp ctx.raw | return (ctx, none)
-  if cst.value.toInt ≠ 0 then return (ctx, none)
+  if cst.value ≠ 0#64 then return (ctx, none)
   some (ctx, some (#[], #[lhs]))
 
 def right_identity_zero_add (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -1487,10 +1487,10 @@ def srlw_sraw_signbit := srl_sra_signbitGen .srliw rfl .sraiw 32
 private def drop_slli_srli_boolGen_local (boolDst : Riscv) (arity : Nat) (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (srliSrc, outerImm) := matchRVSrli op ctx.raw | return (ctx, none)
-  if outerImm.value.toInt ≠ 63 then return (ctx, none)
+  if outerImm.value ≠ 63#64 then return (ctx, none)
   let some slliOp := srliSrc.definingOp? | return (ctx, none)
   let some (slliSrc, innerImm) := matchRVSlli slliOp ctx.raw | return (ctx, none)
-  if innerImm.value.toInt ≠ 63 then return (ctx, none)
+  if innerImm.value ≠ 63#64 then return (ctx, none)
   let some boolOp := slliSrc.definingOp? | return (ctx, none)
   let some (_, _) := matchOp boolOp ctx.raw (OpCode.riscv boolDst) arity | return (ctx, none)
   some (ctx, some (#[], #[slliSrc]))
@@ -1818,7 +1818,7 @@ def drop_sextb_sb := drop_ext_store .sextb .sb
 def li_zero_to_x0_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some cst := matchRVLi op ctx.raw | return (ctx, none)
-  if cst.value.toInt ≠ 0 then return (ctx, none)
+  if cst.value ≠ 0#64 then return (ctx, none)
   /- Nothing to do for a dead `li 0`; leave it for DCE and avoid creating a dead x0. -/
   if !op.hasUses! ctx.raw then return (ctx, none)
   let (ctx, x0Op) ← WfRewriter.createOp! ctx Rv64.get_register
@@ -1874,7 +1874,7 @@ def zextw_li_low32_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (src, _) := matchRVZextw op ctx.raw | return (ctx, none)
   let some srcOp := src.definingOp? | return (ctx, none)
   let some cst := matchRVLi srcOp ctx.raw | return (ctx, none)
-  if cst.value.toInt < 0 ∨ cst.value.toInt ≥ 4294967296 then return (ctx, none)
+  if cst.value ≥ 4294967296#64 then return (ctx, none)
   some (ctx, some (#[], #[src]))
 
 def zextw_li_low32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)

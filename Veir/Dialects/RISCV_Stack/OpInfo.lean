@@ -73,7 +73,7 @@ def Riscv_Stack.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "size must be nonnegative"
     if properties.alignment.toInt ≤ 0 then
       throw "alignment must be a positive power of two"
-    let alignment := properties.alignment.toNat
+    let alignment := properties.alignment
     if alignment &&& (alignment - 1) ≠ 0 then
       throw "alignment must be a positive power of two"
     pure ()
