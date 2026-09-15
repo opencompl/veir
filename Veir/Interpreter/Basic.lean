@@ -667,11 +667,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       | .addr val', .byteType ⟨bw⟩ =>
           if bw = 64 then .ok (.byte 64 val'.toByte) else .fail
       | .addr val', .integerType ⟨bw⟩ =>
-          if bw = 64 then
-            match val' with
-            | .val v => .ok (.int 64 (LLVM.Int.val v.toBitVec))
-            | .poison => .ok (.int 64 .poison)
-          else .fail
+          if bw = 64 then .ok (.int 64 val'.toInt) else .fail
       | _, _ => none
     return (#[result], mem, none)
   | _ => none

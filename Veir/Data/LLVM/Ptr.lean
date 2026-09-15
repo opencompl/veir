@@ -2,6 +2,7 @@ module
 
 public import Veir.Data.LLVM.Byte.Basic
 
+import all Veir.Data.LLVM.Int.Bitblast
 import all Veir.Data.LLVM.Byte.Basic
 
 namespace Veir.Data.LLVM
@@ -47,18 +48,35 @@ theorem eq_of_val_isRefinedBy {p : UInt64} {q : Ptr}
     (h : Ptr.val p ⊒ q) : q = .val p := by
   cases q <;> simp_all
 
+@[simp, grind =]
+def toInt (p : Ptr) : Int 64 :=
+  match p with
+  | .val p => .val p.toBitVec
+  | .poison => .poison
+
+@[simp, grind =]
+def ofInt (i : Int 64) : Ptr :=
+  match i with
+  | .val v => .val (UInt64.ofBitVec v)
+  | .poison => .poison
+
+@[simp, grind =]
+theorem ofInt_toInt (p : Ptr) : ofInt p.toInt = p := by
+  cases p <;> simp
+
+@[simp, grind =]
+theorem toInt_ofInt (i : Int 64) : (ofInt i).toInt = i := by
+  cases i <;> simp
+
 /-- The pointer whose bits are `b`, poison if any bit is poison. -/
-def ofByte (b : Byte 64) : Ptr :=
-  if b.poison = 0 then .val b.toUInt64 else .poison
+def ofByte (b : Byte 64) : Ptr := ofInt b.toInt
 
 /-- The bits of a pointer: all poison for a poison pointer. -/
-def toByte : Ptr → Byte 64
-  | .val p => Byte.fromUInt64 p
-  | .poison => Byte.allPoison
+def toByte (p : Ptr) : Byte 64 := Byte.fromInt p.toInt
 
 @[simp, grind =]
 theorem ofByte_toByte (p : Ptr) : ofByte p.toByte = p := by
-  cases p <;> simp [ofByte, toByte, Byte.toUInt64, Byte.allPoison]
+  cases p <;> simp [ofByte, toByte, Byte.toInt, Byte.fromInt, Int.isPoison, Int.getValue]
 
 /-- Prints as `ptr(0x…)`, so a pointer is told apart from an integer in program output. -/
 instance : ToString Ptr where
