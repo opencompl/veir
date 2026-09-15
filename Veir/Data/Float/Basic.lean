@@ -22,6 +22,8 @@ public section
   - hasInf: whether Infinity is expressible.
   - hasNaN: whether NaN is expressible.
   - hasNegZero: whether -0.0 is expressible.
+  - explicitLeadingBit: whether the mantissa field stores the leading bit of
+    the significand, as x87 extended precision does, instead of implying it.
 -/
 structure FloatFormat where
   mantissa : Nat
@@ -30,6 +32,7 @@ structure FloatFormat where
   hasInf : Bool := true
   hasNaN : Bool := true
   hasNegZero : Bool := true
+  explicitLeadingBit : Bool := false
   canonicalName : String
 deriving Inhabited, Repr, DecidableEq, Hashable
 
@@ -162,15 +165,53 @@ def ofUnpackedFloat (format : FloatFormat) (uf : UnpackedFloat)
       pf.cast (by simp)
 
 /--
+Pack an `UnpackedFloat` into a format whose mantissa field stores the leading
+bit of the significand explicitly, such as x87 extended precision. The
+significand is rounded to `format.mantissa` bits and stored whole, so a normal
+number has its top mantissa bit set; infinity and NaN set that bit as well, as
+x87 requires.
+-/
+def ofUnpackedFloatExplicit (format : FloatFormat) (uf : UnpackedFloat) : FloatValue format :=
+  let signBit : _root_.Float.Model.UnpackedFloat.Sign → BitVec 1
+    | .negative => 1#1
+    | .positive => 0#1
+  let pack (s : _root_.Float.Model.UnpackedFloat.Sign) (e : BitVec format.exponent) (m : BitVec format.mantissa) :
+      FloatValue format :=
+    .ofBits (signBit s ++ e ++ m)
+  let leadingBit : BitVec format.mantissa := 1#format.mantissa <<< (format.mantissa - 1)
+  match uf with
+  | .notANumber => pack .positive (-1#_) (leadingBit ||| leadingBit >>> 1)
+  | .infinity s => pack s (-1#_) leadingBit
+  | .zero s => pack s 0#_ 0#_
+  | .finite s m e _ =>
+    let biasedExponent := (e + format.bias + (format.mantissa - 1)).toNat
+    if biasedExponent + 1 ≥ 2 ^ format.exponent then
+      pack s (-1#_) leadingBit
+    else if m.log2 + 1 = format.mantissa then
+      pack s (BitVec.ofNat _ biasedExponent) (BitVec.ofNat _ m)
+    else
+      pack s 0#_ (BitVec.ofNat _ m)
+
+/--
 The value of `(-1)^negative * significand * 10^exponent` in `format`.
 
 Converts a base-10 float to the exact IEEE-754 bit pattern of `format`,
-using round-to-nearest, ties-to-even. 
+using round-to-nearest, ties-to-even.
 -/
 def ofScientific (format : FloatFormat)
     (negative : Bool) (significand : Nat) (exponent : Int) : FloatValue format :=
   if hty : format.mantissa = 0 ∨ format.exponent = 0 then
     .ofBits 0#_
+  else if format.explicitLeadingBit then
+    if hm : format.mantissa - 1 = 0 then
+      .ofBits 0#_
+    else
+      let leanFormat : _root_.Float.Model.Format :=
+        { exponentBits := format.exponent, mantissaBitsWithoutImplicit := format.mantissa - 1,
+          hm := by omega, he := by omega }
+      let uf := UnpackedFloat.ofScientific leanFormat significand exponent
+      let uf := if negative then uf.neg else uf
+      .ofUnpackedFloatExplicit format uf
   else
     let uf := UnpackedFloat.ofScientific format.toLeanFormat significand exponent
     let uf := if negative then uf.neg else uf
@@ -182,6 +223,9 @@ def FloatFormat.f16 : FloatFormat := { exponent := 5, mantissa := 10, bias := 15
 def FloatFormat.f32 : FloatFormat := { exponent := 8, mantissa := 23, bias := 127, canonicalName := "f32" }
 def FloatFormat.f64 : FloatFormat := { exponent := 11, mantissa := 52, bias := 1023, canonicalName := "f64" }
 def FloatFormat.bf16 : FloatFormat := { exponent := 8, mantissa := 7, bias := 127, canonicalName := "bf16" }
+def FloatFormat.f80 : FloatFormat :=
+  { exponent := 15, mantissa := 64, bias := 16383, explicitLeadingBit := true, canonicalName := "f80" }
+def FloatFormat.f128 : FloatFormat := { exponent := 15, mantissa := 112, bias := 16383, canonicalName := "f128" }
 def FloatFormat.f8E5M2 : FloatFormat := { exponent := 5, mantissa := 2, bias := 15, canonicalName := "f8E5M2" }
 
 -- FN (finite only). No infinity, non-standard NaN.
