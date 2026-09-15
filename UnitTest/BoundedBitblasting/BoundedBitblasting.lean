@@ -138,3 +138,15 @@ example (w v : Nat) (x y : BitVec w) (hw : w ≤ 4) (hv : v ≤ 4) (h : w + w < 
   x + y = y + x := by
   pbv_decide 4
   · bv_decide
+
+/-- Appending to a bitvector of literal width -/
+example (w : Nat) (x : BitVec w) (hw : w ≤ 10) :
+  0#4 ++ x = x.zeroExtend (4 + w) := by
+  pbv_decide 10
+  · bv_decide
+
+/-- Zero-extending by a literal amount preserves the value -/
+example (w : Nat) (x : BitVec w) (hw : w ≤ 8) :
+  (x.zeroExtend (w + 2)).setWidth w = x := by
+  pbv_decide 8
+  · bv_decide

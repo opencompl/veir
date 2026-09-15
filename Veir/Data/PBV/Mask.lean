@@ -15,7 +15,7 @@ namespace Veir.Data.PBV
 public section
 
 /-- `maskOfWidth o w : BitVec o` has its low `w` bits set. -/
-def maskOfWidth (o w : Nat) : BitVec o := BitVec.ofNat o (2 ^ w - 1)
+@[expose] def maskOfWidth (o w : Nat) : BitVec o := BitVec.ofNat o (2 ^ w - 1)
 
 theorem toNat_maskOfWidth {o w : Nat} (h : w ≤ o) :
     (maskOfWidth o w).toNat = 2 ^ w - 1 := by
