@@ -78,7 +78,7 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
     { outOperandList := #[.type 0]
       inOperandList := #[.type 1, .type 1] }
 
-private def OperationPtr.verifyGMIRICmp {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpInfo GMIR]
+private def OperationPtr.verifyGMIRICmp {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
