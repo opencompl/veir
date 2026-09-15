@@ -73,7 +73,7 @@ that represents IEEE-style floating point formats.
 -/
 abbrev toFormat (type : FloatType)
     (hm : 0 < type.mantissa := by grind)
-    (he : 0 < type.exponent := by grind) : Float.Model.Format :=
+    (he : 2 ≤ type.exponent := by grind) : Float.Model.Format :=
   type.format.toLeanFormat hm he
 
 def f16 : FloatType := { format := .f16 }
