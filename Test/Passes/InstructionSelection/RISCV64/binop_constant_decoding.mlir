@@ -1,7 +1,5 @@
 // RUN: veir-opt %s -p=isel-sdag-riscv64 | filecheck %s
 
-// Immediate arithmetic, masks, and shifts use the typed constant value.
-// Cover extension from the attribute width and truncation to the result width.
 "builtin.module"() ({
   "func.func"() <{sym_name = "binop_constants", function_type = (i64, i32) -> (i64, i64, i64, i32)}> ({
   ^bb0(%x: i64, %y: i32):

@@ -59,9 +59,6 @@ def matchConstantIntOp (op : OperationPtr) (ctx : IRContext OpCode) :
   let .integer intAttr := properties.value | none
   return intAttr
 
-/-- Match an LLVM constant's signed value. Decode at the attribute width
-(zero-extending i1), then truncate to the result width. At i1, true is -1;
-use `isConstantOne` to recognize the multiplicative identity at any width. -/
 def matchConstantIntVal (val : ValuePtr) (ctx : IRContext OpCode) :
     Option Int := do
   let .opResult opResultPtr := val | none
