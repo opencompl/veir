@@ -107,8 +107,7 @@ def right_identity_zero_6 (rewriter : PatternRewriter OpCode) (op : OperationPtr
 def right_identity_one_int_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (x, rhs, _props) := matchMul op ctx.raw | return (ctx, none)
-  let some cst := matchConstantIntVal rhs ctx.raw | return (ctx, none)
-  if cst ≠ 1 then return (ctx, none)
+  if !isConstantOne rhs ctx.raw then return (ctx, none)
   some (ctx, some (#[], #[x]))
 
 def right_identity_one_int (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -182,15 +181,16 @@ def binop_right_to_zero (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 
 def mul_by_neg_one_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (x, rhs, _props) := matchMul op ctx.raw | return (ctx, none)
+  let some (x, rhs, props) := matchMul op ctx.raw | return (ctx, none)
   let some cst := matchConstantIntVal rhs ctx.raw | return (ctx, none)
   if cst ≠ -1 then return (ctx, none)
   let .integerType ctype := (x.getType! ctx.raw).val | return (ctx, none)
   let cstOpProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) ctype))
   let (ctx, cstOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[x.getType! ctx.raw] #[]
     #[] #[] cstOpProp none
+  -- Multiplying 1 by all-ones does not overflow unsigned, but 0 - 1 does.
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[x.getType! ctx.raw] #[(cstOp.getResult 0), x]
-    #[] #[] _props none
+    #[] #[] { props with nuw := false } none
   some (ctx, some (#[cstOp, newOp], #[newOp.getResult 0]))
 
 def mul_by_neg_one (rewriter : PatternRewriter OpCode) (op : OperationPtr)
