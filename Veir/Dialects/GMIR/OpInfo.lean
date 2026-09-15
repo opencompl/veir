@@ -59,10 +59,10 @@ This replicates the type-group information in LLVM's `GenericOpcodes.td`
 
 Immediate operands and operands with LLVM's `unknown` (special) type are omitted and represented
 as operation properties instead.
+Operands/results of the same type group must have the same concrete type.
 -/
 inductive TypeGroup where
-| type (id : Nat)
-| ptype (id : Nat)
+| type (group_id : Nat)
 deriving Inhabited, Repr, BEq, DecidableEq, Hashable
 
 structure GenericOpInfo where
@@ -78,7 +78,7 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
     { outOperandList := #[.type 0]
       inOperandList := #[.type 1, .type 1] }
 
-def OperationPtr.verifyGMIRICmp {OpInfo : Type} [IsOpCode OpInfo]
+private def OperationPtr.verifyGMIRICmp {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpInfo GMIR]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
