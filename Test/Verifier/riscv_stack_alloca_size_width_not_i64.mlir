@@ -7,4 +7,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: error: alloca: expected 'size' to be a 64-bit signless integer attribute, but got i32
+// CHECK: error: alloca: expected 'size' to be a 64-bit integer attribute, but got i32

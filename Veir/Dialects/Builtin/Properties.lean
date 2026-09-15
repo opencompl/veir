@@ -35,7 +35,7 @@ def getI64Attr (what key : String) (attrDict : Std.HashMap ByteArray Attribute) 
   let .integerAttr intAttr := attr
     | throw s!"{what}: expected '{key}' to be an integer attribute, but got {attr}"
   if intAttr.type.bitwidth ≠ 64 then
-    throw s!"{what}: expected '{key}' to be a 64-bit signless integer attribute, but got i{intAttr.type.bitwidth}"
+    throw s!"{what}: expected '{key}' to be a 64-bit integer attribute, but got i{intAttr.type.bitwidth}"
   if intAttr.value < -(2 ^ 63) ∨ 2 ^ 64 ≤ intAttr.value then
     throw s!"{what}: '{key}' value {intAttr.value} does not fit in i64"
   return BitVec.ofInt 64 intAttr.value

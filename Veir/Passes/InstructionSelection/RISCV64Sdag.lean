@@ -221,7 +221,7 @@ def sltiEmitLocal (op : OperationPtr) (lhs : ValuePtr) (dst : Riscv)
   let (ctx, cmpOp) ← WfRewriter.createOp! ctx dst #[RegisterType.mk] #[xCastOp.getResult 0]
       #[] #[] (cast h.symm immProps) none
   if wrap then
-    let one := RISCVImmediateProperties.mk (BitVec.ofInt 64 1)
+    let one := RISCVImmediateProperties.mk 1#64
     let (ctx, xorOp) ← WfRewriter.createOp! ctx Riscv.xori #[RegisterType.mk] #[cmpOp.getResult 0]
         #[] #[] one none
     let (ctx, castBackOp) ← replaceWithRegLocal ctx op (xorOp.getResult 0)
@@ -439,7 +439,7 @@ def zext_1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   /- First, cast the operand to registers -/
   let (ctx, opCastOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[RegisterType.mk] #[operand]
       #[] #[] () none
-  let imm := RISCVImmediateProperties.mk (BitVec.ofInt 64 1)
+  let imm := RISCVImmediateProperties.mk 1#64
   let (ctx, andiOp) ← WfRewriter.createOp! ctx Riscv.andi #[RegisterType.mk] #[opCastOp.getResult 0]
       #[] #[] imm none
   let (ctx, castOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[t] #[andiOp.getResult 0]
@@ -462,7 +462,7 @@ def sext_1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   /- First, cast the operand to registers -/
   let (ctx, opCastOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[RegisterType.mk] #[operand]
       #[] #[] () none
-  let imm := RISCVImmediateProperties.mk (BitVec.ofInt 64 63)
+  let imm := RISCVImmediateProperties.mk 63#64
   let (ctx, slliOp) ← WfRewriter.createOp! ctx Riscv.slli #[RegisterType.mk] #[opCastOp.getResult 0]
       #[] #[] imm none
   let (ctx, sraiOp) ← WfRewriter.createOp! ctx Riscv.srai #[RegisterType.mk] #[slliOp.getResult 0]
@@ -542,7 +542,7 @@ def udivwPow2 := RewritePattern.fromLocalRewrite (udivPow2GenLocal .srliw rfl 32
 def negateRegLocal (negDst : Riscv) (h : Riscv.propertiesOf negDst = Unit)
     (ctx : WfIRContext OpCode) (x : ValuePtr) :
     Option (WfIRContext OpCode × Array OperationPtr × OperationPtr) := do
-  let zero := RISCVImmediateProperties.mk (BitVec.ofInt 64 0)
+  let zero := RISCVImmediateProperties.mk 0#64
   let (ctx, zeroOp) ← WfRewriter.createOp! ctx Riscv.li #[RegisterType.mk] #[]
       #[] #[] zero none
   let (ctx, negOp) ← WfRewriter.createOp! ctx negDst #[RegisterType.mk] #[zeroOp.getResult 0, x]

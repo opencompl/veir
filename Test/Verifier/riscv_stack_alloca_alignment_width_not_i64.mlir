@@ -9,4 +9,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: error: alloca: expected 'alignment' to be a 64-bit signless integer attribute, but got i16
+// CHECK: error: alloca: expected 'alignment' to be a 64-bit integer attribute, but got i16

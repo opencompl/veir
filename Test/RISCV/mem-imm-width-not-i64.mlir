@@ -8,4 +8,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: error: RISC-V memory operation: expected 'value' to be a 64-bit signless integer attribute, but got i12
+// CHECK: error: RISC-V memory operation: expected 'value' to be a 64-bit integer attribute, but got i12

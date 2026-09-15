@@ -6,4 +6,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: llvm.mlir.global: 'alignment' must be a 64-bit signless integer attribute
+// CHECK: llvm.mlir.global: 'alignment' must be a 64-bit integer attribute
