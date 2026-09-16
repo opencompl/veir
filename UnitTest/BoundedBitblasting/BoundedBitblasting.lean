@@ -184,3 +184,77 @@ example (w : Nat) (x y : BitVec w) (a b : BitVec 4) (hw : w ≤ 2) :
   x + y = y + x ∧ a + b = b + a := by
   pbv_decide 2
   · bv_decide
+
+/-- A literal in a hypothesis equal to the blast width is still translated. -/
+example (w : Nat) (x y : BitVec w) (hw : w ≤ 4) (h : w < 4) :
+  x + y = y + x := by
+  pbv_decide 4
+  · bv_decide
+
+/--
+A conjunction containing a literal greater than the blast width. The whole
+hypothesis is ignored; the remaining conjunct still bounds the width.
+-/
+example (w : Nat) (x y : BitVec w) (h : w ≤ 4 ∧ w < 9) :
+  x + y = y + x := by
+  pbv_decide 4
+  · bv_decide
+
+/-- A `BitVec` variable whose width is a raw natural number literal. -/
+example (w : Nat) (x y : BitVec w) (a b : BitVec (nat_lit 4)) (hw : w ≤ 4) :
+  x + y = y + x ∧ a + b = b + a := by
+  pbv_decide 4
+  · bv_decide
+
+/-- A `BitVec` variable of width zero. -/
+example (w : Nat) (x : BitVec w) (z : BitVec 0) (hw : w ≤ 4) :
+  x ++ z = x ++ 0#0 := by
+  pbv_decide 4
+  · bv_decide
+
+/-- The same literal width both as a variable width and in a hypothesis. -/
+example (w : Nat) (x : BitVec w) (a : BitVec 4) (hw : w ≤ 4) :
+  (a ++ x).setWidth w = x := by
+  pbv_decide 4
+  · bv_decide
+
+/-- Sign extension to a literal width below the blast width. -/
+example (w : Nat) (x : BitVec w) (hw : w ≤ 2) :
+  (x.signExtend 3).setWidth w = x := by
+  pbv_decide 4
+  · bv_decide
+
+/--
+Sign extension to a literal width equal to the blast width. The `setWidth` to
+the blast width around the sign extension must not be simplified away before
+the sign extension is pushed.
+-/
+example (w : Nat) (x : BitVec w) (hw : w ≤ 2) :
+  (x.signExtend 4).setWidth w = x := by
+  pbv_decide 4
+  · bv_decide
+
+/--
+A hypothesis with a sum of a width and a literal on the larger side. The sum
+cannot be bounded by the blast width, so the hypothesis should not introduce
+an unprovable bound obligation.
+-/
+example (w : Nat) (x y : BitVec w) (hw : w ≤ 4) (h : 1 ≤ w + 2) :
+  x + y = y + x := by
+  pbv_decide 4
+  · bv_decide
+
+/-- The same as above, with a sum of width variables. -/
+example (w v : Nat) (x y : BitVec w) (hw : w ≤ 4) (hv : v ≤ 4) (h : v ≤ w + v) :
+  x + y = y + x := by
+  pbv_decide 4
+  · bv_decide
+
+/--
+A `BitVec` variable whose width is a sum with a literal. Its width should be
+reified as a sum, not treated as an atom bounded by the bound.
+-/
+example (w : Nat) (x y : BitVec (w + 2)) (hw : w ≤ 4) :
+  x + y = y + x := by
+  pbv_decide 4
+  · bv_decide
