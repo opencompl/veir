@@ -40,19 +40,18 @@ meta def TmWidthEnv.push (this : TmWidthEnv) (width : Expr) : TmWidthEnv :=
 
 /--
 Traverse the local context to extract the width 'atoms' that make up width
-expressions. These are either width `Expr`s coming from `BitVec w` or
-`Nat` variables in the local context.
+expressions. These are either width `Expr`s coming from `BitVec w` (unless w is
+a numeric literal) or `Nat` variables in the local context.
 -/
 meta def createWidthEnv (g : MVarId) : MetaM TmWidthEnv := g.withContext do
-  (← getLCtx).foldrM (init := {}) fun ldecl (widthEnv : TmWidthEnv) => do
-      if let some width := getBitvecType? ldecl.type then
-        let some _ := widthEnv.width2expr.idxOf? width | pure <| widthEnv.push width
-        pure widthEnv
-      else
-        if Expr.isNat ldecl.type then
-          pure <| widthEnv.push ldecl.toExpr
-        else
-          pure widthEnv
+  (← getLCtx).foldrM (init := {}) fun ldecl widthEnv => do
+    if let some width := getBitvecType? ldecl.type then
+      if width.nat?.isSome || widthEnv.width2expr.contains width then
+        return widthEnv
+      return widthEnv.push width
+    if Expr.isNat ldecl.type then
+      return widthEnv.push ldecl.toExpr
+    return widthEnv
 
 /--
 Type to capture the expressions this tactic handles: `Nat` width terms and
