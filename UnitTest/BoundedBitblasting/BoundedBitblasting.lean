@@ -151,36 +151,77 @@ example (w : Nat) (x : BitVec w) (hw : w ≤ 8) :
   pbv_decide 8
   · bv_decide
 
-/--
-A literal in a width hypothesis that exceeds the blast width. The hypothesis
-cannot be translated into a mask fact at this blast width, so it should be
-ignored rather than producing an invalid `decide` proof.
--/
+/-- A hypothesis containing a literal above the blast width -/
 example (w : Nat) (x y : BitVec w) (hw : w ≤ 4) (h : w < 9) :
   x + y = y + x := by
   pbv_decide 4
   · bv_decide
 
-/--
-Appending a bitvector of literal width as the low part. Pushing `setWidth`
-through the append needs the literal width to be bounded by the blast width.
--/
+/-- Appending a literal-width bitvector as the low part -/
 example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
   x ++ 0#2 = (x ++ 0#1) ++ 0#1 := by
   pbv_decide 4
   · bv_decide
 
-/-- Equality at a literal width needs the literal to be bounded by the blast width. -/
+/-- Equality at a literal width -/
 example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
   (x ++ 0#2).setWidth 2 = 0#2 := by
   pbv_decide 4
   · bv_decide
 
-/--
-A `BitVec` variable of literal width whose width exceeds the bound. Its width
-should be treated as a literal, not as an atom bounded by the bound.
--/
+/-- A variable of literal width above the bound -/
 example (w : Nat) (x y : BitVec w) (a b : BitVec 4) (hw : w ≤ 2) :
   x + y = y + x ∧ a + b = b + a := by
   pbv_decide 2
+  · bv_decide
+
+/-- A conjunction with a literal above the blast width -/
+example (w : Nat) (x y : BitVec w) (h : w ≤ 4 ∧ w < 9) :
+  x + y = y + x := by
+  pbv_decide 4
+  · bv_decide
+
+/-- A variable whose width is a raw `nat_lit` -/
+example (w : Nat) (x y : BitVec w) (a b : BitVec (nat_lit 4)) (hw : w ≤ 4) :
+  x + y = y + x ∧ a + b = b + a := by
+  pbv_decide 4
+  · bv_decide
+
+/-- A variable of width zero -/
+example (w : Nat) (x : BitVec w) (z : BitVec 0) (hw : w ≤ 4) :
+  x ++ z = x ++ 0#0 := by
+  pbv_decide 4
+  · bv_decide
+
+/-- The same literal as a variable width and in a hypothesis -/
+example (w : Nat) (x : BitVec w) (a : BitVec 4) (hw : w ≤ 4) :
+  (a ++ x).setWidth w = x := by
+  pbv_decide 4
+  · bv_decide
+
+/-- Sign extension to a literal width below the blast width -/
+example (w : Nat) (x : BitVec w) (hw : w ≤ 2) :
+  (x.signExtend 3).setWidth w = x := by
+  pbv_decide 4
+  · bv_decide
+
+-- Expected failure: at the blast width, the `setWidth` around `signExtend` is simplified away before `signExtend` is pushed
+#guard_msgs (drop warning) in
+example (w : Nat) (x : BitVec w) (hw : w ≤ 2) :
+  (x.signExtend 4).setWidth w = x := by
+  fail_if_success
+    pbv_decide 4
+    · bv_decide
+  sorry
+
+/-- A sum with a literal on the larger side of a hypothesis -/
+example (w : Nat) (x y : BitVec w) (hw : w ≤ 4) (h : 1 ≤ w + 2) :
+  x + y = y + x := by
+  pbv_decide 4
+  · bv_decide
+
+/-- A variable whose width is a sum with a literal -/
+example (w : Nat) (x y : BitVec (w + 2)) (hw : w ≤ 4) :
+  x + y = y + x := by
+  pbv_decide 6 -- Need to extend the bound to account for the w + 2
   · bv_decide

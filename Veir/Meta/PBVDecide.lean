@@ -82,6 +82,8 @@ meta partial def Tm.reifyWidth (env : TmWidthEnv) (e : Expr) : MetaM (Option (Tm
   if let some id := env.width2expr.idxOf? e then
     -- An atom is an expression that is present in the Env.
     return some (.widthAtom id)
+  else if let some val := e.nat? then
+    return some (widthLit val)
   else
     match_expr e with
     | HAdd.hAdd ty _ _ _ ae be =>
@@ -89,10 +91,6 @@ meta partial def Tm.reifyWidth (env : TmWidthEnv) (e : Expr) : MetaM (Option (Tm
         let some a ← Tm.reifyWidth env ae | pure none
         let some b ← Tm.reifyWidth env be | pure none
         return some (widthAdd a b)
-    | OfNat.ofNat ty valExpr _ =>
-        let true := Expr.isNat ty | return none
-        let some val := valExpr.rawNatLit? | return none
-        return some (widthLit val)
     | _ => return none
 
 /--
@@ -633,8 +631,6 @@ meta def runGrindOnSubgoals (g : MVarId) (infos : WidthInfos) : MetaM (List MVar
                       return result)
                     <| List.reduceOption
                     <| infos.infos.values.map (·.hypWidthLeBoundMVarId)
-  -- for remainingSubgoal in subgoals do
-  --   logWarning m!"`grind` could not prove the following : {remainingSubgoal}"
   return subgoals
 
 meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVarId)
