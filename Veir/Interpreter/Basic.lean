@@ -1292,9 +1292,9 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     | .registerType _, [.byte _bw val] =>
       return (#[.reg (LLVM.Byte.toReg val)], mem, none)
     | .registerType _, [.addr val] =>
-      /- A register has no poison to carry, so a poison pointer cannot be cast into one. -/
-      let .val val := val | Interp.fail
-      return (#[.reg ⟨val.toNat⟩], mem, none)
+      /- A register has no poison to carry. Like a poison integer, a poison pointer
+         may become any register value; the interpreter picks 0. -/
+      return (#[.reg (LLVM.Int.toReg val.toInt)], mem, none)
     | .integerType _bw, [.reg val] =>
       let .integerType resBw := resType.val | none
       return (#[.int resBw.bitwidth (RISCV.Reg.toInt val resBw.bitwidth)], mem, none)

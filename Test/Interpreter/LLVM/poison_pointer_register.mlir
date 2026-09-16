@@ -1,6 +1,7 @@
-// RUN: not veir-interpret %s 2>&1 | filecheck %s
+// RUN: veir-interpret %s | filecheck %s
 
-// Moving a poison pointer into a riscv register is not yet supported.
+// A register has no poison, so a poison pointer may be cast to any register
+// value. The interpreter picks 0, as it does for a poison integer.
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> !riscv.reg}> ({
@@ -10,4 +11,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Error while interpreting module
+// CHECK: Program output: #[0x0000000000000000#64]
