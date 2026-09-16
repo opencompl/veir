@@ -150,3 +150,37 @@ example (w : Nat) (x : BitVec w) (hw : w ≤ 8) :
   (x.zeroExtend (w + 2)).setWidth w = x := by
   pbv_decide 8
   · bv_decide
+
+/--
+A literal in a width hypothesis that exceeds the blast width. The hypothesis
+cannot be translated into a mask fact at this blast width, so it should be
+ignored rather than producing an invalid `decide` proof.
+-/
+example (w : Nat) (x y : BitVec w) (hw : w ≤ 4) (h : w < 9) :
+  x + y = y + x := by
+  pbv_decide 4
+  · bv_decide
+
+/--
+Appending a bitvector of literal width as the low part. Pushing `setWidth`
+through the append needs the literal width to be bounded by the blast width.
+-/
+example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
+  x ++ 0#2 = (x ++ 0#1) ++ 0#1 := by
+  pbv_decide 4
+  · bv_decide
+
+/-- Equality at a literal width needs the literal to be bounded by the blast width. -/
+example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
+  (x ++ 0#2).setWidth 2 = 0#2 := by
+  pbv_decide 4
+  · bv_decide
+
+/--
+A `BitVec` variable of literal width whose width exceeds the bound. Its width
+should be treated as a literal, not as an atom bounded by the bound.
+-/
+example (w : Nat) (x y : BitVec w) (a b : BitVec 4) (hw : w ≤ 2) :
+  x + y = y + x ∧ a + b = b + a := by
+  pbv_decide 2
+  · bv_decide
