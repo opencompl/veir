@@ -28,5 +28,6 @@
 // The `sh3add` that would have scaled the index is gone: both accesses address
 // the alloca directly at offset 24.
 // ISEL-NOT: riscv.sh3add
-// ISEL:     "riscv.sd"({{.*}}, {{.*}}) <{"value" = 24 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// ISEL:     {{.*}} = "riscv.ld"({{.*}}) <{"value" = 24 : i64}> : (!riscv.reg) -> !riscv.reg
+// ISEL:     %[[ARRAY:.*]] = "riscv_stack.alloca"() <{"alignment" = 8 : i64, "size" = 64 : i64}> : () -> !riscv.reg
+// ISEL:     "riscv.sd"({{.*}}, %[[ARRAY]]) <{"value" = 24 : i64}> : (!riscv.reg, !riscv.reg) -> ()
+// ISEL:     {{.*}} = "riscv.ld"(%[[ARRAY]]) <{"value" = 24 : i64}> : (!riscv.reg) -> !riscv.reg

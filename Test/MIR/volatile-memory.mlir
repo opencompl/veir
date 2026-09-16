@@ -6,19 +6,19 @@
 "builtin.module"() ({
   "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> i64, sym_name = "main"}> ({
   ^bb0(%addr: !riscv.reg, %val: !riscv.reg):
-    %ld = "riscv.ld"(%addr) <{"value" = 0 : i12, volatile_}> : (!riscv.reg) -> !riscv.reg
-    %lw = "riscv.lw"(%addr) <{"value" = 4 : i12, volatile_}> : (!riscv.reg) -> !riscv.reg
-    %lwu = "riscv.lwu"(%addr) <{"value" = 8 : i12, volatile_}> : (!riscv.reg) -> !riscv.reg
-    %lh = "riscv.lh"(%addr) <{"value" = 12 : i12, volatile_}> : (!riscv.reg) -> !riscv.reg
-    %lhu = "riscv.lhu"(%addr) <{"value" = 14 : i12, volatile_}> : (!riscv.reg) -> !riscv.reg
-    %lb = "riscv.lb"(%addr) <{"value" = 16 : i12, volatile_}> : (!riscv.reg) -> !riscv.reg
-    %lbu = "riscv.lbu"(%addr) <{"value" = 17 : i12, volatile_}> : (!riscv.reg) -> !riscv.reg
-    "riscv.sd"(%val, %addr) <{"value" = 0 : i12, volatile_}> : (!riscv.reg, !riscv.reg) -> ()
-    "riscv.sw"(%val, %addr) <{"value" = 8 : i12, volatile_}> : (!riscv.reg, !riscv.reg) -> ()
-    "riscv.sh"(%val, %addr) <{"value" = 12 : i12, volatile_}> : (!riscv.reg, !riscv.reg) -> ()
-    "riscv.sb"(%val, %addr) <{"value" = 16 : i12, volatile_}> : (!riscv.reg, !riscv.reg) -> ()
-    %plain = "riscv.ld"(%addr) <{"value" = 24 : i12}> : (!riscv.reg) -> !riscv.reg
-    "riscv.sd"(%val, %addr) <{"value" = 32 : i12}> : (!riscv.reg, !riscv.reg) -> ()
+    %ld = "riscv.ld"(%addr) <{"value" = 0 : i64, volatile_}> : (!riscv.reg) -> !riscv.reg
+    %lw = "riscv.lw"(%addr) <{"value" = 4 : i64, volatile_}> : (!riscv.reg) -> !riscv.reg
+    %lwu = "riscv.lwu"(%addr) <{"value" = 8 : i64, volatile_}> : (!riscv.reg) -> !riscv.reg
+    %lh = "riscv.lh"(%addr) <{"value" = 12 : i64, volatile_}> : (!riscv.reg) -> !riscv.reg
+    %lhu = "riscv.lhu"(%addr) <{"value" = 14 : i64, volatile_}> : (!riscv.reg) -> !riscv.reg
+    %lb = "riscv.lb"(%addr) <{"value" = 16 : i64, volatile_}> : (!riscv.reg) -> !riscv.reg
+    %lbu = "riscv.lbu"(%addr) <{"value" = 17 : i64, volatile_}> : (!riscv.reg) -> !riscv.reg
+    "riscv.sd"(%val, %addr) <{"value" = 0 : i64, volatile_}> : (!riscv.reg, !riscv.reg) -> ()
+    "riscv.sw"(%val, %addr) <{"value" = 8 : i64, volatile_}> : (!riscv.reg, !riscv.reg) -> ()
+    "riscv.sh"(%val, %addr) <{"value" = 12 : i64, volatile_}> : (!riscv.reg, !riscv.reg) -> ()
+    "riscv.sb"(%val, %addr) <{"value" = 16 : i64, volatile_}> : (!riscv.reg, !riscv.reg) -> ()
+    %plain = "riscv.ld"(%addr) <{"value" = 24 : i64}> : (!riscv.reg) -> !riscv.reg
+    "riscv.sd"(%val, %addr) <{"value" = 32 : i64}> : (!riscv.reg, !riscv.reg) -> ()
     %ret = "builtin.unrealized_conversion_cast"(%ld) : (!riscv.reg) -> i64
     "func.return"(%ret) : (i64) -> ()
   }) : () -> ()

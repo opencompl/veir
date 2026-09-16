@@ -49,7 +49,7 @@
   "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "andi_zero"}> ({
     ^bb0(%x : !riscv.reg):
       // CHECK-LABEL: func.func @andi_zero(%{{.*}}: !riscv.reg) -> !riscv.reg
-      %and = "riscv.andi"(%x) <{"value" = 0 : i12}> : (!riscv.reg) -> !riscv.reg
+      %and = "riscv.andi"(%x) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
       // CHECK: %[[ZERO:.*]] = "riscv.li"() <{"value" = 0 : i64}> : () -> !riscv.reg
       // CHECK-NEXT: "func.return"(%[[ZERO]]) : (!riscv.reg) -> ()
       "func.return"(%and) : (!riscv.reg) -> ()

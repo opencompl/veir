@@ -27,7 +27,7 @@
 
   "func.func"() <{function_type = () -> !riscv.reg, sym_name = "riscv_addi"}> ({
     %c41 = "riscv.li"() <{"value" = 41 : i64}> : () -> !riscv.reg
-    %answer = "riscv.addi"(%c41) <{"value" = 1 : i12}> : (!riscv.reg) -> !riscv.reg
+    %answer = "riscv.addi"(%c41) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
     // CHECK-LABEL: func.func @riscv_addi
     // CHECK: %[[C42:.*]] = "riscv.li"() <{"value" = 42 : i64}> : () -> !riscv.reg
     // CHECK-NEXT: "func.return"(%[[C42]]) : (!riscv.reg) -> ()

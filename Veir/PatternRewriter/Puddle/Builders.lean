@@ -24,19 +24,20 @@ variable {OpInfo : Type} [HasOpInfo OpInfo]
 `MatchProg.Builder` provides a monadic interface for authoring the matching phase of a Puddle
 pattern. Each builder operation adds one constraint and returns fresh handles for later constraints
 or for export to the following phases. Although the source reads from leaves to root, declarations
-are prepended so the finished program can be interpreted from root to leaves.
+are prepended so the finished program can be interpreted from root to leaves, with native guards
+deferred at the end.
 -/
 
 /-- Internal accumulator used by `MatchProg.Builder`. -/
 structure MatchProg.BuilderState where
   /-- The next free identifier for a handle. -/
   nextId : Nat := 0
-  /-- Non-root declarations in interpreter order. -/
+  /-- Structural declarations in reverse authoring order. -/
   decls : List (MatchDecl OpCode) := []
+  /-- Native guards in reverse authoring order, appended after structural declarations at build time. -/
+  guardDecls : List (MatchDecl OpCode) := []
   /-- The most recently designated root. -/
   root? : Option (Handle OpCode .op) := none
-  /-- Operation constraints created by root designations. -/
-  rootConstraints : List (MatchDecl OpCode) := []
   /-- Number of root designations, used to reject missing or duplicate roots structurally. -/
   numRoots : Nat := 0
 
@@ -140,17 +141,15 @@ protected def MatchProg.matchNative {Inputs : Type} [IsMetadataTuple OpCode Inpu
   ⟨fun state =>
     ((), {
       state with
-      /- Match declarations normally execute in reverse authoring order. A guard consumes handles
-         declared before it, so place it after the declarations already accumulated. -/
-      decls := state.decls ++ [.applyNative inputs predicate]
+      guardDecls := .applyNative inputs predicate :: state.guardDecls
     })⟩
 
 /--
 Match a root operation given its opcode, operands, result types, and properties. This should be the
-last declaration in a Puddle match, and should be called exactly once. At runtime, this is the entry
-point of the matcher. It returns a handle for accessing its concrete properties, but in particular
-does not return handles for its results or the operation itself, since those are accessible from the
-root through already-bound handles.
+last structural declaration in a Puddle match (besides guards), and should be called exactly once.
+At runtime, this is the entry point of the matcher. It returns a handle for accessing its concrete
+properties, but in particular does not return handles for its results or the operation itself, since
+those are accessible from the root through already-bound handles.
 -/
 @[expose, inline]
 def MatchProg.root (opCode : OpCode) (operands : Array (Handle OpCode .value))
@@ -166,9 +165,9 @@ def MatchProg.root (opCode : OpCode) (operands : Array (Handle OpCode .value))
     (⟨op, properties⟩, { state with
       nextId := state.nextId + resultTypes.size + 2
       root? := some op
-      rootConstraints :=
+      decls :=
         .operation opCode operands resultTypes property properties op results hresults ::
-          state.rootConstraints
+          state.decls
       numRoots := state.numRoots + 1
     })⟩
 
@@ -182,7 +181,7 @@ def MatchProg.build (builder : MatchProg.Builder α) : MatchProg OpCode α :=
     | _, _ => panic! "MatchProg.build requires exactly one call to MatchProg.root"
   {
     rootHandle
-    decls := state.rootConstraints ++ state.decls
+    decls := state.decls ++ state.guardDecls.reverse
     numHandles := state.nextId
     exports
   }
