@@ -625,6 +625,15 @@ meta def applySimp (g : MVarId) (simp : SimpTheoremsArray)
     | throwError "goal solved by simp"
   return g
 
+/--
+Clear `FVar`s relating masks to the original `Nat` widths.
+-/
+meta def dropNatReferences (g : MVarId) (infos : WidthInfos) : MetaM MVarId := g.withContext do
+  infos.infos.foldM (init := g) fun g _ info => do
+    let g ← g.clear info.hypWidthLeBoundNote
+    let g ← g.clear info.widthMaskHypFvar
+    return g
+
 /-- Helper to run grind on a given `MVarId`. Returns a `some MVarId`
     if the goal couldn't be proven. -/
 meta def runGrind (g : MVarId) : MetaM (Option MVarId) := g.withContext do
@@ -670,6 +679,8 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVa
            <| ← addWidthInfosSimpLemmas g widthInfos #[]
   -- Run simp
   let g ← applySimp g thms
+  -- Drop references to `Nat` width variables
+  let g ← dropNatReferences g widthInfos
   -- Run grind on subgoals
   let subgoals ← runGrindOnSubgoals g widthInfos
   -- Return modified goal and subgoals.
