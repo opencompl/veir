@@ -1528,7 +1528,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       | .addr val', .llvmPointerType _ => .ok (val)
       | .addr val', .byteType ⟨bw⟩ =>
           if bw = 64 then .ok (.byte 64 (LLVM.Byte.fromInt (mem.intFromPtr val'))) else .fail
-      | .addr val', .integerType ⟨bw⟩ =>
+      | .addr val', .integerType ⟨bw, _⟩ =>
           if bw = 64 then .ok (.int 64 (mem.intFromPtr val')) else .fail
       | _, _ => none
     return (#[result], mem, none)
