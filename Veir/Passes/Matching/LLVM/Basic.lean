@@ -51,6 +51,9 @@ def matchXori (op : OperationPtr) (ctx : IRContext OpCode) :
   let (op, _) ← matchOp op ctx (Llvm.xor) 2
   return (op[0]!, op[1]!)
 
+/-- Read the raw integer attribute of an LLVM constant. Its value and type need
+not match the value and type of the result; use `matchConstantIntVal` for rewrites
+that inspect the value, or `decodeLLVMIntegerConstant` when lowering the attribute. -/
 def matchConstantIntOp (op : OperationPtr) (ctx : IRContext OpCode) :
     Option IntegerAttr := do
   let Llvm.mlir__constant := toDialect? Llvm (op.getOpType! ctx) | none
@@ -58,19 +61,35 @@ def matchConstantIntOp (op : OperationPtr) (ctx : IRContext OpCode) :
   let .integer intAttr := properties.value | none
   return intAttr
 
-/-- Match the raw integer attribute value of an LLVM constant, without adjusting
-it to the attribute or result width. -/
+/-- Match the signed integer produced by an LLVM constant.
+
+Use `matchConstantUIntVal` for unsigned arithmetic such as shift amounts, and
+`isConstantOne` for the multiplicative identity or a true boolean. -/
 def matchConstantIntVal (val : ValuePtr) (ctx : IRContext OpCode) :
     Option Int := do
   let .opResult opResultPtr := val | none
   let op := opResultPtr.op
   let attr ← matchConstantIntOp op ctx
-  return attr.value
+  let .integerType type := (val.getType! ctx).val | none
+  return (BitVec.ofInt type.bitwidth (decodeLLVMIntegerConstant attr)).toInt
+
+/-- Match the unsigned integer produced by an LLVM constant. This uses the same
+decoding as `matchConstantIntVal`, interpreting the result as a nonnegative
+number. Use this for unsigned division, powers of two, and shift amounts. -/
+def matchConstantUIntVal (val : ValuePtr) (ctx : IRContext OpCode) : Option Nat := do
+  let value ← matchConstantIntVal val ctx
+  let .integerType type := (val.getType! ctx).val | none
+  return (BitVec.ofInt type.bitwidth value).toNat
+
+/-- Is this the value one, including `i1` true? Its unsigned value is one even
+though its signed value at `i1` is `-1`. -/
+def isConstantOne (val : ValuePtr) (ctx : IRContext OpCode) : Bool :=
+  matchConstantUIntVal val ctx == some 1
 
 /-- Match a constant integer with value zero, returning `val` itself. -/
 def matchConstantZero (val : ValuePtr) (ctx : IRContext OpCode) : Option ValuePtr := do
-  let attr ← matchConstantIntVal val ctx
-  guard (attr = 0)
+  let value ← matchConstantIntVal val ctx
+  guard (value = 0)
   return val
 
 def matchAshr (op : OperationPtr) (ctx : IRContext OpCode) :
