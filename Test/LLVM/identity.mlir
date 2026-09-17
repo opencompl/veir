@@ -5,7 +5,7 @@
   "llvm.func"() <{CConv = #llvm.cconv<ccc>, function_type = !llvm.func<i32 (f64)>, linkage = #llvm.linkage<external>, sym_name = "myfunc", unnamed_addr = 0 : i64, visibility_ = 0 : i64}> ({
     ^bb0(%fcst : f64):
       %5 = "llvm.mlir.constant"() <{"value" = 13 : i32}> : () -> i32
-      %6 = "llvm.mlir.constant"() <{"value" = 1 : i32}> : () -> i1
+      %6 = "llvm.mlir.constant"() <{"value" = 1 : i1}> : () -> i1
       %7 = "llvm.and"(%5, %5) : (i32, i32) -> i32
       %8 = "llvm.or"(%5, %5) : (i32, i32) -> i32
       %9 = "llvm.xor"(%5, %5) : (i32, i32) -> i32
@@ -98,7 +98,7 @@
 // CHECK-NEXT:     "llvm.func"()  <{"CConv" = #llvm.cconv<ccc>, "function_type" = !llvm.func<i32 (f64)>, "linkage" = #llvm.linkage<external>, "sym_name" = "myfunc", "unnamed_addr" = 0 : i64, "visibility_" = 0 : i64}> ({
 // CHECK-NEXT:         ^{{.*}}(%arg7_0 : f64):
 // CHECK-NEXT:       %{{.*}} = "llvm.mlir.constant"() <{"value" = 13 : i32}> : () -> i32
-// CHECK-NEXT:       %{{.*}} = "llvm.mlir.constant"() <{"value" = 1 : i32}> : () -> i1
+// CHECK-NEXT:       %{{.*}} = "llvm.mlir.constant"() <{"value" = 1 : i1}> : () -> i1
 // CHECK-NEXT:       %{{.*}} = "llvm.and"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.or"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.xor"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32

@@ -40,11 +40,11 @@
 // CHECK-NEXT: %[[Z2:.*]] = "llvm.mlir.constant"() <{"value" = 0 : i8}>
 // CHECK-NEXT: %[[M2:.*]] = "llvm.sub"(%[[Z2]], %[[X]]) <{"overflowFlags" = 1 : i32}> : (i8, i8) -> i8
 // CHECK-NEXT: %[[N:.*]] = "llvm.sub"(%[[P]], %[[Q]]) : (i1, i1) -> i1
-// CHECK-NEXT: %[[O0:.*]] = "llvm.mlir.constant"() <{"value" = 1 : i1}>
+// CHECK-NEXT: %[[O0:.*]] = "llvm.mlir.constant"() <{"value" = -1 : i1}>
 // CHECK-NEXT: %[[N0:.*]] = "llvm.add"(%[[N]], %[[O0]]) : (i1, i1) -> i1
-// CHECK-NEXT: %[[O1:.*]] = "llvm.mlir.constant"() <{"value" = 1 : i1}>
+// CHECK-NEXT: %[[O1:.*]] = "llvm.mlir.constant"() <{"value" = -1 : i1}>
 // CHECK-NEXT: %[[N1:.*]] = "llvm.add"(%[[N]], %[[O1]]) : (i1, i1) -> i1
-// CHECK-NEXT: %[[O2:.*]] = "llvm.mlir.constant"() <{"value" = 1 : i1}>
+// CHECK-NEXT: %[[O2:.*]] = "llvm.mlir.constant"() <{"value" = -1 : i1}>
 // CHECK-NEXT: %[[N2:.*]] = "llvm.add"(%[[N]], %[[O2]]) : (i1, i1) -> i1
 // CHECK-NEXT: %[[ONES:.*]] = "llvm.mlir.constant"() <{"value" = -1 : i8}>
 // CHECK-NEXT: %[[XOR:.*]] = "llvm.xor"(%[[Y]], %[[ONES]]) : (i8, i8) -> i8

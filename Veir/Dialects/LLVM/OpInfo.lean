@@ -707,13 +707,18 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .mlir__constant => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 0 1
-    -- Unlike `arith.constant`, `llvm.mlir.constant` does not require the value
-    -- attribute's type to match the result type exactly.
     let resultType := ((op.getResult 0).get! ctx.raw).type.val
     match (op.getProperties! ctx.raw Llvm.mlir__constant).value with
-    | .integer _ =>
+    | .integer intAttr =>
       match resultType with
-      | .integerType _ => pure ()
+      | .integerType intType => do
+        if intAttr.type ≠ intType then
+          throw "llvm.mlir.constant: integer attribute and result types must match"
+        -- MLIR's APInt storage guarantees this for constructed attributes. VeIR
+        -- stores an unbounded Int, so check both signed and unsigned spellings.
+        let width := intType.bitwidth
+        if intAttr.value < -(2 ^ (width - 1) : Int) || intAttr.value ≥ (2 ^ width : Int) then
+          throw "llvm.mlir.constant: integer constant out of range for attribute"
       | _ => throw "llvm.mlir.constant: Expected integer result type for an integer constant"
     | .float floatAttr =>
       match resultType with

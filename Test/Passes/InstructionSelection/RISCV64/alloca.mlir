@@ -42,19 +42,19 @@
   }) : () -> ()
 
   // llvm.func entry blocks are eligible too. Interpret count constants at their
-  // SSA width, including the special zero-extension rule for i1 attributes.
+  // SSA width, treating the count as unsigned.
   "llvm.func"() <{sym_name = "count_bits", function_type = !llvm.func<void ()>}> ({
     %negative = "llvm.mlir.constant"() <{value = -1 : i8}> : () -> i8
-    %boolean = "llvm.mlir.constant"() <{value = -1 : i1}> : () -> i64
-    %extended = "llvm.mlir.constant"() <{value = -1 : i8}> : () -> i16
-    %truncated = "llvm.mlir.constant"() <{value = 257 : i16}> : () -> i8
+    %boolean = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64
+    %wide = "llvm.mlir.constant"() <{value = 65535 : i16}> : () -> i16
+    %narrow = "llvm.mlir.constant"() <{value = 1 : i8}> : () -> i8
     %a = "llvm.alloca"(%negative) <{elem_type = i8}> : (i8) -> !llvm.ptr
     // CHECK: "riscv_stack.alloca"() <{"alignment" = 1 : i64, "size" = 255 : i64}>
     %b = "llvm.alloca"(%boolean) <{elem_type = i8}> : (i64) -> !llvm.ptr
     // CHECK: "riscv_stack.alloca"() <{"alignment" = 1 : i64, "size" = 1 : i64}>
-    %c = "llvm.alloca"(%extended) <{elem_type = i8}> : (i16) -> !llvm.ptr
+    %c = "llvm.alloca"(%wide) <{elem_type = i8}> : (i16) -> !llvm.ptr
     // CHECK: "riscv_stack.alloca"() <{"alignment" = 1 : i64, "size" = 65535 : i64}>
-    %d = "llvm.alloca"(%truncated) <{elem_type = i8}> : (i8) -> !llvm.ptr
+    %d = "llvm.alloca"(%narrow) <{elem_type = i8}> : (i8) -> !llvm.ptr
     // CHECK: "riscv_stack.alloca"() <{"alignment" = 1 : i64, "size" = 1 : i64}>
     "test.test"(%a, %b, %c, %d) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr) -> ()
     "llvm.return"() : () -> ()

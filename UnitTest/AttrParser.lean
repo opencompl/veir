@@ -173,6 +173,8 @@ macro "#assert " e:term : command =>
 
 #assert expectErrorAttr "0 : 2" "integer or float type expected after ':' in numeric attribute" (some 4)
 #assert expectSuccessAttr "0 : i32" (IntegerAttr.mk 0 (IntegerType.mk 32))
+#assert expectErrorAttr "-0 : i8" "integer constant out of range for attribute" (some 1)
+#assert expectErrorAttr "-0x0 : i8" "integer constant out of range for attribute" (some 1)
 #assert expectSuccessAttr "false" (IntegerAttr.mk 0 (IntegerType.mk 1))
 #assert expectSuccessAttr "true" (IntegerAttr.mk 1 (IntegerType.mk 1))
 

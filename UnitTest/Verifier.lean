@@ -54,3 +54,25 @@ private def verifyCrossRegionSuccessor : Except String Unit := do
 
 #guard verifyCrossRegionSuccessor =
   .error "Block successors must belong to the same region as their predecessor"
+
+/-- Construct constants without parsing, so these checks also catch invalid IR
+created by a rewrite. Keep the raw literal rather than using `ofInt`. -/
+private def verifyIntegerConstant (value : Int) (attrWidth resultWidth : Nat) : Except String Unit := do
+  let (ctx, moduleOp) := WfIRContext.create! OpCode
+  let region := moduleOp.getRegion! ctx.raw 0
+  let block := (region.get! ctx.raw).firstBlock.get!
+  let properties := LLVMConstantProperties.mk (.integer ⟨value, ⟨attrWidth⟩⟩)
+  let (ctx, _) := (WfRewriter.createOp! ctx Llvm.mlir__constant
+    #[IntegerType.mk resultWidth] #[] #[] #[] properties (some (.atEnd block))).get!
+  ctx.verify moduleOp
+
+#guard verifyIntegerConstant 256 8 8 =
+  .error "llvm.mlir.constant: integer constant out of range for attribute"
+#guard verifyIntegerConstant (-129) 8 8 =
+  .error "llvm.mlir.constant: integer constant out of range for attribute"
+#guard verifyIntegerConstant 2 1 1 =
+  .error "llvm.mlir.constant: integer constant out of range for attribute"
+#guard verifyIntegerConstant 1 32 8 =
+  .error "llvm.mlir.constant: integer attribute and result types must match"
+#guard verifyIntegerConstant (-1) 1 8 =
+  .error "llvm.mlir.constant: integer attribute and result types must match"

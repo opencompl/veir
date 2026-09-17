@@ -290,6 +290,9 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
       throwAtCurrentPos "integer literal expected in integer attribute"
     let some n := numericValueToNat? value
       | throwAt startPos s!"invalid integer literal '{String.fromUTF8! value}'"
+    -- Int erases the sign of zero, so the verifier cannot reject this spelling.
+    if isNegative && n == 0 then
+      throwAt valueStartPos "integer constant out of range for attribute"
     return (if isNegative then Int.negOfNat n else Int.ofNat n)
 
   -- Compute the floating-point value from the parsed literal.
