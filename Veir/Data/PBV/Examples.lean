@@ -32,6 +32,10 @@ theorem trace_add_comm_manual (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
   intro y h_ymw
 -- Step 5: Convert width hypothesis to mask hypothesis
   have mw_mask := and_add_one_eq_zero_of_maskOfWidth h_mw
+-- Step 5B: Translate the width precondition `w ≤ 4` into `mw ≤ BitVec.ofNat 4 (2 ^ 4 - 1)`
+  let lit4 : BitVec 4 := 15#4
+  have h_lit4_mask : lit4 = maskOfWidth 4 4 := by rfl
+  have bv_hw := le_of_le_of_eq_maskOfWidth w_le_bw (by decide) h_mw h_lit4_mask hw
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [
       eq_iff (o := 4),             -- Introduce `setWidth` to goal
@@ -75,6 +79,9 @@ theorem trace_zero_zero_extend (p q r : Nat) (x : BitVec p)
   have mp_mask := and_add_one_eq_zero_of_maskOfWidth h_mp
 -- Step 5B: Translate the condition on the natural number width
 --          into a fact about the bitvector masks
+  let lit8 : BitVec 8 := 255#8
+  have h_lit8_mask : lit8 = maskOfWidth 8 8 := by rfl
+  have bv_hr := le_of_le_of_eq_maskOfWidth r_le_bw (by decide) h_mr h_lit8_mask hr
   have bv_p_lt_q := lt_of_lt_of_eq_maskOfWidth p_le_bw q_le_bw h_mp h_mq h_pq
   have bv_q_lt_r := lt_of_lt_of_eq_maskOfWidth q_le_bw r_le_bw h_mq h_mr h_qr
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
@@ -120,6 +127,9 @@ theorem trace_zero_zero_extend_conj (p q r : Nat) (x : BitVec p)
   have mp_mask := and_add_one_eq_zero_of_maskOfWidth h_mp
 -- Step 5B: Translate the condition on the natural number width
 --          into a fact about the bitvector masks
+  let lit8 : BitVec 8 := 255#8
+  have h_lit8_mask : lit8 = maskOfWidth 8 8 := by rfl
+  have bv_hr := le_of_le_of_eq_maskOfWidth r_le_bw (by decide) h_mr h_lit8_mask hr
   have bv_h : mq < mr ∧ mp < mq := by
     apply And.intro
     · apply lt_of_lt_of_eq_maskOfWidth q_le_bw r_le_bw h_mq h_mr (And.left h)
@@ -169,6 +179,9 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
   have mp_mask := and_add_one_eq_zero_of_maskOfWidth h_mp
 -- Step 5B: Translate the condition on the natural number width
 --          into a fact about the bitvector masks
+  let lit8 : BitVec 8 := 255#8
+  have h_lit8_mask : lit8 = maskOfWidth 8 8 := by rfl
+  have bv_hr := le_of_le_of_eq_maskOfWidth r_le_bw (by decide) h_mr h_lit8_mask hr
   have bv_p_lt_q := lt_of_lt_of_eq_maskOfWidth p_le_bw q_le_bw h_mp h_mq hpq
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [
@@ -212,6 +225,10 @@ theorem trace_append (w : Nat) (a b : BitVec w) (hw : w ≤ 8) :
 -- Step 5: Convert width hypothesis to mask hypothesis.
   have mw_mask := and_add_one_eq_zero_of_maskOfWidth h_mw
   have w_add_w_mask := add_eq_mul_of_maskOfWidth w_le_bw w_le_bw w_add_w_le_bw h_mw h_mw h_mw_add_w
+-- Step 5B: Translate the width precondition `w ≤ 8` into `mw ≤ BitVec.ofNat 16 (2 ^ 8 - 1)`
+  let lit8 : BitVec 16 := 255#16
+  have h_lit8_mask : lit8 = maskOfWidth 16 8 := by rfl
+  have bv_hw := le_of_le_of_eq_maskOfWidth w_le_bw (by decide) h_mw h_lit8_mask hw
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down.
   simp only [
     eq_iff (o := 16),
