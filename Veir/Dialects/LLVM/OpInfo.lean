@@ -746,7 +746,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     | .string stringAttr =>
       match resultType with
       | .llvmArrayType arrType =>
-        if arrType.type ≠ .integerType ⟨8, .signless⟩ then
+        if arrType.type ≠ .integerType (IntegerType.signless 8) then
           throw "llvm.mlir.constant: Expected array<N x i8> result type for a string constant"
         if stringAttr.value.size ≠ arrType.size then
           throw s!"llvm.mlir.constant: string length {stringAttr.value.size} does not match declared array size {arrType.size}"
