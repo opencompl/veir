@@ -37,10 +37,10 @@ def GMIR.toAttrDict
     let val := (if props.nsw then 1 else 0) + (if props.nuw then 2 else 0)
     if val > 0 then
       dict := dict.insert "overflowFlags".toUTF8
-        (.integerAttr (IntegerAttr.mk (Int.ofNat val) (IntegerType.mk 32)))
+        (.integerAttr (IntegerAttr.mk (Int.ofNat val) (IntegerType.signless 32)))
     dict
   | .g_icmp =>
-    let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) (IntegerType.mk 64)
+    let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) (IntegerType.signless 64)
     (Std.HashMap.emptyWithCapacity 1).insert
       "predicate".toUTF8 (Attribute.integerAttr value)
 
