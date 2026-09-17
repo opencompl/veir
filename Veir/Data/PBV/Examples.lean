@@ -82,7 +82,7 @@ theorem trace_zero_zero_extend (p q r : Nat) (x : BitVec p)
   have bv_q_lt_r := lt_of_lt_of_eq_maskOfWidth q_le_bw r_le_bw h_mq h_mr h_qr
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [
-    eq_iff (o := 8) r_le_bw,
+    eq_iff (o := 8),
     setWidth_setWidth,
     BitVec.zeroExtend_eq_setWidth,
     BitVec.setWidth_eq,
