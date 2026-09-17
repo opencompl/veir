@@ -961,6 +961,7 @@ def select_neg1_0_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if ct ≠ -1 then return (ctx, none)
   let some cf := matchConstantIntVal fv ctx.raw | return (ctx, none)
   if cf ≠ 0 then return (ctx, none)
+  -- At i1, -1 is true and no extension is needed.
   if (op.getResult 0 : ValuePtr).getType! ctx.raw = cond.getType! ctx.raw then
     return (ctx, some (#[], #[cond]))
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sext #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[cond]
