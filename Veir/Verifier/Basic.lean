@@ -468,7 +468,8 @@ def OperationPtr.verifyLLVMCompatibleTypes (op : OperationPtr)
       throw s!"{instrName}: result {i} must be an LLVM dialect-compatible type, but got {type}"
 
 /--
-  Reject any operand or result whose type is a zero-width integer (`i0`).
+  Reject any operand or result whose type is a zero-width integer (`i0`), or an integer that is
+  not signless (`si<n>` or `ui<n>`).
   Whether `i0` is legal is a per-dialect policy, so callers must apply this
   check explicitly to operations that forbid it.
 -/
@@ -481,10 +482,14 @@ def OperationPtr.checkIsNonNullIntegerType (op : OperationPtr)
     if let .integerType intType := (opTypes[i]!).val then
       if intType.bitwidth = 0 then
         throw s!"{instrName}: operand {i} has forbidden i0 type"
+      if intType.signedness ≠ .signless then
+        throw s!"{instrName}: operand {i} must be a signless integer, but got {intType}"
   for i in [0:op.getNumResults ctx.raw opIn] do
     if let .integerType intType := ((op.getResult i).get! ctx.raw).type.val then
       if intType.bitwidth = 0 then
         throw s!"{instrName}: result {i} has forbidden i0 type"
+      if intType.signedness ≠ .signless then
+        throw s!"{instrName}: result {i} must be a signless integer, but got {intType}"
 
 def denseElementsElementType? (typeStr : String) : Option String :=
   let s := typeStr.replace " " ""
