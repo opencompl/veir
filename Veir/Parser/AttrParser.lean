@@ -88,27 +88,17 @@ private def parseOptionalVectorDimension : AttrParserM (Option Nat) := do
 def parseOptionalIntegerType : AttrParserM (Option IntegerType) := do
   match ← peekToken with
   | { kind := .bareIdent, slice := slice } =>
-    if slice.size < 2 then
-      return none
-    let input := (← (getThe ParserState)).input
-    let first := input.getD slice.start.byteOffset 0
-    if first == 's'.toUInt8 || first == 'u'.toUInt8 then
-      let second := input.getD (slice.start.byteOffset + 1) 0
-      if second == 'i'.toUInt8 then
-        let bitwidthSlice : Slice := {start := slice.start + 2, stop := slice.stop}
-        let identifier := bitwidthSlice.of input
-        let some bitwidth := (String.fromUTF8? identifier).bind String.toNat? | return none
-        let _ ← consumeToken
-        let signedness := if first == 's'.toUInt8 then IntegerType.Signedness.signed
-                          else IntegerType.Signedness.unsigned
-        return some { bitwidth, signedness }
-    if first == 'i'.toUInt8 then
-      let bitwidthSlice : Slice := {start := slice.start + 1, stop := slice.stop}
-      let identifier := bitwidthSlice.of input
-      let some bitwidth := (String.fromUTF8? identifier).bind String.toNat? | return none
-      let _ ← consumeToken
-      return some (IntegerType.signless bitwidth)
-    return none
+    let identifier := slice.of (← getThe ParserState).input
+    let bitwidth (prefixLength : Nat) : Option Nat :=
+      (String.fromUTF8? (identifier.extract prefixLength identifier.size)).bind String.toNat?
+    let type : Option IntegerType :=
+      if identifier.extract 0 2 == "si".toByteArray then (bitwidth 2).map IntegerType.signed
+      else if identifier.extract 0 2 == "ui".toByteArray then (bitwidth 2).map IntegerType.unsigned
+      else if identifier.extract 0 1 == "i".toByteArray then (bitwidth 1).map IntegerType.signless
+      else none
+    let some type := type | return none
+    let _ ← consumeToken
+    return some type
   | _ => return none
 
 /-- Parse the MLIR builtin `index` type. -/
