@@ -16,10 +16,12 @@ public section
   dialects (the output of the `isel-*` pipeline) and emits textual MIR with
   virtual registers, suitable for `llc -run-pass=none` / `-start-before=...`.
 
-  Two structural translations happen here:
+  Three structural translations happen here:
   * VeIR block arguments become MIR `PHI`s at join blocks (or a `COPY` when a
     block has a single predecessor).
   * `builtin.unrealized_conversion_cast` (reg ↔ i64/i1) becomes a `COPY`.
+  * `riscv_stack.alloca` becomes a `stack` object, leaving the frame layout,
+    prologue, epilogue and CFI to `llc` (see `Frame`).
 -/
 
 namespace Veir.MIRPrinter
@@ -90,6 +92,88 @@ partial def collectBlocks (ctx : IRContext OpCode) (b : Option BlockPtr)
   match b with
   | none => acc
   | some bp => collectBlocks ctx (bp.get! ctx).next (acc.push bp)
+
+/-- Operations of a block, in order. -/
+partial def collectOps (ctx : IRContext OpCode) (op : Option OperationPtr)
+    (acc : Array OperationPtr := #[]) : Array OperationPtr :=
+  match op with
+  | none => acc
+  | some o => collectOps ctx (o.get! ctx).next (acc.push o)
+
+/-- The `(size, alignment)` in bytes of a `riscv_stack.alloca`, if `op` is one. -/
+def allocaShape? (ctx : IRContext OpCode) (op : OperationPtr) : Option (Int × Int) :=
+  let opType := op.getOpType! ctx
+  let d := Properties.toAttrDict opType (op.getProperties! ctx opType)
+  match opType, d["size".toUTF8]?, d["alignment".toUTF8]? with
+  | .riscv_stack .alloca, some (.integerAttr size), some (.integerAttr align) =>
+    some (size.value, align.value)
+  | _, _, _ => none
+
+/-- Whether operand `i` of `opType` is a load/store base -- the one position
+    where MIR accepts a frame index in place of a register. -/
+def isFrameBaseOperand (opType : OpCode) (i : Nat) : Bool :=
+  match opType with
+  | .riscv .ld | .riscv .lw | .riscv .lwu | .riscv .lh
+  | .riscv .lhu | .riscv .lb | .riscv .lbu => i == 0
+  | .riscv .sd | .riscv .sw | .riscv .sh | .riscv .sb => i == 1
+  | _ => false
+
+/-- The function's stack frame: one MIR `stack` object per `riscv_stack.alloca`.
+
+    `llc` owns the layout from here: PrologEpilogInsertion assigns each object an
+    offset -- interleaved with the register allocator's own spill and callee-save
+    slots -- then rewrites `%stack.<fi>` into an `sp`-relative access and emits
+    the prologue, the epilogue, and their CFI.  Adjusting `sp` here instead would
+    take bytes it has not accounted for, and our accesses would alias its slots.
+
+    An alloca used only as a load/store base folds into those accesses as
+    `%stack.<fi>` and emits no instruction of its own, matching what LLVM's own
+    selector produces.  One used anywhere else -- passed along an edge, or fed to
+    address arithmetic -- needs its address in a register, so it materializes as
+    `ADDI %stack.<fi>, 0` and is referenced by that virtual register. -/
+structure Frame where
+  /-- Frame index of each alloca, by op id. -/
+  fi : Std.HashMap Nat Nat
+  /-- `(size, alignment)` of each object, in frame-index order. -/
+  objects : Array (Int × Int)
+  /-- Op ids of the allocas that fold into their accesses' base operand. -/
+  folded : List Nat
+
+/-- Assign a frame index to every alloca in `blocks` and decide which of them
+    fold into their accesses. -/
+def planFrame (ctx : IRContext OpCode) (blocks : Array BlockPtr) : Frame := Id.run do
+  let mut fi : Std.HashMap Nat Nat := {}
+  let mut objects : Array (Int × Int) := #[]
+  let mut escaped : List Nat := []
+  for b in blocks do
+    for op in collectOps ctx (b.get! ctx).firstOp do
+      match allocaShape? ctx op with
+      | some shape =>
+        fi := fi.insert op.id objects.size
+        objects := objects.push shape
+      | none => pure ()
+      let opType := op.getOpType! ctx
+      for i in 0...(op.getNumOperands! ctx) do
+        match op.getOperand! ctx i with
+        | .opResult rp =>
+          let owner := (rp.get! ctx).owner
+          if !isFrameBaseOperand opType i && (allocaShape? ctx owner).isSome then
+            escaped := owner.id :: escaped
+        | _ => pure ()
+  return {
+    fi := fi,
+    objects := objects,
+    folded := fi.toList.map (·.1) |>.filter (!escaped.contains ·)
+  }
+
+/-- Operand text for a value: a folded alloca names its frame object directly,
+    anything else names its virtual register. -/
+def operandOf (ctx : IRContext OpCode) (fr : Frame) (v : ValuePtr) : String :=
+  match v with
+  | .opResult rp =>
+    let owner := (rp.get! ctx).owner
+    if fr.folded.contains owner.id then s!"%stack.{fr.fi[owner.id]!}" else vreg ctx v
+  | _ => vreg ctx v
 
 /-- Index of the block with the given id within `blocks`. -/
 def bbOf (blocks : Array BlockPtr) (id : Nat) : Nat := Id.run do
@@ -237,11 +321,11 @@ def planEdges (ctx : IRContext OpCode) (blocks : Array BlockPtr) : EdgePlan := I
   return { preds := preds, split := split, tramps := tramps }
 
 /-- Emit a single non-terminator operation. -/
-def emitRegular (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
+def emitRegular (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr) : IO Unit := do
   let opType := op.getOpType! ctx
   let ops := getOperands ctx op
   let res := s!"%v{op.id}:gpr"
-  let v := fun (i : Nat) => vreg ctx (ops[i]!)
+  let v := fun (i : Nat) => operandOf ctx fr (ops[i]!)
   let imm := (immValue? ctx op).getD 0
   let volatile_ := isVolatile ctx op
   match opType with
@@ -297,15 +381,21 @@ def emitRegular (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
     match (op.getResultTypes! ctx)[0]?.bind (physRegName? ·.val) with
     | some name => IO.println s!"    {res} = COPY {name}"
     | none => IO.println s!"    ; UNHANDLED op"
+  -- A stack object is declared in the `stack` section, not by an instruction.
+  -- When it folds, its accesses name it and nothing is emitted here; otherwise
+  -- its address has to reach a register.
+  | .riscv_stack .alloca =>
+    if fr.folded.contains op.id then pure ()
+    else IO.println s!"    {res} = ADDI %stack.{fr.fi[op.id]!}, 0"
   | _ => IO.println s!"    ; UNHANDLED op"
 
 /-- Emit a terminator operation (branch / return).  `lsuccs` gives the lowered
     successor block index for each successor position (trampolines when split). -/
-def emitTerminator (ctx : IRContext OpCode) (op : OperationPtr)
+def emitTerminator (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr)
     (lsuccs : Array Nat) : IO Unit := do
   let opType := op.getOpType! ctx
   let ops := getOperands ctx op
-  let v := fun (i : Nat) => vreg ctx (ops[i]!)
+  let v := fun (i : Nat) => operandOf ctx fr (ops[i]!)
   let succ := fun (k : Nat) => lsuccs[k]!
   -- Degenerate conditional branch with both edges collapsed to the same block
   -- (equal arguments) → unconditional jump.  Split edges have distinct lsuccs.
@@ -348,14 +438,14 @@ def emitTerminator (ctx : IRContext OpCode) (op : OperationPtr)
   | _ => IO.println s!"    ; UNHANDLED terminator"
 
 /-- Emit the op list of a block, treating the last op as the terminator. -/
-partial def emitOps (ctx : IRContext OpCode) (op : OperationPtr)
+partial def emitOps (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr)
     (lsuccs : Array Nat) : IO Unit := do
   match (op.get! ctx).next with
   | some n =>
-    emitRegular ctx op
-    emitOps ctx n lsuccs
+    emitRegular ctx fr op
+    emitOps ctx fr n lsuccs
   | none =>
-    emitTerminator ctx op lsuccs
+    emitTerminator ctx fr op lsuccs
 
 /-- The lowered successor block indices for a real block, in successor order
     (the trampoline pair when the block's branch is edge-split). -/
@@ -370,7 +460,7 @@ def loweredSuccs (ctx : IRContext OpCode) (blocks : Array BlockPtr)
     return r
 
 /-- Emit one real basic block: label, successors, PHIs, then instructions. -/
-def emitBlock (ctx : IRContext OpCode) (blocks : Array BlockPtr)
+def emitBlock (ctx : IRContext OpCode) (fr : Frame) (blocks : Array BlockPtr)
     (split : Array (Option (Nat × Nat)))
     (preds : Array (Array (Nat × Array ValuePtr))) (bi : Nat) : IO Unit := do
   let b := blocks[bi]!
@@ -404,11 +494,12 @@ def emitBlock (ctx : IRContext OpCode) (blocks : Array BlockPtr)
           IO.println s!"    {name}:gpr = COPY $x{10 + ai}"
         else if plist.size == 1 then
           let (_, vals) := plist[0]!
-          IO.println s!"    {name}:gpr = COPY {vreg ctx (vals[ai]!)}"
+          IO.println s!"    {name}:gpr = COPY {operandOf ctx fr (vals[ai]!)}"
         else
-          let parts := plist.toList.map (fun (pbi, vals) => s!"{vreg ctx (vals[ai]!)}, %bb.{pbi}")
+          let parts := plist.toList.map
+            (fun (pbi, vals) => s!"{operandOf ctx fr (vals[ai]!)}, %bb.{pbi}")
           IO.println s!"    {name}:gpr = PHI {String.intercalate ", " parts}"
-    emitOps ctx f lsuccs
+    emitOps ctx fr f lsuccs
 
 /-- Emit a trampoline block: an unconditional jump to its target. -/
 def emitTrampoline (t : Nat) (s : Nat) : IO Unit := do
@@ -426,6 +517,7 @@ def printMIR (ctx : IRContext OpCode) (funcOp : OperationPtr) : IO Unit := do
     else reachable ctx allBlocks [(allBlocks[0]!).id]
   let blocks := allBlocks.filter (fun b => reach.contains b.id)
   let plan := planEdges ctx blocks
+  let frame := planFrame ctx blocks
   -- Entry-block arguments are the function arguments; they live in the RISC-V
   -- integer argument registers a0-a7 (x10-x17). Declare them on the stub IR
   -- signature and as MIR liveins so the register allocator keeps them there.
@@ -446,10 +538,17 @@ def printMIR (ctx : IRContext OpCode) (funcOp : OperationPtr) : IO Unit := do
     IO.println "liveins:"
     for i in 0...nargs do
       IO.println s!"  - \{ reg: '$x{10 + i}' }"
+  -- One `stack` object per alloca.  `llc` derives the frame's size and maximum
+  -- alignment from these, so no explicit `frameInfo` is needed.
+  if !frame.objects.isEmpty then
+    IO.println "stack:"
+    for k in 0...frame.objects.size do
+      let (size, alignment) := frame.objects[k]!
+      IO.println s!"  - \{ id: {k}, size: {size}, alignment: {alignment} }"
   IO.println "body:             |"
   for bi in 0...blocks.size do
     if bi != 0 then IO.println ""
-    emitBlock ctx blocks plan.split plan.preds bi
+    emitBlock ctx frame blocks plan.split plan.preds bi
   for tr in plan.tramps do
     IO.println ""
     emitTrampoline tr.1 tr.2
