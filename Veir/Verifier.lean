@@ -518,6 +518,7 @@ private theorem OperationPtr.Verified.integerBinop {op : OperationPtr} {opInBoun
           op.verifyIntegerBinop ctx opInBounds >>= fun _ => pure ())) :
     op.IsVerifiedIntegerBinop ctx :=
   op.verifyIntegerBinop_eq_ok <| op.verifyIntegerBinop_ok_of_Verified opVerify armReduces
+
 private theorem OperationPtr.verifySelectTypes_ok_of_Verified {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds)
     (armReduces : op.verifyLocalInvariants ctx opInBounds

@@ -80,6 +80,11 @@ def MemoryState.empoison (state : MemoryState) (addr : UInt64) (n : Nat)
   else
     Interp.ub
 
+/-- Store the 64 bits of `v`, poison bits included, at `addr`. -/
+def MemoryState.storeByte64 (state : MemoryState) (addr : UInt64) (v : Data.LLVM.Byte 64)
+    : Interp MemoryState :=
+  state.store addr (UInt64.ofBitVec v.val).toByteArrayLE (UInt64.ofBitVec v.poison).toByteArrayLE (by simp)
+
 /--
   Store an LLVM value to memory.
   Yields UB if the access is out of bounds or the address is 0.
@@ -92,9 +97,9 @@ def MemoryState.llvmStore (state : MemoryState) (addr : UInt64) (val : RuntimeVa
   | .int 16 (.val v) => state.store addr (UInt16.ofBitVec v).toByteArrayLE
   | .int 32 (.val v) => state.store addr (UInt32.ofBitVec v).toByteArrayLE
   | .int 64 (.val v) => state.store addr (UInt64.ofBitVec v).toByteArrayLE
-  | .byte 64 v => state.store addr (UInt64.ofBitVec v.val).toByteArrayLE (UInt64.ofBitVec v.poison).toByteArrayLE (by simp)
+  | .byte 64 v => state.storeByte64 addr v
   | .int n .poison => state.empoison addr (n / 8)
-  | .addr v => state.store addr v.toByteArrayLE
+  | .addr p => state.storeByte64 addr p.toByte
   | _ => none
 
 /--
@@ -133,9 +138,27 @@ def MemoryState.hasPoison (state : MemoryState) (addr size : UInt64)
       break
   return poison
 
+/-- Load the 64 bits at `addr`, poison bits included. Yields UB if the access is out of bounds. -/
+def MemoryState.loadByte64 (state : MemoryState) (addr : UInt64) : Interp (Data.LLVM.Byte 64) := do
+  let ba ← state.load addr 8
+  let baPoison ← state.loadPoison addr 8
+  let poison := baPoison.toUInt64LE!.toBitVec
+  return ⟨ba.toUInt64LE!.toBitVec &&& ~~~poison, poison, by bv_decide⟩
+
 /--
   Load an LLVM value from the given memory address.
   Yields UB if access is out of bounds or the address is 0.
+
+  An integer or pointer load with any poison bit is poison as a whole, and a
+  `byte` load keeps poison per bit.
+
+  Together with fresh memory being poison, this is the semantics proposed in
+  "Towards Removing Undef Values from LLVM IR" (Lobo et al., PLDI 2026), not
+  LangRef's, where uninitialized memory reads as `undef`.
+  As Clang relies still on `undef` semantics, e.g., for a bitfield or an integer
+  copy of a struct with uninitialized padding, we sometimes introduce UB where
+  we should not. The solution is to introduce a freezing load to LLVM and VeIR
+  and ensure that all frontends are using them.
 -/
 def MemoryState.llvmLoad (state : MemoryState) (addr : UInt64) (type : TypeAttr)
     : Interp RuntimeValue := do
@@ -158,15 +181,9 @@ def MemoryState.llvmLoad (state : MemoryState) (addr : UInt64) (type : TypeAttr)
       if ← state.hasPoison addr 8 then return .int 64 .poison
       return .int 64 (.val (BitVec.ofNat 64 ba.toUInt64LE!.toNat))
   | Attribute.byteType { bitwidth := 64 } =>
-      let ba ← state.load addr 8
-      let baPoison ← state.loadPoison addr 8
-      let poison := baPoison.toUInt64LE!.toBitVec
-      return .byte 64 ⟨ba.toUInt64LE!.toBitVec &&& ~~~poison, poison, by bv_decide⟩
+      return .byte 64 (← state.loadByte64 addr)
   | Attribute.llvmPointerType _ =>
-      let ba ← state.load addr 8
-      -- FIXME poison address
-      if ← state.hasPoison addr 8 then return .addr 0
-      return .addr ba.toUInt64LE!
+      return .addr (Data.LLVM.Ptr.ofByte (← state.loadByte64 addr))
   | _ => none
 
 end Veir

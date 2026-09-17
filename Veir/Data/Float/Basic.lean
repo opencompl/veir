@@ -45,7 +45,7 @@ that represents IEEE-style floating point formats.
 @[expose]
 def FloatFormat.toLeanFormat (format : FloatFormat)
     (hm : 0 < format.mantissa := by grind)
-    (he : 0 < format.exponent := by grind) : _root_.Float.Model.Format where
+    (he : 2 ≤ format.exponent := by grind) : _root_.Float.Model.Format where
   exponentBits := format.exponent
   mantissaBitsWithoutImplicit := format.mantissa
   hm := hm
@@ -54,7 +54,7 @@ def FloatFormat.toLeanFormat (format : FloatFormat)
 @[simp]
 theorem FloatFormat.numBits_toLeanFormat_eq_bitwidth
     (format : FloatFormat)
-    (hm : 0 < format.mantissa) (he : 0 < format.exponent) :
+    (hm : 0 < format.mantissa) (he : 2 ≤ format.exponent) :
     (format.toLeanFormat hm he).numBits = format.bitwidth := by
   simp [toLeanFormat, _root_.Float.Model.Format.numBits, bitwidth]
 
@@ -122,7 +122,7 @@ of `UnpackedFloat.pack`.
 -/
 def ofUnpackedFloat (format : FloatFormat) (uf : UnpackedFloat)
     (hm : 0 < format.mantissa := by grind)
-    (he : 0 < format.exponent := by grind) : FloatValue format :=
+    (he : 2 ≤ format.exponent := by grind) : FloatValue format :=
   .ofBits <| match uf with
   | .notANumber =>
     (UnpackedFloat.packedNaN format.toLeanFormat).cast (by simp)
@@ -165,11 +165,11 @@ def ofUnpackedFloat (format : FloatFormat) (uf : UnpackedFloat)
 The value of `(-1)^negative * significand * 10^exponent` in `format`.
 
 Converts a base-10 float to the exact IEEE-754 bit pattern of `format`,
-using round-to-nearest, ties-to-even. 
+using round-to-nearest, ties-to-even.
 -/
 def ofScientific (format : FloatFormat)
     (negative : Bool) (significand : Nat) (exponent : Int) : FloatValue format :=
-  if hty : format.mantissa = 0 ∨ format.exponent = 0 then
+  if hty : format.mantissa = 0 ∨ format.exponent < 2 then
     .ofBits 0#_
   else
     let uf := UnpackedFloat.ofScientific format.toLeanFormat significand exponent

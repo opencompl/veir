@@ -362,7 +362,7 @@ macro "provePuddleValid" : tactic =>
     constructor
     · provePuddleSupported
     · cbv
-    · cbv
+    · native_decide
   ))
 
 end Veir.Puddle

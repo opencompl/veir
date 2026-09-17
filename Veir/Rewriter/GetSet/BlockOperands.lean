@@ -436,7 +436,9 @@ theorem OperationPtr.getSuccessors!_initBlockOperands {operation : OperationPtr}
     else
       operation.getSuccessors! ctx := by
   simp only [OperationPtr.getSuccessors!_def]
-  grind
+  /- We need to remove some grind patterns from the default grind set, as they make the search
+  space explode. See https://github.com/leanprover/lean4/issues/15183 -/
+  grind [-Array.range'_append, -Array.range'_append_1]
 
 @[simp, grind =, simp_getset]
 theorem BlockPtr.getNumArguments!_initBlockOperands {block : BlockPtr} :
