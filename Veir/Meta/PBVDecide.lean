@@ -549,13 +549,20 @@ meta def introMaskedBitvectors (bvs : BitVecFVarsToRevert) (g : MVarId)
     introBitvecFVarUnchecked widthInfos g bvInfos bvFvarId widthTm
 
 /--
+Add `eq_iff` with the blast width pre-filled, which lifts equalities to the
+blast width by wrapping both sides in a `setWidth`.
+-/
+meta def addEqIff (g : MVarId) (blastWidth : Nat) (simp : SimpTheoremsArray) :
+    MetaM SimpTheoremsArray := g.withContext do
+  simp.addTheorem (.other ``eq_iff) <| ← mkAppM ``eq_iff #[mkNatLit blastWidth]
+
+/--
 Add the theorems that need the blast width pre-filled before they can be used
 within the Simp set.
 -/
 meta def addBoundRewrites (g : MVarId) (blastWidth : Nat) (simp : SimpTheoremsArray) :
     MetaM SimpTheoremsArray := g.withContext do
   let thms := #[
-      ``eq_iff,
       ``msb_eq_and_signBitOfMask_maskOfWidth_ne_zero,
   ]
 
@@ -603,14 +610,17 @@ meta def addWidthInfosSimpLemmas (g : MVarId) (widthInfos : WidthInfos)
   for (_wexpr, widthInfo) in widthInfos.infos do
     simp ← simp.addTheorem (.other widthInfo.hypWidthLeBoundNote.name)
         (mkFVar widthInfo.hypWidthLeBoundNote)
+    simp ← simp.addTheorem (.other widthInfo.widthMaskHypFvar.name)
+      (← mkEqSymm <| .fvar widthInfo.widthMaskHypFvar)
   return simp
 
 /--
 Run simp on an MVarId given a set of simp theorems.
 Throws if `simp` closes the goal outright.
 -/
-meta def applySimp (g : MVarId) (simp : SimpTheoremsArray) : MetaM MVarId := g.withContext do
-  let simpCtx ← Simp.mkContext (simpTheorems := simp)
+meta def applySimp (g : MVarId) (simp : SimpTheoremsArray)
+    (config : Simp.Config := { decide := false }) : MetaM MVarId := g.withContext do
+  let simpCtx ← Simp.mkContext (config := config) (simpTheorems := simp)
   let (some g, _) ← g.withContext do simpTarget g simpCtx
     | throwError "goal solved by simp"
   return g
@@ -649,7 +659,11 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVa
   let (g, widthInfos) ← widthProps.translateToMask g widthInfos
   -- Intro the `BitVec`s
   let (g, bvInfos) ← introMaskedBitvectors bvsToRevert g widthInfos
-  -- Create simp set
+  -- Lift equalities to the blast width. A single pass applies `eq_iff` once:
+  -- otherwise the lifted equality, now at the blast width, gets lifted again.
+  let eqThms ← addEqIff g blastWidth <| ← addWidthInfosSimpLemmas g widthInfos #[]
+  let g ← applySimp g eqThms { decide := false, singlePass := true }
+  -- Create simp set to push the `setWidth`s in
   let thms := ← addBoundRewrites g blastWidth
            <| ← addPushTheorems g
            <| ← addBvInfos g bvInfos -- This step is not strictly necessary.
@@ -684,3 +698,19 @@ public meta def evalPbvDecide : Tactic := fun stx => do
       let ctx : PbvTranslateContext := { bmcBound := n.getNat }
       replaceMainGoal (← pbvTranslate (← getMainGoal) ctx)
   | _ => throwUnsupportedSyntax
+
+
+-- /-- Commutativity of addition -/
+-- example (w : Nat) (x y : BitVec w) (hw : w ≤ 2) :
+--   x + y = y + x := by
+--   pbv_decide 3
+--   · bv_decide
+
+-- theorem trace_zero_zero_extend (p q r : Nat) (x : BitVec p)
+--   (hr : r ≤ 8)
+--   (h_qr : q < r)
+--   (h_pq : p < q) :
+--   (x.zeroExtend q).zeroExtend r = x.zeroExtend r
+--   := by
+--   pbv_decide 8
+--   bv_decide
