@@ -32,7 +32,6 @@ theorem var_elim {o w : Nat} {m : BitVec o} (hwo : w ≤ o) (hm : m = maskOfWidt
     (h : ∀ (x : BitVec o), x &&& m = x → Q (x.setWidth w)) :
     ∀ (x : BitVec w), Q x := by
   intro x
---   obtain ⟨m, hm⟩ : ∃ m , m = maskOfWidth o w := ⟨_ , rfl⟩
   have hinv : (x.setWidth o) &&& m = x.setWidth o := by
     apply BitVec.eq_of_toNat_eq
     rw [hm, toNat_and_maskOfWidth hwo, BitVec.toNat_setWidth_of_le hwo,

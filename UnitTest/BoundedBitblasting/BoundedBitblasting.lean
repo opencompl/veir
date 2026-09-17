@@ -205,15 +205,6 @@ example (w : Nat) (x : BitVec w) (hw : w ≤ 2) :
   pbv_decide 4
   · bv_decide
 
--- Expected failure: at the blast width, the `setWidth` around `signExtend` is simplified away before `signExtend` is pushed
-#guard_msgs (drop warning) in
-example (w : Nat) (x : BitVec w) (hw : w ≤ 2) :
-  (x.signExtend 4).setWidth w = x := by
-  fail_if_success
-    pbv_decide 4
-    · bv_decide
-  sorry
-
 /-- A sum with a literal on the larger side of a hypothesis -/
 example (w : Nat) (x y : BitVec w) (hw : w ≤ 4) (h : 1 ≤ w + 2) :
   x + y = y + x := by
@@ -225,3 +216,56 @@ example (w : Nat) (x y : BitVec (w + 2)) (hw : w ≤ 4) :
   x + y = y + x := by
   pbv_decide 6 -- Need to extend the bound to account for the w + 2
   · bv_decide
+
+-- # Expected Failures
+
+-- Expected failure: at the blast width, the `setWidth` around `signExtend` is simplified away before `signExtend` is pushed
+/--
+error: The prover found a potentially spurious counterexample:
+- It abstracted the following unsupported expressions as opaque variables:
+  - BitVec.signExtend 4 (BitVec.setWidth w x)
+Consider the following assignment:
+m_w0 = 3#4
+x = 3#4
+BitVec.signExtend 4 (BitVec.setWidth w x) = 13#4
+-/
+#guard_msgs in
+example (w : Nat) (x : BitVec w) (hw : w ≤ 2) :
+    (x.signExtend 4).setWidth w = x := by
+  pbv_decide 4
+  bv_decide
+
+
+/--
+error: The prover found a counterexample, consider the following assignment:
+m_w1 = 255#8
+m_w2 = 0#8
+m_w0 = 127#8
+x = 127#8
+-/
+#guard_msgs in
+example (p q r : Nat) (x : BitVec p) (hr : r ≤ 8) (h_qp : q < p) (h_pr : p < r) :
+    (x.setWidth q).setWidth r = x.setWidth r := by
+  pbv_decide 8
+  bv_decide
+
+/--
+warning: `grind` could not prove the following : p ≤ 8
+p r : Nat
+x : BitVec p
+hr : r ≤ 8
+m_w1 : BitVec 8
+h_m_w1 : m_w1 = Veir.Data.PBV.maskOfWidth 8 r
+h_m_w1_le_blast : r ≤ 8
+h_m_w1_bv_mask : m_w1 &&& m_w1 + 1#8 = 0#8
+m_w0 : BitVec 8
+h_m_w0 : m_w0 = Veir.Data.PBV.maskOfWidth 8 p
+⊢ p ≤ 8
+---
+warning: declaration uses `sorry`
+-/
+#guard_msgs in
+example (p r : Nat) (x : BitVec p) (hr : r ≤ 8) :
+    x.zeroExtend r = x.zeroExtend r := by
+  pbv_decide 8
+  all_goals sorry
