@@ -1,6 +1,7 @@
 module
 
-public import Veir.RuntimeValue
+public import Veir.ForLean
+public import Veir.RuntimeValue.Basic
 public import Veir.Interpreter.Interp
 
 public section

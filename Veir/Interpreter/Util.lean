@@ -3,7 +3,6 @@ module
 public import Veir.RuntimeValue
 public import Veir.Interpreter.Memory
 public import Veir.IR.WellFormed
-public import Veir.GlobalOpInfo
 
 public section
 
