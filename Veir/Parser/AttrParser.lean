@@ -107,7 +107,7 @@ def parseOptionalIntegerType : AttrParserM (Option IntegerType) := do
       let identifier := bitwidthSlice.of input
       let some bitwidth := (String.fromUTF8? identifier).bind String.toNat? | return none
       let _ ← consumeToken
-      return some { bitwidth }
+      return some (IntegerType.signless bitwidth)
     return none
   | _ => return none
 
@@ -269,9 +269,9 @@ def parseOptionalStringAttr : AttrParserM (Option StringAttr) := do
 -/
 def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
   if (← parseOptionalKeyword "false".toByteArray) then
-    return some (IntegerAttr.mk 0 { bitwidth := 1 } : Attribute)
+    return some (IntegerAttr.mk 0 (IntegerType.signless 1) : Attribute)
   if (← parseOptionalKeyword "true".toByteArray) then
-    return some (IntegerAttr.mk 1 { bitwidth := 1 } : Attribute)
+    return some (IntegerAttr.mk 1 (IntegerType.signless 1) : Attribute)
 
   -- Parse the optional leading '-'.
   let isNegative := Option.isSome (← parseOptionalToken .minus)

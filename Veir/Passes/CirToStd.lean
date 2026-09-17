@@ -33,8 +33,8 @@ namespace Veir
 /-- The builtin type a `cir` type lowers to, or `none` for types this pass leaves alone. -/
 def cirTypeToStd (t : TypeAttr) : Option TypeAttr :=
   match t.val with
-  | .cirIntType it => some (({ bitwidth := it.width } : IntegerType) : TypeAttr)
-  | .cirBoolType _ => some (({ bitwidth := 1 } : IntegerType) : TypeAttr)
+  | .cirIntType it => some (IntegerType.signless it.width : TypeAttr)
+  | .cirBoolType _ => some (IntegerType.signless 1 : TypeAttr)
   | _ => none
 
 /-- The signedness of a `!cir.int` type; `!cir.bool` counts as unsigned. -/
@@ -63,8 +63,8 @@ def castToCir (rewriter : PatternRewriter OpCode) (x : ValuePtr) (ty : TypeAttr)
 /-- Emit `arith.constant c : i<width>`. -/
 def emitStdConstant (rewriter : PatternRewriter OpCode) (c : Int) (width : Nat)
     (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do
-  let ty : TypeAttr := ({ bitwidth := width } : IntegerType)
-  let props : ArithConstantProperties := { value := IntegerAttr.mk c ({ bitwidth := width }) }
+  let ty : TypeAttr := IntegerType.signless width
+  let props : ArithConstantProperties := { value := IntegerAttr.mk c (IntegerType.signless width) }
   let (rewriter, c) ← rewriter.createOp! (.arith .constant) #[ty] #[] #[] #[] props (some ip)
   return (rewriter, (c.getResult 0 : ValuePtr))
 
@@ -81,7 +81,7 @@ def noOverflow : ArithIntegerOverflowFlagsProperties := { attr := { nsw := false
 def resizeUnsigned (rewriter : PatternRewriter OpCode) (v : ValuePtr) (width : Nat)
     (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do
   let .integerType vt := (v.getType! rewriter.ctx.raw).val | none
-  let ty : TypeAttr := ({ bitwidth := width } : IntegerType)
+  let ty : TypeAttr := IntegerType.signless width
   if vt.bitwidth < width then
     emitArith rewriter .extui { nneg := false } ty #[v] ip
   else if vt.bitwidth > width then

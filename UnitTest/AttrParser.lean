@@ -147,24 +147,24 @@ macro "#assert " e:term : command =>
 
 /-! ## Integer types -/
 
-#assert expectSuccessType "i32" ({ bitwidth := 32 } : IntegerType)
-#assert expectSuccessType "i0" ({ bitwidth := 0 } : IntegerType)
+#assert expectSuccessType "i32" (IntegerType.signless 32)
+#assert expectSuccessType "i0" (IntegerType.signless 0)
 #assert expectMissingType "i0x4"
 
 /-! ## Types parsed as attributes -/
 
-#assert expectSuccessAttr "i32" ({ bitwidth := 32 } : IntegerType)
+#assert expectSuccessAttr "i32" (IntegerType.signless 32)
 
 /-! ## Vector types -/
 
-#assert expectSuccessType "vector<4xi32>" (VectorType.mk #[4] ({ bitwidth := 32 } : IntegerType))
+#assert expectSuccessType "vector<4xi32>" (VectorType.mk #[4] (IntegerType.signless 32))
 #assert expectSuccessType "vector<2x4xf64>" (VectorType.mk #[2, 4] FloatType.f64)
-#assert expectSuccessType "vector<2 x 4 x i32>" (VectorType.mk #[2, 4] ({ bitwidth := 32 } : IntegerType))
-#assert expectSuccessType "vector<i32>" (VectorType.mk #[] ({ bitwidth := 32 } : IntegerType))
-#assert expectSuccessAttr "vector<4xi32>" (VectorType.mk #[4] ({ bitwidth := 32 } : IntegerType))
-#assert ToString.toString (VectorType.mk #[2, 4] ({ bitwidth := 32 } : IntegerType) : VectorType) ==
+#assert expectSuccessType "vector<2 x 4 x i32>" (VectorType.mk #[2, 4] (IntegerType.signless 32))
+#assert expectSuccessType "vector<i32>" (VectorType.mk #[] (IntegerType.signless 32))
+#assert expectSuccessAttr "vector<4xi32>" (VectorType.mk #[4] (IntegerType.signless 32))
+#assert ToString.toString (VectorType.mk #[2, 4] (IntegerType.signless 32) : VectorType) ==
   "vector<2x4xi32>"
-#assert ToString.toString (VectorType.mk #[] ({ bitwidth := 32 } : IntegerType) : VectorType) == "vector<i32>"
+#assert ToString.toString (VectorType.mk #[] (IntegerType.signless 32) : VectorType) == "vector<i32>"
 #assert expectErrorType "vector<4x>" "vector element type expected" (some 9)
 #assert expectErrorType "vector<0xi32>" "0 is not a supported dimension" (some 7)
 #assert expectErrorType "vector<0x32xi32>" "0 is not a supported dimension" (some 7)
@@ -172,9 +172,9 @@ macro "#assert " e:term : command =>
 /-! ## Integer attributes -/
 
 #assert expectErrorAttr "0 : 2" "integer or float type expected after ':' in numeric attribute" (some 4)
-#assert expectSuccessAttr "0 : i32" (IntegerAttr.mk 0 ({ bitwidth := 32 } : IntegerType))
-#assert expectSuccessAttr "false" (IntegerAttr.mk 0 ({ bitwidth := 1 } : IntegerType))
-#assert expectSuccessAttr "true" (IntegerAttr.mk 1 ({ bitwidth := 1 } : IntegerType))
+#assert expectSuccessAttr "0 : i32" (IntegerAttr.mk 0 (IntegerType.signless 32))
+#assert expectSuccessAttr "false" (IntegerAttr.mk 0 (IntegerType.signless 1))
+#assert expectSuccessAttr "true" (IntegerAttr.mk 1 (IntegerType.signless 1))
 
 /-! ## Integer overflow flags attributes -/
 
@@ -357,15 +357,15 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "[]" (ArrayAttr.mk #[])
 #assert expectSuccessAttr "[unit]" (ArrayAttr.mk #[UnitAttr.mk])
 #assert expectSuccessAttr "[1 : i32, \"foo\"]"
-  (ArrayAttr.mk #[IntegerAttr.mk 1 ({ bitwidth := 32 } : IntegerType), StringAttr.mk "foo".toByteArray])
+  (ArrayAttr.mk #[IntegerAttr.mk 1 (IntegerType.signless 32), StringAttr.mk "foo".toByteArray])
 #assert expectSuccessAttr "[[]]" (ArrayAttr.mk #[ArrayAttr.mk #[]])
 
 /-! ## Dense array attribute -/
 
-#assert expectSuccessAttr "array<i8>" (DenseArrayAttr.mk ({ bitwidth := 8 } : IntegerType) #[])
-#assert expectSuccessAttr "array<i32: 10, 42>" (DenseArrayAttr.mk ({ bitwidth := 32 } : IntegerType) #[10, 42])
-#assert expectSuccessAttr "array<i64: -1>" (DenseArrayAttr.mk ({ bitwidth := 64 } : IntegerType) #[-1])
-#assert expectSuccessAttr "array<i16: 0>" (DenseArrayAttr.mk ({ bitwidth := 16 } : IntegerType) #[0])
+#assert expectSuccessAttr "array<i8>" (DenseArrayAttr.mk (IntegerType.signless 8) #[])
+#assert expectSuccessAttr "array<i32: 10, 42>" (DenseArrayAttr.mk (IntegerType.signless 32) #[10, 42])
+#assert expectSuccessAttr "array<i64: -1>" (DenseArrayAttr.mk (IntegerType.signless 64) #[-1])
+#assert expectSuccessAttr "array<i16: 0>" (DenseArrayAttr.mk (IntegerType.signless 16) #[0])
 #assert expectErrorAttr "array<>" "integer type expected in dense array attribute" (some 6)
 
 /-! ## Dense elements attribute -/
@@ -392,14 +392,14 @@ macro "#assert " e:term : command =>
 /-! ## Type aliases -/
 
 -- An alias resolves to its definition and needs no unregistered-dialect flag.
-#assert (testTypeWithAliases "!int" [("int", ({ bitwidth := 32 } : IntegerType))] = .ok ({ bitwidth := 32 } : IntegerType))
-#assert (testTypeWithAliases "!int" [("int", ({ bitwidth := 32 } : IntegerType))] true = .ok ({ bitwidth := 32 } : IntegerType))
+#assert (testTypeWithAliases "!int" [("int", (IntegerType.signless 32))] = .ok (IntegerType.signless 32))
+#assert (testTypeWithAliases "!int" [("int", (IntegerType.signless 32))] true = .ok (IntegerType.signless 32))
 -- Aliases resolve inside compound types.
-#assert (testTypeWithAliases "!llvm.array<2 x !int>" [("int", ({ bitwidth := 32 } : IntegerType))]
-  = .ok (LLVM.ArrayType.mk 2 ({ bitwidth := 32 } : IntegerType)))
-#assert ((testTypeWithAliases "(!int) -> !int" [("int", ({ bitwidth := 32 } : IntegerType))]).map (·.val)
-  = .ok (.functionType (FunctionType.mk #[({ bitwidth := 32 } : IntegerType)]
-      #[({ bitwidth := 32 } : IntegerType)] (isVarArg := false))))
+#assert (testTypeWithAliases "!llvm.array<2 x !int>" [("int", (IntegerType.signless 32))]
+  = .ok (LLVM.ArrayType.mk 2 (IntegerType.signless 32)))
+#assert ((testTypeWithAliases "(!int) -> !int" [("int", (IntegerType.signless 32))]).map (·.val)
+  = .ok (.functionType (FunctionType.mk #[IntegerType.signless 32]
+      #[IntegerType.signless 32] (isVarArg := false))))
 -- An alias may stand for a dialect type.
 #assert (testTypeWithAliases "!p" [("p", LLVM.PointerType.mk)] = .ok LLVM.PointerType.mk)
 -- An undefined alias is an error whether or not unregistered dialects are allowed.
@@ -408,21 +408,21 @@ macro "#assert " e:term : command =>
 #assert ((testTypeWithAliases "!int" [] true).mapError errorInfo
   = .error ("undefined symbol alias id 'int'", some 0))
 -- A dialect dot or an adjacent body is a dialect type, not an alias; rejected here as unregistered.
-#assert ((testTypeWithAliases "!foo.bar" [("foo", ({ bitwidth := 32 } : IntegerType))]).mapError errorInfo
+#assert ((testTypeWithAliases "!foo.bar" [("foo", (IntegerType.signless 32))]).mapError errorInfo
   = .error ("type '!foo.bar' is not registered. Consider using --allow-unregistered-dialect.", some 0))
-#assert ((testTypeWithAliases "!foo<bar>" [("foo", ({ bitwidth := 32 } : IntegerType))]).mapError errorInfo
+#assert ((testTypeWithAliases "!foo<bar>" [("foo", (IntegerType.signless 32))]).mapError errorInfo
   = .error ("type '!foo' is not registered. Consider using --allow-unregistered-dialect.", some 0))
 #assert ((testTypeWithAliases "!foo <bar>" [] true).mapError errorInfo
   = .error ("undefined symbol alias id 'foo'", some 0))
 -- Aliases also resolve where a specific builtin type is required.
-#assert (testAttrWithAliases "1 : !int" [("int", ({ bitwidth := 32 } : IntegerType))]
-  = .ok (IntegerAttr.mk 1 ({ bitwidth := 32 } : IntegerType)))
-#assert (testAttrWithAliases "array<!int: 1, 2>" [("int", ({ bitwidth := 32 } : IntegerType))]
-  = .ok (DenseArrayAttr.mk ({ bitwidth := 32 } : IntegerType) #[1, 2]))
-#assert (testTypeWithAliases "!cuda_tile.ptr<!int>" [("int", ({ bitwidth := 32 } : IntegerType))]
-  = .ok (CudaTile.PointerType.mk ({ bitwidth := 32 } : IntegerType)))
-#assert (testTypeWithAliases "!hw.modty<input a : !int>" [("int", ({ bitwidth := 32 } : IntegerType))]
-  = .ok (HW.ModuleType.mk #[{ dir := .input, name := "a", type := ({ bitwidth := 32 } : IntegerType) }]))
+#assert (testAttrWithAliases "1 : !int" [("int", (IntegerType.signless 32))]
+  = .ok (IntegerAttr.mk 1 (IntegerType.signless 32)))
+#assert (testAttrWithAliases "array<!int: 1, 2>" [("int", (IntegerType.signless 32))]
+  = .ok (DenseArrayAttr.mk (IntegerType.signless 32) #[1, 2]))
+#assert (testTypeWithAliases "!cuda_tile.ptr<!int>" [("int", (IntegerType.signless 32))]
+  = .ok (CudaTile.PointerType.mk (IntegerType.signless 32)))
+#assert (testTypeWithAliases "!hw.modty<input a : !int>" [("int", (IntegerType.signless 32))]
+  = .ok (HW.ModuleType.mk #[{ dir := .input, name := "a", type := (IntegerType.signless 32) }]))
 -- An alias for another kind of type is rejected at the alias with the position's own message.
 #assert ((testAttrWithAliases "array<!p: 1>" [("p", LLVM.PointerType.mk)]).mapError errorInfo
   = .error ("integer type expected in dense array attribute", some 6))
@@ -435,7 +435,7 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "#test.test<bar>" (UnregisteredAttr.mk "#test.test<bar>" false none) true
 #assert expectSuccessAttr "#foo.bar" (UnregisteredAttr.mk "#foo.bar" false none) true
 #assert expectSuccessAttr "#foo.bar<baz> : i32"
-  (UnregisteredAttr.mk "#foo.bar<baz>" false (some ({ bitwidth := 32 } : IntegerType))) true
+  (UnregisteredAttr.mk "#foo.bar<baz>" false (some (IntegerType.signless 32))) true
 #assert expectSuccessAttr "#foo.zero : !foo.ty"
   (UnregisteredAttr.mk "#foo.zero" false (some (UnregisteredAttr.mk "!foo.ty" true none : Attribute))) true
 #assert expectSuccessAttr "#foo.int<1> : !foo.int<s, 32>"
@@ -445,10 +445,10 @@ macro "#assert " e:term : command =>
   (UnregisteredAttr.mk "#foo.bar<1>" false
     (some (UnregisteredAttr.mk "!foo.ptr<!foo.int<s, 32>>" true none : Attribute))) true
 #assert expectSuccessAttr "#foo<bar> : i1"
-  (UnregisteredAttr.mk "#foo<bar>" false (some ({ bitwidth := 1 } : IntegerType))) true
+  (UnregisteredAttr.mk "#foo<bar>" false (some (IntegerType.signless 1))) true
 #assert expectSuccessAttr "#foo.bar : (i32) -> i32"
   (UnregisteredAttr.mk "#foo.bar" false (some (.functionType
-    (FunctionType.mk #[({ bitwidth := 32 } : IntegerType)] #[({ bitwidth := 32 } : IntegerType)]
+    (FunctionType.mk #[IntegerType.signless 32] #[IntegerType.signless 32]
       (isVarArg := false))))) true
 -- A `:` must be followed by a type.
 #assert expectErrorAttr "#foo.bar<baz> :" "type expected" (some 15) true
@@ -462,12 +462,12 @@ macro "#assert " e:term : command =>
 #assert expectRoundTripAttr "#foo.bar<baz> : i32" true
 #assert expectRoundTripAttr "#foo.zero : !foo.ptr<!foo.int<s, 32>>" true
 -- Equality takes the trailing type into account.
-#assert (UnregisteredAttr.mk "#foo.bar" false (some ({ bitwidth := 32 } : IntegerType))
-  = UnregisteredAttr.mk "#foo.bar" false (some ({ bitwidth := 32 } : IntegerType)))
-#assert (UnregisteredAttr.mk "#foo.bar" false (some ({ bitwidth := 32 } : IntegerType))
+#assert (UnregisteredAttr.mk "#foo.bar" false (some (IntegerType.signless 32))
+  = UnregisteredAttr.mk "#foo.bar" false (some (IntegerType.signless 32)))
+#assert (UnregisteredAttr.mk "#foo.bar" false (some (IntegerType.signless 32))
   ≠ UnregisteredAttr.mk "#foo.bar" false none)
-#assert (UnregisteredAttr.mk "#foo.bar" false (some ({ bitwidth := 32 } : IntegerType))
-  ≠ UnregisteredAttr.mk "#foo.bar" false (some ({ bitwidth := 64 } : IntegerType)))
+#assert (UnregisteredAttr.mk "#foo.bar" false (some (IntegerType.signless 32))
+  ≠ UnregisteredAttr.mk "#foo.bar" false (some (IntegerType.signless 64)))
 
 #assert expectErrorAttr "#foo<bar>" "attribute '#foo' is not registered. Consider using --allow-unregistered-dialect." (some 0) false
 #assert expectErrorAttr "#test.test<bar>" "attribute '#test.test' is not registered. Consider using --allow-unregistered-dialect." (some 0) false
@@ -485,9 +485,9 @@ macro "#assert " e:term : command =>
 
 /-! ## Modarith type -/
 
-#assert expectSuccessType "!mod_arith.int<17 : i64>" (ModArithType.mk (IntegerAttr.mk 17 ({ bitwidth := 64 } : IntegerType)))
-#assert expectSuccessType "!mod_arith.int<257 : i32>" (ModArithType.mk (IntegerAttr.mk 257 ({ bitwidth := 32 } : IntegerType)))
-#assert expectSuccessAttr "!mod_arith.int<17 : i64>" (ModArithType.mk (IntegerAttr.mk 17 ({ bitwidth := 64 } : IntegerType)))
+#assert expectSuccessType "!mod_arith.int<17 : i64>" (ModArithType.mk (IntegerAttr.mk 17 (IntegerType.signless 64)))
+#assert expectSuccessType "!mod_arith.int<257 : i32>" (ModArithType.mk (IntegerAttr.mk 257 (IntegerType.signless 32)))
+#assert expectSuccessAttr "!mod_arith.int<17 : i64>" (ModArithType.mk (IntegerAttr.mk 17 (IntegerType.signless 64)))
 #assert expectErrorType "!mod_arith.int<>" "modarith type modulus expected" (some 15)
 #assert expectErrorType "!mod_arith.int<17>" "Expected punctuation ':'" (some 17)
 #assert expectErrorType "!mod_arith.int<17 : x>" "integer or float type expected after ':' in numeric attribute" (some 20)
@@ -541,8 +541,8 @@ macro "#assert " e:term : command =>
 #assert expectSuccessType "!llvm.void" (LLVM.VoidType.mk)
 
 /-! ## LLVM Array type -/
-#assert expectSuccessType "!llvm.array<2 x i32>" (LLVM.ArrayType.mk 2 $ ({ bitwidth := 32 } : IntegerType))
-#assert expectSuccessAttr "!llvm.array<2 x !llvm.array<3x i64>>" (LLVM.ArrayType.mk 2 $ LLVM.ArrayType.mk 3 $ ({ bitwidth := 64 } : IntegerType))
+#assert expectSuccessType "!llvm.array<2 x i32>" (LLVM.ArrayType.mk 2 $ (IntegerType.signless 32))
+#assert expectSuccessAttr "!llvm.array<2 x !llvm.array<3x i64>>" (LLVM.ArrayType.mk 2 $ LLVM.ArrayType.mk 3 $ (IntegerType.signless 64))
 
 /-! ## LLVM Byte type -/
 #assert expectSuccessType "!llvm.byte<64>" (LLVM.ByteType.mk 64)
@@ -607,13 +607,13 @@ macro "#assert " e:term : command =>
 /-! ## LLVM Function type -/
 #assert expectSuccessType "!llvm.func<i32 (i32)>"
   ⟨.llvmFunctionType (FunctionType.mk
-    #[({ bitwidth := 32 } : IntegerType)] #[({ bitwidth := 32 } : IntegerType)] (isVarArg := false)), by rfl⟩
+    #[IntegerType.signless 32] #[IntegerType.signless 32] (isVarArg := false)), by rfl⟩
 #assert expectSuccessType "!llvm.func<i64 ()>"
-  ⟨.llvmFunctionType (FunctionType.mk #[] #[({ bitwidth := 64 } : IntegerType)] (isVarArg := false)), by rfl⟩
+  ⟨.llvmFunctionType (FunctionType.mk #[] #[IntegerType.signless 64] (isVarArg := false)), by rfl⟩
 #assert expectSuccessType "!llvm.func<i32 (i32, i64)>"
   ⟨.llvmFunctionType (FunctionType.mk
-    #[({ bitwidth := 32 } : IntegerType), ({ bitwidth := 64 } : IntegerType)]
-    #[({ bitwidth := 32 } : IntegerType)] (isVarArg := false)), by rfl⟩
+    #[IntegerType.signless 32, IntegerType.signless 64]
+    #[IntegerType.signless 32] (isVarArg := false)), by rfl⟩
 #assert expectSuccessType "!llvm.func<!llvm.ptr (!llvm.ptr)>"
   ⟨.llvmFunctionType (FunctionType.mk
     #[(LLVM.PointerType.mk : Attribute)] #[(LLVM.PointerType.mk : Attribute)] (isVarArg := false)), by rfl⟩
@@ -623,11 +623,11 @@ macro "#assert " e:term : command =>
     #[(LLVM.VoidType.mk : Attribute)] (isVarArg := false)), by rfl⟩
 #assert expectSuccessType "!llvm.func<void (i32)>"
   ⟨.llvmFunctionType (FunctionType.mk
-    #[({ bitwidth := 32 } : IntegerType)]
+    #[IntegerType.signless 32]
     #[(LLVM.VoidType.mk : Attribute)] (isVarArg := false)), by rfl⟩
 #assert expectSuccessType "!llvm.func<i32 (ptr)>"
   ⟨.llvmFunctionType (FunctionType.mk
-    #[(LLVM.PointerType.mk : Attribute)] #[({ bitwidth := 32 } : IntegerType)] (isVarArg := false)), by rfl⟩
+    #[(LLVM.PointerType.mk : Attribute)] #[IntegerType.signless 32] (isVarArg := false)), by rfl⟩
 #assert expectSuccessType "!llvm.func<void (ptr, ptr)>"
   ⟨.llvmFunctionType (FunctionType.mk
     #[(LLVM.PointerType.mk : Attribute), (LLVM.PointerType.mk : Attribute)]
@@ -640,16 +640,16 @@ macro "#assert " e:term : command =>
 -- Variadic function types: a trailing `...`, with or without fixed parameters.
 #assert expectSuccessType "!llvm.func<i32 (ptr, ...)>"
   ⟨.llvmFunctionType (FunctionType.mk
-    #[(LLVM.PointerType.mk : Attribute)] #[({ bitwidth := 32 } : IntegerType)] (isVarArg := true)), by rfl⟩
+    #[(LLVM.PointerType.mk : Attribute)] #[IntegerType.signless 32] (isVarArg := true)), by rfl⟩
 #assert expectSuccessType "!llvm.func<i32 (...)>"
-  ⟨.llvmFunctionType (FunctionType.mk #[] #[({ bitwidth := 32 } : IntegerType)] (isVarArg := true)), by rfl⟩
+  ⟨.llvmFunctionType (FunctionType.mk #[] #[IntegerType.signless 32] (isVarArg := true)), by rfl⟩
 -- An LLVM function type may omit the `!llvm.` prefix in PrettyLLVMType syntax.
 #assert (do
   let parser ← ParserState.fromInput "func<i32 (ptr)>".toByteArray
   parseLLVMType.run' {} parser) = .ok
     ⟨.llvmFunctionType (FunctionType.mk
       #[(LLVM.PointerType.mk : Attribute)]
-      #[({ bitwidth := 32 } : IntegerType)] (isVarArg := false)), by rfl⟩
+      #[IntegerType.signless 32] (isVarArg := false)), by rfl⟩
 
 /-! ## LLVM calling convention and linkage attributes -/
 #assert expectSuccessAttr "#llvm.cconv<ccc>" (CConvAttr.mk "ccc")
@@ -696,12 +696,12 @@ macro "#assert " e:term : command =>
   (LoopAnnotationAttr.mk "peeled = <count = 2 : i32>")
 
 /-! ## CUDA Pointer type -/
-#assert expectSuccessType "!cuda_tile.ptr<i1>" (CudaTile.PointerType.mk ({ bitwidth := 1 } : IntegerType))
-#assert expectSuccessType "!cuda_tile.ptr<i32>" (CudaTile.PointerType.mk ({ bitwidth := 32 } : IntegerType))
+#assert expectSuccessType "!cuda_tile.ptr<i1>" (CudaTile.PointerType.mk (IntegerType.signless 1))
+#assert expectSuccessType "!cuda_tile.ptr<i32>" (CudaTile.PointerType.mk (IntegerType.signless 32))
 #assert expectErrorType "!cuda_tile.ptr<16>" "integer type expected" (some 15)
 -- A `!cuda_tile.ptr<...>` may appear as a (parenthesized) function-type input. See #675.
 #assert expectSuccessType "(!cuda_tile.ptr<i1>) -> ()"
-  (FunctionType.mk #[(CudaTile.PointerType.mk ({ bitwidth := 1 } : IntegerType) : Attribute)] #[] (isVarArg := false))
+  (FunctionType.mk #[(CudaTile.PointerType.mk (IntegerType.signless 1) : Attribute)] #[] (isVarArg := false))
 #assert expectSuccessType "!io.address" Io.AddressType.mk
 #assert expectSuccessType "(!io.address) -> ()"
   (FunctionType.mk #[(Io.AddressType.mk : Attribute)] #[] (isVarArg := false))
@@ -720,9 +720,9 @@ macro "#assert " e:term : command =>
 #assert expectSuccessType "!hw.modty<>" (HW.ModuleType.mk #[])
 #assert expectSuccessType "!hw.modty<input a : i3, inout b : i6,  output c : i10>"
   (HW.ModuleType.mk #[
-    {name := "a", type := ({ bitwidth := 3 } : IntegerType), dir := .input},
-    {name := "b", type := ({ bitwidth := 6 } : IntegerType), dir := .inout},
-    {name := "c", type := ({ bitwidth := 10 } : IntegerType), dir := .output}])
+    {name := "a", type := (IntegerType.signless 3), dir := .input},
+    {name := "b", type := (IntegerType.signless 6), dir := .inout},
+    {name := "c", type := (IntegerType.signless 10), dir := .output}])
 #assert expectErrorType "!hw.modty<foo>" "module port expected" (some 10)
 #assert expectErrorType "!hw.modty<input : foo>" "identifier expected" (some 16)
 #assert expectErrorType "!hw.modty<input a : foo>" "integer type expected" (some 20)
