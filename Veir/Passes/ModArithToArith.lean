@@ -29,7 +29,7 @@ def castToStorage (legalizeWidth : Nat → Nat) (rewriter : PatternRewriter OpCo
     (v : ValuePtr) (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do
   let .modArithType mt := (v.getType! rewriter.ctx.raw).val
     | none
-  let storageType : TypeAttr := ({ bitwidth := legalizeWidth mt.bitwidth } : IntegerType)
+  let storageType : TypeAttr := IntegerType.signless (legalizeWidth mt.bitwidth)
   let (rewriter, castOp) ← rewriter.createOp! (.builtin .unrealized_conversion_cast)
     #[storageType] #[v] #[] #[] () (some ip)
   return (rewriter, (castOp.getResult 0 : ValuePtr))
@@ -66,7 +66,7 @@ def packValue (legalizeWidth : Nat → Nat) (rewriter : PatternRewriter OpCode) 
     (ty : ModArithType) (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do
   let .integerType intermediateType := (v.getType! rewriter.ctx.raw).val
     | none
-  let storageIT : IntegerType := { bitwidth := legalizeWidth ty.bitwidth }
+  let storageIT : IntegerType := IntegerType.signless (legalizeWidth ty.bitwidth)
   let storageType : TypeAttr := storageIT
   if intermediateType.bitwidth > storageIT.bitwidth then
     let (rewriter, narrowed) ← rewriter.createOp! (.arith .trunci)
@@ -82,8 +82,8 @@ def packValue (legalizeWidth : Nat → Nat) (rewriter : PatternRewriter OpCode) 
 /-- Emit `arith.constant c : i<width>`. Requires `c` to fit into width (unsigned) -/
 def emitArithConstant (rewriter : PatternRewriter OpCode) (c : Int) (width : Nat)
     (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do
-  let ty : TypeAttr := ({ bitwidth := width } : IntegerType)
-  let props : ArithConstantProperties := { value := IntegerAttr.mk c ({ bitwidth := width }) }
+  let ty : TypeAttr := IntegerType.signless width
+  let props : ArithConstantProperties := { value := IntegerAttr.mk c (IntegerType.signless width) }
   let (rewriter, c) ← rewriter.createOp! (.arith .constant)
     #[ty] #[] #[] #[] props (some ip)
   return (rewriter, (c.getResult 0 : ValuePtr))
@@ -139,8 +139,8 @@ def emitBarrettReduction (legalizeWidth : Nat → Nat) (rewriter : PatternRewrit
   let shift : Nat := 2 * k
   let mu : Int := (2 ^ shift) / modulus           -- floor(2^shift / modulus)
   let bw := legalizeWidth (max width (3 * k))     -- width required for r * mu
-  let ty : TypeAttr := ({ bitwidth := bw } : IntegerType)
-  let ty_i1 : TypeAttr := ({ bitwidth := 1 } : IntegerType)
+  let ty : TypeAttr := IntegerType.signless bw
+  let ty_i1 : TypeAttr := IntegerType.signless 1
 
   -- extend if needed
   let (rewriter, r) ←
@@ -184,7 +184,7 @@ def emitBarrettReduction (legalizeWidth : Nat → Nat) (rewriter : PatternRewrit
   -- truncate if needed
   if bw > width then
     let (rewriter, narrowed) ← rewriter.createOp! (.arith .trunci)
-      #[({ bitwidth := width } : IntegerType)] #[result.getResult 0] #[] #[]
+      #[IntegerType.signless width] #[result.getResult 0] #[] #[]
       { attr := { nsw := false, nuw := true } } (some ip)
     return (rewriter, (narrowed.getResult 0 : ValuePtr))
   else
@@ -233,7 +233,7 @@ def lowerModArithBinOp (modOp : Mod_Arith) (widen : Nat → Nat) (legalizeWidth 
   let .modArithType modArithType@⟨⟨modulus, storageType⟩⟩ := ((op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw).val
     | return rewriter
   let intermediateWidth := legalizeWidth (widen storageType.bitwidth)
-  let intermediateType : IntegerType := { bitwidth := intermediateWidth }
+  let intermediateType : IntegerType := IntegerType.signless intermediateWidth
   -- actual lowering:
   let ip := InsertPoint.before op
   let (rewriter, a) ← unpackValue legalizeWidth rewriter lhs intermediateType ip

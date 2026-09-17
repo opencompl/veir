@@ -33,12 +33,12 @@ def BoundaryCoercion.target : BoundaryCoercion → TypeAttr → Option TypeAttr
     | _ => none
   | .modArithToInt legalizeWidth, t =>
     match t.val with
-    | .modArithType mt => some (({ bitwidth := legalizeWidth mt.bitwidth } : IntegerType) : TypeAttr)
+    | .modArithType mt => some (IntegerType.signless (legalizeWidth mt.bitwidth) : TypeAttr)
     | _ => none
   | .cirToStd, t =>
     match t.val with
-    | .cirIntType it => some (({ bitwidth := it.width } : IntegerType) : TypeAttr)
-    | .cirBoolType _ => some (({ bitwidth := 1 } : IntegerType) : TypeAttr)
+    | .cirIntType it => some (IntegerType.signless it.width : TypeAttr)
+    | .cirBoolType _ => some (IntegerType.signless 1 : TypeAttr)
     | _ => none
 
 /-- The return-terminator opcode paired with a function op (`func.return` for

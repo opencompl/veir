@@ -55,7 +55,7 @@ def widenSimpleBinaryIntOp (ctx : WfIRContext OpCode) (op : OperationPtr) (newBw
   let .integerType ⟨bw, _⟩ := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if bw ≥ newBw then return (ctx, none)
   let expandOp := expandIntegerExtOp extType
-  convertBinaryOp ctx op ({ bitwidth := newBw } : IntegerType) expandOp expandOp (newOp.getD oldOp) ⟨.llvm .trunc, .mk false false⟩
+  convertBinaryOp ctx op (IntegerType.signless newBw) expandOp expandOp (newOp.getD oldOp) ⟨.llvm .trunc, .mk false false⟩
 
 /--
   Widen the operands and result type of an LLVM operation.
