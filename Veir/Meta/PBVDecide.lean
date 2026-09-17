@@ -149,14 +149,20 @@ meta def Tm.toName {k : TmKind} (tm : Tm k) : Name :=
   | .and      a b => Name.mkSimple s!"{a.toName}_and_{b.toName}"
 
 /--
-Compute an upper bound on the value of this width term: an atom is bounded by
-the bmc bound, and a sum by the sum of the bounds of its parts.
-The maximum over all widths gives the blast width used for the whole goal.
+Compute an upper bound on the widths in this term: an atom is bounded by the
+bmc bound, a sum by the sum of the bounds of its parts, and a prop by the
+maximum of the bounds of its parts.
+The maximum over all widths and width props gives the blast width used for the
+whole goal.
 -/
-meta def Tm.getUniverseWidthUpperBound (tm : Tm .width) (ctx : PbvTranslateContext) : Nat :=
+meta def Tm.getWidthUpperBound {k : TmKind} (tm : Tm k) (ctx : PbvTranslateContext) : Nat :=
   match tm with
   | .widthAtom _ => ctx.bmcBound
-  | .widthAdd wa wb => wa.getUniverseWidthUpperBound ctx + wb.getUniverseWidthUpperBound ctx
+  | .widthAdd wa wb => wa.getWidthUpperBound ctx + wb.getWidthUpperBound ctx
+  | .widthLt  v w
+  | .widthLe  v w
+  | .widthEq  v w
+  | .and      v w => (v.getWidthUpperBound ctx).max (w.getWidthUpperBound ctx)
 
 /--
 Structure to hold a width term.
@@ -191,10 +197,10 @@ meta def WidthTms.getOrCreateTm (g : MVarId) (this : WidthTms) (wExpr : Expr)
     return (g, widthTm, this.push widthTm)
 
 /-- Get the maximum width needed for blasting across all widths. -/
-meta def WidthTms.getUniverseWidthUpperBound (this : WidthTms)
+meta def WidthTms.getWidthUpperBound (this : WidthTms)
     (ctx : PbvTranslateContext) : Nat :=
   this.terms.fold (fun val _e wTm =>
-    val.max (wTm.term.getUniverseWidthUpperBound ctx)) ctx.bmcBound
+    val.max (wTm.term.getWidthUpperBound ctx)) ctx.bmcBound
 
 /--
 Information about the width variable and associated hypotheses.
@@ -447,26 +453,49 @@ meta def getMaskedExprFromProp (g : MVarId) (prop : Tm .prop) (proof : Expr)
     return (g, widthInfos, expr)
 
 /--
-If the given hypothesis can be reified as a width prop, convert it into a
-statement about the width masks, creating new masks if needed.
+A `Tm .prop` together with the proof of the `Nat` prop it was reified from.
 -/
-meta def translateWidthPrecond (g : MVarId) (ldecl : LocalDecl) (widthInfos : WidthInfos)
-    : MetaM (MVarId × WidthInfos) := g.withContext do
-  -- If the hypothesis cannot be reified, skip it.
-  let some prop ← Tm.reifyProp widthInfos.env (ldecl.type) | return (g, widthInfos)
-  -- Obtain the `Expr` of the prop in terms of the mask.
-  let (g, widthInfos, expr) ← getMaskedExprFromProp g prop (ldecl.toExpr) widthInfos
-  -- State the mask version of the prop
-  let (_, g) ← g.note (Name.mkSimple s!"bv_{prop.toName}") expr
-  return (g, widthInfos)
+structure WidthProp where
+  /-- Reified term for this width prop. -/
+  term : Tm .prop
+  /-- The proof of the corresponding `Nat` prop. -/
+  natProp : Expr
 
 /--
-Traverse the local context and add any width pre-conditions to the goal.
+Store the width `props` that have been reified.
 -/
-meta def translateWidthPreconds (g : MVarId) (widthInfos : WidthInfos)
-    : MetaM (MVarId × WidthInfos) := g.withContext do
-  (← getLCtx).foldlM (init := (g, widthInfos)) fun (g, widthInfos) ldecl =>
-    translateWidthPrecond g ldecl widthInfos
+structure WidthProps where
+  env : TmWidthEnv
+  props : HashMap Name WidthProp := {}
+
+/-- Insert a `WidthProp`, checking that the type of `expr` matches the `Tm`. -/
+meta def WidthProps.pushProp! (this : WidthProps) (prop : Tm .prop) (expr : Expr) : MetaM WidthProps := do
+  unless ← isDefEq (← inferType expr) (prop.toExpr this.env)
+    do throwError m!"Cannot insert prop {prop.toExpr this.env}: it doesn't match the type of the corresponding fvar: {← inferType expr}"
+  return { this with props := this.props.insert prop.toName {term := prop, natProp := expr} }
+
+meta def WidthProps.getWidthUpperBound (this : WidthProps) (ctx : PbvTranslateContext) : Nat :=
+  this.props.fold (fun val _e wTm =>
+    val.max (wTm.term.getWidthUpperBound ctx)) ctx.bmcBound
+
+/-- Construct the mask `Expr` for each `WidthProp` and add it to the context. -/
+meta def WidthProps.translateToMask (this : WidthProps) (g : MVarId) (widthInfos : WidthInfos) : MetaM (MVarId × WidthInfos) := do
+  this.props.foldM (init := (g, widthInfos)) fun (g, infos) name widthProp => do
+    -- Obtain the `Expr` of the prop in terms of the mask.
+    let (g, infos, expr) ← getMaskedExprFromProp g widthProp.term widthProp.natProp infos
+    -- State the prop in terms of the masks.
+    let (_, g) ← g.note (Name.mkSimple s!"bv_{name}") expr
+    return (g, infos)
+
+/--
+Traverse the local context and try to reify `Prop`s on width terms.
+-/
+meta def reifyPreconditions (g : MVarId) (env : TmWidthEnv)
+    : MetaM (MVarId × WidthProps) := g.withContext do
+  (← getLCtx).foldlM (init := (g, { env })) fun (g, props) ldecl => do
+    if let some prop ← Tm.reifyProp env (ldecl.type) then
+      return (g, ← props.pushProp! prop ldecl.toExpr)
+    return (g, props)
 
 /--
 Given the width terms in the formula, translate all `Nat` widths into `BitVec`
@@ -574,14 +603,16 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVa
   := g.withContext do
   -- Construct the width environment
   let widthEnv ← createWidthEnv g
-  -- Find `BitVec`s and intro their widths
+  -- Find `BitVec`s and reify their widths
   let (g, widthTms, bvsToRevert) ← visitExprRec g { env := widthEnv } {} (← g.getType)
+  -- Traverse the context to find props on widths (preconditions)
+  let (g, widthProps) ← reifyPreconditions g widthEnv
   -- Compute the blast width
-  let blastWidth := widthTms.getUniverseWidthUpperBound ctx
+  let blastWidth := (widthTms.getWidthUpperBound ctx).max <| widthProps.getWidthUpperBound ctx
   -- Introduce the width masks, bounded by the blast width
   let (g, widthInfos) ← introMaskWidths g widthTms blastWidth
-  -- Find and translate conditions on the width vars
-  let (g, widthInfos) ← translateWidthPreconds g widthInfos
+  -- Translate props on the width vars into props on the masks
+  let (g, widthInfos) ← widthProps.translateToMask g widthInfos
   -- Intro the `BitVec`s
   let (g, bvInfos) ← introMaskedBitvectors bvsToRevert g widthInfos
   -- Create simp set
