@@ -55,6 +55,18 @@ structure IntegerType where
   signedness : IntegerType.Signedness := .signless
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+/-- The signless integer type `i<bitwidth>`. -/
+def IntegerType.signless (bitwidth : Nat) : IntegerType :=
+  { bitwidth, signedness := .signless }
+
+/-- The signed integer type `si<bitwidth>`. -/
+def IntegerType.signed (bitwidth : Nat) : IntegerType :=
+  { bitwidth, signedness := .signed }
+
+/-- The unsigned integer type `ui<bitwidth>`. -/
+def IntegerType.unsigned (bitwidth : Nat) : IntegerType :=
+  { bitwidth, signedness := .unsigned }
+
 /--
   A floating point type.
 -/
@@ -432,7 +444,7 @@ structure CirIntType where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /-- The builtin integer type a `!cir.int` lowers to (signedness is dropped). -/
-def CirIntType.toIntegerType (type : CirIntType) : IntegerType := { bitwidth := type.width }
+def CirIntType.toIntegerType (type : CirIntType) : IntegerType := IntegerType.signless type.width
 
 /-- The `!cir.bool` type from ClangIR. -/
 structure CirBoolType
@@ -776,7 +788,7 @@ derive_mutual_hashable for
   UnregisteredAttr, Attribute
 
 instance : Inhabited VectorType where
-  default := { shape := #[], elementType := .integerType { bitwidth := 0 } }
+  default := { shape := #[], elementType := .integerType (IntegerType.signless 0) }
 
 instance : Coe FunctionType LLVMFunctionType where
   coe := .mk
@@ -1878,7 +1890,7 @@ def TypeAttr := {attr // Attribute.isType attr}
 deriving Repr, Hashable, DecidableEq
 
 instance : Inhabited TypeAttr where
-  default := ⟨.integerType { bitwidth := 0 }, by rfl⟩
+  default := ⟨.integerType (IntegerType.signless 0), by rfl⟩
 
 instance : Coe TypeAttr Attribute where
   coe typeAttr := typeAttr.val
