@@ -264,6 +264,21 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "248.0 : f8E4M3FNUZ" (fpAttr FloatType.f8E4M3FNUZ 0x80)
 -- 240.0 is the largest finite f8E4M3FNUZ value (0x7f is not a NaN in this format).
 #assert expectSuccessAttr "240.0 : f8E4M3FNUZ" (fpAttr FloatType.f8E4M3FNUZ 0x7f)
+-- x87 extended precision stores the leading bit of the significand explicitly.
+#assert expectSuccessAttr "1.5 : f80" (fpAttr FloatType.f80 0x3fffc000000000000000)
+#assert expectSuccessAttr "-2.25 : f80" (fpAttr FloatType.f80 0xc0009000000000000000)
+-- Largest finite value of f80.
+#assert expectSuccessAttr "1.189731495357231765021e+4932 : f80"
+  (fpAttr FloatType.f80 0x7ffeffffffffffffffff)
+-- Values above it overflow to infinity, whose mantissa keeps the explicit leading bit.
+#assert expectSuccessAttr "1.2e4932 : f80" (fpAttr FloatType.f80 0x7fff8000000000000000)
+-- Smallest subnormal value of f80.
+#assert expectSuccessAttr "3.645199531882474602528e-4951 : f80" (fpAttr FloatType.f80 0x1)
+-- An ordinary subnormal value, without the leading 1 in the mantissa.
+#assert expectSuccessAttr "1.282540566677892115121e-4937 : f80"
+  (fpAttr FloatType.f80 0x00000000200000000000)
+-- IEEE binary128.
+#assert expectSuccessAttr "1.5 : f128" (fpAttr FloatType.f128 0x3fff8000000000000000000000000000)
 -- Omitted numbers after the decimal point.
 #assert expectSuccessAttr "1. : f32" (fpAttr FloatType.f32 0x3f800000)
 -- A 0x-prefixed hexadecimal literal is accepted as the raw IEEE-754 bit pattern of the type.
