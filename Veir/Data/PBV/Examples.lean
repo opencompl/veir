@@ -26,7 +26,7 @@ theorem trace_add_comm_manual (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
 --         enforcing width constraint with mask
   revert x
   apply var_elim w_le_bw h_mw
-  intro x x_xmw
+  intro x h_xmw
   revert y
   apply var_elim w_le_bw h_mw
   intro y h_ymw
@@ -37,9 +37,16 @@ theorem trace_add_comm_manual (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
   have h_lit4_mask : lit4 = maskOfWidth 4 4 := by rfl
   have bv_hw := le_of_le_of_eq_maskOfWidth w_le_bw (by decide) h_mw h_lit4_mask hw
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
-  simp only [eq_iff (o := 4) w_le_bw, setWidth_add w_le_bw, setWidth_setWidth w_le_bw, BitVec.setWidth_eq, BitVec.setWidth_eq, ← h_mw]
+  simp only [
+      eq_iff (o := 4),             -- Introduce `setWidth` to goal
+      setWidth_add,       -- Push `setWidth` down add
+      setWidth_setWidth,  -- Push `setWidth` down setWidth
+      BitVec.setWidth_eq,         -- Remove redundant setWidths
+      w_le_bw,
+      ← h_mw
+      ]
 -- Step 7: Clear the widths
-  clear h_mw w_le_bw hw w
+  clear h_mw w_le_bw
 -- Step 8: Bitblast!
   bv_decide
 
@@ -93,7 +100,7 @@ theorem trace_zero_zero_extend (p q r : Nat) (x : BitVec p)
     ← h_mq,
     ← h_mr,
   ]
-  clear h_mp h_mq h_mr r_le_bw q_le_bw p_le_bw h_qr h_pq hr p q r
+  clear h_mp h_mq h_mr r_le_bw q_le_bw p_le_bw
 -- Step 8: BitBlast!
   bv_decide
 
@@ -147,8 +154,7 @@ theorem trace_zero_zero_extend_conj (p q r : Nat) (x : BitVec p)
     ← h_mr,
     ← h_mq,
   ]
-  clear h_mp h_mr h_mq
-  clear h r_le_bw p_le_bw q_le_bw hr p q r
+  clear h_mp h_mr h_mq h r_le_bw p_le_bw q_le_bw
 -- Step 8: BitBlast!
   bv_decide
 
@@ -204,9 +210,7 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
     ← h_mq,
     ← h_mp,
   ]
-  clear h_mp h_mr h_mq
-  clear hr hqr hpq
-  clear r_le_bw p_le_bw q_le_bw p q r
+  clear h_mp h_mr h_mq r_le_bw p_le_bw q_le_bw
 -- Step 8: BitBlast!
   bv_decide
 
@@ -253,8 +257,6 @@ theorem trace_append (w : Nat) (a b : BitVec w) (hw : w ≤ 8) :
     BitVec.setWidth_eq
   ]
 -- Step 7: Rewrite the mask into the hypotheses too.
-  clear h_mw h_amw h_bmw h_mw_add_w
-  clear w_le_bw w_add_w_le_bw
-  clear hw w
+  clear h_mw h_amw h_bmw h_mw_add_w w_le_bw w_add_w_le_bw
 -- Step 8: BitBlast!
   bv_decide

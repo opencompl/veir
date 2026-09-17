@@ -709,19 +709,3 @@ public meta def evalPbvDecide : Tactic := fun stx => do
       let ctx : PbvTranslateContext := { bmcBound := n.getNat }
       replaceMainGoal (← pbvTranslate (← getMainGoal) ctx)
   | _ => throwUnsupportedSyntax
-
-
--- /-- Commutativity of addition -/
--- example (w : Nat) (x y : BitVec w) (hw : w ≤ 2) :
---   x + y = y + x := by
---   pbv_decide 3
---   · bv_decide
-
--- theorem trace_zero_zero_extend (p q r : Nat) (x : BitVec p)
---   (hr : r ≤ 8)
---   (h_qr : q < r)
---   (h_pq : p < q) :
---   (x.zeroExtend q).zeroExtend r = x.zeroExtend r
---   := by
---   pbv_decide 8
---   bv_decide
