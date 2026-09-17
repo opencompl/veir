@@ -777,15 +777,17 @@ def add_shift_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (a, shlNeg, _ap) := matchAdd op ctx.raw | return (ctx, none)
   let some dShl := shlNeg.definingOp? | return (ctx, none)
-  let some (negB, c, shp) := matchShl dShl ctx.raw | return (ctx, none)
+  let some (negB, c, _shp) := matchShl dShl ctx.raw | return (ctx, none)
   let some dSub := negB.definingOp? | return (ctx, none)
-  let some (zeroV, b, subp) := matchSub dSub ctx.raw | return (ctx, none)
+  let some (zeroV, b, _subp) := matchSub dSub ctx.raw | return (ctx, none)
   let some zc := matchConstantIntVal zeroV ctx.raw | return (ctx, none)
   if zc ≠ 0 then return (ctx, none)
+  /- Shifting B can overflow even when shifting -B does not, and the negation's
+     flags do not constrain the replacement subtraction from A. -/
   let (ctx, newShl) ← WfRewriter.createOp! ctx Llvm.shl #[b.getType! ctx.raw] #[b, c]
-    #[] #[] shp none
+    #[] #[] (NswNuwProperties.mk false false) none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[a, (newShl.getResult 0)]
-    #[] #[] subp none
+    #[] #[] (NswNuwProperties.mk false false) none
   some (ctx, some (#[newShl, newOp], #[newOp.getResult 0]))
 
 def add_shift (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -797,15 +799,16 @@ def add_shift_commute_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (shlNeg, a, _ap) := matchAdd op ctx.raw | return (ctx, none)
   let some dShl := shlNeg.definingOp? | return (ctx, none)
-  let some (negB, c, shp) := matchShl dShl ctx.raw | return (ctx, none)
+  let some (negB, c, _shp) := matchShl dShl ctx.raw | return (ctx, none)
   let some dSub := negB.definingOp? | return (ctx, none)
-  let some (zeroV, b, subp) := matchSub dSub ctx.raw | return (ctx, none)
+  let some (zeroV, b, _subp) := matchSub dSub ctx.raw | return (ctx, none)
   let some zc := matchConstantIntVal zeroV ctx.raw | return (ctx, none)
   if zc ≠ 0 then return (ctx, none)
+  /- As in add_shift_local, neither replacement inherits the overflow flags. -/
   let (ctx, newShl) ← WfRewriter.createOp! ctx Llvm.shl #[b.getType! ctx.raw] #[b, c]
-    #[] #[] shp none
+    #[] #[] (NswNuwProperties.mk false false) none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[a, (newShl.getResult 0)]
-    #[] #[] subp none
+    #[] #[] (NswNuwProperties.mk false false) none
   some (ctx, some (#[newShl, newOp], #[newOp.getResult 0]))
 
 def add_shift_commute (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -1183,7 +1186,7 @@ def NotAPlusNegOne_rw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 
 def sub_one_from_sub_rw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (subVal, c1v, sp) := matchSub op ctx.raw | return (ctx, none)
+  let some (subVal, c1v, _sp) := matchSub op ctx.raw | return (ctx, none)
   let some cst1 := matchConstantIntVal c1v ctx.raw | return (ctx, none)
   if cst1 ≠ 1 then return (ctx, none)
   let some dSub := subVal.definingOp? | return (ctx, none)
@@ -1194,8 +1197,10 @@ def sub_one_from_sub_rw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     #[] #[] m1 none
   let (ctx, xorOp) ← WfRewriter.createOp! ctx Llvm.xor #[y.getType! ctx.raw] #[y, (cm1.getResult 0)]
     #[] #[] () none
+  /- The addition can overflow even when the outer subtraction does not,
+     including signed overflow when the unflagged inner subtraction wraps. -/
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.add #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[(xorOp.getResult 0), x]
-    #[] #[] sp none
+    #[] #[] (NswNuwProperties.mk false false) none
   some (ctx, some (#[cm1, xorOp, newOp], #[newOp.getResult 0]))
 
 def sub_one_from_sub_rw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
