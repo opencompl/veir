@@ -26,14 +26,6 @@ def MemoryState.empty : MemoryState := {
   consistentSize := (by grind)
 }
 
-def MemoryState.ensureSize (mem : MemoryState) (size : Nat) : MemoryState :=
-  if mem.contents.size < size then
-    ⟨mem.contents.extend (size - mem.contents.size) 0,
-      mem.poisonMask.extend (size - mem.contents.size) 0xff,
-      (by simp [mem.consistentSize])⟩
-  else
-    mem
-
 /--
   Allocate the given number of bytes of memory.
   Return the updated memory state and the freshly allocated address.

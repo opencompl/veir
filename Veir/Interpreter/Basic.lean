@@ -477,11 +477,11 @@ inductive LoadExtension
   | zeroExt
 
 /-- Read `bytes` of little-endian data from memory starting at
-    `eaddr` and extend it to 64 bits according to `ext`. Memory is
-    grown so that the access is in bounds and cannot raise UB. -/
+    `eaddr` and extend it to 64 bits according to `ext`. The access is
+    bounds-checked like an LLVM access, so machine code that reads memory
+    it never allocated is UB. -/
 def riscvLoad (mem : MemoryState) (eaddr : BitVec 64) (bytes : Nat) (ext : LoadExtension) :
     Interp (BitVec 64 × MemoryState) := do
-  let mem := mem.ensureSize (eaddr.toNat + bytes)
   let ba ← mem.load eaddr.toNat.toUInt64 bytes.toUInt64
   let val := ba.toBitVecLE bytes
   let extended := match ext with
@@ -853,27 +853,23 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : propertiesOf opType)
   | .sd => do
     let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.imm12
-    let mem := mem.ensureSize (eaddr.toNat + 8)
     let mem ← mem.store eaddr.toNat.toUInt64 (UInt64.ofBitVec val).toByteArrayLE
     return (#[], mem, none)
   | .sw => do
     let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.imm12
-    let mem := mem.ensureSize (eaddr.toNat + 4)
     -- store only the low 4 bytes of the register
     let mem ← mem.store eaddr.toNat.toUInt64 ((UInt64.ofBitVec val).toByteArrayLE.extract 0 4)
     return (#[], mem, none)
   | .sh => do
     let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.imm12
-    let mem := mem.ensureSize (eaddr.toNat + 2)
     -- store only the low 2 bytes of the register
     let mem ← mem.store eaddr.toNat.toUInt64 ((UInt64.ofBitVec val).toByteArrayLE.extract 0 2)
     return (#[], mem, none)
   | .sb => do
     let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.imm12
-    let mem := mem.ensureSize (eaddr.toNat + 1)
     -- store only the low byte of the register
     let mem ← mem.store eaddr.toNat.toUInt64 ((UInt64.ofBitVec val).toByteArrayLE.extract 0 1)
     return (#[], mem, none)
