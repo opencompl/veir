@@ -7,3 +7,5 @@ public import QPFTypes.Theory.MvFunctor
 public import QPFTypes.Theory.TypeFun
 public import QPFTypes.Theory.PFunctor
 public import QPFTypes.Theory.QPF
+
+public import QPFTypes.Meta.QPFExpr
