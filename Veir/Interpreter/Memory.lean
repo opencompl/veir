@@ -2,24 +2,13 @@ module
 
 public import Veir.RuntimeValue
 public import Veir.Interpreter.Interp
+public import Veir.Interpreter.MemoryModel
 
 public section
 
 open Veir.Data
 
 namespace Veir
-
-/--
-  The choices the interpreter makes where the memory model is nondeterministic.
-  The interpreter is a function, so every such choice is drawn from the
-  oracle, indexed by how many choices of that kind were made before, and two
-  programs being compared are run against the same oracle.
--/
-structure MemoryOracle where
-  /-- The address of the `n`-th allocation, or `none` to let the model place it. -/
-  blockAddress : Nat → Option UInt64 := fun _ => none
-
-instance : Inhabited MemoryOracle := ⟨{}⟩
 
 /--
   Memory state during interpretation.
@@ -202,5 +191,17 @@ def MemoryState.llvmLoad (state : MemoryState) (addr : UInt64) (type : TypeAttr)
   | Attribute.llvmPointerType _ =>
       return .addr (Data.LLVM.Ptr.ofByte (← state.loadByte64 addr))
   | _ => none
+
+/-- The flat memory model: one byte array, addressed directly. -/
+instance : MemoryModel MemoryState where
+  name := "flat"
+  initialMemState oracle := { MemoryState.empty with oracle }
+  allocateRegion state _align size := state.alloc size.toUInt64
+  load state type p := state.llvmLoad p type
+  store state p val := state.llvmStore p val
+  validForDerefPtrval state p size := p ≠ 0 && p.toNat + size ≤ state.contents.size
+  arrayShiftPtrval p bytes := (p.toNat + bytes).toUInt64
+  ptrFromInt _ i := Data.LLVM.Ptr.ofInt i
+  intFromPtr _ p := p.toInt
 
 end Veir

@@ -7,20 +7,33 @@ namespace Veir.Data.LLVM
 public section
 
 /--
-  A pointer-typed value: an address, or poison.
+  A pointer into interpreter memory. In the flat memory model this is the
+  address itself.
 
   We currently model a 64-bit system.
 -/
+abbrev Pointer := UInt64
+
+namespace Pointer
+
+/-- The null pointer. -/
+def null : Pointer := 0
+
+end Pointer
+
+/--
+  A pointer-typed value: a pointer, or poison.
+-/
 inductive Ptr where
-  /-- An address. -/
-  | val (p : UInt64)
+  /-- A pointer. -/
+  | val (p : Pointer)
   /-- A poison value indicating deferred undefined behavior. -/
   | poison
 deriving Inhabited, Repr, DecidableEq
 
 namespace Ptr
 
-def null : Ptr := .val 0
+def null : Ptr := .val Pointer.null
 
 @[expose, simp, grind .]
 def isRefinedBy : Ptr → Ptr → Prop
