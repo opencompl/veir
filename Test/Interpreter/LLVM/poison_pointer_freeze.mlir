@@ -12,4 +12,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Program output: #[ptr(0x0000000000000000)]
+// CHECK: Program output: #[ptr(0, 0)]
