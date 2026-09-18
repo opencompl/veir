@@ -646,8 +646,8 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     /- The C and C++ allocation functions are modelled by name. Each
        allocation yields a fresh object, so pointers into different
        allocations never alias. -/
-    let some callee := properties.callee | none
-    match callee.value, operands.toList with
+    let callee := (properties.callee.map (·.value)).getD ""
+    match callee, operands.toList with
     | "@malloc", [.int _ size] =>
       let .val size := size | Interp.ub
       let (mem, ptr) ← MemoryModel.allocateRegion mem MemoryState.objectAlignment.toNat size.toNat
@@ -677,7 +677,12 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       let .val ptr := ptr | Interp.ub
       let mem ← MemoryModel.kill mem ptr
       return (#[], mem, none)
-    | _, _ => none
+    | _, _ =>
+      /- A call the interpreter cannot enter. The callee may write anything
+         to every object, and returns whatever it likes: poison. -/
+      let mem := mem.havoc
+      let results ← resultTypes.mapM fun ty => RuntimeValue.getPoisonForType ty
+      return (results, mem, none)
   | .intr__memcpy | .intr__memmove => do
     /- Bytes are copied as they are, so a pointer stored in the source keeps
        its provenance in the destination. -/

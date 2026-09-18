@@ -277,6 +277,14 @@ def MemoryState.load (mem : MemoryState) (p : Pointer) (size : Nat) : Interp Byt
   return (mem.valueBytes (← mem.loadBytes p size)).1
 
 /--
+  The effect of a call the interpreter knows nothing about: the callee may
+  have written anything to any object, so every byte becomes poison.
+-/
+def MemoryState.havoc (mem : MemoryState) : MemoryState :=
+  { mem with objects := mem.objects.map fun obj =>
+      { obj with bytes := Array.replicate obj.bytes.size .poison } }
+
+/--
   The pointer whose bits are `b`: poison if any bit is poison, otherwise the
   pointer at that physical address. This is the conversion a bitcast to a
   pointer applies to raw bits, as `Byte.toInt` is for integers.
