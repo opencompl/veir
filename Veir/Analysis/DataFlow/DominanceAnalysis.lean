@@ -155,10 +155,6 @@ private def initializeRegion
       fact.setPostOrderIndex postOrderIndex
 
   for block in reversePostOrder do
-    if let some terminator := (block.get! irCtx.raw).lastOp then
-      for succ in terminator.getSuccessors! irCtx.raw do
-        let dependent := (InsertPoint.atStart! succ irCtx.raw, kind)
-        dfCtx := dfCtx.addDependency dependent { anchor := .BlockPtr block, kind := .dominator }
     dfCtx := dfCtx.modifyFact .dominator (.BlockPtr block) fun fact =>
       fact.setIDom (if block = entry then some entry else none)
     dfCtx := dfCtx.enqueue (InsertPoint.atStart! block irCtx.raw, kind)
@@ -190,24 +186,32 @@ def init
     (irCtx : WfIRContext OpCode) : DataFlowContext :=
   initializeRecursively top dfCtx irCtx
 
+private def dominatorFactKey (block : BlockPtr) : FactKey :=
+  { anchor := .BlockPtr block, kind := .dominator }
+
 /--
 Find the nearest common dominator of `block1` and `block2`.
 
 On each step, the cursor with the smaller postorder index is moved upward until
-both cursors coincide.
+both cursors coincide. The returned dependencies contain every immediate dominator
+fact inspected while walking the chains.
 -/
 private def intersect
     (block1 block2 : BlockPtr)
     (postOrderIndex : HashMap BlockPtr Nat)
-    (dfCtx : DataFlowContext) : BlockPtr := Id.run do
+    (dependencies : HashSet FactKey)
+    (dfCtx : DataFlowContext) : BlockPtr × HashSet FactKey := Id.run do
+  let mut dependencies := dependencies
   let mut finger1 := block1
   let mut finger2 := block2
   while finger1 ≠ finger2 do
     while postOrderIndex[finger1]! < postOrderIndex[finger2]! do
+      dependencies := dependencies.insert (dominatorFactKey finger1)
       finger1 := (finger1.getIDom? dfCtx).get!
     while postOrderIndex[finger2]! < postOrderIndex[finger1]! do
+      dependencies := dependencies.insert (dominatorFactKey finger2)
       finger2 := (finger2.getIDom? dfCtx).get!
-  finger1
+  (finger1, dependencies)
 
 /--
 Compute the next immediate dominator candidate for `block`.
@@ -215,16 +219,21 @@ Compute the next immediate dominator candidate for `block`.
 The entry block dominates itself. For every other block, we scan its predecessors,
 pick the first one whose dominator fact has already been computed, and then
 repeatedly `intersect` that candidate with each other processed predecessor.
+
+The returned dependencies include unavailable predecessor facts that this computation
+is waiting for, plus every fact whose immediate dominator was read by `intersect`.
 -/
 private def computeImmediateDominator
     (block : BlockPtr)
     (dfCtx : DataFlowContext)
-    (irCtx : WfIRContext OpCode) : Option BlockPtr := do
+    (irCtx : WfIRContext OpCode) : Option BlockPtr × HashSet FactKey := Id.run do
+  let mut dependencies : HashSet FactKey := ∅
   let region := ((block.get! irCtx.raw).parent).get!
   let entry := ((region.get! irCtx.raw).firstBlock).get!
-  let metadata ← region.getRegionMetadataFact? dfCtx irCtx
-  if block = entry then 
-    return entry
+  let some metadata := region.getRegionMetadataFact? dfCtx irCtx
+    | return (none, dependencies)
+  if block = entry then
+    return (some entry, dependencies)
 
   let mut currentPredUse := (block.get! irCtx.raw).firstUse
   let mut newIDom : Option BlockPtr := none
@@ -235,15 +244,23 @@ private def computeImmediateDominator
     let predOp := predUseStruct.owner
     let some predBlock := (predOp.get! irCtx.raw).parent
       | continue
-    let some _ := predBlock.getIDom? dfCtx
-      | continue
-    newIDom :=
-      match newIDom with
-      | none => predBlock
-      | some idom =>
-          intersect predBlock idom metadata.postOrderIndex dfCtx
+    -- This predecessor cannot contribute until its immediate dominator is available.
+    -- Record the dependency so this block is revisited when that happens.
+    if (predBlock.getIDom? dfCtx).isNone then
+      dependencies := dependencies.insert (dominatorFactKey predBlock)
+      continue
+    match newIDom with
+    | none =>
+      -- The first available predecessor is itself the candidate, regardless of its iDom.
+      newIDom := some predBlock
+    | some idom =>
+      -- `intersect` also returns the dominator facts it read while walking both chains.
+      let (newCandidate, newDependencies) :=
+        intersect predBlock idom metadata.postOrderIndex dependencies dfCtx
+      dependencies := newDependencies
+      newIDom := some newCandidate
 
-  newIDom
+  (newIDom, dependencies)
 
 /--
 Visit one dominator work item.
@@ -261,9 +278,11 @@ def visit
     dfCtx
   else
     let block := (point.block! irCtx.raw).get!
-    match computeImmediateDominator block dfCtx irCtx with
+    let (newIDom, dependencies) := computeImmediateDominator block dfCtx irCtx
+    let dfCtx := dfCtx.setDependencies (point, kind) dependencies
+    match newIDom with
     | none => dfCtx
-    | some newIDom => 
+    | some newIDom =>
       dfCtx.modifyFactAndPropagate .dominator (.BlockPtr block) (fun fact =>
        (fact.setIDom (some newIDom), some newIDom ≠ fact.iDom)) irCtx
 
