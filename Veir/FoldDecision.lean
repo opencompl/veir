@@ -1,6 +1,6 @@
 module
 
-public import Veir.RuntimeValue.Basic
+public import Veir.Interpreter.RuntimeValue.Basic
 
 /-!
   # Fold decisions

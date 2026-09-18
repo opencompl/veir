@@ -1,7 +1,7 @@
 module
 
 public import Veir.IR.OpInfo
-public import Veir.RuntimeValue.Basic
+public import Veir.Interpreter.RuntimeValue.Basic
 
 /-!
   # Constant materialization
