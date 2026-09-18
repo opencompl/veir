@@ -648,11 +648,11 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
         return (#[.int w (.val v)], mem, none)
     | .int w .poison =>
         let (choice, mem) := mem.drawFreeze w
-        return (#[.int w (LLVM.Int.freezeWith .poison choice)], mem, none)
+        return (#[.int w (LLVM.Int.freeze .poison choice)], mem, none)
     | .byte w val =>
         if val.poison = 0 then return (#[.byte w val], mem, none)
         let (choice, mem) := mem.drawFreeze w
-        return (#[.byte w (val.freezeWith choice)], mem, none)
+        return (#[.byte w (val.freeze choice)], mem, none)
     | .addr .poison => return (#[.addr LLVM.Ptr.null], mem, none)
     | .addr (.val p) => return (#[.addr (.val p)], mem, none)
     | _ => none

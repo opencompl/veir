@@ -831,9 +831,9 @@ theorem select_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w) (c₁ c₂ : Int 1)
       by_cases hc : v = 1#1 <;> simp [select, Id.run, hc] <;> assumption
 
 @[veir_bv_normalize, grind =]
-theorem isPoison_freeze {w : Nat} (x : Int w) :
-    (freeze x).isPoison = false := by
-  simp [freeze, isPoison, Id.run]
+theorem isPoison_freezeWithZero {w : Nat} (x : Int w) :
+    (freezeWithZero x).isPoison = false := by
+  simp [freezeWithZero, isPoison, Id.run]
   grind
 
 
@@ -920,20 +920,20 @@ theorem ushlSat_mono {w : Nat} (x₁ y₁ x₂ y₂ : Int w)
   grind
 
 @[veir_bv_normalize, grind =]
-theorem getValue_freeze {w : Nat} (x : Int w) :
-    (freeze x).getValue = if h : x.isPoison then 0#w else x.getValue := by
-  simp [freeze, Id.run]
+theorem getValue_freezeWithZero {w : Nat} (x : Int w) :
+    (freezeWithZero x).getValue = if h : x.isPoison then 0#w else x.getValue := by
+  simp [freezeWithZero, Id.run]
   grind
 
 @[veir_bv_normalize, grind =]
-theorem isPoison_freezeWith {w : Nat} (x : Int w) (choice : BitVec w) :
-    (freezeWith x choice).isPoison = false := by
-  cases x <;> simp [freezeWith, isPoison]
+theorem isPoison_freeze {w : Nat} (x : Int w) (choice : BitVec w) :
+    (freeze x choice).isPoison = false := by
+  cases x <;> simp [freeze, isPoison]
 
 @[veir_bv_normalize, grind =]
-theorem getValue_freezeWith {w : Nat} (x : Int w) (choice : BitVec w) :
-    (freezeWith x choice).getValue = if h : x.isPoison then choice else x.getValue := by
-  cases x <;> simp [freezeWith, isPoison, getValue]
+theorem getValue_freeze {w : Nat} (x : Int w) (choice : BitVec w) :
+    (freeze x choice).getValue = if h : x.isPoison then choice else x.getValue := by
+  cases x <;> simp [freeze, isPoison, getValue]
 
-theorem freeze_eq_freezeWith_zero {w : Nat} (x : Int w) : freeze x = freezeWith x 0 := by
-  cases x <;> simp [freeze, freezeWith, Id.run]
+theorem freezeWithZero_eq_freeze_zero {w : Nat} (x : Int w) : freezeWithZero x = freeze x 0 := by
+  cases x <;> simp [freezeWithZero, freeze, Id.run]

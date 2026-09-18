@@ -344,10 +344,10 @@ def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType
           return (#[.int w val], mem, none)
         else
           let (bv : FreezeC (.mk w)) ← CTree.choose (FreezeCIn.mk w)
-          return (#[.int w (LLVM.Int.freezeWith val bv)], mem, none)
+          return (#[.int w (LLVM.Int.freeze val bv)], mem, none)
     | .byte w val =>
         let bv : FreezeC (.mk w) ← CTree.choose (FreezeCIn.mk w)
-        return (#[.byte w (val.freezeWith bv)], mem, none)
+        return (#[.byte w (val.freeze bv)], mem, none)
     | .addr .poison => return (#[.addr LLVM.Ptr.null], mem, none)
     | .addr (.val p) => return (#[.addr (.val p)], mem, none)
     | _ => fail

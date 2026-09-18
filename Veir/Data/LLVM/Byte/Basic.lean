@@ -86,16 +86,17 @@ def lshr (x : Byte w) (y : Int w) (exact := false) : Byte w :=
       simp [←BitVec.ushiftRight_and_distrib, x.h]
     )⟩
 
-def freeze (x : Byte w) : Byte w :=
-  ⟨x.val, 0#w, by grind⟩
-
 /--
   `freeze` with the arbitrary bits made explicit: every poison bit becomes
   the corresponding bit of `choice`. The interpreter draws `choice` from its
-  oracle; `freeze` is the case where it is zero.
+  oracle.
 -/
-def freezeWith (x : Byte w) (choice : BitVec w) : Byte w :=
+def freeze (x : Byte w) (choice : BitVec w) : Byte w :=
   ⟨x.val ||| (x.poison &&& choice), 0#w, by simp⟩
+
+/-- `freeze` with the arbitrary bits fixed to zero. -/
+def freezeWithZero (x : Byte w) : Byte w :=
+  ⟨x.val, 0#w, by grind⟩
 
 def toString_rec {w : Nat} (b : Byte w) : String :=
   if w = 0 then "" else

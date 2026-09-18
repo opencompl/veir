@@ -1215,7 +1215,7 @@ theorem fold_slliuw_sound (rs1 : Reg) (shamt : BitVec 6) :
   veir_bv_decide
 
 theorem freeze_refinement {a : LLVM.Int 64} :
-    (Data.LLVM.Int.freeze a) ⊒
+    (Data.LLVM.Int.freezeWithZero a) ⊒
       (RISCV.Reg.toInt (LLVM.Int.toReg a) 64) := by
   veir_bv_decide
 
@@ -1556,6 +1556,6 @@ theorem select_refinement_1 {c : LLVM.Int 1} {t f : LLVM.Int 1} :
   veir_bv_decide
 
 theorem freeze_refinement_32 {a : LLVM.Int 32} :
-    (Data.LLVM.Int.freeze a) ⊒
+    (Data.LLVM.Int.freezeWithZero a) ⊒
       (RISCV.Reg.toInt (LLVM.Int.toReg a) 32) := by
   veir_bv_decide
