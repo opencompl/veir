@@ -98,7 +98,8 @@ partial def materializeGlobals (ctx : WfIRContext OpCode) (op : Option Operation
       let some size := DataLayout.riscv64.getTypeAllocSize props.global_type.val
         | IO.eprintln s!"Error: cannot size global {name}"; IO.Process.exit 1
       let align := (props.alignment.map (·.value.toNat.toUInt64)).getD MemoryState.objectAlignment
-      let (mem, ptr) ← exitOnInterp name (mem.alloc size align)
+      /- The object becomes constant only after its initializer is stored. -/
+      let (mem, ptr) ← exitOnInterp name (mem.alloc size .global align)
       let mem ← match props.value with
         | some value => exitOnInterp name (mem.storeBytes ptr (globalInitBytes value size))
         | none =>
@@ -110,13 +111,16 @@ partial def materializeGlobals (ctx : WfIRContext OpCode) (op : Option Operation
               (interpretRegion region #[] (ctx := ctx) ⟨.empty ctx, mem⟩ (by sorry))
             let some value := results[0]? | pure state.memory
             exitOnInterp name (state.memory.llvmStore ptr value)
+      let mem := match mem.getObject? ptr with
+        | some obj => mem.setObject ptr { obj with isConst := props.constant }
+        | none => mem
       pure { mem with globals := mem.globals.insert name ptr.object }
     | _ =>
       if op.isFunctionLike raw then
         match FunctionOpInterface.getSymName? op raw with
         | some sym =>
           let name := "@" ++ String.fromUTF8! sym.value
-          let (mem, ptr) ← exitOnInterp name (mem.alloc 0)
+          let (mem, ptr) ← exitOnInterp name (mem.alloc 0 .global MemoryState.objectAlignment true)
           pure { mem with globals := mem.globals.insert name ptr.object }
         | none => pure mem
       else pure mem

@@ -61,23 +61,40 @@ def ofValue (val : RuntimeValue) : Option (Array MemoryByte) :=
 
 end MemoryByte
 
+/-- How an object was allocated, which decides how it may be freed and when it dies. -/
+inductive ObjectKind where
+  /-- The null object, and whatever machine code reaches in the arena. -/
+  | null
+  /-- `alloca`: dies at `llvm.intr.lifetime.end` and when its function returns. -/
+  | stack
+  /-- `malloc` and friends: dies at `free`. -/
+  | heap
+  /-- `llvm.mlir.global` and functions: lives for the whole run. -/
+  | global
+deriving Inhabited, Repr, DecidableEq
+
 /--
   One allocation during interpretation: its bytes and the physical address
   `base` at which the object starts, so that byte `i` of the object lives at
-  address `base + i`.
+  address `base + i`, together with how it was allocated, the alignment it
+  was given, whether it is still alive and whether it may be written.
 -/
 @[ext]
 structure MemoryObject where
   bytes : Array MemoryByte
   base : UInt64
+  kind : ObjectKind := .stack
+  align : UInt64 := 16
   /-- Whether the object is still alive: not yet killed. -/
   alive : Bool := true
+  isConst : Bool := false
 
 /-- An object of `size` bytes at address `base`, all of them poison. -/
-def MemoryObject.ofSize (base : UInt64) (size : Nat) : MemoryObject :=
-  { bytes := Array.replicate size .poison, base }
+def MemoryObject.ofSize (base : UInt64) (size : Nat) (kind : ObjectKind := .stack)
+    (align : UInt64 := 16) (isConst : Bool := false) : MemoryObject :=
+  { bytes := Array.replicate size .poison, base, kind, align, isConst }
 
-instance : Inhabited MemoryObject := ⟨MemoryObject.ofSize 0 0⟩
+instance : Inhabited MemoryObject := ⟨MemoryObject.ofSize 0 0 .null⟩
 
 def MemoryObject.size (obj : MemoryObject) : Nat := obj.bytes.size
 
@@ -110,7 +127,7 @@ structure MemoryState where
   /-- How many allocations were made so far, to index the oracle. -/
   allocations : Nat := 0
 
-def MemoryState.empty : MemoryState := { objects := #[MemoryObject.ofSize 0 0] }
+def MemoryState.empty : MemoryState := { objects := #[MemoryObject.ofSize 0 0 .null] }
 
 /-- Every object starts at a multiple of at least this many bytes. -/
 def MemoryState.objectAlignment : UInt64 := 16
@@ -214,13 +231,14 @@ def MemoryState.ensureSize (mem : MemoryState) (p : Pointer) (size : Nat) : Memo
     mem.setObject p (obj.ensureSize wanted)
 
 /--
-  Allocate a fresh object of `size` bytes, aligned to `align`, at the address
-  the oracle names for this allocation or where the model would place it,
-  and return a pointer to its start. An oracle that names an address the
-  object cannot be placed at is not a program error, so the run fails.
+  Allocate a fresh object of `size` bytes and kind `kind`, aligned to `align`,
+  at the address the oracle names for this allocation or where the model
+  would place it, and return a pointer to its start. An oracle that names an
+  address the object cannot be placed at is not a program error, so the run
+  fails.
 -/
-def MemoryState.alloc (mem : MemoryState) (size : Nat) (align : UInt64 := objectAlignment)
-    : Interp (MemoryState × Pointer) :=
+def MemoryState.alloc (mem : MemoryState) (size : Nat) (kind : ObjectKind := .stack)
+    (align : UInt64 := objectAlignment) (isConst : Bool := false) : Interp (MemoryState × Pointer) :=
   let align := max align objectAlignment
   let n := mem.allocations
   let base := (mem.oracle.blockAddress n).getD (mem.nextBase align)
@@ -230,24 +248,50 @@ def MemoryState.alloc (mem : MemoryState) (size : Nat) (align : UInt64 := object
     let pos := mem.byAddress.findIdx? fun j => base < (mem.objects[j]?.map (·.base)).getD 0
     mem.byAddress.insertIdx! (pos.getD mem.byAddress.size) i
   return ({ mem with
-      objects := mem.objects.push (MemoryObject.ofSize base size),
+      objects := mem.objects.push (MemoryObject.ofSize base size kind align isConst),
       byAddress, allocations := n + 1 },
     ⟨i, 0⟩)
 
+/-- Kill every stack object allocated since there were `n` objects: they belong to a frame that returns. -/
+def MemoryState.killStackObjectsFrom (mem : MemoryState) (n : Nat) : MemoryState :=
+  { mem with objects := mem.objects.mapIdx fun i obj =>
+      if n ≤ i ∧ obj.kind = .stack then { obj with alive := false } else obj }
+
+/--
+  `llvm.intr.lifetime.start`: the stack object `p` points to becomes alive
+  again with poison contents. Anything but the start of a stack object is UB.
+-/
+def MemoryState.lifetimeStart (mem : MemoryState) (p : Pointer) : Interp MemoryState :=
+  match mem.getObject? p with
+  | none => Interp.ub
+  | some obj =>
+    if p.offset ≠ 0 ∨ obj.kind ≠ .stack then Interp.ub
+    else
+      return mem.setObject p
+        { obj with alive := true, bytes := Array.replicate obj.bytes.size .poison }
+
+/-- `llvm.intr.lifetime.end`: the stack object `p` points to dies. Anything but the start of a stack object is UB. -/
+def MemoryState.lifetimeEnd (mem : MemoryState) (p : Pointer) : Interp MemoryState :=
+  match mem.getObject? p with
+  | none => Interp.ub
+  | some obj =>
+    if p.offset ≠ 0 ∨ obj.kind ≠ .stack then Interp.ub
+    else return mem.setObject p { obj with alive := false }
+
 /--
   The object that an access of `size` bytes at `p` touches, if the access is
-  allowed: the object must exist, the access must stay inside it, and the
-  physical address must be a multiple of `align`. An access of no bytes is
-  allowed anywhere, even through a pointer to nothing. Later conditions on an
-  access are added here.
+  allowed: the object must exist, an access of at least one byte must stay
+  inside an object that is alive, a write must not target a constant object,
+  and the physical address must be a multiple of `align`. An access of no
+  bytes is allowed anywhere, even through a dangling pointer.
 -/
-def MemoryState.checkAccess (mem : MemoryState) (p : Pointer) (size : Nat)
+def MemoryState.checkAccess (mem : MemoryState) (p : Pointer) (size : Nat) (write : Bool)
     (align : Nat := 1) : Interp MemoryObject :=
   match mem.getObject? p with
   | none => Interp.ub
   | some obj =>
     if size = 0 then return obj
-    else if !obj.alive then Interp.ub
+    else if !obj.alive ∨ (write ∧ obj.isConst) then Interp.ub
     else if p.offset.toNat + size > obj.bytes.size then Interp.ub
     else if 1 < align ∧ (mem.address p).toNat % align ≠ 0 then Interp.ub
     else return obj
@@ -255,7 +299,7 @@ def MemoryState.checkAccess (mem : MemoryState) (p : Pointer) (size : Nat)
 /-- Store `bytes` at `p`. Yields UB if the access is not allowed (`checkAccess`). -/
 def MemoryState.storeBytes (mem : MemoryState) (p : Pointer) (bytes : Array MemoryByte)
     (align : Nat := 1) : Interp MemoryState := do
-  let obj ← mem.checkAccess p bytes.size align
+  let obj ← mem.checkAccess p bytes.size true align
   let stored := bytes.size.fold (init := obj.bytes) fun i _ acc =>
     acc.setIfInBounds (p.offset.toNat + i) bytes[i]!
   return mem.setObject p { obj with bytes := stored }
@@ -271,7 +315,7 @@ def MemoryState.store (mem : MemoryState) (p : Pointer) (val : ByteArray)
 /-- Load `size` bytes at `p`. Yields UB if the access is not allowed (`checkAccess`). -/
 def MemoryState.loadBytes (mem : MemoryState) (p : Pointer) (size : Nat) (align : Nat := 1)
     : Interp (Array MemoryByte) := do
-  let obj ← mem.checkAccess p size align
+  let obj ← mem.checkAccess p size false align
   return obj.bytes.extract p.offset.toNat (p.offset.toNat + size)
 
 /--
@@ -283,11 +327,14 @@ def MemoryState.load (mem : MemoryState) (p : Pointer) (size : Nat) : Interp Byt
 
 /--
   The effect of a call the interpreter knows nothing about: the callee may
-  have written anything to any object, so every byte becomes poison.
+  have written anything to any live, writable object, so every byte of
+  those becomes poison.
 -/
 def MemoryState.havoc (mem : MemoryState) : MemoryState :=
   { mem with objects := mem.objects.map fun obj =>
-      { obj with bytes := Array.replicate obj.bytes.size .poison } }
+      if obj.alive ∧ !obj.isConst then
+        { obj with bytes := Array.replicate obj.bytes.size .poison }
+      else obj }
 
 /--
   The pointer whose bits are `b`: poison if any bit is poison, otherwise the
@@ -390,11 +437,12 @@ def MemoryState.llvmLoad (mem : MemoryState) (p : Pointer) (type : TypeAttr)
 instance : MemoryModel MemoryState where
   name := "blocks"
   initialMemState oracle := { MemoryState.empty with oracle }
-  allocateRegion state align size := state.alloc size align.toUInt64
+  allocateObject state align size := state.alloc size .stack align.toUInt64
+  allocateRegion state align size := state.alloc size .heap align.toUInt64
   load state type addr align := state.llvmLoad addr type align
   store state addr val align := state.llvmStore addr val align
   validForDerefPtrval state addr size :=
-    match state.checkAccess addr size with
+    match state.checkAccess addr size false with
     | .ok _ => true
     | _ => false
   arrayShiftPtrval addr bytes := ⟨addr.object, UInt64.ofNat (addr.offset.toNat + bytes)⟩
@@ -408,20 +456,20 @@ instance : MemoryModel MemoryState where
     let bytes ← state.loadBytes src n
     state.storeBytes dst bytes
   /- Killing null does nothing, as `free(NULL)` does. Killing through an
-     offset pointer, a pointer to no object, or an object already dead is
-     undefined behaviour. The object dies but keeps its address, which is
-     never reused. -/
+     offset pointer, a pointer to no object, an object not on the heap, or
+     an object already dead is undefined behaviour. The object dies but
+     keeps its address, which is never reused. -/
   kill state p :=
     if p.isNull then return state else
     match state.getObject? p with
     | none => Interp.ub
     | some obj =>
-      if p.offset ≠ 0 ∨ !obj.alive then Interp.ub
+      if p.offset ≠ 0 ∨ obj.kind ≠ .heap ∨ !obj.alive then Interp.ub
       else return state.setObject p { obj with alive := false }
   realloc state align size old := do
     let some obj := state.getObject? old | Interp.ub
-    if !obj.alive then Interp.ub
-    let (state, ptr) ← state.alloc size align.toUInt64
+    if obj.kind ≠ .heap ∨ !obj.alive then Interp.ub
+    let (state, ptr) ← state.alloc size .heap align.toUInt64
     let kept := obj.bytes.extract old.offset.toNat (old.offset.toNat + min (obj.bytes.size - old.offset.toNat) size)
     let state ← state.storeBytes ptr kept
     return (state, ptr)

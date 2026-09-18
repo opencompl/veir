@@ -44,9 +44,14 @@ class MemoryModel (State : Type) where
   /-- `initial_mem_state`, built from the oracle the model's choices are drawn from. -/
   initialMemState : MemoryOracle → State
   /--
-    `allocate_region`: a fresh object of `size` bytes aligned to `align`, and a
-    pointer to its start. Fails when the oracle names an address the object
-    cannot be placed at.
+    `allocate_object`: an object of automatic storage, `size` bytes aligned
+    to `align`, which dies when the function that allocated it returns.
+    Fails when the oracle names an address the object cannot be placed at.
+  -/
+  allocateObject : State → (align size : Nat) → Interp (State × Pointer)
+  /--
+    `allocate_region`: a fresh heap object of `size` bytes aligned to `align`,
+    and a pointer to its start. Fails as `allocateObject` does.
   -/
   allocateRegion : State → (align size : Nat) → Interp (State × Pointer)
   /--
