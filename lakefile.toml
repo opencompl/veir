@@ -24,16 +24,16 @@ root = "UnitTest"
 
 [[lean_exe]]
 name = "veir-opt"
-root = "VeirOpt"
+root = "Exe.VeirOpt"
 
 [[lean_exe]]
 name = "run-benchmarks"
-root = "RunBenchmarks"
+root = "Exe.RunBenchmarks"
 
 [[lean_exe]]
 name = "veir-interpret"
-root = "VeirInterpret"
+root = "Exe.VeirInterpret"
 
 [[lean_exe]]
 name = "veir2mir"
-root = "VeirToMIR"
+root = "Exe.VeirToMIR"
