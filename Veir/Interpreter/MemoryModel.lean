@@ -61,6 +61,8 @@ class MemoryModel (State : Type) where
   ptrFromInt : State → Data.LLVM.Int 64 → Ptr
   /-- `intfromptr`: the integer a pointer denotes; poison for poison. -/
   intFromPtr : State → Ptr → Data.LLVM.Int 64
+  /-- `memcpy`: copy `n` bytes from `src` to `dst`, as they are. Undefined behaviour if either access is not valid. -/
+  memcpy : State → (dst src : Pointer) → (n : Nat) → Interp State
 
 end
 

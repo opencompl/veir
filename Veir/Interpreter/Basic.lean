@@ -639,6 +639,15 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     | .val ptr, .val idx =>
       return (#[.addr (.val (MemoryModel.arrayShiftPtrval (State := MemoryState) ptr (idx.toNat * size)))], mem, none)
     | _, _ => return (#[.addr .poison], mem, none)
+  | .intr__memcpy | .intr__memmove => do
+    /- Bytes are copied as they are, so a pointer stored in the source keeps
+       its provenance in the destination. -/
+    let [.addr dst, .addr src, .int _ len] := operands.toList | none
+    let .val dst := dst | Interp.ub
+    let .val src := src | Interp.ub
+    let .val len := len | Interp.ub
+    let mem ← MemoryModel.memcpy mem dst src len.toNat
+    return (#[], mem, none)
   | .ptrtoint => do
     let [.addr p] := operands.toList | none
     let [⟨.integerType bw, _⟩] := resultTypes.toList | none

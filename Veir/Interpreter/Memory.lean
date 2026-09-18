@@ -386,5 +386,8 @@ instance : MemoryModel MemoryState where
   intFromPtr state
     | .val addr => .val (state.address addr).toBitVec
     | .poison => .poison
+  memcpy state dst src n := do
+    let bytes ← state.loadBytes src n
+    state.storeBytes dst bytes
 
 end Veir
