@@ -1,7 +1,7 @@
 module
 
 public import Std.Data.ExtHashSet
-public import Veir.Meta.BVNormalizeSimp
+public import Veir.Tactic.BVNormalizeSimp
 import all Init.Data.Array.Basic -- unfold [Array.popWhile] in Array.getElem?_popWhile_of_false
 public section
 

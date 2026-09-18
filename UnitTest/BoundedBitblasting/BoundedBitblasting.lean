@@ -1,4 +1,4 @@
-import Veir.Meta.PBVDecide
+import Veir.Tactic.PBVDecide
 
 /-- Commutativity of addition -/
 example (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
