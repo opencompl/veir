@@ -616,7 +616,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let [.int _ (.val count)] := operands.toList | none
     /- `alloca T, N` reserves `N` strides of `T`, as in LLVM. -/
     let size ← layout.getTypeAllocSize properties.elem_type.val
-    let (mem, addr) := MemoryModel.allocateRegion mem properties.alignment.value.toNat (size * count.toNat)
+    let (mem, addr) ← MemoryModel.allocateRegion mem properties.alignment.value.toNat (size * count.toNat)
     return (#[.addr (.val addr)], mem, none)
   | .load => do
     let [.addr addr] := operands.toList | none
@@ -687,8 +687,9 @@ inductive LoadExtension
     grown so that the access is in bounds and cannot raise UB. -/
 def riscvLoad (mem : MemoryState) (eaddr : BitVec 64) (bytes : Nat) (ext : LoadExtension) :
     Interp (BitVec 64 × MemoryState) := do
-  let mem := mem.ensureSize (eaddr.toNat + bytes)
-  let ba ← mem.load eaddr.toNat.toUInt64 bytes.toUInt64
+  let p := mem.decode (UInt64.ofBitVec eaddr)
+  let mem := mem.ensureSize p bytes
+  let ba ← mem.load p bytes
   let val := ba.toBitVecLE bytes
   let extended := match ext with
     | .signExt => val.signExtend 64
@@ -1059,29 +1060,33 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : propertiesOf opType)
   | .sd => do
     let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.imm12
-    let mem := mem.ensureSize (eaddr.toNat + 8)
-    let mem ← mem.store eaddr.toNat.toUInt64 (UInt64.ofBitVec val).toByteArrayLE
+    let p := mem.decode (UInt64.ofBitVec eaddr)
+    let mem := mem.ensureSize p 8
+    let mem ← mem.store p (UInt64.ofBitVec val).toByteArrayLE
     return (#[], mem, none)
   | .sw => do
     let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.imm12
-    let mem := mem.ensureSize (eaddr.toNat + 4)
+    let p := mem.decode (UInt64.ofBitVec eaddr)
+    let mem := mem.ensureSize p 4
     -- store only the low 4 bytes of the register
-    let mem ← mem.store eaddr.toNat.toUInt64 ((UInt64.ofBitVec val).toByteArrayLE.extract 0 4)
+    let mem ← mem.store p ((UInt64.ofBitVec val).toByteArrayLE.extract 0 4)
     return (#[], mem, none)
   | .sh => do
     let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.imm12
-    let mem := mem.ensureSize (eaddr.toNat + 2)
+    let p := mem.decode (UInt64.ofBitVec eaddr)
+    let mem := mem.ensureSize p 2
     -- store only the low 2 bytes of the register
-    let mem ← mem.store eaddr.toNat.toUInt64 ((UInt64.ofBitVec val).toByteArrayLE.extract 0 2)
+    let mem ← mem.store p ((UInt64.ofBitVec val).toByteArrayLE.extract 0 2)
     return (#[], mem, none)
   | .sb => do
     let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.imm12
-    let mem := mem.ensureSize (eaddr.toNat + 1)
+    let p := mem.decode (UInt64.ofBitVec eaddr)
+    let mem := mem.ensureSize p 1
     -- store only the low byte of the register
-    let mem ← mem.store eaddr.toNat.toUInt64 ((UInt64.ofBitVec val).toByteArrayLE.extract 0 1)
+    let mem ← mem.store p ((UInt64.ofBitVec val).toByteArrayLE.extract 0 1)
     return (#[], mem, none)
 
 def Riscv_Stack.interpretOp' (opType : Veir.Riscv_Stack) (properties : propertiesOf opType)
@@ -1090,8 +1095,8 @@ def Riscv_Stack.interpretOp' (opType : Veir.Riscv_Stack) (properties : propertie
     : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
   match opType with
   | .alloca => do
-    let (mem, addr) := mem.alloc properties.size.toNat.toUInt64
-    return (#[.reg ⟨.ofNat 64 addr.toNat⟩], mem, none)
+    let (mem, addr) ← MemoryModel.allocateRegion mem properties.alignment.toNat properties.size.toNat
+    return (#[.reg (LLVM.Int.toReg (MemoryModel.intFromPtr mem (.val addr)))], mem, none)
 
 def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)

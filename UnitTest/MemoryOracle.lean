@@ -2,22 +2,31 @@ import Veir.Interpreter.Memory
 
 /-!
   The memory layout is the oracle's choice: an allocation lands at the
-  address the oracle names for it, and past the end of memory otherwise.
+  address the oracle names for it, and where the model would place it
+  otherwise. An address the object cannot be placed at fails the run.
 -/
 
 open Veir
 
-/- Fresh memory holds eight poison bytes for the null address, so the first allocation lands at 8. -/
-#guard (MemoryState.empty.alloc 4).2 = 8
+/- Allocate, and return the new state with the object's address. -/
+def allocated (mem : MemoryState) (size : Nat) : Option (MemoryState × UInt64) :=
+  match mem.alloc size with
+  | .ok (mem, p) => some (mem, mem.address p)
+  | _ => none
 
-/- With no address named, the second allocation follows the first. -/
-#guard ((MemoryState.empty.alloc 4).1.alloc 4).2 = 12
+/- With no address named, the first object lands right past the arena, and the next follows it with a guard byte, aligned. -/
+#guard (allocated .empty 4).map (·.2) = some 0x10000
+#guard ((allocated .empty 4).bind fun (m, _) => allocated m 4).map (·.2) = some 0x10010
 
-/- An oracle that names an address for the first allocation is obeyed, and memory grows to fit. -/
-def placeFirstAt100 : MemoryOracle := { blockAddress := fun n => if n = 0 then some 100 else none }
+/- An oracle that names a valid address for the first allocation is obeyed, and the next allocation goes past it. -/
+def placeFirst : MemoryOracle := { blockAddress := fun n => if n = 0 then some 0x20000 else none }
 
-#guard ({ MemoryState.empty with oracle := placeFirstAt100 }.alloc 4).2 = 100
-#guard ({ MemoryState.empty with oracle := placeFirstAt100 }.alloc 4).1.contents.size = 104
+#guard (allocated { MemoryState.empty with oracle := placeFirst } 4).map (·.2) = some 0x20000
+#guard ((allocated { MemoryState.empty with oracle := placeFirst } 4).bind fun (m, _) => allocated m 4).map (·.2)
+  = some 0x20010
 
-/- The next allocation, which the oracle leaves to the model, goes past the end. -/
-#guard (({ MemoryState.empty with oracle := placeFirstAt100 }.alloc 4).1.alloc 4).2 = 104
+/- An address inside the arena, an unaligned one, and one overlapping an object all fail. -/
+#guard (allocated { MemoryState.empty with oracle := { blockAddress := fun _ => some 100 } } 4).isNone
+#guard (allocated { MemoryState.empty with oracle := { blockAddress := fun _ => some 0x20001 } } 4).isNone
+#guard ((allocated .empty 4).bind fun (m, _) =>
+  allocated { m with oracle := { blockAddress := fun _ => some 0x10000 } } 4).isNone

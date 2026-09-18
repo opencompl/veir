@@ -1,23 +1,30 @@
 module
 
-public import Veir.Data.LLVM.Byte.Basic
-
 namespace Veir.Data.LLVM
 
 public section
 
 /--
-  A pointer into interpreter memory. In the flat memory model this is the
-  address itself.
-
-  We currently model a 64-bit system.
+  A pointer into interpreter memory: the object it may access and a byte
+  offset into it. Pointers derived from different objects never alias, and an
+  access outside the object is undefined behaviour. Every object has a
+  physical address, so a pointer converts to an integer with
+  `MemoryState.address` and an integer converts back with `MemoryState.decode`.
 -/
-abbrev Pointer := UInt64
+structure Pointer where
+  object : Nat
+  offset : UInt64
+deriving Inhabited, Repr, DecidableEq, Hashable
 
 namespace Pointer
 
-/-- The null pointer. -/
-def null : Pointer := 0
+/-- The null pointer. Object 0 holds no bytes, so every access through it is UB. -/
+def null : Pointer := ⟨0, 0⟩
+
+def isNull (p : Pointer) : Bool := p == null
+
+instance : ToString Pointer where
+  toString p := s!"ptr({p.object}, {p.offset})"
 
 end Pointer
 
@@ -25,7 +32,7 @@ end Pointer
   A pointer-typed value: a pointer, or poison.
 -/
 inductive Ptr where
-  /-- A pointer. -/
+  /-- A pointer to an object. -/
   | val (p : Pointer)
   /-- A poison value indicating deferred undefined behavior. -/
   | poison
@@ -43,32 +50,9 @@ def isRefinedBy : Ptr → Ptr → Prop
 
 @[inherit_doc] infix:50 " ⊒ " => LLVM.Ptr.isRefinedBy
 
-/-- The address as a 64-bit integer; poison for a poison pointer. -/
-@[simp, grind =]
-def toInt (p : Ptr) : Int 64 :=
-  match p with
-  | .val p => .val p.toBitVec
-  | .poison => .poison
-
-/-- The pointer at address `i`; poison for poison. -/
-@[simp, grind =]
-def ofInt (i : Int 64) : Ptr :=
-  match i with
-  | .val v => .val (UInt64.ofBitVec v)
-  | .poison => .poison
-
-/-- The pointer whose bits are `b`, poison if any bit is poison. -/
-def ofByte (b : Byte 64) : Ptr := ofInt b.toInt
-
-/-- The bits of a pointer: all poison for a poison pointer. -/
-def toByte (p : Ptr) : Byte 64 := Byte.fromInt p.toInt
-
-/-- Prints as `ptr(0x…)`, so a pointer is told apart from an integer in program output. -/
 instance : ToString Ptr where
   toString
-    | .val p =>
-      let digits := String.ofList (Nat.toDigits 16 p.toNat)
-      s!"ptr(0x{"".pushn '0' (16 - digits.length) ++ digits})"
+    | .val p => ToString.toString p
     | .poison => "poison"
 
 end Ptr
