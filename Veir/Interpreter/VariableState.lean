@@ -1,6 +1,6 @@
 module
 
-public import Veir.RuntimeValue
+public import Veir.Interpreter.RuntimeValue
 public import Veir.Interpreter.Memory
 public import Veir.IR.WellFormed
 
@@ -9,7 +9,9 @@ public section
 open Veir.Data
 
 /-!
-  Various utility definitions for the Veir interpreter.
+# Variable State
+
+Definition of the interpreter's variable state, which maps IR values to runtime values.
 -/
 
 namespace Veir
@@ -157,32 +159,5 @@ def VariableState.setArgumentValues? (state : VariableState ctx)
     (blockInBounds : block.InBounds ctx.raw := by grind)
     : Option (VariableState ctx) :=
   VariableState.setArgumentValues?_loop state block values (block.getNumArguments! ctx.raw)
-
-/--
-  How the control flow should proceed after interpreting a terminator.
-  - `return` indicates that the current block should return with the given values.
-  - `branch` indicates that the interpreter should jump to another block
--/
-inductive ControlFlowAction where
-  | return (vals : Array RuntimeValue)
-  | branch (vals : Array RuntimeValue) (dest : BlockPtr)
-
-/--
-  Signal UB if the divisor `b` of an unsigned division or remainder could be
-  zero. A poison divisor may refine to zero, so it is immediate UB just like a
-  concretely-zero one.
--/
-@[inline] def Interp.checkUnsignedDivision {w : Nat} (b : LLVM.Int w) : Interp Unit :=
-  if b = .poison ∨ b = .val 0 then Interp.ub else pure ()
-
-/--
-  Signal UB if the signed division or remainder `a / b` could be undefined:
-  a zero divisor, or the `intMin / -1` overflow case. As above, poison operands
-  may refine to any value, so they count as possibly triggering either case.
--/
-@[inline] def Interp.checkSignedDivision {w : Nat} (a b : LLVM.Int w) : Interp Unit := do
-  Interp.checkUnsignedDivision b
-  -- The divisor is now concretely nonzero, so only a concrete `-1` can overflow.
-  if b = .val (-1) ∧ (a = .poison ∨ a = .val (BitVec.intMin w)) then Interp.ub
 
 end Veir

@@ -1,7 +1,7 @@
 module
 
 public import Veir.Verifier
-import all Veir.Interpreter.Util
+import all Veir.Interpreter.VariableState
 import all Veir.Interpreter.Basic
 public import Veir.Interpreter.Refinement.Basic
 
