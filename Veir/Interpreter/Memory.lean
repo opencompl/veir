@@ -2,6 +2,7 @@ module
 
 public import Veir.RuntimeValue
 public import Veir.Interpreter.Interp
+public import Veir.Interpreter.Oracle
 
 public section
 
@@ -12,12 +13,18 @@ namespace Veir
 /--
   Memory state during interpretation.
   Set bits in the poison mask represent poison bits.
+
+  This is the state the interpreter threads through every operation, so it
+  also carries the interpreter's oracle and the counts that index it.
 -/
 @[ext]
 structure MemoryState where
   contents : ByteArray
   poisonMask : ByteArray
   consistentSize : contents.size = poisonMask.size
+  oracle : Oracle := {}
+  /-- How many freezes drew a value from the oracle so far. -/
+  freezes : Nat := 0
 
 def MemoryState.empty : MemoryState := {
   contents := (ByteArray.emptyWithCapacity 1024).extend 8 0xff,
@@ -27,11 +34,16 @@ def MemoryState.empty : MemoryState := {
 
 def MemoryState.ensureSize (mem : MemoryState) (size : Nat) : MemoryState :=
   if mem.contents.size < size then
-    ⟨mem.contents.extend (size - mem.contents.size) 0,
-      mem.poisonMask.extend (size - mem.contents.size) 0xff,
-      (by simp [mem.consistentSize])⟩
+    { mem with
+      contents := mem.contents.extend (size - mem.contents.size) 0,
+      poisonMask := mem.poisonMask.extend (size - mem.contents.size) 0xff,
+      consistentSize := by simp [mem.consistentSize] }
   else
     mem
+
+/-- The bits the oracle substitutes for poison in the next `freeze` at width `w`. -/
+def MemoryState.drawFreeze (mem : MemoryState) (w : Nat) : BitVec w × MemoryState :=
+  (mem.oracle.freeze mem.freezes w, { mem with freezes := mem.freezes + 1 })
 
 /--
   Allocate the given number of bytes of memory.
@@ -39,9 +51,11 @@ def MemoryState.ensureSize (mem : MemoryState) (size : Nat) : MemoryState :=
 -/
 def MemoryState.alloc (state : MemoryState) (size : UInt64)
     : MemoryState × UInt64 :=
-  (⟨state.contents.extend size.toNat 0,
-    state.poisonMask.extend size.toNat 0xff,
-    by simp [state.consistentSize]⟩, state.contents.size.toUInt64)
+  ({ state with
+      contents := state.contents.extend size.toNat 0,
+      poisonMask := state.poisonMask.extend size.toNat 0xff,
+      consistentSize := by simp [state.consistentSize] },
+   state.contents.size.toUInt64)
 
 /--
   Store raw bytes to the given address in memory,
@@ -52,11 +66,10 @@ def MemoryState.store (state : MemoryState) (addr : UInt64) (val : ByteArray)
   (poison : ByteArray := ByteArray.replicate val.size 0) (h : poison.size = val.size := by grind)
     : Interp MemoryState :=
   if addr.toNat + val.size ≤ state.contents.size then
-    return ⟨val.copySlice 0 state.contents addr.toNat val.size false,
-      poison.copySlice 0 state.poisonMask addr.toNat val.size false,
-      by
-        simp [ByteArray.copySlice_eq_append, state.consistentSize, h]
-      ⟩
+    return { state with
+      contents := val.copySlice 0 state.contents addr.toNat val.size false,
+      poisonMask := poison.copySlice 0 state.poisonMask addr.toNat val.size false,
+      consistentSize := by simp [ByteArray.copySlice_eq_append, state.consistentSize, h] }
   else
     Interp.ub
 
@@ -68,15 +81,13 @@ def MemoryState.empoison (state : MemoryState) (addr : UInt64) (n : Nat)
     : Interp MemoryState :=
   if h : addr.toNat + n ≤ state.poisonMask.size then
     let mask := ByteArray.replicate n 0xff
-    return ⟨state.contents,
-      mask.copySlice 0 state.poisonMask addr.toNat n false,
-      by
+    return { state with
+      poisonMask := mask.copySlice 0 state.poisonMask addr.toNat n false,
+      consistentSize := by
         have h' : min n mask.size = n := by grind
         have h'' : min addr.toNat state.poisonMask.size = addr.toNat := by grind
         simp [ByteArray.copySlice_eq_append, state.consistentSize, h', h'']
-        grind
-
-      ⟩
+        grind }
   else
     Interp.ub
 

@@ -15,6 +15,7 @@ import UnitTest.DataFlowFramework.EntryState
 import UnitTest.DataFlowFramework.ModArithRangeAnalysis
 import UnitTest.ConstantValue
 import UnitTest.Evaluate
+import UnitTest.FreezeOracle
 import UnitTest.FoldDecision
 import UnitTest.SideEffectInterfaces
 import UnitTest.RegionKindInterfaces

@@ -640,12 +640,19 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     | .val ptr, .val idx => return (#[.addr (.val (ptr.toNat + idx.toNat * size).toUInt64)], mem, none)
     | _, _ => return (#[.addr .poison], mem, none)
   | .freeze => do
+    /- Poison becomes whatever the oracle picks; a value with no poison is
+       returned as it is and draws nothing. -/
     let [val] := operands.toList | none
     match val with
-    | .int w val =>
-        return (#[.int w val.freeze], mem, none)
+    | .int w (.val v) =>
+        return (#[.int w (.val v)], mem, none)
+    | .int w .poison =>
+        let (choice, mem) := mem.drawFreeze w
+        return (#[.int w (LLVM.Int.freezeWith .poison choice)], mem, none)
     | .byte w val =>
-        return (#[.byte w val.freeze], mem, none)
+        if val.poison = 0 then return (#[.byte w val], mem, none)
+        let (choice, mem) := mem.drawFreeze w
+        return (#[.byte w (val.freezeWith choice)], mem, none)
     | .addr .poison => return (#[.addr LLVM.Ptr.null], mem, none)
     | .addr (.val p) => return (#[.addr (.val p)], mem, none)
     | _ => none

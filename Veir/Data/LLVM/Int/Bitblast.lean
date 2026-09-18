@@ -924,3 +924,16 @@ theorem getValue_freeze {w : Nat} (x : Int w) :
     (freeze x).getValue = if h : x.isPoison then 0#w else x.getValue := by
   simp [freeze, Id.run]
   grind
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_freezeWith {w : Nat} (x : Int w) (choice : BitVec w) :
+    (freezeWith x choice).isPoison = false := by
+  cases x <;> simp [freezeWith, isPoison]
+
+@[veir_bv_normalize, grind =]
+theorem getValue_freezeWith {w : Nat} (x : Int w) (choice : BitVec w) :
+    (freezeWith x choice).getValue = if h : x.isPoison then choice else x.getValue := by
+  cases x <;> simp [freezeWith, isPoison, getValue]
+
+theorem freeze_eq_freezeWith_zero {w : Nat} (x : Int w) : freeze x = freezeWith x 0 := by
+  cases x <;> simp [freeze, freezeWith, Id.run]

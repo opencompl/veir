@@ -824,12 +824,22 @@ def select {w : Nat} (c : Int 1) (x y : Int w) : Int w := Id.run do
 
 /--
  The `freeze` instruction converts a poison value to a non-poison value by
- replacing it with an arbitrary value. We currently always pick zero.
+ replacing it with an arbitrary value. This picks zero; see `freezeWith`.
 -/
 def freeze {w : Nat} (x : Int w) : Int w := Id.run do
   match x with
   | .val v => .val v
   | .poison => .val 0
+
+/--
+  `freeze` with the arbitrary value made explicit: a poison value becomes
+  `choice`. The interpreter draws `choice` from its oracle; `freeze` is the
+  case where it is zero.
+-/
+def freezeWith {w : Nat} (x : Int w) (choice : BitVec w) : Int w :=
+  match x with
+  | .val v => .val v
+  | .poison => .val choice
 
 end Int
 end
