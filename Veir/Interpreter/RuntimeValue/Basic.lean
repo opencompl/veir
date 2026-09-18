@@ -4,6 +4,7 @@ public import Veir.Data.LLVM.Byte.Basic
 public import Veir.Data.LLVM.Ptr
 public import Veir.Data.RISCV.Reg.Basic
 public import Veir.IR.Attribute
+public import Veir.IR.Basic
 
 public section
 
@@ -53,5 +54,14 @@ def RuntimeValue.getPoisonForType (ty : TypeAttr) : Option RuntimeValue :=
   | .byteType byteTy => some (.byte byteTy.bitwidth Data.LLVM.Byte.allPoison)
   | .llvmPointerType _ => some (.addr .poison)
   | _ => none
+
+/--
+  How the control flow should proceed after interpreting a terminator.
+  - `return` indicates that the current block should return with the given values.
+  - `branch` indicates that the interpreter should jump to another block
+-/
+inductive ControlFlowAction where
+  | return (vals : Array RuntimeValue)
+  | branch (vals : Array RuntimeValue) (dest : BlockPtr)
 
 end Veir

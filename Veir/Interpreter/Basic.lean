@@ -1,8 +1,8 @@
 module
 
-public import Veir.RuntimeValue
+public import Veir.Interpreter.RuntimeValue
 public import Veir.Interpreter.Memory
-public import Veir.Interpreter.Util
+public import Veir.Interpreter.VariableState
 public import Veir.IR.WellFormed
 public import Veir.GlobalOpInfo
 public import Veir.DataLayout.RISCV64
@@ -182,25 +182,25 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    Interp.checkSignedDivision lhs rhs
+    if LLVM.Int.isSignedDivisionUB lhs rhs then Interp.ub
     return (#[.int bw (LLVM.Int.sdiv lhs rhs properties.exact)], mem, none)
   | .udiv => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    Interp.checkUnsignedDivision rhs
+    if LLVM.Int.isUnsignedDivisionUB rhs then Interp.ub
     return (#[.int bw (LLVM.Int.udiv lhs rhs properties.exact)], mem, none)
   | .srem => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    Interp.checkSignedDivision lhs rhs
+    if LLVM.Int.isSignedDivisionUB lhs rhs then Interp.ub
     return (#[.int bw (LLVM.Int.srem lhs rhs)], mem, none)
   | .urem => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    Interp.checkUnsignedDivision rhs
+    if LLVM.Int.isUnsignedDivisionUB rhs then Interp.ub
     return (#[.int bw (LLVM.Int.urem lhs rhs)], mem, none)
   | .shl => do
     let [lhs, .int bw' rhs] := operands.toList | none
