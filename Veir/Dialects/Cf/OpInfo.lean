@@ -66,6 +66,25 @@ instance : IsOpCode Cf where
   fromAttrDict := Cf.fromAttrDict
   toAttrDict := Cf.toAttrDict
 
+def Cf.branchOpInterface? (op : Cf) : Option (BranchOpInterface (Cf.propertiesOf op)) :=
+  match op with
+  | .br =>
+    some {
+      getSuccessorOperandsImpl? := fun _ operands successorIndex => do
+        guard (successorIndex = 0)
+        some { forwardedOperands := operands }
+      getSuccessorForOperandsImpl? := fun _ _ successors => successors[0]?
+    }
+  | .cond_br =>
+    some {
+      getSuccessorOperandsImpl? := fun props operands successorIndex =>
+        BranchOpInterface.getSegmentedSuccessorOperands?
+          1 props.operandSegmentSizes.values operands successorIndex
+      getSuccessorForOperandsImpl? := fun _ operands successors => do
+        let some (.int _ (.val condition)) ← operands[0]? | none
+        BranchOpInterface.getConditionalSuccessor? successors (condition ≠ 0)
+    }
+
 /--
 Verify the local invariants of a `cf` operation in any operation-info type
 containing the `cf` dialect.
@@ -89,6 +108,7 @@ instance : HasOpInfo Cf where
   verifyLocalInvariants := Cf.verifyLocalInvariants
   getEffects := Cf.getEffects
   isConstantLike := Cf.isConstantLike
+  branchOpInterface? := Cf.branchOpInterface?
   hasSSADominance := Cf.hasSSADominance
   isTerminator := Cf.isTerminator
 
