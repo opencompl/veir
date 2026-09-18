@@ -1,6 +1,6 @@
-import QPFTypes.TypeVec
-import QPFTypes.TypeFun
-import QPFTypes.PFunctor.Multivariate.Basic
+import QPFTypes.Theory.TypeVec
+import QPFTypes.Theory.TypeFun
+import QPFTypes.Theory.PFunctor.Multivariate.Basic
 
 /-!
 # Multivariate Semantic Polynomial Functor

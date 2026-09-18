@@ -5,7 +5,7 @@ Authors: Jeremy Avigad
 -/
 module
 
-public import QPFTypes.PFunctor.Univariate.Basic
+public import QPFTypes.Theory.PFunctor.Univariate.Basic
 
 /-!
 # Lifting of relations on polynomial Functors
@@ -86,4 +86,3 @@ theorem supp_eq {α : Type u} (a : P.A) (f : P.B a → α) :
     exact hp i
 
 end PFunctor
-

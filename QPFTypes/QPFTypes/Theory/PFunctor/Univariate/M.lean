@@ -5,7 +5,7 @@ Authors: Simon Hudon
 -/
 module
 
-public import QPFTypes.PFunctor.Univariate.Basic
+public import QPFTypes.Theory.PFunctor.Univariate.Basic
 
 /-!
 # M-types

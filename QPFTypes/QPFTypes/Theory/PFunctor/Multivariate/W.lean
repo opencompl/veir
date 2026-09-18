@@ -5,7 +5,7 @@ Authors: Jeremy Avigad, Simon Hudon
 -/
 module
 
-public import QPFTypes.PFunctor.Multivariate.Basic
+public import QPFTypes.Theory.PFunctor.Multivariate.Basic
 
 /-!
 # The W construction as a multivariate polynomial functor.
