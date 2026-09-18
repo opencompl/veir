@@ -6,6 +6,7 @@ public import Veir.Dialects.HW.Properties
 public import Veir.ConstantMaterialization
 public import Veir.Verifier.Basic
 meta import Veir.Meta.OpCode
+import Veir.Data.HW.Basic
 
 namespace Veir
 
@@ -137,6 +138,18 @@ def HW.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpInfo
       some (.of HW.constant (HWConstantProperties.mk (IntegerAttr.mk value.toInt intType)))
     else none
   | _, _ => none
+
+def HW.interpretOp' (opType : Veir.HW) (properties : propertiesOf opType)
+    (resultTypes : Array TypeAttr) (_blockOperands : Array BlockPtr)
+    : Option ((Array RuntimeValue) × Option ControlFlowAction) :=
+  match opType with
+  | .constant => do
+    let resType ← resultTypes[0]?
+    let .integerType bw := resType.val
+      | none
+    return (#[.int bw.bitwidth
+      (.val (Veir.Data.HW.constant (BitVec.ofInt bw.bitwidth properties.value.value)).val)], none)
+  | _ => none
 
 instance : HasOpInfo HW where
   verifyLocalInvariants := HW.verifyLocalInvariants
