@@ -35,4 +35,13 @@ def foldEvaluate (opCode : OpCode) (properties : propertiesOf opCode)
   if action.isSome then none
   else return results
 
+/-- Evaluation equation for LLVM's bitwise AND on concrete integer operands. -/
+@[simp] theorem foldEvaluate_llvm_and
+    (bitwidth : Nat)
+    (lhs rhs : BitVec bitwidth) :
+    foldEvaluate (.llvm .and) () #[IntegerType.mk bitwidth]
+        #[.int bitwidth (.val lhs), .int bitwidth (.val rhs)] =
+      .ok #[.int bitwidth (.val (lhs &&& rhs))] := by
+  simp [foldEvaluate, isFoldEvaluationCandidate]
+
 end Veir
