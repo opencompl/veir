@@ -1,10 +1,12 @@
 module
 
 public import Veir.RuntimeValue
+public import Veir.Interpreter.CTree
 public import Veir.Interpreter.Interp
 
 public section
 
+open CTree
 open Veir.Data
 
 namespace Veir
@@ -88,6 +90,26 @@ def MemoryState.store (state : MemoryState) (addr : UInt64) (val : ByteArray)
     Interp.ub
 
 /--
+  Store raw bytes to the given address in memory using the CTree interpreter,
+  and set the corresponding poison bits as requested (by default, unset).
+  Yields UB if the access is out of bounds.
+-/
+def MemoryState.storeCTree [UBE -< E] (state : MemoryState) (addr : UInt64) (val : ByteArray)
+  (poison : ByteArray := ByteArray.replicate val.size 0) (h : poison.size = val.size := by grind)
+    : CTree E C MemoryState :=
+  if addr.toNat + val.size ≤ state.contents.size then
+    return {
+      contents := val.copySlice 0 state.contents addr.toNat val.size false,
+      poisonMask := poison.copySlice 0 state.poisonMask addr.toNat val.size false,
+      entropySource := state.entropySource,
+      selfAddress := state.selfAddress,
+      messages := state.messages,
+      consistentSize := (by simp [ByteArray.copySlice_eq_append, state.consistentSize, h])
+    }
+  else
+    ub
+
+/--
   Poison the given number n of bytes, starting from the given address in memory.
   Yields UB if the access is out of bounds.
 -/
@@ -142,6 +164,17 @@ def MemoryState.load (state : MemoryState) (addr size : UInt64)
     Interp.ub
 
 /--
+  Load raw bytes from the given memory address using the CTree interpreter.
+  Yields UB if the access is out of bounds.
+-/
+def MemoryState.loadCTree [UBE -< E] (state : MemoryState) (addr size : UInt64)
+    : CTree E C ByteArray :=
+  if addr.toNat + size.toNat <= state.contents.size then
+    return state.contents.extract addr.toNat (addr + size).toNat
+  else
+    ub
+
+/--
   Load bitwise poison status of the given memory address.
   Yields UB if the access is out of bounds.
 -/
@@ -151,6 +184,17 @@ def MemoryState.loadPoison (state : MemoryState) (addr size : UInt64)
     return state.poisonMask.extract addr.toNat (addr + size).toNat
   else
     Interp.ub
+
+/--
+  Load bitwise poison status of the given memory address using the CTree interpreter.
+  Yields UB if the access is out of bounds.
+-/
+def MemoryState.loadPoisonCTree [UBE -< E] (state : MemoryState) (addr size : UInt64)
+    : CTree E C ByteArray :=
+  if addr.toNat + size.toNat <= state.poisonMask.size then
+    return state.poisonMask.extract addr.toNat (addr + size).toNat
+  else
+    ub
 
 /--
   Check if any of the `size` bytes at the given memory address `addr` is poison.
@@ -172,6 +216,21 @@ def MemoryState.loadByte64 (state : MemoryState) (addr : UInt64) : Interp (Data.
   let baPoison ← state.loadPoison addr 8
   let poison := baPoison.toUInt64LE!.toBitVec
   return ⟨ba.toUInt64LE!.toBitVec &&& ~~~poison, poison, by bv_decide⟩
+
+/--
+  Check if any of the `size` bytes at the given memory address `addr` is poison
+  using the CTree interpreter.
+  Yields UB if the access is out of bounds.
+-/
+def MemoryState.hasPoisonCTree [UBE -< E] (state : MemoryState) (addr size : UInt64)
+    : CTree E C Bool := do
+  let poisonMask ← state.loadPoisonCTree addr size
+  let mut poison := false
+  for b in poisonMask do
+    if b ≠ 0 then
+      poison := true
+      break
+  return poison
 
 /--
   Load an LLVM value from the given memory address.
