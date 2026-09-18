@@ -49,10 +49,14 @@ class MemoryModel (State : Type) where
     cannot be placed at.
   -/
   allocateRegion : State → (align size : Nat) → Interp (State × Pointer)
-  /-- `load`: the value of `type` stored at `p`. Undefined behaviour if the access is not valid. -/
-  load : State → TypeAttr → Pointer → Interp RuntimeValue
-  /-- `store`: `val` at `p`. Undefined behaviour if the access is not valid. -/
-  store : State → Pointer → RuntimeValue → Interp State
+  /--
+    `load`: the value of `type` stored at `p`, through an access that declares
+    the alignment `align`, where 0 stands for the natural alignment of the
+    type. Undefined behaviour if the access is not valid.
+  -/
+  load : State → TypeAttr → Pointer → (align : Nat) → Interp RuntimeValue
+  /-- `store`: `val` at `p`, with the alignment `align` as for `load`. Undefined behaviour if the access is not valid. -/
+  store : State → Pointer → RuntimeValue → (align : Nat) → Interp State
   /-- `validForDeref_ptrval`: whether `size` bytes at `p` may be accessed. -/
   validForDerefPtrval : State → Pointer → (size : Nat) → Bool
   /-- `array_shift_ptrval`: the pointer `bytes` bytes past `p`, wrapping at 64 bits. -/

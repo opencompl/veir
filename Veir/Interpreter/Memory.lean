@@ -234,23 +234,25 @@ def MemoryState.alloc (mem : MemoryState) (size : Nat) (align : UInt64 := object
 
 /--
   The object that an access of `size` bytes at `p` touches, if the access is
-  allowed: the object must exist and the access must stay inside it. An access
-  of no bytes is allowed anywhere, even through a pointer to nothing. Later
-  conditions on an access are added here.
+  allowed: the object must exist, the access must stay inside it, and the
+  physical address must be a multiple of `align`. An access of no bytes is
+  allowed anywhere, even through a pointer to nothing. Later conditions on an
+  access are added here.
 -/
 def MemoryState.checkAccess (mem : MemoryState) (p : Pointer) (size : Nat)
-    : Interp MemoryObject :=
+    (align : Nat := 1) : Interp MemoryObject :=
   match mem.getObject? p with
   | none => Interp.ub
   | some obj =>
     if size = 0 then return obj
     else if p.offset.toNat + size > obj.bytes.size then Interp.ub
+    else if 1 < align ∧ (mem.address p).toNat % align ≠ 0 then Interp.ub
     else return obj
 
 /-- Store `bytes` at `p`. Yields UB if the access is not allowed (`checkAccess`). -/
 def MemoryState.storeBytes (mem : MemoryState) (p : Pointer) (bytes : Array MemoryByte)
-    : Interp MemoryState := do
-  let obj ← mem.checkAccess p bytes.size
+    (align : Nat := 1) : Interp MemoryState := do
+  let obj ← mem.checkAccess p bytes.size align
   let stored := bytes.size.fold (init := obj.bytes) fun i _ acc =>
     acc.setIfInBounds (p.offset.toNat + i) bytes[i]!
   return mem.setObject p { obj with bytes := stored }
@@ -264,9 +266,9 @@ def MemoryState.store (mem : MemoryState) (p : Pointer) (val : ByteArray)
   mem.storeBytes p (MemoryByte.ofByteArray val poison)
 
 /-- Load `size` bytes at `p`. Yields UB if the access is not allowed (`checkAccess`). -/
-def MemoryState.loadBytes (mem : MemoryState) (p : Pointer) (size : Nat)
+def MemoryState.loadBytes (mem : MemoryState) (p : Pointer) (size : Nat) (align : Nat := 1)
     : Interp (Array MemoryByte) := do
-  let obj ← mem.checkAccess p size
+  let obj ← mem.checkAccess p size align
   return obj.bytes.extract p.offset.toNat (p.offset.toNat + size)
 
 /--
@@ -298,15 +300,16 @@ def MemoryState.byteOfPtr (mem : MemoryState) : Ptr → Data.LLVM.Byte 64
   | .poison => Data.LLVM.Byte.allPoison
 
 /--
-  Store an LLVM value at `p`. A pointer is stored as eight fragments that
-  remember it.
+  Store an LLVM value at `p` with the access's `alignment` attribute, where 0
+  stands for the value's natural alignment, its size. A pointer is stored as
+  eight fragments that remember it.
   Yields UB if the access is not allowed or the pointer is null.
 -/
 def MemoryState.llvmStore (mem : MemoryState) (p : Pointer) (val : RuntimeValue)
-    : Interp MemoryState := do
+    (alignment : Nat := 0) : Interp MemoryState := do
   if p.isNull then Interp.ub else
   let some bytes := MemoryByte.ofValue val | none
-  mem.storeBytes p bytes
+  mem.storeBytes p bytes (if alignment = 0 then bytes.size else alignment)
 
 /--
   The pointer that eight bytes of memory denote: the pointer whose fragments
@@ -336,7 +339,8 @@ def MemoryState.loadSize? (type : TypeAttr) : Option Nat :=
   | _ => none
 
 /--
-  Load an LLVM value of type `type` from `p`.
+  Load an LLVM value of type `type` from `p` with the access's `alignment`
+  attribute, where 0 stands for the natural alignment of the type, its size.
   An integer or pointer load with any poison bit is poison as a whole, and a
   `byte` load keeps poison per bit. Yields UB if the access is not allowed or
   the pointer is null.
@@ -350,10 +354,10 @@ def MemoryState.loadSize? (type : TypeAttr) : Option Nat :=
   and ensure that all frontends are using them.
 -/
 def MemoryState.llvmLoad (mem : MemoryState) (p : Pointer) (type : TypeAttr)
-    : Interp RuntimeValue := do
+    (alignment : Nat := 0) : Interp RuntimeValue := do
   if p.isNull then Interp.ub else
   let some size := loadSize? type | none
-  let bytes ← mem.loadBytes p size
+  let bytes ← mem.loadBytes p size (if alignment = 0 then size else alignment)
   let (ba, poisonMask) := mem.valueBytes bytes
   let hasPoison := poisonMask.toList.any (· ≠ 0)
   match type.val with
@@ -384,8 +388,8 @@ instance : MemoryModel MemoryState where
   name := "blocks"
   initialMemState oracle := { MemoryState.empty with oracle }
   allocateRegion state align size := state.alloc size align.toUInt64
-  load state type addr := state.llvmLoad addr type
-  store state addr val := state.llvmStore addr val
+  load state type addr align := state.llvmLoad addr type align
+  store state addr val align := state.llvmStore addr val align
   validForDerefPtrval state addr size :=
     match state.checkAccess addr size with
     | .ok _ => true

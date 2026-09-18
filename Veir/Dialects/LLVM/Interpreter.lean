@@ -319,12 +319,12 @@ def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType
     let [.addr addr] := operands.toList | fail
     let .val addr := addr | ub
     let [type] := resultTypes.toList | fail
-    let val ← monadLift $ MemoryModel.load mem type addr
+    let val ← monadLift $ MemoryModel.load mem type addr properties.alignment.value.toNat
     return (#[val], mem, none)
   | .store => do
     let [val, .addr addr] := operands.toList | fail
     let .val addr := addr | ub
-    let mem ← monadLift $ MemoryModel.store mem addr val
+    let mem ← monadLift $ MemoryModel.store mem addr val properties.alignment.value.toNat
     return (#[], mem, none)
   | .getelementptr => do
     /- only supports exactly one dynamic index for now -/
