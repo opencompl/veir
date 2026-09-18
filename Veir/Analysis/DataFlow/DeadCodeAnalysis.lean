@@ -14,7 +14,7 @@ def mkDefault : LivenessFact :=
 
 def propagate (state : LivenessFact) (anchor : LatticeAnchor)
   (dfCtx : DataFlowContext) (irCtx : WfIRContext OpCode) : DataFlowContext := Id.run do
-  let mut dfCtx := { dfCtx with workList := state.enqueueDependents dfCtx.workList }
+  let mut dfCtx := dfCtx
   match anchor with
   | .InsertPoint point =>
     -- Only deal with block start insertion points!

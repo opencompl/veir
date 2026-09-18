@@ -20,11 +20,13 @@ to call transfer functions on.
 -/
 structure DataFlowContext where
   lattice : DHashMap FactKey (Fact ·.kind)
+  dependencyGraph : DependencyGraph FactKey WorkItem
   registeredAnalyses : HashSet AnalysisKind
   workList : WorkList
 
 def DataFlowContext.empty : DataFlowContext :=
   { lattice := ∅
+    dependencyGraph := .empty
     registeredAnalyses := ∅
     workList := .empty }
 
@@ -38,10 +40,11 @@ class FactSpec (kind : FactKind) where
   -/
   mkDefault : Fact kind
   /--
-  Hook that's called when the fact changes state. Typically used to
-  enqueue a fact's dependents because it changed.
+  Hook called after the framework enqueues a changed fact's dependents.
+  Override it for fact kind specific propagation behavior.
   -/
-  propagate : Fact kind → LatticeAnchor → DataFlowContext → WfIRContext OpCode → DataFlowContext
+  propagate : Fact kind → LatticeAnchor → DataFlowContext → WfIRContext OpCode → DataFlowContext :=
+    fun _ _ dfCtx _ => dfCtx
 
 namespace Fact
 
@@ -94,6 +97,32 @@ def enqueue (ctx : DataFlowContext) (workItem : WorkItem) : DataFlowContext :=
 def hasAnalysis (ctx : DataFlowContext) (analysisKind : AnalysisKind) : Bool :=
   ctx.registeredAnalyses.contains analysisKind
 
+/-- Return the facts read by `dependent`. -/
+def getDependencies (ctx : DataFlowContext) (dependent : WorkItem) : HashSet FactKey :=
+  ctx.dependencyGraph.getDependencies dependent
+
+/-- Return the work items that read `dependency`. -/
+def getDependents (ctx : DataFlowContext) (dependency : FactKey) : HashSet WorkItem :=
+  ctx.dependencyGraph.getDependents dependency
+
+/-- Replace the facts read by `dependent`. Updates both graph directions. -/
+def setDependencies
+    (ctx : DataFlowContext)
+    (dependent : WorkItem)
+    (dependencies : HashSet FactKey) : DataFlowContext :=
+  { ctx with dependencyGraph := ctx.dependencyGraph.setDependencies dependent dependencies }
+
+/-- Add one fact read by `dependent`. Updates both graph directions. -/
+def addDependency
+    (ctx : DataFlowContext)
+    (dependent : WorkItem)
+    (dependency : FactKey) : DataFlowContext :=
+  { ctx with dependencyGraph := ctx.dependencyGraph.addDependency dependent dependency }
+
+/-- Remove every fact read by `dependent`, updating both graph directions. -/
+def clearDependencies (ctx : DataFlowContext) (dependent : WorkItem) : DataFlowContext :=
+  { ctx with dependencyGraph := ctx.dependencyGraph.clearDependencies dependent }
+
 /--
 Read the fact of kind `kind` stored at `anchor`, if any.
 -/
@@ -139,7 +168,11 @@ def modifyFactAndPropagate (kind : FactKind) [spec : FactSpec kind]
   let (fact, changed) := f current
   let ctx := ctx.setFact kind anchor fact
   if changed then
-    fact.propagate anchor ctx irCtx
+    Id.run do
+      let mut ctx := ctx
+      for dependent in ctx.getDependents { anchor, kind } do
+        ctx := ctx.enqueue dependent
+      fact.propagate anchor ctx irCtx
   else
     ctx
 
