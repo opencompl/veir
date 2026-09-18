@@ -10,6 +10,18 @@ open Veir.Data
 namespace Veir
 
 /--
+  The choices the interpreter makes where the memory model is nondeterministic.
+  The interpreter is a function, so every such choice is drawn from the
+  oracle, indexed by how many choices of that kind were made before, and two
+  programs being compared are run against the same oracle.
+-/
+structure MemoryOracle where
+  /-- The address of the `n`-th allocation, or `none` to let the model place it. -/
+  blockAddress : Nat → Option UInt64 := fun _ => none
+
+instance : Inhabited MemoryOracle := ⟨{}⟩
+
+/--
   Memory state during interpretation.
   Set bits in the poison mask represent poison bits.
 -/
@@ -18,6 +30,9 @@ structure MemoryState where
   contents : ByteArray
   poisonMask : ByteArray
   consistentSize : contents.size = poisonMask.size
+  oracle : MemoryOracle := {}
+  /-- How many allocations were made so far, to index the oracle. -/
+  allocations : Nat := 0
 
 def MemoryState.empty : MemoryState := {
   contents := (ByteArray.emptyWithCapacity 1024).extend 8 0xff,
@@ -27,21 +42,26 @@ def MemoryState.empty : MemoryState := {
 
 def MemoryState.ensureSize (mem : MemoryState) (size : Nat) : MemoryState :=
   if mem.contents.size < size then
-    ⟨mem.contents.extend (size - mem.contents.size) 0,
-      mem.poisonMask.extend (size - mem.contents.size) 0xff,
-      (by simp [mem.consistentSize])⟩
+    { mem with
+      contents := mem.contents.extend (size - mem.contents.size) 0,
+      poisonMask := mem.poisonMask.extend (size - mem.contents.size) 0xff,
+      consistentSize := by simp [mem.consistentSize] }
   else
     mem
 
 /--
-  Allocate the given number of bytes of memory.
-  Return the updated memory state and the freshly allocated address.
+  Allocate the given number of bytes of memory at the address the oracle
+  names for this allocation, or past the end of memory when it names none.
+  Return the updated memory state and the freshly allocated address. The
+  flat model has no record of its allocations, so it obeys the oracle
+  without checking that the address is free.
 -/
 def MemoryState.alloc (state : MemoryState) (size : UInt64)
     : MemoryState × UInt64 :=
-  (⟨state.contents.extend size.toNat 0,
-    state.poisonMask.extend size.toNat 0xff,
-    by simp [state.consistentSize]⟩, state.contents.size.toUInt64)
+  let n := state.allocations
+  let addr := (state.oracle.blockAddress n).getD state.contents.size.toUInt64
+  let state := state.ensureSize (addr.toNat + size.toNat)
+  ({ state with allocations := n + 1 }, addr)
 
 /--
   Store raw bytes to the given address in memory,
@@ -52,11 +72,10 @@ def MemoryState.store (state : MemoryState) (addr : UInt64) (val : ByteArray)
   (poison : ByteArray := ByteArray.replicate val.size 0) (h : poison.size = val.size := by grind)
     : Interp MemoryState :=
   if addr.toNat + val.size ≤ state.contents.size then
-    return ⟨val.copySlice 0 state.contents addr.toNat val.size false,
-      poison.copySlice 0 state.poisonMask addr.toNat val.size false,
-      by
-        simp [ByteArray.copySlice_eq_append, state.consistentSize, h]
-      ⟩
+    return { state with
+      contents := val.copySlice 0 state.contents addr.toNat val.size false,
+      poisonMask := poison.copySlice 0 state.poisonMask addr.toNat val.size false,
+      consistentSize := by simp [ByteArray.copySlice_eq_append, state.consistentSize, h] }
   else
     Interp.ub
 
@@ -68,15 +87,13 @@ def MemoryState.empoison (state : MemoryState) (addr : UInt64) (n : Nat)
     : Interp MemoryState :=
   if h : addr.toNat + n ≤ state.poisonMask.size then
     let mask := ByteArray.replicate n 0xff
-    return ⟨state.contents,
-      mask.copySlice 0 state.poisonMask addr.toNat n false,
-      by
+    return { state with
+      poisonMask := mask.copySlice 0 state.poisonMask addr.toNat n false,
+      consistentSize := by
         have h' : min n mask.size = n := by grind
         have h'' : min addr.toNat state.poisonMask.size = addr.toNat := by grind
         simp [ByteArray.copySlice_eq_append, state.consistentSize, h', h'']
-        grind
-
-      ⟩
+        grind }
   else
     Interp.ub
 
