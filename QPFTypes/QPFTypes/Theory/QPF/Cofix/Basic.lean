@@ -5,8 +5,8 @@ Authors: Jeremy Avigad, Simon Hudon
 -/
 module
 
-public import QPFTypes.QPF.Basic
-public import QPFTypes.PFunctor.Multivariate.M
+public import QPFTypes.Theory.QPF.Basic
+public import QPFTypes.Theory.PFunctor.Multivariate.M
 
 /-!
 # The final co-algebra of a multivariate qpf is again a qpf.

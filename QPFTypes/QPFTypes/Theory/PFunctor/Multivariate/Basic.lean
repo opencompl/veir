@@ -5,9 +5,9 @@ Authors: Jeremy Avigad, Simon Hudon
 -/
 module
 
-public import QPFTypes.TypeVec
-public import QPFTypes.MvFunctor
-public import QPFTypes.PFunctor.Univariate.Basic
+public import QPFTypes.Theory.TypeVec
+public import QPFTypes.Theory.MvFunctor
+public import QPFTypes.Theory.PFunctor.Univariate.Basic
 
 /-!
 # Multivariate polynomial functors

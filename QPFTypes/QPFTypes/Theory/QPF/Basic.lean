@@ -5,8 +5,8 @@ Authors: Jeremy Avigad, Simon Hudon
 -/
 module
 
-public import QPFTypes.MvFunctor
-public import QPFTypes.PFunctor.Multivariate.Basic
+public import QPFTypes.Theory.MvFunctor
+public import QPFTypes.Theory.PFunctor.Multivariate.Basic
 
 /-!
 # Multivariate quotients of polynomial functors.

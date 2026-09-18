@@ -5,7 +5,7 @@ Authors: Jeremy Avigad
 -/
 module
 
-public import QPFTypes.PFunctor.Univariate.Basic
+public import QPFTypes.Theory.PFunctor.Univariate.Basic
 
 /-!
 # Lifting of relations on polynomial Functors
