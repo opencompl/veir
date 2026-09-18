@@ -77,7 +77,10 @@ deriving Inhabited, Repr, DecidableEq
   One allocation during interpretation: its bytes and the physical address
   `base` at which the object starts, so that byte `i` of the object lives at
   address `base + i`, together with how it was allocated, the alignment it
-  was given, whether it is still alive and whether it may be written.
+  was given, whether it is still alive, whether it may be written, and
+  whether its address has escaped: been stored to memory, converted to an
+  integer, passed to a call or returned. Only escaped objects can be reached
+  by code the interpreter does not see. Globals are escaped from the start.
 -/
 @[ext]
 structure MemoryObject where
@@ -88,11 +91,13 @@ structure MemoryObject where
   /-- Whether the object is still alive: not yet killed. -/
   alive : Bool := true
   isConst : Bool := false
+  escaped : Bool := false
 
 /-- An object of `size` bytes at address `base`, all of them poison. -/
 def MemoryObject.ofSize (base : UInt64) (size : Nat) (kind : ObjectKind := .stack)
     (align : UInt64 := 16) (isConst : Bool := false) : MemoryObject :=
-  { bytes := Array.replicate size .poison, base, kind, align, isConst }
+  { bytes := Array.replicate size .poison, base, kind, align, isConst,
+    escaped := kind = .global }
 
 instance : Inhabited MemoryObject := ⟨MemoryObject.ofSize 0 0 .null⟩
 
@@ -339,17 +344,30 @@ def MemoryState.loadBytes (mem : MemoryState) (p : Pointer) (size : Nat) (align 
 def MemoryState.load (mem : MemoryState) (p : Pointer) (size : Nat) : Interp ByteArray := do
   return (mem.valueBytes (← mem.loadBytes p size)).1
 
+/-- Mark the object `p` points into as escaped: its address is now known outside the interpreted code. -/
+def MemoryState.escape (mem : MemoryState) (p : Pointer) : MemoryState :=
+  match mem.getObject? p with
+  | some obj => mem.setObject p { obj with escaped := true }
+  | none => mem
+
+/-- Mark the objects that the pointers among `vals` point into as escaped. -/
+def MemoryState.escapeValues (mem : MemoryState) (vals : Array RuntimeValue) : MemoryState :=
+  vals.foldl (init := mem) fun mem v =>
+    match v with
+    | .addr (.val p) => mem.escape p
+    | _ => mem
+
 /--
   The effect of a call the interpreter knows nothing about: every live,
-  writable object gets the contents the oracle chooses, since the callee
-  may have written anything to it.
+  writable object whose address has escaped gets the contents the oracle
+  chooses, since the callee may have written anything to it.
 -/
 def MemoryState.havoc (mem : MemoryState) : MemoryState :=
   let n := mem.unknownCalls
   { mem with
     unknownCalls := n + 1,
     objects := mem.objects.mapIdx fun i obj =>
-      if obj.alive ∧ !obj.isConst then
+      if obj.escaped ∧ obj.alive ∧ !obj.isConst then
         { obj with bytes := obj.bytes.mapIdx fun k _ =>
             let vp := mem.oracle.havocByte n i k; MemoryByte.value vp.1 vp.2 }
       else obj }
@@ -377,6 +395,8 @@ def MemoryState.llvmStore (mem : MemoryState) (p : Pointer) (val : RuntimeValue)
     (alignment : Nat := 0) : Interp MemoryState := do
   if p.isNull then Interp.ub else
   let some bytes := MemoryByte.ofValue val | none
+  /- A pointer written to memory has escaped. -/
+  let mem := mem.escapeValues #[val]
   mem.storeBytes p bytes (if alignment = 0 then bytes.size else alignment)
 
 /--

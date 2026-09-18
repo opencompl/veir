@@ -371,6 +371,10 @@ def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType
       | .addr val', .integerType ⟨bw⟩ =>
           if bw = 64 then .ok (.int 64 (MemoryModel.intFromPtr mem val')) else .fail
       | _, _ => none
+    /- A pointer turned into bits has escaped. -/
+    let mem := match val, type with
+      | .addr (.val val'), .byteType _ => mem.escape val'
+      | _, _ => mem
     return (#[result], mem, none)
   | _ => fail
 

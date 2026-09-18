@@ -335,6 +335,36 @@ def Felt.interpretOp' (opType : Veir.Felt) (properties : propertiesOf opType)
   | _ => none
 
 
+/-- The `arg_attrs` of an `llvm.func`, if `opType` is one. -/
+def funcArgAttrs? (opType : OpCode) (properties : propertiesOf opType) : Option Attribute :=
+  match opType, properties with
+  | .llvm .func, props => (props.extra.entries.find? (·.1 == "arg_attrs".toUTF8)).map (·.2)
+  | _, _ => none
+
+/--
+  Check the LLVM argument attributes `argAttrs`, an array of dictionaries one
+  per argument, against the pointer arguments in `values`: `llvm.nonnull`
+  forbids null, `llvm.dereferenceable = n` demands `n` readable bytes, and
+  `llvm.align = n` demands an address that is a multiple of `n`. A violation
+  is undefined behaviour. Attributes that only constrain the callee are not
+  checked.
+-/
+def checkArgAttrs (mem : MemoryState) (argAttrs : Option Attribute) (values : Array RuntimeValue)
+    : Interp Unit := do
+  let some (.arrayAttr attrs) := argAttrs | return ()
+  for h : i in [0:values.size] do
+    let .addr p := values[i] | continue
+    let some (.dictionaryAttr dict) := attrs.value[i]? | continue
+    let .val p := p | Interp.ub
+    for (key, attr) in dict.entries do
+      if key == "llvm.nonnull".toUTF8 ∧ p.isNull then Interp.ub
+      if key == "llvm.dereferenceable".toUTF8 then
+        let .integerAttr n := attr | continue
+        let _ ← mem.checkAccess p n.value.toNat false
+      if key == "llvm.align".toUTF8 then
+        let .integerAttr n := attr | continue
+        if 1 < n.value ∧ (mem.address p).toNat % n.value.toNat ≠ 0 then Interp.ub
+
 def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     (mem : MemoryState) (layout : DataLayout := .riscv64)
@@ -657,6 +687,8 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
        allocation yields a fresh object, so pointers into different
        allocations never alias. The oracle decides whether `malloc`,
        `calloc` and `realloc` fail; `operator new` never does. -/
+    let _ ← checkArgAttrs mem ((properties.extra.entries.find? (·.1 == "arg_attrs".toUTF8)).map (·.2))
+      operands
     let callee := (properties.callee.map (·.value)).getD ""
     match callee, operands.toList with
     | "@malloc", [.int _ size] =>
@@ -690,9 +722,10 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       let mem ← MemoryModel.kill mem ptr
       return (#[], mem, none)
     | _, _ =>
-      /- A call the interpreter cannot enter. The callee may write anything
-         to every object, and returns whatever it likes: poison. -/
-      let mem := mem.havoc
+      /- A call the interpreter cannot enter. The callee may keep the pointers
+         it receives, may write anything to every object it can reach, and
+         returns whatever it likes, which the oracle resolves to poison. -/
+      let mem := (mem.escapeValues operands).havoc
       let results ← resultTypes.mapM fun ty => RuntimeValue.getPoisonForType ty
       return (results, mem, none)
   | .intr__memcpy | .intr__memmove => do
@@ -727,8 +760,10 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
   | .ptrtoint => do
     let [.addr p] := operands.toList | none
     let [⟨.integerType bw, _⟩] := resultTypes.toList | none
-    let .val a := MemoryModel.intFromPtr mem p | return (#[.int bw.bitwidth .poison], mem, none)
-    return (#[.int bw.bitwidth (.val (BitVec.ofNat bw.bitwidth a.toNat))], mem, none)
+    let .val q := p | return (#[.int bw.bitwidth .poison], mem, none)
+    let .val a := MemoryModel.intFromPtr mem (.val q) | return (#[.int bw.bitwidth .poison], mem, none)
+    /- A pointer turned into an integer has escaped. -/
+    return (#[.int bw.bitwidth (.val (BitVec.ofNat bw.bitwidth a.toNat))], mem.escape q, none)
   | .inttoptr => do
     let [.int _ v] := operands.toList | none
     let wide : LLVM.Int 64 := match v with
@@ -765,6 +800,10 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       | .addr val', .integerType ⟨bw⟩ =>
           if bw = 64 then .ok (.int 64 (MemoryModel.intFromPtr mem val')) else .fail
       | _, _ => none
+    /- A pointer turned into bits has escaped. -/
+    let mem := match val, type with
+      | .addr (.val val'), .byteType _ => mem.escape val'
+      | _, _ => mem
     return (#[result], mem, none)
   | _ => none
 
@@ -1395,6 +1434,9 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     | .registerType _, [.addr val] =>
       /- A register has no poison to carry. Like a poison integer, a poison pointer
          may become any register value; the interpreter picks 0. -/
+      let mem := match val with
+        | .val q => mem.escape q
+        | .poison => mem
       return (#[.reg (LLVM.Int.toReg (MemoryModel.intFromPtr mem val))], mem, none)
     | .integerType _bw, [.reg val] =>
       let .integerType resBw := resType.val | none
@@ -1549,10 +1591,14 @@ def interpretFunction (op : OperationPtr) (values : Array RuntimeValue) {ctx : W
     none
   else
     let state : InterpreterState ctx := ⟨.empty ctx, mem⟩
+    /- The argument attributes of an `llvm.func` are checked on entry. -/
+    let _ ← checkArgAttrs mem
+      (funcArgAttrs? (op.getOpType! ctx.raw) (op.getProperties! ctx.raw (op.getOpType! ctx.raw)))
+      values
     let frameStart := mem.objects.size
     let (state, results) ← interpretRegion (FunctionOpInterface.getFunctionBody op ctx.raw) values state
-    /- The function's stack objects die when it returns. -/
-    return (state.memory.killStackObjectsFrom frameStart, results)
+    /- Returned pointers escape, and the function's stack objects die. -/
+    return ((state.memory.escapeValues results).killStackObjectsFrom frameStart, results)
 
 /--
   Interpret a builtin.module operation.
