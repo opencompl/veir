@@ -649,6 +649,22 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       let .val size := size | Interp.ub
       let (mem, ptr) ← MemoryModel.allocateRegion mem MemoryState.objectAlignment.toNat size.toNat
       return (#[.addr (.val ptr)], mem, none)
+    | "@calloc", [.int _ count, .int _ size] =>
+      let .val count := count | Interp.ub
+      let .val size := size | Interp.ub
+      let total := count.toNat * size.toNat
+      let (mem, ptr) ← MemoryModel.allocateRegion mem MemoryState.objectAlignment.toNat total
+      let mem ← mem.storeBytes ptr (Array.replicate total (.value 0 0))
+      return (#[.addr (.val ptr)], mem, none)
+    | "@realloc", [.addr old, .int _ size] =>
+      let .val size := size | Interp.ub
+      let .val old := old | Interp.ub
+      if old.isNull then
+        let (mem, ptr) ← MemoryModel.allocateRegion mem MemoryState.objectAlignment.toNat size.toNat
+        return (#[.addr (.val ptr)], mem, none)
+      let (mem, ptr) ← MemoryModel.realloc mem MemoryState.objectAlignment.toNat size.toNat old
+      let mem ← MemoryModel.kill mem old
+      return (#[.addr (.val ptr)], mem, none)
     | "@free", [.addr ptr] =>
       let .val ptr := ptr | Interp.ub
       let mem ← MemoryModel.kill mem ptr

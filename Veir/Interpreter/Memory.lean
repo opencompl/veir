@@ -391,5 +391,11 @@ instance : MemoryModel MemoryState where
     state.storeBytes dst bytes
   /- The model has no lifetimes yet, so ending one does nothing. -/
   kill state _ := return state
+  realloc state align size old := do
+    let some obj := state.getObject? old | Interp.ub
+    let (state, ptr) ← state.alloc size align.toUInt64
+    let kept := obj.bytes.extract old.offset.toNat (old.offset.toNat + min (obj.bytes.size - old.offset.toNat) size)
+    let state ← state.storeBytes ptr kept
+    return (state, ptr)
 
 end Veir

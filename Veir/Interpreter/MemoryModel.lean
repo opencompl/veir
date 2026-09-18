@@ -65,6 +65,8 @@ class MemoryModel (State : Type) where
   memcpy : State → (dst src : Pointer) → (n : Nat) → Interp State
   /-- `kill`: end the lifetime of the object `p` points to. -/
   kill : State → Pointer → Interp State
+  /-- `realloc`: a fresh object of `size` bytes holding the old object's bytes, the old one killed. -/
+  realloc : State → (align size : Nat) → Pointer → Interp (State × Pointer)
 
 end
 
