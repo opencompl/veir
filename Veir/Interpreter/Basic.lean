@@ -655,7 +655,8 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
   | .call => do
     /- The C and C++ allocation functions are modelled by name. Each
        allocation yields a fresh object, so pointers into different
-       allocations never alias. -/
+       allocations never alias. The oracle decides whether `malloc`,
+       `calloc` and `realloc` fail; `operator new` never does. -/
     let callee := (properties.callee.map (·.value)).getD ""
     match callee, operands.toList with
     | "@malloc", [.int _ size] =>
@@ -667,6 +668,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       let .val size := size | Interp.ub
       let total := count.toNat * size.toNat
       let (mem, ptr) ← MemoryModel.allocateRegion mem MemoryState.objectAlignment.toNat total
+      if ptr.isNull then return (#[.addr (.val ptr)], mem, none)
       let mem ← mem.storeBytes ptr (Array.replicate total (.value 0 0))
       return (#[.addr (.val ptr)], mem, none)
     | "@realloc", [.addr old, .int _ size] =>
@@ -680,7 +682,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       return (#[.addr (.val ptr)], mem, none)
     | "@_Znwm", [.int _ size] | "@_Znam", [.int _ size] =>
       let .val size := size | Interp.ub
-      let (mem, ptr) ← MemoryModel.allocateRegion mem MemoryState.objectAlignment.toNat size.toNat
+      let (mem, ptr) ← mem.alloc size.toNat .heap
       return (#[.addr (.val ptr)], mem, none)
     | "@free", [.addr ptr] | "@_ZdlPv", [.addr ptr] | "@_ZdaPv", [.addr ptr]
     | "@_ZdlPvm", [.addr ptr, _] | "@_ZdaPvm", [.addr ptr, _] =>

@@ -35,6 +35,13 @@ open Veir.Data.LLVM (Pointer Ptr)
 structure MemoryOracle where
   /-- The address of the `n`-th allocation, or `none` to let the model place it. -/
   blockAddress : Nat → Option UInt64 := fun _ => none
+  /-- Whether the `n`-th heap allocation fails and yields null. -/
+  allocFails : Nat → Bool := fun _ => false
+  /--
+    The byte the `n`-th unknown call leaves at offset `k` of object `i`, as
+    a value and a poison mask; all poison by default.
+  -/
+  havocByte : (n i k : Nat) → UInt8 × UInt8 := fun _ _ _ => (0, 0xff)
 
 instance : Inhabited MemoryOracle := ⟨{}⟩
 

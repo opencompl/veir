@@ -126,6 +126,10 @@ structure MemoryState where
   oracle : MemoryOracle := {}
   /-- How many allocations were made so far, to index the oracle. -/
   allocations : Nat := 0
+  /-- How many heap allocations were requested so far, to index the oracle. -/
+  heapAllocs : Nat := 0
+  /-- How many unknown calls were made so far, to index the oracle. -/
+  unknownCalls : Nat := 0
 
 def MemoryState.empty : MemoryState := { objects := #[MemoryObject.ofSize 0 0 .null] }
 
@@ -252,6 +256,16 @@ def MemoryState.alloc (mem : MemoryState) (size : Nat) (kind : ObjectKind := .st
       byAddress, allocations := n + 1 },
     ⟨i, 0⟩)
 
+/--
+  Allocate `size` bytes on the heap, as `malloc` does. The oracle decides
+  whether the allocation fails, in which case the result is null.
+-/
+def MemoryState.heapAlloc (mem : MemoryState) (size : Nat) (align : UInt64 := objectAlignment)
+    : Interp (MemoryState × Pointer) :=
+  let n := mem.heapAllocs
+  let mem := { mem with heapAllocs := n + 1 }
+  if mem.oracle.allocFails n then return (mem, .null) else mem.alloc size .heap align
+
 /-- Kill every stack object allocated since there were `n` objects: they belong to a frame that returns. -/
 def MemoryState.killStackObjectsFrom (mem : MemoryState) (n : Nat) : MemoryState :=
   { mem with objects := mem.objects.mapIdx fun i obj =>
@@ -326,14 +340,18 @@ def MemoryState.load (mem : MemoryState) (p : Pointer) (size : Nat) : Interp Byt
   return (mem.valueBytes (← mem.loadBytes p size)).1
 
 /--
-  The effect of a call the interpreter knows nothing about: the callee may
-  have written anything to any live, writable object, so every byte of
-  those becomes poison.
+  The effect of a call the interpreter knows nothing about: every live,
+  writable object gets the contents the oracle chooses, since the callee
+  may have written anything to it.
 -/
 def MemoryState.havoc (mem : MemoryState) : MemoryState :=
-  { mem with objects := mem.objects.map fun obj =>
+  let n := mem.unknownCalls
+  { mem with
+    unknownCalls := n + 1,
+    objects := mem.objects.mapIdx fun i obj =>
       if obj.alive ∧ !obj.isConst then
-        { obj with bytes := Array.replicate obj.bytes.size .poison }
+        { obj with bytes := obj.bytes.mapIdx fun k _ =>
+            let vp := mem.oracle.havocByte n i k; MemoryByte.value vp.1 vp.2 }
       else obj }
 
 /--
@@ -438,7 +456,7 @@ instance : MemoryModel MemoryState where
   name := "blocks"
   initialMemState oracle := { MemoryState.empty with oracle }
   allocateObject state align size := state.alloc size .stack align.toUInt64
-  allocateRegion state align size := state.alloc size .heap align.toUInt64
+  allocateRegion state align size := state.heapAlloc size align.toUInt64
   load state type addr align := state.llvmLoad addr type align
   store state addr val align := state.llvmStore addr val align
   validForDerefPtrval state addr size :=
