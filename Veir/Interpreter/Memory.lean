@@ -70,6 +70,8 @@ end MemoryByte
 structure MemoryObject where
   bytes : Array MemoryByte
   base : UInt64
+  /-- Whether the object is still alive: not yet killed. -/
+  alive : Bool := true
 
 /-- An object of `size` bytes at address `base`, all of them poison. -/
 def MemoryObject.ofSize (base : UInt64) (size : Nat) : MemoryObject :=
@@ -245,6 +247,7 @@ def MemoryState.checkAccess (mem : MemoryState) (p : Pointer) (size : Nat)
   | none => Interp.ub
   | some obj =>
     if size = 0 then return obj
+    else if !obj.alive then Interp.ub
     else if p.offset.toNat + size > obj.bytes.size then Interp.ub
     else if 1 < align ∧ (mem.address p).toNat % align ≠ 0 then Interp.ub
     else return obj
@@ -404,10 +407,20 @@ instance : MemoryModel MemoryState where
   memcpy state dst src n := do
     let bytes ← state.loadBytes src n
     state.storeBytes dst bytes
-  /- The model has no lifetimes yet, so ending one does nothing. -/
-  kill state _ := return state
+  /- Killing null does nothing, as `free(NULL)` does. Killing through an
+     offset pointer, a pointer to no object, or an object already dead is
+     undefined behaviour. The object dies but keeps its address, which is
+     never reused. -/
+  kill state p :=
+    if p.isNull then return state else
+    match state.getObject? p with
+    | none => Interp.ub
+    | some obj =>
+      if p.offset ≠ 0 ∨ !obj.alive then Interp.ub
+      else return state.setObject p { obj with alive := false }
   realloc state align size old := do
     let some obj := state.getObject? old | Interp.ub
+    if !obj.alive then Interp.ub
     let (state, ptr) ← state.alloc size align.toUInt64
     let kept := obj.bytes.extract old.offset.toNat (old.offset.toNat + min (obj.bytes.size - old.offset.toNat) size)
     let state ← state.storeBytes ptr kept
