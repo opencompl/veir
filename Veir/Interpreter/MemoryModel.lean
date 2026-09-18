@@ -63,6 +63,8 @@ class MemoryModel (State : Type) where
   intFromPtr : State → Ptr → Data.LLVM.Int 64
   /-- `memcpy`: copy `n` bytes from `src` to `dst`, as they are. Undefined behaviour if either access is not valid. -/
   memcpy : State → (dst src : Pointer) → (n : Nat) → Interp State
+  /-- `kill`: end the lifetime of the object `p` points to. -/
+  kill : State → Pointer → Interp State
 
 end
 

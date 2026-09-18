@@ -639,6 +639,21 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     | .val ptr, .val idx =>
       return (#[.addr (.val (MemoryModel.arrayShiftPtrval (State := MemoryState) ptr (idx.toNat * size)))], mem, none)
     | _, _ => return (#[.addr .poison], mem, none)
+  | .call => do
+    /- The C and C++ allocation functions are modelled by name. Each
+       allocation yields a fresh object, so pointers into different
+       allocations never alias. -/
+    let some callee := properties.callee | none
+    match callee.value, operands.toList with
+    | "@malloc", [.int _ size] =>
+      let .val size := size | Interp.ub
+      let (mem, ptr) ← MemoryModel.allocateRegion mem MemoryState.objectAlignment.toNat size.toNat
+      return (#[.addr (.val ptr)], mem, none)
+    | "@free", [.addr ptr] =>
+      let .val ptr := ptr | Interp.ub
+      let mem ← MemoryModel.kill mem ptr
+      return (#[], mem, none)
+    | _, _ => none
   | .intr__memcpy | .intr__memmove => do
     /- Bytes are copied as they are, so a pointer stored in the source keeps
        its provenance in the destination. -/

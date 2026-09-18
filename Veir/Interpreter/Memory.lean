@@ -389,5 +389,7 @@ instance : MemoryModel MemoryState where
   memcpy state dst src n := do
     let bytes ← state.loadBytes src n
     state.storeBytes dst bytes
+  /- The model has no lifetimes yet, so ending one does nothing. -/
+  kill state _ := return state
 
 end Veir
