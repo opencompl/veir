@@ -5,7 +5,11 @@ public import Veir.IR.OpInfo
 public import Veir.Verifier.Basic
 public import Veir.Dialects.ModArith.Properties
 public import Veir.ConstantMaterialization
+public import Veir.Interpreter.RuntimeValue.Basic
+public import Veir.Interpreter.Interp
 meta import Veir.Meta.OpCode
+
+open Veir.Data
 
 namespace Veir
 
@@ -127,6 +131,52 @@ def Mod_Arith.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .constant => do
     op.verifyModArithConstantOp ctx opIn
     pure ()
+
+/-- Matches two integer operands and casts them to the expected bitwidth `bw`. -/
+private def ModArith.binaryOperands (bw : Nat) (operands : Array RuntimeValue) :
+    Option (LLVM.Int bw × LLVM.Int bw) := do
+  let [RuntimeValue.int bw' lhs, RuntimeValue.int bw'' rhs] := operands.toList | none
+  if h : bw' = bw ∧ bw'' = bw then
+    return (lhs.cast h.left, rhs.cast h.right)
+  else
+    none
+
+def ModArith.interpretOp' (opType : Veir.Mod_Arith) (properties : propertiesOf opType)
+    (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
+    : Interp ((Array RuntimeValue) × Option ControlFlowAction) :=
+  match opType with
+  | .constant => do
+    let some resType := resultTypes[0]? | none
+    let .modArithType ⟨⟨mod, ⟨bw⟩⟩⟩ := resType.val | none
+    let res := LLVM.Int.constant bw (properties.value.value % mod)
+    return (#[RuntimeValue.int bw res], none)
+  | .add => do
+    let some resType := resultTypes[0]? | none
+    let .modArithType ⟨⟨mod, ⟨bw⟩⟩⟩ := resType.val | none
+    let some (lhs, rhs) := ModArith.binaryOperands bw operands | none
+    let res :=
+      match lhs.toNat?, rhs.toNat? with
+      | some lhs, some rhs => LLVM.Int.constant bw ((lhs + rhs) % mod)
+      | _, _ => LLVM.Int.poison
+    return (#[RuntimeValue.int bw res], none)
+  | .sub => do
+    let some resType := resultTypes[0]? | none
+    let .modArithType ⟨⟨mod, ⟨bw⟩⟩⟩ := resType.val | none
+    let some (lhs, rhs) := ModArith.binaryOperands bw operands | none
+    let res :=
+      match lhs.toNat?, rhs.toNat? with
+      | some lhs, some rhs => LLVM.Int.constant bw ((Int.ofNat lhs - rhs) % mod)
+      | _, _ => LLVM.Int.poison
+    return (#[RuntimeValue.int bw res], none)
+  | .mul => do
+    let some resType := resultTypes[0]? | none
+    let .modArithType ⟨⟨mod, ⟨bw⟩⟩⟩ := resType.val | none
+    let some (lhs, rhs) := ModArith.binaryOperands bw operands | none
+    let res :=
+      match lhs.toNat?, rhs.toNat? with
+      | some lhs, some rhs => LLVM.Int.constant bw ((lhs * rhs) % mod)
+      | _, _ => LLVM.Int.poison
+    return (#[RuntimeValue.int bw res], none)
 
 instance : HasOpInfo Mod_Arith where
   verifyLocalInvariants := Mod_Arith.verifyLocalInvariants

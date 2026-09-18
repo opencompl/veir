@@ -6,7 +6,15 @@ public import Veir.Verifier.Basic
 public import Veir.Dialects.LLVM.Properties
 public import Veir.Dialects.Cf.Properties
 public import Veir.ConstantMaterialization
+public import Veir.Interpreter.RuntimeValue.Basic
+public import Veir.Interpreter.Interp
+public import Veir.Data.LLVM.Int.Basic
+public import Veir.Interfaces.DataLayoutInterfaces
+public import Veir.Interpreter.Memory
+
 meta import Veir.Meta.OpCode
+
+open Veir.Data
 
 namespace Veir
 
@@ -1189,6 +1197,342 @@ def Llvm.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpIn
         (LLVMConstantProperties.mk (.float (FloatAttr.mk type value))))
     else none
   | _, _ => none
+
+def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
+    (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
+    (mem : MemoryState) (layout : DataLayout)
+    : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
+  match opType with
+  | .mlir__constant => do
+    let some resType := resultTypes[0]? | none
+    match properties.value with
+    | .integer intAttr =>
+      let .integerType bw := resType.val
+        | none
+      let extended := BitVec.ofInt bw.bitwidth (decodeLLVMIntegerConstant intAttr)
+      return (#[.int bw.bitwidth (LLVM.Int.val extended)], mem, none)
+    | .float floatAttr =>
+      let .floatType bw := resType.val
+        | none
+      return (#[.float floatAttr.type floatAttr.value], mem, none)
+    | .dense denseAttr =>
+      none
+    | .string _ =>
+      none
+  | .mlir__poison => do
+    let some resType := resultTypes[0]? | none
+    match resType.val with
+    | .integerType bw => return (#[.int bw.bitwidth (LLVM.Int.mlir_poison bw.bitwidth)], mem, none)
+    | .llvmPointerType _ => return (#[.addr .poison], mem, none)
+    | _ => none
+  | .mlir__zero => do
+    let some resType := resultTypes[0]? | none
+    match resType.val with
+    | .integerType bw =>
+      return (#[.int bw.bitwidth (LLVM.Int.val (BitVec.ofNat bw.bitwidth 0))], mem, none)
+    | .llvmPointerType _ => return (#[.addr LLVM.Ptr.null], mem, none)
+    | _ => none
+  | .add => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.add lhs rhs properties.nsw properties.nuw)], mem, none)
+  | .sub => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.sub lhs rhs properties.nsw properties.nuw)], mem, none)
+  | .mul => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.mul lhs rhs properties.nsw properties.nuw)], mem, none)
+  | .sdiv => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    if LLVM.Int.isSignedDivisionUB lhs rhs then Interp.ub
+    return (#[.int bw (LLVM.Int.sdiv lhs rhs properties.exact)], mem, none)
+  | .udiv => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    if LLVM.Int.isUnsignedDivisionUB rhs then Interp.ub
+    return (#[.int bw (LLVM.Int.udiv lhs rhs properties.exact)], mem, none)
+  | .srem => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    if LLVM.Int.isSignedDivisionUB lhs rhs then Interp.ub
+    return (#[.int bw (LLVM.Int.srem lhs rhs)], mem, none)
+  | .urem => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    if LLVM.Int.isUnsignedDivisionUB rhs then Interp.ub
+    return (#[.int bw (LLVM.Int.urem lhs rhs)], mem, none)
+  | .shl => do
+    let [lhs, .int bw' rhs] := operands.toList | none
+    match lhs with
+    | .int bw lhs =>
+      if h: bw' ≠ bw then none else
+      let rhs := rhs.cast (by simp at h; exact h)
+      return (#[.int bw (LLVM.Int.shl lhs rhs properties.nsw properties.nuw)], mem, none)
+    | .byte bw lhs =>
+      if h: bw' ≠ bw then none else
+      if properties.nsw then none else
+      let rhs := rhs.cast (by simp at h; exact h)
+      return (#[.byte bw (LLVM.Byte.shl lhs rhs properties.nuw)], mem, none)
+    | _ => none
+  | .lshr => do
+    let [lhs, .int bw' rhs] := operands.toList | none
+    match lhs with
+    | .int bw lhs =>
+      if h: bw' ≠ bw then none else
+      let rhs := rhs.cast (by simp at h; exact h)
+      return (#[.int bw (LLVM.Int.lshr lhs rhs properties.exact)], mem, none)
+    | .byte bw lhs =>
+      if h: bw' ≠ bw then none else
+      let rhs := rhs.cast (by simp at h; exact h)
+      return (#[.byte bw (LLVM.Byte.lshr lhs rhs properties.exact)], mem, none)
+    | _ => none
+  | .ashr => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.ashr lhs rhs properties.exact)], mem, none)
+  | .intr__fshl => do
+    let [.int bw a, .int bw' b, .int bw'' c] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    if h'': bw'' ≠ bw then none else
+    let b := b.cast (by simp at h; exact h)
+    let c := c.cast (by simp at h''; exact h'')
+    return (#[.int bw (LLVM.Int.fshl a b c)], mem, none)
+  | .intr__fshr => do
+    let [.int bw a, .int bw' b, .int bw'' c] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    if h'': bw'' ≠ bw then none else
+    let b := b.cast (by simp at h; exact h)
+    let c := c.cast (by simp at h''; exact h'')
+    return (#[.int bw (LLVM.Int.fshr a b c)], mem, none)
+  | .intr__ctlz => do
+    let [.int bw x] := operands.toList | none
+    return (#[.int bw (LLVM.Int.ctlz x properties.is_zero_poison)], mem, none)
+  | .intr__cttz => do
+    let [.int bw x] := operands.toList | none
+    return (#[.int bw (LLVM.Int.cttz x properties.is_zero_poison)], mem, none)
+  | .intr__ctpop => do
+    let [.int bw x] := operands.toList | none
+    return (#[.int bw (LLVM.Int.ctpop x)], mem, none)
+  | .intr__bswap => do
+    let [.int bw x] := operands.toList | none
+    return (#[.int bw (LLVM.Int.bswap x)], mem, none)
+  | .intr__bitreverse => do
+    let [.int bw x] := operands.toList | none
+    return (#[.int bw (LLVM.Int.bitreverse x)], mem, none)
+  | .and => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.and lhs rhs)], mem, none)
+  | .or => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.or lhs rhs properties.disjoint)], mem, none)
+  | .xor => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.xor lhs rhs)], mem, none)
+  | .intr__smax => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.smax lhs rhs)], mem, none)
+  | .intr__smin => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.smin lhs rhs)], mem, none)
+  | .intr__umax => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.umax lhs rhs)], mem, none)
+  | .intr__umin => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.umin lhs rhs)], mem, none)
+  | .intr__abs => do
+    let [.int bw x] := operands.toList | none
+    return (#[.int bw (LLVM.Int.abs x properties.is_int_min_poison)], mem, none)
+  | .intr__sadd__sat => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.saddSat lhs rhs)], mem, none)
+  | .intr__uadd__sat => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.uaddSat lhs rhs)], mem, none)
+  | .intr__ssub__sat => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.ssubSat lhs rhs)], mem, none)
+  | .intr__usub__sat => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.usubSat lhs rhs)], mem, none)
+  | .intr__sshl__sat => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.sshlSat lhs rhs)], mem, none)
+  | .intr__ushl__sat => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.ushlSat lhs rhs)], mem, none)
+  | .trunc => do
+    let [val] := operands.toList | none
+    let some resType := resultTypes[0]? | none
+    match val with
+    | .int w val =>
+        let .integerType resBw := resType.val | none
+        if h: resBw.bitwidth >= w then none else
+        return (#[.int resBw.bitwidth (LLVM.Int.trunc val resBw.bitwidth properties.nsw properties.nuw (by omega))], mem, none)
+    | .byte w val =>
+        let .byteType resBw := resType.val | none
+        if h: resBw.bitwidth >= w then none else
+        return (#[.byte resBw.bitwidth (LLVM.Byte.trunc val resBw.bitwidth)], mem, none)
+    | _ => none
+  | .zext => do
+    let [.int w val] := operands.toList | none
+    let some resType := resultTypes[0]? | none
+    let .integerType resBw := resType.val | none
+    if h: resBw.bitwidth <= w then none else
+    return (#[.int resBw.bitwidth (LLVM.Int.zext val resBw.bitwidth properties.nneg (by omega))], mem, none)
+  | .sext => do
+    let [.int w val] := operands.toList | none
+    let some resType := resultTypes[0]? | none
+    let .integerType resBw := resType.val | none
+    if h: resBw.bitwidth <= w then none else
+    return (#[.int resBw.bitwidth (LLVM.Int.sext val resBw.bitwidth (by omega))], mem, none)
+  | .icmp => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simpa using h)
+    return (#[.int 1 (LLVM.Int.icmp lhs rhs properties.predicate)], mem, none)
+  | .select => do
+    let [.int 1 cond, .int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simpa using h)
+    return (#[.int bw (LLVM.Int.select cond lhs rhs)], mem, none)
+  | .return => do
+    return (#[], mem, some (.return operands))
+  | .unreachable =>
+    Interp.ub
+  | .br => do
+    let [dest] := blockOperands.toList | none
+    return (#[], mem, some (.branch operands dest))
+  | .cond_br => do
+    let [destTrue, destFalse] := blockOperands.toList | none
+    let some condVal := operands[0]? | none
+    let some (trueSizeInt : Int) := properties.operandSegmentSizes.values[1]? | none
+    let trueSize := trueSizeInt.toNat
+    match condVal with
+    | .int 1 (.val cond) =>
+      if cond = 1#1 then
+        return (#[], mem, some (.branch (operands.extract 1 (trueSize + 1)) destTrue))
+      else
+        return (#[], mem, some (.branch (operands.extract (trueSize + 1) operands.size) destFalse))
+    | .int 1 .poison => Interp.ub
+    | _ => none
+  | .switch => do
+    let some destDefault := blockOperands[0]? | none
+    let some value := operands[0]? | none
+    let some (defaultSizeInt : Int) := properties.operandSegmentSizes.values[1]? | none
+    let defaultSize := defaultSizeInt.toNat
+    let caseSegments := properties.case_operand_segments.values
+    let some caseValues := properties.caseValues? | none
+    /- A case value per case, or the switch cannot be read. -/
+    if caseValues.size ≠ caseSegments.size then none else
+    match value with
+    | .int bw (.val v) =>
+      let mut base := 1 + defaultSize
+      for i in [0:caseSegments.size] do
+        let some (countInt : Int) := caseSegments[i]? | none
+        let count := countInt.toNat
+        if v = BitVec.ofInt bw caseValues[i]! then
+          let some dest := blockOperands[i + 1]? | none
+          return (#[], mem, some (.branch (operands.extract base (base + count)) dest))
+        base := base + count
+      return (#[], mem, some (.branch (operands.extract 1 (1 + defaultSize)) destDefault))
+    | .int _ .poison => Interp.ub
+    | _ => none
+  | .alloca => do
+    let [.int _ (.val count)] := operands.toList | none
+    /- `alloca T, N` reserves `N` strides of `T`, as in LLVM. -/
+    let size ← layout.getTypeAllocSize properties.elem_type.val
+    let (mem, addr) ← mem.alloc (← memorySize (size * count.toNat))
+    return (#[.addr (.val addr)], mem, none)
+  | .load => do
+    let [.addr addr] := operands.toList | none
+    let .val addr := addr | Interp.ub
+    let [type] := resultTypes.toList | none
+    let val ← mem.llvmLoad addr type
+    return (#[val], mem, none)
+  | .store => do
+    let [val, .addr addr] := operands.toList | none
+    let .val addr := addr | Interp.ub
+    let mem ← mem.llvmStore addr val
+    return (#[], mem, none)
+  | .getelementptr => do
+    /- only supports exactly one dynamic index for now -/
+    let [.addr ptr, .int _ idx] := operands.toList | none
+    /- The index scales by the element's stride, matching the `getTypeAllocSize`
+       that `isel-riscv64` uses to lower this operation. -/
+    let size ← layout.getTypeAllocSize properties.elem_type.val
+    match ptr, idx with
+    | .val ptr, .val idx => return (#[.addr (.val ⟨ptr.object, UInt64.ofNat (ptr.offset.toNat + idx.toNat * size)⟩)], mem, none)
+    | _, _ => return (#[.addr .poison], mem, none)
+  | .freeze => do
+    let [val] := operands.toList | none
+    match val with
+    | .int w val =>
+        return (#[.int w val.freeze], mem, none)
+    | .byte w val =>
+        return (#[.byte w val.freeze], mem, none)
+    | .addr .poison => return (#[.addr LLVM.Ptr.null], mem, none)
+    | .addr (.val p) => return (#[.addr (.val p)], mem, none)
+    | _ => none
+  | .bitcast => do
+    let [val] := operands.toList | none
+    let [⟨type, _⟩] := resultTypes.toList | none
+    let result ← do match val, type with
+      | .int bw1 val', .integerType ⟨bw2⟩ =>
+          if bw1 ≠ bw2 then .fail else .ok (val)
+      | .int bw1 val', .byteType ⟨bw2⟩ =>
+          if bw1 ≠ bw2 then .fail else .ok ((.byte bw1 $ LLVM.Byte.fromInt val'))
+      | .byte bw1 val', .byteType ⟨bw2⟩ =>
+          if bw1 ≠ bw2 then .fail else .ok (val)
+      | .byte bw1 val', .integerType ⟨bw2⟩ =>
+          if bw1 ≠ bw2 then .fail else .ok ((.int bw1 $ val'.toInt))
+      | .byte bw val', .llvmPointerType _ =>
+          if h : bw = 64 then .ok (.addr (mem.ptrFromInt (val'.cast h).toInt)) else .fail
+      | .addr val', .llvmPointerType _ => .ok (val)
+      | .addr val', .byteType ⟨bw⟩ =>
+          if bw = 64 then .ok (.byte 64 (LLVM.Byte.fromInt (mem.intFromPtr val'))) else .fail
+      | .addr val', .integerType ⟨bw⟩ =>
+          if bw = 64 then .ok (.int 64 (mem.intFromPtr val')) else .fail
+      | _, _ => none
+    return (#[result], mem, none)
+  | _ => none
 
 instance : HasOpInfo Llvm where
   verifyLocalInvariants := Llvm.verifyLocalInvariants
