@@ -703,7 +703,14 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     if len.toNat = 0 then return (#[], mem, none)
     let .val dst := dst | Interp.ub
     let .val src := src | Interp.ub
-    let mem ← MemoryModel.memcpy mem dst src len.toNat
+    /- `memcpy` requires the two ranges to be equal or not to overlap at
+       all, which is the only thing that separates it from `memmove`. -/
+    let n := len.toNat
+    if opType = .intr__memcpy ∧ dst.object = src.object ∧ dst.offset ≠ src.offset then
+      let lo := min dst.offset.toNat src.offset.toNat
+      let hi := max dst.offset.toNat src.offset.toNat
+      if lo + n > hi then Interp.ub
+    let mem ← MemoryModel.memcpy mem dst src n
     return (#[], mem, none)
   | .intr__memset => do
     let [.addr dst, .int 8 v, .int _ len] := operands.toList | none
