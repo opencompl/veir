@@ -648,6 +648,15 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let .val len := len | Interp.ub
     let mem ← MemoryModel.memcpy mem dst src len.toNat
     return (#[], mem, none)
+  | .intr__memset => do
+    let [.addr dst, .int 8 v, .int _ len] := operands.toList | none
+    let .val dst := dst | Interp.ub
+    let .val len := len | Interp.ub
+    let byte : MemoryByte := match v with
+      | .val v => .value (UInt8.ofBitVec v) 0
+      | .poison => .poison
+    let mem ← mem.storeBytes dst (Array.replicate len.toNat byte)
+    return (#[], mem, none)
   | .ptrtoint => do
     let [.addr p] := operands.toList | none
     let [⟨.integerType bw, _⟩] := resultTypes.toList | none
