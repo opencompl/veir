@@ -7,7 +7,7 @@ import Veir.Interfaces.ConstantLikeInterfaces
 import Veir.Interfaces.FunctionInterfaces
 import Veir.Passes.Matching.LLVM.Basic
 import Veir.Passes.InstructionSelection.Common
-import Veir.PatternRewriter.Puddle.Builders
+public import Veir.PatternRewriter.Puddle.Builders
 import Veir.PatternRewriter.Puddle.Execution
 
 namespace Veir
@@ -1637,7 +1637,7 @@ def poisonConst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   -> Reg) : Reg -> Int w`. Registers hold no poison, so casting the operand to a register and back
   freezes it; the cast picks zero for a poison operand (see `freeze_refinement`).
 -/
-def freeze_pattern : Veir.Puddle.Pattern OpCode :=
+public def freeze_pattern : Veir.Puddle.Pattern OpCode :=
   Veir.Puddle.Pattern.Builder
     (do
       let type ← Veir.Puddle.MatchProg.type (Attr := IntegerType)
