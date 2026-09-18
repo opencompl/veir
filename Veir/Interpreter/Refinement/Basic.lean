@@ -59,14 +59,25 @@ def RuntimeValue.arrayIsRefinedBy (source target : Array RuntimeValue) : Prop :=
 @[inherit_doc] infix:50 " ⊒ " => RuntimeValue.arrayIsRefinedBy
 
 /--
-Refinement of memory objects: the same address, and bytes in which poison bits may be
-refined into concrete bits.
+Refinement of memory bytes. A value byte is refined by a value byte in which poison bits may
+have become concrete, and a fully poison value byte is refined by anything. A pointer fragment
+is refined only by the same fragment.
 This should be kept consistent with the definition of refinement on the byte type.
 -/
 @[expose]
+def MemoryByte.isRefinedBy : MemoryByte → MemoryByte → Prop
+  | .value b p, .value b' p' => p ||| ((b ^^^ ~~~b') &&& ~~~p') = 0xff
+  | .value _ p, .fragment _ _ => p = 0xff
+  | .fragment q i, .fragment q' i' => q = q' ∧ i = i'
+  | .fragment _ _, .value _ _ => False
+
+@[inherit_doc] infix:50 " ⊒ " => MemoryByte.isRefinedBy
+
+/-- Refinement of memory objects: the same address and size, and bytes refined pointwise. -/
+@[expose]
 def MemoryObject.isRefinedBy (source target : MemoryObject) : Prop :=
-  source.base = target.base ∧
-  ∀ addr, source.poisonMask.getD addr 0 ||| ((source.contents.getD addr 0 ^^^ ~~~target.contents.getD addr 0) &&& ~~~target.poisonMask.getD addr 0) = 0xff
+  source.base = target.base ∧ source.bytes.size = target.bytes.size ∧
+  ∀ i : Nat, source.bytes.getD i .poison ⊒ target.bytes.getD i .poison
 
 @[inherit_doc] infix:50 " ⊒ " => MemoryObject.isRefinedBy
 
