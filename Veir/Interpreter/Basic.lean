@@ -639,6 +639,17 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     | .val ptr, .val idx =>
       return (#[.addr (.val (MemoryModel.arrayShiftPtrval (State := MemoryState) ptr (idx.toNat * size)))], mem, none)
     | _, _ => return (#[.addr .poison], mem, none)
+  | .ptrtoint => do
+    let [.addr p] := operands.toList | none
+    let [⟨.integerType bw, _⟩] := resultTypes.toList | none
+    let .val a := MemoryModel.intFromPtr mem p | return (#[.int bw.bitwidth .poison], mem, none)
+    return (#[.int bw.bitwidth (.val (BitVec.ofNat bw.bitwidth a.toNat))], mem, none)
+  | .inttoptr => do
+    let [.int _ v] := operands.toList | none
+    let wide : LLVM.Int 64 := match v with
+      | .val v => .val (BitVec.ofNat 64 v.toNat)
+      | .poison => .poison
+    return (#[.addr (MemoryModel.ptrFromInt mem wide)], mem, none)
   | .freeze => do
     let [val] := operands.toList | none
     match val with
