@@ -163,6 +163,24 @@ instance (opCode : OpInfo) [tail : IsMetadataTuple OpInfo Tail] :
     IsMetadataTuple OpInfo (Handle OpInfo (.prop opCode) × Tail) :=
   ⟨.cons (.property opCode) tail.shape⟩
 
+/-! Simplification rules for metadata tuple shapes. -/
+
+@[simp] theorem IsMetadataTuple.shape_unit :
+    shape (OpInfo := OpInfo) (Handles := Unit) = .unit := rfl
+
+@[simp] theorem IsMetadataTuple.shape_type :
+    shape (Handles := Handle OpInfo .type) = .atom .type := rfl
+
+@[simp] theorem IsMetadataTuple.shape_property :
+    shape (Handles := Handle OpInfo (.prop opCode)) = .atom (.property opCode) := rfl
+
+@[simp] theorem IsMetadataTuple.shape_type_cons [tail : IsMetadataTuple OpInfo Tail] :
+    shape (Handles := Handle OpInfo .type × Tail) = .cons .type tail.shape := rfl
+
+@[simp] theorem IsMetadataTuple.shape_property_cons [tail : IsMetadataTuple OpInfo Tail] :
+    shape (Handles := Handle OpInfo (.prop opCode) × Tail) =
+.cons (.property opCode) tail.shape := rfl
+
 /-!
 ## Matcher phase
 
