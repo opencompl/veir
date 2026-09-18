@@ -4,7 +4,7 @@
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> !riscv.reg}> ({
-    %a = "riscv.li"() <{ "value" = 8 : i64 }> : () -> !riscv.reg
+    %a = "riscv_stack.alloca"() <{ "size" = 1 : i64, "alignment" = 8 : i64 }> : () -> !riscv.reg
     %x = "riscv.li"() <{ "value" = 255 : i64 }> : () -> !riscv.reg
     "riscv.sb"(%x, %a) <{ "value" = 0 : i64 }> : (!riscv.reg, !riscv.reg) -> ()
     %y = "riscv.lbu"(%a) <{ "value" = 0 : i64 }> : (!riscv.reg) -> !riscv.reg

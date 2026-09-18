@@ -1,13 +1,13 @@
 // RUN: veir-interpret %s | filecheck %s
 
-// All four RISC-V stores target the same address, issued widest-to-narrowest so
+// All four RISC-V stores target the same stack slot, issued widest-to-narrowest so
 // each narrower store overwrites only its low bytes and stays visible. Every
 // source register holds the same byte replicated across all 8 lanes:
 //   sd -> 0x04..04, sw -> 0x03..03, sh -> 0x02..02, sb -> 0x01..01
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> !riscv.reg}> ({
-    %a  = "riscv.li"() <{ "value" = 8 : i64 }> : () -> !riscv.reg
+    %a  = "riscv_stack.alloca"() <{ "size" = 8 : i64, "alignment" = 8 : i64 }> : () -> !riscv.reg
     %x8 = "riscv.li"() <{ "value" = 289360691352306692 : i64 }> : () -> !riscv.reg
     %x4 = "riscv.li"() <{ "value" = 217020518514230019 : i64 }> : () -> !riscv.reg
     %x2 = "riscv.li"() <{ "value" = 144680345676153346 : i64 }> : () -> !riscv.reg

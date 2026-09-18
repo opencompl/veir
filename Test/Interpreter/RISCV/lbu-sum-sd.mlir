@@ -1,6 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
 
-// Store the byte values 124..131 at byte addresses 124..131 using a single
+// Store the byte values 124..131 at the 8 bytes of a stack slot using a single
 // `riscv.sd` (the little-endian doubleword 0x838281807f7e7d7c places 124 at the
 // lowest address and 131 at the highest). Then `riscv.lbu` each of those 8 bytes,
 // which zero-extends: every byte stays positive (124..131). The sum is
@@ -8,7 +8,7 @@
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> !riscv.reg}> ({
-    %base = "riscv.li"() <{ "value" = 124 : i64 }> : () -> !riscv.reg
+    %base = "riscv_stack.alloca"() <{ "size" = 8 : i64, "alignment" = 8 : i64 }> : () -> !riscv.reg
     %word = "riscv.li"() <{ "value" = 9476278954835737980 : i64 }> : () -> !riscv.reg
     "riscv.sd"(%word, %base) <{ "value" = 0 : i64 }> : (!riscv.reg, !riscv.reg) -> ()
 
