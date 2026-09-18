@@ -643,15 +643,19 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     /- Bytes are copied as they are, so a pointer stored in the source keeps
        its provenance in the destination. -/
     let [.addr dst, .addr src, .int _ len] := operands.toList | none
+    let .val len := len | Interp.ub
+    /- A copy of no bytes reaches no memory, so it is allowed through any
+       pointer at all, which is the rule `checkAccess` already applies. -/
+    if len.toNat = 0 then return (#[], mem, none)
     let .val dst := dst | Interp.ub
     let .val src := src | Interp.ub
-    let .val len := len | Interp.ub
     let mem ← MemoryModel.memcpy mem dst src len.toNat
     return (#[], mem, none)
   | .intr__memset => do
     let [.addr dst, .int 8 v, .int _ len] := operands.toList | none
-    let .val dst := dst | Interp.ub
     let .val len := len | Interp.ub
+    if len.toNat = 0 then return (#[], mem, none)
+    let .val dst := dst | Interp.ub
     let byte : MemoryByte := match v with
       | .val v => .value (UInt8.ofBitVec v) 0
       | .poison => .poison
