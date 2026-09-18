@@ -3,6 +3,7 @@ module
 public import Veir.RuntimeValue
 public import Veir.Interpreter.Interp
 public import Veir.Interpreter.MemoryModel
+public import Std.Data.HashMap
 
 public section
 
@@ -101,6 +102,8 @@ structure MemoryState where
   objects : Array MemoryObject
   /-- The objects in order of their base address. -/
   byAddress : Array Nat := #[0]
+  /-- `globals` maps a symbol such as `@g` to the object that holds it. -/
+  globals : Std.HashMap String Nat := {}
   oracle : MemoryOracle := {}
   /-- How many allocations were made so far, to index the oracle. -/
   allocations : Nat := 0

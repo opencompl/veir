@@ -639,6 +639,9 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     | .val ptr, .val idx =>
       return (#[.addr (.val (MemoryModel.arrayShiftPtrval (State := MemoryState) ptr (idx.toNat * size)))], mem, none)
     | _, _ => return (#[.addr .poison], mem, none)
+  | .mlir__addressof => do
+    let some object := mem.globals[properties.global_name.value]? | none
+    return (#[.addr (.val ⟨object, 0⟩)], mem, none)
   | .call => do
     /- The C and C++ allocation functions are modelled by name. Each
        allocation yields a fresh object, so pointers into different
