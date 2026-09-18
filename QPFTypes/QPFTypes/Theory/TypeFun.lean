@@ -1,6 +1,6 @@
 module
 
-public import QPFTypes.TypeVec
+public import QPFTypes.Theory.TypeVec
 
 /-!
 # TypeFun

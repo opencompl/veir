@@ -5,8 +5,8 @@ Authors: Jeremy Avigad, Simon Hudon
 -/
 module
 
-public import QPFTypes.PFunctor.Multivariate.W
-public import QPFTypes.QPF.Basic
+public import QPFTypes.Theory.PFunctor.Multivariate.W
+public import QPFTypes.Theory.QPF.Basic
 
 /-!
 # The initial algebra of a multivariate qpf is again a qpf.
