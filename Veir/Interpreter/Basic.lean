@@ -410,19 +410,18 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let [.int _ (.val count)] := operands.toList | none
     /- `alloca T, N` reserves `N` strides of `T`, as in LLVM. -/
     let size ← layout.getTypeAllocSize properties.elem_type.val
-    let totalSize := (size * count.toNat).toUInt64
-    let (mem, addr) := mem.alloc totalSize
+    let (mem, addr) := MemoryModel.allocateRegion mem properties.alignment.value.toNat (size * count.toNat)
     return (#[.addr (.val addr)], mem, none)
   | .load => do
     let [.addr addr] := operands.toList | none
     let .val addr := addr | Interp.ub
     let [type] := resultTypes.toList | none
-    let val ← mem.llvmLoad addr type
+    let val ← MemoryModel.load mem type addr
     return (#[val], mem, none)
   | .store => do
     let [val, .addr addr] := operands.toList | none
     let .val addr := addr | Interp.ub
-    let mem ← mem.llvmStore addr val
+    let mem ← MemoryModel.store mem addr val
     return (#[], mem, none)
   | .getelementptr => do
     /- only supports exactly one dynamic index for now -/
@@ -431,7 +430,8 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
        that `isel-riscv64` uses to lower this operation. -/
     let size ← layout.getTypeAllocSize properties.elem_type.val
     match ptr, idx with
-    | .val ptr, .val idx => return (#[.addr (.val ⟨ptr.object, UInt64.ofNat (ptr.offset.toNat + idx.toNat * size)⟩)], mem, none)
+    | .val ptr, .val idx =>
+      return (#[.addr (.val (MemoryModel.arrayShiftPtrval (State := MemoryState) ptr (idx.toNat * size)))], mem, none)
     | _, _ => return (#[.addr .poison], mem, none)
   | .freeze => do
     let [val] := operands.toList | none
@@ -456,12 +456,12 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       | .byte bw1 val', .integerType ⟨bw2⟩ =>
           if bw1 ≠ bw2 then .fail else .ok ((.int bw1 $ val'.toInt))
       | .byte bw val', .llvmPointerType _ =>
-          if h : bw = 64 then .ok (.addr (LLVM.Ptr.ofByte (val'.cast h))) else .fail
+          if h : bw = 64 then .ok (.addr (MemoryModel.ptrFromInt mem (val'.cast h).toInt)) else .fail
       | .addr val', .llvmPointerType _ => .ok (val)
       | .addr val', .byteType ⟨bw⟩ =>
-          if bw = 64 then .ok (.byte 64 val'.toByte) else .fail
+          if bw = 64 then .ok (.byte 64 (LLVM.Byte.fromInt (MemoryModel.intFromPtr mem val'))) else .fail
       | .addr val', .integerType ⟨bw⟩ =>
-          if bw = 64 then .ok (.int 64 val'.toInt) else .fail
+          if bw = 64 then .ok (.int 64 (MemoryModel.intFromPtr mem val')) else .fail
       | _, _ => none
     return (#[result], mem, none)
   | _ => none
@@ -1089,7 +1089,7 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     | .registerType _, [.addr val] =>
       /- A register has no poison to carry. Like a poison integer, a poison pointer
          may become any register value; the interpreter picks 0. -/
-      return (#[.reg (LLVM.Int.toReg val.toInt)], mem, none)
+      return (#[.reg (LLVM.Int.toReg (MemoryModel.intFromPtr mem val))], mem, none)
     | .integerType _bw, [.reg val] =>
       let .integerType resBw := resType.val | none
       return (#[.int resBw.bitwidth (RISCV.Reg.toInt val resBw.bitwidth)], mem, none)
@@ -1097,7 +1097,7 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
       let .byteType resBw := resType.val | none
       return (#[.byte resBw.bitwidth (RISCV.Reg.toByte val resBw.bitwidth)], mem, none)
     | .llvmPointerType _, [.reg val] =>
-      return (#[.addr (.val ⟨0, ⟨val.val⟩⟩)], mem, none)
+      return (#[.addr (MemoryModel.ptrFromInt mem (.val val.val))], mem, none)
     | _ , _ => none
   | _ => none
 

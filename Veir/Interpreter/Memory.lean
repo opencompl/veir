@@ -3,6 +3,7 @@ module
 public import Veir.ForLean
 public import Veir.RuntimeValue.Basic
 public import Veir.Interpreter.Interp
+public import Veir.Interpreter.MemoryModel
 
 public section
 
@@ -175,5 +176,17 @@ def MemoryState.llvmLoad (mem : MemoryState) (p : Pointer) (type : TypeAttr)
   | Attribute.llvmPointerType _ =>
       return .addr (Data.LLVM.Ptr.ofByte (← mem.loadByte64 p))
   | _ => none
+
+/-- The flat memory model: one byte array, addressed directly. -/
+instance : MemoryModel MemoryState where
+  name := "flat"
+  initialMemState := MemoryState.empty
+  allocateRegion state _align size := state.alloc size.toUInt64
+  load state type p := state.llvmLoad p type
+  store state p val := state.llvmStore p val
+  validForDerefPtrval state p size := !p.isNull && p.offset.toNat + size ≤ state.contents.size
+  arrayShiftPtrval p bytes := ⟨p.object, UInt64.ofNat (p.offset.toNat + bytes)⟩
+  ptrFromInt _ i := Data.LLVM.Ptr.ofInt i
+  intFromPtr _ p := p.toInt
 
 end Veir
