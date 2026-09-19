@@ -29,11 +29,23 @@ def MemoryState.empty : MemoryState := {
 }
 
 /--
-  Allocate the given number of bytes of memory.
-  Return the updated memory state and the freshly allocated address.
+  The size of an `alloca` in bytes as a 64-bit value. An `alloca` has no way
+  to report failure, so a size that does not fit in the address space is
+  undefined behaviour.
 -/
-def MemoryState.alloc (mem : MemoryState) (size : UInt64) : MemoryState × Pointer :=
-  (⟨mem.contents.extend size.toNat 0,
+def memorySize (n : Nat) : Interp UInt64 :=
+  if n < 2 ^ 64 then return n.toUInt64 else Interp.ub
+
+/--
+  Allocate `size` bytes and return a pointer to the start of the allocation.
+
+  If there is insufficient memory, yield an interpretation failure. An
+  out-of-memory event does not trigger UB, but it means that we cannot
+  excecute this program.
+-/
+def MemoryState.alloc (mem : MemoryState) (size : UInt64) : Interp (MemoryState × Pointer) :=
+  if mem.contents.size + size.toNat ≥ 2 ^ 64 then Interp.fail else
+  return (⟨mem.contents.extend size.toNat 0,
     mem.poisonMask.extend size.toNat 0xff,
     by simp [mem.consistentSize]⟩, ⟨0, mem.contents.size.toUInt64⟩)
 
