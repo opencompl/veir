@@ -410,7 +410,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let [.int _ (.val count)] := operands.toList | none
     /- `alloca T, N` reserves `N` strides of `T`, as in LLVM. -/
     let size ← layout.getTypeAllocSize properties.elem_type.val
-    let (mem, addr) ← mem.alloc (← memorySize (size * count.toNat))
+    let (mem, addr) ← mem.alloc (← memorySize (size * count.toNat)) properties.alignment.value.toNat.toUInt64
     return (#[.addr (.val addr)], mem, none)
   | .load => do
     let [.addr addr] := operands.toList | none
@@ -883,7 +883,7 @@ def Riscv_Stack.interpretOp' (opType : Veir.Riscv_Stack) (properties : propertie
     : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
   match opType with
   | .alloca => do
-    let (mem, addr) ← mem.alloc properties.size.toNat.toUInt64
+    let (mem, addr) ← mem.alloc properties.size.toNat.toUInt64 properties.alignment.toNat.toUInt64
     return (#[.reg (LLVM.Int.toReg (mem.intFromPtr (.val addr)))], mem, none)
 
 def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : propertiesOf opType)

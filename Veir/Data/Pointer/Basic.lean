@@ -6,8 +6,10 @@ public section
 
 /--
   A pointer into interpreter memory: the object it may access and a byte
-  offset into it. The flat memory model has a single object, 0, whose
-  offsets are the addresses themselves.
+  offset into it. Pointers derived from different objects never alias, and an
+  access outside the object is undefined behaviour. Every object has a
+  physical address, so a pointer converts to an integer with
+  `MemoryState.address` and an integer converts back with `MemoryState.decode`.
 -/
 structure Pointer where
   object : Nat
@@ -16,7 +18,7 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 
 namespace Pointer
 
-/-- The null pointer. -/
+/-- The null pointer. Object 0 holds no bytes, so every access through it is UB. -/
 def null : Pointer := ⟨0, 0⟩
 
 def isNull (p : Pointer) : Bool := p == null

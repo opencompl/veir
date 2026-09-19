@@ -46,7 +46,7 @@ theorem RuntimeValue.arrayIsRefinedBy_cons {a b : RuntimeValue} {as bs : List Ru
 @[simp, grind .]
 theorem MemoryObject.isRefinedBy_refl (m : MemoryObject) :
     m ⊒ m := by
-  simp only [MemoryObject.isRefinedBy]
+  refine ⟨rfl, ?_⟩
   bv_normalize
   grind
 
@@ -97,7 +97,9 @@ theorem RuntimeValue.isRefinedBy_trans {v₁ v₂ v₃ : RuntimeValue}
 
 theorem MemoryObject.isRefinedBy_trans {m1 m2 m3 : MemoryObject}
     (h12 : m1 ⊒ m2) (h23 : m2 ⊒ m3) : m1 ⊒ m3 := by
-  simp only [MemoryObject.isRefinedBy] at *
+  obtain ⟨hb12, h12⟩ := h12
+  obtain ⟨hb23, h23⟩ := h23
+  refine ⟨hb12.trans hb23, ?_⟩
   intro addr
   specialize h12 addr
   specialize h23 addr
