@@ -22,25 +22,15 @@ theorem isRefinedBy_trans {p₁ p₂ p₃ : Ptr}
 
 /-- Only the same pointer refines a pointer that is not poison. -/
 @[grind .]
-theorem eq_of_val_isRefinedBy {p : UInt64} {q : Ptr}
+theorem eq_of_val_isRefinedBy {p : Pointer} {q : Ptr}
     (h : Ptr.val p ⊒ q) : q = .val p := by
   cases q <;> simp_all
 
 /- # {to,of}Int -/
 
 @[simp, grind =]
-theorem ofInt_toInt (p : Ptr) : ofInt p.toInt = p := by
-  cases p <;> simp
-
-@[simp, grind =]
 theorem toInt_ofInt (i : Int 64) : (ofInt i).toInt = i := by
   cases i <;> simp
-
-/- # {to,of}Byte -/
-
-@[simp, grind =]
-theorem ofByte_toByte (p : Ptr) : ofByte p.toByte = p := by
-  cases p <;> simp [ofByte, toByte, Byte.toInt, Byte.fromInt, Int.isPoison, Int.getValue]
 
 end
 
