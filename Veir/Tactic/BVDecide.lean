@@ -1,6 +1,6 @@
 module
 
-public import Veir.Meta.BVNormalizeSimp
+public import Veir.Tactic.BVNormalizeSimp
 
 /-! ## Veir Bitblasting Tactic -/
 

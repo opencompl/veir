@@ -6,7 +6,7 @@ public import Veir.Data.LLVM.Byte.Basic
 public import Veir.Data.RISCV.Reg.Basic
 
 import all Veir.Data.LLVM.Int.Bitblast
-meta import Veir.Meta.BVDecide
+meta import Veir.Tactic.BVDecide
 
 public section
 

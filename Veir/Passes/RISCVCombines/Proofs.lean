@@ -3,9 +3,9 @@ module
 public import Veir.Data.RISCV.Reg.Basic
 public import Veir.Data.RISCV.Reg.Lemmas
 
-import Veir.Meta.BVDecide
+import Veir.Tactic.BVDecide
 import Std.Tactic.BVDecide
-meta import Veir.Meta.BVDecide
+meta import Veir.Tactic.BVDecide
 meta import Std.Tactic.BVDecide
 meta import Std.Tactic.BVDecide.Reflect
 
