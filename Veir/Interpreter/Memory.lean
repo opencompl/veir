@@ -38,8 +38,9 @@ def memorySize (n : Nat) : Interp UInt64 :=
 
 /--
   Allocate `size` bytes past the end of memory, and return a pointer to their
-  start. An allocation past the end of the address space is not a program
-  error, so the run fails.
+  start. In case there is insufficient memory, we yield an interpretation
+  failure. An out-of-memory event does not trigger UB, but means we cannot
+  make a statement about the semantics of this program.
 -/
 def MemoryState.alloc (mem : MemoryState) (size : UInt64) : Interp (MemoryState × Pointer) :=
   if mem.contents.size + size.toNat ≥ 2 ^ 64 then Interp.fail else
