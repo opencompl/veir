@@ -3,7 +3,7 @@ module
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Dialects.HW.Properties
-public import Veir.ConstantMaterialization
+public import Veir.Interfaces.ConstantMaterialization
 public import Veir.Verifier.Basic
 meta import Veir.Meta.OpCode
 

@@ -6,7 +6,7 @@ public import Veir.Verifier.Basic
 public import Veir.Dialects.Arith.Properties
 public import Veir.Dialects.LLVM.Properties
 public import Veir.Dialects.LLVM.OpInfo
-public import Veir.ConstantMaterialization
+public import Veir.Interfaces.ConstantMaterialization
 public import Veir.RuntimeValue.Basic
 public import Veir.Interpreter.Interp
 public import Veir.Data.LLVM.Int.Basic

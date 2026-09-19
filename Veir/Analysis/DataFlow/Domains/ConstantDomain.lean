@@ -2,7 +2,7 @@ module
 
 public import Veir.Data.LLVM.Int.Basic
 public import Veir.Analysis.DataFlow.Domains.AbstractDomain
-public import Veir.FoldDecision
+public import Veir.Interfaces.FoldDecision
 
 public section
 

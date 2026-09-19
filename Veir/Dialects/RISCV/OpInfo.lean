@@ -4,7 +4,7 @@ public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Verifier.Basic
 public import Veir.Dialects.RISCV.Properties
-public import Veir.ConstantMaterialization
+public import Veir.Interfaces.ConstantMaterialization
 import Veir.Dialects.Builtin.Properties
 meta import Veir.Meta.OpCode
 

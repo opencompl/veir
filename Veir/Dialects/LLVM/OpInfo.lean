@@ -5,7 +5,7 @@ public import Veir.IR.OpInfo
 public import Veir.Verifier.Basic
 public import Veir.Dialects.LLVM.Properties
 public import Veir.Dialects.Cf.Properties
-public import Veir.ConstantMaterialization
+public import Veir.Interfaces.ConstantMaterialization
 meta import Veir.Meta.OpCode
 
 namespace Veir

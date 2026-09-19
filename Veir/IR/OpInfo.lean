@@ -2,7 +2,7 @@ module
 
 public import Veir.IR.OpCode
 public import Veir.IR.WellFormed
-public import Veir.FoldDecision
+public import Veir.Interfaces.FoldDecision
 
 namespace Veir
 
