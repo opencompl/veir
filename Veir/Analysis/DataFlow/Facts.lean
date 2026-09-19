@@ -3,6 +3,7 @@ module
 public import Veir.GlobalOpInfo
 public import Veir.Analysis.DataFlow.Domains.IntegerRangeDomain
 public import Veir.Analysis.DataFlow.Domains.LivenessDomain
+public import Veir.Analysis.DependencyGraph
 public import Veir.Rewriter.InsertPoint
 public import Veir.Analysis.DataFlow.Domains.ConstantDomain
 
@@ -172,33 +173,14 @@ The fact specific data stored for each fact kind.
 A dataflow fact stored by the framework.
 
 Each fact associates with a lattice anchor (some location in the program), has
-an array of dependents (other facts that "depend" on this fact's current state in
-some fashion), has an array of analysis subscribers (similar to dependents except 
-it's entire analyses that depend on this fact's current state), and has the fact 
-specific payload determined by its `FactKind`.
+an array of analysis subscribers, and has the fact specific payload determined
+by its `FactKind`.
 -/
 structure Fact (kind : FactKind) where
-  dependents : Array WorkItem := #[]
   subscribers : Array AnalysisKind := #[]
   payload : FactPayload kind
 
 namespace Fact
-
-/--
-Set the fact's dependents.
--/
-def setDependents (fact : Fact kind) (dependents : Array WorkItem) : Fact kind :=
-  { fact with dependents := dependents }
-
-/--
-Add one dependent work item to the fact.
--/
-def addDependent (fact : Fact kind) (workItem : WorkItem) : Fact kind :=
-  fact.setDependents (fact.dependents.push workItem)
-
-/-- Add a work item to the fact's dependents unless it is already present. -/
-def addDependentOnce (fact : Fact kind) (workItem : WorkItem) : Fact kind :=
-  if fact.dependents.any (· = workItem) then fact else fact.addDependent workItem
 
 /--
 Subscribe one analysis to changes of this fact.
@@ -208,16 +190,6 @@ def subscribe (fact : Fact kind) (analysisKind : AnalysisKind) : Fact kind :=
     fact
   else
     { fact with subscribers := (fact.subscribers.push analysisKind) }
-
-/--
-Enqueue all dependents of this fact.
--/
-def enqueueDependents (fact : Fact kind) (workList : WorkList) : WorkList :=
-  Id.run do
-    let mut workList := workList
-    for workItem in fact.dependents do
-      workList := workList.enqueue workItem
-    workList
 
 def iDom (fact : Fact .dominator) : Option BlockPtr :=
   fact.payload.iDom

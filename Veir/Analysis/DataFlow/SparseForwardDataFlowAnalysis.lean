@@ -121,9 +121,12 @@ private def visitBlock
     (block : BlockPtr)
     (dfCtx : DataFlowContext)
     (irCtx : WfIRContext OpCode) : DataFlowContext := Id.run do
+  let dependent : WorkItem := (InsertPoint.atStart! block irCtx.raw, analysisKind)
+  let mut dfCtx := dfCtx.clearDependencies dependent
+
   -- Exit early on blocks with no arguments.
   if block.getNumArguments! irCtx.raw = 0 then
-    return dfCtx 
+    return dfCtx
 
   -- If the block is not live, bail out.
   if !isBlockLive block dfCtx irCtx then
@@ -139,12 +142,9 @@ private def visitBlock
     -- TODO: Mirror MLIR's handling of `visitCallableOperation` and
     -- `visitRegionSuccessors` and `visitNonControlFlowArgumentsImpl`
     -- for entry blocks.
-    let mut dfCtx := dfCtx
     for argument in block.getArguments! irCtx.raw do
       dfCtx := joinAndPropagate kind argument (entryState argument irCtx) dfCtx irCtx
     return dfCtx
-
-  let mut dfCtx := dfCtx
 
   -- Iterate over the predecessors of the non-entry block.
   let mut maybePredUse := (block.get! irCtx.raw).firstUse
@@ -181,12 +181,9 @@ private def visitBlock
       let arg := block.getArgument i
       match successorOperands[i]? with
       | some operand =>
-        -- Add the current block start program point as a dependency of the
-        -- predecessor block's successor operand lattice state, so this block
-        -- is revisited when that operand lattice changes.
-        let dependentPoint := InsertPoint.atStart! block irCtx.raw
-        let workItem : WorkItem := (dependentPoint, analysisKind)
-        dfCtx := dfCtx.modifyFact kind (.ValuePtr operand) (·.addDependentOnce workItem)
+        -- Record that the current block start depends on this predecessor operand's
+        -- lattice fact, so the block is revisited when that fact changes.
+        dfCtx := dfCtx.addDependency dependent { anchor := .ValuePtr operand, kind }
 
         -- Call transfer function
         let incoming :=
