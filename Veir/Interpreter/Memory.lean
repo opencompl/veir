@@ -29,7 +29,7 @@ def MemoryState.empty : MemoryState := {
 /--
   The size of an `alloca` in bytes as a 64-bit value. An `alloca` has no way
   to report failure, so a size that does not fit in the address space is
-  undefined behaviour, as it is in Alive2.
+  undefined behaviour.
 -/
 def memorySize (n : Nat) : Interp UInt64 :=
   if n < 2 ^ 64 then return n.toUInt64 else Interp.ub
