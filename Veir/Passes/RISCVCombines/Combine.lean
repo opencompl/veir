@@ -961,7 +961,7 @@ def select_neg1_0_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some cf := matchConstantIntVal fv ctx.raw | return (ctx, none)
   if cf ≠ 0 then return (ctx, none)
   -- At i1, -1 is true and no extension is needed.
-  if (op.getResult 0 : ValuePtr).getType! ctx.raw = IntegerType.mk 1 then
+  if (op.getResult 0 : ValuePtr).getType! ctx.raw = IntegerType.signless 1 then
     return (ctx, some (#[], #[cond]))
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sext #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[cond]
     #[] #[] () none
@@ -1007,7 +1007,7 @@ def select_0_neg1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     #[] #[] m1 none
   let (ctx, ncond) ← WfRewriter.createOp! ctx Llvm.xor #[cond.getType! ctx.raw] #[cond, (c1.getResult 0)]
     #[] #[] () none
-  if (op.getResult 0 : ValuePtr).getType! ctx.raw = IntegerType.mk 1 then
+  if (op.getResult 0 : ValuePtr).getType! ctx.raw = IntegerType.signless 1 then
     return (ctx, some (#[c1, ncond], #[ncond.getResult 0]))
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sext #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[(ncond.getResult 0)]
     #[] #[] () none

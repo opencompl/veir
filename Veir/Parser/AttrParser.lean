@@ -88,15 +88,17 @@ private def parseOptionalVectorDimension : AttrParserM (Option Nat) := do
 def parseOptionalIntegerType : AttrParserM (Option IntegerType) := do
   match ← peekToken with
   | { kind := .bareIdent, slice := slice } =>
-    if slice.size < 2 then
-      return none
-    if (← (getThe ParserState)).input.getD slice.start.byteOffset 0 == 'i'.toUInt8 then
-      let bitwidthSlice : Slice := {start := slice.start + 1, stop := slice.stop}
-      let identifier := bitwidthSlice.of (← (getThe ParserState)).input
-      let some bitwidth := (String.fromUTF8? identifier).bind String.toNat? | return none
-      let _ ← consumeToken
-      return some (IntegerType.mk bitwidth)
-    return none
+    let identifier := slice.of (← getThe ParserState).input
+    let bitwidth (prefixLength : Nat) : Option Nat :=
+      (String.fromUTF8? (identifier.extract prefixLength identifier.size)).bind String.toNat?
+    let type : Option IntegerType :=
+      if identifier.extract 0 2 == "si".toByteArray then (bitwidth 2).map IntegerType.signed
+      else if identifier.extract 0 2 == "ui".toByteArray then (bitwidth 2).map IntegerType.unsigned
+      else if identifier.extract 0 1 == "i".toByteArray then (bitwidth 1).map IntegerType.signless
+      else none
+    let some type := type | return none
+    let _ ← consumeToken
+    return some type
   | _ => return none
 
 /-- Parse the MLIR builtin `index` type. -/
@@ -257,9 +259,9 @@ def parseOptionalStringAttr : AttrParserM (Option StringAttr) := do
 -/
 def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
   if (← parseOptionalKeyword "false".toByteArray) then
-    return some (IntegerAttr.mk 0 (IntegerType.mk 1) : Attribute)
+    return some (IntegerAttr.mk 0 (IntegerType.signless 1) : Attribute)
   if (← parseOptionalKeyword "true".toByteArray) then
-    return some (IntegerAttr.mk 1 (IntegerType.mk 1) : Attribute)
+    return some (IntegerAttr.mk 1 (IntegerType.signless 1) : Attribute)
 
   -- Parse the optional leading '-'.
   let isNegative := Option.isSome (← parseOptionalToken .minus)

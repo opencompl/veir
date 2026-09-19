@@ -41,12 +41,31 @@ private local instance : Repr ByteArray where
 
 /-! ## Attribute definitions -/
 
+inductive IntegerType.Signedness
+| signless
+| signed
+| unsigned
+deriving Inhabited, Repr, DecidableEq, Hashable
+
 /--
   A `!builtin.integer` is an integer type with a given bitwidth.
 -/
 structure IntegerType where
   bitwidth : Nat
+  signedness : IntegerType.Signedness := .signless
 deriving Inhabited, Repr, DecidableEq, Hashable
+
+/-- The signless integer type `i<bitwidth>`. -/
+def IntegerType.signless (bitwidth : Nat) : IntegerType :=
+  { bitwidth, signedness := .signless }
+
+/-- The signed integer type `si<bitwidth>`. -/
+def IntegerType.signed (bitwidth : Nat) : IntegerType :=
+  { bitwidth, signedness := .signed }
+
+/-- The unsigned integer type `ui<bitwidth>`. -/
+def IntegerType.unsigned (bitwidth : Nat) : IntegerType :=
+  { bitwidth, signedness := .unsigned }
 
 /--
   A floating point type.
@@ -402,7 +421,7 @@ structure CirIntType where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /-- The builtin integer type a `!cir.int` lowers to (signedness is dropped). -/
-def CirIntType.toIntegerType (type : CirIntType) : IntegerType := { bitwidth := type.width }
+def CirIntType.toIntegerType (type : CirIntType) : IntegerType := IntegerType.signless type.width
 
 /-- The `!cir.bool` type from ClangIR. -/
 structure CirBoolType
@@ -746,7 +765,7 @@ derive_mutual_hashable for
   UnregisteredAttr, Attribute
 
 instance : Inhabited VectorType where
-  default := { shape := #[], elementType := .integerType (IntegerType.mk 0) }
+  default := { shape := #[], elementType := .integerType (IntegerType.signless 0) }
 
 instance : Coe FunctionType LLVMFunctionType where
   coe := .mk
@@ -819,7 +838,10 @@ theorem UnregisteredAttr.sizeOf_type {a : UnregisteredAttr} (h : a.type = some t
 -/
 
 instance : ToString IntegerType where
-  toString type := s!"i{type.bitwidth}"
+  toString type := match type.signedness with
+    | .signless => s!"i{type.bitwidth}"
+    | .signed => s!"si{type.bitwidth}"
+    | .unsigned => s!"ui{type.bitwidth}"
 
 instance : ToString FloatType where
   toString type := type.canonicalName
@@ -1740,7 +1762,7 @@ def isType (attr : Attribute) : Bool :=
 -/
 def bitwidthOfType (type : Attribute) : Option Nat :=
   match type with
-  | .integerType { bitwidth } | .byteType { bitwidth } => some bitwidth
+  | .integerType { bitwidth, .. } | .byteType { bitwidth } => some bitwidth
   | .floatType type => some type.bitwidth
   | .vectorType { shape, elementType } => do
       let elementBitwidth ← bitwidthOfType elementType
@@ -1842,7 +1864,7 @@ def TypeAttr := {attr // Attribute.isType attr}
 deriving Repr, Hashable, DecidableEq
 
 instance : Inhabited TypeAttr where
-  default := ⟨.integerType (IntegerType.mk 0), by rfl⟩
+  default := ⟨.integerType (IntegerType.signless 0), by rfl⟩
 
 instance : Coe TypeAttr Attribute where
   coe typeAttr := typeAttr.val
