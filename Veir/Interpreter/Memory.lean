@@ -35,10 +35,12 @@ def memorySize (n : Nat) : Interp UInt64 :=
   if n < 2 ^ 64 then return n.toUInt64 else Interp.ub
 
 /--
-  Allocate `size` bytes past the end of memory, and return a pointer to their
-  start. In case there is insufficient memory, we yield an interpretation
-  failure. An out-of-memory event does not trigger UB, but means we cannot
-  make a statement about the semantics of this program.
+  Allocate `size` bytes and return a pointer to the beginning of the
+  allocation.
+
+  In case there is insufficient memory, we yield an interpretation failure. An
+  out-of-memory event does not trigger UB, but means we cannot make a statement
+  about the semantics of this program.
 -/
 def MemoryState.alloc (mem : MemoryState) (size : UInt64) : Interp (MemoryState × Pointer) :=
   if mem.contents.size + size.toNat ≥ 2 ^ 64 then Interp.fail else
