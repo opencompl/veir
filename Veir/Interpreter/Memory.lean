@@ -10,12 +10,27 @@ open Veir.Data
 
 namespace Veir
 
+structure EntropyState where
+  entropySource : ByteArray
+
+structure Message where
+  src : Nat
+  dest : Nat
+  payload : ByteArray
+deriving BEq
+
+structure NetworkState where
+  /-- Address of this run. -/
+  selfAddress : Nat
+  /-- in-flight messages in the network. -/
+  messages : List Message
+
 /--
   Memory state during interpretation.
   Set bits in the poison mask represent poison bits.
 -/
 @[ext]
-structure MemoryState where
+structure MemoryState extends EntropyState, NetworkState where
   contents : ByteArray
   poisonMask : ByteArray
   consistentSize : contents.size = poisonMask.size
@@ -23,14 +38,20 @@ structure MemoryState where
 def MemoryState.empty : MemoryState := {
   contents := (ByteArray.emptyWithCapacity 1024).extend 8 0xff,
   poisonMask := (ByteArray.emptyWithCapacity 1024).extend 8 0xff,
+  entropySource := ByteArray.empty,
+  selfAddress := 0,
+  messages := [],
   consistentSize := (by grind)
 }
 
 def MemoryState.ensureSize (mem : MemoryState) (size : Nat) : MemoryState :=
   if mem.contents.size < size then
-    ⟨mem.contents.extend (size - mem.contents.size) 0,
-      mem.poisonMask.extend (size - mem.contents.size) 0xff,
-      (by simp [mem.consistentSize])⟩
+    {contents := mem.contents.extend (size - mem.contents.size) 0,
+      poisonMask := mem.poisonMask.extend (size - mem.contents.size) 0xff,
+      entropySource := mem.entropySource,
+      selfAddress := mem.selfAddress,
+      messages := mem.messages,
+      consistentSize := (by simp [mem.consistentSize])}
   else
     mem
 
@@ -40,9 +61,12 @@ def MemoryState.ensureSize (mem : MemoryState) (size : Nat) : MemoryState :=
 -/
 def MemoryState.alloc (state : MemoryState) (size : UInt64)
     : MemoryState × UInt64 :=
-  (⟨state.contents.extend size.toNat 0,
-    state.poisonMask.extend size.toNat 0xff,
-    by simp [state.consistentSize]⟩, state.contents.size.toUInt64)
+  ({contents := state.contents.extend size.toNat 0,
+    poisonMask := state.poisonMask.extend size.toNat 0xff,
+    entropySource := state.entropySource,
+    selfAddress := state.selfAddress,
+    messages := state.messages,
+    consistentSize := (by simp [state.consistentSize])}, state.contents.size.toUInt64)
 
 /--
   Store raw bytes to the given address in memory,
@@ -53,11 +77,14 @@ def MemoryState.store (state : MemoryState) (addr : UInt64) (val : ByteArray)
   (poison : ByteArray := ByteArray.replicate val.size 0) (h : poison.size = val.size := by grind)
     : Interp MemoryState :=
   if addr.toNat + val.size ≤ state.contents.size then
-    return ⟨val.copySlice 0 state.contents addr.toNat val.size false,
-      poison.copySlice 0 state.poisonMask addr.toNat val.size false,
-      by
-        simp [ByteArray.copySlice_eq_append, state.consistentSize, h]
-      ⟩
+    return {
+      contents := val.copySlice 0 state.contents addr.toNat val.size false,
+      poisonMask := poison.copySlice 0 state.poisonMask addr.toNat val.size false,
+      entropySource := state.entropySource,
+      selfAddress := state.selfAddress,
+      messages := state.messages,
+      consistentSize := (by simp [ByteArray.copySlice_eq_append, state.consistentSize, h])
+    }
   else
     Interp.ub
 
@@ -69,15 +96,16 @@ def MemoryState.empoison (state : MemoryState) (addr : UInt64) (n : Nat)
     : Interp MemoryState :=
   if h : addr.toNat + n ≤ state.poisonMask.size then
     let mask := ByteArray.replicate n 0xff
-    return ⟨state.contents,
-      mask.copySlice 0 state.poisonMask addr.toNat n false,
-      by
-        have h' : min n mask.size = n := by grind
-        have h'' : min addr.toNat state.poisonMask.size = addr.toNat := by grind
-        simp [ByteArray.copySlice_eq_append, state.consistentSize, h', h'']
-        grind
-
-      ⟩
+    return {
+      contents := state.contents,
+      poisonMask := mask.copySlice 0 state.poisonMask addr.toNat n false,
+      entropySource := state.entropySource,
+      selfAddress := state.selfAddress,
+      messages := state.messages,
+      consistentSize := (by
+        simp [ByteArray.copySlice_eq_append, state.consistentSize]
+        grind)
+    }
   else
     Interp.ub
 
@@ -186,5 +214,52 @@ def MemoryState.llvmLoad (state : MemoryState) (addr : UInt64) (type : TypeAttr)
   | Attribute.llvmPointerType _ =>
       return .addr (Data.LLVM.Ptr.ofByte (← state.loadByte64 addr))
   | _ => none
+
+/--
+  Consume bytes from the entropy source.
+  Yields UB if the access is out of bounds.
+-/
+def MemoryState.entropyLoad (state : MemoryState) (size : UInt64)
+    : Interp (MemoryState × ByteArray) := do
+  if state.entropySource.size < size.toNat then Interp.ub else
+  let ba := state.entropySource.extract 0 size.toNat
+  let newState := {
+    contents := state.contents,
+    poisonMask := state.poisonMask,
+    entropySource := state.entropySource.extract size.toNat state.entropySource.size,
+    selfAddress := state.selfAddress,
+    messages := state.messages,
+    consistentSize := state.consistentSize
+  }
+  return (newState, ba)
+
+/--
+  Add an inflight message to the network
+-/
+def MemoryState.sendMessage (state : MemoryState) (dest : Nat) (payload : ByteArray) : MemoryState :=
+  let msg : Message := { src := state.selfAddress, dest := dest, payload := payload }
+  { contents := state.contents,
+    poisonMask := state.poisonMask,
+    entropySource := state.entropySource,
+    selfAddress := state.selfAddress,
+    messages := state.messages ++ [msg],
+    consistentSize := state.consistentSize
+  }
+
+/--
+  Consume the next inflight message destined for the current address
+-/
+def MemoryState.consumeMessage (state : MemoryState) : Option (MemoryState × Message) :=
+  let optMsg := state.messages.find? (fun msg => msg.dest = state.selfAddress)
+  optMsg.map fun msg =>
+    let newState := {
+      contents := state.contents,
+      poisonMask := state.poisonMask,
+      entropySource := state.entropySource,
+      selfAddress := state.selfAddress,
+      messages := state.messages.erase msg,
+      consistentSize := state.consistentSize
+    }
+    (newState, msg)
 
 end Veir
