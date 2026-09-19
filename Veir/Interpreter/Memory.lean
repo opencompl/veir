@@ -48,6 +48,12 @@ def MemoryState.getObject? (mem : MemoryState) (p : Pointer) : Option MemoryObje
 def MemoryState.setObject (mem : MemoryState) (p : Pointer) (obj : MemoryObject) : MemoryState :=
   { mem with objects := mem.objects.setIfInBounds p.object obj }
 
+/-- The pointer that the physical address `addr` denotes: in the flat model, that offset into object 0. -/
+def MemoryState.decode (_mem : MemoryState) (addr : UInt64) : Pointer := ⟨0, addr⟩
+
+/-- The physical address of `p`: in the flat model, its offset. -/
+def MemoryState.address (_mem : MemoryState) (p : Pointer) : UInt64 := p.offset
+
 /--
   The size of an `alloca` in bytes as a 64-bit value. An `alloca` has no way
   to report failure, so a size that does not fit in the address space is
@@ -124,13 +130,36 @@ def MemoryState.empoison (mem : MemoryState) (p : Pointer) (n : Nat) : Interp Me
     else
       Interp.ub
 
+/--
+  The pointer whose bits are `b`: poison if any bit is poison, otherwise the
+  pointer at that physical address. This is the conversion a pointer load and
+  a bitcast to a pointer apply to raw bytes, as `Byte.toInt` is for integers.
+-/
+def MemoryState.ptrOfByte (mem : MemoryState) (b : Data.LLVM.Byte 64) : Ptr :=
+  if b.poison = 0 then .val (mem.decode b.toUInt64) else .poison
+
+/-- The bits of a pointer, its physical address: all poison for a poison pointer. -/
+def MemoryState.byteOfPtr (mem : MemoryState) : Ptr → Data.LLVM.Byte 64
+  | .val p => Data.LLVM.Byte.fromUInt64 (mem.address p)
+  | .poison => Data.LLVM.Byte.allPoison
+
+/-- The pointer at the address `i`; poison for poison. -/
+def MemoryState.ptrFromInt (mem : MemoryState) : Data.LLVM.Int 64 → Ptr
+  | .val v => .val (mem.decode (UInt64.ofBitVec v))
+  | .poison => .poison
+
+/-- The address of a pointer as a 64-bit integer; poison for a poison pointer. -/
+def MemoryState.intFromPtr (mem : MemoryState) : Ptr → Data.LLVM.Int 64
+  | .val p => .val (mem.address p).toBitVec
+  | .poison => .poison
+
 /-- Store the 64 bits of `v`, poison bits included, at `p`. Yields UB if the access leaves the object. -/
 def MemoryState.storeByte64 (mem : MemoryState) (p : Pointer) (v : Data.LLVM.Byte 64)
     : Interp MemoryState :=
   mem.store p (UInt64.ofBitVec v.val).toByteArrayLE (UInt64.ofBitVec v.poison).toByteArrayLE (by simp)
 
 /--
-  Store an LLVM value at `p`.
+  Store an LLVM value at `p`. A pointer is stored as its physical address.
   Yields UB if the access leaves the object or the pointer is null.
 -/
 def MemoryState.llvmStore (mem : MemoryState) (p : Pointer) (val : RuntimeValue)
@@ -143,7 +172,7 @@ def MemoryState.llvmStore (mem : MemoryState) (p : Pointer) (val : RuntimeValue)
   | .int 64 (.val v) => mem.store p (UInt64.ofBitVec v).toByteArrayLE
   | .byte 64 v => mem.storeByte64 p v
   | .int n .poison => mem.empoison p (n / 8)
-  | .addr q => mem.storeByte64 p q.toByte
+  | .addr q => mem.storeByte64 p (mem.byteOfPtr q)
   | _ => none
 
 /--
@@ -180,7 +209,8 @@ def MemoryState.loadByte64 (mem : MemoryState) (p : Pointer) : Interp (Data.LLVM
   return ⟨ba.toUInt64LE!.toBitVec &&& ~~~poison, poison, by bv_decide⟩
 
 /--
-  Load an LLVM value of type `type` from `p`.
+  Load an LLVM value of type `type` from `p`. A pointer is read back from the
+  physical address stored in memory.
   Yields UB if the access leaves the object or the pointer is null.
 
   An integer or pointer load with any poison bit is poison as a whole, and a
@@ -217,7 +247,7 @@ def MemoryState.llvmLoad (mem : MemoryState) (p : Pointer) (type : TypeAttr)
   | Attribute.byteType { bitwidth := 64 } =>
       return .byte 64 (← mem.loadByte64 p)
   | Attribute.llvmPointerType _ =>
-      return .addr (Data.LLVM.Ptr.ofByte (← mem.loadByte64 p))
+      return .addr (mem.ptrOfByte (← mem.loadByte64 p))
   | _ => none
 
 end Veir
