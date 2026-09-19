@@ -21,11 +21,16 @@ structure MemoryState where
   contents : ByteArray
   poisonMask : ByteArray
   consistentSize : contents.size = poisonMask.size
+  /-- The size of memory in bytes. Being a 64-bit value, it says that memory fits in the address space. -/
+  size : UInt64
+  size_eq : contents.size = size.toNat
 
 def MemoryState.empty : MemoryState := {
   contents := (ByteArray.emptyWithCapacity 1024).extend 8 0xff,
   poisonMask := (ByteArray.emptyWithCapacity 1024).extend 8 0xff,
   consistentSize := (by grind)
+  size := 8
+  size_eq := (by grind)
 }
 
 /--
@@ -44,10 +49,40 @@ def memorySize (n : Nat) : Interp UInt64 :=
   excecute this program.
 -/
 def MemoryState.alloc (mem : MemoryState) (size : UInt64) : Interp (MemoryState × Pointer) :=
-  if mem.contents.size + size.toNat ≥ 2 ^ 64 then Interp.fail else
-  return (⟨mem.contents.extend size.toNat 0,
-    mem.poisonMask.extend size.toNat 0xff,
-    by simp [mem.consistentSize]⟩, ⟨0, mem.contents.size.toUInt64⟩)
+  if h : mem.size.toNat + size.toNat ≥ 2 ^ 64 then Interp.fail else
+  return ({ contents := mem.contents.extend size.toNat 0,
+            poisonMask := mem.poisonMask.extend size.toNat 0xff,
+            consistentSize := by simp [mem.consistentSize],
+            size := mem.size + size,
+            size_eq := by simp [mem.size_eq, UInt64.toNat_add]; omega },
+    ⟨0, mem.size⟩)
+
+/-- A size below 2^64 survives the conversion to a 64-bit value. -/
+theorem Nat.toNat_toUInt64_of_lt {n : Nat} (h : n < 2 ^ 64) : n.toUInt64.toNat = n := by
+  simp [Nat.toUInt64, UInt64.toNat_ofNat', Nat.mod_eq_of_lt h]
+
+/-- The 64-bit bounds check implies the bound on the array indices. -/
+theorem MemoryState.bound_of_le (mem : MemoryState) {off size : UInt64}
+    (h : size ≤ mem.size ∧ off ≤ mem.size - size) :
+    off.toNat + size.toNat ≤ mem.contents.size := by
+  obtain ⟨h1, h2⟩ := h
+  rw [UInt64.le_iff_toNat_le] at h1 h2
+  rw [UInt64.toNat_sub_of_le _ _ (UInt64.le_iff_toNat_le.mpr h1)] at h2
+  rw [mem.size_eq]
+  omega
+
+/--
+  Whether an access of `size` bytes at `p` is allowed: it must stay inside
+  memory. An access of no bytes is allowed anywhere. On success the check
+  yields the bound on array indices that the accessors rely on. Later
+  conditions on an access are added here.
+-/
+def MemoryState.checkAccess (mem : MemoryState) (p : Pointer) (size : UInt64)
+    : Interp (PLift (size ≠ 0 → p.offset.toNat + size.toNat ≤ mem.contents.size)) :=
+  /- The comparison is on 64-bit values and adds nothing, so it cannot wrap. -/
+  if h0 : size = 0 then return ⟨fun h => absurd h0 h⟩
+  else if h : size ≤ mem.size ∧ p.offset ≤ mem.size - size then return ⟨fun _ => mem.bound_of_le h⟩
+  else Interp.ub
 
 /--
   Store raw bytes to the given address in memory,
@@ -56,34 +91,41 @@ def MemoryState.alloc (mem : MemoryState) (size : UInt64) : Interp (MemoryState 
 -/
 def MemoryState.store (mem : MemoryState) (p : Pointer) (val : ByteArray)
     (poison : ByteArray := ByteArray.replicate val.size 0) (h : poison.size = val.size := by grind)
-    : Interp MemoryState :=
-  if p.offset.toNat + val.size ≤ mem.contents.size then
-    return ⟨val.copySlice 0 mem.contents p.offset.toNat val.size false,
-      poison.copySlice 0 mem.poisonMask p.offset.toNat val.size false,
-      by
-        simp [ByteArray.copySlice_eq_append, mem.consistentSize, h]
-      ⟩
+    : Interp MemoryState := do
+  /- A value of 2^64 bytes or more cannot lie inside memory. -/
+  if hv : val.size < 2 ^ 64 then
+    let ⟨hb⟩ ← mem.checkAccess p val.size.toUInt64
+    if h0 : val.size = 0 then return mem else
+    have hb : p.offset.toNat + val.size ≤ mem.contents.size := by
+      have := hb (fun e => h0 (by simpa [Nat.toNat_toUInt64_of_lt hv] using congrArg UInt64.toNat e))
+      simpa [Nat.toNat_toUInt64_of_lt hv] using this
+    return { mem with
+      contents := val.copySlice 0 mem.contents p.offset.toNat val.size false,
+      poisonMask := poison.copySlice 0 mem.poisonMask p.offset.toNat val.size false,
+      consistentSize := by simp [ByteArray.copySlice_eq_append, mem.consistentSize, h],
+      size_eq := by
+        rw [← mem.size_eq]
+        simp [ByteArray.copySlice_eq_append]
+        omega }
   else
     Interp.ub
 
 /--
-  Poison the given number n of bytes, starting from the given address in memory.
+  Poison the given number `n` of bytes, starting from the given address in memory.
   Yields UB if the access is out of bounds.
 -/
-def MemoryState.empoison (mem : MemoryState) (p : Pointer) (n : Nat) : Interp MemoryState :=
-  if h : p.offset.toNat + n ≤ mem.poisonMask.size then
-    let mask := ByteArray.replicate n 0xff
-    return ⟨mem.contents,
-      mask.copySlice 0 mem.poisonMask p.offset.toNat n false,
-      by
-        have h' : min n mask.size = n := by grind
-        have h'' : min p.offset.toNat mem.poisonMask.size = p.offset.toNat := by grind
-        simp [ByteArray.copySlice_eq_append, mem.consistentSize, h', h'']
-        grind
-
-      ⟩
-  else
-    Interp.ub
+def MemoryState.empoison (mem : MemoryState) (p : Pointer) (n : UInt64) : Interp MemoryState := do
+  let ⟨hb⟩ ← mem.checkAccess p n
+  if h0 : n = 0 then return mem else
+  have h : p.offset.toNat + n.toNat ≤ mem.poisonMask.size := mem.consistentSize ▸ hb h0
+  let mask := ByteArray.replicate n.toNat 0xff
+  return { mem with
+    poisonMask := mask.copySlice 0 mem.poisonMask p.offset.toNat n.toNat false,
+    consistentSize := by
+      have h' : min n.toNat mask.size = n.toNat := by grind
+      have h'' : min p.offset.toNat mem.poisonMask.size = p.offset.toNat := by grind
+      simp [ByteArray.copySlice_eq_append, mem.consistentSize, h', h'']
+      grind }
 
 /-- Store the 64 bits of `v`, poison bits included, at `p`. -/
 def MemoryState.storeByte64 (mem : MemoryState) (p : Pointer) (v : Data.LLVM.Byte 64)
@@ -103,7 +145,7 @@ def MemoryState.llvmStore (mem : MemoryState) (p : Pointer) (val : RuntimeValue)
   | .int 32 (.val v) => mem.store p (UInt32.ofBitVec v).toByteArrayLE
   | .int 64 (.val v) => mem.store p (UInt64.ofBitVec v).toByteArrayLE
   | .byte 64 v => mem.storeByte64 p v
-  | .int n .poison => mem.empoison p (n / 8)
+  | .int n .poison => mem.empoison p (n / 8).toUInt64
   | .addr q => mem.storeByte64 p q.toByte
   | _ => none
 
@@ -111,21 +153,17 @@ def MemoryState.llvmStore (mem : MemoryState) (p : Pointer) (val : RuntimeValue)
   Load raw bytes from the given memory address.
   Yields UB if the access is out of bounds.
 -/
-def MemoryState.load (mem : MemoryState) (p : Pointer) (size : UInt64) : Interp ByteArray :=
-  if p.offset.toNat + size.toNat ≤ mem.contents.size then
-    return mem.contents.extract p.offset.toNat (p.offset + size).toNat
-  else
-    Interp.ub
+def MemoryState.load (mem : MemoryState) (p : Pointer) (size : UInt64) : Interp ByteArray := do
+  let _ ← mem.checkAccess p size
+  return mem.contents.extract p.offset.toNat (p.offset.toNat + size.toNat)
 
 /--
   Load bitwise poison status of the given memory address.
   Yields UB if the access is out of bounds.
 -/
-def MemoryState.loadPoison (mem : MemoryState) (p : Pointer) (size : UInt64) : Interp ByteArray :=
-  if p.offset.toNat + size.toNat ≤ mem.poisonMask.size then
-    return mem.poisonMask.extract p.offset.toNat (p.offset + size).toNat
-  else
-    Interp.ub
+def MemoryState.loadPoison (mem : MemoryState) (p : Pointer) (size : UInt64) : Interp ByteArray := do
+  let _ ← mem.checkAccess p size
+  return mem.poisonMask.extract p.offset.toNat (p.offset.toNat + size.toNat)
 
 /--
   Check if any of the `size` bytes at the given memory address `p` is poison.
