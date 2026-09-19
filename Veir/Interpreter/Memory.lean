@@ -48,40 +48,37 @@ def MemoryState.alloc (mem : MemoryState) (size : UInt64) : Interp (MemoryState 
     by simp [mem.consistentSize]⟩, ⟨0, mem.contents.size.toUInt64⟩)
 
 /--
+  Check if an access of `size` bytes at `p` is allowed.
+-/
+def MemoryState.checkAccess (mem : MemoryState) (p : Pointer) (size : UInt64) : Interp Unit := do
+  -- An access of zero bytes is allowed anywhere.
+  if size = 0 then return ()
+
+  -- The `size` must fit into the size of the memory.
+  let memSize := mem.contents.size.toUInt64
+  if size ≤ memSize ∧ p.offset ≤ memSize - size then return ()
+
+  Interp.ub
+
+/--
   Store raw bytes to the given address in memory,
   and set the corresponding poison bits as requested (by default, unset).
   Yields UB if the access is out of bounds.
 -/
 def MemoryState.store (mem : MemoryState) (p : Pointer) (val : ByteArray)
     (poison : ByteArray := ByteArray.replicate val.size 0) (h : poison.size = val.size := by grind)
-    : Interp MemoryState :=
-  if p.offset.toNat + val.size ≤ mem.contents.size then
-    return ⟨val.copySlice 0 mem.contents p.offset.toNat val.size false,
-      poison.copySlice 0 mem.poisonMask p.offset.toNat val.size false,
-      by
-        simp [ByteArray.copySlice_eq_append, mem.consistentSize, h]
-      ⟩
-  else
-    Interp.ub
+    : Interp MemoryState := do
+  mem.checkAccess p val.size.toUInt64
+  return ⟨val.copySlice 0 mem.contents p.offset.toNat val.size false,
+    poison.copySlice 0 mem.poisonMask p.offset.toNat val.size false,
+    by simp [ByteArray.copySlice_eq_append, mem.consistentSize, h]⟩
 
 /--
   Poison the given number n of bytes, starting from the given address in memory.
   Yields UB if the access is out of bounds.
 -/
 def MemoryState.empoison (mem : MemoryState) (p : Pointer) (n : Nat) : Interp MemoryState :=
-  if h : p.offset.toNat + n ≤ mem.poisonMask.size then
-    let mask := ByteArray.replicate n 0xff
-    return ⟨mem.contents,
-      mask.copySlice 0 mem.poisonMask p.offset.toNat n false,
-      by
-        have h' : min n mask.size = n := by grind
-        have h'' : min p.offset.toNat mem.poisonMask.size = p.offset.toNat := by grind
-        simp [ByteArray.copySlice_eq_append, mem.consistentSize, h', h'']
-        grind
-
-      ⟩
-  else
-    Interp.ub
+  mem.store p (ByteArray.replicate n 0) (ByteArray.replicate n 0xff) (by simp)
 
 /-- Store the 64 bits of `v`, poison bits included, at `p`. -/
 def MemoryState.storeByte64 (mem : MemoryState) (p : Pointer) (v : Data.LLVM.Byte 64)
@@ -109,21 +106,17 @@ def MemoryState.llvmStore (mem : MemoryState) (p : Pointer) (val : RuntimeValue)
   Load raw bytes from the given memory address.
   Yields UB if the access is out of bounds.
 -/
-def MemoryState.load (mem : MemoryState) (p : Pointer) (size : UInt64) : Interp ByteArray :=
-  if p.offset.toNat + size.toNat ≤ mem.contents.size then
-    return mem.contents.extract p.offset.toNat (p.offset + size).toNat
-  else
-    Interp.ub
+def MemoryState.load (mem : MemoryState) (p : Pointer) (size : UInt64) : Interp ByteArray := do
+  mem.checkAccess p size
+  return mem.contents.extract p.offset.toNat (p.offset.toNat + size.toNat)
 
 /--
   Load bitwise poison status of the given memory address.
   Yields UB if the access is out of bounds.
 -/
-def MemoryState.loadPoison (mem : MemoryState) (p : Pointer) (size : UInt64) : Interp ByteArray :=
-  if p.offset.toNat + size.toNat ≤ mem.poisonMask.size then
-    return mem.poisonMask.extract p.offset.toNat (p.offset + size).toNat
-  else
-    Interp.ub
+def MemoryState.loadPoison (mem : MemoryState) (p : Pointer) (size : UInt64) : Interp ByteArray := do
+  mem.checkAccess p size
+  return mem.poisonMask.extract p.offset.toNat (p.offset.toNat + size.toNat)
 
 /--
   Check if any of the `size` bytes at the given memory address `p` is poison.
