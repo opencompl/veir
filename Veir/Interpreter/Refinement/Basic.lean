@@ -59,12 +59,13 @@ def RuntimeValue.arrayIsRefinedBy (source target : Array RuntimeValue) : Prop :=
 @[inherit_doc] infix:50 " ⊒ " => RuntimeValue.arrayIsRefinedBy
 
 /--
-Refinement of memory objects: bytes in which poison bits may be refined into concrete
-bits.
+Refinement of memory objects: the same address, and bytes in which poison bits may be
+refined into concrete bits.
 This should be kept consistent with the definition of refinement on the byte type.
 -/
 @[expose]
 def MemoryObject.isRefinedBy (source target : MemoryObject) : Prop :=
+  source.base = target.base ∧
   ∀ addr, source.poisonMask.getD addr 0 ||| ((source.contents.getD addr 0 ^^^ ~~~target.contents.getD addr 0) &&& ~~~target.poisonMask.getD addr 0) = 0xff
 
 @[inherit_doc] infix:50 " ⊒ " => MemoryObject.isRefinedBy

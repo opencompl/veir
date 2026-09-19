@@ -14,34 +14,62 @@ open Veir.Data.LLVM (Ptr)
 namespace Veir
 
 /--
-  One allocation during interpretation: its bytes and a poison mask in which
-  set bits mark poison bits.
+  One allocation during interpretation: its bytes, a poison mask in which set
+  bits mark poison bits, and the physical address `base` at which the object
+  starts, so that byte `i` of the object lives at address `base + i`.
 -/
 @[ext]
 structure MemoryObject where
   contents : ByteArray
   poisonMask : ByteArray
   consistentSize : contents.size = poisonMask.size
+  base : UInt64
 
-/-- An object of `size` bytes, all of them poison. -/
-def MemoryObject.ofSize (size : Nat) : MemoryObject :=
-  ⟨ByteArray.replicate size 0, ByteArray.replicate size 0xff, by grind⟩
+/-- An object of `size` bytes at address `base`, all of them poison. -/
+def MemoryObject.ofSize (base : UInt64) (size : Nat) : MemoryObject :=
+  ⟨ByteArray.replicate size 0, ByteArray.replicate size 0xff, by grind, base⟩
 
-instance : Inhabited MemoryObject := ⟨MemoryObject.ofSize 0⟩
+instance : Inhabited MemoryObject := ⟨MemoryObject.ofSize 0 0⟩
 
 def MemoryObject.size (obj : MemoryObject) : Nat := obj.contents.size
 
 /--
-  Memory state during interpretation: the memory objects, addressed by
-  `Pointer` as an object and an offset into it. The flat model has a single
-  object, 0, whose offsets are the addresses themselves. Its first eight bytes
-  are never allocated, so that no allocation has address 0.
+  Memory state during interpretation: one object per allocation, addressed by
+  `Pointer`. The objects share one physical address space. They are laid out
+  each past every other object, always with at least one guard byte between
+  any two objects, so a pointer converts to an address
+  (`MemoryState.address`) and an address back to a pointer
+  (`MemoryState.decode`). Object 0 is the null object at address 0. It holds
+  no bytes, so every access through a null pointer is out of bounds.
 -/
 @[ext]
 structure MemoryState where
   objects : Array MemoryObject
+  /-- The objects in order of their base address. -/
+  byAddress : Array Nat := #[0]
 
-def MemoryState.empty : MemoryState := { objects := #[MemoryObject.ofSize 8] }
+def MemoryState.empty : MemoryState := { objects := #[MemoryObject.ofSize 0 0] }
+
+/-- Every object starts at a multiple of at least this many bytes. -/
+def MemoryState.objectAlignment : UInt64 := 16
+
+/--
+  The low addresses below which no object is allocated, so that a small
+  integer never denotes an object and the null object at address 0 stays
+  alone there.
+-/
+def MemoryState.arenaSize : UInt64 := 0x10000
+
+/--
+  The address at which the model places the next object: past the end of
+  every object with a guard byte and past the arena, rounded up to `align`
+  or `objectAlignment`, whichever is larger.
+-/
+def MemoryState.nextBase (mem : MemoryState) (align : UInt64 := objectAlignment) : UInt64 :=
+  let align := max align objectAlignment
+  let past := mem.objects.foldl (init := arenaSize) fun past obj =>
+    max past (obj.base + obj.size.toUInt64 + 1)
+  (past + align - 1) / align * align
 
 def MemoryState.getObject? (mem : MemoryState) (p : Pointer) : Option MemoryObject :=
   mem.objects[p.object]?
@@ -49,27 +77,54 @@ def MemoryState.getObject? (mem : MemoryState) (p : Pointer) : Option MemoryObje
 def MemoryState.setObject (mem : MemoryState) (p : Pointer) (obj : MemoryObject) : MemoryState :=
   { mem with objects := mem.objects.setIfInBounds p.object obj }
 
-/-- The pointer that the physical address `addr` denotes: in the flat model, that offset into object 0. -/
-def MemoryState.decode (_mem : MemoryState) (addr : UInt64) : Pointer := ⟨0, addr⟩
-
-/-- The physical address of `p`: in the flat model, its offset. -/
-def MemoryState.address (_mem : MemoryState) (p : Pointer) : UInt64 := p.offset
+/--
+  The index of the last object whose base is at most `addr`, found by binary
+  search. Objects are sorted by base and object 0 starts at address 0, so
+  some object always qualifies.
+-/
+def MemoryState.objectOfAddress (mem : MemoryState) (addr : UInt64) : Nat := Id.run do
+  let baseAt (i : Nat) : UInt64 := (mem.objects[mem.byAddress[i]!]?.map (·.base)).getD 0
+  let mut lo := 0
+  let mut hi := mem.byAddress.size
+  /- Invariant: `baseAt lo ≤ addr`, and `addr < baseAt hi` when
+     `hi < byAddress.size`. Each round halves `hi - lo`, so 64 rounds suffice. -/
+  for _ in [0:64] do
+    if hi - lo ≤ 1 then break
+    let mid := (lo + hi) / 2
+    if baseAt mid ≤ addr then lo := mid else hi := mid
+  return mem.byAddress[lo]!
 
 /--
-  Allocate `size` bytes past the end of memory, and return a pointer to their
-  start. An allocation past the end of the address space is not a program
-  error, so the run fails.
+  The pointer that the physical address `addr` denotes: the object whose range
+  contains it, or, when it falls into the gap after an object, a pointer past
+  the end of that object. Accessing such a pointer is out of bounds.
 -/
-def MemoryState.alloc (mem : MemoryState) (size : Nat) : Interp (MemoryState × Pointer) :=
-  match mem.getObject? ⟨0, 0⟩ with
-  | none => Interp.fail
-  | some obj =>
-    if obj.size + size ≥ 2 ^ 64 then Interp.fail else
-    return (mem.setObject ⟨0, 0⟩ { obj with
-        contents := obj.contents.extend size 0,
-        poisonMask := obj.poisonMask.extend size 0xff,
-        consistentSize := by simp [obj.consistentSize] },
-      ⟨0, obj.size.toUInt64⟩)
+def MemoryState.decode (mem : MemoryState) (addr : UInt64) : Pointer :=
+  let i := mem.objectOfAddress addr
+  ⟨i, addr - (mem.objects[i]?.map (·.base)).getD 0⟩
+
+/-- The physical address of `p`. A pointer to no object has only its offset. -/
+def MemoryState.address (mem : MemoryState) (p : Pointer) : UInt64 :=
+  (mem.objects[p.object]?.map (·.base)).getD 0 + p.offset
+
+/--
+  Allocate a fresh object of `size` bytes, aligned to `align`, past every
+  existing object, and return a pointer to its start. An object that does not
+  fit in the address space is not a program error, so the run fails.
+-/
+def MemoryState.alloc (mem : MemoryState) (size : Nat) (align : UInt64 := objectAlignment)
+    : Interp (MemoryState × Pointer) :=
+  let align := max align objectAlignment
+  let base := mem.nextBase align
+  if base.toNat + size ≥ 2 ^ 64 then Interp.fail else
+  let i := mem.objects.size
+  let byAddress :=
+    let pos := mem.byAddress.findIdx? fun j => base < (mem.objects[j]?.map (·.base)).getD 0
+    mem.byAddress.insertIdx! (pos.getD mem.byAddress.size) i
+  return ({ mem with
+      objects := mem.objects.push (MemoryObject.ofSize base size),
+      byAddress },
+    ⟨i, 0⟩)
 
 /--
   The object that an access of `size` bytes at `p` touches, if the access is
@@ -232,13 +287,13 @@ def MemoryState.llvmLoad (mem : MemoryState) (p : Pointer) (type : TypeAttr)
   | _ => none
 
 /--
-  The flat memory model: one object whose offsets are the addresses, with
-  every access checked against it.
+  The block memory model: one object per allocation, sharing an address
+  space, with every access checked against its own object.
 -/
 instance : MemoryModel MemoryState where
-  name := "flat"
+  name := "blocks"
   initialMemState := MemoryState.empty
-  allocateRegion state _align size := state.alloc size
+  allocateRegion state align size := state.alloc size align.toUInt64
   load state type addr := state.llvmLoad addr type
   store state addr val := state.llvmStore addr val
   validForDerefPtrval state addr size :=
