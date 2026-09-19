@@ -1,0 +1,7 @@
+name = "QPFTypes"
+version = "0.1.0"
+defaultTargets = ["QPFTypes"]
+
+[[lean_lib]]
+name = "QPFTypes"
+
