@@ -5,7 +5,7 @@ Authors: Jeremy Avigad, Mario Carneiro, Simon Hudon
 -/
 module
 
-public import QPFTypes.TypeVec.Basic
+public import QPFTypes.Theory.TypeVec.Basic
 
 /-!
 
@@ -308,4 +308,3 @@ theorem const_iff_true : ∀ {n} {α : TypeVec n} {i : Fin n} {x p},
     ofRepeat (TypeVec.const p α i x) ↔ p
   | _ + 1, _, ⟨0, _⟩, _, _ => Iff.rfl
   | _ + 1, _, ⟨k + 1, hk⟩, _, _ => const_iff_true (i := ⟨k, Nat.lt_of_succ_lt_succ hk⟩)
-
