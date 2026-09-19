@@ -38,8 +38,8 @@ def memorySize (n : Nat) : Interp UInt64 :=
   Allocate `size` bytes and return a pointer to the start of the allocation.
 
   If there is insufficient memory, yield an interpretation failure. An
-  out-of-memory event does not trigger UB. It means that we cannot make a
-  statement about the semantics of this program.
+  out-of-memory event does not trigger UB, but it means that we cannot
+  excecute this program.
 -/
 def MemoryState.alloc (mem : MemoryState) (size : UInt64) : Interp (MemoryState × Pointer) :=
   if mem.contents.size + size.toNat ≥ 2 ^ 64 then Interp.fail else
