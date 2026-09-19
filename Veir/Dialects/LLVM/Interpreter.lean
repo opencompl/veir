@@ -313,8 +313,8 @@ def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType
     let [.int _ (.val count)] := operands.toList | fail
     /- `alloca T, N` reserves `N` strides of `T`, as in LLVM. -/
     let size ← monadLift $ layout.getTypeAllocSize properties.elem_type.val
-    let totalSize := (size * count.toNat).toUInt64
-    let (mem, addr) := mem.alloc totalSize
+    let bytes ← monadLift $ memorySize (size * count.toNat)
+    let (mem, addr) ← monadLift $ mem.alloc bytes
     return (#[.addr (.val addr)], mem, none)
   | .load => do
     let [.addr addr] := operands.toList | fail
