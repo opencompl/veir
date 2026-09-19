@@ -38,7 +38,7 @@ updated SSA value for subscribed analyses.
 -/
 def propagate (state : Fact kind) (anchor : LatticeAnchor) 
   (dfCtx : DataFlowContext) (irCtx : WfIRContext OpCode) : DataFlowContext := Id.run do
-  let mut dfCtx := { dfCtx with workList := state.enqueueDependents dfCtx.workList }
+  let mut dfCtx := dfCtx
   match anchor with
   | .ValuePtr ssaValue =>
     let mut maybeUse := ssaValue.getFirstUse! irCtx.raw
