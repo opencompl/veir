@@ -14,74 +14,115 @@ open Veir.Data.LLVM (Ptr)
 namespace Veir
 
 /--
-  Memory state during interpretation.
-  Set bits in the poison mask represent poison bits.
+  One allocation during interpretation: its bytes and a poison mask in which
+  set bits mark poison bits.
 -/
 @[ext]
-structure MemoryState where
+structure MemoryObject where
   contents : ByteArray
   poisonMask : ByteArray
   consistentSize : contents.size = poisonMask.size
 
-def MemoryState.empty : MemoryState := {
-  contents := (ByteArray.emptyWithCapacity 1024).extend 8 0xff,
-  poisonMask := (ByteArray.emptyWithCapacity 1024).extend 8 0xff,
-  consistentSize := (by grind)
-}
+/-- An object of `size` bytes, all of them poison. -/
+def MemoryObject.ofSize (size : Nat) : MemoryObject :=
+  ⟨ByteArray.replicate size 0, ByteArray.replicate size 0xff, by grind⟩
+
+instance : Inhabited MemoryObject := ⟨MemoryObject.ofSize 0⟩
+
+def MemoryObject.size (obj : MemoryObject) : Nat := obj.contents.size
 
 /--
-  Allocate the given number of bytes of memory.
-  Return the updated memory state and the freshly allocated address.
+  Memory state during interpretation: the memory objects, addressed by
+  `Pointer` as an object and an offset into it. The flat model has a single
+  object, 0, whose offsets are the addresses themselves. Its first eight bytes
+  are never allocated, so that no allocation has address 0.
 -/
-def MemoryState.alloc (mem : MemoryState) (size : UInt64) : MemoryState × Pointer :=
-  (⟨mem.contents.extend size.toNat 0,
-    mem.poisonMask.extend size.toNat 0xff,
-    by simp [mem.consistentSize]⟩, ⟨0, mem.contents.size.toUInt64⟩)
+@[ext]
+structure MemoryState where
+  objects : Array MemoryObject
+
+def MemoryState.empty : MemoryState := { objects := #[MemoryObject.ofSize 8] }
+
+def MemoryState.getObject? (mem : MemoryState) (p : Pointer) : Option MemoryObject :=
+  mem.objects[p.object]?
+
+def MemoryState.setObject (mem : MemoryState) (p : Pointer) (obj : MemoryObject) : MemoryState :=
+  { mem with objects := mem.objects.setIfInBounds p.object obj }
 
 /--
-  Store raw bytes to the given address in memory,
-  and set the corresponding poison bits as requested (by default, unset).
-  Yields UB if the access is out of bounds.
+  Allocate `size` bytes past the end of memory, and return a pointer to their
+  start. An allocation past the end of the address space is not a program
+  error, so the run fails.
+-/
+def MemoryState.alloc (mem : MemoryState) (size : Nat) : Interp (MemoryState × Pointer) :=
+  match mem.getObject? ⟨0, 0⟩ with
+  | none => Interp.fail
+  | some obj =>
+    if obj.size + size ≥ 2 ^ 64 then Interp.fail else
+    return (mem.setObject ⟨0, 0⟩ { obj with
+        contents := obj.contents.extend size 0,
+        poisonMask := obj.poisonMask.extend size 0xff,
+        consistentSize := by simp [obj.consistentSize] },
+      ⟨0, obj.size.toUInt64⟩)
+
+/--
+  The object that an access of `size` bytes at `p` touches, if the access is
+  allowed: the object must exist and the access must stay inside it. An access
+  of no bytes is allowed anywhere, even through a pointer to nothing. Later
+  conditions on an access are added here.
+-/
+def MemoryState.checkAccess (mem : MemoryState) (p : Pointer) (size : Nat)
+    : Interp MemoryObject :=
+  match mem.getObject? p with
+  | none => Interp.ub
+  | some obj =>
+    if size = 0 then return obj
+    else if p.offset.toNat + size ≤ obj.contents.size then return obj
+    else Interp.ub
+
+/--
+  Store raw bytes at `p`, and set the corresponding poison bits as requested
+  (by default, unset). Yields UB if the access leaves the object.
 -/
 def MemoryState.store (mem : MemoryState) (p : Pointer) (val : ByteArray)
     (poison : ByteArray := ByteArray.replicate val.size 0) (h : poison.size = val.size := by grind)
-    : Interp MemoryState :=
-  if p.offset.toNat + val.size ≤ mem.contents.size then
-    return ⟨val.copySlice 0 mem.contents p.offset.toNat val.size false,
-      poison.copySlice 0 mem.poisonMask p.offset.toNat val.size false,
-      by
-        simp [ByteArray.copySlice_eq_append, mem.consistentSize, h]
-      ⟩
+    : Interp MemoryState := do
+  let obj ← mem.checkAccess p val.size
+  if p.offset.toNat + val.size ≤ obj.contents.size then
+    return mem.setObject p { obj with
+      contents := val.copySlice 0 obj.contents p.offset.toNat val.size false,
+      poisonMask := poison.copySlice 0 obj.poisonMask p.offset.toNat val.size false,
+      consistentSize := by simp [ByteArray.copySlice_eq_append, obj.consistentSize, h] }
   else
     Interp.ub
 
 /--
-  Poison the given number n of bytes, starting from the given address in memory.
-  Yields UB if the access is out of bounds.
+  Poison `n` bytes starting at `p`. Yields UB if the access leaves the object.
 -/
 def MemoryState.empoison (mem : MemoryState) (p : Pointer) (n : Nat) : Interp MemoryState :=
-  if h : p.offset.toNat + n ≤ mem.poisonMask.size then
-    let mask := ByteArray.replicate n 0xff
-    return ⟨mem.contents,
-      mask.copySlice 0 mem.poisonMask p.offset.toNat n false,
-      by
-        have h' : min n mask.size = n := by grind
-        have h'' : min p.offset.toNat mem.poisonMask.size = p.offset.toNat := by grind
-        simp [ByteArray.copySlice_eq_append, mem.consistentSize, h', h'']
-        grind
+  match mem.getObject? p with
+  | none => Interp.ub
+  | some obj =>
+    if h : p.offset.toNat + n ≤ obj.poisonMask.size then
+      let mask := ByteArray.replicate n 0xff
+      return mem.setObject p { obj with
+        poisonMask := mask.copySlice 0 obj.poisonMask p.offset.toNat n false,
+        consistentSize := by
+          have h' : min n mask.size = n := by grind
+          have h'' : min p.offset.toNat obj.poisonMask.size = p.offset.toNat := by grind
+          simp [ByteArray.copySlice_eq_append, obj.consistentSize, h', h'']
+          grind }
+    else
+      Interp.ub
 
-      ⟩
-  else
-    Interp.ub
-
-/-- Store the 64 bits of `v`, poison bits included, at `p`. -/
+/-- Store the 64 bits of `v`, poison bits included, at `p`. Yields UB if the access leaves the object. -/
 def MemoryState.storeByte64 (mem : MemoryState) (p : Pointer) (v : Data.LLVM.Byte 64)
     : Interp MemoryState :=
   mem.store p (UInt64.ofBitVec v.val).toByteArrayLE (UInt64.ofBitVec v.poison).toByteArrayLE (by simp)
 
 /--
-  Store an LLVM value to memory.
-  Yields UB if the access is out of bounds or the address is 0.
+  Store an LLVM value at `p`.
+  Yields UB if the access leaves the object or the pointer is null.
 -/
 def MemoryState.llvmStore (mem : MemoryState) (p : Pointer) (val : RuntimeValue)
     : Interp MemoryState :=
@@ -97,30 +138,23 @@ def MemoryState.llvmStore (mem : MemoryState) (p : Pointer) (val : RuntimeValue)
   | _ => none
 
 /--
-  Load raw bytes from the given memory address.
-  Yields UB if the access is out of bounds.
+  Load `size` raw bytes at `p`. Yields UB if the access leaves the object.
 -/
-def MemoryState.load (mem : MemoryState) (p : Pointer) (size : UInt64) : Interp ByteArray :=
-  if p.offset.toNat + size.toNat ≤ mem.contents.size then
-    return mem.contents.extract p.offset.toNat (p.offset + size).toNat
-  else
-    Interp.ub
+def MemoryState.load (mem : MemoryState) (p : Pointer) (size : Nat) : Interp ByteArray := do
+  let obj ← mem.checkAccess p size
+  return obj.contents.extract p.offset.toNat (p.offset.toNat + size)
 
 /--
-  Load bitwise poison status of the given memory address.
-  Yields UB if the access is out of bounds.
+  Load the poison mask of `size` bytes at `p`. Yields UB if the access leaves the object.
 -/
-def MemoryState.loadPoison (mem : MemoryState) (p : Pointer) (size : UInt64) : Interp ByteArray :=
-  if p.offset.toNat + size.toNat ≤ mem.poisonMask.size then
-    return mem.poisonMask.extract p.offset.toNat (p.offset + size).toNat
-  else
-    Interp.ub
+def MemoryState.loadPoison (mem : MemoryState) (p : Pointer) (size : Nat) : Interp ByteArray := do
+  let obj ← mem.checkAccess p size
+  return obj.poisonMask.extract p.offset.toNat (p.offset.toNat + size)
 
 /--
-  Check if any of the `size` bytes at the given memory address `p` is poison.
-  Yields UB if the access is out of bounds.
+  Check if any of the `size` bytes at `p` is poison. Yields UB if the access leaves the object.
 -/
-def MemoryState.hasPoison (mem : MemoryState) (p : Pointer) (size : UInt64) : Interp Bool := do
+def MemoryState.hasPoison (mem : MemoryState) (p : Pointer) (size : Nat) : Interp Bool := do
   let poisonMask ← mem.loadPoison p size
   let mut poison := false
   for b in poisonMask do
@@ -129,7 +163,7 @@ def MemoryState.hasPoison (mem : MemoryState) (p : Pointer) (size : UInt64) : In
       break
   return poison
 
-/-- Load the 64 bits at `p`, poison bits included. Yields UB if the access is out of bounds. -/
+/-- Load the 64 bits at `p`, poison bits included. Yields UB if the access leaves the object. -/
 def MemoryState.loadByte64 (mem : MemoryState) (p : Pointer) : Interp (Data.LLVM.Byte 64) := do
   let ba ← mem.load p 8
   let baPoison ← mem.loadPoison p 8
@@ -137,8 +171,8 @@ def MemoryState.loadByte64 (mem : MemoryState) (p : Pointer) : Interp (Data.LLVM
   return ⟨ba.toUInt64LE!.toBitVec &&& ~~~poison, poison, by bv_decide⟩
 
 /--
-  Load an LLVM value from the given memory address.
-  Yields UB if access is out of bounds or the address is 0.
+  Load an LLVM value of type `type` from `p`.
+  Yields UB if the access leaves the object or the pointer is null.
 
   An integer or pointer load with any poison bit is poison as a whole, and a
   `byte` load keeps poison per bit.
@@ -177,15 +211,21 @@ def MemoryState.llvmLoad (mem : MemoryState) (p : Pointer) (type : TypeAttr)
       return .addr (Data.LLVM.Ptr.ofByte (← mem.loadByte64 p))
   | _ => none
 
-/-- The flat memory model: one byte array, addressed directly. -/
+/--
+  The flat memory model: one object whose offsets are the addresses, with
+  every access checked against it.
+-/
 instance : MemoryModel MemoryState where
   name := "flat"
   initialMemState := MemoryState.empty
-  allocateRegion state _align size := state.alloc size.toUInt64
-  load state type p := state.llvmLoad p type
-  store state p val := state.llvmStore p val
-  validForDerefPtrval state p size := !p.isNull && p.offset.toNat + size ≤ state.contents.size
-  arrayShiftPtrval p bytes := ⟨p.object, UInt64.ofNat (p.offset.toNat + bytes)⟩
+  allocateRegion state _align size := state.alloc size
+  load state type addr := state.llvmLoad addr type
+  store state addr val := state.llvmStore addr val
+  validForDerefPtrval state addr size :=
+    match state.checkAccess addr size with
+    | .ok _ => true
+    | _ => false
+  arrayShiftPtrval addr bytes := ⟨addr.object, UInt64.ofNat (addr.offset.toNat + bytes)⟩
   ptrFromInt _ i := Data.LLVM.Ptr.ofInt i
   intFromPtr _ p := p.toInt
 

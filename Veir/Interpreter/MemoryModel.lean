@@ -28,8 +28,12 @@ class MemoryModel (State : Type) where
   name : String
   /-- `initial_mem_state` -/
   initialMemState : State
-  /-- `allocate_region`: a fresh object of `size` bytes aligned to `align`, and a pointer to its start. -/
-  allocateRegion : State → (align size : Nat) → State × Pointer
+  /--
+    `allocate_region`: a fresh object of `size` bytes aligned to `align`, and a
+    pointer to its start. Fails when the object does not fit in the address
+    space.
+  -/
+  allocateRegion : State → (align size : Nat) → Interp (State × Pointer)
   /-- `load`: the value of `type` stored at `p`. Undefined behaviour if the access is not valid. -/
   load : State → TypeAttr → Pointer → Interp RuntimeValue
   /-- `store`: `val` at `p`. Undefined behaviour if the access is not valid. -/

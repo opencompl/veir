@@ -410,7 +410,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let [.int _ (.val count)] := operands.toList | none
     /- `alloca T, N` reserves `N` strides of `T`, as in LLVM. -/
     let size ← layout.getTypeAllocSize properties.elem_type.val
-    let (mem, addr) := MemoryModel.allocateRegion mem properties.alignment.value.toNat (size * count.toNat)
+    let (mem, addr) ← MemoryModel.allocateRegion mem properties.alignment.value.toNat (size * count.toNat)
     return (#[.addr (.val addr)], mem, none)
   | .load => do
     let [.addr addr] := operands.toList | none
@@ -483,7 +483,7 @@ inductive LoadExtension
 def riscvLoad (mem : MemoryState) (eaddr : BitVec 64) (bytes : Nat) (ext : LoadExtension) :
     Interp (BitVec 64 × MemoryState) := do
   let p : Pointer := ⟨0, UInt64.ofBitVec eaddr⟩
-  let ba ← mem.load p bytes.toUInt64
+  let ba ← mem.load p bytes
   let val := ba.toBitVecLE bytes
   let extended := match ext with
     | .signExt => val.signExtend 64
@@ -885,8 +885,8 @@ def Riscv_Stack.interpretOp' (opType : Veir.Riscv_Stack) (properties : propertie
     : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
   match opType with
   | .alloca => do
-    let (mem, addr) := mem.alloc properties.size.toNat.toUInt64
-    return (#[.reg ⟨.ofNat 64 addr.offset.toNat⟩], mem, none)
+    let (mem, addr) ← MemoryModel.allocateRegion mem properties.alignment.toNat properties.size.toNat
+    return (#[.reg (LLVM.Int.toReg (MemoryModel.intFromPtr mem (.val addr)))], mem, none)
 
 def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
