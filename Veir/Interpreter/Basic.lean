@@ -478,11 +478,10 @@ inductive LoadExtension
 
 /-- Read `bytes` of little-endian data from memory starting at
     `eaddr` and extend it to 64 bits according to `ext`. The access is
-    bounds-checked like an LLVM access, so machine code that reads memory
-    it never allocated is UB. -/
+    checked against the object `eaddr` decodes to, like an LLVM access. -/
 def riscvLoad (mem : MemoryState) (eaddr : BitVec 64) (bytes : Nat) (ext : LoadExtension) :
     Interp (BitVec 64 × MemoryState) := do
-  let p : Pointer := ⟨0, UInt64.ofBitVec eaddr⟩
+  let p := mem.decode (UInt64.ofBitVec eaddr)
   let ba ← mem.load p bytes
   let val := ba.toBitVecLE bytes
   let extended := match ext with
@@ -854,27 +853,27 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : propertiesOf opType)
   | .sd => do
     let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.imm12
-    let p : Pointer := ⟨0, UInt64.ofBitVec eaddr⟩
+    let p := mem.decode (UInt64.ofBitVec eaddr)
     let mem ← mem.store p (UInt64.ofBitVec val).toByteArrayLE
     return (#[], mem, none)
   | .sw => do
     let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.imm12
-    let p : Pointer := ⟨0, UInt64.ofBitVec eaddr⟩
+    let p := mem.decode (UInt64.ofBitVec eaddr)
     -- store only the low 4 bytes of the register
     let mem ← mem.store p ((UInt64.ofBitVec val).toByteArrayLE.extract 0 4)
     return (#[], mem, none)
   | .sh => do
     let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.imm12
-    let p : Pointer := ⟨0, UInt64.ofBitVec eaddr⟩
+    let p := mem.decode (UInt64.ofBitVec eaddr)
     -- store only the low 2 bytes of the register
     let mem ← mem.store p ((UInt64.ofBitVec val).toByteArrayLE.extract 0 2)
     return (#[], mem, none)
   | .sb => do
     let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.imm12
-    let p : Pointer := ⟨0, UInt64.ofBitVec eaddr⟩
+    let p := mem.decode (UInt64.ofBitVec eaddr)
     -- store only the low byte of the register
     let mem ← mem.store p ((UInt64.ofBitVec val).toByteArrayLE.extract 0 1)
     return (#[], mem, none)

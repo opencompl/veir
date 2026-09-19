@@ -2,8 +2,6 @@ module
 
 public import Veir.Data.LLVM.Ptr.Basic
 import all Veir.Data.LLVM.Ptr.Basic
-import all Veir.Data.LLVM.Int.Bitblast
-import all Veir.Data.LLVM.Byte.Basic
 
 namespace Veir.Data.LLVM.Ptr
 
@@ -25,12 +23,6 @@ theorem isRefinedBy_trans {p₁ p₂ p₃ : Ptr}
 theorem eq_of_val_isRefinedBy {p : Pointer} {q : Ptr}
     (h : Ptr.val p ⊒ q) : q = .val p := by
   cases q <;> simp_all
-
-/- # {to,of}Int -/
-
-@[simp, grind =]
-theorem toInt_ofInt (i : Int 64) : (ofInt i).toInt = i := by
-  cases i <;> simp
 
 end
 
