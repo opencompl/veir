@@ -15,7 +15,23 @@ namespace Veir
   by a RISC-V branch whose operands are cast to registers. Then the arguments
   of every block that is branched to become registers, with a cast back to
   their original type at the start of the block.
+
+  The pass rejects a module it cannot lower correctly: a value passed along a
+  branch must fit a register, a terminator with successors must be one of the
+  two LLVM branches, and the entry block of a region must not be branched to.
 -/
+
+/--
+  Whether a value of type `type` survives the round trip through a register:
+  a non-empty integer or a byte of at most 64 bits, or a pointer.
+-/
+@[expose]
+public def fitsRegister (type : TypeAttr) : Bool :=
+  match type.val with
+  | .integerType intType => 0 < intType.bitwidth && intType.bitwidth ≤ 64
+  | .byteType byteType => byteType.bitwidth ≤ 64
+  | .llvmPointerType _ => true
+  | _ => false
 
 /--
   Cast `operand` to a register with a cast inserted at `ip`, and append the
@@ -24,6 +40,8 @@ namespace Veir
 def castToReg (ip : InsertPoint) (acc : WfIRContext OpCode × Array OperationPtr)
     (operand : ValuePtr) : Except String (WfIRContext OpCode × Array OperationPtr) := do
   let (ctx, casts) := acc
+  if !fitsRegister (operand.getType! ctx.raw) then
+    throw "isel-br-riscv64: a branch operand does not fit a register"
   let some (ctx, cast) := WfRewriter.createOp! ctx
     Builtin.unrealized_conversion_cast #[RegisterType.mk] #[operand] #[]
     #[] default ip | throw "isel-br-riscv64: cannot cast a branch operand to a register"
@@ -31,13 +49,16 @@ def castToReg (ip : InsertPoint) (acc : WfIRContext OpCode × Array OperationPtr
 
 /--
   Replace the terminator `op` by its RISC-V counterpart if it is an `llvm.br`
-  or an `llvm.cond_br`, and leave any other operation alone. The operands are
-  cast to registers in front of the new branch.
+  or an `llvm.cond_br`. The operands are cast to registers in front of the new
+  branch. Any other operation is left alone, and must not have successors,
+  since the arguments of its successors would become registers.
 -/
 def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
     : Except String (WfIRContext OpCode) := do
   let opType := op.getOpType! ctx
   if opType != OpCode.llvm .br && opType != OpCode.llvm .cond_br then
+    if op.getNumSuccessors! ctx.raw ≠ 0 then
+      throw "isel-br-riscv64: only llvm.br and llvm.cond_br may have successors"
     return ctx
 
   let ip := InsertPoint.before op
@@ -75,6 +96,8 @@ def convertBlockArgument (block : BlockPtr) (ctx : WfIRContext OpCode) (i : Nat)
   -- preserving the block argument's original type so the cast back from the
   -- register reproduces the correct type (e.g. i32 instead of i64)
   let origType := (ValuePtr.blockArgument bap).getType! ctx.raw
+  if !fitsRegister origType then
+    throw "isel-br-riscv64: a block argument does not fit a register"
 
   let ctx := WfRewriter.setType! ctx bap (RegisterType.mk)
   let ip := InsertPoint.atStart! block ctx.raw
@@ -91,6 +114,10 @@ def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr)
   -- If the block has no uses (e.g., the entry block) we can skip it.
   if (block.get! ctx.raw).firstUse == none then
     return ctx
+  -- The arguments of an entry block are those of the enclosing operation.
+  if let some region := (block.get! ctx.raw).parent then
+    if (region.get! ctx.raw).firstBlock == some block then
+      throw "isel-br-riscv64: the entry block of a region is branched to"
   (List.range (block.getNumArguments! ctx.raw)).foldlM (convertBlockArgument block) ctx
 
 /--
