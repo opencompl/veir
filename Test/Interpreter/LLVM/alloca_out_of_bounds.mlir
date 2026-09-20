@@ -8,7 +8,7 @@
     %eight = "llvm.mlir.constant"() <{value = 8 : i64}> : () -> i64
     %p = "llvm.alloca"(%one) <{elem_type = i64}> : (i64) -> !llvm.ptr
     %p1 = "llvm.getelementptr"(%p, %eight) <{elem_type = i8, rawConstantIndices = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-    "llvm.store"(%eight, %p1) : (i32, !llvm.ptr) -> ()
+    "llvm.store"(%eight, %p1) : (i64, !llvm.ptr) -> ()
     "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
