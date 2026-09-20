@@ -46,60 +46,78 @@ public instance {op : OperationPtr} {ctx : IRContext OpCode} :
   Cast `operand` to a register with a cast inserted at `ip`, and append the
   cast to `casts`.
 -/
-def castToReg (ip : InsertPoint) (acc : WfIRContext OpCode × Array OperationPtr)
-    (operand : ValuePtr) : Except String (WfIRContext OpCode × Array OperationPtr) := do
-  let (ctx, casts) := acc
-  if !fitsRegister (operand.getType! ctx.raw) then
+public def castToReg (ip : InsertPoint) (acc : WfIRContext OpCode × Array OperationPtr)
+    (operand : ValuePtr) : Except String (WfIRContext OpCode × Array OperationPtr) :=
+  if !fitsRegister (operand.getType! acc.1.raw) then
     throw "isel-br-riscv64: a branch operand does not fit a register"
-  let some (ctx, cast) := WfRewriter.createOp! ctx
-    Builtin.unrealized_conversion_cast #[RegisterType.mk] #[operand] #[]
-    #[] default ip | throw "isel-br-riscv64: cannot cast a branch operand to a register"
-  return (ctx, casts.push cast)
+  else
+    match WfRewriter.createOp! acc.1 Builtin.unrealized_conversion_cast #[RegisterType.mk]
+      #[operand] #[] #[] default ip with
+    | some (ctx, cast) => pure (ctx, acc.2.push cast)
+    | none => throw "isel-br-riscv64: cannot cast a branch operand to a register"
+
+/--
+  Create in `ctx` the RISC-V branch that replaces `op`, in front of it. It takes
+  the registers `regs` and the successors that `op` has in `source`.
+-/
+public def createRiscvBranch (source : IRContext OpCode) (op : OperationPtr)
+    (ctx : WfIRContext OpCode) (regs : Array ValuePtr)
+    : Except String (WfIRContext OpCode × OperationPtr) :=
+  let ip := InsertPoint.before op
+  let successors := op.getSuccessors! source
+  if op.getOpType! source = OpCode.llvm .br then
+    match WfRewriter.createOp! ctx Riscv_Cf.branch #[] regs successors #[] default ip with
+    | some result => pure result
+    | none => throw "isel-br-riscv64: cannot create riscv_cf.branch"
+  else
+    let condProps : LLVMCondBrProperties := op.getProperties! source (OpCode.llvm .cond_br)
+    let props : RISCVBrProperties := ⟨condProps.operandSegmentSizes⟩
+    match WfRewriter.createOp! ctx Riscv_Cf.bnez #[] regs successors #[] props ip with
+    | some result => pure result
+    | none => throw "isel-br-riscv64: cannot create riscv_cf.bnez"
+
+/-- Erase the branch `op` that has been replaced. -/
+public def eraseBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
+    : Except String (WfIRContext OpCode) :=
+  if op.getNumRegions! ctx.raw ≠ 0 || op.hasUses! ctx.raw then
+    throw "isel-br-riscv64: cannot erase a branch"
+  else
+    pure (WfRewriter.eraseOp! ctx op)
+
+/--
+  Replace the `llvm.br` or `llvm.cond_br` `op` by its RISC-V counterpart. The
+  operands are cast to registers in front of the new branch.
+-/
+public def lowerBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
+    : Except String (WfIRContext OpCode) := do
+  let operands := (List.range (op.getNumOperands! ctx.raw)).map (op.getOperand! ctx.raw ·)
+  let (ctx', casts) ← operands.foldlM (castToReg (InsertPoint.before op)) (ctx, #[])
+  let regs := casts.map (fun cast => (cast.getResult 0 : ValuePtr))
+  let (ctx', _) ← createRiscvBranch ctx.raw op ctx' regs
+  eraseBranch ctx' op
 
 /--
   Replace the terminator `op` by its RISC-V counterpart if it is an `llvm.br`
-  or an `llvm.cond_br`. The operands are cast to registers in front of the new
-  branch. Any other operation is left alone, and must not have successors,
-  since the arguments of its successors would become registers.
+  or an `llvm.cond_br`. Any other operation is left alone, and must not have
+  successors, since the arguments of its successors would become registers.
 -/
-def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
-    : Except String (WfIRContext OpCode) := do
+public def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
+    : Except String (WfIRContext OpCode) :=
   if ¬ op.IsLlvmBranch ctx.raw then
     if op.getNumSuccessors! ctx.raw ≠ 0 then
       throw "isel-br-riscv64: only llvm.br and llvm.cond_br may have successors"
-    return ctx
-  if op.getNumResults! ctx.raw ≠ 0 then
+    else
+      pure ctx
+  else if op.getNumResults! ctx.raw ≠ 0 then
     throw "isel-br-riscv64: a branch has results"
-
-  let ip := InsertPoint.before op
-  let operands := (List.range (op.getNumOperands! ctx.raw)).map (op.getOperand! ctx.raw ·)
-  let successors := op.getSuccessors! ctx.raw
-  let (ctx', casts) ← operands.foldlM (castToReg ip) (ctx, #[])
-  let regs := casts.map (fun cast => (cast.getResult 0 : ValuePtr))
-
-  let ctx' ←
-    if op.getOpType! ctx.raw = OpCode.llvm .br then do
-      let some (ctx', _) := WfRewriter.createOp! ctx' Riscv_Cf.branch #[] regs
-        successors #[] default ip
-        | throw "isel-br-riscv64: cannot create riscv_cf.branch"
-      pure ctx'
-    else do
-      let condProps : LLVMCondBrProperties := op.getProperties! ctx.raw (OpCode.llvm .cond_br)
-      let props : RISCVBrProperties := ⟨condProps.operandSegmentSizes⟩
-      let some (ctx', _) := WfRewriter.createOp! ctx' Riscv_Cf.bnez #[] regs
-        successors #[] props ip
-        | throw "isel-br-riscv64: cannot create riscv_cf.bnez"
-      pure ctx'
-
-  if op.getNumRegions! ctx'.raw ≠ 0 || op.hasUses! ctx'.raw then
-    throw "isel-br-riscv64: cannot erase a branch"
-  return WfRewriter.eraseOp! ctx' op
+  else
+    lowerBranch ctx op
 
 /--
   Turn argument `i` of `block` into a register. A cast at the start of the
   block gives the rest of the block the value at its original type.
 -/
-def convertBlockArgument (block : BlockPtr) (ctx : WfIRContext OpCode) (i : Nat)
+public def convertBlockArgument (block : BlockPtr) (ctx : WfIRContext OpCode) (i : Nat)
     : Except String (WfIRContext OpCode) := do
   let bap : BlockArgumentPtr := { block := block, index := i }
 
@@ -119,7 +137,7 @@ def convertBlockArgument (block : BlockPtr) (ctx : WfIRContext OpCode) (i : Nat)
   return WfRewriter.pushOperand! ctx cast bap
 
 /-- Turn the arguments of `block` into registers. -/
-def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr)
+public def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr)
     : Except String (WfIRContext OpCode) := do
   -- The arguments of an entry block are those of the enclosing operation.
   if let some region := (block.get! ctx.raw).parent then
@@ -128,7 +146,7 @@ def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr)
   (List.range (block.getNumArguments! ctx.raw)).foldlM (convertBlockArgument block) ctx
 
 /-- Convert `block` unless it is among the blocks that are `done`. -/
-def convertBlockOnce (acc : WfIRContext OpCode × List BlockPtr) (block : BlockPtr)
+public def convertBlockOnce (acc : WfIRContext OpCode × List BlockPtr) (block : BlockPtr)
     : Except String (WfIRContext OpCode × List BlockPtr) := do
   let (ctx, done) := acc
   if block ∈ done then
