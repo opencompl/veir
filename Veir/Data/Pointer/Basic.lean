@@ -6,8 +6,7 @@ public section
 
 /--
   A pointer into interpreter memory: the object it may access and a byte
-  offset into it. The flat memory model has a single object, 0, whose
-  offsets are the addresses themselves.
+  offset into it.
 -/
 structure Pointer where
   object : Nat
