@@ -13,8 +13,8 @@ namespace Veir
 
   It works in two phases. First every `llvm.br` and `llvm.cond_br` is replaced
   by a RISC-V branch whose operands are cast to registers. Then the arguments
-  of every block that is branched to become registers, with a cast back to
-  their original type at the start of the block.
+  of every block that such a branch passes values to become registers, with a
+  cast back to their original type at the start of the block.
 
   The pass rejects a module it cannot lower correctly: a value passed along a
   branch must fit a register, a terminator with successors must be one of the
@@ -32,6 +32,15 @@ public def fitsRegister (type : TypeAttr) : Bool :=
   | .byteType byteType => byteType.bitwidth ≤ 64
   | .llvmPointerType _ => true
   | _ => false
+
+/-- `op` is one of the two LLVM branches that the pass replaces. -/
+@[expose]
+public def OperationPtr.IsLlvmBranch (op : OperationPtr) (ctx : IRContext OpCode) : Prop :=
+  op.getOpType! ctx = .llvm .br ∨ op.getOpType! ctx = .llvm .cond_br
+
+public instance {op : OperationPtr} {ctx : IRContext OpCode} :
+    Decidable (op.IsLlvmBranch ctx) := by
+  unfold OperationPtr.IsLlvmBranch; infer_instance
 
 /--
   Cast `operand` to a register with a cast inserted at `ip`, and append the
@@ -55,22 +64,23 @@ def castToReg (ip : InsertPoint) (acc : WfIRContext OpCode × Array OperationPtr
 -/
 def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
     : Except String (WfIRContext OpCode) := do
-  let opType := op.getOpType! ctx
-  if opType != OpCode.llvm .br && opType != OpCode.llvm .cond_br then
+  if ¬ op.IsLlvmBranch ctx.raw then
     if op.getNumSuccessors! ctx.raw ≠ 0 then
       throw "isel-br-riscv64: only llvm.br and llvm.cond_br may have successors"
     return ctx
+  if op.getNumResults! ctx.raw ≠ 0 then
+    throw "isel-br-riscv64: a branch has results"
 
   let ip := InsertPoint.before op
   let operands := (List.range (op.getNumOperands! ctx.raw)).map (op.getOperand! ctx.raw ·)
   let successors := op.getSuccessors! ctx.raw
   let (ctx', casts) ← operands.foldlM (castToReg ip) (ctx, #[])
-  let regs := casts.map (fun cast => cast.getResult 0)
+  let regs := casts.map (fun cast => (cast.getResult 0 : ValuePtr))
 
   let ctx' ←
-    if opType = OpCode.llvm .br then do
+    if op.getOpType! ctx.raw = OpCode.llvm .br then do
       let some (ctx', _) := WfRewriter.createOp! ctx' Riscv_Cf.branch #[] regs
-        #[op.getSuccessor! ctx.raw 0] #[] default ip
+        successors #[] default ip
         | throw "isel-br-riscv64: cannot create riscv_cf.branch"
       pure ctx'
     else do
@@ -81,9 +91,9 @@ def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
         | throw "isel-br-riscv64: cannot create riscv_cf.bnez"
       pure ctx'
 
-  if op.getNumRegions! ctx'.raw = 0 && !op.hasUses! ctx'.raw then
-    return WfRewriter.eraseOp! ctx' op
-  return ctx'
+  if op.getNumRegions! ctx'.raw ≠ 0 || op.hasUses! ctx'.raw then
+    throw "isel-br-riscv64: cannot erase a branch"
+  return WfRewriter.eraseOp! ctx' op
 
 /--
   Turn argument `i` of `block` into a register. A cast at the start of the
@@ -108,27 +118,37 @@ def convertBlockArgument (block : BlockPtr) (ctx : WfIRContext OpCode) (i : Nat)
   let ctx := WfRewriter.replaceValue! ctx bap (cast.getResult 0)
   return WfRewriter.pushOperand! ctx cast bap
 
-/-- Turn the arguments of `block` into registers, unless nothing branches to it. -/
+/-- Turn the arguments of `block` into registers. -/
 def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr)
     : Except String (WfIRContext OpCode) := do
-  -- If the block has no uses (e.g., the entry block) we can skip it.
-  if (block.get! ctx.raw).firstUse == none then
-    return ctx
   -- The arguments of an entry block are those of the enclosing operation.
   if let some region := (block.get! ctx.raw).parent then
     if (region.get! ctx.raw).firstBlock == some block then
       throw "isel-br-riscv64: the entry block of a region is branched to"
   (List.range (block.getNumArguments! ctx.raw)).foldlM (convertBlockArgument block) ctx
 
+/-- Convert `block` unless it is among the blocks that are `done`. -/
+def convertBlockOnce (acc : WfIRContext OpCode × List BlockPtr) (block : BlockPtr)
+    : Except String (WfIRContext OpCode × List BlockPtr) := do
+  let (ctx, done) := acc
+  if block ∈ done then
+    return acc
+  return (← convertBlock ctx block, block :: done)
+
+/-- The blocks that the branches among `ops` pass values to. -/
+@[expose]
+public def branchTargets (ctx : IRContext OpCode) (ops : List OperationPtr) : List BlockPtr :=
+  ops.flatMap fun op => if op.IsLlvmBranch ctx then (op.getSuccessors! ctx).toList else []
+
 /--
-  The pure core of the pass. The operations and blocks to visit are fixed up
-  front, so the operations the pass creates are not visited again.
+  The pure core of the pass. The operations to visit and the blocks they branch
+  to are fixed up front, so the operations the pass creates are not visited.
 -/
-def convertModule (ctx : WfIRContext OpCode) : Except String (WfIRContext OpCode) := do
+public def convertModule (ctx : WfIRContext OpCode) : Except String (WfIRContext OpCode) := do
   let ops := ctx.raw.operations.keys
-  let blocks := ctx.raw.blocks.keys
-  let ctx ← ops.foldlM convertBranch ctx
-  blocks.foldlM convertBlock ctx
+  let lowered ← ops.foldlM convertBranch ctx
+  let (converted, _) ← (branchTargets ctx.raw ops).foldlM convertBlockOnce (lowered, [])
+  return converted
 
 /-! # Pass implementation -/
 

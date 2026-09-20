@@ -22,14 +22,6 @@ argument is a use of its cast.
 
 namespace Veir
 
-/-- `op` is one of the two LLVM branches that the lowering replaces. -/
-@[expose]
-def OperationPtr.IsLlvmBranch (op : OperationPtr) (ctx : IRContext OpCode) : Prop :=
-  op.getOpType! ctx = .llvm .br ∨ op.getOpType! ctx = .llvm .cond_br
-
-instance {op : OperationPtr} {ctx : IRContext OpCode} : Decidable (op.IsLlvmBranch ctx) := by
-  unfold OperationPtr.IsLlvmBranch; infer_instance
-
 /-- The operations that stand for `op`, given the casts of a branch and its replacement. -/
 @[expose]
 def lowerOp (ctx : IRContext OpCode) (operandCast : OperationPtr → Nat → OperationPtr)
