@@ -26,6 +26,12 @@ def MemoryState.empty : MemoryState := {
   consistentSize := (by grind)
 }
 
+/-- The pointer that the physical address `addr` denotes. -/
+def MemoryState.decode (_mem : MemoryState) (addr : UInt64) : Pointer := ⟨0, addr⟩
+
+/-- The physical address of `p`. -/
+def MemoryState.address (_mem : MemoryState) (p : Pointer) : UInt64 := p.offset
+
 /--
   The size of an `alloca` in bytes as a 64-bit value. An `alloca` has no way
   to report failure, so a size that does not fit in the address space is
@@ -80,6 +86,25 @@ def MemoryState.store (mem : MemoryState) (p : Pointer) (val : ByteArray)
 def MemoryState.empoison (mem : MemoryState) (p : Pointer) (n : Nat) : Interp MemoryState :=
   mem.store p (ByteArray.replicate n 0) (ByteArray.replicate n 0xff) (by simp)
 
+/-- The pointer whose bits are `b`. -/
+def MemoryState.ptrOfByte (mem : MemoryState) (b : Data.LLVM.Byte 64) : Ptr :=
+  if b.poison = 0 then .val (mem.decode b.toUInt64) else .poison
+
+/-- The bits of a pointer, its physical address. -/
+def MemoryState.byteOfPtr (mem : MemoryState) : Ptr → Data.LLVM.Byte 64
+  | .val p => Data.LLVM.Byte.fromUInt64 (mem.address p)
+  | .poison => Data.LLVM.Byte.allPoison
+
+/-- The pointer at the address `i`. -/
+def MemoryState.ptrFromInt (mem : MemoryState) : Data.LLVM.Int 64 → Ptr
+  | .val v => .val (mem.decode (UInt64.ofBitVec v))
+  | .poison => .poison
+
+/-- The address of a pointer as a 64-bit integer. -/
+def MemoryState.intFromPtr (mem : MemoryState) : Ptr → Data.LLVM.Int 64
+  | .val p => .val (mem.address p).toBitVec
+  | .poison => .poison
+
 /-- Store the 64 bits of `v`, poison bits included, at `p`. -/
 def MemoryState.storeByte64 (mem : MemoryState) (p : Pointer) (v : Data.LLVM.Byte 64)
     : Interp MemoryState :=
@@ -99,7 +124,7 @@ def MemoryState.llvmStore (mem : MemoryState) (p : Pointer) (val : RuntimeValue)
   | .int 64 (.val v) => mem.store p (UInt64.ofBitVec v).toByteArrayLE
   | .byte 64 v => mem.storeByte64 p v
   | .int n .poison => mem.empoison p (n / 8)
-  | .addr q => mem.storeByte64 p q.toByte
+  | .addr q => mem.storeByte64 p (mem.byteOfPtr q)
   | _ => none
 
 /--
@@ -176,7 +201,7 @@ def MemoryState.llvmLoad (mem : MemoryState) (p : Pointer) (type : TypeAttr)
   | Attribute.byteType { bitwidth := 64 } =>
       return .byte 64 (← mem.loadByte64 p)
   | Attribute.llvmPointerType _ =>
-      return .addr (Data.LLVM.Ptr.ofByte (← mem.loadByte64 p))
+      return .addr (mem.ptrOfByte (← mem.loadByte64 p))
   | _ => none
 
 end Veir

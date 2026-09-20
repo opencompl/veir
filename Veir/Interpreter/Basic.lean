@@ -455,12 +455,12 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       | .byte bw1 val', .integerType ⟨bw2⟩ =>
           if bw1 ≠ bw2 then .fail else .ok ((.int bw1 $ val'.toInt))
       | .byte bw val', .llvmPointerType _ =>
-          if h : bw = 64 then .ok (.addr (LLVM.Ptr.ofByte (val'.cast h))) else .fail
+          if h : bw = 64 then .ok (.addr (mem.ptrFromInt (val'.cast h).toInt)) else .fail
       | .addr val', .llvmPointerType _ => .ok (val)
       | .addr val', .byteType ⟨bw⟩ =>
-          if bw = 64 then .ok (.byte 64 val'.toByte) else .fail
+          if bw = 64 then .ok (.byte 64 (LLVM.Byte.fromInt (mem.intFromPtr val'))) else .fail
       | .addr val', .integerType ⟨bw⟩ =>
-          if bw = 64 then .ok (.int 64 val'.toInt) else .fail
+          if bw = 64 then .ok (.int 64 (mem.intFromPtr val')) else .fail
       | _, _ => none
     return (#[result], mem, none)
   | _ => none
@@ -477,11 +477,10 @@ inductive LoadExtension
 
 /-- Read `bytes` of little-endian data from memory starting at
     `eaddr` and extend it to 64 bits according to `ext`. The access is
-    bounds-checked like an LLVM access, so machine code that reads memory
-    it never allocated is UB. -/
+    checked against the object `eaddr` decodes to, like an LLVM access. -/
 def riscvLoad (mem : MemoryState) (eaddr : BitVec 64) (bytes : Nat) (ext : LoadExtension) :
     Interp (BitVec 64 × MemoryState) := do
-  let p : Pointer := ⟨0, UInt64.ofBitVec eaddr⟩
+  let p := mem.decode (UInt64.ofBitVec eaddr)
   let ba ← mem.load p bytes.toUInt64
   let val := ba.toBitVecLE bytes
   let extended := match ext with
@@ -853,27 +852,27 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : propertiesOf opType)
   | .sd => do
     let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.imm12
-    let p : Pointer := ⟨0, UInt64.ofBitVec eaddr⟩
+    let p := mem.decode (UInt64.ofBitVec eaddr)
     let mem ← mem.store p (UInt64.ofBitVec val).toByteArrayLE
     return (#[], mem, none)
   | .sw => do
     let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.imm12
-    let p : Pointer := ⟨0, UInt64.ofBitVec eaddr⟩
+    let p := mem.decode (UInt64.ofBitVec eaddr)
     -- store only the low 4 bytes of the register
     let mem ← mem.store p ((UInt64.ofBitVec val).toByteArrayLE.extract 0 4)
     return (#[], mem, none)
   | .sh => do
     let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.imm12
-    let p : Pointer := ⟨0, UInt64.ofBitVec eaddr⟩
+    let p := mem.decode (UInt64.ofBitVec eaddr)
     -- store only the low 2 bytes of the register
     let mem ← mem.store p ((UInt64.ofBitVec val).toByteArrayLE.extract 0 2)
     return (#[], mem, none)
   | .sb => do
     let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.imm12
-    let p : Pointer := ⟨0, UInt64.ofBitVec eaddr⟩
+    let p := mem.decode (UInt64.ofBitVec eaddr)
     -- store only the low byte of the register
     let mem ← mem.store p ((UInt64.ofBitVec val).toByteArrayLE.extract 0 1)
     return (#[], mem, none)
@@ -885,7 +884,7 @@ def Riscv_Stack.interpretOp' (opType : Veir.Riscv_Stack) (properties : propertie
   match opType with
   | .alloca => do
     let (mem, addr) ← mem.alloc properties.size.toNat.toUInt64
-    return (#[.reg ⟨.ofNat 64 addr.offset.toNat⟩], mem, none)
+    return (#[.reg (LLVM.Int.toReg (mem.intFromPtr (.val addr)))], mem, none)
 
 def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
@@ -1088,7 +1087,7 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     | .registerType _, [.addr val] =>
       /- A register has no poison to carry. Like a poison integer, a poison pointer
          may become any register value; the interpreter picks 0. -/
-      return (#[.reg (LLVM.Int.toReg val.toInt)], mem, none)
+      return (#[.reg (LLVM.Int.toReg (mem.intFromPtr val))], mem, none)
     | .integerType _bw, [.reg val] =>
       let .integerType resBw := resType.val | none
       return (#[.int resBw.bitwidth (RISCV.Reg.toInt val resBw.bitwidth)], mem, none)
@@ -1096,7 +1095,7 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
       let .byteType resBw := resType.val | none
       return (#[.byte resBw.bitwidth (RISCV.Reg.toByte val resBw.bitwidth)], mem, none)
     | .llvmPointerType _, [.reg val] =>
-      return (#[.addr (.val ⟨0, ⟨val.val⟩⟩)], mem, none)
+      return (#[.addr (mem.ptrFromInt (.val val.val))], mem, none)
     | _ , _ => none
   | _ => none
 
