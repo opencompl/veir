@@ -118,40 +118,45 @@ public def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
   block gives the rest of the block the value at its original type.
 -/
 public def convertBlockArgument (block : BlockPtr) (ctx : WfIRContext OpCode) (i : Nat)
-    : Except String (WfIRContext OpCode) := do
-  let bap : BlockArgumentPtr := { block := block, index := i }
-
-  -- preserving the block argument's original type so the cast back from the
-  -- register reproduces the correct type (e.g. i32 instead of i64)
-  let origType := (ValuePtr.blockArgument bap).getType! ctx.raw
+    : Except String (WfIRContext OpCode) :=
+  let arg : BlockArgumentPtr := { block := block, index := i }
+  -- The cast back from the register reproduces the original type (e.g. i32 instead of i64).
+  let origType := (ValuePtr.blockArgument arg).getType! ctx.raw
   if !fitsRegister origType then
     throw "isel-br-riscv64: a block argument does not fit a register"
+  else
+    let ctx := WfRewriter.setType! ctx arg (RegisterType.mk)
+    match WfRewriter.createOp! ctx (OpCode.builtin .unrealized_conversion_cast)
+      #[origType] #[] #[] #[] default (InsertPoint.atStart! block ctx.raw) with
+    | some (ctx, cast) =>
+      let ctx := WfRewriter.replaceValue! ctx arg (cast.getResult 0)
+      pure (WfRewriter.pushOperand! ctx cast arg)
+    | none => throw "isel-br-riscv64: cannot cast a block argument back to its type"
 
-  let ctx := WfRewriter.setType! ctx bap (RegisterType.mk)
-  let ip := InsertPoint.atStart! block ctx.raw
-  let some (ctx, cast) := WfRewriter.createOp! ctx
-    (OpCode.builtin .unrealized_conversion_cast)
-    #[origType] #[] #[] #[] default ip
-    | throw "isel-br-riscv64: cannot cast a block argument back to its type"
-  let ctx := WfRewriter.replaceValue! ctx bap (cast.getResult 0)
-  return WfRewriter.pushOperand! ctx cast bap
+/-- Whether `block` is the first block of its region. -/
+@[expose]
+public def isEntryBlock (ctx : IRContext OpCode) (block : BlockPtr) : Bool :=
+  match (block.get! ctx).parent with
+  | some region => (region.get! ctx).firstBlock == some block
+  | none => false
 
 /-- Turn the arguments of `block` into registers. -/
 public def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr)
-    : Except String (WfIRContext OpCode) := do
+    : Except String (WfIRContext OpCode) :=
   -- The arguments of an entry block are those of the enclosing operation.
-  if let some region := (block.get! ctx.raw).parent then
-    if (region.get! ctx.raw).firstBlock == some block then
-      throw "isel-br-riscv64: the entry block of a region is branched to"
-  (List.range (block.getNumArguments! ctx.raw)).foldlM (convertBlockArgument block) ctx
+  if isEntryBlock ctx.raw block then
+    throw "isel-br-riscv64: the entry block of a region is branched to"
+  else
+    (List.range (block.getNumArguments! ctx.raw)).foldlM (convertBlockArgument block) ctx
 
 /-- Convert `block` unless it is among the blocks that are `done`. -/
 public def convertBlockOnce (acc : WfIRContext OpCode × List BlockPtr) (block : BlockPtr)
     : Except String (WfIRContext OpCode × List BlockPtr) := do
-  let (ctx, done) := acc
-  if block ∈ done then
-    return acc
-  return (← convertBlock ctx block, block :: done)
+  if block ∈ acc.2 then
+    pure acc
+  else do
+    let ctx ← convertBlock acc.1 block
+    pure (ctx, block :: acc.2)
 
 /-- The blocks that the branches among `ops` pass values to. -/
 @[expose]
