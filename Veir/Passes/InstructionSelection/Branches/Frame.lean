@@ -183,6 +183,52 @@ theorem CtxSame.trans {ctx₁ ctx₂ ctx₃ : IRContext OpCode} (h₁ : CtxSame 
     fun h => (h₂.firstBlock (h₁.regionIn h)).trans (h₁.firstBlock h),
     fun h => (h₂.regionParent (h₁.regionIn h)).trans (h₁.regionParent h)⟩
 
+/-- An operation keeps its parent operation when its chain of parents stays the same. -/
+theorem OpSame.getParentOp! {f : ValuePtr → ValuePtr} {ctx ctx' : WfIRContext OpCode}
+    {op : OperationPtr} (h : OpSame f ctx.raw ctx'.raw op) (hCtx : CtxSame ctx.raw ctx'.raw)
+    (opIn : op.InBounds ctx.raw) :
+    op.getParentOp! ctx'.raw = op.getParentOp! ctx.raw := by
+  have hFields := ctx.wellFormed.inBounds
+  simp only [OperationPtr.getParentOp!, OperationPtr.getParentRegion!, h.parent, bind, Option.bind]
+  rcases hParent : (op.get! ctx.raw).parent with _ | block
+  · rfl
+  · have blockIn : block.InBounds ctx.raw := by grind
+    simp only [hCtx.blockParent blockIn]
+    rcases hRegion : (block.get! ctx.raw).parent with _ | region
+    · rfl
+    · have regionIn : region.InBounds ctx.raw := by grind
+      simp only [hCtx.regionParent regionIn]
+
+/-- The successors of an operation are blocks of the module. -/
+theorem OperationPtr.getSuccessors!_inBounds {ctx : WfIRContext OpCode} {op : OperationPtr}
+    {block : BlockPtr} (opIn : op.InBounds ctx.raw) (h : block ∈ op.getSuccessors! ctx.raw) :
+    block.InBounds ctx.raw := by
+  obtain ⟨index, hIndex, rfl⟩ := OperationPtr.getSuccessors!.mem_iff_exists_index.mp h
+  have operandIn : (op.getBlockOperand index).InBounds ctx.raw := by
+    grind [BlockOperandPtr.InBounds, OperationPtr.getNumSuccessors!]
+  have hFields := (ctx.wellFormed.inBounds.operations_inBounds op opIn).blockOperands_inBounds
+    (op.getBlockOperand index) operandIn rfl
+  have := hFields.value_inBounds
+  grind [OperationPtr.getSuccessor!, BlockOperandPtr.get!]
+
+/-- The first block of a region has that region as its parent. -/
+theorem RegionPtr.parent_of_firstBlock {ctx : WfIRContext OpCode} {region : RegionPtr}
+    {block : BlockPtr} (regionIn : region.InBounds ctx.raw)
+    (h : (region.get! ctx.raw).firstBlock = some block) :
+    (block.get! ctx.raw).parent = some region := by
+  have hChain := RegionPtr.blockListWF ctx.raw region regionIn ctx.wellFormed
+  have hFirst := hChain.first
+  rw [h] at hFirst
+  exact hChain.opParent (Array.mem_of_getElem? hFirst.symm)
+
+theorem _root_.List.flatMap_congr_of_mem {α β : Type} {l : List α} {f g : α → List β}
+    (h : ∀ a ∈ l, f a = g a) : l.flatMap f = l.flatMap g := by
+  induction l with
+  | nil => rfl
+  | cons a l ih =>
+    simp only [List.flatMap_cons, h a (by simp)]
+    rw [ih (fun b hb => h b (by simp [hb]))]
+
 /-! ## Creating an operation -/
 
 section createOp
