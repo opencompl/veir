@@ -5,6 +5,8 @@ public import Veir.Rewriter.WfRewriter
 
 import all Veir.Rewriter.WfRewriter.Basic
 import all Veir.IR.OpCode
+import all Veir.IR.Basic
+import all Veir.Rewriter.InsertPoint
 
 public section
 
@@ -20,6 +22,8 @@ namespace Veir
 
 theorem ofDialect_cast : ofDialect OpCode Builtin.unrealized_conversion_cast =
     OpCode.builtin .unrealized_conversion_cast := by rfl
+
+theorem ofDialect_self (opCode : OpCode) : ofDialect OpCode opCode = opCode := by rfl
 
 theorem ofDialect_branch : ofDialect OpCode Riscv_Cf.branch = OpCode.riscv_cf .branch := by rfl
 
@@ -160,6 +164,12 @@ theorem OpSame.trans_id {f : ValuePtr → ValuePtr} {ctx₁ ctx₂ ctx₃ : IRCo
     {op : OperationPtr} (h₁ : OpSame f ctx₁ ctx₂ op) (h₂ : OpSame id ctx₂ ctx₃ op) :
     OpSame f ctx₁ ctx₃ op := by
   simpa using h₁.trans h₂
+
+/-- Only the values of `f` on the operands matter. -/
+theorem OpSame.congr {f g : ValuePtr → ValuePtr} {ctx₁ ctx₂ : IRContext OpCode}
+    {op : OperationPtr} (h : OpSame f ctx₁ ctx₂ op)
+    (hEq : ∀ value ∈ op.getOperands! ctx₁, f value = g value) : OpSame g ctx₁ ctx₂ op :=
+  { h with operands := by rw [h.operands]; exact Array.map_congr_left hEq }
 
 theorem CtxSame.refl {ctx : IRContext OpCode} : CtxSame ctx ctx :=
   ⟨id, fun _ => rfl, fun _ => rfl, id, fun _ => rfl, fun _ => rfl⟩
@@ -306,6 +316,49 @@ theorem WfRewriter.createOp_before_opList {op : OperationPtr} {h₁ h₂ h₃ h�
       rw [List.replaceBy_of_not_mem]
       exact fun hMem => hParent ((BlockPtr.mem_opList opIn).mp hMem)
 
+/-- The insertion point at the start of a block is in that block, in front of everything. -/
+theorem InsertPoint.atStart!_spec {raw : IRContext OpCode} (rawWf : raw.WellFormed)
+    {block : BlockPtr} (blockIn : block.InBounds raw) :
+    (InsertPoint.atStart! block raw).block! raw = some block ∧
+    (InsertPoint.atStart! block raw).prev! raw = none := by
+  have hChain := BlockPtr.operationListWF raw block blockIn rawWf
+  simp only [InsertPoint.atStart!]
+  split
+  next firstOp hFirst =>
+    exact ⟨by grind [BlockPtr.OpChain], by
+      simpa using hChain.prevFirst hFirst⟩
+  next hFirst =>
+    have hNone : (block.get! raw).firstOp = none := by
+      cases h : (block.get! raw).firstOp <;> simp_all
+    exact ⟨by simp, by
+      simpa using (BlockPtr.OpChain.firstOp_eq_none_iff_lastOp_eq_none hChain).mp hNone⟩
+
+/-- Creating an operation at the start of `target` puts it at the head of its list. -/
+theorem WfRewriter.createOp_atStart_opList {target : BlockPtr} {h₁ h₂ h₃ h₄}
+    (h : WfRewriter.createOp ctx opType resultTypes operands successors #[] properties
+      (some (InsertPoint.atStart! target ctx.raw)) h₁ h₂ h₃ h₄ = some (ctx', newOp))
+    (targetIn : target.InBounds ctx.raw)
+    {block : BlockPtr} (blockIn : block.InBounds ctx.raw) (blockIn' : block.InBounds ctx'.raw) :
+    block.opList ctx' blockIn' =
+      if block = target then newOp :: block.opList ctx blockIn else block.opList ctx blockIn := by
+  obtain ⟨hBlock, hPrev⟩ := InsertPoint.atStart!_spec ctx.wellFormed targetIn
+  simp only [WfRewriter.createOp] at h
+  split at h
+  next => simp at h
+  next raw' newOp' hRaw =>
+    simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    simp only [BlockPtr.opList]
+    rw [BlockPtr.operationList_rewriter_createOp hRaw ctx.wellFormed]
+    simp only [hBlock, Option.some.injEq]
+    by_cases hEq : block = target
+    · subst hEq
+      simp only [↓reduceDIte, ↓reduceIte, Array.toList_insertIdx]
+      rw [(InsertPoint.idxIn_InsertPoint_prev_none).mp hPrev]
+      simp
+    · have hNe : ¬ target = block := fun h => hEq h.symm
+      simp [hEq, hNe]
+
 end createOp
 
 /-! ## Erasing an operation -/
@@ -382,5 +435,165 @@ theorem WfRewriter.eraseOp_opList {hRegions hUses} {opIn : op.InBounds ctx.raw} 
     exact fun hMem => hParent ((BlockPtr.mem_opList opIn).mp hMem)
 
 end eraseOp
+
+/-! ## Setting the type of a block argument -/
+
+section setType
+
+variable {ctx : WfIRContext OpCode} {arg : BlockArgumentPtr} {type : TypeAttr}
+
+theorem WfRewriter.setType!_eq (argIn : (ValuePtr.blockArgument arg).InBounds ctx.raw) :
+    WfRewriter.setType! ctx (.blockArgument arg) type =
+      WfRewriter.setType ctx (.blockArgument arg) type argIn := by
+  simp [WfRewriter.setType!, argIn]
+
+/-- What setting the type of a block argument does. -/
+theorem WfRewriter.setType_frame {argIn : (ValuePtr.blockArgument arg).InBounds ctx.raw} :
+    let ctx' := WfRewriter.setType ctx (.blockArgument arg) type argIn
+    (∀ op, op.InBounds ctx.raw → OpSame id ctx.raw ctx'.raw op) ∧
+    CtxSame ctx.raw ctx'.raw ∧
+    (∀ ptr : GenericPtr, ptr.InBounds ctx'.raw ↔ ptr.InBounds ctx.raw) ∧
+    (∀ value : ValuePtr, value.getType! ctx'.raw =
+      if value = .blockArgument arg then type else value.getType! ctx.raw) ∧
+    (∀ (block : BlockPtr) (blockIn : block.InBounds ctx.raw) (blockIn' : block.InBounds ctx'.raw),
+      block.opList ctx' blockIn' = block.opList ctx blockIn) := by
+  intro ctx'
+  have hIn : ∀ ptr : GenericPtr, ptr.InBounds ctx'.raw ↔ ptr.InBounds ctx.raw :=
+    fun ptr => Rewriter.setType_inBounds ptr
+  refine ⟨fun op opIn => ?_, ?_, hIn, fun value => ?_, fun block blockIn blockIn' => ?_⟩
+  · exact ⟨by have := hIn (.operation op); grind, by simp [ctx'], fun _ => by simp [ctx'],
+      by simp [ctx', OperationPtr.getResultTypes!_wfRewriter_setType], by simp [ctx'],
+      by simp [ctx'], by simp [ctx'], fun _ => by simp [ctx'], by simp [ctx']⟩
+  · refine ⟨fun {block} hb => ?_, fun _ => ?_, fun _ => ?_, fun {region} hr => ?_, fun _ => ?_,
+      fun _ => ?_⟩
+    · have := hIn (.block block); grind
+    · simp [ctx']
+    · simp [ctx']
+    · have := hIn (.region region); grind
+    · simp [ctx']
+    · simp [ctx']
+  · rw [ValuePtr.getType!_wfRewriter_setType]
+    by_cases h : ValuePtr.blockArgument arg = value
+    · simp [h]
+    · have h' : ¬ value = ValuePtr.blockArgument arg := fun hEq => h hEq.symm
+      simp [h, h']
+  · simp only [BlockPtr.opList]
+    congr 1
+    exact BlockPtr.operationList_iff_BlockPtr_OpChain.mp
+      (BlockPtr.opChain_rewriter_setType
+        (BlockPtr.operationListWF ctx.raw block blockIn ctx.wellFormed))
+
+end setType
+
+/-! ## Replacing a value -/
+
+section replaceValue
+
+variable {ctx : WfIRContext OpCode} {oldValue newValue : ValuePtr}
+
+theorem WfRewriter.replaceValue!_eq (hNe : oldValue ≠ newValue)
+    (oldIn : oldValue.InBounds ctx.raw) (newIn : newValue.InBounds ctx.raw) :
+    WfRewriter.replaceValue! ctx oldValue newValue =
+      WfRewriter.replaceValue ctx oldValue newValue hNe oldIn newIn := by
+  simp [WfRewriter.replaceValue!, hNe, oldIn, newIn]
+
+theorem WfRewriter.replaceValue_opChain {hNe oldIn newIn} {block : BlockPtr}
+    {array : Array OperationPtr} (h : BlockPtr.OpChain block ctx.raw array) :
+    BlockPtr.OpChain block (WfRewriter.replaceValue ctx oldValue newValue hNe oldIn newIn).raw
+      array := by
+  fun_induction WfRewriter.replaceValue
+  rename_i ctx hNe oldIn newIn ih
+  split
+  next => exact h
+  next firstUse hUse =>
+    exact ih firstUse hUse (BlockPtr.opChain_rewriter_replaceUse h)
+
+theorem WfRewriter.replaceValue_opList {hNe oldIn newIn} {block : BlockPtr}
+    (blockIn : block.InBounds ctx.raw)
+    (blockIn' : block.InBounds (WfRewriter.replaceValue ctx oldValue newValue hNe oldIn newIn).raw) :
+    block.opList (WfRewriter.replaceValue ctx oldValue newValue hNe oldIn newIn) blockIn' =
+      block.opList ctx blockIn := by
+  simp only [BlockPtr.opList]
+  congr 1
+  exact BlockPtr.operationList_iff_BlockPtr_OpChain.mp (WfRewriter.replaceValue_opChain
+    (BlockPtr.operationListWF ctx.raw block blockIn ctx.wellFormed))
+
+/-- What replacing a value by another does. -/
+theorem WfRewriter.replaceValue_frame {hNe oldIn newIn} :
+    let ctx' := WfRewriter.replaceValue ctx oldValue newValue hNe oldIn newIn
+    (∀ op, op.InBounds ctx.raw →
+      OpSame (fun value => if value = oldValue then newValue else value) ctx.raw ctx'.raw op) ∧
+    CtxSame ctx.raw ctx'.raw ∧
+    (∀ ptr : GenericPtr, ptr.InBounds ctx'.raw ↔ ptr.InBounds ctx.raw) ∧
+    (∀ value : ValuePtr, value.getType! ctx'.raw = value.getType! ctx.raw) := by
+  intro ctx'
+  have hIn : ∀ ptr : GenericPtr, ptr.InBounds ctx'.raw ↔ ptr.InBounds ctx.raw :=
+    fun ptr => WfRewriter.replaceValue_inBounds
+  refine ⟨fun op opIn => ?_, ?_, hIn, fun value => ValuePtr.getType!_WfRewriter_replaceValue⟩
+  · exact ⟨by have := hIn (.operation op); grind, by simp [ctx'], fun _ => by simp [ctx'],
+      by simp [ctx', OperationPtr.getResultTypes!_WfRewriter_replaceValue],
+      OperationPtr.getOperands!_WfRewriter_replaceValue opIn,
+      by simp [ctx'], by simp [ctx'], fun _ => by simp [ctx'], by simp [ctx']⟩
+  · refine ⟨fun {block} hb => ?_, fun _ => ?_, fun _ => ?_, fun {region} hr => ?_, fun _ => ?_,
+      fun _ => ?_⟩
+    · have := hIn (.block block); grind
+    · simp [ctx']
+    · simp [ctx']
+    · have := hIn (.region region); grind
+    · simp [ctx']
+    · simp [ctx']
+
+end replaceValue
+
+/-! ## Pushing an operand -/
+
+section pushOperand
+
+variable {ctx : WfIRContext OpCode} {op : OperationPtr} {value : ValuePtr}
+
+theorem WfRewriter.pushOperand!_eq (opIn : op.InBounds ctx.raw) (valueIn : value.InBounds ctx.raw) :
+    WfRewriter.pushOperand! ctx op value = WfRewriter.pushOperand ctx op value opIn valueIn := by
+  simp [WfRewriter.pushOperand!, opIn, valueIn]
+
+/-- What pushing an operand to `op` does. -/
+theorem WfRewriter.pushOperand_frame {opIn : op.InBounds ctx.raw}
+    {valueIn : value.InBounds ctx.raw} :
+    let ctx' := WfRewriter.pushOperand ctx op value opIn valueIn
+    (∀ o, o.InBounds ctx.raw → o ≠ op → OpSame id ctx.raw ctx'.raw o) ∧
+    (op.InBounds ctx'.raw ∧ op.getOpType! ctx'.raw = op.getOpType! ctx.raw ∧
+      op.getResultTypes! ctx'.raw = op.getResultTypes! ctx.raw ∧
+      op.getOperands! ctx'.raw = (op.getOperands! ctx.raw).push value) ∧
+    CtxSame ctx.raw ctx'.raw ∧
+    (∀ ptr : GenericPtr, ptr.InBounds ctx.raw → ptr.InBounds ctx'.raw) ∧
+    (∀ v : ValuePtr, v.getType! ctx'.raw = v.getType! ctx.raw) ∧
+    (∀ (block : BlockPtr) (blockIn : block.InBounds ctx.raw) (blockIn' : block.InBounds ctx'.raw),
+      block.opList ctx' blockIn' = block.opList ctx blockIn) := by
+  intro ctx'
+  have hMono : ∀ ptr : GenericPtr, ptr.InBounds ctx.raw → ptr.InBounds ctx'.raw :=
+    fun ptr => WfRewriter.pushOperand_inBounds_mono
+  have hResultTypes : ∀ o : OperationPtr, o.getResultTypes! ctx'.raw = o.getResultTypes! ctx.raw := by
+    intro o
+    simp only [OperationPtr.getResultTypes!_def, ctx', WfRewriter.pushOperand]
+    simp [OperationPtr.getResults!, ValuePtr.getType!_pushOperand]
+  refine ⟨fun o oIn hNe => ?_, ?_, ?_, hMono, fun v => ?_, fun block blockIn blockIn' => ?_⟩
+  · refine ⟨by have := hMono (.operation o); grind, ?_, fun _ => ?_, hResultTypes o, ?_, ?_, ?_,
+      fun _ => ?_, ?_⟩
+    all_goals simp [ctx', WfRewriter.pushOperand, hNe]
+  · refine ⟨by have := hMono (.operation op); grind, ?_, hResultTypes op, ?_⟩
+    all_goals simp [ctx', WfRewriter.pushOperand]
+  · refine ⟨fun {block} hb => ?_, fun _ => ?_, fun _ => ?_, fun {region} hr => ?_, fun _ => ?_,
+      fun _ => ?_⟩
+    · have := hMono (.block block); grind
+    · simp [ctx', WfRewriter.pushOperand]
+    · simp [ctx', WfRewriter.pushOperand]
+    · have := hMono (.region region); grind
+    · simp [ctx', WfRewriter.pushOperand]
+    · simp [ctx', WfRewriter.pushOperand]
+  · simp [ctx', WfRewriter.pushOperand]
+  · simp only [BlockPtr.opList]
+    congr 1
+    exact BlockPtr.operationList_rewriter_pushOperand (h := rfl) (ctxWf := ctx.wellFormed)
+
+end pushOperand
 
 end Veir
