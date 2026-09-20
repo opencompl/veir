@@ -284,15 +284,21 @@ theorem applyToArray_mapping {values : Array ValuePtr}
 /-- Only a result stands for itself as a result of an operation of the source. -/
 theorem eq_of_mapValue_eq_getResult {value : ValuePtr} {op : OperationPtr} {i : Nat}
     (valueIn : value.InBounds ctx.raw) (opIn : op.InBounds ctx.raw)
+    (hBranch : ¬ op.IsLlvmBranch ctx.raw)
     (h : L.mapValue value = op.getResult i) : value = op.getResult i := by
   rcases value with result | arg
   · simpa [mapValue, lowerValue] using h
   · simp only [mapValue, lowerValue] at h
     split at h
     next hConverted =>
-      have := (L.argCastSpec (by simpa using valueIn) hConverted).2.1
+      have argIn : arg.InBounds ctx.raw := by simpa using valueIn
       simp only [OperationPtr.getResult_def, ValuePtr.opResult.injEq, OpResultPtr.mk.injEq] at h
-      grind
+      obtain ⟨rfl, rfl⟩ := h
+      /- The cast has a result in the lowering, so it has one in the source, which is not fresh. -/
+      have hNum := L.argCast_numResults argIn hConverted
+      rw [L.numResults opIn hBranch] at hNum
+      exact absurd rfl ((L.argCastSpec argIn hConverted).2.1 ⟨L.argCast arg, 0⟩
+        (OpResultPtr.inBounds_def.mpr ⟨opIn, by grind⟩))
     next => simp at h
 
 /-- Only the argument of a converted block stands for its cast. -/
@@ -346,7 +352,7 @@ theorem preservesOperation {op : OperationPtr} (opIn : op.InBounds ctx.raw)
   · rw [L.applyToArray_mapping]
     simp [OperationPtr.getResults!, hNum, mapValue, lowerValue, OperationPtr.getResult_def]
   · intro value valueIn i h
-    exact L.eq_of_mapValue_eq_getResult valueIn opIn h
+    exact L.eq_of_mapValue_eq_getResult valueIn opIn hBranch h
 
 /-! ## The casts at the start of a converted block -/
 

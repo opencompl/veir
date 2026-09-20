@@ -79,7 +79,8 @@ structure BranchLowering (ctx ctx' : WfIRContext OpCode) where
     (block.getArgument i : ValuePtr).getType! ctx'.raw =
       (block.getArgument i : ValuePtr).getType! ctx.raw
   argCastSpec {arg : BlockArgumentPtr} : arg.InBounds ctx.raw → converted arg.block →
-    (argCast arg).InBounds ctx'.raw ∧ ¬ (argCast arg).InBounds ctx.raw ∧
+    (argCast arg).InBounds ctx'.raw ∧
+    (∀ result : OpResultPtr, result.InBounds ctx.raw → result.op ≠ argCast arg) ∧
     (argCast arg).getOpType! ctx'.raw = .builtin .unrealized_conversion_cast ∧
     (argCast arg).getResultTypes! ctx'.raw = #[(ValuePtr.blockArgument arg).getType! ctx.raw] ∧
     (argCast arg).getOperands! ctx'.raw = #[.blockArgument arg]
@@ -108,7 +109,8 @@ structure BranchLowering (ctx ctx' : WfIRContext OpCode) where
     op.IsLlvmBranch ctx.raw → block ∈ op.getSuccessors! ctx.raw → converted block
   operandCastSpec {op : OperationPtr} {i : Nat} : op.InBounds ctx.raw →
     op.IsLlvmBranch ctx.raw → i < op.getNumOperands! ctx.raw →
-    (operandCast op i).InBounds ctx'.raw ∧ ¬ (operandCast op i).InBounds ctx.raw ∧
+    (operandCast op i).InBounds ctx'.raw ∧
+    (∀ result : OpResultPtr, result.InBounds ctx.raw → result.op ≠ operandCast op i) ∧
     (operandCast op i).getOpType! ctx'.raw = .builtin .unrealized_conversion_cast ∧
     (operandCast op i).getResultTypes! ctx'.raw = #[(RegisterType.mk : TypeAttr)] ∧
     (operandCast op i).getOperands! ctx'.raw =
