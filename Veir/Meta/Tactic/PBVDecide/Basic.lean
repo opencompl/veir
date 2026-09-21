@@ -564,6 +564,7 @@ meta def addBoundRewrites (g : MVarId) (blastWidth : Nat) (simp : SimpTheoremsAr
     MetaM SimpTheoremsArray := g.withContext do
   let thms := #[
       ``msb_eq_and_signBitOfMask_maskOfWidth_ne_zero,
+      ``setWidth_signExtend_eq_and_maskOfWidth
   ]
 
   thms.foldlM (init := simp) fun simps name =>
@@ -576,17 +577,24 @@ Add theorems to the Simp theorem context that push the `setWidth`s in.
 meta def addPushTheorems (g : MVarId) (simp : SimpTheoremsArray) :
     MetaM SimpTheoremsArray := g.withContext do
   let others := #[
-      ``BitVec.setWidth_eq,
       ``setWidth_add,
-      ``setWidth_setWidth,
       ``setWidth_append_eq_or_mul_maskOfWidth_add_one,
       ``signBitOfMask_eq,
-      ``setWidth_signExtend_eq_and_maskOfWidth,
   ]
 
   let mut simp := simp
   for n in others do
     simp ← simp.addTheorem (.other n) (mkConst n [])
+  -- Low priority so that the other push theorems fire before nested
+  -- `setWidth`s are collapsed.
+  let lowPriority := #[
+      ``BitVec.setWidth_eq,
+      ``setWidth_setWidth
+  ]
+  for n in lowPriority do
+    simp ← simp.modifyM 0 fun thms =>
+      thms.add (.other n) #[] (mkConst n [])
+        (prio := eval_prio low)
   return simp
 
 /--
