@@ -211,7 +211,7 @@ def LLVMConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
     | throw "llvm.constant: missing 'value' property"
   match attr with
   | .integerAttr intAttr =>
-    return { value := .integer intAttr }
+    return { value := .integer (← intAttr.ofLiteral) }
   | .floatAttr floatAttr =>
     return { value := .float floatAttr }
   | .denseElementsAttr denseAttr =>

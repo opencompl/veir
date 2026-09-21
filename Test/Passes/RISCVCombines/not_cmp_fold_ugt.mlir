@@ -29,6 +29,8 @@
 
 // Not a negated icmp: the xor survives.
 // CHECK:      func.func @bar(%{{.*}}: i64, %{{.*}}: i64, %[[B:.*]]: i1) -> i1 {
-// CHECK:      %[[NM1:.*]] = "llvm.mlir.constant"() <{"value" = -1 : i1}> : () -> i1
+// `-1 : i1` in the input is the same attribute as `true`; it is normalized to
+// its width on parse, as mlir-opt does.
+// CHECK:      %[[NM1:.*]] = "llvm.mlir.constant"() <{"value" = 1 : i1}> : () -> i1
 // CHECK:      %[[NR:.*]] = "llvm.xor"(%[[B]], %[[NM1]]) : (i1, i1) -> i1
 // CHECK:      "func.return"(%[[NR]]) : (i1) -> ()
