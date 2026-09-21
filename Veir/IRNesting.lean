@@ -100,8 +100,8 @@ inductive ParentPath (ctx : WfIRContext OpInfo) :
       ParentPath ctx ptr ptr [ptr]
   | cons {ancestor child parent : IRNode} {nodes : List IRNode}
       (immediate : child.parent! ctx = some parent)
-      (tail : ParentPath ctx ancestor parent nodes) :
-      ParentPath ctx ancestor child (child :: nodes)
+      (tail : ParentPath ctx parent ancestor nodes) :
+      ParentPath ctx child ancestor (child :: nodes)
 
 namespace ParentPath
 
@@ -110,26 +110,26 @@ variable {nodes nodes₁ nodes₂ upperNodes lowerNodes : List IRNode}
 
 /-- A parent path's node list is not nil. -/
 @[simp]
-theorem ne_nil (path : ParentPath ctx ancestor descendant nodes) :
+theorem ne_nil (path : ParentPath ctx descendant ancestor nodes) :
     nodes ≠ [] := by
   cases path <;> grind
 
 /-- The first node in a parent path is its descendant. -/
 @[simp]
-theorem head?_eq (path : ParentPath ctx ancestor descendant nodes) :
+theorem head?_eq (path : ParentPath ctx descendant ancestor nodes) :
     nodes.head? = some descendant := by
   cases path <;> grind
 
 /-- The last node in a parent path is its ancestor. -/
 @[simp]
-theorem getLast?_eq (path : ParentPath ctx ancestor descendant nodes) :
+theorem getLast?_eq (path : ParentPath ctx descendant ancestor nodes) :
     nodes.getLast? = some ancestor := by
   induction path <;> grind
 
 /-- The ancestor reached by a fixed-length parent path is unique. -/
 theorem unique_ancestor_of_eq_length
-    (left : ParentPath ctx ancestor₁ descendant nodes₁)
-    (right : ParentPath ctx ancestor₂ descendant nodes₂)
+    (left : ParentPath ctx descendant ancestor₁ nodes₁)
+    (right : ParentPath ctx descendant ancestor₂ nodes₂)
     (lengthEq : nodes₁.length = nodes₂.length) :
     ancestor₁ = ancestor₂ := by
   induction left generalizing nodes₂ <;>
@@ -137,16 +137,13 @@ theorem unique_ancestor_of_eq_length
 
 /-- Concatenate two parent paths that meet at `middle`. -/
 theorem trans
-    (upper : ParentPath ctx ancestor middle upperNodes)
-    (lower : ParentPath ctx middle descendant lowerNodes) :
-    ParentPath ctx ancestor descendant (lowerNodes ++ upperNodes.tail) := by
+    (lower : ParentPath ctx descendant middle lowerNodes)
+    (upper : ParentPath ctx middle ancestor upperNodes) :
+    ParentPath ctx descendant ancestor (lowerNodes ++ upperNodes.tail) := by
   induction lower with
-  | single =>
-      cases upper with
-      | single => exact .single
-      | cons immediate tail => exact .cons immediate tail
-  | cons immediate _ ih =>
-      exact ParentPath.cons immediate ih
+  | single => grind [cases ParentPath]
+  | cons immediate _ ih => exact ParentPath.cons immediate (ih upper)
+
 
 end ParentPath
 
@@ -155,7 +152,7 @@ end ParentPath
 /-- Reflexive, finite ancestry through nesting parent edges. -/
 def Ancestor (ancestor descendant : IRNode)
     (ctx : WfIRContext OpInfo) : Prop :=
-  ∃ nodes, ParentPath ctx ancestor descendant nodes
+  ∃ nodes, ParentPath ctx descendant ancestor nodes
 
 namespace Ancestor
 
@@ -165,14 +162,14 @@ variable {nodes : List IRNode}
 /-- A parent path witnesses ancestry. -/
 @[grind →]
 theorem of_parentPath
-    (path : ParentPath ctx ancestor descendant nodes) :
+    (path : ParentPath ctx descendant ancestor nodes) :
     ancestor.Ancestor descendant ctx := by
   grind [Ancestor]
 
 /-- An ancestry proof has an explicit parent-path witness. -/
 theorem exists_parentPath
     (ancestry : ancestor.Ancestor descendant ctx) :
-    ∃ nodes, ParentPath ctx ancestor descendant nodes := by
+    ∃ nodes, ParentPath ctx descendant ancestor nodes := by
   grind [Ancestor]
 
 /-- Every IR node is its own ancestor. -/
@@ -192,7 +189,7 @@ theorem trans
     ancestor.Ancestor descendant ctx := by
   have ⟨_, upper⟩ := upper.exists_parentPath
   have ⟨_, lower⟩ := lower.exists_parentPath
-  exact .of_parentPath (upper.trans lower)
+  exact .of_parentPath (lower.trans upper)
 
 /-- A parent of an ancestor is an ancestor. -/
 theorem trans_parent_ancestor
