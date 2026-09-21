@@ -372,6 +372,35 @@ def Std.HashMap.forKeysDepM [BEq α] [Hashable α] {m : Type w → Type w'} [Mon
     (b : Std.HashMap α β) (f : ∀ (a : α), a ∈ b → m PUnit) : m PUnit :=
   b.forM (fun k v => do if h : k ∈ b then f k (by grind))
 
+theorem Except.bind_eq_ok {ε : Type u} {α β : Type v} {x : Except ε α} {f : α → Except ε β}
+    {b : β} : x >>= f = .ok b ↔ ∃ a, x = .ok a ∧ f a = .ok b := by
+  cases x <;> simp [bind, Except.bind]
+
+/-- A loop over a list in `Except` that succeeds ran its body successfully on every element. -/
+theorem List.forM_except_ok {ε : Type u} {α : Type v} {l : List α} {f : α → Except ε PUnit}
+    (h : forM l f = .ok ⟨⟩) : ∀ a ∈ l, f a = .ok ⟨⟩ := by
+  induction l with
+  | nil => simp
+  | cons b l ih =>
+    simp only [List.forM_cons, bind, Except.bind] at h
+    split at h
+    · simp at h
+    · rename_i hb
+      intro a ha
+      rcases List.mem_cons.mp ha with rfl | ha
+      · exact hb
+      · exact ih h a ha
+
+/-- A `forKeysDepM` in `Except` that succeeds ran its body successfully on every key. -/
+theorem Std.HashMap.forKeysDepM_except_ok [BEq α] [Hashable α] [LawfulBEq α] {ε : Type}
+    {b : Std.HashMap α β} {f : ∀ (a : α), a ∈ b → Except ε PUnit}
+    (h : b.forKeysDepM f = .ok ⟨⟩) (k : α) (hk : k ∈ b) : f k hk = .ok ⟨⟩ := by
+  simp only [Std.HashMap.forKeysDepM] at h
+  rw [Std.HashMap.forM_eq_forM, Std.HashMap.forM_eq_forM_toList] at h
+  have hMem : (k, b[k]) ∈ b.toList :=
+    Std.HashMap.mem_toList_iff_getElem?_eq_some.mpr (Std.HashMap.getElem?_eq_some_getElem hk)
+  simpa [hk] using List.forM_except_ok h (k, b[k]) hMem
+
 section ranges
 
 open Std

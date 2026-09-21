@@ -383,6 +383,40 @@ theorem WfIRContext.Verified.graph_region_firstBlock_eq_lastBlock
   have hregionCheck := (List.all_eq_true.mp hcheck) region hregionKeys
   grind [WfIRContext.graphRegionsHaveAtMostOneBlock]
 
+/-- A verified context passes the checks that `verify` runs on every block. -/
+private theorem WfIRContext.Verified.blockChecks
+    {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
+    {block : BlockPtr} (blockIn : block.InBounds ctx.raw) :
+    (do block.verifyTerminator ctx blockIn
+        block.verifyNoEntryBlockPredecessors ctx blockIn : Except String PUnit.{1}) = .ok ⟨⟩ := by
+  unfold WfIRContext.Verified WfIRContext.verify at ctxVerified
+  dsimp only at ctxVerified
+  split at ctxVerified
+  · cases ctxVerified
+  split at ctxVerified
+  · cases ctxVerified
+  obtain ⟨_, -, ctxVerified⟩ := Except.bind_eq_ok.mp ctxVerified
+  obtain ⟨_, hBlocks, -⟩ := Except.bind_eq_ok.mp ctxVerified
+  exact IRContext.forBlocksDepM_except_ok hBlocks block blockIn
+
+/-- The entry block of a region in a verified context is not branched to. -/
+theorem WfIRContext.Verified.entryBlock_firstUse_eq_none
+    {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
+    {block : BlockPtr} (blockIn : block.InBounds ctx.raw) {region : RegionPtr}
+    (hParent : (block.get! ctx.raw).parent = some region)
+    (hFirstBlock : (region.get! ctx.raw).firstBlock = some block) :
+    (block.get! ctx.raw).firstUse = none := by
+  obtain ⟨_, -, hCheck⟩ := Except.bind_eq_ok.mp (ctxVerified.blockChecks blockIn)
+  have hParent' : (block.get ctx.raw blockIn).parent = some region := by grind
+  unfold BlockPtr.verifyNoEntryBlockPredecessors at hCheck
+  simp only [hParent', hFirstBlock, ne_eq, not_true_eq_false, ↓reduceIte] at hCheck
+  split at hCheck
+  · cases hCheck
+  · rename_i hUse
+    have hGet : block.get! ctx.raw = block.get ctx.raw blockIn := by grind
+    rw [hGet]
+    cases hFirstUse : (block.get ctx.raw blockIn).firstUse <;> simp_all
+
 /--
 Assert that a given operation satisfies its local invariants.
 -/
