@@ -90,7 +90,9 @@ def write_output(output: bytes, dst: Path | None) -> None:
 def finish_llvm_ir(llvm_ir: bytes, dst: Path | None, emit: str, debug: bool = False) -> None:
     with tempfile.TemporaryDirectory(delete = not debug) as tmpdir:
         path = Path(tmpdir) / "input.ll"
-        path.write_bytes(llvm_ir)
+        # The MLIR round trip doesn't preserve the datalayout, so drop it and
+        # let clang derive it from the triple.
+        path.write_bytes(re.sub(rb"(?m)^target datalayout = .*\n", b"", llvm_ir))
         cmd = ["clang"]
         if emit == "object":
             cmd.append("-c")
