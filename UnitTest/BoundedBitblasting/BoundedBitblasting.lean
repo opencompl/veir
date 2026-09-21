@@ -4,25 +4,21 @@ import Veir.Meta.Tactic.PBVDecide
 example (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
   x + y = y + x := by
   pbv_decide 4
-  · bv_decide
 
 /-- Commutativity of addition with definitionally-not-syntactically equal widths -/
 example (w : Nat) (x : BitVec (w + 0)) (y : BitVec w) (hw : w ≤ 4) :
   x + y = y + x := by
   pbv_decide 4
-  · bv_decide
 
 /-- Commutativity of addition for three variables -/
 example (w : Nat) (x y z : BitVec w) (hw : w ≤ 4) :
   x + y + z = y + x + z := by
   pbv_decide 4
-  · bv_decide
 
 /-- Appending and adding -/
 example (w : Nat) (a b : BitVec w) (hw : w ≤ 8) :
   (a ++ b) + (b ++ a) = (a ++ a) + (b ++ b) := by
   pbv_decide 8
-  · bv_decide
 
 /-- Extending, adding and truncating is the same as adding -/
 example {w t v: Nat} (a b : BitVec w)
@@ -33,7 +29,6 @@ example {w t v: Nat} (a b : BitVec w)
   a + b = ((exta ++ a) + (extb ++ b)).setWidth w
   := by
   pbv_decide 16
-  · bv_decide
 
 /-- Zero extending a zero extension (≤, <) -/
 example (p q r : Nat) (x : BitVec p)
@@ -43,7 +38,6 @@ example (p q r : Nat) (x : BitVec p)
   (x.zeroExtend q).zeroExtend r = x.zeroExtend r
   := by
   pbv_decide 8
-  · bv_decide
 
 /-- Zero extending a zero extension (≥, >) -/
 example (p q r : Nat) (x : BitVec p)
@@ -53,7 +47,6 @@ example (p q r : Nat) (x : BitVec p)
   (x.zeroExtend q).zeroExtend r = x.zeroExtend r
   := by
   pbv_decide 8
-  · bv_decide
 
 /-- Double zero extending with conjunction condition -/
 example (p q r : Nat) (x : BitVec p)
@@ -62,7 +55,6 @@ example (p q r : Nat) (x : BitVec p)
   (x.zeroExtend q).zeroExtend r = x.zeroExtend r
   := by
   pbv_decide 8
-  · bv_decide
 
 /-- Double zero extending with composite width -/
 example (p q : Nat) (x : BitVec p)
@@ -71,7 +63,6 @@ example (p q : Nat) (x : BitVec p)
   (x.zeroExtend q).zeroExtend (q + q) = x.zeroExtend (q + q)
   := by
   pbv_decide 8
-  · bv_decide
 
 /-- Sign extending a sign extension -/
 example (p q r : Nat) (x : BitVec p)
@@ -81,7 +72,6 @@ example (p q r : Nat) (x : BitVec p)
   (x.signExtend q).signExtend r = x.signExtend r
   := by
   pbv_decide 8
-  · bv_decide
 
 /-- Sign extending a zero extension -/
 example (p q r : Nat) (x : BitVec p)
@@ -91,7 +81,6 @@ example (p q r : Nat) (x : BitVec p)
   (x.zeroExtend q).signExtend r = x.zeroExtend r
   := by
   pbv_decide 8
-  · bv_decide
 
 /-- Resizing preserves the msb iff the width is unchanged -/
 example (p w : Nat) (x : BitVec p)
@@ -100,127 +89,106 @@ example (p w : Nat) (x : BitVec p)
   (x.setWidth w).msb = x.msb
   := by
   pbv_decide 8
-  · bv_decide
 
 /-- A goal width defined by a sum only mentioned in a hypothesis (`=`). -/
 example (w v t : Nat) (x : BitVec w) (hw : w ≤ 4) (hv : v ≤ 4) (ht : t = w + v) :
   (x.zeroExtend t).setWidth w = x := by
   pbv_decide 4
-  · bv_decide
 
 /-- Nested sum in a hypothesis requires a blast width of three times the bound. -/
 example (u v w t : Nat) (x : BitVec w) (hu : u ≤ 4) (hv : v ≤ 4) (hw : w ≤ 4)
   (ht : t = u + v + w) :
   (x.zeroExtend t).setWidth w = x := by
   pbv_decide 4
-  · bv_decide
 
 /-- Sum in a hypothesis larger than any sum in the goal. -/
 example (w v : Nat) (a b : BitVec w) (hw : w ≤ 4) (hv : v ≤ 4) (h : w + w ≤ w + w + v) :
   (a ++ b) + (b ++ a) = (a ++ a) + (b ++ b) := by
   pbv_decide 4
-  · bv_decide
 
 /-- Sums in a hypothesis under a conjunction contribute to the blast width. -/
 example (w v : Nat) (x y : BitVec w) (hw : w ≤ 4) (hv : v ≤ 4) (h : w ≤ w + v ∧ v ≤ w + v) :
   x + y = y + x := by
   pbv_decide 4
-  · bv_decide
 
 /-- Sums in a hypothesis using `≥` contribute to the blast width. -/
 example (w v : Nat) (x y : BitVec w) (hw : w ≤ 4) (hv : v ≤ 4) (h : w + v ≥ v) :
   x + y = y + x := by
   pbv_decide 4
-  · bv_decide
 
 /-- Sums on both sides of a `<` hypothesis contribute to the blast width. -/
 example (w v : Nat) (x y : BitVec w) (hw : w ≤ 4) (hv : v ≤ 4) (h : w + w < w + v) :
   x + y = y + x := by
   pbv_decide 4
-  · bv_decide
 
 /-- Appending to a bitvector of literal width -/
 example (w : Nat) (x : BitVec w) (hw : w ≤ 10) :
   0#4 ++ x = x.zeroExtend (4 + w) := by
   pbv_decide 10
-  · bv_decide
 
 /-- Zero-extending by a literal amount preserves the value -/
 example (w : Nat) (x : BitVec w) (hw : w ≤ 8) :
   (x.zeroExtend (w + 2)).setWidth w = x := by
   pbv_decide 8
-  · bv_decide
 
 /-- A hypothesis containing a literal above the blast width -/
 example (w : Nat) (x y : BitVec w) (hw : w ≤ 4) (h : w < 9) :
   x + y = y + x := by
   pbv_decide 4
-  · bv_decide
 
 /-- Appending a literal-width bitvector as the low part -/
 example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
   x ++ 0#2 = (x ++ 0#1) ++ 0#1 := by
   pbv_decide 4
-  · bv_decide
 
 /-- Equality at a literal width -/
 example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
   (x ++ 0#2).setWidth 2 = 0#2 := by
   pbv_decide 4
-  · bv_decide
 
 /-- A variable of literal width above the bound -/
 example (w : Nat) (x y : BitVec w) (a b : BitVec 4) (hw : w ≤ 2) :
   x + y = y + x ∧ a + b = b + a := by
   pbv_decide 2
-  · bv_decide
 
 /-- A conjunction with a literal above the blast width -/
 example (w : Nat) (x y : BitVec w) (h : w ≤ 4 ∧ w < 9) :
   x + y = y + x := by
   pbv_decide 4
-  · bv_decide
 
 /-- A variable whose width is a raw `nat_lit` -/
 example (w : Nat) (x y : BitVec w) (a b : BitVec (nat_lit 4)) (hw : w ≤ 4) :
   x + y = y + x ∧ a + b = b + a := by
   pbv_decide 4
-  · bv_decide
 
 /-- A variable of width zero -/
 example (w : Nat) (x : BitVec w) (z : BitVec 0) (hw : w ≤ 4) :
   x ++ z = x ++ 0#0 := by
   pbv_decide 4
-  · bv_decide
 
 /-- The same literal as a variable width and in a hypothesis -/
 example (w : Nat) (x : BitVec w) (a : BitVec 4) (hw : w ≤ 4) :
   (a ++ x).setWidth w = x := by
   pbv_decide 4
-  · bv_decide
 
 /-- Sign extension to a literal width below the blast width -/
 example (w : Nat) (x : BitVec w) (hw : w ≤ 2) :
   (x.signExtend 3).setWidth w = x := by
   pbv_decide 4
-  · bv_decide
 
 /-- A sum with a literal on the larger side of a hypothesis -/
 example (w : Nat) (x y : BitVec w) (hw : w ≤ 4) (h : 1 ≤ w + 2) :
   x + y = y + x := by
   pbv_decide 4
-  · bv_decide
 
 /-- A variable whose width is a sum with a literal -/
 example (w : Nat) (x y : BitVec (w + 2)) (hw : w ≤ 4) :
   x + y = y + x := by
   pbv_decide 6 -- Need to extend the bound to account for the w + 2
-  · bv_decide
 
 example (w : Nat) (x : BitVec w) (hw : w ≤ 2) :
     (x.signExtend 4).setWidth w = x := by
   pbv_decide 4
-  · bv_decide
 
 -- # Expected Failures
 
@@ -235,10 +203,11 @@ x = 127#8
 example (p q r : Nat) (x : BitVec p) (hr : r ≤ 8) (h_qp : q < p) (h_pr : p < r) :
     (x.setWidth q).setWidth r = x.setWidth r := by
   pbv_decide 8
-  bv_decide
 
 /--
 warning: `grind` could not prove the following : p ≤ 8
+---
+error: unsolved goals
 p r : Nat
 x : BitVec p
 hr : r ≤ 8
@@ -249,11 +218,8 @@ h_m_w1_bv_mask : m_w1 &&& m_w1 + 1#8 = 0#8
 m_w0 : BitVec 8
 h_m_w0 : m_w0 = Veir.Data.PBV.maskOfWidth 8 p
 ⊢ p ≤ 8
----
-warning: declaration uses `sorry`
 -/
 #guard_msgs in
 example (p r : Nat) (x : BitVec p) (hr : r ≤ 8) :
     x.zeroExtend r = x.zeroExtend r := by
   pbv_decide 8
-  all_goals sorry
