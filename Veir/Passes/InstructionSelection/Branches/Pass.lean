@@ -11,7 +11,8 @@ public section
 # The pass computes a branch lowering
 
 `convertModule` succeeds only with a module that is the `BranchLowering` of its
-input, so the module it returns refines the one it was given.
+input, if the input verifies, so the module it returns refines the one it was
+given.
 -/
 
 namespace Veir
@@ -847,28 +848,6 @@ theorem PhaseB.foldArgs {ctx₀ ctx ctx' : WfIRContext OpCode} {done : List Bloc
           · exact hNotDone j (by simp [hj]) hMem) h
       exact ⟨argCast', by simpa using hInv'⟩
 
-theorem convertBlock_ok {ctx ctx' : WfIRContext OpCode} {block : BlockPtr}
-    (h : convertBlock ctx block = .ok ctx') :
-    isEntryBlock ctx.raw block = false ∧
-    (List.range (block.getNumArguments! ctx.raw)).foldlM (convertBlockArgument block) ctx =
-      .ok ctx' := by
-  simp only [convertBlock] at h
-  split at h
-  next => simp [throw, throwThe, MonadExceptOf.throw] at h
-  next hEntry => exact ⟨by simpa using hEntry, h⟩
-
-theorem isEntryBlock_eq {ctx₀ ctx : WfIRContext OpCode} (hCtx : CtxSame ctx₀.raw ctx.raw)
-    {block : BlockPtr} (blockIn₀ : block.InBounds ctx₀.raw) :
-    isEntryBlock ctx.raw block = isEntryBlock ctx₀.raw block := by
-  simp only [isEntryBlock, hCtx.blockParent blockIn₀]
-  split
-  next region hParent =>
-    have regionIn : region.InBounds ctx₀.raw := by
-      have := ctx₀.wellFormed.inBounds
-      grind
-    rw [hCtx.firstBlock regionIn]
-  next => rfl
-
 /-- The arguments of `block`, latest converted first. -/
 @[expose]
 def blockArgsReversed (ctx : IRContext OpCode) (block : BlockPtr) : List BlockArgumentPtr :=
@@ -879,7 +858,6 @@ structure PhaseBlocks (ctx₀ ctx : WfIRContext OpCode) (blocks : List BlockPtr)
     (done : List BlockArgumentPtr) (argCast : BlockArgumentPtr → OperationPtr) : Prop where
   phase : PhaseB ctx₀ ctx done argCast
   blocksIn : ∀ block ∈ blocks, block.InBounds ctx₀.raw
-  notEntry : ∀ block ∈ blocks, isEntryBlock ctx₀.raw block = false
   argsOf : ∀ block : BlockPtr, done.filter (·.block = block) =
     if block ∈ blocks then blockArgsReversed ctx₀.raw block else []
 
@@ -888,7 +866,8 @@ theorem PhaseBlocks.step {ctx₀ ctx ctx' : WfIRContext OpCode} {blocks : List B
     (hInv : PhaseBlocks ctx₀ ctx blocks done argCast) (blockIn₀ : block.InBounds ctx₀.raw)
     (hNotDone : block ∉ blocks) (h : convertBlock ctx block = .ok ctx') :
     ∃ done' argCast', PhaseBlocks ctx₀ ctx' (block :: blocks) done' argCast' := by
-  obtain ⟨hEntry, hFold⟩ := convertBlock_ok h
+  have hFold : (List.range (block.getNumArguments! ctx.raw)).foldlM
+      (convertBlockArgument block) ctx = .ok ctx' := h
   have hNum := hInv.phase.ctxSame.numArguments blockIn₀
   rw [hNum] at hFold
   have hNone : ∀ arg ∈ done, arg.block ≠ block := fun arg hArg hEq => by
@@ -902,13 +881,10 @@ theorem PhaseBlocks.step {ctx₀ ctx ctx' : WfIRContext OpCode} {blocks : List B
       have : i < block.getNumArguments! ctx₀.raw := by simpa using hi
       grind⟩)
     List.nodup_range (fun i _ hMem => hNone _ hMem rfl) hFold
-  refine ⟨_, argCast', hPhase, fun b hb => ?_, fun b hb => ?_, fun b => ?_⟩
+  refine ⟨_, argCast', hPhase, fun b hb => ?_, fun b => ?_⟩
   · rcases List.mem_cons.mp hb with rfl | hb
     · exact blockIn₀
     · exact hInv.blocksIn b hb
-  · rcases List.mem_cons.mp hb with rfl | hb
-    · rw [← isEntryBlock_eq hInv.phase.ctxSame blockIn₀]; exact hEntry
-    · exact hInv.notEntry b hb
   · rw [List.filter_append]
     by_cases hEq : b = block
     · subst hEq
@@ -1001,7 +977,10 @@ def BranchLowering.ofPhases (hA : PhaseA ctx₀ ctxA doneOps operandCast newBran
     (hDone : ∀ o : OperationPtr, o.InBounds ctx₀.raw → o ∈ doneOps)
     (hB : PhaseBlocks ctxA ctx' blocks doneArgs argCast)
     (hTargets : ∀ (op : OperationPtr) (block : BlockPtr), op.InBounds ctx₀.raw →
-      op.IsLlvmBranch ctx₀.raw → block ∈ op.getSuccessors! ctx₀.raw → block ∈ blocks) :
+      op.IsLlvmBranch ctx₀.raw → block ∈ op.getSuccessors! ctx₀.raw → block ∈ blocks)
+    (hBranchedTo : ∀ block ∈ blocks, ∃ op : OperationPtr, op.InBounds ctx₀.raw ∧
+      block ∈ op.getSuccessors! ctx₀.raw)
+    {root : OperationPtr} (hVerified : ctx₀.Verified root) :
     BranchLowering ctx₀ ctx' where
   converted := fun block => decide (block ∈ blocks)
   argCast := argCast
@@ -1030,13 +1009,12 @@ def BranchLowering.ofPhases (hA : PhaseA ctx₀ ctxA doneOps operandCast newBran
   entryNotConverted := fun {region block} regionIn hFirst => by
     apply Classical.byContradiction
     intro hConverted
-    have hMem : block ∈ blocks := by simpa using hConverted
-    have blockIn : block.InBounds ctx₀.raw := by
-      have := ctx₀.wellFormed.inBounds
-      grind
-    have hEntry := hB.notEntry block hMem
-    rw [isEntryBlock_eq hA.ctxSame blockIn] at hEntry
-    simp [isEntryBlock, RegionPtr.parent_of_firstBlock regionIn hFirst, hFirst] at hEntry
+    /- A converted block is branched to, which the verifier forbids for an entry block. -/
+    obtain ⟨op, opIn, hSuccessor⟩ := hBranchedTo block (by simpa using hConverted)
+    exact BlockPtr.firstUse_ne_none_of_successor opIn hSuccessor
+      (hVerified.entryBlock_firstUse_eq_none
+        (OperationPtr.getSuccessors!_inBounds opIn hSuccessor)
+        (RegionPtr.parent_of_firstBlock regionIn hFirst) hFirst)
   argTypeConverted := fun {block i} blockIn hConverted hi => by
     have hMem : block ∈ blocks := by simpa using hConverted
     have argIn₀ : (ValuePtr.blockArgument (block.getArgument i)).InBounds ctx₀.raw := by
@@ -1148,8 +1126,9 @@ end assemble
 /-! ## The pass -/
 
 /-- A module that `convertModule` returns is the branch lowering of its input. -/
-theorem convertModule_branchLowering {ctx ctx' : WfIRContext OpCode}
-    (h : convertModule ctx = .ok ctx') : Nonempty (BranchLowering ctx ctx') := by
+theorem convertModule_branchLowering {ctx ctx' : WfIRContext OpCode} {root : OperationPtr}
+    (hVerified : ctx.Verified root) (h : convertModule ctx = .ok ctx') :
+    Nonempty (BranchLowering ctx ctx') := by
   simp only [convertModule, bind, Except.bind] at h
   split at h
   next => simp at h
@@ -1179,19 +1158,28 @@ theorem convertModule_branchLowering {ctx ctx' : WfIRContext OpCode}
         · simp at hMem
       obtain ⟨doneArgs, argCast, hB, hBlocks⟩ :=
         (PhaseBlocks.foldlM (argCast := fun _ => default)
-          ⟨PhaseB.init, fun _ h => by simp at h, fun _ h => by simp at h, fun _ => by simp⟩
+          ⟨PhaseB.init, fun _ h => by simp at h, fun _ => by simp⟩
           hTargetsIn hConvert)
       refine ⟨BranchLowering.ofPhases hA (fun o oIn => (hDoneOps o).mpr (.inl ((hKeys o).mpr oIn)))
-        hB (fun op block opIn hBranch hMem => (hBlocks block).mpr (.inl ?_))⟩
-      exact List.mem_flatMap.mpr ⟨op, (hKeys op).mpr opIn, by simp [hBranch, hMem]⟩
+        hB (fun op block opIn hBranch hMem => (hBlocks block).mpr (.inl ?_))
+        (fun block hBlock => ?_) hVerified⟩
+      · exact List.mem_flatMap.mpr ⟨op, (hKeys op).mpr opIn, by simp [hBranch, hMem]⟩
+      · rcases (hBlocks block).mp hBlock with hTarget | hNil
+        · obtain ⟨op, hOp, hMem⟩ := List.mem_flatMap.mp hTarget
+          split at hMem
+          · exact ⟨op, (hKeys op).mp hOp, by simpa using hMem⟩
+          · simp at hMem
+        · simp at hNil
 
 /--
-  The RISC-V branch lowering refines the module: every function of the input is
-  refined by the function of the same name in the module the pass returns.
+  The RISC-V branch lowering refines a module that verifies: every function of
+  the input is refined by the function of the same name in the module the pass
+  returns.
 -/
-theorem convertModule_isModuleRefinedBy {ctx ctx' : WfIRContext OpCode}
-    (h : convertModule ctx = .ok ctx') (module : OperationPtr) :
+theorem convertModule_isModuleRefinedBy {ctx ctx' : WfIRContext OpCode} {root : OperationPtr}
+    (hVerified : ctx.Verified root) (h : convertModule ctx = .ok ctx') (module : OperationPtr) :
     module.isModuleRefinedBy ctx module ctx' :=
-  (convertModule_branchLowering h).elim fun lowering => lowering.isModuleRefinedBy module
+  (convertModule_branchLowering hVerified h).elim fun lowering =>
+    lowering.isModuleRefinedBy module
 
 end Veir

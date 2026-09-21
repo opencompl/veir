@@ -17,8 +17,10 @@ namespace Veir
   cast back to their original type at the start of the block.
 
   The pass rejects a module it cannot lower correctly: a value passed along a
-  branch must fit a register, a terminator with successors must be one of the
-  two LLVM branches, and the entry block of a region must not be branched to.
+  branch must fit a register, and a terminator with successors must be one of
+  the two LLVM branches. It expects a module that verifies, in which the entry
+  block of a region is not branched to, since the arguments of an entry block
+  are those of the enclosing operation and cannot become registers.
 -/
 
 /--
@@ -133,21 +135,10 @@ public def convertBlockArgument (block : BlockPtr) (ctx : WfIRContext OpCode) (i
       pure (WfRewriter.pushOperand! ctx cast arg)
     | none => throw "isel-br-riscv64: cannot cast a block argument back to its type"
 
-/-- Whether `block` is the first block of its region. -/
-@[expose]
-public def isEntryBlock (ctx : IRContext OpCode) (block : BlockPtr) : Bool :=
-  match (block.get! ctx).parent with
-  | some region => (region.get! ctx).firstBlock == some block
-  | none => false
-
 /-- Turn the arguments of `block` into registers. -/
 public def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr)
     : Except String (WfIRContext OpCode) :=
-  -- The arguments of an entry block are those of the enclosing operation.
-  if isEntryBlock ctx.raw block then
-    throw "isel-br-riscv64: the entry block of a region is branched to"
-  else
-    (List.range (block.getNumArguments! ctx.raw)).foldlM (convertBlockArgument block) ctx
+  (List.range (block.getNumArguments! ctx.raw)).foldlM (convertBlockArgument block) ctx
 
 /-- Convert `block` unless it is among the blocks that are `done`. -/
 public def convertBlockOnce (acc : WfIRContext OpCode × List BlockPtr) (block : BlockPtr)

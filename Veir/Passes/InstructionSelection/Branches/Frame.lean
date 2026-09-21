@@ -211,6 +211,30 @@ theorem OperationPtr.getSuccessors!_inBounds {ctx : WfIRContext OpCode} {op : Op
   have := hFields.value_inBounds
   grind [OperationPtr.getSuccessor!, BlockOperandPtr.get!]
 
+/-- A block that an operation branches to has a use. -/
+theorem BlockPtr.firstUse_ne_none_of_successor {ctx : WfIRContext OpCode} {op : OperationPtr}
+    {block : BlockPtr} (opIn : op.InBounds ctx.raw) (h : block ∈ op.getSuccessors! ctx.raw) :
+    (block.get! ctx.raw).firstUse ≠ none := by
+  have blockIn := OperationPtr.getSuccessors!_inBounds opIn h
+  obtain ⟨index, hIndex, hValue⟩ := OperationPtr.getSuccessors!.mem_iff_exists_index.mp h
+  have useIn : (op.getBlockOperand index).InBounds ctx.raw := by
+    grind [BlockOperandPtr.InBounds, OperationPtr.getNumSuccessors!]
+  have hUse : ((op.getBlockOperand index).get! ctx.raw).value = block := by
+    grind [OperationPtr.getSuccessor!, BlockOperandPtr.get!]
+  obtain ⟨array, hChain⟩ := ctx.wellFormed.blockDefUseChains block blockIn
+  have hMem : op.getBlockOperand index ∈ array := by
+    have := hChain.allUsesInChain (op.getBlockOperand index) useIn hUse
+    grind
+  have hFirst := hChain.firstElem
+  obtain ⟨i, hi, _⟩ := Array.getElem_of_mem hMem
+  intro hNone
+  rw [hNone] at hFirst
+  have : array.size = 0 := by
+    cases hSize : array.size with
+    | zero => rfl
+    | succ n => simp [Array.getElem?_eq_getElem (show 0 < array.size by omega)] at hFirst
+  omega
+
 /-- The first block of a region has that region as its parent. -/
 theorem RegionPtr.parent_of_firstBlock {ctx : WfIRContext OpCode} {region : RegionPtr}
     {block : BlockPtr} (regionIn : region.InBounds ctx.raw)
