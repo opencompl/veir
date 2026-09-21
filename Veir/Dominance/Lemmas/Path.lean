@@ -139,6 +139,14 @@ theorem split_of_mem
         exists source :: pre, post
         grind [.Cons]
 
+/-- Create a path from a known successor edge. -/
+theorem of_successor
+    (successorEdge : successor ∈ source.getSuccessors! ctx.raw)
+    (sourceParent : (source.get! ctx.raw).parent = some region)
+    (successorParent : (successor.get! ctx.raw).parent = some region) :
+    region.Path ctx source successor [source, successor] := by
+  exact Path.Cons sourceParent successorEdge (Path.Single successorParent)
+
 end RegionPtr.Path
 
 namespace BlockPtr.ReachableFromEntry
