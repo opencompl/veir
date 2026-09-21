@@ -144,6 +144,16 @@ theorem trans
   | single => grind [cases ParentPath]
   | cons immediate _ ih => exact ParentPath.cons immediate (ih upper)
 
+theorem split_of_parent
+    (path : ParentPath ctx descendant ancestor nodes)
+    (hparent : descendant.parent! ctx = some parent)
+    (hne : descendant ≠ ancestor)
+    : ParentPath ctx parent ancestor nodes.tail := by
+  cases path <;> grind
+
+grind_pattern split_of_parent =>
+    ParentPath ctx descendant ancestor nodes, descendant.parent! ctx, some parent where
+  guard descendant.parent! ctx = some parent
 
 end ParentPath
 
@@ -153,6 +163,39 @@ end ParentPath
 def Ancestor (ancestor descendant : IRNode)
     (ctx : WfIRContext OpInfo) : Prop :=
   ∃ nodes, ParentPath ctx descendant ancestor nodes
+
+/-- Non-reflexive, finite ancestry through nesting parent edges. -/
+def ProperAncestor (ancestor descendant : IRNode)
+    (ctx : WfIRContext OpInfo) : Prop :=
+  ancestor.Ancestor descendant ctx ∧ ancestor ≠ descendant
+
+/-- Definition of proper ancestry. -/
+theorem properAncestor_def {ancestor descendant : IRNode} :
+    ancestor.ProperAncestor descendant ctx ↔
+      ancestor.Ancestor descendant ctx ∧ ancestor ≠ descendant := by
+  rfl
+
+namespace ProperAncestor
+
+/-! Conversions between Ancestor and ProperAncestor. -/
+
+variable {ancestor descendant parent child child₁ child₂ : IRNode}
+
+/-- A distinct ancestor is a proper ancestor. -/
+theorem of_ancestor_ne
+    (ancestry : ancestor.Ancestor descendant ctx)
+    (ancestorNeDescendant : ancestor ≠ descendant) :
+    ancestor.ProperAncestor descendant ctx :=
+  ⟨ancestry, ancestorNeDescendant⟩
+
+/-- Proper ancestry implies ancestry. -/
+@[grind →]
+theorem toAncestor
+    (ancestry : ancestor.ProperAncestor descendant ctx) :
+    ancestor.Ancestor descendant ctx :=
+  ancestry.1
+
+end ProperAncestor
 
 namespace Ancestor
 
@@ -216,7 +259,77 @@ theorem of_getParentOp!_eq_some {child parent : OperationPtr}
   apply IRNode.Ancestor.trans_parent_ancestor (middle := .operation child); grind
   grind
 
+/-- An ancestry relation is either proper or relates a node to itself. -/
+theorem proper_or_eq
+    (ancestry : ancestor.Ancestor descendant ctx) :
+    ancestor.ProperAncestor descendant ctx ∨ ancestor = descendant := by
+  by_cases ancestorEq : ancestor = descendant
+  · exact Or.inr ancestorEq
+  · exact Or.inl ⟨ancestry, ancestorEq⟩
+
+theorem proper_of_ne
+    (ancestry : ancestor.Ancestor descendant ctx)
+    (ancestorNeDescendant : ancestor ≠ descendant) :
+    ancestor.ProperAncestor descendant ctx :=
+  ⟨ancestry, ancestorNeDescendant⟩
+
 end Ancestor
+
+namespace ProperAncestor
+
+variable {ancestor descendant parent child child₁ child₂ : IRNode}
+
+/-- A proper ancestor is distinct. -/
+@[grind →]
+theorem ne
+    (ancestry : ancestor.ProperAncestor descendant ctx) :
+    ancestor ≠ descendant :=
+  ancestry.2
+
+/-- No IR node is its own proper ancestor. -/
+@[simp]
+theorem irrefl : ¬ancestor.ProperAncestor ancestor ctx := by
+  simp [ProperAncestor]
+
+/-- An immediate parent is a proper ancestor. -/
+theorem of_parent (immediate : child.parent! ctx = some parent) :
+    parent.ProperAncestor child ctx :=
+  ⟨Ancestor.of_parent immediate, (child_ne_parent immediate).symm⟩
+
+theorem ancestor_parent
+    (hAncestor : ancestor.ProperAncestor descendant ctx)
+    (hParent : descendant.parent! ctx = some parent) :
+    ancestor.Ancestor parent ctx := by
+  obtain ⟨nodes, path⟩ := hAncestor.toAncestor.exists_parentPath
+  grind
+
+grind_pattern ancestor_parent =>
+    IRNode.ProperAncestor ancestor descendant ctx, descendant.parent! ctx, some parent where
+  guard descendant.parent! ctx = some parent
+
+theorem ancestor_of_ancestor_parent_right
+    (hAncestor : ancestor.Ancestor parent ctx)
+    (hParent : descendant.parent! ctx = some parent) :
+    ancestor.Ancestor descendant ctx := by
+  obtain ⟨nodes, path⟩ := hAncestor.exists_parentPath
+  apply Ancestor.of_parentPath (nodes := descendant::nodes)
+  grind [ParentPath.cons]
+
+grind_pattern ancestor_of_ancestor_parent_right =>
+    ancestor.Ancestor parent ctx, descendant.parent! ctx, some parent where
+  guard descendant.parent! ctx = some parent
+
+end ProperAncestor
+
+/--
+A proper block ancestor of one block is an ancestor of every block in the same region.
+-/
+theorem Ancestor.of_same_parent_of_properAncestor {ancestor : IRNode}
+    (hAncestor : ancestor.ProperAncestor child₁ ctx)
+    (hParent₁ : child₁.parent! ctx = some parent)
+    (hParent₂ : child₂.parent! ctx = some parent) :
+    ancestor.Ancestor child₂ ctx := by
+  grind
 
 end IRNode
 
