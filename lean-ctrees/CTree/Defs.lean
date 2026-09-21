@@ -436,6 +436,7 @@ theorem approx_pure_succ (r : α) n :
   (pure r : CTree _ _ _).approx (n + 1) = CTreeF.ret (E := E) (C := C) r := by
     simp [pure]
 
+@[simp, grind =]
 theorem id_map : ∀ (x : CTree E C R), id <$> x = x := by
   simp only [Functor.map, Function.comp_id]
   intro t
