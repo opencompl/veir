@@ -376,6 +376,10 @@ theorem Except.bind_eq_ok {ε : Type u} {α β : Type v} {x : Except ε α} {f :
     {b : β} : x >>= f = .ok b ↔ ∃ a, x = .ok a ∧ f a = .ok b := by
   cases x <;> simp [bind, Except.bind]
 
+theorem Except.eq_ok_of_mapError_eq_ok {ε ε' : Type u} {α : Type v} {f : ε → ε'}
+    {x : Except ε α} {a : α} (h : Except.mapError f x = .ok a) : x = .ok a := by
+  cases x <;> simp_all [Except.mapError]
+
 /-- A loop over a list in `Except` that succeeds ran its body successfully on every element. -/
 theorem List.forM_except_ok {ε : Type u} {α : Type v} {l : List α} {f : α → Except ε PUnit}
     (h : forM l f = .ok ⟨⟩) : ∀ a ∈ l, f a = .ok ⟨⟩ := by

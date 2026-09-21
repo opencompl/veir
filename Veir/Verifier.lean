@@ -451,10 +451,20 @@ def OperationPtr.Verified (ctx : WfIRContext OpCode) (op : OperationPtr)
 If the context satisfies the invariants of all operations, any operation in bounds is verified.
 -/
 @[grind →]
-axiom OperationPtr.satisfyInvariants_of_IRContext_satisfyOpInvariants {ctx : WfIRContext OpCode}
+theorem OperationPtr.satisfyInvariants_of_IRContext_satisfyOpInvariants {ctx : WfIRContext OpCode}
     {op root : OperationPtr} (ctxVerify : ctx.Verified root)
     (opInBounds : op.InBounds ctx.raw := by grind) :
-    op.Verified ctx opInBounds
+    op.Verified ctx opInBounds := by
+  unfold WfIRContext.Verified WfIRContext.verify at ctxVerify
+  dsimp only at ctxVerify
+  split at ctxVerify
+  · cases ctxVerify
+  split at ctxVerify
+  · cases ctxVerify
+  obtain ⟨_, hOps, -⟩ := Except.bind_eq_ok.mp ctxVerify
+  have hOp := IRContext.forOpsDepM_except_ok hOps op opInBounds
+  obtain ⟨_, hLocal, -⟩ := Except.bind_eq_ok.mp (Except.eq_ok_of_mapError_eq_ok hOp)
+  exact hLocal
 
 /-!
 ## Lemmas for verified operations
