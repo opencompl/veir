@@ -111,24 +111,6 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 namespace IntegerAttr
 
 /--
-  Whether the literal fits the attribute's declared width.
-
-  An MLIR `IntegerAttr` of width `N` *is* an `APInt` of width `N`, so the
-  literal has to fit in it: `buildAttributeAPInt` in
-  `mlir/lib/AsmParser/AttributeParser.cpp` accepts a non-negative literal below
-  `2 ^ N` and a negative literal down to `-2 ^ (N - 1)`, and reports anything
-  else as "integer constant out of range for attribute".
--/
-def literalInRange (attr : IntegerAttr) : Bool :=
-  let width := attr.type.bitwidth
-  if width = 0 then
-    attr.value = 0
-  else if attr.value < 0 then
-    -(2 ^ (width - 1) : Int) ≤ attr.value
-  else
-    attr.value < (2 ^ width : Int)
-
-/--
   Reduce the literal to the attribute's declared width, the way MLIR does when
   it builds the `APInt` at parse time. The stored value is the one the printer
   reads back: the signed interpretation of the `N` bits, except at width 1,
@@ -146,9 +128,20 @@ def normalize (attr : IntegerAttr) : IntegerAttr :=
   Normalize a parsed literal to its attribute width, rejecting one that the
   width cannot represent. Use this wherever an `IntegerAttr` comes in from the
   parser and is meant to behave like an upstream MLIR `IntegerAttr`.
+
+  An MLIR `IntegerAttr` of width `N` *is* an `APInt` of width `N`, so the
+  literal has to fit in it: `buildAttributeAPInt` in
+  `mlir/lib/AsmParser/AttributeParser.cpp` accepts a non-negative literal below
+  `2 ^ N` and a negative literal down to `-2 ^ (N - 1)`, and reports anything
+  else as "integer constant out of range for attribute".
 -/
 def ofLiteral (attr : IntegerAttr) : Except String IntegerAttr :=
-  if attr.literalInRange then
+  let width := attr.type.bitwidth
+  let inRange : Bool :=
+    if width = 0 then attr.value = 0
+    else if attr.value < 0 then -(2 ^ (width - 1) : Int) ≤ attr.value
+    else attr.value < (2 ^ width : Int)
+  if inRange then
     .ok attr.normalize
   else
     .error "integer constant out of range for attribute"
