@@ -27,7 +27,7 @@ theorem add_widening (w t : Nat) (i i' : LLVM.Int w) (ext ext' : BitVec (t - w))
   veir_bv_normalize
   constructor; simp
   intros
-  pbv_decide 16
+  pbv_decide 64
   bv_decide
 
 end Veir.Data.LLVM
