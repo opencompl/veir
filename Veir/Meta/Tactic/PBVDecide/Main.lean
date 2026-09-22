@@ -799,9 +799,9 @@ meta def closeWithBvDecide (goal : MVarId) (widthInfos : WidthInfos) (bvInfos : 
     match ← Grind.GrindM.run (params := params)
             <| bvDecide' (.mvarIdTarget goal) ctx with
     | .ok _ => return
-    | .error counterExample =>
+    | .error counterExample => counterExample.goal.withContext do
         let error ← prettyPrintCounterExample counterExample widthInfos bvInfos
-        throwError error
+        throwError (← addMessageContextFull error)
 
 /--
 Translate the goal from a parametric multi-width goal into a concrete width goal

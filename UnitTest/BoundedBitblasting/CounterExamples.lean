@@ -1,13 +1,7 @@
 import Veir.Meta.PBVDecide
 
 /--
-error: `bv_decide` found a potentially spurious counterexample:
-- The following expressions were abstracted as opaque variables:
-    - Veir.Data.PBV.maskOfWidth 8 r = 0xff#8
-    - Veir.Data.PBV.maskOfWidth 8 q = 0x00#8
-    - Veir.Data.PBV.maskOfWidth 8 p = 0x7f#8
-    - Veir.Data.PBV.maskOfWidth 8 8 = 0xff#8
-Consider the following assignment:
+error: `bv_decide` found a counterexample, consider the following assignment:
   r = 8  	(m_w1 = 0xff#8)
   q = 0  	(m_w2 = 0x00#8)
   p = 7  	(m_w0 = 0x7f#8)
@@ -19,20 +13,10 @@ example (p q r : Nat) (x : BitVec p) (hr : r ≤ 8) (h_qp : q < p) (h_pr : p < r
   pbv_decide 8
 
 /--
-error: The prover found a potentially spurious counterexample:
-- It abstracted the following unsupported expressions as opaque variables:
-  - Veir.Data.PBV.maskOfWidth 8 p
-  - Veir.Data.PBV.maskOfWidth 8 8
-  - Veir.Data.PBV.maskOfWidth 8 q
-  - Veir.Data.PBV.maskOfWidth 8 r
-Consider the following assignment:
+error: The prover found a counterexample, consider the following assignment:
 m_w1 = 255#8
-Veir.Data.PBV.maskOfWidth 8 r = 255#8
 m_w2 = 0#8
-Veir.Data.PBV.maskOfWidth 8 q = 0#8
 m_w0 = 127#8
-Veir.Data.PBV.maskOfWidth 8 p = 127#8
-Veir.Data.PBV.maskOfWidth 8 8 = 255#8
 x = 127#8
 -/
 #guard_msgs in

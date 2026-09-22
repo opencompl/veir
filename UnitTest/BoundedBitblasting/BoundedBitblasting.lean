@@ -192,12 +192,29 @@ example (w : Nat) (x : BitVec w) (hw : w ≤ 2) :
 
 -- # Expected Failures
 
+-- Expected failure: at the blast width, the `setWidth` around `signExtend` is simplified away before `signExtend` is pushed
 /--
-error: The prover found a counterexample, consider the following assignment:
-m_w1 = 255#8
-m_w2 = 0#8
-m_w0 = 127#8
-x = 127#8
+error: The prover found a potentially spurious counterexample:
+- It abstracted the following unsupported expressions as opaque variables:
+  - BitVec.signExtend 4 (BitVec.setWidth w x)
+Consider the following assignment:
+m_w0 = 3#4
+x = 3#4
+BitVec.signExtend 4 (BitVec.setWidth w x) = 13#4
+-/
+#guard_msgs in
+example (w : Nat) (x : BitVec w) (hw : w ≤ 2) :
+    (x.signExtend 4).setWidth w = x := by
+  pbv_decide 4
+
+
+
+/--
+error: `bv_decide` found a counterexample, consider the following assignment:
+  r = 8  	(m_w1 = 0xff#8)
+  q = 0  	(m_w2 = 0x00#8)
+  p = 7  	(m_w0 = 0x7f#8)
+  x = 0x7f#7  	(x = 0x7f#8)
 -/
 #guard_msgs in
 example (p q r : Nat) (x : BitVec p) (hr : r ≤ 8) (h_qp : q < p) (h_pr : p < r) :
