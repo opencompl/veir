@@ -19,6 +19,11 @@ namespace Pointer
 /-- The null pointer. -/
 def null : Pointer := ⟨0, 0⟩
 
+/-
+TODO: we should eventually add an interface that lets us check if the
+address of any pointer happens to be null: addr(p) == 0.
+-/
+
 instance : ToString Pointer where
   toString p := s!"ptr({p.object}, {p.offset})"
 
