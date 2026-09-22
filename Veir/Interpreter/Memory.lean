@@ -82,7 +82,7 @@ def MemoryState.storeByte64 (mem : MemoryState) (p : Pointer) (v : Data.LLVM.Byt
 -/
 def MemoryState.llvmStore (mem : MemoryState) (p : Pointer) (val : RuntimeValue)
     : Interp MemoryState :=
-  if p.isNull then Interp.ub else
+  if p = .null then Interp.ub else
   match val with
   | .int 8 (.val v) => mem.store p (ByteArray.empty.push (UInt8.ofBitVec v))
   | .int 16 (.val v) => mem.store p (UInt16.ofBitVec v).toByteArrayLE
@@ -150,7 +150,7 @@ def MemoryState.loadByte64 (mem : MemoryState) (p : Pointer) : Interp (Data.LLVM
 -/
 def MemoryState.llvmLoad (mem : MemoryState) (p : Pointer) (type : TypeAttr)
     : Interp RuntimeValue := do
-  if p.isNull then Interp.ub else
+  if p = .null then Interp.ub else
   match type.val with
   | Attribute.integerType { bitwidth := 8 } =>
       let ba ← mem.load p 1

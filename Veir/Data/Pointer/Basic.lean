@@ -19,8 +19,6 @@ namespace Pointer
 /-- The null pointer. -/
 def null : Pointer := ⟨0, 0⟩
 
-def isNull (p : Pointer) : Bool := p == null
-
 instance : ToString Pointer where
   toString p := s!"ptr({p.object}, {p.offset})"
 
