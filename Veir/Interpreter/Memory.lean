@@ -7,6 +7,7 @@ public import Veir.Interpreter.Interp
 public section
 
 open Veir.Data
+open Veir.Data.LLVM (Ptr)
 
 namespace Veir
 
