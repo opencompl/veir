@@ -1,0 +1,78 @@
+import Veir.Meta.PBVDecide
+
+/--
+error: `bv_decide` found a potentially spurious counterexample:
+- The following expressions were abstracted as opaque variables:
+    - Veir.Data.PBV.maskOfWidth 8 r = 0xff#8
+    - Veir.Data.PBV.maskOfWidth 8 q = 0x00#8
+    - Veir.Data.PBV.maskOfWidth 8 p = 0x7f#8
+    - Veir.Data.PBV.maskOfWidth 8 8 = 0xff#8
+Consider the following assignment:
+  r = 8  	(m_w1 = 0xff#8)
+  q = 0  	(m_w2 = 0x00#8)
+  p = 7  	(m_w0 = 0x7f#8)
+  x = 0x7f#7  	(x = 0x7f#8)
+-/
+#guard_msgs in
+example (p q r : Nat) (x : BitVec p) (hr : r ≤ 8) (h_qp : q < p) (h_pr : p < r) :
+    (x.setWidth q).setWidth r = x.setWidth r := by
+  pbv_decide 8
+
+/--
+error: The prover found a potentially spurious counterexample:
+- It abstracted the following unsupported expressions as opaque variables:
+  - Veir.Data.PBV.maskOfWidth 8 p
+  - Veir.Data.PBV.maskOfWidth 8 8
+  - Veir.Data.PBV.maskOfWidth 8 q
+  - Veir.Data.PBV.maskOfWidth 8 r
+Consider the following assignment:
+m_w1 = 255#8
+Veir.Data.PBV.maskOfWidth 8 r = 255#8
+m_w2 = 0#8
+Veir.Data.PBV.maskOfWidth 8 q = 0#8
+m_w0 = 127#8
+Veir.Data.PBV.maskOfWidth 8 p = 127#8
+Veir.Data.PBV.maskOfWidth 8 8 = 255#8
+x = 127#8
+-/
+#guard_msgs in
+example (p q r : Nat) (x : BitVec p) (hr : r ≤ 8) (h_qp : q < p) (h_pr : p < r) :
+    (x.setWidth q).setWidth r = x.setWidth r := by
+  pbv_decide? 8
+  bv_decide
+
+/--
+warning: `grind` could not prove the following : q ≤ 8
+p q r : Nat
+x : BitVec p
+hr : r ≤ 8
+h_qp : p < q
+h_pr : p < r
+m_w1 : BitVec 8
+h_m_w1 : m_w1 = Veir.Data.PBV.maskOfWidth 8 r
+h_m_w1_le_blast : r ≤ 8
+h_m_w1_bv_mask : m_w1 &&& m_w1 + 1#8 = 0#8
+m_w2 : BitVec 8
+h_m_w2 : m_w2 = Veir.Data.PBV.maskOfWidth 8 q
+⊢ q ≤ 8
+---
+error: unsolved goals
+case grind
+p q r : Nat
+x : BitVec p
+hr : r ≤ 8
+h_qp : p < q
+h_pr : p < r
+m_w1 : BitVec 8
+h_m_w1 : m_w1 = Veir.Data.PBV.maskOfWidth 8 r
+h_m_w1_le_blast : r ≤ 8
+h_m_w1_bv_mask : m_w1 &&& m_w1 + 1#8 = 0#8
+m_w2 : BitVec 8
+h_m_w2 : m_w2 = Veir.Data.PBV.maskOfWidth 8 q
+h : 9 ≤ q
+⊢ False
+-/
+#guard_msgs in
+example (p q r : Nat) (x : BitVec p) (hr : r ≤ 8) (h_qp : p < q) (h_pr : p < r) :
+    (x.setWidth q).setWidth r = x.setWidth r := by
+  pbv_decide 8

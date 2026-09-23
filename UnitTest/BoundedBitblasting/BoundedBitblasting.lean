@@ -223,3 +223,17 @@ h_m_w0 : m_w0 = Veir.Data.PBV.maskOfWidth 8 p
 example (p r : Nat) (x : BitVec p) (hr : r ≤ 8) :
     x.zeroExtend r = x.zeroExtend r := by
   pbv_decide 8
+  all_goals sorry
+
+/-- Solve by first normalising and then discharging all the generated goals. -/
+example (p q r : Nat) (x : BitVec p) (hr : r ≤ 8) (hq : q < 8) (h_qp : p < q) (h_pr : p < r) :
+    (x.setWidth q).setWidth r = x.setWidth r := by
+  pbv_normalise 8
+  bv_decide
+  all_goals grind
+
+/-- Solve by translating to the masked version and manually calling `bv_decide` -/
+example (p q r : Nat) (x : BitVec p) (hr : r ≤ 8) (hq : q < 8) (h_qp : p < q) (h_pr : p < r) :
+    (x.setWidth q).setWidth r = x.setWidth r := by
+  pbv_decide? 8
+  bv_decide
