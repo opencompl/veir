@@ -34,3 +34,8 @@ meta def F₂ : QPFExpr u n :=
   mkProj _ 2
 
 run_meta F₂.check
+
+meta def G : MetaM (QPFExpr u n) :=
+  mkComp (mkProj u 1) #v[F₀, F₂]
+
+run_meta (← G).check
