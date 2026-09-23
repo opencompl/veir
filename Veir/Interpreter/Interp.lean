@@ -31,6 +31,34 @@ def Interp.map {α β : Type} (f : α → β) : Interp α → Interp β
 @[simp, grind =] theorem Interp.map_ub : Interp.map f (.ub op) = .ub op := rfl
 @[simp, grind =] theorem Interp.map_ok : Interp.map f (.ok a) = .ok (f a) := rfl
 
+/--
+Handle successful outcomes separately, passing UB and failure to a shared handler.
+The error handler's value type may differ, since neither outcome carries a value.
+Keep symbolic outcomes folded; simplify only when their constructor is known.
+-/
+@[expose]
+def Interp.foldProp {α β : Type} (r : Interp α) (onOk : α → Prop)
+    (onError : Interp β → Prop) : Prop :=
+  match r with
+  | .ok a => onOk a
+  | .ub op => onError (.ub op)
+  | .fail op => onError (.fail op)
+
+@[simp, grind =] theorem Interp.foldProp_ok (onOk : α → Prop) (onError : Interp β → Prop) :
+    Interp.foldProp (.ok a) onOk onError = onOk a := rfl
+@[simp, grind =] theorem Interp.foldProp_ub (onOk : α → Prop) (onError : Interp β → Prop) :
+    Interp.foldProp (.ub op) onOk onError = onError (.ub op) := rfl
+@[simp, grind =] theorem Interp.foldProp_fail (onOk : α → Prop) (onError : Interp β → Prop) :
+    Interp.foldProp (.fail op) onOk onError = onError (.fail op) := rfl
+
+/-- An error handler never uses a nested fold's success continuation. -/
+@[simp]
+theorem Interp.foldProp_onError (r : Interp α) (onOk : α → Prop)
+    (next : β → Prop) (onError : Interp γ → Prop) :
+    r.foldProp onOk (fun outcome => outcome.foldProp next onError) =
+      r.foldProp onOk onError := by
+  cases r <;> rfl
+
 instance : Monad Interp where
   pure x := .ok x
   bind x f := match x with

@@ -1383,7 +1383,12 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     | .integer intAttr =>
       let .integerType bw := resType.val
         | none
-      let value := BitVec.ofInt bw.bitwidth intAttr.value
+      -- Decode the attribute at its own width before adapting to the SSA result.
+      -- Boolean constants zero-extend; other integer encodings sign-extend.
+      let encoded := BitVec.ofInt intAttr.type.bitwidth intAttr.value
+      let value := match intAttr.type.bitwidth with
+        | 1 => encoded.zeroExtend bw.bitwidth
+        | _ => encoded.signExtend bw.bitwidth
       return (#[.int bw.bitwidth (LLVM.Int.val value)], mem, none)
     | .float floatAttr =>
       let .floatType bw := resType.val
