@@ -3,6 +3,9 @@ import Veir.Interpreter.Memory
 /-!
   Objects are laid out past every other object: the first lands right past
   the arena, and the next follows it with a guard byte, aligned.
+
+  TODO: This is a simplification. Eventually, addresses should be
+  non-deterministic.
 -/
 
 open Veir
