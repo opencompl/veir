@@ -2,11 +2,16 @@ module
 
 public meta import Lean
 
+public import QPFTypes.Theory.TypeFun
+
 public import QPFTypes.Theory.QPF.Basic
 public import QPFTypes.Theory.QPF.Cofix
 public import QPFTypes.Theory.QPF.Fix
+public import QPFTypes.Theory.QPF.Comp
 public import QPFTypes.Theory.QPF.Prj
 public import QPFTypes.Theory.QPF.Sigma
+
+public meta import QPFTypes.Meta.QPFExpr.FinTuple
 /-!
 # QPFExpr
 
@@ -100,9 +105,27 @@ public meta def mkSigma (u : Level) (n : Nat) (A : Expr /- : Type $u -/)
       qpf := mkApp4 (mkConst ``QPF.Sigma.qpf [u]) (toExpr n) A Ftypefun Fqpf
     }
 
--- /--
--- Compose an `n`-ary QPF `F` with `n` `m`-ary QPFs `Gs`, i.e.,
--- create an application of `QPF.Comp
--- -/
--- meta def mkComp (F : Raw u n) (Gs : Vector (Raw u m) n) : Raw u m :=
---   sorry
+/--
+Compose an `n`-ary QPF `F` with `n` `m`-ary QPFs `Gs`, i.e.,
+create an application of `QPF.Comp
+-/
+public meta def mkComp (F : QPFExpr u n) (Gs : Vector (QPFExpr u m) n) :
+    MetaM (QPFExpr u m) := do
+  let n := toExpr n
+  let m := toExpr m
+
+
+  let Gtypefun ← do
+    let typefun := mkApp (mkConst ``TypeFun [u, u]) m
+    Fin.mkTuple typefun (Gs.map (·.typefun))
+  let Gqpf ← do
+    let qpfType := -- `fun (i : Fin $n) => @QPF.{$u, $u} $m ($Gtypefun i)`
+      .lam `i (mkApp (mkConst ``Fin) n)
+        (mkApp2 (mkConst ``QPF [u, u]) m (mkApp Gtypefun (.bvar 0)))
+        .default
+    Fin.mkDTuple qpfType (Gs.map (·.qpf))
+
+  return {
+    typefun := mkApp4 (mkConst ``QPF.Comp [u, u]) n m F.typefun Gtypefun
+    qpf := mkApp6 (mkConst ``QPF.Comp.inst [u, u]) n m F.typefun Gtypefun F.qpf Gqpf
+  }

@@ -1,5 +1,6 @@
 module
 
+public import QPFTypes.Meta.QPFExpr.FinTuple
 public import QPFTypes.Meta.QPFExpr.Basic
 
 /-!
