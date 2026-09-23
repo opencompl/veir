@@ -704,14 +704,24 @@ meta def runGrindOnSubgoals (gs : List MVarId) : MetaM (List MVarId) := do
     return result)
 
 meta structure WidthMaskCEx where
-  maskBv : BVExpr.PackedBitVec
+  counterExample : Expr × BVExpr.PackedBitVec
   widthVal : Nat
-  widthExpr : Expr
+  widthNatExpr : Expr
+  name : Name
 
-meta def prettyPrintCounterExample (counterExample : CounterExample) (widthInfos : WidthInfos) (bvInfos : BitVecInfos) : TacticM Unit := do
-  logInfo m!"BVDecide generate a counterexample, consider the following assignment:"
+meta instance : ToMessageData WidthMaskCEx where
+  toMessageData f := m!"{f.widthNatExpr} = {f.widthVal}  \t({f.name} = {f.counterExample.snd.bv})"
 
+meta structure BitVecCEx where
+  counterExample : Expr × BVExpr.PackedBitVec
+  widthCex : WidthMaskCEx
+  assignedVal : BitVec widthCex.widthVal
+  name : Name
 
+meta instance : ToMessageData BitVecCEx where
+  toMessageData f := m!"{f.name} = {f.assignedVal}  \t({f.name} = {f.counterExample.snd.bv})"
+
+meta def prettyPrintCounterExample (counterExample : CounterExample) (widthInfos : WidthInfos) (bvInfos : BitVecInfos) : MetaM MessageData := do
   let mut widthValMap : HashMap Name WidthMaskCEx := {}
 
   for (name, winfo) in widthInfos.infos do
@@ -720,43 +730,62 @@ meta def prettyPrintCounterExample (counterExample : CounterExample) (widthInfos
           let some fvar := Expr.fvarId? e | return false
           return fvar == winfo.widthMaskFVar
         ) with
-    | some (_, bv) => do
+    | some (eq, bv) => do
     -- Check that the mask is a mask.
       let isMask := bv.bv &&& (bv.bv + 1)
       if isMask != 0#bv.w then
         throwError m!"Generated counterexample for mask {winfo.name} ({originalNatWidth}) is not mask. {bv.bv}, {winfo.name} &&& {winfo.name} + 1 = {isMask} != 0."
       -- Find the underlying width based on the mask.
       let widthVal := BitVec.cpop bv.bv |> BitVec.toNat
-      logInfo m!"Found assignemnt to width {originalNatWidth} = {widthVal} ({winfo.name} = {bv.bv})"
-      widthValMap := widthValMap.insert name {maskBv := bv, widthVal, widthExpr := originalNatWidth}
-    | none => logWarning m!"No assignment found in the counterexample for mask {name} of width {originalNatWidth}."
-
-  counterExample.goal.withContext do
-    for (eq, bv) in counterExample.equations do
-      if let some fvar := eq.fvarId? then
-        if let some bv := bvInfos.infos.find? (fun bvinfo => bvinfo.bvVar == fvar) then
-          let some winfo := widthValMap[bv.bvWidthTm.toName]? | throwError "Found bitVec with undefined width"
-          let username ← bv.bvVar.getUserName
-          logInfo m!"{username} of width {winfo.widthExpr}={winfo.widthVal}"
+      let username ← counterExample.goal.withContext do eq.fvarId!.getUserName
+      widthValMap := widthValMap.insert name {counterExample := (eq, bv), widthVal, widthNatExpr := originalNatWidth, name := username}
+    | none =>
+      if let .widthLit _ := winfo.widthTm then
+        -- masks of width literals are assigned by definition
+        pure ()
       else
-        logInfo m!"{eq} = {bv.bv}"
+        logWarning m!"No assignment found in the counterexample for mask {name} of width {originalNatWidth}."
 
+  let BitVecVals : Array BitVecCEx ← bvInfos.infos.mapM (fun bvinfo => counterExample.goal.withContext do
+    let name ← bvinfo.bvVar.getUserName
+    match counterExample.equations.find? (fun ((e, _) : Expr × BVExpr.PackedBitVec) =>
+      if let some fvar := e.fvarId? then
+        bvinfo.bvVar == fvar
+      else
+        false
+    ) with
+    | some (eq, bv) => do
+      let some widthCex := widthValMap[bvinfo.bvWidthTm.toName]? | throwError m!"BitVec {name} width {bvinfo.bvWidthTm.toName} missing from generated counterexampels."
 
-  -- for (eq, bv) in counterExample.equations do
-  --   for (name, winfos) in widthInfos.infos do
-  --     if let some fvar := eq.fvarId? then
-  --       if fvar == winfos.widthMaskFVar then
-  --         -- Check that the mask is a mask.
-  --         let isMask := bv.bv &&& (bv.bv + 1)
-  --         if isMask != 0#bv.w then
-  --           throwError m!"Generated counterexample for mask {name} is not mask: {bv.bv}, {name} &&& {name} + 1 = {isMask} != 0."
-  --         -- Find the underlying width based on the mask.
-  --         let widthFromMask := BitVec.cpop bv.bv |> BitVec.toNat
-  --         logInfo m!"{name} = {widthFromMask}"
-  --         continue
-  --   logInfo m!"{eq} = {bv.bv}"
-  -- for hyp in counterExample.unusedHypotheses do
-  --   logInfo m!"{hyp}"
+      let value := bv.bv.setWidth widthCex.widthVal
+      return {counterExample := (eq, bv), widthCex, assignedVal := value, name}
+    | none =>
+      throwError m!"No counterexample generated for bitvec {name}"
+  )
+
+  let visitedExamples := widthValMap.fold (init := {}) (fun (acc : HashSet Expr) _ cex =>
+    acc.insert cex.counterExample.fst
+  ) |> HashSet.union <| BitVecVals.foldl (fun acc cex => acc.insert cex.counterExample.fst) {}
+
+  let opaqueVariables : Array MessageData ← counterExample.equations.filterMapM (fun (eq, bv) => counterExample.goal.withContext do
+      if !visitedExamples.contains eq then
+        return m!"{eq} = {bv.bv}"
+      else
+        return none
+    )
+
+  let mut err := m!""
+  if opaqueVariables.isEmpty then
+    err := err ++ "`bv_decide` found a counterexample, consider the following assignment:\n"
+  else
+    err := err ++ "`bv_decide` found a potentially spurious counterexample:\n- The following expressions were abstracted as opaque variables:\n"
+    err := opaqueVariables.foldl (init := err) (fun acc e => acc ++ m!"    - " ++ e ++ "\n")
+    err := err ++ "Consider the following assignment:\n"
+
+  err := widthValMap.fold (init := err) (fun acc _ cex => acc ++ m!"  {cex}\n")
+  err := BitVecVals.foldl (init := err)   (fun acc cex => acc ++ m!"  {cex}\n")
+
+  return err
 
 /--
 Run `bv_decide` on a goal, throws with a pretty printed message if a
@@ -771,8 +800,8 @@ meta def closeWithBvDecide (goal : MVarId) (widthInfos : WidthInfos) (bvInfos : 
             <| bvDecide' (.mvarIdTarget goal) ctx with
     | .ok _ => return
     | .error counterExample =>
-        prettyPrintCounterExample counterExample widthInfos bvInfos
-        throwError "bv_decide failed"
+        let error ← prettyPrintCounterExample counterExample widthInfos bvInfos
+        throwError error
 
 /--
 Translate the goal from a parametric multi-width goal into a concrete width goal
