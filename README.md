@@ -23,9 +23,8 @@ Common tasks are wrapped in the [`Makefile`](Makefile): `make build` to build an
 With Nix, `nix develop` enters a development shell containing Lean's toolchain
 manager and all native and Python dependencies needed by those Make targets.
 Executable targets like `veir-opt` and `veir-interpret` can be run with `nix run
-.#veir-opt`, `nix run .#veir-interpret`, etc. For convenience, makefile targets
-are also exposed as flake apps with `nix run .#build` and `nix run .#tests`;
-`nix run .` displays the Makefile help. 
+.#veir-opt`, `nix run .#veir-interpret`, etc. For convenience, Makefile targets
+can be invoked with Nix using `nix develop -c make <help/build/tests/...>`.
 
 Our testing framework is split into two parts: unit tests written in Lean and
 [FileCheck](https://llvm.org/docs/CommandGuide/FileCheck.html) tests for the

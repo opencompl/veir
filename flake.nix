@@ -32,29 +32,6 @@
         uv
       ];
 
-      makeApp = pkgs: target:
-        let
-          suffix = if target == null then "help" else target;
-          command = if target == null then "make" else "make ${target}";
-          package = pkgs.writeShellApplication {
-            name = "veir-${suffix}";
-            runtimeInputs = developmentPackages pkgs;
-            text = ''
-              export LEAN_AR="${(llvmPackages pkgs).llvm}/bin/llvm-ar"
-              export LEAN_CC="${self}/ExArray/compiler"
-              exec ${command} "$@"
-            '';
-          };
-        in
-        {
-          type = "app";
-          program = "${package}/bin/veir-${suffix}";
-          meta.description =
-            if target == null
-            then "Show VeIR's Make targets"
-            else "Run VeIR's make ${target} target";
-        };
-
       makeLeanApp = pkgs: target:
         let
           package = pkgs.writeShellApplication {
@@ -94,9 +71,6 @@
           pkgs = nixpkgs.legacyPackages.${system};
         in
         {
-          default = makeApp pkgs null;
-          build = makeApp pkgs "build";
-          tests = makeApp pkgs "tests";
           "veir-opt" = makeLeanApp pkgs "veir-opt";
           "veir-interpret" = makeLeanApp pkgs "veir-interpret";
           "veir2mir" = makeLeanApp pkgs "veir2mir";
