@@ -3,6 +3,32 @@
 This is a library for defining coinductive types in Lean,
 based heavily on [alexkeizer/QPFTypes](https://github.com/alexkeizer/QPFTypes).
 
+> [!NOTE]
+> This is a reimplementation of the QPFTypes project.
+
+TODO: write an intro
+
+## Differences with Previous QPFTypes
+
+The main difference with the previous version is that v1.0 no longer provides a 
+single `codata` or `data` command. The user is expected to explicitly define 
+the base functor as a regular `inductive` type, which can automatically be shown 
+to be a QPF via a new `deriving QPF` mechanism. The user then defines their final
+(co)inductive type explicitly as a (co)fixpoint of this functor, in a regular
+definition. A `@[qpf_type]` attribute is provided to automatically generate
+constructors as before.
+
+Further changes are:
+
+* The theory of QPFs is now part of the QPFTypes library,
+    removing the dependency on Mathlib.
+* Live parameters are now encoded using the `liveParam` gadget, inspired by how
+  `outParam` & co work for annotating parameters of a type class. Unannotated
+  parameters are considered "dead" (i.e, non-functorial) by default.
+* The theory of (selective) QPFs has been augmented with a partial ordering,
+  so that corecursive functions can be defined via Lean's `partial_fixpoint`
+  mechanism
+
 ## Acknowledgements
 
 The theory of QPFs has been largely adapted from the relevant files in
