@@ -701,7 +701,7 @@ are intended to be used in the proof of `Pattern.Valid` for a specific Puddle pa
 macro "unfoldPuddleBuilder" : tactic =>
   `(tactic| (
     /- Unfold the builder functions -/
-    simp only [Pattern.Builder, MatchProg.build, CreateProg.build, bind, pure,
+    simp -failIfUnchanged only [Pattern.Builder, MatchProg.build, CreateProg.build, bind, pure,
       MatchProg.value, MatchProg.type, MatchProg.root, MatchProg.operation, MatchProg.matchNative,
       MatchProg.inspectOperation,
       CreateProg.type, CreateProg.operation, CreateProg.property, CreateProg.applyNative,

@@ -36,6 +36,38 @@ set_option Elab.async false
 
 namespace Veir.Data.RISCV
 
+/-! ## Integer operations returning i32 values -/
+
+theorem addw_refinement {x y : LLVM.Int 32} :
+    Data.LLVM.Int.add x y ⊒
+      RISCV.Reg.toInt (Data.RISCV.addw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32 := by
+  veir_bv_decide
+
+theorem subw_refinement {x y : LLVM.Int 32} :
+    Data.LLVM.Int.sub x y ⊒
+      RISCV.Reg.toInt (Data.RISCV.subw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32 := by
+  veir_bv_decide
+
+theorem mul_refinement_32 {x y : LLVM.Int 32} :
+    Data.LLVM.Int.mul x y ⊒
+      RISCV.Reg.toInt (Data.RISCV.mulw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32 := by
+  veir_bv_decide
+
+theorem sdiv_refinement_32 {x y : LLVM.Int 32} :
+    Data.LLVM.Int.sdiv x y ⊒
+      RISCV.Reg.toInt (Data.RISCV.divw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32 := by
+  veir_bv_decide
+
+theorem udiv_refinement_32 {x y : LLVM.Int 32} :
+    Data.LLVM.Int.udiv x y ⊒
+      RISCV.Reg.toInt (Data.RISCV.divuw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32 := by
+  veir_bv_decide
+
+theorem urem_refinement_32 {x y : LLVM.Int 32} :
+    Data.LLVM.Int.urem x y ⊒
+      RISCV.Reg.toInt (Data.RISCV.remuw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32 := by
+  veir_bv_decide
+
 /-! ## Word operations
 
   A word operation (`GMIR_RISCV.word`) and its RISC-V instruction both apply the operation to the

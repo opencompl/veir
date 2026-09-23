@@ -1,0 +1,840 @@
+[1.442] ✔ [1/225] Built Veir.Dialects.SMT.Properties (897ms)
+[1.545] ✔ [2/225] Built Veir.Prelude (1.0s)
+[1.545] ✔ [3/225] Built Veir.Data.Pointer.Basic (996ms)
+[1.545] ✔ [4/225] Built Veir.Data.LLVM.FloatPred (978ms)
+[1.545] ✔ [5/225] Built Veir.Data.LLVM.AtomicOrdering (1.0s)
+[1.545] ✔ [6/225] Built Veir.Data.LLVM.ComdatKind (983ms)
+[1.545] ✔ [7/225] Built Veir.Data.HW.Basic (942ms)
+[1.753] ✔ [8/225] Built Veir.Analysis.DataFlow.Domains.AbstractDomain (1.1s)
+[1.857] ✔ [9/225] Built Veir.Data.Float.Basic (1.3s)
+[1.857] ✔ [10/225] Built Veir.Data.RISCV.Reg.Basic (1.3s)
+[2.063] ✔ [12/225] Built Veir.Meta.Deriving (1.5s)
+[2.373] ✔ [13/226] Built Veir.Data.FP.PackedFloat.Basic (884ms)
+[2.373] ✔ [14/226] Built Veir.Data.FP.ExtRat.Basic (845ms)
+[2.373] ✔ [15/226] Built Veir.Data.FP.FloatFormat (881ms)
+[2.373] ✔ [16/226] Built Veir.Data.FP.Sign (837ms)
+[2.373] ✔ [17/226] Built Veir.Data.FP.State.Basic (861ms)
+[2.476] ✔ [19/228] Built Veir.Data.FP.EDyadic.Basic (882ms)
+[2.576] ✔ [20/231] Built Veir.Data.Pointer (779ms)
+[2.576] ✔ [21/231] Built Veir.Data.PBV.Lemmas (935ms)
+[2.679] ✔ [22/232] Built Veir.Meta.Attrs (2.1s)
+[2.679] ✔ [23/232] Built Veir.Meta.Tactic.BVNormalizeSimp (2.1s)
+[2.886] ✔ [24/232] Built Veir.Analysis.DataFlow.Domains.LivenessDomain (826ms)
+[2.987] ✔ [25/232] Built Veir.Data.LLVM.Int.Basic (2.4s)
+[3.200] ✔ [26/232] Built Veir.Data.Float (865ms)
+[3.304] ✔ [27/233] Built Veir.Meta.SimpAttr (2.8s)
+[3.304] ✔ [28/233] Built Veir.Data.FP.PackedFloat.OfFloat (922ms)
+[3.304] ✔ [29/233] Built Veir.Data.FP.State (878ms)
+[3.304] ✔ [30/233] Built Veir.Data.FP.ScientificBV.Basic (887ms)
+[3.511] ✔ [31/314] Built Veir.Data.FP.EDyadic.Round (1.1s)
+[3.614] ✔ [32/314] Built CTree.UB (979ms)
+[3.720] ✔ [33/314] Built Veir.Analysis.DataFlow.Domains.IntegerRangeDomain (1.4s)
+[3.826] ✔ [34/314] Built CTree.Effect (1.2s)
+[3.932] ✔ [35/314] Built Veir.Data.PBV.Mask (1.4s)
+[4.036] ✔ [36/315] Built Veir.Data.Comb.Basic (788ms)
+[4.036] ✔ [37/315] Built Veir.Dialects.GMIR_RISCV.Semantics (792ms)
+[4.143] ✔ [39/319] Built Veir.Data.Refinement (845ms)
+[4.143] ✔ [40/319] Built Veir.Rewriter.WfRewriter.GetSetTactic (2.7s)
+[4.143] ✔ [41/319] Built Veir.Data.FP.ScientificBV (772ms)
+[4.143] ✔ [42/319] Built Veir.Meta.Tactic.PBVDecide.PBVPushSimp (2.3s)
+[4.244] ✔ [43/319] Built Veir.Data.FP.PackedFloat.State (688ms)
+[4.553] ✔ [44/319] Built CTree.Order (818ms)
+[4.553] ✔ [45/319] Built Veir.Data.ModArith.Basic (762ms)
+[4.759] ✔ [46/319] Built Veir.Parser.Location (757ms)
+[4.759] ✔ [47/319] Built Veir.Data.FP.ExtRat (700ms)
+[4.860] ✔ [48/319] Built Veir.Data.PBV.Elim (721ms)
+[4.962] ✔ [49/319] Built Veir.Meta.Tactic.BVDecide (2.1s)
+[5.174] ✔ [50/319] Built CTree.Tower (579ms)
+[5.377] ✔ [51/319] Built Veir.Data.FP.EScientificBV.Basic (659ms)
+[5.482] ✔ [52/319] Built Veir.Parser.ParserError (766ms)
+[5.791] ✔ [53/319] Built Veir.IR.Simp (2.2s)
+[5.895] ✔ [54/319] Built Veir.Meta.Tactic.PBVDecide.Config (1.9s)
+[5.895] ✔ [55/319] Built Veir.Data.FP.EScientificBV (509ms)
+[5.998] ✔ [56/319] Built Veir.Meta.OpCode (3.2s)
+[6.313] ✔ [57/319] Built Coinductive.CoInd (3.7s)
+[6.313] ✔ [58/319] Built Veir.Data.FP.EScientificBV.ToExtRat (410ms)
+[6.418] ✔ [59/319] Built Veir.Data.PBV.Push (2.3s)
+[6.628] ✔ [60/319] Built Coinductive (343ms)
+[6.628] ✔ [61/319] Built Veir.Data.RISCV.Reg.Lemmas (1.7s)
+[6.944] ✔ [62/319] Built Veir.Meta.Tactic.PBVDecide.Basic (1.1s)
+[7.559] ✔ [63/319] Built Veir.Data.PBV.Examples (1.1s)
+[7.559] ✔ [64/319] Built CTree.Defs (879ms)
+[7.768] ✔ [65/319] Built Veir.ForLean (4.5s)
+[8.082] ✔ [66/319] Built CTree.Iter (533ms)
+[8.808] ✔ [67/319] Built CTree.Interp (778ms)
+[8.808] ✔ [68/319] Built Veir.Passes.RISCVCombines.Proofs (2.2s)
+[8.808] ✔ [69/319] Built Veir.Meta.Tactic.PBVDecide.Reify (1.8s)
+[8.808] ✔ [70/319] Built Veir.Meta.Tactic.PBVDecide.Push (1.8s)
+[9.013] ✔ [71/319] Built Veir.Meta.Tactic.PBVDecide.CounterExample (2.1s)
+[9.224] ✔ [72/319] Built CTree.Sim (417ms)
+[9.330] ✔ [73/319] Built Veir.Data.FP.PackedFloat.ToExtRat (1.5s)
+[9.330] ✔ [74/319] Built Veir.Data.PBV (1.8s)
+[9.330] ✔ [75/319] Built Veir.Passes.Canonicalize.Proofs (1.5s)
+[9.432] ✔ [76/319] Built Veir.Data.LLVM.Int.Lemmas (1.6s)
+[9.847] ✔ [77/319] Built Veir.Data.LLVM.Int (488ms)
+[10.055] ✔ [78/319] Built Veir.Parser.Lexer (2.3s)
+[10.371] ✔ [79/319] Built Veir.Data.FP.PackedFloat.ToEDyadic (1.0s)
+[10.371] ✔ [80/319] Built Veir.Data.FP.EDyadic.Pack (1.0s)
+[10.687] ✔ [81/319] Built CTree.Delaborator (1.4s)
+[11.209] ✔ [82/319] Built Veir.Data.FP.PackedFloat.Round (853ms)
+[11.209] ✔ [83/319] Built Veir.Data.FP.EDyadic (847ms)
+[11.525] ✔ [84/319] Built Veir.Meta.Tactic.PBVDecide.Elim (2.1s)
+[11.735] ✔ [85/319] Built CTree (1.1s)
+[12.049] ✔ [86/319] Built Veir.Data.FP.PackedFloat (798ms)
+[12.049] ✔ [87/319] Built Veir.Data.FP.FastFloat (836ms)
+[12.469] ✔ [88/319] Built Veir.Meta.Tactic.PBVDecide.Main (956ms)
+[12.679] ✔ [89/319] Built Veir.Data.FP (626ms)
+[12.679] ✔ [90/319] Built Veir.Data.FP.FP (613ms)
+[13.200] ✔ [91/319] Built Veir.Meta.Tactic.PBVDecide.PBVDecide (725ms)
+[13.824] ✔ [92/319] Built Veir.IR.Attribute (6.1s)
+[13.824] ✔ [93/319] Built Veir.Meta.Tactic.PBVDecide (671ms)
+[15.063] ✔ [94/319] Built Veir.Dialects.Verif.Properties (1.2s)
+[15.064] ✔ [95/319] Built Veir.Data.Felt (1.3s)
+[15.064] ✔ [96/319] Built Veir.Dialects.LLZK.Include.Properties (1.2s)
+[15.170] ✔ [97/319] Built Veir.Dialects.Comb.Properties (1.3s)
+[15.170] ✔ [98/319] Built Veir.Dialects.LLZK.Felt.Properties (1.3s)
+[15.275] ✔ [99/319] Built Veir.Interfaces.DataLayoutInterfaces (1.5s)
+[15.275] ✔ [100/319] Built Veir.Dialects.Func.Properties (1.4s)
+[15.275] ✔ [101/319] Built Veir.Dialects.RISCV_Cf.Properties (1.5s)
+[15.275] ✔ [102/319] Built Veir.Dialects.HW.Properties (1.5s)
+[15.375] ✔ [103/319] Built Veir.Dialects.Seq.Properties (1.5s)
+[15.476] ✔ [104/319] Built Veir.Dialects.LLZK.Function.Properties (1.6s)
+[15.684] ✔ [105/319] Built Veir.Dialects.PDL.Properties (1.8s)
+[15.684] ✔ [106/319] Built Veir.Dialects.Cir.Properties (1.9s)
+[15.684] ✔ [107/319] Built Veir.IR.SymbolRef (1.8s)
+[15.930] ✔ [108/319] Built Veir.Dialects.ModArith.Properties (889ms)
+[16.003] ✔ [109/319] Built Veir.Dialects.Cf.Properties (911ms)
+[16.104] ✔ [110/319] Built Veir.Dialects.Arith.Properties (995ms)
+[16.105] ✔ [111/319] Built Veir.Dialects.Builtin.Properties (999ms)
+[16.308] ✔ [112/319] Built Veir.IR.OpCode (1.1s)
+[16.309] ✔ [113/319] Built Veir.Data.SMT.Basic (1.1s)
+[16.413] ✔ [114/319] Built Veir.DataLayout.RISCV64 (1.1s)
+[16.727] ✔ [115/319] Built Veir.Dialects.RISCV.Properties (670ms)
+[16.727] ✔ [116/319] Built Veir.Dialects.RISCV_Stack.Properties (614ms)
+[16.831] ✔ [117/319] Built Veir.Dialects.GMIR.Properties (729ms)
+[16.936] ✔ [118/319] Built Veir.Data.LLVM.Int.Bitblast (11s)
+[17.984] ✔ [119/319] Built Veir.Dialects.GMIR.Semantics (1.1s)
+[18.193] ✔ [120/319] Built Veir.Dialects.LLVM.Properties (2.1s)
+[18.298] ✔ [121/319] Built Veir.Passes.ArithToLLVM.Proofs (1.3s)
+[18.714] ✔ [122/319] Built Veir.Data.LLVM.Byte.Basic (1.7s)
+[19.551] ✔ [123/319] Built Veir.Data.LLVM.Ptr.Basic (911ms)
+[19.656] ✔ [124/319] Built Veir.Data.Casting (1.0s)
+[19.656] ✔ [125/319] Built Veir.Data.LLVM.Byte.Lemmas (960ms)
+[19.964] ✔ [126/319] Built Veir.IR.Basic (3.7s)
+[20.799] ✔ [127/319] Built Veir.Data.LLVM.Ptr.Lemmas (1.2s)
+[21.113] ✔ [128/319] Built Veir.Data.LLVM.Byte.Examples (1.4s)
+[21.532] ✔ [129/319] Built Veir.Interpreter.Interp (1.6s)
+[21.532] ✔ [130/319] Built Veir.Printer.CustomPrinting (1.6s)
+[21.637] ✔ [131/319] Built Veir.Passes.Legalization.Proofs (1.0s)
+[21.850] ✔ [132/319] Built Veir.Data.LLVM.Ptr (1.0s)
+[21.955] ✔ [133/319] Built Veir.Data.LLVM.Byte (906ms)
+[22.691] ✔ [134/319] Built Veir.IR.Mutators (2.7s)
+[22.691] ✔ [135/319] Built Veir.Interpreter.RuntimeValue.Basic (877ms)
+[22.691] ✔ [136/319] Built Veir.Data.LLVM (730ms)
+[23.949] ✔ [137/319] Built Veir.FoldDecision (1.2s)
+[23.950] ✔ [138/319] Built Veir.Data (1.2s)
+[24.368] ✔ [139/319] Built Veir.Interpreter.Memory (1.6s)
+[34.892] ✔ [140/319] Built Veir.IR.InBounds (12s)
+[48.477] ✔ [141/319] Built Veir.Passes.InstructionSelection.Proofs (28s)
+[49.633] ✔ [142/319] Built Veir.IR.GetSet (26s)
+[53.809] ✔ [143/319] Built Veir.IR.Fields (4.3s)
+[54.439] ✔ [144/319] Built Veir.IR.Grind (622ms)
+[57.998] ✔ [145/319] Built Veir.Passes.InstructionSelection.Proofs.I32 (38s)
+[59.670] ✔ [146/319] Built Veir.IR.WellFormed (5.2s)
+[60.814] ✔ [147/319] Built Veir.IR.OpInfo (1.1s)
+[60.914] ✔ [148/319] Built Veir.IRNesting (1.2s)
+[62.647] ✔ [149/319] Built Veir.IR (1.9s)
+[62.647] ✔ [150/319] Built Veir.Interfaces.SideEffectInterfaces (1.9s)
+[62.752] ✔ [151/319] Built Veir.Interfaces.ControlFlowInterfaces (1.9s)
+[62.752] ✔ [152/319] Built Veir.ConstantMaterialization (1.0s)
+[62.752] ✔ [153/319] Built Veir.Dialects.Test.OpInfo (1.0s)
+[62.752] ✔ [154/319] Built Veir.Interfaces.RegionKindInterfaces (1.9s)
+[62.752] ✔ [155/319] Built Veir.Passes.Matching.Basic (1.0s)
+[62.857] ✔ [156/319] Built Veir.Interfaces.SymbolInterfaces (2.0s)
+[63.062] ✔ [157/319] Built Veir.Verifier.Basic (2.3s)
+[64.793] ✔ [158/319] Built Veir.Interfaces.DeadCodeInterfaces (2.1s)
+[65.403] ✔ [159/319] Built Veir.Interfaces.CallInterfaces (2.6s)
+[65.921] ✔ [160/319] Built Veir.IR.DeallocLemmas (6.3s)
+[66.643] ✔ [161/319] Built Veir.Dialects.RV64.OpInfo (3.6s)
+[66.845] ✔ [162/319] Built Veir.Dialects.Tensor.OpInfo (3.8s)
+[66.957] ✔ [163/319] Built Veir.Dialects.Cf.OpInfo (3.9s)
+[66.957] ✔ [164/319] Built Veir.Dialects.HW.OpInfo (3.9s)
+[66.957] ✔ [165/319] Built Veir.Dialects.IO.OpInfo (3.9s)
+[67.066] ✔ [166/319] Built Veir.Dialects.SMT.OpInfo (3.0s)
+[67.066] ✔ [167/319] Built Veir.Rewriter.LinkedList.Basic (4.4s)
+[67.278] ✔ [168/319] Built Veir.Dialects.Seq.OpInfo (4.3s)
+[67.686] ✔ [169/319] Built Veir.Dialects.LLZK.Include.OpInfo (2.2s)
+[67.789] ✔ [170/319] Built Veir.Dialects.LLZK.Function.OpInfo (2.0s)
+[67.789] ✔ [171/319] Built Veir.Dialects.Cir.OpInfo (4.7s)
+[68.093] ✔ [172/319] Built Veir.Rewriter.InsertPoint (5.5s)
+[68.805] ✔ [173/319] Built Veir.Dialects.LLZK.Felt.OpInfo (2.8s)
+[69.544] ✔ [174/319] Built Veir.Dialects.Verif.OpInfo (2.7s)
+[69.647] ✔ [175/319] Built Veir.Dialects.Datapath.OpInfo (2.7s)
+[69.755] ✔ [176/319] Built Veir.Dialects.PDL.OpInfo (3.1s)
+[69.864] ✔ [177/319] Built Veir.Dialects.Builtin.OpInfo (2.8s)
+[69.864] ✔ [178/319] Built Veir.Dialects.Func.OpInfo (2.9s)
+[69.864] ✔ [179/319] Built Veir.Dialects.ModArith.OpInfo (2.9s)
+[70.166] ✔ [180/319] Built Veir.Verifier.Lemmas (2.9s)
+[70.378] ✔ [181/319] Built Veir.Dominance.Basic (2.3s)
+[70.583] ✔ [182/319] Built Veir.Dialects.Comb.OpInfo (2.9s)
+[71.724] ✔ [183/319] Built Veir.Interfaces.RegionIsolationInterfaces (1.9s)
+[71.827] ✔ [184/319] Built Veir.Passes.Matching.Builtin.Basic (1.0s)
+[72.042] ✔ [185/319] Built Veir.Dialects.Func.Printing (2.2s)
+[72.348] ✔ [186/319] Built Veir.Dialects.GMIR.OpInfo (9.3s)
+[72.763] ✔ [187/319] Built Veir.Dominance.Lemmas.Path (2.4s)
+[73.381] ✔ [188/319] Built Veir.Passes.Matching.Builtin.Lemmas (1.5s)
+[73.902] ✔ [189/319] Built Veir.Passes.Matching.GMIR.Basic (1.5s)
+[74.111] ✔ [190/319] Built Veir.Dialects.GMIR_RISCV.OpInfo (1.8s)
+[74.529] ✔ [191/319] Built Veir.Dominance.Lemmas.Block (1.8s)
+[76.203] ✔ [192/319] Built Veir.Dominance.Lemmas.Operation (1.6s)
+[76.833] ✔ [193/319] Built Veir.Dominance.Lemmas.Dom (705ms)
+[77.149] ✔ [194/319] Built Veir.Rewriter.LinkedList.GetSet (9.4s)
+[77.570] ✔ [195/319] Built Veir.Dominance.Lemmas (667ms)
+[78.303] ✔ [196/319] Built Veir.Dominance (797ms)
+[80.058] ✔ [197/319] Built Veir.Dialects.RISCV.OpInfo (13s)
+[80.264] ✔ [198/319] Built Veir.Dialects.LLVM.OpInfo (17s)
+[81.509] ✔ [199/319] Built Veir.Dialects.RISCV_Stack.OpInfo (1.5s)
+[82.027] ✔ [200/319] Built Veir.Passes.Matching.LLVM.Basic (1.7s)
+[82.237] ✔ [201/319] Built Veir.Passes.Matching.RISCV.Basic (2.2s)
+[82.657] ✔ [202/319] Built Veir.Dialects.Arith.OpInfo (2.4s)
+[83.384] ✔ [203/319] Built Veir.Dialects.RISCV_Cf.OpInfo (3.4s)
+[83.591] ✔ [204/319] Built Veir.Passes.Matching.Arith.Basic (1.0s)
+[84.011] ✔ [205/319] Built Veir.Rewriter.LinkedList.WellFormed (6.9s)
+[84.326] ✔ [206/319] Built Veir.OpCode (885ms)
+[84.642] ✔ [207/319] Built Veir.Rewriter.LinkedList (665ms)
+[85.272] ✔ [208/319] Built Veir.Passes.Matching.LLVM.Lemmas (3.3s)
+[85.902] ✔ [209/319] Built Veir.Passes.Matching (627ms)
+[88.738] ✔ [210/319] Built Veir.GlobalOpInfo (4.5s)
+[89.786] ✔ [211/319] Built Veir.PatternRewriter.Puddle.Definitions (1.0s)
+[90.101] ✔ [212/319] Built Veir.Interpreter.RuntimeValue.Conforms (1.4s)
+[90.731] ✔ [213/319] Built Veir.PatternRewriter.Puddle.Builders (1.0s)
+[90.731] ✔ [214/319] Built Veir.Passes.Legalization.LegalizerInfo (1000ms)
+[90.941] ✔ [215/319] Built Veir.Interpreter.RuntimeValue.ArrayConformsSimp (788ms)
+[91.572] ✔ [216/319] Built Veir.Passes.Legalization.LegalizationArtifactCombiner (844ms)
+[91.677] ✔ [217/319] Built Veir.Interpreter.RuntimeValue (735ms)
+[91.887] ✔ [218/319] Built Veir.Rewriter.Basic (7.2s)
+[93.923] ✔ [219/319] Built Veir.Interpreter.VariableState (2.3s)
+[93.923] ✔ [220/319] Built Veir.Interpreter.CTree (2.3s)
+[95.680] ✔ [221/319] Built Veir.Printer (3.8s)
+[95.990] ✔ [222/319] Built Veir.Rewriter.GetSet.CreateRegion (4.0s)
+[96.502] ✔ [223/319] Built Veir.Rewriter.GetSet.Value (4.6s)
+[96.919] ✔ [224/319] Built Veir.Dialects.GMIR.Interpreter (2.9s)
+[97.021] ✔ [225/319] Built Veir.Rewriter.GetSet.InsertBlock (5.1s)
+[97.329] ✔ [226/319] Built Veir.Rewriter.GetSet.Operation (5.4s)
+[97.849] ✔ [227/319] Built Veir.Dialects.LLVM.Interpreter (2.1s)
+[98.165] ✔ [228/319] Built Veir.Rewriter.GetSet.DetachOperands (6.3s)
+[98.577] ✔ [229/319] Built Veir.Rewriter.GetSet.DetachBlockOperands (6.7s)
+[98.683] ✔ [230/319] Built Veir.Rewriter.GetSet.InsertOp (4.8s)
+[98.787] ✔ [231/319] Built Veir.Rewriter.GetSet.ReplaceUse (6.9s)
+[99.628] ✔ [232/319] Built Veir.Rewriter.GetSet.Results (7.7s)
+[99.733] ✔ [233/319] Built Veir.Rewriter.GetSet.Operands (7.8s)
+[99.838] ✔ [234/319] Built Veir.Rewriter.GetSet.BlockOperands (7.9s)
+[100.258] ✔ [235/319] Built Veir.Rewriter.GetSet.BlockArguments (8.4s)
+[100.363] ✔ [236/319] Built Veir.Rewriter.GetSet.Regions (8.4s)
+[102.882] ✔ [237/319] Built Veir.Rewriter.GetSet.DetachOp (4.3s)
+[111.809] ✔ [238/319] Built Veir.Rewriter.GetSet.CreateOp (11s)
+[112.436] ✔ [239/319] Built Veir.Rewriter.GetSet (645ms)
+[115.457] ✔ [240/319] Built Veir.Rewriter.WellFormed.Region (2.0s)
+[115.769] ✔ [241/319] Built Veir.Rewriter.WellFormed.OpResults (3.4s)
+[115.874] ✔ [242/319] Built Veir.Rewriter.WellFormed.OpRegion (3.4s)
+[116.714] ✔ [243/319] Built Veir.Rewriter.WellFormed.Value (4.3s)
+[116.819] ✔ [244/319] Built Veir.Rewriter.WellFormed.OpOperands (4.4s)
+[116.925] ✔ [245/319] Built Veir.Rewriter.WellFormed.BlockArguments (4.5s)
+[117.344] ✔ [246/319] Built Veir.Rewriter.WellFormed.BlockOperands (4.9s)
+[118.595] ✔ [247/319] Built Veir.Rewriter.WellFormed.Block (1.7s)
+[128.573] ✔ [248/319] Built Veir.Rewriter.WellFormed.Operation (11s)
+[129.604] ✔ [249/319] Built Veir.Rewriter.WellFormed.IRContext (987ms)
+[130.362] ✔ [250/319] Built Veir.Rewriter.WellFormed.ReplaceOp (1.7s)
+[131.022] ✔ [251/319] Built Veir.Rewriter.WellFormed (654ms)
+[132.329] ✔ [252/319] Built Veir.Rewriter.WfRewriter.Basic (1.3s)
+[133.611] ✔ [253/319] Built Veir.Rewriter.WfRewriter.InBounds (1.3s)
+[134.551] ✔ [254/319] Built Veir.Rewriter.InlineBlock (5.0s)
+[136.862] ✔ [255/319] Built Veir.Rewriter.WfRewriter.GetSet (4.6s)
+[137.492] ✔ [256/319] Built Veir.Rewriter.WfRewriter (643ms)
+[138.539] ✔ [257/319] Built Veir.Interfaces.FunctionInterfaces (1.0s)
+[139.064] ✔ [258/319] Built Veir.PatternRewriter.Basic (1.6s)
+[139.687] ✔ [259/319] Built Veir.Interpreter.Basic (1.1s)
+[140.417] ✔ [260/319] Built Veir.PatternRewriter.Puddle.Execution (1.3s)
+[140.837] ✔ [261/319] Built Veir.Interpreter.Evaluate (1.2s)
+[140.940] ✔ [262/319] Built Veir.Interfaces.ConstantLikeInterfaces (1.2s)
+[140.940] ✔ [263/319] Built Veir.Dialects.Builtin.Interpreter (1.3s)
+[141.147] ✔ [264/319] Built Veir.Benchmarks (2.1s)
+[141.252] ✔ [265/319] Built Veir.Interpreter.Refinement.Basic (1.6s)
+[141.458] ✔ [266/319] Built Veir.PatternRewriter.Puddle (1.1s)
+[142.088] ✔ [267/319] Built Veir.Interfaces.FoldInterfaces (1.2s)
+[142.088] ✔ [268/319] Built Veir.Interpreter.CTreeInterpreter (1.1s)
+[142.192] ✔ [269/319] Built Veir.Passes.Legalization.LegalizerHelper (1.8s)
+[142.914] ✔ [270/319] Built Veir.Interfaces (863ms)
+[143.229] ✔ [271/319] Built Veir.Passes.Legalization.Legalizer (1.1s)
+[144.070] ✔ [272/319] Built Veir.Interpreter.Refinement.Lemmas (2.8s)
+[145.015] ✔ [273/319] Built Veir.Analysis.DataFlow.Domains.ConstantDomain (903ms)
+[145.537] ✔ [274/319] Built Veir.PatternRewriter.Puddle.Validity (1.4s)
+[145.853] ✔ [275/319] Built Veir.Analysis.DataFlow.Facts (878ms)
+[146.269] ✔ [276/319] Built Veir.PatternRewriter.Puddle.CTreeValidity (727ms)
+[146.581] ✔ [277/319] Built Veir.Analysis.DataFlowFramework (739ms)
+[147.207] ✔ [278/319] Built Veir.Passes.InstructionSelection.RISCV64ValidityObstructions (925ms)
+[147.620] ✔ [279/319] Built Veir.Analysis.DataFlow.SparseFact (978ms)
+[147.620] ✔ [280/319] Built Veir.PatternRewriter.Puddle.CTreeValidityTactics (1.4s)
+[147.724] ✔ [281/319] Built Veir.Analysis.DominanceAnalysis (1.0s)
+[148.460] ✔ [282/319] Built Veir.Analysis.DataFlow.Printer (817ms)
+[148.460] ✔ [283/319] Built Veir.IR.Dominance (836ms)
+[149.295] ✔ [284/319] Built Veir.Analysis.DataFlow.DeadCodeAnalysis (866ms)
+[150.235] ✔ [285/319] Built Veir.Analysis.DataFlow.SparseForwardDataFlowAnalysis (929ms)
+[151.178] ✔ [286/319] Built Veir.Analysis.DataFlow.ModArithRangeAnalysis (1.0s)
+[151.178] ✔ [287/319] Built Veir.Analysis.DataFlow.SparseConstantPropagationAnalysis (974ms)
+[151.808] ✔ [288/319] Built Veir.Analysis (636ms)
+[154.327] ✔ [289/319] Built Veir.Verifier (5.8s)
+[155.273] ✔ [290/319] Built Veir.Pass (1.0s)
+[156.629] ✔ [291/319] Built Veir.Passes.DCE.dce (1.4s)
+[156.733] ✔ [292/319] Built Veir.Interpreter.Lemmas (2.5s)
+[156.733] ✔ [293/319] Built Veir.Passes.InstructionSelection.Common (1.5s)
+[156.733] ✔ [294/319] Built Veir.Passes.Legalization.RISCV64LegalizerInfo (1.4s)
+[157.144] ✔ [295/319] Built Veir.Passes.InstructionSelection.RISCV64CTreeSemantics (1.8s)
+[158.084] ✔ [296/319] Built Veir.Passes.CastsReconciliation.Reconciliation (1.5s)
+[159.344] ✔ [297/319] Built Veir.Dialects.LLVM.Monotonicity (2.6s)
+[160.177] ✔ [298/319] Built Veir.Passes.InstructionSelection.RISCV64 (3.4s)
+[160.387] ✔ [299/319] Built Veir.Interpreter.EquationLemma (3.6s)
+[161.226] ✔ [300/319] Built Veir.Passes.InstructionSelection.RISCV64ProofPatterns (1.1s)
+[162.565] ✔ [301/319] Built Veir.Dialects.RISCV.Monotonicity (5.7s)
+[164.033] ✔ [302/319] Built Veir.Dialects.Monotonicity (1.5s)
+[173.201] ✔ [303/319] Built Veir.Interpreter.Refinement.Monotonicity (9.1s)
+[176.731] ✔ [304/319] Built Veir.Interpreter.Refinement (3.6s)
+[183.041] ✔ [305/319] Built Veir.Interpreter (6.3s)
+[188.398] ✔ [306/319] Built Veir.Passes.InstructionSelection.RISCV64ShiftValidity (27s)
+[188.501] ✔ [307/319] Built Veir.Passes.InstructionSelection.RISCV64UnaryValidity (27s)
+[188.604] ✔ [308/319] Built Veir.PatternRewriter.Semantics (5.6s)
+[189.340] ⚠ [309/319] Built Veir.Passes.InstructionSelection.RISCV64BitcastValidity (28s)
+[189.340] warning: Veir/Passes/InstructionSelection/RISCV64BitcastValidity.lean:80:68: This simp argument is unused:
+[189.340]   Interp.isRefinedBy
+[189.340] 
+[189.340] Hint: Omit it from the simp argument list.
+[189.341]   [apply] simp [Veir.CTree.interpretOp', Builtin.interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', monadLift,
+[189.341]     MonadLift.monadLift, OperationResult.isRefinedBy, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of,
+[189.341]     -Attribute.byteType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, RISCV.Reg.toInt,
+[189.341]     BitVec.setWidth_setWidth_of_le _ hwidth]
+[189.341] 
+[189.341] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[189.341] warning: Veir/Passes/InstructionSelection/RISCV64BitcastValidity.lean:87:68: This simp argument is unused:
+[189.341]   Interp.isRefinedBy
+[189.341] 
+[189.341] Hint: Omit it from the simp argument list.
+[189.352]   [apply] simp [Veir.CTree.interpretOp', Builtin.interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', monadLift,
+[189.352]     MonadLift.monadLift, OperationResult.isRefinedBy, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of,
+[189.352]     -Attribute.byteType_eq_of, hw]
+[189.352] 
+[189.352] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[189.352] warning: Veir/Passes/InstructionSelection/RISCV64BitcastValidity.lean:106:68: This simp argument is unused:
+[189.352]   Interp.isRefinedBy
+[189.352] 
+[189.352] Hint: Omit it from the simp argument list.
+[189.352]   [apply] simp [Veir.CTree.interpretOp', Builtin.interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', monadLift,
+[189.353]     MonadLift.monadLift, OperationResult.isRefinedBy, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of,
+[189.353]     -Attribute.byteType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, RISCV.Reg.toByte,
+[189.361]     Data.LLVM.Byte.fromInt, BitVec.setWidth_setWidth_of_le _ hwidth]
+[189.361] 
+[189.361] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[189.361] warning: Veir/Passes/InstructionSelection/RISCV64BitcastValidity.lean:113:68: This simp argument is unused:
+[189.361]   Interp.isRefinedBy
+[189.361] 
+[189.361] Hint: Omit it from the simp argument list.
+[189.361]   [apply] simp [Veir.CTree.interpretOp', Builtin.interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', monadLift,
+[189.361]     MonadLift.monadLift, OperationResult.isRefinedBy, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of,
+[189.361]     -Attribute.byteType_eq_of, hw]
+[189.361] 
+[189.361] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[189.361] warning: Veir/Passes/InstructionSelection/RISCV64BitcastValidity.lean:133:68: This simp argument is unused:
+[189.361]   Interp.isRefinedBy
+[189.361] 
+[189.361] Hint: Omit it from the simp argument list.
+[189.363]   [apply] simp [Veir.CTree.interpretOp', Builtin.interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', monadLift,
+[189.363]     MonadLift.monadLift, OperationResult.isRefinedBy, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of,
+[189.363]     -Attribute.byteType_eq_of, RISCV.Reg.toInt, Data.LLVM.Byte.toInt, hp, BitVec.setWidth_setWidth_of_le _ hwidth]
+[189.363] 
+[189.363] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[189.363] warning: Veir/Passes/InstructionSelection/RISCV64BitcastValidity.lean:138:70: This simp argument is unused:
+[189.363]   Interp.isRefinedBy
+[189.363] 
+[189.363] Hint: Omit it from the simp argument list.
+[189.363]   [apply] simp [Veir.CTree.interpretOp', Builtin.interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', monadLift,
+[189.363]     MonadLift.monadLift, OperationResult.isRefinedBy, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of,
+[189.363]     -Attribute.byteType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, RISCV.Reg.toInt,
+[189.367]     Data.LLVM.Byte.toInt, hp, isRefinedBy]
+[189.367] 
+[189.367] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[189.367] warning: Veir/Passes/InstructionSelection/RISCV64BitcastValidity.lean:144:68: This simp argument is unused:
+[189.367]   Interp.isRefinedBy
+[189.367] 
+[189.367] Hint: Omit it from the simp argument list.
+[189.367]   [apply] simp [Veir.CTree.interpretOp', Builtin.interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', monadLift,
+[189.367]     MonadLift.monadLift, OperationResult.isRefinedBy, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of,
+[189.367]     -Attribute.byteType_eq_of, hw]
+[189.367] 
+[189.367] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[189.367] warning: Veir/Passes/InstructionSelection/RISCV64BitcastValidity.lean:163:68: This simp argument is unused:
+[189.367]   Interp.isRefinedBy
+[189.367] 
+[189.367] Hint: Omit it from the simp argument list.
+[189.376]   [apply] simp [Veir.CTree.interpretOp', Builtin.interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', monadLift,
+[189.376]     MonadLift.monadLift, OperationResult.isRefinedBy, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of,
+[189.376]     -Attribute.byteType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, RISCV.Reg.toByte,
+[189.376]     BitVec.setWidth_setWidth_of_le _ hwidth]
+[189.376] 
+[189.376] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[189.376] warning: Veir/Passes/InstructionSelection/RISCV64BitcastValidity.lean:180:68: This simp argument is unused:
+[189.376]   Interp.isRefinedBy
+[189.376] 
+[189.376] Hint: Omit it from the simp argument list.
+[189.376]   [apply] simp [Veir.CTree.interpretOp', Builtin.interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', monadLift,
+[189.376]     MonadLift.monadLift, OperationResult.isRefinedBy, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of,
+[189.383]     -Attribute.byteType_eq_of, hw]
+[189.383] 
+[189.383] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[190.168] ✔ [310/319] Built Veir.Passes.InstructionSelection.RISCV64ByteShiftValidity (28s)
+[191.315] ⚠ [311/319] Built Veir.Passes.InstructionSelection.RISCV64CastValidity (30s)
+[191.315] warning: Veir/Passes/InstructionSelection/RISCV64CastValidity.lean:85:49: This simp argument is unused:
+[191.315]   Attribute.of
+[191.315] 
+[191.315] Hint: Omit it from the simp argument list.
+[191.315]   [apply] simp [-bind_pure_comp, Veir.CTree.interpretOp', Builtin.interpretOpCTree, Llvm.interpretOpCTree,
+[191.315]     CTree.CTree.choose_def, CTree.CTree.tau_def, OperationResult.isRefinedBy, RISCV.Reg.toInt, RuntimeValue.isRefinedBy]
+[191.315] 
+[191.315] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[191.315] warning: Veir/Passes/InstructionSelection/RISCV64CastValidity.lean:145:23: This simp argument is unused:
+[191.315]   Option.bind_some
+[191.315] 
+[191.315] Hint: Omit it from the simp argument list.
+[191.315]   [apply] simp only [decode]
+[191.315] 
+[191.315] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[191.315] warning: Veir/Passes/InstructionSelection/RISCV64CastValidity.lean:147:35: This simp argument is unused:
+[191.315]   Builtin.interpretOpCTree
+[191.315] 
+[191.315] Hint: Omit it from the simp argument list.
+[191.315]   [apply] simp [Veir.CTree.interpretOp', Llvm.interpretOpCTree, Llvm.interpretOp', monadLift, MonadLift.monadLift,
+[191.315]     CTree.Sim.pure, OperationResult.isRefinedBy, RuntimeValue.isRefinedBy, Attribute.of, RISCV.Reg.toInt]
+[191.315] 
+[191.315] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[191.315] warning: Veir/Passes/InstructionSelection/RISCV64CastValidity.lean:230:51: This simp argument is unused:
+[191.315]   Attribute.of
+[191.315] 
+[191.315] Hint: Omit it from the simp argument list.
+[191.315]   [apply] simp [-bind_pure_comp, Veir.CTree.interpretOp', Builtin.interpretOpCTree, Llvm.interpretOpCTree,
+[191.315]     Llvm.interpretOp', monadLift, MonadLift.monadLift, CTree.Sim.pure, OperationResult.isRefinedBy,
+[191.315]     RuntimeValue.isRefinedBy, RISCV.Reg.toInt, hlt]
+[191.315] 
+[191.315] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[191.315] warning: Veir/Passes/InstructionSelection/RISCV64CastValidity.lean:248:52: This simp argument is unused:
+[191.315]   Attribute.of
+[191.315] 
+[191.315] Hint: Omit it from the simp argument list.
+[191.315]   [apply] simp [-bind_pure_comp, Veir.CTree.interpretOp', Builtin.interpretOpCTree, Llvm.interpretOpCTree,
+[191.315]     Llvm.interpretOp', monadLift, MonadLift.monadLift, CTree.Sim.pure, OperationResult.isRefinedBy,
+[191.315]     RuntimeValue.isRefinedBy, RISCV.Reg.toByte, hlt, Data.LLVM.Byte.trunc]
+[191.315] 
+[191.315] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[197.380] ✔ [312/319] Built Veir.Passes.InstructionSelection.RISCV64ZeroComparisonValidity (6.0s)
+[197.905] ✔ [313/319] Built Veir.Passes.InstructionSelection.RISCV64BinaryValidity (36s)
+[198.220] ✔ [314/319] Built Veir.Passes.InstructionSelection.RISCV64ComparisonValidity (36s)
+[200.951] ⚠ [315/319] Built Veir.Passes.InstructionSelection.RISCV64SequenceValidity (39s)
+[200.951] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:331:49: This simp argument is unused:
+[200.951]   Builtin.interpretOpCTree
+[200.951] 
+[200.951] Hint: Omit it from the simp argument list.
+[200.951]   [apply] simp [Veir.CTree.interpretOp', Llvm.interpretOpCTree, Llvm.interpretOp', monadLift, MonadLift.monadLift,
+[200.951]     CTree.Sim.pure, OperationResult.isRefinedBy, ControlFlowAction.optionIsRefinedBy_refl,
+[200.951]     RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy]
+[200.951] 
+[200.951] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[200.951] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:340:10: This simp argument is unused:
+[200.951]   RuntimeValue.isRefinedBy
+[200.951] 
+[200.951] Hint: Omit it from the simp argument list.
+[200.951]   [apply] simp [Data.LLVM.Int.abs, isRefinedBy, Id.run]
+[200.951] 
+[200.951] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[200.951] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:354:36: This simp argument is unused:
+[200.951]   CanInterpretTo.usubSat_int (⟨64, hint⟩)
+[200.951] 
+[200.951] Hint: Omit it from the simp argument list.
+[200.951]   [apply] simp
+[200.951] 
+[200.951] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[200.951] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:355:45: This simp argument is unused:
+[200.951]   RISCVImmediateProperties.immField
+[200.951] 
+[200.951] Hint: Omit it from the simp argument list.
+[200.951]   [apply] simp only [RuntimeValue.isRefinedBy]
+[200.951] 
+[200.951] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[200.951] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:378:36: This simp argument is unused:
+[200.951]   CanInterpretTo.uaddSat_int (⟨64, hint⟩)
+[200.951] 
+[200.952] Hint: Omit it from the simp argument list.
+[200.952]   [apply] simp
+[200.952] 
+[200.952] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[200.952] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:402:72: This simp argument is unused:
+[200.952]   CanInterpretTo.saddSat_int (⟨64, hint⟩)
+[200.952] 
+[200.952] Hint: Omit it from the simp argument list.
+[200.952]   [apply] simp (config := { maxSteps := 1000000 })
+[200.952] 
+[200.952] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[200.952] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:426:72: This simp argument is unused:
+[200.952]   CanInterpretTo.ssubSat_int (⟨64, hint⟩)
+[200.952] 
+[200.952] Hint: Omit it from the simp argument list.
+[200.952]   [apply] simp (config := { maxSteps := 1000000 })
+[200.952] 
+[200.952] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[200.952] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:450:72: This simp argument is unused:
+[200.952]   CanInterpretTo.sshlSat_int (⟨64, hint⟩)
+[200.952] 
+[200.952] Hint: Omit it from the simp argument list.
+[200.952]   [apply] simp (config := { maxSteps := 1000000 })
+[200.952] 
+[200.952] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[200.952] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:474:72: This simp argument is unused:
+[200.952]   CanInterpretTo.ushlSat_int (⟨64, hint⟩)
+[200.952] 
+[200.952] Hint: Omit it from the simp argument list.
+[200.952]   [apply] simp (config := { maxSteps := 1000000 })
+[200.952] 
+[200.952] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[200.952] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:498:8: This simp argument is unused:
+[200.952]   CanInterpretTo.bswap_int (⟨64, hint⟩)
+[200.952] 
+[200.952] Hint: Omit it from the simp argument list.
+[200.952]   [apply] simp
+[200.952] 
+[200.952] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[200.952] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:519:8: This simp argument is unused:
+[200.952]   CanInterpretTo.bswap_int (⟨32, hint⟩)
+[200.952] 
+[200.952] Hint: Omit it from the simp argument list.
+[200.952]   [apply] simp
+[200.952] 
+[200.952] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[200.952] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:607:14: This simp argument is unused:
+[200.952]   Interp.isRefinedBy
+[200.952] 
+[200.952] Hint: Omit it from the simp argument list.
+[200.952]   [apply] simp [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg,
+[200.952]     RISCVImmediateProperties.immField]
+[200.952] 
+[200.952] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[200.952] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:607:34: This simp argument is unused:
+[200.952]   RuntimeValue.arrayIsRefinedBy_cons
+[200.952] 
+[200.952] Hint: Omit it from the simp argument list.
+[200.952]   [apply] simp [Interp.isRefinedBy, RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField]
+[200.952] 
+[200.952] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[200.952] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:608:36: This simp argument is unused:
+[200.952]   LLVM.Int.toReg
+[200.952] 
+[200.952] Hint: Omit it from the simp argument list.
+[200.952]   [apply] simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
+[200.952]     RISCVImmediateProperties.immField]
+[200.952] 
+[200.952] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[200.952] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:630:14: This simp argument is unused:
+[200.952]   Interp.isRefinedBy
+[200.952] 
+[200.952] Hint: Omit it from the simp argument list.
+[200.952]   [apply] simp [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg,
+[200.952]     RISCVImmediateProperties.immField]
+[200.952] 
+[200.952] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[200.952] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:630:34: This simp argument is unused:
+[200.952]   RuntimeValue.arrayIsRefinedBy_cons
+[200.952] 
+[200.952] Hint: Omit it from the simp argument list.
+[200.952]   [apply] simp [Interp.isRefinedBy, RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField]
+[200.952] 
+[200.952] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[200.952] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:631:36: This simp argument is unused:
+[200.952]   LLVM.Int.toReg
+[200.952] 
+[200.952] Hint: Omit it from the simp argument list.
+[200.952]   [apply] simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
+[200.952]     RISCVImmediateProperties.immField]
+[200.952] 
+[200.952] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[200.952] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:771:32: This simp argument is unused:
+[200.952]   CanInterpretTo.select_int (⟨64, hint⟩)
+[200.952] 
+[200.952] Hint: Omit it from the simp argument list.
+[200.952]   [apply] simp [CanInterpretTo.select_int (⟨32, hint⟩), CanInterpretTo.select_int (⟨1, hint⟩), Interp.isRefinedBy,
+[200.952]     RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, Data.LLVM.Int.select, isRefinedBy, Id.run,
+[200.952]     Data.RISCV.czeroeqz, Data.RISCV.czeronez, Data.RISCV.or, RISCV.Reg.toInt]
+[200.952] 
+[200.952] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[200.952] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:772:14: This simp argument is unused:
+[200.952]   CanInterpretTo.select_int (⟨32, hint⟩)
+[200.952] 
+[200.952] Hint: Omit it from the simp argument list.
+[200.952]   [apply] simp [CanInterpretTo.select_int (⟨64, hint⟩), CanInterpretTo.select_int (⟨1, hint⟩), Interp.isRefinedBy,
+[200.952]     RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, Data.LLVM.Int.select, isRefinedBy, Id.run,
+[200.952]     Data.RISCV.czeroeqz, Data.RISCV.czeronez, Data.RISCV.or, RISCV.Reg.toInt]
+[200.952] 
+[200.952] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[200.952] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:772:54: This simp argument is unused:
+[200.952]   CanInterpretTo.select_int (⟨1, hint⟩)
+[200.952] 
+[200.952] Hint: Omit it from the simp argument list.
+[200.952]   [apply] simp [CanInterpretTo.select_int (⟨64, hint⟩), CanInterpretTo.select_int (⟨32, hint⟩), Interp.isRefinedBy,
+[200.952]     RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, Data.LLVM.Int.select, isRefinedBy, Id.run,
+[200.952]     Data.RISCV.czeroeqz, Data.RISCV.czeronez, Data.RISCV.or, RISCV.Reg.toInt]
+[200.952] 
+[200.952] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[200.952] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:772:93: This simp argument is unused:
+[200.952]   Interp.isRefinedBy
+[200.952] 
+[200.952] Hint: Omit it from the simp argument list.
+[200.952]   [apply] simp [CanInterpretTo.select_int (⟨64, hint⟩), CanInterpretTo.select_int (⟨32, hint⟩),
+[200.952]     CanInterpretTo.select_int (⟨1, hint⟩), RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
+[200.952]     Data.LLVM.Int.select, isRefinedBy, Id.run, Data.RISCV.czeroeqz, Data.RISCV.czeronez, Data.RISCV.or, RISCV.Reg.toInt]
+[200.952] 
+[200.952] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[200.952] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:772:113: This simp argument is unused:
+[200.952]   RuntimeValue.arrayIsRefinedBy_cons
+[200.952] 
+[200.952] Hint: Omit it from the simp argument list.
+[200.952]   [apply] simp [CanInterpretTo.select_int (⟨64, hint⟩), CanInterpretTo.select_int (⟨32, hint⟩),
+[200.952]     CanInterpretTo.select_int (⟨1, hint⟩), Interp.isRefinedBy, RuntimeValue.isRefinedBy, Data.LLVM.Int.select,
+[200.952]     isRefinedBy, Id.run, Data.RISCV.czeroeqz, Data.RISCV.czeronez, Data.RISCV.or, RISCV.Reg.toInt]
+[200.952] 
+[200.952] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[200.952] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:782:32: This simp argument is unused:
+[200.952]   CanInterpretTo.select_int (⟨64, hint⟩)
+[200.952] 
+[200.952] Hint: Omit it from the simp argument list.
+[200.952]   [apply] simp [CanInterpretTo.select_int (⟨32, hint⟩), CanInterpretTo.select_int (⟨1, hint⟩), Interp.isRefinedBy,
+[200.952]     RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, Data.LLVM.Int.select, isRefinedBy, Id.run]
+[200.952] 
+[200.952] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[200.952] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:783:14: This simp argument is unused:
+[200.952]   CanInterpretTo.select_int (⟨32, hint⟩)
+[200.952] 
+[200.952] Hint: Omit it from the simp argument list.
+[200.952]   [apply] simp [CanInterpretTo.select_int (⟨64, hint⟩), CanInterpretTo.select_int (⟨1, hint⟩), Interp.isRefinedBy,
+[200.952]     RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, Data.LLVM.Int.select, isRefinedBy, Id.run]
+[200.952] 
+[200.952] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[200.952] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:783:54: This simp argument is unused:
+[200.952]   CanInterpretTo.select_int (⟨1, hint⟩)
+[200.952] 
+[200.952] Hint: Omit it from the simp argument list.
+[200.952]   [apply] simp [CanInterpretTo.select_int (⟨64, hint⟩), CanInterpretTo.select_int (⟨32, hint⟩), Interp.isRefinedBy,
+[200.952]     RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, Data.LLVM.Int.select, isRefinedBy, Id.run]
+[200.952] 
+[200.952] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[200.952] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:783:93: This simp argument is unused:
+[200.952]   Interp.isRefinedBy
+[200.952] 
+[200.952] Hint: Omit it from the simp argument list.
+[200.952]   [apply] simp [CanInterpretTo.select_int (⟨64, hint⟩), CanInterpretTo.select_int (⟨32, hint⟩),
+[200.952]     CanInterpretTo.select_int (⟨1, hint⟩), RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
+[200.952]     Data.LLVM.Int.select, isRefinedBy, Id.run]
+[200.952] 
+[200.952] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[200.952] warning: Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean:783:113: This simp argument is unused:
+[200.952]   RuntimeValue.arrayIsRefinedBy_cons
+[200.952] 
+[200.952] Hint: Omit it from the simp argument list.
+[200.952]   [apply] simp [CanInterpretTo.select_int (⟨64, hint⟩), CanInterpretTo.select_int (⟨32, hint⟩),
+[200.952]     CanInterpretTo.select_int (⟨1, hint⟩), Interp.isRefinedBy, RuntimeValue.isRefinedBy, Data.LLVM.Int.select,
+[200.952]     isRefinedBy, Id.run]
+[200.952] 
+[200.952] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[205.036] ⚠ [316/319] Built Veir.Passes.InstructionSelection.RISCV64SequenceExtraValidity (4.1s)
+[205.036] warning: Veir/Passes/InstructionSelection/RISCV64SequenceExtraValidity.lean:78:28: This simp argument is unused:
+[205.036]   CanInterpretTo.select_int (⟨64, hint⟩)
+[205.036] 
+[205.036] Hint: Omit it from the simp argument list.
+[205.036]   [apply] simp [CanInterpretTo.select_int (⟨32, hint⟩), Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+[205.036]     RuntimeValue.isRefinedBy, Data.LLVM.Int.select, isRefinedBy, Id.run, Data.RISCV.czeroeqz, RISCV.Reg.toInt]
+[205.036] 
+[205.036] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[205.036] warning: Veir/Passes/InstructionSelection/RISCV64SequenceExtraValidity.lean:79:14: This simp argument is unused:
+[205.036]   CanInterpretTo.select_int (⟨32, hint⟩)
+[205.036] 
+[205.036] Hint: Omit it from the simp argument list.
+[205.036]   [apply] simp [CanInterpretTo.select_int (⟨64, hint⟩), Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+[205.036]     RuntimeValue.isRefinedBy, Data.LLVM.Int.select, isRefinedBy, Id.run, Data.RISCV.czeroeqz, RISCV.Reg.toInt]
+[205.036] 
+[205.036] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[205.036] warning: Veir/Passes/InstructionSelection/RISCV64SequenceExtraValidity.lean:79:54: This simp argument is unused:
+[205.036]   Interp.isRefinedBy
+[205.036] 
+[205.036] Hint: Omit it from the simp argument list.
+[205.036]   [apply] simp [CanInterpretTo.select_int (⟨64, hint⟩), CanInterpretTo.select_int (⟨32, hint⟩),
+[205.036]     RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, Data.LLVM.Int.select, isRefinedBy, Id.run,
+[205.036]     Data.RISCV.czeroeqz, RISCV.Reg.toInt]
+[205.036] 
+[205.036] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[205.036] warning: Veir/Passes/InstructionSelection/RISCV64SequenceExtraValidity.lean:80:14: This simp argument is unused:
+[205.036]   RuntimeValue.arrayIsRefinedBy_cons
+[205.036] 
+[205.036] Hint: Omit it from the simp argument list.
+[205.036]   [apply] simp [CanInterpretTo.select_int (⟨64, hint⟩), CanInterpretTo.select_int (⟨32, hint⟩), Interp.isRefinedBy,
+[205.036]     RuntimeValue.isRefinedBy, Data.LLVM.Int.select, isRefinedBy, Id.run, Data.RISCV.czeroeqz, RISCV.Reg.toInt]
+[205.036] 
+[205.036] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[205.036] warning: Veir/Passes/InstructionSelection/RISCV64SequenceExtraValidity.lean:88:28: This simp argument is unused:
+[205.036]   CanInterpretTo.select_int (⟨64, hint⟩)
+[205.036] 
+[205.036] Hint: Omit it from the simp argument list.
+[205.036]   [apply] simp [CanInterpretTo.select_int (⟨32, hint⟩), Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+[205.036]     RuntimeValue.isRefinedBy, Data.LLVM.Int.select, isRefinedBy, Id.run]
+[205.036] 
+[205.036] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[205.036] warning: Veir/Passes/InstructionSelection/RISCV64SequenceExtraValidity.lean:89:14: This simp argument is unused:
+[205.036]   CanInterpretTo.select_int (⟨32, hint⟩)
+[205.036] 
+[205.036] Hint: Omit it from the simp argument list.
+[205.036]   [apply] simp [CanInterpretTo.select_int (⟨64, hint⟩), Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+[205.036]     RuntimeValue.isRefinedBy, Data.LLVM.Int.select, isRefinedBy, Id.run]
+[205.036] 
+[205.036] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[205.036] warning: Veir/Passes/InstructionSelection/RISCV64SequenceExtraValidity.lean:89:54: This simp argument is unused:
+[205.036]   Interp.isRefinedBy
+[205.036] 
+[205.036] Hint: Omit it from the simp argument list.
+[205.036]   [apply] simp [CanInterpretTo.select_int (⟨64, hint⟩), CanInterpretTo.select_int (⟨32, hint⟩),
+[205.036]     RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, Data.LLVM.Int.select, isRefinedBy, Id.run]
+[205.036] 
+[205.036] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[205.036] warning: Veir/Passes/InstructionSelection/RISCV64SequenceExtraValidity.lean:90:14: This simp argument is unused:
+[205.036]   RuntimeValue.arrayIsRefinedBy_cons
+[205.036] 
+[205.036] Hint: Omit it from the simp argument list.
+[205.036]   [apply] simp [CanInterpretTo.select_int (⟨64, hint⟩), CanInterpretTo.select_int (⟨32, hint⟩), Interp.isRefinedBy,
+[205.036]     RuntimeValue.isRefinedBy, Data.LLVM.Int.select, isRefinedBy, Id.run]
+[205.036] 
+[205.036] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[205.036] warning: Veir/Passes/InstructionSelection/RISCV64SequenceExtraValidity.lean:128:28: This simp argument is unused:
+[205.036]   CanInterpretTo.select_int (⟨64, hint⟩)
+[205.036] 
+[205.036] Hint: Omit it from the simp argument list.
+[205.036]   [apply] simp [CanInterpretTo.select_int (⟨32, hint⟩), Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+[205.036]     RuntimeValue.isRefinedBy, Data.LLVM.Int.select, isRefinedBy, Id.run, Data.RISCV.czeronez, RISCV.Reg.toInt]
+[205.036] 
+[205.036] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[205.036] warning: Veir/Passes/InstructionSelection/RISCV64SequenceExtraValidity.lean:129:14: This simp argument is unused:
+[205.036]   CanInterpretTo.select_int (⟨32, hint⟩)
+[205.036] 
+[205.036] Hint: Omit it from the simp argument list.
+[205.036]   [apply] simp [CanInterpretTo.select_int (⟨64, hint⟩), Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+[205.036]     RuntimeValue.isRefinedBy, Data.LLVM.Int.select, isRefinedBy, Id.run, Data.RISCV.czeronez, RISCV.Reg.toInt]
+[205.036] 
+[205.036] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[205.036] warning: Veir/Passes/InstructionSelection/RISCV64SequenceExtraValidity.lean:129:54: This simp argument is unused:
+[205.036]   Interp.isRefinedBy
+[205.036] 
+[205.036] Hint: Omit it from the simp argument list.
+[205.036]   [apply] simp [CanInterpretTo.select_int (⟨64, hint⟩), CanInterpretTo.select_int (⟨32, hint⟩),
+[205.036]     RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, Data.LLVM.Int.select, isRefinedBy, Id.run,
+[205.036]     Data.RISCV.czeronez, RISCV.Reg.toInt]
+[205.036] 
+[205.036] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[205.036] warning: Veir/Passes/InstructionSelection/RISCV64SequenceExtraValidity.lean:130:14: This simp argument is unused:
+[205.036]   RuntimeValue.arrayIsRefinedBy_cons
+[205.036] 
+[205.036] Hint: Omit it from the simp argument list.
+[205.036]   [apply] simp [CanInterpretTo.select_int (⟨64, hint⟩), CanInterpretTo.select_int (⟨32, hint⟩), Interp.isRefinedBy,
+[205.036]     RuntimeValue.isRefinedBy, Data.LLVM.Int.select, isRefinedBy, Id.run, Data.RISCV.czeronez, RISCV.Reg.toInt]
+[205.036] 
+[205.036] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[205.036] warning: Veir/Passes/InstructionSelection/RISCV64SequenceExtraValidity.lean:138:28: This simp argument is unused:
+[205.036]   CanInterpretTo.select_int (⟨64, hint⟩)
+[205.036] 
+[205.036] Hint: Omit it from the simp argument list.
+[205.036]   [apply] simp [CanInterpretTo.select_int (⟨32, hint⟩), Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+[205.036]     RuntimeValue.isRefinedBy, Data.LLVM.Int.select, isRefinedBy, Id.run]
+[205.036] 
+[205.036] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[205.036] warning: Veir/Passes/InstructionSelection/RISCV64SequenceExtraValidity.lean:139:14: This simp argument is unused:
+[205.036]   CanInterpretTo.select_int (⟨32, hint⟩)
+[205.036] 
+[205.036] Hint: Omit it from the simp argument list.
+[205.036]   [apply] simp [CanInterpretTo.select_int (⟨64, hint⟩), Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+[205.036]     RuntimeValue.isRefinedBy, Data.LLVM.Int.select, isRefinedBy, Id.run]
+[205.036] 
+[205.036] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[205.036] warning: Veir/Passes/InstructionSelection/RISCV64SequenceExtraValidity.lean:139:54: This simp argument is unused:
+[205.036]   Interp.isRefinedBy
+[205.036] 
+[205.036] Hint: Omit it from the simp argument list.
+[205.036]   [apply] simp [CanInterpretTo.select_int (⟨64, hint⟩), CanInterpretTo.select_int (⟨32, hint⟩),
+[205.036]     RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, Data.LLVM.Int.select, isRefinedBy, Id.run]
+[205.036] 
+[205.036] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[205.036] warning: Veir/Passes/InstructionSelection/RISCV64SequenceExtraValidity.lean:140:14: This simp argument is unused:
+[205.036]   RuntimeValue.arrayIsRefinedBy_cons
+[205.036] 
+[205.036] Hint: Omit it from the simp argument list.
+[205.036]   [apply] simp [CanInterpretTo.select_int (⟨64, hint⟩), CanInterpretTo.select_int (⟨32, hint⟩), Interp.isRefinedBy,
+[205.036]     RuntimeValue.isRefinedBy, Data.LLVM.Int.select, isRefinedBy, Id.run]
+[205.036] 
+[205.036] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[205.036] warning: Veir/Passes/InstructionSelection/RISCV64SequenceExtraValidity.lean:250:27: This simp argument is unused:
+[205.036]   Option.bind_some
+[205.036] 
+[205.036] Hint: Omit it from the simp argument list.
+[205.036]   [apply] simp only [decode]
+[205.036] 
+[205.036] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[205.036] warning: Veir/Passes/InstructionSelection/RISCV64SequenceExtraValidity.lean:256:26: This simp argument is unused:
+[205.036]   CanInterpretTo.fshl_int (⟨64, hint⟩)
+[205.036] 
+[205.036] Hint: Omit it from the simp argument list.
+[205.036]   [apply] simp
+[205.036] 
+[205.036] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[205.036] warning: Veir/Passes/InstructionSelection/RISCV64SequenceExtraValidity.lean:285:27: This simp argument is unused:
+[205.036]   Option.bind_some
+[205.036] 
+[205.036] Hint: Omit it from the simp argument list.
+[205.036]   [apply] simp only [decode]
+[205.036] 
+[205.036] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[205.036] warning: Veir/Passes/InstructionSelection/RISCV64SequenceExtraValidity.lean:291:26: This simp argument is unused:
+[205.036]   CanInterpretTo.fshl_int (⟨32, hint⟩)
+[205.036] 
+[205.036] Hint: Omit it from the simp argument list.
+[205.036]   [apply] simp
+[205.036] 
+[205.036] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[205.036] warning: Veir/Passes/InstructionSelection/RISCV64SequenceExtraValidity.lean:320:27: This simp argument is unused:
+[205.036]   Option.bind_some
+[205.036] 
+[205.036] Hint: Omit it from the simp argument list.
+[205.036]   [apply] simp only [decode]
+[205.036] 
+[205.036] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[205.036] warning: Veir/Passes/InstructionSelection/RISCV64SequenceExtraValidity.lean:326:26: This simp argument is unused:
+[205.036]   CanInterpretTo.fshr_int (⟨64, hint⟩)
+[205.036] 
+[205.036] Hint: Omit it from the simp argument list.
+[205.036]   [apply] simp
+[205.036] 
+[205.036] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[205.036] warning: Veir/Passes/InstructionSelection/RISCV64SequenceExtraValidity.lean:355:27: This simp argument is unused:
+[205.036]   Option.bind_some
+[205.036] 
+[205.036] Hint: Omit it from the simp argument list.
+[205.036]   [apply] simp only [decode]
+[205.036] 
+[205.036] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[205.036] warning: Veir/Passes/InstructionSelection/RISCV64SequenceExtraValidity.lean:361:26: This simp argument is unused:
+[205.036]   CanInterpretTo.fshr_int (⟨32, hint⟩)
+[205.036] 
+[205.036] Hint: Omit it from the simp argument list.
+[205.036]   [apply] simp
+[205.036] 
+[205.036] Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+[207.031] ✔ [317/319] Built Veir.Passes.InstructionSelection.RISCV64Validity (1.9s)
+[208.707] ✔ [318/319] Built Veir (1.7s)
+[208.709] Build completed successfully (319 jobs).
