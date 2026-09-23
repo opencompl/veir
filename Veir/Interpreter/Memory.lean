@@ -38,6 +38,14 @@ structure MemoryState where
 
 def MemoryState.empty : MemoryState := { objects := #[MemoryObject.ofSize 8] }
 
+/--
+  The object that `p` points into, or `none` if `p` indexes no object.
+
+  No pointer should trigger the `none` case: every pointer the interpreter builds
+  names an object contained in the state (currently only object 0) which `empty`
+  creates and no operation ever removes. However, this is not enforced, so a
+  bug may break this invariant.
+-/
 def MemoryState.getObject? (mem : MemoryState) (p : Pointer) : Option MemoryObject :=
   mem.objects[p.object]?
 
@@ -80,7 +88,7 @@ def MemoryState.alloc (mem : MemoryState) (size : UInt64) : Interp (MemoryState 
   Check if an access of `size` bytes at `p` is allowed.
 -/
 def MemoryState.checkAccess (mem : MemoryState) (p : Pointer) (size : UInt64) : Interp MemoryObject := do
-  let some obj := mem.getObject? p | Interp.ub
+  let some obj := mem.getObject? p | Interp.fail
 
   -- An access of zero bytes is allowed at any offset, in bounds or not.
   if size = 0 then return obj
