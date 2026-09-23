@@ -1,7 +1,7 @@
 // RUN: veir-interpret %s | filecheck %s
 
 // An `alloca` cannot report failure, so reserving more bytes than the address
-// space holds is UB: 2^62 elements of 8 bytes are 2^65 bytes.
+// space holds is UB: 2^62 elements of 8 bytes is 2^65 bytes.
 
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i64 ()>}> ({
