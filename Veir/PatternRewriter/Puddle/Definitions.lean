@@ -216,6 +216,13 @@ inductive MatchDecl (OpInfo : Type) [HasOpInfo OpInfo] where
 /-- Require the concrete metadata denoted by `inputs` to satisfy `predicate`. -/
 | applyNative {Inputs : Type} [hInputs : IsMetadataTuple OpInfo Inputs]
     (inputs : Inputs) (predicate : MetadataValues OpInfo Inputs → Bool)
+/-- Inspect an already-bound operation in its IR context and bind derived metadata.
+Returning `none` rejects the match. Outputs are restricted to types/properties, so this cannot
+introduce SSA values or mutate the IR. Used for constraints such as function-entry allocations. -/
+| inspectOperation {Outputs : Type} [IsMetadataTuple OpInfo Outputs]
+    (operation : Handle OpInfo .op)
+    (inspect : IRContext OpInfo → OperationPtr → Option (MetadataValues OpInfo Outputs))
+    (outputs : Outputs)
 /-- Identify an operation from the already-bound `result` or `results` handle, check every result
 handle against that operation, require the given opcode, operands, result types, and properties,
 and bind the discovered entities to their corresponding handles. -/

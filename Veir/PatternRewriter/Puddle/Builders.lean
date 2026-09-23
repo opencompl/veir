@@ -34,7 +34,7 @@ structure MatchProg.BuilderState where
   nextId : Nat := 0
   /-- Structural declarations in reverse authoring order. -/
   decls : List (MatchDecl OpCode) := []
-  /-- Native guards in reverse authoring order, appended after structural declarations at build time. -/
+  /-- Native guards and contextual inspections in reverse authoring order, executed after structural declarations. -/
   guardDecls : List (MatchDecl OpCode) := []
   /-- The most recently designated root. -/
   root? : Option (Handle OpCode .op) := none
@@ -226,6 +226,20 @@ def fresh {Handles : Type} [self : IsMetadataTuple OpCode Handles] (nextId : Nat
   self.shape.fresh nextId
 
 end MetadataTuple
+
+/-- Inspect a matched operation without changing the IR, rejecting unsupported contextual cases.
+Derived metadata is bound during matching and can be consumed by later guards or creation. -/
+@[expose, inline]
+def MatchProg.inspectOperation {Outputs : Type} [IsMetadataTuple OpCode Outputs]
+    (operation : Handle OpCode .op)
+    (inspect : IRContext OpCode → OperationPtr → Option (MetadataValues OpCode Outputs)) :
+    MatchProg.Builder Outputs :=
+  ⟨fun state =>
+    let (outputs, nextId) := MetadataTuple.fresh (Handles := Outputs) state.nextId
+    (outputs, { state with
+      nextId
+      guardDecls := .inspectOperation operation inspect outputs :: state.guardDecls
+    })⟩
 
 /-- The operation and SSA-result handles introduced by a creation declaration. -/
 structure CreatedOpHandle where

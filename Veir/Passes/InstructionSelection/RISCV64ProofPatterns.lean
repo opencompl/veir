@@ -1,0 +1,685 @@
+module
+
+import all Veir.Passes.InstructionSelection.RISCV64
+import Veir.PatternRewriter.Puddle.Builders
+import Veir.PatternRewriter.Puddle.Execution
+import Veir.Passes.Matching.LLVM.Basic
+import Veir.DataLayout.RISCV64
+
+/-!
+Pattern definitions used by the existing CTree validity proofs. The production selector uses
+main's Puddle rewrites in `RISCV64`; these earlier formulations are retained here so the proof
+work remains available while its certificates are migrated to those production definitions.
+These patterns are not registered in the instruction-selection pass.
+-/
+
+namespace Veir.InstructionSelection.ProofPatterns
+
+open Puddle
+
+/-! ## Puddle creation helpers -/
+
+open Puddle
+
+private abbrev ValueHandle := Handle OpCode .value
+private abbrev TypeHandle := Handle OpCode .type
+
+/-- Cast a matched value into an unallocated RISC-V register. -/
+def castToReg (value : ValueHandle) : CreateProg.Builder ValueHandle := do
+  let regType ← CreateProg.type (RegisterType.mk none)
+  let props ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+  let op ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[value] #[regType] props
+  return op.res[0]!
+
+/-- Cast the selected register back to the matched LLVM result type. -/
+def castFromReg (value : ValueHandle) (type : TypeHandle) : CreateProg.Builder CreatedOpHandle := do
+  let props ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+  CreateProg.operation (.builtin .unrealized_conversion_cast) #[value] #[type] props
+
+/-- Emit a register-result instruction with concrete properties. -/
+def emitRISCV (op : Riscv) (operands : Array ValueHandle) (props : Riscv.propertiesOf op) :
+    CreateProg.Builder ValueHandle := do
+  let regType ← CreateProg.type (RegisterType.mk none)
+  let props ← CreateProg.property (.riscv op) props
+  let result ← CreateProg.operation (.riscv op) operands #[regType] props
+  return result.res[0]!
+
+def emitUnit (op : Riscv) (h : Riscv.propertiesOf op = Unit) (operands : Array ValueHandle) :
+    CreateProg.Builder ValueHandle := emitRISCV op operands (cast h.symm ())
+
+def emitImm (op : Riscv) (h : Riscv.propertiesOf op = RISCVImmediateProperties)
+    (operands : Array ValueHandle) (value : Int) : CreateProg.Builder ValueHandle :=
+  emitRISCV op operands (cast h.symm (RISCVImmediateProperties.mk (BitVec.ofInt 64 value)))
+
+/-- Lower an integer operation through a register instruction sequence. -/
+def lowerIntSequence (op : Llvm) (bw arity : Nat)
+    (emit : Array ValueHandle → CreateProg.Builder ValueHandle) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == bw)
+      let args ← (Array.range arity).mapM (fun _ => MatchProg.value type)
+      let _ ← MatchProg.root (.llvm op) args #[type]
+      return (type, args))
+    (fun (type, args) => do
+      let regs ← args.mapM castToReg
+      let result ← emit regs
+      castFromReg result type)
+    (fun result => result)
+
+/-- The integer decoder used by the retained proof formulations. -/
+def decodeLLVMIntegerConstant (attr : IntegerAttr) : Int :=
+  if attr.type.bitwidth = 1 then (BitVec.ofInt 1 attr.value).toNat
+  else (BitVec.ofInt attr.type.bitwidth attr.value).toInt
+
+/-- Decode a constant using its SSA result width, including signed attribute encodings. -/
+def constantIntValue (type : TypeAttr) (props : LLVMConstantProperties) : Option Int := do
+  let .integerType t := type.val | none
+  let .integer attr := props.value | none
+  return (BitVec.ofInt t.bitwidth (decodeLLVMIntegerConstant attr)).toInt
+
+/-- A structural LLVM integer constant matcher, optionally restricted to zero. -/
+def matchIntConstant (type : TypeHandle) (zero : Bool := false) :
+    MatchProg.Builder (OpHandle (.llvm .mlir__constant)) := do
+  let op ← MatchProg.operation (.llvm .mlir__constant) #[] #[type]
+      (fun props => match props.value with | .integer _ => true | _ => false)
+  if zero then
+    MatchProg.matchNative (type, op.properties)
+      (fun (type, props) => constantIntValue type props == some 0)
+  return op
+
+/-! ## Bit permutations and constants -/
+
+/-- One SWAR bit-reversal stage: `((x & mask) << shamt) | ((x >> shamt) & mask)`. -/
+def bitreverseStage (mask shamt : Int) (input : ValueHandle) : CreateProg.Builder ValueHandle := do
+  let maskReg ← emitImm .li rfl #[] mask
+  let low ← emitUnit .and rfl #[maskReg, input]
+  let lowShift ← emitImm .slli rfl #[low] shamt
+  let highShift ← emitImm .srli rfl #[input] shamt
+  let high ← emitUnit .and rfl #[maskReg, highShift]
+  emitUnit .or rfl #[lowShift, high]
+
+/-- `rev8` reverses eight bytes; shift the i32 result down from the upper half. -/
+def bswap_pattern (bw : Nat) : Pattern OpCode :=
+  lowerIntSequence .intr__bswap bw 1 fun regs => do
+    let result ← emitUnit .rev8 rfl #[regs[0]!]
+    if bw == 32 then emitImm .srli rfl #[result] 32 else pure result
+
+def bswap : Array (CompiledPattern OpCode) :=
+  #[32, 64].map (fun bw => (bswap_pattern bw).compile)
+
+/-- Reverse bits within bytes with SWAR, then reverse their byte order. -/
+def bitreverse_pattern (bw : Nat) : Pattern OpCode :=
+  lowerIntSequence .intr__bitreverse bw 1 fun regs => do
+    let x1 ← bitreverseStage (if bw == 32 then 0x55555555 else 0x5555555555555555) 1 regs[0]!
+    let x2 ← bitreverseStage (if bw == 32 then 0x33333333 else 0x3333333333333333) 2 x1
+    let x3 ← bitreverseStage (if bw == 32 then 0x0f0f0f0f else 0x0f0f0f0f0f0f0f0f) 4 x2
+    let result ← emitUnit .rev8 rfl #[x3]
+    if bw == 32 then emitImm .srli rfl #[result] 32 else pure result
+
+def bitreverse : Array (CompiledPattern OpCode) :=
+  #[32, 64].map (fun bw => (bitreverse_pattern bw).compile)
+
+/-- Materialize an LLVM integer constant of at most 64 bits in one register. -/
+def constant_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth ≤ 64)
+      let root ← MatchProg.root (.llvm .mlir__constant) #[] #[type]
+        (fun props => match props.value with | .integer attr => attr.type.bitwidth ≤ 64 | _ => false)
+      return (type, root.properties))
+    (fun (type, props) => do
+      let imm : Handle OpCode (.prop (.riscv .li)) ← CreateProg.applyNative (type, props)
+        (fun (type, props) => do
+          let value ← constantIntValue type props
+          return RISCVImmediateProperties.mk (BitVec.ofInt 64 value))
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let result ← CreateProg.operation (.riscv .li) #[] #[regType] imm
+      castFromReg result.res[0]! type)
+    (fun result => result)
+
+def constant : CompiledPattern OpCode := constant_pattern.compile
+
+/-! ## Shifts and comparisons -/
+
+/-- Shifts accept both integer and byte values of width 32 or 64. -/
+def lowerByteShift (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
+    (h : Riscv.propertiesOf riscvOp = Unit) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := TypeAttr)
+        (fun t => getIntByteTypeBitwidth t == some bw)
+      let rhsType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == bw)
+      let lhs ← MatchProg.value type
+      let rhs ← MatchProg.value rhsType
+      let _ ← MatchProg.root (.llvm llvmOp) #[lhs, rhs] #[type]
+      return (type, lhs, rhs))
+    (fun (type, lhs, rhs) => do
+      let lhs ← castToReg lhs
+      let rhs ← castToReg rhs
+      let result ← emitUnit riscvOp h #[lhs, rhs]
+      castFromReg result type)
+    (fun result => result)
+
+def shl : Array (CompiledPattern OpCode) :=
+  #[(lowerByteShift .shl 32 .sllw rfl).compile, (lowerByteShift .shl 64 .sll rfl).compile]
+
+def lshr : Array (CompiledPattern OpCode) :=
+  #[(lowerByteShift .lshr 32 .srlw rfl).compile, (lowerByteShift .lshr 64 .srl rfl).compile]
+
+/-- Sign-extend i8 before `sra`; i32 uses `sraw`. -/
+def ashr_pattern (bw : Nat) : Pattern OpCode :=
+  lowerIntSequence .ashr bw 2 fun regs => do
+    let lhs ← if bw == 8 then emitUnit .sextb rfl #[regs[0]!] else pure regs[0]!
+    if bw == 32 then emitUnit .sraw rfl #[lhs, regs[1]!]
+    else emitUnit .sra rfl #[lhs, regs[1]!]
+
+def ashr : Array (CompiledPattern OpCode) :=
+  #[8, 32, 64].map (fun bw => (ashr_pattern bw).compile)
+
+/-- Narrow comparisons sign-extend both operands, preserving signed and unsigned order. -/
+def icmpExtend (bw : Nat) (value : ValueHandle) : CreateProg.Builder ValueHandle :=
+  if bw == 32 then emitUnit .sextw rfl #[value]
+  else if bw == 8 then emitUnit .sextb rfl #[value]
+  else pure value
+
+/-- The ten LLVM comparison predicates, with zero-RHS eq/ne peepholes tried first. -/
+def icmp_pattern (bw : Nat) (pred : Data.LLVM.IntPred) (zero : Bool := false) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == bw)
+      let resultType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
+      let lhs ← MatchProg.value type
+      let rhs ← if zero then do
+          let constant ← matchIntConstant type true
+          pure constant.res[0]!
+        else MatchProg.value type
+      let _ ← MatchProg.root (.llvm .icmp) #[lhs, rhs] #[resultType]
+        (fun props => props.predicate == pred)
+      return (resultType, lhs, rhs))
+    (fun (resultType, lhs, rhs) => do
+      let lhs ← castToReg lhs
+      let rhs ← castToReg rhs
+      let lhs ← icmpExtend bw lhs
+      let rhs ← icmpExtend bw rhs
+      let result ← match pred with
+        | .eq => do
+          let diff ← if zero then pure lhs else emitUnit .xor rfl #[rhs, lhs]
+          emitImm .sltiu rfl #[diff] 1
+        | .ne => do
+          let diff ← if zero then pure lhs else emitUnit .xor rfl #[rhs, lhs]
+          let zero ← emitImm .li rfl #[] 0
+          emitUnit .sltu rfl #[zero, diff]
+        | .slt => emitUnit .slt rfl #[lhs, rhs]
+        | .sgt => emitUnit .slt rfl #[rhs, lhs]
+        | .ult => emitUnit .sltu rfl #[lhs, rhs]
+        | .ugt => emitUnit .sltu rfl #[rhs, lhs]
+        | .sge => do
+          let cmp ← emitUnit .slt rfl #[lhs, rhs]
+          emitImm .xori rfl #[cmp] 1
+        | .sle => do
+          let cmp ← emitUnit .slt rfl #[rhs, lhs]
+          emitImm .xori rfl #[cmp] 1
+        | .uge => do
+          let cmp ← emitUnit .sltu rfl #[lhs, rhs]
+          emitImm .xori rfl #[cmp] 1
+        | .ule => do
+          let cmp ← emitUnit .sltu rfl #[rhs, lhs]
+          emitImm .xori rfl #[cmp] 1
+      castFromReg result resultType)
+    (fun result => result)
+
+def icmp : Array (CompiledPattern OpCode) :=
+  #[8, 32, 64].flatMap fun bw =>
+    #[(icmp_pattern bw .eq true).compile, (icmp_pattern bw .ne true).compile] ++
+    #[Data.LLVM.IntPred.eq, .ne, .slt, .sgt, .ult, .ugt, .sge, .sle, .uge, .ule].map
+      (fun pred => (icmp_pattern bw pred).compile)
+
+/-! ## Casts -/
+
+/-- Lower a unary operation by a register round trip, retaining the source/result type guards. -/
+def lowerCast (llvmOp : Llvm) (typeMatcher : TypeAttr → Bool)
+    (guardTypes : TypeAttr × TypeAttr → Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let opType ← MatchProg.type (Attr := TypeAttr) typeMatcher
+      let resType ← MatchProg.type (Attr := TypeAttr) typeMatcher
+      let operand ← MatchProg.value opType
+      let _ ← MatchProg.root (.llvm llvmOp) #[operand] #[resType]
+      MatchProg.matchNative (opType, resType) guardTypes
+      return (operand, resType))
+    (fun (operand, resType) => do
+      let reg ← castToReg operand
+      castFromReg reg resType)
+    (fun result => result)
+
+/-- Truncate integer-to-integer or byte-to-byte, with source width at most 64. -/
+def trunc_pattern : Pattern OpCode :=
+  lowerCast .trunc (fun t => (getIntByteTypeBitwidth t).isSome) fun (src, dst) =>
+    let sameKind := match src.val, dst.val with
+      | .integerType _, .integerType _ | .byteType _, .byteType _ => true
+      | _, _ => false
+    match getIntByteTypeBitwidth src, getIntByteTypeBitwidth dst with
+    | some srcBw, some dstBw => sameKind && decide (dstBw < srcBw ∧ srcBw ≤ 64)
+    | _, _ => false
+
+def trunc : CompiledPattern OpCode := trunc_pattern.compile
+
+def checkBitcastType (t : TypeAttr) : Bool :=
+  match t.val with
+  | .llvmPointerType _ | .integerType _ | .byteType _ => true
+  | _ => false
+
+def isBitcastByteToPtr (opType resType : TypeAttr) : Bool :=
+  match opType.val, resType.val with
+  | .byteType _, .llvmPointerType _ => true
+  | _, _ => false
+
+/-- Integer, byte and pointer bitcasts use a register round trip, excluding byte-to-pointer. -/
+def bitcast_pattern : Pattern OpCode :=
+  lowerCast .bitcast (fun t => checkBitcastType t) fun (src, dst) =>
+    !isBitcastByteToPtr src dst &&
+    match Attribute.bitwidthOfType src, Attribute.bitwidthOfType dst with
+    | some srcBw, some dstBw => decide (srcBw ∈ [8, 16, 32, 64] ∧ dstBw ∈ [8, 16, 32, 64])
+    | _, _ => false
+
+def bitcast : CompiledPattern OpCode := bitcast_pattern.compile
+
+def freeze_pattern : Pattern OpCode :=
+  lowerCast .freeze (fun t => match t.val with
+    | .integerType t => t.bitwidth = 32 ∨ t.bitwidth = 64
+    | _ => false) (fun (src, dst) => src == dst)
+
+def freeze : CompiledPattern OpCode := freeze_pattern.compile
+
+/-- Poison may be refined to zero; retain its original result type. -/
+def poisonConst_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := TypeAttr)
+      let _ ← MatchProg.root (.llvm .mlir__poison) #[] #[type]
+      return type)
+    (fun type => do
+      let reg ← emitImm .li rfl #[] 0
+      castFromReg reg type)
+    (fun result => result)
+
+def poisonConst : CompiledPattern OpCode := poisonConst_pattern.compile
+
+/-! ## Zicond selects -/
+
+/-- Zero-arm forms precede the general branchless select. -/
+def select_pattern (zeroTrue zeroFalse : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (fun t =>
+        t.bitwidth = 64 ∨ t.bitwidth = 32 ∨ (t.bitwidth = 1 ∧ !zeroTrue ∧ !zeroFalse))
+      let condType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
+      let cond ← MatchProg.value condType
+      let tval ← if zeroTrue then do
+          let constant ← matchIntConstant type true
+          pure constant.res[0]!
+        else MatchProg.value type
+      let fval ← if zeroFalse then do
+          let constant ← matchIntConstant type true
+          pure constant.res[0]!
+        else MatchProg.value type
+      let _ ← MatchProg.root (.llvm .select) #[cond, tval, fval] #[type]
+      return (type, cond, tval, fval))
+    (fun (type, cond, tval, fval) => do
+      let result ← if zeroFalse then do
+          let tval ← castToReg tval
+          let cond ← castToReg cond
+          emitUnit .czeroeqz rfl #[tval, cond]
+        else if zeroTrue then do
+          let fval ← castToReg fval
+          let cond ← castToReg cond
+          emitUnit .czeronez rfl #[fval, cond]
+        else do
+          let tval ← castToReg tval
+          let fval ← castToReg fval
+          let cond ← castToReg cond
+          let eqz ← emitUnit .czeroeqz rfl #[tval, cond]
+          let nez ← emitUnit .czeronez rfl #[fval, cond]
+          emitUnit .or rfl #[eqz, nez]
+      castFromReg result type)
+    (fun result => result)
+
+def selectCzeroeqz : CompiledPattern OpCode := (select_pattern false true).compile
+def selectCzeronez : CompiledPattern OpCode := (select_pattern true false).compile
+def selectGeneral : CompiledPattern OpCode := (select_pattern false false).compile
+
+/-! ## Saturating i64 arithmetic -/
+
+/-- Select the saturation endpoint when overflow is nonzero. -/
+def signedSatSelect (wrapped overflow sat : ValueHandle) : CreateProg.Builder ValueHandle := do
+  let wrappedOrZero ← emitUnit .czeronez rfl #[wrapped, overflow]
+  let satOrZero ← emitUnit .czeroeqz rfl #[sat, overflow]
+  emitUnit .or rfl #[satOrZero, wrappedOrZero]
+
+/-- llvm.intr.sadd.sat.i64 -> LLVM's RV64+Zicond signed saturating-add sequence.
+    Wrapped `add` + SADDO overflow `(rhs >>u 63) ^ (sum <s lhs)`
+    (TargetLowering.cpp:12432 `expandAddSubSat`, overflow at 13072
+    `expandSADDSUBO` add branch; sat endpoint `(sum >>s 63) ^ INT_MIN` at 12554). -/
+def saddSat_pattern : Pattern OpCode :=
+  lowerIntSequence .intr__sadd__sat 64 2 fun regs => do
+    let lReg := regs[0]!
+    let rReg := regs[1]!
+    let minusOne ← emitImm .li rfl #[] (-1)
+    let sum ← emitUnit .add rfl #[lReg, rReg]
+    let rhsSign ← emitImm .srli rfl #[rReg] 63
+    let carryLike ← emitUnit .slt rfl #[sum, lReg]
+    let sumSign ← emitImm .srai rfl #[sum] 63
+    let intMin ← emitImm .slli rfl #[minusOne] 63
+    let overflow ← emitUnit .xor rfl #[rhsSign, carryLike]
+    let sat ← emitUnit .xor rfl #[sumSign, intMin]
+    signedSatSelect (sum) (overflow) (sat)
+
+def saddSat : CompiledPattern OpCode := saddSat_pattern.compile
+
+/-- llvm.intr.ssub.sat.i64 -> LLVM's RV64+Zicond signed saturating-sub sequence.
+    Wrapped `sub` + SSUBO overflow `(lhs <s rhs) ^ (diff >>u 63)`
+    (TargetLowering.cpp:12432 `expandAddSubSat`, overflow at 13082
+    `expandSADDSUBO` sub branch; sat endpoint `(diff >>s 63) ^ INT_MIN` at 12554). -/
+def ssubSat_pattern : Pattern OpCode :=
+  lowerIntSequence .intr__ssub__sat 64 2 fun regs => do
+    let lReg := regs[0]!
+    let rReg := regs[1]!
+    let minusOne ← emitImm .li rfl #[] (-1)
+    let diff ← emitUnit .sub rfl #[lReg, rReg]
+    let cmp ← emitUnit .slt rfl #[lReg, rReg]
+    let diffSignBit ← emitImm .srli rfl #[diff] 63
+    let diffSign ← emitImm .srai rfl #[diff] 63
+    let intMin ← emitImm .slli rfl #[minusOne] 63
+    let overflow ← emitUnit .xor rfl #[cmp, diffSignBit]
+    let sat ← emitUnit .xor rfl #[diffSign, intMin]
+    signedSatSelect (diff) (overflow) (sat)
+
+def ssubSat : CompiledPattern OpCode := ssubSat_pattern.compile
+
+/-- llvm.intr.uadd.sat.i64 -> not rhs; minu lhs, not-rhs; add rhs.
+    `uadd.sat(a,b) -> umin(a, ~b) + b` (TargetLowering.cpp:12462
+    `expandAddSubSat`, UADDSAT/UMIN idiom). -/
+def uaddSat_pattern : Pattern OpCode :=
+  lowerIntSequence .intr__uadd__sat 64 2 fun regs => do
+    let lReg := regs[0]!
+    let rReg := regs[1]!
+    let notRhs ← emitImm .xori rfl #[rReg] (-1)
+    let minuOp ← emitUnit .minu rfl #[lReg, notRhs]
+    let addOp ← emitUnit .add rfl #[minuOp, rReg]
+    return (addOp)
+
+def uaddSat : CompiledPattern OpCode := uaddSat_pattern.compile
+
+/-- llvm.intr.usub.sat.i64 -> maxu lhs, rhs; sub rhs.
+    `usub.sat(a,b) -> umax(a, b) - b` (TargetLowering.cpp:12442
+    `expandAddSubSat`, USUBSAT/UMAX idiom). -/
+def usubSat_pattern : Pattern OpCode :=
+  lowerIntSequence .intr__usub__sat 64 2 fun regs => do
+    let lReg := regs[0]!
+    let rReg := regs[1]!
+    let maxuOp ← emitUnit .maxu rfl #[lReg, rReg]
+    let subOp ← emitUnit .sub rfl #[maxuOp, rReg]
+    return (subOp)
+
+def usubSat : CompiledPattern OpCode := usubSat_pattern.compile
+
+/-- llvm.intr.sshl.sat.i64 -> LLVM's RV64+Zicond signed saturating-shl sequence.
+    `overflow = lhs != (lhs << rhs) >>s rhs`, saturate to
+    `select(lhs<0, INT_MIN, INT_MAX)` folded to `(lhs >>s 63) ^ INT_MAX`
+    (TargetLowering.cpp:12598 `expandShlSat`, signed branch at 12626-12632). -/
+def sshlSat_pattern : Pattern OpCode :=
+  lowerIntSequence .intr__sshl__sat 64 2 fun regs => do
+    let lReg := regs[0]!
+    let rReg := regs[1]!
+    let shifted ← emitUnit .sll rfl #[lReg, rReg]
+    let minusOne ← emitImm .li rfl #[] (-1)
+    let unshifted ← emitUnit .sra rfl #[shifted, rReg]
+    let sign ← emitImm .srai rfl #[lReg] 63
+    let intMax ← emitImm .srli rfl #[minusOne] 1
+    let overflow ← emitUnit .xor rfl #[lReg, unshifted]
+    let sat ← emitUnit .xor rfl #[sign, intMax]
+    signedSatSelect (shifted) (overflow) (sat)
+
+def sshlSat : CompiledPattern OpCode := sshlSat_pattern.compile
+
+/-- llvm.intr.ushl.sat.i64 -> LLVM's RV64 unsigned saturating-shl sequence.
+    `overflow = lhs != (lhs << rhs) >>u rhs`, saturate to all-ones;
+    the `select(overflow, ~0, shifted)` becomes the `sltiu`/`addi`/`or`
+    mask idiom (TargetLowering.cpp:12598 `expandShlSat`, unsigned branch
+    at 12630-12633). -/
+def ushlSat_pattern : Pattern OpCode :=
+  lowerIntSequence .intr__ushl__sat 64 2 fun regs => do
+    let lReg := regs[0]!
+    let rReg := regs[1]!
+    let shifted ← emitUnit .sll rfl #[lReg, rReg]
+    let unshifted ← emitUnit .srl rfl #[shifted, rReg]
+    let lostBits ← emitUnit .xor rfl #[lReg, unshifted]
+    let noOverflow ← emitImm .sltiu rfl #[lostBits] 1
+    let overflowMask ← emitImm .addi rfl #[noOverflow] (-1)
+    let orOp ← emitUnit .or rfl #[overflowMask, shifted]
+    return (orOp)
+
+def ushlSat : CompiledPattern OpCode := ushlSat_pattern.compile
+
+/-- llvm.intr.abs.i64 -> `max(x, -x)` via Zbb `neg`/`max`.
+    LLVM's RV64+Zbb lowering (`neg a1, a0; max a0, a0, a1`). The `neg` wraps
+    `intMin` back to `intMin`, so this is correct for both the
+    `is_int_min_poison` and non-poison forms of the intrinsic. -/
+def abs_pattern : Pattern OpCode :=
+  lowerIntSequence .intr__abs 64 1 fun regs => do
+    let xReg := regs[0]!
+    let negOp ← emitUnit .neg rfl #[xReg]
+    let maxOp ← emitUnit .max rfl #[xReg, negOp]
+    return (maxOp)
+
+def abs : CompiledPattern OpCode := abs_pattern.compile
+
+/-! ## Constant rotates and general funnel shifts -/
+
+/-- Constant rotate-left uses rotate-right with the negated amount modulo the width. -/
+def lowerConstRotate (left : Bool) (bw : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == bw)
+      let val ← MatchProg.value type
+      let amt ← matchIntConstant type
+      let _ ← MatchProg.root (.llvm (if left then .intr__fshl else .intr__fshr))
+        #[val, val, amt.res[0]!] #[type]
+      return (type, val, amt.properties))
+    (fun (type, val, amtProps) => do
+      let val ← castToReg val
+      let imm : Handle OpCode (.prop (.riscv .rori)) ← CreateProg.applyNative (type, amtProps)
+        (fun (type, props) => do
+          let amt ← constantIntValue type props
+          let sh := ((amt % (bw : Int)) + bw) % bw
+          let imm := if left then ((bw : Int) - sh) % bw else sh
+          return RISCVImmediateProperties.mk (BitVec.ofInt 64 imm))
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let result ← if bw == 32 then do
+          let imm32 : Handle OpCode (.prop (.riscv .roriw)) ←
+            CreateProg.applyNative imm (fun props => some props)
+          CreateProg.operation (.riscv .roriw) #[val] #[regType] imm32
+        else CreateProg.operation (.riscv .rori) #[val] #[regType] imm
+      castFromReg result.res[0]! type)
+    (fun result => result)
+
+def fshlConst : Array (CompiledPattern OpCode) :=
+  #[32, 64].map (fun bw => (lowerConstRotate true bw).compile)
+
+def fshrConst : Array (CompiledPattern OpCode) :=
+  #[32, 64].map (fun bw => (lowerConstRotate false bw).compile)
+
+/-- General fshl: `(x << z) | ((y >> 1) >> ~z)`; general fshr:
+  `((x << 1) << ~z) | (y >> z)`. The pre-shift handles a zero shift amount.
+  i32 uses word shifts; hardware masks each variable shift amount modulo the width. -/
+def lowerFunnelShift (left : Bool) (bw : Nat) : Pattern OpCode :=
+  lowerIntSequence (if left then .intr__fshl else .intr__fshr) bw 3 fun regs => do
+    let x := regs[0]!
+    let y := regs[1]!
+    let z := regs[2]!
+    let notz ← emitImm .xori rfl #[z] (-1)
+    let (shx, shy) ← if left then do
+        let shx ← if bw == 32 then emitUnit .sllw rfl #[x, z] else emitUnit .sll rfl #[x, z]
+        let y1 ← if bw == 32 then emitImm .srliw rfl #[y] 1 else emitImm .srli rfl #[y] 1
+        let shy ← if bw == 32 then emitUnit .srlw rfl #[y1, notz] else emitUnit .srl rfl #[y1, notz]
+        pure (shx, shy)
+      else do
+        let x1 ← if bw == 32 then emitImm .slliw rfl #[x] 1 else emitImm .slli rfl #[x] 1
+        let shx ← if bw == 32 then emitUnit .sllw rfl #[x1, notz] else emitUnit .sll rfl #[x1, notz]
+        let shy ← if bw == 32 then emitUnit .srlw rfl #[y, z] else emitUnit .srl rfl #[y, z]
+        pure (shx, shy)
+    emitUnit .or rfl #[shx, shy]
+
+def fshlGeneral : Array (CompiledPattern OpCode) :=
+  #[32, 64].map (fun bw => (lowerFunnelShift true bw).compile)
+
+def fshrGeneral : Array (CompiledPattern OpCode) :=
+  #[32, 64].map (fun bw => (lowerFunnelShift false bw).compile)
+
+/-! ## Memory operations -/
+
+/-- Allocation size for the single dynamic index form accepted by instruction selection. -/
+def gepScale (props : GetelementptrProperties) : Option Nat := do
+  guard (props.rawConstantIndices.values = #[(-2147483648 : Int)])
+  DataLayout.riscv64.getTypeAllocSize props.elem_type.val
+
+/-- Derive a signed 12-bit address offset from constant-index GEP metadata. -/
+def gepOffset (props : GetelementptrProperties) (idxType : TypeAttr)
+    (idxProps : LLVMConstantProperties) : Option Int := do
+  let scale ← gepScale props
+  let idx ← constantIntValue idxType idxProps
+  let offset := idx * (scale : Int)
+  guard (-2048 ≤ offset ∧ offset ≤ 2047)
+  return offset
+
+/-- Match a constant-index address graph for early load/store folding. -/
+def matchFoldedAddr : MatchProg.Builder
+    (ValueHandle × Handle OpCode (.prop (.llvm .getelementptr)) × TypeHandle ×
+      Handle OpCode (.prop (.llvm .mlir__constant)) × ValueHandle) := do
+  let ptrType ← MatchProg.type (Attr := TypeAttr)
+  let baseType ← MatchProg.type (Attr := TypeAttr)
+  let base ← MatchProg.value baseType
+  let idxType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 64)
+  let idx ← matchIntConstant idxType
+  let gep ← MatchProg.operation (.llvm .getelementptr) #[base, idx.res[0]!] #[ptrType]
+  MatchProg.matchNative (gep.properties, idxType, idx.properties)
+    (fun (props, idxType, idxProps) => (gepOffset props idxType idxProps).isSome)
+  return (base, gep.properties, idxType, idx.properties, gep.res[0]!)
+
+/-- Load widths select ld/lw/lh/lb, preserving volatility and any folded offset. -/
+def load_pattern (bw : Nat) (rop : Riscv) (h : Riscv.propertiesOf rop = RISCVMemProperties)
+    (foldAddr : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == bw)
+      let (base, addr, offsetInputs) ← if foldAddr then do
+          let (base, gep, idxType, idxProps, addr) ← matchFoldedAddr
+          pure (base, addr, some (gep, idxType, idxProps))
+        else do
+          let ptrType ← MatchProg.type (Attr := TypeAttr)
+          let addr ← MatchProg.value ptrType
+          pure (addr, addr, none)
+      let root ← MatchProg.root (.llvm .load) #[addr] #[type]
+      return (type, base, root.properties, offsetInputs))
+    (fun (type, base, props, offsetInputs) => do
+      let base ← castToReg base
+      let memProps : Handle OpCode (.prop (.riscv rop)) ← (match offsetInputs with
+        | some (gep, idxType, idxProps) => CreateProg.applyNative (props, gep, idxType, idxProps)
+            (fun (props, gep, idxType, idxProps) =>
+              (gepOffset gep idxType idxProps).map fun offset =>
+                cast h.symm (RISCVMemProperties.mk (BitVec.ofInt 64 offset) props.volatile_))
+        | none => CreateProg.applyNative props
+            (fun props => some (cast h.symm (RISCVMemProperties.mk 0#64 props.volatile_))))
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let result ← CreateProg.operation (.riscv rop) #[base] #[regType] memProps
+      castFromReg result.res[0]! type)
+    (fun result => result)
+
+def load : Array (CompiledPattern OpCode) :=
+  #[true, false].flatMap fun foldAddr =>
+    #[(load_pattern 8 .lb rfl foldAddr).compile, (load_pattern 16 .lh rfl foldAddr).compile,
+      (load_pattern 32 .lw rfl foldAddr).compile, (load_pattern 64 .ld rfl foldAddr).compile]
+
+/-- Store widths select sd/sw/sh/sb; stores have no replacement results. -/
+def store_pattern (bw : Nat) (rop : Riscv) (h : Riscv.propertiesOf rop = RISCVMemProperties)
+    (foldAddr : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == bw)
+      let arg ← MatchProg.value type
+      let (base, addr, offsetInputs) ← if foldAddr then do
+          let (base, gep, idxType, idxProps, addr) ← matchFoldedAddr
+          pure (base, addr, some (gep, idxType, idxProps))
+        else do
+          let ptrType ← MatchProg.type (Attr := TypeAttr)
+          let addr ← MatchProg.value ptrType
+          pure (addr, addr, none)
+      let root ← MatchProg.root (.llvm .store) #[arg, addr] #[]
+      return (arg, base, root.properties, offsetInputs))
+    (fun (arg, base, props, offsetInputs) => do
+      let base ← castToReg base
+      let arg ← castToReg arg
+      let memProps : Handle OpCode (.prop (.riscv rop)) ← (match offsetInputs with
+        | some (gep, idxType, idxProps) => CreateProg.applyNative (props, gep, idxType, idxProps)
+            (fun (props, gep, idxType, idxProps) =>
+              (gepOffset gep idxType idxProps).map fun offset =>
+                cast h.symm (RISCVMemProperties.mk (BitVec.ofInt 64 offset) props.volatile_))
+        | none => CreateProg.applyNative props
+            (fun props => some (cast h.symm (RISCVMemProperties.mk 0#64 props.volatile_))))
+      CreateProg.operation (.riscv rop) #[arg, base] #[] memProps)
+    (fun result => result)
+
+def store : Array (CompiledPattern OpCode) :=
+  #[true, false].flatMap fun foldAddr =>
+    #[(store_pattern 8 .sb rfl foldAddr).compile, (store_pattern 16 .sh rfl foldAddr).compile,
+      (store_pattern 32 .sw rfl foldAddr).compile, (store_pattern 64 .sd rfl foldAddr).compile]
+
+/-- Partition GEP scales into the four Zba forms, a power-of-two shift, and general multiplication. -/
+def gepScaleKind (scale : Nat) : Nat :=
+  if scale = 1 then 0 else if scale = 2 then 1 else if scale = 4 then 2 else if scale = 8 then 3
+  else if 0 < scale ∧ scale &&& (scale - 1) = 0 ∧ Nat.log2 scale < 64 then 4 else 5
+
+/-- A single dynamic i64 GEP index is scaled by the element's ABI allocation size. -/
+def getelementptr_pattern (kind : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let ptrType ← MatchProg.type (Attr := LLVM.PointerType)
+      let resType ← MatchProg.type (Attr := LLVM.PointerType)
+      let idxType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 64)
+      let ptr ← MatchProg.value ptrType
+      let idx ← MatchProg.value idxType
+      let root ← MatchProg.root (.llvm .getelementptr) #[ptr, idx] #[resType]
+        (fun props => ((gepScale props).map gepScaleKind) == some kind)
+      return (resType, ptr, idx, root.properties))
+    (fun (type, ptr, idx, props) => do
+      let ptr ← castToReg ptr
+      let idx ← castToReg idx
+      let result ← match kind with
+        | 0 => emitUnit .add rfl #[ptr, idx]
+        | 1 => emitUnit .sh1add rfl #[idx, ptr]
+        | 2 => emitUnit .sh2add rfl #[idx, ptr]
+        | 3 => emitUnit .sh3add rfl #[idx, ptr]
+        | _ => do
+          let imm : Handle OpCode (.prop (.riscv .li)) ← CreateProg.applyNative props
+            (fun props => do
+              let scale ← gepScale props
+              let value := if kind == 4 then Nat.log2 scale else scale
+              return RISCVImmediateProperties.mk (BitVec.ofNat 64 value))
+          let regType ← CreateProg.type (RegisterType.mk none)
+          let scaled ← if kind == 4 then do
+              let shiftImm : Handle OpCode (.prop (.riscv .slli)) ←
+                CreateProg.applyNative imm (fun props => some props)
+              let shifted ← CreateProg.operation (.riscv .slli) #[idx] #[regType] shiftImm
+              pure shifted.res[0]!
+            else do
+              let scale ← CreateProg.operation (.riscv .li) #[] #[regType] imm
+              emitUnit .mul rfl #[idx, scale.res[0]!]
+          emitUnit .add rfl #[ptr, scaled]
+      castFromReg result type)
+    (fun result => result)
+
+def getelementptr : Array (CompiledPattern OpCode) :=
+  (Array.range 6).map (fun kind => (getelementptr_pattern kind).compile)
+
+
+end Veir.InstructionSelection.ProofPatterns

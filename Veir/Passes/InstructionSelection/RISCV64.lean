@@ -20,6 +20,41 @@ open Veir.Puddle
   to lower LLVM IR to RISC-V assembly (64 bits).
 -/
 
+/-! ## Puddle creation helpers -/
+
+open Puddle
+
+private abbrev ValueHandle := Handle OpCode .value
+private abbrev TypeHandle := Handle OpCode .type
+
+/-- Cast a matched value into an unallocated RISC-V register. -/
+def castToReg (value : ValueHandle) : CreateProg.Builder ValueHandle := do
+  let regType ← CreateProg.type (RegisterType.mk none)
+  let props ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+  let op ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[value] #[regType] props
+  return op.res[0]!
+
+/-- Cast the selected register back to the matched LLVM result type. -/
+def castFromReg (value : ValueHandle) (type : TypeHandle) : CreateProg.Builder CreatedOpHandle := do
+  let props ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+  CreateProg.operation (.builtin .unrealized_conversion_cast) #[value] #[type] props
+
+/-- Emit a register-result instruction with concrete properties. -/
+def emitRISCV (op : Riscv) (operands : Array ValueHandle) (props : Riscv.propertiesOf op) :
+    CreateProg.Builder ValueHandle := do
+  let regType ← CreateProg.type (RegisterType.mk none)
+  let props ← CreateProg.property (.riscv op) props
+  let result ← CreateProg.operation (.riscv op) operands #[regType] props
+  return result.res[0]!
+
+def emitUnit (op : Riscv) (h : Riscv.propertiesOf op = Unit) (operands : Array ValueHandle) :
+    CreateProg.Builder ValueHandle := emitRISCV op operands (cast h.symm ())
+
+def emitImm (op : Riscv) (h : Riscv.propertiesOf op = RISCVImmediateProperties)
+    (operands : Array ValueHandle) (value : Int) : CreateProg.Builder ValueHandle :=
+  emitRISCV op operands (cast h.symm (RISCVImmediateProperties.mk (BitVec.ofInt 64 value)))
+
+
 /-! # Lowering Patterns -/
 
 /-- Extension operations (`sext`/`zext`) in RISC-V 64 are legal from `i8`, `i16`, and
@@ -948,41 +983,43 @@ def lifetimeStart : Puddle.CompiledPattern OpCode := (lowerLifetime .intr__lifet
 /-- Erase `llvm.intr.lifetime.end`. -/
 def lifetimeEnd : Puddle.CompiledPattern OpCode := (lowerLifetime .intr__lifetime__end).compile
 
-/--
-  Lower a constant-count entry-block allocation to a fixed RISC-V stack object.
-  Dynamic allocations and `inalloca` need additional stack-lifetime support in the backend.
-  Run before constant selection so the count still has an integer runtime value.
--/
-def alloca_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (operands, properties) := matchOp op ctx.raw Llvm.alloca 1 | return (ctx, none)
-  if properties.inalloca then return (ctx, none)
-  let .llvmPointerType _ := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  let some parentOp := op.getParentOp! ctx.raw | return (ctx, none)
-  let some funcOp := FunctionOp.of? parentOp ctx.raw | return (ctx, none)
-  let some entry := funcOp.getEntryBlock? | return (ctx, none)
-  if (op.get! ctx.raw).parent != some entry then return (ctx, none)
-  let some (.int _ (.val count)) := operands[0]!.constantValue ctx.raw | return (ctx, none)
-  let some layout := DataLayout.riscv64.query properties.elem_type.val | return (ctx, none)
+/-- Inspect the constant-like count, data layout, alignment, and function-entry placement.
+  Reject unsupported allocations during matching, before Puddle creates any operations. -/
+def allocaStackProperties (ctx : IRContext OpCode) (op : OperationPtr) :
+    Option RISCVStackAllocaProperties := do
+  let (operands, properties) ← matchOp op ctx Llvm.alloca 1
+  guard (!properties.inalloca)
+  let func ← op.getParentOp! ctx
+  let func ← FunctionOp.of? func ctx
+  let entry ← func.getEntryBlock?
+  guard ((op.get! ctx).parent == some entry)
+  let .int _ (.val count) ← operands[0]!.constantValue ctx | none
+  let layout ← DataLayout.riscv64.query properties.elem_type.val
   let size := count.toNat * layout.allocSize
-  /- Do not silently wrap the fixed object's size to a signed 64-bit value. -/
-  if size >= 2 ^ 63 then return (ctx, none)
+  guard (size < 2 ^ 63)
   let alignment : Int := if properties.alignment.value = 0 then layout.abiAlignment
     else properties.alignment.value
-  if !isValidLLVMAlignment alignment || alignment >= 2 ^ 63 then
-    return (ctx, none)
-  let props : RISCVStackAllocaProperties :=
-    { size := BitVec.ofNat 64 size
-      alignment := BitVec.ofInt 64 alignment }
-  let (ctx, stackOp) ← WfRewriter.createOp! ctx Riscv_Stack.alloca #[RegisterType.mk]
-      #[] #[] #[] props none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (stackOp.getResult 0)
-  some (ctx, some (#[stackOp, castBackOp], #[castBackOp.getResult 0]))
+  guard (isValidLLVMAlignment alignment && decide (alignment < 2 ^ 63))
+  return { size := BitVec.ofNat 64 size, alignment := BitVec.ofInt 64 alignment }
 
-/-- `llvm.alloca` -> `riscv_stack.alloca` and a cast back to the pointer type. -/
-def alloca (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite alloca_local rewriter op opInBounds
+/-- Construct a fixed stack object and cast it back to the matched pointer type. -/
+def alloca_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := LLVM.PointerType)
+      let countType ← MatchProg.type (Attr := TypeAttr)
+      let count ← MatchProg.value countType
+      let root ← MatchProg.root (.llvm .alloca) #[count] #[type] (fun props => !props.inalloca)
+      let stackProps : Handle OpCode (.prop (.riscv_stack .alloca)) ←
+        MatchProg.inspectOperation root.op allocaStackProperties
+      return (type, stackProps))
+    (fun (type, props) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let stack ← CreateProg.operation (.riscv_stack .alloca) #[] #[regType] props
+      castFromReg stack.res[0]! type)
+    (fun result => result)
+
+def alloca : CompiledPattern OpCode := alloca_pattern.compile
 
 /-- Resolve a global in the nearest enclosing module, without entering nested modules. -/
 private partial def lookupGlobal? (ctx : IRContext OpCode) (op : OperationPtr)
@@ -1000,24 +1037,31 @@ private partial def lookupGlobal? (ctx : IRContext OpCode) (op : OperationPtr)
     candidate := (target.get! ctx).next
   none
 
-/-- `llvm.mlir.addressof` -> `riscv.la`, except for TLS and external weak globals. -/
-def addressof_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (_, properties) := matchOp op ctx.raw Llvm.mlir__addressof 0 | return (ctx, none)
-  let some name := properties.global_name.getName? | return (ctx, none)
-  if let some global := lookupGlobal? ctx.raw op name then
-    -- An undefined weak symbol resolves to zero, which a PC-relative `la`
-    -- cannot always reach. Leave it until GOT-based address lowering is supported.
-    if global.isThreadLocal || global.linkage.value = "extern_weak" then return (ctx, none)
-  let (ctx, laOp) ← WfRewriter.createOp! ctx Riscv.la #[RegisterType.mk]
-      #[] #[] #[] (RISCVSymbolProperties.mk properties.global_name) none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (laOp.getResult 0)
-  some (ctx, some (#[laOp, castBackOp], #[castBackOp.getResult 0]))
+/-- Resolve the address symbol during matching, preserving the TLS/extern-weak exclusions. -/
+def addressofSymbolProperties (ctx : IRContext OpCode) (op : OperationPtr) :
+    Option RISCVSymbolProperties := do
+  let (_, properties) ← matchOp op ctx Llvm.mlir__addressof 0
+  let name ← properties.global_name.getName?
+  if let some global := lookupGlobal? ctx op name then
+    if global.isThreadLocal || global.linkage.value = "extern_weak" then return ← none
+  return RISCVSymbolProperties.mk properties.global_name
 
 /-- `llvm.mlir.addressof` -> `riscv.la` and a cast back to the pointer type. -/
-def addressof (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite addressof_local rewriter op opInBounds
+def addressof_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := LLVM.PointerType)
+      let root ← MatchProg.root (.llvm .mlir__addressof) #[] #[type]
+      let props : Handle OpCode (.prop (.riscv .la)) ←
+        MatchProg.inspectOperation root.op addressofSymbolProperties
+      return (type, props))
+    (fun (type, props) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let addr ← CreateProg.operation (.riscv .la) #[] #[regType] props
+      castFromReg addr.res[0]! type)
+    (fun result => result)
+
+def addressof : CompiledPattern OpCode := addressof_pattern.compile
 
 /--
   The signed 12-bit immediate offset of a load/store address `getelementptr base, c`, with
@@ -2218,81 +2262,125 @@ def memAccesses (len align : Nat) : Array (Nat × Nat) := Id.run do
         offset := offset + width
   return accesses
 
-/--
-  Lower `llvm.intr.memcpy` and `llvm.intr.memset`. A constant length that takes at most
-  `memMaxStores` accesses is expanded into loads and stores; anything else becomes a
-  `riscv_cf.call` to the C library function. Accesses are never wider than the known
-  alignment, so the expansion never introduces a misaligned access.
--/
-def memIntrinsic_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let isMemset := op.getOpType! ctx.raw = Llvm.intr__memset
-  if !isMemset && op.getOpType! ctx.raw ≠ Llvm.intr__memcpy then return (ctx, none)
+/-- Inspect constant-like lengths before constant selection, using the same expansion budget
+and alignment rule as the memory-intrinsic lowering. -/
+def memIntrinsicAccesses? (ctx : IRContext OpCode) (op : OperationPtr)
+    (isMemset : Bool) : Option (Array (Nat × Nat)) := do
   let props : LLVMMemIntrinsicProperties :=
-    if isMemset then op.getProperties! ctx.raw Llvm.intr__memset
-    else op.getProperties! ctx.raw Llvm.intr__memcpy
-  let operands := op.getOperands! ctx.raw
-  /- `src` is the source pointer of a `memcpy` and the fill byte of a `memset`. -/
-  let (dst, src, len) := (operands[0]!, operands[1]!, operands[2]!)
+    if isMemset then op.getProperties! ctx Llvm.intr__memset
+    else op.getProperties! ctx Llvm.intr__memcpy
+  let len ← matchConstantIntVal (op.getOperands! ctx)[2]! ctx
+  guard (0 ≤ len ∧ len ≤ 8 * memMaxStores)
   let align := if isMemset then memArgAlign props 0
     else min (memArgAlign props 0) (memArgAlign props 1)
-  let accesses? : Option (Array (Nat × Nat)) := do
-    let len ← matchConstantIntVal len ctx.raw
-    guard (0 ≤ len ∧ len ≤ 8 * memMaxStores)
-    let accesses := memAccesses len.toNat align
-    guard (accesses.size ≤ memMaxStores)
-    return accesses
-  let (ctx, dstCast) ← castToRegLocal ctx dst
-  let dstReg := dstCast.getResult 0
-  match accesses? with
-  | none =>
-    let (ctx, srcCast) ← castToRegLocal ctx src
-    let (ctx, lenCast) ← castToRegLocal ctx len
-    /- `memset` takes its fill byte as an `int`, so zero-extend the `i8`. -/
-    let (ctx, argOps) ← if isMemset then do
-        let (ctx, ext) ← createRISCVUnitLocal ctx .zextb rfl #[srcCast.getResult 0]
-        pure (ctx, #[srcCast, ext])
-      else pure (ctx, #[srcCast])
-    let callee : FlatSymbolRefAttr := ⟨if isMemset then "@memset" else "@memcpy"⟩
-    let (ctx, callOp) ← WfRewriter.createOp! ctx Riscv_Cf.call #[]
-        #[dstReg, argOps.back!.getResult 0, lenCast.getResult 0] #[] #[]
-        (RISCVCallProperties.mk (some callee)) none
-    return (ctx, some (#[dstCast] ++ argOps ++ #[lenCast, callOp], #[]))
-  | some accesses =>
-    let mut ctx := ctx
-    let mut ops := #[dstCast]
-    /- The source register of a `memcpy`; the value to store for a `memset`. Narrower stores
-       take the low bits of the 64-bit splat of the fill byte. -/
-    let mut srcReg := dstReg
-    if isMemset && !accesses.all (·.2 = 1) then
-      match matchConstantIntVal src ctx.raw with
-      | some c =>
-        let (ctx', li) ← createRISCVImmLocal ctx .li rfl #[] ((c % 256) * 0x0101010101010101)
-        ctx := ctx'; ops := ops.push li; srcReg := li.getResult 0
-      | none =>
-        let (ctx', srcCast) ← castToRegLocal ctx src
-        let (ctx', ext) ← createRISCVUnitLocal ctx' .zextb rfl #[srcCast.getResult 0]
-        let (ctx', ones) ← createRISCVImmLocal ctx' .li rfl #[] 0x0101010101010101
-        let (ctx', splat) ← createRISCVUnitLocal ctx' .mul rfl
-            #[ext.getResult 0, ones.getResult 0]
-        ctx := ctx'; ops := ops ++ #[srcCast, ext, ones, splat]; srcReg := splat.getResult 0
-    else
-      let (ctx', srcCast) ← castToRegLocal ctx src
-      ctx := ctx'; ops := ops.push srcCast; srcReg := srcCast.getResult 0
-    for (offset, width) in accesses do
-      let memProps := RISCVMemProperties.mk (BitVec.ofNat 64 offset) props.isVolatile
-      let mut val := srcReg
-      if !isMemset then
-        let (ctx', ld) ← createLoadLocal ctx width srcReg memProps
-        ctx := ctx'; ops := ops.push ld; val := ld.getResult 0
-      let (ctx', st) ← createStoreLocal ctx width val dstReg memProps
-      ctx := ctx'; ops := ops.push st
-    return (ctx, some (ops, #[]))
+  let accesses := memAccesses len.toNat align
+  guard (accesses.size ≤ memMaxStores)
+  return accesses
 
-/-- `llvm.intr.memcpy` / `llvm.intr.memset` -> loads and stores, or a libcall. -/
-def memIntrinsic (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite memIntrinsic_local rewriter op opInBounds
+/-- Every supported expansion shape. Widths are powers of two, so only four alignment
+classes matter; duplicate shapes are removed before compiling the patterns. -/
+def memIntrinsicAccessShapes : Array (Array (Nat × Nat)) := Id.run do
+  let mut shapes := #[]
+  for len in [0:8 * memMaxStores + 1] do
+    for align in [1, 2, 4, 8] do
+      let accesses := memAccesses len align
+      if accesses.size ≤ memMaxStores && !shapes.contains accesses then
+        shapes := shapes.push accesses
+  return shapes
+
+/-- Metadata for a memcpy/memset variant. Contextual eligibility is checked entirely in
+matching, before any operations are created. -/
+def memIntrinsicMetadata (isMemset : Bool) (accesses : Option (Array (Nat × Nat)))
+    (ctx : IRContext OpCode) (op : OperationPtr) : Option LLVMMemIntrinsicProperties := do
+  guard (memIntrinsicAccesses? ctx op isMemset == accesses)
+  return if isMemset then op.getProperties! ctx Llvm.intr__memset
+    else op.getProperties! ctx Llvm.intr__memcpy
+
+/-- Decode a constant memset fill while it is still available to constant-like matching. -/
+def memsetSplatProperties (ctx : IRContext OpCode) (op : OperationPtr) :
+    Option RISCVImmediateProperties := do
+  let fill ← matchConstantIntVal (op.getOperands! ctx)[1]! ctx
+  return RISCVImmediateProperties.mk (BitVec.ofInt 64 ((fill % 256) * 0x0101010101010101))
+
+/-- Emit one memory access, preserving offset and volatility from the intrinsic. -/
+def emitMemAccess (isStore : Bool) (width offset : Nat)
+    (value addr : ValueHandle)
+    (props : Handle OpCode (.prop (.llvm .intr__memcpy))) :
+    CreateProg.Builder CreatedOpHandle := do
+  let ⟨rop, h⟩ : { rop : Riscv // Riscv.propertiesOf rop = RISCVMemProperties } :=
+    if isStore then
+      match width with
+      | 8 => ⟨.sd, rfl⟩ | 4 => ⟨.sw, rfl⟩ | 2 => ⟨.sh, rfl⟩ | _ => ⟨.sb, rfl⟩
+    else
+      match width with
+      | 8 => ⟨.ld, rfl⟩ | 4 => ⟨.lw, rfl⟩ | 2 => ⟨.lh, rfl⟩ | _ => ⟨.lb, rfl⟩
+  let memProps : Handle OpCode (.prop (.riscv rop)) ← CreateProg.applyNative props
+    (fun props => some (cast h.symm
+      (RISCVMemProperties.mk (BitVec.ofNat 64 offset) props.isVolatile)))
+  let regType ← CreateProg.type (RegisterType.mk none)
+  CreateProg.operation (.riscv rop) (if isStore then #[value, addr] else #[addr])
+    (if isStore then #[] else #[regType]) memProps
+
+/-- Lower a bounded memcpy/memset expansion, or emit the existing libc fallback.
+Each expansion has a fixed declarative creation program; native inspections only derive metadata. -/
+def memIntrinsic_pattern (isMemset : Bool) (accesses : Option (Array (Nat × Nat)))
+    (constantFill : Bool := false) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let dstType ← MatchProg.type (Attr := LLVM.PointerType)
+      let srcType ← MatchProg.type (Attr := TypeAttr)
+      let lenType ← MatchProg.type (Attr := TypeAttr)
+      let dst ← MatchProg.value dstType
+      let src ← MatchProg.value srcType
+      let len ← MatchProg.value lenType
+      let root ← MatchProg.root
+        (.llvm (if isMemset then .intr__memset else .intr__memcpy)) #[dst, src, len] #[]
+      let props : Handle OpCode (.prop (.llvm .intr__memcpy)) ←
+        MatchProg.inspectOperation root.op (memIntrinsicMetadata isMemset accesses)
+      let fill : Option (Handle OpCode (.prop (.riscv .li))) ← if constantFill then do
+          let fill : Handle OpCode (.prop (.riscv .li)) ←
+            MatchProg.inspectOperation root.op memsetSplatProperties
+          pure (some fill)
+        else pure none
+      return (dst, src, len, props, fill))
+    (fun (dst, src, len, props, fill) => do
+      let dst ← castToReg dst
+      match accesses with
+      | none =>
+        let src ← castToReg src
+        let len ← castToReg len
+        let src ← if isMemset then emitUnit .zextb rfl #[src] else pure src
+        let callee : FlatSymbolRefAttr := ⟨if isMemset then "@memset" else "@memcpy"⟩
+        let callProps ← CreateProg.property (.riscv_cf .call) (RISCVCallProperties.mk (some callee))
+        let _ ← CreateProg.operation (.riscv_cf .call) #[dst, src, len] #[] callProps
+      | some accesses =>
+        let src ← if isMemset && !accesses.all (·.2 = 1) then
+            match fill with
+            | some fill => do
+              let regType ← CreateProg.type (RegisterType.mk none)
+              let splat ← CreateProg.operation (.riscv .li) #[] #[regType] fill
+              pure splat.res[0]!
+            | none => do
+              let src ← castToReg src
+              let ext ← emitUnit .zextb rfl #[src]
+              let ones ← emitImm .li rfl #[] 0x0101010101010101
+              emitUnit .mul rfl #[ext, ones]
+          else castToReg src
+        for (offset, width) in accesses do
+          let value ← if isMemset then pure src else do
+            let load ← emitMemAccess false width offset src src props
+            pure load.res[0]!
+          let _ ← emitMemAccess true width offset value dst props
+      return ())
+    (fun () => ⟨#[]⟩)
+
+/-- Specialized constant fills precede variable fills, and libc fallbacks come last. -/
+def memIntrinsic : Array (CompiledPattern OpCode) :=
+  (memIntrinsicAccessShapes.flatMap fun accesses =>
+    #[(memIntrinsic_pattern false (some accesses)).compile,
+      (memIntrinsic_pattern true (some accesses) true).compile,
+      (memIntrinsic_pattern true (some accesses)).compile]) ++
+  #[(memIntrinsic_pattern false none).compile, (memIntrinsic_pattern true none).compile]
 
 /-! # Pass implementation -/
 
@@ -2301,7 +2389,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   /- Early loop: address folding, fixed stack allocations and memory intrinsic
      expansion must inspect LLVM constants before the per-op lowerings consume them. -/
   let early := RewritePattern.GreedyRewritePattern <|
-    #[lifetimeStart.run, lifetimeEnd.run, alloca, memIntrinsic] ++ load.map (·.run) ++
+    #[lifetimeStart.run, lifetimeEnd.run, alloca.run] ++ memIntrinsic.map (·.run) ++ load.map (·.run) ++
     store.map (·.run)
   let ctx ← match RewritePattern.applyInContext early ctx with
   | none => throw "Error while applying early memory-lowering patterns"
@@ -2310,7 +2398,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   let pattern := RewritePattern.GreedyRewritePattern <|
     #[selectCzeroeqz.run, selectCzeronez.run, selectGeneral.run,
     ctlz32.run, ctlz64.run, cttz32.run, cttz64.run, ctpop32.run, ctpop64.run, bswap64.run, bswap32.run, bitreverse64.run, bitreverse32.run,
-    constant.run, addressof, add32.run, add64.run, and.run, ashr64.run, ashr32.run, ashr8.run] ++
+    constant.run, addressof.run, add32.run, add64.run, and.run, ashr64.run, ashr32.run, ashr8.run] ++
     icmp.map (·.run) ++ #[or.run, xor32.run, xor64.run, mul32.run, mul64.run,
     sdiv32.run, sdiv64.run, udiv32.run, udiv64.run, srem32.run, srem64.run, urem32.run, urem64.run,
     sext32.run, sext16.run, sext8.run, zext32.run, zext16.run, zext8.run, trunc.run, shl64.run, shl32.run, lshr64.run, lshr32.run,

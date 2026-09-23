@@ -50,7 +50,7 @@ private theorem muli_iff {signedness : IntegerType.Signedness} (w : Nat) (props 
     RuntimeValue.ArrayConforms, RuntimeValue.Conforms]
   constructor
   · rintro ⟨_, h⟩
-    exact (h .empty).symm
+    exact h.symm
   · grind
 
 private theorem add_zero_refines (w : Nat) (x : LLVM.Int w) (nsw nuw : Bool) :

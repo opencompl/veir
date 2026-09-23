@@ -47,6 +47,7 @@ structure MemoryState where
   objects : Array MemoryObject
   /-- The object of each global and function, by its symbol, such as `@g`. -/
   globals : Std.HashMap String Nat := {}
+deriving Inhabited
 
 /--
   Object 0 is the null object at address 0. It holds no bytes, so every access

@@ -2210,5 +2210,21 @@ instance : IsTypeAttr TypeAttr where
 @[simp, grind norm]
 theorem TypeAttr.of_typeAttr (type : TypeAttr) : TypeAttr.of TypeAttr type = type := by rfl
 
+/-- Recover the canonical register type from an explicit attribute constructor. -/
+theorem TypeAttr.mk_registerType (ty : RegisterType) (h : (Attribute.registerType ty).isType) :
+    @Eq TypeAttr ⟨Attribute.registerType ty, h⟩ (TypeAttr.of RegisterType ty) := by
+  simpa only [Attribute.asType] using Attribute.asType_registerType ty h
+
+/-- Recover the canonical integer type from an explicit attribute constructor. -/
+theorem TypeAttr.mk_integerType (ty : IntegerType) (h : (Attribute.integerType ty).isType) :
+    @Eq TypeAttr ⟨Attribute.integerType ty, h⟩ (TypeAttr.of IntegerType ty) := by
+  simpa only [Attribute.asType] using Attribute.asType_integerType ty h
+
+/-- Recover the canonical byte type from an explicit attribute constructor. -/
+theorem TypeAttr.mk_byteType (ty : LLVM.ByteType) (h : (Attribute.byteType ty).isType) :
+    @Eq TypeAttr ⟨Attribute.byteType ty, h⟩ (TypeAttr.of LLVM.ByteType ty) := by
+  simpa only [Attribute.asType] using Attribute.asType_byteType ty h
+
+
 end
 end Veir
