@@ -82,7 +82,7 @@ def MemoryState.alloc (mem : MemoryState) (size : UInt64) : Interp (MemoryState 
 def MemoryState.checkAccess (mem : MemoryState) (p : Pointer) (size : UInt64) : Interp MemoryObject := do
   let some obj := mem.getObject? p | Interp.ub
 
-  -- An access of zero bytes is allowed anywhere.
+  -- An access of zero bytes is allowed at any offset, in bounds or not.
   if size = 0 then return obj
 
   -- The `size` must fit into the size of the memory.
