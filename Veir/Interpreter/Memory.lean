@@ -56,6 +56,9 @@ def MemoryState.arenaSize : UInt64 := 0x10000
 /--
   The address of the next object: past the end of every object with a guard
   byte between them and past the arena, rounded up to `objectAlignment`.
+
+  TODO: This is a simplification. Eventually, addresses should be
+  non-deterministic.
 -/
 def MemoryState.nextBase (mem : MemoryState) : UInt64 :=
   let past := mem.objects.foldl (init := arenaSize) fun past obj =>
