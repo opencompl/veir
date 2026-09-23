@@ -40,6 +40,7 @@ def MemoryObject.size (obj : MemoryObject) : Nat := obj.contents.size
 @[ext]
 structure MemoryState where
   objects : Array MemoryObject
+deriving Inhabited
 
 /--
   Object 0 is the null object at address 0. It holds no bytes, so every access
