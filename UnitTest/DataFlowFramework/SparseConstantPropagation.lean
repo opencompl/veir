@@ -6,10 +6,13 @@ import Veir.Analysis.DataFlow.SparseConstantPropagationAnalysis
 open Veir
 
 private def constInt (bitwidth : Nat) (value : Int) : AbstractConstant :=
-  .constant ⟨bitwidth, Data.LLVM.Int.constant bitwidth value⟩
+  .constant (.int bitwidth (Data.LLVM.Int.constant bitwidth value))
 
 private def poisonInt (bitwidth : Nat) : AbstractConstant :=
-  .constant ⟨bitwidth, .poison⟩
+  .constant (.int bitwidth .poison)
+
+private def constReg (value : Int) : AbstractConstant :=
+  .constant (.reg ⟨BitVec.ofInt 64 value⟩)
 
 private def run
     (mlir : String)
@@ -76,6 +79,23 @@ info: "ok"
 -/
 #guard_msgs in
 #eval! testPoisonConstantFoldsWithUnknownOperand
+
+private def testRiscvRuntimeValueFolds : String :=
+  run
+    r#""builtin.module"() ({
+^bb0:
+  %unknown = "test.test"() : () -> !riscv.reg
+  %result = "riscv.andi"(%unknown) <{value = 0 : i64}> : (!riscv.reg) -> !riscv.reg
+}) : () -> ()"#
+    #[ ("unknown", ⊤)
+     , ("result", constReg 0)
+     ]
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testRiscvRuntimeValueFolds
 
 private def testConstantsPropagateByArgumentPosition : String :=
   run

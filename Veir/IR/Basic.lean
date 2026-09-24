@@ -2766,6 +2766,22 @@ def IRContext.forBlocksDepM (ctx : IRContext OpInfo) {m : Type w → Type w'} [M
     (p : ∀ (block : BlockPtr), block.InBounds ctx → m PUnit) : m PUnit :=
   ctx.blocks.forKeysDepM (fun blockPtr h => p blockPtr (by grind [BlockPtr.InBounds]))
 
+/-- A `forOpsDepM` in `Except` that succeeds ran its body successfully on every operation. -/
+theorem IRContext.forOpsDepM_except_ok {ctx : IRContext OpInfo} {ε : Type}
+    {p : ∀ (op : OperationPtr), op.InBounds ctx → Except ε PUnit}
+    (h : ctx.forOpsDepM p = .ok ⟨⟩) (op : OperationPtr) (opIn : op.InBounds ctx) :
+    p op opIn = .ok ⟨⟩ :=
+  Std.HashMap.forKeysDepM_except_ok (f := fun opPtr h => p opPtr (by grind [OperationPtr.InBounds]))
+    h op (by grind [OperationPtr.InBounds])
+
+/-- A `forBlocksDepM` in `Except` that succeeds ran its body successfully on every block. -/
+theorem IRContext.forBlocksDepM_except_ok {ctx : IRContext OpInfo} {ε : Type}
+    {p : ∀ (block : BlockPtr), block.InBounds ctx → Except ε PUnit}
+    (h : ctx.forBlocksDepM p = .ok ⟨⟩) (block : BlockPtr) (blockIn : block.InBounds ctx) :
+    p block blockIn = .ok ⟨⟩ :=
+  Std.HashMap.forKeysDepM_except_ok (f := fun blockPtr h => p blockPtr (by grind [BlockPtr.InBounds]))
+    h block (by grind [BlockPtr.InBounds])
+
 /-! Generic pointers -/
 
 inductive GenericPtr where

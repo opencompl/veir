@@ -22,7 +22,7 @@ inductive RuntimeValue where
 | reg (value : Data.RISCV.Reg)
 /-- A canonical natural-number representative in the field identified by `fieldType`. -/
 | felt (fieldType : FeltType) (value : Nat)
-deriving Inhabited
+deriving Inhabited, BEq, DecidableEq
 
 instance : ToString RuntimeValue where
   toString

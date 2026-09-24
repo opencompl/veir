@@ -43,16 +43,18 @@ def transfer
   -- Grab constant out of constant like operation
   else if opType.isConstantLike then
     (op.getResults! irCtx.raw).map fun result =>
-      (result.constantValue irCtx.raw).map AbstractConstant.ofRuntimeValue |>.getD ⊤
+      (result.constantValue irCtx.raw).map
+        (AbstractConstant.constant ·) |>.getD ⊤
 
   -- Attempt folding the lattice elements of the operands
   else if opInBounds : op.InBounds irCtx.raw then
     let constantOperands := operandLatticeElements.map fun
-      | .constant ⟨bitwidth, value⟩ => some (.int bitwidth value)
+      | .constant value => some value
       | _ => none
     match op.foldsTo irCtx opInBounds constantOperands with
     | some results =>
-      results.map fun result => AbstractConstant.ofFoldDecision result operandLatticeElements
+      results.map fun result =>
+        AbstractConstant.ofFoldDecision result operandLatticeElements
     | none =>
         Array.replicate numResults ⊤
 
