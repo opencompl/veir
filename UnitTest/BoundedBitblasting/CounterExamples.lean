@@ -1,11 +1,11 @@
-import Veir.Meta.PBVDecide
+import Veir.Meta.Tactic.PBVDecide
 
 /--
-error: `bv_decide` found a counterexample, consider the following assignment:
+error: `pbv_decide` found a counterexample, consider the following assignment:
   r = 8  	(m_w1 = 0xff#8)
   q = 0  	(m_w2 = 0x00#8)
   p = 7  	(m_w0 = 0x7f#8)
-  x = 0x7f#7  	(x = 0x7f#8)
+  x = 0x7f#7
 -/
 #guard_msgs in
 example (p q r : Nat) (x : BitVec p) (hr : r ≤ 8) (h_qp : q < p) (h_pr : p < r) :
@@ -49,12 +49,12 @@ example (p q r : Nat) (x : BitVec p) (hr : r ≤ 8) (h_qp : p < q) (h_pr : p < r
 
 -- Expected failure: at the blast width, the `setWidth` around `signExtend` is simplified away before `signExtend` is pushed
 /--
-error: `bv_decide` found a potentially spurious counterexample:
-- The following expressions were abstracted as opaque variables:
+error: `pbv_decide` found a potentially spurious counterexample.
+  The following expressions were abstracted as opaque variables:
     - BitVec.signExtend 4 (BitVec.setWidth w x) = 0xd#4
 Consider the following assignment:
   w = 2  	(m_w0 = 0x3#4)
-  x = 0x3#2  	(x = 0x3#4)
+  x = 0x3#2
 -/
 #guard_msgs in
 example (w : Nat) (x : BitVec w) (hw : w ≤ 2) :
