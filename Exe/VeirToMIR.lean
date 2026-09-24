@@ -31,7 +31,7 @@ def main (args : List String) : IO Unit := do
     IO.Process.exit 2
   | .ok filename =>
     match ← parseOperation filename (allowUnregisteredDialect := true) with
-    | .ok (ctx, moduleOp) =>
+    | .ok (ctx, moduleOp, _) =>
       let rawCtx : IRContext OpCode := ctx
       let region := moduleOp.getRegion! rawCtx 0
       let funcOp := match (region.get! rawCtx).firstBlock with

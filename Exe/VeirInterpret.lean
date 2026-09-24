@@ -3,7 +3,6 @@ import Veir.Verifier
 import Veir.Interpreter.Basic
 import Veir.Input
 import Veir.Panic
-import Veir.Printer
 
 /-!
   # Veir Interpreter CLI Tool
@@ -60,16 +59,6 @@ def resolveEntryPoint (ctx : IRContext OpCode) (moduleOp : OperationPtr) : IO Op
     IO.eprintln "Error: Multiple entry points: define exactly one zero-argument function named 'main'"
     IO.Process.exit 1
 
-/--
-  Print `message`, followed by the operation at which interpretation stopped, if it is known.
--/
-def printWithStopLine (ctx : IRContext OpCode) (message : String) :
-    Option OperationPtr → IO Unit
-  | none => IO.println message
-  | some op => do
-    IO.print s!"{message} at: "
-    Printer.printModule ctx op
-
 set_option warn.sorry false in
 def main (args : List String) : IO Unit := do
   enableExitOnPanic
@@ -82,7 +71,7 @@ def main (args : List String) : IO Unit := do
       IO.eprintln "  Reads the program from standard input if no filename is given."
       IO.Process.exit 2
   match ← parseOperation filename (allowUnregisteredDialect := true) with
-  | .ok (ctx, op) =>
+  | .ok (ctx, op, source) =>
     match ctx.verify op with
     | .ok _ =>
       let rawCtx : IRContext OpCode := ctx
@@ -91,10 +80,14 @@ def main (args : List String) : IO Unit := do
                          (fun (_, r) => pure r)
       match result with
       | .ok results => IO.println s!"Program output: {results}"
-      | .ub op? => printWithStopLine rawCtx "Undefined behavior" op?
+      | .ub op? =>
+        IO.println "Undefined behavior"
+        if let some op := op? then
+          IO.println (source.formatAt op "note" "triggered here")
       | .fail op? =>
-        IO.withStdout (← IO.getStderr)
-          (printWithStopLine rawCtx "Error while interpreting module" op?)
+        match op? with
+        | some op => IO.eprintln (source.formatAt op "error" "failed to interpret operation")
+        | none => IO.eprintln "error: failed to interpret module"
         IO.Process.exit 1
     | .error errMsg =>
       IO.eprintln s!"Error verifying input program: {errMsg}"

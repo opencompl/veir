@@ -196,7 +196,7 @@ def main (args : List String) : IO Unit := do
     | .error errMsg =>
       IO.eprintln errMsg
       IO.Process.exit 1
-    | .ok (ctx, op) =>
+    | .ok (ctx, op, _) =>
       if !disableVerifiers then
         if let .error errMsg := ctx.verify op then
           IO.eprintln s!"Error verifying input program: {errMsg}"
