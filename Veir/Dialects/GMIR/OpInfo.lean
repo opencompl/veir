@@ -69,7 +69,10 @@ This replicates the type-group information in LLVM's `GenericOpcodes.td`
 
 Immediate operands and operands with LLVM's `unknown` (special) type are omitted and represented
 as operation properties instead.
+
 Operands/results of the same type group must have the same concrete type.
+Different type groups are unconstrained relative to each other, so they may share a type.
+The meaning of a type group is local to a single operation
 -/
 inductive TypeGroup where
 | type (group_id : Nat)
