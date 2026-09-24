@@ -22,9 +22,7 @@ structure AttrParserState where
   /--
     Keep integer literals exactly as written instead of range-checking them and
     normalizing them to their width the way MLIR does. Set only for `mod_arith`
-    moduli and properties: Veir reads these as mathematical integers, so that
-    `250 : i8` is 250, `-3 : i32` is -3, and a modulus may fill its whole
-    storage type (`!mod_arith.int<251 : i8>`), unlike in HEIR.
+    moduli and properties.
   -/
   rawIntegerLiterals : Bool := false
 
@@ -302,12 +300,7 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
   parsePunctuation ":"
   let startPos ← getPos
 
-  -- Build the integer attribute from the parsed literal. An MLIR `IntegerAttr`
-  -- of width `N` *is* an `APInt` of width `N`, so like `buildAttributeAPInt` in
-  -- `mlir/lib/AsmParser/AttributeParser.cpp`, accept only a literal that is the
-  -- signed or unsigned reading of `N` bits, i.e. in `[-2 ^ (N - 1), 2 ^ N)`, and
-  -- store it signed, e.g. `200 : i8` becomes `-56 : i8`. Width 1 is stored as
-  -- `0`/`1` (and printed as `false`/`true`). MLIR also rejects negative zero.
+  -- Build the integer attribute from the parsed literal.
   let integerAttr (integerType : IntegerType) : AttrParserM Attribute := do
     if isFloatLit then
       throwAtCurrentPos "integer literal expected in integer attribute"
