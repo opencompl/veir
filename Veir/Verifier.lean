@@ -389,8 +389,7 @@ private theorem WfIRContext.Verified.blockChecks
     {block : BlockPtr} (blockIn : block.InBounds ctx.raw) :
     (do block.verifyTerminator ctx blockIn
         block.verifyNoEntryBlockPredecessors ctx blockIn : Except String PUnit.{1}) = .ok ⟨⟩ := by
-  unfold WfIRContext.Verified WfIRContext.verify at ctxVerified
-  dsimp only at ctxVerified
+  simp only [WfIRContext.Verified, WfIRContext.verify] at ctxVerified
   split at ctxVerified
   · cases ctxVerified
   split at ctxVerified
@@ -408,8 +407,8 @@ theorem WfIRContext.Verified.entryBlock_firstUse_eq_none
     (block.get! ctx.raw).firstUse = none := by
   obtain ⟨_, -, hCheck⟩ := Except.bind_eq_ok.mp (ctxVerified.blockChecks blockIn)
   have hParent' : (block.get ctx.raw blockIn).parent = some region := by grind
-  unfold BlockPtr.verifyNoEntryBlockPredecessors at hCheck
-  simp only [hParent', hFirstBlock, ne_eq, not_true_eq_false, ↓reduceIte] at hCheck
+  simp only [BlockPtr.verifyNoEntryBlockPredecessors, hParent', hFirstBlock, ne_eq,
+    not_true_eq_false, ↓reduceIte] at hCheck
   split at hCheck
   · cases hCheck
   · rename_i hUse
