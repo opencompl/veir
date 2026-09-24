@@ -6,7 +6,8 @@
 // (that's the caller's responsibility -- see `notlowered`). For 64-bit boundaries (`i64`,
 // `!llvm.ptr`) a round-trip already present in a lowered body becomes an identity that the
 // pass removes; for `i32` boundaries the round-trip truncates and is instead reconciled
-// into an explicit `zextw` (see `i32fn`).
+// into an explicit `zextw` (see `i32fn`). Each return, now of a register, is lowered to
+// `riscv_cf.ret`.
 
 "builtin.module"() ({
 
@@ -21,12 +22,12 @@
       "func.return"(%o) : (i64) -> ()
       // CHECK:      func.func @lowered(%[[ARG:.*]]: !riscv.reg) -> !riscv.reg {
       // CHECK-NEXT:   [[R:%.*]] = "riscv.addi"(%[[ARG]]) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
-      // CHECK-NEXT:   "func.return"([[R]]) : (!riscv.reg) -> ()
+      // CHECK-NEXT:   "riscv_cf.ret"([[R]]) : (!riscv.reg) -> ()
     }) : () -> ()
 
   // `llvm.func` is handled too: the `i64` argument and result are coerced to
-  // `!riscv.reg`, the `!llvm.func<...>` spelling is preserved, and `llvm.return`'s
-  // operand is coerced. i32 boundaries would be left untouched (unsound to reconcile).
+  // `!riscv.reg`, the `!llvm.func<...>` spelling is preserved, and `llvm.return`
+  // becomes `riscv_cf.ret`. i32 boundaries would be left untouched (unsound to reconcile).
     "llvm.func"() <{sym_name = "llvmlowered", function_type = !llvm.func<i64 (i64)>}> ({
     ^bb(%a: i64):
       %r = "builtin.unrealized_conversion_cast"(%a) : (i64) -> !riscv.reg
@@ -36,7 +37,7 @@
       // CHECK:      "llvm.func"() <{"function_type" = !llvm.func<!riscv.reg (!riscv.reg)>, "sym_name" = "llvmlowered"}>
       // CHECK-NEXT: ^{{.*}}([[LARG:%.*]] : !riscv.reg):
       // CHECK-NEXT:   [[LR:%.*]] = "riscv.addi"([[LARG]]) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
-      // CHECK-NEXT:   "llvm.return"([[LR]]) : (!riscv.reg) -> ()
+      // CHECK-NEXT:   "riscv_cf.ret"([[LR]]) : (!riscv.reg) -> ()
     }) : () -> ()
 
   // Pointers are 64-bit, so `!llvm.ptr` boundaries coerce to `!riscv.reg` too (the
@@ -49,7 +50,7 @@
       "func.return"(%o) : (!llvm.ptr) -> ()
       // CHECK:      func.func @ptrfn(%[[PARG:.*]]: !riscv.reg) -> !riscv.reg {
       // CHECK-NEXT:   [[PR:%.*]] = "riscv.addi"(%[[PARG]]) <{"value" = 8 : i64}> : (!riscv.reg) -> !riscv.reg
-      // CHECK-NEXT:   "func.return"([[PR]]) : (!riscv.reg) -> ()
+      // CHECK-NEXT:   "riscv_cf.ret"([[PR]]) : (!riscv.reg) -> ()
     }) : () -> ()
 
   // `i32` boundaries are coerced too (RISC-V passes/returns `int` in a register), but the
@@ -67,7 +68,7 @@
       // CHECK-NEXT:   [[IZ:%.*]] = "riscv.zextw"(%[[IARG]]) : (!riscv.reg) -> !riscv.reg
       // CHECK-NEXT:   [[IS:%.*]] = "riscv.addi"([[IZ]]) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
       // CHECK-NEXT:   [[IRET:%.*]] = "riscv.zextw"([[IS]]) : (!riscv.reg) -> !riscv.reg
-      // CHECK-NEXT:   "func.return"([[IRET]]) : (!riscv.reg) -> ()
+      // CHECK-NEXT:   "riscv_cf.ret"([[IRET]]) : (!riscv.reg) -> ()
     }) : () -> ()
 
 }) : () -> ()

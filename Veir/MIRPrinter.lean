@@ -22,6 +22,9 @@ public section
   * `builtin.unrealized_conversion_cast` (reg ↔ i64/i1) becomes a `COPY`.
   * `riscv_stack.alloca` becomes a `stack` object, leaving the frame layout,
     prologue, epilogue and CFI to `llc` (see `Frame`).
+  * `riscv_cf.call` becomes a `PseudoCALL` bracketed by the call-frame
+    pseudos, with its arguments and result moved through a0-a7 per the
+    standard calling convention. Each callee is declared in the stub IR module.
 -/
 
 namespace Veir.MIRPrinter
@@ -108,6 +111,14 @@ def allocaShape? (ctx : IRContext OpCode) (op : OperationPtr) : Option (Int × I
   | .riscv_stack .alloca, some (.integerAttr size), some (.integerAttr align) =>
     some (size.value, align.value)
   | _, _, _ => none
+
+/-- The callee symbol of a `riscv_cf.call`, with its leading `@`, if `op` is one. -/
+def callee? (ctx : IRContext OpCode) (op : OperationPtr) : Option String :=
+  match op.getOpType! ctx with
+  | .riscv_cf .call =>
+    let props : RISCVCallProperties := op.getProperties! ctx (OpCode.riscv_cf .call)
+    some props.callee.value
+  | _ => none
 
 /-- Whether operand `i` of `opType` is a load/store base -- the one position
     where MIR accepts a frame index in place of a register. -/
@@ -387,6 +398,22 @@ def emitRegular (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr) : IO U
   | .riscv_stack .alloca =>
     if fr.folded.contains op.id then pure ()
     else IO.println s!"    {res} = ADDI %stack.{fr.fi[op.id]!}, 0"
+  -- The same sequence LLVM's own selector emits: move the arguments into
+  -- a0-a7, call, and copy the result out of a0.
+  | .riscv_cf .call =>
+    let callee := (callee? ctx op).get!
+    let argRegs := (List.range ops.size).map (fun i => s!"$x{10 + i}")
+    let hasResult := op.getNumResults! ctx != 0
+    let implicits := argRegs.map (s!", implicit {·}")
+    let resultDef := if hasResult then ", implicit-def $x10" else ""
+    IO.println "    ADJCALLSTACKDOWN 0, 0, implicit-def dead $x2, implicit $x2"
+    for i in 0...ops.size do
+      IO.println s!"    $x{10 + i} = COPY {v i}"
+    IO.println (s!"    PseudoCALL target-flags(riscv-call) {callee}, csr_ilp32_lp64, \
+      implicit-def dead $x1{String.join implicits}, implicit-def $x2{resultDef}")
+    IO.println "    ADJCALLSTACKUP 0, 0, implicit-def dead $x2, implicit $x2"
+    if hasResult then
+      IO.println s!"    {res} = COPY $x10"
   | _ => IO.println s!"    ; UNHANDLED op"
 
 /-- Emit a terminator operation (branch / return).  `lsuccs` gives the lowered
@@ -429,12 +456,16 @@ def emitTerminator (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr)
   | .riscv_cf .bgeu =>
     IO.println s!"    BGEU {v 0}, {v 1}, %bb.{succ 0}"
     IO.println s!"    PseudoBR %bb.{succ 1}"
-  | .llvm .return | .func .return =>
+  | .riscv_cf .ret | .llvm .return | .func .return =>
     if ops.size > 0 then
       IO.println s!"    $x10 = COPY {v 0}"
       IO.println s!"    PseudoRET implicit $x10"
     else
       IO.println s!"    PseudoRET"
+  -- Nothing needs to be emitted, as `llc` does, but trapping is much easier to
+  -- debug than running off the end of the block.
+  | .riscv_cf .unreachable =>
+    IO.println s!"    UNIMP"
   | _ => IO.println s!"    ; UNHANDLED terminator"
 
 /-- Emit the op list of a block, treating the last op as the terminator. -/
@@ -525,10 +556,20 @@ def printMIR (ctx : IRContext OpCode) (funcOp : OperationPtr) : IO Unit := do
     | some b => b.getNumArguments! ctx
     | none => 0
   let params := String.intercalate ", " ((List.range nargs).map (fun i => s!"i64 %a{i}"))
+  -- Every callee, once each, in order of first call.
+  let callees := blocks.foldl (init := #[]) fun acc b =>
+    (collectOps ctx (b.get! ctx).firstOp).foldl (init := acc) fun acc op =>
+      match callee? ctx op with
+      | some c => if acc.contains c then acc else acc.push c
+      | none => acc
   IO.println "--- |"
   IO.println s!"  define i64 @main({params}) #0 \{"
   IO.println "    ret i64 0"
   IO.println "  }"
+  -- The MIR names each callee, so the IR module has to declare it. Its
+  -- signature is irrelevant to the MIR.
+  for c in callees do
+    IO.println s!"  declare void {c}()"
   IO.println "  attributes #0 = { \"target-features\"=\"+m,+zba,+zbb,+zbs,+zbc,+zbkb,+zicond\" }"
   IO.println "..."
   IO.println "---"
@@ -538,6 +579,10 @@ def printMIR (ctx : IRContext OpCode) (funcOp : OperationPtr) : IO Unit := do
     IO.println "liveins:"
     for i in 0...nargs do
       IO.println s!"  - \{ reg: '$x{10 + i}' }"
+  if !callees.isEmpty then
+    IO.println "frameInfo:"
+    IO.println "  adjustsStack:    true"
+    IO.println "  hasCalls:        true"
   -- One `stack` object per alloca.  `llc` derives the frame's size and maximum
   -- alignment from these, so no explicit `frameInfo` is needed.
   if !frame.objects.isEmpty then

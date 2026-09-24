@@ -15,6 +15,9 @@ namespace Veir
   - `.riscvReg`: i32-, i64-, and pointer-typed boundaries become `!riscv.reg`.
   - `.modArithToInt legalizeWidth`: `!mod_arith.int<q : iN>`-typed boundaries become `i(legalizeWidth N)`
   - `.cirToStd`: `!cir.int<s|u, N>`- and `!cir.bool`-typed boundaries become `iN` and `i1`
+
+  Under `.riscvReg`, a return of nothing or of a single value that is a register
+  once coerced is also lowered to `riscv_cf.ret`.
 -/
 
 /-- Selects which boundary coercion the shared implementation applies. -/
@@ -100,6 +103,17 @@ def coerceFunction (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
       | none => pure ()
   -- (3) Rewrite the function_type to reflect the coerced boundary types.
   ctx := FunctionOpInterface.setFunctionType! ctx funcOp inputs outputs
+  -- (4) Lower the returns to `riscv_cf.ret` when targeting RISC-V registers. A
+  --     return that the calling convention cannot express in a0 -- of a type that
+  --     is not coerced, such as `i1`, or of several values -- is left alone.
+  if let .riscvReg := coercion then
+    for retOp in returnOps do
+      let operands := (List.range (retOp.getNumOperands! ctx.raw)).map (retOp.getOperand! ctx.raw ·)
+      if operands.length ≤ 1 &&
+          operands.all (fun v => (v.getType! ctx.raw).val matches .registerType _) then
+        let some (ctx', _) := WfRewriter.createOp! ctx Riscv_Cf.ret #[] operands.toArray #[] #[] ()
+          (InsertPoint.before retOp) | throw "cannot create riscv_cf.ret"
+        ctx := WfRewriter.eraseOp! ctx' retOp
   return ctx
 
 def coerceFunctionBoundaries (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode) :

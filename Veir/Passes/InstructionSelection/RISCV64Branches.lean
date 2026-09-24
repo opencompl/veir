@@ -6,15 +6,21 @@ import Std
 namespace Veir
 
 /-!
-  # Lowering LLVM branches to RISC-V
+  # Lowering LLVM control flow to RISC-V
 
   The pass has a pure core, `convertModule`, written with folds over lists so
   that it can be reasoned about, and a thin `IO` wrapper around it.
 
   It works in two phases. First every `llvm.br` and `llvm.cond_br` is replaced
-  by a RISC-V branch whose operands are cast to registers. Then the arguments
-  of every block that is branched to become registers, with a cast back to
-  their original type at the start of the block.
+  by a RISC-V branch whose operands are cast to registers, every
+  `llvm.unreachable` by `riscv_cf.unreachable`, and every direct `llvm.call` or
+  `func.call` by `riscv_cf.call`, with its operands cast to registers and its
+  result cast back. Then the arguments of every block that is branched to
+  become registers, with a cast back to their original type at the start of the
+  block.
+
+  Returns are left alone: `coerce-function-boundaries-to-riscv-reg` lowers them
+  to `riscv_cf.ret` once it has coerced the function's signature.
 -/
 
 /--
@@ -26,19 +32,57 @@ def castToReg (ip : InsertPoint) (acc : WfIRContext OpCode × Array OperationPtr
   let (ctx, casts) := acc
   let some (ctx, cast) := WfRewriter.createOp! ctx
     Builtin.unrealized_conversion_cast #[RegisterType.mk] #[operand] #[]
-    #[] default ip | throw "isel-br-riscv64: cannot cast a branch operand to a register"
+    #[] default ip | throw "isel-br-riscv64: cannot cast an operand to a register"
   return (ctx, casts.push cast)
 
 /--
-  Replace the terminator `op` by its RISC-V counterpart if it is an `llvm.br`
-  or an `llvm.cond_br`, and leave any other operation alone. The operands are
-  cast to registers in front of the new branch.
+  Replace a direct call `op` by a `riscv_cf.call`. The arguments are cast to
+  registers in front of the call, and its result, if any, is cast back to its
+  original type after it.
+-/
+def convertCall (ctx : WfIRContext OpCode) (op : OperationPtr) (callee : FlatSymbolRefAttr)
+    : Except String (WfIRContext OpCode) := do
+  let ip := InsertPoint.before op
+  let operands := (List.range (op.getNumOperands! ctx.raw)).map (op.getOperand! ctx.raw ·)
+  let (ctx, casts) ← operands.foldlM (castToReg ip) (ctx, #[])
+  let regs := casts.map (fun cast => cast.getResult 0)
+  let resultTypes := op.getResultTypes! ctx.raw
+  let some (ctx, call) := WfRewriter.createOp! ctx Riscv_Cf.call
+    (resultTypes.map fun _ => RegisterType.mk) regs #[] #[] ({ callee } : RISCVCallProperties) ip
+    | throw "isel-br-riscv64: cannot create riscv_cf.call"
+  let ctx ← (List.range resultTypes.size).foldlM (fun ctx i => do
+    let some (ctx, cast) := WfRewriter.createOp! ctx
+      Builtin.unrealized_conversion_cast #[resultTypes[i]!] #[call.getResult i] #[]
+      #[] default ip
+      | throw "isel-br-riscv64: cannot cast a call result back to its type"
+    return WfRewriter.replaceValue! ctx (op.getResult i) (cast.getResult 0)) ctx
+  return WfRewriter.eraseOp! ctx op
+
+/--
+  Replace `op` by its RISC-V counterpart if it is an `llvm.br`, an
+  `llvm.cond_br`, an `llvm.unreachable`, or a direct call, and leave any other
+  operation alone. The operands of a branch are cast to registers in front of
+  the new branch.
 -/
 def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
     : Except String (WfIRContext OpCode) := do
   let opType := op.getOpType! ctx
-  if opType != OpCode.llvm .br && opType != OpCode.llvm .cond_br then
-    return ctx
+  match opType with
+  | .llvm .call =>
+    let props : LLVMCallProperties := op.getProperties! ctx.raw (OpCode.llvm .call)
+    match props.callee with
+    | some callee => return (← convertCall ctx op callee)
+    | none => return ctx
+  | .func .call =>
+    let props : FuncCallProperties := op.getProperties! ctx.raw (OpCode.func .call)
+    return (← convertCall ctx op props.callee)
+  | .llvm .unreachable =>
+    let some (ctx, _) := WfRewriter.createOp! ctx Riscv_Cf.unreachable #[] #[] #[] #[] ()
+      (InsertPoint.before op)
+      | throw "isel-br-riscv64: cannot create riscv_cf.unreachable"
+    return WfRewriter.eraseOp! ctx op
+  | .llvm .br | .llvm .cond_br => pure ()
+  | _ => return ctx
 
   let ip := InsertPoint.before op
   let operands := (List.range (op.getNumOperands! ctx.raw)).map (op.getOperand! ctx.raw ·)
@@ -114,5 +158,5 @@ def ISelBrPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
 public def IselBrRISCV64 : Pass OpCode :=
   { name := "isel-br-riscv64"
     description :=
-      "Lower LLVM IR branch instructions to RISCV 64 assembly."
+      "Lower LLVM IR branches, calls, and unreachable to RISCV 64 assembly."
     run := fun _ => ISelBrPass.impl }

@@ -23,6 +23,9 @@ inductive Riscv_Cf where
 | bge
 | bltu
 | bgeu
+| call
+| ret
+| unreachable
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, properties_of]
@@ -36,6 +39,7 @@ match op with
 | .bgeu => RISCVBrProperties
 | .beqz => RISCVBrProperties
 | .bnez => RISCVBrProperties
+| .call => RISCVCallProperties
 | _ => Unit
 
 def Riscv_Cf.fromAttrDict
@@ -44,6 +48,7 @@ def Riscv_Cf.fromAttrDict
   cases op
   case beq | bne | blt | bge | bltu | bgeu | beqz | bnez =>
     exact RISCVBrProperties.fromAttrDict attrDict
+  case call => exact RISCVCallProperties.fromAttrDict attrDict
   all_goals exact .ok ()
 
 def Riscv_Cf.toAttrDict
@@ -54,12 +59,16 @@ def Riscv_Cf.toAttrDict
     (Std.HashMap.emptyWithCapacity 1).insert
       "operandSegmentSizes".toUTF8
       (Attribute.denseArrayAttr props.operandSegmentSizes)
+  | .call =>
+    (Std.HashMap.emptyWithCapacity 1).insert "callee".toUTF8 (.flatSymbolRefAttr props.callee)
   | _ => Std.HashMap.emptyWithCapacity 0
 
 @[get_effects]
 def Riscv_Cf.getEffects
-    (_op : Riscv_Cf) (_props : Riscv_Cf.propertiesOf _op) : MemoryEffects :=
-  .none
+    (op : Riscv_Cf) (_props : Riscv_Cf.propertiesOf op) : MemoryEffects :=
+  match op with
+  | .call => .unknown
+  | _ => .none
 
 def Riscv_Cf.isConstantLike (_op : Riscv_Cf) : Bool :=
   false
@@ -67,10 +76,12 @@ def Riscv_Cf.isConstantLike (_op : Riscv_Cf) : Bool :=
 def Riscv_Cf.hasSSADominance (_op : Riscv_Cf) (_index : Nat) : Bool :=
   true
 
-/-- Every `riscv_cf` operation is a branch, and so terminates its block. -/
+/-- Every `riscv_cf` operation but `call` ends its block. -/
 @[is_terminator]
-def Riscv_Cf.isTerminator (_op : Riscv_Cf) : Bool :=
-  true
+def Riscv_Cf.isTerminator (op : Riscv_Cf) : Bool :=
+  match op with
+  | .call => false
+  | _ => true
 
 #generate_dialect Riscv_Cf
 
@@ -131,6 +142,22 @@ def Riscv_Cf.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     let sizes := (op.getProperties! ctx.raw Riscv_Cf.bnez).operandSegmentSizes
     op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 1
     pure ()
+  | .call => do
+    -- Arguments are passed in a0-a7 and the result is returned in a0.
+    if op.getNumOperands ctx.raw opIn > 8 then
+      throw "riscv_cf.call: Expected at most 8 operands"
+    if op.getNumResults ctx.raw opIn > 1 then
+      throw "riscv_cf.call: Expected at most 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "riscv_cf.call: Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "riscv_cf.call: Expected 0 successors"
+  | .ret => do
+    op.verifyTerminatorCounts ctx opIn 0
+    if op.getNumOperands ctx.raw opIn > 1 then
+      throw "riscv_cf.ret: Expected at most 1 operand"
+  | .unreachable =>
+    op.verifyPlainOpCounts ctx opIn 0 0
 
 def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
@@ -217,6 +244,10 @@ def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : propertiesOf op
       return (#[], some (.branch (operands.extract 1 (trueSize + 1)) destTrue))
     else
       return (#[], some (.branch (operands.extract (trueSize + 1) operands.size) destFalse))
+  -- The interpreter has no notion of calls.
+  | .call => none
+  | .ret => return (#[], some (.return operands))
+  | .unreachable => .ub
 
 instance : HasOpInfo Riscv_Cf where
   verifyLocalInvariants := Riscv_Cf.verifyLocalInvariants
