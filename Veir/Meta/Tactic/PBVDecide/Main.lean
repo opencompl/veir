@@ -825,7 +825,11 @@ meta def prettyPrintCounterExample (counterExample : CounterExample) (widthInfos
     err := opaqueVariables.foldl (init := err) (fun acc e => acc ++ m!"    - " ++ e ++ "\n")
     err := err ++ "Consider the following assignment:\n"
 
-  err := widthCexs.fold (init := err) (fun acc _ cex => acc ++ m!"  {cex}\n")
+  -- Sort the counterexamples by name
+  let widthCexsA := widthCexs.toArray.map (·.snd) |>.qsort (fun a b => Name.lt a.name b.name)
+  let bitvecCexs := bitvecCexs.qsort (fun a b => Name.lt a.name b.name)
+
+  err := widthCexsA.foldl (init := err) (fun acc cex => acc ++ m!"  {cex}\n")
   err := bitvecCexs.foldl (init := err) (fun acc cex => acc ++ m!"  {cex}\n")
 
   return err
