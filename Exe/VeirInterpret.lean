@@ -3,6 +3,7 @@ import Veir.Verifier
 import Veir.Interpreter.Basic
 import Veir.Input
 import Veir.Panic
+import Veir.Printer
 
 /-!
   # Veir Interpreter CLI Tool
@@ -59,6 +60,16 @@ def resolveEntryPoint (ctx : IRContext OpCode) (moduleOp : OperationPtr) : IO Op
     IO.eprintln "Error: Multiple entry points: define exactly one zero-argument function named 'main'"
     IO.Process.exit 1
 
+/--
+  Print `message`, followed by the operation at which interpretation stopped, if it is known.
+-/
+def printWithStopLine (ctx : IRContext OpCode) (message : String) :
+    Option OperationPtr → IO Unit
+  | none => IO.println message
+  | some op => do
+    IO.print s!"{message} at: "
+    Printer.printModule ctx op
+
 set_option warn.sorry false in
 def main (args : List String) : IO Unit := do
   enableExitOnPanic
@@ -80,9 +91,10 @@ def main (args : List String) : IO Unit := do
                          (fun (_, r) => pure r)
       match result with
       | .ok results => IO.println s!"Program output: {results}"
-      | .ub => IO.println "Undefined behavior"
-      | .fail =>
-        IO.eprintln "Error while interpreting module"
+      | .ub op? => printWithStopLine rawCtx "Undefined behavior" op?
+      | .fail op? =>
+        IO.withStdout (← IO.getStderr)
+          (printWithStopLine rawCtx "Error while interpreting module" op?)
         IO.Process.exit 1
     | .error errMsg =>
       IO.eprintln s!"Error verifying input program: {errMsg}"

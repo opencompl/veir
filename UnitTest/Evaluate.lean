@@ -31,7 +31,7 @@ info: "ok"
     UB into poison is the client's policy decision, not this layer's. -/
 private def testEvaluateUB : String := Id.run do
   let operands : Array RuntimeValue := #[.int 32 (.val 5), .int 32 (.val 0)]
-  let .ub :=
+  let .ub _ :=
     (foldEvaluate (.arith .divsi) default #[i32] operands : Interp (Array RuntimeValue))
     | return "arith.divsi by zero did not report UB"
   return "ok"
@@ -47,7 +47,7 @@ info: "ok"
     their own to evaluate against. -/
 private def testEvaluateUninterpreted : String := Id.run do
   let operands : Array RuntimeValue := #[.int 32 (.val 13), .int 32 (.val 7)]
-  let .fail := (foldEvaluate (.datapath .compress) () #[i32, i32] operands : Interp (Array RuntimeValue))
+  let .fail _ := (foldEvaluate (.datapath .compress) () #[i32, i32] operands : Interp (Array RuntimeValue))
     | return "an uninterpreted operation was evaluated"
   return "ok"
 
