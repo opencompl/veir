@@ -65,7 +65,7 @@
 // CHECK-NEXT:         %{{.*}} = "arith.constant"() <{"value" = 13 : i32}> : () -> i32
 // CHECK-NEXT:         %{{.*}} = "arith.constant"() <{"value" = 3 : i32}> : () -> i32
 // CHECK-NEXT:         %{{.*}} = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
-// CHECK-NEXT:         %{{.*}} = "arith.constant"() <{"value" = 1 : i1}> : () -> i1
+// CHECK-NEXT:         %{{.*}} = "arith.constant"() <{"value" = true}> : () -> i1
 // CHECK-NEXT:         %{{.*}} = "comb.add"(%{{.*}}) : (i32) -> i32
 // CHECK-NEXT:         %{{.*}} = "comb.add"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:         %{{.*}} = "comb.add"(%{{.*}}, %{{.*}}, %{{.*}}) : (i32, i32, i32) -> i32

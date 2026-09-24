@@ -27,7 +27,7 @@
 // its divisor is still unknown.
 // LOWERED: "llvm.mlir.constant"() <{"value" = 0 : i8}>
 // LOWERED: "llvm.mlir.constant"() <{"value" = 1 : i8}>
-// LOWERED: "llvm.mlir.constant"() <{"value" = 0 : i1}>
+// LOWERED: "llvm.mlir.constant"() <{"value" = false}>
 // LOWERED: "llvm.mlir.constant"() <{"value" = -2 : i8}>
 // LOWERED-NOT: "llvm.icmp"
 // LOWERED-NOT: "llvm.sub"

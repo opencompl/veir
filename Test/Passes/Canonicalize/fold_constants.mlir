@@ -66,7 +66,7 @@
     %c1 = "arith.constant"() <{"value" = 1 : i8}> : () -> i8
     %sum, %overflow = "arith.addui_extended"(%c255, %c1) : (i8, i8) -> (i8, i1)
     // CHECK-LABEL: func.func @extended_add_flag
-    // CHECK: %[[FLAG:.*]] = "arith.constant"() <{"value" = -1 : i1}> : () -> i1
+    // CHECK: %[[FLAG:.*]] = "arith.constant"() <{"value" = true}> : () -> i1
     // CHECK-NEXT: "func.return"(%[[FLAG]]) : (i1) -> ()
     "func.return"(%overflow) : (i1) -> ()
   }) : () -> ()

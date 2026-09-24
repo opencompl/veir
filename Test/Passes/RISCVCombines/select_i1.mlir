@@ -15,6 +15,6 @@
 
 // CHECK-LABEL: func.func @select_i1
 // CHECK-SAME: (%[[COND:.*]]: i1)
-// CHECK-NEXT: %[[ONE:.*]] = "llvm.mlir.constant"() <{"value" = -1 : i1}> : () -> i1
+// CHECK-NEXT: %[[ONE:.*]] = "llvm.mlir.constant"() <{"value" = true}> : () -> i1
 // CHECK-NEXT: %[[NOT:.*]] = "llvm.xor"(%[[COND]], %[[ONE]]) : (i1, i1) -> i1
 // CHECK-NEXT: "func.return"(%[[COND]], %[[NOT]]) : (i1, i1) -> ()

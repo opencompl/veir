@@ -38,9 +38,9 @@
 // CHECK:      "llvm.mlir.constant"() <{"value" = -56 : i8}> : () -> i32
 // CHECK-NEXT: "llvm.mlir.constant"() <{"value" = -1 : i2}> : () -> i32
 // CHECK-NEXT: "llvm.mlir.constant"() <{"value" = -1 : i32}> : () -> i64
-// CHECK-NEXT: "llvm.mlir.constant"() <{"value" = 1 : i1}> : () -> i32
+// CHECK-NEXT: "llvm.mlir.constant"() <{"value" = true}> : () -> i32
 // CHECK-NEXT: "llvm.mlir.constant"() <{"value" = -3 : i8}> : () -> i32
-// CHECK-NEXT: "llvm.mlir.constant"() <{"value" = 1 : i1}> : () -> i32
+// CHECK-NEXT: "llvm.mlir.constant"() <{"value" = true}> : () -> i32
 // CHECK-NEXT: "llvm.mlir.constant"() <{"value" = 300 : i32}> : () -> i8
 
 // This module's constants are dead, so lowering it all the way to LLVM IR
