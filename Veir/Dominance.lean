@@ -3,6 +3,7 @@ module
 public import Veir.Rewriter.InsertPoint
 public import Veir.Dominance.Basic
 public import Veir.Dominance.Lemmas
+public import Veir.Interfaces.RegionKindInterfaces
 
 import all Veir.Dominance.Basic
 
@@ -29,8 +30,8 @@ variable {op op₁ op₂ : OperationPtr}
   An operation `op₁` properly dominates an operation `op₂` if it dominates it
   and the operations are not equal.
 -/
-axiom OperationPtr.properlyDominates_def :
-    op₁.ProperlyDominates op₂ ctx true ↔ op₁.Dominates op₂ ctx ∧ op₁ ≠ op₂
+axiom OperationPtr.properlyDominates_iff_dominates_of_ne (hne : op₁ ≠ op₂) :
+    op₁.ProperlyDominates op₂ ctx true ↔ op₁.Dominates op₂ ctx
 
 /--
   The dominance relation between an operation and an insertion point.
@@ -86,11 +87,17 @@ axiom OperationPtr.dominatesIp_before :
 grind_pattern OperationPtr.dominatesIp_before => op₁.dominatesIp (.before op₂) ctx
 
 /--
-Proper dominance between operations is transitive.
+Proper dominance within an SSACFG region is transitive when the final operation's block is
+reachable from the region entry.
 -/
-axiom OperationPtr.properlyDominates_trans {op₃ : OperationPtr} :
-  op₁.ProperlyDominates op₂ ctx true → op₂.ProperlyDominates op₃ ctx true →
-  op₁.ProperlyDominates op₃ ctx true
+axiom OperationPtr.ProperlyDominatesInRegion.trans_of_reachable
+    {op₃ : OperationPtr} {block₃ : BlockPtr} {region : RegionPtr}
+    (hasSSADominance : region.hasSSADominance ctx = true)
+    (op₃Parent : (op₃.get! ctx.raw).parent = some block₃)
+    (reachable : block₃.ReachableFromEntry region ctx) :
+    op₁.ProperlyDominatesInRegion op₂ region ctx →
+    op₂.ProperlyDominatesInRegion op₃ region ctx →
+    op₁.ProperlyDominatesInRegion op₃ region ctx
 
 /--
 A value dominating the program point before an operation `op₁` also dominates the program
