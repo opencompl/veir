@@ -105,8 +105,8 @@ def BlockPtr.verifyNoEntryBlockPredecessors (block : BlockPtr) (ctx : WfIRContex
   if b.firstUse.isSome then
     throw "entry block of region may not have predecessors"
 
-/-- Check that every block terminates and that the entry block has no
-    predecessors. -/
+/-- Check that a `block` terminates and that, in case it is the entry block,
+    has no predecessors. -/
 def BlockPtr.verifyBlock (block : BlockPtr) (ctx : WfIRContext OpCode)
     (blockIn : block.InBounds ctx.raw) : Except String PUnit := do
   block.verifyTerminator ctx blockIn
