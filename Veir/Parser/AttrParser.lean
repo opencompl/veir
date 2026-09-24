@@ -307,7 +307,7 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
   -- `mlir/lib/AsmParser/AttributeParser.cpp`, accept only a literal that is the
   -- signed or unsigned reading of `N` bits, i.e. in `[-2 ^ (N - 1), 2 ^ N)`, and
   -- store it signed, e.g. `200 : i8` becomes `-56 : i8`. Width 1 is stored as
-  -- `0`/`1` (and printed as `false`/`true`).
+  -- `0`/`1` (and printed as `false`/`true`). MLIR also rejects negative zero.
   let integerAttr (integerType : IntegerType) : AttrParserM Attribute := do
     if isFloatLit then
       throwAtCurrentPos "integer literal expected in integer attribute"
@@ -317,7 +317,7 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
     if (← get).rawIntegerLiterals then
       return IntegerAttr.mk literal integerType
     let bits := BitVec.ofInt integerType.bitwidth literal
-    if literal ≠ bits.toInt ∧ literal ≠ bits.toNat then
+    if (isNegative && n == 0) ∨ (literal ≠ bits.toInt ∧ literal ≠ bits.toNat) then
       throwAt valueStartPos "integer constant out of range for attribute"
     return IntegerAttr.mk (if integerType.bitwidth = 1 then bits.toNat else bits.toInt) integerType
 

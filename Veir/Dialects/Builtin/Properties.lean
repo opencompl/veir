@@ -36,6 +36,9 @@ def getI64Attr (errorCtx key : String) (attrDict : Std.HashMap ByteArray Attribu
     | throw s!"{errorCtx}: expected '{key}' to be an integer attribute, but got {attr}"
   if intAttr.type.bitwidth ≠ 64 then
     throw s!"{errorCtx}: expected '{key}' to be a 64-bit integer attribute, but got i{intAttr.type.bitwidth}"
+  -- Attributes constructed directly in Lean have not passed the parser's range check.
+  if intAttr.value < -(2 ^ 63) ∨ 2 ^ 64 ≤ intAttr.value then
+    throw s!"{errorCtx}: '{key}' value {intAttr.value} does not fit in i64"
   return BitVec.ofInt 64 intAttr.value
 
 /-- Re-encode a `getI64Attr` value as the `i64` attribute it is printed as. -/

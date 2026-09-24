@@ -176,6 +176,13 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "false" (IntegerAttr.mk 0 (IntegerType.mk 1))
 #assert expectSuccessAttr "true" (IntegerAttr.mk 1 (IntegerType.mk 1))
 
+-- MLIR rejects a minus sign on zero, in decimal and hex, even at width zero.
+#assert [0, 1, 8, 64].all fun width =>
+  ["0", "0x0"].all fun zero =>
+    expectErrorAttr s!"-{zero} : i{width}"
+      "integer constant out of range for attribute" (some 1) &&
+    expectSuccessAttr s!"{zero} : i{width}" (IntegerAttr.mk 0 (IntegerType.mk width))
+
 /-! ## Integer overflow flags attributes -/
 
 #assert expectSuccessAttr "#arith.overflow<none>" (ArithIntegerOverflowFlagsAttr.mk false false)

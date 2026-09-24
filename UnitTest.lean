@@ -6,6 +6,7 @@ import UnitTest.AttrParser
 import UnitTest.MlirParser
 import UnitTest.IR.Operation
 import UnitTest.Dialect
+import UnitTest.BuiltinProperties
 import UnitTest.Verifier
 import UnitTest.FP
 import UnitTest.Bitblasting.Bitblasting
