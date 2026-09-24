@@ -5,9 +5,6 @@
 // `arith.constant`: an `IntegerAttr` of width N only admits [-2^(N-1), 2^N), so
 // `256 : i8` names a value the attribute type cannot represent, and both
 // mlir-opt and veir-opt reject it.
-//
-// The exact wording of the diagnostic is not important; that the input is
-// rejected is.
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "f", function_type = () -> i8}> ({

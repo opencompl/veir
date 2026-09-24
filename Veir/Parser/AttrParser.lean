@@ -19,8 +19,25 @@ structure AttrParserState where
   allowUnregisteredDialect : Bool := false
   /-- Type aliases in scope, keyed by name without the `!`. -/
   typeAliases : Std.HashMap ByteArray TypeAttr := {}
+  /--
+    Keep integer literals exactly as written instead of range-checking them and
+    normalizing them to their width the way MLIR does. Set only for `mod_arith`,
+    which reads its moduli and constants as mathematical integers (see
+    `parseOptionalModArithType`).
+  -/
+  rawIntegerLiterals : Bool := false
 
 abbrev AttrParserM := StateT AttrParserState (EStateM ParserError ParserState)
+
+/--
+  Run `x` with `rawIntegerLiterals` set, restoring the previous setting after.
+-/
+def withRawIntegerLiterals (x : AttrParserM α) : AttrParserM α := do
+  let saved := (← get).rawIntegerLiterals
+  modify ({ · with rawIntegerLiterals := true })
+  let result ← x
+  modify ({ · with rawIntegerLiterals := saved })
+  return result
 
 /--
   Execute the action with the given initial state.
@@ -284,13 +301,29 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
   parsePunctuation ":"
   let startPos ← getPos
 
-  -- Compute the integer value from the parsed literal.
-  let integerValue : AttrParserM Int := do
+  -- Build the integer attribute from the parsed literal. An MLIR `IntegerAttr`
+  -- of width `N` *is* an `APInt` of width `N`, so like `buildAttributeAPInt` in
+  -- `mlir/lib/AsmParser/AttributeParser.cpp`, accept only a literal in
+  -- `[-2 ^ (N - 1), 2 ^ N)` and reduce it to its width, e.g. `200 : i8` becomes
+  -- `-56 : i8`. The value is stored signed, except at width 1, where it is
+  -- stored as `0`/`1` (and printed as `false`/`true`).
+  let integerAttr (integerType : IntegerType) : AttrParserM Attribute := do
     if isFloatLit then
       throwAtCurrentPos "integer literal expected in integer attribute"
     let some n := numericValueToNat? value
       | throwAt startPos s!"invalid integer literal '{String.fromUTF8! value}'"
-    return (if isNegative then Int.negOfNat n else Int.ofNat n)
+    let literal := if isNegative then Int.negOfNat n else Int.ofNat n
+    if (← get).rawIntegerLiterals then
+      return IntegerAttr.mk literal integerType
+    let width := integerType.bitwidth
+    let inRange :=
+      if width = 0 then literal = 0
+      else if isNegative then -(2 ^ (width - 1) : Int) ≤ literal
+      else literal < 2 ^ width
+    if !inRange then
+      throwAt valueStartPos "integer constant out of range for attribute"
+    let bits := BitVec.ofInt width literal
+    return IntegerAttr.mk (if width = 1 then bits.toNat else bits.toInt) integerType
 
   -- Compute the floating-point value from the parsed literal.
   let floatValue (floatType : FloatType) :
@@ -317,14 +350,14 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
 
   -- Determine the type after ':'.
   if let some integerType ← parseOptionalIntegerType then
-    return some (IntegerAttr.mk (← integerValue) integerType : Attribute)
+    return some (← integerAttr integerType)
   else if let some floatType ← parseOptionalFloatType then
     return some (FloatAttr.mk floatType (← floatValue floatType) : Attribute)
   else if let some name ← parseOptionalPrefixedKeyword .exclamationIdent then
     let some typeAttr := (← resolveOptionalTypeAlias startPos name)
       | throwAt startPos "integer or float type expected after ':' in numeric attribute"
     if let some integerType := typeAttr.cast? IntegerType then
-      return some (IntegerAttr.mk (← integerValue) integerType : Attribute)
+      return some (← integerAttr integerType)
     else if let some floatType := typeAttr.cast? FloatType then
       return some (FloatAttr.mk floatType (← floatValue floatType) : Attribute)
     else
@@ -782,6 +815,11 @@ partial def parseOptionalIoAddressType : AttrParserM (Option TypeAttr) := do
 /--
   Parse HEIR's modarith type, if present.
   Its syntax is `!mod_arith.int<{IntegerAttr}>`, e.g., `!mod_arith.int<17 : i32>`.
+
+  The modulus is parsed raw rather than normalized to its width: Veir reads it
+  as a mathematical integer and deliberately allows one that fills the whole
+  storage type, e.g. `!mod_arith.int<251 : i8>`, which HEIR rejects and which
+  normalization would turn negative.
 -/
 def parseOptionalModArithType : AttrParserM (Option TypeAttr) := do
   let token ← peekToken
@@ -792,7 +830,7 @@ def parseOptionalModArithType : AttrParserM (Option TypeAttr) := do
     return none
   let _ ← consumeToken
   parsePunctuation "<"
-  let some modulus ← parseOptionalNumericAttr
+  let some modulus ← withRawIntegerLiterals parseOptionalNumericAttr
     | throwAtCurrentPos "modarith type modulus expected"
   let some modulus := modulus.cast? IntegerAttr
     | throwAtCurrentPos "modarith type modulus expected"

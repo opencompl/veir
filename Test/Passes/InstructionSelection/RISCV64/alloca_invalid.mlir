@@ -42,13 +42,12 @@
     // CHECK: "llvm.alloca"({{.*}}) <{"alignment" = 3 : i64, "elem_type" = i8}>
     %negative_align = "llvm.alloca"(%one) <{elem_type = i8, alignment = -8 : i64}> : (i64) -> !llvm.ptr
     // CHECK: "llvm.alloca"({{.*}}) <{"alignment" = -8 : i64, "elem_type" = i8}>
-    %wide_align = "llvm.alloca"(%one) <{elem_type = i8, alignment = 18446744073709551616 : i64}> : (i64) -> !llvm.ptr
-    // CHECK: "llvm.alloca"({{.*}}) <{"alignment" = 18446744073709551616 : i64, "elem_type" = i8}>
+    // 2^63 is in range for an `i64` attribute but, like MLIR, normalizes to -2^63.
     %signed_align = "llvm.alloca"(%one) <{elem_type = i8, alignment = 9223372036854775808 : i64}> : (i64) -> !llvm.ptr
-    // CHECK: "llvm.alloca"({{.*}}) <{"alignment" = 9223372036854775808 : i64, "elem_type" = i8}>
+    // CHECK: "llvm.alloca"({{.*}}) <{"alignment" = -9223372036854775808 : i64, "elem_type" = i8}>
     %not_pointer = "llvm.alloca"(%one) <{elem_type = i8}> : (i64) -> i64
     // CHECK: "llvm.alloca"({{.*}}) <{"alignment" = 0 : i64, "elem_type" = i8}> : (i64) -> i64
-    "test.test"(%dynamic, %special, %layout, %overflow, %signed_overflow, %wide_count, %bad_align, %negative_align, %wide_align, %signed_align, %not_pointer) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, i64) -> ()
+    "test.test"(%dynamic, %special, %layout, %overflow, %signed_overflow, %wide_count, %bad_align, %negative_align, %signed_align, %not_pointer) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, i64) -> ()
     "llvm.br"()[^later] : () -> ()
   ^later:
     // A constant-count alloca outside the entry block is still dynamic.

@@ -22,7 +22,7 @@ def ArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
     | throw "arith.constant: missing 'value' property"
   let .integerAttr intAttr := attr
     | throw s!"arith.constant: expected 'value' to be an integer attribute, but got {attr}"
-  return { value := ← intAttr.ofLiteral }
+  return { value := intAttr }
 
 /-- Properties of arith operations that can have `nsw` and `nuw` flags, such as `arith.addi` or `arith.muli`. -/
 structure ArithIntegerOverflowFlagsProperties where
