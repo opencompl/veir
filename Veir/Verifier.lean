@@ -105,6 +105,12 @@ def BlockPtr.verifyNoEntryBlockPredecessors (block : BlockPtr) (ctx : WfIRContex
   if b.firstUse.isSome then
     throw "entry block of region may not have predecessors"
 
+/-- The checks that `verify` runs on every block of the context. -/
+def BlockPtr.verifyBlock (block : BlockPtr) (ctx : WfIRContext OpCode)
+    (blockIn : block.InBounds ctx.raw) : Except String PUnit := do
+  block.verifyTerminator ctx blockIn
+  block.verifyNoEntryBlockPredecessors ctx blockIn
+
 /-- Check that a graph region contains at most one block. An unregistered
     operation makes no promise about its regions, so it is exempt. -/
 private def WfIRContext.graphRegionsHaveAtMostOneBlock (ctx : WfIRContext OpCode) : Bool :=
@@ -318,9 +324,7 @@ def WfIRContext.verify
         | some _ => op.verifyTerminatorPosition ctx opIn
         | none => pure ()
         op.verifyOperandIsolation ctx opIn))
-  ctx.raw.forBlocksDepM (fun block blockIn => do
-    block.verifyTerminator ctx blockIn
-    block.verifyNoEntryBlockPredecessors ctx blockIn)
+  ctx.raw.forBlocksDepM (fun block blockIn => block.verifyBlock ctx blockIn)
   ctx.verifyLLVMGlobalSymbols
   ctx.verifyLLVMComdats
   ctx.verifyLLVMAliasInitializers
@@ -396,8 +400,9 @@ private theorem WfIRContext.Verified.blockChecks
   · cases ctxVerified
   obtain ⟨_, -, ctxVerified⟩ := Except.bind_eq_ok.mp ctxVerified
   obtain ⟨_, hBlocks, -⟩ := Except.bind_eq_ok.mp ctxVerified
-  obtain ⟨_, hTerminator, hEntry⟩ :=
-    Except.bind_eq_ok.mp (IRContext.forBlocksDepM_except_ok hBlocks block blockIn)
+  have hBlock := IRContext.forBlocksDepM_except_ok hBlocks block blockIn
+  simp only [BlockPtr.verifyBlock] at hBlock
+  obtain ⟨_, hTerminator, hEntry⟩ := Except.bind_eq_ok.mp hBlock
   exact ⟨hTerminator, hEntry⟩
 
 /-- A verified context ends every block with a terminator. -/
