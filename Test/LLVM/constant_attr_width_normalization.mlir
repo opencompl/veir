@@ -1,6 +1,15 @@
 // RUN: VEIR_ROUNDTRIP
 // RUN: MLIR_ROUNDTRIP
 
+// An MLIR `IntegerAttr` *is* an APInt of its declared width, so MLIR normalizes
+// the literal at parse time and only later extends it to the result type.  The
+// round trip is therefore observable:
+//
+//   mlir-opt:  llvm.mlir.constant(200 : i8)         -> llvm.mlir.constant(-56 : i8)
+//              llvm.mlir.constant(3 : i2)           -> llvm.mlir.constant(-1 : i2)
+//              llvm.mlir.constant(4294967295 : i32) -> llvm.mlir.constant(-1 : i32)
+//              llvm.mlir.constant(-1 : i1)          -> llvm.mlir.constant(true)
+
 "builtin.module"() ({
   "llvm.func"() <{CConv = #llvm.cconv<ccc>, function_type = !llvm.func<void ()>, linkage = #llvm.linkage<external>, sym_name = "constants", visibility_ = 0 : i64}> ({
     %0 = "llvm.mlir.constant"() <{value = 200 : i8}> : () -> i8

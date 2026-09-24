@@ -21,9 +21,10 @@ structure AttrParserState where
   typeAliases : Std.HashMap ByteArray TypeAttr := {}
   /--
     Keep integer literals exactly as written instead of range-checking them and
-    normalizing them to their width the way MLIR does. Set only for `mod_arith`,
-    which reads its moduli and constants as mathematical integers (see
-    `parseOptionalModArithType`).
+    normalizing them to their width the way MLIR does. Set only for `mod_arith`
+    moduli and properties: Veir reads these as mathematical integers, so that
+    `250 : i8` is 250, `-3 : i32` is -3, and a modulus may fill its whole
+    storage type (`!mod_arith.int<251 : i8>`), unlike in HEIR.
   -/
   rawIntegerLiterals : Bool := false
 
@@ -303,10 +304,10 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
 
   -- Build the integer attribute from the parsed literal. An MLIR `IntegerAttr`
   -- of width `N` *is* an `APInt` of width `N`, so like `buildAttributeAPInt` in
-  -- `mlir/lib/AsmParser/AttributeParser.cpp`, accept only a literal in
-  -- `[-2 ^ (N - 1), 2 ^ N)` and reduce it to its width, e.g. `200 : i8` becomes
-  -- `-56 : i8`. The value is stored signed, except at width 1, where it is
-  -- stored as `0`/`1` (and printed as `false`/`true`).
+  -- `mlir/lib/AsmParser/AttributeParser.cpp`, accept only a literal that is the
+  -- signed or unsigned reading of `N` bits, i.e. in `[-2 ^ (N - 1), 2 ^ N)`, and
+  -- store it signed, e.g. `200 : i8` becomes `-56 : i8`. Width 1 is stored as
+  -- `0`/`1` (and printed as `false`/`true`).
   let integerAttr (integerType : IntegerType) : AttrParserM Attribute := do
     if isFloatLit then
       throwAtCurrentPos "integer literal expected in integer attribute"
@@ -315,15 +316,10 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
     let literal := if isNegative then Int.negOfNat n else Int.ofNat n
     if (← get).rawIntegerLiterals then
       return IntegerAttr.mk literal integerType
-    let width := integerType.bitwidth
-    let inRange :=
-      if width = 0 then literal = 0
-      else if isNegative then -(2 ^ (width - 1) : Int) ≤ literal
-      else literal < 2 ^ width
-    if !inRange then
+    let bits := BitVec.ofInt integerType.bitwidth literal
+    if literal ≠ bits.toInt ∧ literal ≠ bits.toNat then
       throwAt valueStartPos "integer constant out of range for attribute"
-    let bits := BitVec.ofInt width literal
-    return IntegerAttr.mk (if width = 1 then bits.toNat else bits.toInt) integerType
+    return IntegerAttr.mk (if integerType.bitwidth = 1 then bits.toNat else bits.toInt) integerType
 
   -- Compute the floating-point value from the parsed literal.
   let floatValue (floatType : FloatType) :
@@ -815,11 +811,7 @@ partial def parseOptionalIoAddressType : AttrParserM (Option TypeAttr) := do
 /--
   Parse HEIR's modarith type, if present.
   Its syntax is `!mod_arith.int<{IntegerAttr}>`, e.g., `!mod_arith.int<17 : i32>`.
-
-  The modulus is parsed raw rather than normalized to its width: Veir reads it
-  as a mathematical integer and deliberately allows one that fills the whole
-  storage type, e.g. `!mod_arith.int<251 : i8>`, which HEIR rejects and which
-  normalization would turn negative.
+  The modulus is kept as written (see `AttrParserState.rawIntegerLiterals`).
 -/
 def parseOptionalModArithType : AttrParserM (Option TypeAttr) := do
   let token ← peekToken

@@ -568,10 +568,8 @@ def parseTypedValue : MlirParserM OpInfo (ByteArray × TypeAttr × Location) := 
   Parse the properties of an operation.
   Currently, these properties are not stored in the IR, but we still need to parse them to be able
   to parse valid MLIR syntax.
-
-  The integer literals in a `mod_arith` operation's properties are kept as written rather than
-  normalized to their width: `mod_arith` reads its constants as mathematical integers, so that
-  `250 : i8` is 250 and `-3 : i32` is -3 (see `AttrParserState.rawIntegerLiterals`).
+  The integer literals in a `mod_arith` operation's properties are kept as written (see
+  `AttrParserState.rawIntegerLiterals`).
 -/
 def parseOpProperties (opCode : OpInfo) : MlirParserM OpInfo (propertiesOf opCode) := do
   let propertiesStart ← getPos
