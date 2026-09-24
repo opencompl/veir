@@ -407,7 +407,7 @@ private theorem WfIRContext.Verified.verifyTerminator_eq_ok
     {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
     {block : BlockPtr} (blockIn : block.InBounds ctx.raw) :
     block.verifyTerminator ctx blockIn = .ok () := by
-  have hBlock := ctxVerified.verifyBlock_eq_ok b?lockIn
+  have hBlock := ctxVerified.verifyBlock_eq_ok blockIn
   simp only [BlockPtr.verifyBlock] at hBlock
   obtain ⟨_, hTerminator, -⟩ := Except.bind_eq_ok.mp hBlock
   exact hTerminator
