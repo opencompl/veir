@@ -7,6 +7,7 @@ public import Veir.Dialects.HW.OpInfo
 public import Veir.ConstantMaterialization
 public import Veir.Verifier.Basic
 meta import Veir.Meta.OpCode
+import Veir.Data.Comb.Basic
 
 namespace Veir
 
@@ -128,6 +129,21 @@ def Comb.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .mux => do
     op.verifyPlainOpCounts ctx opIn 3 1
     pure ()
+
+def Comb.interpretOp' (opType : Veir.Comb) (properties : propertiesOf opType)
+    (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
+    : Option ((Array RuntimeValue) × Option ControlFlowAction) :=
+  match opType with
+  | .add => do
+    let l : List _ := operands.toList
+    let .int w fst := l[0]! | none
+    let some nl := l.mapM (
+        fun e => do
+          let .int w' val := e | none
+          if h : w' ≠ w then none else
+          return val.cast (by simpa using h)) | none
+    return (#[.int w (Veir.Data.Comb.add nl)], none)
+  | _ => none
 
 instance : HasOpInfo Comb where
   verifyLocalInvariants := Comb.verifyLocalInvariants

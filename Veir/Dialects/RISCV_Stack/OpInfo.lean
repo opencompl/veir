@@ -7,6 +7,9 @@ public import Veir.Dialects.RISCV_Stack.Properties
 public import Veir.Dialects.RISCV.OpInfo
 import Veir.Dialects.Builtin.Properties
 meta import Veir.Meta.OpCode
+public import Veir.Interpreter.RuntimeValue.Basic
+public import Veir.Interpreter.Interp
+import Veir.Data.Casting
 
 namespace Veir
 
@@ -77,6 +80,15 @@ def Riscv_Stack.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     if alignment &&& (alignment - 1) ≠ 0 then
       throw "alignment must be a positive power of two"
     pure ()
+
+def Riscv_Stack.interpretOp' (opType : Veir.Riscv_Stack) (properties : propertiesOf opType)
+    (_resultTypes : Array TypeAttr) (_operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
+    (mem : MemoryState)
+    : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
+  match opType with
+  | .alloca => do
+    let (mem, addr) ← mem.alloc properties.size.toNat.toUInt64
+    return (#[.reg (LLVM.Int.toReg (mem.intFromPtr (.val addr)))], mem, none)
 
 instance : HasOpInfo Riscv_Stack where
   verifyLocalInvariants := Riscv_Stack.verifyLocalInvariants

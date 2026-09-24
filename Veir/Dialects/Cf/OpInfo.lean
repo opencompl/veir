@@ -4,6 +4,8 @@ public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Verifier.Basic
 public import Veir.Dialects.Cf.Properties
+public import Veir.Interpreter.RuntimeValue.Basic
+public import Veir.Interpreter.Interp
 meta import Veir.Meta.OpCode
 
 namespace Veir
@@ -84,6 +86,27 @@ def Cf.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpInf
     if props.branch_weights.values.size ≠ 2 && props.branch_weights.values.size ≠ 0 then
       throw "Expected 0 or 2 branch weights"
     op.verifyCondBranchOperandSegmentSizes ctx opIn props.operandSegmentSizes 1
+
+def Cf.interpretOp' (opType : Veir.Cf) (properties : propertiesOf opType)
+    (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
+    : Interp ((Array RuntimeValue) × Option ControlFlowAction) :=
+  match opType with
+  | .br => do
+    let [dest] := blockOperands.toList | none
+    return (#[], some (.branch operands dest))
+  | .cond_br => do
+    let [destTrue, destFalse] := blockOperands.toList | none
+    let some condVal := operands[0]? | none
+    let some (trueSizeInt : Int) := properties.operandSegmentSizes.values[1]? | none
+    let trueSize := trueSizeInt.toNat
+    match condVal with
+    | .int 1 (.val cond) =>
+      if cond = 1#1 then
+        return (#[], some (.branch (operands.extract 1 (trueSize + 1)) destTrue))
+      else
+        return (#[], some (.branch (operands.extract (trueSize + 1) operands.size) destFalse))
+    | .int 1 .poison => Interp.ub
+    | _ => none
 
 instance : HasOpInfo Cf where
   verifyLocalInvariants := Cf.verifyLocalInvariants

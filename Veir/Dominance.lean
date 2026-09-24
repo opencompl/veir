@@ -2,6 +2,7 @@ module
 
 public import Veir.Rewriter.InsertPoint
 public import Veir.Dominance.Basic
+import all Veir.Dominance.Basic
 
 /-!
   # Dominance
@@ -46,21 +47,24 @@ axiom ValuePtr.dominatesIp (val : ValuePtr) (ip : InsertPoint) (ctx : WfIRContex
 /--
 An operation `op₁` dominates an operation `op₂` if it properly dominates it.
 -/
-axiom OperationPtr.dominates_of_properlyDominates :
-    op₁.ProperlyDominates op₂ ctx true → op₁.Dominates op₂ ctx
+theorem OperationPtr.dominates_of_properlyDominates :
+    op₁.ProperlyDominates op₂ ctx true → op₁.Dominates op₂ ctx := by
+  grind [OperationPtr.Dominates]
 
 /--
 An operation dominates itself.
 -/
 @[grind .]
-axiom OperationPtr.dominates_refl : op.Dominates op ctx
+theorem OperationPtr.dominates_refl : op.Dominates op ctx := by
+  grind [OperationPtr.Dominates]
 
 /--
 An operation `op₁` dominates an operation `op₂` if and only if
 `op₁` properly dominates `op₂` or if `op₁` is `op₂`.
 -/
-axiom OperationPtr.dominates_iff_properlyDominates_or_eq :
-    op₁.Dominates op₂ ctx ↔ op₁.ProperlyDominates op₂ ctx true ∨ op₁ = op₂
+theorem OperationPtr.dominates_iff_properlyDominates_or_eq :
+    op₁.Dominates op₂ ctx ↔ op₁.ProperlyDominates op₂ ctx true ∨ op₁ = op₂ := by
+  grind [OperationPtr.Dominates]
 
 /--
 An operation `op₁` dominates the program point after a given operation `op₂` if it
