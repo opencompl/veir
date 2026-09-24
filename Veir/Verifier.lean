@@ -455,8 +455,7 @@ theorem OperationPtr.satisfyInvariants_of_IRContext_satisfyOpInvariants {ctx : W
     {op root : OperationPtr} (ctxVerify : ctx.Verified root)
     (opInBounds : op.InBounds ctx.raw := by grind) :
     op.Verified ctx opInBounds := by
-  unfold WfIRContext.Verified WfIRContext.verify at ctxVerify
-  dsimp only at ctxVerify
+  simp only [WfIRContext.Verified, WfIRContext.verify] at ctxVerify
   split at ctxVerify
   · cases ctxVerify
   split at ctxVerify
