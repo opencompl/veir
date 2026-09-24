@@ -82,7 +82,7 @@ def packValue (legalizeWidth : Nat → Nat) (rewriter : PatternRewriter OpCode) 
 def emitArithConstant (rewriter : PatternRewriter OpCode) (c : Int) (width : Nat)
     (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do
   let ty : TypeAttr := IntegerType.mk width
-  let props : ArithConstantProperties := { value := IntegerAttr.mk c (IntegerType.mk width) }
+  let props : ArithConstantProperties := { value := IntegerAttr.ofInt c (IntegerType.mk width) }
   let (rewriter, c) ← rewriter.createOp! (.arith .constant)
     #[ty] #[] #[] #[] props (some ip)
   return (rewriter, (c.getResult 0 : ValuePtr))

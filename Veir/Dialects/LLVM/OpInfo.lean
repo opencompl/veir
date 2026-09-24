@@ -715,13 +715,15 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .mlir__constant => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 0 1
-    -- Unlike `arith.constant`, `llvm.mlir.constant` does not require the value
-    -- attribute's type to match the result type exactly.
     let resultType := ((op.getResult 0).get! ctx.raw).type.val
     match (op.getProperties! ctx.raw Llvm.mlir__constant).value with
-    | .integer _ =>
+    | .integer intAttr =>
+      -- As in MLIR, an integer attribute's type must match the result type exactly.
       match resultType with
-      | .integerType _ => pure ()
+      | .integerType intType =>
+        if intType ≠ intAttr.type then
+          throw s!"llvm.mlir.constant: attribute and type have different integer types: i{intAttr.type.bitwidth} vs. i{intType.bitwidth}"
+        op.verifyNormalizedIntegerAttr ctx opIn intAttr
       | _ => throw "llvm.mlir.constant: Expected integer result type for an integer constant"
     | .float floatAttr =>
       match resultType with
@@ -1186,7 +1188,7 @@ def Llvm.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpIn
   | .int bw (.val value), .integerType intType =>
     if bw = intType.bitwidth then
       some (.of Llvm.mlir__constant
-        (LLVMConstantProperties.mk (.integer (IntegerAttr.mk value.toInt intType))))
+        (LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt value.toInt intType))))
     else none
   | .int bw .poison, .integerType intType =>
     if bw = intType.bitwidth then some (.of Llvm.mlir__poison ()) else none

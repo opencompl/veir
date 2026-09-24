@@ -168,7 +168,7 @@ def Arith.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpI
   match value, type.val with
   | .int bw (.val value), .integerType intType =>
     if bw = intType.bitwidth then
-      some (.of Arith.constant (ArithConstantProperties.mk (IntegerAttr.mk value.toInt intType)))
+      some (.of Arith.constant (ArithConstantProperties.mk (IntegerAttr.ofInt value.toInt intType)))
     else none
   | .int bw .poison, .integerType intType =>
     if bw = intType.bitwidth then some (.of Llvm.mlir__poison ()) else none
@@ -241,6 +241,7 @@ def Arith.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect Op
         op.getProperties! ctx.raw Arith.constant
       if props.value.type ≠ ((op.getResult 0).get ctx.raw).type.val then
         throw "Expected result type to be equal to the constant's type"
+      op.verifyNormalizedIntegerAttr ctx opIn props.value
     pure ()
   | .extui | .extsi => do
     op.checkIsNonNullIntegerType ctx opIn

@@ -108,6 +108,11 @@ def HW.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   match opType with
   | .constant => do
     op.verifyPlainOpCounts ctx opIn 0 1
+    let value := (op.getProperties! ctx.raw HW.constant).value
+    -- As in CIRCT, the attribute's width must match the result type.
+    if ((op.getResult 0).get! ctx.raw).type.val ≠ .integerType value.type then
+      throw s!"hw.constant: attribute bitwidth {value.type.bitwidth} doesn't match return type"
+    op.verifyNormalizedIntegerAttr ctx opIn value
     pure ()
   | .module => do
     if op.getNumOperands ctx.raw opIn ≠ 0 then
@@ -135,7 +140,7 @@ def HW.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpInfo
   match value, type.val with
   | .int bw (.val value), .integerType intType =>
     if bw = intType.bitwidth then
-      some (.of HW.constant (HWConstantProperties.mk (IntegerAttr.mk value.toInt intType)))
+      some (.of HW.constant (HWConstantProperties.mk (IntegerAttr.ofInt value.toInt intType)))
     else none
   | _, _ => none
 
