@@ -387,12 +387,11 @@ theorem WfIRContext.Verified.graph_region_firstBlock_eq_lastBlock
   have hregionCheck := (List.all_eq_true.mp hcheck) region hregionKeys
   grind [WfIRContext.graphRegionsHaveAtMostOneBlock]
 
-/-- A verified context passes both checks that `verify` runs on every block. -/
-private theorem WfIRContext.Verified.blockChecks
+/-- A verified context passes the checks that `verify` runs on every block. -/
+private theorem WfIRContext.Verified.verifyBlock_eq_ok
     {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
     {block : BlockPtr} (blockIn : block.InBounds ctx.raw) :
-    block.verifyTerminator ctx blockIn = .ok () ∧
-      block.verifyNoEntryBlockPredecessors ctx blockIn = .ok () := by
+    block.verifyBlock ctx blockIn = .ok () := by
   simp only [WfIRContext.Verified, WfIRContext.verify] at ctxVerified
   split at ctxVerified
   · cases ctxVerified
@@ -400,24 +399,27 @@ private theorem WfIRContext.Verified.blockChecks
   · cases ctxVerified
   obtain ⟨_, -, ctxVerified⟩ := Except.bind_eq_ok.mp ctxVerified
   obtain ⟨_, hBlocks, -⟩ := Except.bind_eq_ok.mp ctxVerified
-  have hBlock := IRContext.forBlocksDepM_except_ok hBlocks block blockIn
-  simp only [BlockPtr.verifyBlock] at hBlock
-  obtain ⟨_, hTerminator, hEntry⟩ := Except.bind_eq_ok.mp hBlock
-  exact ⟨hTerminator, hEntry⟩
+  exact IRContext.forBlocksDepM_except_ok hBlocks block blockIn
 
 /-- A verified context ends every block with a terminator. -/
 private theorem WfIRContext.Verified.verifyTerminator_eq_ok
     {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
     {block : BlockPtr} (blockIn : block.InBounds ctx.raw) :
-    block.verifyTerminator ctx blockIn = .ok () :=
-  (ctxVerified.blockChecks blockIn).1
+    block.verifyTerminator ctx blockIn = .ok () := by
+  have hBlock := ctxVerified.verifyBlock_eq_ok blockIn
+  simp only [BlockPtr.verifyBlock] at hBlock
+  obtain ⟨_, hTerminator, -⟩ := Except.bind_eq_ok.mp hBlock
+  exact hTerminator
 
 /-- A verified context has no branch back to the entry block of a region. -/
 private theorem WfIRContext.Verified.verifyNoEntryBlockPredecessors_eq_ok
     {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
     {block : BlockPtr} (blockIn : block.InBounds ctx.raw) :
-    block.verifyNoEntryBlockPredecessors ctx blockIn = .ok () :=
-  (ctxVerified.blockChecks blockIn).2
+    block.verifyNoEntryBlockPredecessors ctx blockIn = .ok () := by
+  have hBlock := ctxVerified.verifyBlock_eq_ok blockIn
+  simp only [BlockPtr.verifyBlock] at hBlock
+  obtain ⟨_, -, hEntry⟩ := Except.bind_eq_ok.mp hBlock
+  exact hEntry
 
 /-- The entry block of a region in a verified context is not branched to. -/
 theorem WfIRContext.Verified.entryBlock_firstUse_eq_none
