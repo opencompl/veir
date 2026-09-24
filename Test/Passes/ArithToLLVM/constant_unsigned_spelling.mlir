@@ -14,4 +14,4 @@
 // CHECK: "llvm.mlir.constant"() <{"value" = -56 : i8}> : () -> i8
 // CHECK: "llvm.mlir.constant"() <{"value" = -1 : i8}> : () -> i8
 // CHECK: "llvm.mlir.constant"() <{"value" = -128 : i8}> : () -> i8
-// CHECK: "llvm.mlir.constant"() <{"value" = 1 : i1}> : () -> i1
+// CHECK: "llvm.mlir.constant"() <{"value" = true}> : () -> i1

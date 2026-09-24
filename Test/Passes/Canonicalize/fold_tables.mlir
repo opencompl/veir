@@ -38,7 +38,7 @@
       // CHECK:      func.func @addui_extended_zero(%[[X:.*]]: i32) -> (i32, i1)
       %c0 = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
       %sum, %overflow = "arith.addui_extended"(%x, %c0) : (i32, i32) -> (i32, i1)
-      // CHECK-NEXT: %[[OVERFLOW:.*]] = "arith.constant"() <{"value" = 0 : i1}> : () -> i1
+      // CHECK-NEXT: %[[OVERFLOW:.*]] = "arith.constant"() <{"value" = false}> : () -> i1
       // CHECK-NEXT: "func.return"(%[[X]], %[[OVERFLOW]]) : (i32, i1) -> ()
       "func.return"(%sum, %overflow) : (i32, i1) -> ()
   }) : () -> ()

@@ -18,7 +18,7 @@
 // CHECK:      "arith.constant"() <{"value" = -56 : i8}> : () -> i8
 // CHECK-NEXT: "arith.constant"() <{"value" = -1 : i2}> : () -> i2
 // CHECK-NEXT: "arith.constant"() <{"value" = -1 : i32}> : () -> i32
-// CHECK-NEXT: "arith.constant"() <{"value" = 1 : i1}> : () -> i1
+// CHECK-NEXT: "arith.constant"() <{"value" = true}> : () -> i1
 // CHECK-NEXT: "arith.constant"() <{"value" = -3 : i8}> : () -> i8
-// CHECK-NEXT: "arith.constant"() <{"value" = 1 : i1}> : () -> i1
+// CHECK-NEXT: "arith.constant"() <{"value" = true}> : () -> i1
 // CHECK-NEXT: "arith.constant"() <{"value" = 300 : i32}> : () -> i32

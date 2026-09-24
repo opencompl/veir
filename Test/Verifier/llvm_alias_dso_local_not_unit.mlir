@@ -10,4 +10,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: llvm.mlir.alias: expected 'dso_local' to be an optional unit attribute, but got 1 : i1
+// CHECK: llvm.mlir.alias: expected 'dso_local' to be an optional unit attribute, but got true

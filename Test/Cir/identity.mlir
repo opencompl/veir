@@ -49,8 +49,8 @@
 // CHECK-NEXT: %{{.*}} = "cir.const"() <{"value" = #cir.int<-128> : !cir.int<s, 8>}> : () -> !cir.int<s, 8>
 // CHECK-NEXT: %{{.*}} = "cir.const"() <{"value" = #cir.int<255> : !cir.int<u, 8>}> : () -> !cir.int<u, 8>
 // CHECK-NEXT: %{{.*}} = "cir.const"() <{"value" = #cir.bool<true> : !cir.bool}> : () -> !cir.bool
-// CHECK-NEXT: %{{.*}} = "cir.add"(%{{.*}}, %{{.*}}) <{no_signed_wrap, "no_unsigned_wrap" = 0 : i1, "saturated" = 0 : i1}> : (!cir.int<s, 32>, !cir.int<s, 32>) -> !cir.int<s, 32>
-// CHECK-NEXT: %{{.*}} = "cir.sub"(%{{.*}}, %{{.*}}) <{"no_signed_wrap" = 0 : i1, "no_unsigned_wrap" = 0 : i1, "saturated" = 0 : i1}> : (!cir.int<s, 32>, !cir.int<s, 32>) -> !cir.int<s, 32>
+// CHECK-NEXT: %{{.*}} = "cir.add"(%{{.*}}, %{{.*}}) <{no_signed_wrap, "no_unsigned_wrap" = false, "saturated" = false}> : (!cir.int<s, 32>, !cir.int<s, 32>) -> !cir.int<s, 32>
+// CHECK-NEXT: %{{.*}} = "cir.sub"(%{{.*}}, %{{.*}}) <{"no_signed_wrap" = false, "no_unsigned_wrap" = false, "saturated" = false}> : (!cir.int<s, 32>, !cir.int<s, 32>) -> !cir.int<s, 32>
 // CHECK-NEXT: %{{.*}} = "cir.mul"(%{{.*}}, %{{.*}}) : (!cir.int<s, 32>, !cir.int<s, 32>) -> !cir.int<s, 32>
 // CHECK-NEXT: %{{.*}} = "cir.div"(%{{.*}}, %{{.*}}) : (!cir.int<s, 32>, !cir.int<s, 32>) -> !cir.int<s, 32>
 // CHECK-NEXT: %{{.*}} = "cir.rem"(%{{.*}}, %{{.*}}) : (!cir.int<s, 32>, !cir.int<s, 32>) -> !cir.int<s, 32>
@@ -60,7 +60,7 @@
 // CHECK-NEXT: %{{.*}} = "cir.shift"(%{{.*}}, %{{.*}}) <{isShiftleft}> : (!cir.int<s, 32>, !cir.int<u, 8>) -> !cir.int<s, 32>
 // CHECK-NEXT: %{{.*}} = "cir.shift"(%{{.*}}, %{{.*}}) : (!cir.int<s, 32>, !cir.int<u, 8>) -> !cir.int<s, 32>
 // CHECK-NEXT: %{{.*}} = "cir.not"(%{{.*}}) : (!cir.bool) -> !cir.bool
-// CHECK-NEXT: %{{.*}} = "cir.minus"(%{{.*}}) <{"no_signed_wrap" = 0 : i1}> : (!cir.int<s, 32>) -> !cir.int<s, 32>
+// CHECK-NEXT: %{{.*}} = "cir.minus"(%{{.*}}) <{"no_signed_wrap" = false}> : (!cir.int<s, 32>) -> !cir.int<s, 32>
 // CHECK-NEXT: %{{.*}} = "cir.min"(%{{.*}}, %{{.*}}) : (!cir.int<s, 32>, !cir.int<s, 32>) -> !cir.int<s, 32>
 // CHECK-NEXT: %{{.*}} = "cir.max"(%{{.*}}, %{{.*}}) : (!cir.int<s, 32>, !cir.int<s, 32>) -> !cir.int<s, 32>
 // CHECK-NEXT: %{{.*}} = "cir.cmp"(%{{.*}}, %{{.*}}) <{"kind" = 0 : i32}> : (!cir.int<s, 32>, !cir.int<s, 32>) -> !cir.bool
