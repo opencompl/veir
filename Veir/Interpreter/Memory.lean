@@ -88,7 +88,13 @@ def MemoryState.objectOfAddress (mem : MemoryState) (addr : UInt64) : Nat :=
   (List.range mem.objects.size).foldl (init := 0) fun best i =>
     if baseOf i ≤ addr ∧ baseOf best ≤ baseOf i then i else best
 
-/-- The pointer that the physical address `addr` denotes. -/
+/--
+  The pointer that the physical address `addr` denotes. Every address is mapped
+  to a pointer object, as we just look for the closest object from below that a
+  given address may belong to. If no other object matches, addresses are mapped
+  to the null object. Yet, addresses outside of an object's boundaries may be
+  out-of-bounds and will be rejected in `checkAccess`.
+-/
 def MemoryState.decode (mem : MemoryState) (addr : UInt64) : Pointer :=
   let i := mem.objectOfAddress addr
   ⟨i, addr - (mem.objects[i]?.map (·.base)).getD 0⟩
