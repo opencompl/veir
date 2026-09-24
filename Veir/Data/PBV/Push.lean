@@ -67,20 +67,25 @@ theorem setWidth_signExtend_eq_and_maskOfWidth (o : Nat) {t v : Nat} (hvo : v �
     cases hmsb : a.msb <;>
       simp [hiv, getLsbD_maskOfWidth, Bool.and_comm]
 
+/-- Push a variable `Nat` which corresponds to a mask into a `cpop` of the mask. -/
+theorem cpop_maskOfWidth_eq_width {o w : Nat} {m : BitVec o} (h : w ≤ o) (hm : m = maskOfWidth o w) : BitVec.ofNat o w = BitVec.cpop m := by
+  apply BitVec.eq_of_toNat_eq
+  simp [hm, toNat_cpop_maskOfWidth_eq_width h]
+  rw [Nat.mod_eq_of_lt (by grind [Nat.lt_pow_self])]
+
 /-- `a ++ b` shifts `a` up by the width of `b`; at the blast width that shift
 is a multiplication by `2^w = maskOfWidth o w + 1`, and the two halves no
 longer overlap, so they can be recombined with `|||`. -/
 theorem setWidth_append_eq_or_mul_maskOfWidth_add_one {w o : Nat} (h : w ≤ o) :
     ∀ {v : Nat} (a : BitVec v) (b : BitVec w), v + w ≤ o →
       (a ++ b).setWidth o
-        = ((a.setWidth o) * (maskOfWidth o w + 1#o)) ||| b.setWidth o := by
+        = ((a.setWidth o) <<< BitVec.cpop (maskOfWidth o w)) ||| b.setWidth o := by
   intro v a b hvw
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_or, BitVec.toNat_setWidth_of_le, hvw, h,
-      BitVec.toNat_append, maskOfWidth_add_one_eq_twoPow h,
-      BitVec.mul_twoPow_eq_shiftLeft, BitVec.toNat_shiftLeft]
+      BitVec.toNat_append, BitVec.shiftLeft_eq', BitVec.toNat_shiftLeft]
   congr 1
-  rw [Nat.shiftLeft_eq, Nat.shiftLeft_eq, BitVec.toNat_setWidth_of_le (by lia), Nat.mod_eq_of_lt]
+  rw [toNat_cpop_maskOfWidth_eq_width h, BitVec.toNat_setWidth_of_le (by lia), Nat.mod_eq_of_lt]
   have a_lt_vw := Nat.mul_lt_mul_of_lt_of_le a.isLt (Nat.le_refl _) (Nat.two_pow_pos w)
   grind [Nat.pow_le_pow_right (n := 2) (by lia) hvw]
 

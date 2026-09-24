@@ -64,6 +64,18 @@ theorem maskOfWidth_eq_twoPow_sub_one {o w : Nat} (h : w ≤ o) :
   apply BitVec.eq_of_toNat_eq
   grind [maskOfWidth_add_one_eq_twoPow]
 
+/-- A mask is an `allOnes` sign-extended to `o`. -/
+theorem maskOfWidth_eq_allOnes {o w : Nat} (h : w ≤ o) : maskOfWidth o w = BitVec.zeroExtend o (BitVec.allOnes w)
+  := by
+  apply BitVec.eq_of_toNat_eq
+  simp [toNat_maskOfWidth h]
+  rw [Nat.mod_eq_of_lt (by grind [Nat.pow_le_pow_right (n := 2) (by lia) h])]
+
+/-- The popcount of a mask is the value of the mask width. -/
+theorem toNat_cpop_maskOfWidth_eq_width {o w : Nat} (h : w ≤ o) : (BitVec.cpop (maskOfWidth o w)).toNat = w
+  := by
+  simp [maskOfWidth_eq_allOnes h, BitVec.toNat_cpop_setWidth_eq_of_le h]
+
 /-- Every mask of blast width `0` is the empty bitvector. -/
 @[simp] theorem maskOfWidth_zero_eq_zero {w : Nat} : maskOfWidth 0 w = 0#0 := by
   apply BitVec.eq_of_toNat_eq
