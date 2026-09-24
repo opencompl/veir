@@ -105,7 +105,8 @@ def BlockPtr.verifyNoEntryBlockPredecessors (block : BlockPtr) (ctx : WfIRContex
   if b.firstUse.isSome then
     throw "entry block of region may not have predecessors"
 
-/-- The checks that `verify` runs on every block of the context. -/
+/-- Check that every block terminates and that the entry block has no
+    predecessors. -/
 def BlockPtr.verifyBlock (block : BlockPtr) (ctx : WfIRContext OpCode)
     (blockIn : block.InBounds ctx.raw) : Except String PUnit := do
   block.verifyTerminator ctx blockIn
@@ -406,7 +407,7 @@ private theorem WfIRContext.Verified.verifyTerminator_eq_ok
     {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
     {block : BlockPtr} (blockIn : block.InBounds ctx.raw) :
     block.verifyTerminator ctx blockIn = .ok () := by
-  have hBlock := ctxVerified.verifyBlock_eq_ok blockIn
+  have hBlock := ctxVerified.verifyBlock_eq_ok b?lockIn
   simp only [BlockPtr.verifyBlock] at hBlock
   obtain ⟨_, hTerminator, -⟩ := Except.bind_eq_ok.mp hBlock
   exact hTerminator
