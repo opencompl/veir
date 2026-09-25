@@ -96,8 +96,6 @@ def CanonicalizePass.impl (options : PassOptions) (ctx : WfIRContext OpCode)
     let some propagated := propagateConstants ctx op
       | throw "Error while propagating constants"
     ctx := propagated
-    -- Fold every operation, including folds to nonconstant operands that the
-    -- constant lattice cannot represent. Do not rerun the analysis afterward.
     patterns := patterns.push foldOperation
   if (options.get? "mod-arith-constant").getD true then
     patterns := patterns.push canonicalizeModArithConstant
