@@ -1,6 +1,8 @@
-import Veir.Analysis.DataFlow.Domains.ConstantDomain
-import Veir.Analysis.DataFlow.SparseForwardDataFlowAnalysis
-import Veir.Interfaces.FoldInterfaces
+module
+
+public import Veir.Analysis.DataFlow.Domains.ConstantDomain
+public import Veir.Analysis.DataFlow.SparseForwardDataFlowAnalysis
+public import Veir.Interfaces.FoldInterfaces
 
 public section
 
