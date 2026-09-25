@@ -20,23 +20,53 @@ structure MemoryObject where
   contents : ByteArray
   poisonMask : ByteArray
   consistentSize : contents.size = poisonMask.size
+  /-- The physical address of the first byte of the object. -/
+  base : UInt64
 
 /-- An object of `size` bytes, all of them poison. -/
-def MemoryObject.ofSize (size : Nat) : MemoryObject :=
-  ⟨ByteArray.replicate size 0, ByteArray.replicate size 0xff, by grind⟩
+def MemoryObject.ofSize (base : UInt64) (size : Nat) : MemoryObject :=
+  ⟨ByteArray.replicate size 0, ByteArray.replicate size 0xff, by grind, base⟩
 
-instance : Inhabited MemoryObject := ⟨MemoryObject.ofSize 0⟩
+instance : Inhabited MemoryObject := ⟨MemoryObject.ofSize 0 0⟩
 
 def MemoryObject.size (obj : MemoryObject) : Nat := obj.contents.size
 
 /--
   Memory state during interpretation.
+
+  Objects are disjoint, and each new one starts past every object already
+  present, which `alloc` maintains but nothing here enforces.
 -/
 @[ext]
 structure MemoryState where
   objects : Array MemoryObject
 
-def MemoryState.empty : MemoryState := { objects := #[MemoryObject.ofSize 8] }
+/--
+  Object 0 is the null object at address 0. It holds no bytes, so every access
+  through a null pointer is out of bounds.
+-/
+def MemoryState.empty : MemoryState := { objects := #[MemoryObject.ofSize 0 0] }
+
+/-- Every object starts at a multiple of this many bytes. -/
+def MemoryState.objectAlignment : UInt64 := 16
+
+/--
+  The low addresses below which no object is allocated, so that a small
+  integer never denotes an object and the null object stays alone there.
+-/
+def MemoryState.arenaSize : UInt64 := 0x10000
+
+/--
+  The address of the next object: past the end of every object with a guard
+  byte between them and past the arena, rounded up to `objectAlignment`.
+
+  TODO: This is a simplification. Eventually, addresses should be
+  non-deterministic.
+-/
+def MemoryState.nextBase (mem : MemoryState) : UInt64 :=
+  let past := mem.objects.foldl (init := arenaSize) fun past obj =>
+    max past (obj.base + obj.size.toUInt64 + 1)
+  (past + objectAlignment - 1) / objectAlignment * objectAlignment
 
 /--
   The object that `p` points into, or `none` if `p` indexes no object.
@@ -52,11 +82,29 @@ def MemoryState.getObject? (mem : MemoryState) (p : Pointer) : Option MemoryObje
 def MemoryState.setObject (mem : MemoryState) (p : Pointer) (obj : MemoryObject) : MemoryState :=
   { mem with objects := mem.objects.setIfInBounds p.object obj }
 
-/-- The pointer that the physical address `addr` denotes. -/
-def MemoryState.decode (_mem : MemoryState) (addr : UInt64) : Pointer := ⟨0, addr⟩
+/--
+  The index of the last object whose base is at most `addr`. Object 0 starts
+  at address 0, so some object always qualifies.
+-/
+def MemoryState.objectOfAddress (mem : MemoryState) (addr : UInt64) : Nat :=
+  let baseOf (i : Nat) : UInt64 := (mem.objects[i]?.map (·.base)).getD 0
+  (List.range mem.objects.size).foldl (init := 0) fun best i =>
+    if baseOf i ≤ addr ∧ baseOf best ≤ baseOf i then i else best
+
+/--
+  The pointer that the physical address `addr` denotes. Every address is mapped
+  to a pointer object, as we just look for the closest object from below that a
+  given address may belong to. If no other object matches, addresses are mapped
+  to the null object. Yet, addresses outside of an object's boundaries may be
+  out-of-bounds and will be rejected in `checkAccess`.
+-/
+def MemoryState.decode (mem : MemoryState) (addr : UInt64) : Pointer :=
+  let i := mem.objectOfAddress addr
+  ⟨i, addr - (mem.objects[i]?.map (·.base)).getD 0⟩
 
 /-- The physical address of `p`. -/
-def MemoryState.address (_mem : MemoryState) (p : Pointer) : UInt64 := p.offset
+def MemoryState.address (mem : MemoryState) (p : Pointer) : UInt64 :=
+  (mem.objects[p.object]?.map (·.base)).getD 0 + p.offset
 
 /--
   The size of an `alloca` in bytes as a 64-bit value. An `alloca` has no way
@@ -71,18 +119,14 @@ def memorySize (n : Nat) : Interp UInt64 :=
 
   If there is insufficient memory, yield an interpretation failure. An
   out-of-memory event does not trigger UB, but it means that we cannot
-  excecute this program.
+  excecute this program. A failing source is refined by anything and a
+  failing target refines nothing, so such a run is never really compared.
 -/
 def MemoryState.alloc (mem : MemoryState) (size : UInt64) : Interp (MemoryState × Pointer) :=
-  match mem.getObject? ⟨0, 0⟩ with
-  | none => Interp.fail none
-  | some obj =>
-    if obj.size + size.toNat ≥ 2 ^ 64 then Interp.fail none else
-    return (mem.setObject ⟨0, 0⟩ { obj with
-        contents := obj.contents.extend size.toNat 0,
-        poisonMask := obj.poisonMask.extend size.toNat 0xff,
-        consistentSize := by simp [obj.consistentSize] },
-      ⟨0, obj.size.toUInt64⟩)
+  let base := mem.nextBase
+  if base.toNat + size.toNat ≥ 2 ^ 64 then Interp.fail none else
+  return ({ mem with objects := mem.objects.push (MemoryObject.ofSize base size.toNat) },
+    ⟨mem.objects.size, 0⟩)
 
 /--
   Check if an access of `size` bytes at `p` is allowed.
@@ -93,9 +137,9 @@ def MemoryState.checkAccess (mem : MemoryState) (p : Pointer) (size : UInt64) : 
   -- An access of zero bytes is allowed at any offset, in bounds or not.
   if size = 0 then return obj
 
-  -- The `size` must fit into the size of the memory.
-  let memSize := obj.contents.size.toUInt64
-  if size ≤ memSize ∧ p.offset ≤ memSize - size then return obj
+  -- The `size` must fit into the size of the object.
+  let objSize := obj.contents.size.toUInt64
+  if size ≤ objSize ∧ p.offset ≤ objSize - size then return obj
 
   Interp.ub none
 
