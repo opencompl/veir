@@ -2,6 +2,7 @@ module
 
 public import Veir.IR.OpCode
 public import Veir.IR.WellFormed
+public import Veir.IR.ControlFlow
 public import Veir.FoldDecision
 
 namespace Veir
@@ -99,6 +100,11 @@ class HasOpInfo (opCode: Type)
   Information about operations that act like functions.
   -/
   functionInterface? : (op : opCode) → Option (FunctionOpInterface (propertiesOf op)) :=
+    fun _ => none
+  /--
+  Information about operations that branch to successor blocks.
+  -/
+  branchOpInterface? : (op : opCode) → Option (BranchOpInterface (propertiesOf op)) :=
     fun _ => none
   /--
   Return the kind of the indexed region inside an operation with this opcode.

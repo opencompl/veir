@@ -406,6 +406,34 @@ def OpCode.functionInterface? (opCode : OpCode) : Option (FunctionOpInterface (_
   | .function op => HasOpInfo.functionInterface? op
   | .seq op => HasOpInfo.functionInterface? op
 
+/-- Branch-interface information assembled from the registered dialects. -/
+def OpCode.branchOpInterface?
+    (opCode : OpCode) : Option (BranchOpInterface (_propertiesOf opCode)) :=
+  match opCode with
+  | .arith op => HasOpInfo.branchOpInterface? op
+  | .llvm op => HasOpInfo.branchOpInterface? op
+  | .riscv op => HasOpInfo.branchOpInterface? op
+  | .riscv_cf op => HasOpInfo.branchOpInterface? op
+  | .riscv_stack op => HasOpInfo.branchOpInterface? op
+  | .rv64 op => HasOpInfo.branchOpInterface? op
+  | .mod_arith op => HasOpInfo.branchOpInterface? op
+  | .cf op => HasOpInfo.branchOpInterface? op
+  | .comb op => HasOpInfo.branchOpInterface? op
+  | .hw op => HasOpInfo.branchOpInterface? op
+  | .verif op => HasOpInfo.branchOpInterface? op
+  | .builtin op => HasOpInfo.branchOpInterface? op
+  | .func op => HasOpInfo.branchOpInterface? op
+  | .datapath op => HasOpInfo.branchOpInterface? op
+  | .pdl op => HasOpInfo.branchOpInterface? op
+  | .io op => HasOpInfo.branchOpInterface? op
+  | .gmir op => HasOpInfo.branchOpInterface? op
+  | .test op => HasOpInfo.branchOpInterface? op
+  | .felt op => HasOpInfo.branchOpInterface? op
+  | .cir op => HasOpInfo.branchOpInterface? op
+  | .include op => HasOpInfo.branchOpInterface? op
+  | .function op => HasOpInfo.branchOpInterface? op
+  | .seq op => HasOpInfo.branchOpInterface? op
+
 #generate_has_dialect_instances OpCode
 
 @[expose]
@@ -443,6 +471,7 @@ instance : HasOpInfo OpCode where
   isConstantLike := OpCode.isConstantLike
   propagatesPoison := OpCode.propagatesPoison
   functionInterface? := OpCode.functionInterface?
+  branchOpInterface? := OpCode.branchOpInterface?
   getRegionKind := OpCode.getRegionKind
   hasSSADominance := OpCode.hasSSADominance
   hasNoTerminator := OpCode.hasNoTerminator
