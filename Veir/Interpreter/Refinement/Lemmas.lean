@@ -46,7 +46,7 @@ theorem RuntimeValue.arrayIsRefinedBy_cons {a b : RuntimeValue} {as bs : List Ru
 @[simp, grind .]
 theorem MemoryObject.isRefinedBy_refl (m : MemoryObject) :
     m ⊒ m := by
-  simp only [MemoryObject.isRefinedBy]
+  refine ⟨rfl, ?_⟩
   bv_normalize
   grind
 
@@ -61,7 +61,7 @@ theorem FunctionResult.isRefinedBy_refl (r : MemoryState × Array RuntimeValue) 
 
 @[simp, grind .]
 theorem Interp.isRefinedBy_refl_of_ne_fail {α : Type} {R : α → α → Prop}
-    (hR : ∀ a, R a a) (x : Interp α) (neFail : x ≠ .fail) : Interp.isRefinedBy R x x := by
+    (hR : ∀ a, R a a) (x : Interp α) (neFail : x.isFail = false) : Interp.isRefinedBy R x x := by
   rcases x with _ | _ | x <;> grind [Interp.isRefinedBy]
 
 @[simp, grind .]
@@ -97,7 +97,9 @@ theorem RuntimeValue.isRefinedBy_trans {v₁ v₂ v₃ : RuntimeValue}
 
 theorem MemoryObject.isRefinedBy_trans {m1 m2 m3 : MemoryObject}
     (h12 : m1 ⊒ m2) (h23 : m2 ⊒ m3) : m1 ⊒ m3 := by
-  simp only [MemoryObject.isRefinedBy] at *
+  obtain ⟨hb12, h12⟩ := h12
+  obtain ⟨hb23, h23⟩ := h23
+  refine ⟨hb12.trans hb23, ?_⟩
   intro addr
   specialize h12 addr
   specialize h23 addr
@@ -182,13 +184,13 @@ theorem RuntimeValue.reg_of_isRefinedBy {v : Data.RISCV.Reg} {tv : RuntimeValue}
 /-- `fail` is refined by any value. -/
 @[simp, grind .]
 theorem Interp.isRefinedBy_fail_target :
-    Interp.isRefinedBy R .fail target := by
+    Interp.isRefinedBy R (.fail op) target := by
   simp [Interp.isRefinedBy]
 
 /-- `ub` is refined by any value. -/
 @[simp, grind .]
 theorem Interp.isRefinedBy_ub_target :
-    Interp.isRefinedBy R (.ub) target := by
+    Interp.isRefinedBy R (.ub op) target := by
   simp only [Interp.isRefinedBy]
 
 /-- `ok` is only refined by `ok` values that satisfy the given refinement relation. -/

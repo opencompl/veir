@@ -83,6 +83,8 @@ structure MlirParserState (OpInfo : Type) [HasOpInfo OpInfo] where
   allowUnregisteredDialect : Bool := false
   /-- Type aliases defined so far, keyed by name without the `!`. -/
   typeAliases : Std.HashMap ByteArray TypeAttr := {}
+  /-- The location of each parsed operation. -/
+  opLocations : Std.HashMap OperationPtr Location := {}
   deriving Inhabited
 
 def MlirParserState.fromContext (ctx : WfIRContext OpInfo)
@@ -672,6 +674,7 @@ partial def parseOpRegions : MlirParserM OpInfo (Array RegionPtr) := do
 partial def parseOptionalOp (ip : Option InsertPoint) :
     MlirParserM OpInfo (Option OperationPtr) := do
   /- Parse the operation. -/
+  let opStart ← getPos
   let results ← parseOpResults
   let opNameStart ← getPos
   let some opName ← parseOptionalStringLiteral | return none
@@ -721,6 +724,8 @@ partial def parseOptionalOp (ip : Option InsertPoint) :
       let ctx'' := WfRewriter.setAttributes ctx' op attrs
       /- Update the parser context. -/
       pure ⟨op, ctx''⟩
+  /- Record where the operation started for diagnostics. -/
+  modify fun state => { state with opLocations := state.opLocations.insert op opStart }
 
   /- Register the values for each result name. -/
   let mut index := 0
