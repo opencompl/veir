@@ -56,7 +56,7 @@ def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPt
 /-! ## Pass implementation -/
 
 /-- Replace a used SSA value with the constant found by the analysis, if its
-    recorded dialect can materialize it. Existing constants need no replacement. -/
+    recorded dialect can materialize it. -/
 private def replaceKnownConstant (ctx : WfIRContext OpCode)
     (facts : DataFlowContext) (value : ValuePtr) (ip : InsertPoint) :
     Option (WfIRContext OpCode) := do
@@ -72,23 +72,20 @@ private def replaceKnownConstant (ctx : WfIRContext OpCode)
     #[] #[] #[] properties (some ip)
   return WfRewriter.replaceValue! ctx value (constantOp.getResult 0)
 
-/-- Solve once on the original IR, then materialize the facts. Only values with
-    facts from the rooted analysis are rewritten. Leave dead producers for the
-    greedy folding driver, and never consult these facts after folding. -/
+/-- Run constant propagation and then perform the rewrites it exposes. -/
 private def propagateConstants (ctx : WfIRContext OpCode) (root : OperationPtr) :
     Option (WfIRContext OpCode) := do
   let facts ← fixpointSolve root #[SparseConstantPropagationAnalysis] ctx
-  let mut newCtx := ctx
-  -- Iterate the original context so newly inserted constants are not visited.
+  let mut ctx := ctx
   for op in ctx.raw.operations.keys do
     if (op.get! ctx.raw).parent.isSome then
       for result in op.getResults! ctx.raw do
-        newCtx ← replaceKnownConstant newCtx facts result (.before op)
+        ctx ← replaceKnownConstant ctx facts result (.before op)
   for block in ctx.raw.blocks.keys do
     for argument in block.getArguments! ctx.raw do
-      newCtx ← replaceKnownConstant newCtx facts argument
-        (InsertPoint.atStart! block newCtx.raw)
-  return newCtx
+      ctx ← replaceKnownConstant ctx facts argument
+        (InsertPoint.atStart! block ctx.raw)
+  return ctx
 
 def CanonicalizePass.impl (options : PassOptions) (ctx : WfIRContext OpCode)
     (op : OperationPtr) (_ : op.InBounds ctx.raw) :
