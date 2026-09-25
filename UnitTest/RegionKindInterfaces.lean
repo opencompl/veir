@@ -1,37 +1,25 @@
-import Veir.GlobalOpInfo
 import Veir.Interfaces.RegionKindInterfaces
-import Veir.Parser.MlirParser
+import Veir.Input
 
 open Veir
-open Veir.Parser
+open Veir.Input
 
-private def parse (s : String) : OperationPtr × WfIRContext OpCode :=
-  match WfIRContext.create OpCode with
-  | none => panic! "failed to create IR context"
-  | some (ctx, _) =>
-    match ParserState.fromInput s.toByteArray with
-    | .error _ => panic! "lex error"
-    | .ok parser =>
-      match parseTopLevelOp.run (MlirParserState.fromContext ctx) parser with
-      | .error _ => panic! "parse error"
-      | .ok (op, state, _) => (op, state.ctx)
+private def firstRegion (parsed : WfIRContext OpCode × OperationPtr) : RegionPtr :=
+  parsed.2.getRegion! parsed.1.raw 0
 
-private def firstRegion (parsed : OperationPtr × WfIRContext OpCode) : RegionPtr :=
-  parsed.1.getRegion! parsed.2.raw 0
+private def emptyRegion := parseSourceString! r#""test.test"() ({}) : () -> ()"#.toUTF8
 
-private def emptyRegion := parse r#""test.test"() ({}) : () -> ()"#
-
-private def oneBlockRegion := parse r#""test.test"() ({
+private def oneBlockRegion := parseSourceString! r#""test.test"() ({
   "test.test"() : () -> ()
-}) : () -> ()"#
+}) : () -> ()"#.toUTF8
 
 /-
   A `test` operation declares every one of its regions to be a graph region, so
   the declared kind is the same whatever the region holds.
 -/
 
-#guard (firstRegion emptyRegion).getRegionKind emptyRegion.2 == .Graph
-#guard (firstRegion oneBlockRegion).getRegionKind oneBlockRegion.2 == .Graph
+#guard (firstRegion emptyRegion).getRegionKind emptyRegion.1 == .Graph
+#guard (firstRegion oneBlockRegion).getRegionKind oneBlockRegion.1 == .Graph
 
 /-
   Dominance does not follow the declaration blindly: only a region holding
@@ -41,5 +29,5 @@ private def oneBlockRegion := parse r#""test.test"() ({
   leaves `hasSSADominance` at its initial `true`.
 -/
 
-#guard (firstRegion emptyRegion).hasSSADominance emptyRegion.2
-#guard !(firstRegion oneBlockRegion).hasSSADominance oneBlockRegion.2
+#guard (firstRegion emptyRegion).hasSSADominance emptyRegion.1
+#guard !(firstRegion oneBlockRegion).hasSSADominance oneBlockRegion.1

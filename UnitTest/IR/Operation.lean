@@ -1,37 +1,29 @@
-import Veir.GlobalOpInfo
-import Veir.Parser.MlirParser
+import Veir.Input
 
 open Veir
-open Veir.Parser
+open Veir.Input
 
-private def parse (s : String) : OperationPtr × IRContext OpCode :=
-  match WfIRContext.create OpCode with
-  | none => panic! "failed to create IR context"
-  | some (ctx, _) =>
-    match ParserState.fromInput s.toByteArray with
-    | .error _ => panic! "lex error"
-    | .ok parser =>
-      match parseTopLevelOp.run (MlirParserState.fromContext ctx) parser with
-      | .error _ => panic! "parse error"
-      | .ok (op, state, _) => (op, state.ctx.raw)
+/- The snippets only exercise IR accessors, so they need not verify. -/
 
-private def noRegions := parse r#""arith.muli"() : () -> ()"#
-#guard noRegions.1.getNumRegions! noRegions.2 == 0
+private def noRegions :=
+  parseSourceString! r#""arith.muli"() : () -> ()"#.toUTF8 (verifyAfterParse := false)
+#guard noRegions.2.getNumRegions! noRegions.1.raw == 0
 
-private def oneRegion := parse r#""arith.addi"() ({
+private def oneRegion := parseSourceString! r#""arith.addi"() ({
   "arith.muli"() : () -> ()
-}) : () -> ()"#
-#guard oneRegion.1.getNumRegions! oneRegion.2 == 1
+}) : () -> ()"#.toUTF8 (verifyAfterParse := false)
+#guard oneRegion.2.getNumRegions! oneRegion.1.raw == 1
 
-private def twoRegions := parse r#""arith.addi"() ({
+private def twoRegions := parseSourceString! r#""arith.addi"() ({
   "arith.muli"() : () -> ()
 }, {
   "arith.muli"() : () -> ()
-}) : () -> ()"#
-#guard twoRegions.1.getNumRegions! twoRegions.2 == 2
-#guard (twoRegions.1.getRegions! twoRegions.2).size == twoRegions.1.getNumRegions! twoRegions.2
-#guard (twoRegions.1.getRegions! twoRegions.2)[0]! == twoRegions.1.getRegion! twoRegions.2 0
-#guard (twoRegions.1.getRegions! twoRegions.2)[1]! == twoRegions.1.getRegion! twoRegions.2 1
+}) : () -> ()"#.toUTF8 (verifyAfterParse := false)
+#guard twoRegions.2.getNumRegions! twoRegions.1.raw == 2
+#guard (twoRegions.2.getRegions! twoRegions.1.raw).size ==
+  twoRegions.2.getNumRegions! twoRegions.1.raw
+#guard (twoRegions.2.getRegions! twoRegions.1.raw)[0]! == twoRegions.2.getRegion! twoRegions.1.raw 0
+#guard (twoRegions.2.getRegions! twoRegions.1.raw)[1]! == twoRegions.2.getRegion! twoRegions.1.raw 1
 private def flattenOps (top : OperationPtr) (ctx : IRContext OpCode) :
     Array OperationPtr := Id.run do
   let mut ops := #[]
@@ -46,25 +38,26 @@ private def flattenOps (top : OperationPtr) (ctx : IRContext OpCode) :
       currentBlock := (block.get! ctx).next
   ops
 
-private def parsed := parse r#""builtin.module"() ({
+private def parsed := parseSourceString! r#""builtin.module"() ({
   %a = "test.test"() : () -> i32
   %b = "test.test"() : () -> i32
   %c = "arith.muli"(%a, %b) : (i32, i32) -> i32
-}) : () -> ()"#
+}) : () -> ()"#.toUTF8 (verifyAfterParse := false)
 
-private def ops := flattenOps parsed.1 parsed.2
+private def ctx := parsed.1.raw
+private def ops := flattenOps parsed.2 ctx
 
-#guard ops[0]!.getNumOperands! parsed.2 == 0
-#guard (ops[0]!.getOpOperands! parsed.2).size == 0
+#guard ops[0]!.getNumOperands! ctx == 0
+#guard (ops[0]!.getOpOperands! ctx).size == 0
 
-#guard ops[2]!.getNumOperands! parsed.2 == 2
-#guard (ops[2]!.getOpOperands! parsed.2).size == ops[2]!.getNumOperands! parsed.2
-#guard (ops[2]!.getOpOperands! parsed.2)[0]! == ops[2]!.getOpOperand 0
-#guard (ops[2]!.getOpOperands! parsed.2)[1]! == ops[2]!.getOpOperand 1
+#guard ops[2]!.getNumOperands! ctx == 2
+#guard (ops[2]!.getOpOperands! ctx).size == ops[2]!.getNumOperands! ctx
+#guard (ops[2]!.getOpOperands! ctx)[0]! == ops[2]!.getOpOperand 0
+#guard (ops[2]!.getOpOperands! ctx)[1]! == ops[2]!.getOpOperand 1
 
-#guard (ops[2]!.getOpOperands! parsed.2)[0]!.op == ops[2]!
-#guard (ops[2]!.getOpOperands! parsed.2)[0]!.index == 0
-#guard (ops[2]!.getOpOperands! parsed.2)[1]!.index == 1
+#guard (ops[2]!.getOpOperands! ctx)[0]!.op == ops[2]!
+#guard (ops[2]!.getOpOperands! ctx)[0]!.index == 0
+#guard (ops[2]!.getOpOperands! ctx)[1]!.index == 1
 
-#guard ops[2]!.getOperand! parsed.2 0 == (ops[0]!.getResult 0 : ValuePtr)
-#guard ops[2]!.getOperand! parsed.2 1 == (ops[1]!.getResult 0 : ValuePtr)
+#guard ops[2]!.getOperand! ctx 0 == (ops[0]!.getResult 0 : ValuePtr)
+#guard ops[2]!.getOperand! ctx 1 == (ops[1]!.getResult 0 : ValuePtr)

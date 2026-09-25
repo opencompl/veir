@@ -222,12 +222,12 @@ should dominate it. An empty set means the block should remain unreachable.
 def run
     (mlir : String)
     (expected : Array ExpectedBlockDominators) : String :=
-  runWithAnalyses mlir #[Veir.DominanceAnalysis] (fun top dfCtx parserState => Id.run do
-    match recoverNames top parserState.ctx mlir with
+  runWithAnalyses mlir #[Veir.DominanceAnalysis] (fun top dfCtx ctx => Id.run do
+    match recoverNames top ctx mlir with
     | Except.error err =>
         return #[err]
     | Except.ok recovered =>
-        compareNamedDominators recovered expected dfCtx parserState.ctx)
+        compareNamedDominators recovered expected dfCtx ctx)
 
 /--
 Run the operation dominance test harness on one MLIR snippet.
@@ -237,12 +237,12 @@ Operations are referenced by the SSA names of one of their results.
 def runOperationDominance
     (mlir : String)
     (expected : Array ExpectedOperationDominance) : String :=
-  runWithAnalyses mlir #[Veir.DominanceAnalysis] (fun top dfCtx parserState => Id.run do
-    match recoverNames top parserState.ctx mlir with
+  runWithAnalyses mlir #[Veir.DominanceAnalysis] (fun top dfCtx ctx => Id.run do
+    match recoverNames top ctx mlir with
     | Except.error err =>
         return #[err]
     | Except.ok recovered =>
-        compareNamedOperationDominance recovered expected dfCtx parserState.ctx)
+        compareNamedOperationDominance recovered expected dfCtx ctx)
 
 /-
   Test: loop with a backedge
@@ -617,8 +617,8 @@ def testDomAfterFirstOpErasure : String :=
   %dominated = "test.test"() : () -> i32
   "test.test"() : () -> ()
 }) : () -> ()"#
-  runWithAnalyses mlir #[Veir.DominanceAnalysis] (fun top dfCtx parserState => Id.run do
-    let .ok recovered := recoverNames top parserState.ctx mlir
+  runWithAnalyses mlir #[Veir.DominanceAnalysis] (fun top dfCtx ctx => Id.run do
+    let .ok recovered := recoverNames top ctx mlir
       | return #["failed to recover names"]
     let some dominator := getNamedOperation? recovered "dominator"
       | return #["missing dominator operation"]
@@ -631,7 +631,7 @@ def testDomAfterFirstOpErasure : String :=
     let some middleBlock := recovered.blocks["bb1"]?
       | return #["missing intermediate block"]
 
-    let newCtx := WfRewriter.eraseOp! parserState.ctx erased
+    let newCtx := WfRewriter.eraseOp! ctx erased
     let mut report := #[]
     if !dominator.properlyDominates dominated dfCtx newCtx then
       report := report.push "operation dominance was invalidated by erasing the first op of a block"

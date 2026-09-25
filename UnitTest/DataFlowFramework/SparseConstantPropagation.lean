@@ -29,8 +29,8 @@ private def run
     (mlir : String)
     (expected : Array (String × SparsePayload AbstractConstant (Option OpCode))) : String :=
   runWithAnalyses mlir #[Veir.SparseConstantPropagationAnalysis]
-  (fun top dfCtx parserState => Id.run do
-      match recoverNames top parserState.ctx mlir with
+  (fun top dfCtx ctx => Id.run do
+      match recoverNames top ctx mlir with
       | Except.error err =>
           return #[err]
       | Except.ok recovered =>
