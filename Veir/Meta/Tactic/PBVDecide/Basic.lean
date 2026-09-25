@@ -557,44 +557,38 @@ meta def addEqIff (g : MVarId) (blastWidth : Nat) (simp : SimpTheoremsArray) :
   simp.addTheorem (.other ``eq_iff) <| ← mkAppM ``eq_iff #[mkNatLit blastWidth]
 
 /--
-Add the theorems that need the blast width pre-filled before they can be used
-within the Simp set.
--/
-meta def addBoundRewrites (g : MVarId) (blastWidth : Nat) (simp : SimpTheoremsArray) :
-    MetaM SimpTheoremsArray := g.withContext do
-  let thms := #[
-      ``msb_eq_and_signBitOfMask_maskOfWidth_ne_zero,
-      ``setWidth_signExtend_eq_and_maskOfWidth
-  ]
-
-  thms.foldlM (init := simp) fun simps name =>
-    return ← simps.addTheorem (.other name)
-      <| ← mkAppM name #[mkNatLit blastWidth]
-
-/--
 Add theorems to the Simp theorem context that push the `setWidth`s in.
 -/
-meta def addPushTheorems (g : MVarId) (simp : SimpTheoremsArray) :
+meta def addPushTheorems (g : MVarId) (blastWidth : Nat) (simp : SimpTheoremsArray) :
     MetaM SimpTheoremsArray := g.withContext do
-  let others := #[
+  -- Push theorems
+  let pushThms := #[
       ``setWidth_add,
       ``setWidth_append_eq_or_mul_maskOfWidth_add_one,
       ``signBitOfMask_eq,
   ]
-
-  let mut simp := simp
-  for n in others do
-    simp ← simp.addTheorem (.other n) (mkConst n [])
-  -- Low priority so that the other push theorems fire before nested
-  -- `setWidth`s are collapsed.
-  let lowPriority := #[
+  -- Push theorems which require specifying the blastWidth explicitly.
+  let boundPushThms := #[
+      ``msb_eq_and_signBitOfMask_maskOfWidth_ne_zero,
+      ``setWidth_signExtend_eq_and_maskOfWidth
+  ]
+  -- Push theorems which collapse nested `setWidth`s, low-priority so that the
+  -- other theorems can be applied before them.
+  let lowPriorityPushThms := #[
       ``BitVec.setWidth_eq,
       ``setWidth_setWidth
   ]
-  for n in lowPriority do
-    simp ← simp.modifyM 0 fun thms =>
-      thms.add (.other n) #[] (mkConst n [])
-        (prio := eval_prio low)
+
+  let simp ← pushThms.foldlM (init := simp) fun simps name =>
+    return ← simps.addTheorem (.other name) (mkConst name [])
+
+  let simp ← boundPushThms.foldlM (init := simp) fun simps name =>
+    return ← simps.addTheorem (.other name) (← mkAppM name #[mkNatLit blastWidth])
+
+  let simp ← lowPriorityPushThms.foldlM (init := simp) fun simps name =>
+    simps.modifyM 0 fun thms =>
+      thms.add (.other name) #[] (mkConst name []) (prio := eval_prio low)
+
   return simp
 
 /--
@@ -681,9 +675,8 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVa
   let eqThms ← addEqIff g blastWidth <| ← addWidthInfosSimpLemmas g widthInfos #[]
   let g ← applySimp g eqThms { decide := false, singlePass := true }
   -- Create simp set to push the `setWidth`s in
-  let thms := ← addBoundRewrites g blastWidth
-           <| ← addPushTheorems g
-           <| ← addBvInfos g bvInfos -- This step is not strictly necessary.
+  let thms := ← addPushTheorems g blastWidth
+           <| ← addBvInfos g bvInfos
            <| ← addWidthInfosSimpLemmas g widthInfos #[]
   -- Run simp
   let g ← applySimp g thms
