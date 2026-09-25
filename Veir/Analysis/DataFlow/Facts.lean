@@ -144,11 +144,11 @@ Stored in the entry block of each region.
 structure RegionMetadataPayload where
   postOrderIndex : HashMap BlockPtr Nat := {}
 
-/--
-A sparse dataflow fact payload for one abstract domain.
--/
-structure SparsePayload (Domain : Type) where
+/-- A sparse dataflow fact payload with analysis specific metadata. -/
+structure SparsePayload (Domain : Type) (Metadata : Type := Unit) where
   latticeElement : Domain
+  metadata : Metadata
+deriving BEq, DecidableEq, Repr
 
 /--
 Tracks whether a control flow point or edge is live.
@@ -163,10 +163,10 @@ The fact specific data stored for each fact kind.
   | .dominator => DominatorPayload
   | .regionMetadata => RegionMetadataPayload
   | .liveness => LivenessPayload
-  | .test => SparsePayload TestDomain
-  | .sparseConstant => SparsePayload AbstractConstant
-  | .integerRange => SparsePayload IntegerRangeLattice
-  | .modArithRange => SparsePayload IntegerRangeLattice
+  | .test => SparsePayload TestDomain Unit
+  | .sparseConstant => SparsePayload AbstractConstant (Option OpCode)
+  | .integerRange => SparsePayload IntegerRangeLattice Unit
+  | .modArithRange => SparsePayload IntegerRangeLattice Unit
 
 /--
 A dataflow fact stored by the framework.
@@ -240,11 +240,8 @@ def live (fact : Fact .liveness) : Bool :=
 def latticeElement (fact : Fact .liveness) : Liveness :=
   fact.payload.latticeElement
 
-def setLatticeElement (fact : Fact .liveness) (latticeElement : Liveness) : Fact .liveness :=
-  { fact with payload := { fact.payload with latticeElement := latticeElement } }
-
 def setToLive (fact : Fact .liveness) : Fact .liveness :=
-  fact.setLatticeElement .live
+  { fact with payload := { fact.payload with latticeElement := .live } }
 
 end Fact
 
