@@ -35,8 +35,8 @@ private def interval (lower upper : Int) (h : lower ≤ upper := by omega) : Int
   .interval { lower, upper, lower_le_upper := h }
 
 private def run (mlir : String) (expected : Array ExpectedRange) : String :=
-  runWithAnalyses mlir #[Veir.ModArithRangeAnalysis] fun top dfCtx parserState =>
-    match recoverNames top parserState.ctx mlir with
+  runWithAnalyses mlir #[Veir.ModArithRangeAnalysis] fun top dfCtx ctx =>
+    match recoverNames top ctx mlir with
     | .error err => #[err]
     | .ok recovered => compareRanges dfCtx recovered expected
 

@@ -51,12 +51,12 @@ private def run
     (mlir : String)
     (expectedBlockLives : Array (String × Bool))
     (expectedEdgeLives : Array ((String × String) × Bool)) : String :=
-  runWithAnalyses mlir #[Veir.DeadCodeAnalysis] (fun top dfCtx parserState => Id.run do
-    match recoverNames top parserState.ctx mlir with
+  runWithAnalyses mlir #[Veir.DeadCodeAnalysis] (fun top dfCtx ctx => Id.run do
+    match recoverNames top ctx mlir with
     | Except.error err =>
         return #[err]
     | Except.ok recovered =>
-        checkNamedBlockLiveness dfCtx parserState.ctx recovered.blocks expectedBlockLives ++
+        checkNamedBlockLiveness dfCtx ctx recovered.blocks expectedBlockLives ++
           checkNamedEdgeLiveness dfCtx recovered.blocks expectedEdgeLives)
 
 private def testTopLevelAndFunctionEntryBlocksLive : String :=

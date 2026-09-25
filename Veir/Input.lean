@@ -70,6 +70,14 @@ def parseSourceString (content : ByteArray) (sourceName : String := "<string>")
   | .error err =>
     throw (err.format sourceName content)
 
+/-- Like `parseSourceString`, but panics on errors and drops the `SourceInfo`. -/
+def parseSourceString! (content : ByteArray) (sourceName : String := "<string>")
+    (allowUnregisteredDialect : Bool := false) (verifyAfterParse : Bool := true) :
+    WfIRContext OpCode × OperationPtr :=
+  match parseSourceString content sourceName allowUnregisteredDialect verifyAfterParse with
+  | .ok (ctx, op, _) => (ctx, op)
+  | .error err => panic! err
+
 /-- Read and parse the input program, naming the source `<stdin>` when it comes
     from standard input. -/
 def parseSourceFile (filename : Option String) (allowUnregisteredDialect : Bool := false)

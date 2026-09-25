@@ -105,8 +105,8 @@ private def testInput := r#""builtin.module"() ({
 
 /-- Verify that an analysis can override the default with a type-sensitive entry state. -/
 private def testCustomEntryState : String :=
-  runWithAnalyses testInput #[customEntryStateAnalysis] fun top dfCtx parserState =>
-    match recoverNames top parserState.ctx testInput with
+  runWithAnalyses testInput #[customEntryStateAnalysis] fun top dfCtx ctx =>
+    match recoverNames top ctx testInput with
     | .error err => #[err]
     | .ok recovered =>
       checkValue "entryArg" (.value 8) recovered dfCtx ++
@@ -115,8 +115,8 @@ private def testCustomEntryState : String :=
 
 /-- Verify that omitting the entry-state hook conservatively assigns top. -/
 private def testDefaultEntryState : String :=
-  runWithAnalyses testInput #[defaultEntryStateAnalysis] fun top dfCtx parserState =>
-    match recoverNames top parserState.ctx testInput with
+  runWithAnalyses testInput #[defaultEntryStateAnalysis] fun top dfCtx ctx =>
+    match recoverNames top ctx testInput with
     | .error err => #[err]
     | .ok recovered =>
       checkValue "entryArg" .top recovered dfCtx ++
