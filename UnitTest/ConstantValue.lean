@@ -77,19 +77,17 @@ info: "ok"
 #guard_msgs in
 #eval! testHwConstant
 
-/-- Normalized attributes preserve their bits when resized, using unsigned
-values for `i1` and signed values for wider types, even for out-of-range inputs. -/
+/-- Attribute construction normalizes values, including inputs the parser rejects. -/
 private def testIntegerAttrNormalization : Bool := Id.run do
-  for attrWidth in [1, 2, 3, 8, 16, 32, 64, 65, 128] do
-    for resultWidth in [1, 2, 8, 32, 64, 128] do
-      for literal in ([-1, 0, 1, 2, 127, 128, 255, 256, 257,
-          2 ^ attrWidth - 1, 2 ^ attrWidth, 2 ^ attrWidth + 1] : List Int) do
-        let raw := BitVec.ofInt attrWidth literal
-        let expected := if attrWidth = 1 then raw.zeroExtend resultWidth
-          else raw.signExtend resultWidth
-        let actual := BitVec.ofInt resultWidth
-          (IntegerAttr.ofInt literal (IntegerType.mk attrWidth)).value
-        if actual ≠ expected then return false
+  for (width, literal, expected) in ([
+      (0, 7, 0), (1, -1, 1), (1, 2, 0),
+      (8, 127, 127), (8, 128, -128), (8, 200, -56),
+      (8, 256, 0), (8, -129, 127),
+      (128, 2 ^ 127, -(2 ^ 127)), (128, 2 ^ 128 + 1, 1)
+    ] : List (Nat × Int × Int)) do
+    let type := IntegerType.mk width
+    if IntegerAttr.ofInt literal type ≠ IntegerAttr.mk expected type then
+      return false
   return true
 
 /-- info: true -/

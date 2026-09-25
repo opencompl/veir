@@ -10,4 +10,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: llvm.mlir.constant: attribute and type have different integer types: i32 vs. i8
+// CHECK: Error verifying input program: llvm.mlir.constant: attribute and type have different integer types: i32 vs. i8

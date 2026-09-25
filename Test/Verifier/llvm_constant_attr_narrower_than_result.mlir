@@ -11,4 +11,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: llvm.mlir.constant: attribute and type have different integer types: i1 vs. i32
+// CHECK: Error verifying input program: llvm.mlir.constant: attribute and type have different integer types: i1 vs. i32
