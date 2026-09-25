@@ -718,7 +718,6 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     let resultType := ((op.getResult 0).get! ctx.raw).type.val
     match (op.getProperties! ctx.raw Llvm.mlir__constant).value with
     | .integer intAttr =>
-      -- As in MLIR, an integer attribute's type must match the result type exactly.
       match resultType with
       | .integerType intType =>
         if intType ≠ intAttr.type then

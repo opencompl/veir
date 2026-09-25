@@ -502,7 +502,7 @@ theorem OperationPtr.Verified.arith_constant {op : OperationPtr} {opInBounds}
   simp only [Verified, verifyLocalInvariants, HasOpInfo.verifyLocalInvariants,
     OpCode.verifyLocalInvariants, Arith.verifyLocalInvariants, verifyPlainOpCounts,
     ← getOpType!_eq_getOpType, opType, ne_eq,
-    bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure, dite_not,
+    bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure,
     ite_not] at opVerify
   simp only [TypeAttr.inj]
   grind
