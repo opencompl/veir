@@ -217,24 +217,12 @@ example (w : Nat) (x y : BitVec (w + 2)) (hw : w ≤ 4) :
   pbv_decide 6 -- Need to extend the bound to account for the w + 2
   · bv_decide
 
--- # Expected Failures
-
--- Expected failure: at the blast width, the `setWidth` around `signExtend` is simplified away before `signExtend` is pushed
-/--
-error: The prover found a potentially spurious counterexample:
-- It abstracted the following unsupported expressions as opaque variables:
-  - BitVec.signExtend 4 (BitVec.setWidth w x)
-Consider the following assignment:
-m_w0 = 3#4
-x = 3#4
-BitVec.signExtend 4 (BitVec.setWidth w x) = 13#4
--/
-#guard_msgs in
 example (w : Nat) (x : BitVec w) (hw : w ≤ 2) :
     (x.signExtend 4).setWidth w = x := by
   pbv_decide 4
-  bv_decide
+  · bv_decide
 
+-- # Expected Failures
 
 /--
 error: The prover found a counterexample, consider the following assignment:

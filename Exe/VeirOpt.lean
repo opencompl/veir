@@ -197,7 +197,7 @@ def main (args : List String) : IO Unit := do
     | .error errMsg =>
       IO.eprintln errMsg
       IO.Process.exit 1
-    | .ok (ctx, op) =>
+    | .ok (ctx, op, _) =>
       match ← passes.run ⟨ctx, by sorry⟩ op disableVerifiers with
       | .error errMsg =>
         IO.eprintln s!"Error: {errMsg}"

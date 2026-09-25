@@ -1251,25 +1251,25 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    if LLVM.Int.isSignedDivisionUB lhs rhs then Interp.ub
+    if LLVM.Int.isSignedDivisionUB lhs rhs then Interp.ub none
     return (#[.int bw (LLVM.Int.sdiv lhs rhs properties.exact)], mem, none)
   | .udiv => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    if LLVM.Int.isUnsignedDivisionUB rhs then Interp.ub
+    if LLVM.Int.isUnsignedDivisionUB rhs then Interp.ub none
     return (#[.int bw (LLVM.Int.udiv lhs rhs properties.exact)], mem, none)
   | .srem => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    if LLVM.Int.isSignedDivisionUB lhs rhs then Interp.ub
+    if LLVM.Int.isSignedDivisionUB lhs rhs then Interp.ub none
     return (#[.int bw (LLVM.Int.srem lhs rhs)], mem, none)
   | .urem => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    if LLVM.Int.isUnsignedDivisionUB rhs then Interp.ub
+    if LLVM.Int.isUnsignedDivisionUB rhs then Interp.ub none
     return (#[.int bw (LLVM.Int.urem lhs rhs)], mem, none)
   | .shl => do
     let [lhs, .int bw' rhs] := operands.toList | none
@@ -1436,7 +1436,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
   | .return => do
     return (#[], mem, some (.return operands))
   | .unreachable =>
-    Interp.ub
+    Interp.ub none
   | .br => do
     let [dest] := blockOperands.toList | none
     return (#[], mem, some (.branch operands dest))
@@ -1451,7 +1451,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
         return (#[], mem, some (.branch (operands.extract 1 (trueSize + 1)) destTrue))
       else
         return (#[], mem, some (.branch (operands.extract (trueSize + 1) operands.size) destFalse))
-    | .int 1 .poison => Interp.ub
+    | .int 1 .poison => Interp.ub none
     | _ => none
   | .switch => do
     let some destDefault := blockOperands[0]? | none
@@ -1473,7 +1473,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
           return (#[], mem, some (.branch (operands.extract base (base + count)) dest))
         base := base + count
       return (#[], mem, some (.branch (operands.extract 1 (1 + defaultSize)) destDefault))
-    | .int _ .poison => Interp.ub
+    | .int _ .poison => Interp.ub none
     | _ => none
   | .alloca => do
     let [.int _ (.val count)] := operands.toList | none
@@ -1483,13 +1483,13 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     return (#[.addr (.val addr)], mem, none)
   | .load => do
     let [.addr addr] := operands.toList | none
-    let .val addr := addr | Interp.ub
+    let .val addr := addr | Interp.ub none
     let [type] := resultTypes.toList | none
     let val ← mem.llvmLoad addr type
     return (#[val], mem, none)
   | .store => do
     let [val, .addr addr] := operands.toList | none
-    let .val addr := addr | Interp.ub
+    let .val addr := addr | Interp.ub none
     let mem ← mem.llvmStore addr val
     return (#[], mem, none)
   | .getelementptr => do
@@ -1516,20 +1516,20 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let [⟨type, _⟩] := resultTypes.toList | none
     let result ← do match val, type with
       | .int bw1 val', .integerType ⟨bw2⟩ =>
-          if bw1 ≠ bw2 then .fail else .ok (val)
+          if bw1 ≠ bw2 then .fail none else .ok (val)
       | .int bw1 val', .byteType ⟨bw2⟩ =>
-          if bw1 ≠ bw2 then .fail else .ok ((.byte bw1 $ LLVM.Byte.fromInt val'))
+          if bw1 ≠ bw2 then .fail none else .ok ((.byte bw1 $ LLVM.Byte.fromInt val'))
       | .byte bw1 val', .byteType ⟨bw2⟩ =>
-          if bw1 ≠ bw2 then .fail else .ok (val)
+          if bw1 ≠ bw2 then .fail none else .ok (val)
       | .byte bw1 val', .integerType ⟨bw2⟩ =>
-          if bw1 ≠ bw2 then .fail else .ok ((.int bw1 $ val'.toInt))
+          if bw1 ≠ bw2 then .fail none else .ok ((.int bw1 $ val'.toInt))
       | .byte bw val', .llvmPointerType _ =>
-          if h : bw = 64 then .ok (.addr (mem.ptrFromInt (val'.cast h).toInt)) else .fail
+          if h : bw = 64 then .ok (.addr (mem.ptrFromInt (val'.cast h).toInt)) else .fail none
       | .addr val', .llvmPointerType _ => .ok (val)
       | .addr val', .byteType ⟨bw⟩ =>
-          if bw = 64 then .ok (.byte 64 (LLVM.Byte.fromInt (mem.intFromPtr val'))) else .fail
+          if bw = 64 then .ok (.byte 64 (LLVM.Byte.fromInt (mem.intFromPtr val'))) else .fail none
       | .addr val', .integerType ⟨bw⟩ =>
-          if bw = 64 then .ok (.int 64 (mem.intFromPtr val')) else .fail
+          if bw = 64 then .ok (.int 64 (mem.intFromPtr val')) else .fail none
       | _, _ => none
     return (#[result], mem, none)
   | _ => none

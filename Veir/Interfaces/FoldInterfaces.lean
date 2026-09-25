@@ -52,9 +52,9 @@ private def foldByEvaluation (opType : OpCode) (properties : propertiesOf opType
     : Option (Array FoldDecision) := do
   let values ← constOperands.mapM id
   match foldEvaluate opType properties resultTypes values with
-  | .fail => none
+  | .fail _ => none
   | .ok results => return results.map .useConstant
-  | .ub => allResultsPoison resultTypes
+  | .ub _ => allResultsPoison resultTypes
 
 /--
   Fold an operation that propagates poison and has a wholly poisoned operand.

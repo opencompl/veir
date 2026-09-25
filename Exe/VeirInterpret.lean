@@ -71,16 +71,21 @@ def main (args : List String) : IO Unit := do
       IO.eprintln "  Reads the program from standard input if no filename is given."
       IO.Process.exit 2
   match ← parseSourceFile filename (allowUnregisteredDialect := true) with
-  | .ok (ctx, op) =>
+  | .ok (ctx, op, source) =>
     let rawCtx : IRContext OpCode := ctx
     let mainOp ← resolveEntryPoint rawCtx op
     let result := bind (interpretFunction (ctx := ctx) mainOp #[] MemoryState.empty (by sorry))
                        (fun (_, r) => pure r)
     match result with
     | .ok results => IO.println s!"Program output: {results}"
-    | .ub => IO.println "Undefined behavior"
-    | .fail =>
-      IO.eprintln "Error while interpreting module"
+    | .ub op? =>
+      IO.println "Undefined behavior"
+      if let some op := op? then
+        IO.println (source.formatAt op "note" "triggered here")
+    | .fail op? =>
+      match op? with
+      | some op => IO.eprintln (source.formatAt op "error" "failed to interpret operation")
+      | none => IO.eprintln "error: failed to interpret module"
       IO.Process.exit 1
   | .error errMsg =>
     IO.eprintln errMsg

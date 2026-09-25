@@ -30,12 +30,30 @@ def getFileContent (filename : Option String) : ExceptT String IO ByteArray := d
       throw s!"Error reading file '{f}': {e}"
   return ← IO.FS.Stream.readBinToEnd (←IO.getStdin)
 
+/--
+  The source input of a parsed program, along with the location of each parsed operation.
+-/
+structure SourceInfo where
+  /-- The name of the source. -/
+  sourceName : String
+  /-- The content of the source. -/
+  content : ByteArray
+  /-- The location in `content` for each parsed operation. -/
+  opLocations : Std.HashMap OperationPtr Parser.Location
+
+/--
+  Format a caret-style diagnostic about `op`.
+  The location is <unknown location> if `op` was not parsed from the source.
+-/
+def SourceInfo.formatAt (info : SourceInfo) (op : OperationPtr) (severity msg : String) : String :=
+  ParserError.formatLabel info.sourceName info.content severity info.opLocations[op]? msg
+
 /-- Parse program bytes into a well-formed IR context and its top-level
     operation, formatting parse errors caret-style against `sourceName`.
     Unless `verifyAfterParse` is false, the program is also verified. -/
 def parseSourceString (content : ByteArray) (sourceName : String := "<string>")
     (allowUnregisteredDialect : Bool := false) (verifyAfterParse : Bool := true) :
-    Except String (WfIRContext OpCode × OperationPtr) := do
+    Except String (WfIRContext OpCode × OperationPtr × SourceInfo) := do
   let some (ctx, _) := WfIRContext.create OpCode
     | throw "Failed to create IR context"
   match ParserState.fromInput content with
@@ -46,7 +64,7 @@ def parseSourceString (content : ByteArray) (sourceName : String := "<string>")
       if verifyAfterParse then
         if let .error err := state.ctx.verify op then
           throw s!"Error verifying input program: {err}"
-      return (state.ctx, op)
+      return (state.ctx, op, { sourceName, content, opLocations := state.opLocations })
     | .error err =>
       throw (err.format sourceName content)
   | .error err =>
@@ -56,7 +74,7 @@ def parseSourceString (content : ByteArray) (sourceName : String := "<string>")
     from standard input. -/
 def parseSourceFile (filename : Option String) (allowUnregisteredDialect : Bool := false)
     (verifyAfterParse : Bool := true) :
-    ExceptT String IO (WfIRContext OpCode × OperationPtr) := do
+    ExceptT String IO (WfIRContext OpCode × OperationPtr × SourceInfo) := do
   let content ← getFileContent filename
   let sourceName := if let some f := filename then f else "<stdin>"
   liftExcept (parseSourceString content sourceName allowUnregisteredDialect verifyAfterParse)
