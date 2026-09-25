@@ -21,23 +21,6 @@ namespace Veir
 
 open Lean.Order
 
-/-- A predicate on interpretation outcomes that holds of `fail` is admissible. -/
-theorem Interp.admissible_of_fail {α : Type} (P : Interp α → Prop) (hfail : P .fail) :
-    admissible P := by
-  intro c hchain h
-  by_cases hex : ∃ x, c x ∧ x ≠ .fail
-  · obtain ⟨x, hcx, hne⟩ := hex
-    have hrel := le_csup hchain hcx
-    rcases Interp.rel_iff.mp hrel with rfl | rfl
-    · exact absurd rfl hne
-    · exact h _ hcx
-  · have hbelow : PartialOrder.rel (CCPO.csup hchain) (.fail : Interp α) := by
-      apply csup_le hchain
-      intro y hy
-      have : y = .fail := Classical.byContradiction fun hne => hex ⟨y, hy, hne⟩
-      exact this ▸ PartialOrder.rel_refl
-    rcases Interp.rel_iff.mp hbelow with heq | heq <;> exact heq ▸ hfail
-
 /-- A predicate on one value of a function is admissible if it is admissible on that value. -/
 theorem admissible_eval {α : Sort u} {β : α → Sort v} [∀ x, CCPO (β x)] (x : α)
     {Q : β x → Prop} (hadm : admissible Q) : admissible (fun (f : ∀ x, β x) => Q (f x)) := by
@@ -117,7 +100,7 @@ theorem interpretBlockCFG_isRefinedBy {Rel : BlockCallRel ctx ctx'}
       (Q := fun g => Interp.isRefinedBy R (g hb) _) ?_
     refine admissible_eval (β := fun _ : autoParam (b.InBounds ctx.raw) interpretBlockCFG._auto_1 => T)
       hb (Q := fun g => Interp.isRefinedBy R g _) ?_
-    exact Interp.admissible_of_fail _ (by simp [Interp.isRefinedBy])
+    exact Interp.admissible_of_ub _ (by simp [Interp.isRefinedBy])
   · intro f ih block values state blockIn block' values' state' blockIn' hRel
     have hBlock := hStep block values state block' values' state' blockIn blockIn' hRel
     rw [interpretBlockCFG]
