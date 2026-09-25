@@ -85,32 +85,20 @@ end RegionPtr
 namespace DominatorFact
 
 def mkDefault : DominatorFact :=
-  { dependents := #[]
-    payload := { iDom := none } }
-
-def propagate (fact : DominatorFact) (_anchor : LatticeAnchor) 
-    (dfCtx : DataFlowContext) (_irCtx : WfIRContext OpCode) : DataFlowContext :=
-  { dfCtx with workList := fact.enqueueDependents dfCtx.workList }
+  { payload := { iDom := none } }
 
 instance : FactSpec .dominator where
   mkDefault := DominatorFact.mkDefault
-  propagate := DominatorFact.propagate
 
 end DominatorFact
 
 namespace RegionMetadataFact
 
 def mkDefault : RegionMetadataFact :=
-  { dependents := #[]
-    payload := { postOrderIndex := {} } }
-
-def propagate (_fact : RegionMetadataFact) (_anchor : LatticeAnchor) 
-    (dfCtx : DataFlowContext) (_irCtx : WfIRContext OpCode) : DataFlowContext :=
-  dfCtx
+  { payload := { postOrderIndex := {} } }
 
 instance : FactSpec .regionMetadata where
   mkDefault := RegionMetadataFact.mkDefault
-  propagate := RegionMetadataFact.propagate
 
 end RegionMetadataFact
 
@@ -167,13 +155,12 @@ private def initializeRegion
       fact.setPostOrderIndex postOrderIndex
 
   for block in reversePostOrder do
-    let mut dependents := #[]
     if let some terminator := (block.get! irCtx.raw).lastOp then
       for succ in terminator.getSuccessors! irCtx.raw do
-        dependents := dependents.push (InsertPoint.atStart! succ irCtx.raw, kind)
+        let dependent := (InsertPoint.atStart! succ irCtx.raw, kind)
+        dfCtx := dfCtx.addDependency dependent { anchor := .BlockPtr block, kind := .dominator }
     dfCtx := dfCtx.modifyFact .dominator (.BlockPtr block) fun fact =>
-      (fact.setDependents dependents).setIDom
-        (if block = entry then some entry else none)
+      fact.setIDom (if block = entry then some entry else none)
     dfCtx := dfCtx.enqueue (InsertPoint.atStart! block irCtx.raw, kind)
   dfCtx
 
