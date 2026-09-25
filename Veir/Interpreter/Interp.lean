@@ -1,5 +1,6 @@
 module
 
+public import Veir.IR.Basic
 import all Init.Internal.Order.Basic
 
 public section
@@ -12,34 +13,34 @@ namespace Veir
   `RuntimeValue` or `LLVM.Int`.
 -/
 inductive Interp (α : Type) where
-  /-- Interpreter could not proceed (malformed IR, unsupported op). -/
-  | fail
-  /-- Execution triggered undefined behaviour. -/
-  | ub
+  /-- Interpreter could not proceed (malformed IR, unsupported op) at `op`, if known. -/
+  | fail (op : Option OperationPtr)
+  /-- Execution triggered undefined behaviour at `op`, if known. -/
+  | ub (op : Option OperationPtr)
   /-- Successful execution producing `a`. -/
   | ok (a : α)
 deriving Inhabited
 
 @[expose]
 def Interp.map {α β : Type} (f : α → β) : Interp α → Interp β
-  | .fail => .fail
-  | .ub => .ub
+  | .fail op => .fail op
+  | .ub op => .ub op
   | .ok a => .ok (f a)
 
-@[simp, grind =] theorem Interp.map_fail : Interp.map f .fail = .fail := rfl
-@[simp, grind =] theorem Interp.map_ub : Interp.map f .ub = .ub := rfl
+@[simp, grind =] theorem Interp.map_fail : Interp.map f (.fail op) = .fail op := rfl
+@[simp, grind =] theorem Interp.map_ub : Interp.map f (.ub op) = .ub op := rfl
 @[simp, grind =] theorem Interp.map_ok : Interp.map f (.ok a) = .ok (f a) := rfl
 
 instance : Monad Interp where
   pure x := .ok x
   bind x f := match x with
-    | .fail => .fail
-    | .ub => .ub
+    | .fail op => .fail op
+    | .ub op => .ub op
     | .ok a => f a
 
 instance : MonadLift Option Interp where
   monadLift
-    | none => .fail
+    | none => .fail none
     | some v => .ok v
 
 /-!
@@ -52,14 +53,14 @@ instance : MonadLift Option Interp where
 -/
 
 instance : Lean.Order.PartialOrder (Interp α) :=
-  inferInstanceAs (Lean.Order.PartialOrder (Lean.Order.FlatOrder (.ub : Interp α)))
+  inferInstanceAs (Lean.Order.PartialOrder (Lean.Order.FlatOrder (.ub none : Interp α)))
 
 instance : Lean.Order.CCPO (Interp α) :=
-  inferInstanceAs (Lean.Order.CCPO (Lean.Order.FlatOrder (.ub : Interp α)))
+  inferInstanceAs (Lean.Order.CCPO (Lean.Order.FlatOrder (.ub none : Interp α)))
 
-/-- `ub` is below every outcome, and the other outcomes are only below themselves. -/
+/-- `ub none` is below every outcome, and the other outcomes are only below themselves. -/
 theorem Interp.rel_iff {x y : Interp α} :
-    Lean.Order.PartialOrder.rel x y ↔ x = .ub ∨ x = y := by
+    Lean.Order.PartialOrder.rel x y ↔ x = .ub none ∨ x = y := by
   constructor
   · intro h
     cases h
@@ -74,18 +75,18 @@ theorem Interp.rel_iff {x y : Interp α} :
   element. This is what lets a `partial_fixpoint` induction discharge the
   case of a run that never terminates.
 -/
-theorem Interp.admissible_of_ub {α : Type} (P : Interp α → Prop) (hub : P .ub) :
+theorem Interp.admissible_of_ub {α : Type} (P : Interp α → Prop) (hub : P (.ub none)) :
     Lean.Order.admissible P := by
   intro c hchain h
-  by_cases hex : ∃ x, c x ∧ x ≠ .ub
+  by_cases hex : ∃ x, c x ∧ x ≠ .ub none
   · obtain ⟨x, hcx, hne⟩ := hex
     rcases Interp.rel_iff.mp (Lean.Order.le_csup hchain hcx) with rfl | rfl
     · exact absurd rfl hne
     · exact h _ hcx
-  · have hbelow : Lean.Order.PartialOrder.rel (Lean.Order.CCPO.csup hchain) (.ub : Interp α) := by
+  · have hbelow : Lean.Order.PartialOrder.rel (Lean.Order.CCPO.csup hchain) (.ub none : Interp α) := by
       apply Lean.Order.csup_le hchain
       intro y hy
-      have : y = .ub := Classical.byContradiction fun hne => hex ⟨y, hy, hne⟩
+      have : y = .ub none := Classical.byContradiction fun hne => hex ⟨y, hy, hne⟩
       exact this ▸ Lean.Order.PartialOrder.rel_refl
     rcases Interp.rel_iff.mp hbelow with heq | heq <;> exact heq ▸ hub
 
@@ -93,10 +94,10 @@ theorem Interp.admissible_of_ub {α : Type} (P : Interp α → Prop) (hub : P .u
 @[simp, grind =] theorem Interp.bind_ok (a : α) (f : α → Interp β) :
     (Interp.ok a >>= f) = f a := rfl
 @[simp, grind =] theorem Interp.bind_ub (f : α → Interp β) :
-    ((.ub : Interp α) >>= f) = .ub := rfl
+    ((.ub op : Interp α) >>= f) = .ub op := rfl
 @[simp, grind =] theorem Interp.bind_fail (f : α → Interp β) :
-    ((.fail : Interp α) >>= f) = .fail := rfl
-@[simp, grind =] theorem Interp.liftOption_none : ((none : Option α) : Interp α) = .fail := rfl
+    ((.fail op : Interp α) >>= f) = .fail op := rfl
+@[simp, grind =] theorem Interp.liftOption_none : ((none : Option α) : Interp α) = .fail none := rfl
 @[simp, grind =] theorem Interp.liftOption_some (a : α) : ((some a : Option α) : Interp α) = .ok a := rfl
 
 /-- Binding is monotone, so a `partial_fixpoint` may recurse under `do` notation. -/
@@ -111,5 +112,38 @@ instance : Lean.Order.MonoBind Interp where
     · simp only [Interp.bind_fail]; exact Lean.Order.PartialOrder.rel_refl
     · simp only [Interp.bind_ub]; exact Lean.Order.PartialOrder.rel_refl
     · simp only [Interp.bind_ok]; exact h _
+
+/-- Whether the interpretation failed, at any operation. -/
+@[expose, simp, grind]
+def Interp.isFail : Interp α → Bool
+  | .fail _ => true
+  | _ => false
+
+/-- Whether the interpretation triggered UB, at any operation. -/
+@[expose, simp, grind]
+def Interp.isUB : Interp α → Bool
+  | .ub _ => true
+  | _ => false
+
+/-- If reporting any failure or UB, blame `op` for it. -/
+@[expose]
+def Interp.withBlame (op : OperationPtr) : Interp α → Interp α
+  | .fail none => .fail (some op)
+  | .ub none => .ub (some op)
+  | x => x
+
+@[simp, grind =] theorem Interp.withBlame_ok : (Interp.ok a).withBlame op = .ok a := rfl
+
+@[simp, grind =] theorem Interp.withBlame_eq_ok_iff (x : Interp α) :
+    x.withBlame op = .ok a ↔ x = .ok a := by
+  unfold Interp.withBlame; split <;> simp [reduceCtorEq]
+
+@[simp, grind =] theorem Interp.isFail_withBlame (x : Interp α) :
+    (x.withBlame op).isFail = x.isFail := by
+  unfold Interp.withBlame; split <;> rfl
+
+@[simp, grind =] theorem Interp.isUB_withBlame (x : Interp α) :
+    (x.withBlame op).isUB = x.isUB := by
+  unfold Interp.withBlame; split <;> rfl
 
 end Veir

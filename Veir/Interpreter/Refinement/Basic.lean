@@ -97,8 +97,8 @@ on the underlying values. This asserts:
 def Interp.isRefinedBy (R : α → β → Prop) (source : Interp α) (target : Interp β) : Prop :=
   match source, target with
   | .ok a, .ok b => R a b
-  | .ub, _ => True
-  | .fail, _ => True
+  | .ub _, _ => True
+  | .fail _, _ => True
   | _, _ => False
 
 /--

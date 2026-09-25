@@ -64,7 +64,7 @@ def MemoryState.address (_mem : MemoryState) (p : Pointer) : UInt64 := p.offset
   undefined behaviour.
 -/
 def memorySize (n : Nat) : Interp UInt64 :=
-  if n < 2 ^ 64 then return n.toUInt64 else Interp.ub
+  if n < 2 ^ 64 then return n.toUInt64 else Interp.ub none
 
 /--
   Allocate `size` bytes and return a pointer to the start of the allocation.
@@ -75,9 +75,9 @@ def memorySize (n : Nat) : Interp UInt64 :=
 -/
 def MemoryState.alloc (mem : MemoryState) (size : UInt64) : Interp (MemoryState × Pointer) :=
   match mem.getObject? ⟨0, 0⟩ with
-  | none => Interp.fail
+  | none => Interp.fail none
   | some obj =>
-    if obj.size + size.toNat ≥ 2 ^ 64 then Interp.fail else
+    if obj.size + size.toNat ≥ 2 ^ 64 then Interp.fail none else
     return (mem.setObject ⟨0, 0⟩ { obj with
         contents := obj.contents.extend size.toNat 0,
         poisonMask := obj.poisonMask.extend size.toNat 0xff,
@@ -88,7 +88,7 @@ def MemoryState.alloc (mem : MemoryState) (size : UInt64) : Interp (MemoryState 
   Check if an access of `size` bytes at `p` is allowed.
 -/
 def MemoryState.checkAccess (mem : MemoryState) (p : Pointer) (size : UInt64) : Interp MemoryObject := do
-  let some obj := mem.getObject? p | Interp.fail
+  let some obj := mem.getObject? p | Interp.fail none
 
   -- An access of zero bytes is allowed at any offset, in bounds or not.
   if size = 0 then return obj
@@ -97,7 +97,7 @@ def MemoryState.checkAccess (mem : MemoryState) (p : Pointer) (size : UInt64) : 
   let memSize := obj.contents.size.toUInt64
   if size ≤ memSize ∧ p.offset ≤ memSize - size then return obj
 
-  Interp.ub
+  Interp.ub none
 
 /--
   Store raw bytes to the given address in memory,
@@ -150,7 +150,7 @@ def MemoryState.storeByte64 (mem : MemoryState) (p : Pointer) (v : Data.LLVM.Byt
 -/
 def MemoryState.llvmStore (mem : MemoryState) (p : Pointer) (val : RuntimeValue)
     : Interp MemoryState :=
-  if p = .null then Interp.ub else
+  if p = .null then Interp.ub none else
   match val with
   | .int 8 (.val v) => mem.store p (ByteArray.empty.push (UInt8.ofBitVec v))
   | .int 16 (.val v) => mem.store p (UInt16.ofBitVec v).toByteArrayLE
@@ -214,7 +214,7 @@ def MemoryState.loadByte64 (mem : MemoryState) (p : Pointer) : Interp (Data.LLVM
 -/
 def MemoryState.llvmLoad (mem : MemoryState) (p : Pointer) (type : TypeAttr)
     : Interp RuntimeValue := do
-  if p = .null then Interp.ub else
+  if p = .null then Interp.ub none else
   match type.val with
   | Attribute.integerType { bitwidth := 8 } =>
       let ba ← mem.load p 1

@@ -260,15 +260,15 @@ theorem InterpreterState.DefinesDominating.interpretOp_ne_fail
     (ctxDom : ctx.Dom) {state : InterpreterState ctx}
     (stateDom : state.DefinesDominating (InsertPoint.before op) ipInBounds)
     (opVerif : op.Verified ctx opInBounds) :
-    interpretOp op state opInBounds ≠ .fail := by
-  simp only [interpretOp]
+    (interpretOp op state opInBounds).isFail = false := by
+  simp only [interpretOp, Interp.isFail_withBlame]
   have ⟨operandValues, hOperandValues⟩ := stateDom.exists_getOperandValues_eq_some ctxDom
   simp only [hOperandValues]
   have hconforms : RuntimeValue.ArrayConforms operandValues (op.getOperandTypes! ctx.raw) := by
     grind [VariableState.getOperandValues_conforms]
   have hne := interpretOp'_ne_fail opVerif hconforms state.memory
   rcases hresValues : op.interpret ctx operandValues state.memory with _ | _ | ⟨resValues, mem', act⟩
-  · exact absurd hresValues hne
+  · simp [hresValues] at hne
   · simp
   · simp only [liftM, monadLift, MonadLift.monadLift]
     have := interpretOp'_results_conform opVerif hconforms hresValues
@@ -285,7 +285,7 @@ theorem InterpreterState.DefinesDominating.interpretOpList_ne_fail
     {state : InterpreterState ctx}
     (stateDom : ∀ head, (hhead : ops.head? = some head) →
       state.DefinesDominating (.before head) (by grind [List.mem_of_head? hhead])) :
-    interpretOpList ops state ≠ .fail := by
+    (interpretOpList ops state).isFail = false := by
   induction ops generalizing state with
   | nil => simp
   | cons a l ih =>

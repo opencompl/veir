@@ -356,20 +356,20 @@ def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType
     let [⟨type, _⟩] := resultTypes.toList | fail
     let result ← monadLift $ do match val, type with
       | .int bw1 val', .integerType ⟨bw2⟩ =>
-          if bw1 ≠ bw2 then Interp.fail else .ok (val)
+          if bw1 ≠ bw2 then Interp.fail none else .ok (val)
       | .int bw1 val', .byteType ⟨bw2⟩ =>
-          if bw1 ≠ bw2 then .fail else .ok ((.byte bw1 $ LLVM.Byte.fromInt val'))
+          if bw1 ≠ bw2 then .fail none else .ok ((.byte bw1 $ LLVM.Byte.fromInt val'))
       | .byte bw1 val', .byteType ⟨bw2⟩ =>
-          if bw1 ≠ bw2 then .fail else .ok (val)
+          if bw1 ≠ bw2 then .fail none else .ok (val)
       | .byte bw1 val', .integerType ⟨bw2⟩ =>
-          if bw1 ≠ bw2 then .fail else .ok ((.int bw1 $ val'.toInt))
+          if bw1 ≠ bw2 then .fail none else .ok ((.int bw1 $ val'.toInt))
       | .byte bw val', .llvmPointerType _ =>
-          if h : bw = 64 then .ok (.addr (mem.ptrFromInt (val'.cast h).toInt)) else .fail
+          if h : bw = 64 then .ok (.addr (mem.ptrFromInt (val'.cast h).toInt)) else .fail none
       | .addr val', .llvmPointerType _ => .ok (val)
       | .addr val', .byteType ⟨bw⟩ =>
-          if bw = 64 then .ok (.byte 64 (LLVM.Byte.fromInt (mem.intFromPtr val'))) else .fail
+          if bw = 64 then .ok (.byte 64 (LLVM.Byte.fromInt (mem.intFromPtr val'))) else .fail none
       | .addr val', .integerType ⟨bw⟩ =>
-          if bw = 64 then .ok (.int 64 (mem.intFromPtr val')) else .fail
+          if bw = 64 then .ok (.int 64 (mem.intFromPtr val')) else .fail none
       | _, _ => none
     return (#[result], mem, none)
   | _ => fail

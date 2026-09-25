@@ -53,8 +53,8 @@ instance [ErrorE -< E] : MonadLift Option (CTree E C) where
 
 instance [ErrorE -< E] [UBE -< E] : MonadLift Interp (CTree E C) where
   monadLift
-    | .ub => ub
-    | .fail => fail
+    | .ub _ => ub
+    | .fail _ => fail
     | .ok v => return v
 
 /--
