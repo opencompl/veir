@@ -57,7 +57,8 @@
   // `reg <-> i32` round-trip truncates rather than being the identity, so the reconciliation
   // patterns do *not* simply erase it: the `function_type` becomes `(!riscv.reg) -> !riscv.reg`
   // while the residual `reg -> i32 -> reg` truncation on both the argument and the return
-  // operand is reconciled into an explicit `zextw`.
+  // operand is reconciled into an explicit `zextw`. The calling convention returns an `i32`
+  // sign-extended, so the returned value is then extended with `sextw`.
     "func.func"() <{sym_name = "i32fn", function_type = (i32) -> i32}> ({
     ^bb(%a: i32):
       %r = "builtin.unrealized_conversion_cast"(%a) : (i32) -> !riscv.reg
@@ -67,7 +68,8 @@
       // CHECK:      func.func @i32fn(%[[IARG:.*]]: !riscv.reg) -> !riscv.reg {
       // CHECK-NEXT:   [[IZ:%.*]] = "riscv.zextw"(%[[IARG]]) : (!riscv.reg) -> !riscv.reg
       // CHECK-NEXT:   [[IS:%.*]] = "riscv.addi"([[IZ]]) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
-      // CHECK-NEXT:   [[IRET:%.*]] = "riscv.zextw"([[IS]]) : (!riscv.reg) -> !riscv.reg
+      // CHECK-NEXT:   [[IZRET:%.*]] = "riscv.zextw"([[IS]]) : (!riscv.reg) -> !riscv.reg
+      // CHECK-NEXT:   [[IRET:%.*]] = "riscv.sextw"([[IZRET]]) : (!riscv.reg) -> !riscv.reg
       // CHECK-NEXT:   "riscv_cf.ret"([[IRET]]) : (!riscv.reg) -> ()
     }) : () -> ()
 

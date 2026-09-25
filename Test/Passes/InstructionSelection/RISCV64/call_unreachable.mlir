@@ -19,15 +19,28 @@
       "func.return"(%r) : (i64) -> ()
   }) : () -> ()
 
-  "llvm.func"() <{sym_name = "refused", function_type = !llvm.func<void (i64, i32, !llvm.ptr, i128)>}> ({
-    ^bb0(%a : i64, %b : i32, %p : !llvm.ptr, %w : i128):
+  // Narrow arguments are extended as the calling convention requires: by their
+  // `signext` or `zeroext` attribute, and an `i32` with neither is sign-extended.
+  // A narrow result is only truncated.
+  "llvm.func"() <{sym_name = "narrow", function_type = !llvm.func<void (i32, i16, i8, i1)>}> ({
+    ^bb0(%w : i32, %h : i16, %b : i8, %c : i1):
+      "llvm.call"(%w) <{arg_attrs = [{llvm.noundef, llvm.signext}], callee = @g}> : (i32) -> ()
+      "llvm.call"(%w) <{callee = @g}> : (i32) -> ()
+      "llvm.call"(%w) <{arg_attrs = [{llvm.zeroext}], callee = @g}> : (i32) -> ()
+      "llvm.call"(%h, %b) <{arg_attrs = [{llvm.signext}, {llvm.signext}], callee = @g}> : (i16, i8) -> ()
+      "llvm.call"(%h, %b, %c) <{arg_attrs = [{llvm.zeroext}, {}, {llvm.zeroext}], callee = @g}> : (i16, i8, i1) -> ()
+      %r = "llvm.call"() <{callee = @g, res_attrs = [{llvm.signext}]}> : () -> i32
+      "llvm.return"() : () -> ()
+  }) : () -> ()
+
+  "llvm.func"() <{sym_name = "refused", function_type = !llvm.func<void (i64, i1, !llvm.ptr, i128)>}> ({
+    ^bb0(%a : i64, %c : i1, %p : !llvm.ptr, %w : i128):
       // Indirect.
       "llvm.call"(%p) : (!llvm.ptr) -> ()
       // Nine arguments; the ninth would go on the stack.
       "llvm.call"(%a, %a, %a, %a, %a, %a, %a, %a, %a) <{callee = @g}> : (i64, i64, i64, i64, i64, i64, i64, i64, i64) -> ()
-      // An `i32` argument must be sign-extended, and an `i32` result is.
-      "llvm.call"(%b) <{callee = @g}> : (i32) -> ()
-      %i = "llvm.call"() <{callee = @g}> : () -> i32
+      // Sign-extending an `i1` is not supported.
+      "llvm.call"(%c) <{arg_attrs = [{llvm.signext}], callee = @g}> : (i1) -> ()
       // An `i128` takes two registers.
       "llvm.call"(%w) <{callee = @g}> : (i128) -> ()
       // `byval` passes a copy of the pointee, not the pointer.
@@ -63,6 +76,29 @@
 // CHECK-NEXT:   [[KC:%[a-z0-9_]+]] = "riscv_cf.call"([[KR]]) <{"callee" = @g}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:   [[KB:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"([[KC]]) : (!riscv.reg) -> i64
 // CHECK-NEXT:   "func.return"([[KB]]) : (i64) -> ()
+
+// CHECK:      "sym_name" = "narrow"
+// CHECK-NEXT: ^{{.*}}([[W:%[a-z0-9_]+]] : i32, [[H:%[a-z0-9_]+]] : i16, [[B:%[a-z0-9_]+]] : i8, [[C:%[a-z0-9_]+]] : i1):
+// CHECK-NEXT:   [[W1:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"([[W]]) : (i32) -> !riscv.reg
+// CHECK-NEXT:   [[W1S:%[a-z0-9_]+]] = "riscv.sextw"([[W1]]) : (!riscv.reg) -> !riscv.reg
+// CHECK-NEXT:   "riscv_cf.call"([[W1S]]) <{"callee" = @g}> : (!riscv.reg) -> ()
+// CHECK-NEXT:   [[W2:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"([[W]]) : (i32) -> !riscv.reg
+// CHECK-NEXT:   [[W2S:%[a-z0-9_]+]] = "riscv.sextw"([[W2]]) : (!riscv.reg) -> !riscv.reg
+// CHECK-NEXT:   "riscv_cf.call"([[W2S]]) <{"callee" = @g}> : (!riscv.reg) -> ()
+// CHECK-NEXT:   [[W3:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"([[W]]) : (i32) -> !riscv.reg
+// CHECK-NEXT:   "riscv_cf.call"([[W3]]) <{"callee" = @g}> : (!riscv.reg) -> ()
+// CHECK-NEXT:   [[H1:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"([[H]]) : (i16) -> !riscv.reg
+// CHECK-NEXT:   [[B1:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"([[B]]) : (i8) -> !riscv.reg
+// CHECK-NEXT:   [[H1S:%[a-z0-9_]+]] = "riscv.sexth"([[H1]]) : (!riscv.reg) -> !riscv.reg
+// CHECK-NEXT:   [[B1S:%[a-z0-9_]+]] = "riscv.sextb"([[B1]]) : (!riscv.reg) -> !riscv.reg
+// CHECK-NEXT:   "riscv_cf.call"([[H1S]], [[B1S]]) <{"callee" = @g}> : (!riscv.reg, !riscv.reg) -> ()
+// CHECK-NEXT:   [[H2:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"([[H]]) : (i16) -> !riscv.reg
+// CHECK-NEXT:   [[B2:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"([[B]]) : (i8) -> !riscv.reg
+// CHECK-NEXT:   [[C2:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"([[C]]) : (i1) -> !riscv.reg
+// CHECK-NEXT:   "riscv_cf.call"([[H2]], [[B2]], [[C2]]) <{"callee" = @g}> : (!riscv.reg, !riscv.reg, !riscv.reg) -> ()
+// CHECK-NEXT:   [[RC:%[a-z0-9_]+]] = "riscv_cf.call"() <{"callee" = @g}> : () -> !riscv.reg
+// CHECK-NEXT:   "builtin.unrealized_conversion_cast"([[RC]]) : (!riscv.reg) -> i32
+// CHECK-NEXT:   "llvm.return"() : () -> ()
 
 // CHECK:      "sym_name" = "refused"
 // CHECK-NOT:  riscv_cf.call

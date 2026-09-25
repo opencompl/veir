@@ -2,6 +2,7 @@ module
 
 public import Veir.Pass
 import Veir.Passes.DCE.dce
+import Veir.Passes.InstructionSelection.Common
 
 namespace Veir
 
@@ -16,8 +17,9 @@ namespace Veir
   - `.modArithToInt legalizeWidth`: `!mod_arith.int<q : iN>`-typed boundaries become `i(legalizeWidth N)`
   - `.cirToStd`: `!cir.int<s|u, N>`- and `!cir.bool`-typed boundaries become `iN` and `i1`
 
-  Under `.riscvReg`, a return of nothing or of a single value that is a register
-  once coerced is also lowered to `riscv_cf.ret`.
+  Under `.riscvReg`, a returned integer is also extended as the calling convention
+  requires (see `extendForABI`), and a return of nothing or of a single value that
+  is a register once coerced is lowered to `riscv_cf.ret`.
 -/
 
 /-- Selects which boundary coercion the shared implementation applies. -/
@@ -61,7 +63,9 @@ def coerceFunction (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
   -- separate old binding left around to second-guess.
   let mut ctx := ctx
   let some entry := FunctionOpInterface.getEntryBlock? funcOp ctx.raw | return ctx
-  let returnCode := returnOpCodeFor (funcOp.getOpType! ctx.raw)
+  let funcType := funcOp.getOpType! ctx.raw
+  let returnCode := returnOpCodeFor funcType
+  let resAttrs := (Properties.toAttrDict funcType (funcOp.getProperties! ctx.raw funcType))["res_attrs".toUTF8]?
   -- Default the output types to the currently-declared ones, then flip coerced positions.
   -- This preserves uncoerced results and `llvm.func`'s `void` return.
   let mut outputs : Array Attribute := FunctionOpInterface.getResultTypes! funcOp ctx.raw
@@ -96,7 +100,13 @@ def coerceFunction (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
         let some (ctx', cast) := WfRewriter.createOp ctx
           Builtin.unrealized_conversion_cast #[newType] #[opVal] #[] #[] default
           (some (InsertPoint.before retOp)) sorry sorry sorry sorry | return ctx
-        ctx := WfRewriter.replaceOperand ctx' ⟨retOp, j⟩ (cast.getResult 0) sorry sorry
+        -- A register is returned in the form the calling convention passes it in.
+        let extended := match coercion with
+          | .riscvReg => extendForABI ctx' (cast.getResult 0) opType.val
+              (valueAttrs resAttrs j) (InsertPoint.before retOp)
+          | _ => some (ctx', cast.getResult 0)
+        let some (ctx', reg) := extended | throw "cannot extend a returned value"
+        ctx := WfRewriter.replaceOperand ctx' ⟨retOp, j⟩ reg sorry sorry
         -- The `j`-th operand maps to the `j`-th declared result: the verifier guarantees
         -- a return's operand count equals the function's declared result count.
         outputs := outputs.set! j newType.val
