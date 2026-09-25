@@ -7,7 +7,7 @@ import Veir.Interpreter.Lemmas
 import Veir.Interpreter.Refinement.Lemmas
 import Veir.Interpreter.Refinement.Monotonicity
 import all Veir.Interpreter.Basic
-import all Veir.Interpreter.Util
+import all Veir.Interpreter.VariableState
 import all Veir.Interpreter.Refinement.Basic
 import all Veir.IR.Basic
 import all Veir.Interfaces.FunctionInterfaces
