@@ -33,6 +33,9 @@ def MemoryObject.size (obj : MemoryObject) : Nat := obj.contents.size
 
 /--
   Memory state during interpretation.
+
+  Objects are disjoint, and each new one starts past every object already
+  present, which `alloc` maintains but nothing here enforces.
 -/
 @[ext]
 structure MemoryState where
