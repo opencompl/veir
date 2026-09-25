@@ -20,6 +20,7 @@ import UnitTest.Interp
 import UnitTest.FoldDecision
 import UnitTest.SideEffectInterfaces
 import UnitTest.RegionKindInterfaces
+import UnitTest.SymbolInterfaces
 import UnitTest.Puddle
 import UnitTest.BoundedBitblasting.BoundedBitblasting
 import UnitTest.DataFlowFramework.SparseConstantPropagation

@@ -43,10 +43,13 @@ def unknown : MemoryEffects :=
 
 end MemoryEffects
 
+/-- Information exposed by operations that define a symbol. -/
+structure SymbolOpInterface (Properties : Type) where
+  /-- Return the name of the symbol, or `none` for an optional symbol without a name. -/
+  getSymName : Properties → Option StringAttr
+
 /-- Information exposed by operations that behave like functions. -/
 structure FunctionOpInterface (Properties : Type) where
-  /-- Return the symbol name of the function. -/
-  getSymName : Properties → StringAttr
   /-- Return the type of the function. -/
   getFunctionType : Properties → FunctionType
   /-- Return the properties with the function type replaced. -/
@@ -96,10 +99,21 @@ class HasOpInfo (opCode: Type)
   -/
   propagatesPoison : opCode → Bool := fun _ => false
   /--
+  Information about operations that define a symbol.
+  -/
+  symbolInterface? : (op : opCode) → Option (SymbolOpInterface (propertiesOf op)) :=
+    fun _ => none
+  /--
   Information about operations that act like functions.
   -/
   functionInterface? : (op : opCode) → Option (FunctionOpInterface (propertiesOf op)) :=
     fun _ => none
+  /--
+  Operations that act like functions must define a symbol.
+  -/
+  functionInterface_requires_symbol :
+      ∀ op, (functionInterface? op).isSome → (symbolInterface? op).isSome := by
+    intro op; cases op <;> decide
   /--
   Return the kind of the indexed region inside an operation with this opcode.
   This mirrors MLIR's `RegionKindInterface` default: regions are SSACFG unless

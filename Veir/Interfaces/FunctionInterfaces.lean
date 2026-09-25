@@ -25,12 +25,6 @@ def OperationPtr.isFunctionLike (op : OperationPtr) (ctx : IRContext OpCode) : B
 
 namespace FunctionOpInterface
 
-/-- Returns the symbol name of the function. -/
-def getSymName? (funcOp : OperationPtr) (raw : IRContext OpCode) : Option StringAttr := do
-  let opType := funcOp.getOpType! raw
-  let interface ← HasOpInfo.functionInterface? opType
-  return interface.getSymName (funcOp.getProperties! raw opType)
-
 /-- Returns the type of the function. -/
 def getFunctionType? (funcOp : OperationPtr) (raw : IRContext OpCode) : Option FunctionType := do
   let opType := funcOp.getOpType! raw

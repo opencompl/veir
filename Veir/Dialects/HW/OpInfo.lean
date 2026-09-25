@@ -151,12 +151,18 @@ def HW.interpretOp' (opType : Veir.HW) (properties : propertiesOf opType)
       (.val (Veir.Data.HW.constant (BitVec.ofInt bw.bitwidth properties.value.value)).val)], none)
   | _ => none
 
+def HW.symbolInterface? (op : HW) : Option (SymbolOpInterface (HW.propertiesOf op)) :=
+  match op with
+  | .module => some { getSymName := fun props => some props.sym_name }
+  | _ => none
+
 instance : HasOpInfo HW where
   verifyLocalInvariants := HW.verifyLocalInvariants
   getEffects := HW.getEffects
   isConstantLike := HW.isConstantLike
   hasSSADominance := HW.hasSSADominance
   isTerminator := HW.isTerminator
+  symbolInterface? := HW.symbolInterface?
   isIsolatedFromAbove := HW.isIsolatedFromAbove
 
 end
