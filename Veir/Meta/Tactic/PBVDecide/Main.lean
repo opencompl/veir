@@ -3,16 +3,14 @@ module
 public meta import Lean
 public meta import Std
 public import Veir.Data.PBV
+public import Lean.Meta.Tactic.BVDecide.Main
+public meta import Veir.Meta.Tactic.PBVDecide.Config
 
-open Lean Elab Tactic Meta Simp Std
-namespace Veir.Data.PBV
+open Lean Elab Tactic Meta Simp Std Tactic.BVDecide
 
-/--
-Read-only configuration for the tactic.
--/
-meta structure PbvTranslateContext where
-  /-- The bound up to which we want to bitblast our widths. -/
-  bmcBound : Nat
+namespace Veir.Meta.Tactic.PBVDecide
+
+open Veir.Data.PBV
 
 meta def Expr.isNat (e : Expr) : Bool := e.isConstOf ``Nat
 
@@ -159,7 +157,7 @@ maximum of the bounds of its parts.
 The maximum over all widths and width props gives the blast width used for the
 whole goal.
 -/
-meta def Tm.getWidthUpperBound {k : TmKind} (tm : Tm k) (ctx : PbvTranslateContext) : Nat :=
+meta def Tm.getWidthUpperBound {k : TmKind} (tm : Tm k) (ctx : PbvDecideContext) : Nat :=
   match tm with
   | .widthLit val => val
   | .widthAtom _ => ctx.bmcBound
@@ -203,7 +201,7 @@ meta def WidthTms.getOrCreateTm (g : MVarId) (this : WidthTms) (wExpr : Expr)
 
 /-- Get the maximum width needed for blasting across all widths. -/
 meta def WidthTms.getWidthUpperBound (this : WidthTms)
-    (ctx : PbvTranslateContext) : Nat :=
+    (ctx : PbvDecideContext) : Nat :=
   this.terms.fold (fun val _e wTm =>
     val.max (wTm.term.getWidthUpperBound ctx)) ctx.bmcBound
 
@@ -503,7 +501,7 @@ meta def WidthProps.pushProp (this : WidthProps) (prop : Tm .prop) (expr : Expr)
     do throwError m!"Cannot insert prop {prop.toExpr this.env}: it doesn't match the type of the corresponding fvar: {← inferType expr}"
   return { this with props := this.props.insert prop.toName {term := prop, proof := expr} }
 
-meta def WidthProps.getWidthUpperBound (this : WidthProps) (ctx : PbvTranslateContext) : Nat :=
+meta def WidthProps.getWidthUpperBound (this : WidthProps) (ctx : PbvDecideContext) : Nat :=
   this.props.fold (fun val _e wTm =>
     val.max (wTm.term.getWidthUpperBound ctx)) ctx.bmcBound
 
@@ -636,25 +634,11 @@ meta def dropNatReferences (g : MVarId) (infos : WidthInfos) : MetaM MVarId := g
     let g ← g.clear info.widthMaskHypFvar
     return g
 
-/-- Helper to run grind on a given `MVarId`. Returns a `some MVarId`
-    if the goal couldn't be proven. -/
-meta def runGrind (g : MVarId) : MetaM (Option MVarId) := g.withContext do
-  let result ← Grind.main g <| ← Grind.mkDefaultParams {}
-  return result.failure?.map (·.mvarId)
-
-/-- Run `grind` on each `MVarId` in widthInfos. -/
-meta def runGrindOnSubgoals (g : MVarId) (infos : WidthInfos) : MetaM (List MVarId) := g.withContext do
-  let subgoals := List.reduceOption
-                    <| ← List.mapM (fun m => do
-                      let result ← runGrind m
-                      if let some _ := result then
-                        logWarning m!"`grind` could not prove the following : {← m.getType}\n{m}"
-                      return result)
-                    <| List.reduceOption
-                    <| infos.infos.values.map (·.hypWidthLeBoundMVarId)
-  return subgoals
-
-meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVarId)
+/--
+Translate the provided parametric `BitVec` goal into a concrete width goal using
+the provided context. Returns the modified goal and any generate side-goals.
+-/
+meta def pbvTranslate (g : MVarId) (ctx : PbvDecideContext) : MetaM (MVarId × List MVarId)
   := g.withContext do
   -- Construct the width environment
   let widthEnv ← createWidthEnv g
@@ -683,30 +667,62 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvTranslateContext) : MetaM (List MVa
   -- Drop references to `Nat` width variables
   let g ← dropNatReferences g widthInfos
   -- Run grind on subgoals
-  let subgoals ← runGrindOnSubgoals g widthInfos
-  -- Return modified goal and subgoals.
-  return g :: subgoals
+  let subgoals := widthInfos.infos.values.map (·.hypWidthLeBoundMVarId) |> .reduceOption
+  -- Return modified goal and generated subgoals.
+  return (g, subgoals)
 
 /--
-`pbv_decide` takes a `Nat` bound as input argument and uses it to translate a
-parametric bitvector formula into a concrete width formula.
-
-Widths built out of width variables, numeric literals and `+` are supported. So are the width
-relations `<`, `≤`, `>`, `≥` and `=`, and conjunctions (`∧`) of them, when they
-occur as hypotheses: each is translated into the corresponding relation on the
-width masks.
-
-The tactic generates multiple goals:
-1. The desired concrete width formula that can be decided using `bv_decide`.
-2. Multiple side-goals to prove that the width parameters are bounded by the
-computed blast width. These should be solvable by `grind`.
+Helper to run grind on a given `MVarId`. If `grind` could not prove the goal
+the original goal state is restored and returned.
 -/
-syntax (name := pbvDecide) "pbv_decide" (ppSpace colGt num) : tactic
+meta def runGrind (g : MVarId) : MetaM (Option MVarId) := g.withContext do
+  let s ← saveState
+  try
+    let result ← Grind.main g <| ← Grind.mkDefaultParams {}
+    if result.hasFailed then
+      s.restore
+      return some g
+    else
+      return none
+  catch _ =>
+    s.restore
+    return some g
 
-@[tactic pbvDecide]
-public meta def evalPbvDecide : Tactic := fun stx => do
-  match stx with
-  | `(tactic| pbv_decide $n:num) => do
-      let ctx : PbvTranslateContext := { bmcBound := n.getNat }
-      replaceMainGoal (← pbvTranslate (← getMainGoal) ctx)
-  | _ => throwUnsupportedSyntax
+/--
+Run `grind` on a list of `MVarId`s, warning if any were not discharged.
+-/
+meta def runGrindOnSubgoals (gs : List MVarId) : MetaM (List MVarId) := do
+  return List.reduceOption <| ← gs.mapM (fun m => do
+    let result ← runGrind m
+    if result.isSome then
+      logWarning m!"`grind` could not prove the following : {← m.getType}"
+    return result)
+
+/--
+Run `bv_decide` on a goal, throws with a pretty printed message if a
+counterexample was found.
+-/
+meta def closeWithBvDecide (goal : MVarId) : TacticM Unit :=
+  IO.FS.withTempFile fun _ lratFile => do
+    let ctx ← TacticContext.new lratFile {}
+    let params ← Grind.mkDefaultParams {}
+    discard <| Grind.GrindM.run (params := params) <| bvDecide (.mvarIdTarget goal) ctx
+
+/--
+Translate the goal from a parametric multi-width goal into a concrete width goal
+which can be decided using `bv_decide`. Discharge any generated goals based on
+the provided context.
+-/
+public meta def runPbvDecide (g : MVarId) (ctx : PbvDecideContext) : TacticM Unit := do
+  let (g, subgoals) ← pbvTranslate g ctx
+
+  let subgoals ← if ctx.config.grind then runGrindOnSubgoals subgoals else pure subgoals
+
+  if ctx.config.bv_decide then
+    closeWithBvDecide g
+    replaceMainGoal subgoals
+  else
+    replaceMainGoal <| g :: subgoals
+    return
+
+end Veir.Meta.Tactic.PBVDecide
