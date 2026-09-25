@@ -1,5 +1,5 @@
 // RUN: veir-opt %s -p=canonicalize | filecheck %s
-// RUN: veir-opt %s -p='canonicalize{fold=false}' | filecheck %s --check-prefix=NO-FOLD
+// RUN: veir-opt %s -p='canonicalize{sccp=false}' | filecheck %s --check-prefix=NO-SCCP
 
 "builtin.module"() ({
   // Propagate zero through a block argument, then fold a chain to a
@@ -7,16 +7,16 @@
   "func.func"() <{sym_name = "operand_folds", function_type = (i32) -> (i32, i1)}> ({
   ^entry(%x : i32):
     // CHECK: func.func @operand_folds(%[[X:.*]]: i32)
-    // NO-FOLD-LABEL: func.func @operand_folds
+    // NO-SCCP-LABEL: func.func @operand_folds
     %zero = "arith.constant"() <{value = 0 : i32}> : () -> i32
     "cf.br"(%zero) [^body] : (i32) -> ()
   ^body(%forwarded : i32):
     // CHECK: ^{{[0-9]+}}(%{{.*}} : i32):
     // CHECK-NEXT: %[[FALSE:.*]] = "arith.constant"() <{"value" = false}> : () -> i1
     // CHECK-NEXT: "func.return"(%[[X]], %[[FALSE]]) : (i32, i1) -> ()
-    // NO-FOLD: "arith.addi"
-    // NO-FOLD: "arith.addi"
-    // NO-FOLD: "arith.addui_extended"
+    // NO-SCCP: "arith.addi"
+    // NO-SCCP: "arith.addi"
+    // NO-SCCP: "arith.addui_extended"
     %a = "arith.addi"(%forwarded, %x) : (i32, i32) -> i32
     %b = "arith.addi"(%a, %forwarded) : (i32, i32) -> i32
     %sum, %overflow = "arith.addui_extended"(%b, %forwarded) : (i32, i32) -> (i32, i1)

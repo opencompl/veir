@@ -96,7 +96,7 @@ def CanonicalizePass.impl (options : PassOptions) (ctx : WfIRContext OpCode)
     ExceptT String IO (WfIRContext OpCode) := do
   let mut ctx := ctx
   let mut patterns : Array (RewritePattern OpCode) := #[]
-  if (options.get? "fold").getD true then
+  if (options.get? "sccp").getD true then
     let some propagated := propagateConstants ctx op
       | throw "Error while propagating constants"
     ctx := propagated
@@ -116,7 +116,7 @@ public def CanonicalizePass : Pass OpCode :=
   { name := "canonicalize"
     description := "Rewrite operations into a canonical form."
     options := .ofList [
-      ("fold",
+      ("sccp",
         { description := "Propagate constants, then fold operations to constants or operands."
           defaultValue := true }),
       ("mod-arith-constant",
