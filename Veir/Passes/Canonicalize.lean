@@ -2,6 +2,7 @@ module
 
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
+import Veir.Analysis.DataFlow.SparseConstantPropagationAnalysis
 import Veir.Interfaces.FoldInterfaces
 import Veir.Passes.Matching
 
@@ -10,9 +11,9 @@ namespace Veir
 /-!
   # Canonicalize pass
 
-  Rewrites operations into canonical forms, including folding operations,
-  moving constants to the right side of commutative operations, and reducing
-  modular constants to their canonical representatives.
+  Rewrites operations into canonical forms, including propagating constants,
+  folding operations, moving constants to the right side of commutative operations,
+  and reducing modular constants to their canonical representatives.
 -/
 
 def canonicalizeModArithConstant (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -54,11 +55,53 @@ def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPt
 
 /-! ## Pass implementation -/
 
+/-- Replace a used SSA value with the constant found by the analysis, if its
+    recorded dialect can materialize it. Existing constants need no replacement. -/
+private def replaceKnownConstant (rewriter : PatternRewriter OpCode)
+    (facts : DataFlowContext) (value : ValuePtr) (ip : InsertPoint) :
+    Option (PatternRewriter OpCode) := do
+  if (value.getFirstUse! rewriter.ctx.raw).isNone || value.isConstantLike rewriter.ctx.raw then
+    return rewriter
+  let some fact := facts.getFact? .sparseConstant (.ValuePtr value) | return rewriter
+  let .constant constant := fact.payload.latticeElement | return rewriter
+  let some opCode := fact.payload.metadata | return rewriter
+  let type := value.getType! rewriter.ctx.raw
+  let some ⟨constantOpCode, properties⟩ := opCode.materializeConstant constant type
+    | return rewriter
+  let (rewriter, constantOp) ← rewriter.createOp! constantOpCode #[type]
+    #[] #[] #[] properties (some ip)
+  return rewriter.replaceValue! value (constantOp.getResult 0)
+
+/-- Solve once on the original IR, then materialize the facts. Only values with
+    facts from the rooted analysis are rewritten. Leave dead producers for the
+    greedy folding driver, and never consult these facts after folding. -/
+private def propagateConstants (ctx : WfIRContext OpCode) (root : OperationPtr) :
+    Option (WfIRContext OpCode) := do
+  let facts ← fixpointSolve root #[SparseConstantPropagationAnalysis] ctx
+  let mut rewriter : PatternRewriter OpCode :=
+    { ctx, hasDoneAction := false, worklist := .empty }
+  -- Iterate the original context so newly inserted constants are not visited.
+  for op in ctx.raw.operations.keys do
+    if (op.get! ctx.raw).parent.isSome then
+      for result in op.getResults! ctx.raw do
+        rewriter ← replaceKnownConstant rewriter facts result (.before op)
+  for block in ctx.raw.blocks.keys do
+    for argument in block.getArguments! ctx.raw do
+      rewriter ← replaceKnownConstant rewriter facts argument
+        (InsertPoint.atStart! block rewriter.ctx.raw)
+  return rewriter.ctx
+
 def CanonicalizePass.impl (options : PassOptions) (ctx : WfIRContext OpCode)
     (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
+  let mut ctx := ctx
   let mut patterns : Array (RewritePattern OpCode) := #[]
   if (options.get? "fold").getD true then
+    let some propagated := propagateConstants ctx op
+      | throw "Error while propagating constants"
+    ctx := propagated
+    -- Fold every operation, including folds to nonconstant operands that the
+    -- constant lattice cannot represent. Do not rerun the analysis afterward.
     patterns := patterns.push foldOperation
   if (options.get? "mod-arith-constant").getD true then
     patterns := patterns.push canonicalizeModArithConstant
@@ -67,14 +110,14 @@ def CanonicalizePass.impl (options : PassOptions) (ctx : WfIRContext OpCode)
   let pattern := RewritePattern.GreedyRewritePattern patterns
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying canonicalization patterns"
-  | some ctx => pure ctx
+  | some result => pure result
 
 public def CanonicalizePass : Pass OpCode :=
   { name := "canonicalize"
     description := "Rewrite operations into a canonical form."
     options := .ofList [
       ("fold",
-        { description := "Fold operations with constant operands to constants."
+        { description := "Propagate constants, then fold operations to constants or operands."
           defaultValue := true }),
       ("mod-arith-constant",
         { description := "Reduce modular constants to their canonical representatives."
