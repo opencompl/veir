@@ -247,7 +247,7 @@ def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : propertiesOf op
   -- The interpreter has no notion of calls.
   | .call => none
   | .ret => return (#[], some (.return operands))
-  | .unreachable => .ub
+  | .unreachable => .ub none
 
 instance : HasOpInfo Riscv_Cf where
   verifyLocalInvariants := Riscv_Cf.verifyLocalInvariants
