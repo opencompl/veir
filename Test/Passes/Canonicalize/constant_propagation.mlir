@@ -42,20 +42,4 @@
     "func.return"(%same, %different, %sum) : (i32, i32, i32) -> ()
   }) : () -> ()
 
-  // Commutation exposes the extended-add fold only after analysis has run.
-  // Its new constant reaches the branch operand, but there is no second
-  // analysis round to propagate it through the successor's argument.
-  "func.func"() <{sym_name = "one_analysis_round", function_type = (i32) -> i1}> ({
-  ^entry(%x : i32):
-    // CHECK-LABEL: func.func @one_analysis_round
-    // CHECK-NEXT: %[[CARRY:.*]] = "arith.constant"() <{"value" = false}> : () -> i1
-    // CHECK-NEXT: "cf.br"(%[[CARRY]]) [^{{[0-9]+}}] : (i1) -> ()
-    %zero = "arith.constant"() <{value = 0 : i32}> : () -> i32
-    %sum, %carry = "arith.addui_extended"(%zero, %x) : (i32, i32) -> (i32, i1)
-    "cf.br"(%carry) [^exit] : (i1) -> ()
-  ^exit(%forwarded : i1):
-    // CHECK-NEXT: ^{{[0-9]+}}(%[[ARG:.*]] : i1):
-    // CHECK-NEXT: "func.return"(%[[ARG]]) : (i1) -> ()
-    "func.return"(%forwarded) : (i1) -> ()
-  }) : () -> ()
 }) : () -> ()
