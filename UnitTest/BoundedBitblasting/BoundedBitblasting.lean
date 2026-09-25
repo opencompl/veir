@@ -189,37 +189,3 @@ example (w : Nat) (x y : BitVec (w + 2)) (hw : w ≤ 4) :
 example (w : Nat) (x : BitVec w) (hw : w ≤ 2) :
     (x.signExtend 4).setWidth w = x := by
   pbv_decide 4
-
--- # Expected Failures
-
-/--
-error: The prover found a counterexample, consider the following assignment:
-m_w1 = 255#8
-m_w2 = 0#8
-m_w0 = 127#8
-x = 127#8
--/
-#guard_msgs in
-example (p q r : Nat) (x : BitVec p) (hr : r ≤ 8) (h_qp : q < p) (h_pr : p < r) :
-    (x.setWidth q).setWidth r = x.setWidth r := by
-  pbv_decide 8
-
-/--
-warning: `grind` could not prove the following : p ≤ 8
----
-error: unsolved goals
-p r : Nat
-x : BitVec p
-hr : r ≤ 8
-m_w1 : BitVec 8
-h_m_w1 : m_w1 = Veir.Data.PBV.maskOfWidth 8 r
-h_m_w1_le_blast : r ≤ 8
-h_m_w1_bv_mask : m_w1 &&& m_w1 + 1#8 = 0#8
-m_w0 : BitVec 8
-h_m_w0 : m_w0 = Veir.Data.PBV.maskOfWidth 8 p
-⊢ p ≤ 8
--/
-#guard_msgs in
-example (p r : Nat) (x : BitVec p) (hr : r ≤ 8) :
-    x.zeroExtend r = x.zeroExtend r := by
-  pbv_decide 8

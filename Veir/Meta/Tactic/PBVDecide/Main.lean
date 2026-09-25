@@ -211,6 +211,8 @@ Information about the width variable and associated hypotheses.
 structure WidthInfo where
   /-- The `Tm` corresponding to this width. -/
   widthTm : Tm .width
+  /-- The FVarId of the mask. -/
+  widthMaskFVar : FVarId
   /-- The FVarId of the pure-BV hypothesis that this width is a mask variable. -/
   widthMaskHypFvar : FVarId
   /-- The proof obligation that the width variable is less than or equal to
@@ -266,7 +268,7 @@ meta def introMaskWidth (g : MVarId) (widthTm : Tm .width) (infos : WidthInfos)
     -- Intros
     let name := widthTm.toName
     let maskName := Name.mkSimple s!"m_{name}"
-    let (#[_, maskHyp], g) ← g.withContext
+    let (#[mask, maskHyp], g) ← g.withContext
       <| g.introN 2 [maskName, Name.mkSimple s!"h_{maskName}"]
       | throwError m!"Failed to intro {``width_elim}"
     -- Introduce width bound on the variable.
@@ -285,6 +287,7 @@ meta def introMaskWidth (g : MVarId) (widthTm : Tm .width) (infos : WidthInfos)
 
     let info : WidthInfo := {
       widthTm := widthTm,
+      widthMaskFVar := mask,
       widthMaskHypFvar := maskHyp
       hypWidthLeBoundMVarId := some hypWidthLeBound.mvarId!,
       hypWidthLeBoundNote
@@ -312,6 +315,7 @@ meta def introMaskLit (g : MVarId) (widthLit : Tm .width) (infos : WidthInfos) :
 
   let info : WidthInfo := {
     widthTm := widthLit,
+    widthMaskFVar := mask,
     widthMaskHypFvar := maskHyp,
     hypWidthLeBoundNote := hypWidthLeBound,
     hypWidthLeBoundMVarId := none
@@ -362,6 +366,8 @@ meta structure BitVecInfo where
   bvVar : FVarId
   /-- The FVarId of the hypothesis encoding the mask constraint on the variable. -/
   bvHyp : FVarId
+  /-- The `Tm` corresponding to this BitVec's width. -/
+  bvWidthTm : Tm .width
 
 /--
 Store information for all translated `BitVec`s.
@@ -396,7 +402,7 @@ meta def introBitvecFVarUnchecked (widthInfos : WidthInfos) (g : MVarId)
     [name, Name.mkSimple s!"h_{name}_maskOfWidth_{widthTm.term.toName}"]
     | throwError m!"Expecting two intros from {g}"
 
-  return (g, bvInfos.push { bvVar, bvHyp })
+  return (g, bvInfos.push { bvVar, bvHyp, bvWidthTm := widthTm.term })
 
 /--
 A plan of the bitvector fvars to be reverted, and their corresponding widths.
@@ -638,7 +644,7 @@ meta def dropNatReferences (g : MVarId) (infos : WidthInfos) : MetaM MVarId := g
 Translate the provided parametric `BitVec` goal into a concrete width goal using
 the provided context. Returns the modified goal and any generate side-goals.
 -/
-meta def pbvTranslate (g : MVarId) (ctx : PbvDecideContext) : MetaM (MVarId × List MVarId)
+meta def pbvTranslate (g : MVarId) (ctx : PbvDecideContext) : MetaM (MVarId × List MVarId × WidthInfos × BitVecInfos)
   := g.withContext do
   -- Construct the width environment
   let widthEnv ← createWidthEnv g
@@ -668,8 +674,7 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvDecideContext) : MetaM (MVarId × L
   let g ← dropNatReferences g widthInfos
   -- Run grind on subgoals
   let subgoals := widthInfos.infos.values.map (·.hypWidthLeBoundMVarId) |> .reduceOption
-  -- Return modified goal and generated subgoals.
-  return (g, subgoals)
+  return (g, subgoals, widthInfos, bvInfos)
 
 /--
 Helper to run grind on a given `MVarId`. If `grind` could not prove the goal
@@ -698,15 +703,152 @@ meta def runGrindOnSubgoals (gs : List MVarId) : MetaM (List MVarId) := do
       logWarning m!"`grind` could not prove the following : {← m.getType}"
     return result)
 
+/-- Width counterexample to hold information to be displayed. -/
+meta structure WidthMaskCex where
+  /-- Original counterexample. -/
+  counterExample : Expr × BVExpr.PackedBitVec
+  /-- Width expression the mask encodes. -/
+  widthNatExpr : Expr
+  /-- User facing name of the mask. -/
+  name : Name
+
+/-- Value of the width, derived from the bitvector. -/
+meta def WidthMaskCex.widthVal (self : WidthMaskCex) : Nat :=
+  BitVec.cpop self.counterExample.snd.bv |> BitVec.toNat
+
+abbrev WidthMaskCexs := HashMap Name WidthMaskCex
+
+meta instance : ToMessageData WidthMaskCex where
+  toMessageData f := m!"{f.widthNatExpr} = {f.widthVal}  \t({f.name} = {f.counterExample.snd.bv})"
+
+/-- BitVec counterexample to hold information to be displayed. -/
+meta structure BitVecCex where
+  /-- Original counterexample. -/
+  counterExample : Expr × BVExpr.PackedBitVec
+  /-- Corresponding width counterexample. -/
+  widthCex : WidthMaskCex
+  /-- User facing variable name. -/
+  name : Name
+
+/-- Concrete value in terms of the concrete width. -/
+meta def BitVecCex.assignedVal (self : BitVecCex) : BitVec self.widthCex.widthVal :=
+  self.counterExample.snd.bv.setWidth self.widthCex.widthVal
+
+abbrev BitVecCexs := Array BitVecCex
+
+meta instance : ToMessageData BitVecCex where
+  toMessageData f := m!"{f.name} = {f.assignedVal}"
+
+/--
+Find masks in the counterexamples and convert them into `Nat` widths to display
+in the error message. Warn if any masks were not assigned a value.
+-/
+meta def getWidthCounterExamples (widthInfos : WidthInfos) (counterExample : CounterExample) : MetaM WidthMaskCexs := do
+  let mut widthValMap : HashMap Name WidthMaskCex := {}
+
+  for (name, winfo) in widthInfos.infos do
+    let originalNatWidth := winfo.widthTm.toExpr widthInfos.env
+    match counterExample.equations.find? (fun ((e, _) : Expr × BVExpr.PackedBitVec) => Id.run do
+          let some fvar := Expr.fvarId? e | return false
+          return fvar == winfo.widthMaskFVar
+        ) with
+    | some (eq, bv) => do
+      -- Check that the mask is a mask.
+      let isMask := bv.bv &&& (bv.bv + 1)
+      if isMask != 0#bv.w then
+        throwError m!"Generated counterexample for mask {winfo.name} ({originalNatWidth}) is not a mask. \
+                        {bv.bv}, {winfo.name} &&& {winfo.name} + 1 = {isMask} != 0."
+
+      let username ← counterExample.goal.withContext do eq.fvarId!.getUserName
+      widthValMap := widthValMap.insert name {
+          counterExample := (eq, bv),
+          widthNatExpr := originalNatWidth, name := username
+      }
+    | none =>
+      if let .widthLit _ := winfo.widthTm then
+        -- masks of width literals are assigned by definition
+        pure ()
+      else
+        logWarning m!"No assignment found in the counterexample for mask {name} of width {originalNatWidth}."
+
+  return widthValMap
+
+/--
+Find bitvecs in the counterexamples and convert them to their corresponding width.
+-/
+meta def getBitVecCounterExamples (bvInfos : BitVecInfos) (widthCexs: WidthMaskCexs)
+    (counterExample : CounterExample) : MetaM BitVecCexs := do
+  bvInfos.infos.mapM (fun bvinfo => counterExample.goal.withContext do
+    let name ← bvinfo.bvVar.getUserName
+    match counterExample.equations.find? (fun ((e, _) : Expr × BVExpr.PackedBitVec) =>
+      if let some fvar := e.fvarId? then
+        bvinfo.bvVar == fvar
+      else
+        false
+    ) with
+    | some (eq, bv) => do
+      let some widthCex := widthCexs[bvinfo.bvWidthTm.toName]?
+        | throwError m!"Width ({bvinfo.bvWidthTm.toName}) of BitVec {name} is missing from the generated counterexamples."
+
+      return {counterExample := (eq, bv), widthCex, name}
+    | none =>
+      throwError m!"No counterexample generated for BitVec {name}"
+  )
+
+/--
+Convert a bv_decide counterexample into a string, mapping concrete mask `BitVec`
+values to concrete width `Nat` values, and keeping track if any counterexamples
+belong to expressions which have been abstracted as opaque variables.
+-/
+meta def prettyPrintCounterExample (counterExample : CounterExample) (widthInfos : WidthInfos)
+    (bvInfos : BitVecInfos) : MetaM MessageData := do
+  let widthCexs ← getWidthCounterExamples widthInfos counterExample
+  let bitvecCexs ← getBitVecCounterExamples bvInfos widthCexs counterExample
+
+  let visitedExamples : HashSet Expr := widthCexs.fold (fun acc _ cex => acc.insert cex.counterExample.fst)
+                                     <| bitvecCexs.foldl (fun acc cex => acc.insert cex.counterExample.fst) {}
+
+  let opaqueVariables : Array MessageData ← counterExample.equations.filterMapM
+    (fun (eq, bv) => counterExample.goal.withContext do
+      if !visitedExamples.contains eq then
+        return m!"{eq} = {bv.bv}"
+      else
+        return none
+    )
+
+  let mut err := m!""
+  if opaqueVariables.isEmpty then
+    err := err ++ "`pbv_decide` found a counterexample, consider the following assignment:\n"
+  else
+    err := err ++ "`pbv_decide` found a potentially spurious counterexample.\n"
+    err := err ++ "  The following expressions were abstracted as opaque variables:\n"
+    err := opaqueVariables.foldl (init := err) (fun acc e => acc ++ m!"    - " ++ e ++ "\n")
+    err := err ++ "Consider the following assignment:\n"
+
+  -- Sort the counterexamples by name
+  let widthCexsA := widthCexs.toArray.map (·.snd) |>.qsort (fun a b => Name.lt a.name b.name)
+  let bitvecCexs := bitvecCexs.qsort (fun a b => Name.lt a.name b.name)
+
+  err := widthCexsA.foldl (init := err) (fun acc cex => acc ++ m!"  {cex}\n")
+  err := bitvecCexs.foldl (init := err) (fun acc cex => acc ++ m!"  {cex}\n")
+
+  return err
+
 /--
 Run `bv_decide` on a goal, throws with a pretty printed message if a
 counterexample was found.
 -/
-meta def closeWithBvDecide (goal : MVarId) : TacticM Unit :=
+meta def closeWithBvDecide (goal : MVarId) (widthInfos : WidthInfos) (bvInfos : BitVecInfos) : TacticM Unit :=
   IO.FS.withTempFile fun _ lratFile => do
     let ctx ← TacticContext.new lratFile {}
     let params ← Grind.mkDefaultParams {}
-    discard <| Grind.GrindM.run (params := params) <| bvDecide (.mvarIdTarget goal) ctx
+
+    match ← Grind.GrindM.run (params := params)
+            <| bvDecide' (.mvarIdTarget goal) ctx with
+    | .ok _ => return
+    | .error counterExample => counterExample.goal.withContext do
+        let error ← prettyPrintCounterExample counterExample widthInfos bvInfos
+        throwError (← addMessageContextFull error)
 
 /--
 Translate the goal from a parametric multi-width goal into a concrete width goal
@@ -714,12 +856,12 @@ which can be decided using `bv_decide`. Discharge any generated goals based on
 the provided context.
 -/
 public meta def runPbvDecide (g : MVarId) (ctx : PbvDecideContext) : TacticM Unit := do
-  let (g, subgoals) ← pbvTranslate g ctx
+  let (g, subgoals, widthInfos, bvInfos) ← pbvTranslate g ctx
 
   let subgoals ← if ctx.config.grind then runGrindOnSubgoals subgoals else pure subgoals
 
   if ctx.config.bv_decide then
-    closeWithBvDecide g
+    closeWithBvDecide g widthInfos bvInfos
     replaceMainGoal subgoals
   else
     replaceMainGoal <| g :: subgoals
