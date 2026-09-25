@@ -1,7 +1,7 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
-// RUN: MLIR_INVALID
+// RUN: %if mlir-min-24 %{ MLIR_INVALID %}
 
-// As in MLIR, an integer attribute's type must match the result type exactly.
+// As in MLIR 24, an integer attribute's type must match the result type exactly.
 
 "builtin.module"() ({
   "func.func"() <{function_type = () -> i8, sym_name = "f"}> ({

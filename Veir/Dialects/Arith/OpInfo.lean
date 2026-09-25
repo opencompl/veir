@@ -228,20 +228,11 @@ def Arith.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect Op
     pure ()
   | .constant => do
     op.checkIsNonNullIntegerType ctx opIn
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "Expected 0 operands"
-    else if _ : op.getNumResults ctx.raw opIn ≠ 1 then
-      throw "Expected 1 result"
-    else if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    else if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
-    else
-      let props : Arith.propertiesOf .constant :=
-        op.getProperties! ctx.raw Arith.constant
-      if props.value.type ≠ ((op.getResult 0).get ctx.raw).type.val then
-        throw "Expected result type to be equal to the constant's type"
-      op.verifyNormalizedIntegerAttr ctx opIn props.value
+    op.verifyPlainOpCounts ctx opIn 0 1
+    let props := op.getProperties! ctx.raw Arith.constant
+    if props.value.type ≠ ((op.getResult 0).get! ctx.raw).type.val then
+      throw "Expected result type to be equal to the constant's type"
+    op.verifyNormalizedIntegerAttr ctx opIn props.value
     pure ()
   | .extui | .extsi => do
     op.checkIsNonNullIntegerType ctx opIn

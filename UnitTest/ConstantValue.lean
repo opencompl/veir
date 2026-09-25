@@ -77,9 +77,9 @@ info: "ok"
 #guard_msgs in
 #eval! testHwConstant
 
-/-- The shared decoder agrees with LLVM's extension rules, including literals
-outside the attribute's range and results narrower than the attribute. -/
-private def testLlvmIntegerExtension : Bool := Id.run do
+/-- Normalized attributes preserve their bits when resized, using unsigned
+values for `i1` and signed values for wider types, even for out-of-range inputs. -/
+private def testIntegerAttrNormalization : Bool := Id.run do
   for attrWidth in [1, 2, 3, 8, 16, 32, 64, 65, 128] do
     for resultWidth in [1, 2, 8, 32, 64, 128] do
       for literal in ([-1, 0, 1, 2, 127, 128, 255, 256, 257,
@@ -88,10 +88,10 @@ private def testLlvmIntegerExtension : Bool := Id.run do
         let expected := if attrWidth = 1 then raw.zeroExtend resultWidth
           else raw.signExtend resultWidth
         let actual := BitVec.ofInt resultWidth
-          (decodeLLVMIntegerConstant (IntegerAttr.mk literal (IntegerType.mk attrWidth)))
+          (IntegerAttr.ofInt literal (IntegerType.mk attrWidth)).value
         if actual ≠ expected then return false
   return true
 
 /-- info: true -/
 #guard_msgs in
-#eval! testLlvmIntegerExtension
+#eval! testIntegerAttrNormalization

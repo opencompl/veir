@@ -500,7 +500,7 @@ theorem OperationPtr.Verified.arith_constant {op : OperationPtr} {opInBounds}
     ((op.getResult 0).get! ctx.raw).type =
       Attribute.asType (op.getProperties! ctx.raw Arith.constant).value.type (by grind) := by
   simp only [Verified, verifyLocalInvariants, HasOpInfo.verifyLocalInvariants,
-    OpCode.verifyLocalInvariants, Arith.verifyLocalInvariants,
+    OpCode.verifyLocalInvariants, Arith.verifyLocalInvariants, verifyPlainOpCounts,
     ← getOpType!_eq_getOpType, opType, ne_eq,
     bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure, dite_not,
     ite_not] at opVerify
