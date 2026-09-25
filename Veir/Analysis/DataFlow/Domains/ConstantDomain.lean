@@ -1,6 +1,5 @@
 module
 
-public import Veir.Data.LLVM.Int.Basic
 public import Veir.Analysis.DataFlow.Domains.AbstractDomain
 public import Veir.FoldDecision
 
@@ -15,24 +14,18 @@ Instantiation of `AbstractDomain` with a constant propagation lattice whose
 elements are `bottom`, a constant, or `top`.
 -/
 
-/-- Concrete integer values tracked by the constant domain. -/
-structure ConcreteConstant where
-  bitwidth : Nat
-  value : Data.LLVM.Int bitwidth
-deriving BEq, DecidableEq
-
 /-- Abstract values used by sparse constant propagation. -/
 inductive AbstractConstant where
   | top
   | bottom
-  | constant (value : ConcreteConstant)
+  | constant (value : RuntimeValue)
 deriving BEq, DecidableEq, TypeName
 
 instance : ToString AbstractConstant where
   toString
     | .top => "top"
     | .bottom => "bottom"
-    | .constant constant => s!"const({constant.value} : i{constant.bitwidth})"
+    | .constant value => s!"const({value})"
 
 namespace AbstractConstant
 
@@ -63,17 +56,12 @@ instance : BoundedOrder AbstractConstant where
   le_top := le_top
   bot_le := bot_le
 
-def ofRuntimeValue : RuntimeValue → AbstractConstant
-  | .int bitwidth value => .constant ⟨bitwidth, value⟩
-  | _ => ⊤
-
-def ofFoldDecision
-    (result : FoldDecision) (operands : Array AbstractConstant) : AbstractConstant :=
+def ofFoldDecision (result : FoldDecision) (operands : Array AbstractConstant) : AbstractConstant :=
   match result with
   | .useOperand index => operands[index]?.getD ⊤
-  | .useConstant value => .ofRuntimeValue value
+  | .useConstant value => .constant value
 
-@[expose] def γ (absVal : AbstractConstant) : Set ConcreteConstant :=
+@[expose] def γ (absVal : AbstractConstant) : Set RuntimeValue :=
   match absVal with
   | .top => fun _ => True
   | .bottom => fun _ => False
@@ -133,7 +121,7 @@ instance : JoinSemilattice AbstractConstant where
   le_join_right := le_join_right
   join_le := join_le
 
-instance : AbstractDomain AbstractConstant ConcreteConstant where
+instance : AbstractDomain AbstractConstant RuntimeValue where
   toJoinSemilattice := inferInstance
   toBoundedOrder := inferInstance
   γ := γ

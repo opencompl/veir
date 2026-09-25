@@ -6,6 +6,7 @@ import UnitTest.AttrParser
 import UnitTest.MlirParser
 import UnitTest.IR.Operation
 import UnitTest.Dialect
+import UnitTest.BuiltinProperties
 import UnitTest.Verifier
 import UnitTest.FP
 import UnitTest.Bitblasting.Bitblasting
@@ -15,6 +16,7 @@ import UnitTest.DataFlowFramework.EntryState
 import UnitTest.DataFlowFramework.ModArithRangeAnalysis
 import UnitTest.ConstantValue
 import UnitTest.Evaluate
+import UnitTest.Interp
 import UnitTest.FoldDecision
 import UnitTest.SideEffectInterfaces
 import UnitTest.RegionKindInterfaces

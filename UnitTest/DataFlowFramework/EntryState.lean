@@ -26,6 +26,7 @@ private instance : Join TestDomain where
 
 /-- Register `.test` as a sparse fact containing the test domain. -/
 private instance : SparseFactSpec .test TestDomain where
+  Metadata := Unit
   payloadEq := rfl
 
 /--

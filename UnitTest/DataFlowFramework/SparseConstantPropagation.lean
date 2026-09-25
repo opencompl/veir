@@ -5,15 +5,29 @@ import Veir.Analysis.DataFlow.SparseConstantPropagationAnalysis
 
 open Veir
 
-private def constInt (bitwidth : Nat) (value : Int) : AbstractConstant :=
-  .constant ⟨bitwidth, Data.LLVM.Int.constant bitwidth value⟩
+private def state
+    (latticeElement : AbstractConstant)
+    (opCode : Option OpCode := none) : SparsePayload AbstractConstant (Option OpCode) :=
+  { latticeElement, metadata := opCode }
 
-private def poisonInt (bitwidth : Nat) : AbstractConstant :=
-  .constant ⟨bitwidth, .poison⟩
+private def constInt (bitwidth : Nat) (value : Int)
+    (opCode : OpCode := .arith .constant) : SparsePayload AbstractConstant (Option OpCode) :=
+  state (.constant (.int bitwidth (Data.LLVM.Int.constant bitwidth value))) (some opCode)
+
+private def poisonInt (bitwidth : Nat)
+    (opCode : OpCode := .llvm .mlir__poison) : SparsePayload AbstractConstant (Option OpCode) :=
+  state (.constant (.int bitwidth .poison)) (some opCode)
+
+private def constReg (value : Int)
+    (opCode : OpCode := .riscv .li) : SparsePayload AbstractConstant (Option OpCode) :=
+  state (.constant (.reg ⟨BitVec.ofInt 64 value⟩)) (some opCode)
+
+private def unknown : SparsePayload AbstractConstant (Option OpCode) :=
+  state ⊤
 
 private def run
     (mlir : String)
-    (expected : Array (String × AbstractConstant)) : String :=
+    (expected : Array (String × SparsePayload AbstractConstant (Option OpCode))) : String :=
   runWithAnalyses mlir #[Veir.SparseConstantPropagationAnalysis]
   (fun top dfCtx parserState => Id.run do
       match recoverNames top parserState.ctx mlir with
@@ -66,9 +80,9 @@ private def testPoisonConstantFoldsWithUnknownOperand : String :=
   %poison = "llvm.mlir.poison"() : () -> i32
   %result = "arith.addi"(%unknown, %poison) : (i32, i32) -> i32
 }) : () -> ()"#
-    #[ ("unknown", ⊤)
+    #[ ("unknown", unknown)
      , ("poison", poisonInt 32)
-     , ("result", poisonInt 32)
+     , ("result", poisonInt 32 (.arith .addi))
      ]
 
 /--
@@ -76,6 +90,41 @@ info: "ok"
 -/
 #guard_msgs in
 #eval! testPoisonConstantFoldsWithUnknownOperand
+
+private def testRiscvRuntimeValueFolds : String :=
+  run
+    r#""builtin.module"() ({
+^bb0:
+  %unknown = "test.test"() : () -> !riscv.reg
+  %result = "riscv.andi"(%unknown) <{value = 0 : i64}> : (!riscv.reg) -> !riscv.reg
+}) : () -> ()"#
+    #[ ("unknown", unknown)
+     , ("result", constReg 0 (.riscv .andi))
+     ]
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testRiscvRuntimeValueFolds
+
+private def testFoldedConstantTracksFoldingDialect : String :=
+  run
+    r#""builtin.module"() ({
+^bb0:
+  %source = "llvm.mlir.constant"() <{value = 5 : i32}> : () -> i32
+  %zero = "arith.constant"() <{value = 0 : i32}> : () -> i32
+  %result = "arith.addi"(%source, %zero) : (i32, i32) -> i32
+}) : () -> ()"#
+    #[ ("source", constInt 32 5 (.llvm .mlir__constant))
+     , ("result", constInt 32 5 (.arith .addi))
+     ]
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testFoldedConstantTracksFoldingDialect
 
 private def testConstantsPropagateByArgumentPosition : String :=
   run
@@ -157,6 +206,25 @@ info: "ok"
 #guard_msgs in
 #eval! testSameConstantJoinsAcrossPredecessors
 
+private def testSameConstantFromDifferentDialectsKeepsOneDialect : String :=
+  run
+    r#""builtin.module"() ({
+^bb0:
+  %left = "arith.constant"() <{value = 42 : i32}> : () -> i32
+  "cf.br"(%left) [^bb2] : (i32) -> ()
+^bb1:
+  %right = "llvm.mlir.constant"() <{value = 42 : i32}> : () -> i32
+  "cf.br"(%right) [^bb2] : (i32) -> ()
+^bb2(%joined : i32):
+}) : () -> ()"#
+    #[("joined", constInt 32 42 (.llvm .mlir__constant))]
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testSameConstantFromDifferentDialectsKeepsOneDialect
+
 private def testDifferentConstantsJoinToTop : String :=
   run
     r#""builtin.module"() ({
@@ -168,7 +236,7 @@ private def testDifferentConstantsJoinToTop : String :=
   "cf.br"(%right) [^bb2] : (i32) -> ()
 ^bb2(%joined : i32):
 }) : () -> ()"#
-    #[("joined", ⊤)]
+    #[("joined", unknown)]
 
 /--
 info: "ok"
@@ -187,8 +255,8 @@ private def testConstantAndUnknownJoinToTop : String :=
   "cf.br"(%unknown) [^bb2] : (i32) -> ()
 ^bb2(%joined : i32):
 }) : () -> ()"#
-    #[ ("unknown", ⊤)
-     , ("joined", ⊤)
+    #[ ("unknown", unknown)
+     , ("joined", unknown)
      ]
 
 /--
@@ -204,8 +272,8 @@ private def testEntryArgumentPropagatesAsTop : String :=
   "cf.br"(%input) [^bb1] : (i32) -> ()
 ^bb1(%forwarded : i32):
 }) : () -> ()"#
-    #[ ("input", ⊤)
-     , ("forwarded", ⊤)
+    #[ ("input", unknown)
+     , ("forwarded", unknown)
      ]
 
 /--
@@ -247,8 +315,8 @@ private def testLateConflictPropagatesTopThroughSuccessorChain : String :=
   "cf.br"(%late) [^bb1] : (i32) -> ()
 ^bb3(%downstream : i32):
 }) : () -> ()"#
-    #[ ("joined", ⊤)
-     , ("downstream", ⊤)
+    #[ ("joined", unknown)
+     , ("downstream", unknown)
      ]
 
 /--

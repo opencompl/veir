@@ -2,6 +2,8 @@ module
 
 public import Veir.Rewriter.InsertPoint
 public import Veir.Dominance.Basic
+public import Veir.Dominance.Lemmas
+
 import all Veir.Dominance.Basic
 
 /-!

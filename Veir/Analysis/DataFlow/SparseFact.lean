@@ -12,25 +12,35 @@ Implement this class to register a custom type to be recognized as
 a sparse fact type by the dataflow framework.
 -/
 class SparseFactSpec (kind : FactKind) (Domain : outParam Type) where
-  payloadEq : FactPayload kind = SparsePayload Domain
+  Metadata : Type
+  [metadataInhabited : Inhabited Metadata]
+  metadataOfResult : OpCode → Domain → Metadata :=
+    fun _ _ => metadataInhabited.default
+  payloadEq : FactPayload kind = SparsePayload Domain Metadata
+
+instance SparseFactSpec.instInhabitedMetadata
+    {kind : FactKind} {Domain : Type} [spec : SparseFactSpec kind Domain] :
+    Inhabited spec.Metadata :=
+  spec.metadataInhabited
 
 namespace SparseFact
 
 variable {kind : FactKind} {Domain : Type}
-variable [SparseFactSpec kind Domain]
+variable [spec : SparseFactSpec kind Domain]
 
-def getPayload (fact : Fact kind) : SparsePayload Domain :=
+def getPayload (fact : Fact kind) : SparsePayload Domain spec.Metadata :=
   cast SparseFactSpec.payloadEq fact.payload
 
-def setPayload (fact : Fact kind) (payload : SparsePayload Domain) : Fact kind :=
+def setPayload (fact : Fact kind) (payload : SparsePayload Domain spec.Metadata) :
+    Fact kind :=
   { fact with payload := cast (Eq.symm SparseFactSpec.payloadEq) payload }
 
 def latticeElement (fact : Fact kind) : Domain :=
   (getPayload fact).latticeElement
 
-def setLatticeElement (fact : Fact kind) (latticeElement : Domain) : Fact kind :=
-  let payload := getPayload fact
-  setPayload fact { payload with latticeElement := latticeElement }
+def mkPayload (latticeElement : Domain) (metadata : spec.Metadata := default) :
+    SparsePayload Domain spec.Metadata :=
+  { latticeElement, metadata }
 
 /--
 Propagate a sparse lattice update by revisiting dependents and all users of the
@@ -60,7 +70,7 @@ variable [Bot Domain]
 
 /-- Default sparse lattice fact for the given anchor. -/
 def mkDefault : Fact kind :=
-  { payload := cast (Eq.symm SparseFactSpec.payloadEq) { latticeElement := ⊥ } }
+  { payload := cast (Eq.symm SparseFactSpec.payloadEq) (mkPayload (kind := kind) ⊥) }
 
 instance : FactSpec kind where
   mkDefault := SparseFact.mkDefault (kind := kind)

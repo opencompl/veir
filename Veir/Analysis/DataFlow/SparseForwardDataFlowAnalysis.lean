@@ -39,20 +39,27 @@ element into the stored state for an SSA value.
 -/
 def joinAndPropagate
     (kind : FactKind)
-    [SparseFactSpec kind Domain]
+    [spec : SparseFactSpec kind Domain]
     (target : ValuePtr)
-    (incoming : Domain)
+    (incoming : SparsePayload Domain spec.Metadata)
     (dfCtx : DataFlowContext)
     (irCtx : WfIRContext OpCode) : DataFlowContext := Id.run do
   -- Bottom is implicit in the product lattice, so there is no fact to update.
-  if incoming = ⊥ then
+  if incoming.latticeElement = ⊥ then
     return dfCtx
-  let oldValue := SparseFact.getElement kind target dfCtx
-  let newValue := oldValue ⊔ incoming
-  if newValue = oldValue then
+  let oldState :=
+    match dfCtx.getFact? kind (.ValuePtr target) with
+    | some state => SparseFact.getPayload state
+    | none => SparseFact.mkPayload ⊥
+  let newValue := oldState.latticeElement ⊔ incoming.latticeElement
+  if newValue = oldState.latticeElement then
     return dfCtx
+  let newMetadata :=
+    if newValue = incoming.latticeElement then incoming.metadata
+    else default
+  let newState := SparseFact.mkPayload newValue newMetadata
   dfCtx.modifyFactAndPropagate kind (.ValuePtr target)
-    (SparseFact.setLatticeElement · newValue, true) irCtx
+    (SparseFact.setPayload · newState, true) irCtx
 
 /--
 Conservatively treat blocks as live when dead code analysis is
@@ -141,7 +148,8 @@ private def visitBlock
     -- for entry blocks.
     let mut dfCtx := dfCtx
     for argument in block.getArguments! irCtx.raw do
-      dfCtx := joinAndPropagate kind argument (entryState argument irCtx) dfCtx irCtx
+      let incoming := SparseFact.mkPayload (entryState argument irCtx)
+      dfCtx := joinAndPropagate kind argument incoming dfCtx irCtx
     return dfCtx
 
   let mut dfCtx := dfCtx
@@ -168,13 +176,15 @@ private def visitBlock
     -- Check if we can reason about the dataflow from the predecessor.
     if !(predecessorOp.getOpType! irCtx.raw).isTerminator then
       for target in block.getArguments! irCtx.raw do
-        dfCtx := joinAndPropagate kind target (entryState target irCtx) dfCtx irCtx
+        let incoming := SparseFact.mkPayload (entryState target irCtx)
+        dfCtx := joinAndPropagate kind target incoming dfCtx irCtx
       return dfCtx
 
     let some successorOperands :=
         BranchOpInterface.getSuccessorOperands? predecessorOp predUse.index irCtx.raw
       | for target in block.getArguments! irCtx.raw do
-          dfCtx := joinAndPropagate kind target (entryState target irCtx) dfCtx irCtx
+          let incoming := SparseFact.mkPayload (entryState target irCtx)
+          dfCtx := joinAndPropagate kind target incoming dfCtx irCtx
         return dfCtx
 
     for i in [0:block.getNumArguments! irCtx.raw] do
@@ -190,11 +200,14 @@ private def visitBlock
 
         -- Call transfer function
         let incoming :=
-          SparseFact.getElement kind operand dfCtx
+          match dfCtx.getFact? kind (.ValuePtr operand) with
+          | some state => SparseFact.getPayload state
+          | none => SparseFact.mkPayload ⊥
         dfCtx := joinAndPropagate kind arg incoming dfCtx irCtx
       | none =>
         -- Conservatively consider internally produced arguments to be at the entry state.
-        dfCtx := joinAndPropagate kind arg (entryState arg irCtx) dfCtx irCtx
+        let incoming := SparseFact.mkPayload (entryState arg irCtx)
+        dfCtx := joinAndPropagate kind arg incoming dfCtx irCtx
 
   return dfCtx
 
@@ -221,7 +234,7 @@ applies any returned result updates itself.
 -/
 partial def visitOperation
     (kind : FactKind)
-    [SparseFactSpec kind Domain]
+    [spec : SparseFactSpec kind Domain]
     (analysisKind : AnalysisKind)
     (transfer : TransferFn Domain)
     (op : OperationPtr)
@@ -249,8 +262,11 @@ partial def visitOperation
   let operandLatticeElements := (op.getOperands! irCtx.raw).map (fun operand =>
     SparseFact.getElement kind operand dfCtx)
   let resultUpdates := transfer op operandLatticeElements irCtx
+  let opType := op.getOpType! irCtx.raw
 
-  for (result, incoming) in (op.getResults! irCtx.raw).zip resultUpdates do
+  for (result, latticeElement) in (op.getResults! irCtx.raw).zip resultUpdates do
+    let incoming := SparseFact.mkPayload latticeElement
+      (SparseFactSpec.metadataOfResult opType latticeElement)
     dfCtx := joinAndPropagate kind result incoming dfCtx irCtx
   return dfCtx
 
@@ -310,7 +326,8 @@ private def init
   for regionPtr in (top.get! irCtx.raw).regions do
     if let some firstBlock := (regionPtr.get! irCtx.raw).firstBlock then
       for argument in firstBlock.getArguments! irCtx.raw do
-        dfCtx := joinAndPropagate kind argument (entryState argument irCtx) dfCtx irCtx
+        let incoming := SparseFact.mkPayload (entryState argument irCtx)
+        dfCtx := joinAndPropagate kind argument incoming dfCtx irCtx
   initializeRecursively kind analysisKind entryState transfer top dfCtx irCtx
 
 /--

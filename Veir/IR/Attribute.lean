@@ -886,7 +886,10 @@ instance : ToString DlSpecAttr where
   toString attr := s!"#dlti.dl_spec<{attr.value}>"
 
 instance : ToString IntegerAttr where
-  toString attr := s!"{attr.value} : {attr.type}"
+  toString attr :=
+    if attr.type.bitwidth = 1 then
+      if attr.value % 2 = 0 then "false" else "true"
+    else s!"{attr.value} : {attr.type}"
 
 instance : ToString FloatAttr where
   toString attr :=

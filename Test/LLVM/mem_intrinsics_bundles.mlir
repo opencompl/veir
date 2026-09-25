@@ -15,6 +15,6 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: "llvm.intr.memcpy"({{.*}}) <{"isVolatile" = 0 : i1}> : (!llvm.ptr, !llvm.ptr, i64) -> ()
-// CHECK: "llvm.intr.memmove"({{.*}}) <{"isVolatile" = 0 : i1}> : (!llvm.ptr, !llvm.ptr, i64) -> ()
-// CHECK: "llvm.intr.memcpy"({{.*}}) <{"isVolatile" = 0 : i1}> : (!llvm.ptr, !llvm.ptr, i64) -> ()
+// CHECK: "llvm.intr.memcpy"({{.*}}) <{"isVolatile" = false}> : (!llvm.ptr, !llvm.ptr, i64) -> ()
+// CHECK: "llvm.intr.memmove"({{.*}}) <{"isVolatile" = false}> : (!llvm.ptr, !llvm.ptr, i64) -> ()
+// CHECK: "llvm.intr.memcpy"({{.*}}) <{"isVolatile" = false}> : (!llvm.ptr, !llvm.ptr, i64) -> ()
