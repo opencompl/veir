@@ -19,7 +19,8 @@ public section
   Three structural translations happen here:
   * VeIR block arguments become MIR `PHI`s at join blocks (or a `COPY` when a
     block has a single predecessor).
-  * `builtin.unrealized_conversion_cast` (reg ↔ i64/i1) becomes a `COPY`.
+  * `builtin.unrealized_conversion_cast` becomes a `COPY`, except that
+    i1/i8/i16/i32-to-register casts zero-extend the integer.
   * `riscv_stack.alloca` becomes a `stack` object, leaving the frame layout,
     prologue, epilogue and CFI to `llc` (see `Frame`).
   * `riscv_cf.call` becomes a `PseudoCALL` bracketed by the call-frame
@@ -342,7 +343,15 @@ def emitRegular (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr) : IO U
   match opType with
   | .builtin .unrealized_conversion_cast =>
     let operandAttr := (op.getOperandTypes! ctx)[0]?.map (·.val)
+    -- Narrow integer inputs may have sign-extended or unspecified upper bits,
+    -- particularly when they are function parameters. Int.toReg zero-extends.
     match operandAttr with
+    | some (Attribute.integerType { bitwidth := 1 }) =>
+      IO.println s!"    {res} = ANDI {v 0}, 1"
+    | some (Attribute.integerType { bitwidth := 8 }) =>
+      IO.println s!"    {res} = ANDI {v 0}, 255"
+    | some (Attribute.integerType { bitwidth := 16 }) =>
+      IO.println s!"    {res} = ZEXT_H_RV64 {v 0}"
     | some (Attribute.integerType { bitwidth := 32 }) =>
       IO.println s!"    {res} = PseudoZEXT_W {v 0}"
     | _ => IO.println s!"    {res} = COPY {v 0}"
