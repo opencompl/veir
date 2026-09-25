@@ -265,7 +265,7 @@ def Llvm.toAttrDict
     if props.nuw then
       val := val + 2
     if val > 0 then
-      let attr := IntegerAttr.mk (Int.ofNat val) (IntegerType.mk 32)
+      let attr := IntegerAttr.mk (Int.ofNat val) (IntegerType.signless 32)
       dict := dict.insert "overflowFlags".toUTF8 (Attribute.integerAttr attr)
     dict
   | .fadd | .fsub | .fmul | .fdiv | .frem | .fneg | .intr__fmuladd | .intr__fabs =>
@@ -274,11 +274,11 @@ def Llvm.toAttrDict
   | .fcmp => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
     dict := dict.insert "fastmathFlags".toUTF8 (Attribute.fastMathFlagsAttr props.fastmathFlags)
-    let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) (IntegerType.mk 64)
+    let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) (IntegerType.signless 64)
     dict := dict.insert "predicate".toUTF8 (Attribute.integerAttr value)
     dict
   | .icmp =>
-    let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) (IntegerType.mk 64)
+    let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) (IntegerType.signless 64)
     (Std.HashMap.emptyWithCapacity 1).insert
       "predicate".toUTF8 (Attribute.integerAttr value)
   | .br => Id.run do
@@ -298,7 +298,7 @@ def Llvm.toAttrDict
     dict
   | .intr__memset | .intr__memcpy | .intr__memmove => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 6
-    let volatileAttr := IntegerAttr.mk (if props.isVolatile then 1 else 0) (IntegerType.mk 1)
+    let volatileAttr := IntegerAttr.mk (if props.isVolatile then 1 else 0) (IntegerType.signless 1)
     dict := dict.insert "isVolatile".toUTF8 (.integerAttr volatileAttr)
     for (name, value) in [("arg_attrs", props.arg_attrs),
                           ("res_attrs", props.res_attrs),
@@ -333,12 +333,12 @@ def Llvm.toAttrDict
   | .zext | .uitofp => props.toAttrDict
   | .intr__ctlz | .intr__cttz =>
     let value := if props.is_zero_poison then 1 else 0
-    let attr := IntegerAttr.mk value (IntegerType.mk 1)
+    let attr := IntegerAttr.mk value (IntegerType.signless 1)
     (Std.HashMap.emptyWithCapacity 1).insert
       "is_zero_poison".toUTF8 (Attribute.integerAttr attr)
   | .intr__abs =>
     let value := if props.is_int_min_poison then 1 else 0
-    let attr := IntegerAttr.mk value (IntegerType.mk 1)
+    let attr := IntegerAttr.mk value (IntegerType.signless 1)
     (Std.HashMap.emptyWithCapacity 1).insert
       "is_int_min_poison".toUTF8 (Attribute.integerAttr attr)
   | .intr__assume => Id.run do
@@ -404,12 +404,12 @@ def Llvm.toAttrDict
   | .comdat_selector => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
     dict := dict.insert "comdat".toUTF8
-      (Attribute.integerAttr (IntegerAttr.mk (Int.ofNat props.comdat.toNat) (IntegerType.mk 64)))
+      (Attribute.integerAttr (IntegerAttr.mk (Int.ofNat props.comdat.toNat) (IntegerType.signless 64)))
     dict := dict.insert "sym_name".toUTF8 (.stringAttr props.sym_name)
     dict
   | .fence => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
-    let ordering := IntegerAttr.mk (Int.ofNat props.ordering.toNat) (IntegerType.mk 64)
+    let ordering := IntegerAttr.mk (Int.ofNat props.ordering.toNat) (IntegerType.signless 64)
     dict := dict.insert "ordering".toUTF8 (Attribute.integerAttr ordering)
     if let some syncscope := props.syncscope then
       dict := dict.insert "syncscope".toUTF8 (.stringAttr syncscope)
@@ -754,7 +754,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     | .string stringAttr =>
       match resultType with
       | .llvmArrayType arrType =>
-        if arrType.type ≠ .integerType ⟨8⟩ then
+        if arrType.type ≠ .integerType (IntegerType.signless 8) then
           throw "llvm.mlir.constant: Expected array<N x i8> result type for a string constant"
         if stringAttr.value.size ≠ arrType.size then
           throw s!"llvm.mlir.constant: string length {stringAttr.value.size} does not match declared array size {arrType.size}"
@@ -1515,20 +1515,20 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let [val] := operands.toList | none
     let [⟨type, _⟩] := resultTypes.toList | none
     let result ← do match val, type with
-      | .int bw1 val', .integerType ⟨bw2⟩ =>
+      | .int bw1 val', .integerType ⟨bw2, _⟩ =>
           if bw1 ≠ bw2 then .fail else .ok (val)
       | .int bw1 val', .byteType ⟨bw2⟩ =>
           if bw1 ≠ bw2 then .fail else .ok ((.byte bw1 $ LLVM.Byte.fromInt val'))
       | .byte bw1 val', .byteType ⟨bw2⟩ =>
           if bw1 ≠ bw2 then .fail else .ok (val)
-      | .byte bw1 val', .integerType ⟨bw2⟩ =>
+      | .byte bw1 val', .integerType ⟨bw2, _⟩ =>
           if bw1 ≠ bw2 then .fail else .ok ((.int bw1 $ val'.toInt))
       | .byte bw val', .llvmPointerType _ =>
           if h : bw = 64 then .ok (.addr (mem.ptrFromInt (val'.cast h).toInt)) else .fail
       | .addr val', .llvmPointerType _ => .ok (val)
       | .addr val', .byteType ⟨bw⟩ =>
           if bw = 64 then .ok (.byte 64 (LLVM.Byte.fromInt (mem.intFromPtr val'))) else .fail
-      | .addr val', .integerType ⟨bw⟩ =>
+      | .addr val', .integerType ⟨bw, _⟩ =>
           if bw = 64 then .ok (.int 64 (mem.intFromPtr val')) else .fail
       | _, _ => none
     return (#[result], mem, none)

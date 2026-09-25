@@ -28,9 +28,9 @@ private theorem constant_iff (ty : IntegerType) (props : propertiesOf (.arith .c
     grind [h .empty]
   · grind
 
-private theorem addi_iff (w : Nat) (props : propertiesOf (.arith .addi : OpCode))
+private theorem addi_iff {signedness : IntegerType.Signedness} (w : Nat) (props : propertiesOf (.arith .addi : OpCode))
     (x y : LLVM.Int w) (v : RuntimeValue) :
-    InterpretsTo (.arith .addi) props #[IntegerType.mk w] #[.int w x, .int w y] #[v] ↔
+    InterpretsTo (.arith .addi) props #[IntegerType.mk w signedness] #[.int w x, .int w y] #[v] ↔
       v = .int w (LLVM.Int.add x y props.attr.nsw props.attr.nuw) := by
   simp only [InterpretsTo, RuntimeValue.ArrayConforms, List.size_toArray, List.length_cons,
     List.length_nil, Nat.zero_add, Nat.lt_one_iff, RuntimeValue.Conforms, List.getElem!_toArray,
@@ -43,9 +43,9 @@ private theorem addi_iff (w : Nat) (props : propertiesOf (.arith .addi : OpCode)
     grind [h .empty]
   · grind
 
-private theorem muli_iff (w : Nat) (props : propertiesOf (.arith .muli : OpCode))
+private theorem muli_iff {signedness : IntegerType.Signedness} (w : Nat) (props : propertiesOf (.arith .muli : OpCode))
     (x y : LLVM.Int w) (v : RuntimeValue) :
-    InterpretsTo (.arith .muli) props #[IntegerType.mk w] #[.int w x, .int w y] #[v] ↔
+    InterpretsTo (.arith .muli) props #[IntegerType.mk w signedness] #[.int w x, .int w y] #[v] ↔
       v = .int w (LLVM.Int.mul x y props.attr.nsw props.attr.nuw) := by
   simp [InterpretsTo, interpretOp', Arith.interpretOp',
     RuntimeValue.ArrayConforms, RuntimeValue.Conforms]
@@ -137,7 +137,7 @@ private def nativeMatch : Pattern OpCode :=
       let cst ← MatchProg.operation (.arith .constant) #[] #[returnType]
       MatchProg.matchNative (returnType, cst.properties)
         (fun (type, properties) =>
-          type = IntegerType.mk 32 && properties.value.value = 0)
+          type = (IntegerType.signless 32) && properties.value.value = 0)
       let _ ← MatchProg.root (.arith .addi) #[x, cst.res[0]!] #[returnType]
       return x)
     pure
@@ -174,7 +174,7 @@ theorem nativeMatch_valid : Pattern.Valid nativeMatch := by
   intro addProp val hinterpAddi
   obtain rfl := (addi_iff _ _ _ _ _).mp hinterpAddi
   intro _
-  obtain rfl : w = 32 := by grind
+  obtain rfl : w = 32 := by grind [IntegerType.signless]
   intro cstPropZero
   grind [add_zero_refines]
 

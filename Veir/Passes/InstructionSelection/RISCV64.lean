@@ -31,7 +31,7 @@ def isLegalExtOpWidth (w : Nat) : Bool :=
 -/
 def getIntByteTypeBitwidth (t : TypeAttr) : Option Nat :=
   match t.val with
-  | .integerType ⟨bw⟩ => some bw
+  | .integerType ⟨bw, _⟩ => some bw
   | .byteType ⟨bw⟩ => some bw
   | _ => none
 
