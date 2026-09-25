@@ -53,14 +53,14 @@ instance : MonadLift Option Interp where
 -/
 
 instance : Lean.Order.PartialOrder (Interp α) :=
-  inferInstanceAs (Lean.Order.PartialOrder (Lean.Order.FlatOrder (.ub : Interp α)))
+  inferInstanceAs (Lean.Order.PartialOrder (Lean.Order.FlatOrder (.ub none : Interp α)))
 
 instance : Lean.Order.CCPO (Interp α) :=
-  inferInstanceAs (Lean.Order.CCPO (Lean.Order.FlatOrder (.ub : Interp α)))
+  inferInstanceAs (Lean.Order.CCPO (Lean.Order.FlatOrder (.ub none : Interp α)))
 
-/-- `ub` is below every outcome, and the other outcomes are only below themselves. -/
+/-- `ub none` is below every outcome, and the other outcomes are only below themselves. -/
 theorem Interp.rel_iff {x y : Interp α} :
-    Lean.Order.PartialOrder.rel x y ↔ x = .ub ∨ x = y := by
+    Lean.Order.PartialOrder.rel x y ↔ x = .ub none ∨ x = y := by
   constructor
   · intro h
     cases h
@@ -75,18 +75,18 @@ theorem Interp.rel_iff {x y : Interp α} :
   element. This is what lets a `partial_fixpoint` induction discharge the
   case of a run that never terminates.
 -/
-theorem Interp.admissible_of_ub {α : Type} (P : Interp α → Prop) (hub : P .ub) :
+theorem Interp.admissible_of_ub {α : Type} (P : Interp α → Prop) (hub : P (.ub none)) :
     Lean.Order.admissible P := by
   intro c hchain h
-  by_cases hex : ∃ x, c x ∧ x ≠ .ub
+  by_cases hex : ∃ x, c x ∧ x ≠ .ub none
   · obtain ⟨x, hcx, hne⟩ := hex
     rcases Interp.rel_iff.mp (Lean.Order.le_csup hchain hcx) with rfl | rfl
     · exact absurd rfl hne
     · exact h _ hcx
-  · have hbelow : Lean.Order.PartialOrder.rel (Lean.Order.CCPO.csup hchain) (.ub : Interp α) := by
+  · have hbelow : Lean.Order.PartialOrder.rel (Lean.Order.CCPO.csup hchain) (.ub none : Interp α) := by
       apply Lean.Order.csup_le hchain
       intro y hy
-      have : y = .ub := Classical.byContradiction fun hne => hex ⟨y, hy, hne⟩
+      have : y = .ub none := Classical.byContradiction fun hne => hex ⟨y, hy, hne⟩
       exact this ▸ Lean.Order.PartialOrder.rel_refl
     rcases Interp.rel_iff.mp hbelow with heq | heq <;> exact heq ▸ hub
 
