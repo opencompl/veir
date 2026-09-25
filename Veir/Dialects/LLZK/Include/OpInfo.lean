@@ -69,10 +69,15 @@ def LLZK.Include.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
         throw "include.from: Expected the parent operation to be a builtin.module"
     | none => throw "include.from: Expected the parent operation to be a builtin.module"
 
+def LLZK.Include.symbolInterface? (op : LLZK.Include) : Option (SymbolOpInterface (LLZK.Include.propertiesOf op)) :=
+  match op with
+  | .from => some { getSymName := fun props => some props.sym_name }
+
 instance : HasOpInfo LLZK.Include where
   verifyLocalInvariants := LLZK.Include.verifyLocalInvariants
   getEffects := LLZK.Include.getEffects
   isConstantLike := LLZK.Include.isConstantLike
+  symbolInterface? := LLZK.Include.symbolInterface?
   hasSSADominance := LLZK.Include.hasSSADominance
 
 end

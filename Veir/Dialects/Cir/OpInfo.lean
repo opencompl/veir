@@ -116,12 +116,16 @@ instance : IsOpCode Cir where
   fromAttrDict := Cir.fromAttrDict
   toAttrDict := Cir.toAttrDict
 
+def Cir.symbolInterface? (op : Cir) : Option (SymbolOpInterface (Cir.propertiesOf op)) :=
+  match op with
+  | .func => some { getSymName := fun props => some props.sym_name }
+  | _ => none
+
 def Cir.functionInterface? (op : Cir) : Option (FunctionOpInterface (Cir.propertiesOf op)) :=
   match op with
   | .func =>
     some
-      { getSymName := fun props => props.sym_name
-        getFunctionType := fun props => props.function_type.functionType
+      { getFunctionType := fun props => props.function_type.functionType
         setFunctionType := fun props functionType =>
           { props with function_type := { functionType } } }
   | _ => none
@@ -332,6 +336,7 @@ instance : HasOpInfo Cir where
   verifyLocalInvariants := Cir.verifyLocalInvariants
   getEffects := Cir.getEffects
   isConstantLike := Cir.isConstantLike
+  symbolInterface? := Cir.symbolInterface?
   functionInterface? := Cir.functionInterface?
   hasSSADominance := Cir.hasSSADominance
   isTerminator := Cir.isTerminator

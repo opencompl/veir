@@ -379,6 +379,33 @@ instance : IsOpCode OpCode where
   fromAttrDict := Properties.fromAttrDict
   toAttrDict := Properties.toAttrDict
 
+/-- Symbol-interface information assembled from the registered dialects. -/
+def OpCode.symbolInterface? (opCode : OpCode) : Option (SymbolOpInterface (_propertiesOf opCode)) :=
+  match opCode with
+  | .arith op => HasOpInfo.symbolInterface? op
+  | .llvm op => HasOpInfo.symbolInterface? op
+  | .riscv op => HasOpInfo.symbolInterface? op
+  | .riscv_cf op => HasOpInfo.symbolInterface? op
+  | .riscv_stack op => HasOpInfo.symbolInterface? op
+  | .rv64 op => HasOpInfo.symbolInterface? op
+  | .mod_arith op => HasOpInfo.symbolInterface? op
+  | .cf op => HasOpInfo.symbolInterface? op
+  | .comb op => HasOpInfo.symbolInterface? op
+  | .hw op => HasOpInfo.symbolInterface? op
+  | .verif op => HasOpInfo.symbolInterface? op
+  | .builtin op => HasOpInfo.symbolInterface? op
+  | .func op => HasOpInfo.symbolInterface? op
+  | .datapath op => HasOpInfo.symbolInterface? op
+  | .pdl op => HasOpInfo.symbolInterface? op
+  | .io op => HasOpInfo.symbolInterface? op
+  | .gmir op => HasOpInfo.symbolInterface? op
+  | .test op => HasOpInfo.symbolInterface? op
+  | .felt op => HasOpInfo.symbolInterface? op
+  | .cir op => HasOpInfo.symbolInterface? op
+  | .include op => HasOpInfo.symbolInterface? op
+  | .function op => HasOpInfo.symbolInterface? op
+  | .seq op => HasOpInfo.symbolInterface? op
+
 /-- Function-interface information assembled from the registered dialects. -/
 def OpCode.functionInterface? (opCode : OpCode) : Option (FunctionOpInterface (_propertiesOf opCode)) :=
   match opCode with
@@ -405,6 +432,10 @@ def OpCode.functionInterface? (opCode : OpCode) : Option (FunctionOpInterface (_
   | .include op => HasOpInfo.functionInterface? op
   | .function op => HasOpInfo.functionInterface? op
   | .seq op => HasOpInfo.functionInterface? op
+
+theorem OpCode.functionInterface_requires_symbol (opCode : OpCode) :
+    (OpCode.functionInterface? opCode).isSome → (OpCode.symbolInterface? opCode).isSome := by
+  cases opCode <;> exact HasOpInfo.functionInterface_requires_symbol _
 
 #generate_has_dialect_instances OpCode
 
@@ -442,7 +473,9 @@ instance : HasOpInfo OpCode where
   getEffects := OpCode.getEffects
   isConstantLike := OpCode.isConstantLike
   propagatesPoison := OpCode.propagatesPoison
+  symbolInterface? := OpCode.symbolInterface?
   functionInterface? := OpCode.functionInterface?
+  functionInterface_requires_symbol := OpCode.functionInterface_requires_symbol
   getRegionKind := OpCode.getRegionKind
   hasSSADominance := OpCode.hasSSADominance
   hasNoTerminator := OpCode.hasNoTerminator

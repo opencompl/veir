@@ -95,13 +95,17 @@ instance : IsOpCode LLZK.Function where
   fromAttrDict := LLZK.Function.fromAttrDict
   toAttrDict := LLZK.Function.toAttrDict
 
+def LLZK.Function.symbolInterface? (op : LLZK.Function) : Option (SymbolOpInterface (LLZK.Function.propertiesOf op)) :=
+  match op with
+  | .«def» => some { getSymName := fun props => some props.sym_name }
+  | _ => none
+
 def LLZK.Function.functionInterface? (op : LLZK.Function) :
     Option (FunctionOpInterface (LLZK.Function.propertiesOf op)) :=
   match op with
   | .«def» =>
     some
-      { getSymName := fun props => props.sym_name
-        getFunctionType := fun props => props.function_type
+      { getFunctionType := fun props => props.function_type
         setFunctionType := fun props functionType =>
           { props with function_type := functionType } }
   | .return | .call => none
@@ -268,6 +272,7 @@ instance : HasOpInfo LLZK.Function where
   verifyLocalInvariants := LLZK.Function.verifyLocalInvariants
   getEffects := LLZK.Function.getEffects
   isConstantLike := LLZK.Function.isConstantLike
+  symbolInterface? := LLZK.Function.symbolInterface?
   functionInterface? := LLZK.Function.functionInterface?
   hasSSADominance := LLZK.Function.hasSSADominance
   isTerminator := LLZK.Function.isTerminator

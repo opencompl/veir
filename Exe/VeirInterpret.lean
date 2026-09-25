@@ -1,6 +1,7 @@
 import Veir.Parser.MlirParser
 import Veir.Verifier
 import Veir.Interpreter.Basic
+import Veir.Interfaces.SymbolInterfaces
 import Veir.Input
 import Veir.Panic
 
@@ -19,7 +20,7 @@ open Veir
 
 /-- Returns true if `op` is a viable zero-argument `@main` function. -/
 private def isZeroArgMainFunc (ctx : IRContext OpCode) (op : OperationPtr) : Bool :=
-  match FunctionOpInterface.getSymName? op ctx with
+  match SymbolOpInterface.getSymName? op ctx with
   | some symName =>
       String.fromUTF8! symName.value == "main" &&
         (FunctionOpInterface.getNumArguments? op ctx == some 0)
