@@ -5,7 +5,8 @@ public meta import Lean
 public import QPFTypes.Theory.QPF.Basic
 public import QPFTypes.Theory.QPF.Cofix
 public import QPFTypes.Theory.QPF.Fix
-
+public import QPFTypes.Theory.QPF.Prj
+public import QPFTypes.Theory.QPF.Sigma
 /-!
 # QPFExpr
 
@@ -66,9 +67,39 @@ public meta def mkCofix (e : QPFExpr u (n + 1)) : QPFExpr u n where
   typefun := mkApp3 (mkConst ``QPF.Cofix [u]) (toExpr n) e.typefun e.qpf
   qpf     := mkApp3 (mkConst ``QPF.qpfCofix [u]) (toExpr n) e.typefun e.qpf
 
--- TODO: composition, projection and sigma-types.
---       These are currently all blocked on the relevant QPF construction not
---       yet being ported from Mathlib.
+/--
+Create the `i`-th `n`-ary projection QPF, i.e., the `n`-ary type function
+`fun αs => αs i`, as an application of `QPF.Prj`.
+-/
+public meta def mkProj (u : Level) {n : Nat} (i : Fin n) : QPFExpr u n where
+  typefun := mkApp2 (mkConst ``QPF.Prj [u]) (toExpr n) (toExpr i)
+  qpf     := mkApp2 (mkConst ``QPF.Prj.qpf [u]) (toExpr n) (toExpr i)
+
+/--
+Create the dependent sum of a family of `n`-ary QPFs,
+i.e., an application of `QPF.Sigma`.
+
+The family is described by `A`, an expression of type `Type $u`, together with
+`family`, which is given a free variable `a : $A` and is expected to return the
+`n`-ary QPF `$F a`. Both components of the result are then lambdas abstracting
+over this variable, so that the sum ranges over all of `$A`.
+
+Note that the index type `$A` must live in the *same* universe `$u` as the
+QPFs in the family.
+-/
+public meta def mkSigma (u : Level) (n : Nat) (A : Expr /- : Type $u -/)
+    (family : Expr → MetaM (QPFExpr u n)) : MetaM (QPFExpr u n) :=
+  Meta.withLocalDeclD `a A fun a => do
+    let Fa ← family a
+    -- `fun (a : $A) => $(Fa.typefun) : $A → TypeFun.{$u} $n`
+    let Ftypefun ← Meta.mkLambdaFVars #[a] Fa.typefun
+    -- `fun (a : $A) => $(Fa.qpf) : (a : $A) → QPF.{$u, $u} $n ($Ftypefun a)`
+    let Fqpf ← Meta.mkLambdaFVars #[a] Fa.qpf
+    return {
+      typefun := mkApp3 (mkConst ``QPF.Sigma [u]) (toExpr n) A Ftypefun
+      qpf := mkApp4 (mkConst ``QPF.Sigma.qpf [u]) (toExpr n) A Ftypefun Fqpf
+    }
+
 -- /--
 -- Compose an `n`-ary QPF `F` with `n` `m`-ary QPFs `Gs`, i.e.,
 -- create an application of `QPF.Comp
