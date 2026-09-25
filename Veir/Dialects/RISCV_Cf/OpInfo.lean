@@ -2,6 +2,7 @@ module
 
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
+public import Veir.Dialects.RISCV.OpInfo
 public import Veir.Dialects.RISCV_Cf.Properties
 public import Veir.Verifier.Basic
 public import Veir.Interpreter.RuntimeValue.Basic
@@ -152,10 +153,12 @@ def Riscv_Cf.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "riscv_cf.call: Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "riscv_cf.call: Expected 0 successors"
+    op.verifyRISCVRegisterTypes ctx opIn
   | .ret => do
     op.verifyTerminatorCounts ctx opIn 0
     if op.getNumOperands ctx.raw opIn > 1 then
       throw "riscv_cf.ret: Expected at most 1 operand"
+    op.verifyRISCVRegisterTypes ctx opIn
   | .unreachable =>
     op.verifyPlainOpCounts ctx opIn 0 0
 
