@@ -343,9 +343,9 @@ meta def getOrCreateWidthMask (g : MVarId) (widthTm : Tm .width) (infos : WidthI
     let (g, wInfo, infos) ← getOrCreateWidthMask g w infos
     -- Intro the mask for this term
     let (g, thisInfo, infos) ← introMaskWidth g widthTm infos
-    -- Rewrite the mask of a sum of widths into a product of the masks (+ 1).
+    -- Rewrite the mask of a sum of widths in terms of the underlying masks.
     let (_hyp, g) ← g.withContext do
-      g.note (Name.mkSimple s!"bv_{widthTm.toName}") <| ← mkAppM ``add_eq_mul_of_maskOfWidth #[
+      g.note (Name.mkSimple s!"bv_{widthTm.toName}") <| ← mkAppM ``add_eq_shift_sum_of_maskOfWidth #[
         .fvar vInfo.hypWidthLeBoundNote,
         .fvar wInfo.hypWidthLeBoundNote,
         .fvar thisInfo.hypWidthLeBoundNote,

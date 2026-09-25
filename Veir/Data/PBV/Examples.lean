@@ -238,7 +238,7 @@ theorem trace_append (w : Nat) (a b : BitVec w) (hw : w ≤ 8) :
   intro b h_bmw
 -- Step 5: Convert width hypothesis to mask hypothesis.
   have mw_mask := and_add_one_eq_zero_of_maskOfWidth h_mw
-  have w_add_w_mask := add_eq_mul_of_maskOfWidth w_le_bw w_le_bw w_add_w_le_bw h_mw h_mw h_mw_add_w
+  have w_add_w_mask := add_eq_shift_sum_of_maskOfWidth w_le_bw w_le_bw w_add_w_le_bw h_mw h_mw h_mw_add_w
 -- Step 5B: Translate the width precondition `w ≤ 8` into `mw ≤ BitVec.ofNat 16 (2 ^ 8 - 1)`
   let lit8 : BitVec 16 := 255#16
   have h_lit8_mask : lit8 = maskOfWidth 16 8 := by rfl
