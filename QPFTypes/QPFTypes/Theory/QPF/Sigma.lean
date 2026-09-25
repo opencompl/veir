@@ -62,7 +62,7 @@ protected def repr ⦃α⦄ : Sigma F α → Sigma.P F α
     ⟨⟨a, x.1⟩, x.2⟩
 
 set_option backward.isDefEq.respectTransparency false in
-instance : QPF (Sigma F) where
+instance qpf : QPF (Sigma F) where
   P := Sigma.P F
   abs {α} := @Sigma.abs _ _ F _ α
   repr {α} := @Sigma.repr _ _ F _ α
