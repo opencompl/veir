@@ -30,7 +30,8 @@ def main (args : List String) : IO Unit := do
     IO.eprintln "  Reads the program from standard input if no filename is given."
     IO.Process.exit 2
   | .ok filename =>
-    match ← parseOperation filename (allowUnregisteredDialect := true) with
+    match ← parseSourceFile filename (allowUnregisteredDialect := true)
+        (verifyAfterParse := false) with
     | .ok (ctx, moduleOp) =>
       let rawCtx : IRContext OpCode := ctx
       let region := moduleOp.getRegion! rawCtx 0
@@ -43,5 +44,5 @@ def main (args : List String) : IO Unit := do
         IO.eprintln "Error: no function-like operation found in module"
         IO.Process.exit 1
     | .error errMsg =>
-      IO.eprintln s!"Error: {errMsg}"
+      IO.eprintln errMsg
       IO.Process.exit 1
