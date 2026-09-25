@@ -116,7 +116,8 @@ def memorySize (n : Nat) : Interp UInt64 :=
 
   If there is insufficient memory, yield an interpretation failure. An
   out-of-memory event does not trigger UB, but it means that we cannot
-  excecute this program.
+  excecute this program. A failing source is refined by anything and a
+  failing target refines nothing, so such a run is never really compared.
 -/
 def MemoryState.alloc (mem : MemoryState) (size : UInt64) : Interp (MemoryState × Pointer) :=
   let base := mem.nextBase
