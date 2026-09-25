@@ -1534,6 +1534,19 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     return (#[result], mem, none)
   | _ => none
 
+/-- LLVM integer AND evaluates concrete integer operands with `BitVec.and`. -/
+@[simp] theorem Llvm.interpretOp'_and
+    (bitwidth : Nat)
+    (lhs rhs : BitVec bitwidth)
+    (resultTypes : Array TypeAttr)
+    (blockOperands : Array BlockPtr)
+    (mem : MemoryState)
+    (layout : DataLayout) :
+    Llvm.interpretOp' .and () resultTypes
+        #[.int bitwidth (.val lhs), .int bitwidth (.val rhs)] blockOperands mem layout =
+      .ok (#[.int bitwidth (.val (lhs &&& rhs))], mem, none) := by
+  simp [Llvm.interpretOp']
+
 instance : HasOpInfo Llvm where
   verifyLocalInvariants := Llvm.verifyLocalInvariants
   tryFold := Llvm.tryFold
@@ -1545,6 +1558,12 @@ instance : HasOpInfo Llvm where
   isTerminator := Llvm.isTerminator
   isIsolatedFromAbove := Llvm.isIsolatedFromAbove
   hasNoTerminator := Llvm.hasNoTerminator
+
+/-- LLVM integer AND has no memory effects. -/
+@[simp] theorem Llvm.getEffects_and :
+    HasOpInfo.getEffects Llvm.and () = .none := by
+  change Llvm.getEffects Llvm.and () = .none
+  rfl
 
 end
 
