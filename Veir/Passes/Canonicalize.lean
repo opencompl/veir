@@ -57,20 +57,20 @@ def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPt
 
 /-- Replace a used SSA value with the constant found by the analysis, if its
     recorded dialect can materialize it. Existing constants need no replacement. -/
-private def replaceKnownConstant (rewriter : PatternRewriter OpCode)
+private def replaceKnownConstant (ctx : WfIRContext OpCode)
     (facts : DataFlowContext) (value : ValuePtr) (ip : InsertPoint) :
-    Option (PatternRewriter OpCode) := do
-  if (value.getFirstUse! rewriter.ctx.raw).isNone || value.isConstantLike rewriter.ctx.raw then
-    return rewriter
-  let some fact := facts.getFact? .sparseConstant (.ValuePtr value) | return rewriter
-  let .constant constant := fact.payload.latticeElement | return rewriter
-  let some opCode := fact.payload.metadata | return rewriter
-  let type := value.getType! rewriter.ctx.raw
+    Option (WfIRContext OpCode) := do
+  if (value.getFirstUse! ctx.raw).isNone || value.isConstantLike ctx.raw then
+    return ctx
+  let some fact := facts.getFact? .sparseConstant (.ValuePtr value) | return ctx
+  let .constant constant := fact.payload.latticeElement | return ctx
+  let opCode := fact.payload.metadata.get!
+  let type := value.getType! ctx.raw
   let some ⟨constantOpCode, properties⟩ := opCode.materializeConstant constant type
-    | return rewriter
-  let (rewriter, constantOp) ← rewriter.createOp! constantOpCode #[type]
+    | return ctx
+  let (ctx, constantOp) ← WfRewriter.createOp! ctx constantOpCode #[type]
     #[] #[] #[] properties (some ip)
-  return rewriter.replaceValue! value (constantOp.getResult 0)
+  return WfRewriter.replaceValue! ctx value (constantOp.getResult 0)
 
 /-- Solve once on the original IR, then materialize the facts. Only values with
     facts from the rooted analysis are rewritten. Leave dead producers for the
@@ -78,18 +78,17 @@ private def replaceKnownConstant (rewriter : PatternRewriter OpCode)
 private def propagateConstants (ctx : WfIRContext OpCode) (root : OperationPtr) :
     Option (WfIRContext OpCode) := do
   let facts ← fixpointSolve root #[SparseConstantPropagationAnalysis] ctx
-  let mut rewriter : PatternRewriter OpCode :=
-    { ctx, hasDoneAction := false, worklist := .empty }
+  let mut newCtx := ctx
   -- Iterate the original context so newly inserted constants are not visited.
   for op in ctx.raw.operations.keys do
     if (op.get! ctx.raw).parent.isSome then
       for result in op.getResults! ctx.raw do
-        rewriter ← replaceKnownConstant rewriter facts result (.before op)
+        newCtx ← replaceKnownConstant newCtx facts result (.before op)
   for block in ctx.raw.blocks.keys do
     for argument in block.getArguments! ctx.raw do
-      rewriter ← replaceKnownConstant rewriter facts argument
-        (InsertPoint.atStart! block rewriter.ctx.raw)
-  return rewriter.ctx
+      newCtx ← replaceKnownConstant newCtx facts argument
+        (InsertPoint.atStart! block newCtx.raw)
+  return newCtx
 
 def CanonicalizePass.impl (options : PassOptions) (ctx : WfIRContext OpCode)
     (op : OperationPtr) (_ : op.InBounds ctx.raw) :
