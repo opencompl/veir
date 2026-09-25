@@ -172,15 +172,21 @@ def runWithAnalyses
 def checkNamedConstants
     (dfCtx : DataFlowContext)
     (valueDefs : HashMap String ValuePtr)
-    (expected : Array (String × AbstractConstant)) : MismatchReport := Id.run do
+    (expected : Array (String × SparsePayload AbstractConstant (Option OpCode))) :
+    MismatchReport := Id.run do
   let mut report := #[]
   for (name, expectedValue) in expected do
     let some value := valueDefs[name]? |
       report := report.push s!"constant {name}: missing value definition"
       continue
-    let observedValue :=
-      SparseFact.getElement .sparseConstant value dfCtx
-    if observedValue != expectedValue then
-      report := report.push
-        s!"constant {name}: expected {expectedValue}, observed {observedValue}"
+    let observedValue : SparsePayload AbstractConstant (Option OpCode) :=
+      match dfCtx.getFact? .sparseConstant (.ValuePtr value) with
+      | some state => state.payload
+      | none => { latticeElement := ⊥, metadata := default }
+    if observedValue.latticeElement != expectedValue.latticeElement ||
+        observedValue.metadata != expectedValue.metadata then
+      report := report.push <|
+        s!"constant {name}: expected " ++
+        s!"({expectedValue.latticeElement}, {repr expectedValue.metadata}), " ++
+        s!"observed ({observedValue.latticeElement}, {repr observedValue.metadata})"
   report

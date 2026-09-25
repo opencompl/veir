@@ -9,6 +9,10 @@ namespace Veir
 namespace SparseConstantPropagation
 
 instance : SparseFactSpec .sparseConstant AbstractConstant where
+  Metadata := Option OpCode
+  metadataOfResult op
+    | .constant _ => some op
+    | _ => none
   payloadEq := rfl
 
 def kind : AnalysisKind :=

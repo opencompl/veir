@@ -64,6 +64,7 @@ This should be kept consistent with the definition of refinement on the byte typ
 -/
 @[expose]
 def MemoryObject.isRefinedBy (source target : MemoryObject) : Prop :=
+  source.base = target.base ∧
   ∀ addr, source.poisonMask.getD addr 0 ||| ((source.contents.getD addr 0 ^^^ ~~~target.contents.getD addr 0) &&& ~~~target.poisonMask.getD addr 0) = 0xff
 
 @[inherit_doc] infix:50 " ⊒ " => MemoryObject.isRefinedBy
@@ -97,8 +98,8 @@ on the underlying values. This asserts:
 def Interp.isRefinedBy (R : α → β → Prop) (source : Interp α) (target : Interp β) : Prop :=
   match source, target with
   | .ok a, .ok b => R a b
-  | .ub, _ => True
-  | .fail, _ => True
+  | .ub _, _ => True
+  | .fail _, _ => True
   | _, _ => False
 
 /--

@@ -24,6 +24,7 @@ Ranges are joined along control flow edges.
 namespace ModArithRangeAnalysis
 
 instance : SparseFactSpec .modArithRange IntegerRangeLattice where
+  Metadata := Unit
   payloadEq := rfl
 
 def kind : AnalysisKind :=
