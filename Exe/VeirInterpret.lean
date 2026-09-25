@@ -70,28 +70,23 @@ def main (args : List String) : IO Unit := do
       IO.eprintln "Usage: veir-interpret [filename]"
       IO.eprintln "  Reads the program from standard input if no filename is given."
       IO.Process.exit 2
-  match ← parseOperation filename (allowUnregisteredDialect := true) with
+  match ← parseSourceFile filename (allowUnregisteredDialect := true) with
   | .ok (ctx, op, source) =>
-    match ctx.verify op with
-    | .ok _ =>
-      let rawCtx : IRContext OpCode := ctx
-      let mainOp ← resolveEntryPoint rawCtx op
-      let result := bind (interpretFunction (ctx := ctx) mainOp #[] MemoryState.empty (by sorry))
-                         (fun (_, r) => pure r)
-      match result with
-      | .ok results => IO.println s!"Program output: {results}"
-      | .ub op? =>
-        IO.println "Undefined behavior"
-        if let some op := op? then
-          IO.println (source.formatAt op "note" "triggered here")
-      | .fail op? =>
-        match op? with
-        | some op => IO.eprintln (source.formatAt op "error" "failed to interpret operation")
-        | none => IO.eprintln "error: failed to interpret module"
-        IO.Process.exit 1
-    | .error errMsg =>
-      IO.eprintln s!"Error verifying input program: {errMsg}"
+    let rawCtx : IRContext OpCode := ctx
+    let mainOp ← resolveEntryPoint rawCtx op
+    let result := bind (interpretFunction (ctx := ctx) mainOp #[] MemoryState.empty (by sorry))
+                       (fun (_, r) => pure r)
+    match result with
+    | .ok results => IO.println s!"Program output: {results}"
+    | .ub op? =>
+      IO.println "Undefined behavior"
+      if let some op := op? then
+        IO.println (source.formatAt op "note" "triggered here")
+    | .fail op? =>
+      match op? with
+      | some op => IO.eprintln (source.formatAt op "error" "failed to interpret operation")
+      | none => IO.eprintln "error: failed to interpret module"
       IO.Process.exit 1
   | .error errMsg =>
-    IO.eprintln s!"Error: {errMsg}"
+    IO.eprintln errMsg
     IO.Process.exit 1

@@ -1,6 +1,9 @@
-import Veir.Parser.MlirParser
-import Veir.Parser.ParserError
-import Veir.GlobalOpInfo
+module
+
+public import Veir.Parser.MlirParser
+public import Veir.Parser.ParserError
+public import Veir.GlobalOpInfo
+import Veir.Verifier
 
 /-!
   Helpers shared by the VeIR command-line tools (`veir-opt`, `veir-interpret`,
@@ -12,6 +15,8 @@ import Veir.GlobalOpInfo
 
 open Veir.Parser
 open Veir
+
+public section
 
 namespace Veir.Input
 
@@ -44,10 +49,11 @@ def SourceInfo.formatAt (info : SourceInfo) (op : OperationPtr) (severity msg : 
   ParserError.formatLabel info.sourceName info.content severity info.opLocations[op]? msg
 
 /-- Parse program bytes into a well-formed IR context and its top-level
-    operation, formatting parse errors caret-style against `sourceName`. -/
-def parseContent (content : ByteArray) (sourceName : String)
-    (allowUnregisteredDialect : Bool) :
-    ExceptT String IO (WfIRContext OpCode × OperationPtr × SourceInfo) := do
+    operation, formatting parse errors caret-style against `sourceName`.
+    Unless `verifyAfterParse` is false, the program is also verified. -/
+def parseSourceString (content : ByteArray) (sourceName : String := "<string>")
+    (allowUnregisteredDialect : Bool := false) (verifyAfterParse : Bool := true) :
+    Except String (WfIRContext OpCode × OperationPtr × SourceInfo) := do
   let some (ctx, _) := WfIRContext.create OpCode
     | throw "Failed to create IR context"
   match ParserState.fromInput content with
@@ -55,6 +61,9 @@ def parseContent (content : ByteArray) (sourceName : String)
     let state := MlirParserState.fromContext ctx allowUnregisteredDialect
     match parseTopLevelOp.run state parser with
     | .ok (op, state, _) =>
+      if verifyAfterParse then
+        if let .error err := state.ctx.verify op then
+          throw s!"Error verifying input program: {err}"
       return (state.ctx, op, { sourceName, content, opLocations := state.opLocations })
     | .error err =>
       throw (err.format sourceName content)
@@ -63,11 +72,12 @@ def parseContent (content : ByteArray) (sourceName : String)
 
 /-- Read and parse the input program, naming the source `<stdin>` when it comes
     from standard input. -/
-def parseOperation (filename : Option String) (allowUnregisteredDialect : Bool := false) :
+def parseSourceFile (filename : Option String) (allowUnregisteredDialect : Bool := false)
+    (verifyAfterParse : Bool := true) :
     ExceptT String IO (WfIRContext OpCode × OperationPtr × SourceInfo) := do
   let content ← getFileContent filename
   let sourceName := if let some f := filename then f else "<stdin>"
-  parseContent content sourceName allowUnregisteredDialect
+  liftExcept (parseSourceString content sourceName allowUnregisteredDialect verifyAfterParse)
 
 /-- Map positional CLI arguments to an input source: `[]` means standard input;
     a single argument names the input file. -/
@@ -78,3 +88,5 @@ def inputSourceOfArgs (positional : List String) : Except String (Option String)
   | _ => .error "Expected at most one positional argument for the input filename."
 
 end Veir.Input
+
+end
