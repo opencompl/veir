@@ -113,7 +113,7 @@ theorem matchConstantIntVal_implies {val : ValuePtr} {ctx : IRContext OpCode} {v
     ∃ opResultPtr attr type, val = .opResult opResultPtr ∧
       matchConstantIntOp opResultPtr.op ctx = some attr ∧
       (val.getType! ctx).val = .integerType type ∧
-      value = (BitVec.ofInt type.bitwidth attr.value).toInt := by
+      value = (BitVec.ofInt type.bitwidth (decodeLLVMIntegerConstant attr)).toInt := by
   intro hmatch
   simp only [matchConstantIntVal, bind, Option.bind, pure] at hmatch
   grind
