@@ -128,6 +128,27 @@ def WfRewriter.insertBlock! (wfCtx : WfIRContext OpInfo) (newBlock : BlockPtr)
   else
     panic! "WfRewriter.insertBlock! failed: new block is out of bounds"
 
+/-- Detach a block from its parent region. -/
+@[inline]
+def WfRewriter.detachBlock (wfCtx : WfIRContext OpInfo) (block : BlockPtr)
+    (hIn : block.InBounds wfCtx.raw)
+    (hasParent : (block.get! wfCtx.raw).parent.isSome)
+    : WfIRContext OpInfo :=
+  ⟨Rewriter.detachBlock wfCtx block (by grind) hIn (by grind),
+    by grind [Rewriter.detachBlock_WellFormed]⟩
+
+/-- Detach a block from its parent region, panicking if the block is out of bounds or if it
+does not have a parent. -/
+def WfRewriter.detachBlock! (wfCtx : WfIRContext OpInfo) (block : BlockPtr)
+    : WfIRContext OpInfo :=
+  if hIn : block.InBounds wfCtx.raw then
+    if hasParent : (block.get! wfCtx.raw).parent.isSome then
+      WfRewriter.detachBlock wfCtx block hIn hasParent
+    else
+      panic! "WfRewriter.detachBlock! failed: block does not have a parent"
+  else
+    panic! "WfRewriter.detachBlock! failed: block is out of bounds"
+
 /-- Replace the operand of an operation with a new value. -/
 @[inline]
 def WfRewriter.replaceOperand (wfCtx : WfIRContext OpInfo) (use : OpOperandPtr) (newValue : ValuePtr)

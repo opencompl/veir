@@ -30,50 +30,46 @@ instance : GetElem? SuccessorOperands Nat ValuePtr
 namespace BranchOpInterface
 
 /--
+  Return the number of operands of a supported branch operation that precede
+  its successor operand segments, or `none` if `opType` is not a supported branch.
+-/
+def numFixedOperands? : OpCode → Option Nat
+  | .cf .br | .llvm .br | .cir .br | .riscv_cf .branch => some 0
+  | .cf .cond_br | .llvm .cond_br | .cir .brcond
+  | .riscv_cf .beqz | .riscv_cf .bnez => some 1
+  | .riscv_cf .beq | .riscv_cf .bne | .riscv_cf .blt
+  | .riscv_cf .bge | .riscv_cf .bltu | .riscv_cf .bgeu => some 2
+  | _ => none
+
+/--
   Return the operands passed to `successorIndex` of a branch operation.
 -/
 def getSuccessorOperands?
     (branchOp : OperationPtr) (successorIndex : Nat) (raw : IRContext OpCode) :
-    Option SuccessorOperands :=
+    Option SuccessorOperands := do
   let opType := branchOp.getOpType! raw
-  match opType with
-  | .cf .br | .llvm .br | .riscv_cf .branch =>
-    some {
-      forwardedOperands := branchOp.getOperands! raw
-    }
-  | _ => do
-    -- Determine whether this is a supported conditional branch and how many
-    -- fixed operands appear before its successor operand segments.
-    let fixedOperandCount ← match opType with
-      | .cf .cond_br
-      | .llvm .cond_br
-      | .riscv_cf .beqz
-      | .riscv_cf .bnez => some 1
-      | .riscv_cf .beq
-      | .riscv_cf .bne
-      | .riscv_cf .blt
-      | .riscv_cf .bge
-      | .riscv_cf .bltu
-      | .riscv_cf .bgeu => some 2
-      | _ => none
-    -- TODO: Move the operandSegmentSizes logic to the respective dialects
-    -- Read the operand segment metadata from the operation's typed properties.
-    let attrs := Properties.toAttrDict opType (branchOp.getProperties! raw opType)
-    let some (.denseArrayAttr sizes) := attrs["operandSegmentSizes".toUTF8]? | none
-    let segmentSizes := sizes.values
-    -- Select the segment corresponding to the requested successor.
-    let segmentIndex := fixedOperandCount + successorIndex
-    let forwardedCountRaw ← segmentSizes[segmentIndex]?
-    let forwardedCount := forwardedCountRaw.toNat
-    -- Compute the operation operand index where this successor's forwarded values begin.
-    let forwardedStart := fixedOperandCount +
-      (segmentSizes.extract fixedOperandCount segmentIndex).foldl
-        (init := 0) fun acc value => acc + value.toNat
-    -- Return only the operands forwarded to the requested successor.
-    some {
-      forwardedOperands := (branchOp.getOperands! raw).extract
-        forwardedStart (forwardedStart + forwardedCount)
-    }
+  let fixedOperandCount ← numFixedOperands? opType
+  -- Unconditional branches forward all of their operands to their only successor.
+  if fixedOperandCount = 0 then
+    return { forwardedOperands := branchOp.getOperands! raw }
+  -- TODO: Move the operandSegmentSizes logic to the respective dialects
+  -- Read the operand segment metadata from the operation's typed properties.
+  let attrs := Properties.toAttrDict opType (branchOp.getProperties! raw opType)
+  let some (.denseArrayAttr sizes) := attrs["operandSegmentSizes".toUTF8]? | none
+  let segmentSizes := sizes.values
+  -- Select the segment corresponding to the requested successor.
+  let segmentIndex := fixedOperandCount + successorIndex
+  let forwardedCountRaw ← segmentSizes[segmentIndex]?
+  let forwardedCount := forwardedCountRaw.toNat
+  -- Compute the operation operand index where this successor's forwarded values begin.
+  let forwardedStart := fixedOperandCount +
+    (segmentSizes.extract fixedOperandCount segmentIndex).foldl
+      (init := 0) fun acc value => acc + value.toNat
+  -- Return only the operands forwarded to the requested successor.
+  return {
+    forwardedOperands := (branchOp.getOperands! raw).extract
+      forwardedStart (forwardedStart + forwardedCount)
+  }
 
 /-- Return the SSA value forwarded to a successor block argument. -/
 def getSuccessorOperand?

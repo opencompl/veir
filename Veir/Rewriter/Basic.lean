@@ -263,6 +263,45 @@ theorem Rewriter.insertBlock_fieldsInBounds_mono
   simp only [insertBlock] at heq
   grind
 
+/--
+- Unlink a block from its parent region, leaving it parentless.
+  The block keeps its operations, arguments, and uses.
+-/
+@[irreducible]
+def Rewriter.detachBlock (ctx : IRContext OpInfo) (block : BlockPtr)
+    (hctx : ctx.FieldsInBounds) (hIn : block.InBounds ctx)
+    (hasParent : (block.get ctx hIn).parent.isSome) : IRContext OpInfo :=
+  let blockStruct := block.get ctx
+  let parent := blockStruct.parent.get hasParent
+  let prevBlock := blockStruct.prev
+  let nextBlock := blockStruct.next
+  let ctx := block.setParent ctx none
+  let ctx := block.setPrevBlock ctx none
+  let ctx := block.setNextBlock ctx none
+  match _ : prevBlock with
+  | some prevBlock =>
+    let ctx := prevBlock.setNextBlock ctx nextBlock (by grind (ematch := 10))
+    match _ : nextBlock with
+    | some nextBlock => nextBlock.setPrevBlock ctx prevBlock (by grind (ematch := 10))
+    | none => parent.setLastBlock ctx prevBlock (by grind (ematch := 10))
+  | none =>
+    let ctx := parent.setFirstBlock ctx nextBlock (by grind (ematch := 10))
+    match _ : nextBlock with
+    | some nextBlock => nextBlock.setPrevBlock ctx prevBlock (by grind (ematch := 10))
+    | none => parent.setLastBlock ctx prevBlock
+
+@[grind .]
+theorem Rewriter.detachBlock_inBounds (ptr : GenericPtr) :
+    ptr.InBounds (detachBlock ctx block hctx hIn hasParent) ↔ ptr.InBounds ctx := by
+  simp only [detachBlock]
+  split <;> split <;> grind (ematch := 10)
+
+@[grind .]
+theorem Rewriter.detachBlock_fieldsInBounds (hctx : ctx.FieldsInBounds) :
+    (detachBlock ctx block hctx hIn hasParent).FieldsInBounds := by
+  simp only [detachBlock]
+  split <;> split <;> grind (ematch := 10)
+
 def Rewriter.replaceUse (ctx: IRContext OpInfo) (use : OpOperandPtr) (newValue: ValuePtr)
     (useIn: use.InBounds ctx := by grind)
     (newIn: newValue.InBounds ctx := by grind)

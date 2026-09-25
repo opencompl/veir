@@ -35,6 +35,15 @@ grind_pattern BlockPtr.operationList_rewriter_insertBlock =>
   Rewriter.insertBlock ctx newOp ip newOpIn insIn ctxInBounds, newCtx.WellFormed, some newCtx,
   block.operationList newCtx newCtxWf blockInBounds
 
+set_option warn.sorry false in
+/-- # Rewriter.detachBlock
+
+TODO: prove this, following `Rewriter.detachOp_WellFormed`. Only the parent
+region's block chain changes: it loses `block`, which becomes parentless. -/
+theorem Rewriter.detachBlock_WellFormed (hctx : ctx.WellFormed) :
+    (Rewriter.detachBlock ctx block ctxIn blockIn hasParent).WellFormed := by
+  sorry
+
 /-- # Rewriter.insertBlock -/
 
 theorem BlockPtr.allocEmpty_wellFormed (hctx : ctx.WellFormed)
