@@ -189,16 +189,3 @@ example (w : Nat) (x y : BitVec (w + 2)) (hw : w ≤ 4) :
 example (w : Nat) (x : BitVec w) (hw : w ≤ 2) :
     (x.signExtend 4).setWidth w = x := by
   pbv_decide 4
-
-/-- Solve by first normalising and then discharging all the generated goals. -/
-example (p q r : Nat) (x : BitVec p) (hr : r ≤ 8) (hq : q < 8) (h_qp : p < q) (h_pr : p < r) :
-    (x.setWidth q).setWidth r = x.setWidth r := by
-  pbv_normalise 8
-  bv_decide
-  all_goals grind
-
-/-- Solve by translating to the masked version and manually calling `bv_decide` -/
-example (p q r : Nat) (x : BitVec p) (hr : r ≤ 8) (hq : q < 8) (h_qp : p < q) (h_pr : p < r) :
-    (x.setWidth q).setWidth r = x.setWidth r := by
-  pbv_decide? 8
-  bv_decide

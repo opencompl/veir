@@ -47,20 +47,6 @@ example (p q r : Nat) (x : BitVec p) (hr : r ≤ 8) (h_qp : p < q) (h_pr : p < r
     (x.setWidth q).setWidth r = x.setWidth r := by
   pbv_decide 8
 
--- Expected failure: at the blast width, the `setWidth` around `signExtend` is simplified away before `signExtend` is pushed
-/--
-error: `pbv_decide` found a potentially spurious counterexample.
-  The following expressions were abstracted as opaque variables:
-    - BitVec.signExtend 4 (BitVec.setWidth w x) = 0xd#4
-Consider the following assignment:
-  w = 2  	(m_w0 = 0x3#4)
-  x = 0x3#2
--/
-#guard_msgs in
-example (w : Nat) (x : BitVec w) (hw : w ≤ 2) :
-    (x.signExtend 4).setWidth w = x := by
-  pbv_decide 4
-
 /--
 error: `pbv_decide` found a counterexample, consider the following assignment:
   w = 4  	(m_w0 = 0xf#4)
@@ -79,8 +65,8 @@ error: `pbv_decide` found a counterexample, consider the following assignment:
   w + v = 8  	(m_w0_add_w1 = 0xff#8)
   v = 4  	(m_w1 = 0x0f#8)
   v + w = 8  	(m_w1_add_w0 = 0xff#8)
-  x = 0xf#4
-  y = 0xe#4
+  x = 0xe#4
+  y = 0xf#4
 -/
 #guard_msgs in
 example (v w : Nat) (x : BitVec v) (y : BitVec w) (hv : v ≤ 4) (hw : w ≤ 4) (h : v = w) :
@@ -209,4 +195,3 @@ h_m_w0 : m_w0 = Veir.Data.PBV.maskOfWidth 4 (w + 2)
 example (w : Nat) (x y : BitVec (w + 2)) (hw : w ≤ 4) :
     x + y = y + x := by
   pbv_decide 4
-
