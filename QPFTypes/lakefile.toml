@@ -1,7 +1,10 @@
 name = "QPFTypes"
 version = "0.1.0"
 defaultTargets = ["QPFTypes"]
+testDriver = "Test"
 
 [[lean_lib]]
 name = "QPFTypes"
 
+[[lean_lib]]
+name = "Test"
