@@ -1,9 +1,12 @@
 module
 
-import Lean
+public import Lean
 
-/-!
-# `QPF` Trace Class
--/
+/-! # QPFTypes Options & Trace Class -/
 
 initialize Lean.registerTraceClass `QPFTypes
+
+public register_option QPFTypes.debug : Bool := {
+  defValue := false
+  descr := "Enable debug assertions in the QPFTypes library"
+}
