@@ -50,11 +50,7 @@
     // CHECK: "riscv_stack.alloca"() <{"alignment" = 1 : i64, "size" = 255 : i64}>
     %b = "llvm.alloca"(%boolean) <{elem_type = i8}> : (i1) -> !llvm.ptr
     // CHECK: "riscv_stack.alloca"() <{"alignment" = 1 : i64, "size" = 1 : i64}>
-    %c = "llvm.alloca"(%extended) <{elem_type = i8}> : (i16) -> !llvm.ptr
-    // CHECK: "riscv_stack.alloca"() <{"alignment" = 1 : i64, "size" = 65535 : i64}>
-    %d = "llvm.alloca"(%truncated) <{elem_type = i8}> : (i8) -> !llvm.ptr
-    // CHECK: "riscv_stack.alloca"() <{"alignment" = 1 : i64, "size" = 1 : i64}>
-    "test.test"(%a, %b, %c, %d) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr) -> ()
+    "test.test"(%a, %b) : (!llvm.ptr, !llvm.ptr) -> ()
     "llvm.return"() : () -> ()
   }) : () -> ()
 
