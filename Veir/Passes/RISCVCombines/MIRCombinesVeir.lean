@@ -16,7 +16,7 @@ def sub_minus_one_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some cst := matchConstantIntVal lhs ctx.raw | return (ctx, none)
   if cst ≠ -1 then return (ctx, none)
   let .integerType ctype := (op1.getType! ctx.raw).val | return (ctx, none)
-  let cstOpProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-1) ctype))
+  let cstOpProp := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (-1) ctype))
   let (ctx, cstOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[op1.getType! ctx.raw] #[]
     #[] #[] cstOpProp none
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.xor #[op1.getType! ctx.raw] #[op1, (cstOp.getResult 0)]

@@ -312,7 +312,7 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
     let bits := BitVec.ofInt integerType.bitwidth literal
     if (isNegative && n == 0) ∨ (literal ≠ bits.toInt ∧ literal ≠ bits.toNat) then
       throwAt valueStartPos "integer constant out of range for attribute"
-    return IntegerAttr.mk (if integerType.bitwidth = 1 then bits.toNat else bits.toInt) integerType
+    return IntegerAttr.ofInt literal integerType
 
   -- Compute the floating-point value from the parsed literal.
   let floatValue (floatType : FloatType) :

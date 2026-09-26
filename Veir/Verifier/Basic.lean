@@ -486,6 +486,18 @@ def OperationPtr.checkIsNonNullIntegerType (op : OperationPtr)
       if intType.bitwidth = 0 then
         throw s!"{instrName}: result {i} has forbidden i0 type"
 
+/--
+  Reject an integer constant whose value is not normalized for its type (see
+  `IntegerAttr.normalizeValue`). The parser only produces normalized values, and
+  MLIR cannot represent any other, so this catches rewrites that build them.
+-/
+def OperationPtr.verifyNormalizedIntegerAttr (op : OperationPtr)
+    (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) (attr : IntegerAttr) : Except String PUnit := do
+  unless attr.isNormalized do
+    let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+    throw s!"{instrName}: value {attr.value} is not normalized for i{attr.type.bitwidth}"
+
 def denseElementsElementType? (typeStr : String) : Option String :=
   let s := typeStr.replace " " ""
   let segments := s.splitOn "x"
