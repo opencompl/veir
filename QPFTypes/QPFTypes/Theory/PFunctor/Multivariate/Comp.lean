@@ -5,7 +5,7 @@ Authors: Jeremy Avigad, Simon Hudon
 -/
 module
 
-public import QPFTypes.PFunctor.Multivariate.Basic
+public import QPFTypes.Theory.PFunctor.Multivariate.Basic
 
 /-!
 # Composition of polynomial functors
@@ -55,4 +55,3 @@ theorem mk_get (x : comp P Q α) : comp.mk (comp.get x) = x :=
   rfl
 
 end MvPFunctor.comp
-

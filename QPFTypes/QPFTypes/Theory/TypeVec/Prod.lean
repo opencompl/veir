@@ -5,8 +5,8 @@ Authors: Jeremy Avigad, Mario Carneiro, Simon Hudon
 -/
 module
 
-public import QPFTypes.TypeVec.Basic
-public import QPFTypes.TypeVec.Arrow
+public import QPFTypes.Theory.TypeVec.Basic
+public import QPFTypes.Theory.TypeVec.Arrow
 
 /-!
 
