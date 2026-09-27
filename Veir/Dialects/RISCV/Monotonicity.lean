@@ -26,12 +26,7 @@ theorem Riscv.interpretOp'_ok_results {vals : Array RuntimeValue} {mem' : Memory
     ((∃ r, vals = #[.reg r]) ∨ vals = #[]) ∧ act = none := by
   cases opType <;> simp only [Riscv.interpretOp'] at h <;> grind
 
-/--
-A non-register operand is either fatal or irrelevant: every RISC-V opcode that
-reads its operands pattern-matches them as registers and fails to interpret
-otherwise, and the opcodes that ignore their operands (`li`, `lui`) interpret to
-the very same result whatever the operands are.
--/
+/-- A non-register operand is either fatal or irrelevant. -/
 theorem Riscv.interpretOp'_eq_fail_or_eq_of_not_regs {operands operands' : Array RuntimeValue}
     (hregs : ¬ ∀ v ∈ operands, ∃ r, v = .reg r) :
     Riscv.interpretOp' opType properties resultTypes operands blockOperands mem = .fail none ∨
