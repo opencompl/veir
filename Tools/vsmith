@@ -32,12 +32,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 from vsmith_generate import generate
 
 
-DEFAULT_PASSES = "instcombine,dce,cse,dce"
-RISCV_PASSES = (
-    "canonicalize,instcombine,canonicalize,cse,dce,"
-    "isel-sdag-riscv64,isel-br-riscv64,isel-riscv64,"
-    "reconcile-cast,riscv-combine,dce"
-)
+DEFAULT_PASSES = "O"
+RISCV_PASSES = ("riscv")
 
 # --- RISC-V MIR execution cross-check -------------------------------------
 # In --riscv mode we further lower the optimized riscv-dialect MLIR to LLVM
