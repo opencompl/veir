@@ -193,9 +193,7 @@ theorem RuntimeValue.reg_of_isRefinedBy {v : Data.RISCV.Reg} {tv : RuntimeValue}
 
 /--
 A register runtime value can only be refined by itself, so operand arrays that consist purely of
-registers are refined only by themselves. This makes every dialect whose operands are registers
-(`riscv`, `riscv_cf`, `riscv_stack`, `rv64`) monotone for free: the refined operands are the
-original ones, so both sides interpret to the very same result.
+registers are refined only by themselves.
 -/
 theorem RuntimeValue.eq_of_arrayIsRefinedBy_of_regs {a b : Array RuntimeValue}
     (h : a ⊒ b) (hregs : ∀ v ∈ a, ∃ r, v = .reg r) : b = a := by
