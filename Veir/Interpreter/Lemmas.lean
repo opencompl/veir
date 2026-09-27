@@ -659,7 +659,7 @@ class InterpretOp'Monotone (opType : OpCode) : Prop where
       (interpretOp' opType properties resultTypes operands blockOperands mem)
       (interpretOp' opType properties resultTypes operands' blockOperands mem)
 
-/-- Assumed for an opcode whose dialect has no proof yet. -/
+/-- Assumed for an opcode that has no proof yet. -/
 axiom interpretOp'_monotone_assumed (opType : OpCode) : InterpretOp'Monotone opType
 
 theorem interpretOp'_monotone
