@@ -88,10 +88,27 @@ private def testLlvmIntegerExtension : Bool := Id.run do
         let expected := if attrWidth = 1 then raw.zeroExtend resultWidth
           else raw.signExtend resultWidth
         let actual := BitVec.ofInt resultWidth
-          (decodeLLVMIntegerConstant (IntegerAttr.mk literal (IntegerType.mk attrWidth)))
+          (decodeLLVMIntegerConstant (IntegerAttr.mk literal (IntegerType.signless attrWidth)))
         if actual ≠ expected then return false
   return true
 
 /-- info: true -/
 #guard_msgs in
 #eval! testLlvmIntegerExtension
+
+/-- Attribute construction normalizes values, including inputs the parser rejects. -/
+private def testIntegerAttrNormalization : Bool := Id.run do
+  for (width, literal, expected) in ([
+      (0, 7, 0), (1, -1, 1), (1, 2, 0),
+      (8, 127, 127), (8, 128, -128), (8, 200, -56),
+      (8, 256, 0), (8, -129, 127),
+      (128, 2 ^ 127, -(2 ^ 127)), (128, 2 ^ 128 + 1, 1)
+    ] : List (Nat × Int × Int)) do
+    let type := IntegerType.signless width
+    if IntegerAttr.ofInt literal type ≠ IntegerAttr.mk expected type then
+      return false
+  return true
+
+/-- info: true -/
+#guard_msgs in
+#eval! testIntegerAttrNormalization

@@ -113,12 +113,12 @@ abbrev OperationPtr.interpret (op : OperationPtr) (ctx : IRContext OpCode)
   Return an updated interpreter state and a control flow action indicating how
   to continue the interpretation.
   If any error occurs during interpretation (e.g., unknown operation, missing variable),
-  return `none`.
+  return `none`. Failures and UB are blamed on `op`.
 -/
 @[expose]
 def interpretOp (op : OperationPtr) {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
     (inBounds : op.InBounds ctx.raw := by grind)
-    : Interp (InterpreterState ctx × Option ControlFlowAction) := do
+    : Interp (InterpreterState ctx × Option ControlFlowAction) := Interp.withBlame op do
   let some operands := state.variables.getOperandValues op | none
   let (resultValues, mem, action) ← op.interpret ctx operands state.memory
   let newVars ← state.variables.setResultValues? op resultValues
@@ -209,9 +209,9 @@ def interpretBlockCFG (blockPtr : BlockPtr) (values : Array RuntimeValue) {ctx :
     if h : succ.InBounds ctx.raw then
       interpretBlockCFG succ res state h
     else
-      .fail
-  | .ub => .ub
-  | .fail => .fail
+      .fail none
+  | .ub op => .ub op
+  | .fail op => .fail op
 partial_fixpoint
 
 /--

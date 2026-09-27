@@ -25,6 +25,17 @@
     "func.return"(%sum) : (i64) -> ()
   }) : () -> ()
 
+  // Materializing an all-ones i1 must store 1, not -1, to pass verification.
+  // Arith's materializer is covered by extended_add_flag below.
+  "func.func"() <{function_type = () -> i1, sym_name = "llvm_cmp_true"}> ({
+    %c5 = "llvm.mlir.constant"() <{value = 5 : i32}> : () -> i32
+    %cmp = "llvm.icmp"(%c5, %c5) <{predicate = 0 : i64}> : (i32, i32) -> i1
+    // CHECK-LABEL: func.func @llvm_cmp_true
+    // CHECK: %[[TRUE:.*]] = "llvm.mlir.constant"() <{"value" = true}> : () -> i1
+    // CHECK-NEXT: "func.return"(%[[TRUE]]) : (i1) -> ()
+    "func.return"(%cmp) : (i1) -> ()
+  }) : () -> ()
+
   "func.func"() <{function_type = () -> !riscv.reg, sym_name = "riscv_addi"}> ({
     %c41 = "riscv.li"() <{"value" = 41 : i64}> : () -> !riscv.reg
     %answer = "riscv.addi"(%c41) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg

@@ -192,15 +192,12 @@ def main (args : List String) : IO Unit := do
     IO.eprintln passGroupsUsage
     IO.Process.exit 1
   | .ok { filename, passes, allowUnregisteredDialect, disableVerifiers, printGenericOpForm } =>
-    match ← parseOperation filename allowUnregisteredDialect with
+    match ← parseSourceFile filename allowUnregisteredDialect
+        (verifyAfterParse := !disableVerifiers) with
     | .error errMsg =>
       IO.eprintln errMsg
       IO.Process.exit 1
-    | .ok (ctx, op) =>
-      if !disableVerifiers then
-        if let .error errMsg := ctx.verify op then
-          IO.eprintln s!"Error verifying input program: {errMsg}"
-          IO.Process.exit 1
+    | .ok (ctx, op, _) =>
       match ← passes.run ⟨ctx, by sorry⟩ op disableVerifiers with
       | .error errMsg =>
         IO.eprintln s!"Error: {errMsg}"

@@ -4,6 +4,7 @@ public import Veir.Interpreter.Refinement.Basic
 public import Veir.Verifier
 
 import Veir.Interpreter.Lemmas
+import Veir.Dialects.Monotonicity
 import Veir.Interpreter.EquationLemma
 import Veir.Interpreter.Refinement.Lemmas
 
@@ -107,7 +108,8 @@ theorem interpretOp_monotone
       (interpretOp op state opIn)
       (interpretOp op' state' opIn') := by
   -- If the source interpretation fails, then the refinement is trivial
-  by_cases hsource : interpretOp op state opIn = .fail; simp [hsource, Interp.isRefinedBy]
+  by_cases hsource : (interpretOp op state opIn).isFail
+  · rcases h : interpretOp op state opIn with _ | _ | _ <;> simp_all [Interp.isRefinedBy]
   -- Source/target operands are defined, and memory is equal.
   have ⟨operands, hSrcOps⟩ : ∃ operands, state.variables.getOperandValues op = some operands := by
     grind [interpretOp]
@@ -133,14 +135,15 @@ theorem interpretOp_monotone
     simp only [Interp.isRefinedBy_ok_target_iff, Prod.exists]
     have ⟨resValues, hinterp', hResValues⟩ :=
       (interpretOp_ok_iff_of_getOperandValues_eq_some hSrcOps).mp hsrc
-    simp only [hinterp', Interp.isRefinedBy_ok_target_iff, Prod.exists] at hPR1
+    simp only [hinterp', Interp.isRefinedBy_ok_target_iff, OperationResult.isRefinedBy,
+      Prod.exists] at hPR1
     have ⟨resValues', memory'₂, act', hinterp'Tgt, resValuesRef, memoryEq, actRef⟩ := hPR1
     subst memory'₂
     simp only [← hInterp'Eq] at hinterp'Tgt
     simp only [interpretOp, hTgtOps, bind, hinterp'Tgt, liftM, monadLift, MonadLift.monadLift]
     have := interpretOp'_results_conform (opInBounds := opIn') opVerif' (VariableState.getOperandValues_conforms hTgtOps) hinterp'Tgt
     have ⟨v, hv⟩ := (VariableState.setResultValues?_isSome_iff_conforms state'.variables opIn').mp this
-    simp only [hv, Interp.pure_eq, Interp.ok.injEq, Prod.mk.injEq]
+    simp only [hv, Interp.pure_eq, Interp.withBlame_ok, Interp.ok.injEq, Prod.mk.injEq]
     have stateVarRef : state.variables.isRefinedBy state'.variables mapping := by grind [InterpreterState.isRefinedBy]
     grind [InterpreterState.isRefinedBy, VariableState.setResultValues?_isRefinedBy stateVarRef resValuesRef, cases ValueMapping.PreservesOperation]
 

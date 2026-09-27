@@ -105,7 +105,7 @@ def Cf.interpretOp' (opType : Veir.Cf) (properties : propertiesOf opType)
         return (#[], some (.branch (operands.extract 1 (trueSize + 1)) destTrue))
       else
         return (#[], some (.branch (operands.extract (trueSize + 1) operands.size) destFalse))
-    | .int 1 .poison => Interp.ub
+    | .int 1 .poison => Interp.ub none
     | _ => none
 
 instance : HasOpInfo Cf where

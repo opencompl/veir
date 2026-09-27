@@ -100,7 +100,7 @@ def Arith.toAttrDict
         (Attribute.arithIntegerOverflowFlagsAttr props.attr)
     dict
   | .cmpi =>
-    let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) (IntegerType.mk 64)
+    let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) (IntegerType.signless 64)
     (Std.HashMap.emptyWithCapacity 1).insert
       "predicate".toUTF8 (Attribute.integerAttr value)
   | .divsi | .divui | .shrsi | .shrui => Id.run do
@@ -168,7 +168,7 @@ def Arith.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpI
   match value, type.val with
   | .int bw (.val value), .integerType intType =>
     if bw = intType.bitwidth then
-      some (.of Arith.constant (ArithConstantProperties.mk (IntegerAttr.mk value.toInt intType)))
+      some (.of Arith.constant (ArithConstantProperties.mk (IntegerAttr.ofInt value.toInt intType)))
     else none
   | .int bw .poison, .integerType intType =>
     if bw = intType.bitwidth then some (.of Llvm.mlir__poison ()) else none
@@ -228,19 +228,11 @@ def Arith.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect Op
     pure ()
   | .constant => do
     op.checkIsNonNullIntegerType ctx opIn
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "Expected 0 operands"
-    else if _ : op.getNumResults ctx.raw opIn ≠ 1 then
-      throw "Expected 1 result"
-    else if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    else if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
-    else
-      let props : Arith.propertiesOf .constant :=
-        op.getProperties! ctx.raw Arith.constant
-      if props.value.type ≠ ((op.getResult 0).get ctx.raw).type.val then
-        throw "Expected result type to be equal to the constant's type"
+    op.verifyPlainOpCounts ctx opIn 0 1
+    let props := op.getProperties! ctx.raw Arith.constant
+    if props.value.type ≠ ((op.getResult 0).get! ctx.raw).type.val then
+      throw "Expected result type to be equal to the constant's type"
+    op.verifyNormalizedIntegerAttr ctx opIn props.value
     pure ()
   | .extui | .extsi => do
     op.checkIsNonNullIntegerType ctx opIn
@@ -284,25 +276,25 @@ def Arith.interpretOp' (opType : Veir.Arith) (properties : propertiesOf opType)
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    if LLVM.Int.isUnsignedDivisionUB rhs then Interp.ub
+    if LLVM.Int.isUnsignedDivisionUB rhs then Interp.ub none
     return (#[.int bw (LLVM.Int.udiv lhs rhs properties.exact)], none)
   | .divsi => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    if LLVM.Int.isSignedDivisionUB lhs rhs then Interp.ub
+    if LLVM.Int.isSignedDivisionUB lhs rhs then Interp.ub none
     return (#[.int bw (LLVM.Int.sdiv lhs rhs properties.exact)], none)
   | .remui => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    if LLVM.Int.isUnsignedDivisionUB rhs then Interp.ub
+    if LLVM.Int.isUnsignedDivisionUB rhs then Interp.ub none
     return (#[.int bw (LLVM.Int.urem lhs rhs)], none)
   | .remsi => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    if LLVM.Int.isSignedDivisionUB lhs rhs then Interp.ub
+    if LLVM.Int.isSignedDivisionUB lhs rhs then Interp.ub none
     return (#[.int bw (LLVM.Int.srem lhs rhs)], none)
   | .shli => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
@@ -420,7 +412,7 @@ def Arith.interpretOp' (opType : Veir.Arith) (properties : propertiesOf opType)
     -- Lowering (arith ExpandOps): `a == 0 ? 0 : ((a - 1) udiv b) + 1`. The
     -- `udiv` makes a zero (or poison) divisor undefined behaviour, exactly as
     -- for `arith.divui`.
-    if LLVM.Int.isUnsignedDivisionUB b then Interp.ub
+    if LLVM.Int.isUnsignedDivisionUB b then Interp.ub none
     let zero : LLVM.Int bw := .val 0
     let one : LLVM.Int bw := .val 1
     let isZero := LLVM.Int.icmp a zero .eq
@@ -437,7 +429,7 @@ def Arith.interpretOp' (opType : Veir.Arith) (properties : propertiesOf opType)
     let zero : LLVM.Int bw := .val 0
     let one : LLVM.Int bw := .val 1
     -- UB gating mirrors `arith.divsi` (divide-by-zero, INT_MIN / -1).
-    if LLVM.Int.isSignedDivisionUB a b then Interp.ub
+    if LLVM.Int.isSignedDivisionUB a b then Interp.ub none
     let z := LLVM.Int.sdiv a b
     let notExact := LLVM.Int.icmp a (LLVM.Int.mul z b) .ne
     let signEqual := LLVM.Int.icmp (LLVM.Int.icmp a zero .slt) (LLVM.Int.icmp b zero .slt) .eq
@@ -453,7 +445,7 @@ def Arith.interpretOp' (opType : Veir.Arith) (properties : propertiesOf opType)
     let zero : LLVM.Int bw := .val 0
     let negOne : LLVM.Int bw := .val (BitVec.allOnes bw)
     -- UB gating mirrors `arith.divsi` (divide-by-zero, INT_MIN / -1).
-    if LLVM.Int.isSignedDivisionUB a b then Interp.ub
+    if LLVM.Int.isSignedDivisionUB a b then Interp.ub none
     let z := LLVM.Int.sdiv a b
     let notExact := LLVM.Int.icmp a (LLVM.Int.mul z b) .ne
     let signOpposite := LLVM.Int.icmp (LLVM.Int.icmp a zero .slt) (LLVM.Int.icmp b zero .slt) .ne

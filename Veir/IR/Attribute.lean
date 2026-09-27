@@ -41,12 +41,31 @@ private local instance : Repr ByteArray where
 
 /-! ## Attribute definitions -/
 
+inductive IntegerType.Signedness
+| signless
+| signed
+| unsigned
+deriving Inhabited, Repr, DecidableEq, Hashable
+
 /--
   A `!builtin.integer` is an integer type with a given bitwidth.
 -/
 structure IntegerType where
   bitwidth : Nat
+  signedness : IntegerType.Signedness := .signless
 deriving Inhabited, Repr, DecidableEq, Hashable
+
+/-- The signless integer type `i<bitwidth>`. -/
+def IntegerType.signless (bitwidth : Nat) : IntegerType :=
+  { bitwidth, signedness := .signless }
+
+/-- The signed integer type `si<bitwidth>`. -/
+def IntegerType.signed (bitwidth : Nat) : IntegerType :=
+  { bitwidth, signedness := .signed }
+
+/-- The unsigned integer type `ui<bitwidth>`. -/
+def IntegerType.unsigned (bitwidth : Nat) : IntegerType :=
+  { bitwidth, signedness := .unsigned }
 
 /--
   A floating point type.
@@ -107,6 +126,33 @@ structure IntegerAttr where
   value : Int
   type : IntegerType
 deriving Inhabited, Repr, DecidableEq, Hashable
+
+namespace IntegerAttr
+
+/--
+  The value MLIR stores for the bits of `value` at `type`: MLIR's `IntegerAttr`
+  holds an `APInt` of its type's width, which it reads back as unsigned for
+  unsigned types and for signless `i1` (so `true` is 1 and `200 : ui8` is 200),
+  and as signed otherwise (so `200 : i8` is -56).
+-/
+def normalizeValue (type : IntegerType) (value : Int) : Int :=
+  if type.signedness = .unsigned ∨ type = IntegerType.signless 1 then
+    (BitVec.ofInt type.bitwidth value).toNat
+  else
+    (BitVec.ofInt type.bitwidth value).toInt
+
+/-- An integer attribute holding the bits of `value`, normalized as MLIR does. -/
+def ofInt (value : Int) (type : IntegerType) : IntegerAttr :=
+  ⟨normalizeValue type value, type⟩
+
+/--
+  Whether the value is already normalized for its type, as the parser guarantees
+  for every integer attribute outside `mod_arith`.
+-/
+def isNormalized (attr : IntegerAttr) : Bool :=
+  attr.value = normalizeValue attr.type attr.value
+
+end IntegerAttr
 
 /--
  Floating point fastmath flags attribute.
@@ -402,7 +448,7 @@ structure CirIntType where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /-- The builtin integer type a `!cir.int` lowers to (signedness is dropped). -/
-def CirIntType.toIntegerType (type : CirIntType) : IntegerType := { bitwidth := type.width }
+def CirIntType.toIntegerType (type : CirIntType) : IntegerType := IntegerType.signless type.width
 
 /-- The `!cir.bool` type from ClangIR. -/
 structure CirBoolType
@@ -746,7 +792,7 @@ derive_mutual_hashable for
   UnregisteredAttr, Attribute
 
 instance : Inhabited VectorType where
-  default := { shape := #[], elementType := .integerType (IntegerType.mk 0) }
+  default := { shape := #[], elementType := .integerType (IntegerType.signless 0) }
 
 instance : Coe FunctionType LLVMFunctionType where
   coe := .mk
@@ -819,7 +865,10 @@ theorem UnregisteredAttr.sizeOf_type {a : UnregisteredAttr} (h : a.type = some t
 -/
 
 instance : ToString IntegerType where
-  toString type := s!"i{type.bitwidth}"
+  toString type := match type.signedness with
+    | .signless => s!"i{type.bitwidth}"
+    | .signed => s!"si{type.bitwidth}"
+    | .unsigned => s!"ui{type.bitwidth}"
 
 instance : ToString FloatType where
   toString type := type.canonicalName
@@ -887,7 +936,7 @@ instance : ToString DlSpecAttr where
 
 instance : ToString IntegerAttr where
   toString attr :=
-    if attr.type.bitwidth = 1 then
+    if attr.type = IntegerType.signless 1 then
       if attr.value % 2 = 0 then "false" else "true"
     else s!"{attr.value} : {attr.type}"
 
@@ -1743,7 +1792,7 @@ def isType (attr : Attribute) : Bool :=
 -/
 def bitwidthOfType (type : Attribute) : Option Nat :=
   match type with
-  | .integerType { bitwidth } | .byteType { bitwidth } => some bitwidth
+  | .integerType { bitwidth, .. } | .byteType { bitwidth } => some bitwidth
   | .floatType type => some type.bitwidth
   | .vectorType { shape, elementType } => do
       let elementBitwidth ← bitwidthOfType elementType
@@ -1845,7 +1894,7 @@ def TypeAttr := {attr // Attribute.isType attr}
 deriving Repr, Hashable, DecidableEq
 
 instance : Inhabited TypeAttr where
-  default := ⟨.integerType (IntegerType.mk 0), by rfl⟩
+  default := ⟨.integerType (IntegerType.signless 0), by rfl⟩
 
 instance : Coe TypeAttr Attribute where
   coe typeAttr := typeAttr.val

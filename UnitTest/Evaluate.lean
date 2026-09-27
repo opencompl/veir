@@ -6,7 +6,7 @@ import Veir.Interpreter.Evaluate
 
 open Veir
 
-private def i32 : TypeAttr := IntegerType.mk 32
+private def i32 : TypeAttr := IntegerType.signless 32
 
 private def testEvaluateAddi : String := Id.run do
   let operands : Array RuntimeValue := #[.int 32 (.val 7), .int 32 (.val 8)]
@@ -31,7 +31,7 @@ info: "ok"
     UB into poison is the client's policy decision, not this layer's. -/
 private def testEvaluateUB : String := Id.run do
   let operands : Array RuntimeValue := #[.int 32 (.val 5), .int 32 (.val 0)]
-  let .ub :=
+  let .ub _ :=
     (foldEvaluate (.arith .divsi) default #[i32] operands : Interp (Array RuntimeValue))
     | return "arith.divsi by zero did not report UB"
   return "ok"
@@ -47,7 +47,7 @@ info: "ok"
     their own to evaluate against. -/
 private def testEvaluateUninterpreted : String := Id.run do
   let operands : Array RuntimeValue := #[.int 32 (.val 13), .int 32 (.val 7)]
-  let .fail := (foldEvaluate (.datapath .compress) () #[i32, i32] operands : Interp (Array RuntimeValue))
+  let .fail _ := (foldEvaluate (.datapath .compress) () #[i32, i32] operands : Interp (Array RuntimeValue))
     | return "an uninterpreted operation was evaluated"
   return "ok"
 
@@ -60,7 +60,7 @@ info: "ok"
 /-- `mod_arith` operations have interpreter semantics and fold modulo the
     modulus of their result type: (13 + 7) mod 17 = 3. -/
 private def testEvaluateModArithAdd : String := Id.run do
-  let m17 : TypeAttr := ModArithType.mk (IntegerAttr.mk 17 (IntegerType.mk 32))
+  let m17 : TypeAttr := ModArithType.mk (IntegerAttr.mk 17 (IntegerType.signless 32))
   let operands : Array RuntimeValue := #[.int 32 (.val 13), .int 32 (.val 7)]
   let .ok results :=
     (foldEvaluate (.mod_arith .add) () #[m17] operands : Interp (Array RuntimeValue))
