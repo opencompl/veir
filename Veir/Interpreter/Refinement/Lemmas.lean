@@ -93,7 +93,6 @@ theorem OperationResult.isRefinedBy_refl
     OperationResult.isRefinedBy r r := by
   simp [OperationResult.isRefinedBy, ControlFlowAction.optionIsRefinedBy_refl]
 
-/-- Interpreting an operation refines itself, whatever the outcome. -/
 @[grind .]
 theorem Interp.isRefinedBy_refl_operationResult
     (x : Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction)) :
