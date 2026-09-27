@@ -76,7 +76,7 @@ private def testConstantNormalization : Bool := Id.run do
       (8, -129, false), (8, 256, false),
       (1, 0, true), (1, 1, true), (8, -128, true), (8, 127, true)
     ] : List (Nat × Int × Bool)) do
-    let attr := IntegerAttr.mk value (IntegerType.mk width)
+    let attr := IntegerAttr.mk value (IntegerType.signless width)
     let checks := #[
       ("arith.constant", verifyConstant (.arith .constant) ⟨attr⟩ attr.type),
       ("llvm.mlir.constant", verifyConstant (.llvm .mlir__constant) ⟨.integer attr⟩ attr.type),

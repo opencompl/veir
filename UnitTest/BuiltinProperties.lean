@@ -5,7 +5,7 @@ open Veir
 -- Exercise directly constructed attributes, bypassing the parser's validation.
 private def readI64 (value : Int) : Except String (BitVec 64) :=
   getI64Attr "test" "value" (Std.HashMap.ofArray
-    #[("value".toUTF8, .integerAttr (IntegerAttr.mk value (IntegerType.mk 64)))])
+    #[("value".toUTF8, .integerAttr (IntegerAttr.mk value (IntegerType.signless 64)))])
 
 #guard readI64 (2 ^ 64) =
   .error "test: 'value' value 18446744073709551616 does not fit in i64"

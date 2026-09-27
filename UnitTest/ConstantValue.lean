@@ -104,7 +104,7 @@ private def testIntegerAttrNormalization : Bool := Id.run do
       (8, 256, 0), (8, -129, 127),
       (128, 2 ^ 127, -(2 ^ 127)), (128, 2 ^ 128 + 1, 1)
     ] : List (Nat × Int × Int)) do
-    let type := IntegerType.mk width
+    let type := IntegerType.signless width
     if IntegerAttr.ofInt literal type ≠ IntegerAttr.mk expected type then
       return false
   return true

@@ -501,7 +501,7 @@ def OperationPtr.verifyNormalizedIntegerAttr (op : OperationPtr)
     (opIn : op.InBounds ctx.raw) (attr : IntegerAttr) : Except String PUnit := do
   unless attr.isNormalized do
     let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
-    throw s!"{instrName}: value {attr.value} is not normalized for i{attr.type.bitwidth}"
+    throw s!"{instrName}: value {attr.value} is not normalized for {attr.type}"
 
 def denseElementsElementType? (typeStr : String) : Option String :=
   let s := typeStr.replace " " ""

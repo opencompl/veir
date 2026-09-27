@@ -181,7 +181,7 @@ macro "#assert " e:term : command =>
   ["0", "0x0"].all fun zero =>
     expectErrorAttr s!"-{zero} : i{width}"
       "integer constant out of range for attribute" (some 1) &&
-    expectSuccessAttr s!"{zero} : i{width}" (IntegerAttr.mk 0 (IntegerType.mk width))
+    expectSuccessAttr s!"{zero} : i{width}" (IntegerAttr.mk 0 (IntegerType.signless width))
 
 /-! ## Integer overflow flags attributes -/
 

@@ -130,23 +130,27 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 namespace IntegerAttr
 
 /--
-  The value MLIR stores for the bits of `value` at `width`: MLIR's `IntegerAttr`
-  holds an `APInt` of its type's width, which it reads back as unsigned for `i1`
-  (so `true` is 1) and as signed otherwise (so `200 : i8` is -56).
+  The value MLIR stores for the bits of `value` at `type`: MLIR's `IntegerAttr`
+  holds an `APInt` of its type's width, which it reads back as unsigned for
+  unsigned types and for signless `i1` (so `true` is 1 and `200 : ui8` is 200),
+  and as signed otherwise (so `200 : i8` is -56).
 -/
-def normalizeValue (width : Nat) (value : Int) : Int :=
-  if width = 1 then (BitVec.ofInt 1 value).toNat else (BitVec.ofInt width value).toInt
+def normalizeValue (type : IntegerType) (value : Int) : Int :=
+  if type.signedness = .unsigned ∨ type = IntegerType.signless 1 then
+    (BitVec.ofInt type.bitwidth value).toNat
+  else
+    (BitVec.ofInt type.bitwidth value).toInt
 
 /-- An integer attribute holding the bits of `value`, normalized as MLIR does. -/
 def ofInt (value : Int) (type : IntegerType) : IntegerAttr :=
-  ⟨normalizeValue type.bitwidth value, type⟩
+  ⟨normalizeValue type value, type⟩
 
 /--
   Whether the value is already normalized for its type, as the parser guarantees
   for every integer attribute outside `mod_arith`.
 -/
 def isNormalized (attr : IntegerAttr) : Bool :=
-  attr.value = normalizeValue attr.type.bitwidth attr.value
+  attr.value = normalizeValue attr.type attr.value
 
 end IntegerAttr
 
@@ -932,7 +936,7 @@ instance : ToString DlSpecAttr where
 
 instance : ToString IntegerAttr where
   toString attr :=
-    if attr.type.bitwidth = 1 then
+    if attr.type = IntegerType.signless 1 then
       if attr.value % 2 = 0 then "false" else "true"
     else s!"{attr.value} : {attr.type}"
 
