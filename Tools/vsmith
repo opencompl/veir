@@ -611,7 +611,8 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
 
     # 4. execute under spike: exit 0 = return value agrees, nonzero = disagrees
     try:
-        rc, out = _mir_run([tools["spike"], f"--isa={MIR_MARCH}", str(elf)], timeout=SPIKE_TIMEOUT)
+        rc, out = _mir_run([tools["spike"], "--misaligned", f"--isa={MIR_MARCH}", str(elf)],
+                           timeout=SPIKE_TIMEOUT)
     except subprocess.TimeoutExpired:
         return False, (f"MIR execution under spike timed out ({SPIKE_TIMEOUT}s)\n"
                        f"optimized: {opt}\nmir: {mir}\nelf: {elf}")
