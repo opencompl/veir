@@ -575,17 +575,17 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
     rc, out = _mir_run([tools["llc"], str(mir), "-mtriple=riscv64", "-x", "mir",
                         "-run-pass=phi-node-elimination,twoaddressinstruction,"
                         "register-coalescer,greedy,virtregrewriter,prolog-epilog,"
-                        "postrapseudos,riscv-expand-pseudo", "-o", str(lowered)])
+                        "postrapseudos,riscv-expand-pseudo-pre-emit", "-o", str(lowered)])
     if rc != 0:
         return False, (f"llc failed to lower MIR (regalloc stage)\n"
                        f"optimized: {opt}\nmir: {mir}\n{out}")
 
     # 2b. llc, emission stage: fully-lowered MIR -> RISC-V assembly.
-    # -start-after=riscv-expand-pseudo skips straight to the asm printer (the few
+    # -start-after=riscv-expand-pseudo-pre-emit skips straight to the asm printer (the few
     # remaining passes are no-ops here) without re-running regalloc or prologue
     # insertion, which would corrupt the already-lowered MIR.
     rc, out = _mir_run([tools["llc"], str(lowered), "-mtriple=riscv64", "-x", "mir",
-                        "-start-after=riscv-expand-pseudo", "-o", str(asm)])
+                        "-start-after=riscv-expand-pseudo-pre-emit", "-o", str(asm)])
     if rc != 0:
         return False, (f"llc failed to emit assembly from lowered MIR\n"
                        f"optimized: {opt}\nlowered: {lowered}\n{out}")
