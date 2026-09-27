@@ -97,6 +97,15 @@ theorem Interp.admissible_of_ub {α : Type} (P : Interp α → Prop) (hub : P (.
     ((.ub op : Interp α) >>= f) = .ub op := rfl
 @[simp, grind =] theorem Interp.bind_fail (f : α → Interp β) :
     ((.fail op : Interp α) >>= f) = .fail op := rfl
+/--
+Bind as a case split on the scrutinee. The three equations above only fire on a literal
+constructor; `grind` needs this one to see through a `do` block whose head is an opaque call.
+-/
+@[grind =] theorem Interp.bind_def {α β : Type} (x : Interp α) (f : α → Interp β) :
+    (x >>= f) = match x with
+      | .fail op => .fail op
+      | .ub op => .ub op
+      | .ok a => f a := rfl
 @[simp, grind =] theorem Interp.liftOption_none : ((none : Option α) : Interp α) = .fail none := rfl
 @[simp, grind =] theorem Interp.liftOption_some (a : α) : ((some a : Option α) : Interp α) = .ok a := rfl
 
