@@ -749,16 +749,9 @@ theorem sext_refinement_1_32 {x : LLVM.Int 1} :
 theorem trunc_refinement_le64 {w₁ w₂ : Nat} (hw : w₁ ≤ 64) {x : LLVM.Int w₁} {nsw nuw : Bool}
     {h : w₁ > w₂} :
     (Data.LLVM.Int.trunc x w₂ nsw nuw h) ⊒ (RISCV.Reg.toInt (LLVM.Int.toReg x) w₂) := by
-  have key (v : BitVec w₁) : (v.zeroExtend 64).zeroExtend w₂ = v.truncate w₂ := by
-    pbv_decide 64
-    · bv_decide
-  cases x with
-  | poison => simp [LLVM.Int.trunc, isRefinedBy, Id.run]
-  | val v =>
-    simp only [LLVM.Int.trunc, LLVM.Int.toReg, RISCV.Reg.toInt, key, Id.run]
-    split
-    · simp [isRefinedBy, pure]
-    · split <;> simp [isRefinedBy, pure]
+  veir_bv_normalize
+  pbv_decide 64
+  bv_decide
 
 /--
   Prove the correctness of the `smax` lowering pattern (`llvm.intr.smax` -> `max`).
