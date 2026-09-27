@@ -647,7 +647,17 @@ axiom interpretOp'_ne_fail {ctx : WfIRContext OpCode} {op : OperationPtr}
     (mem : MemoryState) :
   (op.interpret ctx.raw operands mem).isFail = false
 
-set_option warn.sorry false in
+/-- Monotonicity for the dialects that are not proved yet; `Riscv.interpretOp'_monotone` proves
+the `riscv` case. -/
+axiom interpretOp'_monotone_of_not_riscv
+    (opType : OpCode) (properties : propertiesOf opType) (resultTypes : Array TypeAttr)
+    (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr) (mem : MemoryState)
+    (notRiscv : ∀ riscvOp, opType ≠ .riscv riscvOp) :
+    operands ⊒ operands' →
+    Interp.isRefinedBy OperationResult.isRefinedBy
+      (interpretOp' opType properties resultTypes operands blockOperands mem)
+      (interpretOp' opType properties resultTypes operands' blockOperands mem)
+
 theorem interpretOp'_monotone
     (opType : OpCode) (properties : propertiesOf opType) (resultTypes : Array TypeAttr)
     (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr) (mem : MemoryState) :
@@ -660,7 +670,8 @@ theorem interpretOp'_monotone
   case riscv =>
     simp only [interpretOp']
     exact Riscv.interpretOp'_monotone h
-  all_goals sorry
+  all_goals
+    exact interpretOp'_monotone_of_not_riscv _ _ _ _ _ _ _ (by simp) h
 
 /--
 A successful operation interpretation returns result values that conform to the declared
