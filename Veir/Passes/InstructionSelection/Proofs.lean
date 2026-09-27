@@ -7,6 +7,7 @@ public import Veir.Data.Refinement
 
 meta import Std.Tactic.BVDecide
 meta import Std.Tactic.BVDecide.Reflect
+meta import Veir.Meta.Tactic.PBVDecide
 
 import Veir.ForLean
 import all Veir.Data.RISCV.Reg.Basic
@@ -44,19 +45,17 @@ theorem poisonConst_refinement :
   veir_bv_decide
 
 /--
-  Prove the correctness of the `constant` lowering pattern at i32 (similar to the `i64` case above), however currently using the grind tactic.
+  Prove the correctness of the `constant` lowering pattern at every width `w ≤ 64`: the
+  constant is truncated to `w` bits and sign-extended to the 64-bit `li` immediate, whose
+  low `w` bits are then exactly the constant.
 -/
-theorem constant_refinement_32 {v : Int} :
-    (LLVM.Int.constant 32 v) ⊒ (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 v)) 32) := by
-  veir_bv_decide
-
-theorem constant_refinement_8 {v : Int} :
-    (LLVM.Int.constant 8 v) ⊒ (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 v)) 8) := by
-  veir_bv_decide
-
-theorem constant_refinement_1 {v : Int} :
-    (LLVM.Int.constant 1 v) ⊒ (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 v)) 1) := by
-  veir_bv_decide
+theorem constant_refinement_le64 {w : Nat} (h : w ≤ 64) {v : Int} :
+    (LLVM.Int.constant w v) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.li ((BitVec.ofInt w v).signExtend 64)) w) := by
+  simp only [isRefinedBy, LLVM.Int.constant, RISCV.Reg.toInt, RISCV.li]
+  generalize BitVec.ofInt w v = x
+  pbv_decide 64
+  · bv_decide
 
 /--
   Prove the correctness of the `add` lowering pattern.

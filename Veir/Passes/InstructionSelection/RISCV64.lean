@@ -428,15 +428,16 @@ def bitreverse (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite bitreverse_local rewriter op opInBounds
 
-/-- llvm.constant -> riscv.li -/
+/-- llvm.constant -> riscv.li. Any width up to 64 fits in one register: the constant is
+  sign-extended to the 64-bit immediate (see `constant_refinement_le64`). -/
 def constant_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some const := matchConstantIntOp op ctx.raw
       | return (ctx, none)
-  if const.type.bitwidth ≠ 64 ∧ const.type.bitwidth ≠ 32 ∧ const.type.bitwidth ≠ 8 ∧ const.type.bitwidth ≠ 1 then return (ctx, none)
+  if const.type.bitwidth > 64 then return (ctx, none)
   let type := ((op.getResult 0).get! ctx.raw).type
   let .integerType type' := type.val | return (ctx, none)
-  if type'.bitwidth ≠ 64 ∧ type'.bitwidth ≠ 32 ∧ type'.bitwidth ≠ 8 ∧ type'.bitwidth ≠ 1 then return (ctx, none)
+  if type'.bitwidth > 64 then return (ctx, none)
   let imm := RISCVImmediateProperties.mk
       ((BitVec.ofInt type'.bitwidth (decodeLLVMIntegerConstant const)).signExtend 64)
   let (ctx, newOp) ← WfRewriter.createOp! ctx Riscv.li #[RegisterType.mk] #[]
