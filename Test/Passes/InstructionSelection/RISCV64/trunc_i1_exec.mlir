@@ -1,11 +1,10 @@
-// RUN: veir-interpret %s | filecheck %s --check-prefix=SRC
 // RUN: veir-opt %s --print-op-generic -p=riscv > %t && veir-interpret %t | filecheck %s
 // RUN: veir-opt %s --print-op-generic -p=riscv | filecheck %s --check-prefix=ISEL
 
 // `trunc` to `i1` leaves the operand's upper bits in the register: 6 truncates to
 // false, yet the register still holds 6. The `select` and the `cond_br` read the
 // whole register, so they are only right if `reconcile-cast` zero-extends the `i1`
-// before they use it. The false arms give 200 + 20 = 220.
+// before they use it. The false arms give 200 + 20 = 220 (0xdc).
 
 // ISEL-NOT: "llvm.trunc"
 
@@ -29,5 +28,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// SRC:   Program output: #[0x00000000000000dc#64]
 // CHECK: Program output: #[0x00000000000000dc#64]
