@@ -134,7 +134,8 @@ theorem interpretOp_monotone
     simp only [Interp.isRefinedBy_ok_target_iff, Prod.exists]
     have ⟨resValues, hinterp', hResValues⟩ :=
       (interpretOp_ok_iff_of_getOperandValues_eq_some hSrcOps).mp hsrc
-    simp only [hinterp', Interp.isRefinedBy_ok_target_iff, Prod.exists] at hPR1
+    simp only [hinterp', Interp.isRefinedBy_ok_target_iff, OperationResult.isRefinedBy,
+      Prod.exists] at hPR1
     have ⟨resValues', memory'₂, act', hinterp'Tgt, resValuesRef, memoryEq, actRef⟩ := hPR1
     subst memory'₂
     simp only [← hInterp'Eq] at hinterp'Tgt

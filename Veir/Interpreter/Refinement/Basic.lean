@@ -125,6 +125,17 @@ def ControlFlowAction.optionIsRefinedBy : Option ControlFlowAction → Option Co
   | _, _ => False
 
 /--
+The result of interpreting a single operation: the values it produced, the memory it left, and
+the control-flow action it asks for. `source` is refined by `target` when the values refine
+pointwise, the memories are equal, and the actions refine.
+-/
+@[expose]
+def OperationResult.isRefinedBy (source target :
+    Array RuntimeValue × MemoryState × Option ControlFlowAction) : Prop :=
+  source.1 ⊒ target.1 ∧ source.2.1 = target.2.1 ∧
+    ControlFlowAction.optionIsRefinedBy source.2.2 target.2.2
+
+/--
 The function described by source `op₁` (in `ctx₁`) is *refined by* target `op₂` (in `ctx₂`) when,
 for every argument `values` and initial memory `mem`, interpreting `op₁` is refined by interpreting
 `op₂`.

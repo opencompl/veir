@@ -87,6 +87,19 @@ theorem ControlFlowAction.optionIsRefinedBy_refl (cf : Option ControlFlowAction)
   | none => trivial
   | some a => cases a <;> simp [ControlFlowAction.optionIsRefinedBy, ControlFlowAction.isRefinedBy]
 
+@[simp, grind .]
+theorem OperationResult.isRefinedBy_refl
+    (r : Array RuntimeValue × MemoryState × Option ControlFlowAction) :
+    OperationResult.isRefinedBy r r := by
+  simp [OperationResult.isRefinedBy, ControlFlowAction.optionIsRefinedBy_refl]
+
+/-- Interpreting an operation refines itself, whatever the outcome. -/
+@[grind .]
+theorem Interp.isRefinedBy_refl_operationResult
+    (x : Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction)) :
+    Interp.isRefinedBy OperationResult.isRefinedBy x x := by
+  cases x <;> simp [Interp.isRefinedBy]
+
 /-! ## Transitivity -/
 
 theorem RuntimeValue.isRefinedBy_trans {v₁ v₂ v₃ : RuntimeValue}
