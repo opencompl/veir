@@ -4,6 +4,7 @@ public import Veir.Interpreter.Refinement.Basic
 public import Veir.Verifier
 
 import Veir.Interpreter.Lemmas
+import Veir.Dialects.Monotonicity
 import Veir.Interpreter.EquationLemma
 import Veir.Interpreter.Refinement.Lemmas
 

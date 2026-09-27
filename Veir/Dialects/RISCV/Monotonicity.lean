@@ -1,7 +1,8 @@
 module
 
 import all Veir.Dialects.RISCV.OpInfo
-public import Veir.Interpreter.Refinement.Lemmas
+import all Veir.Interpreter.Basic
+public import Veir.Interpreter.Lemmas
 
 public section
 
@@ -50,5 +51,10 @@ theorem Riscv.interpretOp'_monotone {operands operands' : Array RuntimeValue} :
   · rcases Riscv.interpretOp'_eq_fail_or_eq_of_not_regs (operands' := operands') hregs with heq | heq
     · rw [heq]; simp [Interp.isRefinedBy]
     · rw [heq]; apply Interp.isRefinedBy_refl_operationResult
+
+instance (opType : Riscv) : InterpretOp'Monotone (.riscv opType) where
+  monotone _ _ _ _ _ _ h := by
+    simp only [interpretOp']
+    exact Riscv.interpretOp'_monotone h
 
 end Veir

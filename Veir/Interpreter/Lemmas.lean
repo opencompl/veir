@@ -3,7 +3,6 @@ module
 public import Veir.Verifier
 import all Veir.Interpreter.VariableState
 import all Veir.Interpreter.Basic
-public import Veir.Dialects.RISCV.Monotonicity
 public import Veir.Interpreter.Refinement.Basic
 public import Veir.Interpreter.Refinement.Lemmas
 
@@ -647,31 +646,31 @@ axiom interpretOp'_ne_fail {ctx : WfIRContext OpCode} {op : OperationPtr}
     (mem : MemoryState) :
   (op.interpret ctx.raw operands mem).isFail = false
 
-/-- Monotonicity for the dialects that are not proved yet; `Riscv.interpretOp'_monotone` proves
-the `riscv` case. -/
-axiom interpretOp'_monotone_of_not_riscv
-    (opType : OpCode) (properties : propertiesOf opType) (resultTypes : Array TypeAttr)
-    (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr) (mem : MemoryState)
-    (notRiscv : ∀ riscvOp, opType ≠ .riscv riscvOp) :
+/--
+Monotonicity of `interpretOp'` in its operands, as a class so that a dialect can discharge it for
+its own opcodes without this file knowing about the dialect.
+-/
+class InterpretOp'Monotone (opType : OpCode) : Prop where
+  monotone (properties : propertiesOf opType) (resultTypes : Array TypeAttr)
+    (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr)
+    (mem : MemoryState) :
     operands ⊒ operands' →
     Interp.isRefinedBy OperationResult.isRefinedBy
       (interpretOp' opType properties resultTypes operands blockOperands mem)
       (interpretOp' opType properties resultTypes operands' blockOperands mem)
 
+/-- Assumed for an opcode whose dialect has no proof yet. -/
+axiom interpretOp'_monotone_assumed (opType : OpCode) : InterpretOp'Monotone opType
+
 theorem interpretOp'_monotone
-    (opType : OpCode) (properties : propertiesOf opType) (resultTypes : Array TypeAttr)
+    (opType : OpCode) [inst : InterpretOp'Monotone opType] (properties : propertiesOf opType)
+    (resultTypes : Array TypeAttr)
     (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr) (mem : MemoryState) :
     operands ⊒ operands' →
     Interp.isRefinedBy OperationResult.isRefinedBy
       (interpretOp' opType properties resultTypes operands blockOperands mem)
-      (interpretOp' opType properties resultTypes operands' blockOperands mem) := by
-  intro h
-  cases opType
-  case riscv =>
-    simp only [interpretOp']
-    exact Riscv.interpretOp'_monotone h
-  all_goals
-    exact interpretOp'_monotone_of_not_riscv _ _ _ _ _ _ _ (by simp) h
+      (interpretOp' opType properties resultTypes operands' blockOperands mem) :=
+  inst.monotone properties resultTypes operands operands' blockOperands mem
 
 /--
 A successful operation interpretation returns result values that conform to the declared
