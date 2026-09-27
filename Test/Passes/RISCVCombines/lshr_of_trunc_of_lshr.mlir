@@ -26,14 +26,14 @@
 }) : () -> ()
 
 // The shifts fold to a single lshr by 5 + 3 = 8 at i64, then one trunc to i32.
-// CHECK:      ^{{.*}}(%[[X:.*]] : i64):
+// CHECK:      func.func @foo(%[[X:.*]]: i64) -> i32 {
 // CHECK:      %[[C:.*]] = "llvm.mlir.constant"() <{"value" = 8 : i64}> : () -> i64
 // CHECK:      %[[L:.*]] = "llvm.lshr"(%[[X]], %[[C]]) : (i64, i64) -> i64
 // CHECK:      %[[R:.*]] = "llvm.trunc"(%[[L]]) : (i64) -> i32
 // CHECK:      "func.return"(%[[R]]) : (i32) -> ()
 
 // Non-constant outer shift amount: the pattern does not fire.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i64, %[[NS:.*]] : i32):
+// CHECK:      func.func @bar(%[[NX:.*]]: i64, %[[NS:.*]]: i32) -> i32 {
 // CHECK:      %[[NT:.*]] = "llvm.trunc"(%{{.*}}) : (i64) -> i32
 // CHECK:      %[[NR:.*]] = "llvm.lshr"(%[[NT]], %[[NS]]) : (i32, i32) -> i32
 // CHECK:      "func.return"(%[[NR]]) : (i32) -> ()

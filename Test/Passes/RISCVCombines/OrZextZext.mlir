@@ -23,13 +23,13 @@
 }) : () -> ()
 
 // The bitwise op runs on the narrow operands, then a single `zext` widens.
-// CHECK:      ^{{.*}}(%[[X:.*]] : i32, %[[Y:.*]] : i32):
+// CHECK:      func.func @foo(%[[X:.*]]: i32, %[[Y:.*]]: i32) -> i64 {
 // CHECK:      %[[OP:.*]] = "llvm.or"(%[[X]], %[[Y]]) : (i32, i32) -> i32
 // CHECK-NEXT: %[[E:.*]] = "llvm.zext"(%[[OP]]) : (i32) -> i64
 // CHECK:      "func.return"(%[[E]]) : (i64) -> ()
 
 // Single cast: the pattern does not fire.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i32, %[[NY:.*]] : i64):
+// CHECK:      func.func @bar(%[[NX:.*]]: i32, %[[NY:.*]]: i64) -> i64 {
 // CHECK:      %[[NEX:.*]] = "llvm.zext"(%[[NX]]) : (i32) -> i64
 // CHECK:      %[[NR:.*]] = "llvm.or"(%[[NEX]], %[[NY]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[NR]]) : (i64) -> ()

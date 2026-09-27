@@ -13,8 +13,8 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: "llvm.intr.memset"({{.*}}) <{"arg_attrs" = [{"llvm.align" = 8 : i64, llvm.nonnull, llvm.noundef}, {}, {}], "isVolatile" = 0 : i1}> : (!llvm.ptr, i8, i64) -> ()
-// CHECK: "llvm.intr.memcpy"({{.*}}) <{"isVolatile" = 1 : i1}> : (!llvm.ptr, !llvm.ptr, i64) -> ()
-// CHECK: "llvm.intr.memmove"({{.*}}) <{"isVolatile" = 0 : i1}> : (!llvm.ptr, !llvm.ptr, i64) -> ()
-// CHECK: "llvm.intr.memcpy"({{.*}}) <{"access_groups" = [], "alias_scopes" = [], "isVolatile" = 0 : i1, "noalias_scopes" = [], "tbaa" = [#llvm.tbaa_tag<
-// CHECK: "llvm.intr.memset"({{.*}}) <{"isVolatile" = 0 : i1, "res_attrs" = []}> : (!llvm.ptr, i8, i64) -> ()
+// CHECK: "llvm.intr.memset"({{.*}}) <{"arg_attrs" = [{"llvm.align" = 8 : i64, llvm.nonnull, llvm.noundef}, {}, {}], "isVolatile" = false}> : (!llvm.ptr, i8, i64) -> ()
+// CHECK: "llvm.intr.memcpy"({{.*}}) <{"isVolatile" = true}> : (!llvm.ptr, !llvm.ptr, i64) -> ()
+// CHECK: "llvm.intr.memmove"({{.*}}) <{"isVolatile" = false}> : (!llvm.ptr, !llvm.ptr, i64) -> ()
+// CHECK: "llvm.intr.memcpy"({{.*}}) <{"access_groups" = [], "alias_scopes" = [], "isVolatile" = false, "noalias_scopes" = [], "tbaa" = [#llvm.tbaa_tag<
+// CHECK: "llvm.intr.memset"({{.*}}) <{"isVolatile" = false, "res_attrs" = []}> : (!llvm.ptr, i8, i64) -> ()

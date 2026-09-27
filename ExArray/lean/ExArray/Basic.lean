@@ -443,7 +443,12 @@ theorem readRec_succ (w : Nat) (buf : ExArray) (n : UInt64) numBytes h :
 theorem readRec_uset_disjoint {w : Nat} (buf : ExArray) (n: UInt64) numBytes m (x: UInt8)
     (hDisjoint: m.toNat ∉ support n.toNat numBytes) h₁ h₂ :
     (buf.uset m x h₁).readRec n numBytes h₂ = buf.readRec (w := w) n numBytes (by grind) := by
-  induction numBytes generalizing n buf x <;> grind [readRec_succ]
+  induction numBytes generalizing n
+  case zero =>
+    grind
+  case succ numBytes ih =>
+    simp only [readRec_succ]
+    grind
 
 @[simp, grind =]
 theorem readRec_blitRec_self (w : Nat) (buf : ExArray) (n : UInt64) numBytes (x : BitVec w) h h' :

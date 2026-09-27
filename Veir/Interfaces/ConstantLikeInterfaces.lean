@@ -38,7 +38,7 @@ def ValuePtr.constantValue (val : ValuePtr) (ctx : IRContext OpCode) : Option Ru
   if res.op.getNumOperands! ctx ≠ 0 then none else
   match res.op.interpret ctx #[] .empty with
   | .ok (results, _, none) => results[res.index]?
-  | .ub => RuntimeValue.getPoisonForType (val.getType! ctx)
+  | .ub _ => RuntimeValue.getPoisonForType (val.getType! ctx)
   | _ => none
 
 end

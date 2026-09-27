@@ -1,12 +1,12 @@
 // RUN: veir-interpret %s | filecheck %s
 
-// `riscv.sh` stores the low halfword 0x8000 at address 8; `riscv.lh`
+// `riscv.sh` stores the low halfword 0x8000 into a stack slot; `riscv.lh`
 // sign-extends the halfword to a full 64-bit register, while `riscv.lhu` would
 // zero-extend it.
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> !riscv.reg}> ({
-    %a = "riscv.li"() <{ "value" = 8 : i64 }> : () -> !riscv.reg
+    %a = "riscv_stack.alloca"() <{ "size" = 2 : i64, "alignment" = 8 : i64 }> : () -> !riscv.reg
     %x = "riscv.li"() <{ "value" = 32768 : i64 }> : () -> !riscv.reg
     "riscv.sh"(%x, %a) <{ "value" = 0 : i64 }> : (!riscv.reg, !riscv.reg) -> ()
     %y = "riscv.lh"(%a) <{ "value" = 0 : i64 }> : (!riscv.reg) -> !riscv.reg

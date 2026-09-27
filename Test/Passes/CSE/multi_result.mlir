@@ -31,9 +31,8 @@
       : (i32, i1, i32, i1, i32, i1) -> ()
     "func.return"() : () -> ()
 
-    // CHECK-LABEL: "sym_name" = "multi_result"
-    // CHECK:      ^{{[0-9]+}}(%[[A:[^ ]*]] : i32, %[[B:[^ ]*]] : i32):
-    // CHECK-NEXT: %[[ADD:.*]]:2 = "arith.addui_extended"(%[[A]], %[[B]]) : (i32, i32) -> (i32, i1)
+    // CHECK-LABEL: func.func @multi_result(
+    // CHECK:      %[[ADD:.*]]:2 = "arith.addui_extended"(%[[A:[^ ]*]], %[[B:[^ ]*]]) : (i32, i32) -> (i32, i1)
     // CHECK-NEXT: %[[USE:.*]] = "arith.addi"(%[[ADD]]#0, %[[A]]) : (i32, i32) -> i32
     // CHECK-NEXT: "test.test"(%[[ADD]]#0, %[[ADD]]#1, %[[ADD]]#0, %[[ADD]]#1, %[[USE]], %[[USE]])
     // CHECK-NEXT: %[[SMUL:.*]]:2 = "arith.mulsi_extended"(%[[A]], %[[B]])

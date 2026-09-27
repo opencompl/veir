@@ -24,7 +24,7 @@
 }) : () -> ()
 
 // Collapsed to (X | Y) != 0.
-// CHECK:      ^{{.*}}(%[[X:.*]] : i64, %[[Y:.*]] : i64):
+// CHECK:      func.func @foo(%[[X:.*]]: i64, %[[Y:.*]]: i64) -> i1 {
 // CHECK:      %[[OR:.*]] = "llvm.or"(%[[X]], %[[Y]]) : (i64, i64) -> i64
 // CHECK:      %[[Z:.*]] = "llvm.mlir.constant"() <{"value" = 0 : i64}> : () -> i64
 // CHECK:      %[[R:.*]] = "llvm.icmp"(%[[OR]], %[[Z]]) <{"predicate" = 1 : i64}> : (i64, i64) -> i1
@@ -33,7 +33,7 @@
 // `eq` comparisons ored together: the `or` rule does not fire, so the original
 // `or` of the two i1 comparison results survives (type (i1, i1) -> i1). Had the
 // rule fired, the `or` would instead be over the i64 inputs.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i64, %[[NY:.*]] : i64):
+// CHECK:      func.func @bar(%[[NX:.*]]: i64, %[[NY:.*]]: i64) -> i1 {
 // CHECK:      %[[NCX:.*]] = "llvm.icmp"(%[[NX]], %{{.*}}) <{"predicate" = 0 : i64}> : (i64, i64) -> i1
 // CHECK:      %[[NCY:.*]] = "llvm.icmp"(%[[NY]], %{{.*}}) <{"predicate" = 0 : i64}> : (i64, i64) -> i1
 // CHECK:      %[[NOR:.*]] = "llvm.or"(%[[NCX]], %[[NCY]]) : (i1, i1) -> i1

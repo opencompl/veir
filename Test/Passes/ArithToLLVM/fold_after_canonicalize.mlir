@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=canonicalize > %t
+// RUN: veir-opt %s --print-op-generic -p=canonicalize > %t
 // RUN: filecheck %s --check-prefix=AFTER-FOLDER --input-file=%t
 // RUN: veir-opt %t -p=arith-to-llvm | filecheck %s --check-prefix=LOWERED
 
@@ -27,7 +27,7 @@
 // its divisor is still unknown.
 // LOWERED: "llvm.mlir.constant"() <{"value" = 0 : i8}>
 // LOWERED: "llvm.mlir.constant"() <{"value" = 1 : i8}>
-// LOWERED: "llvm.mlir.constant"() <{"value" = 0 : i1}>
+// LOWERED: "llvm.mlir.constant"() <{"value" = false}>
 // LOWERED: "llvm.mlir.constant"() <{"value" = -2 : i8}>
 // LOWERED-NOT: "llvm.icmp"
 // LOWERED-NOT: "llvm.sub"

@@ -3,6 +3,7 @@ module
 public import Veir.Data.LLVM.Int.Basic
 public import Veir.Data.LLVM.FloatPred
 public import Veir.Data.LLVM.AtomicOrdering
+public import Veir.Data.LLVM.ComdatKind
 public import Std.Data.HashMap
 public import Veir.IR.Attribute
 
@@ -11,6 +12,13 @@ import Veir.Dialects.Builtin.Properties
 namespace Veir
 
 public section
+
+/-- Decode an LLVM integer constant at its attribute width. LLVM sign-extends
+integer attributes, except that `i1` is zero-extended. To obtain the value of an
+`llvm.mlir.constant`, truncate this integer to the operation's result width. -/
+def decodeLLVMIntegerConstant (attr : IntegerAttr) : Int :=
+  if attr.type.bitwidth = 1 then (BitVec.ofInt 1 attr.value).toNat
+  else (BitVec.ofInt attr.type.bitwidth attr.value).toInt
 
 /-- Properties of LLVM operations that can have `nsw` and `nuw` flags, such as `llvm.add` or `llvm.mul`. -/
 structure NswNuwProperties where
@@ -285,6 +293,81 @@ def LLVMGlobalProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribut
     constant
     extra
   }
+
+/--
+  Properties of `llvm.mlir.alias`.
+
+  MLIR 23 spells thread-locality as the unit attribute `thread_local_` instead
+  of `tls_mode`, so both are accepted. Newer MLIR also carries the symbol's
+  `sym_visibility` (public, private or nested) as a property; MLIR 23 drops it.
+  We support both MLIR 23 as well as newer versions.
+-/
+structure LLVMAliasProperties where
+  sym_name : StringAttr
+  sym_visibility : Option StringAttr
+  alias_type : TypeAttr
+  linkage : LinkageAttr
+  dso_local : Bool
+  thread_local_ : Bool
+  tls_mode : Option IntegerAttr
+  unnamed_addr : Option IntegerAttr
+  visibility_ : IntegerAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+/-- An optional i64 enumeration property with values `0` to `max`. -/
+private def getSmallI64Attr (opName key : String) (max : Int)
+    (attrDict : Std.HashMap ByteArray Attribute) : Except String (Option IntegerAttr) :=
+  match attrDict[key.toUTF8]? with
+  | none => pure none
+  | some attr =>
+    match attr with
+    | .integerAttr intAttr =>
+      if intAttr.type.bitwidth ≠ 64 ∨ intAttr.value < 0 ∨ intAttr.value > max then
+        throw s!"{opName}: expected '{key}' to be an i64 integer attribute between 0 and {max}, \
+          but got {attr}"
+      else
+        pure (some intAttr)
+    | _ => throw s!"{opName}: expected '{key}' to be an integer attribute, but got {attr}"
+
+def LLVMAliasProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMAliasProperties := do
+  let symName ← match attrDict["sym_name".toUTF8]? with
+    | some (.stringAttr attr) => pure attr
+    | some attr =>
+      throw s!"llvm.mlir.alias: expected 'sym_name' to be a string attribute, but got {attr}"
+    | none => throw "llvm.mlir.alias: missing 'sym_name' property"
+  let aliasType ← match attrDict["alias_type".toUTF8]? with
+    | some attr =>
+      if _ : attr.isType = false then
+        throw "llvm.mlir.alias: expected 'alias_type' to be a type attribute"
+      else
+        pure attr.asType
+    | none => throw "llvm.mlir.alias: missing 'alias_type' property"
+  let linkage ← match attrDict["linkage".toUTF8]? with
+    | some (.linkageAttr attr) => pure attr
+    | some attr =>
+      throw s!"llvm.mlir.alias: expected 'linkage' to be an LLVM linkage attribute, but got {attr}"
+    | none => throw "llvm.mlir.alias: missing 'linkage' property"
+  let dsoLocal ← (getUnitAttr "dso_local" attrDict).mapError (s!"llvm.mlir.alias: {·}")
+  let threadLocal ← (getUnitAttr "thread_local_" attrDict).mapError (s!"llvm.mlir.alias: {·}")
+  let symVisibility ← match attrDict["sym_visibility".toUTF8]? with
+    | none => pure none
+    | some attr =>
+      match attr with
+      | .stringAttr s =>
+        if ["public".toUTF8, "private".toUTF8, "nested".toUTF8].contains s.value then
+          pure (some s)
+        else
+          throw s!"llvm.mlir.alias: expected 'sym_visibility' to be \"public\", \"private\" or \"nested\", \
+            but got {attr}"
+      | _ => throw s!"llvm.mlir.alias: expected 'sym_visibility' to be a string attribute, but got {attr}"
+  let tlsMode ← getSmallI64Attr "llvm.mlir.alias" "tls_mode" 4 attrDict
+  let unnamedAddr ← getSmallI64Attr "llvm.mlir.alias" "unnamed_addr" 2 attrDict
+  let visibility ← getSmallI64Attr "llvm.mlir.alias" "visibility_" 2 attrDict
+  return { sym_name := symName, sym_visibility := symVisibility, alias_type := aliasType, linkage,
+           dso_local := dsoLocal,
+           thread_local_ := threadLocal, tls_mode := tlsMode, unnamed_addr := unnamedAddr,
+           visibility_ := visibility.getD { value := 0, type := { bitwidth := 64 } } }
 
 /-- Properties of `llvm.mlir.addressof`. -/
 structure LLVMAddressOfProperties where
@@ -797,6 +880,49 @@ def LLVMFenceProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute
       throw s!"llvm.fence: expected 'syncscope' to be a string attribute, but got {attr}"
     | none => .ok none
   return { ordering, syncscope }
+
+/-- Properties of `llvm.comdat`: the name of the comdat group. -/
+structure LLVMComdatProperties where
+  sym_name : StringAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMComdatProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMComdatProperties := do
+  if let some (key, _) := attrDict.toArray.find? (fun (k, _) => k ≠ "sym_name".toUTF8) then
+    throw s!"llvm.comdat: unexpected property '{String.fromUTF8! key}'"
+  let symName ← match attrDict["sym_name".toUTF8]? with
+    | some (.stringAttr s) => pure s
+    | some attr => throw s!"llvm.comdat: expected 'sym_name' to be a string attribute, but got {attr}"
+    | none => throw "llvm.comdat: missing 'sym_name' property"
+  return { sym_name := symName }
+
+/-- Properties of `llvm.comdat_selector`: its name and how duplicates are resolved. -/
+structure LLVMComdatSelectorProperties where
+  sym_name : StringAttr
+  comdat : Data.LLVM.ComdatKind
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMComdatSelectorProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMComdatSelectorProperties := do
+  if let some (key, _) := attrDict.toArray.find? (fun (k, _) =>
+      k ≠ "sym_name".toUTF8 && k ≠ "comdat".toUTF8) then
+    throw s!"llvm.comdat_selector: unexpected property '{String.fromUTF8! key}'"
+  let symName ← match attrDict["sym_name".toUTF8]? with
+    | some (.stringAttr s) => pure s
+    | some attr =>
+      throw s!"llvm.comdat_selector: expected 'sym_name' to be a string attribute, but got {attr}"
+    | none => throw "llvm.comdat_selector: missing 'sym_name' property"
+  let some attr := attrDict["comdat".toUTF8]?
+    | throw "llvm.comdat_selector: missing 'comdat' property"
+  let .integerAttr intAttr := attr
+    | throw s!"llvm.comdat_selector: expected 'comdat' to be an integer attribute, but got {attr}"
+  if intAttr.type.bitwidth ≠ 64 then
+    throw s!"llvm.comdat_selector: expected 'comdat' to be an i64 integer attribute, but got {attr}"
+  if intAttr.value < 0 then
+    throw s!"llvm.comdat_selector: invalid comdat kind {intAttr.value}"
+  let some kind := Data.LLVM.ComdatKind.fromNat intAttr.value.toNat
+    | throw s!"llvm.comdat_selector: invalid comdat kind {intAttr.value}"
+  return { sym_name := symName, comdat := kind }
 
 structure LLVMModuleFlagsProperties where
   flags : ArrayAttr

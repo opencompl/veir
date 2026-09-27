@@ -1,6 +1,7 @@
 module
 
 public import Veir.PatternRewriter.Puddle.Builders
+public import Veir.Interpreter.Refinement.Lemmas
 
 /-!
 # Puddle Patterns Validity
@@ -138,28 +139,13 @@ def require (ctx : HandleContext) (handle : Handle OpCode kind) : Bool :=
 def requireMany (ctx : HandleContext) (handles : List (Handle OpCode kind)) : Bool :=
   handles.all ctx.require
 
-/--
-Record a matcher-defined handle. Repeated definitions of the same typed handle are permitted,
-but reusing an identifier at another kind is rejected.
--/
-def insert (ctx : HandleContext) (handle : Handle OpCode kind) : Option HandleContext :=
-  match ctx.lookup handle.id with
-  | none => some ⟨(handle.id, kind) :: ctx.bindings, ctx.unavailable⟩
-  | some actual => if actual = kind then some ctx else none
-
-/-- Record several matcher-defined handles. -/
-@[expose]
-def insertMany (ctx : HandleContext) (handles : List (Handle OpCode kind))
-    : Option HandleContext :=
-  handles.foldlM insert ctx
-
-/-- Record a creation output, requiring its identifier to be fresh in the context. -/
+/-- Record an output, requiring its identifier to be fresh in the context. -/
 def insertFresh (ctx : HandleContext) (handle : Handle OpCode kind) : Option HandleContext :=
   match ctx.lookup handle.id with
   | none => some ⟨(handle.id, kind) :: ctx.bindings, ctx.unavailable⟩
   | some _ => none
 
-/-- Record several creation outputs, checking freshness between the outputs as well. -/
+/-- Record several outputs, checking freshness between the outputs as well. -/
 @[expose]
 def insertManyFresh (ctx : HandleContext) (handles : List (Handle OpCode kind))
     : Option HandleContext :=
@@ -206,21 +192,25 @@ def insertFreshBindings (shape : MetadataTuple.Shape OpCode Handles) (ctx : Hand
 
 end MetadataTuple.Shape
 
-/-- Collect the handles that a matcher declaration binds during a successful match. -/
+/--
+Collect the handles that a matcher declaration binds during a successful match.
+Requires that all inputs are available in the context, and that all outputs are fresh.
+-/
 @[expose]
 def MatchDecl.collectBindings (decl : MatchDecl OpCode)
     (defined : HandleContext) : Option HandleContext := do
   match decl with
   | .operation _ operands resultTypes _ propertyHandle opHandle results _ =>
-      let defined ← defined.insert opHandle
-      let defined ← defined.insertMany results.toList
-      let defined ← defined.insert propertyHandle
-      let defined ← defined.insertMany resultTypes.toList
-      defined.insertMany operands.toList
-  | .value typeHandle _ =>
-      defined.insert typeHandle
-  | .type _ _ =>
-      some defined
+      guard (defined.requireMany operands.toList)
+      guard (defined.requireMany resultTypes.toList)
+      let defined ← defined.insertManyFresh results.toList
+      let defined ← defined.insertFresh propertyHandle
+      defined.insertFresh opHandle
+  | .value typeHandle result =>
+      guard (defined.require typeHandle)
+      defined.insertFresh result
+  | .type _ result =>
+      defined.insertFresh result
   | @MatchDecl.applyNative _ _ _ inputBundle inputs _ => do
       guard (inputBundle.shape.requireBindings defined inputs)
       return defined
@@ -237,6 +227,14 @@ def MatchProg.collectDeclBindings :
       let defined ← decl.collectBindings defined
       MatchProg.collectDeclBindings decls defined
 
+/-- Order the matching declarations from leaves to root, then native guards. -/
+@[expose]
+def MatchProg.bindingDecls (prog : MatchProg OpInfo α) : List (MatchDecl OpInfo) :=
+  let (structural, guards) := prog.decls.partition fun
+    | @MatchDecl.applyNative _ _ _ _ _ _ => false
+    | _ => true
+  structural.reverse ++ guards
+
 /--
 Collect every available handle that can be bound by a successful matcher, and mark as unavailable
 the root operation handle and its result handles.
@@ -245,8 +243,7 @@ the root operation handle and its result handles.
 def MatchProg.collectBindings (prog : MatchProg OpCode α) : Option HandleContext :=
   do
     let rootResults ← prog.rootResults?
-    let defined ← HandleContext.empty.insert prog.rootHandle
-    let defined ← MatchProg.collectDeclBindings prog.decls defined
+    let defined ← MatchProg.collectDeclBindings prog.bindingDecls .empty
     let defined := defined.forbid prog.rootHandle
     return defined.forbidMany rootResults.toList
 
@@ -295,8 +292,9 @@ def Pattern.checkStructure (rule : Pattern OpCode) : Option HandleContext := do
 
 /--
 Structural validity of a Puddle pattern. It checks that:
-* the match program begins with an operation declaration for its root;
-* matcher bindings that share an identifier also share a runtime kind;
+* the match program executes an operation declaration for its root first;
+* when the declarations are processed in reverse order, inputs are introduced before
+  use and outputs are fresh
 * every creation input is bound by the matcher or by an earlier creation declaration;
 * every creation output has an identifier that is globally fresh;
 * each created operation has as many result handles as result-type handles;
@@ -312,6 +310,349 @@ instance (rule : Pattern OpCode) : Decidable rule.StructurallyWellFormed := by
   infer_instance
 
 /-!
+## Semantic validity
+
+This section defines the semantic obligation `Pattern.PreservesSemantics` for Puddle patterns.
+
+We assign runtime values to SSA value handles and concrete metadata to type and property handles.
+Operation handles remain structural: their results are represented by the individual SSA value
+handles. The semantic obligation is that for every assignment satisfying the matcher, the creation
+program produces an assignment that refines the root operation's results.
+-/
+
+/-- The denotation of a value or metadata handle for a particular program execution. -/
+inductive SemanticBinding where
+| value (value : RuntimeValue)
+| type (type : TypeAttr)
+| property (opCode : OpCode) (value : propertiesOf opCode)
+
+/--
+An assignment from handle identifiers to semantic values.
+We define it as a function rather than a hashmap to make unfolding and reasoning easier. This
+is only used for reasoning, so performance is not a concern.
+-/
+abbrev SemanticAssignment := Nat → Option SemanticBinding
+
+/-- The empty assignment. -/
+@[expose]
+def SemanticAssignment.empty : SemanticAssignment :=
+  fun _ => none
+
+/-- Binds a value to a handle, possibly erasing the existing binding. -/
+@[expose]
+def SemanticAssignment.bind (assignment : SemanticAssignment)
+    (id : Nat) (binding : SemanticBinding) : SemanticAssignment :=
+  fun queried => if queried = id then some binding else assignment queried
+
+@[simp]
+theorem SemanticAssignment.empty_apply (id : Nat) :
+    SemanticAssignment.empty id = none := rfl
+
+@[simp]
+theorem SemanticAssignment.bind_same_eq (assignment : SemanticAssignment)
+    (id : Nat) (binding : SemanticBinding) :
+    assignment.bind id binding id = some binding := by
+  simp [SemanticAssignment.bind]
+
+@[simp]
+theorem SemanticAssignment.bind_of_ne_eq (assignment : SemanticAssignment)
+    (id queried : Nat) (binding : SemanticBinding) (hne : queried ≠ id) :
+    assignment.bind id binding queried = assignment queried := by
+  simp [SemanticAssignment.bind, hne]
+
+/-- Binds a runtime value to a value handle. -/
+@[expose]
+def SemanticAssignment.bindValue (assignment : SemanticAssignment)
+    (handle : Handle OpCode .value) (value : RuntimeValue) : SemanticAssignment :=
+  assignment.bind handle.id (.value value)
+
+/-- Binds a concrete type to a type handle. -/
+@[expose]
+def SemanticAssignment.bindType (assignment : SemanticAssignment)
+    (handle : Handle OpCode .type) (type : TypeAttr) : SemanticAssignment :=
+  assignment.bind handle.id (.type type)
+
+/-- Binds a property to a property handle. -/
+@[expose]
+def SemanticAssignment.bindProperty (assignment : SemanticAssignment)
+    (handle : Handle OpCode (.prop opCode)) (value : propertiesOf opCode) : SemanticAssignment :=
+  assignment.bind handle.id (.property opCode value)
+
+/-- Get the binding of a value handle. -/
+@[expose]
+def SemanticAssignment.getValue (assignment : SemanticAssignment)
+    (handle : Handle OpCode .value) : Option RuntimeValue :=
+  match assignment handle.id with
+  | some (.value value) => some value
+  | _ => none
+
+/--
+Get the binding of a type handle.
+If the handle is unbound or bound with a different type, return none.
+-/
+@[expose]
+def SemanticAssignment.getType (assignment : SemanticAssignment)
+    (handle : Handle OpCode .type) : Option TypeAttr :=
+  match assignment handle.id with
+  | some (.type type) => some type
+  | _ => none
+
+/--
+Get the binding of a property handle.
+If the handle is unbound or bound with a different property, return none.
+-/
+@[expose]
+def SemanticAssignment.getProperty (assignment : SemanticAssignment)
+    (handle : Handle OpCode (.prop opCode)) : Option (propertiesOf opCode) :=
+  match assignment handle.id with
+  | some (.property actualOpCode value) =>
+    if h : actualOpCode = opCode then
+      some (h ▸ value)
+    else none
+  | _ => none
+
+/--
+Get the bindings of multiple value handles.
+If any handle is unbound or bound with a different kind, return none.
+-/
+@[expose]
+def SemanticAssignment.getValues (assignment : SemanticAssignment)
+    (handles : List (Handle OpCode .value)) : Option (List RuntimeValue) :=
+  handles.mapM assignment.getValue
+
+/--
+Get the bindings of multiple type handles.
+If any handle is unbound or bound with a different kind, return none.
+-/
+@[expose]
+def SemanticAssignment.getTypes (assignment : SemanticAssignment)
+    (handles : List (Handle OpCode .type)) : Option (List TypeAttr) :=
+  handles.mapM assignment.getType
+
+namespace MetadataTuple.Atom
+
+/-- Resolve a metadata atom's handle against a semantic assignment. -/
+@[expose]
+def resolveSemantic (assignment : SemanticAssignment) (handle : HandleRep)
+    (atom : MetadataTuple.Atom OpCode HandleRep) : Option atom.Value :=
+  match atom with
+  | .type => assignment.getType handle
+  | .property _ => assignment.getProperty handle
+
+/-- Bind a metadata atom's handle in a semantic assignment. -/
+@[expose]
+def bindSemantic (assignment : SemanticAssignment) (handle : HandleRep)
+  (atom : MetadataTuple.Atom OpCode HandleRep) (value : atom.Value) : SemanticAssignment :=
+  match atom with
+  | .type => assignment.bindType handle value
+  | .property _ => assignment.bindProperty handle value
+
+end MetadataTuple.Atom
+
+namespace MetadataTuple.Shape
+
+/-- Resolve every handle in a metadata-tuple shape against a semantic assignment. -/
+@[expose]
+def resolveSemantic (assignment : SemanticAssignment)
+    (shape : MetadataTuple.Shape OpCode Handles) (handles : Handles) : Option shape.Values :=
+  match shape with
+  | .unit => some ()
+  | .atom metadataAtom => metadataAtom.resolveSemantic assignment handles
+  | .cons head tail => do
+    let headValue ← head.resolveSemantic assignment handles.1
+    let tailValues ← tail.resolveSemantic assignment handles.2
+    return (headValue, tailValues)
+
+/-- Bind every handle in a metadata-tuple shape in a semantic assignment. -/
+@[expose]
+def bindSemantic (assignment : SemanticAssignment)
+    (shape : MetadataTuple.Shape OpCode Handles) (handles : Handles) (values : shape.Values)
+    : SemanticAssignment :=
+  match shape with
+  | .unit => assignment
+  | .atom metadataAtom => metadataAtom.bindSemantic assignment handles values
+  | .cons head tail =>
+    let assignment := head.bindSemantic assignment handles.1 values.1
+    tail.bindSemantic assignment handles.2 values.2
+
+end MetadataTuple.Shape
+
+namespace MetadataTuple
+
+/-- Resolve all handles in a metadata tuple against a semantic assignment. -/
+@[expose]
+def resolveSemantic {Handles : Type} [self : IsMetadataTuple OpCode Handles]
+    (assignment : SemanticAssignment) (handles : Handles) :
+    Option (MetadataValues OpCode Handles) :=
+  self.shape.resolveSemantic assignment handles
+
+/-- Bind all handles in a metadata tuple in a semantic assignment. -/
+@[expose]
+def bindSemantic {Handles : Type} [self : IsMetadataTuple OpCode Handles]
+    (assignment : SemanticAssignment) (handles : Handles) (values : MetadataValues OpCode Handles) :
+    SemanticAssignment :=
+  self.shape.bindSemantic assignment handles values
+
+end MetadataTuple
+
+/-- The interpretation of a pure operation succeeds with the given results of given types. -/
+@[expose]
+def InterpretsTo (opCode : OpCode) (property : propertiesOf opCode)
+    (resultTypes : Array TypeAttr) (operands results : Array RuntimeValue) : Prop :=
+  RuntimeValue.ArrayConforms results resultTypes ∧
+    ∀ memory, interpretOp' opCode property resultTypes operands #[] memory = .ok (results, memory, none)
+
+/-!
+### Matcher semantics
+
+This section defines the semantics of a matching program. The semantics are defined in terms of
+propositions over `SemanticAssignment`. The semantics are written in continuation-passing style
+so that each generated value remains in scope both in the updated assignment and in the final
+proposition.
+-/
+
+/--
+Universally bind one runtime value for every handle, in handle order.
+Then, call the continuation with the list of values and the updated assignment.
+-/
+@[expose]
+def SemanticAssignment.ForallValues (assignment : SemanticAssignment)
+    (handles : List (Handle OpCode .value))
+    (k : List RuntimeValue → SemanticAssignment → Prop) : Prop :=
+  match handles with
+  | [] => k [] assignment
+  | handle :: handles =>
+      ∀ value, SemanticAssignment.ForallValues (assignment.bindValue handle value) handles
+        fun values assignment => k (value :: values) assignment
+
+/--
+Collect the constraints of a matching declaration on the given assignment,
+and call the continuation with the updated assignment.
+-/
+@[expose]
+def MatchDecl.Models (decl : MatchDecl OpCode) (assignment : SemanticAssignment)
+    (k : SemanticAssignment → Prop) : Prop :=
+  match decl with
+  | .type matcher handle =>
+    ∀ type, matcher type → k (assignment.bindType handle type)
+  | .value typeHandle handle =>
+    match assignment.getType typeHandle with
+    | some ty => ∀ value, value.Conforms ty → k (assignment.bindValue handle value)
+    | none => False
+  | .operation opCode operandHandles resultTypeHandles propertyMatcher propertyHandle _
+      resultHandles _ =>
+    match assignment.getValues operandHandles.toList,
+      assignment.getTypes resultTypeHandles.toList with
+    | some operands, some resultTypes =>
+      ∀ property, assignment.ForallValues resultHandles.toList fun results assignment =>
+        propertyMatcher property = true →
+        InterpretsTo opCode property resultTypes.toArray operands.toArray results.toArray →
+        k (assignment.bindProperty propertyHandle property)
+      | _, _ => False
+  | MatchDecl.applyNative (hInputs := inputBundle) inputs predicate =>
+    match MetadataTuple.resolveSemantic (self := inputBundle) assignment inputs with
+    | some values => predicate values = true → k assignment
+    | none => False
+
+/-- Generates matcher semantics for the given declarations, then call the continuation. -/
+@[expose]
+def MatchProg.modelsDecls (decls : List (MatchDecl OpCode)) (assignment : SemanticAssignment)
+    (k : SemanticAssignment → Prop) : Prop :=
+  match decls with
+  | [] => k assignment
+  | decl :: decls =>
+      decl.Models assignment fun assignment =>
+        MatchProg.modelsDecls decls assignment k
+
+/-- Generate matcher semantics in binding order, then call the continuation. -/
+@[expose]
+def MatchProg.Models (prog : MatchProg OpCode α)
+    (k : SemanticAssignment → Prop) : Prop :=
+  MatchProg.modelsDecls prog.bindingDecls SemanticAssignment.empty k
+
+/-!
+### Creation semantics
+
+This section defines the semantics of a creation program. The semantics are defined in terms of
+propositions over `SemanticAssignment`. The semantics are written in continuation-passing style
+so that each generated value remains in scope both in the updated assignment and in the final
+proposition.
+-/
+
+/-- Existentially bind one runtime value for every handle, in handle order. -/
+@[expose]
+def SemanticAssignment.ExistsValues (assignment : SemanticAssignment)
+    (handles : List (Handle OpCode .value))
+    (k : List RuntimeValue → SemanticAssignment → Prop) : Prop :=
+  match handles with
+  | [] => k [] assignment
+  | handle :: handles =>
+      ∃ value, SemanticAssignment.ExistsValues (assignment.bindValue handle value) handles
+        fun values assignment => k (value :: values) assignment
+
+/--
+Collect the constraints of a creation declaration on the given assignment,
+and call the continuation with the updated assignment.
+-/
+@[expose]
+def CreateDecl.Models (decl : CreateDecl OpCode) (assignment : SemanticAssignment)
+    (k : SemanticAssignment → Prop) : Prop :=
+  match decl with
+  | .type value result =>
+    k (assignment.bindType result value)
+  | .property _ value result =>
+    k (assignment.bindProperty result value)
+  | .operation opCode operandHandles resultTypeHandles propertyHandle _ resultHandles =>
+    match assignment.getValues operandHandles.toList,
+      assignment.getTypes resultTypeHandles.toList, assignment.getProperty propertyHandle with
+    | some operands, some resultTypes, some actualProperty =>
+      assignment.ExistsValues resultHandles.toList fun results assignment =>
+        InterpretsTo opCode actualProperty resultTypes.toArray operands.toArray results.toArray ∧
+          k assignment
+    | _, _, _ => False
+  | @CreateDecl.applyNative _ _ _ _ inputBundle outputBundle inputs rewrite outputs =>
+    match MetadataTuple.resolveSemantic (self := inputBundle) assignment inputs >>= rewrite with
+    | none => False
+    | some values =>
+        k (MetadataTuple.bindSemantic (self := outputBundle) assignment outputs values)
+
+/-- Generate creation semantics for the declaration list, then call the continuation. -/
+@[expose]
+def CreateProg.modelsDecls (decls : List (CreateDecl OpCode)) (assignment : SemanticAssignment)
+    (k : SemanticAssignment → Prop) : Prop :=
+  match decls with
+  | [] => k assignment
+  | decl :: decls =>
+    decl.Models assignment fun assignment =>
+      CreateProg.modelsDecls decls assignment k
+
+/-- Generate creation semantics in execution order, then call the continuation. -/
+@[expose]
+def CreateProg.Models (prog : CreateProg OpCode α) (assignment : SemanticAssignment)
+    (k : SemanticAssignment → Prop) : Prop :=
+  CreateProg.modelsDecls prog.decls assignment k
+
+/--
+Check that the root results of the matcher assignment refine the replacement values
+in the assignment after the creation phase.
+-/
+@[expose]
+def Replacement.RefinesRoot (replacement : Replacement OpCode)
+    (rootResults : Option (Array (Handle OpCode .value)))
+    (matched final : SemanticAssignment) : Prop :=
+  match rootResults.bind (fun handles => matched.getValues handles.toList),
+    final.getValues replacement.values.toList with
+  | some rootValues, some replacementValues => rootValues.toArray ⊒ replacementValues.toArray
+  | _, _ => False
+
+/-- The semantic preservation property of a pattern. -/
+@[expose]
+def Pattern.PreservesSemantics (rule : Pattern OpCode) : Prop :=
+  rule.matcher.Models fun matched =>
+    rule.creation.Models matched fun final =>
+      rule.replacement.RefinesRoot rule.matcher.rootResults? matched final
+
+/-!
 ## Pattern Validity
 
 `Pattern.Valid` is the predicate that a Puddle pattern is both sound structurally and
@@ -323,10 +664,12 @@ with `Pattern.compile` should produce a rewrite pattern that satisfies `LocalRew
 structure Pattern.Valid (rule : Pattern OpCode) : Prop where
   /-- Every operation declaration in the pattern uses a supported opcode. -/
   Supported : rule.Supported
-  /-- The match program starts with an operation declaration constraining its root handle. -/
+  /-- The first executed declaration constrains the match program's root handle. -/
   ConstrainsRoot : rule.matcher.ConstrainsRoot
   /-- Structural validity of the pattern. -/
   structurallyWellFormed : rule.StructurallyWellFormed
+  /-- Semantic validity of the pattern. -/
+  refines : rule.PreservesSemantics
 end
 
 /-!
@@ -342,13 +685,16 @@ macro "unfoldPuddleBuilder" : tactic =>
     /- Unfold the builder functions -/
     simp only [Pattern.Builder, MatchProg.build, CreateProg.build, bind, pure,
       MatchProg.value, MatchProg.type, MatchProg.root, MatchProg.operation, MatchProg.matchNative,
-      CreateProg.operation, CreateProg.property, CreateProg.applyNative, MetadataTuple.fresh,
+      CreateProg.type, CreateProg.operation, CreateProg.property, CreateProg.applyNative,
+      MetadataTuple.fresh,
+      IsMetadataTuple.shape_unit, IsMetadataTuple.shape_type, IsMetadataTuple.shape_property,
+      IsMetadataTuple.shape_type_cons, IsMetadataTuple.shape_property_cons,
       MetadataTuple.Shape.fresh, MetadataTuple.Atom.fresh,
       /- Simplify the resulting expressions with standard simplifications -/
       Nat.zero_add, Nat.reduceAdd, List.size_toArray, List.length_cons, List.length_nil,
       Array.size_map, Array.size_range, Nat.lt_add_one, getElem!_pos, Array.getElem_map,
-      Array.getElem_range, Nat.add_zero, List.cons_append, List.nil_append, List.reverse_nil,
-      List.reverse_cons, List.reverse_nil, List.nil_append, List.cons_append]))
+      Array.getElem_range, Nat.add_zero, List.cons_append, List.nil_append,
+      List.reverse_cons, List.reverse_nil]))
 
 /-- Prove a `Puddle.Supported` goal. -/
 macro "provePuddleSupported" : tactic =>
@@ -358,14 +704,53 @@ macro "provePuddleSupported" : tactic =>
     done
   ))
 
-/-- Prove a `Puddle.Valid` goal. -/
+/-- Normalize semantic plumbing, leaving operation denotations and value conformance opaque. -/
+macro "simpPuddleSemantics" : tactic =>
+  `(tactic| simp only [Pattern.PreservesSemantics, MatchProg.Models,
+    MatchProg.bindingDecls, List.partition_eq_filter_filter, List.range_succ, List.reverse_cons,
+    MatchProg.modelsDecls, MatchDecl.Models,
+    CreateProg.Models, CreateProg.modelsDecls, CreateDecl.Models,
+    SemanticAssignment.getValues, SemanticAssignment.getTypes,
+    SemanticAssignment.getValue, SemanticAssignment.getType,
+    SemanticAssignment.getProperty,
+    SemanticAssignment.bindProperty, SemanticAssignment.bindType,
+    SemanticAssignment.bindValue, SemanticAssignment.bind,
+    SemanticAssignment.ForallValues, SemanticAssignment.ExistsValues,
+    MetadataTuple.resolveSemantic, MetadataTuple.Shape.resolveSemantic,
+    MetadataTuple.Atom.resolveSemantic, MetadataTuple.bindSemantic,
+    MetadataTuple.Shape.bindSemantic, MetadataTuple.Atom.bindSemantic,
+    Replacement.RefinesRoot, MatchProg.rootResults?,
+    SemanticAssignment.bind_of_ne_eq,
+    /- TypeAttr cast normalization -/
+    IsTypeAttr.cast?_eq_some_iff,
+    /- Native metadata tuples -/
+    IsMetadataTuple.shape_unit, IsMetadataTuple.shape_type, IsMetadataTuple.shape_property,
+    IsMetadataTuple.shape_type_cons, IsMetadataTuple.shape_property_cons,
+    /- Concrete lists, arrays, options -/
+    List.filter_cons_of_pos, List.filter_cons_of_neg, List.filter_nil, Function.comp_apply,
+    List.reverse_nil, List.nil_append, List.cons_append, List.append_nil,
+    Array.toList_map, Array.toList_range, List.range_zero, List.map_cons, List.map_nil,
+    List.mapM_cons, List.mapM_nil, Option.pure_def, Option.bind_eq_bind, Option.bind_some,
+    Option.bind_fun_some, Nat.add_zero, Nat.reduceAdd, Nat.zero_ne_one, Nat.reduceEqDiff,
+    Option.map_eq_some_iff, Option.getD_eq_iff,
+    /- Propositional normalization -/
+    Bool.not_true, Bool.not_false, Bool.not_eq_true, Bool.not_eq_true', Bool.false_eq_true,
+    Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq, and_false, or_false,
+    not_false_eq_true, ne_eq, reduceCtorEq, ↓reduceIte, ↓reduceDIte, forall_const,
+    and_true, and_imp, not_imp, Classical.not_forall, not_exists, not_and, exists_and_left,
+    forall_exists_index, forall_apply_eq_imp_iff,
+    /- Elementwise array refinement -/
+    RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.arrayIsRefinedBy_refl])
+
+/-- Discharge structural obligations and expose a pattern's assignment-free semantic proposition. -/
 macro "provePuddleValid" : tactic =>
   `(tactic| (
     unfoldPuddleBuilder
     constructor
     · provePuddleSupported
     · cbv
-    · cbv
+    · native_decide
+    simpPuddleSemantics
   ))
 
 end Veir.Puddle

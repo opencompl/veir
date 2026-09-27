@@ -7,8 +7,7 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK:      "func.func"() <{
-// CHECK-SAME:   "function_type" = (i32) -> i32
-// CHECK-SAME:   "sym_name" = "f"
-// CHECK-SAME: }> ({
+// CHECK:      func.func @f(%{{.*}}: i32) -> i32 {
 // CHECK:        "func.return"(%{{.*}}) : (i32) -> ()
+// CHECK:      }
+

@@ -327,6 +327,26 @@ def smulHigh {w : Nat} (x y : Int w) : Int w := Id.run do
   val (wide.extractLsb' w w)
 
 /--
+Returns `true` if the unsigned division of a number by `y` triggers undefined behavior.
+This returns `true` if either:
+- `y` is zero
+- `y` is poison (as it refines zero)
+-/
+def isUnsignedDivisionUB {w : Nat} (y : LLVM.Int w) : Bool :=
+  y = .poison ∨ y = .val 0
+
+/--
+Returns `true` if the signed division of `x` by `y` triggers undefined behavior.
+This returns `true` if either:
+- `y` is zero
+- `y` is poison (as it refines zero)
+- `y` is `-1` and `x` is the minimum signed value on `w` bits, or poison (as it refines the
+  minimum signed value).
+-/
+def isSignedDivisionUB {w : Nat} (x y : LLVM.Int w) : Bool :=
+  y = .poison ∨ y = .val 0 ∨ y = .val (-1) ∧ (x = .poison ∨ x = .val (BitVec.intMin w))
+
+/--
 The ‘udiv’ instruction returns the unsigned integer quotient of its two operands.
 
 Note that unsigned integer division and signed integer division are distinct

@@ -5,7 +5,12 @@ public import Veir.IR.OpInfo
 public import Veir.Verifier.Basic
 public import Veir.Dialects.LLZK.Felt.Properties
 public import Veir.ConstantMaterialization
+public import Veir.Interpreter.RuntimeValue.Basic
+public import Veir.Interpreter.Interp
+public import Veir.Data.Felt
 meta import Veir.Meta.OpCode
+
+open Veir.Data
 
 namespace Veir
 
@@ -156,6 +161,56 @@ def Felt.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .bit_and | .bit_or | .bit_xor
   | .shl | .shr => op.verifyFeltBinOp ctx opIn
   | .neg | .inv | .bit_not => op.verifyFeltUnOp ctx opIn
+
+/-- Match two felt operands whose field type is exactly `fieldType`. -/
+private def Felt.binaryOperands (fieldType : FeltType) (operands : Array RuntimeValue) :
+    Option (Nat × Nat) := do
+  let [RuntimeValue.felt lhsType lhs, RuntimeValue.felt rhsType rhs] := operands.toList
+    | none
+  guard (lhsType = fieldType ∧ rhsType = fieldType)
+  return (lhs, rhs)
+
+/-- Match one felt operand whose field type is exactly `fieldType`. -/
+private def Felt.unaryOperand (fieldType : FeltType) (operands : Array RuntimeValue) :
+    Option Nat := do
+  let [RuntimeValue.felt operandType operand] := operands.toList | none
+  guard (operandType = fieldType)
+  return operand
+
+/-- Resolve the named field carried by the unique Felt result type. -/
+private def Felt.resultField? (resultTypes : Array TypeAttr) : Option (FeltType × Nat) := do
+  let [⟨.feltType fieldType, _⟩] := resultTypes.toList | none
+  let prime ← FeltSemantics.prime? fieldType
+  return (fieldType, prime)
+
+/-- Interpret the field-native Felt operations supported by the core interpreter. -/
+def Felt.interpretOp' (opType : Veir.Felt) (properties : propertiesOf opType)
+    (resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
+    (_blockOperands : Array BlockPtr) :
+    Interp (Array RuntimeValue × Option ControlFlowAction) :=
+  match opType with
+  | .const => do
+    let (fieldType, prime) ← Felt.resultField? resultTypes
+    if properties.value.fieldType ≠ fieldType then none else
+      let value := FeltSemantics.reduce prime properties.value.value
+      return (#[.felt fieldType value], none)
+  | .add => do
+    let (fieldType, prime) ← Felt.resultField? resultTypes
+    let (lhs, rhs) ← Felt.binaryOperands fieldType operands
+    return (#[.felt fieldType (FeltSemantics.add prime lhs rhs)], none)
+  | .sub => do
+    let (fieldType, prime) ← Felt.resultField? resultTypes
+    let (lhs, rhs) ← Felt.binaryOperands fieldType operands
+    return (#[.felt fieldType (FeltSemantics.sub prime lhs rhs)], none)
+  | .mul => do
+    let (fieldType, prime) ← Felt.resultField? resultTypes
+    let (lhs, rhs) ← Felt.binaryOperands fieldType operands
+    return (#[.felt fieldType (FeltSemantics.mul prime lhs rhs)], none)
+  | .neg => do
+    let (fieldType, prime) ← Felt.resultField? resultTypes
+    let operand ← Felt.unaryOperand fieldType operands
+    return (#[.felt fieldType (FeltSemantics.neg prime operand)], none)
+  | _ => none
 
 instance : HasOpInfo Felt where
   verifyLocalInvariants := Felt.verifyLocalInvariants

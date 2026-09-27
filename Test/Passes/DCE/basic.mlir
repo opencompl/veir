@@ -10,8 +10,7 @@
         %2 = "llvm.add"(%1, %1) : (i64, i64) -> i64
         "test.test"(%1) : (i64) -> ()
         // The unused %2 is removed; the sink stays right after the block header.
-        // CHECK:      "func.func"() <{"function_type" = (i64) -> (), "sym_name" = "foo"}> ({
-        // CHECK-NEXT: ^{{.*}}(%{{.*}} : i64):
+        // CHECK:      func.func @foo(%{{.*}}: i64) {
         // CHECK-NEXT: "test.test"(%{{.*}}) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
@@ -57,8 +56,7 @@
         %2, %from = "io.recv"(%buf, %len) : (!llvm.ptr, i64) -> (i64, !io.address)
         %3 = "io.send"(%peer, %buf, %len) : (!io.address, !llvm.ptr, i64) -> i64
         // The unused statuses do not make the operations dead.
-        // CHECK:      "func.func"() <{"function_type" = (!io.address, !llvm.ptr, i64) -> (), "sym_name" = "io"}> ({
-        // CHECK-NEXT: ^{{.*}}(%{{.*}} : !io.address, %{{.*}} : !llvm.ptr, %{{.*}} : i64):
+        // CHECK:      func.func @io(%{{.*}}: !io.address, %{{.*}}: !llvm.ptr, %{{.*}}: i64) {
         // CHECK-NEXT: %{{.*}} = "io.rand"(%{{.*}}, %{{.*}}) : (!llvm.ptr, i64) -> i64
         // CHECK-NEXT: %{{.*}}:2 = "io.recv"(%{{.*}}, %{{.*}}) : (!llvm.ptr, i64) -> (i64, !io.address)
         // CHECK-NEXT: %{{.*}} = "io.send"(%{{.*}}, %{{.*}}, %{{.*}}) : (!io.address, !llvm.ptr, i64) -> i64

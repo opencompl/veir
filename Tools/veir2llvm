@@ -228,6 +228,9 @@ def parse_segment_sizes(attr: str) -> tuple[int, int, int]:
 
 
 def parse_constant_attr(attr: str) -> tuple[str, str]:
+    m = re.search(r'"?value"?\s*=\s*(true|false)\b', attr)
+    if m:
+        return m.group(1), "i1"
     m = re.search(r'"?value"?\s*=\s*(-?\d+)\s*:\s*([^,\s>}]+)', attr)
     if not m:
         raise Error("llvm.mlir.constant is missing integer value")

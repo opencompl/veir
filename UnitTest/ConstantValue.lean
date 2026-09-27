@@ -37,7 +37,7 @@ info: "ok"
 
 private def testRiscvLi : String := Id.run do
   let .ok (some (.reg value)) :=
-    constantValueOf r#"%x = "riscv.li"() <{"value" = -77 : i32}> : () -> !riscv.reg"#
+    constantValueOf r#"%x = "riscv.li"() <{"value" = -77 : i64}> : () -> !riscv.reg"#
     | return "failed to read riscv.li"
   if value.val ≠ BitVec.ofInt 64 (-77) then
     return "riscv.li produced the wrong register value"
@@ -51,7 +51,7 @@ info: "ok"
 
 private def testRiscvLui : String := Id.run do
   let .ok (some (.reg value)) :=
-    constantValueOf r#"%x = "riscv.lui"() <{"value" = 5 : i20}> : () -> !riscv.reg"#
+    constantValueOf r#"%x = "riscv.lui"() <{"value" = 5 : i64}> : () -> !riscv.reg"#
     | return "failed to read riscv.lui"
   if value.val ≠ (BitVec.ofInt 20 5 ++ (0 : BitVec 12)).signExtend 64 then
     return "riscv.lui produced the wrong register value"
@@ -76,3 +76,39 @@ info: "ok"
 -/
 #guard_msgs in
 #eval! testHwConstant
+
+/-- The shared decoder agrees with LLVM's extension rules, including literals
+outside the attribute's range and results narrower than the attribute. -/
+private def testLlvmIntegerExtension : Bool := Id.run do
+  for attrWidth in [1, 2, 3, 8, 16, 32, 64, 65, 128] do
+    for resultWidth in [1, 2, 8, 32, 64, 128] do
+      for literal in ([-1, 0, 1, 2, 127, 128, 255, 256, 257,
+          2 ^ attrWidth - 1, 2 ^ attrWidth, 2 ^ attrWidth + 1] : List Int) do
+        let raw := BitVec.ofInt attrWidth literal
+        let expected := if attrWidth = 1 then raw.zeroExtend resultWidth
+          else raw.signExtend resultWidth
+        let actual := BitVec.ofInt resultWidth
+          (decodeLLVMIntegerConstant (IntegerAttr.mk literal (IntegerType.signless attrWidth)))
+        if actual ≠ expected then return false
+  return true
+
+/-- info: true -/
+#guard_msgs in
+#eval! testLlvmIntegerExtension
+
+/-- Attribute construction normalizes values, including inputs the parser rejects. -/
+private def testIntegerAttrNormalization : Bool := Id.run do
+  for (width, literal, expected) in ([
+      (0, 7, 0), (1, -1, 1), (1, 2, 0),
+      (8, 127, 127), (8, 128, -128), (8, 200, -56),
+      (8, 256, 0), (8, -129, 127),
+      (128, 2 ^ 127, -(2 ^ 127)), (128, 2 ^ 128 + 1, 1)
+    ] : List (Nat × Int × Int)) do
+    let type := IntegerType.signless width
+    if IntegerAttr.ofInt literal type ≠ IntegerAttr.mk expected type then
+      return false
+  return true
+
+/-- info: true -/
+#guard_msgs in
+#eval! testIntegerAttrNormalization

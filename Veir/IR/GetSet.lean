@@ -5462,13 +5462,7 @@ theorem BlockPtr.get!_OpOperandPtrPtr_set {block : BlockPtr} :
       else
         block.get! ctx
     | _ => block.get! ctx := by
-  cases ptr'
-  · grind
-  · split
-    · grind
-    · simp only [OpOperandPtrPtr.set_valueFirstUse, get!_ValuePtr_setFirstUse,
-      Array.set!_eq_setIfInBounds]
-      split <;> grind
+  rcases ptr' with operand | ⟨result | arg⟩ <;> grind
 
 @[simp, grind =]
 theorem BlockPtr.firstUse!_OpOperandPtrPtr_set {block : BlockPtr} :

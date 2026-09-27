@@ -31,19 +31,19 @@
 }) : () -> ()
 
 // fshl amount reduced to 3.
-// CHECK:      ^{{.*}}(%[[X:.*]] : i32, %[[Y:.*]] : i32):
+// CHECK:      func.func @foo(%[[X:.*]]: i32, %[[Y:.*]]: i32) -> i32 {
 // CHECK:      %[[A:.*]] = "llvm.mlir.constant"() <{"value" = 3 : i32}> : () -> i32
 // CHECK:      %[[R:.*]] = "llvm.intr.fshl"(%[[X]], %[[Y]], %[[A]]) : (i32, i32, i32) -> i32
 // CHECK:      "func.return"(%[[R]]) : (i32) -> ()
 
 // fshr amount reduced to 8.
-// CHECK:      ^{{.*}}(%[[X2:.*]] : i32, %[[Y2:.*]] : i32):
+// CHECK:      func.func @bar(%[[X2:.*]]: i32, %[[Y2:.*]]: i32) -> i32 {
 // CHECK:      %[[A2:.*]] = "llvm.mlir.constant"() <{"value" = 8 : i32}> : () -> i32
 // CHECK:      %[[R2:.*]] = "llvm.intr.fshr"(%[[X2]], %[[Y2]], %[[A2]]) : (i32, i32, i32) -> i32
 // CHECK:      "func.return"(%[[R2]]) : (i32) -> ()
 
 // In-range amount: the funnel shift is unchanged.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i32, %[[NY:.*]] : i32):
+// CHECK:      func.func @baz(%[[NX:.*]]: i32, %[[NY:.*]]: i32) -> i32 {
 // CHECK:      %[[NC:.*]] = "llvm.mlir.constant"() <{"value" = 5 : i32}> : () -> i32
 // CHECK:      %[[NR:.*]] = "llvm.intr.fshl"(%[[NX]], %[[NY]], %[[NC]]) : (i32, i32, i32) -> i32
 // CHECK:      "func.return"(%[[NR]]) : (i32) -> ()

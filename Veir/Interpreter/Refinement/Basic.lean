@@ -35,7 +35,7 @@ def RuntimeValue.isRefinedBy (source target : RuntimeValue) : Prop :=
   match source, target with
   | .int bw s, .int bw' t => ∃ h : bw = bw', s.cast h ⊒ t
   | .byte bw s, .byte bw' t => ∃ h : bw = bw', s.cast h ⊒ t
-  | .addr s, .addr t => s = t
+  | .addr s, .addr t => s ⊒ t
   | .reg s, .reg t => s = t
   | .felt fieldType s, .felt fieldType' t => fieldType = fieldType' ∧ s = t
   | .float ty s, .float ty' t =>
@@ -59,12 +59,20 @@ def RuntimeValue.arrayIsRefinedBy (source target : Array RuntimeValue) : Prop :=
 @[inherit_doc] infix:50 " ⊒ " => RuntimeValue.arrayIsRefinedBy
 
 /--
-Refinement of memory states, which can involve poison bits being refined into concrete bits.
+Refinement of memory objects, which can involve poison bits being refined into concrete bits.
 This should be kept consistent with the definition of refinement on the byte type.
 -/
 @[expose]
-def MemoryState.isRefinedBy (source target : MemoryState) : Prop :=
+def MemoryObject.isRefinedBy (source target : MemoryObject) : Prop :=
+  source.base = target.base ∧
   ∀ addr, source.poisonMask.getD addr 0 ||| ((source.contents.getD addr 0 ^^^ ~~~target.contents.getD addr 0) &&& ~~~target.poisonMask.getD addr 0) = 0xff
+
+@[inherit_doc] infix:50 " ⊒ " => MemoryObject.isRefinedBy
+
+/-- Refinement of memory states: the same objects, each refined bytewise. -/
+@[expose]
+def MemoryState.isRefinedBy (source target : MemoryState) : Prop :=
+  source.objects.size = target.objects.size ∧ ∀ i : Nat, source.objects[i]! ⊒ target.objects[i]!
 
 @[inherit_doc] infix:50 " ⊒ " => MemoryState.isRefinedBy
 
@@ -90,8 +98,8 @@ on the underlying values. This asserts:
 def Interp.isRefinedBy (R : α → β → Prop) (source : Interp α) (target : Interp β) : Prop :=
   match source, target with
   | .ok a, .ok b => R a b
-  | .ub, _ => True
-  | .fail, _ => True
+  | .ub _, _ => True
+  | .fail _, _ => True
   | _, _ => False
 
 /--
@@ -115,6 +123,16 @@ def ControlFlowAction.optionIsRefinedBy : Option ControlFlowAction → Option Co
   | none, none => True
   | some a, some b => a.isRefinedBy b
   | _, _ => False
+
+/--
+The result of interpreting a single operation. `source` is refined by `target`
+when values refine pointwise, memories are equal, and actions refine.
+-/
+@[expose]
+def OperationResult.isRefinedBy (source target :
+    Array RuntimeValue × MemoryState × Option ControlFlowAction) : Prop :=
+  source.1 ⊒ target.1 ∧ source.2.1 = target.2.1 ∧
+    ControlFlowAction.optionIsRefinedBy source.2.2 target.2.2
 
 /--
 The function described by source `op₁` (in `ctx₁`) is *refined by* target `op₂` (in `ctx₂`) when,

@@ -43,7 +43,7 @@
     ^bb1(%b1_a1 : !riscv.reg, %b1_a2 : !riscv.reg, %b1_a5 : !riscv.reg, %b1_a6 : !riscv.reg, %b1_a7 : !riscv.reg):
       %b1_a0 = "riscv.mv"(%b1_a2) : (!riscv.reg) -> !riscv.reg              // mv   a0, a2
       %b1_a1n = "riscv.addw"(%b1_a1, %b1_a5) : (!riscv.reg, !riscv.reg) -> !riscv.reg  // addw a1, a1, a5
-      %b1_a2n = "riscv.addiw"(%b1_a2) <{"value" = 1 : i12}> : (!riscv.reg) -> !riscv.reg // addiw a2, a2, 1
+      %b1_a2n = "riscv.addiw"(%b1_a2) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg // addiw a2, a2, 1
       // bgeu a1, a7, .LBB0_7   (taken -> ^bb7 {a0}; fall -> ^bb2 {a0,a1,a2,a6,a7})
       "riscv_cf.bgeu"(%b1_a1n, %b1_a7,
                       %b1_a0,
@@ -62,7 +62,7 @@
 
     // .LBB0_4: for.body   args {a0,a1,a2,a3,a5,a6,a7}
     ^bb4(%b4_a0 : !riscv.reg, %b4_a1 : !riscv.reg, %b4_a2 : !riscv.reg, %b4_a3 : !riscv.reg, %b4_a5 : !riscv.reg, %b4_a6 : !riscv.reg, %b4_a7 : !riscv.reg):
-      %b4_a4_0 = "riscv.addi"(%b4_a3) <{"value" = -1 : i12}> : (!riscv.reg) -> !riscv.reg     // addi  a4, a3, -1
+      %b4_a4_0 = "riscv.addi"(%b4_a3) <{"value" = -1 : i64}> : (!riscv.reg) -> !riscv.reg     // addi  a4, a3, -1
       %b4_a4 = "riscv.remuw"(%b4_a2, %b4_a4_0) : (!riscv.reg, !riscv.reg) -> !riscv.reg       // remuw a4, a2, a4
       %b4_zero = "riscv.li"() <{"value" = 0 : i64}> : () -> !riscv.reg                        // (x0 for beqz)
       // beqz a4, .LBB0_6  ==  beq a4, x0, .LBB0_6
@@ -78,7 +78,7 @@
     // %bb.5: for.cond   args {a0,a1,a2,a3,a5,a6,a7}
     ^bb5(%b5_a0 : !riscv.reg, %b5_a1 : !riscv.reg, %b5_a2 : !riscv.reg, %b5_a3 : !riscv.reg, %b5_a5 : !riscv.reg, %b5_a6 : !riscv.reg, %b5_a7 : !riscv.reg):
       %b5_a4 = "riscv.mulw"(%b5_a3, %b5_a3) : (!riscv.reg, !riscv.reg) -> !riscv.reg           // mulw a4, a3, a3
-      %b5_a3n = "riscv.addi"(%b5_a3) <{"value" = 1 : i12}> : (!riscv.reg) -> !riscv.reg         // addi a3, a3, 1
+      %b5_a3n = "riscv.addi"(%b5_a3) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg         // addi a3, a3, 1
       // bgeu a2, a4, .LBB0_4   (taken -> ^bb4 {a0,a1,a2,a3,a5,a6,a7} with a3=a3n;
       //                         fall  -> j .LBB0_1 -> ^bb1 {a1,a2,a5,a6,a7})
       "riscv_cf.bgeu"(%b5_a2, %b5_a4,
@@ -92,7 +92,7 @@
     // .LBB0_6:   args {a0,a1,a2,a6,a7}
     ^bb6(%b6_a0 : !riscv.reg, %b6_a1 : !riscv.reg, %b6_a2 : !riscv.reg, %b6_a6 : !riscv.reg, %b6_a7 : !riscv.reg):
       %b6_a1s = "riscv.sextw"(%b6_a1) : (!riscv.reg) -> !riscv.reg                 // sext.w a1, a1
-      %b6_a2n = "riscv.addiw"(%b6_a2) <{"value" = 1 : i12}> : (!riscv.reg) -> !riscv.reg  // addiw a2, a2, 1
+      %b6_a2n = "riscv.addiw"(%b6_a2) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg  // addiw a2, a2, 1
       // bltu a1, a7, .LBB0_2   (taken -> ^bb2 {a0,a1,a2,a6,a7} with a1=a1s,a2=a2n;
       //                         fall  -> ^bb7 {a0})
       "riscv_cf.bltu"(%b6_a1s, %b6_a7,

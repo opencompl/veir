@@ -23,13 +23,13 @@
 }) : () -> ()
 
 // Rewritten to A - shl(B, C).
-// CHECK:      ^{{.*}}(%[[A:.*]] : i64, %[[B:.*]] : i64, %[[C:.*]] : i64):
+// CHECK:      func.func @foo(%[[A:.*]]: i64, %[[B:.*]]: i64, %[[C:.*]]: i64) -> i64 {
 // CHECK:      %[[SH:.*]] = "llvm.shl"(%[[B]], %[[C]]) : (i64, i64) -> i64
 // CHECK:      %[[R:.*]] = "llvm.sub"(%[[A]], %[[SH]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[R]]) : (i64) -> ()
 
 // No negation: the add survives.
-// CHECK:      ^{{.*}}(%[[NA:.*]] : i64, %[[NB:.*]] : i64, %[[NC:.*]] : i64):
+// CHECK:      func.func @bar(%[[NA:.*]]: i64, %[[NB:.*]]: i64, %[[NC:.*]]: i64) -> i64 {
 // CHECK:      %[[NSH:.*]] = "llvm.shl"(%[[NB]], %[[NC]]) : (i64, i64) -> i64
 // CHECK:      %[[NR:.*]] = "llvm.add"(%[[NA]], %[[NSH]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[NR]]) : (i64) -> ()

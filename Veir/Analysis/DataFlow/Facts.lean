@@ -1,10 +1,12 @@
 module
 
 public import Veir.GlobalOpInfo
+public import Veir.Analysis.DataFlow.Domains.IntegerRangeDomain
 public import Veir.Analysis.DataFlow.Domains.LivenessDomain
 public import Veir.Rewriter.InsertPoint
+public import Veir.Analysis.DataFlow.Domains.ConstantDomain
 
-open Std (HashMap Queue)
+open Std (HashMap HashSet Queue)
 
 public section
 
@@ -30,7 +32,7 @@ A directed control flow edge between two blocks.
 structure CFGEdge where
   source : BlockPtr
   target : BlockPtr
-deriving BEq, Hashable
+deriving BEq, Hashable, DecidableEq
 
 /--
 The control flow graph positions and SSA values where dataflow facts are attached.
@@ -40,7 +42,7 @@ inductive LatticeAnchor
   | BlockPtr (block : BlockPtr)
   | ValuePtr (value : ValuePtr)
   | CFGEdge (edge : CFGEdge)
-deriving BEq, Hashable
+deriving BEq, Hashable, DecidableEq
 
 instance : Coe InsertPoint LatticeAnchor where
   coe := .InsertPoint
@@ -70,6 +72,9 @@ inductive AnalysisKind where
   | deadCode
   /-- Analysis tag reserved for dataflow framework unit tests. -/
   | test
+  | sparseConstantPropagation
+  | integerRange
+  | modArithRange
 deriving BEq, Hashable, Repr, DecidableEq
 
 /--
@@ -81,10 +86,49 @@ inductive FactKind where
   | liveness
   /-- Sparse fact tag reserved for dataflow framework unit tests. -/
   | test
+  | sparseConstant
+  | integerRange
+  | modArithRange
 deriving BEq, ReflBEq, LawfulBEq, Hashable, Repr, DecidableEq
 
+/--
+The identity of a dataflow fact: its location in the IR and its fact kind.
+-/
+structure FactKey where
+  anchor : LatticeAnchor
+  kind : FactKind
+deriving Hashable, DecidableEq
+
 abbrev WorkItem := InsertPoint × AnalysisKind
-abbrev WorkList := Queue WorkItem
+
+/--
+A FIFO worklist that keeps at most one pending copy of each work item.
+-/
+structure WorkList where
+  queue : Queue WorkItem
+  pending : HashSet WorkItem
+
+namespace WorkList
+
+/-- An empty worklist. -/
+def empty : WorkList :=
+  { queue := .empty
+    pending := ∅ }
+
+/-- Enqueue `workItem` unless it is already pending. -/
+def enqueue (workList : WorkList) (workItem : WorkItem) : WorkList :=
+  if workList.pending.contains workItem then
+    workList
+  else
+    { queue := workList.queue.enqueue workItem
+      pending := workList.pending.insert workItem }
+
+/-- Remove and return the oldest pending work item. -/
+def dequeue? (workList : WorkList) : Option (WorkItem × WorkList) := do
+  let (workItem, queue) ← workList.queue.dequeue?
+  return (workItem, { queue, pending := workList.pending.erase workItem })
+
+end WorkList
 
 /--
 The immediate dominator fact attached to a block entry.
@@ -100,11 +144,11 @@ Stored in the entry block of each region.
 structure RegionMetadataPayload where
   postOrderIndex : HashMap BlockPtr Nat := {}
 
-/--
-A sparse dataflow fact payload for one abstract domain.
--/
-structure SparsePayload (Domain : Type) where
+/-- A sparse dataflow fact payload with analysis specific metadata. -/
+structure SparsePayload (Domain : Type) (Metadata : Type := Unit) where
   latticeElement : Domain
+  metadata : Metadata
+deriving BEq, DecidableEq, Repr
 
 /--
 Tracks whether a control flow point or edge is live.
@@ -119,7 +163,10 @@ The fact specific data stored for each fact kind.
   | .dominator => DominatorPayload
   | .regionMetadata => RegionMetadataPayload
   | .liveness => LivenessPayload
-  | .test => SparsePayload TestDomain
+  | .test => SparsePayload TestDomain Unit
+  | .sparseConstant => SparsePayload AbstractConstant (Option OpCode)
+  | .integerRange => SparsePayload IntegerRangeLattice Unit
+  | .modArithRange => SparsePayload IntegerRangeLattice Unit
 
 /--
 A dataflow fact stored by the framework.
@@ -148,6 +195,10 @@ Add one dependent work item to the fact.
 -/
 def addDependent (fact : Fact kind) (workItem : WorkItem) : Fact kind :=
   fact.setDependents (fact.dependents.push workItem)
+
+/-- Add a work item to the fact's dependents unless it is already present. -/
+def addDependentOnce (fact : Fact kind) (workItem : WorkItem) : Fact kind :=
+  if fact.dependents.any (· = workItem) then fact else fact.addDependent workItem
 
 /--
 Subscribe one analysis to changes of this fact.
@@ -189,11 +240,8 @@ def live (fact : Fact .liveness) : Bool :=
 def latticeElement (fact : Fact .liveness) : Liveness :=
   fact.payload.latticeElement
 
-def setLatticeElement (fact : Fact .liveness) (latticeElement : Liveness) : Fact .liveness :=
-  { fact with payload := { fact.payload with latticeElement := latticeElement } }
-
 def setToLive (fact : Fact .liveness) : Fact .liveness :=
-  fact.setLatticeElement .live
+  { fact with payload := { fact.payload with latticeElement := .live } }
 
 end Fact
 

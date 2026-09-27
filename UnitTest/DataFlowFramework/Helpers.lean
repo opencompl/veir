@@ -1,4 +1,6 @@
 import Veir.Analysis.DataFlow.DeadCodeAnalysis
+import Veir.Analysis.DataFlow.SparseFact
+import Veir.Analysis.DataFlow.SparseConstantPropagationAnalysis
 import Veir.Parser.MlirParser
 
 open Std (HashMap)
@@ -166,3 +168,25 @@ def runWithAnalyses
       let some dfCtx := fixpointSolve top analyses parserState.ctx
         | return "analysis did not converge"
       return renderReport (check top dfCtx parserState)
+
+def checkNamedConstants
+    (dfCtx : DataFlowContext)
+    (valueDefs : HashMap String ValuePtr)
+    (expected : Array (String × SparsePayload AbstractConstant (Option OpCode))) :
+    MismatchReport := Id.run do
+  let mut report := #[]
+  for (name, expectedValue) in expected do
+    let some value := valueDefs[name]? |
+      report := report.push s!"constant {name}: missing value definition"
+      continue
+    let observedValue : SparsePayload AbstractConstant (Option OpCode) :=
+      match dfCtx.getFact? .sparseConstant (.ValuePtr value) with
+      | some state => state.payload
+      | none => { latticeElement := ⊥, metadata := default }
+    if observedValue.latticeElement != expectedValue.latticeElement ||
+        observedValue.metadata != expectedValue.metadata then
+      report := report.push <|
+        s!"constant {name}: expected " ++
+        s!"({expectedValue.latticeElement}, {repr expectedValue.metadata}), " ++
+        s!"observed ({observedValue.latticeElement}, {repr observedValue.metadata})"
+  report

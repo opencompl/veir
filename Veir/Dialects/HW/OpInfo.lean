@@ -6,6 +6,7 @@ public import Veir.Dialects.HW.Properties
 public import Veir.ConstantMaterialization
 public import Veir.Verifier.Basic
 meta import Veir.Meta.OpCode
+import Veir.Data.HW.Basic
 
 namespace Veir
 
@@ -107,6 +108,10 @@ def HW.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   match opType with
   | .constant => do
     op.verifyPlainOpCounts ctx opIn 0 1
+    let value := (op.getProperties! ctx.raw HW.constant).value
+    if ((op.getResult 0).get! ctx.raw).type.val ≠ .integerType value.type then
+      throw s!"hw.constant: attribute bitwidth {value.type.bitwidth} doesn't match return type"
+    op.verifyNormalizedIntegerAttr ctx opIn value
     pure ()
   | .module => do
     if op.getNumOperands ctx.raw opIn ≠ 0 then
@@ -134,9 +139,21 @@ def HW.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpInfo
   match value, type.val with
   | .int bw (.val value), .integerType intType =>
     if bw = intType.bitwidth then
-      some (.of HW.constant (HWConstantProperties.mk (IntegerAttr.mk value.toInt intType)))
+      some (.of HW.constant (HWConstantProperties.mk (IntegerAttr.ofInt value.toInt intType)))
     else none
   | _, _ => none
+
+def HW.interpretOp' (opType : Veir.HW) (properties : propertiesOf opType)
+    (resultTypes : Array TypeAttr) (_blockOperands : Array BlockPtr)
+    : Option ((Array RuntimeValue) × Option ControlFlowAction) :=
+  match opType with
+  | .constant => do
+    let resType ← resultTypes[0]?
+    let .integerType bw := resType.val
+      | none
+    return (#[.int bw.bitwidth
+      (.val (Veir.Data.HW.constant (BitVec.ofInt bw.bitwidth properties.value.value)).val)], none)
+  | _ => none
 
 instance : HasOpInfo HW where
   verifyLocalInvariants := HW.verifyLocalInvariants

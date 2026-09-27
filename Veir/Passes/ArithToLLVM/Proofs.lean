@@ -4,7 +4,7 @@ public import Veir.Data.LLVM.Int.Basic
 public import Veir.Data.Refinement
 
 import Veir.ForLean
-import Veir.Meta.BVDecide
+import Veir.Meta.Tactic.BVDecide
 import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.LLVM.Int.Bitblast
 

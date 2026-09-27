@@ -21,11 +21,11 @@
 }) : () -> ()
 
 // The select+icmp collapse into a single smin intrinsic.
-// CHECK:      ^{{.*}}(%[[X:.*]] : i64, %[[Y:.*]] : i64):
+// CHECK:      func.func @foo(%[[X:.*]]: i64, %[[Y:.*]]: i64) -> i64 {
 // CHECK:      %[[M:.*]] = "llvm.intr.smin"(%[[X]], %[[Y]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[M]]) : (i64) -> ()
 
 // Mismatched operands: the pattern does not fire.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i64, %[[NY:.*]] : i64, %[[NZ:.*]] : i64):
+// CHECK:      func.func @bar(%[[NX:.*]]: i64, %[[NY:.*]]: i64, %[[NZ:.*]]: i64) -> i64 {
 // CHECK:      %[[NS:.*]] = "llvm.select"(
 // CHECK:      "func.return"(%[[NS]]) : (i64) -> ()

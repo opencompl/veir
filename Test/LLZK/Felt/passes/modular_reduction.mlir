@@ -3,7 +3,7 @@
 // Registered fields reduce modulo their prime. Unnamed fields remain
 // uninterpreted and therefore do not fold.
 "builtin.module"() ({
-  // CHECK-LABEL: "sym_name" = "add_reduction"
+  // CHECK-LABEL: func.func @add_reduction() -> !felt.type<"babybear"> {
   "func.func"() <{sym_name = "add_reduction", function_type = () -> !felt.type<"babybear">}> ({
     %a = "felt.const"() <{value = #felt<const 2013265920 : <"babybear">> : !felt.type<"babybear">}> : () -> !felt.type<"babybear">
     %b = "felt.const"() <{value = #felt<const 2 : <"babybear">> : !felt.type<"babybear">}> : () -> !felt.type<"babybear">
@@ -12,7 +12,7 @@
     "func.return"(%sum) : (!felt.type<"babybear">) -> ()
   }) : () -> ()
 
-  // CHECK-LABEL: "sym_name" = "neg_reduction"
+  // CHECK-LABEL: func.func @neg_reduction() -> !felt.type<"babybear"> {
   "func.func"() <{sym_name = "neg_reduction", function_type = () -> !felt.type<"babybear">}> ({
     %five = "felt.const"() <{value = #felt<const 5 : <"babybear">> : !felt.type<"babybear">}> : () -> !felt.type<"babybear">
     // CHECK: #felt<const 2013265916 : !felt.type<"babybear">>
@@ -20,7 +20,7 @@
     "func.return"(%neg) : (!felt.type<"babybear">) -> ()
   }) : () -> ()
 
-  // CHECK-LABEL: "sym_name" = "unnamed"
+  // CHECK-LABEL: func.func @unnamed() -> !felt.type {
   "func.func"() <{sym_name = "unnamed", function_type = () -> !felt.type}> ({
     // CHECK-DAG: #felt<const 2013265920>
     %a = "felt.const"() <{value = #felt<const 2013265920> : !felt.type}> : () -> !felt.type

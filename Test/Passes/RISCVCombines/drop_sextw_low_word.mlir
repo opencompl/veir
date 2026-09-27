@@ -43,22 +43,22 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK:      ^{{.*}}(%[[ADDW_X:.*]] : !riscv.reg, %[[ADDW_Y:.*]] : !riscv.reg):
+// CHECK:      func.func @f0(%[[ADDW_X:.*]]: !riscv.reg, %[[ADDW_Y:.*]]: !riscv.reg) -> !riscv.reg {
 // CHECK:      %[[ADDW:.*]] = "riscv.addw"(%[[ADDW_X]], %[[ADDW_Y]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT: "func.return"(%[[ADDW]]) : (!riscv.reg) -> ()
 
-// CHECK:      ^{{.*}}(%[[ADDIW_X:.*]] : !riscv.reg):
+// CHECK:      func.func @f1(%[[ADDIW_X:.*]]: !riscv.reg) -> !riscv.reg {
 // CHECK:      %[[ADDIW:.*]] = "riscv.addiw"(%[[ADDIW_X]]) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT: "func.return"(%[[ADDIW]]) : (!riscv.reg) -> ()
 
-// CHECK:      ^{{.*}}(%[[RORIW_X:.*]] : !riscv.reg):
+// CHECK:      func.func @f2(%[[RORIW_X:.*]]: !riscv.reg) -> !riscv.reg {
 // CHECK:      %[[RORIW:.*]] = "riscv.roriw"(%[[RORIW_X]]) <{"value" = 7 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT: "func.return"(%[[RORIW]]) : (!riscv.reg) -> ()
 
-// CHECK:      ^{{.*}}(%[[SRLIW_X:.*]] : !riscv.reg):
+// CHECK:      func.func @f3(%[[SRLIW_X:.*]]: !riscv.reg) -> !riscv.reg {
 // CHECK:      %[[SRLIW:.*]] = "riscv.srliw"(%[[SRLIW_X]]) <{"value" = 3 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT: "func.return"(%[[SRLIW]]) : (!riscv.reg) -> ()
 
-// CHECK:      ^{{.*}}(%[[ZEXTW_X:.*]] : !riscv.reg):
+// CHECK:      func.func @f4(%[[ZEXTW_X:.*]]: !riscv.reg) -> !riscv.reg {
 // CHECK:      %[[ZEXTW:.*]] = "riscv.zextw"(%[[ZEXTW_X]]) : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT: "func.return"(%[[ZEXTW]]) : (!riscv.reg) -> ()

@@ -28,13 +28,13 @@ theorem width_elim (o w : Nat) (Q : Prop)
 /-- This theorem states that if some Prop `Q` holds for a bitvector variable `x`
 of width `o` that is masked to "behave" as if it had width `w` (where `w ≤ o`)
 then it also holds for a bitvector `x` of width `w`. -/
-theorem var_elim {o w : Nat} (hwo : w ≤ o) (Q : BitVec w → Prop)
-    (h : ∀ (x : BitVec o), x &&& maskOfWidth o w = x → Q (x.setWidth w)) :
+theorem var_elim {o w : Nat} {m : BitVec o} (hwo : w ≤ o) (hm : m = maskOfWidth o w) (Q : BitVec w → Prop)
+    (h : ∀ (x : BitVec o), x &&& m = x → Q (x.setWidth w)) :
     ∀ (x : BitVec w), Q x := by
   intro x
-  have hinv : (x.setWidth o) &&& maskOfWidth o w = x.setWidth o := by
+  have hinv : (x.setWidth o) &&& m = x.setWidth o := by
     apply BitVec.eq_of_toNat_eq
-    rw [toNat_and_maskOfWidth hwo, BitVec.toNat_setWidth_of_le hwo,
+    rw [hm, toNat_and_maskOfWidth hwo, BitVec.toNat_setWidth_of_le hwo,
       Nat.mod_eq_of_lt x.isLt]
   have hx := h (x.setWidth o) hinv
   simpa [hwo] using hx

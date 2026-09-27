@@ -160,11 +160,15 @@ def CTree.choose {SubCIn : Type u} {SubC : SubCIn → Type u} [SubC -< C] (i : S
 Lemmas used in proofs of monotonicity required to use partial_fixpoint
 -/
 
-@[simp]
+@[simp, grind =]
 theorem CTree.fold_unfold (t : CTree E C R) :
   CTree.fold (CTree.unfold t) = t := by simp [CTree.fold, CTree.unfold]
 
-@[simp]
+@[simp, grind =]
+theorem CTree.unfold_fold (t : CTreeF E C R _) :
+    (fold t).unfold = t := by simp [CTree.fold, CTree.unfold]
+
+@[simp, grind =]
 theorem approx_ret_succ (r : R) n :
   (CTree.ret (E := E) (C := C) r).approx (n + 1) = CTreeF.ret r := by
     simp [CTree.ret, CTree.fold, CoInd.fold, PF.map, PF.pack, PF.unpack]
@@ -174,7 +178,7 @@ theorem approx_fold_ret_succ (r : R) n :
   (CTree.fold (CTreeF.ret (E := E) (C := C) r)).approx (n + 1) = CTreeF.ret r :=
     approx_ret_succ r n
 
-@[simp]
+@[simp, grind =]
 theorem approx_tau_succ i (k : (C1 ⊕ₑ C) i → CTree E C R) n :
   (CTree.tauG i k).approx (n + 1) = CTreeF.tau i (fun c => (k c).approx n) := by
     simp only [CTree.tauG, CTree.fold, CoInd.fold, PF.map, PF.pack, PF.unpack]
@@ -185,7 +189,7 @@ theorem approx_fold_tau_succ i (k : (C1 ⊕ₑ C) i → CTree E C R) n :
   (CTree.fold (CTreeF.tau i k)).approx (n + 1) = CTreeF.tau i (fun c => (k c).approx n) :=
     approx_tau_succ i k n
 
-@[simp]
+@[simp, grind =]
 theorem approx_vis_succ i (k : E i → CTree E C R) n :
   (CTree.vis i k).approx (n + 1) = CTreeF.vis i (λ e => (k e).approx n) := by
     simp only [CTree.vis, CTree.fold, CoInd.fold, PF.map, PF.pack]
@@ -337,6 +341,24 @@ def bind (t : CTree E C X) (k : X → CTree E C Y) : CTree E C Y :=
   | .vis i k' => .vis i (fun x => CTree.bind (k' x) k)
 partial_fixpoint
 
+@[simp]
+theorem CTree.bind_ret {β} r (t : β → CTree E C α) :
+  CTree.bind (.ret r) t = t r := by
+    rw [CTree.bind]
+    simp [CTree.ret, CTree.fold, CTree.unfold]
+
+@[simp]
+theorem CTree.bind_vis {β} i k (t : β → CTree E C α) :
+  CTree.bind (.vis i k) t = .vis i (λ o => CTree.bind (k o) t) := by
+    rw [CTree.bind]
+    simp [CTree.vis, CTree.fold, CTree.unfold]
+
+@[simp]
+theorem CTree.bind_tau {β} c k (t : β → CTree E C α) :
+  CTree.bind (.tauG c k) t = .tauG c (λ o => CTree.bind (k o) t) := by
+    rw [CTree.bind]
+    simp [CTree.tauG, CTree.fold, CTree.unfold]
+
 instance : Monad (CTree E C) where
   pure := CTree.ret
   bind := CTree.bind
@@ -391,6 +413,77 @@ instance : MonoBind (CTree E C) where
     · grind [monotone]
     · grind [monotone]
     · intro _; grind
+
+@[elab_as_elim, cases_eliminator]
+def CTree.cases {motive : CTree E C X → Sort v}
+    (ret : ∀ r, motive (pure r))
+    (tau : ∀ c k, motive (CTree.tauG c k))
+    (vis : ∀ e k, motive (CTree.vis e k))
+    (t : CTree E C X) : motive t := by
+    rw [<-CTree.fold_unfold t]
+    cases t.unfold
+    · apply ret
+    · apply tau
+    · apply vis
+
+@[simp]
+theorem unfold_pure (r : R) :
+  CTree.unfold (pure r) = CTreeF.ret (E := E) (C := C) r := by
+    simp [pure]
+
+@[simp]
+theorem approx_pure_succ (r : α) n :
+  (pure r : CTree _ _ _).approx (n + 1) = CTreeF.ret (E := E) (C := C) r := by
+    simp [pure]
+
+@[simp, grind =]
+theorem id_map : ∀ (x : CTree E C R), id <$> x = x := by
+  simp only [Functor.map, Function.comp_id]
+  intro t
+  ext n
+  induction n generalizing t; congr 0
+  unfold CTree.bind
+  cases t <;> simp [*]
+
+theorem bind_assoc : ∀ {α β γ} (x : CTree E C α) (f : α → CTree E C β) (g : β → CTree E C γ),
+    x >>= f >>= g = x >>= fun x => f x >>= g := by
+  simp only [Bind.bind]
+  intro _ _ _ t1 t2 t3
+  ext n
+  induction n generalizing t1; congr 0
+  rw [CTree.bind.eq_def t1]
+  rw [CTree.bind.eq_def t1]
+  split <;> simp [*]
+
+instance : LawfulMonad (CTree E C) := LawfulMonad.mk' (CTree E C)
+  (id_map := id_map)
+  (pure_bind := by simp [pure, Bind.bind])
+  (bind_assoc := bind_assoc)
+
+instance : MonoBind (CTree E C) where
+  bind_mono_left := by
+    intros
+    rw [Bind.bind]
+    apply bind_mono (λ x => x) <;> grind [monotone]
+  bind_mono_right := by
+    intro _ _ a _ _ _
+    rw [Bind.bind]
+    apply bind_mono (λ x => a) (λ x => x)
+    · grind [monotone]
+    · grind [monotone]
+    · intro _; grind
+
+@[simp, grind =]
+theorem CTree.ret_pure (r : R) : CTree.ret (E := E) (C := C) r = pure r := by
+  rfl
+
+@[simp, grind =]
+theorem bind_tau {α β} c k (t : β → CTree E C α) :
+  (.tauG c k) >>= t = .tauG c (λ x => k x >>= t) := by simp [Bind.bind]
+
+@[simp, grind =]
+theorem bind_vis {α β} i k (t : β → CTree E C α) :
+  (.vis i k) >>= t = .vis i (λ o => k o >>= t) := by simp [Bind.bind]
 
 end CTree
 

@@ -23,13 +23,13 @@
 }) : () -> ()
 
 // The bitwise op runs on the narrow operands, then a single `trunc` widens.
-// CHECK:      ^{{.*}}(%[[X:.*]] : i64, %[[Y:.*]] : i64):
+// CHECK:      func.func @foo(%[[X:.*]]: i64, %[[Y:.*]]: i64) -> i32 {
 // CHECK:      %[[OP:.*]] = "llvm.and"(%[[X]], %[[Y]]) : (i64, i64) -> i64
 // CHECK-NEXT: %[[E:.*]] = "llvm.trunc"(%[[OP]]) : (i64) -> i32
 // CHECK:      "func.return"(%[[E]]) : (i32) -> ()
 
 // Single cast: the pattern does not fire.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i64, %[[NY:.*]] : i32):
+// CHECK:      func.func @bar(%[[NX:.*]]: i64, %[[NY:.*]]: i32) -> i32 {
 // CHECK:      %[[NEX:.*]] = "llvm.trunc"(%[[NX]]) : (i64) -> i32
 // CHECK:      %[[NR:.*]] = "llvm.and"(%[[NEX]], %[[NY]]) : (i32, i32) -> i32
 // CHECK:      "func.return"(%[[NR]]) : (i32) -> ()

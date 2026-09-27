@@ -3,9 +3,9 @@
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (!riscv.reg, !riscv.reg)}> ({
     %a = "riscv.li"() <{ value = 11 : i64 }> : () -> !riscv.reg
-    %b = "riscv.srli"(%a) <{ value = 3 : i6 }> : (!riscv.reg) -> !riscv.reg
+    %b = "riscv.srli"(%a) <{ value = 3 : i64 }> : (!riscv.reg) -> !riscv.reg
     %c = "riscv.li"() <{ value = 11 : i64 }> : () -> !riscv.reg
-    %d = "riscv.srli"(%c) <{ value = 61 : i6 }> : (!riscv.reg) -> !riscv.reg
+    %d = "riscv.srli"(%c) <{ value = 61 : i64 }> : (!riscv.reg) -> !riscv.reg
     "func.return"(%b, %d) : (!riscv.reg, !riscv.reg) -> ()
   }) : () -> ()
 }) : () -> ()

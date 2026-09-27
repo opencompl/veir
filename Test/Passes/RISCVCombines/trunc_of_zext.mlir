@@ -20,12 +20,12 @@
 }) : () -> ()
 
 // Round-trip: both casts vanish and x is returned.
-// CHECK:      ^{{.*}}(%[[X:.*]] : i32):
+// CHECK:      func.func @foo(%[[X:.*]]: i32) -> i32 {
 // CHECK-NOT:  "llvm.trunc"
 // CHECK:      "func.return"(%[[X]]) : (i32) -> ()
 
 // Non-round-trip: the casts remain.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i32):
+// CHECK:      func.func @bar(%[[NX:.*]]: i32) -> i16 {
 // CHECK:      %[[NZ:.*]] = "llvm.zext"(%[[NX]]) : (i32) -> i64
 // CHECK:      %[[NT:.*]] = "llvm.trunc"(%[[NZ]]) : (i64) -> i16
 // CHECK:      "func.return"(%[[NT]]) : (i16) -> ()
