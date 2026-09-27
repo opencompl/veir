@@ -761,10 +761,11 @@ def trunc_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some opBw := getIntByteTypeBitwidth opType | return (ctx, none)
   let some resBw := getIntByteTypeBitwidth resType | return (ctx, none)
   if opBw ≤ resBw then return (ctx, none)
-  /- Restrict to the register-representable widths: the operand is held in a 64-bit register, so an
-     operand wider than 64 bits (or a result wider than 64 bits) would lose bits in the round trip.
-     Limiting to `{8, 16, 32, 64}` keeps the lowering sound and makes the widths concrete. -/
-  if opBw ∉ [8, 16, 32, 64] ∨ resBw ∉ [8, 16, 32, 64] then return (ctx, none)
+  /- The operand is held in a 64-bit register, so an operand wider than 64 bits would lose bits in
+     the round trip. Every narrower pair of widths is sound (see `trunc_refinement_le64`), including
+     odd ones such as `i1`: the result's upper register bits are whatever the operand left there,
+     and `reconcile-cast` zero-extends the value wherever it is used as a register again. -/
+  if opBw > 64 then return (ctx, none)
   /- First, cast the operand to registers -/
   let (ctx, opCastOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[RegisterType.mk] #[operand]
       #[] #[] () none
