@@ -3,6 +3,7 @@ module
 public import Veir.Verifier
 import all Veir.Interpreter.VariableState
 import all Veir.Interpreter.Basic
+import all Veir.Dialects.RISCV.OpInfo
 public import Veir.Interpreter.Refinement.Basic
 public import Veir.Interpreter.Refinement.Lemmas
 
@@ -678,8 +679,8 @@ opaque call such as `riscvLoad`.
 @[grind =]
 theorem Interp.bind_def {α β : Type} (x : Interp α) (f : α → Interp β) :
     (x >>= f) = match x with
-      | .fail => .fail
-      | .ub => .ub
+      | .fail op => .fail op
+      | .ub op => .ub op
       | .ok a => f a := rfl
 
 /--
@@ -701,7 +702,7 @@ their operands (`li`, `lui`) interpret to the very same result whatever the oper
 -/
 theorem Riscv.interpretOp'_eq_fail_or_eq_of_not_regs {operands operands' : Array RuntimeValue}
     (hregs : ¬ ∀ v ∈ operands, ∃ r, v = .reg r) :
-    Riscv.interpretOp' opType properties resultTypes operands blockOperands mem = .fail ∨
+    Riscv.interpretOp' opType properties resultTypes operands blockOperands mem = .fail none ∨
     Riscv.interpretOp' opType properties resultTypes operands blockOperands mem
       = Riscv.interpretOp' opType properties resultTypes operands' blockOperands mem := by
   cases opType <;>
