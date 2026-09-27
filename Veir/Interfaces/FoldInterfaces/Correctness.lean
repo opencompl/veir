@@ -65,8 +65,8 @@ interpreter failure never establishes correctness. -/
 def Refines (source : Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction))
     (replacements : Array RuntimeValue) (initialMemory : MemoryState) : Prop :=
   match source with
-  | .fail => False
-  | .ub => True
+  | .fail _ => False
+  | .ub _ => True
   | .ok (results, memory, action) =>
     results ⊒ replacements ∧ memory = initialMemory ∧ action = none
 

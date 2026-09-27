@@ -9,6 +9,7 @@ import all Veir.GlobalOpInfo
 import all Veir.Dialects.Arith.OpInfo
 import all Veir.Dialects.LLVM.OpInfo
 import all Veir.Dialects.RISCV.OpInfo
+import all Veir.Dialects.RISCV.Properties
 import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.RISCV.Reg.Basic
 
@@ -71,7 +72,7 @@ private theorem llvm_add_lookup
 
 private theorem riscv_andi_lookup
     (h : HasOpInfo.tryFold (OpCode.riscv .andi) properties types known = some decisions) :
-    properties.value.value = 0 ∧ decisions = #[.useConstant (.reg ⟨0⟩)] := by
+    properties.value = 0 ∧ decisions = #[.useConstant (.reg ⟨0⟩)] := by
   change Riscv.tryFold .andi properties types known = some decisions at h
   unfold Riscv.tryFold at h
   repeat first | split at h | contradiction
@@ -80,8 +81,8 @@ private theorem riscv_andi_lookup
 /-- The arithmetic add-zero entry, including arbitrary overflow flags and poison inputs. -/
 theorem Arith.tryFold_addi_correct (properties : Arith.propertiesOf .addi) (w : Nat) :
     FoldTable.CorrectAt (.arith .addi) properties
-      #[(IntegerType.mk w : TypeAttr), (IntegerType.mk w : TypeAttr)]
-      #[(IntegerType.mk w : TypeAttr)] := by
+      #[(IntegerType.signless w : TypeAttr), (IntegerType.signless w : TypeAttr)]
+      #[(IntegerType.signless w : TypeAttr)] := by
   apply FoldTable.correctAt_int_rhs (fun width => .val (0#width))
     (fun _ _ h => arith_addi_lookup h)
   · simp [FoldDecision.HasType]
@@ -95,8 +96,8 @@ theorem Arith.tryFold_addi_correct (properties : Arith.propertiesOf .addi) (w : 
 is poison: its poison overflow flag may be replaced with concrete false. -/
 theorem Arith.tryFold_addui_extended_correct (w : Nat) :
     FoldTable.CorrectAt (.arith .addui_extended) ()
-      #[(IntegerType.mk w : TypeAttr), (IntegerType.mk w : TypeAttr)]
-      #[(IntegerType.mk w : TypeAttr), (IntegerType.mk 1 : TypeAttr)] := by
+      #[(IntegerType.signless w : TypeAttr), (IntegerType.signless w : TypeAttr)]
+      #[(IntegerType.signless w : TypeAttr), (IntegerType.signless 1 : TypeAttr)] := by
   apply FoldTable.correctAt_int_rhs (fun width => .val (0#width))
     (fun _ _ h => arith_addui_extended_lookup h)
   · rw [FoldDecision.hasTypes_pair]; exact ⟨rfl, rfl⟩
@@ -109,8 +110,8 @@ theorem Arith.tryFold_addui_extended_correct (w : Nat) :
 /-- LLVM add-zero is correct for every width and every choice of overflow flags. -/
 theorem Llvm.tryFold_add_correct (properties : Llvm.propertiesOf .add) (w : Nat) :
     FoldTable.CorrectAt (.llvm .add) properties
-      #[(IntegerType.mk w : TypeAttr), (IntegerType.mk w : TypeAttr)]
-      #[(IntegerType.mk w : TypeAttr)] := by
+      #[(IntegerType.signless w : TypeAttr), (IntegerType.signless w : TypeAttr)]
+      #[(IntegerType.signless w : TypeAttr)] := by
   apply FoldTable.correctAt_int_rhs (fun width => .val (0#width))
     (fun _ _ h => llvm_add_lookup h)
   · simp [FoldDecision.HasType]
@@ -135,6 +136,6 @@ theorem Riscv.tryFold_andi_correct (properties : Riscv.propertiesOf .andi)
     obtain ⟨value, rfl⟩ := hOperands.reg_single
     refine ⟨#[.reg ⟨0⟩], ?_, ?_⟩
     · simp [FoldDecision.resolveAll, FoldDecision.resolve]
-    · simp [Veir.interpretOp', Riscv.interpretOp', hZero, RISCV.andi, FoldTable.Refines]
+    · simp [Veir.interpretOp', Riscv.interpretOp', RISCVImmediateProperties.immField, hZero, RISCV.andi, FoldTable.Refines]
 
 end Veir

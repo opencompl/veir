@@ -15,14 +15,14 @@ open Data
 /-- Recover the integer operands from their declared widths. -/
 theorem RuntimeValue.ArrayConforms.int_pair
     (h : RuntimeValue.ArrayConforms operands
-      #[(IntegerType.mk w₁ : TypeAttr), (IntegerType.mk w₂ : TypeAttr)]) :
+      #[(IntegerType.signless w₁ : TypeAttr), (IntegerType.signless w₂ : TypeAttr)]) :
     ∃ lhs rhs, operands = #[.int w₁ lhs, .int w₂ rhs] := by
   have hs : operands.size = 2 := h.1
   have h0 := h.2 0 (by omega)
   have h1 := h.2 1 (by omega)
-  simp at h0 h1
-  obtain ⟨lhs, hl⟩ := RuntimeValue.Conforms.integerType h0
-  obtain ⟨rhs, hr⟩ := RuntimeValue.Conforms.integerType h1
+  simp [IntegerType.signless] at h0 h1
+  obtain ⟨lhs, hl⟩ := (RuntimeValue.Conforms.integerType).mp h0
+  obtain ⟨rhs, hr⟩ := (RuntimeValue.Conforms.integerType).mp h1
   refine ⟨lhs, rhs, ?_⟩
   apply Array.ext <;> grind
 
@@ -65,18 +65,18 @@ theorem FoldTable.correctAt_int_rhs
       HasOpInfo.tryFold op properties resultTypes known = some results →
       ∃ left width, known = #[left, some (.int width (rhs width))] ∧ results = decisions)
     (typed : FoldDecision.HasTypes decisions
-      #[(IntegerType.mk w : TypeAttr), (IntegerType.mk w : TypeAttr)] resultTypes)
+      #[(IntegerType.signless w : TypeAttr), (IntegerType.signless w : TypeAttr)] resultTypes)
     (evaluate : ∀ lhs memory successors layout,
       ∃ replacements,
         FoldDecision.resolveAll decisions #[.int w lhs, .int w (rhs w)] = some replacements ∧
         Refines (interpretOp' op properties resultTypes
           #[.int w lhs, .int w (rhs w)] successors memory layout) replacements memory) :
     CorrectAt op properties
-      #[(IntegerType.mk w : TypeAttr), (IntegerType.mk w : TypeAttr)] resultTypes := by
+      #[(IntegerType.signless w : TypeAttr), (IntegerType.signless w : TypeAttr)] resultTypes := by
   intro known results hKnown hFold
   obtain ⟨left, width, rfl, rfl⟩ := lookup known results hFold
   have hw := hKnown.2 1 (by simp) (.int width (rhs width)) (by simp)
-  simp [RuntimeValue.Conforms, Attribute.asType] at hw
+  simp [RuntimeValue.Conforms, Attribute.asType, IntegerType.signless] at hw
   subst width
   refine ⟨typed, ?_⟩
   intro operands hOperands hAgree memory successors layout
