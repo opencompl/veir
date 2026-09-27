@@ -35,7 +35,7 @@ private def scalarInfo (size alignment : Nat) : DataLayoutTypeInfo :=
 /-- Layout facts for the LLVM-compatible fixed-size types supported by VeIR. -/
 private def queryRISCV64 (type : Attribute) : Option DataLayoutTypeInfo :=
   match type with
-  | .integerType { bitwidth } | .byteType { bitwidth } =>
+  | .integerType { bitwidth, .. } | .byteType { bitwidth } =>
       if bitwidth = 0 then none
       else
         let size := (bitwidth + 7) / 8

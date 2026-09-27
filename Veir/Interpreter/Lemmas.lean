@@ -4,6 +4,7 @@ public import Veir.Verifier
 import all Veir.Interpreter.VariableState
 import all Veir.Interpreter.Basic
 public import Veir.Interpreter.Refinement.Basic
+public import Veir.Interpreter.Refinement.Lemmas
 
 
 namespace Veir
@@ -312,10 +313,10 @@ and that the underlying `interpretOp'` call triggered `ub`.
 -/
 theorem interpretOp_ub_iff {ctx : WfIRContext OpCode} {state : InterpreterState ctx}
   {inBounds : op.InBounds ctx.raw} :
-  interpretOp op state inBounds = .ub ↔
+  (interpretOp op state inBounds).isUB ↔
   ∃ operandValues,
     (state.variables.getOperandValues op) = some operandValues ∧
-    op.interpret ctx operandValues state.memory = .ub := by
+    (op.interpret ctx operandValues state.memory).isUB := by
   simp only [interpretOp, bind, pure, liftM, monadLift, MonadLift.monadLift]
   grind
 
@@ -324,8 +325,8 @@ the variable state. -/
 theorem interpretOp_ub_iff_op_interpret_of_getOperandValues_eq_some
   {ctx : WfIRContext OpCode} {state : InterpreterState ctx} {inBounds : op.InBounds ctx.raw}
   (hoperandValues : state.variables.getOperandValues op = some operandValues) :
-  interpretOp op state inBounds = .ub ↔
-  op.interpret ctx.raw operandValues state.memory = .ub := by
+  (interpretOp op state inBounds).isUB ↔
+  (op.interpret ctx.raw operandValues state.memory).isUB := by
   simp only [interpretOp, bind, pure, liftM, monadLift, MonadLift.monadLift]
   grind
 
@@ -535,8 +536,8 @@ theorem interpretOpList_nil :
 theorem interpretOpList_cons :
     interpretOpList (op :: l) state inBounds =
     match interpretOp op state with
-    | .fail => .fail
-    | .ub => .ub
+    | .fail o => .fail o
+    | .ub o => .ub o
     | .ok (state', none) => interpretOpList l state' (by grind)
     | .ok (state', some cf) => .ok (state', some cf) := by
   simp [interpretOpList, bind, pure]
@@ -547,15 +548,15 @@ theorem interpretOpList_append :
     match interpretOpList l₁ state (by grind) with
     | .ok (state', none) => interpretOpList l₂ state' (by grind)
     | .ok (state', some cf) => .ok (state', some cf)
-    | .ub => .ub
-    | .fail => .fail := by
+    | .ub o => .ub o
+    | .fail o => .fail o := by
   induction l₁ generalizing state
   · simp
   · grind [interpretOpList_cons]
 
 @[simp, grind =]
 theorem interpretTerminatedOpList_nil :
-    interpretTerminatedOpList [] state inBounds = .fail := by
+    interpretTerminatedOpList [] state inBounds = .fail none := by
   simp [interpretTerminatedOpList, interpretOpList_nil, bind]
 
 theorem interpretTerminatedOpList_cons {ctx : WfIRContext OpCode}
@@ -564,8 +565,8 @@ theorem interpretTerminatedOpList_cons {ctx : WfIRContext OpCode}
     {inBounds : ∀ op' ∈ op :: l, op'.InBounds ctx.raw} :
     interpretTerminatedOpList (op :: l) state inBounds =
     match interpretOp op state with
-    | .fail => .fail
-    | .ub => .ub
+    | .fail o => .fail o
+    | .ub o => .ub o
     | .ok (state', none) => interpretTerminatedOpList l state' (by grind)
     | .ok (state', some cf) => .ok (state', cf) := by
   simp [interpretTerminatedOpList, interpretOpList_cons, bind, pure]
@@ -576,8 +577,8 @@ theorem interpretTerminatedOpList_append :
     match interpretOpList l₁ state (by grind) with
     | .ok (state', none) => interpretTerminatedOpList l₂ state' (by grind)
     | .ok (state', some cf)=> .ok (state', cf)
-    | .ub => .ub
-    | .fail => .fail := by
+    | .ub o => .ub o
+    | .fail o => .fail o := by
   simp [interpretTerminatedOpList, interpretOpList_append, bind, pure]
   grind
 
@@ -585,8 +586,8 @@ theorem interpretOpChain_of_next!_eq_some {state' : InterpreterState ctx}
     (hnext : (op.get! ctx.raw).next = some op') :
     interpretOpChain op state' inBounds =
     match interpretOp op state' (by grind) with
-    | .fail => .fail
-    | .ub => .ub
+    | .fail o => .fail o
+    | .ub o => .ub o
     | .ok (state'', none) => interpretOpChain op' state'' (by grind)
     | .ok (state'', some cf) => .ok (state'', cf) := by
   rw [interpretOpChain]
@@ -597,9 +598,9 @@ theorem interpretOpChain_of_next!_eq_none {state' : InterpreterState ctx}
     (hnext : (op.get! ctx.raw).next = none) :
     interpretOpChain op state' inBounds =
     match interpretOp op state' (by grind) with
-    | .fail => .fail
-    | .ub => .ub
-    | .ok (_, none) => .fail
+    | .fail o => .fail o
+    | .ub o => .ub o
+    | .ok (_, none) => .fail none
     | .ok (state'', some cf) => .ok (state'', cf) := by
   rw [interpretOpChain]
   simp [bind, pure]
@@ -643,17 +644,33 @@ axiom interpretOp'_ne_fail {ctx : WfIRContext OpCode} {op : OperationPtr}
     {opInBounds : op.InBounds ctx.raw} (opVerify : OperationPtr.Verified ctx op opInBounds)
     (operandConforms : RuntimeValue.ArrayConforms operands (op.getOperandTypes! ctx.raw))
     (mem : MemoryState) :
-  op.interpret ctx.raw operands mem ≠ .fail
+  (op.interpret ctx.raw operands mem).isFail = false
 
-axiom interpretOp'_monotone
-    (opType : OpCode) (properties : propertiesOf opType) (resultTypes : Array TypeAttr)
-    (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr) (mem : MemoryState) :
+/--
+Monotonicity of `interpretOp'` in its operands, as a class so that a dialect can discharge it for
+its own opcodes without this file knowing about the dialect.
+-/
+class InterpretOp'Monotone (opType : OpCode) : Prop where
+  monotone (properties : propertiesOf opType) (resultTypes : Array TypeAttr)
+    (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr)
+    (mem : MemoryState) :
     operands ⊒ operands' →
-    Interp.isRefinedBy (α := Array RuntimeValue × MemoryState × Option ControlFlowAction)
-      (fun r₁ r₂ => r₁.1 ⊒ r₂.1 ∧ r₁.2.1 = r₂.2.1 ∧
-        ControlFlowAction.optionIsRefinedBy r₁.2.2 r₂.2.2)
+    Interp.isRefinedBy OperationResult.isRefinedBy
       (interpretOp' opType properties resultTypes operands blockOperands mem)
       (interpretOp' opType properties resultTypes operands' blockOperands mem)
+
+/-- Assumed for an opcode whose dialect has no proof yet. -/
+axiom interpretOp'_monotone_assumed (opType : OpCode) : InterpretOp'Monotone opType
+
+theorem interpretOp'_monotone
+    (opType : OpCode) [inst : InterpretOp'Monotone opType] (properties : propertiesOf opType)
+    (resultTypes : Array TypeAttr)
+    (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr) (mem : MemoryState) :
+    operands ⊒ operands' →
+    Interp.isRefinedBy OperationResult.isRefinedBy
+      (interpretOp' opType properties resultTypes operands blockOperands mem)
+      (interpretOp' opType properties resultTypes operands' blockOperands mem) :=
+  inst.monotone properties resultTypes operands operands' blockOperands mem
 
 /--
 A successful operation interpretation returns result values that conform to the declared

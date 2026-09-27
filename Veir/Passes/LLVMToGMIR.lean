@@ -52,12 +52,38 @@ def g_sub := (lowerBinop .sub .g_sub).compile
 
 def g_icmp := (lowerBinop .icmp  .g_icmp).compile
 
+/--
+  GMIR lowerings with Puddle for integer casts.
+-/
+def lowerIntegerCast (lOp : Llvm) (gOp : GMIR)
+    (h : propertiesOf (OpCode.llvm lOp) = propertiesOf (OpCode.gmir gOp) := by rfl) :
+    Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let operandType ← Puddle.MatchProg.type (Attr := IntegerType)
+      let resultType ← Puddle.MatchProg.type (Attr := IntegerType)
+      let operand ← Puddle.MatchProg.value operandType
+      let root ← Puddle.MatchProg.root (.llvm lOp) #[operand] #[resultType]
+      return (resultType, operand, root))
+    (fun (resultType, operand, root) => do
+      let props ← Puddle.CreateProg.applyNative root.properties
+                    (fun p => some (cast h p))
+      let newOp ← Puddle.CreateProg.operation (.gmir gOp) #[operand] #[resultType] props
+      return newOp)
+    (fun newOp => newOp)
+
+def g_sext := (lowerIntegerCast .sext .g_sext).compile
+
+def g_zext := (lowerIntegerCast .zext .g_zext).compile
+
+def g_trunc := (lowerIntegerCast .trunc .g_trunc).compile
+
 /-! ## Pass implementation -/
 
 def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[
-    g_add.run, g_sub.run, g_icmp.run
+    g_add.run, g_sub.run, g_icmp.run, g_sext.run, g_zext.run, g_trunc.run
   ]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying llvm-to-gmir translation"

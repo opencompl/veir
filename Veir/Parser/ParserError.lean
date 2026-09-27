@@ -108,7 +108,7 @@ def lineContaining (input : ByteArray) (loc : Location) : Option String := Id.ru
   When `loc` is `none`, the header uses `<unknown location>` and no source line
   is printed.
 -/
-def formatLabel (filename : String) (input : ByteArray) (severity : String) (loc : Option Location)
+public def formatLabel (filename : String) (input : ByteArray) (severity : String) (loc : Option Location)
     (msg : String) : String :=
   match loc with
   | none => s!"<unknown location>: {severity}: {msg}"

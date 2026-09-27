@@ -8,7 +8,10 @@
       %add = "llvm.add"(%a, %b) <{overflowFlags = 3 : i32}> : (i16, i16) -> i16
       %sub = "llvm.sub"(%a, %b) : (i16, i16) -> i16
       %cmp = "llvm.icmp"(%a, %b) <{predicate = 4 : i64}> : (i16, i16) -> i1
-      "test.test"(%add, %sub, %cmp) : (i16, i16, i1) -> ()
+      %sext = "llvm.sext"(%a) : (i16) -> i32
+      %zext = "llvm.zext"(%a) <{nonNeg}> : (i16) -> i32
+      %trunc = "llvm.trunc"(%a) <{overflowFlags = 1 : i32}> : (i16) -> i8
+      "test.test"(%add, %sub, %cmp, %sext, %zext, %trunc) : (i16, i16, i1, i32, i32, i8) -> ()
       "llvm.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
@@ -19,3 +22,6 @@
 // CHECK: "gmir.g_sub"
 // CHECK: "gmir.g_icmp"
 // CHECK-SAME: "predicate" = 4 : i64
+// CHECK: "gmir.g_sext"(%{{.*}}) : (i16) -> i32
+// CHECK: "gmir.g_zext"(%{{.*}}) <{nonNeg}> : (i16) -> i32
+// CHECK: "gmir.g_trunc"(%{{.*}}) <{"overflowFlags" = 1 : i32}> : (i16) -> i8

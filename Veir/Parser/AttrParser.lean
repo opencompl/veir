@@ -104,15 +104,17 @@ private def parseOptionalVectorDimension : AttrParserM (Option Nat) := do
 def parseOptionalIntegerType : AttrParserM (Option IntegerType) := do
   match ← peekToken with
   | { kind := .bareIdent, slice := slice } =>
-    if slice.size < 2 then
-      return none
-    if (← (getThe ParserState)).input.getD slice.start.byteOffset 0 == 'i'.toUInt8 then
-      let bitwidthSlice : Slice := {start := slice.start + 1, stop := slice.stop}
-      let identifier := bitwidthSlice.of (← (getThe ParserState)).input
-      let some bitwidth := (String.fromUTF8? identifier).bind String.toNat? | return none
-      let _ ← consumeToken
-      return some (IntegerType.mk bitwidth)
-    return none
+    let identifier := slice.of (← getThe ParserState).input
+    let bitwidth (prefixLength : Nat) : Option Nat :=
+      (String.fromUTF8? (identifier.extract prefixLength identifier.size)).bind String.toNat?
+    let type : Option IntegerType :=
+      if identifier.extract 0 2 == "si".toByteArray then (bitwidth 2).map IntegerType.signed
+      else if identifier.extract 0 2 == "ui".toByteArray then (bitwidth 2).map IntegerType.unsigned
+      else if identifier.extract 0 1 == "i".toByteArray then (bitwidth 1).map IntegerType.signless
+      else none
+    let some type := type | return none
+    let _ ← consumeToken
+    return some type
   | _ => return none
 
 /-- Parse the MLIR builtin `index` type. -/
@@ -149,15 +151,18 @@ def parseOptionalFloatType : AttrParserM (Option FloatType) := do
 
 /--
   Parse an optional byte type.
-  A byte type is represented as `!llvm.byte<bitwidth>` where bitwidth is a positive integer.
+  A byte type is represented as `!llvm.byte<bitwidth>`, or `byte<bitwidth>` when `short`.
 -/
-def parseOptionalByteType : AttrParserM (Option LLVM.ByteType) := do
-  let token ← peekToken
-  let .exclamationIdent := token.kind | return none
-  let input := (← getThe ParserState).input
-  let typeName := { token.slice with start := token.slice.start + 1 }.of input
-  if typeName ≠ "llvm.byte".toByteArray then return none
-  let _ ← consumeToken
+def parseOptionalByteType (short := false) : AttrParserM (Option LLVM.ByteType) := do
+  if short then
+    let .true ← parseOptionalKeyword "byte".toByteArray | return none
+  else
+    let token ← peekToken
+    let .exclamationIdent := token.kind | return none
+    let input := (← getThe ParserState).input
+    let typeName := { token.slice with start := token.slice.start + 1 }.of input
+    if typeName ≠ "llvm.byte".toByteArray then return none
+    let _ ← consumeToken
   parsePunctuation "<"
   let bitwidth ← parseInteger false false
   parsePunctuation ">"
@@ -273,9 +278,9 @@ def parseOptionalStringAttr : AttrParserM (Option StringAttr) := do
 -/
 def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
   if (← parseOptionalKeyword "false".toByteArray) then
-    return some (IntegerAttr.mk 0 (IntegerType.mk 1) : Attribute)
+    return some (IntegerAttr.mk 0 (IntegerType.signless 1) : Attribute)
   if (← parseOptionalKeyword "true".toByteArray) then
-    return some (IntegerAttr.mk 1 (IntegerType.mk 1) : Attribute)
+    return some (IntegerAttr.mk 1 (IntegerType.signless 1) : Attribute)
 
   -- Parse the optional leading '-'.
   let isNegative := Option.isSome (← parseOptionalToken .minus)
@@ -312,7 +317,7 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
     let bits := BitVec.ofInt integerType.bitwidth literal
     if (isNegative && n == 0) ∨ (literal ≠ bits.toInt ∧ literal ≠ bits.toNat) then
       throwAt valueStartPos "integer constant out of range for attribute"
-    return IntegerAttr.mk (if integerType.bitwidth = 1 then bits.toNat else bits.toInt) integerType
+    return IntegerAttr.ofInt literal integerType
 
   -- Compute the floating-point value from the parsed literal.
   let floatValue (floatType : FloatType) :
@@ -1132,8 +1137,8 @@ partial def parseOptionalLLVMStructType (short := false) : AttrParserM (Option T
 /--
   Parse a type within an LLVM-dialect type body, accepting the LLVM "pretty-print"
   sugar keywords `void`, `ptr`, `x86_amx`, `ppc_fp128`, `label`, `metadata`, `token`, and
-  the bare nested forms `array<...>`, `struct<...>`, `func<...>`, and `target<...>` in
-  addition to the regular MLIR type forms.
+  the bare nested forms `byte<...>`, `array<...>`, `struct<...>`, `func<...>`, and
+  `target<...>` in addition to the regular MLIR type forms.
 
   The bare nested form exists because the LLVM dialect has a custom directive
   `PrettyLLVMType`, which allows types from the LLVM dialect to be written
@@ -1157,6 +1162,8 @@ partial def parseLLVMType (errorMsg : String := "type expected") : AttrParserM T
     return LLVM.VoidType.mk
   if ← parseOptionalKeyword "ptr".toByteArray then
     return (LLVM.PointerType.mk : TypeAttr)
+  if let some type ← parseOptionalByteType true then
+    return type
   if let some type ← parseOptionalLLVMArrayType true then
     return type
   if let some type ← parseOptionalLLVMStructType true then
