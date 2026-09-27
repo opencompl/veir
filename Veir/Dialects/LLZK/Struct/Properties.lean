@@ -2,6 +2,7 @@ module
 
 public import Veir.IR.Attribute
 public import Veir.IR.OpInfo
+public import Veir.Verifier.Basic
 public import Veir.Dialects.Builtin.Properties
 
 namespace Veir
@@ -31,14 +32,6 @@ structure StructMemberProperties where
   signal : Bool
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-/-- Verify that a type belongs to the subset of LLZK types currently represented by VeIR.
-https://github.com/project-llzk/llzk-lib/blob/265d68f678ab15018e3f6253b85557fbaeac9c0d/lib/Util/TypeHelper.cpp#L482-L511 -/
-def TypeAttr.verifySupportedLLZKType (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
-  match ty.val with
-  | .integerType intType => if intType.bitwidth = 1 then pure () else throw errMsg
-  | .indexType _ | .feltType _ | .structType _ | .stringType _ | .arrayType _ => pure ()
-  | _ => throw errMsg
-
 def StructMemberProperties.fromAttrDict (opName : String)
     (attrDict : Std.HashMap ByteArray Attribute) :
     Except String StructMemberProperties := do
@@ -48,12 +41,10 @@ def StructMemberProperties.fromAttrDict (opName : String)
     | throw s!"{opName}: expected 'sym_name' to be a string attribute, got {symAttr}"
   let typeAttr ← match attrDict["type".toUTF8]? with
     | some attr =>
-      if _ : attr.isType = true then
-        attr.asType.verifySupportedLLZKType
-          s!"{opName}: expected 'type' to be a supported LLZK type"
+      if _ : attr.isType = true && attr.isLLZKType then
         pure (attr.asType)
       else
-        throw s!"{opName}: expected 'type' to be a type attribute"
+        throw s!"{opName}: expected 'type' to be a supported LLZK type"
     | _ =>
       throw s!"{opName}: missing 'type' property"
   let column ← getUnitAttr "column" attrDict

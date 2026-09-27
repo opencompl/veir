@@ -38,6 +38,25 @@ def Attribute.isKnownNonZero (attr : Attribute) : Bool :=
   | .floatAttr fltAttr => fltAttr.value != 0.0
   | _ => false
 
+/-- Verify that a type belongs to the subset of LLZK types currently represented by VeIR.
+  TypeVarType, PodType, and NoneType are currently missing.
+  https://github.com/project-llzk/llzk-lib/blob/265d68f678ab15018e3f6253b85557fbaeac9c0d/lib/Util/TypeHelper.cpp#L482-L511 -/
+def Attribute.isLLZKType (attr : Attribute)  : Bool :=
+  match attr with
+  | .integerType intType => decide (intType.bitwidth = 1)
+  | .indexType _ | .feltType _ | .structType _ | .stringType _ | .arrayType _ => true
+  | _ => false
+
+def Attribute.isLLZKArrayElemType (attr : Attribute)  : Bool :=
+  match attr with
+  | .arrayType _ => false
+  | _ => attr.isLLZKType
+
+def Attribute.isLLZKArrayType (attr : Attribute) : Bool :=
+  match attr with
+  | .arrayType arrT  => arrT.elementType.isLLZKArrayElemType
+  | _ => false
+
 /--
   Verify the result, region, and successor counts of a terminator: one that
   produces no results, has no regions, and transfers control to `successors`

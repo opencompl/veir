@@ -65,11 +65,11 @@ instance : IsOpCode LLZK.Constrain where
   fromAttrDict := LLZK.Constrain.fromAttrDict
   toAttrDict := LLZK.Constrain.toAttrDict
 
-private def Attribute.isSupportedLLZKConstrainEqType (type : Attribute) : Bool :=
-  match type with
-  | .integerType intType => intType.bitwidth = 1
-  | .indexType _ | .feltType _ | .arrayType _ => true
-  | _ => false
+
+private def Attribute.isLLZKEmitEqType (attr : Attribute) : Bool :=
+  match attr with
+  | .structType _ | .stringType _ => false
+  | _ => attr.isLLZKType
 
 /-- Whether `candidate` is an element or trailing-dimensional subarray of `arrayType`. -/
 private def isLLZKSubArrayOrElementType
@@ -91,7 +91,7 @@ def LLZK.Constrain.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.verifyPlainOpCounts ctx opIn 2 0
     let operandType ← op.verifyOperandTypesMatch ctx 0 1
       "constrain.eq: expected operands to have the same type"
-    if !operandType.val.isSupportedLLZKConstrainEqType then
+    if !operandType.val.isLLZKEmitEqType then
       throw s!"constrain.eq: unsupported operand type {operandType}"
   | .«in» => do
     op.verifyPlainOpCounts ctx opIn 2 0
@@ -99,7 +99,7 @@ def LLZK.Constrain.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     let rhsType := (op.getOperand! ctx.raw 1).getType! ctx.raw
     let .arrayType arrayType := lhsType.val
       | throw s!"constrain.in: expected first operand to have array type, got {lhsType}"
-    if !arrayType.elementType.isSupportedLLZKConstrainEqType then
+    if !arrayType.elementType.isLLZKEmitEqType then
       throw s!"constrain.in: unsupported array element type {arrayType.elementType}"
     if !isLLZKSubArrayOrElementType arrayType rhsType.val then
       throw s!"constrain.in: {rhsType} is not an element or compatible subarray of {lhsType}"
