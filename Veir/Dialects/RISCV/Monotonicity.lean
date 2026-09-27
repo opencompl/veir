@@ -16,8 +16,7 @@ namespace Veir
 
 /--
 A RISC-V operation that interprets successfully produces register results and no
-control flow action: a single register for the arithmetic and load opcodes, and
-no result at all for the stores.
+control flow action.
 -/
 theorem Riscv.interpretOp'_ok_results {vals : Array RuntimeValue} {mem' : MemoryState}
     {act : Option ControlFlowAction}
