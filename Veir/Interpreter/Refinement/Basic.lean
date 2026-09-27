@@ -125,9 +125,8 @@ def ControlFlowAction.optionIsRefinedBy : Option ControlFlowAction → Option Co
   | _, _ => False
 
 /--
-The result of interpreting a single operation: the values it produced, the memory it left, and
-the control-flow action it asks for. `source` is refined by `target` when the values refine
-pointwise, the memories are equal, and the actions refine.
+The result of interpreting a single operation. `source` is refined by `target`
+when values refine pointwise, memories are equal, and actions refine.
 -/
 @[expose]
 def OperationResult.isRefinedBy (source target :
