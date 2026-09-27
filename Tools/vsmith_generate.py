@@ -36,12 +36,8 @@ INTRINSIC_SAT_BINARY = (
 )
 BSWAP_WIDTHS = (16, 32, 64)
 
-# Widths the RISC-V backend can compute on. In RISC-V mode, i1 appears only as
-# the result of an icmp, and that result may feed only a conditional branch or
-# the condition of an llvm.select: icmps take i32 or i64 operands (never i1),
-# and i1 values are never consumed by arithmetic/bitwise/shift/cast operations
-# or further comparisons.
-RISCV_WIDTHS = (32, 64)
+# Widths generated in RISC-V mode: the power-of-two widths up to a register.
+RISCV_WIDTHS = (1, 8, 16, 32, 64)
 
 
 def bitwidth(typ: str) -> int:
@@ -138,24 +134,8 @@ class Generator:
         else:
             pool = local or imported
         if not pool:
-            if width == 1:
-                # Never inject a fresh i1 literal: i1 constants have no RISC-V
-                # lowering. Every boolean must originate from a comparison.
-                return self.make_bool()
             return self.add_const(typ, rand_const_val(self.rng, width))
         return self.rng.choice(pool)
-
-    def make_bool(self) -> str:
-        """Materialize an i1 value via an icmp rather than a fresh literal."""
-        typ = self.rand_type()
-        while bitwidth(typ) == 1:
-            typ = self.rand_type()
-        width = bitwidth(typ)
-        lhs = self.random_dominating_value(width)
-        rhs = self.random_dominating_value(width)
-        pred = self.rng.choice(ICMP_PREDS)
-        props = f' <{{"predicate" = {pred} : i64}}>'
-        return self.add_operation("llvm.icmp", [lhs, rhs], [typ, typ], "i1", props)
 
     def nsw_nuw_props(self) -> str:
         flags = self.rng.choice((0, 1, 2, 3))
@@ -253,10 +233,6 @@ class Generator:
 
     def random_return_value(self) -> tuple[str, str]:
         pool = self.local_all + self.imported_all
-        if self.riscv:
-            # i1 values may only feed icmps, never casts or the xor combine, so
-            # keep them out of the returned set entirely.
-            pool = [(name, typ) for name, typ in pool if bitwidth(typ) in RISCV_WIDTHS]
         if not pool:
             typ = self.rand_type()
             return self.add_const(typ, rand_const_val(self.rng, bitwidth(typ))), typ
@@ -282,8 +258,7 @@ class Generator:
     def emit_intrinsic(self) -> None:
         """Emit a random integer intrinsic. All operands share the result type.
 
-        `bswap` is restricted to widths it is defined on; in RISC-V mode every
-        intrinsic uses i32 or i64 (the only widths `rand_type` yields there).
+        `bswap` is restricted to widths it is defined on.
 
         Note: the saturating arithmetic intrinsics and `llvm.intr.abs` are only
         lowered at i64 in RISC-V mode (there is no i32 isel yet), so `--riscv`
@@ -336,7 +311,7 @@ class Generator:
             operand = self.random_dominating_value(bitwidth(typ))
             self.add_operation(op, [operand], [typ], typ)
         else:
-            typ = self.rand_type() if self.riscv else f"i{self.rng.choice(BSWAP_WIDTHS)}"
+            typ = f"i{self.rng.choice(BSWAP_WIDTHS)}"
             operand = self.random_dominating_value(bitwidth(typ))
             self.add_operation("llvm.intr.bswap", [operand], [typ], typ)
 
@@ -410,9 +385,6 @@ class Generator:
                 operand = self.random_dominating_value(src_w)
                 self.add_operation("llvm.trunc", [operand], [src], dst, props)
             elif choice < 0.90:
-                # icmp operands are ordinary integer values; in RISC-V mode that
-                # means i32 or i64 (rand_type never yields i1 there), so an icmp
-                # result is never fed back into another comparison.
                 typ = self.rand_type()
                 width = bitwidth(typ)
                 lhs = self.random_dominating_value(width)
@@ -543,7 +515,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("output", type=Path, help="path for the generated MLIR file")
     parser.add_argument("--seed", type=int, default=None, help="random seed; defaults to fresh system entropy")
     parser.add_argument("--riscv", action="store_true",
-                        help="restrict bitwidths to those the RISC-V backend supports (32, 64)")
+                        help="restrict bitwidths to power-of-two widths up to 64")
     args = parser.parse_args(argv)
     seed = args.seed if args.seed is not None else secrets.randbits(64)
     generate(args.output, random.Random(seed), args.riscv)
