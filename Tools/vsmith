@@ -33,7 +33,7 @@ from vsmith_generate import generate
 
 
 DEFAULT_PASSES = "O"
-RISCV_PASSES = ("riscv")
+RISCV_PASSES = "riscv"
 
 # --- RISC-V MIR execution cross-check -------------------------------------
 # In --riscv mode we further lower the optimized riscv-dialect MLIR to LLVM
