@@ -71,7 +71,7 @@ theorem interpretBlock_eq {block : BlockPtr} {values : Array RuntimeValue}
     {state : InterpreterState ctx} (blockIn : block.InBounds ctx.raw) :
     interpretBlock block values state blockIn =
     match state.variables.setArgumentValues? block values blockIn with
-    | none => .fail
+    | none => .fail none
     | some variables =>
       interpretTerminatedOpList (block.operationList ctx.raw ctx.wellFormed blockIn).toList
         ⟨variables, state.memory⟩
@@ -209,7 +209,7 @@ theorem interpretOp_monotone_of_preservesOperation
       resValuesRef
   have ⟨v, hv⟩ :=
     (VariableState.setResultValues?_isSome_iff_conforms state'.variables opIn').mp hConforms
-  simp only [hv, Interp.pure_eq, Interp.ok.injEq, Prod.mk.injEq]
+  simp only [hv, Interp.pure_eq, Interp.withBlame_ok, Interp.ok.injEq, Prod.mk.injEq]
   have stateVarRef : state.variables.isRefinedBy state'.variables mapping := hState.2
   grind [InterpreterState.isRefinedBy,
     VariableState.setResultValues?_isRefinedBy stateVarRef resValuesRef,

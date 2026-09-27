@@ -5,11 +5,12 @@ public import Veir.Passes.InstructionSelection.RISCV64Branches
 public import Veir.Data.Casting
 
 import all Veir.Interpreter.Basic
+import all Veir.Dialects.LLVM.OpInfo
+import all Veir.Dialects.RISCV_Cf.OpInfo
 import all Veir.Data.Casting
 import all Veir.Data.Refinement
 import all Veir.Data.LLVM.Byte.Basic
 import all Veir.Data.LLVM.Int.Basic
-import all Veir.Data.LLVM.Ptr.Basic
 import all Veir.Passes.InstructionSelection.RISCV64Branches
 
 public section
@@ -32,7 +33,6 @@ namespace Veir
 def RuntimeValue.toReg? : RuntimeValue → Option RISCV.Reg
   | .int _ value => some (LLVM.Int.toReg value)
   | .byte _ value => some (LLVM.Byte.toReg value)
-  | .addr value => some (LLVM.Int.toReg value.toInt)
   | _ => none
 
 /-- The value of type `type` that `builtin.unrealized_conversion_cast` turns a register into. -/
@@ -41,7 +41,6 @@ def RuntimeValue.ofReg? (type : TypeAttr) (reg : RISCV.Reg) : Option RuntimeValu
   match type.val with
   | .integerType intType => some (.int intType.bitwidth (RISCV.Reg.toInt reg intType.bitwidth))
   | .byteType byteType => some (.byte byteType.bitwidth (RISCV.Reg.toByte reg byteType.bitwidth))
-  | .llvmPointerType _ => some (.addr (.val ⟨reg.val⟩))
   | _ => none
 
 /-- A cast to a register computes `toReg?`. -/
@@ -104,22 +103,6 @@ theorem RuntimeValue.isRefinedBy_ofReg?_toReg? {type : TypeAttr} {source target 
     rcases hBit with h | ⟨h, _⟩
     · exact .inl h
     · exact .inr (by simp [h, BitVec.getLsbD_eq_getElem hi])
-  case llvmPointerType =>
-    cases source <;> simp only [RuntimeValue.Conforms] at hConforms
-    case addr value =>
-      cases target <;> simp only [RuntimeValue.isRefinedBy] at hRefined
-      case addr target =>
-        refine ⟨_, _, rfl, rfl, ?_, by simp [RuntimeValue.Conforms]⟩
-        simp only [RuntimeValue.isRefinedBy]
-        cases value
-        case poison => simp [LLVM.Ptr.isRefinedBy]
-        case val v =>
-          cases target
-          case poison => simp [LLVM.Ptr.isRefinedBy] at hRefined
-          case val t =>
-            have : v = t := by simpa [LLVM.Ptr.isRefinedBy] using hRefined
-            subst this
-            simp [LLVM.Ptr.isRefinedBy, LLVM.Int.toReg]
 
 /-! ## The two branches -/
 
@@ -169,7 +152,7 @@ theorem interpretOp'_br_registers {properties resultTypes operands successors me
   next dest hDest =>
     simp only [Interp.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨rfl, rfl, rfl⟩ := h
-    exact ⟨operands, registers, dest, rfl, rfl, rfl, by simp, hRegisters⟩
+    exact ⟨operands, registers, dest, rfl, rfl, rfl, by simp [hDest], hRegisters⟩
   next => simp at h
 
 /-- `riscv_cf.bnez` on the registers of the operands of an `llvm.cond_br` branches like it. -/
@@ -212,14 +195,19 @@ theorem interpretOp'_cond_br_registers
           have hWidth : ∀ c : BitVec 1, c.zeroExtend 64 ≠ 0#64 ↔ c = 1#1 := by decide
           have hCondIff : reg.val ≠ 0#64 ↔ cond = 1#1 := by rw [hRegVal]; exact hWidth cond
           simp only [hRegister', hCondIff]
-          split at h <;> rename_i hc
-          all_goals
+          split at h
+          · rename_i hc
             simp only [Interp.ok.injEq, Prod.mk.injEq] at h
             obtain ⟨rfl, rfl, rfl⟩ := h
             simp only [hc, ↓reduceIte]
-            first
-              | exact ⟨_, _, _, trivial, trivial, rfl, rfl, hRegisters.extract _ _⟩
-              | exact ⟨_, _, _, trivial, trivial, rfl, rfl, hRegisters.extract_from _⟩
+            exact ⟨_, _, destTrue, trivial, trivial, rfl, by simp [hDest, hTrueSize],
+              hRegisters.extract _ _⟩
+          · rename_i hc
+            simp only [Interp.ok.injEq, Prod.mk.injEq] at h
+            obtain ⟨rfl, rfl, rfl⟩ := h
+            simp only [hc, ↓reduceIte]
+            exact ⟨_, _, destFalse, trivial, trivial, rfl, by simp [hDest, hTrueSize],
+              hRegisters.extract_from _⟩
         next => simp at h
         next => simp at h
       next => simp at h

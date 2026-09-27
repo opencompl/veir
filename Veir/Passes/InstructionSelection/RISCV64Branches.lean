@@ -25,14 +25,18 @@ namespace Veir
 
 /--
   Whether a value of type `type` survives the round trip through a register:
-  a non-empty integer or a byte of at most 64 bits, or a pointer.
+  a non-empty integer or a byte of at most 64 bits.
+
+  A pointer does not. A register holds only its address, and decoding an
+  address finds the object whose range contains it, which for a pointer past
+  the end of its own object is a different object. Admitting pointers needs
+  refinement to compare them by address, as Alive2 does for assembly.
 -/
 @[expose]
 public def fitsRegister (type : TypeAttr) : Bool :=
   match type.val with
   | .integerType intType => 0 < intType.bitwidth && intType.bitwidth ≤ 64
   | .byteType byteType => byteType.bitwidth ≤ 64
-  | .llvmPointerType _ => true
   | _ => false
 
 /-- `op` is one of the two LLVM branches that the pass replaces. -/
