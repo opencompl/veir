@@ -7,6 +7,7 @@ public import Veir.Data.Refinement
 
 meta import Std.Tactic.BVDecide
 meta import Std.Tactic.BVDecide.Reflect
+meta import Veir.Meta.Tactic.PBVDecide
 
 import Veir.ForLean
 import all Veir.Data.RISCV.Reg.Basic
@@ -44,19 +45,16 @@ theorem poisonConst_refinement :
   veir_bv_decide
 
 /--
-  Prove the correctness of the `constant` lowering pattern at i32 (similar to the `i64` case above), however currently using the grind tactic.
+  Prove the correctness of the `constant` lowering pattern at every width `w ≤ 64`: the
+  constant is truncated to `w` bits and sign-extended to the 64-bit `li` immediate, whose
+  low `w` bits are then exactly the constant.
 -/
-theorem constant_refinement_32 {v : Int} :
-    (LLVM.Int.constant 32 v) ⊒ (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 v)) 32) := by
-  veir_bv_decide
-
-theorem constant_refinement_8 {v : Int} :
-    (LLVM.Int.constant 8 v) ⊒ (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 v)) 8) := by
-  veir_bv_decide
-
-theorem constant_refinement_1 {v : Int} :
-    (LLVM.Int.constant 1 v) ⊒ (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 v)) 1) := by
-  veir_bv_decide
+theorem constant_refinement_le64 {w : Nat} (h : w ≤ 64) {v : Int} :
+    (LLVM.Int.constant w v) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.li ((BitVec.ofInt w v).signExtend 64)) w) := by
+  simp only [isRefinedBy, LLVM.Int.constant, RISCV.Reg.toInt, RISCV.li]
+  generalize BitVec.ofInt w v = x
+  pbv_decide 64
 
 /--
   Prove the correctness of the `add` lowering pattern.
@@ -741,52 +739,15 @@ theorem sext_refinement_1_32 {x : LLVM.Int 1} :
   veir_bv_decide
 
 /--
-  Prove the correctness of the `trunc` lowering pattern `i64` -> `i32`
+  Prove the correctness of the `trunc` lowering pattern at every pair of widths `w₂ < w₁ ≤ 64`:
+  the operand is zero-extended into a register and the low `w₂` bits are read back. The
+  `nsw`/`nuw` flags only add poison cases, which any register value refines.
 -/
-theorem trunc_refinement_64_32 {x : LLVM.Int 64} :
-    (Data.LLVM.Int.trunc x 32 nsw nuw h) ⊒
-      (RISCV.Reg.toInt (LLVM.Int.toReg x) 32) := by
-  veir_bv_decide
-
-/--
-  Prove the correctness of the `trunc` lowering pattern `i64` -> `i16`
--/
-theorem trunc_refinement_64_16 {x : LLVM.Int 64} :
-    (Data.LLVM.Int.trunc x 16 nsw nuw h) ⊒
-      (RISCV.Reg.toInt (LLVM.Int.toReg x) 16) := by
-  veir_bv_decide
-
-/--
-  Prove the correctness of the `trunc` lowering pattern `i64` -> `i8`
--/
-theorem trunc_refinement_64_8 {x : LLVM.Int 64} :
-    (Data.LLVM.Int.trunc x 8 nsw nuw h) ⊒
-      (RISCV.Reg.toInt (LLVM.Int.toReg x) 8) := by
-  veir_bv_decide
-
-/--
-  Prove the correctness of the `trunc` lowering pattern `i32` -> `i16`
--/
-theorem trunc_refinement_32_16 {x : LLVM.Int 32} :
-    (Data.LLVM.Int.trunc x 16 nsw nuw h) ⊒
-      (RISCV.Reg.toInt (LLVM.Int.toReg x) 16) := by
-  veir_bv_decide
-
-/--
-  Prove the correctness of the `trunc` lowering pattern `i32` -> `i8`
--/
-theorem trunc_refinement_32_8 {x : LLVM.Int 32} :
-    (Data.LLVM.Int.trunc x 8 nsw nuw h) ⊒
-      (RISCV.Reg.toInt (LLVM.Int.toReg x) 8) := by
-  veir_bv_decide
-
-/--
-  Prove the correctness of the `trunc` lowering pattern `i16` -> `i8`
--/
-theorem trunc_refinement_16_8 {x : LLVM.Int 16} :
-    (Data.LLVM.Int.trunc x 8 nsw nuw h) ⊒
-      (RISCV.Reg.toInt (LLVM.Int.toReg x) 8) := by
-  veir_bv_decide
+theorem trunc_refinement_le64 {w₁ w₂ : Nat} (hw : w₁ ≤ 64) {x : LLVM.Int w₁} {nsw nuw : Bool}
+    {h : w₁ > w₂} :
+    (Data.LLVM.Int.trunc x w₂ nsw nuw h) ⊒ (RISCV.Reg.toInt (LLVM.Int.toReg x) w₂) := by
+  veir_bv_normalize
+  pbv_decide 64
 
 /--
   Prove the correctness of the `smax` lowering pattern (`llvm.intr.smax` -> `max`).

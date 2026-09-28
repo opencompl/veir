@@ -32,12 +32,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 from vsmith_generate import generate
 
 
-DEFAULT_PASSES = "instcombine,dce,cse,dce"
-RISCV_PASSES = (
-    "canonicalize,instcombine,canonicalize,cse,dce,"
-    "isel-sdag-riscv64,isel-br-riscv64,isel-riscv64,"
-    "reconcile-cast,riscv-combine,dce"
-)
+DEFAULT_PASSES = "O"
+RISCV_PASSES = "riscv"
 
 # --- RISC-V MIR execution cross-check -------------------------------------
 # In --riscv mode we further lower the optimized riscv-dialect MLIR to LLVM
@@ -575,17 +571,17 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
     rc, out = _mir_run([tools["llc"], str(mir), "-mtriple=riscv64", "-x", "mir",
                         "-run-pass=phi-node-elimination,twoaddressinstruction,"
                         "register-coalescer,greedy,virtregrewriter,prolog-epilog,"
-                        "postrapseudos,riscv-expand-pseudo", "-o", str(lowered)])
+                        "postrapseudos,riscv-expand-pseudo-pre-emit", "-o", str(lowered)])
     if rc != 0:
         return False, (f"llc failed to lower MIR (regalloc stage)\n"
                        f"optimized: {opt}\nmir: {mir}\n{out}")
 
     # 2b. llc, emission stage: fully-lowered MIR -> RISC-V assembly.
-    # -start-after=riscv-expand-pseudo skips straight to the asm printer (the few
+    # -start-after=riscv-expand-pseudo-pre-emit skips straight to the asm printer (the few
     # remaining passes are no-ops here) without re-running regalloc or prologue
     # insertion, which would corrupt the already-lowered MIR.
     rc, out = _mir_run([tools["llc"], str(lowered), "-mtriple=riscv64", "-x", "mir",
-                        "-start-after=riscv-expand-pseudo", "-o", str(asm)])
+                        "-start-after=riscv-expand-pseudo-pre-emit", "-o", str(asm)])
     if rc != 0:
         return False, (f"llc failed to emit assembly from lowered MIR\n"
                        f"optimized: {opt}\nlowered: {lowered}\n{out}")
@@ -607,7 +603,8 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
 
     # 4. execute under spike: exit 0 = return value agrees, nonzero = disagrees
     try:
-        rc, out = _mir_run([tools["spike"], f"--isa={MIR_MARCH}", str(elf)], timeout=SPIKE_TIMEOUT)
+        rc, out = _mir_run([tools["spike"], "--misaligned", f"--isa={MIR_MARCH}", str(elf)],
+                           timeout=SPIKE_TIMEOUT)
     except subprocess.TimeoutExpired:
         return False, (f"MIR execution under spike timed out ({SPIKE_TIMEOUT}s)\n"
                        f"optimized: {opt}\nmir: {mir}\nelf: {elf}")

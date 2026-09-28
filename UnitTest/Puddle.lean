@@ -1,12 +1,12 @@
 import Veir.PatternRewriter.Puddle.Builders
 import Veir.PatternRewriter.Puddle.Execution
 import Veir.PatternRewriter.Puddle.Validity
-import Veir.Parser.MlirParser
+import Veir.Input
 import Veir.Printer
 
 open Veir
+open Veir.Input
 open Veir.Puddle
-open Veir.Parser
 open Veir.Data
 
 /-!
@@ -220,11 +220,8 @@ private structure BinaryProgram where
 
 /-- Parse a complete test module. -/
 private def parseBinaryProgram (source : String) : Option BinaryProgram := do
-  let (ctx, _) ← WfIRContext.create OpCode
-  let parser ← (ParserState.fromInput source.toByteArray).toOption
-  let (moduleOp, state, _) ←
-    (Veir.Parser.parseTopLevelOp.run (MlirParserState.fromContext ctx) parser).toOption
-  return ⟨state.ctx, moduleOp⟩
+  let (ctx, moduleOp, _) ← (parseSourceString source.toUTF8).toOption
+  return ⟨ctx, moduleOp⟩
 
 private def addZeroProgram := r#""builtin.module"() ({
   %input = "arith.constant"() <{ value = 42 : i32 }> : () -> i32
