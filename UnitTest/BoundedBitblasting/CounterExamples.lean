@@ -17,6 +17,7 @@ error: The prover found a counterexample, consider the following assignment:
 m_w1 = 255#8
 m_w2 = 0#8
 m_w0 = 127#8
+m_lit8 = 255#8
 x = 127#8
 -/
 #guard_msgs in
@@ -65,8 +66,8 @@ error: `pbv_decide` found a counterexample, consider the following assignment:
   w + v = 8  	(m_w0_add_w1 = 0xff#8)
   v = 4  	(m_w1 = 0x0f#8)
   v + w = 8  	(m_w1_add_w0 = 0xff#8)
-  x = 0xe#4
-  y = 0xf#4
+  x = 0xf#4
+  y = 0xe#4
 -/
 #guard_msgs in
 example (v w : Nat) (x : BitVec v) (y : BitVec w) (hv : v ≤ 4) (hw : w ≤ 4) (h : v = w) :
@@ -126,8 +127,8 @@ error: `pbv_decide` found a potentially spurious counterexample.
   The following expressions were abstracted as opaque variables:
     - BitVec.ofBool (BitVec.setWidth w x + 1#w == BitVec.setWidth w x) = 0x1#1
 Consider the following assignment:
-  w = 0  	(m_w0 = 0x0#4)
-  x = 0x0#0
+  w = 4  	(m_w0 = 0xf#4)
+  x = 0xf#4
 -/
 #guard_msgs in
 example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
