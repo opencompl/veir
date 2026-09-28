@@ -751,7 +751,6 @@ theorem trunc_refinement_le64 {w₁ w₂ : Nat} (hw : w₁ ≤ 64) {x : LLVM.Int
     (Data.LLVM.Int.trunc x w₂ nsw nuw h) ⊒ (RISCV.Reg.toInt (LLVM.Int.toReg x) w₂) := by
   veir_bv_normalize
   pbv_decide 64
-  bv_decide
 
 /--
   Prove the correctness of the `smax` lowering pattern (`llvm.intr.smax` -> `max`).
