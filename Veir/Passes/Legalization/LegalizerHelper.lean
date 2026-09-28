@@ -19,8 +19,9 @@ public section
 open Puddle
 
 /--
-Widens the binary operation `opcode` to `width` bits with `g_anyext` and `g_trunc`. The flags are
-dropped, since the high bits are arbitrary and the wide operation may overflow.
+Extends the binary operands to `width` bits and then truncates the result back to the original
+type. The extension is performed with `g_anyext` because the high bits are assumed to not matter
+for the operation. (This is not true for comparisons.)
 -/
 private def widenBinop (opcode : GMIR) (noFlags : propertiesOf (OpCode.gmir opcode)) (width : Nat) :
     Pattern OpCode :=
@@ -33,6 +34,7 @@ private def widenBinop (opcode : GMIR) (noFlags : propertiesOf (OpCode.gmir opco
       return (type, lhs, rhs))
     (fun (type, lhs, rhs) => do
       let wideType ← CreateProg.type (IntegerType.signless width)
+      -- The new high bits are unconstrained, so the no-wrap flags no longer hold.
       let anyextProps ← CreateProg.property (.gmir .g_anyext) ()
       let wideLhs ← CreateProg.operation (.gmir .g_anyext) #[lhs] #[wideType] anyextProps
       let wideRhs ← CreateProg.operation (.gmir .g_anyext) #[rhs] #[wideType] anyextProps
@@ -44,8 +46,9 @@ private def widenBinop (opcode : GMIR) (noFlags : propertiesOf (OpCode.gmir opco
     (fun trunc => trunc)
 
 /--
-Widens the operands of `g_icmp` to `width` bits with `g_sext`. As on RV64 in LLVM, this is done
-for every predicate, since sign extension preserves both the signed and the unsigned order.
+Extends the operands of `g_icmp` to `width` bits and then compares the wide operands. The extension
+is performed with `g_sext` because the high bits matter for the comparison, and sign extension
+preserves both the signed and the unsigned order.
 -/
 private def widenICmpOperands (width : Nat) : Pattern OpCode :=
   Pattern.Builder
@@ -65,7 +68,7 @@ private def widenICmpOperands (width : Nat) : Pattern OpCode :=
         root.properties)
     (fun cmp => cmp)
 
-/-- Widens the result of `g_icmp` to `width` bits with `g_trunc`. -/
+/-- Widens the result of `g_icmp` to `width` bits and then truncates it back. -/
 private def widenICmpResult (width : Nat) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -82,10 +85,7 @@ private def widenICmpResult (width : Nat) : Pattern OpCode :=
       CreateProg.operation (.gmir .g_trunc) #[cmp.res[0]!] #[resultType] truncProps)
     (fun trunc => trunc)
 
-/--
-The pattern that widens type group `typeIdx` of `opcode` to `width` bits. Returns `none` if this
-widening is not implemented.
--/
+/-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
 def widenScalar? : GMIR → (typeIdx width : Nat) → Option (Pattern OpCode)
   | .g_add, 0, width => widenBinop .g_add ⟨false, false⟩ width
   | .g_sub, 0, width => widenBinop .g_sub ⟨false, false⟩ width
