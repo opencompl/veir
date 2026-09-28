@@ -1,13 +1,14 @@
-import UnitTest.DataFlowFramework.Helpers
+import Veir.Input
 import Veir.Interfaces.ConstantLikeInterfaces
 
 /-! Tests for reading constant-like IR values as interpreter runtime values. -/
 
 open Veir
+open Veir.Input
 
 private def constantValueOf (text : String) : Except String (Option RuntimeValue) := do
-  let (op, state) ← parseTopLevelOp text
-  return (op.getResult 0 : ValuePtr).constantValue state.ctx.raw
+  let (ctx, op, _) ← parseSourceString text.toUTF8
+  return (op.getResult 0 : ValuePtr).constantValue ctx.raw
 
 private def testArithConstant : String := Id.run do
   let .ok (some (.int 8 (.val value))) :=

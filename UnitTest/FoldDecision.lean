@@ -1,8 +1,9 @@
-import UnitTest.DataFlowFramework.Helpers
+import Veir.Input
 
 import Veir.Interfaces.FoldInterfaces
 
 open Veir
+open Veir.Input
 
 /-- Find the first in-bounds operation with the given opcode. -/
 private def findOp (ctx : IRContext OpCode) (opType : OpCode) :
@@ -24,10 +25,9 @@ private def foldDecisionTestModule : String :=
   }) : () -> ()"
 
 private def testFoldDecision : String := Id.run do
-  match parseTopLevelOp foldDecisionTestModule with
+  match parseSourceString foldDecisionTestModule.toUTF8 with
   | .error e => return s!"parse error: {e}"
-  | .ok (_, parserState) =>
-    let ctx := parserState.ctx
+  | .ok (ctx, _, _) =>
     let some ⟨add, addInBounds⟩ := findOp ctx.raw (.arith .addi)
       | return "missing arith.addi"
     let constants : Array (Option RuntimeValue) :=

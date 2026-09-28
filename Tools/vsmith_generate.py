@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 """Generate a single random closed MLIR module for VeIR testing."""
 
-# TODO:
-# - support llvm.[load,store,alloca]
-
 from __future__ import annotations
 
 import argparse
@@ -42,6 +39,18 @@ BSWAP_WIDTHS = (16, 32, 64)
 # and i1 values are never consumed by arithmetic/bitwise/shift/cast operations
 # or further comparisons.
 RISCV_WIDTHS = (32, 64)
+
+# Memory: the entry block allocates one byte region and derives a handful of
+# constant-offset pointers into it, which dominate every block. Offsets are
+# arbitrary bytes, so accesses may be misaligned and may overlap one another;
+# every access says `alignment = 1` to keep a misaligned one well defined.
+# Loads and stores use only the widths the interpreter can move to and from
+# memory (and, in RISC-V mode, those the backend selects).
+MEM_WIDTHS = (8, 16, 32, 64)
+RISCV_MEM_WIDTHS = (32, 64)
+MEM_MAX_BYTES = 64
+MEM_MAX_POINTERS = 6
+MEM_ALIGN_PROPS = ' <{"alignment" = 1 : i64}>'
 
 
 def bitwidth(typ: str) -> int:
@@ -105,6 +114,11 @@ class Generator:
         self.imported_all: list[tuple[str, str]] = []
         self.local: dict[str, list[str]] = defaultdict(list)
         self.local_all: list[tuple[str, str]] = []
+        # Pointers into the entry block's alloca, as (name, byte offset). They
+        # live outside the integer pools: they are never returned, cast, or
+        # passed to blocks, only used as load/store addresses.
+        self.mem_size = 0
+        self.ptrs: list[tuple[str, int]] = []
 
     def name(self, prefix: str) -> str:
         self.counter += 1
@@ -340,6 +354,88 @@ class Generator:
             operand = self.random_dominating_value(bitwidth(typ))
             self.add_operation("llvm.intr.bswap", [operand], [typ], typ)
 
+    def emit_alloca(self) -> None:
+        """Allocate 1-64 bytes and derive pointers into them (entry block only).
+
+        Offsets are usually uniform over the region; the rest of the time they
+        sit a few bytes from an existing pointer so that accesses overlap.
+        The region and every offset leave room for the narrowest access, so
+        that an in-bounds access always exists (RISC-V has no 1-byte one).
+        """
+        min_bytes = min(self.mem_widths()) // 8
+        self.mem_size = self.rng.randint(min_bytes, MEM_MAX_BYTES)
+        max_offset = self.mem_size - min_bytes
+        size = self.add_const("i64", self.mem_size)
+        base = self.name("mem")
+        self.lines.append(
+            f'  {base} = "llvm.alloca"({size}) <{{"elem_type" = i8}}> : (i64) -> !llvm.ptr'
+        )
+        self.ptrs = [(base, 0)]
+        self.init_region(base)
+        for _ in range(self.rng.randint(0, MEM_MAX_POINTERS - 1)):
+            if self.rng.random() < 0.4:
+                _, near = self.rng.choice(self.ptrs)
+                offset = near + self.rng.randint(-7, 7)
+                offset = max(0, min(max_offset, offset))
+            else:
+                offset = self.rng.randint(0, max_offset)
+            self.ptrs.append((self.gep(base, offset), offset))
+
+    def gep(self, base: str, offset: int) -> str:
+        idx = self.add_const("i64", offset)
+        ptr = self.name("p")
+        self.lines.append(
+            f'  {ptr} = "llvm.getelementptr"({base}, {idx}) '
+            f'<{{elem_type = i8, rawConstantIndices = array<i32: -2147483648>}}> '
+            f': (!llvm.ptr, i64) -> !llvm.ptr'
+        )
+        return ptr
+
+    def init_region(self, base: str) -> None:
+        """Store random constants over every byte of the region.
+
+        Fresh memory is poison, so without this most loads would be too. Each
+        store is the widest that fits; when the tail is narrower than every
+        width (RISC-V has no 1-byte access), the last store ends at the region's
+        end, overlapping the previous one.
+        """
+        widths = self.mem_widths()
+        offset = 0
+        while offset < self.mem_size:
+            fitting = [w for w in widths if offset + w // 8 <= self.mem_size]
+            if fitting:
+                width = max(fitting)
+            else:
+                width = min(widths)
+                offset = self.mem_size - width // 8
+            typ = f"i{width}"
+            val = self.add_const(typ, rand_const_val(self.rng, width))
+            ptr = base if offset == 0 else self.gep(base, offset)
+            self.lines.append(f'  "llvm.store"({val}, {ptr}){MEM_ALIGN_PROPS} : ({typ}, !llvm.ptr) -> ()')
+            offset += width // 8
+
+    def mem_widths(self) -> tuple[int, ...]:
+        return RISCV_MEM_WIDTHS if self.riscv else MEM_WIDTHS
+
+    def mem_access(self) -> tuple[str, int]:
+        """Pick a pointer and an access width, almost always in bounds."""
+        ptr, offset = self.rng.choice(self.ptrs)
+        widths = self.mem_widths()
+        fitting = [w for w in widths if offset + w // 8 <= self.mem_size]
+        if self.rng.random() < 0.99:
+            return ptr, self.rng.choice(fitting)
+        return ptr, self.rng.choice(widths)
+
+    def emit_store(self) -> None:
+        ptr, width = self.mem_access()
+        typ = f"i{width}"
+        val = self.random_dominating_value(width)
+        self.lines.append(f'  "llvm.store"({val}, {ptr}){MEM_ALIGN_PROPS} : ({typ}, !llvm.ptr) -> ()')
+
+    def emit_load(self) -> None:
+        ptr, width = self.mem_access()
+        self.add_operation("llvm.load", [ptr], ["!llvm.ptr"], f"i{width}", MEM_ALIGN_PROPS)
+
     def emit_freeze(self) -> None:
         typ = self.rand_type()
         operand = self.random_dominating_value(bitwidth(typ))
@@ -348,6 +444,12 @@ class Generator:
     def add_block_body(self, count: int) -> None:
         exprs: list[tuple[str, str, str, str, str]] = []
         for _ in range(count):
+            if self.ptrs and self.rng.random() < 0.20:
+                if self.rng.random() < 0.5:
+                    self.emit_store()
+                else:
+                    self.emit_load()
+                continue
             choice = self.rng.random()
             if choice < 0.35:
                 typ = self.rand_type()
@@ -476,6 +578,8 @@ def generate(path: Path, rng: random.Random, riscv: bool = False) -> None:
         header_args = format_block_arguments(block_arg_names[block_id], block_arg_types[block_id])
         lines.append(f"^bb{block_id}({header_args}):")
         gen.set_state(lines, imported, imported_all, local_args)
+        if block_id == 0:
+            gen.emit_alloca()
         gen.seed_block()
         gen.add_block_body(rng.randint(3, 18))
 
