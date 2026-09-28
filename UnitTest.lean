@@ -22,5 +22,7 @@ import UnitTest.SideEffectInterfaces
 import UnitTest.RegionKindInterfaces
 import UnitTest.Puddle
 import UnitTest.BoundedBitblasting.BoundedBitblasting
+import UnitTest.BoundedBitblasting.Elab
+import UnitTest.BoundedBitblasting.CounterExamples
 import UnitTest.DataFlowFramework.SparseConstantPropagation
 import UnitTest.MemoryLayout
