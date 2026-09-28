@@ -1,7 +1,7 @@
 module
 
 public import CTree.Iter
-public import Veir.Interpreter.Basic
+public import Veir.Interpreter.CTree.Effects
 import Veir.Interfaces.FunctionInterfaces
 import all CTree.Iter
 import all Init.Internal.Order.Basic
@@ -15,15 +15,12 @@ open Lean.Order
 
 namespace Veir.CTreeInterpreter
 
-/-- No custom choices yet. -/
-abbrev C (_ : Empty) : Type := Empty
-
-abbrev Tree (α : Type) := CTree (UBE ⊕ₑ ErrorE) C α
+variable {ctx : WfIRContext OpCode}
 
 /-- Allow CTree iteration to contain recursive region interpretation. -/
 @[local partial_fixpoint_monotone]
 private theorem iter_mono {α I X : Type} [PartialOrder α]
-    (body : α → I → Tree (I ⊕ X)) (i : I) (hbody : monotone body) :
+    (body : α → I → Tree ctx (I ⊕ X)) (i : I) (hbody : monotone body) :
     monotone (fun x => CTree.iter (body x) i) := by
   intro x y hxy
   have h : CTree.iter (body x) ⊑ CTree.iter (body y) := by
@@ -37,7 +34,9 @@ private theorem iter_mono {α I X : Type} [PartialOrder α]
       apply MonoBind.bind_mono_right
       intro r
       cases r with
-      | inl k => exact CTree.tau1_mono _ id (fun _ _ h => h) _ _ (hf k)
+      | inl k =>
+        exact CTree.tauG_mono _ (.inl .c1) (fun t _ => t)
+          (fun _ _ h _ => h) _ _ (hf k)
       | inr r => exact PartialOrder.rel_refl
   exact h i
 
@@ -49,13 +48,13 @@ values become the `if` results, without returning from the enclosing block.
 -/
 def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
-    (_blockOperands : Array BlockPtr)
+    (blockOperands : Array BlockPtr) (mem : MemoryState)
     (regions : Array RegionPtr := #[])
-    (runRegion : RegionPtr → Tree (Array RuntimeValue) := fun _ => fail)
-    : Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
+    (runRegion : RegionPtr → Tree ctx (MemoryState × Array RuntimeValue) := fun _ => fail)
+    : Tree ctx (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
   match opType with
   | .llvm opType => do
-    Llvm.interpretOpCTree opType properties resultTypes operands _blockOperands
+    Llvm.interpretOpCTree opType properties resultTypes operands blockOperands mem
   | .builtin .unregistered => do
     if properties.opName == "scf.if".toUTF8 then
       let [.int 1 (.val condition)] := operands.toList
@@ -64,115 +63,112 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
         return ← fail
       let some region := regions[if condition.toNat == 0 then 1 else 0]?
         | fail
-      let results ← runRegion region
-      return (results, none)
+      let (mem, results) ← runRegion region
+      return (results, mem, none)
     else if properties.opName == "scf.yield".toUTF8 then
       if !resultTypes.isEmpty || !regions.isEmpty then
         return ← fail
-      return (#[], some (.return operands))
+      return (#[], mem, some (.return operands))
     else
       fail
-  | .func .return => return (#[], some (.return operands))
-  | _ => fail
+  | .func .return => return (#[], mem, some (.return operands))
+  | other => monadLift (Veir.interpretOp' other properties resultTypes operands blockOperands mem)
 
 mutual
 
-/--
-Read an operation's inputs, interpret it, and assign its result values to the
-variable state, checking that they have the right types. Nested regions see
-the current variables; only their yielded values escape into the outer state.
--/
-def interpretOp (op : OperationPtr) {ctx : WfIRContext OpCode}
-    (state : VariableState ctx) (inBounds : op.InBounds ctx.raw := by grind)
-    : Tree (VariableState ctx × Option ControlFlowAction) := do
-  let some operands := state.getOperandValues op
-    | fail
+/-- Read inputs and write outputs through SSA effects. No variable store is
+captured by this tree or by its continuations. Memory retains the existing LLVM
+semantics; nested scopes preserve captured variables and propagate memory. -/
+def interpretOp (op : OperationPtr) (mem : MemoryState)
+    (_inBounds : op.InBounds ctx.raw := by grind)
+    : Tree ctx (MemoryState × Option ControlFlowAction) := do
+  let operands ← CTree.trigger (SubE := SSAE ctx) (.readOperands op)
   let opType := op.getOpType! ctx.raw
-  let (resultValues, action) ← interpretOp' opType (op.getProperties! ctx.raw opType)
-    (op.getResultTypes! ctx.raw) operands (op.getSuccessors! ctx.raw)
+  let (resultValues, mem, action) ← interpretOp' opType (op.getProperties! ctx.raw opType)
+    (op.getResultTypes! ctx.raw) operands (op.getSuccessors! ctx.raw) mem
     (op.getRegions! ctx.raw) (fun region => do
       if h : region.InBounds ctx.raw then
-        let (_, results) ← interpretRegion region #[] state h
-        return results
-      else
-        fail)
-  let some state := state.setResultValues? op resultValues inBounds
-    | fail
-  return (state, action)
+        CTree.trigger (SubE := SSAE ctx) (.enterScope true)
+        let result ← interpretRegion region #[] mem h
+        CTree.trigger (SubE := SSAE ctx) .leaveScope
+        return result
+      else fail)
+  -- No assignment is needed for a correctly result-free operation. Keep the
+  -- handler's arity/type check for every other combination, including errors.
+  if !resultValues.isEmpty || op.getNumResults! ctx.raw != 0 then
+    CTree.trigger (SubE := SSAE ctx) (.writeResults op resultValues)
+  return (mem, action)
 partial_fixpoint monotonicity by
   unfold interpretOp'
   repeat' first | monotonicity | assumption
 
-/--
-Set block arguments, then walk the linked list of operations using CTree
-iteration. Thread the variable state through each operation and stop at the
-first control-flow action. Reaching the end (including an empty block) returns
-`none`, so blocks containing only constants need no additional operation type.
--/
+/-- Set block arguments via the handler and interpret until a control-flow
+operation or the end of the block. The iteration state contains no SSA map. -/
 def interpretBlock (blockPtr : BlockPtr) (values : Array RuntimeValue)
-    {ctx : WfIRContext OpCode} (state : VariableState ctx)
-    (blockInBounds : blockPtr.InBounds ctx.raw := by grind)
-    : Tree (VariableState ctx × Option ControlFlowAction) := do
-  if values.size != blockPtr.getNumArguments! ctx.raw then
-    return ← fail
-  let some state := state.setArgumentValues? blockPtr values blockInBounds
-    | fail
-  CTree.iter (fun (next, state) => do
+    (mem : MemoryState) (blockInBounds : blockPtr.InBounds ctx.raw := by grind)
+    : Tree ctx (MemoryState × Option ControlFlowAction) := do
+  CTree.trigger (SubE := SSAE ctx) (.writeArguments blockPtr values)
+  CTree.iter (fun (next, mem) => do
     match next with
-    | none => return .inr (state, none)
+    | none => return .inr (mem, none)
     | some op =>
       if h : op.InBounds ctx.raw then
-        let (state, action) ← interpretOp op state h
+        let (mem, action) ← interpretOp op mem h
         match action with
-        | some action => return .inr (state, some action)
-        | none => return .inl ((op.get ctx.raw).next, state)
-      else
-        fail
-    ((blockPtr.get ctx.raw).firstOp, state)
+        | some action => return .inr (mem, some action)
+        | none => return .inl ((op.get ctx.raw).next, mem)
+      else fail)
+    ((blockPtr.get ctx.raw).firstOp, mem)
 partial_fixpoint
 
-/--
-Interpret a region starting at its first block, passing `values` as its arguments.
-Follow branch actions, passing their values to the destination block, until a
-return action yields the final variable state and the region's result values.
-CTree iteration also represents CFG loops that do not terminate. An empty
-region or a block that finishes without a control-flow action is an error.
--/
+/-- Interpret a nested region using the handler's current scope. -/
 def interpretRegion (region : RegionPtr) (values : Array RuntimeValue)
-    {ctx : WfIRContext OpCode} (state : VariableState ctx)
-    (regionIn : region.InBounds ctx.raw := by grind)
-    : Tree (VariableState ctx × Array RuntimeValue) := do
-  let some firstBlock := (region.get ctx.raw regionIn).firstBlock
-    | fail
-  CTree.iter (fun (block, values, state) => do
+    (mem : MemoryState) (regionIn : region.InBounds ctx.raw := by grind)
+    : Tree ctx (MemoryState × Array RuntimeValue) := do
+  let some firstBlock := (region.get ctx.raw regionIn).firstBlock | fail
+  CTree.iter (fun (block, values, mem) => do
     if h : block.InBounds ctx.raw then
-      let (state, action) ← interpretBlock block values state h
+      let (mem, action) ← interpretBlock block values mem h
       match action with
-      | some (.return results) => return .inr (state, results)
-      | some (.branch args dest) => return .inl (dest, args, state)
+      | some (.return results) => return .inr (mem, results)
+      | some (.branch args dest) => return .inl (dest, args, mem)
       | none => fail
-    else
-      fail
-    (firstBlock, values, state)
+    else fail)
+    (firstBlock, values, mem)
 partial_fixpoint
 
 end
 
-/--
-Interpret a function body with the given runtime arguments. Each invocation
-starts with a fresh variable state, so caller variables are not visible in the
-function. Return only the function's results; this toy interpreter has no memory.
--/
+/-- Interpret a function with a fresh SSA scope. The concrete runner performs
+all SSA updates; continuations retain only IR, memory and individual values.
+A single iteration walks the function CFG, including backedges. -/
 def interpretFunction (op : OperationPtr) (values : Array RuntimeValue)
-    {ctx : WfIRContext OpCode} (opIn : op.InBounds ctx.raw := by grind)
-    : Tree (Array RuntimeValue) := do
-  if !op.isFunctionLike ctx.raw then
-    return ← fail
-  if h : op.getNumRegions ctx.raw ≠ 1 then
-    fail
+    (opIn : op.InBounds ctx.raw := by grind) (mem : MemoryState := .empty)
+    : Tree ctx (MemoryState × Array RuntimeValue) := do
+  if !op.isFunctionLike ctx.raw then return ← fail
+  if h : op.getNumRegions ctx.raw ≠ 1 then fail
   else
-    let (_, results) ← interpretRegion (FunctionOpInterface.getFunctionBody op ctx.raw)
-      values (.empty ctx)
-    return results
+    let region := FunctionOpInterface.getFunctionBody op ctx.raw
+    let some block := (region.get! ctx.raw).firstBlock | fail
+    if hb : block.InBounds ctx.raw then
+      CTree.trigger (SubE := SSAE ctx) (.enterScope false)
+      CTree.trigger (SubE := SSAE ctx) (.writeArguments block values)
+      CTree.iter (fun (next, mem) => do
+        let some current := next | fail
+        if hc : current.InBounds ctx.raw then
+          let (mem, action) ← interpretOp current mem hc
+          match action with
+          | none => return .inl ((current.get ctx.raw hc).next, mem)
+          | some (.return results) =>
+            CTree.trigger (SubE := SSAE ctx) .leaveScope
+            return .inr (mem, results)
+          | some (.branch args dest) =>
+            if hd : dest.InBounds ctx.raw then
+              CTree.trigger (SubE := SSAE ctx) (.writeArguments dest args)
+              return .inl ((dest.get ctx.raw hd).firstOp, mem)
+            else fail
+        else fail)
+        ((block.get ctx.raw hb).firstOp, mem)
+    else fail
 
 end Veir.CTreeInterpreter

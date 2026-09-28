@@ -28,10 +28,11 @@ abbrev FreezeC (c : FreezeCIn.{u}) : Type :=
   match c with
   | .mk bw => BitVec bw
 
-def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType)
+def Llvm.interpretOpCTree {EIn : Type} {E : EIn → Type}
+    [ErrorE -< E] [UBE -< E] (opType : Veir.Llvm) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     (mem : MemoryState) (layout : DataLayout := .riscv64)
-    : CTree (ErrorE ⊕ₑ UBE) FreezeC (((Array RuntimeValue) × MemoryState × Option ControlFlowAction)) :=
+    : CTree E FreezeC (((Array RuntimeValue) × MemoryState × Option ControlFlowAction)) :=
   match opType with
   | .mlir__constant => do
     let some resType := resultTypes[0]? | fail
