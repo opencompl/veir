@@ -195,3 +195,13 @@ h_m_w0 : m_w0 = Veir.Data.PBV.maskOfWidth 4 (w + 2)
 example (w : Nat) (x y : BitVec (w + 2)) (hw : w ≤ 4) :
     x + y = y + x := by
   pbv_decide 4
+
+/--
+error: `pbv_decide` found a counterexample, consider the following assignment:
+  w = 0  	(m_w0 = 0x0#4)
+  y = 0x8#4
+-/
+#guard_msgs in
+example (w : Nat) (y : BitVec 4) (hw : w ≤ 4) :
+    (y.setWidth w).zeroExtend 4 = y := by
+  pbv_decide 4
