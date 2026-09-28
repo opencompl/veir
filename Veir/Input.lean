@@ -70,7 +70,10 @@ def parseSourceString (content : ByteArray) (sourceName : String := "<string>")
   | .error err =>
     throw (err.format sourceName content)
 
-/-- Like `parseSourceString`, but panics on errors and drops the `SourceInfo`. -/
+/-- Parse program bytes into a well-formed IR context and its top-level
+    operation, formatting parse errors caret-style against `sourceName`, panicking
+    on errors and dropping the source locations of the parsed operations. Unless
+    `verifyAfterParse` is false, the program is also verified. -/
 def parseSourceString! (content : ByteArray) (sourceName : String := "<string>")
     (allowUnregisteredDialect : Bool := false) (verifyAfterParse : Bool := true) :
     WfIRContext OpCode × OperationPtr :=
