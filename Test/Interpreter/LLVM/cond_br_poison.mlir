@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // Branching on a poison i1 is undefined behaviour.
 "builtin.module"() ({

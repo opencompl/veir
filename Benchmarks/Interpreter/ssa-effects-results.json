@@ -1,0 +1,135 @@
+{
+  "date": "2026-09-28",
+  "implementation": "runner-owned SSA effects",
+  "platform": "macOS-26.5.1-arm64-arm-64bit",
+  "fuel": 1000000,
+  "batches": 7,
+  "timing": "execution only; parsing and verification excluded",
+  "runs": [
+    {
+      "input": "llvm-100000-lines.mlir",
+      "command": [
+        ".lake/build/bin/veir-interpret",
+        "--benchmark=1",
+        "--warmups=1",
+        "Benchmarks/Interpreter/llvm-100000-lines.mlir"
+      ],
+      "runs_per_batch": 1,
+      "warmups_per_backend": 1,
+      "wall_seconds_including_parse_verify": 163.516607625,
+      "exit_code": 0,
+      "results": "llvm-100000-lines-ssa-effects-results.txt",
+      "normal_median_us": 65425.458,
+      "ctree_median_us": 355023.417,
+      "ctree_over_normal": 5.42638,
+      "input_sha256": "9e86f18ca2946f68c0575b016011ddb4b365346399e3b022a8976ac156ba0aef",
+      "all_results_matched": true
+    },
+    {
+      "input": "llvm-1000.mlir",
+      "command": [
+        ".lake/build/bin/veir-interpret",
+        "--benchmark=100",
+        "--warmups=3",
+        "Benchmarks/Interpreter/llvm-1000.mlir"
+      ],
+      "runs_per_batch": 100,
+      "warmups_per_backend": 3,
+      "wall_seconds_including_parse_verify": 2.6381692500000042,
+      "exit_code": 0,
+      "results": "llvm-1000-ssa-effects-results.txt",
+      "normal_median_us": 369.21125,
+      "ctree_median_us": 3260.47041,
+      "ctree_over_normal": 8.830908,
+      "input_sha256": "b848aab3e29d414953e3830de3998e9ff86a211ac11e1bb8f0cfade6d694c727",
+      "all_results_matched": true
+    },
+    {
+      "input": "llvm-10000.mlir",
+      "command": [
+        ".lake/build/bin/veir-interpret",
+        "--benchmark=10",
+        "--warmups=3",
+        "Benchmarks/Interpreter/llvm-10000.mlir"
+      ],
+      "runs_per_batch": 10,
+      "warmups_per_backend": 3,
+      "wall_seconds_including_parse_verify": 3.9866457919999903,
+      "exit_code": 0,
+      "results": "llvm-10000-ssa-effects-results.txt",
+      "normal_median_us": 4294.3375,
+      "ctree_median_us": 32726.8291,
+      "ctree_over_normal": 7.620926,
+      "input_sha256": "775877f60e2e44bcd3c4a2a299cbc45dd70d5fd320d40587cbdd6caedd6f0a9d",
+      "all_results_matched": true
+    },
+    {
+      "input": "llvm-loop-1000.mlir",
+      "command": [
+        ".lake/build/bin/veir-interpret",
+        "--benchmark=100",
+        "--warmups=3",
+        "Benchmarks/Interpreter/llvm-loop-1000.mlir"
+      ],
+      "runs_per_batch": 100,
+      "warmups_per_backend": 3,
+      "wall_seconds_including_parse_verify": 6.338557333000011,
+      "exit_code": 0,
+      "results": "llvm-loop-1000-ssa-effects-results.txt",
+      "normal_median_us": 812.84333,
+      "ctree_median_us": 8175.91625,
+      "ctree_over_normal": 10.058416,
+      "input_sha256": "48aaa8ea66c8caf85df06d14702249539efc095e1b8bd736f8ff34cf9672b303",
+      "all_results_matched": true
+    },
+    {
+      "input": "llvm-loop-10000.mlir",
+      "command": [
+        ".lake/build/bin/veir-interpret",
+        "--benchmark=10",
+        "--warmups=3",
+        "Benchmarks/Interpreter/llvm-loop-10000.mlir"
+      ],
+      "runs_per_batch": 10,
+      "warmups_per_backend": 3,
+      "wall_seconds_including_parse_verify": 6.508550165999992,
+      "exit_code": 0,
+      "results": "llvm-loop-10000-ssa-effects-results.txt",
+      "normal_median_us": 7923.325,
+      "ctree_median_us": 80450.2417,
+      "ctree_over_normal": 10.153596,
+      "input_sha256": "d6b74349d855d10e7bd7216804ede8e338e25d476d1100dbf3b42d27a813baaf",
+      "all_results_matched": true
+    },
+    {
+      "input": "llvm-loop-100000.mlir",
+      "command": [
+        ".lake/build/bin/veir-interpret",
+        "--benchmark=1",
+        "--warmups=3",
+        "Benchmarks/Interpreter/llvm-loop-100000.mlir"
+      ],
+      "runs_per_batch": 1,
+      "warmups_per_backend": 3,
+      "wall_seconds_including_parse_verify": 8.965583709000015,
+      "exit_code": 0,
+      "results": "llvm-loop-100000-ssa-effects-results.txt",
+      "normal_median_us": 81715.833,
+      "ctree_median_us": 801566.5,
+      "ctree_over_normal": 9.809195,
+      "input_sha256": "95377ba4aae7fd230e09b1c472e402fc48b3d351341c9057cc4df7046fc4bb9a",
+      "all_results_matched": true
+    }
+  ],
+  "lean_toolchain": "leanprover/lean4:v4.35.0-rc1",
+  "build_type": "release",
+  "executable_sha256": "9ea5232f924aabbca3f66cdaebb045aa57b4ee56fe869fa3cbdd90475fa99191",
+  "source_sha256": {
+    "Veir/Interpreter/CTree/Effects.lean": "01bfd4715da1d4d32427ca572514e0135fa66be9335e451ba002481ce0baebbf",
+    "Veir/Interpreter/CTree/Basic.lean": "4092f9a96fdd325cd2abd296ee8a86323db2bf84bfc571a484e9f94a87f7b5e4",
+    "Veir/Interpreter/CTree/Run.lean": "be9b7e0344f5679205073dc6a94cf9409673e2e04a63a74c79f96081d65d192c",
+    "Veir/Dialects/LLVM/Interpreter.lean": "90587582bf2c6a892a6f91cc9eda62a06eba68dd82c3fe42b37311a7ac714dff",
+    "lean-ctrees/CTree/Iter.lean": "4ccd282e93fb23046c29485278e011d4c2e031befa3725b7cd2f3363e3cf6e8e",
+    "Exe/VeirInterpret.lean": "dd12b4e5352db4d3a990eed1193e0d78facf545e04b5f3e2ab3671796974413d"
+  }
+}

@@ -1,0 +1,14 @@
+Parsing and verification complete; running 1 warmups per backend.
+Batch 1/7, normal: 69493.792000 us/run
+Batch 1/7, CTree: 43518393.166000 us/run
+Batch 2/7, CTree: 43123459.916000 us/run
+Batch 2/7, normal: 82569.542000 us/run
+Batch 3/7, normal: 70524.292000 us/run
+Batch 3/7, CTree: 43650987.583000 us/run
+Batch 4/7, CTree: 41991308.292000 us/run
+Batch 4/7, normal: 88877.291000 us/run
+Batch 5/7, normal: 58228.209000 us/run
+Batch 5/7, CTree: 44020627.291000 us/run
+Batch 6/7, CTree: 44184502.250000 us/run
+Batch 6/7, normal: 70136.708000 us/run
+Batch 7/7, normal: 56235.917000 us/run

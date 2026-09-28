@@ -1,0 +1,7 @@
+Program output: #[0x000003e5#32]
+Execution only; 7 batches x 1000 runs, 10 warmups per backend
+normal us/run: #[651.393958, 833.026292, 849.898791, 1194.411000, 1340.263709, 622.011375, 494.974709]
+ctree us/run: #[3894.523041, 5884.443833, 3679.946959, 3800.873750, 3106.115542, 2661.332834, 3200.967917]
+Median normal: 833.026292 us/run
+Median CTree: 3679.946959 us/run
+CTree / normal: 4.417564x

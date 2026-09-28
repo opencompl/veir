@@ -1,0 +1,22 @@
+Parsing and verification complete; running 1 warmups per backend.
+Batch 1/7, normal: 4751.500000 us/run
+Batch 1/7, CTree: 187643.500000 us/run
+Batch 2/7, CTree: 187334.500000 us/run
+Batch 2/7, normal: 4648.125000 us/run
+Batch 3/7, normal: 4639.500000 us/run
+Batch 3/7, CTree: 200393.958000 us/run
+Batch 4/7, CTree: 187307.375000 us/run
+Batch 4/7, normal: 4476.250000 us/run
+Batch 5/7, normal: 4166.959000 us/run
+Batch 5/7, CTree: 187482.208000 us/run
+Batch 6/7, CTree: 191008.208000 us/run
+Batch 6/7, normal: 4767.458000 us/run
+Batch 7/7, normal: 4429.833000 us/run
+Batch 7/7, CTree: 192654.459000 us/run
+Program output: #[0x0000270d#32]
+Execution only; 7 batches x 1 runs, 1 warmups per backend
+normal us/run: #[4751.500000, 4648.125000, 4639.500000, 4476.250000, 4166.959000, 4767.458000, 4429.833000]
+ctree us/run: #[187643.500000, 187334.500000, 200393.958000, 187307.375000, 187482.208000, 191008.208000, 192654.459000]
+Median normal: 4639.500000 us/run
+Median CTree: 187643.500000 us/run
+CTree / normal: 40.444768x

@@ -1,0 +1,68 @@
+[
+  {
+    "iterations": 1000,
+    "static_operations": 8,
+    "basic_blocks": 3,
+    "lines": 17,
+    "dynamic_operations": 3005,
+    "command": [
+      ".lake/build/bin/veir-interpret",
+      "--benchmark=100",
+      "--warmups=3",
+      "Benchmarks/Interpreter/llvm-loop-1000.mlir"
+    ],
+    "batches": 7,
+    "runs_per_batch": 100,
+    "warmups_per_backend": 3,
+    "fuel": 1000000,
+    "expected_result": 1000,
+    "total_wall_seconds": 2.1015333750000003,
+    "normal_median_us": 824.42917,
+    "ctree_median_us": 1818.60708,
+    "slowdown": 2.205899
+  },
+  {
+    "iterations": 10000,
+    "static_operations": 8,
+    "basic_blocks": 3,
+    "lines": 17,
+    "dynamic_operations": 30005,
+    "command": [
+      ".lake/build/bin/veir-interpret",
+      "--benchmark=10",
+      "--warmups=3",
+      "Benchmarks/Interpreter/llvm-loop-10000.mlir"
+    ],
+    "batches": 7,
+    "runs_per_batch": 10,
+    "warmups_per_backend": 3,
+    "fuel": 1000000,
+    "expected_result": 10000,
+    "total_wall_seconds": 1.9688785830000004,
+    "normal_median_us": 8176.4666,
+    "ctree_median_us": 18258.775,
+    "slowdown": 2.233089
+  },
+  {
+    "iterations": 100000,
+    "static_operations": 8,
+    "basic_blocks": 3,
+    "lines": 17,
+    "dynamic_operations": 300005,
+    "command": [
+      ".lake/build/bin/veir-interpret",
+      "--benchmark=1",
+      "--warmups=3",
+      "Benchmarks/Interpreter/llvm-loop-100000.mlir"
+    ],
+    "batches": 7,
+    "runs_per_batch": 1,
+    "warmups_per_backend": 3,
+    "fuel": 1000000,
+    "expected_result": 100000,
+    "total_wall_seconds": 2.7226716669999993,
+    "normal_median_us": 80864.5,
+    "ctree_median_us": 180501.291,
+    "slowdown": 2.232145
+  }
+]

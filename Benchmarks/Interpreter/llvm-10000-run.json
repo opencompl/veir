@@ -1,0 +1,13 @@
+{
+  "command": [
+    ".lake/build/bin/veir-interpret",
+    "--benchmark=1",
+    "--warmups=1",
+    "Benchmarks/Interpreter/llvm-10000.mlir"
+  ],
+  "total_wall_seconds": 2.79328275,
+  "executed_operations": 10000,
+  "line_count": 10006,
+  "expected_result": 9997,
+  "returncode": 0
+}

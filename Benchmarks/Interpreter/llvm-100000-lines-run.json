@@ -1,0 +1,36 @@
+{
+  "status": "interrupted at user request; partial measurements",
+  "line_count": 100000,
+  "executed_operations": 99994,
+  "expected_result": 99991,
+  "normal_samples_us": [
+    69493.792,
+    82569.542,
+    70524.292,
+    88877.291,
+    58228.209,
+    70136.708,
+    56235.917
+  ],
+  "ctree_samples_us": [
+    43518393.166,
+    43123459.916,
+    43650987.583,
+    41991308.292,
+    44020627.291,
+    44184502.25
+  ],
+  "normal_median_us": 70136.708,
+  "ctree_median_us": 43584690.3745,
+  "median_ratio": 621.4248090243984,
+  "command": [
+    ".lake/build/bin/veir-interpret",
+    "--benchmark=1",
+    "--warmups=1",
+    "Benchmarks/Interpreter/llvm-100000-lines.mlir"
+  ],
+  "warmups_per_backend": 1,
+  "runs_per_batch": 1,
+  "completed_normal_samples": 7,
+  "completed_ctree_samples": 6
+}
