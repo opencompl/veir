@@ -55,7 +55,6 @@ theorem constant_refinement_le64 {w : Nat} (h : w ≤ 64) {v : Int} :
   simp only [isRefinedBy, LLVM.Int.constant, RISCV.Reg.toInt, RISCV.li]
   generalize BitVec.ofInt w v = x
   pbv_decide 64
-  · bv_decide
 
 /--
   Prove the correctness of the `add` lowering pattern.
