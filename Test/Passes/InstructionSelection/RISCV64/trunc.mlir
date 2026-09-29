@@ -20,5 +20,25 @@
 	"test.test"(%truncd) : (!llvm.byte<16>) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
-}) : () -> ()
 
+    // Every pair of widths up to 64 is lowered, including `i1` and non-power-of-two widths.
+    "func.func"()  <{function_type = (i64, i52, i65) -> (), sym_name = "odd"}> ({
+    ^bb0(%e : i64, %f: i52, %g: i65):
+        %trunce = "llvm.trunc"(%e) : (i64) -> i1
+        %truncf = "llvm.trunc"(%f) : (i52) -> i3
+        %truncg = "llvm.trunc"(%g) : (i65) -> i1
+
+        // CHECK:           func.func @odd([[E:.*]]: i64, [[F:.*]]: i52, [[G:.*]]: i65) {
+        // CHECK-NEXT:      %[[P:.*]] = "builtin.unrealized_conversion_cast"([[E]]) : (i64) -> !riscv.reg
+        // CHECK-NEXT:      %[[Q:.*]] = "builtin.unrealized_conversion_cast"(%[[P]]) : (!riscv.reg) -> i1
+        // CHECK-NEXT:      %[[R:.*]] = "builtin.unrealized_conversion_cast"([[F]]) : (i52) -> !riscv.reg
+        // CHECK-NEXT:      %[[S:.*]] = "builtin.unrealized_conversion_cast"(%[[R]]) : (!riscv.reg) -> i3
+        // An operand wider than a register is not lowered.
+        // CHECK-NEXT:      %{{.*}} = "llvm.trunc"([[G]]) : (i65) -> i1
+
+        "test.test"(%trunce) : (i1) -> ()
+        "test.test"(%truncf) : (i3) -> ()
+        "test.test"(%truncg) : (i1) -> ()
+        "func.return"() : () -> ()
+    }) : () -> ()
+}) : () -> ()

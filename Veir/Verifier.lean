@@ -498,7 +498,7 @@ theorem OperationPtr.Verified.arith_constant {op : OperationPtr} {opInBounds}
     op.getNumSuccessors! ctx.raw = 0 ∧
     op.getNumRegions! ctx.raw = 0 ∧
     ((op.getResult 0).get! ctx.raw).type =
-      Attribute.asType (op.getProperties! ctx.raw Arith.constant).value.type (by grind) := by
+      .of IntegerType (op.getProperties! ctx.raw Arith.constant).value.type := by
   simp only [Verified, verifyLocalInvariants, HasOpInfo.verifyLocalInvariants,
     OpCode.verifyLocalInvariants, Arith.verifyLocalInvariants, verifyPlainOpCounts,
     ← getOpType!_eq_getOpType, opType, ne_eq,
@@ -513,7 +513,7 @@ theorem OperationPtr.Verified.llvm_mlir__constant_resultType {op : OperationPtr}
     (opVerify : op.Verified ctx opInBounds)
     (opType : op.getOpType! ctx.raw = .llvm .mlir__constant)
     (hProp : (op.getProperties! ctx.raw Llvm.mlir__constant).value = .integer intAttr) :
-    ∃ intTy : IntegerType, ((op.getResult 0).get! ctx.raw).type.val = .integerType intTy := by
+    ∃ intTy : IntegerType, ((op.getResult 0).get! ctx.raw).type.val = Attribute.of IntegerType intTy := by
   rw [Verified] at opVerify
   simp only [verifyLocalInvariants, HasOpInfo.verifyLocalInvariants,
     OpCode.verifyLocalInvariants, Llvm.verifyLocalInvariants,
@@ -522,7 +522,7 @@ theorem OperationPtr.Verified.llvm_mlir__constant_resultType {op : OperationPtr}
   simp only [verifyPlainOpCounts, hProp, ne_eq, bind, Except.bind, throw, throwThe,
     MonadExceptOf.throw, pure, Except.pure] at opVerify
   cases hty : ((op.getResult 0).get! ctx.raw).type.val with
-  | integerType intTy => exact ⟨intTy, rfl⟩
+  | integerType intTy => exact ⟨intTy, by grind⟩
   | _ =>
     rw [hty] at opVerify
     split at opVerify <;> simp_all [reduceCtorEq]
@@ -539,7 +539,7 @@ def OperationPtr.IsVerifiedIcmp (op : OperationPtr) (ctx : WfIRContext OpCode) :
   op.getNumSuccessors! ctx.raw = 0 ∧
   op.getNumRegions! ctx.raw = 0 ∧
   (∃ i1ty : IntegerType,
-    ((op.getResult 0).get! ctx.raw).type.val = .integerType i1ty ∧ i1ty.bitwidth = 1) ∧
+    ((op.getResult 0).get! ctx.raw).type.val = Attribute.of IntegerType i1ty ∧ i1ty.bitwidth = 1) ∧
   ((op.getOperand! ctx.raw 0).getType! ctx.raw).val
     = ((op.getOperand! ctx.raw 1).getType! ctx.raw).val
 
@@ -614,7 +614,7 @@ def OperationPtr.IsVerifiedLLVMShift (op : OperationPtr) (ctx : WfIRContext OpCo
   op.getNumResults! ctx.raw = 1 ∧
   op.getNumOperands! ctx.raw = 2 ∧
   ((op.getResult 0).get! ctx.raw).type.val = ((op.getOperand! ctx.raw 0).getType! ctx.raw).val ∧
-  ∃ intType, ((op.getOperand! ctx.raw 1).getType! ctx.raw).val = .integerType intType
+  ∃ intType, ((op.getOperand! ctx.raw 1).getType! ctx.raw).val = .of IntegerType intType
 
 private theorem OperationPtr.verifyLLVMShift_eq_ok {ctx : WfIRContext OpCode} {op : OperationPtr}
     {opInBounds : op.InBounds ctx.raw} (h : op.verifyLLVMShift ctx opInBounds = .ok ()) :
@@ -1059,9 +1059,9 @@ def OperationPtr.IsVerifiedModArithBinop (op : OperationPtr) (ctx : WfIRContext 
   ∃ modArithType,
     modArithType.modulus.value > 0 ∧
     modArithType.modulus.value < 2 ^ modArithType.modulus.type.bitwidth ∧
-    ((op.getResult 0).get! ctx.raw).type = Attribute.asType (.modArithType modArithType) (by grind) ∧
-    ((op.getOperand! ctx.raw 0).getType! ctx.raw) = Attribute.asType (.modArithType modArithType) (by grind) ∧
-    ((op.getOperand! ctx.raw 1).getType! ctx.raw) = Attribute.asType (.modArithType modArithType) (by grind)
+    ((op.getResult 0).get! ctx.raw).type = .of ModArithType modArithType ∧
+    ((op.getOperand! ctx.raw 0).getType! ctx.raw) = .of ModArithType modArithType ∧
+    ((op.getOperand! ctx.raw 1).getType! ctx.raw) = .of ModArithType modArithType
 
 
 private theorem OperationPtr.verifyModArithBinOp_eq_ok {ctx : WfIRContext OpCode} {op : OperationPtr}
@@ -1110,7 +1110,7 @@ def OperationPtr.IsVerifiedModArithConstant (op : OperationPtr) (ctx : WfIRConte
   op.getNumSuccessors! ctx.raw = 0 ∧
   op.getNumRegions! ctx.raw = 0 ∧
   ∃ modArithType,
-    ((op.getResult 0).get! ctx.raw).type = Attribute.asType (.modArithType modArithType) (by grind) ∧
+    ((op.getResult 0).get! ctx.raw).type = .of ModArithType modArithType ∧
     modArithType.modulus.value > 0 ∧
     modArithType.modulus.value < 2 ^ modArithType.modulus.type.bitwidth ∧
     -(2 ^ (modArithType.modulus.type.bitwidth - 1) : Int)

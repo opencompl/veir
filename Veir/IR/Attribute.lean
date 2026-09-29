@@ -1267,7 +1267,7 @@ class IsAttr (Attr : Type) extends ToString Attr, Inhabited Attr where
   project_eq_some_iff (attr : Attribute) (specificAttr : Attr) :
     project attr = some specificAttr ↔ inject specificAttr = attr
 
-attribute [grind unfold] IsAttr.inject
+attribute [simp, grind unfold] IsAttr.inject
 
 /--
 Derive `project_eq_some_iff` from a projection that carries its correctness certificate.
@@ -1327,9 +1327,13 @@ def cast (attr : Attribute) (Attr : Type) [IsAttr Attr] (h : attr.isa Attr) : At
   (attr.cast? Attr).get (by grind [isa, cast?])
 
 /-- Create an attribute from a concrete attribute type. -/
-@[inline, expose, grind unfold]
+@[inline]
 def of (Attr : Type) [IsAttr Attr] (specificAttr : Attr) : Attribute :=
   IsAttr.inject specificAttr
+
+/-- Express `Attribute.of` in terms of the underlying `IsAttr.inject`. -/
+theorem of_def {Attr : Type} [IsAttr Attr] (specificAttr : Attr) :
+  of Attr specificAttr = IsAttr.inject specificAttr := by rfl
 
 /-- Coercion from attribute-specific type to `Attribute`. -/
 instance CoeHead (Attr : Type) [IsAttr Attr] : CoeHead Attr Attribute where
@@ -1440,6 +1444,35 @@ instance : IsAttr Attribute where
   project_eq_some_iff _ _ := by grind
 
 #generate_attribute_instances Attribute
+
+
+/-!
+## Attribute constructor normalization
+
+This section defines simp lemmas rewriting attribute constructors to `Attribute.of`, the canonical
+form for generic attribute lemmas. For grind, the equalities work in both directions, as it
+otherwise breaks some proofs that match on the attribute constructors.
+-/
+
+/-- Generate constructor-to-`Attribute.of` normalization for every attribute kind. -/
+elab "#generate_attribute_of_lemmas" attrInductive:ident : command => do
+  let attributeName ← resolveGlobalConstNoOverload attrInductive
+  let env ← getEnv
+  let some (.inductInfo info) := env.find? attributeName
+    | throwError m!"Type {attributeName} is not an inductive."
+  for ctorName in info.ctors do
+    let some (.ctorInfo ctorInfo) := env.find? ctorName
+      | throwError m!"Constructor {ctorName} is not defined."
+    let .forallE _ (.const attrTypeName _) resultType _ := ctorInfo.type
+      | throwError m!"Constructor {ctorName} must have exactly one attribute payload."
+    unless resultType.isConstOf attributeName do
+      throwError m!"Constructor {ctorName} does not construct {attributeName}."
+    let lemmaName := mkIdent (`_root_ ++ ctorName.appendAfter "_eq_of")
+    elabCommand <| ←
+      `(@[simp, grind _=_] theorem $lemmaName (attr : $(mkIdent attrTypeName)) :
+          $(mkIdent ctorName) attr = Attribute.of $(mkIdent attrTypeName) attr := by rfl)
+
+#generate_attribute_of_lemmas Attribute
 
 /-!
 ## DecidableEq instances
@@ -1704,6 +1737,8 @@ def Attribute.decEq (attr1 attr2 : @& Attribute) : Decidable (attr1 = attr2) := 
   case seqClockType x =>
     exact IsAttr.decEqAgainst x attr2 (decEq x)
 termination_by sizeOf attr1
+decreasing_by
+  all_goals exact Nat.lt_add_of_pos_left (by decide)
 end
 
 instance : DecidableEq Attribute := Attribute.decEq
@@ -1801,88 +1836,88 @@ def bitwidthOfType (type : Attribute) : Option Nat :=
   | _ => none
 
 @[simp, grind =]
-theorem isType_integerType type : (integerType type).isType = true := by rfl
+theorem isType_integerType type : (Attribute.of IntegerType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_floatType type : (floatType type).isType = true := by rfl
+theorem isType_floatType type : (Attribute.of FloatType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_vectorType type : (vectorType type).isType = true := by rfl
+theorem isType_vectorType type : (Attribute.of VectorType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_byteType type : (byteType type).isType = true := by rfl
+theorem isType_byteType type : (Attribute.of LLVM.ByteType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_fastMathFlags flags : (fastMathFlagsAttr flags).isType = false := by rfl
+theorem isType_fastMathFlags flags : (Attribute.of FastMathFlagsAttr flags).isType = false := by rfl
 @[simp, grind =]
-theorem isType_cconv attr : (cconvAttr attr).isType = false := by rfl
+theorem isType_cconv attr : (Attribute.of CConvAttr attr).isType = false := by rfl
 @[simp, grind =]
-theorem isType_linkage attr : (linkageAttr attr).isType = false := by rfl
+theorem isType_linkage attr : (Attribute.of LinkageAttr attr).isType = false := by rfl
 @[simp, grind =]
-theorem isType_framePointerKind attr : (framePointerKindAttr attr).isType = false := by rfl
+theorem isType_framePointerKind attr : (Attribute.of FramePointerKindAttr attr).isType = false := by rfl
 @[simp, grind =]
-theorem isType_uwtableKind attr : (uwtableKindAttr attr).isType = false := by rfl
+theorem isType_uwtableKind attr : (Attribute.of UwtableKindAttr attr).isType = false := by rfl
 @[simp, grind =]
-theorem isType_tailCallKind attr : (tailCallKindAttr attr).isType = false := by rfl
+theorem isType_tailCallKind attr : (Attribute.of TailCallKindAttr attr).isType = false := by rfl
 @[simp, grind =]
-theorem isType_moduleFlag attr : (moduleFlagAttr attr).isType = false := by rfl
+theorem isType_moduleFlag attr : (Attribute.of ModuleFlagAttr attr).isType = false := by rfl
 @[simp, grind =]
-theorem isType_tbaaTag attr : (tbaaTagAttr attr).isType = false := by rfl
+theorem isType_tbaaTag attr : (Attribute.of TbaaTagAttr attr).isType = false := by rfl
 @[simp, grind =]
-theorem isType_constantRange attr : (constantRangeAttr attr).isType = false := by rfl
+theorem isType_constantRange attr : (Attribute.of ConstantRangeAttr attr).isType = false := by rfl
 @[simp, grind =]
-theorem isType_memoryEffects attr : (memoryEffectsAttr attr).isType = false := by rfl
+theorem isType_memoryEffects attr : (Attribute.of MemoryEffectsAttr attr).isType = false := by rfl
 @[simp, grind =]
-theorem isType_loopAnnotation attr : (loopAnnotationAttr attr).isType = false := by rfl
+theorem isType_loopAnnotation attr : (Attribute.of LoopAnnotationAttr attr).isType = false := by rfl
 @[simp, grind =]
-theorem isType_targetFeatures attr : (targetFeaturesAttr attr).isType = false := by rfl
+theorem isType_targetFeatures attr : (Attribute.of TargetFeaturesAttr attr).isType = false := by rfl
 @[simp, grind =]
-theorem isType_dlSpec attr : (dlSpecAttr attr).isType = false := by rfl
+theorem isType_dlSpec attr : (Attribute.of DlSpecAttr attr).isType = false := by rfl
 @[simp, grind =]
 theorem isType_unregistered unregistered :
-  (unregisteredAttr unregistered).isType = unregistered.isType := by rfl
+  (Attribute.of UnregisteredAttr unregistered).isType = unregistered.isType := by rfl
 @[simp, grind =]
-theorem isType_functionType type : (functionType type).isType = true := by rfl
+theorem isType_functionType type : (Attribute.of FunctionType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_modArithType type : (modArithType type).isType = true := by rfl
+theorem isType_modArithType type : (Attribute.of ModArithType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_feltType type : (feltType type).isType = true := by rfl
+theorem isType_feltType type : (Attribute.of FeltType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_indexType type : (indexType type).isType = true := by rfl
+theorem isType_indexType type : (Attribute.of IndexType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_cirIntType type : (cirIntType type).isType = true := by rfl
+theorem isType_cirIntType type : (Attribute.of CirIntType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_cirBoolType type : (cirBoolType type).isType = true := by rfl
+theorem isType_cirBoolType type : (Attribute.of CirBoolType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_cirFuncType type : (cirFuncType type).isType = true := by rfl
+theorem isType_cirFuncType type : (Attribute.of CirFuncType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_cirIntAttr attr : (cirIntAttr attr).isType = false := by rfl
+theorem isType_cirIntAttr attr : (Attribute.of CirIntAttr attr).isType = false := by rfl
 @[simp, grind =]
-theorem isType_cirBoolAttr attr : (cirBoolAttr attr).isType = false := by rfl
+theorem isType_cirBoolAttr attr : (Attribute.of CirBoolAttr attr).isType = false := by rfl
 @[simp, grind =]
-theorem isType_registerType type : (registerType type).isType = true := by rfl
+theorem isType_registerType type : (Attribute.of RegisterType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_llvmVoidType type : (llvmVoidType type).isType = true := by rfl
+theorem isType_llvmVoidType type : (Attribute.of LLVM.VoidType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_llvmPointerType type : (llvmPointerType type).isType = true := by rfl
+theorem isType_llvmPointerType type : (Attribute.of LLVM.PointerType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_llvmArrayType type : (llvmArrayType type).isType = true := by rfl
+theorem isType_llvmArrayType type : (Attribute.of LLVM.ArrayType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_llvmFunctionType type : (llvmFunctionType type).isType = true := by rfl
+theorem isType_llvmFunctionType type : (Attribute.of LLVMFunctionType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_cudaTilePointerType type : (cudaTilePointerType type).isType = true := by rfl
+theorem isType_cudaTilePointerType type : (Attribute.of CudaTile.PointerType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_ioAddressType type : (ioAddressType type).isType = true := by rfl
+theorem isType_ioAddressType type : (Attribute.of Io.AddressType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_hwModuleType type : (hwModuleType type).isType = true := by rfl
+theorem isType_hwModuleType type : (Attribute.of HW.ModuleType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_pdlAttributeType type : (pdlAttributeType type).isType = true := by rfl
+theorem isType_pdlAttributeType type : (Attribute.of PDL.AttributeType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_pdlRangeType type : (pdlRangeType type).isType = true := by rfl
+theorem isType_pdlRangeType type : (Attribute.of PDL.RangeType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_pdlOperationType type : (pdlOperationType type).isType = true := by rfl
+theorem isType_pdlOperationType type : (Attribute.of PDL.OperationType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_pdlValueType type : (pdlValueType type).isType = true := by rfl
+theorem isType_pdlValueType type : (Attribute.of PDL.ValueType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_pdlTypeType type : (pdlTypeType type).isType = true := by rfl
+theorem isType_pdlTypeType type : (Attribute.of PDL.TypeType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_seqClockType type : (seqClockType type).isType = true := by rfl
+theorem isType_seqClockType type : (Attribute.of Seq.ClockType type).isType = true := by rfl
 
 end Attribute
 
@@ -1926,9 +1961,11 @@ theorem Attribute.asType_val {attr : Attribute} {isType : attr.isType} :
 `IsTypeAttr Attr` states that `Attr` is an attribute-specific type that can also
 be converted to a `TypeAttr`.
 -/
-class IsTypeAttr (Attr : Type) extends IsAttr Attr, Coe Attr TypeAttr where
-  /-- Converting to `TypeAttr` agrees with the injection into `Attribute`. -/
-  coe_eq_inject (attr : Attr) : (coe attr).val = inject attr
+class IsTypeAttr (Attr : Type) extends IsAttr Attr where
+  /-- Every attribute of that type is a valid VeIR type. -/
+  isType_inject (attr : Attr) : (@Attribute.of Attr toIsAttr attr).isType
+
+attribute [simp] IsTypeAttr.isType_inject
 
 namespace TypeAttr
 
@@ -1968,12 +2005,48 @@ def cast (attr : TypeAttr) (Attr : Type) [IsTypeAttr Attr] [Inhabited Attr]
     (h : attr.isa Attr) : Attr :=
   (attr.cast? Attr).get (by grind [isa, cast?])
 
-/-- Create a type attribute from a concrete attribute type. -/
+/--
+Create a type attribute from a concrete attribute type.
+This is the canonical way to construct a `TypeAttr` from a concrete attribute type, and should be
+used in preference to `Attribute.asType` or `⟨attr, h⟩` when the concrete attribute type is known.
+-/
 @[inline]
 def of (Attr : Type) [IsTypeAttr Attr] (specificAttr : Attr) : TypeAttr :=
-  specificAttr
+  ⟨.of Attr specificAttr, IsTypeAttr.isType_inject specificAttr⟩
+
+/-- Express `TypeAttr.of` in terms of the underlying `Attribute.of` and the type injection. -/
+theorem of_def {Attr : Type} [IsTypeAttr Attr] (specificAttr : Attr) :
+    TypeAttr.of Attr specificAttr =
+      ⟨Attribute.of Attr specificAttr, IsTypeAttr.isType_inject specificAttr⟩ := by rfl
+
+instance CoeHead (Attr : Type) [IsTypeAttr Attr] : CoeHead Attr TypeAttr where
+  coe := TypeAttr.of Attr
+
+/--
+Normalize conversion from `TypeAttr` to `Attribute` when the concrete attribute type is known.
+-/
+@[simp, grind norm]
+theorem of_val {Attr : Type} [IsTypeAttr Attr] (specificAttr : Attr) :
+    (TypeAttr.of Attr specificAttr).val = Attribute.of Attr specificAttr := by rfl
+
+/-
+Normalize explicit subtype construction when the concrete attribute type is known.
+Grind also needs the reverse direction to expose the subtype constructor when matching on a
+`TypeAttr.of` value, enabling constructor injectivity and discrimination.
+-/
+@[simp, grind _=_]
+theorem mk_of {Attr : Type} [IsTypeAttr Attr] (specificAttr : Attr)
+    (h : (Attribute.of Attr specificAttr).isType) :
+    (⟨.of Attr specificAttr, h⟩ : TypeAttr) = TypeAttr.of Attr specificAttr := by rfl
 
 end TypeAttr
+
+/-- Normalize conversion of an injected concrete attribute to the canonical constructor. -/
+@[simp, grind =]
+theorem Attribute.asType_of {Attr : Type} [IsTypeAttr Attr] (specificAttr : Attr)
+    {h : (Attribute.of Attr specificAttr).isType} :
+    (Attribute.of Attr specificAttr).asType h = TypeAttr.of Attr specificAttr := by
+  rfl
 
 namespace IsTypeAttr
 
@@ -1982,7 +2055,7 @@ variable {Attr : Type} [IsTypeAttr Attr]
 @[simp, grind =]
 theorem cast?_of (specificAttr : Attr) :
     (TypeAttr.of Attr specificAttr).cast? Attr = some specificAttr := by
-  simp [TypeAttr.of, TypeAttr.cast?, Attribute.of, IsTypeAttr.coe_eq_inject]
+  simp [TypeAttr.cast?]
 
 theorem of_injective : Function.Injective (TypeAttr.of Attr) := by
   intro attr₁ attr₂ h
@@ -1992,8 +2065,7 @@ theorem of_injective : Function.Injective (TypeAttr.of Attr) := by
 theorem cast?_eq_some_iff (attr : TypeAttr) (specificAttr : Attr) :
     attr.cast? Attr = some specificAttr ↔ TypeAttr.of Attr specificAttr = attr := by
   rw [TypeAttr.inj]
-  simp [TypeAttr.cast?, TypeAttr.of, Attribute.of, IsTypeAttr.coe_eq_inject,
-    IsAttr.cast?_eq_some_iff]
+  simp [TypeAttr.cast?, IsAttr.cast?_eq_some_iff]
 
 grind_pattern cast?_eq_some_iff =>
   attr.cast? Attr, TypeAttr.of Attr specificAttr
@@ -2018,134 +2090,72 @@ theorem cast_of [Inhabited Attr] (specificAttr : Attr)
 theorem of_cast [Inhabited Attr] (attr : TypeAttr) (h : attr.isa Attr) :
     TypeAttr.of Attr (attr.cast Attr h) = attr := by
   rw [TypeAttr.inj]
-  simp only [TypeAttr.of, IsTypeAttr.coe_eq_inject]
-  exact IsAttr.of_cast attr.val h
+  simpa only [TypeAttr.of_val, TypeAttr.cast, TypeAttr.cast?, Attribute.cast] using
+    IsAttr.of_cast attr.val h
 
 end IsTypeAttr
 
 /-!
-  ## Coercion instances to TypeAttr
+## Concrete type attributes
 
-  We define a coercion from each attribute structure to `TypeAttr` if the attribute
-  can be used as a type annotation.
+Implement `IsTypeAttr` instances and simplification lemmas for concrete type attributes.
 -/
 
-instance : IsTypeAttr IntegerType where
-  coe type := Attribute.asType (.integerType type) (by rfl)
-  coe_eq_inject _ := by rfl
+/-- Declare a concrete type attribute and its `asType` normalization lemma. -/
+syntax "type_attribute_instance " term " => " ident : command
 
-instance : IsTypeAttr FloatType where
-  coe type := Attribute.asType (.floatType type) (by rfl)
-  coe_eq_inject _ := by rfl
+macro_rules
+  | `(type_attribute_instance $attrType:term => $ctor:ident) => do
+    let suffix := ctor.getId.getString!
+    let asTypeLemma := Lean.mkIdent (Lean.Name.str `Attribute ("asType_" ++ suffix))
+    `(@[expose] instance : IsTypeAttr $attrType where
+        isType_inject _ := by rfl
+      @[simp] theorem $asTypeLemma (type : $attrType) (h : ($ctor type).isType) :
+          ($ctor type).asType h = TypeAttr.of $attrType type := by
+        unfold Attribute.asType
+        rfl)
 
-instance : IsTypeAttr VectorType where
-  coe type := Attribute.asType (.vectorType type) (by rfl)
-  coe_eq_inject _ := by rfl
-
-instance : IsTypeAttr LLVM.ByteType where
-  coe type := Attribute.asType (.byteType type) (by rfl)
-  coe_eq_inject _ := by rfl
-
-instance : IsTypeAttr FunctionType where
-  coe type := Attribute.asType (.functionType type) (by rfl)
-  coe_eq_inject _ := by rfl
-
-instance : IsTypeAttr LLVMFunctionType where
-  coe type := Attribute.asType (.llvmFunctionType type) (by rfl)
-  coe_eq_inject _ := by rfl
-
-instance : IsTypeAttr ModArithType where
-  coe type := Attribute.asType (.modArithType type) (by rfl)
-  coe_eq_inject _ := by rfl
-
-instance : IsTypeAttr FeltType where
-  coe type := Attribute.asType (.feltType type) (by rfl)
-  coe_eq_inject _ := by rfl
-
-instance : IsTypeAttr IndexType where
-  coe type := Attribute.asType (.indexType type) (by rfl)
-  coe_eq_inject _ := by rfl
-
-instance : IsTypeAttr CirIntType where
-  coe type := Attribute.asType (.cirIntType type) (by rfl)
-  coe_eq_inject _ := by rfl
-
-instance : IsTypeAttr CirBoolType where
-  coe type := Attribute.asType (.cirBoolType type) (by rfl)
-  coe_eq_inject _ := by rfl
-
-instance : IsTypeAttr CirFuncType where
-  coe type := Attribute.asType (.cirFuncType type) (by rfl)
-  coe_eq_inject _ := by rfl
+type_attribute_instance IntegerType => Attribute.integerType
+type_attribute_instance FloatType => Attribute.floatType
+type_attribute_instance VectorType => Attribute.vectorType
+type_attribute_instance LLVM.ByteType => Attribute.byteType
+type_attribute_instance FunctionType => Attribute.functionType
+type_attribute_instance LLVMFunctionType => Attribute.llvmFunctionType
+type_attribute_instance ModArithType => Attribute.modArithType
+type_attribute_instance FeltType => Attribute.feltType
+type_attribute_instance IndexType => Attribute.indexType
+type_attribute_instance CirIntType => Attribute.cirIntType
+type_attribute_instance CirBoolType => Attribute.cirBoolType
+type_attribute_instance CirFuncType => Attribute.cirFuncType
+type_attribute_instance RegisterType => Attribute.registerType
+type_attribute_instance LLVM.VoidType => Attribute.llvmVoidType
+type_attribute_instance LLVM.PointerType => Attribute.llvmPointerType
+type_attribute_instance LLVM.ArrayType => Attribute.llvmArrayType
+type_attribute_instance CudaTile.PointerType => Attribute.cudaTilePointerType
+type_attribute_instance Io.AddressType => Attribute.ioAddressType
+type_attribute_instance HW.ModuleType => Attribute.hwModuleType
+type_attribute_instance PDL.RangeType => Attribute.pdlRangeType
+type_attribute_instance Match.OptionalType => Attribute.matchOptionalType
+type_attribute_instance PDL.AttributeType => Attribute.pdlAttributeType
+type_attribute_instance PDL.OperationType => Attribute.pdlOperationType
+type_attribute_instance PDL.ValueType => Attribute.pdlValueType
+type_attribute_instance PDL.TypeType => Attribute.pdlTypeType
+type_attribute_instance Seq.ClockType => Attribute.seqClockType
 
 instance : CoeDep (Option Nat → RegisterType) RegisterType.mk TypeAttr where
-  coe := Attribute.asType (.registerType (.mk none)) (by rfl)
-
-instance : IsTypeAttr RegisterType where
-  coe type := Attribute.asType (.registerType type) (by rfl)
-  coe_eq_inject _ := by rfl
-
-instance : IsTypeAttr LLVM.VoidType where
-  coe type := Attribute.asType (.llvmVoidType type) (by rfl)
-  coe_eq_inject _ := by rfl
-
-instance : IsTypeAttr LLVM.PointerType where
-  coe type := Attribute.asType (.llvmPointerType type) (by rfl)
-  coe_eq_inject _ := by rfl
-
-instance : IsTypeAttr LLVM.ArrayType where
-  coe type := Attribute.asType (.llvmArrayType type) (by rfl)
-  coe_eq_inject _ := by rfl
-
-instance : IsTypeAttr CudaTile.PointerType where
-  coe type := Attribute.asType (.cudaTilePointerType type) (by rfl)
-  coe_eq_inject _ := by rfl
-
-instance : IsTypeAttr Io.AddressType where
-  coe type := Attribute.asType (.ioAddressType type) (by rfl)
-  coe_eq_inject _ := by rfl
-
-instance : IsTypeAttr HW.ModuleType where
-  coe type := Attribute.asType (.hwModuleType type) (by rfl)
-  coe_eq_inject _ := by rfl
-
-instance : IsTypeAttr PDL.RangeType where
-  coe type := Attribute.asType (.pdlRangeType type) (by rfl)
-  coe_eq_inject _ := by rfl
-
-instance : IsTypeAttr Match.OptionalType where
-  coe type := Attribute.asType (.matchOptionalType type) (by rfl)
-  coe_eq_inject _ := by rfl
-
-instance : IsTypeAttr PDL.AttributeType where
-  coe type := Attribute.asType (.pdlAttributeType type) (by rfl)
-  coe_eq_inject _ := by rfl
-
-instance : IsTypeAttr PDL.OperationType where
-  coe type := Attribute.asType (.pdlOperationType type) (by rfl)
-  coe_eq_inject _ := by rfl
-
-instance : IsTypeAttr PDL.ValueType where
-  coe type := Attribute.asType (.pdlValueType type) (by rfl)
-  coe_eq_inject _ := by rfl
-
-instance : IsTypeAttr PDL.TypeType where
-  coe type := Attribute.asType (.pdlTypeType type) (by rfl)
-  coe_eq_inject _ := by rfl
+  coe := TypeAttr.of RegisterType (.mk none)
 
 instance : IsTypeAttr TypeAttr where
   name := "TypeAttr"
   inject := fun x => x.val
   project := fun attr => if h: attr.isType then attr.asType else none
-  coe := id
-  coe_eq_inject := by simp
   project_eq_some_iff _ _ := by
     simp only [Option.dite_none_right_eq_some, Option.some.injEq, TypeAttr.inj]
     grind
+  isType_inject _ := by grind [Attribute.of_def]
 
-instance : IsTypeAttr Seq.ClockType where
-  coe type := Attribute.asType (.seqClockType type) (by rfl)
-  coe_eq_inject _ := by rfl
+@[simp, grind norm]
+theorem TypeAttr.of_typeAttr (type : TypeAttr) : TypeAttr.of TypeAttr type = type := by rfl
 
 end
 end Veir

@@ -2,6 +2,7 @@ module
 
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
+public import Veir.Interfaces.ControlFlowInterfaces
 public import Veir.Verifier.Basic
 public import Veir.Dialects.LLVM.Properties
 public import Veir.Dialects.Cf.Properties
@@ -564,6 +565,60 @@ def Llvm.functionInterface? (op : Llvm) : Option (FunctionOpInterface (Llvm.prop
         getFunctionType := fun props => props.function_type
         setFunctionType := fun props functionType =>
           { props with function_type := functionType } }
+  | _ => none
+
+private def Llvm.getSwitchSuccessorOperands?
+    (props : LLVMSwitchProperties) (operands : Array ValuePtr)
+    (successorIndex : Nat) : Option SuccessorOperands := do
+  let defaultCountRaw ← props.operandSegmentSizes.values[1]?
+  let defaultCount := defaultCountRaw.toNat
+  if successorIndex = 0 then
+    return { forwardedOperands := operands.extract 1 (1 + defaultCount) }
+  let caseIndex := successorIndex - 1
+  let caseCountRaw ← props.case_operand_segments.values[caseIndex]?
+  let caseCount := caseCountRaw.toNat
+  let caseStart := 1 + defaultCount +
+    (props.case_operand_segments.values.extract 0 caseIndex).foldl
+      (init := 0) fun acc value => acc + value.toNat
+  return { forwardedOperands := operands.extract caseStart (caseStart + caseCount) }
+
+private def Llvm.getSwitchSuccessorForOperands?
+    (props : LLVMSwitchProperties) (operands : Array (Option RuntimeValue))
+    (successors : Array BlockPtr) : Option BlockPtr := do
+  let caseValues ← props.caseValues?
+  if caseValues.size ≠ props.case_operand_segments.values.size then
+    none
+  else
+    let some (.int bitwidth (.val value)) ← operands[0]? | none
+    for i in [0:caseValues.size] do
+      if value = BitVec.ofInt bitwidth caseValues[i]! then
+        let some successor := successors[i + 1]? | none
+        return successor
+    successors[0]?
+
+def Llvm.branchOpInterface? (op : Llvm) : Option (BranchOpInterface (Llvm.propertiesOf op)) :=
+  match op with
+  | .br =>
+    some {
+      getSuccessorOperandsImpl? := fun _ operands successorIndex => do
+        guard (successorIndex = 0)
+        some { forwardedOperands := operands }
+      getSuccessorForOperandsImpl? := fun _ _ successors => successors[0]?
+    }
+  | .cond_br =>
+    some {
+      getSuccessorOperandsImpl? := fun props operands successorIndex =>
+        BranchOpInterface.getSegmentedSuccessorOperands?
+          1 props.operandSegmentSizes.values operands successorIndex
+      getSuccessorForOperandsImpl? := fun _ operands successors => do
+        let some (.int _ (.val condition)) ← operands[0]? | none
+        BranchOpInterface.getConditionalSuccessor? successors (condition ≠ 0)
+    }
+  | .switch =>
+    some {
+      getSuccessorOperandsImpl? := Llvm.getSwitchSuccessorOperands?
+      getSuccessorForOperandsImpl? := Llvm.getSwitchSuccessorForOperands?
+    }
   | _ => none
 
 /-- Whether `n` is a valid LLVM alignment: a strictly positive power of two. -/
@@ -1542,6 +1597,7 @@ instance : HasOpInfo Llvm where
   getEffects := Llvm.getEffects
   isConstantLike := Llvm.isConstantLike
   functionInterface? := Llvm.functionInterface?
+  branchOpInterface? := Llvm.branchOpInterface?
   hasSSADominance := Llvm.hasSSADominance
   isTerminator := Llvm.isTerminator
   isIsolatedFromAbove := Llvm.isIsolatedFromAbove
