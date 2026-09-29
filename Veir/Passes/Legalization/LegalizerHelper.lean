@@ -14,8 +14,6 @@ https://github.com/llvm/llvm-project/blob/main/llvm/include/llvm/CodeGen/GlobalI
 
 namespace Veir
 
-public section
-
 open Puddle
 
 /--
@@ -23,7 +21,7 @@ Extends the binary operands to `width` bits and then truncates the result back t
 type. The extension is performed with `g_anyext` because the high bits are assumed to not matter
 for the operation. (This is not true for comparisons.)
 -/
-private def widenBinop (opcode : GMIR) (noFlags : propertiesOf (OpCode.gmir opcode)) (width : Nat) :
+def widenBinop (opcode : GMIR) (noFlags : propertiesOf (OpCode.gmir opcode)) (width : Nat) :
     Pattern OpCode :=
   Pattern.Builder
     (do
@@ -50,7 +48,7 @@ Extends the operands of `g_icmp` to `width` bits and then compares the wide oper
 is performed with `g_sext` because the high bits matter for the comparison, and sign extension
 preserves both the signed and the unsigned order.
 -/
-private def widenICmpOperands (width : Nat) : Pattern OpCode :=
+def widenICmpOperands (width : Nat) : Pattern OpCode :=
   Pattern.Builder
     (do
       let operandType ← MatchProg.type (Attr := IntegerType) (·.bitwidth < width)
@@ -69,7 +67,7 @@ private def widenICmpOperands (width : Nat) : Pattern OpCode :=
     (fun cmp => cmp)
 
 /-- Widens the result of `g_icmp` to `width` bits and then truncates it back. -/
-private def widenICmpResult (width : Nat) : Pattern OpCode :=
+def widenICmpResult (width : Nat) : Pattern OpCode :=
   Pattern.Builder
     (do
       let operandType ← MatchProg.type (Attr := TypeAttr)
@@ -84,6 +82,8 @@ private def widenICmpResult (width : Nat) : Pattern OpCode :=
       let truncProps ← CreateProg.property (.gmir .g_trunc) ⟨false, false⟩
       CreateProg.operation (.gmir .g_trunc) #[cmp.res[0]!] #[resultType] truncProps)
     (fun trunc => trunc)
+
+public section
 
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
 def widenScalar? : GMIR → (typeIdx width : Nat) → Option (Pattern OpCode)

@@ -24,10 +24,11 @@ groups, as given by `GMIR.genericOpInfo`.
 -/
 
 /--
-Low-Level-Type
+Low Level Type
 
-For legalization, we only care about the bits a scalar occupies and not if its a float or integer.
-`LLT` represents types size in bits.
+The type's size in bits.
+For legalization, we only care about the bits occupied by a *scalar*, not by floats or integers.
+
 TODO: Make this a dedicated type once pointers or vectors are part of legalization.
 
 Also see: https://llvm.org/docs/GlobalISel/GMIR.html#low-level-type
@@ -41,8 +42,8 @@ def LLT.ofType? (type : TypeAttr) : Option LLT :=
   | _ => none
 
 /--
-  The LegalityQuery object bundles together all the information that's needed
-  to decide whether a given operation is legal or not.
+  `LegalityQuery` bundles all the information that's needed to decide whether a given operation
+  is legal or not.
 -/
 structure LegalityQuery where
   /-- The opcode of the operation. -/
@@ -52,7 +53,7 @@ structure LegalityQuery where
 
 /--
 The type of each type group of `op`, indexed by the type group.
-The type groups in `GMIR.genericOpInfo` are expected to be numbered in the order they first appear.
+The type groups in `GMIR.genericOpInfo` are expected to be numbered by the order in which they first appear.
 -/
 def GMIR.getTypeGroupTypes! (opCode : GMIR) (op : OperationPtr) (ctx : IRContext OpCode) :
     Array TypeAttr := Id.run do

@@ -6,7 +6,7 @@ import Veir.Passes.Legalization.LegalizerHelper
 import Veir.PatternRewriter.Puddle.Execution
 
 /-!
-# gMIR Legalizer
+# GMIR Legalizer
 
 This file implements the target-independent legalizer. A target builds its legalization pass by
 calling `LegalizerInfo.legalize` with its target specific `LegalizerInfo`.
