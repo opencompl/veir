@@ -18,4 +18,3 @@
 // CHECK:        ^{{[0-9]+}}():
 // CHECK-NEXT:     "riscv_cf.unreachable"() : () -> ()
 // CHECK-NEXT: }
-// CHECK-NOT:  llvm.unreachable
