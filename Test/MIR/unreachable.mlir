@@ -22,6 +22,7 @@
 // CHECK:        BNE %v{{[0-9]+}}, $x0, %bb.1
 // CHECK-NEXT:   PseudoBR %bb.2
 // CHECK:      bb.1:
+// CHECK-NEXT:   successors: {{$}}
 // CHECK-NEXT:   UNIMP
 // CHECK-EMPTY:
 // CHECK-NEXT: bb.2:
