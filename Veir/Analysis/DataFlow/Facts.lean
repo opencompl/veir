@@ -132,9 +132,14 @@ end WorkList
 
 /--
 The immediate dominator fact attached to a block entry.
+
+`dependencies` contains the blocks whose immediate dominator values were read
+to compute this fact, allowing dominance analysis to replace stale dependencies
+when it recomputes the fact.
 -/
 structure DominatorPayload where
   iDom : Option BlockPtr := none
+  dependencies : HashSet BlockPtr := ∅
 
 /--
 Caches the post ordering of a region's blocks.
@@ -172,13 +177,13 @@ The fact specific data stored for each fact kind.
 A dataflow fact stored by the framework.
 
 Each fact associates with a lattice anchor (some location in the program), has
-an array of dependents (other facts that "depend" on this fact's current state in
-some fashion), has an array of analysis subscribers (similar to dependents except 
-it's entire analyses that depend on this fact's current state), and has the fact 
+a set of dependents (other facts that "depend" on this fact's current state in
+some fashion), has an array of analysis subscribers (similar to dependents except
+it's entire analyses that depend on this fact's current state), and has the fact
 specific payload determined by its `FactKind`.
 -/
 structure Fact (kind : FactKind) where
-  dependents : Array WorkItem := #[]
+  dependents : HashSet WorkItem := ∅
   subscribers : Array AnalysisKind := #[]
   payload : FactPayload kind
 
@@ -187,18 +192,14 @@ namespace Fact
 /--
 Set the fact's dependents.
 -/
-def setDependents (fact : Fact kind) (dependents : Array WorkItem) : Fact kind :=
+def setDependents (fact : Fact kind) (dependents : HashSet WorkItem) : Fact kind :=
   { fact with dependents := dependents }
 
 /--
 Add one dependent work item to the fact.
 -/
 def addDependent (fact : Fact kind) (workItem : WorkItem) : Fact kind :=
-  fact.setDependents (fact.dependents.push workItem)
-
-/-- Add a work item to the fact's dependents unless it is already present. -/
-def addDependentOnce (fact : Fact kind) (workItem : WorkItem) : Fact kind :=
-  if fact.dependents.any (· = workItem) then fact else fact.addDependent workItem
+  fact.setDependents (fact.dependents.insert workItem)
 
 /--
 Subscribe one analysis to changes of this fact.
