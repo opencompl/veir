@@ -62,20 +62,45 @@ private def OperationPtr.dominatesWithinBlock
     current := (operation.get! irCtx.raw).next
   false
 
+/--
+The position of every operation within its block.
+
+Comparing two positions orders two operations of the same block without walking
+the block between them. The positions are only valid as long as the IR is not
+modified.
+-/
+def WfIRContext.opPositions (irCtx : WfIRContext OpCode) :
+    Std.HashMap OperationPtr Nat := Id.run do
+  let mut positions := Std.HashMap.emptyWithCapacity irCtx.raw.operations.size
+  for (_, block) in irCtx.raw.blocks do
+    let mut position := 0
+    let mut current := block.firstOp
+    while let some op := current do
+      positions := positions.insert op position
+      position := position + 1
+      current := (op.get! irCtx.raw).next
+  return positions
+
 namespace InsertPoint
 
 /--
 Check dominance between two points that are already known
 to lie in the same block.
+
+Two operations are ordered by `positions` if it is given (see
+`WfIRContext.opPositions`), and by walking the block otherwise.
 -/
 private def dominatesWithinBlock
     (dominator point : InsertPoint)
-    (irCtx : WfIRContext OpCode) : Bool := Id.run do
+    (irCtx : WfIRContext OpCode)
+    (positions : Option (Std.HashMap OperationPtr Nat)) : Bool := Id.run do
   if dominator = point then
     return true
   match dominator, point with
     | .before dominatorOp, .before op =>
-        dominatorOp.dominatesWithinBlock op irCtx
+        match positions with
+        | some positions => decide (positions[dominatorOp]! ≤ positions[op]!)
+        | none => dominatorOp.dominatesWithinBlock op irCtx
     | .before _, .atEnd _ =>
         true
     | .atEnd _, _ =>
@@ -96,13 +121,17 @@ region properly dominates every other, including itself.
 If `enclosingOk` is set, `dominator` properly dominates `point` when it encloses
 it. Callers checking that a definition dominates a use pass `false`, since an
 operation's results are not available inside its own regions.
+
+`positions`, if given, orders operations of the same block, as in
+`InsertPoint.dominatesWithinBlock`.
 -/
 private def properlyDominates
     (dominator : InsertPoint)
     (point : InsertPoint)
     (dfCtx : DataFlowContext)
     (irCtx : WfIRContext OpCode)
-    (enclosingOk : Bool := true) : Bool := Id.run do
+    (enclosingOk : Bool := true)
+    (positions : Option (Std.HashMap OperationPtr Nat) := none) : Bool := Id.run do
   let some dominatorBlock := dominator.block! irCtx.raw
     | return false
   let some dominatorRegion := (dominatorBlock.get! irCtx.raw).parent
@@ -125,7 +154,7 @@ private def properlyDominates
     return enclosingOk || !hasSSADominance
 
   if dominatorBlock = pointBlock then
-    return !hasSSADominance || dominator.dominatesWithinBlock point irCtx
+    return !hasSSADominance || dominator.dominatesWithinBlock point irCtx positions
   else
     return dominatorBlock.dominatesWithinRegion pointBlock dfCtx irCtx
 
@@ -139,8 +168,9 @@ private def dominates
     (dominator : InsertPoint)
     (point : InsertPoint)
     (dfCtx : DataFlowContext)
-    (irCtx : WfIRContext OpCode) : Bool :=
-  dominator = point || dominator.properlyDominates point dfCtx irCtx
+    (irCtx : WfIRContext OpCode)
+    (positions : Option (Std.HashMap OperationPtr Nat) := none) : Bool :=
+  dominator = point || dominator.properlyDominates point dfCtx irCtx (positions := positions)
 
 
 end InsertPoint
@@ -197,14 +227,18 @@ def dominates
 Proper dominance query between two operations. An operation does not properly
 dominate itself in an SSACFG region, while operations in a graph region properly
 dominate every operation in the same block, including themselves.
+
+`positions`, if given, orders operations of the same block, as in
+`InsertPoint.dominatesWithinBlock`.
 -/
 def properlyDominates
     (dominator op : OperationPtr)
     (dfCtx : DataFlowContext)
     (irCtx : WfIRContext OpCode)
-    (enclosingOk : Bool := true) : Bool :=
+    (enclosingOk : Bool := true)
+    (positions : Option (Std.HashMap OperationPtr Nat) := none) : Bool :=
   (InsertPoint.before dominator).properlyDominates (InsertPoint.before op) dfCtx irCtx
-    enclosingOk
+    enclosingOk positions
 
 /-- Collect nested operations in reverse postorder. Unreachable blocks
 are omitted.  A region with no dominance metadata (including an empty
@@ -234,17 +268,23 @@ namespace ValuePtr
 
 /--
 Does the definition of `value` properly dominate the use of it by `op`?
+
+`positions` must be `irCtx.opPositions`, so that operations of the same block
+are ordered without walking the block.
 -/
 def properlyDominatesUse
     (value : ValuePtr)
     (op : OperationPtr)
     (dfCtx : DataFlowContext)
+    (positions : Std.HashMap OperationPtr Nat)
     (irCtx : WfIRContext OpCode) : Bool :=
   match value with
   | .opResult result =>
       result.op.properlyDominates op dfCtx irCtx (enclosingOk := false)
+        (positions := some positions)
   | .blockArgument argument =>
       (InsertPoint.atStart! argument.block irCtx.raw).dominates (.before op) dfCtx irCtx
+        (positions := some positions)
 
 end ValuePtr
 
