@@ -87,17 +87,18 @@ axiom OperationPtr.dominatesIp_before :
 grind_pattern OperationPtr.dominatesIp_before => op₁.dominatesIp (.before op₂) ctx
 
 /--
-Proper dominance within an SSACFG region is transitive when the final operation's block is
+Proper dominance between operations is transitive when the final operation is reachable: its
+chain of enclosing nodes ends at a root, and every enclosing block of an SSACFG region is
 reachable from the region entry.
 -/
-axiom OperationPtr.ProperlyDominatesInRegion.trans_of_reachable
-    {op₃ : OperationPtr} {block₃ : BlockPtr} {region : RegionPtr}
-    (hasSSADominance : region.hasSSADominance ctx = true)
-    (op₃Parent : (op₃.get! ctx.raw).parent = some block₃)
-    (reachable : block₃.ReachableFromEntry region ctx) :
-    op₁.ProperlyDominatesInRegion op₂ region ctx →
-    op₂.ProperlyDominatesInRegion op₃ region ctx →
-    op₁.ProperlyDominatesInRegion op₃ region ctx
+axiom OperationPtr.ProperlyDominates.trans_of_reachable {op₃ : OperationPtr}
+    (rooted : ∃ root : IRNode, root.Ancestor (.operation op₃) ctx ∧ root.parent! ctx = none)
+    (reachable : ∀ block region, (IRNode.block block).Ancestor (.operation op₃) ctx →
+      (block.get! ctx.raw).parent = some region → region.hasSSADominance ctx = true →
+      block.ReachableFromEntry region ctx) :
+    op₁.ProperlyDominates op₂ ctx true →
+    op₂.ProperlyDominates op₃ ctx true →
+    op₁.ProperlyDominates op₃ ctx true
 
 /--
 A value dominating the program point before an operation `op₁` also dominates the program
