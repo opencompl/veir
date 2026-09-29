@@ -429,6 +429,10 @@ def emitTerminator (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr)
   | .riscv_cf .bgeu =>
     IO.println s!"    BGEU {v 0}, {v 1}, %bb.{succ 0}"
     IO.println s!"    PseudoBR %bb.{succ 1}"
+  -- `unimp` raises an illegal-instruction exception; it is what `llc` selects
+  -- for `llvm.trap`.
+  | .riscv_cf .unreachable =>
+    IO.println "    UNIMP"
   | .llvm .return | .func .return =>
     if ops.size > 0 then
       IO.println s!"    $x10 = COPY {v 0}"

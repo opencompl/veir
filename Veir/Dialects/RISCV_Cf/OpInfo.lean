@@ -24,6 +24,7 @@ inductive Riscv_Cf where
 | bge
 | bltu
 | bgeu
+| unreachable
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, properties_of]
@@ -68,7 +69,10 @@ def Riscv_Cf.isConstantLike (_op : Riscv_Cf) : Bool :=
 def Riscv_Cf.hasSSADominance (_op : Riscv_Cf) (_index : Nat) : Bool :=
   true
 
-/-- Every `riscv_cf` operation is a branch, and so terminates its block. -/
+/--
+  Every `riscv_cf` operation terminates its block: all but `unreachable` are
+  branches, and `unreachable` ends control flow.
+-/
 @[is_terminator]
 def Riscv_Cf.isTerminator (_op : Riscv_Cf) : Bool :=
   true
@@ -170,6 +174,7 @@ def Riscv_Cf.branchOpInterface?
         let some (.reg rhs) ← operands[1]? | none
         BranchOpInterface.getConditionalSuccessor? successors (!BitVec.ult lhs.val rhs.val)
     }
+  | .unreachable => none
 
 /--
 Verify the local invariants of a `riscv_cf` operation in any operation-info
@@ -221,6 +226,8 @@ def Riscv_Cf.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     let sizes := (op.getProperties! ctx.raw Riscv_Cf.bnez).operandSegmentSizes
     op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 1
     pure ()
+  | .unreachable =>
+    op.verifyPlainOpCounts ctx opIn 0 0
 
 def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
@@ -307,6 +314,11 @@ def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : propertiesOf op
       return (#[], some (.branch (operands.extract 1 (trueSize + 1)) destTrue))
     else
       return (#[], some (.branch (operands.extract (trueSize + 1) operands.size) destFalse))
+  -- Reaching `unreachable` is undefined behavior, as for `llvm.unreachable`, so
+  -- that lowering the latter to the former is a refinement. The MIR printer
+  -- lowers it to an instruction that traps.
+  | .unreachable =>
+    Interp.ub none
 
 instance : HasOpInfo Riscv_Cf where
   verifyLocalInvariants := Riscv_Cf.verifyLocalInvariants
