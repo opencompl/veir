@@ -1,0 +1,16 @@
+// RUN: VEIR_ROUNDTRIP
+
+"builtin.module"() ({
+  ^4():
+    "func.func"() <{"function_type" = () -> (), "sym_name" = "main"}> ({
+      ^6(%arg6_0 : i32):
+        "cf.br"(%arg6_0) [^7] : (i32) -> ()
+      ^7(%arg7_0 : i32):
+        %9 = "arith.constant"() <{"value" = 0 : i1}> : () -> i1
+        "cf.cond_br"(%9, %arg7_0, %arg7_0) [^7, ^7] <{"operandSegmentSizes" = array<i32: 1, 1, 1>}> : (i1, i32, i32) -> ()
+    }) : () -> ()
+}) : () -> ()
+
+// CHECK-NOT: loop_annotation
+// CHECK: "cf.cond_br"(%{{.*}}, %{{.*}}, %{{.*}}) [^{{.*}}, ^{{.*}}] <{"operandSegmentSizes" = array<i32: 1, 1, 1>}> : (i1, i32, i32) -> ()
+// CHECK-NOT: loop_annotation
