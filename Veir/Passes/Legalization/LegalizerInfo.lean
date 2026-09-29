@@ -77,7 +77,7 @@ def LegalityQuery.sizeInBits (query : LegalityQuery) (typeIdx : Nat) : Nat :=
 ## Legalization rules
 
 A target gives a list of rules for each opcode. The legalizer takes the action of the first rule
-whose predicate holds, and the operation is unsupported when no rule applies.
+that applies, and the operation is unsupported when no rule applies.
 -/
 
 /-- The action the legalizer takes on an operation. -/
@@ -92,16 +92,14 @@ inductive LegalizeAction where
   /-- This operation is completely unsupported on the target. -/
   | unsupported
 
-/-- A single legalization rule. The specified `action` is chosen when `predicate` is true. -/
-structure LegalizeRule where
-  predicate : LegalityQuery → Bool
-  action : LegalityQuery → LegalizeAction
+/-- A single legalization rule. Returns the action to take, or `none` if the rule does not apply. -/
+abbrev LegalizeRule := LegalityQuery → Option LegalizeAction
 
 namespace LegalizeRule
 
 /-- The operation is legal if `predicate` is true. -/
 def legalIf (predicate : LegalityQuery → Bool) : LegalizeRule :=
-  { predicate, action := fun _ => .legal }
+  fun query => if predicate query then some .legal else none
 
 /-- The operation is legal when type group 0 is any type in `types`. -/
 def legalFor (types : List LLT) : LegalizeRule :=
@@ -118,10 +116,10 @@ def alwaysLegal : LegalizeRule :=
 /-- Widen the scalar to the one selected by `mutation` if `predicate` is true. -/
 def widenScalarIf (predicate : LegalityQuery → Bool) (mutation : LegalityQuery → Nat × LLT) :
     LegalizeRule :=
-  { predicate
-    action := fun query =>
-      let (typeIdx, newType) := mutation query
-      .widenScalar typeIdx newType }
+  fun query => if predicate query then
+    let (typeIdx, newType) := mutation query
+    some (.widenScalar typeIdx newType)
+  else none
 
 /--
 Widen the scalar to the next power of two that is at least `minSize`. No effect if the scalar size
@@ -143,14 +141,13 @@ structure LegalizerInfo where
   rules : GMIR → Array LegalizeRule
 
 /--
-Determine what action should be taken to legalize `op`, using the first rule of `opcode` whose
-predicate holds.
+Determine what action should be taken to legalize `op`, using the first rule of `opcode` that
+applies.
 -/
 def LegalizerInfo.getAction (info : LegalizerInfo) (ctx : IRContext OpCode) (op : OperationPtr)
     (opcode : GMIR) : LegalizeAction := Id.run do
   let some query := LegalityQuery.of? ctx op opcode | return .unsupported
-  let some rule := (info.rules opcode).find? (·.predicate query) | return .unsupported
-  return rule.action query
+  return (info.rules opcode).findSome? (· query) |>.getD .unsupported
 
 end
 
