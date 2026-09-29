@@ -38,9 +38,9 @@ instance : Decidable (Conforms val ty) := by
 
 @[grind =]
 theorem Conforms.integerType :
-    Conforms runtimeValue ⟨.integerType intType, h⟩ ↔
+    Conforms runtimeValue (.of IntegerType intType) ↔
     ∃ val, runtimeValue = .int intType.bitwidth val := by
-  simp only [Conforms]
+  simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
   constructor
   . cases runtimeValue
     case int bw val =>
@@ -52,10 +52,10 @@ theorem Conforms.integerType :
     grind
 
 @[grind <=]
-theorem Conforms.byteType {runtimeValue byteType h} :
-    Conforms runtimeValue ⟨.byteType byteType, h⟩ →
+theorem Conforms.byteType {runtimeValue byteType} :
+    Conforms runtimeValue (.of LLVM.ByteType byteType) →
     ∃ val, runtimeValue = .byte byteType.bitwidth val := by
-  simp only [Conforms]
+  simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
   cases runtimeValue
   case byte bw val =>
     simp only [byte.injEq, exists_and_left]
@@ -65,9 +65,9 @@ theorem Conforms.byteType {runtimeValue byteType h} :
 
 @[grind <=]
 theorem Conforms.floatType :
-    Conforms runtimeValue ⟨.floatType fltType, h⟩ →
+    Conforms runtimeValue (.of FloatType fltType) →
     ∃ val, runtimeValue = .float fltType val := by
-  simp only [Conforms]
+  simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
   cases runtimeValue
   case float bw val =>
     simp only [float.injEq, exists_and_left]
@@ -76,10 +76,10 @@ theorem Conforms.floatType :
   all_goals grind
 
 @[grind <=]
-theorem Conforms.modArithType {runtimeValue modArithType h} :
-    Conforms runtimeValue ⟨.modArithType modArithType, h⟩ →
+theorem Conforms.modArithType {runtimeValue modArithType} :
+    Conforms runtimeValue (.of ModArithType modArithType) →
     ∃ val, runtimeValue = .int modArithType.modulus.type.bitwidth val := by
-  simp only [Conforms]
+  simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
   cases runtimeValue
   case int bw val =>
     simp only [int.injEq, exists_and_left]
@@ -89,23 +89,24 @@ theorem Conforms.modArithType {runtimeValue modArithType h} :
 
 @[grind <=]
 theorem Conforms.registerType :
-    Conforms runtimeValue ⟨.registerType regType, h⟩ →
+    Conforms runtimeValue (.of RegisterType regType) →
     ∃ val, runtimeValue = .reg val := by
-  simp only [Conforms]
+  simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
   cases runtimeValue <;> grind
 
 @[grind <=]
 theorem Conforms.llvmPointerType :
-    Conforms runtimeValue ⟨.llvmPointerType _, h⟩ →
+    Conforms runtimeValue (.of LLVM.PointerType ptrType) →
     ∃ val, runtimeValue = .addr val := by
-  simp only [Conforms]
+  simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
   cases runtimeValue <;> grind
 
 @[grind <=]
-theorem Conforms.feltType {runtimeValue feltTy h} :
-    Conforms runtimeValue ⟨.feltType feltTy, h⟩ →
+theorem Conforms.feltType {runtimeValue feltTy} :
+    Conforms runtimeValue (.of FeltType feltTy) →
     ∃ val, runtimeValue = .felt feltTy val := by
-  cases runtimeValue <;> simp_all [Conforms]
+  simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
+  cases runtimeValue <;> simp_all
 
 @[expose]
 def ArrayConforms (source : Array RuntimeValue) (target : Array TypeAttr) : Prop :=
