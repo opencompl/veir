@@ -37,9 +37,11 @@ def Cf.toAttrDict
     Std.HashMap ByteArray Attribute :=
   match op with
   | .cond_br => Id.run do
-    let mut dict := Std.HashMap.emptyWithCapacity 2
+    let mut dict := Std.HashMap.emptyWithCapacity 3
     if props.branch_weights.values.size ≠ 0 then
       dict := dict.insert "branch_weights".toUTF8 (.denseArrayAttr props.branch_weights)
+    if let some annotation := props.loop_annotation then
+      dict := dict.insert "loop_annotation".toUTF8 (.loopAnnotationAttr annotation)
     dict.insert "operandSegmentSizes".toUTF8
       (Attribute.denseArrayAttr props.operandSegmentSizes)
   | _ => Std.HashMap.emptyWithCapacity 0
