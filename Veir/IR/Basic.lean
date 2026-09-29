@@ -2681,6 +2681,23 @@ theorem hasUses!_eq_false_iff_hasUses!_opResult_eq_false {op : OperationPtr}
   simp [hasUses!_eq_false_iff_hasUses!_getResult_eq_false]
   grind [OpResultPtr.inBounds_def, getResult, cases OpResultPtr]
 
+/--
+All operations nested (at any depth) under `op`, in program order, appended to
+`acc`. `op` itself is not included.
+-/
+partial def nestedOps (op : OperationPtr) (ctx : IRContext OpInfo)
+    (acc : Array OperationPtr := #[]) : Array OperationPtr := Id.run do
+  let mut acc := acc
+  for region in (op.get! ctx).regions do
+    let mut block? := (region.get! ctx).firstBlock
+    while let some block := block? do
+      let mut inner? := (block.get! ctx).firstOp
+      while let some inner := inner? do
+        acc := inner.nestedOps ctx (acc.push inner)
+        inner? := (inner.get! ctx).next
+      block? := (block.get! ctx).next
+  return acc
+
 end OperationPtr
 
 /-- Return the region containing a value's definition, if it is linked into one. -/

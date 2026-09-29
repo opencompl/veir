@@ -7,12 +7,12 @@
   "func.func"() <{sym_name = "operand_folds", function_type = (i32) -> (i32, i1)}> ({
   ^entry(%x : i32):
     // CHECK: func.func @operand_folds(%[[X:.*]]: i32)
+    // CHECK-NEXT: %[[FALSE:.*]] = "arith.constant"() <{"value" = false}> : () -> i1
     // NO-SCCP-LABEL: func.func @operand_folds
     %zero = "arith.constant"() <{value = 0 : i32}> : () -> i32
     "cf.br"(%zero) [^body] : (i32) -> ()
   ^body(%forwarded : i32):
     // CHECK: ^{{[0-9]+}}(%{{.*}} : i32):
-    // CHECK-NEXT: %[[FALSE:.*]] = "arith.constant"() <{"value" = false}> : () -> i1
     // CHECK-NEXT: "func.return"(%[[X]], %[[FALSE]]) : (i32, i1) -> ()
     // NO-SCCP: "arith.addi"
     // NO-SCCP: "arith.addi"
@@ -28,6 +28,9 @@
   "func.func"() <{sym_name = "join_and_dialect", function_type = (i1) -> (i32, i32, i32)}> ({
   ^entry(%condition : i1):
     // CHECK-LABEL: func.func @join_and_dialect
+    // CHECK-NEXT: %[[TEN:.*]] = "arith.constant"() <{"value" = 10 : i32}> : () -> i32
+    // CHECK-NEXT: %[[FIVE:.*]] = "llvm.mlir.constant"() <{"value" = 5 : i32}> : () -> i32
+    // CHECK-NOT: "llvm.mlir.constant"
     %left = "llvm.mlir.constant"() <{value = 5 : i32}> : () -> i32
     %right = "llvm.mlir.constant"() <{value = 5 : i32}> : () -> i32
     %seven = "arith.constant"() <{value = 7 : i32}> : () -> i32
@@ -35,8 +38,6 @@
       <{operandSegmentSizes = array<i32: 1, 2, 2>}> : (i1, i32, i32, i32, i32) -> ()
   ^join(%same : i32, %different : i32):
     // CHECK: ^{{[0-9]+}}(%{{.*}} : i32, %[[DIFFERENT:.*]] : i32):
-    // CHECK-NEXT: %[[FIVE:.*]] = "llvm.mlir.constant"() <{"value" = 5 : i32}> : () -> i32
-    // CHECK-NEXT: %[[TEN:.*]] = "arith.constant"() <{"value" = 10 : i32}> : () -> i32
     // CHECK-NEXT: "func.return"(%[[FIVE]], %[[DIFFERENT]], %[[TEN]]) : (i32, i32, i32) -> ()
     %sum = "arith.addi"(%same, %same) : (i32, i32) -> i32
     "func.return"(%same, %different, %sum) : (i32, i32, i32) -> ()
