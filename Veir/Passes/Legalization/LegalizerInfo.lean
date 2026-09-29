@@ -121,14 +121,6 @@ def widenScalarIf (predicate : LegalityQuery → Bool) (mutation : LegalityQuery
     some (.widenScalar typeIdx newType)
   else none
 
-/--
-Widen the scalar to the next power of two that is at least `minSize`. No effect if the scalar size
-is a power of two.
--/
-def widenScalarToNextPow2 (typeIdx : Nat) (minSize : Nat := 0) : LegalizeRule :=
-  widenScalarIf (fun query => !(query.sizeInBits typeIdx).isPowerOfTwo)
-    fun query => (typeIdx, max (query.sizeInBits typeIdx).nextPowerOfTwo minSize)
-
 /-- Ensure the scalar of type group `typeIdx` is at least as wide as `type`. -/
 def minScalar (typeIdx : Nat) (type : LLT) : LegalizeRule :=
   widenScalarIf (fun query => query.sizeInBits typeIdx < type) fun _ => (typeIdx, type)

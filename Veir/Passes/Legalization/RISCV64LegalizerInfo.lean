@@ -22,7 +22,6 @@ def riscv64LegalizerInfo : LegalizerInfo where
   rules
     | .g_add | .g_sub => [
       .legalFor [64],
-      .widenScalarToNextPow2 0,
       .minScalar 0 64,
     ]
     | .g_icmp => [

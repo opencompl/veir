@@ -20,17 +20,13 @@
     // CHECK-NEXT: "gmir.g_sub"(%[[WIDE_LHS]], %[[WIDE_RHS]]) : (i64, i64) -> i64
     // CHECK-NEXT: "gmir.g_trunc"({{.*}}) : (i64) -> i8
 
-    // `i3` is widened to `i4` first, then to `i64`.
-    // TODO: Fold the chained extensions and truncations, as LLVM's artifact combiner does.
+    // Widths that are not a power of two are widened to `i64` directly.
     %x_i3 = "llvm.mlir.constant"() <{value = 1 : i3}> : () -> i3
     %add3 = "gmir.g_add"(%x_i3, %x_i3) : (i3, i3) -> i3
-    // CHECK:      "gmir.g_anyext"({{.*}}) : (i3) -> i4
-    // CHECK-NEXT: "gmir.g_anyext"({{.*}}) : (i3) -> i4
-    // CHECK-NEXT: "gmir.g_anyext"({{.*}}) : (i4) -> i64
-    // CHECK-NEXT: "gmir.g_anyext"({{.*}}) : (i4) -> i64
+    // CHECK:      "gmir.g_anyext"({{.*}}) : (i3) -> i64
+    // CHECK-NEXT: "gmir.g_anyext"({{.*}}) : (i3) -> i64
     // CHECK-NEXT: "gmir.g_add"({{.*}}) : (i64, i64) -> i64
-    // CHECK-NEXT: "gmir.g_trunc"({{.*}}) : (i64) -> i4
-    // CHECK-NEXT: "gmir.g_trunc"({{.*}}) : (i4) -> i3
+    // CHECK-NEXT: "gmir.g_trunc"({{.*}}) : (i64) -> i3
 
     "test.test"(%add32, %sub, %add3) : (i32, i8, i3) -> ()
     "llvm.return"() : () -> ()
