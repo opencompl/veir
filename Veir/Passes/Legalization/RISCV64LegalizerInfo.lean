@@ -20,23 +20,23 @@ public section
 -- TODO: Add custom rules with `sext_in_reg`, so that `addw` and `subw` can be selected later.
 def riscv64LegalizerInfo : LegalizerInfo where
   rules
-    | .g_add | .g_sub => #[
+    | .g_add | .g_sub => [
       .legalFor [64],
       .widenScalarToNextPow2 0,
       .minScalar 0 64,
     ]
-    | .g_icmp => #[
+    | .g_icmp => [
       .legalForTypePairs [(64, 64)],
       .minScalar 1 64,
       .minScalar 0 64,
     ]
-    | .g_anyext | .g_sext | .g_zext => #[
+    | .g_anyext | .g_sext | .g_zext => [
       -- Widening creates extensions from any width, such as `i8` to `i64`. LLVM folds most of them
       -- away during legalization with its artifact combiner. We have none, so all extensions up to
       -- 64 bits are legal.
       .legalIf (·.sizeInBits 0 ≤ 64),
     ]
-    | .g_trunc => #[
+    | .g_trunc => [
       .alwaysLegal,
     ]
 

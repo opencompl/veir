@@ -138,7 +138,7 @@ end LegalizeRule
 /-- The legalization rules of a target. -/
 structure LegalizerInfo where
   /-- The rules of each opcode, in the order they are tried. -/
-  rules : GMIR → Array LegalizeRule
+  rules : GMIR → List LegalizeRule
 
 /--
 Determine what action should be taken to legalize `op`, using the first rule of `opcode` that
