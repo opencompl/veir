@@ -474,8 +474,10 @@ def emitBlock (ctx : IRContext OpCode) (fr : Frame) (blocks : Array BlockPtr)
   | some f =>
     let term := lastOp ctx f
     let lsuccs := loweredSuccs ctx blocks split bi term
-    -- successors line: distinct lowered successor indices, in order
-    if !lsuccs.isEmpty then
+    -- Successors line: distinct lowered successor indices, in order. UNIMP
+    -- is not an LLVM barrier, so its empty list must be explicit to prevent
+    -- the MIR parser from inferring a fallthrough edge to the next block.
+    if !lsuccs.isEmpty || term.getOpType! ctx == .riscv_cf .unreachable then
       let mut sis : List Nat := []
       for si in lsuccs do
         if !sis.contains si then sis := sis ++ [si]
