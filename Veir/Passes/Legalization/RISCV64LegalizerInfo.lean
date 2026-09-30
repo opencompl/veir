@@ -17,7 +17,7 @@ namespace Veir
 
 public section
 
--- TODO: Add custom rules with `sext_in_reg`, so that `addw` and `subw` can be selected later.
+-- TODO: Add custom rules which help select the word variants of operations.
 def riscv64LegalizerInfo : LegalizerInfo where
   rules
     | .g_add | .g_sub => [
@@ -29,11 +29,16 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .minScalar 1 64,
       .minScalar 0 64,
     ]
-    | .g_anyext | .g_sext | .g_zext => [
-      -- Widening creates extensions from any width, such as `i8` to `i64`. LLVM folds most of them
-      -- away during legalization with its artifact combiner. We have none, so all extensions up to
-      -- 64 bits are legal.
-      .legalIf (·.sizeInBits 0 ≤ 64),
+    | .g_anyext => [
+      .alwaysLegal,
+    ]
+    | .g_sext | .g_zext => [
+      -- In LLVM, extensions from other widths never reach these rules: their operands are always
+      -- the result of a  `g_trunc`, and the artifact combiner turns them into `g_sext_inreg`
+      -- or `g_and`.
+      -- TODO: Add `g_sext_inreg`, `g_and` and these folds. Until then, other widths are illegal.
+      -- TODO: Extending from 16 -> 32 seems to be legal and selects sext.w / zext.w. Why?
+      .legalForTypePairs [(32, 16), (64, 16), (64, 32)],
     ]
     | .g_trunc => [
       .alwaysLegal,
