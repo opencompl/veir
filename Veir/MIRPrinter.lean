@@ -11,17 +11,19 @@ public section
 /-!
   # VeIR RISC-V dialect → LLVM pre-register-allocation MIR
 
-  A small, intentionally non-general printer: it takes a `main : i64 ()`
-  function whose body has already been lowered to the `riscv` / `riscv_cf`
-  dialects (the output of the `isel-*` pipeline) and emits textual MIR with
-  virtual registers, suitable for `llc -run-pass=none` / `-start-before=...`.
+  A small, intentionally non-general printer: it takes a module whose function
+  bodies have already been lowered to the `riscv` / `riscv_cf` dialects (the
+  output of the `isel-*` pipeline) and emits textual MIR with virtual
+  registers, suitable for `llc -run-pass=none` / `-start-before=...`.
 
-  Three structural translations happen here:
+  Four structural translations happen here:
   * VeIR block arguments become MIR `PHI`s at join blocks (or a `COPY` when a
     block has a single predecessor).
   * `builtin.unrealized_conversion_cast` (reg ↔ i64/i1) becomes a `COPY`.
   * `riscv_stack.alloca` becomes a `stack` object, leaving the frame layout,
     prologue, epilogue and CFI to `llc` (see `Frame`).
+  * `riscv_cf.call` expands to LLVM's call sequence, passing arguments and
+    results in the standard calling convention's registers (see `emitCall`).
 -/
 
 namespace Veir.MIRPrinter
@@ -32,11 +34,18 @@ def physRegName? : Attribute → Option String
   | .registerType { index := some n } => some s!"$x{n}"
   | _ => none
 
-/-- Virtual-register name for a value: `%v<opId>` for op results,
+/-- Virtual-register name for an op's `i`-th result: `%v<opId>`, with a
+    `_<i>` suffix for results after the first (e.g. of a multi-result call). -/
+def resultVreg (opId i : Nat) : String :=
+  if i == 0 then s!"%v{opId}" else s!"%v{opId}_{i}"
+
+/-- Virtual-register name for a value: `resultVreg` for op results,
     `%arg<blockId>_<i>` for block arguments. -/
 def vreg (ctx : IRContext OpCode) (v : ValuePtr) : String :=
   match v with
-  | .opResult rp => s!"%v{(rp.get! ctx).owner.id}"
+  | .opResult rp =>
+    let r := rp.get! ctx
+    resultVreg r.owner.id r.index
   | .blockArgument bp =>
     let a := bp.get! ctx
     s!"%arg{a.owner.id}_{a.index}"
@@ -320,6 +329,62 @@ def planEdges (ctx : IRContext OpCode) (blocks : Array BlockPtr) : EdgePlan := I
     preds := preds.set! e.2.1 (preds[e.2.1]!.push (e.1, e.2.2))
   return { preds := preds, split := split, tramps := tramps }
 
+/-- The callee symbol name (without its `@`) of a direct `riscv_cf.call`;
+    `none` when indirect. -/
+def callee? (ctx : IRContext OpCode) (op : OperationPtr) : Option String :=
+  let opType := op.getOpType! ctx
+  let d := Properties.toAttrDict opType (op.getProperties! ctx opType)
+  match d["callee".toUTF8]? with
+  | some (.flatSymbolRefAttr c) => some (c.value.stripPrefix "@")
+  | _ => none
+
+/-- Register-passed argument and result capacity of the standard calling
+    convention: arguments in a0-a7 (x10-x17), results in a0-a1 (x10-x11).
+    Anything beyond these goes on the stack, which we don't lower. -/
+def maxRegArgs : Nat := 8
+def maxRegResults : Nat := 2
+
+/-- Emit a `riscv_cf.call` the way LLVM's selector does: bracket the call with
+    `ADJCALLSTACKDOWN`/`ADJCALLSTACKUP` (no stack arguments, so both are 0),
+    copy arguments into a0.., call with the lp64 callee-saved mask, and copy
+    results out of a0... An indirect target goes through a `gprjalrnonx7`
+    copy -- the register class `PseudoCALLIndirect` requires. -/
+def emitCall (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr) : IO Unit := do
+  let ops := getOperands ctx op
+  let callee := callee? ctx op
+  -- An indirect call's first operand is the target; the rest are arguments.
+  let args := if callee.isSome then ops else ops.extract 1 ops.size
+  let nres := op.getNumResults! ctx
+  if args.size > maxRegArgs || nres > maxRegResults then
+    IO.println s!"    ; UNHANDLED riscv_cf.call with {args.size} args and {nres} results"
+    return
+  let target := s!"%t{op.id}"
+  if callee.isNone then
+    IO.println s!"    {target}:gprjalrnonx7 = COPY {operandOf ctx fr (ops[0]!)}"
+  IO.println "    ADJCALLSTACKDOWN 0, 0, implicit-def dead $x2, implicit $x2"
+  for i in 0...args.size do
+    IO.println s!"    $x{10 + i} = COPY {operandOf ctx fr (args[i]!)}"
+  let uses := (List.range args.size).map (fun i => s!", implicit $x{10 + i}")
+  let defs := (List.range nres).map (fun i => s!", implicit-def $x{10 + i}")
+  let call := match callee with
+    | some c => s!"PseudoCALL @{c}"
+    | none => s!"PseudoCALLIndirect {target}"
+  IO.println (s!"    {call}, csr_ilp32_lp64, implicit-def dead $x1" ++
+    String.join uses ++ ", implicit-def $x2" ++ String.join defs)
+  IO.println "    ADJCALLSTACKUP 0, 0, implicit-def dead $x2, implicit $x2"
+  for i in 0...nres do
+    IO.println s!"    {resultVreg op.id i}:gpr = COPY $x{10 + i}"
+
+/-- Emit a return: copy the returned values into a0.. and `PseudoRET`. -/
+def emitReturn (ctx : IRContext OpCode) (fr : Frame) (ops : Array ValuePtr) : IO Unit := do
+  if ops.size > maxRegResults then
+    IO.println s!"    ; UNHANDLED return of {ops.size} values"
+    return
+  for i in 0...ops.size do
+    IO.println s!"    $x{10 + i} = COPY {operandOf ctx fr (ops[i]!)}"
+  let uses := (List.range ops.size).map (fun i => s!" implicit $x{10 + i}")
+  IO.println ("    PseudoRET" ++ String.intercalate "," uses)
+
 /-- Emit a single non-terminator operation. -/
 def emitRegular (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr) : IO Unit := do
   let opType := op.getOpType! ctx
@@ -387,6 +452,7 @@ def emitRegular (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr) : IO U
   | .riscv_stack .alloca =>
     if fr.folded.contains op.id then pure ()
     else IO.println s!"    {res} = ADDI %stack.{fr.fi[op.id]!}, 0"
+  | .riscv_cf .call => emitCall ctx fr op
   | _ => IO.println s!"    ; UNHANDLED op"
 
 /-- Emit a terminator operation (branch / return).  `lsuccs` gives the lowered
@@ -433,12 +499,8 @@ def emitTerminator (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr)
   -- for `llvm.trap`.
   | .riscv_cf .unreachable =>
     IO.println "    UNIMP"
-  | .llvm .return | .func .return =>
-    if ops.size > 0 then
-      IO.println s!"    $x10 = COPY {v 0}"
-      IO.println s!"    PseudoRET implicit $x10"
-    else
-      IO.println s!"    PseudoRET"
+  | .llvm .return | .func .return | .riscv_cf .return =>
+    emitReturn ctx fr ops
   | _ => IO.println s!"    ; UNHANDLED terminator"
 
 /-- Emit the op list of a block, treating the last op as the terminator. -/
@@ -513,39 +575,62 @@ def emitTrampoline (t : Nat) (s : Nat) : IO Unit := do
   IO.println s!"    successors: %bb.{s}"
   IO.println s!"    PseudoBR %bb.{s}"
 
-/-- Print a full MIR module for the given `main` function. -/
-def printMIR (ctx : IRContext OpCode) (funcOp : OperationPtr) : IO Unit := do
+/-- The blocks of a function body reachable from its entry, in order.  A real
+    codegen prunes the unreachable ones, and they break MIR liveness (their
+    values aren't dominated by any real path). -/
+def reachableBlocks (ctx : IRContext OpCode) (funcOp : OperationPtr) : Array BlockPtr :=
   let allBlocks := collectBlocks ctx (FunctionOpInterface.getEntryBlock? funcOp ctx)
-  -- Drop blocks unreachable from the entry: a real codegen prunes them, and
-  -- they break MIR liveness (their values aren't dominated by any real path).
   let reach :=
     if allBlocks.isEmpty then []
     else reachable ctx allBlocks [(allBlocks[0]!).id]
-  let blocks := allBlocks.filter (fun b => reach.contains b.id)
+  allBlocks.filter (fun b => reach.contains b.id)
+
+/-- Whether a function-like op has a body (as opposed to declaring an external
+    function). -/
+def hasBody (ctx : IRContext OpCode) (funcOp : OperationPtr) : Bool :=
+  funcOp.getNumRegions! ctx > 0 && (FunctionOpInterface.getEntryBlock? funcOp ctx).isSome
+
+/-- The symbol name of a function-like op. -/
+def symName (ctx : IRContext OpCode) (funcOp : OperationPtr) : String :=
+  String.fromUTF8! (FunctionOpInterface.getSymName? funcOp ctx).get!.value
+
+/-- The `riscv_cf.call` ops in `blocks`. -/
+def calls (ctx : IRContext OpCode) (blocks : Array BlockPtr) : Array OperationPtr :=
+  blocks.flatMap fun b =>
+    (collectOps ctx (b.get! ctx).firstOp).filter (·.getOpType! ctx == .riscv_cf .call)
+
+/-- The number of arguments of the function whose reachable blocks are `blocks`:
+    its entry block's arguments. -/
+def numArgs (ctx : IRContext OpCode) (blocks : Array BlockPtr) : Nat :=
+  match blocks[0]? with
+  | some b => b.getNumArguments! ctx
+  | none => 0
+
+/-- Print the MIR document for one function. -/
+def printFunction (ctx : IRContext OpCode) (name : String) (blocks : Array BlockPtr) :
+    IO Unit := do
   let plan := planEdges ctx blocks
   let frame := planFrame ctx blocks
   -- Entry-block arguments are the function arguments; they live in the RISC-V
-  -- integer argument registers a0-a7 (x10-x17). Declare them on the stub IR
-  -- signature and as MIR liveins so the register allocator keeps them there.
-  let nargs := match blocks[0]? with
-    | some b => b.getNumArguments! ctx
-    | none => 0
-  let params := String.intercalate ", " ((List.range nargs).map (fun i => s!"i64 %a{i}"))
-  IO.println "--- |"
-  IO.println s!"  define i64 @main({params}) #0 \{"
-  IO.println "    ret i64 0"
-  IO.println "  }"
-  IO.println "  attributes #0 = { \"target-features\"=\"+m,+zba,+zbb,+zbs,+zbc,+zbkb,+zicond\" }"
-  IO.println "..."
+  -- integer argument registers a0-a7 (x10-x17). Declare them as MIR liveins so
+  -- the register allocator keeps them there.
+  let nargs := numArgs ctx blocks
   IO.println "---"
-  IO.println "name:            main"
+  IO.println s!"name:            {name}"
   IO.println "tracksRegLiveness: true"
   if nargs != 0 then
     IO.println "liveins:"
     for i in 0...nargs do
       IO.println s!"  - \{ reg: '$x{10 + i}' }"
+  -- A call's `ADJCALLSTACKDOWN`/`ADJCALLSTACKUP` must be announced here: the
+  -- machine verifier rejects them otherwise, and prologue/epilogue insertion
+  -- relies on `hasCalls` to save and restore `ra`.
+  if !(calls ctx blocks).isEmpty then
+    IO.println "frameInfo:"
+    IO.println "  adjustsStack:    true"
+    IO.println "  hasCalls:        true"
   -- One `stack` object per alloca.  `llc` derives the frame's size and maximum
-  -- alignment from these, so no explicit `frameInfo` is needed.
+  -- alignment from these.
   if !frame.objects.isEmpty then
     IO.println "stack:"
     for k in 0...frame.objects.size do
@@ -559,5 +644,31 @@ def printMIR (ctx : IRContext OpCode) (funcOp : OperationPtr) : IO Unit := do
     IO.println ""
     emitTrampoline tr.1 tr.2
   IO.println "..."
+
+/-- Print a full MIR module for the given function-like ops: a stub IR module,
+    then one MIR document per function with a body.  The stub defines those
+    functions and declares every direct callee defined nowhere else, since the
+    MIR parser resolves each `@callee` against the IR module. -/
+def printMIR (ctx : IRContext OpCode) (funcOps : Array OperationPtr) : IO Unit := do
+  let funcs := (funcOps.filter (hasBody ctx)).map fun f => (symName ctx f, reachableBlocks ctx f)
+  let defined := funcs.map (·.1)
+  let mut externs : Array String := #[]
+  for (_, blocks) in funcs do
+    for c in (calls ctx blocks).filterMap (callee? ctx) do
+      if !defined.contains c && !externs.contains c then
+        externs := externs.push c
+  IO.println "--- |"
+  for (name, blocks) in funcs do
+    let params := String.intercalate ", "
+      ((List.range (numArgs ctx blocks)).map (fun i => s!"i64 %a{i}"))
+    IO.println s!"  define i64 @{name}({params}) #0 \{"
+    IO.println "    ret i64 0"
+    IO.println "  }"
+  for name in externs do
+    IO.println s!"  declare void @{name}()"
+  IO.println "  attributes #0 = { \"target-features\"=\"+m,+zba,+zbb,+zbs,+zbc,+zbkb,+zicond\" }"
+  IO.println "..."
+  for (name, blocks) in funcs do
+    printFunction ctx name blocks
 
 end Veir.MIRPrinter
