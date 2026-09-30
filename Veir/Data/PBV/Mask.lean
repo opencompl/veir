@@ -77,7 +77,6 @@ theorem toNat_cpop_maskOfWidth_eq_width {o w : Nat} (h : w ≤ o) : (BitVec.cpop
   simp only [maskOfWidth_eq_allOnes h, BitVec.truncate_eq_setWidth, BitVec.toNat_cpop_setWidth_eq_of_le h,
     BitVec.cpop_allOnes, BitVec.toNat_ofNat, Nat.mod_two_pow_self]
 
-
 /-- Push a variable `Nat` which corresponds to a mask into a `cpop` of the mask. -/
 theorem cpop_eq_width_of_maskOfWidth {o w : Nat} {m : BitVec o} (h : w ≤ o) (hm : m = maskOfWidth o w) : m.cpop = BitVec.ofNat o w := by
   apply BitVec.eq_of_toNat_eq
