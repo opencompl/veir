@@ -189,3 +189,39 @@ example (w : Nat) (x y : BitVec (w + 2)) (hw : w ≤ 4) :
 example (w : Nat) (x : BitVec w) (hw : w ≤ 2) :
     (x.signExtend 4).setWidth w = x := by
   pbv_decide 4
+
+/-- Adding zero is identity -/
+example (w : Nat) (x : BitVec w) (hw : w ≤ 2) :
+    x + 0 = x := by
+  pbv_decide 4
+
+/-- Adding a constant commutes -/
+example (w : Nat) (x : BitVec w) (hw : w ≤ 2) :
+    x + 1 = 1 + x := by
+  pbv_decide 4
+
+/-- Adding a variable which is zero in the hypothesis is zero -/
+example (w : Nat) (x y : BitVec w) (hy : y = 0) (hw : w ≤ 2) :
+    x + y = x := by
+  pbv_decide 4
+
+/-- A `Nat` constant defined in the hypothesis -/
+example (w n : Nat) (x : BitVec w) (hn : n = 0) (hw : w ≤ 4) :
+    x + BitVec.ofNat w n = x := by
+  pbv_decide 4
+
+/-- A hypothesis links the goal to a variable that is not in the goal -/
+example (w : Nat) (x z : BitVec w) (hz : z = 0) (hxz : x = z) (hw : w ≤ 4) :
+    x + 1 = 1 := by
+  pbv_decide 4
+
+/-- A chain of hypotheses through two variables that are not in the goal -/
+example (w : Nat) (x y z : BitVec w) (hz : z = 1) (hyz : y = z) (hxy : x = y + 1) (hw : w ≤ 4) :
+    x = 2 := by
+  pbv_decide 4
+
+/-- A variable only in a hypothesis, at a width that is not in the goal -/
+example (w v : Nat) (x : BitVec w) (z : BitVec v) (hz : z = 0) (hxz : x = z.setWidth w)
+    (hw : w ≤ 4) (hv : v ≤ 4) :
+    x + 1 = 1 := by
+  pbv_decide 4

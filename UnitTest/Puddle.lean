@@ -21,8 +21,7 @@ private theorem constant_iff (ty : IntegerType) (props : propertiesOf (.arith .c
     List.length_nil, Nat.zero_add, Nat.lt_one_iff, RuntimeValue.Conforms, List.getElem!_toArray,
     List.getElem!_eq_getElem?_getD, forall_eq, Nat.lt_add_one, getElem?_pos, List.getElem_cons_zero,
     Option.getD_some, true_and, interpretOp', Arith.interpretOp', List.getElem_toArray,
-    Attribute.asType_val, Interp.pure_eq, Interp.bind_ok, Interp.ok.injEq, Prod.mk.injEq,
-    Array.mk.injEq, List.cons.injEq, and_true]
+    TypeAttr.of_val, Attribute.of, Interp.pure_eq]
   constructor
   · rintro ⟨_, h⟩
     grind [h .empty]
@@ -52,8 +51,7 @@ private theorem muli_iff {signedness : IntegerType.Signedness} (w : Nat) (props 
   constructor
   · rintro ⟨_, h⟩
     exact (h .empty).symm
-  · rintro rfl
-    simp [Attribute.asType]
+  · grind
 
 private theorem add_zero_refines (w : Nat) (x : LLVM.Int w) (nsw nuw : Bool) :
     RuntimeValue.int w (LLVM.Int.add x (.val (BitVec.ofInt w 0)) nsw nuw) ⊒ .int w x := by
@@ -91,7 +89,7 @@ private def addZero : Pattern OpCode :=
 theorem addZero_valid : Pattern.Valid addZero := by
   simp only [addZero, matchConstant]
   provePuddleValid
-  simp only [TypeAttr.of, Coe.coe, Attribute.asType, RuntimeValue.Conforms.integerType,
+  simp only [RuntimeValue.Conforms.integerType,
     forall_exists_index, forall_eq_apply_imp_iff]
   rintro ⟨w⟩ x cstProp val propzero hinterpCst
   obtain rfl := (constant_iff _ _ _).mp hinterpCst
@@ -118,7 +116,7 @@ private def mulTwo : Pattern OpCode :=
 theorem mulTwo_valid : Pattern.Valid mulTwo := by
   simp only [mulTwo, matchConstant]
   provePuddleValid
-  simp only [TypeAttr.of, Coe.coe, Attribute.asType, RuntimeValue.Conforms.integerType,
+  simp only [RuntimeValue.Conforms.integerType,
     forall_exists_index, forall_eq_apply_imp_iff]
   rintro ⟨w⟩ x cstProp val proptwo hinterpCst
   obtain rfl := (constant_iff _ _ _).mp hinterpCst
@@ -167,7 +165,7 @@ private def nativeApply : Pattern OpCode :=
 theorem nativeMatch_valid : Pattern.Valid nativeMatch := by
   simp only [nativeMatch]
   provePuddleValid
-  simp only [TypeAttr.of, Coe.coe, Attribute.asType, RuntimeValue.Conforms.integerType,
+  simp only [RuntimeValue.Conforms.integerType,
     forall_exists_index, forall_eq_apply_imp_iff]
   rintro ⟨w⟩ x cstProp val hinterpCst
   obtain rfl := (constant_iff _ _ _).mp hinterpCst

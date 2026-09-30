@@ -59,14 +59,15 @@ SECTIONS {
 """
 
 # _start calls main, compares a0 to the expected value, then HTIF-exits with
-# code 0 (match) or 1 (mismatch).  {expected} is the interpreter's i64 result.
+# code 0 (match) or 1 (mismatch).  {expected} is the interpreter's result,
+# zero-extended to 64 bits, and {normalize} zero-extends a narrower a0 to match.
 MIR_DRIVER_TEMPLATE = """\
 .section .text._start
 .globl _start
 _start:
     la   sp, _stack_top
     call main
-    la   t0, expected
+{normalize}    la   t0, expected
     ld   t1, 0(t0)
     bne  a0, t1, .Lfail
     li   t0, 1            # (0<<1)|1  => HTIF exit code 0
@@ -497,18 +498,16 @@ def resolve_mir_tools() -> dict[str, str] | None:
     return resolved  # type: ignore[return-value]
 
 
-def after_to_u64(after: str) -> int | None:
-    """Parse a single-i64 'Program output:' line into its 64-bit value."""
+def after_to_expected(after: str) -> tuple[int, int] | None:
+    """Parse a single-integer (at most 64 bits) 'Program output:' line into
+    its (value, width)."""
     values = parse_output_values(after)
     if values is None or len(values) != 1:
         return None
-    value = values[0]
-    if not value.endswith("#64") or not value.startswith("0x"):
+    parsed = parse_value(values[0])
+    if parsed is None or parsed[1] > 64:
         return None
-    try:
-        return int(value[:-3], 16) & ((1 << 64) - 1)
-    except ValueError:
-        return None
+    return parsed
 
 
 def _mir_run(cmd: list[str], timeout: int | None = None) -> tuple[int, str]:
@@ -520,16 +519,18 @@ def _mir_run(cmd: list[str], timeout: int | None = None) -> tuple[int, str]:
 
 
 def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[bool, str]:
-    """Lower `opt` to MIR, execute it under spike, and check the returned i64
-    equals the interpreter's value `after`.  Returns (ok, message).
+    """Lower `opt` to MIR, execute it under spike, and check the returned
+    integer equals the interpreter's value `after`.  Returns (ok, message).
 
-    Cases the lowering can't yet handle (non-i64 result, unsupported ops, or a
-    veir2mir failure) are skipped (treated as ok); genuine value disagreements
-    and toolchain failures on supported input are reported.
+    For a result narrower than i64 only its low bits of a0 are compared: the
+    upper bits are garbage as far as VeIR is concerned (see `value_refines`).
+    Other results are skipped (treated as ok). A veir2mir failure or an op it
+    can't lower is reported, as are value disagreements and toolchain failures.
     """
-    expected = after_to_u64(after)
-    if expected is None:
-        return True, ""  # only single-i64 returns are executable here
+    parsed = after_to_expected(after)
+    if parsed is None:
+        return True, ""  # only single-integer returns are executable here
+    expected, width = parsed
 
     tools = resolve_mir_tools()
     assert tools is not None  # guaranteed by the startup check
@@ -556,10 +557,14 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
 
     # 1. veir2mir: riscv-dialect MLIR -> pre-RA MIR
     rc, out = _mir_run([str(veir2mir), str(opt)])
-    if rc != 0 or "UNHANDLED" in out:
-        cleanup()
-        return True, ""  # lowering not supported for this case; skip
     mir.write_text(out)
+    if rc != 0:
+        return False, (f"veir2mir failed (exit {rc})\n"
+                       f"optimized: {opt}\nmir: {mir}\n{out}")
+    if "UNHANDLED" in out:
+        unhandled = [line.strip() for line in out.splitlines() if "UNHANDLED" in line]
+        return False, (f"veir2mir could not lower some ops\n"
+                       f"optimized: {opt}\nmir: {mir}\n" + "\n".join(unhandled))
 
     # 2a. llc, register-allocation stage: MIR -> fully-lowered MIR. Rather than a
     # canned -O0/-O2 pipeline we drive an explicit minimal machine pipeline via
@@ -589,7 +594,10 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
     # 3. assemble the lowered function and the comparison driver, then link
     if not ld_script.exists():
         ld_script.write_text(MIR_LINK_LD)
-    drv_s.write_text(MIR_DRIVER_TEMPLATE.format(expected=expected))
+    drv_s.write_text(MIR_DRIVER_TEMPLATE.format(
+        expected=expected,
+        normalize=(f"    slli a0, a0, {64 - width}\n    srli a0, a0, {64 - width}\n"
+                   if width < 64 else "")))
     for label, src_path, obj in (("function", asm, func_o), ("driver", drv_s, drv_o)):
         rc, out = _mir_run([tools["clang"], *march, "-c", str(src_path), "-o", str(obj)])
         if rc != 0:
@@ -616,7 +624,7 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
         return False, (f"MIR execution disagrees with interpreter\n"
                        f"optimized: {opt}\nmir: {mir}\nelf: {elf}\n"
                        f"interpreter: {after}  (expected 0x{expected:016x})\n"
-                       f"spike returned a different i64 (exit {rc})\n{out}")
+                       f"spike returned a different i{width} (exit {rc})\n{out}")
     return False, (f"spike crashed running MIR (exit {rc})\n"
                    f"optimized: {opt}\nmir: {mir}\nelf: {elf}\n{out}")
 

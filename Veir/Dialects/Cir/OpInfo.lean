@@ -2,6 +2,7 @@ module
 
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
+public import Veir.Interfaces.ControlFlowInterfaces
 public import Veir.Verifier.Basic
 public import Veir.Dialects.Cir.Properties
 meta import Veir.Meta.OpCode
@@ -124,6 +125,26 @@ def Cir.functionInterface? (op : Cir) : Option (FunctionOpInterface (Cir.propert
         getFunctionType := fun props => props.function_type.functionType
         setFunctionType := fun props functionType =>
           { props with function_type := { functionType } } }
+  | _ => none
+
+def Cir.branchOpInterface? (op : Cir) : Option (BranchOpInterface (Cir.propertiesOf op)) :=
+  match op with
+  | .br =>
+    some {
+      getSuccessorOperandsImpl? := fun _ operands successorIndex => do
+        guard (successorIndex = 0)
+        some { forwardedOperands := operands }
+      getSuccessorForOperandsImpl? := fun _ _ successors => successors[0]?
+    }
+  | .brcond =>
+    some {
+      getSuccessorOperandsImpl? := fun props operands successorIndex =>
+        BranchOpInterface.getSegmentedSuccessorOperands?
+          1 props.operandSegmentSizes.values operands successorIndex
+      getSuccessorForOperandsImpl? := fun _ operands successors => do
+        let some (.int _ (.val condition)) ← operands[0]? | none
+        BranchOpInterface.getConditionalSuccessor? successors (condition ≠ 0)
+    }
   | _ => none
 
 /-! ## Verifier -/
@@ -333,6 +354,7 @@ instance : HasOpInfo Cir where
   getEffects := Cir.getEffects
   isConstantLike := Cir.isConstantLike
   functionInterface? := Cir.functionInterface?
+  branchOpInterface? := Cir.branchOpInterface?
   hasSSADominance := Cir.hasSSADominance
   isTerminator := Cir.isTerminator
   isIsolatedFromAbove := Cir.isIsolatedFromAbove
