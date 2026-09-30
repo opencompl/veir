@@ -5,7 +5,7 @@ Authors: Jeremy Avigad
 -/
 module
 
-public import QPFTypes.PFunctor.Univariate.Basic
+public import QPFTypes.Theory.PFunctor.Univariate.Basic
 
 /-!
 # Composition of polynomial functors.
@@ -34,4 +34,3 @@ def comp.get (P₂ : PFunctor.{uA₂, uB₂}) (P₁ : PFunctor.{uA₁, uB₁}) {
   ⟨x.1.1, fun a₂ => ⟨x.1.2 a₂, fun a₁ => x.2 ⟨a₂, a₁⟩⟩⟩
 
 end PFunctor
-

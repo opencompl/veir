@@ -5,7 +5,7 @@ Authors: Jeremy Avigad, Mario Carneiro, Simon Hudon
 -/
 module
 
-public import QPFTypes.TypeVec
+public import QPFTypes.Theory.TypeVec
 
 /-!
 

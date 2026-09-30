@@ -64,6 +64,25 @@ theorem maskOfWidth_eq_twoPow_sub_one {o w : Nat} (h : w ≤ o) :
   apply BitVec.eq_of_toNat_eq
   grind [maskOfWidth_add_one_eq_twoPow]
 
+/-- A mask is an `allOnes` zero-extended to `o`. -/
+theorem maskOfWidth_eq_allOnes {o w : Nat} (h : w ≤ o) : maskOfWidth o w = BitVec.zeroExtend o (BitVec.allOnes w)
+  := by
+  apply BitVec.eq_of_toNat_eq
+  simp only [toNat_maskOfWidth h, BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth, BitVec.toNat_allOnes]
+  rw [Nat.mod_eq_of_lt (by grind [Nat.pow_le_pow_right (n := 2) (by lia) h])]
+
+/-- The popcount of a mask is the value of the mask width. -/
+theorem toNat_cpop_maskOfWidth_eq_width {o w : Nat} (h : w ≤ o) : (BitVec.cpop (maskOfWidth o w)).toNat = w
+  := by
+  simp only [maskOfWidth_eq_allOnes h, BitVec.truncate_eq_setWidth, BitVec.toNat_cpop_setWidth_eq_of_le h,
+    BitVec.cpop_allOnes, BitVec.toNat_ofNat, Nat.mod_two_pow_self]
+
+/-- Push a variable `Nat` which corresponds to a mask into a `cpop` of the mask. -/
+theorem cpop_eq_width_of_maskOfWidth {o w : Nat} {m : BitVec o} (h : w ≤ o) (hm : m = maskOfWidth o w) : m.cpop = BitVec.ofNat o w := by
+  apply BitVec.eq_of_toNat_eq
+  simp only [hm, toNat_cpop_maskOfWidth_eq_width h, BitVec.toNat_ofNat]
+  rw [Nat.mod_eq_of_lt (by grind [Nat.lt_pow_self])]
+
 /-- Every mask of blast width `0` is the empty bitvector. -/
 @[simp] theorem maskOfWidth_zero_eq_zero {w : Nat} : maskOfWidth 0 w = 0#0 := by
   apply BitVec.eq_of_toNat_eq
@@ -117,17 +136,15 @@ theorem le_of_le_of_eq_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h
 
 /-- Adding widths becomes multiplying masks: the mask `m₃` of `w₁ + w₂` is
 `2^w₁ * 2^w₂ - 1`, written in terms of the masks `m₁` and `m₂`. -/
-theorem add_eq_mul_of_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ m₃ : BitVec o}
+theorem add_eq_shift_sum_of_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ m₃ : BitVec o}
     (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o) (h₁₂ : w₁ + w₂ ≤ o)
     (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
     (hm₃ : m₃ = maskOfWidth o (w₁ + w₂)) :
-    m₃ = (m₁ + 1#o) * (m₂ + 1#o) - 1#o := by
+    m₃ = (1#o <<< (BitVec.cpop m₁ + BitVec.cpop m₂)) - 1#o := by
   subst m₃
-  cases o
-  · simp [hm₁, hm₂, maskOfWidth_zero_eq_zero]
-  · rw [hm₁, maskOfWidth_add_one_eq_twoPow h₁, hm₂, maskOfWidth_add_one_eq_twoPow h₂,
-      BitVec.twoPow_mul_twoPow_eq]
-    apply maskOfWidth_eq_twoPow_sub_one h₁₂
+  rw [cpop_eq_width_of_maskOfWidth h₁ hm₁, cpop_eq_width_of_maskOfWidth h₂ hm₂,
+      BitVec.ofNat_add_ofNat, BitVec.shiftLeft_ofNat_eq, BitVec.shiftLeft_eq_mul_twoPow,
+      BitVec.one_mul, Nat.mod_eq_of_lt (by grind[Nat.lt_pow_self]), maskOfWidth_eq_twoPow_sub_one h₁₂]
 
 /-! ## The sign bit helpers -/
 
