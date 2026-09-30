@@ -59,13 +59,14 @@ def matchConstantIntOp (op : OperationPtr) (ctx : IRContext OpCode) :
   let .integer intAttr := properties.value | none
   return intAttr
 
+/-- Read the constant's bit pattern as a signed integer (so `i1` true is -1). -/
 def matchConstantIntVal (val : ValuePtr) (ctx : IRContext OpCode) :
     Option Int := do
   let .opResult opResultPtr := val | none
   let op := opResultPtr.op
   let attr ← matchConstantIntOp op ctx
   let .integerType type := (val.getType! ctx).val | none
-  return (BitVec.ofInt type.bitwidth (decodeLLVMIntegerConstant attr)).toInt
+  return (BitVec.ofInt type.bitwidth attr.value).toInt
 
 /-- Recognize the one bit pattern, including i1 true whose signed value is -1. -/
 def isConstantOne (val : ValuePtr) (ctx : IRContext OpCode) : Bool :=
