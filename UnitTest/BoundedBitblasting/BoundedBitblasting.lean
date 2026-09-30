@@ -205,6 +205,11 @@ example (w : Nat) (x y : BitVec w) (hy : y = 0) (hw : w ≤ 2) :
     x + y = x := by
   pbv_decide 4
 
+/-- A `Nat` constant defined in the hypothesis -/
+example (w n : Nat) (x : BitVec w) (hn : n = 0) (hw : w ≤ 4) :
+    x + BitVec.ofNat w n = x := by
+  pbv_decide 4
+
 /-- A hypothesis links the goal to a variable that is not in the goal -/
 example (w : Nat) (x z : BitVec w) (hz : z = 0) (hxz : x = z) (hw : w ≤ 4) :
     x + 1 = 1 := by

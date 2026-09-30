@@ -67,6 +67,12 @@ theorem setWidth_signExtend_eq_and_maskOfWidth (o : Nat) {t v : Nat} (hvo : v â‰
     cases hmsb : a.msb <;>
       simp [hiv, getLsbD_maskOfWidth, Bool.and_comm]
 
+/-- Push a variable `Nat` which corresponds to a mask into a `cpop` of the mask. -/
+theorem ofNat_eq_cpop_of_maskOfWidth {o w : Nat} {m : BitVec o} (h : w â‰¤ o) (hm : m = maskOfWidth o w) :
+    BitVec.ofNat o w = BitVec.cpop m := by
+  symm
+  exact cpop_eq_width_of_maskOfWidth h hm
+
 /-- `a ++ b` shifts `a` up by the width of `b`; at the blast width that shift
 is a multiplication by `2^w = maskOfWidth o w + 1`, and the two halves no
 longer overlap, so they can be recombined with `|||`. -/

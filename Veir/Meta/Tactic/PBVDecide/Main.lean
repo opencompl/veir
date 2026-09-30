@@ -605,6 +605,7 @@ meta def addPushTheorems (g : MVarId) (blastWidth : Nat) (simp : SimpTheoremsArr
       ``maskOfWidth_zero,
       ``BitVec.setWidth_zero,
       ``BitVec.ofNat_eq_ofNat,
+      ``ofNat_eq_cpop_of_maskOfWidth
   ]
   -- Push theorems which require specifying the blastWidth explicitly.
   let boundPushThms := #[
