@@ -3,6 +3,8 @@ module
 public import Veir.Interpreter.Refinement.Basic
 
 import all Veir.Interpreter.Refinement.Basic
+import all Veir.Interpreter.Memory
+import all Veir.Data.Refinement
 
 public section
 
@@ -198,6 +200,14 @@ theorem RuntimeValue.arrayIsRefinedBy_toList_singleton {a b : Array RuntimeValue
   simp only [← Array.getElem_toList, hEq, hw] at h0
   simpa using h0
 
+/--
+A runtime value `tv` that refines a pointer runtime value `v` is itself a pointer, and the
+underlying pointer refines `v`.
+-/
+theorem RuntimeValue.addr_of_isRefinedBy {v : Data.LLVM.Ptr} {tv : RuntimeValue}
+    (h : RuntimeValue.addr v ⊒ tv) : ∃ t, tv = RuntimeValue.addr t ∧ v ⊒ t := by
+  cases tv <;> grind [RuntimeValue.isRefinedBy]
+
 /-- A runtime value `tv` that refines a register runtime value `v` is equal to it. -/
 theorem RuntimeValue.reg_of_isRefinedBy {v : Data.RISCV.Reg} {tv : RuntimeValue}
     (h : RuntimeValue.reg v ⊒ tv) :
@@ -361,3 +371,15 @@ theorem Interp.isRefinedBy_bind_same {α β : Type} {R : β → β → Prop} (x 
 theorem OperationResult.isRefinedBy_value {v w : RuntimeValue} {mem : MemoryState} (h : v ⊒ w) :
     OperationResult.isRefinedBy (#[v], mem, none) (#[w], mem, none) :=
   ⟨RuntimeValue.arrayIsRefinedBy_singleton.mpr h, rfl, trivial⟩
+
+/-- Decoding an integer into a pointer keeps refinement: poison decodes to a poison pointer. -/
+theorem MemoryState.ptrFromInt_mono {mem : MemoryState} {x y : Data.LLVM.Int 64} (h : x ⊒ y) :
+    mem.ptrFromInt x ⊒ mem.ptrFromInt y := by
+  cases x <;> cases y <;>
+    simp_all [MemoryState.ptrFromInt, _root_.isRefinedBy, Data.LLVM.Ptr.isRefinedBy]
+
+/-- The address of a pointer keeps refinement: a poison pointer has a poison address. -/
+theorem MemoryState.intFromPtr_mono {mem : MemoryState} {p q : Data.LLVM.Ptr} (h : p ⊒ q) :
+    mem.intFromPtr p ⊒ mem.intFromPtr q := by
+  cases p <;> cases q <;>
+    simp_all [MemoryState.intFromPtr, _root_.isRefinedBy, Data.LLVM.Ptr.isRefinedBy]

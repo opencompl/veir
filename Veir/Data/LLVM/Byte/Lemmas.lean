@@ -2,6 +2,7 @@ module
 
 public import Veir.Data.LLVM.Byte.Basic
 import all Veir.Data.LLVM.Byte.Basic
+import all Veir.Data.Refinement
 meta import Veir.Meta.Tactic.BVDecide
 
 namespace Veir.Data.LLVM.Byte
@@ -130,5 +131,30 @@ public theorem trunc_mono {w w' : Nat} {x y : Byte w} (h : x ⊒ y) : x.trunc w'
   · simpa [trunc, hiw] using h i hiw
   · have hge : w ≤ i := by omega
     simp [trunc, BitVec.getLsbD_of_ge _ _ hge]
+
+/-- Turning an integer into a byte keeps refinement: a poison integer becomes an all-poison byte. -/
+public theorem fromInt_mono {w : Nat} {x y : Int w} (h : x ⊒ y) :
+    Byte.fromInt x ⊒ Byte.fromInt y := by
+  cases x
+  case poison => simp [fromInt, isRefinedBy]
+  case val v =>
+    obtain rfl : y = .val v := by cases y <;> simp_all [_root_.isRefinedBy]
+    exact isRefinedBy_refl _
+
+/-- Turning a byte into an integer keeps refinement: a byte with a poison bit becomes poison. -/
+public theorem toInt_mono {w : Nat} {x y : Byte w} (h : x ⊒ y) : x.toInt ⊒ y.toInt := by
+  rw [isRefinedBy_iff_getElem] at h
+  simp only [toInt]
+  split
+  case isTrue hx =>
+    have hbit : ∀ (i : Nat) (hi : i < w), x.val[i] = y.val[i] ∧ y.poison[i] = false := by
+      intro i hi
+      rcases h i hi with hp | hv
+      · simp [hx] at hp
+      · exact hv
+    have hy : y.poison = 0 := by ext i hi; simpa using (hbit i hi).2
+    have hval : y.val = x.val := by ext i hi; simpa using ((hbit i hi).1).symm
+    simp [hy, hval, _root_.isRefinedBy]
+  case isFalse => exact (by simp [_root_.isRefinedBy] : _root_.isRefinedBy Int.poison _)
 
 end Veir.Data.LLVM.Byte
