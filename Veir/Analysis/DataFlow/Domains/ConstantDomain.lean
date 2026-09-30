@@ -2,6 +2,7 @@ module
 
 public import Veir.Analysis.DataFlow.Domains.AbstractDomain
 public import Veir.FoldDecision
+public import Veir.Interpreter.Refinement.Basic
 
 public section
 
@@ -65,7 +66,7 @@ def ofFoldDecision (result : FoldDecision) (operands : Array AbstractConstant) :
   match absVal with
   | .top => fun _ => True
   | .bottom => fun _ => False
-  | .constant a => fun concVal => concVal = a
+  | .constant a => fun source => RuntimeValue.isRefinedBy source a
 
 def join (lhs rhs : AbstractConstant) : AbstractConstant :=
   match lhs, rhs with
@@ -81,7 +82,7 @@ instance : Join AbstractConstant where
 theorem γ_monotone (a b : AbstractConstant) : a ≤ b → γ a ⊆ γ b := by
   intro hab x hx
   cases a <;> cases b <;> simp [γ] at hab hx ⊢
-  all_goals first | trivial | exact hx.trans hab
+  all_goals first | trivial | (subst hab; exact hx)
 
 @[simp, grind .]
 theorem le_refl (a : AbstractConstant) : a ≤ a := by
