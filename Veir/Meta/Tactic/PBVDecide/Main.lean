@@ -393,7 +393,6 @@ meta def introBitvecFVarUnchecked (widthInfos : WidthInfos) (g : MVarId)
   -- Revert any hypothesis in the local context that depend on this bitvec var.
   let g ← (← getLCtx).foldlM (init := g) fun g' ldecl => do
     if ← localDeclDependsOn ldecl bvFVarId then
-      logInfo m!"Moving {ldecl.toExpr}: {ldecl.type} into the goal as it depends on {← bvFVarId.getUserName}"
       let (#[_hyp], g') ← g'.revert #[ldecl.fvarId]
         | throwError m!"Reverting {ldecl.toExpr} should produce a single var."
       return g'
@@ -579,8 +578,12 @@ meta def addPushTheorems (g : MVarId) (blastWidth : Nat) (simp : SimpTheoremsArr
   -- Push theorems
   let pushThms := #[
       ``setWidth_add,
+      ``setWidth_ofNat,
       ``setWidth_append_eq_or_mul_maskOfWidth_add_one,
       ``signBitOfMask_eq,
+      ``maskOfWidth_zero,
+      ``BitVec.setWidth_zero,
+      ``BitVec.ofNat_eq_ofNat,
   ]
   -- Push theorems which require specifying the blastWidth explicitly.
   let boundPushThms := #[

@@ -83,6 +83,12 @@ theorem setWidth_append_eq_or_mul_maskOfWidth_add_one {w o : Nat} (h : w ≤ o) 
   have a_lt_vw := Nat.mul_lt_mul_of_lt_of_le a.isLt (Nat.le_refl _) (Nat.two_pow_pos w)
   grind [Nat.pow_le_pow_right (n := 2) (by lia) hvw]
 
+/-- `setWidth` of a constant is the constant anded with the mask. -/
+theorem setWidth_ofNat {o w n : Nat} (h : w ≤ o) :
+    BitVec.setWidth o (BitVec.ofNat w n) = (BitVec.ofNat o n) &&& maskOfWidth o w := by
+  refine setWidth_eq_and_maskOfWidth h ?_
+  simp only [BitVec.toNat_ofNat, Nat.mod_mod_pow_of_le h]
+
 /-! ### The sign bit: a test against the mask's top bit -/
 
 /-- `a.msb` can be implemented by masking the sign bit,
