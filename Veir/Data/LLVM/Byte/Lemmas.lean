@@ -1,5 +1,6 @@
 module
 
+public import Veir.Data.LLVM.Byte.Basic
 import all Veir.Data.LLVM.Byte.Basic
 meta import Veir.Meta.Tactic.BVDecide
 
@@ -107,5 +108,27 @@ theorem shl_eq {w : Nat} (x : Byte w) (y : Int w) (nuw : Bool) :
       decide_eq_true_eq]
     repeat' split
     all_goals first | rfl | simp_all | (exfalso; bv_omega)
+
+/-- Refinement of bytes, read one bit at a time. -/
+public theorem isRefinedBy_iff_getElem {w : Nat} {x y : Byte w} :
+    x ⊒ y ↔ ∀ (i : Nat) (hi : i < w),
+      x.poison[i] = true ∨ (x.val[i] = y.val[i] ∧ y.poison[i] = false) := by
+  simp only [isRefinedBy]
+  constructor
+  · intro h i hi
+    have hbit := congrArg (BitVec.getLsbD · i) h
+    simpa [hi] using hbit
+  · intro h
+    ext i hi
+    simpa [hi] using h i hi
+
+/-- Truncation keeps refinement: it drops bits, and never turns a poison bit concrete. -/
+public theorem trunc_mono {w w' : Nat} {x y : Byte w} (h : x ⊒ y) : x.trunc w' ⊒ y.trunc w' := by
+  rw [isRefinedBy_iff_getElem] at h ⊢
+  intro i hi
+  by_cases hiw : i < w
+  · simpa [trunc, hiw] using h i hiw
+  · have hge : w ≤ i := by omega
+    simp [trunc, BitVec.getLsbD_of_ge _ _ hge]
 
 end Veir.Data.LLVM.Byte
