@@ -66,8 +66,8 @@ error: `pbv_decide` found a counterexample, consider the following assignment:
   w + v = 8  	(m_w0_add_w1 = 0xff#8)
   v = 4  	(m_w1 = 0x0f#8)
   v + w = 8  	(m_w1_add_w0 = 0xff#8)
-  x = 0xf#4
-  y = 0xe#4
+  x = 0xe#4
+  y = 0xf#4
 -/
 #guard_msgs in
 example (v w : Nat) (x : BitVec v) (y : BitVec w) (hv : v ≤ 4) (hw : w ≤ 4) (h : v = w) :
@@ -205,4 +205,19 @@ error: `pbv_decide` found a counterexample, consider the following assignment:
 #guard_msgs in
 example (w : Nat) (y : BitVec 4) (hw : w ≤ 4) :
     (y.setWidth w).zeroExtend 4 = y := by
+  pbv_decide 4
+
+-- Expected failure: a constant at width `w + 0` is not pushed, as `w + 0` is not syntactically `w`
+/--
+error: `pbv_decide` found a potentially spurious counterexample.
+  The following expressions were abstracted as opaque variables:
+    - BitVec.setWidth 4 1#(w + 0) = 0xf#4
+Consider the following assignment:
+  w = 4  	(m_w0 = 0xf#4)
+  w + 0 = 4  	(m_w0_add_lit0 = 0xf#4)
+  x = 0xf#4
+-/
+#guard_msgs in
+example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
+    x + (1 : BitVec (w + 0)) = 1 + x := by
   pbv_decide 4
