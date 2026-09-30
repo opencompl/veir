@@ -46,7 +46,7 @@ Operations without a push theorem (`—`) are abstracted as opaque variables by 
 | Shift left, extend              | `BitVec.shiftLeftZeroExtend` | —                                  |
 | Add (`+`)                       | `BitVec.add`                 | `setWidth_add`                     |
 | Sub (`-`)                       | `BitVec.sub`                 | `setWidth_sub`                     |
-| Neg (`-`)                       | `BitVec.neg`                 | `setWidth_ned`                     |
+| Neg (`-`)                       | `BitVec.neg`                 | `setWidth_neg`                     |
 | Mul (`*`)                       | `BitVec.mul`                 | `setWidth_mul`                     |
 | Unsigned div (`/`)              | `BitVec.udiv`                | `setWidth_udiv`                    |
 | Unsigned mod (`%`)              | `BitVec.umod`                | `setWidth_umod`                    |
