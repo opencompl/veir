@@ -1,5 +1,5 @@
 // RUN: VEIR_ROUNDTRIP 
-// RUN: MLIR_ROUNDTRIP 
+// RUN: MLIR_UNREGISTERED_ROUNDTRIP 
 
 "builtin.module"() ({
   ^4():
