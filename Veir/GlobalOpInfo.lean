@@ -450,7 +450,8 @@ def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
   | .llvm opType => Llvm.verifyLocalInvariants opType op ctx opIn
   | .mod_arith opType => Mod_Arith.verifyLocalInvariants opType op ctx opIn
   | .riscv opType => Riscv.verifyLocalInvariants opType op ctx opIn
-  | .riscv_cf opType => Riscv_Cf.verifyLocalInvariants opType op ctx opIn
+  | .riscv_cf opType =>
+    Riscv_Cf.verifyLocalInvariants OpCode.functionInterface? opType op ctx opIn
   | .riscv_stack opType => Riscv_Stack.verifyLocalInvariants opType op ctx opIn
   | .gmir opType => GMIR.verifyLocalInvariants opType op ctx opIn
   | .rv64 opType => Rv64.verifyLocalInvariants opType op ctx opIn
