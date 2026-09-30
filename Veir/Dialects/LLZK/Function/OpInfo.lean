@@ -264,14 +264,16 @@ def LLZK.Function.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       | _ => throw s!"function.call: map operand {i - argumentCount} must have index type"
     op.verifyModuleFunctionCall ctx props argumentCount
 
-instance : HasOpInfo LLZK.Function where
-  verifyLocalInvariants := LLZK.Function.verifyLocalInvariants
+instance : HasOpTraits LLZK.Function where
   getEffects := LLZK.Function.getEffects
   isConstantLike := LLZK.Function.isConstantLike
   functionInterface? := LLZK.Function.functionInterface?
   hasSSADominance := LLZK.Function.hasSSADominance
   isTerminator := LLZK.Function.isTerminator
   isIsolatedFromAbove := LLZK.Function.isIsolatedFromAbove
+
+instance : HasOpInfo LLZK.Function where
+  verifyLocalInvariants := LLZK.Function.verifyLocalInvariants
 
 end
 

@@ -32,8 +32,8 @@ pattern are such that the operation has no memory effects, but this is only happ
 -/
 @[expose]
 def SupportedOpCode (opCode : OpInfo) : Prop :=
-  HasOpInfo.isTerminator opCode = false ∧
-    ∀ property, HasOpInfo.getEffects opCode property = .none
+  HasOpTraits.isTerminator opCode = false ∧
+    ∀ property, HasOpTraits.getEffects opCode property = .none
 
 /-- A match declaration is supported when the opcode of an operation declaration is supported. -/
 @[expose]

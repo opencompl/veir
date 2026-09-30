@@ -155,13 +155,15 @@ def HW.interpretOp' (opType : Veir.HW) (properties : propertiesOf opType)
       (.val (Veir.Data.HW.constant (BitVec.ofInt bw.bitwidth properties.value.value)).val)], none)
   | _ => none
 
-instance : HasOpInfo HW where
-  verifyLocalInvariants := HW.verifyLocalInvariants
+instance : HasOpTraits HW where
   getEffects := HW.getEffects
   isConstantLike := HW.isConstantLike
   hasSSADominance := HW.hasSSADominance
   isTerminator := HW.isTerminator
   isIsolatedFromAbove := HW.isIsolatedFromAbove
+
+instance : HasOpInfo HW where
+  verifyLocalInvariants := HW.verifyLocalInvariants
 
 end
 

@@ -76,29 +76,13 @@ structure BranchOpInterface (Properties : Type) where
     Properties → Array (Option RuntimeValue) → Array BlockPtr → Option BlockPtr :=
       fun _ _ _ => none
 
-class HasOpInfo (opCode: Type)
+/--
+Static information about the operations with a given opcode: the traits and
+interfaces they implement. As in MLIR, none of it depends on verification, so the
+verifier of an operation can query it for any other operation.
+-/
+class HasOpTraits (opCode : Type)
     extends IsOpCode opCode where
-  /--
-  Verify the local invariants of an operation. This typically includes checking
-  that the number of operands, successors, results, and regions match the
-  expected values for the operation type, as well as checking that referenced
-  types are in bounds.
-  -/
-  verifyLocalInvariants :
-    (opType : opCode) → (op : OperationPtr) → (ctx : WfIRContext opCode) →
-    (opIn : op.InBounds ctx.raw) → Except String PUnit :=
-      fun _ _ _ _ => pure ()
-  /--
-  Apply this opcode set's dialect-local fold table. The input array contains
-  the known constant value of each operand, or `none` for a nonconstant
-  operand. The output array holds one decision per result, in result order: an
-  operation folds entirely or not at all, so a table entry for a multi-result
-  operation must decide every result. Implementations are responsible for
-  returning an in-range operand or a constant conforming to the corresponding
-  result type.
-  -/
-  tryFold : (op : opCode) → propertiesOf op → Array TypeAttr →
-    Array (Option RuntimeValue) → Option (Array FoldDecision) := fun _ _ _ _ => none
   /--
   The memory effects of an operation with this opcode and these properties,
   mirroring MLIR's `MemoryEffectOpInterface::getEffects`.
@@ -166,8 +150,36 @@ class HasOpInfo (opCode: Type)
   -/
   isIsolatedFromAbove : opCode → Bool := fun _ => false
 
-attribute [get_effects] HasOpInfo.getEffects
-attribute [is_terminator] HasOpInfo.isTerminator
+/--
+The verification and folding behavior of the operations with a given opcode. Both
+may query the traits and interfaces of any operation through `HasOpTraits`.
+-/
+class HasOpInfo (opCode: Type)
+    extends HasOpTraits opCode where
+  /--
+  Verify the local invariants of an operation. This typically includes checking
+  that the number of operands, successors, results, and regions match the
+  expected values for the operation type, as well as checking that referenced
+  types are in bounds.
+  -/
+  verifyLocalInvariants :
+    (opType : opCode) → (op : OperationPtr) → (ctx : WfIRContext opCode) →
+    (opIn : op.InBounds ctx.raw) → Except String PUnit :=
+      fun _ _ _ _ => pure ()
+  /--
+  Apply this opcode set's dialect-local fold table. The input array contains
+  the known constant value of each operand, or `none` for a nonconstant
+  operand. The output array holds one decision per result, in result order: an
+  operation folds entirely or not at all, so a table entry for a multi-result
+  operation must decide every result. Implementations are responsible for
+  returning an in-range operand or a constant conforming to the corresponding
+  result type.
+  -/
+  tryFold : (op : opCode) → propertiesOf op → Array TypeAttr →
+    Array (Option RuntimeValue) → Option (Array FoldDecision) := fun _ _ _ _ => none
+
+attribute [get_effects] HasOpTraits.getEffects
+attribute [is_terminator] HasOpTraits.isTerminator
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 
@@ -186,7 +198,7 @@ public def RegionPtr.hasNoTerminator (region : RegionPtr) (ctx : WfIRContext OpI
   match (region.get! ctx.raw).parent with
   | some parentOp =>
     let parent := parentOp.get! ctx.raw
-    HasOpInfo.hasNoTerminator parent.opType (parent.regions.idxOf region)
+    HasOpTraits.hasNoTerminator parent.opType (parent.regions.idxOf region)
   | none => false
 
 /--
@@ -198,7 +210,7 @@ the same isolated operation are separate scopes.
 public partial def RegionPtr.nearestIsolatedScope?
     (region : RegionPtr) (ctx : IRContext OpInfo) : Option RegionPtr := do
   let parentOp ← (region.get! ctx).parent
-  if HasOpInfo.isIsolatedFromAbove (parentOp.get! ctx).opType then
+  if HasOpTraits.isIsolatedFromAbove (parentOp.get! ctx).opType then
     return region
   let parentRegion ← parentOp.getParentRegion! ctx
   parentRegion.nearestIsolatedScope? ctx

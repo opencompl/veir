@@ -31,7 +31,7 @@ def OperationPtr.getEffects {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (ctx : IRContext OpInfo) : MemoryEffects :=
   if op.getNumRegions! ctx != 0 then .unknown else
   let opType := op.getOpType! ctx
-  HasOpInfo.getEffects opType (op.getProperties! ctx opType)
+  HasOpTraits.getEffects opType (op.getProperties! ctx opType)
 
 /--
   Whether this operation is known to have no memory effects. This

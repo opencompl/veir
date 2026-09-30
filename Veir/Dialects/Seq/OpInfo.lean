@@ -97,12 +97,14 @@ def Seq.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
 
-instance : HasOpInfo Seq where
-  verifyLocalInvariants := Seq.verifyLocalInvariants
+instance : HasOpTraits Seq where
   getEffects := Seq.getEffects
   isConstantLike := Seq.isConstantLike
   hasSSADominance := Seq.hasSSADominance
   isTerminator := Seq.isTerminator
   isIsolatedFromAbove := Seq.isIsolatedFromAbove
+
+instance : HasOpInfo Seq where
+  verifyLocalInvariants := Seq.verifyLocalInvariants
 
 end

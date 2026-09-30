@@ -3,6 +3,7 @@ module
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Interfaces.ControlFlowInterfaces
+public import Veir.Interfaces.FunctionInterfaces
 public import Veir.Dialects.RISCV_Cf.Properties
 public import Veir.Dialects.RISCV.OpInfo
 public import Veir.Verifier.Basic
@@ -197,18 +198,14 @@ def Riscv_Cf.branchOpInterface?
   Check a `riscv_cf.return` against the signature of its enclosing
   function-like operation (e.g. `func.func` or `llvm.func`). An `llvm.func`
   returning `void` declares no results.
-  Local verifiers only require `IsOpCode`, so the caller supplies the combined
-  opcode set's `functionInterface?`; requiring `HasOpInfo` here would be circular.
 -/
-private def OperationPtr.verifyRISCVReturnTypes {OpInfo : Type} [IsOpCode OpInfo]
-    (functionInterface? : (op : OpInfo) → Option (FunctionOpInterface (IsOpCode.propertiesOf op)))
+private def OperationPtr.verifyRISCVReturnTypes {OpInfo : Type} [HasOpTraits OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) :
     Except String PUnit := do
-  let funcOp ← op.getEnclosingFunctionOp ctx "riscv_cf.return"
-  let funcType := funcOp.getOpType! ctx.raw
-  let some interface := functionInterface? funcType
+  let parent ← op.getEnclosingFunctionOp ctx "riscv_cf.return"
+  let some funcOp := FunctionOp.cast? parent ctx.raw
     | throw "Expected riscv_cf.return to be enclosed by a function-like operation"
-  let outputs := match (interface.getFunctionType (funcOp.getProperties! ctx.raw funcType)).outputs with
+  let outputs := match funcOp.getResultTypes with
     | #[.llvmVoidType _] => #[]
     | outputs => outputs
   if op.getNumOperands ctx.raw opIn ≠ outputs.size then
@@ -220,13 +217,10 @@ private def OperationPtr.verifyRISCVReturnTypes {OpInfo : Type} [IsOpCode OpInfo
 
 /--
 Verify the local invariants of a `riscv_cf` operation in any operation-info
-type containing the `riscv_cf` dialect. `functionInterface?` is that type's
-function interface, used to check returns against their enclosing function.
+type containing the `riscv_cf` dialect.
 -/
-def Riscv_Cf.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
-    [HasDialect OpInfo Riscv_Cf]
-    (functionInterface? : (op : OpInfo) → Option (FunctionOpInterface (IsOpCode.propertiesOf op)))
-    (opType : Riscv_Cf) (op : OperationPtr)
+def Riscv_Cf.verifyLocalInvariants {OpInfo : Type} [HasOpTraits OpInfo]
+    [HasDialect OpInfo Riscv_Cf] (opType : Riscv_Cf) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
   | .branch =>
@@ -287,7 +281,7 @@ def Riscv_Cf.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .return => do
     op.verifyTerminatorCounts ctx opIn 0
     op.verifyRISCVRegisterTypes ctx opIn
-    op.verifyRISCVReturnTypes functionInterface? ctx opIn
+    op.verifyRISCVReturnTypes ctx opIn
 
 def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
@@ -385,14 +379,15 @@ def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : propertiesOf op
   | .call =>
     Interp.fail none
 
-instance : HasOpInfo Riscv_Cf where
-  -- `riscv_cf` alone has no function-like operations.
-  verifyLocalInvariants := Riscv_Cf.verifyLocalInvariants (fun _ => none)
+instance : HasOpTraits Riscv_Cf where
   getEffects := Riscv_Cf.getEffects
   isConstantLike := Riscv_Cf.isConstantLike
   branchOpInterface? := Riscv_Cf.branchOpInterface?
   hasSSADominance := Riscv_Cf.hasSSADominance
   isTerminator := Riscv_Cf.isTerminator
+
+instance : HasOpInfo Riscv_Cf where
+  verifyLocalInvariants := Riscv_Cf.verifyLocalInvariants
 
 end
 

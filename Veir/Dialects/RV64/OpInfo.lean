@@ -73,11 +73,13 @@ def Rv64.interpretOp' (opType : Veir.Rv64) (properties : propertiesOf opType)
     else
       none
 
-instance : HasOpInfo Rv64 where
-  verifyLocalInvariants := Rv64.verifyLocalInvariants
+instance : HasOpTraits Rv64 where
   getEffects := Rv64.getEffects
   isConstantLike := Rv64.isConstantLike
   hasSSADominance := Rv64.hasSSADominance
+
+instance : HasOpInfo Rv64 where
+  verifyLocalInvariants := Rv64.verifyLocalInvariants
 
 end
 

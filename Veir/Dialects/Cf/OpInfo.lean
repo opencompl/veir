@@ -128,13 +128,15 @@ def Cf.interpretOp' (opType : Veir.Cf) (properties : propertiesOf opType)
     | .int 1 .poison => Interp.ub none
     | _ => none
 
-instance : HasOpInfo Cf where
-  verifyLocalInvariants := Cf.verifyLocalInvariants
+instance : HasOpTraits Cf where
   getEffects := Cf.getEffects
   isConstantLike := Cf.isConstantLike
   branchOpInterface? := Cf.branchOpInterface?
   hasSSADominance := Cf.hasSSADominance
   isTerminator := Cf.isTerminator
+
+instance : HasOpInfo Cf where
+  verifyLocalInvariants := Cf.verifyLocalInvariants
 
 end
 

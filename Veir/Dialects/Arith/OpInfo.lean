@@ -452,13 +452,15 @@ def Arith.interpretOp' (opType : Veir.Arith) (properties : propertiesOf opType)
     let cond := LLVM.Int.and notExact signOpposite
     return (#[.int bw (LLVM.Int.select cond (LLVM.Int.add z negOne) z)], none)
 
-instance : HasOpInfo Arith where
-  verifyLocalInvariants := Arith.verifyLocalInvariants
-  tryFold := Arith.tryFold
+instance : HasOpTraits Arith where
   propagatesPoison := Arith.propagatesPoison
   getEffects := Arith.getEffects
   isConstantLike := Arith.isConstantLike
   hasSSADominance := Arith.hasSSADominance
+
+instance : HasOpInfo Arith where
+  verifyLocalInvariants := Arith.verifyLocalInvariants
+  tryFold := Arith.tryFold
 
 end
 

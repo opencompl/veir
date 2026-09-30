@@ -904,12 +904,14 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : propertiesOf opType)
     let mem ← mem.store p ((UInt64.ofBitVec val).toByteArrayLE.extract 0 1)
     return (#[], mem, none)
 
-instance : HasOpInfo Riscv where
-  verifyLocalInvariants := Riscv.verifyLocalInvariants
-  tryFold := Riscv.tryFold
+instance : HasOpTraits Riscv where
   getEffects := Riscv.getEffects
   isConstantLike := Riscv.isConstantLike
   hasSSADominance := Riscv.hasSSADominance
+
+instance : HasOpInfo Riscv where
+  verifyLocalInvariants := Riscv.verifyLocalInvariants
+  tryFold := Riscv.tryFold
 
 end
 

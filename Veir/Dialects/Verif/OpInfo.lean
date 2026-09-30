@@ -82,13 +82,15 @@ def Verif.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "Expected 0 successors"
     pure ()
 
-instance : HasOpInfo Verif where
-  verifyLocalInvariants := Verif.verifyLocalInvariants
+instance : HasOpTraits Verif where
   getEffects := Verif.getEffects
   isConstantLike := Verif.isConstantLike
   hasSSADominance := Verif.hasSSADominance
   isTerminator := Verif.isTerminator
   isIsolatedFromAbove := Verif.isIsolatedFromAbove
+
+instance : HasOpInfo Verif where
+  verifyLocalInvariants := Verif.verifyLocalInvariants
 
 end
 

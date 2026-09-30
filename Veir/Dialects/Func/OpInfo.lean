@@ -138,14 +138,16 @@ def Func.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.verifyTerminatorCounts ctx opIn 0
     op.verifyFuncReturnTypes ctx opIn
 
-instance : HasOpInfo Func where
-  verifyLocalInvariants := Func.verifyLocalInvariants
+instance : HasOpTraits Func where
   getEffects := Func.getEffects
   isConstantLike := Func.isConstantLike
   functionInterface? := Func.functionInterface?
   hasSSADominance := Func.hasSSADominance
   isTerminator := Func.isTerminator
   isIsolatedFromAbove := Func.isIsolatedFromAbove
+
+instance : HasOpInfo Func where
+  verifyLocalInvariants := Func.verifyLocalInvariants
 
 end
 

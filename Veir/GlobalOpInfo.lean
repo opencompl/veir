@@ -107,29 +107,29 @@ def OpCode.tryFold (opCode : OpCode) (props : _propertiesOf opCode)
 -/
 def OpCode.getRegionKind (opCode : OpCode) (index : Nat) : RegionKind :=
   match opCode with
-  | .arith op => HasOpInfo.getRegionKind op index
-  | .llvm op => HasOpInfo.getRegionKind op index
-  | .riscv op => HasOpInfo.getRegionKind op index
-  | .riscv_cf op => HasOpInfo.getRegionKind op index
-  | .riscv_stack op => HasOpInfo.getRegionKind op index
-  | .rv64 op => HasOpInfo.getRegionKind op index
-  | .mod_arith op => HasOpInfo.getRegionKind op index
-  | .cf op => HasOpInfo.getRegionKind op index
-  | .comb op => HasOpInfo.getRegionKind op index
-  | .hw op => HasOpInfo.getRegionKind op index
-  | .verif op => HasOpInfo.getRegionKind op index
-  | .builtin op => HasOpInfo.getRegionKind op index
-  | .func op => HasOpInfo.getRegionKind op index
-  | .datapath op => HasOpInfo.getRegionKind op index
-  | .pdl op => HasOpInfo.getRegionKind op index
-  | .io op => HasOpInfo.getRegionKind op index
-  | .gmir op => HasOpInfo.getRegionKind op index
-  | .test op => HasOpInfo.getRegionKind op index
-  | .felt op => HasOpInfo.getRegionKind op index
-  | .cir op => HasOpInfo.getRegionKind op index
-  | .include op => HasOpInfo.getRegionKind op index
-  | .function op => HasOpInfo.getRegionKind op index
-  | .seq op => HasOpInfo.getRegionKind op index
+  | .arith op => HasOpTraits.getRegionKind op index
+  | .llvm op => HasOpTraits.getRegionKind op index
+  | .riscv op => HasOpTraits.getRegionKind op index
+  | .riscv_cf op => HasOpTraits.getRegionKind op index
+  | .riscv_stack op => HasOpTraits.getRegionKind op index
+  | .rv64 op => HasOpTraits.getRegionKind op index
+  | .mod_arith op => HasOpTraits.getRegionKind op index
+  | .cf op => HasOpTraits.getRegionKind op index
+  | .comb op => HasOpTraits.getRegionKind op index
+  | .hw op => HasOpTraits.getRegionKind op index
+  | .verif op => HasOpTraits.getRegionKind op index
+  | .builtin op => HasOpTraits.getRegionKind op index
+  | .func op => HasOpTraits.getRegionKind op index
+  | .datapath op => HasOpTraits.getRegionKind op index
+  | .pdl op => HasOpTraits.getRegionKind op index
+  | .io op => HasOpTraits.getRegionKind op index
+  | .gmir op => HasOpTraits.getRegionKind op index
+  | .test op => HasOpTraits.getRegionKind op index
+  | .felt op => HasOpTraits.getRegionKind op index
+  | .cir op => HasOpTraits.getRegionKind op index
+  | .include op => HasOpTraits.getRegionKind op index
+  | .function op => HasOpTraits.getRegionKind op index
+  | .seq op => HasOpTraits.getRegionKind op index
 
 /--
   Whether definitions in the indexed region of this opcode must dominate
@@ -168,56 +168,56 @@ def OpCode.hasSSADominance (opCode : OpCode) (index : Nat) : Bool :=
 -/
 def OpCode.hasNoTerminator (opCode : OpCode) (index : Nat) : Bool :=
   match opCode with
-  | .arith op => HasOpInfo.hasNoTerminator op index
-  | .llvm op => HasOpInfo.hasNoTerminator op index
-  | .riscv op => HasOpInfo.hasNoTerminator op index
-  | .riscv_cf op => HasOpInfo.hasNoTerminator op index
-  | .riscv_stack op => HasOpInfo.hasNoTerminator op index
-  | .rv64 op => HasOpInfo.hasNoTerminator op index
-  | .mod_arith op => HasOpInfo.hasNoTerminator op index
-  | .cf op => HasOpInfo.hasNoTerminator op index
-  | .comb op => HasOpInfo.hasNoTerminator op index
-  | .hw op => HasOpInfo.hasNoTerminator op index
-  | .verif op => HasOpInfo.hasNoTerminator op index
-  | .builtin op => HasOpInfo.hasNoTerminator op index
-  | .func op => HasOpInfo.hasNoTerminator op index
-  | .datapath op => HasOpInfo.hasNoTerminator op index
-  | .pdl op => HasOpInfo.hasNoTerminator op index
-  | .io op => HasOpInfo.hasNoTerminator op index
-  | .gmir op => HasOpInfo.hasNoTerminator op index
-  | .test op => HasOpInfo.hasNoTerminator op index
-  | .felt op => HasOpInfo.hasNoTerminator op index
-  | .cir op => HasOpInfo.hasNoTerminator op index
-  | .include op => HasOpInfo.hasNoTerminator op index
-  | .function op => HasOpInfo.hasNoTerminator op index
-  | .seq op => HasOpInfo.hasNoTerminator op index
+  | .arith op => HasOpTraits.hasNoTerminator op index
+  | .llvm op => HasOpTraits.hasNoTerminator op index
+  | .riscv op => HasOpTraits.hasNoTerminator op index
+  | .riscv_cf op => HasOpTraits.hasNoTerminator op index
+  | .riscv_stack op => HasOpTraits.hasNoTerminator op index
+  | .rv64 op => HasOpTraits.hasNoTerminator op index
+  | .mod_arith op => HasOpTraits.hasNoTerminator op index
+  | .cf op => HasOpTraits.hasNoTerminator op index
+  | .comb op => HasOpTraits.hasNoTerminator op index
+  | .hw op => HasOpTraits.hasNoTerminator op index
+  | .verif op => HasOpTraits.hasNoTerminator op index
+  | .builtin op => HasOpTraits.hasNoTerminator op index
+  | .func op => HasOpTraits.hasNoTerminator op index
+  | .datapath op => HasOpTraits.hasNoTerminator op index
+  | .pdl op => HasOpTraits.hasNoTerminator op index
+  | .io op => HasOpTraits.hasNoTerminator op index
+  | .gmir op => HasOpTraits.hasNoTerminator op index
+  | .test op => HasOpTraits.hasNoTerminator op index
+  | .felt op => HasOpTraits.hasNoTerminator op index
+  | .cir op => HasOpTraits.hasNoTerminator op index
+  | .include op => HasOpTraits.hasNoTerminator op index
+  | .function op => HasOpTraits.hasNoTerminator op index
+  | .seq op => HasOpTraits.hasNoTerminator op index
 
 /-- Whether this opcode carries MLIR's `IsolatedFromAbove` trait. -/
 def OpCode.isIsolatedFromAbove (opCode : OpCode) : Bool :=
   match opCode with
-  | .arith op => HasOpInfo.isIsolatedFromAbove op
-  | .llvm op => HasOpInfo.isIsolatedFromAbove op
-  | .riscv op => HasOpInfo.isIsolatedFromAbove op
-  | .riscv_cf op => HasOpInfo.isIsolatedFromAbove op
-  | .riscv_stack op => HasOpInfo.isIsolatedFromAbove op
-  | .rv64 op => HasOpInfo.isIsolatedFromAbove op
-  | .mod_arith op => HasOpInfo.isIsolatedFromAbove op
-  | .cf op => HasOpInfo.isIsolatedFromAbove op
-  | .comb op => HasOpInfo.isIsolatedFromAbove op
-  | .hw op => HasOpInfo.isIsolatedFromAbove op
-  | .verif op => HasOpInfo.isIsolatedFromAbove op
-  | .builtin op => HasOpInfo.isIsolatedFromAbove op
-  | .func op => HasOpInfo.isIsolatedFromAbove op
-  | .datapath op => HasOpInfo.isIsolatedFromAbove op
-  | .pdl op => HasOpInfo.isIsolatedFromAbove op
-  | .io op => HasOpInfo.isIsolatedFromAbove op
-  | .gmir op => HasOpInfo.isIsolatedFromAbove op
-  | .test op => HasOpInfo.isIsolatedFromAbove op
-  | .felt op => HasOpInfo.isIsolatedFromAbove op
-  | .cir op => HasOpInfo.isIsolatedFromAbove op
-  | .include op => HasOpInfo.isIsolatedFromAbove op
-  | .function op => HasOpInfo.isIsolatedFromAbove op
-  | .seq op => HasOpInfo.isIsolatedFromAbove op
+  | .arith op => HasOpTraits.isIsolatedFromAbove op
+  | .llvm op => HasOpTraits.isIsolatedFromAbove op
+  | .riscv op => HasOpTraits.isIsolatedFromAbove op
+  | .riscv_cf op => HasOpTraits.isIsolatedFromAbove op
+  | .riscv_stack op => HasOpTraits.isIsolatedFromAbove op
+  | .rv64 op => HasOpTraits.isIsolatedFromAbove op
+  | .mod_arith op => HasOpTraits.isIsolatedFromAbove op
+  | .cf op => HasOpTraits.isIsolatedFromAbove op
+  | .comb op => HasOpTraits.isIsolatedFromAbove op
+  | .hw op => HasOpTraits.isIsolatedFromAbove op
+  | .verif op => HasOpTraits.isIsolatedFromAbove op
+  | .builtin op => HasOpTraits.isIsolatedFromAbove op
+  | .func op => HasOpTraits.isIsolatedFromAbove op
+  | .datapath op => HasOpTraits.isIsolatedFromAbove op
+  | .pdl op => HasOpTraits.isIsolatedFromAbove op
+  | .io op => HasOpTraits.isIsolatedFromAbove op
+  | .gmir op => HasOpTraits.isIsolatedFromAbove op
+  | .test op => HasOpTraits.isIsolatedFromAbove op
+  | .felt op => HasOpTraits.isIsolatedFromAbove op
+  | .cir op => HasOpTraits.isIsolatedFromAbove op
+  | .include op => HasOpTraits.isIsolatedFromAbove op
+  | .function op => HasOpTraits.isIsolatedFromAbove op
+  | .seq op => HasOpTraits.isIsolatedFromAbove op
 
 /--
   Does this OpCode count as an MLIR basic block terminator? Dialects that do
@@ -226,29 +226,29 @@ def OpCode.isIsolatedFromAbove (opCode : OpCode) : Bool :=
 @[is_terminator]
 def OpCode.isTerminator (opCode : OpCode) : Bool :=
   match opCode with
-  | .arith op => HasOpInfo.isTerminator op
-  | .llvm op => HasOpInfo.isTerminator op
-  | .riscv op => HasOpInfo.isTerminator op
-  | .riscv_cf op => HasOpInfo.isTerminator op
-  | .riscv_stack op => HasOpInfo.isTerminator op
-  | .rv64 op => HasOpInfo.isTerminator op
-  | .mod_arith op => HasOpInfo.isTerminator op
-  | .cf op => HasOpInfo.isTerminator op
-  | .comb op => HasOpInfo.isTerminator op
-  | .hw op => HasOpInfo.isTerminator op
-  | .verif op => HasOpInfo.isTerminator op
-  | .builtin op => HasOpInfo.isTerminator op
-  | .func op => HasOpInfo.isTerminator op
-  | .datapath op => HasOpInfo.isTerminator op
-  | .pdl op => HasOpInfo.isTerminator op
-  | .io op => HasOpInfo.isTerminator op
-  | .gmir op => HasOpInfo.isTerminator op
-  | .test op => HasOpInfo.isTerminator op
-  | .felt op => HasOpInfo.isTerminator op
-  | .cir op => HasOpInfo.isTerminator op
-  | .include op => HasOpInfo.isTerminator op
-  | .function op => HasOpInfo.isTerminator op
-  | .seq op => HasOpInfo.isTerminator op
+  | .arith op => HasOpTraits.isTerminator op
+  | .llvm op => HasOpTraits.isTerminator op
+  | .riscv op => HasOpTraits.isTerminator op
+  | .riscv_cf op => HasOpTraits.isTerminator op
+  | .riscv_stack op => HasOpTraits.isTerminator op
+  | .rv64 op => HasOpTraits.isTerminator op
+  | .mod_arith op => HasOpTraits.isTerminator op
+  | .cf op => HasOpTraits.isTerminator op
+  | .comb op => HasOpTraits.isTerminator op
+  | .hw op => HasOpTraits.isTerminator op
+  | .verif op => HasOpTraits.isTerminator op
+  | .builtin op => HasOpTraits.isTerminator op
+  | .func op => HasOpTraits.isTerminator op
+  | .datapath op => HasOpTraits.isTerminator op
+  | .pdl op => HasOpTraits.isTerminator op
+  | .io op => HasOpTraits.isTerminator op
+  | .gmir op => HasOpTraits.isTerminator op
+  | .test op => HasOpTraits.isTerminator op
+  | .felt op => HasOpTraits.isTerminator op
+  | .cir op => HasOpTraits.isTerminator op
+  | .include op => HasOpTraits.isTerminator op
+  | .function op => HasOpTraits.isTerminator op
+  | .seq op => HasOpTraits.isTerminator op
 
 /--
   Does this `OpCode` materialize a literal constant value, i.e. an op
@@ -290,29 +290,29 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
 -/
 def OpCode.propagatesPoison (opCode : OpCode) : Bool :=
   match opCode with
-  | .arith op => HasOpInfo.propagatesPoison op
-  | .llvm op => HasOpInfo.propagatesPoison op
-  | .riscv op => HasOpInfo.propagatesPoison op
-  | .riscv_cf op => HasOpInfo.propagatesPoison op
-  | .riscv_stack op => HasOpInfo.propagatesPoison op
-  | .rv64 op => HasOpInfo.propagatesPoison op
-  | .mod_arith op => HasOpInfo.propagatesPoison op
-  | .cf op => HasOpInfo.propagatesPoison op
-  | .comb op => HasOpInfo.propagatesPoison op
-  | .hw op => HasOpInfo.propagatesPoison op
-  | .verif op => HasOpInfo.propagatesPoison op
-  | .builtin op => HasOpInfo.propagatesPoison op
-  | .func op => HasOpInfo.propagatesPoison op
-  | .datapath op => HasOpInfo.propagatesPoison op
-  | .pdl op => HasOpInfo.propagatesPoison op
-  | .io op => HasOpInfo.propagatesPoison op
-  | .gmir op => HasOpInfo.propagatesPoison op
-  | .test op => HasOpInfo.propagatesPoison op
-  | .felt op => HasOpInfo.propagatesPoison op
-  | .cir op => HasOpInfo.propagatesPoison op
-  | .include op => HasOpInfo.propagatesPoison op
-  | .function op => HasOpInfo.propagatesPoison op
-  | .seq op => HasOpInfo.propagatesPoison op
+  | .arith op => HasOpTraits.propagatesPoison op
+  | .llvm op => HasOpTraits.propagatesPoison op
+  | .riscv op => HasOpTraits.propagatesPoison op
+  | .riscv_cf op => HasOpTraits.propagatesPoison op
+  | .riscv_stack op => HasOpTraits.propagatesPoison op
+  | .rv64 op => HasOpTraits.propagatesPoison op
+  | .mod_arith op => HasOpTraits.propagatesPoison op
+  | .cf op => HasOpTraits.propagatesPoison op
+  | .comb op => HasOpTraits.propagatesPoison op
+  | .hw op => HasOpTraits.propagatesPoison op
+  | .verif op => HasOpTraits.propagatesPoison op
+  | .builtin op => HasOpTraits.propagatesPoison op
+  | .func op => HasOpTraits.propagatesPoison op
+  | .datapath op => HasOpTraits.propagatesPoison op
+  | .pdl op => HasOpTraits.propagatesPoison op
+  | .io op => HasOpTraits.propagatesPoison op
+  | .gmir op => HasOpTraits.propagatesPoison op
+  | .test op => HasOpTraits.propagatesPoison op
+  | .felt op => HasOpTraits.propagatesPoison op
+  | .cir op => HasOpTraits.propagatesPoison op
+  | .include op => HasOpTraits.propagatesPoison op
+  | .function op => HasOpTraits.propagatesPoison op
+  | .seq op => HasOpTraits.propagatesPoison op
 
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (_propertiesOf opCode) :=
@@ -382,59 +382,71 @@ instance : IsOpCode OpCode where
 /-- Function-interface information assembled from the registered dialects. -/
 def OpCode.functionInterface? (opCode : OpCode) : Option (FunctionOpInterface (_propertiesOf opCode)) :=
   match opCode with
-  | .arith op => HasOpInfo.functionInterface? op
-  | .llvm op => HasOpInfo.functionInterface? op
-  | .riscv op => HasOpInfo.functionInterface? op
-  | .riscv_cf op => HasOpInfo.functionInterface? op
-  | .riscv_stack op => HasOpInfo.functionInterface? op
-  | .rv64 op => HasOpInfo.functionInterface? op
-  | .mod_arith op => HasOpInfo.functionInterface? op
-  | .cf op => HasOpInfo.functionInterface? op
-  | .comb op => HasOpInfo.functionInterface? op
-  | .hw op => HasOpInfo.functionInterface? op
-  | .verif op => HasOpInfo.functionInterface? op
-  | .builtin op => HasOpInfo.functionInterface? op
-  | .func op => HasOpInfo.functionInterface? op
-  | .datapath op => HasOpInfo.functionInterface? op
-  | .pdl op => HasOpInfo.functionInterface? op
-  | .io op => HasOpInfo.functionInterface? op
-  | .gmir op => HasOpInfo.functionInterface? op
-  | .test op => HasOpInfo.functionInterface? op
-  | .felt op => HasOpInfo.functionInterface? op
-  | .cir op => HasOpInfo.functionInterface? op
-  | .include op => HasOpInfo.functionInterface? op
-  | .function op => HasOpInfo.functionInterface? op
-  | .seq op => HasOpInfo.functionInterface? op
+  | .arith op => HasOpTraits.functionInterface? op
+  | .llvm op => HasOpTraits.functionInterface? op
+  | .riscv op => HasOpTraits.functionInterface? op
+  | .riscv_cf op => HasOpTraits.functionInterface? op
+  | .riscv_stack op => HasOpTraits.functionInterface? op
+  | .rv64 op => HasOpTraits.functionInterface? op
+  | .mod_arith op => HasOpTraits.functionInterface? op
+  | .cf op => HasOpTraits.functionInterface? op
+  | .comb op => HasOpTraits.functionInterface? op
+  | .hw op => HasOpTraits.functionInterface? op
+  | .verif op => HasOpTraits.functionInterface? op
+  | .builtin op => HasOpTraits.functionInterface? op
+  | .func op => HasOpTraits.functionInterface? op
+  | .datapath op => HasOpTraits.functionInterface? op
+  | .pdl op => HasOpTraits.functionInterface? op
+  | .io op => HasOpTraits.functionInterface? op
+  | .gmir op => HasOpTraits.functionInterface? op
+  | .test op => HasOpTraits.functionInterface? op
+  | .felt op => HasOpTraits.functionInterface? op
+  | .cir op => HasOpTraits.functionInterface? op
+  | .include op => HasOpTraits.functionInterface? op
+  | .function op => HasOpTraits.functionInterface? op
+  | .seq op => HasOpTraits.functionInterface? op
 
 /-- Branch-interface information assembled from the registered dialects. -/
 def OpCode.branchOpInterface?
     (opCode : OpCode) : Option (BranchOpInterface (_propertiesOf opCode)) :=
   match opCode with
-  | .arith op => HasOpInfo.branchOpInterface? op
-  | .llvm op => HasOpInfo.branchOpInterface? op
-  | .riscv op => HasOpInfo.branchOpInterface? op
-  | .riscv_cf op => HasOpInfo.branchOpInterface? op
-  | .riscv_stack op => HasOpInfo.branchOpInterface? op
-  | .rv64 op => HasOpInfo.branchOpInterface? op
-  | .mod_arith op => HasOpInfo.branchOpInterface? op
-  | .cf op => HasOpInfo.branchOpInterface? op
-  | .comb op => HasOpInfo.branchOpInterface? op
-  | .hw op => HasOpInfo.branchOpInterface? op
-  | .verif op => HasOpInfo.branchOpInterface? op
-  | .builtin op => HasOpInfo.branchOpInterface? op
-  | .func op => HasOpInfo.branchOpInterface? op
-  | .datapath op => HasOpInfo.branchOpInterface? op
-  | .pdl op => HasOpInfo.branchOpInterface? op
-  | .io op => HasOpInfo.branchOpInterface? op
-  | .gmir op => HasOpInfo.branchOpInterface? op
-  | .test op => HasOpInfo.branchOpInterface? op
-  | .felt op => HasOpInfo.branchOpInterface? op
-  | .cir op => HasOpInfo.branchOpInterface? op
-  | .include op => HasOpInfo.branchOpInterface? op
-  | .function op => HasOpInfo.branchOpInterface? op
-  | .seq op => HasOpInfo.branchOpInterface? op
+  | .arith op => HasOpTraits.branchOpInterface? op
+  | .llvm op => HasOpTraits.branchOpInterface? op
+  | .riscv op => HasOpTraits.branchOpInterface? op
+  | .riscv_cf op => HasOpTraits.branchOpInterface? op
+  | .riscv_stack op => HasOpTraits.branchOpInterface? op
+  | .rv64 op => HasOpTraits.branchOpInterface? op
+  | .mod_arith op => HasOpTraits.branchOpInterface? op
+  | .cf op => HasOpTraits.branchOpInterface? op
+  | .comb op => HasOpTraits.branchOpInterface? op
+  | .hw op => HasOpTraits.branchOpInterface? op
+  | .verif op => HasOpTraits.branchOpInterface? op
+  | .builtin op => HasOpTraits.branchOpInterface? op
+  | .func op => HasOpTraits.branchOpInterface? op
+  | .datapath op => HasOpTraits.branchOpInterface? op
+  | .pdl op => HasOpTraits.branchOpInterface? op
+  | .io op => HasOpTraits.branchOpInterface? op
+  | .gmir op => HasOpTraits.branchOpInterface? op
+  | .test op => HasOpTraits.branchOpInterface? op
+  | .felt op => HasOpTraits.branchOpInterface? op
+  | .cir op => HasOpTraits.branchOpInterface? op
+  | .include op => HasOpTraits.branchOpInterface? op
+  | .function op => HasOpTraits.branchOpInterface? op
+  | .seq op => HasOpTraits.branchOpInterface? op
 
 #generate_has_dialect_instances OpCode
+
+instance : HasOpTraits OpCode where
+  getEffects := OpCode.getEffects
+  isConstantLike := OpCode.isConstantLike
+  propagatesPoison := OpCode.propagatesPoison
+  functionInterface? := OpCode.functionInterface?
+  branchOpInterface? := OpCode.branchOpInterface?
+  getRegionKind := OpCode.getRegionKind
+  hasSSADominance := OpCode.hasSSADominance
+  hasNoTerminator := OpCode.hasNoTerminator
+  isTerminator := OpCode.isTerminator
+  isIsolatedFromAbove := OpCode.isIsolatedFromAbove
 
 @[expose]
 def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
@@ -450,8 +462,7 @@ def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
   | .llvm opType => Llvm.verifyLocalInvariants opType op ctx opIn
   | .mod_arith opType => Mod_Arith.verifyLocalInvariants opType op ctx opIn
   | .riscv opType => Riscv.verifyLocalInvariants opType op ctx opIn
-  | .riscv_cf opType =>
-    Riscv_Cf.verifyLocalInvariants OpCode.functionInterface? opType op ctx opIn
+  | .riscv_cf opType => Riscv_Cf.verifyLocalInvariants opType op ctx opIn
   | .riscv_stack opType => Riscv_Stack.verifyLocalInvariants opType op ctx opIn
   | .gmir opType => GMIR.verifyLocalInvariants opType op ctx opIn
   | .rv64 opType => Rv64.verifyLocalInvariants opType op ctx opIn
@@ -468,16 +479,6 @@ def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
 instance : HasOpInfo OpCode where
   verifyLocalInvariants := OpCode.verifyLocalInvariants
   tryFold := OpCode.tryFold
-  getEffects := OpCode.getEffects
-  isConstantLike := OpCode.isConstantLike
-  propagatesPoison := OpCode.propagatesPoison
-  functionInterface? := OpCode.functionInterface?
-  branchOpInterface? := OpCode.branchOpInterface?
-  getRegionKind := OpCode.getRegionKind
-  hasSSADominance := OpCode.hasSSADominance
-  hasNoTerminator := OpCode.hasNoTerminator
-  isTerminator := OpCode.isTerminator
-  isIsolatedFromAbove := OpCode.isIsolatedFromAbove
 
 /--
 Ask the dialect of `opCode` how to represent a folded

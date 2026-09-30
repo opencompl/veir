@@ -18,7 +18,7 @@ namespace Veir
 -/
 private def isFoldEvaluationCandidate
     (opCode : OpCode) (properties : propertiesOf opCode) : Bool :=
-  HasOpInfo.getEffects opCode properties == .none
+  HasOpTraits.getEffects opCode properties == .none
 
 /--
   Evaluate an operation with the interpreter, given the runtime values of its

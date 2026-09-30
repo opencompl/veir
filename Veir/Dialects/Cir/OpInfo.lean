@@ -349,8 +349,7 @@ def Cir.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .brcond => op.verifyCirBrCondOp ctx opIn
   | .unreachable => op.verifyPlainOpCounts ctx opIn 0 0
 
-instance : HasOpInfo Cir where
-  verifyLocalInvariants := Cir.verifyLocalInvariants
+instance : HasOpTraits Cir where
   getEffects := Cir.getEffects
   isConstantLike := Cir.isConstantLike
   functionInterface? := Cir.functionInterface?
@@ -358,6 +357,9 @@ instance : HasOpInfo Cir where
   hasSSADominance := Cir.hasSSADominance
   isTerminator := Cir.isTerminator
   isIsolatedFromAbove := Cir.isIsolatedFromAbove
+
+instance : HasOpInfo Cir where
+  verifyLocalInvariants := Cir.verifyLocalInvariants
 
 end
 

@@ -17,7 +17,7 @@ public section
 /-- Whether this operation implements the branch operation interface. -/
 def OperationPtr.isBranchLike {OpInfo : Type} [HasOpInfo OpInfo]
     (op : OperationPtr) (raw : IRContext OpInfo) : Bool :=
-  (HasOpInfo.branchOpInterface? (op.getOpType! raw)).isSome
+  (HasOpTraits.branchOpInterface? (op.getOpType! raw)).isSome
 
 namespace BranchOpInterface
 
@@ -50,7 +50,7 @@ def getSuccessorOperands? {OpInfo : Type} [HasOpInfo OpInfo]
     (branchOp : OperationPtr) (successorIndex : Nat) (raw : IRContext OpInfo) :
     Option SuccessorOperands := do
   let opType := branchOp.getOpType! raw
-  let some interface := HasOpInfo.branchOpInterface? opType | none
+  let some interface := HasOpTraits.branchOpInterface? opType | none
   interface.getSuccessorOperandsImpl? (branchOp.getProperties! raw opType)
     (branchOp.getOperands! raw) successorIndex
 
@@ -70,7 +70,7 @@ def getSuccessorForOperands? {OpInfo : Type} [HasOpInfo OpInfo]
     (branchOp : OperationPtr) (operands : Array (Option RuntimeValue))
     (raw : IRContext OpInfo) : Option BlockPtr := do
   let opType := branchOp.getOpType! raw
-  let some interface := HasOpInfo.branchOpInterface? opType | none
+  let some interface := HasOpTraits.branchOpInterface? opType | none
   interface.getSuccessorForOperandsImpl? (branchOp.getProperties! raw opType) operands
     (branchOp.getSuccessors! raw)
 

@@ -145,11 +145,13 @@ def Comb.interpretOp' (opType : Veir.Comb) (properties : propertiesOf opType)
     return (#[.int w (Veir.Data.Comb.add nl)], none)
   | _ => none
 
-instance : HasOpInfo Comb where
-  verifyLocalInvariants := Comb.verifyLocalInvariants
+instance : HasOpTraits Comb where
   getEffects := Comb.getEffects
   isConstantLike := Comb.isConstantLike
   hasSSADominance := Comb.hasSSADominance
+
+instance : HasOpInfo Comb where
+  verifyLocalInvariants := Comb.verifyLocalInvariants
 
 end
 

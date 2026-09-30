@@ -212,11 +212,13 @@ def Felt.interpretOp' (opType : Veir.Felt) (properties : propertiesOf opType)
     return (#[.felt fieldType (FeltSemantics.neg prime operand)], none)
   | _ => none
 
-instance : HasOpInfo Felt where
-  verifyLocalInvariants := Felt.verifyLocalInvariants
+instance : HasOpTraits Felt where
   getEffects := Felt.getEffects
   isConstantLike := Felt.isConstantLike
   hasSSADominance := Felt.hasSSADominance
+
+instance : HasOpInfo Felt where
+  verifyLocalInvariants := Felt.verifyLocalInvariants
 
 end
 

@@ -69,11 +69,13 @@ def LLZK.Include.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
         throw "include.from: Expected the parent operation to be a builtin.module"
     | none => throw "include.from: Expected the parent operation to be a builtin.module"
 
-instance : HasOpInfo LLZK.Include where
-  verifyLocalInvariants := LLZK.Include.verifyLocalInvariants
+instance : HasOpTraits LLZK.Include where
   getEffects := LLZK.Include.getEffects
   isConstantLike := LLZK.Include.isConstantLike
   hasSSADominance := LLZK.Include.hasSSADominance
+
+instance : HasOpInfo LLZK.Include where
+  verifyLocalInvariants := LLZK.Include.verifyLocalInvariants
 
 end
 

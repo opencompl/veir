@@ -26,7 +26,7 @@ def RegionPtr.getRegionKind (region : RegionPtr)
   match (region.get! ctx.raw).parent with
   | none => .SSACFG
   | some parent =>
-      HasOpInfo.getRegionKind (parent.getOpType! ctx.raw)
+      HasOpTraits.getRegionKind (parent.getOpType! ctx.raw)
         ((parent.get! ctx.raw).regions.idxOf region)
 
 /--
@@ -47,7 +47,7 @@ def RegionPtr.hasSSADominance (region : RegionPtr)
   | some first, some parent =>
       if body.lastBlock ≠ some first then true
       else
-        HasOpInfo.hasSSADominance (parent.getOpType! ctx.raw)
+        HasOpTraits.hasSSADominance (parent.getOpType! ctx.raw)
           ((parent.get! ctx.raw).regions.idxOf region)
   | _, _ => true
 

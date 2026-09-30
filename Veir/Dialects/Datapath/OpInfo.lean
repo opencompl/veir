@@ -86,11 +86,13 @@ def Datapath.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "Expected 0 successors"
     pure ()
 
-instance : HasOpInfo Datapath where
-  verifyLocalInvariants := Datapath.verifyLocalInvariants
+instance : HasOpTraits Datapath where
   getEffects := Datapath.getEffects
   isConstantLike := Datapath.isConstantLike
   hasSSADominance := Datapath.hasSSADominance
+
+instance : HasOpInfo Datapath where
+  verifyLocalInvariants := Datapath.verifyLocalInvariants
 
 end
 

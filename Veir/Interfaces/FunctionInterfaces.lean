@@ -15,15 +15,19 @@ https://github.com/llvm/llvm-project/blob/main/mlir/include/mlir/Interfaces/Func
 
 namespace Veir
 
-variable {OpCode : Type} [HasOpInfo OpCode]
+variable {OpCode : Type}
 
 public section
+
+section
+
+variable [HasOpTraits OpCode]
 
 /-- A function-like operation -/
 structure FunctionOp (ctx : IRContext OpCode) where
   op : OperationPtr
   interface : FunctionOpInterface (propertiesOf (op.getOpType! ctx))
-  functionInterface?_eq : HasOpInfo.functionInterface? (op.getOpType! ctx) = some interface
+  functionInterface?_eq : HasOpTraits.functionInterface? (op.getOpType! ctx) = some interface
 
 namespace FunctionOp
 
@@ -34,7 +38,7 @@ This is equivalent to `mlir::dyn_cast<FunctionOpInterface>(op)` in MLIR.
 -/
 @[inline]
 def cast? (op : OperationPtr) (ctx : IRContext OpCode) : Option (FunctionOp ctx) :=
-  match h : HasOpInfo.functionInterface? (op.getOpType! ctx) with
+  match h : HasOpTraits.functionInterface? (op.getOpType! ctx) with
   | some interface => some ⟨op, interface, h⟩
   | none => none
 
@@ -91,28 +95,6 @@ def getEntryBlock? (funcOp : FunctionOp ctx) : Option BlockPtr :=
   (funcOp.getFunctionBody!.get! ctx).firstBlock
 
 /-!
-## Type Attribute Handling
--/
-
-/-- Sets the function type to the given input/output type lists. -/
-def setFunctionType (wfCtx : WfIRContext OpCode) (funcOp : FunctionOp wfCtx.raw)
-    (inputs outputs : Array Attribute)
-    (opInBounds : funcOp.op.InBounds wfCtx.raw := by grind) : WfIRContext OpCode :=
-  let opType := funcOp.op.getOpType! wfCtx.raw
-  let props := funcOp.op.getProperties! wfCtx.raw opType
-  let newProps := funcOp.interface.setFunctionType props { inputs, outputs }
-  WfRewriter.setProperties wfCtx funcOp.op opType newProps opInBounds
-
-/-- Sets the function type to the given input/output type lists, panicking if the op
-    is out of bounds. -/
-def setFunctionType! (wfCtx : WfIRContext OpCode) (funcOp : FunctionOp wfCtx.raw)
-    (inputs outputs : Array Attribute) : WfIRContext OpCode :=
-  if opInBounds : funcOp.op.InBounds wfCtx.raw then
-    setFunctionType wfCtx funcOp inputs outputs opInBounds
-  else
-    panic "FunctionOp.setFunctionType! failed: operation is out of bounds"
-
-/-!
 ## Argument and Result Handling
 -/
 
@@ -131,6 +113,38 @@ def getNumResults (funcOp : FunctionOp ctx) : Nat :=
 /-- Returns the result types of the function. -/
 def getResultTypes (funcOp : FunctionOp ctx) : Array Attribute :=
   funcOp.getFunctionType.outputs
+
+end FunctionOp
+
+end
+
+namespace FunctionOp
+
+/-!
+## Type Attribute Handling
+
+Setting the function type rewrites the operation, which needs `HasOpInfo`.
+-/
+
+variable [HasOpInfo OpCode]
+
+/-- Sets the function type to the given input/output type lists. -/
+def setFunctionType (wfCtx : WfIRContext OpCode) (funcOp : FunctionOp wfCtx.raw)
+    (inputs outputs : Array Attribute)
+    (opInBounds : funcOp.op.InBounds wfCtx.raw := by grind) : WfIRContext OpCode :=
+  let opType := funcOp.op.getOpType! wfCtx.raw
+  let props := funcOp.op.getProperties! wfCtx.raw opType
+  let newProps := funcOp.interface.setFunctionType props { inputs, outputs }
+  WfRewriter.setProperties wfCtx funcOp.op opType newProps opInBounds
+
+/-- Sets the function type to the given input/output type lists, panicking if the op
+    is out of bounds. -/
+def setFunctionType! (wfCtx : WfIRContext OpCode) (funcOp : FunctionOp wfCtx.raw)
+    (inputs outputs : Array Attribute) : WfIRContext OpCode :=
+  if opInBounds : funcOp.op.InBounds wfCtx.raw then
+    setFunctionType wfCtx funcOp inputs outputs opInBounds
+  else
+    panic "FunctionOp.setFunctionType! failed: operation is out of bounds"
 
 end FunctionOp
 

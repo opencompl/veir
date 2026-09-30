@@ -102,14 +102,16 @@ def Builtin.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "Expected 0 successors"
     pure ()
 
-instance : HasOpInfo Builtin where
-  verifyLocalInvariants := Builtin.verifyLocalInvariants
+instance : HasOpTraits Builtin where
   getEffects := Builtin.getEffects
   isConstantLike := Builtin.isConstantLike
   getRegionKind := Builtin.getRegionKind
   hasSSADominance := Builtin.hasSSADominance
   hasNoTerminator := Builtin.hasNoTerminator
   isIsolatedFromAbove := Builtin.isIsolatedFromAbove
+
+instance : HasOpInfo Builtin where
+  verifyLocalInvariants := Builtin.verifyLocalInvariants
 
 end
 

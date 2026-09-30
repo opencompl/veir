@@ -144,11 +144,13 @@ def Io.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpInf
     Io.verifyBufferOperands op ctx 0 instrName
     Io.verifyStatusResult op ctx instrName
 
-instance : HasOpInfo Io where
-  verifyLocalInvariants := Io.verifyLocalInvariants
+instance : HasOpTraits Io where
   getEffects := Io.getEffects
   isConstantLike := Io.isConstantLike
   hasSSADominance := Io.hasSSADominance
+
+instance : HasOpInfo Io where
+  verifyLocalInvariants := Io.verifyLocalInvariants
 
 end
 

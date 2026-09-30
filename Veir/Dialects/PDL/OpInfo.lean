@@ -469,14 +469,16 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpIn
     op.verifyResultTypeMatches ctx (PDL.RangeType.mk .type : TypeAttr)
       "Expected the result to be of type '!pdl.range<type>'"
 
-instance : HasOpInfo PDL where
-  verifyLocalInvariants := PDL.verifyLocalInvariants
+instance : HasOpTraits PDL where
   getEffects := PDL.getEffects
   isConstantLike := PDL.isConstantLike
   hasSSADominance := PDL.hasSSADominance
   hasNoTerminator := PDL.hasNoTerminator
   isTerminator := PDL.isTerminator
   isIsolatedFromAbove := PDL.isIsolatedFromAbove
+
+instance : HasOpInfo PDL where
+  verifyLocalInvariants := PDL.verifyLocalInvariants
 
 end
 

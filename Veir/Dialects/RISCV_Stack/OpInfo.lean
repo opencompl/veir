@@ -90,11 +90,13 @@ def Riscv_Stack.interpretOp' (opType : Veir.Riscv_Stack) (properties : propertie
     let (mem, addr) ← mem.alloc properties.size.toNat.toUInt64
     return (#[.reg (LLVM.Int.toReg (mem.intFromPtr (.val addr)))], mem, none)
 
-instance : HasOpInfo Riscv_Stack where
-  verifyLocalInvariants := Riscv_Stack.verifyLocalInvariants
+instance : HasOpTraits Riscv_Stack where
   getEffects := Riscv_Stack.getEffects
   isConstantLike := Riscv_Stack.isConstantLike
   hasSSADominance := Riscv_Stack.hasSSADominance
+
+instance : HasOpInfo Riscv_Stack where
+  verifyLocalInvariants := Riscv_Stack.verifyLocalInvariants
 
 end
 

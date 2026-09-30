@@ -26,7 +26,7 @@ abbrev OperationPtr.isTriviallyDead {OpInfo : Type} [HasOpInfo OpInfo]
   op.getNumRegions! ctx = 0
     ∧ !op.hasUses! ctx
     ∧ !(op.getEffects ctx).writes
-    ∧ !HasOpInfo.isTerminator (op.getOpType! ctx)
+    ∧ !HasOpTraits.isTerminator (op.getOpType! ctx)
 
 end
 

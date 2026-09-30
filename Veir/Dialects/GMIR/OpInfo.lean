@@ -156,13 +156,15 @@ def GMIR.hasSSADominance (_op : GMIR) (_index : Nat) : Bool :=
 def GMIR.isTerminator (_op : GMIR) : Bool :=
   false
 
-instance : HasOpInfo GMIR where
-  verifyLocalInvariants := GMIR.verifyLocalInvariants
+instance : HasOpTraits GMIR where
   propagatesPoison := GMIR.propagatesPoison
   getEffects := GMIR.getEffects
   isConstantLike := GMIR.isConstantLike
   hasSSADominance := GMIR.hasSSADominance
   isTerminator := GMIR.isTerminator
+
+instance : HasOpInfo GMIR where
+  verifyLocalInvariants := GMIR.verifyLocalInvariants
 
 end
 

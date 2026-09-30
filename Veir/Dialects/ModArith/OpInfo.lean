@@ -178,8 +178,10 @@ def ModArith.interpretOp' (opType : Veir.Mod_Arith) (properties : propertiesOf o
       | _, _ => LLVM.Int.poison
     return (#[RuntimeValue.int bw res], none)
 
-instance : HasOpInfo Mod_Arith where
-  verifyLocalInvariants := Mod_Arith.verifyLocalInvariants
+instance : HasOpTraits Mod_Arith where
   getEffects := Mod_Arith.getEffects
   isConstantLike := Mod_Arith.isConstantLike
   hasSSADominance := Mod_Arith.hasSSADominance
+
+instance : HasOpInfo Mod_Arith where
+  verifyLocalInvariants := Mod_Arith.verifyLocalInvariants

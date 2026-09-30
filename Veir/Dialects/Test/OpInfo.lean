@@ -46,7 +46,7 @@ def Test.hasNoTerminator (_op : Test) (_index : Nat) : Bool :=
 
 #generate_dialect Test
 
-instance : HasOpInfo Test where
+instance : HasOpTraits Test where
   fromName := Test.fromName
   name := Test.name
   propertiesOf := Test.propertiesOf
@@ -57,6 +57,8 @@ instance : HasOpInfo Test where
   getRegionKind := Test.getRegionKind
   hasSSADominance := Test.hasSSADominance
   hasNoTerminator := Test.hasNoTerminator
+
+instance : HasOpInfo Test := {}
 
 end
 

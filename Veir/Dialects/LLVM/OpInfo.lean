@@ -1590,9 +1590,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     return (#[result], mem, none)
   | _ => none
 
-instance : HasOpInfo Llvm where
-  verifyLocalInvariants := Llvm.verifyLocalInvariants
-  tryFold := Llvm.tryFold
+instance : HasOpTraits Llvm where
   propagatesPoison := Llvm.propagatesPoison
   getEffects := Llvm.getEffects
   isConstantLike := Llvm.isConstantLike
@@ -1602,6 +1600,10 @@ instance : HasOpInfo Llvm where
   isTerminator := Llvm.isTerminator
   isIsolatedFromAbove := Llvm.isIsolatedFromAbove
   hasNoTerminator := Llvm.hasNoTerminator
+
+instance : HasOpInfo Llvm where
+  verifyLocalInvariants := Llvm.verifyLocalInvariants
+  tryFold := Llvm.tryFold
 
 end
 
