@@ -21,8 +21,8 @@ theorem RuntimeValue.ArrayConforms.int_pair
   have h0 := h.2 0 (by omega)
   have h1 := h.2 1 (by omega)
   simp [IntegerType.signless] at h0 h1
-  obtain ⟨lhs, hl⟩ := (RuntimeValue.Conforms.integerType).mp h0
-  obtain ⟨rhs, hr⟩ := (RuntimeValue.Conforms.integerType).mp h1
+  obtain ⟨lhs, hl⟩ := h0
+  obtain ⟨rhs, hr⟩ := h1
   refine ⟨lhs, rhs, ?_⟩
   apply Array.ext <;> grind
 
@@ -33,7 +33,7 @@ theorem RuntimeValue.ArrayConforms.reg_single {type : RegisterType}
   obtain ⟨value, rfl⟩ := Array.size_eq_one_iff.mp h.1
   have hv := h.2 0 (by simp)
   simp at hv
-  obtain ⟨reg, rfl⟩ := RuntimeValue.Conforms.registerType hv
+  obtain ⟨reg, rfl⟩ := hv
   exact ⟨reg, rfl⟩
 
 /-- Typing a single replacement reduces to typing its decision. -/
@@ -76,7 +76,7 @@ theorem FoldTable.correctAt_int_rhs
   intro known results hKnown hFold
   obtain ⟨left, width, rfl, rfl⟩ := lookup known results hFold
   have hw := hKnown.2 1 (by simp) (.int width (rhs width)) (by simp)
-  simp [RuntimeValue.Conforms, Attribute.asType, IntegerType.signless] at hw
+  simp [RuntimeValue.Conforms, IntegerType.signless] at hw
   subst width
   refine ⟨typed, ?_⟩
   intro operands hOperands hAgree memory successors layout
