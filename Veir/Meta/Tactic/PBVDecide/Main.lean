@@ -462,6 +462,27 @@ meta partial def visitExprRec (g : MVarId)
     return (g, widthTms, bvs)
 
 /--
+Visit the hypotheses that depend on the collected `BitVec` variables. These are
+reverted into the goal when the variables are eliminated, so the `BitVec`s and
+widths they mention must be collected too. Repeat until no new variables are found.
+-/
+meta partial def visitDependentHyps (g : MVarId)
+    (widthTms : WidthTms) (bvs : BitVecFVarsToRevert)
+    (visited : FVarIdSet := {}) :
+    MetaM (MVarId × WidthTms × BitVecFVarsToRevert) := g.withContext do
+  let (g, widthTms, newBvs, visited) ← (← getLCtx).foldlM
+    (init := (g, widthTms, bvs, visited)) fun (g, widthTms, newBvs, visited) ldecl => do
+      if ldecl.isImplementationDetail || visited.contains ldecl.fvarId then
+        return (g, widthTms, newBvs, visited)
+      unless ← bvs.bvs.toList.anyM (fun (fvar, _) => localDeclDependsOn ldecl fvar) do
+        return (g, widthTms, newBvs, visited)
+      let (g, widthTms, newBvs) ← visitExprRec g widthTms newBvs ldecl.type
+      return (g, widthTms, newBvs, visited.insert ldecl.fvarId)
+  if newBvs.bvs.size == bvs.bvs.size then
+    return (g, widthTms, newBvs)
+  visitDependentHyps g widthTms newBvs visited
+
+/--
 Given a `Tm .prop` and the `Expr` it was reified from, construct the expr that
 corresponds to the `Prop` expressed in terms of the masks.
 -/
@@ -664,6 +685,8 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvDecideContext) : MetaM (MVarId × L
   let widthEnv ← createWidthEnv g
   -- Find `BitVec`s and reify their widths
   let (g, widthTms, bvsToRevert) ← visitExprRec g { env := widthEnv } {} (← g.getType)
+  -- Find `BitVec`s in the hypotheses that will be reverted along with them
+  let (g, widthTms, bvsToRevert) ← visitDependentHyps g widthTms bvsToRevert
   -- Traverse the context to find props on widths (preconditions)
   let widthProps ← reifyPreconditions widthEnv
   -- Compute the blast width

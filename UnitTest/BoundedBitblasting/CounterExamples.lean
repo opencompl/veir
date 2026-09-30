@@ -206,3 +206,33 @@ error: `pbv_decide` found a counterexample, consider the following assignment:
 example (w : Nat) (y : BitVec 4) (hw : w ≤ 4) :
     (y.setWidth w).zeroExtend 4 = y := by
   pbv_decide 4
+
+-- Expected failure: a constant at width `w + 0` is not pushed, as `w + 0` is not syntactically `w`
+/--
+error: `pbv_decide` found a potentially spurious counterexample.
+  The following expressions were abstracted as opaque variables:
+    - BitVec.setWidth 4 1#(w + 0) = 0xf#4
+Consider the following assignment:
+  w = 4  	(m_w0 = 0xf#4)
+  w + 0 = 4  	(m_w0_add_lit0 = 0xf#4)
+  x = 0xf#4
+-/
+#guard_msgs in
+example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
+    x + (1 : BitVec (w + 0)) = 1 + x := by
+  pbv_decide 4
+
+-- Expected failure: a constant whose value is a `Nat` variable is abstracted
+/--
+error: `pbv_decide` found a potentially spurious counterexample.
+  The following expressions were abstracted as opaque variables:
+    - BitVec.ofNat 4 n = 0xf#4
+Consider the following assignment:
+  w = 4  	(m_w0 = 0xf#4)
+  n = 0  	(m_w1 = 0x0#4)
+  x = 0xf#4
+-/
+#guard_msgs in
+example (w n : Nat) (x : BitVec w) (hn : n = 0) (hw : w ≤ 4) :
+    x + BitVec.ofNat w n = x := by
+  pbv_decide 4
