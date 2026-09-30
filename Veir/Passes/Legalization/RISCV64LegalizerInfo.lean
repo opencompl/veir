@@ -36,9 +36,9 @@ def riscv64LegalizerInfo : LegalizerInfo where
       -- In LLVM, extensions from other widths never reach these rules: their operands are always
       -- the result of a  `g_trunc`, and the artifact combiner turns them into `g_sext_inreg`
       -- or `g_and`.
-      -- TODO: Add `g_sext_inreg`, `g_and` and these folds. Until then, other widths are illegal.
-      -- TODO: Extending from 16 -> 32 seems to be legal and selects sext.w / zext.w. Why?
+      -- FIXME: Add `g_sext_inreg`, `g_and` and these folds. Until then, other widths always legal.
       .legalForTypePairs [(32, 16), (64, 16), (64, 32)],
+      .alwaysLegal
     ]
     | .g_trunc => [
       .alwaysLegal,
