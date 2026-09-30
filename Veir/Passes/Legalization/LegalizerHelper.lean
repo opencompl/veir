@@ -86,11 +86,11 @@ def widenICmpResult (width : Nat) : Pattern OpCode :=
 public section
 
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
-def widenScalar? : GMIR → (typeIdx width : Nat) → Option (Pattern OpCode)
-  | .g_add, 0, width => widenBinop .g_add ⟨false, false⟩ width
-  | .g_sub, 0, width => widenBinop .g_sub ⟨false, false⟩ width
-  | .g_icmp, 0, width => widenICmpResult width
-  | .g_icmp, 1, width => widenICmpOperands width
+def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (Pattern OpCode)
+  | .g_add, .type 0, width => widenBinop .g_add ⟨false, false⟩ width
+  | .g_sub, .type 0, width => widenBinop .g_sub ⟨false, false⟩ width
+  | .g_icmp, .type 0, width => widenICmpResult width
+  | .g_icmp, .type 1, width => widenICmpOperands width
   | _, _, _ => none
 
 end

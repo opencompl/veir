@@ -35,7 +35,7 @@ private def illegalReason (ctx : IRContext OpCode) (op : OperationPtr) (opcode :
   let name := String.fromUTF8! (IsOpCode.name (op.getOpType! ctx))
   let types := opcode.getTypeGroupTypes! op ctx
   let reason := match action, types.find? fun type => (LLT.ofType? type).isNone with
-    | .widenScalar typeIdx _, _ => s!"widening type group {typeIdx} is not implemented"
+    | .widenScalar (.type idx) _, _ => s!"widening type group {idx} is not implemented"
     | _, some type => s!"unsupported type {type}"
     | _, none => "no legalization rule matches"
   s!"unable to legalize {name}: {reason}"

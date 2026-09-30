@@ -22,12 +22,12 @@ def riscv64LegalizerInfo : LegalizerInfo where
   rules
     | .g_add | .g_sub => [
       .legalFor [64],
-      .minScalar 0 64,
+      .minScalar (.type 0) 64,
     ]
     | .g_icmp => [
       .legalForTypePairs [(64, 64)],
-      .minScalar 1 64,
-      .minScalar 0 64,
+      .minScalar (.type 1) 64,
+      .minScalar (.type 0) 64,
     ]
     | .g_anyext => [
       .alwaysLegal,

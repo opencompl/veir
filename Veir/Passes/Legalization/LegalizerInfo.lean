@@ -69,9 +69,10 @@ def LegalityQuery.of? (ctx : IRContext OpCode) (op : OperationPtr) (opcode : GMI
   let types ← (opcode.getTypeGroupTypes! op ctx).mapM LLT.ofType?
   return { opcode, types }
 
-/-- The size in bits of type group `typeIdx`. -/
-def LegalityQuery.sizeInBits (query : LegalityQuery) (typeIdx : Nat) : Nat :=
-  query.types[typeIdx]!
+/-- The common LLT of type group `typeIdx`. -/
+def LegalityQuery.getLLT! (query : LegalityQuery) (typeIdx : TypeGroup) : LLT :=
+  let .type idx := typeIdx
+  query.types[idx]!
 
 /-!
 ## Legalization rules
@@ -88,7 +89,7 @@ inductive LegalizeAction where
   -/
   | legal
   /-- The operation should be implemented with type group `typeIdx` widened to `newType`. -/
-  | widenScalar (typeIdx : Nat) (newType : LLT)
+  | widenScalar (typeIdx : TypeGroup) (newType : LLT)
   /-- This operation is completely unsupported on the target. -/
   | unsupported
 
@@ -103,27 +104,27 @@ def legalIf (predicate : LegalityQuery → Bool) : LegalizeRule :=
 
 /-- The operation is legal when type group 0 is any type in `types`. -/
 def legalFor (types : List LLT) : LegalizeRule :=
-  legalIf fun query => types.contains query.types[0]!
+  legalIf fun query => types.contains (query.getLLT! (.type 0))
 
 /-- The operation is legal when type groups 0 and 1 are any type pair in `pairs`. -/
 def legalForTypePairs (pairs : List (LLT × LLT)) : LegalizeRule :=
-  legalIf fun query => pairs.contains (query.types[0]!, query.types[1]!)
+  legalIf fun query => pairs.contains (query.getLLT! (.type 0), query.getLLT! (.type 1))
 
 /-- The operation is always legal. -/
 def alwaysLegal : LegalizeRule :=
   legalIf fun _ => true
 
 /-- Widen the scalar to the one selected by `mutation` if `predicate` is true. -/
-def widenScalarIf (predicate : LegalityQuery → Bool) (mutation : LegalityQuery → Nat × LLT) :
-    LegalizeRule :=
+def widenScalarIf (predicate : LegalityQuery → Bool)
+    (mutation : LegalityQuery → TypeGroup × LLT) : LegalizeRule :=
   fun query => if predicate query then
     let (typeIdx, newType) := mutation query
     some (.widenScalar typeIdx newType)
   else none
 
 /-- Ensure the scalar of type group `typeIdx` is at least as wide as `type`. -/
-def minScalar (typeIdx : Nat) (type : LLT) : LegalizeRule :=
-  widenScalarIf (fun query => query.sizeInBits typeIdx < type) fun _ => (typeIdx, type)
+def minScalar (typeIdx : TypeGroup) (newType : LLT) : LegalizeRule :=
+  widenScalarIf (fun query => (query.getLLT! typeIdx) < newType) fun _ => (typeIdx, newType)
 
 end LegalizeRule
 
