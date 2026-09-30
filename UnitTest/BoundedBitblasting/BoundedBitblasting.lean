@@ -195,7 +195,7 @@ example (w : Nat) (x : BitVec w) (hw : w ≤ 2) :
     x + 0 = x := by
   pbv_decide 4
 
-/-- Adding a costant commutes -/
+/-- Adding a constant commutes -/
 example (w : Nat) (x : BitVec w) (hw : w ≤ 2) :
     x + 1 = 1 + x := by
   pbv_decide 4
