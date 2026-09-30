@@ -1579,15 +1579,19 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
           if bw1 ≠ bw2 then .fail none else .ok (val)
       | .byte bw1 val', .integerType ⟨bw2, _⟩ =>
           if bw1 ≠ bw2 then .fail none else .ok ((.int bw1 $ val'.toInt))
-      | .byte bw val', .llvmPointerType _ =>
-          if h : bw = 64 then .ok (.addr (mem.ptrFromInt (val'.cast h).toInt)) else .fail none
-      | .addr val', .llvmPointerType _ => .ok (val)
-      | .addr val', .byteType ⟨bw⟩ =>
-          if bw = 64 then .ok (.byte 64 (LLVM.Byte.fromInt (mem.intFromPtr val'))) else .fail none
-      | .addr val', .integerType ⟨bw, _⟩ =>
-          if bw = 64 then .ok (.int 64 (mem.intFromPtr val')) else .fail none
+      | .addr _, .llvmPointerType _ => .ok (val)
       | _, _ => none
     return (#[result], mem, none)
+  | .inttoptr => do
+    let [.int bw val] := operands.toList | none
+    let [type] := resultTypes.toList | none
+    let .llvmPointerType _ := type.val | none
+    if h : bw = 64 then return (#[.addr (mem.ptrFromInt (val.cast h))], mem, none) else .fail none
+  | .ptrtoint => do
+    let [.addr val] := operands.toList | none
+    let [type] := resultTypes.toList | none
+    let .integerType bw := type.val | none
+    if bw.bitwidth = 64 then return (#[.int 64 (mem.intFromPtr val)], mem, none) else .fail none
   | _ => none
 
 instance : HasOpInfo Llvm where
