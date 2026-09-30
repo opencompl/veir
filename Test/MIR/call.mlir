@@ -44,7 +44,7 @@
 // Direct call with one argument and one result.
 // CHECK-NEXT:     ADJCALLSTACKDOWN 0, 0, implicit-def dead $x2, implicit $x2
 // CHECK-NEXT:     $x10 = COPY [[ARG]]
-// CHECK-NEXT:     PseudoCALL @external, csr_ilp32_lp64, implicit-def dead $x1, implicit $x10, implicit-def $x2, implicit-def $x10
+// CHECK-NEXT:     PseudoCALL target-flags(riscv-call) @external, csr_ilp32_lp64, implicit-def dead $x1, implicit $x10, implicit-def $x2, implicit-def $x10
 // CHECK-NEXT:     ADJCALLSTACKUP 0, 0, implicit-def dead $x2, implicit $x2
 // CHECK-NEXT:     [[ONE:%v[0-9]+]]:gpr = COPY $x10
 
@@ -61,7 +61,7 @@
 
 // A call with neither arguments nor results.
 // CHECK-NEXT:     ADJCALLSTACKDOWN 0, 0, implicit-def dead $x2, implicit $x2
-// CHECK-NEXT:     PseudoCALL @leaf, csr_ilp32_lp64, implicit-def dead $x1, implicit-def $x2
+// CHECK-NEXT:     PseudoCALL target-flags(riscv-call) @leaf, csr_ilp32_lp64, implicit-def dead $x1, implicit-def $x2
 // CHECK-NEXT:     ADJCALLSTACKUP 0, 0, implicit-def dead $x2, implicit $x2
 
 // CHECK-NEXT:     $x10 = COPY [[FIRST]]

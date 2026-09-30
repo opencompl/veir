@@ -28,6 +28,67 @@ public section
 
 namespace Veir.MIRPrinter
 
+/-- A conservative subset of names that need no quoting in LLVM IR or YAML. -/
+private def isBareName (name : String) : Bool :=
+  let isInitial := fun c : Char =>
+    ('a' ≤ c && c ≤ 'z') || ('A' ≤ c && c ≤ 'Z') || c == '_'
+  !name.isEmpty && isInitial name.front &&
+    name.all (fun c => isInitial c || c.isDigit || c == '.' || c == '$' || c == '-')
+
+/-- An LLVM global identifier, also usable as a MIR global operand. LLVM uses
+    byte escapes (`\HH`), including for quotes, backslashes and UTF-8 bytes. -/
+private def llvmSymbol (name : String) : String := Id.run do
+  if isBareName name then return "@" ++ name
+  let mut result := "@\""
+  for byte in name.toUTF8 do
+    if byte >= 0x20 && byte < 0x7F && byte != 0x22 && byte != 0x5C then
+      result := result.push (Char.ofNat byte.toNat)
+    else
+      result := result.push '\\'
+      result := result.push (byte >>> 4).toHexDigit
+      result := result.push (byte &&& 0x0F).toHexDigit
+  return result.push '"'
+
+/-- A YAML scalar for the MIR function name. YAML's escapes differ from LLVM's;
+    quote punctuation and escape controls so the name stays on one line. -/
+private def yamlName (name : String) : String := Id.run do
+  if isBareName name then return name
+  let mut result := "\""
+  for c in name.toList do
+    if c == '\\' then result := result ++ "\\\\"
+    else if c == '"' then result := result ++ "\\\""
+    else if c.toNat < 0x20 || (c.toNat >= 0x7F && c.toNat <= 0x9F) then
+      let byte := c.toNat.toUInt8
+      result := result ++ "\\x"
+      result := result.push (byte >>> 4).toHexDigit
+      result := result.push (byte &&& 0x0F).toHexDigit
+    else if c.toNat == 0x2028 then result := result ++ "\\u2028"
+    else if c.toNat == 0x2029 then result := result ++ "\\u2029"
+    else result := result.push c
+  return result.push '"'
+
+/-- Decode the same quoted-name escapes accepted by the MLIR lexer. -/
+private def decodeSymbolEscapes (acc : ByteArray) : List Char → Option ByteArray
+  | [] => some acc
+  | '\\' :: '\\' :: rest => decodeSymbolEscapes (acc.push 0x5C) rest
+  | '\\' :: '"' :: rest => decodeSymbolEscapes (acc.push 0x22) rest
+  | '\\' :: 'n' :: rest => decodeSymbolEscapes (acc.push 0x0A) rest
+  | '\\' :: 't' :: rest => decodeSymbolEscapes (acc.push 0x09) rest
+  | '\\' :: hi :: lo :: rest => do
+    let hi ← Char.hexDigit? hi
+    let lo ← Char.hexDigit? lo
+    decodeSymbolEscapes (acc.push (hi * 16 + lo)) rest
+  | '\\' :: _ => none
+  | c :: rest => decodeSymbolEscapes (acc ++ c.toString.toUTF8) rest
+
+/-- Canonical symbol name, matching the decoded `sym_name` of a definition. -/
+private def symbolName (ref : FlatSymbolRefAttr) : String :=
+  let name := (ref.value.dropPrefix "@").toString
+  if name.startsWith "\"" && name.endsWith "\"" then
+    let chars := ((name.drop 1).dropEnd 1).toString.toList
+    String.fromUTF8! (decodeSymbolEscapes ByteArray.empty chars).get!
+  else name
+
 /-- The physical-register MIR name (e.g. `$x0`) named by a register type
     carrying an index, if any. -/
 def physRegName? : Attribute → Option String
@@ -329,13 +390,13 @@ def planEdges (ctx : IRContext OpCode) (blocks : Array BlockPtr) : EdgePlan := I
     preds := preds.set! e.2.1 (preds[e.2.1]!.push (e.1, e.2.2))
   return { preds := preds, split := split, tramps := tramps }
 
-/-- The callee symbol name (without its `@`) of a direct `riscv_cf.call`;
+/-- The decoded callee symbol name of a direct `riscv_cf.call`;
     `none` when indirect. -/
 def callee? (ctx : IRContext OpCode) (op : OperationPtr) : Option String :=
   let opType := op.getOpType! ctx
   let d := Properties.toAttrDict opType (op.getProperties! ctx opType)
   match d["callee".toUTF8]? with
-  | some (.flatSymbolRefAttr c) => some (c.value.stripPrefix "@")
+  | some (.flatSymbolRefAttr c) => some (symbolName c)
   | _ => none
 
 /-- Register-passed argument and result capacity of the standard calling
@@ -347,7 +408,8 @@ def maxRegResults : Nat := 2
 /-- Emit a `riscv_cf.call` the way LLVM's selector does: bracket the call with
     `ADJCALLSTACKDOWN`/`ADJCALLSTACKUP` (no stack arguments, so both are 0),
     copy arguments into a0.., call with the lp64 callee-saved mask, and copy
-    results out of a0... An indirect target goes through a `gprjalrnonx7`
+    results out of a0... Direct targets carry the call relocation flag needed
+    by LLVM's object emitter. An indirect target goes through a `gprjalrnonx7`
     copy -- the register class `PseudoCALLIndirect` requires. -/
 def emitCall (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr) : IO Unit := do
   let ops := getOperands ctx op
@@ -367,7 +429,7 @@ def emitCall (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr) : IO Unit
   let uses := (List.range args.size).map (fun i => s!", implicit $x{10 + i}")
   let defs := (List.range nres).map (fun i => s!", implicit-def $x{10 + i}")
   let call := match callee with
-    | some c => s!"PseudoCALL @{c}"
+    | some c => s!"PseudoCALL target-flags(riscv-call) {llvmSymbol c}"
     | none => s!"PseudoCALLIndirect {target}"
   IO.println (s!"    {call}, csr_ilp32_lp64, implicit-def dead $x1" ++
     String.join uses ++ ", implicit-def $x2" ++ String.join defs)
@@ -616,7 +678,7 @@ def printFunction (ctx : IRContext OpCode) (name : String) (blocks : Array Block
   -- the register allocator keeps them there.
   let nargs := numArgs ctx blocks
   IO.println "---"
-  IO.println s!"name:            {name}"
+  IO.println s!"name:            {yamlName name}"
   IO.println "tracksRegLiveness: true"
   if nargs != 0 then
     IO.println "liveins:"
@@ -661,11 +723,11 @@ def printMIR (ctx : IRContext OpCode) (funcOps : Array OperationPtr) : IO Unit :
   for (name, blocks) in funcs do
     let params := String.intercalate ", "
       ((List.range (numArgs ctx blocks)).map (fun i => s!"i64 %a{i}"))
-    IO.println s!"  define i64 @{name}({params}) #0 \{"
+    IO.println s!"  define i64 {llvmSymbol name}({params}) #0 \{"
     IO.println "    ret i64 0"
     IO.println "  }"
   for name in externs do
-    IO.println s!"  declare void @{name}()"
+    IO.println s!"  declare void {llvmSymbol name}()"
   IO.println "  attributes #0 = { \"target-features\"=\"+m,+zba,+zbb,+zbs,+zbc,+zbkb,+zicond\" }"
   IO.println "..."
   for (name, blocks) in funcs do
