@@ -242,7 +242,7 @@ def interpretFunction (op : OperationPtr) (values : Array RuntimeValue) {ctx : W
     none
   else
     let state : InterpreterState ctx := ⟨.empty ctx, mem⟩
-    let (state, results) ← interpretRegion (FunctionOpInterface.getFunctionBody op ctx.raw) values state
+    let (state, results) ← interpretRegion (op.getRegion ctx.raw 0) values state
     return (state.memory, results)
 
 /--

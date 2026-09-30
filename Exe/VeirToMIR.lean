@@ -15,12 +15,13 @@ open Veir.Input
 open Veir
 
 /-- Find the first function-like operation in the module's top block. -/
-partial def findFunc (ctx : IRContext OpCode) (op : Option OperationPtr) : Option OperationPtr :=
+partial def findFunc (ctx : IRContext OpCode) (op : Option OperationPtr) : Option (FunctionOp ctx) :=
   match op with
   | none => none
   | some op =>
-    if op.isFunctionLike ctx then some op
-    else findFunc ctx (op.get! ctx).next
+    match FunctionOp.cast? op ctx with
+    | some f => some f
+    | none => findFunc ctx (op.get! ctx).next
 
 def main (args : List String) : IO Unit := do
   match inputSourceOfArgs args with

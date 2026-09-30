@@ -17,14 +17,11 @@ open Veir.Parser
 open Veir.Input
 open Veir
 
-/-- Returns true if `op` is a viable zero-argument `@main` function. -/
-private def isZeroArgMainFunc (ctx : IRContext OpCode) (op : OperationPtr) : Bool :=
-  match FunctionOpInterface.getSymName? op ctx with
-  | some symName =>
-      String.fromUTF8! symName.value == "main" &&
-        (FunctionOpInterface.getNumArguments? op ctx == some 0)
-  | none =>
-      false
+/-- Returns true if `f` is a viable zero-argument `@main` function. -/
+private def isZeroArgMainFunc {ctx : IRContext OpCode} (funcOp : FunctionOp ctx) : Bool :=
+  match funcOp.getSymName? with
+  | some symName => String.fromUTF8! symName.value == "main" && funcOp.getNumArguments == 0
+  | none => false
 
 /-- Scan the module's top-level ops for entry points. -/
 partial def scanEntryPoints (ctx : IRContext OpCode) (op : Option OperationPtr)
@@ -32,10 +29,11 @@ partial def scanEntryPoints (ctx : IRContext OpCode) (op : Option OperationPtr)
   match op with
   | none => return entryPoints
   | some op =>
-    if op.isFunctionLike ctx then
-      let entryPoints := if isZeroArgMainFunc ctx op then op :: entryPoints else entryPoints
+    match FunctionOp.cast? op ctx with
+    | some funcOp =>
+      let entryPoints := if isZeroArgMainFunc funcOp then op :: entryPoints else entryPoints
       scanEntryPoints ctx (op.get! ctx).next entryPoints
-    else
+    | none =>
       match op.getOpType! ctx with
       | .llvm .module_flags | .llvm .mlir__global =>
         scanEntryPoints ctx (op.get! ctx).next entryPoints

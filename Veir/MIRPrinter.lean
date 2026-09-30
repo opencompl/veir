@@ -514,8 +514,8 @@ def emitTrampoline (t : Nat) (s : Nat) : IO Unit := do
   IO.println s!"    PseudoBR %bb.{s}"
 
 /-- Print a full MIR module for the given `main` function. -/
-def printMIR (ctx : IRContext OpCode) (funcOp : OperationPtr) : IO Unit := do
-  let allBlocks := collectBlocks ctx (FunctionOpInterface.getEntryBlock? funcOp ctx)
+def printMIR (ctx : IRContext OpCode) (funcOp : FunctionOp ctx) : IO Unit := do
+  let allBlocks := collectBlocks ctx funcOp.getEntryBlock?
   -- Drop blocks unreachable from the entry: a real codegen prunes them, and
   -- they break MIR liveness (their values aren't dominated by any real path).
   let reach :=
