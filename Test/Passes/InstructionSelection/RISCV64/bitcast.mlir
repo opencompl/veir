@@ -6,12 +6,18 @@
         %c = "llvm.bitcast"(%a) : (i64) -> !llvm.byte<64>
         // CHECK:           %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
         // CHECK-NEXT:      %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> !llvm.byte<64>
-	// `byte -> ptr` is deliberately left alone: lowering it through a register would drop the
-	// byte's poison bits, which `llvm.bitcast` maps to the null pointer. See `isBitcastByteToPtr`.
-	%d = "llvm.bitcast"(%c) : (!llvm.byte<64>) -> !llvm.ptr
-        // CHECK-NEXT:      %{{.*}} = "llvm.bitcast"(%{{.*}}) : (!llvm.byte<64>) -> !llvm.ptr
-	%e = "llvm.bitcast"(%d) : (!llvm.ptr) -> !llvm.byte<64>
-        // CHECK-NEXT:      %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!llvm.ptr) -> !riscv.reg
+	// Going between an integer and a pointer is `llvm.inttoptr` and `llvm.ptrtoint`, which this
+	// pass does not lower: a register holds an address, so a pointer that survives one would
+	// come back having lost the object it points into.
+	%c64 = "llvm.bitcast"(%c) : (!llvm.byte<64>) -> i64
+        // CHECK-NEXT:      %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!llvm.byte<64>) -> !riscv.reg
+        // CHECK-NEXT:      %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
+	%d = "llvm.inttoptr"(%c64) : (i64) -> !llvm.ptr
+        // CHECK-NEXT:      %{{.*}} = "llvm.inttoptr"(%{{.*}}) : (i64) -> !llvm.ptr
+	%e64 = "llvm.ptrtoint"(%d) : (!llvm.ptr) -> i64
+        // CHECK-NEXT:      %{{.*}} = "llvm.ptrtoint"(%{{.*}}) : (!llvm.ptr) -> i64
+	%e = "llvm.bitcast"(%e64) : (i64) -> !llvm.byte<64>
+        // CHECK-NEXT:      %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
         // CHECK-NEXT:      %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> !llvm.byte<64>
 	%f = "llvm.bitcast"(%b) : (!llvm.byte<32>) -> !llvm.byte<32>
         // CHECK-NEXT:      %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!llvm.byte<32>) -> !riscv.reg
