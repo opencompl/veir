@@ -429,6 +429,10 @@ def emitTerminator (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr)
   | .riscv_cf .bgeu =>
     IO.println s!"    BGEU {v 0}, {v 1}, %bb.{succ 0}"
     IO.println s!"    PseudoBR %bb.{succ 1}"
+  -- `unimp` raises an illegal-instruction exception; it is what `llc` selects
+  -- for `llvm.trap`.
+  | .riscv_cf .unreachable =>
+    IO.println "    UNIMP"
   | .llvm .return | .func .return =>
     if ops.size > 0 then
       IO.println s!"    $x10 = COPY {v 0}"
@@ -470,8 +474,10 @@ def emitBlock (ctx : IRContext OpCode) (fr : Frame) (blocks : Array BlockPtr)
   | some f =>
     let term := lastOp ctx f
     let lsuccs := loweredSuccs ctx blocks split bi term
-    -- successors line: distinct lowered successor indices, in order
-    if !lsuccs.isEmpty then
+    -- Successors line: distinct lowered successor indices, in order. UNIMP
+    -- is not an LLVM barrier, so its empty list must be explicit to prevent
+    -- the MIR parser from inferring a fallthrough edge to the next block.
+    if !lsuccs.isEmpty || term.getOpType! ctx == .riscv_cf .unreachable then
       let mut sis : List Nat := []
       for si in lsuccs do
         if !sis.contains si then sis := sis ++ [si]

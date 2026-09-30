@@ -17,6 +17,7 @@ error: The prover found a counterexample, consider the following assignment:
 m_w1 = 255#8
 m_w2 = 0#8
 m_w0 = 127#8
+m_lit8 = 255#8
 x = 127#8
 -/
 #guard_msgs in
@@ -126,8 +127,8 @@ error: `pbv_decide` found a potentially spurious counterexample.
   The following expressions were abstracted as opaque variables:
     - BitVec.ofBool (BitVec.setWidth w x + 1#w == BitVec.setWidth w x) = 0x1#1
 Consider the following assignment:
-  w = 0  	(m_w0 = 0x0#4)
-  x = 0x0#0
+  w = 4  	(m_w0 = 0xf#4)
+  x = 0xf#4
 -/
 #guard_msgs in
 example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
@@ -204,4 +205,19 @@ error: `pbv_decide` found a counterexample, consider the following assignment:
 #guard_msgs in
 example (w : Nat) (y : BitVec 4) (hw : w ≤ 4) :
     (y.setWidth w).zeroExtend 4 = y := by
+  pbv_decide 4
+
+-- Expected failure: a constant at width `w + 0` is not pushed, as `w + 0` is not syntactically `w`
+/--
+error: `pbv_decide` found a potentially spurious counterexample.
+  The following expressions were abstracted as opaque variables:
+    - BitVec.setWidth 4 1#(w + 0) = 0xf#4
+Consider the following assignment:
+  w = 4  	(m_w0 = 0xf#4)
+  w + 0 = 4  	(m_w0_add_lit0 = 0xf#4)
+  x = 0xf#4
+-/
+#guard_msgs in
+example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
+    x + (1 : BitVec (w + 0)) = 1 + x := by
   pbv_decide 4

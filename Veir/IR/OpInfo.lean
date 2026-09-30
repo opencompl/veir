@@ -52,6 +52,30 @@ structure FunctionOpInterface (Properties : Type) where
   /-- Return the properties with the function type replaced. -/
   setFunctionType : Properties → FunctionType → Properties
 
+/-- The SSA values forwarded from a branch operation to one of its successors. -/
+structure SuccessorOperands where
+  /-- The SSA values forwarded to the successor. -/
+  forwardedOperands : Array ValuePtr
+deriving Inhabited, Repr, DecidableEq
+
+instance : GetElem SuccessorOperands Nat ValuePtr
+    (fun operands blockArgumentIndex => blockArgumentIndex < operands.forwardedOperands.size) where
+  getElem := fun operands blockArgumentIndex h => operands.forwardedOperands[blockArgumentIndex]'h
+
+instance : GetElem? SuccessorOperands Nat ValuePtr
+    (fun operands blockArgumentIndex => blockArgumentIndex < operands.forwardedOperands.size) where
+  getElem? := fun operands blockArgumentIndex => operands.forwardedOperands[blockArgumentIndex]?
+
+/-- Information exposed by operations that branch to successor blocks. -/
+structure BranchOpInterface (Properties : Type) where
+  /-- Return the operands passed to the indexed successor. -/
+  getSuccessorOperandsImpl? :
+    Properties → Array ValuePtr → Nat → Option SuccessorOperands
+  /-- Return the successor selected by the known constant operands. -/
+  getSuccessorForOperandsImpl? :
+    Properties → Array (Option RuntimeValue) → Array BlockPtr → Option BlockPtr :=
+      fun _ _ _ => none
+
 class HasOpInfo (opCode: Type)
     extends IsOpCode opCode where
   /--
@@ -99,6 +123,11 @@ class HasOpInfo (opCode: Type)
   Information about operations that act like functions.
   -/
   functionInterface? : (op : opCode) → Option (FunctionOpInterface (propertiesOf op)) :=
+    fun _ => none
+  /--
+  Information about operations that branch to successor blocks.
+  -/
+  branchOpInterface? : (op : opCode) → Option (BranchOpInterface (propertiesOf op)) :=
     fun _ => none
   /--
   Return the kind of the indexed region inside an operation with this opcode.
