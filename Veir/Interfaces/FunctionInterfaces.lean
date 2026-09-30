@@ -19,9 +19,8 @@ variable {OpCode : Type} [HasOpInfo OpCode]
 
 public section
 
-/-- A function-like operation -/
-structure FunctionOp (ctx : IRContext OpCode) where
-  op : OperationPtr
+/-- A function-like operation. -/
+structure FunctionOp (ctx : IRContext OpCode) (op : OperationPtr) where
   interface : FunctionOpInterface (propertiesOf (op.getOpType! ctx))
   functionInterface?_eq : HasOpInfo.functionInterface? (op.getOpType! ctx) = some interface
 
@@ -33,61 +32,61 @@ Try to cast an operation to a `FunctionOp`.
 This is equivalent to `mlir::dyn_cast<FunctionOpInterface>(op)` in MLIR.
 -/
 @[inline]
-def cast? (op : OperationPtr) (ctx : IRContext OpCode) : Option (FunctionOp ctx) :=
+def cast? (op : OperationPtr) (ctx : IRContext OpCode) : Option (FunctionOp ctx op) :=
   match h : HasOpInfo.functionInterface? (op.getOpType! ctx) with
-  | some interface => some ⟨op, interface, h⟩
+  | some interface => some ⟨interface, h⟩
   | none => none
 
 @[simp]
-theorem cast?_eq_some_iff (op : OperationPtr) (ctx : IRContext OpCode) (funcOp : FunctionOp ctx) :
-    cast? op ctx = some funcOp ↔ funcOp.op = op := by
+theorem cast?_eq_some {op : OperationPtr} {ctx : IRContext OpCode} (funcOp : FunctionOp ctx op) :
+    cast? op ctx = some funcOp := by
   cases funcOp; grind [cast?]
 
-grind_pattern cast?_eq_some_iff => cast? op ctx, funcOp.op
+grind_pattern cast?_eq_some => cast? op ctx, funcOp.interface
 
-variable {ctx : IRContext OpCode}
+variable {ctx : IRContext OpCode} {op : OperationPtr}
 
 /-- Returns the symbol name of the function. -/
-def getSymName? (funcOp : FunctionOp ctx) : Option StringAttr :=
-  let opType := funcOp.op.getOpType! ctx
-  funcOp.interface.getSymName (funcOp.op.getProperties! ctx opType)
+def getSymName? (funcOp : FunctionOp ctx op) : Option StringAttr :=
+  let opType := op.getOpType! ctx
+  funcOp.interface.getSymName (op.getProperties! ctx opType)
 
 /-- Returns the type of the function. -/
-def getFunctionType (funcOp : FunctionOp ctx) : FunctionType :=
-  let opType := funcOp.op.getOpType! ctx
-  funcOp.interface.getFunctionType (funcOp.op.getProperties! ctx opType)
+def getFunctionType (funcOp : FunctionOp ctx op) : FunctionType :=
+  let opType := op.getOpType! ctx
+  funcOp.interface.getFunctionType (op.getProperties! ctx opType)
 
 /-!
 ## Body Handling
 -/
 
 /-- Returns the region containing the body of this function. -/
-def getFunctionBody (funcOp : FunctionOp ctx)
-    (opInBounds : funcOp.op.InBounds ctx := by grind)
-    (hasRegion : 0 < funcOp.op.getNumRegions ctx opInBounds := by grind) : RegionPtr :=
-  funcOp.op.getRegion ctx 0 opInBounds hasRegion
+def getFunctionBody (_funcOp : FunctionOp ctx op)
+    (opInBounds : op.InBounds ctx := by grind)
+    (hasRegion : 0 < op.getNumRegions ctx opInBounds := by grind) : RegionPtr :=
+  op.getRegion ctx 0 opInBounds hasRegion
 
 /-- Returns the region containing the body of this function. -/
-def getFunctionBody! (funcOp : FunctionOp ctx) : RegionPtr :=
-  funcOp.op.getRegion! ctx 0
+def getFunctionBody! (_funcOp : FunctionOp ctx op) : RegionPtr :=
+  op.getRegion! ctx 0
 
 @[grind =_, eq_bang ←]
-theorem getFunctionBody!_eq_getFunctionBody {funcOp : FunctionOp ctx}
-    {opInBounds} (hasRegion : 0 < funcOp.op.getNumRegions ctx opInBounds) :
+theorem getFunctionBody!_eq_getFunctionBody {funcOp : FunctionOp ctx op}
+    {opInBounds} (hasRegion : 0 < op.getNumRegions ctx opInBounds) :
     funcOp.getFunctionBody! = funcOp.getFunctionBody opInBounds hasRegion := by
   grind [getFunctionBody, getFunctionBody!]
 
-theorem getFunctionBody!_inBounds {funcOp : FunctionOp ctx}
+theorem getFunctionBody!_inBounds {funcOp : FunctionOp ctx op}
     (ctxInBounds : ctx.FieldsInBounds)
-    (opInBounds : funcOp.op.InBounds ctx)
-    (hasRegion : 0 < funcOp.op.getNumRegions! ctx) :
+    (opInBounds : op.InBounds ctx)
+    (hasRegion : 0 < op.getNumRegions! ctx) :
     funcOp.getFunctionBody!.InBounds ctx := by
   grind [getFunctionBody!, OperationPtr.getRegions!_inBounds]
 
 grind_pattern getFunctionBody!_inBounds => (getFunctionBody! (ctx := ctx) funcOp), ctx.FieldsInBounds
 
 /-- Returns the first block in the body region. -/
-def getEntryBlock? (funcOp : FunctionOp ctx) : Option BlockPtr :=
+def getEntryBlock? (funcOp : FunctionOp ctx op) : Option BlockPtr :=
   (funcOp.getFunctionBody!.get! ctx).firstBlock
 
 /-!
@@ -95,19 +94,19 @@ def getEntryBlock? (funcOp : FunctionOp ctx) : Option BlockPtr :=
 -/
 
 /-- Sets the function type to the given input/output type lists. -/
-def setFunctionType (wfCtx : WfIRContext OpCode) (funcOp : FunctionOp wfCtx.raw)
+def setFunctionType (wfCtx : WfIRContext OpCode) (funcOp : FunctionOp wfCtx.raw op)
     (inputs outputs : Array Attribute)
-    (opInBounds : funcOp.op.InBounds wfCtx.raw := by grind) : WfIRContext OpCode :=
-  let opType := funcOp.op.getOpType! wfCtx.raw
-  let props := funcOp.op.getProperties! wfCtx.raw opType
+    (opInBounds : op.InBounds wfCtx.raw := by grind) : WfIRContext OpCode :=
+  let opType := op.getOpType! wfCtx.raw
+  let props := op.getProperties! wfCtx.raw opType
   let newProps := funcOp.interface.setFunctionType props { inputs, outputs }
-  WfRewriter.setProperties wfCtx funcOp.op opType newProps opInBounds
+  WfRewriter.setProperties wfCtx op opType newProps opInBounds
 
 /-- Sets the function type to the given input/output type lists, panicking if the op
     is out of bounds. -/
-def setFunctionType! (wfCtx : WfIRContext OpCode) (funcOp : FunctionOp wfCtx.raw)
+def setFunctionType! (wfCtx : WfIRContext OpCode) (funcOp : FunctionOp wfCtx.raw op)
     (inputs outputs : Array Attribute) : WfIRContext OpCode :=
-  if opInBounds : funcOp.op.InBounds wfCtx.raw then
+  if opInBounds : op.InBounds wfCtx.raw then
     setFunctionType wfCtx funcOp inputs outputs opInBounds
   else
     panic "FunctionOp.setFunctionType! failed: operation is out of bounds"
@@ -117,19 +116,19 @@ def setFunctionType! (wfCtx : WfIRContext OpCode) (funcOp : FunctionOp wfCtx.raw
 -/
 
 /-- Returns the number of function arguments. -/
-def getNumArguments (funcOp : FunctionOp ctx) : Nat :=
+def getNumArguments (funcOp : FunctionOp ctx op) : Nat :=
   funcOp.getFunctionType.inputs.size
 
 /-- Returns the argument types of the function. -/
-def getArgumentTypes (funcOp : FunctionOp ctx) : Array Attribute :=
+def getArgumentTypes (funcOp : FunctionOp ctx op) : Array Attribute :=
   funcOp.getFunctionType.inputs
 
 /-- Returns the number of function results. -/
-def getNumResults (funcOp : FunctionOp ctx) : Nat :=
+def getNumResults (funcOp : FunctionOp ctx op) : Nat :=
   funcOp.getFunctionType.outputs.size
 
 /-- Returns the result types of the function. -/
-def getResultTypes (funcOp : FunctionOp ctx) : Array Attribute :=
+def getResultTypes (funcOp : FunctionOp ctx op) : Array Attribute :=
   funcOp.getFunctionType.outputs
 
 end FunctionOp

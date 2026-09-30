@@ -18,7 +18,8 @@ open Veir.Input
 open Veir
 
 /-- Returns true if `f` is a viable zero-argument `@main` function. -/
-private def isZeroArgMainFunc {ctx : IRContext OpCode} (funcOp : FunctionOp ctx) : Bool :=
+private def isZeroArgMainFunc {ctx : IRContext OpCode} {op : OperationPtr}
+    (funcOp : FunctionOp ctx op) : Bool :=
   match funcOp.getSymName? with
   | some symName => String.fromUTF8! symName.value == "main" && funcOp.getNumArguments == 0
   | none => false

@@ -53,12 +53,12 @@ set_option warn.sorry false in
     inserting bridging casts and rewriting the `function_type` to match. Handles
     `func.func`, `llvm.func` and `cir.func`. -/
 def coerceFunction (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
-    (funcOp : FunctionOp ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
+    {op : OperationPtr} (funcOp : FunctionOp ctx.raw op) : ExceptT String IO (WfIRContext OpCode) := do
   -- Shadow the parameter: from here on `ctx` always names the latest version, with no
   -- separate old binding left around to second-guess.
   let mut ctx := ctx
   let some entry := funcOp.getEntryBlock? | return ctx
-  let returnCode := returnOpCodeFor (funcOp.op.getOpType! ctx.raw)
+  let returnCode := returnOpCodeFor (op.getOpType! ctx.raw)
   -- Default the output types to the currently-declared ones, then flip coerced positions.
   -- This preserves uncoerced results and `llvm.func`'s `void` return.
   let mut outputs : Array Attribute := funcOp.getResultTypes
@@ -83,7 +83,7 @@ def coerceFunction (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
   -- (2) Coerce the operands of every return terminator in this function.
   let returnOps := ctx.raw.operations.keys.filter fun o =>
     o.getOpType! ctx.raw == returnCode &&
-      o.getParentOp! ctx.raw == some funcOp.op
+      o.getParentOp! ctx.raw == some op
   for retOp in returnOps do
     for j in List.range (retOp.getNumOperands! ctx.raw) do
       let opVal := retOp.getOperand! ctx.raw j
@@ -100,7 +100,7 @@ def coerceFunction (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
       | none => pure ()
   -- (3) Rewrite the function_type to reflect the coerced boundary types.
   -- `funcOp` belongs to the context before the rewrites above, so cast it again.
-  let some funcOp := FunctionOp.cast? funcOp.op ctx.raw | return ctx
+  let some funcOp := FunctionOp.cast? op ctx.raw | return ctx
   ctx := FunctionOp.setFunctionType! ctx funcOp inputs outputs
   return ctx
 

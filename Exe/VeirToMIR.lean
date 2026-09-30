@@ -15,12 +15,13 @@ open Veir.Input
 open Veir
 
 /-- Find the first function-like operation in the module's top block. -/
-partial def findFunc (ctx : IRContext OpCode) (op : Option OperationPtr) : Option (FunctionOp ctx) :=
+partial def findFunc (ctx : IRContext OpCode) (op : Option OperationPtr) :
+    Option ((op : OperationPtr) × FunctionOp ctx op) :=
   match op with
   | none => none
   | some op =>
     match FunctionOp.cast? op ctx with
-    | some f => some f
+    | some f => some ⟨op, f⟩
     | none => findFunc ctx (op.get! ctx).next
 
 def main (args : List String) : IO Unit := do
@@ -40,7 +41,7 @@ def main (args : List String) : IO Unit := do
         | some b => findFunc rawCtx (b.get! rawCtx).firstOp
         | none => none
       match funcOp with
-      | some f => Veir.MIRPrinter.printMIR rawCtx f
+      | some ⟨_, f⟩ => Veir.MIRPrinter.printMIR rawCtx f
       | none =>
         IO.eprintln "Error: no function-like operation found in module"
         IO.Process.exit 1
