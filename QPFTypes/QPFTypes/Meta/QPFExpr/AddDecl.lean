@@ -76,6 +76,14 @@ def      $F ${deadVars} : CurriedTypeFun.{$u} $n
 instance $F.instQPF ${deadVars} : QPF (TypeFun.ofCurried ($F ${deadVars}))
 ```
 
+Additionally, if `q.isPolynomial?` is given, there are 2 more instances:
+```
+instance $F.Uncurried.instIsPolynomial ${deadVars} :
+    IsPolynomial ($F.Uncurried ${deadVars}) ($F.Uncurried.instQPF ${deadVars})
+instance $F.instIsPolynomial ${deadVars} :
+    IsPolynomial (TypeFun.ofCurried ($F ${deadVars})) ($F.instQPF ${deadVars})
+```
+
 The uncurried form is what all constructions on QPFs are stated in terms of,
 while the curried form is what users expect to apply: `$F α β`.
 
@@ -88,7 +96,9 @@ meta def addDecls (q : QPFExpr u n) (declName : Name) (levelParams : List Name)
   withTraceNode `QPFTypes (fun _ => return m!"adding declarations for {declName}") do
     let uncurriedName := declName ++ `Uncurried
     let uncurriedInstName := uncurriedName ++ `instQPF
+    let uncurriedPolyInstName := uncurriedName ++ `instIsPolynomial
     let instName := declName ++ `instQPF
+    let polyInstName := declName ++ `instIsPolynomial
     let levels := levelParams.map Level.param
     let n := toExpr n
 
@@ -111,7 +121,8 @@ meta def addDecls (q : QPFExpr u n) (declName : Name) (levelParams : List Name)
       (← mkLambdaFVars deadVars (mkApp2 (mkConst ``TypeFun.curry [u]) n uncurried))
 
     /- `instance $declName.instQPF $deadVars* :
-          QPF (TypeFun.ofCurried ($declName $deadVars*)) := QPF.instOfCurriedCurry` -/
+          QPF (TypeFun.ofCurried ($declName $deadVars*)) := QPF.instOfCurriedCurry`
+    -/
     let ofCurried := mkApp2 (mkConst ``TypeFun.ofCurried [u]) n <|
       mkAppN (mkConst declName levels) deadVars
     addInstanceDefn instName levelParams
@@ -119,6 +130,31 @@ meta def addDecls (q : QPFExpr u n) (declName : Name) (levelParams : List Name)
       (← mkLambdaFVars deadVars <|
         mkApp3 (mkConst ``QPF.instOfCurriedCurry [u]) n uncurried
           (mkAppN (mkConst uncurriedInstName levels) deadVars))
+
+    if let some isPolynomial := q.isPolynomial? then
+      /- `instance $declName.Uncurried.instIsPolynomial $deadVars* :
+          IsPolynomial ($declName.Uncurried $deadVars*)
+            ($declName.Uncurried.instQPF $deadVars*) := $(q.isPolynomial?)`
+      -/
+      let uncurriedInst := mkAppN (mkConst uncurriedInstName levels) deadVars
+      addInstanceDefn uncurriedPolyInstName levelParams
+        (← mkForallFVars deadVars
+          (mkApp3 (mkConst ``QPF.IsPolynomial [u]) n uncurried uncurriedInst))
+        (← mkLambdaFVars deadVars isPolynomial)
+
+      /- `instance $declName.instIsPolynomial $deadVars* :
+              IsPolynomial (TypeFun.ofCurried ($declName $deadVars*))
+                ($declName.instQPF $deadVars*) :=
+            QPF.IsPolynomial.instOfCurriedCurry`
+      -/
+      let uncurriedPolyInst := mkAppN (mkConst uncurriedPolyInstName levels) deadVars
+      let inst := mkAppN (mkConst instName levels) deadVars
+      addInstanceDefn polyInstName levelParams
+        (← mkForallFVars deadVars
+          (mkApp3 (mkConst ``QPF.IsPolynomial [u]) n ofCurried inst))
+        (← mkLambdaFVars deadVars <|
+          mkApp4 (mkConst ``QPF.IsPolynomial.instOfCurriedCurry [u]) n uncurried
+            uncurriedInst uncurriedPolyInst)
 
 /--
 Infer the universe level parameters that a qpf should be added to the
@@ -143,16 +179,20 @@ private meta def inferLevelParams (q : QPFExpr u n) (deadVars : Array Expr)
   -/
   let typefun ← Term.levelMVarToParam (← instantiateMVars (← mkLambdaFVars deadVars q.typefun))
   let qpf ← Term.levelMVarToParam (← instantiateMVars (← mkLambdaFVars deadVars q.qpf))
+  let isPolynomial? ← q.isPolynomial?.mapM fun p => do
+    Term.levelMVarToParam (← instantiateMVars (← mkLambdaFVars deadVars p))
   let u' ← instantiateLevelMVars u
   let usedParams :=
     let s := collectLevelParams {} typefun
     let s := collectLevelParams s qpf
+    let s := isPolynomial?.elim s (collectLevelParams s)
     (collectLevelParams s (.sort u')).params
   let levelParams? := sortDeclLevelParams scopeLevelNames (← Term.getLevelNames) usedParams
   let levelParams ← match levelParams? with
     | .error msg => throwError msg
     | .ok levelParams => pure levelParams
-  return (levelParams, ⟨u', { typefun := q.typefun, qpf := q.qpf }⟩)
+  return (levelParams,
+    ⟨u', { typefun := q.typefun, qpf := q.qpf, isPolynomial? := q.isPolynomial? }⟩)
 
 /--
 Wrapper around `addDecls`, which infers universe level parameters from the

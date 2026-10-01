@@ -36,20 +36,16 @@ public meta structure QPFExpr (u : Level) (n : Nat) where
   typefun : Expr
   /--
   `QPFExpr.qpf` is the corresponding `QPF` instance, i.e., a Lean expression of
-  type `QPF.{$u, $u} $n $typefun`.
+  type `QPF.{$u, $u} $typefun`.
   -/
   qpf : Expr
+  /--
+  `QPFExpr.isPolynomial?` contains a corresponding `IsPolynomial` instance
+  (i.e., an expression of type `IsPolynomial.{$u} $typefun`),
+  if the typefunction is indeed (isomorphic to) a polynomial functor.
+  -/
+  isPolynomial? : Option Expr
 
-
-/-!
-NOTE: In future, `QPFExpr` may be replaced by an inductive, with a special case
-for polynomial functors (i.e., type functors defined as `PFunctor.Obj P` for
-some polynomial functor `P`), so that helpers like `mkCofix` preserve the fact
-this is a polynomical functor. The projections `QPFExpr.F` and `QPFExpr.qpf`
-
-This is desirable because, e.g., the cofixpoint construction of a polynomial
-functor has better def-eqs than the cofixpoint construction for general QPFs.
--/
 
 /-!
 ## Meta Helpers
@@ -63,6 +59,8 @@ Create the least/inductive fixpoint of a qpf, i.e., an application of `QPF.Fix`.
 public meta def mkFix (e : QPFExpr u (n + 1)) : QPFExpr u n where
   typefun := mkApp3 (mkConst ``QPF.Fix [u]) (toExpr n) e.typefun e.qpf
   qpf     := mkApp3 (mkConst ``QPF.qpfFix [u]) (toExpr n) e.typefun e.qpf
+  isPolynomial? := e.isPolynomial?.map fun isPoly =>
+    mkApp4 (mkConst ``QPF.Fix.instIsPolynomial [u]) (toExpr n) e.typefun e.qpf isPoly
 
 /--
 Create the greates/coinductive fixpoint of a qpf,
@@ -71,6 +69,8 @@ i.e., an application of `QPF.Cofix`.
 public meta def mkCofix (e : QPFExpr u (n + 1)) : QPFExpr u n where
   typefun := mkApp3 (mkConst ``QPF.Cofix [u]) (toExpr n) e.typefun e.qpf
   qpf     := mkApp3 (mkConst ``QPF.qpfCofix [u]) (toExpr n) e.typefun e.qpf
+  isPolynomial? := e.isPolynomial?.map fun isPoly =>
+    mkApp4 (mkConst ``QPF.Cofix.instIsPolynomial [u]) (toExpr n) e.typefun e.qpf isPoly
 
 /--
 Create the `i`-th `n`-ary projection QPF, i.e., the `n`-ary type function
@@ -79,6 +79,8 @@ Create the `i`-th `n`-ary projection QPF, i.e., the `n`-ary type function
 public meta def mkProj (u : Level) {n : Nat} (i : Fin n) : QPFExpr u n where
   typefun := mkApp2 (mkConst ``QPF.Prj [u]) (toExpr n) (toExpr i)
   qpf     := mkApp2 (mkConst ``QPF.Prj.qpf [u]) (toExpr n) (toExpr i)
+  isPolynomial? := some <|
+    mkApp2 (mkConst ``QPF.Prj.instIsPolynomial [u]) (toExpr n) (toExpr i)
 
 /--
 Create the constant `n`-ary QPF on `A`, i.e., the `n`-ary type function
@@ -90,14 +92,17 @@ Note that this is called `mkConstant`, rather than `mkConst`, to avoid shadowing
 public meta def mkConstant (u : Level) (n : Nat) (A : Expr /- : Type $u -/) : QPFExpr u n where
   typefun := mkApp2 (mkConst ``QPF.Const [u]) (toExpr n) A
   qpf     := mkApp2 (mkConst ``QPF.Const.qpf [u]) (toExpr n) A
+  isPolynomial? := some <|
+    mkApp2 (mkConst ``QPF.Const.instIsPolynomial [u]) (toExpr n) A
 
 /--
 Create a dependent sum or product of a family of `n`-ary QPFs, depending on
-which pair of `QPF.Sigma`/`QPF.Sigma.qpf` or `QPF.Pi`/`QPF.Pi.qpf` is passed in.
+which triple of `QPF.Sigma`/`QPF.Sigma.qpf`/`QPF.Sigma.instIsPolynomial` or
+`QPF.Pi`/`QPF.Pi.qpf`/`QPF.Pi.instIsPolynomial` is passed in.
 
 Private auxiliary definition for `mkSigma` and `mkPi`.
 -/
-private meta def mkDepFamily (typefunConst qpfConst : Name)
+private meta def mkDepFamily (typefunConst qpfConst isPolyConst : Name)
     (u : Level) (n : Nat) (A : Expr /- : Type $u -/)
     (family : Expr → MetaM (QPFExpr u n)) : MetaM (QPFExpr u n) :=
   Meta.withLocalDeclD `a A fun a => do
@@ -109,6 +114,9 @@ private meta def mkDepFamily (typefunConst qpfConst : Name)
     return {
       typefun := mkApp3 (mkConst typefunConst [u]) (toExpr n) A Ftypefun
       qpf := mkApp4 (mkConst qpfConst [u]) (toExpr n) A Ftypefun Fqpf
+      isPolynomial? := ← Fa.isPolynomial?.mapM fun FisPoly => do
+        let FisPoly ← Meta.mkLambdaFVars #[a] FisPoly
+        return mkApp5 (mkConst isPolyConst [u]) (toExpr n) A Ftypefun Fqpf FisPoly
     }
 
 /--
@@ -124,7 +132,7 @@ QPFs in the family.
 -/
 public meta def mkSigma (u : Level) (n : Nat) (A : Expr /- : Type $u -/)
     (family : Expr → MetaM (QPFExpr u n)) : MetaM (QPFExpr u n) :=
-  mkDepFamily ``QPF.Sigma ``QPF.Sigma.qpf u n A family
+  mkDepFamily ``QPF.Sigma ``QPF.Sigma.qpf ``QPF.Sigma.instIsPolynomial u n A family
 
 /--
 Create the dependent product of a family of `n`-ary QPFs,
@@ -140,7 +148,7 @@ their codomain, but not in their domain) are represented.
 -/
 public meta def mkPi (u : Level) (n : Nat) (A : Expr /- : Type $u -/)
     (family : Expr → MetaM (QPFExpr u n)) : MetaM (QPFExpr u n) :=
-  mkDepFamily ``QPF.Pi ``QPF.Pi.qpf u n A family
+  mkDepFamily ``QPF.Pi ``QPF.Pi.qpf ``QPF.Pi.instIsPolynomial u n A family
 
 /--
 Compose an `n`-ary QPF `F` with `n` `m`-ary QPFs `Gs`, i.e.,
@@ -162,7 +170,22 @@ public meta def mkComp (F : QPFExpr u n) (Gs : Vector (QPFExpr u m) n) :
         .default
     Fin.mkDTuple qpfType (Gs.map (·.qpf))
 
+  -- Composition preserves polynomiality, but only if *all* of its arguments are
+  -- polynomial; as soon as one of them is not, neither is the composite.
+  let isPolynomial? ← match F.isPolynomial?, Gs.mapM (·.isPolynomial?) with
+    | some FisPoly, some GsPoly => do
+      let polyType := -- `fun (i : Fin $n) => @IsPolynomial.{$u} $m ($Gtypefun i) ($Gqpf i)`
+        .lam `i (mkApp (mkConst ``Fin) n)
+          (mkApp3 (mkConst ``QPF.IsPolynomial [u]) m
+            (mkApp Gtypefun (.bvar 0)) (mkApp Gqpf (.bvar 0)))
+          .default
+      let GisPoly ← Fin.mkDPropTuple polyType GsPoly
+      pure <| some <| mkApp8 (mkConst ``QPF.Comp.instIsPolynomial [u])
+        n m F.typefun Gtypefun F.qpf Gqpf FisPoly GisPoly
+    | _, _ => pure none
+
   return {
     typefun := mkApp4 (mkConst ``QPF.Comp [u, u]) n m F.typefun Gtypefun
     qpf := mkApp6 (mkConst ``QPF.Comp.inst [u, u]) n m F.typefun Gtypefun F.qpf Gqpf
+    isPolynomial?
   }

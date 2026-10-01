@@ -7,6 +7,7 @@ module
 
 -- public import Mathlib.Control.Functor.Multivariate
 public import QPFTypes.Theory.QPF.Basic
+public import QPFTypes.Theory.QPF.IsPolynomial
 
 /-!
 # Projection functors as QPFs
@@ -56,3 +57,12 @@ instance Prj.qpf : QPF (Prj i) where
   repr := @Prj.repr _ i
   abs_repr := by intros; rfl
   abs_map := by intro α β f P; cases P; rfl
+
+/-- Projections are polynomial. -/
+instance Prj.instIsPolynomial : IsPolynomial (Prj i) where
+  repr_abs := by
+    rintro _ ⟨⟨⟩, f⟩
+    simp only [QPF.repr, repr, QPF.abs, abs];
+    congr 1
+    funext j b
+    grind

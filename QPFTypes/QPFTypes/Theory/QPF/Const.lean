@@ -7,6 +7,7 @@ module
 
 public import QPFTypes.Theory.PFunctor.Multivariate.Const
 public import QPFTypes.Theory.QPF.Basic
+public import QPFTypes.Theory.QPF.IsPolynomial
 
 /-!
 # Constant functors are QPFs
@@ -61,6 +62,10 @@ instance qpf : QPF (Const n A) where
   repr x := MvPFunctor.const.mk n x
   abs_repr := by intros; rfl
   abs_map := by intros; rfl
+
+/-- Constant functors are polynomial. -/
+instance instIsPolynomial : IsPolynomial (Const n A) where
+  repr_abs p := MvPFunctor.const.mk_get p
 
 end Const
 

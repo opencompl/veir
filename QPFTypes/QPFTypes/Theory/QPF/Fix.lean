@@ -7,6 +7,7 @@ module
 
 public import QPFTypes.Theory.PFunctor.Multivariate.W
 public import QPFTypes.Theory.QPF.Basic
+public import QPFTypes.Theory.QPF.IsPolynomial
 
 /-!
 # The initial algebra of a multivariate qpf is again a qpf.
@@ -300,6 +301,29 @@ instance qpfFix : QPF (Fix F) where
     intro α β g x
     simp only [MvFunctor.map, Fix.map]
     rfl
+
+/-!
+### `Fix` preserves polynomiality
+
+If the quotient of `F` is trivial, then so is the quotient of `Fix F`: the only
+identifications `WEquiv` makes between `q.P`-trees are those forced by `abs`,
+and there are none of those when `abs` is injective. Concretely, `wrepr` -- which
+replaces every node of a tree by the canonical representative picked by
+`repr ∘ abs` -- becomes the identity.
+-/
+
+/-- When `F` is polynomial, `wrepr` picks every tree as its own representative. -/
+theorem wrepr_eq_self [IsPolynomial F] (x : q.P.W α) : wrepr x = x := by
+  apply q.P.w_ind _ x
+  intro a f' f ih
+  have hf : wrepr ∘ f = f := funext ih
+  rw [wrepr_wMk, IsPolynomial.repr_abs]
+  erw [MvPFunctor.map_eq, MvPFunctor.wMk', appendFun_comp_splitFun, TypeVec.id_comp, hf]
+  rfl
+
+/-- Taking the least fixed point preserves polynomiality. -/
+instance Fix.instIsPolynomial [IsPolynomial F] : IsPolynomial (Fix F) where
+  repr_abs p := wrepr_eq_self p
 
 /-- Dependent recursor for `fix F` -/
 def Fix.drec {β : Fix F α → Type u}
