@@ -185,6 +185,19 @@ theorem RuntimeValue.float_of_isRefinedBy {ty : FloatType} {v : Data.Float.Float
     tv = RuntimeValue.float ty v := by
   cases tv <;> grind [RuntimeValue.isRefinedBy]
 
+/-- A source array of one value fixes the target array to one value that it refines. -/
+theorem RuntimeValue.arrayIsRefinedBy_toList_singleton {a b : Array RuntimeValue}
+    {v : RuntimeValue} (hEq : a.toList = [v]) (h : a ⊒ b) :
+    ∃ w, b.toList = [w] ∧ v ⊒ w := by
+  have hSize : a.size = 1 := by simp [Array.size, hEq]
+  have hSize' : b.size = 1 := by rw [← h.1, hSize]
+  obtain ⟨w, hw⟩ : ∃ w, b.toList = [w] := List.length_eq_one_iff.mp (by simpa using hSize')
+  refine ⟨w, hw, ?_⟩
+  have h0 := h.2 0 (by omega)
+  rw [getElem!_pos _ _ (by omega), getElem!_pos _ _ (by omega)] at h0
+  simp only [← Array.getElem_toList, hEq, hw] at h0
+  simpa using h0
+
 /-- A runtime value `tv` that refines a register runtime value `v` is equal to it. -/
 theorem RuntimeValue.reg_of_isRefinedBy {v : Data.RISCV.Reg} {tv : RuntimeValue}
     (h : RuntimeValue.reg v ⊒ tv) :
