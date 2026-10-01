@@ -1,0 +1,490 @@
+{
+  "lean_toolchain": "leanprover/lean4:v4.35.0-rc1",
+  "platform": "macOS-26.5.1-arm64-arm-64bit",
+  "proof_count": 110,
+  "method": "Three sequential passes per version; one fresh lake env lean --tstack=400000 <source snapshot> process per file; reverse file order on the second pass. Dependencies already built. Times include Lean startup, imports, helper lemmas, and checking the full proof file; exclude module C-object and executable builds.",
+  "before_version": "All 110 validity proof sites use ordinary provePuddleValid; snapshots saved before the conversion.",
+  "after_version": "All 110 use provePuddleValid sym. Native metadata callbacks first use ordinary deterministic plumbing normalization. Constant rotate proofs simplify again after exposing their decoded immediate.",
+  "suite_median_seconds": {
+    "before": 139.524576502,
+    "after": 101.8489386250001
+  },
+  "suite_time_reduction_percent": 27.00286847060227,
+  "suite_speedup": 1.3699168433725037,
+  "round_totals_seconds": {
+    "before": [
+      142.037943084,
+      139.524576502,
+      135.84229679100008
+    ],
+    "after": [
+      104.886386749,
+      100.526899166,
+      101.8489386250001
+    ]
+  },
+  "files": [
+    {
+      "file": "Veir/Passes/InstructionSelection/RISCV64BinaryValidity.lean",
+      "proofs": 34,
+      "before_seconds": 32.104008125,
+      "after_seconds": 21.781199041999997,
+      "time_reduction_percent": 32.1542688464542
+    },
+    {
+      "file": "Veir/Passes/InstructionSelection/RISCV64BitcastValidity.lean",
+      "proofs": 1,
+      "before_seconds": 3.174960375000012,
+      "after_seconds": 2.781382999999998,
+      "time_reduction_percent": 12.39629250491079
+    },
+    {
+      "file": "Veir/Passes/InstructionSelection/RISCV64ByteShiftValidity.lean",
+      "proofs": 4,
+      "before_seconds": 6.812223749999987,
+      "after_seconds": 5.062397040999997,
+      "time_reduction_percent": 25.686571275642457
+    },
+    {
+      "file": "Veir/Passes/InstructionSelection/RISCV64CastValidity.lean",
+      "proofs": 4,
+      "before_seconds": 4.527724707999994,
+      "after_seconds": 4.281077541999991,
+      "time_reduction_percent": 5.44748592078056
+    },
+    {
+      "file": "Veir/Passes/InstructionSelection/RISCV64ComparisonValidity.lean",
+      "proofs": 30,
+      "before_seconds": 29.455803125000017,
+      "after_seconds": 18.256433291000008,
+      "time_reduction_percent": 38.02092846178338
+    },
+    {
+      "file": "Veir/Passes/InstructionSelection/RISCV64SequenceExtraValidity.lean",
+      "proofs": 6,
+      "before_seconds": 10.579216375000001,
+      "after_seconds": 10.142073291000003,
+      "time_reduction_percent": 4.132093233606815
+    },
+    {
+      "file": "Veir/Passes/InstructionSelection/RISCV64SequenceValidity.lean",
+      "proofs": 16,
+      "before_seconds": 38.084194834,
+      "after_seconds": 26.199080792000018,
+      "time_reduction_percent": 31.20747095692684
+    },
+    {
+      "file": "Veir/Passes/InstructionSelection/RISCV64ShiftValidity.lean",
+      "proofs": 3,
+      "before_seconds": 4.341784375000003,
+      "after_seconds": 3.311663082999985,
+      "time_reduction_percent": 23.725758882257196
+    },
+    {
+      "file": "Veir/Passes/InstructionSelection/RISCV64UnaryValidity.lean",
+      "proofs": 6,
+      "before_seconds": 4.40217558400002,
+      "after_seconds": 3.262040082999988,
+      "time_reduction_percent": 25.899364512945024
+    },
+    {
+      "file": "Veir/Passes/InstructionSelection/RISCV64ZeroComparisonValidity.lean",
+      "proofs": 6,
+      "before_seconds": 6.6458471669999994,
+      "after_seconds": 6.404946249999995,
+      "time_reduction_percent": 3.6248338390356016
+    }
+  ],
+  "source_sha256": {
+    "before": {
+      "RISCV64BinaryValidity.lean": "a561c541992df46079ff3401f0a173cc206789ab706d668d289546f80da90ce5",
+      "RISCV64BitcastValidity.lean": "e1ee301ad13582cd9d85512287ab834932725e7e3a1acf9b68142c882f5dee20",
+      "RISCV64ByteShiftValidity.lean": "40935a2008b6182f7df64a457ae3fc852832b6cba9414b76a587d03dbad3f459",
+      "RISCV64CastValidity.lean": "3bd79ed28d13c7a89f48023d247f0a7762e449756eb67340e7b5056388be5673",
+      "RISCV64ComparisonValidity.lean": "0c677e8828eabfd7b81dd02ddcbe202bfe59c97d268bd90034ffbc3e675d7435",
+      "RISCV64SequenceExtraValidity.lean": "b10ef7906c78954942748ab335671ed01f97e96c2ef964d075982872d6819af1",
+      "RISCV64SequenceValidity.lean": "0afd7170cf3b5805795556a1f7be47ae726acf0da45952737a1fdf74a85fb2aa",
+      "RISCV64ShiftValidity.lean": "8f64045feb9b34bab37bb921ab9d0812a90fd29e731b09979096a7060ca748b4",
+      "RISCV64UnaryValidity.lean": "0ed23fdb4a663c15c9ec97cf1fb5feba83a15d0f5cd5bb08e71d763745680514",
+      "RISCV64ZeroComparisonValidity.lean": "a45365bd473a71678552bb5231d050094e66df00c6231f3fa2c101b44d662142"
+    },
+    "after": {
+      "RISCV64BinaryValidity.lean": "7c831ad1eecf5b67e83808ad1e9f19682c0eb9ab21a8e3fa14e5315e99f804c7",
+      "RISCV64BitcastValidity.lean": "9e414f50f2f03a717e7ca82f1b4b83e7d94a95a802208584123d429cb2aee627",
+      "RISCV64ByteShiftValidity.lean": "8eaed8ab273e133a358fa004828130b0a2126a922c86108159de5a4577ca2ab9",
+      "RISCV64CastValidity.lean": "7d7c987ba4dbbc063c98de14bf89cf6ae6bc658bf6d478c9d4dbebafe19d4589",
+      "RISCV64ComparisonValidity.lean": "1a6af47fce17f633bb2b3ba980e07fa92ab96dda6f7ba88e4bf9f9fe6a715f2a",
+      "RISCV64SequenceExtraValidity.lean": "2f53d55f2aa3167638b7613a2007fad4fc2cdeb8dbb3ea633c1dce351eacc1ef",
+      "RISCV64SequenceValidity.lean": "7774de16807f3557f33a2ce46a46a075c8c1ff23f893496f68d901294cc9cb52",
+      "RISCV64ShiftValidity.lean": "067e8e755a05669e0a0246170996420e50e4c000edb836d8605834ada6274b23",
+      "RISCV64UnaryValidity.lean": "68d2c3a4b95af6497acdc269f4975f9e7638e0d83bf5687ee34a890080fdd320",
+      "RISCV64ZeroComparisonValidity.lean": "cefe7711c99f8879970a278a29346f28db13e5f4ff340f528861c33be508d0ad"
+    }
+  },
+  "raw_samples": {
+    "before": [
+      {
+        "trial": 0,
+        "file": "RISCV64BinaryValidity.lean",
+        "seconds": 32.104008125,
+        "returncode": 0
+      },
+      {
+        "trial": 0,
+        "file": "RISCV64BitcastValidity.lean",
+        "seconds": 3.371891208000001,
+        "returncode": 0
+      },
+      {
+        "trial": 0,
+        "file": "RISCV64ByteShiftValidity.lean",
+        "seconds": 6.943924082999999,
+        "returncode": 0
+      },
+      {
+        "trial": 0,
+        "file": "RISCV64CastValidity.lean",
+        "seconds": 4.399250709,
+        "returncode": 0
+      },
+      {
+        "trial": 0,
+        "file": "RISCV64ComparisonValidity.lean",
+        "seconds": 31.151293665999994,
+        "returncode": 0
+      },
+      {
+        "trial": 0,
+        "file": "RISCV64SequenceExtraValidity.lean",
+        "seconds": 10.579216375000001,
+        "returncode": 0
+      },
+      {
+        "trial": 0,
+        "file": "RISCV64SequenceValidity.lean",
+        "seconds": 38.084194834,
+        "returncode": 0
+      },
+      {
+        "trial": 0,
+        "file": "RISCV64ShiftValidity.lean",
+        "seconds": 4.341784375000003,
+        "returncode": 0
+      },
+      {
+        "trial": 0,
+        "file": "RISCV64UnaryValidity.lean",
+        "seconds": 4.370677459000007,
+        "returncode": 0
+      },
+      {
+        "trial": 0,
+        "file": "RISCV64ZeroComparisonValidity.lean",
+        "seconds": 6.691702249999992,
+        "returncode": 0
+      },
+      {
+        "trial": 1,
+        "file": "RISCV64ZeroComparisonValidity.lean",
+        "seconds": 6.6458471669999994,
+        "returncode": 0
+      },
+      {
+        "trial": 1,
+        "file": "RISCV64UnaryValidity.lean",
+        "seconds": 5.05006800000001,
+        "returncode": 0
+      },
+      {
+        "trial": 1,
+        "file": "RISCV64ShiftValidity.lean",
+        "seconds": 4.682960041000001,
+        "returncode": 0
+      },
+      {
+        "trial": 1,
+        "file": "RISCV64SequenceValidity.lean",
+        "seconds": 39.454367292,
+        "returncode": 0
+      },
+      {
+        "trial": 1,
+        "file": "RISCV64SequenceExtraValidity.lean",
+        "seconds": 10.969579167000006,
+        "returncode": 0
+      },
+      {
+        "trial": 1,
+        "file": "RISCV64ComparisonValidity.lean",
+        "seconds": 29.455803125000017,
+        "returncode": 0
+      },
+      {
+        "trial": 1,
+        "file": "RISCV64CastValidity.lean",
+        "seconds": 4.559877874999984,
+        "returncode": 0
+      },
+      {
+        "trial": 1,
+        "file": "RISCV64ByteShiftValidity.lean",
+        "seconds": 5.806077041999998,
+        "returncode": 0
+      },
+      {
+        "trial": 1,
+        "file": "RISCV64BitcastValidity.lean",
+        "seconds": 2.8516657090000024,
+        "returncode": 0
+      },
+      {
+        "trial": 1,
+        "file": "RISCV64BinaryValidity.lean",
+        "seconds": 30.048331083999983,
+        "returncode": 0
+      },
+      {
+        "trial": 2,
+        "file": "RISCV64BinaryValidity.lean",
+        "seconds": 33.33958791700002,
+        "returncode": 0
+      },
+      {
+        "trial": 2,
+        "file": "RISCV64BitcastValidity.lean",
+        "seconds": 3.174960375000012,
+        "returncode": 0
+      },
+      {
+        "trial": 2,
+        "file": "RISCV64ByteShiftValidity.lean",
+        "seconds": 6.812223749999987,
+        "returncode": 0
+      },
+      {
+        "trial": 2,
+        "file": "RISCV64CastValidity.lean",
+        "seconds": 4.527724707999994,
+        "returncode": 0
+      },
+      {
+        "trial": 2,
+        "file": "RISCV64ComparisonValidity.lean",
+        "seconds": 28.90691187500005,
+        "returncode": 0
+      },
+      {
+        "trial": 2,
+        "file": "RISCV64SequenceExtraValidity.lean",
+        "seconds": 9.87491916600004,
+        "returncode": 0
+      },
+      {
+        "trial": 2,
+        "file": "RISCV64SequenceValidity.lean",
+        "seconds": 34.067435124999975,
+        "returncode": 0
+      },
+      {
+        "trial": 2,
+        "file": "RISCV64ShiftValidity.lean",
+        "seconds": 4.247814124999991,
+        "returncode": 0
+      },
+      {
+        "trial": 2,
+        "file": "RISCV64UnaryValidity.lean",
+        "seconds": 4.40217558400002,
+        "returncode": 0
+      },
+      {
+        "trial": 2,
+        "file": "RISCV64ZeroComparisonValidity.lean",
+        "seconds": 6.488544165999997,
+        "returncode": 0
+      }
+    ],
+    "after": [
+      {
+        "trial": 0,
+        "file": "RISCV64BinaryValidity.lean",
+        "seconds": 23.082492000000002,
+        "returncode": 0
+      },
+      {
+        "trial": 0,
+        "file": "RISCV64BitcastValidity.lean",
+        "seconds": 2.781382999999998,
+        "returncode": 0
+      },
+      {
+        "trial": 0,
+        "file": "RISCV64ByteShiftValidity.lean",
+        "seconds": 5.1558622079999985,
+        "returncode": 0
+      },
+      {
+        "trial": 0,
+        "file": "RISCV64CastValidity.lean",
+        "seconds": 4.5004772079999995,
+        "returncode": 0
+      },
+      {
+        "trial": 0,
+        "file": "RISCV64ComparisonValidity.lean",
+        "seconds": 18.779511042000003,
+        "returncode": 0
+      },
+      {
+        "trial": 0,
+        "file": "RISCV64SequenceExtraValidity.lean",
+        "seconds": 10.920306957999998,
+        "returncode": 0
+      },
+      {
+        "trial": 0,
+        "file": "RISCV64SequenceValidity.lean",
+        "seconds": 26.633012125000008,
+        "returncode": 0
+      },
+      {
+        "trial": 0,
+        "file": "RISCV64ShiftValidity.lean",
+        "seconds": 3.3663558749999964,
+        "returncode": 0
+      },
+      {
+        "trial": 0,
+        "file": "RISCV64UnaryValidity.lean",
+        "seconds": 3.262040082999988,
+        "returncode": 0
+      },
+      {
+        "trial": 0,
+        "file": "RISCV64ZeroComparisonValidity.lean",
+        "seconds": 6.404946249999995,
+        "returncode": 0
+      },
+      {
+        "trial": 1,
+        "file": "RISCV64ZeroComparisonValidity.lean",
+        "seconds": 6.166070749999989,
+        "returncode": 0
+      },
+      {
+        "trial": 1,
+        "file": "RISCV64UnaryValidity.lean",
+        "seconds": 3.2798242079999937,
+        "returncode": 0
+      },
+      {
+        "trial": 1,
+        "file": "RISCV64ShiftValidity.lean",
+        "seconds": 3.300238667000002,
+        "returncode": 0
+      },
+      {
+        "trial": 1,
+        "file": "RISCV64SequenceValidity.lean",
+        "seconds": 25.950011040999982,
+        "returncode": 0
+      },
+      {
+        "trial": 1,
+        "file": "RISCV64SequenceExtraValidity.lean",
+        "seconds": 10.142073291000003,
+        "returncode": 0
+      },
+      {
+        "trial": 1,
+        "file": "RISCV64ComparisonValidity.lean",
+        "seconds": 18.256433291000008,
+        "returncode": 0
+      },
+      {
+        "trial": 1,
+        "file": "RISCV64CastValidity.lean",
+        "seconds": 4.178518084000018,
+        "returncode": 0
+      },
+      {
+        "trial": 1,
+        "file": "RISCV64ByteShiftValidity.lean",
+        "seconds": 4.728684292000025,
+        "returncode": 0
+      },
+      {
+        "trial": 1,
+        "file": "RISCV64BitcastValidity.lean",
+        "seconds": 2.7438464999999894,
+        "returncode": 0
+      },
+      {
+        "trial": 1,
+        "file": "RISCV64BinaryValidity.lean",
+        "seconds": 21.781199041999997,
+        "returncode": 0
+      },
+      {
+        "trial": 2,
+        "file": "RISCV64BinaryValidity.lean",
+        "seconds": 21.77704408300002,
+        "returncode": 0
+      },
+      {
+        "trial": 2,
+        "file": "RISCV64BitcastValidity.lean",
+        "seconds": 2.8857806249999953,
+        "returncode": 0
+      },
+      {
+        "trial": 2,
+        "file": "RISCV64ByteShiftValidity.lean",
+        "seconds": 5.062397040999997,
+        "returncode": 0
+      },
+      {
+        "trial": 2,
+        "file": "RISCV64CastValidity.lean",
+        "seconds": 4.281077541999991,
+        "returncode": 0
+      },
+      {
+        "trial": 2,
+        "file": "RISCV64ComparisonValidity.lean",
+        "seconds": 18.05360325000001,
+        "returncode": 0
+      },
+      {
+        "trial": 2,
+        "file": "RISCV64SequenceExtraValidity.lean",
+        "seconds": 10.056333832999997,
+        "returncode": 0
+      },
+      {
+        "trial": 2,
+        "file": "RISCV64SequenceValidity.lean",
+        "seconds": 26.199080792000018,
+        "returncode": 0
+      },
+      {
+        "trial": 2,
+        "file": "RISCV64ShiftValidity.lean",
+        "seconds": 3.311663082999985,
+        "returncode": 0
+      },
+      {
+        "trial": 2,
+        "file": "RISCV64UnaryValidity.lean",
+        "seconds": 3.2274325840000415,
+        "returncode": 0
+      },
+      {
+        "trial": 2,
+        "file": "RISCV64ZeroComparisonValidity.lean",
+        "seconds": 6.994525792000047,
+        "returncode": 0
+      }
+    ]
+  }
+}

@@ -1,4 +1,5 @@
 module
+import Veir.PatternRewriter.Puddle.CTreeSymbolicValidity
 
 public meta import Veir.PatternRewriter.Puddle.Definitions
 public meta import Veir.PatternRewriter.Puddle.Validity
@@ -59,27 +60,27 @@ end Puddle.CTree
 
 theorem freeze_pattern_valid : Puddle.CTree.Pattern.Valid freeze_pattern := by
   unfold freeze_pattern lowerCast castToReg castFromReg
-  provePuddleValid
-  simp only [TypeAttr.of_typeAttr]
-  intro src x hx hs dst y hy hd value hv property heq
-  subst x
-  subst y
-  cases heq
-  rcases src with ⟨attr, ht⟩
-  cases attr <;> simp only [Bool.false_eq_true] at hs
-  rename_i ty
-  change value.Conforms (TypeAttr.of IntegerType ty) at hv
-  obtain ⟨iv, rfl⟩ := RuntimeValue.Conforms.integerType.mp hv
-  cases property
-  cases iv <;> simp [RISCV.Reg.toInt, TypeAttr.mk_of]
-  · have hwidth : ty.bitwidth = 32 ∨ ty.bitwidth = 64 := of_decide_eq_true hs
-    have width : ty.bitwidth ≤ 64 := by omega
-    rw [BitVec.setWidth_setWidth_of_le _ width]
-    simp
-  · intro bits
-    refine ⟨.ok #[.int ty.bitwidth (.val (bits.setWidth ty.bitwidth))], ?_, ?_⟩
-    · exact ⟨_, rfl⟩
-    · simp
+  provePuddleValid sym =>
+    simp only [TypeAttr.of_typeAttr]
+    intro src x hx hs dst y hy hd value hv property heq
+    subst x
+    subst y
+    cases heq
+    rcases src with ⟨attr, ht⟩
+    cases attr <;> simp only [Bool.false_eq_true] at hs
+    rename_i ty
+    change value.Conforms (TypeAttr.of IntegerType ty) at hv
+    obtain ⟨iv, rfl⟩ := RuntimeValue.Conforms.integerType.mp hv
+    cases property
+    cases iv <;> simp [RISCV.Reg.toInt, TypeAttr.mk_of]
+    · have hwidth : ty.bitwidth = 32 ∨ ty.bitwidth = 64 := of_decide_eq_true hs
+      have width : ty.bitwidth ≤ 64 := by omega
+      rw [BitVec.setWidth_setWidth_of_le _ width]
+      simp
+    · intro bits
+      refine ⟨.ok #[.int ty.bitwidth (.val (bits.setWidth ty.bitwidth))], ?_, ?_⟩
+      · exact ⟨_, rfl⟩
+      · simp
 
 namespace Puddle.CTree
 
@@ -126,22 +127,22 @@ theorem ofInt_toInt_setWidth_le64 (w : Nat) (h : w ≤ 64) (x : BitVec w) :
 
 theorem constant_pattern_valid : Puddle.CTree.Pattern.Valid constant_pattern := by
   unfold constant_pattern castFromReg
-  provePuddleValid
-  intro ty it heq hwidth property hp
-  cases heq
-  rcases property with ⟨prop⟩
-  cases prop <;> simp only [Bool.false_eq_true] at hp
-  rename_i attr
-  have decode : constantIntValue (TypeAttr.of IntegerType it) { value := .integer attr } =
-      some ((BitVec.ofInt it.bitwidth (decodeLLVMIntegerConstant attr)).toInt) := rfl
-  simp only [decode]
-  simp [CreationM.models_bind, RISCV.Reg.toInt, SemanticAssignment.bind]
-  rw [constant_ctree_bits_eq_decode]
-  have roundtrip := ofInt_toInt_setWidth_le64 it.bitwidth hwidth
-    (BitVec.ofInt it.bitwidth (decodeLLVMIntegerConstant attr))
-  simp only [BitVec.toInt_ofInt] at roundtrip
-  rw [roundtrip]
-  simp
+  provePuddleValid sym =>
+    intro ty it heq hwidth property hp
+    cases heq
+    rcases property with ⟨prop⟩
+    cases prop <;> simp only [Bool.false_eq_true] at hp
+    rename_i attr
+    have decode : constantIntValue (TypeAttr.of IntegerType it) { value := .integer attr } =
+        some ((BitVec.ofInt it.bitwidth (decodeLLVMIntegerConstant attr)).toInt) := rfl
+    simp only [decode]
+    simp [CreationM.models_bind, RISCV.Reg.toInt, SemanticAssignment.bind]
+    rw [constant_ctree_bits_eq_decode]
+    have roundtrip := ofInt_toInt_setWidth_le64 it.bitwidth hwidth
+      (BitVec.ofInt it.bitwidth (decodeLLVMIntegerConstant attr))
+    simp only [BitVec.toInt_ofInt] at roundtrip
+    rw [roundtrip]
+    simp
 
 private theorem fail_not_ok {CIn R} {C : CIn → Type} (r : R) :
     ¬ PureOrErr.CanInterpretTo (fail : _root_.CTree.CTree (ErrorE ⊕ₑ UBE) C R) (.ok r) := by
@@ -170,18 +171,48 @@ private theorem cast_reg_ok_size (ty : TypeAttr) (reg : Data.RISCV.Reg)
 
 theorem poisonConst_pattern_valid : Puddle.CTree.Pattern.Valid poisonConst_pattern := by
   unfold poisonConst_pattern emitImm emitRISCV castFromReg
-  provePuddleValid
-  simp only [TypeAttr.of_typeAttr]
-  simp only [Riscv.propertiesOf, CanInterpretTo.li_reg]
-  simp
-  intro ty property target h
-  cases property
-  cases target with
-  | ok values =>
-    simp only [Interp.foldProp_ok]
-    constructor
-    · exact (cast_reg_ok_size ty _ values h).symm
-    · rcases ty with ⟨attr, ht⟩
+  provePuddleValid sym =>
+    simp only [TypeAttr.of_typeAttr]
+    simp only [Riscv.propertiesOf, CanInterpretTo.li_reg]
+    simp
+    intro ty property target h
+    cases property
+    cases target with
+    | ok values =>
+      simp only [Interp.foldProp_ok]
+      constructor
+      · exact (cast_reg_ok_size ty _ values h).symm
+      · rcases ty with ⟨attr, ht⟩
+        cases attr <;> simp only [Attribute.isType, Bool.false_eq_true] at ht
+        all_goals first
+          | refine ⟨.fail none, ?_, by trivial⟩
+            intro memory
+            change PureOrErr.CanInterpretTo fail (.fail none)
+            simp [fail, _root_.CTree.CTree.trigger]
+            exact .fail
+          | skip
+        case integerType it ht0 =>
+          change CanInterpretTo (.builtin .unrealized_conversion_cast) ()
+            #[TypeAttr.of IntegerType it] #[.reg ⟨0⟩] (.ok values) at h
+          simp only [CanInterpretTo.cast_reg_int, Interp.ok.injEq] at h
+          subst values
+          refine ⟨.ok #[.int it.bitwidth .poison], ?_, ?_⟩
+          · simp
+          · simp [RuntimeValue.isRefinedBy, RISCV.Reg.toInt, isRefinedBy]
+        case llvmPointerType pt ht0 =>
+          have hm := h MemoryState.empty
+          change PureOrErr.CanInterpretTo (pure (_, MemoryState.empty, none))
+            (.ok (values, MemoryState.empty, none)) at hm
+          have heq := (PureOrErr.CanInterpretTo.pure_iff _ _).mp hm
+          cases heq
+          refine ⟨.ok #[.addr .poison], ?_, ?_⟩
+          · intro memory
+            change PureOrErr.CanInterpretTo (pure (#[RuntimeValue.addr .poison], memory, none))
+              (.ok (#[RuntimeValue.addr .poison], memory, none))
+            exact .ret _
+          · simp [RuntimeValue.isRefinedBy, Data.LLVM.Ptr.isRefinedBy]
+    | ub op | fail op =>
+      rcases ty with ⟨attr, ht⟩
       cases attr <;> simp only [Attribute.isType, Bool.false_eq_true] at ht
       all_goals first
         | refine ⟨.fail none, ?_, by trivial⟩
@@ -189,39 +220,9 @@ theorem poisonConst_pattern_valid : Puddle.CTree.Pattern.Valid poisonConst_patte
           change PureOrErr.CanInterpretTo fail (.fail none)
           simp [fail, _root_.CTree.CTree.trigger]
           exact .fail
-        | skip
-      case integerType it ht0 =>
-        change CanInterpretTo (.builtin .unrealized_conversion_cast) ()
-          #[TypeAttr.of IntegerType it] #[.reg ⟨0⟩] (.ok values) at h
-        simp only [CanInterpretTo.cast_reg_int, Interp.ok.injEq] at h
-        subst values
-        refine ⟨.ok #[.int it.bitwidth .poison], ?_, ?_⟩
-        · simp
-        · simp [RuntimeValue.isRefinedBy, RISCV.Reg.toInt, isRefinedBy]
-      case llvmPointerType pt ht0 =>
-        have hm := h MemoryState.empty
-        change PureOrErr.CanInterpretTo (pure (_, MemoryState.empty, none))
-          (.ok (values, MemoryState.empty, none)) at hm
-        have heq := (PureOrErr.CanInterpretTo.pure_iff _ _).mp hm
-        cases heq
-        refine ⟨.ok #[.addr .poison], ?_, ?_⟩
-        · intro memory
-          change PureOrErr.CanInterpretTo (pure (#[RuntimeValue.addr .poison], memory, none))
-            (.ok (#[RuntimeValue.addr .poison], memory, none))
-          exact .ret _
-        · simp [RuntimeValue.isRefinedBy, Data.LLVM.Ptr.isRefinedBy]
-  | ub op | fail op =>
-    rcases ty with ⟨attr, ht⟩
-    cases attr <;> simp only [Attribute.isType, Bool.false_eq_true] at ht
-    all_goals first
-      | refine ⟨.fail none, ?_, by trivial⟩
-        intro memory
-        change PureOrErr.CanInterpretTo fail (.fail none)
-        simp [fail, _root_.CTree.CTree.trigger]
-        exact .fail
-      | have hm := h MemoryState.empty
-        change PureOrErr.CanInterpretTo (pure (_, MemoryState.empty, none)) _ at hm
-        simp at hm
+        | have hm := h MemoryState.empty
+          change PureOrErr.CanInterpretTo (pure (_, MemoryState.empty, none)) _ at hm
+          simp at hm
 
 namespace Puddle.CTree
 
@@ -256,78 +257,78 @@ end Puddle.CTree
 
 theorem trunc_pattern_valid : Puddle.CTree.Pattern.Valid trunc_pattern := by
   unfold trunc_pattern lowerCast castToReg castFromReg
-  provePuddleValid
-  simp only [TypeAttr.of_typeAttr]
-  intro src x hx hs dst y hy hd value hv property hg
-  subst x
-  subst y
-  rcases src with ⟨srcAttr, hsrc⟩
-  rcases dst with ⟨dstAttr, hdst⟩
-  cases srcAttr <;> simp only [getIntByteTypeBitwidth, Option.isSome, Bool.false_eq_true] at hs
-  all_goals cases dstAttr <;>
-    simp only [getIntByteTypeBitwidth, Option.isSome, Bool.false_eq_true,
-      Bool.false_and, Bool.true_and] at hd hg
-  case integerType.integerType dst =>
-    rename_i src
-    have widths := of_decide_eq_true hg
-    change value.Conforms (TypeAttr.of IntegerType src) at hv
-    obtain ⟨iv, rfl⟩ := RuntimeValue.Conforms.integerType.mp hv
-    cases iv <;> simp [RISCV.Reg.toInt, TypeAttr.mk_of]
-    case val bits =>
-      rw [BitVec.setWidth_setWidth_of_le _ (by omega)]
-      refine ⟨.ok #[.int dst.bitwidth (Data.LLVM.Int.trunc (.val bits) dst.bitwidth
-        property.nsw property.nuw widths.1)], ?_, ?_⟩
-      · intro memory
-        change PureOrErr.CanInterpretTo
-          (if dst.bitwidth ≥ src.bitwidth then fail else
-            pure (#[RuntimeValue.int dst.bitwidth
-              (Data.LLVM.Int.trunc (.val bits) dst.bitwidth property.nsw property.nuw widths.1)], memory, none))
-          (.ok (#[RuntimeValue.int dst.bitwidth
-              (Data.LLVM.Int.trunc (.val bits) dst.bitwidth property.nsw property.nuw widths.1)], memory, none))
-        simp only [show ¬ dst.bitwidth ≥ src.bitwidth by omega, ↓reduceIte]
-        exact .ret _
-      · simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.trunc, Id.run]
-        split
-        · exact True.intro
-        · split <;> first | exact True.intro | rfl
-    case poison =>
+  provePuddleValid sym =>
+    simp only [TypeAttr.of_typeAttr]
+    intro src x hx hs dst y hy hd value hv property hg
+    subst x
+    subst y
+    rcases src with ⟨srcAttr, hsrc⟩
+    rcases dst with ⟨dstAttr, hdst⟩
+    cases srcAttr <;> simp only [getIntByteTypeBitwidth, Option.isSome, Bool.false_eq_true] at hs
+    all_goals cases dstAttr <;>
+      simp only [getIntByteTypeBitwidth, Option.isSome, Bool.false_eq_true,
+        Bool.false_and, Bool.true_and] at hd hg
+    case integerType.integerType dst =>
+      rename_i src
+      have widths := of_decide_eq_true hg
+      change value.Conforms (TypeAttr.of IntegerType src) at hv
+      obtain ⟨iv, rfl⟩ := RuntimeValue.Conforms.integerType.mp hv
+      cases iv <;> simp [RISCV.Reg.toInt, TypeAttr.mk_of]
+      case val bits =>
+        rw [BitVec.setWidth_setWidth_of_le _ (by omega)]
+        refine ⟨.ok #[.int dst.bitwidth (Data.LLVM.Int.trunc (.val bits) dst.bitwidth
+          property.nsw property.nuw widths.1)], ?_, ?_⟩
+        · intro memory
+          change PureOrErr.CanInterpretTo
+            (if dst.bitwidth ≥ src.bitwidth then fail else
+              pure (#[RuntimeValue.int dst.bitwidth
+                (Data.LLVM.Int.trunc (.val bits) dst.bitwidth property.nsw property.nuw widths.1)], memory, none))
+            (.ok (#[RuntimeValue.int dst.bitwidth
+                (Data.LLVM.Int.trunc (.val bits) dst.bitwidth property.nsw property.nuw widths.1)], memory, none))
+          simp only [show ¬ dst.bitwidth ≥ src.bitwidth by omega, ↓reduceIte]
+          exact .ret _
+        · simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.trunc, Id.run]
+          split
+          · exact True.intro
+          · split <;> first | exact True.intro | rfl
+      case poison =>
+        intro bits
+        refine ⟨.ok #[.int dst.bitwidth .poison], ?_, ?_⟩
+        · intro memory
+          change PureOrErr.CanInterpretTo
+            (if dst.bitwidth ≥ src.bitwidth then fail else
+              pure (#[RuntimeValue.int dst.bitwidth .poison], memory, none))
+            (.ok (#[RuntimeValue.int dst.bitwidth .poison], memory, none))
+          simp only [show ¬ dst.bitwidth ≥ src.bitwidth by omega, ↓reduceIte]
+          exact .ret _
+        · simp [RuntimeValue.isRefinedBy, isRefinedBy]
+    case byteType.byteType dst =>
+      rename_i src
+      have widths := of_decide_eq_true hg
+      change value.Conforms (TypeAttr.of LLVM.ByteType src) at hv
+      obtain ⟨bv, rfl⟩ := RuntimeValue.Conforms.byteType.mp hv
+      simp [TypeAttr.mk_of]
       intro bits
-      refine ⟨.ok #[.int dst.bitwidth .poison], ?_, ?_⟩
+      refine ⟨.ok #[.byte dst.bitwidth (Data.LLVM.Byte.trunc bv dst.bitwidth)], ?_, ?_⟩
       · intro memory
         change PureOrErr.CanInterpretTo
           (if dst.bitwidth ≥ src.bitwidth then fail else
-            pure (#[RuntimeValue.int dst.bitwidth .poison], memory, none))
-          (.ok (#[RuntimeValue.int dst.bitwidth .poison], memory, none))
+            pure (#[RuntimeValue.byte dst.bitwidth (Data.LLVM.Byte.trunc bv dst.bitwidth)], memory, none))
+          (.ok (#[RuntimeValue.byte dst.bitwidth (Data.LLVM.Byte.trunc bv dst.bitwidth)], memory, none))
         simp only [show ¬ dst.bitwidth ≥ src.bitwidth by omega, ↓reduceIte]
         exact .ret _
-      · simp [RuntimeValue.isRefinedBy, isRefinedBy]
-  case byteType.byteType dst =>
-    rename_i src
-    have widths := of_decide_eq_true hg
-    change value.Conforms (TypeAttr.of LLVM.ByteType src) at hv
-    obtain ⟨bv, rfl⟩ := RuntimeValue.Conforms.byteType.mp hv
-    simp [TypeAttr.mk_of]
-    intro bits
-    refine ⟨.ok #[.byte dst.bitwidth (Data.LLVM.Byte.trunc bv dst.bitwidth)], ?_, ?_⟩
-    · intro memory
-      change PureOrErr.CanInterpretTo
-        (if dst.bitwidth ≥ src.bitwidth then fail else
-          pure (#[RuntimeValue.byte dst.bitwidth (Data.LLVM.Byte.trunc bv dst.bitwidth)], memory, none))
-        (.ok (#[RuntimeValue.byte dst.bitwidth (Data.LLVM.Byte.trunc bv dst.bitwidth)], memory, none))
-      simp only [show ¬ dst.bitwidth ≥ src.bitwidth by omega, ↓reduceIte]
-      exact .ret _
-    · simp [RuntimeValue.isRefinedBy, RISCV.Reg.toByte, Data.LLVM.Byte.trunc]
-      simp only [BitVec.setWidth_setWidth_of_le _ (show dst.bitwidth ≤ 64 by omega)]
-      apply BitVec.eq_of_getLsbD_eq
-      intro i
-      simp only [BitVec.getLsbD_or, BitVec.getLsbD_xor, BitVec.getLsbD_not,
-        BitVec.getLsbD_and, BitVec.getLsbD_allOnes]
-      by_cases hi : i < dst.bitwidth
-      · simp only [hi]
-        intro _
-        cases (bv.val.setWidth dst.bitwidth).getLsbD i <;>
-          cases (bv.poison.setWidth dst.bitwidth).getLsbD i <;>
-          cases (bits.setWidth dst.bitwidth).getLsbD i <;> rfl
-      · simp [hi]
+      · simp [RuntimeValue.isRefinedBy, RISCV.Reg.toByte, Data.LLVM.Byte.trunc]
+        simp only [BitVec.setWidth_setWidth_of_le _ (show dst.bitwidth ≤ 64 by omega)]
+        apply BitVec.eq_of_getLsbD_eq
+        intro i
+        simp only [BitVec.getLsbD_or, BitVec.getLsbD_xor, BitVec.getLsbD_not,
+          BitVec.getLsbD_and, BitVec.getLsbD_allOnes]
+        by_cases hi : i < dst.bitwidth
+        · simp only [hi]
+          intro _
+          cases (bv.val.setWidth dst.bitwidth).getLsbD i <;>
+            cases (bv.poison.setWidth dst.bitwidth).getLsbD i <;>
+            cases (bits.setWidth dst.bitwidth).getLsbD i <;> rfl
+        · simp [hi]
 
 end Veir

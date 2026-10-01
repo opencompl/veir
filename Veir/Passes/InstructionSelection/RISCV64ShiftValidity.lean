@@ -1,4 +1,5 @@
 module
+import Veir.PatternRewriter.Puddle.CTreeSymbolicValidity
 meta import Veir.Meta.Tactic.BVDecide
 public meta import Veir.OpCode
 import all Veir.OpCode
@@ -76,20 +77,20 @@ private theorem ashr8_refines (x y : Data.LLVM.Int 8) (exact : Bool) :
 
 private theorem ashr8_valid : Veir.Puddle.CTree.Pattern.Valid (ashr_pattern 8) := by
   conv => arg 1; cbv
-  provePuddleValid
-  rintro _ ty rfl hty lhs hleft rhs hright property
-  cases ty with
-  | mk bw hint =>
-    dsimp [IntegerType.bitwidth] at hty
-    subst bw
-    simp only [RuntimeValue.Conforms.integerType] at hleft hright
-    obtain ⟨x, rfl⟩ := hleft
-    obtain ⟨y, rfl⟩ := hright
-    cases x <;> cases y <;> simp [CanInterpretTo.ashr_int (⟨8, hint⟩)]
-    · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-        RuntimeValue.isRefinedBy, LLVM.Int.toReg] using (ashr8_refines (.val _) (.val _) property.exact)
-    all_goals intros <;> subst_vars <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-      RuntimeValue.isRefinedBy, Data.LLVM.Int.ashr, isRefinedBy, Id.run]
+  provePuddleValid sym =>
+    rintro _ ty rfl hty lhs hleft rhs hright property
+    cases ty with
+    | mk bw hint =>
+      dsimp [IntegerType.bitwidth] at hty
+      subst bw
+      simp only [RuntimeValue.Conforms.integerType] at hleft hright
+      obtain ⟨x, rfl⟩ := hleft
+      obtain ⟨y, rfl⟩ := hright
+      cases x <;> cases y <;> simp [CanInterpretTo.ashr_int (⟨8, hint⟩)]
+      · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+          RuntimeValue.isRefinedBy, LLVM.Int.toReg] using (ashr8_refines (.val _) (.val _) property.exact)
+      all_goals intros <;> subst_vars <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+        RuntimeValue.isRefinedBy, Data.LLVM.Int.ashr, isRefinedBy, Id.run]
 
 private theorem ashr32_refines (x y : Data.LLVM.Int 32) (exact : Bool) :
     Data.LLVM.Int.ashr x y exact ⊒ RISCV.Reg.toInt (Data.RISCV.sraw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32 := by
@@ -97,20 +98,20 @@ private theorem ashr32_refines (x y : Data.LLVM.Int 32) (exact : Bool) :
 
 private theorem ashr32_valid : Veir.Puddle.CTree.Pattern.Valid (ashr_pattern 32) := by
   conv => arg 1; cbv
-  provePuddleValid
-  rintro _ ty rfl hty lhs hleft rhs hright property
-  cases ty with
-  | mk bw hint =>
-    dsimp [IntegerType.bitwidth] at hty
-    subst bw
-    simp only [RuntimeValue.Conforms.integerType] at hleft hright
-    obtain ⟨x, rfl⟩ := hleft
-    obtain ⟨y, rfl⟩ := hright
-    cases x <;> cases y <;> simp [CanInterpretTo.ashr_int (⟨32, hint⟩)]
-    · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-        RuntimeValue.isRefinedBy, LLVM.Int.toReg] using (ashr32_refines (.val _) (.val _) property.exact)
-    all_goals intros <;> subst_vars <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-      RuntimeValue.isRefinedBy, Data.LLVM.Int.ashr, isRefinedBy, Id.run]
+  provePuddleValid sym =>
+    rintro _ ty rfl hty lhs hleft rhs hright property
+    cases ty with
+    | mk bw hint =>
+      dsimp [IntegerType.bitwidth] at hty
+      subst bw
+      simp only [RuntimeValue.Conforms.integerType] at hleft hright
+      obtain ⟨x, rfl⟩ := hleft
+      obtain ⟨y, rfl⟩ := hright
+      cases x <;> cases y <;> simp [CanInterpretTo.ashr_int (⟨32, hint⟩)]
+      · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+          RuntimeValue.isRefinedBy, LLVM.Int.toReg] using (ashr32_refines (.val _) (.val _) property.exact)
+      all_goals intros <;> subst_vars <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+        RuntimeValue.isRefinedBy, Data.LLVM.Int.ashr, isRefinedBy, Id.run]
 
 private theorem ashr64_refines (x y : Data.LLVM.Int 64) (exact : Bool) :
     Data.LLVM.Int.ashr x y exact ⊒ RISCV.Reg.toInt (Data.RISCV.sra (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64 := by
@@ -118,20 +119,20 @@ private theorem ashr64_refines (x y : Data.LLVM.Int 64) (exact : Bool) :
 
 private theorem ashr64_valid : Veir.Puddle.CTree.Pattern.Valid (ashr_pattern 64) := by
   conv => arg 1; cbv
-  provePuddleValid
-  rintro _ ty rfl hty lhs hleft rhs hright property
-  cases ty with
-  | mk bw hint =>
-    dsimp [IntegerType.bitwidth] at hty
-    subst bw
-    simp only [RuntimeValue.Conforms.integerType] at hleft hright
-    obtain ⟨x, rfl⟩ := hleft
-    obtain ⟨y, rfl⟩ := hright
-    cases x <;> cases y <;> simp [CanInterpretTo.ashr_int (⟨64, hint⟩)]
-    · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-        RuntimeValue.isRefinedBy, LLVM.Int.toReg] using (ashr64_refines (.val _) (.val _) property.exact)
-    all_goals intros <;> subst_vars <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-      RuntimeValue.isRefinedBy, Data.LLVM.Int.ashr, isRefinedBy, Id.run]
+  provePuddleValid sym =>
+    rintro _ ty rfl hty lhs hleft rhs hright property
+    cases ty with
+    | mk bw hint =>
+      dsimp [IntegerType.bitwidth] at hty
+      subst bw
+      simp only [RuntimeValue.Conforms.integerType] at hleft hright
+      obtain ⟨x, rfl⟩ := hleft
+      obtain ⟨y, rfl⟩ := hright
+      cases x <;> cases y <;> simp [CanInterpretTo.ashr_int (⟨64, hint⟩)]
+      · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+          RuntimeValue.isRefinedBy, LLVM.Int.toReg] using (ashr64_refines (.val _) (.val _) property.exact)
+      all_goals intros <;> subst_vars <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+        RuntimeValue.isRefinedBy, Data.LLVM.Int.ashr, isRefinedBy, Id.run]
 
 end
 end Veir.InstructionSelection.CTreeProofs

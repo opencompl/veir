@@ -1,4 +1,5 @@
 module
+import Veir.PatternRewriter.Puddle.CTreeSymbolicValidity
 import all CTree.Defs
 meta import Veir.Meta.Tactic.BVDecide
 public meta import Veir.OpCode
@@ -216,180 +217,180 @@ private theorem lshr64_byte_refines (x : Data.LLVM.Byte 64) (y bits : BitVec 64)
 
 private theorem lshr32_valid : Veir.Puddle.CTree.Pattern.Valid (lowerByteShift .lshr 32 .srlw rfl) := by
   unfold lowerByteShift castToReg castFromReg emitUnit emitRISCV
-  provePuddleValid
-  simp only [TypeAttr.of_typeAttr]
-  rintro _ ty rfl hty _ rhsTy rfl hwidth lhs hleft rhs hright property
-  cases rhsTy with
-  | mk rhsWidth rhsHint =>
-    dsimp [IntegerType.bitwidth] at hwidth
-    subst rhsWidth
-    simp only [RuntimeValue.Conforms.integerType] at hright
-    obtain ⟨y, rfl⟩ := hright
-    rcases ty with ⟨attr, ht⟩
-    cases attr <;> simp only [getIntByteTypeBitwidth, Option.some.injEq, reduceCtorEq] at hty
-    case integerType it =>
-      cases it with
-      | mk width hint =>
-        dsimp [IntegerType.bitwidth] at hty
-        subst width
-        change lhs.Conforms (TypeAttr.of IntegerType ⟨32, hint⟩) at hleft
-        obtain ⟨x, rfl⟩ := RuntimeValue.Conforms.integerType.mp hleft
-        cases x <;> cases y <;> simp [CanInterpretTo.lshr_int (⟨32, hint⟩)]
-        · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-            RuntimeValue.isRefinedBy, LLVM.Int.toReg] using (lshr32_int_refines (.val _) (.val _) property.exact)
-        all_goals intros <;> subst_vars <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-          RuntimeValue.isRefinedBy, Data.LLVM.Int.lshr, isRefinedBy, Id.run]
-    case byteType bt =>
-      cases bt with
-      | mk width =>
-        change width = 32 at hty
-        subst width
-        change lhs.Conforms (TypeAttr.of LLVM.ByteType ⟨32⟩) at hleft
-        obtain ⟨x, rfl⟩ := RuntimeValue.Conforms.byteType.mp hleft
-        cases y <;> simp [CanInterpretTo.lshr_byte]
-        · intro bits
-          simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-            RuntimeValue.isRefinedBy] using (lshr32_byte_refines x _ bits property.exact)
-        · intros
-          subst_vars
-          simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-            RuntimeValue.isRefinedBy, Data.LLVM.Byte.lshr, Data.LLVM.Byte.allPoison,
-            Data.LLVM.Byte.isRefinedBy, RISCV.Reg.toByte] <;> bv_decide
+  provePuddleValid sym =>
+    simp only [TypeAttr.of_typeAttr]
+    rintro _ ty rfl hty _ rhsTy rfl hwidth lhs hleft rhs hright property
+    cases rhsTy with
+    | mk rhsWidth rhsHint =>
+      dsimp [IntegerType.bitwidth] at hwidth
+      subst rhsWidth
+      simp only [RuntimeValue.Conforms.integerType] at hright
+      obtain ⟨y, rfl⟩ := hright
+      rcases ty with ⟨attr, ht⟩
+      cases attr <;> simp only [getIntByteTypeBitwidth, Option.some.injEq, reduceCtorEq] at hty
+      case integerType it =>
+        cases it with
+        | mk width hint =>
+          dsimp [IntegerType.bitwidth] at hty
+          subst width
+          change lhs.Conforms (TypeAttr.of IntegerType ⟨32, hint⟩) at hleft
+          obtain ⟨x, rfl⟩ := RuntimeValue.Conforms.integerType.mp hleft
+          cases x <;> cases y <;> simp [CanInterpretTo.lshr_int (⟨32, hint⟩)]
+          · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+              RuntimeValue.isRefinedBy, LLVM.Int.toReg] using (lshr32_int_refines (.val _) (.val _) property.exact)
+          all_goals intros <;> subst_vars <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+            RuntimeValue.isRefinedBy, Data.LLVM.Int.lshr, isRefinedBy, Id.run]
+      case byteType bt =>
+        cases bt with
+        | mk width =>
+          change width = 32 at hty
+          subst width
+          change lhs.Conforms (TypeAttr.of LLVM.ByteType ⟨32⟩) at hleft
+          obtain ⟨x, rfl⟩ := RuntimeValue.Conforms.byteType.mp hleft
+          cases y <;> simp [CanInterpretTo.lshr_byte]
+          · intro bits
+            simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+              RuntimeValue.isRefinedBy] using (lshr32_byte_refines x _ bits property.exact)
+          · intros
+            subst_vars
+            simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+              RuntimeValue.isRefinedBy, Data.LLVM.Byte.lshr, Data.LLVM.Byte.allPoison,
+              Data.LLVM.Byte.isRefinedBy, RISCV.Reg.toByte] <;> bv_decide
 
 private theorem lshr64_valid : Veir.Puddle.CTree.Pattern.Valid (lowerByteShift .lshr 64 .srl rfl) := by
   unfold lowerByteShift castToReg castFromReg emitUnit emitRISCV
-  provePuddleValid
-  simp only [TypeAttr.of_typeAttr]
-  rintro _ ty rfl hty _ rhsTy rfl hwidth lhs hleft rhs hright property
-  cases rhsTy with
-  | mk rhsWidth rhsHint =>
-    dsimp [IntegerType.bitwidth] at hwidth
-    subst rhsWidth
-    simp only [RuntimeValue.Conforms.integerType] at hright
-    obtain ⟨y, rfl⟩ := hright
-    rcases ty with ⟨attr, ht⟩
-    cases attr <;> simp only [getIntByteTypeBitwidth, Option.some.injEq, reduceCtorEq] at hty
-    case integerType it =>
-      cases it with
-      | mk width hint =>
-        dsimp [IntegerType.bitwidth] at hty
-        subst width
-        change lhs.Conforms (TypeAttr.of IntegerType ⟨64, hint⟩) at hleft
-        obtain ⟨x, rfl⟩ := RuntimeValue.Conforms.integerType.mp hleft
-        cases x <;> cases y <;> simp [CanInterpretTo.lshr_int (⟨64, hint⟩)]
-        · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-            RuntimeValue.isRefinedBy, LLVM.Int.toReg] using (lshr64_int_refines (.val _) (.val _) property.exact)
-        all_goals intros <;> subst_vars <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-          RuntimeValue.isRefinedBy, Data.LLVM.Int.lshr, isRefinedBy, Id.run]
-    case byteType bt =>
-      cases bt with
-      | mk width =>
-        change width = 64 at hty
-        subst width
-        change lhs.Conforms (TypeAttr.of LLVM.ByteType ⟨64⟩) at hleft
-        obtain ⟨x, rfl⟩ := RuntimeValue.Conforms.byteType.mp hleft
-        cases y <;> simp [CanInterpretTo.lshr_byte]
-        · intro bits
-          simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-            RuntimeValue.isRefinedBy] using (lshr64_byte_refines x _ bits property.exact)
-        · intros
-          subst_vars
-          simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-            RuntimeValue.isRefinedBy, Data.LLVM.Byte.lshr, Data.LLVM.Byte.allPoison,
-            Data.LLVM.Byte.isRefinedBy, RISCV.Reg.toByte] <;> bv_decide
+  provePuddleValid sym =>
+    simp only [TypeAttr.of_typeAttr]
+    rintro _ ty rfl hty _ rhsTy rfl hwidth lhs hleft rhs hright property
+    cases rhsTy with
+    | mk rhsWidth rhsHint =>
+      dsimp [IntegerType.bitwidth] at hwidth
+      subst rhsWidth
+      simp only [RuntimeValue.Conforms.integerType] at hright
+      obtain ⟨y, rfl⟩ := hright
+      rcases ty with ⟨attr, ht⟩
+      cases attr <;> simp only [getIntByteTypeBitwidth, Option.some.injEq, reduceCtorEq] at hty
+      case integerType it =>
+        cases it with
+        | mk width hint =>
+          dsimp [IntegerType.bitwidth] at hty
+          subst width
+          change lhs.Conforms (TypeAttr.of IntegerType ⟨64, hint⟩) at hleft
+          obtain ⟨x, rfl⟩ := RuntimeValue.Conforms.integerType.mp hleft
+          cases x <;> cases y <;> simp [CanInterpretTo.lshr_int (⟨64, hint⟩)]
+          · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+              RuntimeValue.isRefinedBy, LLVM.Int.toReg] using (lshr64_int_refines (.val _) (.val _) property.exact)
+          all_goals intros <;> subst_vars <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+            RuntimeValue.isRefinedBy, Data.LLVM.Int.lshr, isRefinedBy, Id.run]
+      case byteType bt =>
+        cases bt with
+        | mk width =>
+          change width = 64 at hty
+          subst width
+          change lhs.Conforms (TypeAttr.of LLVM.ByteType ⟨64⟩) at hleft
+          obtain ⟨x, rfl⟩ := RuntimeValue.Conforms.byteType.mp hleft
+          cases y <;> simp [CanInterpretTo.lshr_byte]
+          · intro bits
+            simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+              RuntimeValue.isRefinedBy] using (lshr64_byte_refines x _ bits property.exact)
+          · intros
+            subst_vars
+            simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+              RuntimeValue.isRefinedBy, Data.LLVM.Byte.lshr, Data.LLVM.Byte.allPoison,
+              Data.LLVM.Byte.isRefinedBy, RISCV.Reg.toByte] <;> bv_decide
 
 private theorem shl32_valid : Veir.Puddle.CTree.Pattern.Valid (lowerByteShift .shl 32 .sllw rfl) := by
   unfold lowerByteShift castToReg castFromReg emitUnit emitRISCV
-  provePuddleValid
-  simp only [TypeAttr.of_typeAttr]
-  rintro _ ty rfl hty _ rhsTy rfl hwidth lhs hleft rhs hright property
-  cases rhsTy with
-  | mk rhsWidth rhsHint =>
-    dsimp [IntegerType.bitwidth] at hwidth
-    subst rhsWidth
-    simp only [RuntimeValue.Conforms.integerType] at hright
-    obtain ⟨y, rfl⟩ := hright
-    rcases ty with ⟨attr, ht⟩
-    cases attr <;> simp only [getIntByteTypeBitwidth, Option.some.injEq, reduceCtorEq] at hty
-    case integerType it =>
-      cases it with
-      | mk width hint =>
-        dsimp [IntegerType.bitwidth] at hty
-        subst width
-        change lhs.Conforms (TypeAttr.of IntegerType ⟨32, hint⟩) at hleft
-        obtain ⟨x, rfl⟩ := RuntimeValue.Conforms.integerType.mp hleft
-        cases x <;> cases y <;> simp [CanInterpretTo.shl_int (⟨32, hint⟩)]
-        · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-            RuntimeValue.isRefinedBy, LLVM.Int.toReg] using (shl32_int_refines (.val _) (.val _) property.nsw property.nuw)
-        all_goals intros <;> subst_vars <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-          RuntimeValue.isRefinedBy, Data.LLVM.Int.shl, isRefinedBy, Id.run]
-    case byteType bt =>
-      cases bt with
-      | mk width =>
-        change width = 32 at hty
-        subst width
-        change lhs.Conforms (TypeAttr.of LLVM.ByteType ⟨32⟩) at hleft
-        obtain ⟨x, rfl⟩ := RuntimeValue.Conforms.byteType.mp hleft
-        cases hn : property.nsw
-        · cases y <;> simp [CanInterpretTo.shl_byte, hn]
-          · intro bits
-            simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-              RuntimeValue.isRefinedBy] using (shl32_byte_refines x _ bits property.nuw)
-          · intros
-            simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-              RuntimeValue.isRefinedBy, Data.LLVM.Byte.shl, Data.LLVM.Byte.allPoison,
-              Data.LLVM.Byte.isRefinedBy, Id.run, RISCV.Reg.toByte] <;> bv_decide
-        · cases y <;> simp
-          all_goals
-            intros
-            exact ⟨.fail none, CanInterpretTo.shl_byte_fail 32 property x _ hn, by simp⟩
+  provePuddleValid sym =>
+    simp only [TypeAttr.of_typeAttr]
+    rintro _ ty rfl hty _ rhsTy rfl hwidth lhs hleft rhs hright property
+    cases rhsTy with
+    | mk rhsWidth rhsHint =>
+      dsimp [IntegerType.bitwidth] at hwidth
+      subst rhsWidth
+      simp only [RuntimeValue.Conforms.integerType] at hright
+      obtain ⟨y, rfl⟩ := hright
+      rcases ty with ⟨attr, ht⟩
+      cases attr <;> simp only [getIntByteTypeBitwidth, Option.some.injEq, reduceCtorEq] at hty
+      case integerType it =>
+        cases it with
+        | mk width hint =>
+          dsimp [IntegerType.bitwidth] at hty
+          subst width
+          change lhs.Conforms (TypeAttr.of IntegerType ⟨32, hint⟩) at hleft
+          obtain ⟨x, rfl⟩ := RuntimeValue.Conforms.integerType.mp hleft
+          cases x <;> cases y <;> simp [CanInterpretTo.shl_int (⟨32, hint⟩)]
+          · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+              RuntimeValue.isRefinedBy, LLVM.Int.toReg] using (shl32_int_refines (.val _) (.val _) property.nsw property.nuw)
+          all_goals intros <;> subst_vars <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+            RuntimeValue.isRefinedBy, Data.LLVM.Int.shl, isRefinedBy, Id.run]
+      case byteType bt =>
+        cases bt with
+        | mk width =>
+          change width = 32 at hty
+          subst width
+          change lhs.Conforms (TypeAttr.of LLVM.ByteType ⟨32⟩) at hleft
+          obtain ⟨x, rfl⟩ := RuntimeValue.Conforms.byteType.mp hleft
+          cases hn : property.nsw
+          · cases y <;> simp [CanInterpretTo.shl_byte, hn]
+            · intro bits
+              simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+                RuntimeValue.isRefinedBy] using (shl32_byte_refines x _ bits property.nuw)
+            · intros
+              simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+                RuntimeValue.isRefinedBy, Data.LLVM.Byte.shl, Data.LLVM.Byte.allPoison,
+                Data.LLVM.Byte.isRefinedBy, Id.run, RISCV.Reg.toByte] <;> bv_decide
+          · cases y <;> simp
+            all_goals
+              intros
+              exact ⟨.fail none, CanInterpretTo.shl_byte_fail 32 property x _ hn, by simp⟩
 
 
 private theorem shl64_valid : Veir.Puddle.CTree.Pattern.Valid (lowerByteShift .shl 64 .sll rfl) := by
   unfold lowerByteShift castToReg castFromReg emitUnit emitRISCV
-  provePuddleValid
-  simp only [TypeAttr.of_typeAttr]
-  rintro _ ty rfl hty _ rhsTy rfl hwidth lhs hleft rhs hright property
-  cases rhsTy with
-  | mk rhsWidth rhsHint =>
-    dsimp [IntegerType.bitwidth] at hwidth
-    subst rhsWidth
-    simp only [RuntimeValue.Conforms.integerType] at hright
-    obtain ⟨y, rfl⟩ := hright
-    rcases ty with ⟨attr, ht⟩
-    cases attr <;> simp only [getIntByteTypeBitwidth, Option.some.injEq, reduceCtorEq] at hty
-    case integerType it =>
-      cases it with
-      | mk width hint =>
-        dsimp [IntegerType.bitwidth] at hty
-        subst width
-        change lhs.Conforms (TypeAttr.of IntegerType ⟨64, hint⟩) at hleft
-        obtain ⟨x, rfl⟩ := RuntimeValue.Conforms.integerType.mp hleft
-        cases x <;> cases y <;> simp [CanInterpretTo.shl_int (⟨64, hint⟩)]
-        · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-            RuntimeValue.isRefinedBy, LLVM.Int.toReg] using (shl64_int_refines (.val _) (.val _) property.nsw property.nuw)
-        all_goals intros <;> subst_vars <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-          RuntimeValue.isRefinedBy, Data.LLVM.Int.shl, isRefinedBy, Id.run]
-    case byteType bt =>
-      cases bt with
-      | mk width =>
-        change width = 64 at hty
-        subst width
-        change lhs.Conforms (TypeAttr.of LLVM.ByteType ⟨64⟩) at hleft
-        obtain ⟨x, rfl⟩ := RuntimeValue.Conforms.byteType.mp hleft
-        cases hn : property.nsw
-        · cases y <;> simp [CanInterpretTo.shl_byte, hn]
-          · intro bits
-            simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-              RuntimeValue.isRefinedBy] using (shl64_byte_refines x _ bits property.nuw)
-          · intros
-            simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-              RuntimeValue.isRefinedBy, Data.LLVM.Byte.shl, Data.LLVM.Byte.allPoison,
-              Data.LLVM.Byte.isRefinedBy, Id.run, RISCV.Reg.toByte] <;> bv_decide
-        · cases y <;> simp
-          all_goals
-            intros
-            exact ⟨.fail none, CanInterpretTo.shl_byte_fail 64 property x _ hn, by simp⟩
+  provePuddleValid sym =>
+    simp only [TypeAttr.of_typeAttr]
+    rintro _ ty rfl hty _ rhsTy rfl hwidth lhs hleft rhs hright property
+    cases rhsTy with
+    | mk rhsWidth rhsHint =>
+      dsimp [IntegerType.bitwidth] at hwidth
+      subst rhsWidth
+      simp only [RuntimeValue.Conforms.integerType] at hright
+      obtain ⟨y, rfl⟩ := hright
+      rcases ty with ⟨attr, ht⟩
+      cases attr <;> simp only [getIntByteTypeBitwidth, Option.some.injEq, reduceCtorEq] at hty
+      case integerType it =>
+        cases it with
+        | mk width hint =>
+          dsimp [IntegerType.bitwidth] at hty
+          subst width
+          change lhs.Conforms (TypeAttr.of IntegerType ⟨64, hint⟩) at hleft
+          obtain ⟨x, rfl⟩ := RuntimeValue.Conforms.integerType.mp hleft
+          cases x <;> cases y <;> simp [CanInterpretTo.shl_int (⟨64, hint⟩)]
+          · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+              RuntimeValue.isRefinedBy, LLVM.Int.toReg] using (shl64_int_refines (.val _) (.val _) property.nsw property.nuw)
+          all_goals intros <;> subst_vars <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+            RuntimeValue.isRefinedBy, Data.LLVM.Int.shl, isRefinedBy, Id.run]
+      case byteType bt =>
+        cases bt with
+        | mk width =>
+          change width = 64 at hty
+          subst width
+          change lhs.Conforms (TypeAttr.of LLVM.ByteType ⟨64⟩) at hleft
+          obtain ⟨x, rfl⟩ := RuntimeValue.Conforms.byteType.mp hleft
+          cases hn : property.nsw
+          · cases y <;> simp [CanInterpretTo.shl_byte, hn]
+            · intro bits
+              simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+                RuntimeValue.isRefinedBy] using (shl64_byte_refines x _ bits property.nuw)
+            · intros
+              simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+                RuntimeValue.isRefinedBy, Data.LLVM.Byte.shl, Data.LLVM.Byte.allPoison,
+                Data.LLVM.Byte.isRefinedBy, Id.run, RISCV.Reg.toByte] <;> bv_decide
+          · cases y <;> simp
+            all_goals
+              intros
+              exact ⟨.fail none, CanInterpretTo.shl_byte_fail 64 property x _ hn, by simp⟩
 
 
 end

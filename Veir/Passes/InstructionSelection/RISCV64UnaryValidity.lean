@@ -1,4 +1,5 @@
 module
+import Veir.PatternRewriter.Puddle.CTreeSymbolicValidity
 public meta import Veir.OpCode
 import all Veir.OpCode
 import all Veir.GlobalOpInfo
@@ -59,101 +60,101 @@ private theorem CanInterpretTo.ctpop_int (ty : IntegerType)
 
 private theorem ctlz64_valid : Veir.Puddle.CTree.Pattern.Valid ctlz64_pattern := by
   unfold ctlz64_pattern lowerUnary
-  provePuddleValid
-  rintro _ ty rfl hty value hvalue property
-  cases ty with
-  | mk bw hint =>
-    dsimp [IntegerType.bitwidth] at hty
-    subst bw
-    simp only [RuntimeValue.Conforms.integerType] at hvalue
-    obtain ⟨x, rfl⟩ := hvalue
-    cases x <;> simp [CanInterpretTo.ctlz_int (⟨64, hint⟩)]
-    · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-        RuntimeValue.isRefinedBy, LLVM.Int.toReg] using
-        (Data.RISCV.ctlz_refinement (x := .val _) (is_zero_poison := property.is_zero_poison))
-    · intro bits
-      simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.ctlz, isRefinedBy, Id.run]
+  provePuddleValid sym =>
+    rintro _ ty rfl hty value hvalue property
+    cases ty with
+    | mk bw hint =>
+      dsimp [IntegerType.bitwidth] at hty
+      subst bw
+      simp only [RuntimeValue.Conforms.integerType] at hvalue
+      obtain ⟨x, rfl⟩ := hvalue
+      cases x <;> simp [CanInterpretTo.ctlz_int (⟨64, hint⟩)]
+      · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+          RuntimeValue.isRefinedBy, LLVM.Int.toReg] using
+          (Data.RISCV.ctlz_refinement (x := .val _) (is_zero_poison := property.is_zero_poison))
+      · intro bits
+        simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.ctlz, isRefinedBy, Id.run]
 
 private theorem ctlz32_valid : Veir.Puddle.CTree.Pattern.Valid ctlz32_pattern := by
   unfold ctlz32_pattern lowerUnary
-  provePuddleValid
-  rintro _ ty rfl hty value hvalue property
-  cases ty with
-  | mk bw hint =>
-    dsimp [IntegerType.bitwidth] at hty
-    subst bw
-    simp only [RuntimeValue.Conforms.integerType] at hvalue
-    obtain ⟨x, rfl⟩ := hvalue
-    cases x <;> simp [CanInterpretTo.ctlz_int (⟨32, hint⟩)]
-    · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-        RuntimeValue.isRefinedBy, LLVM.Int.toReg] using
-        (Data.RISCV.ctlz_refinement_32 (x := .val _) (is_zero_poison := property.is_zero_poison))
-    · intro bits
-      simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.ctlz, isRefinedBy, Id.run]
+  provePuddleValid sym =>
+    rintro _ ty rfl hty value hvalue property
+    cases ty with
+    | mk bw hint =>
+      dsimp [IntegerType.bitwidth] at hty
+      subst bw
+      simp only [RuntimeValue.Conforms.integerType] at hvalue
+      obtain ⟨x, rfl⟩ := hvalue
+      cases x <;> simp [CanInterpretTo.ctlz_int (⟨32, hint⟩)]
+      · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+          RuntimeValue.isRefinedBy, LLVM.Int.toReg] using
+          (Data.RISCV.ctlz_refinement_32 (x := .val _) (is_zero_poison := property.is_zero_poison))
+      · intro bits
+        simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.ctlz, isRefinedBy, Id.run]
 private theorem cttz64_valid : Veir.Puddle.CTree.Pattern.Valid cttz64_pattern := by
   unfold cttz64_pattern lowerUnary
-  provePuddleValid
-  rintro _ ty rfl hty value hvalue property
-  cases ty with
-  | mk bw hint =>
-    dsimp [IntegerType.bitwidth] at hty
-    subst bw
-    simp only [RuntimeValue.Conforms.integerType] at hvalue
-    obtain ⟨x, rfl⟩ := hvalue
-    cases x <;> simp [CanInterpretTo.cttz_int (⟨64, hint⟩)]
-    · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-        RuntimeValue.isRefinedBy, LLVM.Int.toReg] using
-        (Data.RISCV.cttz_refinement (x := .val _) (is_zero_poison := property.is_zero_poison))
-    · intro bits
-      simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.cttz, isRefinedBy, Id.run]
+  provePuddleValid sym =>
+    rintro _ ty rfl hty value hvalue property
+    cases ty with
+    | mk bw hint =>
+      dsimp [IntegerType.bitwidth] at hty
+      subst bw
+      simp only [RuntimeValue.Conforms.integerType] at hvalue
+      obtain ⟨x, rfl⟩ := hvalue
+      cases x <;> simp [CanInterpretTo.cttz_int (⟨64, hint⟩)]
+      · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+          RuntimeValue.isRefinedBy, LLVM.Int.toReg] using
+          (Data.RISCV.cttz_refinement (x := .val _) (is_zero_poison := property.is_zero_poison))
+      · intro bits
+        simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.cttz, isRefinedBy, Id.run]
 private theorem cttz32_valid : Veir.Puddle.CTree.Pattern.Valid cttz32_pattern := by
   unfold cttz32_pattern lowerUnary
-  provePuddleValid
-  rintro _ ty rfl hty value hvalue property
-  cases ty with
-  | mk bw hint =>
-    dsimp [IntegerType.bitwidth] at hty
-    subst bw
-    simp only [RuntimeValue.Conforms.integerType] at hvalue
-    obtain ⟨x, rfl⟩ := hvalue
-    cases x <;> simp [CanInterpretTo.cttz_int (⟨32, hint⟩)]
-    · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-        RuntimeValue.isRefinedBy, LLVM.Int.toReg] using
-        (Data.RISCV.cttz_refinement_32 (x := .val _) (is_zero_poison := property.is_zero_poison))
-    · intro bits
-      simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.cttz, isRefinedBy, Id.run]
+  provePuddleValid sym =>
+    rintro _ ty rfl hty value hvalue property
+    cases ty with
+    | mk bw hint =>
+      dsimp [IntegerType.bitwidth] at hty
+      subst bw
+      simp only [RuntimeValue.Conforms.integerType] at hvalue
+      obtain ⟨x, rfl⟩ := hvalue
+      cases x <;> simp [CanInterpretTo.cttz_int (⟨32, hint⟩)]
+      · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+          RuntimeValue.isRefinedBy, LLVM.Int.toReg] using
+          (Data.RISCV.cttz_refinement_32 (x := .val _) (is_zero_poison := property.is_zero_poison))
+      · intro bits
+        simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.cttz, isRefinedBy, Id.run]
 private theorem ctpop64_valid : Veir.Puddle.CTree.Pattern.Valid ctpop64_pattern := by
   unfold ctpop64_pattern lowerUnary
-  provePuddleValid
-  rintro _ ty rfl hty value hvalue property
-  cases ty with
-  | mk bw hint =>
-    dsimp [IntegerType.bitwidth] at hty
-    subst bw
-    simp only [RuntimeValue.Conforms.integerType] at hvalue
-    obtain ⟨x, rfl⟩ := hvalue
-    cases x <;> simp [CanInterpretTo.ctpop_int (⟨64, hint⟩)]
-    · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-        RuntimeValue.isRefinedBy, LLVM.Int.toReg] using
-        (Data.RISCV.ctpop_refinement (x := .val _))
-    · intro bits
-      simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.ctpop, isRefinedBy, Id.run]
+  provePuddleValid sym =>
+    rintro _ ty rfl hty value hvalue property
+    cases ty with
+    | mk bw hint =>
+      dsimp [IntegerType.bitwidth] at hty
+      subst bw
+      simp only [RuntimeValue.Conforms.integerType] at hvalue
+      obtain ⟨x, rfl⟩ := hvalue
+      cases x <;> simp [CanInterpretTo.ctpop_int (⟨64, hint⟩)]
+      · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+          RuntimeValue.isRefinedBy, LLVM.Int.toReg] using
+          (Data.RISCV.ctpop_refinement (x := .val _))
+      · intro bits
+        simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.ctpop, isRefinedBy, Id.run]
 private theorem ctpop32_valid : Veir.Puddle.CTree.Pattern.Valid ctpop32_pattern := by
   unfold ctpop32_pattern lowerUnary
-  provePuddleValid
-  rintro _ ty rfl hty value hvalue property
-  cases ty with
-  | mk bw hint =>
-    dsimp [IntegerType.bitwidth] at hty
-    subst bw
-    simp only [RuntimeValue.Conforms.integerType] at hvalue
-    obtain ⟨x, rfl⟩ := hvalue
-    cases x <;> simp [CanInterpretTo.ctpop_int (⟨32, hint⟩)]
-    · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-        RuntimeValue.isRefinedBy, LLVM.Int.toReg] using
-        (Data.RISCV.ctpop_refinement_32 (x := .val _))
-    · intro bits
-      simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.ctpop, isRefinedBy, Id.run]
+  provePuddleValid sym =>
+    rintro _ ty rfl hty value hvalue property
+    cases ty with
+    | mk bw hint =>
+      dsimp [IntegerType.bitwidth] at hty
+      subst bw
+      simp only [RuntimeValue.Conforms.integerType] at hvalue
+      obtain ⟨x, rfl⟩ := hvalue
+      cases x <;> simp [CanInterpretTo.ctpop_int (⟨32, hint⟩)]
+      · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+          RuntimeValue.isRefinedBy, LLVM.Int.toReg] using
+          (Data.RISCV.ctpop_refinement_32 (x := .val _))
+      · intro bits
+        simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.ctpop, isRefinedBy, Id.run]
 
 end
 end Veir.InstructionSelection.CTreeProofs

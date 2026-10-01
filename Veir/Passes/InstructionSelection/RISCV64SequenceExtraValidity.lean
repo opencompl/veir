@@ -1,4 +1,5 @@
 module
+import Veir.PatternRewriter.Puddle.CTreeSymbolicValidity
 meta import Std.Tactic.BVDecide
 public meta import Veir.OpCode
 public meta import Veir.PatternRewriter.Puddle.Definitions
@@ -35,100 +36,100 @@ open Puddle Puddle.CTree
 set_option maxHeartbeats 5000000 in
  theorem selectZeroFalse_pattern_valid : Puddle.CTree.Pattern.Valid (select_pattern false true) := by
   conv => arg 1; cbv
-  provePuddleValid
-  rintro _ ty rfl hty _ cty rfl hcty cond hcond lhs hleft props hprops value hsem property hzero
-  rcases props with ⟨prop⟩
-  cases prop <;> simp only [Bool.false_eq_true] at hprops
-  rename_i attr
-  have zero : BitVec.ofInt ty.bitwidth (decodeLLVMIntegerConstant attr) = 0 := by
-    apply BitVec.eq_of_toInt_eq
-    change some ((BitVec.ofInt ty.bitwidth (decodeLLVMIntegerConstant attr)).toInt) = some 0 at hzero
-    simpa using Option.some.inj hzero
-  simp [Puddle.CTree.CanInterpretTo.constant_int ty attr, constant_ctree_bits_eq_decode, zero] at hsem
-  subst value
-  cases cty with
-  | mk cbw chint =>
-    dsimp [IntegerType.bitwidth] at hcty
-    subst cbw
-    simp only [RuntimeValue.Conforms.integerType] at hcond hleft
-    obtain ⟨c, rfl⟩ := hcond
-    obtain ⟨t, rfl⟩ := hleft
-    cases ty with
-    | mk bw hint =>
-      dsimp [IntegerType.bitwidth] at hty
-      rcases hty with hty | hty <;> subst bw
-      all_goals
-        cases c with
-        | val cbits =>
-          rcases BitVec.eq_zero_or_eq_one cbits with rfl | rfl
-          <;> cases t <;> simpSequenceCreation
-          all_goals first
-            | rintro outcome valueBits conditionBits rfl
-            | intro bits
-            | skip
-          all_goals simp [CanInterpretTo.select_int (⟨64, hint⟩),
-            CanInterpretTo.select_int (⟨32, hint⟩), Interp.isRefinedBy,
-            RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
-            Data.LLVM.Int.select, isRefinedBy, Id.run, Data.RISCV.czeroeqz, RISCV.Reg.toInt]
-        | poison =>
-          cases t <;> simpSequenceCreation
-          all_goals first
-            | rintro outcome valueBits conditionBits rfl
-            | intro bits
-            | skip
-          all_goals simp [CanInterpretTo.select_int (⟨64, hint⟩),
-            CanInterpretTo.select_int (⟨32, hint⟩), Interp.isRefinedBy,
-            RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
-            Data.LLVM.Int.select, isRefinedBy, Id.run]
+  provePuddleValid sym =>
+    rintro _ ty rfl hty _ cty rfl hcty cond hcond lhs hleft props hprops value hsem property hzero
+    rcases props with ⟨prop⟩
+    cases prop <;> simp only [Bool.false_eq_true] at hprops
+    rename_i attr
+    have zero : BitVec.ofInt ty.bitwidth (decodeLLVMIntegerConstant attr) = 0 := by
+      apply BitVec.eq_of_toInt_eq
+      change some ((BitVec.ofInt ty.bitwidth (decodeLLVMIntegerConstant attr)).toInt) = some 0 at hzero
+      simpa using Option.some.inj hzero
+    simp [Puddle.CTree.CanInterpretTo.constant_int ty attr, constant_ctree_bits_eq_decode, zero] at hsem
+    subst value
+    cases cty with
+    | mk cbw chint =>
+      dsimp [IntegerType.bitwidth] at hcty
+      subst cbw
+      simp only [RuntimeValue.Conforms.integerType] at hcond hleft
+      obtain ⟨c, rfl⟩ := hcond
+      obtain ⟨t, rfl⟩ := hleft
+      cases ty with
+      | mk bw hint =>
+        dsimp [IntegerType.bitwidth] at hty
+        rcases hty with hty | hty <;> subst bw
+        all_goals
+          cases c with
+          | val cbits =>
+            rcases BitVec.eq_zero_or_eq_one cbits with rfl | rfl
+            <;> cases t <;> simpSequenceCreation
+            all_goals first
+              | rintro outcome valueBits conditionBits rfl
+              | intro bits
+              | skip
+            all_goals simp [CanInterpretTo.select_int (⟨64, hint⟩),
+              CanInterpretTo.select_int (⟨32, hint⟩), Interp.isRefinedBy,
+              RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
+              Data.LLVM.Int.select, isRefinedBy, Id.run, Data.RISCV.czeroeqz, RISCV.Reg.toInt]
+          | poison =>
+            cases t <;> simpSequenceCreation
+            all_goals first
+              | rintro outcome valueBits conditionBits rfl
+              | intro bits
+              | skip
+            all_goals simp [CanInterpretTo.select_int (⟨64, hint⟩),
+              CanInterpretTo.select_int (⟨32, hint⟩), Interp.isRefinedBy,
+              RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
+              Data.LLVM.Int.select, isRefinedBy, Id.run]
 
 set_option maxHeartbeats 5000000 in
  theorem selectZeroTrue_pattern_valid : Puddle.CTree.Pattern.Valid (select_pattern true false) := by
   conv => arg 1; cbv
-  provePuddleValid
-  rintro _ ty rfl hty _ cty rfl hcty cond hcond props hprops value hsem rhs hright property hzero
-  rcases props with ⟨prop⟩
-  cases prop <;> simp only [Bool.false_eq_true] at hprops
-  rename_i attr
-  have zero : BitVec.ofInt ty.bitwidth (decodeLLVMIntegerConstant attr) = 0 := by
-    apply BitVec.eq_of_toInt_eq
-    change some ((BitVec.ofInt ty.bitwidth (decodeLLVMIntegerConstant attr)).toInt) = some 0 at hzero
-    simpa using Option.some.inj hzero
-  simp [Puddle.CTree.CanInterpretTo.constant_int ty attr, constant_ctree_bits_eq_decode, zero] at hsem
-  subst value
-  cases cty with
-  | mk cbw chint =>
-    dsimp [IntegerType.bitwidth] at hcty
-    subst cbw
-    simp only [RuntimeValue.Conforms.integerType] at hcond hright
-    obtain ⟨c, rfl⟩ := hcond
-    obtain ⟨f, rfl⟩ := hright
-    cases ty with
-    | mk bw hint =>
-      dsimp [IntegerType.bitwidth] at hty
-      rcases hty with hty | hty <;> subst bw
-      all_goals
-        cases c with
-        | val cbits =>
-          rcases BitVec.eq_zero_or_eq_one cbits with rfl | rfl
-          <;> cases f <;> simpSequenceCreation
-          all_goals first
-            | rintro outcome valueBits conditionBits rfl
-            | intro bits
-            | skip
-          all_goals simp [CanInterpretTo.select_int (⟨64, hint⟩),
-            CanInterpretTo.select_int (⟨32, hint⟩), Interp.isRefinedBy,
-            RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
-            Data.LLVM.Int.select, isRefinedBy, Id.run, Data.RISCV.czeronez, RISCV.Reg.toInt]
-        | poison =>
-          cases f <;> simpSequenceCreation
-          all_goals first
-            | rintro outcome valueBits conditionBits rfl
-            | intro bits
-            | skip
-          all_goals simp [CanInterpretTo.select_int (⟨64, hint⟩),
-            CanInterpretTo.select_int (⟨32, hint⟩), Interp.isRefinedBy,
-            RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
-            Data.LLVM.Int.select, isRefinedBy, Id.run]
+  provePuddleValid sym =>
+    rintro _ ty rfl hty _ cty rfl hcty cond hcond props hprops value hsem rhs hright property hzero
+    rcases props with ⟨prop⟩
+    cases prop <;> simp only [Bool.false_eq_true] at hprops
+    rename_i attr
+    have zero : BitVec.ofInt ty.bitwidth (decodeLLVMIntegerConstant attr) = 0 := by
+      apply BitVec.eq_of_toInt_eq
+      change some ((BitVec.ofInt ty.bitwidth (decodeLLVMIntegerConstant attr)).toInt) = some 0 at hzero
+      simpa using Option.some.inj hzero
+    simp [Puddle.CTree.CanInterpretTo.constant_int ty attr, constant_ctree_bits_eq_decode, zero] at hsem
+    subst value
+    cases cty with
+    | mk cbw chint =>
+      dsimp [IntegerType.bitwidth] at hcty
+      subst cbw
+      simp only [RuntimeValue.Conforms.integerType] at hcond hright
+      obtain ⟨c, rfl⟩ := hcond
+      obtain ⟨f, rfl⟩ := hright
+      cases ty with
+      | mk bw hint =>
+        dsimp [IntegerType.bitwidth] at hty
+        rcases hty with hty | hty <;> subst bw
+        all_goals
+          cases c with
+          | val cbits =>
+            rcases BitVec.eq_zero_or_eq_one cbits with rfl | rfl
+            <;> cases f <;> simpSequenceCreation
+            all_goals first
+              | rintro outcome valueBits conditionBits rfl
+              | intro bits
+              | skip
+            all_goals simp [CanInterpretTo.select_int (⟨64, hint⟩),
+              CanInterpretTo.select_int (⟨32, hint⟩), Interp.isRefinedBy,
+              RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
+              Data.LLVM.Int.select, isRefinedBy, Id.run, Data.RISCV.czeronez, RISCV.Reg.toInt]
+          | poison =>
+            cases f <;> simpSequenceCreation
+            all_goals first
+              | rintro outcome valueBits conditionBits rfl
+              | intro bits
+              | skip
+            all_goals simp [CanInterpretTo.select_int (⟨64, hint⟩),
+              CanInterpretTo.select_int (⟨32, hint⟩), Interp.isRefinedBy,
+              RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
+              Data.LLVM.Int.select, isRefinedBy, Id.run]
 
 private theorem narrow_ofInt6 (z : Int) :
     (BitVec.ofInt 64 z).setWidth 6 = BitVec.ofInt 6 z := by
@@ -229,121 +230,129 @@ private theorem rotate_left_imm5 (x : BitVec 32) :
 set_option maxHeartbeats 5000000 in
  theorem fshl64Const_pattern_valid : Puddle.CTree.Pattern.Valid (lowerConstRotate true 64) := by
   conv => arg 1; cbv
-  provePuddleValid
-  rintro _ ty rfl hty value hvalue props hprops cvalue hsem property
-  rcases props with ⟨prop⟩
-  cases prop <;> simp only [Bool.false_eq_true] at hprops
-  rename_i attr
-  have decode : constantIntValue (TypeAttr.of IntegerType ty) { value := .integer attr } =
-      some ((BitVec.ofInt ty.bitwidth (decodeLLVMIntegerConstant attr)).toInt) := rfl
-  simp [Puddle.CTree.CanInterpretTo.constant_int ty attr, constant_ctree_bits_eq_decode] at hsem
-  subst cvalue
-  cases ty with
-  | mk bw hint =>
-    dsimp [IntegerType.bitwidth] at hty
-    subst bw
-    simp only [RuntimeValue.Conforms.integerType] at hvalue
-    obtain ⟨x, rfl⟩ := hvalue
-    cases x <;> simp only [decode]
-    all_goals simpSequenceCreation
-    all_goals simp [CanInterpretTo.fshl_int (⟨64, hint⟩)]
-    · have immediate := rotate_left_imm6 (BitVec.ofInt 64 (decodeLLVMIntegerConstant attr))
-      simp only [BitVec.toInt_ofInt] at immediate
-      simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-        RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField,
-        immediate] using
-        (Data.RISCV.fshl_rori_refinement (a := .val _) (c := .val _))
-    · intro bits
-      simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.fshl, isRefinedBy, Id.run]
+  provePuddleValid sym =>
+    rintro _ ty rfl hty value hvalue props hprops cvalue hsem property
+    rcases props with ⟨prop⟩
+    cases prop <;> simp only [Bool.false_eq_true] at hprops
+    rename_i attr
+    have decode : constantIntValue (TypeAttr.of IntegerType ty) { value := .integer attr } =
+        some ((BitVec.ofInt ty.bitwidth (decodeLLVMIntegerConstant attr)).toInt) := rfl
+    simp [Puddle.CTree.CanInterpretTo.constant_int ty attr, constant_ctree_bits_eq_decode] at hsem
+    subst cvalue
+    cases ty with
+    | mk bw hint =>
+      dsimp [IntegerType.bitwidth] at hty
+      subst bw
+      simp only [RuntimeValue.Conforms.integerType] at hvalue
+      obtain ⟨x, rfl⟩ := hvalue
+      cases x
+      all_goals simpSequenceCreation
+      all_goals simp only [decode, Option.bind_some]
+      all_goals simpSequenceCreation
+      all_goals simp [CanInterpretTo.fshl_int (⟨64, hint⟩)]
+      · have immediate := rotate_left_imm6 (BitVec.ofInt 64 (decodeLLVMIntegerConstant attr))
+        simp only [BitVec.toInt_ofInt] at immediate
+        simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+          RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField,
+          immediate] using
+          (Data.RISCV.fshl_rori_refinement (a := .val _) (c := .val _))
+      · intro bits
+        simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.fshl, isRefinedBy, Id.run]
 
 set_option maxHeartbeats 5000000 in
  theorem fshl32Const_pattern_valid : Puddle.CTree.Pattern.Valid (lowerConstRotate true 32) := by
   conv => arg 1; cbv
-  provePuddleValid
-  rintro _ ty rfl hty value hvalue props hprops cvalue hsem property
-  rcases props with ⟨prop⟩
-  cases prop <;> simp only [Bool.false_eq_true] at hprops
-  rename_i attr
-  have decode : constantIntValue (TypeAttr.of IntegerType ty) { value := .integer attr } =
-      some ((BitVec.ofInt ty.bitwidth (decodeLLVMIntegerConstant attr)).toInt) := rfl
-  simp [Puddle.CTree.CanInterpretTo.constant_int ty attr, constant_ctree_bits_eq_decode] at hsem
-  subst cvalue
-  cases ty with
-  | mk bw hint =>
-    dsimp [IntegerType.bitwidth] at hty
-    subst bw
-    simp only [RuntimeValue.Conforms.integerType] at hvalue
-    obtain ⟨x, rfl⟩ := hvalue
-    cases x <;> simp only [decode]
-    all_goals simpSequenceCreation
-    all_goals simp [CanInterpretTo.fshl_int (⟨32, hint⟩)]
-    · have immediate := rotate_left_imm5 (BitVec.ofInt 32 (decodeLLVMIntegerConstant attr))
-      simp only [BitVec.toInt_ofInt] at immediate
-      simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-        RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField,
-        immediate] using
-        (Data.RISCV.fshl_roriw_refinement (a := .val _) (c := .val _))
-    · intro bits
-      simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.fshl, isRefinedBy, Id.run]
+  provePuddleValid sym =>
+    rintro _ ty rfl hty value hvalue props hprops cvalue hsem property
+    rcases props with ⟨prop⟩
+    cases prop <;> simp only [Bool.false_eq_true] at hprops
+    rename_i attr
+    have decode : constantIntValue (TypeAttr.of IntegerType ty) { value := .integer attr } =
+        some ((BitVec.ofInt ty.bitwidth (decodeLLVMIntegerConstant attr)).toInt) := rfl
+    simp [Puddle.CTree.CanInterpretTo.constant_int ty attr, constant_ctree_bits_eq_decode] at hsem
+    subst cvalue
+    cases ty with
+    | mk bw hint =>
+      dsimp [IntegerType.bitwidth] at hty
+      subst bw
+      simp only [RuntimeValue.Conforms.integerType] at hvalue
+      obtain ⟨x, rfl⟩ := hvalue
+      cases x
+      all_goals simpSequenceCreation
+      all_goals simp only [decode, Option.bind_some]
+      all_goals simpSequenceCreation
+      all_goals simp [CanInterpretTo.fshl_int (⟨32, hint⟩)]
+      · have immediate := rotate_left_imm5 (BitVec.ofInt 32 (decodeLLVMIntegerConstant attr))
+        simp only [BitVec.toInt_ofInt] at immediate
+        simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+          RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField,
+          immediate] using
+          (Data.RISCV.fshl_roriw_refinement (a := .val _) (c := .val _))
+      · intro bits
+        simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.fshl, isRefinedBy, Id.run]
 
 set_option maxHeartbeats 5000000 in
  theorem fshr64Const_pattern_valid : Puddle.CTree.Pattern.Valid (lowerConstRotate false 64) := by
   conv => arg 1; cbv
-  provePuddleValid
-  rintro _ ty rfl hty value hvalue props hprops cvalue hsem property
-  rcases props with ⟨prop⟩
-  cases prop <;> simp only [Bool.false_eq_true] at hprops
-  rename_i attr
-  have decode : constantIntValue (TypeAttr.of IntegerType ty) { value := .integer attr } =
-      some ((BitVec.ofInt ty.bitwidth (decodeLLVMIntegerConstant attr)).toInt) := rfl
-  simp [Puddle.CTree.CanInterpretTo.constant_int ty attr, constant_ctree_bits_eq_decode] at hsem
-  subst cvalue
-  cases ty with
-  | mk bw hint =>
-    dsimp [IntegerType.bitwidth] at hty
-    subst bw
-    simp only [RuntimeValue.Conforms.integerType] at hvalue
-    obtain ⟨x, rfl⟩ := hvalue
-    cases x <;> simp only [decode]
-    all_goals simpSequenceCreation
-    all_goals simp [CanInterpretTo.fshr_int (⟨64, hint⟩)]
-    · have immediate := rotate_right_imm6 (BitVec.ofInt 64 (decodeLLVMIntegerConstant attr))
-      simp only [BitVec.toInt_ofInt] at immediate
-      simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-        RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField,
-        immediate] using
-        (Data.RISCV.fshr_rori_refinement (a := .val _) (c := .val _))
-    · intro bits
-      simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.fshr, isRefinedBy, Id.run]
+  provePuddleValid sym =>
+    rintro _ ty rfl hty value hvalue props hprops cvalue hsem property
+    rcases props with ⟨prop⟩
+    cases prop <;> simp only [Bool.false_eq_true] at hprops
+    rename_i attr
+    have decode : constantIntValue (TypeAttr.of IntegerType ty) { value := .integer attr } =
+        some ((BitVec.ofInt ty.bitwidth (decodeLLVMIntegerConstant attr)).toInt) := rfl
+    simp [Puddle.CTree.CanInterpretTo.constant_int ty attr, constant_ctree_bits_eq_decode] at hsem
+    subst cvalue
+    cases ty with
+    | mk bw hint =>
+      dsimp [IntegerType.bitwidth] at hty
+      subst bw
+      simp only [RuntimeValue.Conforms.integerType] at hvalue
+      obtain ⟨x, rfl⟩ := hvalue
+      cases x
+      all_goals simpSequenceCreation
+      all_goals simp only [decode, Option.bind_some]
+      all_goals simpSequenceCreation
+      all_goals simp [CanInterpretTo.fshr_int (⟨64, hint⟩)]
+      · have immediate := rotate_right_imm6 (BitVec.ofInt 64 (decodeLLVMIntegerConstant attr))
+        simp only [BitVec.toInt_ofInt] at immediate
+        simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+          RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField,
+          immediate] using
+          (Data.RISCV.fshr_rori_refinement (a := .val _) (c := .val _))
+      · intro bits
+        simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.fshr, isRefinedBy, Id.run]
 
 set_option maxHeartbeats 5000000 in
  theorem fshr32Const_pattern_valid : Puddle.CTree.Pattern.Valid (lowerConstRotate false 32) := by
   conv => arg 1; cbv
-  provePuddleValid
-  rintro _ ty rfl hty value hvalue props hprops cvalue hsem property
-  rcases props with ⟨prop⟩
-  cases prop <;> simp only [Bool.false_eq_true] at hprops
-  rename_i attr
-  have decode : constantIntValue (TypeAttr.of IntegerType ty) { value := .integer attr } =
-      some ((BitVec.ofInt ty.bitwidth (decodeLLVMIntegerConstant attr)).toInt) := rfl
-  simp [Puddle.CTree.CanInterpretTo.constant_int ty attr, constant_ctree_bits_eq_decode] at hsem
-  subst cvalue
-  cases ty with
-  | mk bw hint =>
-    dsimp [IntegerType.bitwidth] at hty
-    subst bw
-    simp only [RuntimeValue.Conforms.integerType] at hvalue
-    obtain ⟨x, rfl⟩ := hvalue
-    cases x <;> simp only [decode]
-    all_goals simpSequenceCreation
-    all_goals simp [CanInterpretTo.fshr_int (⟨32, hint⟩)]
-    · have immediate := rotate_right_imm5 (BitVec.ofInt 32 (decodeLLVMIntegerConstant attr))
-      simp only [BitVec.toInt_ofInt] at immediate
-      simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-        RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField,
-        immediate] using
-        (Data.RISCV.fshr_roriw_refinement (a := .val _) (c := .val _))
-    · intro bits
-      simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.fshr, isRefinedBy, Id.run]
+  provePuddleValid sym =>
+    rintro _ ty rfl hty value hvalue props hprops cvalue hsem property
+    rcases props with ⟨prop⟩
+    cases prop <;> simp only [Bool.false_eq_true] at hprops
+    rename_i attr
+    have decode : constantIntValue (TypeAttr.of IntegerType ty) { value := .integer attr } =
+        some ((BitVec.ofInt ty.bitwidth (decodeLLVMIntegerConstant attr)).toInt) := rfl
+    simp [Puddle.CTree.CanInterpretTo.constant_int ty attr, constant_ctree_bits_eq_decode] at hsem
+    subst cvalue
+    cases ty with
+    | mk bw hint =>
+      dsimp [IntegerType.bitwidth] at hty
+      subst bw
+      simp only [RuntimeValue.Conforms.integerType] at hvalue
+      obtain ⟨x, rfl⟩ := hvalue
+      cases x
+      all_goals simpSequenceCreation
+      all_goals simp only [decode, Option.bind_some]
+      all_goals simpSequenceCreation
+      all_goals simp [CanInterpretTo.fshr_int (⟨32, hint⟩)]
+      · have immediate := rotate_right_imm5 (BitVec.ofInt 32 (decodeLLVMIntegerConstant attr))
+        simp only [BitVec.toInt_ofInt] at immediate
+        simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+          RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField,
+          immediate] using
+          (Data.RISCV.fshr_roriw_refinement (a := .val _) (c := .val _))
+      · intro bits
+        simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.fshr, isRefinedBy, Id.run]
 
 end Veir
