@@ -347,3 +347,28 @@ example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
 example {w : Nat} (x : BitVec w) (hw : w ≤ 8) (hw0 : 0 < w) :
     (x >>> (1#w)).msb = false := by
   pbv_decide 8
+
+/-- Shifting right by zero is identity -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    x >>> 0 = x := by
+  pbv_decide 8
+
+/-- Shifting right by one is dividing by two -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    x >>> 1 = x / 2 := by
+  pbv_decide 8
+
+/-- Shifting right twice by literal amounts is shifting by their sum -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    (x >>> 1) >>> 2 = x >>> 3 := by
+  pbv_decide 8
+
+/-- Shifting right by a `Nat` agrees with shifting by the same `BitVec` amount -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    x >>> 1 = x >>> (1#w) := by
+  pbv_decide 8
+
+/-- Shifting right commutes with zero extension -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    (x.zeroExtend (w + w)) >>> 1 = (x >>> 1).zeroExtend (w + w) := by
+  pbv_decide 8
