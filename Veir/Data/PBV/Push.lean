@@ -15,82 +15,79 @@ An operation is supported if there is a lemma pushing `setWidth o` through it
 (here, or registered from core in `Veir.Meta.Tactic.PBVDecide.Main`).
 Operations without a push theorem (`—`) are abstracted as opaque variables by `bv_decide`.
 
-| Operation                       | `BitVec` definition          | Push theorem                                    |
-|---------------------------------|------------------------------|-------------------------------------------------|
-| Equality (`=`)                  | `Eq`                         | `eq_iff`                                        |
-| Bool equality (`==`)            | `BEq`                        | —                                               |
-| Unsigned `<`                    | `BitVec.ult`                 | —                                               |
-| Unsigned `≤`                    | `BitVec.ule`                 | —                                               |
-| Signed `<`                      | `BitVec.slt`                 | —                                               |
-| Signed `≤`                      | `BitVec.sle`                 | —                                               |
-| Literal (`n#w`)                 | `BitVec.ofNat`               | `setWidth_ofNat`                                |
-| Zero (`0#w`)                    | `BitVec.zero`                | `BitVec.setWidth_zero`                          |
-| All ones                        | `BitVec.allOnes`             | —                                               |
-| Signed min                      | `BitVec.intMin`              | —                                               |
-| Signed max                      | `BitVec.intMax`              | —                                               |
-| Power of two                    | `BitVec.twoPow`              | —                                               |
-| From `Int`                      | `BitVec.ofInt`               | —                                               |
-| From `Bool`                     | `BitVec.ofBool`              | —                                               |
-| Fill                            | `BitVec.fill`                | —                                               |
-| Set width                       | `BitVec.setWidth`            | `setWidth_setWidth`, `BitVec.setWidth_eq`       |
-| Zero extend                     | `BitVec.zeroExtend`          | `setWidth_setWidth`, `BitVec.setWidth_eq`       |
-| Truncate                        | `BitVec.truncate`            | `setWidth_setWidth`, `BitVec.setWidth_eq`       |
-| Sign extend                     | `BitVec.signExtend`          | `setWidth_signExtend_eq_and_maskOfWidth`        |
-| Append (`++`)                   | `BitVec.append`              | `setWidth_append_eq_or_mul_maskOfWidth_add_one` |
-| Extract (SMT-Lib)               | `BitVec.extractLsb`          | —                                               |
-| Extract                         | `BitVec.extractLsb'`         | —                                               |
-| Replicate                       | `BitVec.replicate`           | —                                               |
-| Concat bit                      | `BitVec.concat`              | —                                               |
-| Cons bit                        | `BitVec.cons`                | —                                               |
-| Shift left, extend              | `BitVec.shiftLeftZeroExtend` | —                                               |
-| Add (`+`)                       | `BitVec.add`                 | `setWidth_add`                                  |
-| Sub (`-`)                       | `BitVec.sub`                 | —                                               |
-| Neg (`-`)                       | `BitVec.neg`                 | —                                               |
-| Mul (`*`)                       | `BitVec.mul`                 | —                                               |
-| Unsigned div (`/`)              | `BitVec.udiv`                | —                                               |
-| Unsigned mod (`%`)              | `BitVec.umod`                | —                                               |
-| Pow (`^`)                       | `BitVec.pow`                 | —                                               |
-| Abs                             | `BitVec.abs`                 | —                                               |
-| Signed div                      | `BitVec.sdiv`                | —                                               |
-| Signed rem                      | `BitVec.srem`                | —                                               |
-| Signed mod                      | `BitVec.smod`                | —                                               |
-| SMT unsigned div                | `BitVec.smtUDiv`             | —                                               |
-| SMT signed div                  | `BitVec.smtSDiv`             | —                                               |
-| And (`&&&`)                     | `BitVec.and`                 | —                                               |
-| Or (`\|\|\|`)                   | `BitVec.or`                  | —                                               |
-| Xor (`^^^`)                     | `BitVec.xor`                 | —                                               |
-| Not (`~~~`)                     | `BitVec.not`                 | —                                               |
-| Shift left by `Nat` (`<<<`)     | `BitVec.shiftLeft`           | —                                               |
-| Shift left by `BitVec` (`<<<`)  | `BitVec.shiftLeft`           | —                                               |
-| Shift right by `Nat` (`>>>`)    | `BitVec.ushiftRight`         | —                                               |
-| Shift right by `BitVec` (`>>>`) | `BitVec.ushiftRight`         | —                                               |
-| Arith shift right by `Nat`      | `BitVec.sshiftRight`         | —                                               |
-| Arith shift right by `BitVec`   | `BitVec.sshiftRight'`        | —                                               |
-| Rotate left                     | `BitVec.rotateLeft`          | —                                               |
-| Rotate right                    | `BitVec.rotateRight`         | —                                               |
-| MSB                             | `BitVec.msb`                 | `msb_eq_and_signBitOfMask_maskOfWidth_ne_zero`  |
-| Bit, from LSB                   | `BitVec.getLsbD`             | —                                               |
-| Bit, from MSB                   | `BitVec.getMsbD`             | —                                               |
-| Reverse                         | `BitVec.reverse`             | —                                               |
-| Popcount                        | `BitVec.cpop`                | —                                               |
-| Leading zeros                   | `BitVec.clz`                 | —                                               |
-| Trailing zeros                  | `BitVec.ctz`                 | —                                               |
-| Unsigned add overflow           | `BitVec.uaddOverflow`        | —                                               |
-| Signed add overflow             | `BitVec.saddOverflow`        | —                                               |
-| Unsigned sub overflow           | `BitVec.usubOverflow`        | —                                               |
-| Signed sub overflow             | `BitVec.ssubOverflow`        | —                                               |
-| Neg overflow                    | `BitVec.negOverflow`         | —                                               |
-| Unsigned mul overflow           | `BitVec.umulOverflow`        | —                                               |
-| Signed mul overflow             | `BitVec.smulOverflow`        | —                                               |
-| Signed div overflow             | `BitVec.sdivOverflow`        | —                                               |
-| To `Nat`                        | `BitVec.toNat`               | —                                               |
-| To `Int`                        | `BitVec.toInt`               | —                                               |
+| Operation                       | `BitVec` definition          | Push theorem                       |
+|---------------------------------|------------------------------|------------------------------------|
+| Equality (`=`)                  | `Eq`                         | `eq_iff`                           |
+| Bool equality (`==`)            | `BEq`                        | —                                  |
+| Unsigned `<`                    | `BitVec.ult`                 | —                                  |
+| Unsigned `≤`                    | `BitVec.ule`                 | —                                  |
+| Signed `<`                      | `BitVec.slt`                 | —                                  |
+| Signed `≤`                      | `BitVec.sle`                 | —                                  |
+| Literal (`n#w`)                 | `BitVec.ofNat`               | `setWidth_ofNat`                   |
+| Zero (`0#w`)                    | `BitVec.zero`                | `BitVec.setWidth_zero`             |
+| All ones                        | `BitVec.allOnes`             | —                                  |
+| Signed min                      | `BitVec.intMin`              | —                                  |
+| Signed max                      | `BitVec.intMax`              | —                                  |
+| Power of two                    | `BitVec.twoPow`              | —                                  |
+| From `Int`                      | `BitVec.ofInt`               | —                                  |
+| From `Bool`                     | `BitVec.ofBool`              | —                                  |
+| Fill                            | `BitVec.fill`                | —                                  |
+| Set width                       | `BitVec.setWidth`            | `setWidth_setWidth`                |
+| Zero extend                     | `BitVec.zeroExtend`          | `setWidth_setWidth`                |
+| Truncate                        | `BitVec.truncate`            | `setWidth_setWidth`                |
+| Sign extend                     | `BitVec.signExtend`          | `setWidth_signExtend`              |
+| Append (`++`)                   | `BitVec.append`              | `setWidth_append`                  |
+| Extract (SMT-Lib)               | `BitVec.extractLsb`          | —                                  |
+| Extract                         | `BitVec.extractLsb'`         | —                                  |
+| Replicate                       | `BitVec.replicate`           | —                                  |
+| Concat bit                      | `BitVec.concat`              | —                                  |
+| Cons bit                        | `BitVec.cons`                | —                                  |
+| Shift left, extend              | `BitVec.shiftLeftZeroExtend` | —                                  |
+| Add (`+`)                       | `BitVec.add`                 | `setWidth_add`                     |
+| Sub (`-`)                       | `BitVec.sub`                 | —                                  |
+| Neg (`-`)                       | `BitVec.neg`                 | —                                  |
+| Mul (`*`)                       | `BitVec.mul`                 | —                                  |
+| Unsigned div (`/`)              | `BitVec.udiv`                | —                                  |
+| Unsigned mod (`%`)              | `BitVec.umod`                | —                                  |
+| Pow (`^`)                       | `BitVec.pow`                 | —                                  |
+| Abs                             | `BitVec.abs`                 | —                                  |
+| Signed div                      | `BitVec.sdiv`                | —                                  |
+| Signed rem                      | `BitVec.srem`                | —                                  |
+| Signed mod                      | `BitVec.smod`                | —                                  |
+| SMT unsigned div                | `BitVec.smtUDiv`             | —                                  |
+| SMT signed div                  | `BitVec.smtSDiv`             | —                                  |
+| And (`&&&`)                     | `BitVec.and`                 | —                                  |
+| Or (`\|\|\|`)                   | `BitVec.or`                  | —                                  |
+| Xor (`^^^`)                     | `BitVec.xor`                 | —                                  |
+| Not (`~~~`)                     | `BitVec.not`                 | —                                  |
+| Shift left by `Nat` (`<<<`)     | `BitVec.shiftLeft`           | —                                  |
+| Shift left by `BitVec` (`<<<`)  | `BitVec.shiftLeft`           | —                                  |
+| Shift right by `Nat` (`>>>`)    | `BitVec.ushiftRight`         | —                                  |
+| Shift right by `BitVec` (`>>>`) | `BitVec.ushiftRight`         | —                                  |
+| Arith shift right by `Nat`      | `BitVec.sshiftRight`         | —                                  |
+| Arith shift right by `BitVec`   | `BitVec.sshiftRight'`        | —                                  |
+| Rotate left                     | `BitVec.rotateLeft`          | —                                  |
+| Rotate right                    | `BitVec.rotateRight`         | —                                  |
+| MSB                             | `BitVec.msb`                 | `msb_eq_and_signBitOfMask_ne_zero` |
+| Bit, from LSB                   | `BitVec.getLsbD`             | —                                  |
+| Bit, from MSB                   | `BitVec.getMsbD`             | —                                  |
+| Reverse                         | `BitVec.reverse`             | —                                  |
+| Popcount                        | `BitVec.cpop`                | —                                  |
+| Leading zeros                   | `BitVec.clz`                 | —                                  |
+| Trailing zeros                  | `BitVec.ctz`                 | —                                  |
+| Unsigned add overflow           | `BitVec.uaddOverflow`        | —                                  |
+| Signed add overflow             | `BitVec.saddOverflow`        | —                                  |
+| Unsigned sub overflow           | `BitVec.usubOverflow`        | —                                  |
+| Signed sub overflow             | `BitVec.ssubOverflow`        | —                                  |
+| Neg overflow                    | `BitVec.negOverflow`         | —                                  |
+| Unsigned mul overflow           | `BitVec.umulOverflow`        | —                                  |
+| Signed mul overflow             | `BitVec.smulOverflow`        | —                                  |
+| Signed div overflow             | `BitVec.sdivOverflow`        | —                                  |
 -/
 
 namespace Veir.Data.PBV
 
 public section
-
 
 /-- Introducing `setWidth o` at the root.
 `o` must be the first binder, since it should be bound to the concrete width
@@ -101,7 +98,6 @@ theorem eq_iff (o : Nat) {w : Nat} (h : w ≤ o) :
   intro a b
   apply propext
   exact ⟨fun hab => hab ▸ rfl, fun hab => BitVec.setWidth_inj h hab⟩
-
 
 /-! ## Pushing `setWidth o` towards the leaves — leaves and width changes -/
 
@@ -124,7 +120,7 @@ theorem setWidth_add {w o : Nat} (h : w ≤ o) :
 
 /-- Sign extension fills above the source width `v` with the sign bit,
 and then masks to the target width. -/
-theorem setWidth_signExtend_eq_and_maskOfWidth (o : Nat) {t v : Nat} (hvo : v ≤ o) :
+theorem setWidth_signExtend {o t v : Nat} (hvo : v ≤ o) :
     ∀ (a : BitVec v),
       (a.signExtend t).setWidth o
         = ((a.setWidth o) ||| (cond a.msb (~~~(maskOfWidth o v)) 0#o)) &&& maskOfWidth o t := by
@@ -144,16 +140,8 @@ theorem setWidth_signExtend_eq_and_maskOfWidth (o : Nat) {t v : Nat} (hvo : v �
     cases hmsb : a.msb <;>
       simp [hiv, getLsbD_maskOfWidth, Bool.and_comm]
 
-/-- Push a variable `Nat` which corresponds to a mask into a `cpop` of the mask. -/
-theorem ofNat_eq_cpop_of_maskOfWidth {o w : Nat} {m : BitVec o} (h : w ≤ o) (hm : m = maskOfWidth o w) :
-    BitVec.ofNat o w = BitVec.cpop m := by
-  symm
-  exact cpop_eq_width_of_maskOfWidth h hm
-
-/-- `a ++ b` shifts `a` up by the width of `b`; at the blast width that shift
-is a multiplication by `2^w = maskOfWidth o w + 1`, and the two halves no
-longer overlap, so they can be recombined with `|||`. -/
-theorem setWidth_append_eq_or_mul_maskOfWidth_add_one {w o : Nat} (h : w ≤ o) :
+/-- `a ++ b` shifts `a` up by the width of `b` and combines them with `|||`. -/
+theorem setWidth_append {w o : Nat} (h : w ≤ o) :
     ∀ {v : Nat} (a : BitVec v) (b : BitVec w), v + w ≤ o →
       (a ++ b).setWidth o
         = ((a.setWidth o) <<< BitVec.cpop (maskOfWidth o w)) ||| b.setWidth o := by
@@ -172,11 +160,11 @@ theorem setWidth_ofNat {o w n : Nat} (h : w ≤ o) :
   refine setWidth_eq_and_maskOfWidth h ?_
   simp only [BitVec.toNat_ofNat, Nat.mod_mod_pow_of_le h]
 
-/-! ### The sign bit: a test against the mask's top bit -/
+/-! ### Other ops in terms of `maskOfWidth` -/
 
 /-- `a.msb` can be implemented by masking the sign bit,
 which are definitions the bitblaster can see. -/
-theorem msb_eq_and_signBitOfMask_maskOfWidth_ne_zero (o : Nat) {w : Nat} (h : w ≤ o) :
+theorem msb_eq_and_signBitOfMask_ne_zero (o : Nat) {w : Nat} (h : w ≤ o) :
     ∀ (a : BitVec w),
       a.msb = (((a.setWidth o) &&& signBitOfMask (maskOfWidth o w)) != 0#o) := by
   intro a
@@ -192,3 +180,9 @@ theorem msb_eq_and_signBitOfMask_maskOfWidth_ne_zero (o : Nat) {w : Nat} (h : w 
     cases a.getLsbD (w - 1)
     · simp
     · simp [BitVec.twoPow_ne_zero hlt]
+
+/-- Push a variable `Nat` which corresponds to a mask into a `cpop` of the mask. -/
+theorem ofNat_eq_cpop_of_maskOfWidth {o w : Nat} {m : BitVec o} (h : w ≤ o) (hm : m = maskOfWidth o w) :
+    BitVec.ofNat o w = BitVec.cpop m := by
+  symm
+  exact cpop_eq_width_of_maskOfWidth h hm

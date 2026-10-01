@@ -600,17 +600,17 @@ meta def addPushTheorems (g : MVarId) (blastWidth : Nat) (simp : SimpTheoremsArr
   let pushThms := #[
       ``setWidth_add,
       ``setWidth_ofNat,
-      ``setWidth_append_eq_or_mul_maskOfWidth_add_one,
+      ``setWidth_append,
+      ``setWidth_signExtend,
       ``signBitOfMask_eq,
       ``maskOfWidth_zero,
       ``BitVec.setWidth_zero,
       ``BitVec.ofNat_eq_ofNat,
-      ``ofNat_eq_cpop_of_maskOfWidth
+      ``ofNat_eq_cpop_of_maskOfWidth,
   ]
   -- Push theorems which require specifying the blastWidth explicitly.
   let boundPushThms := #[
-      ``msb_eq_and_signBitOfMask_maskOfWidth_ne_zero,
-      ``setWidth_signExtend_eq_and_maskOfWidth
+      ``msb_eq_and_signBitOfMask_ne_zero,
   ]
   -- Push theorems which collapse nested `setWidth`s, low-priority so that the
   -- other theorems can be applied before them.
