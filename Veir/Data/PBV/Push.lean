@@ -167,19 +167,20 @@ theorem setWidth_umod {o w : Nat} (h : w ≤ o) (a b : BitVec w) :
 theorem setWidth_shiftLeft {w o : Nat} (h : w ≤ o) (a b : BitVec w) :
     (a <<< b).setWidth o = (a.setWidth o <<< b.setWidth o) &&& maskOfWidth o w := by
   refine setWidth_eq_and_maskOfWidth h ?_
-  simp [BitVec.toNat_shiftLeft, Nat.mod_mod_pow_of_le h, Nat.shiftLeft_eq, Nat.mod_eq_of_lt (BitVec.toNat_lt_twoPow_of_le (x := b) h)]
-
+  simp only [BitVec.shiftLeft_eq', BitVec.toNat_setWidth, Nat.mod_eq_of_lt (BitVec.toNat_lt_twoPow_of_le (x := b) h),
+    BitVec.toNat_shiftLeft, Nat.shiftLeft_eq, Nat.mod_mul_mod, Nat.mod_mod_pow_of_le h]
 @[pbv_push]
 theorem setWidth_shiftLeft' {w o : Nat} (h : w ≤ o) (a : BitVec w) (b : Nat) :
     (a <<< b).setWidth o = (a.setWidth o <<< b) &&& maskOfWidth o w := by
   refine setWidth_eq_and_maskOfWidth h ?_
-  simp [BitVec.toNat_shiftLeft, Nat.mod_mod_pow_of_le h, Nat.shiftLeft_eq]
+  simp only [BitVec.toNat_shiftLeft, BitVec.toNat_setWidth, Nat.shiftLeft_eq, Nat.mod_mul_mod, Nat.mod_mod_pow_of_le h]
 
 @[pbv_push]
 theorem setWidth_ushiftRight {w o : Nat} (h : w ≤ o) (a b : BitVec w) :
     (a >>> b).setWidth o = (a.setWidth o >>> b.setWidth o) &&& maskOfWidth o w := by
   refine setWidth_eq_and_maskOfWidth h ?_
-  simp [BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow, Nat.mod_eq_of_lt (BitVec.toNat_lt_twoPow_of_le h), Nat.div_mod_eq_div a.isLt]
+  simp only [BitVec.ushiftRight_eq', BitVec.toNat_setWidth, Nat.mod_eq_of_lt (BitVec.toNat_lt_twoPow_of_le h),
+    BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow, Nat.div_mod_eq_div a.isLt]
 
 @[pbv_push]
 theorem setWidth_ushiftRight' {w o : Nat} (h : w ≤ o) (a : BitVec w) (b : Nat) :
