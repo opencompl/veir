@@ -262,7 +262,6 @@ theorem setWidth_or {o w : Nat} (h : w ≤ o) (a b : BitVec w) :
   simp only [BitVec.toNat_or, BitVec.toNat_setWidth, Nat.or_mod_two_pow, Nat.mod_mod_pow_of_le h,
     BitVec.toNat_mod_cancel]
 
-
 @[pbv_push]
 theorem setWidth_xor {o w : Nat} (h : w ≤ o) (a b : BitVec w) :
     (a ^^^ b).setWidth o = (a.setWidth o ^^^ b.setWidth o) &&& maskOfWidth o w := by
