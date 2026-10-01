@@ -2,6 +2,7 @@ module
 
 public import Veir.Data.PBV.Lemmas
 public import Veir.Data.PBV.Mask
+public meta import Veir.Meta.Tactic.PBVDecide.PBVPushSimp
 
 /-! # Rewriting a parametric expression into a concrete, single-width one.
 
@@ -89,10 +90,16 @@ namespace Veir.Data.PBV
 
 public section
 
+attribute [pbv_push] signBitOfMask_eq maskOfWidth_zero BitVec.setWidth_zero
+  BitVec.ofNat_eq_ofNat
+
+attribute [pbv_push low] BitVec.setWidth_eq
+
 /-- Introducing `setWidth o` at the root.
 `o` must be the first binder, since it should be bound to the concrete width
 being used in the proof..
  -/
+@[pbv_lift]
 theorem eq_iff (o : Nat) {w : Nat} (h : w ≤ o) :
     ∀ (a b : BitVec w), (a = b) = (a.setWidth o = b.setWidth o) := by
   intro a b
@@ -101,6 +108,7 @@ theorem eq_iff (o : Nat) {w : Nat} (h : w ≤ o) :
 
 /-! ## Pushing `setWidth o` towards the leaves — leaves and width changes -/
 
+@[pbv_push low]
 theorem setWidth_setWidth {w o : Nat} (h : w ≤ o) :
     ∀ {u : Nat} (a : BitVec u),
       (a.setWidth w).setWidth o = a.setWidth o &&& maskOfWidth o w := by
@@ -110,6 +118,7 @@ theorem setWidth_setWidth {w o : Nat} (h : w ≤ o) :
 
 /-! ## Width-sensitive arithmetic: mask the result -/
 
+@[pbv_push]
 theorem setWidth_add {w o : Nat} (h : w ≤ o) :
     ∀ (a b : BitVec w),
       (a + b).setWidth o = (a.setWidth o + b.setWidth o) &&& maskOfWidth o w := by
@@ -120,6 +129,7 @@ theorem setWidth_add {w o : Nat} (h : w ≤ o) :
 
 /-- Sign extension fills above the source width `v` with the sign bit,
 and then masks to the target width. -/
+@[pbv_push]
 theorem setWidth_signExtend {o t v : Nat} (hvo : v ≤ o) :
     ∀ (a : BitVec v),
       (a.signExtend t).setWidth o
@@ -141,6 +151,7 @@ theorem setWidth_signExtend {o t v : Nat} (hvo : v ≤ o) :
       simp [hiv, getLsbD_maskOfWidth, Bool.and_comm]
 
 /-- `a ++ b` shifts `a` up by the width of `b` and combines them with `|||`. -/
+@[pbv_push]
 theorem setWidth_append {w o : Nat} (h : w ≤ o) :
     ∀ {v : Nat} (a : BitVec v) (b : BitVec w), v + w ≤ o →
       (a ++ b).setWidth o
@@ -155,6 +166,7 @@ theorem setWidth_append {w o : Nat} (h : w ≤ o) :
   grind [Nat.pow_le_pow_right (n := 2) (by lia) hvw]
 
 /-- `setWidth` of a constant is the constant anded with the mask. -/
+@[pbv_push]
 theorem setWidth_ofNat {o w n : Nat} (h : w ≤ o) :
     BitVec.setWidth o (BitVec.ofNat w n) = (BitVec.ofNat o n) &&& maskOfWidth o w := by
   refine setWidth_eq_and_maskOfWidth h ?_
@@ -164,6 +176,7 @@ theorem setWidth_ofNat {o w n : Nat} (h : w ≤ o) :
 
 /-- `a.msb` can be implemented by masking the sign bit,
 which are definitions the bitblaster can see. -/
+@[pbv_push_bound]
 theorem msb_eq_and_signBitOfMask_ne_zero (o : Nat) {w : Nat} (h : w ≤ o) :
     ∀ (a : BitVec w),
       a.msb = (((a.setWidth o) &&& signBitOfMask (maskOfWidth o w)) != 0#o) := by
@@ -182,6 +195,7 @@ theorem msb_eq_and_signBitOfMask_ne_zero (o : Nat) {w : Nat} (h : w ≤ o) :
     · simp [BitVec.twoPow_ne_zero hlt]
 
 /-- Push a variable `Nat` which corresponds to a mask into a `cpop` of the mask. -/
+@[pbv_push]
 theorem ofNat_eq_cpop_of_maskOfWidth {o w : Nat} {m : BitVec o} (h : w ≤ o) (hm : m = maskOfWidth o w) :
     BitVec.ofNat o w = BitVec.cpop m := by
   symm

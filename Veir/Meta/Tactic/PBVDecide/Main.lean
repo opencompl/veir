@@ -5,6 +5,7 @@ public meta import Std
 public import Veir.Data.PBV
 public import Lean.Meta.Tactic.BVDecide.Main
 public meta import Veir.Meta.Tactic.PBVDecide.Config
+public import Veir.Meta.Tactic.PBVDecide.PBVPushSimp
 
 open Lean Elab Tactic Meta Simp Std Tactic.BVDecide
 
@@ -589,47 +590,24 @@ blast width by wrapping both sides in a `setWidth`.
 -/
 meta def addEqIff (g : MVarId) (blastWidth : Nat) (simp : SimpTheoremsArray) :
     MetaM SimpTheoremsArray := g.withContext do
-  simp.addTheorem (.other ``eq_iff) <| ← mkAppM ``eq_iff #[mkNatLit blastWidth]
+  let liftThms ← labelled `pbv_lift
+  liftThms.foldlM (init := simp) fun simp name => do
+    simp.addTheorem (.other name) <| ← mkAppM name #[mkNatLit blastWidth]
 
 /--
 Add theorems to the Simp theorem context that push the `setWidth`s in.
 -/
 meta def addPushTheorems (g : MVarId) (blastWidth : Nat) (simp : SimpTheoremsArray) :
     MetaM SimpTheoremsArray := g.withContext do
-  -- Push theorems
-  let pushThms := #[
-      ``setWidth_add,
-      ``setWidth_ofNat,
-      ``setWidth_append,
-      ``setWidth_signExtend,
-      ``signBitOfMask_eq,
-      ``maskOfWidth_zero,
-      ``BitVec.setWidth_zero,
-      ``BitVec.ofNat_eq_ofNat,
-      ``ofNat_eq_cpop_of_maskOfWidth,
-  ]
   -- Push theorems which require specifying the blastWidth explicitly.
-  let boundPushThms := #[
-      ``msb_eq_and_signBitOfMask_ne_zero,
-  ]
-  -- Push theorems which collapse nested `setWidth`s, low-priority so that the
-  -- other theorems can be applied before them.
-  let lowPriorityPushThms := #[
-      ``BitVec.setWidth_eq,
-      ``setWidth_setWidth
-  ]
-
-  let simp ← pushThms.foldlM (init := simp) fun simps name =>
-    return ← simps.addTheorem (.other name) (mkConst name [])
-
-  let simp ← boundPushThms.foldlM (init := simp) fun simps name =>
+  let simp ← (← labelled `pbv_push_bound).foldlM (init := simp) fun simps name => do
     return ← simps.addTheorem (.other name) (← mkAppM name #[mkNatLit blastWidth])
+  -- Push theorems.
+  let some pushExt ← getSimpExtension? `pbv_push
+    | throwError "Failed to obtain `pbv_push simp set."
+  let pushThms ← pushExt.getTheorems
 
-  let simp ← lowPriorityPushThms.foldlM (init := simp) fun simps name =>
-    simps.modifyM 0 fun thms =>
-      thms.add (.other name) #[] (mkConst name []) (prio := eval_prio low)
-
-  return simp
+  return simp.push pushThms
 
 /--
 Add the mask hypotheses of the translated `BitVec`s to the Simp theorem context.
