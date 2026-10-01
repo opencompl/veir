@@ -452,7 +452,27 @@ def Arith.interpretOp' (opType : Veir.Arith) (properties : propertiesOf opType)
     let cond := LLVM.Int.and notExact signOpposite
     return (#[.int bw (LLVM.Int.select cond (LLVM.Int.add z negOne) z)], none)
 
+def Arith.operationDefinition? : Arith → Option OperationDefinition
+  | .addi => some {
+      operands := { groups := #[
+        { name := "lhs" },
+        { name := "rhs" }
+      ] }
+      results := { groups := #[{ name := "result" }] }
+      properties := #[{
+        name := "overflowFlags"
+        storageKey := "overflowFlags"
+        presence := .optional
+      }]
+    }
+  | .constant => some {
+      results := { groups := #[{ name := "result" }] }
+      properties := #[{ name := "value", storageKey := "value" }]
+    }
+  | _ => none
+
 instance : HasOpInfo Arith where
+  operationDefinition? := Arith.operationDefinition?
   verifyLocalInvariants := Arith.verifyLocalInvariants
   tryFold := Arith.tryFold
   propagatesPoison := Arith.propagatesPoison

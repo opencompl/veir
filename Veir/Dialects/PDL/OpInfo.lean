@@ -469,7 +469,21 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpIn
     op.verifyResultTypeMatches ctx (PDL.RangeType.mk .type : TypeAttr)
       "Expected the result to be of type '!pdl.range<type>'"
 
+def PDL.operationDefinition? : PDL → Option OperationDefinition
+  | .replace => some ({
+      operands := ({
+        groups := #[
+          NamedValueGroup.mk "opValue" .one,
+          NamedValueGroup.mk "replOperation" .optional,
+          NamedValueGroup.mk "replValues" .variadic
+        ]
+        segmentSizesProperty? := some "operandSegmentSizes"
+      } : NamedValueGroups)
+    } : OperationDefinition)
+  | _ => none
+
 instance : HasOpInfo PDL where
+  operationDefinition? := PDL.operationDefinition?
   verifyLocalInvariants := PDL.verifyLocalInvariants
   getEffects := PDL.getEffects
   isConstantLike := PDL.isConstantLike
