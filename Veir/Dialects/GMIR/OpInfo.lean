@@ -94,6 +94,13 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
     { outOperandList := #[.type 0]
       inOperandList := #[.type 1] }
 
+/-- Each result and operand type of `op`, paired with its type group in `opCode`. -/
+def GMIR.getTypedGroups! {OpInfo : Type} [IsOpCode OpInfo] (opCode : GMIR) (op : OperationPtr)
+    (ctx : IRContext OpInfo) : Array (TypeGroup × TypeAttr) :=
+  let info := opCode.genericOpInfo
+  info.outOperandList.zip (op.getResultTypes! ctx) ++
+    info.inOperandList.zip (op.getOperandTypes! ctx)
+
 private def OperationPtr.verifyGMIRICmp {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
@@ -117,8 +124,7 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   -- Verify operand and result counts.
   opPtr.verifyPlainOpCounts ctx opIn info.inOperandList.size info.outOperandList.size
   -- Verify that every member of a type group has the same concrete type.
-  let typedGroups := info.outOperandList.zip (opPtr.getResultTypes! ctx.raw) ++
-                     info.inOperandList.zip (opPtr.getOperandTypes! ctx.raw)
+  let typedGroups := opCode.getTypedGroups! opPtr ctx.raw
   let canon : Std.HashMap TypeGroup TypeAttr :=
     typedGroups.foldl (init := {}) fun canon (slot, ty) => canon.insertIfNew slot ty
   for (group, type) in typedGroups do
