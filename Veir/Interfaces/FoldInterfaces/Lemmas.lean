@@ -4,6 +4,7 @@ public import Veir.Interfaces.FoldInterfaces.Correctness
 public import Veir.Interpreter.Refinement.Lemmas
 
 import all Veir.IR.Attribute
+import all Veir.Verifier.Lemmas
 
 /-! Helpers for proving local fold-table correctness. -/
 
@@ -14,13 +15,14 @@ open Data
 
 /-- Recover the integer operands from their declared widths. -/
 theorem RuntimeValue.ArrayConforms.int_pair
+    {type₁ type₂ : IntegerType}
     (h : RuntimeValue.ArrayConforms operands
-      #[(IntegerType.signless w₁ : TypeAttr), (IntegerType.signless w₂ : TypeAttr)]) :
-    ∃ lhs rhs, operands = #[.int w₁ lhs, .int w₂ rhs] := by
+      #[(type₁ : TypeAttr), (type₂ : TypeAttr)]) :
+    ∃ lhs rhs, operands = #[.int type₁.bitwidth lhs, .int type₂.bitwidth rhs] := by
   have hs : operands.size = 2 := h.1
   have h0 := h.2 0 (by omega)
   have h1 := h.2 1 (by omega)
-  simp [IntegerType.signless] at h0 h1
+  simp at h0 h1
   obtain ⟨lhs, hl⟩ := h0
   obtain ⟨rhs, hr⟩ := h1
   refine ⟨lhs, rhs, ?_⟩
@@ -55,37 +57,54 @@ theorem RuntimeValue.arrayIsRefinedBy_pair :
     #[a, b] ⊒ #[c, d] ↔ a ⊒ c ∧ b ⊒ d := by
   simp only [arrayIsRefinedBy_cons, arrayIsRefinedBy_nil, and_true]
 
+/-- Recover the complete type arrays of a verified integer binary operation. -/
+theorem OperationPtr.IsVerifiedIntegerBinop.types
+    {ctx : WfIRContext OpCode} {op : OperationPtr} (h : op.IsVerifiedIntegerBinop ctx) :
+    ∃ type : IntegerType,
+      op.getOperandTypes! ctx.raw = #[(type : TypeAttr), (type : TypeAttr)] ∧
+      op.getResultTypes! ctx.raw = #[(type : TypeAttr)] := by
+  obtain ⟨_, _, _, _, type, _, _, _⟩ := h
+  refine ⟨type, ?_, ?_⟩ <;> apply Array.ext <;> grind
+
 /-- Reduce an integer binary fold with a known right operand to its typing and
 value semantics. The lookup describes which decisions are returned; this helper
 handles width agreement and every consistent runtime completion. The right
 operand may depend on its width, for example zero or all ones. -/
 theorem FoldTable.correctAt_int_rhs
+    {ctx : WfIRContext OpCode} {op : OperationPtr} {opIn : op.InBounds ctx.raw}
+    (verified : op.Verified ctx opIn) {type : IntegerType}
+    (operandTypes : op.getOperandTypes! ctx.raw = #[(type : TypeAttr), (type : TypeAttr)])
     (rhs : (width : Nat) → LLVM.Int width)
     (lookup : ∀ known results,
-      HasOpInfo.tryFold op properties resultTypes known = some results →
+      HasOpInfo.tryFold (op.getOpType! ctx.raw)
+        (op.getProperties! ctx.raw (op.getOpType! ctx.raw))
+        (op.getResultTypes! ctx.raw) known = some results →
       ∃ left width, known = #[left, some (.int width (rhs width))] ∧ results = decisions)
     (typed : FoldDecision.HasTypes decisions
-      #[(IntegerType.signless w : TypeAttr), (IntegerType.signless w : TypeAttr)] resultTypes)
-    (evaluate : ∀ lhs memory successors layout,
+      (op.getOperandTypes! ctx.raw) (op.getResultTypes! ctx.raw))
+    (evaluate : ∀ lhs memory layout,
       ∃ replacements,
-        FoldDecision.resolveAll decisions #[.int w lhs, .int w (rhs w)] = some replacements ∧
-        IsRefinedBy (interpretOp' op properties resultTypes
-          #[.int w lhs, .int w (rhs w)] successors memory layout) replacements memory) :
-    CorrectAt op properties
-      #[(IntegerType.signless w : TypeAttr), (IntegerType.signless w : TypeAttr)] resultTypes where
+        FoldDecision.resolveAll decisions
+          #[.int type.bitwidth lhs, .int type.bitwidth (rhs type.bitwidth)] = some replacements ∧
+        (op.interpret ctx.raw
+          #[.int type.bitwidth lhs, .int type.bitwidth (rhs type.bitwidth)] memory layout).isFail = false ∧
+        Interp.isRefinedBy OperationResult.isRefinedBy
+          (op.interpret ctx.raw
+            #[.int type.bitwidth lhs, .int type.bitwidth (rhs type.bitwidth)] memory layout)
+          (.ok (replacements, memory, none))) :
+    CorrectAt ctx op verified where
   hasTypes known results _ hFold := by
     obtain ⟨_, _, _, rfl⟩ := lookup known results hFold
     exact typed
-  preservesSemantics known results hKnown hFold := by
+  preservesSemantics known results hFold operands hOperands hAgree memory layout := by
     obtain ⟨left, width, rfl, rfl⟩ := lookup known results hFold
-    have hw := hKnown.2 1 (by simp) (.int width (rhs width)) (by simp)
-    simp [RuntimeValue.Conforms, IntegerType.signless] at hw
-    subst width
-    intro operands hOperands hAgree memory successors layout
+    rw [operandTypes] at hOperands
     obtain ⟨lhs, actualRhs, rfl⟩ := hOperands.int_pair
-    have hr := hAgree.2 1 (by simp) (.int w (rhs w)) (by simp)
+    have hr := hAgree.2 1 (by simp) (.int width (rhs width)) (by simp)
+    have hw : type.bitwidth = width := by injection hr
+    subst width
     simp at hr
     subst actualRhs
-    exact evaluate lhs memory successors layout
+    exact evaluate lhs memory layout
 
 end Veir

@@ -1,14 +1,15 @@
 module
 
 public import Veir.Interpreter.Refinement.Basic
+public import Veir.Verifier
 
 /-!
 # Local correctness of dialect fold tables
 
 These contracts concern the decisions returned by `HasOpInfo.tryFold`. They do
 not concern constant materialization, the folding driver, or rewriting the IR.
-Operand and result types describe a single operation signature; entry proofs
-state the signatures they support explicitly.
+The operation's signature and properties come from a verified operation in its
+IR context.
 -/
 
 public section
@@ -58,42 +59,36 @@ def Agrees (known : Array (Option RuntimeValue)) (operands : Array RuntimeValue)
   known.size = operands.size ∧
     ∀ i, i < known.size → ∀ v, known[i]! = some v → operands[i]! = v
 
-/-- A successful interpretation has no memory or control-flow effect, and its
-results are refined by the replacements. UB permits any replacements, but an
-interpreter failure never establishes correctness. -/
-@[expose]
-def IsRefinedBy (source : Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction))
-    (replacements : Array RuntimeValue) (initialMemory : MemoryState) : Prop :=
-  match source with
-  | .fail _ => False
-  | .ub _ => True
-  | .ok (results, memory, action) =>
-    results ⊒ replacements ∧ memory = initialMemory ∧ action = none
-
-/-- Correctness of every successful table lookup at the given operation signature.
+/-- Correctness of every successful table lookup for a verified operation.
 
 Typing is required independently of execution, including when the source has UB.
 Semantic correctness quantifies over all well-typed completions of the known
-operands, all memories, successor arrays, and data layouts. It uses the operation
+operands, all memories, and data layouts, using the operation's actual successors.
+Interpreter failure is excluded explicitly for every layout. It uses the operation
 interpreter directly, so it does not rely on the driver's poison handling or
 evaluation fallback. Returning `none` creates no obligation.
 -/
-structure CorrectAt (op : OpCode) (properties : propertiesOf op)
-    (operandTypes resultTypes : Array TypeAttr) : Prop where
+structure CorrectAt (ctx : WfIRContext OpCode) (op : OperationPtr)
+    {opIn : op.InBounds ctx.raw} (_verified : op.Verified ctx opIn) : Prop where
   /-- Every successful lookup returns one replacement of the corresponding type per result. -/
   hasTypes :
-    ∀ known decisions, InputsConform known operandTypes →
-      HasOpInfo.tryFold op properties resultTypes known = some decisions →
-      FoldDecision.HasTypes decisions operandTypes resultTypes
+    ∀ known decisions, InputsConform known (op.getOperandTypes! ctx.raw) →
+      HasOpInfo.tryFold (op.getOpType! ctx.raw)
+        (op.getProperties! ctx.raw (op.getOpType! ctx.raw))
+        (op.getResultTypes! ctx.raw) known = some decisions →
+      FoldDecision.HasTypes decisions (op.getOperandTypes! ctx.raw) (op.getResultTypes! ctx.raw)
   /-- The replacements refine the operation for every well-typed completion of the known operands. -/
   preservesSemantics :
-    ∀ known decisions, InputsConform known operandTypes →
-      HasOpInfo.tryFold op properties resultTypes known = some decisions →
-      ∀ operands, RuntimeValue.ArrayConforms operands operandTypes → Agrees known operands →
-        ∀ memory successors layout,
+    ∀ known decisions,
+      HasOpInfo.tryFold (op.getOpType! ctx.raw)
+        (op.getProperties! ctx.raw (op.getOpType! ctx.raw))
+        (op.getResultTypes! ctx.raw) known = some decisions →
+      ∀ operands, RuntimeValue.ArrayConforms operands (op.getOperandTypes! ctx.raw) →
+        Agrees known operands → ∀ memory layout,
           ∃ replacements, FoldDecision.resolveAll decisions operands = some replacements ∧
-            IsRefinedBy (interpretOp' op properties resultTypes operands successors memory layout)
-              replacements memory
+            (op.interpret ctx.raw operands memory layout).isFail = false ∧
+            Interp.isRefinedBy OperationResult.isRefinedBy
+              (op.interpret ctx.raw operands memory layout) (.ok (replacements, memory, none))
 
 end FoldTable
 end Veir
