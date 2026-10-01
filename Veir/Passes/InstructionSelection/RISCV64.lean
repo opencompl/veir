@@ -508,12 +508,11 @@ def lowerByteShift (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
     (do
       let type ← MatchProg.type (Attr := TypeAttr)
         (fun t => getIntByteTypeBitwidth t == some bw)
-      let rhsType ← MatchProg.type (Attr := TypeAttr)
-      let resType ← MatchProg.type (Attr := TypeAttr)
+      let rhsType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == bw)
       let lhs ← MatchProg.value type
       let rhs ← MatchProg.value rhsType
-      let _ ← MatchProg.root (.llvm llvmOp) #[lhs, rhs] #[resType]
-      return (resType, lhs, rhs))
+      let _ ← MatchProg.root (.llvm llvmOp) #[lhs, rhs] #[type]
+      return (type, lhs, rhs))
     (fun (type, lhs, rhs) => do
       let lhs ← castToReg lhs
       let rhs ← castToReg rhs
@@ -548,7 +547,7 @@ def icmp_pattern (bw : Nat) (pred : Data.LLVM.IntPred) (zero : Bool := false) : 
   Pattern.Builder
     (do
       let type ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == bw)
-      let resultType ← MatchProg.type (Attr := IntegerType)
+      let resultType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 1)
       let lhs ← MatchProg.value type
       let rhs ← if zero then do
           let constant ← matchIntConstant type true
@@ -648,7 +647,7 @@ def bitcast : CompiledPattern OpCode := bitcast_pattern.compile
 def freeze_pattern : Pattern OpCode :=
   lowerCast .freeze (fun t => match t.val with
     | .integerType t => t.bitwidth = 32 ∨ t.bitwidth = 64
-    | _ => false) (fun _ => true)
+    | _ => false) (fun (src, dst) => src == dst)
 
 def freeze : CompiledPattern OpCode := freeze_pattern.compile
 
@@ -1004,8 +1003,8 @@ def gepScaleKind (scale : Nat) : Nat :=
 def getelementptr_pattern (kind : Nat) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let ptrType ← MatchProg.type (Attr := TypeAttr)
-      let resType ← MatchProg.type (Attr := TypeAttr)
+      let ptrType ← MatchProg.type (Attr := LLVM.PointerType)
+      let resType ← MatchProg.type (Attr := LLVM.PointerType)
       let idxType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 64)
       let ptr ← MatchProg.value ptrType
       let idx ← MatchProg.value idxType

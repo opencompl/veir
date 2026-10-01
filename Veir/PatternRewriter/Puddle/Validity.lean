@@ -708,9 +708,8 @@ macro "unfoldPuddleBuilder" : tactic =>
 /-- Prove a `Puddle.Supported` goal. -/
 macro "provePuddleSupported" : tactic =>
   `(tactic| (
-    simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator];
-    done
+    solve | simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
+      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator]
   ))
 
 /-- Normalize semantic plumbing, leaving operation denotations and value conformance opaque. -/
