@@ -196,8 +196,8 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [
     eq_iff (o := 8),
-    msb_eq_and_signBitOfMask_maskOfWidth_ne_zero (o := 8),          -- Replace the sign bit test with a mask test
-    setWidth_signExtend_eq_and_maskOfWidth,          -- Push `setWidth` down signExtend
+    msb_eq_and_signBitOfMask_ne_zero (o := 8),          -- Replace the sign bit test with a mask test
+    setWidth_signExtend,          -- Push `setWidth` down signExtend
     BitVec.zeroExtend_eq_setWidth,
     setWidth_setWidth,
     signBitOfMask_eq,                 -- Unfold, else `bv_decide` abstracts it away
@@ -205,7 +205,7 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
     p_le_bw,
     r_le_bw,
     q_le_bw,                       -- Lets simp discharge the `v ≤ o` side condition of
-                                   -- `setWidth_signExtend_eq_and_maskOfWidth`
+                                   -- `setWidth_signExtend`
     ← h_mr,
     ← h_mq,
     ← h_mp,
@@ -247,10 +247,10 @@ theorem trace_append (w : Nat) (a b : BitVec w) (hw : w ≤ 8) :
   simp only [
     eq_iff (o := 16),
     setWidth_add,
-    setWidth_append_eq_or_mul_maskOfWidth_add_one (o := 16),
+    setWidth_append (o := 16),
     setWidth_setWidth,
     w_add_w_le_bw,                 -- Lets simp discharge the `v + w ≤ o` side condition of
-                                   -- `setWidth_append_eq_or_mul_maskOfWidth_add_one`.
+                                   -- `setWidth_append`.
     w_le_bw,
     ← h_mw,
     ← h_mw_add_w,
