@@ -5,6 +5,8 @@ public import Veir.Interpreter.Refinement.Lemmas
 public import Veir.PatternRewriter.Puddle.Validity
 public import Veir.PatternRewriter.Puddle.CreationM
 public import Veir.Dialects.LLVM.Interpreter
+public import Veir.Dialects.Arith.OpInfo
+import Veir.Data.Casting
 
 /-!
 # Puddle Patterns Validity
@@ -52,7 +54,40 @@ def interpretOpCTree (opCode : OpCode) (property : propertiesOf opCode)
     CTree.CTree (ErrorE ⊕ₑ UBE) FreezeC (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
   match opCode with
   | .llvm opCode => Llvm.interpretOpCTree opCode property resultTypes operands blockOperands memory
-  | _ => fail
+  | .builtin .unrealized_conversion_cast => do
+    let some resType := resultTypes[0]? | fail
+    match resType.val, operands.toList with
+    | .registerType _, [.int _ (.val value)] =>
+      return (#[.reg ⟨value.zeroExtend 64⟩], memory, none)
+    | .registerType _, [.int _ .poison] =>
+      -- Registers cannot carry poison, so any register value is possible.
+      let bits : FreezeC (.mk 64) ← CTree.CTree.choose (FreezeCIn.mk 64)
+      return (#[.reg ⟨bits⟩], memory, none)
+    | .registerType _, [.byte width value] =>
+      if value.poison = 0 then
+        return (#[.reg (LLVM.Byte.toReg value)], memory, none)
+      else
+        -- Resolve only poisoned bits before resizing to the register width.
+        let bits : FreezeC (.mk width) ← CTree.CTree.choose (FreezeCIn.mk width)
+        return (#[.reg ⟨(value.val ||| (value.poison &&& bits)).zeroExtend 64⟩], memory, none)
+    | .registerType _, [.addr value] =>
+      match memory.intFromPtr value with
+      | .val bits => return (#[.reg ⟨bits⟩], memory, none)
+      | .poison =>
+        let bits : FreezeC (.mk 64) ← CTree.CTree.choose (FreezeCIn.mk 64)
+        return (#[.reg ⟨bits⟩], memory, none)
+    | .integerType width, [.reg value] =>
+      return (#[.int width.bitwidth (RISCV.Reg.toInt value width.bitwidth)], memory, none)
+    | .byteType width, [.reg value] =>
+      return (#[.byte width.bitwidth (RISCV.Reg.toByte value width.bitwidth)], memory, none)
+    | .llvmPointerType _, [.reg value] =>
+      return (#[.addr (memory.ptrFromInt (.val value.val))], memory, none)
+    | _, _ => fail
+  | other => do
+    let (values, mem, action) ←
+      monadLift (Veir.interpretOp' other property resultTypes operands blockOperands memory)
+    return (values, mem, action)
+
 
 /-- A possible outcome of a pure operation. -/
 @[expose]
