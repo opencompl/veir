@@ -78,17 +78,22 @@ operands, all memories, successor arrays, and data layouts. It uses the operatio
 interpreter directly, so it does not rely on the driver's poison handling or
 evaluation fallback. Returning `none` creates no obligation.
 -/
-@[expose]
-def CorrectAt (op : OpCode) (properties : propertiesOf op)
-    (operandTypes resultTypes : Array TypeAttr) : Prop :=
-  ∀ known decisions, InputsConform known operandTypes →
-    HasOpInfo.tryFold op properties resultTypes known = some decisions →
-    FoldDecision.HasTypes decisions operandTypes resultTypes ∧
-    ∀ operands, RuntimeValue.ArrayConforms operands operandTypes → Agrees known operands →
-      ∀ memory successors layout,
-        ∃ replacements, FoldDecision.resolveAll decisions operands = some replacements ∧
-          Refines (interpretOp' op properties resultTypes operands successors memory layout)
-            replacements memory
+structure CorrectAt (op : OpCode) (properties : propertiesOf op)
+    (operandTypes resultTypes : Array TypeAttr) : Prop where
+  /-- Every successful lookup returns one replacement of the corresponding type per result. -/
+  hasTypes :
+    ∀ known decisions, InputsConform known operandTypes →
+      HasOpInfo.tryFold op properties resultTypes known = some decisions →
+      FoldDecision.HasTypes decisions operandTypes resultTypes
+  /-- The replacements refine the operation for every well-typed completion of the known operands. -/
+  preservesSemantics :
+    ∀ known decisions, InputsConform known operandTypes →
+      HasOpInfo.tryFold op properties resultTypes known = some decisions →
+      ∀ operands, RuntimeValue.ArrayConforms operands operandTypes → Agrees known operands →
+        ∀ memory successors layout,
+          ∃ replacements, FoldDecision.resolveAll decisions operands = some replacements ∧
+            Refines (interpretOp' op properties resultTypes operands successors memory layout)
+              replacements memory
 
 end FoldTable
 end Veir

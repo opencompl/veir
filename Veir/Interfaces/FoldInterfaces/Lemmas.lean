@@ -72,18 +72,20 @@ theorem FoldTable.correctAt_int_rhs
         Refines (interpretOp' op properties resultTypes
           #[.int w lhs, .int w (rhs w)] successors memory layout) replacements memory) :
     CorrectAt op properties
-      #[(IntegerType.signless w : TypeAttr), (IntegerType.signless w : TypeAttr)] resultTypes := by
-  intro known results hKnown hFold
-  obtain ⟨left, width, rfl, rfl⟩ := lookup known results hFold
-  have hw := hKnown.2 1 (by simp) (.int width (rhs width)) (by simp)
-  simp [RuntimeValue.Conforms, IntegerType.signless] at hw
-  subst width
-  refine ⟨typed, ?_⟩
-  intro operands hOperands hAgree memory successors layout
-  obtain ⟨lhs, actualRhs, rfl⟩ := hOperands.int_pair
-  have hr := hAgree.2 1 (by simp) (.int w (rhs w)) (by simp)
-  simp at hr
-  subst actualRhs
-  exact evaluate lhs memory successors layout
+      #[(IntegerType.signless w : TypeAttr), (IntegerType.signless w : TypeAttr)] resultTypes where
+  hasTypes known results _ hFold := by
+    obtain ⟨_, _, _, rfl⟩ := lookup known results hFold
+    exact typed
+  preservesSemantics known results hKnown hFold := by
+    obtain ⟨left, width, rfl, rfl⟩ := lookup known results hFold
+    have hw := hKnown.2 1 (by simp) (.int width (rhs width)) (by simp)
+    simp [RuntimeValue.Conforms, IntegerType.signless] at hw
+    subst width
+    intro operands hOperands hAgree memory successors layout
+    obtain ⟨lhs, actualRhs, rfl⟩ := hOperands.int_pair
+    have hr := hAgree.2 1 (by simp) (.int w (rhs w)) (by simp)
+    simp at hr
+    subst actualRhs
+    exact evaluate lhs memory successors layout
 
 end Veir

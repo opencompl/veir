@@ -127,12 +127,13 @@ lookup itself establishes that the immediate is zero. -/
 theorem Riscv.tryFold_andi_correct (properties : Riscv.propertiesOf .andi)
     (operandType resultType : RegisterType) :
     FoldTable.CorrectAt (.riscv .andi) properties
-      #[(operandType : TypeAttr)] #[(resultType : TypeAttr)] := by
-  intro known decisions _ hFold
-  obtain ⟨hZero, rfl⟩ := riscv_andi_lookup hFold
-  constructor
-  · rw [FoldDecision.hasTypes_singleton]; trivial
-  · intro operands hOperands _ memory successors layout
+      #[(operandType : TypeAttr)] #[(resultType : TypeAttr)] where
+  hasTypes _ _ _ hFold := by
+    obtain ⟨_, rfl⟩ := riscv_andi_lookup hFold
+    rw [FoldDecision.hasTypes_singleton]; trivial
+  preservesSemantics _ _ _ hFold := by
+    obtain ⟨hZero, rfl⟩ := riscv_andi_lookup hFold
+    intro operands hOperands _ memory successors layout
     obtain ⟨value, rfl⟩ := hOperands.reg_single
     refine ⟨#[.reg ⟨0⟩], ?_, ?_⟩
     · simp [FoldDecision.resolveAll, FoldDecision.resolve]
