@@ -9,7 +9,7 @@ import Veir.Panic
 
   This file implements a simple command-line tool that reads an MLIR
   program from a file or from standard input, finds a zero-argument
-  func.func or llvm.func named `main`, and then executes that function
+  function-like operation named `main`, and then executes that function
   using the interpreter defined in `Veir.Interpreter`.
  -/
 

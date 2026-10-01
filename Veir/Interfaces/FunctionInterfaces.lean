@@ -7,7 +7,8 @@ public import Veir.Rewriter.WfRewriter
 
 This file provides the `FunctionOpInterface` interface, which provides support
 for interacting with operations that behave like functions.
-Currently, this supports llvm.func and func.func.
+This includes source functions such as `llvm.func` and `func.func`, and
+machine functions represented by `riscv_cf.func`.
 
 Also see:
 https://github.com/llvm/llvm-project/blob/main/mlir/include/mlir/Interfaces/FunctionInterfaces.td
