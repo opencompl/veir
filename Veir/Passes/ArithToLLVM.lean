@@ -88,7 +88,7 @@ def flagsToNswNuw (p : ArithIntegerOverflowFlagsProperties) : NswNuwProperties :
 /-! ### The 1:1 patterns -/
 
 def lowerConstant := lower1to1 .constant .mlir__constant
-  (fun ⟨attr⟩ => LLVMConstantProperties.mk (.integer ⟨decodeLLVMIntegerConstant attr, attr.type⟩)) 0
+  (fun ⟨attr⟩ => LLVMConstantProperties.mk (.integer attr)) 0
 
 def lowerAddI := lower1to1 .addi .add flagsToNswNuw 2
 def lowerSubI := lower1to1 .subi .sub flagsToNswNuw 2
