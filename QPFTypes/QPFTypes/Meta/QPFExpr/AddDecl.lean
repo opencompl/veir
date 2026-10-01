@@ -79,6 +79,14 @@ def      $F ${deadVars} : CurriedTypeFun.{$u} $n
 instance $F.instQPF ${deadVars} : QPF (TypeFun.ofCurried ($F ${deadVars}))
 ```
 
+Additionally, if `q.isPolynomial?` is given, there are 2 more instances:
+```
+instance $F.Uncurried.instIsPolynomial ${deadVars} :
+    IsPolynomial ($F.Uncurried ${deadVars}) ($F.Uncurried.instQPF ${deadVars})
+instance $F.instIsPolynomial ${deadVars} :
+    IsPolynomial (TypeFun.ofCurried ($F ${deadVars})) ($F.instQPF ${deadVars})
+```
+
 If a definition with the given name `F` already exists, it will not be redefined.
 Rather, the existing definition of `F` is asserted to be def-eq to the definition
 of `F` that would've been generated here, and the generated QPF instance on `F`
@@ -98,7 +106,9 @@ meta def addDecls (q : QPFExpr u n) (declName : Name) (levelParams : List Name)
   withTraceNode `QPFTypes (fun _ => return m!"adding QPF declarations for '{decl}'") do
     let uncurriedName := declName ++ `Uncurried
     let uncurriedInstName := uncurriedName ++ `instQPF
+    let uncurriedPolyInstName := uncurriedName ++ `instIsPolynomial
     let instName := declName ++ `instQPF
+    let polyInstName := declName ++ `instIsPolynomial
     let levels := levelParams.map Level.param
     let n := toExpr n
 
@@ -144,6 +154,31 @@ meta def addDecls (q : QPFExpr u n) (declName : Name) (levelParams : List Name)
       (← mkLambdaFVars deadVars <|
         mkApp3 (mkConst ``QPF.instOfCurriedCurry [u]) n uncurried
           (mkAppN (mkConst uncurriedInstName levels) deadVars))
+
+    if let some isPolynomial := q.isPolynomial? then
+      /- `instance $declName.Uncurried.instIsPolynomial $deadVars* :
+          IsPolynomial ($declName.Uncurried $deadVars*)
+            ($declName.Uncurried.instQPF $deadVars*) := $(q.isPolynomial?)`
+      -/
+      let uncurriedInst := mkAppN (mkConst uncurriedInstName levels) deadVars
+      addInstanceDefn uncurriedPolyInstName levelParams
+        (← mkForallFVars deadVars
+          (mkApp3 (mkConst ``QPF.IsPolynomial [u]) n uncurried uncurriedInst))
+        (← mkLambdaFVars deadVars isPolynomial)
+
+      /- `instance $declName.instIsPolynomial $deadVars* :
+              IsPolynomial (TypeFun.ofCurried ($declName $deadVars*))
+                ($declName.instQPF $deadVars*) :=
+            QPF.IsPolynomial.instOfCurriedCurry`
+      -/
+      let uncurriedPolyInst := mkAppN (mkConst uncurriedPolyInstName levels) deadVars
+      let inst := mkAppN (mkConst instName levels) deadVars
+      addInstanceDefn polyInstName levelParams
+        (← mkForallFVars deadVars
+          (mkApp3 (mkConst ``QPF.IsPolynomial [u]) n ofCurried inst))
+        (← mkLambdaFVars deadVars <|
+          mkApp4 (mkConst ``QPF.IsPolynomial.instOfCurriedCurry [u]) n uncurried
+            uncurriedInst uncurriedPolyInst)
 
 end QPFExpr
 end QPFTypes

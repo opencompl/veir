@@ -11,7 +11,7 @@ Each test is an ordinary type definition, whose live parameters are marked with
 which composes `QPFExpr.ofTypeDef` with `QPFExpr.addDecls`.
 We then assert for each test case that an uncurried type function was generated,
 as `$name.Uncurried`, and that the original definition now has an associated
-instance of `QPF`.
+instance of `QPF` and (if expected) `QPF.IsPolynomial`.
 -/
 
 namespace QPFTypes.Test.OfTypeExpr
@@ -70,6 +70,7 @@ run_elab deriveQPF ``Proj1Of2
 
 #gcheck (Proj1Of2.Uncurried : Type → TypeFun 2)
 #gsynth QPF (@TypeFun.ofCurried 2 (Proj1Of2 Nat))
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 2 (Proj1Of2 Nat))
 
 -- The second of two binders.
 def Proj2Of2 (_α β : liveParam (Type u)) := β
@@ -77,6 +78,7 @@ run_elab deriveQPF ``Proj2Of2
 
 #gcheck (Proj2Of2.Uncurried : TypeFun 2)
 #gsynth QPF (@TypeFun.ofCurried 2 Proj2Of2)
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 2 Proj2Of2)
 
 -- The middle of three binders.
 def ProjMidOf3 (_α β _γ : liveParam (Type u)) := β
@@ -84,6 +86,7 @@ run_elab deriveQPF ``ProjMidOf3
 
 #gcheck (ProjMidOf3.Uncurried : TypeFun 3)
 #gsynth QPF (@TypeFun.ofCurried 3 ProjMidOf3)
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 3 ProjMidOf3)
 
 -- The sole binder of a unary QPF.
 def ProjSoleOf1 (α : liveParam (Type u)) := α
@@ -91,6 +94,7 @@ run_elab deriveQPF ``ProjSoleOf1
 
 #gcheck (ProjSoleOf1.Uncurried : TypeFun 1)
 #gsynth QPF (@TypeFun.ofCurried 1 ProjSoleOf1)
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 1 ProjSoleOf1)
 
 /-!
 ## Constants
@@ -105,6 +109,7 @@ run_elab deriveQPF ``ConstClosed
 
 #gcheck (ConstClosed.Uncurried : TypeFun 2)
 #gsynth QPF (@TypeFun.ofCurried 2 ConstClosed)
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 2 ConstClosed)
 
 -- With no live variables at all, *every* target is a constant.
 def ConstNoLive := Int
@@ -112,6 +117,7 @@ run_elab deriveQPF ``ConstNoLive
 
 #gcheck (ConstNoLive.Uncurried : TypeFun 0)
 #gsynth QPF (@TypeFun.ofCurried 0 ConstNoLive)
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 0 ConstNoLive)
 
 -- A parameter that is not live is dead, so a target mentioning it is still a
 -- constant, even though it is an application.
@@ -120,6 +126,7 @@ run_elab deriveQPF ``ConstDeadFree
 
 #gcheck (ConstDeadFree.Uncurried : Nat → TypeFun 1)
 #gsynth QPF (@TypeFun.ofCurried 1 (ConstDeadFree 3))
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 1 (ConstDeadFree 3))
 
 -- A function type whose domain *and* codomain are dead is a constant too: the
 -- constant case is checked before the function-type case, so no `QPF.Pi` is built.
@@ -128,6 +135,7 @@ run_elab deriveQPF ``ConstDeadArrow
 
 #gcheck (ConstDeadArrow.Uncurried : TypeFun 1)
 #gsynth QPF (@TypeFun.ofCurried 1 ConstDeadArrow)
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 1 ConstDeadArrow)
 
 /-!
 ## Compositions
@@ -141,7 +149,7 @@ run_elab deriveQPF ``TrivialApp
 
 #gcheck (TrivialApp.Uncurried : TypeFun 2)
 #gsynth QPF (@TypeFun.ofCurried 2 TrivialApp)
-
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 2 TrivialApp)
 
 -- Reordered arguments do go through `QPF.Comp`. The arguments are reversed
 -- exactly once: `Fst β α` composes `Fst` with `⟨Prj 1, Prj 0⟩`, i.e. with the
@@ -151,7 +159,7 @@ run_elab deriveQPF ``ReorderedApp
 
 #gcheck (ReorderedApp.Uncurried : TypeFun 2)
 #gsynth QPF (@TypeFun.ofCurried 2 ReorderedApp)
-
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 2 ReorderedApp)
 
 -- Arguments may be constants.
 def ArgConstant (α : liveParam Type) := Fst Int α
@@ -159,7 +167,7 @@ run_elab deriveQPF ``ArgConstant
 
 #gcheck (ArgConstant.Uncurried : TypeFun 1)
 #gsynth QPF (@TypeFun.ofCurried 1 ArgConstant)
-
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 1 ArgConstant)
 
 -- Compositions nest, with the inner one translated recursively.
 def NestedComp (α β : liveParam Type) := Fst β (Fst β α)
@@ -167,7 +175,7 @@ run_elab deriveQPF ``NestedComp
 
 #gcheck (NestedComp.Uncurried : TypeFun 2)
 #gsynth QPF (@TypeFun.ofCurried 2 NestedComp)
-
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 2 NestedComp)
 
 -- The head need not be a constant: `parseApp` works outwards from the largest
 -- head, so `Fin' 3` is taken as a *unary* head, rather than `Fin'` as a binary
@@ -177,7 +185,7 @@ run_elab deriveQPF ``UnaryHeadParseApp
 
 #gcheck (UnaryHeadParseApp.Uncurried : TypeFun 1)
 #gsynth QPF (@TypeFun.ofCurried 1 UnaryHeadParseApp)
-
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 1 UnaryHeadParseApp)
 
 /-!
 ## Function types
@@ -192,7 +200,7 @@ run_elab deriveQPF ``PiNonDep
 
 #gcheck (PiNonDep.Uncurried : TypeFun 1)
 #gsynth QPF (@TypeFun.ofCurried 1 PiNonDep)
-
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 1 PiNonDep)
 
 -- A dependent function type: the codomain may mention the bound variable.
 def PiDep (α : liveParam Type) := (a : Nat) → Fst α (Fin a)
@@ -200,7 +208,7 @@ run_elab deriveQPF ``PiDep
 
 #gcheck (PiDep.Uncurried : TypeFun 1)
 #gsynth QPF (@TypeFun.ofCurried 1 PiDep)
-
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 1 PiDep)
 
 -- Function types nest, with the codomain translated recursively.
 def PiNested (α : liveParam Type) := Nat → Int → α
@@ -208,7 +216,7 @@ run_elab deriveQPF ``PiNested
 
 #gcheck (PiNested.Uncurried : TypeFun 1)
 #gsynth QPF (@TypeFun.ofCurried 1 PiNested)
-
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 1 PiNested)
 
 /-!
 ## Normalization
@@ -223,7 +231,7 @@ run_elab deriveQPF ``NormalizeLetPi
 
 #gcheck (NormalizeLetPi.Uncurried : TypeFun 1)
 #gsynth QPF (@TypeFun.ofCurried 1 NormalizeLetPi)
-
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 1 NormalizeLetPi)
 
 -- `let T := α; T` only becomes a projection after zeta reduction.
 def NormalizeLetProj (α : liveParam Type) := let T := α; T
@@ -231,7 +239,7 @@ run_elab deriveQPF ``NormalizeLetProj
 
 #gcheck (NormalizeLetProj.Uncurried : TypeFun 1)
 #gsynth QPF (@TypeFun.ofCurried 1 NormalizeLetProj)
-
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 1 NormalizeLetProj)
 
 /-!
 ## Universes
@@ -247,7 +255,7 @@ run_elab deriveQPF ``UniverseProj
 
 #gcheck (UniverseProj.Uncurried : TypeFun 2)
 #gsynth QPF (@TypeFun.ofCurried 2 UniverseProj.{v})
-
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 2 UniverseProj.{v})
 
 -- Including underneath a `QPF.Pi`, whose domain must live in that same
 -- universe; `A : Type v` does, while `Type v` itself would not.
@@ -258,7 +266,7 @@ variable (A : Type v)
 
 #gcheck (UniversePi.Uncurried : Type v → TypeFun 1)
 #gsynth QPF (@TypeFun.ofCurried 1 (UniversePi A))
-
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 1 (UniversePi A))
 
 end
 

@@ -5,8 +5,9 @@ import QPFTypes.Meta.QPFExpr.AddDecl
 /-!
 # `QPFExpr.addDecls` Unit Tests
 
-Test that `QPFExpr.addDecls` adds the four declarations it promises, for
-`QPFExpr`s that are built by hand out of the helpers in
+Test that `QPFExpr.addDecls` adds the four declarations it promises, plus the
+two `IsPolynomial` instances it adds when the `QPFExpr` is known to be
+polynomial, for `QPFExpr`s that are built by hand out of the helpers in
 `QPFTypes.Meta.QPFExpr.Basic`.
 
 The sections below work outwards from the smallest interface: first `addDecls`
@@ -50,6 +51,22 @@ example (α β : Type) : Proj₁ α β = α := rfl
 /-- info: Proj₁.instQPF -/
 #guard_msgs in #synth QPF (TypeFun.ofCurried Proj₁)
 
+-- A projection is polynomial, so both `IsPolynomial` instances are registered too
+
+/-- info: Proj₁.Uncurried.instIsPolynomial -/
+#guard_msgs in #synth QPF.IsPolynomial Proj₁.Uncurried
+
+/-- info: Proj₁.instIsPolynomial -/
+#guard_msgs in #synth QPF.IsPolynomial (TypeFun.ofCurried Proj₁)
+
+/--
+Each `IsPolynomial` instance is indexed by the `QPF` instance that `addDecls`
+declared for the same type function, not by some other expression that happens
+to be definitionally equal to it.
+-/
+example : @QPF.IsPolynomial 2 Proj₁.Uncurried Proj₁.Uncurried.instQPF := inferInstance
+example : @QPF.IsPolynomial 2 (TypeFun.ofCurried Proj₁) Proj₁.instQPF := inferInstance
+
 /-!
 ## Universe level parameters
 
@@ -67,6 +84,10 @@ example (α β : Type u) : PolyProj α β = α := rfl
 universe u in
 /-- info: PolyProj.instQPF -/
 #guard_msgs in #synth QPF (TypeFun.ofCurried PolyProj.{u})
+
+universe u in
+/-- info: PolyProj.instIsPolynomial -/
+#guard_msgs in #synth QPF.IsPolynomial (TypeFun.ofCurried PolyProj.{u})
 
 /-!
 ## Dead variables
@@ -88,6 +109,16 @@ example (k : Nat) (α : Type) : DeadFin k α = Fin k := rfl
 variable (k : Nat) in
 /-- info: DeadFin.instQPF k -/
 #guard_msgs in #synth QPF (TypeFun.ofCurried (DeadFin k))
+
+-- The `IsPolynomial` instances abstract over the dead variables just the same.
+
+variable (k : Nat) in
+/-- info: DeadFin.Uncurried.instIsPolynomial k -/
+#guard_msgs in #synth QPF.IsPolynomial (DeadFin.Uncurried k)
+
+variable (k : Nat) in
+/-- info: DeadFin.instIsPolynomial k -/
+#guard_msgs in #synth QPF.IsPolynomial (TypeFun.ofCurried (DeadFin k))
 
 /-!
 ## The instances carry executable code
@@ -123,6 +154,14 @@ example (α : Type) : Comp₀ α = α := rfl
 /-- info: Comp₀.instQPF -/
 #guard_msgs in #synth QPF (TypeFun.ofCurried Comp₀)
 
+-- A composite of polynomial arguments is polynomial.
+
+/-- info: Comp₀.Uncurried.instIsPolynomial -/
+#guard_msgs in #synth QPF.IsPolynomial Comp₀.Uncurried
+
+/-- info: Comp₀.instIsPolynomial -/
+#guard_msgs in #synth QPF.IsPolynomial (TypeFun.ofCurried Comp₀)
+
 /--
 A composed instance is compiled just like the atomic one above. Note that this
 check does not rely on `compileDecl` logging its errors: it fails at *this*
@@ -130,5 +169,73 @@ definition even when the instance was allowed to end up without code silently.
 -/
 def mapComp₀ {α β : TypeVec.{0} 1} (f : α ⟹ β) (x : Comp₀.Uncurried α) : Comp₀.Uncurried β :=
   MvFunctor.map f x
+
+/-!
+## Fixpoints
+
+`mkFix` and `mkCofix` turn an `(n+1)`-ary QPF into an `n`-ary one, by taking the
+least/greatest fixpoint of its last argument. `FixNat` is the fixpoint of the
+binary constant functor on `Nat`, which ignores the recursive argument.
+-/
+
+run_meta addDecls (mkFix (mkConstant 0 2 (mkConst ``Nat))) `QPFTypes.Test.FixNat []
+
+/-- info: QPFTypes.Test.FixNat : CurriedTypeFun 1 -/
+#guard_msgs in #check FixNat
+
+example : FixNat.Uncurried = QPF.Fix (QPF.Const 2 Nat) := rfl
+
+/-- info: FixNat.Uncurried.instQPF -/
+#guard_msgs in #synth QPF FixNat.Uncurried
+
+/-- info: FixNat.instQPF -/
+#guard_msgs in #synth QPF (TypeFun.ofCurried FixNat)
+
+-- Taking the least fixpoint preserves polynomiality.
+
+/-- info: FixNat.Uncurried.instIsPolynomial -/
+#guard_msgs in #synth QPF.IsPolynomial FixNat.Uncurried
+
+/-- info: FixNat.instIsPolynomial -/
+#guard_msgs in #synth QPF.IsPolynomial (TypeFun.ofCurried FixNat)
+
+-- The greatest fixpoint behaves the same way.
+
+run_meta addDecls (mkCofix (mkConstant 0 2 (mkConst ``Nat))) `QPFTypes.Test.CofixNat []
+
+/-- info: QPFTypes.Test.CofixNat : CurriedTypeFun 1 -/
+#guard_msgs in #check CofixNat
+
+example : CofixNat.Uncurried = QPF.Cofix (QPF.Const 2 Nat) := rfl
+
+/-- info: CofixNat.Uncurried.instQPF -/
+#guard_msgs in #synth QPF CofixNat.Uncurried
+
+/-- info: CofixNat.instQPF -/
+#guard_msgs in #synth QPF (TypeFun.ofCurried CofixNat)
+
+/-- info: CofixNat.Uncurried.instIsPolynomial -/
+#guard_msgs in #synth QPF.IsPolynomial CofixNat.Uncurried
+
+/-- info: CofixNat.instIsPolynomial -/
+#guard_msgs in #synth QPF.IsPolynomial (TypeFun.ofCurried CofixNat)
+
+-- A fixpoint of a composite is polynomial as well, so polynomiality survives
+-- being passed through more than one construction. `FixComp` is the fixpoint of
+-- `fun (α, ρ) => ρ`, i.e. of the composition that drops the non-recursive
+-- argument, taken at arity `1`.
+run_meta do
+  let F := mkProj 0 (1 : Fin 2)
+  let Gs := #v[mkProj 0 (0 : Fin 2), mkProj 0 (1 : Fin 2)]
+  addDecls (mkFix (← mkComp F Gs)) `QPFTypes.Test.FixComp []
+
+/-- info: QPFTypes.Test.FixComp.Uncurried : TypeFun 1 -/
+#guard_msgs in #check FixComp.Uncurried
+
+/-- info: FixComp.Uncurried.instIsPolynomial -/
+#guard_msgs in #synth QPF.IsPolynomial FixComp.Uncurried
+
+/-- info: FixComp.instIsPolynomial -/
+#guard_msgs in #synth QPF.IsPolynomial (TypeFun.ofCurried FixComp)
 
 end QPFTypes.Test

@@ -53,10 +53,10 @@ To facilitate constructions of a list with these conditions, we define the
 expected shape.
 -/
 
-public section DList
+@[expose] public section DList
 
 /-- A dependent list, encoded as a list of dependent pairs with some side-conditions. -/
-@[reducible, expose]
+@[reducible]
 protected def DList.{u} {n : Nat} (β : Fin n → Type u) :=
   { xs : List (Σ i : Fin n, β i) //
     ∃ h : xs.length = n, ∀ i : Fin n, xs[i].fst = i
@@ -97,6 +97,9 @@ The tuple is constructed as `DList.get` of a (dependent) list literal.
 That is, when called with expressions `x₁`, ⋯, `xₙ`, each of type `$type i`,
 morally, the following expression is returned:
   `DList.get ⟨[⟨0, $x₁⟩, ⋯, ⟨n-1, $xₙ], by decide, by decide⟩`.
+
+See also `mkDPropTuple`, for when you have a dependent family of *propositions*,
+rather than types.
 -/
 public meta def mkDTuple (typefam : Expr /- : Fin $n → Type $u -/) (xs : Vector Expr n) :
     MetaM Expr := withErrorCtxt do
@@ -127,3 +130,29 @@ and the following elements: {xs.toList}
 
 The following error occured:
 {err.toMessageData}"
+
+/-!
+## Dependent Tuples of Proofs
+-/
+
+/--
+Create a Lean expression of a dependent tuple of *proofs*, i.e., an expression
+of type `(i : Fin $n) → $propfam i`, from a vector of `n` proofs, with `xs[i]` a
+proof of `$propfam i : Prop`.
+-/
+public meta def mkDPropTuple (propfam : Expr /- : Fin $n → Prop -/) (xs : Vector Expr n) :
+    MetaM Expr := do
+  -- To encode a list of proof terms, we lift the propositions into a type via
+  -- `PLift`, and then call `mkDTuple` as usual.
+  let finN := mkApp (.const ``Fin []) (toExpr n)
+  -- `fun (i : Fin $n) => PLift ($propfam i)`
+  let liftedFam :=
+    .lam `i finN (mkApp (.const ``PLift [0]) (mkApp propfam (.bvar 0))) .default
+  -- `PLift.up ($propfam $i) $xs[i] : PLift ($propfam $i)`
+  let lifted := xs.mapFinIdx fun i x hi =>
+    mkApp2 (.const ``PLift.up [0]) (mkApp propfam (toExpr (⟨i, hi⟩ : Fin n))) x
+  let tuple ← mkDTuple liftedFam lifted
+  -- `fun (i : Fin $n) => PLift.down ($tuple i)`
+  return .lam `i finN
+    (mkApp2 (.const ``PLift.down [0]) (mkApp propfam (.bvar 0)) (mkApp tuple (.bvar 0)))
+    .default
