@@ -4,4 +4,4 @@
   "riscv_cf.func"() <{sym_name = "f", function_type = !llvm.func<void ()>}> ({}) : () -> ()
 }) : () -> ()
 
-// CHECK: riscv_cf.func: expected 'function_type' to be a function type
+// CHECK: riscv_cf.func: expected 'function_type' to be a builtin function type

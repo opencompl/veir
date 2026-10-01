@@ -26,7 +26,7 @@ def RISCVFuncProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute
     | none => throw "riscv_cf.func: missing 'sym_name' property"
   let funcType ← match attrDict["function_type".toUTF8]? with
     | some (.functionType ft) => pure ft
-    | some attr => throw s!"riscv_cf.func: expected 'function_type' to be a function type, but got {attr}"
+    | some attr => throw s!"riscv_cf.func: expected 'function_type' to be a builtin function type, but got {attr}"
     | none => throw "riscv_cf.func: missing 'function_type' property"
   let extra := DictionaryAttr.fromArray
     (attrDict.toArray.filter fun (k, _) => k ≠ "sym_name".toUTF8 && k ≠ "function_type".toUTF8)
