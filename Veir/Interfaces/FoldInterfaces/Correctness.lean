@@ -62,7 +62,7 @@ def Agrees (known : Array (Option RuntimeValue)) (operands : Array RuntimeValue)
 results are refined by the replacements. UB permits any replacements, but an
 interpreter failure never establishes correctness. -/
 @[expose]
-def Refines (source : Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction))
+def IsRefinedBy (source : Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction))
     (replacements : Array RuntimeValue) (initialMemory : MemoryState) : Prop :=
   match source with
   | .fail _ => False
@@ -92,7 +92,7 @@ structure CorrectAt (op : OpCode) (properties : propertiesOf op)
       ∀ operands, RuntimeValue.ArrayConforms operands operandTypes → Agrees known operands →
         ∀ memory successors layout,
           ∃ replacements, FoldDecision.resolveAll decisions operands = some replacements ∧
-            Refines (interpretOp' op properties resultTypes operands successors memory layout)
+            IsRefinedBy (interpretOp' op properties resultTypes operands successors memory layout)
               replacements memory
 
 end FoldTable

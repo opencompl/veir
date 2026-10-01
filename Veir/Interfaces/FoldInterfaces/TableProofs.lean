@@ -90,7 +90,7 @@ theorem Arith.tryFold_addi_correct (properties : Arith.propertiesOf .addi) (w : 
     refine ⟨#[.int w lhs], ?_, ?_⟩
     · simp [FoldDecision.resolveAll, FoldDecision.resolve]
     · simp [Veir.interpretOp', Arith.interpretOp', LLVM.Int.cast_self, fold_add_zero,
-        FoldTable.Refines]
+        FoldTable.IsRefinedBy]
 
 /-- The extended-add entry refines both results, even when the unknown operand
 is poison: its poison overflow flag may be replaced with concrete false. -/
@@ -105,7 +105,7 @@ theorem Arith.tryFold_addui_extended_correct (w : Nat) :
     refine ⟨#[.int w lhs, .int 1 (.val 0)], ?_, ?_⟩
     · simp [FoldDecision.resolveAll, FoldDecision.resolve]
     · simp [Veir.interpretOp', Arith.interpretOp', LLVM.Int.cast_self, fold_add_zero,
-        FoldTable.Refines, RuntimeValue.isRefinedBy, overflow_zero]
+        FoldTable.IsRefinedBy, RuntimeValue.isRefinedBy, overflow_zero]
 
 /-- LLVM add-zero is correct for every width and every choice of overflow flags. -/
 theorem Llvm.tryFold_add_correct (properties : Llvm.propertiesOf .add) (w : Nat) :
@@ -119,7 +119,7 @@ theorem Llvm.tryFold_add_correct (properties : Llvm.propertiesOf .add) (w : Nat)
     refine ⟨#[.int w lhs], ?_, ?_⟩
     · simp [FoldDecision.resolveAll, FoldDecision.resolve]
     · simp [Veir.interpretOp', Llvm.interpretOp', LLVM.Int.cast_self, fold_add_zero,
-        FoldTable.Refines]
+        FoldTable.IsRefinedBy]
 
 /-- The RISC-V immediate-and-zero entry is correct for every register value.
 The operand and result may have different register allocations. The successful
@@ -137,6 +137,6 @@ theorem Riscv.tryFold_andi_correct (properties : Riscv.propertiesOf .andi)
     obtain ⟨value, rfl⟩ := hOperands.reg_single
     refine ⟨#[.reg ⟨0⟩], ?_, ?_⟩
     · simp [FoldDecision.resolveAll, FoldDecision.resolve]
-    · simp [Veir.interpretOp', Riscv.interpretOp', RISCVImmediateProperties.immField, hZero, RISCV.andi, FoldTable.Refines]
+    · simp [Veir.interpretOp', Riscv.interpretOp', RISCVImmediateProperties.immField, hZero, RISCV.andi, FoldTable.IsRefinedBy]
 
 end Veir

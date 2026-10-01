@@ -69,7 +69,7 @@ theorem FoldTable.correctAt_int_rhs
     (evaluate : ∀ lhs memory successors layout,
       ∃ replacements,
         FoldDecision.resolveAll decisions #[.int w lhs, .int w (rhs w)] = some replacements ∧
-        Refines (interpretOp' op properties resultTypes
+        IsRefinedBy (interpretOp' op properties resultTypes
           #[.int w lhs, .int w (rhs w)] successors memory layout) replacements memory) :
     CorrectAt op properties
       #[(IntegerType.signless w : TypeAttr), (IntegerType.signless w : TypeAttr)] resultTypes where
