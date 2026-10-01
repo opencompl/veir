@@ -373,6 +373,10 @@ def MatchDecl.run (decl : MatchDecl OpInfo) (ctx : IRContext OpInfo)
     let actual ← Assignment.getType assignment typeHandle
     guard (matcher actual)
     return assignment
+  | @MatchDecl.inspectOperation _ _ _ outputBundle opHandle inspect outputs =>
+    let operation ← Assignment.getOp assignment opHandle
+    let values ← inspect ctx operation
+    MetadataTuple.bind (self := outputBundle) assignment outputs values
   | @MatchDecl.applyNative _ _ _Inputs inputBundle inputs predicate =>
     let values ← MetadataTuple.resolve (self := inputBundle) assignment inputs
     guard (predicate values)

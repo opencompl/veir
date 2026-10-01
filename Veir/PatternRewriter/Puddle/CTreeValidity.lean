@@ -129,6 +129,9 @@ def MatchDecl.Models (root : Handle OpCode .op) (decl : MatchDecl OpCode)
             CanInterpretTo opCode property resultTypes.toArray operands.toArray (.ok results.toArray) →
             k (assignment.bindProperty propertyHandle property)
     | _, _ => False
+  | @MatchDecl.inspectOperation _ _ _ outputBundle _ _ outputs =>
+    /- Ignore contextual rejection and require validity for every derived metadata value. -/
+    ∀ values, k (MetadataTuple.bindSemantic (self := outputBundle) assignment outputs values)
   | MatchDecl.applyNative (hInputs := inputBundle) inputs predicate =>
     match MetadataTuple.resolveSemantic (self := inputBundle) assignment inputs with
     | some values => predicate values = true → k assignment
@@ -397,6 +400,7 @@ macro "unfoldPuddleBuilder" : tactic =>
     /- Unfold the builder functions -/
     simp only [Pattern.Builder, MatchProg.build, CreateProg.build, bind, pure,
       MatchProg.value, MatchProg.type, MatchProg.root, MatchProg.operation, MatchProg.matchNative,
+      MatchProg.inspectOperation,
       CreateProg.type, CreateProg.operation, CreateProg.property, CreateProg.applyNative,
       MetadataTuple.fresh,
       IsMetadataTuple.shape_unit, IsMetadataTuple.shape_type, IsMetadataTuple.shape_property,

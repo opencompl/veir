@@ -211,6 +211,9 @@ def MatchDecl.collectBindings (decl : MatchDecl OpCode)
       defined.insertFresh result
   | .type _ result =>
       defined.insertFresh result
+  | @MatchDecl.inspectOperation _ _ _ outputBundle opHandle _ outputs => do
+      guard (defined.require opHandle)
+      outputBundle.shape.insertFreshBindings defined outputs
   | @MatchDecl.applyNative _ _ _ inputBundle inputs _ => do
       guard (inputBundle.shape.requireBindings defined inputs)
       return defined
@@ -232,6 +235,7 @@ def MatchProg.collectDeclBindings :
 def MatchProg.bindingDecls (prog : MatchProg OpInfo α) : List (MatchDecl OpInfo) :=
   let (structural, guards) := prog.decls.partition fun
     | @MatchDecl.applyNative _ _ _ _ _ _ => false
+    | @MatchDecl.inspectOperation _ _ _ _ _ _ _ => false
     | _ => true
   structural.reverse ++ guards
 
@@ -549,6 +553,10 @@ def MatchDecl.Models (decl : MatchDecl OpCode) (assignment : SemanticAssignment)
         InterpretsTo opCode property resultTypes.toArray operands.toArray results.toArray →
         k (assignment.bindProperty propertyHandle property)
       | _, _ => False
+  | @MatchDecl.inspectOperation _ _ _ outputBundle _ _ outputs =>
+    /- Contextual inspection only narrows runtime matches. Conservatively quantify its metadata:
+       the semantic obligation must hold for every possible inspection output. -/
+    ∀ values, k (MetadataTuple.bindSemantic (self := outputBundle) assignment outputs values)
   | MatchDecl.applyNative (hInputs := inputBundle) inputs predicate =>
     match MetadataTuple.resolveSemantic (self := inputBundle) assignment inputs with
     | some values => predicate values = true → k assignment
@@ -685,6 +693,7 @@ macro "unfoldPuddleBuilder" : tactic =>
     /- Unfold the builder functions -/
     simp only [Pattern.Builder, MatchProg.build, CreateProg.build, bind, pure,
       MatchProg.value, MatchProg.type, MatchProg.root, MatchProg.operation, MatchProg.matchNative,
+      MatchProg.inspectOperation,
       CreateProg.type, CreateProg.operation, CreateProg.property, CreateProg.applyNative,
       MetadataTuple.fresh,
       IsMetadataTuple.shape_unit, IsMetadataTuple.shape_type, IsMetadataTuple.shape_property,
