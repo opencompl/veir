@@ -21,7 +21,7 @@ theorem pow_mod_pow_of_le {x w o : Nat} (h : w ≤ o) :
   · grind [Nat.mod_eq_zero_of_dvd, Nat.pow_dvd_pow]
 
 /-- Modulo `2 ^ w`, subtracting `n` from a larger power of two `2 ^ o` is the
-same as subtracting it from `2 ^ w` -/
+same as subtracting it from `2 ^ w`. -/
 theorem two_pow_sub_mod_of_le {w o n : Nat} (h : w ≤ o) (hn : n ≤ 2 ^ w) :
     (2 ^ o - n) % 2 ^ w = (2 ^ w - n) % 2 ^ w := by
   have h0 : (2 ^ o - 2 ^ w) % 2 ^ w = 0 :=

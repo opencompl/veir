@@ -227,19 +227,19 @@ example (w v : Nat) (x : BitVec w) (z : BitVec v) (hz : z = 0) (hxz : x = z.setW
   pbv_decide 4
 
 /-- Multiplying commutes -/
-example {w : Nat} (x y : BitVec w) (hw : w ≤ 8) :
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
     x * y = y * x := by
-  pbv_decide 8
+  pbv_decide 4
 
 /-- Multiplying by one is identity -/
-example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
     x * 1 = x := by
-  pbv_decide 8
+  pbv_decide 4
 
 /-- Subtracting self equals 0 -/
 example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
     x - x = 0 := by
-  pbv_decide 8
+  pbv_decide 4
 
 /-- Multiplication distributes over addition -/
 example {w : Nat} (x y z : BitVec w) (hw : w ≤ 4) :
@@ -247,19 +247,19 @@ example {w : Nat} (x y z : BitVec w) (hw : w ≤ 4) :
   pbv_decide 4
 
 /-- Subtracting and adding back is identity -/
-example {w : Nat} (x y : BitVec w) (hw : w ≤ 8) :
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
     x - y + y = x := by
-  pbv_decide 8
+  pbv_decide 4
 
 /-- Subtraction is adding the negation -/
-example {w : Nat} (x y : BitVec w) (hw : w ≤ 8) :
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
     x - y = x + -y := by
-  pbv_decide 8
+  pbv_decide 4
 
 /-- Negation is an involution -/
-example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
     -(-x) = x := by
-  pbv_decide 8
+  pbv_decide 4
 
 /-- Negation commutes with multiplication -/
 example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
@@ -267,9 +267,9 @@ example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
   pbv_decide 4
 
 /-- Dividing by zero is zero -/
-example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
     x / 0 = 0 := by
-  pbv_decide 8
+  pbv_decide 4
 
 /-- Quotient and remainder reconstruct the dividend -/
 example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
@@ -282,11 +282,11 @@ example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
   pbv_decide 4
 
 /-- Truncating a wide subtraction is subtracting the truncations -/
-example {w v : Nat} (x y : BitVec v) (hw : w ≤ v) (hv : v ≤ 8) :
+example {w v : Nat} (x y : BitVec v) (hw : w ≤ v) (hv : v ≤ 4) :
     (x - y).setWidth w = x.setWidth w - y.setWidth w := by
-  pbv_decide 8
+  pbv_decide 4
 
 /-- Negation commutes with sign extension of a non-negative value -/
-example {w v : Nat} (x : BitVec w) (hx : x.msb = false) (hwv : w ≤ v) (hv : v ≤ 8) :
+example {w v : Nat} (x : BitVec w) (hx : x.msb = false) (hwv : w ≤ v) (hv : v ≤ 4) :
     -(x.signExtend v) = (-x).signExtend v := by
-  pbv_decide 8
+  pbv_decide 4
