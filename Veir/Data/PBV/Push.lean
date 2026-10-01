@@ -57,10 +57,10 @@ Operations without a push theorem (`—`) are abstracted as opaque variables by 
 | Signed mod                      | `BitVec.smod`                | —                                  |
 | SMT unsigned div                | `BitVec.smtUDiv`             | —                                  |
 | SMT signed div                  | `BitVec.smtSDiv`             | —                                  |
-| And (`&&&`)                     | `BitVec.and`                 | —                                  |
-| Or (`\|\|\|`)                   | `BitVec.or`                  | —                                  |
-| Xor (`^^^`)                     | `BitVec.xor`                 | —                                  |
-| Not (`~~~`)                     | `BitVec.not`                 | —                                  |
+| And (`&&&`)                     | `BitVec.and`                 | `setWidth_and`                     |
+| Or (`\|\|\|`)                   | `BitVec.or`                  | `setWidth_or`                      |
+| Xor (`^^^`)                     | `BitVec.xor`                 | `setWidth_xor`                     |
+| Not (`~~~`)                     | `BitVec.not`                 | `setWidth_not`                     |
 | Shift left by `Nat` (`<<<`)     | `BitVec.shiftLeft`           | `setWidth_shiftLeft'`              |
 | Shift left by `BitVec` (`<<<`)  | `BitVec.shiftLeft`           | `setWidth_shiftLeft`               |
 | Shift right by `Nat` (`>>>`)    | `BitVec.ushiftRight`         | `setWidth_ushiftRight'`            |
@@ -245,6 +245,37 @@ theorem setWidth_extractLsb' {w o len start : Nat} (a : BitVec w) (h: w ≤ o) (
     simp only [BitVec.toNat_setWidth, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_zero (hn := this),
       Nat.zero_mod, BitVec.toNat_and, BitVec.toNat_ushiftRight,
       Nat.mod_eq_of_lt (BitVec.toNat_lt_twoPow_of_le h), Nat.zero_and]
+
+/-! ## Push `setWidth` into bitwise ops -/
+
+@[pbv_push]
+theorem setWidth_and {o w : Nat} (h : w ≤ o) (a b : BitVec w) :
+    (a &&& b).setWidth o = (a.setWidth o &&& b.setWidth o) &&& maskOfWidth o w := by
+  refine setWidth_eq_and_maskOfWidth h ?_
+  simp only [BitVec.toNat_and, BitVec.toNat_setWidth, Nat.and_mod_two_pow, Nat.mod_mod_pow_of_le h,
+    BitVec.toNat_mod_cancel]
+
+@[pbv_push]
+theorem setWidth_or {o w : Nat} (h : w ≤ o) (a b : BitVec w) :
+    (a ||| b).setWidth o = (a.setWidth o ||| b.setWidth o) &&& maskOfWidth o w := by
+  refine setWidth_eq_and_maskOfWidth h ?_
+  simp only [BitVec.toNat_or, BitVec.toNat_setWidth, Nat.or_mod_two_pow, Nat.mod_mod_pow_of_le h,
+    BitVec.toNat_mod_cancel]
+
+
+@[pbv_push]
+theorem setWidth_xor {o w : Nat} (h : w ≤ o) (a b : BitVec w) :
+    (a ^^^ b).setWidth o = (a.setWidth o ^^^ b.setWidth o) &&& maskOfWidth o w := by
+  refine setWidth_eq_and_maskOfWidth h ?_
+  simp only [BitVec.toNat_xor, BitVec.toNat_setWidth, Nat.xor_mod_two_pow, Nat.mod_mod_pow_of_le h,
+    BitVec.toNat_mod_cancel]
+
+@[pbv_push]
+theorem setWidth_not {o w : Nat} (h : w ≤ o) (a : BitVec w) :
+    (~~~a).setWidth o = (~~~(a.setWidth o)) &&& maskOfWidth o w := by
+  refine setWidth_eq_and_maskOfWidth h ?_
+  simp only [BitVec.toNat_not, BitVec.toNat_setWidth, Nat.mod_eq_of_lt (BitVec.toNat_lt_twoPow_of_le h), Nat.sub_sub]
+  rw [Nat.two_pow_sub_mod_of_le h (by grind), Nat.mod_eq_of_lt (by grind)]
 
 /-! ### Other ops in terms of `maskOfWidth` -/
 
