@@ -40,7 +40,7 @@ private def illegalReason (ctx : IRContext OpCode) (op : OperationPtr) (opcode :
     | _, none => "no legalization rule matches"
   s!"unable to legalize {name}: {reason}"
 
-/-- Legalizes all gMIR operations of `ctx`. Fails if one of them remains illegal. -/
+/-- Legalizes all GMIR operations of `ctx`. Fails if one of them remains illegal. -/
 def legalize (info : LegalizerInfo) (ctx : WfIRContext OpCode) :
     Except String (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[.fromLocalRewrite info.legalizeInstrStep]
