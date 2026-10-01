@@ -5,7 +5,7 @@ public import Veir.GlobalOpInfo
 /-!
 # Legalization Rules
 
-This file defines how a target specifies which gMIR operations it can select, and how the others
+This file defines how a target specifies which GMIR operations it can select, and how the others
 are legalized.
 
 Also see:
