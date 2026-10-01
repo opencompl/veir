@@ -24,6 +24,9 @@ import all Veir.Data.Refinement
 import all Veir.PatternRewriter.Puddle.Validity
 
 namespace Veir
+attribute [local simp] Llvm.getEffects Llvm.isTerminator
+set_option maxHeartbeats 5000000
+set_option maxRecDepth 100000
 open Puddle Puddle.CTree
 
 @[simp]
@@ -455,49 +458,6 @@ private theorem choose_eq_pure {α : Type} (values : α) (p : Interp α → Prop
 
 @[simp] private theorem checked_true (a : α) : CreationM.checked True a = CreationM.pure a := rfl
 
-macro "simpSequenceMatcher" : tactic =>
-  `(tactic| simp only [Puddle.CTree.Pattern.PreservesSemantics, Puddle.CTree.MatchProg.Models,
-    MatchProg.bindingDecls, List.partition_eq_filter_filter, List.range_succ, List.reverse_cons,
-    Puddle.CTree.MatchProg.modelsDecls, Puddle.CTree.MatchDecl.Models,
-    Interp.ok.injEq, Interp.ub.injEq, Interp.fail.injEq,
-    SemanticAssignment.getValues, SemanticAssignment.getTypes,
-    SemanticAssignment.getValue, SemanticAssignment.getType,
-    SemanticAssignment.getProperty,
-    SemanticAssignment.bindProperty, SemanticAssignment.bindType,
-    SemanticAssignment.bindValue, SemanticAssignment.bind,
-    SemanticAssignment.ForallValues, Puddle.CTree.SemanticAssignment.bindValues.go,
-    MetadataTuple.resolveSemantic, MetadataTuple.Shape.resolveSemantic,
-    MetadataTuple.Atom.resolveSemantic, MetadataTuple.bindSemantic,
-    MetadataTuple.Shape.bindSemantic, MetadataTuple.Atom.bindSemantic,
-    Puddle.CTree.MatchProg.RootCanInterpretTo,
-    SemanticAssignment.bind_of_ne_eq,
-    /- TypeAttr cast normalization -/
-    IsTypeAttr.cast?_eq_some_iff,
-    /- Native metadata tuples -/
-    IsMetadataTuple.shape_unit, IsMetadataTuple.shape_type, IsMetadataTuple.shape_property,
-    IsMetadataTuple.shape_type_cons, IsMetadataTuple.shape_property_cons,
-    /- Concrete lists, arrays, options -/
-    List.filter_cons_of_pos, List.filter_cons_of_neg, List.filter_nil, Function.comp_apply,
-    List.reverse_nil, List.nil_append, List.cons_append, List.append_nil,
-    Array.toList_map, Array.toList_range, List.range_zero, List.map_cons, List.map_nil,
-    List.length_cons, List.length_nil,
-    Array.size_map, Array.size_range,
-    List.mapM_cons, List.mapM_nil, Option.pure_def, Option.bind_eq_bind, Option.bind_some,
-    Option.bind_fun_some, Nat.add_zero, Nat.reduceAdd, Nat.zero_ne_one, Nat.reduceEqDiff,
-    Option.map_some, Option.map_eq_some_iff, Option.getD_eq_iff,
-    /- Propositional normalization -/
-    Bool.not_true, Bool.not_false, Bool.not_eq_true, Bool.not_eq_true', Bool.false_eq_true,
-    Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq, and_false, or_false,
-    not_false_eq_true, ne_eq, reduceCtorEq, ↓reduceIte, ↓reduceDIte, forall_const,
-    and_true, and_imp, not_imp, Classical.not_forall, not_exists, not_and, exists_and_left,
-    exists_false, false_or, exists_eq_left, exists_eq_right,
-    forall_exists_index, forall_apply_eq_imp_iff, forall_eq_apply_imp_iff, true_and,
-    /- Elementwise array refinement -/
-    RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.arrayIsRefinedBy_refl,
-    /- Handle equality injectivity -/
-    Handle.mk.injEq])
-
-
 macro "simpSequenceCreation" : tactic =>
   `(tactic| simp (config := { maxSteps := 1000000 }) [Puddle.CTree.Pattern.PreservesSemantics, Puddle.CTree.MatchProg.Models,
     MatchProg.bindingDecls, List.partition_eq_filter_filter, List.range_succ, List.reverse_cons,
@@ -547,13 +507,7 @@ macro "simpSequenceCreation" : tactic =>
 
  theorem abs_pattern_valid : Puddle.CTree.Pattern.Valid abs_pattern := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator,
-      Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hty value hvalue property
   cases ty with
   | mk bw hint =>
@@ -567,18 +521,12 @@ macro "simpSequenceCreation" : tactic =>
         RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField] using
         (Data.RISCV.abs_refinement (x := .val _) (is_int_min_poison := property.is_int_min_poison))
     · intro bits
-      simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+      simp [
         RuntimeValue.isRefinedBy, Data.LLVM.Int.abs, isRefinedBy, Id.run]
 
 private theorem usubSat_pattern_valid : Puddle.CTree.Pattern.Valid usubSat_pattern := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator,
-      Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hty lhs hleft rhs hright property
   cases ty with
   | mk bw hint =>
@@ -591,18 +539,16 @@ private theorem usubSat_pattern_valid : Puddle.CTree.Pattern.Valid usubSat_patte
     · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
         RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField] using
         (Data.RISCV.usubSat_refinement (x := .val _) (y := .val _))
-    all_goals intros <;> simp_all [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-      RuntimeValue.isRefinedBy, Data.LLVM.Int.usubSat, isRefinedBy, Id.run]
+    all_goals first
+      | rintro outcome firstBits secondBits thirdBits rfl
+      | rintro outcome firstBits secondBits rfl
+      | intro bits
+      | skip
+    all_goals simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.usubSat, isRefinedBy, Id.run]
 
 private theorem uaddSat_pattern_valid : Puddle.CTree.Pattern.Valid uaddSat_pattern := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator,
-      Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hty lhs hleft rhs hright property
   cases ty with
   | mk bw hint =>
@@ -615,18 +561,16 @@ private theorem uaddSat_pattern_valid : Puddle.CTree.Pattern.Valid uaddSat_patte
     · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
         RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField] using
         (Data.RISCV.uaddSat_refinement (x := .val _) (y := .val _))
-    all_goals intros <;> simp_all [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-      RuntimeValue.isRefinedBy, Data.LLVM.Int.uaddSat, isRefinedBy, Id.run]
+    all_goals first
+      | rintro outcome firstBits secondBits thirdBits rfl
+      | rintro outcome firstBits secondBits rfl
+      | intro bits
+      | skip
+    all_goals simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.uaddSat, isRefinedBy, Id.run]
 
 private theorem saddSat_pattern_valid : Puddle.CTree.Pattern.Valid saddSat_pattern := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator,
-      Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddlePlumbing
+  provePuddleValid
   rintro _ ty rfl hty lhs hleft rhs hright property
   cases ty with
   | mk bw hint =>
@@ -635,22 +579,20 @@ private theorem saddSat_pattern_valid : Puddle.CTree.Pattern.Valid saddSat_patte
     simp only [RuntimeValue.Conforms.integerType] at hleft hright
     obtain ⟨x, rfl⟩ := hleft
     obtain ⟨y, rfl⟩ := hright
-    cases x <;> cases y <;> simp (config := { maxSteps := 1000000 }) [CreationM.pure, CreationM.checked, CreationM.invalid, SemanticAssignment.bind, CanInterpretTo.saddSat_int (⟨64, hint⟩)]
+    cases x <;> cases y <;> simp (config := { maxSteps := 1000000 }) [CanInterpretTo.saddSat_int (⟨64, hint⟩)]
     · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
         RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField] using
         (Data.RISCV.saddSat_refinement (x := .val _) (y := .val _))
-    all_goals intros <;> simp_all [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-      RuntimeValue.isRefinedBy, Data.LLVM.Int.saddSat, isRefinedBy, Id.run]
+    all_goals first
+      | rintro outcome firstBits secondBits thirdBits rfl
+      | rintro outcome firstBits secondBits rfl
+      | intro bits
+      | skip
+    all_goals simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.saddSat, isRefinedBy, Id.run]
 
 private theorem ssubSat_pattern_valid : Puddle.CTree.Pattern.Valid ssubSat_pattern := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator,
-      Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddlePlumbing
+  provePuddleValid
   rintro _ ty rfl hty lhs hleft rhs hright property
   cases ty with
   | mk bw hint =>
@@ -659,22 +601,20 @@ private theorem ssubSat_pattern_valid : Puddle.CTree.Pattern.Valid ssubSat_patte
     simp only [RuntimeValue.Conforms.integerType] at hleft hright
     obtain ⟨x, rfl⟩ := hleft
     obtain ⟨y, rfl⟩ := hright
-    cases x <;> cases y <;> simp (config := { maxSteps := 1000000 }) [CreationM.pure, CreationM.checked, CreationM.invalid, SemanticAssignment.bind, CanInterpretTo.ssubSat_int (⟨64, hint⟩)]
+    cases x <;> cases y <;> simp (config := { maxSteps := 1000000 }) [CanInterpretTo.ssubSat_int (⟨64, hint⟩)]
     · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
         RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField] using
         (Data.RISCV.ssubSat_refinement (x := .val _) (y := .val _))
-    all_goals intros <;> simp_all [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-      RuntimeValue.isRefinedBy, Data.LLVM.Int.ssubSat, isRefinedBy, Id.run]
+    all_goals first
+      | rintro outcome firstBits secondBits thirdBits rfl
+      | rintro outcome firstBits secondBits rfl
+      | intro bits
+      | skip
+    all_goals simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.ssubSat, isRefinedBy, Id.run]
 
 private theorem sshlSat_pattern_valid : Puddle.CTree.Pattern.Valid sshlSat_pattern := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator,
-      Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddlePlumbing
+  provePuddleValid
   rintro _ ty rfl hty lhs hleft rhs hright property
   cases ty with
   | mk bw hint =>
@@ -683,22 +623,20 @@ private theorem sshlSat_pattern_valid : Puddle.CTree.Pattern.Valid sshlSat_patte
     simp only [RuntimeValue.Conforms.integerType] at hleft hright
     obtain ⟨x, rfl⟩ := hleft
     obtain ⟨y, rfl⟩ := hright
-    cases x <;> cases y <;> simp (config := { maxSteps := 1000000 }) [CreationM.pure, CreationM.checked, CreationM.invalid, SemanticAssignment.bind, CanInterpretTo.sshlSat_int (⟨64, hint⟩)]
+    cases x <;> cases y <;> simp (config := { maxSteps := 1000000 }) [CanInterpretTo.sshlSat_int (⟨64, hint⟩)]
     · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
         RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField] using
         (Data.RISCV.sshlSat_refinement (x := .val _) (y := .val _))
-    all_goals intros <;> simp_all [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-      RuntimeValue.isRefinedBy, Data.LLVM.Int.sshlSat, isRefinedBy, Id.run]
+    all_goals first
+      | rintro outcome firstBits secondBits thirdBits rfl
+      | rintro outcome firstBits secondBits rfl
+      | intro bits
+      | skip
+    all_goals simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.sshlSat, isRefinedBy, Id.run]
 
 private theorem ushlSat_pattern_valid : Puddle.CTree.Pattern.Valid ushlSat_pattern := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator,
-      Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddlePlumbing
+  provePuddleValid
   rintro _ ty rfl hty lhs hleft rhs hright property
   cases ty with
   | mk bw hint =>
@@ -707,22 +645,20 @@ private theorem ushlSat_pattern_valid : Puddle.CTree.Pattern.Valid ushlSat_patte
     simp only [RuntimeValue.Conforms.integerType] at hleft hright
     obtain ⟨x, rfl⟩ := hleft
     obtain ⟨y, rfl⟩ := hright
-    cases x <;> cases y <;> simp (config := { maxSteps := 1000000 }) [CreationM.pure, CreationM.checked, CreationM.invalid, SemanticAssignment.bind, CanInterpretTo.ushlSat_int (⟨64, hint⟩)]
+    cases x <;> cases y <;> simp (config := { maxSteps := 1000000 }) [CanInterpretTo.ushlSat_int (⟨64, hint⟩)]
     · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
         RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField] using
         (Data.RISCV.ushlSat_refinement (x := .val _) (y := .val _))
-    all_goals intros <;> simp_all [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-      RuntimeValue.isRefinedBy, Data.LLVM.Int.ushlSat, isRefinedBy, Id.run]
+    all_goals first
+      | rintro outcome firstBits secondBits thirdBits rfl
+      | rintro outcome firstBits secondBits rfl
+      | intro bits
+      | skip
+    all_goals simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.ushlSat, isRefinedBy, Id.run]
 
  theorem bswap64_pattern_valid : Puddle.CTree.Pattern.Valid (bswap_pattern 64) := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator,
-      Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hty value hvalue property
   cases ty with
   | mk bw hint =>
@@ -730,25 +666,19 @@ private theorem ushlSat_pattern_valid : Puddle.CTree.Pattern.Valid ushlSat_patte
     subst bw
     simp only [RuntimeValue.Conforms.integerType] at hvalue
     obtain ⟨x, rfl⟩ := hvalue
-    cases x <;> simp [CanInterpretTo.neg_reg, CanInterpretTo.max_reg,
+    cases x <;> simp [
       CanInterpretTo.bswap_int (⟨64, hint⟩)]
     · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
         RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField] using
         (Data.RISCV.bswap_refinement (x := .val _))
     · intro bits
-      simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+      simp [
         RuntimeValue.isRefinedBy, Data.LLVM.Int.bswap, isRefinedBy, Id.run]
 
 
  theorem bswap32_pattern_valid : Puddle.CTree.Pattern.Valid (bswap_pattern 32) := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator,
-      Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hty value hvalue property
   cases ty with
   | mk bw hint =>
@@ -756,13 +686,13 @@ private theorem ushlSat_pattern_valid : Puddle.CTree.Pattern.Valid ushlSat_patte
     subst bw
     simp only [RuntimeValue.Conforms.integerType] at hvalue
     obtain ⟨x, rfl⟩ := hvalue
-    cases x <;> simp [CanInterpretTo.neg_reg, CanInterpretTo.max_reg,
+    cases x <;> simp [
       CanInterpretTo.bswap_int (⟨32, hint⟩)]
     · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
         RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField] using
         (Data.RISCV.bswap_refinement_32 (x := .val _))
     · intro bits
-      simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+      simp [
         RuntimeValue.isRefinedBy, Data.LLVM.Int.bswap, isRefinedBy, Id.run]
 
 
@@ -847,16 +777,10 @@ private theorem reg_and_comm (x y : Data.RISCV.Reg) : Data.RISCV.and x y = Data.
 private theorem reg_or_comm (x y : Data.RISCV.Reg) : Data.RISCV.or x y = Data.RISCV.or y x := by
   simp [Data.RISCV.or, BitVec.or_comm]
 
-set_option maxHeartbeats 2000000 in
+set_option maxHeartbeats 5000000 in
  theorem bitreverse64_pattern_valid : Puddle.CTree.Pattern.Valid (bitreverse_pattern 64) := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator,
-      Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpSequenceMatcher
+  provePuddleValid
   rintro _ ty rfl hty value hvalue property
   cases ty with
   | mk bw hint =>
@@ -870,21 +794,14 @@ set_option maxHeartbeats 2000000 in
         RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField, reg_and_comm, reg_or_comm] using
         (Data.RISCV.bitreverse_refinement (x := .val _))
     · intro bits
-      simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-        RuntimeValue.isRefinedBy, Data.LLVM.Int.bitreverse, isRefinedBy, Id.run]
+      simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.bitreverse, isRefinedBy, Id.run]
 
 
 
-set_option maxHeartbeats 2000000 in
+set_option maxHeartbeats 5000000 in
  theorem bitreverse32_pattern_valid : Puddle.CTree.Pattern.Valid (bitreverse_pattern 32) := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator,
-      Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpSequenceMatcher
+  provePuddleValid
   rintro _ ty rfl hty value hvalue property
   cases ty with
   | mk bw hint =>
@@ -898,21 +815,14 @@ set_option maxHeartbeats 2000000 in
         RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField, reg_and_comm, reg_or_comm] using
         (Data.RISCV.bitreverse_refinement_32 (x := .val _))
     · intro bits
-      simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-        RuntimeValue.isRefinedBy, Data.LLVM.Int.bitreverse, isRefinedBy, Id.run]
+      simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.bitreverse, isRefinedBy, Id.run]
 
 
 
-set_option maxHeartbeats 2000000 in
+set_option maxHeartbeats 5000000 in
  theorem fshl64General_pattern_valid : Puddle.CTree.Pattern.Valid (lowerFunnelShift true 64) := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator,
-      Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpSequenceMatcher
+  provePuddleValid
   rintro _ ty rfl hty lhs hleft rhs hright amt hamt property
   cases ty with
   | mk bw hint =>
@@ -927,19 +837,17 @@ set_option maxHeartbeats 2000000 in
     · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
         RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField, reg_or_comm] using
         (Data.RISCV.fshlGeneral_refinement (a := .val _) (b := .val _) (c := .val _))
-    all_goals intros <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-      RuntimeValue.isRefinedBy, Data.LLVM.Int.fshl, isRefinedBy, Id.run]
+    all_goals first
+      | rintro outcome firstBits secondBits thirdBits rfl
+      | rintro outcome firstBits secondBits rfl
+      | intro bits
+      | skip
+    all_goals simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.fshl, isRefinedBy, Id.run]
 
-set_option maxHeartbeats 2000000 in
+set_option maxHeartbeats 5000000 in
  theorem fshl32General_pattern_valid : Puddle.CTree.Pattern.Valid (lowerFunnelShift true 32) := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator,
-      Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpSequenceMatcher
+  provePuddleValid
   rintro _ ty rfl hty lhs hleft rhs hright amt hamt property
   cases ty with
   | mk bw hint =>
@@ -954,19 +862,17 @@ set_option maxHeartbeats 2000000 in
     · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
         RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField, reg_or_comm] using
         (Data.RISCV.fshlGeneralw_refinement (a := .val _) (b := .val _) (c := .val _))
-    all_goals intros <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-      RuntimeValue.isRefinedBy, Data.LLVM.Int.fshl, isRefinedBy, Id.run]
+    all_goals first
+      | rintro outcome firstBits secondBits thirdBits rfl
+      | rintro outcome firstBits secondBits rfl
+      | intro bits
+      | skip
+    all_goals simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.fshl, isRefinedBy, Id.run]
 
-set_option maxHeartbeats 2000000 in
+set_option maxHeartbeats 5000000 in
  theorem fshr64General_pattern_valid : Puddle.CTree.Pattern.Valid (lowerFunnelShift false 64) := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator,
-      Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpSequenceMatcher
+  provePuddleValid
   rintro _ ty rfl hty lhs hleft rhs hright amt hamt property
   cases ty with
   | mk bw hint =>
@@ -981,19 +887,17 @@ set_option maxHeartbeats 2000000 in
     · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
         RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField, reg_or_comm] using
         (Data.RISCV.fshrGeneral_refinement (a := .val _) (b := .val _) (c := .val _))
-    all_goals intros <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-      RuntimeValue.isRefinedBy, Data.LLVM.Int.fshr, isRefinedBy, Id.run]
+    all_goals first
+      | rintro outcome firstBits secondBits thirdBits rfl
+      | rintro outcome firstBits secondBits rfl
+      | intro bits
+      | skip
+    all_goals simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.fshr, isRefinedBy, Id.run]
 
-set_option maxHeartbeats 2000000 in
+set_option maxHeartbeats 5000000 in
  theorem fshr32General_pattern_valid : Puddle.CTree.Pattern.Valid (lowerFunnelShift false 32) := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator,
-      Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpSequenceMatcher
+  provePuddleValid
   rintro _ ty rfl hty lhs hleft rhs hright amt hamt property
   cases ty with
   | mk bw hint =>
@@ -1008,19 +912,17 @@ set_option maxHeartbeats 2000000 in
     · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
         RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField, reg_or_comm] using
         (Data.RISCV.fshrGeneralw_refinement (a := .val _) (b := .val _) (c := .val _))
-    all_goals intros <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-      RuntimeValue.isRefinedBy, Data.LLVM.Int.fshr, isRefinedBy, Id.run]
+    all_goals first
+      | rintro outcome firstBits secondBits thirdBits rfl
+      | rintro outcome firstBits secondBits rfl
+      | intro bits
+      | skip
+    all_goals simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.fshr, isRefinedBy, Id.run]
 
-set_option maxHeartbeats 2000000 in
+set_option maxHeartbeats 5000000 in
  theorem selectGeneral_pattern_valid : Puddle.CTree.Pattern.Valid (select_pattern false false) := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator,
-      Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpSequenceMatcher
+  provePuddleValid
   rintro _ ty rfl hty _ cty rfl hcty cond hcond lhs hleft rhs hright property
   cases cty with
   | mk cbw chint =>
@@ -1039,13 +941,23 @@ set_option maxHeartbeats 2000000 in
         | val cbits =>
           rcases BitVec.eq_zero_or_eq_one cbits with rfl | rfl
           <;> cases t <;> cases f <;> simpSequenceCreation
-          all_goals intros <;> simp [CanInterpretTo.select_int (⟨64, hint⟩),
+          all_goals first
+            | rintro outcome firstBits secondBits thirdBits rfl
+            | rintro outcome firstBits secondBits rfl
+            | intro bits
+            | skip
+          all_goals simp [CanInterpretTo.select_int (⟨64, hint⟩),
             CanInterpretTo.select_int (⟨32, hint⟩), CanInterpretTo.select_int (⟨1, hint⟩), Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
             RuntimeValue.isRefinedBy, Data.LLVM.Int.select, isRefinedBy, Id.run,
             Data.RISCV.czeroeqz, Data.RISCV.czeronez, Data.RISCV.or, RISCV.Reg.toInt]
         | poison =>
           cases t <;> cases f <;> simpSequenceCreation
-          all_goals intros <;> simp [CanInterpretTo.select_int (⟨64, hint⟩),
+          all_goals first
+            | rintro outcome firstBits secondBits thirdBits rfl
+            | rintro outcome firstBits secondBits rfl
+            | intro bits
+            | skip
+          all_goals simp [CanInterpretTo.select_int (⟨64, hint⟩),
             CanInterpretTo.select_int (⟨32, hint⟩), CanInterpretTo.select_int (⟨1, hint⟩), Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
             RuntimeValue.isRefinedBy, Data.LLVM.Int.select, isRefinedBy, Id.run]
 

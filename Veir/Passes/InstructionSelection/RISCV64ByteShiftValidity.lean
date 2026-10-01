@@ -215,13 +215,8 @@ private theorem lshr64_byte_refines (x : Data.LLVM.Byte 64) (y bits : BitVec 64)
   veir_bv_decide
 
 private theorem lshr32_valid : Veir.Puddle.CTree.Pattern.Valid (lowerByteShift .lshr 32 .srlw rfl) := by
-  conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported,
-      MatchDecl.Supported, CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  unfold lowerByteShift castToReg castFromReg emitUnit emitRISCV
+  provePuddleValid
   simp only [TypeAttr.of_typeAttr]
   rintro _ ty rfl hty _ rhsTy rfl hwidth lhs hleft rhs hright property
   cases rhsTy with
@@ -242,7 +237,7 @@ private theorem lshr32_valid : Veir.Puddle.CTree.Pattern.Valid (lowerByteShift .
         cases x <;> cases y <;> simp [CanInterpretTo.lshr_int (⟨32, hint⟩)]
         · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
             RuntimeValue.isRefinedBy, LLVM.Int.toReg] using (lshr32_int_refines (.val _) (.val _) property.exact)
-        all_goals intros <;> simp_all [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+        all_goals intros <;> subst_vars <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
           RuntimeValue.isRefinedBy, Data.LLVM.Int.lshr, isRefinedBy, Id.run]
     case byteType bt =>
       cases bt with
@@ -256,18 +251,14 @@ private theorem lshr32_valid : Veir.Puddle.CTree.Pattern.Valid (lowerByteShift .
           simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
             RuntimeValue.isRefinedBy] using (lshr32_byte_refines x _ bits property.exact)
         · intros
-          simp_all [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+          subst_vars
+          simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
             RuntimeValue.isRefinedBy, Data.LLVM.Byte.lshr, Data.LLVM.Byte.allPoison,
             Data.LLVM.Byte.isRefinedBy, RISCV.Reg.toByte] <;> bv_decide
 
 private theorem lshr64_valid : Veir.Puddle.CTree.Pattern.Valid (lowerByteShift .lshr 64 .srl rfl) := by
-  conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported,
-      MatchDecl.Supported, CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  unfold lowerByteShift castToReg castFromReg emitUnit emitRISCV
+  provePuddleValid
   simp only [TypeAttr.of_typeAttr]
   rintro _ ty rfl hty _ rhsTy rfl hwidth lhs hleft rhs hright property
   cases rhsTy with
@@ -288,7 +279,7 @@ private theorem lshr64_valid : Veir.Puddle.CTree.Pattern.Valid (lowerByteShift .
         cases x <;> cases y <;> simp [CanInterpretTo.lshr_int (⟨64, hint⟩)]
         · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
             RuntimeValue.isRefinedBy, LLVM.Int.toReg] using (lshr64_int_refines (.val _) (.val _) property.exact)
-        all_goals intros <;> simp_all [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+        all_goals intros <;> subst_vars <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
           RuntimeValue.isRefinedBy, Data.LLVM.Int.lshr, isRefinedBy, Id.run]
     case byteType bt =>
       cases bt with
@@ -302,18 +293,14 @@ private theorem lshr64_valid : Veir.Puddle.CTree.Pattern.Valid (lowerByteShift .
           simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
             RuntimeValue.isRefinedBy] using (lshr64_byte_refines x _ bits property.exact)
         · intros
-          simp_all [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+          subst_vars
+          simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
             RuntimeValue.isRefinedBy, Data.LLVM.Byte.lshr, Data.LLVM.Byte.allPoison,
             Data.LLVM.Byte.isRefinedBy, RISCV.Reg.toByte] <;> bv_decide
 
 private theorem shl32_valid : Veir.Puddle.CTree.Pattern.Valid (lowerByteShift .shl 32 .sllw rfl) := by
-  conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported,
-      MatchDecl.Supported, CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  unfold lowerByteShift castToReg castFromReg emitUnit emitRISCV
+  provePuddleValid
   simp only [TypeAttr.of_typeAttr]
   rintro _ ty rfl hty _ rhsTy rfl hwidth lhs hleft rhs hright property
   cases rhsTy with
@@ -334,7 +321,7 @@ private theorem shl32_valid : Veir.Puddle.CTree.Pattern.Valid (lowerByteShift .s
         cases x <;> cases y <;> simp [CanInterpretTo.shl_int (⟨32, hint⟩)]
         · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
             RuntimeValue.isRefinedBy, LLVM.Int.toReg] using (shl32_int_refines (.val _) (.val _) property.nsw property.nuw)
-        all_goals intros <;> simp_all [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+        all_goals intros <;> subst_vars <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
           RuntimeValue.isRefinedBy, Data.LLVM.Int.shl, isRefinedBy, Id.run]
     case byteType bt =>
       cases bt with
@@ -349,23 +336,18 @@ private theorem shl32_valid : Veir.Puddle.CTree.Pattern.Valid (lowerByteShift .s
             simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
               RuntimeValue.isRefinedBy] using (shl32_byte_refines x _ bits property.nuw)
           · intros
-            simp_all [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+            simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
               RuntimeValue.isRefinedBy, Data.LLVM.Byte.shl, Data.LLVM.Byte.allPoison,
               Data.LLVM.Byte.isRefinedBy, Id.run, RISCV.Reg.toByte] <;> bv_decide
-        · constructor
-          · cases y <;> simp
-          · intro target _
-            exact ⟨.fail none, CanInterpretTo.shl_byte_fail 32 property x y hn, by simp⟩
+        · cases y <;> simp
+          all_goals
+            intros
+            exact ⟨.fail none, CanInterpretTo.shl_byte_fail 32 property x _ hn, by simp⟩
 
 
 private theorem shl64_valid : Veir.Puddle.CTree.Pattern.Valid (lowerByteShift .shl 64 .sll rfl) := by
-  conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported,
-      MatchDecl.Supported, CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  unfold lowerByteShift castToReg castFromReg emitUnit emitRISCV
+  provePuddleValid
   simp only [TypeAttr.of_typeAttr]
   rintro _ ty rfl hty _ rhsTy rfl hwidth lhs hleft rhs hright property
   cases rhsTy with
@@ -386,7 +368,7 @@ private theorem shl64_valid : Veir.Puddle.CTree.Pattern.Valid (lowerByteShift .s
         cases x <;> cases y <;> simp [CanInterpretTo.shl_int (⟨64, hint⟩)]
         · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
             RuntimeValue.isRefinedBy, LLVM.Int.toReg] using (shl64_int_refines (.val _) (.val _) property.nsw property.nuw)
-        all_goals intros <;> simp_all [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+        all_goals intros <;> subst_vars <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
           RuntimeValue.isRefinedBy, Data.LLVM.Int.shl, isRefinedBy, Id.run]
     case byteType bt =>
       cases bt with
@@ -401,13 +383,13 @@ private theorem shl64_valid : Veir.Puddle.CTree.Pattern.Valid (lowerByteShift .s
             simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
               RuntimeValue.isRefinedBy] using (shl64_byte_refines x _ bits property.nuw)
           · intros
-            simp_all [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+            simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
               RuntimeValue.isRefinedBy, Data.LLVM.Byte.shl, Data.LLVM.Byte.allPoison,
               Data.LLVM.Byte.isRefinedBy, Id.run, RISCV.Reg.toByte] <;> bv_decide
-        · constructor
-          · cases y <;> simp
-          · intro target _
-            exact ⟨.fail none, CanInterpretTo.shl_byte_fail 64 property x y hn, by simp⟩
+        · cases y <;> simp
+          all_goals
+            intros
+            exact ⟨.fail none, CanInterpretTo.shl_byte_fail 64 property x _ hn, by simp⟩
 
 
 end

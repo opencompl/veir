@@ -76,12 +76,7 @@ private theorem ashr8_refines (x y : Data.LLVM.Int 8) (exact : Bool) :
 
 private theorem ashr8_valid : Veir.Puddle.CTree.Pattern.Valid (ashr_pattern 8) := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported,
-      MatchDecl.Supported, CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hty lhs hleft rhs hright property
   cases ty with
   | mk bw hint =>
@@ -93,7 +88,7 @@ private theorem ashr8_valid : Veir.Puddle.CTree.Pattern.Valid (ashr_pattern 8) :
     cases x <;> cases y <;> simp [CanInterpretTo.ashr_int (⟨8, hint⟩)]
     · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
         RuntimeValue.isRefinedBy, LLVM.Int.toReg] using (ashr8_refines (.val _) (.val _) property.exact)
-    all_goals intros <;> simp_all [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+    all_goals intros <;> subst_vars <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
       RuntimeValue.isRefinedBy, Data.LLVM.Int.ashr, isRefinedBy, Id.run]
 
 private theorem ashr32_refines (x y : Data.LLVM.Int 32) (exact : Bool) :
@@ -102,12 +97,7 @@ private theorem ashr32_refines (x y : Data.LLVM.Int 32) (exact : Bool) :
 
 private theorem ashr32_valid : Veir.Puddle.CTree.Pattern.Valid (ashr_pattern 32) := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported,
-      MatchDecl.Supported, CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hty lhs hleft rhs hright property
   cases ty with
   | mk bw hint =>
@@ -119,7 +109,7 @@ private theorem ashr32_valid : Veir.Puddle.CTree.Pattern.Valid (ashr_pattern 32)
     cases x <;> cases y <;> simp [CanInterpretTo.ashr_int (⟨32, hint⟩)]
     · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
         RuntimeValue.isRefinedBy, LLVM.Int.toReg] using (ashr32_refines (.val _) (.val _) property.exact)
-    all_goals intros <;> simp_all [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+    all_goals intros <;> subst_vars <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
       RuntimeValue.isRefinedBy, Data.LLVM.Int.ashr, isRefinedBy, Id.run]
 
 private theorem ashr64_refines (x y : Data.LLVM.Int 64) (exact : Bool) :
@@ -128,12 +118,7 @@ private theorem ashr64_refines (x y : Data.LLVM.Int 64) (exact : Bool) :
 
 private theorem ashr64_valid : Veir.Puddle.CTree.Pattern.Valid (ashr_pattern 64) := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported,
-      MatchDecl.Supported, CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hty lhs hleft rhs hright property
   cases ty with
   | mk bw hint =>
@@ -145,7 +130,7 @@ private theorem ashr64_valid : Veir.Puddle.CTree.Pattern.Valid (ashr_pattern 64)
     cases x <;> cases y <;> simp [CanInterpretTo.ashr_int (⟨64, hint⟩)]
     · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
         RuntimeValue.isRefinedBy, LLVM.Int.toReg] using (ashr64_refines (.val _) (.val _) property.exact)
-    all_goals intros <;> simp_all [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+    all_goals intros <;> subst_vars <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
       RuntimeValue.isRefinedBy, Data.LLVM.Int.ashr, isRefinedBy, Id.run]
 
 end

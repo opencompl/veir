@@ -65,12 +65,7 @@ private theorem constant_ctree_bits_eq_decode (w : Nat) (attr : IntegerAttr) :
 
 private theorem icmp64_eq_zero_valid : Veir.Puddle.CTree.Pattern.Valid (icmp_pattern 64 .eq true) := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported,
-      MatchDecl.Supported, CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hty _ resTy rfl hres lhs hleft constantProps hcguard rhs hconst property hprop hzero
   cases ty with
   | mk bw hint =>
@@ -97,17 +92,13 @@ private theorem icmp64_eq_zero_valid : Veir.Puddle.CTree.Pattern.Valid (icmp_pat
           Data.LLVM.Int.constant, Data.RISCV.li] using
           (Data.RISCV.icmp_refinement_eq_zero_rhs (x := .val _))
       · intros
-        simp_all [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+        subst_vars
+        simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
           RuntimeValue.isRefinedBy, Data.LLVM.Int.icmp, isRefinedBy, Id.run]
 
 private theorem icmp64_ne_zero_valid : Veir.Puddle.CTree.Pattern.Valid (icmp_pattern 64 .ne true) := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported,
-      MatchDecl.Supported, CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hty _ resTy rfl hres lhs hleft constantProps hcguard rhs hconst property hprop hzero
   cases ty with
   | mk bw hint =>
@@ -134,16 +125,12 @@ private theorem icmp64_ne_zero_valid : Veir.Puddle.CTree.Pattern.Valid (icmp_pat
           Data.LLVM.Int.constant, Data.RISCV.li] using
           (Data.RISCV.icmp_refinement_ne_zero_rhs (x := .val _))
       · intros
-        simp_all [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+        subst_vars
+        simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
           RuntimeValue.isRefinedBy, Data.LLVM.Int.icmp, isRefinedBy, Id.run]
 private theorem icmp32_eq_zero_valid : Veir.Puddle.CTree.Pattern.Valid (icmp_pattern 32 .eq true) := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported,
-      MatchDecl.Supported, CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hty _ resTy rfl hres lhs hleft constantProps hcguard rhs hconst property hprop hzero
   cases ty with
   | mk bw hint =>
@@ -170,16 +157,12 @@ private theorem icmp32_eq_zero_valid : Veir.Puddle.CTree.Pattern.Valid (icmp_pat
           Data.LLVM.Int.constant, Data.RISCV.li, Data.RISCV.xor, Data.RISCV.sextb, Data.RISCV.sextw, Data.RISCV.addiw] using
           (Data.RISCV.icmp_refinement_eq_32 (x := .val _) (y := .val 0))
       · intros
-        simp_all [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+        subst_vars
+        simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
           RuntimeValue.isRefinedBy, Data.LLVM.Int.icmp, isRefinedBy, Id.run]
 private theorem icmp32_ne_zero_valid : Veir.Puddle.CTree.Pattern.Valid (icmp_pattern 32 .ne true) := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported,
-      MatchDecl.Supported, CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hty _ resTy rfl hres lhs hleft constantProps hcguard rhs hconst property hprop hzero
   cases ty with
   | mk bw hint =>
@@ -206,16 +189,12 @@ private theorem icmp32_ne_zero_valid : Veir.Puddle.CTree.Pattern.Valid (icmp_pat
           Data.LLVM.Int.constant, Data.RISCV.li, Data.RISCV.xor, Data.RISCV.sextb, Data.RISCV.sextw, Data.RISCV.addiw] using
           (Data.RISCV.icmp_refinement_ne_32 (x := .val _) (y := .val 0))
       · intros
-        simp_all [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+        subst_vars
+        simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
           RuntimeValue.isRefinedBy, Data.LLVM.Int.icmp, isRefinedBy, Id.run]
 private theorem icmp8_eq_zero_valid : Veir.Puddle.CTree.Pattern.Valid (icmp_pattern 8 .eq true) := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported,
-      MatchDecl.Supported, CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hty _ resTy rfl hres lhs hleft constantProps hcguard rhs hconst property hprop hzero
   cases ty with
   | mk bw hint =>
@@ -242,16 +221,12 @@ private theorem icmp8_eq_zero_valid : Veir.Puddle.CTree.Pattern.Valid (icmp_patt
           Data.LLVM.Int.constant, Data.RISCV.li, Data.RISCV.xor, Data.RISCV.sextb, Data.RISCV.sextw, Data.RISCV.addiw] using
           (Data.RISCV.icmp_refinement_eq_8 (x := .val _) (y := .val 0))
       · intros
-        simp_all [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+        subst_vars
+        simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
           RuntimeValue.isRefinedBy, Data.LLVM.Int.icmp, isRefinedBy, Id.run]
 private theorem icmp8_ne_zero_valid : Veir.Puddle.CTree.Pattern.Valid (icmp_pattern 8 .ne true) := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported,
-      MatchDecl.Supported, CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hty _ resTy rfl hres lhs hleft constantProps hcguard rhs hconst property hprop hzero
   cases ty with
   | mk bw hint =>
@@ -278,7 +253,8 @@ private theorem icmp8_ne_zero_valid : Veir.Puddle.CTree.Pattern.Valid (icmp_patt
           Data.LLVM.Int.constant, Data.RISCV.li, Data.RISCV.xor, Data.RISCV.sextb, Data.RISCV.sextw, Data.RISCV.addiw] using
           (Data.RISCV.icmp_refinement_ne_8 (x := .val _) (y := .val 0))
       · intros
-        simp_all [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
+        subst_vars
+        simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
           RuntimeValue.isRefinedBy, Data.LLVM.Int.icmp, isRefinedBy, Id.run]
 
 end

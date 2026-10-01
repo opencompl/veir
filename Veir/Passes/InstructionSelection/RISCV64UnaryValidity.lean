@@ -58,14 +58,8 @@ private theorem CanInterpretTo.ctpop_int (ty : IntegerType)
   cases results <;> simp
 
 private theorem ctlz64_valid : Veir.Puddle.CTree.Pattern.Valid ctlz64_pattern := by
-  conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported,
-      MatchDecl.Supported, CreateDecl.Supported, SupportedOpCode,
-      get_effects, is_terminator]
-  · cbv
-  · decide
-  simpPuddleSemantics
+  unfold ctlz64_pattern lowerUnary
+  provePuddleValid
   rintro _ ty rfl hty value hvalue property
   cases ty with
   | mk bw hint =>
@@ -81,14 +75,8 @@ private theorem ctlz64_valid : Veir.Puddle.CTree.Pattern.Valid ctlz64_pattern :=
       simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.ctlz, isRefinedBy, Id.run]
 
 private theorem ctlz32_valid : Veir.Puddle.CTree.Pattern.Valid ctlz32_pattern := by
-  conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported,
-      MatchDecl.Supported, CreateDecl.Supported, SupportedOpCode,
-      get_effects, is_terminator]
-  · cbv
-  · decide
-  simpPuddleSemantics
+  unfold ctlz32_pattern lowerUnary
+  provePuddleValid
   rintro _ ty rfl hty value hvalue property
   cases ty with
   | mk bw hint =>
@@ -103,14 +91,8 @@ private theorem ctlz32_valid : Veir.Puddle.CTree.Pattern.Valid ctlz32_pattern :=
     · intro bits
       simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.ctlz, isRefinedBy, Id.run]
 private theorem cttz64_valid : Veir.Puddle.CTree.Pattern.Valid cttz64_pattern := by
-  conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported,
-      MatchDecl.Supported, CreateDecl.Supported, SupportedOpCode,
-      get_effects, is_terminator]
-  · cbv
-  · decide
-  simpPuddleSemantics
+  unfold cttz64_pattern lowerUnary
+  provePuddleValid
   rintro _ ty rfl hty value hvalue property
   cases ty with
   | mk bw hint =>
@@ -125,14 +107,8 @@ private theorem cttz64_valid : Veir.Puddle.CTree.Pattern.Valid cttz64_pattern :=
     · intro bits
       simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.cttz, isRefinedBy, Id.run]
 private theorem cttz32_valid : Veir.Puddle.CTree.Pattern.Valid cttz32_pattern := by
-  conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported,
-      MatchDecl.Supported, CreateDecl.Supported, SupportedOpCode,
-      get_effects, is_terminator]
-  · cbv
-  · decide
-  simpPuddleSemantics
+  unfold cttz32_pattern lowerUnary
+  provePuddleValid
   rintro _ ty rfl hty value hvalue property
   cases ty with
   | mk bw hint =>
@@ -147,14 +123,8 @@ private theorem cttz32_valid : Veir.Puddle.CTree.Pattern.Valid cttz32_pattern :=
     · intro bits
       simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.cttz, isRefinedBy, Id.run]
 private theorem ctpop64_valid : Veir.Puddle.CTree.Pattern.Valid ctpop64_pattern := by
-  conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported,
-      MatchDecl.Supported, CreateDecl.Supported, SupportedOpCode,
-      get_effects, is_terminator]
-  · cbv
-  · decide
-  simpPuddleSemantics
+  unfold ctpop64_pattern lowerUnary
+  provePuddleValid
   rintro _ ty rfl hty value hvalue property
   cases ty with
   | mk bw hint =>
@@ -169,14 +139,8 @@ private theorem ctpop64_valid : Veir.Puddle.CTree.Pattern.Valid ctpop64_pattern 
     · intro bits
       simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.ctpop, isRefinedBy, Id.run]
 private theorem ctpop32_valid : Veir.Puddle.CTree.Pattern.Valid ctpop32_pattern := by
-  conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported,
-      MatchDecl.Supported, CreateDecl.Supported, SupportedOpCode,
-      get_effects, is_terminator]
-  · cbv
-  · decide
-  simpPuddleSemantics
+  unfold ctpop32_pattern lowerUnary
+  provePuddleValid
   rintro _ ty rfl hty value hvalue property
   cases ty with
   | mk bw hint =>

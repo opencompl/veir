@@ -355,7 +355,7 @@ theorem CreateProg.interpretReplacement_models (prog : CreateProg OpCode α)
   | fail op => rfl
   | ok final =>
     simp only [Interp.foldProp_ok, Replacement.RefinesRoot]
-    split <;> simp_all [pure]
+    split <;> rename_i hvalues <;> simp [pure, hvalues]
 
 /--
 For every non-root matched behavior and every creation behavior, some root behavior is refined.
@@ -419,14 +419,16 @@ macro "provePuddleSupported" : tactic =>
       CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator]
   ))
 
-/-- Normalize assignments and deterministic monadic steps without expanding outcome relations. -/
-macro "simpPuddlePlumbing" : tactic =>
-  `(tactic| simp only [Pattern.PreservesSemantics, MatchProg.Models,
+/-- Shared rules for assignment and monadic normalization. -/
+macro "simpPuddleCore" "[" extra:Lean.Parser.Tactic.simpArg,* "]" : tactic => do
+  let extra : Lean.Syntax.TSepArray [`Lean.Parser.Tactic.simpStar,
+      `Lean.Parser.Tactic.simpErase, `Lean.Parser.Tactic.simpLemma] "," := ⟨extra.elemsAndSeps⟩
+  `(tactic| simp (config := { maxSteps := 1000000 }) only [Pattern.PreservesSemantics, MatchProg.Models,
     MatchProg.bindingDecls, List.partition_eq_filter_filter, List.range_succ, List.reverse_cons,
     MatchProg.modelsDecls, MatchDecl.Models,
     CreateProg.interpretReplacement, CreateProg.interpret, CreateProg.interpretDecls,
     ↓CreationM.bind_assoc, ↓CreationM.pure_bind, ↓CreationM.bind_pure,
-    ↓CreationM.checked_bind, ↓CreationM.invalid_bind,
+    ↓CreationM.invalid_bind,
     CreateDecl.interpret, bind, pure,
     Interp.ok.injEq, Interp.ub.injEq, Interp.fail.injEq,
     SemanticAssignment.getValues, SemanticAssignment.getTypes,
@@ -464,21 +466,27 @@ macro "simpPuddlePlumbing" : tactic =>
     /- Elementwise array refinement -/
     RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.arrayIsRefinedBy_refl,
     /- Handle equality injectivity -/
-    Handle.mk.injEq])
+    Handle.mk.injEq, $extra,*])
 
-/-- Normalize semantic plumbing, leaving operation denotations and value conformance opaque. -/
+/-- Normalize assignments and deterministic monadic steps without expanding outcome relations. -/
+macro "simpPuddlePlumbing" : tactic =>
+  `(tactic| simpPuddleCore [↓CreationM.checked_bind])
+
+/--
+Expose the complete semantic proposition while consuming assignment updates.
+The `models_*` equivalences preserve safety and every outcome without duplicating
+long computation tails into separate `safe` and `outcomes` fields.
+-/
 macro "simpPuddleSemantics" : tactic =>
-  `(tactic| (
-    simpPuddlePlumbing
-    simp only [CreationM.Models, CreationM.pure, CreationM.bind,
-      CreationM.choose, CreationM.checked, CreationM.invalid]
-    simpPuddlePlumbing
-  ))
+  `(tactic| simpPuddleCore [CreationM.models_bind, CreationM.models_pure,
+    CreationM.models_checked, CreationM.models_choose, CreationM.models_invalid,
+    Interp.foldProp_ok, Interp.foldProp_ub, Interp.foldProp_fail, Interp.foldProp_onError])
 
 /-- Discharge structural obligations and expose a pattern's assignment-free semantic proposition. -/
 macro "provePuddleValid" : tactic =>
   `(tactic| (
-    unfoldPuddleBuilder
+    -- A caller may have already normalized the builder with `cbv`.
+    try unfoldPuddleBuilder
     constructor
     · provePuddleSupported
     · cbv

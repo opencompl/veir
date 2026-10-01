@@ -446,13 +446,7 @@ end Puddle.CTree
 
 theorem add64_pattern_valid : Puddle.CTree.Pattern.Valid add64_pattern := by
   unfold add64_pattern lowerBinary
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
   intro x y p
@@ -466,18 +460,12 @@ theorem add64_pattern_valid : Puddle.CTree.Pattern.Valid add64_pattern := by
     all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 theorem add32_pattern_valid : Puddle.CTree.Pattern.Valid add32_pattern := by
   unfold add32_pattern lowerBinary
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
   intro x y p
@@ -492,18 +480,12 @@ theorem add32_pattern_valid : Puddle.CTree.Pattern.Valid add32_pattern := by
     all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 theorem sub64_pattern_valid : Puddle.CTree.Pattern.Valid sub64_pattern := by
   unfold sub64_pattern lowerBinary
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
   intro x y p
@@ -518,18 +500,12 @@ theorem sub64_pattern_valid : Puddle.CTree.Pattern.Valid sub64_pattern := by
     all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 theorem sub32_pattern_valid : Puddle.CTree.Pattern.Valid sub32_pattern := by
   unfold sub32_pattern lowerBinary
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
   intro x y p
@@ -544,18 +520,12 @@ theorem sub32_pattern_valid : Puddle.CTree.Pattern.Valid sub32_pattern := by
     all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 theorem mul64_pattern_valid : Puddle.CTree.Pattern.Valid mul64_pattern := by
   unfold mul64_pattern lowerBinary
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
   intro x y p
@@ -570,18 +540,12 @@ theorem mul64_pattern_valid : Puddle.CTree.Pattern.Valid mul64_pattern := by
     all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 theorem mul32_pattern_valid : Puddle.CTree.Pattern.Valid mul32_pattern := by
   unfold mul32_pattern lowerBinary
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
   intro x y p
@@ -596,18 +560,12 @@ theorem mul32_pattern_valid : Puddle.CTree.Pattern.Valid mul32_pattern := by
     all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 theorem xor64_pattern_valid : Puddle.CTree.Pattern.Valid xor64_pattern := by
   unfold xor64_pattern lowerBinary
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
   intro x y p
@@ -622,18 +580,12 @@ theorem xor64_pattern_valid : Puddle.CTree.Pattern.Valid xor64_pattern := by
     all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 theorem xor32_pattern_valid : Puddle.CTree.Pattern.Valid xor32_pattern := by
   unfold xor32_pattern lowerBinary
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
   intro x y p
@@ -648,18 +600,12 @@ theorem xor32_pattern_valid : Puddle.CTree.Pattern.Valid xor32_pattern := by
     all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 theorem smax64_pattern_valid : Puddle.CTree.Pattern.Valid smax64_pattern := by
   unfold smax64_pattern lowerBinary
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
   intro x y p
@@ -674,18 +620,12 @@ theorem smax64_pattern_valid : Puddle.CTree.Pattern.Valid smax64_pattern := by
     all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 theorem smin64_pattern_valid : Puddle.CTree.Pattern.Valid smin64_pattern := by
   unfold smin64_pattern lowerBinary
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
   intro x y p
@@ -700,18 +640,12 @@ theorem smin64_pattern_valid : Puddle.CTree.Pattern.Valid smin64_pattern := by
     all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 theorem smax32_pattern_valid : Puddle.CTree.Pattern.Valid smax32_pattern := by
   unfold smax32_pattern lowerBinary
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
   intro x y p
@@ -726,19 +660,13 @@ theorem smax32_pattern_valid : Puddle.CTree.Pattern.Valid smax32_pattern := by
     all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 
 theorem smin32_pattern_valid : Puddle.CTree.Pattern.Valid smin32_pattern := by
   unfold smin32_pattern lowerBinary
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
   intro x y p
@@ -753,19 +681,13 @@ theorem smin32_pattern_valid : Puddle.CTree.Pattern.Valid smin32_pattern := by
     all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 
 theorem and_pattern_valid : Puddle.CTree.Pattern.Valid and_pattern := by
   unfold and_pattern lowerBinary
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   cases ty with | mk bw sign =>
     dsimp at hwidth
@@ -785,19 +707,13 @@ theorem and_pattern_valid : Puddle.CTree.Pattern.Valid and_pattern := by
       all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 
 theorem or_pattern_valid : Puddle.CTree.Pattern.Valid or_pattern := by
   unfold or_pattern lowerBinary
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   cases ty with | mk bw sign =>
     dsimp at hwidth
@@ -817,19 +733,13 @@ theorem or_pattern_valid : Puddle.CTree.Pattern.Valid or_pattern := by
       all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 
 theorem umax_pattern_valid : Puddle.CTree.Pattern.Valid umax_pattern := by
   unfold umax_pattern lowerBinary
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   cases ty with | mk bw sign =>
     dsimp at hwidth
@@ -847,19 +757,13 @@ theorem umax_pattern_valid : Puddle.CTree.Pattern.Valid umax_pattern := by
       all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 
 theorem umin_pattern_valid : Puddle.CTree.Pattern.Valid umin_pattern := by
   unfold umin_pattern lowerBinary
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   cases ty with | mk bw sign =>
     dsimp at hwidth
@@ -877,19 +781,13 @@ theorem umin_pattern_valid : Puddle.CTree.Pattern.Valid umin_pattern := by
       all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 
 theorem fshl64_pattern_valid : Puddle.CTree.Pattern.Valid fshl64_pattern := by
   unfold fshl64_pattern lowerRotate
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
   intro x y p
@@ -904,19 +802,13 @@ theorem fshl64_pattern_valid : Puddle.CTree.Pattern.Valid fshl64_pattern := by
     all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 
 theorem fshl32_pattern_valid : Puddle.CTree.Pattern.Valid fshl32_pattern := by
   unfold fshl32_pattern lowerRotate
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
   intro x y p
@@ -931,19 +823,13 @@ theorem fshl32_pattern_valid : Puddle.CTree.Pattern.Valid fshl32_pattern := by
     all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 
 theorem fshr64_pattern_valid : Puddle.CTree.Pattern.Valid fshr64_pattern := by
   unfold fshr64_pattern lowerRotate
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
   intro x y p
@@ -958,19 +844,13 @@ theorem fshr64_pattern_valid : Puddle.CTree.Pattern.Valid fshr64_pattern := by
     all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 
 theorem fshr32_pattern_valid : Puddle.CTree.Pattern.Valid fshr32_pattern := by
   unfold fshr32_pattern lowerRotate
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
   intro x y p
@@ -985,19 +865,13 @@ theorem fshr32_pattern_valid : Puddle.CTree.Pattern.Valid fshr32_pattern := by
     all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 
 theorem sdiv64_pattern_valid : Puddle.CTree.Pattern.Valid sdiv64_pattern := by
   unfold sdiv64_pattern lowerBinary
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
   intro x y p
@@ -1017,19 +891,13 @@ theorem sdiv64_pattern_valid : Puddle.CTree.Pattern.Valid sdiv64_pattern := by
     all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 
 theorem sdiv32_pattern_valid : Puddle.CTree.Pattern.Valid sdiv32_pattern := by
   unfold sdiv32_pattern lowerBinary
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
   intro x y p
@@ -1049,19 +917,13 @@ theorem sdiv32_pattern_valid : Puddle.CTree.Pattern.Valid sdiv32_pattern := by
     all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 
 theorem udiv64_pattern_valid : Puddle.CTree.Pattern.Valid udiv64_pattern := by
   unfold udiv64_pattern lowerBinary
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
   intro x y p
@@ -1081,19 +943,13 @@ theorem udiv64_pattern_valid : Puddle.CTree.Pattern.Valid udiv64_pattern := by
     all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 
 theorem udiv32_pattern_valid : Puddle.CTree.Pattern.Valid udiv32_pattern := by
   unfold udiv32_pattern lowerBinary
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
   intro x y p
@@ -1113,19 +969,13 @@ theorem udiv32_pattern_valid : Puddle.CTree.Pattern.Valid udiv32_pattern := by
     all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 
 theorem srem64_pattern_valid : Puddle.CTree.Pattern.Valid srem64_pattern := by
   unfold srem64_pattern lowerBinary
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
   intro x y p
@@ -1145,19 +995,13 @@ theorem srem64_pattern_valid : Puddle.CTree.Pattern.Valid srem64_pattern := by
     all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 
 theorem srem32_pattern_valid : Puddle.CTree.Pattern.Valid srem32_pattern := by
   unfold srem32_pattern lowerBinary
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
   intro x y p
@@ -1177,19 +1021,13 @@ theorem srem32_pattern_valid : Puddle.CTree.Pattern.Valid srem32_pattern := by
     all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 
 theorem urem64_pattern_valid : Puddle.CTree.Pattern.Valid urem64_pattern := by
   unfold urem64_pattern lowerBinary
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
   intro x y p
@@ -1209,19 +1047,13 @@ theorem urem64_pattern_valid : Puddle.CTree.Pattern.Valid urem64_pattern := by
     all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 
 theorem urem32_pattern_valid : Puddle.CTree.Pattern.Valid urem32_pattern := by
   unfold urem32_pattern lowerBinary
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ ty rfl hwidth
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
   intro x y p
@@ -1241,7 +1073,7 @@ theorem urem32_pattern_valid : Puddle.CTree.Pattern.Valid urem32_pattern := by
     all_goals
       intros
       subst_vars
-      try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
+      try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals grind only [isRefinedBy]
 
 
@@ -1372,13 +1204,7 @@ private theorem zextw_refinement_generic (w : Nat) (h : 32 < w) (hw : w ≤ 64)
 
 theorem sext8_pattern_valid : Puddle.CTree.Pattern.Valid sext8_pattern := by
   unfold sext8_pattern lowerExt
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ opType rfl hop
   rintro _ resType rfl hlo hhi
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
@@ -1394,20 +1220,14 @@ theorem sext8_pattern_valid : Puddle.CTree.Pattern.Valid sext8_pattern := by
       all_goals
         intros
         subst_vars
-        try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
+        try simp [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
           Interp.isRefinedBy, isRefinedBy, LLVM.Int.toReg, Data.LLVM.Int.sext,
-          Data.LLVM.Int.zext, Id.run, pure, Pure.pure]
+          Data.LLVM.Int.zext, Id.run, pure, Pure.pure] at hplain ⊢
       all_goals grind only [isRefinedBy]
 
 theorem sext16_pattern_valid : Puddle.CTree.Pattern.Valid sext16_pattern := by
   unfold sext16_pattern lowerExt
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ opType rfl hop
   rintro _ resType rfl hlo hhi
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
@@ -1423,20 +1243,14 @@ theorem sext16_pattern_valid : Puddle.CTree.Pattern.Valid sext16_pattern := by
       all_goals
         intros
         subst_vars
-        try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
+        try simp [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
           Interp.isRefinedBy, isRefinedBy, LLVM.Int.toReg, Data.LLVM.Int.sext,
-          Data.LLVM.Int.zext, Id.run, pure, Pure.pure]
+          Data.LLVM.Int.zext, Id.run, pure, Pure.pure] at hplain ⊢
       all_goals grind only [isRefinedBy]
 
 theorem sext32_pattern_valid : Puddle.CTree.Pattern.Valid sext32_pattern := by
   unfold sext32_pattern lowerExt
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ opType rfl hop
   rintro _ resType rfl hlo hhi
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
@@ -1452,20 +1266,14 @@ theorem sext32_pattern_valid : Puddle.CTree.Pattern.Valid sext32_pattern := by
       all_goals
         intros
         subst_vars
-        try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
+        try simp [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
           Interp.isRefinedBy, isRefinedBy, LLVM.Int.toReg, Data.LLVM.Int.sext,
-          Data.LLVM.Int.zext, Id.run, pure, Pure.pure]
+          Data.LLVM.Int.zext, Id.run, pure, Pure.pure] at hplain ⊢
       all_goals grind only [isRefinedBy]
 
 theorem zext8_pattern_valid : Puddle.CTree.Pattern.Valid zext8_pattern := by
   unfold zext8_pattern lowerExt
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ opType rfl hop
   rintro _ resType rfl hlo hhi
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
@@ -1481,20 +1289,14 @@ theorem zext8_pattern_valid : Puddle.CTree.Pattern.Valid zext8_pattern := by
       all_goals
         intros
         subst_vars
-        try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
+        try simp [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
           Interp.isRefinedBy, isRefinedBy, LLVM.Int.toReg, Data.LLVM.Int.sext,
-          Data.LLVM.Int.zext, Id.run, pure, Pure.pure]
+          Data.LLVM.Int.zext, Id.run, pure, Pure.pure] at hplain ⊢
       all_goals grind only [isRefinedBy]
 
 theorem zext16_pattern_valid : Puddle.CTree.Pattern.Valid zext16_pattern := by
   unfold zext16_pattern lowerExt
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ opType rfl hop
   rintro _ resType rfl hlo hhi
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
@@ -1510,20 +1312,14 @@ theorem zext16_pattern_valid : Puddle.CTree.Pattern.Valid zext16_pattern := by
       all_goals
         intros
         subst_vars
-        try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
+        try simp [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
           Interp.isRefinedBy, isRefinedBy, LLVM.Int.toReg, Data.LLVM.Int.sext,
-          Data.LLVM.Int.zext, Id.run, pure, Pure.pure]
+          Data.LLVM.Int.zext, Id.run, pure, Pure.pure] at hplain ⊢
       all_goals grind only [isRefinedBy]
 
 theorem zext32_pattern_valid : Puddle.CTree.Pattern.Valid zext32_pattern := by
   unfold zext32_pattern lowerExt
-  unfoldPuddleBuilder
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator, Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpPuddleSemantics
+  provePuddleValid
   rintro _ opType rfl hop
   rintro _ resType rfl hlo hhi
   simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
@@ -1539,9 +1335,9 @@ theorem zext32_pattern_valid : Puddle.CTree.Pattern.Valid zext32_pattern := by
       all_goals
         intros
         subst_vars
-        try simp_all [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
+        try simp [RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
           Interp.isRefinedBy, isRefinedBy, LLVM.Int.toReg, Data.LLVM.Int.sext,
-          Data.LLVM.Int.zext, Id.run, pure, Pure.pure]
+          Data.LLVM.Int.zext, Id.run, pure, Pure.pure] at hplain ⊢
       all_goals grind only [isRefinedBy]
 
 end Veir

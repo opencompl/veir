@@ -135,7 +135,7 @@ theorem constant_pattern_valid : Puddle.CTree.Pattern.Valid constant_pattern := 
   have decode : constantIntValue (TypeAttr.of IntegerType it) { value := .integer attr } =
       some ((BitVec.ofInt it.bitwidth (decodeLLVMIntegerConstant attr)).toInt) := rfl
   simp only [decode]
-  simp [RISCV.Reg.toInt, SemanticAssignment.bind]
+  simp [CreationM.models_bind, RISCV.Reg.toInt, SemanticAssignment.bind]
   rw [constant_ctree_bits_eq_decode]
   have roundtrip := ofInt_toInt_setWidth_le64 it.bitwidth hwidth
     (BitVec.ofInt it.bitwidth (decodeLLVMIntegerConstant attr))
@@ -173,38 +173,33 @@ theorem poisonConst_pattern_valid : Puddle.CTree.Pattern.Valid poisonConst_patte
   provePuddleValid
   simp only [TypeAttr.of_typeAttr]
   simp only [Riscv.propertiesOf, CanInterpretTo.li_reg]
-  simpPuddlePlumbing
-  simp [SemanticAssignment.bind]
-  intro ty property
+  simp
+  intro ty property target h
   cases property
-  constructor
-  · intro values h
-    exact (cast_reg_ok_size ty _ values h).symm
-  · intro target h
-    rcases ty with ⟨attr, ht⟩
-    cases attr <;> simp only [Attribute.isType, Bool.false_eq_true] at ht
-    all_goals first
-      | refine ⟨.fail none, ?_, by trivial⟩
-        intro memory
-        change PureOrErr.CanInterpretTo fail (.fail none)
-        simp [fail, _root_.CTree.CTree.trigger]
-        exact .fail
-      | skip
-    case integerType ty ht0 =>
-      change ∃ source, CanInterpretTo (.llvm .mlir__poison) ()
-        #[TypeAttr.of IntegerType ty] #[] source ∧
-        Interp.isRefinedBy RuntimeValue.arrayIsRefinedBy source target
-      change _ at h
-      simp [SemanticAssignment.bind] at h
-      subst target
-      refine ⟨.ok #[.int ty.bitwidth .poison], ?_, ?_⟩
-      · simp
-      · simp [RuntimeValue.isRefinedBy, RISCV.Reg.toInt, isRefinedBy]
-    case llvmPointerType ty ht0 =>
-      rcases h with ⟨a, ⟨values, hv, rfl⟩, ha⟩ | ⟨op, hv, rfl⟩ | ⟨op, hv, rfl⟩
-      · simp [SemanticAssignment.bind] at ha
-        subst target
-        have hm := hv MemoryState.empty
+  cases target with
+  | ok values =>
+    simp only [Interp.foldProp_ok]
+    constructor
+    · exact (cast_reg_ok_size ty _ values h).symm
+    · rcases ty with ⟨attr, ht⟩
+      cases attr <;> simp only [Attribute.isType, Bool.false_eq_true] at ht
+      all_goals first
+        | refine ⟨.fail none, ?_, by trivial⟩
+          intro memory
+          change PureOrErr.CanInterpretTo fail (.fail none)
+          simp [fail, _root_.CTree.CTree.trigger]
+          exact .fail
+        | skip
+      case integerType it ht0 =>
+        change CanInterpretTo (.builtin .unrealized_conversion_cast) ()
+          #[TypeAttr.of IntegerType it] #[.reg ⟨0⟩] (.ok values) at h
+        simp only [CanInterpretTo.cast_reg_int, Interp.ok.injEq] at h
+        subst values
+        refine ⟨.ok #[.int it.bitwidth .poison], ?_, ?_⟩
+        · simp
+        · simp [RuntimeValue.isRefinedBy, RISCV.Reg.toInt, isRefinedBy]
+      case llvmPointerType pt ht0 =>
+        have hm := h MemoryState.empty
         change PureOrErr.CanInterpretTo (pure (_, MemoryState.empty, none))
           (.ok (values, MemoryState.empty, none)) at hm
         have heq := (PureOrErr.CanInterpretTo.pure_iff _ _).mp hm
@@ -215,9 +210,18 @@ theorem poisonConst_pattern_valid : Puddle.CTree.Pattern.Valid poisonConst_patte
             (.ok (#[RuntimeValue.addr .poison], memory, none))
           exact .ret _
         · simp [RuntimeValue.isRefinedBy, Data.LLVM.Ptr.isRefinedBy]
-      all_goals have hm := hv MemoryState.empty
-      all_goals change PureOrErr.CanInterpretTo (pure (_, MemoryState.empty, none)) _ at hm
-      all_goals simp at hm
+  | ub op | fail op =>
+    rcases ty with ⟨attr, ht⟩
+    cases attr <;> simp only [Attribute.isType, Bool.false_eq_true] at ht
+    all_goals first
+      | refine ⟨.fail none, ?_, by trivial⟩
+        intro memory
+        change PureOrErr.CanInterpretTo fail (.fail none)
+        simp [fail, _root_.CTree.CTree.trigger]
+        exact .fail
+      | have hm := h MemoryState.empty
+        change PureOrErr.CanInterpretTo (pure (_, MemoryState.empty, none)) _ at hm
+        simp at hm
 
 namespace Puddle.CTree
 

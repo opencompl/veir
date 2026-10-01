@@ -27,18 +27,15 @@ import all Veir.PatternRewriter.Puddle.Validity
 import all Veir.Passes.InstructionSelection.RISCV64SequenceValidity
 import all Veir.Passes.InstructionSelection.RISCV64CastValidity
 namespace Veir
+attribute [local simp] Llvm.getEffects Llvm.isTerminator
+set_option maxHeartbeats 5000000
+set_option maxRecDepth 100000
 set_option backward.isDefEq.respectTransparency false
 open Puddle Puddle.CTree
-set_option maxHeartbeats 2000000 in
+set_option maxHeartbeats 5000000 in
  theorem selectZeroFalse_pattern_valid : Puddle.CTree.Pattern.Valid (select_pattern false true) := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator,
-      Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpSequenceMatcher
+  provePuddleValid
   rintro _ ty rfl hty _ cty rfl hcty cond hcond lhs hleft props hprops value hsem property hzero
   rcases props with ⟨prop⟩
   cases prop <;> simp only [Bool.false_eq_true] at hprops
@@ -65,27 +62,29 @@ set_option maxHeartbeats 2000000 in
         | val cbits =>
           rcases BitVec.eq_zero_or_eq_one cbits with rfl | rfl
           <;> cases t <;> simpSequenceCreation
-          all_goals intros <;> simp [CanInterpretTo.select_int (⟨64, hint⟩),
+          all_goals first
+            | rintro outcome valueBits conditionBits rfl
+            | intro bits
+            | skip
+          all_goals simp [CanInterpretTo.select_int (⟨64, hint⟩),
             CanInterpretTo.select_int (⟨32, hint⟩), Interp.isRefinedBy,
             RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
             Data.LLVM.Int.select, isRefinedBy, Id.run, Data.RISCV.czeroeqz, RISCV.Reg.toInt]
         | poison =>
           cases t <;> simpSequenceCreation
-          all_goals intros <;> simp [CanInterpretTo.select_int (⟨64, hint⟩),
+          all_goals first
+            | rintro outcome valueBits conditionBits rfl
+            | intro bits
+            | skip
+          all_goals simp [CanInterpretTo.select_int (⟨64, hint⟩),
             CanInterpretTo.select_int (⟨32, hint⟩), Interp.isRefinedBy,
             RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
             Data.LLVM.Int.select, isRefinedBy, Id.run]
 
-set_option maxHeartbeats 2000000 in
+set_option maxHeartbeats 5000000 in
  theorem selectZeroTrue_pattern_valid : Puddle.CTree.Pattern.Valid (select_pattern true false) := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator,
-      Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpSequenceMatcher
+  provePuddleValid
   rintro _ ty rfl hty _ cty rfl hcty cond hcond props hprops value hsem rhs hright property hzero
   rcases props with ⟨prop⟩
   cases prop <;> simp only [Bool.false_eq_true] at hprops
@@ -112,13 +111,21 @@ set_option maxHeartbeats 2000000 in
         | val cbits =>
           rcases BitVec.eq_zero_or_eq_one cbits with rfl | rfl
           <;> cases f <;> simpSequenceCreation
-          all_goals intros <;> simp [CanInterpretTo.select_int (⟨64, hint⟩),
+          all_goals first
+            | rintro outcome valueBits conditionBits rfl
+            | intro bits
+            | skip
+          all_goals simp [CanInterpretTo.select_int (⟨64, hint⟩),
             CanInterpretTo.select_int (⟨32, hint⟩), Interp.isRefinedBy,
             RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
             Data.LLVM.Int.select, isRefinedBy, Id.run, Data.RISCV.czeronez, RISCV.Reg.toInt]
         | poison =>
           cases f <;> simpSequenceCreation
-          all_goals intros <;> simp [CanInterpretTo.select_int (⟨64, hint⟩),
+          all_goals first
+            | rintro outcome valueBits conditionBits rfl
+            | intro bits
+            | skip
+          all_goals simp [CanInterpretTo.select_int (⟨64, hint⟩),
             CanInterpretTo.select_int (⟨32, hint⟩), Interp.isRefinedBy,
             RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy,
             Data.LLVM.Int.select, isRefinedBy, Id.run]
@@ -139,7 +146,7 @@ private theorem rotate_right_imm6 (x : BitVec 64) :
   rw [narrow_ofInt6]
   have modulus : BitVec.ofInt 6 (x.toInt % 64) = BitVec.ofInt 6 x.toInt := by
     apply BitVec.eq_of_toNat_eq
-    simp [BitVec.toNat_ofInt, Int.add_emod]
+    simp [BitVec.toNat_ofInt]
   rw [modulus]
   change x.signExtend 6 = _
   rw [BitVec.signExtend_eq_setWidth_of_le _ (by decide)]
@@ -151,7 +158,7 @@ private theorem rotate_left_imm6 (x : BitVec 64) :
   rw [narrow_ofInt6]
   have modulus : BitVec.ofInt 6 (-(x.toInt % 64) % 64) = BitVec.ofInt 6 (-x.toInt) := by
     apply BitVec.eq_of_toNat_eq
-    simp [BitVec.toNat_ofInt, Int.add_emod, Int.sub_emod]
+    simp [BitVec.toNat_ofInt]
     omega
   rw [modulus, BitVec.ofInt_neg]
   congr 1
@@ -175,7 +182,7 @@ private theorem rotate_right_imm5 (x : BitVec 32) :
   rw [narrow_ofInt5]
   have modulus : BitVec.ofInt 5 (x.toInt % 32) = BitVec.ofInt 5 x.toInt := by
     apply BitVec.eq_of_toNat_eq
-    simp [BitVec.toNat_ofInt, Int.add_emod]
+    simp [BitVec.toNat_ofInt]
   rw [modulus]
   change x.signExtend 5 = _
   rw [BitVec.signExtend_eq_setWidth_of_le _ (by decide)]
@@ -187,7 +194,7 @@ private theorem rotate_left_imm5 (x : BitVec 32) :
   rw [narrow_ofInt5]
   have modulus : BitVec.ofInt 5 (-(x.toInt % 32) % 32) = BitVec.ofInt 5 (-x.toInt) := by
     apply BitVec.eq_of_toNat_eq
-    simp [BitVec.toNat_ofInt, Int.add_emod, Int.sub_emod]
+    simp [BitVec.toNat_ofInt]
     omega
   rw [modulus, BitVec.ofInt_neg]
   congr 1
@@ -219,16 +226,10 @@ private theorem rotate_left_imm5 (x : BitVec 32) :
     CreationM.pure #[.reg (Data.RISCV.roriw (props.immField 5) x)] :=
   choose_eq_pure _ _ (CanInterpretTo.roriw_reg ty props x)
 
-set_option maxHeartbeats 2000000 in
+set_option maxHeartbeats 5000000 in
  theorem fshl64Const_pattern_valid : Puddle.CTree.Pattern.Valid (lowerConstRotate true 64) := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator,
-      Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpSequenceMatcher
+  provePuddleValid
   rintro _ ty rfl hty value hvalue props hprops cvalue hsem property
   rcases props with ⟨prop⟩
   cases prop <;> simp only [Bool.false_eq_true] at hprops
@@ -244,8 +245,6 @@ set_option maxHeartbeats 2000000 in
     simp only [RuntimeValue.Conforms.integerType] at hvalue
     obtain ⟨x, rfl⟩ := hvalue
     cases x <;> simp only [decode]
-    all_goals simpSequenceCreation
-    all_goals simp only [decode, Option.bind_some]
     all_goals simpSequenceCreation
     all_goals simp [CanInterpretTo.fshl_int (⟨64, hint⟩)]
     · have immediate := rotate_left_imm6 (BitVec.ofInt 64 (decodeLLVMIntegerConstant attr))
@@ -255,19 +254,12 @@ set_option maxHeartbeats 2000000 in
         immediate] using
         (Data.RISCV.fshl_rori_refinement (a := .val _) (c := .val _))
     · intro bits
-      simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-        RuntimeValue.isRefinedBy, Data.LLVM.Int.fshl, isRefinedBy, Id.run]
+      simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.fshl, isRefinedBy, Id.run]
 
-set_option maxHeartbeats 2000000 in
+set_option maxHeartbeats 5000000 in
  theorem fshl32Const_pattern_valid : Puddle.CTree.Pattern.Valid (lowerConstRotate true 32) := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator,
-      Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpSequenceMatcher
+  provePuddleValid
   rintro _ ty rfl hty value hvalue props hprops cvalue hsem property
   rcases props with ⟨prop⟩
   cases prop <;> simp only [Bool.false_eq_true] at hprops
@@ -283,8 +275,6 @@ set_option maxHeartbeats 2000000 in
     simp only [RuntimeValue.Conforms.integerType] at hvalue
     obtain ⟨x, rfl⟩ := hvalue
     cases x <;> simp only [decode]
-    all_goals simpSequenceCreation
-    all_goals simp only [decode, Option.bind_some]
     all_goals simpSequenceCreation
     all_goals simp [CanInterpretTo.fshl_int (⟨32, hint⟩)]
     · have immediate := rotate_left_imm5 (BitVec.ofInt 32 (decodeLLVMIntegerConstant attr))
@@ -294,19 +284,12 @@ set_option maxHeartbeats 2000000 in
         immediate] using
         (Data.RISCV.fshl_roriw_refinement (a := .val _) (c := .val _))
     · intro bits
-      simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-        RuntimeValue.isRefinedBy, Data.LLVM.Int.fshl, isRefinedBy, Id.run]
+      simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.fshl, isRefinedBy, Id.run]
 
-set_option maxHeartbeats 2000000 in
+set_option maxHeartbeats 5000000 in
  theorem fshr64Const_pattern_valid : Puddle.CTree.Pattern.Valid (lowerConstRotate false 64) := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator,
-      Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpSequenceMatcher
+  provePuddleValid
   rintro _ ty rfl hty value hvalue props hprops cvalue hsem property
   rcases props with ⟨prop⟩
   cases prop <;> simp only [Bool.false_eq_true] at hprops
@@ -322,8 +305,6 @@ set_option maxHeartbeats 2000000 in
     simp only [RuntimeValue.Conforms.integerType] at hvalue
     obtain ⟨x, rfl⟩ := hvalue
     cases x <;> simp only [decode]
-    all_goals simpSequenceCreation
-    all_goals simp only [decode, Option.bind_some]
     all_goals simpSequenceCreation
     all_goals simp [CanInterpretTo.fshr_int (⟨64, hint⟩)]
     · have immediate := rotate_right_imm6 (BitVec.ofInt 64 (decodeLLVMIntegerConstant attr))
@@ -333,19 +314,12 @@ set_option maxHeartbeats 2000000 in
         immediate] using
         (Data.RISCV.fshr_rori_refinement (a := .val _) (c := .val _))
     · intro bits
-      simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-        RuntimeValue.isRefinedBy, Data.LLVM.Int.fshr, isRefinedBy, Id.run]
+      simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.fshr, isRefinedBy, Id.run]
 
-set_option maxHeartbeats 2000000 in
+set_option maxHeartbeats 5000000 in
  theorem fshr32Const_pattern_valid : Puddle.CTree.Pattern.Valid (lowerConstRotate false 32) := by
   conv => arg 1; cbv
-  constructor
-  · simp [Pattern.Supported, CreateProg.Supported, MatchProg.Supported, MatchDecl.Supported,
-      CreateDecl.Supported, SupportedOpCode, get_effects, is_terminator,
-      Llvm.getEffects, Llvm.isTerminator]
-  · cbv
-  · native_decide
-  simpSequenceMatcher
+  provePuddleValid
   rintro _ ty rfl hty value hvalue props hprops cvalue hsem property
   rcases props with ⟨prop⟩
   cases prop <;> simp only [Bool.false_eq_true] at hprops
@@ -362,8 +336,6 @@ set_option maxHeartbeats 2000000 in
     obtain ⟨x, rfl⟩ := hvalue
     cases x <;> simp only [decode]
     all_goals simpSequenceCreation
-    all_goals simp only [decode, Option.bind_some]
-    all_goals simpSequenceCreation
     all_goals simp [CanInterpretTo.fshr_int (⟨32, hint⟩)]
     · have immediate := rotate_right_imm5 (BitVec.ofInt 32 (decodeLLVMIntegerConstant attr))
       simp only [BitVec.toInt_ofInt] at immediate
@@ -372,7 +344,6 @@ set_option maxHeartbeats 2000000 in
         immediate] using
         (Data.RISCV.fshr_roriw_refinement (a := .val _) (c := .val _))
     · intro bits
-      simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-        RuntimeValue.isRefinedBy, Data.LLVM.Int.fshr, isRefinedBy, Id.run]
+      simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.fshr, isRefinedBy, Id.run]
 
 end Veir
