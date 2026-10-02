@@ -372,3 +372,28 @@ example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
 example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
     (x.zeroExtend (w + w)) >>> 1 = (x >>> 1).zeroExtend (w + w) := by
   pbv_decide 8
+
+/-- Extracting the low half of an append -/
+example {w : Nat} (a b : BitVec w) (hw : w ≤ 4) :
+    (a ++ b).extractLsb' 0 w = b := by
+  pbv_decide 8
+
+/-- Nested extracts collapse to the narrower one -/
+example {w v u : Nat} (x : BitVec w) (hw : w ≤ 8) (hv : v ≤ w) (hu : u ≤ v) :
+    (x.extractLsb' 0 v).extractLsb' 0 u = x.extractLsb' 0 u := by
+  pbv_decide 8
+
+/-- Extracting at a symbolic offset is shifting then truncating -/
+example {w s v : Nat} (x : BitVec w) (hw : w ≤ 8) (hv : v ≤ w) :
+    x.extractLsb' s v = (x >>> s).setWidth v := by
+  pbv_decide 8
+
+/-- Shifting left with extension by a literal is appending zeros -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    x.shiftLeftZeroExtend 2 = x ++ 0#2 := by
+  pbv_decide 16
+
+/-- Shifting left with extension and truncating is shifting left -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    (x.shiftLeftZeroExtend 1).setWidth w = x <<< 1 := by
+  pbv_decide 16
