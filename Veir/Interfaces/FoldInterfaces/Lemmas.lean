@@ -40,12 +40,6 @@ theorem FoldDecision.hasTypes_pair :
       HasType operands a ta ∧ HasType operands b tb := by
   simp [HasTypes, Nat.forall_lt_succ_left']
 
-/-- Refinement of two results is pointwise. -/
-@[simp]
-theorem RuntimeValue.arrayIsRefinedBy_pair :
-    #[a, b] ⊒ #[c, d] ↔ a ⊒ c ∧ b ⊒ d := by
-  simp only [arrayIsRefinedBy_cons, arrayIsRefinedBy_nil, and_true]
-
 /-- Recover the complete type arrays of a verified integer binary operation. -/
 theorem OperationPtr.IsVerifiedIntegerBinop.types
     {ctx : WfIRContext OpCode} {op : OperationPtr} (h : op.IsVerifiedIntegerBinop ctx) :
@@ -87,13 +81,8 @@ theorem FoldTable.correctAt_int_rhs
     exact typed
   preservesSemantics known results hFold operands hOperands hAgree memory layout := by
     obtain ⟨left, width, rfl, rfl⟩ := lookup known results hFold
-    rw [operandTypes] at hOperands
-    obtain ⟨lhs, actualRhs, rfl⟩ := hOperands.int_pair
-    have hr := hAgree.2 1 (by simp) (.int width (rhs width)) (by simp)
-    have hw : type.bitwidth = width := by injection hr
-    subst width
-    simp at hr
-    subst actualRhs
+    obtain ⟨lhs, actualRhs, rfl⟩ := (operandTypes ▸ hOperands).int_pair
+    cases hAgree.2 1 (by simp) _ rfl
     exact evaluate lhs memory layout
 
 end Veir
