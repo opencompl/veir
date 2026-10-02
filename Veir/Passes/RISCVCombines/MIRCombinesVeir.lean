@@ -156,7 +156,7 @@ def same_val_zero_1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (x, x1, _props) := matchXor op ctx.raw | return (ctx, none)
   if x != x1 then return (ctx, none)
-  let type := ((op.getResult 0).get! ctx.raw).type
+  let type := ((op.getResult 0).getType! ctx.raw)
   let .integerType type' := type.val | return (ctx, none)
   if type'.bitwidth ≠ 64 then return (ctx, none)
   let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 type'))

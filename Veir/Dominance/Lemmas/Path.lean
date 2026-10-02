@@ -15,6 +15,8 @@ public section
 
 namespace Veir
 
+unfold_field_getters_in_grind
+
 variable {OpCode : Type} [HasOpInfo OpCode]
 variable {ctx : WfIRContext OpCode}
 

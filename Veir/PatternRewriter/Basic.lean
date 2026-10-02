@@ -12,6 +12,8 @@ open Std (HashMap)
 
 namespace Veir
 
+unfold_field_getters_in_grind
+
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 variable {ctx : WfIRContext OpInfo}
 
@@ -100,8 +102,8 @@ private theorem OperationPtr.inBounds_of_mem_operations_keys (ctx : IRContext Op
 def Worklist.createFromContext (ctx: WfIRContext OpInfo) : Worklist := Id.run do
   let mut worklist := Worklist.empty
   for h : op in ctx.raw.operations.keys do
-    if (op.get ctx.raw (by
-      exact OperationPtr.inBounds_of_mem_operations_keys ctx.raw h)).parent.isSome then
+    if (op.getParent ctx.raw (by
+      exact OperationPtr.inBounds_of_mem_operations_keys ctx.raw h)).isSome then
       worklist := worklist.push op
   worklist
 
@@ -126,9 +128,8 @@ private def addUseChainUserInWorklist (rewriter: PatternRewriter OpInfo) (useCha
   | maxIteration + 1 =>
     match useChain with
     | some use =>
-      let useStruct := (use.get rewriter.ctx.raw (by grind))
-      let userOp := useStruct.owner
-      let nextUse := useStruct.nextUse
+      let userOp := use.getOwner rewriter.ctx.raw (by grind)
+      let nextUse := use.getNextUse rewriter.ctx.raw (by grind)
       let rewriter := {rewriter with worklist := rewriter.worklist.push userOp}
       rewriter.addUseChainUserInWorklist nextUse maxIteration
     | none => rewriter
@@ -253,12 +254,11 @@ private partial def useChainHasAtMostOneUserBesides (ctx : IRContext OpInfo)
     (otherUser : Option OperationPtr) : Bool :=
   match useChain with
   | some use =>
-    let useStruct := use.get! ctx
-    let owner := useStruct.owner
+    let owner := (use.getOwner! ctx)
     if owner = exceptOp ∨ otherUser = some owner then
-      useChainHasAtMostOneUserBesides ctx useStruct.nextUse exceptOp otherUser
+      useChainHasAtMostOneUserBesides ctx (use.getNextUse! ctx) exceptOp otherUser
     else if otherUser.isNone then
-      useChainHasAtMostOneUserBesides ctx useStruct.nextUse exceptOp (some owner)
+      useChainHasAtMostOneUserBesides ctx (use.getNextUse! ctx) exceptOp (some owner)
     else
       false
   | none => true
@@ -301,7 +301,7 @@ def eraseOp! (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
 
 def replaceOp (rewriter: PatternRewriter OpInfo) (oldOp newOp: OperationPtr)
     (opNe : oldOp ≠ newOp := by grind)
-    (hpar : (oldOp.get! rewriter.ctx.raw).parent.isSome = true := by grind)
+    (hpar : (oldOp.getParent! rewriter.ctx.raw).isSome = true := by grind)
     (noRegions : oldOp.getNumRegions! rewriter.ctx.raw = 0 := by grind)
     (oldIn : oldOp.InBounds rewriter.ctx.raw := by grind)
     (newIn : newOp.InBounds rewriter.ctx.raw := by grind)

@@ -23,12 +23,12 @@ variable {OpCode : Type} [IsOpCode OpCode]
 structure OpPrinterContext (OpCode : Type) [IsOpCode OpCode] where
   irContext : IRContext OpCode
   private printRegion :
-    Region → (printEntryBlockArgs : Bool) → StateT Nat IO Unit
+    RegionPtr → (printEntryBlockArgs : Bool) → StateT Nat IO Unit
 deriving Inhabited
 
 /-- Create a print context. -/
 def OpPrinterContext.create (irContext : IRContext OpCode)
-    (printRegion : Region → Bool → StateT Nat IO Unit) : OpPrinterContext OpCode :=
+    (printRegion : RegionPtr → Bool → StateT Nat IO Unit) : OpPrinterContext OpCode :=
   { irContext, printRegion }
 
 /--
@@ -86,15 +86,13 @@ def printOperand (value : ValuePtr) : OpPrinter OpCode Unit := do
   let ctx ← getContext
   match value with
   | ValuePtr.opResult opResultPtr =>
-    let opResult := opResultPtr.get! ctx
-    let opStruct := opResult.owner.get! ctx
-    if opStruct.results.size == 1 then
-      printString s!"%{opResult.owner.id}"
+    let owner := opResultPtr.getOwner! ctx
+    if owner.getNumResults! ctx == 1 then
+      printString s!"%{owner.id}"
     else
-      printString s!"%{opResult.owner.id}#{opResult.index}"
+      printString s!"%{owner.id}#{(opResultPtr.get! ctx).index}"
   | ValuePtr.blockArgument blockArgPtr =>
-    let blockArg := blockArgPtr.get! ctx
-    printString s!"%arg{blockArg.owner.id}_{blockArg.index}"
+    printString s!"%arg{(blockArgPtr.getOwner! ctx).id}_{blockArgPtr.getIndex! ctx}"
 
 /--
 Print a region argument (`%argN_M : type`). `printOperand` and
@@ -128,16 +126,16 @@ def printFunctionalType (op : OperationPtr) : OpPrinter OpCode Unit := do
     printString "()"
     return
   if op.getNumResults! ctx == 1 then
-    let resType := ((op.getResult 0).get! ctx).type
+    let resType := ((op.getResult 0).getType! ctx)
     match resType.val with
     | .functionType _ => printString s!"({resType})"
     | _ => printString s!"{resType}"
     return
   printString "("
-  let firstResType := ((op.getResult 0).get! ctx).type
+  let firstResType := ((op.getResult 0).getType! ctx)
   printString s!"{firstResType}"
   for index in List.range (op.getNumResults! ctx - 1) do
-    let resType := ((op.getResult (index + 1)).get! ctx).type
+    let resType := ((op.getResult (index + 1)).getType! ctx)
     printString s!", {resType}"
   printString ")"
 
@@ -158,7 +156,7 @@ def printOptionalAttrDictWithKeyword (attrs : DictionaryAttr) (elided : Array St
   printString s!"{{ attrs with entries := filtered }}"
 
 /-- Recursively print a region with the main printer's options and dispatch. -/
-def printRegion (region : Region) (printEntryBlockArgs : Bool := false) : OpPrinter OpCode Unit := do
+def printRegion (region : RegionPtr) (printEntryBlockArgs : Bool := false) : OpPrinter OpCode Unit := do
   let context ← read
   monadLift (context.printRegion region printEntryBlockArgs)
 

@@ -99,8 +99,7 @@ def addIConstantFolding (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_
   let lhsOp ← match lhsValuePtr with
   | ValuePtr.opResult lhsOpResultPtr => some lhsOpResultPtr.op
   | _ => none
-  let lhsOpStruct := lhsOp.get rewriter.ctx.raw (by sorry)
-  if lhsOpStruct.opType ≠ .arith .constant then
+  if (lhsOp.getOpType rewriter.ctx.raw (by sorry)) ≠ .arith .constant then
     return rewriter
 
   -- Get the rhs and check that it is a constant
@@ -108,8 +107,7 @@ def addIConstantFolding (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_
   let rhsOp ← match rhsValuePtr with
   | ValuePtr.opResult rhsOpResultPtr => some rhsOpResultPtr.op
   | _ => none
-  let rhsOpStruct := rhsOp.get rewriter.ctx.raw (by sorry)
-  if rhsOpStruct.opType ≠ .arith .constant then
+  if (rhsOp.getOpType rewriter.ctx.raw (by sorry)) ≠ .arith .constant then
     return rewriter
 
   -- Sum both constant values
@@ -135,8 +133,7 @@ def addIConstantFoldingLocal (ctx: WfIRContext OpCode) (op: OperationPtr) :
   let .opResult lhsOpResultPtr := lhsValuePtr
     | some (ctx, none)
   let lhsOp := lhsOpResultPtr.op
-  let lhsOpStruct := lhsOp.get ctx.raw (by sorry)
-  let .arith .constant := lhsOpStruct.opType
+  let .arith .constant := (lhsOp.getOpType ctx.raw (by sorry))
     | some (ctx, none)
 
   -- Get the rhs and check that it is a constant
@@ -144,8 +141,7 @@ def addIConstantFoldingLocal (ctx: WfIRContext OpCode) (op: OperationPtr) :
   let .opResult rhsOpResultPtr := rhsValuePtr
     | some (ctx, none)
   let rhsOp := rhsOpResultPtr.op
-  let rhsOpStruct := rhsOp.get ctx.raw (by sorry)
-  let .arith .constant := rhsOpStruct.opType
+  let .arith .constant := (rhsOp.getOpType ctx.raw (by sorry))
     | some (ctx, none)
 
   -- Sum both constant values
@@ -164,8 +160,7 @@ def addIZeroFolding (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : o
   let rhsOp ← match rhsValuePtr with
   | ValuePtr.opResult rhsOpResultPtr => some rhsOpResultPtr.op
   | _ => none
-  let rhsOpStruct := rhsOp.get rewriter.ctx.raw (by sorry)
-  if rhsOpStruct.opType ≠ .arith .constant then
+  if (rhsOp.getOpType rewriter.ctx.raw (by sorry)) ≠ .arith .constant then
     return rewriter
   if (rhsOp.getProperties! rewriter.ctx.raw Arith.constant).value.value ≠ 0 then
     return rewriter
@@ -190,8 +185,7 @@ def mulITwoReduce (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.
   let rhsOp ← match rhsValuePtr with
   | ValuePtr.opResult rhsOpResultPtr => some rhsOpResultPtr.op
   | _ => none
-  let rhsOpStruct := rhsOp.get rewriter.ctx.raw (by sorry)
-  if rhsOpStruct.opType ≠ .arith .constant then
+  if (rhsOp.getOpType rewriter.ctx.raw (by sorry)) ≠ .arith .constant then
     return rewriter
   if (rhsOp.getProperties! rewriter.ctx.raw Arith.constant).value.value ≠ 2 then
     return rewriter
@@ -224,8 +218,7 @@ def addIConstantFolding (ctx: WfIRContext OpCode) (op: OperationPtr) : Option (W
   let lhsOp ← match lhsValuePtr with
   | ValuePtr.opResult lhsOpResultPtr => some lhsOpResultPtr.op
   | _ => none
-  let lhsOpStruct := lhsOp.get ctx.raw (by sorry)
-  if lhsOpStruct.opType ≠ .arith .constant then
+  if (lhsOp.getOpType ctx.raw (by sorry)) ≠ .arith .constant then
     return ctx
 
   -- Get the rhs and check that it is a constant
@@ -233,8 +226,7 @@ def addIConstantFolding (ctx: WfIRContext OpCode) (op: OperationPtr) : Option (W
   let rhsOp ← match rhsValuePtr with
   | ValuePtr.opResult rhsOpResultPtr => some rhsOpResultPtr.op
   | _ => none
-  let rhsOpStruct := rhsOp.get ctx.raw (by sorry)
-  if rhsOpStruct.opType ≠ .arith .constant then
+  if (rhsOp.getOpType ctx.raw (by sorry)) ≠ .arith .constant then
     return ctx
 
   -- Sum both constant values
@@ -259,8 +251,7 @@ def addIZeroFolding (ctx: WfIRContext OpCode) (op: OperationPtr) : Option (WfIRC
   let rhsOp ← match rhsValuePtr with
   | ValuePtr.opResult rhsOpResultPtr => some rhsOpResultPtr.op
   | _ => none
-  let rhsOpStruct := rhsOp.get ctx.raw (by sorry)
-  if rhsOpStruct.opType ≠ .arith .constant then
+  if (rhsOp.getOpType ctx.raw (by sorry)) ≠ .arith .constant then
     return ctx
   if (rhsOp.getProperties! ctx.raw Arith.constant).value.value ≠ 0 then
     return ctx
@@ -285,8 +276,7 @@ def mulITwoReduce (ctx: WfIRContext OpCode) (op: OperationPtr) : Option (WfIRCon
   let rhsOp ← match rhsValuePtr with
   | ValuePtr.opResult rhsOpResultPtr => some rhsOpResultPtr.op
   | _ => none
-  let rhsOpStruct := rhsOp.get ctx.raw (by sorry)
-  if rhsOpStruct.opType ≠ .arith .constant then
+  if (rhsOp.getOpType ctx.raw (by sorry)) ≠ .arith .constant then
     return ctx
   if (rhsOp.getProperties! ctx.raw Arith.constant).value.value ≠ 2 then
     return ctx
@@ -306,11 +296,11 @@ def mulITwoReduce (ctx: WfIRContext OpCode) (op: OperationPtr) : Option (WfIRCon
 def rewriteFirst (ctx: WfIRContext OpCode) (topOp : OperationPtr) (opcode: OpCode) (rewrite: Pattern)
     : Option (WfIRContext OpCode) := do
   let region := topOp.getRegion! ctx.raw 0
-  let block := (region.get ctx.raw (by sorry)).firstBlock.get!
-  let mut op ← (block.get! ctx.raw).firstOp
+  let block := (region.getFirstBlock ctx.raw (by sorry)).get!
+  let mut op ← (block.getFirstOp! ctx.raw)
 
   while op.getOpType ctx sorry ≠ opcode do
-    op ← (op.get! ctx.raw).next
+    op ← (op.getNextOp! ctx.raw)
 
   rewrite ctx op
 
@@ -319,13 +309,13 @@ def rewriteFirstAddI (ctx: WfIRContext OpCode) (topOp : OperationPtr) (rewrite: 
 
 def rewriteForwards (ctx: WfIRContext OpCode) (topOp : OperationPtr) (rewrite: Pattern) : Option (WfIRContext OpCode) := do
   let region := topOp.getRegion! ctx.raw 0
-  let block := (region.get ctx.raw (by sorry)).firstBlock.get!
+  let block := (region.getFirstBlock ctx.raw (by sorry)).get!
 
-  let mut maybeOp := (block.get! ctx.raw).firstOp
+  let mut maybeOp := (block.getFirstOp! ctx.raw)
   let mut ctx := ctx
   while h : maybeOp.isSome do
     let op := maybeOp.get h
-    let next := (op.get! ctx.raw).next
+    let next := (op.getNextOp! ctx.raw)
     -- TODO: This should be work but for some reason is not unique
     -- ctx := dbgTraceIfShared "rewriteForwards" ctx
     -- ctx ← rewrite ctx op
@@ -340,7 +330,7 @@ namespace Program
 def empty : Option (WfIRContext OpCode × OperationPtr × InsertPoint) := do
   let (ctx, topLevelOp) ← WfIRContext.create OpCode
   let region := topLevelOp.getRegion! ctx.raw 0
-  let block := (region.get ctx.raw (by sorry)).firstBlock.get!
+  let block := (region.getFirstBlock ctx.raw (by sorry)).get!
   let insertPoint := InsertPoint.atEnd block
   (ctx, topLevelOp, insertPoint)
 

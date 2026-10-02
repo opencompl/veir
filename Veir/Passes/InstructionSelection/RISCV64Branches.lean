@@ -95,7 +95,7 @@ def convertBlockArgument (block : BlockPtr) (ctx : WfIRContext OpCode) (i : Nat)
 def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr)
     : Except String (WfIRContext OpCode) := do
   -- If the block has no uses (e.g., the entry block) we can skip it.
-  if (block.get! ctx.raw).firstUse == none then
+  if (block.getFirstUse! ctx.raw) == none then
     return ctx
   (List.range (block.getNumArguments! ctx.raw)).foldlM (convertBlockArgument block) ctx
 

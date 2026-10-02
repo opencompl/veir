@@ -193,7 +193,7 @@ def OperationPtr.verifyArithExtendedOp {OpInfo : Type} [IsOpCode OpInfo]
     s!"{instrName}: Expected operands to have the same type"
   op.verifyResultTypeMatches ctx operandType
     s!"{instrName}: Expected result 0 type to match operand type"
-  let result1Type := ((op.getResult 1).get! ctx.raw).type
+  let result1Type := ((op.getResult 1).getType! ctx.raw)
   if secondResultIsI1 then
     result1Type.verifyI1 s!"{instrName}: Expected i1 result 1"
   else if result1Type.val ≠ operandType.val then
@@ -230,7 +230,7 @@ def Arith.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect Op
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 0 1
     let props := op.getProperties! ctx.raw Arith.constant
-    if props.value.type ≠ ((op.getResult 0).get! ctx.raw).type.val then
+    if props.value.type ≠ ((op.getResult 0).getType! ctx.raw).val then
       throw "Expected result type to be equal to the constant's type"
     op.verifyNormalizedIntegerAttr ctx opIn props.value
     pure ()

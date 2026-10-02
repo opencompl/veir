@@ -19,7 +19,7 @@ def OperationPtr.IsVerifiedIntegerBinop
   op.getNumSuccessors! ctx.raw = 0 ∧
   op.getNumRegions! ctx.raw = 0 ∧
   ∃ integerType,
-    ((op.getResult 0).get! ctx.raw).type =
+    ((op.getResult 0).getType! ctx.raw) =
       .of IntegerType integerType ∧
     ((op.getOperand! ctx.raw 0).getType! ctx.raw) =
       .of IntegerType integerType ∧
@@ -48,9 +48,9 @@ def OperationPtr.IsVerifiedSelect
   (∃ it,
     ((op.getOperand! ctx.raw 0).getType! ctx.raw).val = Attribute.of IntegerType it ∧
     it.bitwidth = 1) ∧
-  ((op.getResult 0).get! ctx.raw).type.val =
+  ((op.getResult 0).getType! ctx.raw).val =
     ((op.getOperand! ctx.raw 1).getType! ctx.raw).val ∧
-  ((op.getResult 0).get! ctx.raw).type.val =
+  ((op.getResult 0).getType! ctx.raw).val =
     ((op.getOperand! ctx.raw 2).getType! ctx.raw).val
 
 /-- Extract structural facts from a successful `verifySelectTypes` check. -/
@@ -74,10 +74,10 @@ def OperationPtr.IsVerifiedIntegerUnop
   op.getNumOperands! ctx.raw = 1 ∧
   op.getNumSuccessors! ctx.raw = 0 ∧
   op.getNumRegions! ctx.raw = 0 ∧
-  ((op.getResult 0).get! ctx.raw).type =
+  ((op.getResult 0).getType! ctx.raw) =
     (op.getOperand! ctx.raw 0).getType! ctx.raw ∧
   ∃ integerType,
-    ((op.getResult 0).get! ctx.raw).type = .of IntegerType integerType
+    ((op.getResult 0).getType! ctx.raw) = .of IntegerType integerType
 
 /-- Extract structural facts from a successful `verifyIntegerUnop` check. -/
 theorem OperationPtr.verifyIntegerUnop_eq_ok
@@ -101,7 +101,7 @@ def OperationPtr.IsVerifiedIntegerTernop
   op.getNumSuccessors! ctx.raw = 0 ∧
   op.getNumRegions! ctx.raw = 0 ∧
   ∃ integerType,
-    ((op.getResult 0).get! ctx.raw).type =
+    ((op.getResult 0).getType! ctx.raw) =
       TypeAttr.of IntegerType integerType ∧
     ((op.getOperand! ctx.raw 0).getType! ctx.raw) =
       TypeAttr.of IntegerType integerType ∧
@@ -134,7 +134,7 @@ def OperationPtr.IsVerifiedIntegerExtop
   ∃ operandType resultType,
     ((op.getOperand! ctx.raw 0).getType! ctx.raw) =
       .of IntegerType operandType ∧
-    ((op.getResult 0).get! ctx.raw).type =
+    ((op.getResult 0).getType! ctx.raw) =
       .of IntegerType resultType ∧
     operandType.bitwidth < resultType.bitwidth
 

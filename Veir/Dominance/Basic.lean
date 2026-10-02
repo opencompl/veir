@@ -21,6 +21,8 @@ public section
 
 namespace Veir
 
+unfold_field_getters_in_grind
+
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 
 /-!
@@ -77,7 +79,7 @@ entry block to the block.
 def BlockPtr.ReachableFromEntry (block : BlockPtr) (region : RegionPtr)
     (ctx : WfIRContext OpInfo) : Prop :=
   ∃ entry blocks,
-    (region.get! ctx.raw).firstBlock = some entry ∧
+    (region.getFirstBlock! ctx.raw) = some entry ∧
     region.Path ctx entry block blocks
 
 /--
@@ -88,8 +90,8 @@ graph region. In practice, if the context is verified, this means that both bloc
 -/
 def BlockPtr.ProperlyDominatesInGraphRegion (dominator dominated : BlockPtr) (region : RegionPtr)
     (ctx : WfIRContext OpInfo) : Prop :=
-  (dominator.get! ctx.raw).parent = some region ∧
-  (dominated.get! ctx.raw).parent = some region ∧
+  (dominator.getParent! ctx.raw) = some region ∧
+  (dominated.getParent! ctx.raw) = some region ∧
   region.hasSSADominance ctx = false
 
 /--
@@ -104,12 +106,12 @@ in the region, since there are no CFG paths from the entry block to the unreacha
 -/
 def BlockPtr.ProperlyDominatesInSSACFGRegion (dominator dominated : BlockPtr) (region : RegionPtr)
     (ctx : WfIRContext OpInfo) : Prop :=
-  (dominator.get! ctx.raw).parent = some region ∧
-  (dominated.get! ctx.raw).parent = some region ∧
+  (dominator.getParent! ctx.raw) = some region ∧
+  (dominated.getParent! ctx.raw) = some region ∧
   region.hasSSADominance ctx = true ∧
   dominator ≠ dominated ∧
   ∀ entry blocks,
-    (region.get! ctx.raw).firstBlock = some entry →
+    (region.getFirstBlock! ctx.raw) = some entry →
     region.Path ctx entry dominated blocks →
     dominator ∈ blocks
 
@@ -172,9 +174,9 @@ Operations in the same block are ordered by their index in the block's operation
 def OperationPtr.ProperlyDominatesInSSACFGBlock
     (dominator dominated : OperationPtr) (block : BlockPtr) (region : RegionPtr)
     (ctx : WfIRContext OpInfo) : Prop :=
-  ∃ dominatorParent : (dominator.get! ctx.raw).parent = some block,
-  ∃ dominatedParent : (dominated.get! ctx.raw).parent = some block,
-  (block.get! ctx.raw).parent = some region ∧
+  ∃ dominatorParent : (dominator.getParent! ctx.raw) = some block,
+  ∃ dominatedParent : (dominated.getParent! ctx.raw) = some block,
+  (block.getParent! ctx.raw) = some region ∧
   region.hasSSADominance ctx = true ∧
   dominator.idxInParent ctx.raw < dominated.idxInParent ctx.raw
 
@@ -186,9 +188,9 @@ Operations in the same graph block properly dominate each other independently of
 def OperationPtr.ProperlyDominatesInGraphBlock
     (dominator dominated : OperationPtr) (block : BlockPtr) (region : RegionPtr)
     (ctx : WfIRContext OpInfo) : Prop :=
-  (dominator.get! ctx.raw).parent = some block ∧
-  (dominated.get! ctx.raw).parent = some block ∧
-  (block.get! ctx.raw).parent = some region ∧
+  (dominator.getParent! ctx.raw) = some block ∧
+  (dominated.getParent! ctx.raw) = some block ∧
+  (block.getParent! ctx.raw) = some region ∧
   region.hasSSADominance ctx = false
 
 /--

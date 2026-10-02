@@ -53,13 +53,13 @@ def propagate (state : Fact kind) (anchor : LatticeAnchor)
   | .ValuePtr ssaValue =>
     let mut maybeUse := ssaValue.getFirstUse! irCtx.raw
     while let some use := maybeUse do
-      let user := (use.get! irCtx.raw).owner
+      let user := (use.getOwner! irCtx.raw)
       match InsertPoint.after? user irCtx.raw with
       | some point =>
         for analysisKind in state.subscribers do
           dfCtx := dfCtx.enqueue (point, analysisKind)
       | none => pure ()
-      maybeUse := (use.get! irCtx.raw).nextUse
+      maybeUse := (use.getNextUse! irCtx.raw)
   | _ =>
     pure ()
   dfCtx

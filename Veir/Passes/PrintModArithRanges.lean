@@ -27,18 +27,17 @@ private partial def printRangesRecursively
   for i in [0:op.getNumResults! irCtx.raw] do
     printRange s!"{opName} result {i}" (op.getResult i) dfCtx irCtx
 
-  for regionPtr in (op.get! irCtx.raw).regions do
-    let region := regionPtr.get! irCtx.raw
-    let mut maybeBlock := region.firstBlock
+  for regionPtr in (op.getRegions! irCtx.raw) do
+    let mut maybeBlock := (regionPtr.getFirstBlock! irCtx.raw)
     while let some block := maybeBlock do
       for i in [0:block.getNumArguments! irCtx.raw] do
         printRange s!"block argument {i}" (block.getArgument i) dfCtx irCtx
 
-      let mut maybeOp := (block.get! irCtx.raw).firstOp
+      let mut maybeOp := (block.getFirstOp! irCtx.raw)
       while let some nestedOp := maybeOp do
         printRangesRecursively nestedOp dfCtx irCtx
-        maybeOp := (nestedOp.get! irCtx.raw).next
-      maybeBlock := (block.get! irCtx.raw).next
+        maybeOp := (nestedOp.getNextOp! irCtx.raw)
+      maybeBlock := (block.getNextBlock! irCtx.raw)
 
 private def PrintModArithRangesPass.impl
     (ctx : WfIRContext OpCode)

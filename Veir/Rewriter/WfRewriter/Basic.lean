@@ -7,6 +7,8 @@ import Veir.Rewriter.WellFormed
 public section
 namespace Veir
 
+unfold_field_getters_in_grind
+
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 
 /-- Insert an operation at a given location. -/
@@ -39,7 +41,7 @@ def WfRewriter.insertOp! (wfCtx : WfIRContext OpInfo) (newOp : OperationPtr)
 @[inline]
 def WfRewriter.detachOp (wfCtx : WfIRContext OpInfo) (op : OperationPtr)
     (hIn : op.InBounds wfCtx.raw)
-    (hasParent : (op.get! wfCtx.raw).parent.isSome)
+    (hasParent : (op.getParent! wfCtx.raw).isSome)
     : WfIRContext OpInfo :=
   ⟨Rewriter.detachOp wfCtx op (by grind) hIn (by grind),
     by grind [Rewriter.detachOp_WellFormed]⟩
@@ -49,7 +51,7 @@ does not have a parent. -/
 def WfRewriter.detachOp! (wfCtx : WfIRContext OpInfo) (op : OperationPtr)
     : WfIRContext OpInfo :=
   if hIn : op.InBounds wfCtx.raw then
-    if hasParent : (op.get! wfCtx.raw).parent.isSome then
+    if hasParent : (op.getParent! wfCtx.raw).isSome then
       WfRewriter.detachOp wfCtx op hIn hasParent
     else
       panic! "WfRewriter.detachOp! failed: operation does not have a parent"
@@ -244,7 +246,7 @@ Erase the replaced operation.
 @[inline]
 def WfRewriter.replaceOp? (wfCtx : WfIRContext OpInfo) (oldOp newOp : OperationPtr)
     (opNe : oldOp ≠ newOp := by grind)
-    (hpar : (oldOp.get! wfCtx.raw).parent.isSome = true := by grind)
+    (hpar : (oldOp.getParent! wfCtx.raw).isSome = true := by grind)
     (noRegions : oldOp.getNumRegions! wfCtx.raw = 0 := by grind)
     (oldIn : oldOp.InBounds wfCtx.raw := by grind)
     (newIn : newOp.InBounds wfCtx.raw := by grind)
@@ -260,7 +262,7 @@ either operation is out of bounds, or if the operations have different numbers o
 def WfRewriter.replaceOp! (wfCtx : WfIRContext OpInfo) (oldOp newOp : OperationPtr)
     : WfIRContext OpInfo :=
   if opNe : oldOp ≠ newOp then
-    if hpar : (oldOp.get! wfCtx.raw).parent.isSome = true then
+    if hpar : (oldOp.getParent! wfCtx.raw).isSome = true then
       if noRegions : oldOp.getNumRegions! wfCtx.raw = 0 then
         if oldIn : oldOp.InBounds wfCtx.raw then
           if newIn : newOp.InBounds wfCtx.raw then
@@ -359,7 +361,7 @@ def WfRewriter.createRegion! (wfCtx : WfIRContext OpInfo)
 def WfRewriter.pushRegion (wfCtx : WfIRContext OpInfo) (op : OperationPtr) (region : RegionPtr)
     (hop : op.InBounds wfCtx.raw := by grind)
     (hregion : region.InBounds wfCtx.raw := by grind)
-    (hRegionParent : (region.get! wfCtx.raw).parent = none := by grind)
+    (hRegionParent : (region.getParent! wfCtx.raw) = none := by grind)
     : WfIRContext OpInfo :=
   ⟨Rewriter.pushRegion wfCtx op region hop hregion hRegionParent,
     by grind [IRContext.wellFormed_Rewriter_pushRegion]⟩
@@ -370,7 +372,7 @@ def WfRewriter.pushRegion! (wfCtx : WfIRContext OpInfo) (op : OperationPtr) (reg
     : WfIRContext OpInfo :=
   if hop : op.InBounds wfCtx.raw then
     if hregion : region.InBounds wfCtx.raw then
-      if hRegionParent : (region.get! wfCtx.raw).parent = none then
+      if hRegionParent : (region.getParent! wfCtx.raw) = none then
         WfRewriter.pushRegion wfCtx op region hop hregion hRegionParent
       else
         panic! "WfRewriter.pushRegion! failed: region already has a parent"

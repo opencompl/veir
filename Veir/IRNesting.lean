@@ -66,21 +66,24 @@ theorem inBounds_region : (IRNode.region ptr).InBounds rawCtx ↔ ptr.InBounds r
 @[expose]
 def parent! (ptr : IRNode) (ctx : WfIRContext OpInfo) : Option IRNode :=
   match ptr with
-  | .operation ptr => (ptr.get! ctx.raw).parent.map .block
-  | .block ptr => (ptr.get! ctx.raw).parent.map .region
-  | .region ptr => (ptr.get! ctx.raw).parent.map .operation
+  | .operation ptr => (ptr.getParent! ctx.raw).map .block
+  | .block ptr => (ptr.getParent! ctx.raw).map .region
+  | .region ptr => (ptr.getParent! ctx.raw).map .operation
 
 @[simp, grind =]
 theorem parent!_operation :
-  (IRNode.operation ptr).parent! ctx = (ptr.get! ctx.raw).parent.map .block := by rfl
+  (IRNode.operation ptr).parent! ctx = (ptr.get! ctx.raw).parent.map .block := by
+  simp [parent!, OperationPtr.getParent!_def]
 
 @[simp, grind =]
 theorem parent!_block :
-  (IRNode.block ptr).parent! ctx = (ptr.get! ctx.raw).parent.map .region := by rfl
+  (IRNode.block ptr).parent! ctx = (ptr.get! ctx.raw).parent.map .region := by
+  simp [parent!, BlockPtr.getParent!_def]
 
 @[simp, grind =]
 theorem parent!_region :
-  (IRNode.region ptr).parent! ctx = (ptr.get! ctx.raw).parent.map .operation := by rfl
+  (IRNode.region ptr).parent! ctx = (ptr.get! ctx.raw).parent.map .operation := by
+  simp [parent!, RegionPtr.getParent!_def]
 
 /-- An IR node is different from its immediate parent. -/
 theorem child_ne_parent {child parent : IRNode}
@@ -229,7 +232,7 @@ executable counterpart of MLIR's `Region::isAncestor` query.
 partial def RegionPtr.isAncestorOf
     (ancestor descendant : RegionPtr) (ctx : WfIRContext OpInfo) : Bool :=
   ancestor = descendant ||
-    match (descendant.get! ctx.raw).parent.bind (·.getParentRegion! ctx.raw) with
+    match (descendant.getParent! ctx.raw).bind (·.getParentRegion! ctx.raw) with
     | none => false
     | some parentRegion => ancestor.isAncestorOf parentRegion ctx
 

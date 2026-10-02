@@ -227,7 +227,7 @@ def OperationPtr.verifyCirCmpOp {OpInfo : Type} [IsOpCode OpInfo]
     s!"{instrName}: Expected operands to have the same type"
   operandType.verifyCirComparableType
     s!"{instrName}: Expected operands to have a comparable type"
-  ((op.getResult 0).get! ctx.raw).type.verifyCirBoolType
+  ((op.getResult 0).getType! ctx.raw).verifyCirBoolType
     s!"{instrName}: Expected result to have !cir.bool type"
 
 /-- Verify `cir.select`: a `!cir.bool` condition and two values of one type. -/
@@ -251,7 +251,7 @@ def OperationPtr.verifyCirCastOp {OpInfo : Type} [IsOpCode OpInfo]
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   let props := op.getProperties! ctx.raw Cir.cast
   let srcType := (op.getOperand! ctx.raw 0).getType! ctx.raw
-  let resultType := ((op.getResult 0).get! ctx.raw).type
+  let resultType := ((op.getResult 0).getType! ctx.raw)
   match props.kind with
   | .integral =>
     let _ ← srcType.verifyCirIntType
@@ -277,7 +277,7 @@ def OperationPtr.verifyCirConstOp {OpInfo : Type} [IsOpCode OpInfo]
   op.verifyPlainOpCounts ctx opIn 0 1
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   let props := op.getProperties! ctx.raw Cir.const
-  let resultType := ((op.getResult 0).get! ctx.raw).type
+  let resultType := ((op.getResult 0).getType! ctx.raw)
   if let some type := props.value.type then
     if type ≠ resultType.val then
       throw s!"{instrName}: Expected result type to match the constant's type"

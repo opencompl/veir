@@ -309,12 +309,12 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpIn
     if props.benefit.value < 0 then
       throw s!"Expected 'benefit' to be non-negative, but got {props.benefit.value}"
     /- The matcher body is a single block terminated by a `pdl.rewrite`. -/
-    let body := (op.getRegion! ctx.raw 0).get! ctx.raw
-    let some bodyBlock := body.firstBlock
+    let body := op.getRegion! ctx.raw 0
+    let some bodyBlock := body.getFirstBlock! ctx.raw
       | throw "Expected the body to contain exactly 1 block"
-    if body.lastBlock ≠ some bodyBlock then
+    if body.getLastBlock! ctx.raw ≠ some bodyBlock then
       throw "Expected the body to contain exactly 1 block"
-    let some terminator := (bodyBlock.get! ctx.raw).lastOp
+    let some terminator := (bodyBlock.getLastOp! ctx.raw)
       | throw "Expected the body to terminate with a `pdl.rewrite`"
     if toDialect? PDL (terminator.getOpType! ctx.raw) ≠ some PDL.rewrite then
       throw "Expected the body to terminate with a `pdl.rewrite`"
@@ -331,7 +331,7 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpIn
       if toDialect? PDL (parent.getOpType! ctx.raw) ≠ some PDL.rewrite then
         throw "Expected the parent operation to be a `pdl.rewrite`"
     | none => throw "Expected the parent operation to be a `pdl.rewrite`"
-    let .pdlRangeType resultRange := ((op.getResult 0).get! ctx.raw).type.val
+    let .pdlRangeType resultRange := ((op.getResult 0).getType! ctx.raw).val
       | throw "Expected the result to be of type '!pdl.range<...>'"
     /- MLIR builds ranges of types and values only. -/
     match resultRange.element with
@@ -425,16 +425,16 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpIn
         throw "Expected the `root` operand to be of type '!pdl.operation'"
     /- An external rewrite names a native function and leaves its region empty;
        an inline rewrite supplies a body and takes no external arguments. -/
-    let body := (op.getRegion! ctx.raw 0).get! ctx.raw
+    let body := op.getRegion! ctx.raw 0
     /- MLIR gives `pdl.rewrite` `SingleBlock`, so the body holds no more than
        one block. -/
-    if body.firstBlock ≠ body.lastBlock then
+    if body.getFirstBlock! ctx.raw ≠ body.getLastBlock! ctx.raw then
       throw "Expected the rewrite region to contain at most 1 block"
     if props.name.isSome then
-      if body.firstBlock.isSome then
+      if (body.getFirstBlock! ctx.raw).isSome then
         throw "Expected the rewrite region to be empty when the rewrite is external"
     else
-      if body.firstBlock.isNone then
+      if (body.getFirstBlock! ctx.raw).isNone then
         throw "Expected the rewrite region to be non-empty when no external name is specified"
       if segments[1]! ≠ 0 then
         throw "Expected no external arguments when the rewrite is specified inline"
@@ -446,7 +446,7 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpIn
     let props : PDL.propertiesOf .results :=
       HasDialect.toDialectProperties (OpInfo := OpInfo) PDL.results
         (op.getProperties! ctx.raw (ofDialect OpInfo PDL.results))
-    let resultType := ((op.getResult 0).get! ctx.raw).type.val
+    let resultType := ((op.getResult 0).getType! ctx.raw).val
     /- A single result group is one value; the whole result range is a range. -/
     match resultType with
     | .pdlValueType _ =>

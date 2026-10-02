@@ -9,6 +9,8 @@ public section
 
 namespace Veir
 
+unfold_field_getters_in_grind
+
 /-! ## Rewriter.replaceUse -/
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
@@ -24,7 +26,7 @@ theorem Rewriter.replaceUse_DefUse_newValue
     (hWF' : value'.DefUse ctx array') {newValueInBounds} :
     value.DefUse (Rewriter.replaceUse ctx use value useIn newValueInBounds ctxIn)
       (#[use] ++ array) := by
-  simp only [replaceUse, ←OpOperandPtr.get!_eq_get]
+  simp only [replaceUse, OpOperandPtr.getValue_def, ←OpOperandPtr.get!_eq_get]
   simp only [useOfValue', Ne.symm hvalueNe, ↓reduceIte]
   apply ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_self_empty
   apply ValuePtr.DefUse.OpOperandPtr_setValue_self_ofList_singleton_of_value!_ne_self
@@ -42,7 +44,7 @@ theorem Rewriter.replaceUse_DefUse_oldValue
     (hWF' : value'.DefUse ctx array') (newValueInBounds) :
     value.DefUse (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)
       (array.erase use) := by
-  simp only [replaceUse, ←OpOperandPtr.get!_eq_get]
+  simp only [replaceUse, OpOperandPtr.getValue_def, ←OpOperandPtr.get!_eq_get]
   simp only [useOfValue', hvalueNe, ↓reduceIte]
   apply ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_other
     (missingUses' := Std.ExtHashSet.ofList [use]) (use := use) (value' := value') (array' := array') (value := value)
@@ -78,7 +80,7 @@ theorem Rewriter.replaceUse_DefUse_otherValue
     (hne : value'' ≠ value) (hne' : value'' ≠ value') (hne'' : value ≠ value') :
     value''.DefUse (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)
       array'' := by
-  simp only [replaceUse, ←OpOperandPtr.get!_eq_get]
+  simp only [replaceUse, OpOperandPtr.getValue_def, ←OpOperandPtr.get!_eq_get]
   simp only [useOfValue', hne'', ↓reduceIte]
   apply ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_other
     (missingUses' := Std.ExtHashSet.ofList [use]) (use := use) (value := value'') (value' := value') (array' := array')

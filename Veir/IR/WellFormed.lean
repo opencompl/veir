@@ -14,6 +14,8 @@ open ForLean
 variable {OpInfo} [IsOpCode OpInfo]
 variable {ctx ctx' : IRContext OpInfo}
 
+unfold_field_getters_in_grind
+
 /--
   A def-use chain for an SSA value.
   The def-use chain is represented as an ordered array of operands, where
@@ -254,7 +256,7 @@ noncomputable def ValuePtr.defUseArray (value : ValuePtr) (ctx : IRContext OpInf
 noncomputable def OperationPtr.idxInParent (op : OperationPtr) (ctx : IRContext OpInfo)
     (hop : op.InBounds ctx := by grind)
     (hctx : ctx.WellFormed := by grind) : Nat :=
-  match hparent : (op.get! ctx).parent with
+  match hparent : (op.getParent! ctx) with
   | some block => (block.operationList ctx hctx (by grind)).idxOf op
   | none       => 0
 
@@ -269,7 +271,7 @@ noncomputable def OperationPtr.idxInParent (op : OperationPtr) (ctx : IRContext 
 noncomputable def OperationPtr.idxInParentFromTail (op : OperationPtr) (ctx : IRContext OpInfo)
     (hop : op.InBounds ctx := by grind)
     (hctx : ctx.WellFormed := by grind) : Nat :=
-  match hparent : (op.get! ctx).parent with
+  match hparent : (op.getParent! ctx) with
   | some block =>
     (block.operationList ctx hctx (by grind)).size - 1 - op.idxInParent ctx hop hctx
   | none       => 0

@@ -34,11 +34,11 @@ partial def scanEntryPoints (ctx : IRContext OpCode) (op : Option OperationPtr)
   | some op =>
     if op.isFunctionLike ctx then
       let entryPoints := if isZeroArgMainFunc ctx op then op :: entryPoints else entryPoints
-      scanEntryPoints ctx (op.get! ctx).next entryPoints
+      scanEntryPoints ctx (op.getNextOp! ctx) entryPoints
     else
       match op.getOpType! ctx with
       | .llvm .module_flags | .llvm .mlir__global =>
-        scanEntryPoints ctx (op.get! ctx).next entryPoints
+        scanEntryPoints ctx (op.getNextOp! ctx) entryPoints
       | _ =>
         IO.eprintln "Error: unsupported top-level operation; expected a function, llvm.mlir.global, or llvm.module_flags"
         IO.Process.exit 1
@@ -47,9 +47,9 @@ partial def scanEntryPoints (ctx : IRContext OpCode) (op : Option OperationPtr)
 def resolveEntryPoint (ctx : IRContext OpCode) (moduleOp : OperationPtr) : IO OperationPtr := do
   let region := moduleOp.getRegion! ctx 0
   let entryPoints ←
-    match (region.get! ctx).firstBlock with
+    match (region.getFirstBlock! ctx) with
     | none => pure []
-    | some blockPtr => scanEntryPoints ctx (blockPtr.get! ctx).firstOp
+    | some blockPtr => scanEntryPoints ctx (blockPtr.getFirstOp! ctx)
   match entryPoints with
   | [] =>
     IO.eprintln "Error: No entry point: define a zero-argument function named 'main'"

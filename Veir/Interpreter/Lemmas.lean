@@ -8,6 +8,8 @@ public import Veir.Interpreter.Refinement.Lemmas
 
 
 namespace Veir
+
+unfold_field_getters_in_grind
 public section
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]

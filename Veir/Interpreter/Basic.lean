@@ -28,6 +28,8 @@ open Veir.Data
 
 namespace Veir
 
+unfold_field_getters_in_grind
+
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 variable {ctx : WfIRContext OpInfo}
 
@@ -138,7 +140,7 @@ def interpretOpChain (op : OperationPtr) {ctx : WfIRContext OpCode} (state : Int
   let (state, action) ← interpretOp op state
   match action with
   | none =>
-    rlet next ← (op.get ctx.raw).next
+    rlet next ← (op.getNextOp ctx.raw)
     interpretOpChain next state
   | some action =>
     return (state, action)
@@ -191,7 +193,7 @@ def interpretBlock (blockPtr : BlockPtr) (values : Array RuntimeValue) {ctx : Wf
     Interp (InterpreterState ctx × ControlFlowAction) := do
   let newVars ← state.variables.setArgumentValues? blockPtr values
   let state := ⟨newVars, state.memory⟩
-  rlet firstOp ← (blockPtr.get ctx.raw).firstOp
+  rlet firstOp ← (blockPtr.getFirstOp ctx.raw)
   interpretOpChain firstOp state
 
 /--
@@ -223,7 +225,7 @@ partial_fixpoint
 def interpretRegion (region : RegionPtr) (values : Array RuntimeValue) {ctx : WfIRContext OpCode}
     (state : InterpreterState ctx) (regionIn : region.InBounds ctx.raw := by grind) :
     Interp (InterpreterState ctx × Array RuntimeValue) := do
-  rlet block ← (region.get ctx.raw).firstBlock
+  rlet block ← (region.getFirstBlock ctx.raw)
   interpretBlockCFG block values state
 
 /--

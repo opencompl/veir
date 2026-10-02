@@ -78,7 +78,7 @@ not been attached to that entry block.
 -/
 def getRegionMetadataFact? [FactSpec .regionMetadata] (region : RegionPtr) (dfCtx : DataFlowContext)
     (irCtx : WfIRContext OpCode) : Option RegionMetadataFact :=
-  (region.get! irCtx.raw).firstBlock >>= dfCtx.getFact? .regionMetadata ∘ .BlockPtr
+  (region.getFirstBlock! irCtx.raw) >>= dfCtx.getFact? .regionMetadata ∘ .BlockPtr
 
 end RegionPtr
 
@@ -128,7 +128,7 @@ private def collectPostOrder
     (irCtx : WfIRContext OpCode) : Array BlockPtr × HashMap BlockPtr Nat := Id.run do
   let mut postOrder : Array BlockPtr := #[]
   let mut postOrderIndex : HashMap BlockPtr Nat := {}
-  let some entry := (region.get! irCtx.raw).firstBlock
+  let some entry := (region.getFirstBlock! irCtx.raw)
     | return (postOrder, postOrderIndex)
   let mut stack : Array (BlockPtr × Bool) := #[(entry, false)]
   let mut seen : HashSet BlockPtr := ∅
@@ -146,7 +146,7 @@ private def collectPostOrder
       seen := seen.insert block
       stack := stack.push (block, true)
 
-      if let some terminator := (block.get! irCtx.raw).lastOp then
+      if let some terminator := (block.getLastOp! irCtx.raw) then
         for succ in terminator.getSuccessors! irCtx.raw do
           if !seen.contains succ then
             stack := stack.push (succ, false)
@@ -158,7 +158,7 @@ private def initializeRegion
     (dfCtx : DataFlowContext)
     (irCtx : WfIRContext OpCode) : DataFlowContext := Id.run do
   let mut dfCtx := dfCtx
-  let some entry := (region.get! irCtx.raw).firstBlock
+  let some entry := (region.getFirstBlock! irCtx.raw)
     | return dfCtx
   let (postOrder, postOrderIndex) := collectPostOrder region irCtx
   let reversePostOrder := postOrder.reverse
@@ -168,7 +168,7 @@ private def initializeRegion
 
   for block in reversePostOrder do
     let mut dependents := #[]
-    if let some terminator := (block.get! irCtx.raw).lastOp then
+    if let some terminator := (block.getLastOp! irCtx.raw) then
       for succ in terminator.getSuccessors! irCtx.raw do
         dependents := dependents.push (InsertPoint.atStart! succ irCtx.raw, kind)
     dfCtx := dfCtx.modifyFact .dominator (.BlockPtr block) fun fact =>
@@ -187,13 +187,13 @@ partial def initializeRecursively
   for region in op.getRegions! irCtx.raw do
     dfCtx := initializeRegion region dfCtx irCtx
 
-    let mut currentBlock := (region.get! irCtx.raw).firstBlock
+    let mut currentBlock := (region.getFirstBlock! irCtx.raw)
     while let some block := currentBlock do
-      let mut currentOp := (block.get! irCtx.raw).firstOp
+      let mut currentOp := (block.getFirstOp! irCtx.raw)
       while let some nestedOp := currentOp do
         dfCtx := initializeRecursively nestedOp dfCtx irCtx
-        currentOp := (nestedOp.get! irCtx.raw).next
-      currentBlock := (block.get! irCtx.raw).next
+        currentOp := (nestedOp.getNextOp! irCtx.raw)
+      currentBlock := (block.getNextBlock! irCtx.raw)
 
   dfCtx
 
@@ -233,20 +233,19 @@ private def computeImmediateDominator
     (block : BlockPtr)
     (dfCtx : DataFlowContext)
     (irCtx : WfIRContext OpCode) : Option BlockPtr := do
-  let region := ((block.get! irCtx.raw).parent).get!
-  let entry := ((region.get! irCtx.raw).firstBlock).get!
+  let region := ((block.getParent! irCtx.raw)).get!
+  let entry := ((region.getFirstBlock! irCtx.raw)).get!
   let metadata ← region.getRegionMetadataFact? dfCtx irCtx
   if block = entry then 
     return entry
 
-  let mut currentPredUse := (block.get! irCtx.raw).firstUse
+  let mut currentPredUse := (block.getFirstUse! irCtx.raw)
   let mut newIDom : Option BlockPtr := none
 
   while let some predUse := currentPredUse do
-    let predUseStruct := predUse.get! irCtx.raw
-    currentPredUse := predUseStruct.nextUse
-    let predOp := predUseStruct.owner
-    let some predBlock := (predOp.get! irCtx.raw).parent
+    currentPredUse := (predUse.getNextUse! irCtx.raw)
+    let predOp := (predUse.getOwner! irCtx.raw)
+    let some predBlock := (predOp.getParent! irCtx.raw)
       | continue
     let some _ := predBlock.getIDom? dfCtx
       | continue

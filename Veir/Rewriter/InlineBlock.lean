@@ -10,6 +10,8 @@ public section
 
 namespace Veir
 
+unfold_field_getters_in_grind
+
 variable [HasOpInfo OpInfo] {ctx : IRContext OpInfo}
 
 theorem Rewriter.insertOp.operationList {block : BlockPtr}
@@ -134,7 +136,7 @@ def Rewriter.inlineBlock (ctx : IRContext OpInfo) (block : BlockPtr)
     (blockNe : block ≠ block' := by grind)
     (blockIn : block.InBounds ctx := by grind)
     (ctxWf : ctx.WellFormed := by grind) := do
-  match h: (block.get ctx).firstOp with
+  match h: (block.getFirstOp ctx) with
   | none => some ctx
   | some firstOpPtr => do
   let ctx₀ := detachOp ctx firstOpPtr (by grind) (by grind) (by grind [IRContext.WellFormed])
@@ -143,7 +145,7 @@ def Rewriter.inlineBlock (ctx : IRContext OpInfo) (block : BlockPtr)
     (by cases ip <;> grind [cases InsertPoint])
     (block' := block')
     (by
-      have : (firstOpPtr.get! ctx).parent = block := by grind [IRContext.WellFormed]
+      have : (firstOpPtr.getParent! ctx) = block := by grind [IRContext.WellFormed]
       grind [cases InsertPoint]
     )
     (by grind)

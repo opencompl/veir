@@ -21,10 +21,10 @@ private partial def normalizeInsertPoint
     (point : InsertPoint)
     (irCtx : WfIRContext OpCode) : Option InsertPoint := do
   let block ← point.block! irCtx.raw
-  if (block.get! irCtx.raw).parent = some region then
+  if (block.getParent! irCtx.raw) = some region then
     return point
-  let parentRegion ← (block.get! irCtx.raw).parent
-  let parentOp ← (parentRegion.get! irCtx.raw).parent
+  let parentRegion ← (block.getParent! irCtx.raw)
+  let parentOp ← (parentRegion.getParent! irCtx.raw)
   normalizeInsertPoint region (.before parentOp) irCtx
 
 /--
@@ -59,7 +59,7 @@ private def OperationPtr.dominatesWithinBlock
   while let some operation := current do
     if operation = op then
       return true
-    current := (operation.get! irCtx.raw).next
+    current := (operation.getNextOp! irCtx.raw)
   false
 
 namespace InsertPoint
@@ -105,7 +105,7 @@ private def properlyDominates
     (enclosingOk : Bool := true) : Bool := Id.run do
   let some dominatorBlock := dominator.block! irCtx.raw
     | return false
-  let some dominatorRegion := (dominatorBlock.get! irCtx.raw).parent
+  let some dominatorRegion := (dominatorBlock.getParent! irCtx.raw)
     | return false
   let hasSSADominance := dominatorRegion.hasSSADominance irCtx
 
@@ -216,16 +216,16 @@ partial def opsInDominanceOrder
     (dfCtx : DataFlowContext)
     (irCtx : WfIRContext OpCode) : Array OperationPtr := Id.run do
   let mut ops := #[]
-  for region in (op.get! irCtx.raw).regions do
+  for region in (op.getRegions! irCtx.raw) do
     let mut blocks := #[]
     if let some metadata := region.getRegionMetadataFact? dfCtx irCtx then
       blocks := (metadata.postOrderIndex.toArray.qsort (·.2 > ·.2)).map (·.1)
     for block in blocks do
-      let mut currentOp := (block.get! irCtx.raw).firstOp
+      let mut currentOp := (block.getFirstOp! irCtx.raw)
       while let some innerOp := currentOp do
         ops := ops.push innerOp
         ops := ops ++ innerOp.opsInDominanceOrder dfCtx irCtx
-        currentOp := (innerOp.get! irCtx.raw).next
+        currentOp := (innerOp.getNextOp! irCtx.raw)
   return ops
 
 end OperationPtr

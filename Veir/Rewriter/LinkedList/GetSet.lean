@@ -44,6 +44,8 @@ public section
  -/
 namespace Veir
 
+unfold_field_getters_in_grind
+
 variable {op op' operation operation' : OperationPtr}
 variable {block block' : BlockPtr}
 variable {rg rg' : RegionPtr}
@@ -712,17 +714,17 @@ theorem OpOperandPtr.get!_OpOperandPtr_insertIntoCurrent {opOperand : OpOperandP
   simp only [insertIntoCurrent]
   by_cases h: opOperand = opOperand'
   · grind
-  · simp only [← get!_eq_get, ← ValuePtr.getFirstUse!_eq_getFirstUse, ValuePtr.getFirstUse!_OpOperandPtr_setBack]
+  · simp only [OpOperandPtr.getValue_def, ← get!_eq_get, ← ValuePtr.getFirstUse!_eq_getFirstUse, ValuePtr.getFirstUse!_OpOperandPtr_setBack]
     split
     · rename_i h₁
-      simp only [← get!_eq_get, ← ValuePtr.getFirstUse!_eq_getFirstUse, ValuePtr.getFirstUse!_OpOperandPtr_setBack] at h₁
+      simp only [OpOperandPtr.getValue_def, ← get!_eq_get, ← ValuePtr.getFirstUse!_eq_getFirstUse, ValuePtr.getFirstUse!_OpOperandPtr_setBack] at h₁
       simp only [get!_ValuePtr_setFirstUse]
       simp only [OpOperandPtr.get!_OpOperandPtr_setNextUse, h, ↓reduceIte]
       simp only [get!_OpOperandPtr_setBack, h, ↓reduceIte]
       simp only [Ne.symm h, ↓reduceIte]
       simp only [h₁, reduceCtorEq, ↓reduceIte]
     · rename_i ptr h₁
-      simp only [← get!_eq_get, ← ValuePtr.getFirstUse!_eq_getFirstUse, ValuePtr.getFirstUse!_OpOperandPtr_setBack] at h₁
+      simp only [OpOperandPtr.getValue_def, ← get!_eq_get, ← ValuePtr.getFirstUse!_eq_getFirstUse, ValuePtr.getFirstUse!_OpOperandPtr_setBack] at h₁
       simp [h₁]
       by_cases heq: ptr = opOperand
       · grind
@@ -1642,16 +1644,16 @@ theorem BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent {blockOperand : B
   simp only [insertIntoCurrent]
   by_cases h: blockOperand = blockOperand'
   · grind
-  · simp only [← get!_eq_get, ← BlockPtr.get!_eq_get, BlockPtr.get!_BlockOperandPtr_setBack]
+  · simp only [BlockOperandPtr.getValue_def, BlockPtr.getFirstUse_def, ← get!_eq_get, ← BlockPtr.get!_eq_get, BlockPtr.get!_BlockOperandPtr_setBack]
     split
     · rename_i h₁
-      simp only [← get!_eq_get, ← BlockPtr.get!_eq_get, BlockPtr.get!_BlockOperandPtr_setBack] at h₁
+      simp only [BlockOperandPtr.getValue_def, BlockPtr.getFirstUse_def, ← get!_eq_get, ← BlockPtr.get!_eq_get, BlockPtr.get!_BlockOperandPtr_setBack] at h₁
       simp only [get!_BlockPtr_setFirstUse, get!_BlockOperandPtr_setNextUse, h, ↓reduceIte,
         get!_BlockOperandPtr_setBack]
       simp only [Ne.symm h, ↓reduceIte]
       simp only [h₁, reduceCtorEq, ↓reduceIte]
     · rename_i ptr h₁
-      simp only [← get!_eq_get, ← BlockPtr.get!_eq_get, BlockPtr.get!_BlockOperandPtr_setBack] at h₁
+      simp only [BlockOperandPtr.getValue_def, BlockPtr.getFirstUse_def, ← get!_eq_get, ← BlockPtr.get!_eq_get, BlockPtr.get!_BlockOperandPtr_setBack] at h₁
       simp [h₁]
       by_cases heq: ptr = blockOperand
       · grind

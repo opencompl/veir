@@ -193,7 +193,7 @@ def emitBarrettReduction (legalizeWidth : Nat → Nat) (rewriter : PatternRewrit
 def getReductionKind (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option ReductionKind := do
   let some (_, .stringAttr reductionAttr) :=
-      (op.get rewriter.ctx.raw opInBounds).attrs.entries.find?
+      (op.getAttributes rewriter.ctx.raw opInBounds).entries.find?
         (fun entry => entry.1 == "reduction".toUTF8)
     | none
   if reductionAttr.value == "none".toUTF8 then
@@ -304,7 +304,7 @@ def tagModArithOpsWithReduction (reduction : ReductionKind)
     | .full => "full"
   let key := "reduction".toUTF8
   let value : Attribute := StringAttr.mk reductionName.toUTF8
-  let oldAttrs := (op.get rewriter.ctx.raw opInBounds).attrs
+  let oldAttrs := (op.getAttributes rewriter.ctx.raw opInBounds)
   if oldAttrs.entries.any (fun entry => entry = (key, value)) then
     return rewriter
   let newAttrs := DictionaryAttr.fromArray

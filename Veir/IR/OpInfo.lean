@@ -183,10 +183,9 @@ abbrev OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext
 -/
 @[expose, inline]
 public def RegionPtr.hasNoTerminator (region : RegionPtr) (ctx : WfIRContext OpInfo) : Bool :=
-  match (region.get! ctx.raw).parent with
+  match (region.getParent! ctx.raw) with
   | some parentOp =>
-    let parent := parentOp.get! ctx.raw
-    HasOpInfo.hasNoTerminator parent.opType (parent.regions.idxOf region)
+    HasOpInfo.hasNoTerminator (parentOp.getOpType! ctx.raw) ((parentOp.getRegions! ctx.raw).idxOf region)
   | none => false
 
 /--
@@ -197,8 +196,8 @@ the same isolated operation are separate scopes.
 -/
 public partial def RegionPtr.nearestIsolatedScope?
     (region : RegionPtr) (ctx : IRContext OpInfo) : Option RegionPtr := do
-  let parentOp ← (region.get! ctx).parent
-  if HasOpInfo.isIsolatedFromAbove (parentOp.get! ctx).opType then
+  let parentOp ← (region.getParent! ctx)
+  if HasOpInfo.isIsolatedFromAbove (parentOp.getOpType! ctx) then
     return region
   let parentRegion ← parentOp.getParentRegion! ctx
   parentRegion.nearestIsolatedScope? ctx

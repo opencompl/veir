@@ -69,7 +69,7 @@ grind_pattern getFunctionBody!_inBounds => (getFunctionBody! funcOp raw), raw.Fi
 
 /-- Returns the first block in the body region. -/
 def getEntryBlock? (funcOp : OperationPtr) (raw : IRContext OpCode) : Option BlockPtr :=
-  ((getFunctionBody! funcOp raw).get! raw).firstBlock
+  ((getFunctionBody! funcOp raw).getFirstBlock! raw)
 
 /-!
 ## Type Attribute Handling

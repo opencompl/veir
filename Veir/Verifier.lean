@@ -14,6 +14,8 @@ import all Veir.Dialects.ModArith.OpInfo
 
 namespace Veir
 
+unfold_field_getters_in_grind
+
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 
 /--
@@ -25,10 +27,9 @@ variable {OpInfo : Type} [HasOpInfo OpInfo]
 -/
 def OperationPtr.verifyTerminatorPosition (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
-  let operation := op.get ctx.raw opIn
-  if operation.opType.isTerminator && operation.next.isSome then
+  if (op.getOpType ctx.raw opIn).isTerminator && (op.getNextOp ctx.raw opIn).isSome then
     throw "Expected a terminator to be the last operation of its block"
-  if op.getNumSuccessors ctx.raw opIn ≠ 0 && operation.next.isSome then
+  if op.getNumSuccessors ctx.raw opIn ≠ 0 && (op.getNextOp ctx.raw opIn).isSome then
     throw "operation with block successors must terminate its parent block"
 
 /--
@@ -59,12 +60,12 @@ def OperationPtr.verifyOperandIsolation
 -/
 def BlockPtr.mayBeValidWithoutTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
     (blockIn : block.InBounds ctx.raw) : Bool :=
-  match (block.get ctx.raw blockIn).parent with
+  match (block.getParent ctx.raw blockIn) with
   | none => true
   | some region =>
-    (region.get! ctx.raw).firstBlock = some block &&
-    (block.get ctx.raw blockIn).next.isNone &&
-    match (region.get! ctx.raw).parent with
+    (region.getFirstBlock! ctx.raw) = some block &&
+    (block.getNextBlock ctx.raw blockIn).isNone &&
+    match (region.getParent! ctx.raw) with
     | none => true
     | some _ => region.hasNoTerminator ctx
 
@@ -77,15 +78,14 @@ def BlockPtr.verifyTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
     (blockIn : block.InBounds ctx.raw) : Except String PUnit := do
   if block.mayBeValidWithoutTerminator ctx blockIn then
     return
-  let b := block.get ctx.raw blockIn
   let named (msg : String) : String :=
-    match b.parent with
+    match (block.getParent ctx.raw blockIn) with
     | some region =>
-      match (region.get! ctx.raw).parent with
+      match (region.getParent! ctx.raw) with
       | some parentOp => s!"{String.fromUTF8! (parentOp.getOpType! ctx.raw).name}: {msg}"
       | none => msg
     | none => msg
-  match b.lastOp with
+  match (block.getLastOp ctx.raw blockIn) with
   | none => throw (named "Expected the block to end in a terminator, but the block is empty")
   | some lastOp =>
     if !(lastOp.getOpType! ctx.raw).isTerminator then
@@ -99,10 +99,9 @@ def BlockPtr.verifyTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
 -/
 def BlockPtr.verifyNoEntryBlockPredecessors (block : BlockPtr) (ctx : WfIRContext OpCode)
     (blockIn : block.InBounds ctx.raw) : Except String PUnit := do
-  let b := block.get ctx.raw blockIn
-  let some parent := b.parent | return
-  if (parent.get! ctx.raw).firstBlock ≠ some block then return
-  if b.firstUse.isSome then
+  let some parent := (block.getParent ctx.raw blockIn) | return
+  if (parent.getFirstBlock! ctx.raw) ≠ some block then return
+  if (block.getFirstUse ctx.raw blockIn).isSome then
     throw "entry block of region may not have predecessors"
 
 /-- Check that a `block` terminates and that, in case it is the entry block,
@@ -116,12 +115,11 @@ def BlockPtr.verifyBlock (block : BlockPtr) (ctx : WfIRContext OpCode)
     operation makes no promise about its regions, so it is exempt. -/
 private def WfIRContext.graphRegionsHaveAtMostOneBlock (ctx : WfIRContext OpCode) : Bool :=
   ctx.raw.regions.keys.all fun region =>
-    let isUnregistered := match (region.get! ctx.raw).parent with
+    let isUnregistered := match (region.getParent! ctx.raw) with
       | none => false
       | some parent => parent.getOpType! ctx.raw = .builtin .unregistered
     if region.getRegionKind ctx = .Graph && !isUnregistered then
-      let body := region.get! ctx.raw
-      body.firstBlock = body.lastBlock
+      (region.getFirstBlock! ctx.raw) = (region.getLastBlock! ctx.raw)
     else
       true
 
@@ -295,7 +293,7 @@ private def WfIRContext.verifyDominance
   let some dfCtx := Veir.fixpointSolve root #[DominanceAnalysis] ctx
     | throw "dominance analysis did not reach a fixpoint"
   ctx.raw.forOpsDepM fun op opIn => do
-    let some block := (op.get ctx.raw opIn).parent | return
+    let some block := (op.getParent ctx.raw opIn) | return
     if !block.isReachable dfCtx then return
     for (value, index) in (op.getOperands ctx.raw opIn).zipIdx do
       if !value.properlyDominatesUse op dfCtx ctx then
@@ -321,7 +319,7 @@ def WfIRContext.verify
       (fun msg => if opName.isEmpty || msg.startsWith opName then msg else s!"{opName}: {msg}")
       (do
         op.verifyLocalInvariants ctx opIn
-        match (op.get ctx.raw opIn).parent with
+        match (op.getParent ctx.raw opIn) with
         | some _ => op.verifyTerminatorPosition ctx opIn
         | none => pure ()
         op.verifyOperandIsolation ctx opIn))
@@ -431,7 +429,8 @@ theorem WfIRContext.Verified.entryBlock_firstUse_eq_none
     (block.get! ctx.raw).firstUse = none := by
   have hCheck := ctxVerified.verifyNoEntryBlockPredecessors_eq_ok blockIn
   have hParent' : (block.get ctx.raw blockIn).parent = some region := by grind
-  simp only [BlockPtr.verifyNoEntryBlockPredecessors, hParent', hFirstBlock, ne_eq,
+  simp only [BlockPtr.verifyNoEntryBlockPredecessors, BlockPtr.getParent_def,
+    BlockPtr.getFirstUse_def, RegionPtr.getFirstBlock!_def, hParent', hFirstBlock, ne_eq,
     not_true_eq_false, ↓reduceIte] at hCheck
   split at hCheck
   · cases hCheck
@@ -521,7 +520,7 @@ theorem OperationPtr.Verified.llvm_mlir__constant_resultType {op : OperationPtr}
   replace opVerify := Except.ok_of_bind_ok opVerify
   simp only [verifyPlainOpCounts, hProp, ne_eq, bind, Except.bind, throw, throwThe,
     MonadExceptOf.throw, pure, Except.pure] at opVerify
-  cases hty : ((op.getResult 0).get! ctx.raw).type.val with
+  cases hty : ((op.getResult 0).getType! ctx.raw).val with
   | integerType intTy => exact ⟨intTy, by grind⟩
   | _ =>
     rw [hty] at opVerify
@@ -539,7 +538,7 @@ def OperationPtr.IsVerifiedIcmp (op : OperationPtr) (ctx : WfIRContext OpCode) :
   op.getNumSuccessors! ctx.raw = 0 ∧
   op.getNumRegions! ctx.raw = 0 ∧
   (∃ i1ty : IntegerType,
-    ((op.getResult 0).get! ctx.raw).type.val = Attribute.of IntegerType i1ty ∧ i1ty.bitwidth = 1) ∧
+    ((op.getResult 0).getType! ctx.raw).val = Attribute.of IntegerType i1ty ∧ i1ty.bitwidth = 1) ∧
   ((op.getOperand! ctx.raw 0).getType! ctx.raw).val
     = ((op.getOperand! ctx.raw 1).getType! ctx.raw).val
 
@@ -613,7 +612,7 @@ theorem OperationPtr.Verified.llvm_select {op : OperationPtr} {opInBounds}
 def OperationPtr.IsVerifiedLLVMShift (op : OperationPtr) (ctx : WfIRContext OpCode) : Prop :=
   op.getNumResults! ctx.raw = 1 ∧
   op.getNumOperands! ctx.raw = 2 ∧
-  ((op.getResult 0).get! ctx.raw).type.val = ((op.getOperand! ctx.raw 0).getType! ctx.raw).val ∧
+  ((op.getResult 0).getType! ctx.raw).val = ((op.getOperand! ctx.raw 0).getType! ctx.raw).val ∧
   ∃ intType, ((op.getOperand! ctx.raw 1).getType! ctx.raw).val = .of IntegerType intType
 
 private theorem OperationPtr.verifyLLVMShift_eq_ok {ctx : WfIRContext OpCode} {op : OperationPtr}
@@ -1059,7 +1058,7 @@ def OperationPtr.IsVerifiedModArithBinop (op : OperationPtr) (ctx : WfIRContext 
   ∃ modArithType,
     modArithType.modulus.value > 0 ∧
     modArithType.modulus.value < 2 ^ modArithType.modulus.type.bitwidth ∧
-    ((op.getResult 0).get! ctx.raw).type = .of ModArithType modArithType ∧
+    ((op.getResult 0).getType! ctx.raw) = .of ModArithType modArithType ∧
     ((op.getOperand! ctx.raw 0).getType! ctx.raw) = .of ModArithType modArithType ∧
     ((op.getOperand! ctx.raw 1).getType! ctx.raw) = .of ModArithType modArithType
 
@@ -1110,7 +1109,7 @@ def OperationPtr.IsVerifiedModArithConstant (op : OperationPtr) (ctx : WfIRConte
   op.getNumSuccessors! ctx.raw = 0 ∧
   op.getNumRegions! ctx.raw = 0 ∧
   ∃ modArithType,
-    ((op.getResult 0).get! ctx.raw).type = .of ModArithType modArithType ∧
+    ((op.getResult 0).getType! ctx.raw) = .of ModArithType modArithType ∧
     modArithType.modulus.value > 0 ∧
     modArithType.modulus.value < 2 ^ modArithType.modulus.type.bitwidth ∧
     -(2 ^ (modArithType.modulus.type.bitwidth - 1) : Int)

@@ -20,7 +20,7 @@ partial def findFunc (ctx : IRContext OpCode) (op : Option OperationPtr) : Optio
   | none => none
   | some op =>
     if op.isFunctionLike ctx then some op
-    else findFunc ctx (op.get! ctx).next
+    else findFunc ctx (op.getNextOp! ctx)
 
 def main (args : List String) : IO Unit := do
   match inputSourceOfArgs args with
@@ -35,8 +35,8 @@ def main (args : List String) : IO Unit := do
     | .ok (ctx, moduleOp, _) =>
       let rawCtx : IRContext OpCode := ctx
       let region := moduleOp.getRegion! rawCtx 0
-      let funcOp := match (region.get! rawCtx).firstBlock with
-        | some b => findFunc rawCtx (b.get! rawCtx).firstOp
+      let funcOp := match (region.getFirstBlock! rawCtx) with
+        | some b => findFunc rawCtx (b.getFirstOp! rawCtx)
         | none => none
       match funcOp with
       | some f => Veir.MIRPrinter.printMIR rawCtx f

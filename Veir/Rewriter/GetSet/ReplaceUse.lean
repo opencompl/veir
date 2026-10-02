@@ -49,6 +49,8 @@ public section
 
 namespace Veir
 
+unfold_field_getters_in_grind
+
 variable {OpInfo} [HasOpInfo OpInfo]
 variable {ctx : IRContext OpInfo}
 variable {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpInfo Dialect]

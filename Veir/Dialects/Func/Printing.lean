@@ -33,25 +33,25 @@ def Func.printFuncFunc : Printer.CustomPrinter GlobalOpCode := fun op => do
   let visibility? := props.extra.entries.find? fun (k, _) => k == "sym_visibility".toUTF8
   let extraWithoutVisibility := DictionaryAttr.fromArray (props.extra.entries.filter fun (k, value) =>
     k != "sym_visibility".toUTF8 || !value.isa StringAttr)
-  let operationAttrs := (op.get! ctx).attrs
+  let operationAttrs := (op.getAttributes! ctx)
   printString " "
   if let some (_, .stringAttr vis) := visibility? then
     unless vis.value == "public".toUTF8 do
       printString s!"{String.fromUTF8! vis.value} "
   printSymbolName props.sym_name.value
   printString "("
-  let region := (op.getRegion! ctx 0).get! ctx
-  let isExternal := region.firstBlock.isNone
+  let region := op.getRegion! ctx 0
+  let isExternal := (region.getFirstBlock! ctx).isNone
   -- Print argument list: for defined functions use entry block args (SSA names),
   -- for external use types only, like MLIR's `printFunctionSignature`.
   if !isExternal then
-    let entryPtr := region.firstBlock.get!
+    let entryPtr := (region.getFirstBlock! ctx).get!
     let nargs := entryPtr.getNumArguments! ctx
     for i in List.range nargs do
       if i != 0 then printString ", "
       let argPtr := entryPtr.getArgument i
       printRegionArgument argPtr
-      printString s!": {(argPtr.get! ctx).type}"
+      printString s!": {(argPtr.getType! ctx)}"
     if funcType.isVarArg then
       if nargs > 0 then printString ", "
       printString "..."

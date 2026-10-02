@@ -9,6 +9,8 @@ public section
 
 namespace Veir
 
+unfold_field_getters_in_grind
+
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 variable {ctx : IRContext OpInfo}
 
