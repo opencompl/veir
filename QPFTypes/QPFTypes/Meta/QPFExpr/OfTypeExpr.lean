@@ -66,7 +66,11 @@ private def parseApp (u : Level) (isLiveVar : FVarId → Bool) (target : Expr) :
       continue
     let some qpf ← synthInstance? (mkApp2 (mkConst ``QPF [u, u]) (toExpr k) typefun)
       | continue
-    return ⟨k, { typefun, qpf }, rest.toVector⟩
+    -- The head may happen to be polynomial, too; note this has to be an
+    -- `IsPolynomial` for *this* `qpf` instance, not just for `typefun`.
+    let isPolynomial? ←
+      synthInstance? (mkApp3 (mkConst ``QPF.IsPolynomial [u]) (toExpr k) typefun qpf)
+    return ⟨k, { typefun, qpf, isPolynomial? }, rest.toVector⟩
 
   if let some err := liveVarError? then
     throwError err
