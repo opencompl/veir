@@ -1,7 +1,7 @@
 // RUN: veir-interpret %s | filecheck %s
 
-// `llvm.intr.memcpy` is defined when the ranges are equal, or when they are
-// adjacent in the same object.
+// `llvm.intr.memcpy` is defined when `dst` and `src` are the same pointer, or
+// when the two ranges are adjacent in the same object.
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (i64, i64)}> ({

@@ -309,8 +309,9 @@ def MemoryState.memset (mem : MemoryState) (p : Pointer) (val : RuntimeValue) (l
 
 /--
   `llvm.intr.memcpy`: copy `len` bytes, poison bits included, from `src` to `dst`,
-  one `b8` load and store at a time in increasing order. The ranges must be equal or disjoint;
-  a partial overlap is UB.
+  one `b8` load and store at a time in increasing order. Either `dst` and `src`
+  are the same pointer, or the `len` bytes at `dst` and at `src` do not overlap;
+  any other overlap is UB.
 -/
 def MemoryState.memcpy (mem : MemoryState) (dst src : Pointer) (len : Nat)
     : Interp MemoryState := do
