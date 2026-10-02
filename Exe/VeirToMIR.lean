@@ -16,14 +16,11 @@ open Veir
 
 /-- The function-like operations in the module's top block, in order. -/
 partial def findFuncs (ctx : IRContext OpCode) (op : Option OperationPtr)
-    (acc : Array ((op : OperationPtr) × FunctionOp ctx op) := #[]) :
-    Array ((op : OperationPtr) × FunctionOp ctx op) :=
+    (acc : Array OperationPtr := #[]) : Array OperationPtr :=
   match op with
   | none => acc
   | some op =>
-    let acc := match FunctionOp.cast? op ctx with
-      | some funcOp => acc.push ⟨op, funcOp⟩
-      | none => acc
+    let acc := if op.isFunctionLike ctx then acc.push op else acc
     findFuncs ctx (op.get! ctx).next acc
 
 def main (args : List String) : IO Unit := do
@@ -42,7 +39,7 @@ def main (args : List String) : IO Unit := do
       let funcOps := match (region.get! rawCtx).firstBlock with
         | some b => findFuncs rawCtx (b.get! rawCtx).firstOp
         | none => #[]
-      if !funcOps.any (Veir.MIRPrinter.hasBody rawCtx ·.2) then
+      if !funcOps.any (Veir.MIRPrinter.hasBody rawCtx) then
         IO.eprintln "Error: no function with a body found in module"
         IO.Process.exit 1
       Veir.MIRPrinter.printMIR rawCtx funcOps

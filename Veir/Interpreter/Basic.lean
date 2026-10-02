@@ -11,7 +11,7 @@ public import Veir.Data.Felt
 import Veir.Data.Comb.Basic
 import Veir.Data.HW.Basic
 import Veir.Data.Casting
-import Veir.Interfaces.FunctionInterfaces
+public import Veir.Interfaces.FunctionInterfaces
 
 public section
 
@@ -235,14 +235,15 @@ def interpretRegion (region : RegionPtr) (values : Array RuntimeValue) {ctx : Wf
   a function call starts with a fresh, empty variable state, since the caller's SSA
   values are not visible inside the callee.
 -/
-def interpretFunction (op : OperationPtr) (values : Array RuntimeValue) {ctx : WfIRContext OpCode}
+def interpretFunction {ctx : WfIRContext OpCode} {op : OperationPtr}
+    (funcOp : FunctionOp ctx.raw op) (values : Array RuntimeValue)
     (mem : MemoryState) (opIn : op.InBounds ctx.raw := by grind) :
     Interp (MemoryState × Array RuntimeValue) := do
   if h : op.getNumRegions ctx.raw ≠ 1 then
     none
   else
     let state : InterpreterState ctx := ⟨.empty ctx, mem⟩
-    let (state, results) ← interpretRegion (op.getRegion ctx.raw 0) values state
+    let (state, results) ← interpretRegion funcOp.getFunctionBody values state
     return (state.memory, results)
 
 /--

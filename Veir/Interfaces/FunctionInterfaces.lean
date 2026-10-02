@@ -19,6 +19,10 @@ variable {OpCode : Type} [HasOpInfo OpCode]
 
 public section
 
+/-- Whether this operation acts like a function. -/
+def OperationPtr.isFunctionLike (op : OperationPtr) (ctx : IRContext OpCode) : Bool :=
+  (HasOpInfo.functionInterface? (op.getOpType! ctx)).isSome
+
 /-- A function-like operation. -/
 structure FunctionOp (ctx : IRContext OpCode) (op : OperationPtr) where
   interface : FunctionOpInterface (propertiesOf (op.getOpType! ctx))
@@ -44,10 +48,20 @@ theorem cast?_eq_some {op : OperationPtr} {ctx : IRContext OpCode} (funcOp : Fun
 
 grind_pattern cast?_eq_some => cast? op ctx, funcOp.interface
 
+/--
+Cast a function-like operation to a `FunctionOp`.
+
+This is equivalent to `mlir::cast<FunctionOpInterface>(op)` in MLIR.
+-/
+@[inline]
+def cast (op : OperationPtr) (ctx : IRContext OpCode) (h : op.isFunctionLike ctx := by grind) :
+    FunctionOp ctx op :=
+  (cast? op ctx).get (by grind [cast?, OperationPtr.isFunctionLike])
+
 variable {ctx : IRContext OpCode} {op : OperationPtr}
 
 /-- Returns the symbol name of the function. -/
-def getSymName? (funcOp : FunctionOp ctx op) : Option StringAttr :=
+def getSymName (funcOp : FunctionOp ctx op) : StringAttr :=
   let opType := op.getOpType! ctx
   funcOp.interface.getSymName (op.getProperties! ctx opType)
 
@@ -85,9 +99,15 @@ theorem getFunctionBody!_inBounds {funcOp : FunctionOp ctx op}
 
 grind_pattern getFunctionBody!_inBounds => (getFunctionBody! (ctx := ctx) funcOp), ctx.FieldsInBounds
 
-/-- Returns the first block in the body region. -/
+/-- Returns the first block in the body region, or `none` if the body is empty. -/
 def getEntryBlock? (funcOp : FunctionOp ctx op) : Option BlockPtr :=
-  (funcOp.getFunctionBody!.get! ctx).firstBlock
+  if op.getNumRegions! ctx = 0 then none else (funcOp.getFunctionBody!.get! ctx).firstBlock
+
+/--
+Returns true if the function has no body, e.g. a declaration of an external function.
+-/
+def isExternal (funcOp : FunctionOp ctx op) : Bool :=
+  funcOp.getEntryBlock?.isNone
 
 /-!
 ## Type Attribute Handling

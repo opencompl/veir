@@ -53,10 +53,11 @@ set_option warn.sorry false in
     inserting bridging casts and rewriting the `function_type` to match. Handles
     `func.func`, `llvm.func` and `cir.func`. -/
 def coerceFunction (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
-    {op : OperationPtr} (funcOp : FunctionOp ctx.raw op) : ExceptT String IO (WfIRContext OpCode) := do
+    (op : OperationPtr) : ExceptT String IO (WfIRContext OpCode) := do
   -- Shadow the parameter: from here on `ctx` always names the latest version, with no
   -- separate old binding left around to second-guess.
   let mut ctx := ctx
+  let some funcOp := FunctionOp.cast? op ctx.raw | return ctx
   let some entry := funcOp.getEntryBlock? | return ctx
   let returnCode := returnOpCodeFor (op.getOpType! ctx.raw)
   -- Default the output types to the currently-declared ones, then flip coerced positions.
@@ -108,8 +109,7 @@ def coerceFunctionBoundaries (coercion : BoundaryCoercion) (ctx : WfIRContext Op
     ExceptT String IO (WfIRContext OpCode) := do
   let mut ctx := ctx
   for op in ctx.raw.operations.keys do
-    if let some funcOp := FunctionOp.cast? op ctx.raw then
-      ctx ← coerceFunction coercion ctx funcOp
+    ctx ← coerceFunction coercion ctx op
   return ctx
 
 
