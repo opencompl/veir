@@ -12,7 +12,8 @@ namespace Veir
   that it can be reasoned about, and a thin `IO` wrapper around it.
 
   It works in two phases. First every `llvm.br` and `llvm.cond_br` is replaced
-  by a RISC-V branch whose operands are cast to registers. Then the arguments
+  by a RISC-V branch whose operands are cast to registers, and every
+  `llvm.unreachable` by `riscv_cf.unreachable`. Then the arguments
   of every block that is branched to become registers, with a cast back to
   their original type at the start of the block.
 -/
@@ -30,13 +31,18 @@ def castToReg (ip : InsertPoint) (acc : WfIRContext OpCode × Array OperationPtr
   return (ctx, casts.push cast)
 
 /--
-  Replace the terminator `op` by its RISC-V counterpart if it is an `llvm.br`
-  or an `llvm.cond_br`, and leave any other operation alone. The operands are
-  cast to registers in front of the new branch.
+  Replace the terminator `op` by its RISC-V counterpart if it is an `llvm.br`,
+  an `llvm.cond_br` or an `llvm.unreachable`, and leave any other operation
+  alone. The operands are cast to registers in front of the new branch.
 -/
 def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
     : Except String (WfIRContext OpCode) := do
   let opType := op.getOpType! ctx
+  if opType = OpCode.llvm .unreachable then
+    let some (ctx, _) := WfRewriter.createOp! ctx Riscv_Cf.unreachable #[] #[]
+      #[] #[] () (InsertPoint.before op)
+      | throw "isel-br-riscv64: cannot create riscv_cf.unreachable"
+    return WfRewriter.eraseOp! ctx op
   if opType != OpCode.llvm .br && opType != OpCode.llvm .cond_br then
     return ctx
 

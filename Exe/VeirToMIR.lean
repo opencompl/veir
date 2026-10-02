@@ -5,22 +5,22 @@ import Veir.MIRPrinter
 /-!
   # veir2mir CLI tool
 
-  Reads an MLIR program from a file or from standard input, whose `main`
-  function has been lowered to the VeIR `riscv` / `riscv_cf` dialects, and
-  prints LLVM pre-register-allocation MIR.
+  Reads an MLIR program from a file or from standard input, whose functions
+  have been lowered to the VeIR `riscv` / `riscv_cf` dialects, and prints LLVM
+  pre-register-allocation MIR for all of them.
 -/
 
 open Veir.Parser
 open Veir.Input
 open Veir
 
-/-- Find the first function-like operation in the module's top block. -/
-partial def findFunc (ctx : IRContext OpCode) (op : Option OperationPtr) : Option OperationPtr :=
+/-- The function-like operations in the module's top block, in order. -/
+partial def findFuncs (ctx : IRContext OpCode) (op : Option OperationPtr)
+    (acc : Array OperationPtr := #[]) : Array OperationPtr :=
   match op with
-  | none => none
+  | none => acc
   | some op =>
-    if op.isFunctionLike ctx then some op
-    else findFunc ctx (op.get! ctx).next
+    findFuncs ctx (op.get! ctx).next (if op.isFunctionLike ctx then acc.push op else acc)
 
 def main (args : List String) : IO Unit := do
   match inputSourceOfArgs args with
@@ -35,14 +35,13 @@ def main (args : List String) : IO Unit := do
     | .ok (ctx, moduleOp, _) =>
       let rawCtx : IRContext OpCode := ctx
       let region := moduleOp.getRegion! rawCtx 0
-      let funcOp := match (region.get! rawCtx).firstBlock with
-        | some b => findFunc rawCtx (b.get! rawCtx).firstOp
-        | none => none
-      match funcOp with
-      | some f => Veir.MIRPrinter.printMIR rawCtx f
-      | none =>
-        IO.eprintln "Error: no function-like operation found in module"
+      let funcOps := match (region.get! rawCtx).firstBlock with
+        | some b => findFuncs rawCtx (b.get! rawCtx).firstOp
+        | none => #[]
+      if !funcOps.any (Veir.MIRPrinter.hasBody rawCtx) then
+        IO.eprintln "Error: no function with a body found in module"
         IO.Process.exit 1
+      Veir.MIRPrinter.printMIR rawCtx funcOps
     | .error errMsg =>
       IO.eprintln errMsg
       IO.Process.exit 1
