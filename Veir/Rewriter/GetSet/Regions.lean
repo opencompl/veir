@@ -68,10 +68,66 @@ theorem BlockPtr.get!_pushRegion {block : BlockPtr} :
   grind
 
 @[simp, grind =, simp_getset]
+theorem BlockPtr.getLastOp!_pushRegion {block : BlockPtr} :
+    block.getLastOp! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = block.getLastOp! ctx := by
+  simp only [BlockPtr.getLastOp!_def]
+  first
+  | exact BlockPtr.get!_pushRegion
+  | grind
+
+@[simp, grind =, simp_getset]
+theorem BlockPtr.getFirstOp!_pushRegion {block : BlockPtr} :
+    block.getFirstOp! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = block.getFirstOp! ctx := by
+  simp only [BlockPtr.getFirstOp!_def]
+  first
+  | exact BlockPtr.get!_pushRegion
+  | grind
+
+@[simp, grind =, simp_getset]
+theorem BlockPtr.getParent!_pushRegion {block : BlockPtr} :
+    block.getParent! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = block.getParent! ctx := by
+  simp only [BlockPtr.getParent!_def]
+  first
+  | exact BlockPtr.get!_pushRegion
+  | grind
+
+@[simp, grind =, simp_getset]
+theorem BlockPtr.getNextBlock!_pushRegion {block : BlockPtr} :
+    block.getNextBlock! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = block.getNextBlock! ctx := by
+  simp only [BlockPtr.getNextBlock!_def]
+  first
+  | exact BlockPtr.get!_pushRegion
+  | grind
+
+@[simp, grind =, simp_getset]
+theorem BlockPtr.getPrevBlock!_pushRegion {block : BlockPtr} :
+    block.getPrevBlock! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = block.getPrevBlock! ctx := by
+  simp only [BlockPtr.getPrevBlock!_def]
+  first
+  | exact BlockPtr.get!_pushRegion
+  | grind
+
+@[simp, grind =, simp_getset]
+theorem BlockPtr.getFirstUse!_pushRegion {block : BlockPtr} :
+    block.getFirstUse! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = block.getFirstUse! ctx := by
+  simp only [BlockPtr.getFirstUse!_def]
+  first
+  | exact BlockPtr.get!_pushRegion
+  | grind
+
+@[simp, grind =, simp_getset]
 theorem OperationPtr.prev!_pushRegion {operation : OperationPtr} :
     (operation.get! (Rewriter.pushRegion ctx op region hop hregion hregionParent)).prev =
     (operation.get! ctx).prev := by
   grind
+
+@[simp, grind =, simp_getset]
+theorem OperationPtr.getPrevOp!_pushRegion {operation : OperationPtr} :
+    operation.getPrevOp! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = operation.getPrevOp! ctx := by
+  simp only [OperationPtr.getPrevOp!_def]
+  first
+  | exact OperationPtr.prev!_pushRegion
+  | grind
 
 @[simp, grind =, simp_getset]
 theorem OperationPtr.next!_pushRegion {operation : OperationPtr} :
@@ -80,10 +136,26 @@ theorem OperationPtr.next!_pushRegion {operation : OperationPtr} :
   grind
 
 @[simp, grind =, simp_getset]
+theorem OperationPtr.getNextOp!_pushRegion {operation : OperationPtr} :
+    operation.getNextOp! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = operation.getNextOp! ctx := by
+  simp only [OperationPtr.getNextOp!_def]
+  first
+  | exact OperationPtr.next!_pushRegion
+  | grind
+
+@[simp, grind =, simp_getset]
 theorem OperationPtr.parent!_pushRegion {operation : OperationPtr} :
     (operation.get! (Rewriter.pushRegion ctx op region hop hregion hregionParent)).parent =
     (operation.get! ctx).parent := by
   grind
+
+@[simp, grind =, simp_getset]
+theorem OperationPtr.getParent!_pushRegion {operation : OperationPtr} :
+    operation.getParent! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = operation.getParent! ctx := by
+  simp only [OperationPtr.getParent!_def]
+  first
+  | exact OperationPtr.parent!_pushRegion
+  | grind
 
 @[simp, grind =, simp_getset]
 theorem OperationPtr.getOpType!_pushRegion {operation : OperationPtr} :
@@ -96,6 +168,14 @@ theorem OperationPtr.attrs!_pushRegion {operation : OperationPtr} :
     (operation.get! (Rewriter.pushRegion ctx op region hop hregion hregionParent)).attrs =
     (operation.get! ctx).attrs := by
   grind
+
+@[simp, grind =, simp_getset]
+theorem OperationPtr.getAttributes!_pushRegion {operation : OperationPtr} :
+    operation.getAttributes! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = operation.getAttributes! ctx := by
+  simp only [OperationPtr.getAttributes!_def]
+  first
+  | exact OperationPtr.attrs!_pushRegion
+  | grind
 
 @[simp, grind =, simp_getset]
 theorem OperationPtr.getProperties!_pushRegion {operation : OperationPtr} :
@@ -116,6 +196,30 @@ theorem OpResultPtr.get!_pushRegion {opResult : OpResultPtr} :
   grind
 
 @[simp, grind =, simp_getset]
+theorem OpResultPtr.getOwner!_pushRegion {opResult : OpResultPtr} :
+    opResult.getOwner! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = opResult.getOwner! ctx := by
+  simp only [OpResultPtr.getOwner!_def]
+  first
+  | exact OpResultPtr.get!_pushRegion
+  | grind
+
+@[simp, grind =, simp_getset]
+theorem OpResultPtr.getFirstUse!_pushRegion {opResult : OpResultPtr} :
+    opResult.getFirstUse! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = opResult.getFirstUse! ctx := by
+  simp only [OpResultPtr.getFirstUse!_def]
+  first
+  | exact OpResultPtr.get!_pushRegion
+  | grind
+
+@[simp, grind =, simp_getset]
+theorem OpResultPtr.getType!_pushRegion {opResult : OpResultPtr} :
+    opResult.getType! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = opResult.getType! ctx := by
+  simp only [OpResultPtr.getType!_def]
+  first
+  | exact OpResultPtr.get!_pushRegion
+  | grind
+
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getNumOperands!_pushRegion {operation : OperationPtr} :
     operation.getNumOperands! (Rewriter.pushRegion ctx op region hop hregion hregionParent) =
     operation.getNumOperands! ctx := by
@@ -126,6 +230,38 @@ theorem OpOperandPtr.get!_pushRegion {opOperand : OpOperandPtr} :
     opOperand.get! (Rewriter.pushRegion ctx op region hop hregion hregionParent) =
     opOperand.get! ctx := by
   grind
+
+@[simp, grind =, simp_getset]
+theorem OpOperandPtr.getValue!_pushRegion {opOperand : OpOperandPtr} :
+    opOperand.getValue! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = opOperand.getValue! ctx := by
+  simp only [OpOperandPtr.getValue!_def]
+  first
+  | exact OpOperandPtr.get!_pushRegion
+  | grind
+
+@[simp, grind =, simp_getset]
+theorem OpOperandPtr.getOwner!_pushRegion {opOperand : OpOperandPtr} :
+    opOperand.getOwner! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = opOperand.getOwner! ctx := by
+  simp only [OpOperandPtr.getOwner!_def]
+  first
+  | exact OpOperandPtr.get!_pushRegion
+  | grind
+
+@[simp, grind =, simp_getset]
+theorem OpOperandPtr.getBack!_pushRegion {opOperand : OpOperandPtr} :
+    opOperand.getBack! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = opOperand.getBack! ctx := by
+  simp only [OpOperandPtr.getBack!_def]
+  first
+  | exact OpOperandPtr.get!_pushRegion
+  | grind
+
+@[simp, grind =, simp_getset]
+theorem OpOperandPtr.getNextUse!_pushRegion {opOperand : OpOperandPtr} :
+    opOperand.getNextUse! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = opOperand.getNextUse! ctx := by
+  simp only [OpOperandPtr.getNextUse!_def]
+  first
+  | exact OpOperandPtr.get!_pushRegion
+  | grind
 
 @[simp, grind =, simp_getset]
 theorem OperationPtr.getOperands!_pushRegion {operation : OperationPtr} :
@@ -144,6 +280,38 @@ theorem BlockOperandPtr.get!_pushRegion {blockOperand : BlockOperandPtr} :
     blockOperand.get! (Rewriter.pushRegion ctx op region hop hregion hregionParent) =
     blockOperand.get! ctx := by
   grind
+
+@[simp, grind =, simp_getset]
+theorem BlockOperandPtr.getValue!_pushRegion {blockOperand : BlockOperandPtr} :
+    blockOperand.getValue! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = blockOperand.getValue! ctx := by
+  simp only [BlockOperandPtr.getValue!_def]
+  first
+  | exact BlockOperandPtr.get!_pushRegion
+  | grind
+
+@[simp, grind =, simp_getset]
+theorem BlockOperandPtr.getOwner!_pushRegion {blockOperand : BlockOperandPtr} :
+    blockOperand.getOwner! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = blockOperand.getOwner! ctx := by
+  simp only [BlockOperandPtr.getOwner!_def]
+  first
+  | exact BlockOperandPtr.get!_pushRegion
+  | grind
+
+@[simp, grind =, simp_getset]
+theorem BlockOperandPtr.getBack!_pushRegion {blockOperand : BlockOperandPtr} :
+    blockOperand.getBack! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = blockOperand.getBack! ctx := by
+  simp only [BlockOperandPtr.getBack!_def]
+  first
+  | exact BlockOperandPtr.get!_pushRegion
+  | grind
+
+@[simp, grind =, simp_getset]
+theorem BlockOperandPtr.getNextUse!_pushRegion {blockOperand : BlockOperandPtr} :
+    blockOperand.getNextUse! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = blockOperand.getNextUse! ctx := by
+  simp only [BlockOperandPtr.getNextUse!_def]
+  first
+  | exact BlockOperandPtr.get!_pushRegion
+  | grind
 
 @[simp, grind =, simp_getset]
 theorem OperationPtr.getSuccessor!_pushRegion {operation : OperationPtr} :
@@ -190,10 +358,50 @@ theorem BlockArgumentPtr.get!_pushRegion {blockArg : BlockArgumentPtr} :
   grind
 
 @[simp, grind =, simp_getset]
+theorem BlockArgumentPtr.getOwner!_pushRegion {blockArg : BlockArgumentPtr} :
+    blockArg.getOwner! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = blockArg.getOwner! ctx := by
+  simp only [BlockArgumentPtr.getOwner!_def]
+  first
+  | exact BlockArgumentPtr.get!_pushRegion
+  | grind
+
+@[simp, grind =, simp_getset]
+theorem BlockArgumentPtr.getIndex!_pushRegion {blockArg : BlockArgumentPtr} :
+    blockArg.getIndex! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = blockArg.getIndex! ctx := by
+  simp only [BlockArgumentPtr.getIndex!_def]
+  first
+  | exact BlockArgumentPtr.get!_pushRegion
+  | grind
+
+@[simp, grind =, simp_getset]
+theorem BlockArgumentPtr.getFirstUse!_pushRegion {blockArg : BlockArgumentPtr} :
+    blockArg.getFirstUse! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = blockArg.getFirstUse! ctx := by
+  simp only [BlockArgumentPtr.getFirstUse!_def]
+  first
+  | exact BlockArgumentPtr.get!_pushRegion
+  | grind
+
+@[simp, grind =, simp_getset]
+theorem BlockArgumentPtr.getType!_pushRegion {blockArg : BlockArgumentPtr} :
+    blockArg.getType! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = blockArg.getType! ctx := by
+  simp only [BlockArgumentPtr.getType!_def]
+  first
+  | exact BlockArgumentPtr.get!_pushRegion
+  | grind
+
+@[simp, grind =, simp_getset]
 theorem RegionPtr.firstBlock!_pushRegion {r : RegionPtr} :
     (r.get! (Rewriter.pushRegion ctx op region hop hregion hregionParent)).firstBlock =
     (r.get! ctx).firstBlock := by
   grind
+
+@[simp, grind =, simp_getset]
+theorem RegionPtr.getFirstBlock!_pushRegion {r : RegionPtr} :
+    r.getFirstBlock! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = r.getFirstBlock! ctx := by
+  simp only [RegionPtr.getFirstBlock!_def]
+  first
+  | exact RegionPtr.firstBlock!_pushRegion
+  | grind
 
 @[simp, grind =, simp_getset]
 theorem RegionPtr.lastBlock!_pushRegion {r : RegionPtr} :
@@ -201,11 +409,27 @@ theorem RegionPtr.lastBlock!_pushRegion {r : RegionPtr} :
     (r.get! ctx).lastBlock := by
   grind
 
+@[simp, grind =, simp_getset]
+theorem RegionPtr.getLastBlock!_pushRegion {r : RegionPtr} :
+    r.getLastBlock! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = r.getLastBlock! ctx := by
+  simp only [RegionPtr.getLastBlock!_def]
+  first
+  | exact RegionPtr.lastBlock!_pushRegion
+  | grind
+
 @[grind =, simp_getset]
 theorem RegionPtr.parent!_pushRegion {r : RegionPtr} :
     (r.get! (Rewriter.pushRegion ctx op region hop hregion hregionParent)).parent =
     if r = region then some op else (r.get! ctx).parent := by
   grind
+
+@[grind =, simp_getset]
+theorem RegionPtr.getParent!_pushRegion {r : RegionPtr} :
+    r.getParent! (Rewriter.pushRegion ctx op region hop hregion hregionParent) = if r = region then some op else r.getParent! ctx := by
+  simp only [RegionPtr.getParent!_def]
+  first
+  | exact RegionPtr.parent!_pushRegion
+  | grind
 
 @[simp, grind =, simp_getset]
 theorem ValuePtr.getFirstUse!_pushRegion {value : ValuePtr} :
@@ -241,10 +465,66 @@ theorem BlockPtr.get!_initOpRegions {block : BlockPtr} {ctx' : IRContext OpInfo}
   fun_induction Rewriter.initOpRegions <;> grind
 
 @[simp, grind =>, simp_getset]
+theorem BlockPtr.getLastOp!_initOpRegions {block : BlockPtr} {ctx' : IRContext OpInfo} (h : Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄ = some ctx') :
+    block.getLastOp! ctx' = block.getLastOp! ctx := by
+  simp only [BlockPtr.getLastOp!_def]
+  first
+  | exact BlockPtr.get!_initOpRegions
+  | grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockPtr.getFirstOp!_initOpRegions {block : BlockPtr} {ctx' : IRContext OpInfo} (h : Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄ = some ctx') :
+    block.getFirstOp! ctx' = block.getFirstOp! ctx := by
+  simp only [BlockPtr.getFirstOp!_def]
+  first
+  | exact BlockPtr.get!_initOpRegions
+  | grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockPtr.getParent!_initOpRegions {block : BlockPtr} {ctx' : IRContext OpInfo} (h : Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄ = some ctx') :
+    block.getParent! ctx' = block.getParent! ctx := by
+  simp only [BlockPtr.getParent!_def]
+  first
+  | exact BlockPtr.get!_initOpRegions
+  | grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockPtr.getNextBlock!_initOpRegions {block : BlockPtr} {ctx' : IRContext OpInfo} (h : Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄ = some ctx') :
+    block.getNextBlock! ctx' = block.getNextBlock! ctx := by
+  simp only [BlockPtr.getNextBlock!_def]
+  first
+  | exact BlockPtr.get!_initOpRegions
+  | grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockPtr.getPrevBlock!_initOpRegions {block : BlockPtr} {ctx' : IRContext OpInfo} (h : Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄ = some ctx') :
+    block.getPrevBlock! ctx' = block.getPrevBlock! ctx := by
+  simp only [BlockPtr.getPrevBlock!_def]
+  first
+  | exact BlockPtr.get!_initOpRegions
+  | grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockPtr.getFirstUse!_initOpRegions {block : BlockPtr} {ctx' : IRContext OpInfo} (h : Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄ = some ctx') :
+    block.getFirstUse! ctx' = block.getFirstUse! ctx := by
+  simp only [BlockPtr.getFirstUse!_def]
+  first
+  | exact BlockPtr.get!_initOpRegions
+  | grind
+
+@[simp, grind =>, simp_getset]
 theorem OperationPtr.prev!_initOpRegions {operation : OperationPtr} {ctx' : IRContext OpInfo}
     (h : Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄ = some ctx') :
     (operation.get! ctx').prev = (operation.get! ctx).prev := by
   fun_induction Rewriter.initOpRegions <;> grind
+
+@[simp, grind =>, simp_getset]
+theorem OperationPtr.getPrevOp!_initOpRegions {operation : OperationPtr} {ctx' : IRContext OpInfo} (h : Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄ = some ctx') :
+    operation.getPrevOp! ctx' = operation.getPrevOp! ctx := by
+  simp only [OperationPtr.getPrevOp!_def]
+  first
+  | exact OperationPtr.prev!_initOpRegions
+  | grind
 
 @[simp, grind =>, simp_getset]
 theorem OperationPtr.next!_initOpRegions {operation : OperationPtr} {ctx' : IRContext OpInfo}
@@ -253,10 +533,26 @@ theorem OperationPtr.next!_initOpRegions {operation : OperationPtr} {ctx' : IRCo
   fun_induction Rewriter.initOpRegions <;> grind
 
 @[simp, grind =>, simp_getset]
+theorem OperationPtr.getNextOp!_initOpRegions {operation : OperationPtr} {ctx' : IRContext OpInfo} (h : Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄ = some ctx') :
+    operation.getNextOp! ctx' = operation.getNextOp! ctx := by
+  simp only [OperationPtr.getNextOp!_def]
+  first
+  | exact OperationPtr.next!_initOpRegions
+  | grind
+
+@[simp, grind =>, simp_getset]
 theorem OperationPtr.parent!_initOpRegions {operation : OperationPtr} {ctx' : IRContext OpInfo}
     (h : Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄ = some ctx') :
     (operation.get! ctx').parent = (operation.get! ctx).parent := by
   fun_induction Rewriter.initOpRegions <;> grind
+
+@[simp, grind =>, simp_getset]
+theorem OperationPtr.getParent!_initOpRegions {operation : OperationPtr} {ctx' : IRContext OpInfo} (h : Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄ = some ctx') :
+    operation.getParent! ctx' = operation.getParent! ctx := by
+  simp only [OperationPtr.getParent!_def]
+  first
+  | exact OperationPtr.parent!_initOpRegions
+  | grind
 
 @[simp, grind =>, simp_getset]
 theorem OperationPtr.getOpType!_initOpRegions {operation : OperationPtr} {ctx' : IRContext OpInfo}
@@ -269,6 +565,14 @@ theorem OperationPtr.attrs!_initOpRegions {operation : OperationPtr} {ctx' : IRC
     (h : Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄ = some ctx') :
     (operation.get! ctx').attrs = (operation.get! ctx).attrs := by
   fun_induction Rewriter.initOpRegions <;> grind
+
+@[simp, grind =>, simp_getset]
+theorem OperationPtr.getAttributes!_initOpRegions {operation : OperationPtr} {ctx' : IRContext OpInfo} (h : Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄ = some ctx') :
+    operation.getAttributes! ctx' = operation.getAttributes! ctx := by
+  simp only [OperationPtr.getAttributes!_def]
+  first
+  | exact OperationPtr.attrs!_initOpRegions
+  | grind
 
 @[simp, grind =>, simp_getset]
 theorem OperationPtr.getProperties!_initOpRegions {operation : OperationPtr} {ctx' : IRContext OpInfo}
@@ -295,10 +599,66 @@ theorem OpResultPtr.get!_initOpRegions {opResult : OpResultPtr}
   fun_induction Rewriter.initOpRegions <;> grind
 
 @[simp, grind =>, simp_getset]
+theorem OpResultPtr.getOwner!_initOpRegions {opResult : OpResultPtr} (h : Rewriter.initOpRegions ctx op regions idx h₁ h₂ h₃ h₄ = some ctx') :
+    opResult.getOwner! ctx' = opResult.getOwner! ctx := by
+  simp only [OpResultPtr.getOwner!_def]
+  first
+  | exact OpResultPtr.get!_initOpRegions
+  | grind
+
+@[simp, grind =>, simp_getset]
+theorem OpResultPtr.getFirstUse!_initOpRegions {opResult : OpResultPtr} (h : Rewriter.initOpRegions ctx op regions idx h₁ h₂ h₃ h₄ = some ctx') :
+    opResult.getFirstUse! ctx' = opResult.getFirstUse! ctx := by
+  simp only [OpResultPtr.getFirstUse!_def]
+  first
+  | exact OpResultPtr.get!_initOpRegions
+  | grind
+
+@[simp, grind =>, simp_getset]
+theorem OpResultPtr.getType!_initOpRegions {opResult : OpResultPtr} (h : Rewriter.initOpRegions ctx op regions idx h₁ h₂ h₃ h₄ = some ctx') :
+    opResult.getType! ctx' = opResult.getType! ctx := by
+  simp only [OpResultPtr.getType!_def]
+  first
+  | exact OpResultPtr.get!_initOpRegions
+  | grind
+
+@[simp, grind =>, simp_getset]
 theorem OpOperandPtr.get!_initOpRegions {opOperand : OpOperandPtr}
     (h : Rewriter.initOpRegions ctx op regions idx h₁ h₂ h₃ h₄ = some ctx') :
     opOperand.get! ctx' = opOperand.get! ctx := by
   fun_induction Rewriter.initOpRegions <;> grind
+
+@[simp, grind =>, simp_getset]
+theorem OpOperandPtr.getValue!_initOpRegions {opOperand : OpOperandPtr} (h : Rewriter.initOpRegions ctx op regions idx h₁ h₂ h₃ h₄ = some ctx') :
+    opOperand.getValue! ctx' = opOperand.getValue! ctx := by
+  simp only [OpOperandPtr.getValue!_def]
+  first
+  | exact OpOperandPtr.get!_initOpRegions
+  | grind
+
+@[simp, grind =>, simp_getset]
+theorem OpOperandPtr.getOwner!_initOpRegions {opOperand : OpOperandPtr} (h : Rewriter.initOpRegions ctx op regions idx h₁ h₂ h₃ h₄ = some ctx') :
+    opOperand.getOwner! ctx' = opOperand.getOwner! ctx := by
+  simp only [OpOperandPtr.getOwner!_def]
+  first
+  | exact OpOperandPtr.get!_initOpRegions
+  | grind
+
+@[simp, grind =>, simp_getset]
+theorem OpOperandPtr.getBack!_initOpRegions {opOperand : OpOperandPtr} (h : Rewriter.initOpRegions ctx op regions idx h₁ h₂ h₃ h₄ = some ctx') :
+    opOperand.getBack! ctx' = opOperand.getBack! ctx := by
+  simp only [OpOperandPtr.getBack!_def]
+  first
+  | exact OpOperandPtr.get!_initOpRegions
+  | grind
+
+@[simp, grind =>, simp_getset]
+theorem OpOperandPtr.getNextUse!_initOpRegions {opOperand : OpOperandPtr} (h : Rewriter.initOpRegions ctx op regions idx h₁ h₂ h₃ h₄ = some ctx') :
+    opOperand.getNextUse! ctx' = opOperand.getNextUse! ctx := by
+  simp only [OpOperandPtr.getNextUse!_def]
+  first
+  | exact OpOperandPtr.get!_initOpRegions
+  | grind
 
 @[simp, grind =>, simp_getset]
 theorem OperationPtr.getOperands!_initOpRegions {operation : OperationPtr}
@@ -317,6 +677,38 @@ theorem BlockOperandPtr.get!_initOpRegions {blockOperand : BlockOperandPtr}
     (h : Rewriter.initOpRegions ctx op regions idx h₁ h₂ h₃ h₄ = some ctx') :
     blockOperand.get! ctx' = blockOperand.get! ctx := by
   fun_induction Rewriter.initOpRegions <;> grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockOperandPtr.getValue!_initOpRegions {blockOperand : BlockOperandPtr} (h : Rewriter.initOpRegions ctx op regions idx h₁ h₂ h₃ h₄ = some ctx') :
+    blockOperand.getValue! ctx' = blockOperand.getValue! ctx := by
+  simp only [BlockOperandPtr.getValue!_def]
+  first
+  | exact BlockOperandPtr.get!_initOpRegions
+  | grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockOperandPtr.getOwner!_initOpRegions {blockOperand : BlockOperandPtr} (h : Rewriter.initOpRegions ctx op regions idx h₁ h₂ h₃ h₄ = some ctx') :
+    blockOperand.getOwner! ctx' = blockOperand.getOwner! ctx := by
+  simp only [BlockOperandPtr.getOwner!_def]
+  first
+  | exact BlockOperandPtr.get!_initOpRegions
+  | grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockOperandPtr.getBack!_initOpRegions {blockOperand : BlockOperandPtr} (h : Rewriter.initOpRegions ctx op regions idx h₁ h₂ h₃ h₄ = some ctx') :
+    blockOperand.getBack! ctx' = blockOperand.getBack! ctx := by
+  simp only [BlockOperandPtr.getBack!_def]
+  first
+  | exact BlockOperandPtr.get!_initOpRegions
+  | grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockOperandPtr.getNextUse!_initOpRegions {blockOperand : BlockOperandPtr} (h : Rewriter.initOpRegions ctx op regions idx h₁ h₂ h₃ h₄ = some ctx') :
+    blockOperand.getNextUse! ctx' = blockOperand.getNextUse! ctx := by
+  simp only [BlockOperandPtr.getNextUse!_def]
+  first
+  | exact BlockOperandPtr.get!_initOpRegions
+  | grind
 
 @[simp, grind =>, simp_getset]
 theorem OperationPtr.getSuccessor!_initOpRegions {operation : OperationPtr}
@@ -365,16 +757,64 @@ theorem BlockArgumentPtr.get!_initOpRegions {blockArg : BlockArgumentPtr}
   fun_induction Rewriter.initOpRegions <;> grind
 
 @[simp, grind =>, simp_getset]
+theorem BlockArgumentPtr.getOwner!_initOpRegions {blockArg : BlockArgumentPtr} (h : Rewriter.initOpRegions ctx op regions idx h₁ h₂ h₃ h₄ = some ctx') :
+    blockArg.getOwner! ctx' = blockArg.getOwner! ctx := by
+  simp only [BlockArgumentPtr.getOwner!_def]
+  first
+  | exact BlockArgumentPtr.get!_initOpRegions
+  | grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockArgumentPtr.getIndex!_initOpRegions {blockArg : BlockArgumentPtr} (h : Rewriter.initOpRegions ctx op regions idx h₁ h₂ h₃ h₄ = some ctx') :
+    blockArg.getIndex! ctx' = blockArg.getIndex! ctx := by
+  simp only [BlockArgumentPtr.getIndex!_def]
+  first
+  | exact BlockArgumentPtr.get!_initOpRegions
+  | grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockArgumentPtr.getFirstUse!_initOpRegions {blockArg : BlockArgumentPtr} (h : Rewriter.initOpRegions ctx op regions idx h₁ h₂ h₃ h₄ = some ctx') :
+    blockArg.getFirstUse! ctx' = blockArg.getFirstUse! ctx := by
+  simp only [BlockArgumentPtr.getFirstUse!_def]
+  first
+  | exact BlockArgumentPtr.get!_initOpRegions
+  | grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockArgumentPtr.getType!_initOpRegions {blockArg : BlockArgumentPtr} (h : Rewriter.initOpRegions ctx op regions idx h₁ h₂ h₃ h₄ = some ctx') :
+    blockArg.getType! ctx' = blockArg.getType! ctx := by
+  simp only [BlockArgumentPtr.getType!_def]
+  first
+  | exact BlockArgumentPtr.get!_initOpRegions
+  | grind
+
+@[simp, grind =>, simp_getset]
 theorem RegionPtr.firstBlock!_initOpRegions {region : RegionPtr}
     (h : Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄ = some ctx') :
     (region.get! ctx').firstBlock = (region.get! ctx).firstBlock := by
   fun_induction Rewriter.initOpRegions <;> grind (instances := 5000)
 
 @[simp, grind =>, simp_getset]
+theorem RegionPtr.getFirstBlock!_initOpRegions {region : RegionPtr} (h : Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄ = some ctx') :
+    region.getFirstBlock! ctx' = region.getFirstBlock! ctx := by
+  simp only [RegionPtr.getFirstBlock!_def]
+  first
+  | exact RegionPtr.firstBlock!_initOpRegions
+  | grind
+
+@[simp, grind =>, simp_getset]
 theorem RegionPtr.lastBlock!_initOpRegions {region : RegionPtr}
     (h : Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄ = some ctx') :
     (region.get! ctx').lastBlock = (region.get! ctx).lastBlock := by
   fun_induction Rewriter.initOpRegions <;> grind (instances := 5000)
+
+@[simp, grind =>, simp_getset]
+theorem RegionPtr.getLastBlock!_initOpRegions {region : RegionPtr} (h : Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄ = some ctx') :
+    region.getLastBlock! ctx' = region.getLastBlock! ctx := by
+  simp only [RegionPtr.getLastBlock!_def]
+  first
+  | exact RegionPtr.lastBlock!_initOpRegions
+  | grind
 
 @[simp_getset]
 theorem RegionPtr.parent!_initOpRegions_gen {region : RegionPtr}
@@ -387,6 +827,14 @@ theorem RegionPtr.parent!_initOpRegions_gen {region : RegionPtr}
     split <;> split <;> grind (instances := 5000)
   · grind
 
+@[simp_getset]
+theorem RegionPtr.getParent!_initOpRegions_gen {region : RegionPtr} (h : Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄ = some ctx') :
+    region.getParent! ctx' = if ∃ (i : Nat) (_ : i < regions.size), index ≤ i ∧ regions[i] = region then some op else region.getParent! ctx := by
+  simp only [RegionPtr.getParent!_def]
+  first
+  | exact RegionPtr.parent!_initOpRegions_gen
+  | grind [RegionPtr.parent!_initOpRegions_gen]
+
 @[grind =>]
 theorem RegionPtr.parent!_initOpRegions {region : RegionPtr}
     (h : Rewriter.initOpRegions ctx op regions 0 h₁ h₂ h₃ h₄ = some ctx') :
@@ -395,6 +843,14 @@ theorem RegionPtr.parent!_initOpRegions {region : RegionPtr}
   rw [parent!_initOpRegions_gen h]
   congr
   grind [Array.mem_iff_getElem]
+
+@[grind =>]
+theorem RegionPtr.getParent!_initOpRegions {region : RegionPtr} (h : Rewriter.initOpRegions ctx op regions 0 h₁ h₂ h₃ h₄ = some ctx') :
+    region.getParent! ctx' = if region ∈ regions then some op else region.getParent! ctx := by
+  simp only [RegionPtr.getParent!_def]
+  first
+  | exact RegionPtr.parent!_initOpRegions
+  | grind
 
 @[simp, grind =>, simp_getset]
 theorem ValuePtr.getFirstUse!_initOpRegions {value : ValuePtr}
