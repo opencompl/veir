@@ -327,6 +327,22 @@ def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType
     let .val addr := addr | ub
     let mem ← monadLift $ mem.llvmStore addr val
     return (#[], mem, none)
+  | .intr__memset => do
+    let [.addr dst, val, .int _ len] := operands.toList | fail
+    let .val len := len | ub
+    if len.toNat = 0 then return (#[], mem, none)
+    let .val dst := dst | ub
+    let mem ← monadLift $ mem.memset dst val len.toNat
+    return (#[], mem, none)
+  | .intr__memcpy | .intr__memmove => do
+    let [.addr dst, .addr src, .int _ len] := operands.toList | fail
+    let .val len := len | ub
+    if len.toNat = 0 then return (#[], mem, none)
+    let .val dst := dst | ub
+    let .val src := src | ub
+    let mem ← monadLift $ if opType = .intr__memcpy then mem.memcpy dst src len.toNat
+      else mem.memmove dst src len.toNat
+    return (#[], mem, none)
   | .getelementptr => do
     /- only supports exactly one dynamic index for now -/
     let [.addr ptr, .int _ idx] := operands.toList | fail

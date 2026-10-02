@@ -1548,6 +1548,22 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let .val addr := addr | Interp.ub none
     let mem ← mem.llvmStore addr val
     return (#[], mem, none)
+  | .intr__memset => do
+    let [.addr dst, val, .int _ len] := operands.toList | none
+    let .val len := len | Interp.ub none
+    if len.toNat = 0 then return (#[], mem, none)
+    let .val dst := dst | Interp.ub none
+    let mem ← mem.memset dst val len.toNat
+    return (#[], mem, none)
+  | .intr__memcpy | .intr__memmove => do
+    let [.addr dst, .addr src, .int _ len] := operands.toList | none
+    let .val len := len | Interp.ub none
+    if len.toNat = 0 then return (#[], mem, none)
+    let .val dst := dst | Interp.ub none
+    let .val src := src | Interp.ub none
+    let mem ← if opType = .intr__memcpy then mem.memcpy dst src len.toNat
+      else mem.memmove dst src len.toNat
+    return (#[], mem, none)
   | .getelementptr => do
     /- only supports exactly one dynamic index for now -/
     let [.addr ptr, .int _ idx] := operands.toList | none
