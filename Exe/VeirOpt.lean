@@ -20,6 +20,7 @@ import Veir.Passes.ModArithToArith
 import Veir.Passes.ArithToLLVM
 import Veir.Passes.Canonicalize
 import Veir.Passes.Legalization
+import Veir.Passes.Legalization.RISCV64LegalizerInfo
 import Veir.Passes.CirToStd
 import Veir.Passes.LLVMToGMIR
 
@@ -50,6 +51,7 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
      ArithToLLVMPass,
      CanonicalizePass,
      LegalizePass,
+     LegalizeRISCV64Pass,
      CirToStdPass,
      LLVMToGMIRPass ] : List (Pass OpCode)).foldl
     (fun m pass => m.insert pass.name pass)
