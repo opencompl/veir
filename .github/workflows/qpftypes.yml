@@ -23,3 +23,5 @@ jobs:
         uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596 # v1.6.0
         with:
           lake-package-directory: "QPFTypes"
+          build: true
+          test: true
