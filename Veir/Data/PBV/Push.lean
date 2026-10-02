@@ -40,11 +40,11 @@ Operations without a push theorem (`—`) are abstracted as opaque variables by 
 | Cast                            | `BitVec.cast`                | `BitVec.setWidth_cast`             |
 | Append (`++`)                   | `BitVec.append`              | `setWidth_append`                  |
 | Extract (SMT-Lib)               | `BitVec.extractLsb`          | —                                  |
-| Extract                         | `BitVec.extractLsb'`         | —                                  |
+| Extract                         | `BitVec.extractLsb'`         | `setWidth_extractLsb'`             |
 | Replicate                       | `BitVec.replicate`           | —                                  |
 | Concat bit                      | `BitVec.concat`              | —                                  |
 | Cons bit                        | `BitVec.cons`                | —                                  |
-| Shift left, extend              | `BitVec.shiftLeftZeroExtend` | —                                  |
+| Shift left, extend              | `BitVec.shiftLeftZeroExtend` | `BitVec.shiftLeftZeroExtend_eq`    |
 | Add (`+`)                       | `BitVec.add`                 | `setWidth_add`                     |
 | Sub (`-`)                       | `BitVec.sub`                 | `setWidth_sub`                     |
 | Neg (`-`)                       | `BitVec.neg`                 | `setWidth_neg`                     |
@@ -92,7 +92,7 @@ namespace Veir.Data.PBV
 public section
 
 attribute [pbv_push] signBitOfMask_eq maskOfWidth_zero BitVec.setWidth_zero
-  BitVec.ofNat_eq_ofNat BitVec.setWidth_cast
+  BitVec.ofNat_eq_ofNat BitVec.setWidth_cast BitVec.shiftLeftZeroExtend_eq
 
 attribute [pbv_push low] BitVec.setWidth_eq
 
@@ -164,26 +164,26 @@ theorem setWidth_umod {o w : Nat} (h : w ≤ o) (a b : BitVec w) :
 /-- ## Push `setWidth` into `BitVec` ops -/
 
 @[pbv_push]
-theorem setWidth_shiftLeft {w o : Nat} (h : w ≤ o) (a b : BitVec w) :
+theorem setWidth_shiftLeft {o w : Nat} (h : w ≤ o) (a b : BitVec w) :
     (a <<< b).setWidth o = (a.setWidth o <<< b.setWidth o) &&& maskOfWidth o w := by
   refine setWidth_eq_and_maskOfWidth h ?_
   simp only [BitVec.shiftLeft_eq', BitVec.toNat_setWidth, Nat.mod_eq_of_lt (BitVec.toNat_lt_twoPow_of_le (x := b) h),
     BitVec.toNat_shiftLeft, Nat.shiftLeft_eq, Nat.mod_mul_mod, Nat.mod_mod_pow_of_le h]
 @[pbv_push]
-theorem setWidth_shiftLeft' {w o : Nat} (h : w ≤ o) (a : BitVec w) (b : Nat) :
+theorem setWidth_shiftLeft' {o w : Nat} (h : w ≤ o) (a : BitVec w) (b : Nat) :
     (a <<< b).setWidth o = (a.setWidth o <<< b) &&& maskOfWidth o w := by
   refine setWidth_eq_and_maskOfWidth h ?_
   simp only [BitVec.toNat_shiftLeft, BitVec.toNat_setWidth, Nat.shiftLeft_eq, Nat.mod_mul_mod, Nat.mod_mod_pow_of_le h]
 
 @[pbv_push]
-theorem setWidth_ushiftRight {w o : Nat} (h : w ≤ o) (a b : BitVec w) :
+theorem setWidth_ushiftRight {o w : Nat} (h : w ≤ o) (a b : BitVec w) :
     (a >>> b).setWidth o = (a.setWidth o >>> b.setWidth o) &&& maskOfWidth o w := by
   refine setWidth_eq_and_maskOfWidth h ?_
   simp only [BitVec.ushiftRight_eq', BitVec.toNat_setWidth, Nat.mod_eq_of_lt (BitVec.toNat_lt_twoPow_of_le h),
     BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow, Nat.div_mod_eq_div a.isLt]
 
 @[pbv_push]
-theorem setWidth_ushiftRight' {w o : Nat} (h : w ≤ o) (a : BitVec w) (b : Nat) :
+theorem setWidth_ushiftRight' {o w : Nat} (h : w ≤ o) (a : BitVec w) (b : Nat) :
     (a >>> b).setWidth o = (a.setWidth o >>> b) &&& maskOfWidth o w := by
   refine setWidth_eq_and_maskOfWidth h ?_
   simp only [BitVec.toNat_setWidth, Nat.mod_eq_of_lt (BitVec.toNat_lt_twoPow_of_le h),
@@ -229,6 +229,23 @@ theorem setWidth_ofNat {o w n : Nat} (h : w ≤ o) :
     BitVec.setWidth o (BitVec.ofNat w n) = (BitVec.ofNat o n) &&& maskOfWidth o w := by
   refine setWidth_eq_and_maskOfWidth h ?_
   simp only [BitVec.toNat_ofNat, Nat.mod_mod_pow_of_le h]
+
+/-- ExtractLsb is converted to shift and mask. -/
+@[pbv_push]
+theorem setWidth_extractLsb' {o w len start : Nat} (a : BitVec w) (h: w ≤ o) (hlen : len ≤ o):
+    (a.extractLsb' start len).setWidth o
+      = ((a.setWidth o) >>> start) &&& maskOfWidth o len := by
+  by_cases hs : start ≤ w
+  · refine setWidth_eq_and_maskOfWidth (by lia) ?_
+    simp [Nat.mod_eq_of_lt (BitVec.toNat_lt_twoPow_of_le h)]
+  · have : a.toNat < 2 ^ start := by
+      have := a.isLt
+      have : start > w := by lia
+      grind [Nat.pow_lt_pow_right (a:=2) (by decide) this]
+    apply BitVec.eq_of_toNat_eq
+    simp only [BitVec.toNat_setWidth, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_zero (hn := this),
+      Nat.zero_mod, BitVec.toNat_and, BitVec.toNat_ushiftRight,
+      Nat.mod_eq_of_lt (BitVec.toNat_lt_twoPow_of_le h), Nat.zero_and]
 
 /-! ### Other ops in terms of `maskOfWidth` -/
 
