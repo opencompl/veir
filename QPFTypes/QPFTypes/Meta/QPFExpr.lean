@@ -3,6 +3,7 @@ module
 public import QPFTypes.Meta.QPFExpr.FinTuple
 public import QPFTypes.Meta.QPFExpr.Basic
 public import QPFTypes.Meta.QPFExpr.AddDecl
+public import QPFTypes.Meta.QPFExpr.OfTypeExpr
 
 /-!
 # QPFExpr
@@ -12,4 +13,6 @@ Main definitions:
     with correponding QPF instances.
   * `QPFExpr.addDecl`, add a type function and its corresponding QPF instance
     to the environment, in both curried and uncurried forms.
+  * `QPFExpr.ofTypeExpr`, build a QPFExpr given a Lean expression,
+    of type `Type u`, and an array of (live) free variables over which to abstract.
 -/
