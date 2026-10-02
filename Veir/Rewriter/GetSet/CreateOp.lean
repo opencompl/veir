@@ -121,7 +121,7 @@ grind_pattern BlockPtr.getLastOp!_createEmptyOp =>
 @[simp_getset]
 theorem OperationPtr.getPrevOp!_createEmptyOp {operation : OperationPtr} :
     Rewriter.createEmptyOp ctx opType properties = some (ctx', op) → operation.getPrevOp! ctx' = if operation = op then none else operation.getPrevOp! ctx := by
-  grind [Operation.empty]
+  grind
 
 grind_pattern OperationPtr.getPrevOp!_createEmptyOp =>
   Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (operation.getPrevOp! ctx')
@@ -129,7 +129,7 @@ grind_pattern OperationPtr.getPrevOp!_createEmptyOp =>
 @[simp_getset]
 theorem OperationPtr.getNextOp!_createEmptyOp {operation : OperationPtr} :
     Rewriter.createEmptyOp ctx opType properties = some (ctx', op) → operation.getNextOp! ctx' = if operation = op then none else operation.getNextOp! ctx := by
-  grind [Operation.empty]
+  grind
 
 grind_pattern OperationPtr.getNextOp!_createEmptyOp =>
   Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (operation.getNextOp! ctx')
@@ -137,7 +137,7 @@ grind_pattern OperationPtr.getNextOp!_createEmptyOp =>
 @[simp_getset]
 theorem OperationPtr.getParent!_createEmptyOp {operation : OperationPtr} :
     Rewriter.createEmptyOp ctx opType properties = some (ctx', op) → operation.getParent! ctx' = if operation = op then none else operation.getParent! ctx := by
-  grind [Operation.empty]
+  grind
 
 grind_pattern OperationPtr.getParent!_createEmptyOp =>
   Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (operation.getParent! ctx')
@@ -147,7 +147,7 @@ theorem OperationPtr.getOpType!_createEmptyOp {operation : OperationPtr} :
     Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
     operation.getOpType! ctx' =
     if operation = op then ofDialect OpInfo opType else operation.getOpType! ctx := by
-  grind [Operation.empty]
+  grind
 
 grind_pattern OperationPtr.getOpType!_createEmptyOp =>
   Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operation.getOpType! ctx'
@@ -155,7 +155,7 @@ grind_pattern OperationPtr.getOpType!_createEmptyOp =>
 @[simp_getset]
 theorem OperationPtr.getAttributes!_createEmptyOp {operation : OperationPtr} :
     Rewriter.createEmptyOp ctx opType properties = some (ctx', op) → operation.getAttributes! ctx' = if operation = op then DictionaryAttr.empty else operation.getAttributes! ctx := by
-  grind [Operation.empty]
+  grind
 
 grind_pattern OperationPtr.getAttributes!_createEmptyOp =>
   Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (operation.getAttributes! ctx')
@@ -170,7 +170,7 @@ theorem OperationPtr.getProperties!_createEmptyOp {operation : OperationPtr} :
       else default
     else
       operation.getProperties! ctx dialectOpType := by
-  grind [Operation.empty]
+  grind
 
 grind_pattern OperationPtr.getProperties!_createEmptyOp =>
   Rewriter.createEmptyOp ctx opType properties, some (ctx', op),
@@ -181,7 +181,7 @@ theorem OperationPtr.getNumResults!_createEmptyOp {operation : OperationPtr} :
     Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
     operation.getNumResults! ctx' =
     if operation = op then 0 else operation.getNumResults! ctx := by
-  grind [Operation.empty]
+  grind
 
 grind_pattern OperationPtr.getNumResults!_createEmptyOp =>
   Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operation.getNumResults! ctx'

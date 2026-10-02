@@ -2183,35 +2183,30 @@ theorem BlockPtr.getLastOp!_BlockPtr_linkBetween {block : BlockPtr} :
 @[simp, grind =]
 theorem OperationPtr.getRegions!_BlockPtr_linkBetween {operation : OperationPtr} :
     operation.getRegions! (block'.linkBetween ctx prev next selfIn prevIn nextIn) = operation.getRegions! ctx := by
-  simp only [OperationPtr.getRegions!_def]
   simp only [BlockPtr.linkBetween]
   grind
 
 @[simp, grind =]
 theorem OperationPtr.getAttributes!_BlockPtr_linkBetween {operation : OperationPtr} :
     operation.getAttributes! (block'.linkBetween ctx prev next selfIn prevIn nextIn) = operation.getAttributes! ctx := by
-  simp only [OperationPtr.getAttributes!_def]
   simp only [BlockPtr.linkBetween]
   grind
 
 @[simp, grind =]
 theorem OperationPtr.getParent!_BlockPtr_linkBetween {operation : OperationPtr} :
     operation.getParent! (block'.linkBetween ctx prev next selfIn prevIn nextIn) = operation.getParent! ctx := by
-  simp only [OperationPtr.getParent!_def]
   simp only [BlockPtr.linkBetween]
   grind
 
 @[simp, grind =]
 theorem OperationPtr.getPrevOp!_BlockPtr_linkBetween {operation : OperationPtr} :
     operation.getPrevOp! (block'.linkBetween ctx prev next selfIn prevIn nextIn) = operation.getPrevOp! ctx := by
-  simp only [OperationPtr.getPrevOp!_def]
   simp only [BlockPtr.linkBetween]
   grind
 
 @[simp, grind =]
 theorem OperationPtr.getNextOp!_BlockPtr_linkBetween {operation : OperationPtr} :
     operation.getNextOp! (block'.linkBetween ctx prev next selfIn prevIn nextIn) = operation.getNextOp! ctx := by
-  simp only [OperationPtr.getNextOp!_def]
   simp only [BlockPtr.linkBetween]
   grind
 
@@ -2489,7 +2484,6 @@ grind_pattern BlockPtr.getLastOp!_BlockPtr_setParentWithCheck =>
 @[simp]
 theorem OperationPtr.getRegions!_BlockPtr_setParentWithCheck {operation : OperationPtr} :
     block'.setParentWithCheck ctx newParent selfIn = some newCtx → operation.getRegions! newCtx = operation.getRegions! ctx := by
-  simp only [OperationPtr.getRegions!_def]
   grind
 
 grind_pattern OperationPtr.getRegions!_BlockPtr_setParentWithCheck =>
@@ -2498,7 +2492,6 @@ grind_pattern OperationPtr.getRegions!_BlockPtr_setParentWithCheck =>
 @[simp]
 theorem OperationPtr.getAttributes!_BlockPtr_setParentWithCheck {operation : OperationPtr} :
     block'.setParentWithCheck ctx newParent selfIn = some newCtx → operation.getAttributes! newCtx = operation.getAttributes! ctx := by
-  simp only [OperationPtr.getAttributes!_def]
   grind
 
 grind_pattern OperationPtr.getAttributes!_BlockPtr_setParentWithCheck =>
@@ -2507,7 +2500,6 @@ grind_pattern OperationPtr.getAttributes!_BlockPtr_setParentWithCheck =>
 @[simp]
 theorem OperationPtr.getParent!_BlockPtr_setParentWithCheck {operation : OperationPtr} :
     block'.setParentWithCheck ctx newParent selfIn = some newCtx → operation.getParent! newCtx = operation.getParent! ctx := by
-  simp only [OperationPtr.getParent!_def]
   grind
 
 grind_pattern OperationPtr.getParent!_BlockPtr_setParentWithCheck =>
@@ -2516,7 +2508,6 @@ grind_pattern OperationPtr.getParent!_BlockPtr_setParentWithCheck =>
 @[simp]
 theorem OperationPtr.getPrevOp!_BlockPtr_setParentWithCheck {operation : OperationPtr} :
     block'.setParentWithCheck ctx newParent selfIn = some newCtx → operation.getPrevOp! newCtx = operation.getPrevOp! ctx := by
-  simp only [OperationPtr.getPrevOp!_def]
   grind
 
 grind_pattern OperationPtr.getPrevOp!_BlockPtr_setParentWithCheck =>
@@ -2525,7 +2516,6 @@ grind_pattern OperationPtr.getPrevOp!_BlockPtr_setParentWithCheck =>
 @[simp]
 theorem OperationPtr.getNextOp!_BlockPtr_setParentWithCheck {operation : OperationPtr} :
     block'.setParentWithCheck ctx newParent selfIn = some newCtx → operation.getNextOp! newCtx = operation.getNextOp! ctx := by
-  simp only [OperationPtr.getNextOp!_def]
   grind
 
 grind_pattern OperationPtr.getNextOp!_BlockPtr_setParentWithCheck =>
@@ -2871,7 +2861,6 @@ grind_pattern BlockPtr.getLastOp!_BlockPtr_linkBetweenWithParent =>
 
 theorem OperationPtr.getRegions!_BlockPtr_linkBetweenWithParent {operation : OperationPtr} :
     block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx → operation.getRegions! newCtx = operation.getRegions! ctx := by
-  simp only [OperationPtr.getRegions!_def]
   grind
 
 grind_pattern OperationPtr.getRegions!_BlockPtr_linkBetweenWithParent =>
@@ -2879,7 +2868,6 @@ grind_pattern OperationPtr.getRegions!_BlockPtr_linkBetweenWithParent =>
 
 theorem OperationPtr.getAttributes!_BlockPtr_linkBetweenWithParent {operation : OperationPtr} :
     block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx → operation.getAttributes! newCtx = operation.getAttributes! ctx := by
-  simp only [OperationPtr.getAttributes!_def]
   grind
 
 grind_pattern OperationPtr.getAttributes!_BlockPtr_linkBetweenWithParent =>
@@ -2887,7 +2875,6 @@ grind_pattern OperationPtr.getAttributes!_BlockPtr_linkBetweenWithParent =>
 
 theorem OperationPtr.getParent!_BlockPtr_linkBetweenWithParent {operation : OperationPtr} :
     block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx → operation.getParent! newCtx = operation.getParent! ctx := by
-  simp only [OperationPtr.getParent!_def]
   grind
 
 grind_pattern OperationPtr.getParent!_BlockPtr_linkBetweenWithParent =>
@@ -2895,7 +2882,6 @@ grind_pattern OperationPtr.getParent!_BlockPtr_linkBetweenWithParent =>
 
 theorem OperationPtr.getPrevOp!_BlockPtr_linkBetweenWithParent {operation : OperationPtr} :
     block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx → operation.getPrevOp! newCtx = operation.getPrevOp! ctx := by
-  simp only [OperationPtr.getPrevOp!_def]
   grind
 
 grind_pattern OperationPtr.getPrevOp!_BlockPtr_linkBetweenWithParent =>
@@ -2903,7 +2889,6 @@ grind_pattern OperationPtr.getPrevOp!_BlockPtr_linkBetweenWithParent =>
 
 theorem OperationPtr.getNextOp!_BlockPtr_linkBetweenWithParent {operation : OperationPtr} :
     block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx → operation.getNextOp! newCtx = operation.getNextOp! ctx := by
-  simp only [OperationPtr.getNextOp!_def]
   grind
 
 grind_pattern OperationPtr.getNextOp!_BlockPtr_linkBetweenWithParent =>

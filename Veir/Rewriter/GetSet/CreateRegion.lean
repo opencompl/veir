@@ -100,31 +100,26 @@ theorem BlockPtr.getFirstUse!_createRegion {block : BlockPtr} :
 @[simp, grind =>, simp_getset]
 theorem OperationPtr.getRegions!_createRegion {operation : OperationPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) → operation.getRegions! ctx' = operation.getRegions! ctx := by
-  simp only [OperationPtr.getRegions!_def]
   grind
 
 @[simp, grind =>, simp_getset]
 theorem OperationPtr.getAttributes!_createRegion {operation : OperationPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) → operation.getAttributes! ctx' = operation.getAttributes! ctx := by
-  simp only [OperationPtr.getAttributes!_def]
   grind
 
 @[simp, grind =>, simp_getset]
 theorem OperationPtr.getParent!_createRegion {operation : OperationPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) → operation.getParent! ctx' = operation.getParent! ctx := by
-  simp only [OperationPtr.getParent!_def]
   grind
 
 @[simp, grind =>, simp_getset]
 theorem OperationPtr.getPrevOp!_createRegion {operation : OperationPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) → operation.getPrevOp! ctx' = operation.getPrevOp! ctx := by
-  simp only [OperationPtr.getPrevOp!_def]
   grind
 
 @[simp, grind =>, simp_getset]
 theorem OperationPtr.getNextOp!_createRegion {operation : OperationPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) → operation.getNextOp! ctx' = operation.getNextOp! ctx := by
-  simp only [OperationPtr.getNextOp!_def]
   grind
 
 @[simp, grind =>, simp_getset]

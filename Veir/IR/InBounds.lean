@@ -307,7 +307,7 @@ attribute [local grind] OpOperandPtr.setNextUse OpOperandPtr.setBack OpOperandPt
 variable {opOperand : OpOperandPtr} (h : opOperand.InBounds ctx)
 
 @[grind =]
-theorem OpOperandPtr.get_set {op : OperationPtr} (hop : op.InBounds (opOperand.set ctx x h)) :
+private theorem OpOperandPtr.get_set {op : OperationPtr} (hop : op.InBounds (opOperand.set ctx x h)) :
     (op.get (opOperand.set ctx x)).operands =
       if heq : op = opOperand.op
         then (op.get ctx).operands.set opOperand.index x (by grind)

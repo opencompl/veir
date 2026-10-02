@@ -108,7 +108,7 @@ theorem OperationPtr.getNextOp!_WfRewriter_createOp :
 theorem OperationPtr.getParent!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) → operation.getParent! ctx'.raw = if operation = newOp then match insertionPoint with | some ip => ip.block! ctx.raw | none => none else operation.getParent! ctx.raw := by
   simp only [WfRewriter.createOp]
-  grind (gen := 20) [cases InsertPoint, Operation.empty]
+  grind (gen := 20) [cases InsertPoint]
 
 @[grind =>, simp_getset]
 theorem OperationPtr.getOpType!_WfRewriter_createOp :

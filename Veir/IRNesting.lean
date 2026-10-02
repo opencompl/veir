@@ -75,7 +75,7 @@ def parent! (ptr : IRNode) (ctx : WfIRContext OpInfo) : Option IRNode :=
 @[simp, grind =]
 theorem parent!_operation :
   (IRNode.operation ptr).parent! ctx = (ptr.getParent! ctx.raw).map .block := by
-  simp [parent!, OperationPtr.getParent!_def]
+  simp [parent!]
 
 @[simp, grind =]
 theorem parent!_block :

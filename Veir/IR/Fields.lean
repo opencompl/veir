@@ -6,12 +6,10 @@ import Veir.IR.GetSet
 
 namespace Veir
 
-attribute [local grind _=_] BlockArgumentPtr.getFirstUse!_def BlockArgumentPtr.getFirstUse_def BlockArgumentPtr.getIndex!_def BlockArgumentPtr.getIndex_def BlockArgumentPtr.getLoc!_def BlockArgumentPtr.getLoc_def BlockArgumentPtr.getOwner!_def BlockArgumentPtr.getOwner_def BlockArgumentPtr.getType!_def BlockArgumentPtr.getType_def BlockOperandPtr.getBack!_def BlockOperandPtr.getBack_def BlockOperandPtr.getNextUse!_def BlockOperandPtr.getNextUse_def BlockOperandPtr.getOwner!_def BlockOperandPtr.getOwner_def BlockOperandPtr.getValue!_def BlockOperandPtr.getValue_def BlockPtr.getFirstOp!_def BlockPtr.getFirstOp_def BlockPtr.getFirstUse!_def BlockPtr.getFirstUse_def BlockPtr.getLastOp!_def BlockPtr.getLastOp_def BlockPtr.getNextBlock!_def BlockPtr.getNextBlock_def BlockPtr.getParent!_def BlockPtr.getParent_def BlockPtr.getPrevBlock!_def BlockPtr.getPrevBlock_def OpOperandPtr.getBack!_def OpOperandPtr.getBack_def OpOperandPtr.getNextUse!_def OpOperandPtr.getNextUse_def OpOperandPtr.getOwner!_def OpOperandPtr.getOwner_def OpOperandPtr.getValue!_def OpOperandPtr.getValue_def OpResultPtr.getFirstUse!_def OpResultPtr.getFirstUse_def OpResultPtr.getOwner!_def OpResultPtr.getOwner_def OpResultPtr.getIndex!_def OpResultPtr.getIndex_def OpResultPtr.getType!_def OpResultPtr.getType_def OperationPtr.getAttributes!_def OperationPtr.getAttributes_def OperationPtr.getNextOp!_def OperationPtr.getNextOp_def OperationPtr.getOpType!_def OperationPtr.getParent!_def OperationPtr.getParent_def OperationPtr.getPrevOp!_def OperationPtr.getPrevOp_def OperationPtr.getRegions!_def RegionPtr.getFirstBlock!_def RegionPtr.getFirstBlock_def RegionPtr.getLastBlock!_def RegionPtr.getLastBlock_def RegionPtr.getParent!_def RegionPtr.getParent_def
-
 /-- Like `unfold_field_getters_in_grind`, but lets `grind` rewrite in both directions, so that
 projections arising from unfolded definitions also trigger patterns stated with getters. -/
 macro "fold_field_getters_in_grind" : command => `(
-  attribute [local grind _=_] BlockArgumentPtr.getFirstUse!_def BlockArgumentPtr.getFirstUse_def BlockArgumentPtr.getIndex!_def BlockArgumentPtr.getIndex_def BlockArgumentPtr.getLoc!_def BlockArgumentPtr.getLoc_def BlockArgumentPtr.getOwner!_def BlockArgumentPtr.getOwner_def BlockArgumentPtr.getType!_def BlockArgumentPtr.getType_def BlockOperandPtr.getBack!_def BlockOperandPtr.getBack_def BlockOperandPtr.getNextUse!_def BlockOperandPtr.getNextUse_def BlockOperandPtr.getOwner!_def BlockOperandPtr.getOwner_def BlockOperandPtr.getValue!_def BlockOperandPtr.getValue_def BlockPtr.getFirstOp!_def BlockPtr.getFirstOp_def BlockPtr.getFirstUse!_def BlockPtr.getFirstUse_def BlockPtr.getLastOp!_def BlockPtr.getLastOp_def BlockPtr.getNextBlock!_def BlockPtr.getNextBlock_def BlockPtr.getParent!_def BlockPtr.getParent_def BlockPtr.getPrevBlock!_def BlockPtr.getPrevBlock_def OpOperandPtr.getBack!_def OpOperandPtr.getBack_def OpOperandPtr.getNextUse!_def OpOperandPtr.getNextUse_def OpOperandPtr.getOwner!_def OpOperandPtr.getOwner_def OpOperandPtr.getValue!_def OpOperandPtr.getValue_def OpResultPtr.getFirstUse!_def OpResultPtr.getFirstUse_def OpResultPtr.getOwner!_def OpResultPtr.getOwner_def OpResultPtr.getIndex!_def OpResultPtr.getIndex_def OpResultPtr.getType!_def OpResultPtr.getType_def OperationPtr.getAttributes!_def OperationPtr.getAttributes_def OperationPtr.getNextOp!_def OperationPtr.getNextOp_def OperationPtr.getOpType!_def OperationPtr.getParent!_def OperationPtr.getParent_def OperationPtr.getPrevOp!_def OperationPtr.getPrevOp_def OperationPtr.getRegions!_def RegionPtr.getFirstBlock!_def RegionPtr.getFirstBlock_def RegionPtr.getLastBlock!_def RegionPtr.getLastBlock_def RegionPtr.getParent!_def RegionPtr.getParent_def
+  attribute [local grind _=_] BlockArgumentPtr.getFirstUse!_def BlockArgumentPtr.getFirstUse_def BlockArgumentPtr.getIndex!_def BlockArgumentPtr.getIndex_def BlockArgumentPtr.getLoc!_def BlockArgumentPtr.getLoc_def BlockArgumentPtr.getOwner!_def BlockArgumentPtr.getOwner_def BlockArgumentPtr.getType!_def BlockArgumentPtr.getType_def BlockOperandPtr.getBack!_def BlockOperandPtr.getBack_def BlockOperandPtr.getNextUse!_def BlockOperandPtr.getNextUse_def BlockOperandPtr.getOwner!_def BlockOperandPtr.getOwner_def BlockOperandPtr.getValue!_def BlockOperandPtr.getValue_def BlockPtr.getFirstOp!_def BlockPtr.getFirstOp_def BlockPtr.getFirstUse!_def BlockPtr.getFirstUse_def BlockPtr.getLastOp!_def BlockPtr.getLastOp_def BlockPtr.getNextBlock!_def BlockPtr.getNextBlock_def BlockPtr.getParent!_def BlockPtr.getParent_def BlockPtr.getPrevBlock!_def BlockPtr.getPrevBlock_def OpOperandPtr.getBack!_def OpOperandPtr.getBack_def OpOperandPtr.getNextUse!_def OpOperandPtr.getNextUse_def OpOperandPtr.getOwner!_def OpOperandPtr.getOwner_def OpOperandPtr.getValue!_def OpOperandPtr.getValue_def OpResultPtr.getFirstUse!_def OpResultPtr.getFirstUse_def OpResultPtr.getOwner!_def OpResultPtr.getOwner_def OpResultPtr.getIndex!_def OpResultPtr.getIndex_def OpResultPtr.getType!_def OpResultPtr.getType_def RegionPtr.getFirstBlock!_def RegionPtr.getFirstBlock_def RegionPtr.getLastBlock!_def RegionPtr.getLastBlock_def RegionPtr.getParent!_def RegionPtr.getParent_def
 )
 
 variable {OpInfo : Type} [IsOpCode OpInfo]
@@ -299,7 +297,8 @@ theorem OperationPtr.getOperands!_inBounds :
     operation.InBounds ctx →
     operand ∈ operation.getOperands! ctx →
     operand.InBounds ctx := by
-  grind [getOperands!.mem_iff_exists_index]
+  grind [getOperands!.mem_iff_exists_index, _=_ OpOperandPtr.getValue!_def]
+
 
 grind_pattern OperationPtr.getOperands!_inBounds => operand ∈ operation.getOperands! ctx, ctx.FieldsInBounds
 
@@ -421,7 +420,7 @@ theorem ValuePtr.getFirstUse!_inBounds :
     ctx.FieldsInBounds →
     value.InBounds ctx →
     (value.getFirstUse! ctx).maybe OpOperandPtr.InBounds ctx := by
-  cases value <;> grind
+  cases value <;> grind [_=_ OpResultPtr.getFirstUse!_def, _=_ BlockArgumentPtr.getFirstUse!_def]
 
 grind_pattern ValuePtr.getFirstUse!_inBounds => (value.getFirstUse! ctx), ctx.FieldsInBounds
 
@@ -443,7 +442,7 @@ theorem OpOperandPtrPtr.get!_inBounds :
     ctx.FieldsInBounds →
     ptr.InBounds ctx →
     (ptr.get! ctx).maybe OpOperandPtr.InBounds ctx := by
-  cases ptr <;> grind
+  cases ptr <;> grind [_=_ OpOperandPtr.getNextUse!_def]
 
 grind_pattern OpOperandPtrPtr.get!_inBounds => (ptr.get! ctx), ctx.FieldsInBounds
 
@@ -457,7 +456,7 @@ theorem BlockOperandPtrPtr.get!_inBounds :
     ctx.FieldsInBounds →
     ptr.InBounds ctx →
     (ptr.get! ctx).maybe BlockOperandPtr.InBounds ctx := by
-  cases ptr <;> grind
+  cases ptr <;> grind [_=_ BlockOperandPtr.getNextUse!_def, _=_ BlockPtr.getFirstUse!_def]
 
 grind_pattern BlockOperandPtrPtr.get!_inBounds => (ptr.get! ctx), ctx.FieldsInBounds
 
@@ -755,7 +754,6 @@ theorem OperationPtr.pushBlockOperand_push_fieldsInBounds
     ctx.FieldsInBounds → (pushBlockOperand op ctx newOperand h).FieldsInBounds := by
   prove_fieldsInBounds
 
-attribute [local grind] Operation.empty in
 @[grind .]
 theorem OperationPtr.allocEmpty_fieldsInBounds
     {Dialect : Type} [IsOpCode Dialect] [HasDialect OpInfo Dialect]

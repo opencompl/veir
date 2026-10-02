@@ -293,7 +293,6 @@ theorem InterpreterState.DefinesDominating.interpretOpList_ne_fail
   | cons a l ih =>
     have hDom : state.DefinesDominating (.before a) := stateDom a (by simp)
     obtain ⟨headInBounds, headParent, headNext, hChainTail⟩ := hChain
-    rw [← OperationPtr.getParent!_def] at headParent
     simp only [interpretOpList_cons]
     rcases hi : interpretOp a state (by grind) with _ | _ | ⟨s, act⟩
     · grind [InterpreterState.DefinesDominating.interpretOp_ne_fail ctxDom]
@@ -315,7 +314,6 @@ theorem interpretOpList_equationLemmaAt {ctx : WfIRContext OpCode}
   | nil => grind
   | cons head tail ih =>
     obtain ⟨headInBounds, headParent, headNext, hChainTail⟩ := hChain
-    rw [← OperationPtr.getParent!_def] at headParent
     have : head = fstOp := by grind
     subst head
     simp only [interpretOpList_cons] at hrun
@@ -341,7 +339,6 @@ theorem interpretOpList_DefinesDominating {ctx : WfIRContext OpCode}
   | nil => simp at hLastElem
   | cons a tail ih =>
     obtain ⟨headInBounds, headParent, headNext, hChainTail⟩ := hChain
-    rw [← OperationPtr.getParent!_def] at headParent
     obtain rfl : a = fstOp := by simpa using head
     simp only [interpretOpList_cons] at hrun
     rcases hi : interpretOp a state headInBounds with _ | _ | ⟨s, act⟩ <;>

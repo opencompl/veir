@@ -2163,12 +2163,6 @@ theorem OperationPtr.getOpType!_OpResultPtr_setType {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
-theorem OperationPtr.results!.size_OpResultPtr_setType {operation : OperationPtr} :
-    (operation.get! (OpResultPtr.setType result' ctx newType hresult')).results.size =
-    (operation.get! ctx).results.size := by
-  grind
-
-@[simp, grind =]
 theorem OperationPtr.getNumResults!_OpResultPtr_setType {operation : OperationPtr} :
     operation.getNumResults! (OpResultPtr.setType result' ctx hresult' newType) =
     operation.getNumResults! ctx := by
@@ -2249,12 +2243,6 @@ theorem OperationPtr.getProperties!_OpResultPtr_setFirstUse {operation : Operati
 theorem OperationPtr.getOpType!_OpResultPtr_setFirstUse {operation : OperationPtr} :
     operation.getOpType! (OpResultPtr.setFirstUse result' ctx newFirstUse hresult') =
     operation.getOpType! ctx := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.results!.size_OpResultPtr_setFirstUse {operation : OperationPtr} :
-    (operation.get! (OpResultPtr.setFirstUse result' ctx newFirstUse hresult')).results.size =
-    (operation.get! ctx).results.size := by
   grind
 
 @[simp, grind =]
@@ -2664,12 +2652,6 @@ theorem OperationPtr.getOpType!_ValuePtr_setType {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
-theorem OperationPtr.results!.size_ValuePtr_setType {operation : OperationPtr} :
-    (operation.get! (ValuePtr.setType value' ctx newType hvalue')).results.size =
-    (operation.get! ctx).results.size := by
-  grind
-
-@[simp, grind =]
 theorem OperationPtr.getNumResults!_ValuePtr_setType {operation : OperationPtr} :
     operation.getNumResults! (ValuePtr.setType value' ctx hvalue' newType) =
     operation.getNumResults! ctx := by
@@ -2750,12 +2732,6 @@ theorem OperationPtr.getProperties!_ValuePtr_setFirstUse {operation : OperationP
 theorem OperationPtr.getOpType!_ValuePtr_setFirstUse {operation : OperationPtr} :
     operation.getOpType! (ValuePtr.setFirstUse value' ctx newFirstUse hvalue') =
     operation.getOpType! ctx := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.results!.size_ValuePtr_setFirstUse {operation : OperationPtr} :
-    (operation.get! (ValuePtr.setFirstUse value' ctx newFirstUse hvalue')).results.size =
-    (operation.get! ctx).results.size := by
   grind
 
 @[simp, grind =]
@@ -2846,12 +2822,6 @@ theorem OperationPtr.getOpType!_OpOperandPtrPtr_set {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
-theorem OperationPtr.results!.size_OpOperandPtrPtr_set {operation : OperationPtr} :
-    (operation.get! (OpOperandPtrPtr.set value' ctx newPtr hvalue')).results.size =
-    (operation.get! ctx).results.size := by
-  grind
-
-@[simp, grind =]
 theorem OperationPtr.getNumResults!_OpOperandPtrPtr_set {operation : OperationPtr} :
     operation.getNumResults! (OpOperandPtrPtr.set ptr' ctx hptr' newPtr) =
     operation.getNumResults! ctx := by
@@ -2936,12 +2906,6 @@ theorem OperationPtr.getProperties!_BlockOperandPtrPtr_set {operation : Operatio
 theorem OperationPtr.getOpType!_BlockOperandPtrPtr_set {operation : OperationPtr} :
     operation.getOpType! (BlockOperandPtrPtr.set value' ctx newPtr hvalue') =
     operation.getOpType! ctx := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.results!.size_BlockOperandPtrPtr_set {operation : OperationPtr} :
-    (operation.get! (BlockOperandPtrPtr.set value' ctx newPtr hvalue')).results.size =
-    (operation.get! ctx).results.size := by
   grind
 
 @[simp, grind =]
@@ -13369,7 +13333,7 @@ theorem OperationPtr.getOperands!_OperationPtr_dealloc {operation : OperationPtr
     operation.InBounds (OperationPtr.dealloc operation' ctx hop') →
     operation.getOperands! (OperationPtr.dealloc operation' ctx hop') =
     operation.getOperands! ctx := by
-  grind [OperationPtr.getOpType!_OperationPtr_dealloc, OperationPtr.getProperties!_OperationPtr_dealloc, BlockPtr.getNumArguments!_OperationPtr_dealloc, OperationPtr.getNextOp!_OperationPtr_dealloc, OperationPtr.getPrevOp!_OperationPtr_dealloc, OperationPtr.getParent!_OperationPtr_dealloc, OperationPtr.getRegions!_OperationPtr_dealloc, OperationPtr.getAttributes!_OperationPtr_dealloc, OpOperandPtr.getNextUse!_OperationPtr_dealloc, OpOperandPtr.getBack!_OperationPtr_dealloc, OpOperandPtr.getOwner!_OperationPtr_dealloc, OpOperandPtr.getValue!_OperationPtr_dealloc, BlockOperandPtr.getNextUse!_OperationPtr_dealloc, BlockOperandPtr.getBack!_OperationPtr_dealloc, BlockOperandPtr.getOwner!_OperationPtr_dealloc, BlockOperandPtr.getValue!_OperationPtr_dealloc, OpResultPtr.getType!_OperationPtr_dealloc, OpResultPtr.getFirstUse!_OperationPtr_dealloc, OpResultPtr.getOwner!_OperationPtr_dealloc, BlockPtr.getParent!_OperationPtr_dealloc, BlockPtr.getFirstUse!_OperationPtr_dealloc, BlockPtr.getFirstOp!_OperationPtr_dealloc, BlockPtr.getLastOp!_OperationPtr_dealloc, BlockPtr.getNextBlock!_OperationPtr_dealloc, BlockPtr.getPrevBlock!_OperationPtr_dealloc, BlockArgumentPtr.getType!_OperationPtr_dealloc, BlockArgumentPtr.getFirstUse!_OperationPtr_dealloc, BlockArgumentPtr.getIndex!_OperationPtr_dealloc, BlockArgumentPtr.getLoc!_OperationPtr_dealloc, BlockArgumentPtr.getOwner!_OperationPtr_dealloc, RegionPtr.getParent!_OperationPtr_dealloc, RegionPtr.getFirstBlock!_OperationPtr_dealloc, RegionPtr.getLastBlock!_OperationPtr_dealloc, OperationPtr.getNumResults!_OperationPtr_dealloc, OperationPtr.getNumOperands!_OperationPtr_dealloc]
+  grind
 
 @[simp, grind =]
 theorem OperationPtr.getNumSuccessors!_OperationPtr_dealloc {operation : OperationPtr} :

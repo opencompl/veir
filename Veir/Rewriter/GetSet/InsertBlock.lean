@@ -115,7 +115,6 @@ grind_pattern BlockPtr.getLastOp!_insertBlock =>
 @[simp, simp_getset]
 theorem OperationPtr.getRegions!_insertBlock {operation : OperationPtr} :
     Rewriter.insertBlock ctx newBlock ip h₁ h₂ h₃ = some newCtx → operation.getRegions! newCtx = operation.getRegions! ctx := by
-  simp only [OperationPtr.getRegions!_def]
   simp only [Rewriter.insertBlock]
   grind
 
@@ -125,7 +124,6 @@ grind_pattern OperationPtr.getRegions!_insertBlock =>
 @[simp, simp_getset]
 theorem OperationPtr.getAttributes!_insertBlock {operation : OperationPtr} :
     Rewriter.insertBlock ctx newBlock ip h₁ h₂ h₃ = some newCtx → operation.getAttributes! newCtx = operation.getAttributes! ctx := by
-  simp only [OperationPtr.getAttributes!_def]
   simp only [Rewriter.insertBlock]
   grind
 
@@ -135,7 +133,6 @@ grind_pattern OperationPtr.getAttributes!_insertBlock =>
 @[simp, simp_getset]
 theorem OperationPtr.getParent!_insertBlock {operation : OperationPtr} :
     Rewriter.insertBlock ctx newBlock ip h₁ h₂ h₃ = some newCtx → operation.getParent! newCtx = operation.getParent! ctx := by
-  simp only [OperationPtr.getParent!_def]
   simp only [Rewriter.insertBlock]
   grind
 
@@ -145,7 +142,6 @@ grind_pattern OperationPtr.getParent!_insertBlock =>
 @[simp, simp_getset]
 theorem OperationPtr.getPrevOp!_insertBlock {operation : OperationPtr} :
     Rewriter.insertBlock ctx newBlock ip h₁ h₂ h₃ = some newCtx → operation.getPrevOp! newCtx = operation.getPrevOp! ctx := by
-  simp only [OperationPtr.getPrevOp!_def]
   simp only [Rewriter.insertBlock]
   grind
 
@@ -155,7 +151,6 @@ grind_pattern OperationPtr.getPrevOp!_insertBlock =>
 @[simp, simp_getset]
 theorem OperationPtr.getNextOp!_insertBlock {operation : OperationPtr} :
     Rewriter.insertBlock ctx newBlock ip h₁ h₂ h₃ = some newCtx → operation.getNextOp! newCtx = operation.getNextOp! ctx := by
-  simp only [OperationPtr.getNextOp!_def]
   simp only [Rewriter.insertBlock]
   grind
 
