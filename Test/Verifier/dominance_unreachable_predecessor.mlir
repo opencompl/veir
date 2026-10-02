@@ -1,9 +1,8 @@
 // RUN: veir-opt %s | filecheck %s
 
-// An unreachable predecessor of a reachable block may have a placeholder
-// dominator fact used for dependency tracking. That must not make the block
-// reachable and subject its deliberately unordered definitions to SSA
-// dominance checks.
+// An unreachable predecessor of a reachable block must remain unreachable and
+// must not subject its deliberately unordered definitions to SSA dominance
+// checks.
 
 "func.func"() <{sym_name = "f", function_type = () -> ()}> ({
 ^entry:
