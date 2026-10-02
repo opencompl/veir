@@ -842,6 +842,20 @@ def bitcast (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   RewritePattern.fromLocalRewrite bitcast_local rewriter op opInBounds
 
 /--
+  Lower LLVM lifetime instructions to nothing. This is a refinement that we can
+  revisit later if we want to perform certain stack slot optimizations.
+-/
+def lifetime_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
+  match op.getOpType! ctx.raw with
+  | .llvm .intr__lifetime__start | .llvm .intr__lifetime__end =>
+    some (ctx, some (#[], #[]))
+  | _ => some (ctx, none)
+
+/-- Erase `llvm.intr.lifetime.start` and `llvm.intr.lifetime.end`. -/
+def lifetime := RewritePattern.fromLocalRewrite lifetime_local
+
+/--
   Lower a constant-count entry-block allocation to a fixed RISC-V stack object.
   Dynamic allocations and `inalloca` need additional stack-lifetime support in the backend.
   Run before constant selection so the count still has an integer runtime value.
@@ -1668,7 +1682,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     ExceptT String IO (WfIRContext OpCode) := do
   /- Early loop: address folding and fixed stack allocations must inspect LLVM
      constants before the per-op lowerings consume them. -/
-  let early := RewritePattern.GreedyRewritePattern #[alloca, load, store]
+  let early := RewritePattern.GreedyRewritePattern #[lifetime, alloca, load, store]
   let ctx ← match RewritePattern.applyInContext early ctx with
   | none => throw "Error while applying early memory-lowering patterns"
   | some ctx => pure ctx
