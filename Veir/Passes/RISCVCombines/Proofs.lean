@@ -108,15 +108,9 @@ theorem zextw_zextb {x : Reg} :
 /-! ## Byte-load and byte-packing combines.
 
     The register-level model below represents the byte fetched from memory by
-    an arbitrary `Reg`: `lb` produces its `sextb` form and `lbu` its `zextb`
-    form.  The combine preserves the memory access (including its address and
-    offset); the equalities here establish the value transformations. -/
-
-/-- `zextb (lb byte) = lbu byte`: zero-extending a sign-extended byte gives
-    exactly the zero-extended byte. -/
-theorem zextb_lb {byte : Reg} :
-    RISCV.zextb (RISCV.sextb byte) = RISCV.zextb byte := by
-  veir_bv_decide
+    an arbitrary `Reg`: `lbu` produces its `zextb` form. These combines reuse
+    existing load results without moving or recreating memory accesses; the
+    equalities here establish the value transformations. -/
 
 /-- `zextb (lbu byte) = lbu byte`: an unsigned byte load is already
     zero-extended. -/

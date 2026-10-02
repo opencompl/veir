@@ -1581,37 +1581,10 @@ def zextw_zextb_pattern : Puddle.Pattern OpCode :=
 def zextw_zextb : RewritePattern OpCode :=
   zextw_zextb_pattern.compile.run
 
-/-- `riscv.zextb (riscv.lb addr) -> riscv.lbu addr` for non-volatile loads.
-    `lbu` performs the zero extension as part of the load, so it has the same
-    result as extending an `lb`; its offset and all other memory properties are
-    forwarded unchanged. Volatile loads are deliberately excluded, since this
-    rewrite creates a replacement load while the original remains live.
-
-    LLVM: DAGCombiner folds `zext_inreg (sextload x)` to `zextload x`.
-    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L7877-L7897 -/
-def zextb_lb_pattern : Puddle.Pattern OpCode :=
-  Puddle.Pattern.Builder
-    (do
-      let addrType ← Puddle.MatchProg.type (Attr := RegisterType)
-      let addr ← Puddle.MatchProg.value addrType
-      let lbType ← Puddle.MatchProg.type (Attr := RegisterType)
-      let lb ← Puddle.MatchProg.operation (.riscv .lb) #[addr] #[lbType]
-      let _ ← Puddle.MatchProg.matchNative lb.properties (fun properties => !properties.volatile_)
-      let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
-      let _ ← Puddle.MatchProg.root (.riscv .zextb) #[lb.res[0]!] #[resultType]
-      return (addr, resultType, lb.properties))
-    (fun (addr, resultType, lbProperties) => do
-      let lbuProperties : Puddle.Handle OpCode (.prop (.riscv .lbu)) ←
-        Puddle.CreateProg.applyNative lbProperties (fun properties => some properties)
-      let lbu ← Puddle.CreateProg.operation (.riscv .lbu) #[addr] #[resultType] lbuProperties
-      return lbu)
-    (fun lbu => lbu)
-
-def zextb_lb : RewritePattern OpCode :=
-  zextb_lb_pattern.compile.run
-
 /-- `riscv.zextb (riscv.lbu addr) -> riscv.lbu addr`.  An `lbu` has already
     cleared bits 63:8, so the additional byte extension is redundant.
+    Forwarding its existing SSA result preserves the load's position and memory
+    snapshot, including for shared or volatile loads.
 
     LLVM: DAGCombiner removes the redundant mask through demanded-bits
     simplification before folding extended loads.
@@ -2805,7 +2778,6 @@ def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds
      , packh_low_bytes_commuted
      , packh_high_bytes
      , packh_high_bytes_commuted
-     , zextb_lb
      , zextb_lbu
      , zextw_slliw_lbu 8
      , zextw_slliw_lbu 16
