@@ -19,6 +19,8 @@ set_option warn.sorry false
 
 namespace Veir.Benchmarks
 
+fold_field_getters_in_grind
+
 structure Xoshiro256PP where
   s0 : UInt64
   s1 : UInt64

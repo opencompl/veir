@@ -106,7 +106,7 @@ if it exists.
 -/
 axiom OperationPtr.dominates_next :
   op₁.Dominates op₂ ctx →
-  (op₂.get! ctx.raw).next = some op₂Next →
+  (op₂.getNextOp! ctx.raw) = some op₂Next →
   op₁.Dominates op₂Next ctx
 
 /-!

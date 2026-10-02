@@ -585,7 +585,7 @@ theorem interpretTerminatedOpList_append :
   grind
 
 theorem interpretOpChain_of_next!_eq_some {state' : InterpreterState ctx}
-    (hnext : (op.get! ctx.raw).next = some op') :
+    (hnext : (op.getNextOp! ctx.raw) = some op') :
     interpretOpChain op state' inBounds =
     match interpretOp op state' (by grind) with
     | .fail o => .fail o
@@ -597,7 +597,7 @@ theorem interpretOpChain_of_next!_eq_some {state' : InterpreterState ctx}
   grind
 
 theorem interpretOpChain_of_next!_eq_none {state' : InterpreterState ctx}
-    (hnext : (op.get! ctx.raw).next = none) :
+    (hnext : (op.getNextOp! ctx.raw) = none) :
     interpretOpChain op state' inBounds =
     match interpretOp op state' (by grind) with
     | .fail o => .fail o
@@ -628,7 +628,7 @@ theorem interpretOpChain_getElem_array_eq_interpretTerminatedOpList_of_opChain
 
 theorem interpretOpChain_eq_interpretTerminatedOpList_of_firstOp
     {block : BlockPtr} (blockInBounds : block.InBounds ctx.raw) :
-    (block.get! ctx.raw).firstOp = some op →
+    (block.getFirstOp! ctx.raw) = some op →
     interpretOpChain op state opInBounds =
     interpretTerminatedOpList (block.operationList ctx.raw).toList state
       (by grind [BlockPtr.operationListWF, BlockPtr.OpChain]) := by

@@ -90,7 +90,7 @@ def printOperand (value : ValuePtr) : OpPrinter OpCode Unit := do
     if owner.getNumResults! ctx == 1 then
       printString s!"%{owner.id}"
     else
-      printString s!"%{owner.id}#{(opResultPtr.get! ctx).index}"
+      printString s!"%{owner.id}#{(opResultPtr.getIndex! ctx)}"
   | ValuePtr.blockArgument blockArgPtr =>
     printString s!"%arg{(blockArgPtr.getOwner! ctx).id}_{blockArgPtr.getIndex! ctx}"
 

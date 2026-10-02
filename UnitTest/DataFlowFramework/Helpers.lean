@@ -71,16 +71,16 @@ partial def collectBlocksInSourceOrder
     (irCtx : WfIRContext OpCode)
     (acc : Array BlockPtr := #[]) : Array BlockPtr := Id.run do
   let mut acc := acc
-  for region in (op.get! irCtx.raw).regions do
+  for region in (op.getRegions! irCtx.raw) do
     let region := region.get! irCtx.raw
     let mut currentBlock := region.firstBlock
     while let some block := currentBlock do
       acc := acc.push block
-      let mut currentOp := (block.get! irCtx.raw).firstOp
+      let mut currentOp := (block.getFirstOp! irCtx.raw)
       while let some nestedOp := currentOp do
         acc := collectBlocksInSourceOrder nestedOp irCtx acc
-        currentOp := (nestedOp.get! irCtx.raw).next
-      currentBlock := (block.get! irCtx.raw).next
+        currentOp := (nestedOp.getNextOp! irCtx.raw)
+      currentBlock := (block.getNextBlock! irCtx.raw)
   acc
 
 /--
@@ -95,17 +95,17 @@ partial def collectValuesInSourceOrder
   let mut acc := acc
   for result in top.getResults! irCtx.raw do
     acc := acc.push result
-  for region in (top.get! irCtx.raw).regions do
+  for region in (top.getRegions! irCtx.raw) do
     let region := region.get! irCtx.raw
     let mut currentBlock := region.firstBlock
     while let some block := currentBlock do
       for arg in block.getArguments! irCtx.raw do
         acc := acc.push arg
-      let mut currentOp := (block.get! irCtx.raw).firstOp
+      let mut currentOp := (block.getFirstOp! irCtx.raw)
       while let some nestedOp := currentOp do
         acc := collectValuesInSourceOrder nestedOp irCtx acc
-        currentOp := (nestedOp.get! irCtx.raw).next
-      currentBlock := (block.get! irCtx.raw).next
+        currentOp := (nestedOp.getNextOp! irCtx.raw)
+      currentBlock := (block.getNextBlock! irCtx.raw)
   acc
 
 /--

@@ -163,7 +163,7 @@ theorem BlockPtr.operationList_rewriter_replaceOp?
     (ctxWf : ctx.WellFormed)
     (neOps : oldOp ≠ newOp) :
     BlockPtr.operationList block newCtx newCtxWf blockIn =
-    if h : (oldOp.get! ctx).parent = block then
+    if h : (oldOp.getParent! ctx) = block then
       (BlockPtr.operationList block ctx ctxWf).erase oldOp
     else
       BlockPtr.operationList block ctx (by grind) (by grind) := by

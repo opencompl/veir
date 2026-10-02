@@ -30,7 +30,7 @@ section operation
 @[grind →]
 theorem OperationPtr.in_bounds_of_parent_eq_some
     {op : OperationPtr} {block : BlockPtr} {ctx : IRContext OpInfo}
-    (parentEq : (op.get! ctx).parent = some block) :
+    (parentEq : (op.getParent! ctx) = some block) :
     op.InBounds ctx := by
   grind [Operation.default_parent_eq]
 

@@ -1872,6 +1872,25 @@ theorem getOwner!_eq_getOwner {result : OpResultPtr} (hin : result.InBounds ctx)
     result.getOwner! ctx = result.getOwner ctx hin := by
   grind [getOwner, getOwner!, get!_eq_get]
 
+def getIndex (result : OpResultPtr) (ctx : IRContext OpInfo) (inBounds : result.InBounds ctx := by grind) : Nat :=
+  (result.get ctx).index
+
+theorem getIndex_def {result : OpResultPtr} {inBounds : result.InBounds ctx} :
+    result.getIndex ctx inBounds = (result.get ctx inBounds).index := by
+  rfl
+
+def getIndex! (result : OpResultPtr) (ctx : IRContext OpInfo) : Nat :=
+  (result.get! ctx).index
+
+theorem getIndex!_def {result : OpResultPtr} :
+    result.getIndex! ctx = (result.get! ctx).index := by
+  rfl
+
+@[grind =_, eq_bang ←]
+theorem getIndex!_eq_getIndex {result : OpResultPtr} (hin : result.InBounds ctx) :
+    result.getIndex! ctx = result.getIndex ctx hin := by
+  grind [getIndex, getIndex!, get!_eq_get]
+
 def setOwner (result : OpResultPtr) (ctx : IRContext OpInfo) (newOwner : OperationPtr)
     (resultIn : result.InBounds ctx := by grind) : IRContext OpInfo :=
   let oldResult := result.get ctx
@@ -3419,7 +3438,7 @@ macro "setup_grind_with_get_set_definitions" : command => `(
   attribute [local grind] OpOperandPtr.get! BlockOperandPtr.get! OpResultPtr.get! BlockArgumentPtr.get! OperationPtr.get!
   attribute [local grind] BlockOperandPtr.setBack BlockOperandPtr.setNextUse BlockOperandPtr.setOwner BlockOperandPtr.setValue BlockOperandPtr.set
   attribute [local grind] BlockOperandPtrPtr.get!
-  attribute [local grind] OperationPtr.getNextOp! OperationPtr.getPrevOp! OperationPtr.getParent! OperationPtr.getAttributes! OpOperandPtr.getNextUse! OpOperandPtr.getBack! OpOperandPtr.getOwner! OpOperandPtr.getValue! BlockOperandPtr.getNextUse! BlockOperandPtr.getBack! BlockOperandPtr.getOwner! BlockOperandPtr.getValue! OpResultPtr.getType! OpResultPtr.getFirstUse! OpResultPtr.getOwner! BlockPtr.getParent! BlockPtr.getFirstUse! BlockPtr.getFirstOp! BlockPtr.getLastOp! BlockPtr.getNextBlock! BlockPtr.getPrevBlock! BlockArgumentPtr.getType! BlockArgumentPtr.getFirstUse! BlockArgumentPtr.getIndex! BlockArgumentPtr.getLoc! BlockArgumentPtr.getOwner! RegionPtr.getParent! RegionPtr.getFirstBlock! RegionPtr.getLastBlock! OperationPtr.getRegions!
+  attribute [local grind] OperationPtr.getNextOp! OperationPtr.getPrevOp! OperationPtr.getParent! OperationPtr.getAttributes! OpOperandPtr.getNextUse! OpOperandPtr.getBack! OpOperandPtr.getOwner! OpOperandPtr.getValue! BlockOperandPtr.getNextUse! BlockOperandPtr.getBack! BlockOperandPtr.getOwner! BlockOperandPtr.getValue! OpResultPtr.getType! OpResultPtr.getFirstUse! OpResultPtr.getOwner! OpResultPtr.getIndex! BlockPtr.getParent! BlockPtr.getFirstUse! BlockPtr.getFirstOp! BlockPtr.getLastOp! BlockPtr.getNextBlock! BlockPtr.getPrevBlock! BlockArgumentPtr.getType! BlockArgumentPtr.getFirstUse! BlockArgumentPtr.getIndex! BlockArgumentPtr.getLoc! BlockArgumentPtr.getOwner! RegionPtr.getParent! RegionPtr.getFirstBlock! RegionPtr.getLastBlock! OperationPtr.getRegions!
   attribute [local grind] RegionPtr.get! RegionPtr.setParent RegionPtr.setFirstBlock RegionPtr.setLastBlock RegionPtr.set RegionPtr.allocEmpty
 )
 
@@ -3428,5 +3447,5 @@ macro "setup_grind_with_get_set_definitions" : command => `(
   projections of `get`/`get!`.
 -/
 macro "unfold_field_getters_in_grind" : command => `(
-  attribute [local grind =] BlockArgumentPtr.getFirstUse!_def BlockArgumentPtr.getFirstUse_def BlockArgumentPtr.getIndex!_def BlockArgumentPtr.getIndex_def BlockArgumentPtr.getLoc!_def BlockArgumentPtr.getLoc_def BlockArgumentPtr.getOwner!_def BlockArgumentPtr.getOwner_def BlockArgumentPtr.getType!_def BlockArgumentPtr.getType_def BlockOperandPtr.getBack!_def BlockOperandPtr.getBack_def BlockOperandPtr.getNextUse!_def BlockOperandPtr.getNextUse_def BlockOperandPtr.getOwner!_def BlockOperandPtr.getOwner_def BlockOperandPtr.getValue!_def BlockOperandPtr.getValue_def BlockPtr.getFirstOp!_def BlockPtr.getFirstOp_def BlockPtr.getFirstUse!_def BlockPtr.getFirstUse_def BlockPtr.getLastOp!_def BlockPtr.getLastOp_def BlockPtr.getNextBlock!_def BlockPtr.getNextBlock_def BlockPtr.getParent!_def BlockPtr.getParent_def BlockPtr.getPrevBlock!_def BlockPtr.getPrevBlock_def OpOperandPtr.getBack!_def OpOperandPtr.getBack_def OpOperandPtr.getNextUse!_def OpOperandPtr.getNextUse_def OpOperandPtr.getOwner!_def OpOperandPtr.getOwner_def OpOperandPtr.getValue!_def OpOperandPtr.getValue_def OpResultPtr.getFirstUse!_def OpResultPtr.getFirstUse_def OpResultPtr.getOwner!_def OpResultPtr.getOwner_def OpResultPtr.getType!_def OpResultPtr.getType_def OperationPtr.getAttributes!_def OperationPtr.getAttributes_def OperationPtr.getNextOp!_def OperationPtr.getNextOp_def OperationPtr.getOpType!_def OperationPtr.getParent!_def OperationPtr.getParent_def OperationPtr.getPrevOp!_def OperationPtr.getPrevOp_def OperationPtr.getRegions!_def RegionPtr.getFirstBlock!_def RegionPtr.getFirstBlock_def RegionPtr.getLastBlock!_def RegionPtr.getLastBlock_def RegionPtr.getParent!_def RegionPtr.getParent_def
+  attribute [local grind =] BlockArgumentPtr.getFirstUse!_def BlockArgumentPtr.getFirstUse_def BlockArgumentPtr.getIndex!_def BlockArgumentPtr.getIndex_def BlockArgumentPtr.getLoc!_def BlockArgumentPtr.getLoc_def BlockArgumentPtr.getOwner!_def BlockArgumentPtr.getOwner_def BlockArgumentPtr.getType!_def BlockArgumentPtr.getType_def BlockOperandPtr.getBack!_def BlockOperandPtr.getBack_def BlockOperandPtr.getNextUse!_def BlockOperandPtr.getNextUse_def BlockOperandPtr.getOwner!_def BlockOperandPtr.getOwner_def BlockOperandPtr.getValue!_def BlockOperandPtr.getValue_def BlockPtr.getFirstOp!_def BlockPtr.getFirstOp_def BlockPtr.getFirstUse!_def BlockPtr.getFirstUse_def BlockPtr.getLastOp!_def BlockPtr.getLastOp_def BlockPtr.getNextBlock!_def BlockPtr.getNextBlock_def BlockPtr.getParent!_def BlockPtr.getParent_def BlockPtr.getPrevBlock!_def BlockPtr.getPrevBlock_def OpOperandPtr.getBack!_def OpOperandPtr.getBack_def OpOperandPtr.getNextUse!_def OpOperandPtr.getNextUse_def OpOperandPtr.getOwner!_def OpOperandPtr.getOwner_def OpOperandPtr.getValue!_def OpOperandPtr.getValue_def OpResultPtr.getFirstUse!_def OpResultPtr.getFirstUse_def OpResultPtr.getOwner!_def OpResultPtr.getOwner_def OpResultPtr.getIndex!_def OpResultPtr.getIndex_def OpResultPtr.getType!_def OpResultPtr.getType_def OperationPtr.getAttributes!_def OperationPtr.getAttributes_def OperationPtr.getNextOp!_def OperationPtr.getNextOp_def OperationPtr.getOpType!_def OperationPtr.getParent!_def OperationPtr.getParent_def OperationPtr.getPrevOp!_def OperationPtr.getPrevOp_def OperationPtr.getRegions!_def RegionPtr.getFirstBlock!_def RegionPtr.getFirstBlock_def RegionPtr.getLastBlock!_def RegionPtr.getLastBlock_def RegionPtr.getParent!_def RegionPtr.getParent_def
 )

@@ -54,7 +54,7 @@ def InsertPoint.atStart (block : BlockPtr) (ctx : IRContext OpInfo)
 theorem InsertPoint.atStart!_eq_atStart (block : BlockPtr) (ctx : IRContext OpInfo)
     (hIn : block.InBounds ctx) :
     InsertPoint.atStart! block ctx = InsertPoint.atStart block ctx hIn := by
-  cases (block.get ctx (by grind)).firstOp <;> grind [InsertPoint.atStart!, InsertPoint.atStart]
+  cases (block.getFirstOp ctx (by grind)) <;> grind [InsertPoint.atStart!, InsertPoint.atStart]
 
 @[simp, grind =]
 theorem InsertPoint.inBounds_atStart (ctxWf : ctx.WellFormed) :
@@ -88,7 +88,7 @@ theorem InsertPoint.after?_eq_some_of_after_eq :
 
 theorem InsertPoint.after?_eq_of_after?_eq_some
     (h : InsertPoint.after? op ctx = some ip)
-    (hblock : (op.get! ctx).parent = some block)
+    (hblock : (op.getParent! ctx) = some block)
     (hop : op.InBounds ctx) :
     InsertPoint.after op ctx block (by grind) (by grind) = ip := by
   grind [InsertPoint.after, InsertPoint.after?]
@@ -99,12 +99,12 @@ theorem InsertPoint.after_inBounds (ctxWf : ctx.WellFormed) :
   grind [InsertPoint.after]
 
 theorem InsertPoint.after_eq_of_some_next :
-    (op.get! ctx).next = some nextOp →
+    (op.getNextOp! ctx) = some nextOp →
     InsertPoint.after op ctx blockPtr opHasParent opInBounds = .before nextOp := by
   grind [InsertPoint.after]
 
 grind_pattern InsertPoint.after_eq_of_some_next =>
-  (op.get! ctx).next, some nextOp, InsertPoint.after op ctx blockPtr opHasParent opInBounds
+  (op.getNextOp! ctx), some nextOp, InsertPoint.after op ctx blockPtr opHasParent opInBounds
 
 @[grind]
 def InsertPoint.block! (insertionPoint : InsertPoint) (ctx : IRContext OpInfo) : Option BlockPtr :=
@@ -136,7 +136,7 @@ theorem InsertPoint.block_InBounds {insertionPoint : InsertPoint} {ctx : IRConte
 @[simp, grind =]
 theorem InsertPoint.block!_before_eq :
     InsertPoint.block! (before op) ctx =
-    (op.get! ctx).parent := by
+    (op.getParent! ctx) := by
   grind [InsertPoint.block]
 
 @[simp, grind =]
@@ -163,13 +163,13 @@ theorem InsertPoint.prev!_eq_prev {ip : InsertPoint} {ctx : IRContext OpInfo}
 @[simp, grind =]
 theorem InsertPoint.prev!_before_eq :
     InsertPoint.prev! (before op) ctx =
-    (op.get! ctx).prev := by
+    (op.getPrevOp! ctx) := by
   grind [InsertPoint.prev!]
 
 @[simp, grind =]
 theorem InsertPoint.prev_atEnd_eq :
     InsertPoint.prev! (atEnd blockPtr) ctx =
-    (blockPtr.get! ctx).lastOp := by
+    (blockPtr.getLastOp! ctx) := by
   grind [InsertPoint.prev!]
 
 @[simp, grind .]
@@ -213,7 +213,7 @@ theorem InsertPoint.next_eq_some_iff_eq_before {ip : InsertPoint} :
 theorem InsertPoint.block!_eq_of_prev!_eq_some
     (ipInBounds : InsertPoint.InBounds ip ctx) :
     ip.next = some firstOp →
-    (firstOp.get! ctx).parent = some blockPtr →
+    (firstOp.getParent! ctx) = some blockPtr →
     ip.block! ctx = some blockPtr := by
   intros hPrev
   cases ip <;> grind
@@ -221,25 +221,25 @@ theorem InsertPoint.block!_eq_of_prev!_eq_some
 theorem InsertPoint.next.maybe₁_parent_of_opChain :
     BlockPtr.OpChain blockPtr ctx array →
     InsertPoint.block! ip ctx = some blockPtr →
-    ip.next.maybe₁ (fun op => (op.get! ctx).parent = some blockPtr) := by
+    ip.next.maybe₁ (fun op => (op.getParent! ctx) = some blockPtr) := by
   cases ip <;> grind
 
 theorem InsertPoint.next.maybe₁_parent :
     ctx.WellFormed →
     InsertPoint.block! ip ctx = some blockPtr →
     ip.next = some nextOp →
-    (nextOp.get! ctx).parent = some blockPtr := by
+    (nextOp.getParent! ctx) = some blockPtr := by
   cases ip <;> grind
 
 grind_pattern InsertPoint.next.maybe₁_parent =>
   ctx.WellFormed, InsertPoint.block! ip ctx, some blockPtr, ip.next, some nextOp,
-  (nextOp.get! ctx).parent
+  (nextOp.getParent! ctx)
 
 theorem InsertPoint.prev.maybe₁_parent_of_opChain :
     BlockPtr.OpChain blockPtr ctx array →
     InsertPoint.InBounds ip ctx →
     InsertPoint.block! ip ctx = some blockPtr →
-    (ip.prev! ctx).maybe₁ (fun op => (op.get! ctx).parent = some blockPtr) := by
+    (ip.prev! ctx).maybe₁ (fun op => (op.getParent! ctx) = some blockPtr) := by
   cases ip <;> grind [Option.maybe₁_def]
 
 theorem InsertPoint.prev.maybe₁_parent :
@@ -247,7 +247,7 @@ theorem InsertPoint.prev.maybe₁_parent :
     InsertPoint.InBounds ip ctx →
     InsertPoint.block! ip ctx = some blockPtr →
     ip.prev! ctx = some prevOp →
-    (prevOp.get! ctx).parent = some blockPtr := by
+    (prevOp.getParent! ctx) = some blockPtr := by
   intro ctxWf ipInBounds hblock hprev
   have ⟨array, harray⟩ := ctxWf.opChain blockPtr (by grind)
   have := InsertPoint.prev.maybe₁_parent_of_opChain harray ipInBounds hblock
@@ -255,7 +255,7 @@ theorem InsertPoint.prev.maybe₁_parent :
 
 grind_pattern InsertPoint.prev.maybe₁_parent =>
   ctx.WellFormed, InsertPoint.InBounds ip ctx, InsertPoint.block! ip ctx, some blockPtr,
-  ip.prev! ctx, some prevOp, (prevOp.get! ctx).parent
+  ip.prev! ctx, some prevOp, (prevOp.getParent! ctx)
 
 /--
  - Get the index of the insertion point in the operation list of the block.
@@ -342,7 +342,7 @@ theorem InsertPoint.prev!_eq_none_iff_firstOp!_eq_next
     (inBounds : ip.InBounds ctx)
     (hblock : ip.block! ctx = some blockPtr) :
     (InsertPoint.prev! ip ctx = none ↔
-    (blockPtr.get! ctx).firstOp = ip.next) := by
+    (blockPtr.getFirstOp! ctx) = ip.next) := by
   have ⟨array, harray⟩ := hctx.opChain blockPtr (by grind)
   cases ip
   · grind [BlockPtr.OpChain.prev!_eq_none_iff_firstOp!_eq_self]
@@ -350,7 +350,7 @@ theorem InsertPoint.prev!_eq_none_iff_firstOp!_eq_next
 
 theorem InsertPoint.next_ne_firstOp
     (hWF : ctx.WellFormed) (ipInBounds : ip.InBounds ctx) :
-    (BlockPtr.get blockPtr ctx blockInBounds).firstOp = some firstOp →
+    (BlockPtr.getFirstOp blockPtr ctx blockInBounds) = some firstOp →
     InsertPoint.prev! ip ctx ≠ none →
     InsertPoint.next ip ≠ some firstOp := by
   intro hFirst hPrev
@@ -443,13 +443,13 @@ theorem prev!_eq_prev {ip : BlockInsertPoint} {ctx : IRContext OpInfo}
 @[simp, grind =]
 theorem prev!_before :
     BlockInsertPoint.prev! (before blockPtr) ctx =
-    (blockPtr.get! ctx).prev := by
+    (blockPtr.getPrevBlock! ctx) := by
   grind [prev!]
 
 @[simp, grind =]
 theorem prev!_atEnd :
     BlockInsertPoint.prev! (atEnd regionPtr) ctx =
-    (regionPtr.get! ctx).lastBlock := by
+    (regionPtr.getLastBlock! ctx) := by
   grind [prev!]
 
 theorem prev!_inBounds {ip : BlockInsertPoint}
@@ -504,7 +504,7 @@ theorem region!_eq_region (ip : BlockInsertPoint) (ctx : IRContext OpInfo)
 
 @[simp, grind =]
 theorem region!_before :
-    BlockInsertPoint.region! (before blockPtr) ctx = (blockPtr.get! ctx).parent := by
+    BlockInsertPoint.region! (before blockPtr) ctx = (blockPtr.getParent! ctx) := by
   simp [region!, BlockPtr.getParent!_def]
 
 @[simp, grind =]
@@ -525,7 +525,7 @@ grind_pattern region_InBounds =>
 @[grind =>]
 theorem BlockPtr_parent!_of_next_eq_some {ip : BlockInsertPoint} :
   ip.next = some block →
-  (block.get! ctx).parent = ip.region! ctx := by
+  (block.getParent! ctx) = ip.region! ctx := by
   cases ip <;> grind
 
 @[grind =>]
@@ -534,7 +534,7 @@ theorem BlockPtr_parent!_of_prev_eq_some {ip : BlockInsertPoint}
     (ipInBounds : ip.InBounds ctx) :
     ip.region! ctx = some regionPtr →
     ip.prev! ctx = some block →
-    (block.get! ctx).parent = ip.region! ctx := by
+    (block.getParent! ctx) = ip.region! ctx := by
   cases ip <;> grind
 
 theorem exists_parent_of_prev_eq_some {ip : BlockInsertPoint} (ctxWf : ctx.WellFormed)
@@ -544,10 +544,10 @@ theorem exists_parent_of_prev_eq_some {ip : BlockInsertPoint} (ctxWf : ctx.WellF
   cases ip
   case before block =>
     have := ctxWf.blocks block (by grind)
-    cases h : (block.get! ctx).parent <;> grind [BlockPtr.WellFormed]
+    cases h : (block.getParent! ctx) <;> grind [BlockPtr.WellFormed]
   case atEnd region =>
     have := ctxWf.regions region (by grind)
-    cases h : (region.get! ctx).lastBlock <;> grind [RegionPtr.WellFormed]
+    cases h : (region.getLastBlock! ctx) <;> grind [RegionPtr.WellFormed]
 
 grind_pattern exists_parent_of_prev_eq_some =>
   ctx.WellFormed, ip.InBounds ctx, ip.prev! ctx, some prevOp
@@ -556,19 +556,19 @@ theorem prev_next {ip : BlockInsertPoint}
     (ipInBounds : ip.InBounds ctx) :
     ip.prev! ctx = some prevOp →
     ip.next = some nextOp →
-    (nextOp.get! ctx).prev = some prevOp := by
+    (nextOp.getPrevBlock! ctx) = some prevOp := by
   cases ip <;> grind
 
 grind_pattern prev_next =>
   ip.InBounds ctx, ip.prev! ctx, some prevOp, ip.next, some nextOp,
-  (nextOp.get! ctx).prev
+  (nextOp.getPrevBlock! ctx)
 
 theorem next_prev {ip : BlockInsertPoint} :
   ctx.WellFormed →
   ip.InBounds ctx →
   ip.prev! ctx = some prevOp →
   ip.next = some nextOp →
-  (prevOp.get! ctx).next = some nextOp := by
+  (prevOp.getNextBlock! ctx) = some nextOp := by
   cases ip <;> grind
 
 grind_pattern next_prev =>

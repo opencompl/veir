@@ -62,10 +62,10 @@ a CFG edge.
 inductive RegionPtr.Path (region : RegionPtr) (ctx : WfIRContext OpInfo) :
     BlockPtr → BlockPtr → List BlockPtr → Prop where
   | Single {block : BlockPtr}
-      (parent : (block.get! ctx.raw).parent = some region) :
+      (parent : (block.getParent! ctx.raw) = some region) :
       region.Path ctx block block [block]
   | Cons {source next target : BlockPtr} {blocks : List BlockPtr}
-      (parent : (source.get! ctx.raw).parent = some region)
+      (parent : (source.getParent! ctx.raw) = some region)
       (successor : next ∈ source.getSuccessors! ctx.raw)
       (tail : region.Path ctx next target blocks) :
       region.Path ctx source target (source :: blocks)
@@ -222,9 +222,9 @@ inductive OperationPtr.ProperlyDominatesInRegion
         dominator.ProperlyDominatesInBlock dominated block region ctx)
   | BlockDominance {dominatorBlock dominatedBlock : BlockPtr}
       (hDominatorBlock :
-        (dominator.get! ctx.raw).parent = some dominatorBlock)
+        (dominator.getParent! ctx.raw) = some dominatorBlock)
       (hDominatedBlock :
-        (dominated.get! ctx.raw).parent = some dominatedBlock)
+        (dominated.getParent! ctx.raw) = some dominatedBlock)
       (dominance :
         dominatorBlock.ProperlyDominatesInRegion dominatedBlock region ctx)
 

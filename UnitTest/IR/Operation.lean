@@ -27,15 +27,15 @@ private def twoRegions := parseSourceString! r#""arith.addi"() ({
 private def flattenOps (top : OperationPtr) (ctx : IRContext OpCode) :
     Array OperationPtr := Id.run do
   let mut ops := #[]
-  for region in (top.get! ctx).regions do
+  for region in (top.getRegions! ctx) do
     let region := region.get! ctx
     let mut currentBlock := region.firstBlock
     while let some block := currentBlock do
-      let mut currentOp := (block.get! ctx).firstOp
+      let mut currentOp := (block.getFirstOp! ctx)
       while let some op := currentOp do
         ops := ops.push op
-        currentOp := (op.get! ctx).next
-      currentBlock := (block.get! ctx).next
+        currentOp := (op.getNextOp! ctx)
+      currentBlock := (block.getNextBlock! ctx)
   ops
 
 private def parsed := parseSourceString! r#""builtin.module"() ({

@@ -9,6 +9,8 @@ public section
 
 namespace Veir
 
+fold_field_getters_in_grind
+
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 variable {ctx newCtx : IRContext OpInfo}
 

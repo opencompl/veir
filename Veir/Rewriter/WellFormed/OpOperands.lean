@@ -18,13 +18,20 @@ variable (opPtrInBounds : opPtr.InBounds ctx)
 
 include ctxInBounds in
 @[simp, local grind →]
-theorem Rewriter.pushOperand_DefUse_getElem?
+theorem Rewriter.pushOperand_DefUse_getBack!
     (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx)
     array (arrayWf : valuePtr.DefUse ctx array) (i : Nat) (hISize : i < array.size) :
-    (array[i].get (Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) (by grind [ValuePtr.DefUse])) =
-      { (OpOperandPtr.get array[i] ctx (by grind [ValuePtr.DefUse])) with
-        back := (if i = 0 then .operandNextUse (opPtr.nextOperand ctx) else (OpOperandPtr.get array[i] ctx (by grind [ValuePtr.DefUse])).back) }
-    := by
+    array[i].getBack! (Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) =
+      if i = 0 then .operandNextUse (opPtr.nextOperand ctx) else array[i].getBack! ctx := by
+  grind [ValuePtr.DefUse]
+
+include ctxInBounds in
+@[simp, local grind →]
+theorem Rewriter.pushOperand_DefUse_getNextUse!
+    (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx)
+    array (arrayWf : valuePtr.DefUse ctx array) (i : Nat) (hISize : i < array.size) :
+    array[i].getNextUse! (Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) =
+      array[i].getNextUse! ctx := by
   grind [ValuePtr.DefUse]
 
 set_option maxHeartbeats 10000000 in -- TODO
@@ -77,7 +84,7 @@ theorem Rewriter.pushOperand_DefUse
   case neg =>
     exists array'
     apply ValuePtr.DefUse.unchanged (ctx := ctx) <;>
-      grind [ValuePtr.DefUse, OpOperandPtr.get!_pushOperand']
+      grind [ValuePtr.DefUse, OpOperandPtr.getBack!_pushOperand', OpOperandPtr.getNextUse!_pushOperand', OpOperandPtr.getOwner!_pushOperand', OpOperandPtr.getValue!_pushOperand']
 
 /--
 info: 'Veir.Rewriter.pushOperand_DefUse' depends on axioms: [propext, Classical.choice, Quot.sound]

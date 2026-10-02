@@ -354,9 +354,9 @@ private theorem WfIRContext.Verified.successorsHaveSameParent
 theorem WfIRContext.Verified.successor_parent
     {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
     {source : BlockPtr} (sourceIn : source.InBounds ctx.raw)
-    (hsourceParent : (source.get! ctx.raw).parent = some region)
+    (hsourceParent : (source.getParent! ctx.raw) = some region)
     (hsuccessor : successor ∈ source.getSuccessors! ctx.raw) :
-    (successor.get! ctx.raw).parent = some region := by
+    (successor.getParent! ctx.raw) = some region := by
   have hcheck := ctxVerified.successorsHaveSameParent
   have hsourceKeys : source ∈ ctx.raw.blocks.keys := by grind [source.inBounds_def]
   grind [Array.getElem_of_mem hsuccessor, (List.all_eq_true.mp hcheck) source hsourceKeys]
@@ -377,10 +377,10 @@ private theorem WfIRContext.Verified.graphRegionsHaveAtMostOneBlock
 theorem WfIRContext.Verified.graph_region_firstBlock_eq_lastBlock
     {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
     {region : RegionPtr} (regionIn : region.InBounds ctx.raw)
-    {parent : OperationPtr} (hregionParent : (region.get! ctx.raw).parent = some parent)
+    {parent : OperationPtr} (hregionParent : (region.getParent! ctx.raw) = some parent)
     (hparentRegistered : parent.getOpType! ctx.raw ≠ .builtin .unregistered)
     (hregionKind : region.getRegionKind ctx = .Graph) :
-    (region.get! ctx.raw).firstBlock = (region.get! ctx.raw).lastBlock := by
+    (region.getFirstBlock! ctx.raw) = (region.getLastBlock! ctx.raw) := by
   have hcheck := ctxVerified.graphRegionsHaveAtMostOneBlock
   have hregionKeys : region ∈ ctx.raw.regions.keys := by grind [region.inBounds_def]
   have hregionCheck := (List.all_eq_true.mp hcheck) region hregionKeys
@@ -424,20 +424,18 @@ private theorem WfIRContext.Verified.verifyNoEntryBlockPredecessors_eq_ok
 theorem WfIRContext.Verified.entryBlock_firstUse_eq_none
     {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
     {block : BlockPtr} (blockIn : block.InBounds ctx.raw) {region : RegionPtr}
-    (hParent : (block.get! ctx.raw).parent = some region)
-    (hFirstBlock : (region.get! ctx.raw).firstBlock = some block) :
-    (block.get! ctx.raw).firstUse = none := by
+    (hParent : (block.getParent! ctx.raw) = some region)
+    (hFirstBlock : (region.getFirstBlock! ctx.raw) = some block) :
+    (block.getFirstUse! ctx.raw) = none := by
   have hCheck := ctxVerified.verifyNoEntryBlockPredecessors_eq_ok blockIn
-  have hParent' : (block.get ctx.raw blockIn).parent = some region := by grind
-  simp only [BlockPtr.verifyNoEntryBlockPredecessors, BlockPtr.getParent_def,
-    BlockPtr.getFirstUse_def, RegionPtr.getFirstBlock!_def, hParent', hFirstBlock, ne_eq,
+  have hParent' : (block.getParent ctx.raw blockIn) = some region := by grind
+  simp only [BlockPtr.verifyNoEntryBlockPredecessors, hParent', hFirstBlock, ne_eq,
     not_true_eq_false, ↓reduceIte] at hCheck
   split at hCheck
   · cases hCheck
   · rename_i hUse
-    have hGet : block.get! ctx.raw = block.get ctx.raw blockIn := by grind
-    rw [hGet]
-    cases hFirstUse : (block.get ctx.raw blockIn).firstUse <;> simp_all
+    rw [BlockPtr.getFirstUse!_eq_getFirstUse blockIn]
+    cases hFirstUse : (block.getFirstUse ctx.raw blockIn) <;> simp_all
 
 /--
 Assert that a given operation satisfies its local invariants.
@@ -496,7 +494,7 @@ theorem OperationPtr.Verified.arith_constant {op : OperationPtr} {opInBounds}
     op.getNumOperands! ctx.raw = 0 ∧
     op.getNumSuccessors! ctx.raw = 0 ∧
     op.getNumRegions! ctx.raw = 0 ∧
-    ((op.getResult 0).get! ctx.raw).type =
+    ((op.getResult 0).getType! ctx.raw) =
       .of IntegerType (op.getProperties! ctx.raw Arith.constant).value.type := by
   simp only [Verified, verifyLocalInvariants, HasOpInfo.verifyLocalInvariants,
     OpCode.verifyLocalInvariants, Arith.verifyLocalInvariants, verifyPlainOpCounts,
@@ -512,7 +510,7 @@ theorem OperationPtr.Verified.llvm_mlir__constant_resultType {op : OperationPtr}
     (opVerify : op.Verified ctx opInBounds)
     (opType : op.getOpType! ctx.raw = .llvm .mlir__constant)
     (hProp : (op.getProperties! ctx.raw Llvm.mlir__constant).value = .integer intAttr) :
-    ∃ intTy : IntegerType, ((op.getResult 0).get! ctx.raw).type.val = Attribute.of IntegerType intTy := by
+    ∃ intTy : IntegerType, ((op.getResult 0).getType! ctx.raw).val = Attribute.of IntegerType intTy := by
   rw [Verified] at opVerify
   simp only [verifyLocalInvariants, HasOpInfo.verifyLocalInvariants,
     OpCode.verifyLocalInvariants, Llvm.verifyLocalInvariants,

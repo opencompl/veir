@@ -71,19 +71,19 @@ theorem source_mem (path : region.Path ctx source target blocks) :
 @[grind →]
 theorem parent_of_mem (path : region.Path ctx source target blocks)
     (hmem : block ∈ blocks) :
-    (block.get! ctx.raw).parent = some region := by
+    (block.getParent! ctx.raw) = some region := by
   induction path <;> grind
 
 /-- The source block of a path belongs to the path's region. -/
 @[grind →]
 theorem source_parent (path : region.Path ctx source target blocks) :
-    (source.get! ctx.raw).parent = some region := by
+    (source.getParent! ctx.raw) = some region := by
   grind
 
 /-- The target block of a path belongs to the path's region. -/
 @[grind →]
 theorem target_parent (path : region.Path ctx source target blocks) :
-    (target.get! ctx.raw).parent = some region := by
+    (target.getParent! ctx.raw) = some region := by
   grind
 
 /-- The source block of a path is in bounds of the path's region. -/
@@ -149,7 +149,7 @@ variable {region : RegionPtr} {source successorBlock entryBlock : BlockPtr}
 
 /-- Establish reachability from a path beginning at the region's entry block. -/
 theorem of_path
-    (entryBlock : (region.get! ctx.raw).firstBlock = some entry)
+    (entryBlock : (region.getFirstBlock! ctx.raw) = some entry)
     (path : region.Path ctx entry source blocks) :
     source.ReachableFromEntry region ctx := by
   grind [BlockPtr.ReachableFromEntry]
@@ -157,21 +157,21 @@ theorem of_path
 /-- A reachable block has a witnessing path from the region's entry block. -/
 theorem exists_path (reachable : source.ReachableFromEntry region ctx) :
     ∃ entry blocks,
-      (region.get! ctx.raw).firstBlock = some entry ∧
+      (region.getFirstBlock! ctx.raw) = some entry ∧
       region.Path ctx entry source blocks := by
   grind [BlockPtr.ReachableFromEntry]
 
 /-- A reachable block belongs to the region whose entry reaches it. -/
 @[grind →]
 theorem parent (reachable : source.ReachableFromEntry region ctx) :
-    (source.get! ctx.raw).parent = some region := by
+    (source.getParent! ctx.raw) = some region := by
   grind [BlockPtr.ReachableFromEntry]
 
 /-- A region's entry block is reachable from itself. -/
 @[grind →]
 theorem entry
     (regionInBounds : region.InBounds ctx.raw)
-    (hentry : (region.get! ctx.raw).firstBlock = some entryBlock) :
+    (hentry : (region.getFirstBlock! ctx.raw) = some entryBlock) :
     entryBlock.ReachableFromEntry region ctx := by
   apply of_path hentry
   apply RegionPtr.Path.Single
@@ -182,7 +182,7 @@ theorem successor
     {ctx : WfIRContext OpCode}
     (reachable : source.ReachableFromEntry region ctx)
     (hsuccessor : successorBlock ∈ source.getSuccessors! ctx.raw)
-    (hsuccParent : (successorBlock.get! ctx.raw).parent = some region) :
+    (hsuccParent : (successorBlock.getParent! ctx.raw) = some region) :
     successorBlock.ReachableFromEntry region ctx := by
   obtain ⟨entry, blocks, hentry, path⟩ := reachable.exists_path
   have edgePath : region.Path ctx source successorBlock [source, successorBlock] :=

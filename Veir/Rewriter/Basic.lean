@@ -64,8 +64,8 @@ theorem Rewriter.unsetParentAndNeighbors_fieldsInBounds (hctx : ctx.FieldsInBoun
   grind
 
 @[irreducible]
-def Rewriter.detachOp (ctx: IRContext OpInfo) (op: OperationPtr) (hctx : ctx.FieldsInBounds) (hIn : op.InBounds ctx) (hasParent: (op.get ctx hIn).parent.isSome) : IRContext OpInfo :=
-  let parent := (op.getParent ctx hIn).get (by rw [OperationPtr.getParent_def]; exact hasParent)
+def Rewriter.detachOp (ctx: IRContext OpInfo) (op: OperationPtr) (hctx : ctx.FieldsInBounds) (hIn : op.InBounds ctx) (hasParent: (op.getParent ctx hIn).isSome) : IRContext OpInfo :=
+  let parent := (op.getParent ctx hIn).get hasParent
   let prevOp := op.getPrevOp ctx hIn
   let nextOp := op.getNextOp ctx hIn
   let ctx := unsetParentAndNeighbors ctx op hIn
@@ -397,7 +397,7 @@ theorem Rewriter.replaceValue?_preserves_results_size (op : OperationPtr) (hop :
 @[grind .]
 theorem Rewriter.replaceValue?_preserves_parent' (op : OperationPtr) (hop : op.InBounds ctx)
     (hctx' : replaceValue? ctx old new h₁ h₂ h₃ d = some ctx') :
-    (op.get! ctx').parent = (op.get! ctx).parent := by
+    (op.getParent! ctx') = (op.getParent! ctx) := by
   induction d generalizing ctx
   case zero => simp [replaceValue?, *] at hctx' ⊢
   case succ d ih =>
@@ -409,7 +409,7 @@ theorem Rewriter.replaceValue?_preserves_parent' (op : OperationPtr) (hop : op.I
 @[grind .]
 theorem Rewriter.replaceValue?_preserves_parent (op : OperationPtr) (hop : op.InBounds ctx)
     (hctx' : replaceValue? ctx old new h₁ h₂ h₃ d = some ctx') :
-    (op.get ctx' (by grind)).parent = (op.get ctx hop).parent := by
+    (op.getParent ctx' (by grind)) = (op.getParent ctx hop) := by
   have := @replaceValue?_preserves_parent'
   grind [Rewriter.replaceUse]
 
@@ -515,9 +515,7 @@ theorem Rewriter.pushBlockArgument_inBounds (ptr : GenericPtr) :
 theorem Rewriter.pushBlockArgument_fieldsInBounds (hctx : ctx.FieldsInBounds) :
     (Rewriter.pushBlockArgument ctx blockPtr type blockPtrInBounds).FieldsInBounds := by
   simp only [Rewriter.pushBlockArgument]
-  apply BlockPtr.pushArgument_fieldsInBounds
-  · constructor <;> grind
-  · exact hctx
+  apply BlockPtr.pushArgument_fieldsInBounds <;> grind
 
 def Rewriter.initBlockArguments (ctx: IRContext OpInfo) (blockPtr: BlockPtr) (types: Array TypeAttr)
     (index: Nat := 0) (hblock : blockPtr.InBounds ctx := by grind)
@@ -747,9 +745,7 @@ def Rewriter.pushResult (ctx : IRContext OpInfo) (op : OperationPtr) (type : Typ
 theorem Rewriter.pushResult_fieldsInBounds (hx : ctx.FieldsInBounds) :
     (pushResult ctx op type hop).FieldsInBounds := by
     simp only [pushResult]
-    apply OperationPtr.pushResult_fieldsInBounds
-    · constructor <;> grind
-    · grind
+    apply OperationPtr.pushResult_fieldsInBounds <;> grind
 
 @[grind .]
 theorem Rewriter.pushResult_inBounds_mono (ptr : GenericPtr) :
@@ -801,7 +797,6 @@ protected def Rewriter.pushOperand (ctx : IRContext OpInfo) (opPtr : OperationPt
     (opPtrInBounds : opPtr.InBounds ctx := by grind) (valueInBounds : valuePtr.InBounds ctx := by grind) (hctx : ctx.FieldsInBounds) : IRContext OpInfo :=
   let index := opPtr.getNumOperands ctx (by grind)
   let operand := { value := valuePtr, owner := opPtr, back := OpOperandPtrPtr.valueFirstUse valuePtr, nextUse := none : OpOperand}
-  have : operand.FieldsInBounds ctx := by constructor <;> grind
   let ctx := opPtr.pushOperand ctx operand (by grind)
   let ctx := (OpOperandPtr.mk opPtr index).insertIntoCurrent ctx (by grind) (by grind)
   ctx
@@ -869,7 +864,6 @@ protected def Rewriter.pushBlockOperand (ctx : IRContext OpInfo) (opPtr : Operat
     (hctx : ctx.FieldsInBounds := by grind) : IRContext OpInfo :=
   let index := opPtr.getNumSuccessors ctx (by grind)
   let operand := { value := blockPtr, owner := opPtr, back := BlockOperandPtrPtr.blockFirstUse blockPtr, nextUse := none : BlockOperand}
-  have : operand.FieldsInBounds ctx := by constructor <;> grind
   let ctx := opPtr.pushBlockOperand ctx operand (by grind)
   let ctx := (BlockOperandPtr.mk opPtr index).insertIntoCurrent ctx (by grind) (by grind)
   ctx

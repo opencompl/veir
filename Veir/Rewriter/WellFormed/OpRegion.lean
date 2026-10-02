@@ -50,7 +50,7 @@ theorem IRContext.wellFormed_Rewriter_pushRegion :
       intros region' region'InBounds
       constructor
       · grind
-      · simp only [RegionPtr.parent!_pushRegion]
+      · simp only [RegionPtr.getParent!_pushRegion]
         split; rotate_left
         · simp only [OperationPtr.getRegion!_pushRegion]
           grind
@@ -67,7 +67,7 @@ theorem IRContext.wellFormed_Rewriter_pushRegion :
     have ⟨h₁, h₂⟩ := wf.regions reg (by grind)
     constructor
     · grind
-    · simp only [RegionPtr.parent!_pushRegion]
+    · simp only [RegionPtr.getParent!_pushRegion]
       split
       · simp only [Option.some.injEq, forall_eq']
         exists op.getNumRegions! ctx

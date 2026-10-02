@@ -17,6 +17,8 @@ public section
 
 namespace Veir
 
+fold_field_getters_in_grind
+
 variable {OpInfo : Type} [IsOpCode OpInfo]
 variable {rawCtx : IRContext OpInfo}
 variable {ctx : WfIRContext OpInfo}
@@ -72,17 +74,17 @@ def parent! (ptr : IRNode) (ctx : WfIRContext OpInfo) : Option IRNode :=
 
 @[simp, grind =]
 theorem parent!_operation :
-  (IRNode.operation ptr).parent! ctx = (ptr.get! ctx.raw).parent.map .block := by
+  (IRNode.operation ptr).parent! ctx = (ptr.getParent! ctx.raw).map .block := by
   simp [parent!, OperationPtr.getParent!_def]
 
 @[simp, grind =]
 theorem parent!_block :
-  (IRNode.block ptr).parent! ctx = (ptr.get! ctx.raw).parent.map .region := by
+  (IRNode.block ptr).parent! ctx = (ptr.getParent! ctx.raw).map .region := by
   simp [parent!, BlockPtr.getParent!_def]
 
 @[simp, grind =]
 theorem parent!_region :
-  (IRNode.region ptr).parent! ctx = (ptr.get! ctx.raw).parent.map .operation := by
+  (IRNode.region ptr).parent! ctx = (ptr.getParent! ctx.raw).map .operation := by
   simp [parent!, RegionPtr.getParent!_def]
 
 /-- An IR node is different from its immediate parent. -/
