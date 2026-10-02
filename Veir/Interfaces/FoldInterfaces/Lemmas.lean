@@ -66,14 +66,12 @@ theorem FoldTable.correctAt_int_rhs
     (typed : FoldDecision.HasTypes decisions
       (op.getOperandTypes! ctx.raw) (op.getResultTypes! ctx.raw))
     (evaluate : ∀ lhs memory layout,
+      let operands := #[.int type.bitwidth lhs, .int type.bitwidth (rhs type.bitwidth)]
       ∃ replacements,
-        FoldDecision.resolveAll decisions
-          #[.int type.bitwidth lhs, .int type.bitwidth (rhs type.bitwidth)] = some replacements ∧
-        (op.interpret ctx.raw
-          #[.int type.bitwidth lhs, .int type.bitwidth (rhs type.bitwidth)] memory layout).isFail = false ∧
+        FoldDecision.resolveAll decisions operands = some replacements ∧
+        (op.interpret ctx.raw operands memory layout).isFail = false ∧
         Interp.isRefinedBy OperationResult.isRefinedBy
-          (op.interpret ctx.raw
-            #[.int type.bitwidth lhs, .int type.bitwidth (rhs type.bitwidth)] memory layout)
+          (op.interpret ctx.raw operands memory layout)
           (.ok (replacements, memory, none))) :
     CorrectAt ctx op verified where
   hasTypes known results _ hFold := by

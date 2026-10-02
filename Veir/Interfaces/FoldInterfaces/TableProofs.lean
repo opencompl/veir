@@ -38,35 +38,10 @@ private theorem overflow_zero (x : LLVM.Int w) :
   cases x <;> simp [LLVM.Int.uaddOverflowFlag, Id.run, BitVec.uaddOverflow_eq, isRefinedBy,
     BitVec.msb_eq_getLsbD_last]
 
-private theorem arith_addi_lookup
-    (h : HasOpInfo.tryFold (OpCode.arith .addi) properties types known = some decisions) :
-    ∃ lhs bw, known = #[lhs, some (.int bw (.val 0))] ∧
-      decisions = #[.useOperand 0] := by
-  change Arith.tryFold .addi properties types known = some decisions at h
-  unfold Arith.tryFold at h
-  grind [Array.toList_inj]
-
-private theorem arith_addui_extended_lookup
-    (h : HasOpInfo.tryFold (OpCode.arith .addui_extended) properties types known = some decisions) :
-    ∃ lhs bw, known = #[lhs, some (.int bw (.val 0))] ∧
-      decisions = #[.useOperand 0, .useConstant (.int 1 (.val 0))] := by
-  change Arith.tryFold .addui_extended properties types known = some decisions at h
-  unfold Arith.tryFold at h
-  grind [Array.toList_inj]
-
-private theorem llvm_add_lookup
-    (h : HasOpInfo.tryFold (OpCode.llvm .add) properties types known = some decisions) :
-    ∃ lhs bw, known = #[lhs, some (.int bw (.val 0))] ∧
-      decisions = #[.useOperand 0] := by
-  change Llvm.tryFold .add properties types known = some decisions at h
-  unfold Llvm.tryFold at h
-  grind [Array.toList_inj]
-
 private theorem riscv_andi_lookup
     (h : HasOpInfo.tryFold (OpCode.riscv .andi) properties types known = some decisions) :
     properties.value = 0 ∧ decisions = #[.useConstant (.reg ⟨0⟩)] := by
-  change Riscv.tryFold .andi properties types known = some decisions at h
-  unfold Riscv.tryFold at h
+  simp only [HasOpInfo.tryFold, OpCode.tryFold, Riscv.tryFold] at h
   grind
 
 variable {ctx : WfIRContext OpCode} {op : OperationPtr} {opIn : op.InBounds ctx.raw}
@@ -83,15 +58,11 @@ private theorem arith_addui_extended_types (verified : op.Verified ctx opIn)
     OperationPtr.verifyOperandTypesMatch, OperationPtr.verifyResultTypeMatches,
     TypeAttr.verifyIntegerType, TypeAttr.verifyI1, ne_eq, bind, Except.bind, throw,
     throwThe, MonadExceptOf.throw, pure, Except.pure, ite_true] at verified
-  have ⟨type, hType⟩ : ∃ type : IntegerType,
-      ((op.getOperand! ctx.raw 0).getType! ctx.raw).val = .integerType type := by grind
-  have ⟨carry, hCarry⟩ : ∃ type : IntegerType,
-      ((op.getResult 1).get! ctx.raw).type.val = .integerType type := by
-    cases ht : ((op.getResult 1).get! ctx.raw).type.val with
-    | integerType type => exact ⟨type, rfl⟩
-    | _ => simp only [ht] at verified; grind
-  refine ⟨type, carry, by grind, ?_, ?_⟩ <;> refine Array.ext (by grind) fun i _ _ => ?_ <;>
-    exact TypeAttr.inj.mpr (by grind)
+  have hCounts : op.getNumOperands! ctx.raw = 2 ∧ op.getNumResults! ctx.raw = 2 := by grind
+  simp [Array.ext_iff, TypeAttr.inj, ← Attribute.integerType_eq_of,
+    OperationPtr.getOperandTypes!.size_eq_getNumOperands!,
+    OperationPtr.getResultTypes!.size_eq_getNumResults!, hCounts, Nat.forall_lt_succ_left']
+  grind
 
 private theorem riscv_andi_types (verified : op.Verified ctx opIn)
     (opType : op.getOpType! ctx.raw = .riscv .andi) :
@@ -104,16 +75,14 @@ private theorem riscv_andi_types (verified : op.Verified ctx opIn)
   obtain ⟨_, hTypes, hCounts⟩ := Except.bind_eq_ok.mp verified
   simp only [OperationPtr.verifyRISCVimm12, OperationPtr.verifyPlainOpCounts, ne_eq, bind,
     Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at hCounts
-  obtain ⟨operandType, hOperands⟩ :=
-    Array.size_eq_one_iff.mp (by grind : (op.getOperandTypes! ctx.raw).size = 1)
-  have hResults : op.getNumResults ctx.raw opIn = 1 := by grind
-  simp [OperationPtr.verifyRISCVRegisterTypes, hOperands, hResults, bind, Except.bind, throw,
+  have hCounts : (op.getOperandTypes! ctx.raw).size = 1 ∧
+      op.getNumResults ctx.raw opIn = 1 := by grind
+  simp [OperationPtr.verifyRISCVRegisterTypes, hCounts, bind, Except.bind, throw,
     throwThe, MonadExceptOf.throw, pure, Except.pure] at hTypes
-  have ⟨a, b, ha, hb⟩ : ∃ a b : RegisterType,
-      operandType = (a : TypeAttr) ∧ ((op.getResult 0).get! ctx.raw).type = (b : TypeAttr) := by
-    simp only [TypeAttr.inj]
-    grind
-  exact ⟨a, b, ha ▸ hOperands, Array.ext (by grind) (by grind)⟩
+  simp [Array.ext_iff, TypeAttr.inj, ← Attribute.registerType_eq_of, hCounts,
+    OperationPtr.getResultTypes!.size_eq_getNumResults!,
+    OperationPtr.getNumResults!_eq_getNumResults opIn]
+  grind
 
 /-- The verified arithmetic add-zero entry, including arbitrary overflow flags and poison inputs. -/
 theorem Arith.tryFold_addi_correct (verified : op.Verified ctx opIn)
@@ -121,14 +90,15 @@ theorem Arith.tryFold_addi_correct (verified : op.Verified ctx opIn)
     FoldTable.CorrectAt ctx op verified := by
   obtain ⟨type, hOperands, hResults⟩ := (verified.arith_addi opType).types
   apply FoldTable.correctAt_int_rhs verified hOperands (fun width => .val (0#width))
-    (fun _ _ h => arith_addi_lookup (opType ▸ h))
+    (decisions := #[.useOperand 0]) (fun _ _ h => by
+      have h := opType ▸ h
+      simp only [HasOpInfo.tryFold, OpCode.tryFold, Arith.tryFold] at h
+      grind [Array.toList_inj])
   · simp [hOperands, hResults, FoldDecision.HasType]
-  · intro lhs memory layout
-    refine ⟨#[.int type.bitwidth lhs], rfl, ?_⟩
-    rw [OperationPtr.interpret, opType]
-    simp [Veir.interpretOp', Arith.interpretOp',
-      LLVM.Int.cast_self, fold_add_zero, Interp.isRefinedBy, OperationResult.isRefinedBy,
-      ControlFlowAction.optionIsRefinedBy]
+  · simp only [OperationPtr.interpret]
+    rw [opType]
+    simp [FoldDecision.resolveAll, FoldDecision.resolve, Veir.interpretOp', Arith.interpretOp',
+      LLVM.Int.cast_self, fold_add_zero, Interp.isRefinedBy]
 
 /-- The extended-add entry refines both results, even when the unknown operand
 is poison: its poison overflow flag may be replaced with concrete false. -/
@@ -137,15 +107,17 @@ theorem Arith.tryFold_addui_extended_correct (verified : op.Verified ctx opIn)
     FoldTable.CorrectAt ctx op verified := by
   obtain ⟨type, carry, hCarry, hOperands, hResults⟩ := arith_addui_extended_types verified opType
   apply FoldTable.correctAt_int_rhs verified hOperands (fun width => .val (0#width))
-    (fun _ _ h => arith_addui_extended_lookup (opType ▸ h))
+    (decisions := #[.useOperand 0, .useConstant (.int 1 (.val 0))]) (fun _ _ h => by
+      have h := opType ▸ h
+      simp only [HasOpInfo.tryFold, OpCode.tryFold, Arith.tryFold] at h
+      grind [Array.toList_inj])
   · rw [hOperands, hResults, FoldDecision.hasTypes_pair]
     exact ⟨rfl, hCarry⟩
-  · intro lhs memory layout
-    refine ⟨#[.int type.bitwidth lhs, .int 1 (.val 0)], rfl, ?_⟩
-    rw [OperationPtr.interpret, opType]
-    simp [Veir.interpretOp', Arith.interpretOp',
+  · simp only [OperationPtr.interpret]
+    rw [opType]
+    simp [FoldDecision.resolveAll, FoldDecision.resolve, Veir.interpretOp', Arith.interpretOp',
       LLVM.Int.cast_self, fold_add_zero, Interp.isRefinedBy, OperationResult.isRefinedBy,
-      ControlFlowAction.optionIsRefinedBy, RuntimeValue.isRefinedBy, overflow_zero]
+      RuntimeValue.isRefinedBy, overflow_zero]
 
 /-- Verified LLVM add-zero is correct for every choice of overflow flags. -/
 theorem Llvm.tryFold_add_correct (verified : op.Verified ctx opIn)
@@ -153,14 +125,15 @@ theorem Llvm.tryFold_add_correct (verified : op.Verified ctx opIn)
     FoldTable.CorrectAt ctx op verified := by
   obtain ⟨type, hOperands, hResults⟩ := (verified.llvm_add opType).types
   apply FoldTable.correctAt_int_rhs verified hOperands (fun width => .val (0#width))
-    (fun _ _ h => llvm_add_lookup (opType ▸ h))
+    (decisions := #[.useOperand 0]) (fun _ _ h => by
+      have h := opType ▸ h
+      simp only [HasOpInfo.tryFold, OpCode.tryFold, Llvm.tryFold] at h
+      grind [Array.toList_inj])
   · simp [hOperands, hResults, FoldDecision.HasType]
-  · intro lhs memory layout
-    refine ⟨#[.int type.bitwidth lhs], rfl, ?_⟩
-    rw [OperationPtr.interpret, opType]
-    simp [Veir.interpretOp', Llvm.interpretOp',
-      LLVM.Int.cast_self, fold_add_zero, Interp.isRefinedBy, OperationResult.isRefinedBy,
-      ControlFlowAction.optionIsRefinedBy]
+  · simp only [OperationPtr.interpret]
+    rw [opType]
+    simp [FoldDecision.resolveAll, FoldDecision.resolve, Veir.interpretOp', Llvm.interpretOp',
+      LLVM.Int.cast_self, fold_add_zero, Interp.isRefinedBy]
 
 /-- The RISC-V immediate-and-zero entry is correct for every register value.
 The operand and result may have different register allocations. The successful
@@ -176,10 +149,8 @@ theorem Riscv.tryFold_andi_correct (verified : op.Verified ctx opIn)
   · intro known decisions hFold operands hConform _ memory layout
     obtain ⟨hZero, rfl⟩ := riscv_andi_lookup (opType ▸ hFold)
     obtain ⟨value, rfl⟩ := (hOperands ▸ hConform).reg_single
-    refine ⟨#[.reg ⟨0⟩], rfl, ?_⟩
     rw [OperationPtr.interpret, opType]
-    simp [Veir.interpretOp', Riscv.interpretOp',
-      RISCVImmediateProperties.immField, hZero, RISCV.andi, Interp.isRefinedBy,
-      OperationResult.isRefinedBy, ControlFlowAction.optionIsRefinedBy]
+    simp [FoldDecision.resolveAll, FoldDecision.resolve, Veir.interpretOp', Riscv.interpretOp',
+      RISCVImmediateProperties.immField, hZero, RISCV.andi, Interp.isRefinedBy]
 
 end Veir
