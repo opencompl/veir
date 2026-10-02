@@ -19,24 +19,13 @@ theorem RuntimeValue.ArrayConforms.int_pair
     (h : RuntimeValue.ArrayConforms operands
       #[(type₁ : TypeAttr), (type₂ : TypeAttr)]) :
     ∃ lhs rhs, operands = #[.int type₁.bitwidth lhs, .int type₂.bitwidth rhs] := by
-  have hs : operands.size = 2 := h.1
-  have h0 := h.2 0 (by omega)
-  have h1 := h.2 1 (by omega)
-  simp at h0 h1
-  obtain ⟨lhs, hl⟩ := h0
-  obtain ⟨rhs, hr⟩ := h1
-  refine ⟨lhs, rhs, ?_⟩
-  apply Array.ext <;> grind
+  simpa using h
 
 /-- Recover a single register operand, regardless of its allocation. -/
 theorem RuntimeValue.ArrayConforms.reg_single {type : RegisterType}
     (h : RuntimeValue.ArrayConforms operands #[(type : TypeAttr)]) :
     ∃ value, operands = #[.reg value] := by
-  obtain ⟨value, rfl⟩ := Array.size_eq_one_iff.mp h.1
-  have hv := h.2 0 (by simp)
-  simp at hv
-  obtain ⟨reg, rfl⟩ := hv
-  exact ⟨reg, rfl⟩
+  simpa using h
 
 /-- Typing a single replacement reduces to typing its decision. -/
 @[simp]

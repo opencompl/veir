@@ -52,8 +52,7 @@ private theorem arith_addi_lookup
       decisions = #[.useOperand 0] := by
   change Arith.tryFold .addi properties types known = some decisions at h
   unfold Arith.tryFold at h
-  repeat first | split at h | contradiction
-  all_goals grind [Array.toList_inj]
+  grind [Array.toList_inj]
 
 private theorem arith_addui_extended_lookup
     (h : HasOpInfo.tryFold (OpCode.arith .addui_extended) properties types known = some decisions) :
@@ -61,8 +60,7 @@ private theorem arith_addui_extended_lookup
       decisions = #[.useOperand 0, .useConstant (.int 1 (.val 0))] := by
   change Arith.tryFold .addui_extended properties types known = some decisions at h
   unfold Arith.tryFold at h
-  repeat first | split at h | contradiction
-  all_goals grind [Array.toList_inj]
+  grind [Array.toList_inj]
 
 private theorem llvm_add_lookup
     (h : HasOpInfo.tryFold (OpCode.llvm .add) properties types known = some decisions) :
@@ -70,16 +68,14 @@ private theorem llvm_add_lookup
       decisions = #[.useOperand 0] := by
   change Llvm.tryFold .add properties types known = some decisions at h
   unfold Llvm.tryFold at h
-  repeat first | split at h | contradiction
-  all_goals grind [Array.toList_inj]
+  grind [Array.toList_inj]
 
 private theorem riscv_andi_lookup
     (h : HasOpInfo.tryFold (OpCode.riscv .andi) properties types known = some decisions) :
     properties.value = 0 ∧ decisions = #[.useConstant (.reg ⟨0⟩)] := by
   change Riscv.tryFold .andi properties types known = some decisions at h
   unfold Riscv.tryFold at h
-  repeat first | split at h | contradiction
-  all_goals grind
+  grind
 
 variable {ctx : WfIRContext OpCode} {op : OperationPtr} {opIn : op.InBounds ctx.raw}
 
@@ -106,19 +102,11 @@ private theorem arith_addui_extended_types (verified : op.Verified ctx opIn)
     | _ => simp only [ht] at h; grind
   obtain ⟨type, hOperand⟩ := hOperand
   obtain ⟨carry, hCarry⟩ := hCarry
-  have hshape : op.getNumResults! ctx.raw = 2 ∧ op.getNumOperands! ctx.raw = 2 ∧
-      ∃ type carry : IntegerType, carry.bitwidth = 1 ∧
-        ((op.getOperand! ctx.raw 0).getType! ctx.raw).val = .integerType type ∧
-        ((op.getOperand! ctx.raw 1).getType! ctx.raw).val = .integerType type ∧
-        ((op.getResult 0).get! ctx.raw).type.val = .integerType type ∧
-        ((op.getResult 1).get! ctx.raw).type.val = .integerType carry := by
-    refine ⟨?_, ?_, type, carry, ?_, hOperand, ?_, ?_, hCarry⟩ <;> grind
-  obtain ⟨_, _, type, carry, hcarry, h0, h1, hr0, hr1⟩ := hshape
-  have h0 : (op.getOperand! ctx.raw 0).getType! ctx.raw = (type : TypeAttr) := TypeAttr.inj.mpr h0
-  have h1 : (op.getOperand! ctx.raw 1).getType! ctx.raw = (type : TypeAttr) := TypeAttr.inj.mpr h1
-  have hr0 : ((op.getResult 0).get! ctx.raw).type = (type : TypeAttr) := TypeAttr.inj.mpr hr0
-  have hr1 : ((op.getResult 1).get! ctx.raw).type = (carry : TypeAttr) := TypeAttr.inj.mpr hr1
-  refine ⟨type, carry, hcarry, ?_, ?_⟩ <;> apply Array.ext <;> grind
+  refine ⟨type, carry, by grind, ?_, ?_⟩ <;> refine Array.ext (by grind) ?_
+  all_goals
+    intro i hi₁ hi₂
+    apply TypeAttr.inj.mpr
+    grind
 
 private theorem riscv_andi_types (verified : op.Verified ctx opIn)
     (opType : op.getOpType! ctx.raw = .riscv .andi) :
@@ -140,12 +128,10 @@ private theorem riscv_andi_types (verified : op.Verified ctx opIn)
   simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw,
     pure, Except.pure, Functor.map, Except.map] at hTypes
   have hshape : ∃ a b : RegisterType,
-      operandType.val = .registerType a ∧ ((op.getResult 0).get! ctx.raw).type.val = .registerType b := by
+      operandType = (a : TypeAttr) ∧ ((op.getResult 0).get! ctx.raw).type = (b : TypeAttr) := by
+    simp only [TypeAttr.inj]
     grind
-  obtain ⟨a, b, ha, hb⟩ := hshape
-  have ha : operandType = (a : TypeAttr) := TypeAttr.inj.mpr ha
-  have hb : ((op.getResult 0).get! ctx.raw).type = (b : TypeAttr) := TypeAttr.inj.mpr hb
-  subst operandType
+  obtain ⟨a, b, rfl, hb⟩ := hshape
   refine ⟨a, b, hOperands, ?_⟩
   apply Array.ext <;> grind
 
