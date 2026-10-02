@@ -10,21 +10,21 @@ namespace Veir
   Rewrite each `func.func`/`llvm.func`/`cir.func`'s arguments and return values to a coerced
   type, inserting`unrealized_conversion_cast`s to bridge to/from the original types.
 
-  The coercion applied is selected by a `BoundaryCoercion` flag;
-  each variant is  exposed as its own pass:
+  The coercion applied is selected by a `BoundaryCoercion` flag:
   - `.riscvReg`: i32-, i64-, and pointer-typed boundaries become `!riscv.reg`.
+    This is the first step of the `isel-abi-riscv64` pass rather than a pass of its own.
   - `.modArithToInt legalizeWidth`: `!mod_arith.int<q : iN>`-typed boundaries become `i(legalizeWidth N)`
   - `.cirToStd`: `!cir.int<s|u, N>`- and `!cir.bool`-typed boundaries become `iN` and `i1`
 -/
 
 /-- Selects which boundary coercion the shared implementation applies. -/
-inductive BoundaryCoercion where
+public inductive BoundaryCoercion where
   | riscvReg
   | modArithToInt (legalizeWidth : Nat → Nat)
   | cirToStd
 
 /-- The type a boundary value of type `t` is coerced to, or `none` to leave it alone. -/
-def BoundaryCoercion.target : BoundaryCoercion → TypeAttr → Option TypeAttr
+public def BoundaryCoercion.target : BoundaryCoercion → TypeAttr → Option TypeAttr
   | .riscvReg, t =>
     match t.val with
     | .integerType x =>
@@ -102,10 +102,13 @@ def coerceFunction (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
   ctx := FunctionOpInterface.setFunctionType! ctx funcOp inputs outputs
   return ctx
 
-def coerceFunctionBoundaries (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode) :
+/-- Coerce the boundaries of functions selected by `shouldCoerce`. -/
+public def coerceFunctionBoundaries (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
+    (shouldCoerce : IRContext OpCode → OperationPtr → Bool := fun _ _ => true) :
     ExceptT String IO (WfIRContext OpCode) := do
   let mut ctx := ctx
-  let funcOps := ctx.raw.operations.keys.filter fun o => o.isFunctionLike ctx.raw
+  let funcOps := ctx.raw.operations.keys.filter fun o =>
+    o.isFunctionLike ctx.raw && shouldCoerce ctx.raw o
   for funcOp in funcOps do
     ctx ← coerceFunction coercion ctx funcOp
   return ctx
@@ -117,11 +120,6 @@ def CoerceFunctionBoundariesPass.impl (coercion : BoundaryCoercion) (ctx : WfIRC
   match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[eliminateDeadOp]) ctx with
   | none => throw "Error while applying DCE after function boundary coercion"
   | some ctx => pure ctx
-
-public def CoerceFunctionBoundariesToRiscvRegPass : Pass OpCode :=
-  { name := "coerce-function-boundaries-to-riscv-reg"
-    description := "Coerce i32/i64/pointer function boundaries to `!riscv.reg`."
-    run := fun _ => CoerceFunctionBoundariesPass.impl .riscvReg }
 
 public def CoerceModArithFunctionBoundariesPass : Pass OpCode :=
   { name := "coerce-mod-arith-function-boundaries"

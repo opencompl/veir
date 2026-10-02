@@ -12,6 +12,7 @@ import Veir.Passes.CSE
 import Veir.Passes.InstructionSelection.RISCV64
 import Veir.Passes.InstructionSelection.RISCV64Sdag
 import Veir.Passes.InstructionSelection.RISCV64Branches
+import Veir.Passes.InstructionSelection.RISCV64Abi
 import Veir.Passes.DCE.dce
 import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.FunctionBoundaryCoercion.Coercion
@@ -41,9 +42,9 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
      IselRISCV64,
      IselSDAG,
      IselBrRISCV64,
+     IselAbiRISCV64,
      DCEPass,
      CastReconcilePass,
-     CoerceFunctionBoundariesToRiscvRegPass,
      CoerceModArithFunctionBoundariesPass,
      CoerceCirFunctionBoundariesPass,
      RISCV.Combine,
@@ -70,7 +71,7 @@ def passGroups : Std.HashMap String String :=
     |>.insert "mod-arith-pow2-width"
         "mod-arith-to-arith{barrett pow2-width},cse,coerce-mod-arith-function-boundaries{pow2-width},reconcile-cast,canonicalize,cse,dce"
     |>.insert "riscv"
-        "legalize,isel-sdag-riscv64,isel-br-riscv64,isel-riscv64,coerce-function-boundaries-to-riscv-reg,reconcile-cast,riscv-combine,dce"
+        "legalize,isel-sdag-riscv64,isel-br-riscv64,isel-riscv64,isel-abi-riscv64,reconcile-cast,riscv-combine,dce"
     |>.insert "cir"
         "cir-to-std,cse,coerce-cir-function-boundaries,reconcile-cast,canonicalize,cse,dce"
 

@@ -1,5 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s --check-prefix=SRC
-// RUN: veir-opt %s --print-op-generic -p='canonicalize{sccp=false},instcombine,canonicalize{sccp=false},cse,dce,isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,canonicalize{sccp=false},riscv-combine,coerce-function-boundaries-to-riscv-reg,reconcile-cast,dce' > %t && veir-interpret %t | filecheck %s
+// RUN: veir-opt %s --print-op-generic -p='canonicalize{sccp=false},instcombine,canonicalize{sccp=false},cse,dce,isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,canonicalize{sccp=false},riscv-combine,isel-abi-riscv64,reconcile-cast,dce' > %t && veir-interpret %t | filecheck %s
 // RUN: filecheck %s --check-prefix=ISEL --input-file=%t
 
 // fshl(0x123456789ABCDEF0, .., 8) = rotate-left by 8 = 0x3456789ABCDEF012

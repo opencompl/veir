@@ -1,7 +1,9 @@
 // RUN: veir-interpret %s | filecheck %s --check-prefix=SRC
-// RUN: veir-opt %s --print-op-generic -p=canonicalize,instcombine,canonicalize,cse,dce,isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,canonicalize,riscv-combine,coerce-function-boundaries-to-riscv-reg,reconcile-cast,dce > %t && veir-interpret %t | filecheck %s
+// RUN: veir-opt %s --print-op-generic -p=canonicalize,instcombine,canonicalize,cse,dce,isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,canonicalize,riscv-combine,isel-abi-riscv64,reconcile-cast,dce > %t && veir-interpret %t | filecheck %s
 
 // `i32` analogue of sdiv_pow2_exec.mlir (`sdivwPow2`, general non-`exact` form).
+// The RISC-V psABI returns an `i32` sign-extended to 64 bits, hence CHECK's
+// `0xfffffffffffffffd` for SRC's `0xfffffffd`.
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (i32, i32)}> ({
@@ -15,4 +17,4 @@
 }) : () -> ()
 
 // SRC:   Program output: #[0xfffffffd#32, 0x00000003#32]
-// CHECK: Program output: #[0x00000000fffffffd#64, 0x0000000000000003#64]
+// CHECK: Program output: #[0xfffffffffffffffd#64, 0x0000000000000003#64]
