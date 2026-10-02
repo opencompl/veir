@@ -430,7 +430,6 @@ grind_pattern BlockArgumentPtr.getType!_insertOp =>
 @[simp, simp_getset]
 theorem RegionPtr.getLastBlock!_insertOp {region : RegionPtr} :
     Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx → region.getLastBlock! newCtx = region.getLastBlock! ctx := by
-  simp only [RegionPtr.getLastBlock!_def]
   simp only [Rewriter.insertOp]
   grind
 
@@ -440,7 +439,6 @@ grind_pattern RegionPtr.getLastBlock!_insertOp =>
 @[simp, simp_getset]
 theorem RegionPtr.getFirstBlock!_insertOp {region : RegionPtr} :
     Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx → region.getFirstBlock! newCtx = region.getFirstBlock! ctx := by
-  simp only [RegionPtr.getFirstBlock!_def]
   simp only [Rewriter.insertOp]
   grind
 
@@ -450,7 +448,6 @@ grind_pattern RegionPtr.getFirstBlock!_insertOp =>
 @[simp, simp_getset]
 theorem RegionPtr.getParent!_insertOp {region : RegionPtr} :
     Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx → region.getParent! newCtx = region.getParent! ctx := by
-  simp only [RegionPtr.getParent!_def]
   simp only [Rewriter.insertOp]
   grind
 

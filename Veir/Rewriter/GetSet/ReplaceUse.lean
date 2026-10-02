@@ -233,19 +233,16 @@ theorem BlockArgumentPtr.getIndex!_replaceUse :
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getLastBlock!_replaceUse :
     RegionPtr.getLastBlock! reg (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) = reg.getLastBlock! ctx := by
-  simp only [RegionPtr.getLastBlock!_def]
   grind (instances := 2000) [Rewriter.replaceUse]  -- TODO: instance threshold reached when adding lemmas for Region.allocEmpty
 
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getFirstBlock!_replaceUse :
     RegionPtr.getFirstBlock! reg (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) = reg.getFirstBlock! ctx := by
-  simp only [RegionPtr.getFirstBlock!_def]
   grind (instances := 2000) [Rewriter.replaceUse]  -- TODO: instance threshold reached when adding lemmas for Region.allocEmpty
 
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getParent!_replaceUse :
     RegionPtr.getParent! reg (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) = reg.getParent! ctx := by
-  simp only [RegionPtr.getParent!_def]
   grind (instances := 2000) [Rewriter.replaceUse]  -- TODO: instance threshold reached when adding lemmas for Region.allocEmpty
 
 @[simp, grind =, simp_getset]
@@ -408,19 +405,16 @@ theorem BlockArgumentPtr.getIndex!_replaceValue? {arg : BlockArgumentPtr} :
 @[simp, grind =>, simp_getset]
 theorem RegionPtr.getLastBlock!_replaceValue? {reg : RegionPtr} :
     Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx → reg.getLastBlock! newCtx = reg.getLastBlock! ctx := by
-  simp only [RegionPtr.getLastBlock!_def]
   induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
 
 @[simp, grind =>, simp_getset]
 theorem RegionPtr.getFirstBlock!_replaceValue? {reg : RegionPtr} :
     Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx → reg.getFirstBlock! newCtx = reg.getFirstBlock! ctx := by
-  simp only [RegionPtr.getFirstBlock!_def]
   induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
 
 @[simp, grind =>, simp_getset]
 theorem RegionPtr.getParent!_replaceValue? {reg : RegionPtr} :
     Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx → reg.getParent! newCtx = reg.getParent! ctx := by
-  simp only [RegionPtr.getParent!_def]
   induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
 
 end Rewriter.replaceValue?

@@ -28,8 +28,7 @@ private def flattenOps (top : OperationPtr) (ctx : IRContext OpCode) :
     Array OperationPtr := Id.run do
   let mut ops := #[]
   for region in (top.getRegions! ctx) do
-    let region := region.get! ctx
-    let mut currentBlock := region.firstBlock
+    let mut currentBlock := region.getFirstBlock! ctx
     while let some block := currentBlock do
       let mut currentOp := (block.getFirstOp! ctx)
       while let some op := currentOp do

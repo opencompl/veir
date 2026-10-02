@@ -296,7 +296,6 @@ theorem BlockPtr.getNumArguments!_detachOperands_loop {block : BlockPtr} :
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getLastBlock!_detachOperands_loop {region : RegionPtr} :
     region.getLastBlock! (Rewriter.detachOperands.loop ctx op' index hCtx hOp hIndex) = region.getLastBlock! ctx := by
-  simp only [RegionPtr.getLastBlock!_def]
   induction index generalizing ctx
   · grind [Rewriter.detachOperands.loop]
   · simp only [Rewriter.detachOperands.loop]
@@ -305,7 +304,6 @@ theorem RegionPtr.getLastBlock!_detachOperands_loop {region : RegionPtr} :
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getFirstBlock!_detachOperands_loop {region : RegionPtr} :
     region.getFirstBlock! (Rewriter.detachOperands.loop ctx op' index hCtx hOp hIndex) = region.getFirstBlock! ctx := by
-  simp only [RegionPtr.getFirstBlock!_def]
   induction index generalizing ctx
   · grind [Rewriter.detachOperands.loop]
   · simp only [Rewriter.detachOperands.loop]
@@ -314,7 +312,6 @@ theorem RegionPtr.getFirstBlock!_detachOperands_loop {region : RegionPtr} :
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getParent!_detachOperands_loop {region : RegionPtr} :
     region.getParent! (Rewriter.detachOperands.loop ctx op' index hCtx hOp hIndex) = region.getParent! ctx := by
-  simp only [RegionPtr.getParent!_def]
   induction index generalizing ctx
   · grind [Rewriter.detachOperands.loop]
   · simp only [Rewriter.detachOperands.loop]
@@ -504,19 +501,16 @@ theorem BlockPtr.getNumArguments!_detachOperands {block : BlockPtr} :
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getLastBlock!_detachOperands {region : RegionPtr} :
     region.getLastBlock! (Rewriter.detachOperands ctx op' hCtx hOp) = region.getLastBlock! ctx := by
-  simp only [RegionPtr.getLastBlock!_def]
   grind
 
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getFirstBlock!_detachOperands {region : RegionPtr} :
     region.getFirstBlock! (Rewriter.detachOperands ctx op' hCtx hOp) = region.getFirstBlock! ctx := by
-  simp only [RegionPtr.getFirstBlock!_def]
   grind
 
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getParent!_detachOperands {region : RegionPtr} :
     region.getParent! (Rewriter.detachOperands ctx op' hCtx hOp) = region.getParent! ctx := by
-  simp only [RegionPtr.getParent!_def]
   grind
 
 -- The theorem `ValuePtr.getFirstUse!_detachOperands` is missing because it is quite complex to state.

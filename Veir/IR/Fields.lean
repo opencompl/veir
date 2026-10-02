@@ -9,7 +9,7 @@ namespace Veir
 /-- Like `unfold_field_getters_in_grind`, but lets `grind` rewrite in both directions, so that
 projections arising from unfolded definitions also trigger patterns stated with getters. -/
 macro "fold_field_getters_in_grind" : command => `(
-  attribute [local grind _=_] BlockArgumentPtr.getFirstUse!_def BlockArgumentPtr.getFirstUse_def BlockArgumentPtr.getIndex!_def BlockArgumentPtr.getIndex_def BlockArgumentPtr.getLoc!_def BlockArgumentPtr.getLoc_def BlockArgumentPtr.getOwner!_def BlockArgumentPtr.getOwner_def BlockArgumentPtr.getType!_def BlockArgumentPtr.getType_def BlockOperandPtr.getBack!_def BlockOperandPtr.getBack_def BlockOperandPtr.getNextUse!_def BlockOperandPtr.getNextUse_def BlockOperandPtr.getOwner!_def BlockOperandPtr.getOwner_def BlockOperandPtr.getValue!_def BlockOperandPtr.getValue_def BlockPtr.getFirstOp!_def BlockPtr.getFirstOp_def BlockPtr.getFirstUse!_def BlockPtr.getFirstUse_def BlockPtr.getLastOp!_def BlockPtr.getLastOp_def BlockPtr.getNextBlock!_def BlockPtr.getNextBlock_def BlockPtr.getParent!_def BlockPtr.getParent_def BlockPtr.getPrevBlock!_def BlockPtr.getPrevBlock_def OpOperandPtr.getBack!_def OpOperandPtr.getBack_def OpOperandPtr.getNextUse!_def OpOperandPtr.getNextUse_def OpOperandPtr.getOwner!_def OpOperandPtr.getOwner_def OpOperandPtr.getValue!_def OpOperandPtr.getValue_def OpResultPtr.getFirstUse!_def OpResultPtr.getFirstUse_def OpResultPtr.getOwner!_def OpResultPtr.getOwner_def OpResultPtr.getIndex!_def OpResultPtr.getIndex_def OpResultPtr.getType!_def OpResultPtr.getType_def RegionPtr.getFirstBlock!_def RegionPtr.getFirstBlock_def RegionPtr.getLastBlock!_def RegionPtr.getLastBlock_def RegionPtr.getParent!_def RegionPtr.getParent_def
+  attribute [local grind _=_] BlockArgumentPtr.getFirstUse!_def BlockArgumentPtr.getFirstUse_def BlockArgumentPtr.getIndex!_def BlockArgumentPtr.getIndex_def BlockArgumentPtr.getLoc!_def BlockArgumentPtr.getLoc_def BlockArgumentPtr.getOwner!_def BlockArgumentPtr.getOwner_def BlockArgumentPtr.getType!_def BlockArgumentPtr.getType_def BlockOperandPtr.getBack!_def BlockOperandPtr.getBack_def BlockOperandPtr.getNextUse!_def BlockOperandPtr.getNextUse_def BlockOperandPtr.getOwner!_def BlockOperandPtr.getOwner_def BlockOperandPtr.getValue!_def BlockOperandPtr.getValue_def OpOperandPtr.getBack!_def OpOperandPtr.getBack_def OpOperandPtr.getNextUse!_def OpOperandPtr.getNextUse_def OpOperandPtr.getOwner!_def OpOperandPtr.getOwner_def OpOperandPtr.getValue!_def OpOperandPtr.getValue_def OpResultPtr.getFirstUse!_def OpResultPtr.getFirstUse_def OpResultPtr.getOwner!_def OpResultPtr.getOwner_def OpResultPtr.getIndex!_def OpResultPtr.getIndex_def OpResultPtr.getType!_def OpResultPtr.getType_def
 )
 
 variable {OpInfo : Type} [IsOpCode OpInfo]
@@ -456,7 +456,7 @@ theorem BlockOperandPtrPtr.get!_inBounds :
     ctx.FieldsInBounds →
     ptr.InBounds ctx →
     (ptr.get! ctx).maybe BlockOperandPtr.InBounds ctx := by
-  cases ptr <;> grind [_=_ BlockOperandPtr.getNextUse!_def, _=_ BlockPtr.getFirstUse!_def]
+  cases ptr <;> grind [_=_ BlockOperandPtr.getNextUse!_def]
 
 grind_pattern BlockOperandPtrPtr.get!_inBounds => (ptr.get! ctx), ctx.FieldsInBounds
 
@@ -828,14 +828,12 @@ theorem BlockPtr.setPrevBlock_fieldsInBounds (hp : newPrevBlock.maybe BlockPtr.I
     ctx.FieldsInBounds → (setPrevBlock block ctx newPrevBlock h).FieldsInBounds := by
   prove_fieldsInBounds_block ctx
 
-attribute [local grind] Block.empty in
 @[grind .]
 theorem BlockPtr.allocEmpty_fieldsInBounds (heq : allocEmpty ctx = some (ctx', ptr')) :
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by
   prove_fieldsInBounds
 
 attribute [local grind →] Array.getElem_mem in
-attribute [local grind] Block.empty in
 attribute [local grind =] BlockArgumentPtr.inBounds_def in
 @[grind .]
 theorem BlockPtr.setArguments_fieldsInBounds
@@ -846,7 +844,6 @@ theorem BlockPtr.setArguments_fieldsInBounds
   prove_fieldsInBounds
 
 attribute [local grind →] Array.getElem_mem in
-attribute [local grind] Block.empty in
 attribute [local grind =] BlockArgumentPtr.inBounds_def in
 @[grind .]
 theorem BlockPtr.pushArgument_fieldsInBounds
@@ -905,7 +902,6 @@ theorem RegionPtr.setLastBlock_fieldsInBounds (hnew : newLastBlock.maybe BlockPt
     ctx.FieldsInBounds → (setLastBlock region ctx newLastBlock h).FieldsInBounds := by
   prove_fieldsInBounds_region ctx
 
-attribute [local grind] Region.empty in
 @[grind .]
 theorem RegionPtr.allocEmpty_fieldsInBounds (heq : allocEmpty ctx = some (ctx', rg')) :
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by

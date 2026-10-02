@@ -64,37 +64,31 @@ attribute [local grind] Rewriter.createRegion
 @[simp, grind =>, simp_getset]
 theorem BlockPtr.getLastOp!_createRegion {block : BlockPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) → block.getLastOp! ctx' = block.getLastOp! ctx := by
-  simp only [BlockPtr.getLastOp!_def]
   grind
 
 @[simp, grind =>, simp_getset]
 theorem BlockPtr.getFirstOp!_createRegion {block : BlockPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) → block.getFirstOp! ctx' = block.getFirstOp! ctx := by
-  simp only [BlockPtr.getFirstOp!_def]
   grind
 
 @[simp, grind =>, simp_getset]
 theorem BlockPtr.getParent!_createRegion {block : BlockPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) → block.getParent! ctx' = block.getParent! ctx := by
-  simp only [BlockPtr.getParent!_def]
   grind
 
 @[simp, grind =>, simp_getset]
 theorem BlockPtr.getNextBlock!_createRegion {block : BlockPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) → block.getNextBlock! ctx' = block.getNextBlock! ctx := by
-  simp only [BlockPtr.getNextBlock!_def]
   grind
 
 @[simp, grind =>, simp_getset]
 theorem BlockPtr.getPrevBlock!_createRegion {block : BlockPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) → block.getPrevBlock! ctx' = block.getPrevBlock! ctx := by
-  simp only [BlockPtr.getPrevBlock!_def]
   grind
 
 @[simp, grind =>, simp_getset]
 theorem BlockPtr.getFirstUse!_createRegion {block : BlockPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) → block.getFirstUse! ctx' = block.getFirstUse! ctx := by
-  simp only [BlockPtr.getFirstUse!_def]
   grind
 
 @[simp, grind =>, simp_getset]
@@ -295,17 +289,17 @@ theorem BlockArgumentPtr.getType!_createRegion {blockArg : BlockArgumentPtr} :
 @[grind =>, simp_getset]
 theorem RegionPtr.getFirstBlock!_createRegion {region : RegionPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) → region.getFirstBlock! ctx' = if region = reg then none else region.getFirstBlock! ctx := by
-  grind [Region.empty]
+  grind
 
 @[grind =>, simp_getset]
 theorem RegionPtr.getLastBlock!_createRegion {region : RegionPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) → region.getLastBlock! ctx' = if region = reg then none else region.getLastBlock! ctx := by
-  grind [Region.empty]
+  grind
 
 @[grind =>, simp_getset]
 theorem RegionPtr.getParent!_createRegion {region : RegionPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) → region.getParent! ctx' = if region = reg then none else region.getParent! ctx := by
-  grind [Region.empty]
+  grind
 
 @[simp, grind =>, simp_getset]
 theorem ValuePtr.getFirstUse!_createRegion {value : ValuePtr} :

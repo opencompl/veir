@@ -292,19 +292,16 @@ theorem BlockArgumentPtr.getType!_Rewriter_pushBlockArgument {blockArg : BlockAr
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getLastBlock!_Rewriter_pushBlockArgument {region : RegionPtr} :
     region.getLastBlock! (Rewriter.pushBlockArgument ctx block type hblock) = region.getLastBlock! ctx := by
-  simp only [RegionPtr.getLastBlock!_def]
   grind
 
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getFirstBlock!_Rewriter_pushBlockArgument {region : RegionPtr} :
     region.getFirstBlock! (Rewriter.pushBlockArgument ctx block type hblock) = region.getFirstBlock! ctx := by
-  simp only [RegionPtr.getFirstBlock!_def]
   grind
 
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getParent!_Rewriter_pushBlockArgument {region : RegionPtr} :
     region.getParent! (Rewriter.pushBlockArgument ctx block type hblock) = region.getParent! ctx := by
-  simp only [RegionPtr.getParent!_def]
   grind
 
 @[grind =, simp_getset]
@@ -573,19 +570,16 @@ theorem BlockArgumentPtr.getType!_initBlockArguments {blockArg : BlockArgumentPt
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getLastBlock!_initBlockArguments {region : RegionPtr} :
     region.getLastBlock! (Rewriter.initBlockArguments ctx block types idx h₁ h₂) = region.getLastBlock! ctx := by
-  simp only [RegionPtr.getLastBlock!_def]
   fun_induction Rewriter.initBlockArguments <;> grind
 
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getFirstBlock!_initBlockArguments {region : RegionPtr} :
     region.getFirstBlock! (Rewriter.initBlockArguments ctx block types idx h₁ h₂) = region.getFirstBlock! ctx := by
-  simp only [RegionPtr.getFirstBlock!_def]
   fun_induction Rewriter.initBlockArguments <;> grind
 
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getParent!_initBlockArguments {region : RegionPtr} :
     region.getParent! (Rewriter.initBlockArguments ctx block types idx h₁ h₂) = region.getParent! ctx := by
-  simp only [RegionPtr.getParent!_def]
   fun_induction Rewriter.initBlockArguments <;> grind
 
 @[grind =, simp_getset]
@@ -864,19 +858,16 @@ theorem BlockArgumentPtr.getType!_Rewriter_setBlockArguments {blockArg : BlockAr
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getLastBlock!_Rewriter_setBlockArguments {region : RegionPtr} :
     region.getLastBlock! (Rewriter.setBlockArguments ctx blockPtr types hblock) = region.getLastBlock! ctx := by
-  simp only [RegionPtr.getLastBlock!_def]
   grind
 
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getFirstBlock!_Rewriter_setBlockArguments {region : RegionPtr} :
     region.getFirstBlock! (Rewriter.setBlockArguments ctx blockPtr types hblock) = region.getFirstBlock! ctx := by
-  simp only [RegionPtr.getFirstBlock!_def]
   grind
 
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getParent!_Rewriter_setBlockArguments {region : RegionPtr} :
     region.getParent! (Rewriter.setBlockArguments ctx blockPtr types hblock) = region.getParent! ctx := by
-  simp only [RegionPtr.getParent!_def]
   grind
 
 @[grind =, simp_getset]

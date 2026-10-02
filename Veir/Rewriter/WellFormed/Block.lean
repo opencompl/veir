@@ -52,7 +52,7 @@ theorem BlockPtr.allocEmpty_wellFormed (hctx : ctx.WellFormed)
     intro block blockInBounds
     by_cases block = bl
     · exists #[]
-      constructor <;> grind [Block.empty]
+      constructor <;> grind
     · have ⟨array, harray⟩ := hctx.blockDefUseChains block (by grind)
       exists array
       apply BlockPtr.DefUse.unchanged (ctx := ctx) <;> grind
@@ -60,7 +60,7 @@ theorem BlockPtr.allocEmpty_wellFormed (hctx : ctx.WellFormed)
     intro block blockInBounds
     by_cases block = bl
     · exists #[]
-      constructor <;> grind [Block.empty]
+      constructor <;> grind
     · have ⟨array, harray⟩ := hctx.opChain block (by grind)
       exists array
       apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
@@ -68,7 +68,7 @@ theorem BlockPtr.allocEmpty_wellFormed (hctx : ctx.WellFormed)
     intro region regionInBounds
     have ⟨array, harray⟩ := hctx.blockChain region (by grind)
     exists array
-    apply RegionPtr.blockChain_unchanged (ctx := ctx) <;> grind [Block.empty]
+    apply RegionPtr.blockChain_unchanged (ctx := ctx) <;> grind
   case operations =>
     intro operation operationInBounds
     have := hctx.operations operation (by grind)
@@ -76,7 +76,7 @@ theorem BlockPtr.allocEmpty_wellFormed (hctx : ctx.WellFormed)
   case blocks =>
     intro block blockInBounds
     by_cases bl = block
-    · constructor <;> grind [Block.empty]
+    · constructor <;> grind
     · have := hctx.blocks block (by grind)
       apply BlockPtr.WellFormed_unchanged (ctx := ctx) <;> grind
   case regions =>
@@ -91,7 +91,7 @@ theorem BlockPtr.operationList_blockPtr_allocEmpty
     if h : block = bl then #[] else block.operationList ctx ctxWf (by grind) := by
   apply BlockPtr.operationList_iff_BlockPtr_OpChain.mp
   by_cases hbb : block = bl
-  · grind [Block.empty, BlockPtr.OpChain]
+  · grind [BlockPtr.OpChain]
   · apply BlockPtr.OpChain_unchanged (ctx := ctx) <;>
       grind [BlockPtr.operationListWF]
 
@@ -135,7 +135,7 @@ theorem BlockPtr.opChain_rewriter_createBlock_new
   simp only [Rewriter.createBlock] at h
   split at h; grind
   rename_i ctx₁ newBlock₁ hAlloc
-  have hc0 : BlockPtr.OpChain newBlock₁ ctx₁ #[] := by grind [Block.empty, BlockPtr.OpChain]
+  have hc0 : BlockPtr.OpChain newBlock₁ ctx₁ #[] := by grind [BlockPtr.OpChain]
   have hc1 : BlockPtr.OpChain newBlock₁ (Rewriter.initBlockArguments ctx₁ newBlock₁ types) #[] :=
     BlockPtr.opChain_Rewriter_initBlockArguments hc0
   split at h

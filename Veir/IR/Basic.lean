@@ -278,25 +278,25 @@ end BlockArgument
 An MLIR block.
 -/
 structure Block where
-  firstUse : Option BlockOperandPtr
-  prev : Option BlockPtr
-  next : Option BlockPtr
-  parent : Option RegionPtr
+  private firstUse : Option BlockOperandPtr
+  private prev : Option BlockPtr
+  private next : Option BlockPtr
+  private parent : Option RegionPtr
   -- validOpOrder : Bool      -- Unsupported yet
-  firstOp : Option OperationPtr
-  lastOp : Option OperationPtr
-  arguments : Array BlockArgument
+  private firstOp : Option OperationPtr
+  private lastOp : Option OperationPtr
+  private arguments : Array BlockArgument
 deriving Inhabited, Repr, Hashable
 
 namespace Block
 
-theorem default_firstUse_eq : (default : Block).firstUse = none := by rfl
-theorem default_prev_eq : (default : Block).prev = none := by rfl
-theorem default_next_eq : (default : Block).next = none := by rfl
-theorem default_parent_eq : (default : Block).parent = none := by rfl
-theorem default_firstOp_eq : (default : Block).firstOp = none := by rfl
-theorem default_lastOp_eq : (default : Block).lastOp = none := by rfl
-theorem default_arguments_eq : (default : Block).arguments = #[] := by rfl
+private theorem default_firstUse_eq : (default : Block).firstUse = none := by rfl
+private theorem default_prev_eq : (default : Block).prev = none := by rfl
+private theorem default_next_eq : (default : Block).next = none := by rfl
+private theorem default_parent_eq : (default : Block).parent = none := by rfl
+private theorem default_firstOp_eq : (default : Block).firstOp = none := by rfl
+private theorem default_lastOp_eq : (default : Block).lastOp = none := by rfl
+private theorem default_arguments_eq : (default : Block).arguments = #[] := by rfl
 
 end Block
 
@@ -304,9 +304,9 @@ end Block
 An MLIR region.
 -/
 structure Region where
-  firstBlock : Option BlockPtr
-  lastBlock : Option BlockPtr
-  parent : Option OperationPtr
+  private firstBlock : Option BlockPtr
+  private lastBlock : Option BlockPtr
+  private parent : Option OperationPtr
 deriving Inhabited, Repr, Hashable
 
 /--
@@ -340,7 +340,6 @@ def Operation.empty (opType : OpInfo) (prop : propertiesOf opType) : Operation O
     operands := #[]
   }
 
-@[expose]
 def Region.empty : Region :=
   {
     parent := none
@@ -348,7 +347,6 @@ def Region.empty : Region :=
     lastBlock := none
   }
 
-@[expose]
 def Block.empty : Block :=
   {
     arguments := #[]
@@ -1941,14 +1939,14 @@ def set (ptr : BlockPtr) (ctx : IRContext OpInfo) (newBlock : Block) : IRContext
 def getParent (block : BlockPtr) (ctx : IRContext OpInfo) (inBounds : block.InBounds ctx := by grind) : Option RegionPtr :=
   (block.get ctx).parent
 
-theorem getParent_def {block : BlockPtr} {inBounds : block.InBounds ctx} :
+private theorem getParent_def {block : BlockPtr} {inBounds : block.InBounds ctx} :
     block.getParent ctx inBounds = (block.get ctx inBounds).parent := by
   rfl
 
 def getParent! (block : BlockPtr) (ctx : IRContext OpInfo) : Option RegionPtr :=
   (block.get! ctx).parent
 
-theorem getParent!_def {block : BlockPtr} :
+private theorem getParent!_def {block : BlockPtr} :
     block.getParent! ctx = (block.get! ctx).parent := by
   rfl
 
@@ -1956,6 +1954,10 @@ theorem getParent!_def {block : BlockPtr} :
 theorem getParent!_eq_getParent {block : BlockPtr} (hin : block.InBounds ctx) :
     block.getParent! ctx = block.getParent ctx hin := by
   grind [getParent, getParent!, get!_eq_get]
+
+theorem getParent!_of_not_inBounds {block : BlockPtr} (notInBounds : ¬ block.InBounds ctx) :
+    block.getParent! ctx = none := by
+  grind [getParent!, get!_of_not_inBounds, Block.default_parent_eq]
 
 def setParent (block : BlockPtr) (ctx : IRContext OpInfo) (newParent : Option RegionPtr)
     (inBounds : block.InBounds ctx := by grind) : IRContext OpInfo :=
@@ -1974,14 +1976,14 @@ theorem setParent!_eq_setParent {block : BlockPtr} (inBounds : block.InBounds ct
 def getFirstUse (block : BlockPtr) (ctx : IRContext OpInfo) (inBounds : block.InBounds ctx := by grind) : Option BlockOperandPtr :=
   (block.get ctx).firstUse
 
-theorem getFirstUse_def {block : BlockPtr} {inBounds : block.InBounds ctx} :
+private theorem getFirstUse_def {block : BlockPtr} {inBounds : block.InBounds ctx} :
     block.getFirstUse ctx inBounds = (block.get ctx inBounds).firstUse := by
   rfl
 
 def getFirstUse! (block : BlockPtr) (ctx : IRContext OpInfo) : Option BlockOperandPtr :=
   (block.get! ctx).firstUse
 
-theorem getFirstUse!_def {block : BlockPtr} :
+private theorem getFirstUse!_def {block : BlockPtr} :
     block.getFirstUse! ctx = (block.get! ctx).firstUse := by
   rfl
 
@@ -2007,14 +2009,14 @@ theorem setFirstUse!_eq_setFirstUse {block : BlockPtr} (inBounds : block.InBound
 def getFirstOp (block : BlockPtr) (ctx : IRContext OpInfo) (inBounds : block.InBounds ctx := by grind) : Option OperationPtr :=
   (block.get ctx).firstOp
 
-theorem getFirstOp_def {block : BlockPtr} {inBounds : block.InBounds ctx} :
+private theorem getFirstOp_def {block : BlockPtr} {inBounds : block.InBounds ctx} :
     block.getFirstOp ctx inBounds = (block.get ctx inBounds).firstOp := by
   rfl
 
 def getFirstOp! (block : BlockPtr) (ctx : IRContext OpInfo) : Option OperationPtr :=
   (block.get! ctx).firstOp
 
-theorem getFirstOp!_def {block : BlockPtr} :
+private theorem getFirstOp!_def {block : BlockPtr} :
     block.getFirstOp! ctx = (block.get! ctx).firstOp := by
   rfl
 
@@ -2040,14 +2042,14 @@ theorem setFirstOp!_eq_setFirstOp {block : BlockPtr} (inBounds : block.InBounds 
 def getLastOp (block : BlockPtr) (ctx : IRContext OpInfo) (inBounds : block.InBounds ctx := by grind) : Option OperationPtr :=
   (block.get ctx).lastOp
 
-theorem getLastOp_def {block : BlockPtr} {inBounds : block.InBounds ctx} :
+private theorem getLastOp_def {block : BlockPtr} {inBounds : block.InBounds ctx} :
     block.getLastOp ctx inBounds = (block.get ctx inBounds).lastOp := by
   rfl
 
 def getLastOp! (block : BlockPtr) (ctx : IRContext OpInfo) : Option OperationPtr :=
   (block.get! ctx).lastOp
 
-theorem getLastOp!_def {block : BlockPtr} :
+private theorem getLastOp!_def {block : BlockPtr} :
     block.getLastOp! ctx = (block.get! ctx).lastOp := by
   rfl
 
@@ -2073,14 +2075,14 @@ theorem setLastOp!_eq_setLastOp {block : BlockPtr} (inBounds : block.InBounds ct
 def getNextBlock (block : BlockPtr) (ctx : IRContext OpInfo) (inBounds : block.InBounds ctx := by grind) : Option BlockPtr :=
   (block.get ctx).next
 
-theorem getNextBlock_def {block : BlockPtr} {inBounds : block.InBounds ctx} :
+private theorem getNextBlock_def {block : BlockPtr} {inBounds : block.InBounds ctx} :
     block.getNextBlock ctx inBounds = (block.get ctx inBounds).next := by
   rfl
 
 def getNextBlock! (block : BlockPtr) (ctx : IRContext OpInfo) : Option BlockPtr :=
   (block.get! ctx).next
 
-theorem getNextBlock!_def {block : BlockPtr} :
+private theorem getNextBlock!_def {block : BlockPtr} :
     block.getNextBlock! ctx = (block.get! ctx).next := by
   rfl
 
@@ -2106,14 +2108,14 @@ theorem setNextBlock!_eq_setNextBlock {block : BlockPtr} (inBounds : block.InBou
 def getPrevBlock (block : BlockPtr) (ctx : IRContext OpInfo) (inBounds : block.InBounds ctx := by grind) : Option BlockPtr :=
   (block.get ctx).prev
 
-theorem getPrevBlock_def {block : BlockPtr} {inBounds : block.InBounds ctx} :
+private theorem getPrevBlock_def {block : BlockPtr} {inBounds : block.InBounds ctx} :
     block.getPrevBlock ctx inBounds = (block.get ctx inBounds).prev := by
   rfl
 
 def getPrevBlock! (block : BlockPtr) (ctx : IRContext OpInfo) : Option BlockPtr :=
   (block.get! ctx).prev
 
-theorem getPrevBlock!_def {block : BlockPtr} :
+private theorem getPrevBlock!_def {block : BlockPtr} :
     block.getPrevBlock! ctx = (block.get! ctx).prev := by
   rfl
 
@@ -2961,14 +2963,14 @@ def set (ptr : RegionPtr) (ctx : IRContext OpInfo) (newRegion : Region) : IRCont
 def getParent (region : RegionPtr) (ctx : IRContext OpInfo) (inBounds : region.InBounds ctx := by grind) : Option OperationPtr :=
   (region.get ctx).parent
 
-theorem getParent_def {region : RegionPtr} {inBounds : region.InBounds ctx} :
+private theorem getParent_def {region : RegionPtr} {inBounds : region.InBounds ctx} :
     region.getParent ctx inBounds = (region.get ctx inBounds).parent := by
   rfl
 
 def getParent! (region : RegionPtr) (ctx : IRContext OpInfo) : Option OperationPtr :=
   (region.get! ctx).parent
 
-theorem getParent!_def {region : RegionPtr} :
+private theorem getParent!_def {region : RegionPtr} :
     region.getParent! ctx = (region.get! ctx).parent := by
   rfl
 
@@ -2994,14 +2996,14 @@ theorem setParent!_eq_setParent {region : RegionPtr} (inBounds : region.InBounds
 def getFirstBlock (region : RegionPtr) (ctx : IRContext OpInfo) (inBounds : region.InBounds ctx := by grind) : Option BlockPtr :=
   (region.get ctx).firstBlock
 
-theorem getFirstBlock_def {region : RegionPtr} {inBounds : region.InBounds ctx} :
+private theorem getFirstBlock_def {region : RegionPtr} {inBounds : region.InBounds ctx} :
     region.getFirstBlock ctx inBounds = (region.get ctx inBounds).firstBlock := by
   rfl
 
 def getFirstBlock! (region : RegionPtr) (ctx : IRContext OpInfo) : Option BlockPtr :=
   (region.get! ctx).firstBlock
 
-theorem getFirstBlock!_def {region : RegionPtr} :
+private theorem getFirstBlock!_def {region : RegionPtr} :
     region.getFirstBlock! ctx = (region.get! ctx).firstBlock := by
   rfl
 
@@ -3027,14 +3029,14 @@ theorem setFirstBlock!_eq_setFirstBlock {region : RegionPtr} (inBounds : region.
 def getLastBlock (region : RegionPtr) (ctx : IRContext OpInfo) (inBounds : region.InBounds ctx := by grind) : Option BlockPtr :=
   (region.get ctx).lastBlock
 
-theorem getLastBlock_def {region : RegionPtr} {inBounds : region.InBounds ctx} :
+private theorem getLastBlock_def {region : RegionPtr} {inBounds : region.InBounds ctx} :
     region.getLastBlock ctx inBounds = (region.get ctx inBounds).lastBlock := by
   rfl
 
 def getLastBlock! (region : RegionPtr) (ctx : IRContext OpInfo) : Option BlockPtr :=
   (region.get! ctx).lastBlock
 
-theorem getLastBlock!_def {region : RegionPtr} :
+private theorem getLastBlock!_def {region : RegionPtr} :
     region.getLastBlock! ctx = (region.get! ctx).lastBlock := by
   rfl
 
@@ -3119,13 +3121,13 @@ theorem get!_of_not_inBounds {ptrPtr : BlockOperandPtrPtr} (notInBounds : ¬ ptr
 
 @[grind =]
 theorem get!_nextUse_eq {bo : BlockOperandPtr} :
-    (blockOperandNextUse bo).get! ctx = (bo.get! ctx).nextUse := by
-  grind [get!, BlockOperandPtr.getNextUse!]
+    (blockOperandNextUse bo).get! ctx = bo.getNextUse! ctx := by
+  rfl
 
 @[grind =]
 theorem get!_firstUse_eq {bl : BlockPtr} :
-    (blockFirstUse bl).get! ctx = (bl.get! ctx).firstUse := by
-  grind [get!, BlockPtr.getFirstUse!]
+    (blockFirstUse bl).get! ctx = bl.getFirstUse! ctx := by
+  rfl
 
 def set (ptrPtr : BlockOperandPtrPtr) (ctx : IRContext OpInfo) (newValue : Option BlockOperandPtr) (ptrPtrIn : ptrPtr.InBounds ctx := by grind) : IRContext OpInfo :=
   match ptrPtr with
@@ -3167,14 +3169,14 @@ theorem getParentRegion!_eq_some_iff {op : OperationPtr} :
     op.getParentRegion! ctx = some region ↔
       ∃ block,
         op.getParent! ctx = some block ∧
-        (block.get! ctx).parent = some region := by
+        block.getParent! ctx = some region := by
   simp only [OperationPtr.getParentRegion!, OperationPtr.getParent!_def, BlockPtr.getParent!_def,
     bind, Option.bind]
   grind
 
 theorem getParentRegion!_eq_some_of_parent_of_parent {op : OperationPtr} :
     op.getParent! ctx = some block →
-    (block.get! ctx).parent = some region →
+    block.getParent! ctx = some region →
     op.getParentRegion! ctx = some region := by
   grind [OperationPtr.getParentRegion!]
 
@@ -3187,8 +3189,8 @@ theorem getParentOp!_eq_some_iff {child parent : OperationPtr} {ctx : IRContext 
     child.getParentOp! ctx = some parent ↔
       ∃ block region,
         child.getParent! ctx = some block ∧
-        (block.get! ctx).parent = some region ∧
-        (region.get! ctx).parent = some parent := by
+        block.getParent! ctx = some region ∧
+        region.getParent! ctx = some parent := by
   simp only [OperationPtr.getParentOp!, RegionPtr.getParent!_def, bind, Option.bind]
   grind
 
@@ -3446,5 +3448,5 @@ macro "setup_grind_with_get_set_definitions" : command => `(
   projections of `get`/`get!`.
 -/
 macro "unfold_field_getters_in_grind" : command => `(
-  attribute [local grind =] BlockArgumentPtr.getFirstUse!_def BlockArgumentPtr.getFirstUse_def BlockArgumentPtr.getIndex!_def BlockArgumentPtr.getIndex_def BlockArgumentPtr.getLoc!_def BlockArgumentPtr.getLoc_def BlockArgumentPtr.getOwner!_def BlockArgumentPtr.getOwner_def BlockArgumentPtr.getType!_def BlockArgumentPtr.getType_def BlockOperandPtr.getBack!_def BlockOperandPtr.getBack_def BlockOperandPtr.getNextUse!_def BlockOperandPtr.getNextUse_def BlockOperandPtr.getOwner!_def BlockOperandPtr.getOwner_def BlockOperandPtr.getValue!_def BlockOperandPtr.getValue_def BlockPtr.getFirstOp!_def BlockPtr.getFirstOp_def BlockPtr.getFirstUse!_def BlockPtr.getFirstUse_def BlockPtr.getLastOp!_def BlockPtr.getLastOp_def BlockPtr.getNextBlock!_def BlockPtr.getNextBlock_def BlockPtr.getParent!_def BlockPtr.getParent_def BlockPtr.getPrevBlock!_def BlockPtr.getPrevBlock_def OpOperandPtr.getBack!_def OpOperandPtr.getBack_def OpOperandPtr.getNextUse!_def OpOperandPtr.getNextUse_def OpOperandPtr.getOwner!_def OpOperandPtr.getOwner_def OpOperandPtr.getValue!_def OpOperandPtr.getValue_def OpResultPtr.getFirstUse!_def OpResultPtr.getFirstUse_def OpResultPtr.getOwner!_def OpResultPtr.getOwner_def OpResultPtr.getIndex!_def OpResultPtr.getIndex_def OpResultPtr.getType!_def OpResultPtr.getType_def RegionPtr.getFirstBlock!_def RegionPtr.getFirstBlock_def RegionPtr.getLastBlock!_def RegionPtr.getLastBlock_def RegionPtr.getParent!_def RegionPtr.getParent_def
+  attribute [local grind =] BlockArgumentPtr.getFirstUse!_def BlockArgumentPtr.getFirstUse_def BlockArgumentPtr.getIndex!_def BlockArgumentPtr.getIndex_def BlockArgumentPtr.getLoc!_def BlockArgumentPtr.getLoc_def BlockArgumentPtr.getOwner!_def BlockArgumentPtr.getOwner_def BlockArgumentPtr.getType!_def BlockArgumentPtr.getType_def BlockOperandPtr.getBack!_def BlockOperandPtr.getBack_def BlockOperandPtr.getNextUse!_def BlockOperandPtr.getNextUse_def BlockOperandPtr.getOwner!_def BlockOperandPtr.getOwner_def BlockOperandPtr.getValue!_def BlockOperandPtr.getValue_def OpOperandPtr.getBack!_def OpOperandPtr.getBack_def OpOperandPtr.getNextUse!_def OpOperandPtr.getNextUse_def OpOperandPtr.getOwner!_def OpOperandPtr.getOwner_def OpOperandPtr.getValue!_def OpOperandPtr.getValue_def OpResultPtr.getFirstUse!_def OpResultPtr.getFirstUse_def OpResultPtr.getOwner!_def OpResultPtr.getOwner_def OpResultPtr.getIndex!_def OpResultPtr.getIndex_def OpResultPtr.getType!_def OpResultPtr.getType_def
 )

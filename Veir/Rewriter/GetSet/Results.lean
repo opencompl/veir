@@ -65,37 +65,31 @@ attribute [local grind] Rewriter.pushResult
 @[simp, grind =, simp_getset]
 theorem BlockPtr.getLastOp!_pushResult {block : BlockPtr} :
     block.getLastOp! (Rewriter.pushResult ctx op type hop) = block.getLastOp! ctx := by
-  simp only [BlockPtr.getLastOp!_def]
   grind
 
 @[simp, grind =, simp_getset]
 theorem BlockPtr.getFirstOp!_pushResult {block : BlockPtr} :
     block.getFirstOp! (Rewriter.pushResult ctx op type hop) = block.getFirstOp! ctx := by
-  simp only [BlockPtr.getFirstOp!_def]
   grind
 
 @[simp, grind =, simp_getset]
 theorem BlockPtr.getParent!_pushResult {block : BlockPtr} :
     block.getParent! (Rewriter.pushResult ctx op type hop) = block.getParent! ctx := by
-  simp only [BlockPtr.getParent!_def]
   grind
 
 @[simp, grind =, simp_getset]
 theorem BlockPtr.getNextBlock!_pushResult {block : BlockPtr} :
     block.getNextBlock! (Rewriter.pushResult ctx op type hop) = block.getNextBlock! ctx := by
-  simp only [BlockPtr.getNextBlock!_def]
   grind
 
 @[simp, grind =, simp_getset]
 theorem BlockPtr.getPrevBlock!_pushResult {block : BlockPtr} :
     block.getPrevBlock! (Rewriter.pushResult ctx op type hop) = block.getPrevBlock! ctx := by
-  simp only [BlockPtr.getPrevBlock!_def]
   grind
 
 @[simp, grind =, simp_getset]
 theorem BlockPtr.getFirstUse!_pushResult {block : BlockPtr} :
     block.getFirstUse! (Rewriter.pushResult ctx op type hop) = block.getFirstUse! ctx := by
-  simp only [BlockPtr.getFirstUse!_def]
   grind
 
 @[simp, grind =, simp_getset]
@@ -290,19 +284,16 @@ theorem BlockArgumentPtr.getType!_pushResult {blockArg : BlockArgumentPtr} :
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getLastBlock!_pushResult {region : RegionPtr} :
     region.getLastBlock! (Rewriter.pushResult ctx op type hop) = region.getLastBlock! ctx := by
-  simp only [RegionPtr.getLastBlock!_def]
   grind
 
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getFirstBlock!_pushResult {region : RegionPtr} :
     region.getFirstBlock! (Rewriter.pushResult ctx op type hop) = region.getFirstBlock! ctx := by
-  simp only [RegionPtr.getFirstBlock!_def]
   grind
 
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getParent!_pushResult {region : RegionPtr} :
     region.getParent! (Rewriter.pushResult ctx op type hop) = region.getParent! ctx := by
-  simp only [RegionPtr.getParent!_def]
   grind
 
 @[grind =, simp_getset]
@@ -344,37 +335,31 @@ attribute [local grind] Rewriter.initOpResults
 @[simp, grind =, simp_getset]
 theorem BlockPtr.getLastOp!_initOpResults {block : BlockPtr} :
     block.getLastOp! (Rewriter.initOpResults ctx op types index hop hidx) = block.getLastOp! ctx := by
-  simp only [BlockPtr.getLastOp!_def]
   fun_induction Rewriter.initOpResults <;> grind
 
 @[simp, grind =, simp_getset]
 theorem BlockPtr.getFirstOp!_initOpResults {block : BlockPtr} :
     block.getFirstOp! (Rewriter.initOpResults ctx op types index hop hidx) = block.getFirstOp! ctx := by
-  simp only [BlockPtr.getFirstOp!_def]
   fun_induction Rewriter.initOpResults <;> grind
 
 @[simp, grind =, simp_getset]
 theorem BlockPtr.getParent!_initOpResults {block : BlockPtr} :
     block.getParent! (Rewriter.initOpResults ctx op types index hop hidx) = block.getParent! ctx := by
-  simp only [BlockPtr.getParent!_def]
   fun_induction Rewriter.initOpResults <;> grind
 
 @[simp, grind =, simp_getset]
 theorem BlockPtr.getNextBlock!_initOpResults {block : BlockPtr} :
     block.getNextBlock! (Rewriter.initOpResults ctx op types index hop hidx) = block.getNextBlock! ctx := by
-  simp only [BlockPtr.getNextBlock!_def]
   fun_induction Rewriter.initOpResults <;> grind
 
 @[simp, grind =, simp_getset]
 theorem BlockPtr.getPrevBlock!_initOpResults {block : BlockPtr} :
     block.getPrevBlock! (Rewriter.initOpResults ctx op types index hop hidx) = block.getPrevBlock! ctx := by
-  simp only [BlockPtr.getPrevBlock!_def]
   fun_induction Rewriter.initOpResults <;> grind
 
 @[simp, grind =, simp_getset]
 theorem BlockPtr.getFirstUse!_initOpResults {block : BlockPtr} :
     block.getFirstUse! (Rewriter.initOpResults ctx op types index hop hidx) = block.getFirstUse! ctx := by
-  simp only [BlockPtr.getFirstUse!_def]
   fun_induction Rewriter.initOpResults <;> grind
 
 @[simp, grind =, simp_getset]
@@ -566,19 +551,16 @@ theorem BlockArgumentPtr.getType!_initOpResults {blockArg : BlockArgumentPtr} {i
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getLastBlock!_initOpResults {region : RegionPtr} :
     region.getLastBlock! (Rewriter.initOpResults ctx op types index hop hidx) = region.getLastBlock! ctx := by
-  simp only [RegionPtr.getLastBlock!_def]
   fun_induction Rewriter.initOpResults <;> grind
 
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getFirstBlock!_initOpResults {region : RegionPtr} :
     region.getFirstBlock! (Rewriter.initOpResults ctx op types index hop hidx) = region.getFirstBlock! ctx := by
-  simp only [RegionPtr.getFirstBlock!_def]
   fun_induction Rewriter.initOpResults <;> grind
 
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getParent!_initOpResults {region : RegionPtr} :
     region.getParent! (Rewriter.initOpResults ctx op types index hop hidx) = region.getParent! ctx := by
-  simp only [RegionPtr.getParent!_def]
   fun_induction Rewriter.initOpResults <;> grind
 
 @[grind =, simp_getset]

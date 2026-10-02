@@ -281,19 +281,16 @@ theorem BlockArgumentPtr.getType!_unsetParentAndNeighbors {blockArg : BlockArgum
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getLastBlock!_unsetParentAndNeighbors {region : RegionPtr} :
     region.getLastBlock! (Rewriter.unsetParentAndNeighbors ctx op' hIn) = region.getLastBlock! ctx := by
-  simp only [RegionPtr.getLastBlock!_def]
   grind
 
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getFirstBlock!_unsetParentAndNeighbors {region : RegionPtr} :
     region.getFirstBlock! (Rewriter.unsetParentAndNeighbors ctx op' hIn) = region.getFirstBlock! ctx := by
-  simp only [RegionPtr.getFirstBlock!_def]
   grind
 
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getParent!_unsetParentAndNeighbors {region : RegionPtr} :
     region.getParent! (Rewriter.unsetParentAndNeighbors ctx op' hIn) = region.getParent! ctx := by
-  simp only [RegionPtr.getParent!_def]
   grind
 
 @[simp, grind =, simp_getset]
@@ -540,19 +537,16 @@ theorem BlockArgumentPtr.getType!_detachOp {blockArg : BlockArgumentPtr} :
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getLastBlock!_detachOp {region : RegionPtr} :
     region.getLastBlock! (Rewriter.detachOp ctx op' h₁ h₂ h₃) = region.getLastBlock! ctx := by
-  simp only [RegionPtr.getLastBlock!_def]
   grind
 
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getFirstBlock!_detachOp {region : RegionPtr} :
     region.getFirstBlock! (Rewriter.detachOp ctx op' h₁ h₂ h₃) = region.getFirstBlock! ctx := by
-  simp only [RegionPtr.getFirstBlock!_def]
   grind
 
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getParent!_detachOp {region : RegionPtr} :
     region.getParent! (Rewriter.detachOp ctx op' h₁ h₂ h₃) = region.getParent! ctx := by
-  simp only [RegionPtr.getParent!_def]
   grind
 
 @[simp, grind =, simp_getset]
@@ -799,19 +793,16 @@ theorem BlockArgumentPtr.getType!_detachOpIfAttached {blockArg : BlockArgumentPt
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getLastBlock!_detachOpIfAttached {region : RegionPtr} :
     region.getLastBlock! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) = region.getLastBlock! ctx := by
-  simp only [RegionPtr.getLastBlock!_def]
   grind
 
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getFirstBlock!_detachOpIfAttached {region : RegionPtr} :
     region.getFirstBlock! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) = region.getFirstBlock! ctx := by
-  simp only [RegionPtr.getFirstBlock!_def]
   grind
 
 @[simp, grind =, simp_getset]
 theorem RegionPtr.getParent!_detachOpIfAttached {region : RegionPtr} :
     region.getParent! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) = region.getParent! ctx := by
-  simp only [RegionPtr.getParent!_def]
   grind
 
 @[simp, grind =, simp_getset]

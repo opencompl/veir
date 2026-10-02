@@ -80,12 +80,12 @@ theorem parent!_operation :
 @[simp, grind =]
 theorem parent!_block :
   (IRNode.block ptr).parent! ctx = (ptr.getParent! ctx.raw).map .region := by
-  simp [parent!, BlockPtr.getParent!_def]
+  simp [parent!]
 
 @[simp, grind =]
 theorem parent!_region :
   (IRNode.region ptr).parent! ctx = (ptr.getParent! ctx.raw).map .operation := by
-  simp [parent!, RegionPtr.getParent!_def]
+  simp [parent!]
 
 /-- An IR node is different from its immediate parent. -/
 theorem child_ne_parent {child parent : IRNode}

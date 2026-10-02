@@ -72,8 +72,7 @@ partial def collectBlocksInSourceOrder
     (acc : Array BlockPtr := #[]) : Array BlockPtr := Id.run do
   let mut acc := acc
   for region in (op.getRegions! irCtx.raw) do
-    let region := region.get! irCtx.raw
-    let mut currentBlock := region.firstBlock
+    let mut currentBlock := region.getFirstBlock! irCtx.raw
     while let some block := currentBlock do
       acc := acc.push block
       let mut currentOp := (block.getFirstOp! irCtx.raw)
@@ -96,8 +95,7 @@ partial def collectValuesInSourceOrder
   for result in top.getResults! irCtx.raw do
     acc := acc.push result
   for region in (top.getRegions! irCtx.raw) do
-    let region := region.get! irCtx.raw
-    let mut currentBlock := region.firstBlock
+    let mut currentBlock := region.getFirstBlock! irCtx.raw
     while let some block := currentBlock do
       for arg in block.getArguments! irCtx.raw do
         acc := acc.push arg

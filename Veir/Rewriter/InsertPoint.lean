@@ -505,7 +505,7 @@ theorem region!_eq_region (ip : BlockInsertPoint) (ctx : IRContext OpInfo)
 @[simp, grind =]
 theorem region!_before :
     BlockInsertPoint.region! (before blockPtr) ctx = (blockPtr.getParent! ctx) := by
-  simp [region!, BlockPtr.getParent!_def]
+  simp [region!]
 
 @[simp, grind =]
 theorem region!_atEnd :

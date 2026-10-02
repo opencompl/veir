@@ -90,20 +90,20 @@ theorem target_parent (path : region.Path ctx source target blocks) :
 @[grind →]
 theorem source_inBounds (path : region.Path ctx source target blocks) :
     source.InBounds ctx.raw := by
-  grind [BlockPtr.get!_of_not_inBounds, Block.default_parent_eq]
+  grind [BlockPtr.getParent!_of_not_inBounds]
 
 /-- The target block of a path is in bounds of the path's region. -/
 @[grind →]
 theorem target_inBounds (path : region.Path ctx source target blocks) :
     target.InBounds ctx.raw := by
-  grind [BlockPtr.get!_of_not_inBounds, Block.default_parent_eq]
+  grind [BlockPtr.getParent!_of_not_inBounds]
 
 /-- Every block listed by a path is in bounds of the path's region. -/
 @[grind →]
 theorem inBounds_of_mem (path : region.Path ctx source target blocks)
     (hmem : block ∈ blocks) :
     block.InBounds ctx.raw := by
-  grind [BlockPtr.get!_of_not_inBounds, Block.default_parent_eq]
+  grind [BlockPtr.getParent!_of_not_inBounds]
 
 /-- Every adjacent pair in a path is a CFG successor edge. -/
 theorem successor_of_adjacent
