@@ -61,10 +61,14 @@ def getIDom? [FactSpec .dominator]
 
 /--
 Did the dominance analysis reach `block` from the entry of its enclosing region?
+
+A dominator fact may exist for an unreachable block when a reachable successor
+subscribes to its immediate dominator. Reachability therefore depends on the
+fact containing an immediate dominator, not merely on the fact's presence.
 -/
 def isReachable [FactSpec .dominator]
     (block : BlockPtr) (dfCtx : DataFlowContext) : Bool :=
-  (block.getDominatorFact? dfCtx).isSome
+  (block.getIDom? dfCtx).isSome
 
 end BlockPtr
 
