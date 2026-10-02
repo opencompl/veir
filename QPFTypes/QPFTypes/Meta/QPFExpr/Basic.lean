@@ -5,6 +5,8 @@ public meta import Lean
 public import QPFTypes.Theory.TypeFun
 public import QPFTypes.Theory.QPF
 
+public meta import QPFTypes.Meta.QPFExpr.FinTuple
+
 /-!
 # QPFExpr
 
@@ -139,3 +141,28 @@ their codomain, but not in their domain) are represented.
 public meta def mkPi (u : Level) (n : Nat) (A : Expr /- : Type $u -/)
     (family : Expr → MetaM (QPFExpr u n)) : MetaM (QPFExpr u n) :=
   mkDepFamily ``QPF.Pi ``QPF.Pi.qpf u n A family
+
+/--
+Compose an `n`-ary QPF `F` with `n` `m`-ary QPFs `Gs`, i.e.,
+create an application of `QPF.Comp
+-/
+public meta def mkComp (F : QPFExpr u n) (Gs : Vector (QPFExpr u m) n) :
+    MetaM (QPFExpr u m) := do
+  let n := toExpr n
+  let m := toExpr m
+
+
+  let Gtypefun ← do
+    let typefun := mkApp (mkConst ``TypeFun [u, u]) m
+    Fin.mkTuple typefun (Gs.map (·.typefun))
+  let Gqpf ← do
+    let qpfType := -- `fun (i : Fin $n) => @QPF.{$u, $u} $m ($Gtypefun i)`
+      .lam `i (mkApp (mkConst ``Fin) n)
+        (mkApp2 (mkConst ``QPF [u, u]) m (mkApp Gtypefun (.bvar 0)))
+        .default
+    Fin.mkDTuple qpfType (Gs.map (·.qpf))
+
+  return {
+    typefun := mkApp4 (mkConst ``QPF.Comp [u, u]) n m F.typefun Gtypefun
+    qpf := mkApp6 (mkConst ``QPF.Comp.inst [u, u]) n m F.typefun Gtypefun F.qpf Gqpf
+  }
