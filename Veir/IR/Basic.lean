@@ -162,21 +162,21 @@ deriving Inhabited, Repr, Hashable
 An MLIR operation.
 -/
 structure Operation (OpInfo : Type) [IsOpCode OpInfo] where
-  results : Array OpResult
+  private results : Array OpResult
   -- This is the operation pointer start
-  prev : Option OperationPtr
-  next : Option OperationPtr
-  parent : Option BlockPtr
+  private prev : Option OperationPtr
+  private next : Option OperationPtr
+  private parent : Option BlockPtr
   -- We do not support those features yet :
   -- location : Location
   -- orderIndex : Nat
-  opType : OpInfo
-  attrs : DictionaryAttr
+  private opType : OpInfo
+  private attrs : DictionaryAttr
   -- This should be replaced with an arbitrary user object
-  properties : propertiesOf opType
-  blockOperands : Array BlockOperand
-  regions : Array RegionPtr
-  operands : Array OpOperand
+  private properties : propertiesOf opType
+  private blockOperands : Array BlockOperand
+  private regions : Array RegionPtr
+  private operands : Array OpOperand
 deriving Inhabited, Repr, Hashable
 
 variable {OpInfo : Type} [IsOpCode OpInfo]
@@ -184,23 +184,23 @@ variable {Dialect : Type} [IsOpCode Dialect] [HasDialect OpInfo Dialect]
 
 namespace Operation
 
-theorem default_operands_eq :
+private theorem default_operands_eq :
     (default : Operation OpInfo).operands = #[] := by
   rfl
 
-theorem default_regions_eq :
+private theorem default_regions_eq :
     (default : Operation OpInfo).regions = #[] := by
   rfl
 
-theorem default_blockOperands_eq :
+private theorem default_blockOperands_eq :
     (default : Operation OpInfo).blockOperands = #[] := by
   rfl
 
-theorem default_results_eq :
+private theorem default_results_eq :
     (default : Operation OpInfo).results = #[] := by
   rfl
 
-theorem default_parent_eq :
+private theorem default_parent_eq :
     (default : Operation OpInfo).parent = none := by
   rfl
 
@@ -327,7 +327,6 @@ variable {ctx ctx' : IRContext OpInfo}
 
 /-! Empty objects. -/
 
-@[expose]
 def Operation.empty (opType : OpInfo) (prop : propertiesOf opType) : Operation OpInfo :=
   { results := #[]
     prev := none
@@ -398,7 +397,7 @@ def getOpType (op : OperationPtr) (ctx : IRContext OpInfo) (inBounds : op.InBoun
 def getOpType! (op : OperationPtr) (ctx : IRContext OpInfo) : OpInfo :=
   (op.get! ctx).opType
 
-theorem getOpType!_def {op : OperationPtr} :
+private theorem getOpType!_def {op : OperationPtr} :
     op.getOpType! ctx = (op.get! ctx).opType := by
   rfl
 
@@ -826,7 +825,7 @@ def getRegions (op : OperationPtr) (ctx : IRContext OpInfo)
 def getRegions! (op : OperationPtr) (ctx : IRContext OpInfo) : Array RegionPtr :=
   (op.get! ctx).regions
 
-theorem getRegions!_def {op : OperationPtr} :
+private theorem getRegions!_def {op : OperationPtr} :
     op.getRegions! ctx = (op.get! ctx).regions := by
   rfl
 
@@ -910,14 +909,14 @@ def set (ptr : OperationPtr) (ctx : IRContext OpInfo) (newOp : Operation OpInfo)
 def getNextOp (op : OperationPtr) (ctx : IRContext OpInfo) (inBounds : op.InBounds ctx := by grind) : Option OperationPtr :=
   (op.get ctx).next
 
-theorem getNextOp_def {op : OperationPtr} {inBounds : op.InBounds ctx} :
+private theorem getNextOp_def {op : OperationPtr} {inBounds : op.InBounds ctx} :
     op.getNextOp ctx inBounds = (op.get ctx inBounds).next := by
   rfl
 
 def getNextOp! (op : OperationPtr) (ctx : IRContext OpInfo) : Option OperationPtr :=
   (op.get! ctx).next
 
-theorem getNextOp!_def {op : OperationPtr} :
+private theorem getNextOp!_def {op : OperationPtr} :
     op.getNextOp! ctx = (op.get! ctx).next := by
   rfl
 
@@ -943,14 +942,14 @@ theorem setNextOp!_eq_setNextOp {op : OperationPtr} (inBounds : op.InBounds ctx)
 def getPrevOp (op : OperationPtr) (ctx : IRContext OpInfo) (inBounds : op.InBounds ctx := by grind) : Option OperationPtr :=
   (op.get ctx).prev
 
-theorem getPrevOp_def {op : OperationPtr} {inBounds : op.InBounds ctx} :
+private theorem getPrevOp_def {op : OperationPtr} {inBounds : op.InBounds ctx} :
     op.getPrevOp ctx inBounds = (op.get ctx inBounds).prev := by
   rfl
 
 def getPrevOp! (op : OperationPtr) (ctx : IRContext OpInfo) : Option OperationPtr :=
   (op.get! ctx).prev
 
-theorem getPrevOp!_def {op : OperationPtr} :
+private theorem getPrevOp!_def {op : OperationPtr} :
     op.getPrevOp! ctx = (op.get! ctx).prev := by
   rfl
 
@@ -976,14 +975,14 @@ theorem setPrevOp!_eq_setPrevOp {op : OperationPtr} (inBounds : op.InBounds ctx)
 def getParent (op : OperationPtr) (ctx : IRContext OpInfo) (inBounds : op.InBounds ctx := by grind) : Option BlockPtr :=
   (op.get ctx).parent
 
-theorem getParent_def {op : OperationPtr} {inBounds : op.InBounds ctx} :
+private theorem getParent_def {op : OperationPtr} {inBounds : op.InBounds ctx} :
     op.getParent ctx inBounds = (op.get ctx inBounds).parent := by
   rfl
 
 def getParent! (op : OperationPtr) (ctx : IRContext OpInfo) : Option BlockPtr :=
   (op.get! ctx).parent
 
-theorem getParent!_def {op : OperationPtr} :
+private theorem getParent!_def {op : OperationPtr} :
     op.getParent! ctx = (op.get! ctx).parent := by
   rfl
 
@@ -1116,14 +1115,14 @@ theorem pushOperand!_eq_pushOperand {op : OperationPtr} (inBounds : op.InBounds 
 def getAttributes (op : OperationPtr) (ctx : IRContext OpInfo) (inBounds : op.InBounds ctx := by grind) : DictionaryAttr :=
   (op.get ctx).attrs
 
-theorem getAttributes_def {op : OperationPtr} {inBounds : op.InBounds ctx} :
+private theorem getAttributes_def {op : OperationPtr} {inBounds : op.InBounds ctx} :
     op.getAttributes ctx inBounds = (op.get ctx inBounds).attrs := by
   rfl
 
 def getAttributes! (op : OperationPtr) (ctx : IRContext OpInfo) : DictionaryAttr :=
   (op.get! ctx).attrs
 
-theorem getAttributes!_def {op : OperationPtr} :
+private theorem getAttributes!_def {op : OperationPtr} :
     op.getAttributes! ctx = (op.get! ctx).attrs := by
   rfl
 
@@ -3167,14 +3166,14 @@ def getParentRegion! (op : OperationPtr) (ctx : IRContext OpInfo) : Option Regio
 theorem getParentRegion!_eq_some_iff {op : OperationPtr} :
     op.getParentRegion! ctx = some region ↔
       ∃ block,
-        (op.get! ctx).parent = some block ∧
+        op.getParent! ctx = some block ∧
         (block.get! ctx).parent = some region := by
   simp only [OperationPtr.getParentRegion!, OperationPtr.getParent!_def, BlockPtr.getParent!_def,
     bind, Option.bind]
   grind
 
 theorem getParentRegion!_eq_some_of_parent_of_parent {op : OperationPtr} :
-    (op.get! ctx).parent = some block →
+    op.getParent! ctx = some block →
     (block.get! ctx).parent = some region →
     op.getParentRegion! ctx = some region := by
   grind [OperationPtr.getParentRegion!]
@@ -3187,7 +3186,7 @@ def getParentOp! (op : OperationPtr) (ctx : IRContext OpInfo) : Option Operation
 theorem getParentOp!_eq_some_iff {child parent : OperationPtr} {ctx : IRContext OpInfo} :
     child.getParentOp! ctx = some parent ↔
       ∃ block region,
-        (child.get! ctx).parent = some block ∧
+        child.getParent! ctx = some block ∧
         (block.get! ctx).parent = some region ∧
         (region.get! ctx).parent = some parent := by
   simp only [OperationPtr.getParentOp!, RegionPtr.getParent!_def, bind, Option.bind]
@@ -3277,8 +3276,8 @@ def BlockPtr.OpChainSlice (ctx : IRContext OpInfo) (parent : BlockPtr) : List Op
   | [] => True
   | a :: l =>
     a.InBounds ctx ∧
-    (a.get! ctx).parent = some parent ∧
-    (∀ b, l.head? = some b → (a.get! ctx).next = some b) ∧
+    a.getParent! ctx = some parent ∧
+    (∀ b, l.head? = some b → a.getNextOp! ctx = some b) ∧
     BlockPtr.OpChainSlice ctx parent l
 
 namespace BlockPtr.OpChainSlice
@@ -3294,7 +3293,7 @@ theorem inBounds_of_mem {ctx : IRContext OpInfo} {parent : BlockPtr} {ops : List
 @[grind →]
 theorem parent_of_mem {ctx : IRContext OpInfo} {parent : BlockPtr} {ops : List OperationPtr}
     (h : BlockPtr.OpChainSlice ctx parent ops) :
-    ∀ op, op ∈ ops → (op.get! ctx).parent = some parent := by
+    ∀ op, op ∈ ops → op.getParent! ctx = some parent := by
   induction ops <;> simp [BlockPtr.OpChainSlice] at h <;> grind
 
 /-- The empty list is always an operation chain slice. -/
@@ -3308,8 +3307,8 @@ and the head is in bounds, has the same parent, and points to the tail. -/
 theorem cons_iff {ctx : IRContext OpInfo} {parent : BlockPtr} {head : OperationPtr} {tail : List OperationPtr} :
     BlockPtr.OpChainSlice ctx parent (head :: tail) ↔
     head.InBounds ctx ∧
-    (head.get! ctx).parent = some parent ∧
-    (∀ b, tail.head? = some b → (head.get! ctx).next = some b) ∧
+    head.getParent! ctx = some parent ∧
+    (∀ b, tail.head? = some b → head.getNextOp! ctx = some b) ∧
     BlockPtr.OpChainSlice ctx parent tail := by
   simp [BlockPtr.OpChainSlice]
 
