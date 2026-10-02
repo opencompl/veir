@@ -442,3 +442,8 @@ example {w v : Nat} (x y : BitVec w) (hwv : w ≤ v) (hv : v ≤ 8) :
 example {w : Nat} (x : BitVec w) (hw : w ≤ 8) (hw0 : 0 < w) :
     (~~~x).msb = !x.msb := by
   pbv_decide 8
+
+/-- Extracting is masking -/
+example {w v : Nat} (x : BitVec w) (hw : w ≤ 8) (hv : v ≤ w):
+    x.extractLsb' 0 v = (x &&& ((1#w <<< BitVec.ofNat w v) - 1)).setWidth v := by
+  pbv_decide 8
