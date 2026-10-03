@@ -553,3 +553,100 @@ theorem MemoryState.LayoutWf.isRefinedByIn_ofAddress {mem : MemoryState} (h : me
     obtain rfl : wild = true := hw
     simp [Data.Pointer.ofAddress, MemoryState.address,
       Array.getElem?_eq_getElem h.nonempty, h.base_zero]
+
+/-! ## Steps through memory -/
+
+/-- A bind returns a value only when both halves do. -/
+theorem Interp.bind_eq_ok_iff {α β : Type} {x : Interp α} {f : α → Interp β} {b : β} :
+    (x >>= f) = .ok b ↔ ∃ a, x = .ok a ∧ f a = .ok b := by
+  cases x <;> simp
+
+/-- The pointer a source value stands for, as the target holds it. -/
+theorem RuntimeValue.addr_val_of_isRefinedBy_of {asm : Bool} {mem : MemoryState} {p : Data.Pointer}
+    {w : RuntimeValue} (h : RuntimeValue.addr (.val p) ⊒[.of asm mem] w) :
+    ∃ q, w = RuntimeValue.addr (.val q) ∧ (asm = false → q = p) ∧
+      (asm = true → p.isRefinedByIn mem q) := by
+  cases w <;> simp only [RuntimeValue.isRefinedBy] at h <;> try exact h.elim
+  rename_i t
+  cases asm <;> simp only [RefinementMode.of_false, RefinementMode.of_true] at h <;>
+    cases t <;> simp only [Data.LLVM.Ptr.isRefinedBy, Data.LLVM.Ptr.isRefinedByIn] at h
+  · exact ⟨_, rfl, fun _ => h.symm, fun hc => by simp at hc⟩
+  · exact ⟨_, rfl, fun hc => by simp at hc, fun _ => h⟩
+
+/-- A poison pointer is refined by any pointer. -/
+theorem RuntimeValue.addr_of_poison_isRefinedBy {m : RefinementMode} {w : RuntimeValue}
+    (h : RuntimeValue.addr .poison ⊒[m] w) : ∃ t, w = RuntimeValue.addr t := by
+  cases w <;> simp only [RuntimeValue.isRefinedBy] at h <;> first | exact ⟨_, rfl⟩ | exact h.elim
+
+/-- A pointer related to a non-null pointer is not null. -/
+theorem Data.Pointer.ne_null_of_isRefinedByIn {mem : MemoryState} {p q : Data.Pointer}
+    (hpq : p.isRefinedByIn mem q) (hp : p ≠ .null) : q ≠ .null := by
+  rcases hpq.2 with rfl | ⟨-, rfl⟩
+  · exact hp
+  · simp [Data.Pointer.ofAddress, Data.Pointer.null]
+
+/-- A load reads the same bytes through two pointers that resolve alike. -/
+theorem MemoryState.llvmLoad_eq_of_resolve_eq {mem : MemoryState} {p q : Data.Pointer}
+    {type : TypeAttr} (hres : mem.resolve q = mem.resolve p) (hp : p ≠ .null) (hq : q ≠ .null) :
+    mem.llvmLoad q type = mem.llvmLoad p type := by
+  simp only [MemoryState.llvmLoad, hp, hq, ↓reduceIte, MemoryState.load, MemoryState.loadPoison,
+    MemoryState.hasPoison, MemoryState.loadByte64, hres]
+
+/-- A load that returns went through an access of at least a byte. -/
+theorem MemoryState.llvmLoad_ok_access {mem : MemoryState} {p : Data.Pointer} {type : TypeAttr}
+    {v : RuntimeValue} (hok : mem.llvmLoad p type = .ok v) :
+    p ≠ .null ∧ ∃ (n : UInt64) (obj : MemoryObject), n ≠ 0 ∧
+      mem.checkAccess (mem.resolve p) n = .ok obj := by
+  simp only [MemoryState.llvmLoad] at hok
+  split at hok
+  · simp at hok
+  · next hp =>
+    refine ⟨hp, ?_⟩
+    split at hok
+    all_goals first
+      | (simp at hok; done)
+      | (simp only [MemoryState.load, MemoryState.loadByte64, Interp.bind_eq_ok_iff,
+            Interp.pure_eq, Interp.ok.injEq] at hok
+         first
+          | (obtain ⟨_, ⟨obj, hobj, -⟩, -⟩ := hok; exact ⟨_, obj, by decide, hobj⟩)
+          | (obtain ⟨_, ⟨_, ⟨obj, hobj, -⟩, -⟩, -⟩ := hok; exact ⟨_, obj, by decide, hobj⟩))
+
+/-- A loaded value names objects of a well-laid-out memory. -/
+theorem MemoryState.LayoutWf.llvmLoad_validIn {mem : MemoryState} (h : mem.LayoutWf)
+    {p : Data.Pointer} {type : TypeAttr} {v : RuntimeValue} (hok : mem.llvmLoad p type = .ok v) :
+    v.ValidIn mem := by
+  simp only [MemoryState.llvmLoad] at hok
+  split at hok
+  · simp at hok
+  · split at hok
+    all_goals first
+      | (simp at hok; done)
+      | (simp only [Interp.bind_eq_ok_iff, Interp.ok.injEq, Interp.pure_eq] at hok
+         first
+          | (obtain ⟨_, -, _, -, hv⟩ := hok
+             first
+              | (split at hv <;> (simp only [Interp.ok.injEq] at hv
+                                  subst hv; simp [RuntimeValue.ValidIn]))
+              | (subst hv; simp only [RuntimeValue.ValidIn]))
+          | (obtain ⟨_, -, hv⟩ := hok; subst hv
+             first
+              | (simp only [RuntimeValue.ValidIn]; done)
+              | (unfold MemoryState.ptrOfByte
+                 split <;> simp [RuntimeValue.ValidIn, Data.Pointer.ValidIn,
+                   Data.Pointer.ofAddress, h.nonempty])))
+
+/-- Address arithmetic keeps the assembly relation: both sides move by the same amount. -/
+theorem Data.Pointer.isRefinedByIn_addOffset {mem : MemoryState}
+    {p q : Data.Pointer} (hpq : p.isRefinedByIn mem q) (n : Nat) :
+    Data.Pointer.isRefinedByIn mem { p with offset := UInt64.ofNat (p.offset.toNat + n) }
+      { q with offset := UInt64.ofNat (q.offset.toNat + n) } := by
+  obtain ⟨hp, hpq⟩ := hpq
+  refine ⟨hp, ?_⟩
+  rcases hpq with rfl | ⟨hw, rfl⟩
+  · exact .inl rfl
+  · refine .inr ⟨hw, ?_⟩
+    simp only [Data.Pointer.ofAddress, MemoryState.address, Array.getElem?_eq_getElem hp.1,
+      Option.map_some, Option.getD_some, Data.Pointer.mk.injEq, true_and, and_true]
+    rw [← UInt64.toNat_inj]
+    simp only [UInt64.toNat_add, UInt64.toNat_ofNat']
+    omega
