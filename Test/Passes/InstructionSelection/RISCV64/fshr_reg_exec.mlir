@@ -7,13 +7,13 @@
 // register-operand riscv.ror (not rori).
 // fshr(0x123456789ABCDEF0, .., 8) = rotate-right by 8 = 0xF0123456789ABCDE.
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main", function_type = () -> i64}> ({
+  "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i64 ()>}> ({
     %a = "llvm.mlir.constant"() <{value = 1311768467463790320 : i64}> : () -> i64
     %x = "llvm.mlir.constant"() <{value = 5 : i64}> : () -> i64
     %y = "llvm.mlir.constant"() <{value = 3 : i64}> : () -> i64
     %s = "llvm.add"(%x, %y) : (i64, i64) -> i64
     %r = "llvm.intr.fshr"(%a, %a, %s) : (i64, i64, i64) -> i64
-    "func.return"(%r) : (i64) -> ()
+    "llvm.return"(%r) : (i64) -> ()
   }) : () -> ()
 }) : () -> ()
 

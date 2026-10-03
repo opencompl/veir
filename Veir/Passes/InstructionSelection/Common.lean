@@ -22,15 +22,15 @@ def castToRegLocal (ctx : WfIRContext OpCode) (v : ValuePtr) :
 
 /--
   Create a detached `unrealized_conversion_cast` from `reg` back to `op`'s
-  `resultIndex`-th result type, returning the updated context and the cast operation.
-  The target type is read from `op`, so this is type-agnostic (it also handles non-`i64`
+  result type, returning the updated context and the cast operation. The target
+  type is read from `op`, so this is type-agnostic (it also handles non-`i64`
   results, e.g. the `!llvm.ptr` produced by `getelementptr`). The caller is
-  responsible for inserting the returned operation and replacing the selected result
+  responsible for inserting the returned operation and replacing `op`'s result
   with its result.
 -/
-def replaceWithRegLocal (ctx : WfIRContext OpCode) (op : OperationPtr) (reg : ValuePtr)
-    (resultIndex : Nat := 0) : Option (WfIRContext OpCode × OperationPtr) :=
-  let type := ((op.getResult resultIndex).get! ctx.raw).type
+def replaceWithRegLocal (ctx : WfIRContext OpCode) (op : OperationPtr) (reg : ValuePtr) :
+    Option (WfIRContext OpCode × OperationPtr) :=
+  let type := ((op.getResult 0).get! ctx.raw).type
   WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast
       #[type] #[reg] #[] #[] () none
 

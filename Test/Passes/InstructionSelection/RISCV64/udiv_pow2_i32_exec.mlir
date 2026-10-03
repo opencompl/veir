@@ -7,11 +7,11 @@
 // `!riscv.reg`, so post-lowering the declared return type is a register.
 
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main", function_type = () -> i32}> ({
+  "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i32 ()>}> ({
     %a = "llvm.mlir.constant"() <{value = 37 : i32}> : () -> i32
     %b = "llvm.mlir.constant"() <{value = 8 : i32}> : () -> i32
     %r = "llvm.udiv"(%a, %b) : (i32, i32) -> i32
-    "func.return"(%r) : (i32) -> ()
+    "llvm.return"(%r) : (i32) -> ()
   }) : () -> ()
 }) : () -> ()
 

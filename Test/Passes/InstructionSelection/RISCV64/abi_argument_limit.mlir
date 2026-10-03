@@ -9,9 +9,7 @@
   ^bb0(%a: i64, %p: !llvm.ptr):
     %l8 = "llvm.call"(%a, %a, %a, %a, %a, %a, %a, %a) <{callee = @llvm_eight}> : (i64, i64, i64, i64, i64, i64, i64, i64) -> i64
     %l9 = "llvm.call"(%l8, %a, %a, %a, %a, %a, %a, %a, %a) <{callee = @llvm_nine}> : (i64, i64, i64, i64, i64, i64, i64, i64, i64) -> i64
-    %f8 = "func.call"(%l9, %a, %a, %a, %a, %a, %a, %a) <{callee = @func_eight}> : (i64, i64, i64, i64, i64, i64, i64, i64) -> i64
-    %f9 = "func.call"(%f8, %a, %a, %a, %a, %a, %a, %a, %a) <{callee = @func_nine}> : (i64, i64, i64, i64, i64, i64, i64, i64, i64) -> i64
-    %i8 = "llvm.call"(%p, %f9, %a, %a, %a, %a, %a, %a, %a) : (!llvm.ptr, i64, i64, i64, i64, i64, i64, i64, i64) -> i64
+    %i8 = "llvm.call"(%p, %l9, %a, %a, %a, %a, %a, %a, %a) : (!llvm.ptr, i64, i64, i64, i64, i64, i64, i64, i64) -> i64
     %i9 = "llvm.call"(%p, %i8, %a, %a, %a, %a, %a, %a, %a, %a) : (!llvm.ptr, i64, i64, i64, i64, i64, i64, i64, i64, i64) -> i64
     "llvm.return"(%i9) : (i64) -> ()
   }) : () -> ()
@@ -20,8 +18,6 @@
 // CHECK-LABEL: "sym_name" = "caller"
 // CHECK: "riscv_cf.call"({{.*}}) <{"callee" = @llvm_eight}>
 // CHECK: "llvm.call"({{.*}}) <{"callee" = @llvm_nine}> : (i64, i64, i64, i64, i64, i64, i64, i64, i64) -> i64
-// CHECK: "riscv_cf.call"({{.*}}) <{"callee" = @func_eight}>
-// CHECK: "func.call"({{.*}}) <{"callee" = @func_nine}> : (i64, i64, i64, i64, i64, i64, i64, i64, i64) -> i64
 // CHECK: "riscv_cf.call"({{.*}}) : (!riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK: "llvm.call"({{.*}}) : (!llvm.ptr, i64, i64, i64, i64, i64, i64, i64, i64, i64) -> i64
 // CHECK: "riscv_cf.return"

@@ -12,10 +12,11 @@ namespace Veir
 /-!
   # Lowering to the RISC-V calling convention
 
-  1. Function boundaries are coerced to `!riscv.reg` (`coerceFunctionBoundaries .riscvReg`).
-  2. Every `llvm.return` / `func.return` of a function whose operands are now registers
+  1. LLVM function boundaries are coerced to `!riscv.reg`
+     (`coerceFunctionBoundaries .riscvReg`).
+  2. Every `llvm.return` of a function whose operands are now registers
      becomes a `riscv_cf.return`.
-  3. Every `llvm.call` / `func.call` whose arguments and results are passed in a single
+  3. Every `llvm.call` whose arguments and results are passed in a single
      integer register becomes a `riscv_cf.call`, with its operands cast to registers in
      front of it and its results cast back to their original types after it.
 -/
@@ -105,7 +106,7 @@ def sextIfI32 (ctx : WfIRContext OpCode) (type : TypeAttr) (reg : ValuePtr)
 -/
 def lowerReturn : LocalRewritePattern OpCode := fun ctx op => do
   let some parent := op.getParentOp! ctx.raw | return (ctx, none)
-  if !parent.isFunctionLike ctx.raw || !supportsFunctionAbi ctx.raw parent then
+  if parent.getOpType! ctx.raw != .llvm .func || !supportsFunctionAbi ctx.raw parent then
     return (ctx, none)
   let operands := op.getOperands! ctx.raw
   if !operands.all (fun v => (v.getType! ctx.raw).isa RegisterType) then return (ctx, none)
@@ -146,29 +147,27 @@ def lowerCall (callee : Option FlatSymbolRefAttr) (extra : DictionaryAttr) :
     return (ctx, newOps.push cast ++ sextOps, regs.push reg)
   let (ctx, call) ← WfRewriter.createOp! ctx Riscv_Cf.call
     (resultTypes.map fun _ => RegisterType.mk) regs #[] #[] ({ callee } : RISCVCallProperties) none
-  let (ctx, newOps, results) ← (List.range resultTypes.size).foldlM
-      (init := (ctx, newOps.push call, #[])) fun (ctx, newOps, results) i => do
-    let (ctx, cast) ← replaceWithRegLocal ctx op (call.getResult i) i
-    return (ctx, newOps.push cast, results.push (cast.getResult 0))
-  return (ctx, some (newOps, results))
+  let newOps := newOps.push call
+  -- LLVM calls have at most one result.
+  if resultTypes.isEmpty then return (ctx, some (newOps, #[]))
+  let (ctx, cast) ← replaceWithRegLocal ctx op (call.getResult 0)
+  return (ctx, some (newOps.push cast, #[cast.getResult 0]))
 
-/-- Lower `op` if it is a return or a call. -/
+/-- Lower `op` if it is an LLVM return or call. -/
 def lowerOp : LocalRewritePattern OpCode := fun ctx op =>
   match op.getOpType! ctx.raw with
-  | .llvm .return | .func .return => lowerReturn ctx op
+  | .llvm .return => lowerReturn ctx op
   | .llvm .call =>
     let props : LLVMCallProperties := op.getProperties! ctx.raw (OpCode.llvm .call)
     lowerCall props.callee props.extra ctx op
-  | .func .call =>
-    let props : FuncCallProperties := op.getProperties! ctx.raw (OpCode.func .call)
-    lowerCall (some props.callee) props.extra ctx op
   | _ => pure (ctx, none)
 
 /-! # Pass implementation -/
 
 def IselAbiRISCV64.impl (ctx : WfIRContext OpCode) (_op : OperationPtr)
     (_ : _op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
-  let ctx ← coerceFunctionBoundaries .riscvReg ctx supportsFunctionAbi
+  let ctx ← coerceFunctionBoundaries .riscvReg ctx fun ctx op =>
+    op.getOpType! ctx == .llvm .func && supportsFunctionAbi ctx op
   -- The rewrite driver inserts the new operations, replaces results, and removes dead casts.
   match RewritePattern.applyInContext (.fromLocalRewrite lowerOp) ctx with
   | none => throw "Error while applying isel-abi-riscv64"
@@ -177,5 +176,5 @@ def IselAbiRISCV64.impl (ctx : WfIRContext OpCode) (_op : OperationPtr)
 public def IselAbiRISCV64 : Pass OpCode :=
   { name := "isel-abi-riscv64"
     description :=
-      "Lower function boundaries, returns and calls to the RISC-V calling convention."
+      "Lower LLVM function boundaries, returns and calls to the RISC-V calling convention."
     run := fun _ => IselAbiRISCV64.impl }

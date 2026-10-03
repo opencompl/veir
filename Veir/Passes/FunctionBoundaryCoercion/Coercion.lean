@@ -12,7 +12,7 @@ namespace Veir
 
   The coercion applied is selected by a `BoundaryCoercion` flag:
   - `.riscvReg`: i32-, i64-, and pointer-typed boundaries become `!riscv.reg`.
-    This is the first step of the `isel-abi-riscv64` pass rather than a pass of its own.
+    `isel-abi-riscv64` applies this only to LLVM functions as its first step.
   - `.modArithToInt legalizeWidth`: `!mod_arith.int<q : iN>`-typed boundaries become `i(legalizeWidth N)`
   - `.cirToStd`: `!cir.int<s|u, N>`- and `!cir.bool`-typed boundaries become `iN` and `i1`
 -/
