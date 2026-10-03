@@ -176,8 +176,8 @@ def MemoryState.empoison (mem : MemoryState) (p : Pointer) (n : Nat) : Interp Me
   mem.store p (ByteArray.replicate n 0) (ByteArray.replicate n 0xff) (by simp)
 
 /-- The pointer whose bits are `b`. -/
-def MemoryState.ptrOfByte (mem : MemoryState) (b : Data.LLVM.Byte 64) : Ptr :=
-  if b.poison = 0 then .val (mem.decode b.toUInt64) else .poison
+def MemoryState.ptrOfByte (_mem : MemoryState) (b : Data.LLVM.Byte 64) : Ptr :=
+  if b.poison = 0 then .val (Pointer.ofAddress b.toUInt64) else .poison
 
 /-- The bits of a pointer, its physical address. -/
 def MemoryState.byteOfPtr (mem : MemoryState) : Ptr → Data.LLVM.Byte 64
