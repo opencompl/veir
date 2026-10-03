@@ -34,8 +34,6 @@ RUN apt-get update \
  && apt-get update \
  && apt-get install -y --no-install-recommends \
       mlir-23-tools \
-      # `llubi`, the UB-aware interpreter the interpreter tests cross-check
-      # against, ships with LLVM since LLVM 23.
       llvm-23 \
       # leanc links through the system toolchain.
       build-essential \
