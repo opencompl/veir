@@ -4,49 +4,6 @@ import UnitTest.DataFlowFramework.Helpers
 open Std (HashMap)
 open Veir
 
--- TODO: Facts not initialized in the Dataflow Analysis Framework are implicitly assumed to be the pessimistic bottom state.
--- We should not assume this implicitly, but rather encode this in the framework!!!!
-def isBlockLive (dfCtx : DataFlowContext) (block : BlockPtr) (irCtx : WfIRContext OpCode) : Bool :=
-  match dfCtx.getFact? .liveness (.InsertPoint (InsertPoint.atStart! block irCtx.raw)) with
-  | some fact => fact.live
-  | none => false
-
-def isEdgeLive (dfCtx : DataFlowContext) (src dst : BlockPtr) : Bool :=
-  match dfCtx.getFact? .liveness (.CFGEdge { source := src, target := dst }) with
-  | some fact => fact.live
-  | none => false
-
-def checkNamedBlockLiveness
-    (dfCtx : DataFlowContext)
-    (irCtx : WfIRContext OpCode)
-    (blockMap : HashMap String BlockPtr)
-    (expected : Array (String × Bool)) : MismatchReport := Id.run do
-  let mut report := #[]
-  for (name, live) in expected do
-    match blockMap[name]? with
-    | some block =>
-      let observed := isBlockLive dfCtx block irCtx
-      if observed != live then
-        report := report.push s!"block {name}: expected live={live}, observed live={observed}"
-    | none =>
-      report := report.push s!"block {name}: missing block label"
-  report
-
-def checkNamedEdgeLiveness
-    (dfCtx : DataFlowContext)
-    (blockMap : HashMap String BlockPtr)
-    (expected : Array ((String × String) × Bool)) : MismatchReport := Id.run do
-  let mut report := #[]
-  for ((srcName, dstName), live) in expected do
-    match blockMap[srcName]?, blockMap[dstName]? with
-    | some src, some dst =>
-      let observed := isEdgeLive dfCtx src dst
-      if observed != live then
-        report := report.push s!"edge {srcName} -> {dstName}: expected live={live}, observed live={observed}"
-    | _, _ =>
-      report := report.push s!"edge {srcName} -> {dstName}: missing block label(s)"
-  report
-
 private def run
     (mlir : String)
     (expectedBlockLives : Array (String × Bool))
@@ -65,6 +22,7 @@ private def testTopLevelAndFunctionEntryBlocksLive : String :=
 ^bb0:
   "func.func"() <{sym_name = "f", function_type = () -> ()}> ({
   ^entry:
+    "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()"#
     #[("bb0", true), ("entry", true)]
@@ -72,30 +30,53 @@ private def testTopLevelAndFunctionEntryBlocksLive : String :=
 
 private def testLiteralBranchWithoutSCPTakesKnownSuccessor : String :=
   run
-    r#""builtin.module"() ({
+    r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
 ^bb0:
-  %cond = "arith.constant"() <{ value = 1 : i32 }> : () -> i32
-  "test.test"(%cond)[^bb1, ^bb2] : (i32) -> ()
+  %cond = "arith.constant"() <{ value = 1 : i1 }> : () -> i1
+  "cf.cond_br"(%cond) [^bb1, ^bb2]
+    <{operandSegmentSizes = array<i32: 1, 0, 0>}> : (i1) -> ()
 ^bb1:
   %x = "arith.constant"() <{ value = 10 : i32 }> : () -> i32
+  "func.return"() : () -> ()
 ^bb2:
   %y = "arith.constant"() <{ value = 20 : i32 }> : () -> i32
+  "func.return"() : () -> ()
 }) : () -> ()"#
     #[("bb1", true), ("bb2", false)]
     #[ (("bb0", "bb1"), true)
      , (("bb0", "bb2"), false)
      ]
 
+private def testLlvmLiteralBranchWithoutSCPTakesKnownSuccessor : String :=
+  run
+    r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
+^bb0:
+  %cond = "llvm.mlir.constant"() <{value = 0 : i1}> : () -> i1
+  "cf.cond_br"(%cond) [^bb1, ^bb2]
+    <{operandSegmentSizes = array<i32: 1, 0, 0>}> : (i1) -> ()
+^bb1:
+  "func.return"() : () -> ()
+^bb2:
+  "func.return"() : () -> ()
+}) : () -> ()"#
+    #[("bb1", false), ("bb2", true)]
+    #[ (("bb0", "bb1"), false)
+     , (("bb0", "bb2"), true)
+     ]
+
 private def testUnknownBranchWithoutSCPMarksAllSuccessorsLive : String :=
   run
-    r#""builtin.module"() ({
+    r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
 ^bb0:
-  %cond = "test.test"() : () -> i32
-  "test.test"(%cond)[^bb1, ^bb2] : (i32) -> ()
+  %cond = "test.test"() : () -> i1
+  "cf.cond_br"(%cond) [^bb1, ^bb2]
+    <{operandSegmentSizes = array<i32: 1, 0, 0>}> : (i1) -> ()
 ^bb1:
   %x = "arith.constant"() <{ value = 10 : i32 }> : () -> i32
+  "func.return"() : () -> ()
 ^bb2:
   %y = "arith.constant"() <{ value = 20 : i32 }> : () -> i32
+  "func.return"() : () -> ()
 }) : () -> ()"#
     #[("bb1", true), ("bb2", true)]
     #[ (("bb0", "bb1"), true)
@@ -104,22 +85,24 @@ private def testUnknownBranchWithoutSCPMarksAllSuccessorsLive : String :=
 
 private def testDiamond : String :=
   run
-    r#""builtin.module"() ({
+    r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
 ^bb0:
-  "test.test"() [^bb1] : () -> ()
+  "cf.br"() [^bb1] : () -> ()
 ^bb1:
-  %cond = "arith.constant"() <{ value = 1 : i32 }> : () -> i32
-  "test.test"(%cond)[^bb2, ^bb3] : (i32) -> ()
+  %cond = "arith.constant"() <{ value = 1 : i1 }> : () -> i1
+  "cf.cond_br"(%cond) [^bb2, ^bb3]
+    <{operandSegmentSizes = array<i32: 1, 0, 0>}> : (i1) -> ()
 ^bb2:
-  "test.test"() [^bb5] : () -> ()
+  "cf.br"() [^bb5] : () -> ()
 ^bb3:
-  "test.test"() [^bb4] : () -> ()
+  "cf.br"() [^bb4] : () -> ()
 ^bb4:
-  "test.test"() [^bb6] : () -> ()
+  "cf.br"() [^bb6] : () -> ()
 ^bb5:
-  "test.test"() [^bb6] : () -> ()
+  "cf.br"() [^bb6] : () -> ()
 ^bb6:
   %x = "arith.constant"() <{ value = 10 : i32 }> : () -> i32
+  "func.return"() : () -> ()
 }) : () -> ()"#
     #[("bb1", true), ("bb2", true), ("bb3", false), ("bb4", false), ("bb5", true), ("bb6", true)]
     #[ (("bb0", "bb1"), true)
@@ -140,16 +123,19 @@ to the block's liveness fact. Visiting the later `bb2` then makes `bb1` live.
 -/
 private def testReachabilityDiscoveredAfterSourceOrderScan : String :=
   run
-    r#""builtin.module"() ({
+    r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
+^entry:
+  "cf.br"() [^bb0] : () -> ()
 ^bb0:
-  "test.test"() [^bb2] : () -> ()
+  "cf.br"() [^bb2] : () -> ()
 ^bb1:
-  "test.test"() [^bb0] : () -> ()
+  "cf.br"() [^bb0] : () -> ()
 ^bb2:
-  "test.test"() [^bb1] : () -> ()
+  "cf.br"() [^bb1] : () -> ()
 }) : () -> ()"#
-    #[("bb0", true), ("bb1", true), ("bb2", true)]
-    #[ (("bb0", "bb2"), true)
+    #[("entry", true), ("bb0", true), ("bb1", true), ("bb2", true)]
+    #[ (("entry", "bb0"), true)
+     , (("bb0", "bb2"), true)
      , (("bb2", "bb1"), true)
      , (("bb1", "bb0"), true)
      ]
@@ -170,6 +156,12 @@ info: "ok"
 -/
 #guard_msgs in
 #eval! testLiteralBranchWithoutSCPTakesKnownSuccessor
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testLlvmLiteralBranchWithoutSCPTakesKnownSuccessor
 
 /--
 info: "ok"

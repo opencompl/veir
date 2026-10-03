@@ -189,30 +189,6 @@ public def RegionPtr.hasNoTerminator (region : RegionPtr) (ctx : WfIRContext OpI
     HasOpInfo.hasNoTerminator parent.opType (parent.regions.idxOf region)
   | none => false
 
-/--
-Find the region that establishes the nearest `IsolatedFromAbove` scope around
-`region`. The returned region is one of the isolated operation's direct
-regions; different regions of the same isolated operation are separate scopes.
-As in MLIR's `getInsertionRegion`, a top-level operation (one not nested in any
-region) also establishes a scope, so this returns `none` only when `region`
-itself is detached from any operation.
--/
-public partial def RegionPtr.nearestIsolatedScope?
-    (region : RegionPtr) (ctx : IRContext OpInfo) : Option RegionPtr := do
-  let parentOp ← (region.get! ctx).parent
-  if HasOpInfo.isIsolatedFromAbove (parentOp.get! ctx).opType then
-    return region
-  let some parentRegion := parentOp.getParentRegion! ctx | return region
-  parentRegion.nearestIsolatedScope? ctx
-
-/--
-Find the region that establishes the nearest `IsolatedFromAbove` scope around
-`op`, as `RegionPtr.nearestIsolatedScope?` does for its parent region.
--/
-public def OperationPtr.nearestIsolatedScope?
-    (op : OperationPtr) (ctx : IRContext OpInfo) : Option RegionPtr := do
-  (← op.getParentRegion! ctx).nearestIsolatedScope? ctx
-
 end -- public section
 
 end Veir

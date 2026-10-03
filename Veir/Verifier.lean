@@ -5,6 +5,7 @@ public import Veir.GlobalOpInfo
 public import Veir.Interfaces.FunctionInterfaces
 public import Veir.Interfaces.SideEffectInterfaces
 public import Veir.IRNesting
+public import Veir.Interfaces.RegionIsolationInterfaces
 public import Veir.Interfaces.RegionKindInterfaces
 public import Veir.IR.Dominance
 

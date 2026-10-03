@@ -19,21 +19,20 @@ open Veir
 
 /-- Returns true if `op` is a viable zero-argument `@main` function. -/
 private def isZeroArgMainFunc (ctx : IRContext OpCode) (op : OperationPtr) : Bool :=
-  match FunctionOpInterface.getSymName? op ctx with
-  | some symName =>
-      String.fromUTF8! symName.value == "main" &&
-        (FunctionOpInterface.getNumArguments? op ctx == some 0)
-  | none =>
-      false
+  match FunctionOp.cast? op ctx with
+  | some funcOp =>
+    String.fromUTF8! funcOp.getSymName.value == "main" && funcOp.getNumArguments == 0
+  | none => false
 
 /-- Scan the module's top-level ops for entry points. -/
 partial def scanEntryPoints (ctx : IRContext OpCode) (op : Option OperationPtr)
-    (entryPoints : List OperationPtr := []) : IO (List OperationPtr) := do
+    (entryPoints : List {op : OperationPtr // op.isFunctionLike ctx} := []) :
+    IO (List {op : OperationPtr // op.isFunctionLike ctx}) := do
   match op with
   | none => return entryPoints
   | some op =>
-    if op.isFunctionLike ctx then
-      let entryPoints := if isZeroArgMainFunc ctx op then op :: entryPoints else entryPoints
+    if hIsFunc : op.isFunctionLike ctx then
+      let entryPoints := if isZeroArgMainFunc ctx op then ⟨op, hIsFunc⟩ :: entryPoints else entryPoints
       scanEntryPoints ctx (op.get! ctx).next entryPoints
     else
       match op.getOpType! ctx with
@@ -44,7 +43,8 @@ partial def scanEntryPoints (ctx : IRContext OpCode) (op : Option OperationPtr)
         IO.Process.exit 1
 
 /-- Resolve the unique entry point of the module, if one exists. -/
-def resolveEntryPoint (ctx : IRContext OpCode) (moduleOp : OperationPtr) : IO OperationPtr := do
+def resolveEntryPoint (ctx : IRContext OpCode) (moduleOp : OperationPtr) :
+    IO {op : OperationPtr // op.isFunctionLike ctx} := do
   let region := moduleOp.getRegion! ctx 0
   let entryPoints ←
     match (region.get! ctx).firstBlock with
@@ -74,7 +74,8 @@ def main (args : List String) : IO Unit := do
   | .ok (ctx, op, source) =>
     let rawCtx : IRContext OpCode := ctx
     let mainOp ← resolveEntryPoint rawCtx op
-    let result := bind (interpretFunction (ctx := ctx) mainOp #[] MemoryState.empty (by sorry))
+    let mainFunc := FunctionOp.cast mainOp.val rawCtx mainOp.property
+    let result := bind (interpretFunction (ctx := ctx) mainFunc #[] MemoryState.empty (by sorry))
                        (fun (_, r) => pure r)
     match result with
     | .ok results => IO.println s!"Program output: {results}"

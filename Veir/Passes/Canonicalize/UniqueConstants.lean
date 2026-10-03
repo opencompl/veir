@@ -22,6 +22,20 @@ structure Key where
   scope : RegionPtr
 deriving DecidableEq, BEq, Hashable
 
+/--
+Find the region that establishes the nearest `IsolatedFromAbove` scope around
+`region`. As in MLIR's `getInsertionRegion`, a top-level operation (one not
+nested in any region) also establishes a scope, so this returns `none` only
+when `region` itself is detached from any operation.
+-/
+partial def scopeOf? (region : RegionPtr) (ctx : IRContext OpCode) :
+    Option RegionPtr := do
+  let parentOp ← (region.get! ctx).parent
+  if HasOpInfo.isIsolatedFromAbove (parentOp.get! ctx).opType then
+    return region
+  let some parentRegion := parentOp.getParentRegion! ctx | return region
+  scopeOf? parentRegion ctx
+
 /-- Unique and hoist every constant-like operation nested under `top`. -/
 public def run (ctx : WfIRContext OpCode) (top : OperationPtr) :
     WfIRContext OpCode := Id.run do
@@ -31,7 +45,7 @@ public def run (ctx : WfIRContext OpCode) (top : OperationPtr) :
   for op in top.nestedOps ctx.raw do
     let opType := op.getOpType! ctx.raw
     if !opType.isConstantLike then continue
-    let scope := (op.nearestIsolatedScope? ctx.raw).get!
+    let scope := (scopeOf? (op.getParentRegion! ctx.raw).get! ctx.raw).get!
     let key : Key := {
       kind := ⟨opType, op.getProperties! ctx.raw opType⟩
       resultType := (op.getResult 0 : ValuePtr).getType! ctx.raw

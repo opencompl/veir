@@ -4,6 +4,7 @@ public import Veir.Pass
 import Veir.Rewriter.WfRewriter
 import Veir.IR.Dominance
 
+import Veir.Interfaces.RegionIsolationInterfaces
 import Veir.Interfaces.SideEffectInterfaces
 
 /-!
@@ -33,10 +34,10 @@ abbrev Kind := OpKind OpCode
     Proving this will be the crux of the eventual correctness proof for
     this pass.
 
-    `scope` is the nearest `IsolatedFromAbove` region enclosing the
-    operation. It is part of the Key because rewiring B's uses to A's
-    results makes those uses reference a value defined at A, which is
-    only legal when no isolated boundary separates the two. -/
+    `scope` is the nearest possibly isolated region enclosing the
+    operation, including regions of unregistered operations. Rewiring
+    B's uses to A's results could introduce an illegal capture across
+    such a boundary, so the Key keeps their expressions separate. -/
 structure Key where
   kind : Kind
   resultTypes : Array TypeAttr
@@ -52,7 +53,7 @@ def makeKey
     kind
     resultTypes := op.getResultTypes! ctx
     operands
-    scope := op.nearestIsolatedScope? ctx
+    scope := do (← op.getParentRegion! ctx).nearestPossiblyIsolatedScope? ctx
   }
 
 /-- Because ValuePtr is a sum type where the numeric IDs assigned to
@@ -139,8 +140,8 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
     not dominate later equivalent operations in a different CFG
     branch. For any operation whose value is already available *and
     dominates it*, replace it with the earlier one. Candidates never
-    cross an `IsolatedFromAbove` boundary, because the Key records the
-    enclosing isolated scope. -/
+    cross a potentially isolated boundary, because the Key records the
+    enclosing possibly isolated scope. -/
 def run (ctx : WfIRContext OpCode) (top : OperationPtr) :
     WfIRContext OpCode := Id.run do
   let some dfCtx := Veir.fixpointSolve top #[Veir.DominanceAnalysis] ctx
