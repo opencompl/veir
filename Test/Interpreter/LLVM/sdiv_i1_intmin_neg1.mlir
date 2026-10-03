@@ -1,5 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
 // RUN: LLUBI
+// RUN: ALIVE_EXEC
 
 // In i1, -1 is also intMin, so `sdiv -1, -1` is immediate UB.
 "builtin.module"() ({
