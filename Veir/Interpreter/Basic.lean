@@ -96,7 +96,7 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
       let .byteType resBw := resType.val | none
       return (#[.byte resBw.bitwidth (RISCV.Reg.toByte val resBw.bitwidth)], mem, none)
     | .llvmPointerType _, [.reg val] =>
-      return (#[.addr (mem.ptrFromInt (.val val.val))], mem, none)
+      return (#[.addr (Data.LLVM.Ptr.ofInt (.val val.val))], mem, none)
     | _ , _ => none
   | _ => none
 
