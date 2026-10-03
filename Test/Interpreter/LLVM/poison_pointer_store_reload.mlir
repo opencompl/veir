@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: ALIVE_EXEC
 
 // LLUBI: cannot cross-check this test: it returns a pointer, which the
 // comparison does not know how to read.

@@ -1,5 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
 // RUN: LLUBI
+// RUN: ALIVE_EXEC
 
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i32 ()>}> ({
