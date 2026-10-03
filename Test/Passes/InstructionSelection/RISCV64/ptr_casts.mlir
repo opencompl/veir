@@ -1,8 +1,6 @@
 // RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
 
-// The pass leaves `llvm.inttoptr` and `llvm.ptrtoint` alone: a register holds
-// an address, so a pointer that survives one would come back having lost the
-// object it points into.
+// The pass leaves `llvm.inttoptr` and `llvm.ptrtoint` alone.
 
 "builtin.module"() ({
     "func.func"()  <{"function_type" = (i64) -> (i64), "sym_name" = "a"}> ({
