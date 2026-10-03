@@ -1,6 +1,7 @@
 module
 
 public import Veir.Rewriter.WfRewriter
+public import Veir.Interfaces.SymbolInterfaces
 
 /-!
 # FunctionOpInterface
@@ -25,9 +26,15 @@ def OperationPtr.isFunctionLike (op : OperationPtr) (ctx : IRContext OpCode) : B
   (HasOpInfo.functionInterface? (op.getOpType! ctx)).isSome
 
 /-- A function-like operation. -/
-structure FunctionOp (ctx : IRContext OpCode) (op : OperationPtr) where
-  interface : FunctionOpInterface (propertiesOf (op.getOpType! ctx))
-  functionInterface?_eq : HasOpInfo.functionInterface? (op.getOpType! ctx) = some interface
+structure FunctionOp (ctx : IRContext OpCode) (op : OperationPtr) extends SymbolOp ctx op where
+  functionInterface : FunctionOpInterface (propertiesOf (op.getOpType! ctx))
+  functionInterface?_eq :
+    HasOpInfo.functionInterface? (op.getOpType! ctx) = some functionInterface
+  symbolInterface := (HasOpInfo.symbolInterface? (op.getOpType! ctx)).get
+    (HasOpInfo.functionInterface_requires_symbol functionInterface?_eq)
+  symbolInterface?_eq := by simp
+  getSymName_isSome :=
+    HasOpInfo.functionInterface_getSymName_isSome functionInterface?_eq symbolInterface?_eq
 
 namespace FunctionOp
 
@@ -39,15 +46,15 @@ This is equivalent to `mlir::dyn_cast<FunctionOpInterface>(op)` in MLIR.
 @[inline]
 def cast? (op : OperationPtr) (ctx : IRContext OpCode) : Option (FunctionOp ctx op) :=
   match h : HasOpInfo.functionInterface? (op.getOpType! ctx) with
-  | some interface => some ⟨interface, h⟩
+  | some functionInterface => some { functionInterface, functionInterface?_eq := h }
   | none => none
 
 @[simp]
 theorem cast?_eq_some {op : OperationPtr} {ctx : IRContext OpCode} (funcOp : FunctionOp ctx op) :
     cast? op ctx = some funcOp := by
-  cases funcOp; grind [cast?]
+  rcases funcOp with ⟨⟨⟩⟩; grind [cast?]
 
-grind_pattern cast?_eq_some => cast? op ctx, funcOp.interface
+grind_pattern cast?_eq_some => cast? op ctx, funcOp.functionInterface
 
 /--
 Cast a function-like operation to a `FunctionOp`.
@@ -61,15 +68,10 @@ def cast (op : OperationPtr) (ctx : IRContext OpCode) (h : op.isFunctionLike ctx
 
 variable {ctx : IRContext OpCode} {op : OperationPtr}
 
-/-- Returns the symbol name of the function. -/
-def getSymName (funcOp : FunctionOp ctx op) : StringAttr :=
-  let opType := op.getOpType! ctx
-  funcOp.interface.getSymName (op.getProperties! ctx opType)
-
 /-- Returns the type of the function. -/
 def getFunctionType (funcOp : FunctionOp ctx op) : FunctionType :=
   let opType := op.getOpType! ctx
-  funcOp.interface.getFunctionType (op.getProperties! ctx opType)
+  funcOp.functionInterface.getFunctionType (op.getProperties! ctx opType)
 
 /-!
 ## Body Handling
@@ -120,7 +122,7 @@ def setFunctionType (wfCtx : WfIRContext OpCode) (funcOp : FunctionOp wfCtx.raw 
     (opInBounds : op.InBounds wfCtx.raw := by grind) : WfIRContext OpCode :=
   let opType := op.getOpType! wfCtx.raw
   let props := op.getProperties! wfCtx.raw opType
-  let newProps := funcOp.interface.setFunctionType props { inputs, outputs }
+  let newProps := funcOp.functionInterface.setFunctionType props { inputs, outputs }
   WfRewriter.setProperties wfCtx op opType newProps opInBounds
 
 /-- Sets the function type to the given input/output type lists, panicking if the op
