@@ -21,19 +21,22 @@ namespace Veir
      front of it and its results cast back to their original types after it.
 -/
 
-/-- ABI requirements shared by calls and function boundaries that we do not lower yet. -/
+/-- ABI requirements and call semantics that we do not lower yet. -/
 private def isUnsupportedAbiAttr (entry : ByteArray × Attribute) : Bool :=
   let (name, attr) := entry
   if name == "CConv".toUTF8 then
     match attr with
     | .cconvAttr cc => cc.value.trimAscii.toString != "ccc"
     | _ => true
+  -- MIR must record exposesReturnsTwice before these calls can be lowered safely.
+  else if name == "returns_twice".toUTF8 then true
   else if name == "arg_attrs".toUTF8 || name == "res_attrs".toUTF8 then
     match attr with
     | .arrayAttr attrs => attrs.value.any fun attr =>
       match attr with
       | .dictionaryAttr dict => dict.entries.any fun (name, _) =>
-        name == "llvm.byval".toUTF8 || name == "llvm.nest".toUTF8 ||
+        name == "llvm.byval".toUTF8 || name == "llvm.inalloca".toUTF8 ||
+          name == "llvm.nest".toUTF8 ||
           name == "llvm.signext".toUTF8 || name == "llvm.zeroext".toUTF8
       | _ => false
     | _ => false
