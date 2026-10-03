@@ -23,6 +23,7 @@ import Veir.Passes.Legalization
 import Veir.Passes.Legalization.RISCV64LegalizerInfo
 import Veir.Passes.CirToStd
 import Veir.Passes.LLVMToGMIR
+import Veir.Passes.PrintSCCP
 
 open Veir.Parser
 open Veir.Parser.ParserError
@@ -53,7 +54,8 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
      LegalizePass,
      LegalizeRISCV64Pass,
      CirToStdPass,
-     LLVMToGMIRPass ] : List (Pass OpCode)).foldl
+     LLVMToGMIRPass,
+     PrintSCCPPass ] : List (Pass OpCode)).foldl
     (fun m pass => m.insert pass.name pass)
     (Std.HashMap.emptyWithCapacity 16)
 
