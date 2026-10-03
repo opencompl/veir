@@ -1,5 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
 // RUN: LLUBI
+// RUN: ALIVE_EXEC
 
 // `llvm.bitcast` between pointer types hands the pointer through untouched,
 // so it keeps the object the pointer came from. `%past` points one object

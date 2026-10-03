@@ -1,5 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
 // RUN: LLUBI
+// RUN: ALIVE_EXEC
 
 // Writing past the end of an `alloca` is UB, even if there may be another
 // alloca available.

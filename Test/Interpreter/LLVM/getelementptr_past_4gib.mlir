@@ -1,5 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
 // RUN: LLUBI
+// RUN: ALIVE_EXEC
 
 // Pointer offsets are 64 bits wide. Stepping 4 GiB past an 8-byte object
 // leaves it, so the load is UB rather than wrapping back to the start.

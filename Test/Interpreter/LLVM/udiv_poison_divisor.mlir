@@ -1,5 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
 // RUN: LLUBI
+// RUN: ALIVE_EXEC
 
 // Unsigned division by a poison divisor is immediate UB: the poison value
 // could refine to 0, so the operation could be division by zero.

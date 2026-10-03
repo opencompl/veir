@@ -1,5 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
 // RUN: LLUBI
+// RUN: ALIVE_EXEC
 
 // Overwriting one byte of a stored pointer leaves bytes that no longer name
 // the object. The low byte is the one overwritten: object addresses are
