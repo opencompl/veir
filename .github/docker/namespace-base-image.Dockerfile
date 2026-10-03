@@ -10,9 +10,9 @@
 # The Namespace runner image ships neither `mlir-opt` nor a Python tool cache,
 # so the workflow installed both on every run. Baking them in removes the
 # install, which caching alone cannot do: a cache saves the download, not the
-# unpacking onto a fresh machine. `llubi` is baked in for the same reason: the
-# interpreter tests cross-check themselves against it, and skip silently when
-# it is missing.
+# unpacking onto a fresh machine. `llubi` is built from the LLVM sources for
+# a second reason: apt.llvm.org ships its manual page but not the binary, so
+# the interpreter tests that cross-check against it would always skip.
 
 ARG NAMESPACE_BASE_IMAGE_REF=""
 
@@ -34,12 +34,28 @@ RUN apt-get update \
  && apt-get update \
  && apt-get install -y --no-install-recommends \
       mlir-23-tools \
-      llvm-23 \
       # leanc links through the system toolchain.
       build-essential \
  && ln -s /usr/bin/mlir-opt-23 /usr/bin/mlir-opt \
- && ln -s "$(command -v llubi-23 || echo /usr/lib/llvm-23/bin/llubi)" /usr/bin/llubi \
  && rm -rf /var/lib/apt/lists/*
+
+# `llubi`, the UB-aware interpreter, is a tool of the LLVM tree that the
+# packages leave out, so it is built here. The release has to be the one the
+# rest of the image uses, so that the tests see the semantics they were
+# written against.
+ARG LLVM_RELEASE=llvmorg-23.1.2
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      cmake ninja-build git python3 \
+ && git clone --depth 1 --branch "${LLVM_RELEASE}" \
+      https://github.com/llvm/llvm-project /tmp/llvm \
+ && cmake -S /tmp/llvm/llvm -B /tmp/llvm/build -GNinja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DLLVM_TARGETS_TO_BUILD=host \
+ && cmake --build /tmp/llvm/build --target llubi \
+ && install -m 0755 /tmp/llvm/build/bin/llubi /usr/bin/llubi \
+ && rm -rf /tmp/llvm /var/lib/apt/lists/*
 
 # `uv` provides both the Python interpreter and the test dependencies, so no
 # separate Python install is needed.
