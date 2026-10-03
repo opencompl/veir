@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p='isel-riscv64,canonicalize{sccp=false},coerce-function-boundaries-to-riscv-reg,reconcile-cast,dce' | filecheck %s
+// RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
 
 // A constant-length memcpy/memset that takes at most 8 accesses, each no wider
 // than the known alignment, is expanded into loads and stores. Anything else
@@ -42,7 +42,9 @@
   }) : () -> ()
   // CHECK-LABEL: "cpy9"
   // CHECK:      %[[N:.*]] = "riscv.li"() <{"value" = 9 : i64}>
-  // CHECK-NEXT: "riscv_cf.call"(%{{.*}}, %{{.*}}, %[[N]]) <{"callee" = @memcpy}> : (!riscv.reg, !riscv.reg, !riscv.reg) -> ()
+  // CHECK-NEXT: %[[NI:.*]] = "builtin.unrealized_conversion_cast"(%[[N]]) : (!riscv.reg) -> i64
+  // CHECK:      %[[NR:.*]] = "builtin.unrealized_conversion_cast"(%[[NI]]) : (i64) -> !riscv.reg
+  // CHECK-NEXT: "riscv_cf.call"(%{{.*}}, %{{.*}}, %[[NR]]) <{"callee" = @memcpy}> : (!riscv.reg, !riscv.reg, !riscv.reg) -> ()
 
   // Non-constant length: a call.
   "llvm.func"() <{function_type = !llvm.func<void (!llvm.ptr, !llvm.ptr, i64)>, linkage = #llvm.linkage<external>, sym_name = "cpyn"}> ({
