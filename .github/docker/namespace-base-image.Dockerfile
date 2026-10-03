@@ -63,8 +63,12 @@ RUN apt-get update \
  && cmake --build /tmp/llvm/build \
  && git clone https://github.com/AliveToolkit/alive2 /tmp/alive2 \
  && git -C /tmp/alive2 checkout -q "${ALIVE2_COMMIT}" \
+ # Alive2 only looks for LLVM, and only offers `alive-exec`, once it is
+ # asked for the tools that use LLVM. The translation validation plugin,
+ # which `BUILD_TV` would add, is not needed here.
  && cmake -S /tmp/alive2 -B /tmp/alive2/build -GNinja \
       -DCMAKE_BUILD_TYPE=Release \
+      -DBUILD_LLVM_UTILS=1 \
       -DLLVM_DIR=/tmp/llvm/build/lib/cmake/llvm \
  && cmake --build /tmp/alive2/build --target alive-exec \
  && install -m 0755 /tmp/llvm/build/bin/llubi /usr/bin/llubi \
