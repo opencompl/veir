@@ -56,14 +56,32 @@ jobs:
           component: main
           suite: llvm-toolchain-noble-23
 
-      - name: Install mlir-opt
+      - name: Install mlir-opt and llubi
         uses: gerlero/apt-install@c0fa73fe5c4a22deecf6d629565be92a15dd2026 # v1.3.12
         with:
-          packages: mlir-23-tools
+          packages: mlir-23-tools llvm-23
 
       - name: Rename MLIR-opt
         run: |
           sudo ln -s /usr/bin/mlir-opt-23 /usr/bin/mlir-opt
+
+      # `llubi`, the UB-aware interpreter, ships with LLVM since LLVM 23. The
+      # interpreter tests that opt in with `// RUN: LLUBI` cross-check
+      # themselves against it and skip when it is absent, so a missing binary
+      # loses the cross-checks but does not fail the run. The lit output says
+      # which of the two it was.
+      - name: Put llubi on the PATH
+        run: |
+          llubi_bin=$(command -v llubi-23 || true)
+          if [ -z "$llubi_bin" ] && [ -x /usr/lib/llvm-23/bin/llubi ]; then
+            llubi_bin=/usr/lib/llvm-23/bin/llubi
+          fi
+          if [ -n "$llubi_bin" ]; then
+            sudo ln -s "$llubi_bin" /usr/bin/llubi
+            llubi --version
+          else
+            echo "::warning::llubi not found in llvm-23; its cross-checks will skip"
+          fi
 
       - name: Build the project
         uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596 # v1.6.0

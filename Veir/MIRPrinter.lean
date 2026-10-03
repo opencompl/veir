@@ -640,21 +640,20 @@ def emitTrampoline (t : Nat) (s : Nat) : IO Unit := do
 /-- The blocks of a function body reachable from its entry, in order.  A real
     codegen prunes the unreachable ones, and they break MIR liveness (their
     values aren't dominated by any real path). -/
-def reachableBlocks (ctx : IRContext OpCode) (funcOp : OperationPtr) : Array BlockPtr :=
-  let allBlocks := collectBlocks ctx (FunctionOpInterface.getEntryBlock? funcOp ctx)
+def reachableBlocks (ctx : IRContext OpCode) {op : OperationPtr} (funcOp : FunctionOp ctx op) :
+    Array BlockPtr :=
+  let allBlocks := collectBlocks ctx funcOp.getEntryBlock?
   let reach :=
     if allBlocks.isEmpty then []
     else reachable ctx allBlocks [(allBlocks[0]!).id]
   allBlocks.filter (fun b => reach.contains b.id)
 
-/-- Whether a function-like op has a body (as opposed to declaring an external
-    function). -/
-def hasBody (ctx : IRContext OpCode) (funcOp : OperationPtr) : Bool :=
-  funcOp.getNumRegions! ctx > 0 && (FunctionOpInterface.getEntryBlock? funcOp ctx).isSome
-
-/-- The symbol name of a function-like op. -/
-def symName (ctx : IRContext OpCode) (funcOp : OperationPtr) : String :=
-  String.fromUTF8! (FunctionOpInterface.getSymName? funcOp ctx).get!.value
+/-- Whether `op` is a function-like op with a body (as opposed to declaring an
+    external function). -/
+def hasBody (ctx : IRContext OpCode) (op : OperationPtr) : Bool :=
+  match FunctionOp.cast? op ctx with
+  | some funcOp => !funcOp.isExternal
+  | none => false
 
 /-- The `riscv_cf.call` ops in `blocks`. -/
 def calls (ctx : IRContext OpCode) (blocks : Array BlockPtr) : Array OperationPtr :=
@@ -712,7 +711,12 @@ def printFunction (ctx : IRContext OpCode) (name : String) (blocks : Array Block
     functions and declares every direct callee defined nowhere else, since the
     MIR parser resolves each `@callee` against the IR module. -/
 def printMIR (ctx : IRContext OpCode) (funcOps : Array OperationPtr) : IO Unit := do
-  let funcs := (funcOps.filter (hasBody ctx)).map fun f => (symName ctx f, reachableBlocks ctx f)
+  let funcs := funcOps.filterMap fun op => do
+    let funcOp ← FunctionOp.cast? op ctx
+    if funcOp.isExternal then
+      none
+    else
+      pure (String.fromUTF8! funcOp.getSymName.value, reachableBlocks ctx funcOp)
   let defined := funcs.map (·.1)
   let mut externs : Array String := #[]
   for (_, blocks) in funcs do

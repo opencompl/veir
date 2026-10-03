@@ -141,11 +141,17 @@ theorem Interp.isRefinedBy_trans {α : Type} {R : α → α → Prop}
   rcases v₃ with _ | (v₃ | _) <;>
   grind
 
+theorem FunctionOp.isRefinedBy_trans
+    (h12 : isRefinedBy func₁ func₂ op₁In op₂In)
+    (h23 : isRefinedBy func₂ func₃ op₂In op₃In) :
+    isRefinedBy func₁ func₃ op₁In op₃In := by
+  grind [isRefinedBy, Interp.isRefinedBy_trans, FunctionResult.isRefinedBy_trans]
+
 theorem OperationPtr.isRefinedByAsFunction_trans
     (h12 : isRefinedByAsFunction op₁ ctx₁ op₂ ctx₂ op₁In op₂In)
     (h23 : isRefinedByAsFunction op₂ ctx₂ op₃ ctx₃ op₂In op₃In) :
     isRefinedByAsFunction op₁ ctx₁ op₃ ctx₃ op₁In op₃In := by
-  grind [isRefinedByAsFunction, Interp.isRefinedBy_trans, FunctionResult.isRefinedBy_trans]
+  grind [isRefinedByAsFunction, FunctionOp.isRefinedBy_trans]
 
 theorem OperationPtr.isModuleRefinedBy_trans
     (h12 : isModuleRefinedBy mod₁ ctx₁ mod₂ ctx₂)

@@ -53,15 +53,16 @@ set_option warn.sorry false in
     inserting bridging casts and rewriting the `function_type` to match. Handles
     `func.func`, `llvm.func` and `cir.func`. -/
 def coerceFunction (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
-    (funcOp : OperationPtr) : ExceptT String IO (WfIRContext OpCode) := do
+    (op : OperationPtr) : ExceptT String IO (WfIRContext OpCode) := do
   -- Shadow the parameter: from here on `ctx` always names the latest version, with no
   -- separate old binding left around to second-guess.
   let mut ctx := ctx
-  let some entry := FunctionOpInterface.getEntryBlock? funcOp ctx.raw | return ctx
-  let returnCode := returnOpCodeFor (funcOp.getOpType! ctx.raw)
+  let some funcOp := FunctionOp.cast? op ctx.raw | return ctx
+  let some entry := funcOp.getEntryBlock? | return ctx
+  let returnCode := returnOpCodeFor (op.getOpType! ctx.raw)
   -- Default the output types to the currently-declared ones, then flip coerced positions.
   -- This preserves uncoerced results and `llvm.func`'s `void` return.
-  let mut outputs : Array Attribute := FunctionOpInterface.getResultTypes! funcOp ctx.raw
+  let mut outputs : Array Attribute := funcOp.getResultTypes
   -- (1) Coerce entry-block arguments (the function parameters). This mirrors the
   --     block-argument coercion in `isel-br-riscv64`, which skips entry blocks.
   let mut inputs : Array Attribute := #[]
@@ -83,7 +84,7 @@ def coerceFunction (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
   -- (2) Coerce the operands of every return terminator in this function.
   let returnOps := ctx.raw.operations.keys.filter fun o =>
     o.getOpType! ctx.raw == returnCode &&
-      o.getParentOp! ctx.raw == some funcOp
+      o.getParentOp! ctx.raw == some op
   for retOp in returnOps do
     for j in List.range (retOp.getNumOperands! ctx.raw) do
       let opVal := retOp.getOperand! ctx.raw j
@@ -99,7 +100,9 @@ def coerceFunction (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
         outputs := outputs.set! j newType.val
       | none => pure ()
   -- (3) Rewrite the function_type to reflect the coerced boundary types.
-  ctx := FunctionOpInterface.setFunctionType! ctx funcOp inputs outputs
+  -- `funcOp` belongs to the context before the rewrites above, so cast it again.
+  let some funcOp := FunctionOp.cast? op ctx.raw | return ctx
+  ctx := FunctionOp.setFunctionType! ctx funcOp inputs outputs
   return ctx
 
 /-- Coerce the boundaries of functions selected by `shouldCoerce`. -/
@@ -109,8 +112,8 @@ public def coerceFunctionBoundaries (coercion : BoundaryCoercion) (ctx : WfIRCon
   let mut ctx := ctx
   let funcOps := ctx.raw.operations.keys.filter fun o =>
     o.isFunctionLike ctx.raw && shouldCoerce ctx.raw o
-  for funcOp in funcOps do
-    ctx ← coerceFunction coercion ctx funcOp
+  for op in funcOps do
+    ctx ← coerceFunction coercion ctx op
   return ctx
 
 
