@@ -635,6 +635,19 @@ def translate_nonterminator(
     dst_type = op.result_types[0]
     value_types[result] = dst_type
 
+    if name == "llvm.bitcast":
+        require_operands(op, 1)
+        src_type = convert_type(op.operand_types[0])
+        if src_type != convert_type(dst_type):
+            # A bitcast that changes the type is a reinterpretation, and the
+            # types it reinterprets between here are the byte type, which the
+            # LLVM interpreters do not read, and pointers and integers, which
+            # LLVM spells as `inttoptr` and `ptrtoint`.
+            raise Error(f"unsupported llvm.bitcast: {src_type} to {convert_type(dst_type)}")
+        # Between one type and itself the cast is the identity.
+        aliases[result] = llvm_value(op.operands[0], aliases)
+        return []
+
     if name == "llvm.alloca":
         require_operands(op, 1)
         elem = parse_elem_type(op.attr)

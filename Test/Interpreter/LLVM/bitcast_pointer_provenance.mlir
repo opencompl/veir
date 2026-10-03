@@ -1,11 +1,11 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
+// RUN: ALIVE_EXEC
 
 // `llvm.bitcast` between pointer types hands the pointer through untouched,
 // so it keeps the object the pointer came from. `%past` points one object
 // further along than its own, and walking back from the bitcast pointer
 // reaches the byte that was stored.
-//
-// The cross-checks cannot read this test: the translator has no `llvm.bitcast`.
 
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i64 ()>}> ({
