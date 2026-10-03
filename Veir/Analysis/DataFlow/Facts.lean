@@ -173,8 +173,8 @@ A dataflow fact stored by the framework.
 
 Each fact associates with a lattice anchor (some location in the program), has
 an array of dependents (other facts that "depend" on this fact's current state in
-some fashion), has an array of analysis subscribers (similar to dependents except 
-it's entire analyses that depend on this fact's current state), and has the fact 
+some fashion), has an array of analysis subscribers (similar to dependents except
+it's entire analyses that depend on this fact's current state), and has the fact
 specific payload determined by its `FactKind`.
 -/
 structure Fact (kind : FactKind) where
