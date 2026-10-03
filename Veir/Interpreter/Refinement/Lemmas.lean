@@ -300,8 +300,9 @@ theorem RuntimeValue.arrayIsRefinedBy_toList_triple {m : RefinementMode} {a b : 
     by grind [arrayIsRefinedBy]⟩
 
 /-- A runtime value `tv` that refines a non-poison integer value `v` is equal to it. -/
-theorem RuntimeValue.int_val_of_isRefinedBy {bw : Nat} {v : BitVec bw} {tv : RuntimeValue}
-    (h : RuntimeValue.int bw (.val v) ⊒ tv) : tv = RuntimeValue.int bw (.val v) := by
+theorem RuntimeValue.int_val_of_isRefinedBy {m : RefinementMode} {bw : Nat} {v : BitVec bw}
+    {tv : RuntimeValue} (h : RuntimeValue.int bw (.val v) ⊒[m] tv) :
+    tv = RuntimeValue.int bw (.val v) := by
   cases tv <;> grind [RuntimeValue.isRefinedBy, isRefinedBy, cases Data.LLVM.Int]
 
 /-- Two integers that refine are refined as runtime values. -/
