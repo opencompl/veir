@@ -3,10 +3,11 @@ module
 public import Veir.IR.OpInfo
 
 /-!
-# SymbolOpInterface
+# Symbols and Symbol Tables
 
 This file provides the `SymbolOpInterface` interface, which describes operations that define a
-symbol.
+symbol. It also provides the lookup of symbols by name in the operations with the `SymbolTable`
+trait.
 
 Also see:
 https://github.com/llvm/llvm-project/blob/main/mlir/include/mlir/IR/SymbolInterfaces.td
@@ -18,6 +19,10 @@ namespace Veir
 variable {OpCode : Type} [HasOpInfo OpCode]
 
 public section
+
+/-!
+## SymbolOp
+-/
 
 /--
 Whether this operation is a symbol. As in MLIR, an optional symbol without a name is not a symbol.
@@ -81,6 +86,68 @@ def getSymName (symbolOp : SymbolOp ctx op) : StringAttr :=
   (symbolOp.symbolInterface.getSymName props).get symbolOp.getSymName_isSome
 
 end SymbolOp
+
+/-!
+## Symbol Tables
+-/
+
+/-- Whether this operation has the `SymbolTable` trait. -/
+def OperationPtr.isSymbolTable (op : OperationPtr) (ctx : IRContext OpCode) : Bool :=
+  HasOpInfo.isSymbolTable (op.getOpType! ctx)
+
+/-- The first operation from `op` onward in its block that defines the symbol `name`. -/
+private def OperationPtr.findSymbolFrom? (op : OperationPtr) (ctx : IRContext OpCode)
+    (name : StringAttr) : Option OperationPtr := do
+  if (SymbolOp.cast? op ctx).map (·.getSymName) = some name then
+    return op
+  let next ← (op.get! ctx).next
+  next.findSymbolFrom? ctx name
+partial_fixpoint
+
+/-- Returns the symbol named `name` defined directly in the symbol table `op`. -/
+def OperationPtr.lookupSymbolIn? (op : OperationPtr) (ctx : IRContext OpCode)
+    (name : StringAttr) (_hst : op.isSymbolTable ctx := by grind) : Option OperationPtr := do
+  let region ← (op.get! ctx).regions[0]?
+  let block ← (region.get! ctx).firstBlock
+  let firstOp ← (block.get! ctx).firstOp
+  firstOp.findSymbolFrom? ctx name
+
+/--
+Returns the symbol named `name` defined directly in `op`, panicking if `op` is not a symbol table.
+-/
+def OperationPtr.lookupSymbolIn! (op : OperationPtr) (ctx : IRContext OpCode)
+    (name : StringAttr) : Option OperationPtr :=
+  if hst : op.isSymbolTable ctx then
+    op.lookupSymbolIn? ctx name hst
+  else
+    panic "OperationPtr.lookupSymbolIn! failed: operation is not a symbol table"
+
+@[grind =_, eq_bang ←]
+theorem OperationPtr.lookupSymbolIn!_eq_lookupSymbolIn? {op : OperationPtr}
+    {ctx : IRContext OpCode} {name : StringAttr} (hst : op.isSymbolTable ctx) :
+    op.lookupSymbolIn! ctx name = op.lookupSymbolIn? ctx name hst := by
+  simp [lookupSymbolIn!, hst]
+
+/--
+Returns the closest symbol table containing `op`, which is `op` itself if it is a symbol table.
+
+This differs from upstream MLIR in that an unregistered operation does not end the search.
+-/
+def OperationPtr.getNearestSymbolTable? (op : OperationPtr) (ctx : IRContext OpCode) :
+    Option {table : OperationPtr // table.isSymbolTable ctx} := do
+  if h : op.isSymbolTable ctx then
+    return ⟨op, h⟩
+  let parent ← op.getParentOp! ctx
+  parent.getNearestSymbolTable? ctx
+partial_fixpoint
+
+/--
+Returns the symbol named `name` in the closest symbol table containing `op`.
+-/
+def OperationPtr.lookupNearestSymbolFrom? (op : OperationPtr) (ctx : IRContext OpCode)
+    (name : StringAttr) : Option OperationPtr := do
+  let ⟨table, hst⟩ ← op.getNearestSymbolTable? ctx
+  table.lookupSymbolIn? ctx name hst
 
 end
 
