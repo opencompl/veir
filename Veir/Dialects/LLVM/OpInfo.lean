@@ -1571,7 +1571,9 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
        that `isel-riscv64` uses to lower this operation. -/
     let size ← layout.getTypeAllocSize properties.elem_type.val
     match ptr, idx with
-    | .val ptr, .val idx => return (#[.addr (.val ⟨ptr.object, UInt64.ofNat (ptr.offset.toNat + idx.toNat * size)⟩)], mem, none)
+    -- Address arithmetic keeps the pointer's object, and keeps a wild pointer wild.
+    | .val ptr, .val idx =>
+      return (#[.addr (.val { ptr with offset := UInt64.ofNat (ptr.offset.toNat + idx.toNat * size) })], mem, none)
     | _, _ => return (#[.addr .poison], mem, none)
   | .freeze => do
     let [val] := operands.toList | none
