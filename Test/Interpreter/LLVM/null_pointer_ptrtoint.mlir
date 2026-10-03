@@ -2,6 +2,7 @@
 
 // The operation `llvm.mlir.zero` yields the zero address (null-pointer). `llvm.ptrtoint`
 // gives that address with no poison bits, and bitcasting it gives the same as an `llvm.byte`.
+// Alive2 agrees (alive-exec): `ptrtoint` of null returns 0, non-poison.
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (!llvm.ptr, !llvm.byte<64>, i64)}> ({

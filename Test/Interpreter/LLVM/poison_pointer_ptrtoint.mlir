@@ -2,6 +2,7 @@
 
 // `llvm.ptrtoint` of a poison pointer gives a poison integer, and bitcasting that gives an
 // `llvm.byte` whose every bit is poison.
+// Alive2 agrees (alive-exec): `ptrtoint` of poison returns poison.
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (!llvm.byte<64>, i64)}> ({

@@ -3,7 +3,8 @@
 
 // A pointer survives the round trip through its address: `llvm.ptrtoint`
 // takes `%p` to its address and `llvm.inttoptr` gives a pointer through
-// which the stored value is read back.
+// which the stored value is read back. Alive2 agrees (alive-exec): the
+// function returns 7, non-poison.
 
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i64 ()>}> ({
