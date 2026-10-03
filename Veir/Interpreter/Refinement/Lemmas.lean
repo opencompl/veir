@@ -5,6 +5,7 @@ public import Veir.Interpreter.Refinement.Basic
 import all Veir.Interpreter.Refinement.Basic
 import all Veir.Interpreter.Memory
 import all Veir.Data.Refinement
+import all Veir.Data.Pointer.Basic
 
 public section
 
@@ -432,3 +433,123 @@ theorem Interp.isRefinedBy_operationResultFrom_of_llvm {mem : MemoryState}
     (h : Interp.isRefinedBy OperationResult.isRefinedBy x y) :
     Interp.isRefinedBy (OperationResult.isRefinedByFrom mem false) x y :=
   Interp.isRefinedBy_mono (fun _ _ hr => ⟨hr, by simp⟩) h
+
+/-! ## Assembly mode -/
+
+/-- Whether a value may stand in a relation read in `mem`: a pointer names an object of `mem`. -/
+@[expose]
+def RuntimeValue.ValidIn (mem : MemoryState) : RuntimeValue → Prop
+  | .addr (.val p) => p.ValidIn mem
+  | _ => True
+
+/-- A value that names objects of `mem` refines itself in assembly mode. -/
+theorem RuntimeValue.isRefinedBy_refl_asm {mem : MemoryState} {v : RuntimeValue}
+    (h : v.ValidIn mem) : v ⊒[.asm mem] v := by
+  cases v
+  case addr s =>
+    cases s
+    case val p =>
+      simp only [RuntimeValue.isRefinedBy, RuntimeValue.ValidIn, Data.LLVM.Ptr.isRefinedByIn] at h ⊢
+      exact ⟨h, Or.inl rfl⟩
+    case poison => simp [RuntimeValue.isRefinedBy, Data.LLVM.Ptr.isRefinedByIn]
+  all_goals grind [RuntimeValue.isRefinedBy]
+
+/-- Reflexivity in the mode of `mem`, which in assembly mode asks the value to be valid in it. -/
+theorem RuntimeValue.isRefinedBy_refl_of {asm : Bool} {mem : MemoryState} {v : RuntimeValue}
+    (h : asm = true → v.ValidIn mem) : v ⊒[.of asm mem] v := by
+  cases asm
+  · simp
+  · exact RuntimeValue.isRefinedBy_refl_asm (h rfl)
+
+theorem RuntimeValue.arrayIsRefinedBy_refl_of {asm : Bool} {mem : MemoryState}
+    {a : Array RuntimeValue} (h : asm = true → ∀ v ∈ a, v.ValidIn mem) : a ⊒[.of asm mem] a :=
+  ⟨rfl, fun i hi => RuntimeValue.isRefinedBy_refl_of fun ha =>
+    h ha _ (by rw [getElem!_pos a i hi]; exact Array.getElem_mem hi)⟩
+
+/-- Whether the values an action carries are valid in `mem`. -/
+@[expose]
+def ControlFlowAction.ValidIn (mem : MemoryState) : Option ControlFlowAction → Prop
+  | none => True
+  | some (.return vals) => ∀ v ∈ vals, v.ValidIn mem
+  | some (.branch vals _) => ∀ v ∈ vals, v.ValidIn mem
+
+theorem ControlFlowAction.optionIsRefinedBy_refl_of {asm : Bool} {mem : MemoryState}
+    {act : Option ControlFlowAction} (h : asm = true → ControlFlowAction.ValidIn mem act) :
+    ControlFlowAction.optionIsRefinedBy act act (.of asm mem) := by
+  rcases act with _ | (_ | _) <;>
+    simp only [ControlFlowAction.optionIsRefinedBy, ControlFlowAction.isRefinedBy,
+      ControlFlowAction.ValidIn] at h ⊢
+  all_goals first
+    | exact RuntimeValue.arrayIsRefinedBy_refl_of h
+    | exact ⟨trivial, RuntimeValue.arrayIsRefinedBy_refl_of h⟩
+
+/-- A step that returns one value and leaves the memory alone. -/
+theorem OperationResult.isRefinedByFrom_value {asm : Bool} {mem : MemoryState}
+    {v w : RuntimeValue} (hwf : RefinementMode.Wf asm mem) (h : v ⊒[.of asm mem] w) :
+    OperationResult.isRefinedByFrom mem asm (#[v], mem, none) (#[w], mem, none) :=
+  ⟨⟨RuntimeValue.arrayIsRefinedBy_singleton.mpr h, rfl, by simp [ControlFlowAction.optionIsRefinedBy],
+    hwf⟩, fun _ => MemoryState.Extends.refl mem⟩
+
+/-- A step whose two sides agree and leave the memory alone. -/
+theorem OperationResult.isRefinedByFrom_refl {asm : Bool} {mem : MemoryState}
+    {vals : Array RuntimeValue} {act : Option ControlFlowAction} (hwf : RefinementMode.Wf asm mem)
+    (hvals : asm = true → ∀ v ∈ vals, v.ValidIn mem)
+    (hact : asm = true → ControlFlowAction.ValidIn mem act) :
+    OperationResult.isRefinedByFrom mem asm (vals, mem, act) (vals, mem, act) :=
+  ⟨⟨RuntimeValue.arrayIsRefinedBy_refl_of hvals, rfl,
+    ControlFlowAction.optionIsRefinedBy_refl_of hact, hwf⟩, fun _ => MemoryState.Extends.refl mem⟩
+
+/--
+The access that makes assembly mode work: when the source accessed through `p`
+successfully, the pointer the target holds resolves to the same place.
+-/
+theorem MemoryState.LayoutWf.resolve_eq_of_isRefinedByIn {mem : MemoryState} (h : mem.LayoutWf)
+    {p q : Data.Pointer} (hpq : p.isRefinedByIn mem q) {size : UInt64} {obj : MemoryObject}
+    (hacc : mem.checkAccess (mem.resolve p) size = .ok obj) (hsize : size ≠ 0) :
+    mem.resolve q = mem.resolve p := by
+  obtain ⟨⟨hp, -⟩, hpq⟩ := hpq
+  rcases hpq with rfl | ⟨hwild, rfl⟩
+  · rfl
+  · rw [MemoryState.resolve_of_not_wild hwild] at hacc ⊢
+    simp only [MemoryState.resolve, Data.Pointer.ofAddress, ↓reduceIte]
+    apply h.decode_address hp _ hwild
+    simp only [MemoryState.checkAccess, Array.getElem?_eq_getElem hp, MemoryState.getObject?]
+      at hacc
+    split at hacc
+    · exact absurd ‹_› hsize
+    · split at hacc
+      · next hin =>
+        obtain ⟨hs, ho⟩ := hin
+        rw [UInt64.le_iff_toNat_le] at hs ho
+        rw [UInt64.toNat_sub_of_le _ _ hs] at ho
+        have hmod : (mem.objects[p.object].contents.size.toUInt64).toNat ≤
+            mem.objects[p.object].contents.size := by
+          first | (simp [Nat.toUInt64]; omega) | simp [Nat.toUInt64]
+        simp only [MemoryObject.size]
+        omega
+      · simp at hacc
+
+/-- Related pointers share their address. -/
+theorem MemoryState.LayoutWf.address_eq_of_isRefinedByIn {mem : MemoryState} (h : mem.LayoutWf)
+    {p q : Data.Pointer} (hpq : p.isRefinedByIn mem q) : mem.address q = mem.address p := by
+  rcases hpq.2 with rfl | ⟨-, rfl⟩
+  · rfl
+  · exact h.address_ofAddress _
+
+/--
+The wild pointer at the address of what the target holds refines the source pointer: a pointer
+survives a round trip through its address in assembly mode.
+-/
+theorem MemoryState.LayoutWf.isRefinedByIn_ofAddress {mem : MemoryState} (h : mem.LayoutWf)
+    {p q : Data.Pointer} (hpq : p.isRefinedByIn mem q) :
+    p.isRefinedByIn mem (Data.Pointer.ofAddress (mem.address q)) := by
+  rw [h.address_eq_of_isRefinedByIn hpq]
+  refine ⟨hpq.1, ?_⟩
+  cases hw : p.wild
+  · exact .inr ⟨rfl, rfl⟩
+  · left
+    obtain ⟨object, offset, wild⟩ := p
+    obtain rfl : object = 0 := hpq.1.2 hw
+    obtain rfl : wild = true := hw
+    simp [Data.Pointer.ofAddress, MemoryState.address,
+      Array.getElem?_eq_getElem h.nonempty, h.base_zero]
