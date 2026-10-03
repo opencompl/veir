@@ -2,8 +2,7 @@
 // RUN: LLUBI
 // RUN: ALIVE_EXEC
 
-// `llvm.ptrtoint` of a poison pointer gives a poison integer. The bits of a
-// poison integer as an `llvm.byte` are `bitcast`'s own test.
+// `llvm.ptrtoint` of a poison pointer gives a poison integer.
 
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i64 ()>}> ({
