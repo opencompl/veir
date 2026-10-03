@@ -650,24 +650,38 @@ axiom interpretOp'_ne_fail {ctx : WfIRContext OpCode} {op : OperationPtr}
 Monotonicity of `interpretOp'` in its operands, as a class so that a dialect can discharge it for
 its own opcodes without this file knowing about the dialect.
 -/
-class InterpretOp'Monotone (opType : OpCode) : Prop where
+class InterpretOp'Monotone (asm : Bool) (opType : OpCode) : Prop where
   monotone (properties : propertiesOf opType) (resultTypes : Array TypeAttr)
     (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr)
     (mem : MemoryState) :
-    operands ⊒ operands' →
-    Interp.isRefinedBy OperationResult.isRefinedBy
+    RefinementMode.Wf asm mem →
+    operands ⊒[.of asm mem] operands' →
+    Interp.isRefinedBy (OperationResult.isRefinedByFrom mem asm)
       (interpretOp' opType properties resultTypes operands blockOperands mem)
       (interpretOp' opType properties resultTypes operands' blockOperands mem)
 
-/-- Assumed for an opcode that has no proof yet. -/
-axiom interpretOp'_monotone_assumed (opType : OpCode) : InterpretOp'Monotone opType
+/-- Assumed for an opcode whose dialect has no proof yet, in either mode. -/
+axiom interpretOp'_monotone_assumed (asm : Bool) (opType : OpCode) : InterpretOp'Monotone asm opType
 
-theorem interpretOp'_monotone
-    (opType : OpCode) [inst : InterpretOp'Monotone opType] (properties : propertiesOf opType)
-    (resultTypes : Array TypeAttr)
+/-- The LLVM-mode instance of an opcode, from a proof over plain refinement. -/
+theorem InterpretOp'Monotone.ofLlvm (opType : OpCode)
+    (h : ∀ (properties : propertiesOf opType) (resultTypes : Array TypeAttr)
+      (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr)
+      (mem : MemoryState), operands ⊒ operands' →
+      Interp.isRefinedBy OperationResult.isRefinedBy
+        (interpretOp' opType properties resultTypes operands blockOperands mem)
+        (interpretOp' opType properties resultTypes operands' blockOperands mem)) :
+    InterpretOp'Monotone false opType where
+  monotone properties resultTypes operands operands' blockOperands mem _ hOps :=
+    Interp.isRefinedBy_operationResultFrom_of_llvm
+      (h properties resultTypes operands operands' blockOperands mem (by simpa using hOps))
+
+theorem interpretOp'_monotone (asm : Bool) (opType : OpCode) [inst : InterpretOp'Monotone asm opType]
+    (properties : propertiesOf opType) (resultTypes : Array TypeAttr)
     (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr) (mem : MemoryState) :
-    operands ⊒ operands' →
-    Interp.isRefinedBy OperationResult.isRefinedBy
+    RefinementMode.Wf asm mem →
+    operands ⊒[.of asm mem] operands' →
+    Interp.isRefinedBy (OperationResult.isRefinedByFrom mem asm)
       (interpretOp' opType properties resultTypes operands blockOperands mem)
       (interpretOp' opType properties resultTypes operands' blockOperands mem) :=
   inst.monotone properties resultTypes operands operands' blockOperands mem

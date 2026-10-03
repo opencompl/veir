@@ -221,6 +221,15 @@ def OperationResult.isRefinedBy (source target :
     RefinementMode.Wf asm source.2.1
 
 /--
+What one step of interpretation leaves, seen from the memory `mem` it started from: a refined
+result, and in assembly mode a memory that extends `mem`.
+-/
+@[expose]
+def OperationResult.isRefinedByFrom (mem : MemoryState) (asm : Bool)
+    (source target : Array RuntimeValue × MemoryState × Option ControlFlowAction) : Prop :=
+  OperationResult.isRefinedBy source target asm ∧ (asm = true → mem.Extends source.2.1)
+
+/--
 The function `func₁` (in `ctx₁`) is *refined by* `func₂` (in `ctx₂`) when, for every argument
 `values` and initial memory `mem`, interpreting `func₁` is refined by interpreting `func₂`.
 -/

@@ -29,12 +29,12 @@ variable {ctx ctx' : WfIRContext OpInfo}
 
 /-- `VariableState.getOperandValues` is monotone with respect to the state refinement relation:
 refined variable states produce refined operand arrays. -/
-theorem VariableState.getOperandValues_isRefinedBy
+theorem VariableState.getOperandValues_isRefinedBy {m : RefinementMode}
     {srcVars : VariableState ctx} {tgtVars : VariableState ctx'} {mapping : ValueMapping ctx ctx'}
-    (hRef : srcVars.isRefinedBy tgtVars mapping) (opIn : op.InBounds ctx.raw)
+    (hRef : srcVars.isRefinedBy tgtVars mapping m) (opIn : op.InBounds ctx.raw)
     (hOperands : op'.getOperands! ctx'.raw = mapping.applyToArray (op.getOperands! ctx.raw))
     (hSrc : srcVars.getOperandValues op = some srcVal) :
-    ∃ tgtVal, tgtVars.getOperandValues op' = some tgtVal ∧ srcVal ⊒ tgtVal := by
+    ∃ tgtVal, tgtVars.getOperandValues op' = some tgtVal ∧ srcVal ⊒[m] tgtVal := by
   simp only [VariableState.isRefinedBy] at hRef
   have ⟨hsize, hSrc⟩ := VariableState.getOperandValues_eq_some_iff.mp hSrc
   have hSrc₂ := Array.mapM_option_isSome (f := tgtVars.getVar?) (l := op'.getOperands! ctx'.raw)
@@ -51,17 +51,17 @@ related by `mapping`, the freshly-computed result values refine (`resValues ⊒ 
 and `op'` have the same results related by `mapping` (`hResults` and `hReflect`), then the target
 `setResultValues?` also succeeds and the states after binding the results are again related by
 `mapping`. -/
-theorem VariableState.setResultValues?_isRefinedBy
+theorem VariableState.setResultValues?_isRefinedBy {m : RefinementMode}
     {srcVars : VariableState ctx} {tgtVars : VariableState ctx'}
-    (hRef : srcVars.isRefinedBy tgtVars mapping) {newSrcVars : VariableState ctx}
-    {srcVals tgtVals : Array RuntimeValue} (hVals : srcVals ⊒ tgtVals)
+    (hRef : srcVars.isRefinedBy tgtVars mapping m) {newSrcVars : VariableState ctx}
+    {srcVals tgtVals : Array RuntimeValue} (hVals : srcVals ⊒[m] tgtVals)
     (hResults : op'.getResults! ctx'.raw = mapping.applyToArray (op.getResults! ctx.raw))
     (hReflect : mapping.ReflectsResults op op')
     (hSrc : srcVars.setResultValues? op srcVals opIn = some newSrcVars)
     (tgtValsConforms : RuntimeValue.ArrayConforms tgtVals (op'.getResultTypes! ctx'.raw))
     (opIn' : op'.InBounds ctx'.raw) :
     ∃ newTgtVars, tgtVars.setResultValues? op' tgtVals opIn' = some newTgtVars ∧
-                  newSrcVars.isRefinedBy newTgtVars mapping := by
+                  newSrcVars.isRefinedBy newTgtVars mapping m := by
   /- Conformance of the (refined) target values implies target success. -/
   have ⟨newTgtVars, hTgt⟩ :=
     (VariableState.setResultValues?_isSome_iff_conforms
@@ -94,17 +94,18 @@ results are added on both sides and re-established by `interpretOp'_monotone`, w
 values stay defined and refined.
 -/
 theorem interpretOp_monotone
-    {ctx ctx' : WfIRContext OpCode}
+    {ctx ctx' : WfIRContext OpCode} {asm : Bool}
     {state : InterpreterState ctx} {state' : InterpreterState ctx'}
     {mapping : ValueMapping ctx ctx'}
     (opIn : op.InBounds ctx.raw) (opIn' : op'.InBounds ctx'.raw)
-    (hState : state.isRefinedBy state' mapping)
+    (hState : state.isRefinedBy state' mapping asm)
     (hPreserves : mapping.PreservesOperation op op')
     (opVerif' : op'.Verified ctx' opIn') :
     Interp.isRefinedBy
       (fun (r₁ : InterpreterState ctx × Option ControlFlowAction)
            (r₂ : InterpreterState ctx' × Option ControlFlowAction) =>
-        r₁.1.isRefinedBy r₂.1 mapping ∧ ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2)
+        r₁.1.isRefinedBy r₂.1 mapping asm ∧
+          ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2 (.of asm r₁.1.memory))
       (interpretOp op state opIn)
       (interpretOp op' state' opIn') := by
   -- If the source interpretation fails, then the refinement is trivial
@@ -117,9 +118,9 @@ theorem interpretOp_monotone
     VariableState.getOperandValues_isRefinedBy hState.2.1 opIn hPreserves.operands hSrcOps
   have hMem : state.memory = state'.memory := hState.1
   -- Add the refinement of `interpretOp'` on `op` with `operands` and `operands'`
-  have hPR1 := interpretOp'_monotone (op.getOpType! ctx.raw)
+  have hPR1 := interpretOp'_monotone asm (op.getOpType! ctx.raw)
     (op.getProperties! ctx.raw (op.getOpType! ctx.raw)) (op.getResultTypes! ctx.raw)
-    operands operands' (op.getSuccessors! ctx.raw) state.memory hOpsRef
+    operands operands' (op.getSuccessors! ctx.raw) state.memory hState.2.2 hOpsRef
   -- Add the equality between `interpretOp'` on `operands'`
   have hInterp'Eq : op'.interpret ctx'.raw operands' state'.memory =
                     op.interpret ctx.raw operands' state.memory := by
@@ -135,17 +136,17 @@ theorem interpretOp_monotone
     simp only [Interp.isRefinedBy_ok_target_iff, Prod.exists]
     have ⟨resValues, hinterp', hResValues⟩ :=
       (interpretOp_ok_iff_of_getOperandValues_eq_some hSrcOps).mp hsrc
-    simp only [hinterp', Interp.isRefinedBy_ok_target_iff, OperationResult.isRefinedBy,
-      RefinementMode.of_false, RefinementMode.wf_false, and_true, Prod.exists] at hPR1
-    have ⟨resValues', memory'₂, act', hinterp'Tgt, resValuesRef, memoryEq, actRef⟩ := hPR1
+    simp only [hinterp', Interp.isRefinedBy_ok_target_iff, OperationResult.isRefinedByFrom,
+      OperationResult.isRefinedBy, Prod.exists] at hPR1
+    have ⟨resValues', memory'₂, act', hinterp'Tgt, ⟨resValuesRef, memoryEq, actRef, hwf⟩, hExt⟩ :=
+      hPR1
     subst memory'₂
     simp only [← hInterp'Eq] at hinterp'Tgt
     simp only [interpretOp, hTgtOps, bind, hinterp'Tgt, liftM, monadLift, MonadLift.monadLift]
     have := interpretOp'_results_conform (opInBounds := opIn') opVerif' (VariableState.getOperandValues_conforms hTgtOps) hinterp'Tgt
     have ⟨v, hv⟩ := (VariableState.setResultValues?_isSome_iff_conforms state'.variables opIn').mp this
     simp only [hv, Interp.pure_eq, Interp.withBlame_ok, Interp.ok.injEq, Prod.mk.injEq]
-    have stateVarRef : state.variables.isRefinedBy state'.variables mapping := by
-      simpa using hState.2.1
+    have stateVarRef := VariableState.isRefinedBy_extends hExt hState.2.1
     grind [InterpreterState.isRefinedBy,
       VariableState.setResultValues?_isRefinedBy stateVarRef resValuesRef,
       cases ValueMapping.PreservesOperation]
@@ -164,20 +165,23 @@ refinement over an *identical* list of operations modulus α-renaming
 modulo renaming `mapping`). -/
 theorem interpretOpList_mono
     {ctx ctx' : WfIRContext OpCode} {root : OperationPtr} (hVerif : ctx'.Verified root)
-    {ops : List OperationPtr}
+    {ops : List OperationPtr} {asm : Bool}
     (opsInBounds : ∀ op, op ∈ ops → op.InBounds ctx.raw)
     (opsInBounds' : ∀ op, op ∈ ops → op.InBounds ctx'.raw)
     {mapping : ValueMapping ctx ctx'}
     {state : InterpreterState ctx} {state' : InterpreterState ctx'}
-    (hState : state.isRefinedBy state' mapping)
+    (hState : state.isRefinedBy state' mapping asm)
     (hPreserves : ∀ op, (h : op ∈ ops) → mapping.PreservesOperation op op) :
     Interp.isRefinedBy
       (fun (r₁ : InterpreterState ctx × Option ControlFlowAction)
            (r₂ : InterpreterState ctx' × Option ControlFlowAction) =>
-        r₁.1.isRefinedBy r₂.1 mapping ∧ ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2)
+        r₁.1.isRefinedBy r₂.1 mapping asm ∧
+          ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2 (.of asm r₁.1.memory))
       (interpretOpList ops state) (interpretOpList ops state') := by
   induction ops generalizing state state' with
-  | nil => simpa using hState
+  | nil =>
+    simp only [interpretOpList_nil]
+    exact ⟨hState, by simp [ControlFlowAction.optionIsRefinedBy]⟩
   | cons a l ih =>
     /- Refinement of the state after interpreting the head operation `a`. -/
     have refinesHead := interpretOp_monotone (opsInBounds a (by grind)) (opsInBounds' a (by grind))
@@ -199,14 +203,17 @@ theorem interpretOpList_mono
       case none =>
         /- No control-flow action: recurse on the tail, advancing the target invariant past `a`.
         We use the induction to handle the tail. -/
-        have hact' : act' = none := by grind [ControlFlowAction.optionIsRefinedBy]
+        have hact' : act' = none := by
+          cases act' <;> simp_all [ControlFlowAction.optionIsRefinedBy]
         subst hact'
         simp only
         apply ih (by grind) (by grind) hsRef (by grind)
       case some cf =>
         simp [ControlFlowAction.optionIsRefinedBy] at hactRef
         /- A control-flow action: the list stops here for both the source and the target. -/
-        have ⟨cf', hact', hcfRef⟩ : ∃ cf', act' = some cf' ∧ cf.isRefinedBy cf' := by grind
+        have ⟨cf', hact', hcfRef⟩ :
+            ∃ cf', act' = some cf' ∧ cf.isRefinedBy cf' (.of asm s.memory) := by
+          cases act' <;> simp_all [ControlFlowAction.optionIsRefinedBy]
         subst hact'
         simp [hsRef, ControlFlowAction.optionIsRefinedBy, hcfRef]
 
@@ -216,16 +223,16 @@ over an *identical* list of operations. The proof is derived from `interpretOpLi
 operation has reached a terminator. -/
 theorem interpretTerminatedOpList_mono
     {ctx ctx' : WfIRContext OpCode} {root : OperationPtr} (ctx'Verif : ctx'.Verified root)
-    {state : InterpreterState ctx} {state' : InterpreterState ctx'}
+    {state : InterpreterState ctx} {state' : InterpreterState ctx'} {asm : Bool}
     {mapping : ValueMapping ctx ctx'}
     (opsInBounds : ∀ op, op ∈ ops → op.InBounds ctx.raw)
     (opsInBounds' : ∀ op, op ∈ ops → op.InBounds ctx'.raw)
-    (hState : state.isRefinedBy state' mapping)
+    (hState : state.isRefinedBy state' mapping asm)
     (hFrame : ∀ op, (h : op ∈ ops) → mapping.PreservesOperation op op) :
     Interp.isRefinedBy
       (fun (r₁ : InterpreterState ctx × ControlFlowAction)
            (r₂ : InterpreterState ctx' × ControlFlowAction) =>
-        r₁.1.isRefinedBy r₂.1 mapping ∧ r₁.2.isRefinedBy r₂.2)
+        r₁.1.isRefinedBy r₂.1 mapping asm ∧ r₁.2.isRefinedBy r₂.2 (.of asm r₁.1.memory))
       (interpretTerminatedOpList ops state) (interpretTerminatedOpList ops state') := by
   have hList := interpretOpList_mono ctx'Verif opsInBounds opsInBounds' hState hFrame
   simp only [interpretTerminatedOpList, bind]
@@ -242,7 +249,8 @@ theorem interpretTerminatedOpList_mono
     cases act with
     | none =>  simp [Interp.isRefinedBy]
     | some cf =>
-      have ⟨cf', hact', hcfRef⟩ : ∃ cf', act' = some cf' ∧ cf.isRefinedBy cf' := by
+      have ⟨cf', hact', hcfRef⟩ :
+          ∃ cf', act' = some cf' ∧ cf.isRefinedBy cf' (.of asm s.memory) := by
         cases act' <;> simp_all [ControlFlowAction.optionIsRefinedBy]
       subst hact'
       exact ⟨hsRef, hcfRef⟩
