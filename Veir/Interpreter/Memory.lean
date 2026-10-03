@@ -239,7 +239,7 @@ def MemoryState.loadByte64 (mem : MemoryState) (p : Pointer) : Interp (Data.LLVM
   let ba ← mem.load p 8
   let baPoison ← mem.loadPoison p 8
   let poison := baPoison.toUInt64LE!.toBitVec
-  return ⟨ba.toUInt64LE!.toBitVec &&& ~~~poison, poison, by bv_decide⟩
+  return ⟨ba.toUInt64LE!.toBitVec &&& ~~~poison, poison, by ext i; simp⟩
 
 /--
   Load an LLVM value from the given memory address.
