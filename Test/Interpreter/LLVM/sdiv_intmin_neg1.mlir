@@ -1,5 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
 // RUN: LLUBI
+// RUN: ALIVE_EXEC
 
 // `sdiv intMin, -1` is immediate UB (signed overflow of the quotient).
 "builtin.module"() ({
