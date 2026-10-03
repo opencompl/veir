@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+import Veir.IR.SymbolRef
 import Veir.Passes.FunctionBoundaryCoercion.Coercion
 import Veir.Passes.InstructionSelection.Common
 import Veir.Passes.Matching
@@ -65,6 +66,22 @@ private def supportsFunctionAbi (ctx : IRContext OpCode) (op : OperationPtr) : B
   let properties := Properties.toAttrDict opType (op.getProperties! ctx opType)
   !hasUnsupportedAttrs properties.toArray (op.get! ctx).attrs.entries isUnsupportedAbiAttr
 
+/-- Resolve a flat callee name in the nearest enclosing module. Do not look through
+    nested modules: a same-named function there belongs to a different symbol scope. -/
+private partial def lookupCallee? (ctx : IRContext OpCode) (op : OperationPtr)
+    (name : ByteArray) : Option OperationPtr := do
+  let parent ← op.getParentOp! ctx
+  if parent.getOpType! ctx != .builtin .module then
+    return ← lookupCallee? ctx parent name
+  let body := parent.getRegion! ctx 0
+  let block ← (body.get! ctx).firstBlock
+  let mut candidate := (block.get! ctx).firstOp
+  while let some target := candidate do
+    if let some func := FunctionOp.cast? target ctx then
+      if func.getSymName.value == name then return target
+    candidate := (target.get! ctx).next
+  none
+
 /-- Whether a value of type `t` is passed in a single integer register. -/
 def isRegPassed (t : TypeAttr) : Bool :=
   (BoundaryCoercion.riscvReg.target t).isSome
@@ -105,11 +122,17 @@ def lowerReturn : LocalRewritePattern OpCode := fun ctx op => do
   results are passed in a single integer register and there are at most eight
   arguments. An indirect `llvm.call`'s first operand is its target pointer, which
   `riscv_cf.call` also takes first and does not count toward the argument limit.
+  Direct calls must also satisfy the ABI attributes on the callee, even when
+  those attributes are not repeated on the call.
 -/
 def lowerCall (callee : Option FlatSymbolRefAttr) (extra : DictionaryAttr) :
     LocalRewritePattern OpCode := fun ctx op => do
   if hasUnsupportedAttrs extra.entries (op.get! ctx.raw).attrs.entries isUnsupportedCallAttr then
     return (ctx, none)
+  if let some callee := callee then
+    let some name := callee.getName? | return (ctx, none)
+    if let some target := lookupCallee? ctx.raw op name then
+      if !supportsFunctionAbi ctx.raw target then return (ctx, none)
   let operands := op.getOperands! ctx.raw
   -- Stack arguments are not lowered yet; an indirect target is not an argument.
   let numArgs := operands.size - (if callee.isSome then 0 else 1)
