@@ -65,15 +65,17 @@ def MemoryState.arenaSize : UInt64 := 0x10000
 
 /--
   The address of the next object: past the end of every object with a guard
-  byte between them and past the arena, rounded up to `objectAlignment`.
+  byte between them and past the arena, rounded up to `objectAlignment`. It is
+  a `Nat`, so that an object near the top of the address space cannot wrap it
+  around; `alloc` fails when it does not fit.
 
   TODO: This is a simplification. Eventually, addresses should be
   non-deterministic.
 -/
-def MemoryState.nextBase (mem : MemoryState) : UInt64 :=
-  let past := mem.objects.foldl (init := arenaSize) fun past obj =>
-    max past (obj.base + obj.size.toUInt64 + 1)
-  (past + objectAlignment - 1) / objectAlignment * objectAlignment
+def MemoryState.nextBase (mem : MemoryState) : Nat :=
+  let past := mem.objects.foldl (init := arenaSize.toNat) fun past obj =>
+    max past (obj.base.toNat + obj.size + 1)
+  (past + objectAlignment.toNat - 1) / objectAlignment.toNat * objectAlignment.toNat
 
 /--
   The object that `p` points into, or `none` if `p` indexes no object.
@@ -132,9 +134,10 @@ def memorySize (n : Nat) : Interp UInt64 :=
 -/
 def MemoryState.alloc (mem : MemoryState) (size : UInt64) : Interp (MemoryState × Pointer) :=
   let base := mem.nextBase
-  if base.toNat + size.toNat ≥ 2 ^ 64 then Interp.fail none else
-  return ({ mem with objects := mem.objects.push (MemoryObject.ofSize base size.toNat) },
-    ⟨mem.objects.size, base, false⟩)
+  -- The guard byte after the object must be an address too.
+  if base + size.toNat + 1 ≥ 2 ^ 64 then Interp.fail none else
+  return ({ mem with objects := mem.objects.push (MemoryObject.ofSize base.toUInt64 size.toNat) },
+    ⟨mem.objects.size, base.toUInt64, false⟩)
 
 /--
   The pointer an access goes through: a wild pointer finds its object by its
