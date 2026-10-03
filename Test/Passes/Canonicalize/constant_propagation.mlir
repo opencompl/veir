@@ -7,6 +7,7 @@
   "func.func"() <{sym_name = "operand_folds", function_type = (i32) -> (i32, i1)}> ({
   ^entry(%x : i32):
     // CHECK: func.func @operand_folds(%[[X:.*]]: i32)
+    // CHECK-NEXT: %{{.*}} = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
     // CHECK-NEXT: %[[FALSE:.*]] = "arith.constant"() <{"value" = false}> : () -> i1
     // NO-SCCP-LABEL: func.func @operand_folds
     %zero = "arith.constant"() <{value = 0 : i32}> : () -> i32
@@ -28,8 +29,9 @@
   "func.func"() <{sym_name = "join_and_dialect", function_type = (i1) -> (i32, i32, i32)}> ({
   ^entry(%condition : i1):
     // CHECK-LABEL: func.func @join_and_dialect
-    // CHECK-NEXT: %[[TEN:.*]] = "arith.constant"() <{"value" = 10 : i32}> : () -> i32
     // CHECK-NEXT: %[[FIVE:.*]] = "llvm.mlir.constant"() <{"value" = 5 : i32}> : () -> i32
+    // CHECK-NEXT: %{{.*}} = "arith.constant"() <{"value" = 7 : i32}> : () -> i32
+    // CHECK-NEXT: %[[TEN:.*]] = "arith.constant"() <{"value" = 10 : i32}> : () -> i32
     // CHECK-NOT: "llvm.mlir.constant"
     %left = "llvm.mlir.constant"() <{value = 5 : i32}> : () -> i32
     %right = "llvm.mlir.constant"() <{value = 5 : i32}> : () -> i32

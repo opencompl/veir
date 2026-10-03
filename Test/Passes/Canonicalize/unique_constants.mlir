@@ -23,8 +23,8 @@
   }) : () -> ()
 
   // CHECK-LABEL: func.func @hoist
-  // CHECK-NEXT:  %[[TWO:.*]] = "arith.constant"() <{"value" = 2 : i32}> : () -> i32
   // CHECK-NEXT:  %[[ONE:.*]] = "arith.constant"() <{"value" = 1 : i32}> : () -> i32
+  // CHECK-NEXT:  %[[TWO:.*]] = "arith.constant"() <{"value" = 2 : i32}> : () -> i32
   // CHECK-NEXT:  "test.test"(%{{.*}}) : (i32) -> ()
   // CHECK-NEXT:  "test.test"(%[[ONE]]) : (i32) -> ()
   // CHECK-NEXT:  "test.test"() ({

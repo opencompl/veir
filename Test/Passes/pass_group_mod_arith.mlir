@@ -21,16 +21,16 @@
 // CHECK:      func.func @chain([[A:%.*]]: i32, [[B:%.*]]: i32) -> i32 {
 
 // Canonicalize uniques every constant and hoists it to the top of the
-// function, most recently discovered first. The lowered mod_arith constant is
-// folded through its extension at its eventual i64 use.
-// CHECK-NEXT:     [[C5W:%.*]] = "arith.constant"() <{"value" = 5 : i64}> : () -> i64
-// CHECK-NEXT:     [[SH64:%.*]] = "arith.constant"() <{"value" = 28 : i64}> : () -> i64
-// CHECK-NEXT:     [[MU64:%.*]] = "arith.constant"() <{"value" = 21843 : i64}> : () -> i64
-// CHECK-NEXT:     [[Q64:%.*]] = "arith.constant"() <{"value" = 12289 : i64}> : () -> i64
-// CHECK-NEXT:     [[Q33:%.*]] = "arith.constant"() <{"value" = 12289 : i33}> : () -> i33
-// CHECK-NEXT:     [[SH42:%.*]] = "arith.constant"() <{"value" = 28 : i42}> : () -> i42
-// CHECK-NEXT:     [[MU42:%.*]] = "arith.constant"() <{"value" = 21843 : i42}> : () -> i42
+// function, in the order it first encounters them. The lowered mod_arith
+// constant is folded through its extension at its eventual i64 use.
 // CHECK-NEXT:     [[Q42:%.*]] = "arith.constant"() <{"value" = 12289 : i42}> : () -> i42
+// CHECK-NEXT:     [[MU42:%.*]] = "arith.constant"() <{"value" = 21843 : i42}> : () -> i42
+// CHECK-NEXT:     [[SH42:%.*]] = "arith.constant"() <{"value" = 28 : i42}> : () -> i42
+// CHECK-NEXT:     [[Q33:%.*]] = "arith.constant"() <{"value" = 12289 : i33}> : () -> i33
+// CHECK-NEXT:     [[Q64:%.*]] = "arith.constant"() <{"value" = 12289 : i64}> : () -> i64
+// CHECK-NEXT:     [[MU64:%.*]] = "arith.constant"() <{"value" = 21843 : i64}> : () -> i64
+// CHECK-NEXT:     [[SH64:%.*]] = "arith.constant"() <{"value" = 28 : i64}> : () -> i64
+// CHECK-NEXT:     [[C5W:%.*]] = "arith.constant"() <{"value" = 5 : i64}> : () -> i64
 
 // Both arguments extended.
 // CHECK-NEXT:     [[A33:%.*]] = "arith.extui"([[A]]) : (i32) -> i33

@@ -31,7 +31,7 @@ public def run (ctx : WfIRContext OpCode) (top : OperationPtr) :
     WfIRContext OpCode := Id.run do
   let mut ctx := ctx
   let mut canonical : Std.HashMap Key OperationPtr := {}
-  let mut hoisted : Std.HashSet OperationPtr := {}
+  let mut lastHoisted : Std.HashMap RegionPtr OperationPtr := {}
   for op in top.nestedOps ctx.raw do
     let opType := op.getOpType! ctx.raw
     if !opType.isConstantLike then continue
@@ -46,15 +46,17 @@ public def run (ctx : WfIRContext OpCode) (top : OperationPtr) :
       ctx := WfRewriter.replaceOp! ctx op existing
       continue
     canonical := canonical.insert key op
-    hoisted := hoisted.insert op
-    let entry := (scope.get! ctx.raw).firstBlock.get!
-    let opData := op.get! ctx.raw
-    let inPlace :=
-      (entry.get! ctx.raw).firstOp == some op ||
-      (opData.parent == some entry && opData.prev.any hoisted.contains)
-    if !inPlace then
+    let ip := match lastHoisted[scope]? with
+      | some last =>
+        let lastData := last.get! ctx.raw
+        match lastData.next with
+        | some next => .before next
+        | none => .atEnd lastData.parent.get!
+      | none => InsertPoint.atStart! (scope.get! ctx.raw).firstBlock.get! ctx.raw
+    lastHoisted := lastHoisted.insert scope op
+    if ip != .before op then
       ctx := WfRewriter.detachOp! ctx op
-      ctx := WfRewriter.insertOp! ctx op (InsertPoint.atStart! entry ctx.raw)
+      ctx := WfRewriter.insertOp! ctx op ip
   return ctx
 
 end UniqueConstants
