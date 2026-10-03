@@ -3,8 +3,7 @@
 // RUN: ALIVE_EXEC
 
 // The operation `llvm.mlir.zero` yields the null pointer, and `llvm.ptrtoint`
-// gives its address, which is zero and carries no poison. Reinterpreting an
-// address as an `llvm.byte` is `bitcast`'s own test.
+// gives its address, which is zero and carries no poison.
 
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i64 ()>}> ({
