@@ -1,5 +1,8 @@
 // RUN: veir-interpret %s | filecheck %s
 
+// LLUBI: makes this getelementptr undefined behaviour, while the interpreter
+// evaluates it.
+
 // A width with no layout entry of its own takes the alignment of the largest
 // entry, `i128:128`. An `i200` therefore occupies 25 bytes but strides by 32,
 // which is where index 1 lands and where the `i8` load reads it back from.

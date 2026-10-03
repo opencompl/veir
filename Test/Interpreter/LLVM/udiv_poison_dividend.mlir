@@ -1,5 +1,8 @@
 // RUN: veir-interpret %s | filecheck %s
 
+// LLUBI: reports a poison return from main as an error, so it cannot
+// cross-check this test.
+
 // Regression check: a poison dividend with a concrete safe (nonzero) divisor
 // propagates as poison — NOT immediate UB.
 "builtin.module"() ({

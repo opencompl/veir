@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
 
 // `srem poison, -1` (width > 1) is immediate UB: the poison dividend could
 // refine to intMin, hitting the overflow case.

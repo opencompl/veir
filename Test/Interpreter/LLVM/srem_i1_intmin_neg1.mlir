@@ -1,5 +1,8 @@
 // RUN: veir-interpret %s | filecheck %s
 
+// LLUBI: returns 0 for this overflow (LLVM 23), while the interpreter makes
+// it undefined behaviour.
+
 // In i1, -1 is also intMin, so `srem -1, -1` is immediate UB.
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i1 ()>}> ({

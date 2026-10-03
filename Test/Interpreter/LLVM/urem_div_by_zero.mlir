@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
 
 // Unsigned remainder with a concrete zero divisor is immediate UB.
 "builtin.module"() ({
