@@ -376,7 +376,7 @@ theorem Interp.isRefinedBy_bind_same {α β : Type} {R : β → β → Prop} (x 
 /-- An operation that returns one value, leaves the memory alone and asks for no control flow. -/
 theorem OperationResult.isRefinedBy_value {v w : RuntimeValue} {mem : MemoryState} (h : v ⊒ w) :
     OperationResult.isRefinedBy (#[v], mem, none) (#[w], mem, none) :=
-  ⟨RuntimeValue.arrayIsRefinedBy_singleton.mpr h, rfl, trivial⟩
+  ⟨RuntimeValue.arrayIsRefinedBy_singleton.mpr h, rfl, trivial, by simp⟩
 
 /-- Decoding an integer into a pointer keeps refinement: poison decodes to a poison pointer. -/
 theorem MemoryState.ptrFromInt_mono {mem : MemoryState} {x y : Data.LLVM.Int 64} (h : x ⊒ y) :

@@ -118,11 +118,13 @@ theorem Llvm.interpretOp'_monotone {op : Llvm} (hMono : op.isMonotone)
     int_binary_ub (fun hub => Data.LLVM.Int.isUnsignedDivisionUB_eq_false_mono
       (Int.cast_mono _ _ _ hr) hub), (Int.udiv_mono _ _ _ _ hl (Int.cast_mono _ _ _ hr) _)
   case «return» =>
-    exact ⟨⟨rfl, fun i hi => by simp at hi⟩, rfl, h⟩
+    exact ⟨⟨rfl, fun i hi => by simp at hi⟩, rfl,
+      by simpa [ControlFlowAction.optionIsRefinedBy, ControlFlowAction.isRefinedBy] using h, by simp⟩
   case br =>
     split
     case _ dest hDest =>
-      exact ⟨⟨rfl, fun i hi => by simp at hi⟩, rfl, rfl, h⟩
+      exact ⟨⟨rfl, fun i hi => by simp at hi⟩, rfl,
+        by simp [ControlFlowAction.optionIsRefinedBy, ControlFlowAction.isRefinedBy, h], by simp⟩
     case _ => simp [Interp.isRefinedBy]
   case alloca =>
     split
@@ -346,11 +348,13 @@ theorem Llvm.interpretOp'_monotone {op : Llvm} (hMono : op.isMonotone)
               obtain rfl : c' = .val c := by cases c' <;> simp_all [isRefinedBy]
               by_cases hcond : c = 1#1
               · simp only [hcond, ↓reduceIte]
-                exact ⟨⟨rfl, fun i hi => by simp at hi⟩, rfl, rfl,
-                  RuntimeValue.arrayIsRefinedBy_extract h _ _⟩
+                exact ⟨⟨rfl, fun i hi => by simp at hi⟩, rfl,
+                  by simp [ControlFlowAction.optionIsRefinedBy, ControlFlowAction.isRefinedBy,
+                    RuntimeValue.arrayIsRefinedBy_extract h], by simp⟩
               · simp only [hcond, ↓reduceIte]
-                exact ⟨⟨rfl, fun i hi => by simp at hi⟩, rfl, rfl,
-                  RuntimeValue.arrayIsRefinedBy_extract_from h _⟩
+                exact ⟨⟨rfl, fun i hi => by simp at hi⟩, rfl,
+                  by simp [ControlFlowAction.optionIsRefinedBy, ControlFlowAction.isRefinedBy,
+                    RuntimeValue.arrayIsRefinedBy_extract_from h], by simp⟩
             | 1, .poison => simp [Interp.isRefinedBy]
             | 0, _ | (_ + 2), _ => simp [Interp.isRefinedBy]
           all_goals simp [Interp.isRefinedBy]
