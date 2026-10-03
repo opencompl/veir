@@ -601,4 +601,355 @@ theorem PhaseA.foldlM {ctx₀ ctx ctx' : WfIRContext OpCode} {done rest : List O
         (fun o ho => hNotUnreachable o (by simp [ho])) h
       exact ⟨done', operandCast', newBranch', hInv', fun o => by rw [hMem o]; simp only [List.mem_cons]; grind⟩
 
+/-! ## Converting the arguments of a block -/
+
+theorem convertBlockArgument_ok {block : BlockPtr} {ctx ctx' : WfIRContext OpCode} {i : Nat}
+    (h : convertBlockArgument block ctx i = .ok ctx') :
+    let arg : BlockArgumentPtr := ⟨block, i⟩
+    let ctx₁ := WfRewriter.setType! ctx (.blockArgument arg) (RegisterType.mk : TypeAttr)
+    fitsRegister ((ValuePtr.blockArgument arg).getType! ctx.raw) ∧
+    ∃ ctx₂ cast,
+      WfRewriter.createOp! ctx₁ (OpCode.builtin .unrealized_conversion_cast)
+        #[(ValuePtr.blockArgument arg).getType! ctx.raw] #[] #[] #[] default
+        (some (InsertPoint.atStart! block ctx₁.raw)) = some (ctx₂, cast) ∧
+      ctx' = WfRewriter.pushOperand!
+        (WfRewriter.replaceValue! ctx₂ (.blockArgument arg) (cast.getResult 0)) cast
+        (.blockArgument arg) := by
+  simp only [convertBlockArgument] at h
+  split at h
+  next => simp [throw, throwThe, MonadExceptOf.throw] at h
+  next hFits =>
+    split at h
+    next ctx₂ cast hCreate =>
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact ⟨by simpa using hFits, ctx₂, cast, hCreate, h.symm⟩
+    next => simp [throw, throwThe, MonadExceptOf.throw] at h
+
+/-- The value that stands for `value` once the uses of `arg` are uses of `cast`. -/
+@[expose]
+def substArg (arg : BlockArgumentPtr) (cast : OperationPtr) (value : ValuePtr) : ValuePtr :=
+  if value = .blockArgument arg then cast.getResult 0 else value
+
+/-- What converting the block argument `arg` does: `cast` gives it its original type. -/
+structure ArgStep (ctx ctx' : WfIRContext OpCode) (arg : BlockArgumentPtr) (cast : OperationPtr) :
+    Prop where
+  ops : ∀ o, o.InBounds ctx.raw → OpSame (substArg arg cast) ctx.raw ctx'.raw o
+  ctxSame : CtxSame ctx.raw ctx'.raw
+  types : ∀ value : ValuePtr, value.InBounds ctx.raw →
+    value.InBounds ctx'.raw ∧ value.getType! ctx'.raw =
+      if value = .blockArgument arg then (RegisterType.mk : TypeAttr) else value.getType! ctx.raw
+  fits : fitsRegister ((ValuePtr.blockArgument arg).getType! ctx.raw)
+  castIn : cast.InBounds ctx'.raw
+  castNotIn : ¬ cast.InBounds ctx.raw
+  castType : cast.getOpType! ctx'.raw = .builtin .unrealized_conversion_cast
+  castResultTypes : cast.getResultTypes! ctx'.raw = #[(ValuePtr.blockArgument arg).getType! ctx.raw]
+  castOperands : cast.getOperands! ctx'.raw = #[.blockArgument arg]
+  opList : ∀ (block : BlockPtr) (blockIn : block.InBounds ctx.raw),
+    block.opList ctx' (ctxSame.blockIn blockIn) =
+      if block = arg.block then cast :: block.opList ctx blockIn else block.opList ctx blockIn
+
+theorem convertBlockArgument_spec {ctx ctx' : WfIRContext OpCode} {arg : BlockArgumentPtr}
+    (argIn : arg.InBounds ctx.raw)
+    (h : convertBlockArgument arg.block ctx arg.index = .ok ctx') :
+    ∃ cast, ArgStep ctx ctx' arg cast := by
+  obtain ⟨hFits, ctx₂, cast, hCreate, rfl⟩ := convertBlockArgument_ok h
+  have hArg : (⟨arg.block, arg.index⟩ : BlockArgumentPtr) = arg := rfl
+  simp only [hArg] at hFits hCreate ⊢
+  have valueIn : (ValuePtr.blockArgument arg).InBounds ctx.raw := by simpa using argIn
+  have blockIn : arg.block.InBounds ctx.raw := (BlockArgumentPtr.inBounds_def.mp argIn).1
+  rw [WfRewriter.setType!_eq valueIn] at hCreate
+  obtain ⟨hOps₁, hCtx₁, hIn₁, hTypes₁, hList₁⟩ := WfRewriter.setType_frame (ctx := ctx)
+    (arg := arg) (type := (RegisterType.mk : TypeAttr)) (argIn := valueIn)
+  generalize WfRewriter.setType ctx (.blockArgument arg) (RegisterType.mk : TypeAttr) valueIn = ctx₁
+    at hCreate hOps₁ hCtx₁ hIn₁ hTypes₁ hList₁
+  obtain ⟨h₁, h₂, h₃, h₄, hCreate⟩ := WfRewriter.createOp_of_createOp! hCreate
+  obtain ⟨hNotIn₂, hIn₂, hOps₂, hCtx₂, hTypes₂, hType₂, hResultTypes₂, hOperands₂, _⟩ :=
+    WfRewriter.createOp_frame hCreate
+  have hMono₂ : ∀ ptr : GenericPtr, ptr.InBounds ctx₁.raw → ptr.InBounds ctx₂.raw :=
+    fun ptr => WfRewriter.createOp_inBounds_mono hCreate
+  have hList₂ := fun (block : BlockPtr) (bIn : block.InBounds ctx₁.raw) (bIn' : block.InBounds ctx₂.raw) =>
+    WfRewriter.createOp_atStart_opList hCreate (hCtx₁.blockIn blockIn) bIn bIn'
+  /- The uses of the argument become uses of the cast. -/
+  have valueIn₂ : (ValuePtr.blockArgument arg).InBounds ctx₂.raw := by
+    have := hMono₂ (.value (.blockArgument arg)) ((hIn₁ _).mpr (by simpa using valueIn))
+    simpa using this
+  have castNum : cast.getNumResults! ctx₂.raw = 1 := by
+    rw [← OperationPtr.getResultTypes!.size_eq_getNumResults!, hResultTypes₂]; rfl
+  have resultIn₂ : (ValuePtr.opResult (cast.getResult 0)).InBounds ctx₂.raw := by
+    simp only [ValuePtr.inBounds_opResult, OperationPtr.getResult_def]
+    exact OpResultPtr.inBounds_def.mpr ⟨hIn₂, by grind⟩
+  have hNe : ValuePtr.blockArgument arg ≠ ValuePtr.opResult (cast.getResult 0) := by simp
+  rw [WfRewriter.replaceValue!_eq hNe valueIn₂ resultIn₂]
+  obtain ⟨hOps₃, hCtx₃, hIn₃, hTypes₃⟩ := WfRewriter.replaceValue_frame (ctx := ctx₂)
+    (hNe := hNe) (oldIn := valueIn₂) (newIn := resultIn₂)
+  have hList₃ := fun (block : BlockPtr) (bIn : block.InBounds ctx₂.raw) bIn' =>
+    WfRewriter.replaceValue_opList (ctx := ctx₂) (hNe := hNe) (oldIn := valueIn₂)
+      (newIn := resultIn₂) (block := block) bIn bIn'
+  generalize WfRewriter.replaceValue ctx₂ (.blockArgument arg) (.opResult (cast.getResult 0)) hNe
+    valueIn₂ resultIn₂ = ctx₃ at hOps₃ hCtx₃ hIn₃ hTypes₃ hList₃
+  /- The cast takes the argument, which is now a register. -/
+  have castIn₃ : cast.InBounds ctx₃.raw := by
+    have := (hIn₃ (.operation cast)).mpr (by simpa using hIn₂); simpa using this
+  have valueIn₃ : (ValuePtr.blockArgument arg).InBounds ctx₃.raw := by
+    have := (hIn₃ (.value (.blockArgument arg))).mpr (by simpa using valueIn₂); simpa using this
+  rw [WfRewriter.pushOperand!_eq castIn₃ valueIn₃]
+  obtain ⟨hOps₄, hCast₄, hCtx₄, hMono₄, hTypes₄, hList₄⟩ := WfRewriter.pushOperand_frame
+    (ctx := ctx₃) (op := cast) (value := .blockArgument arg) (opIn := castIn₃) (valueIn := valueIn₃)
+  generalize WfRewriter.pushOperand ctx₃ cast (.blockArgument arg) castIn₃ valueIn₃ = ctx₄
+    at hOps₄ hCast₄ hCtx₄ hMono₄ hTypes₄ hList₄
+  have hNotIn : ¬ cast.InBounds ctx.raw := fun h =>
+    hNotIn₂ (by have := (hIn₁ (.operation cast)).mpr (by simpa using h); simpa using this)
+  have hCastSame₃ := hOps₃ cast hIn₂
+  refine ⟨cast, {
+    ops := fun o oIn => ?_
+    ctxSame := ((hCtx₁.trans hCtx₂).trans hCtx₃).trans hCtx₄
+    types := fun v vIn => ?_
+    fits := hFits
+    castIn := hCast₄.1
+    castNotIn := hNotIn
+    castType := hCast₄.2.1.trans (hCastSame₃.opType.trans (hType₂.trans (ofDialect_self _)))
+    castResultTypes := hCast₄.2.2.1.trans (hCastSame₃.resultTypes.trans hResultTypes₂)
+    castOperands := by rw [hCast₄.2.2.2, hCastSame₃.operands, hOperands₂]; simp
+    opList := fun block bIn => ?_ }⟩
+  · have s₁ := hOps₁ o oIn
+    have s₂ := hOps₂ o s₁.inBounds
+    have s₃ := hOps₃ o s₂.inBounds
+    have hNeCast : o ≠ cast := fun hEq => hNotIn (hEq ▸ oIn)
+    have s₄ := hOps₄ o s₃.inBounds hNeCast
+    exact (((s₁.trans_id s₂).trans s₃).trans_id s₄).congr (fun _ _ => rfl)
+  · have v₁ : v.InBounds ctx₁.raw := by
+      have := (hIn₁ (.value v)).mpr (by simpa using vIn); simpa using this
+    have v₂ : v.InBounds ctx₂.raw := by
+      have := hMono₂ (.value v) (by simpa using v₁); simpa using this
+    have v₃ : v.InBounds ctx₃.raw := by
+      have := (hIn₃ (.value v)).mpr (by simpa using v₂); simpa using this
+    refine ⟨by have := hMono₄ (.value v) (by simpa using v₃); simpa using this, ?_⟩
+    rw [hTypes₄, hTypes₃, hTypes₂ v v₁, hTypes₁]
+  · have b₁ := hCtx₁.blockIn bIn
+    have b₂ := hCtx₂.blockIn b₁
+    have b₃ := hCtx₃.blockIn b₂
+    rw [hList₄ block b₃, hList₃ block b₂, hList₂ block b₁, hList₁ block bIn]
+
+/-! ## Converting all block arguments -/
+
+/-- The value that stands for `value` once the arguments `done` are converted. -/
+@[expose]
+def lowerArgs (done : List BlockArgumentPtr) (argCast : BlockArgumentPtr → OperationPtr)
+    (value : ValuePtr) : ValuePtr :=
+  match value with
+  | .blockArgument arg => if arg ∈ done then (argCast arg).getResult 0 else value
+  | .opResult _ => value
+
+/-- The module after the block arguments `done` were converted, latest first. -/
+structure PhaseB (ctx₀ ctx : WfIRContext OpCode) (done : List BlockArgumentPtr)
+    (argCast : BlockArgumentPtr → OperationPtr) : Prop where
+  ops : ∀ o, o.InBounds ctx₀.raw → OpSame (lowerArgs done argCast) ctx₀.raw ctx.raw o
+  ctxSame : CtxSame ctx₀.raw ctx.raw
+  types : ∀ value : ValuePtr, value.InBounds ctx₀.raw →
+    value.InBounds ctx.raw ∧ value.getType! ctx.raw =
+      if (∃ arg ∈ done, value = .blockArgument arg) then (RegisterType.mk : TypeAttr)
+      else value.getType! ctx₀.raw
+  args : ∀ arg ∈ done, arg.InBounds ctx₀.raw ∧
+    fitsRegister ((ValuePtr.blockArgument arg).getType! ctx₀.raw) ∧
+    (argCast arg).InBounds ctx.raw ∧ ¬ (argCast arg).InBounds ctx₀.raw ∧
+    (argCast arg).getOpType! ctx.raw = .builtin .unrealized_conversion_cast ∧
+    (argCast arg).getResultTypes! ctx.raw = #[(ValuePtr.blockArgument arg).getType! ctx₀.raw] ∧
+    (argCast arg).getOperands! ctx.raw = #[.blockArgument arg]
+  inj : ∀ arg₁ ∈ done, ∀ arg₂ ∈ done, argCast arg₁ = argCast arg₂ → arg₁ = arg₂
+  opList : ∀ (block : BlockPtr) (blockIn : block.InBounds ctx₀.raw),
+    block.opList ctx (ctxSame.blockIn blockIn) =
+      (done.filter (·.block = block)).map argCast ++ block.opList ctx₀ blockIn
+
+theorem PhaseB.init {ctx₀ : WfIRContext OpCode} {argCast} : PhaseB ctx₀ ctx₀ [] argCast :=
+  ⟨fun o oIn => (OpSame.refl oIn).congr (fun v _ => by cases v <;> simp [lowerArgs]),
+    CtxSame.refl, fun _ vIn => ⟨vIn, by simp⟩, fun _ h => by simp at h,
+    fun _ h => by simp at h, fun _ _ => by simp⟩
+
+theorem PhaseB.step {ctx₀ ctx ctx' : WfIRContext OpCode} {done : List BlockArgumentPtr}
+    {argCast} {arg : BlockArgumentPtr} {cast : OperationPtr}
+    (hInv : PhaseB ctx₀ ctx done argCast) (argIn₀ : arg.InBounds ctx₀.raw)
+    (hNotDone : arg ∉ done) (hStep : ArgStep ctx ctx' arg cast) :
+    PhaseB ctx₀ ctx' (arg :: done) (fun a => if a = arg then cast else argCast a) := by
+  have hOld : ∀ a ∈ done, a ≠ arg := fun a ha hEq => hNotDone (hEq ▸ ha)
+  refine ⟨fun o oIn => ?_, hInv.ctxSame.trans hStep.ctxSame, fun v vIn => ?_, fun a ha => ?_,
+    fun a₁ h₁ a₂ h₂ hEq => ?_, fun block blockIn => ?_⟩
+  · have s₁ := hInv.ops o oIn
+    refine (s₁.trans (hStep.ops o s₁.inBounds)).congr (fun v _ => ?_)
+    rcases v with r | a
+    · simp [lowerArgs, substArg]
+    · by_cases hEq : a = arg
+      · subst hEq; simp [lowerArgs, substArg, hNotDone]
+      · by_cases hDone : a ∈ done
+        · simp [lowerArgs, substArg, hDone, hEq]
+        · simp [lowerArgs, substArg, hDone, hEq]
+  · have h₁ := hInv.types v vIn
+    have h₂ := hStep.types v h₁.1
+    refine ⟨h₂.1, ?_⟩
+    rw [h₂.2, h₁.2]
+    by_cases hEq : v = .blockArgument arg
+    · simp [hEq]
+    · by_cases hDone : ∃ a ∈ done, v = .blockArgument a
+      · obtain ⟨a, ha, rfl⟩ := hDone
+        simp [hEq, ha]
+      · simp [hEq, hDone]
+  · rcases List.mem_cons.mp ha with rfl | ha
+    · simp only [↓reduceIte]
+      have := (hInv.types (.blockArgument a) (by simpa using argIn₀)).2
+      have hNo : ¬ ∃ a' ∈ done, ValuePtr.blockArgument a = .blockArgument a' := by
+        rintro ⟨a', ha', hEq⟩
+        simp only [ValuePtr.blockArgument.injEq] at hEq
+        exact hNotDone (hEq ▸ ha')
+      simp only [hNo, ↓reduceIte] at this
+      exact ⟨argIn₀, this ▸ hStep.fits, hStep.castIn,
+        fun h => hStep.castNotIn (hInv.ops _ h).inBounds, hStep.castType,
+        this ▸ hStep.castResultTypes, hStep.castOperands⟩
+    · obtain ⟨c₁, c₂, c₃, c₄, c₅, c₆, c₇⟩ := hInv.args a ha
+      have hS := hStep.ops (argCast a) c₃
+      simp only [hOld a ha, ↓reduceIte]
+      refine ⟨c₁, c₂, hS.inBounds, c₄, hS.opType.trans c₅, hS.resultTypes.trans c₆, ?_⟩
+      rw [hS.operands, c₇]
+      simp [substArg, hOld a ha]
+  · by_cases e₁ : a₁ = arg <;> by_cases e₂ : a₂ = arg
+    · rw [e₁, e₂]
+    · have m₂ : a₂ ∈ done := by simpa [e₂] using h₂
+      simp only [e₁, e₂, ↓reduceIte] at hEq
+      exact absurd (hEq ▸ (hInv.args a₂ m₂).2.2.1) hStep.castNotIn
+    · have m₁ : a₁ ∈ done := by simpa [e₁] using h₁
+      simp only [e₁, e₂, ↓reduceIte] at hEq
+      exact absurd (hEq ▸ (hInv.args a₁ m₁).2.2.1) hStep.castNotIn
+    · simp only [e₁, e₂, ↓reduceIte] at hEq
+      exact hInv.inj a₁ (by simpa [e₁] using h₁) a₂ (by simpa [e₂] using h₂) hEq
+  · rw [hStep.opList block (hInv.ctxSame.blockIn blockIn), hInv.opList block blockIn]
+    have hMap : (done.filter (·.block = block)).map (fun a => if a = arg then cast else argCast a) =
+        (done.filter (·.block = block)).map argCast :=
+      List.map_congr_left (fun a ha => by simp [hOld a (List.mem_filter.mp ha).1])
+    by_cases hBlock : block = arg.block
+    · subst hBlock; simp [hMap]
+    · have : ¬ arg.block = block := fun h => hBlock h.symm
+      simp [hMap, hBlock, this]
+
+theorem PhaseB.foldArgs {ctx₀ ctx ctx' : WfIRContext OpCode} {done : List BlockArgumentPtr}
+    {argCast} {block : BlockPtr} {indices : List Nat}
+    (hInv : PhaseB ctx₀ ctx done argCast)
+    (hIndices : ∀ i ∈ indices, (⟨block, i⟩ : BlockArgumentPtr).InBounds ctx₀.raw)
+    (hNodup : indices.Nodup)
+    (hNotDone : ∀ i ∈ indices, (⟨block, i⟩ : BlockArgumentPtr) ∉ done)
+    (h : indices.foldlM (convertBlockArgument block) ctx = .ok ctx') :
+    ∃ argCast', PhaseB ctx₀ ctx' (indices.reverse.map (⟨block, ·⟩) ++ done) argCast' := by
+  induction indices generalizing ctx done argCast with
+  | nil =>
+    simp only [List.foldlM_nil, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact ⟨argCast, by simpa using hInv⟩
+  | cons i indices ih =>
+    simp only [List.foldlM_cons, bind, Except.bind] at h
+    split at h
+    next => simp at h
+    next ctx₁ hStep =>
+      have argIn₀ := hIndices i (by simp)
+      have argIn : (⟨block, i⟩ : BlockArgumentPtr).InBounds ctx.raw := by
+        simpa using (hInv.types (.blockArgument ⟨block, i⟩) (by simpa using argIn₀)).1
+      obtain ⟨cast, hArg⟩ := convertBlockArgument_spec (arg := ⟨block, i⟩) argIn hStep
+      have hInv₁ := hInv.step argIn₀ (hNotDone i (by simp)) hArg
+      have hNodup' := List.nodup_cons.mp hNodup
+      obtain ⟨argCast', hInv'⟩ := ih hInv₁ (fun j hj => hIndices j (by simp [hj])) hNodup'.2
+        (fun j hj hMem => by
+          rcases List.mem_cons.mp hMem with hEq | hMem
+          · simp only [BlockArgumentPtr.mk.injEq, true_and] at hEq
+            exact hNodup'.1 (hEq ▸ hj)
+          · exact hNotDone j (by simp [hj]) hMem) h
+      exact ⟨argCast', by simpa using hInv'⟩
+
+/-- The arguments of `block`, latest converted first. -/
+@[expose]
+def blockArgsReversed (ctx : IRContext OpCode) (block : BlockPtr) : List BlockArgumentPtr :=
+  (List.range (block.getNumArguments! ctx)).reverse.map (⟨block, ·⟩)
+
+/-- The module after the blocks `blocks` were converted. -/
+structure PhaseBlocks (ctx₀ ctx : WfIRContext OpCode) (blocks : List BlockPtr)
+    (done : List BlockArgumentPtr) (argCast : BlockArgumentPtr → OperationPtr) : Prop where
+  phase : PhaseB ctx₀ ctx done argCast
+  blocksIn : ∀ block ∈ blocks, block.InBounds ctx₀.raw
+  argsOf : ∀ block : BlockPtr, done.filter (·.block = block) =
+    if block ∈ blocks then blockArgsReversed ctx₀.raw block else []
+
+theorem PhaseBlocks.step {ctx₀ ctx ctx' : WfIRContext OpCode} {blocks : List BlockPtr}
+    {done : List BlockArgumentPtr} {argCast} {block : BlockPtr}
+    (hInv : PhaseBlocks ctx₀ ctx blocks done argCast) (blockIn₀ : block.InBounds ctx₀.raw)
+    (hNotDone : block ∉ blocks) (h : convertBlock ctx block = .ok ctx') :
+    ∃ done' argCast', PhaseBlocks ctx₀ ctx' (block :: blocks) done' argCast' := by
+  have hFold : (List.range (block.getNumArguments! ctx.raw)).foldlM
+      (convertBlockArgument block) ctx = .ok ctx' := h
+  have hNum := hInv.phase.ctxSame.numArguments blockIn₀
+  rw [hNum] at hFold
+  have hNone : ∀ arg ∈ done, arg.block ≠ block := fun arg hArg hEq => by
+    have := hInv.argsOf block
+    simp only [hNotDone, ↓reduceIte] at this
+    have hMem : arg ∈ done.filter (·.block = block) := List.mem_filter.mpr ⟨hArg, by simp [hEq]⟩
+    simp [this] at hMem
+  obtain ⟨argCast', hPhase⟩ := hInv.phase.foldArgs (block := block)
+    (indices := List.range (block.getNumArguments! ctx₀.raw))
+    (fun i hi => BlockArgumentPtr.inBounds_def.mpr ⟨blockIn₀, by
+      have : i < block.getNumArguments! ctx₀.raw := by simpa using hi
+      grind⟩)
+    List.nodup_range (fun i _ hMem => hNone _ hMem rfl) hFold
+  refine ⟨_, argCast', hPhase, fun b hb => ?_, fun b => ?_⟩
+  · rcases List.mem_cons.mp hb with rfl | hb
+    · exact blockIn₀
+    · exact hInv.blocksIn b hb
+  · rw [List.filter_append]
+    by_cases hEq : b = block
+    · subst hEq
+      have hDone := hInv.argsOf b
+      simp only [hNotDone, ↓reduceIte] at hDone
+      rw [hDone, List.append_nil, List.filter_eq_self.mpr (by simp)]
+      simp [blockArgsReversed]
+    · have hFirst : ((List.range (block.getNumArguments! ctx₀.raw)).reverse.map
+          (fun i => (⟨block, i⟩ : BlockArgumentPtr))).filter (·.block = b) = [] := by
+        rw [List.filter_eq_nil_iff]
+        intro a ha
+        obtain ⟨i, _, rfl⟩ := List.mem_map.mp ha
+        simpa using fun h => hEq h.symm
+      rw [hFirst, List.nil_append, hInv.argsOf b]
+      simp [hEq]
+
+theorem PhaseBlocks.foldlM {ctx₀ ctx ctx' : WfIRContext OpCode} {blocks blocks' targets : List BlockPtr}
+    {done : List BlockArgumentPtr} {argCast}
+    (hInv : PhaseBlocks ctx₀ ctx blocks done argCast)
+    (targetsIn : ∀ block ∈ targets, block.InBounds ctx₀.raw)
+    (h : targets.foldlM convertBlockOnce (ctx, blocks) = .ok (ctx', blocks')) :
+    ∃ done' argCast', PhaseBlocks ctx₀ ctx' blocks' done' argCast' ∧
+      ∀ block, block ∈ blocks' ↔ block ∈ targets ∨ block ∈ blocks := by
+  induction targets generalizing ctx blocks done argCast with
+  | nil =>
+    simp only [List.foldlM_nil, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨done, argCast, hInv, by simp⟩
+  | cons block targets ih =>
+    simp only [List.foldlM_cons, bind, Except.bind] at h
+    split at h
+    next => simp at h
+    next acc hStep =>
+      obtain ⟨ctx₁, blocks₁⟩ := acc
+      simp only [convertBlockOnce] at hStep
+      split at hStep
+      next hMem =>
+        simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hStep
+        obtain ⟨rfl, rfl⟩ := hStep
+        obtain ⟨done', argCast', hInv', hIff⟩ := ih hInv
+          (fun b hb => targetsIn b (by simp [hb])) h
+        exact ⟨done', argCast', hInv', fun b => by rw [hIff b]; simp only [List.mem_cons]; grind⟩
+      next hNotMem =>
+        simp only [bind, Except.bind] at hStep
+        split at hStep
+        next => simp at hStep
+        next ctx₂ hConvert =>
+          simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hStep
+          obtain ⟨rfl, rfl⟩ := hStep
+          obtain ⟨done₁, argCast₁, hInv₁⟩ := hInv.step (targetsIn block (by simp)) hNotMem hConvert
+          obtain ⟨done', argCast', hInv', hIff⟩ := ih hInv₁
+            (fun b hb => targetsIn b (by simp [hb])) h
+          exact ⟨done', argCast', hInv', fun b => by
+            rw [hIff b]; simp only [List.mem_cons]; grind⟩
+
 end Veir
