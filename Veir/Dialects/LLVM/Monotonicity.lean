@@ -591,14 +591,16 @@ instance : InterpretOp'Monotone (.llvm .ptrtoint) where
 instance : InterpretOp'Monotone (.llvm .return) where
   monotone _ _ _ _ _ _ h := by
     simp only [interpretOp', Llvm.interpretOp']
-    exact ⟨⟨rfl, fun i hi => by simp at hi⟩, rfl, h⟩
+    exact ⟨⟨rfl, fun i hi => by simp at hi⟩, rfl,
+      by simpa [ControlFlowAction.optionIsRefinedBy, ControlFlowAction.isRefinedBy] using h⟩
 
 instance : InterpretOp'Monotone (.llvm .br) where
   monotone _ _ _ _ _ _ h := by
     simp only [interpretOp', Llvm.interpretOp']
     split
     case _ dest hDest =>
-      exact ⟨⟨rfl, fun i hi => by simp at hi⟩, rfl, rfl, h⟩
+      exact ⟨⟨rfl, fun i hi => by simp at hi⟩, rfl,
+        by simp [ControlFlowAction.optionIsRefinedBy, ControlFlowAction.isRefinedBy, h]⟩
     case _ => simp [Interp.isRefinedBy]
 
 instance : InterpretOp'Monotone (.llvm .cond_br) where
@@ -619,11 +621,13 @@ instance : InterpretOp'Monotone (.llvm .cond_br) where
               obtain rfl := RuntimeValue.int_val_of_isRefinedBy hRef
               by_cases hcond : c = 1#1
               · simp only [hcond, ↓reduceIte]
-                exact ⟨⟨rfl, fun i hi => by simp at hi⟩, rfl, rfl,
-                  RuntimeValue.arrayIsRefinedBy_extract h _ _⟩
+                exact ⟨⟨rfl, fun i hi => by simp at hi⟩, rfl,
+                  by simp [ControlFlowAction.optionIsRefinedBy, ControlFlowAction.isRefinedBy,
+                    RuntimeValue.arrayIsRefinedBy_extract h]⟩
               · simp only [hcond, ↓reduceIte]
-                exact ⟨⟨rfl, fun i hi => by simp at hi⟩, rfl, rfl,
-                  RuntimeValue.arrayIsRefinedBy_extract_from h _⟩
+                exact ⟨⟨rfl, fun i hi => by simp at hi⟩, rfl,
+                  by simp [ControlFlowAction.optionIsRefinedBy, ControlFlowAction.isRefinedBy,
+                    RuntimeValue.arrayIsRefinedBy_extract_from h]⟩
             | 1, .poison => simp [Interp.isRefinedBy]
             | 0, _ | (_ + 2), _ => simp [Interp.isRefinedBy]
           all_goals simp [Interp.isRefinedBy]
