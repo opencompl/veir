@@ -4,8 +4,6 @@ public import Veir.Analysis.DataFlow.Domains.AbstractDomain
 public import Veir.FoldDecision
 public import Veir.Interpreter.Refinement.Basic
 import Veir.Interpreter.Refinement.Lemmas
-import all Veir.Data.Refinement
-import all Veir.Data.LLVM.Byte.Basic
 
 public section
 
@@ -33,8 +31,8 @@ def poisonOf : RuntimeValue → RuntimeValue
 /-- The poison of a value's kind is refined by the value. -/
 theorem poisonOf_isRefinedBy (v : RuntimeValue) : v.poisonOf ⊒ v := by
   cases v with
-  | int w t => exact ⟨rfl, by simp [Data.LLVM.Int.cast_self, _root_.isRefinedBy]⟩
-  | byte w b => exact ⟨rfl, by simp [Data.LLVM.Byte.isRefinedBy, Data.LLVM.Byte.allPoison]⟩
+  | int w t => exact ⟨rfl, by rw [Data.LLVM.Int.cast_self]; exact poison_isRefinedBy t⟩
+  | byte w b => exact ⟨rfl, by rw [Data.LLVM.Byte.cast_self]; exact Data.LLVM.Byte.allPoison_isRefinedBy b⟩
   | addr p => show Data.LLVM.Ptr.poison ⊒ p; trivial
   | _ => exact RuntimeValue.isRefinedBy_refl _
 

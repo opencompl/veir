@@ -145,6 +145,11 @@ theorem isRefinedBy_trans {w : Nat} {i j k : Byte w}
     (h₁ : i ⊒ j) (h₂ : j ⊒ k) : i ⊒ k := by
   grind
 
+/-- The all-poison byte is refined by any byte. -/
+@[simp, grind .]
+theorem allPoison_isRefinedBy {w : Nat} (b : Byte w) : (allPoison : Byte w) ⊒ b := by
+  simp [allPoison]
+
 end Byte
 
 end
