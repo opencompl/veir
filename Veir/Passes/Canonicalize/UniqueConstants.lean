@@ -54,7 +54,7 @@ public def run (ctx : WfIRContext OpCode) (top : OperationPtr) :
         | none => .atEnd lastData.parent.get!
       | none => InsertPoint.atStart! (scope.get! ctx.raw).firstBlock.get! ctx.raw
     lastHoisted := lastHoisted.insert scope op
-    if ip != .before op then
+    if ip ≠ .before op then
       ctx := WfRewriter.detachOp! ctx op
       ctx := WfRewriter.insertOp! ctx op ip
   return ctx
