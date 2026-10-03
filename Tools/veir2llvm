@@ -3,7 +3,8 @@
 
 This is intentionally not a general MLIR parser.  It accepts one
 ``builtin.module`` containing exactly one ``llvm.func`` and supports the small
-integer LLVM subset used by ``Tools/vsmith_generate.py``.
+integer and pointer LLVM subset used by ``Tools/vsmith_generate.py`` and the
+interpreter tests.
 """
 
 from __future__ import annotations
@@ -420,6 +421,13 @@ def validate_function_args(blocks: list[Block], arg_types: list[str]) -> None:
             )
 
 
+def parse_elem_type(attr: str) -> str:
+    m = re.search(r'"?elem_type"?\s*=\s*([^,}]+)', attr)
+    if not m:
+        raise Error("expected an elem_type attribute")
+    return convert_type(m.group(1))
+
+
 def flags_from_attrs(op: str, attr: str) -> list[str]:
     items = parse_attr_items(attr)
     flags: list[str] = []
@@ -606,10 +614,49 @@ def translate_nonterminator(
         value_types[result] = typ
         return []
 
+    if name == "llvm.mlir.poison":
+        result = require_result(op)
+        aliases[result] = "poison"
+        value_types[result] = op.result_types[0]
+        return []
+
+    if name == "llvm.store":
+        if op.result is not None or op.result_types:
+            raise Error("llvm.store cannot have results")
+        require_operands(op, 2)
+        value = llvm_value(op.operands[0], aliases)
+        ptr = llvm_value(op.operands[1], aliases)
+        if convert_type(op.operand_types[1]) != "ptr":
+            raise Error("llvm.store expects a pointer address")
+        return [f"  store {convert_type(op.operand_types[0])} {value}, ptr {ptr}"]
+
     result = require_result(op)
     out_result = llvm_ssa_name(result)
     dst_type = op.result_types[0]
     value_types[result] = dst_type
+
+    if name == "llvm.alloca":
+        require_operands(op, 1)
+        elem = parse_elem_type(op.attr)
+        count = llvm_value(op.operands[0], aliases)
+        return [f"  {out_result} = alloca {elem}, "
+                f"{convert_type(op.operand_types[0])} {count}"]
+
+    if name == "llvm.load":
+        require_operands(op, 1)
+        ptr = llvm_value(op.operands[0], aliases)
+        return [f"  {out_result} = load {convert_type(dst_type)}, ptr {ptr}"]
+
+    if name == "llvm.getelementptr":
+        require_operands(op, 2)
+        raw = re.search(r'"?rawConstantIndices"?\s*=\s*array<i32:\s*([^>]*)>', op.attr)
+        if not raw or raw.group(1).strip() != "-2147483648":
+            raise Error("llvm.getelementptr supports exactly one dynamic index")
+        elem = parse_elem_type(op.attr)
+        ptr = llvm_value(op.operands[0], aliases)
+        index = llvm_value(op.operands[1], aliases)
+        return [f"  {out_result} = getelementptr {elem}, ptr {ptr}, "
+                f"{convert_type(op.operand_types[1])} {index}"]
 
     # Intrinsics and freeze carry their own attributes and bypass flag parsing.
     intrinsic = translate_intrinsic(op, out_result, dst_type, aliases, declarations)
@@ -811,6 +858,9 @@ def translate_function(name: str, blocks: list[Block], ret_type: str, arg_types:
     for (arg_name, arg_type), func_type in zip(blocks[0].args, arg_types):
         params.append(f"{convert_type(func_type)} {llvm_ssa_name(arg_name)}")
 
+    if name == "main" and not params:
+        # llubi runs `main` and expects the C signature; the arguments are unused.
+        params = ["i32 %llubi.argc", "ptr %llubi.argv"]
     out: list[str] = [f"define {convert_type(ret_type)} @{name}({', '.join(params)}) {{"]
     for idx, block in enumerate(blocks):
         out.append(f"{llvm_block_name(block.label)}:")

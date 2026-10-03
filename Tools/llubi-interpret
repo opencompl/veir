@@ -1,0 +1,45 @@
+#!/usr/bin/env python3
+"""Run a VeIR interpreter test under llubi.
+
+The module is translated to LLVM IR with ``Tools/veir2llvm``, executed by
+``llubi``, and llubi's verdict is printed in the shape ``veir-interpret``
+prints, so a lit test can hold both to the same CHECK lines.
+"""
+
+import subprocess
+import sys
+import tempfile
+from importlib.machinery import SourceFileLoader
+from pathlib import Path
+
+TOOLS = Path(__file__).resolve().parent
+vsmith = SourceFileLoader("vsmith", str(TOOLS / "vsmith")).load_module()
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) != 1:
+        print("usage: llubi-interpret <test.mlir>", file=sys.stderr)
+        return 1
+    translated = subprocess.run(
+        [sys.executable, str(TOOLS / "veir2llvm"), argv[0]],
+        capture_output=True, text=True)
+    if translated.returncode != 0:
+        sys.stderr.write(translated.stderr)
+        return 1
+    with tempfile.NamedTemporaryFile("w", suffix=".ll", delete=False) as f:
+        f.write(translated.stdout)
+        ll_path = f.name
+    result = subprocess.run(["llubi", ll_path, "--verbose"],
+                            capture_output=True, text=True)
+    log = result.stdout + result.stderr
+    try:
+        verdict, _ = vsmith.classify_llubi_output(log)
+    except ValueError as e:
+        sys.stderr.write(str(e))
+        return 1
+    print(verdict)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

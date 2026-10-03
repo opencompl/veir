@@ -1,5 +1,8 @@
 // RUN: veir-interpret %s | filecheck %s
 
+// LLUBI: reports a poison return from main as an error, so it cannot
+// cross-check this test.
+
 // Offsetting a poison pointer gives a poison pointer.
 
 "builtin.module"() ({

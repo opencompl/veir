@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
 
 // Loading from a poison pointer is undefined behaviour.
 

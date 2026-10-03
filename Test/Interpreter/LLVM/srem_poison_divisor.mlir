@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
 
 // Signed remainder by a poison divisor is immediate UB.
 "builtin.module"() ({

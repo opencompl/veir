@@ -239,7 +239,7 @@ def format_int_output(width: int, value: int) -> str:
 def classify_llubi_output(log: str) -> tuple[str, str]:
     """Return llubi's result in veir-interpret format and llubi's final value."""
     for line in log.splitlines():
-        if "Immediate UB detected" in line:
+        if "Immediate UB detected" in line or "Exited with immediate UB" in line:
             return "Undefined behavior", line.strip()
     for line in log.splitlines():
         if "poison return value" in line:
@@ -248,7 +248,7 @@ def classify_llubi_output(log: str) -> tuple[str, str]:
     values: dict[str, str] = {}
     llubi_values: dict[str, str] = {}
     for line in log.splitlines():
-        assignment = re.search(r"^\s*(%[-A-Za-z0-9_.$]+)\s*=.*=>\s*(poison|i(\d+)\s+(-?\d+))\s*$", line)
+        assignment = re.search(r"^\s*(%[-A-Za-z0-9_.$]+)\s*=.*[-=]>\s*(poison|i(\d+)\s+(-?\d+))\s*$", line)
         if assignment:
             name = assignment.group(1)
             if assignment.group(2) == "poison":
@@ -259,7 +259,7 @@ def classify_llubi_output(log: str) -> tuple[str, str]:
                 llubi_values[name] = assignment.group(2)
             continue
 
-        bool_assignment = re.search(r"^\s*(%[-A-Za-z0-9_.$]+)\s*=.*=>\s*([TF])\s*$", line)
+        bool_assignment = re.search(r"^\s*(%[-A-Za-z0-9_.$]+)\s*=.*[-=]>\s*([TF])\s*$", line)
         if bool_assignment:
             values[bool_assignment.group(1)] = "0x1#1" if bool_assignment.group(2) == "T" else "0x0#1"
             llubi_values[bool_assignment.group(1)] = bool_assignment.group(2)
