@@ -45,11 +45,11 @@ Operations without a push theorem (`—`) are abstracted as opaque variables by 
 | Cons bit                        | `BitVec.cons`                | —                                  |
 | Shift left, extend              | `BitVec.shiftLeftZeroExtend` | —                                  |
 | Add (`+`)                       | `BitVec.add`                 | `setWidth_add`                     |
-| Sub (`-`)                       | `BitVec.sub`                 | —                                  |
-| Neg (`-`)                       | `BitVec.neg`                 | —                                  |
-| Mul (`*`)                       | `BitVec.mul`                 | —                                  |
-| Unsigned div (`/`)              | `BitVec.udiv`                | —                                  |
-| Unsigned mod (`%`)              | `BitVec.umod`                | —                                  |
+| Sub (`-`)                       | `BitVec.sub`                 | `setWidth_sub`                     |
+| Neg (`-`)                       | `BitVec.neg`                 | `setWidth_neg`                     |
+| Mul (`*`)                       | `BitVec.mul`                 | `setWidth_mul`                     |
+| Unsigned div (`/`)              | `BitVec.udiv`                | `setWidth_udiv`                    |
+| Unsigned mod (`%`)              | `BitVec.umod`                | `setWidth_umod`                    |
 | Pow (`^`)                       | `BitVec.pow`                 | —                                  |
 | Abs                             | `BitVec.abs`                 | —                                  |
 | Signed div                      | `BitVec.sdiv`                | —                                  |
@@ -113,7 +113,7 @@ theorem setWidth_setWidth {o w u : Nat} (h : w ≤ o) (a : BitVec u) :
   refine setWidth_eq_and_maskOfWidth h ?_
   rw [BitVec.toNat_setWidth, BitVec.toNat_setWidth, Nat.mod_mod_pow_of_le h]
 
-/-! ## Width-sensitive arithmetic: mask the result -/
+/-! ## Push `setWidth` into arithmetic -/
 
 @[pbv_push]
 theorem setWidth_add {o w : Nat} (h : w ≤ o) (a b : BitVec w):
@@ -121,6 +121,44 @@ theorem setWidth_add {o w : Nat} (h : w ≤ o) (a b : BitVec w):
   refine setWidth_eq_and_maskOfWidth h ?_
   rw [BitVec.toNat_add, BitVec.toNat_setWidth_of_le h, BitVec.toNat_setWidth_of_le h,
     Nat.mod_mod_pow_of_le h, BitVec.toNat_add]
+
+@[pbv_push]
+theorem setWidth_mul {w o : Nat} (h : w ≤ o) :
+    ∀ (a b : BitVec w),
+      (a * b).setWidth o = (a.setWidth o * b.setWidth o) &&& maskOfWidth o w := by
+  intro a b
+  refine setWidth_eq_and_maskOfWidth h ?_
+  rw [BitVec.toNat_mul, BitVec.toNat_setWidth_of_le h, BitVec.toNat_setWidth_of_le h,
+    Nat.mod_mod_pow_of_le h, BitVec.toNat_mul]
+
+@[pbv_push]
+theorem setWidth_neg {w o : Nat} (h : w ≤ o) (b : BitVec w) :
+    (- b).setWidth o = (- b.setWidth o) &&& maskOfWidth o w := by
+  refine setWidth_eq_and_maskOfWidth h ?_
+  rw [BitVec.toNat_neg, BitVec.toNat_neg, Nat.mod_mod_pow_of_le h, BitVec.toNat_setWidth,
+      Nat.mod_eq_of_lt (BitVec.toNat_lt_twoPow_of_le (x := b) h), Nat.two_pow_sub_mod_of_le h (by grind)]
+
+@[pbv_push]
+theorem setWidth_sub {w o : Nat} (h : w ≤ o) (a b : BitVec w) :
+    (a - b).setWidth o = (a.setWidth o - b.setWidth o) &&& maskOfWidth o w := by
+  refine setWidth_eq_and_maskOfWidth h ?_
+  rw [BitVec.toNat_sub, BitVec.toNat_sub, BitVec.toNat_setWidth_of_le h,
+    BitVec.toNat_setWidth_of_le h, Nat.mod_mod_pow_of_le h, Nat.add_mod,
+    Nat.two_pow_sub_mod_of_le h (Nat.le_of_lt b.isLt), ← Nat.add_mod]
+
+@[pbv_push]
+theorem setWidth_udiv {w o : Nat} (h : w ≤ o) (a b : BitVec w) :
+    (a / b).setWidth o = (a.setWidth o / b.setWidth o) &&& maskOfWidth o w := by
+  refine setWidth_eq_and_maskOfWidth h ?_
+  simp only [BitVec.toNat_udiv, BitVec.toNat_setWidth, Nat.mod_eq_of_lt (BitVec.toNat_lt_twoPow_of_le h),
+    Nat.div_mod_eq_div a.isLt]
+
+@[pbv_push]
+theorem setWidth_umod {w o : Nat} (h : w ≤ o) (a b : BitVec w) :
+    (a % b).setWidth o = (a.setWidth o % b.setWidth o) &&& maskOfWidth o w := by
+  refine setWidth_eq_and_maskOfWidth h ?_
+  simp only [BitVec.toNat_umod, BitVec.toNat_setWidth, Nat.mod_eq_of_lt (BitVec.toNat_lt_twoPow_of_le h),
+    Nat.mod_mod_eq_mod_of_lt_right a.isLt]
 
 /-- Sign extension fills above the source width `v` with the sign bit,
 and then masks to the target width. -/
