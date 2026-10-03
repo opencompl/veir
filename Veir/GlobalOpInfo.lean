@@ -219,6 +219,33 @@ def OpCode.isIsolatedFromAbove (opCode : OpCode) : Bool :=
   | .function op => HasOpInfo.isIsolatedFromAbove op
   | .seq op => HasOpInfo.isIsolatedFromAbove op
 
+/-- Whether this opcode carries MLIR's `SymbolTable` trait. -/
+def OpCode.isSymbolTable (opCode : OpCode) : Bool :=
+  match opCode with
+  | .arith op => HasOpInfo.isSymbolTable op
+  | .llvm op => HasOpInfo.isSymbolTable op
+  | .riscv op => HasOpInfo.isSymbolTable op
+  | .riscv_cf op => HasOpInfo.isSymbolTable op
+  | .riscv_stack op => HasOpInfo.isSymbolTable op
+  | .rv64 op => HasOpInfo.isSymbolTable op
+  | .mod_arith op => HasOpInfo.isSymbolTable op
+  | .cf op => HasOpInfo.isSymbolTable op
+  | .comb op => HasOpInfo.isSymbolTable op
+  | .hw op => HasOpInfo.isSymbolTable op
+  | .verif op => HasOpInfo.isSymbolTable op
+  | .builtin op => HasOpInfo.isSymbolTable op
+  | .func op => HasOpInfo.isSymbolTable op
+  | .datapath op => HasOpInfo.isSymbolTable op
+  | .pdl op => HasOpInfo.isSymbolTable op
+  | .io op => HasOpInfo.isSymbolTable op
+  | .gmir op => HasOpInfo.isSymbolTable op
+  | .test op => HasOpInfo.isSymbolTable op
+  | .felt op => HasOpInfo.isSymbolTable op
+  | .cir op => HasOpInfo.isSymbolTable op
+  | .include op => HasOpInfo.isSymbolTable op
+  | .function op => HasOpInfo.isSymbolTable op
+  | .seq op => HasOpInfo.isSymbolTable op
+
 /--
   Does this OpCode count as an MLIR basic block terminator? Dialects that do
   not say otherwise inherit the `HasOpInfo` default of `false`.
@@ -522,6 +549,7 @@ instance : HasOpInfo OpCode where
   hasNoTerminator := OpCode.hasNoTerminator
   isTerminator := OpCode.isTerminator
   isIsolatedFromAbove := OpCode.isIsolatedFromAbove
+  isSymbolTable := OpCode.isSymbolTable
 
 /--
 Ask the dialect of `opCode` how to represent a folded
