@@ -290,3 +290,110 @@ example {w v : Nat} (x y : BitVec v) (hw : w ≤ v) (hv : v ≤ 8) :
 example {w v : Nat} (x : BitVec w) (hx : x.msb = false) (hwv : w ≤ v) (hv : v ≤ 8) :
     -(x.signExtend v) = (-x).signExtend v := by
   pbv_decide 8
+
+/-- Shifting left appends same as appending zero -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8)
+  : x <<< 1 = (x ++ 0#1).setWidth w
+  := by
+  pbv_decide 8
+
+/-- Shifting by width is zero -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    x <<< BitVec.ofNat w w = 0#w
+  := by
+  pbv_decide 8
+
+/-- Shifting by two variable amounts commutes -/
+example {w : Nat} (x y z : BitVec w) (hw : w ≤ 8) :
+    (x <<< y) <<< z = (x <<< z) <<< y := by
+  pbv_decide 8
+
+/-- Shifting by a variable amount distributes over addition -/
+example {w : Nat} (x y z : BitVec w) (hw : w ≤ 8) :
+    (x + y) <<< z = (x <<< z) + (y <<< z) := by
+  pbv_decide 8
+
+/-- Shifting by a `Nat` variable distributes over addition -/
+example {w : Nat} (n : Nat) (x y : BitVec w) (hw : w ≤ 8) :
+    (x + y) <<< n = (x <<< n) + (y <<< n) := by
+  pbv_decide 8
+
+/-- Doubling a variable shift is shifting it once more -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 8) :
+    (x <<< y) + (x <<< y) = (x <<< y) <<< 1 := by
+  pbv_decide 8
+
+/-- Shifting at double width and truncating is the same as shifting -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
+    x <<< y = (x.zeroExtend (w + w) <<< y.zeroExtend (w + w)).setWidth w := by
+  pbv_decide 8
+
+/-- Shifting left by a variable amount is multiplying by a power of two -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
+    x <<< y = x * (1#w <<< y) := by
+  pbv_decide 4
+
+/-- Shifting right and then left by the same amount clears the low bits -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 8) :
+    (x >>> y) <<< y = x - x % (1#w <<< y) := by
+  pbv_decide 8
+
+/-- Shifting right by a variable amount is dividing by a power of two -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
+    x >>> y = x / (1#w <<< y) := by
+  pbv_decide 4
+
+/-- Shifting right by one clears the sign bit -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) (hw0 : 0 < w) :
+    (x >>> (1#w)).msb = false := by
+  pbv_decide 8
+
+/-- Shifting right by zero is identity -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    x >>> 0 = x := by
+  pbv_decide 8
+
+/-- Shifting right by one is dividing by two -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    x >>> 1 = x / 2 := by
+  pbv_decide 8
+
+/-- Shifting right twice by literal amounts is shifting by their sum -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    (x >>> 1) >>> 2 = x >>> 3 := by
+  pbv_decide 8
+
+/-- Shifting right by a `Nat` agrees with shifting by the same `BitVec` amount -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    x >>> 1 = x >>> (1#w) := by
+  pbv_decide 8
+
+/-- Shifting right commutes with zero extension -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    (x.zeroExtend (w + w)) >>> 1 = (x >>> 1).zeroExtend (w + w) := by
+  pbv_decide 8
+
+/-- Extracting the low half of an append -/
+example {w : Nat} (a b : BitVec w) (hw : w ≤ 4) :
+    (a ++ b).extractLsb' 0 w = b := by
+  pbv_decide 8
+
+/-- Nested extracts collapse to the narrower one -/
+example {w v u : Nat} (x : BitVec w) (hw : w ≤ 8) (hv : v ≤ w) (hu : u ≤ v) :
+    (x.extractLsb' 0 v).extractLsb' 0 u = x.extractLsb' 0 u := by
+  pbv_decide 8
+
+/-- Extracting at a symbolic offset is shifting then truncating -/
+example {w s v : Nat} (x : BitVec w) (hw : w ≤ 8) (hv : v ≤ w) :
+    x.extractLsb' s v = (x >>> s).setWidth v := by
+  pbv_decide 8
+
+/-- Shifting left with extension by a literal is appending zeros -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    x.shiftLeftZeroExtend 2 = x ++ 0#2 := by
+  pbv_decide 16
+
+/-- Shifting left with extension and truncating is shifting left -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    (x.shiftLeftZeroExtend 1).setWidth w = x <<< 1 := by
+  pbv_decide 16
