@@ -24,7 +24,7 @@ import Veir.Parser.Lexer
 import Veir.Interpreter
 import Veir.Dominance
 import Veir.Passes.InstructionSelection.Proofs
-import Veir.Passes.InstructionSelection.Branches.Casts
+import Veir.Passes.InstructionSelection.Branches.Simulation
 import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.Legalization.Proofs
 
