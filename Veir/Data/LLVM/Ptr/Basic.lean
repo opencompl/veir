@@ -34,6 +34,14 @@ instance : ToString Ptr where
     | .val p => ToString.toString p
     | .poison => "poison"
 
+/--
+  The wild pointer at an address: the integer says nothing about the object,
+  so the access through the pointer finds it.
+-/
+def ofInt : Int 64 → Ptr
+  | .val v => .val (Pointer.ofAddress (UInt64.ofBitVec v))
+  | .poison => .poison
+
 /-- The address of a pointer as a 64-bit integer. -/
 def toInt : Ptr → Int 64
   | .val p => .val p.address.toBitVec
