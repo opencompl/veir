@@ -42,6 +42,10 @@ def ofInt : Int 64 → Ptr
   | .val v => .val (Pointer.ofAddress (UInt64.ofBitVec v))
   | .poison => .poison
 
+/-- The pointer whose bits are `b`. -/
+def ofByte (b : Byte 64) : Ptr :=
+  if b.poison = 0 then .val (Pointer.ofAddress b.toUInt64) else .poison
+
 /-- The address of a pointer as a 64-bit integer. -/
 def toInt : Ptr → Int 64
   | .val p => .val p.address.toBitVec

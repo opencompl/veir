@@ -178,10 +178,6 @@ def MemoryState.store (mem : MemoryState) (p : Pointer) (val : ByteArray)
 def MemoryState.empoison (mem : MemoryState) (p : Pointer) (n : Nat) : Interp MemoryState :=
   mem.store p (ByteArray.replicate n 0) (ByteArray.replicate n 0xff) (by simp)
 
-/-- The pointer whose bits are `b`. -/
-def MemoryState.ptrOfByte (mem : MemoryState) (b : Data.LLVM.Byte 64) : Ptr :=
-  if b.poison = 0 then .val (mem.decode b.toUInt64) else .poison
-
 /-- Store the 64 bits of `v`, poison bits included, at `p`. -/
 def MemoryState.storeByte64 (mem : MemoryState) (p : Pointer) (v : Data.LLVM.Byte 64)
     : Interp MemoryState :=
@@ -287,7 +283,7 @@ def MemoryState.llvmLoad (mem : MemoryState) (p : Pointer) (type : TypeAttr)
   | Attribute.byteType { bitwidth := 64 } =>
       return .byte 64 (← mem.loadByte64 p)
   | Attribute.llvmPointerType _ =>
-      return .addr (mem.ptrOfByte (← mem.loadByte64 p))
+      return .addr (Data.LLVM.Ptr.ofByte (← mem.loadByte64 p))
   | _ => none
 
 /-- The type `b8`, which keeps the poison bits of a byte loaded from memory. -/
