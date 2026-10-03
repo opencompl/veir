@@ -6,6 +6,7 @@ import all Veir.Interpreter.Refinement.Basic
 import all Veir.Interpreter.Memory
 import all Veir.Data.Refinement
 import all Veir.Data.Pointer.Basic
+import all Veir.Data.LLVM.Ptr.Basic
 
 public section
 
@@ -442,6 +443,12 @@ def RuntimeValue.ValidIn (mem : MemoryState) : RuntimeValue → Prop
   | .addr (.val p) => p.ValidIn mem
   | _ => True
 
+/-- The null pointer names the null object, which a well-laid-out memory has. -/
+theorem RuntimeValue.validIn_null {mem : MemoryState} (h : mem.LayoutWf) :
+    (RuntimeValue.addr Data.LLVM.Ptr.null).ValidIn mem := by
+  simp [RuntimeValue.ValidIn, Data.Pointer.ValidIn, Data.LLVM.Ptr.null, Data.Pointer.null,
+    h.nonempty]
+
 /-- A value that names objects of `mem` refines itself in assembly mode. -/
 theorem RuntimeValue.isRefinedBy_refl_asm {mem : MemoryState} {v : RuntimeValue}
     (h : v.ValidIn mem) : v ⊒[.asm mem] v := by
@@ -573,9 +580,9 @@ theorem RuntimeValue.addr_val_of_isRefinedBy_of {asm : Bool} {mem : MemoryState}
   · exact ⟨_, rfl, fun _ => h.symm, fun hc => by simp at hc⟩
   · exact ⟨_, rfl, fun hc => by simp at hc, fun _ => h⟩
 
-/-- A poison pointer is refined by any pointer. -/
-theorem RuntimeValue.addr_of_poison_isRefinedBy {m : RefinementMode} {w : RuntimeValue}
-    (h : RuntimeValue.addr .poison ⊒[m] w) : ∃ t, w = RuntimeValue.addr t := by
+/-- What refines a pointer is a pointer, in either mode. -/
+theorem RuntimeValue.exists_addr_of_isRefinedBy {m : RefinementMode} {v : Data.LLVM.Ptr}
+    {w : RuntimeValue} (h : RuntimeValue.addr v ⊒[m] w) : ∃ t, w = RuntimeValue.addr t := by
   cases w <;> simp only [RuntimeValue.isRefinedBy] at h <;> first | exact ⟨_, rfl⟩ | exact h.elim
 
 /-- A pointer related to a non-null pointer is not null. -/
@@ -650,3 +657,97 @@ theorem Data.Pointer.isRefinedByIn_addOffset {mem : MemoryState}
     rw [← UInt64.toNat_inj]
     simp only [UInt64.toNat_add, UInt64.toNat_ofNat']
     omega
+
+/-! ## The pointer opcodes in either mode -/
+
+/-- Two interpretations refine when their first steps do, and their continuations do from
+related results. -/
+theorem Interp.isRefinedBy_bind {α α' β β' : Type} {R : α → α' → Prop} {S : β → β' → Prop}
+    {x : Interp α} {y : Interp α'} {f : α → Interp β} {g : α' → Interp β'}
+    (hxy : Interp.isRefinedBy R x y) (hfg : ∀ a b, R a b → Interp.isRefinedBy S (f a) (g b)) :
+    Interp.isRefinedBy S (x >>= f) (y >>= g) := by
+  cases x <;> cases y <;> simp only [Interp.isRefinedBy, Interp.bind_ok, Interp.bind_ub,
+    Interp.bind_fail] at hxy ⊢ <;> first | trivial | exact hxy.elim | exact hfg _ _ hxy
+
+/-- An interpretation refines itself when each of its results relates to itself. -/
+theorem Interp.isRefinedBy_refl_of_ok {α : Type} {R : α → α → Prop} {x : Interp α}
+    (h : ∀ a, x = .ok a → R a a) : Interp.isRefinedBy R x x := by
+  cases x <;> simp_all [Interp.isRefinedBy]
+
+/-- Poison is refined by any pointer, in either mode. -/
+theorem RuntimeValue.addr_poison_isRefinedBy {m : RefinementMode} {t : Data.LLVM.Ptr} :
+    RuntimeValue.addr .poison ⊒[m] RuntimeValue.addr t := by
+  cases m <;> simp [RuntimeValue.isRefinedBy, Data.LLVM.Ptr.isRefinedByIn]
+
+/-- Address arithmetic keeps refinement of pointers, in either mode. -/
+theorem RuntimeValue.addr_addOffset_isRefinedBy {m : RefinementMode} {p q : Data.Pointer}
+    (h : RuntimeValue.addr (.val p) ⊒[m] RuntimeValue.addr (.val q)) (n : Nat) :
+    RuntimeValue.addr (.val { p with offset := UInt64.ofNat (p.offset.toNat + n) }) ⊒[m]
+      RuntimeValue.addr (.val { q with offset := UInt64.ofNat (q.offset.toNat + n) }) := by
+  cases m
+  · simp only [RuntimeValue.isRefinedBy, Data.LLVM.Ptr.isRefinedBy] at h ⊢
+    rw [h]
+  · simp only [RuntimeValue.isRefinedBy, Data.LLVM.Ptr.isRefinedByIn] at h ⊢
+    exact Data.Pointer.isRefinedByIn_addOffset h n
+
+/-- A pointer cast from an integer keeps refinement, in either mode: it names the null object. -/
+theorem MemoryState.ptrFromInt_isRefinedBy_of {asm : Bool} {mem : MemoryState}
+    (hwf : RefinementMode.Wf asm mem) {x y : Data.LLVM.Int 64} (h : x ⊒ y) :
+    RuntimeValue.addr (mem.ptrFromInt x) ⊒[.of asm mem] RuntimeValue.addr (mem.ptrFromInt y) := by
+  cases asm
+  · simpa [RuntimeValue.isRefinedBy] using MemoryState.ptrFromInt_mono h
+  · have hl : mem.LayoutWf := by simpa using hwf
+    cases x <;> cases y <;> simp_all [_root_.isRefinedBy, MemoryState.ptrFromInt,
+      RuntimeValue.isRefinedBy, Data.LLVM.Ptr.isRefinedByIn, Data.Pointer.isRefinedByIn,
+      Data.Pointer.ValidIn, Data.Pointer.ofAddress, hl.nonempty]
+
+/-- The address of a pointer keeps refinement, in either mode: related pointers share it. -/
+theorem MemoryState.intFromPtr_isRefinedBy_of {asm : Bool} {mem : MemoryState}
+    (hwf : RefinementMode.Wf asm mem) {p q : Data.LLVM.Ptr}
+    (h : RuntimeValue.addr p ⊒[.of asm mem] RuntimeValue.addr q) :
+    mem.intFromPtr p ⊒ mem.intFromPtr q := by
+  cases asm
+  · exact MemoryState.intFromPtr_mono (by simpa [RuntimeValue.isRefinedBy] using h)
+  · have hl : mem.LayoutWf := by simpa using hwf
+    simp only [RefinementMode.of_true, RuntimeValue.isRefinedBy] at h
+    cases p <;> cases q <;> simp only [Data.LLVM.Ptr.isRefinedByIn] at h
+    case val.val a b =>
+      simp [MemoryState.intFromPtr, _root_.isRefinedBy, hl.address_eq_of_isRefinedByIn h]
+    all_goals simp [MemoryState.intFromPtr, _root_.isRefinedBy]
+
+/-- A load through a refined pointer reads what the source read, in either mode. -/
+theorem MemoryState.llvmLoad_isRefinedBy_of {asm : Bool} {mem : MemoryState}
+    (hwf : RefinementMode.Wf asm mem) {p q : Data.Pointer}
+    (h : RuntimeValue.addr (.val p) ⊒[.of asm mem] RuntimeValue.addr (.val q)) (type : TypeAttr) :
+    Interp.isRefinedBy (fun (v w : RuntimeValue) => v ⊒[.of asm mem] w) (mem.llvmLoad p type)
+      (mem.llvmLoad q type) := by
+  cases asm
+  · simp only [RefinementMode.of_false, RuntimeValue.isRefinedBy, Data.LLVM.Ptr.isRefinedBy] at h
+    subst h
+    exact Interp.isRefinedBy_refl_of_ok fun v _ => RuntimeValue.isRefinedBy_refl v
+  · have hl : mem.LayoutWf := by simpa using hwf
+    simp only [RefinementMode.of_true, RuntimeValue.isRefinedBy, Data.LLVM.Ptr.isRefinedByIn] at h
+    cases hok : mem.llvmLoad p type
+    case ok v =>
+      obtain ⟨hp, n, obj, hn, hacc⟩ := MemoryState.llvmLoad_ok_access hok
+      rw [MemoryState.llvmLoad_eq_of_resolve_eq (hl.resolve_eq_of_isRefinedByIn h hacc hn) hp
+        (Data.Pointer.ne_null_of_isRefinedByIn h hp), hok]
+      exact RuntimeValue.isRefinedBy_refl_asm (hl.llvmLoad_validIn hok)
+    all_goals simp [Interp.isRefinedBy]
+
+/-- The step `alloca` takes: an object the memory did not have, valid in the memory it leaves. -/
+theorem OperationResult.isRefinedByFrom_alloc {asm : Bool} {mem mem' : MemoryState}
+    (hwf : RefinementMode.Wf asm mem) {size : UInt64} {p : Data.Pointer}
+    (halloc : mem.alloc size = .ok (mem', p)) :
+    OperationResult.isRefinedByFrom mem asm (#[.addr (.val p)], mem', none)
+      (#[.addr (.val p)], mem', none) := by
+  refine ⟨⟨RuntimeValue.arrayIsRefinedBy_refl_of ?_, rfl,
+    ControlFlowAction.optionIsRefinedBy_refl_of (fun _ => trivial), ?_⟩,
+    fun _ => MemoryState.alloc_extends halloc⟩
+  · intro _ v hv
+    simp only [List.mem_toArray, List.mem_singleton] at hv
+    subst hv
+    exact ⟨MemoryState.alloc_object_lt halloc, fun h => by
+      simp [MemoryState.alloc_not_wild halloc] at h⟩
+  · intro ha
+    exact (hwf ha).alloc halloc
