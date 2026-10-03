@@ -4,10 +4,10 @@
 // value. The interpreter picks 0, as it does for a poison integer.
 
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main", function_type = () -> !riscv.reg}> ({
+  "llvm.func"() <{sym_name = "main", function_type = !llvm.func<!riscv.reg ()>}> ({
     %p = "llvm.mlir.poison"() : () -> !llvm.ptr
     %r = "builtin.unrealized_conversion_cast"(%p) : (!llvm.ptr) -> !riscv.reg
-    "func.return"(%r) : (!riscv.reg) -> ()
+    "llvm.return"(%r) : (!riscv.reg) -> ()
   }) : () -> ()
 }) : () -> ()
 

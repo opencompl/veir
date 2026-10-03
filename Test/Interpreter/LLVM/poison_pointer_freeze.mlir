@@ -5,10 +5,10 @@
 // at least in our model.
 
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main", function_type = () -> !llvm.ptr}> ({
+  "llvm.func"() <{sym_name = "main", function_type = !llvm.func<!llvm.ptr ()>}> ({
     %p = "llvm.mlir.poison"() : () -> !llvm.ptr
     %f = "llvm.freeze"(%p) : (!llvm.ptr) -> !llvm.ptr
-    "func.return"(%f) : (!llvm.ptr) -> ()
+    "llvm.return"(%f) : (!llvm.ptr) -> ()
   }) : () -> ()
 }) : () -> ()
 
