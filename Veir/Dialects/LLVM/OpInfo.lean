@@ -1533,7 +1533,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     | _ => none
   | .mlir__addressof => do
     let some object := mem.globals[properties.global_name.value]? | none
-    return (#[.addr (.val ⟨object, 0⟩)], mem, none)
+    return (#[.addr (.val ⟨object, 0, false⟩)], mem, none)
   | .alloca => do
     let [.int _ (.val count)] := operands.toList | none
     /- `alloca T, N` reserves `N` strides of `T`, as in LLVM. -/
@@ -1574,7 +1574,8 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
        that `isel-riscv64` uses to lower this operation. -/
     let size ← layout.getTypeAllocSize properties.elem_type.val
     match ptr, idx with
-    | .val ptr, .val idx => return (#[.addr (.val ⟨ptr.object, UInt64.ofNat (ptr.offset.toNat + idx.toNat * size)⟩)], mem, none)
+    | .val ptr, .val idx =>
+      return (#[.addr (.val { ptr with offset := UInt64.ofNat (ptr.offset.toNat + idx.toNat * size) })], mem, none)
     | _, _ => return (#[.addr .poison], mem, none)
   | .freeze => do
     let [val] := operands.toList | none
