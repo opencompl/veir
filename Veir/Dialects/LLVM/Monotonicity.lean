@@ -453,10 +453,11 @@ class IsTrue (b : Bool) : Prop where
 
 instance : IsTrue true := ⟨rfl⟩
 
-instance (op : Llvm) [hMono : IsTrue (Llvm.isMonotone op)] : InterpretOp'Monotone (.llvm op) where
-  monotone properties resultTypes operands operands' blockOperands mem h := by
+instance (op : Llvm) [hMono : IsTrue (Llvm.isMonotone op)] : InterpretOp'Monotone false (.llvm op) where
+  monotone properties resultTypes operands operands' blockOperands mem _ h := by
     simp only [interpretOp']
-    exact Llvm.interpretOp'_monotone hMono.out properties resultTypes blockOperands mem _ h
+    exact Interp.isRefinedBy_operationResultFrom_of_llvm
+      (Llvm.interpretOp'_monotone hMono.out properties resultTypes blockOperands mem _ (by simpa using h))
 
 end Veir
 
