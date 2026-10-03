@@ -1,6 +1,7 @@
 module
 
 public import Veir.Interpreter.Basic
+public import Veir.Interpreter.Memory.Layout
 public import Veir.Dominance
 
 
@@ -30,13 +31,85 @@ namespace Veir
 
 variable {OpInfo : Type} [HasOpInfo OpInfo] {ctx : WfIRContext OpInfo}
 
-/-- Refinement relation between two runtime values. -/
+/-!
+## Modes
+
+Refinement comes in two modes. In LLVM mode a pointer is refined only by itself:
+provenance matters. In assembly mode the target has been lowered to code that
+holds pointers in registers, which carry an address and nothing else, so a
+pointer is also refined by the wild pointer at its address. That comparison
+needs the memory, which the mode carries; the state-level relations below take
+it from the state they relate.
+-/
+
+/-- The mode a refinement is read in. -/
+inductive RefinementMode where
+  /-- Pointers compare as pointers. -/
+  | llvm
+  /-- Pointers compare through their address in `mem`. -/
+  | asm (mem : MemoryState)
+
+/-- The mode for a state with memory `mem`, assembly or not. -/
 @[expose]
-def RuntimeValue.isRefinedBy (source target : RuntimeValue) : Prop :=
+def RefinementMode.of (asm : Bool) (mem : MemoryState) : RefinementMode :=
+  if asm then .asm mem else .llvm
+
+@[simp, grind =]
+theorem RefinementMode.of_false (mem : MemoryState) : RefinementMode.of false mem = .llvm := rfl
+
+@[simp, grind =]
+theorem RefinementMode.of_true (mem : MemoryState) : RefinementMode.of true mem = .asm mem := rfl
+
+/-- What a mode asks of a memory: assembly mode needs the layout. -/
+@[expose]
+def RefinementMode.Wf (asm : Bool) (mem : MemoryState) : Prop :=
+  asm = true → mem.LayoutWf
+
+@[simp, grind =]
+theorem RefinementMode.wf_false (mem : MemoryState) : RefinementMode.Wf false mem = True := by
+  simp [RefinementMode.Wf]
+
+@[simp, grind =]
+theorem RefinementMode.wf_true (mem : MemoryState) :
+    RefinementMode.Wf true mem = mem.LayoutWf := by
+  simp [RefinementMode.Wf]
+
+/--
+`p` names an object of `mem`, and the null object if it is wild. Naming an object
+keeps the address meaningful when memory grows. A wild pointer is built at an
+address and only ever moved, so its object is the null one, whose base is 0, and
+its address is its offset. Nothing the interpreter produces fails this.
+-/
+@[expose]
+def Data.Pointer.ValidIn (mem : MemoryState) (p : Data.Pointer) : Prop :=
+  p.object < mem.objects.size ∧ (p.wild = true → p.object = 0)
+
+/--
+In assembly mode, a pointer is refined by itself and by the wild pointer at its
+address. The pointer has to be valid in the memory.
+-/
+@[expose]
+def Data.Pointer.isRefinedByIn (mem : MemoryState) (p q : Data.Pointer) : Prop :=
+  p.ValidIn mem ∧
+    (p = q ∨ (p.wild = false ∧ q = Data.Pointer.ofAddress (mem.address p)))
+
+/-- `Data.Pointer.isRefinedByIn`, with poison refined by anything. -/
+@[expose]
+def Data.LLVM.Ptr.isRefinedByIn (mem : MemoryState) : Data.LLVM.Ptr → Data.LLVM.Ptr → Prop
+  | .poison, _ => True
+  | .val p, .val q => p.isRefinedByIn mem q
+  | .val _, .poison => False
+
+/-- Refinement relation between two runtime values, in LLVM mode unless told otherwise. -/
+@[expose]
+def RuntimeValue.isRefinedBy (source target : RuntimeValue) (m : RefinementMode := .llvm) : Prop :=
   match source, target with
   | .int bw s, .int bw' t => ∃ h : bw = bw', s.cast h ⊒ t
   | .byte bw s, .byte bw' t => ∃ h : bw = bw', s.cast h ⊒ t
-  | .addr s, .addr t => s ⊒ t
+  | .addr s, .addr t =>
+    match m with
+    | .llvm => s ⊒ t
+    | .asm mem => s.isRefinedByIn mem t
   | .reg s, .reg t => s = t
   | .felt fieldType s, .felt fieldType' t => fieldType = fieldType' ∧ s = t
   | .float ty s, .float ty' t =>
@@ -47,17 +120,21 @@ def RuntimeValue.isRefinedBy (source target : RuntimeValue) : Prop :=
   | _, _ => False
 
 @[inherit_doc] infix:50 " ⊒ " => RuntimeValue.isRefinedBy
+@[inherit_doc] notation:50 source:51 " ⊒[" m "] " target:51 => RuntimeValue.isRefinedBy source target m
 
 /--
 An array `source` of runtime values is refined by `target`. This asserts that the arrays have
 the same size, and that they refine pointwise.
 -/
 @[expose]
-def RuntimeValue.arrayIsRefinedBy (source target : Array RuntimeValue) : Prop :=
+def RuntimeValue.arrayIsRefinedBy (source target : Array RuntimeValue)
+    (m : RefinementMode := .llvm) : Prop :=
   source.size = target.size ∧
-    ∀ (i : Nat) (_ : i < source.size), source[i]! ⊒ target[i]!
+    ∀ (i : Nat) (_ : i < source.size), source[i]! ⊒[m] target[i]!
 
 @[inherit_doc] infix:50 " ⊒ " => RuntimeValue.arrayIsRefinedBy
+@[inherit_doc] notation:50 source:51 " ⊒[" m "] " target:51 =>
+  RuntimeValue.arrayIsRefinedBy source target m
 
 /--
 Refinement of memory objects, which can involve poison bits being refined into concrete bits.
@@ -79,11 +156,12 @@ def MemoryState.isRefinedBy (source target : MemoryState) : Prop :=
 
 /--
 A function interpretation `source` is refined by `target`. This asserts that the final memories
-are equal, and the returned values refine pointwise.
+are equal, and the returned values refine pointwise, in the mode of the final memory.
 -/
 @[expose]
-def FunctionResult.isRefinedBy (source target : MemoryState × Array RuntimeValue) : Prop :=
-  source.1 = target.1 ∧ source.2 ⊒ target.2
+def FunctionResult.isRefinedBy (source target : MemoryState × Array RuntimeValue)
+    (asm : Bool := false) : Prop :=
+  source.1 = target.1 ∧ source.2 ⊒[.of asm source.1] target.2
 
 @[inherit_doc] infix:50 " ⊒ " => FunctionResult.isRefinedBy
 
@@ -108,9 +186,11 @@ Refinement between two control flow actions: same constructor, equal successor b
 the carried value payloads refine pointwise.
 -/
 @[expose]
-def ControlFlowAction.isRefinedBy : ControlFlowAction → ControlFlowAction → Prop
-  | .return vals, .return vals' => vals ⊒ vals'
-  | .branch vals dest, .branch vals' dest' => dest = dest' ∧ vals ⊒ vals'
+def ControlFlowAction.isRefinedBy (source target : ControlFlowAction)
+    (m : RefinementMode := .llvm) : Prop :=
+  match source, target with
+  | .return vals, .return vals' => vals ⊒[m] vals'
+  | .branch vals dest, .branch vals' dest' => dest = dest' ∧ vals ⊒[m] vals'
   | _, _ => False
 
 @[inherit_doc] infix:50 " ⊒ " => ControlFlowAction.isRefinedBy
@@ -120,20 +200,25 @@ Refinement between two optional control flow actions. They should either both be
 `some` and refine.
 -/
 @[expose]
-def ControlFlowAction.optionIsRefinedBy : Option ControlFlowAction → Option ControlFlowAction → Prop
+def ControlFlowAction.optionIsRefinedBy (source target : Option ControlFlowAction)
+    (m : RefinementMode := .llvm) : Prop :=
+  match source, target with
   | none, none => True
-  | some a, some b => a.isRefinedBy b
+  | some a, some b => a.isRefinedBy b m
   | _, _ => False
 
 /--
 The result of interpreting a single operation. `source` is refined by `target`
-when values refine pointwise, memories are equal, and actions refine.
+when values refine pointwise, memories are equal, and actions refine, all in the
+mode of the memory the operation left; in assembly mode that memory keeps its
+layout.
 -/
 @[expose]
 def OperationResult.isRefinedBy (source target :
-    Array RuntimeValue × MemoryState × Option ControlFlowAction) : Prop :=
-  source.1 ⊒ target.1 ∧ source.2.1 = target.2.1 ∧
-    ControlFlowAction.optionIsRefinedBy source.2.2 target.2.2
+    Array RuntimeValue × MemoryState × Option ControlFlowAction) (asm : Bool := false) : Prop :=
+  source.1 ⊒[.of asm source.2.1] target.1 ∧ source.2.1 = target.2.1 ∧
+    ControlFlowAction.optionIsRefinedBy source.2.2 target.2.2 (.of asm source.2.1) ∧
+    RefinementMode.Wf asm source.2.1
 
 /--
 The function `func₁` (in `ctx₁`) is *refined by* `func₂` (in `ctx₂`) when, for every argument
@@ -143,10 +228,11 @@ The function `func₁` (in `ctx₁`) is *refined by* `func₂` (in `ctx₂`) whe
 def FunctionOp.isRefinedBy {ctx₁ ctx₂ : WfIRContext OpCode} {op₁ op₂ : OperationPtr}
     (func₁ : FunctionOp ctx₁.raw op₁) (func₂ : FunctionOp ctx₂.raw op₂)
     (op₁In : op₁.InBounds ctx₁.raw := by grind)
-    (op₂In : op₂.InBounds ctx₂.raw := by grind) : Prop :=
+    (op₂In : op₂.InBounds ctx₂.raw := by grind) (asm : Bool := false) : Prop :=
   ∀ (valuesSource valuesTarget : Array RuntimeValue) (mem : MemoryState),
-    valuesSource ⊒ valuesTarget →
-    Interp.isRefinedBy FunctionResult.isRefinedBy
+    RefinementMode.Wf asm mem →
+    valuesSource ⊒[.of asm mem] valuesTarget →
+    Interp.isRefinedBy (FunctionResult.isRefinedBy · · asm)
       (interpretFunction func₁ valuesSource mem op₁In)
       (interpretFunction func₂ valuesTarget mem op₂In)
 
@@ -158,9 +244,9 @@ The function-like operation `op₁` (in `ctx₁`) is *refined by* the function-l
 def OperationPtr.isRefinedByAsFunction (op₁ : OperationPtr) (ctx₁ : WfIRContext OpCode)
     (op₂ : OperationPtr) (ctx₂ : WfIRContext OpCode)
     (op₁In : op₁.InBounds ctx₁.raw := by grind)
-    (op₂In : op₂.InBounds ctx₂.raw := by grind) : Prop :=
+    (op₂In : op₂.InBounds ctx₂.raw := by grind) (asm : Bool := false) : Prop :=
   match FunctionOp.of? op₁ ctx₁.raw, FunctionOp.of? op₂ ctx₂.raw with
-  | some func₁, some func₂ => func₁.isRefinedBy func₂ op₁In op₂In
+  | some func₁, some func₂ => func₁.isRefinedBy func₂ op₁In op₂In asm
   | _, _ => False
 
 /--
@@ -183,12 +269,12 @@ every function in `mod₁` must be matched by a same-named function in `mod₂` 
 -/
 @[expose]
 def OperationPtr.isModuleRefinedBy (mod₁ : OperationPtr) (ctx₁ : WfIRContext OpCode)
-    (mod₂ : OperationPtr) (ctx₂ : WfIRContext OpCode) : Prop :=
+    (mod₂ : OperationPtr) (ctx₂ : WfIRContext OpCode) (asm : Bool := false) : Prop :=
   ∀ (func₁ : OperationPtr) (func₁In : func₁.InBounds ctx₁.raw) (name : StringAttr),
     func₁.IsTopLevelFuncWithName mod₁ ctx₁.raw name →
       ∃ (func₂ : OperationPtr) (func₂In : func₂.InBounds ctx₂.raw),
         func₂.IsTopLevelFuncWithName mod₂ ctx₂.raw name ∧
-          func₁.isRefinedByAsFunction ctx₁ func₂ ctx₂ func₁In func₂In
+          func₁.isRefinedByAsFunction ctx₁ func₂ ctx₂ func₁In func₂In asm
 
 abbrev ValueMapping (ctx ctx' : WfIRContext OpInfo) : Type :=
   {v : ValuePtr // v.InBounds ctx.raw} → {v : ValuePtr // v.InBounds ctx'.raw}
@@ -234,23 +320,25 @@ value that refines the source value.
 @[expose]
 def VariableState.isRefinedBy {ctx ctx' : WfIRContext OpInfo}
     (state : VariableState ctx) (state' : VariableState ctx')
-    (mapping : ValueMapping ctx ctx') : Prop :=
+    (mapping : ValueMapping ctx ctx') (m : RefinementMode := .llvm) : Prop :=
   ∀ (val : ValuePtr) (valIn : val.InBounds ctx.raw),
   ∀ sourceVar, state.getVar? val = some sourceVar →
   ∃ targetVar, state'.getVar? (mapping ⟨val, valIn⟩) = some targetVar ∧
-  sourceVar ⊒ targetVar
+  sourceVar ⊒[m] targetVar
 
 /--
 An interpreter state `state` is refined by `state'` through the value mapping
 `mapping`: they have the same memory, and the variable state of `state` is refined by the variable
-state of `state'` through `mapping`.
+state of `state'` through `mapping`, in the mode of that memory. In assembly
+mode the memory keeps its layout.
 -/
 @[expose]
 def InterpreterState.isRefinedBy {ctx ctx' : WfIRContext OpInfo}
     (state : InterpreterState ctx) (state' : InterpreterState ctx')
-    (mapping : ValueMapping ctx ctx') : Prop :=
+    (mapping : ValueMapping ctx ctx') (asm : Bool := false) : Prop :=
   state.memory = state'.memory ∧
-  state.variables.isRefinedBy state'.variables mapping
+  state.variables.isRefinedBy state'.variables mapping (.of asm state.memory) ∧
+  RefinementMode.Wf asm state.memory
 
 /-!
 ## `InterpreterState.IsRefinedByAt`
@@ -328,13 +416,14 @@ in scope, have refining runtime values.
 def VariableState.isRefinedByAt {ctx ctx' : WfIRContext OpInfo}
     (state : VariableState ctx) (state' : VariableState ctx')
     (mapping : ValueMapping ctx ctx') (s : RefinementPoint) (s' : RefinementPoint)
-    (_sIn : s.InBounds ctx.raw := by grind) (_s'In : s'.InBounds ctx'.raw := by grind) : Prop :=
+    (_sIn : s.InBounds ctx.raw := by grind) (_s'In : s'.InBounds ctx'.raw := by grind)
+    (m : RefinementMode := .llvm) : Prop :=
   ∀ (val : ValuePtr) (valIn : val.InBounds ctx.raw),
   val.InScopeAt s ctx →
   (mapping ⟨val, valIn⟩).val.InScopeAt s' ctx' →
   ∀ sv, state.getVar? val = some sv →
   ∀ tv, state'.getVar? (mapping ⟨val, valIn⟩) = some tv →
-  sv ⊒ tv
+  sv ⊒[m] tv
 
 /--
 A refinement relation for intepreter states in two different locations.
@@ -343,8 +432,10 @@ This asserts that memory is equal, and that the variable states are refined at t
 def InterpreterState.isRefinedByAt {ctx ctx' : WfIRContext OpInfo}
     (state : InterpreterState ctx) (state' : InterpreterState ctx')
     (mapping : ValueMapping ctx ctx') (s : RefinementPoint) (s' : RefinementPoint)
-    (_sIn : s.InBounds ctx.raw := by grind) (_s'In : s'.InBounds ctx'.raw := by grind) : Prop :=
+    (_sIn : s.InBounds ctx.raw := by grind) (_s'In : s'.InBounds ctx'.raw := by grind)
+    (asm : Bool := false) : Prop :=
   state.memory = state'.memory ∧
-  state.variables.isRefinedByAt state'.variables mapping s s'
+  state.variables.isRefinedByAt state'.variables mapping s s' _sIn _s'In (.of asm state.memory) ∧
+  RefinementMode.Wf asm state.memory
 
 end Veir
