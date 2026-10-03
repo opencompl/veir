@@ -650,6 +650,13 @@ def translate_nonterminator(
         value_types[result] = op.result_types[0]
         return []
 
+    if name == "llvm.mlir.zero":
+        result = require_result(op)
+        dst = op.result_types[0]
+        aliases[result] = "null" if convert_type(dst) == "ptr" else "0"
+        value_types[result] = dst
+        return []
+
     if name == "llvm.mlir.poison":
         result = require_result(op)
         aliases[result] = "poison"
@@ -720,6 +727,16 @@ def translate_nonterminator(
         require_operands(op, 1)
         ptr = llvm_value(op.operands[0], aliases)
         return [f"  {out_result} = load {convert_type(dst_type)}, ptr {ptr}"]
+
+    if name == "llvm.ptrtoint":
+        require_operands(op, 1)
+        src = llvm_value(op.operands[0], aliases)
+        return [f"  {out_result} = ptrtoint ptr {src} to {convert_type(dst_type)}"]
+
+    if name == "llvm.inttoptr":
+        require_operands(op, 1)
+        src = llvm_value(op.operands[0], aliases)
+        return [f"  {out_result} = inttoptr {convert_type(op.operand_types[0])} {src} to ptr"]
 
     if name == "llvm.getelementptr":
         require_operands(op, 2)
