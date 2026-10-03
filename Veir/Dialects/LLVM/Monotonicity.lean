@@ -280,15 +280,6 @@ theorem Llvm.interpretOp'_monotone {op : Llvm} (hMono : op.isMonotone) (asm : Bo
             · exact Interp.isRefinedBy_fail_target
             · exact OperationResult.isRefinedByFrom_value hwf (RuntimeValue.int_isRefinedBy
                 (Data.LLVM.Byte.toInt_mono hv))
-          case llvmPointerType ty =>
-            dsimp only
-            split
-            next heq =>
-              subst heq
-              simp only [Data.LLVM.Byte.cast_self]
-              exact OperationResult.isRefinedByFrom_value hwf
-                (MemoryState.ptrFromInt_isRefinedBy_of hwf (Data.LLVM.Byte.toInt_mono hv))
-            next => exact Interp.isRefinedBy_fail_target
           all_goals exact Interp.isRefinedBy_fail_target
         · simp [Interp.isRefinedBy]
       case addr p =>
@@ -297,24 +288,9 @@ theorem Llvm.interpretOp'_monotone {op : Llvm} (hMono : op.isMonotone) (asm : Bo
         split
         · rename_i attr property hres
           clear hres
-          cases attr
-          case integerType ty =>
-            cases ty
-            dsimp only
-            split
-            · exact OperationResult.isRefinedByFrom_value hwf (RuntimeValue.int_isRefinedBy
-                (MemoryState.intFromPtr_isRefinedBy_of hwf h₁))
-            · exact Interp.isRefinedBy_fail_target
-          case byteType ty =>
-            cases ty
-            dsimp only
-            split
-            · exact OperationResult.isRefinedByFrom_value hwf (RuntimeValue.byte_isRefinedBy
-                (Data.LLVM.Byte.fromInt_mono (MemoryState.intFromPtr_isRefinedBy_of hwf h₁)))
-            · exact Interp.isRefinedBy_fail_target
-          case llvmPointerType ty =>
-            exact OperationResult.isRefinedByFrom_value hwf h₁
-          all_goals exact Interp.isRefinedBy_fail_target
+          cases attr <;> first
+            | exact OperationResult.isRefinedByFrom_value hwf h₁
+            | exact Interp.isRefinedBy_fail_target
         · simp [Interp.isRefinedBy]
       all_goals (split <;> simp [Interp.isRefinedBy])
     case _ => simp [Interp.isRefinedBy]
