@@ -1,9 +1,10 @@
 // RUN: veir-interpret %s | filecheck %s
 
-// `%past` has `%p`'s provenance and `%q`'s address, so a store through it is
-// out of bounds, as in `alloca_out_of_bounds.mlir`. Through an integer and
-// back, the address is decoded into the object that covers it, the store
-// finds `%q`, and a load from `%q` sees it.
+// A wild pointer is more permissive than the pointer it came from. `%past`
+// has `%p`'s provenance and `%q`'s address, so a store through it is out of
+// bounds, as in `alloca_out_of_bounds.mlir`. Through an integer and back the
+// same address names no object, the store finds `%q`, and a load from `%q`
+// sees it.
 //
 // LLUBI: reports undefined behaviour, since for it the reconstructed pointer
 // may not reach `%q`.
