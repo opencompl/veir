@@ -30,6 +30,17 @@ private def isUnsupportedAbiAttr (entry : ByteArray × Attribute) : Bool :=
     | _ => true
   -- MIR must record exposesReturnsTwice before these calls can be lowered safely.
   else if name == "returns_twice".toUTF8 then true
+  else if name == "passthrough".toUTF8 then
+    match attr with
+    | .arrayAttr attrs => attrs.value.any fun
+      | .stringAttr name => name.value == "returns_twice".toUTF8
+      -- Passthrough entries may also be [name, value] pairs.
+      | .arrayAttr pair =>
+        match (pair.value[0]? : Option Attribute) with
+        | some (.stringAttr name) => name.value == "returns_twice".toUTF8
+        | _ => false
+      | _ => false
+    | _ => false
   else if name == "arg_attrs".toUTF8 || name == "res_attrs".toUTF8 then
     match attr with
     | .arrayAttr attrs => attrs.value.any fun attr =>

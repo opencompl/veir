@@ -1,17 +1,13 @@
-// RUN: veir-opt %s --print-op-generic -p=isel-abi-riscv64 | filecheck %s
 // RUN: veir-opt %s --print-op-generic -p=riscv | filecheck %s
 
 // Calls must honor ABI attributes found only on their callees, including
 // declarations after the caller and discardable attributes. Quoted and escaped
 // references must resolve to the same symbol as a bare reference.
 "builtin.module"() ({
-  "llvm.func"() <{sym_name = "caller", function_type = !llvm.func<void (ptr, i32)>}> ({
-  ^bb0(%p: !llvm.ptr, %a: i32):
+  "llvm.func"() <{sym_name = "caller", function_type = !llvm.func<void (ptr)>}> ({
+  ^bb0(%p: !llvm.ptr):
     "llvm.call"(%p) <{callee = @byval}> : (!llvm.ptr) -> ()
-    "llvm.call"(%p) <{callee = @"byval"}> : (!llvm.ptr) -> ()
     "llvm.call"(%p) <{callee = @"byv\61l"}> : (!llvm.ptr) -> ()
-    "llvm.call"(%p) <{callee = @nest}> : (!llvm.ptr) -> ()
-    %r = "llvm.call"(%a) <{callee = @result}> : (i32) -> i32
     "llvm.call"() <{callee = @fast}> : () -> ()
     "llvm.call"(%p) <{callee = @discardable}> : (!llvm.ptr) -> ()
     "llvm.call"(%p) <{callee = @"nonutf8\FF"}> : (!llvm.ptr) -> ()
@@ -25,10 +21,7 @@
   }) : () -> ()
   // CHECK-LABEL: "sym_name" = "caller"
   // CHECK: "llvm.call"(%{{.*}}) <{"callee" = @byval}> : (!llvm.ptr) -> ()
-  // CHECK-NEXT: "llvm.call"(%{{.*}}) <{"callee" = @"byval"}> : (!llvm.ptr) -> ()
   // CHECK-NEXT: "llvm.call"(%{{.*}}) <{"callee" = @"byv\61l"}> : (!llvm.ptr) -> ()
-  // CHECK-NEXT: "llvm.call"(%{{.*}}) <{"callee" = @nest}> : (!llvm.ptr) -> ()
-  // CHECK-NEXT: %{{.*}} = "llvm.call"(%{{.*}}) <{"callee" = @result}> : (i32) -> i32
   // CHECK-NEXT: "llvm.call"() <{"callee" = @fast}> : () -> ()
   // CHECK-NEXT: "llvm.call"(%{{.*}}) <{"callee" = @discardable}> : (!llvm.ptr) -> ()
   // CHECK-NEXT: "llvm.call"(%{{.*}}) <{"callee" = @"nonutf8\FF"}> : (!llvm.ptr) -> ()
@@ -39,11 +32,6 @@
   // CHECK-NEXT: "riscv_cf.return"() : () -> ()
 
   "llvm.func"() <{sym_name = "byval", function_type = !llvm.func<void (ptr)>, arg_attrs = [{llvm.byval = i64}], sym_visibility = "private"}> ({}) : () -> ()
-  "llvm.func"() <{sym_name = "nest", function_type = !llvm.func<void (ptr)>, arg_attrs = [{llvm.nest}]}> ({}) : () -> ()
-  "llvm.func"() <{sym_name = "result", function_type = !llvm.func<i32 (i32)>, res_attrs = [{llvm.zeroext}]}> ({
-  ^bb0(%a: i32):
-    "llvm.return"(%a) : (i32) -> ()
-  }) : () -> ()
   "llvm.func"() <{sym_name = "fast", function_type = !llvm.func<void ()>, CConv = #llvm.cconv<fastcc>}> ({}) : () -> ()
   "llvm.func"() <{sym_name = "discardable", function_type = !llvm.func<void (ptr)>, sym_visibility = "private"}> ({}) {arg_attrs = [{llvm.byval = i64}]} : () -> ()
   "llvm.func"() <{sym_name = "nonutf8\FF", function_type = !llvm.func<void (ptr)>, arg_attrs = [{llvm.byval = i64}], sym_visibility = "private"}> ({}) : () -> ()

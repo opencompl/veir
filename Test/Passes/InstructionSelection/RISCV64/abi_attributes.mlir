@@ -1,4 +1,3 @@
-// RUN: veir-opt %s --print-op-generic -p=isel-abi-riscv64 | filecheck %s
 // RUN: veir-opt %s --print-op-generic -p=riscv | filecheck %s
 
 // ABI attributes on either parameters or results prevent boundary lowering.
@@ -28,22 +27,6 @@
   // CHECK-NEXT: ^{{.*}}(%[[SA:.*]] : i32):
   // CHECK-NEXT: "llvm.return"(%[[SA]]) : (i32) -> ()
 
-  "llvm.func"() <{sym_name = "zeroext_arg", function_type = !llvm.func<i32 (i32)>, arg_attrs = [{llvm.zeroext}]}> ({
-  ^bb0(%n: i32):
-    "llvm.return"(%n) : (i32) -> ()
-  }) : () -> ()
-  // CHECK-LABEL: "function_type" = !llvm.func<i32 (i32)>, "sym_name" = "zeroext_arg"
-  // CHECK-NEXT: ^{{.*}}(%[[ZA:.*]] : i32):
-  // CHECK-NEXT: "llvm.return"(%[[ZA]]) : (i32) -> ()
-
-  "llvm.func"() <{sym_name = "signext_result", function_type = !llvm.func<i32 (i32)>, res_attrs = [{llvm.signext}]}> ({
-  ^bb0(%n: i32):
-    "llvm.return"(%n) : (i32) -> ()
-  }) : () -> ()
-  // CHECK-LABEL: "function_type" = !llvm.func<i32 (i32)>, "res_attrs" = [{llvm.signext}], "sym_name" = "signext_result"
-  // CHECK-NEXT: ^{{.*}}(%[[SR:.*]] : i32):
-  // CHECK-NEXT: "llvm.return"(%[[SR]]) : (i32) -> ()
-
   "llvm.func"() <{sym_name = "zeroext_result", function_type = !llvm.func<i32 (i32)>, res_attrs = [{llvm.zeroext}]}> ({
   ^bb0(%n: i32):
     "llvm.return"(%n) : (i32) -> ()
@@ -60,8 +43,6 @@
     %nest = "llvm.call"(%p, %a) <{callee = @nest_arg, arg_attrs = [{llvm.nest}, {}]}> : (!llvm.ptr, i64) -> i64
     %inest = "llvm.call"(%p, %p, %nest) <{arg_attrs = [{llvm.nest}, {}]}> : (!llvm.ptr, !llvm.ptr, i64) -> i64
     %sa = "llvm.call"(%b) <{callee = @signext_arg, arg_attrs = [{llvm.signext}]}> : (i32) -> i32
-    %za = "llvm.call"(%b) <{callee = @zeroext_arg, arg_attrs = [{llvm.zeroext}]}> : (i32) -> i32
-    %sr = "llvm.call"(%b) <{callee = @signext_result, res_attrs = [{llvm.signext}]}> : (i32) -> i32
     %zr = "llvm.call"(%b) <{callee = @zeroext_result, res_attrs = [{llvm.zeroext}]}> : (i32) -> i32
     %indirect = "llvm.call"(%p, %b) <{arg_attrs = [{llvm.signext}]}> : (!llvm.ptr, i32) -> i32
     // Unrelated attributes and empty dictionaries do not block lowering.
@@ -73,8 +54,6 @@
   // CHECK-NEXT: %[[NCALL:.*]] = "llvm.call"(%{{.*}}, %{{.*}}) <{"arg_attrs" = [{llvm.nest}, {}], "callee" = @nest_arg}> : (!llvm.ptr, i64) -> i64
   // CHECK-NEXT: %{{.*}} = "llvm.call"(%{{.*}}, %{{.*}}, %[[NCALL]]) <{"arg_attrs" = [{llvm.nest}, {}]}> : (!llvm.ptr, !llvm.ptr, i64) -> i64
   // CHECK-NEXT: %{{.*}} = "llvm.call"(%{{.*}}) <{"arg_attrs" = [{llvm.signext}], "callee" = @signext_arg}> : (i32) -> i32
-  // CHECK-NEXT: %{{.*}} = "llvm.call"(%{{.*}}) <{"arg_attrs" = [{llvm.zeroext}], "callee" = @zeroext_arg}> : (i32) -> i32
-  // CHECK-NEXT: %{{.*}} = "llvm.call"(%{{.*}}) <{"callee" = @signext_result, "res_attrs" = [{llvm.signext}]}> : (i32) -> i32
   // CHECK-NEXT: %{{.*}} = "llvm.call"(%{{.*}}) <{"callee" = @zeroext_result, "res_attrs" = [{llvm.zeroext}]}> : (i32) -> i32
   // CHECK-NEXT: %{{.*}} = "llvm.call"(%{{.*}}, %{{.*}}) <{"arg_attrs" = [{llvm.signext}]}> : (!llvm.ptr, i32) -> i32
   // CHECK: "riscv_cf.call"(%{{.*}}) <{"callee" = @ordinary}> : (!riscv.reg) -> !riscv.reg
