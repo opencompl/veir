@@ -180,223 +180,223 @@ theorem Llvm.intExtendArm_mono {operands operands' : Array RuntimeValue}
 
 /-! ## Operations that do not read their operands -/
 
-instance : InterpretOp'Monotone (.llvm .mlir__constant) where
-  monotone _ _ _ _ _ _ _ := by
+instance : InterpretOp'Monotone false (.llvm .mlir__constant) :=
+  .ofLlvm _ fun _ _ _ _ _ _ _ => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Interp.isRefinedBy_refl_operationResult _
 
-instance : InterpretOp'Monotone (.llvm .mlir__poison) where
-  monotone _ _ _ _ _ _ _ := by
+instance : InterpretOp'Monotone false (.llvm .mlir__poison) :=
+  .ofLlvm _ fun _ _ _ _ _ _ _ => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Interp.isRefinedBy_refl_operationResult _
 
-instance : InterpretOp'Monotone (.llvm .mlir__zero) where
-  monotone _ _ _ _ _ _ _ := by
+instance : InterpretOp'Monotone false (.llvm .mlir__zero) :=
+  .ofLlvm _ fun _ _ _ _ _ _ _ => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Interp.isRefinedBy_refl_operationResult _
 
-instance : InterpretOp'Monotone (.llvm .mlir__addressof) where
-  monotone _ _ _ _ _ _ _ := by
+instance : InterpretOp'Monotone false (.llvm .mlir__addressof) :=
+  .ofLlvm _ fun _ _ _ _ _ _ _ => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Interp.isRefinedBy_refl_operationResult _
 
-instance : InterpretOp'Monotone (.llvm .unreachable) where
-  monotone _ _ _ _ _ _ _ := by
+instance : InterpretOp'Monotone false (.llvm .unreachable) :=
+  .ofLlvm _ fun _ _ _ _ _ _ _ => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Interp.isRefinedBy_ub_target
 
 /-! ## Integer arithmetic -/
 
-instance : InterpretOp'Monotone (.llvm .add) where
-  monotone props _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .add) :=
+  .ofLlvm _ fun props _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intBinaryArm_mono mem (fun l r => LLVM.Int.add l r props.nsw props.nuw)
       (fun hl hr => Int.add_mono _ _ _ _ hl hr _ _) h
 
-instance : InterpretOp'Monotone (.llvm .sub) where
-  monotone props _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .sub) :=
+  .ofLlvm _ fun props _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intBinaryArm_mono mem (fun l r => LLVM.Int.sub l r props.nsw props.nuw)
       (fun hl hr => Int.sub_mono _ _ _ _ hl hr _ _) h
 
-instance : InterpretOp'Monotone (.llvm .mul) where
-  monotone props _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .mul) :=
+  .ofLlvm _ fun props _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intBinaryArm_mono mem (fun l r => LLVM.Int.mul l r props.nsw props.nuw)
       (fun hl hr => Int.mul_mono _ _ _ _ hl hr _ _) h
 
-instance : InterpretOp'Monotone (.llvm .udiv) where
-  monotone props _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .udiv) :=
+  .ofLlvm _ fun props _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intDivisionArm_mono mem (fun l r => LLVM.Int.udiv l r props.exact)
       (fun _ r => LLVM.Int.isUnsignedDivisionUB r)
       (fun hl hr => Int.udiv_mono _ _ _ _ hl hr _)
       (fun _ hr hub => Int.isUnsignedDivisionUB_eq_false_mono hr hub) h
 
-instance : InterpretOp'Monotone (.llvm .sdiv) where
-  monotone props _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .sdiv) :=
+  .ofLlvm _ fun props _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intDivisionArm_mono mem (fun l r => LLVM.Int.sdiv l r props.exact)
       (fun l r => LLVM.Int.isSignedDivisionUB l r)
       (fun hl hr => Int.sdiv_mono _ _ _ _ hl hr _)
       (fun hl hr hub => Int.isSignedDivisionUB_eq_false_mono hl hr hub) h
 
-instance : InterpretOp'Monotone (.llvm .urem) where
-  monotone _ _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .urem) :=
+  .ofLlvm _ fun _ _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intDivisionArm_mono mem (fun l r => LLVM.Int.urem l r)
       (fun _ r => LLVM.Int.isUnsignedDivisionUB r)
       (fun hl hr => Int.urem_mono _ _ _ _ hl hr)
       (fun _ hr hub => Int.isUnsignedDivisionUB_eq_false_mono hr hub) h
 
-instance : InterpretOp'Monotone (.llvm .srem) where
-  monotone _ _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .srem) :=
+  .ofLlvm _ fun _ _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intDivisionArm_mono mem (fun l r => LLVM.Int.srem l r)
       (fun l r => LLVM.Int.isSignedDivisionUB l r)
       (fun hl hr => Int.srem_mono _ _ _ _ hl hr)
       (fun hl hr hub => Int.isSignedDivisionUB_eq_false_mono hl hr hub) h
 
-instance : InterpretOp'Monotone (.llvm .ashr) where
-  monotone props _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .ashr) :=
+  .ofLlvm _ fun props _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intBinaryArm_mono mem (fun l r => LLVM.Int.ashr l r props.exact)
       (fun hl hr => Int.ashr_mono _ _ _ _ hl hr _) h
 
-instance : InterpretOp'Monotone (.llvm .and) where
-  monotone _ _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .and) :=
+  .ofLlvm _ fun _ _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intBinaryArm_mono mem (fun l r => LLVM.Int.and l r)
       (fun hl hr => Int.and_mono _ _ _ _ hl hr) h
 
-instance : InterpretOp'Monotone (.llvm .or) where
-  monotone props _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .or) :=
+  .ofLlvm _ fun props _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intBinaryArm_mono mem (fun l r => LLVM.Int.or l r props.disjoint)
       (fun hl hr => Int.or_mono _ _ _ _ _ hl hr) h
 
-instance : InterpretOp'Monotone (.llvm .xor) where
-  monotone _ _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .xor) :=
+  .ofLlvm _ fun _ _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intBinaryArm_mono mem (fun l r => LLVM.Int.xor l r)
       (fun hl hr => Int.xor_mono _ _ _ _ hl hr) h
 
-instance : InterpretOp'Monotone (.llvm .icmp) where
-  monotone props _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .icmp) :=
+  .ofLlvm _ fun props _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intBinaryArm_mono mem (fun l r => LLVM.Int.icmp l r props.predicate)
       (fun hl hr => Int.icmp_mono _ _ _ _ _ hl hr) h
 
-instance : InterpretOp'Monotone (.llvm .intr__smax) where
-  monotone _ _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .intr__smax) :=
+  .ofLlvm _ fun _ _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intBinaryArm_mono mem (fun l r => LLVM.Int.smax l r)
       (fun hl hr => Int.smax_mono _ _ _ _ hl hr) h
 
-instance : InterpretOp'Monotone (.llvm .intr__smin) where
-  monotone _ _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .intr__smin) :=
+  .ofLlvm _ fun _ _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intBinaryArm_mono mem (fun l r => LLVM.Int.smin l r)
       (fun hl hr => Int.smin_mono _ _ _ _ hl hr) h
 
-instance : InterpretOp'Monotone (.llvm .intr__umax) where
-  monotone _ _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .intr__umax) :=
+  .ofLlvm _ fun _ _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intBinaryArm_mono mem (fun l r => LLVM.Int.umax l r)
       (fun hl hr => Int.umax_mono _ _ _ _ hl hr) h
 
-instance : InterpretOp'Monotone (.llvm .intr__umin) where
-  monotone _ _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .intr__umin) :=
+  .ofLlvm _ fun _ _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intBinaryArm_mono mem (fun l r => LLVM.Int.umin l r)
       (fun hl hr => Int.umin_mono _ _ _ _ hl hr) h
 
-instance : InterpretOp'Monotone (.llvm .intr__sadd__sat) where
-  monotone _ _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .intr__sadd__sat) :=
+  .ofLlvm _ fun _ _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intBinaryArm_mono mem (fun l r => LLVM.Int.saddSat l r)
       (fun hl hr => Int.saddSat_mono _ _ _ _ hl hr) h
 
-instance : InterpretOp'Monotone (.llvm .intr__uadd__sat) where
-  monotone _ _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .intr__uadd__sat) :=
+  .ofLlvm _ fun _ _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intBinaryArm_mono mem (fun l r => LLVM.Int.uaddSat l r)
       (fun hl hr => Int.uaddSat_mono _ _ _ _ hl hr) h
 
-instance : InterpretOp'Monotone (.llvm .intr__ssub__sat) where
-  monotone _ _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .intr__ssub__sat) :=
+  .ofLlvm _ fun _ _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intBinaryArm_mono mem (fun l r => LLVM.Int.ssubSat l r)
       (fun hl hr => Int.ssubSat_mono _ _ _ _ hl hr) h
 
-instance : InterpretOp'Monotone (.llvm .intr__usub__sat) where
-  monotone _ _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .intr__usub__sat) :=
+  .ofLlvm _ fun _ _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intBinaryArm_mono mem (fun l r => LLVM.Int.usubSat l r)
       (fun hl hr => Int.usubSat_mono _ _ _ _ hl hr) h
 
-instance : InterpretOp'Monotone (.llvm .intr__sshl__sat) where
-  monotone _ _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .intr__sshl__sat) :=
+  .ofLlvm _ fun _ _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intBinaryArm_mono mem (fun l r => LLVM.Int.sshlSat l r)
       (fun hl hr => Int.sshlSat_mono _ _ _ _ hl hr) h
 
-instance : InterpretOp'Monotone (.llvm .intr__ushl__sat) where
-  monotone _ _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .intr__ushl__sat) :=
+  .ofLlvm _ fun _ _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intBinaryArm_mono mem (fun l r => LLVM.Int.ushlSat l r)
       (fun hl hr => Int.ushlSat_mono _ _ _ _ hl hr) h
 
-instance : InterpretOp'Monotone (.llvm .intr__fshl) where
-  monotone _ _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .intr__fshl) :=
+  .ofLlvm _ fun _ _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intTernaryArm_mono mem (fun a b c => LLVM.Int.fshl a b c)
       (fun ha hb hc => Int.fshl_mono _ _ _ _ _ _ ha hb hc) h
 
-instance : InterpretOp'Monotone (.llvm .intr__fshr) where
-  monotone _ _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .intr__fshr) :=
+  .ofLlvm _ fun _ _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intTernaryArm_mono mem (fun a b c => LLVM.Int.fshr a b c)
       (fun ha hb hc => Int.fshr_mono _ _ _ _ _ _ ha hb hc) h
 
-instance : InterpretOp'Monotone (.llvm .intr__ctlz) where
-  monotone props _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .intr__ctlz) :=
+  .ofLlvm _ fun props _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intUnaryArm_mono mem (fun x => LLVM.Int.ctlz x props.is_zero_poison)
       (fun hx => Int.ctlz_mono _ _ _ hx) h
 
-instance : InterpretOp'Monotone (.llvm .intr__cttz) where
-  monotone props _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .intr__cttz) :=
+  .ofLlvm _ fun props _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intUnaryArm_mono mem (fun x => LLVM.Int.cttz x props.is_zero_poison)
       (fun hx => Int.cttz_mono _ _ _ hx) h
 
-instance : InterpretOp'Monotone (.llvm .intr__ctpop) where
-  monotone _ _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .intr__ctpop) :=
+  .ofLlvm _ fun _ _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intUnaryArm_mono mem (fun x => LLVM.Int.ctpop x)
       (fun hx => Int.ctpop_mono _ _ hx) h
 
-instance : InterpretOp'Monotone (.llvm .intr__bswap) where
-  monotone _ _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .intr__bswap) :=
+  .ofLlvm _ fun _ _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intUnaryArm_mono mem (fun x => LLVM.Int.bswap x)
       (fun hx => Int.bswap_mono _ _ hx) h
 
-instance : InterpretOp'Monotone (.llvm .intr__bitreverse) where
-  monotone _ _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .intr__bitreverse) :=
+  .ofLlvm _ fun _ _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intUnaryArm_mono mem (fun x => LLVM.Int.bitreverse x)
       (fun hx => Int.bitreverse_mono _ _ hx) h
 
-instance : InterpretOp'Monotone (.llvm .intr__abs) where
-  monotone props _ _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .intr__abs) :=
+  .ofLlvm _ fun props _ _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intUnaryArm_mono mem (fun x => LLVM.Int.abs x props.is_int_min_poison)
       (fun hx => Int.abs_mono _ _ _ hx) h
 
-instance : InterpretOp'Monotone (.llvm .select) where
-  monotone _ _ _ _ _ _ h := by
+instance : InterpretOp'Monotone false (.llvm .select) :=
+  .ofLlvm _ fun _ _ _ _ _ _ h => by
     simp only [interpretOp', Llvm.interpretOp']
     split
     case _ cond bw lhs bw' rhs hOps =>
@@ -413,20 +413,20 @@ instance : InterpretOp'Monotone (.llvm .select) where
 
 /-! ## Casts -/
 
-instance : InterpretOp'Monotone (.llvm .zext) where
-  monotone props resultTypes _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .zext) :=
+  .ofLlvm _ fun props resultTypes _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intExtendArm_mono resultTypes mem
       (fun v w' hw => LLVM.Int.zext v w' props.nneg hw) (fun hw hv => Int.zext_mono _ _ hw hv) h
 
-instance : InterpretOp'Monotone (.llvm .sext) where
-  monotone _ resultTypes _ _ _ mem h := by
+instance : InterpretOp'Monotone false (.llvm .sext) :=
+  .ofLlvm _ fun _ resultTypes _ _ _ mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intExtendArm_mono resultTypes mem
       (fun v w' hw => LLVM.Int.sext v w' hw) (fun hw hv => Int.sext_mono _ _ hw hv) h
 
-instance : InterpretOp'Monotone (.llvm .trunc) where
-  monotone _ _ _ _ _ _ h := by
+instance : InterpretOp'Monotone false (.llvm .trunc) :=
+  .ofLlvm _ fun _ _ _ _ _ _ h => by
     simp only [interpretOp', Llvm.interpretOp']
     split
     case _ val hOps =>
@@ -463,8 +463,8 @@ instance : InterpretOp'Monotone (.llvm .trunc) where
       all_goals (split <;> simp [Interp.isRefinedBy])
     case _ => simp [Interp.isRefinedBy]
 
-instance : InterpretOp'Monotone (.llvm .bitcast) where
-  monotone _ _ _ _ _ _ h := by
+instance : InterpretOp'Monotone false (.llvm .bitcast) :=
+  .ofLlvm _ fun _ _ _ _ _ _ h => by
     simp only [interpretOp', Llvm.interpretOp']
     split
     case _ val hOps =>
@@ -544,8 +544,8 @@ instance : InterpretOp'Monotone (.llvm .bitcast) where
       all_goals (split <;> simp [Interp.isRefinedBy])
     case _ => simp [Interp.isRefinedBy]
 
-instance : InterpretOp'Monotone (.llvm .inttoptr) where
-  monotone _ _ _ _ _ _ h := by
+instance : InterpretOp'Monotone false (.llvm .inttoptr) :=
+  .ofLlvm _ fun _ _ _ _ _ _ h => by
     simp only [interpretOp', Llvm.interpretOp']
     split
     case _ bw v hOps =>
@@ -564,8 +564,8 @@ instance : InterpretOp'Monotone (.llvm .inttoptr) where
       case _ => simp [Interp.isRefinedBy]
     case _ => simp [Interp.isRefinedBy]
 
-instance : InterpretOp'Monotone (.llvm .ptrtoint) where
-  monotone _ _ _ _ _ _ h := by
+instance : InterpretOp'Monotone false (.llvm .ptrtoint) :=
+  .ofLlvm _ fun _ _ _ _ _ _ h => by
     simp only [interpretOp', Llvm.interpretOp']
     split
     case _ p hOps =>
@@ -588,14 +588,14 @@ instance : InterpretOp'Monotone (.llvm .ptrtoint) where
 
 /-! ## Control flow -/
 
-instance : InterpretOp'Monotone (.llvm .return) where
-  monotone _ _ _ _ _ _ h := by
+instance : InterpretOp'Monotone false (.llvm .return) :=
+  .ofLlvm _ fun _ _ _ _ _ _ h => by
     simp only [interpretOp', Llvm.interpretOp']
     exact ⟨⟨rfl, fun i hi => by simp at hi⟩, rfl,
       by simpa [ControlFlowAction.optionIsRefinedBy, ControlFlowAction.isRefinedBy] using h⟩
 
-instance : InterpretOp'Monotone (.llvm .br) where
-  monotone _ _ _ _ _ _ h := by
+instance : InterpretOp'Monotone false (.llvm .br) :=
+  .ofLlvm _ fun _ _ _ _ _ _ h => by
     simp only [interpretOp', Llvm.interpretOp']
     split
     case _ dest hDest =>
@@ -603,8 +603,8 @@ instance : InterpretOp'Monotone (.llvm .br) where
         by simp [ControlFlowAction.optionIsRefinedBy, ControlFlowAction.isRefinedBy, h]⟩
     case _ => simp [Interp.isRefinedBy]
 
-instance : InterpretOp'Monotone (.llvm .cond_br) where
-  monotone _ _ _ _ _ _ h := by
+instance : InterpretOp'Monotone false (.llvm .cond_br) :=
+  .ofLlvm _ fun _ _ _ _ _ _ h => by
     simp only [interpretOp', Llvm.interpretOp']
     split
     case _ destTrue destFalse hDest =>
@@ -637,8 +637,8 @@ instance : InterpretOp'Monotone (.llvm .cond_br) where
 
 /-! ## Memory -/
 
-instance : InterpretOp'Monotone (.llvm .alloca) where
-  monotone _ _ _ _ _ _ h := by
+instance : InterpretOp'Monotone false (.llvm .alloca) :=
+  .ofLlvm _ fun _ _ _ _ _ _ h => by
     simp only [interpretOp', Llvm.interpretOp']
     split
     case _ bw count hOps =>
@@ -652,8 +652,8 @@ instance : InterpretOp'Monotone (.llvm .alloca) where
 A load is monotone: a poison pointer is undefined behavior and
 a concrete one is fixed by refinement.
 -/
-instance : InterpretOp'Monotone (.llvm .load) where
-  monotone props resultTypes operands operands' blockOperands mem h := by
+instance : InterpretOp'Monotone false (.llvm .load) :=
+  .ofLlvm _ fun props resultTypes operands operands' blockOperands mem h => by
     simp only [interpretOp', Llvm.interpretOp']
     split
     · split
@@ -665,8 +665,8 @@ instance : InterpretOp'Monotone (.llvm .load) where
       · simp [Interp.isRefinedBy]
     · simp [Interp.isRefinedBy]
 
-instance : InterpretOp'Monotone (.llvm .getelementptr) where
-  monotone _ _ _ _ _ _ h := by
+instance : InterpretOp'Monotone false (.llvm .getelementptr) :=
+  .ofLlvm _ fun _ _ _ _ _ _ h => by
     simp only [interpretOp', Llvm.interpretOp']
     split
     case _ ptr bw idx hOps =>

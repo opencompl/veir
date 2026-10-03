@@ -29,19 +29,20 @@ theorem RuntimeValue.arrayIsRefinedBy_refl (a : Array RuntimeValue) : a ⊒ a :=
   simp [arrayIsRefinedBy]
 
 @[simp, grind .]
-theorem RuntimeValue.arrayIsRefinedBy_nil :
-    #[] ⊒ #[] := by
+theorem RuntimeValue.arrayIsRefinedBy_nil {m : RefinementMode} :
+    (#[] : Array RuntimeValue) ⊒[m] #[] := by
   simp [arrayIsRefinedBy]
 
 @[simp, grind =]
-theorem RuntimeValue.arrayIsRefinedBy_singleton {a b : RuntimeValue} :
-    #[a] ⊒ #[b] ↔ a ⊒ b := by
+theorem RuntimeValue.arrayIsRefinedBy_singleton {m : RefinementMode} {a b : RuntimeValue} :
+    #[a] ⊒[m] #[b] ↔ a ⊒[m] b := by
   simp [arrayIsRefinedBy]
 
 @[simp, grind =]
-theorem RuntimeValue.arrayIsRefinedBy_cons {a b : RuntimeValue} {as bs : List RuntimeValue} :
-    List.toArray (a :: as) ⊒ List.toArray (b :: bs) ↔
-    a ⊒ b ∧ List.toArray as ⊒ List.toArray bs := by
+theorem RuntimeValue.arrayIsRefinedBy_cons {m : RefinementMode} {a b : RuntimeValue}
+    {as bs : List RuntimeValue} :
+    List.toArray (a :: as) ⊒[m] List.toArray (b :: bs) ↔
+    a ⊒[m] b ∧ List.toArray as ⊒[m] List.toArray bs := by
   simp [arrayIsRefinedBy]
   constructor
   · rintro ⟨h₁, h₂⟩
@@ -167,8 +168,8 @@ target value `tv`.
 A runtime value `tv` that refines an integer runtime value `v` is itself an integer of the same
 width, and the underlying integer value refines `v`.
 -/
-theorem RuntimeValue.int_of_isRefinedBy {bw : Nat} {v : Data.LLVM.Int bw} {tv : RuntimeValue}
-    (h : RuntimeValue.int bw v ⊒ tv) :
+theorem RuntimeValue.int_of_isRefinedBy {m : RefinementMode} {bw : Nat} {v : Data.LLVM.Int bw}
+    {tv : RuntimeValue} (h : RuntimeValue.int bw v ⊒[m] tv) :
     ∃ t : Data.LLVM.Int bw, tv = RuntimeValue.int bw t ∧ v ⊒ t := by
   cases tv <;> grind [RuntimeValue.isRefinedBy]
 
@@ -176,22 +177,22 @@ theorem RuntimeValue.int_of_isRefinedBy {bw : Nat} {v : Data.LLVM.Int bw} {tv : 
 A runtime value `tv` that refines a byte runtime value `v` is itself a byte of the same
 width, and the underlying byte value refines `v`.
 -/
-theorem RuntimeValue.byte_of_isRefinedBy {bw : Nat} {v : Data.LLVM.Byte bw} {tv : RuntimeValue}
-    (h : RuntimeValue.byte bw v ⊒ tv) :
+theorem RuntimeValue.byte_of_isRefinedBy {m : RefinementMode} {bw : Nat} {v : Data.LLVM.Byte bw}
+    {tv : RuntimeValue} (h : RuntimeValue.byte bw v ⊒[m] tv) :
     ∃ t : Data.LLVM.Byte bw, tv = RuntimeValue.byte bw t ∧ v ⊒ t := by
   cases tv <;> grind [RuntimeValue.isRefinedBy]
 
 /-- A runtime value `tv` that refines a float runtime value `v` is equal to it. -/
-theorem RuntimeValue.float_of_isRefinedBy {ty : FloatType} {v : Data.Float.FloatValue ty.format}
-    {tv : RuntimeValue}
-    (h : RuntimeValue.float ty v ⊒ tv) :
+theorem RuntimeValue.float_of_isRefinedBy {m : RefinementMode} {ty : FloatType}
+    {v : Data.Float.FloatValue ty.format} {tv : RuntimeValue}
+    (h : RuntimeValue.float ty v ⊒[m] tv) :
     tv = RuntimeValue.float ty v := by
   cases tv <;> grind [RuntimeValue.isRefinedBy]
 
 /-- A source array of one value fixes the target array to one value that it refines. -/
-theorem RuntimeValue.arrayIsRefinedBy_toList_singleton {a b : Array RuntimeValue}
-    {v : RuntimeValue} (hEq : a.toList = [v]) (h : a ⊒ b) :
-    ∃ w, b.toList = [w] ∧ v ⊒ w := by
+theorem RuntimeValue.arrayIsRefinedBy_toList_singleton {m : RefinementMode} {a b : Array RuntimeValue}
+    {v : RuntimeValue} (hEq : a.toList = [v]) (h : a ⊒[m] b) :
+    ∃ w, b.toList = [w] ∧ v ⊒[m] w := by
   cases a; cases b; grind [arrayIsRefinedBy, List.length_eq_one_iff]
 
 /-- A runtime value `tv` that refines a non-poison pointer value `v` is equal to it. -/
@@ -208,8 +209,8 @@ theorem RuntimeValue.addr_of_isRefinedBy {v : Data.LLVM.Ptr} {tv : RuntimeValue}
   cases tv <;> grind [RuntimeValue.isRefinedBy]
 
 /-- A runtime value `tv` that refines a register runtime value `v` is equal to it. -/
-theorem RuntimeValue.reg_of_isRefinedBy {v : Data.RISCV.Reg} {tv : RuntimeValue}
-    (h : RuntimeValue.reg v ⊒ tv) :
+theorem RuntimeValue.reg_of_isRefinedBy {m : RefinementMode} {v : Data.RISCV.Reg}
+    {tv : RuntimeValue} (h : RuntimeValue.reg v ⊒[m] tv) :
     tv = RuntimeValue.reg v := by
   cases tv <;> grind [RuntimeValue.isRefinedBy]
 
@@ -217,8 +218,8 @@ theorem RuntimeValue.reg_of_isRefinedBy {v : Data.RISCV.Reg} {tv : RuntimeValue}
 A register runtime value can only be refined by itself, so operand arrays that consist purely of
 registers are refined only by themselves.
 -/
-theorem RuntimeValue.eq_of_arrayIsRefinedBy_of_regs {a b : Array RuntimeValue}
-    (h : a ⊒ b) (hregs : ∀ v ∈ a, ∃ r, v = .reg r) : b = a := by
+theorem RuntimeValue.eq_of_arrayIsRefinedBy_of_regs {m : RefinementMode} {a b : Array RuntimeValue}
+    (h : a ⊒[m] b) (hregs : ∀ v ∈ a, ∃ r, v = .reg r) : b = a := by
   grind [arrayIsRefinedBy, reg_of_isRefinedBy, Array.getElem_mem]
 
 /-! ## Interp refinements -/
@@ -281,17 +282,17 @@ theorem ValueMapping.ReflectsResults.not_mem_getResults
   grind [OperationPtr.getResults!.mem_iff_exists_index, hReflect val valIn index heq.symm]
 
 /-- A source array of two values fixes the target array to two values that it refines. -/
-theorem RuntimeValue.arrayIsRefinedBy_toList_pair {a b : Array RuntimeValue}
-    {v₁ v₂ : RuntimeValue} (hEq : a.toList = [v₁, v₂]) (h : a ⊒ b) :
-    ∃ w₁ w₂, b.toList = [w₁, w₂] ∧ v₁ ⊒ w₁ ∧ v₂ ⊒ w₂ := by
+theorem RuntimeValue.arrayIsRefinedBy_toList_pair {m : RefinementMode} {a b : Array RuntimeValue}
+    {v₁ v₂ : RuntimeValue} (hEq : a.toList = [v₁, v₂]) (h : a ⊒[m] b) :
+    ∃ w₁ w₂, b.toList = [w₁, w₂] ∧ v₁ ⊒[m] w₁ ∧ v₂ ⊒[m] w₂ := by
   cases a; cases b; subst hEq
   obtain ⟨w₁, w₂, rfl⟩ := List.exists_eq_pair (by simpa using h.1.symm)
   exact ⟨w₁, w₂, rfl, by grind [arrayIsRefinedBy], by grind [arrayIsRefinedBy]⟩
 
 /-- A source array of three values fixes the target array to three values that it refines. -/
-theorem RuntimeValue.arrayIsRefinedBy_toList_triple {a b : Array RuntimeValue}
-    {v₁ v₂ v₃ : RuntimeValue} (hEq : a.toList = [v₁, v₂, v₃]) (h : a ⊒ b) :
-    ∃ w₁ w₂ w₃, b.toList = [w₁, w₂, w₃] ∧ v₁ ⊒ w₁ ∧ v₂ ⊒ w₂ ∧ v₃ ⊒ w₃ := by
+theorem RuntimeValue.arrayIsRefinedBy_toList_triple {m : RefinementMode} {a b : Array RuntimeValue}
+    {v₁ v₂ v₃ : RuntimeValue} (hEq : a.toList = [v₁, v₂, v₃]) (h : a ⊒[m] b) :
+    ∃ w₁ w₂ w₃, b.toList = [w₁, w₂, w₃] ∧ v₁ ⊒[m] w₁ ∧ v₂ ⊒[m] w₂ ∧ v₃ ⊒[m] w₃ := by
   cases a; cases b; subst hEq
   obtain ⟨w₁, w₂, w₃, rfl⟩ := List.exists_eq_triple (by simpa using h.1.symm)
   exact ⟨w₁, w₂, w₃, rfl, by grind [arrayIsRefinedBy], by grind [arrayIsRefinedBy],
@@ -303,13 +304,13 @@ theorem RuntimeValue.int_val_of_isRefinedBy {bw : Nat} {v : BitVec bw} {tv : Run
   cases tv <;> grind [RuntimeValue.isRefinedBy, isRefinedBy, cases Data.LLVM.Int]
 
 /-- Two integers that refine are refined as runtime values. -/
-theorem RuntimeValue.int_isRefinedBy {bw : Nat} {v w : Data.LLVM.Int bw} (h : v ⊒ w) :
-    RuntimeValue.int bw v ⊒ RuntimeValue.int bw w :=
+theorem RuntimeValue.int_isRefinedBy {m : RefinementMode} {bw : Nat} {v w : Data.LLVM.Int bw}
+    (h : v ⊒ w) : RuntimeValue.int bw v ⊒[m] RuntimeValue.int bw w :=
   ⟨rfl, by simpa using h⟩
 
 /-- A slice of the source is refined by the same slice of the target. -/
-theorem RuntimeValue.arrayIsRefinedBy_extract {a b : Array RuntimeValue} (h : a ⊒ b) (i j : Nat) :
-    a.extract i j ⊒ b.extract i j := by
+theorem RuntimeValue.arrayIsRefinedBy_extract {m : RefinementMode} {a b : Array RuntimeValue}
+    (h : a ⊒[m] b) (i j : Nat) : a.extract i j ⊒[m] b.extract i j := by
   refine ⟨by simp [h.1], fun k hk => ?_⟩
   simp only [Array.size_extract] at hk
   have hk' := h.2 (i + k) (by omega)
@@ -319,15 +320,16 @@ theorem RuntimeValue.arrayIsRefinedBy_extract {a b : Array RuntimeValue} (h : a 
   simpa using hk'
 
 /-- The same, for a slice that runs to the end. -/
-theorem RuntimeValue.arrayIsRefinedBy_extract_from {a b : Array RuntimeValue} (h : a ⊒ b)
-    (i : Nat) : a.extract i ⊒ b.extract i := by
+theorem RuntimeValue.arrayIsRefinedBy_extract_from {m : RefinementMode} {a b : Array RuntimeValue}
+    (h : a ⊒[m] b) (i : Nat) : a.extract i ⊒[m] b.extract i := by
   have hx := RuntimeValue.arrayIsRefinedBy_extract h i a.size
   rw [show b.extract i a.size = b.extract i by rw [h.1]] at hx
   exact hx
 
 /-- An element of the source has a counterpart in the target that it refines. -/
-theorem RuntimeValue.getElem?_of_arrayIsRefinedBy {a b : Array RuntimeValue} (h : a ⊒ b)
-    {i : Nat} {v : RuntimeValue} (hv : a[i]? = some v) : ∃ w, b[i]? = some w ∧ v ⊒ w := by
+theorem RuntimeValue.getElem?_of_arrayIsRefinedBy {m : RefinementMode} {a b : Array RuntimeValue}
+    (h : a ⊒[m] b) {i : Nat} {v : RuntimeValue} (hv : a[i]? = some v) :
+    ∃ w, b[i]? = some w ∧ v ⊒[m] w := by
   have hi : i < a.size := by
     apply Classical.byContradiction
     intro hNot
@@ -343,8 +345,8 @@ theorem RuntimeValue.getElem?_of_arrayIsRefinedBy {a b : Array RuntimeValue} (h 
     rwa [getElem!_pos a i hi] at hh
 
 /-- Two bytes that refine are refined as runtime values. -/
-theorem RuntimeValue.byte_isRefinedBy {bw : Nat} {v w : Data.LLVM.Byte bw} (h : v ⊒ w) :
-    RuntimeValue.byte bw v ⊒ RuntimeValue.byte bw w :=
+theorem RuntimeValue.byte_isRefinedBy {m : RefinementMode} {bw : Nat} {v w : Data.LLVM.Byte bw}
+    (h : v ⊒ w) : RuntimeValue.byte bw v ⊒[m] RuntimeValue.byte bw w :=
   ⟨rfl, by simpa using h⟩
 
 /-- Two interpretations that begin with the same step refine when their continuations do. -/
@@ -376,3 +378,11 @@ theorem Data.LLVM.Ptr.toByte_eq_fromInt (p : Data.LLVM.Ptr) : p.toByte = Data.LL
 theorem Data.LLVM.Ptr.toByte_mono {p q : Data.LLVM.Ptr} (h : p ⊒ q) : p.toByte ⊒ q.toByte := by
   rw [Data.LLVM.Ptr.toByte_eq_fromInt, Data.LLVM.Ptr.toByte_eq_fromInt]
   exact Data.LLVM.Byte.fromInt_mono (Data.LLVM.Ptr.toInt_mono h)
+
+/-! ## Across a step -/
+
+/-- A refinement of interpretations survives weakening the relation on their results. -/
+theorem Interp.isRefinedBy_mono {α β : Type} {R R' : α → β → Prop} (hR : ∀ a b, R a b → R' a b)
+    {x : Interp α} {y : Interp β} (h : Interp.isRefinedBy R x y) : Interp.isRefinedBy R' x y := by
+  cases x <;> cases y <;> simp_all [Interp.isRefinedBy]
+
