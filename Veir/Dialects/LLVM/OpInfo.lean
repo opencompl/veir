@@ -1540,7 +1540,9 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     | _ => none
   | .mlir__addressof => do
     let some object := mem.globals[properties.global_name.value]? | none
-    return (#[.addr (.val ⟨object, 0, false⟩)], mem, none)
+    if object < mem.objects.size then
+      return (#[.addr (.val ⟨object, 0, false⟩)], mem, none)
+    else Interp.fail none
   | .alloca => do
     let [.int _ (.val count)] := operands.toList | none
     /- `alloca T, N` reserves `N` strides of `T`, as in LLVM. -/
