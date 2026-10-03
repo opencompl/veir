@@ -647,6 +647,16 @@ def translate_nonterminator(
         ptr = llvm_value(op.operands[0], aliases)
         return [f"  {out_result} = load {convert_type(dst_type)}, ptr {ptr}"]
 
+    if name == "llvm.ptrtoint":
+        require_operands(op, 1)
+        src = llvm_value(op.operands[0], aliases)
+        return [f"  {out_result} = ptrtoint ptr {src} to {convert_type(dst_type)}"]
+
+    if name == "llvm.inttoptr":
+        require_operands(op, 1)
+        src = llvm_value(op.operands[0], aliases)
+        return [f"  {out_result} = inttoptr {convert_type(op.operand_types[0])} {src} to ptr"]
+
     if name == "llvm.getelementptr":
         require_operands(op, 2)
         raw = re.search(r'"?rawConstantIndices"?\s*=\s*array<i32:\s*([^>]*)>', op.attr)
