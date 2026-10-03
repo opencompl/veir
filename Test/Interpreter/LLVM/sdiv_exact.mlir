@@ -1,7 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
 
-// LLUBI: reports a poison return from main as an error, so it cannot
-// cross-check this test.
 
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i32 ()>}> ({

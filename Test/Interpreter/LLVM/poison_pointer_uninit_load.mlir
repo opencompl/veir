@@ -1,7 +1,8 @@
 // RUN: veir-interpret %s | filecheck %s
 
-// LLUBI: reports a poison return from main as an error, so it cannot
-// cross-check this test.
+// LLUBI: cannot cross-check this test: it returns a pointer, which the
+// comparison does not know how to read.
+
 
 // A ptr value loaded from a stack-allocated pointer that was never written to
 // is poison.

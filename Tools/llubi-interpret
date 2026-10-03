@@ -6,6 +6,7 @@ The module is translated to LLVM IR with ``Tools/veir2llvm``, executed by
 prints, so a lit test can hold both to the same CHECK lines.
 """
 
+import os
 import subprocess
 import sys
 import tempfile
@@ -29,9 +30,22 @@ def main(argv: list[str]) -> int:
     with tempfile.NamedTemporaryFile("w", suffix=".ll", delete=False) as f:
         f.write(translated.stdout)
         ll_path = f.name
-    result = subprocess.run(["llubi", ll_path, "--verbose"],
-                            capture_output=True, text=True)
+    # Homebrew's libLLVM references z3 through an unreplaced placeholder path;
+    # the fallback lets dyld find it by name. Harmless elsewhere.
+    env = dict(os.environ)
+    env["DYLD_FALLBACK_LIBRARY_PATH"] = ":".join(
+        [env.get("DYLD_FALLBACK_LIBRARY_PATH", ""), "/opt/homebrew/lib", "/usr/local/lib"])
+    # The flag goes before the file: llubi takes trailing arguments as the
+    # program's own.
+    result = subprocess.run(["llubi", "--verbose", ll_path],
+                            capture_output=True, text=True, env=env)
     log = result.stdout + result.stderr
+    # Keep only the trace of the test's own function, so the standard `main`
+    # wrapper that llubi insists on cannot be mistaken for the result.
+    start = log.find("Entering function: veir_test_main")
+    if start >= 0:
+        end = log.find("Exiting function: veir_test_main", start)
+        log = log[start:] if end < 0 else log[start:end]
     try:
         verdict, _ = vsmith.classify_llubi_output(log)
     except ValueError as e:

@@ -1,7 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
 
-// LLUBI: accepts an allocation of this size, while the interpreter's address
-// space ends at 2^64 and it makes the allocation fail.
 
 // An `alloca` cannot report failure, so reserving more bytes than the address
 // space holds is UB: 2^62 elements of 8 bytes is 2^65 bytes.

@@ -10,7 +10,9 @@
 # The Namespace runner image ships neither `mlir-opt` nor a Python tool cache,
 # so the workflow installed both on every run. Baking them in removes the
 # install, which caching alone cannot do: a cache saves the download, not the
-# unpacking onto a fresh machine.
+# unpacking onto a fresh machine. `llubi` is baked in for the same reason: the
+# interpreter tests cross-check themselves against it, and skip silently when
+# it is missing.
 
 ARG NAMESPACE_BASE_IMAGE_REF=""
 
@@ -32,9 +34,13 @@ RUN apt-get update \
  && apt-get update \
  && apt-get install -y --no-install-recommends \
       mlir-23-tools \
+      # `llubi`, the UB-aware interpreter the interpreter tests cross-check
+      # against, ships with LLVM since LLVM 23.
+      llvm-23 \
       # leanc links through the system toolchain.
       build-essential \
  && ln -s /usr/bin/mlir-opt-23 /usr/bin/mlir-opt \
+ && ln -s "$(command -v llubi-23 || echo /usr/lib/llvm-23/bin/llubi)" /usr/bin/llubi \
  && rm -rf /var/lib/apt/lists/*
 
 # `uv` provides both the Python interpreter and the test dependencies, so no
@@ -70,6 +76,7 @@ RUN curl -fsSL https://elan.lean-lang.org/elan-init.sh \
 # reachable as `runner`. If a run reports `command not found` for one of these,
 # the image did not build and the profile fell back to the stock base image.
 RUN mlir-opt --version \
+ && llubi --version \
  && uv --version \
  && lit --version \
  && filecheck --version \

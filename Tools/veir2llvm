@@ -858,10 +858,19 @@ def translate_function(name: str, blocks: list[Block], ret_type: str, arg_types:
     for (arg_name, arg_type), func_type in zip(blocks[0].args, arg_types):
         params.append(f"{convert_type(func_type)} {llvm_ssa_name(arg_name)}")
 
+    wrapper: list[str] = []
     if name == "main" and not params:
-        # llubi runs `main` and expects the C signature; the arguments are unused.
-        params = ["i32 %llubi.argc", "ptr %llubi.argv"]
-    out: list[str] = [f"define {convert_type(ret_type)} @{name}({', '.join(params)}) {{"]
+        # llubi runs `main` and insists on the C signature, so the test's main
+        # becomes `veir_test_main` behind a standard wrapper. The wrapper comes
+        # first: the result classifiers read the first `ret` of the trace and
+        # the last function alive-exec executes, and both must be the test's.
+        name = "veir_test_main"
+        ret = convert_type(ret_type)
+        wrapper = [f"define i32 @main(i32 %argc, ptr %argv) {{",
+                   (f"  %r = call {ret} @{name}()" if ret != "void"
+                    else f"  call void @{name}()"),
+                   "  ret i32 0", "}", ""]
+    out: list[str] = wrapper + [f"define {convert_type(ret_type)} @{name}({', '.join(params)}) {{"]
     for idx, block in enumerate(blocks):
         out.append(f"{llvm_block_name(block.label)}:")
         if idx != 0:

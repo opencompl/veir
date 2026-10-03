@@ -1,8 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
 
-// LLUBI: returns 0 here, but LangRef makes srem overflow undefined behaviour
-// so that srem can lower to an instruction that divides and takes the
-// remainder at once; llubi checks the overflow for sdiv but not for srem.
 
 // `srem intMin, -1` is immediate UB (signed overflow in the implicit division).
 "builtin.module"() ({
