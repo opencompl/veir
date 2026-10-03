@@ -495,6 +495,12 @@ def Llvm.isIsolatedFromAbove (op : Llvm) : Bool :=
   | .mlir__global | .mlir__alias | .func | .comdat => true
   | _ => false
 
+/-- As in MLIR, a `llvm.comdat` is a symbol table for the selectors it lists. -/
+def Llvm.isSymbolTable (op : Llvm) : Bool :=
+  match op with
+  | .comdat => true
+  | _ => false
+
 /-- A `llvm.comdat` body only lists selectors, so it ends without a terminator. -/
 def Llvm.hasNoTerminator (op : Llvm) (_index : Nat) : Bool :=
   match op with
@@ -1672,6 +1678,7 @@ instance : HasOpInfo Llvm where
   hasSSADominance := Llvm.hasSSADominance
   isTerminator := Llvm.isTerminator
   isIsolatedFromAbove := Llvm.isIsolatedFromAbove
+  isSymbolTable := Llvm.isSymbolTable
   hasNoTerminator := Llvm.hasNoTerminator
 
 end
