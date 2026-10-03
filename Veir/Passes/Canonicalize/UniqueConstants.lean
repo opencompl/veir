@@ -26,15 +26,33 @@ structure Key where
   scope : RegionPtr
 deriving DecidableEq, BEq, Hashable
 
+/--
+The constant-like operations nested (at any depth) under `op`, in program
+order, appended to `acc`. `op` itself is not included.
+-/
+partial def nestedConstantOps (op : OperationPtr) (ctx : IRContext OpCode)
+    (acc : Array OperationPtr := #[]) : Array OperationPtr := Id.run do
+  let mut acc := acc
+  for region in (op.get! ctx).regions do
+    let mut block? := (region.get! ctx).firstBlock
+    while let some block := block? do
+      let mut inner? := (block.get! ctx).firstOp
+      while let some inner := inner? do
+        if (inner.getOpType! ctx).isConstantLike then
+          acc := acc.push inner
+        acc := nestedConstantOps inner ctx acc
+        inner? := (inner.get! ctx).next
+      block? := (block.get! ctx).next
+  return acc
+
 /-- Unique and hoist every constant-like operation nested under `top`. -/
 public def run (ctx : WfIRContext OpCode) (top : OperationPtr) :
     WfIRContext OpCode := Id.run do
   let mut ctx := ctx
   let mut canonical : Std.HashMap Key OperationPtr := {}
   let mut lastHoisted : Std.HashMap RegionPtr OperationPtr := {}
-  for op in top.nestedOps ctx.raw do
+  for op in nestedConstantOps top ctx.raw do
     let opType := op.getOpType! ctx.raw
-    if !opType.isConstantLike then continue
     let some scope :=
         (op.getParentRegion! ctx.raw).get!.nearestPossiblyIsolatedScope? ctx.raw
       | continue
