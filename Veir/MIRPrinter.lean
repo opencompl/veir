@@ -725,7 +725,8 @@ def printGlobal (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
   let hasRegion := ((op.getRegion! ctx 0).get! ctx).firstBlock.isSome
   let init? : Option String := match props.value, props.global_type.val with
     | some (.integerAttr a), .integerType _ => some (toString a.value)
-    | some (.stringAttr str), .llvmArrayType _ => some ("c" ++ llvmQuoted str.value)
+    | some (.stringAttr str), .llvmArrayType { type := .integerType { bitwidth := 8, .. }, .. } =>
+      some ("c" ++ llvmQuoted str.value)
     | _, _ => none
   let kind := if props.constant then "constant" else "global"
   let align := match props.alignment with
