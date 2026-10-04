@@ -57,7 +57,7 @@ def coerceFunction (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
   -- Shadow the parameter: from here on `ctx` always names the latest version, with no
   -- separate old binding left around to second-guess.
   let mut ctx := ctx
-  let some funcOp := FunctionOp.cast? op ctx.raw | return ctx
+  let some funcOp := FunctionOp.of? op ctx.raw | return ctx
   let some entry := funcOp.getEntryBlock? | return ctx
   let returnCode := returnOpCodeFor (op.getOpType! ctx.raw)
   -- Default the output types to the currently-declared ones, then flip coerced positions.
@@ -101,7 +101,7 @@ def coerceFunction (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
       | none => pure ()
   -- (3) Rewrite the function_type to reflect the coerced boundary types.
   -- `funcOp` belongs to the context before the rewrites above, so cast it again.
-  let some funcOp := FunctionOp.cast? op ctx.raw | return ctx
+  let some funcOp := FunctionOp.of? op ctx.raw | return ctx
   ctx := FunctionOp.setFunctionType! ctx funcOp inputs outputs
   return ctx
 

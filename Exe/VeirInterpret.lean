@@ -19,7 +19,7 @@ open Veir
 
 /-- Returns true if `op` is a viable zero-argument `@main` function. -/
 private def isZeroArgMainFunc (ctx : IRContext OpCode) (op : OperationPtr) : Bool :=
-  match FunctionOp.cast? op ctx with
+  match FunctionOp.of? op ctx with
   | some funcOp =>
     String.fromUTF8! funcOp.getSymName.value == "main" && funcOp.getNumArguments == 0
   | none => false
@@ -89,7 +89,7 @@ partial def allocateGlobals (ctx : WfIRContext OpCode) (op : Option OperationPtr
       let (mem, ptr) ← expectOk name (mem.alloc size.toUInt64)
       pure ({ mem with globals := mem.globals.insert name ptr.object }, pending.push (op, ptr))
     | _ =>
-      match FunctionOp.cast? op raw with
+      match FunctionOp.of? op raw with
       | some funcOp =>
         let name := "@" ++ String.fromUTF8! funcOp.getSymName.value
         let (mem, ptr) ← expectOk name (mem.alloc 0)
@@ -149,7 +149,7 @@ def main (args : List String) : IO Unit := do
   | .ok (ctx, op, source) =>
     let rawCtx : IRContext OpCode := ctx
     let mainOp ← resolveEntryPoint rawCtx op
-    let mainFunc := FunctionOp.cast mainOp.val rawCtx mainOp.property
+    let mainFunc := FunctionOp.of mainOp.val rawCtx mainOp.property
     let firstOp := ((op.getRegion! rawCtx 0).get! rawCtx).firstBlock.bind
       fun b => (b.get! rawCtx).firstOp
     let mem ← materializeGlobals ctx firstOp MemoryState.empty

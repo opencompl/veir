@@ -866,7 +866,7 @@ def alloca_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if properties.inalloca then return (ctx, none)
   let .llvmPointerType _ := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   let some parentOp := op.getParentOp! ctx.raw | return (ctx, none)
-  let some funcOp := FunctionOp.cast? parentOp ctx.raw | return (ctx, none)
+  let some funcOp := FunctionOp.of? parentOp ctx.raw | return (ctx, none)
   let some entry := funcOp.getEntryBlock? | return (ctx, none)
   if (op.get! ctx.raw).parent != some entry then return (ctx, none)
   let some (.int _ (.val count)) := operands[0]!.constantValue ctx.raw | return (ctx, none)
