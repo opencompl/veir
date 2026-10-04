@@ -233,10 +233,18 @@ def parse_constant_attr(attr: str) -> tuple[str, str]:
     m = re.search(r'"?value"?\s*=\s*(true|false)\b', attr)
     if m:
         return m.group(1), "i1"
-    m = re.search(r'"?value"?\s*=\s*(-?\d+)\s*:\s*([^,\s>}]+)', attr)
+    m = re.search(r'"?value"?\s*=\s*(-?(?:0x[0-9a-fA-F]+|\d+))\s*:\s*([^,\s>}]+)', attr)
     if not m:
         raise Error("llvm.mlir.constant is missing integer value")
-    return m.group(1), m.group(2)
+    value, typ = m.group(1), m.group(2)
+    if value.startswith("0x"):
+        # A hex literal gives the bits; LLVM IR wants the signed value.
+        if not re.fullmatch(r"i\d+", typ):
+            raise Error(f"unsupported hex constant of type {typ}")
+        width = int(typ[1:])
+        n = int(value, 16)
+        value = str(n - (1 << width) if n >= 1 << (width - 1) else n)
+    return value, typ
 
 
 def convert_type(typ: str) -> str:
@@ -394,13 +402,17 @@ def parse_blocks(body: str) -> list[Block]:
     blocks: list[Block] = []
     current: Block | None = None
     implicit_index = 0
-    # An operation may continue onto the next line with its type signature.
+    # An operation may continue over several lines, e.g. with its attributes
+    # or type signature. Only a block header, a result, or an operation name
+    # starts a new line.
     lines: list[str] = []
     for raw_line in body.splitlines():
         line = raw_line.strip()
-        if line.startswith(":") and lines:
+        if not line:
+            continue
+        if lines and not re.match(r'[%^]|"[A-Za-z0-9_.]+"\(', line):
             lines[-1] += " " + line
-        elif line:
+        else:
             lines.append(line)
     for line in lines:
         header = re.fullmatch(rf"\^([A-Za-z0-9_.$-]+)\s*(?:\((.*?)\))?\s*:", line)
@@ -716,20 +728,32 @@ def translate_nonterminator(
         value_types[result] = op.result_types[0]
         return []
 
-    if name == "llvm.intr.memcpy":
+    if name in ("llvm.intr.memcpy", "llvm.intr.memmove", "llvm.intr.memset"):
         if op.result is not None or op.result_types:
             raise Error(f"{name} cannot have results")
         require_operands(op, 3)
-        if parse_bool_immarg(op.attr, "isVolatile", name) == "true":
-            raise Error(f"{name}: volatile is not supported")
+        volatile = parse_bool_immarg(op.attr, "isVolatile", name)
         dst = llvm_value(op.operands[0], aliases)
+        # The second operand is the source pointer, or the fill byte of a memset.
+        src_type = convert_type(op.operand_types[1])
         src = llvm_value(op.operands[1], aliases)
         length = llvm_value(op.operands[2], aliases)
         lenty = convert_type(op.operand_types[2])
+        base = name.removeprefix("llvm.intr.")
+        suffix = f"p0.{lenty}" if base == "memset" else f"p0.p0.{lenty}"
         declarations.add(
-            f"declare void @llvm.memcpy.p0.p0.{lenty}(ptr, ptr, {lenty}, i1)")
-        return [f"  call void @llvm.memcpy.p0.p0.{lenty}"
-                f"(ptr {dst}, ptr {src}, {lenty} {length}, i1 false)"]
+            f"declare void @llvm.{base}.{suffix}(ptr, {src_type}, {lenty}, i1)")
+        return [f"  call void @llvm.{base}.{suffix}"
+                f"(ptr {dst}, {src_type} {src}, {lenty} {length}, i1 {volatile})"]
+
+    if name == "llvm.mlir.zero":
+        result = require_result(op)
+        if op.operands:
+            raise Error("llvm.mlir.zero cannot have operands")
+        typ = op.result_types[0]
+        aliases[result] = "null" if convert_type(typ) == "ptr" else "0"
+        value_types[result] = typ
+        return []
 
     if name == "llvm.store":
         if op.result is not None or op.result_types:
@@ -970,7 +994,84 @@ def translate_terminator(
             edges,
         )
 
+    if op.name == "llvm.switch":
+        return translate_switch(block, op, aliases, blocks_by_label, edge_blocks)
+
+    if op.name == "llvm.unreachable":
+        if op.operands or op.successors:
+            raise Error("llvm.unreachable cannot have operands or successors")
+        return ["  unreachable"], []
+
     raise Error(f"unsupported LLVM terminator: {op.name}")
+
+
+def parse_i32_array(attr: str, name: str) -> list[int] | None:
+    m = re.search(rf'"?{re.escape(name)}"?\s*=\s*array<i32(?::\s*([^>]*))?>', attr)
+    if not m:
+        return None
+    return [int(x) for x in m.group(1).split(",")] if m.group(1) else []
+
+
+def parse_case_values(attr: str) -> list[int]:
+    m = re.search(r'"?case_values"?\s*=\s*dense<\[?([^\]>]*)\]?>', attr)
+    if not m:
+        return []
+    return [int(x) for x in m.group(1).split(",")]
+
+
+def translate_switch(
+    block: Block,
+    op: Operation,
+    aliases: dict[str, str],
+    blocks_by_label: dict[str, Block],
+    edge_blocks: list[EdgeBlock],
+) -> tuple[list[str], list[Edge]]:
+    sizes = parse_i32_array(op.attr, "operandSegmentSizes")
+    if sizes is None or len(sizes) != 3 or sizes[0] != 1:
+        raise Error("llvm.switch needs operandSegmentSizes with one switch value")
+    _, default_n, cases_n = sizes
+    case_segments = parse_i32_array(op.attr, "case_operand_segments") or []
+    case_values = parse_case_values(op.attr)
+    if len(case_values) != len(case_segments) or sum(case_segments) != cases_n:
+        raise Error("llvm.switch case attributes do not match its operands")
+    if len(op.successors) != 1 + len(case_values) or 1 + default_n + cases_n != len(op.operands):
+        raise Error("llvm.switch successors do not match its cases")
+    for target in op.successors:
+        if target not in blocks_by_label:
+            raise Error(f"llvm.switch targets unknown block ^{target}")
+
+    # The values forwarded to each successor, the default first.
+    forwarded: list[list[str]] = []
+    start = 1
+    for count in [default_n] + case_segments:
+        forwarded.append([llvm_value(v, aliases) for v in op.operands[start : start + count]])
+        start += count
+
+    # A phi takes one value per predecessor, so a block reached by several
+    # successors of this switch is reached through its own edge blocks.
+    edges: list[Edge] = []
+    labels: list[str] = []
+    for idx, (target, values) in enumerate(zip(op.successors, forwarded)):
+        if len(values) != len(blocks_by_label[target].args):
+            raise Error(f"llvm.switch edge to ^{target} passes the wrong number of values")
+        if op.successors.count(target) > 1 and values:
+            edge_label = f"{block.label}_to_{target}_{idx}"
+            edge_blocks.append(EdgeBlock(edge_label, target))
+            edges.append(Edge(edge_label, target, values))
+            labels.append(edge_label)
+        else:
+            edges.append(Edge(block.label, target, values))
+            labels.append(target)
+
+    typ = convert_type(op.operand_types[0])
+    value = llvm_value(op.operands[0], aliases)
+    cases = " ".join(f"{typ} {case}, label {llvm_label(label)}"
+                     for case, label in zip(case_values, labels[1:]))
+    return [f"  switch {typ} {value}, label {llvm_label(labels[0])} [ {cases} ]"], edges
+
+
+TERMINATORS = {"llvm.return", "func.return", "llvm.br", "llvm.cond_br",
+               "llvm.switch", "llvm.unreachable"}
 
 
 def translate_function(name: str, blocks: list[Block], ret_types: list[str], arg_types: list[str],
@@ -991,7 +1092,7 @@ def translate_function(name: str, blocks: list[Block], ret_types: list[str], arg
             raise Error(f"block ^{block.label} is empty")
         for op_index, op in enumerate(block.ops):
             is_last = op_index == len(block.ops) - 1
-            if op.name in {"llvm.return", "func.return", "llvm.br", "llvm.cond_br"}:
+            if op.name in TERMINATORS:
                 if not is_last:
                     raise Error(f"terminator {op.name} is not last in ^{block.label}")
                 term_lines, term_edges = translate_terminator(

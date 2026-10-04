@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (i8, i8, i8, i8, i8, i8, i16, i8)}> ({

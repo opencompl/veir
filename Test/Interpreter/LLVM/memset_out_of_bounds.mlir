@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
 
 // A `llvm.intr.memset` that runs past the end of its object is UB.
 

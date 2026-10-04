@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
 
 // Case values are compared as bit patterns of the switched value's width, so a
 // negative case value matches the wrapped constant rather than nothing.

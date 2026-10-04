@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
 
 // A memory intrinsic of length zero touches no memory, so its pointers may be
 // null or poison.

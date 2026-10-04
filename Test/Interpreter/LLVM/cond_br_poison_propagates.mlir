@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
 
 // UB triggered by a poison cond_br in a non-entry block must propagate up
 // through `interpretBlockCFG`'s recursive call rather than being lost or

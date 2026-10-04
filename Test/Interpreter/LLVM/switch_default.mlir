@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
 
 // No case value matches, so the default destination is taken -- with the
 // default's own operand segment, which sits before every case's.
