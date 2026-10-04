@@ -1,6 +1,7 @@
 // REQUIRES: llubi
 // XFAIL: *
 // RUN: LLUBI
+// RUN: ALIVE_EXEC
 
 // A negative test of the cross-check itself: the function returns 7 and the
 // CHECK line below asks for 8, so the llubi run must fail rather than pass

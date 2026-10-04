@@ -1,4 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
+// RUN: ALIVE_EXEC
 
 // The value matches the second case, so control reaches ^c1 with the operands
 // that case forwards -- not the default's, and not the first case's.

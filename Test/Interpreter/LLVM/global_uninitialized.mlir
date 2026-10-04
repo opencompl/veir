@@ -3,6 +3,8 @@
 
 // A global with neither a value nor an initializer starts as poison.
 
+// ALIVE_EXEC: crashes on a writable global.
+
 "builtin.module"() ({
   "llvm.mlir.global"() <{addr_space = 0 : i32, global_type = i64, linkage = #llvm.linkage<external>, sym_name = "g"}> ({
   }) : () -> ()

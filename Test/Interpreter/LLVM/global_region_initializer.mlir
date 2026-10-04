@@ -4,6 +4,8 @@
 // A global with an initializer region starts with the value the initializer
 // returns.
 
+// ALIVE_EXEC: crashes on a writable global.
+
 "builtin.module"() ({
   "llvm.mlir.global"() <{addr_space = 0 : i32, global_type = i64, linkage = #llvm.linkage<internal>, sym_name = "g"}> ({
     %c = "llvm.mlir.constant"() <{value = 7 : i64}> : () -> i64

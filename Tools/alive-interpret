@@ -7,6 +7,7 @@ Alive2's ``alive-exec``, and the verdict is printed in the shape
 lines.
 """
 
+import re
 import subprocess
 import sys
 import tempfile
@@ -30,6 +31,9 @@ def main(argv: list[str]) -> int:
     # Without this alive-exec runs the `main` wrapper that llubi insists on,
     # and reports its result instead of the test's.
     func = ["--func=veir_test_main"] if "@veir_test_main(" in translated.stdout else []
+    entry = "veir_test_main" if func else "main"
+    declared = re.search(rf"^define (.+?) @{entry}\(", translated.stdout, re.M)
+    return_type = declared.group(1) if declared else None
     with tempfile.TemporaryDirectory() as tmp:
         ll_path = Path(tmp) / "test.ll"
         ll_path.write_text(translated.stdout)
@@ -38,7 +42,7 @@ def main(argv: list[str]) -> int:
                                 capture_output=True, text=True)
     log = result.stdout + result.stderr
     try:
-        verdict, _ = vsmith.classify_alive_exec_output(log)
+        verdict, _ = vsmith.classify_alive_exec_output(log, return_type)
     except ValueError as e:
         sys.stderr.write(str(e))
         return 1

@@ -3,6 +3,8 @@
 
 // A function's address cannot be read from: a load through it is UB.
 
+// ALIVE_EXEC: returns poison instead: Alive2 makes an out-of-bounds read poison.
+
 "builtin.module"() ({
   "llvm.func"() <{function_type = !llvm.func<void ()>, sym_name = "f"}> ({
     "llvm.return"() : () -> ()
