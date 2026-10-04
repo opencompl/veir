@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
 
 // `llvm.intr.memcpy` with partially overlapping ranges is UB.
 
