@@ -379,7 +379,11 @@ def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType
           if bw1 ≠ bw2 then .fail none else .ok (val)
       | .byte bw1 val', .integerType ⟨bw2, _⟩ =>
           if bw1 ≠ bw2 then .fail none else .ok ((.int bw1 $ val'.toInt))
+      | .byte bw val', .llvmPointerType _ =>
+          if h : bw = 64 then .ok (.addr (mem.ptrFromInt (val'.cast h).toInt)) else .fail none
       | .addr _, .llvmPointerType _ => .ok (val)
+      | .addr val', .byteType ⟨bw⟩ =>
+          if bw = 64 then .ok (.byte 64 (LLVM.Byte.fromInt (mem.intFromPtr val'))) else .fail none
       | _, _ => none
     return (#[result], mem, none)
   | _ => fail
