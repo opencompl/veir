@@ -71,10 +71,10 @@ structure BranchOpInterface (Properties : Type) where
   /-- Return the operands passed to the indexed successor. -/
   getSuccessorOperandsImpl? :
     Properties → Array ValuePtr → Nat → Option SuccessorOperands
-  /-- Return the successor selected by the known constant operands. -/
-  getSuccessorForOperandsImpl? :
-    Properties → Array (Option RuntimeValue) → Array BlockPtr → Option BlockPtr :=
-      fun _ _ _ => none
+  /-- Return the index of the successor selected by the known constant operands. -/
+  getSuccessorIndexForOperandsImpl? :
+    Properties → Array (Option RuntimeValue) → Option Nat :=
+      fun _ _ => none
 
 class HasOpInfo (opCode: Type)
     extends IsOpCode opCode where

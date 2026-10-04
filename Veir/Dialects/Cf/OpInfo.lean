@@ -76,16 +76,16 @@ def Cf.branchOpInterface? (op : Cf) : Option (BranchOpInterface (Cf.propertiesOf
       getSuccessorOperandsImpl? := fun _ operands successorIndex => do
         guard (successorIndex = 0)
         some { forwardedOperands := operands }
-      getSuccessorForOperandsImpl? := fun _ _ successors => successors[0]?
+      getSuccessorIndexForOperandsImpl? := fun _ _ => some 0
     }
   | .cond_br =>
     some {
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           1 props.operandSegmentSizes.values operands successorIndex
-      getSuccessorForOperandsImpl? := fun _ operands successors => do
+      getSuccessorIndexForOperandsImpl? := fun _ operands => do
         let some (.int _ (.val condition)) ← operands[0]? | none
-        BranchOpInterface.getConditionalSuccessor? successors (condition ≠ 0)
+        some (BranchOpInterface.getConditionalSuccessorIndex (condition ≠ 0))
     }
 
 /--

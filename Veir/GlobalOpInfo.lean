@@ -505,6 +505,17 @@ def OpCode.materializeConstant (opCode : OpCode) (value : RuntimeValue)
   return materialized
 
 /--
+  The unconditional branch, with default properties, that replaces a branch
+  of `opCode`'s dialect once its successor is known.
+-/
+def OpCode.unconditionalBranch? (opCode : OpCode) : Option (Σ op : OpCode, propertiesOf op) :=
+  match opCode with
+  | .cf _ => some (Materialized.of Cf.br ())
+  | .llvm _ => some (Materialized.of Llvm.br ({ loop_annotation := none } : LLVMBrProperties))
+  | .riscv_cf _ => some (Materialized.of Riscv_Cf.branch ())
+  | _ => none
+
+/--
   Is this `OpCode` commutative in its operands, i.e. `op x y` always
   computes the same value as `op y x`?
 -/

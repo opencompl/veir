@@ -131,85 +131,85 @@ def Riscv_Cf.branchOpInterface?
       getSuccessorOperandsImpl? := fun _ operands successorIndex => do
         guard (successorIndex = 0)
         some { forwardedOperands := operands }
-      getSuccessorForOperandsImpl? := fun _ _ successors => successors[0]?
+      getSuccessorIndexForOperandsImpl? := fun _ _ => some 0
     }
   | .beqz =>
     some {
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           1 props.operandSegmentSizes.values operands successorIndex
-      getSuccessorForOperandsImpl? := fun _ operands successors => do
+      getSuccessorIndexForOperandsImpl? := fun _ operands => do
         let some (.reg condition) ← operands[0]? | none
-        BranchOpInterface.getConditionalSuccessor? successors (condition.val = 0#64)
+        some (BranchOpInterface.getConditionalSuccessorIndex (condition.val = 0#64))
     }
   | .bnez =>
     some {
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           1 props.operandSegmentSizes.values operands successorIndex
-      getSuccessorForOperandsImpl? := fun _ operands successors => do
+      getSuccessorIndexForOperandsImpl? := fun _ operands => do
         let some (.reg condition) ← operands[0]? | none
-        BranchOpInterface.getConditionalSuccessor? successors (condition.val ≠ 0#64)
+        some (BranchOpInterface.getConditionalSuccessorIndex (condition.val ≠ 0#64))
     }
   | .beq =>
     some {
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           2 props.operandSegmentSizes.values operands successorIndex
-      getSuccessorForOperandsImpl? := fun _ operands successors => do
+      getSuccessorIndexForOperandsImpl? := fun _ operands => do
         let some (.reg lhs) ← operands[0]? | none
         let some (.reg rhs) ← operands[1]? | none
-        BranchOpInterface.getConditionalSuccessor? successors (lhs = rhs)
+        some (BranchOpInterface.getConditionalSuccessorIndex (lhs = rhs))
     }
   | .bne =>
     some {
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           2 props.operandSegmentSizes.values operands successorIndex
-      getSuccessorForOperandsImpl? := fun _ operands successors => do
+      getSuccessorIndexForOperandsImpl? := fun _ operands => do
         let some (.reg lhs) ← operands[0]? | none
         let some (.reg rhs) ← operands[1]? | none
-        BranchOpInterface.getConditionalSuccessor? successors (lhs ≠ rhs)
+        some (BranchOpInterface.getConditionalSuccessorIndex (lhs ≠ rhs))
     }
   | .blt =>
     some {
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           2 props.operandSegmentSizes.values operands successorIndex
-      getSuccessorForOperandsImpl? := fun _ operands successors => do
+      getSuccessorIndexForOperandsImpl? := fun _ operands => do
         let some (.reg lhs) ← operands[0]? | none
         let some (.reg rhs) ← operands[1]? | none
-        BranchOpInterface.getConditionalSuccessor? successors (BitVec.slt lhs.val rhs.val)
+        some (BranchOpInterface.getConditionalSuccessorIndex (BitVec.slt lhs.val rhs.val))
     }
   | .bge =>
     some {
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           2 props.operandSegmentSizes.values operands successorIndex
-      getSuccessorForOperandsImpl? := fun _ operands successors => do
+      getSuccessorIndexForOperandsImpl? := fun _ operands => do
         let some (.reg lhs) ← operands[0]? | none
         let some (.reg rhs) ← operands[1]? | none
-        BranchOpInterface.getConditionalSuccessor? successors (!BitVec.slt lhs.val rhs.val)
+        some (BranchOpInterface.getConditionalSuccessorIndex (!BitVec.slt lhs.val rhs.val))
     }
   | .bltu =>
     some {
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           2 props.operandSegmentSizes.values operands successorIndex
-      getSuccessorForOperandsImpl? := fun _ operands successors => do
+      getSuccessorIndexForOperandsImpl? := fun _ operands => do
         let some (.reg lhs) ← operands[0]? | none
         let some (.reg rhs) ← operands[1]? | none
-        BranchOpInterface.getConditionalSuccessor? successors (BitVec.ult lhs.val rhs.val)
+        some (BranchOpInterface.getConditionalSuccessorIndex (BitVec.ult lhs.val rhs.val))
     }
   | .bgeu =>
     some {
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           2 props.operandSegmentSizes.values operands successorIndex
-      getSuccessorForOperandsImpl? := fun _ operands successors => do
+      getSuccessorIndexForOperandsImpl? := fun _ operands => do
         let some (.reg lhs) ← operands[0]? | none
         let some (.reg rhs) ← operands[1]? | none
-        BranchOpInterface.getConditionalSuccessor? successors (!BitVec.ult lhs.val rhs.val)
+        some (BranchOpInterface.getConditionalSuccessorIndex (!BitVec.ult lhs.val rhs.val))
     }
   | .func | .unreachable | .call | .return => none
 
