@@ -505,15 +505,20 @@ def OpCode.materializeConstant (opCode : OpCode) (value : RuntimeValue)
   return materialized
 
 /--
-  The unconditional branch, with default properties, that replaces a branch
-  of `opCode`'s dialect once its successor is known.
+  The unconditional branch that replaces a branch of `opCode`'s dialect once
+  its successor is known, preserving applicable properties such as LLVM loop
+  annotations.
 -/
-def OpCode.unconditionalBranch? (opCode : OpCode) : Option (Σ op : OpCode, propertiesOf op) :=
-  match opCode with
-  | .cf _ => some (Materialized.of Cf.br ())
-  | .llvm _ => some (Materialized.of Llvm.br ({ loop_annotation := none } : LLVMBrProperties))
-  | .riscv_cf _ => some (Materialized.of Riscv_Cf.branch ())
-  | _ => none
+def OpCode.unconditionalBranch? (opCode : OpCode) (props : propertiesOf opCode) :
+    Option (Σ op : OpCode, propertiesOf op) :=
+  match opCode, props with
+  | .cf _, _ => some (Materialized.of Cf.br ())
+  | .llvm .br, props => some (Materialized.of Llvm.br props)
+  | .llvm .cond_br, props =>
+    some (Materialized.of Llvm.br ({ loop_annotation := props.loop_annotation } : LLVMBrProperties))
+  | .llvm _, _ => some (Materialized.of Llvm.br ({ loop_annotation := none } : LLVMBrProperties))
+  | .riscv_cf _, _ => some (Materialized.of Riscv_Cf.branch ())
+  | _, _ => none
 
 /--
   Is this `OpCode` commutative in its operands, i.e. `op x y` always
