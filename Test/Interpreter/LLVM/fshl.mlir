@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
 
 // `llvm.intr.fshl(a, b, c)` concatenates `a` (high) and `b` (low), shifts the
 // double-width value left by `c` modulo the bit width, and returns the high

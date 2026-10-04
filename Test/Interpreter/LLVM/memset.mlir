@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
 
 // `llvm.intr.memset` writes its byte to every byte of the range and leaves the
 // bytes past it alone. A poison byte poisons the range.

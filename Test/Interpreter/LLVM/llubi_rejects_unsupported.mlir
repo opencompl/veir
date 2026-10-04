@@ -6,9 +6,10 @@
 
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i64 ()>}> ({
-    %z = "llvm.mlir.zero"() : () -> i64
-    "llvm.return"(%z) : (i64) -> ()
+    %p = "llvm.mlir.zero"() : () -> !llvm.ptr
+    %i = "llvm.ptrtoint"(%p) : (!llvm.ptr) -> i64
+    "llvm.return"(%i) : (i64) -> ()
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: veir2llvm: error: unsupported LLVM operation: llvm.mlir.zero
+// CHECK: veir2llvm: error: unsupported LLVM operation: llvm.ptrtoint

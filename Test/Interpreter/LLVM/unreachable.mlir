@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
 
 // Executing `llvm.unreachable` is immediate undefined behaviour.
 "builtin.module"() ({
