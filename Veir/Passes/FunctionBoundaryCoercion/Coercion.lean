@@ -11,7 +11,7 @@ namespace Veir
   type, inserting`unrealized_conversion_cast`s to bridge to/from the original types.
 
   The coercion applied is selected by a `BoundaryCoercion` flag:
-  - `.riscvReg`: i32-, i64-, and pointer-typed boundaries become `!riscv.reg`.
+  - `.riscvReg`: i1-, i8-, i16-, i32-, i64-, and pointer-typed boundaries become `!riscv.reg`.
     `isel-abi-riscv64` applies this only to LLVM functions as its first step.
   - `.modArithToInt legalizeWidth`: `!mod_arith.int<q : iN>`-typed boundaries become `i(legalizeWidth N)`
   - `.cirToStd`: `!cir.int<s|u, N>`- and `!cir.bool`-typed boundaries become `iN` and `i1`
@@ -28,7 +28,7 @@ public def BoundaryCoercion.target : BoundaryCoercion → TypeAttr → Option Ty
   | .riscvReg, t =>
     match t.val with
     | .integerType x =>
-      if x.bitwidth == 64 || x.bitwidth == 32 then some (RegisterType.mk : TypeAttr) else none
+      if x.bitwidth ∈ [1, 8, 16, 32, 64] then some (RegisterType.mk : TypeAttr) else none
     | .llvmPointerType _ => some (RegisterType.mk : TypeAttr)
     | _ => none
   | .modArithToInt legalizeWidth, t =>

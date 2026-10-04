@@ -34,4 +34,23 @@ def replaceWithRegLocal (ctx : WfIRContext OpCode) (op : OperationPtr) (reg : Va
   WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast
       #[type] #[reg] #[] #[] () none
 
+/-- Immediate properties holding `value` as a 64-bit immediate. -/
+def mkRISCVImm (value : Int) : RISCVImmediateProperties :=
+  RISCVImmediateProperties.mk (BitVec.ofInt 64 value)
+
+/-- Create a detached register-result `dst` op with immediate `value`. -/
+def createRISCVImmLocal (ctx : WfIRContext OpCode)
+    (dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties)
+    (operands : Array ValuePtr) (value : Int) :
+    Option (WfIRContext OpCode × OperationPtr) :=
+  WfRewriter.createOp! ctx dst #[RegisterType.mk] operands #[] #[]
+      (cast h.symm (mkRISCVImm value)) none
+
+/-- Create a detached register-result `dst` op without properties. -/
+def createRISCVUnitLocal (ctx : WfIRContext OpCode)
+    (dst : Riscv) (h : Riscv.propertiesOf dst = Unit) (operands : Array ValuePtr) :
+    Option (WfIRContext OpCode × OperationPtr) :=
+  WfRewriter.createOp! ctx dst #[RegisterType.mk] operands #[] #[]
+      (cast h.symm ()) none
+
 end Veir
