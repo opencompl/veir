@@ -1,6 +1,7 @@
 // RUN: veir-interpret %s | filecheck %s
 
 // Freezing a poison pointer yields some pointer; the interpreter picks null.
+// ALIVE_EXEC: cannot compare: it prints the frozen pointer in its own encoding.
 // In the future, we would like to use ctrees to enable a non-determistic choice,
 // at least in our model.
 

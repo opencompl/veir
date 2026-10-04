@@ -1,8 +1,11 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
 
 // UB triggered by a poison cond_br in a non-entry block must propagate up
 // through `interpretBlockCFG`'s recursive call rather than being lost or
 // reported as a malformed-program error.
+// ALIVE_EXEC: does not terminate on a branch on poison.
+
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i32 ()>}> ({
     ^entry():

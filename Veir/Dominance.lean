@@ -190,9 +190,17 @@ axiom WfIRContext.Dom.blockArgument_dominatesIp_entry (ctxDom : ctx.Dom)
     (hMem : value ∈ block.getArguments! ctx.raw) :
     value.dominatesIp (InsertPoint.atStart! block ctx.raw) ctx
 
-/-- An argument of a block cannot dominate a program point that dominates the block start. -/
+/-- An argument of an SSACFG block with rooted, reachable ancestry cannot dominate a program point
+that dominates the block start. -/
 axiom WfIRContext.Dom.blockArgument_not_dominatesIp_before_of_dominatesIp_firstOp
     (ctxDom : ctx.Dom) {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
+    {block : BlockPtr} {region : RegionPtr}
+    (blockParent : (block.get! ctx.raw).parent = some region)
+    (ssa : region.hasSSADominance ctx = true)
+    (rooted : ∃ root : IRNode, root.Ancestor (.block block) ctx ∧ root.parent! ctx = none)
+    (reachable : ∀ ancestor region, (IRNode.block ancestor).Ancestor (.block block) ctx →
+      (ancestor.get! ctx.raw).parent = some region → region.hasSSADominance ctx = true →
+      ancestor.ReachableFromEntry region ctx)
     (opDom : op.dominatesIp (InsertPoint.atStart! block ctx.raw) ctx)
     (hMem : value ∈ block.getArguments! ctx.raw) :
     ¬ value.dominatesIp (InsertPoint.before op) ctx

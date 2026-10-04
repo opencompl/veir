@@ -1,6 +1,10 @@
 // RUN: veir-interpret %s | filecheck %s
 // RUN: LLUBI
 
+// ALIVE_EXEC: flags the loaded byte as poison: Alive2 gives no value to a
+// load that reads part of a stored integer, while the interpreter's memory
+// hands out single bytes.
+
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i8 ()>}> ({
     ^bb0():

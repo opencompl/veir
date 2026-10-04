@@ -1,5 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
 // RUN: LLUBI
+// RUN: ALIVE_EXEC
 
 // A pointer stored to memory and loaded back reaches the object it came
 // from, so a load through it reads the stored value.

@@ -1,5 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
 // RUN: LLUBI
+// RUN: ALIVE_EXEC
 
 // A pointer read back from memory is decoded at load time into the object
 // covering its address. `%past` points at an address no object covers, so

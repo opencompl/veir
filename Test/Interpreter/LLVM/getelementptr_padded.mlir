@@ -1,4 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
+// RUN: ALIVE_EXEC
 
 // A `getelementptr` index scales by the element's allocation size, not its
 // byte size, so tail padding counts. `!llvm.array<3 x i24>` is 12 bytes wide
