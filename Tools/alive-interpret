@@ -27,15 +27,15 @@ def main(argv: list[str]) -> int:
     if translated.returncode != 0:
         sys.stderr.write(translated.stderr)
         return 1
-    with tempfile.NamedTemporaryFile("w", suffix=".ll", delete=False) as f:
-        f.write(translated.stdout)
-        ll_path = f.name
     # Without this alive-exec runs the `main` wrapper that llubi insists on,
     # and reports its result instead of the test's.
     func = ["--func=veir_test_main"] if "@veir_test_main(" in translated.stdout else []
-    # The default 10s SMT timeout flakes when lit runs many solvers at once.
-    result = subprocess.run(["alive-exec", "--smt-to=300000", *func, ll_path],
-                            capture_output=True, text=True)
+    with tempfile.TemporaryDirectory() as tmp:
+        ll_path = Path(tmp) / "test.ll"
+        ll_path.write_text(translated.stdout)
+        # The default 10s SMT timeout flakes when lit runs many solvers at once.
+        result = subprocess.run(["alive-exec", "--smt-to=300000", *func, str(ll_path)],
+                                capture_output=True, text=True)
     log = result.stdout + result.stderr
     try:
         verdict, _ = vsmith.classify_alive_exec_output(log)
