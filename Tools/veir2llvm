@@ -424,6 +424,13 @@ def validate_function_args(blocks: list[Block], arg_types: list[str]) -> None:
             )
 
 
+def align_suffix(attr: str) -> str:
+    """The `, align N` for a load or store; with no alignment attribute LLVM
+    assumes the type's ABI alignment, as MLIR's own translation does."""
+    m = re.search(r'"?alignment"?\s*=\s*(\d+)\s*:\s*i\d+', attr)
+    return f", align {m.group(1)}" if m else ""
+
+
 def parse_elem_type(attr: str) -> str:
     m = re.search(r'"?elem_type"?\s*=\s*([^,}]+)', attr)
     if not m:
@@ -646,7 +653,8 @@ def translate_nonterminator(
         ptr = llvm_value(op.operands[1], aliases)
         if convert_type(op.operand_types[1]) != "ptr":
             raise Error("llvm.store expects a pointer address")
-        return [f"  store {convert_type(op.operand_types[0])} {value}, ptr {ptr}"]
+        return [f"  store {convert_type(op.operand_types[0])} {value}, ptr {ptr}"
+                f"{align_suffix(op.attr)}"]
 
     result = require_result(op)
     out_result = llvm_ssa_name(result)
@@ -686,7 +694,8 @@ def translate_nonterminator(
     if name == "llvm.load":
         require_operands(op, 1)
         ptr = llvm_value(op.operands[0], aliases)
-        return [f"  {out_result} = load {convert_type(dst_type)}, ptr {ptr}"]
+        return [f"  {out_result} = load {convert_type(dst_type)}, ptr {ptr}"
+                f"{align_suffix(op.attr)}"]
 
     if name == "llvm.getelementptr":
         require_operands(op, 2)

@@ -271,6 +271,9 @@ def classify_llubi_output(log: str) -> tuple[str, str]:
             value = int(ret_const.group(2))
             return f"Program output: #[{format_int_output(width, value)}]", f"i{width} {value}"
 
+        if re.fullmatch(r"\s*ret\s+i\d+\s+poison\s*", line):
+            return "Program output: #[poison]", "poison"
+
         ret_bool = re.search(r"^\s*ret\s+i1\s+(true|false)\s*$", line)
         if ret_bool:
             value = ret_bool.group(1)
