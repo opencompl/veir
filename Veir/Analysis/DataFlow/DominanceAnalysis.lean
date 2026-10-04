@@ -30,9 +30,11 @@ preserves the estimates or moves them upward in the dominator tree (note that
 this is monotonic!), and the process repeats until the facts reach a fixpoint.
 
 In VeIR, dominator facts are attached to `BlockPtr`s. A separate region metadata
-fact stores the postorder numbering needed by `intersect`. Each region is one
-dataflow work item; visiting it performs reverse postorder sweeps until no
-immediate dominator changes.
+fact stores the postorder numbering needed by `intersect`. Each reachable block
+is a dataflow work item, represented by its block start insertion point. When a
+block observes that another sweep is required, it records that in the region
+metadata. The final block in reverse postorder starts another complete sweep
+when said recorded metadata indicates another sweep is required.
 -/
 
 namespace BlockPtr
@@ -103,7 +105,7 @@ namespace RegionMetadataFact
 
 def mkDefault : RegionMetadataFact :=
   { dependents := #[]
-    payload := { postOrderIndex := {} } }
+    payload := { postOrderIndex := {}, changed := false } }
 
 def propagate (_fact : RegionMetadataFact) (_anchor : LatticeAnchor) 
     (dfCtx : DataFlowContext) (_irCtx : WfIRContext OpCode) : DataFlowContext :=
@@ -153,7 +155,19 @@ private def collectPostOrder
             stack := stack.push (succ, false)
   (postOrder, postOrderIndex)
 
-/-- Initialize the reachable dominator facts and enqueue one work item for the region. -/
+/-- Enqueue every reachable block in a region in reverse postorder. -/
+private def enqueueRegion
+    (postOrderIndex : HashMap BlockPtr Nat)
+    (dfCtx : DataFlowContext)
+    (irCtx : WfIRContext OpCode) : DataFlowContext := Id.run do
+  let mut dfCtx := dfCtx
+  let reversePostOrder :=
+    (postOrderIndex.toArray.qsort (·.2 > ·.2)).map (·.1)
+  for block in reversePostOrder do
+    dfCtx := dfCtx.enqueue (InsertPoint.atStart! block irCtx.raw, kind)
+  dfCtx
+
+/-- Initialize the reachable dominator facts and enqueue their first reverse postorder sweep. -/
 private def initializeRegion
     (region : RegionPtr)
     (dfCtx : DataFlowContext)
@@ -170,7 +184,7 @@ private def initializeRegion
   for block in reversePostOrder do
     dfCtx := dfCtx.modifyFact .dominator (.BlockPtr block) fun fact =>
       fact.setIDom (if block = entry then some entry else none)
-  dfCtx.enqueue (InsertPoint.atStart! entry irCtx.raw, kind)
+  enqueueRegion postOrderIndex dfCtx irCtx
 
 /-- Recursively initialize the analysis on nested regions. -/
 partial def initializeRecursively
@@ -261,12 +275,11 @@ private def computeImmediateDominator
   (newIDom, waiting)
 
 /--
-Solve the region whose entry is `point` using reverse postorder sweeps.
+Perform one Cooper-Harvey-Kennedy update for the block containing `point`.
 
-Revisiting every reachable block until an entire sweep makes no changes (i.e. fixpoint)
-is the standard Cooper Harvey Kennedy iteration. In particular, a change to an ancestor
-in an immediate dominator chain is observed on the next sweep without the need to
-store a dependency edge for every chain traversal, which is too slow.
+Requests for another sweep are accumulated in the region metadata during a
+complete reverse postorder sweep. The final block in the sweep clears the flag
+and enqueues the next complete sweep when one is required.
 -/
 def visit
     (point : InsertPoint)
@@ -274,34 +287,30 @@ def visit
     (irCtx : WfIRContext OpCode) : DataFlowContext := Id.run do
   if point.prev! irCtx.raw ≠ none then
     return dfCtx
-  let entry := (point.block! irCtx.raw).get!
-  let region := ((entry.get! irCtx.raw).parent).get!
-  if (region.get! irCtx.raw).firstBlock ≠ some entry then
-    return dfCtx
+  let block := (point.block! irCtx.raw).get!
+  let region := ((block.get! irCtx.raw).parent).get!
+  let entry := ((region.get! irCtx.raw).firstBlock).get!
   let some metadata := region.getRegionMetadataFact? dfCtx irCtx
     | return dfCtx
-  let reversePostOrder :=
-    (metadata.postOrderIndex.toArray.qsort (·.2 > ·.2)).map (·.1)
   let mut dfCtx := dfCtx
-  -- Records if a block's iDom changed or if it's waiting for a predecessor,
-  -- meaning another reverse postorder sweep is required
-  let mut changedOrWaiting := true
-  while changedOrWaiting do
-    changedOrWaiting := false
-    for block in reversePostOrder do
-      let (newIDom?, waiting) :=
-        computeImmediateDominator block dfCtx irCtx
-      changedOrWaiting := changedOrWaiting || waiting
-      let some newIDom := newIDom?
-        | continue
-      let oldIDom := block.getIDom? dfCtx
-      if oldIDom ≠ some newIDom then
-        -- Initializing a fact cannot invalidate an earlier chain traversal: no
-        -- traversal can pass through a block before that block has an iDom.
-        -- A refinement of an existing fact can, so it requires another sweep.
-        changedOrWaiting := changedOrWaiting || oldIDom.isSome
-        dfCtx := dfCtx.modifyFactAndPropagate .dominator (.BlockPtr block) (fun fact =>
-          (fact.setIDom (some newIDom), true)) irCtx
+  let (newIDom?, waiting) := computeImmediateDominator block dfCtx irCtx
+  let mut changed := waiting
+  if let some newIDom := newIDom? then
+    let oldIDom := block.getIDom? dfCtx
+    if oldIDom ≠ some newIDom then
+      -- Initializing a fact cannot invalidate an earlier chain traversal: no
+      -- traversal can pass through a block before that block has an iDom.
+      -- A refinement of an existing fact can, so it requires another sweep.
+      changed := changed || oldIDom.isSome
+      dfCtx := dfCtx.modifyFactAndPropagate .dominator (.BlockPtr block) (fun fact =>
+        (fact.setIDom (some newIDom), true)) irCtx
+  -- Postorder indices start at one, so index one is the final block in RPO.
+  if metadata.postOrderIndex.get? block = some 1 then
+    if metadata.changed || changed then
+      dfCtx := dfCtx.modifyFact .regionMetadata (.BlockPtr entry) (·.setChanged false)
+      dfCtx := enqueueRegion metadata.postOrderIndex dfCtx irCtx
+  else if changed && !metadata.changed then
+    dfCtx := dfCtx.modifyFact .regionMetadata (.BlockPtr entry) (·.setChanged true)
   dfCtx
 
 end DominanceAnalysis

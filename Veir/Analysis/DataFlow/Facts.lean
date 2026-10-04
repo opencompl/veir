@@ -137,12 +137,14 @@ structure DominatorPayload where
   iDom : Option BlockPtr := none
 
 /--
-Caches the post ordering of a region's blocks.
+Caches the post ordering of a region's blocks and whether the current reverse
+postorder sweep requires another sweep.
 
 Stored in the entry block of each region.
 -/
 structure RegionMetadataPayload where
   postOrderIndex : HashMap BlockPtr Nat := {}
+  changed : Bool := false
 
 /-- A sparse dataflow fact payload with analysis specific metadata. -/
 structure SparsePayload (Domain : Type) (Metadata : Type := Unit) where
@@ -231,6 +233,12 @@ def postOrderIndex (fact : Fact .regionMetadata) : HashMap BlockPtr Nat :=
 def setPostOrderIndex (fact : Fact .regionMetadata)
     (postOrderIndex : HashMap BlockPtr Nat) : Fact .regionMetadata :=
   { fact with payload := { fact.payload with postOrderIndex := postOrderIndex } }
+
+def changed (fact : Fact .regionMetadata) : Bool :=
+  fact.payload.changed
+
+def setChanged (fact : Fact .regionMetadata) (changed : Bool) : Fact .regionMetadata :=
+  { fact with payload := { fact.payload with changed } }
 
 def live (fact : Fact .liveness) : Bool :=
   match fact.payload.latticeElement with
