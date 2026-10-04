@@ -908,13 +908,15 @@ private partial def lookupGlobal? (ctx : IRContext OpCode) (op : OperationPtr)
     candidate := (target.get! ctx).next
   none
 
-/-- `llvm.mlir.addressof` -> `riscv.la`, except for thread-local addresses. -/
+/-- `llvm.mlir.addressof` -> `riscv.la`, except for TLS and external weak globals. -/
 def addressof_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (_, properties) := matchOp op ctx.raw Llvm.mlir__addressof 0 | return (ctx, none)
   let some name := properties.global_name.getName? | return (ctx, none)
   if let some global := lookupGlobal? ctx.raw op name then
-    if global.isThreadLocal then return (ctx, none)
+    -- An undefined weak symbol resolves to zero, which a PC-relative `la`
+    -- cannot always reach. Leave it until GOT-based address lowering is supported.
+    if global.isThreadLocal || global.linkage.value == "extern_weak" then return (ctx, none)
   let (ctx, laOp) ← WfRewriter.createOp! ctx Riscv.la #[RegisterType.mk]
       #[] #[] #[] (RISCVSymbolProperties.mk properties.global_name) none
   let (ctx, castBackOp) ← replaceWithRegLocal ctx op (laOp.getResult 0)
