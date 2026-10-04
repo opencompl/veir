@@ -299,7 +299,7 @@ private def WfIRContext.verifyDominance
   let positions := ctx.opPositions
   ctx.raw.forOpsDepM fun op opIn => do
     let some block := op.getParent ctx.raw opIn | return
-    if !block.isReachable dfCtx then return
+    if !block.isReachable dfCtx ctx then return
     for (value, index) in (op.getOperands ctx.raw opIn).zipIdx do
       if !value.properlyDominatesUse op dfCtx positions ctx then
         let opName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
