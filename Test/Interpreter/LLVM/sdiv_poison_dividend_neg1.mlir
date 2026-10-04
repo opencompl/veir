@@ -1,5 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
 // RUN: LLUBI
+// RUN: ALIVE_EXEC
 
 // `sdiv poison, -1` (width > 1) is immediate UB: the poison dividend could
 // refine to intMin, in which case the overflow case applies.

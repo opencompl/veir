@@ -10,21 +10,21 @@ namespace Veir
   Rewrite each `func.func`/`llvm.func`/`cir.func`'s arguments and return values to a coerced
   type, inserting`unrealized_conversion_cast`s to bridge to/from the original types.
 
-  The coercion applied is selected by a `BoundaryCoercion` flag;
-  each variant is  exposed as its own pass:
+  The coercion applied is selected by a `BoundaryCoercion` flag:
   - `.riscvReg`: i32-, i64-, and pointer-typed boundaries become `!riscv.reg`.
+    `isel-abi-riscv64` applies this only to LLVM functions as its first step.
   - `.modArithToInt legalizeWidth`: `!mod_arith.int<q : iN>`-typed boundaries become `i(legalizeWidth N)`
   - `.cirToStd`: `!cir.int<s|u, N>`- and `!cir.bool`-typed boundaries become `iN` and `i1`
 -/
 
 /-- Selects which boundary coercion the shared implementation applies. -/
-inductive BoundaryCoercion where
+public inductive BoundaryCoercion where
   | riscvReg
   | modArithToInt (legalizeWidth : Nat → Nat)
   | cirToStd
 
 /-- The type a boundary value of type `t` is coerced to, or `none` to leave it alone. -/
-def BoundaryCoercion.target : BoundaryCoercion → TypeAttr → Option TypeAttr
+public def BoundaryCoercion.target : BoundaryCoercion → TypeAttr → Option TypeAttr
   | .riscvReg, t =>
     match t.val with
     | .integerType x =>
@@ -57,7 +57,7 @@ def coerceFunction (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
   -- Shadow the parameter: from here on `ctx` always names the latest version, with no
   -- separate old binding left around to second-guess.
   let mut ctx := ctx
-  let some funcOp := FunctionOp.cast? op ctx.raw | return ctx
+  let some funcOp := FunctionOp.of? op ctx.raw | return ctx
   let some entry := funcOp.getEntryBlock? | return ctx
   let returnCode := returnOpCodeFor (op.getOpType! ctx.raw)
   -- Default the output types to the currently-declared ones, then flip coerced positions.
@@ -101,14 +101,18 @@ def coerceFunction (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
       | none => pure ()
   -- (3) Rewrite the function_type to reflect the coerced boundary types.
   -- `funcOp` belongs to the context before the rewrites above, so cast it again.
-  let some funcOp := FunctionOp.cast? op ctx.raw | return ctx
+  let some funcOp := FunctionOp.of? op ctx.raw | return ctx
   ctx := FunctionOp.setFunctionType! ctx funcOp inputs outputs
   return ctx
 
-def coerceFunctionBoundaries (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode) :
+/-- Coerce the boundaries of functions selected by `shouldCoerce`. -/
+public def coerceFunctionBoundaries (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
+    (shouldCoerce : IRContext OpCode → OperationPtr → Bool := fun _ _ => true) :
     ExceptT String IO (WfIRContext OpCode) := do
   let mut ctx := ctx
-  for op in ctx.raw.operations.keys do
+  let funcOps := ctx.raw.operations.keys.filter fun o =>
+    o.isFunctionLike ctx.raw && shouldCoerce ctx.raw o
+  for op in funcOps do
     ctx ← coerceFunction coercion ctx op
   return ctx
 
@@ -119,11 +123,6 @@ def CoerceFunctionBoundariesPass.impl (coercion : BoundaryCoercion) (ctx : WfIRC
   match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[eliminateDeadOp]) ctx with
   | none => throw "Error while applying DCE after function boundary coercion"
   | some ctx => pure ctx
-
-public def CoerceFunctionBoundariesToRiscvRegPass : Pass OpCode :=
-  { name := "coerce-function-boundaries-to-riscv-reg"
-    description := "Coerce i32/i64/pointer function boundaries to `!riscv.reg`."
-    run := fun _ => CoerceFunctionBoundariesPass.impl .riscvReg }
 
 public def CoerceModArithFunctionBoundariesPass : Pass OpCode :=
   { name := "coerce-mod-arith-function-boundaries"

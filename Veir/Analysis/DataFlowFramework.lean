@@ -43,6 +43,15 @@ class FactSpec (kind : FactKind) where
   -/
   propagate : Fact kind → LatticeAnchor → DataFlowContext → WfIRContext OpCode → DataFlowContext
 
+/--
+Render facts belonging to one analysis after the dataflow solver reaches a
+fixpoint.  The callback is analysis specific because fact payloads are
+heterogeneous.
+-/
+structure DataFlowPrinter where
+  name : String
+  format? : LatticeAnchor → DataFlowContext → WfIRContext OpCode → Option String
+
 namespace Fact
 
 /--
@@ -81,6 +90,8 @@ structure DataFlowAnalysis where
   The transfer function, visiting the given `InsertPoint`.
   -/
   visit : InsertPoint → DataFlowContext → WfIRContext OpCode → DataFlowContext
+  /-- Optional renderer for this analysis's facts. -/
+  printer? : Option DataFlowPrinter := none
 
 namespace DataFlowContext
 

@@ -3,6 +3,7 @@ module
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
 import Veir.Analysis.DataFlow.SparseConstantPropagationAnalysis
+import Veir.Analysis.DataFlow.DeadCodeAnalysis
 import Veir.Interfaces.FoldInterfaces
 import Veir.Passes.Matching
 
@@ -75,7 +76,7 @@ private def replaceKnownConstant (ctx : WfIRContext OpCode)
 /-- Run constant propagation and then perform the rewrites it exposes. -/
 private def propagateConstants (ctx : WfIRContext OpCode) (root : OperationPtr) :
     Option (WfIRContext OpCode) := do
-  let facts ← fixpointSolve root #[SparseConstantPropagationAnalysis] ctx
+  let facts ← fixpointSolve root #[SparseConstantPropagationAnalysis, DeadCodeAnalysis] ctx
   let mut ctx := ctx
   for op in ctx.raw.operations.keys do
     if (op.get! ctx.raw).parent.isSome then

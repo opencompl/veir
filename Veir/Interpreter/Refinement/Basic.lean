@@ -159,7 +159,7 @@ def OperationPtr.isRefinedByAsFunction (op₁ : OperationPtr) (ctx₁ : WfIRCont
     (op₂ : OperationPtr) (ctx₂ : WfIRContext OpCode)
     (op₁In : op₁.InBounds ctx₁.raw := by grind)
     (op₂In : op₂.InBounds ctx₂.raw := by grind) : Prop :=
-  match FunctionOp.cast? op₁ ctx₁.raw, FunctionOp.cast? op₂ ctx₂.raw with
+  match FunctionOp.of? op₁ ctx₁.raw, FunctionOp.of? op₂ ctx₂.raw with
   | some func₁, some func₂ => func₁.isRefinedBy func₂ op₁In op₂In
   | _, _ => False
 

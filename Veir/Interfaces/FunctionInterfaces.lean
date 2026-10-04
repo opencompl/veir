@@ -39,32 +39,32 @@ structure FunctionOp (ctx : IRContext OpCode) (op : OperationPtr) extends Symbol
 namespace FunctionOp
 
 /--
-Try to cast an operation to a `FunctionOp`.
+The `FunctionOp` view of `op`, or `none` if it is not function-like.
 
 This is equivalent to `mlir::dyn_cast<FunctionOpInterface>(op)` in MLIR.
 -/
 @[inline]
-def cast? (op : OperationPtr) (ctx : IRContext OpCode) : Option (FunctionOp ctx op) :=
+def of? (op : OperationPtr) (ctx : IRContext OpCode) : Option (FunctionOp ctx op) :=
   match h : HasOpInfo.functionInterface? (op.getOpType! ctx) with
   | some functionInterface => some { functionInterface, functionInterface?_eq := h }
   | none => none
 
 @[simp]
-theorem cast?_eq_some {op : OperationPtr} {ctx : IRContext OpCode} (funcOp : FunctionOp ctx op) :
-    cast? op ctx = some funcOp := by
-  rcases funcOp with ⟨⟨⟩⟩; grind [cast?]
+theorem of?_eq_some {op : OperationPtr} {ctx : IRContext OpCode} (funcOp : FunctionOp ctx op) :
+    of? op ctx = some funcOp := by
+  rcases funcOp with ⟨⟨⟩⟩; grind [of?]
 
-grind_pattern cast?_eq_some => cast? op ctx, funcOp.functionInterface
+grind_pattern of?_eq_some => of? op ctx, funcOp.functionInterface
 
 /--
-Cast a function-like operation to a `FunctionOp`.
+The `FunctionOp` view of a function-like operation.
 
 This is equivalent to `mlir::cast<FunctionOpInterface>(op)` in MLIR.
 -/
 @[inline]
-def cast (op : OperationPtr) (ctx : IRContext OpCode) (h : op.isFunctionLike ctx := by grind) :
+def of (op : OperationPtr) (ctx : IRContext OpCode) (h : op.isFunctionLike ctx := by grind) :
     FunctionOp ctx op :=
-  (cast? op ctx).get (by grind [cast?, OperationPtr.isFunctionLike])
+  (of? op ctx).get (by grind [of?, OperationPtr.isFunctionLike])
 
 variable {ctx : IRContext OpCode} {op : OperationPtr}
 

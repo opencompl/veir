@@ -2,6 +2,7 @@ module
 
 public import Veir.GlobalOpInfo
 public import Veir.Interfaces.FunctionInterfaces
+import Veir.IR.SymbolRef
 
 
 open Veir
@@ -67,27 +68,9 @@ private def yamlName (name : String) : String := Id.run do
     else result := result.push c
   return result.push '"'
 
-/-- Decode the same quoted-name escapes accepted by the MLIR lexer. -/
-private def decodeSymbolEscapes (acc : ByteArray) : List Char → Option ByteArray
-  | [] => some acc
-  | '\\' :: '\\' :: rest => decodeSymbolEscapes (acc.push 0x5C) rest
-  | '\\' :: '"' :: rest => decodeSymbolEscapes (acc.push 0x22) rest
-  | '\\' :: 'n' :: rest => decodeSymbolEscapes (acc.push 0x0A) rest
-  | '\\' :: 't' :: rest => decodeSymbolEscapes (acc.push 0x09) rest
-  | '\\' :: hi :: lo :: rest => do
-    let hi ← Char.hexDigit? hi
-    let lo ← Char.hexDigit? lo
-    decodeSymbolEscapes (acc.push (hi * 16 + lo)) rest
-  | '\\' :: _ => none
-  | c :: rest => decodeSymbolEscapes (acc ++ c.toString.toUTF8) rest
-
 /-- Canonical symbol name, matching the decoded `sym_name` of a definition. -/
 private def symbolName (ref : FlatSymbolRefAttr) : String :=
-  let name := (ref.value.dropPrefix "@").toString
-  if name.startsWith "\"" && name.endsWith "\"" then
-    let chars := ((name.drop 1).dropEnd 1).toString.toList
-    String.fromUTF8! (decodeSymbolEscapes ByteArray.empty chars).get!
-  else name
+  String.fromUTF8! ref.getName?.get!
 
 /-- The physical-register MIR name (e.g. `$x0`) named by a register type
     carrying an index, if any. -/
@@ -651,7 +634,7 @@ def reachableBlocks (ctx : IRContext OpCode) {op : OperationPtr} (funcOp : Funct
 /-- Whether `op` is a function-like op with a body (as opposed to declaring an
     external function). -/
 def hasBody (ctx : IRContext OpCode) (op : OperationPtr) : Bool :=
-  match FunctionOp.cast? op ctx with
+  match FunctionOp.of? op ctx with
   | some funcOp => !funcOp.isExternal
   | none => false
 
@@ -712,7 +695,7 @@ def printFunction (ctx : IRContext OpCode) (name : String) (blocks : Array Block
     MIR parser resolves each `@callee` against the IR module. -/
 def printMIR (ctx : IRContext OpCode) (funcOps : Array OperationPtr) : IO Unit := do
   let funcs := funcOps.filterMap fun op => do
-    let funcOp ← FunctionOp.cast? op ctx
+    let funcOp ← FunctionOp.of? op ctx
     if funcOp.isExternal then
       none
     else
