@@ -1232,9 +1232,10 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.verifyPlainOpCounts ctx opIn 1 1
     match ((op.getOperand! ctx.raw 0).getType! ctx.raw).val,
         ((op.getResultTypes! ctx.raw)[0]!).val with
-    | .llvmPointerType _, .llvmPointerType _ => pure ()
+    | .llvmPointerType _, .llvmPointerType _
+    | .llvmPointerType _, .byteType _ | .byteType _, .llvmPointerType _ => pure ()
     | .llvmPointerType _, _ | _, .llvmPointerType _ =>
-      throw "llvm.bitcast: Expected a pointer to bitcast to a pointer"
+      throw "llvm.bitcast: Expected a pointer to bitcast to a pointer or a byte"
     | _, _ => pure ()
     if Attribute.bitwidthOfType ((op.getOperand! ctx.raw 0).getType! ctx.raw) ≠
         Attribute.bitwidthOfType (op.getResultTypes! ctx.raw)[0]! then
@@ -1604,7 +1605,11 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
           if bw1 ≠ bw2 then .fail none else .ok (val)
       | .byte bw1 val', .integerType ⟨bw2, _⟩ =>
           if bw1 ≠ bw2 then .fail none else .ok ((.int bw1 $ val'.toInt))
+      | .byte bw val', .llvmPointerType _ =>
+          if h : bw = 64 then .ok (.addr (mem.ptrFromInt (val'.cast h).toInt)) else .fail none
       | .addr val', .llvmPointerType _ => .ok (val)
+      | .addr val', .byteType ⟨bw⟩ =>
+          if bw = 64 then .ok (.byte 64 (LLVM.Byte.fromInt (mem.intFromPtr val'))) else .fail none
       | _, _ => none
     return (#[result], mem, none)
   | .inttoptr => do
