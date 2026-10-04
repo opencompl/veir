@@ -2,9 +2,10 @@
 """Translate a small VEIR LLVM-dialect MLIR module to LLVM IR.
 
 This is intentionally not a general MLIR parser.  It accepts one
-``builtin.module`` containing exactly one ``llvm.func`` and supports the small
-integer and pointer LLVM subset used by ``Tools/vsmith_generate.py`` and the
-interpreter tests.
+``builtin.module`` containing exactly one ``llvm.func`` or ``func.func`` and
+supports the small integer and pointer LLVM subset used by
+``Tools/vsmith_generate.py`` and the interpreter tests.  A ``func.func`` with
+several results returns them as an LLVM struct.
 """
 
 from __future__ import annotations
@@ -232,10 +233,18 @@ def parse_constant_attr(attr: str) -> tuple[str, str]:
     m = re.search(r'"?value"?\s*=\s*(true|false)\b', attr)
     if m:
         return m.group(1), "i1"
-    m = re.search(r'"?value"?\s*=\s*(-?\d+)\s*:\s*([^,\s>}]+)', attr)
+    m = re.search(r'"?value"?\s*=\s*(-?(?:0x[0-9a-fA-F]+|\d+))\s*:\s*([^,\s>}]+)', attr)
     if not m:
         raise Error("llvm.mlir.constant is missing integer value")
-    return m.group(1), m.group(2)
+    value, typ = m.group(1), m.group(2)
+    if value.startswith("0x"):
+        # A hex literal gives the bits; LLVM IR wants the signed value.
+        if not re.fullmatch(r"i\d+", typ):
+            raise Error(f"unsupported hex constant of type {typ}")
+        width = int(typ[1:])
+        n = int(value, 16)
+        value = str(n - (1 << width) if n >= 1 << (width - 1) else n)
+    return value, typ
 
 
 def convert_type(typ: str) -> str:
@@ -249,6 +258,9 @@ def convert_type(typ: str) -> str:
     m = re.fullmatch(r"!llvm.byte<(\d+)>", typ)
     if m:
         return f"b{m.group(1)}"
+    m = re.fullmatch(r"!llvm.array<\s*(\d+)\s*x\s*(.+)>", typ)
+    if m:
+        return f"[{m.group(1)} x {convert_type(m.group(2))}]"
     if typ == "f16":
         return "half"
     if typ == "f32":
@@ -260,11 +272,40 @@ def convert_type(typ: str) -> str:
     raise Error(f"unsupported type: {typ}")
 
 
-def parse_function_type(attr_text: str) -> tuple[str, list[str]]:
+def find_matching_paren(s: str, open_pos: int) -> int:
+    depth = 0
+    for i in range(open_pos, len(s)):
+        if s[i] == "(":
+            depth += 1
+        elif s[i] == ")":
+            depth -= 1
+            if depth == 0:
+                return i
+    raise Error("unterminated parenthesis")
+
+
+def parse_function_type(attr_text: str, func_op: str) -> tuple[list[str], list[str]]:
+    """Return the result types and argument types of a function.
+
+    An `llvm.func` has a `!llvm.func<ret (args)>` type with at most one
+    result; a `func.func` has a builtin `(args) -> results` type."""
     key = "function_type"
     idx = attr_text.find(key)
     if idx < 0:
-        raise Error("llvm.func is missing function_type")
+        raise Error(f"{func_op} is missing function_type")
+    if func_op == "func.func":
+        rest = attr_text[idx:].split("=", 1)[1].strip()
+        if not rest.startswith("("):
+            raise Error(f"could not parse function type: {rest}")
+        close_pos = find_matching_paren(rest, 0)
+        arg_types = parse_type_list(rest[1:close_pos])
+        results = rest[close_pos + 1 :].strip()
+        if not results.startswith("->"):
+            raise Error(f"could not parse function type: {rest}")
+        results = results[2:].strip()
+        if results.startswith("("):
+            return parse_type_list(results[1 : find_matching_paren(results, 0)]), arg_types
+        return [split_top_level(results)[0]], arg_types
     func_idx = attr_text.find("!llvm.func<", idx)
     if func_idx < 0:
         raise Error("llvm.func function_type is not !llvm.func<...>")
@@ -274,13 +315,24 @@ def parse_function_type(attr_text: str) -> tuple[str, list[str]]:
     m = re.fullmatch(r"(.+?)\s*\((.*)\)\s*", inner)
     if not m:
         raise Error(f"could not parse function type: {inner}")
-    return m.group(1).strip(), parse_type_list(m.group(2))
+    ret_type = m.group(1).strip()
+    results = [] if convert_type(ret_type) == "void" else [ret_type]
+    return results, parse_type_list(m.group(2))
+
+
+def llvm_return_type(ret_types: list[str]) -> str:
+    """The LLVM return type: several results are returned as a literal struct."""
+    if not ret_types:
+        return "void"
+    if len(ret_types) == 1:
+        return convert_type(ret_types[0])
+    return "{ " + ", ".join(convert_type(t) for t in ret_types) + " }"
 
 
 def parse_sym_name(attr_text: str) -> str:
     m = re.search(r'"?sym_name"?\s*=\s*"([^"]+)"', attr_text)
     if not m:
-        raise Error("llvm.func is missing sym_name")
+        raise Error("function is missing sym_name")
     name = m.group(1)
     if not re.fullmatch(r"[A-Za-z_.$][A-Za-z0-9_.$-]*", name):
         raise Error(f"unsupported function symbol name: {name}")
@@ -350,10 +402,19 @@ def parse_blocks(body: str) -> list[Block]:
     blocks: list[Block] = []
     current: Block | None = None
     implicit_index = 0
+    # An operation may continue over several lines, e.g. with its attributes
+    # or type signature. Only a block header, a result, or an operation name
+    # starts a new line.
+    lines: list[str] = []
     for raw_line in body.splitlines():
         line = raw_line.strip()
         if not line:
             continue
+        if lines and not re.match(r'[%^]|"[A-Za-z0-9_.]+"\(', line):
+            lines[-1] += " " + line
+        else:
+            lines.append(line)
+    for line in lines:
         header = re.fullmatch(rf"\^([A-Za-z0-9_.$-]+)\s*(?:\((.*?)\))?\s*:", line)
         if header:
             current = Block(header.group(1), parse_block_args(header.group(2)))
@@ -369,7 +430,7 @@ def parse_blocks(body: str) -> list[Block]:
     if implicit_index > 1:
         raise Error("internal error: multiple implicit entry blocks")
     if not blocks:
-        raise Error("llvm.func has an empty body")
+        raise Error("function has an empty body")
     seen: set[str] = set()
     for block in blocks:
         if block.label in seen:
@@ -378,36 +439,62 @@ def parse_blocks(body: str) -> list[Block]:
     return blocks
 
 
-def extract_function(text: str) -> tuple[str, list[Block], str, list[str]]:
-    op_names = re.findall(r'"([^"]+)"\s*\(', text)
-    for op in op_names:
-        if op != "builtin.module" and not op.startswith("llvm."):
+@dataclass
+class Function:
+    name: str
+    blocks: list[Block]
+    ret_types: list[str]
+    arg_types: list[str]
+
+
+@dataclass
+class Global:
+    attrs: str
+    blocks: list[Block]
+
+
+FUNC_OPS = {"llvm.func": "llvm.return", "func.func": "func.return"}
+
+
+def module_ops(text: str) -> tuple[list[Function], list[Global]]:
+    """The functions and globals at the top level of the module."""
+    for op in re.findall(r'"([^"]+)"\s*\(', text):
+        if op not in ("builtin.module", "func.func", "func.return") and not op.startswith("llvm."):
             raise Error(f"unsupported non-LLVM operation: {op}")
-    if op_names.count("llvm.func") != 1:
-        raise Error(f"expected exactly one llvm.func, found {op_names.count('llvm.func')}")
-    func_pos = text.find('"llvm.func"')
-    head_end = text.find("({", func_pos)
-    if head_end < 0:
-        raise Error("llvm.func has no region body")
-    body_close = find_matching_region_end(text, head_end)
-    outside_func = text[:func_pos] + text[body_close + 2 :]
-    outside_ops = re.findall(r'"([^"]+)"\s*\(', outside_func)
-    extra_ops = [op for op in outside_ops if op != "builtin.module"]
-    if extra_ops:
-        raise Error(
-            "expected the module to contain only one llvm.func; "
-            f"found extra top-level op {extra_ops[0]}"
-        )
-    head = text[func_pos:head_end]
-    attr_match = re.search(r"<\{(.*)\}>\s*$", head.strip())
-    if not attr_match:
-        raise Error("llvm.func must have an attribute dictionary")
-    attrs = attr_match.group(1)
-    name = parse_sym_name(attrs)
-    ret_type, arg_types = parse_function_type(attrs)
-    body = text[head_end + 2 : body_close]
-    blocks = parse_blocks(body)
-    return name, blocks, ret_type, arg_types
+    mod = text.find('"builtin.module"')
+    if mod < 0:
+        raise Error("expected a builtin.module")
+    mod_open = text.find("({", mod)
+    mod_close = find_matching_region_end(text, mod_open)
+    functions: list[Function] = []
+    globals_: list[Global] = []
+    op_re = re.compile(r'"([^"]+)"\s*\(')
+    pos = mod_open + 2
+    while (m := op_re.search(text, pos, mod_close)) is not None:
+        line_end = text.find("\n", m.start())
+        head_end = text.find("({", m.start(), line_end if line_end >= 0 else mod_close)
+        if m.group(1) not in ("llvm.func", "func.func", "llvm.mlir.global") or head_end < 0:
+            raise Error(f"unsupported top-level op {m.group(1)}")
+        body_close = find_matching_region_end(text, head_end)
+        attr_match = re.search(r"<\{(.*)\}>\s*$", text[m.start():head_end].strip())
+        if not attr_match:
+            raise Error(f"{m.group(1)} must have an attribute dictionary")
+        attrs = attr_match.group(1)
+        body = text[head_end + 2 : body_close]
+        if m.group(1) in FUNC_OPS:
+            # Each kind of function must use its own return.
+            for other_op, other_return in FUNC_OPS.items():
+                if other_op != m.group(1) and f'"{other_return}"' in body:
+                    raise Error(f"{other_return} is not allowed in {m.group(1)}")
+            ret_types, arg_types = parse_function_type(attrs, m.group(1))
+            functions.append(Function(parse_sym_name(attrs), parse_blocks(body),
+                                      ret_types, arg_types))
+        else:
+            globals_.append(Global(attrs, parse_blocks(body) if body.strip() else []))
+        pos = body_close + 2
+    if not functions:
+        raise Error("expected at least one function")
+    return functions, globals_
 
 
 def validate_function_args(blocks: list[Block], arg_types: list[str]) -> None:
@@ -422,6 +509,13 @@ def validate_function_args(blocks: list[Block], arg_types: list[str]) -> None:
                 f"entry block arg {idx} ({arg_name}) has type {block_type}, "
                 f"but function type has {func_type}"
             )
+
+
+def align_suffix(attr: str) -> str:
+    """The `, align N` for a load or store; with no alignment attribute LLVM
+    assumes the type's ABI alignment, as MLIR's own translation does."""
+    m = re.search(r'"?alignment"?\s*=\s*(\d+)\s*:\s*i\d+', attr)
+    return f", align {m.group(1)}" if m else ""
 
 
 def parse_elem_type(attr: str) -> str:
@@ -617,26 +711,56 @@ def translate_nonterminator(
         value_types[result] = typ
         return []
 
+    if name == "llvm.mlir.addressof":
+        result = require_result(op)
+        m = re.search(r'"?global_name"?\s*=\s*@([A-Za-z_.$][A-Za-z0-9_.$-]*)', op.attr)
+        if not m:
+            raise Error("llvm.mlir.addressof is missing global_name")
+        if m.group(1) == "main":
+            raise Error("llvm.mlir.addressof of @main is not supported")
+        aliases[result] = f"@{m.group(1)}"
+        value_types[result] = op.result_types[0]
+        return []
+
+    if name == "llvm.mlir.zero":
+        result = require_result(op)
+        dst = op.result_types[0]
+        aliases[result] = "null" if convert_type(dst) == "ptr" else "0"
+        value_types[result] = dst
+        return []
+
     if name == "llvm.mlir.poison":
         result = require_result(op)
         aliases[result] = "poison"
         value_types[result] = op.result_types[0]
         return []
 
-    if name == "llvm.intr.memcpy":
+    if name in ("llvm.intr.memcpy", "llvm.intr.memmove", "llvm.intr.memset"):
         if op.result is not None or op.result_types:
             raise Error(f"{name} cannot have results")
         require_operands(op, 3)
-        if parse_bool_immarg(op.attr, "isVolatile", name) == "true":
-            raise Error(f"{name}: volatile is not supported")
+        volatile = parse_bool_immarg(op.attr, "isVolatile", name)
         dst = llvm_value(op.operands[0], aliases)
+        # The second operand is the source pointer, or the fill byte of a memset.
+        src_type = convert_type(op.operand_types[1])
         src = llvm_value(op.operands[1], aliases)
         length = llvm_value(op.operands[2], aliases)
         lenty = convert_type(op.operand_types[2])
+        base = name.removeprefix("llvm.intr.")
+        suffix = f"p0.{lenty}" if base == "memset" else f"p0.p0.{lenty}"
         declarations.add(
-            f"declare void @llvm.memcpy.p0.p0.{lenty}(ptr, ptr, {lenty}, i1)")
-        return [f"  call void @llvm.memcpy.p0.p0.{lenty}"
-                f"(ptr {dst}, ptr {src}, {lenty} {length}, i1 false)"]
+            f"declare void @llvm.{base}.{suffix}(ptr, {src_type}, {lenty}, i1)")
+        return [f"  call void @llvm.{base}.{suffix}"
+                f"(ptr {dst}, {src_type} {src}, {lenty} {length}, i1 {volatile})"]
+
+    if name == "llvm.mlir.zero":
+        result = require_result(op)
+        if op.operands:
+            raise Error("llvm.mlir.zero cannot have operands")
+        typ = op.result_types[0]
+        aliases[result] = "null" if convert_type(typ) == "ptr" else "0"
+        value_types[result] = typ
+        return []
 
     if name == "llvm.store":
         if op.result is not None or op.result_types:
@@ -646,7 +770,8 @@ def translate_nonterminator(
         ptr = llvm_value(op.operands[1], aliases)
         if convert_type(op.operand_types[1]) != "ptr":
             raise Error("llvm.store expects a pointer address")
-        return [f"  store {convert_type(op.operand_types[0])} {value}, ptr {ptr}"]
+        return [f"  store {convert_type(op.operand_types[0])} {value}, ptr {ptr}"
+                f"{align_suffix(op.attr)}"]
 
     result = require_result(op)
     out_result = llvm_ssa_name(result)
@@ -686,7 +811,18 @@ def translate_nonterminator(
     if name == "llvm.load":
         require_operands(op, 1)
         ptr = llvm_value(op.operands[0], aliases)
-        return [f"  {out_result} = load {convert_type(dst_type)}, ptr {ptr}"]
+        return [f"  {out_result} = load {convert_type(dst_type)}, ptr {ptr}"
+                f"{align_suffix(op.attr)}"]
+
+    if name == "llvm.ptrtoint":
+        require_operands(op, 1)
+        src = llvm_value(op.operands[0], aliases)
+        return [f"  {out_result} = ptrtoint ptr {src} to {convert_type(dst_type)}"]
+
+    if name == "llvm.inttoptr":
+        require_operands(op, 1)
+        src = llvm_value(op.operands[0], aliases)
+        return [f"  {out_result} = inttoptr {convert_type(op.operand_types[0])} {src} to ptr"]
 
     if name == "llvm.getelementptr":
         require_operands(op, 2)
@@ -773,19 +909,36 @@ def translate_terminator(
     aliases: dict[str, str],
     blocks_by_label: dict[str, Block],
     edge_blocks: list[EdgeBlock],
+    ret_types: list[str],
 ) -> tuple[list[str], list[Edge]]:
     if op.result is not None or op.result_types:
         raise Error(f"{op.name} terminator cannot have results")
 
-    if op.name == "llvm.return":
+    if op.name in ("llvm.return", "func.return"):
         if op.successors:
-            raise Error("llvm.return cannot have successors")
-        if len(op.operands) == 0 and len(op.operand_types) == 0:
+            raise Error(f"{op.name} cannot have successors")
+        if len(op.operands) != len(op.operand_types):
+            raise Error(f"{op.name} operand count does not match its types")
+        if [convert_type(t) for t in op.operand_types] != [convert_type(t) for t in ret_types]:
+            raise Error(f"{op.name} types do not match the function's result types")
+        if not op.operands:
             return ["  ret void"], []
-        if len(op.operands) != 1 or len(op.operand_types) != 1:
-            raise Error("llvm.return with multiple values is not supported")
-        value = llvm_value(op.operands[0], aliases)
-        return [f"  ret {convert_type(op.operand_types[0])} {value}"], []
+        if len(op.operands) == 1:
+            value = llvm_value(op.operands[0], aliases)
+            return [f"  ret {convert_type(op.operand_types[0])} {value}"], []
+        # Several results are returned as a struct, built one field at a time.
+        # The `veir_ret` prefix cannot clash with translated SSA names, which
+        # all begin with `mlir_`.
+        agg_type = llvm_return_type(ret_types)
+        lines: list[str] = []
+        agg = "poison"
+        for idx, (value, typ) in enumerate(zip(op.operands, op.operand_types)):
+            field_name = f"%veir_ret.{label_name(block.label)}.{idx}"
+            lines.append(f"  {field_name} = insertvalue {agg_type} {agg}, "
+                         f"{convert_type(typ)} {llvm_value(value, aliases)}, {idx}")
+            agg = field_name
+        lines.append(f"  ret {agg_type} {agg}")
+        return lines, []
 
     if op.name == "llvm.br":
         if len(op.successors) != 1:
@@ -850,10 +1003,88 @@ def translate_terminator(
             edges,
         )
 
+    if op.name == "llvm.switch":
+        return translate_switch(block, op, aliases, blocks_by_label, edge_blocks)
+
+    if op.name == "llvm.unreachable":
+        if op.operands or op.successors:
+            raise Error("llvm.unreachable cannot have operands or successors")
+        return ["  unreachable"], []
+
     raise Error(f"unsupported LLVM terminator: {op.name}")
 
 
-def translate_function(name: str, blocks: list[Block], ret_type: str, arg_types: list[str]) -> str:
+def parse_i32_array(attr: str, name: str) -> list[int] | None:
+    m = re.search(rf'"?{re.escape(name)}"?\s*=\s*array<i32(?::\s*([^>]*))?>', attr)
+    if not m:
+        return None
+    return [int(x) for x in m.group(1).split(",")] if m.group(1) else []
+
+
+def parse_case_values(attr: str) -> list[int]:
+    m = re.search(r'"?case_values"?\s*=\s*dense<\[?([^\]>]*)\]?>', attr)
+    if not m:
+        return []
+    return [int(x) for x in m.group(1).split(",")]
+
+
+def translate_switch(
+    block: Block,
+    op: Operation,
+    aliases: dict[str, str],
+    blocks_by_label: dict[str, Block],
+    edge_blocks: list[EdgeBlock],
+) -> tuple[list[str], list[Edge]]:
+    sizes = parse_i32_array(op.attr, "operandSegmentSizes")
+    if sizes is None or len(sizes) != 3 or sizes[0] != 1:
+        raise Error("llvm.switch needs operandSegmentSizes with one switch value")
+    _, default_n, cases_n = sizes
+    case_segments = parse_i32_array(op.attr, "case_operand_segments") or []
+    case_values = parse_case_values(op.attr)
+    if len(case_values) != len(case_segments) or sum(case_segments) != cases_n:
+        raise Error("llvm.switch case attributes do not match its operands")
+    if len(op.successors) != 1 + len(case_values) or 1 + default_n + cases_n != len(op.operands):
+        raise Error("llvm.switch successors do not match its cases")
+    for target in op.successors:
+        if target not in blocks_by_label:
+            raise Error(f"llvm.switch targets unknown block ^{target}")
+
+    # The values forwarded to each successor, the default first.
+    forwarded: list[list[str]] = []
+    start = 1
+    for count in [default_n] + case_segments:
+        forwarded.append([llvm_value(v, aliases) for v in op.operands[start : start + count]])
+        start += count
+
+    # A phi takes one value per predecessor, so a block reached by several
+    # successors of this switch is reached through its own edge blocks.
+    edges: list[Edge] = []
+    labels: list[str] = []
+    for idx, (target, values) in enumerate(zip(op.successors, forwarded)):
+        if len(values) != len(blocks_by_label[target].args):
+            raise Error(f"llvm.switch edge to ^{target} passes the wrong number of values")
+        if op.successors.count(target) > 1 and values:
+            edge_label = f"{block.label}_to_{target}_{idx}"
+            edge_blocks.append(EdgeBlock(edge_label, target))
+            edges.append(Edge(edge_label, target, values))
+            labels.append(edge_label)
+        else:
+            edges.append(Edge(block.label, target, values))
+            labels.append(target)
+
+    typ = convert_type(op.operand_types[0])
+    value = llvm_value(op.operands[0], aliases)
+    cases = " ".join(f"{typ} {case}, label {llvm_label(label)}"
+                     for case, label in zip(case_values, labels[1:]))
+    return [f"  switch {typ} {value}, label {llvm_label(labels[0])} [ {cases} ]"], edges
+
+
+TERMINATORS = {"llvm.return", "func.return", "llvm.br", "llvm.cond_br",
+               "llvm.switch", "llvm.unreachable"}
+
+
+def translate_function(name: str, blocks: list[Block], ret_types: list[str], arg_types: list[str],
+                       declarations: set[str]) -> str:
     validate_function_args(blocks, arg_types)
     blocks_by_label = {block.label: block for block in blocks}
     aliases: dict[str, str] = {}
@@ -861,7 +1092,6 @@ def translate_function(name: str, blocks: list[Block], ret_type: str, arg_types:
     body_lines: dict[str, list[str]] = {}
     edges: list[Edge] = []
     edge_blocks: list[EdgeBlock] = []
-    declarations: set[str] = set()
 
     for idx, block in enumerate(blocks):
         for arg_name, arg_type in block.args:
@@ -871,17 +1101,17 @@ def translate_function(name: str, blocks: list[Block], ret_type: str, arg_types:
             raise Error(f"block ^{block.label} is empty")
         for op_index, op in enumerate(block.ops):
             is_last = op_index == len(block.ops) - 1
-            if op.name in {"llvm.return", "llvm.br", "llvm.cond_br"}:
+            if op.name in TERMINATORS:
                 if not is_last:
                     raise Error(f"terminator {op.name} is not last in ^{block.label}")
                 term_lines, term_edges = translate_terminator(
-                    block, op, aliases, blocks_by_label, edge_blocks
+                    block, op, aliases, blocks_by_label, edge_blocks, ret_types
                 )
                 lines.extend(term_lines)
                 edges.extend(term_edges)
             else:
                 if is_last:
-                    raise Error(f"block ^{block.label} has no terminator")
+                    raise Error(f"unsupported LLVM terminator: {op.name}")
                 lines.extend(translate_nonterminator(op, aliases, value_types, declarations))
         body_lines[block.label] = lines
 
@@ -906,12 +1136,12 @@ def translate_function(name: str, blocks: list[Block], ret_type: str, arg_types:
         # first: the result classifiers read the first `ret` of the trace and
         # the last function alive-exec executes, and both must be the test's.
         name = "veir_test_main"
-        ret = convert_type(ret_type)
+        ret = llvm_return_type(ret_types)
         wrapper = [f"define i32 @main(i32 %argc, ptr %argv) {{",
                    (f"  %r = call {ret} @{name}()" if ret != "void"
                     else f"  call void @{name}()"),
                    "  ret i32 0", "}", ""]
-    out: list[str] = wrapper + [f"define {convert_type(ret_type)} @{name}({', '.join(params)}) {{"]
+    out: list[str] = wrapper + [f"define {llvm_return_type(ret_types)} @{name}({', '.join(params)}) {{"]
     for idx, block in enumerate(blocks):
         out.append(f"{llvm_block_name(block.label)}:")
         if idx != 0:
@@ -930,18 +1160,94 @@ def translate_function(name: str, blocks: list[Block], ret_type: str, arg_types:
         out.append(f"  br label {llvm_label(edge_block.target)}")
 
     out.append("}")
-    # Intrinsic declarations follow the definition; LLVM IR is order-independent
-    # at module scope, and keeping `define` first satisfies vsmith's translator
-    # check that the output begins with `define`.
-    for decl in sorted(declarations):
-        out.append(decl)
     return "\n".join(out) + "\n"
+
+
+def parse_mlir_string(literal: str) -> bytes:
+    """The bytes of the body of an MLIR string literal."""
+    out = bytearray()
+    i = 0
+    while i < len(literal):
+        c = literal[i]
+        if c != "\\":
+            out += c.encode()
+            i += 1
+            continue
+        nxt = literal[i + 1 : i + 3]
+        if re.fullmatch(r"[0-9A-Fa-f]{2}", nxt):
+            out.append(int(nxt, 16))
+            i += 3
+        else:
+            out += {"n": b"\n", "t": b"\t", "\\": b"\\", '"': b'"'}.get(literal[i + 1], b"")
+            i += 2
+    return bytes(out)
+
+
+def constant_initializer(blocks: list[Block], declarations: set[str]) -> str:
+    """The constant that an initializer region returns. LLVM requires the
+    initializer of a global to be a constant, so the region may compute
+    nothing that would need an instruction."""
+    if len(blocks) != 1 or not blocks[0].ops or blocks[0].ops[-1].name != "llvm.return":
+        raise Error("initializer region must be one block ending in llvm.return")
+    aliases: dict[str, str] = {}
+    value_types: dict[str, str] = {}
+    for op in blocks[0].ops[:-1]:
+        if translate_nonterminator(op, aliases, value_types, declarations):
+            raise Error(f"initializer region computes {op.name}, which is not a constant")
+    ret = blocks[0].ops[-1]
+    if len(ret.operands) != 1:
+        raise Error("initializer region must return one value")
+    value = llvm_value(ret.operands[0], aliases)
+    if value.startswith("%"):
+        raise Error("initializer region does not return a constant")
+    return value
+
+
+def translate_global(g: Global, declarations: set[str]) -> str:
+    attrs = g.attrs
+    name = parse_sym_name(attrs)
+    m = re.search(r'"?global_type"?\s*=\s*(!llvm\.array<[^>]*>|[^,}\s]+)', attrs)
+    if not m:
+        raise Error(f"global @{name} is missing global_type")
+    typ = convert_type(m.group(1))
+    m = re.search(r"#llvm\.linkage<(\w+)>", attrs)
+    linkage = "" if not m or m.group(1) == "external" else m.group(1) + " "
+    kind = "constant" if re.search(r'(?:^|[\s,])"?constant"?\s*(?:,|$)', attrs) else "global"
+    string = re.search(r'(?:^|[\s,])"?value"?\s*=\s*"((?:[^"\\]|\\.)*)"', attrs)
+    integer = re.search(r'(?:^|[\s,])"?value"?\s*=\s*(-?\d+)\s*:\s*i\d+', attrs)
+    if string:
+        data = parse_mlir_string(string.group(1))
+        if typ != f"[{len(data)} x i8]":
+            raise Error(f"string value of global @{name} does not fill its type {typ}")
+        text = "".join(chr(b) if 0x20 <= b < 0x7F and b not in (0x22, 0x5C)
+                       else f"\\{b:02X}" for b in data)
+        init = f'c"{text}"'
+    elif integer:
+        init = integer.group(1)
+    elif g.blocks:
+        init = constant_initializer(g.blocks, declarations)
+    else:
+        # A global with neither a value nor an initializer starts as poison,
+        # as in the interpreter.
+        init = "poison"
+    m = re.search(r'"?alignment"?\s*=\s*(\d+)', attrs)
+    align = f", align {m.group(1)}" if m else ""
+    return f"@{name} = {linkage}{kind} {typ} {init}{align}"
 
 
 def translate(text: str) -> str:
     text = strip_comments(text)
-    name, blocks, ret_type, arg_types = extract_function(text)
-    return translate_function(name, blocks, ret_type, arg_types)
+    functions, globals_ = module_ops(text)
+    declarations: set[str] = set()
+    # The test's `main` goes first, so that the output starts with the wrapper
+    # that llubi runs. LLVM IR is order-independent at module scope, and
+    # starting with `define` satisfies vsmith's check of the output.
+    functions.sort(key=lambda f: f.name != "main")
+    out = [translate_function(f.name, f.blocks, f.ret_types, f.arg_types, declarations)
+           for f in functions]
+    out += [translate_global(g, declarations) + "\n" for g in globals_]
+    out += [decl + "\n" for decl in sorted(declarations)]
+    return "".join(out)
 
 
 def main(argv: list[str]) -> int:

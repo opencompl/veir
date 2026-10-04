@@ -1,4 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
+// RUN: ALIVE_EXEC
 
 // A switch with no cases at all is an unconditional branch to its default.
 "builtin.module"() ({

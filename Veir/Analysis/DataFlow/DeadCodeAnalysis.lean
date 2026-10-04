@@ -2,6 +2,7 @@ module
 
 public import Veir.Analysis.DataFlowFramework
 import Veir.Analysis.DataFlow.SparseFact
+import Veir.Analysis.DataFlow.Printer
 import Veir.Interfaces.ConstantLikeInterfaces
 import Veir.Interfaces.ControlFlowInterfaces
 
@@ -272,9 +273,18 @@ def init
 
 end DeadCodeAnalysis
 
+private def printer : DataFlowPrinter :=
+  { name := "liveness"
+    format? := fun anchor dfCtx _ =>
+      match anchor with
+      | .InsertPoint _ | .CFGEdge _ =>
+        some (toString (dfCtx.getOrMkFact .liveness anchor).latticeElement)
+      | _ => none }
+
 def DeadCodeAnalysis [FactSpec .liveness] : DataFlowAnalysis :=
   { kind := DeadCodeAnalysis.kind
     init := DeadCodeAnalysis.init
-    visit := DeadCodeAnalysis.visit }
+    visit := DeadCodeAnalysis.visit
+    printer? := some printer }
 
 end Veir

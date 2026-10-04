@@ -1,5 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
 // RUN: LLUBI
+// RUN: ALIVE_EXEC
 
 // `memcpy` copies bytes as they are, so a pointer inside the copied range
 // keeps its provenance and can be dereferenced from the destination.

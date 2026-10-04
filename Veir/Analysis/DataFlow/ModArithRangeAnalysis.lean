@@ -2,6 +2,7 @@ module
 
 public import Veir.Analysis.DataFlow.Domains.IntegerRangeDomain
 public import Veir.Analysis.DataFlow.SparseForwardDataFlowAnalysis
+import Veir.Analysis.DataFlow.Printer
 
 public section
 
@@ -136,11 +137,20 @@ def transfer
 end ModArithRangeAnalysis
 
 /-- Sparse forward range analysis for ModArith values. -/
+private def isModArithValue (value : ValuePtr) (irCtx : WfIRContext OpCode) : Bool :=
+  match (value.getType! irCtx.raw).val with
+  | .modArithType _ => true
+  | _ => false
+
+private def printer : DataFlowPrinter :=
+  .sparse "mod_arith.range" .modArithRange (shouldPrint := isModArithValue)
+
 def ModArithRangeAnalysis : DataFlowAnalysis :=
-  SparseForwardDataFlowAnalysis.new
-    .modArithRange
-    ModArithRangeAnalysis.kind
-    ModArithRangeAnalysis.transfer
-    (entryState := fun value irCtx => ModArithRangeAnalysis.canonicalRange value irCtx.raw)
+  { SparseForwardDataFlowAnalysis.new
+      .modArithRange
+      ModArithRangeAnalysis.kind
+      ModArithRangeAnalysis.transfer
+      (entryState := fun value irCtx => ModArithRangeAnalysis.canonicalRange value irCtx.raw) with
+    printer? := some printer }
 
 end Veir

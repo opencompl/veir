@@ -59,6 +59,81 @@ def resolveEntryPoint (ctx : IRContext OpCode) (moduleOp : OperationPtr) :
     IO.eprintln "Error: Multiple entry points: define exactly one zero-argument function named 'main'"
     IO.Process.exit 1
 
+/-- The value of an interpretation that must succeed before `main` can run. -/
+private def expectOk (what : String) : Interp α → IO α
+  | .ok a => pure a
+  | .ub _ => do
+    IO.println "Undefined behavior"
+    IO.Process.exit 0
+  | .fail _ => do
+    IO.eprintln s!"error: failed to initialize {what}"
+    IO.Process.exit 1
+
+/--
+  Give each global and function of the module an object, before any of them
+  is initialized, so that an initializer can take the address of any symbol.
+  A function gets an object of no bytes. Returns the globals still to be
+  initialized, with their objects.
+-/
+partial def allocateGlobals (ctx : WfIRContext OpCode) (op : Option OperationPtr)
+    (mem : MemoryState) (pending : Array (OperationPtr × Data.Pointer) := #[]) :
+    IO (MemoryState × Array (OperationPtr × Data.Pointer)) := do
+  let some op := op | return (mem, pending)
+  let raw : IRContext OpCode := ctx
+  let (mem, pending) ← match op.getOpType! raw with
+    | .llvm .mlir__global => do
+      let props : LLVMGlobalProperties := op.getProperties! raw (OpCode.llvm .mlir__global)
+      let name := "@" ++ String.fromUTF8! props.sym_name.value
+      let some size := DataLayout.riscv64.getTypeAllocSize props.global_type.val
+        | IO.eprintln s!"error: cannot size global {name}"; IO.Process.exit 1
+      let (mem, ptr) ← expectOk name (mem.alloc size.toUInt64)
+      pure ({ mem with globals := mem.globals.insert name ptr.object }, pending.push (op, ptr))
+    | _ =>
+      match FunctionOp.cast? op raw with
+      | some funcOp =>
+        let name := "@" ++ String.fromUTF8! funcOp.getSymName.value
+        let (mem, ptr) ← expectOk name (mem.alloc 0)
+        pure ({ mem with globals := mem.globals.insert name ptr.object }, pending)
+      | none => pure (mem, pending)
+  allocateGlobals ctx (op.get! raw).next mem pending
+
+/--
+  Fill the object of a global with its `value`, or with what its initializer
+  region returns. A global with neither stays poison.
+-/
+def initializeGlobal (ctx : WfIRContext OpCode) (op : OperationPtr) (ptr : Data.Pointer)
+    (mem : MemoryState) : IO MemoryState := do
+  let raw : IRContext OpCode := ctx
+  let props : LLVMGlobalProperties := op.getProperties! raw (OpCode.llvm .mlir__global)
+  let name := "@" ++ String.fromUTF8! props.sym_name.value
+  match props.value with
+  | some (.integerAttr a) =>
+    let bw := a.type.bitwidth
+    expectOk name (mem.llvmStore ptr (.int bw (.val (BitVec.ofInt bw a.value))))
+  | some (.stringAttr str) => expectOk name (mem.store ptr str.value)
+  | some _ => IO.eprintln s!"error: unsupported value of global {name}"; IO.Process.exit 1
+  | none =>
+    if hop : ¬op.InBounds ctx.raw then pure mem
+    else if h : op.getNumRegions ctx.raw ≠ 1 then pure mem
+    else
+      let region := op.getRegion ctx.raw 0
+      match (region.get ctx.raw).firstBlock with
+      | none => pure mem
+      | some _ => do
+        let (state, results) ← expectOk name
+          (interpretRegion region #[] (ctx := ctx) ⟨.empty ctx, mem⟩)
+        let some value := results[0]? | pure state.memory
+        expectOk name (state.memory.llvmStore ptr value)
+
+/--
+  Give each global and function of the module an object before `main` runs,
+  in two passes: first every object, then every initial value.
+-/
+def materializeGlobals (ctx : WfIRContext OpCode) (op : Option OperationPtr)
+    (mem : MemoryState) : IO MemoryState := do
+  let (mem, pending) ← allocateGlobals ctx op mem
+  pending.foldlM (fun mem (op, ptr) => initializeGlobal ctx op ptr mem) mem
+
 set_option warn.sorry false in
 def main (args : List String) : IO Unit := do
   enableExitOnPanic
@@ -75,7 +150,10 @@ def main (args : List String) : IO Unit := do
     let rawCtx : IRContext OpCode := ctx
     let mainOp ← resolveEntryPoint rawCtx op
     let mainFunc := FunctionOp.cast mainOp.val rawCtx mainOp.property
-    let result := bind (interpretFunction (ctx := ctx) mainFunc #[] MemoryState.empty (by sorry))
+    let firstOp := ((op.getRegion! rawCtx 0).get! rawCtx).firstBlock.bind
+      fun b => (b.get! rawCtx).firstOp
+    let mem ← materializeGlobals ctx firstOp MemoryState.empty
+    let result := bind (interpretFunction (ctx := ctx) mainFunc #[] mem (by sorry))
                        (fun (_, r) => pure r)
     match result with
     | .ok results => IO.println s!"Program output: {results}"

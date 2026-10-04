@@ -3,6 +3,7 @@ module
 public import Veir.ForLean
 public import Veir.Interpreter.RuntimeValue.Basic
 public import Veir.Interpreter.Interp
+public import Std.Data.HashMap
 
 public section
 
@@ -40,6 +41,8 @@ def MemoryObject.size (obj : MemoryObject) : Nat := obj.contents.size
 @[ext]
 structure MemoryState where
   objects : Array MemoryObject
+  /-- The object of each global and function, by its symbol, such as `@g`. -/
+  globals : Std.HashMap String Nat := {}
 
 /--
   Object 0 is the null object at address 0. It holds no bytes, so every access

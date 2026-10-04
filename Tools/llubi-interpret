@@ -27,18 +27,18 @@ def main(argv: list[str]) -> int:
     if translated.returncode != 0:
         sys.stderr.write(translated.stderr)
         return 1
-    with tempfile.NamedTemporaryFile("w", suffix=".ll", delete=False) as f:
-        f.write(translated.stdout)
-        ll_path = f.name
     # Homebrew's libLLVM references z3 through an unreplaced placeholder path;
     # the fallback lets dyld find it by name. Harmless elsewhere.
     env = dict(os.environ)
     env["DYLD_FALLBACK_LIBRARY_PATH"] = ":".join(
         [env.get("DYLD_FALLBACK_LIBRARY_PATH", ""), "/opt/homebrew/lib", "/usr/local/lib"])
-    # The flag goes before the file: llubi takes trailing arguments as the
-    # program's own.
-    result = subprocess.run(["llubi", "--verbose", ll_path],
-                            capture_output=True, text=True, env=env)
+    with tempfile.TemporaryDirectory() as tmp:
+        ll_path = Path(tmp) / "test.ll"
+        ll_path.write_text(translated.stdout)
+        # The flag goes before the file: llubi takes trailing arguments as the
+        # program's own.
+        result = subprocess.run(["llubi", "--verbose", str(ll_path)],
+                                capture_output=True, text=True, env=env)
     log = result.stdout + result.stderr
     # Keep only the trace of the test's own function, so the standard `main`
     # wrapper that llubi insists on cannot be mistaken for the result.

@@ -5,7 +5,7 @@ import Veir.Panic
 import Veir.Input
 
 import Veir.Passes.PrintIR
-import Veir.Passes.PrintModArithRanges
+import Veir.Passes.PrintDataFlow
 import Veir.Passes.InstCombine
 import Veir.Passes.ApplyPatterns
 import Veir.Passes.CSE
@@ -35,7 +35,7 @@ open Veir
 -/
 def availablePasses : Std.HashMap String (Pass OpCode) :=
   ([ PrintIRPass,
-     PrintModArithRangesPass,
+     PrintDataFlowPass,
      InstCombinePass,
      ApplyPatternsPass,
      CSEPass,

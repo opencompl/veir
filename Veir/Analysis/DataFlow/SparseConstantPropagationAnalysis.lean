@@ -2,6 +2,7 @@ module
 
 public import Veir.Analysis.DataFlow.Domains.ConstantDomain
 public import Veir.Analysis.DataFlow.SparseForwardDataFlowAnalysis
+import Veir.Analysis.DataFlow.Printer
 import Veir.Interfaces.FoldInterfaces
 
 public section
@@ -62,10 +63,14 @@ def transfer
 
 end SparseConstantPropagation
 
+private def printer : DataFlowPrinter :=
+  .sparse "constant" .sparseConstant
+
 def SparseConstantPropagationAnalysis : DataFlowAnalysis :=
-  SparseForwardDataFlowAnalysis.new
-    .sparseConstant
-    SparseConstantPropagation.kind
-    SparseConstantPropagation.transfer
+  { SparseForwardDataFlowAnalysis.new
+      .sparseConstant
+      SparseConstantPropagation.kind
+      SparseConstantPropagation.transfer with
+    printer? := some printer }
 
 end Veir
