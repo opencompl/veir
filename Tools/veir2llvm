@@ -931,7 +931,7 @@ def translate_function(name: str, blocks: list[Block], ret_type: str, arg_types:
                 edges.extend(term_edges)
             else:
                 if is_last:
-                    raise Error(f"block ^{block.label} has no terminator")
+                    raise Error(f"unsupported LLVM terminator: {op.name}")
                 lines.extend(translate_nonterminator(op, aliases, value_types, declarations))
         body_lines[block.label] = lines
 

@@ -3,8 +3,8 @@
 
 // A negative test of the translator: an operation it cannot translate, here
 // `llvm.switch`, must fail the cross-check loudly instead of passing it
-// silently. Which operations those are changes as the translator grows, so
-// the check only asks that the error come from it.
+// silently. If the translator learns llvm.switch, swap in another
+// unsupported operation and update the message below.
 
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i64 ()>}> ({
@@ -15,4 +15,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: veir2llvm: error:
+// CHECK: veir2llvm: error: unsupported LLVM terminator: llvm.switch
