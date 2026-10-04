@@ -350,6 +350,16 @@ theorem RootedAt.root_parent_eq {node root: IRNode} (hRooted : node.RootedAt roo
 end IRNode
 
 @[simp, grind]
+abbrev OperationPtr.Ancestor (ancestor : OperationPtr) (descendant : IRNode) (ctx : WfIRContext OpInfo) : Prop :=
+  IRNode.Ancestor (.operation ancestor) descendant ctx
+
+abbrev BlockPtr.Ancestor (ancestor : BlockPtr) (descendant : IRNode) (ctx : WfIRContext OpInfo) : Prop :=
+  IRNode.Ancestor (.block ancestor) descendant ctx
+
+abbrev RegionPtr.Ancestor (ancestor : RegionPtr) (descendant : IRNode) (ctx : WfIRContext OpInfo) : Prop :=
+  IRNode.Ancestor (.region ancestor) descendant ctx
+
+@[simp, grind]
 abbrev OperationPtr.RootedAt (op : OperationPtr) (root : IRNode) (ctx : WfIRContext OpInfo) : Prop :=
   IRNode.RootedAt (.operation op) root ctx
 

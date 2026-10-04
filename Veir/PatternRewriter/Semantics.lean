@@ -175,7 +175,7 @@ def LocalRewritePattern.PreservesSemantics
   (pattern : LocalRewritePattern OpCode)
   (_ : pattern.ReturnOps) (_ : pattern.ReturnCtxChanges)
   (_ : pattern.ReturnValuesInBounds) (_ : pattern.ReturnValues) : Prop :=
-  ∀ ctx root (ctxDom : ctx.Dom) (ctxVerif : ctx.Verified root)
+  ∀ ctx root (ctxDom : ctx.DomAll) (ctxVerif : ctx.Verified root)
     (op : OperationPtr) (opInBounds : op.InBounds ctx.raw),
   ∀ newCtx newOps newValues (hpattern : pattern ctx op = some (newCtx, some (newOps, newValues))),
   ∀ (state : InterpreterState ctx), state.EquationLemmaAt (InsertPoint.before op) →
@@ -198,7 +198,7 @@ def LocalRewritePattern.RewritePreservesDom (pattern : LocalRewritePattern OpCod
   ∀ (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) (rewriter' : PatternRewriter OpCode),
     RewritePattern.fromLocalRewrite pattern rewriter op opInBounds = some rewriter' →
-    rewriter.ctx.Dom → rewriter'.ctx.Dom
+    rewriter.ctx.DomAll → rewriter'.ctx.DomAll
 
 /--
 Applying the pattern as a local rewrite preserves the verification-wellformedness of the context.

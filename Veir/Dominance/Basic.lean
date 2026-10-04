@@ -275,4 +275,47 @@ It is defined as the reflexive closure of `OperationPtr.ProperlyDominates`.
 def OperationPtr.Dominates (dominator dominated : OperationPtr) (ctx : WfIRContext OpInfo) : Prop :=
   dominator = dominated ∨ dominator.ProperlyDominates dominated ctx true
 
+/-!
+## Value Dominance
+
+Value dominance is defined in terms of the operation or block that defines the value. See
+`ValuePtr.ProperlyDominates`.
+
+This definition is typically used to check whether a value is allowed to be used as an operand
+of some operation.
+-/
+
+/--
+Proper dominance between a value and an operation:
+* An operation result properly dominates operations that are properly dominated by its defining
+  operation and outside of any operation regions;
+* A block argument properly dominates operations in blocks that are properly dominated by its
+  defining block.
+-/
+def ValuePtr.ProperlyDominates (value : ValuePtr) (op : OperationPtr)
+    (ctx : WfIRContext OpInfo) : Prop :=
+  match value with
+  | .opResult result => result.op.ProperlyDominates op ctx false
+  | .blockArgument argument =>
+      ∃ block, (op.get! ctx.raw).parent = some block ∧
+        argument.block.Dominates block ctx
+
+/-!
+## Programs Satisfying Dominance Invariants
+
+This defines `WfIRContext.Dom`, which asserts that uses of values are dominated by their
+definitions. This is only valid for operations under a given root node, which is typically the
+toplevel `builtin.module`.
+-/
+
+/--
+Every operand of an in-bounds operation rooted at `root` properly dominates its user.
+
+Only operations contained under `root` are constrained, including `root`.
+-/
+def WfIRContext.Dom (ctx : WfIRContext OpInfo) (root : IRNode) : Prop :=
+  ∀ {op : OperationPtr}, root.Ancestor op ctx →
+    ∀ {value : ValuePtr}, value ∈ op.getOperands! ctx.raw →
+    value.ProperlyDominates op ctx
+
 end Veir

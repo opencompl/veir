@@ -91,15 +91,15 @@ axiom OperationPtr.dominates_next :
 /-!
 ## Programs Satisfying Dominance Invariants
 
-This section defines `IRContext.Dom`, which ensure that the values in an `IRContext` respects
-SSA dominance.
+This section defines `WfIRContext.DomAll`, the global dominance invariant for every in-bounds
+operation.
 -/
 
 /--
   A predicate that states that the values in the IR context are used in operations that
   are dominated by the operation or block that defines them.
 -/
-def WfIRContext.Dom (ctx : WfIRContext OpInfo) : Prop :=
+def WfIRContext.DomAll (ctx : WfIRContext OpInfo) : Prop :=
   ∀ {op : OperationPtr} (_opInBounds : op.InBounds ctx.raw) {value : ValuePtr},
   value ∈ op.getOperands! ctx.raw →
   value.dominatesIp (InsertPoint.before op) ctx
@@ -107,7 +107,7 @@ def WfIRContext.Dom (ctx : WfIRContext OpInfo) : Prop :=
 /--
 Operands of an operation are not results of dominated operations.
 -/
-axiom IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates (ctxDom : ctx.Dom) :
+axiom IRContext.DomAll.value_not_in_results_of_forall_in_operands_of_dominates (ctxDom : ctx.DomAll) :
     op₁.Dominates op₂ ctx →
     ∀ (value : ValuePtr), value ∈ op₁.getOperands! ctx.raw →
     value ∉ op₂.getResults! ctx.raw
@@ -116,32 +116,32 @@ axiom IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates (ctx
 If a value is being defined by an operation `op₁` and being used as an operand of an
 operation `op₂`, then `op₁` properly dominates `op₂`.
 -/
-axiom OperationPtr.properlyDominates_of_definingOp?_of_mem_getOperands! (ctxDom : ctx.Dom) :
+axiom OperationPtr.properlyDominates_of_definingOp?_of_mem_getOperands! (ctxDom : ctx.DomAll) :
   value.definingOp? = some op₁ →
   value ∈ op₂.getOperands! ctx.raw →
   op₁.ProperlyDominates op₂ ctx true
 
 grind_pattern OperationPtr.properlyDominates_of_definingOp?_of_mem_getOperands! =>
-  ctx.Dom, value.definingOp?, some op₂, op₁.getOperands! ctx.raw
+  ctx.DomAll, value.definingOp?, some op₂, op₁.getOperands! ctx.raw
 
 /-- In a well-dominated IR context, any value that is an operand of an operation `op` is
 dominating the program point before `op`. -/
 @[grind →]
-theorem WfIRContext.Dom.operand_dominates_op (ctxDom : ctx.Dom)
+theorem WfIRContext.DomAll.operand_dominates_op (ctxDom : ctx.DomAll)
     (opInBounds : op.InBounds ctx.raw) :
     value ∈ op.getOperands! ctx.raw →
     value.dominatesIp (InsertPoint.before op) ctx := by
-  grind [WfIRContext.Dom]
+  grind [WfIRContext.DomAll]
 
 /-- In a well-dominated IR context, a value dominates the program point after an operation iff
 it dominates the program point before the operation, or it is a result of the operation. -/
-axiom WfIRContext.Dom.value_dominatesIp_after_iff (ctxDom : ctx.Dom) :
+axiom WfIRContext.DomAll.value_dominatesIp_after_iff (ctxDom : ctx.DomAll) :
   value.dominatesIp (InsertPoint.after op ctx.raw block blockIsParent opInBounds) ctx ↔
   value.dominatesIp (InsertPoint.before op) ctx ∨ value ∈ op.getResults! ctx.raw
 
 /-- A value dominating the entry of a successor block either already dominates the predecessor's
 end, or it is one of the successor's own block arguments. -/
-axiom WfIRContext.Dom.value_dominatesIp_successor_entry (ctxDom : ctx.Dom)
+axiom WfIRContext.DomAll.value_dominatesIp_successor_entry (ctxDom : ctx.DomAll)
     {block : BlockPtr} (blockInBounds : block.InBounds ctx.raw)
     (hsucc : succ ∈ block.getSuccessors! ctx.raw) :
     value.dominatesIp (InsertPoint.atStart! succ ctx.raw) ctx →
@@ -149,14 +149,14 @@ axiom WfIRContext.Dom.value_dominatesIp_successor_entry (ctxDom : ctx.Dom)
       value ∈ succ.getArguments! ctx.raw
 
 /-- An operation dominating the entry of a successor already dominates the predecessor's end. -/
-axiom WfIRContext.Dom.op_dominatesIp_successor_entry (ctxDom : ctx.Dom)
+axiom WfIRContext.DomAll.op_dominatesIp_successor_entry (ctxDom : ctx.DomAll)
     {block : BlockPtr} (blockInBounds : block.InBounds ctx.raw)
     (hsucc : succ ∈ block.getSuccessors! ctx.raw) :
     op.dominatesIp (InsertPoint.atStart! succ ctx.raw) ctx →
     op.dominatesIp (InsertPoint.atEnd block) ctx
 
 /-- An argument of a block dominates the block's start. -/
-axiom WfIRContext.Dom.blockArgument_dominatesIp_entry (ctxDom : ctx.Dom)
+axiom WfIRContext.DomAll.blockArgument_dominatesIp_entry (ctxDom : ctx.DomAll)
     {block : BlockPtr} (blockInBounds : block.InBounds ctx.raw)
     (hMem : value ∈ block.getArguments! ctx.raw) :
     value.dominatesIp (InsertPoint.atStart! block ctx.raw) ctx
@@ -164,7 +164,7 @@ axiom WfIRContext.Dom.blockArgument_dominatesIp_entry (ctxDom : ctx.Dom)
 /-- An argument of an SSACFG block with rooted, reachable ancestry cannot dominate a program point
 that dominates the block start. -/
 axiom WfIRContext.Dom.blockArgument_not_dominatesIp_before_of_dominatesIp_firstOp
-    (ctxDom : ctx.Dom) {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
+    (ctxDom : ctx.DomAll) {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
     {block : BlockPtr} {region : RegionPtr}
     (blockParent : (block.get! ctx.raw).parent = some region)
     (ssa : region.hasSSADominance ctx = true)
