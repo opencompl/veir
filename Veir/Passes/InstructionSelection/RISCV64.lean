@@ -891,6 +891,20 @@ def alloca (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite alloca_local rewriter op opInBounds
 
+/-- `llvm.mlir.addressof` -> `riscv.la` and a cast back to the pointer type. -/
+def addressof_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (_, properties) := matchOp op ctx.raw Llvm.mlir__addressof 0 | return (ctx, none)
+  let (ctx, laOp) ← WfRewriter.createOp! ctx Riscv.la #[RegisterType.mk]
+      #[] #[] #[] (RISCVSymbolProperties.mk properties.global_name) none
+  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (laOp.getResult 0)
+  some (ctx, some (#[laOp, castBackOp], #[castBackOp.getResult 0]))
+
+/-- `llvm.mlir.addressof` -> `riscv.la` and a cast back to the pointer type. -/
+def addressof (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite addressof_local rewriter op opInBounds
+
 /--
   Split a load/store address into a base register operand and a signed 12-bit
   immediate offset, mirroring the `isBaseWithConstantOffset` case of LLVM's
@@ -1809,7 +1823,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern #[selectCzeroeqz, selectCzeronez, selectGeneral,
     ctlz32.run, ctlz64.run, cttz32.run, cttz64.run, ctpop32.run, ctpop64.run, bswap, bitreverse,
-    constant, add32.run, add64.run, and.run, ashr, icmp, or.run, xor32.run, xor64.run, mul32.run, mul64.run,
+    constant, addressof, add32.run, add64.run, and.run, ashr, icmp, or.run, xor32.run, xor64.run, mul32.run, mul64.run,
     sdiv32.run, sdiv64.run, udiv32.run, udiv64.run, srem32.run, srem64.run, urem32.run, urem64.run,
     sext32.run, sext16.run, sext8.run, zext32.run, zext16.run, zext8.run, trunc, shl, lshr,
     sub64.run, sub32.run, bitcast, load, getelementptr, store,
