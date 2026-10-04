@@ -3,7 +3,8 @@
 
 This is intentionally not a general MLIR parser.  It accepts one
 ``builtin.module`` containing exactly one ``llvm.func`` and supports the small
-integer LLVM subset used by ``Tools/vsmith_generate.py``.
+integer and pointer LLVM subset used by ``Tools/vsmith_generate.py`` and the
+interpreter tests.
 """
 
 from __future__ import annotations
@@ -245,6 +246,9 @@ def convert_type(typ: str) -> str:
         return "void"
     if typ in ("ptr", "!llvm.ptr"):
         return "ptr"
+    m = re.fullmatch(r"!llvm.byte<(\d+)>", typ)
+    if m:
+        return f"b{m.group(1)}"
     if typ == "f16":
         return "half"
     if typ == "f32":
@@ -418,6 +422,13 @@ def validate_function_args(blocks: list[Block], arg_types: list[str]) -> None:
                 f"entry block arg {idx} ({arg_name}) has type {block_type}, "
                 f"but function type has {func_type}"
             )
+
+
+def parse_elem_type(attr: str) -> str:
+    m = re.search(r'"?elem_type"?\s*=\s*([^,}]+)', attr)
+    if not m:
+        raise Error("expected an elem_type attribute")
+    return convert_type(m.group(1))
 
 
 def flags_from_attrs(op: str, attr: str) -> list[str]:
@@ -606,10 +617,87 @@ def translate_nonterminator(
         value_types[result] = typ
         return []
 
+    if name == "llvm.mlir.poison":
+        result = require_result(op)
+        aliases[result] = "poison"
+        value_types[result] = op.result_types[0]
+        return []
+
+    if name == "llvm.intr.memcpy":
+        if op.result is not None or op.result_types:
+            raise Error(f"{name} cannot have results")
+        require_operands(op, 3)
+        if parse_bool_immarg(op.attr, "isVolatile", name) == "true":
+            raise Error(f"{name}: volatile is not supported")
+        dst = llvm_value(op.operands[0], aliases)
+        src = llvm_value(op.operands[1], aliases)
+        length = llvm_value(op.operands[2], aliases)
+        lenty = convert_type(op.operand_types[2])
+        declarations.add(
+            f"declare void @llvm.memcpy.p0.p0.{lenty}(ptr, ptr, {lenty}, i1)")
+        return [f"  call void @llvm.memcpy.p0.p0.{lenty}"
+                f"(ptr {dst}, ptr {src}, {lenty} {length}, i1 false)"]
+
+    if name == "llvm.store":
+        if op.result is not None or op.result_types:
+            raise Error("llvm.store cannot have results")
+        require_operands(op, 2)
+        value = llvm_value(op.operands[0], aliases)
+        ptr = llvm_value(op.operands[1], aliases)
+        if convert_type(op.operand_types[1]) != "ptr":
+            raise Error("llvm.store expects a pointer address")
+        return [f"  store {convert_type(op.operand_types[0])} {value}, ptr {ptr}"]
+
     result = require_result(op)
     out_result = llvm_ssa_name(result)
     dst_type = op.result_types[0]
     value_types[result] = dst_type
+
+    if name == "llvm.bitcast":
+        require_operands(op, 1)
+        src_type = convert_type(op.operand_types[0])
+        dst = convert_type(dst_type)
+        if src_type == dst:
+            # Between one type and itself the cast is the identity.
+            aliases[result] = llvm_value(op.operands[0], aliases)
+            return []
+        def bits(t: str) -> int | None:
+            if t == "ptr":
+                return 64
+            m = re.fullmatch(r"[ib](\d+)", t)
+            return int(m.group(1)) if m else None
+        if (("b" in (src_type[0], dst[0]) and src_type[0] != dst[0]
+             or {src_type[0], dst[0]} == {"b"})
+                and bits(src_type) == bits(dst)):
+            # The byte type holds the bits of any value, pointers included.
+            src = llvm_value(op.operands[0], aliases)
+            return [f"  {out_result} = bitcast {src_type} {src} to {dst}"]
+        # A bitcast between a pointer and an integer is one LLVM spells
+        # `inttoptr` or `ptrtoint`.
+        raise Error(f"unsupported llvm.bitcast: {src_type} to {dst}")
+
+    if name == "llvm.alloca":
+        require_operands(op, 1)
+        elem = parse_elem_type(op.attr)
+        count = llvm_value(op.operands[0], aliases)
+        return [f"  {out_result} = alloca {elem}, "
+                f"{convert_type(op.operand_types[0])} {count}"]
+
+    if name == "llvm.load":
+        require_operands(op, 1)
+        ptr = llvm_value(op.operands[0], aliases)
+        return [f"  {out_result} = load {convert_type(dst_type)}, ptr {ptr}"]
+
+    if name == "llvm.getelementptr":
+        require_operands(op, 2)
+        raw = re.search(r'"?rawConstantIndices"?\s*=\s*array<i32:\s*([^>]*)>', op.attr)
+        if not raw or raw.group(1).strip() != "-2147483648":
+            raise Error("llvm.getelementptr supports exactly one dynamic index")
+        elem = parse_elem_type(op.attr)
+        ptr = llvm_value(op.operands[0], aliases)
+        index = llvm_value(op.operands[1], aliases)
+        return [f"  {out_result} = getelementptr {elem}, ptr {ptr}, "
+                f"{convert_type(op.operand_types[1])} {index}"]
 
     # Intrinsics and freeze carry their own attributes and bypass flag parsing.
     intrinsic = translate_intrinsic(op, out_result, dst_type, aliases, declarations)
@@ -811,7 +899,19 @@ def translate_function(name: str, blocks: list[Block], ret_type: str, arg_types:
     for (arg_name, arg_type), func_type in zip(blocks[0].args, arg_types):
         params.append(f"{convert_type(func_type)} {llvm_ssa_name(arg_name)}")
 
-    out: list[str] = [f"define {convert_type(ret_type)} @{name}({', '.join(params)}) {{"]
+    wrapper: list[str] = []
+    if name == "main" and not params:
+        # llubi runs `main` and insists on the C signature, so the test's main
+        # becomes `veir_test_main` behind a standard wrapper. The wrapper comes
+        # first: the result classifiers read the first `ret` of the trace and
+        # the last function alive-exec executes, and both must be the test's.
+        name = "veir_test_main"
+        ret = convert_type(ret_type)
+        wrapper = [f"define i32 @main(i32 %argc, ptr %argv) {{",
+                   (f"  %r = call {ret} @{name}()" if ret != "void"
+                    else f"  call void @{name}()"),
+                   "  ret i32 0", "}", ""]
+    out: list[str] = wrapper + [f"define {convert_type(ret_type)} @{name}({', '.join(params)}) {{"]
     for idx, block in enumerate(blocks):
         out.append(f"{llvm_block_name(block.label)}:")
         if idx != 0:
