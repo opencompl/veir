@@ -135,7 +135,6 @@ inductive Riscv where
 | snez
 | sltz
 | sgtz
-/- load the address of a symbol -/
 | la
 deriving Inhabited, Repr, Hashable, DecidableEq
 

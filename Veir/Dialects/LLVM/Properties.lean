@@ -236,6 +236,16 @@ structure LLVMGlobalProperties where
   extra : DictionaryAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
+/-- Recognize both MLIR's legacy TLS flag and its newer TLS mode property. -/
+def LLVMGlobalProperties.isThreadLocal (props : LLVMGlobalProperties) : Bool :=
+  props.extra.entries.any fun (name, attr) =>
+    if name == "thread_local_".toUTF8 then true
+    else if name == "tls_mode".toUTF8 then
+      match attr with
+      | .integerAttr mode => mode.value != 0
+      | _ => true
+    else false
+
 def LLVMGlobalProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String LLVMGlobalProperties := do
   let symName ← match attrDict["sym_name".toUTF8]? with

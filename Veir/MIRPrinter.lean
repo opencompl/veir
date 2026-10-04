@@ -716,10 +716,13 @@ partial def llvmType? : Attribute → Option String
 /-- Print an `llvm.mlir.global` as a stub IR global, so `llc` emits its data.
     An integer or string `value` becomes the initializer; with no initializer at
     all, the global is an external declaration, as in MLIR's translation. A
-    region initializer is left unhandled. -/
+    region initializer or thread-local global is left unhandled. -/
 def printGlobal (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
   let props := op.getProperties! ctx Llvm.mlir__global
   let name := llvmSymbol (String.fromUTF8! props.sym_name.value)
+  if props.isThreadLocal then
+    IO.println s!"  ; UNHANDLED thread-local global {name}"
+    return
   let some type := llvmType? props.global_type.val
     | IO.println s!"  ; UNHANDLED global {name}"
   let hasRegion := ((op.getRegion! ctx 0).get! ctx).firstBlock.isSome

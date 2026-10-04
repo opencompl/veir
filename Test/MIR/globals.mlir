@@ -7,7 +7,7 @@
 // declaration.
 
 "builtin.module"() ({
-  "llvm.mlir.global"() <{addr_space = 0 : i32, alignment = 4 : i64, global_type = i32, linkage = #llvm.linkage<external>, sym_name = "g", value = 41 : i32}> ({
+  "llvm.mlir.global"() <{addr_space = 0 : i32, alignment = 4 : i64, global_type = i32, linkage = #llvm.linkage<external>, sym_name = "g", tls_mode = 0 : i64, value = 41 : i32}> ({
   }) : () -> ()
   "llvm.mlir.global"() <{addr_space = 0 : i32, constant, global_type = !llvm.array<3 x i8>, linkage = #llvm.linkage<internal>, sym_name = "s", value = "hi\00"}> ({
   }) : () -> ()

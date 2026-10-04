@@ -3,6 +3,7 @@ module
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
 import Veir.DataLayout.RISCV64
+import Veir.IR.SymbolRef
 import Veir.Interfaces.ConstantLikeInterfaces
 import Veir.Interfaces.FunctionInterfaces
 import Veir.Passes.Matching.LLVM.Basic
@@ -891,10 +892,29 @@ def alloca (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite alloca_local rewriter op opInBounds
 
-/-- `llvm.mlir.addressof` -> `riscv.la` and a cast back to the pointer type. -/
+/-- Resolve a global in the nearest enclosing module, without entering nested modules. -/
+private partial def lookupGlobal? (ctx : IRContext OpCode) (op : OperationPtr)
+    (name : ByteArray) : Option LLVMGlobalProperties := do
+  let parent ← op.getParentOp! ctx
+  if parent.getOpType! ctx != .builtin .module then
+    return ← lookupGlobal? ctx parent name
+  let body := parent.getRegion! ctx 0
+  let block ← (body.get! ctx).firstBlock
+  let mut candidate := (block.get! ctx).firstOp
+  while let some target := candidate do
+    if target.getOpType! ctx == .llvm .mlir__global then
+      let props := target.getProperties! ctx Llvm.mlir__global
+      if props.sym_name.value == name then return props
+    candidate := (target.get! ctx).next
+  none
+
+/-- `llvm.mlir.addressof` -> `riscv.la`, except for thread-local addresses. -/
 def addressof_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (_, properties) := matchOp op ctx.raw Llvm.mlir__addressof 0 | return (ctx, none)
+  let some name := properties.global_name.getName? | return (ctx, none)
+  if let some global := lookupGlobal? ctx.raw op name then
+    if global.isThreadLocal then return (ctx, none)
   let (ctx, laOp) ← WfRewriter.createOp! ctx Riscv.la #[RegisterType.mk]
       #[] #[] #[] (RISCVSymbolProperties.mk properties.global_name) none
   let (ctx, castBackOp) ← replaceWithRegLocal ctx op (laOp.getResult 0)
