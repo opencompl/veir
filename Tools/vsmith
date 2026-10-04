@@ -236,8 +236,23 @@ def format_int_output(width: int, value: int) -> str:
     return f"0x{unsigned:0{digits}x}#{width}"
 
 
+def format_llubi_field(field: str) -> str:
+    """Format one field of a struct value printed by llubi, e.g. `i32 8`."""
+    if field == "poison":
+        return "poison"
+    if field in ("T", "F"):
+        return "0x1#1" if field == "T" else "0x0#1"
+    m = re.fullmatch(r"i(\d+)\s+(-?\d+)", field)
+    if not m:
+        raise ValueError(f"unsupported llubi struct field: {field}")
+    return format_int_output(int(m.group(1)), int(m.group(2)))
+
+
 def classify_llubi_output(log: str) -> tuple[str, str]:
-    """Return llubi's result in veir-interpret format and llubi's final value."""
+    """Return llubi's result in veir-interpret format and llubi's final value.
+
+    A function with several results returns them as a struct, which llubi
+    prints field by field, e.g. `{ i32 8, poison, T }`."""
     for line in log.splitlines():
         if "Immediate UB detected" in line or "Exited with immediate UB" in line:
             return "Undefined behavior", line.strip()
@@ -247,7 +262,13 @@ def classify_llubi_output(log: str) -> tuple[str, str]:
 
     values: dict[str, str] = {}
     llubi_values: dict[str, str] = {}
+    structs: dict[str, str] = {}
     for line in log.splitlines():
+        struct_assignment = re.search(r"^\s*(%[-A-Za-z0-9_.$]+)\s*=.*[-=]>\s*\{(.*)\}\s*$", line)
+        if struct_assignment:
+            structs[struct_assignment.group(1)] = struct_assignment.group(2).strip()
+            continue
+
         assignment = re.search(r"^\s*(%[-A-Za-z0-9_.$]+)\s*=.*[-=]>\s*(poison|i(\d+)\s+(-?\d+))\s*$", line)
         if assignment:
             name = assignment.group(1)
@@ -285,6 +306,14 @@ def classify_llubi_output(log: str) -> tuple[str, str]:
             if llubi_value is None:
                 raise ValueError(f"llubi return value was not recorded:\n{log}")
             return f"Program output: #[{value}]", llubi_value
+
+        ret_struct = re.search(r"^\s*ret\s+\{.*\}\s+(%[-A-Za-z0-9_.$]+)\s*$", line)
+        if ret_struct:
+            fields = structs.get(ret_struct.group(1))
+            if fields is None:
+                raise ValueError(f"llubi return value was not recorded:\n{log}")
+            formatted = ", ".join(format_llubi_field(f.strip()) for f in fields.split(","))
+            return f"Program output: #[{formatted}]", f"{{ {fields} }}"
 
         if re.fullmatch(r"\s*ret\s+void\s*", line):
             return "Program output: #[]", "void"

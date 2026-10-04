@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
 
 // `llvm.intr.memcpy` is defined when `dst` and `src` are the same pointer, or
 // when the two ranges are adjacent in the same object.
