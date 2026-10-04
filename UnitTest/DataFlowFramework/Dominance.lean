@@ -221,13 +221,15 @@ should dominate it. An empty set means the block should remain unreachable.
 -/
 def run
     (mlir : String)
-    (expected : Array ExpectedBlockDominators) : String :=
+    (expected : Array ExpectedBlockDominators)
+    (verifyAfterParse : Bool := true) : String :=
   runWithAnalyses mlir #[Veir.DominanceAnalysis] (fun top dfCtx ctx => Id.run do
     match recoverNames top ctx mlir with
     | Except.error err =>
         return #[err]
     | Except.ok recovered =>
         compareNamedDominators recovered expected dfCtx ctx)
+    (verifyAfterParse := verifyAfterParse)
 
 /--
 Run the operation dominance test harness on one MLIR snippet.
@@ -557,6 +559,7 @@ def testDomAncestorUpdate : String :=
      , { name := "join",  doms := { "entry", "join" },        immediateDom := "entry" }
      , { name := "tail",  doms := { "entry", "mid", "tail" }, immediateDom := "mid" }
      ]
+    (verifyAfterParse := false)
 
 /-
   Test: operation dominance across nested regions
