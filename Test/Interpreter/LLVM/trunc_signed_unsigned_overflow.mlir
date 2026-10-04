@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
 
 // 384 = 0x180: trunc to i8 gives 0x80 = 128
 //   nsw: sext(0x80) = -128 != 384, poison

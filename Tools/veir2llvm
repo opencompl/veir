@@ -2,9 +2,10 @@
 """Translate a small VEIR LLVM-dialect MLIR module to LLVM IR.
 
 This is intentionally not a general MLIR parser.  It accepts one
-``builtin.module`` containing exactly one ``llvm.func`` and supports the small
-integer and pointer LLVM subset used by ``Tools/vsmith_generate.py`` and the
-interpreter tests.
+``builtin.module`` containing exactly one ``llvm.func`` or ``func.func`` and
+supports the small integer and pointer LLVM subset used by
+``Tools/vsmith_generate.py`` and the interpreter tests.  A ``func.func`` with
+several results returns them as an LLVM struct.
 """
 
 from __future__ import annotations
@@ -260,11 +261,40 @@ def convert_type(typ: str) -> str:
     raise Error(f"unsupported type: {typ}")
 
 
-def parse_function_type(attr_text: str) -> tuple[str, list[str]]:
+def find_matching_paren(s: str, open_pos: int) -> int:
+    depth = 0
+    for i in range(open_pos, len(s)):
+        if s[i] == "(":
+            depth += 1
+        elif s[i] == ")":
+            depth -= 1
+            if depth == 0:
+                return i
+    raise Error("unterminated parenthesis")
+
+
+def parse_function_type(attr_text: str, func_op: str) -> tuple[list[str], list[str]]:
+    """Return the result types and argument types of a function.
+
+    An `llvm.func` has a `!llvm.func<ret (args)>` type with at most one
+    result; a `func.func` has a builtin `(args) -> results` type."""
     key = "function_type"
     idx = attr_text.find(key)
     if idx < 0:
-        raise Error("llvm.func is missing function_type")
+        raise Error(f"{func_op} is missing function_type")
+    if func_op == "func.func":
+        rest = attr_text[idx:].split("=", 1)[1].strip()
+        if not rest.startswith("("):
+            raise Error(f"could not parse function type: {rest}")
+        close_pos = find_matching_paren(rest, 0)
+        arg_types = parse_type_list(rest[1:close_pos])
+        results = rest[close_pos + 1 :].strip()
+        if not results.startswith("->"):
+            raise Error(f"could not parse function type: {rest}")
+        results = results[2:].strip()
+        if results.startswith("("):
+            return parse_type_list(results[1 : find_matching_paren(results, 0)]), arg_types
+        return [split_top_level(results)[0]], arg_types
     func_idx = attr_text.find("!llvm.func<", idx)
     if func_idx < 0:
         raise Error("llvm.func function_type is not !llvm.func<...>")
@@ -274,13 +304,24 @@ def parse_function_type(attr_text: str) -> tuple[str, list[str]]:
     m = re.fullmatch(r"(.+?)\s*\((.*)\)\s*", inner)
     if not m:
         raise Error(f"could not parse function type: {inner}")
-    return m.group(1).strip(), parse_type_list(m.group(2))
+    ret_type = m.group(1).strip()
+    results = [] if convert_type(ret_type) == "void" else [ret_type]
+    return results, parse_type_list(m.group(2))
+
+
+def llvm_return_type(ret_types: list[str]) -> str:
+    """The LLVM return type: several results are returned as a literal struct."""
+    if not ret_types:
+        return "void"
+    if len(ret_types) == 1:
+        return convert_type(ret_types[0])
+    return "{ " + ", ".join(convert_type(t) for t in ret_types) + " }"
 
 
 def parse_sym_name(attr_text: str) -> str:
     m = re.search(r'"?sym_name"?\s*=\s*"([^"]+)"', attr_text)
     if not m:
-        raise Error("llvm.func is missing sym_name")
+        raise Error("function is missing sym_name")
     name = m.group(1)
     if not re.fullmatch(r"[A-Za-z_.$][A-Za-z0-9_.$-]*", name):
         raise Error(f"unsupported function symbol name: {name}")
@@ -350,10 +391,15 @@ def parse_blocks(body: str) -> list[Block]:
     blocks: list[Block] = []
     current: Block | None = None
     implicit_index = 0
+    # An operation may continue onto the next line with its type signature.
+    lines: list[str] = []
     for raw_line in body.splitlines():
         line = raw_line.strip()
-        if not line:
-            continue
+        if line.startswith(":") and lines:
+            lines[-1] += " " + line
+        elif line:
+            lines.append(line)
+    for line in lines:
         header = re.fullmatch(rf"\^([A-Za-z0-9_.$-]+)\s*(?:\((.*?)\))?\s*:", line)
         if header:
             current = Block(header.group(1), parse_block_args(header.group(2)))
@@ -369,7 +415,7 @@ def parse_blocks(body: str) -> list[Block]:
     if implicit_index > 1:
         raise Error("internal error: multiple implicit entry blocks")
     if not blocks:
-        raise Error("llvm.func has an empty body")
+        raise Error("function has an empty body")
     seen: set[str] = set()
     for block in blocks:
         if block.label in seen:
@@ -378,36 +424,45 @@ def parse_blocks(body: str) -> list[Block]:
     return blocks
 
 
-def extract_function(text: str) -> tuple[str, list[Block], str, list[str]]:
+FUNC_OPS = {"llvm.func": "llvm.return", "func.func": "func.return"}
+
+
+def extract_function(text: str) -> tuple[str, list[Block], list[str], list[str]]:
     op_names = re.findall(r'"([^"]+)"\s*\(', text)
     for op in op_names:
-        if op != "builtin.module" and not op.startswith("llvm."):
+        if op not in ("builtin.module", "func.func", "func.return") and not op.startswith("llvm."):
             raise Error(f"unsupported non-LLVM operation: {op}")
-    if op_names.count("llvm.func") != 1:
-        raise Error(f"expected exactly one llvm.func, found {op_names.count('llvm.func')}")
-    func_pos = text.find('"llvm.func"')
+    funcs = [op for op in op_names if op in FUNC_OPS]
+    if len(funcs) != 1:
+        raise Error(f"expected exactly one llvm.func or func.func, found {len(funcs)}")
+    func_op = funcs[0]
+    # Each kind of function must use its own return.
+    for other_op, other_return in FUNC_OPS.items():
+        if other_op != func_op and other_return in op_names:
+            raise Error(f"{other_return} is not allowed in {func_op}")
+    func_pos = text.find(f'"{func_op}"')
     head_end = text.find("({", func_pos)
     if head_end < 0:
-        raise Error("llvm.func has no region body")
+        raise Error(f"{func_op} has no region body")
     body_close = find_matching_region_end(text, head_end)
     outside_func = text[:func_pos] + text[body_close + 2 :]
     outside_ops = re.findall(r'"([^"]+)"\s*\(', outside_func)
     extra_ops = [op for op in outside_ops if op != "builtin.module"]
     if extra_ops:
         raise Error(
-            "expected the module to contain only one llvm.func; "
+            f"expected the module to contain only one {func_op}; "
             f"found extra top-level op {extra_ops[0]}"
         )
     head = text[func_pos:head_end]
     attr_match = re.search(r"<\{(.*)\}>\s*$", head.strip())
     if not attr_match:
-        raise Error("llvm.func must have an attribute dictionary")
+        raise Error(f"{func_op} must have an attribute dictionary")
     attrs = attr_match.group(1)
     name = parse_sym_name(attrs)
-    ret_type, arg_types = parse_function_type(attrs)
+    ret_types, arg_types = parse_function_type(attrs, func_op)
     body = text[head_end + 2 : body_close]
     blocks = parse_blocks(body)
-    return name, blocks, ret_type, arg_types
+    return name, blocks, ret_types, arg_types
 
 
 def validate_function_args(blocks: list[Block], arg_types: list[str]) -> None:
@@ -773,19 +828,36 @@ def translate_terminator(
     aliases: dict[str, str],
     blocks_by_label: dict[str, Block],
     edge_blocks: list[EdgeBlock],
+    ret_types: list[str],
 ) -> tuple[list[str], list[Edge]]:
     if op.result is not None or op.result_types:
         raise Error(f"{op.name} terminator cannot have results")
 
-    if op.name == "llvm.return":
+    if op.name in ("llvm.return", "func.return"):
         if op.successors:
-            raise Error("llvm.return cannot have successors")
-        if len(op.operands) == 0 and len(op.operand_types) == 0:
+            raise Error(f"{op.name} cannot have successors")
+        if len(op.operands) != len(op.operand_types):
+            raise Error(f"{op.name} operand count does not match its types")
+        if [convert_type(t) for t in op.operand_types] != [convert_type(t) for t in ret_types]:
+            raise Error(f"{op.name} types do not match the function's result types")
+        if not op.operands:
             return ["  ret void"], []
-        if len(op.operands) != 1 or len(op.operand_types) != 1:
-            raise Error("llvm.return with multiple values is not supported")
-        value = llvm_value(op.operands[0], aliases)
-        return [f"  ret {convert_type(op.operand_types[0])} {value}"], []
+        if len(op.operands) == 1:
+            value = llvm_value(op.operands[0], aliases)
+            return [f"  ret {convert_type(op.operand_types[0])} {value}"], []
+        # Several results are returned as a struct, built one field at a time.
+        # The `veir_ret` prefix cannot clash with translated SSA names, which
+        # all begin with `mlir_`.
+        agg_type = llvm_return_type(ret_types)
+        lines: list[str] = []
+        agg = "poison"
+        for idx, (value, typ) in enumerate(zip(op.operands, op.operand_types)):
+            field_name = f"%veir_ret.{label_name(block.label)}.{idx}"
+            lines.append(f"  {field_name} = insertvalue {agg_type} {agg}, "
+                         f"{convert_type(typ)} {llvm_value(value, aliases)}, {idx}")
+            agg = field_name
+        lines.append(f"  ret {agg_type} {agg}")
+        return lines, []
 
     if op.name == "llvm.br":
         if len(op.successors) != 1:
@@ -853,7 +925,7 @@ def translate_terminator(
     raise Error(f"unsupported LLVM terminator: {op.name}")
 
 
-def translate_function(name: str, blocks: list[Block], ret_type: str, arg_types: list[str]) -> str:
+def translate_function(name: str, blocks: list[Block], ret_types: list[str], arg_types: list[str]) -> str:
     validate_function_args(blocks, arg_types)
     blocks_by_label = {block.label: block for block in blocks}
     aliases: dict[str, str] = {}
@@ -871,11 +943,11 @@ def translate_function(name: str, blocks: list[Block], ret_type: str, arg_types:
             raise Error(f"block ^{block.label} is empty")
         for op_index, op in enumerate(block.ops):
             is_last = op_index == len(block.ops) - 1
-            if op.name in {"llvm.return", "llvm.br", "llvm.cond_br"}:
+            if op.name in {"llvm.return", "func.return", "llvm.br", "llvm.cond_br"}:
                 if not is_last:
                     raise Error(f"terminator {op.name} is not last in ^{block.label}")
                 term_lines, term_edges = translate_terminator(
-                    block, op, aliases, blocks_by_label, edge_blocks
+                    block, op, aliases, blocks_by_label, edge_blocks, ret_types
                 )
                 lines.extend(term_lines)
                 edges.extend(term_edges)
@@ -906,12 +978,12 @@ def translate_function(name: str, blocks: list[Block], ret_type: str, arg_types:
         # first: the result classifiers read the first `ret` of the trace and
         # the last function alive-exec executes, and both must be the test's.
         name = "veir_test_main"
-        ret = convert_type(ret_type)
+        ret = llvm_return_type(ret_types)
         wrapper = [f"define i32 @main(i32 %argc, ptr %argv) {{",
                    (f"  %r = call {ret} @{name}()" if ret != "void"
                     else f"  call void @{name}()"),
                    "  ret i32 0", "}", ""]
-    out: list[str] = wrapper + [f"define {convert_type(ret_type)} @{name}({', '.join(params)}) {{"]
+    out: list[str] = wrapper + [f"define {llvm_return_type(ret_types)} @{name}({', '.join(params)}) {{"]
     for idx, block in enumerate(blocks):
         out.append(f"{llvm_block_name(block.label)}:")
         if idx != 0:
@@ -940,8 +1012,8 @@ def translate_function(name: str, blocks: list[Block], ret_type: str, arg_types:
 
 def translate(text: str) -> str:
     text = strip_comments(text)
-    name, blocks, ret_type, arg_types = extract_function(text)
-    return translate_function(name, blocks, ret_type, arg_types)
+    name, blocks, ret_types, arg_types = extract_function(text)
+    return translate_function(name, blocks, ret_types, arg_types)
 
 
 def main(argv: list[str]) -> int:
