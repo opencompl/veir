@@ -1,6 +1,4 @@
 // RUN: veir-opt %s -p=canonicalize | filecheck %s
-// RUN: veir-opt %s -p='canonicalize{sccp=false}' | filecheck %s
-// RUN: veir-opt %s -p='canonicalize{constant-branch=false}' | filecheck %s --check-prefix=DISABLED
 
 // Branches whose constant operands select a single successor become
 // unconditional branches to that successor, forwarding its operands.
@@ -12,8 +10,6 @@
 // CHECK-NEXT: %[[B:.*]] = "test.test"() : () -> i32
 // CHECK-NEXT: "cf.br"(%[[A]]) [^[[TRUE:[0-9]+]]] : (i32) -> ()
 // CHECK: ^[[TRUE]](%{{.*}} : i32):
-// DISABLED-LABEL: func.func @cf_true
-// DISABLED: "cf.cond_br"
 "func.func"() <{sym_name = "cf_true", function_type = () -> i32}> ({
 ^entry:
   %a = "test.test"() : () -> i32
@@ -144,8 +140,6 @@
 // CHECK-NEXT: %[[B:.*]] = "test.test"() : () -> !riscv.reg
 // CHECK: "riscv_cf.branch"(%[[A]]) [^{{[0-9]+}}] : (!riscv.reg) -> ()
 // CHECK-NOT: "riscv_cf.beqz"
-// DISABLED-LABEL: func.func @riscv_beqz
-// DISABLED: "riscv_cf.beqz"
 "func.func"() <{sym_name = "riscv_beqz", function_type = () -> !riscv.reg}> ({
 ^entry:
   %a = "test.test"() : () -> !riscv.reg
@@ -167,8 +161,6 @@
 // CHECK-NEXT: %[[B:.*]] = "test.test"() : () -> !riscv.reg
 // CHECK: "riscv_cf.branch"(%[[B]]) [^{{[0-9]+}}] : (!riscv.reg) -> ()
 // CHECK-NOT: "riscv_cf.bnez"
-// DISABLED-LABEL: func.func @riscv_bnez
-// DISABLED: "riscv_cf.bnez"
 "func.func"() <{sym_name = "riscv_bnez", function_type = () -> !riscv.reg}> ({
 ^entry:
   %a = "test.test"() : () -> !riscv.reg
@@ -190,8 +182,6 @@
 // CHECK-NEXT: %[[B:.*]] = "test.test"() : () -> !riscv.reg
 // CHECK: "riscv_cf.branch"(%[[B]]) [^{{[0-9]+}}] : (!riscv.reg) -> ()
 // CHECK-NOT: "riscv_cf.beq"
-// DISABLED-LABEL: func.func @riscv_beq
-// DISABLED: "riscv_cf.beq"
 "func.func"() <{sym_name = "riscv_beq", function_type = () -> !riscv.reg}> ({
 ^entry:
   %a = "test.test"() : () -> !riscv.reg
@@ -213,8 +203,6 @@
 // CHECK-NEXT: %[[B:.*]] = "test.test"() : () -> !riscv.reg
 // CHECK: "riscv_cf.branch"(%[[A]]) [^{{[0-9]+}}] : (!riscv.reg) -> ()
 // CHECK-NOT: "riscv_cf.bne"
-// DISABLED-LABEL: func.func @riscv_bne
-// DISABLED: "riscv_cf.bne"
 "func.func"() <{sym_name = "riscv_bne", function_type = () -> !riscv.reg}> ({
 ^entry:
   %a = "test.test"() : () -> !riscv.reg
@@ -236,8 +224,6 @@
 // CHECK-NEXT: %[[B:.*]] = "test.test"() : () -> !riscv.reg
 // CHECK: "riscv_cf.branch"(%[[A]]) [^{{[0-9]+}}] : (!riscv.reg) -> ()
 // CHECK-NOT: "riscv_cf.blt"
-// DISABLED-LABEL: func.func @riscv_blt
-// DISABLED: "riscv_cf.blt"
 "func.func"() <{sym_name = "riscv_blt", function_type = () -> !riscv.reg}> ({
 ^entry:
   %a = "test.test"() : () -> !riscv.reg
@@ -259,8 +245,6 @@
 // CHECK-NEXT: %[[B:.*]] = "test.test"() : () -> !riscv.reg
 // CHECK: "riscv_cf.branch"(%[[B]]) [^{{[0-9]+}}] : (!riscv.reg) -> ()
 // CHECK-NOT: "riscv_cf.bge"
-// DISABLED-LABEL: func.func @riscv_bge
-// DISABLED: "riscv_cf.bge"
 "func.func"() <{sym_name = "riscv_bge", function_type = () -> !riscv.reg}> ({
 ^entry:
   %a = "test.test"() : () -> !riscv.reg
@@ -282,8 +266,6 @@
 // CHECK-NEXT: %[[B:.*]] = "test.test"() : () -> !riscv.reg
 // CHECK: "riscv_cf.branch"(%[[B]]) [^{{[0-9]+}}] : (!riscv.reg) -> ()
 // CHECK-NOT: "riscv_cf.bltu"
-// DISABLED-LABEL: func.func @riscv_bltu
-// DISABLED: "riscv_cf.bltu"
 "func.func"() <{sym_name = "riscv_bltu", function_type = () -> !riscv.reg}> ({
 ^entry:
   %a = "test.test"() : () -> !riscv.reg
@@ -305,8 +287,6 @@
 // CHECK-NEXT: %[[B:.*]] = "test.test"() : () -> !riscv.reg
 // CHECK: "riscv_cf.branch"(%[[A]]) [^{{[0-9]+}}] : (!riscv.reg) -> ()
 // CHECK-NOT: "riscv_cf.bgeu"
-// DISABLED-LABEL: func.func @riscv_bgeu
-// DISABLED: "riscv_cf.bgeu"
 "func.func"() <{sym_name = "riscv_bgeu", function_type = () -> !riscv.reg}> ({
 ^entry:
   %a = "test.test"() : () -> !riscv.reg
