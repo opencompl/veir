@@ -1,5 +1,9 @@
 // RUN: veir-interpret %s | filecheck %s
 
+// LLUBI: reads 0x8b instead: llubi gives no defined value to a load that
+// reads part of a stored integer, while the interpreter's memory hands out
+// single bytes.
+
 // A width with no layout entry of its own takes the alignment of the largest
 // entry, `i128:128`. An `i200` therefore occupies 25 bytes but strides by 32,
 // which is where index 1 lands and where the `i8` load reads it back from.

@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
 
 // `alloca` reserves one allocation size per element, so an `i1` still takes a
 // whole byte and the eight bytes reserved here are enough to store into.

@@ -86,18 +86,19 @@ private def checkNoFact
 
 /--
 Input shared by the custom and default entry-state checks. It exercises both places
-where the sparse framework must use `entryState`:
+where entry-state facts participate in sparse propagation:
 
-* `entryArg` is an entry-block argument whose state cannot yet come from call sites.
-* `fallbackArg` belongs to a non-entry block reached by an operation that is not a
-  recognized terminator, so predecessor propagation must conservatively use `entryState`.
+* `entryArg` and `forwardedArg` are entry-block arguments whose states cannot yet
+  come from call sites.
+* `fallbackArg` verifies that the state of `forwardedArg` propagates through a
+  valid `cf.br` to a non-entry block argument.
 -/
 private def testInput := r#""builtin.module"() ({
 ^module:
-  "func.func"() <{function_type = (i8) -> (), sym_name = "entry_state"}> ({
-  ^entry(%entryArg : i8):
+  "func.func"() <{function_type = (i8, i16) -> (), sym_name = "entry_state"}> ({
+  ^entry(%entryArg : i8, %forwardedArg : i16):
     %implicitBottom = "test.test"() : () -> i32
-    "test.test"() [^fallback] : () -> ()
+    "cf.br"(%forwardedArg) [^fallback] : (i16) -> ()
   ^fallback(%fallbackArg : i16):
     "func.return"() : () -> ()
   }) : () -> ()

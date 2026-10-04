@@ -200,6 +200,9 @@ def MemoryState.llvmStore (mem : MemoryState) (p : Pointer) (val : RuntimeValue)
   | .int 16 (.val v) => mem.store p (UInt16.ofBitVec v).toByteArrayLE
   | .int 32 (.val v) => mem.store p (UInt32.ofBitVec v).toByteArrayLE
   | .int 64 (.val v) => mem.store p (UInt64.ofBitVec v).toByteArrayLE
+  | .byte 8 v =>
+      mem.store p (ByteArray.empty.push (UInt8.ofBitVec v.val))
+        (ByteArray.empty.push (UInt8.ofBitVec v.poison)) (by simp)
   | .byte 64 v => mem.storeByte64 p v
   | .int n .poison => mem.empoison p (n / 8)
   | .addr q => mem.storeByte64 p (mem.byteOfPtr q)
@@ -276,10 +279,63 @@ def MemoryState.llvmLoad (mem : MemoryState) (p : Pointer) (type : TypeAttr)
       let ba ← mem.load p 8
       if ← mem.hasPoison p 8 then return .int 64 .poison
       return .int 64 (.val (BitVec.ofNat 64 ba.toUInt64LE!.toNat))
+  | Attribute.byteType { bitwidth := 8 } =>
+      let ba ← mem.load p 1
+      let poison := BitVec.ofNat 8 (← mem.loadPoison p 1)[0]!.toNat
+      return .byte 8 ⟨BitVec.ofNat 8 ba[0]!.toNat &&& ~~~poison, poison, by bv_decide⟩
   | Attribute.byteType { bitwidth := 64 } =>
       return .byte 64 (← mem.loadByte64 p)
   | Attribute.llvmPointerType _ =>
       return .addr (mem.ptrOfByte (← mem.loadByte64 p))
   | _ => none
+
+/-- The pointer `i` bytes past `p`. -/
+def Data.Pointer.addBytes (p : Pointer) (i : Nat) : Pointer :=
+  ⟨p.object, p.offset + i.toUInt64⟩
+
+/-- The type `b8`, which keeps the poison bits of a byte loaded from memory. -/
+def byte8Type : TypeAttr := TypeAttr.of LLVM.ByteType ⟨8⟩
+
+/--
+  `llvm.intr.memset`: store the `i8` value `val` to each of the `len` bytes at `p`,
+  one byte at a time.
+-/
+def MemoryState.memset (mem : MemoryState) (p : Pointer) (val : RuntimeValue) (len : Nat)
+    : Interp MemoryState := do
+  let mut mem := mem
+  for i in [0:len] do
+    mem ← mem.llvmStore (p.addBytes i) val
+  return mem
+
+/--
+  `llvm.intr.memcpy`: copy `len` bytes, poison bits included, from `src` to `dst`,
+  one `b8` load and store at a time in increasing order. Either `dst` and `src`
+  are the same pointer, or the `len` bytes at `dst` and at `src` do not overlap;
+  any other overlap is UB.
+-/
+def MemoryState.memcpy (mem : MemoryState) (dst src : Pointer) (len : Nat)
+    : Interp MemoryState := do
+  let d := dst.offset.toNat
+  let s := src.offset.toNat
+  if dst.object = src.object ∧ d ≠ s ∧ d < s + len ∧ s < d + len then Interp.ub none
+  let mut mem := mem
+  for i in [0:len] do
+    mem ← mem.llvmStore (dst.addBytes i) (← mem.llvmLoad (src.addBytes i) byte8Type)
+  return mem
+
+/--
+  `llvm.intr.memmove`: copy `len` bytes, poison bits included, from `src` to `dst`.
+  The regions may overlap, and afterwards `dst` holds what `src` held before the
+  call. As in C's `memmove`, the bytes go through a temporary buffer.
+-/
+def MemoryState.memmove (mem : MemoryState) (dst src : Pointer) (len : Nat)
+    : Interp MemoryState := do
+  let mut bytes := #[]
+  for i in [0:len] do
+    bytes := bytes.push (← mem.llvmLoad (src.addBytes i) byte8Type)
+  let mut mem := mem
+  for i in [0:len] do
+    mem ← mem.llvmStore (dst.addBytes i) bytes[i]!
+  return mem
 
 end Veir

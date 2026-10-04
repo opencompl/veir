@@ -16,6 +16,7 @@ public section
 
 @[opcodes]
 inductive Riscv_Cf where
+| func
 | branch
 | beqz
 | bnez
@@ -33,6 +34,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 @[expose, properties_of]
 def Riscv_Cf.propertiesOf (op : Riscv_Cf) : Type :=
 match op with
+| .func => RISCVFuncProperties
 | .call => RISCVCallProperties
 | .beq => RISCVBrProperties
 | .bne => RISCVBrProperties
@@ -48,6 +50,7 @@ def Riscv_Cf.fromAttrDict
     (op : Riscv_Cf) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (Riscv_Cf.propertiesOf op) := by
   cases op
+  case func => exact RISCVFuncProperties.fromAttrDict attrDict
   case call => exact RISCVCallProperties.fromAttrDict attrDict
   case «return» =>
     exact if attrDict.isEmpty then .ok ()
@@ -60,6 +63,11 @@ def Riscv_Cf.toAttrDict
     (op : Riscv_Cf) (props : Riscv_Cf.propertiesOf op) :
     Std.HashMap ByteArray Attribute :=
   match op with
+  | .func => Id.run do
+    let mut dict := Std.HashMap.ofList props.extra.entries.toList
+    dict := dict.insert "sym_name".toUTF8 (.stringAttr props.sym_name)
+    dict := dict.insert "function_type".toUTF8 (.functionType props.function_type)
+    return dict
   | .call =>
     match props.callee with
     | some callee =>
@@ -84,6 +92,9 @@ def Riscv_Cf.isConstantLike (_op : Riscv_Cf) : Bool :=
 def Riscv_Cf.hasSSADominance (_op : Riscv_Cf) (_index : Nat) : Bool :=
   true
 
+def Riscv_Cf.isIsolatedFromAbove (op : Riscv_Cf) : Bool :=
+  op == .func
+
 /--
   Calls resume at the next operation. Branches, returns, and `unreachable`
   terminate their block.
@@ -91,7 +102,7 @@ def Riscv_Cf.hasSSADominance (_op : Riscv_Cf) (_index : Nat) : Bool :=
 @[is_terminator]
 def Riscv_Cf.isTerminator (op : Riscv_Cf) : Bool :=
   match op with
-  | .call => false
+  | .func | .call => false
   | _ => true
 
 #generate_dialect Riscv_Cf
@@ -102,6 +113,15 @@ instance : IsOpCode Riscv_Cf where
   propertiesOf := Riscv_Cf.propertiesOf
   fromAttrDict := Riscv_Cf.fromAttrDict
   toAttrDict := Riscv_Cf.toAttrDict
+
+def Riscv_Cf.functionInterface? (op : Riscv_Cf) :
+    Option (FunctionOpInterface (Riscv_Cf.propertiesOf op)) :=
+  match op with
+  | .func => some
+      { getSymName := fun props => props.sym_name
+        getFunctionType := fun props => props.function_type
+        setFunctionType := fun props functionType => { props with function_type := functionType } }
+  | _ => none
 
 def Riscv_Cf.branchOpInterface?
     (op : Riscv_Cf) : Option (BranchOpInterface (Riscv_Cf.propertiesOf op)) :=
@@ -191,7 +211,7 @@ def Riscv_Cf.branchOpInterface?
         let some (.reg rhs) ← operands[1]? | none
         BranchOpInterface.getConditionalSuccessor? successors (!BitVec.ult lhs.val rhs.val)
     }
-  | .unreachable | .call | .return => none
+  | .func | .unreachable | .call | .return => none
 
 /--
   Check a `riscv_cf.return` against the signature of its enclosing
@@ -229,6 +249,26 @@ def Riscv_Cf.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     (opType : Riscv_Cf) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
+  | .func => do
+    if op.getNumRegions ctx.raw opIn ≠ 1 then
+      throw "riscv_cf.func: Expected 1 region"
+    if op.getNumOperands ctx.raw opIn ≠ 0 then
+      throw "riscv_cf.func: Expected 0 operands"
+    if op.getNumResults ctx.raw opIn ≠ 0 then
+      throw "riscv_cf.func: Expected 0 results"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "riscv_cf.func: Expected 0 successors"
+    let ft := (op.getProperties! ctx.raw Riscv_Cf.func).function_type
+    for ty in ft.inputs ++ ft.outputs do
+      let .registerType _ := ty
+        | throw "riscv_cf.func: Expected register types in function signature"
+    let body := op.getRegion! ctx.raw 0
+    if let some entry := (body.get! ctx.raw).firstBlock then
+      if entry.getNumArguments! ctx.raw ≠ ft.inputs.size then
+        throw "riscv_cf.func: Entry block argument count does not match function signature"
+      for i in [0:ft.inputs.size] do
+        if ((entry.getArgument i).get! ctx.raw).type.val ≠ ft.inputs[i]! then
+          throw s!"riscv_cf.func: Entry block argument {i} type does not match function signature"
   | .branch =>
     op.verifyUnconditionalBranch ctx opIn
   | .beq => do
@@ -293,6 +333,8 @@ def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : propertiesOf op
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     : Interp (Array RuntimeValue × Option ControlFlowAction) :=
   match opType with
+  | .func =>
+    Interp.fail none
   | .branch => do
     let [dest] := blockOperands.toList | none
     return (#[], some (.branch operands dest))
@@ -386,13 +428,14 @@ def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : propertiesOf op
     Interp.fail none
 
 instance : HasOpInfo Riscv_Cf where
-  -- `riscv_cf` alone has no function-like operations.
-  verifyLocalInvariants := Riscv_Cf.verifyLocalInvariants (fun _ => none)
+  verifyLocalInvariants := Riscv_Cf.verifyLocalInvariants Riscv_Cf.functionInterface?
   getEffects := Riscv_Cf.getEffects
   isConstantLike := Riscv_Cf.isConstantLike
   branchOpInterface? := Riscv_Cf.branchOpInterface?
+  functionInterface? := Riscv_Cf.functionInterface?
   hasSSADominance := Riscv_Cf.hasSSADominance
   isTerminator := Riscv_Cf.isTerminator
+  isIsolatedFromAbove := Riscv_Cf.isIsolatedFromAbove
 
 end
 

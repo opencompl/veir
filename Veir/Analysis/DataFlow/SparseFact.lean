@@ -23,6 +23,15 @@ instance SparseFactSpec.instInhabitedMetadata
     Inhabited spec.Metadata :=
   spec.metadataInhabited
 
+/-- Sparse constant facts record the operation that produced a known constant. -/
+instance SparseFactSpec.sparseConstant :
+    SparseFactSpec .sparseConstant AbstractConstant where
+  Metadata := Option OpCode
+  metadataOfResult op
+    | .constant _ => some op
+    | _ => none
+  payloadEq := rfl
+
 namespace SparseFact
 
 variable {kind : FactKind} {Domain : Type}
