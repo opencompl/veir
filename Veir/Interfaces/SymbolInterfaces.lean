@@ -37,13 +37,13 @@ structure SymbolOp (ctx : IRContext OpCode) (op : OperationPtr) where
 namespace SymbolOp
 
 /--
-Try to cast an operation to a `SymbolOp`. This fails for an optional symbol without a name.
+The `SymbolOp` view of `op`, or `none` if it is not a symbol.
 
-This is equivalent to `mlir::dyn_cast<SymbolOpInterface>(op)` in MLIR, where `SymbolOpInterface`
-checks for the name in its `extraClassOf`.
+As with `mlir::dyn_cast<SymbolOpInterface>(op)` in MLIR, an optional symbol without a name is not a
+symbol.
 -/
 @[inline]
-def cast? (op : OperationPtr) (ctx : IRContext OpCode) : Option (SymbolOp ctx op) :=
+def of? (op : OperationPtr) (ctx : IRContext OpCode) : Option (SymbolOp ctx op) :=
   match h : HasOpInfo.symbolInterface? (op.getOpType! ctx) with
   | some symbolInterface =>
     if hName : (symbolInterface.getSymName (op.getProperties! ctx (op.getOpType! ctx))).isSome then
@@ -53,24 +53,25 @@ def cast? (op : OperationPtr) (ctx : IRContext OpCode) : Option (SymbolOp ctx op
   | none => none
 
 /--
-An operation implements `SymbolOpInterface` in at most one way, so any `SymbolOp` is the cast.
+An operation implements `SymbolOpInterface` in at most one way, so any `SymbolOp` for `op` is the
+one `of?` returns.
 -/
 @[simp]
-theorem cast?_eq_some {op : OperationPtr} {ctx : IRContext OpCode} (symbolOp : SymbolOp ctx op) :
-    cast? op ctx = some symbolOp := by
-  cases symbolOp; grind [cast?]
+theorem of?_eq_some {op : OperationPtr} {ctx : IRContext OpCode} (symbolOp : SymbolOp ctx op) :
+    of? op ctx = some symbolOp := by
+  cases symbolOp; grind [of?]
 
-grind_pattern cast?_eq_some => cast? op ctx, symbolOp.symbolInterface
+grind_pattern of?_eq_some => of? op ctx, symbolOp.symbolInterface
 
 /--
-Cast a symbol operation to a `SymbolOp`.
+The `SymbolOp` view of a symbol operation.
 
 This is equivalent to `mlir::cast<SymbolOpInterface>(op)` in MLIR.
 -/
 @[inline]
-def cast (op : OperationPtr) (ctx : IRContext OpCode) (h : op.isSymbol ctx := by grind) :
+def of (op : OperationPtr) (ctx : IRContext OpCode) (h : op.isSymbol ctx := by grind) :
     SymbolOp ctx op :=
-  (cast? op ctx).get (by grind [cast?, OperationPtr.isSymbol])
+  (of? op ctx).get (by grind [of?, OperationPtr.isSymbol])
 
 variable {ctx : IRContext OpCode} {op : OperationPtr}
 
