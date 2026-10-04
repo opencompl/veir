@@ -1,5 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
 // RUN: LLUBI
+// RUN: ALIVE_EXEC
 
 // `llvm.intr.fshr(a, b, c)` concatenates `a` (high) and `b` (low), shifts the
 // double-width value right by `c` modulo the bit width, and returns the low

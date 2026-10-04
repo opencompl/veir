@@ -1,5 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
 // RUN: LLUBI
+// RUN: ALIVE_EXEC
 
 // `llvm.select` semantics: poison on the *non-selected* arm is ignored;
 // poison on the selected arm, or on the condition, propagates.

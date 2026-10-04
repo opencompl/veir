@@ -4,6 +4,9 @@
 // A memory intrinsic of length zero touches no memory, so its pointers may be
 // null or poison.
 
+// ALIVE_EXEC: reports undefined behaviour: it rejects a poison pointer even
+// when the length is zero.
+
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i64 ()>}> ({
     %len = "llvm.mlir.constant"() <{value = 0 : i64}> : () -> i64

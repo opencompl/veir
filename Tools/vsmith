@@ -322,12 +322,17 @@ def classify_llubi_output(log: str) -> tuple[str, str]:
 
 
 ALIVE_EXEC_RETURNED_RE = re.compile(
-    r"^Returned\s+#([xb])([0-9a-fA-F]+)\s+/\s+non-poison=(true|false)\s*$"
+    r"^Returned\s+#([xb])([0-9a-fA-F]+)\s+/\s+"
+    r"non-poison=(?:#([xb])([0-9a-fA-F]+)|(true|false))\s*$"
 )
 
 
-def classify_alive_exec_output(log: str) -> tuple[str, str]:
-    """Return alive-exec's result in veir-interpret format and alive-exec's final value."""
+def classify_alive_exec_output(log: str, return_type: str | None = None) -> tuple[str, str]:
+    """Return alive-exec's result in veir-interpret format and alive-exec's final value.
+
+    `return_type` is the LLVM return type of the executed function. It is
+    needed to read a struct result: alive-exec adds the struct's padding as
+    fields of its own, which cannot be told from real fields otherwise."""
     if "UB triggered!" in log:
         return "Undefined behavior", "UB triggered"
 
@@ -345,15 +350,54 @@ def classify_alive_exec_output(log: str) -> tuple[str, str]:
         raise ValueError(
             f"alive-exec result line not recognized:\n  {final_line}\nfull log:\n{log}"
         )
-    radix, digits, non_poison = m.group(1), m.group(2), m.group(3)
-    if non_poison == "false":
+    radix, digits, mask_radix, mask_digits, non_poison = m.groups()
+    unsigned = int(digits, 16 if radix == "x" else 2)
+
+    # A function with several results returns a struct. alive-exec echoes it as
+    # one `define {i8, i1, ...}` line, padding included as extra fields, and
+    # prints the fields' bits concatenated first-field-first with one
+    # non-poison bit per field in the same order.
+    alive_types: list[str] | None = None
+    for line in log.splitlines():
+        agg = re.match(r"define\s+\{([^}]*)\}\s+@", line)
+        if agg:
+            alive_types = [t.strip() for t in agg.group(1).split(",")]
+    if alive_types is not None:
+        real = re.fullmatch(r"\{([^}]*)\}", (return_type or "").strip())
+        if not real:
+            raise ValueError("alive-exec returned a struct, but its declared type is unknown")
+        real_types = [t.strip() for t in real.group(1).split(",")]
+        if not all(re.fullmatch(r"i\d+", t) for t in alive_types + real_types):
+            raise ValueError(f"alive-exec returned a struct with a non-integer field: {return_type}")
+        if non_poison is not None:
+            mask = ((1 << len(alive_types)) - 1) if non_poison == "true" else 0
+        else:
+            mask = int(mask_digits, 16 if mask_radix == "x" else 2)
+        # A padding field never has the type of the real field that follows
+        # it: padding is narrower than that field's alignment, and so than the
+        # field itself. So each alive-exec field that does not match the next
+        # real field is padding.
+        fields: list[str] = []
+        offset = sum(int(t[1:]) for t in alive_types)
+        index = 0
+        for position, typ in enumerate(alive_types):
+            width = int(typ[1:])
+            offset -= width
+            if index < len(real_types) and typ == real_types[index]:
+                index += 1
+                if (mask >> (len(alive_types) - 1 - position)) & 1:
+                    fields.append(format_int_output(width, unsigned >> offset))
+                else:
+                    fields.append("poison")
+        if index != len(real_types):
+            raise ValueError(f"alive-exec's struct does not match {return_type}")
+        return f"Program output: #[{', '.join(fields)}]", final_line
+
+    poison = (non_poison == "false" if mask_digits is None
+              else int(mask_digits, 16 if mask_radix == "x" else 2) == 0)
+    if poison:
         return "Program output: #[poison]", "poison"
-    if radix == "x":
-        width = 4 * len(digits)
-        unsigned = int(digits, 16)
-    else:
-        width = len(digits)
-        unsigned = int(digits, 2)
+    width = 4 * len(digits) if radix == "x" else len(digits)
     return f"Program output: #[{format_int_output(width, unsigned)}]", final_line
 
 

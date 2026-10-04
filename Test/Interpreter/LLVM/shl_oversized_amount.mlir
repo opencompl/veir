@@ -1,6 +1,8 @@
 // RUN: veir-interpret %s | filecheck %s
 // RUN: LLUBI
 
+// ALIVE_EXEC: rejects a struct of `i66` fields as not type-checking.
+
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (i66, i66, i66, i66)}> ({
     %c = "llvm.mlir.constant"() <{ "value" = 18446744073709551616 : i66 }> : () -> i66

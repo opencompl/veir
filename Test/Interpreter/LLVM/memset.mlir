@@ -4,6 +4,8 @@
 // `llvm.intr.memset` writes its byte to every byte of the range and leaves the
 // bytes past it alone. A poison byte poisons the range.
 
+// ALIVE_EXEC: reads the bytes that `llvm.intr.memset` writes back as poison.
+
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (i64, i8, i32)}> ({
     %one = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64

@@ -3,6 +3,8 @@
 
 // Switching on a poison value is undefined behaviour, as branching on a poison
 // condition is for `llvm.cond_br`.
+// ALIVE_EXEC: does not terminate on a branch on poison.
+
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i32 ()>}> ({
     ^entry():

@@ -3,6 +3,8 @@
 
 // A load through the address of a global reads its `value`.
 
+// ALIVE_EXEC: crashes on a writable global.
+
 "builtin.module"() ({
   "llvm.mlir.global"() <{addr_space = 0 : i32, global_type = i32, linkage = #llvm.linkage<external>, sym_name = "g", value = 41 : i32}> ({
   }) : () -> ()

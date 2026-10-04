@@ -1,5 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
 // RUN: LLUBI
+// RUN: ALIVE_EXEC
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (i32, i32)}> ({

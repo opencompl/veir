@@ -3,6 +3,8 @@
 
 // A global's initializer may take the address of a global defined after it.
 
+// ALIVE_EXEC: crashes on a writable global.
+
 "builtin.module"() ({
   "llvm.mlir.global"() <{addr_space = 0 : i32, global_type = !llvm.ptr, linkage = #llvm.linkage<internal>, sym_name = "p"}> ({
     %q = "llvm.mlir.addressof"() <{global_name = @q}> : () -> !llvm.ptr
