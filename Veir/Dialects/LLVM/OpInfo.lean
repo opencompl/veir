@@ -1531,6 +1531,9 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       return (#[], mem, some (.branch (operands.extract 1 (1 + defaultSize)) destDefault))
     | .int _ .poison => Interp.ub none
     | _ => none
+  | .mlir__addressof => do
+    let some object := mem.globals[properties.global_name.value]? | none
+    return (#[.addr (.val ⟨object, 0⟩)], mem, none)
   | .alloca => do
     let [.int _ (.val count)] := operands.toList | none
     /- `alloca T, N` reserves `N` strides of `T`, as in LLVM. -/

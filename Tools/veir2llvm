@@ -249,6 +249,9 @@ def convert_type(typ: str) -> str:
     m = re.fullmatch(r"!llvm.byte<(\d+)>", typ)
     if m:
         return f"b{m.group(1)}"
+    m = re.fullmatch(r"!llvm.array<\s*(\d+)\s*x\s*(.+)>", typ)
+    if m:
+        return f"[{m.group(1)} x {convert_type(m.group(2))}]"
     if typ == "f16":
         return "half"
     if typ == "f32":
@@ -378,36 +381,55 @@ def parse_blocks(body: str) -> list[Block]:
     return blocks
 
 
-def extract_function(text: str) -> tuple[str, list[Block], str, list[str]]:
-    op_names = re.findall(r'"([^"]+)"\s*\(', text)
-    for op in op_names:
+@dataclass
+class Function:
+    name: str
+    blocks: list[Block]
+    ret_type: str
+    arg_types: list[str]
+
+
+@dataclass
+class Global:
+    attrs: str
+    blocks: list[Block]
+
+
+def module_ops(text: str) -> tuple[list[Function], list[Global]]:
+    """The functions and globals at the top level of the module."""
+    for op in re.findall(r'"([^"]+)"\s*\(', text):
         if op != "builtin.module" and not op.startswith("llvm."):
             raise Error(f"unsupported non-LLVM operation: {op}")
-    if op_names.count("llvm.func") != 1:
-        raise Error(f"expected exactly one llvm.func, found {op_names.count('llvm.func')}")
-    func_pos = text.find('"llvm.func"')
-    head_end = text.find("({", func_pos)
-    if head_end < 0:
-        raise Error("llvm.func has no region body")
-    body_close = find_matching_region_end(text, head_end)
-    outside_func = text[:func_pos] + text[body_close + 2 :]
-    outside_ops = re.findall(r'"([^"]+)"\s*\(', outside_func)
-    extra_ops = [op for op in outside_ops if op != "builtin.module"]
-    if extra_ops:
-        raise Error(
-            "expected the module to contain only one llvm.func; "
-            f"found extra top-level op {extra_ops[0]}"
-        )
-    head = text[func_pos:head_end]
-    attr_match = re.search(r"<\{(.*)\}>\s*$", head.strip())
-    if not attr_match:
-        raise Error("llvm.func must have an attribute dictionary")
-    attrs = attr_match.group(1)
-    name = parse_sym_name(attrs)
-    ret_type, arg_types = parse_function_type(attrs)
-    body = text[head_end + 2 : body_close]
-    blocks = parse_blocks(body)
-    return name, blocks, ret_type, arg_types
+    mod = text.find('"builtin.module"')
+    if mod < 0:
+        raise Error("expected a builtin.module")
+    mod_open = text.find("({", mod)
+    mod_close = find_matching_region_end(text, mod_open)
+    functions: list[Function] = []
+    globals_: list[Global] = []
+    op_re = re.compile(r'"([^"]+)"\s*\(')
+    pos = mod_open + 2
+    while (m := op_re.search(text, pos, mod_close)) is not None:
+        line_end = text.find("\n", m.start())
+        head_end = text.find("({", m.start(), line_end if line_end >= 0 else mod_close)
+        if m.group(1) not in ("llvm.func", "llvm.mlir.global") or head_end < 0:
+            raise Error(f"unsupported top-level op {m.group(1)}")
+        body_close = find_matching_region_end(text, head_end)
+        attr_match = re.search(r"<\{(.*)\}>\s*$", text[m.start():head_end].strip())
+        if not attr_match:
+            raise Error(f"{m.group(1)} must have an attribute dictionary")
+        attrs = attr_match.group(1)
+        body = text[head_end + 2 : body_close]
+        if m.group(1) == "llvm.func":
+            ret_type, arg_types = parse_function_type(attrs)
+            functions.append(Function(parse_sym_name(attrs), parse_blocks(body),
+                                      ret_type, arg_types))
+        else:
+            globals_.append(Global(attrs, parse_blocks(body) if body.strip() else []))
+        pos = body_close + 2
+    if not functions:
+        raise Error("expected at least one llvm.func")
+    return functions, globals_
 
 
 def validate_function_args(blocks: list[Block], arg_types: list[str]) -> None:
@@ -615,6 +637,17 @@ def translate_nonterminator(
             raise Error("llvm.mlir.constant result type does not match value type")
         aliases[result] = value
         value_types[result] = typ
+        return []
+
+    if name == "llvm.mlir.addressof":
+        result = require_result(op)
+        m = re.search(r'"?global_name"?\s*=\s*@([A-Za-z_.$][A-Za-z0-9_.$-]*)', op.attr)
+        if not m:
+            raise Error("llvm.mlir.addressof is missing global_name")
+        if m.group(1) == "main":
+            raise Error("llvm.mlir.addressof of @main is not supported")
+        aliases[result] = f"@{m.group(1)}"
+        value_types[result] = op.result_types[0]
         return []
 
     if name == "llvm.mlir.poison":
@@ -853,7 +886,8 @@ def translate_terminator(
     raise Error(f"unsupported LLVM terminator: {op.name}")
 
 
-def translate_function(name: str, blocks: list[Block], ret_type: str, arg_types: list[str]) -> str:
+def translate_function(name: str, blocks: list[Block], ret_type: str, arg_types: list[str],
+                       declarations: set[str]) -> str:
     validate_function_args(blocks, arg_types)
     blocks_by_label = {block.label: block for block in blocks}
     aliases: dict[str, str] = {}
@@ -861,7 +895,6 @@ def translate_function(name: str, blocks: list[Block], ret_type: str, arg_types:
     body_lines: dict[str, list[str]] = {}
     edges: list[Edge] = []
     edge_blocks: list[EdgeBlock] = []
-    declarations: set[str] = set()
 
     for idx, block in enumerate(blocks):
         for arg_name, arg_type in block.args:
@@ -930,18 +963,94 @@ def translate_function(name: str, blocks: list[Block], ret_type: str, arg_types:
         out.append(f"  br label {llvm_label(edge_block.target)}")
 
     out.append("}")
-    # Intrinsic declarations follow the definition; LLVM IR is order-independent
-    # at module scope, and keeping `define` first satisfies vsmith's translator
-    # check that the output begins with `define`.
-    for decl in sorted(declarations):
-        out.append(decl)
     return "\n".join(out) + "\n"
+
+
+def parse_mlir_string(literal: str) -> bytes:
+    """The bytes of the body of an MLIR string literal."""
+    out = bytearray()
+    i = 0
+    while i < len(literal):
+        c = literal[i]
+        if c != "\\":
+            out += c.encode()
+            i += 1
+            continue
+        nxt = literal[i + 1 : i + 3]
+        if re.fullmatch(r"[0-9A-Fa-f]{2}", nxt):
+            out.append(int(nxt, 16))
+            i += 3
+        else:
+            out += {"n": b"\n", "t": b"\t", "\\": b"\\", '"': b'"'}.get(literal[i + 1], b"")
+            i += 2
+    return bytes(out)
+
+
+def constant_initializer(blocks: list[Block], declarations: set[str]) -> str:
+    """The constant that an initializer region returns. LLVM requires the
+    initializer of a global to be a constant, so the region may compute
+    nothing that would need an instruction."""
+    if len(blocks) != 1 or not blocks[0].ops or blocks[0].ops[-1].name != "llvm.return":
+        raise Error("initializer region must be one block ending in llvm.return")
+    aliases: dict[str, str] = {}
+    value_types: dict[str, str] = {}
+    for op in blocks[0].ops[:-1]:
+        if translate_nonterminator(op, aliases, value_types, declarations):
+            raise Error(f"initializer region computes {op.name}, which is not a constant")
+    ret = blocks[0].ops[-1]
+    if len(ret.operands) != 1:
+        raise Error("initializer region must return one value")
+    value = llvm_value(ret.operands[0], aliases)
+    if value.startswith("%"):
+        raise Error("initializer region does not return a constant")
+    return value
+
+
+def translate_global(g: Global, declarations: set[str]) -> str:
+    attrs = g.attrs
+    name = parse_sym_name(attrs)
+    m = re.search(r'"?global_type"?\s*=\s*(!llvm\.array<[^>]*>|[^,}\s]+)', attrs)
+    if not m:
+        raise Error(f"global @{name} is missing global_type")
+    typ = convert_type(m.group(1))
+    m = re.search(r"#llvm\.linkage<(\w+)>", attrs)
+    linkage = "" if not m or m.group(1) == "external" else m.group(1) + " "
+    kind = "constant" if re.search(r'(?:^|[\s,])"?constant"?\s*(?:,|$)', attrs) else "global"
+    string = re.search(r'(?:^|[\s,])"?value"?\s*=\s*"((?:[^"\\]|\\.)*)"', attrs)
+    integer = re.search(r'(?:^|[\s,])"?value"?\s*=\s*(-?\d+)\s*:\s*i\d+', attrs)
+    if string:
+        data = parse_mlir_string(string.group(1))
+        if typ != f"[{len(data)} x i8]":
+            raise Error(f"string value of global @{name} does not fill its type {typ}")
+        text = "".join(chr(b) if 0x20 <= b < 0x7F and b not in (0x22, 0x5C)
+                       else f"\\{b:02X}" for b in data)
+        init = f'c"{text}"'
+    elif integer:
+        init = integer.group(1)
+    elif g.blocks:
+        init = constant_initializer(g.blocks, declarations)
+    else:
+        # A global with neither a value nor an initializer starts as poison,
+        # as in the interpreter.
+        init = "poison"
+    m = re.search(r'"?alignment"?\s*=\s*(\d+)', attrs)
+    align = f", align {m.group(1)}" if m else ""
+    return f"@{name} = {linkage}{kind} {typ} {init}{align}"
 
 
 def translate(text: str) -> str:
     text = strip_comments(text)
-    name, blocks, ret_type, arg_types = extract_function(text)
-    return translate_function(name, blocks, ret_type, arg_types)
+    functions, globals_ = module_ops(text)
+    declarations: set[str] = set()
+    # The test's `main` goes first, so that the output starts with the wrapper
+    # that llubi runs. LLVM IR is order-independent at module scope, and
+    # starting with `define` satisfies vsmith's check of the output.
+    functions.sort(key=lambda f: f.name != "main")
+    out = [translate_function(f.name, f.blocks, f.ret_type, f.arg_types, declarations)
+           for f in functions]
+    out += [translate_global(g, declarations) + "\n" for g in globals_]
+    out += [decl + "\n" for decl in sorted(declarations)]
+    return "".join(out)
 
 
 def main(argv: list[str]) -> int:
