@@ -16,28 +16,6 @@ Instantiation of `AbstractDomain` with a constant propagation lattice whose
 elements are `bottom`, a constant, or `top`.
 -/
 
-namespace RuntimeValue
-
-/-- The poison of `v`'s kind and width, or `v` itself for kinds without poison. -/
-def poisonOf : RuntimeValue → RuntimeValue
-  | .int w _ => .int w .poison
-  | .byte w _ => .byte w Data.LLVM.Byte.allPoison
-  | .addr _ => .addr .poison
-  | v => v
-
-@[simp] theorem poisonOf_poisonOf (v : RuntimeValue) : v.poisonOf.poisonOf = v.poisonOf := by
-  cases v <;> rfl
-
-/-- The poison of a value's kind is refined by the value. -/
-theorem poisonOf_isRefinedBy (v : RuntimeValue) : v.poisonOf ⊒ v := by
-  cases v with
-  | int w t => exact ⟨rfl, by rw [Data.LLVM.Int.cast_self]; exact poison_isRefinedBy t⟩
-  | byte w b => exact ⟨rfl, by rw [Data.LLVM.Byte.cast_self]; exact Data.LLVM.Byte.allPoison_isRefinedBy b⟩
-  | addr p => show Data.LLVM.Ptr.poison ⊒ p; trivial
-  | _ => exact RuntimeValue.isRefinedBy_refl _
-
-end RuntimeValue
-
 /-- Abstract values used by sparse constant propagation. -/
 inductive AbstractConstant where
   | top
@@ -53,40 +31,15 @@ instance : ToString AbstractConstant where
 
 namespace AbstractConstant
 
-/-- `c ≼ d`: `c` is `d`, or the poison of `d`'s kind. -/
-notation:50 c:51 " ≼ " d:51 => c = d ∨ c = RuntimeValue.poisonOf d
-
-theorem below_refl (c : RuntimeValue) : c ≼ c := Or.inl rfl
-
-theorem below_trans {c d e : RuntimeValue} (hcd : c ≼ d) (hde : d ≼ e) : c ≼ e := by
-  rcases hde with rfl | rfl
-  · exact hcd
-  · rcases hcd with rfl | rfl
-    · exact Or.inr rfl
-    · exact Or.inr (RuntimeValue.poisonOf_poisonOf e)
-
-theorem below_antisymm {c d : RuntimeValue} (hcd : c ≼ d) (hdc : d ≼ c) : c = d := by
-  rcases hcd with rfl | rfl
-  · rfl
-  · rcases hdc with h | h
-    · exact h.symm
-    · rw [RuntimeValue.poisonOf_poisonOf] at h; exact h.symm
-
-/-- Two constants below a common one are comparable. -/
-theorem below_total_of_below {c d e : RuntimeValue} (hce : c ≼ e) (hde : d ≼ e) :
-    c ≼ d ∨ d ≼ c := by
-  rcases hce with rfl | rfl <;> rcases hde with rfl | rfl
-  · exact Or.inl (Or.inl rfl)
-  · exact Or.inr (Or.inr rfl)
-  · exact Or.inl (Or.inr rfl)
-  · exact Or.inl (Or.inl rfl)
-
-/-- Defines the ordering of abstract values in the constant domain. -/
+/--
+The order of the constant domain: `⊥` is below everything, everything is below `⊤`,
+and `constant c ≤ constant d` when `c` is refined by `d`.
+-/
 def le (x y : AbstractConstant) : Prop :=
   match x, y with
   | .bottom, _ => True
   | _, .top => True
-  | .constant c, .constant d => c ≼ d
+  | .constant c, .constant d => c ⊒ d
   | _, _ => False
 
 instance : LE AbstractConstant where
@@ -119,6 +72,10 @@ def ofFoldDecision (result : FoldDecision) (operands : Array AbstractConstant) :
   | .bottom => fun _ => False
   | .constant a => fun source => RuntimeValue.isRefinedBy source a
 
+/--
+Least upper bound. Two constants join to the least value both refine to
+(`RuntimeValue.lub?`), or to `⊤` if there is none.
+-/
 def join (lhs rhs : AbstractConstant) : AbstractConstant :=
   match lhs, rhs with
   | .bottom, y => y
@@ -126,7 +83,9 @@ def join (lhs rhs : AbstractConstant) : AbstractConstant :=
   | .top, _ => ⊤
   | _, .top => ⊤
   | .constant c, .constant d =>
-    if c ≼ d then .constant d else if d ≼ c then .constant c else ⊤
+    match c.lub? d with
+    | some e => .constant e
+    | none => ⊤
 
 instance : Join AbstractConstant where
   join := join
@@ -135,26 +94,23 @@ theorem γ_monotone (a b : AbstractConstant) : a ≤ b → γ a ⊆ γ b := by
   intro hab x hx
   cases a <;> cases b <;> simp only [LE.le, le] at hab
   all_goals first | trivial | exact hab.elim | exact hx.elim | skip
-  case constant.constant c d =>
-    rcases hab with rfl | rfl
-    · exact hx
-    · exact RuntimeValue.isRefinedBy_trans hx (RuntimeValue.poisonOf_isRefinedBy d)
+  case constant.constant c d => exact RuntimeValue.isRefinedBy_trans hx hab
 
 @[simp, grind .]
 theorem le_refl (a : AbstractConstant) : a ≤ a := by
-  cases a <;> simp [le, le_def]
+  cases a <;> first | trivial | exact RuntimeValue.isRefinedBy_refl _
 
 @[grind →]
 theorem le_trans (a b c : AbstractConstant) : a ≤ b → b ≤ c → a ≤ c := by
   intro h h'
   cases a <;> cases b <;> cases c <;> simp only [le_def, le] at h h' ⊢ <;>
-    first | trivial | exact h.elim | exact h'.elim | exact below_trans h h'
+    first | trivial | exact h.elim | exact h'.elim | exact RuntimeValue.isRefinedBy_trans h h'
 
 @[grind →]
 theorem le_antisymm (a b : AbstractConstant) : a ≤ b → b ≤ a → a = b := by
   intro h h'
   cases a <;> cases b <;> simp only [le_def, le] at h h' ⊢ <;>
-    first | rfl | exact h.elim | exact h'.elim | rw [below_antisymm h h']
+    first | rfl | exact h.elim | exact h'.elim | rw [RuntimeValue.isRefinedBy_antisymm h h']
 
 @[simp, grind .]
 theorem le_join_left (a b : AbstractConstant) : a ≤ a ⊔ b := by
@@ -163,10 +119,8 @@ theorem le_join_left (a b : AbstractConstant) : a ≤ a ⊔ b := by
     first | exact le_refl _ | exact le_top _ | exact bot_le _ | skip
   case constant.constant c d =>
     split
-    · next h => exact h
-    · split
-      · exact below_refl c
-      · exact le_top _
+    · next e he => exact (RuntimeValue.lub?_isRefinedBy he).1
+    · exact le_top _
 
 @[simp, grind .]
 theorem le_join_right (a b : AbstractConstant) : b ≤ a ⊔ b := by
@@ -175,10 +129,8 @@ theorem le_join_right (a b : AbstractConstant) : b ≤ a ⊔ b := by
     first | exact le_refl _ | exact le_top _ | exact bot_le _ | skip
   case constant.constant c d =>
     split
-    · exact below_refl d
-    · split
-      · next h => exact h
-      · exact le_top _
+    · next e he => exact (RuntimeValue.lub?_isRefinedBy he).2
+    · exact le_top _
 
 theorem join_le (a b c : AbstractConstant) : a ≤ c → b ≤ c → a ⊔ b ≤ c := by
   intro ha hb
@@ -190,11 +142,9 @@ theorem join_le (a b c : AbstractConstant) : a ≤ c → b ≤ c → a ⊔ b ≤
     | bottom => exact ha.elim
     | constant e =>
       simp only [le_def, le] at ha hb
-      split
-      · exact hb
-      · split
-        · exact ha
-        · rcases below_total_of_below ha hb with h | h <;> contradiction
+      obtain ⟨m, hm, hme⟩ := RuntimeValue.lub?_least ha hb
+      simp only [hm]
+      exact hme
 
 instance : JoinSemilattice AbstractConstant where
   le_refl := le_refl
