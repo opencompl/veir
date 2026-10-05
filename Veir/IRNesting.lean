@@ -37,6 +37,13 @@ inductive IRNode where
   | region (ptr : RegionPtr)
 deriving DecidableEq
 
+instance : Coe OperationPtr IRNode where
+  coe ptr := IRNode.operation ptr
+instance : Coe BlockPtr IRNode where
+  coe ptr := IRNode.block ptr
+instance : Coe RegionPtr IRNode where
+  coe ptr := IRNode.region ptr
+
 namespace IRNode
 
 /-- The kind of an IR node. -/
@@ -327,7 +334,33 @@ theorem Ancestor.of_same_parent_of_properAncestor {ancestor : IRNode}
     ancestor.Ancestor child₂ ctx := by
   grind
 
+/-- `node` is rooted at `root` if `root` is an ancestor of `node` and `root` has no parent. -/
+def RootedAt (node root : IRNode) (ctx : WfIRContext OpInfo) : Prop :=
+  root.Ancestor node ctx ∧ root.parent! ctx = none
+
+@[grind →]
+theorem RootedAt.ancestor {node root: IRNode} (hRooted : node.RootedAt root ctx) :
+    root.Ancestor node ctx :=
+  hRooted.1
+
+theorem RootedAt.root_parent_eq {node root: IRNode} (hRooted : node.RootedAt root ctx) :
+    root.parent! ctx = none :=
+  hRooted.2
+
 end IRNode
+
+@[simp, grind]
+abbrev OperationPtr.RootedAt (op : OperationPtr) (root : IRNode) (ctx : WfIRContext OpInfo) : Prop :=
+  IRNode.RootedAt (.operation op) root ctx
+
+@[simp, grind]
+abbrev BlockPtr.RootedAt (block : BlockPtr) (root : IRNode) (ctx : WfIRContext OpInfo) : Prop :=
+  IRNode.RootedAt (.block block) root ctx
+
+@[simp, grind]
+abbrev RegionPtr.RootedAt (region : RegionPtr) (root : IRNode) (ctx : WfIRContext OpInfo) : Prop :=
+  IRNode.RootedAt (.region region) root ctx
+
 
 /-! ## Executable nesting queries -/
 

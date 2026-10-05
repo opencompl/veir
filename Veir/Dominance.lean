@@ -63,8 +63,8 @@ chain of enclosing nodes ends at a root, and every enclosing block of an SSACFG 
 reachable from the region entry.
 -/
 axiom OperationPtr.ProperlyDominates.trans_of_reachable {op₃ : OperationPtr}
-    (rooted : ∃ root : IRNode, root.Ancestor (.operation op₃) ctx ∧ root.parent! ctx = none)
-    (reachable : ∀ block region, (IRNode.block block).Ancestor (.operation op₃) ctx →
+    (rooted : ∃ root, IRNode.RootedAt op₃ root ctx)
+    (reachable : ∀ block region, (IRNode.block block).Ancestor op₃ ctx →
       (block.get! ctx.raw).parent = some region → region.hasSSADominance ctx = true →
       block.ReachableFromEntry region ctx) :
     op₁.ProperlyDominates op₂ ctx true →
