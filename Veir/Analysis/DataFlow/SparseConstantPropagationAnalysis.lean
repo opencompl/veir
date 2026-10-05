@@ -2,20 +2,15 @@ module
 
 public import Veir.Analysis.DataFlow.Domains.ConstantDomain
 public import Veir.Analysis.DataFlow.SparseForwardDataFlowAnalysis
+import Veir.Analysis.DataFlow.Printer
 import Veir.Interfaces.FoldInterfaces
+public import Veir.Interfaces.FoldInterfaces
 
 public section
 
 namespace Veir
 
 namespace SparseConstantPropagation
-
-instance : SparseFactSpec .sparseConstant AbstractConstant where
-  Metadata := Option OpCode
-  metadataOfResult op
-    | .constant _ => some op
-    | _ => none
-  payloadEq := rfl
 
 def kind : AnalysisKind :=
   .sparseConstantPropagation
@@ -69,10 +64,14 @@ def transfer
 
 end SparseConstantPropagation
 
+private def printer : DataFlowPrinter :=
+  .sparse "constant" .sparseConstant
+
 def SparseConstantPropagationAnalysis : DataFlowAnalysis :=
-  SparseForwardDataFlowAnalysis.new
-    .sparseConstant
-    SparseConstantPropagation.kind
-    SparseConstantPropagation.transfer
+  { SparseForwardDataFlowAnalysis.new
+      .sparseConstant
+      SparseConstantPropagation.kind
+      SparseConstantPropagation.transfer with
+    printer? := some printer }
 
 end Veir

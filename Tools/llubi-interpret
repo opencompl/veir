@@ -1,0 +1,59 @@
+#!/usr/bin/env python3
+"""Run a VeIR interpreter test under llubi.
+
+The module is translated to LLVM IR with ``Tools/veir2llvm``, executed by
+``llubi``, and llubi's verdict is printed in the shape ``veir-interpret``
+prints, so a lit test can hold both to the same CHECK lines.
+"""
+
+import os
+import subprocess
+import sys
+import tempfile
+from importlib.machinery import SourceFileLoader
+from pathlib import Path
+
+TOOLS = Path(__file__).resolve().parent
+vsmith = SourceFileLoader("vsmith", str(TOOLS / "vsmith")).load_module()
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) != 1:
+        print("usage: llubi-interpret <test.mlir>", file=sys.stderr)
+        return 1
+    translated = subprocess.run(
+        [sys.executable, str(TOOLS / "veir2llvm"), argv[0]],
+        capture_output=True, text=True)
+    if translated.returncode != 0:
+        sys.stderr.write(translated.stderr)
+        return 1
+    # Homebrew's libLLVM references z3 through an unreplaced placeholder path;
+    # the fallback lets dyld find it by name. Harmless elsewhere.
+    env = dict(os.environ)
+    env["DYLD_FALLBACK_LIBRARY_PATH"] = ":".join(
+        [env.get("DYLD_FALLBACK_LIBRARY_PATH", ""), "/opt/homebrew/lib", "/usr/local/lib"])
+    with tempfile.TemporaryDirectory() as tmp:
+        ll_path = Path(tmp) / "test.ll"
+        ll_path.write_text(translated.stdout)
+        # The flag goes before the file: llubi takes trailing arguments as the
+        # program's own.
+        result = subprocess.run(["llubi", "--verbose", str(ll_path)],
+                                capture_output=True, text=True, env=env)
+    log = result.stdout + result.stderr
+    # Keep only the trace of the test's own function, so the standard `main`
+    # wrapper that llubi insists on cannot be mistaken for the result.
+    start = log.find("Entering function: veir_test_main")
+    if start >= 0:
+        end = log.find("Exiting function: veir_test_main", start)
+        log = log[start:] if end < 0 else log[start:end]
+    try:
+        verdict, _ = vsmith.classify_llubi_output(log)
+    except ValueError as e:
+        sys.stderr.write(str(e))
+        return 1
+    print(verdict)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

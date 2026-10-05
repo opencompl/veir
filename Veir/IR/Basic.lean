@@ -1722,6 +1722,13 @@ theorem allocEmpty_def (heq : allocEmpty ctx = some (ctx', ptr')) :
     ctx' = set ⟨ctx.nextID⟩ {ctx with nextID := ctx.nextID + 1} Block.empty := by
   grind [allocEmpty]
 
+-- `inBounds` is currently unused, but we keep it as we intend to switch to a different data
+-- structure that will require it in the future.
+set_option linter.unusedVariables false in
+def dealloc (block : BlockPtr) (ctx : IRContext OpInfo)
+    (inBounds : block.InBounds ctx := by grind) : IRContext OpInfo :=
+  { ctx with blocks := ctx.blocks.erase block }
+
 def getNumArguments (block : BlockPtr) (ctx : IRContext OpInfo) (inBounds : block.InBounds ctx := by grind) : Nat :=
   (block.get ctx (by grind)).arguments.size
 
@@ -2488,6 +2495,13 @@ def allocEmpty (ctx : IRContext OpInfo) : Option (IRContext OpInfo × RegionPtr)
   let ctx := newRegionPtr.set ctx region
   (ctx, newRegionPtr)
 
+-- `inBounds` is currently unused, but we keep it as we intend to switch to a different data
+-- structure that will require it in the future.
+set_option linter.unusedVariables false in
+def dealloc (region : RegionPtr) (ctx : IRContext OpInfo)
+    (inBounds : region.InBounds ctx := by grind) : IRContext OpInfo :=
+  { ctx with regions := ctx.regions.erase region }
+
 end RegionPtr
 
 /-!
@@ -2853,10 +2867,10 @@ macro "setup_grind_with_get_set_definitions" : command => `(
   attribute [local grind] BlockArgumentPtr.get! BlockArgumentPtr.setFirstUse BlockArgumentPtr.set BlockArgumentPtr.setType BlockArgumentPtr.setLoc
   attribute [local grind] OperationPtr.setOperands OperationPtr.setBlockOperands OperationPtr.setResults OperationPtr.pushResult OperationPtr.setRegions OperationPtr.pushRegion OperationPtr.setProperties OperationPtr.setAttributes OperationPtr.pushOperand OperationPtr.pushBlockOperand OperationPtr.allocEmpty OperationPtr.dealloc OperationPtr.setNextOp OperationPtr.setPrevOp OperationPtr.setParent OperationPtr.getNumResults! OperationPtr.getNumOperands! OperationPtr.getNumRegions! OperationPtr.getRegion! OperationPtr.getNumSuccessors! OperationPtr.getProperties! OperationPtr.set OperationPtr.getOperands! OperationPtr.getOpType!
   attribute [local grind] Operation.empty
-  attribute [local grind] BlockPtr.get! BlockPtr.setParent BlockPtr.setFirstUse BlockPtr.setFirstOp BlockPtr.setLastOp BlockPtr.setNextBlock BlockPtr.setPrevBlock BlockPtr.allocEmpty Block.empty BlockPtr.getNumArguments! BlockPtr.set BlockPtr.setArguments BlockPtr.pushArgument
+  attribute [local grind] BlockPtr.get! BlockPtr.setParent BlockPtr.setFirstUse BlockPtr.setFirstOp BlockPtr.setLastOp BlockPtr.setNextBlock BlockPtr.setPrevBlock BlockPtr.allocEmpty BlockPtr.dealloc Block.empty BlockPtr.getNumArguments! BlockPtr.set BlockPtr.setArguments BlockPtr.pushArgument
   attribute [local grind =] Option.maybe_def
   attribute [local grind] OpOperandPtr.get! BlockOperandPtr.get! OpResultPtr.get! BlockArgumentPtr.get! OperationPtr.get!
   attribute [local grind] BlockOperandPtr.setBack BlockOperandPtr.setNextUse BlockOperandPtr.setOwner BlockOperandPtr.setValue BlockOperandPtr.set
   attribute [local grind] BlockOperandPtrPtr.get!
-  attribute [local grind] RegionPtr.get! RegionPtr.setParent RegionPtr.setFirstBlock RegionPtr.setLastBlock RegionPtr.set RegionPtr.allocEmpty
+  attribute [local grind] RegionPtr.get! RegionPtr.setParent RegionPtr.setFirstBlock RegionPtr.setLastBlock RegionPtr.set RegionPtr.allocEmpty RegionPtr.dealloc
 )

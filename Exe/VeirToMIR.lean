@@ -20,7 +20,8 @@ partial def findFuncs (ctx : IRContext OpCode) (op : Option OperationPtr)
   match op with
   | none => acc
   | some op =>
-    findFuncs ctx (op.get! ctx).next (if op.isFunctionLike ctx then acc.push op else acc)
+    let acc := if op.isFunctionLike ctx then acc.push op else acc
+    findFuncs ctx (op.get! ctx).next acc
 
 def main (args : List String) : IO Unit := do
   match inputSourceOfArgs args with

@@ -38,11 +38,12 @@ private def run
 
 private def testConstantPropagatesAcrossEdge : String :=
   run
-    r#""builtin.module"() ({
+    r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
 ^bb0:
   %source = "arith.constant"() <{ value = 5 : i32 }> : () -> i32
   "cf.br"(%source) [^bb1] : (i32) -> ()
 ^bb1(%forwarded : i32):
+  "func.return"() : () -> ()
 }) : () -> ()"#
     #[ ("source", constInt 32 5)
      , ("forwarded", constInt 32 5)
@@ -56,11 +57,12 @@ info: "ok"
 
 private def testPoisonConstantPropagatesAcrossEdge : String :=
   run
-    r#""builtin.module"() ({
+    r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
 ^bb0:
   %source = "llvm.mlir.poison"() : () -> i32
   "cf.br"(%source) [^bb1] : (i32) -> ()
 ^bb1(%forwarded : i32):
+  "func.return"() : () -> ()
 }) : () -> ()"#
     #[ ("source", poisonInt 32)
      , ("forwarded", poisonInt 32)
@@ -128,12 +130,13 @@ info: "ok"
 
 private def testConstantsPropagateByArgumentPosition : String :=
   run
-    r#""builtin.module"() ({
+    r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
 ^bb0:
   %first = "arith.constant"() <{ value = 3 : i32 }> : () -> i32
   %second = "arith.constant"() <{ value = 7 : i32 }> : () -> i32
   "cf.br"(%second, %first) [^bb1] : (i32, i32) -> ()
 ^bb1(%forwardedSecond : i32, %forwardedFirst : i32):
+  "func.return"() : () -> ()
 }) : () -> ()"#
     #[ ("forwardedSecond", constInt 32 7)
      , ("forwardedFirst", constInt 32 3)
@@ -147,13 +150,14 @@ info: "ok"
 
 private def testConstantPropagatesAcrossBlockChain : String :=
   run
-    r#""builtin.module"() ({
+    r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
 ^bb0:
   %source = "arith.constant"() <{ value = -25 : i32 }> : () -> i32
   "cf.br"(%source) [^bb1] : (i32) -> ()
 ^bb1(%middle : i32):
   "cf.br"(%middle) [^bb2] : (i32) -> ()
 ^bb2(%destination : i32):
+  "func.return"() : () -> ()
 }) : () -> ()"#
     #[ ("middle", constInt 32 (-25))
      , ("destination", constInt 32 (-25))
@@ -167,15 +171,17 @@ info: "ok"
 
 private def testConditionalSuccessorOperandsPropagateIndependently : String :=
   run
-    r#""builtin.module"() ({
+    r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
 ^bb0:
-  %condition = "test.test"() : () -> i32
+  %condition = "test.test"() : () -> i1
   %trueValue = "arith.constant"() <{ value = 12 : i32 }> : () -> i32
   %falseValue = "arith.constant"() <{ value = 37 : i32 }> : () -> i32
   "cf.cond_br"(%condition, %trueValue, %falseValue) [^bb1, ^bb2]
-    <{operandSegmentSizes = array<i32: 1, 1, 1>}> : (i32, i32, i32) -> ()
+    <{operandSegmentSizes = array<i32: 1, 1, 1>}> : (i1, i32, i32) -> ()
 ^bb1(%fromTrueEdge : i32):
+  "func.return"() : () -> ()
 ^bb2(%fromFalseEdge : i32):
+  "func.return"() : () -> ()
 }) : () -> ()"#
     #[ ("fromTrueEdge", constInt 32 12)
      , ("fromFalseEdge", constInt 32 37)
@@ -189,7 +195,7 @@ info: "ok"
 
 private def testSameConstantJoinsAcrossPredecessors : String :=
   run
-    r#""builtin.module"() ({
+    r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
 ^bb0:
   %left = "arith.constant"() <{ value = 42 : i32 }> : () -> i32
   "cf.br"(%left) [^bb2] : (i32) -> ()
@@ -197,6 +203,7 @@ private def testSameConstantJoinsAcrossPredecessors : String :=
   %right = "arith.constant"() <{ value = 42 : i32 }> : () -> i32
   "cf.br"(%right) [^bb2] : (i32) -> ()
 ^bb2(%joined : i32):
+  "func.return"() : () -> ()
 }) : () -> ()"#
     #[("joined", constInt 32 42)]
 
@@ -208,7 +215,7 @@ info: "ok"
 
 private def testSameConstantFromDifferentDialectsKeepsOneDialect : String :=
   run
-    r#""builtin.module"() ({
+    r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
 ^bb0:
   %left = "arith.constant"() <{value = 42 : i32}> : () -> i32
   "cf.br"(%left) [^bb2] : (i32) -> ()
@@ -216,6 +223,7 @@ private def testSameConstantFromDifferentDialectsKeepsOneDialect : String :=
   %right = "llvm.mlir.constant"() <{value = 42 : i32}> : () -> i32
   "cf.br"(%right) [^bb2] : (i32) -> ()
 ^bb2(%joined : i32):
+  "func.return"() : () -> ()
 }) : () -> ()"#
     #[("joined", constInt 32 42 (.llvm .mlir__constant))]
 
@@ -227,7 +235,7 @@ info: "ok"
 
 private def testDifferentConstantsJoinToTop : String :=
   run
-    r#""builtin.module"() ({
+    r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
 ^bb0:
   %left = "arith.constant"() <{ value = -3 : i32 }> : () -> i32
   "cf.br"(%left) [^bb2] : (i32) -> ()
@@ -235,6 +243,7 @@ private def testDifferentConstantsJoinToTop : String :=
   %right = "arith.constant"() <{ value = 9 : i32 }> : () -> i32
   "cf.br"(%right) [^bb2] : (i32) -> ()
 ^bb2(%joined : i32):
+  "func.return"() : () -> ()
 }) : () -> ()"#
     #[("joined", unknown)]
 
@@ -246,7 +255,7 @@ info: "ok"
 
 private def testConstantAndUnknownJoinToTop : String :=
   run
-    r#""builtin.module"() ({
+    r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
 ^bb0:
   %known = "arith.constant"() <{ value = 7 : i32 }> : () -> i32
   "cf.br"(%known) [^bb2] : (i32) -> ()
@@ -254,6 +263,7 @@ private def testConstantAndUnknownJoinToTop : String :=
   %unknown = "test.test"() : () -> i32
   "cf.br"(%unknown) [^bb2] : (i32) -> ()
 ^bb2(%joined : i32):
+  "func.return"() : () -> ()
 }) : () -> ()"#
     #[ ("unknown", unknown)
      , ("joined", unknown)
@@ -267,10 +277,11 @@ info: "ok"
 
 private def testEntryArgumentPropagatesAsTop : String :=
   run
-    r#""builtin.module"() ({
+    r#""func.func"() <{sym_name = "f", function_type = (i32) -> ()}> ({
 ^bb0(%input : i32):
   "cf.br"(%input) [^bb1] : (i32) -> ()
 ^bb1(%forwarded : i32):
+  "func.return"() : () -> ()
 }) : () -> ()"#
     #[ ("input", unknown)
      , ("forwarded", unknown)
@@ -284,10 +295,11 @@ info: "ok"
 
 private def testLatePredecessorUpdateRevisitsBlock : String :=
   run
-    r#""builtin.module"() ({
+    r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
 ^bb0:
   "cf.br"() [^bb2] : () -> ()
 ^bb1(%forwarded : i32):
+  "func.return"() : () -> ()
 ^bb2:
   %late = "arith.constant"() <{ value = 19 : i32 }> : () -> i32
   "cf.br"(%late) [^bb1] : (i32) -> ()
@@ -304,7 +316,7 @@ info: "ok"
 
 private def testLateConflictPropagatesTopThroughSuccessorChain : String :=
   run
-    r#""builtin.module"() ({
+    r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
 ^bb0:
   %first = "arith.constant"() <{ value = 1 : i32 }> : () -> i32
   "cf.br"(%first) [^bb1] : (i32) -> ()
@@ -314,6 +326,7 @@ private def testLateConflictPropagatesTopThroughSuccessorChain : String :=
   %late = "arith.constant"() <{ value = 2 : i32 }> : () -> i32
   "cf.br"(%late) [^bb1] : (i32) -> ()
 ^bb3(%downstream : i32):
+  "func.return"() : () -> ()
 }) : () -> ()"#
     #[ ("joined", unknown)
      , ("downstream", unknown)

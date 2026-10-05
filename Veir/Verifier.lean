@@ -5,6 +5,7 @@ public import Veir.GlobalOpInfo
 public import Veir.Interfaces.FunctionInterfaces
 public import Veir.Interfaces.SideEffectInterfaces
 public import Veir.IRNesting
+public import Veir.Interfaces.RegionIsolationInterfaces
 public import Veir.Interfaces.RegionKindInterfaces
 public import Veir.IR.Dominance
 
@@ -157,9 +158,9 @@ private def symbolRefBytes (name : String) : Option ByteArray :=
 
 /--
   Check the module-wide invariants needed by LLVM global references: global
-  names are unique, and every `llvm.mlir.addressof` names either an
-  `llvm.mlir.global` or an `llvm.func` -- as in MLIR, where taking the address
-  of a function is how function pointers and vtables are spelled.
+  names are unique, and every `llvm.mlir.addressof` names a
+  global, alias, or function. Function references remain valid after lowering
+  an `llvm.func` to `riscv_cf.func`.
 -/
 private def WfIRContext.verifyLLVMGlobalSymbols (ctx : WfIRContext OpCode) :
     Except String Unit := do
@@ -175,6 +176,9 @@ private def WfIRContext.verifyLLVMGlobalSymbols (ctx : WfIRContext OpCode) :
       globals := globals.insert symbolName op
     if op.getOpType! ctx.raw = .llvm .func then
       let props := op.getProperties! ctx.raw Llvm.func
+      functions := functions.insert ("@".toUTF8 ++ props.sym_name.value)
+    if op.getOpType! ctx.raw = .riscv_cf .func then
+      let props := op.getProperties! ctx.raw Riscv_Cf.func
       functions := functions.insert ("@".toUTF8 ++ props.sym_name.value)
   /- Aliases share the symbol table with globals and functions; check them
      after both are known so the order of traversal does not matter. -/
@@ -194,7 +198,7 @@ private def WfIRContext.verifyLLVMGlobalSymbols (ctx : WfIRContext OpCode) :
       if !globals.contains symbolName && !functions.contains symbolName
           && !aliases.contains symbolName then
         throw s!"llvm.mlir.addressof: symbol '{props.global_name.value}' does not name an \
-          llvm.mlir.global, llvm.mlir.alias or llvm.func"
+          llvm.mlir.global, llvm.mlir.alias or llvm.func/riscv_cf.func"
 
 private def WfIRContext.verifyLLVMAliasInitializers (ctx : WfIRContext OpCode) :
     Except String Unit := do
@@ -244,6 +248,7 @@ private def WfIRContext.verifyLLVMComdats (ctx : WfIRContext OpCode) :
     let opType := op.getOpType! ctx.raw
     let extra? : Option DictionaryAttr :=
       if opType = .llvm .func then some (op.getProperties! ctx.raw Llvm.func).extra
+      else if opType = .riscv_cf .func then some (op.getProperties! ctx.raw Riscv_Cf.func).extra
       else if opType = .llvm .mlir__global then some (op.getProperties! ctx.raw Llvm.mlir__global).extra
       else none
     let some extra := extra? | continue

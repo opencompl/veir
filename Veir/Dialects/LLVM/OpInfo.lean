@@ -1531,6 +1531,9 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       return (#[], mem, some (.branch (operands.extract 1 (1 + defaultSize)) destDefault))
     | .int _ .poison => Interp.ub none
     | _ => none
+  | .mlir__addressof => do
+    let some object := mem.globals[properties.global_name.value]? | none
+    return (#[.addr (.val ⟨object, 0⟩)], mem, none)
   | .alloca => do
     let [.int _ (.val count)] := operands.toList | none
     /- `alloca T, N` reserves `N` strides of `T`, as in LLVM. -/
@@ -1547,6 +1550,22 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let [val, .addr addr] := operands.toList | none
     let .val addr := addr | Interp.ub none
     let mem ← mem.llvmStore addr val
+    return (#[], mem, none)
+  | .intr__memset => do
+    let [.addr dst, val, .int _ len] := operands.toList | none
+    let .val len := len | Interp.ub none
+    if len.toNat = 0 then return (#[], mem, none)
+    let .val dst := dst | Interp.ub none
+    let mem ← mem.memset dst val len.toNat
+    return (#[], mem, none)
+  | .intr__memcpy | .intr__memmove => do
+    let [.addr dst, .addr src, .int _ len] := operands.toList | none
+    let .val len := len | Interp.ub none
+    if len.toNat = 0 then return (#[], mem, none)
+    let .val dst := dst | Interp.ub none
+    let .val src := src | Interp.ub none
+    let mem ← if opType = .intr__memcpy then mem.memcpy dst src len.toNat
+      else mem.memmove dst src len.toNat
     return (#[], mem, none)
   | .getelementptr => do
     /- only supports exactly one dynamic index for now -/
@@ -1588,6 +1607,16 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
           if bw = 64 then .ok (.int 64 (mem.intFromPtr val')) else .fail none
       | _, _ => none
     return (#[result], mem, none)
+  | .inttoptr => do
+    let [.int bw val] := operands.toList | none
+    let [type] := resultTypes.toList | none
+    let .llvmPointerType _ := type.val | none
+    if h : bw = 64 then return (#[.addr (mem.ptrFromInt (val.cast h))], mem, none) else .fail none
+  | .ptrtoint => do
+    let [.addr val] := operands.toList | none
+    let [type] := resultTypes.toList | none
+    let .integerType bw := type.val | none
+    if bw.bitwidth = 64 then return (#[.int 64 (mem.intFromPtr val)], mem, none) else .fail none
   | _ => none
 
 instance : HasOpInfo Llvm where

@@ -3,6 +3,7 @@ module
 public import Veir.Rewriter.InsertPoint
 public import Veir.Dominance.Basic
 public import Veir.Dominance.Lemmas
+public import Veir.Interfaces.RegionKindInterfaces
 
 import all Veir.Dominance.Basic
 
@@ -29,8 +30,8 @@ variable {op op₁ op₂ : OperationPtr}
   An operation `op₁` properly dominates an operation `op₂` if it dominates it
   and the operations are not equal.
 -/
-axiom OperationPtr.properlyDominates_def :
-    op₁.ProperlyDominates op₂ ctx true ↔ op₁.Dominates op₂ ctx ∧ op₁ ≠ op₂
+axiom OperationPtr.properlyDominates_iff_dominates_of_ne (hne : op₁ ≠ op₂) :
+    op₁.ProperlyDominates op₂ ctx true ↔ op₁.Dominates op₂ ctx
 
 /--
   The dominance relation between an operation and an insertion point.
@@ -86,11 +87,18 @@ axiom OperationPtr.dominatesIp_before :
 grind_pattern OperationPtr.dominatesIp_before => op₁.dominatesIp (.before op₂) ctx
 
 /--
-Proper dominance between operations is transitive.
+Proper dominance between operations is transitive when the final operation is reachable: its
+chain of enclosing nodes ends at a root, and every enclosing block of an SSACFG region is
+reachable from the region entry.
 -/
-axiom OperationPtr.properlyDominates_trans {op₃ : OperationPtr} :
-  op₁.ProperlyDominates op₂ ctx true → op₂.ProperlyDominates op₃ ctx true →
-  op₁.ProperlyDominates op₃ ctx true
+axiom OperationPtr.ProperlyDominates.trans_of_reachable {op₃ : OperationPtr}
+    (rooted : ∃ root : IRNode, root.Ancestor (.operation op₃) ctx ∧ root.parent! ctx = none)
+    (reachable : ∀ block region, (IRNode.block block).Ancestor (.operation op₃) ctx →
+      (block.get! ctx.raw).parent = some region → region.hasSSADominance ctx = true →
+      block.ReachableFromEntry region ctx) :
+    op₁.ProperlyDominates op₂ ctx true →
+    op₂.ProperlyDominates op₃ ctx true →
+    op₁.ProperlyDominates op₃ ctx true
 
 /--
 A value dominating the program point before an operation `op₁` also dominates the program
@@ -182,9 +190,17 @@ axiom WfIRContext.Dom.blockArgument_dominatesIp_entry (ctxDom : ctx.Dom)
     (hMem : value ∈ block.getArguments! ctx.raw) :
     value.dominatesIp (InsertPoint.atStart! block ctx.raw) ctx
 
-/-- An argument of a block cannot dominate a program point that dominates the block start. -/
+/-- An argument of an SSACFG block with rooted, reachable ancestry cannot dominate a program point
+that dominates the block start. -/
 axiom WfIRContext.Dom.blockArgument_not_dominatesIp_before_of_dominatesIp_firstOp
     (ctxDom : ctx.Dom) {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
+    {block : BlockPtr} {region : RegionPtr}
+    (blockParent : (block.get! ctx.raw).parent = some region)
+    (ssa : region.hasSSADominance ctx = true)
+    (rooted : ∃ root : IRNode, root.Ancestor (.block block) ctx ∧ root.parent! ctx = none)
+    (reachable : ∀ ancestor region, (IRNode.block ancestor).Ancestor (.block block) ctx →
+      (ancestor.get! ctx.raw).parent = some region → region.hasSSADominance ctx = true →
+      ancestor.ReachableFromEntry region ctx)
     (opDom : op.dominatesIp (InsertPoint.atStart! block ctx.raw) ctx)
     (hMem : value ∈ block.getArguments! ctx.raw) :
     ¬ value.dominatesIp (InsertPoint.before op) ctx

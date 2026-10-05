@@ -1,12 +1,14 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
+// RUN: ALIVE_EXEC
 
 // `sdiv intMin, -1` is immediate UB (signed overflow of the quotient).
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main", function_type = () -> i32}> ({
+  "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i32 ()>}> ({
     %intmin = "llvm.mlir.constant"() <{ "value" = -2147483648 : i32 }> : () -> i32
     %negone = "llvm.mlir.constant"() <{ "value" = -1 : i32 }> : () -> i32
     %y = "llvm.sdiv"(%intmin, %negone) : (i32, i32) -> i32
-    "func.return"(%y) : (i32) -> ()
+    "llvm.return"(%y) : (i32) -> ()
   }) : () -> ()
 }) : () -> ()
 

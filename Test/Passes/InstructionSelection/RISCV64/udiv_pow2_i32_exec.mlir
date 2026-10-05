@@ -1,17 +1,17 @@
 // RUN: veir-interpret %s | filecheck %s --check-prefix=SRC
-// RUN: veir-opt %s --print-op-generic -p=canonicalize,instcombine,canonicalize,cse,dce,isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,canonicalize,riscv-combine,coerce-function-boundaries-to-riscv-reg,reconcile-cast,dce > %t && veir-interpret %t | filecheck %s
+// RUN: veir-opt %s --print-op-generic -p=canonicalize,instcombine,canonicalize,cse,dce,isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,canonicalize,riscv-combine,isel-abi-riscv64,reconcile-cast,dce > %t && veir-interpret %t | filecheck %s
 
 // `i32` analogue of udiv_pow2_exec.mlir (`udivwPow2`).
 //
-// CHECK is #64 (SRC is #32): coerce-function-boundaries-to-riscv-reg,reconcile-cast coerces `main`'s `i32` boundary to
+// CHECK is #64 (SRC is #32): isel-abi-riscv64,reconcile-cast coerces `main`'s `i32` boundary to
 // `!riscv.reg`, so post-lowering the declared return type is a register.
 
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main", function_type = () -> i32}> ({
+  "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i32 ()>}> ({
     %a = "llvm.mlir.constant"() <{value = 37 : i32}> : () -> i32
     %b = "llvm.mlir.constant"() <{value = 8 : i32}> : () -> i32
     %r = "llvm.udiv"(%a, %b) : (i32, i32) -> i32
-    "func.return"(%r) : (i32) -> ()
+    "llvm.return"(%r) : (i32) -> ()
   }) : () -> ()
 }) : () -> ()
 
