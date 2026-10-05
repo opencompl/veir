@@ -1021,3 +1021,11 @@ namespace Rat
 def twoPow (k : Int) : Rat := 2 ^ k
 
 end Rat
+
+/-- A list of two elements, read off its length. -/
+theorem List.exists_eq_pair {α : Type} : ∀ {l : List α}, l.length = 2 → ∃ a b, l = [a, b]
+  | [_, _], _ => ⟨_, _, rfl⟩
+
+/-- A list of three elements, read off its length. -/
+theorem List.exists_eq_triple {α : Type} : ∀ {l : List α}, l.length = 3 → ∃ a b c, l = [a, b, c]
+  | [_, _, _], _ => ⟨_, _, _, rfl⟩

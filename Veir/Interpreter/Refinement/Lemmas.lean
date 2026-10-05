@@ -266,3 +266,70 @@ theorem ValueMapping.ReflectsResults.not_mem_getResults
   simp only [OperationPtr.getResults!.mem_iff_exists_index] at hmem
   have ⟨index, hindex, heq⟩ := hmem
   grind [OperationPtr.getResults!.mem_iff_exists_index, hReflect val valIn index heq.symm]
+
+/-- A source array of two values fixes the target array to two values that it refines. -/
+theorem RuntimeValue.arrayIsRefinedBy_toList_pair {a b : Array RuntimeValue}
+    {v₁ v₂ : RuntimeValue} (hEq : a.toList = [v₁, v₂]) (h : a ⊒ b) :
+    ∃ w₁ w₂, b.toList = [w₁, w₂] ∧ v₁ ⊒ w₁ ∧ v₂ ⊒ w₂ := by
+  cases a; cases b; subst hEq
+  obtain ⟨w₁, w₂, rfl⟩ := List.exists_eq_pair (by simpa using h.1.symm)
+  exact ⟨w₁, w₂, rfl, by grind [arrayIsRefinedBy], by grind [arrayIsRefinedBy]⟩
+
+/-- A source array of three values fixes the target array to three values that it refines. -/
+theorem RuntimeValue.arrayIsRefinedBy_toList_triple {a b : Array RuntimeValue}
+    {v₁ v₂ v₃ : RuntimeValue} (hEq : a.toList = [v₁, v₂, v₃]) (h : a ⊒ b) :
+    ∃ w₁ w₂ w₃, b.toList = [w₁, w₂, w₃] ∧ v₁ ⊒ w₁ ∧ v₂ ⊒ w₂ ∧ v₃ ⊒ w₃ := by
+  cases a; cases b; subst hEq
+  obtain ⟨w₁, w₂, w₃, rfl⟩ := List.exists_eq_triple (by simpa using h.1.symm)
+  exact ⟨w₁, w₂, w₃, rfl, by grind [arrayIsRefinedBy], by grind [arrayIsRefinedBy],
+    by grind [arrayIsRefinedBy]⟩
+
+/-- A runtime value `tv` that refines a non-poison integer value `v` is equal to it. -/
+theorem RuntimeValue.int_val_of_isRefinedBy {bw : Nat} {v : BitVec bw} {tv : RuntimeValue}
+    (h : RuntimeValue.int bw (.val v) ⊒ tv) : tv = RuntimeValue.int bw (.val v) := by
+  cases tv <;> grind [RuntimeValue.isRefinedBy, isRefinedBy, cases Data.LLVM.Int]
+
+/-- Two integers that refine are refined as runtime values. -/
+theorem RuntimeValue.int_isRefinedBy {bw : Nat} {v w : Data.LLVM.Int bw} (h : v ⊒ w) :
+    RuntimeValue.int bw v ⊒ RuntimeValue.int bw w :=
+  ⟨rfl, by simpa using h⟩
+
+/-- A slice of the source is refined by the same slice of the target. -/
+theorem RuntimeValue.arrayIsRefinedBy_extract {a b : Array RuntimeValue} (h : a ⊒ b) (i j : Nat) :
+    a.extract i j ⊒ b.extract i j := by
+  refine ⟨by simp [h.1], fun k hk => ?_⟩
+  simp only [Array.size_extract] at hk
+  have hk' := h.2 (i + k) (by omega)
+  rw [getElem!_pos _ _ (by omega), getElem!_pos _ _ (by rw [← h.1]; omega)] at hk'
+  rw [getElem!_pos _ _ (by simp only [Array.size_extract]; omega),
+    getElem!_pos _ _ (by simp only [Array.size_extract, ← h.1]; omega)]
+  simpa using hk'
+
+/-- The same, for a slice that runs to the end. -/
+theorem RuntimeValue.arrayIsRefinedBy_extract_from {a b : Array RuntimeValue} (h : a ⊒ b)
+    (i : Nat) : a.extract i ⊒ b.extract i := by
+  have hx := RuntimeValue.arrayIsRefinedBy_extract h i a.size
+  rw [show b.extract i a.size = b.extract i by rw [h.1]] at hx
+  exact hx
+
+/-- An element of the source has a counterpart in the target that it refines. -/
+theorem RuntimeValue.getElem?_of_arrayIsRefinedBy {a b : Array RuntimeValue} (h : a ⊒ b)
+    {i : Nat} {v : RuntimeValue} (hv : a[i]? = some v) : ∃ w, b[i]? = some w ∧ v ⊒ w := by
+  have hi : i < a.size := by
+    apply Classical.byContradiction
+    intro hNot
+    rw [Array.getElem?_eq_none_iff.mpr (by omega)] at hv
+    exact absurd hv (by simp)
+  obtain rfl : a[i] = v := by
+    rw [Array.getElem?_eq_getElem hi] at hv
+    exact Option.some.inj hv
+  refine ⟨b[i]!, ?_, ?_⟩
+  · rw [getElem!_pos b i (by rw [← h.1]; omega)]
+    exact Array.getElem?_eq_getElem _
+  · have hh := h.2 i hi
+    rwa [getElem!_pos a i hi] at hh
+
+/-- An operation that returns one value, leaves the memory alone and asks for no control flow. -/
+theorem OperationResult.isRefinedBy_value {v w : RuntimeValue} {mem : MemoryState} (h : v ⊒ w) :
+    OperationResult.isRefinedBy (#[v], mem, none) (#[w], mem, none) :=
+  ⟨RuntimeValue.arrayIsRefinedBy_singleton.mpr h, rfl, trivial⟩
