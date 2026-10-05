@@ -1108,7 +1108,8 @@ partial def parseOptionalFunctionType : AttrParserM (Option FunctionType) := do
   `struct<...>` if the corresponding argument is set.
 
   A struct with a body, literal (`struct<packed? (...)>`) or identified
-  (`struct<"name", packed? (...)>`), becomes an `LLVM.StructType`.
+  (`struct<"name", packed? (...)>`), becomes an `LLVM.StructType` when its
+  fields can be parsed. Otherwise, preserve its text as an `UnregisteredAttr`.
 
   LIMITATION: an opaque identified struct (`struct<"name", opaque>`) and a bare
   reference to an identified struct (`struct<"name">`, used for recursive
@@ -1119,6 +1120,7 @@ partial def parseOptionalLLVMStructType (short := false) : AttrParserM (Option T
   if !(← parseOptionalTypeName "llvm.struct" short) then return none
   let startPos ← getPos
   parsePunctuation "<"
+  let bodyState ← getThe ParserState
   let name ← parseOptionalStringLiteral
   /- An opaque struct or a bare reference: keep the text, normalized to the full
      `!llvm.struct<...>` spelling, so both forms produce identical output. -/
@@ -1132,10 +1134,20 @@ partial def parseOptionalLLVMStructType (short := false) : AttrParserM (Option T
     parsePunctuation ">"
     let body := (Slice.mk startPos endPos).of (← getThe ParserState).input
     return some ⟨UnregisteredAttr.mk ("!llvm.struct" ++ String.fromUTF8! body) true none, by grind⟩
-  let packed ← parseOptionalKeyword "packed".toByteArray
-  let body ← parseDelimitedList .paren parseLLVMType
-  parsePunctuation ">"
-  return some (LLVM.StructType.mk name packed (body.map (·.val)))
+  try
+    let packed ← parseOptionalKeyword "packed".toByteArray
+    let body ← parseDelimitedList .paren parseLLVMType
+    parsePunctuation ">"
+    return some (LLVM.StructType.mk name packed (body.map (·.val)))
+  catch _ =>
+    /- Preserve the old opaque parsing for fields VeIR cannot yet model, such
+       as address-space pointers and scalable vectors. -/
+    set bodyState
+    let _ ← parseUnregisteredAttrBody
+    let endPos := (← peekToken).slice.stop
+    parsePunctuation ">"
+    let body := (Slice.mk startPos endPos).of (← getThe ParserState).input
+    return some ⟨UnregisteredAttr.mk ("!llvm.struct" ++ String.fromUTF8! body) true none, by grind⟩
 
 /--
   Parse a type within an LLVM-dialect type body, accepting the LLVM "pretty-print"

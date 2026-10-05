@@ -728,12 +728,21 @@ def TypeAttr.verifyLLVMVectorType (ty : TypeAttr) (errMsg : String) :
     throw s!"Expected an LLVM-compatible vector element type, but got {vectorType.elementType}"
   return vectorType
 
+/-- Whether type equality may depend on a struct VeIR keeps as text. -/
+private partial def hasOpaqueLLVMStruct : Attribute → Bool
+  | .unregisteredAttr attr => attr.isType && attr.value.startsWith "!llvm.struct"
+  | .llvmArrayType arrType => hasOpaqueLLVMStruct arrType.type
+  | .llvmStructType structType => structType.body.any hasOpaqueLLVMStruct
+  | _ => false
+
 /--
   Walk `position` through an aggregate type, as MLIR does for `insertvalue` and
   `extractvalue`, and return the element type it reaches. Arrays and structs with
   a body are modelled, so their indices and element types are checked. Opaque
   structs and references to identified structs are kept unregistered, so the walk
-  stops at one with indices left and returns `none`.
+  stops at one with indices left and returns `none`. Also return `none` when the
+  reached type contains an unregistered struct, since references cannot be
+  compared with their definitions.
 -/
 def Llvm.verifyAggregatePosition (containerType : TypeAttr) (position : DenseArrayAttr) :
     Except String (Option Attribute) := do
@@ -764,7 +773,7 @@ def Llvm.verifyAggregatePosition (containerType : TypeAttr) (position : DenseArr
     | _ =>
       if isOpaqueStruct current then return none
       throw s!"Expected LLVM IR structure/array type, got: {current}"
-  return some current
+  return if hasOpaqueLLVMStruct current then none else some current
 
 /--
 Verify the local invariants of an `llvm` operation in any operation-info type

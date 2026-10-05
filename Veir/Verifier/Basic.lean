@@ -441,12 +441,12 @@ def OperationPtr.verifyIntegerExtTypes (op : OperationPtr)
     pure ()
 
 /--
-  Whether `type` is compatible with the LLVM dialect: integers, floats,
+  Whether `type` is compatible with the LLVM dialect: integers, bytes, floats,
   pointers, arrays, structs and vectors of compatible types, void, and the
   `!llvm.*` types VeIR keeps opaque, such as opaque structs.
 -/
 partial def Attribute.isLLVMCompatibleType : Attribute → Bool
-  | .integerType _ | .floatType _ | .llvmPointerType _ | .llvmVoidType _ => true
+  | .integerType _ | .byteType _ | .floatType _ | .llvmPointerType _ | .llvmVoidType _ => true
   | .llvmFunctionType _ => true
   | .llvmArrayType arrType => arrType.type.isLLVMCompatibleType
   | .llvmStructType structType => structType.body.all (·.isLLVMCompatibleType)

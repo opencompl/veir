@@ -41,6 +41,11 @@
       "test.opaque"() <{ty = !llvm.struct<"opaque_t", opaque>}> : () -> ()
       "test.recursive"() <{ty = !llvm.struct<"node", (ptr, struct<"node">)>}> : () -> ()
 
+      // Unsupported field types preserve the enclosing struct as text.
+      "test.address_space"() <{ty = !llvm.struct<(ptr<1>, i32)>}> : () -> ()
+      "test.scalable"() <{ty = !llvm.struct<(vector<[4]xi32>)>}> : () -> ()
+      "test.named_address_space"() <{ty = !llvm.array<2 x struct<"s", packed (i8, ptr<1>)>>}> : () -> ()
+
       "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
@@ -58,6 +63,9 @@
 // CHECK-NEXT:          "test.escaped"() <{"ty" = !llvm.struct<"a\"b", (i8)>}> : () -> ()
 // CHECK-NEXT:          "test.opaque"() <{"ty" = !llvm.struct<"opaque_t", opaque>}> : () -> ()
 // CHECK-NEXT:          "test.recursive"() <{"ty" = !llvm.struct<"node", (!llvm.ptr, !llvm.struct<"node">)>}> : () -> ()
+// CHECK-NEXT:          "test.address_space"() <{"ty" = !llvm.struct<(ptr<1>, i32)>}> : () -> ()
+// CHECK-NEXT:          "test.scalable"() <{"ty" = !llvm.struct<(vector<[4]xi32>)>}> : () -> ()
+// CHECK-NEXT:          "test.named_address_space"() <{"ty" = !llvm.array<2 x !llvm.struct<"s", packed (i8, ptr<1>)>>}> : () -> ()
 // CHECK-NEXT:          "func.return"() : () -> ()
 // CHECK-NEXT:      }) : () -> ()
 // CHECK-NEXT: }) : () -> ()

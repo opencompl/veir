@@ -560,7 +560,7 @@ macro "#assert " e:term : command =>
   The struct type is handled by a dedicated parser that accepts both the
   standalone `!llvm.struct<...>` form and the bare `struct<...>` form used when a
   struct is nested inside another LLVM type (e.g. an array element). Neither
-  requires `allowUnregisteredDialect` (like `!llvm.array`). A struct with a body
+  requires `allowUnregisteredDialect` (like `!llvm.array`). A struct with a supported body
   becomes an `LLVM.StructType`; an opaque struct or a bare reference to an
   identified struct is kept as text, normalized to the `!llvm.struct<...>` form. -/
 
@@ -597,6 +597,17 @@ macro "#assert " e:term : command =>
 #assert expectSuccessType "!llvm.struct<\"node\", (ptr, struct<\"node\">)>"
   (LLVM.StructType.mk (some "node".toUTF8) false #[LLVM.PointerType.mk,
     UnregisteredAttr.mk "!llvm.struct<\"node\">" true none])
+-- Fields unsupported by the type parser retain the entire struct as text.
+#assert expectSuccessType "!llvm.struct<(ptr<1>, i32)>"
+  ⟨UnregisteredAttr.mk "!llvm.struct<(ptr<1>, i32)>" true none, by grind⟩
+#assert expectSuccessType "!llvm.struct<(vector<[4]xi32>)>"
+  ⟨UnregisteredAttr.mk "!llvm.struct<(vector<[4]xi32>)>" true none, by grind⟩
+#assert expectSuccessType "!llvm.array<2 x struct<\"s\", packed (i8, ptr<1>)>>"
+  (LLVM.ArrayType.mk 2
+    (UnregisteredAttr.mk "!llvm.struct<\"s\", packed (i8, ptr<1>)>" true none : Attribute))
+-- The opaque fallback still requires balanced delimiters.
+#assert !(testType "!llvm.struct<(ptr<1>, i32]>").isOk
+#assert !(testType "!llvm.struct<(ptr<1>, i32)").isOk
 
 
 /-! ## LLVM parameterless types -/
