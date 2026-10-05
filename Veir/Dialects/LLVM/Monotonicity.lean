@@ -9,19 +9,7 @@ public section
 
 An LLVM opcode is monotone in its operands when refining its operands refines its result. Every
 opcode proved monotone here has its own `InterpretOp'Monotone` instance; an opcode without one
-falls back to the assumption in `Veir.Dialects.Monotonicity`. This file proves the integer
-operations and the control flow. The casts and the memory operations, which also reason about
-bytes and pointers, follow separately. Of the opcodes the interpreter implements, these are not
-monotone in the relation as it stands:
-
-* `freeze` turns poison into zero, so a more defined operand gives a *different* result;
-* `store`, `memset`, `memcpy` and `memmove` write a poison byte where a refined operand writes a
-  concrete one, which the relation rejects because it asks for the two memories to be equal rather
-  than refined;
-* `shl` and `lshr` read a byte, and refinement of bytes is bit by bit, which needs shift lemmas
-  that `Veir.Data.LLVM.Byte` does not have yet;
-* `switch` picks its successor inside a loop, so relating the two runs needs an induction over
-  that loop.
+falls back to the assumption in `Veir.Dialects.Monotonicity`.
 
 The arms of the integer operations share a few shapes. Each shape has one lemma, generic in the
 operation, and the instance of an opcode applies it to the operation's own monotonicity lemma.
