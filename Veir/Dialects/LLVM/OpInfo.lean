@@ -578,6 +578,16 @@ def Llvm.functionInterface? (op : Llvm) : Option (FunctionOpInterface (Llvm.prop
           { props with function_type := functionType } }
   | _ => none
 
+def Llvm.callOpInterface? (op : Llvm) : Option (CallOpInterface (Llvm.propertiesOf op)) :=
+  match op with
+  | .call =>
+    some
+      { getCallableForCallee? := fun props operands =>
+          match props.callee with
+          | some callee => some (.symbol callee)
+          | none => operands[0]?.map .value }
+  | _ => none
+
 private def Llvm.getSwitchSuccessorOperands?
     (props : LLVMSwitchProperties) (operands : Array ValuePtr)
     (successorIndex : Nat) : Option SuccessorOperands := do
@@ -1638,6 +1648,7 @@ instance : HasOpInfo Llvm where
   isConstantLike := Llvm.isConstantLike
   symbolInterface? := Llvm.symbolInterface?
   functionInterface? := Llvm.functionInterface?
+  callOpInterface? := Llvm.callOpInterface?
   branchOpInterface? := Llvm.branchOpInterface?
   hasSSADominance := Llvm.hasSSADominance
   isTerminator := Llvm.isTerminator
