@@ -15,8 +15,8 @@ An LLVM opcode is monotone in its operands when refining its operands refines it
 namespace Veir
 
 /--
-A load reads through its pointer operand. A poison pointer is undefined behaviour and a
-concrete one is fixed by refinement, so both sides read the same address.
+A load is monotone: a poison pointer is undefined behavior and
+a concrete one is fixed by refinement.
 -/
 instance : InterpretOp'Monotone (.llvm .load) where
   monotone props resultTypes operands operands' blockOperands mem h := by
