@@ -633,18 +633,26 @@ def icmpEmitXorSnezLocal (ctx : WfIRContext OpCode) (op : OperationPtr) (lhs rhs
 def icmpExtOf (bw : Nat) : Option IcmpExtOp :=
   if bw = 32 then some ⟨.sextw, rfl⟩ else if bw = 8 then some ⟨.sextb, rfl⟩ else none
 
+/-- The width of an `icmp` operand once it is in a register: integers keep their width, and an
+    `!llvm.ptr` is a full 64-bit register, compared exactly like an `i64`. -/
+def icmpOperandWidth? (v : ValuePtr) (ctx : IRContext OpCode) : Option Nat :=
+  match (v.getType! ctx).val with
+  | .integerType t => some t.bitwidth
+  | .llvmPointerType _ => some 64
+  | _ => none
+
 /-- llvm.icmp -> riscv comparison sequence (see the arms above). -/
 def icmp_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (lhs, rhs, property) := matchIcmp op ctx.raw | return (ctx, none)
-  /- support `i64`, `i32` and `i8` -/
-  let .integerType ltype := (lhs.getType! ctx.raw).val | return (ctx, none)
-  if ltype.bitwidth ≠ 64 ∧ ltype.bitwidth ≠ 32 ∧ ltype.bitwidth ≠ 8 then return (ctx, none)
-  let .integerType rtype := (rhs.getType! ctx.raw).val | return (ctx, none)
-  if rtype.bitwidth ≠ 64 ∧ rtype.bitwidth ≠ 32 ∧ rtype.bitwidth ≠ 8 then return (ctx, none)
+  /- support `i64`, `i32`, `i8` and `!llvm.ptr` -/
+  let some lwidth := icmpOperandWidth? lhs ctx.raw | return (ctx, none)
+  if lwidth ≠ 64 ∧ lwidth ≠ 32 ∧ lwidth ≠ 8 then return (ctx, none)
+  let some rwidth := icmpOperandWidth? rhs ctx.raw | return (ctx, none)
+  if rwidth ≠ 64 ∧ rwidth ≠ 32 ∧ rwidth ≠ 8 then return (ctx, none)
   /- The result is cast back for type consistency, so it must be an integer type. -/
   let .integerType _ := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  let ext := icmpExtOf ltype.bitwidth
+  let ext := icmpExtOf lwidth
   /- Peephole for `eq`/`ne`: when the rhs is a constant `0`, the `xor` is unnecessary and the
      comparison is against the left register directly (`seqz`/`snez`). Canonicalization runs before
      isel and moves the constant to the rhs, so we only check that side.
@@ -866,7 +874,7 @@ def alloca_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if properties.inalloca then return (ctx, none)
   let .llvmPointerType _ := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   let some parentOp := op.getParentOp! ctx.raw | return (ctx, none)
-  let some funcOp := FunctionOp.cast? parentOp ctx.raw | return (ctx, none)
+  let some funcOp := FunctionOp.of? parentOp ctx.raw | return (ctx, none)
   let some entry := funcOp.getEntryBlock? | return (ctx, none)
   if (op.get! ctx.raw).parent != some entry then return (ctx, none)
   let some (.int _ (.val count)) := operands[0]!.constantValue ctx.raw | return (ctx, none)

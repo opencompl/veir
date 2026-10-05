@@ -634,7 +634,7 @@ def reachableBlocks (ctx : IRContext OpCode) {op : OperationPtr} (funcOp : Funct
 /-- Whether `op` is a function-like op with a body (as opposed to declaring an
     external function). -/
 def hasBody (ctx : IRContext OpCode) (op : OperationPtr) : Bool :=
-  match FunctionOp.cast? op ctx with
+  match FunctionOp.of? op ctx with
   | some funcOp => !funcOp.isExternal
   | none => false
 
@@ -695,7 +695,7 @@ def printFunction (ctx : IRContext OpCode) (name : String) (blocks : Array Block
     MIR parser resolves each `@callee` against the IR module. -/
 def printMIR (ctx : IRContext OpCode) (funcOps : Array OperationPtr) : IO Unit := do
   let funcs := funcOps.filterMap fun op => do
-    let funcOp ← FunctionOp.cast? op ctx
+    let funcOp ← FunctionOp.of? op ctx
     if funcOp.isExternal then
       none
     else
