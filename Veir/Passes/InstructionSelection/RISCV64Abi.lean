@@ -90,15 +90,6 @@ def abiExtOf (entries : Array (ByteArray × Attribute)) (key : String) (i : Nat)
   if dict.entries.any (·.1 == "llvm.zeroext".toUTF8) then return .zext
   return .none
 
-/--
-  `zeroext i32` is not lowered: the psABI sign-extends every 32-bit value, while LLVM
-  zero-extends it. Clang never emits it for RV64.
--/
-def isUnsupportedExt (type : Attribute) (ext : AbiExt) : Bool :=
-  match type with
-  | .integerType t => ext == .zext && t.bitwidth == 32
-  | _ => false
-
 /-- The properties and discardable attributes of `op`, where its `arg_attrs` and `res_attrs` live. -/
 private def abiAttrEntries (ctx : IRContext OpCode) (op : OperationPtr) :
     Array (ByteArray × Attribute) :=
@@ -106,13 +97,7 @@ private def abiAttrEntries (ctx : IRContext OpCode) (op : OperationPtr) :
   (Properties.toAttrDict opType (op.getProperties! ctx opType)).toArray ++ (op.get! ctx).attrs.entries
 
 private def supportsFunctionAbi (ctx : IRContext OpCode) (op : OperationPtr) : Bool :=
-  let entries := abiAttrEntries ctx op
-  match FunctionOp.of? op ctx with
-  | none => false
-  | some funcOp =>
-    !entries.any isUnsupportedAbiAttr &&
-      !(funcOp.getArgumentTypes.zipIdx.any fun (t, i) => isUnsupportedExt t (abiExtOf entries "arg_attrs" i)) &&
-      !(funcOp.getResultTypes.zipIdx.any fun (t, i) => isUnsupportedExt t (abiExtOf entries "res_attrs" i))
+  !(abiAttrEntries ctx op).any isUnsupportedAbiAttr
 
 /-- Resolve a flat callee name in the nearest enclosing module. Do not look through
     nested modules: a same-named function there belongs to a different symbol scope. -/
@@ -136,8 +121,9 @@ def isRegPassed (t : TypeAttr) : Bool :=
 
 /--
   Extend `reg`, which holds a value of type `type` in its low bits, to the full
-  register as `ext` requests. An `i32` is always sign-extended, as the psABI requires.
-  The sequences match `llc -mtriple=riscv64 -mattr=+zbb`.
+  register as `ext` requests. An `i32` is sign-extended, as the psABI requires, unless
+  it is `zeroext`, which LLVM honors by zero-extending it.
+  The sequences match `llc -mtriple=riscv64 -mattr=+zba,+zbb`.
 -/
 def extendForAbi (ctx : WfIRContext OpCode) (ext : AbiExt) (type : TypeAttr) (reg : ValuePtr)
     : Option (WfIRContext OpCode × Array OperationPtr × ValuePtr) := do
@@ -154,6 +140,7 @@ def extendForAbi (ctx : WfIRContext OpCode) (ext : AbiExt) (type : TypeAttr) (re
   | .zext, 8 => extendWith ctx .zextb rfl reg
   | .sext, 16 => extendWith ctx .sexth rfl reg
   | .zext, 16 => extendWith ctx .zexth rfl reg
+  | .zext, 32 => extendWith ctx .zextw rfl reg
   | _, 32 => extendWith ctx .sextw rfl reg
   | _, _ => return (ctx, #[], reg)
 where
@@ -164,8 +151,8 @@ where
 
 /--
   Replace `op` by a `riscv_cf.return` if it returns registers from a function. The
-  boundary coercion casts each coerced return value to a register; an `i32` one is
-  sign-extended after its cast.
+  boundary coercion casts each coerced return value to a register, which is then
+  extended as `extendForAbi` describes.
 -/
 def lowerReturn : LocalRewritePattern OpCode := fun ctx op => do
   let some parent := op.getParentOp! ctx.raw | return (ctx, none)
@@ -215,9 +202,6 @@ def lowerCall (callee : Option FlatSymbolRefAttr) (extra : DictionaryAttr) :
     match abiExtOf callEntries "arg_attrs" (i - numTargets) with
     | .none => abiExtOf calleeEntries "arg_attrs" (i - numTargets)
     | ext => ext
-  if operands.zipIdx.any (fun (v, i) => isUnsupportedExt (v.getType! ctx.raw).val (argExt i)) ||
-      resultTypes.any (isUnsupportedExt ·.val (abiExtOf callEntries "res_attrs" 0)) then
-    return (ctx, none)
   let (ctx, newOps, regs) ← operands.zipIdx.foldlM (init := (ctx, #[], #[]))
       fun (ctx, newOps, regs) (v, i) => do
     let (ctx, cast) ← castToRegLocal ctx v

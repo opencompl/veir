@@ -2,8 +2,7 @@
 
 // ABI attributes on either parameters or results prevent boundary lowering.
 // In particular, byval and nest pointers must not become ordinary register arguments.
-// `signext` is lowered; `zeroext i32` is not, since the psABI sign-extends every
-// 32-bit value while LLVM would zero-extend it.
+// `signext` and `zeroext` are lowered (see abi_ext.mlir).
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "byval_arg", function_type = !llvm.func<void (i64, ptr)>, arg_attrs = [{}, {llvm.byval = i64}]}> ({
   ^bb0(%n: i64, %p: !llvm.ptr):
@@ -34,9 +33,10 @@
   ^bb0(%n: i32):
     "llvm.return"(%n) : (i32) -> ()
   }) : () -> ()
-  // CHECK-LABEL: "function_type" = !llvm.func<i32 (i32)>, "res_attrs" = [{llvm.zeroext}], "sym_name" = "zeroext_result"
-  // CHECK-NEXT: ^{{.*}}(%[[ZR:.*]] : i32):
-  // CHECK-NEXT: "llvm.return"(%[[ZR]]) : (i32) -> ()
+  // CHECK-LABEL: "function_type" = !llvm.func<!riscv.reg (!riscv.reg)>, "res_attrs" = [{llvm.zeroext}], "sym_name" = "zeroext_result"
+  // CHECK-NEXT: ^{{.*}}(%{{.*}} : !riscv.reg):
+  // CHECK: %[[ZRX:.*]] = "riscv.zextw"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
+  // CHECK-NEXT: "riscv_cf.return"(%[[ZRX]]) : (!riscv.reg) -> ()
 
   // An ordinary caller can still have its own boundary lowered, while calls
   // carrying these attributes retain their attributes and original types.
@@ -58,7 +58,8 @@
   // CHECK-NEXT: %{{.*}} = "llvm.call"(%{{.*}}, %{{.*}}, %[[NCALL]]) <{"arg_attrs" = [{llvm.nest}, {}]}> : (!llvm.ptr, !llvm.ptr, i64) -> i64
   // CHECK-NEXT: %[[SX:.*]] = "riscv.sextw"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
   // CHECK-NEXT: %{{.*}} = "riscv_cf.call"(%[[SX]]) <{"callee" = @signext_arg}> : (!riscv.reg) -> !riscv.reg
-  // CHECK-NEXT: %{{.*}} = "llvm.call"(%{{.*}}) <{"callee" = @zeroext_result, "res_attrs" = [{llvm.zeroext}]}> : (i32) -> i32
+  // CHECK-NEXT: %[[ZX:.*]] = "riscv.sextw"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
+  // CHECK-NEXT: %{{.*}} = "riscv_cf.call"(%[[ZX]]) <{"callee" = @zeroext_result}> : (!riscv.reg) -> !riscv.reg
   // CHECK-NEXT: %[[ISX:.*]] = "riscv.sextw"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
   // CHECK-NEXT: %{{.*}} = "riscv_cf.call"(%{{.*}}, %[[ISX]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
   // CHECK: "riscv_cf.call"(%{{.*}}) <{"callee" = @ordinary}> : (!riscv.reg) -> !riscv.reg
