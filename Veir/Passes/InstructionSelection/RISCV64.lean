@@ -237,29 +237,50 @@ def umin_pattern : Veir.Puddle.Pattern OpCode :=
   lowerBinary .intr__umin (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32) .minu ()
 
 /--
-  Shared shape of the binary RISC-V lowerings that accept both integer and byte values (`shl`/`lshr`).
+  Shared shape of the binary RISC-V lowerings that accept both integer and byte values (`shl`/`lshr`):
+  match an lhs of width `bw` (an integer or byte type), cast both operands to registers, apply
+  `riscvOp`, and cast the result back to the result type.
 -/
-def lowerByteBinaryWLocal {P : Type}
-    (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr × P))
-    (op64 op32 : Riscv)
-    (props64 : propertiesOf (OpCode.riscv op64)) (props32 : propertiesOf (OpCode.riscv op32))
-    (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := match? op ctx | return (ctx, none)
-  let ltype := (lhs.getType! ctx.raw)
-  let some bw := getIntByteTypeBitwidth ltype | return (ctx, none)
-  if bw ≠ 64 ∧ bw ≠ 32 then return (ctx, none)
-  let (ctx, lcastOp) ← castToRegLocal ctx lhs
-  let (ctx, rcastOp) ← castToRegLocal ctx rhs
-  let (ctx, retOp) ←
-    if bw = 32 then
-      WfRewriter.createOp! ctx op32 #[RegisterType.mk]
-          #[lcastOp.getResult 0, rcastOp.getResult 0] #[] #[] props32 none
-    else
-      WfRewriter.createOp! ctx op64 #[RegisterType.mk]
-          #[lcastOp.getResult 0, rcastOp.getResult 0] #[] #[] props64 none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (retOp.getResult 0)
-  some (ctx, some (#[lcastOp, rcastOp, retOp, castBackOp], #[castBackOp.getResult 0]))
+def lowerByteBinaryW (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Veir.Puddle.Pattern OpCode :=
+  Veir.Puddle.Pattern.Builder
+    (do
+      let lhsType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
+          (fun t => getIntByteTypeBitwidth t == some bw)
+      let rhsType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
+      let resType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
+      let lhs ← Veir.Puddle.MatchProg.value lhsType
+      let rhs ← Veir.Puddle.MatchProg.value rhsType
+      let _ ← Veir.Puddle.MatchProg.root (.llvm llvmOp) #[lhs, rhs] #[resType]
+      return (resType, lhs, rhs))
+    (fun (resType, lhs, rhs) => do
+      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
+      let lcastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lcastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[lhs] #[regType] lcastProps
+      let rcastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let rcastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[rhs] #[regType] rcastProps
+      let riscvOpProps ← Veir.Puddle.CreateProg.property (.riscv riscvOp) riscvProps
+      let riscvResOp ← Veir.Puddle.CreateProg.operation (.riscv riscvOp)
+          #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType] riscvOpProps
+      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[riscvResOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
+
+/-- `llvm.shl` (`i64`) -> `riscv.sll`. -/
+def shl64_pattern : Veir.Puddle.Pattern OpCode := lowerByteBinaryW .shl 64 .sll ()
+
+/-- `llvm.shl` (`i32`) -> `riscv.sllw`. -/
+def shl32_pattern : Veir.Puddle.Pattern OpCode := lowerByteBinaryW .shl 32 .sllw ()
+
+/-- `llvm.lshr` (`i64`) -> `riscv.srl`. -/
+def lshr64_pattern : Veir.Puddle.Pattern OpCode := lowerByteBinaryW .lshr 64 .srl ()
+
+/-- `llvm.lshr` (`i32`) -> `riscv.srlw`. -/
+def lshr32_pattern : Veir.Puddle.Pattern OpCode := lowerByteBinaryW .lshr 32 .srlw ()
 
 /-- `llvm.intr.smax` (`i64`) -> `riscv.max`. -/
 def smax64_pattern : Veir.Puddle.Pattern OpCode :=
@@ -791,24 +812,16 @@ def trunc (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   RewritePattern.fromLocalRewrite trunc_local rewriter op opInBounds
 
 /-- llvm.shl -> riscv.sll -/
-def shl_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerByteBinaryWLocal matchShl .sll .sllw () () ctx op
+def shl64 : Puddle.CompiledPattern OpCode := shl64_pattern.compile
 
-/-- llvm.shl -> riscv.sll -/
-def shl (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite shl_local rewriter op opInBounds
+/-- llvm.shl -> riscv.sllw -/
+def shl32 : Puddle.CompiledPattern OpCode := shl32_pattern.compile
 
-/-- llvm.lshr -> riscv.srl (riscv.srlw for i32) -/
-def lshr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerByteBinaryWLocal matchLshr .srl .srlw () () ctx op
+/-- llvm.lshr -> riscv.srl -/
+def lshr64 : Puddle.CompiledPattern OpCode := lshr64_pattern.compile
 
-/-- llvm.shl -> riscv.srl -/
-def lshr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite lshr_local rewriter op opInBounds
+/-- llvm.lshr -> riscv.srlw -/
+def lshr32 : Puddle.CompiledPattern OpCode := lshr32_pattern.compile
 
 def checkBitcastType (t : TypeAttr) : Bool :=
   match t.val with
@@ -1840,7 +1853,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     ctlz32.run, ctlz64.run, cttz32.run, cttz64.run, ctpop32.run, ctpop64.run, bswap, bitreverse,
     constant, addressof, add32.run, add64.run, and.run, ashr, icmp, or.run, xor32.run, xor64.run, mul32.run, mul64.run,
     sdiv32.run, sdiv64.run, udiv32.run, udiv64.run, srem32.run, srem64.run, urem32.run, urem64.run,
-    sext32.run, sext16.run, sext8.run, zext32.run, zext16.run, zext8.run, trunc, shl, lshr,
+    sext32.run, sext16.run, sext8.run, zext32.run, zext16.run, zext8.run, trunc, shl64.run, shl32.run, lshr64.run, lshr32.run,
     sub64.run, sub32.run, bitcast, load, getelementptr, store,
     smax64.run, smax32.run, smin64.run, smin32.run, umax.run, umin.run, saddSat, ssubSat, uaddSat, usubSat, sshlSat, ushlSat, abs,
     fshlConst, fshrConst, fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral, fshrGeneral, poisonConst, freeze]
