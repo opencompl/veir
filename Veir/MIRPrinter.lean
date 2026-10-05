@@ -17,7 +17,7 @@ public section
   output of the `isel-*` pipeline) and emits textual MIR with virtual
   registers, suitable for `llc -run-pass=none` / `-start-before=...`.
 
-  Four structural translations happen here:
+  Five structural translations happen here:
   * VeIR block arguments become MIR `PHI`s at join blocks (or a `COPY` when a
     block has a single predecessor).
   * `builtin.unrealized_conversion_cast` (reg ↔ i64/i1) becomes a `COPY`.
@@ -25,6 +25,8 @@ public section
     prologue, epilogue and CFI to `llc` (see `Frame`).
   * `riscv_cf.call` expands to LLVM's call sequence, passing arguments and
     results in the standard calling convention's registers (see `emitCall`).
+  * `llvm.mlir.global` becomes a global in the stub IR module, where the MIR
+    parser resolves the `PseudoLLA @sym` of each `riscv.la` (see `printGlobal`).
 -/
 
 namespace Veir.MIRPrinter
@@ -36,12 +38,11 @@ private def isBareName (name : String) : Bool :=
   !name.isEmpty && isInitial name.front &&
     name.all (fun c => isInitial c || c.isDigit || c == '.' || c == '$' || c == '-')
 
-/-- An LLVM global identifier, also usable as a MIR global operand. LLVM uses
-    byte escapes (`\HH`), including for quotes, backslashes and UTF-8 bytes. -/
-private def llvmSymbol (name : String) : String := Id.run do
-  if isBareName name then return "@" ++ name
-  let mut result := "@\""
-  for byte in name.toUTF8 do
+/-- A double-quoted LLVM string. LLVM uses byte escapes (`\HH`), including for
+    quotes, backslashes and UTF-8 bytes. -/
+private def llvmQuoted (bytes : ByteArray) : String := Id.run do
+  let mut result := "\""
+  for byte in bytes do
     if byte >= 0x20 && byte < 0x7F && byte != 0x22 && byte != 0x5C then
       result := result.push (Char.ofNat byte.toNat)
     else
@@ -49,6 +50,10 @@ private def llvmSymbol (name : String) : String := Id.run do
       result := result.push (byte >>> 4).toHexDigit
       result := result.push (byte &&& 0x0F).toHexDigit
   return result.push '"'
+
+/-- An LLVM global identifier, also usable as a MIR global operand. -/
+private def llvmSymbol (name : String) : String :=
+  if isBareName name then "@" ++ name else "@" ++ llvmQuoted name.toUTF8
 
 /-- A YAML scalar for the MIR function name. YAML's escapes differ from LLVM's;
     quote punctuation and escape controls so the name stays on one line. -/
@@ -460,6 +465,9 @@ def emitRegular (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr) : IO U
     | .sextw => IO.println s!"    {res} = ADDIW {v 0}, 0"
     | .zextw => IO.println s!"    {res} = ADD_UW {v 0}, $x0"
     | .zextb => IO.println s!"    {res} = ANDI {v 0}, 255"
+    | .la =>
+      let props := op.getProperties! ctx Riscv.la
+      IO.println s!"    {res} = PseudoLLA {llvmSymbol (symbolName props.symbol)}"
     -- memory: loads (result ← mem[base + imm])
     | .ld  => IO.println s!"    {res} = LD {v 0}, {imm}{volatileMemOperandSuffix true 64 volatile_}"
     | .lw  => IO.println s!"    {res} = LW {v 0}, {imm}{volatileMemOperandSuffix true 32 volatile_}"
@@ -634,7 +642,7 @@ def reachableBlocks (ctx : IRContext OpCode) {op : OperationPtr} (funcOp : Funct
 /-- Whether `op` is a function-like op with a body (as opposed to declaring an
     external function). -/
 def hasBody (ctx : IRContext OpCode) (op : OperationPtr) : Bool :=
-  match FunctionOp.cast? op ctx with
+  match FunctionOp.of? op ctx with
   | some funcOp => !funcOp.isExternal
   | none => false
 
@@ -642,6 +650,15 @@ def hasBody (ctx : IRContext OpCode) (op : OperationPtr) : Bool :=
 def calls (ctx : IRContext OpCode) (blocks : Array BlockPtr) : Array OperationPtr :=
   blocks.flatMap fun b =>
     (collectOps ctx (b.get! ctx).firstOp).filter (·.getOpType! ctx == .riscv_cf .call)
+
+/-- The decoded symbols named by the `riscv.la` ops in `blocks`. -/
+def laSymbols (ctx : IRContext OpCode) (blocks : Array BlockPtr) : Array String :=
+  blocks.flatMap fun b =>
+    (collectOps ctx (b.get! ctx).firstOp).filterMap fun op =>
+      if op.getOpType! ctx == .riscv .la then
+        some (symbolName (op.getProperties! ctx Riscv.la).symbol)
+      else
+        none
 
 /-- The number of arguments of the function whose reachable blocks are `blocks`:
     its entry block's arguments. -/
@@ -689,24 +706,73 @@ def printFunction (ctx : IRContext OpCode) (name : String) (blocks : Array Block
     emitTrampoline tr.1 tr.2
   IO.println "..."
 
-/-- Print a full MIR module for the given function-like ops: a stub IR module,
-    then one MIR document per function with a body.  The stub defines those
-    functions and declares every direct callee defined nowhere else, since the
-    MIR parser resolves each `@callee` against the IR module. -/
-def printMIR (ctx : IRContext OpCode) (funcOps : Array OperationPtr) : IO Unit := do
+/-- The LLVM IR spelling of a first-class type, for the types we print. -/
+partial def llvmType? : Attribute → Option String
+  | .integerType t => some s!"i{t.bitwidth}"
+  | .llvmPointerType _ => some "ptr"
+  | .llvmArrayType t => do return s!"[{t.size} x {← llvmType? t.type}]"
+  | _ => none
+
+/-- Print an `llvm.mlir.global` as a stub IR global, so `llc` emits its data.
+    An integer or string `value` becomes the initializer; with no initializer at
+    all, the global is an external declaration, as in MLIR's translation. A
+    region initializer, thread-local global, or external weak global is left unhandled. -/
+def printGlobal (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
+  let props := op.getProperties! ctx Llvm.mlir__global
+  let name := llvmSymbol (String.fromUTF8! props.sym_name.value)
+  if props.isThreadLocal then
+    IO.println s!"  ; UNHANDLED thread-local global {name}"
+    return
+  if props.linkage.value == "extern_weak" then
+    IO.println s!"  ; UNHANDLED extern_weak global {name}"
+    return
+  let some type := llvmType? props.global_type.val
+    | IO.println s!"  ; UNHANDLED global {name}"
+  let hasRegion := ((op.getRegion! ctx 0).get! ctx).firstBlock.isSome
+  let init? : Option String := match props.value, props.global_type.val with
+    | some (.integerAttr a), .integerType _ => some (toString a.value)
+    | some (.stringAttr str), .llvmArrayType { type := .integerType { bitwidth := 8, .. }, .. } =>
+      some ("c" ++ llvmQuoted str.value)
+    | _, _ => none
+  let kind := if props.constant then "constant" else "global"
+  let align := match props.alignment with
+    | some a => s!", align {a.value}"
+    | none => ""
+  match init? with
+  | some init =>
+    let linkage := if props.linkage.value == "external" then ""
+      else props.linkage.value ++ " "
+    IO.println s!"  {name} = {linkage}{kind} {type} {init}{align}"
+  | none =>
+    if props.value.isNone && !hasRegion then
+      IO.println s!"  {name} = external {kind} {type}{align}"
+    else
+      IO.println s!"  ; UNHANDLED global {name}"
+
+/-- Print a full MIR module for the given function-like and global ops: a stub
+    IR module, then one MIR document per function with a body.  The stub defines
+    those functions and globals and declares every direct callee or `riscv.la`
+    target defined nowhere else, since the MIR parser resolves each `@sym`
+    against the IR module. -/
+def printMIR (ctx : IRContext OpCode) (funcOps globalOps : Array OperationPtr) :
+    IO Unit := do
   let funcs := funcOps.filterMap fun op => do
-    let funcOp ← FunctionOp.cast? op ctx
+    let funcOp ← FunctionOp.of? op ctx
     if funcOp.isExternal then
       none
     else
       pure (String.fromUTF8! funcOp.getSymName.value, reachableBlocks ctx funcOp)
-  let defined := funcs.map (·.1)
+  let globals := globalOps.map fun op =>
+    String.fromUTF8! (op.getProperties! ctx Llvm.mlir__global).sym_name.value
+  let defined := funcs.map (·.1) ++ globals
   let mut externs : Array String := #[]
   for (_, blocks) in funcs do
-    for c in (calls ctx blocks).filterMap (callee? ctx) do
+    for c in (calls ctx blocks).filterMap (callee? ctx) ++ laSymbols ctx blocks do
       if !defined.contains c && !externs.contains c then
         externs := externs.push c
   IO.println "--- |"
+  for op in globalOps do
+    printGlobal ctx op
   for (name, blocks) in funcs do
     let params := String.intercalate ", "
       ((List.range (numArgs ctx blocks)).map (fun i => s!"i64 %a{i}"))

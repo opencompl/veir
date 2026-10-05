@@ -11,6 +11,7 @@ public import Veir.Interpreter.RuntimeValue.Basic
 public import Veir.Interpreter.Interp
 public import Veir.Interpreter.Memory
 import Veir.Data.RISCV.Reg.Basic
+import Veir.Data.Casting
 
 open Veir.Data
 
@@ -134,6 +135,7 @@ inductive Riscv where
 | snez
 | sltz
 | sgtz
+| la
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, properties_of]
@@ -174,6 +176,7 @@ match op with
 | .sw => RISCVMemProperties
 | .sh => RISCVMemProperties
 | .sb => RISCVMemProperties
+| .la => RISCVSymbolProperties
 | _ => Unit
 
 def Riscv.fromAttrDict
@@ -186,6 +189,7 @@ def Riscv.fromAttrDict
     exact RISCVImmediateProperties.fromAttrDict attrDict
   case ld | lw | lwu | lh | lhu | lb | lbu | sd | sw | sh | sb =>
     exact RISCVMemProperties.fromAttrDict attrDict
+  case la => exact RISCVSymbolProperties.fromAttrDict attrDict
   all_goals exact .ok ()
 
 def Riscv.toAttrDict
@@ -206,6 +210,8 @@ def Riscv.toAttrDict
     if props.volatile_ then
       dict := dict.insert "volatile_".toUTF8 (.unitAttr UnitAttr.mk)
     dict
+  | .la => (Std.HashMap.emptyWithCapacity 1).insert
+      "symbol".toUTF8 (.flatSymbolRefAttr props.symbol)
   | _ => Std.HashMap.emptyWithCapacity 0
 
 @[get_effects]
@@ -244,7 +250,8 @@ def Riscv.getEffects (op : Riscv) (props : Riscv.propertiesOf op) : MemoryEffect
   | .czeroeqz, _ | .czeronez, _
   | .mv, _ | .not, _ | .neg, _ | .negw, _
   | .sextw, _ | .zextb, _ | .zextw, _
-  | .seqz, _ | .snez, _ | .sltz, _ | .sgtz, _ => .none
+  | .seqz, _ | .snez, _ | .sltz, _ | .sgtz, _
+  | .la, _ => .none
 
 def Riscv.isConstantLike (op : Riscv) : Bool :=
   match op with
@@ -490,6 +497,9 @@ def Riscv.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .zextb | .zextw | .seqz | .snez
   | .sltz | .sgtz => do
     op.verifyPlainOpCounts ctx opIn 1 1
+    pure ()
+  | .la => do
+    op.verifyPlainOpCounts ctx opIn 0 1
     pure ()
 
 /-- Effective address of a RISC-V load/store: the base register value plus the
@@ -903,6 +913,9 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : propertiesOf opType)
     -- store only the low byte of the register
     let mem ← mem.store p ((UInt64.ofBitVec val).toByteArrayLE.extract 0 1)
     return (#[], mem, none)
+  | .la => do
+    let some object := mem.globals[properties.symbol.value]? | none
+    return (#[.reg (LLVM.Int.toReg (mem.intFromPtr (.val ⟨object, 0⟩)))], mem, none)
 
 instance : HasOpInfo Riscv where
   verifyLocalInvariants := Riscv.verifyLocalInvariants

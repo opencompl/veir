@@ -384,8 +384,6 @@ def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType
       | .addr val', .llvmPointerType _ => .ok (val)
       | .addr val', .byteType ⟨bw⟩ =>
           if bw = 64 then .ok (.byte 64 (LLVM.Byte.fromInt (mem.intFromPtr val'))) else .fail none
-      | .addr val', .integerType ⟨bw, _⟩ =>
-          if bw = 64 then .ok (.int 64 (mem.intFromPtr val')) else .fail none
       | _, _ => none
     return (#[result], mem, none)
   | _ => fail

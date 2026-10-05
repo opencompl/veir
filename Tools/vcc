@@ -20,6 +20,7 @@ from pathlib import Path
 BASE_TOOLS = ("clang", "opt", "mlir-translate", "mlir-opt")
 VEIR_TOOLS = ("lake",)
 REPO_ROOT = Path(__file__).resolve().parent.parent
+CLANG_TARGET_FLAGS = ["--target=riscv64-linux-gnu", "-fomit-frame-pointer"]
 
 def check_tools(tools: tuple[str, ...]) -> None:
     missing = [t for t in tools if shutil.which(t) is None]
@@ -43,7 +44,7 @@ def compile_to_mlir(src: Path, veir_optimize: bool, llvm_o2: bool, debug: bool =
         bc = tmp / (src.stem + ".bc")
         bc_opt = tmp / (src.stem + "-opt.bc")
 
-        run(["clang", "-O0", "-Xclang", "-disable-O0-optnone", "-c", "-emit-llvm",
+        run(["clang", *CLANG_TARGET_FLAGS, "-O0", "-Xclang", "-disable-O0-optnone", "-c", "-emit-llvm",
              str(src), "-o", str(bc)], debug=debug)
         if llvm_o2:
             # Run the full LLVM middle-end optimization pipeline, minus
@@ -93,7 +94,7 @@ def finish_llvm_ir(llvm_ir: bytes, dst: Path | None, emit: str, debug: bool = Fa
         # The MLIR round trip doesn't preserve the datalayout, so drop it and
         # let clang derive it from the triple.
         path.write_bytes(re.sub(rb"(?m)^target datalayout = .*\n", b"", llvm_ir))
-        cmd = ["clang"]
+        cmd = ["clang", *CLANG_TARGET_FLAGS]
         if emit == "object":
             cmd.append("-c")
         elif emit == "assembly":
