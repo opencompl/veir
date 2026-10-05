@@ -555,35 +555,48 @@ macro "#assert " e:term : command =>
 #assert expectSuccessType "!llvm.byte<64>" (LLVM.ByteType.mk 64)
 #assert expectSuccessType "!llvm.array<2 x byte<8>>" (LLVM.ArrayType.mk 2 $ LLVM.ByteType.mk 8)
 
-/-! ## LLVM Struct type (parsed opaquely; see `parseOptionalLLVMStructType`)
+/-! ## LLVM Struct type
 
   The struct type is handled by a dedicated parser that accepts both the
   standalone `!llvm.struct<...>` form and the bare `struct<...>` form used when a
-  struct is nested inside another LLVM type (e.g. an array element). Both forms
-  are normalized to the full `!llvm.struct<...>` spelling, and neither requires
-  `allowUnregisteredDialect` (like `!llvm.array`). The struct name, fields, and
-  packed flag are *not* modeled structurally — they survive only as text. -/
+  struct is nested inside another LLVM type (e.g. an array element). Neither
+  requires `allowUnregisteredDialect` (like `!llvm.array`). A struct with a body
+  becomes an `LLVM.StructType`; an opaque struct or a bare reference to an
+  identified struct is kept as text, normalized to the `!llvm.struct<...>` form. -/
 
 -- Standalone struct: both forms parse identically, with or without the flag.
 #assert expectSuccessType "!llvm.struct<(i32, f32)>"
-  ⟨UnregisteredAttr.mk "!llvm.struct<(i32, f32)>" true none, by grind⟩ false
+  (LLVM.StructType.mk none false #[IntegerType.signless 32, FloatType.f32]) false
 #assert expectSuccessType "!llvm.struct<(i32, f32)>"
-  ⟨UnregisteredAttr.mk "!llvm.struct<(i32, f32)>" true none, by grind⟩ true
+  (LLVM.StructType.mk none false #[IntegerType.signless 32, FloatType.f32]) true
+#assert expectSuccessType "!llvm.struct<()>" (LLVM.StructType.mk none false #[])
 -- Literal struct nested in an array (original `!llvm.array<N x struct<...>>` bug).
 #assert expectSuccessType "!llvm.array<2 x struct<(i32, f32)>>"
-  (LLVM.ArrayType.mk 2 (UnregisteredAttr.mk "!llvm.struct<(i32, f32)>" true none : Attribute)) true
-#assert expectSuccessType "!llvm.array<2 x struct<(i32, f32)>>"
-  (LLVM.ArrayType.mk 2 (UnregisteredAttr.mk "!llvm.struct<(i32, f32)>" true none : Attribute)) false
+  (LLVM.ArrayType.mk 2 (LLVM.StructType.mk none false #[IntegerType.signless 32, FloatType.f32]))
 -- The bare nested form and the prefixed nested form are equivalent.
 #assert expectSuccessType "!llvm.array<2 x !llvm.struct<(i32, f32)>>"
-  (LLVM.ArrayType.mk 2 (UnregisteredAttr.mk "!llvm.struct<(i32, f32)>" true none : Attribute)) false
--- Identified (named) struct: the name is preserved verbatim inside the text.
+  (LLVM.ArrayType.mk 2 (LLVM.StructType.mk none false #[IntegerType.signless 32, FloatType.f32]))
+-- Identified (named) struct.
 #assert expectSuccessType "!llvm.array<23 x struct<\"struct.et_info\", (i8, i8)>>"
-  (LLVM.ArrayType.mk 23
-    (UnregisteredAttr.mk "!llvm.struct<\"struct.et_info\", (i8, i8)>" true none : Attribute)) true
--- Packed struct nested in an array.
+  (LLVM.ArrayType.mk 23 (LLVM.StructType.mk (some "struct.et_info".toUTF8) false
+    #[IntegerType.signless 8, IntegerType.signless 8]))
+-- Packed structs, literal and identified.
 #assert expectSuccessType "!llvm.array<4 x struct<packed (i8, i32)>>"
-  (LLVM.ArrayType.mk 4 (UnregisteredAttr.mk "!llvm.struct<packed (i8, i32)>" true none : Attribute)) true
+  (LLVM.ArrayType.mk 4 (LLVM.StructType.mk none true
+    #[IntegerType.signless 8, IntegerType.signless 32]))
+#assert expectSuccessType "!llvm.struct<\"s\", packed (i8)>"
+  (LLVM.StructType.mk (some "s".toUTF8) true #[IntegerType.signless 8])
+-- Bare nested types inside a struct body.
+#assert expectSuccessType "!llvm.struct<(ptr, array<3 x i8>, struct<(i64)>)>"
+  (LLVM.StructType.mk none false #[LLVM.PointerType.mk,
+    LLVM.ArrayType.mk 3 (IntegerType.signless 8),
+    LLVM.StructType.mk none false #[IntegerType.signless 64]])
+-- Opaque structs and bare references stay opaque.
+#assert expectSuccessType "!llvm.struct<\"t\", opaque>"
+  ⟨UnregisteredAttr.mk "!llvm.struct<\"t\", opaque>" true none, by grind⟩
+#assert expectSuccessType "!llvm.struct<\"node\", (ptr, struct<\"node\">)>"
+  (LLVM.StructType.mk (some "node".toUTF8) false #[LLVM.PointerType.mk,
+    UnregisteredAttr.mk "!llvm.struct<\"node\">" true none])
 
 
 /-! ## LLVM parameterless types -/

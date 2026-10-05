@@ -1107,32 +1107,35 @@ partial def parseOptionalFunctionType : AttrParserM (Option FunctionType) := do
   Its syntax is `!llvm.struct<...>`, or (exclusively) the shorter form
   `struct<...>` if the corresponding argument is set.
 
-  LIMITATION: the struct is parsed *opaquely* as an `UnregisteredAttr` holding the
-  body as text. There is no structured representation: the struct name (for
-  identified structs like `struct<"name", (...)>`), the element list, and the
-  packed flag all live only as a substring of the stored text, so VeIR cannot
-  compare struct types semantically, resolve a recursive reference
-  (`struct<"node">`) against its definition, or inspect fields.
+  A struct with a body, literal (`struct<packed? (...)>`) or identified
+  (`struct<"name", packed? (...)>`), becomes an `LLVM.StructType`.
 
-  A proper fix would introduce a dedicated `LLVM.StructType` (mirroring the
-  existing `LLVM.ArrayType`): an inductive constructor carrying the literal vs.
-  identified distinction, the packed flag, and the element list, with the
-  identity/recursion handling that identified structs require. That is a larger
-  change and unnecessary until a pass needs to reason about struct layout or
-  identity; until then the opaque representation parses and roundtrips correctly,
-  which is all that is currently required.
+  LIMITATION: an opaque identified struct (`struct<"name", opaque>`) and a bare
+  reference to an identified struct (`struct<"name">`, used for recursive
+  types) are kept opaquely as an `UnregisteredAttr` holding their text, so
+  VeIR cannot resolve such a reference against its definition.
 -/
 partial def parseOptionalLLVMStructType (short := false) : AttrParserM (Option TypeAttr) := do
   if !(← parseOptionalTypeName "llvm.struct" short) then return none
-  -- Capture the `struct<...>` body opaquely and normalize to the full
-  -- `!llvm.struct<...>` spelling, so both forms produce identical output.
   let startPos ← getPos
   parsePunctuation "<"
-  let _ ← parseUnregisteredAttrBody
-  let endPos := (← peekToken).slice.stop
+  let name ← parseOptionalStringLiteral
+  /- An opaque struct or a bare reference: keep the text, normalized to the full
+     `!llvm.struct<...>` spelling, so both forms produce identical output. -/
+  let keepOpaque ← if name.isNone then pure false else do
+    if ← parseOptionalPunctuation "," then
+      parseOptionalKeyword "opaque".toByteArray
+    else
+      pure true
+  if keepOpaque then
+    let endPos := (← peekToken).slice.stop
+    parsePunctuation ">"
+    let body := (Slice.mk startPos endPos).of (← getThe ParserState).input
+    return some ⟨UnregisteredAttr.mk ("!llvm.struct" ++ String.fromUTF8! body) true none, by grind⟩
+  let packed ← parseOptionalKeyword "packed".toByteArray
+  let body ← parseDelimitedList .paren parseLLVMType
   parsePunctuation ">"
-  let body := (Slice.mk startPos endPos).of (← getThe ParserState).input
-  return some ⟨UnregisteredAttr.mk ("!llvm.struct" ++ String.fromUTF8! body) true none, by grind⟩
+  return some (LLVM.StructType.mk name packed (body.map (·.val)))
 
 /--
   Parse a type within an LLVM-dialect type body, accepting the LLVM "pretty-print"

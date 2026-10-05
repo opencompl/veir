@@ -631,6 +631,18 @@ structure LLVM.ArrayType where
   type : Attribute
 
 /--
+  An LLVM struct type with a known body: either a literal struct
+  (`!llvm.struct<(i8, i32)>`) or an identified struct
+  (`!llvm.struct<"name", (i8, i32)>`). A packed struct has no padding between
+  its fields. Opaque structs and bare references to identified structs are not
+  modelled and stay unregistered.
+-/
+structure LLVM.StructType where
+  name : Option ByteArray
+  packed : Bool
+  body : Array Attribute
+
+/--
   The `!match.optional<...>` type, wrapping a PDL handle type whose value may
   be null at match time.
 
@@ -755,6 +767,8 @@ inductive Attribute
 | llvmPointerType (type : LLVM.PointerType)
 /-- LLVM array type -/
 | llvmArrayType (type : LLVM.ArrayType)
+/-- LLVM struct type -/
+| llvmStructType (type : LLVM.StructType)
 /-- LLVM function type -/
 | llvmFunctionType (type : LLVMFunctionType)
 /-- Cuda Tile pointer type -/
@@ -784,11 +798,11 @@ end
 /- Derive Repr and Hashable instances for the mutual group. -/
 derive_mutual_repr for
   VectorType, FunctionType, LLVMFunctionType, CirFuncType,
-  ArrayAttr, DictionaryAttr, LLVM.ArrayType, Match.OptionalType,
+  ArrayAttr, DictionaryAttr, LLVM.ArrayType, LLVM.StructType, Match.OptionalType,
   UnregisteredAttr, Attribute
 derive_mutual_hashable for
   VectorType, FunctionType, LLVMFunctionType, CirFuncType,
-  ArrayAttr, DictionaryAttr, LLVM.ArrayType, Match.OptionalType,
+  ArrayAttr, DictionaryAttr, LLVM.ArrayType, LLVM.StructType, Match.OptionalType,
   UnregisteredAttr, Attribute
 
 instance : Inhabited VectorType where
@@ -802,6 +816,9 @@ instance : Coe LLVMFunctionType FunctionType where
 
 instance : Inhabited LLVM.ArrayType where
   default := { size := 0, type := .llvmPointerType .mk }
+
+instance : Inhabited LLVM.StructType where
+  default := { name := none, packed := false, body := #[] }
 
 instance : Inhabited Match.OptionalType where
   default := { innerType := .pdlValueType .mk }
@@ -848,6 +865,10 @@ theorem DictionaryAttr.sizeOf_elems_entries {da : DictionaryAttr} (hx : x ∈ da
 theorem LLVM.ArrayType.sizeOf_elems_type {t : ArrayType} :
     sizeOf t.type < sizeOf t := by
   grind [cases ArrayType]
+
+theorem LLVM.StructType.sizeOf_elems_body {t : StructType} (hx : x ∈ t.body) :
+    sizeOf x < sizeOf t := by
+  grind [Array.sizeOf_lt_of_mem hx, cases StructType]
 
 theorem Match.OptionalType.sizeOf_innerType {t : Match.OptionalType} :
     sizeOf t.innerType < sizeOf t := by
@@ -1145,6 +1166,14 @@ partial def FunctionType.toString (type : FunctionType) : String :=
 partial def LLVM.ArrayType.toString (type : LLVM.ArrayType) : String :=
   s!"!llvm.array<{type.size} x {Attribute.toString type.type}>"
 
+partial def LLVM.StructType.toString (type : LLVM.StructType) : String :=
+  let name := match type.name with
+    | some name => s!"\"{escapeStringLiteral name}\", "
+    | none => ""
+  let packed := if type.packed then "packed " else ""
+  let body := String.intercalate ", " (type.body.toList.map Attribute.toString)
+  s!"!llvm.struct<{name}{packed}({body})>"
+
 partial def Match.OptionalType.toString (type : Match.OptionalType) : String :=
   s!"!match.optional<{Attribute.toString type.innerType}>"
 
@@ -1203,6 +1232,7 @@ partial def Attribute.toString (attr : Attribute) : String :=
   | .llvmVoidType type => ToString.toString type
   | .llvmPointerType type => ToString.toString type
   | .llvmArrayType type => type.toString
+  | .llvmStructType type => type.toString
   | .llvmFunctionType type => type.toString
   | .cudaTilePointerType type => ToString.toString type
   | .ioAddressType type => ToString.toString type
@@ -1240,6 +1270,9 @@ instance : ToString DictionaryAttr where
 
 instance : ToString LLVM.ArrayType where
   toString := LLVM.ArrayType.toString
+
+instance : ToString LLVM.StructType where
+  toString := LLVM.StructType.toString
 
 instance : ToString Match.OptionalType where
   toString := Match.OptionalType.toString
@@ -1577,6 +1610,20 @@ decreasing_by
   have := @LLVM.ArrayType.sizeOf_elems_type
   grind
 
+def LLVM.StructType.decEq (type1 type2 : LLVM.StructType) : Decidable (type1 = type2) :=
+  let body1 := type1.body
+  let body2 := type2.body
+  if _ : type1.name = type2.name ∧ type1.packed = type2.packed then
+    match Array.instDecidabelEq' body1 body2 (fun x y _ _ => Attribute.decEq x y) with
+    | isTrue _ => isTrue (by grind [cases LLVM.StructType])
+    | isFalse _ => isFalse (by grind)
+  else
+    isFalse (by grind)
+termination_by sizeOf type1
+decreasing_by
+  have := @LLVM.StructType.sizeOf_elems_body
+  grind
+
 def Match.OptionalType.decEq (opt1 opt2 : Match.OptionalType) : Decidable (opt1 = opt2) :=
   match Attribute.decEq opt1.innerType opt2.innerType with
   | isTrue _ => isTrue (by grind [cases Match.OptionalType])
@@ -1714,6 +1761,8 @@ def Attribute.decEq (attr1 attr2 : @& Attribute) : Decidable (attr1 = attr2) := 
     exact IsAttr.decEqAgainst x attr2 (decEq x)
   case llvmArrayType x =>
     exact IsAttr.decEqAgainst x attr2 (LLVM.ArrayType.decEq x)
+  case llvmStructType x =>
+    exact IsAttr.decEqAgainst x attr2 (LLVM.StructType.decEq x)
   case llvmFunctionType x =>
     exact IsAttr.decEqAgainst x attr2 (LLVMFunctionType.decEq x)
   case cudaTilePointerType x =>
@@ -1810,6 +1859,7 @@ def isType (attr : Attribute) : Bool :=
   | .llvmVoidType _ => true
   | .llvmPointerType _ => true
   | .llvmArrayType _ => true
+  | .llvmStructType _ => true
   | .llvmFunctionType _ => true
   | .cudaTilePointerType _ => true
   | .ioAddressType _ => true
@@ -1898,6 +1948,8 @@ theorem isType_llvmVoidType type : (Attribute.of LLVM.VoidType type).isType = tr
 theorem isType_llvmPointerType type : (Attribute.of LLVM.PointerType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_llvmArrayType type : (Attribute.of LLVM.ArrayType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_llvmStructType type : (Attribute.of LLVM.StructType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_llvmFunctionType type : (Attribute.of LLVMFunctionType type).isType = true := by rfl
 @[simp, grind =]
@@ -2131,6 +2183,7 @@ type_attribute_instance RegisterType => Attribute.registerType
 type_attribute_instance LLVM.VoidType => Attribute.llvmVoidType
 type_attribute_instance LLVM.PointerType => Attribute.llvmPointerType
 type_attribute_instance LLVM.ArrayType => Attribute.llvmArrayType
+type_attribute_instance LLVM.StructType => Attribute.llvmStructType
 type_attribute_instance CudaTile.PointerType => Attribute.cudaTilePointerType
 type_attribute_instance Io.AddressType => Attribute.ioAddressType
 type_attribute_instance HW.ModuleType => Attribute.hwModuleType

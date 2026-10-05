@@ -730,33 +730,40 @@ def TypeAttr.verifyLLVMVectorType (ty : TypeAttr) (errMsg : String) :
 
 /--
   Walk `position` through an aggregate type, as MLIR does for `insertvalue` and
-  `extractvalue`, and return the element type it reaches. Arrays are modelled,
-  so their indices and element types are checked. Struct bodies are opaque, so
-  the walk stops at a struct with indices left and returns `none`.
+  `extractvalue`, and return the element type it reaches. Arrays and structs with
+  a body are modelled, so their indices and element types are checked. Opaque
+  structs and references to identified structs are kept unregistered, so the walk
+  stops at one with indices left and returns `none`.
 -/
 def Llvm.verifyAggregatePosition (containerType : TypeAttr) (position : DenseArrayAttr) :
     Except String (Option Attribute) := do
-  let isStruct : Attribute → Bool
+  let isOpaqueStruct : Attribute → Bool
     | .unregisteredAttr attr => attr.isType && attr.value.startsWith "!llvm.struct"
     | _ => false
-  let isArray : Attribute → Bool
-    | .llvmArrayType _ => true
-    | _ => false
+  let isAggregate : Attribute → Bool
+    | .llvmArrayType _ | .llvmStructType _ => true
+    | attr => isOpaqueStruct attr
   if position.elementType.bitwidth ≠ 64 then
     throw "Expected 'position' to be an i64 dense array attribute"
-  if !(isArray containerType.val || isStruct containerType.val) then
+  if !isAggregate containerType.val then
     throw s!"Expected an aggregate container, but got {containerType}"
   for index in position.values do
     if index < 0 then
       throw s!"position out of bounds: {index}"
   let mut current := containerType.val
   for index in position.values do
-    let .llvmArrayType arrType := current
-      | if isStruct current then return none
-        throw s!"Expected LLVM IR structure/array type, got: {current}"
-    if index ≥ arrType.size then
-      throw s!"position out of bounds: {index}"
-    current := arrType.type
+    match current with
+    | .llvmArrayType arrType =>
+      if index ≥ arrType.size then
+        throw s!"position out of bounds: {index}"
+      current := arrType.type
+    | .llvmStructType structType =>
+      let some field := structType.body[index.toNat]?
+        | throw s!"position out of bounds: {index}"
+      current := field
+    | _ =>
+      if isOpaqueStruct current then return none
+      throw s!"Expected LLVM IR structure/array type, got: {current}"
   return some current
 
 /--
