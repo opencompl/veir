@@ -139,6 +139,30 @@ def Interp.withBlame (op : OperationPtr) : Interp α → Interp α
 
 @[simp, grind =] theorem Interp.withBlame_ok : (Interp.ok a).withBlame op = .ok a := rfl
 
+/--
+  If reporting a failure, blame `op` for it. Unlike `withBlame`, this leaves `ub none` alone, so it
+  is monotone and can wrap a recursive call: `ub none` is also the outcome of a run that never
+  terminates.
+-/
+@[expose]
+def Interp.withFailureBlame (op : OperationPtr) : Interp α → Interp α
+  | .fail none => .fail (some op)
+  | x => x
+
+@[simp, grind =] theorem Interp.withFailureBlame_eq_ok_iff (x : Interp α) :
+    x.withFailureBlame op = .ok a ↔ x = .ok a := by
+  unfold Interp.withFailureBlame; split <;> simp [reduceCtorEq]
+
+@[partial_fixpoint_monotone]
+theorem Interp.monotone_withFailureBlame [Lean.Order.PartialOrder γ] (f : γ → Interp α)
+    (hmono : Lean.Order.monotone f) : Lean.Order.monotone (fun x => (f x).withFailureBlame op) := by
+  intro x y h
+  rcases Interp.rel_iff.mp (hmono x y h) with heq | heq
+  · simp only [heq, Interp.withFailureBlame]
+    exact Interp.rel_iff.mpr (.inl rfl)
+  · simp only [heq]
+    exact Lean.Order.PartialOrder.rel_refl
+
 @[simp, grind =] theorem Interp.withBlame_eq_ok_iff (x : Interp α) :
     x.withBlame op = .ok a ↔ x = .ok a := by
   unfold Interp.withBlame; split <;> simp [reduceCtorEq]

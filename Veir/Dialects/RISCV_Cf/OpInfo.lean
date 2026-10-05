@@ -8,6 +8,7 @@ public import Veir.Dialects.RISCV.OpInfo
 public import Veir.Verifier.Basic
 public import Veir.Interpreter.RuntimeValue.Basic
 public import Veir.Interpreter.Interp
+public import Veir.Interpreter.Memory
 meta import Veir.Meta.OpCode
 
 namespace Veir
@@ -347,7 +348,7 @@ def Riscv_Cf.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
 
 def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
-    : Interp (Array RuntimeValue × Option ControlFlowAction) :=
+    (mem : MemoryState) : Interp (Array RuntimeValue × Option ControlFlowAction) :=
   match opType with
   | .func =>
     Interp.fail none
@@ -439,9 +440,15 @@ def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : propertiesOf op
     Interp.ub none
   | .return =>
     return (#[], some (.return operands))
-  -- Calls require symbol resolution and an interpreter call stack.
-  | .call =>
-    Interp.fail none
+  -- A call asks `interpretOp` to call its callee. An indirect call takes the address of its
+  -- callee as its first operand.
+  | .call => do
+    match properties.callee with
+    | some callee => return (#[], some (.call callee operands))
+    | none =>
+      let some (RuntimeValue.reg callee) := operands[0]? | none
+      let callee ← mem.getCallee (mem.ptrFromInt (.val callee.val))
+      return (#[], some (.call callee (operands.extract 1)))
 
 instance : HasOpInfo Riscv_Cf where
   verifyLocalInvariants := Riscv_Cf.verifyLocalInvariants Riscv_Cf.functionInterface?

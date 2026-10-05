@@ -121,7 +121,7 @@ def initializeGlobal (ctx : WfIRContext OpCode) (op : OperationPtr) (ptr : Data.
       | none => pure mem
       | some _ => do
         let (state, results) ← expectOk name
-          (interpretRegion region #[] (ctx := ctx) ⟨.empty ctx, mem⟩)
+          (interpretRegion op region #[] (ctx := ctx) ⟨.empty ctx, mem⟩)
         let some value := results[0]? | pure state.memory
         expectOk name (state.memory.llvmStore ptr value)
 

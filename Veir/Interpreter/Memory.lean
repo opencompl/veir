@@ -44,6 +44,31 @@ structure MemoryState where
   /-- The object of each global and function, by its symbol, such as `@g`. -/
   globals : Std.HashMap String Nat := {}
 
+/-- The symbol, such as `@f`, of the global or function whose object is `object`. -/
+def MemoryState.getSymbol? (mem : MemoryState) (object : Nat) : Option String :=
+  mem.globals.fold (init := none) fun found symbol symbolObject =>
+    found <|> if symbolObject = object then some symbol else none
+
+/--
+  The symbol of the function that `ptr` points to, for an indirect call. Calling a pointer that is
+  poison, does not point to the start of an object, or points to an object without a symbol is UB.
+-/
+def MemoryState.getCallee (mem : MemoryState) : Data.LLVM.Ptr → Interp FlatSymbolRefAttr
+  | .val ptr => do
+    if ptr.offset ≠ 0 then .ub none
+    let some symbol := mem.getSymbol? ptr.object | .ub none
+    return ⟨symbol⟩
+  | .poison => .ub none
+
+/--
+  The semantics of calls: the memory and the values returned by calling the function `callee` on
+  `args`. The interpreter interprets the body of the callee, while proofs about operations can
+  hold for any call semantics.
+-/
+abbrev CallSemantics :=
+  (callee : FlatSymbolRefAttr) → Array RuntimeValue → MemoryState →
+    Interp (MemoryState × Array RuntimeValue)
+
 /--
   Object 0 is the null object at address 0. It holds no bytes, so every access
   through a null pointer is out of bounds.
