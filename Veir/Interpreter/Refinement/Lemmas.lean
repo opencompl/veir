@@ -3,6 +3,8 @@ module
 public import Veir.Interpreter.Refinement.Basic
 
 import all Veir.Interpreter.Refinement.Basic
+import all Veir.Interpreter.Memory
+import all Veir.Data.Refinement
 
 public section
 
@@ -202,6 +204,14 @@ theorem RuntimeValue.addr_val_of_isRefinedBy {p : Data.Pointer} {tv : RuntimeVal
     (h : RuntimeValue.addr (.val p) ⊒ tv) : tv = RuntimeValue.addr (.val p) := by
   cases tv <;> grind [RuntimeValue.isRefinedBy, Data.LLVM.Ptr.isRefinedBy, cases Data.LLVM.Ptr]
 
+/--
+A runtime value `tv` that refines a pointer runtime value `v` is itself a pointer, and the
+underlying pointer refines `v`.
+-/
+theorem RuntimeValue.addr_of_isRefinedBy {v : Data.LLVM.Ptr} {tv : RuntimeValue}
+    (h : RuntimeValue.addr v ⊒ tv) : ∃ t, tv = RuntimeValue.addr t ∧ v ⊒ t := by
+  cases tv <;> grind [RuntimeValue.isRefinedBy]
+
 /-- A runtime value `tv` that refines a register runtime value `v` is equal to it. -/
 theorem RuntimeValue.reg_of_isRefinedBy {v : Data.RISCV.Reg} {tv : RuntimeValue}
     (h : RuntimeValue.reg v ⊒ tv) :
@@ -337,7 +347,30 @@ theorem RuntimeValue.getElem?_of_arrayIsRefinedBy {a b : Array RuntimeValue} (h 
   · have hh := h.2 i hi
     rwa [getElem!_pos a i hi] at hh
 
+/-- Two bytes that refine are refined as runtime values. -/
+theorem RuntimeValue.byte_isRefinedBy {bw : Nat} {v w : Data.LLVM.Byte bw} (h : v ⊒ w) :
+    RuntimeValue.byte bw v ⊒ RuntimeValue.byte bw w :=
+  ⟨rfl, by simpa using h⟩
+
+/-- Two interpretations that begin with the same step refine when their continuations do. -/
+theorem Interp.isRefinedBy_bind_same {α β : Type} {R : β → β → Prop} (x : Interp α)
+    {f g : α → Interp β} (hR : ∀ a, Interp.isRefinedBy R (f a) (g a)) :
+    Interp.isRefinedBy R (x >>= f) (x >>= g) := by
+  cases x <;> simp_all [Interp.isRefinedBy]
+
 /-- An operation that returns one value, leaves the memory alone and asks for no control flow. -/
 theorem OperationResult.isRefinedBy_value {v w : RuntimeValue} {mem : MemoryState} (h : v ⊒ w) :
     OperationResult.isRefinedBy (#[v], mem, none) (#[w], mem, none) :=
   ⟨RuntimeValue.arrayIsRefinedBy_singleton.mpr h, rfl, trivial⟩
+
+/-- Decoding an integer into a pointer keeps refinement: poison decodes to a poison pointer. -/
+theorem MemoryState.ptrFromInt_mono {mem : MemoryState} {x y : Data.LLVM.Int 64} (h : x ⊒ y) :
+    mem.ptrFromInt x ⊒ mem.ptrFromInt y := by
+  cases x <;> cases y <;>
+    simp_all [MemoryState.ptrFromInt, _root_.isRefinedBy, Data.LLVM.Ptr.isRefinedBy]
+
+/-- The address of a pointer keeps refinement: a poison pointer has a poison address. -/
+theorem MemoryState.intFromPtr_mono {mem : MemoryState} {p q : Data.LLVM.Ptr} (h : p ⊒ q) :
+    mem.intFromPtr p ⊒ mem.intFromPtr q := by
+  cases p <;> cases q <;>
+    simp_all [MemoryState.intFromPtr, _root_.isRefinedBy, Data.LLVM.Ptr.isRefinedBy]

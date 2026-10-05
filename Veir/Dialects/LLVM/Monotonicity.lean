@@ -2,7 +2,9 @@ module
 
 import all Veir.Dialects.LLVM.OpInfo
 import all Veir.Interpreter.Basic
+import all Veir.Data.Refinement
 public import Veir.Interpreter.Lemmas
+public import Veir.Data.LLVM.Byte.Lemmas
 
 public section
 
@@ -409,7 +411,7 @@ instance : InterpretOp'Monotone (.llvm .select) where
           (Int.select_mono _ _ _ _ _ _ hl (Int.cast_mono _ _ _ hr) hc))
     case _ => simp [Interp.isRefinedBy]
 
-/-! ## Integer casts -/
+/-! ## Casts -/
 
 instance : InterpretOp'Monotone (.llvm .zext) where
   monotone props resultTypes _ _ _ mem h := by
@@ -422,6 +424,167 @@ instance : InterpretOp'Monotone (.llvm .sext) where
     simp only [interpretOp', Llvm.interpretOp']
     exact Llvm.intExtendArm_mono resultTypes mem
       (fun v w' hw => LLVM.Int.sext v w' hw) (fun hw hv => Int.sext_mono _ _ hw hv) h
+
+instance : InterpretOp'Monotone (.llvm .trunc) where
+  monotone _ _ _ _ _ _ h := by
+    simp only [interpretOp', Llvm.interpretOp']
+    split
+    case _ val hOps =>
+      obtain ⟨w₁, hw, h₁⟩ := RuntimeValue.arrayIsRefinedBy_toList_singleton hOps h
+      cases val
+      case int bw v =>
+        obtain ⟨v', rfl, hv⟩ := RuntimeValue.int_of_isRefinedBy h₁
+        simp only [hw]
+        split
+        case _ resType hres =>
+          obtain ⟨attr, hattr⟩ := resType
+          cases attr <;> try exact Interp.isRefinedBy_fail_target
+          case integerType ty =>
+            by_cases hle : ty.bitwidth ≥ bw
+            · simp [hle, Interp.isRefinedBy]
+            · simp only [hle, ↓reduceDIte]
+              exact OperationResult.isRefinedBy_value (RuntimeValue.int_isRefinedBy
+                (Int.trunc_mono _ _ _ hv))
+        case _ => simp [Interp.isRefinedBy]
+      case byte bw v =>
+        obtain ⟨v', rfl, hv⟩ := RuntimeValue.byte_of_isRefinedBy h₁
+        simp only [hw]
+        split
+        case _ resType hres =>
+          obtain ⟨attr, hattr⟩ := resType
+          cases attr <;> try exact Interp.isRefinedBy_fail_target
+          case byteType ty =>
+            by_cases hle : ty.bitwidth ≥ bw
+            · simp [hle, Interp.isRefinedBy]
+            · simp only [hle, ↓reduceDIte]
+              exact OperationResult.isRefinedBy_value (RuntimeValue.byte_isRefinedBy
+                (Data.LLVM.Byte.trunc_mono hv))
+        case _ => simp [Interp.isRefinedBy]
+      all_goals (split <;> simp [Interp.isRefinedBy])
+    case _ => simp [Interp.isRefinedBy]
+
+instance : InterpretOp'Monotone (.llvm .bitcast) where
+  monotone _ _ _ _ _ _ h := by
+    simp only [interpretOp', Llvm.interpretOp']
+    split
+    case _ val hOps =>
+      obtain ⟨w₁, hw, h₁⟩ := RuntimeValue.arrayIsRefinedBy_toList_singleton hOps h
+      cases val
+      case int bw v =>
+        obtain ⟨v', rfl, hv⟩ := RuntimeValue.int_of_isRefinedBy h₁
+        simp only [hw]
+        split
+        · rename_i attr property hres
+          clear hres
+          cases attr
+          case integerType ty =>
+            cases ty
+            dsimp only
+            split
+            · exact Interp.isRefinedBy_fail_target
+            · exact OperationResult.isRefinedBy_value (RuntimeValue.int_isRefinedBy hv)
+          case byteType ty =>
+            cases ty
+            dsimp only
+            split
+            · exact Interp.isRefinedBy_fail_target
+            · exact OperationResult.isRefinedBy_value (RuntimeValue.byte_isRefinedBy
+                (Data.LLVM.Byte.fromInt_mono hv))
+          all_goals exact Interp.isRefinedBy_fail_target
+        · simp [Interp.isRefinedBy]
+      case byte bw v =>
+        obtain ⟨v', rfl, hv⟩ := RuntimeValue.byte_of_isRefinedBy h₁
+        simp only [hw]
+        split
+        · rename_i attr property hres
+          clear hres
+          cases attr
+          case byteType ty =>
+            cases ty
+            dsimp only
+            split
+            · exact Interp.isRefinedBy_fail_target
+            · exact OperationResult.isRefinedBy_value (RuntimeValue.byte_isRefinedBy hv)
+          case integerType ty =>
+            cases ty
+            dsimp only
+            split
+            · exact Interp.isRefinedBy_fail_target
+            · exact OperationResult.isRefinedBy_value (RuntimeValue.int_isRefinedBy
+                (Data.LLVM.Byte.toInt_mono hv))
+          case llvmPointerType ty =>
+            dsimp only
+            split
+            next heq =>
+              subst heq
+              simp only [Data.LLVM.Byte.cast_self]
+              exact OperationResult.isRefinedBy_value
+                (MemoryState.ptrFromInt_mono (Data.LLVM.Byte.toInt_mono hv))
+            next => exact Interp.isRefinedBy_fail_target
+          all_goals exact Interp.isRefinedBy_fail_target
+        · simp [Interp.isRefinedBy]
+      case addr p =>
+        obtain ⟨q, rfl, hp⟩ := RuntimeValue.addr_of_isRefinedBy h₁
+        simp only [hw]
+        split
+        · rename_i attr property hres
+          clear hres
+          cases attr
+          case byteType ty =>
+            cases ty
+            dsimp only
+            split
+            · exact OperationResult.isRefinedBy_value (RuntimeValue.byte_isRefinedBy
+                (Data.LLVM.Byte.fromInt_mono (MemoryState.intFromPtr_mono hp)))
+            · exact Interp.isRefinedBy_fail_target
+          case llvmPointerType ty =>
+            exact OperationResult.isRefinedBy_value hp
+          all_goals exact Interp.isRefinedBy_fail_target
+        · simp [Interp.isRefinedBy]
+      all_goals (split <;> simp [Interp.isRefinedBy])
+    case _ => simp [Interp.isRefinedBy]
+
+instance : InterpretOp'Monotone (.llvm .inttoptr) where
+  monotone _ _ _ _ _ _ h := by
+    simp only [interpretOp', Llvm.interpretOp']
+    split
+    case _ bw v hOps =>
+      obtain ⟨w₁, hw, h₁⟩ := RuntimeValue.arrayIsRefinedBy_toList_singleton hOps h
+      obtain ⟨v', rfl, hv⟩ := RuntimeValue.int_of_isRefinedBy h₁
+      simp only [hw]
+      split
+      case _ type hres =>
+        obtain ⟨attr, hattr⟩ := type
+        cases attr <;> try exact Interp.isRefinedBy_fail_target
+        dsimp only
+        split
+        · exact OperationResult.isRefinedBy_value
+            (MemoryState.ptrFromInt_mono (Int.cast_mono _ _ _ hv))
+        · exact Interp.isRefinedBy_fail_target
+      case _ => simp [Interp.isRefinedBy]
+    case _ => simp [Interp.isRefinedBy]
+
+instance : InterpretOp'Monotone (.llvm .ptrtoint) where
+  monotone _ _ _ _ _ _ h := by
+    simp only [interpretOp', Llvm.interpretOp']
+    split
+    case _ p hOps =>
+      obtain ⟨w₁, hw, h₁⟩ := RuntimeValue.arrayIsRefinedBy_toList_singleton hOps h
+      obtain ⟨q, rfl, hp⟩ := RuntimeValue.addr_of_isRefinedBy h₁
+      simp only [hw]
+      split
+      case _ type hres =>
+        obtain ⟨attr, hattr⟩ := type
+        cases attr <;> try exact Interp.isRefinedBy_fail_target
+        rename_i ty
+        cases ty
+        dsimp only
+        split
+        · exact OperationResult.isRefinedBy_value (RuntimeValue.int_isRefinedBy
+            (MemoryState.intFromPtr_mono hp))
+        · exact Interp.isRefinedBy_fail_target
+      case _ => simp [Interp.isRefinedBy]
+    case _ => simp [Interp.isRefinedBy]
 
 /-! ## Control flow -/
 
@@ -470,6 +633,17 @@ instance : InterpretOp'Monotone (.llvm .cond_br) where
 
 /-! ## Memory -/
 
+instance : InterpretOp'Monotone (.llvm .alloca) where
+  monotone _ _ _ _ _ _ h := by
+    simp only [interpretOp', Llvm.interpretOp']
+    split
+    case _ bw count hOps =>
+      obtain ⟨w₁, hw, h₁⟩ := RuntimeValue.arrayIsRefinedBy_toList_singleton hOps h
+      obtain rfl := RuntimeValue.int_val_of_isRefinedBy h₁
+      simp only [hw]
+      exact Interp.isRefinedBy_refl_operationResult _
+    case _ => simp [Interp.isRefinedBy]
+
 /--
 A load is monotone: a poison pointer is undefined behavior and
 a concrete one is fixed by refinement.
@@ -486,6 +660,34 @@ instance : InterpretOp'Monotone (.llvm .load) where
         exact Interp.isRefinedBy_refl_operationResult _
       · simp [Interp.isRefinedBy]
     · simp [Interp.isRefinedBy]
+
+instance : InterpretOp'Monotone (.llvm .getelementptr) where
+  monotone _ _ _ _ _ _ h := by
+    simp only [interpretOp', Llvm.interpretOp']
+    split
+    case _ ptr bw idx hOps =>
+      obtain ⟨w₁, w₂, hw, h₁, h₂⟩ := RuntimeValue.arrayIsRefinedBy_toList_pair hOps h
+      obtain ⟨idx', rfl, hi⟩ := RuntimeValue.int_of_isRefinedBy h₂
+      obtain ⟨p', rfl, hp⟩ := RuntimeValue.addr_of_isRefinedBy h₁
+      simp only [hw]
+      refine Interp.isRefinedBy_bind_same _ (fun size => ?_)
+      cases ptr
+      case poison =>
+        cases p' <;> cases idx' <;>
+          refine OperationResult.isRefinedBy_value ?_ <;>
+          simp [RuntimeValue.isRefinedBy, Data.LLVM.Ptr.isRefinedBy]
+      case val p =>
+        obtain rfl : p' = .val p := by
+          cases p' <;> simp_all [Data.LLVM.Ptr.isRefinedBy]
+        cases idx
+        case poison =>
+          cases idx' <;>
+            refine OperationResult.isRefinedBy_value ?_ <;>
+            simp [RuntimeValue.isRefinedBy, Data.LLVM.Ptr.isRefinedBy]
+        case val v =>
+          obtain rfl : idx' = .val v := by cases idx' <;> simp_all [isRefinedBy]
+          exact Interp.isRefinedBy_refl_operationResult _
+    case _ => simp [Interp.isRefinedBy]
 
 end Veir
 
