@@ -5,7 +5,11 @@ public import Veir.IR.OpInfo
 public import Veir.Verifier.Basic
 public import Veir.Dialects.RISCV_Stack.Properties
 public import Veir.Dialects.RISCV.OpInfo
+import Veir.Dialects.Builtin.Properties
 meta import Veir.Meta.OpCode
+public import Veir.Interpreter.RuntimeValue.Basic
+public import Veir.Interpreter.Interp
+import Veir.Data.Casting
 
 namespace Veir
 
@@ -33,8 +37,8 @@ def Riscv_Stack.toAttrDict
   match op with
   | .alloca => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
-    dict := dict.insert "size".toUTF8 (Attribute.integerAttr props.size)
-    dict.insert "alignment".toUTF8 (Attribute.integerAttr props.alignment)
+    dict := dict.insert "size".toUTF8 (i64Attr props.size)
+    dict.insert "alignment".toUTF8 (i64Attr props.alignment)
 
 @[get_effects]
 def Riscv_Stack.getEffects
@@ -68,18 +72,23 @@ def Riscv_Stack.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.verifyPlainOpCounts ctx opIn 0 1
     op.verifyRISCVRegisterTypes ctx opIn
     let properties := op.getProperties! ctx.raw Riscv_Stack.alloca
-    if properties.size.type.bitwidth ≠ 64 then
-      throw "attribute 'size' must be a 64-bit signless integer attribute"
-    if properties.size.value < 0 then
+    if properties.size.toInt < 0 then
       throw "size must be nonnegative"
-    if properties.alignment.type.bitwidth ≠ 64 then
-      throw "attribute 'alignment' must be a 64-bit signless integer attribute"
-    if properties.alignment.value ≤ 0 then
+    if properties.alignment.toInt ≤ 0 then
       throw "alignment must be a positive power of two"
-    let alignment := properties.alignment.value.toNat
+    let alignment := properties.alignment
     if alignment &&& (alignment - 1) ≠ 0 then
       throw "alignment must be a positive power of two"
     pure ()
+
+def Riscv_Stack.interpretOp' (opType : Veir.Riscv_Stack) (properties : propertiesOf opType)
+    (_resultTypes : Array TypeAttr) (_operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
+    (mem : MemoryState)
+    : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
+  match opType with
+  | .alloca => do
+    let (mem, addr) ← mem.alloc properties.size.toNat.toUInt64
+    return (#[.reg (LLVM.Int.toReg (mem.intFromPtr (.val addr)))], mem, none)
 
 instance : HasOpInfo Riscv_Stack where
   verifyLocalInvariants := Riscv_Stack.verifyLocalInvariants

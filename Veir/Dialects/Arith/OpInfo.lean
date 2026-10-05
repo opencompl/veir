@@ -7,7 +7,13 @@ public import Veir.Dialects.Arith.Properties
 public import Veir.Dialects.LLVM.Properties
 public import Veir.Dialects.LLVM.OpInfo
 public import Veir.ConstantMaterialization
+public import Veir.Interpreter.RuntimeValue.Basic
+public import Veir.Interpreter.Interp
+public import Veir.Data.LLVM.Int.Basic
+
 meta import Veir.Meta.OpCode
+
+open Veir.Data
 
 namespace Veir
 
@@ -94,24 +100,20 @@ def Arith.toAttrDict
         (Attribute.arithIntegerOverflowFlagsAttr props.attr)
     dict
   | .cmpi =>
-    let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) (IntegerType.mk 64)
+    let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) (IntegerType.signless 64)
     (Std.HashMap.emptyWithCapacity 1).insert
       "predicate".toUTF8 (Attribute.integerAttr value)
   | .divsi | .divui | .shrsi | .shrui => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
     if props.exact then
-      dict := dict.insert "exact".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+      dict := dict.insert "isExact".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
   | .ori => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
     if props.disjoint then
-      dict := dict.insert "disjoint".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+      dict := dict.insert "isDisjoint".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
-  | .extui => Id.run do
-    let mut dict := Std.HashMap.emptyWithCapacity 1
-    if props.nneg then
-      dict := dict.insert "nneg".toUTF8 (Attribute.unitAttr UnitAttr.mk)
-    dict
+  | .extui => props.toAttrDict
   | _ => Std.HashMap.emptyWithCapacity 0
 
 @[get_effects]
@@ -138,6 +140,17 @@ def Arith.propagatesPoison : Arith → Bool
   | .mulsi_extended | .mului_extended => true
   | .constant | .select => false
 
+def Arith.tryFold (op : Arith) (_properties : Arith.propertiesOf op)
+    (_resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
+    Option (Array FoldDecision) :=
+  match op, constantOperands.toList with
+  | .addi, [_, some (.int _ (.val bits))] =>
+    if bits = 0 then some #[.useOperand 0] else none
+  -- Adding zero cannot carry, so the overflow flag is a false `i1`.
+  | .addui_extended, [_, some (.int _ (.val bits))] =>
+    if bits = 0 then some #[.useOperand 0, .useConstant (.int 1 (.val 0#1))] else none
+  | _, _ => none
+
 instance : IsOpCode Arith where
   fromName := Arith.fromName
   name := Arith.name
@@ -155,7 +168,7 @@ def Arith.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpI
   match value, type.val with
   | .int bw (.val value), .integerType intType =>
     if bw = intType.bitwidth then
-      some (.of Arith.constant (ArithConstantProperties.mk (IntegerAttr.mk value.toInt intType)))
+      some (.of Arith.constant (ArithConstantProperties.mk (IntegerAttr.ofInt value.toInt intType)))
     else none
   | .int bw .poison, .integerType intType =>
     if bw = intType.bitwidth then some (.of Llvm.mlir__poison ()) else none
@@ -215,19 +228,11 @@ def Arith.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect Op
     pure ()
   | .constant => do
     op.checkIsNonNullIntegerType ctx opIn
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "Expected 0 operands"
-    else if _ : op.getNumResults ctx.raw opIn ≠ 1 then
-      throw "Expected 1 result"
-    else if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    else if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
-    else
-      let props : Arith.propertiesOf .constant :=
-        op.getProperties! ctx.raw Arith.constant
-      if props.value.type ≠ ((op.getResult 0).get ctx.raw).type.val then
-        throw "Expected result type to be equal to the constant's type"
+    op.verifyPlainOpCounts ctx opIn 0 1
+    let props := op.getProperties! ctx.raw Arith.constant
+    if props.value.type ≠ ((op.getResult 0).get! ctx.raw).type.val then
+      throw "Expected result type to be equal to the constant's type"
+    op.verifyNormalizedIntegerAttr ctx opIn props.value
     pure ()
   | .extui | .extsi => do
     op.checkIsNonNullIntegerType ctx opIn
@@ -242,8 +247,214 @@ def Arith.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect Op
     op.verifyTruncTypes ctx opIn false
     pure ()
 
+def Arith.interpretOp' (opType : Veir.Arith) (properties : propertiesOf opType)
+    (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
+    : Interp ((Array RuntimeValue) × Option ControlFlowAction) :=
+  match opType with
+  | .constant => do
+    let some resType := resultTypes[0]? | none
+    let .integerType bw := resType.val
+      | none
+    return (#[.int bw.bitwidth
+      (.val (BitVec.ofInt bw.bitwidth properties.value.value))], none)
+  | .addi => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.add lhs rhs properties.attr.nsw properties.attr.nuw)], none)
+  | .subi => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.sub lhs rhs properties.attr.nsw properties.attr.nuw)], none)
+  | .muli => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.mul lhs rhs properties.attr.nsw properties.attr.nuw)], none)
+  | .divui => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    if LLVM.Int.isUnsignedDivisionUB rhs then Interp.ub none
+    return (#[.int bw (LLVM.Int.udiv lhs rhs properties.exact)], none)
+  | .divsi => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    if LLVM.Int.isSignedDivisionUB lhs rhs then Interp.ub none
+    return (#[.int bw (LLVM.Int.sdiv lhs rhs properties.exact)], none)
+  | .remui => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    if LLVM.Int.isUnsignedDivisionUB rhs then Interp.ub none
+    return (#[.int bw (LLVM.Int.urem lhs rhs)], none)
+  | .remsi => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    if LLVM.Int.isSignedDivisionUB lhs rhs then Interp.ub none
+    return (#[.int bw (LLVM.Int.srem lhs rhs)], none)
+  | .shli => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.shl lhs rhs properties.attr.nsw properties.attr.nuw)], none)
+  | .shrsi => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.ashr lhs rhs properties.exact)], none)
+  | .shrui => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.lshr lhs rhs properties.exact)], none)
+  | .andi => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.and lhs rhs)], none)
+  | .ori => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.or lhs rhs properties.disjoint)], none)
+  | .xori => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.xor lhs rhs)], none)
+  | .trunci => do
+    let [.int w val] := operands.toList | none
+    let some resType := resultTypes[0]? | none
+    let .integerType resBw := resType.val | none
+    if h: resBw.bitwidth >= w then none else
+    return (#[.int resBw.bitwidth (LLVM.Int.trunc val resBw.bitwidth properties.attr.nsw properties.attr.nuw (by omega))], none)
+  | .extui => do
+    let [.int w val] := operands.toList | none
+    let some resType := resultTypes[0]? | none
+    let .integerType resBw := resType.val | none
+    if h: resBw.bitwidth <= w then none else
+    return (#[.int resBw.bitwidth (LLVM.Int.zext val resBw.bitwidth properties.nneg (by omega))], none)
+  | .extsi => do
+    let [.int w val] := operands.toList | none
+    let some resType := resultTypes[0]? | none
+    let .integerType resBw := resType.val | none
+    if h: resBw.bitwidth <= w then none else
+    return (#[.int resBw.bitwidth (LLVM.Int.sext val resBw.bitwidth (by omega))], none)
+  | .select => do
+    let [.int 1 cond, .int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simpa using h)
+    return (#[.int bw (LLVM.Int.select cond lhs rhs)], none)
+  | .cmpi => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    -- `arith.cmpi` lowers to `llvm.icmp`; the arith and LLVM predicate encodings
+    -- coincide, so `properties.predicate` is used directly. Result is `i1`.
+    return (#[.int 1 (LLVM.Int.icmp lhs rhs properties.predicate)], none)
+  | .maxsi => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.smax lhs rhs)], none)
+  | .minsi => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.smin lhs rhs)], none)
+  | .maxui => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.umax lhs rhs)], none)
+  | .minui => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.umin lhs rhs)], none)
+  | .addui_extended => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    -- Two results: the `w`-bit sum, then the `i1` unsigned-overflow flag.
+    return (#[.int bw (LLVM.Int.add lhs rhs),
+              .int 1 (LLVM.Int.uaddOverflowFlag lhs rhs)], none)
+  | .subui_extended => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    -- Two results: the `w`-bit difference, then the `i1` borrow flag, which is
+    -- set exactly when `lhs <u rhs`.
+    return (#[.int bw (LLVM.Int.sub lhs rhs),
+              .int 1 (LLVM.Int.usubOverflowFlag lhs rhs)], none)
+  | .mulsi_extended => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    -- Two results: the low half (same as `muli`), then the signed high half.
+    return (#[.int bw (LLVM.Int.mul lhs rhs),
+              .int bw (LLVM.Int.smulHigh lhs rhs)], none)
+  | .mului_extended => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    -- Two results: the low half (same as `muli`), then the unsigned high half.
+    return (#[.int bw (LLVM.Int.mul lhs rhs),
+              .int bw (LLVM.Int.umulHigh lhs rhs)], none)
+  | .ceildivui => do
+    let [.int bw a, .int bw' b] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let b := b.cast (by simp at h; exact h)
+    -- Lowering (arith ExpandOps): `a == 0 ? 0 : ((a - 1) udiv b) + 1`. The
+    -- `udiv` makes a zero (or poison) divisor undefined behaviour, exactly as
+    -- for `arith.divui`.
+    if LLVM.Int.isUnsignedDivisionUB b then Interp.ub none
+    let zero : LLVM.Int bw := .val 0
+    let one : LLVM.Int bw := .val 1
+    let isZero := LLVM.Int.icmp a zero .eq
+    let quotient := LLVM.Int.udiv (LLVM.Int.sub a one) b
+    let plusOne := LLVM.Int.add quotient one
+    return (#[.int bw (LLVM.Int.select isZero zero plusOne)], none)
+  | .ceildivsi => do
+    let [.int bw a, .int bw' b] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let b := b.cast (by simp at h; exact h)
+    -- Lowering (arith ExpandOps): `z = a sdiv b;`
+    -- `(a != z*b) && ((a<0) == (b<0)) ? z + 1 : z`. The intermediate `mul`/`add`
+    -- carry no overflow flags (they wrap).
+    let zero : LLVM.Int bw := .val 0
+    let one : LLVM.Int bw := .val 1
+    -- UB gating mirrors `arith.divsi` (divide-by-zero, INT_MIN / -1).
+    if LLVM.Int.isSignedDivisionUB a b then Interp.ub none
+    let z := LLVM.Int.sdiv a b
+    let notExact := LLVM.Int.icmp a (LLVM.Int.mul z b) .ne
+    let signEqual := LLVM.Int.icmp (LLVM.Int.icmp a zero .slt) (LLVM.Int.icmp b zero .slt) .eq
+    let cond := LLVM.Int.and notExact signEqual
+    return (#[.int bw (LLVM.Int.select cond (LLVM.Int.add z one) z)], none)
+  | .floordivsi => do
+    let [.int bw a, .int bw' b] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let b := b.cast (by simp at h; exact h)
+    -- Lowering (arith ExpandOps): `z = a sdiv b;`
+    -- `(a != z*b) && ((a<0) != (b<0)) ? z - 1 : z`. The intermediate `mul`/`add`
+    -- carry no overflow flags (they wrap).
+    let zero : LLVM.Int bw := .val 0
+    let negOne : LLVM.Int bw := .val (BitVec.allOnes bw)
+    -- UB gating mirrors `arith.divsi` (divide-by-zero, INT_MIN / -1).
+    if LLVM.Int.isSignedDivisionUB a b then Interp.ub none
+    let z := LLVM.Int.sdiv a b
+    let notExact := LLVM.Int.icmp a (LLVM.Int.mul z b) .ne
+    let signOpposite := LLVM.Int.icmp (LLVM.Int.icmp a zero .slt) (LLVM.Int.icmp b zero .slt) .ne
+    let cond := LLVM.Int.and notExact signOpposite
+    return (#[.int bw (LLVM.Int.select cond (LLVM.Int.add z negOne) z)], none)
+
 instance : HasOpInfo Arith where
   verifyLocalInvariants := Arith.verifyLocalInvariants
+  tryFold := Arith.tryFold
   propagatesPoison := Arith.propagatesPoison
   getEffects := Arith.getEffects
   isConstantLike := Arith.isConstantLike

@@ -1,4 +1,5 @@
 // RUN: VEIR_UNREGISTERED_ROUNDTRIP
+// RUN: MLIR_UNREGISTERED_ROUNDTRIP
 //
 // Regression test for parsing LLVM struct types nested inside other LLVM types.
 //

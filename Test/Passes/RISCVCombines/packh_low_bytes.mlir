@@ -19,7 +19,7 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK-LABEL: "sym_name" = "packh_low_bytes"
+// CHECK-LABEL: func.func @packh_low_bytes(
 // CHECK: %[[LO:[^ ]*]] = "riscv.lbu"
 // CHECK: %[[HI:[^ ]*]] = "riscv.lbu"
 // CHECK: %[[PACKED:[^ ]*]] = "riscv.packh"(%[[LO]], %[[HI]])

@@ -14,7 +14,7 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK-LABEL: "sym_name" = "zextb_lbu"
+// CHECK-LABEL: func.func @zextb_lbu(
 // CHECK: %[[UNSIGNED:[^ ]*]] = "riscv.lbu"(%[[ADDR:[^)]*]]) <{"value" = 11 : i64}>
 // CHECK: %[[OTHER:[^ ]*]] = "riscv.li"() <{"value" = 257 : i64}>
 // CHECK-NEXT: %[[UNCHANGED:[^ ]*]] = "riscv.zextb"(%[[OTHER]])

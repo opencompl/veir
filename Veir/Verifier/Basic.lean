@@ -2,6 +2,7 @@ module
 
 public import Veir.IR.OpInfo
 public import Veir.IR.WellFormed
+public import Veir.IR.Attribute
 
 /-!
 # Verifier
@@ -35,7 +36,7 @@ def Attribute.branchArgCompatible (opTy argTy : Attribute) : Bool :=
 def Attribute.isKnownNonZero (attr : Attribute) : Bool :=
   match attr with
   | .integerAttr intAttr => intAttr.value != 0
-  | .floatAttr fltAttr => fltAttr.value != 0.0
+  | .floatAttr fltAttr => !fltAttr.value.isPositiveZero
   | _ => false
 
 /--
@@ -98,6 +99,8 @@ def OperationPtr.verifyOperandSegmentSizes
     (sizes : DenseArrayAttr) (expectedSegments : Nat) :
     Except String (Array Nat) := do
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  if sizes.elementType.bitwidth ≠ 32 then
+    throw s!"{instrName}: Expected 'operandSegmentSizes' to be an i32 dense array attribute"
   if sizes.values.size ≠ expectedSegments then
     throw s!"{instrName}: operandSegmentSizes expected {expectedSegments} entries, got {sizes.values.size}"
   let mut segmentSizes : Array Nat := #[]
@@ -109,6 +112,24 @@ def OperationPtr.verifyOperandSegmentSizes
   if segmentSum ≠ op.getNumOperands ctx.raw opIn then
     throw s!"{instrName}: operandSegmentSizes describes {segmentSum} operands, got {op.getNumOperands ctx.raw opIn}"
   return segmentSizes
+
+/--
+  Check the operand bundles described by `op_bundle_sizes` and `op_bundle_tags`
+  as MLIR's `verifyOperandBundles` does, and return the number of bundle operands.
+-/
+def verifyOperandBundles (sizes : DenseArrayAttr) (tags : Option ArrayAttr) :
+    Except String Nat := do
+  if sizes.elementType.bitwidth ≠ 32 then
+    throw "Expected 'op_bundle_sizes' to be an i32 dense array attribute"
+  if sizes.values.any (· < 0) then
+    throw "op_bundle_sizes contains a negative size"
+  let tags := (tags.map (·.value)).getD #[]
+  if tags.size ≠ sizes.values.size then
+    throw s!"Expected {sizes.values.size} operand bundle tag(s), but got {tags.size}"
+  for tag in tags do
+    let .stringAttr _ := tag
+      | throw "Expected operand bundle tags to be string attributes"
+  return (sizes.values.foldl (· + ·) 0).toNat
 
 def OperationPtr.verifyCondBranchOperandSegmentSizes
     (op : OperationPtr) (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw)
@@ -157,6 +178,12 @@ def TypeAttr.verifyIntegerType
   | .integerType _ => pure ()
   | _ => throw errMsg
 
+def TypeAttr.verifyFloatType
+    (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
+  match ty.val with
+  | .floatType _ => pure ()
+  | _ => throw errMsg
+
 def TypeAttr.verifyIntegerOrByteType
     (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
   match ty.val with
@@ -190,7 +217,7 @@ def TypeAttr.verifyI1
 def TypeAttr.verifyI64
     (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
   match ty.val with
-  | .integerType { bitwidth := 64 } => pure ()
+  | .integerType { bitwidth := 64, .. } => pure ()
   | _ => throw errMsg
 
 /--
@@ -239,6 +266,57 @@ def OperationPtr.verifyIntegerBinop (op : OperationPtr)
     s!"{instrName}: Expected operands to have the same type"
   op.verifyResultTypeMatches ctx operandType
     s!"{instrName}: Expected result type to match operand type"
+
+def OperationPtr.verifyFloatBinop (op : OperationPtr)
+    (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 2 1
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyFloatType
+    s!"{instrName}: Expected operand 0 to have floating point type"
+  ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyFloatType
+    s!"{instrName}: Expected operand 1 to have floating point type"
+  let operandType ← op.verifyOperandTypesMatch ctx 0 1
+    s!"{instrName}: Expected operands to have the same type"
+  op.verifyResultTypeMatches ctx operandType
+    s!"{instrName}: Expected result type to match operand type"
+
+def OperationPtr.verifyFloatUnop (op : OperationPtr)
+    (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 1 1
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
+  operandType.verifyFloatType s!"{instrName}: Expected operand 0 to have floating point type"
+  op.verifyResultTypeMatches ctx operandType
+    s!"{instrName}: Expected result type to match operand type"
+
+def OperationPtr.verifyFloatTernop (op : OperationPtr)
+    (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 3 1
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  for i in [0:3] do
+    ((op.getOperand! ctx.raw i).getType! ctx.raw).verifyFloatType
+      s!"{instrName}: Expected operand {i} to have floating point type"
+  let operandType ← op.verifyOperandTypesMatch ctx 0 1
+    s!"{instrName}: Expected operands to have the same type"
+  let _ ← op.verifyOperandTypesMatch ctx 1 2
+    s!"{instrName}: Expected operands to have the same type"
+  op.verifyResultTypeMatches ctx operandType
+    s!"{instrName}: Expected result type to match operand type"
+
+def OperationPtr.verifyFCmp (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 2 1
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyFloatType
+    s!"{instrName}: Expected operand 0 to have floating point type"
+  ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyFloatType
+    s!"{instrName}: Expected operand 1 to have floating point type"
+  let _ ← op.verifyOperandTypesMatch ctx 0 1
+    s!"{instrName}: Expected operands to have the same type"
+  ((op.getResult 0).get! ctx.raw).type.verifyI1 s!"{instrName}: Expected i1 result"
 
 def OperationPtr.verifyIntegerTernop (op : OperationPtr)
     (ctx : WfIRContext OpInfo)
@@ -300,7 +378,7 @@ def OperationPtr.verifyTruncTypes (op : OperationPtr)
   let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
   let resultType := ((op.getResult 0).get! ctx.raw).type
   match operandType.val, resultType.val, allowByte with
-  | .integerType ⟨bw1⟩, .integerType ⟨bw2⟩, _ =>
+  | .integerType ⟨bw1, _⟩, .integerType ⟨bw2, _⟩, _ =>
     if bw1 ≤ bw2 then
       throw s!"{instrName}: Result's width must be smaller than operand's width"
     else
@@ -311,6 +389,40 @@ def OperationPtr.verifyTruncTypes (op : OperationPtr)
     else
       pure ()
   | _, _, _ => throw s!"{instrName}: Expected 1 integer operand and 1 integer result"
+
+def OperationPtr.verifyIntToFloatTypes (op : OperationPtr)
+    (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 1 1
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType
+    s!"{instrName}: Expected operand 0 to have integer type"
+  ((op.getResult 0).get! ctx.raw).type.verifyFloatType
+    s!"{instrName}: Expected floating point result type"
+
+def OperationPtr.verifyFloatToIntTypes (op : OperationPtr)
+    (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 1 1
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyFloatType
+    s!"{instrName}: Expected operand 0 to have floating point type"
+  ((op.getResult 0).get! ctx.raw).type.verifyIntegerType
+    s!"{instrName}: Expected integer result type"
+
+/--
+  A conversion between floating point types. MLIR does not check that
+  `llvm.fpext` widens, so neither does this.
+-/
+def OperationPtr.verifyFloatExtTypes (op : OperationPtr)
+    (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 1 1
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyFloatType
+    s!"{instrName}: Expected operand 0 to have floating point type"
+  ((op.getResult 0).get! ctx.raw).type.verifyFloatType
+    s!"{instrName}: Expected floating point result type"
 
 def OperationPtr.verifyIntegerExtTypes (op : OperationPtr)
     (ctx : WfIRContext OpInfo)
@@ -329,7 +441,35 @@ def OperationPtr.verifyIntegerExtTypes (op : OperationPtr)
     pure ()
 
 /--
-  Reject any operand or result whose type is a zero-width integer (`i0`).
+  Whether `type` is compatible with the LLVM dialect: integers, floats,
+  pointers, arrays and vectors of compatible types, void, and the `!llvm.*`
+  types VeIR keeps opaque, such as structs.
+-/
+partial def Attribute.isLLVMCompatibleType : Attribute → Bool
+  | .integerType _ | .floatType _ | .llvmPointerType _ | .llvmVoidType _ => true
+  | .llvmFunctionType _ => true
+  | .llvmArrayType arrType => arrType.type.isLLVMCompatibleType
+  | .vectorType vecType => vecType.elementType.isLLVMCompatibleType
+  | .unregisteredAttr attr => attr.isType && attr.value.startsWith "!llvm."
+  | _ => false
+
+/-- Check that every operand and result has an LLVM dialect-compatible type. -/
+def OperationPtr.verifyLLVMCompatibleTypes (op : OperationPtr)
+    (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  let opTypes := op.getOperandTypes! ctx.raw
+  for i in [0:opTypes.size] do
+    if !(opTypes[i]!).val.isLLVMCompatibleType then
+      throw s!"{instrName}: operand {i} must be an LLVM dialect-compatible type, but got {opTypes[i]!}"
+  for i in [0:op.getNumResults ctx.raw opIn] do
+    let type := ((op.getResult i).get! ctx.raw).type
+    if !type.val.isLLVMCompatibleType then
+      throw s!"{instrName}: result {i} must be an LLVM dialect-compatible type, but got {type}"
+
+/--
+  Reject any operand or result whose type is a zero-width integer (`i0`), or an integer that is
+  not signless (`si<n>` or `ui<n>`).
   Whether `i0` is legal is a per-dialect policy, so callers must apply this
   check explicitly to operations that forbid it.
 -/
@@ -342,10 +482,26 @@ def OperationPtr.checkIsNonNullIntegerType (op : OperationPtr)
     if let .integerType intType := (opTypes[i]!).val then
       if intType.bitwidth = 0 then
         throw s!"{instrName}: operand {i} has forbidden i0 type"
+      if intType.signedness ≠ .signless then
+        throw s!"{instrName}: operand {i} must be a signless integer, but got {intType}"
   for i in [0:op.getNumResults ctx.raw opIn] do
     if let .integerType intType := ((op.getResult i).get! ctx.raw).type.val then
       if intType.bitwidth = 0 then
         throw s!"{instrName}: result {i} has forbidden i0 type"
+      if intType.signedness ≠ .signless then
+        throw s!"{instrName}: result {i} must be a signless integer, but got {intType}"
+
+/--
+  Reject an integer constant whose value is not normalized for its type (see
+  `IntegerAttr.normalizeValue`). The parser only produces normalized values, and
+  MLIR cannot represent any other, so this catches rewrites that build them.
+-/
+def OperationPtr.verifyNormalizedIntegerAttr (op : OperationPtr)
+    (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) (attr : IntegerAttr) : Except String PUnit := do
+  unless attr.isNormalized do
+    let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+    throw s!"{instrName}: value {attr.value} is not normalized for {attr.type}"
 
 def denseElementsElementType? (typeStr : String) : Option String :=
   let s := typeStr.replace " " ""

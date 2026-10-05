@@ -3,7 +3,7 @@
 // The generic canonicalizer folds registered-field subtraction,
 // multiplication, and negation.
 "builtin.module"() ({
-  // CHECK-LABEL: "sym_name" = "constant_fold_arith"
+  // CHECK-LABEL: func.func @constant_fold_arith() -> (!felt.type<"babybear">, !felt.type<"babybear">, !felt.type<"babybear">) {
   "func.func"() <{sym_name = "constant_fold_arith", function_type = () -> (!felt.type<"babybear">, !felt.type<"babybear">, !felt.type<"babybear">)}> ({
     %a = "felt.const"() <{value = #felt<const 7 : <"babybear">> : !felt.type<"babybear">}> : () -> !felt.type<"babybear">
     %b = "felt.const"() <{value = #felt<const 3 : <"babybear">> : !felt.type<"babybear">}> : () -> !felt.type<"babybear">

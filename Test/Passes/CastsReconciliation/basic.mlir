@@ -7,7 +7,7 @@
         // A lone `iX -> iX` cast is not a round trip, so nothing reconciles it away.
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> i64
         "test.test"(%1) : (i64) -> ()
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : i64):
+        // CHECK:        func.func @f0([[ARG:%.*]]: i64) {
         // CHECK-NEXT:   [[I:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (i64) -> i64
         // CHECK-NEXT:   "test.test"([[I]]) : (i64) -> ()
         "func.return"() : () -> ()
@@ -17,7 +17,7 @@
       ^1(%0 : i64):
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> !riscv.reg
         "test.test"(%1) : (!riscv.reg) -> ()
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : i64):
+        // CHECK:        func.func @f1([[ARG:%.*]]: i64) {
         // CHECK-NEXT:   [[C:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (i64) -> !riscv.reg
         // CHECK-NEXT:   "test.test"([[C]]) : (!riscv.reg) -> ()
         "func.return"() : () -> ()
@@ -29,7 +29,7 @@
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> !riscv.reg
         %2 = "builtin.unrealized_conversion_cast"(%1) : (!riscv.reg) -> i64
         "test.test"(%2) : (i64) -> ()
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : i64):
+        // CHECK:        func.func @f2([[ARG:%.*]]: i64) {
         // CHECK-NEXT:   [[C1:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (i64) -> !riscv.reg
         // CHECK-NEXT:   [[C2:%.*]] = "builtin.unrealized_conversion_cast"([[C1]]) : (!riscv.reg) -> i64
         // CHECK-NEXT:   "test.test"([[C2]]) : (i64) -> ()
@@ -44,7 +44,7 @@
         %2 = "test.test"(%1) : (!riscv.reg) -> (!riscv.reg)
         %3 = "builtin.unrealized_conversion_cast"(%1) : (!riscv.reg) -> i64
         "test.test"(%2, %3) : (!riscv.reg, i64) -> ()
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : i64):
+        // CHECK:        func.func @f3([[ARG:%.*]]: i64) {
         // CHECK-NEXT:   [[C:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (i64) -> !riscv.reg
         // CHECK-NEXT:   [[T:%.*]] = "test.test"([[C]]) : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT:   [[I:%.*]] = "builtin.unrealized_conversion_cast"([[C]]) : (!riscv.reg) -> i64
@@ -60,7 +60,7 @@
         %2 = "builtin.unrealized_conversion_cast"(%1) : (!riscv.reg) -> !riscv.reg
         %3 = "builtin.unrealized_conversion_cast"(%2) : (!riscv.reg) -> i64
         "test.test"(%3) : (i64) -> ()
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : i64):
+        // CHECK:        func.func @f4([[ARG:%.*]]: i64) {
         // CHECK-NEXT:   [[R:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (i64) -> !riscv.reg
         // CHECK-NEXT:   [[I:%.*]] = "builtin.unrealized_conversion_cast"([[R]]) : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT:   [[C:%.*]] = "builtin.unrealized_conversion_cast"([[I]]) : (!riscv.reg) -> i64
@@ -77,7 +77,7 @@
         %4 = "builtin.unrealized_conversion_cast"(%3) : (!riscv.reg) -> i64
         "test.test"(%2, %4) : (i64, i64) -> ()
         // Integer-starting register round trips freeze poison, so both pairs remain.
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : i64):
+        // CHECK:        func.func @f5([[ARG:%.*]]: i64) {
         // CHECK-NEXT:   [[R1:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (i64) -> !riscv.reg
         // CHECK-NEXT:   [[R2:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (i64) -> !riscv.reg
         // CHECK-NEXT:   [[I1:%.*]] = "builtin.unrealized_conversion_cast"([[R1]]) : (!riscv.reg) -> i64
@@ -91,7 +91,7 @@
         // identity cast on block argument: not a round trip, so it survives the pass
         %1 = "builtin.unrealized_conversion_cast"(%0) : (!riscv.reg) -> !riscv.reg
         "test.test"(%1) : (!riscv.reg) -> ()
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : !riscv.reg):
+        // CHECK:        func.func @f6([[ARG:%.*]]: !riscv.reg) {
         // CHECK-NEXT:   [[I:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT:   "test.test"([[I]]) : (!riscv.reg) -> ()
         "func.return"() : () -> ()
@@ -101,7 +101,7 @@
       ^1(%0 : i8):
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i8) -> i8
         "test.test"(%1) : (i8) -> ()
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : i8):
+        // CHECK:        func.func @f7([[ARG:%.*]]: i8) {
         // CHECK-NEXT:   [[I:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (i8) -> i8
         // CHECK-NEXT:   "test.test"([[I]]) : (i8) -> ()
         "func.return"() : () -> ()
@@ -116,7 +116,7 @@
         %2 = "builtin.unrealized_conversion_cast"(%1) : (i256) -> i64
         %4 = "builtin.unrealized_conversion_cast"(%3) : (i128) -> i64
         "test.test"(%2, %4) : (i64, i64) -> ()
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : i64):
+        // CHECK:        func.func @f8([[ARG:%.*]]: i64) {
         // CHECK-NEXT:   [[W1:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (i64) -> i256
         // CHECK-NEXT:   [[W2:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (i64) -> i128
         // CHECK-NEXT:   [[N1:%.*]] = "builtin.unrealized_conversion_cast"([[W1]]) : (i256) -> i64
@@ -132,7 +132,7 @@
         %2 = "builtin.unrealized_conversion_cast"(%1) : (!riscv.reg) -> i32
         "test.test"(%2) : (i32) -> ()
         // The `i32 -> reg -> i32` round trip is not reconciled because it freezes poison.
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : i32):
+        // CHECK:        func.func @f9([[ARG:%.*]]: i32) {
         // CHECK-NEXT:   [[R:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (i32) -> !riscv.reg
         // CHECK-NEXT:   [[I:%.*]] = "builtin.unrealized_conversion_cast"([[R]]) : (!riscv.reg) -> i32
         // CHECK-NEXT:   "test.test"([[I]]) : (i32) -> ()
@@ -145,7 +145,7 @@
         %1 = "builtin.unrealized_conversion_cast"(%0) : (!riscv.reg) -> i32
         %2 = "builtin.unrealized_conversion_cast"(%1) : (i32) -> !riscv.reg
         "test.test"(%2) : (!riscv.reg) -> ()
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : !riscv.reg):
+        // CHECK:        func.func @f10([[ARG:%.*]]: !riscv.reg) {
         // CHECK-NEXT:   %[[C1:.*]] = "riscv.zextw"([[ARG]]) : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT:   "test.test"(%[[C1]]) : (!riscv.reg) -> ()
         "func.return"() : () -> ()
@@ -157,7 +157,7 @@
         %1 = "builtin.unrealized_conversion_cast"(%0) : (!llvm.ptr) -> !riscv.reg
         %2 = "builtin.unrealized_conversion_cast"(%1) : (!riscv.reg) -> !llvm.ptr
         "test.test"(%2) : (!llvm.ptr) -> ()
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : !llvm.ptr):
+        // CHECK:        func.func @f11([[ARG:%.*]]: !llvm.ptr) {
         // CHECK-NEXT:   "test.test"([[ARG]]) : (!llvm.ptr) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
@@ -168,7 +168,7 @@
         %1 = "builtin.unrealized_conversion_cast"(%0) : (!riscv.reg) -> !llvm.ptr
         %2 = "builtin.unrealized_conversion_cast"(%1) : (!llvm.ptr) -> !riscv.reg
         "test.test"(%2) : (!riscv.reg) -> ()
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : !riscv.reg):
+        // CHECK:        func.func @f12([[ARG:%.*]]: !riscv.reg) {
         // CHECK-NEXT:   "test.test"([[ARG]]) : (!riscv.reg) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
@@ -181,7 +181,7 @@
         %3 = "builtin.unrealized_conversion_cast"(%1) : (!riscv.reg) -> i32
         "test.test"(%2, %3) : (!riscv.reg, i32) -> ()
         // The integer-starting round trip freezes poison, so both casts remain.
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : i32):
+        // CHECK:        func.func @f13([[ARG:%.*]]: i32) {
         // CHECK-NEXT:   [[R:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (i32) -> !riscv.reg
         // CHECK-NEXT:   [[T:%.*]] = "test.test"([[R]]) : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT:   [[C:%.*]] = "builtin.unrealized_conversion_cast"([[R]]) : (!riscv.reg) -> i32
@@ -195,7 +195,7 @@
         %1 = "builtin.unrealized_conversion_cast"(%0) : (!riscv.reg) -> i16
         %2 = "builtin.unrealized_conversion_cast"(%1) : (i16) -> !riscv.reg
         "test.test"(%2) : (!riscv.reg) -> ()
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : !riscv.reg):
+        // CHECK:        func.func @f14([[ARG:%.*]]: !riscv.reg) {
         // CHECK-NEXT:   %[[C1:.*]] = "riscv.zexth"([[ARG]]) : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT:   "test.test"(%[[C1]]) : (!riscv.reg) -> ()
         "func.return"() : () -> ()
@@ -207,7 +207,7 @@
         %1 = "builtin.unrealized_conversion_cast"(%0) : (!riscv.reg) -> i8
         %2 = "builtin.unrealized_conversion_cast"(%1) : (i8) -> !riscv.reg
         "test.test"(%2) : (!riscv.reg) -> ()
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : !riscv.reg):
+        // CHECK:        func.func @f15([[ARG:%.*]]: !riscv.reg) {
         // CHECK-NEXT:   %[[C1:.*]] = "riscv.zextb"([[ARG]]) : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT:   "test.test"(%[[C1]]) : (!riscv.reg) -> ()
         "func.return"() : () -> ()
@@ -219,7 +219,7 @@
         %1 = "builtin.unrealized_conversion_cast"(%0) : (!riscv.reg) -> i14
         %2 = "builtin.unrealized_conversion_cast"(%1) : (i14) -> !riscv.reg
         "test.test"(%2) : (!riscv.reg) -> ()
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : !riscv.reg):
+        // CHECK:        func.func @f16([[ARG:%.*]]: !riscv.reg) {
         // CHECK-NEXT:   %[[C1:.*]] = "riscv.slli"([[ARG]]) <{"value" = 50 : i64}> : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT:   %[[C2:.*]] = "riscv.srli"(%[[C1]]) <{"value" = 50 : i64}> : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT:   "test.test"(%[[C2]]) : (!riscv.reg) -> ()
@@ -234,7 +234,7 @@
         %1 = "builtin.unrealized_conversion_cast"(%0) : (!riscv.reg) -> i0
         %2 = "builtin.unrealized_conversion_cast"(%1) : (i0) -> !riscv.reg
         "test.test"(%2) : (!riscv.reg) -> ()
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : !riscv.reg):
+        // CHECK:        func.func @f17([[ARG:%.*]]: !riscv.reg) {
         // CHECK-NEXT:   %[[C1:.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (!riscv.reg) -> i0
         // CHECK-NEXT:   %[[C2:.*]] = "builtin.unrealized_conversion_cast"(%[[C1]]) : (i0) -> !riscv.reg
         // CHECK-NEXT:   "test.test"(%[[C2]]) : (!riscv.reg) -> ()
@@ -247,7 +247,7 @@
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i32) -> !mod_arith.int<7 : i32>
         %2 = "builtin.unrealized_conversion_cast"(%1) : (!mod_arith.int<7 : i32>) -> i32
         "test.test"(%2) : (i32) -> ()
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : i32):
+        // CHECK:        func.func @f18([[ARG:%.*]]: i32) {
         // CHECK-NEXT:   "test.test"([[ARG]]) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
@@ -259,7 +259,7 @@
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i32) -> !cir.int<s, 32>
         %2 = "builtin.unrealized_conversion_cast"(%1) : (!cir.int<s, 32>) -> i32
         "test.test"(%2) : (i32) -> ()
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : i32):
+        // CHECK:        func.func @f19([[ARG:%.*]]: i32) {
         // CHECK-NEXT:   "test.test"([[ARG]]) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
@@ -270,7 +270,7 @@
         %1 = "builtin.unrealized_conversion_cast"(%0) : (!cir.bool) -> i1
         %2 = "builtin.unrealized_conversion_cast"(%1) : (i1) -> !cir.bool
         "test.test"(%2) : (!cir.bool) -> ()
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : !cir.bool):
+        // CHECK:        func.func @f20([[ARG:%.*]]: !cir.bool) {
         // CHECK-NEXT:   "test.test"([[ARG]]) : (!cir.bool) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
@@ -281,7 +281,7 @@
         %1 = "builtin.unrealized_conversion_cast"(%0) : (!cir.int<s, 32>) -> i64
         %2 = "builtin.unrealized_conversion_cast"(%1) : (i64) -> !cir.int<s, 32>
         "test.test"(%2) : (!cir.int<s, 32>) -> ()
-        // CHECK:        ^{{.*}}([[ARG:%.*]] : !cir.int<s, 32>):
+        // CHECK:        func.func @f21([[ARG:%.*]]: !cir.int<s, 32>) {
         // CHECK-NEXT:   [[C1:%.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (!cir.int<s, 32>) -> i64
         // CHECK-NEXT:   [[C2:%.*]] = "builtin.unrealized_conversion_cast"([[C1]]) : (i64) -> !cir.int<s, 32>
         // CHECK-NEXT:   "test.test"([[C2]]) : (!cir.int<s, 32>) -> ()

@@ -22,7 +22,7 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK-LABEL: "sym_name" = "packh_high_bytes"
+// CHECK-LABEL: func.func @packh_high_bytes(
 // CHECK: %[[B2:[^ ]*]] = "riscv.lbu"
 // CHECK: %[[B3:[^ ]*]] = "riscv.lbu"
 // CHECK: %[[PACKED:[^ ]*]] = "riscv.packh"(%[[B2]], %[[B3]])

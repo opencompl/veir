@@ -26,17 +26,17 @@
 
 }) : () -> ()
 
-// CHECK-LABEL: "sym_name" = "nested_zext"
-// CHECK:      ^{{.*}}(%[[NESTED_X:.*]] : !riscv.reg):
+// CHECK-LABEL: func.func @nested_zext(
+// CHECK-SAME:  %[[NESTED_X:.*]]: !riscv.reg) -> !riscv.reg {
 // CHECK-NEXT: %[[NESTED_B:.*]] = "riscv.zextb"(%[[NESTED_X]]) : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT: "func.return"(%[[NESTED_B]]) : (!riscv.reg) -> ()
 
-// CHECK-LABEL: "sym_name" = "typed_nested_zext"
-// CHECK:      ^{{.*}}(%[[TYPED_NESTED_X:.*]] : !riscv.reg<x1>):
+// CHECK-LABEL: func.func @typed_nested_zext(
+// CHECK-SAME:  %[[TYPED_NESTED_X:.*]]: !riscv.reg<x1>) -> !riscv.reg<x3> {
 // CHECK-NEXT: %[[TYPED_NESTED_B:.*]] = "riscv.zextb"(%[[TYPED_NESTED_X]]) : (!riscv.reg<x1>) -> !riscv.reg<x3>
 // CHECK-NEXT: "func.return"(%[[TYPED_NESTED_B]]) : (!riscv.reg<x3>) -> ()
 
-// CHECK-LABEL: "sym_name" = "typed_nested_zext_same_type_shared"
-// CHECK:      ^{{.*}}(%[[TYPED_SAME_X:.*]] : !riscv.reg<x1>):
+// CHECK-LABEL: func.func @typed_nested_zext_same_type_shared(
+// CHECK-SAME:  %[[TYPED_SAME_X:.*]]: !riscv.reg<x1>) -> (!riscv.reg<x3>, !riscv.reg<x3>) {
 // CHECK-NEXT: %[[TYPED_SAME_B:.*]] = "riscv.zextb"(%[[TYPED_SAME_X]]) : (!riscv.reg<x1>) -> !riscv.reg<x3>
 // CHECK-NEXT: "func.return"(%[[TYPED_SAME_B]], %[[TYPED_SAME_B]]) : (!riscv.reg<x3>, !riscv.reg<x3>) -> ()

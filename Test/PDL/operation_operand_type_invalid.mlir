@@ -1,4 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
+// RUN: MLIR_INVALID
 
 // The `operandValues` group of a `pdl.operation` holds `!pdl.value` handles, so
 // an `!pdl.attribute` handle in that group is rejected.

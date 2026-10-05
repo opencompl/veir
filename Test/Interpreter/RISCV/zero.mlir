@@ -3,7 +3,7 @@
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (!riscv.reg)}> ({
     %a = "rv64.get_register"() : () -> !riscv.reg<x0>
-    %b = "riscv.addi"(%a) <{ value = 5 : i12 }> : (!riscv.reg<x0>) -> !riscv.reg
+    %b = "riscv.addi"(%a) <{ value = 5 : i64 }> : (!riscv.reg<x0>) -> !riscv.reg
     "func.return"(%b) : (!riscv.reg) -> ()
   }) : () -> ()
 }) : () -> ()

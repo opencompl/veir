@@ -14,7 +14,7 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK-LABEL: "sym_name" = "drop_sextw_sb"
+// CHECK-LABEL: func.func @drop_sextw_sb(
 // CHECK: "riscv.sb"(%[[VALUE:.*]], %[[ADDR:.*]]) <{"value" = 3 : i64}>
 // CHECK: %[[SADDR:.*]] = "riscv.sextw"(%[[ADDR]])
 // CHECK-NEXT: "riscv.sb"(%[[VALUE]], %[[SADDR]]) <{"value" = 4 : i64, volatile_}>

@@ -21,6 +21,15 @@ private structure ExpectedOperationDominance where
   properDom : Bool
 
 /--
+Whether a block properly dominates itself, which it does exactly when it sits in
+a graph region: there is no ordering between points in such a region.
+-/
+private def selfProperlyDominates (block : BlockPtr) (irCtx : WfIRContext OpCode) : Bool :=
+  match (block.get! irCtx.raw).parent with
+  | none => false
+  | some region => !region.hasSSADominance irCtx
+
+/--
 Compare one expected dominator label against the observed dominance information.
 
 This is the completeness half of the reachable block check: every expected
@@ -35,7 +44,7 @@ private def compareExpectedDominator
     (irCtx : WfIRContext OpCode) : MismatchReport := Id.run do
   let some expectedBlock := recovered.blocks[expectedDom]?
     | return #[s!"dominators {expected.name}: missing block label {expectedDom}"]
-  let shouldProperlyDom := expectedDom ≠ expected.name
+  let shouldProperlyDom := expectedDom ≠ expected.name || selfProperlyDominates block irCtx
   let mut report := #[]
   if !expectedBlock.dominates block dfCtx irCtx then
     report := report.push s!"dominators {expected.name}: missing expected dominator {expectedDom}"
@@ -60,12 +69,14 @@ private def compareObservedDominator
   let observedByRelation := observedBlock.dominates block dfCtx irCtx
   let observedProperly := observedBlock.properlyDominates block dfCtx irCtx
   let mut report := #[]
-  if observedProperly ≠ (observedByRelation && observedBlock ≠ block) then
+  let selfProper := selfProperlyDominates block irCtx
+  if observedProperly ≠ (observedByRelation && (observedBlock ≠ block || selfProper)) then
     report := report.push
       s!"dominators {expected.name}: dominates/properlyDominates disagree on {observedName}"
   if observedByRelation && !expected.doms.contains observedName then
     report := report.push s!"dominators {expected.name}: unexpected dominator {observedName}"
-  if observedProperly && (!expected.doms.contains observedName || observedName = expected.name) then
+  if observedProperly &&
+      (!expected.doms.contains observedName || (observedName = expected.name && !selfProper)) then
     report := report.push s!"dominators {expected.name}: unexpected proper dominator {observedName}"
   report
 
@@ -211,12 +222,12 @@ should dominate it. An empty set means the block should remain unreachable.
 def run
     (mlir : String)
     (expected : Array ExpectedBlockDominators) : String :=
-  runWithAnalyses mlir #[Veir.DominanceAnalysis] (fun top dfCtx parserState => Id.run do
-    match recoverNames top parserState.ctx mlir with
+  runWithAnalyses mlir #[Veir.DominanceAnalysis] (fun top dfCtx ctx => Id.run do
+    match recoverNames top ctx mlir with
     | Except.error err =>
         return #[err]
     | Except.ok recovered =>
-        compareNamedDominators recovered expected dfCtx parserState.ctx)
+        compareNamedDominators recovered expected dfCtx ctx)
 
 /--
 Run the operation dominance test harness on one MLIR snippet.
@@ -226,12 +237,12 @@ Operations are referenced by the SSA names of one of their results.
 def runOperationDominance
     (mlir : String)
     (expected : Array ExpectedOperationDominance) : String :=
-  runWithAnalyses mlir #[Veir.DominanceAnalysis] (fun top dfCtx parserState => Id.run do
-    match recoverNames top parserState.ctx mlir with
+  runWithAnalyses mlir #[Veir.DominanceAnalysis] (fun top dfCtx ctx => Id.run do
+    match recoverNames top ctx mlir with
     | Except.error err =>
         return #[err]
     | Except.ok recovered =>
-        compareNamedOperationDominance recovered expected dfCtx parserState.ctx)
+        compareNamedOperationDominance recovered expected dfCtx ctx)
 
 /-
   Test: loop with a backedge
@@ -251,13 +262,13 @@ def runOperationDominance
 -/
 def testDomLoop : String :=
   run
-    r#""builtin.module"() ({
+    r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
 ^bb0:
-  "test.test"() [^bb1] : () -> ()
+  "cf.br"() [^bb1] : () -> ()
 ^bb1:
-  "test.test"() [^bb2] : () -> ()
+  "cf.br"() [^bb2] : () -> ()
 ^bb2:
-  "test.test"() [^bb1] : () -> ()
+  "cf.br"() [^bb1] : () -> ()
 }) : () -> ()"#
     #[ { name := "bb0", doms := { "bb0" },               immediateDom := "bb0" }
      , { name := "bb1", doms := { "bb0", "bb1" },        immediateDom := "bb0" }
@@ -278,15 +289,16 @@ def testDomLoop : String :=
 -/
 def testDomDiamond : String :=
   run
-    r#""builtin.module"() ({
-^bb0:
-  "test.test"() [^bb1, ^bb2] : () -> ()
+    r#""func.func"() <{sym_name = "f", function_type = (i1) -> ()}> ({
+^bb0(%cond : i1):
+  "cf.cond_br"(%cond) [^bb1, ^bb2]
+    <{operandSegmentSizes = array<i32: 1, 0, 0>}> : (i1) -> ()
 ^bb1:
-  "test.test"() [^bb3] : () -> ()
+  "cf.br"() [^bb3] : () -> ()
 ^bb2:
-  "test.test"() [^bb3] : () -> ()
+  "cf.br"() [^bb3] : () -> ()
 ^bb3:
-  "test.test"() : () -> ()
+  "func.return"() : () -> ()
 }) : () -> ()"#
     #[ { name := "bb0", doms := { "bb0" },        immediateDom := "bb0" }
      , { name := "bb1", doms := { "bb0", "bb1" }, immediateDom := "bb0" }
@@ -314,15 +326,15 @@ def testDomDiamond : String :=
 -/
 def testDomLine : String :=
   run
-    r#""builtin.module"() ({
+    r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
 ^bb0:
-  "test.test"() [^bb1] : () -> ()
+  "cf.br"() [^bb1] : () -> ()
 ^bb1:
-  "test.test"() [^bb2] : () -> ()
+  "cf.br"() [^bb2] : () -> ()
 ^bb2:
-  "test.test"() [^bb3] : () -> ()
+  "cf.br"() [^bb3] : () -> ()
 ^bb3:
-  "test.test"() : () -> ()
+  "func.return"() : () -> ()
 }) : () -> ()"#
     #[ { name := "bb0", doms := { "bb0" },                      immediateDom := "bb0" }
      , { name := "bb1", doms := { "bb0", "bb1" },               immediateDom := "bb0" }
@@ -350,23 +362,26 @@ def testDomLine : String :=
 -/
 def testDomIfLoopIf : String :=
   run
-    r#""builtin.module"() ({
-^bb0:
-  "test.test"() [^bb1, ^bb2] : () -> ()
+    r#""func.func"() <{sym_name = "f", function_type = (i1) -> ()}> ({
+^bb0(%cond : i1):
+  "cf.cond_br"(%cond) [^bb1, ^bb2]
+    <{operandSegmentSizes = array<i32: 1, 0, 0>}> : (i1) -> ()
 ^bb1:
-  "test.test"() [^bb5] : () -> ()
+  "cf.br"() [^bb5] : () -> ()
 ^bb2:
-  "test.test"() [^bb3, ^bb4] : () -> ()
+  "cf.cond_br"(%cond) [^bb3, ^bb4]
+    <{operandSegmentSizes = array<i32: 1, 0, 0>}> : (i1) -> ()
 ^bb3:
-  "test.test"() [^bb6] : () -> ()
+  "cf.br"() [^bb6] : () -> ()
 ^bb4:
-  "test.test"() [^bb6] : () -> ()
+  "cf.br"() [^bb6] : () -> ()
 ^bb5:
-  "test.test"() [^bb1, ^bb7] : () -> ()
+  "cf.cond_br"(%cond) [^bb1, ^bb7]
+    <{operandSegmentSizes = array<i32: 1, 0, 0>}> : (i1) -> ()
 ^bb6:
-  "test.test"() [^bb7] : () -> ()
+  "cf.br"() [^bb7] : () -> ()
 ^bb7:
-  "test.test"() : () -> ()
+  "func.return"() : () -> ()
 }) : () -> ()"#
     #[ { name := "bb0", doms := { "bb0" },               immediateDom := "bb0" }
      , { name := "bb1", doms := { "bb0", "bb1" },        immediateDom := "bb0" }
@@ -423,18 +438,20 @@ def testDomNestedRegions : String :=
           └───────┘
 -/
 def testDomDiamondNestedJoin : String :=
-  run r#""builtin.module"() ({
-^bb0:
-  "test.test"() [^bb1, ^bb2] : () -> ()
+  run r#""func.func"() <{sym_name = "f", function_type = (i1) -> ()}> ({
+^bb0(%cond : i1):
+  "cf.cond_br"(%cond) [^bb1, ^bb2]
+    <{operandSegmentSizes = array<i32: 1, 0, 0>}> : (i1) -> ()
 ^bb1:
-  "test.test"() [^bb3] : () -> ()
+  "cf.br"() [^bb3] : () -> ()
 ^bb2:
-  "test.test"() [^bb3] : () -> ()
+  "cf.br"() [^bb3] : () -> ()
 ^bb3:
   "test.test"() ({
 ^bb4:
     "test.test"() : () -> ()
   }) : () -> ()
+  "func.return"() : () -> ()
 }) : () -> ()"#
     #[ { name := "bb0", doms := { "bb0" },               immediateDom := "bb0" }
      , { name := "bb1", doms := { "bb0", "bb1" },        immediateDom := "bb0" }
@@ -487,23 +504,28 @@ def testDomTwoLevelNested : String :=
   └────────┘
 -/
 def testDomDiamondLoop: String :=
-  run r#""builtin.module"() ({
+  run r#""func.func"() <{sym_name = "f", function_type = (i1) -> ()}> ({
+^entry(%cond : i1):
+  "cf.br"() [^bb0] : () -> ()
 ^bb0:
-  "test.test"() [^bb1, ^bb2] : () -> ()
+  "cf.cond_br"(%cond) [^bb1, ^bb2]
+    <{operandSegmentSizes = array<i32: 1, 0, 0>}> : (i1) -> ()
 ^bb1:
-  "test.test"() [^bb3] : () -> ()
+  "cf.br"() [^bb3] : () -> ()
 ^bb2:
-  "test.test"() [^bb3, ^bb4] : () -> ()
+  "cf.cond_br"(%cond) [^bb3, ^bb4]
+    <{operandSegmentSizes = array<i32: 1, 0, 0>}> : (i1) -> ()
 ^bb3:
-  "test.test"() [^bb0] : () -> ()
+  "cf.br"() [^bb0] : () -> ()
 ^bb4:
-  "test.test"() : () -> ()
+  "func.return"() : () -> ()
 }) : () -> ()"#
-    #[ { name := "bb0", doms := { "bb0" },               immediateDom := "bb0" }
-     , { name := "bb1", doms := { "bb0", "bb1" },        immediateDom := "bb0" }
-     , { name := "bb2", doms := { "bb0", "bb2" },        immediateDom := "bb0" }
-     , { name := "bb3", doms := { "bb0", "bb3" },        immediateDom := "bb0" }
-     , { name := "bb4", doms := { "bb0", "bb2", "bb4" }, immediateDom := "bb2" }
+    #[ { name := "entry", doms := { "entry" },                      immediateDom := "entry" }
+     , { name := "bb0",   doms := { "entry", "bb0" },               immediateDom := "entry" }
+     , { name := "bb1",   doms := { "entry", "bb0", "bb1" },        immediateDom := "bb0" }
+     , { name := "bb2",   doms := { "entry", "bb0", "bb2" },        immediateDom := "bb0" }
+     , { name := "bb3",   doms := { "entry", "bb0", "bb3" },        immediateDom := "bb0" }
+     , { name := "bb4",   doms := { "entry", "bb0", "bb2", "bb4" }, immediateDom := "bb2" }
      ]
 
 /-
@@ -521,12 +543,12 @@ def testOpDomNestedRegions : String :=
     %siblingInner = "test.test"() : () -> i32
   }) : () -> i32
 }) : () -> ()"#
-    #[ { dominator := "outer",      dominated := "outer",        dominates := true,  properDom := false }
+    #[ { dominator := "outer",      dominated := "outer",        dominates := true,  properDom := true  }
      , { dominator := "outer",      dominated := "inner",        dominates := true,  properDom := true  }
      , { dominator := "outer",      dominated := "otherOuter",   dominates := true,  properDom := true  }
      , { dominator := "outer",      dominated := "siblingInner", dominates := true,  properDom := true  }
      , { dominator := "inner",      dominated := "siblingInner", dominates := false, properDom := false }
-     , { dominator := "otherOuter", dominated := "inner",        dominates := false, properDom := false }
+     , { dominator := "otherOuter", dominated := "inner",        dominates := true,  properDom := true  }
      , { dominator := "otherOuter", dominated := "siblingInner", dominates := true,  properDom := true  }
      ]
 
@@ -547,21 +569,25 @@ def testOpDomTwoLevelNested : String :=
     #[ { dominator := "top",    dominated := "middle", dominates := true, properDom := true  }
      , { dominator := "top",    dominated := "leaf",   dominates := true, properDom := true  }
      , { dominator := "middle", dominated := "leaf",   dominates := true, properDom := true  }
-     , { dominator := "leaf",   dominated := "leaf",   dominates := true, properDom := false }
+     , { dominator := "leaf",   dominated := "leaf",   dominates := true, properDom := true  }
      ]
 
 /-
-  Test: operation dominance across two blocks in the same nested region.
+  Test: operation dominance across two blocks in the same nested function region.
 -/
 def testOpDomSameRegionTwoBlocks : String :=
   runOperationDominance r#""builtin.module"() ({
 ^bb0:
   %outer = "test.test"() ({
-  ^bb1:
-    %entry = "test.test"() : () -> i32
-    "test.test"() [^bb2] : () -> ()
-  ^bb2:
-    %exit = "test.test"() : () -> i32
+  ^nested:
+    "func.func"() <{sym_name = "f", function_type = () -> ()}> ({
+    ^bb1:
+      %entry = "test.test"() : () -> i32
+      "cf.br"() [^bb2] : () -> ()
+    ^bb2:
+      %exit = "test.test"() : () -> i32
+      "func.return"() : () -> ()
+    }) : () -> ()
   }) : () -> i32
 }) : () -> ()"#
     #[ { dominator := "entry", dominated := "entry", dominates := true,  properDom := false }
@@ -572,23 +598,42 @@ def testOpDomSameRegionTwoBlocks : String :=
      ]
 
 /-
+  Test: an operation in the entry block properly dominates an operation in an
+  unreachable block, which has no immediate dominator. The reverse is false,
+  and an operation in the unreachable block dominates itself only non-properly.
+-/
+def testOpDomUnreachableBlock : String :=
+  runOperationDominance r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
+^bb0:
+  %entry = "test.test"() : () -> i32
+  "func.return"() : () -> ()
+^bb1:
+  %dead = "test.test"() : () -> i32
+  "func.return"() : () -> ()
+}) : () -> ()"#
+    #[ { dominator := "entry", dominated := "dead",  dominates := true,  properDom := true  }
+     , { dominator := "dead",  dominated := "entry", dominates := false, properDom := false }
+     , { dominator := "dead",  dominated := "dead",  dominates := true,  properDom := false }
+     ]
+
+/-
   Test: dominance facts remain usable after deleting the first operation of an
   intermediate block without changing the CFG.
 -/
 def testDomAfterFirstOpErasure : String :=
-  let mlir := r#""builtin.module"() ({
+  let mlir := r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
 ^bb0:
   %dominator = "test.test"() : () -> i32
-  "test.test"() [^bb1] : () -> ()
+  "cf.br"() [^bb1] : () -> ()
 ^bb1:
   %erased = "test.test"() : () -> i32
-  "test.test"() [^bb2] : () -> ()
+  "cf.br"() [^bb2] : () -> ()
 ^bb2:
   %dominated = "test.test"() : () -> i32
-  "test.test"() : () -> ()
+  "func.return"() : () -> ()
 }) : () -> ()"#
-  runWithAnalyses mlir #[Veir.DominanceAnalysis] (fun top dfCtx parserState => Id.run do
-    let .ok recovered := recoverNames top parserState.ctx mlir
+  runWithAnalyses mlir #[Veir.DominanceAnalysis] (fun top dfCtx ctx => Id.run do
+    let .ok recovered := recoverNames top ctx mlir
       | return #["failed to recover names"]
     let some dominator := getNamedOperation? recovered "dominator"
       | return #["missing dominator operation"]
@@ -601,7 +646,7 @@ def testDomAfterFirstOpErasure : String :=
     let some middleBlock := recovered.blocks["bb1"]?
       | return #["missing intermediate block"]
 
-    let newCtx := WfRewriter.eraseOp! parserState.ctx erased
+    let newCtx := WfRewriter.eraseOp! ctx erased
     let mut report := #[]
     if !dominator.properlyDominates dominated dfCtx newCtx then
       report := report.push "operation dominance was invalidated by erasing the first op of a block"
@@ -673,6 +718,12 @@ info: "ok"
 -/
 #guard_msgs in
 #eval! testOpDomSameRegionTwoBlocks
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testOpDomUnreachableBlock
 
 /--
 info: "ok"

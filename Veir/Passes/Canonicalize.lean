@@ -2,6 +2,8 @@ module
 
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
+import Veir.Analysis.DataFlow.SparseConstantPropagationAnalysis
+import Veir.Analysis.DataFlow.DeadCodeAnalysis
 import Veir.Interfaces.FoldInterfaces
 import Veir.Passes.Matching
 
@@ -10,9 +12,9 @@ namespace Veir
 /-!
   # Canonicalize pass
 
-  Rewrites operations into canonical forms, including folding operations,
-  moving constants to the right side of commutative operations, and reducing
-  modular constants to their canonical representatives.
+  Rewrites operations into canonical forms, including propagating constants,
+  folding operations, moving constants to the right side of commutative operations,
+  and reducing modular constants to their canonical representatives.
 -/
 
 def canonicalizeModArithConstant (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -33,9 +35,18 @@ def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPt
   let opType := op.getOpType! rewriter.ctx.raw
   if ¬ opType.isCommutative then return rewriter
   let operands := op.getOperands! rewriter.ctx.raw
-  /- Stable partition: non-constant operands first, then the constants. -/
-  let (nonConsts, consts) := operands.partition (!·.isConstantLike rewriter.ctx.raw)
-  let reordered := nonConsts ++ consts
+  let reordered :=
+    if operands.size = 2 then
+      let lhs := operands[0]!
+      let rhs := operands[1]!
+      if lhs.isConstantLike rewriter.ctx.raw && !rhs.isConstantLike rewriter.ctx.raw then
+        #[rhs, lhs]
+      else
+        operands
+    else
+      /- Stable partition: non-constant operands first, then the constants. -/
+      let (nonConsts, consts) := operands.partition (!·.isConstantLike rewriter.ctx.raw)
+      nonConsts ++ consts
   if reordered == operands then return rewriter
   let resultTypes := op.getResultTypes! rewriter.ctx.raw
   let properties := op.getProperties! rewriter.ctx.raw opType
@@ -45,11 +56,47 @@ def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPt
 
 /-! ## Pass implementation -/
 
+/-- Replace a used SSA value with the constant found by the analysis, if its
+    recorded dialect can materialize it. -/
+private def replaceKnownConstant (ctx : WfIRContext OpCode)
+    (facts : DataFlowContext) (value : ValuePtr) (ip : InsertPoint) :
+    Option (WfIRContext OpCode) := do
+  if (value.getFirstUse! ctx.raw).isNone || value.isConstantLike ctx.raw then
+    return ctx
+  let some fact := facts.getFact? .sparseConstant (.ValuePtr value) | return ctx
+  let .constant constant := fact.payload.latticeElement | return ctx
+  let opCode := fact.payload.metadata.get!
+  let type := value.getType! ctx.raw
+  let some ⟨constantOpCode, properties⟩ := opCode.materializeConstant constant type
+    | return ctx
+  let (ctx, constantOp) ← WfRewriter.createOp! ctx constantOpCode #[type]
+    #[] #[] #[] properties (some ip)
+  return WfRewriter.replaceValue! ctx value (constantOp.getResult 0)
+
+/-- Run constant propagation and then perform the rewrites it exposes. -/
+private def propagateConstants (ctx : WfIRContext OpCode) (root : OperationPtr) :
+    Option (WfIRContext OpCode) := do
+  let facts ← fixpointSolve root #[SparseConstantPropagationAnalysis, DeadCodeAnalysis] ctx
+  let mut ctx := ctx
+  for op in ctx.raw.operations.keys do
+    if (op.get! ctx.raw).parent.isSome then
+      for result in op.getResults! ctx.raw do
+        ctx ← replaceKnownConstant ctx facts result (.before op)
+  for block in ctx.raw.blocks.keys do
+    for argument in block.getArguments! ctx.raw do
+      ctx ← replaceKnownConstant ctx facts argument
+        (InsertPoint.atStart! block ctx.raw)
+  return ctx
+
 def CanonicalizePass.impl (options : PassOptions) (ctx : WfIRContext OpCode)
     (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
+  let mut ctx := ctx
   let mut patterns : Array (RewritePattern OpCode) := #[]
-  if (options.get? "fold").getD true then
+  if (options.get? "sccp").getD true then
+    let some propagated := propagateConstants ctx op
+      | throw "Error while propagating constants"
+    ctx := propagated
     patterns := patterns.push foldOperation
   if (options.get? "mod-arith-constant").getD true then
     patterns := patterns.push canonicalizeModArithConstant
@@ -58,14 +105,14 @@ def CanonicalizePass.impl (options : PassOptions) (ctx : WfIRContext OpCode)
   let pattern := RewritePattern.GreedyRewritePattern patterns
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying canonicalization patterns"
-  | some ctx => pure ctx
+  | some result => pure result
 
 public def CanonicalizePass : Pass OpCode :=
   { name := "canonicalize"
     description := "Rewrite operations into a canonical form."
     options := .ofList [
-      ("fold",
-        { description := "Fold operations with constant operands to constants."
+      ("sccp",
+        { description := "Propagate constants, then fold operations to constants or operands."
           defaultValue := true }),
       ("mod-arith-constant",
         { description := "Reduce modular constants to their canonical representatives."

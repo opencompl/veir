@@ -2,8 +2,11 @@ module
 
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
+public import Veir.Interfaces.ControlFlowInterfaces
 public import Veir.Verifier.Basic
 public import Veir.Dialects.Cf.Properties
+public import Veir.Interpreter.RuntimeValue.Basic
+public import Veir.Interpreter.Interp
 meta import Veir.Meta.OpCode
 
 namespace Veir
@@ -33,9 +36,10 @@ def Cf.toAttrDict
     (op : Cf) (props : Cf.propertiesOf op) :
     Std.HashMap ByteArray Attribute :=
   match op with
-  | .cond_br =>
-    let dict := (Std.HashMap.emptyWithCapacity 2).insert
-      "branch_weights".toUTF8 (.denseArrayAttr props.branch_weights)
+  | .cond_br => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 2
+    if props.branch_weights.values.size ≠ 0 then
+      dict := dict.insert "branch_weights".toUTF8 (.denseArrayAttr props.branch_weights)
     dict.insert "operandSegmentSizes".toUTF8
       (Attribute.denseArrayAttr props.operandSegmentSizes)
   | _ => Std.HashMap.emptyWithCapacity 0
@@ -65,6 +69,25 @@ instance : IsOpCode Cf where
   fromAttrDict := Cf.fromAttrDict
   toAttrDict := Cf.toAttrDict
 
+def Cf.branchOpInterface? (op : Cf) : Option (BranchOpInterface (Cf.propertiesOf op)) :=
+  match op with
+  | .br =>
+    some {
+      getSuccessorOperandsImpl? := fun _ operands successorIndex => do
+        guard (successorIndex = 0)
+        some { forwardedOperands := operands }
+      getSuccessorForOperandsImpl? := fun _ _ successors => successors[0]?
+    }
+  | .cond_br =>
+    some {
+      getSuccessorOperandsImpl? := fun props operands successorIndex =>
+        BranchOpInterface.getSegmentedSuccessorOperands?
+          1 props.operandSegmentSizes.values operands successorIndex
+      getSuccessorForOperandsImpl? := fun _ operands successors => do
+        let some (.int _ (.val condition)) ← operands[0]? | none
+        BranchOpInterface.getConditionalSuccessor? successors (condition ≠ 0)
+    }
+
 /--
 Verify the local invariants of a `cf` operation in any operation-info type
 containing the `cf` dialect.
@@ -84,10 +107,32 @@ def Cf.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpInf
       throw "Expected 0 or 2 branch weights"
     op.verifyCondBranchOperandSegmentSizes ctx opIn props.operandSegmentSizes 1
 
+def Cf.interpretOp' (opType : Veir.Cf) (properties : propertiesOf opType)
+    (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
+    : Interp ((Array RuntimeValue) × Option ControlFlowAction) :=
+  match opType with
+  | .br => do
+    let [dest] := blockOperands.toList | none
+    return (#[], some (.branch operands dest))
+  | .cond_br => do
+    let [destTrue, destFalse] := blockOperands.toList | none
+    let some condVal := operands[0]? | none
+    let some (trueSizeInt : Int) := properties.operandSegmentSizes.values[1]? | none
+    let trueSize := trueSizeInt.toNat
+    match condVal with
+    | .int 1 (.val cond) =>
+      if cond = 1#1 then
+        return (#[], some (.branch (operands.extract 1 (trueSize + 1)) destTrue))
+      else
+        return (#[], some (.branch (operands.extract (trueSize + 1) operands.size) destFalse))
+    | .int 1 .poison => Interp.ub none
+    | _ => none
+
 instance : HasOpInfo Cf where
   verifyLocalInvariants := Cf.verifyLocalInvariants
   getEffects := Cf.getEffects
   isConstantLike := Cf.isConstantLike
+  branchOpInterface? := Cf.branchOpInterface?
   hasSSADominance := Cf.hasSSADominance
   isTerminator := Cf.isTerminator
 

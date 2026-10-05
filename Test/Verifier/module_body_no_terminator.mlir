@@ -8,7 +8,7 @@
 }) : () -> ()
 
 // CHECK:      "builtin.module"() ({
-// CHECK:        "func.func"() <{
-// CHECK-SAME:     "function_type" = () -> ()
-// CHECK-SAME:   }> ({
+// CHECK:        func.func @foo() {
 // CHECK:          "func.return"() : () -> ()
+// CHECK:        }
+

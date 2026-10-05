@@ -8,7 +8,7 @@
         %sextc = "llvm.zext"(%c) : (i32) -> i64
         %sextd = "llvm.zext"(%a) : (i1) -> i64
         %zextd = "llvm.zext"(%e) : (i8) -> i32
-          // CHECK:           ^{{.*}}([[A:.*]] : i1, [[B:.*]] : i16, [[C:.*]] : i32, [[D:.*]] : i42, [[E:.*]] : i8):
+          // CHECK:           func.func @foo([[A:.*]]: i1, [[B:.*]]: i16, [[C:.*]]: i32, [[D:.*]]: i42, [[E:.*]]: i8) {
           // CHECK-NEXT:      %[[F:.*]] = "builtin.unrealized_conversion_cast"([[B]]) : (i16) -> !riscv.reg
           // CHECK-NEXT:      %[[G:.*]] = "riscv.zexth"(%[[F]]) : (!riscv.reg) -> !riscv.reg
           // CHECK-NEXT:      %[[H:.*]] = "builtin.unrealized_conversion_cast"(%[[G]]) : (!riscv.reg) -> i64

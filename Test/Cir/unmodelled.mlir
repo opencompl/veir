@@ -1,4 +1,5 @@
 // RUN: VEIR_UNREGISTERED_ROUNDTRIP
+// RUN: MLIR_UNREGISTERED_ROUNDTRIP
 
 // ClangIR pieces VeIR does not model. A registered `cir` operation in an unmodelled
 // variant (a pointer or float constant, a pointer comparison, a float select) is accepted

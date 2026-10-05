@@ -226,6 +226,13 @@ theorem InterpreterState.DefinesDominating.setArgumentValues?_succ_entry
 /-- `EquationHolds` for an `op` dominating `succ`'s entry is preserved when setting `succ`'s block
 arguments. -/
 theorem InterpreterState.EquationHolds.setArgumentValues?_of_dominatesIp (ctxDom : ctx.Dom)
+    {region : RegionPtr}
+    (succParent : (succ.get! ctx.raw).parent = some region)
+    (ssa : region.hasSSADominance ctx = true)
+    (rooted : ∃ root : IRNode, root.Ancestor (.block succ) ctx ∧ root.parent! ctx = none)
+    (reachable : ∀ block region, (IRNode.block block).Ancestor (.block succ) ctx →
+      (block.get! ctx.raw).parent = some region → region.hasSSADominance ctx = true →
+      block.ReachableFromEntry region ctx)
     (opDom : op.dominatesIp (InsertPoint.atStart! succ ctx.raw) ctx)
     {exitState : InterpreterState ctx} (hEq : exitState.EquationHolds op opIn)
     (hArgs : exitState.variables.setArgumentValues? succ res succInBounds = some newVars) :
@@ -233,9 +240,13 @@ theorem InterpreterState.EquationHolds.setArgumentValues?_of_dominatesIp (ctxDom
   simp only [InterpreterState.EquationHolds] at hEq ⊢
   obtain ⟨cf, hinterp⟩ := hEq
   simp only [interpretOp_some_iff] at hinterp ⊢
+  have argumentsNotDominating : ∀ value, value ∈ succ.getArguments! ctx.raw →
+      ¬ value.dominatesIp (InsertPoint.before op) ctx := by
+    intro value hMem
+    exact WfIRContext.Dom.blockArgument_not_dominatesIp_before_of_dominatesIp_firstOp
+      ctxDom opIn succParent ssa rooted reachable opDom hMem
   grind [VariableState.getOperandValues_eq_of_getVar?_eq,
       VariableState.getVar?_setArgumentValues?_of_notMem_getArguments!,
-      WfIRContext.Dom.blockArgument_not_dominatesIp_before_of_dominatesIp_firstOp,
       → VariableState.setResultValues?_setArgumentValues?_comm]
 
 /-- Setting a successor's block arguments preserves `EquationLemmaAt` in a state satisfying it at
@@ -243,6 +254,13 @@ the predecessor's exit. -/
 theorem InterpreterState.EquationLemmaAt.setArgumentValues?_succ_entry (ctxDom : ctx.Dom)
     {block : BlockPtr} (blockInBounds : block.InBounds ctx.raw)
     (hsucc : succ ∈ block.getSuccessors! ctx.raw)
+    {region : RegionPtr}
+    (succParent : (succ.get! ctx.raw).parent = some region)
+    (ssa : region.hasSSADominance ctx = true)
+    (rooted : ∃ root : IRNode, root.Ancestor (.block succ) ctx ∧ root.parent! ctx = none)
+    (reachable : ∀ block region, (IRNode.block block).Ancestor (.block succ) ctx →
+      (block.get! ctx.raw).parent = some region → region.hasSSADominance ctx = true →
+      block.ReachableFromEntry region ctx)
     {exitState : InterpreterState ctx}
     (hExit : exitState.EquationLemmaAt (InsertPoint.atEnd block))
     (hArgs : exitState.variables.setArgumentValues? succ res succInBounds = some newVars) :
@@ -252,7 +270,8 @@ theorem InterpreterState.EquationLemmaAt.setArgumentValues?_succ_entry (ctxDom :
   have opDomAtEnd : op.dominatesIp (InsertPoint.atEnd block) ctx := by
     grind [WfIRContext.Dom.op_dominatesIp_successor_entry]
   have := hExit op opIn hPure opDomAtEnd
-  grind [InterpreterState.EquationHolds.setArgumentValues?_of_dominatesIp]
+  exact InterpreterState.EquationHolds.setArgumentValues?_of_dominatesIp
+    ctxDom succParent ssa rooted reachable hDom this hArgs
 
 /-- Interpreting a verified operation never fails on a state satisfying `DefinesDominating` at the
 operation's location. -/
@@ -260,15 +279,15 @@ theorem InterpreterState.DefinesDominating.interpretOp_ne_fail
     (ctxDom : ctx.Dom) {state : InterpreterState ctx}
     (stateDom : state.DefinesDominating (InsertPoint.before op) ipInBounds)
     (opVerif : op.Verified ctx opInBounds) :
-    interpretOp op state opInBounds ≠ .fail := by
-  simp only [interpretOp]
+    (interpretOp op state opInBounds).isFail = false := by
+  simp only [interpretOp, Interp.isFail_withBlame]
   have ⟨operandValues, hOperandValues⟩ := stateDom.exists_getOperandValues_eq_some ctxDom
   simp only [hOperandValues]
   have hconforms : RuntimeValue.ArrayConforms operandValues (op.getOperandTypes! ctx.raw) := by
     grind [VariableState.getOperandValues_conforms]
   have hne := interpretOp'_ne_fail opVerif hconforms state.memory
   rcases hresValues : op.interpret ctx operandValues state.memory with _ | _ | ⟨resValues, mem', act⟩
-  · exact absurd hresValues hne
+  · simp [hresValues] at hne
   · simp
   · simp only [liftM, monadLift, MonadLift.monadLift]
     have := interpretOp'_results_conform opVerif hconforms hresValues
@@ -285,7 +304,7 @@ theorem InterpreterState.DefinesDominating.interpretOpList_ne_fail
     {state : InterpreterState ctx}
     (stateDom : ∀ head, (hhead : ops.head? = some head) →
       state.DefinesDominating (.before head) (by grind [List.mem_of_head? hhead])) :
-    interpretOpList ops state ≠ .fail := by
+    (interpretOpList ops state).isFail = false := by
   induction ops generalizing state with
   | nil => simp
   | cons a l ih =>

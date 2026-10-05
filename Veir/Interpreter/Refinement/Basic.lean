@@ -14,8 +14,9 @@ relate a program to a rewritten or lowered version of it). Refinement is defined
 
 * `RuntimeValue.isRefinedBy` relates two runtime values: integers refine via the `· ⊒ ·` ordering on
   `LLVM.Int`, while other types of values must match exactly.
-* `OperationPtr.isRefinedByAsFunction` relates two function-like operations: interpreting the source
+* `FunctionOp.isRefinedBy` relates two function-like operations: interpreting the source
   with any arguments and memory is refined by interpreting the target.
+  `OperationPtr.isRefinedByAsFunction` states the same for operation pointers.
 * `OperationPtr.isRefinedByAsModule` relates two modules: every top-level `func.func` of the source
   module must be refined, as a function, by a same-named top-level `func.func` of the target module.
 
@@ -35,10 +36,14 @@ def RuntimeValue.isRefinedBy (source target : RuntimeValue) : Prop :=
   match source, target with
   | .int bw s, .int bw' t => ∃ h : bw = bw', s.cast h ⊒ t
   | .byte bw s, .byte bw' t => ∃ h : bw = bw', s.cast h ⊒ t
-  | .addr s, .addr t => s = t
+  | .addr s, .addr t => s ⊒ t
   | .reg s, .reg t => s = t
-  | .float bw s, .float bw' t => bw = bw' ∧ s = t
   | .felt fieldType s, .felt fieldType' t => fieldType = fieldType' ∧ s = t
+  | .float ty s, .float ty' t =>
+      if h : ty = ty' then
+        s = h ▸ t
+      else
+        False
   | _, _ => False
 
 @[inherit_doc] infix:50 " ⊒ " => RuntimeValue.isRefinedBy
@@ -55,12 +60,20 @@ def RuntimeValue.arrayIsRefinedBy (source target : Array RuntimeValue) : Prop :=
 @[inherit_doc] infix:50 " ⊒ " => RuntimeValue.arrayIsRefinedBy
 
 /--
-Refinement of memory states, which can involve poison bits being refined into concrete bits.
+Refinement of memory objects, which can involve poison bits being refined into concrete bits.
 This should be kept consistent with the definition of refinement on the byte type.
 -/
 @[expose]
-def MemoryState.isRefinedBy (source target : MemoryState) : Prop :=
+def MemoryObject.isRefinedBy (source target : MemoryObject) : Prop :=
+  source.base = target.base ∧
   ∀ addr, source.poisonMask.getD addr 0 ||| ((source.contents.getD addr 0 ^^^ ~~~target.contents.getD addr 0) &&& ~~~target.poisonMask.getD addr 0) = 0xff
+
+@[inherit_doc] infix:50 " ⊒ " => MemoryObject.isRefinedBy
+
+/-- Refinement of memory states: the same objects, each refined bytewise. -/
+@[expose]
+def MemoryState.isRefinedBy (source target : MemoryState) : Prop :=
+  source.objects.size = target.objects.size ∧ ∀ i : Nat, source.objects[i]! ⊒ target.objects[i]!
 
 @[inherit_doc] infix:50 " ⊒ " => MemoryState.isRefinedBy
 
@@ -86,8 +99,8 @@ on the underlying values. This asserts:
 def Interp.isRefinedBy (R : α → β → Prop) (source : Interp α) (target : Interp β) : Prop :=
   match source, target with
   | .ok a, .ok b => R a b
-  | .ub, _ => True
-  | .fail, _ => True
+  | .ub _, _ => True
+  | .fail _, _ => True
   | _, _ => False
 
 /--
@@ -113,20 +126,42 @@ def ControlFlowAction.optionIsRefinedBy : Option ControlFlowAction → Option Co
   | _, _ => False
 
 /--
-The function described by source `op₁` (in `ctx₁`) is *refined by* target `op₂` (in `ctx₂`) when,
-for every argument `values` and initial memory `mem`, interpreting `op₁` is refined by interpreting
-`op₂`.
+The result of interpreting a single operation. `source` is refined by `target`
+when values refine pointwise, memories are equal, and actions refine.
+-/
+@[expose]
+def OperationResult.isRefinedBy (source target :
+    Array RuntimeValue × MemoryState × Option ControlFlowAction) : Prop :=
+  source.1 ⊒ target.1 ∧ source.2.1 = target.2.1 ∧
+    ControlFlowAction.optionIsRefinedBy source.2.2 target.2.2
+
+/--
+The function `func₁` (in `ctx₁`) is *refined by* `func₂` (in `ctx₂`) when, for every argument
+`values` and initial memory `mem`, interpreting `func₁` is refined by interpreting `func₂`.
+-/
+@[expose]
+def FunctionOp.isRefinedBy {ctx₁ ctx₂ : WfIRContext OpCode} {op₁ op₂ : OperationPtr}
+    (func₁ : FunctionOp ctx₁.raw op₁) (func₂ : FunctionOp ctx₂.raw op₂)
+    (op₁In : op₁.InBounds ctx₁.raw := by grind)
+    (op₂In : op₂.InBounds ctx₂.raw := by grind) : Prop :=
+  ∀ (valuesSource valuesTarget : Array RuntimeValue) (mem : MemoryState),
+    valuesSource ⊒ valuesTarget →
+    Interp.isRefinedBy FunctionResult.isRefinedBy
+      (interpretFunction func₁ valuesSource mem op₁In)
+      (interpretFunction func₂ valuesTarget mem op₂In)
+
+/--
+The function-like operation `op₁` (in `ctx₁`) is *refined by* the function-like operation `op₂`
+(in `ctx₂`) when their `FunctionOp`s are. This does not hold if either is not function-like.
 -/
 @[expose]
 def OperationPtr.isRefinedByAsFunction (op₁ : OperationPtr) (ctx₁ : WfIRContext OpCode)
     (op₂ : OperationPtr) (ctx₂ : WfIRContext OpCode)
     (op₁In : op₁.InBounds ctx₁.raw := by grind)
     (op₂In : op₂.InBounds ctx₂.raw := by grind) : Prop :=
-  ∀ (valuesSource valuesTarget : Array RuntimeValue) (mem : MemoryState),
-    valuesSource ⊒ valuesTarget →
-    Interp.isRefinedBy FunctionResult.isRefinedBy
-      (interpretFunction op₁ valuesSource mem (ctx := ctx₁) op₁In)
-      (interpretFunction op₂ valuesTarget mem (ctx := ctx₂) op₂In)
+  match FunctionOp.of? op₁ ctx₁.raw, FunctionOp.of? op₂ ctx₂.raw with
+  | some func₁, some func₂ => func₁.isRefinedBy func₂ op₁In op₂In
+  | _, _ => False
 
 /--
 `op` is a top-level function of the module operation `moduleOp` (in `ctx`): it is a `func.func`

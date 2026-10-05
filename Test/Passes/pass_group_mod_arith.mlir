@@ -18,8 +18,7 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK:      "func.func"() <{"function_type" = (i32, i32) -> i32, "sym_name" = "chain"}> ({
-// CHECK-NEXT:   ^{{.*}}([[A:%.*]] : i32, [[B:%.*]] : i32):
+// CHECK:      func.func @chain([[A:%.*]]: i32, [[B:%.*]]: i32) -> i32 {
 
 // Both arguments extended. The lowered mod_arith constant is folded through
 // its extension at its eventual i64 use below.
@@ -100,5 +99,5 @@
 // CHECK-NEXT:     [[T5:%.*]] = "arith.trunci"([[S5]]) <{"overflowFlags" = #arith.overflow<nuw>}> : (i42) -> i33
 // CHECK-NEXT:     [[RET:%.*]] = "arith.trunci"([[T5]]) <{"overflowFlags" = #arith.overflow<nuw>}> : (i33) -> i32
 // CHECK-NEXT:     "func.return"([[RET]]) : (i32) -> ()
-// CHECK-NEXT:   }) : () -> ()
+// CHECK-NEXT:   }
 // CHECK-NEXT: }) : () -> ()

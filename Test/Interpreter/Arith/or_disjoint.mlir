@@ -6,9 +6,9 @@
     %five = "arith.constant"() <{ "value" = 5 : i32 }> : () -> i32
     %eight = "arith.constant"() <{ "value" = 8 : i32 }> : () -> i32
     %negseven = "arith.constant"() <{ "value" = -7 : i32 }> : () -> i32
-    %x = "arith.ori"(%three, %five) <{disjoint}> : (i32, i32) -> i32
-    %y = "arith.ori"(%eight, %negseven) <{disjoint}> : (i32, i32) -> i32
-    %z = "arith.ori"(%three, %eight) <{disjoint}> : (i32, i32) -> i32
+    %x = "arith.ori"(%three, %five) <{isDisjoint}> : (i32, i32) -> i32
+    %y = "arith.ori"(%eight, %negseven) <{isDisjoint}> : (i32, i32) -> i32
+    %z = "arith.ori"(%three, %eight) <{isDisjoint}> : (i32, i32) -> i32
     "func.return"(%x, %y, %z) : (i32, i32, i32) -> ()
   }) : () -> ()
 }) : () -> ()

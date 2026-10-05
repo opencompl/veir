@@ -51,6 +51,7 @@ def matchXori (op : OperationPtr) (ctx : IRContext OpCode) :
   let (op, _) ← matchOp op ctx (Llvm.xor) 2
   return (op[0]!, op[1]!)
 
+/-- Match the raw integer attribute; use `matchConstantIntVal` for the result's value. -/
 def matchConstantIntOp (op : OperationPtr) (ctx : IRContext OpCode) :
     Option IntegerAttr := do
   let Llvm.mlir__constant := toDialect? Llvm (op.getOpType! ctx) | none
@@ -58,16 +59,26 @@ def matchConstantIntOp (op : OperationPtr) (ctx : IRContext OpCode) :
   let .integer intAttr := properties.value | none
   return intAttr
 
+/-- Read the constant's bit pattern as a signed integer (so `i1` true is -1). -/
 def matchConstantIntVal (val : ValuePtr) (ctx : IRContext OpCode) :
-    Option IntegerAttr := do
+    Option Int := do
   let .opResult opResultPtr := val | none
   let op := opResultPtr.op
-  matchConstantIntOp op ctx
+  let attr ← matchConstantIntOp op ctx
+  let .integerType type := (val.getType! ctx).val | none
+  return (BitVec.ofInt type.bitwidth attr.value).toInt
+
+/-- Recognize the one bit pattern, including i1 true whose signed value is -1. -/
+def isConstantOne (val : ValuePtr) (ctx : IRContext OpCode) : Bool :=
+  match matchConstantIntVal val ctx, (val.getType! ctx).val with
+  | some value, .integerType type =>
+    (BitVec.ofInt type.bitwidth value).toNat == 1
+  | _, _ => false
 
 /-- Match a constant integer with value zero, returning `val` itself. -/
 def matchConstantZero (val : ValuePtr) (ctx : IRContext OpCode) : Option ValuePtr := do
   let attr ← matchConstantIntVal val ctx
-  guard (attr.value = 0)
+  guard (attr = 0)
   return val
 
 def matchAshr (op : OperationPtr) (ctx : IRContext OpCode) :
@@ -163,7 +174,7 @@ def matchNot (val : ValuePtr) (ctx : IRContext OpCode) : Option ValuePtr := do
   let op := opResultPtr.op
   let (lhs, rhs) ← matchXori op ctx
   let cst ← matchConstantIntVal rhs ctx
-  guard (cst.value = -1)
+  guard (cst = -1)
   return lhs
 
 def matchMul (op : OperationPtr) (ctx : IRContext OpCode) :

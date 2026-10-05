@@ -31,12 +31,12 @@
 // CHECK-NEXT:     "pdl.pattern"() <{"benefit" = 1 : i16}> ({
 // CHECK-NEXT:       ^{{.*}}():
 // CHECK-NEXT:         %{{.*}} = "pdl.operation"() <{"attributeValueNames" = [], "operandSegmentSizes" = array<i32: 0, 0, 0>}> : () -> !pdl.operation
-// CHECK-NEXT:         "pdl.rewrite"(%{{.*}}) <{"name" = "rewriter", "operandSegmentSizes" = array<i32: 1, 0>}> ({        }) : (!pdl.operation) -> ()
+// CHECK-NEXT:         "pdl.rewrite"(%{{.*}}) <{"name" = "rewriter", "operandSegmentSizes" = array<i32: 1, 0>}> ({}) : (!pdl.operation) -> ()
 // CHECK-NEXT:     }) : () -> ()
 // CHECK-NEXT:     "pdl.pattern"() <{"benefit" = 1 : i16}> ({
 // CHECK-NEXT:       ^{{.*}}():
 // CHECK-NEXT:         %{{.*}} = "pdl.operation"() <{"attributeValueNames" = [], "opName" = "foo.op", "operandSegmentSizes" = array<i32: 0, 0, 0>}> : () -> !pdl.operation
-// CHECK-NEXT:         "pdl.rewrite"(%{{.*}}) <{"name" = "rewriter", "operandSegmentSizes" = array<i32: 1, 0>}> ({        }) : (!pdl.operation) -> ()
+// CHECK-NEXT:         "pdl.rewrite"(%{{.*}}) <{"name" = "rewriter", "operandSegmentSizes" = array<i32: 1, 0>}> ({}) : (!pdl.operation) -> ()
 // CHECK-NEXT:     }) : () -> ()
 // CHECK-NEXT:     "pdl.pattern"() <{"benefit" = 1 : i16}> ({
 // CHECK-NEXT:       ^{{.*}}():
@@ -45,6 +45,6 @@
 // CHECK-NEXT:         %{{.*}} = "pdl.attribute"() : () -> !pdl.attribute
 // CHECK-NEXT:         %{{.*}} = "pdl.type"() : () -> !pdl.type
 // CHECK-NEXT:         %{{.*}} = "pdl.operation"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) <{"attributeValueNames" = ["attrA"], "opName" = "foo.op", "operandSegmentSizes" = array<i32: 2, 1, 1>}> : (!pdl.value, !pdl.value, !pdl.attribute, !pdl.type) -> !pdl.operation
-// CHECK-NEXT:         "pdl.rewrite"(%{{.*}}) <{"name" = "rewriter", "operandSegmentSizes" = array<i32: 1, 0>}> ({        }) : (!pdl.operation) -> ()
+// CHECK-NEXT:         "pdl.rewrite"(%{{.*}}) <{"name" = "rewriter", "operandSegmentSizes" = array<i32: 1, 0>}> ({}) : (!pdl.operation) -> ()
 // CHECK-NEXT:     }) : () -> ()
 // CHECK-NEXT: }) : () -> ()

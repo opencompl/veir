@@ -3,7 +3,7 @@
 "builtin.module"() ({
   "func.func"() <{function_type = (i32) -> i32, sym_name = "main"}> ({
     ^bb0(%x : i32):
-      // CHECK:      ^{{.*}}(%[[X:.*]] : i32):
+      // CHECK:      func.func @main(%[[X:.*]]: i32) -> i32 {
       %c = "llvm.mlir.constant"() <{ "value" = 5 : i32 }> : () -> i32
       // CHECK-NEXT: %[[C:.*]] = "llvm.mlir.constant"() <{"value" = 5 : i32}> : () -> i32
 

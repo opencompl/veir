@@ -1,9 +1,11 @@
 import Veir.Analysis.DataFlow.DeadCodeAnalysis
-import Veir.Parser.MlirParser
+import Veir.Analysis.DataFlow.SparseFact
+import Veir.Analysis.DataFlow.SparseConstantPropagationAnalysis
+import Veir.Input
 
 open Std (HashMap)
 open Veir
-open Veir.Parser
+open Veir.Input
 
 /--
 Human readable mismatches collected by a dataflow test.
@@ -18,17 +20,6 @@ def renderReport (report : MismatchReport) : String :=
     "ok"
   else
     "mismatches:\n" ++ String.intercalate "\n" report.toList
-
-/--
-Parse one top level MLIR operation together with the parser state that owns its IR context.
--/
-def parseTopLevelOp (s : String) : Except String (OperationPtr × MlirParserState OpCode) := do
-  let some (ctx, _) := WfIRContext.create OpCode
-    | throw "internal error: failed to create IR context"
-  let parserState ← (ParserState.fromInput s.toByteArray).mapError toString
-  let (op, mlirState, _) ←
-    (Veir.Parser.parseTopLevelOp.run (MlirParserState.fromContext ctx) parserState).mapError toString
-  pure (op, mlirState)
 
 /--
 Recover textual block labels such as `^bb0` from an MLIR snippet string.
@@ -157,12 +148,95 @@ render any test mismatches produced by `check`.
 def runWithAnalyses
     (mlir : String)
     (analyses : Array DataFlowAnalysis)
-    (check : OperationPtr -> DataFlowContext -> MlirParserState OpCode -> MismatchReport) :
+    (check : OperationPtr -> DataFlowContext -> WfIRContext OpCode -> MismatchReport) :
     String := Id.run do
-  match parseTopLevelOp mlir with
+  match parseSourceString mlir.toUTF8 with
   | .error err =>
       return s!"parse failed: {err}"
-  | .ok (top, parserState) =>
-      let some dfCtx := fixpointSolve top analyses parserState.ctx
+  | .ok (ctx, top, _) =>
+      let some dfCtx := fixpointSolve top analyses ctx
         | return "analysis did not converge"
-      return renderReport (check top dfCtx parserState)
+      return renderReport (check top dfCtx ctx)
+
+/-!
+## Dead-code liveness test helpers
+-/
+
+/--
+Return whether `block` has a live block start fact.
+A missing liveness fact is treated as dead.
+-/
+def isBlockLive (dfCtx : DataFlowContext) (block : BlockPtr) (irCtx : WfIRContext OpCode) : Bool :=
+  match dfCtx.getFact? .liveness (.InsertPoint (InsertPoint.atStart! block irCtx.raw)) with
+  | some fact => fact.live
+  | none => false
+
+/--
+Return whether the control flow edge from `src` to `dst` has a live edge fact.
+A missing liveness fact is treated as dead.
+-/
+def isEdgeLive (dfCtx : DataFlowContext) (src dst : BlockPtr) : Bool :=
+  match dfCtx.getFact? .liveness (.CFGEdge { source := src, target := dst }) with
+  | some fact => fact.live
+  | none => false
+
+/--
+Compare the observed liveness of named blocks with `expected`, reporting missing
+block labels and mismatches. Blocks without a stored liveness fact are observed as dead.
+-/
+def checkNamedBlockLiveness
+    (dfCtx : DataFlowContext)
+    (irCtx : WfIRContext OpCode)
+    (blockMap : HashMap String BlockPtr)
+    (expected : Array (String × Bool)) : MismatchReport := Id.run do
+  let mut report := #[]
+  for (name, live) in expected do
+    match blockMap[name]? with
+    | some block =>
+      let observed := isBlockLive dfCtx block irCtx
+      if observed != live then
+        report := report.push s!"block {name}: expected live={live}, observed live={observed}"
+    | none =>
+      report := report.push s!"block {name}: missing block label"
+  report
+
+/--
+Compare the observed liveness of named control flow edges with `expected`, reporting
+missing block labels and mismatches. Edges without a stored liveness fact are observed as dead.
+-/
+def checkNamedEdgeLiveness
+    (dfCtx : DataFlowContext)
+    (blockMap : HashMap String BlockPtr)
+    (expected : Array ((String × String) × Bool)) : MismatchReport := Id.run do
+  let mut report := #[]
+  for ((srcName, dstName), live) in expected do
+    match blockMap[srcName]?, blockMap[dstName]? with
+    | some src, some dst =>
+      let observed := isEdgeLive dfCtx src dst
+      if observed != live then
+        report := report.push s!"edge {srcName} -> {dstName}: expected live={live}, observed live={observed}"
+    | _, _ =>
+      report := report.push s!"edge {srcName} -> {dstName}: missing block label(s)"
+  report
+
+def checkNamedConstants
+    (dfCtx : DataFlowContext)
+    (valueDefs : HashMap String ValuePtr)
+    (expected : Array (String × SparsePayload AbstractConstant (Option OpCode))) :
+    MismatchReport := Id.run do
+  let mut report := #[]
+  for (name, expectedValue) in expected do
+    let some value := valueDefs[name]? |
+      report := report.push s!"constant {name}: missing value definition"
+      continue
+    let observedValue : SparsePayload AbstractConstant (Option OpCode) :=
+      match dfCtx.getFact? .sparseConstant (.ValuePtr value) with
+      | some state => state.payload
+      | none => { latticeElement := ⊥, metadata := default }
+    if observedValue.latticeElement != expectedValue.latticeElement ||
+        observedValue.metadata != expectedValue.metadata then
+      report := report.push <|
+        s!"constant {name}: expected " ++
+        s!"({expectedValue.latticeElement}, {repr expectedValue.metadata}), " ++
+        s!"observed ({observedValue.latticeElement}, {repr observedValue.metadata})"
+  report

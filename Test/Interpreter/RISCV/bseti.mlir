@@ -4,8 +4,8 @@
   "func.func"() <{sym_name = "main", function_type = () -> (!riscv.reg, !riscv.reg)}> ({
     %a = "riscv.li"() <{ value = 2 : i64 }> : () -> !riscv.reg
     %b = "riscv.li"() <{ value = -5 : i64 }> : () -> !riscv.reg
-    %c = "riscv.bseti"(%a) <{ value = 2 : i12 }> : (!riscv.reg) -> !riscv.reg
-    %d = "riscv.bseti"(%b) <{ value = 5 : i12 }> : (!riscv.reg) -> !riscv.reg
+    %c = "riscv.bseti"(%a) <{ value = 2 : i64 }> : (!riscv.reg) -> !riscv.reg
+    %d = "riscv.bseti"(%b) <{ value = 5 : i64 }> : (!riscv.reg) -> !riscv.reg
     "func.return"(%c, %d) : (!riscv.reg, !riscv.reg) -> ()
   }) : () -> ()
 }) : () -> ()

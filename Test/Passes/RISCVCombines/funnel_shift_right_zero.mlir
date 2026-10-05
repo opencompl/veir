@@ -20,11 +20,11 @@
 }) : () -> ()
 
 // The funnel shift vanishes and y is returned.
-// CHECK:      ^{{.*}}(%[[X:.*]] : i64, %[[Y:.*]] : i64):
+// CHECK:      func.func @foo(%[[X:.*]]: i64, %[[Y:.*]]: i64) -> i64 {
 // CHECK-NOT:  "llvm.intr.fshr"
 // CHECK:      "func.return"(%[[Y]]) : (i64) -> ()
 
 // Nonzero amount: the funnel shift survives.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i64, %[[NY:.*]] : i64):
+// CHECK:      func.func @bar(%[[NX:.*]]: i64, %[[NY:.*]]: i64) -> i64 {
 // CHECK:      %[[NR:.*]] = "llvm.intr.fshr"(%[[NX]], %[[NY]], %{{.*}}) : (i64, i64, i64) -> i64
 // CHECK:      "func.return"(%[[NR]]) : (i64) -> ()

@@ -1,4 +1,5 @@
 // RUN: VEIR_ROUNDTRIP
+// RUN: MLIR_UNREGISTERED_ROUNDTRIP
 // CHECK:       "builtin.module"() ({
 "builtin.module"() ({
   // CHECK:         "function.def"() <{"function_type" = () -> (), "sym_name" = "empty"}> ({

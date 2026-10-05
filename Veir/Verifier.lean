@@ -3,7 +3,9 @@ module
 public import Veir.Verifier.Lemmas
 public import Veir.GlobalOpInfo
 public import Veir.Interfaces.FunctionInterfaces
+public import Veir.Interfaces.SideEffectInterfaces
 public import Veir.IRNesting
+public import Veir.Interfaces.RegionIsolationInterfaces
 public import Veir.Interfaces.RegionKindInterfaces
 public import Veir.IR.Dominance
 
@@ -104,27 +106,66 @@ def BlockPtr.verifyNoEntryBlockPredecessors (block : BlockPtr) (ctx : WfIRContex
   if b.firstUse.isSome then
     throw "entry block of region may not have predecessors"
 
-/-- Check that a graph region contains at most one block. -/
+/-- Check that a `block` terminates and that, in case it is the entry block,
+    has no predecessors. -/
+def BlockPtr.verifyBlock (block : BlockPtr) (ctx : WfIRContext OpCode)
+    (blockIn : block.InBounds ctx.raw) : Except String PUnit := do
+  block.verifyTerminator ctx blockIn
+  block.verifyNoEntryBlockPredecessors ctx blockIn
+
+/-- Check that a graph region contains at most one block. An unregistered
+    operation makes no promise about its regions, so it is exempt. -/
 private def WfIRContext.graphRegionsHaveAtMostOneBlock (ctx : WfIRContext OpCode) : Bool :=
   ctx.raw.regions.keys.all fun region =>
-    if !region.hasSSADominance ctx then
+    let isUnregistered := match (region.get! ctx.raw).parent with
+      | none => false
+      | some parent => parent.getOpType! ctx.raw = .builtin .unregistered
+    if region.getRegionKind ctx = .Graph && !isUnregistered then
       let body := region.get! ctx.raw
       body.firstBlock = body.lastBlock
     else
       true
 
 /--
-  Check the module-wide invariants needed by LLVM global references: global
-  names are unique and every `llvm.mlir.addressof` names a declared global.
+  Decode the escapes MLIR writes inside a quoted name: `\\` and `\"` for the two
+  characters that would otherwise end the literal, and `\HH` for any byte it
+  will not print, which is how clang's `\01` no-mangle prefix survives. `none`
+  if the text holds an escape of some other shape.
+-/
+private def decodeSymbolEscapes (acc : ByteArray) : List Char → Option ByteArray
+  | [] => some acc
+  | '\\' :: '\\' :: rest => decodeSymbolEscapes (acc.push 0x5c) rest
+  | '\\' :: '"' :: rest => decodeSymbolEscapes (acc.push 0x22) rest
+  | '\\' :: hi :: lo :: rest => do
+    let hi ← Char.hexDigit? hi
+    let lo ← Char.hexDigit? lo
+    decodeSymbolEscapes (acc.push (hi * 16 + lo)) rest
+  | '\\' :: _ => none
+  | c :: rest => decodeSymbolEscapes (acc ++ c.toString.toUTF8) rest
 
-  TODO: This is stricter than MLIR, which lets `llvm.mlir.addressof` name either
-  an `llvm.mlir.global` or an `llvm.func`, so taking the address of a function
-  (function pointers, vtables, globals initialized with a function address) is
-  currently rejected.
+/--
+  The bytes a symbol reference names, `@` included. MLIR spells a name that is
+  not a bare identifier as `@"..."`, with the escapes above; a `sym_name` holds
+  the same name unquoted and decoded. Reducing the reference to those bytes is
+  what lets it match the definition it names -- `@".str.1"` finds `.str.1`, and
+  `@"\01_lstat"` finds the name whose first byte is `0x01`.
+-/
+private def symbolRefBytes (name : String) : Option ByteArray :=
+  if name.length ≥ 3 && name.startsWith "@\"" && name.endsWith "\"" then
+    decodeSymbolEscapes "@".toUTF8 ((name.drop 2).dropEnd 1).toString.toList
+  else
+    some name.toUTF8
+
+/--
+  Check the module-wide invariants needed by LLVM global references: global
+  names are unique, and every `llvm.mlir.addressof` names a
+  global, alias, or function. Function references remain valid after lowering
+  an `llvm.func` to `riscv_cf.func`.
 -/
 private def WfIRContext.verifyLLVMGlobalSymbols (ctx : WfIRContext OpCode) :
     Except String Unit := do
   let mut globals : Std.HashMap ByteArray OperationPtr := Std.HashMap.emptyWithCapacity
+  let mut functions : Std.HashSet ByteArray := Std.HashSet.emptyWithCapacity
   for op in ctx.raw.operations.keys do
     if op.getOpType! ctx.raw = .llvm .mlir__global then
       let props := op.getProperties! ctx.raw Llvm.mlir__global
@@ -133,11 +174,90 @@ private def WfIRContext.verifyLLVMGlobalSymbols (ctx : WfIRContext OpCode) :
         let displayName := String.fromUTF8? symbolName |>.getD "<non-UTF8 global symbol>"
         throw s!"llvm.mlir.global: duplicate global symbol '{displayName}'"
       globals := globals.insert symbolName op
+    if op.getOpType! ctx.raw = .llvm .func then
+      let props := op.getProperties! ctx.raw Llvm.func
+      functions := functions.insert ("@".toUTF8 ++ props.sym_name.value)
+    if op.getOpType! ctx.raw = .riscv_cf .func then
+      let props := op.getProperties! ctx.raw Riscv_Cf.func
+      functions := functions.insert ("@".toUTF8 ++ props.sym_name.value)
+  /- Aliases share the symbol table with globals and functions; check them
+     after both are known so the order of traversal does not matter. -/
+  let mut aliases : Std.HashSet ByteArray := Std.HashSet.emptyWithCapacity
+  for op in ctx.raw.operations.keys do
+    if op.getOpType! ctx.raw = .llvm .mlir__alias then
+      let props := op.getProperties! ctx.raw Llvm.mlir__alias
+      let symbolName := "@".toUTF8 ++ props.sym_name.value
+      if globals.contains symbolName || functions.contains symbolName || aliases.contains symbolName then
+        let displayName := String.fromUTF8? props.sym_name.value |>.getD "<non-UTF8 symbol>"
+        throw s!"llvm.mlir.alias: redefinition of symbol named '{displayName}'"
+      aliases := aliases.insert symbolName
   for op in ctx.raw.operations.keys do
     if op.getOpType! ctx.raw = .llvm .mlir__addressof then
       let props := op.getProperties! ctx.raw Llvm.mlir__addressof
-      if !globals.contains props.global_name.value.toUTF8 then
-        throw s!"llvm.mlir.addressof: symbol '{props.global_name.value}' does not name an llvm.mlir.global"
+      let symbolName := (symbolRefBytes props.global_name.value).getD ByteArray.empty
+      if !globals.contains symbolName && !functions.contains symbolName
+          && !aliases.contains symbolName then
+        throw s!"llvm.mlir.addressof: symbol '{props.global_name.value}' does not name an \
+          llvm.mlir.global, llvm.mlir.alias or llvm.func/riscv_cf.func"
+
+private def WfIRContext.verifyLLVMAliasInitializers (ctx : WfIRContext OpCode) :
+    Except String Unit := do
+  for op in ctx.raw.operations.keys do
+    match op.getParentOp! ctx.raw with
+    | some parent =>
+      if parent.getOpType! ctx.raw = .llvm .mlir__alias && !op.isMemoryIndependent ctx.raw then
+        throw "llvm.mlir.alias: ops with side effects are not allowed in alias initializers"
+    | none => pure ()
+
+/-- The decoded bytes of a symbol reference, with nested references joined by `::`. -/
+private def symbolRefAttrBytes : Attribute → Option ByteArray
+  | .flatSymbolRefAttr f => symbolRefBytes f.value
+  | .symbolRefAttr s => do
+    let mut bytes ← symbolRefBytes s.root.value
+    for n in s.nested do
+      bytes := bytes ++ "::".toUTF8 ++ (← symbolRefBytes n.value)
+    return bytes
+  | _ => none
+
+/--
+  Check the comdat invariants MLIR enforces through its symbol tables: a
+  `llvm.comdat` body holds only `llvm.comdat_selector` operations with distinct
+  names, and the `comdat` of a function or global names a selector, either as
+  `@comdat::@selector` or as `@selector` for a selector outside any comdat.
+-/
+private def WfIRContext.verifyLLVMComdats (ctx : WfIRContext OpCode) :
+    Except String Unit := do
+  let mut selectors : Std.HashSet ByteArray := Std.HashSet.emptyWithCapacity
+  for op in ctx.raw.operations.keys do
+    let parent? := op.getParentOp! ctx.raw
+    let comdatParent? := parent?.filter (fun parent => parent.getOpType! ctx.raw = .llvm .comdat)
+    if comdatParent?.isSome && op.getOpType! ctx.raw ≠ .llvm .comdat_selector then
+      throw "llvm.comdat: only comdat selector symbols can appear in a comdat region"
+    if op.getOpType! ctx.raw = .llvm .comdat_selector then
+      let props := op.getProperties! ctx.raw Llvm.comdat_selector
+      let name := "@".toUTF8 ++ props.sym_name.value
+      let key := match comdatParent? with
+        | some parent =>
+          "@".toUTF8 ++ (parent.getProperties! ctx.raw Llvm.comdat).sym_name.value ++ "::".toUTF8 ++ name
+        | none => name
+      if selectors.contains key then
+        throw s!"llvm.comdat_selector: redefinition of symbol named \
+          '{String.fromUTF8? props.sym_name.value |>.getD "<non-UTF8 symbol>"}'"
+      selectors := selectors.insert key
+  for op in ctx.raw.operations.keys do
+    let opType := op.getOpType! ctx.raw
+    let extra? : Option DictionaryAttr :=
+      if opType = .llvm .func then some (op.getProperties! ctx.raw Llvm.func).extra
+      else if opType = .riscv_cf .func then some (op.getProperties! ctx.raw Riscv_Cf.func).extra
+      else if opType = .llvm .mlir__global then some (op.getProperties! ctx.raw Llvm.mlir__global).extra
+      else none
+    let some extra := extra? | continue
+    let some (_, attr) := extra.entries.find? (fun (k, _) => k == "comdat".toUTF8) | continue
+    let opName := String.fromUTF8! opType.name
+    let some ref := symbolRefAttrBytes attr
+      | throw s!"{opName}: expected 'comdat' to be a symbol reference, but got {attr}"
+    if !selectors.contains ref then
+      throw s!"{opName}: expected comdat symbol"
 
 /--
   Check the whole-pattern invariants that MLIR verifies in
@@ -182,8 +302,6 @@ private def WfIRContext.verifyDominance
   ctx.raw.forOpsDepM fun op opIn => do
     let some block := (op.get ctx.raw opIn).parent | return
     if !block.isReachable dfCtx then return
-    let some region := (block.get! ctx.raw).parent | return
-    if !region.hasSSADominance ctx then return
     for (value, index) in (op.getOperands ctx.raw opIn).zipIdx do
       if !value.properlyDominatesUse op dfCtx ctx then
         let opName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
@@ -212,10 +330,10 @@ def WfIRContext.verify
         | some _ => op.verifyTerminatorPosition ctx opIn
         | none => pure ()
         op.verifyOperandIsolation ctx opIn))
-  ctx.raw.forBlocksDepM (fun block blockIn => do
-    block.verifyTerminator ctx blockIn
-    block.verifyNoEntryBlockPredecessors ctx blockIn)
+  ctx.raw.forBlocksDepM (fun block blockIn => block.verifyBlock ctx blockIn)
   ctx.verifyLLVMGlobalSymbols
+  ctx.verifyLLVMComdats
+  ctx.verifyLLVMAliasInitializers
   ctx.verifyPDLPatternBodies
   ctx.verifyDominance root
 
@@ -266,12 +384,66 @@ private theorem WfIRContext.Verified.graphRegionsHaveAtMostOneBlock
 theorem WfIRContext.Verified.graph_region_firstBlock_eq_lastBlock
     {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
     {region : RegionPtr} (regionIn : region.InBounds ctx.raw)
-    (hregionKind : ¬ region.hasSSADominance ctx) :
+    {parent : OperationPtr} (hregionParent : (region.get! ctx.raw).parent = some parent)
+    (hparentRegistered : parent.getOpType! ctx.raw ≠ .builtin .unregistered)
+    (hregionKind : region.getRegionKind ctx = .Graph) :
     (region.get! ctx.raw).firstBlock = (region.get! ctx.raw).lastBlock := by
   have hcheck := ctxVerified.graphRegionsHaveAtMostOneBlock
   have hregionKeys : region ∈ ctx.raw.regions.keys := by grind [region.inBounds_def]
   have hregionCheck := (List.all_eq_true.mp hcheck) region hregionKeys
-  grind
+  grind [WfIRContext.graphRegionsHaveAtMostOneBlock]
+
+/-- A verified context passes the checks that `verify` runs on every block. -/
+private theorem WfIRContext.Verified.verifyBlock_eq_ok
+    {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
+    {block : BlockPtr} (blockIn : block.InBounds ctx.raw) :
+    block.verifyBlock ctx blockIn = .ok () := by
+  simp only [WfIRContext.Verified, WfIRContext.verify] at ctxVerified
+  split at ctxVerified
+  · cases ctxVerified
+  split at ctxVerified
+  · cases ctxVerified
+  obtain ⟨_, -, ctxVerified⟩ := Except.bind_eq_ok.mp ctxVerified
+  obtain ⟨_, hBlocks, -⟩ := Except.bind_eq_ok.mp ctxVerified
+  exact IRContext.forBlocksDepM_except_ok hBlocks block blockIn
+
+/-- A verified context ends every block with a terminator. -/
+private theorem WfIRContext.Verified.verifyTerminator_eq_ok
+    {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
+    {block : BlockPtr} (blockIn : block.InBounds ctx.raw) :
+    block.verifyTerminator ctx blockIn = .ok () := by
+  have hBlock := ctxVerified.verifyBlock_eq_ok blockIn
+  simp only [BlockPtr.verifyBlock] at hBlock
+  obtain ⟨_, hTerminator, -⟩ := Except.bind_eq_ok.mp hBlock
+  exact hTerminator
+
+/-- A verified context has no branch back to the entry block of a region. -/
+private theorem WfIRContext.Verified.verifyNoEntryBlockPredecessors_eq_ok
+    {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
+    {block : BlockPtr} (blockIn : block.InBounds ctx.raw) :
+    block.verifyNoEntryBlockPredecessors ctx blockIn = .ok () := by
+  have hBlock := ctxVerified.verifyBlock_eq_ok blockIn
+  simp only [BlockPtr.verifyBlock] at hBlock
+  obtain ⟨_, -, hEntry⟩ := Except.bind_eq_ok.mp hBlock
+  exact hEntry
+
+/-- The entry block of a region in a verified context is not branched to. -/
+theorem WfIRContext.Verified.entryBlock_firstUse_eq_none
+    {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
+    {block : BlockPtr} (blockIn : block.InBounds ctx.raw) {region : RegionPtr}
+    (hParent : (block.get! ctx.raw).parent = some region)
+    (hFirstBlock : (region.get! ctx.raw).firstBlock = some block) :
+    (block.get! ctx.raw).firstUse = none := by
+  have hCheck := ctxVerified.verifyNoEntryBlockPredecessors_eq_ok blockIn
+  have hParent' : (block.get ctx.raw blockIn).parent = some region := by grind
+  simp only [BlockPtr.verifyNoEntryBlockPredecessors, hParent', hFirstBlock, ne_eq,
+    not_true_eq_false, ↓reduceIte] at hCheck
+  split at hCheck
+  · cases hCheck
+  · rename_i hUse
+    have hGet : block.get! ctx.raw = block.get ctx.raw blockIn := by grind
+    rw [hGet]
+    cases hFirstUse : (block.get ctx.raw blockIn).firstUse <;> simp_all
 
 /--
 Assert that a given operation satisfies its local invariants.
@@ -284,10 +456,19 @@ def OperationPtr.Verified (ctx : WfIRContext OpCode) (op : OperationPtr)
 If the context satisfies the invariants of all operations, any operation in bounds is verified.
 -/
 @[grind →]
-axiom OperationPtr.satisfyInvariants_of_IRContext_satisfyOpInvariants {ctx : WfIRContext OpCode}
+theorem OperationPtr.satisfyInvariants_of_IRContext_satisfyOpInvariants {ctx : WfIRContext OpCode}
     {op root : OperationPtr} (ctxVerify : ctx.Verified root)
     (opInBounds : op.InBounds ctx.raw := by grind) :
-    op.Verified ctx opInBounds
+    op.Verified ctx opInBounds := by
+  simp only [WfIRContext.Verified, WfIRContext.verify] at ctxVerify
+  split at ctxVerify
+  · cases ctxVerify
+  split at ctxVerify
+  · cases ctxVerify
+  obtain ⟨_, hOps, -⟩ := Except.bind_eq_ok.mp ctxVerify
+  have hOp := IRContext.forOpsDepM_except_ok hOps op opInBounds
+  obtain ⟨_, hLocal, -⟩ := Except.bind_eq_ok.mp (Except.eq_ok_of_mapError_eq_ok hOp)
+  exact hLocal
 
 /-!
 ## Lemmas for verified operations
@@ -322,11 +503,11 @@ theorem OperationPtr.Verified.arith_constant {op : OperationPtr} {opInBounds}
     op.getNumSuccessors! ctx.raw = 0 ∧
     op.getNumRegions! ctx.raw = 0 ∧
     ((op.getResult 0).get! ctx.raw).type =
-      Attribute.asType (op.getProperties! ctx.raw Arith.constant).value.type (by grind) := by
+      .of IntegerType (op.getProperties! ctx.raw Arith.constant).value.type := by
   simp only [Verified, verifyLocalInvariants, HasOpInfo.verifyLocalInvariants,
-    OpCode.verifyLocalInvariants, Arith.verifyLocalInvariants,
+    OpCode.verifyLocalInvariants, Arith.verifyLocalInvariants, verifyPlainOpCounts,
     ← getOpType!_eq_getOpType, opType, ne_eq,
-    bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure, dite_not,
+    bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure,
     ite_not] at opVerify
   simp only [TypeAttr.inj]
   grind
@@ -337,7 +518,7 @@ theorem OperationPtr.Verified.llvm_mlir__constant_resultType {op : OperationPtr}
     (opVerify : op.Verified ctx opInBounds)
     (opType : op.getOpType! ctx.raw = .llvm .mlir__constant)
     (hProp : (op.getProperties! ctx.raw Llvm.mlir__constant).value = .integer intAttr) :
-    ∃ intTy : IntegerType, ((op.getResult 0).get! ctx.raw).type.val = .integerType intTy := by
+    ∃ intTy : IntegerType, ((op.getResult 0).get! ctx.raw).type.val = Attribute.of IntegerType intTy := by
   rw [Verified] at opVerify
   simp only [verifyLocalInvariants, HasOpInfo.verifyLocalInvariants,
     OpCode.verifyLocalInvariants, Llvm.verifyLocalInvariants,
@@ -346,7 +527,7 @@ theorem OperationPtr.Verified.llvm_mlir__constant_resultType {op : OperationPtr}
   simp only [verifyPlainOpCounts, hProp, ne_eq, bind, Except.bind, throw, throwThe,
     MonadExceptOf.throw, pure, Except.pure] at opVerify
   cases hty : ((op.getResult 0).get! ctx.raw).type.val with
-  | integerType intTy => exact ⟨intTy, rfl⟩
+  | integerType intTy => exact ⟨intTy, by grind⟩
   | _ =>
     rw [hty] at opVerify
     split at opVerify <;> simp_all [reduceCtorEq]
@@ -363,7 +544,7 @@ def OperationPtr.IsVerifiedIcmp (op : OperationPtr) (ctx : WfIRContext OpCode) :
   op.getNumSuccessors! ctx.raw = 0 ∧
   op.getNumRegions! ctx.raw = 0 ∧
   (∃ i1ty : IntegerType,
-    ((op.getResult 0).get! ctx.raw).type.val = .integerType i1ty ∧ i1ty.bitwidth = 1) ∧
+    ((op.getResult 0).get! ctx.raw).type.val = Attribute.of IntegerType i1ty ∧ i1ty.bitwidth = 1) ∧
   ((op.getOperand! ctx.raw 0).getType! ctx.raw).val
     = ((op.getOperand! ctx.raw 1).getType! ctx.raw).val
 
@@ -408,6 +589,7 @@ private theorem OperationPtr.Verified.integerBinop {op : OperationPtr} {opInBoun
           op.verifyIntegerBinop ctx opInBounds >>= fun _ => pure ())) :
     op.IsVerifiedIntegerBinop ctx :=
   op.verifyIntegerBinop_eq_ok <| op.verifyIntegerBinop_ok_of_Verified opVerify armReduces
+
 private theorem OperationPtr.verifySelectTypes_ok_of_Verified {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds)
     (armReduces : op.verifyLocalInvariants ctx opInBounds
@@ -437,7 +619,7 @@ def OperationPtr.IsVerifiedLLVMShift (op : OperationPtr) (ctx : WfIRContext OpCo
   op.getNumResults! ctx.raw = 1 ∧
   op.getNumOperands! ctx.raw = 2 ∧
   ((op.getResult 0).get! ctx.raw).type.val = ((op.getOperand! ctx.raw 0).getType! ctx.raw).val ∧
-  ∃ intType, ((op.getOperand! ctx.raw 1).getType! ctx.raw).val = .integerType intType
+  ∃ intType, ((op.getOperand! ctx.raw 1).getType! ctx.raw).val = .of IntegerType intType
 
 private theorem OperationPtr.verifyLLVMShift_eq_ok {ctx : WfIRContext OpCode} {op : OperationPtr}
     {opInBounds : op.InBounds ctx.raw} (h : op.verifyLLVMShift ctx opInBounds = .ok ()) :
@@ -882,9 +1064,9 @@ def OperationPtr.IsVerifiedModArithBinop (op : OperationPtr) (ctx : WfIRContext 
   ∃ modArithType,
     modArithType.modulus.value > 0 ∧
     modArithType.modulus.value < 2 ^ modArithType.modulus.type.bitwidth ∧
-    ((op.getResult 0).get! ctx.raw).type = Attribute.asType (.modArithType modArithType) (by grind) ∧
-    ((op.getOperand! ctx.raw 0).getType! ctx.raw) = Attribute.asType (.modArithType modArithType) (by grind) ∧
-    ((op.getOperand! ctx.raw 1).getType! ctx.raw) = Attribute.asType (.modArithType modArithType) (by grind)
+    ((op.getResult 0).get! ctx.raw).type = .of ModArithType modArithType ∧
+    ((op.getOperand! ctx.raw 0).getType! ctx.raw) = .of ModArithType modArithType ∧
+    ((op.getOperand! ctx.raw 1).getType! ctx.raw) = .of ModArithType modArithType
 
 
 private theorem OperationPtr.verifyModArithBinOp_eq_ok {ctx : WfIRContext OpCode} {op : OperationPtr}
@@ -933,7 +1115,7 @@ def OperationPtr.IsVerifiedModArithConstant (op : OperationPtr) (ctx : WfIRConte
   op.getNumSuccessors! ctx.raw = 0 ∧
   op.getNumRegions! ctx.raw = 0 ∧
   ∃ modArithType,
-    ((op.getResult 0).get! ctx.raw).type = Attribute.asType (.modArithType modArithType) (by grind) ∧
+    ((op.getResult 0).get! ctx.raw).type = .of ModArithType modArithType ∧
     modArithType.modulus.value > 0 ∧
     modArithType.modulus.value < 2 ^ modArithType.modulus.type.bitwidth ∧
     -(2 ^ (modArithType.modulus.type.bitwidth - 1) : Int)

@@ -19,7 +19,7 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK-LABEL: "sym_name" = "zextw_slliw_lbu"
+// CHECK-LABEL: func.func @zextw_slliw_lbu(
 // CHECK: %[[BYTE:[^ ]*]] = "riscv.lbu"
 // CHECK: %[[SHIFT8:[^ ]*]] = "riscv.slli"(%[[BYTE]]) <{"value" = 8 : i64}>
 // CHECK: %[[SHIFT16:[^ ]*]] = "riscv.slli"(%[[BYTE]]) <{"value" = 16 : i64}>

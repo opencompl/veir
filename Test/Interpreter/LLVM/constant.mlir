@@ -10,4 +10,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Program output: #[0x00000003#32, 0x00000000#32, 0xfffffffc#32, 1.000000]
+// CHECK: Program output: #[0x00000003#32, 0x00000000#32, 0xfffffffc#32, 0x3ff0000000000000#64]

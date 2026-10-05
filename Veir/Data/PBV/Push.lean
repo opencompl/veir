@@ -25,6 +25,7 @@ theorem eq_iff (o : Nat) {w : Nat} (h : w ≤ o) :
   apply propext
   exact ⟨fun hab => hab ▸ rfl, fun hab => BitVec.setWidth_inj h hab⟩
 
+
 /-! ## Pushing `setWidth o` towards the leaves — leaves and width changes -/
 
 theorem setWidth_setWidth {w o : Nat} (h : w ≤ o) :
@@ -46,7 +47,7 @@ theorem setWidth_add {w o : Nat} (h : w ≤ o) :
 
 /-- Sign extension fills above the source width `v` with the sign bit,
 and then masks to the target width. -/
-theorem setWidth_signExtend_eq_and_maskOfWidth {t v o : Nat} (hvo : v ≤ o) :
+theorem setWidth_signExtend_eq_and_maskOfWidth (o : Nat) {t v : Nat} (hvo : v ≤ o) :
     ∀ (a : BitVec v),
       (a.signExtend t).setWidth o
         = ((a.setWidth o) ||| (cond a.msb (~~~(maskOfWidth o v)) 0#o)) &&& maskOfWidth o t := by
@@ -65,6 +66,34 @@ theorem setWidth_signExtend_eq_and_maskOfWidth {t v o : Nat} (hvo : v ≤ o) :
     rw [BitVec.getLsbD_of_ge a i (by lia)]
     cases hmsb : a.msb <;>
       simp [hiv, getLsbD_maskOfWidth, Bool.and_comm]
+
+/-- Push a variable `Nat` which corresponds to a mask into a `cpop` of the mask. -/
+theorem ofNat_eq_cpop_of_maskOfWidth {o w : Nat} {m : BitVec o} (h : w ≤ o) (hm : m = maskOfWidth o w) :
+    BitVec.ofNat o w = BitVec.cpop m := by
+  symm
+  exact cpop_eq_width_of_maskOfWidth h hm
+
+/-- `a ++ b` shifts `a` up by the width of `b`; at the blast width that shift
+is a multiplication by `2^w = maskOfWidth o w + 1`, and the two halves no
+longer overlap, so they can be recombined with `|||`. -/
+theorem setWidth_append_eq_or_mul_maskOfWidth_add_one {w o : Nat} (h : w ≤ o) :
+    ∀ {v : Nat} (a : BitVec v) (b : BitVec w), v + w ≤ o →
+      (a ++ b).setWidth o
+        = ((a.setWidth o) <<< BitVec.cpop (maskOfWidth o w)) ||| b.setWidth o := by
+  intro v a b hvw
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.toNat_or, BitVec.toNat_setWidth_of_le, hvw, h,
+      BitVec.toNat_append, BitVec.shiftLeft_eq', BitVec.toNat_shiftLeft]
+  congr 1
+  rw [toNat_cpop_maskOfWidth_eq_width h, BitVec.toNat_setWidth_of_le (by lia), Nat.mod_eq_of_lt]
+  have a_lt_vw := Nat.mul_lt_mul_of_lt_of_le a.isLt (Nat.le_refl _) (Nat.two_pow_pos w)
+  grind [Nat.pow_le_pow_right (n := 2) (by lia) hvw]
+
+/-- `setWidth` of a constant is the constant anded with the mask. -/
+theorem setWidth_ofNat {o w n : Nat} (h : w ≤ o) :
+    BitVec.setWidth o (BitVec.ofNat w n) = (BitVec.ofNat o n) &&& maskOfWidth o w := by
+  refine setWidth_eq_and_maskOfWidth h ?_
+  simp only [BitVec.toNat_ofNat, Nat.mod_mod_pow_of_le h]
 
 /-! ### The sign bit: a test against the mask's top bit -/
 

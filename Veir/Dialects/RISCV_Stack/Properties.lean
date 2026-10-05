@@ -3,6 +3,8 @@ module
 public import Veir.IR.Attribute
 public import Std.Data.HashMap
 
+import Veir.Dialects.Builtin.Properties
+
 namespace Veir
 
 public section
@@ -13,21 +15,15 @@ public section
   offset is left to the backend.
 -/
 structure RISCVStackAllocaProperties where
-  size : IntegerAttr
-  alignment : IntegerAttr
+  size : BitVec 64
+  alignment : BitVec 64
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 def RISCVStackAllocaProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String RISCVStackAllocaProperties := do
-  let sizeAttr ← match attrDict["size".toUTF8]? with
-    | some (.integerAttr sizeAttr) => .ok sizeAttr
-    | some attr => .error s!"expected 'size' to be an integer attribute, but got {attr}"
-    | none => .error "alloca: missing 'size' property"
-  let alignAttr ← match attrDict["alignment".toUTF8]? with
-    | some (.integerAttr alignAttr) => .ok alignAttr
-    | some attr => .error s!"expected 'alignment' to be an integer attribute, but got {attr}"
-    | none => .error "alloca: missing 'alignment' property"
-  return { size := sizeAttr, alignment := alignAttr }
+  let size ← getI64Attr "alloca" "size" attrDict
+  let alignment ← getI64Attr "alloca" "alignment" attrDict
+  return { size, alignment }
 
 end
 

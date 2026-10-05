@@ -1,7 +1,7 @@
 module
 
 public import Std.Data.ExtHashSet
-public import Veir.Meta.BVNormalizeSimp
+public import Veir.Meta.Tactic.BVNormalizeSimp
 import all Init.Data.Array.Basic -- unfold [Array.popWhile] in Array.getElem?_popWhile_of_false
 public section
 
@@ -24,6 +24,23 @@ def UInt8.isDigit (c : UInt8) : Bool :=
 @[inline]
 def UInt8.isHexDigit (c : UInt8) : Bool :=
   c.isDigit || (c >= 'a'.toUInt8 && c <= 'f'.toUInt8) || (c >= 'A'.toUInt8 && c <= 'F'.toUInt8)
+
+/--
+  The value of a hexadecimal digit. Lean has `Char.isHexDigit`, but the
+  conversion to a value is `private` in `Init.Meta`.
+-/
+@[inline]
+def Char.hexDigit? (c : Char) : Option UInt8 :=
+  if c.isDigit then some (c.toNat - '0'.toNat).toUInt8
+  else if 'a' ≤ c && c ≤ 'f' then some (c.toNat - 'a'.toNat + 10).toUInt8
+  else if 'A' ≤ c && c ≤ 'F' then some (c.toNat - 'A'.toNat + 10).toUInt8
+  else none
+
+/-- The hexadecimal digit of a value below 16, in upper case. -/
+@[inline]
+def UInt8.toHexDigit (n : UInt8) : Char :=
+  if n < 10 then Char.ofNat (n.toNat + '0'.toNat)
+  else Char.ofNat (n.toNat - 10 + 'A'.toNat)
 
 def UInt16.toByteArrayLE (u : UInt16) : ByteArray :=
   ByteArray.mk (Array.mk [
@@ -355,6 +372,39 @@ def Std.HashMap.forKeysDepM [BEq α] [Hashable α] {m : Type w → Type w'} [Mon
     (b : Std.HashMap α β) (f : ∀ (a : α), a ∈ b → m PUnit) : m PUnit :=
   b.forM (fun k v => do if h : k ∈ b then f k (by grind))
 
+theorem Except.bind_eq_ok {ε : Type u} {α β : Type v} {x : Except ε α} {f : α → Except ε β}
+    {b : β} : x >>= f = .ok b ↔ ∃ a, x = .ok a ∧ f a = .ok b := by
+  cases x <;> simp [bind, Except.bind]
+
+theorem Except.eq_ok_of_mapError_eq_ok {ε ε' : Type u} {α : Type v} {f : ε → ε'}
+    {x : Except ε α} {a : α} (h : Except.mapError f x = .ok a) : x = .ok a := by
+  cases x <;> simp_all [Except.mapError]
+
+/-- A loop over a list in `Except` that succeeds ran its body successfully on every element. -/
+theorem List.forM_except_ok {ε : Type u} {α : Type v} {l : List α} {f : α → Except ε PUnit}
+    (h : forM l f = .ok ⟨⟩) : ∀ a ∈ l, f a = .ok ⟨⟩ := by
+  induction l with
+  | nil => simp
+  | cons b l ih =>
+    simp only [List.forM_cons, bind, Except.bind] at h
+    split at h
+    · simp at h
+    · rename_i hb
+      intro a ha
+      rcases List.mem_cons.mp ha with rfl | ha
+      · exact hb
+      · exact ih h a ha
+
+/-- A `forKeysDepM` in `Except` that succeeds ran its body successfully on every key. -/
+theorem Std.HashMap.forKeysDepM_except_ok [BEq α] [Hashable α] [LawfulBEq α] {ε : Type}
+    {b : Std.HashMap α β} {f : ∀ (a : α), a ∈ b → Except ε PUnit}
+    (h : b.forKeysDepM f = .ok ⟨⟩) (k : α) (hk : k ∈ b) : f k hk = .ok ⟨⟩ := by
+  simp only [Std.HashMap.forKeysDepM] at h
+  rw [Std.HashMap.forM_eq_forM, Std.HashMap.forM_eq_forM_toList] at h
+  have hMem : (k, b[k]) ∈ b.toList :=
+    Std.HashMap.mem_toList_iff_getElem?_eq_some.mpr (Std.HashMap.getElem?_eq_some_getElem hk)
+  simpa [hk] using List.forM_except_ok h (k, b[k]) hMem
+
 section ranges
 
 open Std
@@ -478,8 +528,8 @@ theorem sdiv_one_shl_of_smod_eq_zero {w₁ w₂ : Nat} (x : BitVec w₁) (k : Bi
     (hk : k.toNat + 1 < w₁) (h : x.smod ((1#w₁) <<< k) = 0#w₁) :
     x.sdiv ((1#w₁) <<< k) = x.sshiftRight' k := by
   have hy : ((1#w₁) <<< k).toInt = ((2 ^ k.toNat : Nat) : Int) := by
-    rw [BitVec.shiftLeft_eq', ← BitVec.twoPow_eq, BitVec.toInt_twoPow, if_neg (by omega),
-      if_neg (by omega)]
+    rw [BitVec.shiftLeft_eq', ← BitVec.twoPow_eq, BitVec.toInt_twoPow, ite_eq_right (by omega),
+      ite_eq_right (by omega)]
     exact (Int.natCast_pow 2 k.toNat).symm
   apply BitVec.eq_of_toInt_eq
   have hsmod : x.toInt.fmod ((1#w₁) <<< k).toInt = 0 := by
@@ -512,7 +562,7 @@ theorem toInt_neg_one_shl {w₁ w₂ : Nat} (k : BitVec w₂) (hk : k.toNat < w�
     rw [BitVec.toNat_neg, hy, Nat.mod_eq_of_lt (Nat.sub_lt (Nat.two_pow_pos w₁) (Nat.two_pow_pos k.toNat)),
       hsubval]
   have hcond : ¬ (2 * (-((1#w₁) <<< k)).toNat < 2 ^ w₁) := by rw [hneg]; omega
-  rw [BitVec.toInt_eq_toNat_cond, if_neg hcond, hneg]
+  rw [BitVec.toInt_eq_toNat_cond, ite_eq_right hcond, hneg]
   omega
 
 /-- Negative-divisor analogue of `sdiv_one_shl_of_smod_eq_zero`: an exact `sdiv` by `-2^k` agrees
@@ -543,9 +593,9 @@ theorem Int.tdiv_eq_ediv_add_of_pos {a p : Int} (hp : 0 < p) :
   have hpne : p ≠ 0 := by omega
   rw [Int.tdiv_eq_ediv, Int.sign_eq_one_of_pos hp]
   by_cases ha : a < 0
-  · rw [if_pos ha]
+  · rw [ite_eq_left ha]
     by_cases hdvd : p ∣ a
-    · rw [if_pos (Or.inr hdvd)]
+    · rw [ite_eq_left (Or.inr hdvd)]
       obtain ⟨q, hq⟩ := hdvd
       subst hq
       have hrw : p * q + (p - 1) = (p - 1) + q * p := by
@@ -556,7 +606,7 @@ theorem Int.tdiv_eq_ediv_add_of_pos {a p : Int} (hp : 0 < p) :
       rw [Int.ediv_eq_zero_of_lt h1 h2, Int.mul_ediv_cancel_left q hpne]
       omega
     · have hnotor : ¬ (0 ≤ a ∨ p ∣ a) := fun h => h.elim (fun h0 => absurd h0 (by omega)) hdvd
-      rw [if_neg hnotor]
+      rw [ite_eq_right hnotor]
       have hr : a % p + a / p * p = a := Int.emod_add_ediv_mul a p
       have hr0 : 0 ≤ a % p := Int.emod_nonneg a hpne
       have hrlt : a % p < p := Int.emod_lt_of_pos a hp
@@ -572,7 +622,7 @@ theorem Int.tdiv_eq_ediv_add_of_pos {a p : Int} (hp : 0 < p) :
       rw [Int.ediv_eq_zero_of_lt h1 h2]
       simp
   · have haux : 0 ≤ a ∨ p ∣ a := Or.inl (by omega)
-    rw [if_neg ha, if_pos haux, Int.add_zero, Int.add_zero]
+    rw [ite_eq_right ha, ite_eq_left haux, Int.add_zero, Int.add_zero]
 
 /-- A shifted-in-from-the-left all-ones mask (`(2^w - 1) >>> (w - k)`, i.e. the top `w - k` bits
     of `allOnes w` cleared) is exactly the `k`-bit all-ones mask `2^k - 1`. Used to compute the
@@ -604,14 +654,14 @@ theorem toNat_sign_mask_shift {w₁ : Nat} (x : BitVec w₁) (k : Nat) (hk : k <
     omega
   rw [BitVec.toNat_ushiftRight]
   by_cases hmsb : x.msb = true
-  · rw [if_pos hmsb, BitVec.toNat_sshiftRight_of_msb_true hmsb]
+  · rw [ite_eq_left hmsb, BitVec.toNat_sshiftRight_of_msb_true hmsb]
     have hxge : 2 ^ (w₁ - 1) ≤ x.toNat := BitVec.le_toNat_of_msb_true hmsb
     have hxlt : x.toNat < 2 ^ w₁ := x.isLt
     have hzero : (2 ^ w₁ - 1 - x.toNat) >>> (w₁ - 1) = 0 := by
       rw [Nat.shiftRight_eq_div_pow, Nat.div_eq_of_lt (by omega)]
     rw [hzero, Nat.sub_zero]
     exact Nat.shiftRight_two_pow_sub_one hk
-  · rw [if_neg hmsb]
+  · rw [ite_eq_right hmsb]
     have hmsb' : x.msb = false := by simpa using hmsb
     rw [BitVec.toNat_sshiftRight_of_msb_false hmsb']
     have hxlt : x.toNat < 2 ^ (w₁ - 1) := BitVec.toNat_lt_of_msb_false hmsb'
@@ -631,8 +681,8 @@ theorem sdiv_one_shl_eq_biased_sshiftRight {w₁ w₂ : Nat} (x : BitVec w₁) (
     x.sdiv ((1#w₁) <<< k) =
       (x + (x.sshiftRight (w₁ - 1) >>> (w₁ - k.toNat))).sshiftRight' k := by
   have hy : ((1#w₁) <<< k).toInt = ((2 ^ k.toNat : Nat) : Int) := by
-    rw [BitVec.shiftLeft_eq', ← BitVec.twoPow_eq, BitVec.toInt_twoPow, if_neg (by omega),
-      if_neg (by omega)]
+    rw [BitVec.shiftLeft_eq', ← BitVec.twoPow_eq, BitVec.toInt_twoPow, ite_eq_right (by omega),
+      ite_eq_right (by omega)]
     exact (Int.natCast_pow 2 k.toNat).symm
   generalize hcorr_def : x.sshiftRight (w₁ - 1) >>> (w₁ - k.toNat) = corr
   have hcorrNat : corr.toNat = if x.msb then 2 ^ k.toNat - 1 else 0 := by
@@ -643,8 +693,8 @@ theorem sdiv_one_shl_eq_biased_sshiftRight {w₁ w₂ : Nat} (x : BitVec w₁) (
     rw [BitVec.msb_eq_toInt] at hcorrNat
     simp only [decide_eq_true_eq] at hcorrNat
     by_cases hx : x.toInt < 0
-    · rw [if_pos hx] at hcorrNat
-      rw [if_pos hx]
+    · rw [ite_eq_left hx] at hcorrNat
+      rw [ite_eq_left hx]
       have hlt : 2 * corr.toNat < 2 ^ w₁ := by
         rw [hcorrNat]
         have : 2 ^ (w₁ - 1) * 2 = 2 ^ w₁ := by
@@ -652,8 +702,8 @@ theorem sdiv_one_shl_eq_biased_sshiftRight {w₁ w₂ : Nat} (x : BitVec w₁) (
         omega
       rw [BitVec.toInt_eq_toNat_of_lt hlt, hcorrNat]
       exact Int.natCast_sub Nat.one_le_two_pow
-    · rw [if_neg hx] at hcorrNat
-      rw [if_neg hx]
+    · rw [ite_eq_right hx] at hcorrNat
+      rw [ite_eq_right hx]
       have hlt : 2 * corr.toNat < 2 ^ w₁ := by
         rw [hcorrNat]
         have := Nat.two_pow_pos w₁
@@ -674,12 +724,12 @@ theorem sdiv_one_shl_eq_biased_sshiftRight {w₁ w₂ : Nat} (x : BitVec w₁) (
     have hdouble : (2:Int) ^ (w₁ - 1) * 2 = ((2 ^ w₁ : Nat) : Int) := by exact_mod_cast hdoubleNat
     rw [hcorrInt]
     by_cases hx : x.toInt < 0
-    · rw [if_pos hx]
+    · rw [ite_eq_left hx]
       have hb1 : (0:Int) ≤ ((2 ^ k.toNat : Nat) : Int) - 1 := by
         have : (1:Int) ≤ ((2 ^ k.toNat : Nat) : Int) := by exact_mod_cast Nat.one_le_two_pow
         omega
       apply Int.bmod_eq_of_le <;> omega
-    · rw [if_neg hx]
+    · rw [ite_eq_right hx]
       simp only [Int.add_zero]
       apply Int.bmod_eq_of_le <;> omega
   have hppos : (0:Int) < ((2 ^ k.toNat : Nat) : Int) := by
@@ -707,8 +757,8 @@ theorem sdiv_neg_one_shl_eq_neg_biased_sshiftRight {w₁ w₂ : Nat} (x : BitVec
     rw [BitVec.msb_eq_toInt] at hcorrNat
     simp only [decide_eq_true_eq] at hcorrNat
     by_cases hx : x.toInt < 0
-    · rw [if_pos hx] at hcorrNat
-      rw [if_pos hx]
+    · rw [ite_eq_left hx] at hcorrNat
+      rw [ite_eq_left hx]
       have hlt : 2 * corr.toNat < 2 ^ w₁ := by
         rw [hcorrNat]
         have : 2 ^ (w₁ - 1) * 2 = 2 ^ w₁ := by
@@ -716,8 +766,8 @@ theorem sdiv_neg_one_shl_eq_neg_biased_sshiftRight {w₁ w₂ : Nat} (x : BitVec
         omega
       rw [BitVec.toInt_eq_toNat_of_lt hlt, hcorrNat]
       exact Int.natCast_sub Nat.one_le_two_pow
-    · rw [if_neg hx] at hcorrNat
-      rw [if_neg hx]
+    · rw [ite_eq_right hx] at hcorrNat
+      rw [ite_eq_right hx]
       have hlt : 2 * corr.toNat < 2 ^ w₁ := by
         rw [hcorrNat]
         have := Nat.two_pow_pos w₁
@@ -739,12 +789,12 @@ theorem sdiv_neg_one_shl_eq_neg_biased_sshiftRight {w₁ w₂ : Nat} (x : BitVec
     have hdouble : (2:Int) ^ (w₁ - 1) * 2 = ((2 ^ w₁ : Nat) : Int) := by exact_mod_cast hdoubleNat
     rw [hcorrInt]
     by_cases hx : x.toInt < 0
-    · rw [if_pos hx]
+    · rw [ite_eq_left hx]
       have hb1 : (0:Int) ≤ ((2 ^ k.toNat : Nat) : Int) - 1 := by
         have : (1:Int) ≤ ((2 ^ k.toNat : Nat) : Int) := by exact_mod_cast Nat.one_le_two_pow
         omega
       apply Int.bmod_eq_of_le <;> omega
-    · rw [if_neg hx]
+    · rw [ite_eq_right hx]
       simp only [Int.add_zero]
       apply Int.bmod_eq_of_le <;> omega
   have hppos : (0:Int) < ((2 ^ k.toNat : Nat) : Int) := by
@@ -810,7 +860,7 @@ theorem sdiv_one_shl_eq_sshiftRight_of_msb_false (x : BitVec 64) (k : BitVec 6)
   by_cases hk : k.toNat + 1 < 64
   · have hcorr0 : x.sshiftRight 63 >>> (64 - k.toNat) = 0#64 := by
       apply BitVec.eq_of_toNat_eq
-      rw [toNat_sign_mask_shift x k.toNat (by omega), if_neg (by simp [hx])]
+      rw [toNat_sign_mask_shift x k.toNat (by omega), ite_eq_right (by simp [hx])]
       rfl
     rw [sdiv_one_shl_eq_biased_sshiftRight x k hk]
     show (x + (x.sshiftRight (63 : Nat) >>> (64 - k.toNat))).sshiftRight k.toNat =
@@ -824,7 +874,7 @@ theorem sdiv_one_shl_eq_sshiftRight_of_msb_false (x : BitVec 64) (k : BitVec 6)
     rw [hy, BitVec.sdiv_intMin]
     have hxne : x ≠ BitVec.intMin 64 := by
       intro h; rw [h] at hx; simp [BitVec.msb_intMin] at hx
-    rw [if_neg hxne]
+    rw [ite_eq_right hxne]
     apply BitVec.eq_of_toNat_eq
     show (0 : BitVec 64).toNat = (x.sshiftRight (-1 : BitVec 6).toNat).toNat
     rw [BitVec.toNat_sshiftRight_of_msb_false hx]
@@ -856,13 +906,13 @@ theorem sdiv_one_shl_eq_ite_sshiftRight (x : BitVec 64) (k : BitVec 6) :
       else
         x.sshiftRight' k := by
   by_cases hx : x.msb
-  · rw [if_pos hx]
+  · rw [ite_eq_left hx]
     by_cases hk0 : k = 0
-    · rw [if_pos hk0, hk0]
+    · rw [ite_eq_left hk0, hk0]
       simp [BitVec.sshiftRight_eq', BitVec.sdiv_one]
-    · rw [if_neg hk0]
+    · rw [ite_eq_right hk0]
       by_cases hk63 : k ≠ (-1 : BitVec 6)
-      · rw [if_pos hk63]
+      · rw [ite_eq_left hk63]
         have hk0' : 0 < k.toNat := by bv_omega
         have hk' : k.toNat + 1 < 64 := by bv_omega
         have h1 : (1 : BitVec 6).toNat = 1 := BitVec.toNat_one (by decide)
@@ -874,11 +924,11 @@ theorem sdiv_one_shl_eq_ite_sshiftRight (x : BitVec 64) (k : BitVec 6) :
           (x + (x.sshiftRight (-1 : BitVec 6).toNat >>> (-k : BitVec 6).toNat)).sshiftRight k.toNat
         rw [heq1, heq2]
         exact sdiv_one_shl_eq_biased_sshiftRight x k hk'
-      · rw [if_neg hk63]
+      · rw [ite_eq_right hk63]
         have hk63' : k = (-1 : BitVec 6) := Decidable.not_not.mp hk63
         have hy : (1#64) <<< k = BitVec.intMin 64 := by rw [hk63']; decide
         rw [hy, BitVec.sdiv_intMin]
-  · rw [if_neg hx]
+  · rw [ite_eq_right hx]
     exact sdiv_one_shl_eq_sshiftRight_of_msb_false x k (by simpa using hx)
 
 /-- Negative-divisor analogue of `sdiv_one_shl_eq_sshiftRight_of_msb_false`: when `x` is
@@ -891,7 +941,7 @@ theorem sdiv_neg_one_shl_eq_neg_sshiftRight_of_msb_false (x : BitVec 64) (k : Bi
   have hk : k.toNat < 64 := k.isLt
   have hcorr0 : x.sshiftRight 63 >>> (64 - k.toNat) = 0#64 := by
     apply BitVec.eq_of_toNat_eq
-    rw [toNat_sign_mask_shift x k.toNat (by omega), if_neg (by simp [hx])]
+    rw [toNat_sign_mask_shift x k.toNat (by omega), ite_eq_right (by simp [hx])]
     rfl
   rw [sdiv_neg_one_shl_eq_neg_biased_sshiftRight x k hk, hcorr0, BitVec.add_zero]
 
@@ -913,13 +963,13 @@ theorem sdiv_neg_one_shl_eq_ite_sshiftRight (x : BitVec 64) (k : BitVec 6) :
       else
         -(x.sshiftRight' k) := by
   by_cases hx : x.msb
-  · rw [if_pos hx]
+  · rw [ite_eq_left hx]
     by_cases hk0 : k = 0
-    · rw [if_pos hk0, hk0]
+    · rw [ite_eq_left hk0, hk0]
       have hy : (-((1#64) <<< (0 : BitVec 6))) = (-1 : BitVec 64) := by simp
       rw [hy, BitVec.sdiv_neg (by decide)]
       simp [BitVec.sdiv_one, BitVec.sshiftRight_eq']
-    · rw [if_neg hk0]
+    · rw [ite_eq_right hk0]
       have hk0' : 0 < k.toNat := by bv_omega
       have hk' : k.toNat < 64 := k.isLt
       have h1 : (1 : BitVec 6).toNat = 1 := BitVec.toNat_one (by decide)
@@ -931,7 +981,7 @@ theorem sdiv_neg_one_shl_eq_ite_sshiftRight (x : BitVec 64) (k : BitVec 6) :
         -((x + (x.sshiftRight (-1 : BitVec 6).toNat >>> (-k : BitVec 6).toNat)).sshiftRight k.toNat)
       rw [heq1, heq2]
       exact sdiv_neg_one_shl_eq_neg_biased_sshiftRight x k hk'
-  · rw [if_neg hx]
+  · rw [ite_eq_right hx]
     exact sdiv_neg_one_shl_eq_neg_sshiftRight_of_msb_false x k (by simpa using hx)
 
 @[veir_bv_normalize]

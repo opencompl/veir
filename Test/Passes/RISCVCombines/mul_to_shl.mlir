@@ -20,12 +20,12 @@
 }) : () -> ()
 
 // mul by 16 becomes shl by 4.
-// CHECK:      ^{{.*}}(%[[X:.*]] : i32):
+// CHECK:      func.func @foo(%[[X:.*]]: i32) -> i32 {
 // CHECK:      %[[K:.*]] = "llvm.mlir.constant"() <{"value" = 4 : i32}> : () -> i32
 // CHECK:      %[[R:.*]] = "llvm.shl"(%[[X]], %[[K]]) : (i32, i32) -> i32
 // CHECK:      "func.return"(%[[R]]) : (i32) -> ()
 
 // Non-power-of-two multiplier: the mul remains.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i32):
+// CHECK:      func.func @bar(%[[NX:.*]]: i32) -> i32 {
 // CHECK:      %[[NR:.*]] = "llvm.mul"(%[[NX]], %{{.*}}) : (i32, i32) -> i32
 // CHECK:      "func.return"(%[[NR]]) : (i32) -> ()

@@ -1,6 +1,9 @@
 module
 
 public import Veir.Data.LLVM.Int.Basic
+public import Veir.Data.LLVM.FloatPred
+public import Veir.Data.LLVM.AtomicOrdering
+public import Veir.Data.LLVM.ComdatKind
 public import Std.Data.HashMap
 public import Veir.IR.Attribute
 
@@ -41,7 +44,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 def ExactProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String ExactProperties := do
-  let exact ← getUnitAttr "exact" attrDict
+  let exact ← getUnitAttr "isExact" attrDict
   return { exact := exact }
 
 /--
@@ -54,7 +57,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 def DisjointProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String DisjointProperties := do
-  let disjoint ← getUnitAttr "disjoint" attrDict
+  let disjoint ← getUnitAttr "isDisjoint" attrDict
   return { disjoint := disjoint }
 
 /--
@@ -66,8 +69,14 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 def NnegProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String NnegProperties := do
-  let nneg ← getUnitAttr "nneg" attrDict
+  let nneg ← getUnitAttr "nonNeg" attrDict
   return { nneg := nneg }
+
+def NnegProperties.toAttrDict (props : NnegProperties) : Std.HashMap ByteArray Attribute :=
+  if props.nneg then
+    (Std.HashMap.emptyWithCapacity 1).insert "nonNeg".toUTF8 (.unitAttr UnitAttr.mk)
+  else
+    Std.HashMap.emptyWithCapacity 0
 
 /--
   Properties of LLVM count-zero intrinsics. In LLVM IR, the second intrinsic
@@ -124,6 +133,35 @@ def IntMinPoisonProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
     return { is_int_min_poison := true }
   else
     throw s!"llvm.intr.abs: expected 'is_int_min_poison' to be 0 or 1, but got {intAttr.value}"
+
+/--
+  Properties of the `llvm.intr.assume` intrinsic. The condition is followed by
+  the operands of its operand bundles: `op_bundle_sizes` gives the operand
+  count of each bundle and `op_bundle_tags` its name. MLIR omits
+  `op_bundle_tags` when there are no bundles.
+-/
+structure LLVMAssumeProperties where
+  op_bundle_sizes : DenseArrayAttr
+  op_bundle_tags : Option ArrayAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMAssumeProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMAssumeProperties := do
+  if let some (key, _) := attrDict.toArray.find? (fun (k, _) =>
+      k ≠ "op_bundle_sizes".toUTF8 && k ≠ "op_bundle_tags".toUTF8) then
+    throw s!"llvm.intr.assume: unexpected property '{String.fromUTF8! key}'"
+  let sizes ← match attrDict["op_bundle_sizes".toUTF8]? with
+    | some (.denseArrayAttr sizes) => pure sizes
+    | some attr =>
+      throw s!"llvm.intr.assume: expected 'op_bundle_sizes' to be a dense array attribute, \
+        but got {attr}"
+    | none => throw "llvm.intr.assume: missing 'op_bundle_sizes' property"
+  let tags ← match attrDict["op_bundle_tags".toUTF8]? with
+    | some (.arrayAttr tags) => pure (some tags)
+    | some attr =>
+      throw s!"llvm.intr.assume: expected 'op_bundle_tags' to be an array attribute, but got {attr}"
+    | none => pure none
+  return { op_bundle_sizes := sizes, op_bundle_tags := tags }
 
 structure FastMathFlagsProperties where
   attr : FastMathFlagsAttr
@@ -249,6 +287,81 @@ def LLVMGlobalProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribut
     extra
   }
 
+/--
+  Properties of `llvm.mlir.alias`.
+
+  MLIR 23 spells thread-locality as the unit attribute `thread_local_` instead
+  of `tls_mode`, so both are accepted. Newer MLIR also carries the symbol's
+  `sym_visibility` (public, private or nested) as a property; MLIR 23 drops it.
+  We support both MLIR 23 as well as newer versions.
+-/
+structure LLVMAliasProperties where
+  sym_name : StringAttr
+  sym_visibility : Option StringAttr
+  alias_type : TypeAttr
+  linkage : LinkageAttr
+  dso_local : Bool
+  thread_local_ : Bool
+  tls_mode : Option IntegerAttr
+  unnamed_addr : Option IntegerAttr
+  visibility_ : IntegerAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+/-- An optional i64 enumeration property with values `0` to `max`. -/
+private def getSmallI64Attr (opName key : String) (max : Int)
+    (attrDict : Std.HashMap ByteArray Attribute) : Except String (Option IntegerAttr) :=
+  match attrDict[key.toUTF8]? with
+  | none => pure none
+  | some attr =>
+    match attr with
+    | .integerAttr intAttr =>
+      if intAttr.type.bitwidth ≠ 64 ∨ intAttr.value < 0 ∨ intAttr.value > max then
+        throw s!"{opName}: expected '{key}' to be an i64 integer attribute between 0 and {max}, \
+          but got {attr}"
+      else
+        pure (some intAttr)
+    | _ => throw s!"{opName}: expected '{key}' to be an integer attribute, but got {attr}"
+
+def LLVMAliasProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMAliasProperties := do
+  let symName ← match attrDict["sym_name".toUTF8]? with
+    | some (.stringAttr attr) => pure attr
+    | some attr =>
+      throw s!"llvm.mlir.alias: expected 'sym_name' to be a string attribute, but got {attr}"
+    | none => throw "llvm.mlir.alias: missing 'sym_name' property"
+  let aliasType ← match attrDict["alias_type".toUTF8]? with
+    | some attr =>
+      if _ : attr.isType = false then
+        throw "llvm.mlir.alias: expected 'alias_type' to be a type attribute"
+      else
+        pure attr.asType
+    | none => throw "llvm.mlir.alias: missing 'alias_type' property"
+  let linkage ← match attrDict["linkage".toUTF8]? with
+    | some (.linkageAttr attr) => pure attr
+    | some attr =>
+      throw s!"llvm.mlir.alias: expected 'linkage' to be an LLVM linkage attribute, but got {attr}"
+    | none => throw "llvm.mlir.alias: missing 'linkage' property"
+  let dsoLocal ← (getUnitAttr "dso_local" attrDict).mapError (s!"llvm.mlir.alias: {·}")
+  let threadLocal ← (getUnitAttr "thread_local_" attrDict).mapError (s!"llvm.mlir.alias: {·}")
+  let symVisibility ← match attrDict["sym_visibility".toUTF8]? with
+    | none => pure none
+    | some attr =>
+      match attr with
+      | .stringAttr s =>
+        if ["public".toUTF8, "private".toUTF8, "nested".toUTF8].contains s.value then
+          pure (some s)
+        else
+          throw s!"llvm.mlir.alias: expected 'sym_visibility' to be \"public\", \"private\" or \"nested\", \
+            but got {attr}"
+      | _ => throw s!"llvm.mlir.alias: expected 'sym_visibility' to be a string attribute, but got {attr}"
+  let tlsMode ← getSmallI64Attr "llvm.mlir.alias" "tls_mode" 4 attrDict
+  let unnamedAddr ← getSmallI64Attr "llvm.mlir.alias" "unnamed_addr" 2 attrDict
+  let visibility ← getSmallI64Attr "llvm.mlir.alias" "visibility_" 2 attrDict
+  return { sym_name := symName, sym_visibility := symVisibility, alias_type := aliasType, linkage,
+           dso_local := dsoLocal,
+           thread_local_ := threadLocal, tls_mode := tlsMode, unnamed_addr := unnamedAddr,
+           visibility_ := visibility.getD { value := 0, type := { bitwidth := 64 } } }
+
 /-- Properties of `llvm.mlir.addressof`. -/
 structure LLVMAddressOfProperties where
   global_name : FlatSymbolRefAttr
@@ -288,6 +401,34 @@ def IcmpProperties.fromAttrDictFor (opName : String) (attrDict : Std.HashMap Byt
 def IcmpProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String IcmpProperties :=
   IcmpProperties.fromAttrDictFor "llvm.icmp" attrDict
+
+/-- Properties of `llvm.fcmp`. -/
+structure FcmpProperties where
+  predicate : Data.LLVM.FloatPred
+  fastmathFlags : FastMathFlagsAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def FcmpProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String FcmpProperties := do
+  if let some (key, _) := attrDict.toArray.find? (fun (k, _) =>
+      k ≠ "predicate".toUTF8 && k ≠ "fastmathFlags".toUTF8) then
+    throw s!"llvm.fcmp: unexpected property '{String.fromUTF8! key}'"
+  let some attr := attrDict["predicate".toUTF8]?
+    | throw "llvm.fcmp: missing predicate"
+  let .integerAttr intAttr := attr
+    | throw s!"llvm.fcmp: expected predicate to be an integer attribute, but got {attr}"
+  if intAttr.type.bitwidth ≠ 64 then
+    throw s!"llvm.fcmp: expected predicate to be an i64 integer attribute, but got {attr}"
+  if intAttr.value < 0 then
+    throw s!"llvm.fcmp: invalid predicate {intAttr.value}"
+  let some predicate := Data.LLVM.FloatPred.fromNat intAttr.value.toNat
+    | throw s!"llvm.fcmp: invalid predicate {intAttr.value}"
+  let flags ← match attrDict["fastmathFlags".toUTF8]? with
+    | some (.fastMathFlagsAttr flags) => .ok flags
+    | some attr =>
+      throw s!"llvm.fcmp: expected 'fastmathFlags' to be a fast math flags attribute, but got {attr}"
+    | none => .ok { nnan := false, ninf := false, nsz := false }
+  return { predicate, fastmathFlags := flags }
 
 /--
   Properties of LLVM memory operations.
@@ -514,6 +655,267 @@ def LLVMCondBrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribut
     | throw s!"llvm.cond_br: expected 'operandSegmentSizes' to be a dense array attribute, but got {sizesAttr}"
   return { branch_weights := weightsAttr, loop_annotation := annotation,
            operandSegmentSizes := sizesAttr }
+
+/--
+  Properties of `llvm.switch`. `case_operand_segments` splits the trailing case
+  operands one group per case; `operandSegmentSizes` splits the operands into
+  the value, the default destination's operands, and all case operands. The
+  optional `case_values` and `branch_weights` are omitted again when absent.
+
+  `case_values` is a dense elements attribute VeIR keeps as text, so the number
+  of case values is not checked against the number of cases here.
+-/
+structure LLVMSwitchProperties where
+  case_values : Option DenseElementsAttr
+  case_operand_segments : DenseArrayAttr
+  branch_weights : Option DenseArrayAttr
+  operandSegmentSizes : DenseArrayAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMSwitchProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMSwitchProperties := do
+  if let some (key, _) := attrDict.toArray.find? (fun (k, _) =>
+      k ≠ "case_values".toUTF8 && k ≠ "case_operand_segments".toUTF8
+        && k ≠ "branch_weights".toUTF8 && k ≠ "operandSegmentSizes".toUTF8) then
+    throw s!"llvm.switch: unexpected property '{String.fromUTF8! key}'"
+  let caseValues ← match attrDict["case_values".toUTF8]? with
+    | some (.denseElementsAttr values) => .ok (some values)
+    | some attr =>
+      throw s!"llvm.switch: expected 'case_values' to be a dense elements attribute, but got {attr}"
+    | none => .ok none
+  let some segmentsAttr := attrDict["case_operand_segments".toUTF8]?
+    | throw "llvm.switch: missing 'case_operand_segments' property"
+  let .denseArrayAttr segmentsAttr := segmentsAttr
+    | throw s!"llvm.switch: expected 'case_operand_segments' to be a dense array attribute, but got {segmentsAttr}"
+  let weights ← match attrDict["branch_weights".toUTF8]? with
+    | some (.denseArrayAttr weights) => .ok (some weights)
+    | some attr =>
+      throw s!"llvm.switch: expected 'branch_weights' to be a dense array attribute, but got {attr}"
+    | none => .ok none
+  let some sizesAttr := attrDict["operandSegmentSizes".toUTF8]?
+    | throw "llvm.switch: missing 'operandSegmentSizes' property"
+  let .denseArrayAttr sizesAttr := sizesAttr
+    | throw s!"llvm.switch: expected 'operandSegmentSizes' to be a dense array attribute, but got {sizesAttr}"
+  return { case_values := caseValues, case_operand_segments := segmentsAttr,
+           branch_weights := weights, operandSegmentSizes := sizesAttr }
+
+/--
+  The case values as integers, `#[]` when the attribute is absent.
+
+  `case_values` is a dense elements attribute VeIR keeps as text, so its body --
+  `5` for one case, `[13, 35]` for several -- is read back here. `none` if the
+  body is not a list of integer literals.
+-/
+def LLVMSwitchProperties.caseValues? (props : LLVMSwitchProperties) : Option (Array Int) := do
+  let some attr := props.case_values | return #[]
+  /- Strip the brackets a multi-element body carries, and all whitespace. -/
+  let body := attr.value.foldl (init := "") fun acc c =>
+    if c = '[' || c = ']' || c = ' ' || c = '\t' || c = '\n' then acc else acc.push c
+  if body.isEmpty then
+    return #[]
+  let mut values : Array Int := #[]
+  for piece in body.splitOn "," do
+    let some value := piece.toInt? | none
+    values := values.push value
+  return values
+
+/--
+  An optional array-valued property, absent when the attribute is not there.
+-/
+private def optionalArrayAttr (opName name : String)
+    (attrDict : Std.HashMap ByteArray Attribute) : Except String (Option ArrayAttr) :=
+  match attrDict[name.toUTF8]? with
+  | some (.arrayAttr value) => .ok (some value)
+  | some attr => .error s!"{opName}: expected '{name}' to be an array attribute, but got {attr}"
+  | none => .ok none
+
+/--
+  Properties of the memory intrinsics `memset`, `memcpy`, and `memmove`.
+-/
+structure LLVMMemIntrinsicProperties where
+  isVolatile : Bool
+  arg_attrs : Option ArrayAttr
+  res_attrs : Option ArrayAttr
+  access_groups : Option ArrayAttr
+  alias_scopes : Option ArrayAttr
+  noalias_scopes : Option ArrayAttr
+  tbaa : Option ArrayAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+/--
+  An optional array of dictionaries, as MLIR requires of `arg_attrs` and
+  `res_attrs`. MLIR does not check the array's length against the operand or
+  result count, so neither does this.
+-/
+private def optionalDictArrayAttr (opName name : String)
+    (attrDict : Std.HashMap ByteArray Attribute) : Except String (Option ArrayAttr) := do
+  let some value ← optionalArrayAttr opName name attrDict
+    | return none
+  if value.value.any (fun attr => match attr with | .dictionaryAttr _ => false | _ => true) then
+    throw s!"{opName}: attribute '{name}' failed to satisfy constraint: \
+      Array of dictionary attributes"
+  return some value
+
+def LLVMMemIntrinsicProperties.fromAttrDictFor (opName : String)
+    (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMMemIntrinsicProperties := do
+  if let some (key, _) := attrDict.toArray.find? (fun (k, _) =>
+      k ≠ "isVolatile".toUTF8 && k ≠ "arg_attrs".toUTF8 && k ≠ "res_attrs".toUTF8
+        && k ≠ "access_groups".toUTF8 && k ≠ "alias_scopes".toUTF8
+        && k ≠ "noalias_scopes".toUTF8 && k ≠ "tbaa".toUTF8
+        && k ≠ "op_bundle_sizes".toUTF8 && k ≠ "op_bundle_tags".toUTF8) then
+    throw s!"{opName}: unexpected property '{String.fromUTF8! key}'"
+  let some volatileAttr := attrDict["isVolatile".toUTF8]?
+    | throw s!"{opName}: missing 'isVolatile' property"
+  let .integerAttr volatileAttr := volatileAttr
+    | throw s!"{opName}: expected 'isVolatile' to be an i1 integer attribute, but got {volatileAttr}"
+  if volatileAttr.type.bitwidth ≠ 1 then
+    throw s!"{opName}: expected 'isVolatile' to be an i1 integer attribute, but got i{volatileAttr.type.bitwidth}"
+  let argAttrs ← optionalDictArrayAttr opName "arg_attrs" attrDict
+  let resAttrs ← optionalDictArrayAttr opName "res_attrs" attrDict
+  let accessGroups ← optionalArrayAttr opName "access_groups" attrDict
+  let aliasScopes ← optionalArrayAttr opName "alias_scopes" attrDict
+  let noaliasScopes ← optionalArrayAttr opName "noalias_scopes" attrDict
+  let tbaa ← optionalArrayAttr opName "tbaa" attrDict
+  /- Parse and drop `op_bundle_sizes` and `op_bundle_tags` to match MLIR. -/
+  return { isVolatile := volatileAttr.value ≠ 0, arg_attrs := argAttrs,
+           res_attrs := resAttrs, access_groups := accessGroups,
+           alias_scopes := aliasScopes, noalias_scopes := noaliasScopes,
+           tbaa := tbaa }
+
+def LLVMMemIntrinsicProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMMemIntrinsicProperties :=
+  LLVMMemIntrinsicProperties.fromAttrDictFor "llvm.intr.memset" attrDict
+
+/--
+  Properties of `llvm.call_intrinsic`.
+-/
+structure LLVMCallIntrinsicProperties where
+  intrin : StringAttr
+  operandSegmentSizes : DenseArrayAttr
+  op_bundle_sizes : DenseArrayAttr
+  op_bundle_tags : Option ArrayAttr
+  fastmathFlags : FastMathFlagsAttr
+  arg_attrs : Option ArrayAttr
+  res_attrs : Option ArrayAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMCallIntrinsicProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMCallIntrinsicProperties := do
+  if let some (key, _) := attrDict.toArray.find? (fun (k, _) =>
+      k ≠ "intrin".toUTF8 && k ≠ "operandSegmentSizes".toUTF8 && k ≠ "op_bundle_sizes".toUTF8
+        && k ≠ "op_bundle_tags".toUTF8 && k ≠ "fastmathFlags".toUTF8
+        && k ≠ "arg_attrs".toUTF8 && k ≠ "res_attrs".toUTF8) then
+    throw s!"llvm.call_intrinsic: unexpected property '{String.fromUTF8! key}'"
+  let some intrin := attrDict["intrin".toUTF8]?
+    | throw "llvm.call_intrinsic: missing 'intrin' property"
+  let .stringAttr intrin := intrin
+    | throw s!"llvm.call_intrinsic: expected 'intrin' to be a string attribute, but got {intrin}"
+  let some sizes := attrDict["operandSegmentSizes".toUTF8]?
+    | throw "llvm.call_intrinsic: missing 'operandSegmentSizes' property"
+  let .denseArrayAttr sizes := sizes
+    | throw s!"llvm.call_intrinsic: expected 'operandSegmentSizes' to be a dense array attribute, but got {sizes}"
+  let some bundleSizes := attrDict["op_bundle_sizes".toUTF8]?
+    | throw "llvm.call_intrinsic: missing 'op_bundle_sizes' property"
+  let .denseArrayAttr bundleSizes := bundleSizes
+    | throw s!"llvm.call_intrinsic: expected 'op_bundle_sizes' to be a dense array attribute, but got {bundleSizes}"
+  let tags ← optionalArrayAttr "llvm.call_intrinsic" "op_bundle_tags" attrDict
+  let argAttrs ← optionalDictArrayAttr "llvm.call_intrinsic" "arg_attrs" attrDict
+  let resAttrs ← optionalDictArrayAttr "llvm.call_intrinsic" "res_attrs" attrDict
+  let ⟨flags⟩ ← (FastMathFlagsProperties.fromAttrDict attrDict).mapError
+    (s!"llvm.call_intrinsic: {·}")
+  return { intrin, operandSegmentSizes := sizes, op_bundle_sizes := bundleSizes,
+           op_bundle_tags := tags, fastmathFlags := flags,
+           arg_attrs := argAttrs, res_attrs := resAttrs }
+
+/--
+  Properties of `llvm.insertvalue` and `llvm.extractvalue`: the path into the
+  aggregate.
+-/
+structure LLVMPositionProperties where
+  position : DenseArrayAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMPositionProperties.fromAttrDictFor (opName : String)
+    (attrDict : Std.HashMap ByteArray Attribute) : Except String LLVMPositionProperties := do
+  if let some (key, _) := attrDict.toArray.find? (fun (k, _) => k ≠ "position".toUTF8) then
+    throw s!"{opName}: unexpected property '{String.fromUTF8! key}'"
+  let some position := attrDict["position".toUTF8]?
+    | throw s!"{opName}: missing 'position' property"
+  let .denseArrayAttr position := position
+    | throw s!"{opName}: expected 'position' to be a dense array attribute, but got {position}"
+  return { position }
+
+/-- Properties of `llvm.fence`: how strongly it orders, and over what scope. -/
+structure LLVMFenceProperties where
+  ordering : Data.LLVM.AtomicOrdering
+  syncscope : Option StringAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMFenceProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMFenceProperties := do
+  if let some (key, _) := attrDict.toArray.find? (fun (k, _) =>
+      k ≠ "ordering".toUTF8 && k ≠ "syncscope".toUTF8) then
+    throw s!"llvm.fence: unexpected property '{String.fromUTF8! key}'"
+  let some attr := attrDict["ordering".toUTF8]?
+    | throw "llvm.fence: missing 'ordering' property"
+  let .integerAttr intAttr := attr
+    | throw s!"llvm.fence: expected 'ordering' to be an integer attribute, but got {attr}"
+  if intAttr.type.bitwidth ≠ 64 then
+    throw s!"llvm.fence: expected 'ordering' to be an i64 integer attribute, but got {attr}"
+  if intAttr.value < 0 then
+    throw s!"llvm.fence: invalid ordering {intAttr.value}"
+  let some ordering := Data.LLVM.AtomicOrdering.fromNat intAttr.value.toNat
+    | throw s!"llvm.fence: invalid ordering {intAttr.value}"
+  let syncscope ← match attrDict["syncscope".toUTF8]? with
+    | some (.stringAttr syncscope) => .ok (some syncscope)
+    | some attr =>
+      throw s!"llvm.fence: expected 'syncscope' to be a string attribute, but got {attr}"
+    | none => .ok none
+  return { ordering, syncscope }
+
+/-- Properties of `llvm.comdat`: the name of the comdat group. -/
+structure LLVMComdatProperties where
+  sym_name : StringAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMComdatProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMComdatProperties := do
+  if let some (key, _) := attrDict.toArray.find? (fun (k, _) => k ≠ "sym_name".toUTF8) then
+    throw s!"llvm.comdat: unexpected property '{String.fromUTF8! key}'"
+  let symName ← match attrDict["sym_name".toUTF8]? with
+    | some (.stringAttr s) => pure s
+    | some attr => throw s!"llvm.comdat: expected 'sym_name' to be a string attribute, but got {attr}"
+    | none => throw "llvm.comdat: missing 'sym_name' property"
+  return { sym_name := symName }
+
+/-- Properties of `llvm.comdat_selector`: its name and how duplicates are resolved. -/
+structure LLVMComdatSelectorProperties where
+  sym_name : StringAttr
+  comdat : Data.LLVM.ComdatKind
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMComdatSelectorProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMComdatSelectorProperties := do
+  if let some (key, _) := attrDict.toArray.find? (fun (k, _) =>
+      k ≠ "sym_name".toUTF8 && k ≠ "comdat".toUTF8) then
+    throw s!"llvm.comdat_selector: unexpected property '{String.fromUTF8! key}'"
+  let symName ← match attrDict["sym_name".toUTF8]? with
+    | some (.stringAttr s) => pure s
+    | some attr =>
+      throw s!"llvm.comdat_selector: expected 'sym_name' to be a string attribute, but got {attr}"
+    | none => throw "llvm.comdat_selector: missing 'sym_name' property"
+  let some attr := attrDict["comdat".toUTF8]?
+    | throw "llvm.comdat_selector: missing 'comdat' property"
+  let .integerAttr intAttr := attr
+    | throw s!"llvm.comdat_selector: expected 'comdat' to be an integer attribute, but got {attr}"
+  if intAttr.type.bitwidth ≠ 64 then
+    throw s!"llvm.comdat_selector: expected 'comdat' to be an i64 integer attribute, but got {attr}"
+  if intAttr.value < 0 then
+    throw s!"llvm.comdat_selector: invalid comdat kind {intAttr.value}"
+  let some kind := Data.LLVM.ComdatKind.fromNat intAttr.value.toNat
+    | throw s!"llvm.comdat_selector: invalid comdat kind {intAttr.value}"
+  return { sym_name := symName, comdat := kind }
 
 structure LLVMModuleFlagsProperties where
   flags : ArrayAttr

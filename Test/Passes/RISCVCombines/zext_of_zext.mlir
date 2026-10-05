@@ -19,12 +19,12 @@
 }) : () -> ()
 
 // The two zexts collapse to one from i8 straight to i64.
-// CHECK:      ^{{.*}}(%[[X:.*]] : i8):
+// CHECK:      func.func @foo(%[[X:.*]]: i8) -> i64 {
 // CHECK:      %[[Z:.*]] = "llvm.zext"(%[[X]]) : (i8) -> i64
 // CHECK-NOT:  "llvm.zext"
 // CHECK:      "func.return"(%[[Z]]) : (i64) -> ()
 
 // Single zext unchanged.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i8):
+// CHECK:      func.func @bar(%[[NX:.*]]: i8) -> i64 {
 // CHECK:      %[[NZ:.*]] = "llvm.zext"(%[[NX]]) : (i8) -> i64
 // CHECK:      "func.return"(%[[NZ]]) : (i64) -> ()

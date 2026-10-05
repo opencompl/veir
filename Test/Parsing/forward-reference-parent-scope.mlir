@@ -1,4 +1,6 @@
-// RUN: veir-opt %s | filecheck %s
+// RUN: veir-opt %s --disable-verifiers | filecheck %s
+// RUN: not veir-opt %s 2>&1 | filecheck %s --check-prefix=VERIFY
+// RUN: MLIR_INVALID
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> ()}> ({
@@ -12,13 +14,14 @@
 
 // CHECK:      "builtin.module"() ({
 // CHECK-NEXT:   ^{{.*}}():
-// CHECK-NEXT:     "func.func"() <{{.*}}> ({
-// CHECK-NEXT:       ^{{.*}}():
-// CHECK-NEXT:         "test.test"() ({
-// CHECK-NEXT:           ^{{.*}}():
-// CHECK-NEXT:             "test.test"(%[[A:.*]]) : (i32) -> ()
-// CHECK-NEXT:         }) : () -> ()
-// CHECK-NEXT:         %[[A]] = "test.test"() : () -> i32
-// CHECK-NEXT:         "func.return"() : () -> ()
-// CHECK-NEXT:     }) : () -> ()
+// CHECK-NEXT:     func.func @main() {
+// CHECK-NEXT:       "test.test"() ({
+// CHECK-NEXT:         ^{{.*}}():
+// CHECK-NEXT:           "test.test"(%[[A:.*]]) : (i32) -> ()
+// CHECK-NEXT:       }) : () -> ()
+// CHECK-NEXT:       %[[A]] = "test.test"() : () -> i32
+// CHECK-NEXT:       "func.return"() : () -> ()
+// CHECK-NEXT:     }
 // CHECK-NEXT: }) : () -> ()
+
+// VERIFY: test.test: operand #0 does not dominate this use

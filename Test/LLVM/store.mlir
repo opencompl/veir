@@ -18,8 +18,8 @@
 // CHECK-NEXT:       ^{{.*}}(%[[ARG:.*]] : i64):
 // CHECK-NEXT:         %[[C1:.*]] = "llvm.mlir.constant"() <{"value" = 1 : i64}> : () -> i64
 // CHECK-NEXT:         %[[PTR:.*]] = "llvm.alloca"(%[[C1]]) <{"alignment" = 0 : i64, "elem_type" = i64}> : (i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[ARG]], %[[PTR]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 0 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i64, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[LD:.*]] = "llvm.load"(%[[PTR]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 0 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i64
+// CHECK-NEXT:         "llvm.store"(%[[ARG]], %[[PTR]]) <{"alignment" = 0 : i64}> : (i64, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[LD:.*]] = "llvm.load"(%[[PTR]]) <{"alignment" = 0 : i64}> : (!llvm.ptr) -> i64
 // CHECK-NEXT:         "llvm.return"(%[[LD]]) : (i64) -> ()
 // CHECK-NEXT:     }) : () -> ()
 // CHECK-NEXT: }) : () -> ()

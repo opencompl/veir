@@ -1,4 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
+// RUN: MLIR_INVALID
 
 // The `constantType` property of a `pdl.type` is a type, not an arbitrary
 // attribute.

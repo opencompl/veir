@@ -62,6 +62,17 @@ def Rv64.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.verifyPlainOpCounts ctx opIn 0 1
     pure ()
 
+def Rv64.interpretOp' (opType : Veir.Rv64) (properties : propertiesOf opType)
+    (resultTypes : Array TypeAttr) (_operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
+    : Option ((Array RuntimeValue) × Option ControlFlowAction) :=
+  match opType with
+  | .get_register => do
+    let [⟨.registerType reg, _⟩] := resultTypes.toList | none
+    if reg.index = some 0 then
+      return (#[.reg ⟨0⟩], none)
+    else
+      none
+
 instance : HasOpInfo Rv64 where
   verifyLocalInvariants := Rv64.verifyLocalInvariants
   getEffects := Rv64.getEffects

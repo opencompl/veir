@@ -20,11 +20,11 @@ def OperationPtr.IsVerifiedIntegerBinop
   op.getNumRegions! ctx.raw = 0 ∧
   ∃ integerType,
     ((op.getResult 0).get! ctx.raw).type =
-      Attribute.asType (.integerType integerType) (by grind) ∧
+      .of IntegerType integerType ∧
     ((op.getOperand! ctx.raw 0).getType! ctx.raw) =
-      Attribute.asType (.integerType integerType) (by grind) ∧
+      .of IntegerType integerType ∧
     ((op.getOperand! ctx.raw 1).getType! ctx.raw) =
-      Attribute.asType (.integerType integerType) (by grind)
+      .of IntegerType integerType
 
 /-- Extract structural facts from a successful `verifyIntegerBinop` check. -/
 theorem OperationPtr.verifyIntegerBinop_eq_ok
@@ -46,7 +46,7 @@ def OperationPtr.IsVerifiedSelect
   op.getNumResults! ctx.raw = 1 ∧
   op.getNumOperands! ctx.raw = 3 ∧
   (∃ it,
-    ((op.getOperand! ctx.raw 0).getType! ctx.raw).val = .integerType it ∧
+    ((op.getOperand! ctx.raw 0).getType! ctx.raw).val = Attribute.of IntegerType it ∧
     it.bitwidth = 1) ∧
   ((op.getResult 0).get! ctx.raw).type.val =
     ((op.getOperand! ctx.raw 1).getType! ctx.raw).val ∧
@@ -76,8 +76,8 @@ def OperationPtr.IsVerifiedIntegerUnop
   op.getNumRegions! ctx.raw = 0 ∧
   ((op.getResult 0).get! ctx.raw).type =
     (op.getOperand! ctx.raw 0).getType! ctx.raw ∧
-  ∃ integerType isT,
-    ((op.getResult 0).get! ctx.raw).type = Attribute.asType (.integerType integerType) isT
+  ∃ integerType,
+    ((op.getResult 0).get! ctx.raw).type = .of IntegerType integerType
 
 /-- Extract structural facts from a successful `verifyIntegerUnop` check. -/
 theorem OperationPtr.verifyIntegerUnop_eq_ok
@@ -102,13 +102,13 @@ def OperationPtr.IsVerifiedIntegerTernop
   op.getNumRegions! ctx.raw = 0 ∧
   ∃ integerType,
     ((op.getResult 0).get! ctx.raw).type =
-      Attribute.asType (.integerType integerType) (by grind) ∧
+      TypeAttr.of IntegerType integerType ∧
     ((op.getOperand! ctx.raw 0).getType! ctx.raw) =
-      Attribute.asType (.integerType integerType) (by grind) ∧
+      TypeAttr.of IntegerType integerType ∧
     ((op.getOperand! ctx.raw 1).getType! ctx.raw) =
-      Attribute.asType (.integerType integerType) (by grind) ∧
+      TypeAttr.of IntegerType integerType ∧
     ((op.getOperand! ctx.raw 2).getType! ctx.raw) =
-      Attribute.asType (.integerType integerType) (by grind)
+      TypeAttr.of IntegerType integerType
 
 /-- Extract structural facts from a successful `verifyIntegerTernop` check. -/
 theorem OperationPtr.verifyIntegerTernop_eq_ok
@@ -133,9 +133,9 @@ def OperationPtr.IsVerifiedIntegerExtop
   op.getNumRegions! ctx.raw = 0 ∧
   ∃ operandType resultType,
     ((op.getOperand! ctx.raw 0).getType! ctx.raw) =
-      Attribute.asType (.integerType operandType) (by grind) ∧
+      .of IntegerType operandType ∧
     ((op.getResult 0).get! ctx.raw).type =
-      Attribute.asType (.integerType resultType) (by grind) ∧
+      .of IntegerType resultType ∧
     operandType.bitwidth < resultType.bitwidth
 
 /-- Extract structural facts from a successful `verifyIntegerExtTypes` check. -/

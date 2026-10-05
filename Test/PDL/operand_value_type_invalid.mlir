@@ -1,4 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
+// RUN: MLIR_INVALID
 
 // The `valueType` operand of a `pdl.operand` is a `!pdl.type` handle, not the
 // type the operand is constrained to.

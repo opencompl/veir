@@ -2,6 +2,7 @@ module
 
 public import Veir.IR.OpCode
 public import Veir.IR.WellFormed
+public import Veir.FoldDecision
 
 namespace Veir
 
@@ -51,6 +52,30 @@ structure FunctionOpInterface (Properties : Type) where
   /-- Return the properties with the function type replaced. -/
   setFunctionType : Properties → FunctionType → Properties
 
+/-- The SSA values forwarded from a branch operation to one of its successors. -/
+structure SuccessorOperands where
+  /-- The SSA values forwarded to the successor. -/
+  forwardedOperands : Array ValuePtr
+deriving Inhabited, Repr, DecidableEq
+
+instance : GetElem SuccessorOperands Nat ValuePtr
+    (fun operands blockArgumentIndex => blockArgumentIndex < operands.forwardedOperands.size) where
+  getElem := fun operands blockArgumentIndex h => operands.forwardedOperands[blockArgumentIndex]'h
+
+instance : GetElem? SuccessorOperands Nat ValuePtr
+    (fun operands blockArgumentIndex => blockArgumentIndex < operands.forwardedOperands.size) where
+  getElem? := fun operands blockArgumentIndex => operands.forwardedOperands[blockArgumentIndex]?
+
+/-- Information exposed by operations that branch to successor blocks. -/
+structure BranchOpInterface (Properties : Type) where
+  /-- Return the operands passed to the indexed successor. -/
+  getSuccessorOperandsImpl? :
+    Properties → Array ValuePtr → Nat → Option SuccessorOperands
+  /-- Return the successor selected by the known constant operands. -/
+  getSuccessorForOperandsImpl? :
+    Properties → Array (Option RuntimeValue) → Array BlockPtr → Option BlockPtr :=
+      fun _ _ _ => none
+
 class HasOpInfo (opCode: Type)
     extends IsOpCode opCode where
   /--
@@ -63,6 +88,17 @@ class HasOpInfo (opCode: Type)
     (opType : opCode) → (op : OperationPtr) → (ctx : WfIRContext opCode) →
     (opIn : op.InBounds ctx.raw) → Except String PUnit :=
       fun _ _ _ _ => pure ()
+  /--
+  Apply this opcode set's dialect-local fold table. The input array contains
+  the known constant value of each operand, or `none` for a nonconstant
+  operand. The output array holds one decision per result, in result order: an
+  operation folds entirely or not at all, so a table entry for a multi-result
+  operation must decide every result. Implementations are responsible for
+  returning an in-range operand or a constant conforming to the corresponding
+  result type.
+  -/
+  tryFold : (op : opCode) → propertiesOf op → Array TypeAttr →
+    Array (Option RuntimeValue) → Option (Array FoldDecision) := fun _ _ _ _ => none
   /--
   The memory effects of an operation with this opcode and these properties,
   mirroring MLIR's `MemoryEffectOpInterface::getEffects`.
@@ -87,6 +123,11 @@ class HasOpInfo (opCode: Type)
   Information about operations that act like functions.
   -/
   functionInterface? : (op : opCode) → Option (FunctionOpInterface (propertiesOf op)) :=
+    fun _ => none
+  /--
+  Information about operations that branch to successor blocks.
+  -/
+  branchOpInterface? : (op : opCode) → Option (BranchOpInterface (propertiesOf op)) :=
     fun _ => none
   /--
   Return the kind of the indexed region inside an operation with this opcode.
@@ -147,20 +188,6 @@ public def RegionPtr.hasNoTerminator (region : RegionPtr) (ctx : WfIRContext OpI
     let parent := parentOp.get! ctx.raw
     HasOpInfo.hasNoTerminator parent.opType (parent.regions.idxOf region)
   | none => false
-
-/--
-Find the region that establishes the nearest `IsolatedFromAbove` scope around
-`region`, or `none` when no enclosing operation is isolated. The returned
-region is one of the isolated operation's direct regions; different regions of
-the same isolated operation are separate scopes.
--/
-public partial def RegionPtr.nearestIsolatedScope?
-    (region : RegionPtr) (ctx : IRContext OpInfo) : Option RegionPtr := do
-  let parentOp ← (region.get! ctx).parent
-  if HasOpInfo.isIsolatedFromAbove (parentOp.get! ctx).opType then
-    return region
-  let parentRegion ← parentOp.getParentRegion! ctx
-  parentRegion.nearestIsolatedScope? ctx
 
 end -- public section
 

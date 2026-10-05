@@ -21,12 +21,12 @@
 }) : () -> ()
 
 // The or/and collapse to x, which is returned directly.
-// CHECK:      ^{{.*}}(%[[X:.*]] : i64, %[[Y:.*]] : i64):
+// CHECK:      func.func @foo(%[[X:.*]]: i64, %[[Y:.*]]: i64) -> i64 {
 // CHECK-NOT:  "llvm.or"
 // CHECK:      "func.return"(%[[X]]) : (i64) -> ()
 
 // No shared operand: the or/and survive.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i64, %[[NY:.*]] : i64, %[[NZ:.*]] : i64):
+// CHECK:      func.func @bar(%[[NX:.*]]: i64, %[[NY:.*]]: i64, %[[NZ:.*]]: i64) -> i64 {
 // CHECK:      %[[NAND:.*]] = "llvm.and"(%[[NX]], %[[NY]]) : (i64, i64) -> i64
 // CHECK:      %[[NR:.*]] = "llvm.or"(%[[NZ]], %[[NAND]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[NR]]) : (i64) -> ()

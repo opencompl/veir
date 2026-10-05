@@ -32,12 +32,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 from vsmith_generate import generate
 
 
-DEFAULT_PASSES = "instcombine,dce,cse,dce"
-RISCV_PASSES = (
-    "canonicalize,instcombine,canonicalize,cse,dce,"
-    "isel-sdag-riscv64,isel-br-riscv64,isel-riscv64,"
-    "reconcile-cast,riscv-combine,dce"
-)
+DEFAULT_PASSES = "O"
+RISCV_PASSES = "riscv"
 
 # --- RISC-V MIR execution cross-check -------------------------------------
 # In --riscv mode we further lower the optimized riscv-dialect MLIR to LLVM
@@ -63,14 +59,15 @@ SECTIONS {
 """
 
 # _start calls main, compares a0 to the expected value, then HTIF-exits with
-# code 0 (match) or 1 (mismatch).  {expected} is the interpreter's i64 result.
+# code 0 (match) or 1 (mismatch).  {expected} is the interpreter's result,
+# zero-extended to 64 bits, and {normalize} zero-extends a narrower a0 to match.
 MIR_DRIVER_TEMPLATE = """\
 .section .text._start
 .globl _start
 _start:
     la   sp, _stack_top
     call main
-    la   t0, expected
+{normalize}    la   t0, expected
     ld   t1, 0(t0)
     bne  a0, t1, .Lfail
     li   t0, 1            # (0<<1)|1  => HTIF exit code 0
@@ -239,10 +236,25 @@ def format_int_output(width: int, value: int) -> str:
     return f"0x{unsigned:0{digits}x}#{width}"
 
 
+def format_llubi_field(field: str) -> str:
+    """Format one field of a struct value printed by llubi, e.g. `i32 8`."""
+    if field == "poison":
+        return "poison"
+    if field in ("T", "F"):
+        return "0x1#1" if field == "T" else "0x0#1"
+    m = re.fullmatch(r"i(\d+)\s+(-?\d+)", field)
+    if not m:
+        raise ValueError(f"unsupported llubi struct field: {field}")
+    return format_int_output(int(m.group(1)), int(m.group(2)))
+
+
 def classify_llubi_output(log: str) -> tuple[str, str]:
-    """Return llubi's result in veir-interpret format and llubi's final value."""
+    """Return llubi's result in veir-interpret format and llubi's final value.
+
+    A function with several results returns them as a struct, which llubi
+    prints field by field, e.g. `{ i32 8, poison, T }`."""
     for line in log.splitlines():
-        if "Immediate UB detected" in line:
+        if "Immediate UB detected" in line or "Exited with immediate UB" in line:
             return "Undefined behavior", line.strip()
     for line in log.splitlines():
         if "poison return value" in line:
@@ -250,8 +262,14 @@ def classify_llubi_output(log: str) -> tuple[str, str]:
 
     values: dict[str, str] = {}
     llubi_values: dict[str, str] = {}
+    structs: dict[str, str] = {}
     for line in log.splitlines():
-        assignment = re.search(r"^\s*(%[-A-Za-z0-9_.$]+)\s*=.*=>\s*(poison|i(\d+)\s+(-?\d+))\s*$", line)
+        struct_assignment = re.search(r"^\s*(%[-A-Za-z0-9_.$]+)\s*=.*[-=]>\s*\{(.*)\}\s*$", line)
+        if struct_assignment:
+            structs[struct_assignment.group(1)] = struct_assignment.group(2).strip()
+            continue
+
+        assignment = re.search(r"^\s*(%[-A-Za-z0-9_.$]+)\s*=.*[-=]>\s*(poison|i(\d+)\s+(-?\d+))\s*$", line)
         if assignment:
             name = assignment.group(1)
             if assignment.group(2) == "poison":
@@ -262,7 +280,7 @@ def classify_llubi_output(log: str) -> tuple[str, str]:
                 llubi_values[name] = assignment.group(2)
             continue
 
-        bool_assignment = re.search(r"^\s*(%[-A-Za-z0-9_.$]+)\s*=.*=>\s*([TF])\s*$", line)
+        bool_assignment = re.search(r"^\s*(%[-A-Za-z0-9_.$]+)\s*=.*[-=]>\s*([TF])\s*$", line)
         if bool_assignment:
             values[bool_assignment.group(1)] = "0x1#1" if bool_assignment.group(2) == "T" else "0x0#1"
             llubi_values[bool_assignment.group(1)] = bool_assignment.group(2)
@@ -273,6 +291,9 @@ def classify_llubi_output(log: str) -> tuple[str, str]:
             width = int(ret_const.group(1))
             value = int(ret_const.group(2))
             return f"Program output: #[{format_int_output(width, value)}]", f"i{width} {value}"
+
+        if re.fullmatch(r"\s*ret\s+i\d+\s+poison\s*", line):
+            return "Program output: #[poison]", "poison"
 
         ret_bool = re.search(r"^\s*ret\s+i1\s+(true|false)\s*$", line)
         if ret_bool:
@@ -289,6 +310,14 @@ def classify_llubi_output(log: str) -> tuple[str, str]:
                 raise ValueError(f"llubi return value was not recorded:\n{log}")
             return f"Program output: #[{value}]", llubi_value
 
+        ret_struct = re.search(r"^\s*ret\s+\{.*\}\s+(%[-A-Za-z0-9_.$]+)\s*$", line)
+        if ret_struct:
+            fields = structs.get(ret_struct.group(1))
+            if fields is None:
+                raise ValueError(f"llubi return value was not recorded:\n{log}")
+            formatted = ", ".join(format_llubi_field(f.strip()) for f in fields.split(","))
+            return f"Program output: #[{formatted}]", f"{{ {fields} }}"
+
         if re.fullmatch(r"\s*ret\s+void\s*", line):
             return "Program output: #[]", "void"
 
@@ -296,12 +325,17 @@ def classify_llubi_output(log: str) -> tuple[str, str]:
 
 
 ALIVE_EXEC_RETURNED_RE = re.compile(
-    r"^Returned\s+#([xb])([0-9a-fA-F]+)\s+/\s+non-poison=(true|false)\s*$"
+    r"^Returned\s+#([xb])([0-9a-fA-F]+)\s+/\s+"
+    r"non-poison=(?:#([xb])([0-9a-fA-F]+)|(true|false))\s*$"
 )
 
 
-def classify_alive_exec_output(log: str) -> tuple[str, str]:
-    """Return alive-exec's result in veir-interpret format and alive-exec's final value."""
+def classify_alive_exec_output(log: str, return_type: str | None = None) -> tuple[str, str]:
+    """Return alive-exec's result in veir-interpret format and alive-exec's final value.
+
+    `return_type` is the LLVM return type of the executed function. It is
+    needed to read a struct result: alive-exec adds the struct's padding as
+    fields of its own, which cannot be told from real fields otherwise."""
     if "UB triggered!" in log:
         return "Undefined behavior", "UB triggered"
 
@@ -319,15 +353,54 @@ def classify_alive_exec_output(log: str) -> tuple[str, str]:
         raise ValueError(
             f"alive-exec result line not recognized:\n  {final_line}\nfull log:\n{log}"
         )
-    radix, digits, non_poison = m.group(1), m.group(2), m.group(3)
-    if non_poison == "false":
+    radix, digits, mask_radix, mask_digits, non_poison = m.groups()
+    unsigned = int(digits, 16 if radix == "x" else 2)
+
+    # A function with several results returns a struct. alive-exec echoes it as
+    # one `define {i8, i1, ...}` line, padding included as extra fields, and
+    # prints the fields' bits concatenated first-field-first with one
+    # non-poison bit per field in the same order.
+    alive_types: list[str] | None = None
+    for line in log.splitlines():
+        agg = re.match(r"define\s+\{([^}]*)\}\s+@", line)
+        if agg:
+            alive_types = [t.strip() for t in agg.group(1).split(",")]
+    if alive_types is not None:
+        real = re.fullmatch(r"\{([^}]*)\}", (return_type or "").strip())
+        if not real:
+            raise ValueError("alive-exec returned a struct, but its declared type is unknown")
+        real_types = [t.strip() for t in real.group(1).split(",")]
+        if not all(re.fullmatch(r"i\d+", t) for t in alive_types + real_types):
+            raise ValueError(f"alive-exec returned a struct with a non-integer field: {return_type}")
+        if non_poison is not None:
+            mask = ((1 << len(alive_types)) - 1) if non_poison == "true" else 0
+        else:
+            mask = int(mask_digits, 16 if mask_radix == "x" else 2)
+        # A padding field never has the type of the real field that follows
+        # it: padding is narrower than that field's alignment, and so than the
+        # field itself. So each alive-exec field that does not match the next
+        # real field is padding.
+        fields: list[str] = []
+        offset = sum(int(t[1:]) for t in alive_types)
+        index = 0
+        for position, typ in enumerate(alive_types):
+            width = int(typ[1:])
+            offset -= width
+            if index < len(real_types) and typ == real_types[index]:
+                index += 1
+                if (mask >> (len(alive_types) - 1 - position)) & 1:
+                    fields.append(format_int_output(width, unsigned >> offset))
+                else:
+                    fields.append("poison")
+        if index != len(real_types):
+            raise ValueError(f"alive-exec's struct does not match {return_type}")
+        return f"Program output: #[{', '.join(fields)}]", final_line
+
+    poison = (non_poison == "false" if mask_digits is None
+              else int(mask_digits, 16 if mask_radix == "x" else 2) == 0)
+    if poison:
         return "Program output: #[poison]", "poison"
-    if radix == "x":
-        width = 4 * len(digits)
-        unsigned = int(digits, 16)
-    else:
-        width = len(digits)
-        unsigned = int(digits, 2)
+    width = 4 * len(digits) if radix == "x" else len(digits)
     return f"Program output: #[{format_int_output(width, unsigned)}]", final_line
 
 
@@ -501,18 +574,16 @@ def resolve_mir_tools() -> dict[str, str] | None:
     return resolved  # type: ignore[return-value]
 
 
-def after_to_u64(after: str) -> int | None:
-    """Parse a single-i64 'Program output:' line into its 64-bit value."""
+def after_to_expected(after: str) -> tuple[int, int] | None:
+    """Parse a single-integer (at most 64 bits) 'Program output:' line into
+    its (value, width)."""
     values = parse_output_values(after)
     if values is None or len(values) != 1:
         return None
-    value = values[0]
-    if not value.endswith("#64") or not value.startswith("0x"):
+    parsed = parse_value(values[0])
+    if parsed is None or parsed[1] > 64:
         return None
-    try:
-        return int(value[:-3], 16) & ((1 << 64) - 1)
-    except ValueError:
-        return None
+    return parsed
 
 
 def _mir_run(cmd: list[str], timeout: int | None = None) -> tuple[int, str]:
@@ -524,16 +595,18 @@ def _mir_run(cmd: list[str], timeout: int | None = None) -> tuple[int, str]:
 
 
 def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[bool, str]:
-    """Lower `opt` to MIR, execute it under spike, and check the returned i64
-    equals the interpreter's value `after`.  Returns (ok, message).
+    """Lower `opt` to MIR, execute it under spike, and check the returned
+    integer equals the interpreter's value `after`.  Returns (ok, message).
 
-    Cases the lowering can't yet handle (non-i64 result, unsupported ops, or a
-    veir2mir failure) are skipped (treated as ok); genuine value disagreements
-    and toolchain failures on supported input are reported.
+    For a result narrower than i64 only its low bits of a0 are compared: the
+    upper bits are garbage as far as VeIR is concerned (see `value_refines`).
+    Other results are skipped (treated as ok). A veir2mir failure or an op it
+    can't lower is reported, as are value disagreements and toolchain failures.
     """
-    expected = after_to_u64(after)
-    if expected is None:
-        return True, ""  # only single-i64 returns are executable here
+    parsed = after_to_expected(after)
+    if parsed is None:
+        return True, ""  # only single-integer returns are executable here
+    expected, width = parsed
 
     tools = resolve_mir_tools()
     assert tools is not None  # guaranteed by the startup check
@@ -560,10 +633,14 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
 
     # 1. veir2mir: riscv-dialect MLIR -> pre-RA MIR
     rc, out = _mir_run([str(veir2mir), str(opt)])
-    if rc != 0 or "UNHANDLED" in out:
-        cleanup()
-        return True, ""  # lowering not supported for this case; skip
     mir.write_text(out)
+    if rc != 0:
+        return False, (f"veir2mir failed (exit {rc})\n"
+                       f"optimized: {opt}\nmir: {mir}\n{out}")
+    if "UNHANDLED" in out:
+        unhandled = [line.strip() for line in out.splitlines() if "UNHANDLED" in line]
+        return False, (f"veir2mir could not lower some ops\n"
+                       f"optimized: {opt}\nmir: {mir}\n" + "\n".join(unhandled))
 
     # 2a. llc, register-allocation stage: MIR -> fully-lowered MIR. Rather than a
     # canned -O0/-O2 pipeline we drive an explicit minimal machine pipeline via
@@ -575,17 +652,17 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
     rc, out = _mir_run([tools["llc"], str(mir), "-mtriple=riscv64", "-x", "mir",
                         "-run-pass=phi-node-elimination,twoaddressinstruction,"
                         "register-coalescer,greedy,virtregrewriter,prolog-epilog,"
-                        "postrapseudos,riscv-expand-pseudo", "-o", str(lowered)])
+                        "postrapseudos,riscv-expand-pseudo-pre-emit", "-o", str(lowered)])
     if rc != 0:
         return False, (f"llc failed to lower MIR (regalloc stage)\n"
                        f"optimized: {opt}\nmir: {mir}\n{out}")
 
     # 2b. llc, emission stage: fully-lowered MIR -> RISC-V assembly.
-    # -start-after=riscv-expand-pseudo skips straight to the asm printer (the few
+    # -start-after=riscv-expand-pseudo-pre-emit skips straight to the asm printer (the few
     # remaining passes are no-ops here) without re-running regalloc or prologue
     # insertion, which would corrupt the already-lowered MIR.
     rc, out = _mir_run([tools["llc"], str(lowered), "-mtriple=riscv64", "-x", "mir",
-                        "-start-after=riscv-expand-pseudo", "-o", str(asm)])
+                        "-start-after=riscv-expand-pseudo-pre-emit", "-o", str(asm)])
     if rc != 0:
         return False, (f"llc failed to emit assembly from lowered MIR\n"
                        f"optimized: {opt}\nlowered: {lowered}\n{out}")
@@ -593,7 +670,10 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
     # 3. assemble the lowered function and the comparison driver, then link
     if not ld_script.exists():
         ld_script.write_text(MIR_LINK_LD)
-    drv_s.write_text(MIR_DRIVER_TEMPLATE.format(expected=expected))
+    drv_s.write_text(MIR_DRIVER_TEMPLATE.format(
+        expected=expected,
+        normalize=(f"    slli a0, a0, {64 - width}\n    srli a0, a0, {64 - width}\n"
+                   if width < 64 else "")))
     for label, src_path, obj in (("function", asm, func_o), ("driver", drv_s, drv_o)):
         rc, out = _mir_run([tools["clang"], *march, "-c", str(src_path), "-o", str(obj)])
         if rc != 0:
@@ -607,7 +687,8 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
 
     # 4. execute under spike: exit 0 = return value agrees, nonzero = disagrees
     try:
-        rc, out = _mir_run([tools["spike"], f"--isa={MIR_MARCH}", str(elf)], timeout=SPIKE_TIMEOUT)
+        rc, out = _mir_run([tools["spike"], "--misaligned", f"--isa={MIR_MARCH}", str(elf)],
+                           timeout=SPIKE_TIMEOUT)
     except subprocess.TimeoutExpired:
         return False, (f"MIR execution under spike timed out ({SPIKE_TIMEOUT}s)\n"
                        f"optimized: {opt}\nmir: {mir}\nelf: {elf}")
@@ -619,7 +700,7 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
         return False, (f"MIR execution disagrees with interpreter\n"
                        f"optimized: {opt}\nmir: {mir}\nelf: {elf}\n"
                        f"interpreter: {after}  (expected 0x{expected:016x})\n"
-                       f"spike returned a different i64 (exit {rc})\n{out}")
+                       f"spike returned a different i{width} (exit {rc})\n{out}")
     return False, (f"spike crashed running MIR (exit {rc})\n"
                    f"optimized: {opt}\nmir: {mir}\nelf: {elf}\n{out}")
 

@@ -83,6 +83,8 @@ structure MlirParserState (OpInfo : Type) [HasOpInfo OpInfo] where
   allowUnregisteredDialect : Bool := false
   /-- Type aliases defined so far, keyed by name without the `!`. -/
   typeAliases : Std.HashMap ByteArray TypeAttr := {}
+  /-- The location of each parsed operation. -/
+  opLocations : Std.HashMap OperationPtr Location := {}
   deriving Inhabited
 
 def MlirParserState.fromContext (ctx : WfIRContext OpInfo)
@@ -568,6 +570,8 @@ def parseTypedValue : MlirParserM OpInfo (ByteArray × TypeAttr × Location) := 
   Parse the properties of an operation.
   Currently, these properties are not stored in the IR, but we still need to parse them to be able
   to parse valid MLIR syntax.
+  The integer literals in a `mod_arith` operation's properties are kept as written (see
+  `AttrParserState.rawIntegerLiterals`).
 -/
 def parseOpProperties (opCode : OpInfo) : MlirParserM OpInfo (propertiesOf opCode) := do
   let propertiesStart ← getPos
@@ -575,7 +579,10 @@ def parseOpProperties (opCode : OpInfo) : MlirParserM OpInfo (propertiesOf opCod
     match IsOpCode.fromAttrDict opCode {} with
     | .ok properties => return properties
     | .error err => throwAtCurrentPos err
-  match AttrParser.parseAttributeDictionary.run (← attrParserState) (← getThe ParserState) with
+  let rawIntegerLiterals :=
+    (String.fromUTF8! (IsOpCode.name opCode)).startsWith "mod_arith."
+  let attrState := { (← attrParserState) with rawIntegerLiterals }
+  match AttrParser.parseAttributeDictionary.run attrState (← getThe ParserState) with
   | .ok (properties, _, parserState) =>
     set parserState
     parsePunctuation ">"
@@ -667,6 +674,7 @@ partial def parseOpRegions : MlirParserM OpInfo (Array RegionPtr) := do
 partial def parseOptionalOp (ip : Option InsertPoint) :
     MlirParserM OpInfo (Option OperationPtr) := do
   /- Parse the operation. -/
+  let opStart ← getPos
   let results ← parseOpResults
   let opNameStart ← getPos
   let some opName ← parseOptionalStringLiteral | return none
@@ -716,6 +724,8 @@ partial def parseOptionalOp (ip : Option InsertPoint) :
       let ctx'' := WfRewriter.setAttributes ctx' op attrs
       /- Update the parser context. -/
       pure ⟨op, ctx''⟩
+  /- Record where the operation started for diagnostics. -/
+  modify fun state => { state with opLocations := state.opLocations.insert op opStart }
 
   /- Register the values for each result name. -/
   let mut index := 0

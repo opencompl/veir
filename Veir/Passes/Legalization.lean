@@ -52,10 +52,10 @@ def expandIntegerExtOp (type : IntegerExtKind) : ((op : OpCode) × propertiesOf 
 def widenSimpleBinaryIntOp (ctx : WfIRContext OpCode) (op : OperationPtr) (newBw : Nat) (extType : IntegerExtKind) (newOp : Option OpWithProp := none) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let oldOp := Sigma.mk (op.getOpType! ctx.raw) (op.getProperties! ctx.raw (op.getOpType! ctx.raw))
-  let .integerType ⟨bw⟩ := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
+  let .integerType ⟨bw, _⟩ := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if bw ≥ newBw then return (ctx, none)
   let expandOp := expandIntegerExtOp extType
-  convertBinaryOp ctx op (IntegerType.mk newBw) expandOp expandOp (newOp.getD oldOp) ⟨.llvm .trunc, .mk false false⟩
+  convertBinaryOp ctx op (IntegerType.signless newBw) expandOp expandOp (newOp.getD oldOp) ⟨.llvm .trunc, .mk false false⟩
 
 /--
   Widen the operands and result type of an LLVM operation.

@@ -19,7 +19,7 @@ The solver state containing all dataflow facts and the worklist of program point
 to call transfer functions on.
 -/
 structure DataFlowContext where
-  lattice : HashMap LatticeAnchor (DHashMap FactKind Fact)
+  lattice : DHashMap FactKey (Fact ·.kind)
   registeredAnalyses : HashSet AnalysisKind
   workList : WorkList
 
@@ -42,6 +42,15 @@ class FactSpec (kind : FactKind) where
   enqueue a fact's dependents because it changed.
   -/
   propagate : Fact kind → LatticeAnchor → DataFlowContext → WfIRContext OpCode → DataFlowContext
+
+/--
+Render facts belonging to one analysis after the dataflow solver reaches a
+fixpoint.  The callback is analysis specific because fact payloads are
+heterogeneous.
+-/
+structure DataFlowPrinter where
+  name : String
+  format? : LatticeAnchor → DataFlowContext → WfIRContext OpCode → Option String
 
 namespace Fact
 
@@ -81,6 +90,8 @@ structure DataFlowAnalysis where
   The transfer function, visiting the given `InsertPoint`.
   -/
   visit : InsertPoint → DataFlowContext → WfIRContext OpCode → DataFlowContext
+  /-- Optional renderer for this analysis's facts. -/
+  printer? : Option DataFlowPrinter := none
 
 namespace DataFlowContext
 
@@ -98,9 +109,8 @@ def hasAnalysis (ctx : DataFlowContext) (analysisKind : AnalysisKind) : Bool :=
 Read the fact of kind `kind` stored at `anchor`, if any.
 -/
 def getFact? (kind : FactKind) [FactSpec kind]
-    (ctx : DataFlowContext) (anchor : LatticeAnchor) : Option (Fact kind) := do
-  let facts ← ctx.lattice.get? anchor
-  DHashMap.get? facts kind
+    (ctx : DataFlowContext) (anchor : LatticeAnchor) : Option (Fact kind) :=
+  ctx.lattice.get? { anchor, kind }
 
 /--
 Read the fact of kind `kind` at `anchor`, creating the default fact if it is absent.
@@ -117,8 +127,7 @@ Overwrite the stored fact of kind `kind` for `anchor`.
 -/
 private def setFact (kind : FactKind) [FactSpec kind]
     (ctx : DataFlowContext) (anchor : LatticeAnchor) (fact : Fact kind) : DataFlowContext :=
-  let facts := (ctx.lattice.getD anchor ∅).insert kind fact
-  { ctx with lattice := ctx.lattice.insert anchor facts }
+  { ctx with lattice := ctx.lattice.insert { anchor, kind } fact }
 
 /--
 Apply an update with `f` to the fact of kind `kind` stored at `anchor`. 
@@ -148,9 +157,12 @@ def modifyFactAndPropagate (kind : FactKind) [spec : FactSpec kind]
 end DataFlowContext
 
 /--
-Analyses involved in the fixpoint loop.
+Map for analyses involved in the fixpoint loop. When the fixpoint
+loop pops a workitem off the worklist, it receives an `AnalysisKind`.
+This object serves to map that kind back to the `DataFlowAnalysis` it
+belongs to.
 -/
-abbrev RegisteredAnalyses := HashMap AnalysisKind DataFlowAnalysis
+abbrev AnalysesMap := HashMap AnalysisKind DataFlowAnalysis
 
 /--
 Run the worklist solver to completion.
@@ -158,16 +170,16 @@ Run the worklist solver to completion.
 Returns `Option` since `run` may run forever.
 TODO: Eventually prove via monotonicity that this is in fact impossible.
 -/
-partial def run (analyses : RegisteredAnalyses) (ctx : DataFlowContext)
+partial def run (analysesMap : AnalysesMap) (ctx : DataFlowContext)
     (irCtx : WfIRContext OpCode) : Option DataFlowContext :=
   match ctx.workList.dequeue? with
   | none => some ctx
   | some ((point, analysisKind), workList) =>
     let ctx := { ctx with workList := workList }
-    match analyses.get? analysisKind with
+    match analysesMap.get? analysisKind with
     | some analysis =>
       let ctx := analysis.visit point ctx irCtx
-      run analyses ctx irCtx
+      run analysesMap ctx irCtx
     | none =>
       panic! s!"analysis {reprStr analysisKind} is not registered"
 
@@ -179,12 +191,12 @@ Returns `some` whenever it terminates.
 def fixpointSolve (top : OperationPtr) (analyses : Array DataFlowAnalysis)
     (irCtx : WfIRContext OpCode) : Option DataFlowContext := Id.run do
   let mut ctx := DataFlowContext.empty
-  let mut registeredAnalyses : RegisteredAnalyses := ∅
+  let mut registeredAnalysesMap : AnalysesMap := ∅
   for analysis in analyses do
-    registeredAnalyses := registeredAnalyses.insert analysis.kind analysis
+    registeredAnalysesMap := registeredAnalysesMap.insert analysis.kind analysis
     ctx := { ctx with registeredAnalyses := ctx.registeredAnalyses.insert analysis.kind }
   for analysis in analyses do
     ctx := analysis.init top ctx irCtx
-  run registeredAnalyses ctx irCtx
+  run registeredAnalysesMap ctx irCtx
 
 end Veir

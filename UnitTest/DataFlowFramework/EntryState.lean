@@ -26,10 +26,11 @@ private instance : Join TestDomain where
 
 /-- Register `.test` as a sparse fact containing the test domain. -/
 private instance : SparseFactSpec .test TestDomain where
+  Metadata := Unit
   payloadEq := rfl
 
 /--
-Use an integer value's bitwidth as its pessimistic entry state.
+Use an integer value's bitwidth as its entry state.
 
 Returning distinct values for `i8` and `i16` arguments verifies that the hook
 receives the target SSA value and IR context rather than applying a fixed state.
@@ -43,8 +44,8 @@ private def entryState (value : ValuePtr) (irCtx : WfIRContext OpCode) : TestDom
 private def transfer
     (op : OperationPtr)
     (_operands : Array TestDomain)
-    (irCtx : WfIRContext OpCode) : Array (Option TestDomain) :=
-  Array.replicate (op.getNumResults! irCtx.raw) none
+    (irCtx : WfIRContext OpCode) : Array TestDomain :=
+  Array.replicate (op.getNumResults! irCtx.raw) ⊥
 
 /-- Sparse test analysis configured with the type-sensitive entry-state hook. -/
 private def customEntryStateAnalysis : DataFlowAnalysis :=
@@ -72,19 +73,32 @@ private def checkValue
   else
     return #[s!"{name}: expected {repr expected}, observed {repr observed}"]
 
+/-- Check that an implicit bottom value has no stored sparse fact. -/
+private def checkNoFact
+    (name : String)
+    (recovered : RecoveredNames)
+    (dfCtx : DataFlowContext) : MismatchReport := Id.run do
+  let some value := recovered.values[name]?
+    | return #[s!"{name}: missing SSA value"]
+  match dfCtx.getFact? .test (.ValuePtr value) with
+  | none => return #[]
+  | some _ => return #[s!"{name}: expected no stored fact for bottom"]
+
 /--
 Input shared by the custom and default entry-state checks. It exercises both places
-where the sparse framework must use `entryState`:
+where entry-state facts participate in sparse propagation:
 
-* `entryArg` is an entry-block argument whose state cannot yet come from call sites.
-* `fallbackArg` belongs to a non-entry block reached by an operation that is not a
-  recognized terminator, so predecessor propagation must conservatively use `entryState`.
+* `entryArg` and `forwardedArg` are entry-block arguments whose states cannot yet
+  come from call sites.
+* `fallbackArg` verifies that the state of `forwardedArg` propagates through a
+  valid `cf.br` to a non-entry block argument.
 -/
 private def testInput := r#""builtin.module"() ({
 ^module:
-  "func.func"() <{function_type = (i8) -> (), sym_name = "entry_state"}> ({
-  ^entry(%entryArg : i8):
-    "test.test"() [^fallback] : () -> ()
+  "func.func"() <{function_type = (i8, i16) -> (), sym_name = "entry_state"}> ({
+  ^entry(%entryArg : i8, %forwardedArg : i16):
+    %implicitBottom = "test.test"() : () -> i32
+    "cf.br"(%forwardedArg) [^fallback] : (i16) -> ()
   ^fallback(%fallbackArg : i16):
     "func.return"() : () -> ()
   }) : () -> ()
@@ -92,21 +106,23 @@ private def testInput := r#""builtin.module"() ({
 
 /-- Verify that an analysis can override the default with a type-sensitive entry state. -/
 private def testCustomEntryState : String :=
-  runWithAnalyses testInput #[customEntryStateAnalysis] fun top dfCtx parserState =>
-    match recoverNames top parserState.ctx testInput with
+  runWithAnalyses testInput #[customEntryStateAnalysis] fun top dfCtx ctx =>
+    match recoverNames top ctx testInput with
     | .error err => #[err]
     | .ok recovered =>
       checkValue "entryArg" (.value 8) recovered dfCtx ++
-        checkValue "fallbackArg" (.value 16) recovered dfCtx
+        checkValue "fallbackArg" (.value 16) recovered dfCtx ++
+        checkNoFact "implicitBottom" recovered dfCtx
 
 /-- Verify that omitting the entry-state hook conservatively assigns top. -/
 private def testDefaultEntryState : String :=
-  runWithAnalyses testInput #[defaultEntryStateAnalysis] fun top dfCtx parserState =>
-    match recoverNames top parserState.ctx testInput with
+  runWithAnalyses testInput #[defaultEntryStateAnalysis] fun top dfCtx ctx =>
+    match recoverNames top ctx testInput with
     | .error err => #[err]
     | .ok recovered =>
       checkValue "entryArg" .top recovered dfCtx ++
-        checkValue "fallbackArg" .top recovered dfCtx
+        checkValue "fallbackArg" .top recovered dfCtx ++
+        checkNoFact "implicitBottom" recovered dfCtx
 
 /--
 info: "ok"

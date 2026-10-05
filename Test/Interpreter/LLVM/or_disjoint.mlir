@@ -1,4 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
+// RUN: ALIVE_EXEC
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (i32, i32, i32)}> ({
@@ -6,9 +8,9 @@
     %five = "llvm.mlir.constant"() <{ "value" = 5 : i32 }> : () -> i32
     %eight = "llvm.mlir.constant"() <{ "value" = 8 : i32 }> : () -> i32
     %negseven = "llvm.mlir.constant"() <{ "value" = -7 : i32 }> : () -> i32
-    %x = "llvm.or"(%three, %five) <{disjoint}> : (i32, i32) -> i32
-    %y = "llvm.or"(%eight, %negseven) <{disjoint}> : (i32, i32) -> i32
-    %z = "llvm.or"(%three, %eight) <{disjoint}> : (i32, i32) -> i32
+    %x = "llvm.or"(%three, %five) <{isDisjoint}> : (i32, i32) -> i32
+    %y = "llvm.or"(%eight, %negseven) <{isDisjoint}> : (i32, i32) -> i32
+    %z = "llvm.or"(%three, %eight) <{isDisjoint}> : (i32, i32) -> i32
     "func.return"(%x, %y, %z) : (i32, i32, i32) -> ()
   }) : () -> ()
 }) : () -> ()

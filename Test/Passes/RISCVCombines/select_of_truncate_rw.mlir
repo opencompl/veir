@@ -21,14 +21,14 @@
 }) : () -> ()
 
 // The trunc is distributed over both select arms.
-// CHECK:      ^{{.*}}(%[[C:.*]] : i1, %[[T:.*]] : i64, %[[F:.*]] : i64):
+// CHECK:      func.func @foo(%[[C:.*]]: i1, %[[T:.*]]: i64, %[[F:.*]]: i64) -> i32 {
 // CHECK:      %[[TT:.*]] = "llvm.trunc"(%[[T]]) : (i64) -> i32
 // CHECK:      %[[TF:.*]] = "llvm.trunc"(%[[F]]) : (i64) -> i32
 // CHECK:      %[[SEL:.*]] = "llvm.select"(%[[C]], %[[TT]], %[[TF]]) : (i1, i32, i32) -> i32
 // CHECK:      "func.return"(%[[SEL]]) : (i32) -> ()
 
 // Not a select underneath: pattern does not fire.
-// CHECK:      ^{{.*}}(%[[NA:.*]] : i64, %[[NB:.*]] : i64):
+// CHECK:      func.func @bar(%[[NA:.*]]: i64, %[[NB:.*]]: i64) -> i32 {
 // CHECK:      %[[NADD:.*]] = "llvm.add"(%[[NA]], %[[NB]]) : (i64, i64) -> i64
 // CHECK:      %[[NR:.*]] = "llvm.trunc"(%[[NADD]]) : (i64) -> i32
 // CHECK:      "func.return"(%[[NR]]) : (i32) -> ()

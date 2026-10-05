@@ -6,8 +6,8 @@ public import Veir.Data.PBV.Lemmas
 
 A width `w` is represented by the mask `2^w - 1` of the blast width, and it is
 encoded as a bitvector constraint `m &&& (m + 1) = 0` which the bitblaster
-can reason about. Other relations between bitwidths are encoded as bitvector
-inequalities and equalities.
+can reason about. Relations between bitwidths are encoded as bitvector
+inequalities and equalities in `Veir.Data.PBV.Push`.
 -/
 
 namespace Veir.Data.PBV
@@ -15,7 +15,7 @@ namespace Veir.Data.PBV
 public section
 
 /-- `maskOfWidth o w : BitVec o` has its low `w` bits set. -/
-def maskOfWidth (o w : Nat) : BitVec o := BitVec.ofNat o (2 ^ w - 1)
+@[expose] def maskOfWidth (o w : Nat) : BitVec o := BitVec.ofNat o (2 ^ w - 1)
 
 theorem toNat_maskOfWidth {o w : Nat} (h : w ≤ o) :
     (maskOfWidth o w).toNat = 2 ^ w - 1 := by
@@ -27,26 +27,12 @@ theorem toNat_maskOfWidth {o w : Nat} (h : w ≤ o) :
 /-- The mask constraint: the only fact about `m` surviving abstraction. This
 encodes `m = 2^k - 1` for some `k : Nat` in terms of bitvector operations
 removing the dependency on `k` and allowing it to be bitblasted. -/
-theorem maskOfWidth_and_add_one_eq_zero {o w : Nat} {m : BitVec o}
+theorem and_add_one_eq_zero_of_maskOfWidth {o w : Nat} {m : BitVec o}
     (hm : m = maskOfWidth o w) : m &&& (m + 1#o) = 0#o := by
   subst hm
   simp [maskOfWidth, BitVec.ofNat_add_ofNat, ← BitVec.ofNat_and,
     Nat.sub_add_cancel Nat.one_le_two_pow, Nat.and_comm (2 ^ w - 1),
     Nat.and_two_pow_sub_one_eq_mod]
-
-/-- `maskOfWidth` is monotone with respect to unsigned bitvec comparison. -/
-theorem maskOfWidth_lt_maskOfWidth {o w₁ w₂ : Nat} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
-    (h : w₁ < w₂) : maskOfWidth o w₁ < maskOfWidth o w₂ := by
-  rw [BitVec.lt_def, toNat_maskOfWidth h₁, toNat_maskOfWidth h₂]
-  have hlt : 2 ^ w₁ < 2 ^ w₂ := Nat.pow_lt_pow_right (by lia) (by lia)
-  have : 0 < 2 ^ w₁ := by grind
-  lia
-
-/-- Strict width order becomes strict mask order. -/
-theorem mask_lt_mask {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
-    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
-    (hw : w₁ < w₂) : m₁ < m₂ := by
-  grind only [maskOfWidth_lt_maskOfWidth]
 
 /-- ANDing with `maskOfWidth o w` keeps exactly the low `w` bits. -/
 theorem toNat_and_maskOfWidth {o w : Nat} (h : w ≤ o) (x : BitVec o) :
@@ -59,6 +45,48 @@ theorem setWidth_eq_and_maskOfWidth {o w : Nat} {a : BitVec w} {b : BitVec o}
     a.setWidth o = b &&& maskOfWidth o w := by
   apply BitVec.eq_of_toNat_eq
   rw [toNat_and_maskOfWidth h, BitVec.toNat_setWidth_of_le h, hab]
+
+/-- Adding one to a mask makes it a `BitVec.twoPow`. -/
+theorem maskOfWidth_add_one_eq_twoPow {o w : Nat} (h : w ≤ o) :
+    maskOfWidth o w + 1#o = BitVec.twoPow o w := by
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_add, toNat_maskOfWidth h, BitVec.toNat_twoPow]
+  cases o
+  · have w_zero : w = 0 := by grind
+    simp [w_zero]
+  · congr
+    simp [BitVec.toNat_ofNat, Nat.mod_eq_of_lt]
+    grind
+
+/-- A mask is `BitVec.twoPow` minus one. -/
+theorem maskOfWidth_eq_twoPow_sub_one {o w : Nat} (h : w ≤ o) :
+    maskOfWidth o w = BitVec.twoPow o w - 1#o := by
+  apply BitVec.eq_of_toNat_eq
+  grind [maskOfWidth_add_one_eq_twoPow]
+
+/-- A mask is an `allOnes` zero-extended to `o`. -/
+theorem maskOfWidth_eq_allOnes {o w : Nat} (h : w ≤ o) : maskOfWidth o w = BitVec.zeroExtend o (BitVec.allOnes w)
+  := by
+  apply BitVec.eq_of_toNat_eq
+  simp only [toNat_maskOfWidth h, BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth, BitVec.toNat_allOnes]
+  rw [Nat.mod_eq_of_lt (by grind [Nat.pow_le_pow_right (n := 2) (by lia) h])]
+
+/-- The popcount of a mask is the value of the mask width. -/
+theorem toNat_cpop_maskOfWidth_eq_width {o w : Nat} (h : w ≤ o) : (BitVec.cpop (maskOfWidth o w)).toNat = w
+  := by
+  simp only [maskOfWidth_eq_allOnes h, BitVec.truncate_eq_setWidth, BitVec.toNat_cpop_setWidth_eq_of_le h,
+    BitVec.cpop_allOnes, BitVec.toNat_ofNat, Nat.mod_two_pow_self]
+
+/-- Push a variable `Nat` which corresponds to a mask into a `cpop` of the mask. -/
+theorem cpop_eq_width_of_maskOfWidth {o w : Nat} {m : BitVec o} (h : w ≤ o) (hm : m = maskOfWidth o w) : m.cpop = BitVec.ofNat o w := by
+  apply BitVec.eq_of_toNat_eq
+  simp only [hm, toNat_cpop_maskOfWidth_eq_width h, BitVec.toNat_ofNat]
+  rw [Nat.mod_eq_of_lt (by grind [Nat.lt_pow_self])]
+
+/-- Every mask of blast width `0` is the empty bitvector. -/
+@[simp] theorem maskOfWidth_zero_eq_zero {w : Nat} : maskOfWidth 0 w = 0#0 := by
+  apply BitVec.eq_of_toNat_eq
+  simp [maskOfWidth, Nat.mod_one]
 
 /-- The `i`th bit of `maskOfWidth o w` is enabled iff
 the index `i` is inbounds of `o` and `w`. -/
@@ -77,6 +105,46 @@ the index `i` is inbounds of `w`. -/
 /-- Mask of width 0 is the zero bitvector. -/
 @[simp] theorem maskOfWidth_zero (o : Nat) : maskOfWidth o 0 = 0#o := by
   simp [maskOfWidth]
+
+/-! ## Translating `Nat` width relations and arithmetic into mask operations -/
+
+/-- Equality on the widths translates to equality on the masks.
+    (Redundant hypotheses needed to match the shape of other width-to-bv theorems.) -/
+theorem eq_of_eq_of_eq_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (_h₁ : w₁ ≤ o) (_h₂ : w₂ ≤ o)
+    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
+    (hw₁w₂ : w₁ = w₂) : (m₁ = m₂) := by
+  subst m₁ m₂
+  congr
+
+/-- LT on the widths translates to LT on the masks. -/
+theorem lt_of_lt_of_eq_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
+    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
+    (hw₁w₂ : w₁ < w₂) : (m₁ < m₂) := by
+  subst m₁ m₂
+  rw [BitVec.lt_def, toNat_maskOfWidth h₁, toNat_maskOfWidth h₂,
+      Nat.sub_lt_sub_iff_right (by grind), Nat.pow_lt_pow_iff_right (by grind)]
+  exact hw₁w₂
+
+/-- LE on the widths translates to LE on the masks. -/
+theorem le_of_le_of_eq_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ : BitVec o} (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o)
+    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
+    (hw₁w₂ : w₁ ≤ w₂) : (m₁ ≤ m₂) := by
+  subst m₁ m₂
+  rw [BitVec.le_def, toNat_maskOfWidth h₁, toNat_maskOfWidth h₂,
+      Nat.sub_le_sub_iff_right (by grind), Nat.pow_le_pow_iff_right (by grind)]
+  exact hw₁w₂
+
+/-- Adding widths becomes multiplying masks: the mask `m₃` of `w₁ + w₂` is
+`2^w₁ * 2^w₂ - 1`, written in terms of the masks `m₁` and `m₂`. -/
+theorem add_eq_shift_sum_of_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ m₃ : BitVec o}
+    (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o) (h₁₂ : w₁ + w₂ ≤ o)
+    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
+    (hm₃ : m₃ = maskOfWidth o (w₁ + w₂)) :
+    m₃ = (1#o <<< (BitVec.cpop m₁ + BitVec.cpop m₂)) - 1#o := by
+  subst m₃
+  rw [cpop_eq_width_of_maskOfWidth h₁ hm₁, cpop_eq_width_of_maskOfWidth h₂ hm₂,
+      BitVec.ofNat_add_ofNat, BitVec.shiftLeft_ofNat_eq, BitVec.shiftLeft_eq_mul_twoPow,
+      BitVec.one_mul, Nat.mod_eq_of_lt (by grind[Nat.lt_pow_self]), maskOfWidth_eq_twoPow_sub_one h₁₂]
 
 /-! ## The sign bit helpers -/
 

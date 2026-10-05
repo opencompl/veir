@@ -1,4 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s --strict-whitespace
+// RUN: MLIR_INVALID
 
 // A value that is used but never defined anywhere is reported once top-level parsing
 // finishes.
@@ -10,6 +11,6 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK:forward-reference-missing-value.mlir:8:17: error: use of undefined value %a
+// CHECK:forward-reference-missing-value.mlir:9:17: error: use of undefined value %a
 // CHECK-NEXT:    "test.test"(%a) : (i32) -> ()
 // CHECK-NEXT:                ^

@@ -1,4 +1,5 @@
 // RUN: VEIR_ROUNDTRIP
+// RUN: MLIR_UNREGISTERED_ROUNDTRIP
 
 // `MLIR_ROUNDTRIP` is deliberately absent: the `match` dialect is an unmerged
 // upstream proposal, so no released `mlir-opt` knows `!match.optional`. Add the

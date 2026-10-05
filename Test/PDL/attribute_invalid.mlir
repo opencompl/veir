@@ -1,4 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
+// RUN: MLIR_INVALID
 
 // A `pdl.attribute` is constrained either by an expected type or by a constant
 // value, but never by both.

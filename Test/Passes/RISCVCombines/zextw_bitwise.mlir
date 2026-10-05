@@ -55,30 +55,30 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK:      ^{{.*}}(%[[AND_X:.*]] : !riscv.reg, %[[AND_Y:.*]] : !riscv.reg):
+// CHECK:      func.func @f0(%[[AND_X:.*]]: !riscv.reg, %[[AND_Y:.*]]: !riscv.reg) -> !riscv.reg {
 // CHECK:      %[[AND_ZX:.*]] = "riscv.zextw"(%[[AND_X]])
 // CHECK:      %[[AND_ZY:.*]] = "riscv.zextw"(%[[AND_Y]])
 // CHECK:      %[[AND:.*]] = "riscv.and"(%[[AND_ZX]], %[[AND_ZY]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT: "func.return"(%[[AND]]) : (!riscv.reg) -> ()
 
-// CHECK:      ^{{.*}}(%[[OR_X:.*]] : !riscv.reg, %[[OR_Y:.*]] : !riscv.reg):
+// CHECK:      func.func @f1(%[[OR_X:.*]]: !riscv.reg, %[[OR_Y:.*]]: !riscv.reg) -> !riscv.reg {
 // CHECK:      %[[OR_ZX:.*]] = "riscv.zextw"(%[[OR_X]])
 // CHECK:      %[[OR_ZY:.*]] = "riscv.zextw"(%[[OR_Y]])
 // CHECK:      %[[OR:.*]] = "riscv.or"(%[[OR_ZX]], %[[OR_ZY]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT: "func.return"(%[[OR]]) : (!riscv.reg) -> ()
 
-// CHECK:      ^{{.*}}(%[[XOR_X:.*]] : !riscv.reg, %[[XOR_Y:.*]] : !riscv.reg):
+// CHECK:      func.func @f2(%[[XOR_X:.*]]: !riscv.reg, %[[XOR_Y:.*]]: !riscv.reg) -> !riscv.reg {
 // CHECK:      %[[XOR_ZX:.*]] = "riscv.zextw"(%[[XOR_X]])
 // CHECK:      %[[XOR_ZY:.*]] = "riscv.zextw"(%[[XOR_Y]])
 // CHECK:      %[[XOR:.*]] = "riscv.xor"(%[[XOR_ZX]], %[[XOR_ZY]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT: "func.return"(%[[XOR]]) : (!riscv.reg) -> ()
 
-// CHECK:      ^{{.*}}(%[[AND1_X:.*]] : !riscv.reg, %[[AND1_Y:.*]] : !riscv.reg):
+// CHECK:      func.func @f3(%[[AND1_X:.*]]: !riscv.reg, %[[AND1_Y:.*]]: !riscv.reg) -> !riscv.reg {
 // CHECK:      %[[AND1_ZX:.*]] = "riscv.zextw"(%[[AND1_X]])
 // CHECK:      %[[AND1:.*]] = "riscv.and"(%[[AND1_ZX]], %[[AND1_Y]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT: "func.return"(%[[AND1]]) : (!riscv.reg) -> ()
 
-// CHECK:      ^{{.*}}(%[[NEG_X:.*]] : !riscv.reg, %[[NEG_Y:.*]] : !riscv.reg):
+// CHECK:      func.func @f4(%[[NEG_X:.*]]: !riscv.reg, %[[NEG_Y:.*]]: !riscv.reg) -> !riscv.reg {
 // CHECK:      %[[NEG_ZX:.*]] = "riscv.zextw"(%[[NEG_X]])
 // CHECK:      %[[NEG_XOR:.*]] = "riscv.xor"(%[[NEG_ZX]], %[[NEG_Y]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK:      %[[NEG_ZE:.*]] = "riscv.zextw"(%[[NEG_XOR]])

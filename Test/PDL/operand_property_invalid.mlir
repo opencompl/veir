@@ -1,4 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
+// RUN: MLIR_INVALID
 
 // A `pdl.operand` carries no properties.
 "builtin.module"() ({

@@ -68,12 +68,18 @@ def expectSuccessType (s : String) (expected : TypeAttr)
   testType s allowUnregisteredDialect = .ok expected
 
 /--
-  Test that parsing an attribute in the given string succeeds and matches the expected attribute.
+   Test that parsing an attribute in the given string succeeds and matches the expected attribute.
 -/
 def expectSuccessAttr (s : String) (expected : Attribute)
     (allowUnregisteredDialect : Bool := false) : Bool :=
   testOptionalAttr s allowUnregisteredDialect = .ok (some expected) ∧
   testAttr s allowUnregisteredDialect = .ok expected
+
+/--
+   Build a `FloatAttr` from an IEEE-754 bit pattern (given as a `Nat`), for use in assertions.
+-/
+def fpAttr (type : FloatType) (bits : Nat) : FloatAttr :=
+  FloatAttr.mk type (.ofNat _ bits)
 
 /--
   Extract the message and byte offset of a parser error, so tests can assert
@@ -141,34 +147,41 @@ macro "#assert " e:term : command =>
 
 /-! ## Integer types -/
 
-#assert expectSuccessType "i32" (IntegerType.mk 32)
-#assert expectSuccessType "i0" (IntegerType.mk 0)
+#assert expectSuccessType "i32" (IntegerType.signless 32)
+#assert expectSuccessType "i0" (IntegerType.signless 0)
 #assert expectMissingType "i0x4"
 
 /-! ## Types parsed as attributes -/
 
-#assert expectSuccessAttr "i32" (IntegerType.mk 32)
+#assert expectSuccessAttr "i32" (IntegerType.signless 32)
 
 /-! ## Vector types -/
 
-#assert expectSuccessType "vector<4xi32>" (VectorType.mk #[4] (IntegerType.mk 32))
-#assert expectSuccessType "vector<2x4xf64>" (VectorType.mk #[2, 4] (FloatType.mk 64))
-#assert expectSuccessType "vector<2 x 4 x i32>" (VectorType.mk #[2, 4] (IntegerType.mk 32))
-#assert expectSuccessType "vector<i32>" (VectorType.mk #[] (IntegerType.mk 32))
-#assert expectSuccessAttr "vector<4xi32>" (VectorType.mk #[4] (IntegerType.mk 32))
-#assert ToString.toString (VectorType.mk #[2, 4] (IntegerType.mk 32) : VectorType) ==
+#assert expectSuccessType "vector<4xi32>" (VectorType.mk #[4] (IntegerType.signless 32))
+#assert expectSuccessType "vector<2x4xf64>" (VectorType.mk #[2, 4] FloatType.f64)
+#assert expectSuccessType "vector<2 x 4 x i32>" (VectorType.mk #[2, 4] (IntegerType.signless 32))
+#assert expectSuccessType "vector<i32>" (VectorType.mk #[] (IntegerType.signless 32))
+#assert expectSuccessAttr "vector<4xi32>" (VectorType.mk #[4] (IntegerType.signless 32))
+#assert ToString.toString (VectorType.mk #[2, 4] (IntegerType.signless 32) : VectorType) ==
   "vector<2x4xi32>"
-#assert ToString.toString (VectorType.mk #[] (IntegerType.mk 32) : VectorType) == "vector<i32>"
+#assert ToString.toString (VectorType.mk #[] (IntegerType.signless 32) : VectorType) == "vector<i32>"
 #assert expectErrorType "vector<4x>" "vector element type expected" (some 9)
 #assert expectErrorType "vector<0xi32>" "0 is not a supported dimension" (some 7)
 #assert expectErrorType "vector<0x32xi32>" "0 is not a supported dimension" (some 7)
 
 /-! ## Integer attributes -/
 
-#assert expectErrorAttr "0 : 2" "integer type expected after ':' in integer attribute" (some 4)
-#assert expectSuccessAttr "0 : i32" (IntegerAttr.mk 0 (IntegerType.mk 32))
-#assert expectSuccessAttr "false" (IntegerAttr.mk 0 (IntegerType.mk 1))
-#assert expectSuccessAttr "true" (IntegerAttr.mk 1 (IntegerType.mk 1))
+#assert expectErrorAttr "0 : 2" "integer or float type expected after ':' in numeric attribute" (some 4)
+#assert expectSuccessAttr "0 : i32" (IntegerAttr.mk 0 (IntegerType.signless 32))
+#assert expectSuccessAttr "false" (IntegerAttr.mk 0 (IntegerType.signless 1))
+#assert expectSuccessAttr "true" (IntegerAttr.mk 1 (IntegerType.signless 1))
+
+-- MLIR rejects a minus sign on zero, in decimal and hex, even at width zero.
+#assert [0, 1, 8, 64].all fun width =>
+  ["0", "0x0"].all fun zero =>
+    expectErrorAttr s!"-{zero} : i{width}"
+      "integer constant out of range for attribute" (some 1) &&
+    expectSuccessAttr s!"{zero} : i{width}" (IntegerAttr.mk 0 (IntegerType.signless width))
 
 /-! ## Integer overflow flags attributes -/
 
@@ -178,6 +191,148 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "#arith.overflow<nsw, nuw>" (ArithIntegerOverflowFlagsAttr.mk true true)
 #assert expectErrorAttr "#arith.overflow<>"
   "expected integer overflow flag to be one of: none, nsw, nuw" (some 16)
+
+/-! ## Float types -/
+
+#assert expectSuccessType "f16" FloatType.f16
+#assert expectSuccessType "f32" FloatType.f32
+#assert expectSuccessType "f64" FloatType.f64
+#assert expectSuccessType "bf16" FloatType.bf16
+#assert expectSuccessType "f8E5M2" FloatType.f8E5M2
+#assert expectSuccessType "f8E4M3FN" FloatType.f8E4M3FN
+#assert expectSuccessType "f8E4M3FNUZ" FloatType.f8E4M3FNUZ
+#assert expectSuccessType "f80" FloatType.f80
+#assert expectSuccessType "f128" FloatType.f128
+-- Unknown / unsupported float widths are not types.
+#assert expectMissingType "f8"
+#assert expectMissingType "f256"
+#assert expectSuccessAttr "f64" FloatType.f64
+
+/-! ## Float attributes -/
+
+-- Exactly representable values (positive and negative).
+#assert expectSuccessAttr "1.0 : f64"  (fpAttr FloatType.f64 0x3ff0000000000000)
+#assert expectSuccessAttr "1.5 : f64"  (fpAttr FloatType.f64 0x3ff8000000000000)
+#assert expectSuccessAttr "-1.5 : f64" (fpAttr FloatType.f64 0xbff8000000000000)
+#assert expectSuccessAttr "2.25 : f64" (fpAttr FloatType.f64 0x4002000000000000)
+#assert expectSuccessAttr "-2.25 : f64" (fpAttr FloatType.f64 0xc002000000000000)
+#assert expectSuccessAttr "3.5 : f64"  (fpAttr FloatType.f64 0x400c000000000000)
+#assert expectSuccessAttr "100.0 : f64" (fpAttr FloatType.f64 0x4059000000000000)
+#assert expectSuccessAttr "1000.0 : f64" (fpAttr FloatType.f64 0x408f400000000000)
+-- Values not exactly representable in binary (round to nearest, ties to even).
+#assert expectSuccessAttr "0.1 : f64" (fpAttr FloatType.f64 0x3fb999999999999a)
+-- Zero and negative zero.
+#assert expectSuccessAttr "0.0 : f64"  (fpAttr FloatType.f64 0x0000000000000000)
+#assert expectSuccessAttr "-0.0 : f64" (fpAttr FloatType.f64 0x8000000000000000)
+-- Other float types.
+#assert expectSuccessAttr "1.0 : f32"   (fpAttr FloatType.f32 0x3f800000)
+#assert expectSuccessAttr "1.5 : f32"   (fpAttr FloatType.f32 0x3fc00000)
+#assert expectSuccessAttr "-2.25 : f32" (fpAttr FloatType.f32 0xc0100000)
+#assert expectSuccessAttr "0.1 : f32"   (fpAttr FloatType.f32 0x3dcccccd)
+#assert expectSuccessAttr "1.5 : f16"   (fpAttr FloatType.f16 0x3e00)
+#assert expectSuccessAttr "2.25 : f16"  (fpAttr FloatType.f16 0x4080)
+#assert expectSuccessAttr "1.5 : bf16"  (fpAttr FloatType.bf16 0x3fc0)
+#assert expectSuccessAttr "0.125 : f8E4M3FN" (fpAttr FloatType.f8E4M3FN 0x20)
+#assert expectSuccessAttr "7.701 : f8E4M3FN" (fpAttr FloatType.f8E4M3FN 0x4f)
+#assert expectSuccessAttr "448.0 : f8E4M3FN" (fpAttr FloatType.f8E4M3FN 0x7e)
+#assert expectSuccessAttr "0.125 : f8E4M3FNUZ" (fpAttr FloatType.f8E4M3FNUZ 0x28)
+#assert expectSuccessAttr "7.701 : f8E4M3FNUZ" (fpAttr FloatType.f8E4M3FNUZ 0x57)
+-- Scientific Notation.
+#assert expectSuccessAttr "1.3e7 : f32" (fpAttr FloatType.f32 0x4b465d40)
+#assert expectSuccessAttr "1.3e-5 : f32" (fpAttr FloatType.f32 0x375a1a93)
+#assert expectSuccessAttr "-2.2e+8 : f32" (fpAttr FloatType.f32 0xcd51cef0)
+#assert expectSuccessAttr "19.80e5 : f32" (fpAttr FloatType.f32 0x49f1b300)
+#assert expectSuccessAttr "100000000000000000000000000000000000000000000000000.0e-50 : f32"
+  (fpAttr FloatType.f32 0x3f800000)
+#assert expectSuccessAttr "1.0e60 : f32" (fpAttr FloatType.f32 0x7f800000)
+#assert expectSuccessAttr "1.0e-40 : f32" (fpAttr FloatType.f32 0x000116c2)
+-- Minimum subnormal number
+#assert expectSuccessAttr "1.0e-45 : f32" (fpAttr FloatType.f32 1)
+#assert expectSuccessAttr "1.0e-100 : f32" (fpAttr FloatType.f32 0)
+-- Maximum normal nunmber
+#assert expectSuccessAttr "3.4028235e38 : f32" (fpAttr FloatType.f32 0x7f7fffff)
+-- Values in the binade above the largest finite number round to a signed
+-- infinity, not to a NaN.
+#assert expectSuccessAttr "3.5e38 : f32" (fpAttr FloatType.f32 0x7f800000)
+#assert expectSuccessAttr "-3.5e38 : f32" (fpAttr FloatType.f32 0xff800000)
+#assert expectSuccessAttr "2.0e308 : f64" (fpAttr FloatType.f64 0x7ff0000000000000)
+#assert expectSuccessAttr "70000.0 : f16" (fpAttr FloatType.f16 0x7c00)
+#assert expectSuccessAttr "4.0e38 : bf16" (fpAttr FloatType.bf16 0x7f80)
+#assert expectSuccessAttr "1.0e5 : f8E5M2" (fpAttr FloatType.f8E5M2 0x7c)
+-- Formats without infinity overflow to a NaN instead: f8E4M3FN to the
+-- all-ones pattern (sign preserved), f8E4M3FNUZ to the repurposed
+-- negative-zero pattern.
+#assert expectSuccessAttr "500.0 : f8E4M3FN" (fpAttr FloatType.f8E4M3FN 0x7f)
+#assert expectSuccessAttr "-500.0 : f8E4M3FN" (fpAttr FloatType.f8E4M3FN 0xff)
+#assert expectSuccessAttr "480.0 : f8E4M3FN" (fpAttr FloatType.f8E4M3FN 0x7f)
+#assert expectSuccessAttr "300.0 : f8E4M3FNUZ" (fpAttr FloatType.f8E4M3FNUZ 0x80)
+#assert expectSuccessAttr "-300.0 : f8E4M3FNUZ" (fpAttr FloatType.f8E4M3FNUZ 0x80)
+-- 248.0 ties between 240.0 and the (unrepresentable) next slot, and rounds to the NaN.
+#assert expectSuccessAttr "248.0 : f8E4M3FNUZ" (fpAttr FloatType.f8E4M3FNUZ 0x80)
+-- 240.0 is the largest finite f8E4M3FNUZ value (0x7f is not a NaN in this format).
+#assert expectSuccessAttr "240.0 : f8E4M3FNUZ" (fpAttr FloatType.f8E4M3FNUZ 0x7f)
+-- x87 extended precision stores the leading bit of the significand explicitly.
+#assert expectSuccessAttr "1.5 : f80" (fpAttr FloatType.f80 0x3fffc000000000000000)
+#assert expectSuccessAttr "-2.25 : f80" (fpAttr FloatType.f80 0xc0009000000000000000)
+-- Largest finite value of f80.
+#assert expectSuccessAttr "1.189731495357231765021e+4932 : f80"
+  (fpAttr FloatType.f80 0x7ffeffffffffffffffff)
+-- Values above it overflow to infinity, whose mantissa keeps the explicit leading bit.
+#assert expectSuccessAttr "1.2e4932 : f80" (fpAttr FloatType.f80 0x7fff8000000000000000)
+-- Smallest subnormal value of f80.
+#assert expectSuccessAttr "3.645199531882474602528e-4951 : f80" (fpAttr FloatType.f80 0x1)
+-- An ordinary subnormal value, without the leading 1 in the mantissa.
+#assert expectSuccessAttr "1.282540566677892115121e-4937 : f80"
+  (fpAttr FloatType.f80 0x00000000200000000000)
+-- IEEE binary128.
+#assert expectSuccessAttr "1.5 : f128" (fpAttr FloatType.f128 0x3fff8000000000000000000000000000)
+-- Omitted numbers after the decimal point.
+#assert expectSuccessAttr "1. : f32" (fpAttr FloatType.f32 0x3f800000)
+-- A 0x-prefixed hexadecimal literal is accepted as the raw IEEE-754 bit pattern of the type.
+#assert expectSuccessAttr "0x3f000000 : f32" (fpAttr FloatType.f32 0x3f000000)
+#assert expectSuccessAttr "0x3ff8000000000000 : f64" (fpAttr FloatType.f64 0x3ff8000000000000)
+-- But a hexadecimal preceded by minus sign is not.
+#assert expectErrorAttr "-0x3f000000 : f32"
+  "unexpected '-' before float bit pattern" (some 1)
+-- A decimal integer literal is not a valid bit pattern for a float type (only 0x... hex is).
+#assert expectErrorAttr "1 : f64"
+  "expected a decimal float or 0x-prefixed hex bit pattern in float attribute" (some 0)
+#assert expectErrorAttr "10 : f32"
+  "expected a decimal float or 0x-prefixed hex bit pattern in float attribute" (some 0)
+#assert expectErrorAttr "-10 : f32"
+  "unexpected '-' before float bit pattern" (some 1)
+-- A hex bit pattern must fit in the type's bitwidth; a wider one is rejected,
+-- not silently truncated to the type's low bits.
+#assert expectSuccessAttr "0xffffffff : f32" (fpAttr FloatType.f32 0xffffffff)
+#assert expectSuccessAttr "0xffff : f16" (fpAttr FloatType.f16 0xffff)
+#assert expectErrorAttr "0x100000000 : f32"
+  "hexadecimal float constant out of range for type" (some 0)
+#assert expectErrorAttr "0xdeadbeefdeadbeef : f32"
+  "hexadecimal float constant out of range for type" (some 0)
+#assert expectErrorAttr "0x10000 : f16"
+  "hexadecimal float constant out of range for type" (some 0)
+#assert expectErrorAttr "0x10000000000000000 : f64"
+  "hexadecimal float constant out of range for type" (some 0)
+-- Bad floating point types.
+#assert expectErrorAttr "1.5 : f900"
+  "integer or float type expected after ':' in numeric attribute" (some 6)
+#assert expectErrorAttr "1.5 : i32"
+  "integer literal expected in integer attribute" (some 9)
+-- Bad floating point syntax.
+-- MLIR only allows: [-+]?[0-9]+[.][0-9]*([eE][-+]?[0-9]+)?
+#assert expectErrorAttr "1.5.2 : f32"
+  "expected three consecutive '.' for an ellipsis" none
+#assert expectErrorAttr "1.2. : f32"
+  "expected three consecutive '.' for an ellipsis" none
+#assert expectErrorAttr ".1 : f32"
+  "expected three consecutive '.' for an ellipsis" none
+#assert expectErrorAttr "1.0e*8 : f32"
+  "Expected punctuation ':'" (some 4)
+#assert expectErrorAttr "1e1 : f32"
+  "Expected punctuation ':'" (some 1)
+#assert expectErrorAttr "1.0e1e1 : f32"
+  "Expected punctuation ':'" (some 5)
+
 
 /-! ## String attributes -/
 
@@ -209,15 +364,15 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "[]" (ArrayAttr.mk #[])
 #assert expectSuccessAttr "[unit]" (ArrayAttr.mk #[UnitAttr.mk])
 #assert expectSuccessAttr "[1 : i32, \"foo\"]"
-  (ArrayAttr.mk #[IntegerAttr.mk 1 (IntegerType.mk 32), StringAttr.mk "foo".toByteArray])
+  (ArrayAttr.mk #[IntegerAttr.mk 1 (IntegerType.signless 32), StringAttr.mk "foo".toByteArray])
 #assert expectSuccessAttr "[[]]" (ArrayAttr.mk #[ArrayAttr.mk #[]])
 
 /-! ## Dense array attribute -/
 
-#assert expectSuccessAttr "array<i8>" (DenseArrayAttr.mk (IntegerType.mk 8) #[])
-#assert expectSuccessAttr "array<i32: 10, 42>" (DenseArrayAttr.mk (IntegerType.mk 32) #[10, 42])
-#assert expectSuccessAttr "array<i64: -1>" (DenseArrayAttr.mk (IntegerType.mk 64) #[-1])
-#assert expectSuccessAttr "array<i16: 0>" (DenseArrayAttr.mk (IntegerType.mk 16) #[0])
+#assert expectSuccessAttr "array<i8>" (DenseArrayAttr.mk (IntegerType.signless 8) #[])
+#assert expectSuccessAttr "array<i32: 10, 42>" (DenseArrayAttr.mk (IntegerType.signless 32) #[10, 42])
+#assert expectSuccessAttr "array<i64: -1>" (DenseArrayAttr.mk (IntegerType.signless 64) #[-1])
+#assert expectSuccessAttr "array<i16: 0>" (DenseArrayAttr.mk (IntegerType.signless 16) #[0])
 #assert expectErrorAttr "array<>" "integer type expected in dense array attribute" (some 6)
 
 /-! ## Dense elements attribute -/
@@ -244,14 +399,14 @@ macro "#assert " e:term : command =>
 /-! ## Type aliases -/
 
 -- An alias resolves to its definition and needs no unregistered-dialect flag.
-#assert (testTypeWithAliases "!int" [("int", IntegerType.mk 32)] = .ok (IntegerType.mk 32))
-#assert (testTypeWithAliases "!int" [("int", IntegerType.mk 32)] true = .ok (IntegerType.mk 32))
+#assert (testTypeWithAliases "!int" [("int", (IntegerType.signless 32))] = .ok (IntegerType.signless 32))
+#assert (testTypeWithAliases "!int" [("int", (IntegerType.signless 32))] true = .ok (IntegerType.signless 32))
 -- Aliases resolve inside compound types.
-#assert (testTypeWithAliases "!llvm.array<2 x !int>" [("int", IntegerType.mk 32)]
-  = .ok (LLVM.ArrayType.mk 2 (IntegerType.mk 32 : Attribute)))
-#assert ((testTypeWithAliases "(!int) -> !int" [("int", IntegerType.mk 32)]).map (·.val)
-  = .ok (.functionType (FunctionType.mk #[(IntegerType.mk 32 : Attribute)]
-      #[(IntegerType.mk 32 : Attribute)] (isVarArg := false))))
+#assert (testTypeWithAliases "!llvm.array<2 x !int>" [("int", (IntegerType.signless 32))]
+  = .ok (LLVM.ArrayType.mk 2 (IntegerType.signless 32)))
+#assert ((testTypeWithAliases "(!int) -> !int" [("int", (IntegerType.signless 32))]).map (·.val)
+  = .ok (.functionType (FunctionType.mk #[IntegerType.signless 32]
+      #[IntegerType.signless 32] (isVarArg := false))))
 -- An alias may stand for a dialect type.
 #assert (testTypeWithAliases "!p" [("p", LLVM.PointerType.mk)] = .ok LLVM.PointerType.mk)
 -- An undefined alias is an error whether or not unregistered dialects are allowed.
@@ -260,26 +415,26 @@ macro "#assert " e:term : command =>
 #assert ((testTypeWithAliases "!int" [] true).mapError errorInfo
   = .error ("undefined symbol alias id 'int'", some 0))
 -- A dialect dot or an adjacent body is a dialect type, not an alias; rejected here as unregistered.
-#assert ((testTypeWithAliases "!foo.bar" [("foo", IntegerType.mk 32)]).mapError errorInfo
+#assert ((testTypeWithAliases "!foo.bar" [("foo", (IntegerType.signless 32))]).mapError errorInfo
   = .error ("type '!foo.bar' is not registered. Consider using --allow-unregistered-dialect.", some 0))
-#assert ((testTypeWithAliases "!foo<bar>" [("foo", IntegerType.mk 32)]).mapError errorInfo
+#assert ((testTypeWithAliases "!foo<bar>" [("foo", (IntegerType.signless 32))]).mapError errorInfo
   = .error ("type '!foo' is not registered. Consider using --allow-unregistered-dialect.", some 0))
 #assert ((testTypeWithAliases "!foo <bar>" [] true).mapError errorInfo
   = .error ("undefined symbol alias id 'foo'", some 0))
 -- Aliases also resolve where a specific builtin type is required.
-#assert (testAttrWithAliases "1 : !int" [("int", IntegerType.mk 32)]
-  = .ok (IntegerAttr.mk 1 (IntegerType.mk 32)))
-#assert (testAttrWithAliases "array<!int: 1, 2>" [("int", IntegerType.mk 32)]
-  = .ok (DenseArrayAttr.mk (IntegerType.mk 32) #[1, 2]))
-#assert (testTypeWithAliases "!cuda_tile.ptr<!int>" [("int", IntegerType.mk 32)]
-  = .ok (CudaTile.PointerType.mk (IntegerType.mk 32)))
-#assert (testTypeWithAliases "!hw.modty<input a : !int>" [("int", IntegerType.mk 32)]
-  = .ok (HW.ModuleType.mk #[{ dir := .input, name := "a", type := IntegerType.mk 32 }]))
+#assert (testAttrWithAliases "1 : !int" [("int", (IntegerType.signless 32))]
+  = .ok (IntegerAttr.mk 1 (IntegerType.signless 32)))
+#assert (testAttrWithAliases "array<!int: 1, 2>" [("int", (IntegerType.signless 32))]
+  = .ok (DenseArrayAttr.mk (IntegerType.signless 32) #[1, 2]))
+#assert (testTypeWithAliases "!cuda_tile.ptr<!int>" [("int", (IntegerType.signless 32))]
+  = .ok (CudaTile.PointerType.mk (IntegerType.signless 32)))
+#assert (testTypeWithAliases "!hw.modty<input a : !int>" [("int", (IntegerType.signless 32))]
+  = .ok (HW.ModuleType.mk #[{ dir := .input, name := "a", type := (IntegerType.signless 32) }]))
 -- An alias for another kind of type is rejected at the alias with the position's own message.
 #assert ((testAttrWithAliases "array<!p: 1>" [("p", LLVM.PointerType.mk)]).mapError errorInfo
   = .error ("integer type expected in dense array attribute", some 6))
 #assert ((testAttrWithAliases "1 : !p" [("p", LLVM.PointerType.mk)]).mapError errorInfo
-  = .error ("integer type expected after ':' in integer attribute", some 4))
+  = .error ("integer or float type expected after ':' in numeric attribute", some 4))
 
 /-! ## Unregistered dialect attribute -/
 
@@ -287,7 +442,7 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "#test.test<bar>" (UnregisteredAttr.mk "#test.test<bar>" false none) true
 #assert expectSuccessAttr "#foo.bar" (UnregisteredAttr.mk "#foo.bar" false none) true
 #assert expectSuccessAttr "#foo.bar<baz> : i32"
-  (UnregisteredAttr.mk "#foo.bar<baz>" false (some (IntegerType.mk 32 : Attribute))) true
+  (UnregisteredAttr.mk "#foo.bar<baz>" false (some (IntegerType.signless 32))) true
 #assert expectSuccessAttr "#foo.zero : !foo.ty"
   (UnregisteredAttr.mk "#foo.zero" false (some (UnregisteredAttr.mk "!foo.ty" true none : Attribute))) true
 #assert expectSuccessAttr "#foo.int<1> : !foo.int<s, 32>"
@@ -297,10 +452,10 @@ macro "#assert " e:term : command =>
   (UnregisteredAttr.mk "#foo.bar<1>" false
     (some (UnregisteredAttr.mk "!foo.ptr<!foo.int<s, 32>>" true none : Attribute))) true
 #assert expectSuccessAttr "#foo<bar> : i1"
-  (UnregisteredAttr.mk "#foo<bar>" false (some (IntegerType.mk 1 : Attribute))) true
+  (UnregisteredAttr.mk "#foo<bar>" false (some (IntegerType.signless 1))) true
 #assert expectSuccessAttr "#foo.bar : (i32) -> i32"
   (UnregisteredAttr.mk "#foo.bar" false (some (.functionType
-    (FunctionType.mk #[(IntegerType.mk 32 : Attribute)] #[(IntegerType.mk 32 : Attribute)]
+    (FunctionType.mk #[IntegerType.signless 32] #[IntegerType.signless 32]
       (isVarArg := false))))) true
 -- A `:` must be followed by a type.
 #assert expectErrorAttr "#foo.bar<baz> :" "type expected" (some 15) true
@@ -314,12 +469,12 @@ macro "#assert " e:term : command =>
 #assert expectRoundTripAttr "#foo.bar<baz> : i32" true
 #assert expectRoundTripAttr "#foo.zero : !foo.ptr<!foo.int<s, 32>>" true
 -- Equality takes the trailing type into account.
-#assert (UnregisteredAttr.mk "#foo.bar" false (some (IntegerType.mk 32 : Attribute))
-  = UnregisteredAttr.mk "#foo.bar" false (some (IntegerType.mk 32 : Attribute)))
-#assert (UnregisteredAttr.mk "#foo.bar" false (some (IntegerType.mk 32 : Attribute))
+#assert (UnregisteredAttr.mk "#foo.bar" false (some (IntegerType.signless 32))
+  = UnregisteredAttr.mk "#foo.bar" false (some (IntegerType.signless 32)))
+#assert (UnregisteredAttr.mk "#foo.bar" false (some (IntegerType.signless 32))
   ≠ UnregisteredAttr.mk "#foo.bar" false none)
-#assert (UnregisteredAttr.mk "#foo.bar" false (some (IntegerType.mk 32 : Attribute))
-  ≠ UnregisteredAttr.mk "#foo.bar" false (some (IntegerType.mk 64 : Attribute)))
+#assert (UnregisteredAttr.mk "#foo.bar" false (some (IntegerType.signless 32))
+  ≠ UnregisteredAttr.mk "#foo.bar" false (some (IntegerType.signless 64)))
 
 #assert expectErrorAttr "#foo<bar>" "attribute '#foo' is not registered. Consider using --allow-unregistered-dialect." (some 0) false
 #assert expectErrorAttr "#test.test<bar>" "attribute '#test.test' is not registered. Consider using --allow-unregistered-dialect." (some 0) false
@@ -337,12 +492,12 @@ macro "#assert " e:term : command =>
 
 /-! ## Modarith type -/
 
-#assert expectSuccessType "!mod_arith.int<17 : i64>" (ModArithType.mk (IntegerAttr.mk 17 (IntegerType.mk 64)))
-#assert expectSuccessType "!mod_arith.int<257 : i32>" (ModArithType.mk (IntegerAttr.mk 257 (IntegerType.mk 32)))
-#assert expectSuccessAttr "!mod_arith.int<17 : i64>" (ModArithType.mk (IntegerAttr.mk 17 (IntegerType.mk 64)))
+#assert expectSuccessType "!mod_arith.int<17 : i64>" (ModArithType.mk (IntegerAttr.mk 17 (IntegerType.signless 64)))
+#assert expectSuccessType "!mod_arith.int<257 : i32>" (ModArithType.mk (IntegerAttr.mk 257 (IntegerType.signless 32)))
+#assert expectSuccessAttr "!mod_arith.int<17 : i64>" (ModArithType.mk (IntegerAttr.mk 17 (IntegerType.signless 64)))
 #assert expectErrorType "!mod_arith.int<>" "modarith type modulus expected" (some 15)
 #assert expectErrorType "!mod_arith.int<17>" "Expected punctuation ':'" (some 17)
-#assert expectErrorType "!mod_arith.int<17 : x>" "integer type expected after ':' in integer attribute" (some 20)
+#assert expectErrorType "!mod_arith.int<17 : x>" "integer or float type expected after ':' in numeric attribute" (some 20)
 
 /-! ## ClangIR types -/
 
@@ -393,11 +548,12 @@ macro "#assert " e:term : command =>
 #assert expectSuccessType "!llvm.void" (LLVM.VoidType.mk)
 
 /-! ## LLVM Array type -/
-#assert expectSuccessType "!llvm.array<2 x i32>" (LLVM.ArrayType.mk 2 $ IntegerType.mk 32)
-#assert expectSuccessAttr "!llvm.array<2 x !llvm.array<3x i64>>" (LLVM.ArrayType.mk 2 $ LLVM.ArrayType.mk 3 $ IntegerType.mk 64)
+#assert expectSuccessType "!llvm.array<2 x i32>" (LLVM.ArrayType.mk 2 $ (IntegerType.signless 32))
+#assert expectSuccessAttr "!llvm.array<2 x !llvm.array<3x i64>>" (LLVM.ArrayType.mk 2 $ LLVM.ArrayType.mk 3 $ (IntegerType.signless 64))
 
 /-! ## LLVM Byte type -/
 #assert expectSuccessType "!llvm.byte<64>" (LLVM.ByteType.mk 64)
+#assert expectSuccessType "!llvm.array<2 x byte<8>>" (LLVM.ArrayType.mk 2 $ LLVM.ByteType.mk 8)
 
 /-! ## LLVM Struct type (parsed opaquely; see `parseOptionalLLVMStructType`)
 
@@ -429,16 +585,43 @@ macro "#assert " e:term : command =>
 #assert expectSuccessType "!llvm.array<4 x struct<packed (i8, i32)>>"
   (LLVM.ArrayType.mk 4 (UnregisteredAttr.mk "!llvm.struct<packed (i8, i32)>" true none : Attribute)) true
 
+
+/-! ## LLVM parameterless types -/
+#assert expectSuccessType "!llvm.x86_amx"
+  ⟨UnregisteredAttr.mk "!llvm.x86_amx" true none, by grind⟩
+#assert expectSuccessType "!llvm.token"
+  ⟨UnregisteredAttr.mk "!llvm.token" true none, by grind⟩
+#assert expectSuccessType "!llvm.array<2 x x86_amx>"
+  (LLVM.ArrayType.mk 2 (UnregisteredAttr.mk "!llvm.x86_amx" true none : Attribute))
+#assert expectSuccessType "!llvm.array<2 x !llvm.x86_amx>"
+  (LLVM.ArrayType.mk 2 (UnregisteredAttr.mk "!llvm.x86_amx" true none : Attribute))
+#assert expectSuccessType "!llvm.array<4 x ppc_fp128>"
+  (LLVM.ArrayType.mk 4 (UnregisteredAttr.mk "!llvm.ppc_fp128" true none : Attribute))
+#assert expectSuccessType "!llvm.array<1 x metadata>"
+  (LLVM.ArrayType.mk 1 (UnregisteredAttr.mk "!llvm.metadata" true none : Attribute))
+#assert expectSuccessType "!llvm.array<1 x label>"
+  (LLVM.ArrayType.mk 1 (UnregisteredAttr.mk "!llvm.label" true none : Attribute))
+#assert expectSuccessType "!llvm.array<1 x token>"
+  (LLVM.ArrayType.mk 1 (UnregisteredAttr.mk "!llvm.token" true none : Attribute))
+-- The bare form only works nested inside another LLVM type.
+#assert expectMissingType "x86_amx"
+-- The target body is kept as written.
+#assert expectSuccessType "!llvm.target<\"aarch64.svcount\">"
+  ⟨UnregisteredAttr.mk "!llvm.target<\"aarch64.svcount\">" true none, by grind⟩
+#assert expectSuccessType "!llvm.array<1 x target<\"spirv.Image\", i32, 0>>"
+  (LLVM.ArrayType.mk 1
+    (UnregisteredAttr.mk "!llvm.target<\"spirv.Image\", i32, 0>" true none : Attribute))
+
 /-! ## LLVM Function type -/
 #assert expectSuccessType "!llvm.func<i32 (i32)>"
   ⟨.llvmFunctionType (FunctionType.mk
-    #[(IntegerType.mk 32 : Attribute)] #[(IntegerType.mk 32 : Attribute)] (isVarArg := false)), by rfl⟩
+    #[IntegerType.signless 32] #[IntegerType.signless 32] (isVarArg := false)), by rfl⟩
 #assert expectSuccessType "!llvm.func<i64 ()>"
-  ⟨.llvmFunctionType (FunctionType.mk #[] #[(IntegerType.mk 64 : Attribute)] (isVarArg := false)), by rfl⟩
+  ⟨.llvmFunctionType (FunctionType.mk #[] #[IntegerType.signless 64] (isVarArg := false)), by rfl⟩
 #assert expectSuccessType "!llvm.func<i32 (i32, i64)>"
   ⟨.llvmFunctionType (FunctionType.mk
-    #[(IntegerType.mk 32 : Attribute), (IntegerType.mk 64 : Attribute)]
-    #[(IntegerType.mk 32 : Attribute)] (isVarArg := false)), by rfl⟩
+    #[IntegerType.signless 32, IntegerType.signless 64]
+    #[IntegerType.signless 32] (isVarArg := false)), by rfl⟩
 #assert expectSuccessType "!llvm.func<!llvm.ptr (!llvm.ptr)>"
   ⟨.llvmFunctionType (FunctionType.mk
     #[(LLVM.PointerType.mk : Attribute)] #[(LLVM.PointerType.mk : Attribute)] (isVarArg := false)), by rfl⟩
@@ -448,11 +631,11 @@ macro "#assert " e:term : command =>
     #[(LLVM.VoidType.mk : Attribute)] (isVarArg := false)), by rfl⟩
 #assert expectSuccessType "!llvm.func<void (i32)>"
   ⟨.llvmFunctionType (FunctionType.mk
-    #[(IntegerType.mk 32 : Attribute)]
+    #[IntegerType.signless 32]
     #[(LLVM.VoidType.mk : Attribute)] (isVarArg := false)), by rfl⟩
 #assert expectSuccessType "!llvm.func<i32 (ptr)>"
   ⟨.llvmFunctionType (FunctionType.mk
-    #[(LLVM.PointerType.mk : Attribute)] #[(IntegerType.mk 32 : Attribute)] (isVarArg := false)), by rfl⟩
+    #[(LLVM.PointerType.mk : Attribute)] #[IntegerType.signless 32] (isVarArg := false)), by rfl⟩
 #assert expectSuccessType "!llvm.func<void (ptr, ptr)>"
   ⟨.llvmFunctionType (FunctionType.mk
     #[(LLVM.PointerType.mk : Attribute), (LLVM.PointerType.mk : Attribute)]
@@ -465,9 +648,16 @@ macro "#assert " e:term : command =>
 -- Variadic function types: a trailing `...`, with or without fixed parameters.
 #assert expectSuccessType "!llvm.func<i32 (ptr, ...)>"
   ⟨.llvmFunctionType (FunctionType.mk
-    #[(LLVM.PointerType.mk : Attribute)] #[(IntegerType.mk 32 : Attribute)] (isVarArg := true)), by rfl⟩
+    #[(LLVM.PointerType.mk : Attribute)] #[IntegerType.signless 32] (isVarArg := true)), by rfl⟩
 #assert expectSuccessType "!llvm.func<i32 (...)>"
-  ⟨.llvmFunctionType (FunctionType.mk #[] #[(IntegerType.mk 32 : Attribute)] (isVarArg := true)), by rfl⟩
+  ⟨.llvmFunctionType (FunctionType.mk #[] #[IntegerType.signless 32] (isVarArg := true)), by rfl⟩
+-- An LLVM function type may omit the `!llvm.` prefix in PrettyLLVMType syntax.
+#assert (do
+  let parser ← ParserState.fromInput "func<i32 (ptr)>".toByteArray
+  parseLLVMType.run' {} parser) = .ok
+    ⟨.llvmFunctionType (FunctionType.mk
+      #[(LLVM.PointerType.mk : Attribute)]
+      #[IntegerType.signless 32] (isVarArg := false)), by rfl⟩
 
 /-! ## LLVM calling convention and linkage attributes -/
 #assert expectSuccessAttr "#llvm.cconv<ccc>" (CConvAttr.mk "ccc")
@@ -514,12 +704,12 @@ macro "#assert " e:term : command =>
   (LoopAnnotationAttr.mk "peeled = <count = 2 : i32>")
 
 /-! ## CUDA Pointer type -/
-#assert expectSuccessType "!cuda_tile.ptr<i1>" (CudaTile.PointerType.mk (IntegerType.mk 1))
-#assert expectSuccessType "!cuda_tile.ptr<i32>" (CudaTile.PointerType.mk (IntegerType.mk 32))
+#assert expectSuccessType "!cuda_tile.ptr<i1>" (CudaTile.PointerType.mk (IntegerType.signless 1))
+#assert expectSuccessType "!cuda_tile.ptr<i32>" (CudaTile.PointerType.mk (IntegerType.signless 32))
 #assert expectErrorType "!cuda_tile.ptr<16>" "integer type expected" (some 15)
 -- A `!cuda_tile.ptr<...>` may appear as a (parenthesized) function-type input. See #675.
 #assert expectSuccessType "(!cuda_tile.ptr<i1>) -> ()"
-  (FunctionType.mk #[(CudaTile.PointerType.mk (IntegerType.mk 1) : Attribute)] #[] (isVarArg := false))
+  (FunctionType.mk #[(CudaTile.PointerType.mk (IntegerType.signless 1) : Attribute)] #[] (isVarArg := false))
 #assert expectSuccessType "!io.address" Io.AddressType.mk
 #assert expectSuccessType "(!io.address) -> ()"
   (FunctionType.mk #[(Io.AddressType.mk : Attribute)] #[] (isVarArg := false))
@@ -538,9 +728,9 @@ macro "#assert " e:term : command =>
 #assert expectSuccessType "!hw.modty<>" (HW.ModuleType.mk #[])
 #assert expectSuccessType "!hw.modty<input a : i3, inout b : i6,  output c : i10>"
   (HW.ModuleType.mk #[
-    {name := "a", type := IntegerType.mk 3, dir := .input},
-    {name := "b", type := IntegerType.mk 6, dir := .inout},
-    {name := "c", type := IntegerType.mk 10, dir := .output}])
+    {name := "a", type := (IntegerType.signless 3), dir := .input},
+    {name := "b", type := (IntegerType.signless 6), dir := .inout},
+    {name := "c", type := (IntegerType.signless 10), dir := .output}])
 #assert expectErrorType "!hw.modty<foo>" "module port expected" (some 10)
 #assert expectErrorType "!hw.modty<input : foo>" "identifier expected" (some 16)
 #assert expectErrorType "!hw.modty<input a : foo>" "integer type expected" (some 20)

@@ -4,6 +4,8 @@ import Veir.Meta.OpCode
 
 public import Veir.IR.Basic
 public import Veir.OpCode
+public import Veir.Printer.CustomPrinting
+public import Veir.Dialects.Func.Printing
 
 namespace Veir
 
@@ -32,6 +34,7 @@ match opCode with
 | .datapath op => Datapath.propertiesOf op
 | .pdl op => PDL.propertiesOf op
 | .io op => Io.propertiesOf op
+| .gmir op => GMIR.propertiesOf op
 | .test op => Test.propertiesOf op
 | .felt op => Felt.propertiesOf op
 | .cir op => Cir.propertiesOf op
@@ -62,12 +65,42 @@ def OpCode.getEffects (opCode : OpCode) (props : _propertiesOf opCode) : MemoryE
   | .datapath op, props => Datapath.getEffects op props
   | .pdl op, props => PDL.getEffects op props
   | .io op, props => Io.getEffects op props
+  | .gmir op, props => GMIR.getEffects op props
   | .test op, props => Test.getEffects op props
   | .felt op, props => Felt.getEffects op props
   | .cir op, props => Cir.getEffects op props
   | .include op, props => LLZK.Include.getEffects op props
   | .function op, props => LLZK.Function.getEffects op props
   | .seq op, props => Seq.getEffects op props
+
+/-- Delegate folding to the operation's dialect-local `HasOpInfo` instance. -/
+def OpCode.tryFold (opCode : OpCode) (props : _propertiesOf opCode)
+    (resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
+    Option (Array FoldDecision) :=
+  match opCode, props with
+  | .arith op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .llvm op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .riscv op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .riscv_cf op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .riscv_stack op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .rv64 op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .mod_arith op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .cf op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .comb op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .hw op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .verif op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .builtin op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .func op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .datapath op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .pdl op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .io op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .gmir op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .test op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .felt op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .cir op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .include op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .function op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .seq op, props => HasOpInfo.tryFold op props resultTypes constantOperands
 
 /--
   Return the kind of the region with the given index inside this operation.
@@ -90,6 +123,7 @@ def OpCode.getRegionKind (opCode : OpCode) (index : Nat) : RegionKind :=
   | .datapath op => HasOpInfo.getRegionKind op index
   | .pdl op => HasOpInfo.getRegionKind op index
   | .io op => HasOpInfo.getRegionKind op index
+  | .gmir op => HasOpInfo.getRegionKind op index
   | .test op => HasOpInfo.getRegionKind op index
   | .felt op => HasOpInfo.getRegionKind op index
   | .cir op => HasOpInfo.getRegionKind op index
@@ -119,6 +153,7 @@ def OpCode.hasSSADominance (opCode : OpCode) (index : Nat) : Bool :=
   | .datapath op => Datapath.hasSSADominance op index
   | .pdl op => PDL.hasSSADominance op index
   | .io op => Io.hasSSADominance op index
+  | .gmir op => GMIR.hasSSADominance op index
   | .test op => Test.hasSSADominance op index
   | .felt op => Felt.hasSSADominance op index
   | .cir op => Cir.hasSSADominance op index
@@ -149,6 +184,7 @@ def OpCode.hasNoTerminator (opCode : OpCode) (index : Nat) : Bool :=
   | .datapath op => HasOpInfo.hasNoTerminator op index
   | .pdl op => HasOpInfo.hasNoTerminator op index
   | .io op => HasOpInfo.hasNoTerminator op index
+  | .gmir op => HasOpInfo.hasNoTerminator op index
   | .test op => HasOpInfo.hasNoTerminator op index
   | .felt op => HasOpInfo.hasNoTerminator op index
   | .cir op => HasOpInfo.hasNoTerminator op index
@@ -175,6 +211,7 @@ def OpCode.isIsolatedFromAbove (opCode : OpCode) : Bool :=
   | .datapath op => HasOpInfo.isIsolatedFromAbove op
   | .pdl op => HasOpInfo.isIsolatedFromAbove op
   | .io op => HasOpInfo.isIsolatedFromAbove op
+  | .gmir op => HasOpInfo.isIsolatedFromAbove op
   | .test op => HasOpInfo.isIsolatedFromAbove op
   | .felt op => HasOpInfo.isIsolatedFromAbove op
   | .cir op => HasOpInfo.isIsolatedFromAbove op
@@ -205,6 +242,7 @@ def OpCode.isTerminator (opCode : OpCode) : Bool :=
   | .datapath op => HasOpInfo.isTerminator op
   | .pdl op => HasOpInfo.isTerminator op
   | .io op => HasOpInfo.isTerminator op
+  | .gmir op => HasOpInfo.isTerminator op
   | .test op => HasOpInfo.isTerminator op
   | .felt op => HasOpInfo.isTerminator op
   | .cir op => HasOpInfo.isTerminator op
@@ -238,6 +276,7 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | .datapath op => Datapath.isConstantLike op
   | .pdl op => PDL.isConstantLike op
   | .io op => Io.isConstantLike op
+  | .gmir op => GMIR.isConstantLike op
   | .test op => Test.isConstantLike op
   | .felt op => Felt.isConstantLike op
   | .cir op => Cir.isConstantLike op
@@ -267,6 +306,7 @@ def OpCode.propagatesPoison (opCode : OpCode) : Bool :=
   | .datapath op => HasOpInfo.propagatesPoison op
   | .pdl op => HasOpInfo.propagatesPoison op
   | .io op => HasOpInfo.propagatesPoison op
+  | .gmir op => HasOpInfo.propagatesPoison op
   | .test op => HasOpInfo.propagatesPoison op
   | .felt op => HasOpInfo.propagatesPoison op
   | .cir op => HasOpInfo.propagatesPoison op
@@ -293,6 +333,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   | .datapath op => Datapath.fromAttrDict op attrDict
   | .pdl op => PDL.fromAttrDict op attrDict
   | .io op => Io.fromAttrDict op attrDict
+  | .gmir op => GMIR.fromAttrDict op attrDict
   | .test op => Test.fromAttrDict op attrDict
   | .felt op => Felt.fromAttrDict op attrDict
   | .cir op => Cir.fromAttrDict op attrDict
@@ -323,6 +364,7 @@ def Properties.toAttrDict
   | .datapath op, props => Datapath.toAttrDict op props
   | .pdl op, props => PDL.toAttrDict op props
   | .io op, props => Io.toAttrDict op props
+  | .gmir op, props => GMIR.toAttrDict op props
   | .test op, props => Test.toAttrDict op props
   | .felt op, props => Felt.toAttrDict op props
   | .cir op, props => Cir.toAttrDict op props
@@ -356,12 +398,41 @@ def OpCode.functionInterface? (opCode : OpCode) : Option (FunctionOpInterface (_
   | .datapath op => HasOpInfo.functionInterface? op
   | .pdl op => HasOpInfo.functionInterface? op
   | .io op => HasOpInfo.functionInterface? op
+  | .gmir op => HasOpInfo.functionInterface? op
   | .test op => HasOpInfo.functionInterface? op
   | .felt op => HasOpInfo.functionInterface? op
   | .cir op => HasOpInfo.functionInterface? op
   | .include op => HasOpInfo.functionInterface? op
   | .function op => HasOpInfo.functionInterface? op
   | .seq op => HasOpInfo.functionInterface? op
+
+/-- Branch-interface information assembled from the registered dialects. -/
+def OpCode.branchOpInterface?
+    (opCode : OpCode) : Option (BranchOpInterface (_propertiesOf opCode)) :=
+  match opCode with
+  | .arith op => HasOpInfo.branchOpInterface? op
+  | .llvm op => HasOpInfo.branchOpInterface? op
+  | .riscv op => HasOpInfo.branchOpInterface? op
+  | .riscv_cf op => HasOpInfo.branchOpInterface? op
+  | .riscv_stack op => HasOpInfo.branchOpInterface? op
+  | .rv64 op => HasOpInfo.branchOpInterface? op
+  | .mod_arith op => HasOpInfo.branchOpInterface? op
+  | .cf op => HasOpInfo.branchOpInterface? op
+  | .comb op => HasOpInfo.branchOpInterface? op
+  | .hw op => HasOpInfo.branchOpInterface? op
+  | .verif op => HasOpInfo.branchOpInterface? op
+  | .builtin op => HasOpInfo.branchOpInterface? op
+  | .func op => HasOpInfo.branchOpInterface? op
+  | .datapath op => HasOpInfo.branchOpInterface? op
+  | .pdl op => HasOpInfo.branchOpInterface? op
+  | .io op => HasOpInfo.branchOpInterface? op
+  | .gmir op => HasOpInfo.branchOpInterface? op
+  | .test op => HasOpInfo.branchOpInterface? op
+  | .felt op => HasOpInfo.branchOpInterface? op
+  | .cir op => HasOpInfo.branchOpInterface? op
+  | .include op => HasOpInfo.branchOpInterface? op
+  | .function op => HasOpInfo.branchOpInterface? op
+  | .seq op => HasOpInfo.branchOpInterface? op
 
 #generate_has_dialect_instances OpCode
 
@@ -379,8 +450,10 @@ def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
   | .llvm opType => Llvm.verifyLocalInvariants opType op ctx opIn
   | .mod_arith opType => Mod_Arith.verifyLocalInvariants opType op ctx opIn
   | .riscv opType => Riscv.verifyLocalInvariants opType op ctx opIn
-  | .riscv_cf opType => Riscv_Cf.verifyLocalInvariants opType op ctx opIn
+  | .riscv_cf opType =>
+    Riscv_Cf.verifyLocalInvariants OpCode.functionInterface? opType op ctx opIn
   | .riscv_stack opType => Riscv_Stack.verifyLocalInvariants opType op ctx opIn
+  | .gmir opType => GMIR.verifyLocalInvariants opType op ctx opIn
   | .rv64 opType => Rv64.verifyLocalInvariants opType op ctx opIn
   | .comb opType => Comb.verifyLocalInvariants opType op ctx opIn
   | .hw opType => HW.verifyLocalInvariants opType op ctx opIn
@@ -394,10 +467,12 @@ def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
 
 instance : HasOpInfo OpCode where
   verifyLocalInvariants := OpCode.verifyLocalInvariants
+  tryFold := OpCode.tryFold
   getEffects := OpCode.getEffects
   isConstantLike := OpCode.isConstantLike
   propagatesPoison := OpCode.propagatesPoison
   functionInterface? := OpCode.functionInterface?
+  branchOpInterface? := OpCode.branchOpInterface?
   getRegionKind := OpCode.getRegionKind
   hasSSADominance := OpCode.hasSSADominance
   hasNoTerminator := OpCode.hasNoTerminator
@@ -425,7 +500,7 @@ def OpCode.materializeConstant (opCode : OpCode) (value : RuntimeValue)
     | .riscv_cf _ | .riscv_stack _ | .rv64 _ | .cf _ | .builtin _
     | .verif _
     | .func _ | .datapath _ | .pdl _ | .test _ | .cir _ | .io _ | .include _
-    | .function _ | .seq _ => none
+    | .function _ | .seq _ | .gmir _ => none
   guard materialized.fst.isConstantLike
   return materialized
 
@@ -454,3 +529,10 @@ def OpCode.isCommutative (opCode : OpCode) : Bool :=
   | .felt .bit_and | .felt .bit_or | .felt .bit_xor
   | .cir .add | .cir .mul | .cir .and | .cir .or | .cir .xor | .cir .min | .cir .max => true
   | _ => false
+
+instance : HasCustomPrinting OpCode OpCode where
+  customPrinter?
+    | .func f =>
+      HasCustomPrinting.customPrinter?
+        (Dialect := Func) (GlobalOpCode := OpCode) f
+    | _ => none

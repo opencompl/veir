@@ -21,12 +21,12 @@
 }) : () -> ()
 
 // urem by 8 becomes and with the mask 7.
-// CHECK:      ^{{.*}}(%[[X:.*]] : i32):
+// CHECK:      func.func @foo(%[[X:.*]]: i32) -> i32 {
 // CHECK:      %[[M:.*]] = "llvm.mlir.constant"() <{"value" = 7 : i32}> : () -> i32
 // CHECK:      %[[R:.*]] = "llvm.and"(%[[X]], %[[M]]) : (i32, i32) -> i32
 // CHECK:      "func.return"(%[[R]]) : (i32) -> ()
 
 // Non-power-of-two modulus: the urem remains.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i32):
+// CHECK:      func.func @bar(%[[NX:.*]]: i32) -> i32 {
 // CHECK:      %[[NR:.*]] = "llvm.urem"(%[[NX]], %{{.*}}) : (i32, i32) -> i32
 // CHECK:      "func.return"(%[[NR]]) : (i32) -> ()

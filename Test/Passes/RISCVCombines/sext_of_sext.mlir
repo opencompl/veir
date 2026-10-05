@@ -19,12 +19,12 @@
 }) : () -> ()
 
 // The two sexts collapse to one from i8 straight to i64.
-// CHECK:      ^{{.*}}(%[[X:.*]] : i8):
+// CHECK:      func.func @foo(%[[X:.*]]: i8) -> i64 {
 // CHECK:      %[[S:.*]] = "llvm.sext"(%[[X]]) : (i8) -> i64
 // CHECK-NOT:  "llvm.sext"
 // CHECK:      "func.return"(%[[S]]) : (i64) -> ()
 
 // Single sext unchanged.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i8):
+// CHECK:      func.func @bar(%[[NX:.*]]: i8) -> i64 {
 // CHECK:      %[[NS:.*]] = "llvm.sext"(%[[NX]]) : (i8) -> i64
 // CHECK:      "func.return"(%[[NS]]) : (i64) -> ()

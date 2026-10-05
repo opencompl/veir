@@ -14,7 +14,7 @@ namespace Veir
   exposed as a boolean pass option and is disabled by default, so a pipeline can
   request exactly the desired rewrites, for example:
 
-  `apply-patterns{muli-two-to-addi addi-zero-to-x}`
+  `apply-patterns{muli-two-to-addi subi-zero-to-x}`
 
   Currently, only the patterns from `Veir.Passes.InstCombine` are available.
 -/
@@ -24,7 +24,6 @@ def applyPatterns : List (String × RewritePattern OpCode) := [
   ("muli-two-to-addi", mulITwoToAddi),
   ("muli-zero-to-cst", mulIZeroToCst),
   ("muli-one-to-x", mulIOneToX),
-  ("addi-zero-to-x", addiZeroToX),
   ("subi-zero-to-x", subiZeroToX),
   ("subi-self-to-zero", subiSelfToZero),
   ("andi-self-to-x", andiSelfToX),
