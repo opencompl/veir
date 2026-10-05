@@ -1,12 +1,5 @@
 // RUN: veir-opt %s --print-op-generic -p=riscv | filecheck %s
 
-// `signext`/`zeroext` on returns and call arguments extend the value to the full
-// register, matching `llc -mtriple=riscv64 -mattr=+zba,+zbb`. Without an attribute
-// only an `i32` is extended (sign-extended, as the psABI requires); `zeroext i32` is
-// zero-extended, as LLVM does even though the psABI sign-extends every 32-bit value.
-// `reconcile-cast` may place a zero-extension in front of each of these, so the
-// checks only pin the extension that feeds the return or call.
-
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "ret_sext_i1", function_type = !llvm.func<i1 (i1)>, res_attrs = [{llvm.signext}]}> ({
   ^bb0(%x: i1):
