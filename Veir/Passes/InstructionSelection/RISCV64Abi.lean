@@ -125,7 +125,7 @@ private partial def lookupCallee? (ctx : IRContext OpCode) (op : OperationPtr)
   let block ← (body.get! ctx).firstBlock
   let mut candidate := (block.get! ctx).firstOp
   while let some target := candidate do
-    if let some func := FunctionOp.cast? target ctx then
+    if let some func := FunctionOp.of? target ctx then
       if func.getSymName.value == name then return target
     candidate := (target.get! ctx).next
   none
