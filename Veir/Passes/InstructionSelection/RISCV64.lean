@@ -248,8 +248,10 @@ def lowerBinary (llvmOp : Llvm) (typeMatcher : IntegerType → Bool) (riscvOp : 
       let (lval, rval) ← match extend with
         | some ⟨extOp, extProps'⟩ => do
           let extProps ← Veir.Puddle.CreateProg.property (.riscv extOp) extProps'
-          let lextOp ← Veir.Puddle.CreateProg.operation (.riscv extOp) #[lcastOp.res[0]!] #[regType] extProps
-          let rextOp ← Veir.Puddle.CreateProg.operation (.riscv extOp) #[rcastOp.res[0]!] #[regType] extProps
+          let lextOp ← Veir.Puddle.CreateProg.operation (.riscv extOp)
+              #[lcastOp.res[0]!] #[regType] extProps
+          let rextOp ← Veir.Puddle.CreateProg.operation (.riscv extOp)
+              #[rcastOp.res[0]!] #[regType] extProps
           pure (lextOp.res[0]!, rextOp.res[0]!)
         | none => pure (lcastOp.res[0]!, rcastOp.res[0]!)
       let riscvOpProps ← Veir.Puddle.CreateProg.property (.riscv riscvOp) riscvProps
@@ -441,7 +443,8 @@ def bitreverseStageP (regType : Puddle.Handle OpCode .type) (mask shamt : Int)
   let highShiftProps ← Puddle.CreateProg.property (.riscv .srli) (mkRISCVImm shamt)
   let highShift ← Puddle.CreateProg.operation (.riscv .srli) #[input] #[regType] highShiftProps
   let highProps ← Puddle.CreateProg.property (.riscv .and) ()
-  let high ← Puddle.CreateProg.operation (.riscv .and) #[maskReg.res[0]!, highShift.res[0]!] #[regType] highProps
+  let high ← Puddle.CreateProg.operation (.riscv .and)
+      #[maskReg.res[0]!, highShift.res[0]!] #[regType] highProps
   let orProps ← Puddle.CreateProg.property (.riscv .or) ()
   Puddle.CreateProg.operation (.riscv .or) #[lowShift.res[0]!, high.res[0]!] #[regType] orProps
 
@@ -1192,7 +1195,8 @@ def getelementptrPatterns : Array (Puddle.CompiledPattern OpCode) := #[
       fun gep => (gepScale? gep).map fun scale => mkRISCVImm scale
     let scale ← Puddle.CreateProg.operation (.riscv .li) #[] #[regType] scaleImm
     let scaledProps ← Puddle.CreateProg.property (.riscv .mul) ()
-    let scaled ← Puddle.CreateProg.operation (.riscv .mul) #[idx, scale.res[0]!] #[regType] scaledProps
+    let scaled ← Puddle.CreateProg.operation (.riscv .mul)
+        #[idx, scale.res[0]!] #[regType] scaledProps
     let addProps ← Puddle.CreateProg.property (.riscv .add) ()
     Puddle.CreateProg.operation (.riscv .add) #[ptr, scaled.res[0]!] #[regType] addProps
 ].map (·.compile)
@@ -1344,11 +1348,14 @@ def signedSatSelectP (regType : Puddle.Handle OpCode .type)
     (wrapped overflow sat : Puddle.Handle OpCode .value) :
     Puddle.CreateProg.Builder Puddle.CreatedOpHandle := do
   let wrappedOrZeroProps ← Puddle.CreateProg.property (.riscv .czeronez) ()
-  let wrappedOrZero ← Puddle.CreateProg.operation (.riscv .czeronez) #[wrapped, overflow] #[regType] wrappedOrZeroProps
+  let wrappedOrZero ← Puddle.CreateProg.operation (.riscv .czeronez)
+      #[wrapped, overflow] #[regType] wrappedOrZeroProps
   let satOrZeroProps ← Puddle.CreateProg.property (.riscv .czeroeqz) ()
-  let satOrZero ← Puddle.CreateProg.operation (.riscv .czeroeqz) #[sat, overflow] #[regType] satOrZeroProps
+  let satOrZero ← Puddle.CreateProg.operation (.riscv .czeroeqz)
+      #[sat, overflow] #[regType] satOrZeroProps
   let orProps ← Puddle.CreateProg.property (.riscv .or) ()
-  Puddle.CreateProg.operation (.riscv .or) #[satOrZero.res[0]!, wrappedOrZero.res[0]!] #[regType] orProps
+  Puddle.CreateProg.operation (.riscv .or)
+      #[satOrZero.res[0]!, wrappedOrZero.res[0]!] #[regType] orProps
 
 /-- llvm.intr.sadd.sat.i64 -> LLVM's RV64+Zicond signed saturating-add sequence.
     Wrapped `add` + SADDO overflow `(rhs >>u 63) ^ (sum <s lhs)`
@@ -1365,15 +1372,19 @@ def saddSat_pattern : Puddle.Pattern OpCode :=
     let rhsSignProps ← Puddle.CreateProg.property (.riscv .srli) (mkRISCVImm 63)
     let rhsSign ← Puddle.CreateProg.operation (.riscv .srli) #[rReg] #[regType] rhsSignProps
     let carryLikeProps ← Puddle.CreateProg.property (.riscv .slt) ()
-    let carryLike ← Puddle.CreateProg.operation (.riscv .slt) #[sum.res[0]!, lReg] #[regType] carryLikeProps
+    let carryLike ← Puddle.CreateProg.operation (.riscv .slt)
+        #[sum.res[0]!, lReg] #[regType] carryLikeProps
     let sumSignProps ← Puddle.CreateProg.property (.riscv .srai) (mkRISCVImm 63)
     let sumSign ← Puddle.CreateProg.operation (.riscv .srai) #[sum.res[0]!] #[regType] sumSignProps
     let intMinProps ← Puddle.CreateProg.property (.riscv .slli) (mkRISCVImm 63)
-    let intMin ← Puddle.CreateProg.operation (.riscv .slli) #[minusOne.res[0]!] #[regType] intMinProps
+    let intMin ← Puddle.CreateProg.operation (.riscv .slli)
+        #[minusOne.res[0]!] #[regType] intMinProps
     let overflowProps ← Puddle.CreateProg.property (.riscv .xor) ()
-    let overflow ← Puddle.CreateProg.operation (.riscv .xor) #[rhsSign.res[0]!, carryLike.res[0]!] #[regType] overflowProps
+    let overflow ← Puddle.CreateProg.operation (.riscv .xor)
+        #[rhsSign.res[0]!, carryLike.res[0]!] #[regType] overflowProps
     let satProps ← Puddle.CreateProg.property (.riscv .xor) ()
-    let sat ← Puddle.CreateProg.operation (.riscv .xor) #[sumSign.res[0]!, intMin.res[0]!] #[regType] satProps
+    let sat ← Puddle.CreateProg.operation (.riscv .xor)
+        #[sumSign.res[0]!, intMin.res[0]!] #[regType] satProps
     signedSatSelectP regType sum.res[0]! overflow.res[0]! sat.res[0]!
 
 /-- llvm.intr.sadd.sat.i64 -> LLVM's RV64+Zicond signed saturating-add sequence
@@ -1395,15 +1406,20 @@ def ssubSat_pattern : Puddle.Pattern OpCode :=
     let cmpProps ← Puddle.CreateProg.property (.riscv .slt) ()
     let cmp ← Puddle.CreateProg.operation (.riscv .slt) #[lReg, rReg] #[regType] cmpProps
     let diffSignBitProps ← Puddle.CreateProg.property (.riscv .srli) (mkRISCVImm 63)
-    let diffSignBit ← Puddle.CreateProg.operation (.riscv .srli) #[diff.res[0]!] #[regType] diffSignBitProps
+    let diffSignBit ← Puddle.CreateProg.operation (.riscv .srli)
+        #[diff.res[0]!] #[regType] diffSignBitProps
     let diffSignProps ← Puddle.CreateProg.property (.riscv .srai) (mkRISCVImm 63)
-    let diffSign ← Puddle.CreateProg.operation (.riscv .srai) #[diff.res[0]!] #[regType] diffSignProps
+    let diffSign ← Puddle.CreateProg.operation (.riscv .srai)
+        #[diff.res[0]!] #[regType] diffSignProps
     let intMinProps ← Puddle.CreateProg.property (.riscv .slli) (mkRISCVImm 63)
-    let intMin ← Puddle.CreateProg.operation (.riscv .slli) #[minusOne.res[0]!] #[regType] intMinProps
+    let intMin ← Puddle.CreateProg.operation (.riscv .slli)
+        #[minusOne.res[0]!] #[regType] intMinProps
     let overflowProps ← Puddle.CreateProg.property (.riscv .xor) ()
-    let overflow ← Puddle.CreateProg.operation (.riscv .xor) #[cmp.res[0]!, diffSignBit.res[0]!] #[regType] overflowProps
+    let overflow ← Puddle.CreateProg.operation (.riscv .xor)
+        #[cmp.res[0]!, diffSignBit.res[0]!] #[regType] overflowProps
     let satProps ← Puddle.CreateProg.property (.riscv .xor) ()
-    let sat ← Puddle.CreateProg.operation (.riscv .xor) #[diffSign.res[0]!, intMin.res[0]!] #[regType] satProps
+    let sat ← Puddle.CreateProg.operation (.riscv .xor)
+        #[diffSign.res[0]!, intMin.res[0]!] #[regType] satProps
     signedSatSelectP regType diff.res[0]! overflow.res[0]! sat.res[0]!
 
 /-- llvm.intr.ssub.sat.i64 -> LLVM's RV64+Zicond signed saturating-sub sequence
@@ -1420,7 +1436,8 @@ def uaddSat_pattern : Puddle.Pattern OpCode :=
     let notRhsProps ← Puddle.CreateProg.property (.riscv .xori) (mkRISCVImm (-1))
     let notRhs ← Puddle.CreateProg.operation (.riscv .xori) #[rReg] #[regType] notRhsProps
     let minuProps ← Puddle.CreateProg.property (.riscv .minu) ()
-    let minu ← Puddle.CreateProg.operation (.riscv .minu) #[lReg, notRhs.res[0]!] #[regType] minuProps
+    let minu ← Puddle.CreateProg.operation (.riscv .minu)
+        #[lReg, notRhs.res[0]!] #[regType] minuProps
     let addProps ← Puddle.CreateProg.property (.riscv .add) ()
     Puddle.CreateProg.operation (.riscv .add) #[minu.res[0]!, rReg] #[regType] addProps
 
@@ -1455,15 +1472,19 @@ def sshlSat_pattern : Puddle.Pattern OpCode :=
     let minusOneProps ← Puddle.CreateProg.property (.riscv .li) (mkRISCVImm (-1))
     let minusOne ← Puddle.CreateProg.operation (.riscv .li) #[] #[regType] minusOneProps
     let unshiftedProps ← Puddle.CreateProg.property (.riscv .sra) ()
-    let unshifted ← Puddle.CreateProg.operation (.riscv .sra) #[shifted.res[0]!, rReg] #[regType] unshiftedProps
+    let unshifted ← Puddle.CreateProg.operation (.riscv .sra)
+        #[shifted.res[0]!, rReg] #[regType] unshiftedProps
     let signProps ← Puddle.CreateProg.property (.riscv .srai) (mkRISCVImm 63)
     let sign ← Puddle.CreateProg.operation (.riscv .srai) #[lReg] #[regType] signProps
     let intMaxProps ← Puddle.CreateProg.property (.riscv .srli) (mkRISCVImm 1)
-    let intMax ← Puddle.CreateProg.operation (.riscv .srli) #[minusOne.res[0]!] #[regType] intMaxProps
+    let intMax ← Puddle.CreateProg.operation (.riscv .srli)
+        #[minusOne.res[0]!] #[regType] intMaxProps
     let overflowProps ← Puddle.CreateProg.property (.riscv .xor) ()
-    let overflow ← Puddle.CreateProg.operation (.riscv .xor) #[lReg, unshifted.res[0]!] #[regType] overflowProps
+    let overflow ← Puddle.CreateProg.operation (.riscv .xor)
+        #[lReg, unshifted.res[0]!] #[regType] overflowProps
     let satProps ← Puddle.CreateProg.property (.riscv .xor) ()
-    let sat ← Puddle.CreateProg.operation (.riscv .xor) #[sign.res[0]!, intMax.res[0]!] #[regType] satProps
+    let sat ← Puddle.CreateProg.operation (.riscv .xor)
+        #[sign.res[0]!, intMax.res[0]!] #[regType] satProps
     signedSatSelectP regType shifted.res[0]! overflow.res[0]! sat.res[0]!
 
 /-- llvm.intr.sshl.sat.i64 -> LLVM's RV64+Zicond signed saturating-shl sequence
@@ -1482,15 +1503,20 @@ def ushlSat_pattern : Puddle.Pattern OpCode :=
     let shiftedProps ← Puddle.CreateProg.property (.riscv .sll) ()
     let shifted ← Puddle.CreateProg.operation (.riscv .sll) #[lReg, rReg] #[regType] shiftedProps
     let unshiftedProps ← Puddle.CreateProg.property (.riscv .srl) ()
-    let unshifted ← Puddle.CreateProg.operation (.riscv .srl) #[shifted.res[0]!, rReg] #[regType] unshiftedProps
+    let unshifted ← Puddle.CreateProg.operation (.riscv .srl)
+        #[shifted.res[0]!, rReg] #[regType] unshiftedProps
     let lostBitsProps ← Puddle.CreateProg.property (.riscv .xor) ()
-    let lostBits ← Puddle.CreateProg.operation (.riscv .xor) #[lReg, unshifted.res[0]!] #[regType] lostBitsProps
+    let lostBits ← Puddle.CreateProg.operation (.riscv .xor)
+        #[lReg, unshifted.res[0]!] #[regType] lostBitsProps
     let noOverflowProps ← Puddle.CreateProg.property (.riscv .sltiu) (mkRISCVImm 1)
-    let noOverflow ← Puddle.CreateProg.operation (.riscv .sltiu) #[lostBits.res[0]!] #[regType] noOverflowProps
+    let noOverflow ← Puddle.CreateProg.operation (.riscv .sltiu)
+        #[lostBits.res[0]!] #[regType] noOverflowProps
     let overflowMaskProps ← Puddle.CreateProg.property (.riscv .addi) (mkRISCVImm (-1))
-    let overflowMask ← Puddle.CreateProg.operation (.riscv .addi) #[noOverflow.res[0]!] #[regType] overflowMaskProps
+    let overflowMask ← Puddle.CreateProg.operation (.riscv .addi)
+        #[noOverflow.res[0]!] #[regType] overflowMaskProps
     let orProps ← Puddle.CreateProg.property (.riscv .or) ()
-    Puddle.CreateProg.operation (.riscv .or) #[overflowMask.res[0]!, shifted.res[0]!] #[regType] orProps
+    Puddle.CreateProg.operation (.riscv .or)
+        #[overflowMask.res[0]!, shifted.res[0]!] #[regType] orProps
 
 /-- llvm.intr.ushl.sat.i64 -> LLVM's RV64 unsigned saturating-shl sequence
     (see `ushlSat_pattern`). -/
@@ -1606,7 +1632,8 @@ def lowerFshlGeneral (bw : Nat) : Puddle.Pattern OpCode :=
         let y1Props ← Puddle.CreateProg.property (.riscv .srliw) (mkRISCVImm 1)
         let y1 ← Puddle.CreateProg.operation (.riscv .srliw) #[y] #[regType] y1Props
         let shyProps ← Puddle.CreateProg.property (.riscv .srlw) ()
-        let shy ← Puddle.CreateProg.operation (.riscv .srlw) #[y1.res[0]!, notz.res[0]!] #[regType] shyProps
+        let shy ← Puddle.CreateProg.operation (.riscv .srlw)
+            #[y1.res[0]!, notz.res[0]!] #[regType] shyProps
         pure (shx.res[0]!, shy.res[0]!)
       else do
         let shxProps ← Puddle.CreateProg.property (.riscv .sll) ()
@@ -1614,7 +1641,8 @@ def lowerFshlGeneral (bw : Nat) : Puddle.Pattern OpCode :=
         let y1Props ← Puddle.CreateProg.property (.riscv .srli) (mkRISCVImm 1)
         let y1 ← Puddle.CreateProg.operation (.riscv .srli) #[y] #[regType] y1Props
         let shyProps ← Puddle.CreateProg.property (.riscv .srl) ()
-        let shy ← Puddle.CreateProg.operation (.riscv .srl) #[y1.res[0]!, notz.res[0]!] #[regType] shyProps
+        let shy ← Puddle.CreateProg.operation (.riscv .srl)
+            #[y1.res[0]!, notz.res[0]!] #[regType] shyProps
         pure (shx.res[0]!, shy.res[0]!)
     let orProps ← Puddle.CreateProg.property (.riscv .or) ()
     Puddle.CreateProg.operation (.riscv .or) #[shx, shy] #[regType] orProps
@@ -1641,7 +1669,8 @@ def lowerFshrGeneral (bw : Nat) : Puddle.Pattern OpCode :=
         let x1Props ← Puddle.CreateProg.property (.riscv .slliw) (mkRISCVImm 1)
         let x1 ← Puddle.CreateProg.operation (.riscv .slliw) #[x] #[regType] x1Props
         let shxProps ← Puddle.CreateProg.property (.riscv .sllw) ()
-        let shx ← Puddle.CreateProg.operation (.riscv .sllw) #[x1.res[0]!, notz.res[0]!] #[regType] shxProps
+        let shx ← Puddle.CreateProg.operation (.riscv .sllw)
+            #[x1.res[0]!, notz.res[0]!] #[regType] shxProps
         let shyProps ← Puddle.CreateProg.property (.riscv .srlw) ()
         let shy ← Puddle.CreateProg.operation (.riscv .srlw) #[y, z] #[regType] shyProps
         pure (shx.res[0]!, shy.res[0]!)
@@ -1649,7 +1678,8 @@ def lowerFshrGeneral (bw : Nat) : Puddle.Pattern OpCode :=
         let x1Props ← Puddle.CreateProg.property (.riscv .slli) (mkRISCVImm 1)
         let x1 ← Puddle.CreateProg.operation (.riscv .slli) #[x] #[regType] x1Props
         let shxProps ← Puddle.CreateProg.property (.riscv .sll) ()
-        let shx ← Puddle.CreateProg.operation (.riscv .sll) #[x1.res[0]!, notz.res[0]!] #[regType] shxProps
+        let shx ← Puddle.CreateProg.operation (.riscv .sll)
+            #[x1.res[0]!, notz.res[0]!] #[regType] shxProps
         let shyProps ← Puddle.CreateProg.property (.riscv .srl) ()
         let shy ← Puddle.CreateProg.operation (.riscv .srl) #[y, z] #[regType] shyProps
         pure (shx.res[0]!, shy.res[0]!)
