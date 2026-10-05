@@ -1,4 +1,8 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: ALIVE_EXEC
+
+// LLUBI: cannot cross-check this test: llubi gives a load of uninitialized
+// memory an arbitrary concrete value rather than poison.
 
 // `llvm.intr.memcpy` copies bytes along with their poison bits. A copied
 // pointer still points to its object.

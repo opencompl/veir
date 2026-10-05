@@ -4,6 +4,7 @@ public import Veir.Analysis.DataFlow.Domains.ConstantDomain
 public import Veir.Analysis.DataFlow.SparseForwardDataFlowAnalysis
 import Veir.Analysis.DataFlow.Printer
 import Veir.Interfaces.FoldInterfaces
+public import Veir.Interfaces.FoldInterfaces
 
 public section
 
