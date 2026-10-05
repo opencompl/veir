@@ -14,15 +14,6 @@ open Veir.Parser
 open Veir.Input
 open Veir
 
-/-- The function-like operations in the module's top block, in order. -/
-partial def findFuncs (ctx : IRContext OpCode) (op : Option OperationPtr)
-    (acc : Array OperationPtr := #[]) : Array OperationPtr :=
-  match op with
-  | none => acc
-  | some op =>
-    let acc := if op.isFunctionLike ctx then acc.push op else acc
-    findFuncs ctx (op.get! ctx).next acc
-
 def main (args : List String) : IO Unit := do
   match inputSourceOfArgs args with
   | .error errMsg =>
@@ -36,13 +27,15 @@ def main (args : List String) : IO Unit := do
     | .ok (ctx, moduleOp, _) =>
       let rawCtx : IRContext OpCode := ctx
       let region := moduleOp.getRegion! rawCtx 0
-      let funcOps := match (region.get! rawCtx).firstBlock with
-        | some b => findFuncs rawCtx (b.get! rawCtx).firstOp
+      let topOps := match (region.get! rawCtx).firstBlock with
+        | some b => Veir.MIRPrinter.collectOps rawCtx (b.get! rawCtx).firstOp
         | none => #[]
+      let funcOps := topOps.filter (·.isFunctionLike rawCtx)
+      let globalOps := topOps.filter (·.getOpType! rawCtx == .llvm .mlir__global)
       if !funcOps.any (Veir.MIRPrinter.hasBody rawCtx) then
         IO.eprintln "Error: no function with a body found in module"
         IO.Process.exit 1
-      Veir.MIRPrinter.printMIR rawCtx funcOps
+      Veir.MIRPrinter.printMIR rawCtx funcOps globalOps
     | .error errMsg =>
       IO.eprintln errMsg
       IO.Process.exit 1
