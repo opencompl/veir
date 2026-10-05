@@ -9,10 +9,7 @@ public section
 /-!
 # Monotonicity of the LLVM interpreter
 
-An LLVM opcode is monotone in its operands when refining its operands refines its result. That
-holds for the opcodes that only read their operands, and fails for `freeze`, which turns poison
-into zero, and for `store`, which writes a poison byte where a refined operand writes a concrete
-one and so leaves a different memory.
+An LLVM opcode is monotone in its operands when refining its operands refines its result.
 -/
 
 namespace Veir
