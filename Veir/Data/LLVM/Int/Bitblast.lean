@@ -741,6 +741,17 @@ theorem mul_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
     mul x₁ x₂ nsw nuw ⊒ mul y₁ y₂ nsw nuw := by
   grind
 
+/-- A division whose source does not divide by zero keeps that property when refined. -/
+theorem isUnsignedDivisionUB_eq_false_mono {w : Nat} {y y' : Int w}
+    (h : y ⊒ y') (hUB : isUnsignedDivisionUB y = false) : isUnsignedDivisionUB y' = false := by
+  cases y <;> cases y' <;> simp_all [isUnsignedDivisionUB, isRefinedBy]
+
+/-- The same for signed division, whose undefined behaviour also depends on the dividend. -/
+theorem isSignedDivisionUB_eq_false_mono {w : Nat} {x x' y y' : Int w}
+    (hx : x ⊒ x') (hy : y ⊒ y') (hUB : isSignedDivisionUB x y = false) :
+    isSignedDivisionUB x' y' = false := by
+  cases x <;> cases x' <;> cases y <;> cases y' <;> simp_all [isSignedDivisionUB, isRefinedBy]
+
 theorem udiv_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
     (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) (exact : Bool) :
     udiv x₁ x₂ exact ⊒ udiv y₁ y₂ exact := by
