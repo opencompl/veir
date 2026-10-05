@@ -361,116 +361,144 @@ def ctpop32 : Puddle.CompiledPattern OpCode := ctpop32_pattern.compile
 def ctpop64 : Puddle.CompiledPattern OpCode := ctpop64_pattern.compile
 
 /--
-  `llvm.intr.bswap` -> `riscv.rev8`.
+  `llvm.intr.bswap` -> `riscv.rev8`. `rev8` reverses all 8 bytes; for `i32` the wanted bytes end
+  up in the high 32 bits, so shift them down with `srli 32`.
 -/
-def bswap_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some operand := matchBswap op ctx.raw | return (ctx, none)
-  let .integerType opType := (operand.getType! ctx.raw).val | return (ctx, none)
-  if opType.bitwidth ≠ 64 ∧ opType.bitwidth ≠ 32 then return (ctx, none)
-  let (ctx, castOp) ← castToRegLocal ctx operand
-  /- rev8 reverses all 8 bytes; for i32 the wanted bytes end up in the high 32 bits,
-     so shift them down with srli 32. -/
-  let (ctx, rev8Op) ← WfRewriter.createOp! ctx Riscv.rev8 #[RegisterType.mk] #[castOp.getResult 0]
-      #[] #[] () none
-  if opType.bitwidth = 32 then
-    let sh32 := RISCVImmediateProperties.mk 32#64
-    let (ctx, srliOp) ← WfRewriter.createOp! ctx Riscv.srli #[RegisterType.mk] #[rev8Op.getResult 0]
-        #[] #[] sh32 none
-    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (srliOp.getResult 0)
-    some (ctx, some (#[castOp, rev8Op, srliOp, castBackOp], #[castBackOp.getResult 0]))
-  else
-    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (rev8Op.getResult 0)
-    some (ctx, some (#[castOp, rev8Op, castBackOp], #[castBackOp.getResult 0]))
+def lowerBswap (bw : Nat) : Veir.Puddle.Pattern OpCode :=
+  Veir.Puddle.Pattern.Builder
+    (do
+      let opType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == bw)
+      let resType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
+      let x ← Veir.Puddle.MatchProg.value opType
+      let _ ← Veir.Puddle.MatchProg.root (.llvm .intr__bswap) #[x] #[resType]
+      return (resType, x))
+    (fun (resType, x) => do
+      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
+      let castProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[x] #[regType] castProps
+      let rev8Props ← Veir.Puddle.CreateProg.property (.riscv .rev8) ()
+      let rev8Op ← Veir.Puddle.CreateProg.operation (.riscv .rev8)
+          #[castOp.res[0]!] #[regType] rev8Props
+      let resOp ← if bw = 32 then do
+          let srliProps ← Veir.Puddle.CreateProg.property (.riscv .srli)
+              (RISCVImmediateProperties.mk 32#64)
+          Veir.Puddle.CreateProg.operation (.riscv .srli) #[rev8Op.res[0]!] #[regType] srliProps
+        else
+          pure rev8Op
+      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[resOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
-/--
-  `llvm.intr.bswap` -> `riscv.rev8`.
--/
-def bswap (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite bswap_local rewriter op opInBounds
+/-- `llvm.intr.bswap` (`i64`) -> `riscv.rev8`. -/
+def bswap64 : Puddle.CompiledPattern OpCode := (lowerBswap 64).compile
+
+/-- `llvm.intr.bswap` (`i32`) -> `riscv.rev8` + `riscv.srli 32`. -/
+def bswap32 : Puddle.CompiledPattern OpCode := (lowerBswap 32).compile
 
 /--
   One SWAR bit-reversal stage:
   `((x & mask) << shamt) | ((x >> shamt) & mask)`.
 -/
-def bitreverseStageLocal (mask shamt : Int) (ctx : WfIRContext OpCode) (input : ValuePtr) :
-    Option (WfIRContext OpCode × Array OperationPtr × ValuePtr) := do
-  let maskAttr := RISCVImmediateProperties.mk (BitVec.ofInt 64 mask)
-  let (ctx, maskOp) ← WfRewriter.createOp! ctx Riscv.li #[RegisterType.mk] #[]
-      #[] #[] maskAttr none
-  let (ctx, lowOp) ← WfRewriter.createOp! ctx Riscv.and #[RegisterType.mk]
-      #[maskOp.getResult 0, input] #[] #[] () none
-  let shamtAttr := RISCVImmediateProperties.mk (BitVec.ofInt 64 shamt)
-  let (ctx, lowShiftOp) ← WfRewriter.createOp! ctx Riscv.slli #[RegisterType.mk]
-      #[lowOp.getResult 0] #[] #[] shamtAttr none
-  let (ctx, highShiftOp) ← WfRewriter.createOp! ctx Riscv.srli #[RegisterType.mk]
-      #[input] #[] #[] shamtAttr none
-  let (ctx, highOp) ← WfRewriter.createOp! ctx Riscv.and #[RegisterType.mk]
-      #[maskOp.getResult 0, highShiftOp.getResult 0] #[] #[] () none
-  let (ctx, orOp) ← WfRewriter.createOp! ctx Riscv.or #[RegisterType.mk]
-      #[lowShiftOp.getResult 0, highOp.getResult 0] #[] #[] () none
-  return (ctx, #[maskOp, lowOp, lowShiftOp, highShiftOp, highOp, orOp], orOp.getResult 0)
+def bitreverseStage (regType : Veir.Puddle.Handle OpCode .type) (mask shamt : Int)
+    (input : Veir.Puddle.Handle OpCode .value) :
+    Veir.Puddle.CreateProg.Builder (Veir.Puddle.Handle OpCode .value) := do
+  let maskProps ← Veir.Puddle.CreateProg.property (.riscv .li)
+      (RISCVImmediateProperties.mk (BitVec.ofInt 64 mask))
+  let maskOp ← Veir.Puddle.CreateProg.operation (.riscv .li) #[] #[regType] maskProps
+  let lowProps ← Veir.Puddle.CreateProg.property (.riscv .and) ()
+  let lowOp ← Veir.Puddle.CreateProg.operation (.riscv .and)
+      #[maskOp.res[0]!, input] #[regType] lowProps
+  let lowShiftProps ← Veir.Puddle.CreateProg.property (.riscv .slli)
+      (RISCVImmediateProperties.mk (BitVec.ofInt 64 shamt))
+  let lowShiftOp ← Veir.Puddle.CreateProg.operation (.riscv .slli)
+      #[lowOp.res[0]!] #[regType] lowShiftProps
+  let highShiftProps ← Veir.Puddle.CreateProg.property (.riscv .srli)
+      (RISCVImmediateProperties.mk (BitVec.ofInt 64 shamt))
+  let highShiftOp ← Veir.Puddle.CreateProg.operation (.riscv .srli)
+      #[input] #[regType] highShiftProps
+  let highProps ← Veir.Puddle.CreateProg.property (.riscv .and) ()
+  let highOp ← Veir.Puddle.CreateProg.operation (.riscv .and)
+      #[maskOp.res[0]!, highShiftOp.res[0]!] #[regType] highProps
+  let orProps ← Veir.Puddle.CreateProg.property (.riscv .or) ()
+  let orOp ← Veir.Puddle.CreateProg.operation (.riscv .or)
+      #[lowShiftOp.res[0]!, highOp.res[0]!] #[regType] orProps
+  return orOp.res[0]!
 
 /--
   `llvm.intr.bitreverse` -> mask/shift/or stages followed by `riscv.rev8`.
 -/
-def bitreverse_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some operand := matchBitreverse op ctx.raw | return (ctx, none)
-  let .integerType opType := (operand.getType! ctx.raw).val | return (ctx, none)
-  if opType.bitwidth ≠ 64 ∧ opType.bitwidth ≠ 32 then return (ctx, none)
-  let (ctx, castOp) ← castToRegLocal ctx operand
-  if opType.bitwidth = 32 then
-    /- Use 32-bit masks so SWAR stages stay within the low 32 bits.
-       rev8 brings bits to high 32; srli 32 moves them back down. -/
-    let (ctx, ops1, x1) ← bitreverseStageLocal 0x55555555 1 ctx (castOp.getResult 0)
-    let (ctx, ops2, x2) ← bitreverseStageLocal 0x33333333 2 ctx x1
-    let (ctx, ops3, x3) ← bitreverseStageLocal 0x0f0f0f0f 4 ctx x2
-    let (ctx, rev8Op) ← WfRewriter.createOp! ctx Riscv.rev8 #[RegisterType.mk] #[x3]
-        #[] #[] () none
-    let sh32 := RISCVImmediateProperties.mk 32#64
-    let (ctx, srliOp) ← WfRewriter.createOp! ctx Riscv.srli #[RegisterType.mk] #[rev8Op.getResult 0]
-        #[] #[] sh32 none
-    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (srliOp.getResult 0)
-    some (ctx, some (#[castOp] ++ ops1 ++ ops2 ++ ops3 ++ #[rev8Op, srliOp, castBackOp], #[castBackOp.getResult 0]))
-  else
-    let (ctx, ops1, x1) ← bitreverseStageLocal 0x5555555555555555 1 ctx (castOp.getResult 0)
-    let (ctx, ops2, x2) ← bitreverseStageLocal 0x3333333333333333 2 ctx x1
-    let (ctx, ops3, x3) ← bitreverseStageLocal 0x0f0f0f0f0f0f0f0f 4 ctx x2
-    let (ctx, retOp) ← WfRewriter.createOp! ctx Riscv.rev8 #[RegisterType.mk] #[x3]
-        #[] #[] () none
-    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (retOp.getResult 0)
-    some (ctx, some (#[castOp] ++ ops1 ++ ops2 ++ ops3 ++ #[retOp, castBackOp], #[castBackOp.getResult 0]))
+def lowerBitreverse (bw : Nat) : Veir.Puddle.Pattern OpCode :=
+  Veir.Puddle.Pattern.Builder
+    (do
+      let opType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == bw)
+      let resType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
+      let x ← Veir.Puddle.MatchProg.value opType
+      let _ ← Veir.Puddle.MatchProg.root (.llvm .intr__bitreverse) #[x] #[resType]
+      return (resType, x))
+    (fun (resType, x) => do
+      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
+      let castProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[x] #[regType] castProps
+      let resOp ← if bw = 32 then do
+          /- Use 32-bit masks so SWAR stages stay within the low 32 bits.
+             rev8 brings bits to high 32; srli 32 moves them back down. -/
+          let x1 ← bitreverseStage regType 0x55555555 1 castOp.res[0]!
+          let x2 ← bitreverseStage regType 0x33333333 2 x1
+          let x3 ← bitreverseStage regType 0x0f0f0f0f 4 x2
+          let rev8Props ← Veir.Puddle.CreateProg.property (.riscv .rev8) ()
+          let rev8Op ← Veir.Puddle.CreateProg.operation (.riscv .rev8) #[x3] #[regType] rev8Props
+          let srliProps ← Veir.Puddle.CreateProg.property (.riscv .srli)
+              (RISCVImmediateProperties.mk 32#64)
+          Veir.Puddle.CreateProg.operation (.riscv .srli) #[rev8Op.res[0]!] #[regType] srliProps
+        else do
+          let x1 ← bitreverseStage regType 0x5555555555555555 1 castOp.res[0]!
+          let x2 ← bitreverseStage regType 0x3333333333333333 2 x1
+          let x3 ← bitreverseStage regType 0x0f0f0f0f0f0f0f0f 4 x2
+          let rev8Props ← Veir.Puddle.CreateProg.property (.riscv .rev8) ()
+          Veir.Puddle.CreateProg.operation (.riscv .rev8) #[x3] #[regType] rev8Props
+      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[resOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
-/--
-  `llvm.intr.bitreverse` -> mask/shift/or stages followed by `riscv.rev8`.
--/
-def bitreverse (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite bitreverse_local rewriter op opInBounds
+/-- `llvm.intr.bitreverse` (`i64`) -> mask/shift/or stages followed by `riscv.rev8`. -/
+def bitreverse64 : Puddle.CompiledPattern OpCode := (lowerBitreverse 64).compile
+
+/-- `llvm.intr.bitreverse` (`i32`) -> mask/shift/or stages, `riscv.rev8` and `riscv.srli 32`. -/
+def bitreverse32 : Puddle.CompiledPattern OpCode := (lowerBitreverse 32).compile
 
 /-- llvm.constant -> riscv.li. Any width up to 64 fits in one register: the constant is
   sign-extended to the 64-bit immediate (see `constant_refinement_le64`). -/
-def constant_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some const := matchConstantIntOp op ctx.raw
-      | return (ctx, none)
-  let type := ((op.getResult 0).get! ctx.raw).type
-  let .integerType type' := type.val | return (ctx, none)
-  if type'.bitwidth > 64 then return (ctx, none)
-  let imm := RISCVImmediateProperties.mk
-      ((BitVec.ofInt type'.bitwidth const.value).signExtend 64)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx Riscv.li #[RegisterType.mk] #[]
-      #[] #[] imm none
-  let (ctx, castOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[type]
-      #[newOp.getResult 0] #[] #[] () none
-  some (ctx, some (#[newOp, castOp], #[castOp.getResult 0]))
+def constant_pattern : Veir.Puddle.Pattern OpCode :=
+  Veir.Puddle.Pattern.Builder
+    (do
+      let type ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth ≤ 64)
+      let root ← Veir.Puddle.MatchProg.root (.llvm .mlir__constant) #[] #[type]
+          (fun props => props.value matches .integer _)
+      return (type, root.properties))
+    (fun (type, constProps) => do
+      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
+      let liProps ← Veir.Puddle.CreateProg.applyNative
+          (Outputs := Veir.Puddle.Handle OpCode (.prop (.riscv .li))) (type, constProps)
+          fun (type, constProps) => do
+            let .integerType type' := type.val | none
+            let .integer const := constProps.value | none
+            return RISCVImmediateProperties.mk
+                ((BitVec.ofInt type'.bitwidth const.value).signExtend 64)
+      let liOp ← Veir.Puddle.CreateProg.operation (.riscv .li) #[] #[regType] liProps
+      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[liOp.res[0]!] #[type] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
 /-- llvm.constant -> riscv.li -/
-def constant (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite constant_local rewriter op opInBounds
+def constant : Puddle.CompiledPattern OpCode := constant_pattern.compile
 
 /-- llvm.add -> riscv.add -/
 def add64 : Puddle.CompiledPattern OpCode := add64_pattern.compile
@@ -481,48 +509,64 @@ def add32 : Puddle.CompiledPattern OpCode := add32_pattern.compile
 /-- llvm.and -> riscv.and (bitwise, so one instruction for every legal width) -/
 def and : Puddle.CompiledPattern OpCode := and_pattern.compile
 
-/-- llvm.ashr -> riscv.sra -/
-def ashr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := matchAshr op ctx.raw | return (ctx, none)
-  /- support `i64` and `i32` -/
-  let .integerType ltype := (lhs.getType! ctx.raw).val | return (ctx, none)
-  if ltype.bitwidth ≠ 64 ∧ ltype.bitwidth ≠ 32 ∧ ltype.bitwidth ≠ 8 then return (ctx, none)
-  let .integerType rtype := (rhs.getType! ctx.raw).val | return (ctx, none)
-  if rtype.bitwidth ≠ 64 ∧ rtype.bitwidth ≠ 32 ∧ rtype.bitwidth ≠ 8 then return (ctx, none)
-  let type := ((op.getResult 0).get! ctx.raw).type
-  let .integerType type' := type.val | return (ctx, none)
-  if type'.bitwidth ≠ 64 ∧ type'.bitwidth ≠ 32 ∧ type'.bitwidth ≠ 8 then return (ctx, none)
-  /- First, cast the operands to registers -/
-  let (ctx, lcastOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[RegisterType.mk] #[lhs]
-      #[] #[] () none
-  let (ctx, rcastOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[RegisterType.mk] #[rhs]
-      #[] #[] () none
-  if type'.bitwidth = 8 then
-    let (ctx, lsOp) ← WfRewriter.createOp! ctx Riscv.sextb #[RegisterType.mk] #[lcastOp.getResult 0]
-          #[] #[] () none
-    let (ctx, sraOp) ← WfRewriter.createOp! ctx Riscv.sra #[RegisterType.mk] #[lsOp.getResult 0, rcastOp.getResult 0]
-          #[] #[] () none
-    let (ctx, castSraOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[type] #[sraOp.getResult 0]
-      #[] #[] () none
-    return (ctx, some (#[lcastOp, rcastOp, lsOp, sraOp, castSraOp], #[castSraOp.getResult 0]))
-  /- sraw for i32 (sign-extends result), sra for i64 -/
-  let (ctx, sraOp) ←
-    if type'.bitwidth = 32 then
-      WfRewriter.createOp! ctx Riscv.sraw #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
-          #[] #[] () none
-    else
-      WfRewriter.createOp! ctx Riscv.sra #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
-          #[] #[] () none
-  /- Cast back result for type consistency -/
-  let (ctx, castSraOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[type] #[sraOp.getResult 0]
-      #[] #[] () none
-  return (ctx, some (#[lcastOp, rcastOp, sraOp, castSraOp], #[castSraOp.getResult 0]))
+/--
+  `llvm.ashr` with an `i64`, `i32`, or `i8` result of width `bw` -> `riscv.sra` (`riscv.sraw` for
+  `i32`, which sign-extends the result). An `i8` lhs is sign-extended with `riscv.sextb` first, so
+  the arithmetic shift sees its sign bit.
+-/
+def lowerAshr (bw : Nat) : Veir.Puddle.Pattern OpCode :=
+  Veir.Puddle.Pattern.Builder
+    (do
+      /- support `i64`, `i32`, and `i8` -/
+      let lhsType ← Veir.Puddle.MatchProg.type (Attr := IntegerType)
+          (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32 ∨ t.bitwidth = 8)
+      let rhsType ← Veir.Puddle.MatchProg.type (Attr := IntegerType)
+          (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32 ∨ t.bitwidth = 8)
+      let resType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == bw)
+      let lhs ← Veir.Puddle.MatchProg.value lhsType
+      let rhs ← Veir.Puddle.MatchProg.value rhsType
+      let _ ← Veir.Puddle.MatchProg.root (.llvm .ashr) #[lhs, rhs] #[resType]
+      return (resType, lhs, rhs))
+    (fun (resType, lhs, rhs) => do
+      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
+      /- First, cast the operands to registers -/
+      let lcastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lcastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[lhs] #[regType] lcastProps
+      let rcastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let rcastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[rhs] #[regType] rcastProps
+      let sraOp ← if bw = 8 then do
+          let sextbProps ← Veir.Puddle.CreateProg.property (.riscv .sextb) ()
+          let sextbOp ← Veir.Puddle.CreateProg.operation (.riscv .sextb)
+              #[lcastOp.res[0]!] #[regType] sextbProps
+          let sraProps ← Veir.Puddle.CreateProg.property (.riscv .sra) ()
+          Veir.Puddle.CreateProg.operation (.riscv .sra)
+              #[sextbOp.res[0]!, rcastOp.res[0]!] #[regType] sraProps
+        else if bw = 32 then do
+          /- sraw for i32 (sign-extends result) -/
+          let srawProps ← Veir.Puddle.CreateProg.property (.riscv .sraw) ()
+          Veir.Puddle.CreateProg.operation (.riscv .sraw)
+              #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType] srawProps
+        else do
+          let sraProps ← Veir.Puddle.CreateProg.property (.riscv .sra) ()
+          Veir.Puddle.CreateProg.operation (.riscv .sra)
+              #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType] sraProps
+      /- Cast back result for type consistency -/
+      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[sraOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
 /-- llvm.ashr -> riscv.sra -/
-def ashr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite ashr_local rewriter op opInBounds
+def ashr64 : Puddle.CompiledPattern OpCode := (lowerAshr 64).compile
+
+/-- llvm.ashr -> riscv.sraw (sign-extends the result) -/
+def ashr32 : Puddle.CompiledPattern OpCode := (lowerAshr 32).compile
+
+/-- llvm.ashr -> riscv.sextb + riscv.sra -/
+def ashr8 : Puddle.CompiledPattern OpCode := (lowerAshr 8).compile
 
 /-! ### `llvm.icmp` lowering
 
@@ -1850,8 +1894,8 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   | some ctx => pure ctx
   /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern #[selectCzeroeqz, selectCzeronez, selectGeneral,
-    ctlz32.run, ctlz64.run, cttz32.run, cttz64.run, ctpop32.run, ctpop64.run, bswap, bitreverse,
-    constant, addressof, add32.run, add64.run, and.run, ashr, icmp, or.run, xor32.run, xor64.run, mul32.run, mul64.run,
+    ctlz32.run, ctlz64.run, cttz32.run, cttz64.run, ctpop32.run, ctpop64.run, bswap64.run, bswap32.run, bitreverse64.run, bitreverse32.run,
+    constant.run, addressof, add32.run, add64.run, and.run, ashr64.run, ashr32.run, ashr8.run, icmp, or.run, xor32.run, xor64.run, mul32.run, mul64.run,
     sdiv32.run, sdiv64.run, udiv32.run, udiv64.run, srem32.run, srem64.run, urem32.run, urem64.run,
     sext32.run, sext16.run, sext8.run, zext32.run, zext16.run, zext8.run, trunc, shl64.run, shl32.run, lshr64.run, lshr32.run,
     sub64.run, sub32.run, bitcast, load, getelementptr, store,
