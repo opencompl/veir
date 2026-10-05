@@ -58,35 +58,12 @@ axiom OperationPtr.dominatesIp_before :
 grind_pattern OperationPtr.dominatesIp_before => op₁.dominatesIp (.before op₂) ctx
 
 /--
-Proper dominance between operations is transitive when the final operation is reachable: its
-chain of enclosing nodes ends at a root, and every enclosing block of an SSACFG region is
-reachable from the region entry.
--/
-axiom OperationPtr.ProperlyDominates.trans_of_reachable {op₃ : OperationPtr}
-    (rooted : ∃ root, IRNode.RootedAt op₃ root ctx)
-    (reachable : ∀ block region, (IRNode.block block).Ancestor op₃ ctx →
-      (block.get! ctx.raw).parent = some region → region.hasSSADominance ctx = true →
-      block.LocallyReachable region ctx) :
-    op₁.ProperlyDominates op₂ ctx true →
-    op₂.ProperlyDominates op₃ ctx true →
-    op₁.ProperlyDominates op₃ ctx true
-
-/--
 A value dominating the program point before an operation `op₁` also dominates the program
 point before any operation `op₂` properly dominated by `op₁`.
 -/
 axiom ValuePtr.dominatesIp_before_of_properlyDominates {value : ValuePtr} :
   value.dominatesIp (InsertPoint.before op₁) ctx → op₁.ProperlyDominates op₂ ctx true →
   value.dominatesIp (InsertPoint.before op₂) ctx
-
-/--
-If an operation `op₁` dominates an operation `op₂`, it dominates the operation after `op₂`,
-if it exists.
--/
-axiom OperationPtr.dominates_next :
-  op₁.Dominates op₂ ctx →
-  (op₂.get! ctx.raw).next = some op₂Next →
-  op₁.Dominates op₂Next ctx
 
 /-!
 ## Programs Satisfying Dominance Invariants
@@ -111,18 +88,6 @@ axiom IRContext.DomAll.value_not_in_results_of_forall_in_operands_of_dominates (
     op₁.Dominates op₂ ctx →
     ∀ (value : ValuePtr), value ∈ op₁.getOperands! ctx.raw →
     value ∉ op₂.getResults! ctx.raw
-
-/--
-If a value is being defined by an operation `op₁` and being used as an operand of an
-operation `op₂`, then `op₁` properly dominates `op₂`.
--/
-axiom OperationPtr.properlyDominates_of_definingOp?_of_mem_getOperands! (ctxDom : ctx.DomAll) :
-  value.definingOp? = some op₁ →
-  value ∈ op₂.getOperands! ctx.raw →
-  op₁.ProperlyDominates op₂ ctx true
-
-grind_pattern OperationPtr.properlyDominates_of_definingOp?_of_mem_getOperands! =>
-  ctx.DomAll, value.definingOp?, some op₂, op₁.getOperands! ctx.raw
 
 /-- In a well-dominated IR context, any value that is an operand of an operation `op` is
 dominating the program point before `op`. -/
