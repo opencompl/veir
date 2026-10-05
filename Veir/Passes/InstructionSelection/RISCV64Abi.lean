@@ -107,7 +107,7 @@ private def abiAttrEntries (ctx : IRContext OpCode) (op : OperationPtr) :
 
 private def supportsFunctionAbi (ctx : IRContext OpCode) (op : OperationPtr) : Bool :=
   let entries := abiAttrEntries ctx op
-  match FunctionOp.cast? op ctx with
+  match FunctionOp.of? op ctx with
   | none => false
   | some funcOp =>
     !entries.any isUnsupportedAbiAttr &&
