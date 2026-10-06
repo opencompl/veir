@@ -39,4 +39,15 @@
         // CHECK-NEXT: "riscv.sh"({{.*}}, {{.*}}) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
+
+    // !llvm.ptr store lowers to `riscv.sd`.
+    "func.func"()  <{function_type = (!llvm.ptr) -> (), sym_name = "quux"}> ({
+    ^bb0(%a: !llvm.ptr, %b : !llvm.ptr):
+        "llvm.store"(%b, %a) : (!llvm.ptr, !llvm.ptr) -> ()
+        // CHECK:      {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!llvm.ptr) -> !riscv.reg
+        // CHECK-NEXT: {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!llvm.ptr) -> !riscv.reg
+        // CHECK-NEXT: "riscv.sd"({{.*}}, {{.*}}) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
+        "func.return"() : () -> ()
+    }) : () -> ()
+
 }) : () -> ()

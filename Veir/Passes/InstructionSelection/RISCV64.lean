@@ -3,6 +3,7 @@ module
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
 import Veir.DataLayout.RISCV64
+import Veir.IR.SymbolRef
 import Veir.Interfaces.ConstantLikeInterfaces
 import Veir.Interfaces.FunctionInterfaces
 import Veir.Passes.Matching.LLVM.Basic
@@ -899,6 +900,41 @@ def alloca (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite alloca_local rewriter op opInBounds
 
+/-- Resolve a global in the nearest enclosing module, without entering nested modules. -/
+private partial def lookupGlobal? (ctx : IRContext OpCode) (op : OperationPtr)
+    (name : ByteArray) : Option LLVMGlobalProperties := do
+  let parent ← op.getParentOp! ctx
+  if parent.getOpType! ctx != .builtin .module then
+    return ← lookupGlobal? ctx parent name
+  let body := parent.getRegion! ctx 0
+  let block ← (body.get! ctx).firstBlock
+  let mut candidate := (block.get! ctx).firstOp
+  while let some target := candidate do
+    if target.getOpType! ctx == .llvm .mlir__global then
+      let props := target.getProperties! ctx Llvm.mlir__global
+      if props.sym_name.value == name then return props
+    candidate := (target.get! ctx).next
+  none
+
+/-- `llvm.mlir.addressof` -> `riscv.la`, except for TLS and external weak globals. -/
+def addressof_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (_, properties) := matchOp op ctx.raw Llvm.mlir__addressof 0 | return (ctx, none)
+  let some name := properties.global_name.getName? | return (ctx, none)
+  if let some global := lookupGlobal? ctx.raw op name then
+    -- An undefined weak symbol resolves to zero, which a PC-relative `la`
+    -- cannot always reach. Leave it until GOT-based address lowering is supported.
+    if global.isThreadLocal || global.linkage.value == "extern_weak" then return (ctx, none)
+  let (ctx, laOp) ← WfRewriter.createOp! ctx Riscv.la #[RegisterType.mk]
+      #[] #[] #[] (RISCVSymbolProperties.mk properties.global_name) none
+  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (laOp.getResult 0)
+  some (ctx, some (#[laOp, castBackOp], #[castBackOp.getResult 0]))
+
+/-- `llvm.mlir.addressof` -> `riscv.la` and a cast back to the pointer type. -/
+def addressof (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite addressof_local rewriter op opInBounds
+
 /--
   Split a load/store address into a base register operand and a signed 12-bit
   immediate offset, mirroring the `isBaseWithConstantOffset` case of LLVM's
@@ -919,80 +955,83 @@ def selectAddrRegImm (ptr : ValuePtr) (ctx : IRContext OpCode) : ValuePtr × Int
     return (base, offset)
   folded.getD (ptr, 0)
 
-/-- llvm.load -> riscv.ld (i64) / riscv.lw (i32) / riscv.lh (i16) / riscv.lb (i8) -/
+/-- The width in bytes of a load or store of a value of `type`, for the integers
+  and pointers whose data-layout size fits one `l*`/`s*` instruction. An integer
+  must fill its bytes exactly, since `getTypeSize` rounds an odd width up. -/
+def memAccessWidth? (type : TypeAttr) : Option Nat := do
+  match type.val with
+  | .integerType t => guard (t.bitwidth % 8 = 0)
+  | .llvmPointerType _ => pure ()
+  | _ => none
+  let width ← DataLayout.riscv64.getTypeSize type.val
+  guard (width ∈ [1, 2, 4, 8])
+  return width
+
+/-- `riscv.lb` / `riscv.lh` / `riscv.lw` / `riscv.ld`, for a `width`-byte load. -/
+def createLoadLocal (ctx : WfIRContext OpCode) (width : Nat) (addr : ValuePtr)
+    (props : RISCVMemProperties) : Option (WfIRContext OpCode × OperationPtr) :=
+  match width with
+  | 1 => WfRewriter.createOp! ctx Riscv.lb #[RegisterType.mk] #[addr] #[] #[] props none
+  | 2 => WfRewriter.createOp! ctx Riscv.lh #[RegisterType.mk] #[addr] #[] #[] props none
+  | 4 => WfRewriter.createOp! ctx Riscv.lw #[RegisterType.mk] #[addr] #[] #[] props none
+  | _ => WfRewriter.createOp! ctx Riscv.ld #[RegisterType.mk] #[addr] #[] #[] props none
+
+/-- `riscv.sb` / `riscv.sh` / `riscv.sw` / `riscv.sd`, for a `width`-byte store. -/
+def createStoreLocal (ctx : WfIRContext OpCode) (width : Nat) (val addr : ValuePtr)
+    (props : RISCVMemProperties) : Option (WfIRContext OpCode × OperationPtr) :=
+  match width with
+  | 1 => WfRewriter.createOp! ctx Riscv.sb #[] #[val, addr] #[] #[] props none
+  | 2 => WfRewriter.createOp! ctx Riscv.sh #[] #[val, addr] #[] #[] props none
+  | 4 => WfRewriter.createOp! ctx Riscv.sw #[] #[val, addr] #[] #[] props none
+  | _ => WfRewriter.createOp! ctx Riscv.sd #[] #[val, addr] #[] #[] props none
+
+/-- llvm.load -> riscv.ld (i64, ptr) / riscv.lw (i32) / riscv.lh (i16) / riscv.lb (i8) -/
 def load_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (ptr, llvmProps) := matchLoad op ctx.raw | return (ctx, none)
-  /- support `i64`, `i32`, `i16` and `i8` (the loaded value type) -/
+  /- support `i64`, `i32`, `i16`, `i8` and `!llvm.ptr` (the loaded value type) -/
   let type := ((op.getResult 0).get! ctx.raw).type
-  let .integerType type' := type.val | return (ctx, none)
-  if type'.bitwidth ∉ [8, 16, 32, 64] then return (ctx, none)
+  let some width := memAccessWidth? type | return (ctx, none)
   /- Split the address into a base register and a signed 12-bit offset. -/
   let (base, offset) := selectAddrRegImm ptr ctx.raw
   /- cast base (!llvm.ptr) -> register -/
   let (ctx, pcastOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[RegisterType.mk] #[base]
       #[] #[] () none
-  /- 64-bit `riscv.ld`, or its `lw` (i32) / `lh` (i16) / `lb` (i8) variants. Volatility carries
-     over from the `llvm.load`: the riscv op encodes the same, but the flag keeps
-     later passes from deleting or duplicating the access. -/
+  /- Volatility carries over from the `llvm.load`: the riscv op encodes the same, but the
+     flag keeps later passes from deleting or duplicating the access. -/
   let immProps := RISCVMemProperties.mk (BitVec.ofInt 64 offset) llvmProps.volatile_
-  let (ctx, ldOp) ←
-    if type'.bitwidth = 8 then
-      WfRewriter.createOp! ctx Riscv.lb #[RegisterType.mk] #[pcastOp.getResult 0]
-        #[] #[] immProps none
-    else if type'.bitwidth = 16 then
-      WfRewriter.createOp! ctx Riscv.lh #[RegisterType.mk] #[pcastOp.getResult 0]
-        #[] #[] immProps none
-    else if type'.bitwidth = 32 then
-      WfRewriter.createOp! ctx Riscv.lw #[RegisterType.mk] #[pcastOp.getResult 0]
-        #[] #[] immProps none
-    else
-      WfRewriter.createOp! ctx Riscv.ld #[RegisterType.mk] #[pcastOp.getResult 0]
-        #[] #[] immProps none
+  let (ctx, ldOp) ← createLoadLocal ctx width (pcastOp.getResult 0) immProps
   let (ctx, castOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[type] #[ldOp.getResult 0]
       #[] #[] () none
   some (ctx, some (#[pcastOp, ldOp, castOp], #[castOp.getResult 0]))
 
-/-- llvm.load -> riscv.ld (i64) / riscv.lw (i32) / riscv.lh (i16) / riscv.lb (i8) -/
+/-- llvm.load -> riscv.ld (i64, ptr) / riscv.lw (i32) / riscv.lh (i16) / riscv.lb (i8) -/
 def load (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite load_local rewriter op opInBounds
 
-/-- llvm.store -> riscv.sd (i64) / riscv.sw (i32) / riscv.sh (i16) / riscv.sb (i8) -/
+/-- llvm.store -> riscv.sd (i64, ptr) / riscv.sw (i32) / riscv.sh (i16) / riscv.sb (i8) -/
 def store_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (arg, ptr, llvmProps) := matchStore op ctx.raw | return (ctx, none)
-  /- support `i64`, `i32`, `i16` and `i8` (the stored value type) -/
+  /- support `i64`, `i32`, `i16`, `i8` and `!llvm.ptr` (the stored value type) -/
   let type := arg.getType! ctx.raw
-  let .integerType type' := type.val | return (ctx, none)
-  if type'.bitwidth ∉ [8, 16, 32, 64] then return (ctx, none)
+  let some width := memAccessWidth? type | return (ctx, none)
   /- Split the address into a base register and a signed 12-bit offset. -/
   let (base, offset) := selectAddrRegImm ptr ctx.raw
   /- cast base (!llvm.ptr) -> register -/
   let (ctx, pcastOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[RegisterType.mk] #[base]
       #[] #[] () none
-  /- cast value (i64/i32/i16/i8) -> register -/
+  /- cast value (i64/i32/i16/i8/ptr) -> register -/
   let (ctx, valcastOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[RegisterType.mk] #[arg]
       #[] #[] () none
-  /- 64-bit `riscv.sd`, or its `sw` (i32, low 4 bytes) / `sh` (i16, low 2 bytes) / `sb` (i8, low byte): operands are (val, addr), no results.
-     Volatility carries over from the `llvm.store`, as in `load_local`. -/
+  /- The store writes the low `width` bytes of the value register. Volatility carries over
+     from the `llvm.store`, as in `load_local`. -/
   let immProps := RISCVMemProperties.mk (BitVec.ofInt 64 offset) llvmProps.volatile_
-  let (ctx, sdOp) ←
-    if type'.bitwidth = 8 then
-      WfRewriter.createOp! ctx Riscv.sb #[] #[valcastOp.getResult 0, pcastOp.getResult 0]
-        #[] #[] immProps none
-    else if type'.bitwidth = 16 then
-      WfRewriter.createOp! ctx Riscv.sh #[] #[valcastOp.getResult 0, pcastOp.getResult 0]
-        #[] #[] immProps none
-    else if type'.bitwidth = 32 then
-      WfRewriter.createOp! ctx Riscv.sw #[] #[valcastOp.getResult 0, pcastOp.getResult 0]
-        #[] #[] immProps none
-    else
-      WfRewriter.createOp! ctx Riscv.sd #[] #[valcastOp.getResult 0, pcastOp.getResult 0]
-        #[] #[] immProps none
+  let (ctx, sdOp) ← createStoreLocal ctx width (valcastOp.getResult 0) (pcastOp.getResult 0) immProps
   some (ctx, some (#[pcastOp, valcastOp, sdOp], #[]))
 
-/-- llvm.store -> riscv.sd (i64) / riscv.sw (i32) / riscv.sh (i16) / riscv.sb (i8) -/
+/-- llvm.store -> riscv.sd (i64, ptr) / riscv.sw (i32) / riscv.sh (i16) / riscv.sb (i8) -/
 def store (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite store_local rewriter op opInBounds
@@ -1656,6 +1695,23 @@ def poisonConst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let (ctx, castBackOp) ← replaceWithRegLocal ctx op (liOp.getResult 0)
   some (ctx, some (#[liOp, castBackOp], #[castBackOp.getResult 0]))
 
+/-- llvm.mlir.zero of an integer up to 64 bits or a pointer -> riscv.li 0 -/
+def zeroConst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some _ := matchZero op ctx.raw | return (ctx, none)
+  let some width := icmpOperandWidth? (op.getResult 0) ctx.raw | return (ctx, none)
+  if width > 64 then return (ctx, none)
+  let imm := RISCVImmediateProperties.mk 0#64
+  let (ctx, liOp) ← WfRewriter.createOp! ctx Riscv.li #[RegisterType.mk] #[]
+      #[] #[] imm none
+  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (liOp.getResult 0)
+  some (ctx, some (#[liOp, castBackOp], #[castBackOp.getResult 0]))
+
+/-- llvm.mlir.zero -> riscv.li 0 -/
+def zeroConst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite zeroConst_local rewriter op opInBounds
+
 /-- llvm.mlir.poison -> riscv.li 0 -/
 def poisonConst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
@@ -1709,24 +1765,6 @@ def memAccesses (len align : Nat) : Array (Nat × Nat) := Id.run do
         accesses := accesses.push (offset, width)
         offset := offset + width
   return accesses
-
-/-- `riscv.lb` / `riscv.lh` / `riscv.lw` / `riscv.ld`, for a `width`-byte load. -/
-def createLoadLocal (ctx : WfIRContext OpCode) (width : Nat) (addr : ValuePtr)
-    (props : RISCVMemProperties) : Option (WfIRContext OpCode × OperationPtr) :=
-  match width with
-  | 1 => WfRewriter.createOp! ctx Riscv.lb #[RegisterType.mk] #[addr] #[] #[] props none
-  | 2 => WfRewriter.createOp! ctx Riscv.lh #[RegisterType.mk] #[addr] #[] #[] props none
-  | 4 => WfRewriter.createOp! ctx Riscv.lw #[RegisterType.mk] #[addr] #[] #[] props none
-  | _ => WfRewriter.createOp! ctx Riscv.ld #[RegisterType.mk] #[addr] #[] #[] props none
-
-/-- `riscv.sb` / `riscv.sh` / `riscv.sw` / `riscv.sd`, for a `width`-byte store. -/
-def createStoreLocal (ctx : WfIRContext OpCode) (width : Nat) (val addr : ValuePtr)
-    (props : RISCVMemProperties) : Option (WfIRContext OpCode × OperationPtr) :=
-  match width with
-  | 1 => WfRewriter.createOp! ctx Riscv.sb #[] #[val, addr] #[] #[] props none
-  | 2 => WfRewriter.createOp! ctx Riscv.sh #[] #[val, addr] #[] #[] props none
-  | 4 => WfRewriter.createOp! ctx Riscv.sw #[] #[val, addr] #[] #[] props none
-  | _ => WfRewriter.createOp! ctx Riscv.sd #[] #[val, addr] #[] #[] props none
 
 /--
   Lower `llvm.intr.memcpy` and `llvm.intr.memset`. A constant length that takes at most
@@ -1817,12 +1855,12 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern #[selectCzeroeqz, selectCzeronez, selectGeneral,
     ctlz32.run, ctlz64.run, cttz32.run, cttz64.run, ctpop32.run, ctpop64.run, bswap, bitreverse,
-    constant, add32.run, add64.run, and.run, ashr, icmp, or.run, xor32.run, xor64.run, mul32.run, mul64.run,
+    constant, addressof, add32.run, add64.run, and.run, ashr, icmp, or.run, xor32.run, xor64.run, mul32.run, mul64.run,
     sdiv32.run, sdiv64.run, udiv32.run, udiv64.run, srem32.run, srem64.run, urem32.run, urem64.run,
     sext32.run, sext16.run, sext8.run, zext32.run, zext16.run, zext8.run, trunc, shl, lshr,
     sub64.run, sub32.run, bitcast, load, getelementptr, store,
     smax64.run, smax32.run, smin64.run, smin32.run, umax.run, umin.run, saddSat, ssubSat, uaddSat, usubSat, sshlSat, ushlSat, abs,
-    fshlConst, fshrConst, fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral, fshrGeneral, poisonConst, freeze]
+    fshlConst, fshrConst, fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral, fshrGeneral, poisonConst, zeroConst, freeze]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying main instruction-selection patterns"
   | some ctx => pure ctx

@@ -56,6 +56,23 @@ def RISCVMemProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute)
   let value ← getI64Attr "RISC-V memory operation" "value" attrDict
   return { value, volatile_ }
 
+/--
+  Properties of `riscv.la`: the global or function whose address the
+  instruction loads into its result register.
+-/
+structure RISCVSymbolProperties where
+  symbol : FlatSymbolRefAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def RISCVSymbolProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String RISCVSymbolProperties := do
+  if attrDict.size > 1 then
+    throw s!"riscv.la: expected only 'symbol' property, but got {attrDict.size} properties"
+  match attrDict["symbol".toUTF8]? with
+  | some (.flatSymbolRefAttr symbol) => return { symbol }
+  | some attr => throw s!"riscv.la: expected 'symbol' to be a flat symbol reference, but got {attr}"
+  | none => throw "riscv.la: missing 'symbol' property"
+
 end
 
 end Veir
