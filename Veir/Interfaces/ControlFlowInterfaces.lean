@@ -21,6 +21,19 @@ def OperationPtr.isBranchLike {OpInfo : Type} [HasOpInfo OpInfo]
 
 namespace BranchOpInterface
 
+/--
+Describe one segment of a verified operand list. The callback stores updated
+segment sizes in the operation's properties, preserving unrelated properties.
+-/
+def getSegmentedOperandsMutable {Properties : Type}
+    (sizes : DenseArrayAttr) (segmentIndex : Nat)
+    (setSizes : DenseArrayAttr → Properties) : MutableOperandRange Properties :=
+  {
+    start := (sizes.values.extract 0 segmentIndex).foldl (fun n size => n + size.toNat) 0
+    length := sizes.values[segmentIndex]!.toNat
+    setLength := fun length => setSizes { sizes with values := sizes.values.set! segmentIndex length }
+  }
+
 /-- Return the true or false successor of a conditional branch. -/
 def getConditionalSuccessor?
     (successors : Array BlockPtr) (condition : Bool) : Option BlockPtr :=

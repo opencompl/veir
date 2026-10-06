@@ -604,12 +604,18 @@ def Llvm.branchOpInterface? (op : Llvm) : Option (BranchOpInterface (Llvm.proper
         guard (successorIndex = 0)
         some { forwardedOperands := operands }
       getSuccessorForOperandsImpl? := fun _ _ successors => successors[0]?
+      getSuccessorOperandsMutableImpl? := fun props operandCount _ =>
+        some { start := 0, length := operandCount, setLength := fun _ => props }
     }
   | .cond_br =>
     some {
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           1 props.operandSegmentSizes.values operands successorIndex
+      getSuccessorOperandsMutableImpl? := fun props _ successorIndex =>
+        some <| BranchOpInterface.getSegmentedOperandsMutable
+          props.operandSegmentSizes (successorIndex + 1)
+          (fun sizes => { props with operandSegmentSizes := sizes })
       getSuccessorForOperandsImpl? := fun _ operands successors => do
         let some (.int _ (.val condition)) ← operands[0]? | none
         BranchOpInterface.getConditionalSuccessor? successors (condition ≠ 0)

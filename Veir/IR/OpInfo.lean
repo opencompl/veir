@@ -66,11 +66,33 @@ instance : GetElem? SuccessorOperands Nat ValuePtr
     (fun operands blockArgumentIndex => blockArgumentIndex < operands.forwardedOperands.size) where
   getElem? := fun operands blockArgumentIndex => operands.forwardedOperands[blockArgumentIndex]?
 
+/--
+A description of a mutable operand range, analogous to MLIR's
+`MutableOperandRange`. `setLength` updates the captured operation properties,
+including any operand segment sizes affected by resizing the range.
+
+The description is a snapshot: obtain a new one after modifying the operation.
+The rewriter supplies the owning operation and maintains its use-def chains.
+-/
+structure MutableOperandRange (Properties : Type) where
+  start : Nat
+  length : Nat
+  setLength : Nat → Properties
+
 /-- Information exposed by operations that branch to successor blocks. -/
 structure BranchOpInterface (Properties : Type) where
   /-- Return the operands passed to the indexed successor. -/
   getSuccessorOperandsImpl? :
     Properties → Array ValuePtr → Nat → Option SuccessorOperands
+  /--
+  Describe the operands forwarded to an indexed successor and how resizing them
+  updates the properties. Arguments are properties, total operand count, and
+  successor index. Requires a verified operand layout and an in-range successor
+  index; `none` means mutation is unsupported.
+  -/
+  getSuccessorOperandsMutableImpl? :
+    Properties → Nat → Nat → Option (MutableOperandRange Properties) :=
+      fun _ _ _ => none
   /-- Return the successor selected by the known constant operands. -/
   getSuccessorForOperandsImpl? :
     Properties → Array (Option RuntimeValue) → Array BlockPtr → Option BlockPtr :=

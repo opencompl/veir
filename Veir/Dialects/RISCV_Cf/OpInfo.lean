@@ -123,6 +123,13 @@ def Riscv_Cf.functionInterface? (op : Riscv_Cf) :
         setFunctionType := fun props functionType => { props with function_type := functionType } }
   | _ => none
 
+private def getRISCVBranchOperandsMutable? (fixedOperandCount : Nat)
+    (props : RISCVBrProperties) (_operandCount successorIndex : Nat) :
+    Option (MutableOperandRange RISCVBrProperties) :=
+  some <| BranchOpInterface.getSegmentedOperandsMutable
+    props.operandSegmentSizes (fixedOperandCount + successorIndex)
+    (fun sizes => { props with operandSegmentSizes := sizes })
+
 def Riscv_Cf.branchOpInterface?
     (op : Riscv_Cf) : Option (BranchOpInterface (Riscv_Cf.propertiesOf op)) :=
   match op with
@@ -132,9 +139,12 @@ def Riscv_Cf.branchOpInterface?
         guard (successorIndex = 0)
         some { forwardedOperands := operands }
       getSuccessorForOperandsImpl? := fun _ _ successors => successors[0]?
+      getSuccessorOperandsMutableImpl? := fun props operandCount _ =>
+        some { start := 0, length := operandCount, setLength := fun _ => props }
     }
   | .beqz =>
     some {
+      getSuccessorOperandsMutableImpl? := getRISCVBranchOperandsMutable? 1
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           1 props.operandSegmentSizes.values operands successorIndex
@@ -144,6 +154,7 @@ def Riscv_Cf.branchOpInterface?
     }
   | .bnez =>
     some {
+      getSuccessorOperandsMutableImpl? := getRISCVBranchOperandsMutable? 1
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           1 props.operandSegmentSizes.values operands successorIndex
@@ -153,6 +164,7 @@ def Riscv_Cf.branchOpInterface?
     }
   | .beq =>
     some {
+      getSuccessorOperandsMutableImpl? := getRISCVBranchOperandsMutable? 2
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           2 props.operandSegmentSizes.values operands successorIndex
@@ -163,6 +175,7 @@ def Riscv_Cf.branchOpInterface?
     }
   | .bne =>
     some {
+      getSuccessorOperandsMutableImpl? := getRISCVBranchOperandsMutable? 2
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           2 props.operandSegmentSizes.values operands successorIndex
@@ -173,6 +186,7 @@ def Riscv_Cf.branchOpInterface?
     }
   | .blt =>
     some {
+      getSuccessorOperandsMutableImpl? := getRISCVBranchOperandsMutable? 2
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           2 props.operandSegmentSizes.values operands successorIndex
@@ -183,6 +197,7 @@ def Riscv_Cf.branchOpInterface?
     }
   | .bge =>
     some {
+      getSuccessorOperandsMutableImpl? := getRISCVBranchOperandsMutable? 2
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           2 props.operandSegmentSizes.values operands successorIndex
@@ -193,6 +208,7 @@ def Riscv_Cf.branchOpInterface?
     }
   | .bltu =>
     some {
+      getSuccessorOperandsMutableImpl? := getRISCVBranchOperandsMutable? 2
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           2 props.operandSegmentSizes.values operands successorIndex
@@ -203,6 +219,7 @@ def Riscv_Cf.branchOpInterface?
     }
   | .bgeu =>
     some {
+      getSuccessorOperandsMutableImpl? := getRISCVBranchOperandsMutable? 2
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           2 props.operandSegmentSizes.values operands successorIndex

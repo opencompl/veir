@@ -20,6 +20,7 @@ import UnitTest.Interp
 import UnitTest.RuntimeValueSimp
 import UnitTest.FoldDecision
 import UnitTest.SideEffectInterfaces
+import UnitTest.SuccessorOperands
 import UnitTest.RegionKindInterfaces
 import UnitTest.Puddle
 import UnitTest.BoundedBitblasting.BoundedBitblasting
