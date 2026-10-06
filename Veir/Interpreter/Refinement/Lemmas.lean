@@ -44,16 +44,14 @@ theorem RuntimeValue.arrayIsRefinedBy_cons {a b : RuntimeValue} {as bs : List Ru
   · grind
 
 @[simp, grind .]
-theorem MemoryObject.isRefinedBy_refl (m : MemoryObject) :
-    m ⊒ m := by
-  refine ⟨rfl, ?_⟩
-  bv_normalize
-  grind
+theorem MemoryByte.isRefinedBy_refl (b : MemoryByte) : b ⊒ b := by
+  simp only [MemoryByte.isRefinedBy]
+  bv_decide
 
 @[simp, grind .]
 theorem MemoryState.isRefinedBy_refl (m : MemoryState) :
     m ⊒ m :=
-  ⟨rfl, fun _ => MemoryObject.isRefinedBy_refl _⟩
+  ⟨rfl, fun _ => MemoryByte.isRefinedBy_refl _⟩
 
 @[simp, grind .]
 theorem FunctionResult.isRefinedBy_refl (r : MemoryState × Array RuntimeValue) : r ⊒ r := by
@@ -107,20 +105,14 @@ theorem RuntimeValue.isRefinedBy_trans {v₁ v₂ v₃ : RuntimeValue}
     grind [RuntimeValue.isRefinedBy, isRefinedBy_trans,
       cases RuntimeValue, LLVM.Byte.isRefinedBy_trans]
 
-theorem MemoryObject.isRefinedBy_trans {m1 m2 m3 : MemoryObject}
-    (h12 : m1 ⊒ m2) (h23 : m2 ⊒ m3) : m1 ⊒ m3 := by
-  obtain ⟨hb12, h12⟩ := h12
-  obtain ⟨hb23, h23⟩ := h23
-  refine ⟨hb12.trans hb23, ?_⟩
-  intro addr
-  specialize h12 addr
-  specialize h23 addr
-  bv_normalize
-  grind
+theorem MemoryByte.isRefinedBy_trans {b1 b2 b3 : MemoryByte}
+    (h12 : b1 ⊒ b2) (h23 : b2 ⊒ b3) : b1 ⊒ b3 := by
+  simp only [MemoryByte.isRefinedBy] at *
+  bv_decide
 
 theorem MemoryState.isRefinedBy_trans {m1 m2 m3 : MemoryState}
     (h12 : m1 ⊒ m2) (h23 : m2 ⊒ m3) : m1 ⊒ m3 :=
-  ⟨h12.1.trans h23.1, fun i => MemoryObject.isRefinedBy_trans (h12.2 i) (h23.2 i)⟩
+  ⟨h12.1.trans h23.1, fun addr => MemoryByte.isRefinedBy_trans (h12.2 addr) (h23.2 addr)⟩
 
 theorem RuntimeValue.arrayIsRefinedBy_trans {a b c : Array RuntimeValue}
     (h12 : a ⊒ b) (h23 : b ⊒ c) : a ⊒ c := by

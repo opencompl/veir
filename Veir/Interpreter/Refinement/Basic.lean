@@ -60,20 +60,20 @@ def RuntimeValue.arrayIsRefinedBy (source target : Array RuntimeValue) : Prop :=
 @[inherit_doc] infix:50 " ⊒ " => RuntimeValue.arrayIsRefinedBy
 
 /--
-Refinement of memory objects, which can involve poison bits being refined into concrete bits.
-This should be kept consistent with the definition of refinement on the byte type.
+Refinement of a byte of memory: a poison bit of the source is refined by anything, a concrete
+bit by the same concrete bit. This should be kept consistent with the definition of refinement on
+the byte type.
 -/
 @[expose]
-def MemoryObject.isRefinedBy (source target : MemoryObject) : Prop :=
-  source.base = target.base ∧
-  ∀ addr, source.poisonMask.getD addr 0 ||| ((source.contents.getD addr 0 ^^^ ~~~target.contents.getD addr 0) &&& ~~~target.poisonMask.getD addr 0) = 0xff
+def MemoryByte.isRefinedBy (source target : MemoryByte) : Prop :=
+  source.poison ||| ((source.value ^^^ ~~~target.value) &&& ~~~target.poison) = 0xff
 
-@[inherit_doc] infix:50 " ⊒ " => MemoryObject.isRefinedBy
+@[inherit_doc] infix:50 " ⊒ " => MemoryByte.isRefinedBy
 
-/-- Refinement of memory states: the same objects, each refined bytewise. -/
+/-- Refinement of memory states: the same objects, and every byte refined. -/
 @[expose]
 def MemoryState.isRefinedBy (source target : MemoryState) : Prop :=
-  source.objects.size = target.objects.size ∧ ∀ i : Nat, source.objects[i]! ⊒ target.objects[i]!
+  source.objects = target.objects ∧ ∀ addr, source.byte addr ⊒ target.byte addr
 
 @[inherit_doc] infix:50 " ⊒ " => MemoryState.isRefinedBy
 
