@@ -55,17 +55,18 @@ private meta def addDefn (name : Name) (levelParams : List Name) (type value : E
   return decl
 
 /--
-Like `addDefn`, but registers `name` as a global instance, and compiles it.
+Like `addDefn`, but registers `name` as an instance (with the given attribute
+kind, i.e., global, scoped or local), and compiles it.
 
 Note that registering `name` as an instance also sets the reducability of the
 previously added declaration to `instanceReducible`; which is why we needn't
 bother setting a different reducability for instances in `addDefn`.
 -/
-private meta def addInstanceDefn (name : Name) (levelParams : List Name) (type value : Expr) :
-    MetaM Unit := do
+private meta def addInstanceDefn (attrKind : AttributeKind) (name : Name)
+    (levelParams : List Name) (type value : Expr) : MetaM Unit := do
   let decl ← addDefn name levelParams type value
   compileDecl decl
-  registerInstance name .global (eval_prio default)
+  registerInstance name attrKind (eval_prio default)
 
 /--
 `q.addDecls F levelParams deadVars` adds the qpf `q` to the environment,
@@ -99,9 +100,12 @@ while the curried form is what users expect to apply: `$F α β`.
 "Dead" variables are those variables over which the QPF is not functorial,
 which means they become parameters of all these definitions. Apart from these
 variables, `q` must be a closed expression.
+
+The instances are registered with the given `attrKind` (global, by default).
+The definitions themselves are always added to the environment.
 -/
 meta def addDecls (q : QPFExpr u n) (declName : Name) (levelParams : List Name)
-    (deadVars : Array Expr := #[]) : MetaM Unit :=
+    (deadVars : Array Expr := #[]) (attrKind : AttributeKind := .global) : MetaM Unit :=
   let decl := (.const declName (levelParams.map Level.param))
   withTraceNode `QPFTypes (fun _ => return m!"adding QPF declarations for '{decl}'") do
     let uncurriedName := declName ++ `Uncurried
@@ -123,7 +127,7 @@ meta def addDecls (q : QPFExpr u n) (declName : Name) (levelParams : List Name)
     /- `instance $declName.Uncurried.instQPF $deadVars* :
           QPF ($declName.Uncurried $deadVars*) := $(q.qpf)` -/
     let uncurried := mkAppN (mkConst uncurriedName levels) deadVars
-    addInstanceDefn uncurriedInstName levelParams
+    addInstanceDefn attrKind uncurriedInstName levelParams
       (← mkForallFVars deadVars (mkApp2 (mkConst ``QPF [u, u]) n uncurried))
       (← mkLambdaFVars deadVars q.qpf)
 
@@ -149,7 +153,7 @@ meta def addDecls (q : QPFExpr u n) (declName : Name) (levelParams : List Name)
     -/
     let ofCurried := mkApp2 (mkConst ``TypeFun.ofCurried [u]) n <|
       mkAppN (mkConst declName levels) deadVars
-    addInstanceDefn instName levelParams
+    addInstanceDefn attrKind instName levelParams
       (← mkForallFVars deadVars (mkApp2 (mkConst ``QPF [u, u]) n ofCurried))
       (← mkLambdaFVars deadVars <|
         mkApp3 (mkConst ``QPF.instOfCurriedCurry [u]) n uncurried
@@ -161,7 +165,7 @@ meta def addDecls (q : QPFExpr u n) (declName : Name) (levelParams : List Name)
             ($declName.Uncurried.instQPF $deadVars*) := $(q.isPolynomial?)`
       -/
       let uncurriedInst := mkAppN (mkConst uncurriedInstName levels) deadVars
-      addInstanceDefn uncurriedPolyInstName levelParams
+      addInstanceDefn attrKind uncurriedPolyInstName levelParams
         (← mkForallFVars deadVars
           (mkApp3 (mkConst ``QPF.IsPolynomial [u]) n uncurried uncurriedInst))
         (← mkLambdaFVars deadVars isPolynomial)
@@ -173,7 +177,7 @@ meta def addDecls (q : QPFExpr u n) (declName : Name) (levelParams : List Name)
       -/
       let uncurriedPolyInst := mkAppN (mkConst uncurriedPolyInstName levels) deadVars
       let inst := mkAppN (mkConst instName levels) deadVars
-      addInstanceDefn polyInstName levelParams
+      addInstanceDefn attrKind polyInstName levelParams
         (← mkForallFVars deadVars
           (mkApp3 (mkConst ``QPF.IsPolynomial [u]) n ofCurried inst))
         (← mkLambdaFVars deadVars <|

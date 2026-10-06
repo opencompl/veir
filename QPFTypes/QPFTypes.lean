@@ -9,3 +9,4 @@ public import QPFTypes.Theory.PFunctor
 public import QPFTypes.Theory.QPF
 
 public import QPFTypes.Meta.QPFExpr
+public import QPFTypes.Meta.QPFAttr
