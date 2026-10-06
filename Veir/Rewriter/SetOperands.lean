@@ -151,7 +151,7 @@ def WfRewriter.setOperandRange (ctx : WfIRContext OpInfo) (op : OperationPtr)
     let operands := old.extract 0 start ++ values ++ old.extract (start + length) old.size
     if hvalues : ∀ value ∈ values, value.InBounds ctx.raw then
       return WfRewriter.setOperands ctx op operands hop (by
-        grind [Array.mem_extract_iff])
+        grind [Array.mem_extract_iff_getElem, Array.mem_iff_getElem])
     else
       throw "replacement operand is out of bounds"
   else
