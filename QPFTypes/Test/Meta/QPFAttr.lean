@@ -1,6 +1,7 @@
 module
 
 import QPFTypes.Meta.QPFAttr
+import QPFTypes.Instances.Prod
 
 /-!
 # `@[qpf]` Attribute Tests
@@ -189,6 +190,35 @@ over the (necessarily dead) domain.
 #gsynth QPF.IsPolynomial (@TypeFun.ofCurried 1 PiNested)
 
 /-!
+## Products
+
+A product `A × B` is just an application of `Prod`, which has a QPF instance
+(see `QPFTypes.Instances.Prod`), so it becomes a composition of
+`TypeFun.ofCurried Prod` with the translations of `A` and `B`.
+-/
+
+-- A product of two live variables.
+@[qpf] def ProdLive (α β : liveParam Type) := α × β
+
+#gcheck (ProdLive.Uncurried : TypeFun 2)
+#gsynth QPF (@TypeFun.ofCurried 2 ProdLive)
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 2 ProdLive)
+
+-- Either component may be a constant.
+@[qpf] def ProdConst (α : liveParam Type) := Nat × α
+
+#gcheck (ProdConst.Uncurried : TypeFun 1)
+#gsynth QPF (@TypeFun.ofCurried 1 ProdConst)
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 1 ProdConst)
+
+-- Products nest, with each component translated recursively.
+@[qpf] def ProdNested (α β : liveParam Type) := α × (Nat → β) × Fst β α
+
+#gcheck (ProdNested.Uncurried : TypeFun 2)
+#gsynth QPF (@TypeFun.ofCurried 2 ProdNested)
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 2 ProdNested)
+
+/-!
 ## Normalization
 
 The target is put in weak head normal form, at reducible transparency, before
@@ -224,6 +254,13 @@ universe v
 #gsynth QPF (@TypeFun.ofCurried 2 UniverseProj.{v})
 #gsynth QPF.IsPolynomial (@TypeFun.ofCurried 2 UniverseProj.{v})
 
+-- Including underneath a product.
+@[qpf] def UniverseProd (α β : liveParam (Type v)) := α × β
+
+#gcheck (UniverseProd.Uncurried : TypeFun 2)
+#gsynth QPF (@TypeFun.ofCurried 2 UniverseProd.{v})
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 2 UniverseProd.{v})
+
 -- Including underneath a `QPF.Pi`, whose domain must live in that same
 -- universe; `A : Type v` does, while `Type v` itself would not.
 @[qpf] def UniversePi (A : Type v) (α : liveParam (Type v)) := A → α
@@ -252,6 +289,24 @@ a function type is not functorial in its domain.
 -/
 #guard_msgs in
 @[qpf] def FailsLiveDomain (α : liveParam Type) := α → Nat
+
+-- Both components of a product must live in the universe of the QPF, as the
+-- `QPF` instance only exists for `Prod.{u, u}`.
+/--
+error: While deriving a QPF from type expression:
+  Nat × α
+With live free variables:
+  [α]
+
+failed to find a QPF in the head of the application:
+  Nat × α
+note that the head, after applying it to zero or more of the arguments, must be a type function with a `QPF` instance
+-/
+#guard_msgs in
+@[qpf] def FailsProdUniverse (α : liveParam (Type 1)) := Nat × α
+-- FIXME: the `FailsProdUniverse` really ought to work, since the `Nat` is dead.
+--        that is, we should have a `QPF` instance for `Prod Nat`
+
 
 /--
 error: While deriving a QPF from type expression:
