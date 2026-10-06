@@ -263,7 +263,7 @@ meta def LocalDecl.asLiveVar? (decl : LocalDecl) : Option FVarId :=
 /--
 The parameters of a QPF, separated into live and "dead" free variables.
 -/
-private structure QPFParams where
+public structure QPFParams where
   liveVars : Array FVarId
   deadVars : Array FVarId
 
@@ -276,7 +276,7 @@ Throws an error if a dead parameter occurs after a live parameter in the
 given array of variables; all dead parameters are expected to precede the live
 parameters.
 -/
-private def collectLiveParams (fvars : Array FVarId) : MetaM QPFParams := do
+public def collectLiveParams (fvars : Array FVarId) : MetaM QPFParams := do
   let mut liveVars := #[]
   for x in fvars do
     let decl ← x.getDecl

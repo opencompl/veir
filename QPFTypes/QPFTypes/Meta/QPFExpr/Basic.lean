@@ -16,6 +16,7 @@ This file defines a `QPFExpr` type, which stores a Lean expression of an
 Morally, this can be thought of as a specialization of QQ's `Q(...)` type,
 with additional helpers specifically for manipulating QPFs in meta-code.
 -/
+meta section
 namespace QPFTypes
 open Lean (Level Expr)
 
@@ -27,11 +28,13 @@ The given universe level `u` indicates the type universe of the QPF.
 Note that while the theory permits QPFs where the arguments live in a different
 universe from the resulting type, `QPFExpr` only represent those QPFs for which
 both universe levels coincide (and are the given level `u`).
+
+See also `QPFTupleExpr`.
 -/
 public meta structure QPFExpr (u : Level) (n : Nat) where
   /--
   `QPFExpr.typefun` is the `n`-ary type function itself, as a Lean expression of type
-    `TypeVec.{u} n → Type u`
+    `TypeFun.{$u, $u} $n → Type $u`
   -/
   typefun : Expr
   /--
@@ -46,6 +49,71 @@ public meta structure QPFExpr (u : Level) (n : Nat) where
   -/
   isPolynomial? : Option Expr
 
+/--
+A `QPFTupleExpr u n m` represents `m`-tuple of `n`-ary type functions,
+with corresponding QPF instances, on the meta-level.
+
+Note: this is an object-level tuple, meaning that each component is a single
+Lean expression, of type `Fin $m → …`, rather than being a tuple of Lean
+expressions.
+
+See `QPFExpr` for the analogue of a single type function.
+-/
+public meta structure QPFTupleExpr (u : Level) (n m : Nat) where
+  /--
+  `typefun` is the `m`-tuple `n`-ary type function itself, as a Lean expression
+  of type `Fin $m → TypeFun.{$u, $u} $n → Type $u`
+  -/
+  typefun : Expr
+  /--
+  `qpf` is the tuple of QPF instances corresponding to `typefun`, i.e., an
+  expression of type `(i : Fin $m) → QPF.{$u, $u} ($typefun i)`
+  -/
+  qpf : Expr
+  /--
+  `isPolynomial?` optionally has the tuple of corresponding `QPF.IsPolynomial`
+  instances, meaning an expression of type:
+    `(i : Fin $m) → QPF.IsPolynomial.{$u} ($typefun i)`
+
+  NOTE: this is `some _` only if *all* QPFs in the tuple are polynomial.
+  -/
+  isPolynomial? : Option Expr
+
+/-!
+## QPFTupleExpr API
+-/
+namespace QPFTupleExpr
+open Lean
+
+/--
+Construct an `QPFTupleExpr` given a vector of `QPFExpr`s.
+
+This intuitively translate each component from the meta-level vector of
+expressions to a single expression of an object-level tuple.
+-/
+public meta def ofVector (Gs : Vector (QPFExpr u m) n) : MetaM (QPFTupleExpr u m n) := do
+  let n := toExpr n
+  let m := toExpr m
+
+  let typefun ← do
+    let typefun := mkApp (mkConst ``TypeFun [u, u]) m
+    Fin.mkTuple typefun (Gs.map (·.typefun))
+  let qpf ← do
+    let qpfType := -- `fun (i : Fin $n) => @QPF.{$u, $u} $m ($typefun i)`
+      .lam `i (mkApp (mkConst ``Fin) n)
+        (mkApp2 (mkConst ``QPF [u, u]) m (mkApp typefun (.bvar 0)))
+        .default
+    Fin.mkDTuple qpfType (Gs.map (·.qpf))
+  let isPolynomial? ← (Gs.mapM (QPFExpr.isPolynomial? ·)).mapM fun GsPoly => do
+    let polyType := -- `fun (i : Fin $n) => @IsPolynomial.{$u} $m ($typefun i) ($qpf i)`
+      .lam `i (mkApp (mkConst ``Fin) n)
+        (mkApp3 (mkConst ``QPF.IsPolynomial [u]) m
+          (mkApp typefun (.bvar 0)) (mkApp qpf (.bvar 0)))
+        .default
+    Fin.mkDPropTuple polyType GsPoly
+  return { typefun, qpf, isPolynomial? }
+
+end QPFTupleExpr
 
 /-!
 ## Meta Helpers
@@ -156,36 +224,15 @@ create an application of `QPF.Comp
 -/
 public meta def mkComp (F : QPFExpr u n) (Gs : Vector (QPFExpr u m) n) :
     MetaM (QPFExpr u m) := do
+  let G ← QPFTupleExpr.ofVector Gs
   let n := toExpr n
   let m := toExpr m
-
-
-  let Gtypefun ← do
-    let typefun := mkApp (mkConst ``TypeFun [u, u]) m
-    Fin.mkTuple typefun (Gs.map (·.typefun))
-  let Gqpf ← do
-    let qpfType := -- `fun (i : Fin $n) => @QPF.{$u, $u} $m ($Gtypefun i)`
-      .lam `i (mkApp (mkConst ``Fin) n)
-        (mkApp2 (mkConst ``QPF [u, u]) m (mkApp Gtypefun (.bvar 0)))
-        .default
-    Fin.mkDTuple qpfType (Gs.map (·.qpf))
-
-  -- Composition preserves polynomiality, but only if *all* of its arguments are
-  -- polynomial; as soon as one of them is not, neither is the composite.
-  let isPolynomial? ← match F.isPolynomial?, Gs.mapM (·.isPolynomial?) with
-    | some FisPoly, some GsPoly => do
-      let polyType := -- `fun (i : Fin $n) => @IsPolynomial.{$u} $m ($Gtypefun i) ($Gqpf i)`
-        .lam `i (mkApp (mkConst ``Fin) n)
-          (mkApp3 (mkConst ``QPF.IsPolynomial [u]) m
-            (mkApp Gtypefun (.bvar 0)) (mkApp Gqpf (.bvar 0)))
-          .default
-      let GisPoly ← Fin.mkDPropTuple polyType GsPoly
-      pure <| some <| mkApp8 (mkConst ``QPF.Comp.instIsPolynomial [u])
-        n m F.typefun Gtypefun F.qpf Gqpf FisPoly GisPoly
-    | _, _ => pure none
-
   return {
-    typefun := mkApp4 (mkConst ``QPF.Comp [u, u]) n m F.typefun Gtypefun
-    qpf := mkApp6 (mkConst ``QPF.Comp.inst [u, u]) n m F.typefun Gtypefun F.qpf Gqpf
-    isPolynomial?
+    typefun := mkApp4 (mkConst ``QPF.Comp [u, u]) n m F.typefun G.typefun
+    qpf     := mkApp6 (mkConst ``QPF.Comp.inst [u, u]) n m F.typefun G.typefun F.qpf G.qpf
+    isPolynomial? := do
+      let FisPoly ← F.isPolynomial?
+      let GisPoly ← G.isPolynomial?
+      return mkApp8 (mkConst ``QPF.Comp.instIsPolynomial [u])
+        n m F.typefun G.typefun F.qpf G.qpf FisPoly GisPoly
   }
