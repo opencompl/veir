@@ -750,7 +750,7 @@ private partial def aggregateElementTypesMatch : Attribute → Attribute → Boo
     else if isOpaqueLLVMStruct rhs then
       lhs matches .llvmStructType _
     else
-      lhs == rhs
+      lhs = rhs
 
 /--
   Walk `position` through an aggregate type, as MLIR does for `insertvalue` and
