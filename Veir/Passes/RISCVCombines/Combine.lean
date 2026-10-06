@@ -1714,15 +1714,10 @@ def sextw_bexti := sextw_signExtendingOpW .bexti 1
     See documentation of `sextw_signExtendingOpW_pattern`.-/
 def sextw_sextb := sextw_signExtendingOpW .sextb 1
 def sextw_sexth := sextw_signExtendingOpW .sexth 1
--- Pseudoinstruction for `andi x, 255`; LLVM covers it as `andi` (see `sextw_andi`).
-def sextw_zextb := sextw_signExtendingOpW .zextb 1
 def sextw_zexth := sextw_signExtendingOpW .zexth 1
 def sextw_packh := sextw_signExtendingOpW .packh 2
 
 /-- Instructions whose result is sign-extended only for some immediates.
-    `srai` by at least 32 and `srli` by more than 32 leave at most 32
-    significant bits. `andi` with a non-negative immediate clears bits 63:11,
-    and `ori` with a negative immediate sets them.
 
     LLVM: the operand-dependent cases of `isSignExtendingOpW`.
     https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L390-L405 -/
