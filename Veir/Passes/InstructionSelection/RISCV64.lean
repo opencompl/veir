@@ -2169,6 +2169,27 @@ def poisonConst_pattern : Veir.Puddle.Pattern OpCode :=
       return castBackOp)
     (fun castBackOp => castBackOp)
 
+/-- llvm.mlir.zero of an integer up to 64 bits or a pointer -> riscv.li 0 -/
+def zeroConst_pattern : Veir.Puddle.Pattern OpCode :=
+  Veir.Puddle.Pattern.Builder
+    (do
+      let resType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
+          (fun t => (icmpTypeWidth? t).any (· ≤ 64))
+      let _ ← Veir.Puddle.MatchProg.root (.llvm .mlir__zero) #[] #[resType]
+      return resType)
+    (fun resType => do
+      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
+      let liProps ← Veir.Puddle.CreateProg.property (.riscv .li) (RISCVImmediateProperties.mk 0#64)
+      let liOp ← Veir.Puddle.CreateProg.operation (.riscv .li) #[] #[regType] liProps
+      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[liOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
+
+/-- llvm.mlir.zero of an integer up to 64 bits or a pointer -> riscv.li 0 -/
+def zeroConst : Puddle.CompiledPattern OpCode := zeroConst_pattern.compile
+
 /-- llvm.mlir.poison -> riscv.li 0 -/
 def poisonConst : Puddle.CompiledPattern OpCode := poisonConst_pattern.compile
 
@@ -2311,7 +2332,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     load.map (·.run) ++ getelementptr.map (·.run) ++ store.map (·.run) ++ #[
     smax64.run, smax32.run, smin64.run, smin32.run, umax.run, umin.run, saddSat.run, ssubSat.run, uaddSat.run, usubSat.run, sshlSat.run, ushlSat.run, abs.run,
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run, fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
-    poisonConst.run, freeze.run]
+    poisonConst.run, zeroConst.run, freeze.run]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying main instruction-selection patterns"
   | some ctx => pure ctx
