@@ -10,7 +10,7 @@ open Veir
 /- Allocate, and return the new state with the object's address. -/
 private def allocated (mem : MemoryState) (size : UInt64) : Option (MemoryState × UInt64) :=
   match mem.alloc size with
-  | .ok (mem, p) => some (mem, mem.address p)
+  | .ok (mem, p) => some (mem, p.address)
   | _ => none
 
 #guard (allocated .empty 4).map (·.2) = some 0x10000

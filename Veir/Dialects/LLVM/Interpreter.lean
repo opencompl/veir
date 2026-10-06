@@ -350,7 +350,7 @@ def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType
        that `isel-riscv64` uses to lower this operation. -/
     let size ← monadLift $ layout.getTypeAllocSize properties.elem_type.val
     match ptr, idx with
-    | .val ptr, .val idx => return (#[.addr (.val ⟨ptr.object, UInt64.ofNat (ptr.offset.toNat + idx.toNat * size)⟩)], mem, none)
+    | .val ptr, .val idx => return (#[.addr (.val ⟨ptr.object, UInt64.ofNat (ptr.address.toNat + idx.toNat * size)⟩)], mem, none)
     | _, _ => return (#[.addr .poison], mem, none)
   | .freeze => do
     let [val] := operands.toList | fail
@@ -383,7 +383,7 @@ def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType
           if h : bw = 64 then .ok (.addr (mem.ptrFromInt (val'.cast h).toInt)) else .fail none
       | .addr val', .llvmPointerType _ => .ok (val)
       | .addr val', .byteType ⟨bw⟩ =>
-          if bw = 64 then .ok (.byte 64 (LLVM.Byte.fromInt (mem.intFromPtr val'))) else .fail none
+          if bw = 64 then .ok (.byte 64 (val'.toByte)) else .fail none
       | _, _ => none
     return (#[result], mem, none)
   | _ => fail
