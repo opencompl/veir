@@ -239,15 +239,9 @@ private def computeImmediateDominator
   if block = entry then 
     return entry
 
-  let mut currentPredUse := (block.get! irCtx.raw).firstUse
   let mut newIDom : Option BlockPtr := none
 
-  while let some predUse := currentPredUse do
-    let predUseStruct := predUse.get! irCtx.raw
-    currentPredUse := predUseStruct.nextUse
-    let predOp := predUseStruct.owner
-    let some predBlock := (predOp.get! irCtx.raw).parent
-      | continue
+  for predBlock in block.getPredecessors! irCtx.raw do
     let some _ := predBlock.getIDom? dfCtx
       | continue
     newIDom :=

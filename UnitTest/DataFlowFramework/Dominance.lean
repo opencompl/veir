@@ -96,9 +96,7 @@ private def compareImmediateDominator
     | return #[s!"idom {expected.name}: missing block label {expected.immediateDom}"]
   if observedIDom = expectedIDom then
     return #[]
-  let observedName :=
-    (recovered.blocks.toList.findSome? fun (name, block) =>
-      if block = observedIDom then some name else none).getD "none"
+  let observedName := (recovered.blockName? observedIDom).getD "none"
   return #[s!"idom {expected.name}: expected {expected.immediateDom}, observed {observedName}"]
 
 /--

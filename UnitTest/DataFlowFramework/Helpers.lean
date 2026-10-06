@@ -116,6 +116,12 @@ structure RecoveredNames where
   values : HashMap String ValuePtr
 
 /--
+Find the source label of `block`, if it has one.
+-/
+def RecoveredNames.blockName? (names : RecoveredNames) (block : BlockPtr) : Option String :=
+  names.blocks.toList.findSome? fun (name, ptr) => if ptr = block then some name else none
+
+/--
 Recover block and SSA value maps by pairing MLIR source names with IR traversal order.
 -/
 def recoverNames

@@ -1875,6 +1875,19 @@ theorem pushArgument!_eq_pushArgument {block : BlockPtr} (inBounds : block.InBou
     block.pushArgument! ctx result = block.pushArgument ctx result inBounds := by
   grind [pushArgument, pushArgument!]
 
+/--
+The blocks whose terminators branch to `block`, once per CFG edge, so a
+predecessor with several edges to `block` occurs several times.
+-/
+def getPredecessors! (block : BlockPtr) (ctx : IRContext OpInfo) : Array BlockPtr := Id.run do
+  let mut preds := #[]
+  let mut currentUse := (block.get! ctx).firstUse
+  while let some predUse := currentUse do
+    let use := predUse.get! ctx
+    currentUse := use.nextUse
+    preds := preds.push ((use.owner.get! ctx).parent.get!)
+  return preds
+
 end BlockPtr
 
 /-!

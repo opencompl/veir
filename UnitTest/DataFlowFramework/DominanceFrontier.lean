@@ -19,20 +19,15 @@ private def run (mlir : String) (queries : Array Query) : String :=
     for query in queries do
       let some block := names.blocks[query.regionBlock]?
         | return #[s!"missing region block {query.regionBlock}"]
-      let some region := (block.get! ctx.raw).parent
-        | return #["region block has no parent"]
+      let region := (block.get! ctx.raw).parent.get!
       let some definitions := query.definitions.mapM (names.blocks[·]?)
         | return #["missing definition block"]
-      let some expected := query.expected.mapM (names.blocks[·]?)
-        | return #["missing expected block"]
       let frontier := DominanceFrontier.compute region dfCtx ctx
-      let observed := frontier.iterated definitions
-      if observed != expected then
-        let observedNames := observed.map fun block =>
-          (names.blocks.toList.findSome? fun (name, ptr) =>
-            if ptr = block then some name else none).getD "unknown"
+      let observed := (frontier.iterated definitions).map fun block =>
+        (names.blockName? block).getD "unknown"
+      if observed != query.expected then
         report := report.push
-          s!"IDF({query.definitions}) in {query.regionBlock}: expected {query.expected}, observed {observedNames}"
+          s!"IDF({query.definitions}) in {query.regionBlock}: expected {query.expected}, observed {observed}"
     return report
 
 -- A diamond, including duplicate CFG edges and duplicate/reordered seeds.
@@ -166,10 +161,6 @@ private def nested : String := r#""func.func"() <{sym_name = "f", function_type 
 ^right:
   "cf.br"() [^join] : () -> ()
 ^join:
-  "test.test"() ({
-  ^graph:
-    "test.test"() : () -> ()
-  }) : () -> ()
   "func.return"() : () -> ()
 }) : () -> ()"#
 
@@ -178,8 +169,7 @@ private def nested : String := r#""func.func"() <{sym_name = "f", function_type 
 #eval! run nested #[
   ⟨"entry", #["innerLoop"], #[]⟩,
   ⟨"entry", #["left", "innerLoop"], #["join"]⟩,
-  ⟨"innerEntry", #["innerLoop", "left"], #["innerLoop"]⟩,
-  ⟨"graph", #["graph", "left"], #[]⟩]
+  ⟨"innerEntry", #["innerLoop", "left"], #["innerLoop"]⟩]
 
 /-- info: "ok" -/
 #guard_msgs in

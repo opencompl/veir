@@ -1,7 +1,6 @@
 module
 
 public import Veir.Analysis.DataFlow.DominanceAnalysis
-public import Veir.Interfaces.RegionKindInterfaces
 
 public section
 
@@ -30,19 +29,16 @@ dominator tree. A block `b` belongs to `DF(a)` when `a` dominates a reachable
 predecessor of `b`, but does not strictly dominate `b`.
 
 The caller must supply completed `DominanceAnalysis` facts for the current CFG
-and a structurally verified region (in particular, its entry has no predecessors).
-Unreachable blocks and predecessor edges from them are ignored. Empty regions
-and regions without SSA dominance have empty frontiers. Nested regions are not
-traversed; each needs its own frontier computation.
+and a structurally verified region with SSA dominance (in particular, its entry
+has no predecessors). Unreachable blocks and predecessor edges from them are
+ignored. Nested regions are not traversed; each needs its own frontier
+computation.
 
 This deliberately simple implementation materializes all frontiers, which can
 require quadratic space. The result can be reused for multiple IDF queries.
 -/
 def compute (region : RegionPtr) (dfCtx : DataFlowContext)
     (irCtx : WfIRContext OpCode) : DominanceFrontier := Id.run do
-  if !region.hasSSADominance irCtx then
-    return {}
-
   let mut result : DominanceFrontier := {}
   let mut current := (region.get! irCtx.raw).firstBlock
   while let some block := current do
@@ -54,26 +50,17 @@ def compute (region : RegionPtr) (dfCtx : DataFlowContext)
 
   for block in result.blocks do
     let idom := (block.getIDom? dfCtx).get!
-    -- The entry's immediate dominator is itself, and it has no predecessors.
-    if block = idom then
-      continue
-    let mut seen : HashSet BlockPtr := ∅
-    let mut currentUse := (block.get! irCtx.raw).firstUse
-    while let some predUse := currentUse do
-      let use := predUse.get! irCtx.raw
-      currentUse := use.nextUse
-      let some pred := (use.owner.get! irCtx.raw).parent | continue
-      if !result.frontiers.contains pred then
+    for pred in block.getPredecessors! irCtx.raw do
+      if !pred.isReachable dfCtx then
         continue
       let mut runner := pred
       while runner ≠ idom do
-        -- A previously visited chain has already contributed this block.
-        -- This also deduplicates multiple edges from the same predecessor.
-        if seen.contains runner then
+        -- Blocks are processed one at a time, so if `block` is already in this
+        -- frontier, the chain above `runner` has already contributed it too.
+        if result.frontiers[runner]!.back? == some block then
           break
-        seen := seen.insert runner
         result := { result with
-          frontiers := result.frontiers.insert runner ((result.frontiers[runner]!).push block) }
+          frontiers := result.frontiers.modify runner (·.push block) }
         runner := (runner.getIDom? dfCtx).get!
   return result
 
@@ -96,8 +83,7 @@ def iterated (frontier : DominanceFrontier)
       workList := workList.push block
 
   let mut mergeBlocks : HashSet BlockPtr := ∅
-  while !workList.isEmpty do
-    let block := workList.back!
+  while let some block := workList.back? do
     workList := workList.pop
     for merge in frontier.frontiers[block]! do
       mergeBlocks := mergeBlocks.insert merge
