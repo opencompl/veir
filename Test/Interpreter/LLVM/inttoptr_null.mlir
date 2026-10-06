@@ -1,10 +1,11 @@
 // RUN: veir-interpret %s | filecheck %s
 // RUN: LLUBI
+// RUN: ALIVE_EXEC_CHECK
 
 // A load through `llvm.inttoptr` of 0 is a load from null, which is
 // undefined behaviour.
 
-// ALIVE_EXEC: returns poison here instead: Alive2 makes an out-of-bounds
+// alive-exec returns poison here instead: Alive2 makes an out-of-bounds
 // read poison and only an out-of-bounds write UB, while `veir-interpret` makes
 // any failed access undefined behaviour.
 
@@ -18,3 +19,4 @@
 }) : () -> ()
 
 // CHECK: Undefined behavior
+// ALIVE_EXEC: Program output: #[poison]
