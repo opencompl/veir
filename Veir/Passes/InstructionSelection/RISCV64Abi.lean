@@ -26,7 +26,9 @@ private def isUnsupportedAbiAttr (entry : ByteArray × Attribute) : Bool :=
   let (name, attr) := entry
   if name == "CConv".toUTF8 then
     match attr with
-    | .cconvAttr cc => cc.value.trimAscii.toString != "ccc"
+    | .cconvAttr cc =>
+      let cc := cc.value.trimAscii.toString
+      cc != "ccc" && cc != "fastcc"
     | _ => true
   -- MIR must record exposesReturnsTwice before these calls can be lowered safely.
   else if name == "returns_twice".toUTF8 then true

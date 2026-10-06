@@ -55,6 +55,12 @@ instance [IsOpCode OpCode] {op : OpCode} : DecidableEq (propertiesOf op) :=
 instance [IsOpCode OpCode] : DecidableEq OpCode :=
   IsOpCode.decideEq
 
+/-- An opcode packaged with its properties, e.g. to tell apart "add" and "add nsw". -/
+abbrev OpKind (OpCode : Type) [IsOpCode OpCode] := (op : OpCode) × propertiesOf op
+
+instance [IsOpCode OpCode] : Hashable (OpKind OpCode) where
+  hash k := mixHash (hash k.fst) (hash k.snd)
+
 /--
 `HasDialect OpInfo Dialect` states that `OpInfo` contains the operations from
 `Dialect`.
