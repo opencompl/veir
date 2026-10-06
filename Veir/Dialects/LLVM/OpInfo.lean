@@ -740,9 +740,9 @@ private def isOpaqueLLVMStruct : Attribute → Bool
 -/
 private partial def aggregateElementTypesMatch : Attribute → Attribute → Bool
   | .llvmArrayType lhs, .llvmArrayType rhs =>
-    lhs.size == rhs.size && aggregateElementTypesMatch lhs.type rhs.type
+    lhs.size = rhs.size && aggregateElementTypesMatch lhs.type rhs.type
   | .llvmStructType lhs, .llvmStructType rhs =>
-    lhs.name == rhs.name && lhs.packed == rhs.packed && lhs.body.size == rhs.body.size &&
+    lhs.name = rhs.name && lhs.packed = rhs.packed && lhs.body.size = rhs.body.size &&
       (lhs.body.zip rhs.body).all (fun (l, r) => aggregateElementTypesMatch l r)
   | lhs, rhs =>
     if isOpaqueLLVMStruct lhs then
