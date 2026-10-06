@@ -59,6 +59,12 @@ def Builtin.isIsolatedFromAbove (op : Builtin) : Bool :=
   | .module => true
   | _ => false
 
+/-- As in MLIR, `builtin.module` is the only builtin operation with the `SymbolTable` trait. -/
+def Builtin.isSymbolTable (op : Builtin) : Bool :=
+  match op with
+  | .module => true
+  | _ => false
+
 def Builtin.getRegionKind (op : Builtin) (_index : Nat) : RegionKind :=
   match op with
   | .module | .unregistered => .Graph
@@ -125,6 +131,7 @@ instance : HasOpInfo Builtin where
   hasSSADominance := Builtin.hasSSADominance
   hasNoTerminator := Builtin.hasNoTerminator
   isIsolatedFromAbove := Builtin.isIsolatedFromAbove
+  isSymbolTable := Builtin.isSymbolTable
 
 end
 
