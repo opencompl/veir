@@ -10,7 +10,7 @@ public import Veir.Data.Felt
 
 import Veir.Data.Comb.Basic
 import Veir.Data.HW.Basic
-import Veir.Data.Casting
+public import Veir.Data.Casting
 public import Veir.Interfaces.FunctionInterfaces
 
 public section
@@ -39,6 +39,7 @@ variable {ctx : WfIRContext OpInfo}
   If any error occurs during interpretation (e.g., unknown operation, missing variable),
   returns `none`.
 -/
+@[expose]
 def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     (mem : MemoryState) (layout : DataLayout := .riscv64)

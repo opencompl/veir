@@ -1,7 +1,5 @@
 module
 
-import all Veir.Dialects.LLVM.OpInfo
-import all Veir.Interpreter.Basic
 public import Veir.Interpreter.Lemmas
 
 public section
@@ -24,9 +22,9 @@ instance : InterpretOp'Monotone (.llvm .load) where
     split
     · split
       · next ptr hOps =>
-        obtain ⟨w, hw, hRef⟩ := RuntimeValue.arrayIsRefinedBy_toList_singleton hOps h
-        obtain rfl := RuntimeValue.addr_val_of_isRefinedBy hRef
-        rw [hw]
+        obtain rfl : operands = #[.addr (.val ptr)] := List.eq_toArray_iff.mpr hOps
+        obtain ⟨w, rfl, hRef⟩ := RuntimeValue.singleton_isRefinedBy_iff.mp h
+        obtain rfl := RuntimeValue.addr_val_isRefinedBy_iff.mp hRef
         exact Interp.isRefinedBy_refl_operationResult _
       · simp [Interp.isRefinedBy]
     · simp [Interp.isRefinedBy]

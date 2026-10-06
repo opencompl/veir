@@ -1261,6 +1261,7 @@ def Llvm.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpIn
     else none
   | _, _ => none
 
+@[expose]
 def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     (mem : MemoryState) (layout : DataLayout)
