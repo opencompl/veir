@@ -1,5 +1,5 @@
-// RUN: VEIR_UNREGISTERED_ROUNDTRIP
-// RUN: MLIR_UNREGISTERED_ROUNDTRIP
+// RUN: VEIR_ROUNDTRIP
+// RUN: MLIR_ROUNDTRIP
 //
 // Aggregate zeros of array, struct, and opaque struct type must verify and
 // round-trip.

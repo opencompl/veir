@@ -728,30 +728,45 @@ def TypeAttr.verifyLLVMVectorType (ty : TypeAttr) (errMsg : String) :
     throw s!"Expected an LLVM-compatible vector element type, but got {vectorType.elementType}"
   return vectorType
 
-/-- Whether type equality may depend on a struct VeIR keeps as text. -/
-private partial def hasOpaqueLLVMStruct : Attribute → Bool
+/-- Whether a type is a struct VeIR keeps as text. -/
+private def isOpaqueLLVMStruct : Attribute → Bool
   | .unregisteredAttr attr => attr.isType && attr.value.startsWith "!llvm.struct"
-  | .llvmArrayType arrType => hasOpaqueLLVMStruct arrType.type
-  | .llvmStructType structType => structType.body.any hasOpaqueLLVMStruct
   | _ => false
+
+/--
+  Compare aggregate element types using their known structure. An opaque struct
+  or unresolved reference may match another struct, but cannot match a scalar
+  or array. Relaxing that comparison must not hide mismatches in enclosing array
+  sizes, struct names, packedness, or other fields.
+-/
+private partial def aggregateElementTypesMatch : Attribute → Attribute → Bool
+  | .llvmArrayType lhs, .llvmArrayType rhs =>
+    lhs.size == rhs.size && aggregateElementTypesMatch lhs.type rhs.type
+  | .llvmStructType lhs, .llvmStructType rhs =>
+    lhs.name == rhs.name && lhs.packed == rhs.packed && lhs.body.size == rhs.body.size &&
+      (lhs.body.zip rhs.body).all (fun (l, r) => aggregateElementTypesMatch l r)
+  | lhs, rhs =>
+    if isOpaqueLLVMStruct lhs then
+      isOpaqueLLVMStruct rhs || (rhs matches .llvmStructType _)
+    else if isOpaqueLLVMStruct rhs then
+      lhs matches .llvmStructType _
+    else
+      lhs == rhs
 
 /--
   Walk `position` through an aggregate type, as MLIR does for `insertvalue` and
   `extractvalue`, and return the element type it reaches. Arrays and structs with
   a body are modelled, so their indices and element types are checked. Opaque
   structs and references to identified structs are kept unregistered, so the walk
-  stops at one with indices left and returns `none`. Also return `none` when the
-  reached type contains an unregistered struct, since references cannot be
-  compared with their definitions.
+  stops at one with indices left and returns `none`. When the position is fully
+  resolved, return the reached type even if it contains unresolved references;
+  `aggregateElementTypesMatch` checks its known structure.
 -/
 def Llvm.verifyAggregatePosition (containerType : TypeAttr) (position : DenseArrayAttr) :
     Except String (Option Attribute) := do
-  let isOpaqueStruct : Attribute → Bool
-    | .unregisteredAttr attr => attr.isType && attr.value.startsWith "!llvm.struct"
-    | _ => false
   let isAggregate : Attribute → Bool
     | .llvmArrayType _ | .llvmStructType _ => true
-    | attr => isOpaqueStruct attr
+    | attr => isOpaqueLLVMStruct attr
   if position.elementType.bitwidth ≠ 64 then
     throw "Expected 'position' to be an i64 dense array attribute"
   if !isAggregate containerType.val then
@@ -771,9 +786,9 @@ def Llvm.verifyAggregatePosition (containerType : TypeAttr) (position : DenseArr
         | throw s!"position out of bounds: {index}"
       current := field
     | _ =>
-      if isOpaqueStruct current then return none
+      if isOpaqueLLVMStruct current then return none
       throw s!"Expected LLVM IR structure/array type, got: {current}"
-  return if hasOpaqueLLVMStruct current then none else some current
+  return some current
 
 /--
 Verify the local invariants of an `llvm` operation in any operation-info type
@@ -1112,7 +1127,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.verifyResultTypeMatches ctx containerType "Expected the result to have the container type"
     let elementType? ← Llvm.verifyAggregatePosition containerType props.position
     if let some elementType := elementType? then
-      if elementType ≠ valueType.val then
+      if !aggregateElementTypesMatch elementType valueType.val then
         throw s!"Type mismatch: cannot insert {valueType} into {containerType}"
   | .extractvalue => do
     op.checkIsNonNullIntegerType ctx opIn
@@ -1122,7 +1137,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     let resultType := ((op.getResult 0).get! ctx.raw).type
     let elementType? ← Llvm.verifyAggregatePosition containerType props.position
     if let some elementType := elementType? then
-      if elementType ≠ resultType.val then
+      if !aggregateElementTypesMatch elementType resultType.val then
         throw s!"Type mismatch: extracting from {containerType} should produce {elementType} \
           but this op returns {resultType}"
   | .comdat => do
