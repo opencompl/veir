@@ -2585,6 +2585,135 @@ theorem OpOperandPtrPtr.get!_BlockPtr_allocEmpty {opOperandPtr : OpOperandPtrPtr
     opOperandPtr.get! ctx' = opOperandPtr.get! ctx := by
   grind
 
+/- BlockPtr.dealloc -/
+
+@[simp, grind =]
+theorem BlockPtr.get!_BlockPtr_dealloc {block : BlockPtr} :
+    block.InBounds (BlockPtr.dealloc block' ctx hblock') →
+    block.get! (BlockPtr.dealloc block' ctx hblock') =
+    block.get! ctx := by
+  grind [BlockPtr.InBounds]
+
+@[simp, grind =]
+theorem OperationPtr.get!_BlockPtr_dealloc {operation : OperationPtr} :
+    operation.get! (BlockPtr.dealloc block' ctx hblock') =
+    operation.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getOpType!_BlockPtr_dealloc {operation : OperationPtr} :
+    operation.getOpType! (BlockPtr.dealloc block' ctx hblock') =
+    operation.getOpType! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getProperties!_BlockPtr_dealloc {operation : OperationPtr} :
+    operation.getProperties! (BlockPtr.dealloc block' ctx hblock') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumResults!_BlockPtr_dealloc {operation : OperationPtr} :
+    operation.getNumResults! (BlockPtr.dealloc block' ctx hblock') =
+    operation.getNumResults! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpResultPtr.get!_BlockPtr_dealloc {opResult : OpResultPtr} :
+    opResult.get! (BlockPtr.dealloc block' ctx hblock') =
+    opResult.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumOperands!_BlockPtr_dealloc {operation : OperationPtr} :
+    operation.getNumOperands! (BlockPtr.dealloc block' ctx hblock') =
+    operation.getNumOperands! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.get!_BlockPtr_dealloc {opOperand : OpOperandPtr} :
+    opOperand.get! (BlockPtr.dealloc block' ctx hblock') =
+    opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getOperands!_BlockPtr_dealloc {operation : OperationPtr} :
+    operation.getOperands! (BlockPtr.dealloc block' ctx hblock') =
+    operation.getOperands! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_BlockPtr_dealloc {operation : OperationPtr} :
+    operation.getNumSuccessors! (BlockPtr.dealloc block' ctx hblock') =
+    operation.getNumSuccessors! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtr.get!_BlockPtr_dealloc {blockOperand : BlockOperandPtr} :
+    blockOperand.get! (BlockPtr.dealloc block' ctx hblock') =
+    blockOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumRegions!_BlockPtr_dealloc {operation : OperationPtr} :
+    operation.getNumRegions! (BlockPtr.dealloc block' ctx hblock') =
+    operation.getNumRegions! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getRegion!_BlockPtr_dealloc {operation : OperationPtr} :
+    operation.getRegion! (BlockPtr.dealloc block' ctx hblock') i =
+    operation.getRegion! ctx i := by
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtrPtr.get!_BlockPtr_dealloc {blockOperandPtr : BlockOperandPtrPtr} :
+    blockOperandPtr.InBounds (BlockPtr.dealloc block' ctx hblock') →
+    blockOperandPtr.get! (BlockPtr.dealloc block' ctx hblock') =
+    blockOperandPtr.get! ctx := by
+  grind [BlockPtr.InBounds]
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_BlockPtr_dealloc {block : BlockPtr} :
+    block.InBounds (BlockPtr.dealloc block' ctx hblock') →
+    block.getNumArguments! (BlockPtr.dealloc block' ctx hblock') =
+    block.getNumArguments! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.get!_BlockPtr_dealloc {blockArg : BlockArgumentPtr} :
+    blockArg.block.InBounds (BlockPtr.dealloc block' ctx hblock') →
+    blockArg.get! (BlockPtr.dealloc block' ctx hblock') =
+    blockArg.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.get!_BlockPtr_dealloc {region : RegionPtr} :
+    region.get! (BlockPtr.dealloc block' ctx hblock') =
+    region.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem ValuePtr.getFirstUse!_BlockPtr_dealloc {value : ValuePtr} :
+    value.InBounds (BlockPtr.dealloc block' ctx hblock') →
+    value.getFirstUse! (BlockPtr.dealloc block' ctx hblock') =
+    value.getFirstUse! ctx := by
+  grind [BlockArgumentPtr.InBounds]
+
+@[simp, grind =]
+theorem ValuePtr.getType!_BlockPtr_dealloc {value : ValuePtr} :
+    value.InBounds (BlockPtr.dealloc block' ctx hblock') →
+    value.getType! (BlockPtr.dealloc block' ctx hblock') =
+    value.getType! ctx := by
+  grind [BlockArgumentPtr.InBounds]
+
+@[simp, grind =]
+theorem OpOperandPtrPtr.get!_BlockPtr_dealloc {opOperandPtr : OpOperandPtrPtr} :
+    opOperandPtr.InBounds (BlockPtr.dealloc block' ctx hblock') →
+    opOperandPtr.get! (BlockPtr.dealloc block' ctx hblock') =
+    opOperandPtr.get! ctx := by
+  grind [BlockArgumentPtr.InBounds]
+
 /- BlockPtr.setParent -/
 
 @[grind =]
@@ -4644,6 +4773,129 @@ theorem ValuePtr.getType!_RegionPtr_allocEmpty {value : ValuePtr}
 theorem OpOperandPtrPtr.get!_RegionPtr_allocEmpty {opOperandPtr : OpOperandPtrPtr}
     (heq : RegionPtr.allocEmpty ctx = some (ctx', rg')) :
     opOperandPtr.get! ctx' = opOperandPtr.get! ctx := by
+  grind
+
+/- RegionPtr.dealloc -/
+
+@[simp, grind =]
+theorem BlockPtr.get!_RegionPtr_dealloc {block : BlockPtr} :
+    block.get! (RegionPtr.dealloc region' ctx hregion') =
+    block.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.get!_RegionPtr_dealloc {operation : OperationPtr} :
+    operation.get! (RegionPtr.dealloc region' ctx hregion') =
+    operation.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getOpType!_RegionPtr_dealloc {operation : OperationPtr} :
+    operation.getOpType! (RegionPtr.dealloc region' ctx hregion') =
+    operation.getOpType! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getProperties!_RegionPtr_dealloc {operation : OperationPtr} :
+    operation.getProperties! (RegionPtr.dealloc region' ctx hregion') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumResults!_RegionPtr_dealloc {operation : OperationPtr} :
+    operation.getNumResults! (RegionPtr.dealloc region' ctx hregion') =
+    operation.getNumResults! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpResultPtr.get!_RegionPtr_dealloc {opResult : OpResultPtr} :
+    opResult.get! (RegionPtr.dealloc region' ctx hregion') =
+    opResult.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumOperands!_RegionPtr_dealloc {operation : OperationPtr} :
+    operation.getNumOperands! (RegionPtr.dealloc region' ctx hregion') =
+    operation.getNumOperands! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.get!_RegionPtr_dealloc {opOperand : OpOperandPtr} :
+    opOperand.get! (RegionPtr.dealloc region' ctx hregion') =
+    opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getOperands!_RegionPtr_dealloc {operation : OperationPtr} :
+    operation.getOperands! (RegionPtr.dealloc region' ctx hregion') =
+    operation.getOperands! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_RegionPtr_dealloc {operation : OperationPtr} :
+    operation.getNumSuccessors! (RegionPtr.dealloc region' ctx hregion') =
+    operation.getNumSuccessors! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtr.get!_RegionPtr_dealloc {blockOperand : BlockOperandPtr} :
+    blockOperand.get! (RegionPtr.dealloc region' ctx hregion') =
+    blockOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumRegions!_RegionPtr_dealloc {operation : OperationPtr} :
+    operation.getNumRegions! (RegionPtr.dealloc region' ctx hregion') =
+    operation.getNumRegions! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getRegion!_RegionPtr_dealloc {operation : OperationPtr} :
+    operation.getRegion! (RegionPtr.dealloc region' ctx hregion') i =
+    operation.getRegion! ctx i := by
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtrPtr.get!_RegionPtr_dealloc {blockOperandPtr : BlockOperandPtrPtr} :
+    blockOperandPtr.get! (RegionPtr.dealloc region' ctx hregion') =
+    blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_RegionPtr_dealloc {block : BlockPtr} :
+    block.getNumArguments! (RegionPtr.dealloc region' ctx hregion') =
+    block.getNumArguments! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.get!_RegionPtr_dealloc {blockArg : BlockArgumentPtr} :
+    blockArg.get! (RegionPtr.dealloc region' ctx hregion') =
+    blockArg.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.get!_RegionPtr_dealloc {region : RegionPtr} :
+    region.InBounds (RegionPtr.dealloc region' ctx hregion') →
+    region.get! (RegionPtr.dealloc region' ctx hregion') =
+    region.get! ctx := by
+  grind [RegionPtr.InBounds]
+
+@[simp, grind =]
+theorem ValuePtr.getFirstUse!_RegionPtr_dealloc {value : ValuePtr} :
+    value.getFirstUse! (RegionPtr.dealloc region' ctx hregion') =
+    value.getFirstUse! ctx := by
+  grind
+
+@[simp, grind =]
+theorem ValuePtr.getType!_RegionPtr_dealloc {value : ValuePtr} :
+    value.getType! (RegionPtr.dealloc region' ctx hregion') =
+    value.getType! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtrPtr.get!_RegionPtr_dealloc {opOperandPtr : OpOperandPtrPtr} :
+    opOperandPtr.get! (RegionPtr.dealloc region' ctx hregion') =
+    opOperandPtr.get! ctx := by
   grind
 
 /- RegionPtr.setParent -/
