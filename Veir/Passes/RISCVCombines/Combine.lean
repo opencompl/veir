@@ -1614,6 +1614,118 @@ def zextb_lbu_pattern : Puddle.Pattern OpCode :=
 def zextb_lbu : RewritePattern OpCode :=
   zextb_lbu_pattern.compile.run
 
+/-- `riscv.sextw (op …) -> op …` when `op` already returns a sign-extended
+    32-bit value.
+
+    LLVM (GlobalISel): after instruction selection, `RISCVOptWInstrs` deletes
+    every `sext.w` whose input comes from an instruction marked
+    `IsSignExtendingOpW` (`-riscv-disable-sextw-removal` turns this off).
+
+    Detection of sign extending word-variant operations:
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L381-L388
+    Deletion:
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L701-L751 -/
+def sextw_signExtendingOpW_pattern (producer : Riscv) (arity : Nat)
+    (property : Puddle.PropertyMatcher (OpCode.riscv producer) := fun _ => true) :
+    Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let operands ← (Array.range arity).mapM fun _ => do
+        let operandType ← Puddle.MatchProg.type (Attr := RegisterType)
+        Puddle.MatchProg.value operandType
+      let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let inner ← Puddle.MatchProg.operation (.riscv producer) operands #[resultType] property
+      let _ ← Puddle.MatchProg.root (.riscv .sextw) #[inner.res[0]!] #[resultType]
+      return inner.res[0]!)
+    pure
+    (fun inner => inner)
+
+def sextw_signExtendingOpW (producer : Riscv) (arity : Nat)
+    (property : Puddle.PropertyMatcher (OpCode.riscv producer) := fun _ => true) :
+    RewritePattern OpCode :=
+  (sextw_signExtendingOpW_pattern producer arity property).compile.run
+
+/-- Loads. `lw`, `lh` and `lb` sign-extend the loaded word, half or byte, and
+    `lhu` and `lbu` zero-extend a value of at most 16 bits.
+    Either way the result is a sign-extended 32-bit value.
+
+    This mirrors an LLVM post-legalizer combine and should move to a
+    post-legalization combine pass once `legalize` widens `icmp` operands:
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/CodeGen/GlobalISel/CombinerHelper.cpp#L722-L796 -/
+def sextw_lw := sextw_signExtendingOpW .lw 1
+def sextw_lh := sextw_signExtendingOpW .lh 1
+def sextw_lb := sextw_signExtendingOpW .lb 1
+def sextw_lhu := sextw_signExtendingOpW .lhu 1
+def sextw_lbu := sextw_signExtendingOpW .lbu 1
+
+/-- Instructions that compute a 32-bit result and sign-extend it to 64 bits: the
+    word instructions (`*w`) and `lui`.
+
+    LLVM: these instructions are marked `IsSignExtendingOpW`.
+    See documentation of `sextw_signExtendingOpW_pattern`.-/
+def sextw_addw := sextw_signExtendingOpW .addw 2
+def sextw_addiw := sextw_signExtendingOpW .addiw 1
+def sextw_subw := sextw_signExtendingOpW .subw 2
+def sextw_mulw := sextw_signExtendingOpW .mulw 2
+def sextw_divw := sextw_signExtendingOpW .divw 2
+def sextw_divuw := sextw_signExtendingOpW .divuw 2
+def sextw_remw := sextw_signExtendingOpW .remw 2
+def sextw_remuw := sextw_signExtendingOpW .remuw 2
+def sextw_sllw := sextw_signExtendingOpW .sllw 2
+def sextw_slliw := sextw_signExtendingOpW .slliw 1
+def sextw_srlw := sextw_signExtendingOpW .srlw 2
+def sextw_srliw := sextw_signExtendingOpW .srliw 1
+def sextw_sraw := sextw_signExtendingOpW .sraw 2
+def sextw_sraiw := sextw_signExtendingOpW .sraiw 1
+def sextw_rolw := sextw_signExtendingOpW .rolw 2
+def sextw_rorw := sextw_signExtendingOpW .rorw 2
+def sextw_roriw := sextw_signExtendingOpW .roriw 1
+def sextw_packw := sextw_signExtendingOpW .packw 2
+def sextw_lui := sextw_signExtendingOpW .lui 0
+
+/-- Counts. `cpop`, `clz` and `ctz` and their word versions return at most 64, whose
+    upper bits are all zero.
+
+    LLVM: these instructions are marked `IsSignExtendingOpW`.
+    See documentation of `sextw_signExtendingOpW_pattern`.-/
+def sextw_cpop := sextw_signExtendingOpW .cpop 1
+def sextw_cpopw := sextw_signExtendingOpW .cpopw 1
+def sextw_clz := sextw_signExtendingOpW .clz 1
+def sextw_clzw := sextw_signExtendingOpW .clzw 1
+def sextw_ctz := sextw_signExtendingOpW .ctz 1
+def sextw_ctzw := sextw_signExtendingOpW .ctzw 1
+
+/-- Comparisons and bit extracts. Each returns 0 or 1, which is trivially a
+    sign-extended 32-bit value.
+
+    LLVM: these instructions are marked `IsSignExtendingOpW`.
+    See documentation of `sextw_signExtendingOpW_pattern`.-/
+def sextw_slt := sextw_signExtendingOpW .slt 2
+def sextw_sltu := sextw_signExtendingOpW .sltu 2
+def sextw_slti := sextw_signExtendingOpW .slti 1
+def sextw_sltiu := sextw_signExtendingOpW .sltiu 1
+def sextw_bext := sextw_signExtendingOpW .bext 2
+def sextw_bexti := sextw_signExtendingOpW .bexti 1
+
+/-- Byte and half extensions. `sextb` and `sexth` sign-extend a byte or half, and
+    `zexth` and `packh` zero-extend at most 16 bits.
+
+    LLVM: these instructions are marked `IsSignExtendingOpW`.
+    See documentation of `sextw_signExtendingOpW_pattern`.-/
+def sextw_sextb := sextw_signExtendingOpW .sextb 1
+def sextw_sexth := sextw_signExtendingOpW .sexth 1
+def sextw_zexth := sextw_signExtendingOpW .zexth 1
+def sextw_packh := sextw_signExtendingOpW .packh 2
+
+/-- Instructions whose result is sign-extended only for some immediates.
+
+    LLVM: the operand-dependent cases of `isSignExtendingOpW`.
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L390-L405 -/
+def sextw_srai := sextw_signExtendingOpW .srai 1 (fun p => (p.immField 6).toNat ≥ 32)
+def sextw_srli := sextw_signExtendingOpW .srli 1 (fun p => (p.immField 6).toNat > 32)
+def sextw_andi := sextw_signExtendingOpW .andi 1 (fun p => !(p.immField 12).msb)
+def sextw_ori := sextw_signExtendingOpW .ori 1 (fun p => (p.immField 12).msb)
+
 /-- `riscv.zextw (riscv.slliw (riscv.lbu addr), shamt) ->
     riscv.slli (riscv.lbu addr), shamt`, where `shamt` is 8, 16, or 24.
     The `lbu` source is already zero-extended, so the full-width shift has the
@@ -2828,6 +2940,50 @@ def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds
      , drop_sextw_sw
      , sextw_x0
      , sextw_li_low32
+     , sextw_lw
+     , sextw_lh
+     , sextw_lb
+     , sextw_lhu
+     , sextw_lbu
+     , sextw_addw
+     , sextw_addiw
+     , sextw_subw
+     , sextw_mulw
+     , sextw_divw
+     , sextw_divuw
+     , sextw_remw
+     , sextw_remuw
+     , sextw_sllw
+     , sextw_slliw
+     , sextw_srlw
+     , sextw_srliw
+     , sextw_sraw
+     , sextw_sraiw
+     , sextw_rolw
+     , sextw_rorw
+     , sextw_roriw
+     , sextw_clzw
+     , sextw_ctzw
+     , sextw_cpopw
+     , sextw_packw
+     , sextw_slt
+     , sextw_sltu
+     , sextw_slti
+     , sextw_sltiu
+     , sextw_clz
+     , sextw_ctz
+     , sextw_cpop
+     , sextw_bext
+     , sextw_bexti
+     , sextw_sextb
+     , sextw_sexth
+     , sextw_zexth
+     , sextw_packh
+     , sextw_lui
+     , sextw_srai
+     , sextw_srli
+     , sextw_andi
+     , sextw_ori
      , zextb_zextb
      , zexth_zexth
      , sextb_sextb

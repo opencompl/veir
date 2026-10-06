@@ -1258,22 +1258,6 @@ def fshl32 : Puddle.CompiledPattern OpCode := fshl32_pattern.compile
   (LLVM commit d9906882fc61).
 -/
 
-def mkRISCVImm (value : Int) : RISCVImmediateProperties :=
-  RISCVImmediateProperties.mk (BitVec.ofInt 64 value)
-
-def createRISCVImmLocal (ctx : WfIRContext OpCode)
-    (dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties)
-    (operands : Array ValuePtr) (value : Int) :
-    Option (WfIRContext OpCode × OperationPtr) :=
-  WfRewriter.createOp! ctx dst #[RegisterType.mk] operands #[] #[]
-      (cast h.symm (mkRISCVImm value)) none
-
-def createRISCVUnitLocal (ctx : WfIRContext OpCode)
-    (dst : Riscv) (h : Riscv.propertiesOf dst = Unit) (operands : Array ValuePtr) :
-    Option (WfIRContext OpCode × OperationPtr) :=
-  WfRewriter.createOp! ctx dst #[RegisterType.mk] operands #[] #[]
-      (cast h.symm ()) none
-
 def signedSatSelectLocal (ctx : WfIRContext OpCode) (op : OperationPtr)
     (wrapped overflow sat : ValuePtr) :
     Option (WfIRContext OpCode × Array OperationPtr × Array ValuePtr) := do
@@ -1695,6 +1679,23 @@ def poisonConst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let (ctx, castBackOp) ← replaceWithRegLocal ctx op (liOp.getResult 0)
   some (ctx, some (#[liOp, castBackOp], #[castBackOp.getResult 0]))
 
+/-- llvm.mlir.zero of an integer up to 64 bits or a pointer -> riscv.li 0 -/
+def zeroConst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some _ := matchZero op ctx.raw | return (ctx, none)
+  let some width := icmpOperandWidth? (op.getResult 0) ctx.raw | return (ctx, none)
+  if width > 64 then return (ctx, none)
+  let imm := RISCVImmediateProperties.mk 0#64
+  let (ctx, liOp) ← WfRewriter.createOp! ctx Riscv.li #[RegisterType.mk] #[]
+      #[] #[] imm none
+  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (liOp.getResult 0)
+  some (ctx, some (#[liOp, castBackOp], #[castBackOp.getResult 0]))
+
+/-- llvm.mlir.zero -> riscv.li 0 -/
+def zeroConst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite zeroConst_local rewriter op opInBounds
+
 /-- llvm.mlir.poison -> riscv.li 0 -/
 def poisonConst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
@@ -1843,7 +1844,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     sext32.run, sext16.run, sext8.run, zext32.run, zext16.run, zext8.run, trunc, shl, lshr,
     sub64.run, sub32.run, bitcast, load, getelementptr, store,
     smax64.run, smax32.run, smin64.run, smin32.run, umax.run, umin.run, saddSat, ssubSat, uaddSat, usubSat, sshlSat, ushlSat, abs,
-    fshlConst, fshrConst, fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral, fshrGeneral, poisonConst, freeze]
+    fshlConst, fshrConst, fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral, fshrGeneral, poisonConst, zeroConst, freeze]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying main instruction-selection patterns"
   | some ctx => pure ctx
