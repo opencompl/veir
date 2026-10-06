@@ -46,6 +46,18 @@ def main(argv: list[str]) -> int:
     if start >= 0:
         end = log.find("Exiting function: veir_test_main", start)
         log = log[start:] if end < 0 else log[start:end]
+    # The result is the `ret` of the test's function itself, not one of a function it calls.
+    depth = 0
+    own_lines = []
+    for line in log.splitlines(keepends=True):
+        if line.startswith("Entering function:"):
+            depth += 1
+        elif line.startswith("Exiting function:"):
+            depth -= 1
+        elif depth > 1 and line.lstrip().startswith("ret"):
+            continue
+        own_lines.append(line)
+    log = "".join(own_lines)
     try:
         verdict, _ = vsmith.classify_llubi_output(log)
     except ValueError as e:

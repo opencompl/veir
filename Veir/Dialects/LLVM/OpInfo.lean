@@ -1643,6 +1643,14 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let [type] := resultTypes.toList | none
     let .integerType bw := type.val | none
     if bw.bitwidth = 64 then return (#[.int 64 (mem.intFromPtr val)], mem, none) else .fail none
+  -- A call asks `interpretOp` to call its callee. An indirect call takes its callee as its first
+  -- operand.
+  | .call => do
+    match properties.callee with
+    | some callee => return (#[], mem, some (.call callee operands))
+    | none =>
+      let some (RuntimeValue.addr callee) := operands[0]? | none
+      return (#[], mem, some (.call (← mem.getCallee callee) (operands.extract 1)))
   | _ => none
 
 instance : HasOpInfo Llvm where

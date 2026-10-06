@@ -104,13 +104,23 @@ def Interp.isRefinedBy (R : α → β → Prop) (source : Interp α) (target : I
   | _, _ => False
 
 /--
-Refinement between two control flow actions: same constructor, equal successor block `dest`, and
-the carried value payloads refine pointwise.
+A call semantics `source` is refined by `target` when calling any function with refining arguments
+and the same memory gives refining results.
+-/
+@[expose]
+def CallSemantics.isRefinedBy (source target : CallSemantics) : Prop :=
+  ∀ callee (args args' : Array RuntimeValue) mem, args ⊒ args' →
+    Interp.isRefinedBy FunctionResult.isRefinedBy (source callee args mem) (target callee args' mem)
+
+/--
+Refinement between two control flow actions: same constructor, equal successor block `dest` or
+`callee`, and the carried value payloads refine pointwise.
 -/
 @[expose]
 def ControlFlowAction.isRefinedBy : ControlFlowAction → ControlFlowAction → Prop
   | .return vals, .return vals' => vals ⊒ vals'
   | .branch vals dest, .branch vals' dest' => dest = dest' ∧ vals ⊒ vals'
+  | .call callee args, .call callee' args' => callee = callee' ∧ args ⊒ args'
   | _, _ => False
 
 @[inherit_doc] infix:50 " ⊒ " => ControlFlowAction.isRefinedBy

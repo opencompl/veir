@@ -773,6 +773,26 @@ def translate_nonterminator(
         return [f"  store {convert_type(op.operand_types[0])} {value}, ptr {ptr}"
                 f"{align_suffix(op.attr)}"]
 
+    if name == "llvm.call":
+        # Calls with operand bundles are not translated. An indirect call takes
+        # its callee as its first operand.
+        if re.search(r'"?op_bundle_sizes"?\s*=\s*array<i32:', op.attr):
+            raise Error("llvm.call with operand bundles is not supported")
+        m = re.search(r'"?callee"?\s*=\s*@([A-Za-z_.$][A-Za-z0-9_.$-]*)', op.attr)
+        operands = list(zip(op.operands, op.operand_types))
+        if m:
+            callee = f"@{m.group(1)}"
+        else:
+            callee = llvm_value(operands[0][0], aliases)
+            operands = operands[1:]
+        args = ", ".join(f"{convert_type(typ)} {llvm_value(val, aliases)}"
+                         for val, typ in operands)
+        if op.result is None:
+            return [f"  call void {callee}({args})"]
+        value_types[op.result] = op.result_types[0]
+        return [f"  {llvm_ssa_name(op.result)} = call {convert_type(op.result_types[0])} "
+                f"{callee}({args})"]
+
     result = require_result(op)
     out_result = llvm_ssa_name(result)
     dst_type = op.result_types[0]

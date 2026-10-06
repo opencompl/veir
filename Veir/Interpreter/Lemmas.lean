@@ -15,6 +15,7 @@ variable {ctx ctx' : WfIRContext OpInfo}
 variable {varState varState' : VariableState ctx}
 variable {state state' : InterpreterState ctx}
 variable {op op' : OperationPtr}
+variable {call : CallSemantics}
 
 /-- The value stored for `var` conforms to `var`'s type. -/
 theorem VariableState.getVar?_conforms {ctx : WfIRContext OpInfo} {state : VariableState ctx}
@@ -281,54 +282,81 @@ theorem interpretOp'_opType_cast
   subst opType
   grind
 
+/-! ### Performing calls -/
+
+@[simp, grind =]
+theorem CallSemantics.perform_none : call.perform results mem none = .ok (results, mem, none) := rfl
+
+@[simp, grind =]
+theorem CallSemantics.perform_return :
+    call.perform results mem (some (.return vals)) = .ok (results, mem, some (.return vals)) := rfl
+
+@[simp, grind =]
+theorem CallSemantics.perform_branch :
+    call.perform results mem (some (.branch vals dest)) =
+      .ok (results, mem, some (.branch vals dest)) := rfl
+
 theorem interpretOp_some_iff {ctx : WfIRContext OpCode} {state state' : InterpreterState ctx}
   {inBounds : op.InBounds ctx.raw} :
-  interpretOp op state inBounds = .ok (state', cf) ↔
+  interpretOp call op state inBounds = .ok (state', cf) ↔
   ∃ operandValues resValues mem' varState',
     (state.variables.getOperandValues op) = some operandValues ∧
-    op.interpret ctx operandValues state.memory = .ok (resValues, mem', cf) ∧
+    op.interpretWith call ctx operandValues state.memory = .ok (resValues, mem', cf) ∧
     state.variables.setResultValues? op resValues = some varState' ∧
     state' = ⟨varState', mem'⟩ := by
-  simp only [interpretOp, bind, pure, liftM, monadLift, MonadLift.monadLift]
-  grind
+  simp only [interpretOp, OperationPtr.interpretWith, bind, pure, liftM, monadLift,
+    MonadLift.monadLift]
+  grind [Interp.withBlame, Interp.withFailureBlame]
 
 /--
 Given that getting the operands from the interpreter state succeeds, interpreting an operation
-with `interpretOp` returns `ok` iff interpreting the operation with `interpretOp'` returns `ok` and
-setting the result values in the state succeeds.
+with `interpretOp` returns `ok` iff interpreting the operation and performing its call returns
+`ok`, and setting the result values in the state succeeds.
 -/
 theorem interpretOp_ok_iff_of_getOperandValues_eq_some
   {ctx : WfIRContext OpCode} {state state' : InterpreterState ctx} {inBounds : op.InBounds ctx.raw}
   (hoperandValues : state.variables.getOperandValues op = some operandValues) :
-  interpretOp op state inBounds = .ok (state', cf) ↔
+  interpretOp call op state inBounds = .ok (state', cf) ↔
   ∃ resValues,
-    op.interpret ctx operandValues state.memory = .ok (resValues, state'.memory, cf) ∧
+    op.interpretWith call ctx operandValues state.memory = .ok (resValues, state'.memory, cf) ∧
     state.variables.setResultValues? op resValues = some state'.variables := by
-  simp only [interpretOp, hoperandValues, bind, pure, liftM, monadLift, MonadLift.monadLift]
-  grind [cases InterpreterState]
+  simp only [interpretOp, OperationPtr.interpretWith, hoperandValues, bind, pure]
+  grind [cases InterpreterState, Interp.withBlame, Interp.withFailureBlame]
 
-/--
-If interpreting an operation triggers `ub`, then we know that the operands were correctly fetched,
-and that the underlying `interpretOp'` call triggered `ub`.
--/
-theorem interpretOp_ub_iff {ctx : WfIRContext OpCode} {state : InterpreterState ctx}
-  {inBounds : op.InBounds ctx.raw} :
-  (interpretOp op state inBounds).isUB ↔
-  ∃ operandValues,
-    (state.variables.getOperandValues op) = some operandValues ∧
-    (op.interpret ctx operandValues state.memory).isUB := by
-  simp only [interpretOp, bind, pure, liftM, monadLift, MonadLift.monadLift]
-  grind
-
-/-- `interpretOp` is `ub` iff `interpretOp'` is `ub` if the operands are correctly fetched from
-the variable state. -/
+/-- `interpretOp` is `ub` iff interpreting the operation or performing its call is `ub`, if the
+operands are correctly fetched from the variable state. -/
 theorem interpretOp_ub_iff_op_interpret_of_getOperandValues_eq_some
   {ctx : WfIRContext OpCode} {state : InterpreterState ctx} {inBounds : op.InBounds ctx.raw}
   (hoperandValues : state.variables.getOperandValues op = some operandValues) :
-  (interpretOp op state inBounds).isUB ↔
-  (op.interpret ctx.raw operandValues state.memory).isUB := by
-  simp only [interpretOp, bind, pure, liftM, monadLift, MonadLift.monadLift]
-  grind
+  (interpretOp call op state inBounds).isUB ↔
+  (op.interpretWith call ctx.raw operandValues state.memory).isUB := by
+  simp only [interpretOp, OperationPtr.interpretWith, hoperandValues, bind, pure]
+  cases op.interpret ctx.raw operandValues state.memory with
+  | fail o => cases o <;> simp [Interp.withBlame]
+  | ub o => cases o <;> simp [Interp.withBlame]
+  | ok r =>
+    simp only [Interp.withBlame]
+    cases call.perform r.1 r.2.1 r.2.2 with
+    | fail o => cases o <;> simp [Interp.withFailureBlame]
+    | ub o => simp [Interp.withFailureBlame]
+    | ok r' => simp only [Interp.withFailureBlame]; split <;> simp
+
+/--
+If interpreting an operation triggers `ub`, then we know that the operands were correctly fetched,
+and that interpreting the operation or performing its call triggered `ub`.
+-/
+theorem interpretOp_ub_iff {ctx : WfIRContext OpCode} {state : InterpreterState ctx}
+  {inBounds : op.InBounds ctx.raw} :
+  (interpretOp call op state inBounds).isUB ↔
+  ∃ operandValues,
+    (state.variables.getOperandValues op) = some operandValues ∧
+    (op.interpretWith call ctx operandValues state.memory).isUB := by
+  cases hoperandValues : state.variables.getOperandValues op with
+  | none => simp [interpretOp, hoperandValues, bind, Interp.withBlame, liftM, monadLift,
+      MonadLift.monadLift]
+  | some operandValues =>
+    rw [interpretOp_ub_iff_op_interpret_of_getOperandValues_eq_some hoperandValues]
+    simp
 
 theorem VariableState.getOperandValues_eq_of_getVar?_eq :
     (∀ val, val ∈ op.getOperands! ctx.raw → varState.getVar? val = varState'.getVar? val) →
@@ -514,14 +542,14 @@ theorem interpretOp_forward
     (hVals : state.variables.getOperandValues op = some vals)
     (hInterp : op.interpret ctx vals state.memory = .ok (results, mem', none))
     (hConf : RuntimeValue.ArrayConforms results (op.getResultTypes! ctx.raw)) :
-    ∃ state', interpretOp op state inBounds = .ok (state', none) ∧
+    ∃ state', interpretOp call op state inBounds = .ok (state', none) ∧
       state'.memory = mem' ∧
       state.variables.setResultValues? op results = some state'.variables := by
   obtain ⟨varState', hSet⟩ :=
     (VariableState.setResultValues?_isSome_iff_conforms state.variables inBounds).mp hConf
   have hsize : op.getNumResults! ctx.raw = results.size := by grind
   exists ⟨varState', mem'⟩
-  grind [interpretOp_ok_iff_of_getOperandValues_eq_some]
+  grind [interpretOp_ok_iff_of_getOperandValues_eq_some, OperationPtr.interpretWith]
 
 section interpretOpList
 
@@ -530,23 +558,23 @@ variable {state : InterpreterState ctx}
 
 @[simp, grind =]
 theorem interpretOpList_nil :
-    interpretOpList [] state inBounds = .ok (state, none) := by
+    interpretOpList call [] state inBounds = .ok (state, none) := by
   simp [interpretOpList, pure]
 
 theorem interpretOpList_cons :
-    interpretOpList (op :: l) state inBounds =
-    match interpretOp op state with
+    interpretOpList call (op :: l) state inBounds =
+    match interpretOp call op state with
     | .fail o => .fail o
     | .ub o => .ub o
-    | .ok (state', none) => interpretOpList l state' (by grind)
+    | .ok (state', none) => interpretOpList call l state' (by grind)
     | .ok (state', some cf) => .ok (state', some cf) := by
   simp [interpretOpList, bind, pure]
   grind
 
 theorem interpretOpList_append :
-    interpretOpList (l₁ ++ l₂) state inBounds =
-    match interpretOpList l₁ state (by grind) with
-    | .ok (state', none) => interpretOpList l₂ state' (by grind)
+    interpretOpList call (l₁ ++ l₂) state inBounds =
+    match interpretOpList call l₁ state (by grind) with
+    | .ok (state', none) => interpretOpList call l₂ state' (by grind)
     | .ok (state', some cf) => .ok (state', some cf)
     | .ub o => .ub o
     | .fail o => .fail o := by
@@ -556,26 +584,26 @@ theorem interpretOpList_append :
 
 @[simp, grind =]
 theorem interpretTerminatedOpList_nil :
-    interpretTerminatedOpList [] state inBounds = .fail none := by
+    interpretTerminatedOpList call [] state inBounds = .fail none := by
   simp [interpretTerminatedOpList, interpretOpList_nil, bind]
 
 theorem interpretTerminatedOpList_cons {ctx : WfIRContext OpCode}
     {op : OperationPtr} {l : List OperationPtr}
     {state : InterpreterState ctx}
     {inBounds : ∀ op' ∈ op :: l, op'.InBounds ctx.raw} :
-    interpretTerminatedOpList (op :: l) state inBounds =
-    match interpretOp op state with
+    interpretTerminatedOpList call (op :: l) state inBounds =
+    match interpretOp call op state with
     | .fail o => .fail o
     | .ub o => .ub o
-    | .ok (state', none) => interpretTerminatedOpList l state' (by grind)
+    | .ok (state', none) => interpretTerminatedOpList call l state' (by grind)
     | .ok (state', some cf) => .ok (state', cf) := by
   simp [interpretTerminatedOpList, interpretOpList_cons, bind, pure]
   grind
 
 theorem interpretTerminatedOpList_append :
-    interpretTerminatedOpList (l₁ ++ l₂) state inBounds =
-    match interpretOpList l₁ state (by grind) with
-    | .ok (state', none) => interpretTerminatedOpList l₂ state' (by grind)
+    interpretTerminatedOpList call (l₁ ++ l₂) state inBounds =
+    match interpretOpList call l₁ state (by grind) with
+    | .ok (state', none) => interpretTerminatedOpList call l₂ state' (by grind)
     | .ok (state', some cf)=> .ok (state', cf)
     | .ub o => .ub o
     | .fail o => .fail o := by
@@ -584,11 +612,11 @@ theorem interpretTerminatedOpList_append :
 
 theorem interpretOpChain_of_next!_eq_some {state' : InterpreterState ctx}
     (hnext : (op.get! ctx.raw).next = some op') :
-    interpretOpChain op state' inBounds =
-    match interpretOp op state' (by grind) with
+    interpretOpChain scope op state' inBounds =
+    match interpretOp (interpretCall ctx scope) op state' (by grind) with
     | .fail o => .fail o
     | .ub o => .ub o
-    | .ok (state'', none) => interpretOpChain op' state'' (by grind)
+    | .ok (state'', none) => interpretOpChain scope op' state'' (by grind)
     | .ok (state'', some cf) => .ok (state'', cf) := by
   rw [interpretOpChain]
   simp [bind, pure]
@@ -596,8 +624,8 @@ theorem interpretOpChain_of_next!_eq_some {state' : InterpreterState ctx}
 
 theorem interpretOpChain_of_next!_eq_none {state' : InterpreterState ctx}
     (hnext : (op.get! ctx.raw).next = none) :
-    interpretOpChain op state' inBounds =
-    match interpretOp op state' (by grind) with
+    interpretOpChain scope op state' inBounds =
+    match interpretOp (interpretCall ctx scope) op state' (by grind) with
     | .fail o => .fail o
     | .ub o => .ub o
     | .ok (_, none) => .fail none
@@ -614,8 +642,9 @@ theorem interpretOpChain_getElem_array_eq_interpretTerminatedOpList_of_opChain
     (hchain : BlockPtr.OpChain block ctx.raw array) (n : Nat) :
     ∀ (i : Nat) (state' : InterpreterState ctx)
       (_hni : i + n = array.size) (hi : i < array.size),
-      interpretOpChain array[i] state' (hchain.arrayInBounds (Array.getElem_mem hi)) =
-      interpretTerminatedOpList (array.toList.drop i) state' (by grind [BlockPtr.OpChain]) := by
+      interpretOpChain scope array[i] state' (hchain.arrayInBounds (Array.getElem_mem hi)) =
+      interpretTerminatedOpList (interpretCall ctx scope) (array.toList.drop i) state'
+        (by grind [BlockPtr.OpChain]) := by
   induction n
   case zero => grind
   case succ n ih =>
@@ -627,13 +656,13 @@ theorem interpretOpChain_getElem_array_eq_interpretTerminatedOpList_of_opChain
 theorem interpretOpChain_eq_interpretTerminatedOpList_of_firstOp
     {block : BlockPtr} (blockInBounds : block.InBounds ctx.raw) :
     (block.get! ctx.raw).firstOp = some op →
-    interpretOpChain op state opInBounds =
-    interpretTerminatedOpList (block.operationList ctx.raw).toList state
+    interpretOpChain scope op state opInBounds =
+    interpretTerminatedOpList (interpretCall ctx scope) (block.operationList ctx.raw).toList state
       (by grind [BlockPtr.operationListWF, BlockPtr.OpChain]) := by
   intro hfirst
   have hchain := BlockPtr.operationListWF ctx.raw block blockInBounds ctx.wellFormed
-  have := interpretOpChain_getElem_array_eq_interpretTerminatedOpList_of_opChain hchain
-    (block.operationList ctx.raw).size 0 state (by omega) (by grind [BlockPtr.OpChain])
+  have := interpretOpChain_getElem_array_eq_interpretTerminatedOpList_of_opChain (scope := scope)
+    hchain (block.operationList ctx.raw).size 0 state (by omega) (by grind [BlockPtr.OpChain])
   grind [BlockPtr.OpChain]
 
 end interpretOpList
@@ -674,12 +703,14 @@ theorem interpretOp'_monotone
 
 /--
 A successful operation interpretation returns result values that conform to the declared
-`resultTypes` when the operation verifies.
+`resultTypes` when the operation verifies, unless it asks for a call, whose results are the values
+its callee returns.
 -/
 axiom interpretOp'_results_conform {ctx : WfIRContext OpCode}
     {opInBounds : op.InBounds ctx.raw} (opVerif : op.Verified ctx opInBounds)
     (conforms : RuntimeValue.ArrayConforms operands (op.getOperandTypes! ctx.raw))
-    (h : op.interpret ctx.raw operands mem = .ok (vals, mem', act)) :
+    (h : op.interpret ctx.raw operands mem = .ok (vals, mem', act))
+    (notCall : ∀ callee args, act ≠ some (.call callee args)) :
     RuntimeValue.ArrayConforms vals (op.getResultTypes! ctx.raw)
 
 /--
@@ -698,8 +729,16 @@ operation successors.
 theorem interpretOp_branch_dest_mem_getSuccessors!
     {ctx : WfIRContext OpCode} {op : OperationPtr} {state state' : InterpreterState ctx}
     {inBounds : op.InBounds ctx.raw} {res : Array RuntimeValue} {dest : BlockPtr}
-    (h : interpretOp op state inBounds = .ok (state', some (.branch res dest))) :
+    (h : interpretOp call op state inBounds = .ok (state', some (.branch res dest))) :
     dest ∈ op.getSuccessors! ctx.raw := by
   obtain ⟨operandValues, resValues, mem', varState', hOperand, hInterp', hSetRes, hStateEq⟩ :=
     interpretOp_some_iff.mp h
-  exact interpretOp'_branch_dest_mem hInterp'
+  -- Performing a call never yields a branch, so the branch comes from `interpretOp'`.
+  simp only [OperationPtr.interpretWith, bind] at hInterp'
+  split at hInterp' <;> try simp at hInterp'
+  rename_i r hr
+  rcases r with ⟨vals, mem, _ | ⟨_ | _ | _⟩⟩ <;>
+    simp [CallSemantics.perform, bind] at hInterp'
+  all_goals first
+    | (obtain ⟨rfl, rfl, rfl, rfl⟩ := hInterp'; exact interpretOp'_branch_dest_mem hr)
+    | (split at hInterp' <;> simp at hInterp')

@@ -56,12 +56,15 @@ def RuntimeValue.getPoisonForType (ty : TypeAttr) : Option RuntimeValue :=
   | _ => none
 
 /--
-  How the control flow should proceed after interpreting a terminator.
+  How the control flow should proceed after interpreting a terminator or a call.
   - `return` indicates that the current block should return with the given values.
   - `branch` indicates that the interpreter should jump to another block
+  - `call` indicates that the interpreter should call the function `callee` with `args`, and use
+    the values it returns as the results of the operation
 -/
 inductive ControlFlowAction where
   | return (vals : Array RuntimeValue)
   | branch (vals : Array RuntimeValue) (dest : BlockPtr)
+  | call (callee : FlatSymbolRefAttr) (args : Array RuntimeValue)
 
 end Veir
