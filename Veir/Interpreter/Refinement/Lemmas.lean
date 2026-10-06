@@ -6,6 +6,7 @@ import all Veir.Interpreter.Refinement.Basic
 import all Veir.Interpreter.Memory
 import all Veir.Data.Refinement
 import all Veir.Data.LLVM.Ptr.Basic
+import all Veir.Data.Pointer.Basic
 import all Veir.Data.LLVM.Byte.Basic
 import Veir.Data.LLVM.Byte.Lemmas
 
@@ -386,3 +387,232 @@ theorem Interp.isRefinedBy_mono {α β : Type} {R R' : α → β → Prop} (hR :
     {x : Interp α} {y : Interp β} (h : Interp.isRefinedBy R x y) : Interp.isRefinedBy R' x y := by
   cases x <;> cases y <;> simp_all [Interp.isRefinedBy]
 
+
+/-! ## Assembly mode -/
+
+/-- Refinement is reflexive in either mode. -/
+theorem RuntimeValue.isRefinedBy_refl_mode (m : RefinementMode) (v : RuntimeValue) : v ⊒[m] v := by
+  cases m
+  · exact RuntimeValue.isRefinedBy_refl v
+  · cases v <;> grind [RuntimeValue.isRefinedBy, Data.LLVM.Ptr.isRefinedByAsm,
+      Data.Pointer.isRefinedByAsm, cases Data.LLVM.Ptr]
+
+theorem RuntimeValue.arrayIsRefinedBy_refl_mode (m : RefinementMode) (a : Array RuntimeValue) :
+    a ⊒[m] a :=
+  ⟨rfl, fun _ _ => RuntimeValue.isRefinedBy_refl_mode m _⟩
+
+theorem ControlFlowAction.optionIsRefinedBy_refl_mode (m : RefinementMode)
+    (cf : Option ControlFlowAction) : ControlFlowAction.optionIsRefinedBy cf cf m := by
+  cases cf with
+  | none => trivial
+  | some cf =>
+    cases cf <;> simp [ControlFlowAction.optionIsRefinedBy, ControlFlowAction.isRefinedBy,
+      RuntimeValue.arrayIsRefinedBy_refl_mode]
+
+theorem OperationResult.isRefinedBy_refl_mode (asm : Bool)
+    (r : Array RuntimeValue × MemoryState × Option ControlFlowAction) :
+    OperationResult.isRefinedBy r r asm :=
+  ⟨RuntimeValue.arrayIsRefinedBy_refl_mode _ _, rfl, ControlFlowAction.optionIsRefinedBy_refl_mode _ _⟩
+
+theorem Interp.isRefinedBy_refl_operationResult_mode (asm : Bool)
+    (x : Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction)) :
+    Interp.isRefinedBy (OperationResult.isRefinedBy · · asm) x x := by
+  cases x <;> simp [Interp.isRefinedBy, OperationResult.isRefinedBy_refl_mode]
+
+/-- One value, in either mode. -/
+theorem OperationResult.isRefinedBy_value_mode {asm : Bool} {v w : RuntimeValue}
+    {mem : MemoryState} (h : v ⊒[.of asm] w) :
+    OperationResult.isRefinedBy (#[v], mem, none) (#[w], mem, none) asm :=
+  ⟨RuntimeValue.arrayIsRefinedBy_singleton.mpr h, rfl, by simp [ControlFlowAction.optionIsRefinedBy]⟩
+
+/-- Related pointers share their address. -/
+theorem Data.Pointer.address_eq_of_isRefinedByAsm {p q : Data.Pointer} (hpq : p.isRefinedByAsm q) :
+    q.address = p.address := by
+  rcases hpq with rfl | ⟨-, h⟩
+  · rfl
+  · exact h
+
+/-- A pointer survives a round trip through its address in assembly mode. -/
+theorem Data.Pointer.isRefinedByAsm_ofAddress {p q : Data.Pointer} (hpq : p.isRefinedByAsm q) :
+    p.isRefinedByAsm (Data.Pointer.ofAddress q.address) :=
+  .inr ⟨rfl, by simp [Data.Pointer.ofAddress, Data.Pointer.address_eq_of_isRefinedByAsm hpq]⟩
+
+/-- Address arithmetic keeps the assembly relation: both sides move by the same amount. -/
+theorem Data.Pointer.isRefinedByAsm_addOffset {p q : Data.Pointer} (hpq : p.isRefinedByAsm q)
+    (n : Nat) : Data.Pointer.isRefinedByAsm { p with address := UInt64.ofNat (p.address.toNat + n) }
+      { q with address := UInt64.ofNat (q.address.toNat + n) } := by
+  rcases hpq with rfl | ⟨hw, h⟩
+  · exact .inl rfl
+  · exact .inr ⟨hw, by simp [h]⟩
+
+/-- What refines a pointer is a pointer, in either mode. -/
+theorem RuntimeValue.exists_addr_of_isRefinedBy {m : RefinementMode} {v : Data.LLVM.Ptr}
+    {w : RuntimeValue} (h : RuntimeValue.addr v ⊒[m] w) : ∃ t, w = RuntimeValue.addr t := by
+  cases w <;> simp only [RuntimeValue.isRefinedBy] at h <;> first | exact ⟨_, rfl⟩ | exact h.elim
+
+/-- The pointer a source value stands for, as the target holds it. -/
+theorem RuntimeValue.addr_val_of_isRefinedBy_of {asm : Bool} {p : Data.Pointer}
+    {w : RuntimeValue} (h : RuntimeValue.addr (.val p) ⊒[.of asm] w) :
+    ∃ q, w = RuntimeValue.addr (.val q) ∧ (asm = false → q = p) ∧
+      (asm = true → p.isRefinedByAsm q) := by
+  cases w <;> simp only [RuntimeValue.isRefinedBy] at h <;> try exact h.elim
+  rename_i t
+  cases asm <;> simp only [RefinementMode.of_false, RefinementMode.of_true] at h <;>
+    cases t <;> simp only [Data.LLVM.Ptr.isRefinedBy, Data.LLVM.Ptr.isRefinedByAsm] at h
+  · exact ⟨_, rfl, fun _ => h.symm, fun hc => by simp at hc⟩
+  · exact ⟨_, rfl, fun hc => by simp at hc, fun _ => h⟩
+
+/-- Poison is refined by any pointer, in either mode. -/
+theorem RuntimeValue.addr_poison_isRefinedBy {m : RefinementMode} {t : Data.LLVM.Ptr} :
+    RuntimeValue.addr .poison ⊒[m] RuntimeValue.addr t := by
+  cases m <;> simp [RuntimeValue.isRefinedBy, Data.LLVM.Ptr.isRefinedByAsm]
+
+/-- Address arithmetic keeps refinement of pointers, in either mode. -/
+theorem RuntimeValue.addr_addOffset_isRefinedBy {m : RefinementMode} {p q : Data.Pointer}
+    (h : RuntimeValue.addr (.val p) ⊒[m] RuntimeValue.addr (.val q)) (n : Nat) :
+    RuntimeValue.addr (.val { p with address := UInt64.ofNat (p.address.toNat + n) }) ⊒[m]
+      RuntimeValue.addr (.val { q with address := UInt64.ofNat (q.address.toNat + n) }) := by
+  cases m
+  · simp only [RuntimeValue.isRefinedBy, Data.LLVM.Ptr.isRefinedBy] at h ⊢
+    rw [h]
+  · simp only [RuntimeValue.isRefinedBy, Data.LLVM.Ptr.isRefinedByAsm] at h ⊢
+    exact Data.Pointer.isRefinedByAsm_addOffset h n
+
+/-- A pointer cast from an integer keeps refinement, in either mode. -/
+theorem Data.LLVM.Ptr.ofInt_isRefinedBy {m : RefinementMode} {x y : Data.LLVM.Int 64} (h : x ⊒ y) :
+    RuntimeValue.addr (Data.LLVM.Ptr.ofInt x) ⊒[m] RuntimeValue.addr (Data.LLVM.Ptr.ofInt y) := by
+  cases m
+  · simpa [RuntimeValue.isRefinedBy] using Data.LLVM.Ptr.ofInt_mono h
+  · cases x <;> cases y <;> simp_all [_root_.isRefinedBy, Data.LLVM.Ptr.ofInt,
+      RuntimeValue.isRefinedBy, Data.LLVM.Ptr.isRefinedByAsm, Data.Pointer.isRefinedByAsm]
+
+/-- The address of a pointer keeps refinement, in either mode: related pointers share it. -/
+theorem Data.LLVM.Ptr.toInt_isRefinedBy {m : RefinementMode} {p q : Data.LLVM.Ptr}
+    (h : RuntimeValue.addr p ⊒[m] RuntimeValue.addr q) : p.toInt ⊒ q.toInt := by
+  cases m
+  · exact Data.LLVM.Ptr.toInt_mono (by simpa [RuntimeValue.isRefinedBy] using h)
+  · simp only [RuntimeValue.isRefinedBy] at h
+    cases p <;> cases q <;> simp only [Data.LLVM.Ptr.isRefinedByAsm] at h
+    case val.val a b =>
+      simp [Data.LLVM.Ptr.toInt, _root_.isRefinedBy, Data.Pointer.address_eq_of_isRefinedByAsm h]
+    all_goals simp [Data.LLVM.Ptr.toInt, _root_.isRefinedBy]
+
+/-- The bits of a pointer keep refinement, in either mode. -/
+theorem Data.LLVM.Ptr.toByte_isRefinedBy {m : RefinementMode} {p q : Data.LLVM.Ptr}
+    (h : RuntimeValue.addr p ⊒[m] RuntimeValue.addr q) : p.toByte ⊒ q.toByte := by
+  rw [Data.LLVM.Ptr.toByte_eq_fromInt, Data.LLVM.Ptr.toByte_eq_fromInt]
+  exact Data.LLVM.Byte.fromInt_mono (Data.LLVM.Ptr.toInt_isRefinedBy h)
+
+/-! ## Steps through memory -/
+
+/-- A bind returns a value only when both halves do. -/
+theorem Interp.bind_eq_ok_iff {α β : Type} {x : Interp α} {f : α → Interp β} {b : β} :
+    (x >>= f) = .ok b ↔ ∃ a, x = .ok a ∧ f a = .ok b := by
+  cases x <;> simp
+
+/-- Two interpretations refine when their first steps do, and their continuations do from
+related results. -/
+theorem Interp.isRefinedBy_bind {α α' β β' : Type} {R : α → α' → Prop} {S : β → β' → Prop}
+    {x : Interp α} {y : Interp α'} {f : α → Interp β} {g : α' → Interp β'}
+    (hxy : Interp.isRefinedBy R x y) (hfg : ∀ a b, R a b → Interp.isRefinedBy S (f a) (g b)) :
+    Interp.isRefinedBy S (x >>= f) (y >>= g) := by
+  cases x <;> cases y <;> simp only [Interp.isRefinedBy, Interp.bind_ok, Interp.bind_ub,
+    Interp.bind_fail] at hxy ⊢ <;> first | trivial | exact hxy.elim | exact hfg _ _ hxy
+
+/-- An interpretation refines itself when each of its results relates to itself. -/
+theorem Interp.isRefinedBy_refl_of_ok {α : Type} {R : α → α → Prop} {x : Interp α}
+    (h : ∀ a, x = .ok a → R a a) : Interp.isRefinedBy R x x := by
+  cases x <;> simp_all [Interp.isRefinedBy]
+
+/--
+The access that makes assembly mode work: an access that succeeds through `p`
+succeeds through what refines `p`, since a wild pointer at the same address
+finds `p`'s object among those that hold the range.
+-/
+theorem MemoryState.checkAccess_of_isRefinedByAsm {mem : MemoryState} {p q : Data.Pointer}
+    (hpq : p.isRefinedByAsm q) {size : UInt64} (hok : mem.checkAccess p size = .ok ()) :
+    mem.checkAccess q size = .ok () := by
+  rcases hpq with rfl | ⟨hw, ha⟩
+  · exact hok
+  · simp only [MemoryState.checkAccess, hw, ha, ↓reduceIte]
+    by_cases hp : p.wild = true
+    · simpa [MemoryState.checkAccess, hp] using hok
+    · simp only [MemoryState.checkAccess, hp, Bool.false_eq_true, ↓reduceIte] at hok
+      split at hok
+      · rename_i obj hobj
+        by_cases hsize : size = 0
+        · simp [hsize]
+        · obtain ⟨hi, rfl⟩ := Array.getElem?_eq_some_iff.mp hobj
+          simp only [hsize, false_or] at hok
+          split at hok
+          · rename_i hholds
+            have hany : mem.objects.any (·.holds p.address size.toNat) = true :=
+              Array.any_eq_true.mpr ⟨p.object, hi, hholds⟩
+            simp [hany]
+          · simp at hok
+      · simp at hok
+
+/-- Loads read the same bytes through two pointers that refine in assembly mode, once the
+source's access succeeds. -/
+theorem MemoryState.load_of_isRefinedByAsm {mem : MemoryState} {p q : Data.Pointer}
+    (hpq : p.isRefinedByAsm q) {size : UInt64} {bytes : ByteArray}
+    (hok : mem.load p size = .ok bytes) : mem.load q size = .ok bytes := by
+  simp only [MemoryState.load, Interp.bind_eq_ok_iff] at hok ⊢
+  obtain ⟨⟨⟩, hacc, hbytes⟩ := hok
+  refine ⟨(), mem.checkAccess_of_isRefinedByAsm hpq hacc, ?_⟩
+  rwa [Data.Pointer.address_eq_of_isRefinedByAsm hpq]
+
+theorem MemoryState.loadPoison_of_isRefinedByAsm {mem : MemoryState} {p q : Data.Pointer}
+    (hpq : p.isRefinedByAsm q) {size : UInt64} {bytes : ByteArray}
+    (hok : mem.loadPoison p size = .ok bytes) : mem.loadPoison q size = .ok bytes := by
+  simp only [MemoryState.loadPoison, Interp.bind_eq_ok_iff] at hok ⊢
+  obtain ⟨⟨⟩, hacc, hbytes⟩ := hok
+  refine ⟨(), mem.checkAccess_of_isRefinedByAsm hpq hacc, ?_⟩
+  rwa [Data.Pointer.address_eq_of_isRefinedByAsm hpq]
+
+/-- A pointer related to a non-null pointer is not null. -/
+theorem Data.Pointer.ne_null_of_isRefinedByAsm {p q : Data.Pointer} (hpq : p.isRefinedByAsm q)
+    (hp : p ≠ .null) : q ≠ .null := by
+  rcases hpq with rfl | ⟨hw, -⟩
+  · exact hp
+  · intro h; subst h; simp [Data.Pointer.null] at hw
+
+/-- A load through a refined pointer reads what the source read, in either mode. -/
+theorem MemoryState.llvmLoad_isRefinedBy {asm : Bool} {mem : MemoryState} {p q : Data.Pointer}
+    (h : RuntimeValue.addr (.val p) ⊒[.of asm] RuntimeValue.addr (.val q)) (type : TypeAttr) :
+    Interp.isRefinedBy (fun (v w : RuntimeValue) => v ⊒[.of asm] w) (mem.llvmLoad p type)
+      (mem.llvmLoad q type) := by
+  cases asm
+  · simp only [RefinementMode.of_false, RuntimeValue.isRefinedBy, Data.LLVM.Ptr.isRefinedBy] at h
+    subst h
+    exact Interp.isRefinedBy_refl_of_ok fun v _ => RuntimeValue.isRefinedBy_refl v
+  · simp only [RefinementMode.of_true, RuntimeValue.isRefinedBy, Data.LLVM.Ptr.isRefinedByAsm] at h
+    cases hok : mem.llvmLoad p type
+    case ok v =>
+      suffices mem.llvmLoad q type = .ok v by
+        simp [this, Interp.isRefinedBy, RuntimeValue.isRefinedBy_refl_mode]
+      have hq := Data.Pointer.ne_null_of_isRefinedByAsm h
+      simp only [MemoryState.llvmLoad] at hok ⊢
+      split at hok
+      · simp at hok
+      · rename_i hp
+        split
+        · exact absurd ‹q = Data.Pointer.null› (hq hp)
+        split at hok
+        all_goals first
+          | (simp at hok; done)
+          | (simp only [MemoryState.hasPoison, MemoryState.loadByte64, Interp.bind_eq_ok_iff]
+               at hok ⊢
+             first
+              | (obtain ⟨b, ⟨ba, hba, ps, hps, hb⟩, hok⟩ := hok
+                 exact ⟨b, ⟨ba, mem.load_of_isRefinedByAsm h hba, ps,
+                   mem.loadPoison_of_isRefinedByAsm h hps, hb⟩, hok⟩)
+              | (obtain ⟨bs, hbs, hok⟩ := hok
+                 refine ⟨bs, mem.load_of_isRefinedByAsm h hbs, ?_⟩
+                 first
+                  | (obtain ⟨ps, hps, hok⟩ := hok
+                     exact ⟨ps, mem.loadPoison_of_isRefinedByAsm h hps, hok⟩)
+                  | (obtain ⟨b, ⟨ps, hps, hb⟩, hok⟩ := hok
+                     exact ⟨b, ⟨ps, mem.loadPoison_of_isRefinedByAsm h hps, hb⟩, hok⟩)
+                  | exact hok))
+    all_goals simp [Interp.isRefinedBy]
