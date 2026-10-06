@@ -728,7 +728,7 @@ def TypeAttr.verifyLLVMVectorType (ty : TypeAttr) (errMsg : String) :
     throw s!"Expected an LLVM-compatible vector element type, but got {vectorType.elementType}"
   return vectorType
 
-/-- Whether a type is a struct VeIR keeps as text. -/
+/-- Whether the attribute represents an LLVM struct as text rather than parsed fields. -/
 private def isOpaqueLLVMStruct : Attribute → Bool
   | .unregisteredAttr attr => attr.isType && attr.value.startsWith "!llvm.struct"
   | _ => false
@@ -736,8 +736,7 @@ private def isOpaqueLLVMStruct : Attribute → Bool
 /--
   Compare aggregate element types using their known structure. An opaque struct
   or unresolved reference may match another struct, but cannot match a scalar
-  or array. Relaxing that comparison must not hide mismatches in enclosing array
-  sizes, struct names, packedness, or other fields.
+  or array.
 -/
 private partial def aggregateElementTypesMatch : Attribute → Attribute → Bool
   | .llvmArrayType lhs, .llvmArrayType rhs =>

@@ -1,8 +1,5 @@
 // RUN: VEIR_ROUNDTRIP
 // RUN: MLIR_ROUNDTRIP
-//
-// An unresolved reference and its definition denote the same field type.
-// Until references are resolved, skip equality checks that depend on them.
 
 "builtin.module"() ({
   "llvm.func"() <{function_type = !llvm.func<void ()>, linkage = #llvm.linkage<external>, sym_name = "recursive"}> ({
