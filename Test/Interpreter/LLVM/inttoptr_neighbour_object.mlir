@@ -2,8 +2,8 @@
 
 // `%past` has `%p`'s provenance and `%q`'s address, so a store through it is
 // out of bounds, as in `alloca_out_of_bounds.mlir`. Through an integer and
-// back, the address is decoded into the object that covers it, the store
-// finds `%q`, and a load from `%q` sees it.
+// back the pointer is wild, the store finds `%q` at its address, and a load
+// from `%q` sees it.
 //
 // LLUBI: reports undefined behaviour, since for it the reconstructed pointer
 // may not reach `%q`.
