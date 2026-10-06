@@ -1,5 +1,6 @@
 import Veir.Interfaces.SymbolInterfaces
 import Veir.Input
+import UnitTest.Helpers
 
 open Veir
 open Veir.Input
@@ -56,20 +57,12 @@ private def parsed := parseSourceString! r#""builtin.module"() ({
 
 private def ctx := parsed.1.raw
 
-/-- The first operation in the body of `op`. -/
-private def Veir.OperationPtr.body! (op : OperationPtr) : OperationPtr :=
-  (((op.getRegion! ctx 0).get! ctx).firstBlock.get!.get! ctx).firstOp.get!
-
-/-- The operation following `op` in its block. -/
-private def Veir.OperationPtr.next! (op : OperationPtr) : OperationPtr :=
-  (op.get! ctx).next.get!
-
 private def moduleOp := parsed.2
-private def caller := moduleOp.body!
-private def callOp := caller.body!
-private def callee := caller.next!
-private def comdat := callee.next!
-private def selector := comdat.body!
+private def caller := moduleOp.body! ctx
+private def callOp := caller.body! ctx
+private def callee := caller.next! ctx
+private def comdat := callee.next! ctx
+private def selector := comdat.body! ctx
 
 -- Modules and comdats are symbol tables, and functions are not.
 

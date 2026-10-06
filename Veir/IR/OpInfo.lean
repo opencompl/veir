@@ -55,6 +55,17 @@ structure FunctionOpInterface (Properties : Type) where
   /-- Return the properties with the function type replaced. -/
   setFunctionType : Properties → FunctionType → Properties
 
+/-- The callee of a call: a symbol, or an SSA value. -/
+inductive CallInterfaceCallable where
+  | symbol (ref : FlatSymbolRefAttr)
+  | value (value : ValuePtr)
+deriving Inhabited, Repr, DecidableEq
+
+/-- Information exposed by call-like operations. -/
+structure CallOpInterface (Properties : Type) where
+  /-- Return the callee of the call, given its operands. -/
+  getCallableForCallee? : Properties → Array ValuePtr → Option CallInterfaceCallable
+
 /-- The SSA values forwarded from a branch operation to one of its successors. -/
 structure SuccessorOperands where
   /-- The SSA values forwarded to the successor. -/
@@ -149,6 +160,11 @@ class HasOpInfo (opCode: Type)
         ∀ {props}, (symbolInterface.getSymName props).isSome := by
     intro op f symbolInterface hf hs props
     cases op <;> cases hf <;> cases hs <;> rfl
+  /--
+  Information about call-like operations.
+  -/
+  callOpInterface? : (op : opCode) → Option (CallOpInterface (propertiesOf op)) :=
+    fun _ => none
   /--
   Information about operations that branch to successor blocks.
   -/

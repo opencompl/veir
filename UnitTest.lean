@@ -22,6 +22,7 @@ import UnitTest.FoldDecision
 import UnitTest.SideEffectInterfaces
 import UnitTest.RegionKindInterfaces
 import UnitTest.SymbolInterfaces
+import UnitTest.CallInterfaces
 import UnitTest.Puddle
 import UnitTest.BoundedBitblasting.BoundedBitblasting
 import UnitTest.BoundedBitblasting.Elab
