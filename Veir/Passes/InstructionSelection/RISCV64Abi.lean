@@ -47,8 +47,7 @@ private def isUnsupportedAbiAttr (entry : ByteArray × Attribute) : Bool :=
       match attr with
       | .dictionaryAttr dict => dict.entries.any fun (name, _) =>
         name == "llvm.byval".toUTF8 || name == "llvm.inalloca".toUTF8 ||
-          name == "llvm.nest".toUTF8 ||
-          name == "llvm.signext".toUTF8 || name == "llvm.zeroext".toUTF8
+          name == "llvm.nest".toUTF8
       | _ => false
     | _ => false
   else false
@@ -76,10 +75,29 @@ private def hasUnsupportedAttrs (properties attrs : Array (ByteArray × Attribut
     (unsupported : ByteArray × Attribute → Bool) : Bool :=
   properties.any unsupported || attrs.any unsupported
 
-private def supportsFunctionAbi (ctx : IRContext OpCode) (op : OperationPtr) : Bool :=
+/-- How a boundary value is extended to a full register (`llvm.signext`/`llvm.zeroext`). -/
+inductive AbiExt where
+  | none
+  | sext
+  | zext
+deriving DecidableEq
+
+/-- The extension requested by entry `i` of the `arg_attrs` or `res_attrs` (`key`) array. -/
+def abiExtOf (entries : Array (ByteArray × Attribute)) (key : String) (i : Nat) : AbiExt := Id.run do
+  let some (_, .arrayAttr attrs) := entries.find? (·.1 == key.toUTF8) | return .none
+  let some (.dictionaryAttr dict) := attrs.value[i]? | return .none
+  if dict.entries.any (·.1 == "llvm.signext".toUTF8) then return .sext
+  if dict.entries.any (·.1 == "llvm.zeroext".toUTF8) then return .zext
+  return .none
+
+/-- The properties and discardable attributes of `op`, where its `arg_attrs` and `res_attrs` live. -/
+private def abiAttrEntries (ctx : IRContext OpCode) (op : OperationPtr) :
+    Array (ByteArray × Attribute) :=
   let opType := op.getOpType! ctx
-  let properties := Properties.toAttrDict opType (op.getProperties! ctx opType)
-  !hasUnsupportedAttrs properties.toArray (op.get! ctx).attrs.entries isUnsupportedAbiAttr
+  (Properties.toAttrDict opType (op.getProperties! ctx opType)).toArray ++ (op.get! ctx).attrs.entries
+
+private def supportsFunctionAbi (ctx : IRContext OpCode) (op : OperationPtr) : Bool :=
+  !(abiAttrEntries ctx op).any isUnsupportedAbiAttr
 
 /-- Resolve a flat callee name in the nearest enclosing module. Do not look through
     nested modules: a same-named function there belongs to a different symbol scope. -/
@@ -102,21 +120,39 @@ def isRegPassed (t : TypeAttr) : Bool :=
   (BoundaryCoercion.riscvReg.target t).isSome
 
 /--
-  `reg` holds a value of type `type` zero-extended to 64 bits. If `type` is `i32`,
-  sign-extend it instead, as the psABI requires.
+  Extend `reg`, which holds a value of type `type` in its low bits, to the full
+  register as `ext` requests. An `i32` is sign-extended, as the psABI requires, unless
+  it is `zeroext`, which LLVM honors by zero-extending it.
+  The sequences match `llc -mtriple=riscv64 -mattr=+zba,+zbb`.
 -/
-def sextIfI32 (ctx : WfIRContext OpCode) (type : TypeAttr) (reg : ValuePtr)
+def extendForAbi (ctx : WfIRContext OpCode) (ext : AbiExt) (type : TypeAttr) (reg : ValuePtr)
     : Option (WfIRContext OpCode × Array OperationPtr × ValuePtr) := do
   let .integerType t := type.val | return (ctx, #[], reg)
-  if t.bitwidth ≠ 32 then return (ctx, #[], reg)
-  let (ctx, sext) ← WfRewriter.createOp! ctx Riscv.sextw #[RegisterType.mk] #[reg]
-    #[] #[] () none
-  return (ctx, #[sext], sext.getResult 0)
+  match ext, t.bitwidth with
+  | .sext, 1 =>
+    let (ctx, shl) ← createRISCVImmLocal ctx .slli rfl #[reg] 63
+    let (ctx, sra) ← createRISCVImmLocal ctx .srai rfl #[shl.getResult 0] 63
+    return (ctx, #[shl, sra], sra.getResult 0)
+  | .zext, 1 =>
+    let (ctx, andOp) ← createRISCVImmLocal ctx .andi rfl #[reg] 1
+    return (ctx, #[andOp], andOp.getResult 0)
+  | .sext, 8 => extendWith ctx .sextb rfl reg
+  | .zext, 8 => extendWith ctx .zextb rfl reg
+  | .sext, 16 => extendWith ctx .sexth rfl reg
+  | .zext, 16 => extendWith ctx .zexth rfl reg
+  | .zext, 32 => extendWith ctx .zextw rfl reg
+  | _, 32 => extendWith ctx .sextw rfl reg
+  | _, _ => return (ctx, #[], reg)
+where
+  extendWith (ctx : WfIRContext OpCode) (dst : Riscv) (h : Riscv.propertiesOf dst = Unit)
+      (reg : ValuePtr) : Option (WfIRContext OpCode × Array OperationPtr × ValuePtr) := do
+    let (ctx, extOp) ← createRISCVUnitLocal ctx dst h #[reg]
+    return (ctx, #[extOp], extOp.getResult 0)
 
 /--
   Replace `op` by a `riscv_cf.return` if it returns registers from a function. The
-  boundary coercion casts each coerced return value to a register; an `i32` one is
-  sign-extended after its cast.
+  boundary coercion casts each coerced return value to a register, which is then
+  extended as `extendForAbi` describes.
 -/
 def lowerReturn : LocalRewritePattern OpCode := fun ctx op => do
   let some parent := op.getParentOp! ctx.raw | return (ctx, none)
@@ -124,11 +160,13 @@ def lowerReturn : LocalRewritePattern OpCode := fun ctx op => do
     return (ctx, none)
   let operands := op.getOperands! ctx.raw
   if !operands.all (fun v => (v.getType! ctx.raw).isa RegisterType) then return (ctx, none)
-  let (ctx, newOps, regs) ← operands.foldlM (init := (ctx, #[], #[])) fun (ctx, newOps, regs) v => do
-    let (ctx, sextOps, reg) ← match v.definingOp?.bind (matchCastOp · ctx.raw) with
-      | some input => sextIfI32 ctx (input.getType! ctx.raw) v
+  let entries := abiAttrEntries ctx.raw parent
+  let (ctx, newOps, regs) ← operands.zipIdx.foldlM (init := (ctx, #[], #[]))
+      fun (ctx, newOps, regs) (v, i) => do
+    let (ctx, extOps, reg) ← match v.definingOp?.bind (matchCastOp · ctx.raw) with
+      | some input => extendForAbi ctx (abiExtOf entries "res_attrs" i) (input.getType! ctx.raw) v
       | none => pure (ctx, #[], v)
-    return (ctx, newOps ++ sextOps, regs.push reg)
+    return (ctx, newOps ++ extOps, regs.push reg)
   let (ctx, ret) ← WfRewriter.createOp! ctx Riscv_Cf.return #[] regs #[] #[] () none
   return (ctx, some (newOps.push ret, #[]))
 
@@ -144,21 +182,31 @@ def lowerCall (callee : Option FlatSymbolRefAttr) (extra : DictionaryAttr) :
     LocalRewritePattern OpCode := fun ctx op => do
   if hasUnsupportedAttrs extra.entries (op.get! ctx.raw).attrs.entries isUnsupportedCallAttr then
     return (ctx, none)
+  let mut calleeEntries := #[]
   if let some callee := callee then
     let some name := callee.getName? | return (ctx, none)
     if let some target := lookupCallee? ctx.raw op name then
       if !supportsFunctionAbi ctx.raw target then return (ctx, none)
+      calleeEntries := abiAttrEntries ctx.raw target
   let operands := op.getOperands! ctx.raw
   -- Stack arguments are not lowered yet; an indirect target is not an argument.
-  let numArgs := operands.size - (if callee.isSome then 0 else 1)
-  if numArgs > 8 then return (ctx, none)
+  let numTargets := if callee.isSome then 0 else 1
+  if operands.size - numTargets > 8 then return (ctx, none)
   let resultTypes := op.getResultTypes! ctx.raw
   if !operands.all (fun v => isRegPassed (v.getType! ctx.raw)) || !resultTypes.all isRegPassed then
     return (ctx, none)
-  let (ctx, newOps, regs) ← operands.foldlM (init := (ctx, #[], #[])) fun (ctx, newOps, regs) v => do
+  -- The call site's extension attribute, or else the callee's, like `CallBase::paramHasAttr`.
+  let callEntries := extra.entries ++ (op.get! ctx.raw).attrs.entries
+  let argExt (i : Nat) : AbiExt :=
+    if i < numTargets then .none else
+    match abiExtOf callEntries "arg_attrs" (i - numTargets) with
+    | .none => abiExtOf calleeEntries "arg_attrs" (i - numTargets)
+    | ext => ext
+  let (ctx, newOps, regs) ← operands.zipIdx.foldlM (init := (ctx, #[], #[]))
+      fun (ctx, newOps, regs) (v, i) => do
     let (ctx, cast) ← castToRegLocal ctx v
-    let (ctx, sextOps, reg) ← sextIfI32 ctx (v.getType! ctx.raw) (cast.getResult 0)
-    return (ctx, newOps.push cast ++ sextOps, regs.push reg)
+    let (ctx, extOps, reg) ← extendForAbi ctx (argExt i) (v.getType! ctx.raw) (cast.getResult 0)
+    return (ctx, newOps.push cast ++ extOps, regs.push reg)
   let (ctx, call) ← WfRewriter.createOp! ctx Riscv_Cf.call
     (resultTypes.map fun _ => RegisterType.mk) regs #[] #[] ({ callee } : RISCVCallProperties) none
   let newOps := newOps.push call

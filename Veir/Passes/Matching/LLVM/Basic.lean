@@ -277,6 +277,10 @@ def matchPoison (op : OperationPtr) (ctx : IRContext OpCode) : Option Unit := do
   let (_, _) ← matchOp op ctx (Llvm.mlir__poison) 0
   return ()
 
+def matchZero (op : OperationPtr) (ctx : IRContext OpCode) : Option Unit := do
+  let (_, _) ← matchOp op ctx (Llvm.mlir__zero) 0
+  return ()
+
 def matchStore (op : OperationPtr) (ctx : IRContext OpCode) :
     Option (ValuePtr × ValuePtr × propertiesOf Llvm.store) := do
   guard (op.getOpType! ctx = Llvm.store)
