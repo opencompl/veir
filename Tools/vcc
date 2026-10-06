@@ -20,7 +20,7 @@ from pathlib import Path
 BASE_TOOLS = ("clang", "opt", "mlir-translate", "mlir-opt")
 VEIR_TOOLS = ("lake",)
 REPO_ROOT = Path(__file__).resolve().parent.parent
-CLANG_TARGET_FLAGS = ["--target=riscv64-linux-gnu", "-fomit-frame-pointer"]
+CLANG_TARGET_FLAGS = ["--target=riscv64-linux-gnu", "-mabi=lp64", "-fomit-frame-pointer"]
 
 def check_tools(tools: tuple[str, ...]) -> None:
     missing = [t for t in tools if shutil.which(t) is None]
