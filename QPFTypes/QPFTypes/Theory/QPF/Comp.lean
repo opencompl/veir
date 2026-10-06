@@ -19,17 +19,17 @@ and show that it preserves the QPF structure
 @[expose] public section
 
 
-universe u
+universe u v
 
 namespace QPFTypes.QPF
 
 open MvFunctor
 
-variable {n m : Nat} (F : TypeVec.{u} n → Type _) (G : Fin n → TypeVec.{u} m → Type u)
+variable {n m : Nat} (F : TypeVec.{u} n → Type v) (G : Fin n → TypeVec.{u} m → Type u)
 
 /-- Composition of an `n`-ary functor with `n` `m`-ary
 functors gives us one `m`-ary functor -/
-def Comp (v : TypeVec.{u} m) : Type _ :=
+def Comp (v : TypeVec.{u} m) : Type v :=
   F fun i : Fin n ↦ G i v
 
 namespace Comp
