@@ -26,9 +26,6 @@ private def isUnsupportedAbiAttr (entry : ByteArray × Attribute) : Bool :=
   let (name, attr) := entry
   if name == "CConv".toUTF8 then
     match attr with
-    -- fastcc only differs from the standard convention in using extra argument
-    -- registers; since it is restricted to internal functions, lowering it as
-    -- ccc is always consistent.
     | .cconvAttr cc =>
       let cc := cc.value.trimAscii.toString
       cc != "ccc" && cc != "fastcc"
