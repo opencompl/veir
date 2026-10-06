@@ -1,6 +1,8 @@
 module
 
 public import Veir.Data.Pointer.Basic
+public import Veir.Data.LLVM.Byte.Basic
+
 namespace Veir.Data.LLVM
 
 public section
@@ -31,6 +33,16 @@ instance : ToString Ptr where
   toString
     | .val p => ToString.toString p
     | .poison => "poison"
+
+/-- The address of a pointer as a 64-bit integer. -/
+def toInt : Ptr → Int 64
+  | .val p => .val p.address.toBitVec
+  | .poison => .poison
+
+/-- The bits of a pointer, its address. -/
+def toByte : Ptr → Byte 64
+  | .val p => Byte.fromUInt64 p.address
+  | .poison => Byte.allPoison
 
 end Ptr
 

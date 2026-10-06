@@ -914,8 +914,8 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : propertiesOf opType)
     let mem ← mem.store p ((UInt64.ofBitVec val).toByteArrayLE.extract 0 1)
     return (#[], mem, none)
   | .la => do
-    let some object := mem.globals[properties.symbol.value]? | none
-    return (#[.reg (LLVM.Int.toReg (mem.intFromPtr (.val ⟨object, 0⟩)))], mem, none)
+    let some p := mem.pointerToGlobal properties.symbol.value | none
+    return (#[.reg (LLVM.Int.toReg (Data.LLVM.Ptr.toInt (.val p)))], mem, none)
 
 instance : HasOpInfo Riscv where
   verifyLocalInvariants := Riscv.verifyLocalInvariants
