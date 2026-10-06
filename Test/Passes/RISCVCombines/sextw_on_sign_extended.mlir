@@ -111,19 +111,17 @@
 // CHECK-NOT:   "riscv.sextw"
 
 // Byte and half extensions.
-  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> (!riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg), sym_name = "extensions"}> ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> (!riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg), sym_name = "extensions"}> ({
   ^bb0(%x: !riscv.reg, %y: !riscv.reg):
     %0 = "riscv.sextb"(%x) : (!riscv.reg) -> !riscv.reg
     %1 = "riscv.sexth"(%x) : (!riscv.reg) -> !riscv.reg
-    %2 = "riscv.zextb"(%x) : (!riscv.reg) -> !riscv.reg
-    %3 = "riscv.zexth"(%x) : (!riscv.reg) -> !riscv.reg
-    %4 = "riscv.packh"(%x, %y) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    %2 = "riscv.zexth"(%x) : (!riscv.reg) -> !riscv.reg
+    %3 = "riscv.packh"(%x, %y) : (!riscv.reg, !riscv.reg) -> !riscv.reg
     %s0 = "riscv.sextw"(%0) : (!riscv.reg) -> !riscv.reg
     %s1 = "riscv.sextw"(%1) : (!riscv.reg) -> !riscv.reg
     %s2 = "riscv.sextw"(%2) : (!riscv.reg) -> !riscv.reg
     %s3 = "riscv.sextw"(%3) : (!riscv.reg) -> !riscv.reg
-    %s4 = "riscv.sextw"(%4) : (!riscv.reg) -> !riscv.reg
-    "func.return"(%s0, %s1, %s2, %s3, %s4) : (!riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg) -> ()
+    "func.return"(%s0, %s1, %s2, %s3) : (!riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg) -> ()
   }) : () -> ()
 // CHECK-LABEL: func.func @extensions(
 // CHECK-NOT:   "riscv.sextw"

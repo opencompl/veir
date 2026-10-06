@@ -411,7 +411,7 @@ theorem sextw_signExtend {v : BitVec 32} :
 /-! Prove the correctness of `riscv.sextw (riscv.lw addr) -> riscv.lw addr` and of the
     same combine for the other loads, the byte and half extensions, and `packh`. A
     load is modelled as an extension of the value it fetches, so each load theorem
-    also covers the matching extension (`lb` covers `sextb`, `lbu` covers `zextb`). -/
+    also covers the matching extension (`lb` covers `sextb`, `lhu` covers `zexth`). -/
 
 theorem sextw_lw {word : Reg} : RISCV.sextw (RISCV.sextw word) = RISCV.sextw word := by
   veir_bv_decide

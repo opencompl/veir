@@ -1708,7 +1708,7 @@ def sextw_bext := sextw_signExtendingOpW .bext 2
 def sextw_bexti := sextw_signExtendingOpW .bexti 1
 
 /-- Byte and half extensions. `sextb` and `sexth` sign-extend a byte or half, and
-    `zextb`, `zexth` and `packh` zero-extend at most 16 bits.
+    `zexth` and `packh` zero-extend at most 16 bits.
 
     LLVM: these instructions are marked `IsSignExtendingOpW`.
     See documentation of `sextw_signExtendingOpW_pattern`.-/
@@ -2977,7 +2977,6 @@ def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds
      , sextw_bexti
      , sextw_sextb
      , sextw_sexth
-     , sextw_zextb
      , sextw_zexth
      , sextw_packh
      , sextw_lui
