@@ -13,7 +13,7 @@ particular, just (isomorphic to) polynomial functors.
 namespace QPFTypes.QPF
 open MvFunctor
 
-universe u
+universe u v v'
 variable {n : Nat}
 
 
@@ -27,7 +27,7 @@ Note that this notion of being "polynomial" is syntactically wider than
 `PFunctor`, since `PFunctors` have to be defined in a particular shape.
 The literature occasionally cals this notion "semantic polynomial functors".
 -/
-class IsPolynomial (F : TypeVec.{u} n → Type u) [q : QPF F] where
+class IsPolynomial (F : TypeVec.{u} n → Type v) [q : QPF F] where
   repr_abs : ∀ {β : TypeVec (n)} (p : P F β), repr (abs p) = p
 
 attribute [simp, grind =] IsPolynomial.repr_abs
@@ -35,7 +35,8 @@ attribute [simp, grind =] IsPolynomial.repr_abs
 /-! ## ofEquiv -/
 
 /-- Any typefunction isomorphic to a polynomial QPF is itself polynomial. -/
-theorem IsPolynomial.ofEquiv {F F' : TypeVec.{u} n → Type u} [QPF F'] [IsPolynomial F'] [MvFunctor F]
+theorem IsPolynomial.ofEquiv {F : TypeVec.{u} n → Type v} {F' : TypeVec.{u} n → Type v'}
+    [QPF F'] [IsPolynomial F'] [MvFunctor F]
     (toF : ∀ {α}, F α → F' α)
     (invF : ∀ {α}, F' α → F α)
     (left_inv : ∀ {α} (x : F α), invF (toF x) = x)
@@ -49,7 +50,7 @@ theorem IsPolynomial.ofEquiv {F F' : TypeVec.{u} n → Type u} [QPF F'] [IsPolyn
 
 /-! ## ofCurriedCurry -/
 
-private theorem IsPolynomial.cast {F F' : TypeVec.{u} n → Type u} [q : QPF F] [IsPolynomial F]
+private theorem IsPolynomial.cast {F F' : TypeVec.{u} n → Type v} [q : QPF F] [IsPolynomial F]
     (h : F = F') (hq : QPF F = QPF F') : @IsPolynomial n F' (_root_.cast hq q) := by
   subst h; assumption
 

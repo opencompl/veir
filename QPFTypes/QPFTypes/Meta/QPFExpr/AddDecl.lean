@@ -167,7 +167,7 @@ meta def addDecls (q : QPFExpr u n) (declName : Name) (levelParams : List Name)
       let uncurriedInst := mkAppN (mkConst uncurriedInstName levels) deadVars
       addInstanceDefn attrKind uncurriedPolyInstName levelParams
         (← mkForallFVars deadVars
-          (mkApp3 (mkConst ``QPF.IsPolynomial [u]) n uncurried uncurriedInst))
+          (mkApp3 (mkConst ``QPF.IsPolynomial [u, u]) n uncurried uncurriedInst))
         (← mkLambdaFVars deadVars isPolynomial)
 
       /- `instance $declName.instIsPolynomial $deadVars* :
@@ -179,7 +179,7 @@ meta def addDecls (q : QPFExpr u n) (declName : Name) (levelParams : List Name)
       let inst := mkAppN (mkConst instName levels) deadVars
       addInstanceDefn attrKind polyInstName levelParams
         (← mkForallFVars deadVars
-          (mkApp3 (mkConst ``QPF.IsPolynomial [u]) n ofCurried inst))
+          (mkApp3 (mkConst ``QPF.IsPolynomial [u, u]) n ofCurried inst))
         (← mkLambdaFVars deadVars <|
           mkApp4 (mkConst ``QPF.IsPolynomial.instOfCurriedCurry [u]) n uncurried
             uncurriedInst uncurriedPolyInst)

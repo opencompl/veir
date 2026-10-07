@@ -105,9 +105,9 @@ public meta def ofVector (Gs : Vector (QPFExpr u m) n) : MetaM (QPFTupleExpr u m
         .default
     Fin.mkDTuple qpfType (Gs.map (·.qpf))
   let isPolynomial? ← (Gs.mapM (QPFExpr.isPolynomial? ·)).mapM fun GsPoly => do
-    let polyType := -- `fun (i : Fin $n) => @IsPolynomial.{$u} $m ($typefun i) ($qpf i)`
+    let polyType := -- `fun (i : Fin $n) => @IsPolynomial.{$u, $u} $m ($typefun i) ($qpf i)`
       .lam `i (mkApp (mkConst ``Fin) n)
-        (mkApp3 (mkConst ``QPF.IsPolynomial [u]) m
+        (mkApp3 (mkConst ``QPF.IsPolynomial [u, u]) m
           (mkApp typefun (.bvar 0)) (mkApp qpf (.bvar 0)))
         .default
     Fin.mkDPropTuple polyType GsPoly
