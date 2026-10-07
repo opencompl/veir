@@ -3,10 +3,6 @@ module
 public import Veir.IR.OpCode
 public import Veir.IR.WellFormed
 public import Veir.FoldDecision
-public import Veir.Interpreter.RuntimeValue.Basic
-public import Veir.Interpreter.Interp
-public import Veir.Interpreter.Memory
-public import Veir.Data.LLVM.Int.Basic
 
 namespace Veir
 
