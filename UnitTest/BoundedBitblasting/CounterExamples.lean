@@ -199,3 +199,39 @@ example {v : Nat} (x : BitVec w) (hw : w ≤ 8) (hv : v ≤ w) (hv1 : v > 0):
     (x.extractLsb (v-1) 0).cast (by lia) = (x &&& ((1#w <<< BitVec.ofNat w v) - 1)).setWidth v := by
   pbv_decide 8 -bv_decide
 
+-- Arithmetic and logical shift right differ on negative values
+/--
+error: `pbv_decide` found a counterexample, consider the following assignment:
+  w = 4  	(m_w0 = 0xf#4)
+  x = 0x8#4
+-/
+#guard_msgs in
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x.sshiftRight 1 = x >>> 1 := by
+  pbv_decide 4
+
+-- Same, for a shift by a `BitVec` amount
+/--
+error: `pbv_decide` found a counterexample, consider the following assignment:
+  w = 4  	(m_w0 = 0xf#4)
+  x = 0xf#4
+  y = 0xf#4
+-/
+#guard_msgs in
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
+    x.sshiftRight' y = x >>> y := by
+  pbv_decide 4
+
+-- Expected failure: a `Nat` shift amount that is an expression over a width variable is abstracted
+/--
+error: `pbv_decide` found a potentially spurious counterexample.
+  The following expressions were abstracted as opaque variables:
+    - BitVec.ofNatClamp 4 (w - 1) = 0x1#4
+Consider the following assignment:
+  w = 4  	(m_w0 = 0xf#4)
+  x = 0x8#4
+-/
+#guard_msgs in
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x.sshiftRight w = x.sshiftRight (w - 1) := by
+  pbv_decide 4
