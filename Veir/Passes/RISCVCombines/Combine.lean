@@ -5,6 +5,11 @@ public import Veir.PatternRewriter.Basic
 import Veir.Passes.RISCVCombines.MIRCombinesVeir
 import Veir.PatternRewriter.Puddle.Builders
 import Veir.PatternRewriter.Puddle.Execution
+meta import Veir.Meta.Tactic.BVDecide
+import all Veir.Data.RISCV.Reg.Basic
+import all Veir.Data.RISCV.Reg.Lemmas
+import all Veir.Dialects.RISCV.OpInfo
+import all Veir.ForLean
 
 namespace Veir.RISCV
 
@@ -1614,6 +1619,35 @@ def zextb_lbu_pattern : Puddle.Pattern OpCode :=
 def zextb_lbu : RewritePattern OpCode :=
   zextb_lbu_pattern.compile.run
 
+/-- Apply `riscv.sextw` to the register results of an interpreted operation. -/
+abbrev sextwResults : Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction) →
+    Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
+  Interp.map fun (values, mem, action) =>
+    (values.map fun | .reg r => .reg (Data.RISCV.sextw r) | value => value, mem, action)
+
+/-- On an operation that returns the single register `r`, `sextwResults` changes
+    nothing iff `sextw r = r`. -/
+theorem sextwResults_reg_eq_self_iff :
+    sextwResults (.ok (#[.reg r], mem, action)) = .ok (#[.reg r], mem, action) ↔
+      Data.RISCV.sextw r = r := by
+  simp [sextwResults]
+
+/-- `op`, with `arity` register operands and properties accepted by `property`, always returns a
+    sign-extended 32-bit value. Applying `riscv.sextw` to its result has no effect. -/
+def IsSignExtendingOpW (op : Riscv) (arity : Nat)
+    (property : Puddle.PropertyMatcher (OpCode.riscv op)) : Prop :=
+  match arity with
+  | 0 => ∀ props resultTypes blockOperands mem, property props →
+      let run := Riscv.interpretOp' op props resultTypes #[] blockOperands mem
+      sextwResults run = run
+  | 1 => ∀ props resultTypes rs1 blockOperands mem, property props →
+      let run := Riscv.interpretOp' op props resultTypes #[.reg rs1] blockOperands mem
+      sextwResults run = run
+  | 2 => ∀ props resultTypes rs1 rs2 blockOperands mem, property props →
+      let run := Riscv.interpretOp' op props resultTypes #[.reg rs1, .reg rs2] blockOperands mem
+      sextwResults run = run
+  | _ => False
+
 /-- `riscv.sextw (op …) -> op …` when `op` already returns a sign-extended
     32-bit value.
 
@@ -1624,9 +1658,13 @@ def zextb_lbu : RewritePattern OpCode :=
     Detection of sign extending word-variant operations:
     https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L381-L388
     Deletion:
-    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L701-L751 -/
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L701-L751
+
+    `_signExtending` proves the combine correct on the semantics of `producer`.
+    Currently, the rewrite does not use it. -/
 def sextw_signExtendingOpW_pattern (producer : Riscv) (arity : Nat)
-    (property : Puddle.PropertyMatcher (OpCode.riscv producer) := fun _ => true) :
+    (property : Puddle.PropertyMatcher (OpCode.riscv producer) := fun _ => true)
+    (_signExtending : IsSignExtendingOpW producer arity property) :
     Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -1641,9 +1679,13 @@ def sextw_signExtendingOpW_pattern (producer : Riscv) (arity : Nat)
     (fun inner => inner)
 
 def sextw_signExtendingOpW (producer : Riscv) (arity : Nat)
-    (property : Puddle.PropertyMatcher (OpCode.riscv producer) := fun _ => true) :
+    (property : Puddle.PropertyMatcher (OpCode.riscv producer) := fun _ => true)
+    (signExtending : IsSignExtendingOpW producer arity property := by
+      simp only [IsSignExtendingOpW, Riscv.interpretOp', riscvLoad, sextwResults_reg_eq_self_iff,
+        Interp.pure_eq, Interp.bind_ok, Interp.bind_assoc, Interp.map_bind,
+        Interp.bind_eq_bind_iff] <;> veir_bv_decide) :
     RewritePattern OpCode :=
-  (sextw_signExtendingOpW_pattern producer arity property).compile.run
+  (sextw_signExtendingOpW_pattern producer arity property signExtending).compile.run
 
 /-- Loads. `lw`, `lh` and `lb` sign-extend the loaded word, half or byte, and
     `lhu` and `lbu` zero-extend a value of at most 16 bits.
@@ -1721,8 +1763,8 @@ def sextw_packh := sextw_signExtendingOpW .packh 2
 
     LLVM: the operand-dependent cases of `isSignExtendingOpW`.
     https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L390-L405 -/
-def sextw_srai := sextw_signExtendingOpW .srai 1 (fun p => (p.immField 6).toNat ≥ 32)
-def sextw_srli := sextw_signExtendingOpW .srli 1 (fun p => (p.immField 6).toNat > 32)
+def sextw_srai := sextw_signExtendingOpW .srai 1 (fun p => 32#6 ≤ p.immField 6)
+def sextw_srli := sextw_signExtendingOpW .srli 1 (fun p => 32#6 < p.immField 6)
 def sextw_andi := sextw_signExtendingOpW .andi 1 (fun p => !(p.immField 12).msb)
 def sextw_ori := sextw_signExtendingOpW .ori 1 (fun p => (p.immField 12).msb)
 

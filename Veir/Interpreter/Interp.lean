@@ -105,6 +105,18 @@ theorem Interp.admissible_of_ub {α : Type} (P : Interp α → Prop) (hub : P (.
 @[simp, grind =] theorem Interp.liftOption_none : ((none : Option α) : Interp α) = .fail none := rfl
 @[simp, grind =] theorem Interp.liftOption_some (a : α) : ((some a : Option α) : Interp α) = .ok a := rfl
 
+theorem Interp.bind_assoc {α β γ : Type} {x : Interp α} {f : α → Interp β}
+    {g : β → Interp γ} : x >>= f >>= g = x >>= fun a => f a >>= g := by
+  cases x <;> rfl
+
+theorem Interp.map_bind {α β γ : Type} {f : β → γ} {x : Interp α} {g : α → Interp β} :
+    (x >>= g).map f = x >>= fun a => (g a).map f := by
+  cases x <;> rfl
+
+theorem Interp.bind_eq_bind_iff {α β : Type} {x : Interp α} {f g : α → Interp β} :
+    (x >>= f) = (x >>= g) ↔ ∀ a, x = .ok a → f a = g a := by
+  cases x <;> simp [Interp.bind_def]
+
 /-- Binding is monotone, so a `partial_fixpoint` may recurse under `do` notation. -/
 instance : Lean.Order.MonoBind Interp where
   bind_mono_left h := by
