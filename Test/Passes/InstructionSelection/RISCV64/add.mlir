@@ -37,7 +37,7 @@
         // CHECK-NEXT: %{{.*}} = "gmir.g_anyext"(%{{.*}}) : (i32) -> i64
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "riscv.add"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "riscv.addw"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
         // CHECK-NEXT: %{{.*}} = "gmir.g_trunc"(%{{.*}}) : (i64) -> i32
         "test.test"(%add) : (i32) -> ()

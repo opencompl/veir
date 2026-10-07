@@ -175,22 +175,33 @@ def lowerBinary (llvmOp : Llvm) (typeMatcher : IntegerType → Bool) (riscvOp : 
 
 /--
   Legalized `i32` add -> `riscv.addw` (keeps the result sign-extended). The legalizer widens an
-  `i32` `gmir.g_add` to `g_trunc (g_add (g_anyext lhs) (g_anyext rhs))` on `i64`; since `addw`
-  only reads the low 32 bits of its operands and the `g_trunc` only keeps the low 32 bits of the
-  sum, the whole sequence is selected to a single `riscv.addw` on the original operands.
+  `i32` `gmir.g_add` to `g_trunc (g_add (g_anyext lhs) (g_anyext rhs))` on `i64`. The inner `i64`
+  `g_add` is visited before the `g_trunc` and is already selected to `riscv.add` by `gAdd_pattern`,
+  so the `g_trunc` sees
+  `g_trunc (cast (riscv.add (cast (g_anyext lhs)) (cast (g_anyext rhs))))`.
+  Since `addw` only reads the low 32 bits of its operands and the `g_trunc` only keeps the low
+  32 bits of the sum, the whole sequence is selected to a single `riscv.addw` on the original
+  operands.
 -/
 def add32_pattern : Veir.Puddle.Pattern OpCode :=
   Veir.Puddle.Pattern.Builder
     (do
       let narrowType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 32)
       let wideType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 64)
+      let regType ← Veir.Puddle.MatchProg.type (Attr := RegisterType)
       let lhs ← Veir.Puddle.MatchProg.value narrowType
       let rhs ← Veir.Puddle.MatchProg.value narrowType
       let lextOp ← Veir.Puddle.MatchProg.operation (.gmir .g_anyext) #[lhs] #[wideType]
       let rextOp ← Veir.Puddle.MatchProg.operation (.gmir .g_anyext) #[rhs] #[wideType]
-      let addOp ← Veir.Puddle.MatchProg.operation (.gmir .g_add)
-          #[lextOp.res[0]!, rextOp.res[0]!] #[wideType]
-      let _ ← Veir.Puddle.MatchProg.root (.gmir .g_trunc) #[addOp.res[0]!] #[narrowType]
+      let lcastOp ← Veir.Puddle.MatchProg.operation (.builtin .unrealized_conversion_cast)
+          #[lextOp.res[0]!] #[regType]
+      let rcastOp ← Veir.Puddle.MatchProg.operation (.builtin .unrealized_conversion_cast)
+          #[rextOp.res[0]!] #[regType]
+      let addOp ← Veir.Puddle.MatchProg.operation (.riscv .add)
+          #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType]
+      let castBackOp ← Veir.Puddle.MatchProg.operation (.builtin .unrealized_conversion_cast)
+          #[addOp.res[0]!] #[wideType]
+      let _ ← Veir.Puddle.MatchProg.root (.gmir .g_trunc) #[castBackOp.res[0]!] #[narrowType]
       return (narrowType, lhs, rhs))
     (fun (narrowType, lhs, rhs) => do
       let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
