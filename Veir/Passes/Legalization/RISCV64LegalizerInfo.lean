@@ -43,6 +43,7 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_trunc => [
       .alwaysLegal,
     ]
+    | .g_sext_inreg => []
 
 def LegalizeRISCV64Pass : Pass OpCode :=
   { name := "legalize-riscv64"
