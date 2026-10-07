@@ -4,11 +4,6 @@ public import Veir.IR.OpInfo
 public import Veir.Verifier.Basic
 public import Veir.Dialects.LLVM.Properties
 meta import Veir.Meta.OpCode
-public import Veir.Interpreter.RuntimeValue.Basic
-public import Veir.Interpreter.Interp
-public import Veir.Interpreter.Memory
-public import Veir.Data.LLVM.Int.Basic
-
 
 namespace Veir
 
