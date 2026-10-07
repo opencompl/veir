@@ -8,7 +8,7 @@ import all Veir.Dominance.Basic
 # CFG Path and Reachability Lemmas
 
 This file proves lemmas about paths through a region's CFG (`RegionPtr.Path`)
-and block reachability (`BlockPtr.ReachableFromEntry`).
+and block reachability (`BlockPtr.LocallyReachable`).
 -/
 
 public section
@@ -139,9 +139,17 @@ theorem split_of_mem
         exists source :: pre, post
         grind [.Cons]
 
+/-- Create a path from a known successor edge. -/
+theorem of_successor
+    (successorEdge : successor ∈ source.getSuccessors! ctx.raw)
+    (sourceParent : (source.get! ctx.raw).parent = some region)
+    (successorParent : (successor.get! ctx.raw).parent = some region) :
+    region.Path ctx source successor [source, successor] := by
+  exact Path.Cons sourceParent successorEdge (Path.Single successorParent)
+
 end RegionPtr.Path
 
-namespace BlockPtr.ReachableFromEntry
+namespace BlockPtr.LocallyReachable
 
 variable {region : RegionPtr} {source successorBlock entryBlock : BlockPtr}
 
@@ -149,28 +157,28 @@ variable {region : RegionPtr} {source successorBlock entryBlock : BlockPtr}
 theorem of_path
     (entryBlock : (region.get! ctx.raw).firstBlock = some entry)
     (path : region.Path ctx entry source blocks) :
-    source.ReachableFromEntry region ctx := by
-  grind [BlockPtr.ReachableFromEntry]
+    source.LocallyReachable region ctx := by
+  grind [BlockPtr.LocallyReachable]
 
 /-- A reachable block has a witnessing path from the region's entry block. -/
-theorem exists_path (reachable : source.ReachableFromEntry region ctx) :
+theorem exists_path (reachable : source.LocallyReachable region ctx) :
     ∃ entry blocks,
       (region.get! ctx.raw).firstBlock = some entry ∧
       region.Path ctx entry source blocks := by
-  grind [BlockPtr.ReachableFromEntry]
+  grind [BlockPtr.LocallyReachable]
 
 /-- A reachable block belongs to the region whose entry reaches it. -/
 @[grind →]
-theorem parent (reachable : source.ReachableFromEntry region ctx) :
+theorem parent (reachable : source.LocallyReachable region ctx) :
     (source.get! ctx.raw).parent = some region := by
-  grind [BlockPtr.ReachableFromEntry]
+  grind [BlockPtr.LocallyReachable]
 
 /-- A region's entry block is reachable from itself. -/
 @[grind →]
 theorem entry
     (regionInBounds : region.InBounds ctx.raw)
     (hentry : (region.get! ctx.raw).firstBlock = some entryBlock) :
-    entryBlock.ReachableFromEntry region ctx := by
+    entryBlock.LocallyReachable region ctx := by
   apply of_path hentry
   apply RegionPtr.Path.Single
   grind
@@ -178,16 +186,16 @@ theorem entry
 /-- Reachability propagates across a CFG successor edge in the region. -/
 theorem successor
     {ctx : WfIRContext OpCode}
-    (reachable : source.ReachableFromEntry region ctx)
+    (reachable : source.LocallyReachable region ctx)
     (hsuccessor : successorBlock ∈ source.getSuccessors! ctx.raw)
     (hsuccParent : (successorBlock.get! ctx.raw).parent = some region) :
-    successorBlock.ReachableFromEntry region ctx := by
+    successorBlock.LocallyReachable region ctx := by
   obtain ⟨entry, blocks, hentry, path⟩ := reachable.exists_path
   have edgePath : region.Path ctx source successorBlock [source, successorBlock] :=
     .Cons path.target_parent hsuccessor (.Single hsuccParent)
-  apply BlockPtr.ReachableFromEntry.of_path hentry (blocks := blocks ++ [successorBlock])
+  apply BlockPtr.LocallyReachable.of_path hentry (blocks := blocks ++ [successorBlock])
   exact RegionPtr.Path.append path edgePath
 
-end BlockPtr.ReachableFromEntry
+end BlockPtr.LocallyReachable
 
 end Veir

@@ -40,6 +40,10 @@ def main(argv: list[str]) -> int:
         result = subprocess.run(["llubi", "--verbose", str(ll_path)],
                                 capture_output=True, text=True, env=env)
     log = result.stdout + result.stderr
+    # A crash gives no verdict, but a stable line to pin.
+    if result.returncode < 0 or result.returncode in (134, 139) or "Stack dump:" in log:
+        print("Crashed")
+        return 0
     # Keep only the trace of the test's own function, so the standard `main`
     # wrapper that llubi insists on cannot be mistaken for the result.
     start = log.find("Entering function: veir_test_main")

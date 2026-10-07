@@ -69,16 +69,35 @@ inductive RegionPtr.Path (region : RegionPtr) (ctx : WfIRContext OpInfo) :
       region.Path ctx source target (source :: blocks)
 
 /--
-Synctactic reachability of `block` from the entry of `region`.
+Syntactic reachability of `block` from the entry of `region`.
 
 A block is reachable from the entry block of a region if there is a CFG path from the
 entry block to the block.
 -/
-def BlockPtr.ReachableFromEntry (block : BlockPtr) (region : RegionPtr)
+def BlockPtr.LocallyReachable (block : BlockPtr) (region : RegionPtr)
     (ctx : WfIRContext OpInfo) : Prop :=
   ∃ entry blocks,
     (region.get! ctx.raw).firstBlock = some entry ∧
     region.Path ctx entry block blocks
+
+/--
+Syntactic reachability of `block`.
+
+A block is reachable if every ancestor block is reachable from the entry of its parent region.
+-/
+def BlockPtr.HierarchicallyReachable (block : BlockPtr) (ctx : WfIRContext OpInfo) : Prop :=
+  ∀ block₂, (IRNode.block block₂).Ancestor block ctx →
+  ∀ region₂, (block₂.get! ctx.raw).parent = some region₂ →
+  block₂.LocallyReachable region₂ ctx
+
+/--
+Syntactic reachability of `op`.
+
+An operation is reachable if its parent block is reachable.
+-/
+def OperationPtr.HierarchicallyReachable (op : OperationPtr) (ctx : WfIRContext OpInfo) : Prop :=
+  ∀ block, (op.get! ctx.raw).parent = some block →
+  block.HierarchicallyReachable ctx
 
 /--
 Proper dominance between `dominator` and `dominated` in a graph `region`.

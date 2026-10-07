@@ -63,10 +63,10 @@ chain of enclosing nodes ends at a root, and every enclosing block of an SSACFG 
 reachable from the region entry.
 -/
 axiom OperationPtr.ProperlyDominates.trans_of_reachable {op₃ : OperationPtr}
-    (rooted : ∃ root : IRNode, root.Ancestor (.operation op₃) ctx ∧ root.parent! ctx = none)
-    (reachable : ∀ block region, (IRNode.block block).Ancestor (.operation op₃) ctx →
+    (rooted : ∃ root, IRNode.RootedAt op₃ root ctx)
+    (reachable : ∀ block region, (IRNode.block block).Ancestor op₃ ctx →
       (block.get! ctx.raw).parent = some region → region.hasSSADominance ctx = true →
-      block.ReachableFromEntry region ctx) :
+      block.LocallyReachable region ctx) :
     op₁.ProperlyDominates op₂ ctx true →
     op₂.ProperlyDominates op₃ ctx true →
     op₁.ProperlyDominates op₃ ctx true
@@ -171,7 +171,7 @@ axiom WfIRContext.Dom.blockArgument_not_dominatesIp_before_of_dominatesIp_firstO
     (rooted : ∃ root : IRNode, root.Ancestor (.block block) ctx ∧ root.parent! ctx = none)
     (reachable : ∀ ancestor region, (IRNode.block ancestor).Ancestor (.block block) ctx →
       (ancestor.get! ctx.raw).parent = some region → region.hasSSADominance ctx = true →
-      ancestor.ReachableFromEntry region ctx)
+      ancestor.LocallyReachable region ctx)
     (opDom : op.dominatesIp (InsertPoint.atStart! block ctx.raw) ctx)
     (hMem : value ∈ block.getArguments! ctx.raw) :
     ¬ value.dominatesIp (InsertPoint.before op) ctx

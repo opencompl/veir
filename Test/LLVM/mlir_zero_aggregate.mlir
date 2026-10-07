@@ -1,10 +1,7 @@
-// RUN: VEIR_UNREGISTERED_ROUNDTRIP
-// RUN: MLIR_UNREGISTERED_ROUNDTRIP
+// RUN: VEIR_ROUNDTRIP
+// RUN: MLIR_ROUNDTRIP
 //
-// veir models no LLVM struct type, so an aggregate zero is carried as an
-// unregistered type. Registering `llvm.mlir.zero` must not make that a
-// verification failure: a module that only needed
-// --allow-unregistered-dialect has to keep working exactly as before.
+// Aggregate zeros of array and struct type must verify and round-trip.
 
 "builtin.module"() ({
   "llvm.func"() <{function_type = !llvm.func<void ()>, linkage = #llvm.linkage<external>, sym_name = "aggregates"}> ({
@@ -15,4 +12,4 @@
 }) : () -> ()
 
 // CHECK:      %{{.*}} = "llvm.mlir.zero"() : () -> !llvm.array<4 x !llvm.ptr>
-// CHECK-NEXT: %{{.*}} = "llvm.mlir.zero"() : () -> !llvm.struct<(ptr, i32)>
+// CHECK-NEXT: %{{.*}} = "llvm.mlir.zero"() : () -> !llvm.struct<(!llvm.ptr, i32)>

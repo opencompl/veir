@@ -80,12 +80,16 @@ instance : IsOpCode Func where
   fromAttrDict := Func.fromAttrDict
   toAttrDict := Func.toAttrDict
 
+def Func.symbolInterface? (op : Func) : Option (SymbolOpInterface (Func.propertiesOf op)) :=
+  match op with
+  | .func => some { getSymName := fun props => some props.sym_name }
+  | _ => none
+
 def Func.functionInterface? (op : Func) : Option (FunctionOpInterface (Func.propertiesOf op)) :=
   match op with
   | .func =>
     some
-      { getSymName := fun props => props.sym_name
-        getFunctionType := fun props => props.function_type
+      { getFunctionType := fun props => props.function_type
         setFunctionType := fun props functionType =>
           { props with function_type := functionType } }
   | _ => none
@@ -142,6 +146,7 @@ instance : HasOpInfo Func where
   verifyLocalInvariants := Func.verifyLocalInvariants
   getEffects := Func.getEffects
   isConstantLike := Func.isConstantLike
+  symbolInterface? := Func.symbolInterface?
   functionInterface? := Func.functionInterface?
   hasSSADominance := Func.hasSSADominance
   isTerminator := Func.isTerminator

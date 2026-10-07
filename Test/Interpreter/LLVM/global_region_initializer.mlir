@@ -1,10 +1,11 @@
 // RUN: veir-interpret %s | filecheck %s
 // RUN: LLUBI
+// RUN: ALIVE_EXEC_CHECK
 
 // A global with an initializer region starts with the value the initializer
 // returns.
 
-// ALIVE_EXEC: crashes on a writable global.
+// alive-exec crashes on a writable global.
 
 "builtin.module"() ({
   "llvm.mlir.global"() <{addr_space = 0 : i32, global_type = i64, linkage = #llvm.linkage<internal>, sym_name = "g"}> ({
@@ -19,3 +20,4 @@
 }) : () -> ()
 
 // CHECK: Program output: #[0x0000000000000007#64]
+// ALIVE_EXEC: Crashed

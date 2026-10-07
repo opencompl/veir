@@ -1,7 +1,8 @@
 // RUN: veir-interpret %s | filecheck %s
 // RUN: LLUBI
+// RUN: ALIVE_EXEC_CHECK
 
-// ALIVE_EXEC: flags the loaded byte as poison: Alive2 gives no value to a
+// alive-exec flags the loaded byte as poison: Alive2 gives no value to a
 // load that reads part of a stored integer, while the interpreter's memory
 // hands out single bytes.
 
@@ -22,3 +23,4 @@
 }) : () -> ()
 
 // CHECK: Program output: #[0x01#8]
+// ALIVE_EXEC: Program output: #[poison]

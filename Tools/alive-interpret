@@ -41,6 +41,20 @@ def main(argv: list[str]) -> int:
         result = subprocess.run(["alive-exec", "--smt-to=300000", *func, str(ll_path)],
                                 capture_output=True, text=True)
     log = result.stdout + result.stderr
+    # A tool that gives no verdict still gives a stable line to pin: what it
+    # rejected, or that it failed or crashed.
+    if "Severe Z3 error" in log:
+        print("Failed: Severe Z3 error")
+        return 0
+    rejected = re.search(r"^(?:Internal )?ERROR: (?!program returned poison)(.*)$", log, re.M)
+    if rejected:
+        print(f"Rejected: {rejected.group(1).strip()}")
+        return 0
+    if result.returncode < 0 or result.returncode in (134, 139) or "Stack dump:" in log:
+        # A build with assertions names the cause; a test pins only `Crashed`.
+        assertion = re.search(r"^(Assertion failed: .*?), file ", log, re.M)
+        print(f"Crashed: {assertion.group(1)}" if assertion else "Crashed")
+        return 0
     try:
         verdict, _ = vsmith.classify_alive_exec_output(log, return_type)
     except ValueError as e:
