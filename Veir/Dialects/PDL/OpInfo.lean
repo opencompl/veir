@@ -469,6 +469,11 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpIn
     op.verifyResultTypeMatches ctx (PDL.RangeType.mk .type : TypeAttr)
       "Expected the result to be of type '!pdl.range<type>'"
 
+def PDL.symbolInterface? (op : PDL) : Option (SymbolOpInterface (PDL.propertiesOf op)) :=
+  match op with
+  | .pattern => some { getSymName := fun props => props.sym_name }
+  | _ => none
+
 instance : HasOpInfo PDL where
   verifyLocalInvariants := PDL.verifyLocalInvariants
   getEffects := PDL.getEffects
@@ -476,6 +481,7 @@ instance : HasOpInfo PDL where
   hasSSADominance := PDL.hasSSADominance
   hasNoTerminator := PDL.hasNoTerminator
   isTerminator := PDL.isTerminator
+  symbolInterface? := PDL.symbolInterface?
   isIsolatedFromAbove := PDL.isIsolatedFromAbove
 
 end

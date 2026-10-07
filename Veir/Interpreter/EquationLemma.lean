@@ -232,7 +232,7 @@ theorem InterpreterState.EquationHolds.setArgumentValues?_of_dominatesIp (ctxDom
     (rooted : ∃ root : IRNode, root.Ancestor (.block succ) ctx ∧ root.parent! ctx = none)
     (reachable : ∀ block region, (IRNode.block block).Ancestor (.block succ) ctx →
       (block.get! ctx.raw).parent = some region → region.hasSSADominance ctx = true →
-      block.ReachableFromEntry region ctx)
+      block.LocallyReachable region ctx)
     (opDom : op.dominatesIp (InsertPoint.atStart! succ ctx.raw) ctx)
     {exitState : InterpreterState ctx} (hEq : exitState.EquationHolds op opIn)
     (hArgs : exitState.variables.setArgumentValues? succ res succInBounds = some newVars) :
@@ -260,7 +260,7 @@ theorem InterpreterState.EquationLemmaAt.setArgumentValues?_succ_entry (ctxDom :
     (rooted : ∃ root : IRNode, root.Ancestor (.block succ) ctx ∧ root.parent! ctx = none)
     (reachable : ∀ block region, (IRNode.block block).Ancestor (.block succ) ctx →
       (block.get! ctx.raw).parent = some region → region.hasSSADominance ctx = true →
-      block.ReachableFromEntry region ctx)
+      block.LocallyReachable region ctx)
     {exitState : InterpreterState ctx}
     (hExit : exitState.EquationLemmaAt (InsertPoint.atEnd block))
     (hArgs : exitState.variables.setArgumentValues? succ res succInBounds = some newVars) :

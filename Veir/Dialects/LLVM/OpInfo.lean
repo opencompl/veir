@@ -557,12 +557,17 @@ instance : IsOpCode Llvm where
   fromAttrDict := Llvm.fromAttrDict
   toAttrDict := Llvm.toAttrDict
 
+def Llvm.symbolInterface? (op : Llvm) : Option (SymbolOpInterface (Llvm.propertiesOf op)) :=
+  match op with
+  | .func | .mlir__global | .mlir__alias | .comdat | .comdat_selector =>
+    some { getSymName := fun props => some props.sym_name }
+  | _ => none
+
 def Llvm.functionInterface? (op : Llvm) : Option (FunctionOpInterface (Llvm.propertiesOf op)) :=
   match op with
   | .func =>
     some
-      { getSymName := fun props => props.sym_name
-        getFunctionType := fun props => props.function_type
+      { getFunctionType := fun props => props.function_type
         setFunctionType := fun props functionType =>
           { props with function_type := functionType } }
   | _ => none
@@ -1629,6 +1634,7 @@ instance : HasOpInfo Llvm where
   propagatesPoison := Llvm.propagatesPoison
   getEffects := Llvm.getEffects
   isConstantLike := Llvm.isConstantLike
+  symbolInterface? := Llvm.symbolInterface?
   functionInterface? := Llvm.functionInterface?
   branchOpInterface? := Llvm.branchOpInterface?
   hasSSADominance := Llvm.hasSSADominance
