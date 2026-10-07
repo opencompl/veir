@@ -1044,6 +1044,9 @@ inductive LLVMFuncParam
   | type (ty : TypeAttr)
   | ellipsis
 
+/-- The error for an opaque LLVM struct, which VeIR rejects. -/
+private def opaqueStructError := "opaque LLVM struct types are not supported"
+
 mutual
 
 /--
@@ -1111,10 +1114,11 @@ partial def parseOptionalFunctionType : AttrParserM (Option FunctionType) := do
   (`struct<"name", packed? (...)>`), becomes an `LLVM.StructType` when its
   fields can be parsed. Otherwise, preserve its text as an `UnregisteredAttr`.
 
-  LIMITATION: an opaque identified struct (`struct<"name", opaque>`) and a bare
-  reference to an identified struct (`struct<"name">`, used for recursive
-  types) are kept opaquely as an `UnregisteredAttr` holding their text, so
-  VeIR cannot resolve such a reference against its definition.
+  Opaque identified structs (`struct<"name", opaque>`) are rejected.
+
+  LIMITATION: a bare reference to an identified struct (`struct<"name">`, used
+  for recursive types) is kept opaquely as an `UnregisteredAttr` holding its
+  text, so VeIR cannot resolve such a reference against its definition.
 -/
 partial def parseOptionalLLVMStructType (short := false) : AttrParserM (Option TypeAttr) := do
   if !(← parseOptionalTypeName "llvm.struct" short) then return none
@@ -1122,14 +1126,16 @@ partial def parseOptionalLLVMStructType (short := false) : AttrParserM (Option T
   parsePunctuation "<"
   let bodyState ← getThe ParserState
   let name ← parseOptionalStringLiteral
-  /- An opaque struct or a bare reference: keep the text, normalized to the full
-     `!llvm.struct<...>` spelling, so both forms produce identical output. -/
-  let keepOpaque ← if name.isNone then pure false else do
+  /- A bare reference: keep the text, normalized to the full `!llvm.struct<...>`
+     spelling, so both forms produce identical output. -/
+  let isReference ← if name.isNone then pure false else do
     if ← parseOptionalPunctuation "," then
-      parseOptionalKeyword "opaque".toByteArray
+      if ← parseOptionalKeyword "opaque".toByteArray then
+        throwAt startPos opaqueStructError
+      pure false
     else
       pure true
-  if keepOpaque then
+  if isReference then
     let endPos := (← peekToken).slice.stop
     parsePunctuation ">"
     let body := (Slice.mk startPos endPos).of (← getThe ParserState).input
@@ -1139,7 +1145,9 @@ partial def parseOptionalLLVMStructType (short := false) : AttrParserM (Option T
     let body ← parseDelimitedList .paren parseLLVMType
     parsePunctuation ">"
     return some (LLVM.StructType.mk name packed (body.map (·.val)))
-  catch _ =>
+  catch err =>
+    /- A nested opaque struct must not be hidden by the fallback below. -/
+    if err.msg == opaqueStructError then throw err
     /- Preserve the old opaque parsing for fields VeIR cannot yet model, such
        as address-space pointers and scalable vectors. -/
     set bodyState

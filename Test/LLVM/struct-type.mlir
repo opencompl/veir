@@ -37,8 +37,7 @@
       "test.packed_named"() <{ty = !llvm.struct<"packed.s", packed (i8, i64)>}> : () -> ()
       "test.escaped"() <{ty = !llvm.struct<"a\22b", (i8)>}> : () -> ()
 
-      // Opaque structs and bare references to identified structs stay opaque.
-      "test.opaque"() <{ty = !llvm.struct<"opaque_t", opaque>}> : () -> ()
+      // Bare references to identified structs stay opaque.
       "test.recursive"() <{ty = !llvm.struct<"node", (ptr, struct<"node">)>}> : () -> ()
 
       // Unsupported field types preserve the enclosing struct as text.
@@ -61,7 +60,6 @@
 // CHECK-NEXT:          "test.empty"() <{"ty" = !llvm.struct<()>}> : () -> ()
 // CHECK-NEXT:          "test.packed_named"() <{"ty" = !llvm.struct<"packed.s", packed (i8, i64)>}> : () -> ()
 // CHECK-NEXT:          "test.escaped"() <{"ty" = !llvm.struct<"a\"b", (i8)>}> : () -> ()
-// CHECK-NEXT:          "test.opaque"() <{"ty" = !llvm.struct<"opaque_t", opaque>}> : () -> ()
 // CHECK-NEXT:          "test.recursive"() <{"ty" = !llvm.struct<"node", (!llvm.ptr, !llvm.struct<"node">)>}> : () -> ()
 // CHECK-NEXT:          "test.address_space"() <{"ty" = !llvm.struct<(ptr<1>, i32)>}> : () -> ()
 // CHECK-NEXT:          "test.scalable"() <{"ty" = !llvm.struct<(vector<[4]xi32>)>}> : () -> ()

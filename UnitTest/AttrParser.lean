@@ -561,8 +561,9 @@ macro "#assert " e:term : command =>
   standalone `!llvm.struct<...>` form and the bare `struct<...>` form used when a
   struct is nested inside another LLVM type (e.g. an array element). Neither
   requires `allowUnregisteredDialect` (like `!llvm.array`). A struct with a supported body
-  becomes an `LLVM.StructType`; an opaque struct or a bare reference to an
-  identified struct is kept as text, normalized to the `!llvm.struct<...>` form. -/
+  becomes an `LLVM.StructType`; a bare reference to an identified struct is kept
+  as text, normalized to the `!llvm.struct<...>` form. Opaque structs are
+  rejected for now. -/
 
 -- Standalone struct: both forms parse identically, with or without the flag.
 #assert expectSuccessType "!llvm.struct<(i32, f32)>"
@@ -591,9 +592,9 @@ macro "#assert " e:term : command =>
   (LLVM.StructType.mk none false #[LLVM.PointerType.mk,
     LLVM.ArrayType.mk 3 (IntegerType.signless 8),
     LLVM.StructType.mk none false #[IntegerType.signless 64]])
--- Opaque structs and bare references stay opaque.
-#assert expectSuccessType "!llvm.struct<\"t\", opaque>"
-  ⟨UnregisteredAttr.mk "!llvm.struct<\"t\", opaque>" true none, by grind⟩
+-- Opaque structs are rejected for now.
+#assert !(testType "!llvm.struct<\"t\", opaque>").isOk
+-- Bare references stay opaque.
 #assert expectSuccessType "!llvm.struct<\"node\", (ptr, struct<\"node\">)>"
   (LLVM.StructType.mk (some "node".toUTF8) false #[LLVM.PointerType.mk,
     UnregisteredAttr.mk "!llvm.struct<\"node\">" true none])
