@@ -561,7 +561,11 @@ def GetelementptrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
     | some attr => .error s!"expected 'noWrapFlag' to be an optional integer attribute, but got {attr}"
     | none => .ok { value := 0, type := { bitwidth := 32 } }
   let rawConstantIndices ← match attrDict["rawConstantIndices".toUTF8]? with
-    | some (.denseArrayAttr arr) => .ok arr
+    | some (.denseArrayAttr arr) =>
+      /- MLIR reads these as signed i32 values. Normalize before verification
+         and decoding so unsigned spellings of negative indices and the
+         dynamic sentinel have the same meaning as their signed spellings. -/
+      .ok { arr with values := arr.values.map fun value => (BitVec.ofInt 32 value).toInt }
     | some attr => .error s!"getelementptr: expected 'rawConstantIndices' to be a dense array attribute,
         but got {attr}"
     | none => .error "getelementptr: missing 'rawConstantIndices' property"
