@@ -73,8 +73,9 @@ def ofFoldDecision (result : FoldDecision) (operands : Array AbstractConstant) :
   | .constant a => fun source => RuntimeValue.isRefinedBy source a
 
 /--
-Least upper bound. Two constants join to the least value both refine to
-(`RuntimeValue.lub?`), or to `⊤` if there is none.
+Least upper bound. Two constants join to the least value both refine to, or to `⊤` if there
+is none. Since `≤` on constants is `⊒`, this is the greatest lower bound under refinement
+(`RuntimeValue.glb?`).
 -/
 def join (lhs rhs : AbstractConstant) : AbstractConstant :=
   match lhs, rhs with
@@ -83,7 +84,7 @@ def join (lhs rhs : AbstractConstant) : AbstractConstant :=
   | .top, _ => ⊤
   | _, .top => ⊤
   | .constant c, .constant d =>
-    match c.lub? d with
+    match c.glb? d with
     | some e => .constant e
     | none => ⊤
 
@@ -119,7 +120,7 @@ theorem le_join_left (a b : AbstractConstant) : a ≤ a ⊔ b := by
     first | exact le_refl _ | exact le_top _ | exact bot_le _ | skip
   case constant.constant c d =>
     split
-    · next e he => exact (RuntimeValue.lub?_isRefinedBy he).1
+    · next e he => exact (RuntimeValue.glb?_isRefinedBy he).1
     · exact le_top _
 
 @[simp, grind .]
@@ -129,7 +130,7 @@ theorem le_join_right (a b : AbstractConstant) : b ≤ a ⊔ b := by
     first | exact le_refl _ | exact le_top _ | exact bot_le _ | skip
   case constant.constant c d =>
     split
-    · next e he => exact (RuntimeValue.lub?_isRefinedBy he).2
+    · next e he => exact (RuntimeValue.glb?_isRefinedBy he).2
     · exact le_top _
 
 theorem join_le (a b c : AbstractConstant) : a ≤ c → b ≤ c → a ⊔ b ≤ c := by
@@ -142,7 +143,7 @@ theorem join_le (a b c : AbstractConstant) : a ≤ c → b ≤ c → a ⊔ b ≤
     | bottom => exact ha.elim
     | constant e =>
       simp only [le_def, le] at ha hb
-      obtain ⟨m, hm, hme⟩ := RuntimeValue.lub?_least ha hb
+      obtain ⟨m, hm, hme⟩ := RuntimeValue.glb?_greatest ha hb
       simp only [hm]
       exact hme
 

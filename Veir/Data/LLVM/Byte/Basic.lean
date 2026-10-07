@@ -150,7 +150,7 @@ theorem isRefinedBy_trans {w : Nat} {i j k : Byte w}
 theorem allPoison_isRefinedBy {w : Nat} (b : Byte w) : (allPoison : Byte w) ⊒ b := by
   simp [allPoison]
 
-/-! ## Least upper bound under refinement -/
+/-! ## Greatest lower bound under refinement -/
 
 /-- Per-bit form of a bit-vector equation. -/
 private theorem getLsbD_congr {w : Nat} {a b : BitVec w} (h : a = b) (i : Nat) :
@@ -174,8 +174,8 @@ theorem merge_and_eq_zero {w : Nat} (x y : Byte w) :
   cases a <;> cases b <;> cases c <;> cases d <;> simp_all
 
 /--
-Building block of `lub?`: poison only where both bytes are poison, elsewhere the defined value.
-It is the least upper bound only for compatible bytes; use `lub?`.
+Building block of `glb?`: poison only where both bytes are poison, elsewhere the defined value.
+It is the greatest lower bound only for compatible bytes; use `glb?`.
 -/
 @[expose] def merge {w : Nat} (x y : Byte w) : Byte w :=
   ⟨x.val ||| y.val, x.poison &&& y.poison, merge_and_eq_zero x y⟩
@@ -217,7 +217,7 @@ private theorem compatible_of_isRefinedBy {w : Nat} {x y e : Byte w} (hx : x ⊒
   generalize e.val.getLsbD i = f at *; generalize e.poison.getLsbD i = g at *
   cases a <;> cases b <;> cases c <;> cases d <;> cases f <;> cases g <;> simp_all
 
-/-- `merge x y` is below every common refinement of `x` and `y`. -/
+/-- Every common refinement of `x` and `y` refines `merge x y`. -/
 private theorem merge_isRefinedBy {w : Nat} {x y e : Byte w} (hx : x ⊒ e) (hy : y ⊒ e) :
     merge x y ⊒ e := by
   simp only [isRefinedBy, merge] at *
@@ -249,32 +249,32 @@ theorem isRefinedBy_antisymm {w : Nat} {x y : Byte w} (h₁ : x ⊒ y) (h₂ : y
     cases a <;> cases b <;> cases c <;> cases d <;> simp_all
 
 /--
-The least upper bound of two bytes under refinement: the least defined byte both refine
+The greatest lower bound of two bytes under refinement: the least defined byte both refine
 to, or `none` if no byte refines both (some bit is defined in both with different values).
 -/
-@[expose] def lub? {w : Nat} (x y : Byte w) : Option (Byte w) :=
+@[expose] def glb? {w : Nat} (x y : Byte w) : Option (Byte w) :=
   if Compatible x y then some (merge x y) else none
 
-/-- `lub?` is an upper bound: what it returns refines both bytes. -/
-theorem lub?_isRefinedBy {w : Nat} {x y m : Byte w} (h : x.lub? y = some m) :
+/-- `glb?` is a lower bound: what it returns refines both bytes. -/
+theorem glb?_isRefinedBy {w : Nat} {x y m : Byte w} (h : x.glb? y = some m) :
     x ⊒ m ∧ y ⊒ m := by
-  unfold lub? at h
+  unfold glb? at h
   split at h
   · next hc => cases h; exact ⟨isRefinedBy_merge_left x y hc, isRefinedBy_merge_right x y hc⟩
   · cases h
 
 /--
-`lub?` is the least upper bound: if some byte refines both, `lub?` returns a byte below it.
+`glb?` is the greatest lower bound: every byte that refines both refines what `glb?` returns.
 -/
-theorem lub?_least {w : Nat} {x y e : Byte w} (hx : x ⊒ e) (hy : y ⊒ e) :
-    ∃ m, x.lub? y = some m ∧ m ⊒ e :=
-  ⟨merge x y, by simp [lub?, compatible_of_isRefinedBy hx hy], merge_isRefinedBy hx hy⟩
+theorem glb?_greatest {w : Nat} {x y e : Byte w} (hx : x ⊒ e) (hy : y ⊒ e) :
+    ∃ m, x.glb? y = some m ∧ m ⊒ e :=
+  ⟨merge x y, by simp [glb?, compatible_of_isRefinedBy hx hy], merge_isRefinedBy hx hy⟩
 
-/-- If `lub?` returns `none`, no byte refines both. -/
-theorem lub?_eq_none {w : Nat} {x y : Byte w} (h : x.lub? y = none) :
+/-- If `glb?` returns `none`, no byte refines both. -/
+theorem glb?_eq_none {w : Nat} {x y : Byte w} (h : x.glb? y = none) :
     ¬ ∃ e, x ⊒ e ∧ y ⊒ e := by
   rintro ⟨e, hx, hy⟩
-  obtain ⟨m, hm, _⟩ := lub?_least hx hy
+  obtain ⟨m, hm, _⟩ := glb?_greatest hx hy
   simp [hm] at h
 
 end Byte
