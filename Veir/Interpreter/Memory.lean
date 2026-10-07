@@ -268,11 +268,11 @@ def MemoryState.llvmLoad (mem : MemoryState) (p : Pointer) (type : TypeAttr)
   | Attribute.integerType { bitwidth := 16, .. } =>
       let ba ← mem.load p 2
       if ← mem.hasPoison p 2 then return .int 16 .poison
-      return .int 16 (.val (ba.toBitVecLE 2))
+      return .int 16 (.val (ba.toBitVecLE 16))
   | Attribute.integerType { bitwidth := 32, .. } =>
       let ba ← mem.load p 4
       if ← mem.hasPoison p 4 then return .int 32 .poison
-      return .int 32 (.val (ba.toBitVecLE 4))
+      return .int 32 (.val (ba.toBitVecLE 32))
   | Attribute.integerType { bitwidth := 64, .. } =>
       let ba ← mem.load p 8
       if ← mem.hasPoison p 8 then return .int 64 .poison
