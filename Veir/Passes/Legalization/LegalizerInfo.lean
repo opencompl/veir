@@ -134,13 +134,29 @@ structure LegalizerInfo where
   rules : GMIR → List LegalizeRule
 
 /--
+Determine what action should be taken for `query`, using the first rule of its opcode that applies.
+The operation is unsupported when no rule applies.
+-/
+def LegalizerInfo.getActionFor (info : LegalizerInfo) (query : LegalityQuery) : LegalizeAction :=
+  (info.rules query.opcode).findSome? (· query) |>.getD .unsupported
+
+/--
+Whether an `opcode` operation whose type groups have the types `types` (indexed by type group, as
+in `LegalityQuery`) is legal according to `info`. Returns `false` if a type is not a scalar
+integer.
+-/
+def LegalizerInfo.isLegal (info : LegalizerInfo) (opcode : GMIR) (types : Array TypeAttr) : Bool :=
+  (types.mapM LLT.ofType?).any fun llts =>
+    info.getActionFor { opcode, types := llts } matches .legal
+
+/--
 Determine what action should be taken to legalize `op`, using the first rule of `opcode` that
 applies.
 -/
 def LegalizerInfo.getAction (info : LegalizerInfo) (ctx : IRContext OpCode) (op : OperationPtr)
     (opcode : GMIR) : LegalizeAction := Id.run do
   let some query := LegalityQuery.of? ctx op opcode | return .unsupported
-  return (info.rules opcode).findSome? (· query) |>.getD .unsupported
+  return info.getActionFor query
 
 end
 

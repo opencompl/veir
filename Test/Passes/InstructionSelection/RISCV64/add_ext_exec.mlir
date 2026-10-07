@@ -1,5 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s --check-prefix=SRC
-// RUN: veir-opt %s --print-op-generic -p='canonicalize{sccp=false},instcombine,canonicalize{sccp=false},cse,dce,isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,canonicalize{sccp=false},riscv-combine,isel-abi-riscv64,reconcile-cast,dce' > %t
+// RUN: veir-opt %s --print-op-generic -p='canonicalize{sccp=false},instcombine,canonicalize{sccp=false},cse,dce,llvm-to-gmir,legalize-riscv64,isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,canonicalize{sccp=false},riscv-combine,isel-abi-riscv64,reconcile-cast,dce' > %t
 // RUN: veir-interpret %t >> %t
 // RUN: filecheck %s < %t
 
@@ -23,6 +23,6 @@
 
 // SRC:   Program output: #[0xffffffff80000000#64, 0x0000000080000000#64, 0x0000000000000030#64, 0x0000000000000030#64]
 // CHECK:    "riscv.addw"
-// CHECK:    "riscv.sextw"
-// CHECK:    "riscv.zextw"
+// CHECK:    "gmir.g_sext"
+// CHECK:    "gmir.g_zext"
 // CHECK:    Program output: #[0xffffffff80000000#64, 0x0000000080000000#64, 0x0000000000000030#64, 0x0000000000000030#64]

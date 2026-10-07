@@ -58,6 +58,8 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     Llvm.interpretOp' llvmOp properties resultTypes operands blockOperands mem layout
   | .riscv riscvOp => do
     Riscv.interpretOp' riscvOp properties resultTypes operands blockOperands mem
+  | .gmir gmirOp => do
+    GMIR.interpretOp' gmirOp properties resultTypes operands blockOperands mem
   | .riscv_cf riscvCfOp => do
     let (vals, act) ← Riscv_Cf.interpretOp' riscvCfOp properties resultTypes operands blockOperands
     return (vals, mem, act)

@@ -3,6 +3,10 @@ module
 public import Veir.IR.OpInfo
 public import Veir.Verifier.Basic
 public import Veir.Dialects.LLVM.Properties
+public import Veir.Interpreter.RuntimeValue.Basic
+public import Veir.Interpreter.Interp
+public import Veir.Interpreter.Memory
+public import Veir.Data.LLVM.Int.Basic
 meta import Veir.Meta.OpCode
 
 namespace Veir
@@ -111,6 +115,59 @@ private def OperationPtr.verifyGMIRICmp {OpInfo : Type} [IsOpCode OpInfo]
       s!"{instrName}: Expected operand {i} to have integer or pointer type"
   let resultType := ((op.getResult 0).get! ctx.raw).type
   resultType.verifyIntegerType s!"{instrName}: Expected result to have integer type"
+
+def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
+    (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
+    (mem : MemoryState)
+    : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
+  match opType with
+  | .g_anyext => do
+    /- TDOO: the semantics need to be updated once we support nondeterminism. -/
+    let [.int w val] := operands.toList | none
+    let some resType := resultTypes[0]? | none
+    let .integerType resBw := resType.val | none
+    if h: resBw.bitwidth <= w then none else
+    return (#[.int resBw.bitwidth (.val (BitVec.zeroExtend resBw.bitwidth val.getValueD))], mem, none)
+  | .g_add => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (Data.LLVM.Int.add lhs rhs properties.nsw properties.nuw)], mem, none)
+  | .g_icmp => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simpa using h)
+    return (#[.int 1 (Data.LLVM.Int.icmp lhs rhs properties.predicate)], mem, none)
+  | .g_sub => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (Data.LLVM.Int.sub lhs rhs properties.nsw properties.nuw)], mem, none)
+  | .g_zext => do
+    let [.int w val] := operands.toList | none
+    let some resType := resultTypes[0]? | none
+    let .integerType resBw := resType.val | none
+    if h: resBw.bitwidth <= w then none else
+    return (#[.int resBw.bitwidth (Data.LLVM.Int.zext val resBw.bitwidth properties.nneg (by omega))], mem, none)
+  | .g_sext => do
+    let [.int w val] := operands.toList | none
+    let some resType := resultTypes[0]? | none
+    let .integerType resBw := resType.val | none
+    if h: resBw.bitwidth <= w then none else
+    return (#[.int resBw.bitwidth (Data.LLVM.Int.sext val resBw.bitwidth (by omega))], mem, none)
+  | .g_trunc => do
+    let [val] := operands.toList | none
+    let some resType := resultTypes[0]? | none
+    match val with
+    | .int w val =>
+        let .integerType resBw := resType.val | none
+        if h: resBw.bitwidth >= w then none else
+        return (#[.int resBw.bitwidth (Data.LLVM.Int.trunc val resBw.bitwidth properties.nsw properties.nuw (by omega))], mem, none)
+    | .byte w val =>
+        let .byteType resBw := resType.val | none
+        if h: resBw.bitwidth >= w then none else
+        return (#[.byte resBw.bitwidth (Data.LLVM.Byte.trunc val resBw.bitwidth)], mem, none)
+    | _ => none
 
 /--
 Verify the local invariants of a `gmir` operation in any operation-info type

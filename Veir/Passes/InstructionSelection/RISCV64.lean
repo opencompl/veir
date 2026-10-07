@@ -7,7 +7,9 @@ import Veir.IR.SymbolRef
 import Veir.Interfaces.ConstantLikeInterfaces
 import Veir.Interfaces.FunctionInterfaces
 import Veir.Passes.Matching.LLVM.Basic
+import Veir.Passes.Matching.GMIR.Basic
 import Veir.Passes.InstructionSelection.Common
+import Veir.Passes.Legalization.RISCV64LegalizerInfo
 import Veir.PatternRewriter.Puddle.Builders
 import Veir.PatternRewriter.Puddle.Execution
 
@@ -171,11 +173,74 @@ def lowerBinary (llvmOp : Llvm) (typeMatcher : IntegerType → Bool) (riscvOp : 
       return castBackOp)
     (fun castBackOp => castBackOp)
 
-/-- `llvm.add` (`i64`) -> `riscv.add`. -/
-def add64_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .add (fun t => t.bitwidth == 64) .add ()
+/--
+  Legalized `i32` add -> `riscv.addw` (keeps the result sign-extended). The legalizer widens an
+  `i32` `gmir.g_add` to `g_trunc (g_add (g_anyext lhs) (g_anyext rhs))` on `i64`. The inner `i64`
+  `g_add` is visited before the `g_trunc` and is already selected to `riscv.add` by `gAdd_pattern`,
+  so the `g_trunc` sees
+  `g_trunc (cast (riscv.add (cast (g_anyext lhs)) (cast (g_anyext rhs))))`.
+  Since `addw` only reads the low 32 bits of its operands and the `g_trunc` only keeps the low
+  32 bits of the sum, the whole sequence is selected to a single `riscv.addw` on the original
+  operands.
+-/
+def add32_pattern : Veir.Puddle.Pattern OpCode :=
+  Veir.Puddle.Pattern.Builder
+    (do
+      let narrowType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 32)
+      let wideType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 64)
+      let regType ← Veir.Puddle.MatchProg.type (Attr := RegisterType)
+      let lhs ← Veir.Puddle.MatchProg.value narrowType
+      let rhs ← Veir.Puddle.MatchProg.value narrowType
+      let lextOp ← Veir.Puddle.MatchProg.operation (.gmir .g_anyext) #[lhs] #[wideType]
+      let rextOp ← Veir.Puddle.MatchProg.operation (.gmir .g_anyext) #[rhs] #[wideType]
+      let lcastOp ← Veir.Puddle.MatchProg.operation (.builtin .unrealized_conversion_cast)
+          #[lextOp.res[0]!] #[regType]
+      let rcastOp ← Veir.Puddle.MatchProg.operation (.builtin .unrealized_conversion_cast)
+          #[rextOp.res[0]!] #[regType]
+      let addOp ← Veir.Puddle.MatchProg.operation (.riscv .add)
+          #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType]
+      let castBackOp ← Veir.Puddle.MatchProg.operation (.builtin .unrealized_conversion_cast)
+          #[addOp.res[0]!] #[wideType]
+      let _ ← Veir.Puddle.MatchProg.root (.gmir .g_trunc) #[castBackOp.res[0]!] #[narrowType]
+      return (narrowType, lhs, rhs))
+    (fun (narrowType, lhs, rhs) => do
+      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
+      let lcastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lcastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[lhs] #[regType] lcastProps
+      let rcastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let rcastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[rhs] #[regType] rcastProps
+      let addwProps ← Veir.Puddle.CreateProg.property (.riscv .addw) ()
+      let addwOp ← Veir.Puddle.CreateProg.operation (.riscv .addw)
+          #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType] addwProps
+      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[addwOp.res[0]!] #[narrowType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
-/-- `llvm.add` (`i32`) -> `riscv.addw` (keeps the result sign-extended). -/
-def add32_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .add (fun t => t.bitwidth == 32) .addw ()
+/-- Legal `gmir.g_add` -> `riscv.add`. -/
+def gAdd_pattern : Veir.Puddle.Pattern OpCode :=
+  Veir.Puddle.Pattern.Builder
+    /- Only select a `g_add` that `riscv64LegalizerInfo` considers legal. -/
+    (matchLegalGAdd riscv64LegalizerInfo)
+    (fun (resType, lhs, rhs) => do
+      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
+      let lcastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lcastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[lhs] #[regType] lcastProps
+      let rcastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let rcastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[rhs] #[regType] rcastProps
+      let addProps ← Veir.Puddle.CreateProg.property (.riscv .add) ()
+      let addOp ← Veir.Puddle.CreateProg.operation (.riscv .add)
+          #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType] addProps
+      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[addOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
 /-- `llvm.sub` (`i64`) -> `riscv.sub`. -/
 def sub64_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .sub (fun t => t.bitwidth == 64) .sub ()
@@ -451,10 +516,10 @@ def constant (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite constant_local rewriter op opInBounds
 
-/-- llvm.add -> riscv.add -/
-def add64 : Puddle.CompiledPattern OpCode := add64_pattern.compile
+/-- Legalized gmir.g_add -> riscv.add -/
+def gAdd : Puddle.CompiledPattern OpCode := gAdd_pattern.compile
 
-/-- llvm.add -> riscv.addw (riscv.addw for i32, keeps the result sign-extended) -/
+/-- Legalized i32 add (`g_trunc (g_add (g_anyext _) (g_anyext _))`) -> riscv.addw -/
 def add32 : Puddle.CompiledPattern OpCode := add32_pattern.compile
 
 /-- llvm.and -> riscv.and (bitwise, so one instruction for every legal width) -/
@@ -1839,7 +1904,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern #[selectCzeroeqz, selectCzeronez, selectGeneral,
     ctlz32.run, ctlz64.run, cttz32.run, cttz64.run, ctpop32.run, ctpop64.run, bswap, bitreverse,
-    constant, addressof, add32.run, add64.run, and.run, ashr, icmp, or.run, xor32.run, xor64.run, mul32.run, mul64.run,
+    constant, addressof, add32.run, gAdd.run, and.run, ashr, icmp, or.run, xor32.run, xor64.run, mul32.run, mul64.run,
     sdiv32.run, sdiv64.run, udiv32.run, udiv64.run, srem32.run, srem64.run, urem32.run, urem64.run,
     sext32.run, sext16.run, sext8.run, zext32.run, zext16.run, zext8.run, trunc, shl, lshr,
     sub64.run, sub32.run, bitcast, load, getelementptr, store,
