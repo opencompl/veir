@@ -13,6 +13,8 @@ import Veir.PatternRewriter.Puddle.Execution
 
 namespace Veir
 
+open Veir.Puddle
+
 /-!
   This file replicates LLVM's GlobalISel instruction selector,
   to lower LLVM IR to RISC-V assembly (64 bits).
@@ -40,44 +42,44 @@ def getIntByteTypeBitwidth (t : TypeAttr) : Option Nat :=
   RISC-V lowerings with Puddle for unary operations.
 -/
 def lowerUnary (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let returnType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == bw)
-      let x ← Veir.Puddle.MatchProg.value returnType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm llvmOp) #[x] #[returnType]
+      let returnType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
+      let x ← MatchProg.value returnType
+      let _ ← MatchProg.root (.llvm llvmOp) #[x] #[returnType]
       return (returnType, x))
     (fun (returnType, x) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let castProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[x] #[regType] castProps
-      let riscvOpProps ← Veir.Puddle.CreateProg.property (.riscv riscvOp) riscvProps
-      let riscvResOp ← Veir.Puddle.CreateProg.operation (.riscv riscvOp)
+      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
+      let riscvResOp ← CreateProg.operation (.riscv riscvOp)
           #[castOp.res[0]!] #[regType] riscvOpProps
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[riscvResOp.res[0]!] #[returnType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
 
 /-- `llvm.intr.ctlz` (`i32`) -> `riscv.clzw`. -/
-def ctlz32_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctlz 32 .clzw ()
+def ctlz32_pattern : Pattern OpCode := lowerUnary .intr__ctlz 32 .clzw ()
 
 /-- `llvm.intr.ctlz` (`i64`) -> `riscv.clz`. -/
-def ctlz64_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctlz 64 .clz ()
+def ctlz64_pattern : Pattern OpCode := lowerUnary .intr__ctlz 64 .clz ()
 
 /-- `llvm.intr.cttz` (`i32`) -> `riscv.ctzw`. -/
-def cttz32_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__cttz 32 .ctzw ()
+def cttz32_pattern : Pattern OpCode := lowerUnary .intr__cttz 32 .ctzw ()
 
 /-- `llvm.intr.cttz` (`i64`) -> `riscv.ctz`. -/
-def cttz64_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__cttz 64 .ctz ()
+def cttz64_pattern : Pattern OpCode := lowerUnary .intr__cttz 64 .ctz ()
 
 /-- `llvm.intr.ctpop` (`i32`) -> `riscv.cpopw`. -/
-def ctpop32_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctpop 32 .cpopw ()
+def ctpop32_pattern : Pattern OpCode := lowerUnary .intr__ctpop 32 .cpopw ()
 
 /-- `llvm.intr.ctpop` (`i64`) -> `riscv.cpop`. -/
-def ctpop64_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctpop 64 .cpop ()
+def ctpop64_pattern : Pattern OpCode := lowerUnary .intr__ctpop 64 .cpop ()
 
 /--
   RISC-V lowerings with Puddle for the integer-extension operations (`sext`/`zext`): match a
@@ -89,46 +91,46 @@ def ctpop64_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctpop 64 .
   result back to the (generically-matched) result type.
 -/
 def lowerExt (llvmOp : Llvm) (opBw : Nat) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let opType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == opBw)
-      let resType ← Veir.Puddle.MatchProg.type (Attr := IntegerType)
+      let opType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = opBw)
+      let resType ← MatchProg.type (Attr := IntegerType)
           (fun t => opBw < t.bitwidth ∧ t.bitwidth ≤ 64)
-      let x ← Veir.Puddle.MatchProg.value opType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm llvmOp) #[x] #[resType]
+      let x ← MatchProg.value opType
+      let _ ← MatchProg.root (.llvm llvmOp) #[x] #[resType]
       return (resType, x))
     (fun (resType, x) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let castProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[x] #[regType] castProps
-      let riscvOpProps ← Veir.Puddle.CreateProg.property (.riscv riscvOp) riscvProps
-      let riscvResOp ← Veir.Puddle.CreateProg.operation (.riscv riscvOp)
+      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
+      let riscvResOp ← CreateProg.operation (.riscv riscvOp)
           #[castOp.res[0]!] #[regType] riscvOpProps
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[riscvResOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
 
 /-- `llvm.sext` (`i8` operand) -> `riscv.sextb`. -/
-def sext8_pattern : Veir.Puddle.Pattern OpCode := lowerExt .sext 8 .sextb ()
+def sext8_pattern : Pattern OpCode := lowerExt .sext 8 .sextb ()
 
 /-- `llvm.sext` (`i16` operand) -> `riscv.sexth`. -/
-def sext16_pattern : Veir.Puddle.Pattern OpCode := lowerExt .sext 16 .sexth ()
+def sext16_pattern : Pattern OpCode := lowerExt .sext 16 .sexth ()
 
 /-- `llvm.sext` (`i32` operand) -> `riscv.sextw`. -/
-def sext32_pattern : Veir.Puddle.Pattern OpCode := lowerExt .sext 32 .sextw ()
+def sext32_pattern : Pattern OpCode := lowerExt .sext 32 .sextw ()
 
 /-- `llvm.zext` (`i8` operand) -> `riscv.zextb`. -/
-def zext8_pattern : Veir.Puddle.Pattern OpCode := lowerExt .zext 8 .zextb ()
+def zext8_pattern : Pattern OpCode := lowerExt .zext 8 .zextb ()
 
 /-- `llvm.zext` (`i16` operand) -> `riscv.zexth`. -/
-def zext16_pattern : Veir.Puddle.Pattern OpCode := lowerExt .zext 16 .zexth ()
+def zext16_pattern : Pattern OpCode := lowerExt .zext 16 .zexth ()
 
 /-- `llvm.zext` (`i32` operand) -> `riscv.zextw`. -/
-def zext32_pattern : Veir.Puddle.Pattern OpCode := lowerExt .zext 32 .zextw ()
+def zext32_pattern : Pattern OpCode := lowerExt .zext 32 .zextw ()
 
 /--
   RISC-V for binary operations that share a single integer type between both operands and the
@@ -139,101 +141,101 @@ def zext32_pattern : Veir.Puddle.Pattern OpCode := lowerExt .zext 32 .zextw ()
 def lowerBinary (llvmOp : Llvm) (typeMatcher : IntegerType → Bool) (riscvOp : Riscv)
     (riscvProps : propertiesOf (OpCode.riscv riscvOp))
     (extend : Option (Σ extOp : Riscv, propertiesOf (OpCode.riscv extOp)) := none) :
-    Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+    Pattern OpCode :=
+  Pattern.Builder
     (do
-      let opType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) typeMatcher
-      let lhs ← Veir.Puddle.MatchProg.value opType
-      let rhs ← Veir.Puddle.MatchProg.value opType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm llvmOp) #[lhs, rhs] #[opType]
+      let opType ← MatchProg.type (Attr := IntegerType) typeMatcher
+      let lhs ← MatchProg.value opType
+      let rhs ← MatchProg.value opType
+      let _ ← MatchProg.root (.llvm llvmOp) #[lhs, rhs] #[opType]
       return (opType, lhs, rhs))
     (fun (opType, lhs, rhs) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let lcastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let lcastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let lcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[lhs] #[regType] lcastProps
-      let rcastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let rcastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let rcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[rhs] #[regType] rcastProps
       let (lval, rval) ← match extend with
         | some ⟨extOp, extProps'⟩ => do
-          let extProps ← Veir.Puddle.CreateProg.property (.riscv extOp) extProps'
-          let lextOp ← Veir.Puddle.CreateProg.operation (.riscv extOp) #[lcastOp.res[0]!] #[regType] extProps
-          let rextOp ← Veir.Puddle.CreateProg.operation (.riscv extOp) #[rcastOp.res[0]!] #[regType] extProps
+          let extProps ← CreateProg.property (.riscv extOp) extProps'
+          let lextOp ← CreateProg.operation (.riscv extOp) #[lcastOp.res[0]!] #[regType] extProps
+          let rextOp ← CreateProg.operation (.riscv extOp) #[rcastOp.res[0]!] #[regType] extProps
           pure (lextOp.res[0]!, rextOp.res[0]!)
         | none => pure (lcastOp.res[0]!, rcastOp.res[0]!)
-      let riscvOpProps ← Veir.Puddle.CreateProg.property (.riscv riscvOp) riscvProps
-      let riscvResOp ← Veir.Puddle.CreateProg.operation (.riscv riscvOp)
+      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
+      let riscvResOp ← CreateProg.operation (.riscv riscvOp)
           #[lval, rval] #[regType] riscvOpProps
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[riscvResOp.res[0]!] #[opType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
 
 /-- `llvm.add` (`i64`) -> `riscv.add`. -/
-def add64_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .add (fun t => t.bitwidth == 64) .add ()
+def add64_pattern : Pattern OpCode := lowerBinary .add (fun t => t.bitwidth = 64) .add ()
 
 /-- `llvm.add` (`i32`) -> `riscv.addw` (keeps the result sign-extended). -/
-def add32_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .add (fun t => t.bitwidth == 32) .addw ()
+def add32_pattern : Pattern OpCode := lowerBinary .add (fun t => t.bitwidth = 32) .addw ()
 
 /-- `llvm.sub` (`i64`) -> `riscv.sub`. -/
-def sub64_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .sub (fun t => t.bitwidth == 64) .sub ()
+def sub64_pattern : Pattern OpCode := lowerBinary .sub (fun t => t.bitwidth = 64) .sub ()
 
 /-- `llvm.sub` (`i32`) -> `riscv.subw`. -/
-def sub32_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .sub (fun t => t.bitwidth == 32) .subw ()
+def sub32_pattern : Pattern OpCode := lowerBinary .sub (fun t => t.bitwidth = 32) .subw ()
 
 /-- `llvm.mul` (`i64`) -> `riscv.mul`. -/
-def mul64_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .mul (fun t => t.bitwidth == 64) .mul ()
+def mul64_pattern : Pattern OpCode := lowerBinary .mul (fun t => t.bitwidth = 64) .mul ()
 
 /-- `llvm.mul` (`i32`) -> `riscv.mulw` (sign-extends the result). -/
-def mul32_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .mul (fun t => t.bitwidth == 32) .mulw ()
+def mul32_pattern : Pattern OpCode := lowerBinary .mul (fun t => t.bitwidth = 32) .mulw ()
 
 /-- `llvm.sdiv` (`i64`) -> `riscv.div`. -/
-def sdiv64_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .sdiv (fun t => t.bitwidth == 64) .div ()
+def sdiv64_pattern : Pattern OpCode := lowerBinary .sdiv (fun t => t.bitwidth = 64) .div ()
 
 /-- `llvm.sdiv` (`i32`) -> `riscv.divw`. -/
-def sdiv32_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .sdiv (fun t => t.bitwidth == 32) .divw ()
+def sdiv32_pattern : Pattern OpCode := lowerBinary .sdiv (fun t => t.bitwidth = 32) .divw ()
 
 /-- `llvm.udiv` (`i64`) -> `riscv.divu`. -/
-def udiv64_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .udiv (fun t => t.bitwidth == 64) .divu ()
+def udiv64_pattern : Pattern OpCode := lowerBinary .udiv (fun t => t.bitwidth = 64) .divu ()
 
 /-- `llvm.udiv` (`i32`) -> `riscv.divuw`. -/
-def udiv32_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .udiv (fun t => t.bitwidth == 32) .divuw ()
+def udiv32_pattern : Pattern OpCode := lowerBinary .udiv (fun t => t.bitwidth = 32) .divuw ()
 
 /-- `llvm.srem` (`i64`) -> `riscv.rem`. -/
-def srem64_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .srem (fun t => t.bitwidth == 64) .rem ()
+def srem64_pattern : Pattern OpCode := lowerBinary .srem (fun t => t.bitwidth = 64) .rem ()
 
 /-- `llvm.srem` (`i32`) -> `riscv.remw`. -/
-def srem32_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .srem (fun t => t.bitwidth == 32) .remw ()
+def srem32_pattern : Pattern OpCode := lowerBinary .srem (fun t => t.bitwidth = 32) .remw ()
 
 /-- `llvm.urem` (`i64`) -> `riscv.remu`. -/
-def urem64_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .urem (fun t => t.bitwidth == 64) .remu ()
+def urem64_pattern : Pattern OpCode := lowerBinary .urem (fun t => t.bitwidth = 64) .remu ()
 
 /-- `llvm.urem` (`i32`) -> `riscv.remuw`. -/
-def urem32_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .urem (fun t => t.bitwidth == 32) .remuw ()
+def urem32_pattern : Pattern OpCode := lowerBinary .urem (fun t => t.bitwidth = 32) .remuw ()
 
 /-- `llvm.xor` (`i64`) -> `riscv.xor`. -/
-def xor64_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .xor (fun t => t.bitwidth == 64) .xor ()
+def xor64_pattern : Pattern OpCode := lowerBinary .xor (fun t => t.bitwidth = 64) .xor ()
 
 /-- `llvm.xor` (`i32`) -> `riscv.xor` (no `W` variant needed: xor is bitwise). -/
-def xor32_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .xor (fun t => t.bitwidth == 32) .xor ()
+def xor32_pattern : Pattern OpCode := lowerBinary .xor (fun t => t.bitwidth = 32) .xor ()
 
 /-- `llvm.and` -> `riscv.and` (bitwise, so one instruction for every legal width). -/
-def and_pattern : Veir.Puddle.Pattern OpCode :=
+def and_pattern : Pattern OpCode :=
   lowerBinary .and (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32 ∨ t.bitwidth = 8 ∨ t.bitwidth = 1) .and ()
 
 /-- `llvm.or` -> `riscv.or` (bitwise, so one instruction for every legal width). -/
-def or_pattern : Veir.Puddle.Pattern OpCode :=
+def or_pattern : Pattern OpCode :=
   lowerBinary .or (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32 ∨ t.bitwidth = 8 ∨ t.bitwidth = 1) .or ()
 
 /-- `llvm.intr.umax` -> `riscv.maxu`. Width-agnostic: unlike `add`/`sub`/…, the same instruction
     is used at both bitwidths, since the register already holds the correctly-represented value. -/
-def umax_pattern : Veir.Puddle.Pattern OpCode :=
+def umax_pattern : Pattern OpCode :=
   lowerBinary .intr__umax (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32) .maxu ()
 
 /-- `llvm.intr.umin` -> `riscv.minu`. -/
-def umin_pattern : Veir.Puddle.Pattern OpCode :=
+def umin_pattern : Pattern OpCode :=
   lowerBinary .intr__umin (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32) .minu ()
 
 /--
@@ -242,105 +244,105 @@ def umin_pattern : Veir.Puddle.Pattern OpCode :=
   `riscvOp`, and cast the result back to the result type.
 -/
 def lowerByteBinaryW (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let lhsType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-          (fun t => getIntByteTypeBitwidth t == some bw)
-      let rhsType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let resType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let lhs ← Veir.Puddle.MatchProg.value lhsType
-      let rhs ← Veir.Puddle.MatchProg.value rhsType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm llvmOp) #[lhs, rhs] #[resType]
+      let lhsType ← MatchProg.type (Attr := TypeAttr)
+          (fun t => getIntByteTypeBitwidth t = some bw)
+      let rhsType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := TypeAttr)
+      let lhs ← MatchProg.value lhsType
+      let rhs ← MatchProg.value rhsType
+      let _ ← MatchProg.root (.llvm llvmOp) #[lhs, rhs] #[resType]
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let lcastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let lcastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let lcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[lhs] #[regType] lcastProps
-      let rcastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let rcastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let rcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[rhs] #[regType] rcastProps
-      let riscvOpProps ← Veir.Puddle.CreateProg.property (.riscv riscvOp) riscvProps
-      let riscvResOp ← Veir.Puddle.CreateProg.operation (.riscv riscvOp)
+      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
+      let riscvResOp ← CreateProg.operation (.riscv riscvOp)
           #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType] riscvOpProps
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[riscvResOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
 
 /-- `llvm.shl` (`i64`) -> `riscv.sll`. -/
-def shl64_pattern : Veir.Puddle.Pattern OpCode := lowerByteBinaryW .shl 64 .sll ()
+def shl64_pattern : Pattern OpCode := lowerByteBinaryW .shl 64 .sll ()
 
 /-- `llvm.shl` (`i32`) -> `riscv.sllw`. -/
-def shl32_pattern : Veir.Puddle.Pattern OpCode := lowerByteBinaryW .shl 32 .sllw ()
+def shl32_pattern : Pattern OpCode := lowerByteBinaryW .shl 32 .sllw ()
 
 /-- `llvm.lshr` (`i64`) -> `riscv.srl`. -/
-def lshr64_pattern : Veir.Puddle.Pattern OpCode := lowerByteBinaryW .lshr 64 .srl ()
+def lshr64_pattern : Pattern OpCode := lowerByteBinaryW .lshr 64 .srl ()
 
 /-- `llvm.lshr` (`i32`) -> `riscv.srlw`. -/
-def lshr32_pattern : Veir.Puddle.Pattern OpCode := lowerByteBinaryW .lshr 32 .srlw ()
+def lshr32_pattern : Pattern OpCode := lowerByteBinaryW .lshr 32 .srlw ()
 
 /-- `llvm.intr.smax` (`i64`) -> `riscv.max`. -/
-def smax64_pattern : Veir.Puddle.Pattern OpCode :=
-  lowerBinary .intr__smax (fun t => t.bitwidth == 64) .max ()
+def smax64_pattern : Pattern OpCode :=
+  lowerBinary .intr__smax (fun t => t.bitwidth = 64) .max ()
 
 /-- `llvm.intr.smax` (`i32`) -> sign-extend (so negative values order correctly, since
     `castToRegLocal` zero-extends) then `riscv.max`. -/
-def smax32_pattern : Veir.Puddle.Pattern OpCode :=
-  lowerBinary .intr__smax (fun t => t.bitwidth == 32) .max () (extend := some ⟨.sextw, ()⟩)
+def smax32_pattern : Pattern OpCode :=
+  lowerBinary .intr__smax (fun t => t.bitwidth = 32) .max () (extend := some ⟨.sextw, ()⟩)
 
 /-- `llvm.intr.smin` (`i64`) -> `riscv.min`. -/
-def smin64_pattern : Veir.Puddle.Pattern OpCode :=
-  lowerBinary .intr__smin (fun t => t.bitwidth == 64) .min ()
+def smin64_pattern : Pattern OpCode :=
+  lowerBinary .intr__smin (fun t => t.bitwidth = 64) .min ()
 
 /-- `llvm.intr.smin` (`i32`) -> sign-extend (so negative values order correctly, since
     `castToRegLocal` zero-extends) then `riscv.min`. -/
-def smin32_pattern : Veir.Puddle.Pattern OpCode :=
-  lowerBinary .intr__smin (fun t => t.bitwidth == 32) .min () (extend := some ⟨.sextw, ()⟩)
+def smin32_pattern : Pattern OpCode :=
+  lowerBinary .intr__smin (fun t => t.bitwidth = 32) .min () (extend := some ⟨.sextw, ()⟩)
 
 /--
   RISC-V lowerings for funnel-shift rotates (`fshl`/`fshr` whose two data operands are
   identical).
 -/
 def lowerRotate (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let opType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == bw)
-      let a ← Veir.Puddle.MatchProg.value opType
-      let amt ← Veir.Puddle.MatchProg.value opType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm llvmOp) #[a, a, amt] #[opType]
+      let opType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
+      let a ← MatchProg.value opType
+      let amt ← MatchProg.value opType
+      let _ ← MatchProg.root (.llvm llvmOp) #[a, a, amt] #[opType]
       return (opType, a, amt))
     (fun (opType, a, amt) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let aCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let aCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let aCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let aCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[a] #[regType] aCastProps
-      let amtCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let amtCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let amtCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let amtCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[amt] #[regType] amtCastProps
-      let riscvOpProps ← Veir.Puddle.CreateProg.property (.riscv riscvOp) riscvProps
-      let rotOp ← Veir.Puddle.CreateProg.operation (.riscv riscvOp)
+      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
+      let rotOp ← CreateProg.operation (.riscv riscvOp)
           #[aCastOp.res[0]!, amtCastOp.res[0]!] #[regType] riscvOpProps
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[rotOp.res[0]!] #[opType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
 
 /-- `llvm.intr.fshl` with identical data operands (`i64`) -> `riscv.rol`. -/
-def fshl64_pattern : Veir.Puddle.Pattern OpCode := lowerRotate .intr__fshl 64 .rol ()
+def fshl64_pattern : Pattern OpCode := lowerRotate .intr__fshl 64 .rol ()
 
 /-- `llvm.intr.fshl` with identical data operands (`i32`) -> `riscv.rolw`. -/
-def fshl32_pattern : Veir.Puddle.Pattern OpCode := lowerRotate .intr__fshl 32 .rolw ()
+def fshl32_pattern : Pattern OpCode := lowerRotate .intr__fshl 32 .rolw ()
 
 /-- `llvm.intr.fshr` with identical data operands (`i64`) -> `riscv.ror`. -/
-def fshr64_pattern : Veir.Puddle.Pattern OpCode := lowerRotate .intr__fshr 64 .ror ()
+def fshr64_pattern : Pattern OpCode := lowerRotate .intr__fshr 64 .ror ()
 
 /-- `llvm.intr.fshr` with identical data operands (`i32`) -> `riscv.rorw`. -/
-def fshr32_pattern : Veir.Puddle.Pattern OpCode := lowerRotate .intr__fshr 32 .rorw ()
+def fshr32_pattern : Pattern OpCode := lowerRotate .intr__fshr 32 .rorw ()
 
 /--
   `llvm.intr.ctlz` -> `riscv.clz`.
@@ -364,30 +366,30 @@ def ctpop64 : Puddle.CompiledPattern OpCode := ctpop64_pattern.compile
   `llvm.intr.bswap` -> `riscv.rev8`. `rev8` reverses all 8 bytes; for `i32` the wanted bytes end
   up in the high 32 bits, so shift them down with `srli 32`.
 -/
-def lowerBswap (bw : Nat) : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+def lowerBswap (bw : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let opType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == bw)
-      let resType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let x ← Veir.Puddle.MatchProg.value opType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm .intr__bswap) #[x] #[resType]
+      let opType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
+      let resType ← MatchProg.type (Attr := TypeAttr)
+      let x ← MatchProg.value opType
+      let _ ← MatchProg.root (.llvm .intr__bswap) #[x] #[resType]
       return (resType, x))
     (fun (resType, x) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let castProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[x] #[regType] castProps
-      let rev8Props ← Veir.Puddle.CreateProg.property (.riscv .rev8) ()
-      let rev8Op ← Veir.Puddle.CreateProg.operation (.riscv .rev8)
+      let rev8Props ← CreateProg.property (.riscv .rev8) ()
+      let rev8Op ← CreateProg.operation (.riscv .rev8)
           #[castOp.res[0]!] #[regType] rev8Props
       let resOp ← if bw = 32 then do
-          let srliProps ← Veir.Puddle.CreateProg.property (.riscv .srli)
+          let srliProps ← CreateProg.property (.riscv .srli)
               (RISCVImmediateProperties.mk 32#64)
-          Veir.Puddle.CreateProg.operation (.riscv .srli) #[rev8Op.res[0]!] #[regType] srliProps
+          CreateProg.operation (.riscv .srli) #[rev8Op.res[0]!] #[regType] srliProps
         else
           pure rev8Op
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[resOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
@@ -402,46 +404,46 @@ def bswap32 : Puddle.CompiledPattern OpCode := (lowerBswap 32).compile
   One SWAR bit-reversal stage:
   `((x & mask) << shamt) | ((x >> shamt) & mask)`.
 -/
-def bitreverseStage (regType : Veir.Puddle.Handle OpCode .type) (mask shamt : Int)
-    (input : Veir.Puddle.Handle OpCode .value) :
-    Veir.Puddle.CreateProg.Builder (Veir.Puddle.Handle OpCode .value) := do
-  let maskProps ← Veir.Puddle.CreateProg.property (.riscv .li)
+def bitreverseStage (regType : Handle OpCode .type) (mask shamt : Int)
+    (input : Handle OpCode .value) :
+    CreateProg.Builder (Handle OpCode .value) := do
+  let maskProps ← CreateProg.property (.riscv .li)
       (RISCVImmediateProperties.mk (BitVec.ofInt 64 mask))
-  let maskOp ← Veir.Puddle.CreateProg.operation (.riscv .li) #[] #[regType] maskProps
-  let lowProps ← Veir.Puddle.CreateProg.property (.riscv .and) ()
-  let lowOp ← Veir.Puddle.CreateProg.operation (.riscv .and)
+  let maskOp ← CreateProg.operation (.riscv .li) #[] #[regType] maskProps
+  let lowProps ← CreateProg.property (.riscv .and) ()
+  let lowOp ← CreateProg.operation (.riscv .and)
       #[maskOp.res[0]!, input] #[regType] lowProps
-  let lowShiftProps ← Veir.Puddle.CreateProg.property (.riscv .slli)
+  let lowShiftProps ← CreateProg.property (.riscv .slli)
       (RISCVImmediateProperties.mk (BitVec.ofInt 64 shamt))
-  let lowShiftOp ← Veir.Puddle.CreateProg.operation (.riscv .slli)
+  let lowShiftOp ← CreateProg.operation (.riscv .slli)
       #[lowOp.res[0]!] #[regType] lowShiftProps
-  let highShiftProps ← Veir.Puddle.CreateProg.property (.riscv .srli)
+  let highShiftProps ← CreateProg.property (.riscv .srli)
       (RISCVImmediateProperties.mk (BitVec.ofInt 64 shamt))
-  let highShiftOp ← Veir.Puddle.CreateProg.operation (.riscv .srli)
+  let highShiftOp ← CreateProg.operation (.riscv .srli)
       #[input] #[regType] highShiftProps
-  let highProps ← Veir.Puddle.CreateProg.property (.riscv .and) ()
-  let highOp ← Veir.Puddle.CreateProg.operation (.riscv .and)
+  let highProps ← CreateProg.property (.riscv .and) ()
+  let highOp ← CreateProg.operation (.riscv .and)
       #[maskOp.res[0]!, highShiftOp.res[0]!] #[regType] highProps
-  let orProps ← Veir.Puddle.CreateProg.property (.riscv .or) ()
-  let orOp ← Veir.Puddle.CreateProg.operation (.riscv .or)
+  let orProps ← CreateProg.property (.riscv .or) ()
+  let orOp ← CreateProg.operation (.riscv .or)
       #[lowShiftOp.res[0]!, highOp.res[0]!] #[regType] orProps
   return orOp.res[0]!
 
 /--
   `llvm.intr.bitreverse` -> mask/shift/or stages followed by `riscv.rev8`.
 -/
-def lowerBitreverse (bw : Nat) : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+def lowerBitreverse (bw : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let opType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == bw)
-      let resType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let x ← Veir.Puddle.MatchProg.value opType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm .intr__bitreverse) #[x] #[resType]
+      let opType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
+      let resType ← MatchProg.type (Attr := TypeAttr)
+      let x ← MatchProg.value opType
+      let _ ← MatchProg.root (.llvm .intr__bitreverse) #[x] #[resType]
       return (resType, x))
     (fun (resType, x) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let castProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[x] #[regType] castProps
       let resOp ← if bw = 32 then do
           /- Use 32-bit masks so SWAR stages stay within the low 32 bits.
@@ -449,19 +451,19 @@ def lowerBitreverse (bw : Nat) : Veir.Puddle.Pattern OpCode :=
           let x1 ← bitreverseStage regType 0x55555555 1 castOp.res[0]!
           let x2 ← bitreverseStage regType 0x33333333 2 x1
           let x3 ← bitreverseStage regType 0x0f0f0f0f 4 x2
-          let rev8Props ← Veir.Puddle.CreateProg.property (.riscv .rev8) ()
-          let rev8Op ← Veir.Puddle.CreateProg.operation (.riscv .rev8) #[x3] #[regType] rev8Props
-          let srliProps ← Veir.Puddle.CreateProg.property (.riscv .srli)
+          let rev8Props ← CreateProg.property (.riscv .rev8) ()
+          let rev8Op ← CreateProg.operation (.riscv .rev8) #[x3] #[regType] rev8Props
+          let srliProps ← CreateProg.property (.riscv .srli)
               (RISCVImmediateProperties.mk 32#64)
-          Veir.Puddle.CreateProg.operation (.riscv .srli) #[rev8Op.res[0]!] #[regType] srliProps
+          CreateProg.operation (.riscv .srli) #[rev8Op.res[0]!] #[regType] srliProps
         else do
           let x1 ← bitreverseStage regType 0x5555555555555555 1 castOp.res[0]!
           let x2 ← bitreverseStage regType 0x3333333333333333 2 x1
           let x3 ← bitreverseStage regType 0x0f0f0f0f0f0f0f0f 4 x2
-          let rev8Props ← Veir.Puddle.CreateProg.property (.riscv .rev8) ()
-          Veir.Puddle.CreateProg.operation (.riscv .rev8) #[x3] #[regType] rev8Props
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          let rev8Props ← CreateProg.property (.riscv .rev8) ()
+          CreateProg.operation (.riscv .rev8) #[x3] #[regType] rev8Props
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[resOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
@@ -474,25 +476,25 @@ def bitreverse32 : Puddle.CompiledPattern OpCode := (lowerBitreverse 32).compile
 
 /-- llvm.constant -> riscv.li. Any width up to 64 fits in one register: the constant is
   sign-extended to the 64-bit immediate (see `constant_refinement_le64`). -/
-def constant_pattern : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+def constant_pattern : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let type ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth ≤ 64)
-      let root ← Veir.Puddle.MatchProg.root (.llvm .mlir__constant) #[] #[type]
+      let type ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth ≤ 64)
+      let root ← MatchProg.root (.llvm .mlir__constant) #[] #[type]
           (fun props => props.value matches .integer _)
       return (type, root.properties))
     (fun (type, constProps) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let liProps ← Veir.Puddle.CreateProg.applyNative
-          (Outputs := Veir.Puddle.Handle OpCode (.prop (.riscv .li))) (type, constProps)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let liProps ← CreateProg.applyNative
+          (Outputs := Handle OpCode (.prop (.riscv .li))) (type, constProps)
           fun (type, constProps) => do
             let .integerType type' := type.val | none
             let .integer const := constProps.value | none
             return RISCVImmediateProperties.mk
                 ((BitVec.ofInt type'.bitwidth const.value).signExtend 64)
-      let liOp ← Veir.Puddle.CreateProg.operation (.riscv .li) #[] #[regType] liProps
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[liOp.res[0]!] #[type] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
@@ -514,47 +516,47 @@ def and : Puddle.CompiledPattern OpCode := and_pattern.compile
   `i32`, which sign-extends the result). An `i8` lhs is sign-extended with `riscv.sextb` first, so
   the arithmetic shift sees its sign bit.
 -/
-def lowerAshr (bw : Nat) : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+def lowerAshr (bw : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
       /- support `i64`, `i32`, and `i8` -/
-      let lhsType ← Veir.Puddle.MatchProg.type (Attr := IntegerType)
+      let lhsType ← MatchProg.type (Attr := IntegerType)
           (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32 ∨ t.bitwidth = 8)
-      let rhsType ← Veir.Puddle.MatchProg.type (Attr := IntegerType)
+      let rhsType ← MatchProg.type (Attr := IntegerType)
           (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32 ∨ t.bitwidth = 8)
-      let resType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == bw)
-      let lhs ← Veir.Puddle.MatchProg.value lhsType
-      let rhs ← Veir.Puddle.MatchProg.value rhsType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm .ashr) #[lhs, rhs] #[resType]
+      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
+      let lhs ← MatchProg.value lhsType
+      let rhs ← MatchProg.value rhsType
+      let _ ← MatchProg.root (.llvm .ashr) #[lhs, rhs] #[resType]
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk none)
       /- First, cast the operands to registers -/
-      let lcastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let lcastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let lcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[lhs] #[regType] lcastProps
-      let rcastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let rcastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let rcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[rhs] #[regType] rcastProps
       let sraOp ← if bw = 8 then do
-          let sextbProps ← Veir.Puddle.CreateProg.property (.riscv .sextb) ()
-          let sextbOp ← Veir.Puddle.CreateProg.operation (.riscv .sextb)
+          let sextbProps ← CreateProg.property (.riscv .sextb) ()
+          let sextbOp ← CreateProg.operation (.riscv .sextb)
               #[lcastOp.res[0]!] #[regType] sextbProps
-          let sraProps ← Veir.Puddle.CreateProg.property (.riscv .sra) ()
-          Veir.Puddle.CreateProg.operation (.riscv .sra)
+          let sraProps ← CreateProg.property (.riscv .sra) ()
+          CreateProg.operation (.riscv .sra)
               #[sextbOp.res[0]!, rcastOp.res[0]!] #[regType] sraProps
         else if bw = 32 then do
           /- sraw for i32 (sign-extends result) -/
-          let srawProps ← Veir.Puddle.CreateProg.property (.riscv .sraw) ()
-          Veir.Puddle.CreateProg.operation (.riscv .sraw)
+          let srawProps ← CreateProg.property (.riscv .sraw) ()
+          CreateProg.operation (.riscv .sraw)
               #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType] srawProps
         else do
-          let sraProps ← Veir.Puddle.CreateProg.property (.riscv .sra) ()
-          Veir.Puddle.CreateProg.operation (.riscv .sra)
+          let sraProps ← CreateProg.property (.riscv .sra) ()
+          CreateProg.operation (.riscv .sra)
               #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType] sraProps
       /- Cast back result for type consistency -/
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[sraOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
@@ -610,7 +612,7 @@ def icmpTypeWidth? (t : TypeAttr) : Option Nat :=
     `0` (as `matchConstantZero`). -/
 def isConstantZero (type : TypeAttr) (props : LLVMConstantProperties) : Bool :=
   match type.val, props.value with
-  | .integerType t, .integer attr => (BitVec.ofInt t.bitwidth attr.value).toInt == 0
+  | .integerType t, .integer attr => (BitVec.ofInt t.bitwidth attr.value).toInt = 0
   | _, _ => false
 
 /--
@@ -622,24 +624,24 @@ def isConstantZero (type : TypeAttr) (props : LLVMConstantProperties) : Bool :=
 
   Returns the two registers to compare.
 -/
-def icmpCastExt (regType : Veir.Puddle.Handle OpCode .type)
-    (lhs rhs : Veir.Puddle.Handle OpCode .value)
+def icmpCastExt (regType : Handle OpCode .type)
+    (lhs rhs : Handle OpCode .value)
     (ext : Option (Σ extOp : Riscv, propertiesOf (OpCode.riscv extOp))) :
-    Veir.Puddle.CreateProg.Builder
-      (Veir.Puddle.Handle OpCode .value × Veir.Puddle.Handle OpCode .value) := do
-  let lcastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-  let lcastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+    CreateProg.Builder
+      (Handle OpCode .value × Handle OpCode .value) := do
+  let lcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+  let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
       #[lhs] #[regType] lcastProps
-  let rcastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-  let rcastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+  let rcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+  let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
       #[rhs] #[regType] rcastProps
   match ext with
   | none => pure (lcastOp.res[0]!, rcastOp.res[0]!)
   | some ⟨extOp, extProps'⟩ => do
-    let extProps ← Veir.Puddle.CreateProg.property (.riscv extOp) extProps'
-    let lextOp ← Veir.Puddle.CreateProg.operation (.riscv extOp)
+    let extProps ← CreateProg.property (.riscv extOp) extProps'
+    let lextOp ← CreateProg.operation (.riscv extOp)
         #[lcastOp.res[0]!] #[regType] extProps
-    let rextOp ← Veir.Puddle.CreateProg.operation (.riscv extOp)
+    let rextOp ← CreateProg.operation (.riscv extOp)
         #[rcastOp.res[0]!] #[regType] extProps
     pure (lextOp.res[0]!, rextOp.res[0]!)
 
@@ -651,45 +653,45 @@ def icmpCastExt (regType : Veir.Puddle.Handle OpCode .type)
   - `sle`/`sge`/`ule`/`uge`: `slt`/`sltu` then `xori _ 1`.
   - the generic `eq`: `xor` then `sltiu _ 1`.
 -/
-def icmpEmitCmp (regType : Veir.Puddle.Handle OpCode .type) (a b : Veir.Puddle.Handle OpCode .value)
+def icmpEmitCmp (regType : Handle OpCode .type) (a b : Handle OpCode .value)
     (rop : Riscv) (ropProps : propertiesOf (OpCode.riscv rop)) (swap : Bool)
     (ropImm : Option (Σ immOp : Riscv, propertiesOf (OpCode.riscv immOp)) := none) :
-    Veir.Puddle.CreateProg.Builder Veir.Puddle.CreatedOpHandle := do
+    CreateProg.Builder CreatedOpHandle := do
   let (u, v) := if swap then (b, a) else (a, b)
-  let cmpProps ← Veir.Puddle.CreateProg.property (.riscv rop) ropProps
-  let cmpOp ← Veir.Puddle.CreateProg.operation (.riscv rop) #[u, v] #[regType] cmpProps
+  let cmpProps ← CreateProg.property (.riscv rop) ropProps
+  let cmpOp ← CreateProg.operation (.riscv rop) #[u, v] #[regType] cmpProps
   match ropImm with
   | none => pure cmpOp
   | some ⟨immOp, immProps'⟩ => do
-    let immProps ← Veir.Puddle.CreateProg.property (.riscv immOp) immProps'
-    Veir.Puddle.CreateProg.operation (.riscv immOp) #[cmpOp.res[0]!] #[regType] immProps
+    let immProps ← CreateProg.property (.riscv immOp) immProps'
+    CreateProg.operation (.riscv immOp) #[cmpOp.res[0]!] #[regType] immProps
 
 /-- The comparison sequence of the `icmp` arm for `pred` on the comparison registers `a` and `b`.
     `zeroRhs` selects the `eq`/`ne`-against-zero peepholes, which only use `a`. -/
-def icmpEmit (regType : Veir.Puddle.Handle OpCode .type) (pred : Data.LLVM.IntPred)
-    (zeroRhs : Bool) (a b : Veir.Puddle.Handle OpCode .value) :
-    Veir.Puddle.CreateProg.Builder Veir.Puddle.CreatedOpHandle :=
+def icmpEmit (regType : Handle OpCode .type) (pred : Data.LLVM.IntPred)
+    (zeroRhs : Bool) (a b : Handle OpCode .value) :
+    CreateProg.Builder CreatedOpHandle :=
   match pred, zeroRhs with
   /- `seqz`: `sltiu a 1`, the `eq`-against-zero peephole. -/
   | .eq, true => do
-    let sltiuProps ← Veir.Puddle.CreateProg.property (.riscv .sltiu) icmpOneImm
-    Veir.Puddle.CreateProg.operation (.riscv .sltiu) #[a] #[regType] sltiuProps
+    let sltiuProps ← CreateProg.property (.riscv .sltiu) icmpOneImm
+    CreateProg.operation (.riscv .sltiu) #[a] #[regType] sltiuProps
   | .eq, false => icmpEmitCmp regType a b .xor () true (some ⟨.sltiu, icmpOneImm⟩)
   /- `snez`: `sltu 0 a`, the `ne`-against-zero peephole. The `riscv.li 0` becomes `x0` under
      `riscv-combine` (see `li_zero_to_x0`). -/
   | .ne, true => do
-    let liProps ← Veir.Puddle.CreateProg.property (.riscv .li) icmpZeroImm
-    let liOp ← Veir.Puddle.CreateProg.operation (.riscv .li) #[] #[regType] liProps
-    let sltuProps ← Veir.Puddle.CreateProg.property (.riscv .sltu) ()
-    Veir.Puddle.CreateProg.operation (.riscv .sltu) #[liOp.res[0]!, a] #[regType] sltuProps
+    let liProps ← CreateProg.property (.riscv .li) icmpZeroImm
+    let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
+    let sltuProps ← CreateProg.property (.riscv .sltu) ()
+    CreateProg.operation (.riscv .sltu) #[liOp.res[0]!, a] #[regType] sltuProps
   /- `sltu 0 (xor b a)` (`snez` of the difference): the generic `ne`. -/
   | .ne, false => do
-    let xorProps ← Veir.Puddle.CreateProg.property (.riscv .xor) ()
-    let xorOp ← Veir.Puddle.CreateProg.operation (.riscv .xor) #[b, a] #[regType] xorProps
-    let liProps ← Veir.Puddle.CreateProg.property (.riscv .li) icmpZeroImm
-    let liOp ← Veir.Puddle.CreateProg.operation (.riscv .li) #[] #[regType] liProps
-    let sltuProps ← Veir.Puddle.CreateProg.property (.riscv .sltu) ()
-    Veir.Puddle.CreateProg.operation (.riscv .sltu)
+    let xorProps ← CreateProg.property (.riscv .xor) ()
+    let xorOp ← CreateProg.operation (.riscv .xor) #[b, a] #[regType] xorProps
+    let liProps ← CreateProg.property (.riscv .li) icmpZeroImm
+    let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
+    let sltuProps ← CreateProg.property (.riscv .sltu) ()
+    CreateProg.operation (.riscv .sltu)
         #[liOp.res[0]!, xorOp.res[0]!] #[regType] sltuProps
   | .slt, _ => icmpEmitCmp regType a b .slt () false
   | .sgt, _ => icmpEmitCmp regType a b .slt () true
@@ -705,33 +707,33 @@ def icmpEmit (regType : Veir.Puddle.Handle OpCode .type) (pred : Data.LLVM.IntPr
   `i32`, or `i8`). When `zeroRhs` is set, the rhs must be the constant `0`.
 -/
 def lowerIcmp (pred : Data.LLVM.IntPred) (lhsWidth : Nat) (zeroRhs : Bool) :
-    Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+    Pattern OpCode :=
+  Pattern.Builder
     (do
       /- support `i64`, `i32`, `i8` and `!llvm.ptr` -/
-      let lhsType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-          (fun t => icmpTypeWidth? t == some lhsWidth)
-      let rhsType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
+      let lhsType ← MatchProg.type (Attr := TypeAttr)
+          (fun t => icmpTypeWidth? t = some lhsWidth)
+      let rhsType ← MatchProg.type (Attr := TypeAttr)
           (fun t => (icmpTypeWidth? t).any (· ∈ [64, 32, 8]))
       /- The result is cast back for type consistency, so it must be an integer type. -/
-      let resType ← Veir.Puddle.MatchProg.type (Attr := IntegerType)
-      let lhs ← Veir.Puddle.MatchProg.value lhsType
+      let resType ← MatchProg.type (Attr := IntegerType)
+      let lhs ← MatchProg.value lhsType
       let rhs ← if zeroRhs then do
-          let zeroOp ← Veir.Puddle.MatchProg.operation (.llvm .mlir__constant) #[] #[rhsType]
-          Veir.Puddle.MatchProg.matchNative (rhsType, zeroOp.properties)
+          let zeroOp ← MatchProg.operation (.llvm .mlir__constant) #[] #[rhsType]
+          MatchProg.matchNative (rhsType, zeroOp.properties)
               fun (type, props) => isConstantZero type props
           pure zeroOp.res[0]!
         else
-          Veir.Puddle.MatchProg.value rhsType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm .icmp) #[lhs, rhs] #[resType]
-          (fun props => props.predicate == pred)
+          MatchProg.value rhsType
+      let _ ← MatchProg.root (.llvm .icmp) #[lhs, rhs] #[resType]
+          (fun props => props.predicate = pred)
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk none)
       let (a, b) ← icmpCastExt regType lhs rhs (icmpExtOf lhsWidth)
       let cmpOp ← icmpEmit regType pred zeroRhs a b
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[cmpOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
@@ -848,25 +850,25 @@ def isLegalTrunc (opType resType : TypeAttr) : Bool :=
   (`trunc`/`bitcast`/`freeze`): when `legal` accepts the operand and result types, cast the operand to a
   register, then cast the register to the result type.
 -/
-def lowerRegCast (llvmOp : Llvm) (legal : TypeAttr → TypeAttr → Bool) : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+def lowerRegCast (llvmOp : Llvm) (legal : TypeAttr → TypeAttr → Bool) : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let opType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let resType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let x ← Veir.Puddle.MatchProg.value opType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm llvmOp) #[x] #[resType]
-      Veir.Puddle.MatchProg.matchNative (opType, resType)
+      let opType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := TypeAttr)
+      let x ← MatchProg.value opType
+      let _ ← MatchProg.root (.llvm llvmOp) #[x] #[resType]
+      MatchProg.matchNative (opType, resType)
           fun (opType, resType) => legal opType resType
       return (resType, x))
     (fun (resType, x) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk none)
       /- First, cast the operand to registers -/
-      let castProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[x] #[regType] castProps
       /- Then, cast register to expected output type. -/
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[castOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
@@ -876,7 +878,7 @@ def lowerRegCast (llvmOp : Llvm) (legal : TypeAttr → TypeAttr → Bool) : Veir
   where `iY`'s width is smaller than `iX`'s (see `isLegalTrunc`).
   Also accepts the byte type.
 -/
-def trunc_pattern : Veir.Puddle.Pattern OpCode := lowerRegCast .trunc isLegalTrunc
+def trunc_pattern : Pattern OpCode := lowerRegCast .trunc isLegalTrunc
 
 /--
   llvm.trunc -> builtin_unrealized_conversion_cast (see `trunc_pattern`).
@@ -921,7 +923,7 @@ def isLegalBitcast (opType resType : TypeAttr) : Bool :=
   Integers, bytes, and pointers are all lowered to !riscv.reg, making this basically a no-op.
   The `byte -> ptr` case is excluded (see `isLegalBitcast`).
 -/
-def bitcast_pattern : Veir.Puddle.Pattern OpCode := lowerRegCast .bitcast isLegalBitcast
+def bitcast_pattern : Pattern OpCode := lowerRegCast .bitcast isLegalBitcast
 
 /-- llvm.bitcast -> builtin_unrealized_conversion_cast (see `bitcast_pattern`). -/
 def bitcast : Puddle.CompiledPattern OpCode := bitcast_pattern.compile
@@ -930,12 +932,12 @@ def bitcast : Puddle.CompiledPattern OpCode := bitcast_pattern.compile
   Lower LLVM lifetime instructions to nothing. This is a refinement that we can
   revisit later if we want to perform certain stack slot optimizations.
 -/
-def lowerLifetime (llvmOp : Llvm) : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+def lowerLifetime (llvmOp : Llvm) : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let ptrType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let ptr ← Veir.Puddle.MatchProg.value ptrType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm llvmOp) #[ptr] #[]
+      let ptrType ← MatchProg.type (Attr := TypeAttr)
+      let ptr ← MatchProg.value ptrType
+      let _ ← MatchProg.root (.llvm llvmOp) #[ptr] #[]
       return ())
     pure
     (fun () => ⟨#[]⟩)
@@ -992,9 +994,9 @@ private partial def lookupGlobal? (ctx : IRContext OpCode) (op : OperationPtr)
   let block ← (body.get! ctx).firstBlock
   let mut candidate := (block.get! ctx).firstOp
   while let some target := candidate do
-    if target.getOpType! ctx == .llvm .mlir__global then
+    if target.getOpType! ctx = .llvm .mlir__global then
       let props := target.getProperties! ctx Llvm.mlir__global
-      if props.sym_name.value == name then return props
+      if props.sym_name.value = name then return props
     candidate := (target.get! ctx).next
   none
 
@@ -1006,7 +1008,7 @@ def addressof_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if let some global := lookupGlobal? ctx.raw op name then
     -- An undefined weak symbol resolves to zero, which a PC-relative `la`
     -- cannot always reach. Leave it until GOT-based address lowering is supported.
-    if global.isThreadLocal || global.linkage.value == "extern_weak" then return (ctx, none)
+    if global.isThreadLocal || global.linkage.value = "extern_weak" then return (ctx, none)
   let (ctx, laOp) ← WfRewriter.createOp! ctx Riscv.la #[RegisterType.mk]
       #[] #[] #[] (RISCVSymbolProperties.mk properties.global_name) none
   let (ctx, castBackOp) ← replaceWithRegLocal ctx op (laOp.getResult 0)
@@ -1071,52 +1073,52 @@ def createStoreLocal (ctx : WfIRContext OpCode) (width : Nat) (val addr : ValueP
 -/
 def lowerLoad (folded : Bool) (width : Nat) (riscvOp : Riscv)
     (h : propertiesOf (OpCode.riscv riscvOp) = RISCVMemProperties := by rfl) :
-    Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+    Pattern OpCode :=
+  Pattern.Builder
     (do
-      let baseType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let base ← Veir.Puddle.MatchProg.value baseType
+      let baseType ← MatchProg.type (Attr := TypeAttr)
+      let base ← MatchProg.value baseType
       /- Split the address into a base register and a signed 12-bit offset. -/
       let (addr, gep?) ← if folded then do
-          let idxType ← Veir.Puddle.MatchProg.type (Attr := IntegerType)
-              (fun t => t.bitwidth == 64)
-          let idxOp ← Veir.Puddle.MatchProg.operation (.llvm .mlir__constant) #[] #[idxType]
-          let addrType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-          let gepOp ← Veir.Puddle.MatchProg.operation (.llvm .getelementptr)
+          let idxType ← MatchProg.type (Attr := IntegerType)
+              (fun t => t.bitwidth = 64)
+          let idxOp ← MatchProg.operation (.llvm .mlir__constant) #[] #[idxType]
+          let addrType ← MatchProg.type (Attr := TypeAttr)
+          let gepOp ← MatchProg.operation (.llvm .getelementptr)
               #[base, idxOp.res[0]!] #[addrType]
-          Veir.Puddle.MatchProg.matchNative (gepOp.properties, idxOp.properties)
+          MatchProg.matchNative (gepOp.properties, idxOp.properties)
               fun (gep, idx) => (selectAddrRegImm gep idx).isSome
           pure (gepOp.res[0]!, some (gepOp.properties, idxOp.properties))
         else
           pure (base, none)
       /- support `i64`, `i32`, `i16`, `i8` and `!llvm.ptr` (the loaded value type) -/
-      let resType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-          (fun t => memAccessWidth? t == some width)
-      let root ← Veir.Puddle.MatchProg.root (.llvm .load) #[addr] #[resType]
+      let resType ← MatchProg.type (Attr := TypeAttr)
+          (fun t => memAccessWidth? t = some width)
+      let root ← MatchProg.root (.llvm .load) #[addr] #[resType]
       return (resType, base, gep?, root.properties))
     (fun (resType, base, gep?, loadProps) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk none)
       /- cast base (!llvm.ptr) -> register -/
-      let baseCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let baseCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let baseCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let baseCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[base] #[regType] baseCastProps
       /- Volatility carries over from the `llvm.load`: the riscv op encodes the same, but the
          flag keeps later passes from deleting or duplicating the access. -/
       let memProps ← match gep? with
         | some (gepProps, idxProps) =>
-          Veir.Puddle.CreateProg.applyNative
-              (Outputs := Veir.Puddle.Handle OpCode (.prop (.riscv riscvOp)))
+          CreateProg.applyNative
+              (Outputs := Handle OpCode (.prop (.riscv riscvOp)))
               (gepProps, idxProps, loadProps)
               fun (gep, idx, load) => (selectAddrRegImm gep idx).map fun offset =>
                 cast h.symm (RISCVMemProperties.mk (BitVec.ofInt 64 offset) load.volatile_)
         | none =>
-          Veir.Puddle.CreateProg.applyNative
-              (Outputs := Veir.Puddle.Handle OpCode (.prop (.riscv riscvOp))) loadProps
+          CreateProg.applyNative
+              (Outputs := Handle OpCode (.prop (.riscv riscvOp))) loadProps
               fun load => some (cast h.symm (RISCVMemProperties.mk 0 load.volatile_))
-      let ldOp ← Veir.Puddle.CreateProg.operation (.riscv riscvOp)
+      let ldOp ← CreateProg.operation (.riscv riscvOp)
           #[baseCastOp.res[0]!] #[regType] memProps
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[ldOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
@@ -1136,54 +1138,54 @@ def load : Array (Puddle.CompiledPattern OpCode) :=
 -/
 def lowerStore (folded : Bool) (width : Nat) (riscvOp : Riscv)
     (h : propertiesOf (OpCode.riscv riscvOp) = RISCVMemProperties := by rfl) :
-    Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+    Pattern OpCode :=
+  Pattern.Builder
     (do
       /- support `i64`, `i32`, `i16`, `i8` and `!llvm.ptr` (the stored value type) -/
-      let valType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-          (fun t => memAccessWidth? t == some width)
-      let val ← Veir.Puddle.MatchProg.value valType
-      let baseType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let base ← Veir.Puddle.MatchProg.value baseType
+      let valType ← MatchProg.type (Attr := TypeAttr)
+          (fun t => memAccessWidth? t = some width)
+      let val ← MatchProg.value valType
+      let baseType ← MatchProg.type (Attr := TypeAttr)
+      let base ← MatchProg.value baseType
       /- Split the address into a base register and a signed 12-bit offset. -/
       let (addr, gep?) ← if folded then do
-          let idxType ← Veir.Puddle.MatchProg.type (Attr := IntegerType)
-              (fun t => t.bitwidth == 64)
-          let idxOp ← Veir.Puddle.MatchProg.operation (.llvm .mlir__constant) #[] #[idxType]
-          let addrType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-          let gepOp ← Veir.Puddle.MatchProg.operation (.llvm .getelementptr)
+          let idxType ← MatchProg.type (Attr := IntegerType)
+              (fun t => t.bitwidth = 64)
+          let idxOp ← MatchProg.operation (.llvm .mlir__constant) #[] #[idxType]
+          let addrType ← MatchProg.type (Attr := TypeAttr)
+          let gepOp ← MatchProg.operation (.llvm .getelementptr)
               #[base, idxOp.res[0]!] #[addrType]
-          Veir.Puddle.MatchProg.matchNative (gepOp.properties, idxOp.properties)
+          MatchProg.matchNative (gepOp.properties, idxOp.properties)
               fun (gep, idx) => (selectAddrRegImm gep idx).isSome
           pure (gepOp.res[0]!, some (gepOp.properties, idxOp.properties))
         else
           pure (base, none)
-      let root ← Veir.Puddle.MatchProg.root (.llvm .store) #[val, addr] #[]
+      let root ← MatchProg.root (.llvm .store) #[val, addr] #[]
       return (val, base, gep?, root.properties))
     (fun (val, base, gep?, storeProps) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
+      let regType ← CreateProg.type (RegisterType.mk none)
       /- cast base (!llvm.ptr) -> register -/
-      let baseCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let baseCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let baseCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let baseCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[base] #[regType] baseCastProps
       /- cast value (i64/i32/i16/i8/ptr) -> register -/
-      let valCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let valCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let valCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[val] #[regType] valCastProps
       /- The store writes the low `width` bytes of the value register. Volatility carries over
          from the `llvm.store`, as in `lowerLoad`. -/
       let memProps ← match gep? with
         | some (gepProps, idxProps) =>
-          Veir.Puddle.CreateProg.applyNative
-              (Outputs := Veir.Puddle.Handle OpCode (.prop (.riscv riscvOp)))
+          CreateProg.applyNative
+              (Outputs := Handle OpCode (.prop (.riscv riscvOp)))
               (gepProps, idxProps, storeProps)
               fun (gep, idx, store) => (selectAddrRegImm gep idx).map fun offset =>
                 cast h.symm (RISCVMemProperties.mk (BitVec.ofInt 64 offset) store.volatile_)
         | none =>
-          Veir.Puddle.CreateProg.applyNative
-              (Outputs := Veir.Puddle.Handle OpCode (.prop (.riscv riscvOp))) storeProps
+          CreateProg.applyNative
+              (Outputs := Handle OpCode (.prop (.riscv riscvOp))) storeProps
               fun store => some (cast h.symm (RISCVMemProperties.mk 0 store.volatile_))
-      let _ ← Veir.Puddle.CreateProg.operation (.riscv riscvOp)
+      let _ ← CreateProg.operation (.riscv riscvOp)
           #[valCastOp.res[0]!, baseCastOp.res[0]!] #[] memProps
       return ())
     (fun () => ⟨#[]⟩)
@@ -1202,53 +1204,53 @@ def store : Array (Puddle.CompiledPattern OpCode) :=
   is the allocation size (ABI stride) of the element type, for a `scale` of 1, 2, 4, or 8:
   `ptr + idx` or `(idx << log2 scale) + ptr` with `riscv.sh{1,2,3}add`.
 -/
-def lowerGetelementptr (scale : Nat) : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+def lowerGetelementptr (scale : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let ptrType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
+      let ptrType ← MatchProg.type (Attr := TypeAttr)
       /- The index must be `i64`. -/
-      let idxType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 64)
-      let resType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let ptr ← Veir.Puddle.MatchProg.value ptrType
-      let idx ← Veir.Puddle.MatchProg.value idxType
+      let idxType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
+      let resType ← MatchProg.type (Attr := TypeAttr)
+      let ptr ← MatchProg.value ptrType
+      let idx ← MatchProg.value idxType
       /- Bail unless it's a single dynamic index with no trailing constant indices. -/
-      let root ← Veir.Puddle.MatchProg.root (.llvm .getelementptr) #[ptr, idx] #[resType]
-          (fun props => props.rawConstantIndices.values == #[(-2147483648 : Int)])
-      Veir.Puddle.MatchProg.matchNative root.properties fun gep =>
-        (DataLayout.riscv64.getTypeAllocSize gep.elem_type.val).any (· == scale)
+      let root ← MatchProg.root (.llvm .getelementptr) #[ptr, idx] #[resType]
+          (fun props => props.rawConstantIndices.values = #[(-2147483648 : Int)])
+      MatchProg.matchNative root.properties fun gep =>
+        (DataLayout.riscv64.getTypeAllocSize gep.elem_type.val).any (· = scale)
       return (resType, ptr, idx, root.properties))
     (fun (resType, ptr, idx, _) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let ptrCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let ptrCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let ptrCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let ptrCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[ptr] #[regType] ptrCastProps
-      let idxCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let idxCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let idxCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let idxCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[idx] #[regType] idxCastProps
       let addOp ←
         if scale = 1 then do
           /- ptr + idx -/
-          let addProps ← Veir.Puddle.CreateProg.property (.riscv .add) ()
-          Veir.Puddle.CreateProg.operation (.riscv .add)
+          let addProps ← CreateProg.property (.riscv .add) ()
+          CreateProg.operation (.riscv .add)
               #[ptrCastOp.res[0]!, idxCastOp.res[0]!] #[regType] addProps
         else if scale = 2 then do
           /- (idx << 1) + ptr -/
-          let addProps ← Veir.Puddle.CreateProg.property (.riscv .sh1add) ()
-          Veir.Puddle.CreateProg.operation (.riscv .sh1add)
+          let addProps ← CreateProg.property (.riscv .sh1add) ()
+          CreateProg.operation (.riscv .sh1add)
               #[idxCastOp.res[0]!, ptrCastOp.res[0]!] #[regType] addProps
         else if scale = 4 then do
           /- (idx << 2) + ptr -/
-          let addProps ← Veir.Puddle.CreateProg.property (.riscv .sh2add) ()
-          Veir.Puddle.CreateProg.operation (.riscv .sh2add)
+          let addProps ← CreateProg.property (.riscv .sh2add) ()
+          CreateProg.operation (.riscv .sh2add)
               #[idxCastOp.res[0]!, ptrCastOp.res[0]!] #[regType] addProps
         else do
           /- (idx << 3) + ptr -/
-          let addProps ← Veir.Puddle.CreateProg.property (.riscv .sh3add) ()
-          Veir.Puddle.CreateProg.operation (.riscv .sh3add)
+          let addProps ← CreateProg.property (.riscv .sh3add) ()
+          CreateProg.operation (.riscv .sh3add)
               #[idxCastOp.res[0]!, ptrCastOp.res[0]!] #[regType] addProps
       /- Cast the resulting register back to `!llvm.ptr`. -/
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[addOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
@@ -1257,48 +1259,48 @@ def lowerGetelementptr (scale : Nat) : Veir.Puddle.Pattern OpCode :=
   `getelementptr` whose `scale` is any other power of two: `ptr + (idx << log2 scale)`.
 
   `0 < scale` excludes zero-sized element types (`i0`, `!llvm.array<0 x _>`), for which
-  `scale &&& (scale - 1) == 0` also holds but `Nat.log2 0 = 0` would emit `idx << 0`, i.e.
+  `scale &&& (scale - 1) = 0` also holds but `Nat.log2 0 = 0` would emit `idx << 0`, i.e.
   `ptr + idx` rather than `ptr`. `Nat.log2 scale < 64` excludes element sizes of `2^64` and
   beyond, whose shift amount does not fit the 6-bit immediate. Both fall through to the
   `li`/`mul` form of `getelementptrMul_pattern`, which truncates modulo `2^64` exactly as the
   source does.
 -/
-def getelementptrShift_pattern : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+def getelementptrShift_pattern : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let ptrType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
+      let ptrType ← MatchProg.type (Attr := TypeAttr)
       /- The index must be `i64`. -/
-      let idxType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 64)
-      let resType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let ptr ← Veir.Puddle.MatchProg.value ptrType
-      let idx ← Veir.Puddle.MatchProg.value idxType
+      let idxType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
+      let resType ← MatchProg.type (Attr := TypeAttr)
+      let ptr ← MatchProg.value ptrType
+      let idx ← MatchProg.value idxType
       /- Bail unless it's a single dynamic index with no trailing constant indices. -/
-      let root ← Veir.Puddle.MatchProg.root (.llvm .getelementptr) #[ptr, idx] #[resType]
-          (fun props => props.rawConstantIndices.values == #[(-2147483648 : Int)])
-      Veir.Puddle.MatchProg.matchNative root.properties fun gep =>
+      let root ← MatchProg.root (.llvm .getelementptr) #[ptr, idx] #[resType]
+          (fun props => props.rawConstantIndices.values = #[(-2147483648 : Int)])
+      MatchProg.matchNative root.properties fun gep =>
         (DataLayout.riscv64.getTypeAllocSize gep.elem_type.val).any fun scale =>
           scale ∉ [1, 2, 4, 8] ∧ 0 < scale ∧ scale &&& (scale - 1) = 0 ∧ Nat.log2 scale < 64
       return (resType, ptr, idx, root.properties))
     (fun (resType, ptr, idx, gepProps) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let ptrCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let ptrCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let ptrCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let ptrCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[ptr] #[regType] ptrCastProps
-      let idxCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let idxCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let idxCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let idxCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[idx] #[regType] idxCastProps
-      let slliProps ← Veir.Puddle.CreateProg.applyNative
-          (Outputs := Veir.Puddle.Handle OpCode (.prop (.riscv .slli))) gepProps
+      let slliProps ← CreateProg.applyNative
+          (Outputs := Handle OpCode (.prop (.riscv .slli))) gepProps
           fun gep => (DataLayout.riscv64.getTypeAllocSize gep.elem_type.val).map fun scale =>
             RISCVImmediateProperties.mk (BitVec.ofInt 64 (Nat.log2 scale))
-      let slliOp ← Veir.Puddle.CreateProg.operation (.riscv .slli)
+      let slliOp ← CreateProg.operation (.riscv .slli)
           #[idxCastOp.res[0]!] #[regType] slliProps
-      let addProps ← Veir.Puddle.CreateProg.property (.riscv .add) ()
-      let addOp ← Veir.Puddle.CreateProg.operation (.riscv .add)
+      let addProps ← CreateProg.property (.riscv .add) ()
+      let addOp ← CreateProg.operation (.riscv .add)
           #[ptrCastOp.res[0]!, slliOp.res[0]!] #[regType] addProps
       /- Cast the resulting register back to `!llvm.ptr`. -/
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[addOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
@@ -1307,44 +1309,44 @@ def getelementptrShift_pattern : Veir.Puddle.Pattern OpCode :=
   `getelementptr` with an arbitrary `scale` (see `getelementptrShift_pattern`):
   `ptr + idx * scale`.
 -/
-def getelementptrMul_pattern : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+def getelementptrMul_pattern : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let ptrType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
+      let ptrType ← MatchProg.type (Attr := TypeAttr)
       /- The index must be `i64`. -/
-      let idxType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 64)
-      let resType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let ptr ← Veir.Puddle.MatchProg.value ptrType
-      let idx ← Veir.Puddle.MatchProg.value idxType
+      let idxType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
+      let resType ← MatchProg.type (Attr := TypeAttr)
+      let ptr ← MatchProg.value ptrType
+      let idx ← MatchProg.value idxType
       /- Bail unless it's a single dynamic index with no trailing constant indices. -/
-      let root ← Veir.Puddle.MatchProg.root (.llvm .getelementptr) #[ptr, idx] #[resType]
-          (fun props => props.rawConstantIndices.values == #[(-2147483648 : Int)])
-      Veir.Puddle.MatchProg.matchNative root.properties fun gep =>
+      let root ← MatchProg.root (.llvm .getelementptr) #[ptr, idx] #[resType]
+          (fun props => props.rawConstantIndices.values = #[(-2147483648 : Int)])
+      MatchProg.matchNative root.properties fun gep =>
         (DataLayout.riscv64.getTypeAllocSize gep.elem_type.val).any fun scale =>
           scale ∉ [1, 2, 4, 8] ∧ ¬ (0 < scale ∧ scale &&& (scale - 1) = 0 ∧ Nat.log2 scale < 64)
       return (resType, ptr, idx, root.properties))
     (fun (resType, ptr, idx, gepProps) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let ptrCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let ptrCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let ptrCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let ptrCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[ptr] #[regType] ptrCastProps
-      let idxCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let idxCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let idxCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let idxCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[idx] #[regType] idxCastProps
-      let liProps ← Veir.Puddle.CreateProg.applyNative
-          (Outputs := Veir.Puddle.Handle OpCode (.prop (.riscv .li))) gepProps
+      let liProps ← CreateProg.applyNative
+          (Outputs := Handle OpCode (.prop (.riscv .li))) gepProps
           fun gep => (DataLayout.riscv64.getTypeAllocSize gep.elem_type.val).map fun scale =>
             RISCVImmediateProperties.mk (BitVec.ofInt 64 scale)
-      let liOp ← Veir.Puddle.CreateProg.operation (.riscv .li) #[] #[regType] liProps
-      let mulProps ← Veir.Puddle.CreateProg.property (.riscv .mul) ()
-      let mulOp ← Veir.Puddle.CreateProg.operation (.riscv .mul)
+      let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
+      let mulProps ← CreateProg.property (.riscv .mul) ()
+      let mulOp ← CreateProg.operation (.riscv .mul)
           #[idxCastOp.res[0]!, liOp.res[0]!] #[regType] mulProps
-      let addProps ← Veir.Puddle.CreateProg.property (.riscv .add) ()
-      let addOp ← Veir.Puddle.CreateProg.operation (.riscv .add)
+      let addProps ← CreateProg.property (.riscv .add) ()
+      let addOp ← CreateProg.operation (.riscv .add)
           #[ptrCastOp.res[0]!, mulOp.res[0]!] #[regType] addProps
       /- Cast the resulting register back to `!llvm.ptr`. -/
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[addOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
@@ -1374,34 +1376,34 @@ def getelementptr : Array (Puddle.CompiledPattern OpCode) :=
 /--
   `select c t 0` -> `riscv.czeroeqz t c`.
 -/
-def selectCzeroeqz_pattern : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+def selectCzeroeqz_pattern : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let condType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let valType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let zeroType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let resType ← Veir.Puddle.MatchProg.type (Attr := IntegerType)
+      let condType ← MatchProg.type (Attr := TypeAttr)
+      let valType ← MatchProg.type (Attr := TypeAttr)
+      let zeroType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := IntegerType)
           (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32)
-      let cond ← Veir.Puddle.MatchProg.value condType
-      let val ← Veir.Puddle.MatchProg.value valType
-      let zeroOp ← Veir.Puddle.MatchProg.operation (.llvm .mlir__constant) #[] #[zeroType]
-      Veir.Puddle.MatchProg.matchNative (zeroType, zeroOp.properties)
+      let cond ← MatchProg.value condType
+      let val ← MatchProg.value valType
+      let zeroOp ← MatchProg.operation (.llvm .mlir__constant) #[] #[zeroType]
+      MatchProg.matchNative (zeroType, zeroOp.properties)
           fun (type, props) => isConstantZero type props
-      let _ ← Veir.Puddle.MatchProg.root (.llvm .select) #[cond, val, zeroOp.res[0]!] #[resType]
+      let _ ← MatchProg.root (.llvm .select) #[cond, val, zeroOp.res[0]!] #[resType]
       return (resType, cond, val))
     (fun (resType, cond, val) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let valCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let valCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let valCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[val] #[regType] valCastProps
-      let condCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let condCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let condCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let condCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[cond] #[regType] condCastProps
-      let czProps ← Veir.Puddle.CreateProg.property (.riscv .czeroeqz) ()
-      let czOp ← Veir.Puddle.CreateProg.operation (.riscv .czeroeqz)
+      let czProps ← CreateProg.property (.riscv .czeroeqz) ()
+      let czOp ← CreateProg.operation (.riscv .czeroeqz)
           #[valCastOp.res[0]!, condCastOp.res[0]!] #[regType] czProps
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[czOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
@@ -1414,34 +1416,34 @@ def selectCzeroeqz : Puddle.CompiledPattern OpCode := selectCzeroeqz_pattern.com
 /--
   `select c 0 f` -> `riscv.czeronez f c`.
 -/
-def selectCzeronez_pattern : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+def selectCzeronez_pattern : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let condType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let valType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let zeroType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let resType ← Veir.Puddle.MatchProg.type (Attr := IntegerType)
+      let condType ← MatchProg.type (Attr := TypeAttr)
+      let valType ← MatchProg.type (Attr := TypeAttr)
+      let zeroType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := IntegerType)
           (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32)
-      let cond ← Veir.Puddle.MatchProg.value condType
-      let val ← Veir.Puddle.MatchProg.value valType
-      let zeroOp ← Veir.Puddle.MatchProg.operation (.llvm .mlir__constant) #[] #[zeroType]
-      Veir.Puddle.MatchProg.matchNative (zeroType, zeroOp.properties)
+      let cond ← MatchProg.value condType
+      let val ← MatchProg.value valType
+      let zeroOp ← MatchProg.operation (.llvm .mlir__constant) #[] #[zeroType]
+      MatchProg.matchNative (zeroType, zeroOp.properties)
           fun (type, props) => isConstantZero type props
-      let _ ← Veir.Puddle.MatchProg.root (.llvm .select) #[cond, zeroOp.res[0]!, val] #[resType]
+      let _ ← MatchProg.root (.llvm .select) #[cond, zeroOp.res[0]!, val] #[resType]
       return (resType, cond, val))
     (fun (resType, cond, val) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let valCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let valCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let valCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[val] #[regType] valCastProps
-      let condCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let condCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let condCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let condCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[cond] #[regType] condCastProps
-      let czProps ← Veir.Puddle.CreateProg.property (.riscv .czeronez) ()
-      let czOp ← Veir.Puddle.CreateProg.operation (.riscv .czeronez)
+      let czProps ← CreateProg.property (.riscv .czeronez) ()
+      let czOp ← CreateProg.operation (.riscv .czeronez)
           #[valCastOp.res[0]!, condCastOp.res[0]!] #[regType] czProps
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[czOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
@@ -1455,41 +1457,41 @@ def selectCzeronez : Puddle.CompiledPattern OpCode := selectCzeronez_pattern.com
   General branchless select:
   `select c t f` -> `or (czero.eqz t c) (czero.nez f c)`.
 -/
-def selectGeneral_pattern : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+def selectGeneral_pattern : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let condType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let tType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let fType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let resType ← Veir.Puddle.MatchProg.type (Attr := IntegerType)
+      let condType ← MatchProg.type (Attr := TypeAttr)
+      let tType ← MatchProg.type (Attr := TypeAttr)
+      let fType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := IntegerType)
           (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32 ∨ t.bitwidth = 1)
-      let cond ← Veir.Puddle.MatchProg.value condType
-      let tval ← Veir.Puddle.MatchProg.value tType
-      let fval ← Veir.Puddle.MatchProg.value fType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm .select) #[cond, tval, fval] #[resType]
+      let cond ← MatchProg.value condType
+      let tval ← MatchProg.value tType
+      let fval ← MatchProg.value fType
+      let _ ← MatchProg.root (.llvm .select) #[cond, tval, fval] #[resType]
       return (resType, cond, tval, fval))
     (fun (resType, cond, tval, fval) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let tCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let tCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let tCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let tCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[tval] #[regType] tCastProps
-      let fCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let fCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let fCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let fCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[fval] #[regType] fCastProps
-      let condCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let condCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let condCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let condCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[cond] #[regType] condCastProps
-      let eqzProps ← Veir.Puddle.CreateProg.property (.riscv .czeroeqz) ()
-      let eqzOp ← Veir.Puddle.CreateProg.operation (.riscv .czeroeqz)
+      let eqzProps ← CreateProg.property (.riscv .czeroeqz) ()
+      let eqzOp ← CreateProg.operation (.riscv .czeroeqz)
           #[tCastOp.res[0]!, condCastOp.res[0]!] #[regType] eqzProps
-      let nezProps ← Veir.Puddle.CreateProg.property (.riscv .czeronez) ()
-      let nezOp ← Veir.Puddle.CreateProg.operation (.riscv .czeronez)
+      let nezProps ← CreateProg.property (.riscv .czeronez) ()
+      let nezOp ← CreateProg.operation (.riscv .czeronez)
           #[fCastOp.res[0]!, condCastOp.res[0]!] #[regType] nezProps
-      let orProps ← Veir.Puddle.CreateProg.property (.riscv .or) ()
-      let orOp ← Veir.Puddle.CreateProg.operation (.riscv .or)
+      let orProps ← CreateProg.property (.riscv .or) ()
+      let orOp ← CreateProg.operation (.riscv .or)
           #[eqzOp.res[0]!, nezOp.res[0]!] #[regType] orProps
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[orOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
@@ -1571,68 +1573,68 @@ def createRISCVUnitLocal (ctx : WfIRContext OpCode)
 
 /-- The Zicond select `or (czero.eqz sat overflow) (czero.nez wrapped overflow)` of the signed
     saturating lowerings, returning the `or`. -/
-def signedSatSelect (regType : Veir.Puddle.Handle OpCode .type)
-    (wrapped overflow sat : Veir.Puddle.Handle OpCode .value) :
-    Veir.Puddle.CreateProg.Builder Veir.Puddle.CreatedOpHandle := do
-  let wrappedOrZeroProps ← Veir.Puddle.CreateProg.property (.riscv .czeronez) ()
-  let wrappedOrZeroOp ← Veir.Puddle.CreateProg.operation (.riscv .czeronez)
+def signedSatSelect (regType : Handle OpCode .type)
+    (wrapped overflow sat : Handle OpCode .value) :
+    CreateProg.Builder CreatedOpHandle := do
+  let wrappedOrZeroProps ← CreateProg.property (.riscv .czeronez) ()
+  let wrappedOrZeroOp ← CreateProg.operation (.riscv .czeronez)
       #[wrapped, overflow] #[regType] wrappedOrZeroProps
-  let satOrZeroProps ← Veir.Puddle.CreateProg.property (.riscv .czeroeqz) ()
-  let satOrZeroOp ← Veir.Puddle.CreateProg.operation (.riscv .czeroeqz)
+  let satOrZeroProps ← CreateProg.property (.riscv .czeroeqz) ()
+  let satOrZeroOp ← CreateProg.operation (.riscv .czeroeqz)
       #[sat, overflow] #[regType] satOrZeroProps
-  let selectProps ← Veir.Puddle.CreateProg.property (.riscv .or) ()
-  Veir.Puddle.CreateProg.operation (.riscv .or)
+  let selectProps ← CreateProg.property (.riscv .or) ()
+  CreateProg.operation (.riscv .or)
       #[satOrZeroOp.res[0]!, wrappedOrZeroOp.res[0]!] #[regType] selectProps
 
 /-- llvm.intr.sadd.sat.i64 -> LLVM's RV64+Zicond signed saturating-add sequence.
     Wrapped `add` + SADDO overflow `(rhs >>u 63) ^ (sum <s lhs)`
     (TargetLowering.cpp:12432 `expandAddSubSat`, overflow at 13072
     `expandSADDSUBO` add branch; sat endpoint `(sum >>s 63) ^ INT_MIN` at 12554). -/
-def saddSat_pattern : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+def saddSat_pattern : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let lhsType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let rhsType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let resType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 64)
-      let lhs ← Veir.Puddle.MatchProg.value lhsType
-      let rhs ← Veir.Puddle.MatchProg.value rhsType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm .intr__sadd__sat) #[lhs, rhs] #[resType]
+      let lhsType ← MatchProg.type (Attr := TypeAttr)
+      let rhsType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
+      let lhs ← MatchProg.value lhsType
+      let rhs ← MatchProg.value rhsType
+      let _ ← MatchProg.root (.llvm .intr__sadd__sat) #[lhs, rhs] #[resType]
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let lCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let lCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let lCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[lhs] #[regType] lCastProps
-      let rCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let rCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let rCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let rCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[rhs] #[regType] rCastProps
-      let minusOneProps ← Veir.Puddle.CreateProg.property (.riscv .li) (mkRISCVImm (-1))
-      let minusOneOp ← Veir.Puddle.CreateProg.operation (.riscv .li)
+      let minusOneProps ← CreateProg.property (.riscv .li) (mkRISCVImm (-1))
+      let minusOneOp ← CreateProg.operation (.riscv .li)
           #[] #[regType] minusOneProps
-      let sumProps ← Veir.Puddle.CreateProg.property (.riscv .add) ()
-      let sumOp ← Veir.Puddle.CreateProg.operation (.riscv .add)
+      let sumProps ← CreateProg.property (.riscv .add) ()
+      let sumOp ← CreateProg.operation (.riscv .add)
           #[lCastOp.res[0]!, rCastOp.res[0]!] #[regType] sumProps
-      let rhsSignProps ← Veir.Puddle.CreateProg.property (.riscv .srli) (mkRISCVImm 63)
-      let rhsSignOp ← Veir.Puddle.CreateProg.operation (.riscv .srli)
+      let rhsSignProps ← CreateProg.property (.riscv .srli) (mkRISCVImm 63)
+      let rhsSignOp ← CreateProg.operation (.riscv .srli)
           #[rCastOp.res[0]!] #[regType] rhsSignProps
-      let carryLikeProps ← Veir.Puddle.CreateProg.property (.riscv .slt) ()
-      let carryLikeOp ← Veir.Puddle.CreateProg.operation (.riscv .slt)
+      let carryLikeProps ← CreateProg.property (.riscv .slt) ()
+      let carryLikeOp ← CreateProg.operation (.riscv .slt)
           #[sumOp.res[0]!, lCastOp.res[0]!] #[regType] carryLikeProps
-      let sumSignProps ← Veir.Puddle.CreateProg.property (.riscv .srai) (mkRISCVImm 63)
-      let sumSignOp ← Veir.Puddle.CreateProg.operation (.riscv .srai)
+      let sumSignProps ← CreateProg.property (.riscv .srai) (mkRISCVImm 63)
+      let sumSignOp ← CreateProg.operation (.riscv .srai)
           #[sumOp.res[0]!] #[regType] sumSignProps
-      let intMinProps ← Veir.Puddle.CreateProg.property (.riscv .slli) (mkRISCVImm 63)
-      let intMinOp ← Veir.Puddle.CreateProg.operation (.riscv .slli)
+      let intMinProps ← CreateProg.property (.riscv .slli) (mkRISCVImm 63)
+      let intMinOp ← CreateProg.operation (.riscv .slli)
           #[minusOneOp.res[0]!] #[regType] intMinProps
-      let overflowProps ← Veir.Puddle.CreateProg.property (.riscv .xor) ()
-      let overflowOp ← Veir.Puddle.CreateProg.operation (.riscv .xor)
+      let overflowProps ← CreateProg.property (.riscv .xor) ()
+      let overflowOp ← CreateProg.operation (.riscv .xor)
           #[rhsSignOp.res[0]!, carryLikeOp.res[0]!] #[regType] overflowProps
-      let satProps ← Veir.Puddle.CreateProg.property (.riscv .xor) ()
-      let satOp ← Veir.Puddle.CreateProg.operation (.riscv .xor)
+      let satProps ← CreateProg.property (.riscv .xor) ()
+      let satOp ← CreateProg.operation (.riscv .xor)
           #[sumSignOp.res[0]!, intMinOp.res[0]!] #[regType] satProps
       let selectOp ← signedSatSelect regType sumOp.res[0]! overflowOp.res[0]! satOp.res[0]!
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[selectOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
@@ -1647,51 +1649,51 @@ def saddSat : Puddle.CompiledPattern OpCode := saddSat_pattern.compile
     Wrapped `sub` + SSUBO overflow `(lhs <s rhs) ^ (diff >>u 63)`
     (TargetLowering.cpp:12432 `expandAddSubSat`, overflow at 13082
     `expandSADDSUBO` sub branch; sat endpoint `(diff >>s 63) ^ INT_MIN` at 12554). -/
-def ssubSat_pattern : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+def ssubSat_pattern : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let lhsType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let rhsType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let resType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 64)
-      let lhs ← Veir.Puddle.MatchProg.value lhsType
-      let rhs ← Veir.Puddle.MatchProg.value rhsType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm .intr__ssub__sat) #[lhs, rhs] #[resType]
+      let lhsType ← MatchProg.type (Attr := TypeAttr)
+      let rhsType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
+      let lhs ← MatchProg.value lhsType
+      let rhs ← MatchProg.value rhsType
+      let _ ← MatchProg.root (.llvm .intr__ssub__sat) #[lhs, rhs] #[resType]
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let lCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let lCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let lCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[lhs] #[regType] lCastProps
-      let rCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let rCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let rCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let rCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[rhs] #[regType] rCastProps
-      let minusOneProps ← Veir.Puddle.CreateProg.property (.riscv .li) (mkRISCVImm (-1))
-      let minusOneOp ← Veir.Puddle.CreateProg.operation (.riscv .li)
+      let minusOneProps ← CreateProg.property (.riscv .li) (mkRISCVImm (-1))
+      let minusOneOp ← CreateProg.operation (.riscv .li)
           #[] #[regType] minusOneProps
-      let diffProps ← Veir.Puddle.CreateProg.property (.riscv .sub) ()
-      let diffOp ← Veir.Puddle.CreateProg.operation (.riscv .sub)
+      let diffProps ← CreateProg.property (.riscv .sub) ()
+      let diffOp ← CreateProg.operation (.riscv .sub)
           #[lCastOp.res[0]!, rCastOp.res[0]!] #[regType] diffProps
-      let cmpProps ← Veir.Puddle.CreateProg.property (.riscv .slt) ()
-      let cmpOp ← Veir.Puddle.CreateProg.operation (.riscv .slt)
+      let cmpProps ← CreateProg.property (.riscv .slt) ()
+      let cmpOp ← CreateProg.operation (.riscv .slt)
           #[lCastOp.res[0]!, rCastOp.res[0]!] #[regType] cmpProps
-      let diffSignBitProps ← Veir.Puddle.CreateProg.property (.riscv .srli) (mkRISCVImm 63)
-      let diffSignBitOp ← Veir.Puddle.CreateProg.operation (.riscv .srli)
+      let diffSignBitProps ← CreateProg.property (.riscv .srli) (mkRISCVImm 63)
+      let diffSignBitOp ← CreateProg.operation (.riscv .srli)
           #[diffOp.res[0]!] #[regType] diffSignBitProps
-      let diffSignProps ← Veir.Puddle.CreateProg.property (.riscv .srai) (mkRISCVImm 63)
-      let diffSignOp ← Veir.Puddle.CreateProg.operation (.riscv .srai)
+      let diffSignProps ← CreateProg.property (.riscv .srai) (mkRISCVImm 63)
+      let diffSignOp ← CreateProg.operation (.riscv .srai)
           #[diffOp.res[0]!] #[regType] diffSignProps
-      let intMinProps ← Veir.Puddle.CreateProg.property (.riscv .slli) (mkRISCVImm 63)
-      let intMinOp ← Veir.Puddle.CreateProg.operation (.riscv .slli)
+      let intMinProps ← CreateProg.property (.riscv .slli) (mkRISCVImm 63)
+      let intMinOp ← CreateProg.operation (.riscv .slli)
           #[minusOneOp.res[0]!] #[regType] intMinProps
-      let overflowProps ← Veir.Puddle.CreateProg.property (.riscv .xor) ()
-      let overflowOp ← Veir.Puddle.CreateProg.operation (.riscv .xor)
+      let overflowProps ← CreateProg.property (.riscv .xor) ()
+      let overflowOp ← CreateProg.operation (.riscv .xor)
           #[cmpOp.res[0]!, diffSignBitOp.res[0]!] #[regType] overflowProps
-      let satProps ← Veir.Puddle.CreateProg.property (.riscv .xor) ()
-      let satOp ← Veir.Puddle.CreateProg.operation (.riscv .xor)
+      let satProps ← CreateProg.property (.riscv .xor) ()
+      let satOp ← CreateProg.operation (.riscv .xor)
           #[diffSignOp.res[0]!, intMinOp.res[0]!] #[regType] satProps
       let selectOp ← signedSatSelect regType diffOp.res[0]! overflowOp.res[0]! satOp.res[0]!
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[selectOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
@@ -1705,35 +1707,35 @@ def ssubSat : Puddle.CompiledPattern OpCode := ssubSat_pattern.compile
 /-- llvm.intr.uadd.sat.i64 -> not rhs; minu lhs, not-rhs; add rhs.
     `uadd.sat(a,b) -> umin(a, ~b) + b` (TargetLowering.cpp:12462
     `expandAddSubSat`, UADDSAT/UMIN idiom). -/
-def uaddSat_pattern : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+def uaddSat_pattern : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let lhsType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let rhsType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let resType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 64)
-      let lhs ← Veir.Puddle.MatchProg.value lhsType
-      let rhs ← Veir.Puddle.MatchProg.value rhsType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm .intr__uadd__sat) #[lhs, rhs] #[resType]
+      let lhsType ← MatchProg.type (Attr := TypeAttr)
+      let rhsType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
+      let lhs ← MatchProg.value lhsType
+      let rhs ← MatchProg.value rhsType
+      let _ ← MatchProg.root (.llvm .intr__uadd__sat) #[lhs, rhs] #[resType]
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let lCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let lCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let lCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[lhs] #[regType] lCastProps
-      let rCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let rCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let rCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let rCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[rhs] #[regType] rCastProps
-      let notRhsProps ← Veir.Puddle.CreateProg.property (.riscv .xori) (mkRISCVImm (-1))
-      let notRhsOp ← Veir.Puddle.CreateProg.operation (.riscv .xori)
+      let notRhsProps ← CreateProg.property (.riscv .xori) (mkRISCVImm (-1))
+      let notRhsOp ← CreateProg.operation (.riscv .xori)
           #[rCastOp.res[0]!] #[regType] notRhsProps
-      let minuProps ← Veir.Puddle.CreateProg.property (.riscv .minu) ()
-      let minuOp ← Veir.Puddle.CreateProg.operation (.riscv .minu)
+      let minuProps ← CreateProg.property (.riscv .minu) ()
+      let minuOp ← CreateProg.operation (.riscv .minu)
           #[lCastOp.res[0]!, notRhsOp.res[0]!] #[regType] minuProps
-      let addProps ← Veir.Puddle.CreateProg.property (.riscv .add) ()
-      let addOp ← Veir.Puddle.CreateProg.operation (.riscv .add)
+      let addProps ← CreateProg.property (.riscv .add) ()
+      let addOp ← CreateProg.operation (.riscv .add)
           #[minuOp.res[0]!, rCastOp.res[0]!] #[regType] addProps
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[addOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
@@ -1746,32 +1748,32 @@ def uaddSat : Puddle.CompiledPattern OpCode := uaddSat_pattern.compile
 /-- llvm.intr.usub.sat.i64 -> maxu lhs, rhs; sub rhs.
     `usub.sat(a,b) -> umax(a, b) - b` (TargetLowering.cpp:12442
     `expandAddSubSat`, USUBSAT/UMAX idiom). -/
-def usubSat_pattern : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+def usubSat_pattern : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let lhsType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let rhsType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let resType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 64)
-      let lhs ← Veir.Puddle.MatchProg.value lhsType
-      let rhs ← Veir.Puddle.MatchProg.value rhsType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm .intr__usub__sat) #[lhs, rhs] #[resType]
+      let lhsType ← MatchProg.type (Attr := TypeAttr)
+      let rhsType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
+      let lhs ← MatchProg.value lhsType
+      let rhs ← MatchProg.value rhsType
+      let _ ← MatchProg.root (.llvm .intr__usub__sat) #[lhs, rhs] #[resType]
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let lCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let lCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let lCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[lhs] #[regType] lCastProps
-      let rCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let rCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let rCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let rCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[rhs] #[regType] rCastProps
-      let maxuProps ← Veir.Puddle.CreateProg.property (.riscv .maxu) ()
-      let maxuOp ← Veir.Puddle.CreateProg.operation (.riscv .maxu)
+      let maxuProps ← CreateProg.property (.riscv .maxu) ()
+      let maxuOp ← CreateProg.operation (.riscv .maxu)
           #[lCastOp.res[0]!, rCastOp.res[0]!] #[regType] maxuProps
-      let subProps ← Veir.Puddle.CreateProg.property (.riscv .sub) ()
-      let subOp ← Veir.Puddle.CreateProg.operation (.riscv .sub)
+      let subProps ← CreateProg.property (.riscv .sub) ()
+      let subOp ← CreateProg.operation (.riscv .sub)
           #[maxuOp.res[0]!, rCastOp.res[0]!] #[regType] subProps
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[subOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
@@ -1785,48 +1787,48 @@ def usubSat : Puddle.CompiledPattern OpCode := usubSat_pattern.compile
     `overflow = lhs != (lhs << rhs) >>s rhs`, saturate to
     `select(lhs<0, INT_MIN, INT_MAX)` folded to `(lhs >>s 63) ^ INT_MAX`
     (TargetLowering.cpp:12598 `expandShlSat`, signed branch at 12626-12632). -/
-def sshlSat_pattern : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+def sshlSat_pattern : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let lhsType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let rhsType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let resType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 64)
-      let lhs ← Veir.Puddle.MatchProg.value lhsType
-      let rhs ← Veir.Puddle.MatchProg.value rhsType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm .intr__sshl__sat) #[lhs, rhs] #[resType]
+      let lhsType ← MatchProg.type (Attr := TypeAttr)
+      let rhsType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
+      let lhs ← MatchProg.value lhsType
+      let rhs ← MatchProg.value rhsType
+      let _ ← MatchProg.root (.llvm .intr__sshl__sat) #[lhs, rhs] #[resType]
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let lCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let lCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let lCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[lhs] #[regType] lCastProps
-      let rCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let rCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let rCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let rCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[rhs] #[regType] rCastProps
-      let shiftedProps ← Veir.Puddle.CreateProg.property (.riscv .sll) ()
-      let shiftedOp ← Veir.Puddle.CreateProg.operation (.riscv .sll)
+      let shiftedProps ← CreateProg.property (.riscv .sll) ()
+      let shiftedOp ← CreateProg.operation (.riscv .sll)
           #[lCastOp.res[0]!, rCastOp.res[0]!] #[regType] shiftedProps
-      let minusOneProps ← Veir.Puddle.CreateProg.property (.riscv .li) (mkRISCVImm (-1))
-      let minusOneOp ← Veir.Puddle.CreateProg.operation (.riscv .li)
+      let minusOneProps ← CreateProg.property (.riscv .li) (mkRISCVImm (-1))
+      let minusOneOp ← CreateProg.operation (.riscv .li)
           #[] #[regType] minusOneProps
-      let unshiftedProps ← Veir.Puddle.CreateProg.property (.riscv .sra) ()
-      let unshiftedOp ← Veir.Puddle.CreateProg.operation (.riscv .sra)
+      let unshiftedProps ← CreateProg.property (.riscv .sra) ()
+      let unshiftedOp ← CreateProg.operation (.riscv .sra)
           #[shiftedOp.res[0]!, rCastOp.res[0]!] #[regType] unshiftedProps
-      let signProps ← Veir.Puddle.CreateProg.property (.riscv .srai) (mkRISCVImm 63)
-      let signOp ← Veir.Puddle.CreateProg.operation (.riscv .srai)
+      let signProps ← CreateProg.property (.riscv .srai) (mkRISCVImm 63)
+      let signOp ← CreateProg.operation (.riscv .srai)
           #[lCastOp.res[0]!] #[regType] signProps
-      let intMaxProps ← Veir.Puddle.CreateProg.property (.riscv .srli) (mkRISCVImm 1)
-      let intMaxOp ← Veir.Puddle.CreateProg.operation (.riscv .srli)
+      let intMaxProps ← CreateProg.property (.riscv .srli) (mkRISCVImm 1)
+      let intMaxOp ← CreateProg.operation (.riscv .srli)
           #[minusOneOp.res[0]!] #[regType] intMaxProps
-      let overflowProps ← Veir.Puddle.CreateProg.property (.riscv .xor) ()
-      let overflowOp ← Veir.Puddle.CreateProg.operation (.riscv .xor)
+      let overflowProps ← CreateProg.property (.riscv .xor) ()
+      let overflowOp ← CreateProg.operation (.riscv .xor)
           #[lCastOp.res[0]!, unshiftedOp.res[0]!] #[regType] overflowProps
-      let satProps ← Veir.Puddle.CreateProg.property (.riscv .xor) ()
-      let satOp ← Veir.Puddle.CreateProg.operation (.riscv .xor)
+      let satProps ← CreateProg.property (.riscv .xor) ()
+      let satOp ← CreateProg.operation (.riscv .xor)
           #[signOp.res[0]!, intMaxOp.res[0]!] #[regType] satProps
       let selectOp ← signedSatSelect regType shiftedOp.res[0]! overflowOp.res[0]! satOp.res[0]!
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[selectOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
@@ -1842,44 +1844,44 @@ def sshlSat : Puddle.CompiledPattern OpCode := sshlSat_pattern.compile
     the `select(overflow, ~0, shifted)` becomes the `sltiu`/`addi`/`or`
     mask idiom (TargetLowering.cpp:12598 `expandShlSat`, unsigned branch
     at 12630-12633). -/
-def ushlSat_pattern : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+def ushlSat_pattern : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let lhsType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let rhsType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let resType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 64)
-      let lhs ← Veir.Puddle.MatchProg.value lhsType
-      let rhs ← Veir.Puddle.MatchProg.value rhsType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm .intr__ushl__sat) #[lhs, rhs] #[resType]
+      let lhsType ← MatchProg.type (Attr := TypeAttr)
+      let rhsType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
+      let lhs ← MatchProg.value lhsType
+      let rhs ← MatchProg.value rhsType
+      let _ ← MatchProg.root (.llvm .intr__ushl__sat) #[lhs, rhs] #[resType]
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let lCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let lCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let lCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[lhs] #[regType] lCastProps
-      let rCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let rCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let rCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let rCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[rhs] #[regType] rCastProps
-      let shiftedProps ← Veir.Puddle.CreateProg.property (.riscv .sll) ()
-      let shiftedOp ← Veir.Puddle.CreateProg.operation (.riscv .sll)
+      let shiftedProps ← CreateProg.property (.riscv .sll) ()
+      let shiftedOp ← CreateProg.operation (.riscv .sll)
           #[lCastOp.res[0]!, rCastOp.res[0]!] #[regType] shiftedProps
-      let unshiftedProps ← Veir.Puddle.CreateProg.property (.riscv .srl) ()
-      let unshiftedOp ← Veir.Puddle.CreateProg.operation (.riscv .srl)
+      let unshiftedProps ← CreateProg.property (.riscv .srl) ()
+      let unshiftedOp ← CreateProg.operation (.riscv .srl)
           #[shiftedOp.res[0]!, rCastOp.res[0]!] #[regType] unshiftedProps
-      let lostBitsProps ← Veir.Puddle.CreateProg.property (.riscv .xor) ()
-      let lostBitsOp ← Veir.Puddle.CreateProg.operation (.riscv .xor)
+      let lostBitsProps ← CreateProg.property (.riscv .xor) ()
+      let lostBitsOp ← CreateProg.operation (.riscv .xor)
           #[lCastOp.res[0]!, unshiftedOp.res[0]!] #[regType] lostBitsProps
-      let noOverflowProps ← Veir.Puddle.CreateProg.property (.riscv .sltiu) (mkRISCVImm 1)
-      let noOverflowOp ← Veir.Puddle.CreateProg.operation (.riscv .sltiu)
+      let noOverflowProps ← CreateProg.property (.riscv .sltiu) (mkRISCVImm 1)
+      let noOverflowOp ← CreateProg.operation (.riscv .sltiu)
           #[lostBitsOp.res[0]!] #[regType] noOverflowProps
-      let overflowMaskProps ← Veir.Puddle.CreateProg.property (.riscv .addi) (mkRISCVImm (-1))
-      let overflowMaskOp ← Veir.Puddle.CreateProg.operation (.riscv .addi)
+      let overflowMaskProps ← CreateProg.property (.riscv .addi) (mkRISCVImm (-1))
+      let overflowMaskOp ← CreateProg.operation (.riscv .addi)
           #[noOverflowOp.res[0]!] #[regType] overflowMaskProps
-      let orProps ← Veir.Puddle.CreateProg.property (.riscv .or) ()
-      let orOp ← Veir.Puddle.CreateProg.operation (.riscv .or)
+      let orProps ← CreateProg.property (.riscv .or) ()
+      let orOp ← CreateProg.operation (.riscv .or)
           #[overflowMaskOp.res[0]!, shiftedOp.res[0]!] #[regType] orProps
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[orOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
@@ -1895,27 +1897,27 @@ def ushlSat : Puddle.CompiledPattern OpCode := ushlSat_pattern.compile
     LLVM's RV64+Zbb lowering (`neg a1, a0; max a0, a0, a1`). The `neg` wraps
     `intMin` back to `intMin`, so this is correct for both the
     `is_int_min_poison` and non-poison forms of the intrinsic. -/
-def abs_pattern : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+def abs_pattern : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let valType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let resType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == 64)
-      let val ← Veir.Puddle.MatchProg.value valType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm .intr__abs) #[val] #[resType]
+      let valType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
+      let val ← MatchProg.value valType
+      let _ ← MatchProg.root (.llvm .intr__abs) #[val] #[resType]
       return (resType, val))
     (fun (resType, val) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let castProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[val] #[regType] castProps
-      let negProps ← Veir.Puddle.CreateProg.property (.riscv .neg) ()
-      let negOp ← Veir.Puddle.CreateProg.operation (.riscv .neg)
+      let negProps ← CreateProg.property (.riscv .neg) ()
+      let negOp ← CreateProg.operation (.riscv .neg)
           #[castOp.res[0]!] #[regType] negProps
-      let maxProps ← Veir.Puddle.CreateProg.property (.riscv .max) ()
-      let maxOp ← Veir.Puddle.CreateProg.operation (.riscv .max)
+      let maxProps ← CreateProg.property (.riscv .max) ()
+      let maxOp ← CreateProg.operation (.riscv .max)
           #[castOp.res[0]!, negOp.res[0]!] #[regType] maxProps
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[maxOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
@@ -1934,46 +1936,46 @@ def fshr32 : Puddle.CompiledPattern OpCode := fshr32_pattern.compile
   for `i32`), mirroring `PatGprImm<rotr, RORI>`. There is no `roli`, so (like LLVM) a rotate-left
   lowers to `rori` with the negated immediate `(bw - amt) mod bw`.
 -/
-def lowerFshConst (rotateLeft : Bool) (bw : Nat) : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+def lowerFshConst (rotateLeft : Bool) (bw : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let valType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let amtType ← Veir.Puddle.MatchProg.type (Attr := IntegerType)
-      let resType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == bw)
-      let val ← Veir.Puddle.MatchProg.value valType
-      let amtOp ← Veir.Puddle.MatchProg.operation (.llvm .mlir__constant) #[] #[amtType]
+      let valType ← MatchProg.type (Attr := TypeAttr)
+      let amtType ← MatchProg.type (Attr := IntegerType)
+      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
+      let val ← MatchProg.value valType
+      let amtOp ← MatchProg.operation (.llvm .mlir__constant) #[] #[amtType]
           (fun props => props.value matches .integer _)
-      let _ ← Veir.Puddle.MatchProg.root
+      let _ ← MatchProg.root
           (.llvm (if rotateLeft then .intr__fshl else .intr__fshr))
           #[val, val, amtOp.res[0]!] #[resType]
       return (resType, val, amtType, amtOp.properties))
     (fun (resType, val, amtType, amtProps) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let valCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let valCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let valCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[val] #[regType] valCastProps
       let imm := fun (type : TypeAttr) (props : LLVMConstantProperties) => do
         let .integerType t := type.val | none
         let .integer amt := props.value | none
         /- The funnel-shift amount is taken modulo the bit width. -/
         let sh : Int := (((BitVec.ofInt t.bitwidth amt.value).toInt % bw) + bw) % bw
-        /- rotate-left by `sh` == rotate-right by `bw - sh` (mod bw). -/
+        /- rotate-left by `sh` = rotate-right by `bw - sh` (mod bw). -/
         let imm : Int := if rotateLeft then (bw - sh) % bw else sh
         some (RISCVImmediateProperties.mk (BitVec.ofInt 64 imm))
       let roriOp ← if bw = 32 then do
-          let roriProps ← Veir.Puddle.CreateProg.applyNative
-              (Outputs := Veir.Puddle.Handle OpCode (.prop (.riscv .roriw))) (amtType, amtProps)
+          let roriProps ← CreateProg.applyNative
+              (Outputs := Handle OpCode (.prop (.riscv .roriw))) (amtType, amtProps)
               fun (type, props) => imm type props
-          Veir.Puddle.CreateProg.operation (.riscv .roriw)
+          CreateProg.operation (.riscv .roriw)
               #[valCastOp.res[0]!] #[regType] roriProps
         else do
-          let roriProps ← Veir.Puddle.CreateProg.applyNative
-              (Outputs := Veir.Puddle.Handle OpCode (.prop (.riscv .rori))) (amtType, amtProps)
+          let roriProps ← CreateProg.applyNative
+              (Outputs := Handle OpCode (.prop (.riscv .rori))) (amtType, amtProps)
               fun (type, props) => imm type props
-          Veir.Puddle.CreateProg.operation (.riscv .rori)
+          CreateProg.operation (.riscv .rori)
               #[valCastOp.res[0]!] #[regType] roriProps
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[roriOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
@@ -2015,63 +2017,63 @@ def fshlConst32 : Puddle.CompiledPattern OpCode := (lowerFshConst true 32).compi
 
 /-- General `llvm.intr.fshl x y z` -> `(x << z) | ((y >> 1) >> ~z)` (see the
     section comment), for `bw`-bit values. The i32 form uses the `w` shifts. -/
-def lowerFshlGeneral (bw : Nat) : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+def lowerFshlGeneral (bw : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let xType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let yType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let zType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let resType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == bw)
-      let x ← Veir.Puddle.MatchProg.value xType
-      let y ← Veir.Puddle.MatchProg.value yType
-      let z ← Veir.Puddle.MatchProg.value zType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm .intr__fshl) #[x, y, z] #[resType]
+      let xType ← MatchProg.type (Attr := TypeAttr)
+      let yType ← MatchProg.type (Attr := TypeAttr)
+      let zType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
+      let x ← MatchProg.value xType
+      let y ← MatchProg.value yType
+      let z ← MatchProg.value zType
+      let _ ← MatchProg.root (.llvm .intr__fshl) #[x, y, z] #[resType]
       return (resType, x, y, z))
     (fun (resType, x, y, z) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let xCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let xCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let xCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let xCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[x] #[regType] xCastProps
-      let yCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let yCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let yCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let yCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[y] #[regType] yCastProps
-      let zCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let zCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let zCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let zCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[z] #[regType] zCastProps
       /- ~z, the inverse shift amount; the shift instruction masks it modulo `w`. -/
-      let notzProps ← Veir.Puddle.CreateProg.property (.riscv .xori)
+      let notzProps ← CreateProg.property (.riscv .xori)
           (RISCVImmediateProperties.mk (-1#64))
-      let notzOp ← Veir.Puddle.CreateProg.operation (.riscv .xori)
+      let notzOp ← CreateProg.operation (.riscv .xori)
           #[zCastOp.res[0]!] #[regType] notzProps
       /- shx = x << z ; shy = (y >> 1) >> ~z ; result = shx | shy. The i32 form uses
          the `w` shifts (only the low 32 bits of the `or` are observed). -/
       let (shxOp, shyOp) ← if bw = 32 then do
-          let shxProps ← Veir.Puddle.CreateProg.property (.riscv .sllw) ()
-          let shxOp ← Veir.Puddle.CreateProg.operation (.riscv .sllw)
+          let shxProps ← CreateProg.property (.riscv .sllw) ()
+          let shxOp ← CreateProg.operation (.riscv .sllw)
               #[xCastOp.res[0]!, zCastOp.res[0]!] #[regType] shxProps
-          let y1Props ← Veir.Puddle.CreateProg.property (.riscv .srliw) (RISCVImmediateProperties.mk 1#64)
-          let y1Op ← Veir.Puddle.CreateProg.operation (.riscv .srliw)
+          let y1Props ← CreateProg.property (.riscv .srliw) (RISCVImmediateProperties.mk 1#64)
+          let y1Op ← CreateProg.operation (.riscv .srliw)
               #[yCastOp.res[0]!] #[regType] y1Props
-          let shyProps ← Veir.Puddle.CreateProg.property (.riscv .srlw) ()
-          let shyOp ← Veir.Puddle.CreateProg.operation (.riscv .srlw)
+          let shyProps ← CreateProg.property (.riscv .srlw) ()
+          let shyOp ← CreateProg.operation (.riscv .srlw)
               #[y1Op.res[0]!, notzOp.res[0]!] #[regType] shyProps
           pure (shxOp, shyOp)
         else do
-          let shxProps ← Veir.Puddle.CreateProg.property (.riscv .sll) ()
-          let shxOp ← Veir.Puddle.CreateProg.operation (.riscv .sll)
+          let shxProps ← CreateProg.property (.riscv .sll) ()
+          let shxOp ← CreateProg.operation (.riscv .sll)
               #[xCastOp.res[0]!, zCastOp.res[0]!] #[regType] shxProps
-          let y1Props ← Veir.Puddle.CreateProg.property (.riscv .srli) (RISCVImmediateProperties.mk 1#64)
-          let y1Op ← Veir.Puddle.CreateProg.operation (.riscv .srli)
+          let y1Props ← CreateProg.property (.riscv .srli) (RISCVImmediateProperties.mk 1#64)
+          let y1Op ← CreateProg.operation (.riscv .srli)
               #[yCastOp.res[0]!] #[regType] y1Props
-          let shyProps ← Veir.Puddle.CreateProg.property (.riscv .srl) ()
-          let shyOp ← Veir.Puddle.CreateProg.operation (.riscv .srl)
+          let shyProps ← CreateProg.property (.riscv .srl) ()
+          let shyOp ← CreateProg.operation (.riscv .srl)
               #[y1Op.res[0]!, notzOp.res[0]!] #[regType] shyProps
           pure (shxOp, shyOp)
-      let orProps ← Veir.Puddle.CreateProg.property (.riscv .or) ()
-      let orOp ← Veir.Puddle.CreateProg.operation (.riscv .or)
+      let orProps ← CreateProg.property (.riscv .or) ()
+      let orOp ← CreateProg.operation (.riscv .or)
           #[shxOp.res[0]!, shyOp.res[0]!] #[regType] orProps
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[orOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
@@ -2084,63 +2086,63 @@ def fshlGeneral32 : Puddle.CompiledPattern OpCode := (lowerFshlGeneral 32).compi
 
 /-- General `llvm.intr.fshr x y z` -> `((x << 1) << ~z) | (y >> z)` (see the
     section comment), for `bw`-bit values. The i32 form uses the `w` shifts. -/
-def lowerFshrGeneral (bw : Nat) : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+def lowerFshrGeneral (bw : Nat) : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let xType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let yType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let zType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let resType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == bw)
-      let x ← Veir.Puddle.MatchProg.value xType
-      let y ← Veir.Puddle.MatchProg.value yType
-      let z ← Veir.Puddle.MatchProg.value zType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm .intr__fshr) #[x, y, z] #[resType]
+      let xType ← MatchProg.type (Attr := TypeAttr)
+      let yType ← MatchProg.type (Attr := TypeAttr)
+      let zType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
+      let x ← MatchProg.value xType
+      let y ← MatchProg.value yType
+      let z ← MatchProg.value zType
+      let _ ← MatchProg.root (.llvm .intr__fshr) #[x, y, z] #[resType]
       return (resType, x, y, z))
     (fun (resType, x, y, z) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let xCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let xCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let xCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let xCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[x] #[regType] xCastProps
-      let yCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let yCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let yCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let yCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[y] #[regType] yCastProps
-      let zCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let zCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let zCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let zCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[z] #[regType] zCastProps
       /- ~z, the inverse shift amount; the shift instruction masks it modulo `w`. -/
-      let notzProps ← Veir.Puddle.CreateProg.property (.riscv .xori)
+      let notzProps ← CreateProg.property (.riscv .xori)
           (RISCVImmediateProperties.mk (-1#64))
-      let notzOp ← Veir.Puddle.CreateProg.operation (.riscv .xori)
+      let notzOp ← CreateProg.operation (.riscv .xori)
           #[zCastOp.res[0]!] #[regType] notzProps
       /- shx = (x << 1) << ~z ; shy = y >> z ; result = shx | shy. The i32 form uses
          the `w` shifts (only the low 32 bits of the `or` are observed). -/
       let (shxOp, shyOp) ← if bw = 32 then do
-          let x1Props ← Veir.Puddle.CreateProg.property (.riscv .slliw) (RISCVImmediateProperties.mk 1#64)
-          let x1Op ← Veir.Puddle.CreateProg.operation (.riscv .slliw)
+          let x1Props ← CreateProg.property (.riscv .slliw) (RISCVImmediateProperties.mk 1#64)
+          let x1Op ← CreateProg.operation (.riscv .slliw)
               #[xCastOp.res[0]!] #[regType] x1Props
-          let shxProps ← Veir.Puddle.CreateProg.property (.riscv .sllw) ()
-          let shxOp ← Veir.Puddle.CreateProg.operation (.riscv .sllw)
+          let shxProps ← CreateProg.property (.riscv .sllw) ()
+          let shxOp ← CreateProg.operation (.riscv .sllw)
               #[x1Op.res[0]!, notzOp.res[0]!] #[regType] shxProps
-          let shyProps ← Veir.Puddle.CreateProg.property (.riscv .srlw) ()
-          let shyOp ← Veir.Puddle.CreateProg.operation (.riscv .srlw)
+          let shyProps ← CreateProg.property (.riscv .srlw) ()
+          let shyOp ← CreateProg.operation (.riscv .srlw)
               #[yCastOp.res[0]!, zCastOp.res[0]!] #[regType] shyProps
           pure (shxOp, shyOp)
         else do
-          let x1Props ← Veir.Puddle.CreateProg.property (.riscv .slli) (RISCVImmediateProperties.mk 1#64)
-          let x1Op ← Veir.Puddle.CreateProg.operation (.riscv .slli)
+          let x1Props ← CreateProg.property (.riscv .slli) (RISCVImmediateProperties.mk 1#64)
+          let x1Op ← CreateProg.operation (.riscv .slli)
               #[xCastOp.res[0]!] #[regType] x1Props
-          let shxProps ← Veir.Puddle.CreateProg.property (.riscv .sll) ()
-          let shxOp ← Veir.Puddle.CreateProg.operation (.riscv .sll)
+          let shxProps ← CreateProg.property (.riscv .sll) ()
+          let shxOp ← CreateProg.operation (.riscv .sll)
               #[x1Op.res[0]!, notzOp.res[0]!] #[regType] shxProps
-          let shyProps ← Veir.Puddle.CreateProg.property (.riscv .srl) ()
-          let shyOp ← Veir.Puddle.CreateProg.operation (.riscv .srl)
+          let shyProps ← CreateProg.property (.riscv .srl) ()
+          let shyOp ← CreateProg.operation (.riscv .srl)
               #[yCastOp.res[0]!, zCastOp.res[0]!] #[regType] shyProps
           pure (shxOp, shyOp)
-      let orProps ← Veir.Puddle.CreateProg.property (.riscv .or) ()
-      let orOp ← Veir.Puddle.CreateProg.operation (.riscv .or)
+      let orProps ← CreateProg.property (.riscv .or) ()
+      let orOp ← CreateProg.operation (.riscv .or)
           #[shxOp.res[0]!, shyOp.res[0]!] #[regType] orProps
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[orOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
@@ -2153,36 +2155,36 @@ def fshrGeneral32 : Puddle.CompiledPattern OpCode := (lowerFshrGeneral 32).compi
 
 
 /-- llvm.mlir.poison -> riscv.li 0 -/
-def poisonConst_pattern : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+def poisonConst_pattern : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let resType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
-      let _ ← Veir.Puddle.MatchProg.root (.llvm .mlir__poison) #[] #[resType]
+      let resType ← MatchProg.type (Attr := TypeAttr)
+      let _ ← MatchProg.root (.llvm .mlir__poison) #[] #[resType]
       return resType)
     (fun resType => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let liProps ← Veir.Puddle.CreateProg.property (.riscv .li) (RISCVImmediateProperties.mk 0#64)
-      let liOp ← Veir.Puddle.CreateProg.operation (.riscv .li) #[] #[regType] liProps
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let liProps ← CreateProg.property (.riscv .li) (RISCVImmediateProperties.mk 0#64)
+      let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[liOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
 
 /-- llvm.mlir.zero of an integer up to 64 bits or a pointer -> riscv.li 0 -/
-def zeroConst_pattern : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+def zeroConst_pattern : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let resType ← Veir.Puddle.MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := TypeAttr)
           (fun t => (icmpTypeWidth? t).any (· ≤ 64))
-      let _ ← Veir.Puddle.MatchProg.root (.llvm .mlir__zero) #[] #[resType]
+      let _ ← MatchProg.root (.llvm .mlir__zero) #[] #[resType]
       return resType)
     (fun resType => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let liProps ← Veir.Puddle.CreateProg.property (.riscv .li) (RISCVImmediateProperties.mk 0#64)
-      let liOp ← Veir.Puddle.CreateProg.operation (.riscv .li) #[] #[regType] liProps
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let liProps ← CreateProg.property (.riscv .li) (RISCVImmediateProperties.mk 0#64)
+      let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[liOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
@@ -2195,7 +2197,7 @@ def poisonConst : Puddle.CompiledPattern OpCode := poisonConst_pattern.compile
 
 /-- llvm.freeze arg : Int w ->
   unrealized_conversion_cast (unrealized_conversion_cast arg : Int w -> Reg) : Reg -> Int w -/
-def freeze_pattern : Veir.Puddle.Pattern OpCode :=
+def freeze_pattern : Pattern OpCode :=
   lowerRegCast .freeze fun opType resType =>
     match opType.val, resType.val with
     | .integerType opType, .integerType resType =>
@@ -2216,7 +2218,7 @@ def memMaxStores : Nat := 8
 def memArgAlign (props : LLVMMemIntrinsicProperties) (i : Nat) : Nat := Id.run do
   let some attrs := props.arg_attrs | return 1
   let some (.dictionaryAttr dict) := attrs.value[i]? | return 1
-  let some (_, .integerAttr align) := dict.entries.find? (·.1 == "llvm.align".toUTF8) | return 1
+  let some (_, .integerAttr align) := dict.entries.find? (·.1 = "llvm.align".toUTF8) | return 1
   return align.value.toNat
 
 /-- The `(offset, width)` accesses covering `len` bytes, widest first, each at most 8 bytes
