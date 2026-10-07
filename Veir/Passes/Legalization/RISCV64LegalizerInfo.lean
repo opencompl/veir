@@ -43,6 +43,14 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_trunc => [
       .alwaysLegal,
     ]
+    | .g_sext_inreg => [
+      -- Sizes 8 and 16 need Zbb, which this backend already assumes.
+      -- TODO: Lower other sizes to `g_shl` and `g_ashr`, as LLVM's `lower` does.
+      .legalIf (.all [
+        .typeIs (.type 0) 64,
+        fun query => [8, 16, 32].contains query.properties.sz.toNat,
+      ]),
+    ]
 
 def LegalizeRISCV64Pass : Pass OpCode :=
   { name := "legalize-riscv64"

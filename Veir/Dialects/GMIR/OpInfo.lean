@@ -3,10 +3,12 @@ module
 public import Veir.IR.OpInfo
 public import Veir.Verifier.Basic
 public import Veir.Dialects.LLVM.Properties
+public import Veir.Dialects.GMIR.Properties
 public import Veir.Interpreter.RuntimeValue.Basic
 public import Veir.Interpreter.Interp
 public import Veir.Interpreter.Memory
 public import Veir.Data.LLVM.Int.Basic
+import Veir.Dialects.Builtin.Properties
 meta import Veir.Meta.OpCode
 
 namespace Veir
@@ -22,6 +24,7 @@ inductive GMIR where
 | g_sext
 | g_zext
 | g_trunc
+| g_sext_inreg
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, properties_of]
@@ -30,6 +33,7 @@ def GMIR.propertiesOf : GMIR → Type
   | .g_icmp => IcmpProperties
   | .g_zext => NnegProperties
   | .g_anyext | .g_sext => Unit
+  | .g_sext_inreg => SextInRegProperties
 
 def GMIR.fromAttrDict
     (op : GMIR) (attrDict : Std.HashMap ByteArray Attribute) :
@@ -39,6 +43,7 @@ def GMIR.fromAttrDict
   case g_icmp => exact IcmpProperties.fromAttrDictFor "gmir.g_icmp" attrDict
   case g_zext => exact NnegProperties.fromAttrDict attrDict
   case g_anyext | g_sext => exact .ok ()
+  case g_sext_inreg => exact SextInRegProperties.fromAttrDict attrDict
 
 def GMIR.toAttrDict
     (op : GMIR) (props : GMIR.propertiesOf op) :
@@ -57,6 +62,7 @@ def GMIR.toAttrDict
       "predicate".toUTF8 (Attribute.integerAttr value)
   | .g_zext => props.toAttrDict
   | .g_anyext | .g_sext => {}
+  | .g_sext_inreg => (Std.HashMap.emptyWithCapacity 1).insert "sz".toUTF8 (i64Attr props.sz)
 
 #generate_dialect GMIR
 
@@ -97,6 +103,9 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
   | .g_anyext | .g_sext | .g_zext | .g_trunc =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 1] }
+  | .g_sext_inreg =>
+    { outOperandList := #[.type 0]
+      inOperandList := #[.type 0] }
 
 /-- Each result and operand type of `op`, paired with its type group in `opCode`. -/
 def GMIR.getTypedGroups! {OpInfo : Type} [IsOpCode OpInfo] (opCode : GMIR) (op : OperationPtr)
@@ -169,6 +178,25 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
         if h: resBw.bitwidth >= w then none else
         return (#[.byte resBw.bitwidth (Data.LLVM.Byte.trunc val resBw.bitwidth)], mem, none)
     | _ => none
+  | .g_sext_inreg => do
+    let [.int w val] := operands.toList | none
+    let sz := properties.sz.toNat
+    if h : w ≤ sz then none else
+    let low := Data.LLVM.Int.trunc val sz false false (by omega)
+    return (#[.int w (Data.LLVM.Int.sext low w (by omega))], mem, none)
+
+/-- Verifies that `sz` is at least 1 and smaller than the bitwidth of the operand. -/
+private def OperationPtr.verifyGMIRSextInReg {OpInfo : Type} [IsOpCode OpInfo]
+    [HasDialect OpInfo GMIR] (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  let .integerType ⟨width, _⟩ := ((op.getOperand! ctx.raw 0).getType! ctx.raw).val
+    | throw s!"{instrName}: Expected operand 0 to have integer type"
+  let sz := (op.getProperties! ctx.raw GMIR.g_sext_inreg).sz.toInt
+  if sz < 1 then
+    throw s!"{instrName}: Expected 'sz' to be at least 1, but got {sz}"
+  if width ≤ sz then
+    throw s!"{instrName}: Expected 'sz' to be smaller than the operand width {width}, but got {sz}"
 
 /--
 Verify the local invariants of a `gmir` operation in any operation-info type
@@ -204,9 +232,12 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .g_trunc =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyTruncTypes ctx opIn (allowByte := false)
+  | .g_sext_inreg =>
+    opPtr.checkIsNonNullIntegerType ctx opIn
+    opPtr.verifyGMIRSextInReg ctx opIn
 
 def GMIR.propagatesPoison : GMIR → Bool
-  | .g_add | .g_sub | .g_icmp | .g_anyext | .g_sext | .g_zext | .g_trunc => true
+  | .g_add | .g_sub | .g_icmp | .g_anyext | .g_sext | .g_zext | .g_trunc | .g_sext_inreg => true
 
 def GMIR.getEffects (_op : GMIR) (_props : GMIR.propertiesOf _op) : MemoryEffects :=
   .none

@@ -1,0 +1,12 @@
+// RUN: not veir-opt %s 2>&1 | filecheck %s
+
+"builtin.module"() ({
+  "llvm.func"() <{sym_name = "main", function_type = !llvm.func<void ()>}> ({
+    %x = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64
+    %sext_inreg = "gmir.g_sext_inreg"(%x) <{sz = 0 : i64}> : (i64) -> i64
+    "test.test"(%sext_inreg) : (i64) -> ()
+    "llvm.return"() : () -> ()
+  }) : () -> ()
+}) : () -> ()
+
+// CHECK: Error verifying input program: gmir.g_sext_inreg: Expected 'sz' to be at least 1, but got 0
