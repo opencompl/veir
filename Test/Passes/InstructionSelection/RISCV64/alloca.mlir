@@ -54,6 +54,32 @@
     "llvm.return"() : () -> ()
   }) : () -> ()
 
+  // Struct sizes and ABI alignments match LLVM's `StructLayout` for RV64. An
+  // unspecified alignment uses the preferred alignment, which is at least 8 for
+  // every struct, packed or not.
+  "func.func"() <{sym_name = "structs", function_type = () -> ()}> ({
+    %one = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64
+    %three = "llvm.mlir.constant"() <{value = 3 : i64}> : () -> i64
+    %a = "llvm.alloca"(%one) <{elem_type = !llvm.struct<(i32, i64)>}> : (i64) -> !llvm.ptr
+    // CHECK: "riscv_stack.alloca"() <{"alignment" = 8 : i64, "size" = 16 : i64}>
+    // Tail padding is part of the stride.
+    %b = "llvm.alloca"(%three) <{elem_type = !llvm.struct<(i64, i8)>, alignment = 1 : i64}> : (i64) -> !llvm.ptr
+    // CHECK: "riscv_stack.alloca"() <{"alignment" = 1 : i64, "size" = 48 : i64}>
+    %c = "llvm.alloca"(%three) <{elem_type = !llvm.struct<packed (i8, i32)>}> : (i64) -> !llvm.ptr
+    // CHECK: "riscv_stack.alloca"() <{"alignment" = 8 : i64, "size" = 15 : i64}>
+    // A nested packed struct has ABI alignment 1, so the i16 lands at offset 6.
+    %d = "llvm.alloca"(%three) <{elem_type = !llvm.struct<(i8, struct<packed (i8, i32)>, i16)>, alignment = 1 : i64}> : (i64) -> !llvm.ptr
+    // CHECK: "riscv_stack.alloca"() <{"alignment" = 1 : i64, "size" = 24 : i64}>
+    %e = "llvm.alloca"(%one) <{elem_type = !llvm.struct<"struct.sud", (array<9 x array<9 x i8>>)>, alignment = 1 : i64}> : (i64) -> !llvm.ptr
+    // CHECK: "riscv_stack.alloca"() <{"alignment" = 1 : i64, "size" = 81 : i64}>
+    %f = "llvm.alloca"(%three) <{elem_type = !llvm.struct<(i8, array<3 x i24>)>, alignment = 1 : i64}> : (i64) -> !llvm.ptr
+    // CHECK: "riscv_stack.alloca"() <{"alignment" = 1 : i64, "size" = 48 : i64}>
+    %g = "llvm.alloca"(%three) <{elem_type = !llvm.struct<()>}> : (i64) -> !llvm.ptr
+    // CHECK: "riscv_stack.alloca"() <{"alignment" = 8 : i64, "size" = 0 : i64}>
+    "test.test"(%a, %b, %c, %d, %e, %f, %g) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr) -> ()
+    "func.return"() : () -> ()
+  }) : () -> ()
+
   // Any supported constant-like integer count is sufficient.
   "func.func"() <{sym_name = "constant_like", function_type = () -> ()}> ({
     %two = "arith.constant"() <{value = 2 : i32}> : () -> i32

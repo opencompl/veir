@@ -54,12 +54,23 @@ private def queryRISCV64 (type : Attribute) : Option DataLayoutTypeInfo :=
         { size := element.allocSize * size
           abiAlignment := element.abiAlignment
           preferredAlignment := element.preferredAlignment }
+  | .llvmStructType { packed, body, .. } => do
+      let fields ← body.attach.mapM fun ⟨field, _⟩ => queryRISCV64 field
+      some (structLayout fields packed).2
   | .vectorType { shape, elementType } => do
       let element ← queryRISCV64 elementType
       /- As in LLVM, a vector is aligned to the next power of two of its size. -/
       let size := shape.foldl (· * ·) element.allocSize
       some (scalarInfo size (powerOfTwoCeil size))
   | _ => none
+termination_by type
+decreasing_by
+  all_goals simp_wf
+  · grind [LLVM.ArrayType.sizeOf_elems_type]
+  · rename_i name hmem
+    have := LLVM.StructType.sizeOf_elems_body (t := { name, packed, body }) hmem
+    grind
+  · grind [VectorType.sizeOf_elementType]
 
 /--
   The standard RV64 data layout:

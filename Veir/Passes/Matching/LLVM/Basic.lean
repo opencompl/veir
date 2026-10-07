@@ -273,6 +273,14 @@ def matchGetelementptr (op : OperationPtr) (ctx : IRContext OpCode) :
   let (op, properties) ← matchOp op ctx (Llvm.getelementptr) 2
   return (op[0]!, op[1]!, properties)
 
+/-- Match a `llvm.getelementptr` with any number of indices, returning its base
+  pointer and its dynamic index operands, in order. -/
+def matchGetelementptrIndices (op : OperationPtr) (ctx : IRContext OpCode) :
+    Option (ValuePtr × Array ValuePtr × propertiesOf Llvm.getelementptr) := do
+  guard (op.getOpType! ctx = Llvm.getelementptr)
+  let operands := op.getOperands! ctx
+  return (operands[0]!, operands.extract 1, op.getProperties! ctx Llvm.getelementptr)
+
 def matchPoison (op : OperationPtr) (ctx : IRContext OpCode) : Option Unit := do
   let (_, _) ← matchOp op ctx (Llvm.mlir__poison) 0
   return ()

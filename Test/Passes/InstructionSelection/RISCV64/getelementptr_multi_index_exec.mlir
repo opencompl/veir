@@ -1,0 +1,63 @@
+// RUN: veir-interpret %s | filecheck %s --check-prefix=EXEC
+// RUN: veir-opt %s -p=isel-riscv64 > %t.partial
+// RUN: veir-interpret %t.partial | filecheck %s --check-prefix=EXEC
+// RUN: veir-opt %s -p=riscv > %t
+// RUN: veir-interpret %t | filecheck %s --check-prefix=EXEC
+// RUN: filecheck %s --input-file=%t
+// RUN: filecheck %s --input-file=%t --check-prefix=ABSENT
+
+// ABSENT: "builtin.module"
+// ABSENT-NOT: llvm.getelementptr
+// ABSENT-NOT: builtin.unrealized_conversion_cast
+
+// `getelementptr`s with several indices, into a struct
+// `{i8, [3 x [5 x i16]], i64}`: the array is at offset 2, and the i64 at 32.
+// The indices are loaded from memory, so they stay dynamic, and the `i32` one
+// is negative.
+"builtin.module"() ({
+  "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i64 ()>}> ({
+    %one = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64
+    %s = "llvm.alloca"(%one) <{elem_type = !llvm.struct<(i8, !llvm.array<3 x !llvm.array<5 x i16>>, i64)>}> : (i64) -> !llvm.ptr
+    %islot = "llvm.alloca"(%one) <{elem_type = i64}> : (i64) -> !llvm.ptr
+    %jslot = "llvm.alloca"(%one) <{elem_type = i32}> : (i64) -> !llvm.ptr
+    %two = "llvm.mlir.constant"() <{value = 2 : i64}> : () -> i64
+    "llvm.store"(%two, %islot) : (i64, !llvm.ptr) -> ()
+    %minus1 = "llvm.mlir.constant"() <{value = -1 : i32}> : () -> i32
+    "llvm.store"(%minus1, %jslot) : (i32, !llvm.ptr) -> ()
+    %i = "llvm.load"(%islot) : (!llvm.ptr) -> i64
+    %j = "llvm.load"(%jslot) : (!llvm.ptr) -> i32
+
+    // s.f1[2][4] = 0x1234, at 2 + 2 * 10 + 4 * 2 = 30
+    %four = "llvm.mlir.constant"() <{value = 4 : i32}> : () -> i32
+    %last = "llvm.getelementptr"(%s, %i, %four) <{elem_type = !llvm.struct<(i8, !llvm.array<3 x !llvm.array<5 x i16>>, i64)>, rawConstantIndices = array<i32: 0, 1, -2147483648, -2147483648>}> : (!llvm.ptr, i64, i32) -> !llvm.ptr
+    %v1 = "llvm.mlir.constant"() <{value = 4660 : i16}> : () -> i16
+    "llvm.store"(%v1, %last) : (i16, !llvm.ptr) -> ()
+
+    // (&s.f1[2][4])[-1] = 0x56, at 28
+    %prev = "llvm.getelementptr"(%last, %j) <{elem_type = i16, rawConstantIndices = array<i32: -2147483648>}> : (!llvm.ptr, i32) -> !llvm.ptr
+    %v2 = "llvm.mlir.constant"() <{value = 86 : i16}> : () -> i16
+    "llvm.store"(%v2, %prev) : (i16, !llvm.ptr) -> ()
+
+    // s.f2 = 100, at 32: the constant offset folds into the store
+    %f2 = "llvm.getelementptr"(%s) <{elem_type = !llvm.struct<(i8, !llvm.array<3 x !llvm.array<5 x i16>>, i64)>, rawConstantIndices = array<i32: 0, 2>}> : (!llvm.ptr) -> !llvm.ptr
+    %v3 = "llvm.mlir.constant"() <{value = 100 : i64}> : () -> i64
+    "llvm.store"(%v3, %f2) : (i64, !llvm.ptr) -> ()
+    // CHECK: %[[S:.*]] = "riscv_stack.alloca"() <{"alignment" = 8 : i64, "size" = 40 : i64}>
+    // CHECK: "riscv.sd"({{.*}}, %[[S]]) <{"value" = 32 : i64}>
+
+    // Read back s.f1[2][3] (a dynamic index, then a constant one), s.f1[2][4]
+    // and s.f2.
+    %at28 = "llvm.getelementptr"(%s, %i) <{elem_type = !llvm.struct<(i8, !llvm.array<3 x !llvm.array<5 x i16>>, i64)>, rawConstantIndices = array<i32: 0, 1, -2147483648, 3>}> : (!llvm.ptr, i64) -> !llvm.ptr
+    %r1 = "llvm.load"(%at28) : (!llvm.ptr) -> i16
+    %r2 = "llvm.load"(%last) : (!llvm.ptr) -> i16
+    %r3 = "llvm.load"(%f2) : (!llvm.ptr) -> i64
+    %r1w = "llvm.zext"(%r1) : (i16) -> i64
+    %r2w = "llvm.zext"(%r2) : (i16) -> i64
+    %sum1 = "llvm.add"(%r1w, %r2w) : (i64, i64) -> i64
+    %sum = "llvm.add"(%sum1, %r3) : (i64, i64) -> i64
+    "llvm.return"(%sum) : (i64) -> ()
+  }) : () -> ()
+}) : () -> ()
+
+// 0x56 + 0x1234 + 100 = 0x12ee
+// EXEC: Program output: #[0x00000000000012ee#64]

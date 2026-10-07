@@ -344,14 +344,19 @@ def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType
       else mem.memmove dst src len.toNat
     return (#[], mem, none)
   | .getelementptr => do
-    /- only supports exactly one dynamic index for now -/
-    let [.addr ptr, .int _ idx] := operands.toList | fail
-    /- The index scales by the element's stride, matching the `getTypeAllocSize`
-       that `isel-riscv64` uses to lower this operation. -/
-    let size ← monadLift $ layout.getTypeAllocSize properties.elem_type.val
-    match ptr, idx with
-    | .val ptr, .val idx => return (#[.addr (.val ⟨ptr.object, UInt64.ofNat (ptr.offset.toNat + idx.toNat * size)⟩)], mem, none)
-    | _, _ => return (#[.addr .poison], mem, none)
+    let .addr ptr :: _ := operands.toList | fail
+    /- The same decomposition of the address that `isel-riscv64` uses to lower
+       this operation. -/
+    let indices := GEPIndex.decode properties.rawConstantIndices.values (operands.extract 1)
+    let (offset, dynamic) ← monadLift $ layout.gepOffsets properties.elem_type.val indices
+    let .val ptr := ptr | return (#[.addr .poison], mem, none)
+    let mut offset := (ptr.offset.toNat : Int) + offset
+    for (idx, stride) in dynamic do
+      /- An index is signed, and sign-extended to the pointer width. -/
+      let .int _ idx := idx | fail
+      let .val idx := idx | return (#[.addr .poison], mem, none)
+      offset := offset + idx.toInt * stride
+    return (#[.addr (.val ⟨ptr.object, UInt64.ofInt offset⟩)], mem, none)
   | .freeze => do
     let [val] := operands.toList | fail
     match val with
