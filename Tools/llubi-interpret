@@ -3,10 +3,12 @@
 
 The module is translated to LLVM IR with ``Tools/veir2llvm``, executed by
 ``llubi``, and llubi's verdict is printed in the shape ``veir-interpret``
-prints, so a lit test can hold both to the same CHECK lines.
+prints, so a lit test can hold both to the same CHECK lines. With
+``--version`` it prints the LLVM that llubi reports, llubi's only version.
 """
 
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -17,9 +19,32 @@ TOOLS = Path(__file__).resolve().parent
 vsmith = SourceFileLoader("vsmith", str(TOOLS / "vsmith")).load_module()
 
 
+def llubi_env() -> dict[str, str]:
+    # Homebrew's libLLVM references z3 through an unreplaced placeholder path;
+    # the fallback lets dyld find it by name. Harmless elsewhere.
+    env = dict(os.environ)
+    env["DYLD_FALLBACK_LIBRARY_PATH"] = ":".join(
+        [env.get("DYLD_FALLBACK_LIBRARY_PATH", ""), "/opt/homebrew/lib", "/usr/local/lib"])
+    return env
+
+
+def version() -> int:
+    """Print the LLVM that llubi reports, such as `LLVM 23.1.0`; fail without llubi."""
+    try:
+        result = subprocess.run(["llubi", "--version"], capture_output=True, text=True,
+                                env=llubi_env())
+    except FileNotFoundError:
+        return 1
+    match = re.search(r"LLVM version (\S+)", result.stdout + result.stderr)
+    print(f"LLVM {match.group(1)}" if match else "unknown")
+    return 0
+
+
 def main(argv: list[str]) -> int:
+    if argv == ["--version"]:
+        return version()
     if len(argv) != 1:
-        print("usage: llubi-interpret <test.mlir>", file=sys.stderr)
+        print("usage: llubi-interpret <test.mlir> | --version", file=sys.stderr)
         return 1
     translated = subprocess.run(
         [sys.executable, str(TOOLS / "veir2llvm"), argv[0]],
@@ -27,18 +52,13 @@ def main(argv: list[str]) -> int:
     if translated.returncode != 0:
         sys.stderr.write(translated.stderr)
         return 1
-    # Homebrew's libLLVM references z3 through an unreplaced placeholder path;
-    # the fallback lets dyld find it by name. Harmless elsewhere.
-    env = dict(os.environ)
-    env["DYLD_FALLBACK_LIBRARY_PATH"] = ":".join(
-        [env.get("DYLD_FALLBACK_LIBRARY_PATH", ""), "/opt/homebrew/lib", "/usr/local/lib"])
     with tempfile.TemporaryDirectory() as tmp:
         ll_path = Path(tmp) / "test.ll"
         ll_path.write_text(translated.stdout)
         # The flag goes before the file: llubi takes trailing arguments as the
         # program's own.
         result = subprocess.run(["llubi", "--verbose", str(ll_path)],
-                                capture_output=True, text=True, env=env)
+                                capture_output=True, text=True, env=llubi_env())
     log = result.stdout + result.stderr
     # A crash gives no verdict, but a stable line to pin.
     if result.returncode < 0 or result.returncode in (134, 139) or "Stack dump:" in log:
