@@ -190,13 +190,13 @@ private def OperationPtr.verifyGMIRSextInReg {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo GMIR] (op : OperationPtr) (ctx : WfIRContext OpInfo)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
-  let .integerType type := ((op.getOperand! ctx.raw 0).getType! ctx.raw).val
+  let .integerType ⟨width, _⟩ := ((op.getOperand! ctx.raw 0).getType! ctx.raw).val
     | throw s!"{instrName}: Expected operand 0 to have integer type"
   let sz := (op.getProperties! ctx.raw GMIR.g_sext_inreg).sz.toInt
   if sz < 1 then
-    throw s!"{instrName}: size must be at least 1"
-  if type.bitwidth ≤ sz then
-    throw s!"{instrName}: size must be less than the operand's width"
+    throw s!"{instrName}: Expected 'sz' to be at least 1, but got {sz}"
+  if width ≤ sz then
+    throw s!"{instrName}: Expected 'sz' to be smaller than the operand width {width}, but got {sz}"
 
 /--
 Verify the local invariants of a `gmir` operation in any operation-info type

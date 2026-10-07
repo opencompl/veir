@@ -9,4 +9,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Error verifying input program: gmir.g_sext_inreg: size must be at least 1
+// CHECK: Error verifying input program: gmir.g_sext_inreg: Expected 'sz' to be at least 1, but got 0

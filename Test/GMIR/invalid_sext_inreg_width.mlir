@@ -9,4 +9,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Error verifying input program: gmir.g_sext_inreg: size must be less than the operand's width
+// CHECK: Error verifying input program: gmir.g_sext_inreg: Expected 'sz' to be smaller than the operand width 32, but got 32
