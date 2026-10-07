@@ -1,6 +1,7 @@
 module
 
 public import Veir.GlobalOpInfo
+public import Veir.PatternRewriter.Puddle.Definitions
 
 /-!
 # Legalization Rules
@@ -85,6 +86,10 @@ namespace LegalityPredicate
 def typeIs (typeIdx : TypeGroup) (type : LLT) : LegalityPredicate opcode :=
   fun query => query.getLLT! typeIdx == type
 
+/-- True if type group `typeIdx` is any type in `types`. -/
+def typeInSet (typeIdx : TypeGroup) (types : List LLT) : LegalityPredicate opcode :=
+  fun query => types.contains (query.getLLT! typeIdx)
+
 /-- True if all of `predicates` hold. -/
 def all (predicates : List (LegalityPredicate opcode)) : LegalityPredicate opcode :=
   fun query => predicates.all (· query)
@@ -107,6 +112,8 @@ inductive LegalizeAction where
   | legal
   /-- The operation should be implemented with type group `typeIdx` widened to `newType`. -/
   | widenScalar (typeIdx : TypeGroup) (newType : LLT)
+  /-- The operation is legalized by the pattern of `LegalizerInfo.legalizeCustom`. -/
+  | custom
   /-- This operation is completely unsupported on the target. -/
   | unsupported
 
@@ -121,7 +128,7 @@ def legalIf (predicate : LegalityPredicate opcode) : LegalizeRule opcode :=
 
 /-- The operation is legal when type group 0 is any type in `types`. -/
 def legalFor (types : List LLT) : LegalizeRule opcode :=
-  legalIf fun query => types.contains (query.getLLT! (.type 0))
+  legalIf (.typeInSet (.type 0) types)
 
 /-- The operation is legal when type groups 0 and 1 are any type pair in `pairs`. -/
 def legalForTypePairs (pairs : List (LLT × LLT)) : LegalizeRule opcode :=
@@ -130,6 +137,17 @@ def legalForTypePairs (pairs : List (LLT × LLT)) : LegalizeRule opcode :=
 /-- The operation is always legal. -/
 def alwaysLegal : LegalizeRule opcode :=
   legalIf fun _ => true
+
+/-- The operation is legalized by `LegalizerInfo.legalizeCustom` if `predicate` is true. -/
+def customIf (predicate : LegalityPredicate opcode) : LegalizeRule opcode :=
+  fun query => if predicate query then some .custom else none
+
+/--
+The operation is legalized by `LegalizerInfo.legalizeCustom` when type group 0 is any type in
+`types`.
+-/
+def customFor (types : List LLT) : LegalizeRule opcode :=
+  customIf (.typeInSet (.type 0) types)
 
 /-- Widen the scalar to the one selected by `mutation` if `predicate` is true. -/
 def widenScalarIf (predicate : LegalityPredicate opcode)
@@ -149,6 +167,8 @@ end LegalizeRule
 structure LegalizerInfo where
   /-- The rules of each opcode, in the order they are tried. -/
   rules : (opcode : GMIR) → List (LegalizeRule opcode)
+  /-- The pattern that legalizes the `opcode` operations whose action is `custom`. -/
+  legalizeCustom : (opcode : GMIR) → Option (Puddle.Pattern OpCode) := fun _ => none
 
 /--
 Determine what action should be taken to legalize `op`, using the first rule of `opcode` that

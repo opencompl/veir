@@ -3,6 +3,8 @@ module
 public import Veir.Pass
 public import Veir.Passes.Legalization.LegalizerInfo
 import Veir.Passes.Legalization.Legalizer
+import Veir.Passes.Legalization.LegalizerHelper
+import Veir.PatternRewriter.Puddle.Builders
 
 /-!
 # RISC-V 64 Legalization
@@ -15,13 +17,30 @@ https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/RISCV/GISel/RISCV
 
 namespace Veir
 
+open Puddle in
+/--
+Computes a 32-bit `opcode` operation on 64 bits and sign-extends the result from bit 31, so that
+`addw` and `subw` can be selected. This is the `G_ADD`/`G_SUB` case of LLVM's `legalizeCustom`.
+-/
+def customLegalizeAddSub (opcode : GMIR) (noFlags : propertiesOf (OpCode.gmir opcode)) :
+    Pattern OpCode :=
+  Pattern.Builder
+    (matchBinop opcode (·.bitwidth = 32))
+    (fun (type, lhs, rhs) => do
+      let wideType ← CreateProg.type (IntegerType.signless 64)
+      let wide ← buildWideBinop opcode noFlags wideType lhs rhs
+      let sextProps ← CreateProg.property (.gmir .g_sext_inreg) ⟨32⟩
+      let sext ← CreateProg.operation (.gmir .g_sext_inreg) #[wide] #[wideType] sextProps
+      buildTrunc sext.res[0]! type)
+    (fun trunc => trunc)
+
 public section
 
--- TODO: Add custom rules which help select the word variants of operations.
 def riscv64LegalizerInfo : LegalizerInfo where
   rules
     | .g_add | .g_sub => [
       .legalFor [64],
+      .customFor [32],
       .minScalar (.type 0) 64,
     ]
     | .g_icmp => [
@@ -51,6 +70,10 @@ def riscv64LegalizerInfo : LegalizerInfo where
         fun query => [8, 16, 32].contains query.properties.sz.toNat,
       ]),
     ]
+  legalizeCustom
+    | .g_add => customLegalizeAddSub .g_add ⟨false, false⟩
+    | .g_sub => customLegalizeAddSub .g_sub ⟨false, false⟩
+    | _ => none
 
 def LegalizeRISCV64Pass : Pass OpCode :=
   { name := "legalize-riscv64"
