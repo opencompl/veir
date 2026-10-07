@@ -318,6 +318,11 @@ example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
   := by
   pbv_decide 4
 
+/-- Left-Shifting by the width variable -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x <<< w = 0#w := by
+  pbv_decide 4
+
 /-- Shifting by two variable amounts commutes -/
 example {w : Nat} (x y z : BitVec w) (hw : w ≤ 4) :
     (x <<< y) <<< z = (x <<< z) <<< y := by
@@ -383,6 +388,11 @@ example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
     x >>> 1 = x >>> (1#w) := by
   pbv_decide 4
 
+/-- Right-shifting by the width variable -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x >>> w = 0#w := by
+  pbv_decide 4
+
 /-- Shifting right commutes with zero extension -/
 example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
     (x.zeroExtend (w + w)) >>> 1 = (x >>> 1).zeroExtend (w + w) := by
@@ -392,6 +402,11 @@ example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
 example {w : Nat} (a b : BitVec w) (hw : w ≤ 4) :
     (a ++ b).extractLsb' 0 w = b := by
   pbv_decide 4
+
+/-- Extracting the top half of an appendz -/
+example {w : Nat} (a b : BitVec w) (hw : w ≤ 4) :
+    (a ++ b).extractLsb' w w = a := by
+  pbv_decide 8
 
 /-- Nested extracts collapse to the narrower one -/
 example {w v u : Nat} (x : BitVec w) (hw : w ≤ 4) (hv : v ≤ w) (hu : u ≤ v) :

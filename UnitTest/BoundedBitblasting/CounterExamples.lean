@@ -199,32 +199,3 @@ example {v : Nat} (x : BitVec w) (hw : w ≤ 8) (hv : v ≤ w) (hv1 : v > 0):
     (x.extractLsb (v-1) 0).cast (by lia) = (x &&& ((1#w <<< BitVec.ofNat w v) - 1)).setWidth v := by
   pbv_decide 8 -bv_decide
 
--- Expected failure: an extract offset that is itself a width variable is abstracted
-/--
-error: `pbv_decide` found a potentially spurious counterexample.
-  The following expressions were abstracted as opaque variables:
-    - BitVec.ofNatClamp 5 w = 0x1f#5
-Consider the following assignment:
-  w = 4  	(m_w0 = 0x000f#16)
-  w + w = 8  	(m_w0_add_w0 = 0x00ff#16)
-  a = 0xf#4
-  b = 0xf#4
--/
-#guard_msgs in
-example {w : Nat} (a b : BitVec w) (hw : w ≤ 4) :
-    (a ++ b).extractLsb' w w = a := by
-  pbv_decide 8
-
--- Expected failure: same issue with a plain shift by a width variable
-/--
-error: `pbv_decide` found a potentially spurious counterexample.
-  The following expressions were abstracted as opaque variables:
-    - BitVec.ofNatClamp 4 w = 0x7#4
-Consider the following assignment:
-  w = 8  	(m_w0 = 0xff#8)
-  x = 0xff#8
--/
-#guard_msgs in
-example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
-    x >>> w = 0#w := by
-  pbv_decide 8
