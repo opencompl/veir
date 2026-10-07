@@ -28,21 +28,26 @@ variable {root : IRNode} {region : RegionPtr} {block : BlockPtr}
   and the operations are not equal.
 -/
 theorem OperationPtr.properlyDominates_iff_dominates_of_ne (hne : op₁ ≠ op₂) :
-    op₁.ProperlyDominates op₂ ctx true ↔ op₁.Dominates op₂ ctx := by
+    op₁.ProperlyDominates op₂ ctx enclosingOk ↔ op₁.Dominates op₂ ctx enclosingOk := by
   grind [OperationPtr.Dominates]
+
+grind_pattern OperationPtr.properlyDominates_iff_dominates_of_ne =>
+    op₁.ProperlyDominates op₂ ctx enclosingOk where
+  guard op₁ ≠ op₂
 
 /--
 An operation `op₁` dominates an operation `op₂` if it properly dominates it.
 -/
+@[grind →]
 theorem OperationPtr.dominates_of_properlyDominates :
-    op₁.ProperlyDominates op₂ ctx true → op₁.Dominates op₂ ctx := by
+    op₁.ProperlyDominates op₂ ctx enclosingOk → op₁.Dominates op₂ ctx enclosingOk := by
   grind [OperationPtr.Dominates]
 
 /--
 An operation dominates itself.
 -/
 @[grind .]
-theorem OperationPtr.dominates_refl : op.Dominates op ctx := by
+theorem OperationPtr.dominates_refl : op.Dominates op ctx enclosingOk := by
   grind [OperationPtr.Dominates]
 
 /--
@@ -50,8 +55,34 @@ An operation `op₁` dominates an operation `op₂` if and only if
 `op₁` properly dominates `op₂` or if `op₁` is `op₂`.
 -/
 theorem OperationPtr.dominates_iff_properlyDominates_or_eq :
-    op₁.Dominates op₂ ctx ↔ op₁.ProperlyDominates op₂ ctx true ∨ op₁ = op₂ := by
+    op₁.Dominates op₂ ctx enclosingOk ↔
+      op₁.ProperlyDominates op₂ ctx enclosingOk ∨ op₁ = op₂ := by
   grind [OperationPtr.Dominates]
+
+/-- Proper dominance excluding enclosing operations witnesses a parent region for the dominator. -/
+theorem OperationPtr.ProperlyDominates.exists_parentRegion
+    (dominance : op₁.ProperlyDominates op₂ ctx false) :
+    ∃ region, op₁.getParentRegion! ctx.raw = some region := by
+  cases dominance with
+  | AncestorDominatedInRegion hAncestor dominance =>
+    cases dominance with
+    | SameBlock dominance =>
+      cases dominance <;>
+        grind [OperationPtr.ProperlyDominatesInSSACFGBlock,
+          OperationPtr.ProperlyDominatesInGraphBlock]
+    | BlockDominance hDominatorBlock hDominatedBlock dominance =>
+      cases dominance <;>
+        grind [BlockPtr.ProperlyDominatesInSSACFGRegion,
+          BlockPtr.ProperlyDominatesInGraphRegion]
+
+/-- A dominator excluding enclosing operations has a parent region when its dominated operation does. -/
+theorem OperationPtr.Dominates.exists_parentRegion
+    (dominance : op₁.Dominates op₂ ctx false)
+    (dominatedParent : op₂.getParentRegion! ctx.raw = some region) :
+    ∃ region, op₁.getParentRegion! ctx.raw = some region := by
+  rcases dominance with hEq | dominance
+  · grind
+  · grind [dominance.exists_parentRegion]
 
 /-! ## Operation reachability -/
 
@@ -67,7 +98,7 @@ grind_pattern OperationPtr.LocallyReachable.parentRegion => op.LocallyReachable 
 @[grind →]
 axiom OperationPtr.HierarchicallyReachable.of_dominates :
     op₁.HierarchicallyReachable ctx →
-    op₂.Dominates op₁ ctx →
+    op₂.Dominates op₁ ctx enclosingOk →
     op₂.HierarchicallyReachable ctx
 
 /-- A hierarchically reachable operation is locally reachable in some parent region. -/
@@ -122,14 +153,14 @@ If an operation `op₁` dominates an operation `op₂`, it dominates the operati
 if it exists.
 -/
 axiom OperationPtr.dominates_next :
-  op₁.Dominates op₂ ctx →
+  op₁.Dominates op₂ ctx enclosingOk →
   (op₂.get! ctx.raw).next = some op₂Next →
-  op₁.Dominates op₂Next ctx
+  op₁.Dominates op₂Next ctx enclosingOk
 
 /-- A dominator is rooted at the same root as the operation it dominates. -/
 @[grind →]
 axiom OperationPtr.RootedAt.of_dominated
-    (op₂Rooted : op₂.RootedAt root ctx) (hDom : op₁.Dominates op₂ ctx) :
+    (op₂Rooted : op₂.RootedAt root ctx) (hDom : op₁.Dominates op₂ ctx enclosingOk) :
     op₁.RootedAt root ctx
 
 /-- A rooted operation in an SSA region cannot properly dominate itself with
@@ -146,41 +177,70 @@ axiom OperationPtr.not_properlyDominates_reverse_of_dominates
     (op₁In : op₁.RootedAt root ctx) (op₂Reachable : op₂.HierarchicallyReachable ctx)
     (op₂ParentRegion : op₂.getParentRegion! ctx.raw = some region₂)
     (op₂RegionSSA : region₂.hasSSADominance ctx) :
-    op₁.Dominates op₂ ctx →
+    op₁.Dominates op₂ ctx enclosingOk →
     ¬ op₂.ProperlyDominates op₁ ctx false
 
 grind_pattern OperationPtr.not_properlyDominates_reverse_of_dominates =>
     op₁.RootedAt root ctx, op₂.HierarchicallyReachable ctx,
-    op₂.getParentRegion! ctx.raw, region₂.hasSSADominance ctx where
+    op₂.getParentRegion! ctx.raw, region₂.hasSSADominance ctx,
+    op₁.Dominates op₂ ctx enclosingOk where
   guard op₂.getParentRegion! ctx.raw = some region₂
 
 /-- A hierarchically reachable operation dominated by an operation rooted at `root`
 is rooted at that same `root`. -/
 axiom OperationPtr.RootedAt.of_dominator {dominator dominated : OperationPtr} :
     dominator.RootedAt root ctx →
-    dominator.Dominates dominated ctx →
+    dominator.Dominates dominated ctx enclosingOk →
     dominated.HierarchicallyReachable ctx →
     dominated.RootedAt root ctx
 
 grind_pattern OperationPtr.RootedAt.of_dominator =>
-  dominator.RootedAt root ctx, dominator.Dominates dominated ctx,
+  dominator.RootedAt root ctx, dominator.Dominates dominated ctx enclosingOk,
   dominated.HierarchicallyReachable ctx
 
 /-! ## Dominance at operation insertion points -/
 
+/-- Dominating a block while excluding enclosing operations witnesses a parent region. -/
+theorem OperationPtr.ProperlyDominatesBlock.exists_parentRegion
+    (dominance : op.ProperlyDominatesBlock block ctx false) :
+    ∃ region, op.getParentRegion! ctx.raw = some region := by
+  cases dominance with
+  | SameRegion dominatorParent dominance =>
+    cases dominance <;>
+      grind [BlockPtr.ProperlyDominatesInSSACFGRegion,
+        BlockPtr.ProperlyDominatesInGraphRegion]
+  | AncestorOpDominated ancestry dominance =>
+    exact dominance.exists_parentRegion
+
+/-- A dominator excluding enclosing operations has a parent region when the insertion point does. -/
+theorem OperationPtr.DominatesIp.exists_parentRegion {ip : InsertPoint}
+    (dominance : op.DominatesIp ip ctx false)
+    (ipParent : ip.block! ctx.raw = some block)
+    (blockParent : (block.get! ctx.raw).parent = some region) :
+    ∃ region, op.getParentRegion! ctx.raw = some region := by
+  cases dominance with
+  | Before dominance => exact dominance.exists_parentRegion
+  | AtEndSameBlock dominatorParent => grind
+  | AtEndOtherBlock dominance => exact dominance.exists_parentRegion
+
 /-- An operation dominates the point after another operation exactly when it dominates
 that operation. -/
 axiom OperationPtr.DominatesIp.after_iff :
-    op₁.DominatesIp (InsertPoint.after op₂ ctx.raw block op₂HasParent op₂InBounds) ctx ↔
-    op₁.Dominates op₂ ctx
+    op₁.DominatesIp (InsertPoint.after op₂ ctx.raw block op₂HasParent op₂InBounds) ctx enclosingOk ↔
+    op₁.Dominates op₂ ctx enclosingOk
 
 /-- An operation dominates the point before another operation exactly when it properly
-dominates that operation with `enclosingOk = true`. -/
+dominates that operation with the same `enclosingOk` flag. -/
 @[simp]
-axiom OperationPtr.DominatesIp.before_iff :
-  op₁.DominatesIp (.before op₂) ctx ↔ op₁.ProperlyDominates op₂ ctx true
+theorem OperationPtr.DominatesIp.before_iff :
+    op₁.DominatesIp (.before op₂) ctx enclosingOk ↔
+      op₁.ProperlyDominates op₂ ctx enclosingOk := by
+  constructor
+  · rintro ⟨dominance⟩
+    grind
+  · exact .Before
 
-grind_pattern OperationPtr.DominatesIp.before_iff => op₁.DominatesIp (.before op₂) ctx
+grind_pattern OperationPtr.DominatesIp.before_iff => op₁.DominatesIp (.before op₂) ctx enclosingOk
 
 /-- A value dominates the point before an operation exactly when it properly dominates its user. -/
 axiom ValuePtr.DominatesIp.before_iff {value : ValuePtr} :

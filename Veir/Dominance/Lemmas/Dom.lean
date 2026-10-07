@@ -56,7 +56,7 @@ theorem not_mem_results_of_mem_operands_of_dominates
     (op₂Region : op₂.getParentRegion! ctx.raw = some region)
     (regionSSA : region.hasSSADominance ctx)
     (op₂Reachable : op₂.HierarchicallyReachable ctx) :
-    op₁.Dominates op₂ ctx →
+    op₁.Dominates op₂ ctx enclosingOk →
     ∀ value, value ∈ op₁.getOperands! ctx.raw → value ∉ op₂.getResults! ctx.raw := by
   grind [WfIRContext.Dom.not_mem_results_of_mem_operands]
 
