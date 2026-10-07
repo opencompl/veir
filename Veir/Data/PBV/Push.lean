@@ -37,6 +37,7 @@ Operations without a push theorem (`—`) are abstracted as opaque variables by 
 | Zero extend                     | `BitVec.zeroExtend`          | `setWidth_setWidth`                |
 | Truncate                        | `BitVec.truncate`            | `setWidth_setWidth`                |
 | Sign extend                     | `BitVec.signExtend`          | `setWidth_signExtend`              |
+| Cast                            | `BitVec.cast`                | `BitVec.setWidth_cast`             |
 | Append (`++`)                   | `BitVec.append`              | `setWidth_append`                  |
 | Extract (SMT-Lib)               | `BitVec.extractLsb`          | —                                  |
 | Extract                         | `BitVec.extractLsb'`         | —                                  |
@@ -91,7 +92,7 @@ namespace Veir.Data.PBV
 public section
 
 attribute [pbv_push] signBitOfMask_eq maskOfWidth_zero BitVec.setWidth_zero
-  BitVec.ofNat_eq_ofNat
+  BitVec.ofNat_eq_ofNat BitVec.setWidth_cast
 
 attribute [pbv_push low] BitVec.setWidth_eq
 

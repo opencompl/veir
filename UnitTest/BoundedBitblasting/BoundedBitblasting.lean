@@ -146,6 +146,21 @@ example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
   (x ++ 0#2).setWidth 2 = 0#2 := by
   pbv_decide 4
 
+/-- Extending to definitionally equal width using cast -/
+example {w v : Nat} (x : BitVec w) (hw : w ≤ 4) (hv : v ≤ 4) :
+    x.zeroExtend (w + v) = (0#v ++ x).cast (by grind) := by
+  pbv_decide 4
+
+/-- Casting from a width only equal under a hypothesis -/
+example {w : Nat} (x : BitVec (w - 1 + 1)) (y : BitVec w) (h0 : 0 < w) (hw : w ≤ 4) :
+    x.cast (by omega) + y = y + x.cast (by omega) := by
+  pbv_decide 4
+
+/-- Nested casts with different equality proofs -/
+example {w v u : Nat} (x : BitVec w) (h1 : w = v) (h2 : w = u) (h3 : v = u) (hw : w ≤ 4) :
+    (x.cast h1).cast h3 = x.cast h2 := by
+  pbv_decide 4
+
 /-- A variable of literal width above the bound -/
 example (w : Nat) (x y : BitVec w) (a b : BitVec 4) (hw : w ≤ 2) :
   x + y = y + x ∧ a + b = b + a := by
