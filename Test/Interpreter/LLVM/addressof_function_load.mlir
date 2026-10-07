@@ -1,9 +1,10 @@
 // RUN: veir-interpret %s | filecheck %s
 // RUN: LLUBI
+// RUN: ALIVE_EXEC_CHECK
 
 // A function's address cannot be read from: a load through it is UB.
 
-// ALIVE_EXEC: returns poison instead: Alive2 makes an out-of-bounds read poison.
+// alive-exec returns poison instead: Alive2 makes an out-of-bounds read poison.
 
 "builtin.module"() ({
   "llvm.func"() <{function_type = !llvm.func<void ()>, sym_name = "f"}> ({
@@ -17,3 +18,4 @@
 }) : () -> ()
 
 // CHECK: Undefined behavior
+// ALIVE_EXEC: Program output: #[poison]

@@ -191,11 +191,23 @@ theorem RuntimeValue.float_of_isRefinedBy {ty : FloatType} {v : Data.Float.Float
     tv = RuntimeValue.float ty v := by
   cases tv <;> grind [RuntimeValue.isRefinedBy]
 
+/-- A non-poison pointer value is refined only by itself. -/
+@[simp]
+theorem RuntimeValue.addr_val_isRefinedBy_iff {p : Data.Pointer} {tv : RuntimeValue} :
+    RuntimeValue.addr (.val p) ⊒ tv ↔ tv = RuntimeValue.addr (.val p) := by
+  cases tv <;> grind [RuntimeValue.isRefinedBy, Data.LLVM.Ptr.isRefinedBy, cases Data.LLVM.Ptr]
+
 /-- A runtime value `tv` that refines a register runtime value `v` is equal to it. -/
 theorem RuntimeValue.reg_of_isRefinedBy {v : Data.RISCV.Reg} {tv : RuntimeValue}
     (h : RuntimeValue.reg v ⊒ tv) :
     tv = RuntimeValue.reg v := by
   cases tv <;> grind [RuntimeValue.isRefinedBy]
+
+/-- An array of one value is refined by the arrays of one value that refines it. -/
+@[simp]
+theorem RuntimeValue.singleton_isRefinedBy_iff {v : RuntimeValue} {b : Array RuntimeValue} :
+    #[v] ⊒ b ↔ ∃ w, b = #[w] ∧ v ⊒ w := by
+  cases b; grind [arrayIsRefinedBy, List.length_eq_one_iff]
 
 /--
 A register runtime value can only be refined by itself, so operand arrays that consist purely of

@@ -1,10 +1,11 @@
 // RUN: veir-interpret %s | filecheck %s
 // RUN: LLUBI
+// RUN: ALIVE_EXEC_CHECK
 
 // `llvm.intr.memset` writes its byte to every byte of the range and leaves the
 // bytes past it alone. A poison byte poisons the range.
 
-// ALIVE_EXEC: reads the bytes that `llvm.intr.memset` writes back as poison.
+// alive-exec reads the bytes that `llvm.intr.memset` writes back as poison.
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (i64, i8, i32)}> ({
@@ -29,3 +30,4 @@
 }) : () -> ()
 
 // CHECK: Program output: #[0xabababababababab#64, poison, 0x00000000#32]
+// ALIVE_EXEC: Program output: #[poison, poison, poison]

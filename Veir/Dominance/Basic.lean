@@ -69,16 +69,35 @@ inductive RegionPtr.Path (region : RegionPtr) (ctx : WfIRContext OpInfo) :
       region.Path ctx source target (source :: blocks)
 
 /--
-Synctactic reachability of `block` from the entry of `region`.
+Syntactic reachability of `block` from the entry of `region`.
 
 A block is reachable from the entry block of a region if there is a CFG path from the
 entry block to the block.
 -/
-def BlockPtr.ReachableFromEntry (block : BlockPtr) (region : RegionPtr)
+def BlockPtr.LocallyReachable (block : BlockPtr) (region : RegionPtr)
     (ctx : WfIRContext OpInfo) : Prop :=
   ∃ entry blocks,
     (region.get! ctx.raw).firstBlock = some entry ∧
     region.Path ctx entry block blocks
+
+/--
+Syntactic reachability of `block`.
+
+A block is reachable if every ancestor block is reachable from the entry of its parent region.
+-/
+def BlockPtr.HierarchicallyReachable (block : BlockPtr) (ctx : WfIRContext OpInfo) : Prop :=
+  ∀ block₂, (IRNode.block block₂).Ancestor block ctx →
+  ∀ region₂, (block₂.get! ctx.raw).parent = some region₂ →
+  block₂.LocallyReachable region₂ ctx
+
+/--
+Syntactic reachability of `op`.
+
+An operation is reachable if its parent block is reachable.
+-/
+def OperationPtr.HierarchicallyReachable (op : OperationPtr) (ctx : WfIRContext OpInfo) : Prop :=
+  ∀ block, (op.get! ctx.raw).parent = some block →
+  block.HierarchicallyReachable ctx
 
 /--
 Proper dominance between `dominator` and `dominated` in a graph `region`.
@@ -255,5 +274,48 @@ It is defined as the reflexive closure of `OperationPtr.ProperlyDominates`.
 -/
 def OperationPtr.Dominates (dominator dominated : OperationPtr) (ctx : WfIRContext OpInfo) : Prop :=
   dominator = dominated ∨ dominator.ProperlyDominates dominated ctx true
+
+/-!
+## Value Dominance
+
+Value dominance is defined in terms of the operation or block that defines the value. See
+`ValuePtr.ProperlyDominates`.
+
+This definition is typically used to check whether a value is allowed to be used as an operand
+of some operation.
+-/
+
+/--
+Proper dominance between a value and an operation:
+* An operation result properly dominates operations that are properly dominated by its defining
+  operation and outside of any operation regions;
+* A block argument properly dominates operations in blocks that are properly dominated by its
+  defining block.
+-/
+def ValuePtr.ProperlyDominates (value : ValuePtr) (op : OperationPtr)
+    (ctx : WfIRContext OpInfo) : Prop :=
+  match value with
+  | .opResult result => result.op.ProperlyDominates op ctx false
+  | .blockArgument argument =>
+      ∃ block, (op.get! ctx.raw).parent = some block ∧
+        argument.block.Dominates block ctx
+
+/-!
+## Programs Satisfying Dominance Invariants
+
+This defines `WfIRContext.Dom`, which asserts that uses of values are dominated by their
+definitions. This is only valid for operations under a given root node, which is typically the
+toplevel `builtin.module`.
+-/
+
+/--
+Every operand of an in-bounds operation rooted at `root` properly dominates its user.
+
+Only operations contained under `root` are constrained, including `root`.
+-/
+def WfIRContext.Dom (ctx : WfIRContext OpInfo) (root : IRNode) : Prop :=
+  ∀ {op : OperationPtr}, root.Ancestor op ctx →
+    ∀ {value : ValuePtr}, value ∈ op.getOperands! ctx.raw →
+    value.ProperlyDominates op ctx
 
 end Veir

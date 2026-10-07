@@ -10,6 +10,7 @@ meta import Veir.Meta.OpCode
 public import Veir.Interpreter.RuntimeValue.Basic
 public import Veir.Interpreter.Interp
 public import Veir.Interpreter.Memory
+public import Veir.Data.Casting
 import Veir.Data.RISCV.Reg.Basic
 import Veir.Data.Casting
 
@@ -525,6 +526,7 @@ def riscvLoad (mem : MemoryState) (eaddr : BitVec 64) (bytes : Nat) (ext : LoadE
     | .zeroExt => val.setWidth 64
   return (extended, mem)
 
+@[expose]
 def Riscv.interpretOp' (opType : Veir.Riscv) (properties : propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
     (mem : MemoryState)

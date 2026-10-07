@@ -5,6 +5,7 @@ Authors: Jeremy Avigad, Simon Hudon
 -/
 module
 
+public import QPFTypes.Theory.TypeFun
 public import QPFTypes.Theory.MvFunctor
 public import QPFTypes.Theory.PFunctor.Multivariate.Basic
 
@@ -183,5 +184,13 @@ instance MvPFunctor.instQPFObj {n} (P : MvPFunctor n) : QPF P where
   repr := id
   abs_repr := by intros; rfl
   abs_map := by intros; rfl
+
+/--
+A functor obtained via round-tripping a curry/uncurry conversion a known QPF,
+is still a QPF.
+-/
+instance QPF.instOfCurriedCurry {n : Nat} {F : TypeFun.{u, u} n} [q : QPF F] :
+    QPF (TypeFun.ofCurried (TypeFun.curry F)) :=
+  cast (by simp) q
 
 end QPFTypes
