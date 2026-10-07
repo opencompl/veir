@@ -1,12 +1,10 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI_CHECK
+// RUN: ALIVE_EXEC_CHECK
 
-// LLUBI: reads 0x8b instead: llubi gives no defined value to a load that
-// reads part of a stored integer, while the interpreter's memory hands out
-// single bytes.
-
-// ALIVE_EXEC: flags the loaded byte as poison: Alive2 gives no value to a
-// load that reads part of a stored integer, while the interpreter's memory
-// hands out single bytes.
+// llubi reads 0x8b and alive-exec flags the byte as poison: neither gives a
+// value to a load that reads part of a stored integer, while the
+// interpreter's memory hands out single bytes.
 
 // A width with no layout entry of its own takes the alignment of the largest
 // entry, `i128:128`. An `i200` therefore occupies 25 bytes but strides by 32,
@@ -29,3 +27,5 @@
 }) : () -> ()
 
 // CHECK: Program output: #[0x05#8]
+// ALIVE_EXEC: Program output: #[poison]
+// LLUBI: Program output: #[0x8b#8]

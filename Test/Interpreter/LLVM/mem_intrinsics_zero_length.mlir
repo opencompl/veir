@@ -1,10 +1,11 @@
 // RUN: veir-interpret %s | filecheck %s
 // RUN: LLUBI
+// RUN: ALIVE_EXEC_CHECK
 
 // A memory intrinsic of length zero touches no memory, so its pointers may be
 // null or poison.
 
-// ALIVE_EXEC: reports undefined behaviour: it rejects a poison pointer even
+// alive-exec reports undefined behaviour: it rejects a poison pointer even
 // when the length is zero.
 
 "builtin.module"() ({
@@ -21,3 +22,4 @@
 }) : () -> ()
 
 // CHECK: Program output: #[0x0000000000000000#64]
+// ALIVE_EXEC: Undefined behavior

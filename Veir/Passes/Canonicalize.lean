@@ -7,6 +7,7 @@ import Veir.Analysis.DataFlow.DeadCodeAnalysis
 import Veir.Interfaces.FoldInterfaces
 import Veir.Interfaces.ControlFlowInterfaces
 import Veir.Passes.Matching
+import Veir.Passes.Canonicalize.UniqueConstants
 
 namespace Veir
 
@@ -125,9 +126,12 @@ def CanonicalizePass.impl (options : PassOptions) (ctx : WfIRContext OpCode)
   if (options.get? "commutative-constant-rhs").getD true then
     patterns := patterns.push commutativeConstantRHS
   let pattern := RewritePattern.GreedyRewritePattern patterns
-  match RewritePattern.applyInContext pattern ctx with
-  | none => throw "Error while applying canonicalization patterns"
-  | some result => pure result
+  let some result := RewritePattern.applyInContext pattern ctx
+    | throw "Error while applying canonicalization patterns"
+  ctx := result
+  if (options.get? "unique-constants").getD true then
+    ctx := UniqueConstants.run ctx op
+  return ctx
 
 public def CanonicalizePass : Pass OpCode :=
   { name := "canonicalize"
@@ -141,6 +145,9 @@ public def CanonicalizePass : Pass OpCode :=
           defaultValue := true }),
       ("mod-arith-constant",
         { description := "Reduce modular constants to their canonical representatives."
+          defaultValue := true }),
+      ("unique-constants",
+        { description := "Deduplicate constants and hoist them to the top of their isolated scope."
           defaultValue := true }),
       ("commutative-constant-rhs",
         { description := "Move constants to the right side of commutative operations."

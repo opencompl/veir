@@ -20,17 +20,25 @@
 
 // CHECK:      func.func @chain([[A:%.*]]: i32, [[B:%.*]]: i32) -> i32 {
 
-// Both arguments extended. The lowered mod_arith constant is folded through
-// its extension at its eventual i64 use below.
+// Canonicalize uniques every constant and hoists it to the top of the
+// function, in the order it first encounters them. The lowered mod_arith
+// constant is folded through its extension at its eventual i64 use.
+// CHECK-NEXT:     [[Q42:%.*]] = "arith.constant"() <{"value" = 12289 : i42}> : () -> i42
+// CHECK-NEXT:     [[MU42:%.*]] = "arith.constant"() <{"value" = 21843 : i42}> : () -> i42
+// CHECK-NEXT:     [[SH42:%.*]] = "arith.constant"() <{"value" = 28 : i42}> : () -> i42
+// CHECK-NEXT:     [[Q33:%.*]] = "arith.constant"() <{"value" = 12289 : i33}> : () -> i33
+// CHECK-NEXT:     [[Q64:%.*]] = "arith.constant"() <{"value" = 12289 : i64}> : () -> i64
+// CHECK-NEXT:     [[MU64:%.*]] = "arith.constant"() <{"value" = 21843 : i64}> : () -> i64
+// CHECK-NEXT:     [[SH64:%.*]] = "arith.constant"() <{"value" = 28 : i64}> : () -> i64
+// CHECK-NEXT:     [[C5W:%.*]] = "arith.constant"() <{"value" = 5 : i64}> : () -> i64
+
+// Both arguments extended.
 // CHECK-NEXT:     [[A33:%.*]] = "arith.extui"([[A]]) : (i32) -> i33
 // CHECK-NEXT:     [[B33:%.*]] = "arith.extui"([[B]]) : (i32) -> i33
 
 // s = (a + b) mod q: i33 add
 // CHECK-NEXT:     [[SUM:%.*]] = "arith.addi"([[A33]], [[B33]]) : (i33, i33) -> i33
 // CHECK-NEXT:     [[SUMW:%.*]] = "arith.extui"([[SUM]]) : (i33) -> i42
-// CHECK-NEXT:     [[Q42:%.*]] = "arith.constant"() <{"value" = 12289 : i42}> : () -> i42
-// CHECK-NEXT:     [[MU42:%.*]] = "arith.constant"() <{"value" = 21843 : i42}> : () -> i42
-// CHECK-NEXT:     [[SH42:%.*]] = "arith.constant"() <{"value" = 28 : i42}> : () -> i42
 // CHECK-NEXT:     [[P1:%.*]] = "arith.muli"([[SUMW]], [[MU42]]) <{"overflowFlags" = #arith.overflow<nuw>}> : (i42, i42) -> i42
 // CHECK-NEXT:     [[E1:%.*]] = "arith.shrui"([[P1]], [[SH42]]) : (i42, i42) -> i42
 // CHECK-NEXT:     [[EQ1:%.*]] = "arith.muli"([[E1]], [[Q42]]) <{"overflowFlags" = #arith.overflow<nuw>}> : (i42, i42) -> i42
@@ -42,7 +50,6 @@
 // CHECK-NEXT:     [[S:%.*]] = "arith.trunci"([[T1]]) <{"overflowFlags" = #arith.overflow<nuw>}> : (i33) -> i32
 
 // d = (a - b) mod q
-// CHECK-NEXT:     [[Q33:%.*]] = "arith.constant"() <{"value" = 12289 : i33}> : () -> i33
 // CHECK-NEXT:     [[AQ:%.*]] = "arith.addi"([[A33]], [[Q33]]) : (i33, i33) -> i33
 // CHECK-NEXT:     [[DIF:%.*]] = "arith.subi"([[AQ]], [[B33]]) : (i33, i33) -> i33
 // CHECK-NEXT:     [[DIFW:%.*]] = "arith.extui"([[DIF]]) : (i33) -> i42
@@ -60,9 +67,6 @@
 // CHECK-NEXT:     [[SW:%.*]] = "arith.extui"([[S]]) : (i32) -> i64
 // CHECK-NEXT:     [[DW:%.*]] = "arith.extui"([[D]]) : (i32) -> i64
 // CHECK-NEXT:     [[M:%.*]] = "arith.muli"([[SW]], [[DW]]) : (i64, i64) -> i64
-// CHECK-NEXT:     [[Q64:%.*]] = "arith.constant"() <{"value" = 12289 : i64}> : () -> i64
-// CHECK-NEXT:     [[MU64:%.*]] = "arith.constant"() <{"value" = 21843 : i64}> : () -> i64
-// CHECK-NEXT:     [[SH64:%.*]] = "arith.constant"() <{"value" = 28 : i64}> : () -> i64
 // CHECK-NEXT:     [[P3:%.*]] = "arith.muli"([[M]], [[MU64]]) <{"overflowFlags" = #arith.overflow<nuw>}> : (i64, i64) -> i64
 // CHECK-NEXT:     [[E3:%.*]] = "arith.shrui"([[P3]], [[SH64]]) : (i64, i64) -> i64
 // CHECK-NEXT:     [[EQ3:%.*]] = "arith.muli"([[E3]], [[Q64]]) <{"overflowFlags" = #arith.overflow<nuw>}> : (i64, i64) -> i64
@@ -74,7 +78,6 @@
 
 // r = (m * 5) mod q
 // CHECK-NEXT:     [[MW:%.*]] = "arith.extui"([[MRED]]) : (i32) -> i64
-// CHECK-NEXT:     [[C5W:%.*]] = "arith.constant"() <{"value" = 5 : i64}> : () -> i64
 // CHECK-NEXT:     [[M5:%.*]] = "arith.muli"([[MW]], [[C5W]]) : (i64, i64) -> i64
 // CHECK-NEXT:     [[P4:%.*]] = "arith.muli"([[M5]], [[MU64]]) <{"overflowFlags" = #arith.overflow<nuw>}> : (i64, i64) -> i64
 // CHECK-NEXT:     [[E4:%.*]] = "arith.shrui"([[P4]], [[SH64]]) : (i64, i64) -> i64

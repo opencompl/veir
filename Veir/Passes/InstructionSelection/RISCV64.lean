@@ -1258,22 +1258,6 @@ def fshl32 : Puddle.CompiledPattern OpCode := fshl32_pattern.compile
   (LLVM commit d9906882fc61).
 -/
 
-def mkRISCVImm (value : Int) : RISCVImmediateProperties :=
-  RISCVImmediateProperties.mk (BitVec.ofInt 64 value)
-
-def createRISCVImmLocal (ctx : WfIRContext OpCode)
-    (dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties)
-    (operands : Array ValuePtr) (value : Int) :
-    Option (WfIRContext OpCode × OperationPtr) :=
-  WfRewriter.createOp! ctx dst #[RegisterType.mk] operands #[] #[]
-      (cast h.symm (mkRISCVImm value)) none
-
-def createRISCVUnitLocal (ctx : WfIRContext OpCode)
-    (dst : Riscv) (h : Riscv.propertiesOf dst = Unit) (operands : Array ValuePtr) :
-    Option (WfIRContext OpCode × OperationPtr) :=
-  WfRewriter.createOp! ctx dst #[RegisterType.mk] operands #[] #[]
-      (cast h.symm ()) none
-
 def signedSatSelectLocal (ctx : WfIRContext OpCode) (op : OperationPtr)
     (wrapped overflow sat : ValuePtr) :
     Option (WfIRContext OpCode × Array OperationPtr × Array ValuePtr) := do

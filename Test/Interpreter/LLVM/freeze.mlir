@@ -1,8 +1,9 @@
 // RUN: veir-interpret %s | filecheck %s
 // RUN: ALIVE_EXEC
+// RUN: LLUBI_CHECK
 
-// LLUBI: cannot cross-check this test: llubi gives a load of uninitialized
-// memory an arbitrary concrete value rather than poison.
+// llubi gives a load of uninitialized memory an arbitrary concrete value
+// rather than poison.
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (i32, i32)}> ({
@@ -13,3 +14,4 @@
 }) : () -> ()
 
 // CHECK: Program output: #[poison, 0x00000000#32]
+// LLUBI: Program output: #[poison, {{0x[0-9a-f]+}}#32]

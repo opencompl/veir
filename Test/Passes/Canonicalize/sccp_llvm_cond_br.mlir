@@ -16,9 +16,10 @@
   "cf.br"(%two) [^join] : (i32) -> ()
 ^join(%result : i32):
   // CHECK-LABEL: func.func @sccp_llvm_cond_br
+  // CHECK:      %[[TWO:.*]] = "arith.constant"() <{"value" = 2 : i32}>
   // CHECK-NEXT: "llvm.br"() [^[[FALSE:[0-9]+]]] : () -> ()
-  // CHECK: ^[[FALSE]]():
-  // CHECK-NEXT: "arith.constant"() <{"value" = 2 : i32}>
-  // CHECK: "func.return"(%[[RESULT:.*]]) : (i32) -> ()
+  // CHECK:      ^[[FALSE]]():
+  // CHECK-NEXT: "cf.br"(%[[TWO]])
+  // CHECK:      "func.return"(%[[TWO]]) : (i32) -> ()
   "func.return"(%result) : (i32) -> ()
 }) : () -> ()
