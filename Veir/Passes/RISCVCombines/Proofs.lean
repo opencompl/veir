@@ -166,62 +166,6 @@ theorem packh_high_bytes_commuted {b2 b3 : Reg} :
   veir_bv_decide
 
 /--
-  Prove the correctness of dropping a `riscv.zextw` from the `rs2` operand of
-  `riscv.addw`. The instruction reads only bits 31:0 of both operands.
--/
-theorem drop_zextw_addw_rs2 {rs1 rs2 : Reg} :
-    RISCV.addw (RISCV.zextw rs2) rs1 = RISCV.addw rs2 rs1 := by
-  veir_bv_decide
-
-/--
-  Prove the correctness of dropping a `riscv.zextw` from the `rs1` operand of
-  `riscv.addw`.
--/
-theorem drop_zextw_addw_rs1 {rs1 rs2 : Reg} :
-    RISCV.addw rs2 (RISCV.zextw rs1) = RISCV.addw rs2 rs1 := by
-  veir_bv_decide
-
-/--
-  Convenience form for the common case where both `riscv.addw` operands are
-  defined by `riscv.zextw`.
--/
-theorem drop_zextw_addw {rs1 rs2 : Reg} :
-    RISCV.addw (RISCV.zextw rs2) (RISCV.zextw rs1) = RISCV.addw rs2 rs1 := by
-  veir_bv_decide
-
-/--
-  Prove the correctness of `riscv.addiw (riscv.zextw x), imm ->
-  riscv.addiw x, imm`. `addiw` reads only bits 31:0 of its register operand.
--/
-theorem drop_zextw_addiw {rs1 : Reg} {imm : BitVec 12} :
-    RISCV.addiw imm (RISCV.zextw rs1) = RISCV.addiw imm rs1 := by
-  veir_bv_decide
-
-/--
-  Prove the correctness of `riscv.roriw (riscv.zextw x), imm ->
-  riscv.roriw x, imm`. `roriw` rotates only the low 32-bit word.
--/
-theorem drop_zextw_roriw {rs1 : Reg} {shamt : BitVec 5} :
-    RISCV.roriw shamt (RISCV.zextw rs1) = RISCV.roriw shamt rs1 := by
-  veir_bv_decide
-
-/--
-  Prove the correctness of `riscv.srliw (riscv.zextw x), imm ->
-  riscv.srliw x, imm`. `srliw` shifts only the low 32-bit word.
--/
-theorem drop_zextw_srliw {rs1 : Reg} {shamt : BitVec 5} :
-    RISCV.srliw shamt (RISCV.zextw rs1) = RISCV.srliw shamt rs1 := by
-  veir_bv_decide
-
-/--
-  Prove the correctness of `riscv.sextw (riscv.zextw x) -> riscv.sextw x`.
-  `sextw` is `addiw 0`, which reads only bits 31:0 of its operand.
--/
-theorem drop_zextw_sextw {rs1 : Reg} :
-    RISCV.sextw (RISCV.zextw rs1) = RISCV.sextw rs1 := by
-  veir_bv_decide
-
-/--
   Prove the correctness of dropping an outer `riscv.zextw` wrapping a bitwise
   `and` when only the *left* operand is `riscv.zextw`-guarded (the right operand
   `b` is arbitrary): `and` forces a result bit to zero whenever either operand's
@@ -298,49 +242,7 @@ theorem zextw_li_low32 {x : BitVec 64} (h : x.extractLsb 63 32 = 0#32) :
     RISCV.zextw (Data.RISCV.li x) = Data.RISCV.li x := by
   veir_bv_decide
 
-/-! ## Sext-side mirrors of the `zextw` combines.
-
-    `sextw` leaves bits 31:0 unchanged (it only rewrites bits 63:32 to a copy of
-    bit 31), so every combine justified by "the consumer reads only bits 31:0"
-    holds verbatim with `sextw` in place of `zextw`. The redundancy combines
-    (idempotence, `x0`, constant) transfer too, with the constant guard shifting
-    from the unsigned to the signed 32-bit range. -/
-
-/-- Sext mirror of `drop_zextw_addw` (`rs2` operand). -/
-theorem drop_sextw_addw_rs2 {rs1 rs2 : Reg} :
-    RISCV.addw (RISCV.sextw rs2) rs1 = RISCV.addw rs2 rs1 := by
-  veir_bv_decide
-
-/-- Sext mirror of `drop_zextw_addw` (`rs1` operand). -/
-theorem drop_sextw_addw_rs1 {rs1 rs2 : Reg} :
-    RISCV.addw rs2 (RISCV.sextw rs1) = RISCV.addw rs2 rs1 := by
-  veir_bv_decide
-
-/-- Convenience form with both `riscv.addw` operands `sextw`-defined. -/
-theorem drop_sextw_addw {rs1 rs2 : Reg} :
-    RISCV.addw (RISCV.sextw rs2) (RISCV.sextw rs1) = RISCV.addw rs2 rs1 := by
-  veir_bv_decide
-
-/-- Sext mirror of `drop_zextw_addiw`. -/
-theorem drop_sextw_addiw {rs1 : Reg} {imm : BitVec 12} :
-    RISCV.addiw imm (RISCV.sextw rs1) = RISCV.addiw imm rs1 := by
-  veir_bv_decide
-
-/-- Sext mirror of `drop_zextw_roriw`. -/
-theorem drop_sextw_roriw {rs1 : Reg} {shamt : BitVec 5} :
-    RISCV.roriw shamt (RISCV.sextw rs1) = RISCV.roriw shamt rs1 := by
-  veir_bv_decide
-
-/-- Sext mirror of `drop_zextw_srliw`. -/
-theorem drop_sextw_srliw {rs1 : Reg} {shamt : BitVec 5} :
-    RISCV.srliw shamt (RISCV.sextw rs1) = RISCV.srliw shamt rs1 := by
-  veir_bv_decide
-
-/-- `drop_sextw_zextw`: `zextw` keeps only bits 31:0, so a `sextw` feeding it is
-    redundant. (Mirror of `drop_zextw_sextw` with the extensions swapped.) -/
-theorem drop_sextw_zextw {rs1 : Reg} :
-    RISCV.zextw (RISCV.sextw rs1) = RISCV.zextw rs1 := by
-  veir_bv_decide
+/-! ## Sext-side mirrors of the `zextw` combines. -/
 
 /-- `sextw_sextw`: sign extension is idempotent. -/
 theorem sextw_sextw {x : Reg} :
