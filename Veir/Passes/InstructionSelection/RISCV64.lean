@@ -93,17 +93,21 @@ def ctpop64_pattern : Pattern OpCode := lowerUnary (.llvm .intr__ctpop) 64 .cpop
   most 64 (a 64-bit register cannot represent wider results, so e.g. `sext i8 to i128` is left
   unselected; unlike `opBw`, the result width is matched generically rather than enumerated), cast
   the operand to a register, apply the byte/halfword/word extension op matching `opBw`, and cast the
-  result back to the (generically-matched) result type.
+  result back to the (generically-matched) result type. `guard` adds conditions on the operand
+  type, the result type and the properties of the `srcOp` operation.
 -/
 def lowerExt (srcOp : OpCode) (opBw : Nat) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp))
+    (guard : Handle OpCode .type → Handle OpCode .type → Handle OpCode (.prop srcOp) →
+      MatchProg.Builder Unit := fun _ _ _ => pure ()) : Pattern OpCode :=
   Pattern.Builder
     (do
       let opType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = opBw)
       let resType ← MatchProg.type (Attr := IntegerType)
           (fun t => opBw < t.bitwidth ∧ t.bitwidth ≤ 64)
       let x ← MatchProg.value opType
-      let _ ← MatchProg.root srcOp #[x] #[resType]
+      let root ← MatchProg.root srcOp #[x] #[resType]
+      guard opType resType root.properties
       return (resType, x))
     (fun (resType, x) => do
       let regType ← CreateProg.type (RegisterType.mk none)
@@ -714,10 +718,13 @@ def icmpEmit (regType : Handle OpCode .type) (pred : Data.LLVM.IntPred)
 
 /--
   `icmp pred` whose lhs is `lhsWidth` bits wide once in a register (`i64`/`!llvm.ptr`,
-  `i32`, or `i8`). When `zeroRhs` is set, the rhs must be the constant `0`.
+  `i32`, or `i8`). When `zeroRhs` is set, the rhs must be the constant `0`. `guard` adds conditions
+  on the lhs type, the result type and the properties of the `srcOp` operation.
 -/
 def lowerIcmp (srcOp : OpCode) (pred : Data.LLVM.IntPred) (lhsWidth : Nat) (zeroRhs : Bool)
-    (h : propertiesOf srcOp = IcmpProperties := by rfl) : Pattern OpCode :=
+    (h : propertiesOf srcOp = IcmpProperties := by rfl)
+    (guard : Handle OpCode .type → Handle OpCode .type → Handle OpCode (.prop srcOp) →
+      MatchProg.Builder Unit := fun _ _ _ => pure ()) : Pattern OpCode :=
   Pattern.Builder
     (do
       /- support `i64`, `i32`, `i8` and `!llvm.ptr` -/
@@ -735,8 +742,9 @@ def lowerIcmp (srcOp : OpCode) (pred : Data.LLVM.IntPred) (lhsWidth : Nat) (zero
           pure zeroOp.res[0]!
         else
           MatchProg.value rhsType
-      let _ ← MatchProg.root srcOp #[lhs, rhs] #[resType]
+      let root ← MatchProg.root srcOp #[lhs, rhs] #[resType]
           (fun props => (cast h props).predicate = pred)
+      guard lhsType resType root.properties
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
       let regType ← CreateProg.type (RegisterType.mk none)
@@ -747,6 +755,22 @@ def lowerIcmp (srcOp : OpCode) (pred : Data.LLVM.IntPred) (lhsWidth : Nat) (zero
           #[cmpOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
+
+/--
+  The `icmp` patterns of `srcOp` for the lhs widths `widths`, with the `eq`/`ne` peepholes first
+  (see `icmp`).
+-/
+def icmpPatterns (srcOp : OpCode) (widths : Array Nat)
+    (h : propertiesOf srcOp = IcmpProperties := by rfl)
+    (guard : Handle OpCode .type → Handle OpCode .type → Handle OpCode (.prop srcOp) →
+      MatchProg.Builder Unit := fun _ _ _ => pure ()) : Array (Pattern OpCode) :=
+  let preds : Array Data.LLVM.IntPred :=
+    #[.eq, .ne, .slt, .sgt, .ult, .ugt, .sge, .sle, .uge, .ule]
+  let peepholes := widths.flatMap fun w =>
+    #[Data.LLVM.IntPred.eq, .ne].map fun pred => lowerIcmp srcOp pred w true h guard
+  let generic := widths.flatMap fun w =>
+    preds.map fun pred => lowerIcmp srcOp pred w false h guard
+  peepholes ++ generic
 
 /--
   llvm.icmp -> riscv comparison sequence (see the arms above).
@@ -760,14 +784,7 @@ def lowerIcmp (srcOp : OpCode) (pred : Data.LLVM.IntPred) (lhsWidth : Nat) (zero
   https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1649
 -/
 def icmp : Array (Puddle.CompiledPattern OpCode) :=
-  let widths := #[64, 32, 8]
-  let preds : Array Data.LLVM.IntPred :=
-    #[.eq, .ne, .slt, .sgt, .ult, .ugt, .sge, .sle, .uge, .ule]
-  let peepholes := widths.flatMap fun w =>
-    #[Data.LLVM.IntPred.eq, .ne].map fun pred => lowerIcmp (.llvm .icmp) pred w true
-  let generic := widths.flatMap fun w =>
-    preds.map fun pred => lowerIcmp (.llvm .icmp) pred w false
-  (peepholes ++ generic).map (·.compile)
+  (icmpPatterns (.llvm .icmp) #[64, 32, 8]).map (·.compile)
 
 /-- llvm.or -> riscv.or (bitwise, so one instruction for every legal width) -/
 def or : Puddle.CompiledPattern OpCode := or_pattern.compile
@@ -2320,6 +2337,15 @@ def matchLegal (opcode : GMIR) (type : Handle OpCode .type)
   MatchProg.matchNative (type, properties) fun (type, properties) =>
     riscv64LegalizerInfo.isLegal opcode #[type] properties
 
+/--
+  Matches only if an `opcode` operation with operand type `opType`, result type `resType` and
+  `properties` is legal.
+-/
+def matchLegalCast (opcode : GMIR) (opType resType : Handle OpCode .type)
+    (properties : Handle OpCode (.prop (.gmir opcode))) : MatchProg.Builder Unit :=
+  MatchProg.matchNative (opType, resType, properties) fun (opType, resType, properties) =>
+    riscv64LegalizerInfo.isLegal opcode #[resType, opType] properties
+
 /-- Requires a legal `gmir.g_sext_inreg` that keeps the low `sz` bits. -/
 def matchSextInReg (sz : Nat) (type : Handle OpCode .type)
     (properties : Handle OpCode (.prop (.gmir .g_sext_inreg))) : MatchProg.Builder Unit := do
@@ -2356,6 +2382,34 @@ def gmirAnyext_pattern : Pattern OpCode :=
   lowerRegCast (.gmir .g_anyext) fun opType resType properties =>
     riscv64LegalizerInfo.isLegal .g_anyext #[resType, opType] properties
 
+/-- `gmir.g_sext` (`i8` operand) -> `riscv.sextb`. -/
+def gmirSext8_pattern : Pattern OpCode :=
+  lowerExt (.gmir .g_sext) 8 .sextb () (guard := matchLegalCast .g_sext)
+
+/-- `gmir.g_sext` (`i16` operand) -> `riscv.sexth`. -/
+def gmirSext16_pattern : Pattern OpCode :=
+  lowerExt (.gmir .g_sext) 16 .sexth () (guard := matchLegalCast .g_sext)
+
+/-- `gmir.g_sext` (`i32` operand) -> `riscv.sextw`. -/
+def gmirSext32_pattern : Pattern OpCode :=
+  lowerExt (.gmir .g_sext) 32 .sextw () (guard := matchLegalCast .g_sext)
+
+/-- `gmir.g_zext` (`i8` operand) -> `riscv.zextb`. -/
+def gmirZext8_pattern : Pattern OpCode :=
+  lowerExt (.gmir .g_zext) 8 .zextb () (guard := matchLegalCast .g_zext)
+
+/-- `gmir.g_zext` (`i16` operand) -> `riscv.zexth`. -/
+def gmirZext16_pattern : Pattern OpCode :=
+  lowerExt (.gmir .g_zext) 16 .zexth () (guard := matchLegalCast .g_zext)
+
+/-- `gmir.g_zext` (`i32` operand) -> `riscv.zextw`. -/
+def gmirZext32_pattern : Pattern OpCode :=
+  lowerExt (.gmir .g_zext) 32 .zextw () (guard := matchLegalCast .g_zext)
+
+/-- `gmir.g_icmp` -> RISC-V comparison sequence, as for `llvm.icmp` (see `icmp`). -/
+def gmirIcmp : Array (Puddle.CompiledPattern OpCode) :=
+  (icmpPatterns (.gmir .g_icmp) #[64] (guard := matchLegalCast .g_icmp)).map (·.compile)
+
 def gmirAdd : Puddle.CompiledPattern OpCode := gmirAdd_pattern.compile
 def gmirSub : Puddle.CompiledPattern OpCode := gmirSub_pattern.compile
 def gmirSextInReg32 : Puddle.CompiledPattern OpCode := gmirSextInReg32_pattern.compile
@@ -2363,6 +2417,12 @@ def gmirSextInReg16 : Puddle.CompiledPattern OpCode := gmirSextInReg16_pattern.c
 def gmirSextInReg8 : Puddle.CompiledPattern OpCode := gmirSextInReg8_pattern.compile
 def gmirTrunc : Puddle.CompiledPattern OpCode := gmirTrunc_pattern.compile
 def gmirAnyext : Puddle.CompiledPattern OpCode := gmirAnyext_pattern.compile
+def gmirSext8 : Puddle.CompiledPattern OpCode := gmirSext8_pattern.compile
+def gmirSext16 : Puddle.CompiledPattern OpCode := gmirSext16_pattern.compile
+def gmirSext32 : Puddle.CompiledPattern OpCode := gmirSext32_pattern.compile
+def gmirZext8 : Puddle.CompiledPattern OpCode := gmirZext8_pattern.compile
+def gmirZext16 : Puddle.CompiledPattern OpCode := gmirZext16_pattern.compile
+def gmirZext32 : Puddle.CompiledPattern OpCode := gmirZext32_pattern.compile
 
 /-! # Pass implementation -/
 
@@ -2390,7 +2450,8 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run, fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
     poisonConst.run, zeroConst.run, freeze.run,
     gmirAdd.run, gmirSub.run, gmirSextInReg32.run, gmirSextInReg16.run, gmirSextInReg8.run,
-    gmirTrunc.run, gmirAnyext.run]
+    gmirTrunc.run, gmirAnyext.run, gmirSext32.run, gmirSext16.run, gmirSext8.run, gmirZext32.run,
+    gmirZext16.run, gmirZext8.run] ++ gmirIcmp.map (·.run)
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying main instruction-selection patterns"
   | some ctx => pure ctx
