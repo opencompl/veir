@@ -43,12 +43,12 @@ namespace TypeFun
 
 The first curried argument corresponds to `α.head` (the last `Fin` position), so for `n = 2`:
 `curry F = fun α₀ α₁ => F (α₁ <: α₀ <: nil)`. -/
-def curry : {n : Nat} → TypeFun.{u, u} n → CurriedTypeFun.{u} n
+abbrev curry : {n : Nat} → TypeFun.{u, u} n → CurriedTypeFun.{u} n
   | 0,   F => F TypeVec.nil
   | _+1, F => fun a => curry (fun αs => F (a <: αs))
 
 /-- Convert a `CurriedTypeFun.{u} n` to an uncurried `TypeFun.{u, u} n`. -/
-def ofCurried : {n : Nat} → CurriedTypeFun.{u} n → TypeFun.{u, u} n
+abbrev ofCurried : {n : Nat} → CurriedTypeFun.{u} n → TypeFun.{u, u} n
   | 0,   F, _ => F
   | _+1, F, α => ofCurried (F α.head) α.tail
 
@@ -63,8 +63,8 @@ theorem ofCurried_curry {n : Nat} (F : TypeFun.{u, u} n) :
     ofCurried (curry F) = F := by
   induction n
   · funext α
-    simp [ofCurried, curry, α.eq_nil]
-  · grind [ofCurried, curry]
+    simp [α.eq_nil]
+  · grind
 
 end TypeFun
 
