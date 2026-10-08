@@ -157,18 +157,11 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     if h : resBw.bitwidth <= w then none else
     return (#[.int resBw.bitwidth (Data.LLVM.Int.sext val resBw.bitwidth (by omega))], mem, none)
   | .g_trunc => do
-    let [val] := operands.toList | none
+    let [.int w val] := operands.toList | none
     let some resType := resultTypes[0]? | none
-    match val with
-    | .int w val =>
-        let .integerType resBw := resType.val | none
-        if h: resBw.bitwidth >= w then none else
-        return (#[.int resBw.bitwidth (Data.LLVM.Int.trunc val resBw.bitwidth properties.nsw properties.nuw (by omega))], mem, none)
-    | .byte w val =>
-        let .byteType resBw := resType.val | none
-        if h: resBw.bitwidth >= w then none else
-        return (#[.byte resBw.bitwidth (Data.LLVM.Byte.trunc val resBw.bitwidth)], mem, none)
-    | _ => none
+    let .integerType resBw := resType.val | none
+    if h : resBw.bitwidth >= w then none else
+    return (#[.int resBw.bitwidth (Data.LLVM.Int.trunc val resBw.bitwidth properties.nsw properties.nuw (by omega))], mem, none)
 
 /--
 Verify the local invariants of a `gmir` operation in any operation-info type
