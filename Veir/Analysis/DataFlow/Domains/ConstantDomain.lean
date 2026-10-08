@@ -2,6 +2,8 @@ module
 
 public import Veir.Analysis.DataFlow.Domains.AbstractDomain
 public import Veir.FoldDecision
+public import Veir.Interpreter.Refinement.Basic
+import Veir.Interpreter.Refinement.Lemmas
 
 public section
 
@@ -29,12 +31,15 @@ instance : ToString AbstractConstant where
 
 namespace AbstractConstant
 
-/-- Defines the ordering of abstract values in the constant domain. -/
+/--
+The order of the constant domain: `⊥` is below everything, everything is below `⊤`,
+and `constant c ≤ constant d` when `c` is refined by `d`.
+-/
 def le (x y : AbstractConstant) : Prop :=
   match x, y with
   | .bottom, _ => True
   | _, .top => True
-  | .constant c, .constant d => c = d
+  | .constant c, .constant d => c ⊒ d
   | _, _ => False
 
 instance : LE AbstractConstant where
@@ -65,52 +70,82 @@ def ofFoldDecision (result : FoldDecision) (operands : Array AbstractConstant) :
   match absVal with
   | .top => fun _ => True
   | .bottom => fun _ => False
-  | .constant a => fun concVal => concVal = a
+  | .constant a => fun source => RuntimeValue.isRefinedBy source a
 
+/--
+Least upper bound. Two constants join to the least value both refine to, or to `⊤` if there
+is none. Since `≤` on constants is `⊒`, this is the greatest lower bound under refinement
+(`RuntimeValue.glb?`).
+-/
 def join (lhs rhs : AbstractConstant) : AbstractConstant :=
   match lhs, rhs with
   | .bottom, y => y
   | x, .bottom => x
   | .top, _ => ⊤
   | _, .top => ⊤
-  | .constant c, .constant d => if c = d then .constant c else ⊤
+  | .constant c, .constant d =>
+    match c.glb? d with
+    | some e => .constant e
+    | none => ⊤
 
 instance : Join AbstractConstant where
   join := join
 
 theorem γ_monotone (a b : AbstractConstant) : a ≤ b → γ a ⊆ γ b := by
   intro hab x hx
-  cases a <;> cases b <;> simp [γ] at hab hx ⊢
-  all_goals first | trivial | exact hx.trans hab
+  cases a <;> cases b <;> simp only [LE.le, le] at hab
+  all_goals first | trivial | exact hab.elim | exact hx.elim | skip
+  case constant.constant c d => exact RuntimeValue.isRefinedBy_trans hx hab
 
 @[simp, grind .]
 theorem le_refl (a : AbstractConstant) : a ≤ a := by
-  cases a <;> simp [le, le_def]
+  cases a <;> first | trivial | exact RuntimeValue.isRefinedBy_refl _
 
 @[grind →]
 theorem le_trans (a b c : AbstractConstant) : a ≤ b → b ≤ c → a ≤ c := by
-  cases a <;> cases b <;> cases c <;> simp_all [le, le_def]
+  intro h h'
+  cases a <;> cases b <;> cases c <;> simp only [le_def, le] at h h' ⊢ <;>
+    first | trivial | exact h.elim | exact h'.elim | exact RuntimeValue.isRefinedBy_trans h h'
 
 @[grind →]
 theorem le_antisymm (a b : AbstractConstant) : a ≤ b → b ≤ a → a = b := by
-  cases a <;> cases b <;> simp_all [le, le_def]
+  intro h h'
+  cases a <;> cases b <;> simp only [le_def, le] at h h' ⊢ <;>
+    first | rfl | exact h.elim | exact h'.elim | rw [RuntimeValue.isRefinedBy_antisymm h h']
 
 @[simp, grind .]
 theorem le_join_left (a b : AbstractConstant) : a ≤ a ⊔ b := by
-  cases a <;> cases b <;> try simp [le, le_def, join]
+  show a ≤ join a b
+  cases a <;> cases b <;> simp only [join] <;>
+    first | exact le_refl _ | exact le_top _ | exact bot_le _ | skip
   case constant.constant c d =>
-    by_cases h : c = d <;> simp [h]
+    split
+    · next e he => exact (RuntimeValue.glb?_isRefinedBy he).1
+    · exact le_top _
 
 @[simp, grind .]
 theorem le_join_right (a b : AbstractConstant) : b ≤ a ⊔ b := by
-  cases a <;> cases b <;> try simp [le, le_def, join]
+  show b ≤ join a b
+  cases a <;> cases b <;> simp only [join] <;>
+    first | exact le_refl _ | exact le_top _ | exact bot_le _ | skip
   case constant.constant c d =>
-    by_cases h : c = d <;> simp [h]
+    split
+    · next e he => exact (RuntimeValue.glb?_isRefinedBy he).2
+    · exact le_top _
 
 theorem join_le (a b c : AbstractConstant) : a ≤ c → b ≤ c → a ⊔ b ≤ c := by
-  intros
-  cases a <;> cases b <;> cases c <;>
-    simp [join] <;> (try split) <;> simp_all [le, le_def]
+  intro ha hb
+  show join a b ≤ c
+  cases a <;> cases b <;> simp only [join] <;> first | exact ha | exact hb | exact bot_le _ | skip
+  case constant.constant c' d' =>
+    cases c with
+    | top => exact le_top _
+    | bottom => exact ha.elim
+    | constant e =>
+      simp only [le_def, le] at ha hb
+      obtain ⟨m, hm, hme⟩ := RuntimeValue.glb?_greatest ha hb
+      simp only [hm]
+      exact hme
 
 instance : JoinSemilattice AbstractConstant where
   le_refl := le_refl

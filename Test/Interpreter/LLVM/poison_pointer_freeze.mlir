@@ -1,7 +1,9 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI_CHECK
+// RUN: ALIVE_EXEC_CHECK
 
 // Freezing a poison pointer yields some pointer; the interpreter picks null.
-// ALIVE_EXEC: cannot compare: it prints the frozen pointer in its own encoding.
+// llubi and alive-exec pick some pointer as well; which one is theirs to choose.
 // In the future, we would like to use ctrees to enable a non-determistic choice,
 // at least in our model.
 
@@ -14,3 +16,5 @@
 }) : () -> ()
 
 // CHECK: Program output: #[ptr(0, 0)]
+// ALIVE_EXEC: Program output: #[ptr]
+// LLUBI: Program output: #[ptr]

@@ -115,7 +115,7 @@ old operation is being replaced.
 -/
 def LocalRewritePattern.ReturnValuesDominate (pattern : LocalRewritePattern OpCode) : Prop :=
   ∀ ctx op newCtx newOps newValues, pattern ctx op = some (newCtx, some (newOps, newValues)) →
-  ∀ v ∈ newValues, v.InBounds ctx.raw → v.dominatesIp (InsertPoint.before op) ctx
+  ∀ v ∈ newValues, v.InBounds ctx.raw → v.DominatesIp (InsertPoint.before op) ctx
 
 /-- The matched operation has no regions. -/
 def LocalRewritePattern.MatchedOpHasNoRegions (pattern : LocalRewritePattern OpCode) : Prop :=
@@ -175,8 +175,8 @@ def LocalRewritePattern.PreservesSemantics
   (pattern : LocalRewritePattern OpCode)
   (_ : pattern.ReturnOps) (_ : pattern.ReturnCtxChanges)
   (_ : pattern.ReturnValuesInBounds) (_ : pattern.ReturnValues) : Prop :=
-  ∀ ctx root (ctxDom : ctx.Dom) (ctxVerif : ctx.Verified root)
-    (op : OperationPtr) (opInBounds : op.InBounds ctx.raw),
+  ∀ ctx (root : OperationPtr) (ctxDom : ctx.Dom root) (ctxVerif : ctx.Verified root)
+    (op : OperationPtr) (opInBounds : op.InBounds ctx.raw) (opInRoot : root.Ancestor op ctx),
   ∀ newCtx newOps newValues (hpattern : pattern ctx op = some (newCtx, some (newOps, newValues))),
   ∀ (state : InterpreterState ctx), state.EquationLemmaAt (InsertPoint.before op) →
   ∀ newState cf, interpretOp op state = some (newState, cf) →
@@ -198,7 +198,7 @@ def LocalRewritePattern.RewritePreservesDom (pattern : LocalRewritePattern OpCod
   ∀ (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) (rewriter' : PatternRewriter OpCode),
     RewritePattern.fromLocalRewrite pattern rewriter op opInBounds = some rewriter' →
-    rewriter.ctx.Dom → rewriter'.ctx.Dom
+    ∀ root, rewriter.ctx.Dom root → rewriter'.ctx.Dom root
 
 /--
 Applying the pattern as a local rewrite preserves the verification-wellformedness of the context.

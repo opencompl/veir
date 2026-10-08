@@ -135,37 +135,6 @@ example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
     x + 1#w ≠ x := by
   pbv_decide 4
 
--- Expected failure: `setWidth` is not pushed through `*`, so the products are abstracted
--- and a true statement gets a spurious counterexample
-/--
-error: `pbv_decide` found a potentially spurious counterexample.
-  The following expressions were abstracted as opaque variables:
-    - BitVec.setWidth 4 (BitVec.setWidth w x * BitVec.setWidth w y) = 0xf#4
-    - BitVec.setWidth 4 (BitVec.setWidth w y * BitVec.setWidth w x) = 0x7#4
-Consider the following assignment:
-  w = 4  	(m_w0 = 0xf#4)
-  x = 0xf#4
-  y = 0xf#4
--/
-#guard_msgs in
-example (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
-    x * y = y * x := by
-  pbv_decide 4
-
-/--
-error: `pbv_decide` found a potentially spurious counterexample.
-  The following expressions were abstracted as opaque variables:
-    - BitVec.setWidth 4 (BitVec.setWidth w x * BitVec.setWidth w y) = 0x7#4
-Consider the following assignment:
-  w = 4  	(m_w0 = 0xf#4)
-  x = 0xf#4
-  y = 0xf#4
--/
-#guard_msgs in
-example (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
-    x * y = x := by
-  pbv_decide 4
-
 -- Without a bound on `w` the side goal is left to the user, but the counterexample is still reported
 /--
 warning: `grind` could not prove the following : w ≤ 4

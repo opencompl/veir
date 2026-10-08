@@ -285,5 +285,23 @@ theorem M.bisim {α : TypeVec n} {x y : M P α} (h : IsBisim P x y) : x = y := b
   | child x a f h' j i c IH =>
     exact IH _ _ (h'' _)
 
+set_option backward.isDefEq.respectTransparency false in
+/--
+`P.M α` is the final coalgebra of `X ↦ P (α ::: X)`: any endomorphism of `P.M α`
+that commutes with `M.dest` is the identity.
+-/
+theorem M.eq_id_of_dest_comm {α : TypeVec n} (g : P.M α → P.M α)
+    (h : ∀ x, M.dest P (g x) = (TypeVec.id ::: g) <$$> M.dest P x) (x : P.M α) :
+    g x = x := by
+  apply M.bisim
+  apply IsBisim.coinduct P (fun x y => x = g y) ?_ _ _ rfl
+  rintro x y rfl
+  rcases hy : M.dest P y with ⟨a, fn⟩
+  obtain ⟨f, f', rfl⟩ : ∃ f f', fn = splitFun f f' :=
+    ⟨dropFun fn, lastFun fn, (split_dropFun_lastFun fn).symm⟩
+  refine ⟨a, f, g ∘ f', f', ?_, rfl, fun _ => rfl⟩
+  rw [h, hy]
+  simp
+
 end MvPFunctor
 end QPFTypes

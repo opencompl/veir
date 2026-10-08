@@ -1,9 +1,10 @@
 // RUN: veir-interpret %s | filecheck %s
 // RUN: LLUBI
+// RUN: ALIVE_EXEC_CHECK
 
 // A global's initializer may take the address of a global defined after it.
 
-// ALIVE_EXEC: crashes on a writable global.
+// alive-exec crashes on a writable global.
 
 "builtin.module"() ({
   "llvm.mlir.global"() <{addr_space = 0 : i32, global_type = !llvm.ptr, linkage = #llvm.linkage<internal>, sym_name = "p"}> ({
@@ -21,3 +22,4 @@
 }) : () -> ()
 
 // CHECK: Program output: #[0x00000007#32]
+// ALIVE_EXEC: Crashed
