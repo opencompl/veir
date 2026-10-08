@@ -34,6 +34,9 @@ def customLegalizeAddSub (opcode : GMIR) (noFlags : propertiesOf (OpCode.gmir op
       buildTrunc sext.res[0]! type)
     (fun trunc => trunc)
 
+/-- A pointer in address space 0, as LLVM's `p0`. -/
+private def p0 : LLT := .pointer 0
+
 public section
 
 def riscv64LegalizerInfo : LegalizerInfo where
@@ -44,7 +47,7 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .minScalar (.type 0) 64,
     ]
     | .g_icmp => [
-      .legalForTypePairs [(64, 64)],
+      .legalForTypePairs [(64, 64), (64, p0)],
       .minScalar (.type 1) 64,
       .minScalar (.type 0) 64,
     ]
