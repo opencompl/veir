@@ -355,10 +355,11 @@ public def ofTypeDef (defn : Name)
       (levelParams : List Name) → (deadVars : Array FVarId) → m α) : m α := withErrContext do
   let info ← getConstInfoDefn defn
   trace[QPFTypes] "Defined as: {info.value}"
-  lambdaTelescope info.value fun fvars target => do
+  forallTelescopeReducing info.type fun fvars _type => do
     let { liveVars, deadVars, liveVarLevel := u } ← collectLiveParams (fvars.map Expr.fvarId!)
     trace[QPFTypes] "Identified:\nLive variables: {liveVars}\nDead variables: {deadVars}"
 
+    let target := mkAppN info.value fvars
     assertTargetInUniverse target u
     let qpf ← ofTypeExprCore u ⟨liveVars, rfl⟩ target
     qpf.debugAssertCurriedDefEq liveVars target
