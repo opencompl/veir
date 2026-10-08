@@ -1622,7 +1622,7 @@ def zextb_lbu : RewritePattern OpCode :=
 /-- Apply `riscv.sextw` to the register results of an interpreted operation. -/
 abbrev sextwResults : Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction) →
     Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
-  Interp.map fun (values, mem, action) =>
+  Functor.map fun (values, mem, action) =>
     (values.map fun | .reg r => .reg (Data.RISCV.sextw r) | value => value, mem, action)
 
 /-- On an operation that returns the single register `r`, `sextwResults` changes
@@ -1630,7 +1630,7 @@ abbrev sextwResults : Interp (Array RuntimeValue × MemoryState × Option Contro
 theorem sextwResults_reg_eq_self_iff :
     sextwResults (.ok (#[.reg r], mem, action)) = .ok (#[.reg r], mem, action) ↔
       Data.RISCV.sextw r = r := by
-  simp [sextwResults]
+  simp [sextwResults, Functor.map]
 
 /-- `op`, with `arity` register operands and properties accepted by `property`, always returns a
     sign-extended 32-bit value. Applying `riscv.sextw` to its result has no effect. -/
@@ -1682,7 +1682,7 @@ def sextw_signExtendingOpW (producer : Riscv) (arity : Nat)
     (property : Puddle.PropertyMatcher (OpCode.riscv producer) := fun _ => true)
     (signExtending : IsSignExtendingOpW producer arity property := by
       simp only [IsSignExtendingOpW, Riscv.interpretOp', riscvLoad, sextwResults_reg_eq_self_iff,
-        Interp.pure_eq, Interp.bind_ok, Interp.bind_assoc, Interp.map_bind,
+        Interp.pure_eq, Interp.bind_ok, bind_assoc, map_bind,
         Interp.bind_eq_bind_iff] <;> veir_bv_decide) :
     RewritePattern OpCode :=
   (sextw_signExtendingOpW_pattern producer arity property signExtending).compile.run
