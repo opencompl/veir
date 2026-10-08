@@ -278,10 +278,8 @@ end
 -/
 
 /--
-error: While deriving a QPF from type expression:
-  α → Nat
-With live free variables:
-  [α]
+error: While deriving a QPF from definition:
+  FailsLiveDomain
 
 the domain of a function type may not mention live variables:
   α
@@ -293,10 +291,8 @@ a function type is not functorial in its domain.
 -- Both components of a product must live in the universe of the QPF, as the
 -- `QPF` instance only exists for `Prod.{u, u}`.
 /--
-error: While deriving a QPF from type expression:
-  Nat × α
-With live free variables:
-  [α]
+error: While deriving a QPF from definition:
+  FailsProdUniverse
 
 failed to find a QPF in the head of the application:
   Nat × α
@@ -309,10 +305,8 @@ note that the head, after applying it to zero or more of the arguments, must be 
 
 
 /--
-error: While deriving a QPF from type expression:
-  Indexed α α
-With live free variables:
-  [α]
+error: While deriving a QPF from definition:
+  FailsLiveHead
 
 the head of the application still contains live variables:
   Indexed α
@@ -321,10 +315,8 @@ the head of the application still contains live variables:
 @[qpf] def FailsLiveHead (α : liveParam Type) := Indexed α α
 
 /--
-error: While deriving a QPF from type expression:
-  NotAQpf α
-With live free variables:
-  [α]
+error: While deriving a QPF from definition:
+  FailsNotAQpf
 
 failed to find a QPF in the head of the application:
   NotAQpf α
@@ -336,18 +328,22 @@ note that the head, after applying it to zero or more of the arguments, must be 
 -- A target that is not a type at all. The `let` keeps `ofTypeDef` from treating
 -- the lambda's binder as just another (dead) parameter.
 /--
-error: While deriving a QPF from type expression:
-  have f := fun x => α;
-  f
-With live free variables:
-  [α]
+error: While deriving a QPF from definition:
+  FailsNotAType
 
-type expected
+The expression:
   have f := fun x => α;
   f
+has type
+  Nat → liveParam Type
+but is expected to have type
+  Type
+
+Note that the result of a QPF must live in the same type universe as it's arguments
 -/
 #guard_msgs in
-@[qpf] def FailsNotAType (α : liveParam Type) : Nat → Type := let f := fun (_ : Nat) => α; f
+@[qpf] def FailsNotAType (α : liveParam Type) : Nat → Type :=
+  let f := fun (_ : Nat) => α; f
 
 /-!
 ## Attribute kinds
