@@ -8,6 +8,7 @@ import Veir.Interfaces.ConstantLikeInterfaces
 import Veir.Interfaces.FunctionInterfaces
 import Veir.Passes.Matching.LLVM.Basic
 import Veir.Passes.InstructionSelection.Common
+import Veir.Passes.Legalization.RISCV64LegalizerInfo
 import Veir.PatternRewriter.Puddle.Builders
 import Veir.PatternRewriter.Puddle.Execution
 
@@ -39,15 +40,19 @@ def getIntByteTypeBitwidth (t : TypeAttr) : Option Nat :=
   | _ => none
 
 /--
-  RISC-V lowerings with Puddle for unary operations.
+  RISC-V lowerings with Puddle for unary operations. `guard` adds conditions on the matched type
+  and on the properties of the `srcOp` operation.
 -/
 def lowerUnary (srcOp : OpCode) (bw : Nat) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp))
+    (guard : Handle OpCode .type → Handle OpCode (.prop srcOp) → MatchProg.Builder Unit :=
+      fun _ _ => pure ()) : Pattern OpCode :=
   Pattern.Builder
     (do
       let returnType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
       let x ← MatchProg.value returnType
-      let _ ← MatchProg.root srcOp #[x] #[returnType]
+      let root ← MatchProg.root srcOp #[x] #[returnType]
+      guard returnType root.properties
       return (returnType, x))
     (fun (returnType, x) => do
       let regType ← CreateProg.type (RegisterType.mk none)
@@ -136,18 +141,21 @@ def zext32_pattern : Pattern OpCode := lowerExt .zext 32 .zextw ()
   RISC-V for binary operations that share a single integer type between both operands and the
   result: cast both operands to registers, optionally apply `extend` to each register first (e.g.
   `riscv.sextw` for the signed min/max `i32` arms, since `castToRegLocal`'s zero-extension does not
-  preserve signed order), apply `riscvOp`, and cast the result back to the source type.
+  preserve signed order), apply `riscvOp`, and cast the result back to the source type. `guard` adds
+  conditions on the matched type and on the properties of the `srcOp` operation.
 -/
 def lowerBinary (srcOp : OpCode) (typeMatcher : IntegerType → Bool) (riscvOp : Riscv)
     (riscvProps : propertiesOf (OpCode.riscv riscvOp))
-    (extend : Option (Σ extOp : Riscv, propertiesOf (OpCode.riscv extOp)) := none) :
-    Pattern OpCode :=
+    (extend : Option (Σ extOp : Riscv, propertiesOf (OpCode.riscv extOp)) := none)
+    (guard : Handle OpCode .type → Handle OpCode (.prop srcOp) → MatchProg.Builder Unit :=
+      fun _ _ => pure ()) : Pattern OpCode :=
   Pattern.Builder
     (do
       let opType ← MatchProg.type (Attr := IntegerType) typeMatcher
       let lhs ← MatchProg.value opType
       let rhs ← MatchProg.value opType
-      let _ ← MatchProg.root srcOp #[lhs, rhs] #[opType]
+      let root ← MatchProg.root srcOp #[lhs, rhs] #[opType]
+      guard opType root.properties
       return (opType, lhs, rhs))
     (fun (opType, lhs, rhs) => do
       let regType ← CreateProg.type (RegisterType.mk none)
@@ -2299,6 +2307,62 @@ def memIntrinsic (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite memIntrinsic_local rewriter op opInBounds
 
+/-! # gMIR Lowering Patterns
+
+  The gMIR patterns only select operations that `riscv64LegalizerInfo` considers legal, since
+  LLVM's instruction selector only sees legalized gMIR.
+-/
+
+/-- Matches only if an `opcode` operation of type `type` with `properties` is legal. -/
+def matchLegal (opcode : GMIR) (type : Handle OpCode .type)
+    (properties : Handle OpCode (.prop (.gmir opcode))) : MatchProg.Builder Unit :=
+  MatchProg.matchNative (type, properties) fun (type, properties) =>
+    riscv64LegalizerInfo.isLegal opcode #[type] properties
+
+/-- Requires a legal `gmir.g_sext_inreg` that keeps the low `sz` bits. -/
+def matchSextInReg (sz : Nat) (type : Handle OpCode .type)
+    (properties : Handle OpCode (.prop (.gmir .g_sext_inreg))) : MatchProg.Builder Unit := do
+  matchLegal .g_sext_inreg type properties
+  MatchProg.matchNative properties fun properties => properties.sz.toNat == sz
+
+/-- `gmir.g_add` (`i64`) -> `riscv.add`. -/
+def gmirAdd_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_add) (·.bitwidth = 64) .add () (guard := matchLegal .g_add)
+
+/-- `gmir.g_sub` (`i64`) -> `riscv.sub`. -/
+def gmirSub_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_sub) (·.bitwidth = 64) .sub () (guard := matchLegal .g_sub)
+
+/-- `gmir.g_sext_inreg` with `sz = 32` -> `riscv.sextw`. -/
+def gmirSextInReg32_pattern : Pattern OpCode :=
+  lowerUnary (.gmir .g_sext_inreg) 64 .sextw () (guard := matchSextInReg 32)
+
+/-- `gmir.g_sext_inreg` with `sz = 16` -> `riscv.sexth`. -/
+def gmirSextInReg16_pattern : Pattern OpCode :=
+  lowerUnary (.gmir .g_sext_inreg) 64 .sexth () (guard := matchSextInReg 16)
+
+/-- `gmir.g_sext_inreg` with `sz = 8` -> `riscv.sextb`. -/
+def gmirSextInReg8_pattern : Pattern OpCode :=
+  lowerUnary (.gmir .g_sext_inreg) 64 .sextb () (guard := matchSextInReg 8)
+
+/-- `gmir.g_trunc` -> a cast through `!riscv.reg`, since LLVM selects it as a copy. -/
+def gmirTrunc_pattern : Pattern OpCode :=
+  lowerRegCast (.gmir .g_trunc) fun opType resType properties =>
+    riscv64LegalizerInfo.isLegal .g_trunc #[resType, opType] properties
+
+/-- `gmir.g_anyext` -> a cast through `!riscv.reg`, since LLVM selects it as a copy. -/
+def gmirAnyext_pattern : Pattern OpCode :=
+  lowerRegCast (.gmir .g_anyext) fun opType resType properties =>
+    riscv64LegalizerInfo.isLegal .g_anyext #[resType, opType] properties
+
+def gmirAdd : Puddle.CompiledPattern OpCode := gmirAdd_pattern.compile
+def gmirSub : Puddle.CompiledPattern OpCode := gmirSub_pattern.compile
+def gmirSextInReg32 : Puddle.CompiledPattern OpCode := gmirSextInReg32_pattern.compile
+def gmirSextInReg16 : Puddle.CompiledPattern OpCode := gmirSextInReg16_pattern.compile
+def gmirSextInReg8 : Puddle.CompiledPattern OpCode := gmirSextInReg8_pattern.compile
+def gmirTrunc : Puddle.CompiledPattern OpCode := gmirTrunc_pattern.compile
+def gmirAnyext : Puddle.CompiledPattern OpCode := gmirAnyext_pattern.compile
+
 /-! # Pass implementation -/
 
 def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
@@ -2323,7 +2387,9 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     load.map (·.run) ++ getelementptr.map (·.run) ++ store.map (·.run) ++ #[
     smax64.run, smax32.run, smin64.run, smin32.run, umax.run, umin.run, saddSat.run, ssubSat.run, uaddSat.run, usubSat.run, sshlSat.run, ushlSat.run, abs.run,
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run, fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
-    poisonConst.run, zeroConst.run, freeze.run]
+    poisonConst.run, zeroConst.run, freeze.run,
+    gmirAdd.run, gmirSub.run, gmirSextInReg32.run, gmirSextInReg16.run, gmirSextInReg8.run,
+    gmirTrunc.run, gmirAnyext.run]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying main instruction-selection patterns"
   | some ctx => pure ctx

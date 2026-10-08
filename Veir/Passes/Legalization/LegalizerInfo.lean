@@ -66,11 +66,19 @@ def GMIR.getTypeGroupTypes! (opCode : GMIR) (op : OperationPtr) (ctx : IRContext
       types := types.push type
   return types
 
+/--
+The legality query of an `opcode` operation whose type groups have `types` and whose properties are
+`properties`. Returns `none` if one of the types is not a scalar integer.
+TODO: Support the byte type.
+-/
+def LegalityQuery.ofTypes? (types : Array TypeAttr) (properties : GMIR.propertiesOf opcode) :
+    Option (LegalityQuery opcode) := do
+  return { types := ← types.mapM LLT.ofType?, properties }
+
 /-- The legality query of `op`. Returns `none` if one of its types is not a scalar integer. -/
 def LegalityQuery.of? (ctx : IRContext OpCode) (op : OperationPtr) (opcode : GMIR) :
-    Option (LegalityQuery opcode) := do
-  let types ← (opcode.getTypeGroupTypes! op ctx).mapM LLT.ofType?
-  return { types, properties := op.getProperties! ctx opcode }
+    Option (LegalityQuery opcode) :=
+  LegalityQuery.ofTypes? (opcode.getTypeGroupTypes! op ctx) (op.getProperties! ctx opcode)
 
 /-- The common LLT of type group `typeIdx`. -/
 def LegalityQuery.getLLT! (query : LegalityQuery opcode) (typeIdx : TypeGroup) : LLT :=
@@ -170,14 +178,30 @@ structure LegalizerInfo where
   /-- The pattern that legalizes the `opcode` operations whose action is `custom`. -/
   legalizeCustom : (opcode : GMIR) → Option (Puddle.Pattern OpCode) := fun _ => none
 
+/-- The action of the first rule of `opcode` that applies to `query`. -/
+def LegalizerInfo.getActionFor (info : LegalizerInfo) (query : LegalityQuery opcode) :
+    LegalizeAction :=
+  (info.rules opcode).findSome? (· query) |>.getD .unsupported
+
 /--
 Determine what action should be taken to legalize `op`, using the first rule of `opcode` that
 applies.
 -/
 def LegalizerInfo.getAction (info : LegalizerInfo) (ctx : IRContext OpCode) (op : OperationPtr)
-    (opcode : GMIR) : LegalizeAction := Id.run do
-  let some query := LegalityQuery.of? ctx op opcode | return .unsupported
-  return (info.rules opcode).findSome? (· query) |>.getD .unsupported
+    (opcode : GMIR) : LegalizeAction :=
+  match LegalityQuery.of? ctx op opcode with
+  | some query => info.getActionFor query
+  | none => .unsupported
+
+/--
+Whether an `opcode` operation whose type groups have `types` and whose properties are `properties`
+is legal.
+-/
+def LegalizerInfo.isLegal (info : LegalizerInfo) (opcode : GMIR) (types : Array TypeAttr)
+    (properties : GMIR.propertiesOf opcode) : Bool :=
+  match LegalityQuery.ofTypes? types properties with
+  | none => false
+  | some query => info.getActionFor query matches .legal
 
 end
 
