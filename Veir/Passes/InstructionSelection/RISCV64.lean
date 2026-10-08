@@ -88,14 +88,14 @@ def ctpop64_pattern : Pattern OpCode := lowerUnary (.llvm .intr__ctpop) 64 .cpop
 
 /--
   RISC-V lowerings with Puddle for the integer-extension operations (`sext`/`zext`): match a
-  single-operand LLVM extension op whose operand has a fixed legal integer width `opBw` (`8`, `16`,
+  single-operand extension op whose operand has a fixed legal integer width `opBw` (`8`, `16`,
   or `32`, see `isLegalExtOpWidth`) and whose result is a strictly wider integer type of width at
   most 64 (a 64-bit register cannot represent wider results, so e.g. `sext i8 to i128` is left
   unselected; unlike `opBw`, the result width is matched generically rather than enumerated), cast
   the operand to a register, apply the byte/halfword/word extension op matching `opBw`, and cast the
   result back to the (generically-matched) result type.
 -/
-def lowerExt (llvmOp : Llvm) (opBw : Nat) (riscvOp : Riscv)
+def lowerExt (srcOp : OpCode) (opBw : Nat) (riscvOp : Riscv)
     (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -103,7 +103,7 @@ def lowerExt (llvmOp : Llvm) (opBw : Nat) (riscvOp : Riscv)
       let resType ← MatchProg.type (Attr := IntegerType)
           (fun t => opBw < t.bitwidth ∧ t.bitwidth ≤ 64)
       let x ← MatchProg.value opType
-      let _ ← MatchProg.root (.llvm llvmOp) #[x] #[resType]
+      let _ ← MatchProg.root srcOp #[x] #[resType]
       return (resType, x))
     (fun (resType, x) => do
       let regType ← CreateProg.type (RegisterType.mk none)
@@ -120,22 +120,22 @@ def lowerExt (llvmOp : Llvm) (opBw : Nat) (riscvOp : Riscv)
     (fun castBackOp => castBackOp)
 
 /-- `llvm.sext` (`i8` operand) -> `riscv.sextb`. -/
-def sext8_pattern : Pattern OpCode := lowerExt .sext 8 .sextb ()
+def sext8_pattern : Pattern OpCode := lowerExt (.llvm .sext) 8 .sextb ()
 
 /-- `llvm.sext` (`i16` operand) -> `riscv.sexth`. -/
-def sext16_pattern : Pattern OpCode := lowerExt .sext 16 .sexth ()
+def sext16_pattern : Pattern OpCode := lowerExt (.llvm .sext) 16 .sexth ()
 
 /-- `llvm.sext` (`i32` operand) -> `riscv.sextw`. -/
-def sext32_pattern : Pattern OpCode := lowerExt .sext 32 .sextw ()
+def sext32_pattern : Pattern OpCode := lowerExt (.llvm .sext) 32 .sextw ()
 
 /-- `llvm.zext` (`i8` operand) -> `riscv.zextb`. -/
-def zext8_pattern : Pattern OpCode := lowerExt .zext 8 .zextb ()
+def zext8_pattern : Pattern OpCode := lowerExt (.llvm .zext) 8 .zextb ()
 
 /-- `llvm.zext` (`i16` operand) -> `riscv.zexth`. -/
-def zext16_pattern : Pattern OpCode := lowerExt .zext 16 .zexth ()
+def zext16_pattern : Pattern OpCode := lowerExt (.llvm .zext) 16 .zexth ()
 
 /-- `llvm.zext` (`i32` operand) -> `riscv.zextw`. -/
-def zext32_pattern : Pattern OpCode := lowerExt .zext 32 .zextw ()
+def zext32_pattern : Pattern OpCode := lowerExt (.llvm .zext) 32 .zextw ()
 
 /--
   RISC-V for binary operations that share a single integer type between both operands and the
@@ -713,11 +713,11 @@ def icmpEmit (regType : Handle OpCode .type) (pred : Data.LLVM.IntPred)
   | .ule, _ => icmpEmitCmp regType a b .sltu () true (some ⟨.xori, icmpOneImm⟩)
 
 /--
-  `llvm.icmp pred` whose lhs is `lhsWidth` bits wide once in a register (`i64`/`!llvm.ptr`,
+  `icmp pred` whose lhs is `lhsWidth` bits wide once in a register (`i64`/`!llvm.ptr`,
   `i32`, or `i8`). When `zeroRhs` is set, the rhs must be the constant `0`.
 -/
-def lowerIcmp (pred : Data.LLVM.IntPred) (lhsWidth : Nat) (zeroRhs : Bool) :
-    Pattern OpCode :=
+def lowerIcmp (srcOp : OpCode) (pred : Data.LLVM.IntPred) (lhsWidth : Nat) (zeroRhs : Bool)
+    (h : propertiesOf srcOp = IcmpProperties := by rfl) : Pattern OpCode :=
   Pattern.Builder
     (do
       /- support `i64`, `i32`, `i8` and `!llvm.ptr` -/
@@ -735,8 +735,8 @@ def lowerIcmp (pred : Data.LLVM.IntPred) (lhsWidth : Nat) (zeroRhs : Bool) :
           pure zeroOp.res[0]!
         else
           MatchProg.value rhsType
-      let _ ← MatchProg.root (.llvm .icmp) #[lhs, rhs] #[resType]
-          (fun props => props.predicate = pred)
+      let _ ← MatchProg.root srcOp #[lhs, rhs] #[resType]
+          (fun props => (cast h props).predicate = pred)
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
       let regType ← CreateProg.type (RegisterType.mk none)
@@ -764,8 +764,9 @@ def icmp : Array (Puddle.CompiledPattern OpCode) :=
   let preds : Array Data.LLVM.IntPred :=
     #[.eq, .ne, .slt, .sgt, .ult, .ugt, .sge, .sle, .uge, .ule]
   let peepholes := widths.flatMap fun w =>
-    #[Data.LLVM.IntPred.eq, .ne].map fun pred => lowerIcmp pred w true
-  let generic := widths.flatMap fun w => preds.map fun pred => lowerIcmp pred w false
+    #[Data.LLVM.IntPred.eq, .ne].map fun pred => lowerIcmp (.llvm .icmp) pred w true
+  let generic := widths.flatMap fun w =>
+    preds.map fun pred => lowerIcmp (.llvm .icmp) pred w false
   (peepholes ++ generic).map (·.compile)
 
 /-- llvm.or -> riscv.or (bitwise, so one instruction for every legal width) -/
