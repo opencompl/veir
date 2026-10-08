@@ -1625,11 +1625,11 @@ abbrev sextwResults : Interp (Array RuntimeValue × MemoryState × Option Contro
   Interp.map fun (values, mem, action) =>
     (values.map fun | .reg r => .reg (Data.RISCV.sextw r) | value => value, mem, action)
 
-/-- On an operation that returns the single register `r`, `sextwResults` changes
-    nothing iff `sextw r = r`. -/
-theorem sextwResults_reg_eq_self_iff :
-    sextwResults (.ok (#[.reg r], mem, action)) = .ok (#[.reg r], mem, action) ↔
-      Data.RISCV.sextw r = r := by
+/-- `sextwResults` turns the single register result `r` into the register `s` exactly when
+    `sextw r = s`. -/
+theorem sextwResults_reg_eq_iff :
+    sextwResults (.ok (#[.reg r], mem, action)) = .ok (#[.reg s], mem, action) ↔
+      Data.RISCV.sextw r = s := by
   simp [sextwResults]
 
 /-- `op`, with `arity` register operands and properties accepted by `property`, always returns a
@@ -1681,7 +1681,7 @@ def sextw_signExtendingOpW_pattern (producer : Riscv) (arity : Nat)
 def sextw_signExtendingOpW (producer : Riscv) (arity : Nat)
     (property : Puddle.PropertyMatcher (OpCode.riscv producer) := fun _ => true)
     (signExtending : IsSignExtendingOpW producer arity property := by
-      simp only [IsSignExtendingOpW, Riscv.interpretOp', riscvLoad, sextwResults_reg_eq_self_iff,
+      simp only [IsSignExtendingOpW, Riscv.interpretOp', riscvLoad, sextwResults_reg_eq_iff,
         Interp.pure_eq, Interp.bind_ok, Interp.bind_assoc, Interp.map_bind,
         Interp.bind_eq_bind_iff] <;> veir_bv_decide) :
     RewritePattern OpCode :=
@@ -1724,6 +1724,54 @@ def sextw_rorw := sextw_signExtendingOpW .rorw 2
 def sextw_roriw := sextw_signExtendingOpW .roriw 1
 def sextw_packw := sextw_signExtendingOpW .packw 2
 def sextw_lui := sextw_signExtendingOpW .lui 0
+
+/-- `wOp` computes `riscv.sextw` of `op` on the same two register operands. -/
+def IsWOpOf (op wOp : Riscv) : Prop :=
+  ∀ props wProps resultTypes rs1 rs2 blockOperands mem,
+    sextwResults (Riscv.interpretOp' op props resultTypes #[.reg rs1, .reg rs2] blockOperands mem) =
+      Riscv.interpretOp' wOp wProps resultTypes #[.reg rs1, .reg rs2] blockOperands mem
+
+/-- `riscv.sextw (op x y) -> wOp x y`, where `wOp` is the word version of `op`.
+
+    LLVM (GlobalISel): after instruction selection, `RISCVOptWInstrs` deletes a `sext.w` and turns
+    its source into the word version, but only when all users of the source read just its low
+    word. VeIR instead creates a new `wOp` and keeps `op` for its other users, so it needs no check
+    on the users. If `op` has no other users, the greedy rewriter deletes it.
+
+    Word versions:
+    https://github.com/llvm/llvm-project/blob/bcb89020f295/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L721-L742
+    Deletion:
+    https://github.com/llvm/llvm-project/blob/bcb89020f295/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L744-L803
+
+    `_toWOp` proves the combine correct on the semantics of `op` and `wOp`.
+    Currently, the rewrite does not use it. -/
+def sextw_toWOp_pattern (op wOp : Riscv) (wProps : propertiesOf (OpCode.riscv wOp))
+    (_toWOp : IsWOpOf op wOp) : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let regType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let lhs ← Puddle.MatchProg.value regType
+      let rhs ← Puddle.MatchProg.value regType
+      let inner ← Puddle.MatchProg.operation (.riscv op) #[lhs, rhs] #[regType]
+      let _ ← Puddle.MatchProg.root (.riscv .sextw) #[inner.res[0]!] #[regType]
+      return (regType, lhs, rhs))
+    (fun (regType, lhs, rhs) => do
+      let props ← Puddle.CreateProg.property (.riscv wOp) wProps
+      Puddle.CreateProg.operation (.riscv wOp) #[lhs, rhs] #[regType] props)
+    (fun wide => wide)
+
+def sextw_toWOp (op wOp : Riscv) (wProps : propertiesOf (OpCode.riscv wOp))
+    (toWOp : IsWOpOf op wOp := by
+      simp only [IsWOpOf, Riscv.interpretOp', Interp.pure_eq, sextwResults_reg_eq_iff] <;>
+        veir_bv_decide) :
+    RewritePattern OpCode :=
+  (sextw_toWOp_pattern op wOp wProps toWOp).compile.run
+
+/-- `riscv.sextw (riscv.add x y) -> riscv.addw x y`. -/
+def sextw_add := sextw_toWOp .add .addw ()
+
+/-- `riscv.sextw (riscv.sub x y) -> riscv.subw x y`. -/
+def sextw_sub := sextw_toWOp .sub .subw ()
 
 /-- Counts. `cpop`, `clz` and `ctz` and their word versions return at most 64, whose
     upper bits are all zero.
@@ -3008,6 +3056,8 @@ def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds
      , sextw_ctzw
      , sextw_cpopw
      , sextw_packw
+     , sextw_add
+     , sextw_sub
      , sextw_slt
      , sextw_sltu
      , sextw_slti
