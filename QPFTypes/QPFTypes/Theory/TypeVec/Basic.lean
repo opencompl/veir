@@ -172,3 +172,14 @@ protected theorem casesCons_append1 (n : Nat) {β : TypeVec (n + 1) → Sort _}
 def «repeat» : ∀ (n : Nat), Type u → TypeVec n
   | 0, _ => Fin.elim0
   | Nat.succ i, t => append1 («repeat» i t) t
+
+
+/-! ### Coercion -/
+
+/--
+Coerce a `Vector` of types into a `TypeVec`, via Vector.get.
+This inverts the index, so that a vector literal `#[α, β, γ]` is coerced into
+the type vector `#[] ::: α ::: β ::: γ`, with the same visual ordering.
+-/
+instance : Coe (Vector (Type u) n) (TypeVec.{u} n) where
+  coe ts i := ts.get i.rev
