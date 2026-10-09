@@ -1,7 +1,8 @@
 module
 
-public import Veir.IR.Basic
+public import Veir.IR.Mutators
 import all Veir.IR.Basic
+import all Veir.IR.Mutators
 
 namespace Veir
 

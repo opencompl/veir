@@ -2,6 +2,7 @@ import CTree
 import Veir.Analysis
 import Veir.Data
 import Veir.IR.Basic
+import Veir.IR.Mutators
 import Veir.IR.Fields
 import Veir.IR.WellFormed
 import Veir.IRNesting
