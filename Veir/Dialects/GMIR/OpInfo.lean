@@ -171,6 +171,25 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let .integerType resBw := resType.val | none
     if h : resBw.bitwidth >= w then none else
     return (#[.int resBw.bitwidth (Data.LLVM.Int.trunc val resBw.bitwidth properties.nsw properties.nuw (by omega))], mem, none)
+  | .g_sext_inreg => do
+    let [.int w val] := operands.toList | none
+    let sz := properties.sz.toNat
+    if h : w ≤ sz then none else
+    let low := Data.LLVM.Int.trunc val sz false false (by omega)
+    return (#[.int w (Data.LLVM.Int.sext low w (by omega))], mem, none)
+
+/-- Verifies that `sz` is at least 1 and smaller than the bitwidth of the operand. -/
+private def OperationPtr.verifyGMIRSextInReg {OpInfo : Type} [IsOpCode OpInfo]
+    [HasDialect OpInfo GMIR] (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  let .integerType ⟨width, _⟩ := ((op.getOperand! ctx.raw 0).getType! ctx.raw).val
+    | throw s!"{instrName}: Expected operand 0 to have integer type"
+  let sz := (op.getProperties! ctx.raw GMIR.g_sext_inreg).sz.toInt
+  if sz < 1 then
+    throw s!"{instrName}: Expected 'sz' to be at least 1, but got {sz}"
+  if width ≤ sz then
+    throw s!"{instrName}: Expected 'sz' to be smaller than the operand width {width}, but got {sz}"
 
 /--
 Verify the local invariants of a `gmir` operation in any operation-info type
