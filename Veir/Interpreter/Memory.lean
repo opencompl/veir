@@ -32,6 +32,10 @@ instance : Inhabited MemoryObject := ⟨MemoryObject.ofSize 0 0⟩
 
 def MemoryObject.size (obj : MemoryObject) : Nat := obj.contents.size
 
+/-- The offset of the address `addr` into `obj`. -/
+def MemoryObject.offsetOf (obj : MemoryObject) (addr : UInt64) : UInt64 :=
+  addr - obj.base
+
 /--
   Memory state during interpretation.
 
@@ -102,12 +106,13 @@ def MemoryState.objectOfAddress (mem : MemoryState) (addr : UInt64) : Nat :=
   out-of-bounds and will be rejected in `checkAccess`.
 -/
 def MemoryState.decode (mem : MemoryState) (addr : UInt64) : Pointer :=
-  let i := mem.objectOfAddress addr
-  ⟨i, addr - (mem.objects[i]?.map (·.base)).getD 0⟩
+  ⟨mem.objectOfAddress addr, addr⟩
 
-/-- The physical address of `p`. -/
-def MemoryState.address (mem : MemoryState) (p : Pointer) : UInt64 :=
-  (mem.objects[p.object]?.map (·.base)).getD 0 + p.offset
+/-- The pointer to the start of the object of the global `symbol`, if the memory has it. -/
+def MemoryState.pointerToGlobal (mem : MemoryState) (symbol : String) : Option Pointer := do
+  let i ← mem.globals[symbol]?
+  let obj ← mem.objects[i]?
+  return ⟨i, obj.base⟩
 
 /--
   The size of an `alloca` in bytes as a 64-bit value. An `alloca` has no way
@@ -129,7 +134,7 @@ def MemoryState.alloc (mem : MemoryState) (size : UInt64) : Interp (MemoryState 
   let base := mem.nextBase
   if base.toNat + size.toNat ≥ 2 ^ 64 then Interp.fail none else
   return ({ mem with objects := mem.objects.push (MemoryObject.ofSize base size.toNat) },
-    ⟨mem.objects.size, 0⟩)
+    ⟨mem.objects.size, base⟩)
 
 /--
   Check if an access of `size` bytes at `p` is allowed.
@@ -142,7 +147,7 @@ def MemoryState.checkAccess (mem : MemoryState) (p : Pointer) (size : UInt64) : 
 
   -- The `size` must fit into the size of the object.
   let objSize := obj.contents.size.toUInt64
-  if size ≤ objSize ∧ p.offset ≤ objSize - size then return obj
+  if size ≤ objSize ∧ obj.offsetOf p.address ≤ objSize - size then return obj
 
   Interp.ub none
 
@@ -156,8 +161,8 @@ def MemoryState.store (mem : MemoryState) (p : Pointer) (val : ByteArray)
     : Interp MemoryState := do
   let obj ← mem.checkAccess p val.size.toUInt64
   return mem.setObject p { obj with
-    contents := val.copySlice 0 obj.contents p.offset.toNat val.size false,
-    poisonMask := poison.copySlice 0 obj.poisonMask p.offset.toNat val.size false,
+    contents := val.copySlice 0 obj.contents (obj.offsetOf p.address).toNat val.size false,
+    poisonMask := poison.copySlice 0 obj.poisonMask (obj.offsetOf p.address).toNat val.size false,
     consistentSize := by simp [ByteArray.copySlice_eq_append, obj.consistentSize, h] }
 
 /--
@@ -171,19 +176,9 @@ def MemoryState.empoison (mem : MemoryState) (p : Pointer) (n : Nat) : Interp Me
 def MemoryState.ptrOfByte (mem : MemoryState) (b : Data.LLVM.Byte 64) : Ptr :=
   if b.poison = 0 then .val (mem.decode b.toUInt64) else .poison
 
-/-- The bits of a pointer, its physical address. -/
-def MemoryState.byteOfPtr (mem : MemoryState) : Ptr → Data.LLVM.Byte 64
-  | .val p => Data.LLVM.Byte.fromUInt64 (mem.address p)
-  | .poison => Data.LLVM.Byte.allPoison
-
 /-- The pointer at the address `i`. -/
 def MemoryState.ptrFromInt (mem : MemoryState) : Data.LLVM.Int 64 → Ptr
   | .val v => .val (mem.decode (UInt64.ofBitVec v))
-  | .poison => .poison
-
-/-- The address of a pointer as a 64-bit integer. -/
-def MemoryState.intFromPtr (mem : MemoryState) : Ptr → Data.LLVM.Int 64
-  | .val p => .val (mem.address p).toBitVec
   | .poison => .poison
 
 /-- Store the 64 bits of `v`, poison bits included, at `p`. -/
@@ -208,7 +203,7 @@ def MemoryState.llvmStore (mem : MemoryState) (p : Pointer) (val : RuntimeValue)
         (ByteArray.empty.push (UInt8.ofBitVec v.poison)) (by simp)
   | .byte 64 v => mem.storeByte64 p v
   | .int n .poison => mem.empoison p (n / 8)
-  | .addr q => mem.storeByte64 p (mem.byteOfPtr q)
+  | .addr q => mem.storeByte64 p q.toByte
   | _ => none
 
 /--
@@ -217,7 +212,7 @@ def MemoryState.llvmStore (mem : MemoryState) (p : Pointer) (val : RuntimeValue)
 -/
 def MemoryState.load (mem : MemoryState) (p : Pointer) (size : UInt64) : Interp ByteArray := do
   let obj ← mem.checkAccess p size
-  return obj.contents.extract p.offset.toNat (p.offset.toNat + size.toNat)
+  return obj.contents.extract (obj.offsetOf p.address).toNat ((obj.offsetOf p.address).toNat + size.toNat)
 
 /--
   Load bitwise poison status of the given memory address.
@@ -225,7 +220,7 @@ def MemoryState.load (mem : MemoryState) (p : Pointer) (size : UInt64) : Interp 
 -/
 def MemoryState.loadPoison (mem : MemoryState) (p : Pointer) (size : UInt64) : Interp ByteArray := do
   let obj ← mem.checkAccess p size
-  return obj.poisonMask.extract p.offset.toNat (p.offset.toNat + size.toNat)
+  return obj.poisonMask.extract (obj.offsetOf p.address).toNat ((obj.offsetOf p.address).toNat + size.toNat)
 
 /--
   Check if any of the `size` bytes at the given memory address `p` is poison.
@@ -273,11 +268,11 @@ def MemoryState.llvmLoad (mem : MemoryState) (p : Pointer) (type : TypeAttr)
   | Attribute.integerType { bitwidth := 16, .. } =>
       let ba ← mem.load p 2
       if ← mem.hasPoison p 2 then return .int 16 .poison
-      return .int 16 (.val (ba.toBitVecLE 2))
+      return .int 16 (.val (ba.toBitVecLE 16))
   | Attribute.integerType { bitwidth := 32, .. } =>
       let ba ← mem.load p 4
       if ← mem.hasPoison p 4 then return .int 32 .poison
-      return .int 32 (.val (ba.toBitVecLE 4))
+      return .int 32 (.val (ba.toBitVecLE 32))
   | Attribute.integerType { bitwidth := 64, .. } =>
       let ba ← mem.load p 8
       if ← mem.hasPoison p 8 then return .int 64 .poison
@@ -291,10 +286,6 @@ def MemoryState.llvmLoad (mem : MemoryState) (p : Pointer) (type : TypeAttr)
   | Attribute.llvmPointerType _ =>
       return .addr (mem.ptrOfByte (← mem.loadByte64 p))
   | _ => none
-
-/-- The pointer `i` bytes past `p`. -/
-def Data.Pointer.addBytes (p : Pointer) (i : Nat) : Pointer :=
-  ⟨p.object, p.offset + i.toUInt64⟩
 
 /-- The type `b8`, which keeps the poison bits of a byte loaded from memory. -/
 def byte8Type : TypeAttr := TypeAttr.of LLVM.ByteType ⟨8⟩
@@ -318,8 +309,8 @@ def MemoryState.memset (mem : MemoryState) (p : Pointer) (val : RuntimeValue) (l
 -/
 def MemoryState.memcpy (mem : MemoryState) (dst src : Pointer) (len : Nat)
     : Interp MemoryState := do
-  let d := dst.offset.toNat
-  let s := src.offset.toNat
+  let d := dst.address.toNat
+  let s := src.address.toNat
   if dst.object = src.object ∧ d ≠ s ∧ d < s + len ∧ s < d + len then Interp.ub none
   let mut mem := mem
   for i in [0:len] do

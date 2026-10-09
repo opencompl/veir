@@ -13,6 +13,23 @@ theorem mod_mod_pow_of_le {x w o : Nat} (h : w ≤ o) (n : Nat) :
     n % x ^ o % x ^ w = n % x ^ w :=
   Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow x h)
 
+/-- A power of `x` modulo a smaller power of `x` is zero. -/
+theorem pow_mod_pow_of_le {x w o : Nat} (h : w ≤ o) :
+    x ^ o % x ^ w = 0 := by
+  cases h
+  · rw [mod_self]
+  · grind [Nat.mod_eq_zero_of_dvd, Nat.pow_dvd_pow]
+
+/-- Modulo `2 ^ w`, subtracting `n` from a larger power of two `2 ^ o` is the
+same as subtracting it from `2 ^ w`. -/
+theorem two_pow_sub_mod_of_le {w o n : Nat} (h : w ≤ o) (hn : n ≤ 2 ^ w) :
+    (2 ^ o - n) % 2 ^ w = (2 ^ w - n) % 2 ^ w := by
+  have h0 : (2 ^ o - 2 ^ w) % 2 ^ w = 0 :=
+    Nat.sub_mod_eq_zero_of_mod_eq (by rw [pow_mod_pow_of_le h, Nat.mod_self])
+  have : (2 ^ o - n) = (2 ^ w - n + 2 ^ o - 2^w) := by grind[Nat.mul_sub_one]
+  simp only [this, Nat.add_sub_assoc (by apply Nat.pow_le_pow_right (n := 2) (by grind) h),
+    add_mod, h0, Nat.add_zero, Nat.dvd_refl, mod_mod_of_dvd]
+
 end Nat
 
 namespace BitVec

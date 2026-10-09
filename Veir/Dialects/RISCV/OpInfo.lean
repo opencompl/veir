@@ -520,7 +520,7 @@ def riscvLoad (mem : MemoryState) (eaddr : BitVec 64) (bytes : Nat) (ext : LoadE
     Interp (BitVec 64 × MemoryState) := do
   let p := mem.decode (UInt64.ofBitVec eaddr)
   let ba ← mem.load p bytes.toUInt64
-  let val := ba.toBitVecLE bytes
+  let val := ba.toBitVecLE (8 * bytes)
   let extended := match ext with
     | .signExt => val.signExtend 64
     | .zeroExt => val.setWidth 64
@@ -916,8 +916,8 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : propertiesOf opType)
     let mem ← mem.store p ((UInt64.ofBitVec val).toByteArrayLE.extract 0 1)
     return (#[], mem, none)
   | .la => do
-    let some object := mem.globals[properties.symbol.value]? | none
-    return (#[.reg (LLVM.Int.toReg (mem.intFromPtr (.val ⟨object, 0⟩)))], mem, none)
+    let some p := mem.pointerToGlobal properties.symbol.value | none
+    return (#[.reg (LLVM.Int.toReg (Data.LLVM.Ptr.toInt (.val p)))], mem, none)
 
 instance : HasOpInfo Riscv where
   verifyLocalInvariants := Riscv.verifyLocalInvariants

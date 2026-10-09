@@ -349,13 +349,13 @@ def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType
     let indices := GEPIndex.decode properties.rawConstantIndices.values (operands.extract 1)
     let (offset, dynamic) ← monadLift $ layout.gepOffsets properties.elem_type.val indices
     let .val ptr := ptr | return (#[.addr .poison], mem, none)
-    let mut offset := (ptr.offset.toNat : Int) + offset
+    let mut addr := (ptr.address.toNat : Int) + offset
     for (idx, stride) in dynamic do
       /- An index is signed, and sign-extended to the pointer width. -/
       let .int _ idx := idx | fail
       let .val idx := idx | return (#[.addr .poison], mem, none)
-      offset := offset + idx.toInt * stride
-    return (#[.addr (.val ⟨ptr.object, UInt64.ofInt offset⟩)], mem, none)
+      addr := addr + idx.toInt * stride
+    return (#[.addr (.val ⟨ptr.object, UInt64.ofInt addr⟩)], mem, none)
   | .freeze => do
     let [val] := operands.toList | fail
     match val with
@@ -387,7 +387,7 @@ def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType
           if h : bw = 64 then .ok (.addr (mem.ptrFromInt (val'.cast h).toInt)) else .fail none
       | .addr val', .llvmPointerType _ => .ok (val)
       | .addr val', .byteType ⟨bw⟩ =>
-          if bw = 64 then .ok (.byte 64 (LLVM.Byte.fromInt (mem.intFromPtr val'))) else .fail none
+          if bw = 64 then .ok (.byte 64 val'.toByte) else .fail none
       | _, _ => none
     return (#[result], mem, none)
   | _ => fail

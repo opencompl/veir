@@ -8,7 +8,7 @@ import all Veir.Dominance.Basic
 # CFG Path and Reachability Lemmas
 
 This file proves lemmas about paths through a region's CFG (`RegionPtr.Path`)
-and block reachability (`BlockPtr.LocallyReachable`).
+and reachability of blocks and operations.
 -/
 
 public section
@@ -197,5 +197,26 @@ theorem successor
   exact RegionPtr.Path.append path edgePath
 
 end BlockPtr.LocallyReachable
+
+/-- An operation in a locally reachable block is locally reachable in the same region. -/
+@[grind →]
+theorem OperationPtr.LocallyReachable.of_parent_block
+    {op : OperationPtr} {block : BlockPtr} {region : RegionPtr}
+    (reachable : block.LocallyReachable region ctx)
+    (parent : (op.get! ctx.raw).parent = some block) :
+    op.LocallyReachable region ctx := by
+  exact ⟨block, parent, reachable.parent, reachable⟩
+
+/-- An operation in a hierarchically reachable block is hierarchically reachable. -/
+@[grind →]
+theorem OperationPtr.HierarchicallyReachable.of_parent_block
+    {op : OperationPtr} {block : BlockPtr}
+    (reachable : block.HierarchicallyReachable ctx)
+    (parent : (op.get! ctx.raw).parent = some block) :
+    op.HierarchicallyReachable ctx := by
+  intro parentBlock hparent
+  have : parentBlock = block := by grind
+  subst parentBlock
+  exact reachable
 
 end Veir
