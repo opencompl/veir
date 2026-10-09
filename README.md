@@ -6,15 +6,6 @@ VeIR is a compiler infrastructure written in Lean that offers both an
 VeIR connects with MLIR via the MLIR textual format, making it
 easy to combine MLIR and VeIR tools.
 
-| VeIR Features                                         | Complete   | Verified |
-|-------------------------------------------------------|------------| ---------|
-| MLIR core data structures (block, operation, region)  | ✅         | 🔒        |
-| define dialects                                       | ✅ (basic) |           |
-| pass infrastructure                                   | ✅         |           |
-| peephole rewriter                                     | ✅         |           |
-| peephole rewriter (declarative)                       |            |           |
-| interpreter framework                                 | ✅         |           |
-
 ## Building and testing
 
 Common tasks are wrapped in the [`Makefile`](Makefile): `make build` to build and
