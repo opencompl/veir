@@ -62,12 +62,11 @@ theorem Rewriter.unsetParentAndNeighbors_fieldsInBounds (hctx : ctx.FieldsInBoun
   grind
 
 @[irreducible]
-def Rewriter.detachOp (ctx: IRContext OpInfo) (op: OperationPtr) (hctx : ctx.FieldsInBounds) (hIn : op.InBounds ctx) (hasParent: (op.get ctx hIn).parent.isSome) : IRContext OpInfo :=
-  let opStruct := op.get ctx
-  let parent := opStruct.parent.get hasParent
+def Rewriter.detachOp (ctx: IRContext OpInfo) (op: OperationPtr) (hctx : ctx.FieldsInBounds) (hIn : op.InBounds ctx) (hasParent: (op.getParent ctx hIn).isSome) : IRContext OpInfo :=
+  let parent := (op.getParent ctx hIn).get hasParent
+  let prevOp := op.getPrevOp ctx hIn
+  let nextOp := op.getNextOp ctx hIn
   let ctx := unsetParentAndNeighbors ctx op hIn
-  let prevOp := opStruct.prev
-  let nextOp := opStruct.next
   -- I had to duplicate the continuation in each branch, I don't really
   -- know why the proofs of the preconditions in, say, `setNextOp` were
   -- metavariable... maybe somehow the execution of the tactics is slightly
@@ -103,7 +102,7 @@ theorem Rewriter.detachOp_fieldsInBounds (hctx : ctx.FieldsInBounds) :
 def Rewriter.detachOpIfAttached (ctx: IRContext OpInfo) (op: OperationPtr)
     (hctx : ctx.FieldsInBounds := by grind)
     (hop : op.InBounds ctx := by grind) : IRContext OpInfo :=
-  match h: (op.get ctx hop).parent with
+  match h: op.getParent ctx hop with
   | some _ => Rewriter.detachOp ctx op hctx hop (by grind)
   | none => ctx
 
@@ -267,7 +266,7 @@ def Rewriter.replaceUse (ctx: IRContext OpInfo) (use : OpOperandPtr) (newValue: 
     (useIn: use.InBounds ctx := by grind)
     (newIn: newValue.InBounds ctx := by grind)
     (ctxIn: ctx.FieldsInBounds := by grind) : IRContext OpInfo :=
-  if (use.get ctx (by grind)).value = newValue then
+  if (use.getValue ctx (by grind)) = newValue then
     ctx
   else
     let ctx := use.removeFromCurrent ctx (by grind) (by grind)
@@ -396,7 +395,7 @@ theorem Rewriter.replaceValue?_preserves_results_size (op : OperationPtr) (hop :
 @[grind .]
 theorem Rewriter.replaceValue?_preserves_parent' (op : OperationPtr) (hop : op.InBounds ctx)
     (hctx' : replaceValue? ctx old new h₁ h₂ h₃ d = some ctx') :
-    (op.get! ctx').parent = (op.get! ctx).parent := by
+    op.getParent! ctx' = op.getParent! ctx := by
   induction d generalizing ctx
   case zero => simp [replaceValue?, *] at hctx' ⊢
   case succ d ih =>
@@ -408,7 +407,7 @@ theorem Rewriter.replaceValue?_preserves_parent' (op : OperationPtr) (hop : op.I
 @[grind .]
 theorem Rewriter.replaceValue?_preserves_parent (op : OperationPtr) (hop : op.InBounds ctx)
     (hctx' : replaceValue? ctx old new h₁ h₂ h₃ d = some ctx') :
-    (op.get ctx' (by grind)).parent = (op.get ctx hop).parent := by
+    op.getParent ctx' (by grind) = op.getParent ctx hop := by
   have := @replaceValue?_preserves_parent'
   grind [Rewriter.replaceUse]
 
@@ -456,7 +455,7 @@ def Rewriter.replaceOp? (ctx: IRContext OpInfo) (oldOp newOp: OperationPtr)
     (oldIn: oldOp.InBounds ctx := by grind)
     (newIn: newOp.InBounds ctx := by grind)
     (ctxIn: ctx.FieldsInBounds := by grind)
-    (_hpar : (oldOp.get ctx).parent.isSome = true) : Option (IRContext OpInfo) := do
+    (_hpar : (oldOp.getParent ctx).isSome = true) : Option (IRContext OpInfo) := do
   let numOldResults := oldOp.getNumResults ctx (by grind)
   let numNewResults := newOp.getNumResults ctx (by grind)
   if h : numOldResults ≠ numNewResults then
@@ -686,7 +685,7 @@ theorem Rewriter.createRegion_fieldsInBounds (h : createRegion ctx = some (ctx',
 set_option linter.unusedVariables false
 def Rewriter.pushRegion (ctx : IRContext OpInfo) (op : OperationPtr) (region : RegionPtr)
     (hop : op.InBounds ctx := by grind) (hregion : region.InBounds ctx := by grind)
-    (hRegionParent : (region.get! ctx).parent = none := by grind) :
+    (hRegionParent : region.getParent! ctx = none := by grind) :
     IRContext OpInfo :=
   let ctx := region.setParent ctx op
   op.pushRegion ctx region
@@ -711,7 +710,7 @@ def Rewriter.initOpRegions (ctx: IRContext OpInfo) (opPtr: OperationPtr) (region
     some ctx
   else
     let region := regions[index]
-    if hParent : (region.get! ctx).parent = none then
+    if hParent : region.getParent! ctx = none then
       let ctx := pushRegion ctx opPtr region (hregion := by grind) (hRegionParent := hParent)
       Rewriter.initOpRegions ctx opPtr regions (index + 1)
         (hregionInBounds := by grind [Rewriter.pushRegion])
@@ -798,10 +797,10 @@ theorem Rewriter.pushResult_inBounds_iff (ptr : GenericPtr) :
 @[irreducible]
 protected def Rewriter.pushOperand (ctx : IRContext OpInfo) (opPtr : OperationPtr) (valuePtr : ValuePtr)
     (opPtrInBounds : opPtr.InBounds ctx := by grind) (valueInBounds : valuePtr.InBounds ctx := by grind) (hctx : ctx.FieldsInBounds) : IRContext OpInfo :=
-  let op := (opPtr.get ctx (by grind))
   let index := opPtr.getNumOperands ctx (by grind)
   let operand := { value := valuePtr, owner := opPtr, back := OpOperandPtrPtr.valueFirstUse valuePtr, nextUse := none : OpOperand}
-  have : operand.FieldsInBounds ctx := by constructor <;> grind
+  have : (opPtr.nextOperand! ctx).FieldsInBounds (opPtr.pushOperand ctx operand (by grind)) := by
+    constructor <;> grind
   let ctx := opPtr.pushOperand ctx operand (by grind)
   let ctx := (OpOperandPtr.mk opPtr index).insertIntoCurrent ctx (by grind) (by grind)
   ctx
@@ -867,10 +866,10 @@ theorem Rewriter.initOpOperands_inBounds_mono (ptr : GenericPtr) :
 protected def Rewriter.pushBlockOperand (ctx : IRContext OpInfo) (opPtr : OperationPtr) (blockPtr : BlockPtr)
     (opPtrInBounds : opPtr.InBounds ctx := by grind) (blockInBounds : blockPtr.InBounds ctx := by grind)
     (hctx : ctx.FieldsInBounds := by grind) : IRContext OpInfo :=
-  let op := (opPtr.get ctx (by grind))
   let index := opPtr.getNumSuccessors ctx (by grind)
   let operand := { value := blockPtr, owner := opPtr, back := BlockOperandPtrPtr.blockFirstUse blockPtr, nextUse := none : BlockOperand}
-  have : operand.FieldsInBounds ctx := by constructor <;> grind
+  have : (opPtr.nextBlockOperand! ctx).FieldsInBounds (opPtr.pushBlockOperand ctx operand (by grind)) := by
+    constructor <;> grind
   let ctx := opPtr.pushBlockOperand ctx operand (by grind)
   let ctx := (BlockOperandPtr.mk opPtr index).insertIntoCurrent ctx (by grind) (by grind)
   ctx

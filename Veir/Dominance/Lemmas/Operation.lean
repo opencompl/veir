@@ -113,7 +113,7 @@ axiom OperationPtr.HierarchicallyReachable.exists_locallyReachable :
 axiom OperationPtr.HierarchicallyReachable.exists_parent :
   op.HierarchicallyReachable ctx →
   ∃ (block : BlockPtr),
-    (op.get! ctx.raw).parent = some block ∧
+    op.getParent! ctx.raw = some block ∧
     block.HierarchicallyReachable ctx
 
 /-- An operation enclosing a hierarchically reachable block is hierarchically reachable. -/
@@ -126,7 +126,7 @@ is itself hierarchically reachable. -/
 @[grind →]
 axiom OperationPtr.HierarchicallyReachable.of_dominatesIp_atStart
     (blockInBounds : block.InBounds ctx.raw)
-    (blockParent : (block.get! ctx.raw).parent = some region)
+    (blockParent : block.getParent! ctx.raw = some region)
     (regionSSA : region.hasSSADominance ctx)
     (reachable : block.HierarchicallyReachable ctx)
     (dominance : op.DominatesIp (InsertPoint.atStart! block ctx.raw) ctx) :
@@ -142,7 +142,7 @@ reachable from the region entry.
 axiom OperationPtr.ProperlyDominates.trans_of_reachable {op₃ : OperationPtr}
     (rooted : ∃ root, IRNode.RootedAt op₃ root ctx)
     (reachable : ∀ block region, (IRNode.block block).Ancestor op₃ ctx →
-      (block.get! ctx.raw).parent = some region → region.hasSSADominance ctx = true →
+      block.getParent! ctx.raw = some region → region.hasSSADominance ctx = true →
       block.LocallyReachable region ctx) :
     op₁.ProperlyDominates op₂ ctx true →
     op₂.ProperlyDominates op₃ ctx true →
@@ -154,7 +154,7 @@ if it exists.
 -/
 axiom OperationPtr.dominates_next :
   op₁.Dominates op₂ ctx enclosingOk →
-  (op₂.get! ctx.raw).next = some op₂Next →
+  op₂.getNextOp! ctx.raw = some op₂Next →
   op₁.Dominates op₂Next ctx enclosingOk
 
 /-- A dominator is rooted at the same root as the operation it dominates. -/
@@ -216,7 +216,7 @@ theorem OperationPtr.ProperlyDominatesBlock.exists_parentRegion
 theorem OperationPtr.DominatesIp.exists_parentRegion {ip : InsertPoint}
     (dominance : op.DominatesIp ip ctx false)
     (ipParent : ip.block! ctx.raw = some block)
-    (blockParent : (block.get! ctx.raw).parent = some region) :
+    (blockParent : block.getParent! ctx.raw = some region) :
     ∃ region, op.getParentRegion! ctx.raw = some region := by
   cases dominance with
   | Before dominance => exact dominance.exists_parentRegion

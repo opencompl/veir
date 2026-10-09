@@ -957,11 +957,11 @@ def alloca_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (operands, properties) := matchOp op ctx.raw Llvm.alloca 1 | return (ctx, none)
   if properties.inalloca then return (ctx, none)
-  let .llvmPointerType _ := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
+  let .llvmPointerType _ := ((op.getResult 0).getType! ctx.raw).val | return (ctx, none)
   let some parentOp := op.getParentOp! ctx.raw | return (ctx, none)
   let some funcOp := FunctionOp.of? parentOp ctx.raw | return (ctx, none)
   let some entry := funcOp.getEntryBlock? | return (ctx, none)
-  if (op.get! ctx.raw).parent != some entry then return (ctx, none)
+  if (op.getParent! ctx.raw) != some entry then return (ctx, none)
   let some (.int _ (.val count)) := operands[0]!.constantValue ctx.raw | return (ctx, none)
   let some layout := DataLayout.riscv64.query properties.elem_type.val | return (ctx, none)
   let size := count.toNat * layout.allocSize
@@ -991,13 +991,13 @@ private partial def lookupGlobal? (ctx : IRContext OpCode) (op : OperationPtr)
   if parent.getOpType! ctx != .builtin .module then
     return ← lookupGlobal? ctx parent name
   let body := parent.getRegion! ctx 0
-  let block ← (body.get! ctx).firstBlock
-  let mut candidate := (block.get! ctx).firstOp
+  let block ← body.getFirstBlock! ctx
+  let mut candidate := block.getFirstOp! ctx
   while let some target := candidate do
     if target.getOpType! ctx = .llvm .mlir__global then
       let props := target.getProperties! ctx Llvm.mlir__global
       if props.sym_name.value = name then return props
-    candidate := (target.get! ctx).next
+    candidate := target.getNextOp! ctx
   none
 
 /-- `llvm.mlir.addressof` -> `riscv.la`, except for TLS and external weak globals. -/

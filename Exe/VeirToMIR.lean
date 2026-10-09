@@ -27,8 +27,8 @@ def main (args : List String) : IO Unit := do
     | .ok (ctx, moduleOp, _) =>
       let rawCtx : IRContext OpCode := ctx
       let region := moduleOp.getRegion! rawCtx 0
-      let topOps := match (region.get! rawCtx).firstBlock with
-        | some b => Veir.MIRPrinter.collectOps rawCtx (b.get! rawCtx).firstOp
+      let topOps := match region.getFirstBlock! rawCtx with
+        | some b => Veir.MIRPrinter.collectOps rawCtx (b.getFirstOp! rawCtx)
         | none => #[]
       let funcOps := topOps.filter (·.isFunctionLike rawCtx)
       let globalOps := topOps.filter (·.getOpType! rawCtx == .llvm .mlir__global)

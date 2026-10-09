@@ -70,7 +70,7 @@ end OpPrinter
 
 private def printOpAttrDict (op : OperationPtr) : OpPrinter OpCode Unit := do
   let ctx ← OpPrinter.getContext
-  let attrs := (op.get! ctx).attrs
+  let attrs := op.getAttributes! ctx
   if attrs.entries.size == 0 then return
   OpPrinter.printString " "
   -- `attrs` already prints as `{ "k" = v, ... }` via its Repr
@@ -78,7 +78,7 @@ private def printOpAttrDict (op : OperationPtr) : OpPrinter OpCode Unit := do
 
 private def printOpProperties (op : OperationPtr) : OpPrinter OpCode Unit := do
   let ctx ← OpPrinter.getContext
-  let opType := (op.get! ctx).opType
+  let opType := op.getOpType! ctx
   let properties := op.getProperties! ctx opType
   let attrDict := IsOpCode.toAttrDict opType properties
   if attrDict.size == 0 then return
@@ -91,7 +91,7 @@ mutual
 private partial def printOpList (op : OperationPtr) (options : PrinterOptions) : OpPrinter OpCode Unit := do
   printOperation op options
   let ctx ← OpPrinter.getContext
-  match (op.get! ctx).next with
+  match op.getNextOp! ctx with
   | some nextOp => printOpList nextOp options
   | none => pure ()
 
@@ -107,10 +107,10 @@ private partial def printBlock (block : BlockPtr) (options : PrinterOptions) : O
     -- BlockArgumentPtr -> ValuePtr
     let value : ValuePtr := ValuePtr.blockArgument argPtr
     OpPrinter.printRegionArgument value
-    OpPrinter.printString s!" : {(argPtr.get! ctx).type}"
+    OpPrinter.printString s!" : {(argPtr.getType! ctx)}"
   OpPrinter.printString "):"
   OpPrinter.printNewline
-  match (block.get! ctx).firstOp with
+  match block.getFirstOp! ctx with
   | some firstOp =>
     OpPrinter.increaseIndent
     printOpList firstOp options
@@ -121,15 +121,15 @@ private partial def printBlock (block : BlockPtr) (options : PrinterOptions) : O
 private partial def printBlockList (block : BlockPtr) (options : PrinterOptions) : OpPrinter OpCode Unit := do
   printBlock block options
   let ctx ← OpPrinter.getContext
-  match (block.get! ctx).next with
+  match block.getNextBlock! ctx with
   | some nextBlock => printBlockList nextBlock options
   | none => pure ()
 
 /-- Print a region `{ ... }`. If `printEntryBlockArgs` is false, elide the entry block's label and arguments. -/
-private partial def printRegionImpl (region : Region) (printEntryBlockArgs : Bool) (options : PrinterOptions) : OpPrinter OpCode Unit := do
+private partial def printRegionImpl (region : RegionPtr) (printEntryBlockArgs : Bool) (options : PrinterOptions) : OpPrinter OpCode Unit := do
   let ctx ← OpPrinter.getContext
   OpPrinter.printString "{"
-  match region.firstBlock with
+  match region.getFirstBlock! ctx with
   | none =>
     OpPrinter.printString "}"
   | some blockPtr =>
@@ -137,10 +137,10 @@ private partial def printRegionImpl (region : Region) (printEntryBlockArgs : Boo
       -- Elide entry block header: print entry block's ops, then trailing blocks
       OpPrinter.printNewline
       OpPrinter.increaseIndent
-      match (blockPtr.get! ctx).firstOp with
+      match blockPtr.getFirstOp! ctx with
       | some firstOp => printOpList firstOp options
       | none => pure ()
-      match (blockPtr.get! ctx).next with
+      match blockPtr.getNextBlock! ctx with
       | some nextBlock => printBlockList nextBlock options
       | none => pure ()
       OpPrinter.decreaseIndent
@@ -160,18 +160,17 @@ private partial def printRegions (op : OperationPtr) (options : PrinterOptions) 
   if op.getNumRegions! ctx == 0 then return
   OpPrinter.printString "("
   for i in List.range (op.getNumRegions! ctx - 1) do
-    let region := (op.getRegion! ctx i).get! ctx
+    let region := op.getRegion! ctx i
     printRegionImpl region true options
     OpPrinter.printString ", "
-  let lastRegion := (op.getRegion! ctx (op.getNumRegions! ctx - 1)).get! ctx
+  let lastRegion := op.getRegion! ctx (op.getNumRegions! ctx - 1)
   printRegionImpl lastRegion true options
   OpPrinter.printString ")"
 
 /-- Print a single operation, dispatching to a custom printer when available and not in generic form. -/
 private partial def printOperation (op : OperationPtr) (options : PrinterOptions) : OpPrinter OpCode Unit := do
   let ctx ← OpPrinter.getContext
-  let opStruct := op.get! ctx
-  let opType := opStruct.opType
+  let opType := op.getOpType! ctx
   if !options.printGenericOpForm then
     match HasCustomPrinting.customPrinter?
       (Dialect := OpCode) (GlobalOpCode := OpCode) opType with
@@ -187,10 +186,10 @@ private partial def printOperation (op : OperationPtr) (options : PrinterOptions
   OpPrinter.printIndent
   OpPrinter.printOpResults op
   let nameBytes : ByteArray :=
-    match toDialect? Builtin opStruct.opType with
+    match toDialect? Builtin opType with
     | some Builtin.unregistered =>
       (op.getProperties! ctx Builtin.unregistered).opName
-    | _ => IsOpCode.name opStruct.opType
+    | _ => IsOpCode.name opType
   OpPrinter.printString s!"\"{String.fromUTF8! nameBytes}\""
   OpPrinter.printOpOperands op
   OpPrinter.printBlockOperands op

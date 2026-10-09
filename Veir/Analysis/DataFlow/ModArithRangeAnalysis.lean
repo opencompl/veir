@@ -58,7 +58,7 @@ private def applyReduction
     (raw : IntegerRangeLattice)
     (irCtx : WfIRContext OpCode) : IntegerRangeLattice :=
   let hasNoReduction :=
-    match (op.get! irCtx.raw).attrs.entries.find?
+    match (op.getAttributes! irCtx.raw).entries.find?
         (fun entry => entry.1 == "reduction".toUTF8) with
     | some (_, .stringAttr attr) => attr.value == "none".toUTF8
     | _ => false

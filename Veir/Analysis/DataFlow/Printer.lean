@@ -69,7 +69,7 @@ partial def printDataFlowFacts
       (.ValuePtr (op.getResult i))
       analyses dfCtx irCtx
 
-  if let some source := (op.get! irCtx.raw).parent then
+  if let some source := op.getParent! irCtx.raw then
     for i in [0:op.getNumSuccessors! irCtx.raw] do
       let target := op.getSuccessor! irCtx.raw i
       printDataFlowAnchor
@@ -77,9 +77,8 @@ partial def printDataFlowFacts
         (.CFGEdge { source, target })
         analyses dfCtx irCtx
 
-  for regionPtr in (op.get! irCtx.raw).regions do
-    let region := regionPtr.get! irCtx.raw
-    let mut maybeBlock := region.firstBlock
+  for region in op.getRegions! irCtx.raw do
+    let mut maybeBlock := region.getFirstBlock! irCtx.raw
     while let some block := maybeBlock do
       printDataFlowAnchor
         "block"
@@ -96,11 +95,11 @@ partial def printDataFlowFacts
           (.ValuePtr (block.getArgument i))
           analyses dfCtx irCtx
 
-      let mut maybeNestedOp := (block.get! irCtx.raw).firstOp
+      let mut maybeNestedOp := block.getFirstOp! irCtx.raw
       while let some nestedOp := maybeNestedOp do
         printDataFlowFacts nestedOp analyses dfCtx irCtx
-        maybeNestedOp := (nestedOp.get! irCtx.raw).next
+        maybeNestedOp := nestedOp.getNextOp! irCtx.raw
 
-      maybeBlock := (block.get! irCtx.raw).next
+      maybeBlock := block.getNextBlock! irCtx.raw
 
 end Veir

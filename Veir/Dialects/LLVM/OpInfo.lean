@@ -707,7 +707,7 @@ def OperationPtr.verifyLLVMICmp {OpInfo : Type} [IsOpCode OpInfo]
     s!"{instrName}: Expected operand 1 to have integer or pointer type"
   let _ ← op.verifyOperandTypesMatch ctx 0 1
     s!"{instrName}: Expected operands to have the same type"
-  ((op.getResult 0).get! ctx.raw).type.verifyI1 s!"{instrName}: Expected i1 result"
+  ((op.getResult 0).getType! ctx.raw).verifyI1 s!"{instrName}: Expected i1 result"
 
 /-- The properties of a memory intrinsic, whichever of the three it is. -/
 private def memIntrinsicProperties {OpInfo : Type} [IsOpCode OpInfo]
@@ -805,7 +805,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .mlir__constant => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 0 1
-    let resultType := ((op.getResult 0).get! ctx.raw).type.val
+    let resultType := ((op.getResult 0).getType! ctx.raw).val
     match (op.getProperties! ctx.raw Llvm.mlir__constant).value with
     | .integer intAttr =>
       match resultType with
@@ -873,8 +873,8 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     if properties.addr_space.type.bitwidth ≠ 32 then
       throw "'addr_space' must be a 32-bit signless integer attribute"
     if let some value := properties.value then
-      let body := (op.getRegion! ctx.raw 0).get! ctx.raw
-      if body.firstBlock.isSome then
+      let body := op.getRegion! ctx.raw 0
+      if (body.getFirstBlock! ctx.raw).isSome then
         throw "cannot have both initializer value and region"
       if properties.linkage.value == "common" && value.isKnownNonZero then
         throw "expected zero value for 'common' linkage"
@@ -896,12 +896,12 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       | _ => true
     if !properties.alias_type.val.isLLVMCompatibleType || !isStorageType properties.alias_type.val then
       throw "expects type to be a valid element type for an LLVM global alias"
-    let body := (op.getRegion! ctx.raw 0).get! ctx.raw
-    let some block := body.firstBlock
+    let body := op.getRegion! ctx.raw 0
+    let some block := body.getFirstBlock! ctx.raw
       | throw "initializer region must have exactly one block"
-    if body.lastBlock ≠ some block then
+    if body.getLastBlock! ctx.raw ≠ some block then
       throw "initializer region must have exactly one block"
-    if let some lastOp := (block.get! ctx.raw).lastOp then
+    if let some lastOp := block.getLastOp! ctx.raw then
       let lastType := lastOp.getOpType! ctx.raw
       if toDialect? Llvm lastType ≠ some .return then
         throw s!"expects regions to end with 'llvm.return', found '{String.fromUTF8! (IsOpCode.name lastType)}'"
@@ -913,7 +913,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .mlir__zero => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 0 1
-    let resultType := ((op.getResult 0).get! ctx.raw).type
+    let resultType := (op.getResult 0).getType! ctx.raw
     match resultType.val with
     | .llvmVoidType _ | .llvmFunctionType _ =>
       throw "llvm.mlir.zero: Expected result to have a type with a zero value"
@@ -976,7 +976,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 1 1
     let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
-    let resultType := ((op.getResult 0).get! ctx.raw).type
+    let resultType := (op.getResult 0).getType! ctx.raw
     let (fromType, toType) := if opType = .ptrtoint then
       (operandType, resultType)
     else
@@ -990,7 +990,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     pure ()
   | .mlir__addressof => do
     op.verifyPlainOpCounts ctx opIn 0 1
-    let resultType := ((op.getResult 0).get! ctx.raw).type
+    let resultType := (op.getResult 0).getType! ctx.raw
     let .llvmPointerType _ := resultType.val
       | throw "Expected result to have !llvm.ptr type"
     pure ()
@@ -1138,7 +1138,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.verifyPlainOpCounts ctx opIn 1 1
     let props := op.getProperties! ctx.raw Llvm.extractvalue
     let containerType := (op.getOperand! ctx.raw 0).getType! ctx.raw
-    let resultType := ((op.getResult 0).get! ctx.raw).type
+    let resultType := (op.getResult 0).getType! ctx.raw
     let elementType? ← Llvm.verifyAggregatePosition containerType props.position
     if let some elementType := elementType? then
       if !aggregateElementTypesMatch elementType resultType.val then
@@ -1153,10 +1153,10 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "Expected 1 region"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
-    let body := (op.getRegion! ctx.raw 0).get! ctx.raw
-    let some block := body.firstBlock
+    let body := op.getRegion! ctx.raw 0
+    let some block := body.getFirstBlock! ctx.raw
       | throw "region should have exactly one block"
-    if body.lastBlock ≠ some block then
+    if body.getLastBlock! ctx.raw ≠ some block then
       throw "region should have exactly one block"
     if block.getNumArguments! ctx.raw ≠ 0 then
       throw "region should have no arguments"
@@ -1179,7 +1179,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "Expected a nonempty one-dimensional vector"
     let .integerType _ := vecType.elementType
       | throw "Expected vector elements to have integer type"
-    let resultType := ((op.getResult 0).get! ctx.raw).type
+    let resultType := (op.getResult 0).getType! ctx.raw
     if resultType.val ≠ vecType.elementType then
       throw "Expected result type to match vector element type"
     pure ()

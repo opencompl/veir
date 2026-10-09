@@ -93,11 +93,9 @@ def resultVreg (opId i : Nat) : String :=
 def vreg (ctx : IRContext OpCode) (v : ValuePtr) : String :=
   match v with
   | .opResult rp =>
-    let r := rp.get! ctx
-    resultVreg r.owner.id r.index
+    resultVreg (rp.getOwner! ctx).id (rp.getIndex! ctx)
   | .blockArgument bp =>
-    let a := bp.get! ctx
-    s!"%arg{a.owner.id}_{a.index}"
+    s!"%arg{(bp.getOwner! ctx).id}_{bp.getIndex! ctx}"
 
 /-- The integer `value` property of an op (immediate operations), if present. -/
 def immValue? (ctx : IRContext OpCode) (op : OperationPtr) : Option Int :=
@@ -140,7 +138,7 @@ def getOperands (ctx : IRContext OpCode) (op : OperationPtr) : Array ValuePtr :=
 
 /-- The terminator (last op) of a block, given its first op. -/
 partial def lastOp (ctx : IRContext OpCode) (op : OperationPtr) : OperationPtr :=
-  match (op.get! ctx).next with
+  match op.getNextOp! ctx with
   | some n => lastOp ctx n
   | none => op
 
@@ -149,14 +147,14 @@ partial def collectBlocks (ctx : IRContext OpCode) (b : Option BlockPtr)
     (acc : Array BlockPtr := #[]) : Array BlockPtr :=
   match b with
   | none => acc
-  | some bp => collectBlocks ctx (bp.get! ctx).next (acc.push bp)
+  | some bp => collectBlocks ctx (bp.getNextBlock! ctx) (acc.push bp)
 
 /-- Operations of a block, in order. -/
 partial def collectOps (ctx : IRContext OpCode) (op : Option OperationPtr)
     (acc : Array OperationPtr := #[]) : Array OperationPtr :=
   match op with
   | none => acc
-  | some o => collectOps ctx (o.get! ctx).next (acc.push o)
+  | some o => collectOps ctx (o.getNextOp! ctx) (acc.push o)
 
 /-- The `(size, alignment)` in bytes of a `riscv_stack.alloca`, if `op` is one. -/
 def allocaShape? (ctx : IRContext OpCode) (op : OperationPtr) : Option (Int × Int) :=
@@ -204,7 +202,7 @@ def planFrame (ctx : IRContext OpCode) (blocks : Array BlockPtr) : Frame := Id.r
   let mut objects : Array (Int × Int) := #[]
   let mut escaped : List Nat := []
   for b in blocks do
-    for op in collectOps ctx (b.get! ctx).firstOp do
+    for op in collectOps ctx (b.getFirstOp! ctx) do
       match allocaShape? ctx op with
       | some shape =>
         fi := fi.insert op.id objects.size
@@ -214,7 +212,7 @@ def planFrame (ctx : IRContext OpCode) (blocks : Array BlockPtr) : Frame := Id.r
       for i in 0...(op.getNumOperands! ctx) do
         match op.getOperand! ctx i with
         | .opResult rp =>
-          let owner := (rp.get! ctx).owner
+          let owner := rp.getOwner! ctx
           if !isFrameBaseOperand opType i && (allocaShape? ctx owner).isSome then
             escaped := owner.id :: escaped
         | _ => pure ()
@@ -229,7 +227,7 @@ def planFrame (ctx : IRContext OpCode) (blocks : Array BlockPtr) : Frame := Id.r
 def operandOf (ctx : IRContext OpCode) (fr : Frame) (v : ValuePtr) : String :=
   match v with
   | .opResult rp =>
-    let owner := (rp.get! ctx).owner
+    let owner := rp.getOwner! ctx
     if fr.folded.contains owner.id then s!"%stack.{fr.fi[owner.id]!}" else vreg ctx v
   | _ => vreg ctx v
 
@@ -241,7 +239,7 @@ def bbOf (blocks : Array BlockPtr) (id : Nat) : Nat := Id.run do
 
 /-- Successor block ids of a block (via its terminator). -/
 def succIds (ctx : IRContext OpCode) (b : BlockPtr) : List Nat :=
-  match (b.get! ctx).firstOp with
+  match b.getFirstOp! ctx with
   | none => []
   | some f =>
     let term := lastOp ctx f
@@ -337,7 +335,7 @@ def planEdges (ctx : IRContext OpCode) (blocks : Array BlockPtr) : EdgePlan := I
   let mut trampEdges : Array (Nat × Nat × Array ValuePtr) := #[]
   let mut nextIdx := n
   for bi in 0...n do
-    match (blocks[bi]!).get! ctx |>.firstOp with
+    match blocks[bi]!.getFirstOp! ctx with
     | none => pure ()
     | some f =>
       let term := lastOp ctx f
@@ -358,7 +356,7 @@ def planEdges (ctx : IRContext OpCode) (blocks : Array BlockPtr) : EdgePlan := I
   for _ in 0...total do
     preds := preds.push #[]
   for bi in 0...n do
-    match (blocks[bi]!).get! ctx |>.firstOp with
+    match blocks[bi]!.getFirstOp! ctx with
     | none => pure ()
     | some f =>
       match split[bi]! with
@@ -559,7 +557,7 @@ def emitTerminator (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr)
 /-- Emit the op list of a block, treating the last op as the terminator. -/
 partial def emitOps (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr)
     (lsuccs : Array Nat) : IO Unit := do
-  match (op.get! ctx).next with
+  match op.getNextOp! ctx with
   | some n =>
     emitRegular ctx fr op
     emitOps ctx fr n lsuccs
@@ -584,7 +582,7 @@ def emitBlock (ctx : IRContext OpCode) (fr : Frame) (blocks : Array BlockPtr)
     (preds : Array (Array (Nat × Array ValuePtr))) (bi : Nat) : IO Unit := do
   let b := blocks[bi]!
   IO.println s!"  bb.{bi}:"
-  match (b.get! ctx).firstOp with
+  match b.getFirstOp! ctx with
   | none => pure ()
   | some f =>
     let term := lastOp ctx f
@@ -649,12 +647,12 @@ def hasBody (ctx : IRContext OpCode) (op : OperationPtr) : Bool :=
 /-- The `riscv_cf.call` ops in `blocks`. -/
 def calls (ctx : IRContext OpCode) (blocks : Array BlockPtr) : Array OperationPtr :=
   blocks.flatMap fun b =>
-    (collectOps ctx (b.get! ctx).firstOp).filter (·.getOpType! ctx == .riscv_cf .call)
+    (collectOps ctx (b.getFirstOp! ctx)).filter (·.getOpType! ctx == .riscv_cf .call)
 
 /-- The decoded symbols named by the `riscv.la` ops in `blocks`. -/
 def laSymbols (ctx : IRContext OpCode) (blocks : Array BlockPtr) : Array String :=
   blocks.flatMap fun b =>
-    (collectOps ctx (b.get! ctx).firstOp).filterMap fun op =>
+    (collectOps ctx (b.getFirstOp! ctx)).filterMap fun op =>
       if op.getOpType! ctx == .riscv .la then
         some (symbolName (op.getProperties! ctx Riscv.la).symbol)
       else
@@ -728,7 +726,7 @@ def printGlobal (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
     return
   let some type := llvmType? props.global_type.val
     | IO.println s!"  ; UNHANDLED global {name}"
-  let hasRegion := ((op.getRegion! ctx 0).get! ctx).firstBlock.isSome
+  let hasRegion := ((op.getRegion! ctx 0).getFirstBlock! ctx).isSome
   let init? : Option String := match props.value, props.global_type.val with
     | some (.integerAttr a), .integerType _ => some (toString a.value)
     | some (.stringAttr str), .llvmArrayType { type := .integerType { bitwidth := 8, .. }, .. } =>

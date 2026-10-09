@@ -3,6 +3,9 @@ module
 public import Veir.Rewriter.Basic
 
 import all Veir.Rewriter.Basic
+import all Veir.IR.Basic
+import all Veir.IR.GetSet
+import all Veir.Rewriter.LinkedList.GetSet
 import Veir.Rewriter.WfRewriter.GetSetTactic
 
 
@@ -11,13 +14,27 @@ public section
 namespace Veir
 
 variable {OpInfo} [HasOpInfo OpInfo]
+
+-- Relate the getters to the fields of the underlying structures.
+attribute [local grind _=_]
+  OperationPtr.getNextOp!_def OperationPtr.getPrevOp!_def OperationPtr.getParent!_def
+  OperationPtr.getAttributes!_def OpOperandPtr.getNextUse!_def OpOperandPtr.getBack!_def
+  OpOperandPtr.getOwner!_def OpOperandPtr.getValue!_def BlockOperandPtr.getNextUse!_def
+  BlockOperandPtr.getBack!_def BlockOperandPtr.getOwner!_def BlockOperandPtr.getValue!_def
+  OpResultPtr.getType!_def OpResultPtr.getFirstUse!_def OpResultPtr.getOwner!_def
+  BlockPtr.getParent!_def BlockPtr.getFirstUse!_def BlockPtr.getFirstOp!_def
+  BlockPtr.getLastOp!_def BlockPtr.getNextBlock!_def BlockPtr.getPrevBlock!_def
+  BlockArgumentPtr.getType!_def BlockArgumentPtr.getFirstUse!_def
+  BlockArgumentPtr.getIndex!_def BlockArgumentPtr.getLoc!_def
+  BlockArgumentPtr.getOwner!_def RegionPtr.getParent!_def RegionPtr.getFirstBlock!_def
+  RegionPtr.getLastBlock!_def OpResultPtr.getIndex!_def
 variable {ctx : IRContext OpInfo}
 variable {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpInfo Dialect]
 variable {opCode : Dialect}
 section Rewriter.replaceUse
 
 @[simp, grind ., simp_getset]
-theorem BlockOperandPtr.get!_replaceUse {bop : BlockOperandPtr} :
+private theorem BlockOperandPtr.get!_replaceUse {bop : BlockOperandPtr} :
     bop.get! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
     bop.get! ctx := by
   unfold Rewriter.replaceUse
@@ -65,50 +82,50 @@ theorem OperationPtr.getSuccessors!_replaceUse {operation : OperationPtr} :
 
 @[simp, grind =, simp_getset]
 theorem BlockPtr.firstOp!_replaceUse {b : BlockPtr} :
-    (b.get! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).firstOp =
-    (b.get! ctx).firstOp := by
+    b.getFirstOp! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    b.getFirstOp! ctx := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =, simp_getset]
 theorem BlockPtr.lastOp!_replaceUse {b : BlockPtr} :
-    (b.get! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).lastOp =
-    (b.get! ctx).lastOp := by
+    b.getLastOp! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    b.getLastOp! ctx := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =, simp_getset]
 theorem BlockPtr.next!_replaceUse {b : BlockPtr} :
-    (b.get! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).next =
-    (b.get! ctx).next := by
+    b.getNextBlock! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    b.getNextBlock! ctx := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =, simp_getset]
 theorem BlockPtr.prev!_replaceUse {b : BlockPtr} :
-    (b.get! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).prev =
-    (b.get! ctx).prev := by
+    b.getPrevBlock! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    b.getPrevBlock! ctx := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =, simp_getset]
 theorem BlockPtr.parent!_replaceUse {b : BlockPtr} :
-    (b.get! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).parent =
-    (b.get! ctx).parent := by
+    b.getParent! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    b.getParent! ctx := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =, simp_getset]
 theorem OperationPtr.parent!_replaceUse {op : OperationPtr} :
-    (op.get! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).parent =
-    (op.get! ctx).parent := by
+    op.getParent! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    op.getParent! ctx := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =, simp_getset]
 theorem OperationPtr.next!_replaceUse {op : OperationPtr} :
-    (op.get! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).next =
-    (op.get! ctx).next := by
+    op.getNextOp! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    op.getNextOp! ctx := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =, simp_getset]
 theorem OperationPtr.prev!_replaceUse {op : OperationPtr} :
-    (op.get! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).prev =
-    (op.get! ctx).prev := by
+    op.getPrevOp! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    op.getPrevOp! ctx := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =, simp_getset]
@@ -119,8 +136,8 @@ theorem OperationPtr.getOpType!_replaceUse {op : OperationPtr} :
 
 @[simp, grind =, simp_getset]
 theorem OperationPtr.attrs!_replaceUse {op : OperationPtr} :
-    (op.get! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).attrs =
-    (op.get! ctx).attrs := by
+    op.getAttributes! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    op.getAttributes! ctx := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =, simp_getset]
@@ -137,17 +154,17 @@ theorem OperationPtr.getNumOperands!_replaceUse :
 
 @[simp, grind =, simp_getset]
 theorem OpOperandPtr.owner!_replaceUse :
-    (OpOperandPtr.get! opr (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).owner =
-    (OpOperandPtr.get! opr ctx).owner := by
+    OpOperandPtr.getOwner! opr (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    OpOperandPtr.getOwner! opr ctx := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =, simp_getset]
 theorem OpOperandPtr.value!_replaceUse :
-    (OpOperandPtr.get! opr (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).value =
+    OpOperandPtr.getValue! opr (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
     if use = opr then
       value'
     else
-      (OpOperandPtr.get! opr ctx).value := by
+      OpOperandPtr.getValue! opr ctx := by
   grind [Rewriter.replaceUse]
 
 @[grind =, simp_getset]
@@ -181,14 +198,14 @@ theorem OperationPtr.getNumResults!_replaceUse :
 
 @[simp, grind =, simp_getset]
 theorem OpResultPtr.owner!_replaceUse :
-    (OpResultPtr.get! opr (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).owner =
-    (OpResultPtr.get! opr ctx).owner := by
+    OpResultPtr.getOwner! opr (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    OpResultPtr.getOwner! opr ctx := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =, simp_getset]
 theorem OpResultPtr.index!_replaceUse :
-    (OpResultPtr.get! opr (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).index =
-    (OpResultPtr.get! opr ctx).index := by
+    OpResultPtr.getIndex! opr (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    OpResultPtr.getIndex! opr ctx := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =, simp_getset]
@@ -218,18 +235,18 @@ theorem BlockPtr.getBlockArguments!_replaceUse :
 
 @[simp, grind =, simp_getset]
 theorem BlockArgumentPtr.owner!_replaceUse :
-    (BlockArgumentPtr.get! arg (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).owner =
-    (BlockArgumentPtr.get! arg ctx).owner := by
+    BlockArgumentPtr.getOwner! arg (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    BlockArgumentPtr.getOwner! arg ctx := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =, simp_getset]
 theorem BlockArgumentPtr.index!_replaceUse :
-    (BlockArgumentPtr.get! arg (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).index =
-    (BlockArgumentPtr.get! arg ctx).index := by
+    BlockArgumentPtr.getIndex! arg (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    BlockArgumentPtr.getIndex! arg ctx := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =, simp_getset]
-theorem RegionPtr.get!_replaceUse :
+private theorem RegionPtr.get!_replaceUse :
     RegionPtr.get! reg (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
     RegionPtr.get! reg ctx := by
   grind (instances := 2000) [Rewriter.replaceUse]  -- TODO: instance threshold reached when adding lemmas for Region.allocEmpty
@@ -269,7 +286,7 @@ section Rewriter.replaceValue?
 attribute [local grind] Rewriter.replaceValue?
 
 @[simp, grind =>, simp_getset]
-theorem BlockOperandPtr.get!_replaceValue? {bop : BlockOperandPtr} :
+private theorem BlockOperandPtr.get!_replaceValue? {bop : BlockOperandPtr} :
     Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
     bop.get! newCtx = bop.get! ctx := by
   induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
@@ -321,49 +338,49 @@ theorem OperationPtr.getSuccessors!_replaceValue? {operation : OperationPtr} :
 @[simp, grind =>, simp_getset]
 theorem BlockPtr.firstOp!_replaceValue? {b : BlockPtr} :
     Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
-    (b.get! newCtx).firstOp = (b.get! ctx).firstOp := by
+    b.getFirstOp! newCtx = b.getFirstOp! ctx := by
   induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
 
 @[simp, grind =>, simp_getset]
 theorem BlockPtr.lastOp!_replaceValue? {b : BlockPtr} :
     Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
-    (b.get! newCtx).lastOp = (b.get! ctx).lastOp := by
+    b.getLastOp! newCtx = b.getLastOp! ctx := by
   induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
 
 @[simp, grind =>, simp_getset]
 theorem BlockPtr.next!_replaceValue? {b : BlockPtr} :
     Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
-    (b.get! newCtx).next = (b.get! ctx).next := by
+    b.getNextBlock! newCtx = b.getNextBlock! ctx := by
   induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
 
 @[simp, grind =>, simp_getset]
 theorem BlockPtr.prev!_replaceValue? {b : BlockPtr} :
     Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
-    (b.get! newCtx).prev = (b.get! ctx).prev := by
+    b.getPrevBlock! newCtx = b.getPrevBlock! ctx := by
   induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
 
 @[simp, grind =>, simp_getset]
 theorem BlockPtr.parent!_replaceValue? {b : BlockPtr} :
     Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
-    (b.get! newCtx).parent = (b.get! ctx).parent := by
+    b.getParent! newCtx = b.getParent! ctx := by
   induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
 
 @[simp, grind =>, simp_getset]
 theorem OperationPtr.parent!_replaceValue? {op : OperationPtr} :
     Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
-    (op.get! newCtx).parent = (op.get! ctx).parent := by
+    op.getParent! newCtx = op.getParent! ctx := by
   induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
 
 @[simp, grind =>, simp_getset]
 theorem OperationPtr.next!_replaceValue? {op : OperationPtr} :
     Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
-    (op.get! newCtx).next = (op.get! ctx).next := by
+    op.getNextOp! newCtx = op.getNextOp! ctx := by
   induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
 
 @[simp, grind =>, simp_getset]
 theorem OperationPtr.prev!_replaceValue? {op : OperationPtr} :
     Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
-    (op.get! newCtx).prev = (op.get! ctx).prev := by
+    op.getPrevOp! newCtx = op.getPrevOp! ctx := by
   induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
 
 @[simp, grind =>, simp_getset]
@@ -375,7 +392,7 @@ theorem OperationPtr.getNumOperands!_replaceValue? {op : OperationPtr} :
 @[simp, grind =>, simp_getset]
 theorem OpOperandPtr.owner!_replaceValue? {opr : OpOperandPtr} :
     Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
-    (opr.get! newCtx).owner = (opr.get! ctx).owner := by
+    opr.getOwner! newCtx = opr.getOwner! ctx := by
   induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
 
 /-!
@@ -407,13 +424,13 @@ theorem OperationPtr.getNumResults!_replaceValue? {op : OperationPtr} :
 @[simp, grind =>, simp_getset]
 theorem OpResultPtr.owner!_replaceValue? {opr : OpResultPtr} :
     Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
-    (opr.get! newCtx).owner = (opr.get! ctx).owner := by
+    opr.getOwner! newCtx = opr.getOwner! ctx := by
   induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
 
 @[simp, grind =>, simp_getset]
 theorem OpResultPtr.index!_replaceValue? {opr : OpResultPtr} :
     Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
-    (opr.get! newCtx).index = (opr.get! ctx).index := by
+    opr.getIndex! newCtx = opr.getIndex! ctx := by
   induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
 
 @[simp, grind =>, simp_getset]
@@ -445,17 +462,17 @@ theorem BlockPtr.getBlockArguments!_replaceValue? {block : BlockPtr} :
 @[simp, grind =>, simp_getset]
 theorem BlockArgumentPtr.owner!_replaceValue? {arg : BlockArgumentPtr} :
     Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
-    (arg.get! newCtx).owner = (arg.get! ctx).owner := by
+    arg.getOwner! newCtx = arg.getOwner! ctx := by
   induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
 
 @[simp, grind =>, simp_getset]
 theorem BlockArgumentPtr.index!_replaceValue? {arg : BlockArgumentPtr} :
     Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
-    (arg.get! newCtx).index = (arg.get! ctx).index := by
+    arg.getIndex! newCtx = arg.getIndex! ctx := by
   induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
 
 @[simp, grind =>, simp_getset]
-theorem RegionPtr.get!_replaceValue? {reg : RegionPtr} :
+private theorem RegionPtr.get!_replaceValue? {reg : RegionPtr} :
     Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
     reg.get! newCtx = reg.get! ctx := by
   induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
