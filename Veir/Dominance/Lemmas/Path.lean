@@ -69,39 +69,39 @@ theorem source_mem (path : region.Path ctx source target blocks) :
 @[grind →]
 theorem parent_of_mem (path : region.Path ctx source target blocks)
     (hmem : block ∈ blocks) :
-    (block.get! ctx.raw).parent = some region := by
+    block.getParent! ctx.raw = some region := by
   induction path <;> grind
 
 /-- The source block of a path belongs to the path's region. -/
 @[grind →]
 theorem source_parent (path : region.Path ctx source target blocks) :
-    (source.get! ctx.raw).parent = some region := by
+    source.getParent! ctx.raw = some region := by
   grind
 
 /-- The target block of a path belongs to the path's region. -/
 @[grind →]
 theorem target_parent (path : region.Path ctx source target blocks) :
-    (target.get! ctx.raw).parent = some region := by
+    target.getParent! ctx.raw = some region := by
   grind
 
 /-- The source block of a path is in bounds of the path's region. -/
 @[grind →]
 theorem source_inBounds (path : region.Path ctx source target blocks) :
     source.InBounds ctx.raw := by
-  grind [BlockPtr.get!_of_not_inBounds, Block.default_parent_eq]
+  grind [BlockPtr.getParent!_of_not_inBounds]
 
 /-- The target block of a path is in bounds of the path's region. -/
 @[grind →]
 theorem target_inBounds (path : region.Path ctx source target blocks) :
     target.InBounds ctx.raw := by
-  grind [BlockPtr.get!_of_not_inBounds, Block.default_parent_eq]
+  grind [BlockPtr.getParent!_of_not_inBounds]
 
 /-- Every block listed by a path is in bounds of the path's region. -/
 @[grind →]
 theorem inBounds_of_mem (path : region.Path ctx source target blocks)
     (hmem : block ∈ blocks) :
     block.InBounds ctx.raw := by
-  grind [BlockPtr.get!_of_not_inBounds, Block.default_parent_eq]
+  grind [BlockPtr.getParent!_of_not_inBounds]
 
 /-- Every adjacent pair in a path is a CFG successor edge. -/
 theorem successor_of_adjacent
@@ -142,8 +142,8 @@ theorem split_of_mem
 /-- Create a path from a known successor edge. -/
 theorem of_successor
     (successorEdge : successor ∈ source.getSuccessors! ctx.raw)
-    (sourceParent : (source.get! ctx.raw).parent = some region)
-    (successorParent : (successor.get! ctx.raw).parent = some region) :
+    (sourceParent : source.getParent! ctx.raw = some region)
+    (successorParent : successor.getParent! ctx.raw = some region) :
     region.Path ctx source successor [source, successor] := by
   exact Path.Cons sourceParent successorEdge (Path.Single successorParent)
 
@@ -155,7 +155,7 @@ variable {region : RegionPtr} {source successorBlock entryBlock : BlockPtr}
 
 /-- Establish reachability from a path beginning at the region's entry block. -/
 theorem of_path
-    (entryBlock : (region.get! ctx.raw).firstBlock = some entry)
+    (entryBlock : region.getFirstBlock! ctx.raw = some entry)
     (path : region.Path ctx entry source blocks) :
     source.LocallyReachable region ctx := by
   grind [BlockPtr.LocallyReachable]
@@ -163,21 +163,21 @@ theorem of_path
 /-- A reachable block has a witnessing path from the region's entry block. -/
 theorem exists_path (reachable : source.LocallyReachable region ctx) :
     ∃ entry blocks,
-      (region.get! ctx.raw).firstBlock = some entry ∧
+      region.getFirstBlock! ctx.raw = some entry ∧
       region.Path ctx entry source blocks := by
   grind [BlockPtr.LocallyReachable]
 
 /-- A reachable block belongs to the region whose entry reaches it. -/
 @[grind →]
 theorem parent (reachable : source.LocallyReachable region ctx) :
-    (source.get! ctx.raw).parent = some region := by
+    source.getParent! ctx.raw = some region := by
   grind [BlockPtr.LocallyReachable]
 
 /-- A region's entry block is reachable from itself. -/
 @[grind →]
 theorem entry
     (regionInBounds : region.InBounds ctx.raw)
-    (hentry : (region.get! ctx.raw).firstBlock = some entryBlock) :
+    (hentry : region.getFirstBlock! ctx.raw = some entryBlock) :
     entryBlock.LocallyReachable region ctx := by
   apply of_path hentry
   apply RegionPtr.Path.Single
@@ -188,7 +188,7 @@ theorem successor
     {ctx : WfIRContext OpCode}
     (reachable : source.LocallyReachable region ctx)
     (hsuccessor : successorBlock ∈ source.getSuccessors! ctx.raw)
-    (hsuccParent : (successorBlock.get! ctx.raw).parent = some region) :
+    (hsuccParent : successorBlock.getParent! ctx.raw = some region) :
     successorBlock.LocallyReachable region ctx := by
   obtain ⟨entry, blocks, hentry, path⟩ := reachable.exists_path
   have edgePath : region.Path ctx source successorBlock [source, successorBlock] :=
@@ -203,7 +203,7 @@ end BlockPtr.LocallyReachable
 theorem OperationPtr.LocallyReachable.of_parent_block
     {op : OperationPtr} {block : BlockPtr} {region : RegionPtr}
     (reachable : block.LocallyReachable region ctx)
-    (parent : (op.get! ctx.raw).parent = some block) :
+    (parent : op.getParent! ctx.raw = some block) :
     op.LocallyReachable region ctx := by
   exact ⟨block, parent, reachable.parent, reachable⟩
 
@@ -212,7 +212,7 @@ theorem OperationPtr.LocallyReachable.of_parent_block
 theorem OperationPtr.HierarchicallyReachable.of_parent_block
     {op : OperationPtr} {block : BlockPtr}
     (reachable : block.HierarchicallyReachable ctx)
-    (parent : (op.get! ctx.raw).parent = some block) :
+    (parent : op.getParent! ctx.raw = some block) :
     op.HierarchicallyReachable ctx := by
   intro parentBlock hparent
   have : parentBlock = block := by grind

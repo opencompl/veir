@@ -139,7 +139,7 @@ def OperationPtr.verifyFeltConstOp {OpInfo : Type} [IsOpCode OpInfo]
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 0 1
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
-  let resultType := ((op.getResult 0).get! ctx.raw).type
+  let resultType := (op.getResult 0).getType! ctx.raw
   let resultFeltType ← resultType.verifyFeltType
     s!"{instrName}: Expected result to have FeltType"
   let props := op.getProperties! ctx.raw Felt.const

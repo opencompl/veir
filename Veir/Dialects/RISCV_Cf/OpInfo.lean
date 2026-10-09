@@ -268,11 +268,11 @@ def Riscv_Cf.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       let .registerType _ := ty
         | throw "riscv_cf.func: Expected register types in function signature"
     let body := op.getRegion! ctx.raw 0
-    if let some entry := (body.get! ctx.raw).firstBlock then
+    if let some entry := body.getFirstBlock! ctx.raw then
       if entry.getNumArguments! ctx.raw ≠ ft.inputs.size then
         throw "riscv_cf.func: Entry block argument count does not match function signature"
       for i in [0:ft.inputs.size] do
-        if ((entry.getArgument i).get! ctx.raw).type.val ≠ ft.inputs[i]! then
+        if ((entry.getArgument i).getType! ctx.raw).val ≠ ft.inputs[i]! then
           throw s!"riscv_cf.func: Entry block argument {i} type does not match function signature"
   | .branch =>
     op.verifyUnconditionalBranch ctx opIn

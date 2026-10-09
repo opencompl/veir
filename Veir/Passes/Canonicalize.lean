@@ -80,7 +80,7 @@ private def propagateConstants (ctx : WfIRContext OpCode) (root : OperationPtr) 
   let facts ← fixpointSolve root #[SparseConstantPropagationAnalysis, DeadCodeAnalysis] ctx
   let mut ctx := ctx
   for op in ctx.raw.operations.keys do
-    if (op.get! ctx.raw).parent.isSome then
+    if (op.getParent! ctx.raw).isSome then
       for result in op.getResults! ctx.raw do
         ctx ← replaceKnownConstant ctx facts result (.before op)
   for block in ctx.raw.blocks.keys do

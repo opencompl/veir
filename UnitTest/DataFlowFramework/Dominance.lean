@@ -25,7 +25,7 @@ Whether a block properly dominates itself, which it does exactly when it sits in
 a graph region: there is no ordering between points in such a region.
 -/
 private def selfProperlyDominates (block : BlockPtr) (irCtx : WfIRContext OpCode) : Bool :=
-  match (block.get! irCtx.raw).parent with
+  match block.getParent! irCtx.raw with
   | none => false
   | some region => !region.hasSSADominance irCtx
 

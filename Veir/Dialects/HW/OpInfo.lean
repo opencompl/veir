@@ -109,7 +109,7 @@ def HW.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .constant => do
     op.verifyPlainOpCounts ctx opIn 0 1
     let value := (op.getProperties! ctx.raw HW.constant).value
-    if ((op.getResult 0).get! ctx.raw).type.val ≠ .integerType value.type then
+    if ((op.getResult 0).getType! ctx.raw).val ≠ .integerType value.type then
       throw s!"hw.constant: attribute bitwidth {value.type.bitwidth} doesn't match return type"
     op.verifyNormalizedIntegerAttr ctx opIn value
     pure ()

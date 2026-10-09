@@ -26,7 +26,7 @@ private def contextWithCrossRegionSuccessor :
     Except String (WfIRContext OpCode × OperationPtr) := do
   let (ctx, moduleOp) := WfIRContext.create! OpCode
   let moduleRegion := moduleOp.getRegion! ctx.raw 0
-  let moduleBlock := (moduleRegion.get! ctx.raw).firstBlock.get!
+  let moduleBlock := (moduleRegion.getFirstBlock! ctx.raw).get!
 
   let (ctx, sourceRegion) := WfRewriter.createRegion! ctx
   let (ctx, sourceBlock) :=
@@ -59,7 +59,7 @@ private def verifyConstant (opType : OpCode) (props : propertiesOf opType)
     (type : IntegerType) : Except String Unit := do
   let (ctx, moduleOp) := WfIRContext.create! OpCode
   let region := moduleOp.getRegion! ctx.raw 0
-  let block := (region.get! ctx.raw).firstBlock.get!
+  let block := (region.getFirstBlock! ctx.raw).get!
   let (ctx, _) :=
     (WfRewriter.createOp! ctx opType #[type] #[] #[] #[] props
       (some (.atEnd block))).get!

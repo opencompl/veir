@@ -109,7 +109,7 @@ def OperationPtr.verifyModArithConstantOp {OpInfo : Type} [IsOpCode OpInfo]
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 0 1
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
-  let mat ← ((op.getResult 0).get! ctx.raw).type.verifyModArithType
+  let mat ← ((op.getResult 0).getType! ctx.raw).verifyModArithType
     s!"{instrName}: Expected result to have ModArithType"
   let value := (op.getProperties! ctx.raw Mod_Arith.constant).value.value
   let bw := mat.modulus.type.bitwidth
