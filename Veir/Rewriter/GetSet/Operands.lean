@@ -8,45 +8,6 @@ import Veir.Rewriter.WfRewriter.GetSetTactic
 
 public section
 
-/-
- - The getters we consider are:
- - * BlockPtr.get! optionally replaced by the following special cases:
- -   * Block.firstUse
- -   * Block.prev
- -   * Block.next
- -   * Block.parent
- -   * Block.firstOp
- -   * Block.lastOp
- - * OperationPtr.get! optionally replaced by the following special cases:
- -   * Operation.prev
- -   * Operation.next
- -   * Operation.parent
- -   * OperationPtr.getOpType!
- -   * Operation.attrs
- - * OperationPtr.getProperties!
- - * OperationPtr.getNumResults!
- - * OpResultPtr.get!
- - * OperationPtr.getNumOperands!
- - * OpOperandPtr.get! optionally replaced by the following special case:
- - * OperationPtr.getOperands!
- - * OperationPtr.getNumSuccessors!
- - * BlockOperandPtr.get!
- - * OperationPtr.getSuccessor!
- - * OperationPtr.getSuccessors!
- - * OperationPtr.getNumRegions!
- - * OperationPtr.getRegion!
- - * BlockOperandPtrPtr.get!
- - * BlockPtr.getNumArguments!
- - * BlockArgumentPtr.get!
- - * RegionPtr.get! with optionally special cases for:
- -   * firstBlock
- -   * lastBlock
- -   * parent
- - * ValuePtr.getFirstUse!
- - * ValuePtr.getType!
- - * OpOperandPtrPtr.get!
- -/
-
 namespace Veir
 
 variable {OpInfo} [HasOpInfo OpInfo]
@@ -149,6 +110,34 @@ theorem OpResultPtr.get!_pushOperand {opResult : OpResultPtr} :
   grind [OperationPtr.getOpOperand_def]
 
 @[simp, grind =, simp_getset]
+theorem OpResultPtr.getIndex!_pushOperand {opResult : OpResultPtr} :
+    opResult.getIndex! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
+    opResult.getIndex! ctx := by
+  simp only [OpResultPtr.getIndex!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem OpResultPtr.getType!_pushOperand {opResult : OpResultPtr} :
+    opResult.getType! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
+    opResult.getType! ctx := by
+  simp only [OpResultPtr.getType!_def]
+  grind
+
+@[grind =, simp_getset]
+theorem OpResultPtr.getFirstUse!_pushOperand {opResult : OpResultPtr} :
+    opResult.getFirstUse! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
+    if valuePtr = ValuePtr.opResult opResult then some (opPtr.nextOperand! ctx) else opResult.getFirstUse! ctx := by
+  simp only [OpResultPtr.getFirstUse!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem OpResultPtr.getOwner!_pushOperand {opResult : OpResultPtr} :
+    opResult.getOwner! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
+    opResult.getOwner! ctx := by
+  simp only [OpResultPtr.getOwner!_def]
+  grind
+
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getNumOperands!_pushOperand {operation : OperationPtr} :
     operation.getNumOperands! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
     if operation = opPtr then
@@ -179,6 +168,40 @@ theorem OpOperandPtr.get!_pushOperand {operand : OpOperandPtr} :
   have : ¬ (opPtr.nextOperand ctx).InBounds ctx := by grind
   split <;> grind [OperationPtr.getOpOperand_def]
 
+@[grind =, simp_getset]
+theorem OpOperandPtr.getNextUse!_pushOperand {operand : OpOperandPtr} :
+    operand.getNextUse! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
+    if operand = opPtr.nextOperand ctx then valuePtr.getFirstUse! ctx
+    else operand.getNextUse! ctx := by
+  simp only [OpOperandPtr.getNextUse!_def]
+  grind
+
+@[grind =, simp_getset]
+theorem OpOperandPtr.getBack!_pushOperand {operand : OpOperandPtr} :
+    operand.getBack! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
+    if operand = opPtr.nextOperand ctx then
+      OpOperandPtrPtr.valueFirstUse valuePtr
+    else
+      if valuePtr.getFirstUse! ctx = some operand then
+        OpOperandPtrPtr.operandNextUse (opPtr.nextOperand ctx)
+      else operand.getBack! ctx := by
+  simp only [OpOperandPtr.getBack!_def]
+  grind
+
+@[grind =, simp_getset]
+theorem OpOperandPtr.getOwner!_pushOperand {operand : OpOperandPtr} :
+    operand.getOwner! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
+    if operand = opPtr.nextOperand ctx then opPtr else operand.getOwner! ctx := by
+  simp only [OpOperandPtr.getOwner!_def]
+  grind
+
+@[grind =, simp_getset]
+theorem OpOperandPtr.getValue!_pushOperand {operand : OpOperandPtr} :
+    operand.getValue! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
+    if operand = opPtr.nextOperand ctx then valuePtr else operand.getValue! ctx := by
+  simp only [OpOperandPtr.getValue!_def]
+  grind
+
 /-
 This version of the theorem has if/else branches that are sometimes more convenient for reasonning.
 -/
@@ -195,6 +218,42 @@ theorem OpOperandPtr.get!_pushOperand'
       else
         operandPtr.get! ctx := by
   apply OpOperand.ext <;> grind
+
+theorem OpOperandPtr.getNextUse!_pushOperand'
+    (valuePtr : ValuePtr) valuePtrInBounds (operandPtr : OpOperandPtr) :
+    operandPtr.getNextUse! (Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) =
+    if operandPtr = opPtr.nextOperand ctx then valuePtr.getFirstUse! ctx
+    else operandPtr.getNextUse! ctx := by
+  simp only [OpOperandPtr.getNextUse!_def]
+  grind
+
+theorem OpOperandPtr.getBack!_pushOperand'
+    (valuePtr : ValuePtr) valuePtrInBounds (operandPtr : OpOperandPtr) :
+    operandPtr.getBack! (Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) =
+    if operandPtr = opPtr.nextOperand ctx then
+      OpOperandPtrPtr.valueFirstUse valuePtr
+    else
+      if valuePtr.getFirstUse! ctx = some operandPtr then
+        OpOperandPtrPtr.operandNextUse (opPtr.nextOperand ctx)
+      else operandPtr.getBack! ctx := by
+  simp only [OpOperandPtr.getBack!_def]
+  grind
+
+theorem OpOperandPtr.getOwner!_pushOperand'
+    (valuePtr : ValuePtr) valuePtrInBounds (operandPtr : OpOperandPtr) :
+    operandPtr.getOwner! (Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) =
+    if operandPtr = opPtr.nextOperand ctx then opPtr
+    else operandPtr.getOwner! ctx := by
+  simp only [OpOperandPtr.getOwner!_def]
+  grind
+
+theorem OpOperandPtr.getValue!_pushOperand'
+    (valuePtr : ValuePtr) valuePtrInBounds (operandPtr : OpOperandPtr) :
+    operandPtr.getValue! (Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) =
+    if operandPtr = opPtr.nextOperand ctx then valuePtr
+    else operandPtr.getValue! ctx := by
+  simp only [OpOperandPtr.getValue!_def]
+  grind
 
 @[simp, grind =, simp_getset]
 theorem OperationPtr.getOperands!_pushOperand {operation : OperationPtr} :
@@ -215,6 +274,34 @@ theorem OperationPtr.getNumSuccessors!_pushOperand {operation : OperationPtr} :
 theorem BlockOperandPtr.get!_pushOperand {blockOperand : BlockOperandPtr} :
     blockOperand.get! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
     blockOperand.get! ctx := by
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockOperandPtr.getNextUse!_pushOperand {blockOperand : BlockOperandPtr} :
+    blockOperand.getNextUse! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
+    blockOperand.getNextUse! ctx := by
+  simp only [BlockOperandPtr.getNextUse!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockOperandPtr.getBack!_pushOperand {blockOperand : BlockOperandPtr} :
+    blockOperand.getBack! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
+    blockOperand.getBack! ctx := by
+  simp only [BlockOperandPtr.getBack!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockOperandPtr.getOwner!_pushOperand {blockOperand : BlockOperandPtr} :
+    blockOperand.getOwner! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
+    blockOperand.getOwner! ctx := by
+  simp only [BlockOperandPtr.getOwner!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockOperandPtr.getValue!_pushOperand {blockOperand : BlockOperandPtr} :
+    blockOperand.getValue! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
+    blockOperand.getValue! ctx := by
+  simp only [BlockOperandPtr.getValue!_def]
   grind
 
 @[simp, grind =, simp_getset]
@@ -262,6 +349,40 @@ theorem BlockArgumentPtr.get!_pushOperand {blockArg : BlockArgumentPtr} :
     else
       blockArg.get! ctx := by
   grind [OperationPtr.getOpOperand_def]
+
+@[simp, grind =, simp_getset]
+theorem BlockArgumentPtr.getType!_pushOperand {blockArg : BlockArgumentPtr} :
+    blockArg.getType! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
+    blockArg.getType! ctx := by
+  simp only [BlockArgumentPtr.getType!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockArgumentPtr.getFirstUse!_pushOperand {blockArg : BlockArgumentPtr} :
+    blockArg.getFirstUse! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
+    if valuePtr = ValuePtr.blockArgument blockArg then some (opPtr.nextOperand! ctx) else blockArg.getFirstUse! ctx := by
+  simp only [BlockArgumentPtr.getFirstUse!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockArgumentPtr.getIndex!_pushOperand {blockArg : BlockArgumentPtr} :
+    blockArg.getIndex! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
+    blockArg.getIndex! ctx := by
+  simp only [BlockArgumentPtr.getIndex!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockArgumentPtr.getLoc!_pushOperand {blockArg : BlockArgumentPtr} :
+    blockArg.getLoc! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
+    blockArg.getLoc! ctx := by
+  simp only [BlockArgumentPtr.getLoc!_def] <;> grind
+
+@[simp, grind =, simp_getset]
+theorem BlockArgumentPtr.getOwner!_pushOperand {blockArg : BlockArgumentPtr} :
+    blockArg.getOwner! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
+    blockArg.getOwner! ctx := by
+  simp only [BlockArgumentPtr.getOwner!_def]
+  grind
 
 @[simp, grind =, simp_getset]
 theorem RegionPtr.firstBlock!_pushOperand {region : RegionPtr} :
@@ -407,6 +528,34 @@ theorem BlockOperandPtr.get!_initOpOperands {blockOperand : BlockOperandPtr} :
     blockOperand.get! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) =
     blockOperand.get! ctx := by
   fun_induction Rewriter.initOpOperands <;> grind
+
+@[simp, grind =, simp_getset]
+theorem BlockOperandPtr.getNextUse!_initOpOperands {blockOperand : BlockOperandPtr} :
+    blockOperand.getNextUse! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) =
+    blockOperand.getNextUse! ctx := by
+  simp only [BlockOperandPtr.getNextUse!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockOperandPtr.getBack!_initOpOperands {blockOperand : BlockOperandPtr} :
+    blockOperand.getBack! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) =
+    blockOperand.getBack! ctx := by
+  simp only [BlockOperandPtr.getBack!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockOperandPtr.getOwner!_initOpOperands {blockOperand : BlockOperandPtr} :
+    blockOperand.getOwner! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) =
+    blockOperand.getOwner! ctx := by
+  simp only [BlockOperandPtr.getOwner!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockOperandPtr.getValue!_initOpOperands {blockOperand : BlockOperandPtr} :
+    blockOperand.getValue! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) =
+    blockOperand.getValue! ctx := by
+  simp only [BlockOperandPtr.getValue!_def]
+  grind
 
 @[simp, grind =, simp_getset]
 theorem OperationPtr.getSuccessor!_initOpOperands {operation : OperationPtr} :

@@ -10,45 +10,6 @@ import Veir.Rewriter.GetSet.DetachBlockOperands
 
 public section
 
-/-
- - The getters we consider are:
- - * BlockPtr.get! optionally replaced by the following special cases:
- -   * Block.firstUse
- -   * Block.prev
- -   * Block.next
- -   * Block.parent
- -   * Block.firstOp
- -   * Block.lastOp
- - * OperationPtr.get! optionally replaced by the following special cases:
- -   * Operation.prev
- -   * Operation.next
- -   * Operation.parent
- -   * OperationPtr.getOpType!
- -   * Operation.attrs
- - * OperationPtr.getProperties!
- - * OperationPtr.getNumResults!
- - * OpResultPtr.get!
- - * OperationPtr.getNumOperands!
- - * OpOperandPtr.get! optionally replaced by the following special case:
- - * OperationPtr.getOperands!
- - * OperationPtr.getNumSuccessors!
- - * BlockOperandPtr.get!
- - * OperationPtr.getSuccessor!
- - * OperationPtr.getSuccessors!
- - * OperationPtr.getNumRegions!
- - * OperationPtr.getRegion!
- - * BlockOperandPtrPtr.get!
- - * BlockPtr.getNumArguments!
- - * BlockArgumentPtr.get!
- - * RegionPtr.get! with optionally special cases for:
- -   * firstBlock
- -   * lastBlock
- -   * parent
- - * ValuePtr.getFirstUse!
- - * ValuePtr.getType!
- - * OpOperandPtrPtr.get!
- -/
-
 namespace Veir
 
 variable {OpInfo} [HasOpInfo OpInfo]
@@ -146,6 +107,34 @@ theorem OpResultPtr.get!_unsetParentAndNeighbors {opResult : OpResultPtr} :
   grind
 
 @[simp, grind =, simp_getset]
+theorem OpResultPtr.getIndex!_unsetParentAndNeighbors {opResult : OpResultPtr} :
+    opResult.getIndex! (Rewriter.unsetParentAndNeighbors ctx op' hIn) =
+    opResult.getIndex! ctx := by
+  simp only [OpResultPtr.getIndex!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem OpResultPtr.getType!_unsetParentAndNeighbors {opResult : OpResultPtr} :
+    opResult.getType! (Rewriter.unsetParentAndNeighbors ctx op' hIn) =
+    opResult.getType! ctx := by
+  simp only [OpResultPtr.getType!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem OpResultPtr.getFirstUse!_unsetParentAndNeighbors {opResult : OpResultPtr} :
+    opResult.getFirstUse! (Rewriter.unsetParentAndNeighbors ctx op' hIn) =
+    opResult.getFirstUse! ctx := by
+  simp only [OpResultPtr.getFirstUse!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem OpResultPtr.getOwner!_unsetParentAndNeighbors {opResult : OpResultPtr} :
+    opResult.getOwner! (Rewriter.unsetParentAndNeighbors ctx op' hIn) =
+    opResult.getOwner! ctx := by
+  simp only [OpResultPtr.getOwner!_def]
+  grind
+
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getNumOperands!_unsetParentAndNeighbors {operation : OperationPtr} :
     operation.getNumOperands! (Rewriter.unsetParentAndNeighbors ctx op' hIn) = operation.getNumOperands! ctx := by
   grind
@@ -153,6 +142,34 @@ theorem OperationPtr.getNumOperands!_unsetParentAndNeighbors {operation : Operat
 @[simp, grind =, simp_getset]
 theorem OpOperandPtr.get!_unsetParentAndNeighbors {opOperand : OpOperandPtr} :
     opOperand.get! (Rewriter.unsetParentAndNeighbors ctx op' hIn) = opOperand.get! ctx := by
+  grind
+
+@[simp, grind =, simp_getset]
+theorem OpOperandPtr.getNextUse!_unsetParentAndNeighbors {opOperand : OpOperandPtr} :
+    opOperand.getNextUse! (Rewriter.unsetParentAndNeighbors ctx op' hIn) =
+    opOperand.getNextUse! ctx := by
+  simp only [OpOperandPtr.getNextUse!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem OpOperandPtr.getBack!_unsetParentAndNeighbors {opOperand : OpOperandPtr} :
+    opOperand.getBack! (Rewriter.unsetParentAndNeighbors ctx op' hIn) =
+    opOperand.getBack! ctx := by
+  simp only [OpOperandPtr.getBack!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem OpOperandPtr.getOwner!_unsetParentAndNeighbors {opOperand : OpOperandPtr} :
+    opOperand.getOwner! (Rewriter.unsetParentAndNeighbors ctx op' hIn) =
+    opOperand.getOwner! ctx := by
+  simp only [OpOperandPtr.getOwner!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem OpOperandPtr.getValue!_unsetParentAndNeighbors {opOperand : OpOperandPtr} :
+    opOperand.getValue! (Rewriter.unsetParentAndNeighbors ctx op' hIn) =
+    opOperand.getValue! ctx := by
+  simp only [OpOperandPtr.getValue!_def]
   grind
 
 @[simp, grind =, simp_getset]
@@ -171,6 +188,34 @@ theorem OperationPtr.getNumSuccessors!_unsetParentAndNeighbors {operation : Oper
 theorem BlockOperandPtr.get!_unsetParentAndNeighbors {blockOperand : BlockOperandPtr} :
     blockOperand.get! (Rewriter.unsetParentAndNeighbors ctx op' hIn) =
     blockOperand.get! ctx := by
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockOperandPtr.getNextUse!_unsetParentAndNeighbors {blockOperand : BlockOperandPtr} :
+    blockOperand.getNextUse! (Rewriter.unsetParentAndNeighbors ctx op' hIn) =
+    blockOperand.getNextUse! ctx := by
+  simp only [BlockOperandPtr.getNextUse!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockOperandPtr.getBack!_unsetParentAndNeighbors {blockOperand : BlockOperandPtr} :
+    blockOperand.getBack! (Rewriter.unsetParentAndNeighbors ctx op' hIn) =
+    blockOperand.getBack! ctx := by
+  simp only [BlockOperandPtr.getBack!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockOperandPtr.getOwner!_unsetParentAndNeighbors {blockOperand : BlockOperandPtr} :
+    blockOperand.getOwner! (Rewriter.unsetParentAndNeighbors ctx op' hIn) =
+    blockOperand.getOwner! ctx := by
+  simp only [BlockOperandPtr.getOwner!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockOperandPtr.getValue!_unsetParentAndNeighbors {blockOperand : BlockOperandPtr} :
+    blockOperand.getValue! (Rewriter.unsetParentAndNeighbors ctx op' hIn) =
+    blockOperand.getValue! ctx := by
+  simp only [BlockOperandPtr.getValue!_def]
   grind
 
 @[simp, grind =, simp_getset]
@@ -216,9 +261,64 @@ theorem BlockArgumentPtr.get!_unsetParentAndNeighbors {blockArg : BlockArgumentP
   grind
 
 @[simp, grind =, simp_getset]
+theorem BlockArgumentPtr.getType!_unsetParentAndNeighbors {blockArg : BlockArgumentPtr} :
+    blockArg.getType! (Rewriter.unsetParentAndNeighbors ctx op' hIn) =
+    blockArg.getType! ctx := by
+  simp only [BlockArgumentPtr.getType!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockArgumentPtr.getFirstUse!_unsetParentAndNeighbors {blockArg : BlockArgumentPtr} :
+    blockArg.getFirstUse! (Rewriter.unsetParentAndNeighbors ctx op' hIn) =
+    blockArg.getFirstUse! ctx := by
+  simp only [BlockArgumentPtr.getFirstUse!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockArgumentPtr.getIndex!_unsetParentAndNeighbors {blockArg : BlockArgumentPtr} :
+    blockArg.getIndex! (Rewriter.unsetParentAndNeighbors ctx op' hIn) =
+    blockArg.getIndex! ctx := by
+  simp only [BlockArgumentPtr.getIndex!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockArgumentPtr.getLoc!_unsetParentAndNeighbors {blockArg : BlockArgumentPtr} :
+    blockArg.getLoc! (Rewriter.unsetParentAndNeighbors ctx op' hIn) =
+    blockArg.getLoc! ctx := by
+  simp only [BlockArgumentPtr.getLoc!_def] <;> grind
+
+@[simp, grind =, simp_getset]
+theorem BlockArgumentPtr.getOwner!_unsetParentAndNeighbors {blockArg : BlockArgumentPtr} :
+    blockArg.getOwner! (Rewriter.unsetParentAndNeighbors ctx op' hIn) =
+    blockArg.getOwner! ctx := by
+  simp only [BlockArgumentPtr.getOwner!_def]
+  grind
+
+@[simp, grind =, simp_getset]
 theorem RegionPtr.get!_unsetParentAndNeighbors {region : RegionPtr} :
     region.get! (Rewriter.unsetParentAndNeighbors ctx op' hIn) =
     region.get! ctx := by
+  grind
+
+@[simp, grind =, simp_getset]
+theorem RegionPtr.getParent!_unsetParentAndNeighbors {region : RegionPtr} :
+    region.getParent! (Rewriter.unsetParentAndNeighbors ctx op' hIn) =
+    region.getParent! ctx := by
+  simp only [RegionPtr.getParent!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem RegionPtr.getFirstBlock!_unsetParentAndNeighbors {region : RegionPtr} :
+    region.getFirstBlock! (Rewriter.unsetParentAndNeighbors ctx op' hIn) =
+    region.getFirstBlock! ctx := by
+  simp only [RegionPtr.getFirstBlock!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem RegionPtr.getLastBlock!_unsetParentAndNeighbors {region : RegionPtr} :
+    region.getLastBlock! (Rewriter.unsetParentAndNeighbors ctx op' hIn) =
+    region.getLastBlock! ctx := by
+  simp only [RegionPtr.getLastBlock!_def]
   grind
 
 @[simp, grind =, simp_getset]
@@ -342,6 +442,34 @@ theorem OpResultPtr.get!_detachOp {opResult : OpResultPtr} :
   grind
 
 @[simp, grind =, simp_getset]
+theorem OpResultPtr.getIndex!_detachOp {opResult : OpResultPtr} :
+    opResult.getIndex! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    opResult.getIndex! ctx := by
+  simp only [OpResultPtr.getIndex!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem OpResultPtr.getType!_detachOp {opResult : OpResultPtr} :
+    opResult.getType! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    opResult.getType! ctx := by
+  simp only [OpResultPtr.getType!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem OpResultPtr.getFirstUse!_detachOp {opResult : OpResultPtr} :
+    opResult.getFirstUse! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    opResult.getFirstUse! ctx := by
+  simp only [OpResultPtr.getFirstUse!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem OpResultPtr.getOwner!_detachOp {opResult : OpResultPtr} :
+    opResult.getOwner! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    opResult.getOwner! ctx := by
+  simp only [OpResultPtr.getOwner!_def]
+  grind
+
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getNumOperands!_detachOp {operation : OperationPtr} :
     operation.getNumOperands! (Rewriter.detachOp ctx op' h₁ h₂ h₃) = operation.getNumOperands! ctx := by
   grind
@@ -349,6 +477,34 @@ theorem OperationPtr.getNumOperands!_detachOp {operation : OperationPtr} :
 @[simp, grind =, simp_getset]
 theorem OpOperandPtr.get!_detachOp {opOperand : OpOperandPtr} :
     opOperand.get! (Rewriter.detachOp ctx op' h₁ h₂ h₃) = opOperand.get! ctx := by
+  grind
+
+@[simp, grind =, simp_getset]
+theorem OpOperandPtr.getNextUse!_detachOp {opOperand : OpOperandPtr} :
+    opOperand.getNextUse! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    opOperand.getNextUse! ctx := by
+  simp only [OpOperandPtr.getNextUse!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem OpOperandPtr.getBack!_detachOp {opOperand : OpOperandPtr} :
+    opOperand.getBack! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    opOperand.getBack! ctx := by
+  simp only [OpOperandPtr.getBack!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem OpOperandPtr.getOwner!_detachOp {opOperand : OpOperandPtr} :
+    opOperand.getOwner! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    opOperand.getOwner! ctx := by
+  simp only [OpOperandPtr.getOwner!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem OpOperandPtr.getValue!_detachOp {opOperand : OpOperandPtr} :
+    opOperand.getValue! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    opOperand.getValue! ctx := by
+  simp only [OpOperandPtr.getValue!_def]
   grind
 
 @[simp, grind =, simp_getset]
@@ -367,6 +523,34 @@ theorem OperationPtr.getNumSuccessors!_detachOp {operation : OperationPtr} :
 theorem BlockOperandPtr.get!_detachOp {blockOperand : BlockOperandPtr} :
     blockOperand.get! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
     blockOperand.get! ctx := by
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockOperandPtr.getNextUse!_detachOp {blockOperand : BlockOperandPtr} :
+    blockOperand.getNextUse! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    blockOperand.getNextUse! ctx := by
+  simp only [BlockOperandPtr.getNextUse!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockOperandPtr.getBack!_detachOp {blockOperand : BlockOperandPtr} :
+    blockOperand.getBack! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    blockOperand.getBack! ctx := by
+  simp only [BlockOperandPtr.getBack!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockOperandPtr.getOwner!_detachOp {blockOperand : BlockOperandPtr} :
+    blockOperand.getOwner! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    blockOperand.getOwner! ctx := by
+  simp only [BlockOperandPtr.getOwner!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockOperandPtr.getValue!_detachOp {blockOperand : BlockOperandPtr} :
+    blockOperand.getValue! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    blockOperand.getValue! ctx := by
+  simp only [BlockOperandPtr.getValue!_def]
   grind
 
 @[simp, grind =, simp_getset]
@@ -412,9 +596,64 @@ theorem BlockArgumentPtr.get!_detachOp {blockArg : BlockArgumentPtr} :
   grind
 
 @[simp, grind =, simp_getset]
+theorem BlockArgumentPtr.getType!_detachOp {blockArg : BlockArgumentPtr} :
+    blockArg.getType! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    blockArg.getType! ctx := by
+  simp only [BlockArgumentPtr.getType!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockArgumentPtr.getFirstUse!_detachOp {blockArg : BlockArgumentPtr} :
+    blockArg.getFirstUse! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    blockArg.getFirstUse! ctx := by
+  simp only [BlockArgumentPtr.getFirstUse!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockArgumentPtr.getIndex!_detachOp {blockArg : BlockArgumentPtr} :
+    blockArg.getIndex! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    blockArg.getIndex! ctx := by
+  simp only [BlockArgumentPtr.getIndex!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockArgumentPtr.getLoc!_detachOp {blockArg : BlockArgumentPtr} :
+    blockArg.getLoc! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    blockArg.getLoc! ctx := by
+  simp only [BlockArgumentPtr.getLoc!_def] <;> grind
+
+@[simp, grind =, simp_getset]
+theorem BlockArgumentPtr.getOwner!_detachOp {blockArg : BlockArgumentPtr} :
+    blockArg.getOwner! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    blockArg.getOwner! ctx := by
+  simp only [BlockArgumentPtr.getOwner!_def]
+  grind
+
+@[simp, grind =, simp_getset]
 theorem RegionPtr.get!_detachOp {region : RegionPtr} :
     region.get! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
     region.get! ctx := by
+  grind
+
+@[simp, grind =, simp_getset]
+theorem RegionPtr.getParent!_detachOp {region : RegionPtr} :
+    region.getParent! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    region.getParent! ctx := by
+  simp only [RegionPtr.getParent!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem RegionPtr.getFirstBlock!_detachOp {region : RegionPtr} :
+    region.getFirstBlock! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    region.getFirstBlock! ctx := by
+  simp only [RegionPtr.getFirstBlock!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem RegionPtr.getLastBlock!_detachOp {region : RegionPtr} :
+    region.getLastBlock! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    region.getLastBlock! ctx := by
+  simp only [RegionPtr.getLastBlock!_def]
   grind
 
 @[simp, grind =, simp_getset]
@@ -538,6 +777,34 @@ theorem OpResultPtr.get!_detachOpIfAttached {opResult : OpResultPtr} :
   grind
 
 @[simp, grind =, simp_getset]
+theorem OpResultPtr.getIndex!_detachOpIfAttached {opResult : OpResultPtr} :
+    opResult.getIndex! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) =
+    opResult.getIndex! ctx := by
+  simp only [OpResultPtr.getIndex!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem OpResultPtr.getType!_detachOpIfAttached {opResult : OpResultPtr} :
+    opResult.getType! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) =
+    opResult.getType! ctx := by
+  simp only [OpResultPtr.getType!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem OpResultPtr.getFirstUse!_detachOpIfAttached {opResult : OpResultPtr} :
+    opResult.getFirstUse! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) =
+    opResult.getFirstUse! ctx := by
+  simp only [OpResultPtr.getFirstUse!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem OpResultPtr.getOwner!_detachOpIfAttached {opResult : OpResultPtr} :
+    opResult.getOwner! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) =
+    opResult.getOwner! ctx := by
+  simp only [OpResultPtr.getOwner!_def]
+  grind
+
+@[simp, grind =, simp_getset]
 theorem OperationPtr.getNumOperands!_detachOpIfAttached {operation : OperationPtr} :
     operation.getNumOperands! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) = operation.getNumOperands! ctx := by
   grind
@@ -545,6 +812,34 @@ theorem OperationPtr.getNumOperands!_detachOpIfAttached {operation : OperationPt
 @[simp, grind =, simp_getset]
 theorem OpOperandPtr.get!_detachOpIfAttached {opOperand : OpOperandPtr} :
     opOperand.get! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) = opOperand.get! ctx := by
+  grind
+
+@[simp, grind =, simp_getset]
+theorem OpOperandPtr.getNextUse!_detachOpIfAttached {opOperand : OpOperandPtr} :
+    opOperand.getNextUse! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) =
+    opOperand.getNextUse! ctx := by
+  simp only [OpOperandPtr.getNextUse!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem OpOperandPtr.getBack!_detachOpIfAttached {opOperand : OpOperandPtr} :
+    opOperand.getBack! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) =
+    opOperand.getBack! ctx := by
+  simp only [OpOperandPtr.getBack!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem OpOperandPtr.getOwner!_detachOpIfAttached {opOperand : OpOperandPtr} :
+    opOperand.getOwner! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) =
+    opOperand.getOwner! ctx := by
+  simp only [OpOperandPtr.getOwner!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem OpOperandPtr.getValue!_detachOpIfAttached {opOperand : OpOperandPtr} :
+    opOperand.getValue! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) =
+    opOperand.getValue! ctx := by
+  simp only [OpOperandPtr.getValue!_def]
   grind
 
 @[simp, grind =, simp_getset]
@@ -563,6 +858,34 @@ theorem OperationPtr.getNumSuccessors!_detachOpIfAttached {operation : Operation
 theorem BlockOperandPtr.get!_detachOpIfAttached {blockOperand : BlockOperandPtr} :
     blockOperand.get! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) =
     blockOperand.get! ctx := by
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockOperandPtr.getNextUse!_detachOpIfAttached {blockOperand : BlockOperandPtr} :
+    blockOperand.getNextUse! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) =
+    blockOperand.getNextUse! ctx := by
+  simp only [BlockOperandPtr.getNextUse!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockOperandPtr.getBack!_detachOpIfAttached {blockOperand : BlockOperandPtr} :
+    blockOperand.getBack! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) =
+    blockOperand.getBack! ctx := by
+  simp only [BlockOperandPtr.getBack!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockOperandPtr.getOwner!_detachOpIfAttached {blockOperand : BlockOperandPtr} :
+    blockOperand.getOwner! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) =
+    blockOperand.getOwner! ctx := by
+  simp only [BlockOperandPtr.getOwner!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockOperandPtr.getValue!_detachOpIfAttached {blockOperand : BlockOperandPtr} :
+    blockOperand.getValue! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) =
+    blockOperand.getValue! ctx := by
+  simp only [BlockOperandPtr.getValue!_def]
   grind
 
 @[simp, grind =, simp_getset]
@@ -608,9 +931,64 @@ theorem BlockArgumentPtr.get!_detachOpIfAttached {blockArg : BlockArgumentPtr} :
   grind
 
 @[simp, grind =, simp_getset]
+theorem BlockArgumentPtr.getType!_detachOpIfAttached {blockArg : BlockArgumentPtr} :
+    blockArg.getType! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) =
+    blockArg.getType! ctx := by
+  simp only [BlockArgumentPtr.getType!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockArgumentPtr.getFirstUse!_detachOpIfAttached {blockArg : BlockArgumentPtr} :
+    blockArg.getFirstUse! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) =
+    blockArg.getFirstUse! ctx := by
+  simp only [BlockArgumentPtr.getFirstUse!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockArgumentPtr.getIndex!_detachOpIfAttached {blockArg : BlockArgumentPtr} :
+    blockArg.getIndex! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) =
+    blockArg.getIndex! ctx := by
+  simp only [BlockArgumentPtr.getIndex!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem BlockArgumentPtr.getLoc!_detachOpIfAttached {blockArg : BlockArgumentPtr} :
+    blockArg.getLoc! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) =
+    blockArg.getLoc! ctx := by
+  simp only [BlockArgumentPtr.getLoc!_def] <;> grind
+
+@[simp, grind =, simp_getset]
+theorem BlockArgumentPtr.getOwner!_detachOpIfAttached {blockArg : BlockArgumentPtr} :
+    blockArg.getOwner! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) =
+    blockArg.getOwner! ctx := by
+  simp only [BlockArgumentPtr.getOwner!_def]
+  grind
+
+@[simp, grind =, simp_getset]
 theorem RegionPtr.get!_detachOpIfAttached {region : RegionPtr} :
     region.get! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) =
     region.get! ctx := by
+  grind
+
+@[simp, grind =, simp_getset]
+theorem RegionPtr.getParent!_detachOpIfAttached {region : RegionPtr} :
+    region.getParent! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) =
+    region.getParent! ctx := by
+  simp only [RegionPtr.getParent!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem RegionPtr.getFirstBlock!_detachOpIfAttached {region : RegionPtr} :
+    region.getFirstBlock! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) =
+    region.getFirstBlock! ctx := by
+  simp only [RegionPtr.getFirstBlock!_def]
+  grind
+
+@[simp, grind =, simp_getset]
+theorem RegionPtr.getLastBlock!_detachOpIfAttached {region : RegionPtr} :
+    region.getLastBlock! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) =
+    region.getLastBlock! ctx := by
+  simp only [RegionPtr.getLastBlock!_def]
   grind
 
 @[simp, grind =, simp_getset]
