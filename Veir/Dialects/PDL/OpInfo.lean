@@ -474,7 +474,18 @@ def PDL.symbolInterface? (op : PDL) : Option (SymbolOpInterface (PDL.propertiesO
   | .pattern => some { getSymName := fun props => props.sym_name }
   | _ => none
 
+def PDL.operationDefinition? : PDL → Option OperationDefinition
+  | .replace => some ({
+      operands := #[
+        NamedValueGroup.mk "opValue" .one,
+        NamedValueGroup.mk "replOperation" .optional,
+        NamedValueGroup.mk "replValues" .variadic
+      ]
+    } : OperationDefinition)
+  | _ => none
+
 instance : HasOpInfo PDL where
+  operationDefinition? := PDL.operationDefinition?
   verifyLocalInvariants := PDL.verifyLocalInvariants
   getEffects := PDL.getEffects
   isConstantLike := PDL.isConstantLike
