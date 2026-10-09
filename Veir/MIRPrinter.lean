@@ -389,9 +389,20 @@ def callee? (ctx : IRContext OpCode) (op : OperationPtr) : Option String :=
 
 /-- Register-passed argument and result capacity of the standard calling
     convention: arguments in a0-a7 (x10-x17), results in a0-a1 (x10-x11).
-    Anything beyond these goes on the stack, which we don't lower. -/
+    Further arguments go on the stack, which we lower only for incoming
+    arguments, not at call sites. -/
 def maxRegArgs : Nat := 8
 def maxRegResults : Nat := 2
+
+/-- The alignment of the incoming stack argument slot `k`, at offset `8 * k`
+    from the 16-byte aligned incoming `sp`. -/
+def stackArgAlign (k : Nat) : Nat :=
+  if k % 2 == 0 then 16 else 8
+
+/-- The alignment suffix of the memory operand of a load from stack argument
+    slot `k`, which LLVM omits when it equals the access size. -/
+def stackArgAlignSuffix (k : Nat) : String :=
+  if stackArgAlign k == 8 then "" else s!", align {stackArgAlign k}"
 
 /-- Emit a `riscv_cf.call` the way LLVM's selector does: bracket the call with
     `ADJCALLSTACKDOWN`/`ADJCALLSTACKUP` (no stack arguments, so both are 0),
@@ -603,16 +614,21 @@ def emitBlock (ctx : IRContext OpCode) (fr : Frame) (blocks : Array BlockPtr)
     if np != 0 then
       let plist := preds[bi]!
       -- A block with no predecessors is the entry block, so its arguments are
-      -- the function arguments: bind them to the RISC-V integer argument
-      -- registers (a0-a7 = x10-x17) per the standard calling convention, so
-      -- the allocated code is actually callable from ABI-conforming code.
+      -- the function arguments: per the standard calling convention, the first
+      -- `maxRegArgs` arrive in the integer argument registers (a0-a7 =
+      -- x10-x17) and the rest in the caller's outgoing argument area, so the
+      -- allocated code is actually callable from ABI-conforming code.
       if plist.size == 0 then
-        let regs := (List.range np).map (fun i => s!"$x{10 + i}")
+        let regs := (List.range (min np maxRegArgs)).map (fun i => s!"$x{10 + i}")
         IO.println s!"    liveins: {String.intercalate ", " regs}"
       for ai in 0...np do
         let name := s!"%arg{b.id}_{ai}"
         if plist.size == 0 then
-          IO.println s!"    {name}:gpr = COPY $x{10 + ai}"
+          if ai < maxRegArgs then
+            IO.println s!"    {name}:gpr = COPY $x{10 + ai}"
+          else
+            let k := ai - maxRegArgs
+            IO.println s!"    {name}:gpr = LD %fixed-stack.{k}, 0 :: (load (s64) from %fixed-stack.{k}{stackArgAlignSuffix k})"
         else if plist.size == 1 then
           let (_, vals) := plist[0]!
           IO.println s!"    {name}:gpr = COPY {operandOf ctx fr (vals[ai]!)}"
@@ -672,16 +688,16 @@ def printFunction (ctx : IRContext OpCode) (name : String) (blocks : Array Block
     IO Unit := do
   let plan := planEdges ctx blocks
   let frame := planFrame ctx blocks
-  -- Entry-block arguments are the function arguments; they live in the RISC-V
-  -- integer argument registers a0-a7 (x10-x17). Declare them as MIR liveins so
-  -- the register allocator keeps them there.
+  -- Entry-block arguments are the function arguments; the first `maxRegArgs`
+  -- live in the RISC-V integer argument registers a0-a7 (x10-x17). Declare
+  -- them as MIR liveins so the register allocator keeps them there.
   let nargs := numArgs ctx blocks
   IO.println "---"
   IO.println s!"name:            {yamlName name}"
   IO.println "tracksRegLiveness: true"
   if nargs != 0 then
     IO.println "liveins:"
-    for i in 0...nargs do
+    for i in 0...min nargs maxRegArgs do
       IO.println s!"  - \{ reg: '$x{10 + i}' }"
   -- A call's `ADJCALLSTACKDOWN`/`ADJCALLSTACKUP` must be announced here: the
   -- machine verifier rejects them otherwise, and prologue/epilogue insertion
@@ -690,6 +706,13 @@ def printFunction (ctx : IRContext OpCode) (name : String) (blocks : Array Block
     IO.println "frameInfo:"
     IO.println "  adjustsStack:    true"
     IO.println "  hasCalls:        true"
+  -- The remaining arguments are passed on the stack: argument `maxRegArgs + k`
+  -- is the 8-byte slot at offset `8 * k` from the incoming `sp`, which LLVM
+  -- models as the immutable `fixedStack` object `k`.
+  if nargs > maxRegArgs then
+    IO.println "fixedStack:"
+    for k in 0...nargs - maxRegArgs do
+      IO.println s!"  - \{ id: {k}, offset: {8 * k}, size: 8, alignment: {stackArgAlign k}, isImmutable: true }"
   -- One `stack` object per alloca.  `llc` derives the frame's size and maximum
   -- alignment from these.
   if !frame.objects.isEmpty then
