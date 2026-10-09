@@ -8,6 +8,7 @@ import Veir.Interfaces.ConstantLikeInterfaces
 import Veir.Interfaces.FunctionInterfaces
 import Veir.Passes.Matching.LLVM.Basic
 import Veir.Passes.InstructionSelection.Common
+import Veir.Passes.Legalization.RISCV64LegalizerInfo
 import Veir.PatternRewriter.Puddle.Builders
 import Veir.PatternRewriter.Puddle.Execution
 
@@ -173,8 +174,31 @@ def lowerBinary (llvmOp : Llvm) (typeMatcher : IntegerType → Bool) (riscvOp : 
       return castBackOp)
     (fun castBackOp => castBackOp)
 
-/-- `llvm.add` (`i64`) -> `riscv.add`. -/
-def add64_pattern : Pattern OpCode := lowerBinary .add (fun t => t.bitwidth = 64) .add ()
+/-- Legal `gmir.g_add` -> `riscv.add`. -/
+def gmirAdd_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let opType ← MatchProg.type (Attr := TypeAttr)
+      let lhs ← MatchProg.value opType
+      let rhs ← MatchProg.value opType
+      let _ ← MatchProg.root (.gmir .g_add) #[lhs, rhs] #[opType]
+      MatchProg.matchNative opType fun opType =>
+        riscv64LegalizerInfo.isLegal .g_add #[opType]
+      return (opType, lhs, rhs))
+    (fun (opType, lhs, rhs) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[lhs] #[regType] castProps
+      let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[rhs] #[regType] castProps
+      let addProps ← CreateProg.property (.riscv .add) ()
+      let addOp ← CreateProg.operation (.riscv .add)
+          #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType] addProps
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[addOp.res[0]!] #[opType] castProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
 /-- `llvm.add` (`i32`) -> `riscv.addw` (keeps the result sign-extended). -/
 def add32_pattern : Pattern OpCode := lowerBinary .add (fun t => t.bitwidth = 32) .addw ()
@@ -502,8 +526,8 @@ def constant_pattern : Pattern OpCode :=
 /-- llvm.constant -> riscv.li -/
 def constant : Puddle.CompiledPattern OpCode := constant_pattern.compile
 
-/-- llvm.add -> riscv.add -/
-def add64 : Puddle.CompiledPattern OpCode := add64_pattern.compile
+/-- Legal gmir.g_add -> riscv.add -/
+def gmirAdd : Puddle.CompiledPattern OpCode := gmirAdd_pattern.compile
 
 /-- llvm.add -> riscv.addw (riscv.addw for i32, keeps the result sign-extended) -/
 def add32 : Puddle.CompiledPattern OpCode := add32_pattern.compile
@@ -2310,7 +2334,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   let pattern := RewritePattern.GreedyRewritePattern <|
     #[selectCzeroeqz.run, selectCzeronez.run, selectGeneral.run,
     ctlz32.run, ctlz64.run, cttz32.run, cttz64.run, ctpop32.run, ctpop64.run, bswap64.run, bswap32.run, bitreverse64.run, bitreverse32.run,
-    constant.run, addressof, add32.run, add64.run, and.run, ashr64.run, ashr32.run, ashr8.run] ++
+    constant.run, addressof, add32.run, gmirAdd.run, and.run, ashr64.run, ashr32.run, ashr8.run] ++
     icmp.map (·.run) ++ #[or.run, xor32.run, xor64.run, mul32.run, mul64.run,
     sdiv32.run, sdiv64.run, udiv32.run, udiv64.run, srem32.run, srem64.run, urem32.run, urem64.run,
     sext32.run, sext16.run, sext8.run, zext32.run, zext16.run, zext8.run, trunc.run, shl64.run, shl32.run, lshr64.run, lshr32.run,
