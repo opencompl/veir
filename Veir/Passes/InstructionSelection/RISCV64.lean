@@ -185,11 +185,11 @@ def lowerBinary (srcOp : OpCode) (typeMatcher : IntegerType → Bool) (riscvOp :
       return castBackOp)
     (fun castBackOp => castBackOp)
 
-/-- `llvm.add` (`i64`) -> `riscv.add`. -/
-def add64_pattern : Pattern OpCode := lowerBinary (.llvm .add) (fun t => t.bitwidth = 64) .add ()
+/- legal `llvm.add` (`i64`) -> `riscv.add`. -/
+-- def add64_pattern : Pattern OpCode := lowerBinary (.llvm .add) (fun t => t.bitwidth = 64) .add ()
 
-/-- `llvm.add` (`i32`) -> `riscv.addw` (keeps the result sign-extended). -/
-def add32_pattern : Pattern OpCode := lowerBinary (.llvm .add) (fun t => t.bitwidth = 32) .addw ()
+/- legal `llvm.add` (`i32`) -> `riscv.addw` (keeps the result sign-extended). -/
+-- def add32_pattern : Pattern OpCode := lowerBinary (.llvm .add) (fun t => t.bitwidth = 32) .addw ()
 
 /-- `llvm.sub` (`i64`) -> `riscv.sub`. -/
 def sub64_pattern : Pattern OpCode := lowerBinary (.llvm .sub) (fun t => t.bitwidth = 64) .sub ()
@@ -516,11 +516,11 @@ def constant_pattern : Pattern OpCode :=
 /-- llvm.constant -> riscv.li -/
 def constant : Puddle.CompiledPattern OpCode := constant_pattern.compile
 
-/-- llvm.add -> riscv.add -/
-def add64 : Puddle.CompiledPattern OpCode := add64_pattern.compile
+/- llvm.add -> riscv.add -/
+-- def add64 : Puddle.CompiledPattern OpCode := add64_pattern.compile
 
-/-- llvm.add -> riscv.addw (riscv.addw for i32, keeps the result sign-extended) -/
-def add32 : Puddle.CompiledPattern OpCode := add32_pattern.compile
+/- llvm.add -> riscv.addw (riscv.addw for i32, keeps the result sign-extended) -/
+-- def add32 : Puddle.CompiledPattern OpCode := add32_pattern.compile
 
 /-- llvm.and -> riscv.and (bitwise, so one instruction for every legal width) -/
 def and : Puddle.CompiledPattern OpCode := and_pattern.compile
@@ -2356,21 +2356,36 @@ def matchSextInReg (sz : Nat) (type : Handle OpCode .type)
 def gmirAdd_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_add) (·.bitwidth = 64) .add () (guard := matchLegal .g_add)
 
-/-- `gmir.g_sub` (`i64`) -> `riscv.sub`. -/
-def gmirSub_pattern : Pattern OpCode :=
-  lowerBinary (.gmir .g_sub) (·.bitwidth = 64) .sub () (guard := matchLegal .g_sub)
-
-/-- `gmir.g_sext_inreg` with `sz = 32` -> `riscv.sextw`. -/
-def gmirSextInReg32_pattern : Pattern OpCode :=
-  lowerUnary (.gmir .g_sext_inreg) 64 .sextw () (guard := matchSextInReg 32)
-
-/-- `gmir.g_sext_inreg` with `sz = 16` -> `riscv.sexth`. -/
-def gmirSextInReg16_pattern : Pattern OpCode :=
-  lowerUnary (.gmir .g_sext_inreg) 64 .sexth () (guard := matchSextInReg 16)
-
-/-- `gmir.g_sext_inreg` with `sz = 8` -> `riscv.sextb`. -/
-def gmirSextInReg8_pattern : Pattern OpCode :=
-  lowerUnary (.gmir .g_sext_inreg) 64 .sextb () (guard := matchSextInReg 8)
+/--
+  `gmir.g_sext_inreg (gmir.g_add x, y)` with `sz = 32` -> `riscv.addw`. This is the shape that
+  `customLegalizeAddSub` produces for an `i32` `g_add`, and mirrors LLVM's
+  `(sext_inreg (add x, y), i32) -> ADDW` selection pattern.
+-/
+def gmirSextInRegAdd32_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let lhs ← MatchProg.value type
+      let rhs ← MatchProg.value type
+      let addOp ← MatchProg.operation (.gmir .g_add) #[lhs, rhs] #[type]
+      matchLegal .g_add type addOp.properties
+      let root ← MatchProg.root (.gmir .g_sext_inreg) #[addOp.res[0]!] #[type]
+      matchSextInReg 32 type root.properties
+      return (type, lhs, rhs))
+    (fun (type, lhs, rhs) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[lhs] #[regType] castProps
+      let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[rhs] #[regType] castProps
+      let addwProps ← CreateProg.property (.riscv .addw) ()
+      let addwOp ← CreateProg.operation (.riscv .addw)
+          #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType] addwProps
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[addwOp.res[0]!] #[type] castProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
 /-- `gmir.g_trunc` -> a cast through `!riscv.reg`, since LLVM selects it as a copy. -/
 def gmirTrunc_pattern : Pattern OpCode :=
@@ -2382,47 +2397,77 @@ def gmirAnyext_pattern : Pattern OpCode :=
   lowerRegCast (.gmir .g_anyext) fun opType resType properties =>
     riscv64LegalizerInfo.isLegal .g_anyext #[resType, opType] properties
 
-/-- `gmir.g_sext` (`i8` operand) -> `riscv.sextb`. -/
-def gmirSext8_pattern : Pattern OpCode :=
-  lowerExt (.gmir .g_sext) 8 .sextb () (guard := matchLegalCast .g_sext)
-
-/-- `gmir.g_sext` (`i16` operand) -> `riscv.sexth`. -/
-def gmirSext16_pattern : Pattern OpCode :=
-  lowerExt (.gmir .g_sext) 16 .sexth () (guard := matchLegalCast .g_sext)
-
-/-- `gmir.g_sext` (`i32` operand) -> `riscv.sextw`. -/
+/-- `gmir.g_sext` (`i32` operand) -> `riscv.sextw` (`addiw x, 0`). -/
 def gmirSext32_pattern : Pattern OpCode :=
   lowerExt (.gmir .g_sext) 32 .sextw () (guard := matchLegalCast .g_sext)
 
-/-- `gmir.g_zext` (`i8` operand) -> `riscv.zextb`. -/
-def gmirZext8_pattern : Pattern OpCode :=
-  lowerExt (.gmir .g_zext) 8 .zextb () (guard := matchLegalCast .g_zext)
-
-/-- `gmir.g_zext` (`i16` operand) -> `riscv.zexth`. -/
-def gmirZext16_pattern : Pattern OpCode :=
-  lowerExt (.gmir .g_zext) 16 .zexth () (guard := matchLegalCast .g_zext)
-
-/-- `gmir.g_zext` (`i32` operand) -> `riscv.zextw`. -/
+/-- `gmir.g_zext` (`i32` operand) -> `riscv.zextw` (`add.uw x, x0`, needs Zba). -/
 def gmirZext32_pattern : Pattern OpCode :=
   lowerExt (.gmir .g_zext) 32 .zextw () (guard := matchLegalCast .g_zext)
 
-/-- `gmir.g_icmp` -> RISC-V comparison sequence, as for `llvm.icmp` (see `icmp`). -/
-def gmirIcmp : Array (Puddle.CompiledPattern OpCode) :=
-  (icmpPatterns (.gmir .g_icmp) #[64] (guard := matchLegalCast .g_icmp)).map (·.compile)
+/-- `gmir.g_sext` (`i16` operand) -> `riscv.sexth` (needs Zbb). -/
+def gmirSext16_pattern : Pattern OpCode :=
+  lowerExt (.gmir .g_sext) 16 .sexth () (guard := matchLegalCast .g_sext)
+
+/-- `gmir.g_zext` (`i16` operand) -> `riscv.zexth` (needs Zbb). -/
+def gmirZext16_pattern : Pattern OpCode :=
+  lowerExt (.gmir .g_zext) 16 .zexth () (guard := matchLegalCast .g_zext)
+
+/--
+  `gmir.g_sext`/`gmir.g_zext` of any other operand width `w` -> `riscv.slli` by `64 - w` followed
+  by `riscv.srai`/`riscv.srli` by `64 - w`. This is the shift-pair fallback of LLVM's
+  `RISCVInstructionSelector::select`.
+-/
+def lowerExtShiftPair (srcOp : GMIR) (shiftRight : Riscv)
+    (h : propertiesOf (OpCode.riscv shiftRight) = RISCVImmediateProperties := by rfl) :
+    Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let opType ← MatchProg.type (Attr := IntegerType)
+          (fun t => t.bitwidth < 64 ∧ t.bitwidth ≠ 16 ∧ t.bitwidth ≠ 32)
+      let resType ← MatchProg.type (Attr := IntegerType)
+          (fun t => t.bitwidth ≤ 64)
+      let x ← MatchProg.value opType
+      let root ← MatchProg.root (.gmir srcOp) #[x] #[resType]
+      matchLegalCast srcOp opType resType root.properties
+      return (opType, resType, x))
+    (fun (opType, resType, x) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[x] #[regType] castProps
+      let shamt (type : TypeAttr) : Option RISCVImmediateProperties := do
+        let .integerType type := type.val | none
+        return RISCVImmediateProperties.mk (BitVec.ofNat 64 (64 - type.bitwidth))
+      let slliProps ← CreateProg.applyNative
+          (Outputs := Handle OpCode (.prop (.riscv .slli))) opType shamt
+      let slliOp ← CreateProg.operation (.riscv .slli) #[castOp.res[0]!] #[regType] slliProps
+      let shiftRightProps ← CreateProg.applyNative
+          (Outputs := Handle OpCode (.prop (.riscv shiftRight))) opType
+          fun type => (shamt type).map (cast h.symm)
+      let shiftRightOp ← CreateProg.operation (.riscv shiftRight)
+          #[slliOp.res[0]!] #[regType] shiftRightProps
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[shiftRightOp.res[0]!] #[resType] castProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
+
+/-- `gmir.g_sext` (other operand widths) -> `riscv.slli` + `riscv.srai`. -/
+def gmirSextShiftPair_pattern : Pattern OpCode := lowerExtShiftPair .g_sext .srai
+
+/-- `gmir.g_zext` (other operand widths) -> `riscv.slli` + `riscv.srli`. -/
+def gmirZextShiftPair_pattern : Pattern OpCode := lowerExtShiftPair .g_zext .srli
 
 def gmirAdd : Puddle.CompiledPattern OpCode := gmirAdd_pattern.compile
-def gmirSub : Puddle.CompiledPattern OpCode := gmirSub_pattern.compile
-def gmirSextInReg32 : Puddle.CompiledPattern OpCode := gmirSextInReg32_pattern.compile
-def gmirSextInReg16 : Puddle.CompiledPattern OpCode := gmirSextInReg16_pattern.compile
-def gmirSextInReg8 : Puddle.CompiledPattern OpCode := gmirSextInReg8_pattern.compile
+def gmirSext32 : Puddle.CompiledPattern OpCode := gmirSext32_pattern.compile
+def gmirZext32 : Puddle.CompiledPattern OpCode := gmirZext32_pattern.compile
+def gmirSext16 : Puddle.CompiledPattern OpCode := gmirSext16_pattern.compile
+def gmirZext16 : Puddle.CompiledPattern OpCode := gmirZext16_pattern.compile
+def gmirSextShiftPair : Puddle.CompiledPattern OpCode := gmirSextShiftPair_pattern.compile
+def gmirZextShiftPair : Puddle.CompiledPattern OpCode := gmirZextShiftPair_pattern.compile
+def gmirSextInRegAdd32 : Puddle.CompiledPattern OpCode := gmirSextInRegAdd32_pattern.compile
 def gmirTrunc : Puddle.CompiledPattern OpCode := gmirTrunc_pattern.compile
 def gmirAnyext : Puddle.CompiledPattern OpCode := gmirAnyext_pattern.compile
-def gmirSext8 : Puddle.CompiledPattern OpCode := gmirSext8_pattern.compile
-def gmirSext16 : Puddle.CompiledPattern OpCode := gmirSext16_pattern.compile
-def gmirSext32 : Puddle.CompiledPattern OpCode := gmirSext32_pattern.compile
-def gmirZext8 : Puddle.CompiledPattern OpCode := gmirZext8_pattern.compile
-def gmirZext16 : Puddle.CompiledPattern OpCode := gmirZext16_pattern.compile
-def gmirZext32 : Puddle.CompiledPattern OpCode := gmirZext32_pattern.compile
 
 /-! # Pass implementation -/
 
@@ -2436,11 +2481,17 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   let ctx ← match RewritePattern.applyInContext early ctx with
   | none => throw "Error while applying early memory-lowering patterns"
   | some ctx => pure ctx
+  /- gMIR multi-operation selections: these must run before the main loop, which would otherwise
+     select the inner operations on their own first. -/
+  let gmirFused := RewritePattern.GreedyRewritePattern #[gmirSextInRegAdd32.run]
+  let ctx ← match RewritePattern.applyInContext gmirFused ctx with
+  | none => throw "Error while applying gMIR multi-operation selection patterns"
+  | some ctx => pure ctx
   /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern <|
     #[selectCzeroeqz.run, selectCzeronez.run, selectGeneral.run,
     ctlz32.run, ctlz64.run, cttz32.run, cttz64.run, ctpop32.run, ctpop64.run, bswap64.run, bswap32.run, bitreverse64.run, bitreverse32.run,
-    constant.run, addressof, add32.run, add64.run, and.run, ashr64.run, ashr32.run, ashr8.run] ++
+    constant.run, addressof, and.run, ashr64.run, ashr32.run, ashr8.run] ++
     icmp.map (·.run) ++ #[or.run, xor32.run, xor64.run, mul32.run, mul64.run,
     sdiv32.run, sdiv64.run, udiv32.run, udiv64.run, srem32.run, srem64.run, urem32.run, urem64.run,
     sext32.run, sext16.run, sext8.run, zext32.run, zext16.run, zext8.run, trunc.run, shl64.run, shl32.run, lshr64.run, lshr32.run,
@@ -2449,9 +2500,8 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     smax64.run, smax32.run, smin64.run, smin32.run, umax.run, umin.run, saddSat.run, ssubSat.run, uaddSat.run, usubSat.run, sshlSat.run, ushlSat.run, abs.run,
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run, fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
     poisonConst.run, zeroConst.run, freeze.run,
-    gmirAdd.run, gmirSub.run, gmirSextInReg32.run, gmirSextInReg16.run, gmirSextInReg8.run,
-    gmirTrunc.run, gmirAnyext.run, gmirSext32.run, gmirSext16.run, gmirSext8.run, gmirZext32.run,
-    gmirZext16.run, gmirZext8.run] ++ gmirIcmp.map (·.run)
+    gmirAdd.run, gmirTrunc.run, gmirAnyext.run, gmirSext32.run, gmirZext32.run, gmirSext16.run,
+    gmirZext16.run, gmirSextShiftPair.run, gmirZextShiftPair.run]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying main instruction-selection patterns"
   | some ctx => pure ctx

@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
+// RUN: veir-opt %s -p=llvm-to-gmir,legalize-riscv64,isel-riscv64,reconcile-cast | filecheck %s
 
 "builtin.module"() ({
     "func.func"()  <{function_type = (i64, i64) -> (), sym_name = "foo"}> ({
