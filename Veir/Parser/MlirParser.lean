@@ -4,6 +4,10 @@ module
 public import Veir.Parser.AttrParser
 public import Veir.Parser.DecidableInBounds
 import Veir.Rewriter.WellFormed
+import all Veir.IR.Basic
+public import Veir.Parser.StructuralBounds
+public import Veir.Parser.ValueBounds
+public import Veir.Parser.ResultGroups
 public import Veir.Rewriter.WfRewriter
 
 public section
@@ -56,7 +60,7 @@ structure ForwardValue where
   loc : Location
   deriving Inhabited
 
-structure MlirParserState (OpInfo : Type) [HasOpInfo OpInfo] where
+structure MlirParserData (OpInfo : Type) [HasOpInfo OpInfo] where
   /-- The current IR context. -/
   ctx : WfIRContext OpInfo
   /-- The values that have been defined for a given name at that point in the parser,
@@ -87,6 +91,31 @@ structure MlirParserState (OpInfo : Type) [HasOpInfo OpInfo] where
   opLocations : Std.HashMap OperationPtr Location := {}
   deriving Inhabited
 
+/-- Parser block names carry erased bounds certificates, and values carry an erased
+provenance predicate. Real definitions are disjoint from temporary operations used
+for forward references. -/
+structure MlirParserState (OpInfo : Type) [HasOpInfo OpInfo] extends MlirParserData OpInfo where
+  blocksInBounds : ∀ (name : ByteArray) (entry : BlockEntry), blocks[name]? = some entry →
+    entry.block.InBounds ctx.raw
+  realValues : ValuePtr → Prop
+  realInBounds : ∀ value, realValues value → value.InBounds ctx.raw
+  valuesReal : ∀ (name : ByteArray) (entry : Array ValuePtr × Location), values[name]? = some entry →
+    ∀ value ∈ entry.1, realValues value
+  forwardInBounds : ∀ (name : ByteArray) (fwd : ForwardValue), forwardValues[name]? = some fwd →
+    ∀ (index : Nat) (op : OperationPtr) (loc : Location), fwd.placeholders[index]? = some (op, loc) →
+      (ValuePtr.opResult (op.getResult 0)).InBounds ctx.raw
+  realNotPlaceholder : ∀ value, realValues value →
+    ∀ (name : ByteArray) (fwd : ForwardValue), forwardValues[name]? = some fwd →
+    ∀ (index : Nat) (op : OperationPtr) (loc : Location), fwd.placeholders[index]? = some (op, loc) →
+      match value with
+      | .opResult result => result.op ≠ op
+      | .blockArgument _ => True
+  forwardUnique : ∀ (name : ByteArray) (fwd : ForwardValue), forwardValues[name]? = some fwd →
+    ∀ (index : Nat) (op : OperationPtr) (loc : Location), fwd.placeholders[index]? = some (op, loc) →
+    ∀ (name' : ByteArray) (fwd' : ForwardValue), forwardValues[name']? = some fwd' →
+    ∀ (index' : Nat) (loc' : Location), fwd'.placeholders[index']? = some (op, loc') →
+      name = name' ∧ index = index'
+
 def MlirParserState.fromContext (ctx : WfIRContext OpInfo)
     (allowUnregisteredDialect : Bool := false) : MlirParserState OpInfo :=
   {
@@ -96,6 +125,170 @@ def MlirParserState.fromContext (ctx : WfIRContext OpInfo)
     definitionsPerScope := #[Std.HashSet.emptyWithCapacity 2]
     forwardValues := Std.HashMap.emptyWithCapacity 1
     blocks := Std.HashMap.emptyWithCapacity 1
+    blocksInBounds := by simp
+    realValues := fun _ => False
+    realInBounds := by simp
+    valuesReal := by simp
+    forwardInBounds := by simp
+    realNotPlaceholder := by simp
+    forwardUnique := by simp
+  }
+
+instance : Inhabited (MlirParserState OpInfo) := ⟨.fromContext default⟩
+
+/-- Transport the erased certificates without traversing either name table. -/
+@[inline]
+def MlirParserState.withContext (s : MlirParserState OpInfo) (ctx : WfIRContext OpInfo)
+    (preserves : ∀ (value : ValuePtr), value.InBounds s.ctx.raw → value.InBounds ctx.raw)
+    (structurePreserves : StructuralBoundsPreserved s.ctx.raw ctx.raw) :
+    MlirParserState OpInfo :=
+  { s with
+    ctx
+    blocksInBounds := fun name entry he => structurePreserves.blocks _ (s.blocksInBounds name entry he)
+    realInBounds := fun value h => preserves value (s.realInBounds value h)
+    forwardInBounds := fun name fwd hf index op loc hp =>
+      preserves _ (s.forwardInBounds name fwd hf index op loc hp)
+  }
+
+/-- Byte-array names use structural equality in the parser's hash tables. -/
+local instance : LawfulBEq ByteArray where
+  rfl := by
+    intro a
+    change (a.data == a.data) = true
+    exact BEq.rfl
+  eq_of_beq := by
+    intro a b h
+    apply ByteArray.ext
+    exact eq_of_beq (show (a.data == b.data) = true from h)
+
+/-- Extend the erased set of real definitions. -/
+@[inline]
+def MlirParserState.addRealValues (s : MlirParserState OpInfo) (values : Array ValuePtr)
+    (hBounds : ∀ value ∈ values, value.InBounds s.ctx.raw)
+    (hDifferent : ∀ value ∈ values,
+      ∀ (name : ByteArray) (fwd : ForwardValue), s.forwardValues[name]? = some fwd →
+      ∀ (index : Nat) (op : OperationPtr) (loc : Location),
+        fwd.placeholders[index]? = some (op, loc) →
+        match value with
+        | .opResult result => result.op ≠ op
+        | .blockArgument _ => True) : MlirParserState OpInfo :=
+  { s with
+    realValues := fun value => s.realValues value ∨ value ∈ values
+    realInBounds := by
+      intro value h
+      exact h.elim (s.realInBounds value) (hBounds value)
+    valuesReal := by
+      intro name entry he value hv
+      exact .inl (s.valuesReal name entry he value hv)
+    realNotPlaceholder := by
+      intro value h name fwd hf index op loc hp
+      exact h.elim
+        (fun hv => s.realNotPlaceholder value hv name fwd hf index op loc hp)
+        (fun hv => hDifferent value hv name fwd hf index op loc hp)
+  }
+
+/-- Register a fresh operation as a forward reference placeholder. -/
+@[inline]
+def MlirParserState.insertForwardPlaceholder (s : MlirParserState OpInfo)
+    (name : ByteArray) (index : Nat) (op : OperationPtr) (loc : Location)
+    (hBounds : (ValuePtr.opResult (op.getResult 0)).InBounds s.ctx.raw)
+    (hReal : ∀ value, s.realValues value → match value with
+      | .opResult result => result.op ≠ op
+      | .blockArgument _ => True)
+    (hOthers : ∀ (name' : ByteArray) (fwd : ForwardValue),
+      s.forwardValues[name']? = some fwd →
+      ∀ (index' : Nat) (op' : OperationPtr) (loc' : Location),
+        fwd.placeholders[index']? = some (op', loc') → op' ≠ op) : MlirParserState OpInfo := by
+  let fwd := s.forwardValues[name]?.getD { placeholders := {}, loc }
+  let updated := { fwd with placeholders := fwd.placeholders.insert index (op, loc) }
+  let table := s.forwardValues.insert name updated
+  have lookup : ∀ (name' : ByteArray) (fwd' : ForwardValue), table[name']? = some fwd' →
+      ∀ (index' : Nat) (op' : OperationPtr) (loc' : Location),
+      fwd'.placeholders[index']? = some (op', loc') →
+      (name' = name ∧ index' = index ∧ op' = op ∧ loc' = loc) ∨
+      ∃ old : ForwardValue, s.forwardValues[name']? = some old ∧
+        old.placeholders[index']? = some (op', loc') := by
+    intro name' fwd' hf index' op' loc' hp
+    cases ho : s.forwardValues[name]? <;>
+      grind
+  exact { s with
+    forwardValues := table
+    forwardInBounds := by
+      intro name' fwd' hf index' op' loc' hp
+      rcases lookup name' fwd' hf index' op' loc' hp with hn | ⟨old, ho, hp⟩
+      · rcases hn with ⟨rfl, rfl, rfl, rfl⟩
+        exact hBounds
+      · exact s.forwardInBounds name' old ho index' op' loc' hp
+    realNotPlaceholder := by
+      intro value hv name' fwd' hf index' op' loc' hp
+      rcases lookup name' fwd' hf index' op' loc' hp with hn | ⟨old, ho, hp⟩
+      · rcases hn with ⟨rfl, rfl, rfl, rfl⟩
+        exact hReal value hv
+      · exact s.realNotPlaceholder value hv name' old ho index' op' loc' hp
+    forwardUnique := by
+      intro name' fwd' hf index' op' loc' hp name'' fwd'' hf' index'' loc'' hp'
+      have h1 := lookup name' fwd' hf index' op' loc' hp
+      have h2 := lookup name'' fwd'' hf' index'' op' loc'' hp'
+      rcases h1 with hn1 | ⟨old1, ho1, hp1⟩ <;>
+        rcases h2 with hn2 | ⟨old2, ho2, hp2⟩
+      · grind
+      · have := hOthers name'' old2 ho2 index'' op' loc'' hp2
+        grind
+      · have := hOthers name' old1 ho1 index' op' loc' hp1
+        grind
+      · exact s.forwardUnique name' old1 ho1 index' op' loc' hp1
+          name'' old2 ho2 index'' loc'' hp2
+  }
+
+/-- Remove a resolved placeholder and transport the certificates through its erasure. -/
+@[inline]
+def MlirParserState.eraseForwardPlaceholder (s : MlirParserState OpInfo)
+    (name : ByteArray) (fwd : ForwardValue) (hf : s.forwardValues[name]? = some fwd)
+    (index : Nat) (op : OperationPtr) (loc : Location)
+    (hp : fwd.placeholders[index]? = some (op, loc)) (ctx' : WfIRContext OpInfo)
+    (hBounds : ∀ (value : ValuePtr),
+      (match value with
+      | .opResult result => result.op ≠ op
+      | .blockArgument _ => True) →
+      value.InBounds s.ctx.raw → value.InBounds ctx'.raw)
+    (structurePreserves : StructuralBoundsPreserved s.ctx.raw ctx'.raw) : MlirParserState OpInfo := by
+  let updated := { fwd with placeholders := fwd.placeholders.erase index }
+  let table := s.forwardValues.insert name updated
+  have lookup : ∀ (name' : ByteArray) (fwd' : ForwardValue), table[name']? = some fwd' →
+      ∀ (index' : Nat) (op' : OperationPtr) (loc' : Location),
+      fwd'.placeholders[index']? = some (op', loc') →
+      ∃ old : ForwardValue, s.forwardValues[name']? = some old ∧
+        old.placeholders[index']? = some (op', loc') ∧ (name' = name → index' ≠ index) := by
+    intro name' fwd' hf' index' op' loc' hp'
+    grind
+  exact { s with
+    ctx := ctx'
+    blocksInBounds := fun name entry he => structurePreserves.blocks _ (s.blocksInBounds name entry he)
+    forwardValues := table
+    realInBounds := by
+      intro value hv
+      exact hBounds value (s.realNotPlaceholder value hv name fwd hf index op loc hp)
+        (s.realInBounds value hv)
+    forwardInBounds := by
+      intro name' fwd' hf' index' op' loc' hp'
+      obtain ⟨old, ho, hpold, hslot⟩ := lookup name' fwd' hf' index' op' loc' hp'
+      have hne : op' ≠ op := by
+        intro he
+        subst op'
+        have hu := s.forwardUnique name fwd hf index op loc hp name' old ho index' loc' hpold
+        grind
+      have hb := s.forwardInBounds name' old ho index' op' loc' hpold
+      have := hBounds (.opResult (op'.getResult 0)) (by simpa using hne) (by simpa using hb)
+      simpa using this
+    realNotPlaceholder := by
+      intro value hv name' fwd' hf' index' op' loc' hp'
+      obtain ⟨old, ho, hpold, _⟩ := lookup name' fwd' hf' index' op' loc' hp'
+      exact s.realNotPlaceholder value hv name' old ho index' op' loc' hpold
+    forwardUnique := by
+      intro name' fwd' hf' index' op' loc' hp' name'' fwd'' hf'' index'' loc'' hp''
+      obtain ⟨old1, ho1, hp1, _⟩ := lookup name' fwd' hf' index' op' loc' hp'
+      obtain ⟨old2, ho2, hp2, _⟩ := lookup name'' fwd'' hf'' index'' op' loc'' hp''
+      exact s.forwardUnique name' old1 ho1 index' op' loc' hp1 name'' old2 ho2 index'' loc'' hp2
   }
 
 abbrev MlirParserM (OpInfo : Type) [HasOpInfo OpInfo] :=
@@ -151,205 +344,130 @@ def inChildScope {α : Type} (m : MlirParserM OpInfo α) : MlirParserM OpInfo α
   let result ← m
 
   /- Pop the scope. -/
-  modify fun s => Id.run do
-    let mut values := s.values
+  modify fun (s : MlirParserState OpInfo) => Id.run do
+    let mut values : { table : Std.HashMap ByteArray (Array ValuePtr × Location) //
+        ∀ (name : ByteArray) (entry : Array ValuePtr × Location), table[name]? = some entry → ∀ value ∈ entry.1, s.realValues value } :=
+      ⟨s.values, s.valuesReal⟩
     /- Erase each variable defined in the last scope. -/
     for name in s.definitionsPerScope.back! do
-      values := values.erase name
-    { s with values, definitionsPerScope := s.definitionsPerScope.pop }
+      values := ⟨values.val.erase name, by
+        intro key entry h value hv
+        have := values.property
+        grind⟩
+    { s with
+      values := values.val
+      definitionsPerScope := s.definitionsPerScope.pop
+      valuesReal := values.property }
 
   return result
 
-/--
-  Set the current IR context.
-  This should be called whenever any modifications have been made to the context
-  outside of the parser monad.
--/
-def setContext (ctx : WfIRContext OpInfo) : MlirParserM OpInfo Unit := do
-  modify fun s => {s with ctx := ctx}
-
-/--
-  Modifies the current IR context.
--/
-def modifyContext (f : WfIRContext OpInfo → WfIRContext OpInfo) : MlirParserM OpInfo Unit := do
-  modify fun s => {s with ctx := f s.ctx}
-
-/--
-  Modifies the current IR context.
-
-  This function should be used instead of modifying the context with
-  `get`/`getContext` and `set`/`setContext` in order to preserve linearity.
--/
-def modifyContextM'
-    (f : WfIRContext OpInfo → MlirParserM OpInfo (α × WfIRContext OpInfo)) :
+/-- Consume the complete state while producing new bounds certificates. -/
+private def modifyParserStateM'
+    (f : (s : MlirParserState OpInfo) → EStateM ParserError ParserState (α × MlirParserState OpInfo)) :
     MlirParserM OpInfo α := do
-  let ctx ← getContext
-  -- This `setContext` is required to preserve the linearity of the state
-  setContext default
-  let (r, ctx) ← f ctx
-  setContext ctx
-  pure r
+  let s ← get
+  set (default : MlirParserState OpInfo)
+  let (result, s') ← f s
+  set s'
+  return result
 
-/--
-  Modifies the current IR context.
+/-- Remove a completed forward-reference name without traversing the table. -/
+private def MlirParserState.eraseForwardName (s : MlirParserState OpInfo) (name : ByteArray) :
+    MlirParserState OpInfo :=
+  { s with
+    forwardValues := s.forwardValues.erase name
+    forwardInBounds := by
+      intro key fwd hf index op loc hp
+      exact s.forwardInBounds key fwd (by grind) index op loc hp
+    realNotPlaceholder := by
+      intro value hv key fwd hf index op loc hp
+      exact s.realNotPlaceholder value hv key fwd (by grind) index op loc hp
+    forwardUnique := by
+      intro key fwd hf index op loc hp key' fwd' hf' index' loc' hp'
+      exact s.forwardUnique key fwd (by grind) index op loc hp key' fwd' (by grind) index' loc' hp'
+  }
 
-  This function should be used instead of modifying the context with
-  `get`/`getContext` and `set`/`setContext` in order to preserve linearity.
--/
-def modifyContextM (f : WfIRContext OpInfo → MlirParserM OpInfo (WfIRContext OpInfo)) :
-    MlirParserM OpInfo Unit :=
-  modifyContextM' (fun ctx => do pure ((), ← f ctx))
-
-/--
-  Create a detached, single-result placeholder operation of the given type.
-  Its result is used to stand in for a value that has been referenced but not yet
-  defined. The operation is not inserted into any block; once the real definition is
-  parsed, `resolveForwardValue` replaces all uses of this result with the real value
-  and erases this operation.
--/
-def createForwardRefPlaceholder (ty : TypeAttr) (loc : Location) :
-    MlirParserM OpInfo OperationPtr :=
-  modifyContextM' fun ctx => do
-    match WfRewriter.createOp ctx Builtin.unrealized_conversion_cast #[ty] #[] #[] #[]
-      default none with
-    | none => throwAt loc "internal error: failed to create forward-reference placeholder"
-    | some (ctx', op) => pure (op, ctx')
-
-/--
-  Replace every use of a placeholder operation's single result with `target`, then erase
-  the (now unused, region-less) placeholder operation.
--/
-def rewirePlaceholder (placeholderOp : OperationPtr) (target : ValuePtr) :
-    MlirParserM OpInfo Unit := do
+/-- Replace a placeholder using the certificates belonging to its table entry and target. -/
+private def rewirePlaceholderState (s : MlirParserState OpInfo)
+    (name : ByteArray) (fwd : ForwardValue) (hf : s.forwardValues[name]? = some fwd)
+    (index : Nat) (placeholderOp : OperationPtr) (useLoc : Location)
+    (hp : fwd.placeholders[index]? = some (placeholderOp, useLoc))
+    (target : ValuePtr) (ht : s.realValues target) :
+    EStateM ParserError ParserState { s' : MlirParserState OpInfo //
+      s'.realValues = s.realValues ∧ StructuralBoundsPreserved s.ctx.raw s'.ctx.raw } := do
   let placeholderValue : ValuePtr := placeholderOp.getResult 0
-  modifyContextM fun ctx => do
-    let ⟨hOldIn⟩ ← checkValueInBounds placeholderValue ctx.raw
-    let ⟨hNewIn⟩ ← checkValueInBounds target ctx.raw
-    let ⟨hNe⟩ ← checkValuesNe placeholderValue target
-    pure (WfRewriter.replaceValue ctx placeholderValue target hNe hOldIn hNewIn)
-  modifyContextM fun ctx => do
-    let ⟨hOpIn⟩ ← checkOpInBounds placeholderOp ctx.raw
-    let ⟨hNoRegions⟩ ← checkOpNoRegions placeholderOp ctx.raw
-    let ⟨hNoUses⟩ ← checkOpNoUses placeholderOp ctx.raw
-    pure (WfRewriter.eraseOp ctx placeholderOp hNoRegions hNoUses hOpIn)
+  let hOld := s.forwardInBounds name fwd hf index placeholderOp useLoc hp
+  let hNew := s.realInBounds target ht
+  let ⟨hNe⟩ ← checkValuesNe placeholderValue target
+  let ctx := WfRewriter.replaceValue s.ctx placeholderValue target hNe hOld hNew
+  let hStructure := WfRewriter.replaceValue_structuralBoundsPreserved
+    (ctx := s.ctx) (oldValue := placeholderValue) (newValue := target)
+    (ne := hNe) (oldIn := hOld) (newIn := hNew)
+  let s := s.withContext ctx (fun value h => by
+    have := WfRewriter.replaceValue_inBounds (ptr := .value value) (ctx := s.ctx) (oldValue := placeholderValue) (newValue := target) (ne := hNe) (oldIn := hOld) (newIn := hNew)
+    grind) hStructure
+  let hOpIn := OperationPtr.inBounds_of_result_value_inBounds
+    (s.forwardInBounds name fwd hf index placeholderOp useLoc hp)
+  let ⟨hNoRegions⟩ ← checkOpNoRegions placeholderOp s.ctx.raw
+  let ⟨hNoUses⟩ ← checkOpNoUses placeholderOp s.ctx.raw
+  let ctx := WfRewriter.eraseOp s.ctx placeholderOp hNoRegions hNoUses hOpIn
+  let s' := s.eraseForwardPlaceholder name fwd hf index placeholderOp useLoc hp ctx
+    (fun value hDifferent hBounds =>
+      (WfRewriter.eraseOp_valueInBounds_iff (by cases value <;> exact hDifferent)).mpr hBounds)
+    WfRewriter.eraseOp_structuralBoundsPreserved
+  return ⟨s', rfl, hStructure.trans WfRewriter.eraseOp_structuralBoundsPreserved⟩
 
-/--
-  Modify the (scope-wide) forward-reference table.
--/
-def modifyForwardValues
-    (f : Std.HashMap ByteArray ForwardValue → Std.HashMap ByteArray ForwardValue) :
-    MlirParserM OpInfo Unit :=
-  modify fun s => { s with forwardValues := f s.forwardValues }
-
-/--
-  Resolve a forward-referenced value now that its real definition has been parsed. For each
-  referenced result index, replace all uses of the placeholder result with the corresponding
-  real value and erase the placeholder operation.
--/
-def resolveForwardValue (name : ByteArray) (pos : Location) (fwd : ForwardValue)
-    (values : Array ValuePtr) : MlirParserM OpInfo Unit := do
-  for (index, (placeholderOp, useLoc)) in fwd.placeholders do
-    let some realValue := values[index]?
-      | throw (({ msg := s!"definition of value %{String.fromUTF8! name} provides {values.size} results, but result #{index} was used",
-                  pos := some pos } : ParserError).addNote useLoc "value used here")
-    /- The value has a single type, so the definition must match every use. -/
-    let placeholderValue : ValuePtr := placeholderOp.getResult 0
-    let ⟨ctx, _⟩ ← getContext
-    let usedType := placeholderValue.getType! ctx
-    let definedType := realValue.getType! ctx
-    if usedType ≠ definedType then
-      throw (({ msg := s!"definition of value %{String.fromUTF8! name}#{index} has type {definedType} but was used with type {usedType}",
-                pos := some pos } : ParserError).addNote useLoc "value used here")
-    rewirePlaceholder placeholderOp realValue
-  modifyForwardValues (·.erase name)
-
-/--
-  Register an array of parsed values with the given name in the current scope.
-  This is used to keep track of values that have been defined during parsing.
-  If the name was forward-referenced earlier, the placeholders created for it are resolved to
-  the newly-parsed values (following MLIR: the first definition of a name resolves it).
--/
-def registerValueDefs (name : ByteArray) (pos : Location) (values : Array ValuePtr) :
-    MlirParserM OpInfo Unit := do
-  let st ← get
-  if let some fwd := st.forwardValues[name]? then
-    resolveForwardValue name pos fwd values
-  if let some (_, existingPos) := (← get).values[name]? then
+/-- Resolve definitions while explicitly transporting their erased provenance. -/
+private def registerValueDefsState (s : MlirParserState OpInfo)
+    (name : ByteArray) (pos : Location) (values : Array ValuePtr)
+    (hValues : ∀ value ∈ values, s.realValues value) :
+    EStateM ParserError ParserState { s' : MlirParserState OpInfo //
+      s'.realValues = s.realValues ∧ StructuralBoundsPreserved s.ctx.raw s'.ctx.raw } := do
+  let mut current : { s' : MlirParserState OpInfo // s'.realValues = s.realValues ∧ StructuralBoundsPreserved s.ctx.raw s'.ctx.raw } := ⟨s, rfl, .refl _⟩
+  if let some fwd := s.forwardValues[name]? then
+    for (index, _) in fwd.placeholders do
+      match hf : current.val.forwardValues[name]? with
+      | none => pure ()
+      | some liveFwd =>
+        match hp : liveFwd.placeholders[index]? with
+        | none => pure ()
+        | some (placeholderOp, useLoc) =>
+          let real ← match hValue : values[index]? with
+            | none => throw (({ msg := s!"definition of value %{String.fromUTF8! name} provides {values.size} results, but result #{index} was used", pos := some pos } : ParserError).addNote useLoc "value used here")
+            | some value => pure (⟨value, by grind⟩ : { value : ValuePtr // value ∈ values })
+          let realValue := real.val
+          let hReal : current.val.realValues realValue := by
+            rw [current.property.1]
+            exact hValues realValue real.property
+          let placeholderValue : ValuePtr := placeholderOp.getResult 0
+          let usedType := placeholderValue.getType current.val.ctx.raw
+            (current.val.forwardInBounds name liveFwd hf index placeholderOp useLoc hp)
+          let definedType := realValue.getType current.val.ctx.raw (current.val.realInBounds realValue hReal)
+          if usedType ≠ definedType then
+            throw (({ msg := s!"definition of value %{String.fromUTF8! name}#{index} has type {definedType} but was used with type {usedType}",
+                      pos := some pos } : ParserError).addNote useLoc "value used here")
+          let updated ← rewirePlaceholderState current.val name liveFwd hf index placeholderOp useLoc hp realValue hReal
+          current := ⟨updated.val, updated.property.1.trans current.property.1, current.property.2.trans updated.property.2⟩
+    current := ⟨current.val.eraseForwardName name, current.property⟩
+  if let some (_, existingPos) := current.val.values[name]? then
     let error := ParserError.mk s!"value %{String.fromUTF8! name} has already been defined" pos []
-    let error := error.addNote existingPos "previously defined here"
-    throw error
-  modify fun s =>
-    { s with
-      values := s.values.insert name (values, pos)
-      definitionsPerScope := s.definitionsPerScope.modify (s.definitionsPerScope.size - 1) (·.insert name)
+    throw (error.addNote existingPos "previously defined here")
+  let currentState := current.val
+  let result : MlirParserState OpInfo :=
+    { currentState with
+      values := currentState.values.insert name (values, pos)
+      definitionsPerScope := currentState.definitionsPerScope.modify
+        (currentState.definitionsPerScope.size - 1) (·.insert name)
+      valuesReal := by
+        intro key entry h value hv
+        have hOld := currentState.valuesReal
+        have hNew : ∀ value ∈ values, currentState.realValues value := by
+          intro value hv
+          rw [current.property.1]
+          exact hValues value hv
+        grind
     }
-
-/--
-  Register a single value with the given name in current scope.
-  This is used to keep track of values that have been defined during parsing.
--/
-def registerValueDef (name : ByteArray) (pos : Location) (value : ValuePtr) :
-    MlirParserM OpInfo Unit :=
-  registerValueDefs name pos #[value]
-
-/--
-  Create a block at the given insert point and register its name in the parsing context.
-  If a block was already declared with the given name, use that block instead, and
-  insert it at the given insert point.
--/
-def defineBlock (name : ByteArray) (ip : BlockInsertPoint) (loc : Location) :
-    MlirParserM OpInfo BlockPtr := do
-  let state ← get
-  match state.blocks[name]? with
-  | some (.Defined block prevLoc) => -- Block of this name is already defined.
-    throw (({ msg := s!"block %{String.fromUTF8! name} has already been defined",
-              pos := some loc } : ParserError).addNote prevLoc "block previously defined here")
-  | some (.ForwardDeclared block _) => -- Block of this name was forward declared.
-    /- Insert the block at the given location. -/
-    modifyContextM fun ctx => do
-      let ⟨hip⟩ ← checkBlockInsertPointInBounds ip ctx.raw
-      let ⟨hblock⟩ ← checkBlockInBounds block ctx.raw
-      match hctx' : Rewriter.insertBlock ctx block ip hblock hip with
-      | none => throwAt loc "internal error: failed to insert block"
-      | some ctx' => pure ⟨ctx', by grind [Rewriter.insertBlock_WellFormed]⟩
-    /- Notify the parsing context that the block is defined. -/
-    modifyThe (MlirParserState OpInfo) (fun state =>
-    {state with
-      blocks :=
-        state.blocks.insert name (.Defined block loc)})
-    return block
-  | none => -- Block has not yet been declared or referenced.
-    /- Create the block. -/
-    let block ← modifyContextM' fun ctx => do
-      let ⟨hip⟩ ← checkBlockInsertPointInBounds ip ctx.raw
-      match hctx' : Rewriter.createBlock ctx #[] ip (by grind) (by grind) with
-      | none => throwAt loc "internal error: failed to create block"
-      | some (ctx', block) => pure ⟨block, ⟨ctx', by grind [Rewriter.createBlock_WellFormed]⟩⟩
-    /- Notify the parsing context that the block is defined. -/
-    modifyThe (MlirParserState OpInfo) fun s =>
-    {s with blocks := s.blocks.insert name (.Defined block loc)}
-    return block
-
-/--
-  Forward declare a block with the given name.
-  If the block was already forward declared or defined, return the existing block.
-  Otherwise, create a new block without inserting it in a region.
--/
-def defineBlockUse (name : ByteArray) (loc : Location) : MlirParserM OpInfo BlockPtr := do
-  let state ← get
-  match state.blocks[name]? with
-  | some entry => -- Block already defined or forward declared
-    return entry.block
-  | none => -- Block not yet encountered
-    /- Create the block. -/
-    let block ← modifyContextM' fun ctx => do
-      match hctx' : Rewriter.createBlock ctx #[] none (by grind) Option.maybe_none with
-      | none => throwAt loc "internal error: failed to create block"
-      | some (ctx', block) => pure ⟨block, ⟨ctx', by grind [Rewriter.createBlock_WellFormed]⟩⟩
-    /- Notify the parsing context that the block is forward declared. -/
-    modifyThe (MlirParserState OpInfo) fun s =>
-      {s with blocks := s.blocks.insert name (.ForwardDeclared block loc)}
-    return block
+  return ⟨result, current.property⟩
 
 /--
   Parse an operation result and the number of values it defines.
@@ -384,8 +502,8 @@ def parseOpResults : MlirParserM OpInfo (Array (ByteArray × Nat × Location)) :
 /--
   An operand whose type has not yet been resolved.
   This is used during parsing to allow parsing operands before their types.
-  Once the operation type is known, `resolveOperand` can be used to create an SSA value and
-  check that the type matches with previous uses.
+  Once the operation type is known, operand resolution produces an SSA value with its
+  bounds certificate and checks that its type matches previous uses.
 
   `index` is used for the `%name#index` syntax to refer to an indexed result
   when multiple are defined for the same value.
@@ -440,78 +558,132 @@ def parseOperand : MlirParserM OpInfo UnresolvedOperand := do
 def parseOperands : MlirParserM OpInfo (Array UnresolvedOperand) := do
   parseDelimitedList .paren parseOperand
 
-/--
-  Parse a list of block operands delimited by square brackets, if present.
--/
-def parseBlockOperand : MlirParserM OpInfo BlockPtr := do
-  let labelToken ← parseToken .caretIdent "block name expected"
-  let slice := { labelToken.slice with start := labelToken.slice.start + 1 } -- skip ^ character
-  let name := slice.of (← getInput)
-  let block ← defineBlockUse name labelToken.slice.start
-  return block
+/-- A resolved value and the context transition that preserves earlier operand certificates. -/
+private structure ResolvedOperand (s : MlirParserState OpInfo) where
+  value : ValuePtr
+  state : MlirParserState OpInfo
+  inBounds : value.InBounds state.ctx.raw
+  realValues_eq : state.realValues = s.realValues
+  preserves : ∀ (value : ValuePtr), value.InBounds s.ctx.raw → value.InBounds state.ctx.raw
+  preservesStructure : StructuralBoundsPreserved s.ctx.raw state.ctx.raw
 
-/--
-  Parse a single block operand.
--/
-def parseBlockOperands : MlirParserM OpInfo (Array BlockPtr) := do
-  return (← parseOptionalDelimitedList .square parseBlockOperand).getD #[]
-
-/--
-  Resolve a reference to a value that has not yet been defined by creating (or reusing)
-  a placeholder operation whose result stands in for the eventual definition.
-  The placeholder is recorded in the flat forward-reference table and resolved by the first
-  definition of the name, wherever it later appears (as in MLIR's generic-form parser).
--/
-def resolveForwardOperand (operand : UnresolvedOperand) (expectedType : TypeAttr) :
-    MlirParserM OpInfo ValuePtr := do
+private def createForwardOperandState (s : MlirParserState OpInfo)
+    (operand : UnresolvedOperand) (expectedType : TypeAttr) :
+    EStateM ParserError ParserState (ResolvedOperand s) := do
   let idx := operand.indexD
-  match (← get).forwardValues[operand.name]? with
+  match hCreated : WfRewriter.createOp s.ctx Builtin.unrealized_conversion_cast
+      #[expectedType] #[] #[] #[] default none with
+  | none => throwAt operand.pos "internal error: failed to create forward-reference placeholder"
+  | some (ctx', op) =>
+    let hPreserves : ∀ (value : ValuePtr), value.InBounds s.ctx.raw → value.InBounds ctx'.raw :=
+      fun _ h => WfRewriter.createOp_valueInBounds_mono hCreated h
+    let hStructure := WfRewriter.createOp_structuralBoundsPreserved hCreated
+    let next := s.withContext ctx' hPreserves hStructure
+    let result := next.insertForwardPlaceholder operand.name idx op operand.pos
+      (by simpa [next, MlirParserState.withContext] using WfRewriter.createOp_result_inBounds hCreated 0 (by simp))
+      (by
+        intro value hv
+        have h := WfRewriter.createOp_existingValue_not_result hCreated (s.realInBounds value hv)
+        cases value <;> exact h)
+      (by
+        intro name fwd hf index oldOp loc hp
+        have hOld := s.forwardInBounds name fwd hf index oldOp loc hp
+        have hDifferent := WfRewriter.createOp_existingValue_not_result hCreated hOld
+        simpa using hDifferent)
+    return {
+      value := op.getResult 0
+      state := result
+      inBounds := by simpa [result, MlirParserState.insertForwardPlaceholder, next, MlirParserState.withContext] using WfRewriter.createOp_result_inBounds hCreated 0 (by simp)
+      realValues_eq := rfl
+      preserves := hPreserves
+      preservesStructure := hStructure
+    }
+
+private def resolveForwardOperandState (s : MlirParserState OpInfo)
+    (operand : UnresolvedOperand) (expectedType : TypeAttr) :
+    EStateM ParserError ParserState (ResolvedOperand s) := do
+  let idx := operand.indexD
+  match hf : s.forwardValues[operand.name]? with
+  | none => createForwardOperandState s operand expectedType
   | some fwd =>
-    match fwd.placeholders[idx]? with
+    match hp : fwd.placeholders[idx]? with
+    | none => createForwardOperandState s operand expectedType
     | some (placeholderOp, useLoc) =>
-      /- The same result index was referenced before: reuse its placeholder and
-         check the type is consistent with the previous use. -/
       let placeholderValue : ValuePtr := placeholderOp.getResult 0
-      let ⟨ctx, _⟩ ← getContext
-      let parsedType := placeholderValue.getType! ctx
+      let parsedType := placeholderValue.getType s.ctx.raw
+        (s.forwardInBounds operand.name fwd hf idx placeholderOp useLoc hp)
       if parsedType ≠ expectedType then
         throw (({ msg := s!"type mismatch for value {operand}: expected {expectedType}, got {parsedType}",
                   pos := some operand.pos } : ParserError).addNote useLoc "value first used here")
-      return placeholderValue
-    | none =>
-      /- A new result index of an already forward-referenced value. -/
-      let placeholderOp ← createForwardRefPlaceholder expectedType operand.pos
-      modifyForwardValues (·.insert operand.name
-        { fwd with
-          placeholders := fwd.placeholders.insert idx (placeholderOp, operand.pos) })
-      return placeholderOp.getResult 0
-  | none =>
-    /- First reference of a not-yet-defined value. -/
-    let placeholderOp ← createForwardRefPlaceholder expectedType operand.pos
-    modifyForwardValues (·.insert operand.name
-      { placeholders := (Std.HashMap.emptyWithCapacity 1).insert idx (placeholderOp, operand.pos),
-        loc := operand.pos })
-    return placeholderOp.getResult 0
+      return {
+        value := placeholderValue
+        state := s
+        inBounds := s.forwardInBounds operand.name fwd hf idx placeholderOp useLoc hp
+        realValues_eq := rfl
+        preserves := fun _ h => h
+        preservesStructure := .refl _
+      }
 
-/--
-  Resolve an operand to an SSA value of the expected type.
-  If the value has not yet been defined, a forward-reference placeholder is created;
-  it will be resolved when the definition is parsed, or reported as an error once
-  top-level parsing finishes if the value is never defined.
--/
-def resolveOperand (operand : UnresolvedOperand) (expectedType : TypeAttr) :
-    MlirParserM OpInfo ValuePtr := do
-  let some (values, defPos) := (← getValues? operand.name)
-    | resolveForwardOperand operand expectedType
-  let some value := values[operand.indexD]?
-    | throw (({ msg := s!"invalid result index {operand.indexD} for %{operand.nameString}",
+private def resolveOperandState (s : MlirParserState OpInfo)
+    (operand : UnresolvedOperand) (expectedType : TypeAttr) :
+    EStateM ParserError ParserState (ResolvedOperand s) := do
+  match hValues : s.values[operand.name]? with
+  | none => resolveForwardOperandState s operand expectedType
+  | some (values, defPos) =>
+    let real ← match hValue : values[operand.indexD]? with
+      | none => throw (({ msg := s!"invalid result index {operand.indexD} for %{operand.nameString}", pos := some operand.pos } : ParserError).addNote defPos "value defined here")
+      | some value => pure (⟨value, by grind⟩ : { value : ValuePtr // value ∈ values })
+    let value := real.val
+    let hBounds := s.realInBounds value (s.valuesReal operand.name (values, defPos) hValues value real.property)
+    let parsedType := value.getType s.ctx.raw hBounds
+    if parsedType ≠ expectedType then
+      throw (({ msg := s!"type mismatch for value {operand}: expected {expectedType}, got {parsedType}",
                 pos := some operand.pos } : ParserError).addNote defPos "value defined here")
-  let ⟨ctx, _⟩ ← getContext
-  let parsedType := value.getType! ctx
-  if parsedType ≠ expectedType then
-    throw (({ msg := s!"type mismatch for value {operand}: expected {expectedType}, got {parsedType}",
-              pos := some operand.pos } : ParserError).addNote defPos "value defined here")
-  return value
+    return {
+      value
+      state := s
+      inBounds := hBounds
+      realValues_eq := rfl
+      preserves := fun _ h => h
+      preservesStructure := .refl _
+    }
+
+private structure ResolvedOperands (s : MlirParserState OpInfo) where
+  values : Array ValuePtr
+  state : MlirParserState OpInfo
+  inBounds : ∀ value ∈ values, value.InBounds state.ctx.raw
+  realValues_eq : state.realValues = s.realValues
+  preserves : ∀ (value : ValuePtr), value.InBounds s.ctx.raw → value.InBounds state.ctx.raw
+  preservesStructure : StructuralBoundsPreserved s.ctx.raw state.ctx.raw
+
+/-- Resolve operands with a fixed initial state so the runtime loop remains tail recursive. -/
+private def resolveOperandsFrom (initial state : MlirParserState OpInfo)
+    (operands : List (UnresolvedOperand × TypeAttr)) (values : Array ValuePtr)
+    (hValues : ∀ value ∈ values, value.InBounds state.ctx.raw)
+    (hReal : state.realValues = initial.realValues)
+    (hPreserves : ∀ (value : ValuePtr), value.InBounds initial.ctx.raw → value.InBounds state.ctx.raw)
+    (hStructure : StructuralBoundsPreserved initial.ctx.raw state.ctx.raw) :
+    EStateM ParserError ParserState (ResolvedOperands initial) := do
+  match operands with
+  | [] => return ⟨values, state, hValues, hReal, hPreserves, hStructure⟩
+  | (operand, ty) :: rest =>
+    let resolved ← resolveOperandState state operand ty
+    let nextValues := values.push resolved.value
+    let hNext : ∀ value ∈ nextValues, value.InBounds resolved.state.ctx.raw := by
+      intro value hv
+      have hOld := fun value hv => resolved.preserves value (hValues value hv)
+      have hNew := resolved.inBounds
+      grind
+    resolveOperandsFrom initial resolved.state rest nextValues hNext
+      (resolved.realValues_eq.trans hReal)
+      (fun value h => resolved.preserves value (hPreserves value h))
+      (hStructure.trans resolved.preservesStructure)
+
+private def resolveOperandsState (state : MlirParserState OpInfo)
+    (operands : List (UnresolvedOperand × TypeAttr)) (values : Array ValuePtr)
+    (hValues : ∀ value ∈ values, value.InBounds state.ctx.raw) :
+    EStateM ParserError ParserState (ResolvedOperands state) :=
+  resolveOperandsFrom state state operands values hValues rfl (fun _ h => h) (.refl _)
 
 /-- The attribute parser state derived from the current parser state. -/
 def attrParserState : MlirParserM OpInfo AttrParserState := do
@@ -621,193 +793,392 @@ def parseOpAttributes : MlirParserM OpInfo DictionaryAttr := do
     | some attrs => return DictionaryAttr.fromArray attrs
   | .error err => throw err
 
-/--
-  Parse a block label, if present, and create and insert the block at the given insert point.
--/
-def parseOptionalBlockLabel (ip : BlockInsertPoint) :
-    MlirParserM OpInfo (Option BlockPtr) := do
-  /- Parse the block name. -/
-  let some labelToken ← parseOptionalToken .caretIdent
-    | return none
-  let slice := { labelToken.slice with start := labelToken.slice.start + 1 } -- skip ^ character
-  let name := slice.of (← getInput)
-  /- Parse the arguments. -/
-  let arguments := (← parseOptionalDelimitedList .paren parseTypedValue).getD #[]
-  parsePunctuation ":" "':' expected after block label"
-  /- Create the block or get it if it was forward declared. -/
-  let block ← defineBlock name ip labelToken.slice.start
-  /- Insert block arguments in the block. -/
-  modifyContextM fun ctx => do
-    let argTypes := arguments.map (·.2.1)
-    let ⟨h_block_InBounds⟩ ← checkBlockInBounds block ctx.raw
-    let ⟨h_block_NoArgs⟩ ← checkBlockHasNoArgs block ctx.raw
-    pure (WfRewriter.setBlockArguments ctx block argTypes h_block_InBounds (by grind [BlockPtr.getArguments!.mem_iff_exists_index]))
-  /- Register the block argument names in the parser state. -/
-  for ((argName, _argType, tokenPos), index) in arguments.zipIdx do
-    registerValueDef argName tokenPos (ValuePtr.blockArgument {block := block, index := index})
-  return some block
+/-- Syntax actions used by the explicit-state parser only inspect MLIR state. Their
+returned MLIR state is discarded; lexer state and diagnostics are retained. -/
+private def readSyntax (s : MlirParserState OpInfo) (m : MlirParserM OpInfo α) :
+    EStateM ParserError ParserState α := do
+  let (value, _) ← m s
+  return value
 
-/--
-  Parse the label of an entry block and create and insert the block at the given insert point.
-  Since the entry block does not need a label, if no label is found,
-  a block with an empty name is created and returned.
--/
-def parseEntryBlockLabel (ip : BlockInsertPoint) : MlirParserM OpInfo BlockPtr := do
-  /- Try to parse a block label. -/
-  if let some block ← parseOptionalBlockLabel ip then
-    return block
-  else -- Otherwise, create a block with an empty name.
-    let block ← defineBlock ByteArray.empty ip (← getPos)
-    return block
+/-- A parser result with erased bounds and structural context transport. -/
+private structure Parsed (s : MlirParserState OpInfo) (α : Type)
+    (bounds : α → IRContext OpInfo → Prop) where
+  value : α
+  state : MlirParserState OpInfo
+  inBounds : bounds value state.ctx.raw
+  preserves : StructuralBoundsPreserved s.ctx.raw state.ctx.raw
+
+private abbrev ParsedBlock (s : MlirParserState OpInfo) := Parsed s BlockPtr BlockPtr.InBounds
+private abbrev ParsedBlocks (s : MlirParserState OpInfo) :=
+  Parsed s (Array BlockPtr) (fun blocks ctx => ∀ block ∈ blocks, block.InBounds ctx)
+private abbrev ParsedRegion (s : MlirParserState OpInfo) := Parsed s RegionPtr RegionPtr.InBounds
+private abbrev ParsedRegions (s : MlirParserState OpInfo) :=
+  Parsed s (Array RegionPtr) (fun regions ctx => ∀ region ∈ regions, region.InBounds ctx)
+private abbrev ParsedOptionalBlock (s : MlirParserState OpInfo) :=
+  Parsed s (Option BlockPtr) (fun block ctx => block.maybe BlockPtr.InBounds ctx)
+private abbrev ParsedOptionalOp (s : MlirParserState OpInfo) :=
+  Parsed s (Option OperationPtr) (fun _ _ => True)
+
+@[inline]
+private def MlirParserState.insertBlockName (s : MlirParserState OpInfo)
+    (name : ByteArray) (entry : BlockEntry) (h : entry.block.InBounds s.ctx.raw) :
+    MlirParserState OpInfo :=
+  { s with
+    blocks := s.blocks.insert name entry
+    blocksInBounds := by
+      intro key value hv
+      have hOld := s.blocksInBounds
+      grind }
+
+private def defineBlockState (s : MlirParserState OpInfo) (name : ByteArray)
+    (ip : BlockInsertPoint) (hip : ip.InBounds s.ctx.raw) (loc : Location) :
+    EStateM ParserError ParserState (ParsedBlock s) := do
+  match he : s.blocks[name]? with
+  | some (.Defined _ prevLoc) =>
+    throw (({ msg := s!"block %{String.fromUTF8! name} has already been defined",
+                    pos := some loc } : ParserError).addNote prevLoc "block previously defined here")
+  | some (.ForwardDeclared block oldLoc) =>
+    let hb := s.blocksInBounds name (.ForwardDeclared block oldLoc) he
+    match hc : WfRewriter.insertBlock s.ctx block ip hb hip with
+    | none => throwAt loc "internal error: failed to insert block"
+    | some ctx =>
+      let hs := WfRewriter.insertBlock_structuralBoundsPreserved hc
+      let next := s.withContext ctx (fun _ h => WfRewriter.insertBlock_valueInBounds_mono hc h) hs
+      let hb := hs.blocks block hb
+      return ⟨block, next.insertBlockName name (.Defined block loc) hb, hb, hs⟩
+  | none =>
+    match hc : WfRewriter.createBlock s.ctx #[] ip (by simpa using hip) with
+    | none => throwAt loc "internal error: failed to create block"
+    | some (ctx, block) =>
+      let hs := WfRewriter.createBlock_structuralBoundsPreserved hc
+      let next := s.withContext ctx (fun _ h => WfRewriter.createBlock_valueInBounds_mono hc h) hs
+      let hb := WfRewriter.createBlock_new_inBounds hc
+      return ⟨block, next.insertBlockName name (.Defined block loc) hb, hb, hs⟩
+
+private def defineBlockUseState (s : MlirParserState OpInfo) (name : ByteArray) (loc : Location) :
+    EStateM ParserError ParserState (ParsedBlock s) := do
+  match he : s.blocks[name]? with
+  | some entry => return ⟨entry.block, s, s.blocksInBounds name entry he, .refl _⟩
+  | none =>
+    match hc : WfRewriter.createBlock s.ctx #[] none Option.maybe_none with
+    | none => throwAt loc "internal error: failed to create block"
+    | some (ctx, block) =>
+      let hs := WfRewriter.createBlock_structuralBoundsPreserved hc
+      let next := s.withContext ctx (fun _ h => WfRewriter.createBlock_valueInBounds_mono hc h) hs
+      let hb := WfRewriter.createBlock_new_inBounds hc
+      return ⟨block, next.insertBlockName name (.ForwardDeclared block loc) hb, hb, hs⟩
+
+private def parseBlockOperandState (s : MlirParserState OpInfo) :
+    EStateM ParserError ParserState (ParsedBlock s) := do
+  let token ← readSyntax s (parseToken .caretIdent "block name expected")
+  let name := { token.slice with start := token.slice.start + 1 }.of (← readSyntax s getInput)
+  defineBlockUseState s name token.slice.start
+
+private partial def parseBlockOperandsLoop (initial s : MlirParserState OpInfo)
+    (blocks : Array BlockPtr) (hb : ∀ block ∈ blocks, block.InBounds s.ctx.raw)
+    (hs : StructuralBoundsPreserved initial.ctx.raw s.ctx.raw) :
+    EStateM ParserError ParserState (ParsedBlocks initial) := do
+  let parsed ← parseBlockOperandState s
+  let next := blocks.push parsed.value
+  let hn : ∀ block ∈ next, block.InBounds parsed.state.ctx.raw := by
+    intro block h
+    have hOld := fun block h => parsed.preserves.blocks block (hb block h)
+    have hNew := parsed.inBounds
+    grind
+  let hs := hs.trans parsed.preserves
+  if ← readSyntax parsed.state (parseOptionalPunctuation ",") then
+    parseBlockOperandsLoop initial parsed.state next hn hs
+  else
+    readSyntax parsed.state (parsePunctuation "]" "closing delimiter ']' expected")
+    return ⟨next, parsed.state, hn, hs⟩
+
+private def parseBlockOperandsState (s : MlirParserState OpInfo) :
+    EStateM ParserError ParserState (ParsedBlocks s) := do
+  if !(← readSyntax s (parseOptionalPunctuation "[")) then
+    return ⟨#[], s, by simp, .refl _⟩
+  if ← readSyntax s (parseOptionalPunctuation "]") then
+    return ⟨#[], s, by simp, .refl _⟩
+  parseBlockOperandsLoop s s #[] (by simp) (.refl _)
+
+private def parseOptionalBlockLabelState (s : MlirParserState OpInfo)
+    (ip : BlockInsertPoint) (hip : ip.InBounds s.ctx.raw) :
+    EStateM ParserError ParserState (ParsedOptionalBlock s) := do
+  let some labelToken ← readSyntax s (parseOptionalToken .caretIdent)
+    | return ⟨none, s, Option.maybe_none, .refl _⟩
+  let name := { labelToken.slice with start := labelToken.slice.start + 1 }.of (← readSyntax s getInput)
+  let arguments := (← readSyntax s (parseOptionalDelimitedList .paren parseTypedValue)).getD #[]
+  readSyntax s (parsePunctuation ":" "':' expected after block label")
+  let parsed ← defineBlockState s name ip hip labelToken.slice.start
+  let state := parsed.state
+  let block := parsed.value
+  let ctx := state.ctx
+  let argTypes := arguments.map (·.2.1)
+  let h_block_InBounds := parsed.inBounds
+  let ⟨h_block_NoArgs⟩ ← checkBlockHasNoArgs block ctx.raw
+  let ctx' := WfRewriter.setBlockArguments ctx block argTypes h_block_InBounds
+    (by grind [BlockPtr.getArguments!.mem_iff_exists_index])
+  let hStructure := WfRewriter.setBlockArguments_structuralBoundsPreserved
+  let next := state.withContext ctx' (fun _ hv =>
+    WfRewriter.setBlockArguments_valueInBounds_mono h_block_NoArgs hv) hStructure
+  let argumentValues : Array ValuePtr := Array.ofFn fun i : Fin arguments.size =>
+    .blockArgument { block, index := i.val }
+  let next := next.addRealValues argumentValues
+    (by
+      intro value hv
+      rcases Array.mem_ofFn.mp hv with ⟨i, rfl⟩
+      have h := WfRewriter.setBlockArguments_inBounds_iff
+        (ptr := .value (.blockArgument { block, index := i.val }))
+        (ctx := ctx) (blockPtr := block) (types := argTypes)
+        (hblock := h_block_InBounds)
+        (noUses := by grind [BlockPtr.getArguments!.mem_iff_exists_index])
+      exact (GenericPtr.iff_value _).mp (h.mpr (by simp [argTypes])))
+    (by
+      intro value hv name fwd hf index op loc hp
+      rcases Array.mem_ofFn.mp hv with ⟨i, rfl⟩
+      trivial)
+  let mut current : { state : MlirParserState OpInfo // state.realValues = next.realValues ∧
+      StructuralBoundsPreserved next.ctx.raw state.ctx.raw } := ⟨next, rfl, .refl _⟩
+  for i in List.finRange arguments.size do
+    let (argName, _, tokenPos) := arguments[i]
+    let value : ValuePtr := .blockArgument { block, index := i.val }
+    let hReal : current.val.realValues value := by
+      rw [current.property.1]
+      exact Or.inr (Array.mem_ofFn.mpr ⟨i, rfl⟩)
+    let registered ← registerValueDefsState current.val argName tokenPos #[value]
+      (by
+        intro v hv
+        simp only [Array.mem_singleton] at hv
+        subst v
+        exact hReal)
+    current := ⟨registered.val, registered.property.1.trans current.property.1,
+      current.property.2.trans registered.property.2⟩
+  let hs := parsed.preserves.trans (hStructure.trans current.property.2)
+  return ⟨some block, current.val,
+    (by simpa using current.property.2.blocks block (hStructure.blocks block h_block_InBounds)), hs⟩
+
+/-- Remove the names introduced in the innermost scope, retaining erased provenance. -/
+private def scopeValues (s : MlirParserState OpInfo) :
+    { table : Std.HashMap ByteArray (Array ValuePtr × Location) //
+      ∀ (name : ByteArray) (entry : Array ValuePtr × Location), table[name]? = some entry → ∀ value ∈ entry.1, s.realValues value } := Id.run do
+  let mut values := (⟨s.values, s.valuesReal⟩ :
+    { table : Std.HashMap ByteArray (Array ValuePtr × Location) //
+      ∀ (name : ByteArray) (entry : Array ValuePtr × Location), table[name]? = some entry → ∀ value ∈ entry.1, s.realValues value })
+  for name in s.definitionsPerScope.back! do
+    values := ⟨values.val.erase name, by
+      intro key entry h value hv
+      have := values.property
+      grind⟩
+  return values
+
+private def parseEntryBlockLabelState (s : MlirParserState OpInfo)
+    (ip : BlockInsertPoint) (hip : ip.InBounds s.ctx.raw) :
+    EStateM ParserError ParserState (ParsedBlock s) := do
+  let parsed ← parseOptionalBlockLabelState s ip hip
+  match he : parsed.value with
+  | some block => return ⟨block, parsed.state, (by simpa [he] using parsed.inBounds), parsed.preserves⟩
+  | none =>
+    let hip := ip.inBounds_of_structuralBoundsPreserved parsed.preserves hip
+    let block ← defineBlockState parsed.state ByteArray.empty ip hip (← readSyntax parsed.state getPos)
+    return ⟨block.value, block.state, block.inBounds, parsed.preserves.trans block.preserves⟩
 
 mutual
 
-/--
-  Parse the regions of an operation.
--/
-partial def parseOpRegions : MlirParserM OpInfo (Array RegionPtr) := do
-  return (← parseOptionalDelimitedList .paren parseRegion).getD #[]
+private partial def parseOpRegionsLoop (initial s : MlirParserState OpInfo)
+    (regions : Array RegionPtr) (hr : ∀ region ∈ regions, region.InBounds s.ctx.raw)
+    (hs : StructuralBoundsPreserved initial.ctx.raw s.ctx.raw) :
+    EStateM ParserError ParserState (ParsedRegions initial) := do
+  let parsed ← parseRegionState s
+  let next := regions.push parsed.value
+  let hn : ∀ region ∈ next, region.InBounds parsed.state.ctx.raw := by
+    intro region h
+    have hOld := fun region h => parsed.preserves.regions region (hr region h)
+    have hNew := parsed.inBounds
+    grind
+  let hs := hs.trans parsed.preserves
+  if ← readSyntax parsed.state (parseOptionalPunctuation ",") then
+    parseOpRegionsLoop initial parsed.state next hn hs
+  else
+    readSyntax parsed.state (parsePunctuation ")" "closing delimiter ')' expected")
+    return ⟨next, parsed.state, hn, hs⟩
 
-/--
-  Parse an operation, if present, and insert it at the given insert point.
--/
-partial def parseOptionalOp (ip : Option InsertPoint) :
-    MlirParserM OpInfo (Option OperationPtr) := do
-  /- Parse the operation. -/
-  let opStart ← getPos
-  let results ← parseOpResults
-  let opNameStart ← getPos
-  let some opName ← parseOptionalStringLiteral | return none
+private partial def parseOpRegionsState (s : MlirParserState OpInfo) :
+    EStateM ParserError ParserState (ParsedRegions s) := do
+  if !(← readSyntax s (parseOptionalPunctuation "(")) then
+    return ⟨#[], s, by simp, .refl _⟩
+  if ← readSyntax s (parseOptionalPunctuation ")") then
+    return ⟨#[], s, by simp, .refl _⟩
+  parseOpRegionsLoop s s #[] (by simp) (.refl _)
+
+/-- Operation insertion during parsing uses a detached operation or the end of a certified block. -/
+private partial def parseOptionalOpState (initial : MlirParserState OpInfo)
+    (block : Option BlockPtr) (hblock : block.maybe BlockPtr.InBounds initial.ctx.raw) :
+    EStateM ParserError ParserState (ParsedOptionalOp initial) := do
+  let opStart ← readSyntax initial getPos
+  let results ← readSyntax initial parseOpResults
+  let opNameStart ← readSyntax initial getPos
+  let some opName ← readSyntax initial parseOptionalStringLiteral
+    | return ⟨none, initial, trivial, .refl _⟩
   let some opNameStr := String.fromUTF8? opName
     | throwAt opNameStart s!"op '{escapeStringLiteral opName}' not a valid UTF8 string."
-  let operands ← parseOperands
-  let blockOperands ← parseBlockOperands
-
-  /- Get the operation opcode. -/
+  let operands ← readSyntax initial parseOperands
+  let blockOperands ← parseBlockOperandsState initial
+  let state := blockOperands.state
   let unregisteredOp : OpInfo := ofDialect OpInfo Builtin.unregistered
   let opId := (IsOpCode.fromName opName).getD unregisteredOp
-
   if opId = unregisteredOp then
-    if !(← get).allowUnregisteredDialect then
-      throwAt opNameStart
-        s!"op '{opNameStr}' is not registered. Consider using --allow-unregistered-dialect."
-
-  let properties ← parseOpProperties opId
-  /- For `builtin.unregistered`, record the original op name in the properties so it can be
-     printed back out. The properties dictionary itself has already been populated by
-     `IsOpCode.fromAttrDict` (see `UnregisteredProperties.fromAttrDict`). -/
+    if !state.allowUnregisteredDialect then
+      throwAt opNameStart s!"op '{opNameStr}' is not registered. Consider using --allow-unregistered-dialect."
+  let properties ← readSyntax state (parseOpProperties opId)
   let properties := optionallySetUnregisteredOpName opId properties opName
-  let regions ← parseOpRegions
-  let attrs ← parseOpAttributes
-  let (inputTypes, outputTypes) ← parseOperationType
-
-  /- Results can have multiple parts so sum the sizes. -/
-  let numResults := results.foldl (· + ·.2.1) 0
-
-  /- Check that the number of results matches with the operation type. -/
-  if outputTypes.size ≠ numResults then
-    throwAt opNameStart s!"operation '{opNameStr}' declares {outputTypes.size} result types, but {numResults} result values were provided"
-
-  /- Check that the number and types of operands matches with the operation type. -/
+  let regions ← parseOpRegionsState state
+  let state := regions.state
+  let attrs ← readSyntax state parseOpAttributes
+  let (inputTypes, outputTypes) ← readSyntax state parseOperationType
+  let numResults := (results.toList.map (fun result => result.2.1)).sum
+  let ⟨hCounts⟩ : PLift (outputTypes.size = numResults) ←
+    if h : outputTypes.size = numResults then pure ⟨h⟩
+    else throwAt opNameStart s!"operation '{opNameStr}' declares {outputTypes.size} result types, but {numResults} result values were provided"
   if inputTypes.size ≠ operands.size then
     throwAt opNameStart s!"operation '{opNameStr}' declares {inputTypes.size} operand types, but {operands.size} operands were provided"
-  let operands ← operands.zip inputTypes |>.mapM (fun (operand, type) => resolveOperand operand type)
+  let resolved ← resolveOperandsState state (operands.zip inputTypes).toList #[] (by simp)
+  let state := resolved.state
+  let ctx := state.ctx
+  let hblockOperands : ∀ b ∈ blockOperands.value, b.InBounds ctx.raw := fun b hb =>
+    resolved.preservesStructure.blocks b (regions.preserves.blocks b (blockOperands.inBounds b hb))
+  let hregions : ∀ r ∈ regions.value, r.InBounds ctx.raw := fun r hr =>
+    resolved.preservesStructure.regions r (regions.inBounds r hr)
+  let hs := blockOperands.preserves.trans (regions.preserves.trans resolved.preservesStructure)
+  let ip : Option InsertPoint := block.map InsertPoint.atEnd
+  let hins : ip.maybe InsertPoint.InBounds ctx.raw := by
+    cases block with
+    | none => exact Option.maybe_none
+    | some b => simpa [ip] using hs.blocks b (by simpa using hblock)
+  match hctx' : WfRewriter.createOp ctx opId outputTypes resolved.values blockOperands.value regions.value properties ip
+      resolved.inBounds hblockOperands hregions hins with
+  | none => throwAt opNameStart "internal error: failed to create operation"
+  | some (ctx', op) =>
+    let ctx'' := WfRewriter.setAttributes ctx' op attrs
+      (WfRewriter.createOp_new_inBounds op hctx')
+    let hAttrs : StructuralBoundsPreserved ctx'.raw ctx''.raw := WfRewriter.setAttributes_structuralBoundsPreserved
+    let hn := (WfRewriter.createOp_structuralBoundsPreserved hctx').trans hAttrs
+    let contextState := state.withContext ctx'' (by
+      intro value hv
+      exact WfRewriter.setAttributes_valueInBounds_iff.mpr
+        (WfRewriter.createOp_valueInBounds_mono hctx' hv)) hn
+    let resultValues : Array ValuePtr := Array.ofFn fun i : Fin outputTypes.size => op.getResult i
+    let next := contextState.addRealValues resultValues
+      (by
+        intro value hv
+        rcases Array.mem_ofFn.mp hv with ⟨i, rfl⟩
+        have hResult := WfRewriter.createOp_result_inBounds hctx' i.val i.isLt
+        exact WfRewriter.setAttributes_valueInBounds_iff.mpr (by simpa using hResult))
+      (by
+        intro value hv name fwd hf index oldOp loc hp
+        rcases Array.mem_ofFn.mp hv with ⟨i, rfl⟩
+        have hOld := state.forwardInBounds name fwd hf index oldOp loc hp
+        have hDifferent := WfRewriter.createOp_existingValue_not_result hctx' hOld
+        simpa using Ne.symm hDifferent)
+    let mut current : { state : MlirParserState OpInfo // state.realValues = next.realValues ∧
+        StructuralBoundsPreserved next.ctx.raw state.ctx.raw } := ⟨next, rfl, .refl _⟩
+    for group in boundResultGroups results do
+      let values : Array ValuePtr := Array.ofFn fun i : Fin group.count => op.getResult (group.offset + i.val)
+      let hValues : ∀ value ∈ values, current.val.realValues value := by
+        intro value hv
+        rw [current.property.1]
+        apply Or.inr
+        rcases Array.mem_ofFn.mp hv with ⟨i, rfl⟩
+        apply Array.mem_ofFn.mpr
+        exact ⟨⟨group.offset + i.val, by
+          have := group.inBounds
+          have := i.isLt
+          omega⟩, rfl⟩
+      let registered ← registerValueDefsState current.val group.name group.pos values hValues
+      current := ⟨registered.val, registered.property.1.trans current.property.1,
+        current.property.2.trans registered.property.2⟩
+    let final := { current.val with opLocations := current.val.opLocations.insert op opStart }
+    return ⟨some op, final, trivial, hs.trans (hn.trans (by
+      simpa [next, contextState, MlirParserState.addRealValues, MlirParserState.withContext] using current.property.2))⟩
 
-  let op ← modifyContextM' fun ctx => do
-    let ⟨hoper⟩ ← checkAllValuesInBounds operands ctx.raw
-    let ⟨hblockOperands⟩ ← checkAllBlocksInBounds blockOperands ctx.raw
-    let ⟨hregions⟩ ← checkAllRegionsInBounds regions ctx.raw
-    let ⟨hins⟩ ← checkMaybeInsertPointInBounds ip ctx.raw
-    match hctx' : WfRewriter.createOp ctx opId outputTypes operands blockOperands regions properties ip hoper hblockOperands hregions hins with
-    | none => throwAt opNameStart "internal error: failed to create operation"
-    | some (ctx', op) =>
-      let ctx'' := WfRewriter.setAttributes ctx' op attrs
-      /- Update the parser context. -/
-      pure ⟨op, ctx''⟩
-  /- Record where the operation started for diagnostics. -/
-  modify fun state => { state with opLocations := state.opLocations.insert op opStart }
+private partial def parseBlockBodyState (initial s : MlirParserState OpInfo) (block : BlockPtr)
+    (hb : block.InBounds s.ctx.raw) (hs : StructuralBoundsPreserved initial.ctx.raw s.ctx.raw) :
+    EStateM ParserError ParserState (ParsedBlock initial) := do
+  let parsed ← parseOptionalOpState s (some block) (by simpa using hb)
+  let hb := parsed.preserves.blocks block hb
+  let hs := hs.trans parsed.preserves
+  match parsed.value with
+  | none => return ⟨block, parsed.state, hb, hs⟩
+  | some _ => parseBlockBodyState initial parsed.state block hb hs
 
-  /- Register the values for each result name. -/
-  let mut index := 0
-  for (name, count, tokenPos) in results do
-    let values := .ofFn <| fun (i : Fin count) => op.getResult (index + i)
-    registerValueDefs name tokenPos values
-    index := index + count
-  return op
+private partial def parseEntryBlockState (s : MlirParserState OpInfo)
+    (ip : BlockInsertPoint) (hip : ip.InBounds s.ctx.raw) :
+    EStateM ParserError ParserState (ParsedBlock s) := do
+  let block ← parseEntryBlockLabelState s ip hip
+  parseBlockBodyState s block.state block.value block.inBounds block.preserves
 
-/--
-  Parse a region.
--/
-partial def parseRegion : MlirParserM OpInfo RegionPtr := do
-  /- Ensure variables defined in this region do not leak out of it. -/
-  inChildScope do
+private partial def parseOptionalBlockState (s : MlirParserState OpInfo)
+    (ip : BlockInsertPoint) (hip : ip.InBounds s.ctx.raw) :
+    EStateM ParserError ParserState (ParsedOptionalBlock s) := do
+  let block ← parseOptionalBlockLabelState s ip hip
+  match he : block.value with
+  | none => return block
+  | some b =>
+    let body ← parseBlockBodyState s block.state b (by simpa [he] using block.inBounds) block.preserves
+    return ⟨some body.value, body.state, (by simpa using body.inBounds), body.preserves⟩
 
-  /- Reset the block parsing state, as blocks are local to regions. -/
-  let oldBlocks := (← getThe (MlirParserState OpInfo)).blocks
-  modifyThe (MlirParserState OpInfo) fun s => {s with blocks := Std.HashMap.emptyWithCapacity 1}
+private partial def parseRegionBlocksState (initial s : MlirParserState OpInfo)
+    (region : RegionPtr) (hr : region.InBounds s.ctx.raw)
+    (hs : StructuralBoundsPreserved initial.ctx.raw s.ctx.raw) :
+    EStateM ParserError ParserState (ParsedRegion initial) := do
+  let parsed ← parseOptionalBlockState s (BlockInsertPoint.atEnd region) (by simpa only [BlockInsertPoint.inBounds_atEnd] using hr)
+  let hr := parsed.preserves.regions region hr
+  let hs := hs.trans parsed.preserves
+  match parsed.value with
+  | none => return ⟨region, parsed.state, hr, hs⟩
+  | some _ => parseRegionBlocksState initial parsed.state region hr hs
 
-  /- Create the region and parse the open delimiter. -/
-  parsePunctuation "{"
-  let region := ← modifyContextM' fun ctx => do
-    match hctx' : Rewriter.createRegion ctx with
-    | none => throwAtCurrentPos "internal error: failed to create region"
-    | some (ctx', region) => pure (region, ⟨ctx', by grind [IRContext.wellFormed_Rewriter_createRegion]⟩)
-
-  /- Case where there are no blocks inside the region. -/
-  if (← parseOptionalPunctuation "}") then
-    modifyThe (MlirParserState OpInfo) fun s => {s with blocks := oldBlocks}
-    return region
-
-  /- Parse the first block separately, as it may not have a label. -/
-  let _ ← parseEntryBlock (BlockInsertPoint.atEnd region)
-  /- Parse the following blocks. -/
-  while true do
-    if (← parseOptionalBlock (BlockInsertPoint.atEnd region)) = none then
-      break
-
-  /- Parse the closing delimiter. -/
-  parsePunctuation "}"
-
-  /- Check that all blocks in the regions that were forward declared were parsed. -/
-  for (blockName, entry) in (← getThe (MlirParserState OpInfo)).blocks do
-    if let .ForwardDeclared _ forwardLoc := entry then
-      throwAt forwardLoc s!"block %{String.fromUTF8! blockName} was used but never defined"
-
-  /- Restore the previous block parsing state. -/
-  modifyThe (MlirParserState OpInfo) fun s => {s with blocks := oldBlocks}
-  return region
-
-/--
-  Parse the entry block and insert it into the given region.
-  Compared to a normal block, the entry block does not need a label.
--/
-partial def parseEntryBlock (ip : BlockInsertPoint) : MlirParserM OpInfo BlockPtr := do
-  let block ← parseEntryBlockLabel ip
-  while true do
-    if (← parseOptionalOp (InsertPoint.atEnd block)) = none then
-      break
-  return block
-
-/--
-  Parse a block and insert it at the given block insert point.
--/
-partial def parseOptionalBlock (ip : BlockInsertPoint) :
-    MlirParserM OpInfo (Option BlockPtr) := do
-  let some block ← parseOptionalBlockLabel ip
-    | return none
-  while true do
-    if (← parseOptionalOp (InsertPoint.atEnd block)) == none then
-      break
-  return block
+private partial def parseRegionState (initial : MlirParserState OpInfo) :
+    EStateM ParserError ParserState (ParsedRegion initial) := do
+  let oldBlocks := initial.blocks
+  let state : MlirParserState OpInfo := { initial with
+    definitionsPerScope := initial.definitionsPerScope.push (.emptyWithCapacity 128)
+    blocks := Std.HashMap.emptyWithCapacity 1
+    blocksInBounds := by simp }
+  readSyntax state (parsePunctuation "{")
+  match hc : WfRewriter.createRegion state.ctx with
+  | none => throwAtCurrentPos "internal error: failed to create region"
+  | some (ctx, region) =>
+    let hs := WfRewriter.createRegion_structuralBoundsPreserved hc
+    let next := state.withContext ctx (fun _ h => WfRewriter.createRegion_valueInBounds_mono hc h) hs
+    let hr := WfRewriter.createRegion_new_inBounds hc
+    let parsed ← if ← readSyntax next (parseOptionalPunctuation "}") then
+      pure (⟨region, next, hr, hs⟩ : ParsedRegion initial)
+    else do
+      let entry ← parseEntryBlockState next (BlockInsertPoint.atEnd region) (by simpa only [BlockInsertPoint.inBounds_atEnd, next, MlirParserState.withContext] using hr)
+      let body ← parseRegionBlocksState initial entry.state region
+        (entry.preserves.regions region hr) (hs.trans entry.preserves)
+      readSyntax body.state (parsePunctuation "}")
+      for (blockName, blockEntry) in body.state.blocks do
+        if let .ForwardDeclared _ forwardLoc := blockEntry then
+          throwAt forwardLoc s!"block %{String.fromUTF8! blockName} was used but never defined"
+      pure body
+    let values := scopeValues parsed.state
+    let final : MlirParserState OpInfo := { parsed.state with
+      values := values.val
+      valuesReal := values.property
+      definitionsPerScope := parsed.state.definitionsPerScope.pop
+      blocks := oldBlocks
+      blocksInBounds := fun name entry he =>
+        parsed.preserves.blocks entry.block (initial.blocksInBounds name entry he) }
+    return ⟨parsed.value, final, parsed.inBounds, parsed.preserves⟩
 
 end
 
-/--
-  Parse an operation.
--/
-private def parseOp (ip : Option InsertPoint) : MlirParserM OpInfo OperationPtr := do
-  let some op ← parseOptionalOp ip | throwAtCurrentPos "operation expected"
-  return op
+private def parseOp : MlirParserM OpInfo OperationPtr :=
+  modifyParserStateM' fun state => do
+    let parsed ← parseOptionalOpState state none Option.maybe_none
+    let some op := parsed.value | throwAtCurrentPos "operation expected"
+    return (op, parsed.state)
+
 
 /-- Check that all SSA values forward referenced while parsing were eventually defined. -/
 def checkNoUnresolvedForwardValues : MlirParserM OpInfo Unit := do
@@ -836,7 +1207,7 @@ def parseTypeAliasDefs : MlirParserM OpInfo Unit := do
 -/
 partial def parseTopLevelOp : MlirParserM OpInfo OperationPtr := do
   parseTypeAliasDefs
-  let op ← parseOp none
+  let op ← parseOp
   checkNoUnresolvedForwardValues
   return op
 

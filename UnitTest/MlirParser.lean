@@ -361,6 +361,48 @@ is not checked by the parser.
   %a:2 = "test.test"() : () -> (i32, i64)
 }) : () -> ()"#
 
+-- Resolving several placeholders in one definition preserves the remaining values,
+-- including repeated operands and values looked up after the definition.
+/--
+  info: "builtin.module"() ({
+  ^4():
+    "test.test"(%9#1, %9#0, %9#1, %9#2) : (i64, i32, i64, i1) -> ()
+    %9:3 = "test.test"() : () -> (i32, i64, i1)
+    "test.test"(%9#0, %9#1, %9#2) : (i32, i64, i1) -> ()
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+  "test.test"(%a#1, %a#0, %a#1, %b) : (i64, i32, i64, i1) -> ()
+  %a:2, %b = "test.test"() : () -> (i32, i64, i1)
+  "test.test"(%a#0, %a#1, %b) : (i32, i64, i1) -> ()
+}) : () -> ()"#
+
+-- Forward references remain valid across an intervening nested region and resolve
+-- to block arguments when their definitions are encountered.
+/--
+  info: "builtin.module"() ({
+  ^4():
+    "test.test"(%arg12_0, %arg12_1, %arg12_0) : (i32, i64, i32) -> ()
+    "test.test"() ({
+      ^9():
+        %10 = "test.test"() : () -> i1
+    }) : () -> ()
+  ^12(%arg12_0 : i32, %arg12_1 : i64):
+    "test.test"(%arg12_0, %arg12_1) : (i32, i64) -> ()
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+^entry:
+  "test.test"(%x, %y, %x) : (i32, i64, i32) -> ()
+  "test.test"() ({
+    %middle = "test.test"() : () -> i1
+  }) : () -> ()
+^later(%x : i32, %y : i64):
+  "test.test"(%x, %y) : (i32, i64) -> ()
+}) : () -> ()"#
+
 /--
   error: definition of value %a#0 has type i64 but was used with type i32
 -/
@@ -409,6 +451,80 @@ info: "builtin.module"() ({
 #eval! testParseOp r#""builtin.module"() ({
   "test.test"(%a) : (i32) -> ()
 }) : () -> ()"#
+
+/-! ## Block and region bounds across context changes -/
+
+-- An outer forward block reference survives nested blocks with the same names,
+-- and subsequent lookups use the restored outer block table.
+/--
+  info: "builtin.module"() ({
+  ^4():
+    "test.test"() [^5] ({
+      ^7():
+        "test.test"() [^8] : () -> ()
+      ^8():
+        "test.test"() [^7] : () -> ()
+    }) : () -> ()
+    "test.test"() [^5] : () -> ()
+  ^5():
+    "test.test"() [^4] : () -> ()
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+^entry:
+  "test.test"() [^later] ({
+  ^entry:
+    "test.test"() [^later] : () -> ()
+  ^later:
+    "test.test"() [^entry] : () -> ()
+  }) : () -> ()
+  "test.test"() [^later] : () -> ()
+^later:
+  "test.test"() [^entry] : () -> ()
+}) : () -> ()"#
+
+-- Earlier regions survive later region creation and nested placeholder erasure;
+-- resolving the parent operands then creates another placeholder after all regions.
+/--
+  info: "builtin.module"() ({
+  ^4():
+    %16 = "test.test"(%17) ({}, {
+      ^7():
+        "test.test"(%10) : (i64) -> ()
+        %10 = "test.test"() : () -> i64
+    }, {}, {
+      ^13():
+        "test.test"() : () -> ()
+    }) : (i32) -> i32
+    %17 = "test.test"() : () -> i32
+    "test.test"(%16, %17) : (i32, i32) -> ()
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+  %result = "test.test"(%forward) ({}, {
+    "test.test"(%nested) : (i64) -> ()
+    %nested = "test.test"() : () -> i64
+  }, {}, {
+    "test.test"() : () -> ()
+  }) : (i32) -> i32
+  %forward = "test.test"() : () -> i32
+  "test.test"(%result, %forward) : (i32, i32) -> ()
+}) : () -> ()"#
+
+-- Lists reject a trailing comma instead of treating the closing delimiter as
+-- an absent block or region.
+/-- error: block name expected -/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+^entry:
+  "test.test"() [^entry,] : () -> ()
+}) : () -> ()"#
+
+/-- error: Expected punctuation '{' -/
+#guard_msgs in
+#eval! testParseOp r#""test.test"() ({},) : () -> ()"#
 
 /-! ## Type aliases -/
 
