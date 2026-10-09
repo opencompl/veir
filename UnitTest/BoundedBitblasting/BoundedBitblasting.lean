@@ -477,3 +477,53 @@ example {w : Nat} (x : BitVec w) (hw : w ≤ 4) (hw0 : 0 < w) :
 example {w v : Nat} (x : BitVec w) (hw : w ≤ 4) (hv : v ≤ w):
     x.extractLsb' 0 v = (x &&& ((1#w <<< BitVec.ofNat w v) - 1)).setWidth v := by
   pbv_decide 4
+
+/-- Arithmetic shifting right by zero is identity -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x.sshiftRight' 0#w = x := by
+  pbv_decide 4
+
+/-- Arithmetic shifting right preserves the sign bit -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
+    (x.sshiftRight' y).msb = x.msb := by
+  pbv_decide 4
+
+/-- Arithmetic shifting right a non-negative value is logical shifting right -/
+example {w : Nat} (x y : BitVec w) (hx : x.msb = false) (hw : w ≤ 4) :
+    x.sshiftRight' y = x >>> y := by
+  pbv_decide 4
+
+/-- Arithmetic shifting right `-1` is `-1` -/
+example {w : Nat} (y : BitVec w) (hw : w ≤ 4) :
+    (-1#w).sshiftRight' y = -1#w := by
+  pbv_decide 4
+
+/-- Arithmetic shifting right a negative value by the width is `-1` -/
+example {w : Nat} (x : BitVec w) (hx : x.msb = true) (hw : w ≤ 4) :
+    x.sshiftRight' (BitVec.ofNat w w) = -1#w := by
+  pbv_decide 4
+
+/-- Arithmetic shifting right a non-negative value by the width is zero -/
+example {w : Nat} (x : BitVec w) (hx : x.msb = false) (hw : w ≤ 4) :
+    x.sshiftRight' (BitVec.ofNat w w) = 0#w := by
+  pbv_decide 4
+
+/-- Arithmetic shifting right by `Nat` zero is identity -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x.sshiftRight 0 = x := by
+  pbv_decide 4
+
+/-- Arithmetic shifting right by a `Nat` agrees with shifting by the same `BitVec` amount -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x.sshiftRight 1 = x.sshiftRight' 1#w := by
+  pbv_decide 4
+
+/-- Arithmetic shifting right by two `Nat` variables commutes -/
+example {w : Nat} (n m : Nat) (x : BitVec w) (hw : w ≤ 4) :
+    (x.sshiftRight n).sshiftRight m = (x.sshiftRight m).sshiftRight n := by
+  pbv_decide 4
+
+/-- Arithmetic shifting right by a `Nat` variable commutes with sign extension -/
+example {w v : Nat} (n : Nat) (x : BitVec w) (hwv : w ≤ v) (hv : v ≤ 4) :
+    (x.sshiftRight n).signExtend v = (x.signExtend v).sshiftRight n := by
+  pbv_decide 4
