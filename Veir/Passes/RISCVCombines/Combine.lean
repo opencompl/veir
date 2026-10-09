@@ -5,6 +5,11 @@ public import Veir.PatternRewriter.Basic
 import Veir.Passes.RISCVCombines.MIRCombinesVeir
 import Veir.PatternRewriter.Puddle.Builders
 import Veir.PatternRewriter.Puddle.Execution
+meta import Veir.Meta.Tactic.BVDecide
+import all Veir.Data.RISCV.Reg.Basic
+import all Veir.Data.RISCV.Reg.Lemmas
+import all Veir.Dialects.RISCV.OpInfo
+import all Veir.ForLean
 
 namespace Veir.RISCV
 
@@ -1614,6 +1619,35 @@ def zextb_lbu_pattern : Puddle.Pattern OpCode :=
 def zextb_lbu : RewritePattern OpCode :=
   zextb_lbu_pattern.compile.run
 
+/-- Apply `riscv.sextw` to the register results of an interpreted operation. -/
+abbrev sextwResults : Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction) →
+    Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
+  Functor.map fun (values, mem, action) =>
+    (values.map fun | .reg r => .reg (Data.RISCV.sextw r) | value => value, mem, action)
+
+/-- On an operation that returns the single register `r`, `sextwResults` changes
+    nothing iff `sextw r = r`. -/
+theorem sextwResults_reg_eq_self_iff :
+    sextwResults (.ok (#[.reg r], mem, action)) = .ok (#[.reg r], mem, action) ↔
+      Data.RISCV.sextw r = r := by
+  simp [sextwResults, Functor.map]
+
+/-- `op`, with `arity` register operands and properties accepted by `property`, always returns a
+    sign-extended 32-bit value. Applying `riscv.sextw` to its result has no effect. -/
+def IsSignExtendingOpW (op : Riscv) (arity : Nat)
+    (property : Puddle.PropertyMatcher (OpCode.riscv op)) : Prop :=
+  match arity with
+  | 0 => ∀ props resultTypes blockOperands mem, property props →
+      let run := Riscv.interpretOp' op props resultTypes #[] blockOperands mem
+      sextwResults run = run
+  | 1 => ∀ props resultTypes rs1 blockOperands mem, property props →
+      let run := Riscv.interpretOp' op props resultTypes #[.reg rs1] blockOperands mem
+      sextwResults run = run
+  | 2 => ∀ props resultTypes rs1 rs2 blockOperands mem, property props →
+      let run := Riscv.interpretOp' op props resultTypes #[.reg rs1, .reg rs2] blockOperands mem
+      sextwResults run = run
+  | _ => False
+
 /-- `riscv.sextw (op …) -> op …` when `op` already returns a sign-extended
     32-bit value.
 
@@ -1624,9 +1658,13 @@ def zextb_lbu : RewritePattern OpCode :=
     Detection of sign extending word-variant operations:
     https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L381-L388
     Deletion:
-    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L701-L751 -/
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L701-L751
+
+    `_signExtending` proves the combine correct on the semantics of `producer`.
+    Currently, the rewrite does not use it. -/
 def sextw_signExtendingOpW_pattern (producer : Riscv) (arity : Nat)
-    (property : Puddle.PropertyMatcher (OpCode.riscv producer) := fun _ => true) :
+    (property : Puddle.PropertyMatcher (OpCode.riscv producer) := fun _ => true)
+    (_signExtending : IsSignExtendingOpW producer arity property) :
     Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -1641,9 +1679,13 @@ def sextw_signExtendingOpW_pattern (producer : Riscv) (arity : Nat)
     (fun inner => inner)
 
 def sextw_signExtendingOpW (producer : Riscv) (arity : Nat)
-    (property : Puddle.PropertyMatcher (OpCode.riscv producer) := fun _ => true) :
+    (property : Puddle.PropertyMatcher (OpCode.riscv producer) := fun _ => true)
+    (signExtending : IsSignExtendingOpW producer arity property := by
+      simp only [IsSignExtendingOpW, Riscv.interpretOp', riscvLoad, sextwResults_reg_eq_self_iff,
+        Interp.pure_eq, Interp.bind_ok, bind_assoc, map_bind,
+        Interp.bind_eq_bind_iff] <;> veir_bv_decide) :
     RewritePattern OpCode :=
-  (sextw_signExtendingOpW_pattern producer arity property).compile.run
+  (sextw_signExtendingOpW_pattern producer arity property signExtending).compile.run
 
 /-- Loads. `lw`, `lh` and `lb` sign-extend the loaded word, half or byte, and
     `lhu` and `lbu` zero-extend a value of at most 16 bits.
@@ -1721,8 +1763,8 @@ def sextw_packh := sextw_signExtendingOpW .packh 2
 
     LLVM: the operand-dependent cases of `isSignExtendingOpW`.
     https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L390-L405 -/
-def sextw_srai := sextw_signExtendingOpW .srai 1 (fun p => (p.immField 6).toNat ≥ 32)
-def sextw_srli := sextw_signExtendingOpW .srli 1 (fun p => (p.immField 6).toNat > 32)
+def sextw_srai := sextw_signExtendingOpW .srai 1 (fun p => 32#6 ≤ p.immField 6)
+def sextw_srli := sextw_signExtendingOpW .srli 1 (fun p => 32#6 < p.immField 6)
 def sextw_andi := sextw_signExtendingOpW .andi 1 (fun p => !(p.immField 12).msb)
 def sextw_ori := sextw_signExtendingOpW .ori 1 (fun p => (p.immField 12).msb)
 
@@ -1885,7 +1927,23 @@ def stripDefiningExt (ext : Riscv) (val : ValuePtr) (ctx : IRContext OpCode) :
     | none => (val, false)
     | some (operands, _) => (operands[0]!, true)
 
-/-- Drop `riscv.<ext>` operands (`ext` = `zextw`/`sextw`) feeding a binary op
+/-- `op`, with `arity` register operands, reads only bits 31:0 of each operand.
+    Applying `riscv.zextw` to one of its operands has no effect. -/
+def ReadsLowWord (op : Riscv) (arity : Nat) : Prop :=
+  match arity with
+  | 1 => ∀ props resultTypes rs1 blockOperands mem,
+      Riscv.interpretOp' op props resultTypes #[.reg (Data.RISCV.zextw rs1)] blockOperands mem =
+        Riscv.interpretOp' op props resultTypes #[.reg rs1] blockOperands mem
+  | 2 => ∀ props resultTypes rs1 rs2 blockOperands mem,
+      Riscv.interpretOp' op props resultTypes #[.reg (Data.RISCV.zextw rs1), .reg rs2]
+          blockOperands mem =
+        Riscv.interpretOp' op props resultTypes #[.reg rs1, .reg rs2] blockOperands mem ∧
+      Riscv.interpretOp' op props resultTypes #[.reg rs1, .reg (Data.RISCV.zextw rs2)]
+          blockOperands mem =
+        Riscv.interpretOp' op props resultTypes #[.reg rs1, .reg rs2] blockOperands mem
+  | _ => False
+
+/-- Drop `riscv.<ext>` operands (`ext` = `zextw`/`sextw`) feeding an op
     whose semantics use only operand bits 31:0. For these consumers the high 32
     bits of each source are ignored, and both extensions leave bits 31:0
     unchanged, so extending the source first is redundant.
@@ -1894,90 +1952,187 @@ def stripDefiningExt (ext : Riscv) (val : ValuePtr) (ctx : IRContext OpCode) :
     `hasAllNBitUsers` (RISCVOptWInstrs.cpp); for such a consumer a feeding
     `zext.w`/`sext.w` is redundant and drops out via `SimplifyDemandedBits` /
     sext.w removal.
-    https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L120 -/
-def drop_ext_binary_low_word_local (ext dst : Riscv) (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (operands, props) := matchOp op ctx.raw (OpCode.riscv dst) 2 | return (ctx, none)
-  let (lhs, lhsChanged) := stripDefiningExt ext operands[0]! ctx.raw
-  let (rhs, rhsChanged) := stripDefiningExt ext operands[1]! ctx.raw
-  if !lhsChanged && !rhsChanged then return (ctx, none)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx dst #[RegisterType.mk] #[lhs, rhs]
-      #[] #[] props none
-  some (ctx, some (#[newOp], #[newOp.getResult 0]))
+    https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L120
 
-def drop_ext_binary_low_word (ext dst : Riscv) (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite (drop_ext_binary_low_word_local ext dst) rewriter op opInBounds
+    `_readsLowWord` proves the combine correct on the semantics of `dst`.
+    Currently, the rewrite does not use it. -/
+def drop_ext_low_word_pattern (ext dst : Riscv) (arity index : Nat)
+    (_readsLowWord : ReadsLowWord dst arity) : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let srcType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let src ← Puddle.MatchProg.value srcType
+      let extended ← Puddle.MatchProg.operation (.riscv ext) #[src] #[srcType]
+      let operands ← (Array.range arity).mapM fun i => do
+        if i = index then
+          return extended.res[0]!
+        let operandType ← Puddle.MatchProg.type (Attr := RegisterType)
+        Puddle.MatchProg.value operandType
+      let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let root ← Puddle.MatchProg.root (.riscv dst) operands #[resultType]
+      return (operands.set! index src, resultType, root.properties))
+    (fun (operands, resultType, properties) =>
+      Puddle.CreateProg.operation (.riscv dst) operands #[resultType] properties)
+    (fun op => op)
 
-/-- Drop a `riscv.<ext>` operand feeding a unary immediate op whose semantics use
-    only operand bits 31:0. Same reasoning (and same LLVM `hasAllNBitUsers`
-    enumeration) as `drop_ext_binary_low_word`. -/
-def drop_ext_unary_imm_low_word_local (ext dst : Riscv) (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (operands, props) := matchOp op ctx.raw (OpCode.riscv dst) 1 | return (ctx, none)
-  let (src, changed) := stripDefiningExt ext operands[0]! ctx.raw
-  if !changed then return (ctx, none)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx dst #[RegisterType.mk] #[src]
-      #[] #[] props none
-  some (ctx, some (#[newOp], #[newOp.getResult 0]))
-
-def drop_ext_unary_imm_low_word (ext dst : Riscv) (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite (drop_ext_unary_imm_low_word_local ext dst) rewriter op opInBounds
+def drop_ext_low_word (ext dst : Riscv) (arity : Nat)
+    (readsLowWord : ReadsLowWord dst arity := by
+      simp only [ReadsLowWord, Riscv.interpretOp', Interp.pure_eq, Interp.bind_ok,
+        Interp.ok.injEq, Prod.mk.injEq, Array.mk.injEq, List.cons.injEq, RuntimeValue.reg.injEq] <;>
+        veir_bv_decide) :
+    RewritePattern OpCode :=
+  RewritePattern.GreedyRewritePattern <| (Array.range arity).map fun index =>
+    (drop_ext_low_word_pattern ext dst arity index readsLowWord).compile.run
 
 /-- `riscv.addw (riscv.zextw x), y -> riscv.addw x, y`, and symmetrically for
     the right operand. `addw` reads only the low 32 bits of each source.
     LLVM: `ADDW` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L156 -/
-def drop_zextw_addw := drop_ext_binary_low_word .zextw .addw
+def drop_zextw_addw := drop_ext_low_word .zextw .addw 2
 
 /-- `riscv.addiw (riscv.zextw x), imm -> riscv.addiw x, imm`.
     LLVM: `ADDIW` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L155 -/
-def drop_zextw_addiw := drop_ext_unary_imm_low_word .zextw .addiw
+def drop_zextw_addiw := drop_ext_low_word .zextw .addiw 1
 
 /-- `riscv.roriw (riscv.zextw x), imm -> riscv.roriw x, imm`.
     LLVM: `RORIW` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L170 -/
-def drop_zextw_roriw := drop_ext_unary_imm_low_word .zextw .roriw
+def drop_zextw_roriw := drop_ext_low_word .zextw .roriw 1
 
 /-- `riscv.srliw (riscv.zextw x), imm -> riscv.srliw x, imm`.
     LLVM: `SRLIW` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L165 -/
-def drop_zextw_srliw := drop_ext_unary_imm_low_word .zextw .srliw
+def drop_zextw_srliw := drop_ext_low_word .zextw .srliw 1
+
+/-- `riscv.subw (riscv.zextw x), y` -> `riscv.subw x, y` (either operand). -/
+def drop_zextw_subw := drop_ext_low_word .zextw .subw 2
+
+/-- `riscv.mulw (riscv.zextw x), y` -> `riscv.mulw x, y` (either operand). -/
+def drop_zextw_mulw := drop_ext_low_word .zextw .mulw 2
+
+/-- `riscv.divw (riscv.zextw x), y` -> `riscv.divw x, y` (either operand). -/
+def drop_zextw_divw := drop_ext_low_word .zextw .divw 2
+
+/-- `riscv.divuw (riscv.zextw x), y` -> `riscv.divuw x, y` (either operand). -/
+def drop_zextw_divuw := drop_ext_low_word .zextw .divuw 2
+
+/-- `riscv.remw (riscv.zextw x), y` -> `riscv.remw x, y` (either operand). -/
+def drop_zextw_remw := drop_ext_low_word .zextw .remw 2
+
+/-- `riscv.remuw (riscv.zextw x), y` -> `riscv.remuw x, y` (either operand). -/
+def drop_zextw_remuw := drop_ext_low_word .zextw .remuw 2
+
+/-- `riscv.sllw (riscv.zextw x), y` -> `riscv.sllw x, y` (either operand). -/
+def drop_zextw_sllw := drop_ext_low_word .zextw .sllw 2
+
+/-- `riscv.srlw (riscv.zextw x), y` -> `riscv.srlw x, y` (either operand). -/
+def drop_zextw_srlw := drop_ext_low_word .zextw .srlw 2
+
+/-- `riscv.sraw (riscv.zextw x), y` -> `riscv.sraw x, y` (either operand). -/
+def drop_zextw_sraw := drop_ext_low_word .zextw .sraw 2
+
+/-- `riscv.rolw (riscv.zextw x), y` -> `riscv.rolw x, y` (either operand). -/
+def drop_zextw_rolw := drop_ext_low_word .zextw .rolw 2
+
+/-- `riscv.rorw (riscv.zextw x), y` -> `riscv.rorw x, y` (either operand). -/
+def drop_zextw_rorw := drop_ext_low_word .zextw .rorw 2
+
+/-- `riscv.sraiw (riscv.zextw x), imm` -> `riscv.sraiw x, imm`. -/
+def drop_zextw_sraiw := drop_ext_low_word .zextw .sraiw 1
+
+/-- `riscv.slliuw (riscv.zextw x), imm` -> `riscv.slliuw x, imm`. -/
+def drop_zextw_slliuw := drop_ext_low_word .zextw .slliuw 1
+
+/-- `riscv.clzw (riscv.zextw x)` -> `riscv.clzw x`. -/
+def drop_zextw_clzw := drop_ext_low_word .zextw .clzw 1
+
+/-- `riscv.ctzw (riscv.zextw x)` -> `riscv.ctzw x`. -/
+def drop_zextw_ctzw := drop_ext_low_word .zextw .ctzw 1
+
+/-- `riscv.cpopw (riscv.zextw x)` -> `riscv.cpopw x`. -/
+def drop_zextw_cpopw := drop_ext_low_word .zextw .cpopw 1
 
 /-- `riscv.sextw (riscv.zextw x) -> riscv.sextw x`. `sextw` is `addiw 0`
     (`Data.RISCV.sextw`), so like `addiw` it reads only bits 31:0 of its operand.
     LLVM: `SEXT_W` lowers to `ADDIW rd, rs, 0`, matched by the `ADDIW` case of
     `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L155 -/
-def drop_zextw_sextw := drop_ext_unary_imm_low_word .zextw .sextw
+def drop_zextw_sextw := drop_ext_low_word .zextw .sextw 1
 
 /-- Sext mirror of `drop_zextw_addw`: `riscv.addw (riscv.sextw x), y ->
     riscv.addw x, y`. `sextw` also leaves bits 31:0 unchanged, and `addw` reads
     only those bits. LLVM `RISCVOptWInstrs` is primarily the `sext.w` remover;
     this is its `ADDW` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L156 -/
-def drop_sextw_addw := drop_ext_binary_low_word .sextw .addw
+def drop_sextw_addw := drop_ext_low_word .sextw .addw 2
 
 /-- Sext mirror of `drop_zextw_addiw`. LLVM: `ADDIW` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L155 -/
-def drop_sextw_addiw := drop_ext_unary_imm_low_word .sextw .addiw
+def drop_sextw_addiw := drop_ext_low_word .sextw .addiw 1
 
 /-- Sext mirror of `drop_zextw_roriw`. LLVM: `RORIW` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L170 -/
-def drop_sextw_roriw := drop_ext_unary_imm_low_word .sextw .roriw
+def drop_sextw_roriw := drop_ext_low_word .sextw .roriw 1
 
 /-- Sext mirror of `drop_zextw_srliw`. LLVM: `SRLIW` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L165 -/
-def drop_sextw_srliw := drop_ext_unary_imm_low_word .sextw .srliw
+def drop_sextw_srliw := drop_ext_low_word .sextw .srliw 1
+
+/-- `riscv.subw (riscv.sextw x), y` -> `riscv.subw x, y` (either operand). -/
+def drop_sextw_subw := drop_ext_low_word .sextw .subw 2
+
+/-- `riscv.mulw (riscv.sextw x), y` -> `riscv.mulw x, y` (either operand). -/
+def drop_sextw_mulw := drop_ext_low_word .sextw .mulw 2
+
+/-- `riscv.divw (riscv.sextw x), y` -> `riscv.divw x, y` (either operand). -/
+def drop_sextw_divw := drop_ext_low_word .sextw .divw 2
+
+/-- `riscv.divuw (riscv.sextw x), y` -> `riscv.divuw x, y` (either operand). -/
+def drop_sextw_divuw := drop_ext_low_word .sextw .divuw 2
+
+/-- `riscv.remw (riscv.sextw x), y` -> `riscv.remw x, y` (either operand). -/
+def drop_sextw_remw := drop_ext_low_word .sextw .remw 2
+
+/-- `riscv.remuw (riscv.sextw x), y` -> `riscv.remuw x, y` (either operand). -/
+def drop_sextw_remuw := drop_ext_low_word .sextw .remuw 2
+
+/-- `riscv.sllw (riscv.sextw x), y` -> `riscv.sllw x, y` (either operand). -/
+def drop_sextw_sllw := drop_ext_low_word .sextw .sllw 2
+
+/-- `riscv.srlw (riscv.sextw x), y` -> `riscv.srlw x, y` (either operand). -/
+def drop_sextw_srlw := drop_ext_low_word .sextw .srlw 2
+
+/-- `riscv.sraw (riscv.sextw x), y` -> `riscv.sraw x, y` (either operand). -/
+def drop_sextw_sraw := drop_ext_low_word .sextw .sraw 2
+
+/-- `riscv.rolw (riscv.sextw x), y` -> `riscv.rolw x, y` (either operand). -/
+def drop_sextw_rolw := drop_ext_low_word .sextw .rolw 2
+
+/-- `riscv.rorw (riscv.sextw x), y` -> `riscv.rorw x, y` (either operand). -/
+def drop_sextw_rorw := drop_ext_low_word .sextw .rorw 2
+
+/-- `riscv.sraiw (riscv.sextw x), imm` -> `riscv.sraiw x, imm`. -/
+def drop_sextw_sraiw := drop_ext_low_word .sextw .sraiw 1
+
+/-- `riscv.slliuw (riscv.sextw x), imm` -> `riscv.slliuw x, imm`. -/
+def drop_sextw_slliuw := drop_ext_low_word .sextw .slliuw 1
+
+/-- `riscv.clzw (riscv.sextw x)` -> `riscv.clzw x`. -/
+def drop_sextw_clzw := drop_ext_low_word .sextw .clzw 1
+
+/-- `riscv.ctzw (riscv.sextw x)` -> `riscv.ctzw x`. -/
+def drop_sextw_ctzw := drop_ext_low_word .sextw .ctzw 1
+
+/-- `riscv.cpopw (riscv.sextw x)` -> `riscv.cpopw x`. -/
+def drop_sextw_cpopw := drop_ext_low_word .sextw .cpopw 1
 
 /-- `riscv.zextw (riscv.sextw x) -> riscv.zextw x`. `zextw` keeps only bits 31:0,
     which `sextw` leaves unchanged, so the inner `sextw` is redundant. (The mirror
     of `drop_zextw_sextw`, with the roles of the two extensions swapped.)
     LLVM: `zext.w` is `and 0xffffffff`, a low-32-bit user of its operand.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L120 -/
-def drop_sextw_zextw := drop_ext_unary_imm_low_word .sextw .zextw
+def drop_sextw_zextw := drop_ext_low_word .sextw .zextw 1
 
 /-- Drop a `riscv.<ext>` wrapping the result of a bitwise op (`and`/`or`/`xor`)
     when its operands already establish the extension's high-bit pattern (bits
@@ -2921,6 +3076,22 @@ def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds
      , drop_zextw_addiw
      , drop_zextw_roriw
      , drop_zextw_srliw
+     , drop_zextw_subw
+     , drop_zextw_mulw
+     , drop_zextw_divw
+     , drop_zextw_divuw
+     , drop_zextw_remw
+     , drop_zextw_remuw
+     , drop_zextw_sllw
+     , drop_zextw_srlw
+     , drop_zextw_sraw
+     , drop_zextw_rolw
+     , drop_zextw_rorw
+     , drop_zextw_sraiw
+     , drop_zextw_slliuw
+     , drop_zextw_clzw
+     , drop_zextw_ctzw
+     , drop_zextw_cpopw
      , drop_zextw_sextw
      , zextw_and
      , zextw_or
@@ -2933,6 +3104,22 @@ def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds
      , drop_sextw_addiw
      , drop_sextw_roriw
      , drop_sextw_srliw
+     , drop_sextw_subw
+     , drop_sextw_mulw
+     , drop_sextw_divw
+     , drop_sextw_divuw
+     , drop_sextw_remw
+     , drop_sextw_remuw
+     , drop_sextw_sllw
+     , drop_sextw_srlw
+     , drop_sextw_sraw
+     , drop_sextw_rolw
+     , drop_sextw_rorw
+     , drop_sextw_sraiw
+     , drop_sextw_slliuw
+     , drop_sextw_clzw
+     , drop_sextw_ctzw
+     , drop_sextw_cpopw
      , drop_sextw_zextw
      , sextw_and
      , sextw_or

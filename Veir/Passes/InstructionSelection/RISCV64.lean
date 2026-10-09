@@ -13,6 +13,8 @@ import Veir.PatternRewriter.Puddle.Execution
 
 namespace Veir
 
+open Veir.Puddle
+
 /-!
   This file replicates LLVM's GlobalISel instruction selector,
   to lower LLVM IR to RISC-V assembly (64 bits).
@@ -40,44 +42,44 @@ def getIntByteTypeBitwidth (t : TypeAttr) : Option Nat :=
   RISC-V lowerings with Puddle for unary operations.
 -/
 def lowerUnary (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let returnType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == bw)
-      let x ← Veir.Puddle.MatchProg.value returnType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm llvmOp) #[x] #[returnType]
+      let returnType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
+      let x ← MatchProg.value returnType
+      let _ ← MatchProg.root (.llvm llvmOp) #[x] #[returnType]
       return (returnType, x))
     (fun (returnType, x) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let castProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[x] #[regType] castProps
-      let riscvOpProps ← Veir.Puddle.CreateProg.property (.riscv riscvOp) riscvProps
-      let riscvResOp ← Veir.Puddle.CreateProg.operation (.riscv riscvOp)
+      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
+      let riscvResOp ← CreateProg.operation (.riscv riscvOp)
           #[castOp.res[0]!] #[regType] riscvOpProps
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[riscvResOp.res[0]!] #[returnType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
 
 /-- `llvm.intr.ctlz` (`i32`) -> `riscv.clzw`. -/
-def ctlz32_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctlz 32 .clzw ()
+def ctlz32_pattern : Pattern OpCode := lowerUnary .intr__ctlz 32 .clzw ()
 
 /-- `llvm.intr.ctlz` (`i64`) -> `riscv.clz`. -/
-def ctlz64_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctlz 64 .clz ()
+def ctlz64_pattern : Pattern OpCode := lowerUnary .intr__ctlz 64 .clz ()
 
 /-- `llvm.intr.cttz` (`i32`) -> `riscv.ctzw`. -/
-def cttz32_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__cttz 32 .ctzw ()
+def cttz32_pattern : Pattern OpCode := lowerUnary .intr__cttz 32 .ctzw ()
 
 /-- `llvm.intr.cttz` (`i64`) -> `riscv.ctz`. -/
-def cttz64_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__cttz 64 .ctz ()
+def cttz64_pattern : Pattern OpCode := lowerUnary .intr__cttz 64 .ctz ()
 
 /-- `llvm.intr.ctpop` (`i32`) -> `riscv.cpopw`. -/
-def ctpop32_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctpop 32 .cpopw ()
+def ctpop32_pattern : Pattern OpCode := lowerUnary .intr__ctpop 32 .cpopw ()
 
 /-- `llvm.intr.ctpop` (`i64`) -> `riscv.cpop`. -/
-def ctpop64_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctpop 64 .cpop ()
+def ctpop64_pattern : Pattern OpCode := lowerUnary .intr__ctpop 64 .cpop ()
 
 /--
   RISC-V lowerings with Puddle for the integer-extension operations (`sext`/`zext`): match a
@@ -89,46 +91,46 @@ def ctpop64_pattern : Veir.Puddle.Pattern OpCode := lowerUnary .intr__ctpop 64 .
   result back to the (generically-matched) result type.
 -/
 def lowerExt (llvmOp : Llvm) (opBw : Nat) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let opType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == opBw)
-      let resType ← Veir.Puddle.MatchProg.type (Attr := IntegerType)
+      let opType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = opBw)
+      let resType ← MatchProg.type (Attr := IntegerType)
           (fun t => opBw < t.bitwidth ∧ t.bitwidth ≤ 64)
-      let x ← Veir.Puddle.MatchProg.value opType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm llvmOp) #[x] #[resType]
+      let x ← MatchProg.value opType
+      let _ ← MatchProg.root (.llvm llvmOp) #[x] #[resType]
       return (resType, x))
     (fun (resType, x) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let castProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[x] #[regType] castProps
-      let riscvOpProps ← Veir.Puddle.CreateProg.property (.riscv riscvOp) riscvProps
-      let riscvResOp ← Veir.Puddle.CreateProg.operation (.riscv riscvOp)
+      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
+      let riscvResOp ← CreateProg.operation (.riscv riscvOp)
           #[castOp.res[0]!] #[regType] riscvOpProps
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[riscvResOp.res[0]!] #[resType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
 
 /-- `llvm.sext` (`i8` operand) -> `riscv.sextb`. -/
-def sext8_pattern : Veir.Puddle.Pattern OpCode := lowerExt .sext 8 .sextb ()
+def sext8_pattern : Pattern OpCode := lowerExt .sext 8 .sextb ()
 
 /-- `llvm.sext` (`i16` operand) -> `riscv.sexth`. -/
-def sext16_pattern : Veir.Puddle.Pattern OpCode := lowerExt .sext 16 .sexth ()
+def sext16_pattern : Pattern OpCode := lowerExt .sext 16 .sexth ()
 
 /-- `llvm.sext` (`i32` operand) -> `riscv.sextw`. -/
-def sext32_pattern : Veir.Puddle.Pattern OpCode := lowerExt .sext 32 .sextw ()
+def sext32_pattern : Pattern OpCode := lowerExt .sext 32 .sextw ()
 
 /-- `llvm.zext` (`i8` operand) -> `riscv.zextb`. -/
-def zext8_pattern : Veir.Puddle.Pattern OpCode := lowerExt .zext 8 .zextb ()
+def zext8_pattern : Pattern OpCode := lowerExt .zext 8 .zextb ()
 
 /-- `llvm.zext` (`i16` operand) -> `riscv.zexth`. -/
-def zext16_pattern : Veir.Puddle.Pattern OpCode := lowerExt .zext 16 .zexth ()
+def zext16_pattern : Pattern OpCode := lowerExt .zext 16 .zexth ()
 
 /-- `llvm.zext` (`i32` operand) -> `riscv.zextw`. -/
-def zext32_pattern : Veir.Puddle.Pattern OpCode := lowerExt .zext 32 .zextw ()
+def zext32_pattern : Pattern OpCode := lowerExt .zext 32 .zextw ()
 
 /--
   RISC-V for binary operations that share a single integer type between both operands and the
@@ -139,187 +141,208 @@ def zext32_pattern : Veir.Puddle.Pattern OpCode := lowerExt .zext 32 .zextw ()
 def lowerBinary (llvmOp : Llvm) (typeMatcher : IntegerType → Bool) (riscvOp : Riscv)
     (riscvProps : propertiesOf (OpCode.riscv riscvOp))
     (extend : Option (Σ extOp : Riscv, propertiesOf (OpCode.riscv extOp)) := none) :
-    Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+    Pattern OpCode :=
+  Pattern.Builder
     (do
-      let opType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) typeMatcher
-      let lhs ← Veir.Puddle.MatchProg.value opType
-      let rhs ← Veir.Puddle.MatchProg.value opType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm llvmOp) #[lhs, rhs] #[opType]
+      let opType ← MatchProg.type (Attr := IntegerType) typeMatcher
+      let lhs ← MatchProg.value opType
+      let rhs ← MatchProg.value opType
+      let _ ← MatchProg.root (.llvm llvmOp) #[lhs, rhs] #[opType]
       return (opType, lhs, rhs))
     (fun (opType, lhs, rhs) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let lcastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let lcastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let lcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[lhs] #[regType] lcastProps
-      let rcastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let rcastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let rcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[rhs] #[regType] rcastProps
       let (lval, rval) ← match extend with
         | some ⟨extOp, extProps'⟩ => do
-          let extProps ← Veir.Puddle.CreateProg.property (.riscv extOp) extProps'
-          let lextOp ← Veir.Puddle.CreateProg.operation (.riscv extOp) #[lcastOp.res[0]!] #[regType] extProps
-          let rextOp ← Veir.Puddle.CreateProg.operation (.riscv extOp) #[rcastOp.res[0]!] #[regType] extProps
+          let extProps ← CreateProg.property (.riscv extOp) extProps'
+          let lextOp ← CreateProg.operation (.riscv extOp) #[lcastOp.res[0]!] #[regType] extProps
+          let rextOp ← CreateProg.operation (.riscv extOp) #[rcastOp.res[0]!] #[regType] extProps
           pure (lextOp.res[0]!, rextOp.res[0]!)
         | none => pure (lcastOp.res[0]!, rcastOp.res[0]!)
-      let riscvOpProps ← Veir.Puddle.CreateProg.property (.riscv riscvOp) riscvProps
-      let riscvResOp ← Veir.Puddle.CreateProg.operation (.riscv riscvOp)
+      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
+      let riscvResOp ← CreateProg.operation (.riscv riscvOp)
           #[lval, rval] #[regType] riscvOpProps
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[riscvResOp.res[0]!] #[opType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
 
 /-- `llvm.add` (`i64`) -> `riscv.add`. -/
-def add64_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .add (fun t => t.bitwidth == 64) .add ()
+def add64_pattern : Pattern OpCode := lowerBinary .add (fun t => t.bitwidth = 64) .add ()
 
 /-- `llvm.add` (`i32`) -> `riscv.addw` (keeps the result sign-extended). -/
-def add32_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .add (fun t => t.bitwidth == 32) .addw ()
+def add32_pattern : Pattern OpCode := lowerBinary .add (fun t => t.bitwidth = 32) .addw ()
 
 /-- `llvm.sub` (`i64`) -> `riscv.sub`. -/
-def sub64_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .sub (fun t => t.bitwidth == 64) .sub ()
+def sub64_pattern : Pattern OpCode := lowerBinary .sub (fun t => t.bitwidth = 64) .sub ()
 
 /-- `llvm.sub` (`i32`) -> `riscv.subw`. -/
-def sub32_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .sub (fun t => t.bitwidth == 32) .subw ()
+def sub32_pattern : Pattern OpCode := lowerBinary .sub (fun t => t.bitwidth = 32) .subw ()
 
 /-- `llvm.mul` (`i64`) -> `riscv.mul`. -/
-def mul64_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .mul (fun t => t.bitwidth == 64) .mul ()
+def mul64_pattern : Pattern OpCode := lowerBinary .mul (fun t => t.bitwidth = 64) .mul ()
 
 /-- `llvm.mul` (`i32`) -> `riscv.mulw` (sign-extends the result). -/
-def mul32_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .mul (fun t => t.bitwidth == 32) .mulw ()
+def mul32_pattern : Pattern OpCode := lowerBinary .mul (fun t => t.bitwidth = 32) .mulw ()
 
 /-- `llvm.sdiv` (`i64`) -> `riscv.div`. -/
-def sdiv64_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .sdiv (fun t => t.bitwidth == 64) .div ()
+def sdiv64_pattern : Pattern OpCode := lowerBinary .sdiv (fun t => t.bitwidth = 64) .div ()
 
 /-- `llvm.sdiv` (`i32`) -> `riscv.divw`. -/
-def sdiv32_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .sdiv (fun t => t.bitwidth == 32) .divw ()
+def sdiv32_pattern : Pattern OpCode := lowerBinary .sdiv (fun t => t.bitwidth = 32) .divw ()
 
 /-- `llvm.udiv` (`i64`) -> `riscv.divu`. -/
-def udiv64_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .udiv (fun t => t.bitwidth == 64) .divu ()
+def udiv64_pattern : Pattern OpCode := lowerBinary .udiv (fun t => t.bitwidth = 64) .divu ()
 
 /-- `llvm.udiv` (`i32`) -> `riscv.divuw`. -/
-def udiv32_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .udiv (fun t => t.bitwidth == 32) .divuw ()
+def udiv32_pattern : Pattern OpCode := lowerBinary .udiv (fun t => t.bitwidth = 32) .divuw ()
 
 /-- `llvm.srem` (`i64`) -> `riscv.rem`. -/
-def srem64_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .srem (fun t => t.bitwidth == 64) .rem ()
+def srem64_pattern : Pattern OpCode := lowerBinary .srem (fun t => t.bitwidth = 64) .rem ()
 
 /-- `llvm.srem` (`i32`) -> `riscv.remw`. -/
-def srem32_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .srem (fun t => t.bitwidth == 32) .remw ()
+def srem32_pattern : Pattern OpCode := lowerBinary .srem (fun t => t.bitwidth = 32) .remw ()
 
 /-- `llvm.urem` (`i64`) -> `riscv.remu`. -/
-def urem64_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .urem (fun t => t.bitwidth == 64) .remu ()
+def urem64_pattern : Pattern OpCode := lowerBinary .urem (fun t => t.bitwidth = 64) .remu ()
 
 /-- `llvm.urem` (`i32`) -> `riscv.remuw`. -/
-def urem32_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .urem (fun t => t.bitwidth == 32) .remuw ()
+def urem32_pattern : Pattern OpCode := lowerBinary .urem (fun t => t.bitwidth = 32) .remuw ()
 
 /-- `llvm.xor` (`i64`) -> `riscv.xor`. -/
-def xor64_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .xor (fun t => t.bitwidth == 64) .xor ()
+def xor64_pattern : Pattern OpCode := lowerBinary .xor (fun t => t.bitwidth = 64) .xor ()
 
 /-- `llvm.xor` (`i32`) -> `riscv.xor` (no `W` variant needed: xor is bitwise). -/
-def xor32_pattern : Veir.Puddle.Pattern OpCode := lowerBinary .xor (fun t => t.bitwidth == 32) .xor ()
+def xor32_pattern : Pattern OpCode := lowerBinary .xor (fun t => t.bitwidth = 32) .xor ()
 
 /-- `llvm.and` -> `riscv.and` (bitwise, so one instruction for every legal width). -/
-def and_pattern : Veir.Puddle.Pattern OpCode :=
+def and_pattern : Pattern OpCode :=
   lowerBinary .and (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32 ∨ t.bitwidth = 8 ∨ t.bitwidth = 1) .and ()
 
 /-- `llvm.or` -> `riscv.or` (bitwise, so one instruction for every legal width). -/
-def or_pattern : Veir.Puddle.Pattern OpCode :=
+def or_pattern : Pattern OpCode :=
   lowerBinary .or (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32 ∨ t.bitwidth = 8 ∨ t.bitwidth = 1) .or ()
 
 /-- `llvm.intr.umax` -> `riscv.maxu`. Width-agnostic: unlike `add`/`sub`/…, the same instruction
     is used at both bitwidths, since the register already holds the correctly-represented value. -/
-def umax_pattern : Veir.Puddle.Pattern OpCode :=
+def umax_pattern : Pattern OpCode :=
   lowerBinary .intr__umax (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32) .maxu ()
 
 /-- `llvm.intr.umin` -> `riscv.minu`. -/
-def umin_pattern : Veir.Puddle.Pattern OpCode :=
+def umin_pattern : Pattern OpCode :=
   lowerBinary .intr__umin (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32) .minu ()
 
 /--
-  Shared shape of the binary RISC-V lowerings that accept both integer and byte values (`shl`/`lshr`).
+  Shared shape of the binary RISC-V lowerings that accept both integer and byte values (`shl`/`lshr`):
+  match an lhs of width `bw` (an integer or byte type), cast both operands to registers, apply
+  `riscvOp`, and cast the result back to the result type.
 -/
-def lowerByteBinaryWLocal {P : Type}
-    (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr × P))
-    (op64 op32 : Riscv)
-    (props64 : propertiesOf (OpCode.riscv op64)) (props32 : propertiesOf (OpCode.riscv op32))
-    (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := match? op ctx | return (ctx, none)
-  let ltype := (lhs.getType! ctx.raw)
-  let some bw := getIntByteTypeBitwidth ltype | return (ctx, none)
-  if bw ≠ 64 ∧ bw ≠ 32 then return (ctx, none)
-  let (ctx, lcastOp) ← castToRegLocal ctx lhs
-  let (ctx, rcastOp) ← castToRegLocal ctx rhs
-  let (ctx, retOp) ←
-    if bw = 32 then
-      WfRewriter.createOp! ctx op32 #[RegisterType.mk]
-          #[lcastOp.getResult 0, rcastOp.getResult 0] #[] #[] props32 none
-    else
-      WfRewriter.createOp! ctx op64 #[RegisterType.mk]
-          #[lcastOp.getResult 0, rcastOp.getResult 0] #[] #[] props64 none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (retOp.getResult 0)
-  some (ctx, some (#[lcastOp, rcastOp, retOp, castBackOp], #[castBackOp.getResult 0]))
+def lowerByteBinaryW (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let lhsType ← MatchProg.type (Attr := TypeAttr)
+          (fun t => getIntByteTypeBitwidth t = some bw)
+      let rhsType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := TypeAttr)
+      let lhs ← MatchProg.value lhsType
+      let rhs ← MatchProg.value rhsType
+      let _ ← MatchProg.root (.llvm llvmOp) #[lhs, rhs] #[resType]
+      return (resType, lhs, rhs))
+    (fun (resType, lhs, rhs) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let lcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[lhs] #[regType] lcastProps
+      let rcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[rhs] #[regType] rcastProps
+      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
+      let riscvResOp ← CreateProg.operation (.riscv riscvOp)
+          #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType] riscvOpProps
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[riscvResOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
+
+/-- `llvm.shl` (`i64`) -> `riscv.sll`. -/
+def shl64_pattern : Pattern OpCode := lowerByteBinaryW .shl 64 .sll ()
+
+/-- `llvm.shl` (`i32`) -> `riscv.sllw`. -/
+def shl32_pattern : Pattern OpCode := lowerByteBinaryW .shl 32 .sllw ()
+
+/-- `llvm.lshr` (`i64`) -> `riscv.srl`. -/
+def lshr64_pattern : Pattern OpCode := lowerByteBinaryW .lshr 64 .srl ()
+
+/-- `llvm.lshr` (`i32`) -> `riscv.srlw`. -/
+def lshr32_pattern : Pattern OpCode := lowerByteBinaryW .lshr 32 .srlw ()
 
 /-- `llvm.intr.smax` (`i64`) -> `riscv.max`. -/
-def smax64_pattern : Veir.Puddle.Pattern OpCode :=
-  lowerBinary .intr__smax (fun t => t.bitwidth == 64) .max ()
+def smax64_pattern : Pattern OpCode :=
+  lowerBinary .intr__smax (fun t => t.bitwidth = 64) .max ()
 
 /-- `llvm.intr.smax` (`i32`) -> sign-extend (so negative values order correctly, since
     `castToRegLocal` zero-extends) then `riscv.max`. -/
-def smax32_pattern : Veir.Puddle.Pattern OpCode :=
-  lowerBinary .intr__smax (fun t => t.bitwidth == 32) .max () (extend := some ⟨.sextw, ()⟩)
+def smax32_pattern : Pattern OpCode :=
+  lowerBinary .intr__smax (fun t => t.bitwidth = 32) .max () (extend := some ⟨.sextw, ()⟩)
 
 /-- `llvm.intr.smin` (`i64`) -> `riscv.min`. -/
-def smin64_pattern : Veir.Puddle.Pattern OpCode :=
-  lowerBinary .intr__smin (fun t => t.bitwidth == 64) .min ()
+def smin64_pattern : Pattern OpCode :=
+  lowerBinary .intr__smin (fun t => t.bitwidth = 64) .min ()
 
 /-- `llvm.intr.smin` (`i32`) -> sign-extend (so negative values order correctly, since
     `castToRegLocal` zero-extends) then `riscv.min`. -/
-def smin32_pattern : Veir.Puddle.Pattern OpCode :=
-  lowerBinary .intr__smin (fun t => t.bitwidth == 32) .min () (extend := some ⟨.sextw, ()⟩)
+def smin32_pattern : Pattern OpCode :=
+  lowerBinary .intr__smin (fun t => t.bitwidth = 32) .min () (extend := some ⟨.sextw, ()⟩)
 
 /--
   RISC-V lowerings for funnel-shift rotates (`fshl`/`fshr` whose two data operands are
   identical).
 -/
 def lowerRotate (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Veir.Puddle.Pattern OpCode :=
-  Veir.Puddle.Pattern.Builder
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let opType ← Veir.Puddle.MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth == bw)
-      let a ← Veir.Puddle.MatchProg.value opType
-      let amt ← Veir.Puddle.MatchProg.value opType
-      let _ ← Veir.Puddle.MatchProg.root (.llvm llvmOp) #[a, a, amt] #[opType]
+      let opType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
+      let a ← MatchProg.value opType
+      let amt ← MatchProg.value opType
+      let _ ← MatchProg.root (.llvm llvmOp) #[a, a, amt] #[opType]
       return (opType, a, amt))
     (fun (opType, a, amt) => do
-      let regType ← Veir.Puddle.CreateProg.type (RegisterType.mk none)
-      let aCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let aCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let aCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let aCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[a] #[regType] aCastProps
-      let amtCastProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let amtCastOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let amtCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let amtCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[amt] #[regType] amtCastProps
-      let riscvOpProps ← Veir.Puddle.CreateProg.property (.riscv riscvOp) riscvProps
-      let rotOp ← Veir.Puddle.CreateProg.operation (.riscv riscvOp)
+      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
+      let rotOp ← CreateProg.operation (.riscv riscvOp)
           #[aCastOp.res[0]!, amtCastOp.res[0]!] #[regType] riscvOpProps
-      let castBackProps ← Veir.Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← Veir.Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[rotOp.res[0]!] #[opType] castBackProps
       return castBackOp)
     (fun castBackOp => castBackOp)
 
 /-- `llvm.intr.fshl` with identical data operands (`i64`) -> `riscv.rol`. -/
-def fshl64_pattern : Veir.Puddle.Pattern OpCode := lowerRotate .intr__fshl 64 .rol ()
+def fshl64_pattern : Pattern OpCode := lowerRotate .intr__fshl 64 .rol ()
 
 /-- `llvm.intr.fshl` with identical data operands (`i32`) -> `riscv.rolw`. -/
-def fshl32_pattern : Veir.Puddle.Pattern OpCode := lowerRotate .intr__fshl 32 .rolw ()
+def fshl32_pattern : Pattern OpCode := lowerRotate .intr__fshl 32 .rolw ()
 
 /-- `llvm.intr.fshr` with identical data operands (`i64`) -> `riscv.ror`. -/
-def fshr64_pattern : Veir.Puddle.Pattern OpCode := lowerRotate .intr__fshr 64 .ror ()
+def fshr64_pattern : Pattern OpCode := lowerRotate .intr__fshr 64 .ror ()
 
 /-- `llvm.intr.fshr` with identical data operands (`i32`) -> `riscv.rorw`. -/
-def fshr32_pattern : Veir.Puddle.Pattern OpCode := lowerRotate .intr__fshr 32 .rorw ()
+def fshr32_pattern : Pattern OpCode := lowerRotate .intr__fshr 32 .rorw ()
 
 /--
   `llvm.intr.ctlz` -> `riscv.clz`.
@@ -340,116 +363,144 @@ def ctpop32 : Puddle.CompiledPattern OpCode := ctpop32_pattern.compile
 def ctpop64 : Puddle.CompiledPattern OpCode := ctpop64_pattern.compile
 
 /--
-  `llvm.intr.bswap` -> `riscv.rev8`.
+  `llvm.intr.bswap` -> `riscv.rev8`. `rev8` reverses all 8 bytes; for `i32` the wanted bytes end
+  up in the high 32 bits, so shift them down with `srli 32`.
 -/
-def bswap_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some operand := matchBswap op ctx.raw | return (ctx, none)
-  let .integerType opType := (operand.getType! ctx.raw).val | return (ctx, none)
-  if opType.bitwidth ≠ 64 ∧ opType.bitwidth ≠ 32 then return (ctx, none)
-  let (ctx, castOp) ← castToRegLocal ctx operand
-  /- rev8 reverses all 8 bytes; for i32 the wanted bytes end up in the high 32 bits,
-     so shift them down with srli 32. -/
-  let (ctx, rev8Op) ← WfRewriter.createOp! ctx Riscv.rev8 #[RegisterType.mk] #[castOp.getResult 0]
-      #[] #[] () none
-  if opType.bitwidth = 32 then
-    let sh32 := RISCVImmediateProperties.mk 32#64
-    let (ctx, srliOp) ← WfRewriter.createOp! ctx Riscv.srli #[RegisterType.mk] #[rev8Op.getResult 0]
-        #[] #[] sh32 none
-    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (srliOp.getResult 0)
-    some (ctx, some (#[castOp, rev8Op, srliOp, castBackOp], #[castBackOp.getResult 0]))
-  else
-    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (rev8Op.getResult 0)
-    some (ctx, some (#[castOp, rev8Op, castBackOp], #[castBackOp.getResult 0]))
+def lowerBswap (bw : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let opType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
+      let resType ← MatchProg.type (Attr := TypeAttr)
+      let x ← MatchProg.value opType
+      let _ ← MatchProg.root (.llvm .intr__bswap) #[x] #[resType]
+      return (resType, x))
+    (fun (resType, x) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[x] #[regType] castProps
+      let rev8Props ← CreateProg.property (.riscv .rev8) ()
+      let rev8Op ← CreateProg.operation (.riscv .rev8)
+          #[castOp.res[0]!] #[regType] rev8Props
+      let resOp ← if bw = 32 then do
+          let srliProps ← CreateProg.property (.riscv .srli)
+              (RISCVImmediateProperties.mk 32#64)
+          CreateProg.operation (.riscv .srli) #[rev8Op.res[0]!] #[regType] srliProps
+        else
+          pure rev8Op
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[resOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
-/--
-  `llvm.intr.bswap` -> `riscv.rev8`.
--/
-def bswap (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite bswap_local rewriter op opInBounds
+/-- `llvm.intr.bswap` (`i64`) -> `riscv.rev8`. -/
+def bswap64 : Puddle.CompiledPattern OpCode := (lowerBswap 64).compile
+
+/-- `llvm.intr.bswap` (`i32`) -> `riscv.rev8` + `riscv.srli 32`. -/
+def bswap32 : Puddle.CompiledPattern OpCode := (lowerBswap 32).compile
 
 /--
   One SWAR bit-reversal stage:
   `((x & mask) << shamt) | ((x >> shamt) & mask)`.
 -/
-def bitreverseStageLocal (mask shamt : Int) (ctx : WfIRContext OpCode) (input : ValuePtr) :
-    Option (WfIRContext OpCode × Array OperationPtr × ValuePtr) := do
-  let maskAttr := RISCVImmediateProperties.mk (BitVec.ofInt 64 mask)
-  let (ctx, maskOp) ← WfRewriter.createOp! ctx Riscv.li #[RegisterType.mk] #[]
-      #[] #[] maskAttr none
-  let (ctx, lowOp) ← WfRewriter.createOp! ctx Riscv.and #[RegisterType.mk]
-      #[maskOp.getResult 0, input] #[] #[] () none
-  let shamtAttr := RISCVImmediateProperties.mk (BitVec.ofInt 64 shamt)
-  let (ctx, lowShiftOp) ← WfRewriter.createOp! ctx Riscv.slli #[RegisterType.mk]
-      #[lowOp.getResult 0] #[] #[] shamtAttr none
-  let (ctx, highShiftOp) ← WfRewriter.createOp! ctx Riscv.srli #[RegisterType.mk]
-      #[input] #[] #[] shamtAttr none
-  let (ctx, highOp) ← WfRewriter.createOp! ctx Riscv.and #[RegisterType.mk]
-      #[maskOp.getResult 0, highShiftOp.getResult 0] #[] #[] () none
-  let (ctx, orOp) ← WfRewriter.createOp! ctx Riscv.or #[RegisterType.mk]
-      #[lowShiftOp.getResult 0, highOp.getResult 0] #[] #[] () none
-  return (ctx, #[maskOp, lowOp, lowShiftOp, highShiftOp, highOp, orOp], orOp.getResult 0)
+def bitreverseStage (regType : Handle OpCode .type) (mask shamt : Int)
+    (input : Handle OpCode .value) :
+    CreateProg.Builder (Handle OpCode .value) := do
+  let maskProps ← CreateProg.property (.riscv .li)
+      (RISCVImmediateProperties.mk (BitVec.ofInt 64 mask))
+  let maskOp ← CreateProg.operation (.riscv .li) #[] #[regType] maskProps
+  let lowProps ← CreateProg.property (.riscv .and) ()
+  let lowOp ← CreateProg.operation (.riscv .and)
+      #[maskOp.res[0]!, input] #[regType] lowProps
+  let lowShiftProps ← CreateProg.property (.riscv .slli)
+      (RISCVImmediateProperties.mk (BitVec.ofInt 64 shamt))
+  let lowShiftOp ← CreateProg.operation (.riscv .slli)
+      #[lowOp.res[0]!] #[regType] lowShiftProps
+  let highShiftProps ← CreateProg.property (.riscv .srli)
+      (RISCVImmediateProperties.mk (BitVec.ofInt 64 shamt))
+  let highShiftOp ← CreateProg.operation (.riscv .srli)
+      #[input] #[regType] highShiftProps
+  let highProps ← CreateProg.property (.riscv .and) ()
+  let highOp ← CreateProg.operation (.riscv .and)
+      #[maskOp.res[0]!, highShiftOp.res[0]!] #[regType] highProps
+  let orProps ← CreateProg.property (.riscv .or) ()
+  let orOp ← CreateProg.operation (.riscv .or)
+      #[lowShiftOp.res[0]!, highOp.res[0]!] #[regType] orProps
+  return orOp.res[0]!
 
 /--
   `llvm.intr.bitreverse` -> mask/shift/or stages followed by `riscv.rev8`.
 -/
-def bitreverse_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some operand := matchBitreverse op ctx.raw | return (ctx, none)
-  let .integerType opType := (operand.getType! ctx.raw).val | return (ctx, none)
-  if opType.bitwidth ≠ 64 ∧ opType.bitwidth ≠ 32 then return (ctx, none)
-  let (ctx, castOp) ← castToRegLocal ctx operand
-  if opType.bitwidth = 32 then
-    /- Use 32-bit masks so SWAR stages stay within the low 32 bits.
-       rev8 brings bits to high 32; srli 32 moves them back down. -/
-    let (ctx, ops1, x1) ← bitreverseStageLocal 0x55555555 1 ctx (castOp.getResult 0)
-    let (ctx, ops2, x2) ← bitreverseStageLocal 0x33333333 2 ctx x1
-    let (ctx, ops3, x3) ← bitreverseStageLocal 0x0f0f0f0f 4 ctx x2
-    let (ctx, rev8Op) ← WfRewriter.createOp! ctx Riscv.rev8 #[RegisterType.mk] #[x3]
-        #[] #[] () none
-    let sh32 := RISCVImmediateProperties.mk 32#64
-    let (ctx, srliOp) ← WfRewriter.createOp! ctx Riscv.srli #[RegisterType.mk] #[rev8Op.getResult 0]
-        #[] #[] sh32 none
-    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (srliOp.getResult 0)
-    some (ctx, some (#[castOp] ++ ops1 ++ ops2 ++ ops3 ++ #[rev8Op, srliOp, castBackOp], #[castBackOp.getResult 0]))
-  else
-    let (ctx, ops1, x1) ← bitreverseStageLocal 0x5555555555555555 1 ctx (castOp.getResult 0)
-    let (ctx, ops2, x2) ← bitreverseStageLocal 0x3333333333333333 2 ctx x1
-    let (ctx, ops3, x3) ← bitreverseStageLocal 0x0f0f0f0f0f0f0f0f 4 ctx x2
-    let (ctx, retOp) ← WfRewriter.createOp! ctx Riscv.rev8 #[RegisterType.mk] #[x3]
-        #[] #[] () none
-    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (retOp.getResult 0)
-    some (ctx, some (#[castOp] ++ ops1 ++ ops2 ++ ops3 ++ #[retOp, castBackOp], #[castBackOp.getResult 0]))
+def lowerBitreverse (bw : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let opType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
+      let resType ← MatchProg.type (Attr := TypeAttr)
+      let x ← MatchProg.value opType
+      let _ ← MatchProg.root (.llvm .intr__bitreverse) #[x] #[resType]
+      return (resType, x))
+    (fun (resType, x) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[x] #[regType] castProps
+      let resOp ← if bw = 32 then do
+          /- Use 32-bit masks so SWAR stages stay within the low 32 bits.
+             rev8 brings bits to high 32; srli 32 moves them back down. -/
+          let x1 ← bitreverseStage regType 0x55555555 1 castOp.res[0]!
+          let x2 ← bitreverseStage regType 0x33333333 2 x1
+          let x3 ← bitreverseStage regType 0x0f0f0f0f 4 x2
+          let rev8Props ← CreateProg.property (.riscv .rev8) ()
+          let rev8Op ← CreateProg.operation (.riscv .rev8) #[x3] #[regType] rev8Props
+          let srliProps ← CreateProg.property (.riscv .srli)
+              (RISCVImmediateProperties.mk 32#64)
+          CreateProg.operation (.riscv .srli) #[rev8Op.res[0]!] #[regType] srliProps
+        else do
+          let x1 ← bitreverseStage regType 0x5555555555555555 1 castOp.res[0]!
+          let x2 ← bitreverseStage regType 0x3333333333333333 2 x1
+          let x3 ← bitreverseStage regType 0x0f0f0f0f0f0f0f0f 4 x2
+          let rev8Props ← CreateProg.property (.riscv .rev8) ()
+          CreateProg.operation (.riscv .rev8) #[x3] #[regType] rev8Props
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[resOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
-/--
-  `llvm.intr.bitreverse` -> mask/shift/or stages followed by `riscv.rev8`.
--/
-def bitreverse (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite bitreverse_local rewriter op opInBounds
+/-- `llvm.intr.bitreverse` (`i64`) -> mask/shift/or stages followed by `riscv.rev8`. -/
+def bitreverse64 : Puddle.CompiledPattern OpCode := (lowerBitreverse 64).compile
+
+/-- `llvm.intr.bitreverse` (`i32`) -> mask/shift/or stages, `riscv.rev8` and `riscv.srli 32`. -/
+def bitreverse32 : Puddle.CompiledPattern OpCode := (lowerBitreverse 32).compile
 
 /-- llvm.constant -> riscv.li. Any width up to 64 fits in one register: the constant is
   sign-extended to the 64-bit immediate (see `constant_refinement_le64`). -/
-def constant_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some const := matchConstantIntOp op ctx.raw
-      | return (ctx, none)
-  let type := ((op.getResult 0).get! ctx.raw).type
-  let .integerType type' := type.val | return (ctx, none)
-  if type'.bitwidth > 64 then return (ctx, none)
-  let imm := RISCVImmediateProperties.mk
-      ((BitVec.ofInt type'.bitwidth const.value).signExtend 64)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx Riscv.li #[RegisterType.mk] #[]
-      #[] #[] imm none
-  let (ctx, castOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[type]
-      #[newOp.getResult 0] #[] #[] () none
-  some (ctx, some (#[newOp, castOp], #[castOp.getResult 0]))
+def constant_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth ≤ 64)
+      let root ← MatchProg.root (.llvm .mlir__constant) #[] #[type]
+          (fun props => props.value matches .integer _)
+      return (type, root.properties))
+    (fun (type, constProps) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let liProps ← CreateProg.applyNative
+          (Outputs := Handle OpCode (.prop (.riscv .li))) (type, constProps)
+          fun (type, constProps) => do
+            let .integerType type' := type.val | none
+            let .integer const := constProps.value | none
+            return RISCVImmediateProperties.mk
+                ((BitVec.ofInt type'.bitwidth const.value).signExtend 64)
+      let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[liOp.res[0]!] #[type] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
 /-- llvm.constant -> riscv.li -/
-def constant (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite constant_local rewriter op opInBounds
+def constant : Puddle.CompiledPattern OpCode := constant_pattern.compile
 
 /-- llvm.add -> riscv.add -/
 def add64 : Puddle.CompiledPattern OpCode := add64_pattern.compile
@@ -460,48 +511,64 @@ def add32 : Puddle.CompiledPattern OpCode := add32_pattern.compile
 /-- llvm.and -> riscv.and (bitwise, so one instruction for every legal width) -/
 def and : Puddle.CompiledPattern OpCode := and_pattern.compile
 
-/-- llvm.ashr -> riscv.sra -/
-def ashr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := matchAshr op ctx.raw | return (ctx, none)
-  /- support `i64` and `i32` -/
-  let .integerType ltype := (lhs.getType! ctx.raw).val | return (ctx, none)
-  if ltype.bitwidth ≠ 64 ∧ ltype.bitwidth ≠ 32 ∧ ltype.bitwidth ≠ 8 then return (ctx, none)
-  let .integerType rtype := (rhs.getType! ctx.raw).val | return (ctx, none)
-  if rtype.bitwidth ≠ 64 ∧ rtype.bitwidth ≠ 32 ∧ rtype.bitwidth ≠ 8 then return (ctx, none)
-  let type := ((op.getResult 0).get! ctx.raw).type
-  let .integerType type' := type.val | return (ctx, none)
-  if type'.bitwidth ≠ 64 ∧ type'.bitwidth ≠ 32 ∧ type'.bitwidth ≠ 8 then return (ctx, none)
-  /- First, cast the operands to registers -/
-  let (ctx, lcastOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[RegisterType.mk] #[lhs]
-      #[] #[] () none
-  let (ctx, rcastOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[RegisterType.mk] #[rhs]
-      #[] #[] () none
-  if type'.bitwidth = 8 then
-    let (ctx, lsOp) ← WfRewriter.createOp! ctx Riscv.sextb #[RegisterType.mk] #[lcastOp.getResult 0]
-          #[] #[] () none
-    let (ctx, sraOp) ← WfRewriter.createOp! ctx Riscv.sra #[RegisterType.mk] #[lsOp.getResult 0, rcastOp.getResult 0]
-          #[] #[] () none
-    let (ctx, castSraOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[type] #[sraOp.getResult 0]
-      #[] #[] () none
-    return (ctx, some (#[lcastOp, rcastOp, lsOp, sraOp, castSraOp], #[castSraOp.getResult 0]))
-  /- sraw for i32 (sign-extends result), sra for i64 -/
-  let (ctx, sraOp) ←
-    if type'.bitwidth = 32 then
-      WfRewriter.createOp! ctx Riscv.sraw #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
-          #[] #[] () none
-    else
-      WfRewriter.createOp! ctx Riscv.sra #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
-          #[] #[] () none
-  /- Cast back result for type consistency -/
-  let (ctx, castSraOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[type] #[sraOp.getResult 0]
-      #[] #[] () none
-  return (ctx, some (#[lcastOp, rcastOp, sraOp, castSraOp], #[castSraOp.getResult 0]))
+/--
+  `llvm.ashr` with an `i64`, `i32`, or `i8` result of width `bw` -> `riscv.sra` (`riscv.sraw` for
+  `i32`, which sign-extends the result). An `i8` lhs is sign-extended with `riscv.sextb` first, so
+  the arithmetic shift sees its sign bit.
+-/
+def lowerAshr (bw : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      /- support `i64`, `i32`, and `i8` -/
+      let lhsType ← MatchProg.type (Attr := IntegerType)
+          (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32 ∨ t.bitwidth = 8)
+      let rhsType ← MatchProg.type (Attr := IntegerType)
+          (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32 ∨ t.bitwidth = 8)
+      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
+      let lhs ← MatchProg.value lhsType
+      let rhs ← MatchProg.value rhsType
+      let _ ← MatchProg.root (.llvm .ashr) #[lhs, rhs] #[resType]
+      return (resType, lhs, rhs))
+    (fun (resType, lhs, rhs) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      /- First, cast the operands to registers -/
+      let lcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[lhs] #[regType] lcastProps
+      let rcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[rhs] #[regType] rcastProps
+      let sraOp ← if bw = 8 then do
+          let sextbProps ← CreateProg.property (.riscv .sextb) ()
+          let sextbOp ← CreateProg.operation (.riscv .sextb)
+              #[lcastOp.res[0]!] #[regType] sextbProps
+          let sraProps ← CreateProg.property (.riscv .sra) ()
+          CreateProg.operation (.riscv .sra)
+              #[sextbOp.res[0]!, rcastOp.res[0]!] #[regType] sraProps
+        else if bw = 32 then do
+          /- sraw for i32 (sign-extends result) -/
+          let srawProps ← CreateProg.property (.riscv .sraw) ()
+          CreateProg.operation (.riscv .sraw)
+              #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType] srawProps
+        else do
+          let sraProps ← CreateProg.property (.riscv .sra) ()
+          CreateProg.operation (.riscv .sra)
+              #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType] sraProps
+      /- Cast back result for type consistency -/
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[sraOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
 /-- llvm.ashr -> riscv.sra -/
-def ashr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite ashr_local rewriter op opInBounds
+def ashr64 : Puddle.CompiledPattern OpCode := (lowerAshr 64).compile
+
+/-- llvm.ashr -> riscv.sraw (sign-extends the result) -/
+def ashr32 : Puddle.CompiledPattern OpCode := (lowerAshr 32).compile
+
+/-- llvm.ashr -> riscv.sextb + riscv.sra -/
+def ashr8 : Puddle.CompiledPattern OpCode := (lowerAshr 8).compile
 
 /-! ### `llvm.icmp` lowering
 
@@ -516,11 +583,10 @@ def ashr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     llvm.icmp ugt lhs rhs -> riscv.sltu rhs lhs
     llvm.icmp uge lhs rhs -> riscv.xori (riscv_sltu lhs rhs) 1
 
-  Every arm shares the same prologue (`icmpCastExtLocal`: cast both operands into registers, and
+  Every arm shares the same prologue (`icmpCastExt`: cast both operands into registers, and
   sign-extend them when they are narrower than a register) and the same epilogue (cast the `i1`
-  result back). Only the comparison sequence in between differs, and the five shapes it can take are
-  the `icmpEmit*Local` combinators below, each of which is proven correct once in
-  `RewriteProofs/LowerIcmp.lean`. -/
+  result back). Only the comparison sequence in between differs (`icmpEmit`). Since the prologue
+  depends on the lhs width, there is one Puddle pattern per predicate and lhs width. -/
 
 /-- The `i1` constant `1`, the immediate shared by the `sltiu`/`xori` arms. -/
 def icmpOneImm : RISCVImmediateProperties :=
@@ -530,157 +596,167 @@ def icmpOneImm : RISCVImmediateProperties :=
 def icmpZeroImm : RISCVImmediateProperties :=
   RISCVImmediateProperties.mk 0#64
 
-/-- A `riscv` sign-extension instruction usable as an `icmp` prologue: an opcode with no
-    properties (`riscv.sextw`, `riscv.sextb`). Bundling the opcode with the proof keeps the
-    prologue's `ext` argument non-dependent, so proofs can case on it directly. -/
-structure IcmpExtOp where
-  /-- The sign-extension opcode. -/
-  op : Riscv
-  /-- The opcode takes no properties. -/
-  hprops : Riscv.propertiesOf op = Unit
-
-/--
-  Shared prologue of every `llvm.icmp` arm: cast both operands into registers and, when `ext` is
-  `some e`, sign-extend each register with `e` (`riscv.sextw` for `i32`, `riscv.sextb` for `i8`).
-  `castToRegLocal` zero-extends into the register, so without the fixup a negative narrow operand
-  would look positive to the 64-bit signed comparison; sign-extension also preserves the unsigned
-  order, so the unsigned comparisons stay correct too.
-
-  Returns the created operations along with the two registers to compare.
--/
-def icmpCastExtLocal (ctx : WfIRContext OpCode) (lhs rhs : ValuePtr) (ext : Option IcmpExtOp) :
-    Option (WfIRContext OpCode × Array OperationPtr × ValuePtr × ValuePtr) := do
-  let (ctx, lcastOp) ← castToRegLocal ctx lhs
-  let (ctx, rcastOp) ← castToRegLocal ctx rhs
-  match ext with
-  | none => some (ctx, #[lcastOp, rcastOp], lcastOp.getResult 0, rcastOp.getResult 0)
-  | some e =>
-    let props : Riscv.propertiesOf e.op := cast e.hprops.symm ()
-    let (ctx, lsOp) ← WfRewriter.createOp! ctx e.op #[RegisterType.mk]
-      #[lcastOp.getResult 0] #[] #[] props none
-    let (ctx, rsOp) ← WfRewriter.createOp! ctx e.op #[RegisterType.mk]
-      #[rcastOp.getResult 0] #[] #[] props none
-    some (ctx, #[lcastOp, rcastOp, lsOp, rsOp], lsOp.getResult 0, rsOp.getResult 0)
-
-/-- `icmp` arm emitting a single register-register comparison `rop` (`slt`/`sltu`), whose operands
-    are the two comparison registers, swapped when `swap` is set: `slt`/`sgt`/`ult`/`ugt`. -/
-def icmpEmitCmpLocal (ctx : WfIRContext OpCode) (op : OperationPtr) (lhs rhs : ValuePtr)
-    (ext : Option IcmpExtOp)
-    (rop : Riscv) (hrop : Riscv.propertiesOf rop = Unit) (swap : Bool) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let (ctx, pre, a, b) ← icmpCastExtLocal ctx lhs rhs ext
-  let (u, v) := if swap then (b, a) else (a, b)
-  let (ctx, cmpOp) ← WfRewriter.createOp! ctx rop #[RegisterType.mk] #[u, v]
-    #[] #[] (cast hrop.symm ()) none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (cmpOp.getResult 0)
-  some (ctx, some (pre ++ #[cmpOp, castBackOp], #[castBackOp.getResult 0]))
-
-/-- `icmp` arm emitting a register-register comparison `rop` followed by the immediate op `ropImm`
-    applied to its result with the immediate `1`: `sle`/`sge`/`ule`/`uge` (`slt`/`sltu` then
-    `xori _ 1`) and the generic `eq` (`xor` then `sltiu _ 1`). -/
-def icmpEmitCmpImmLocal (ctx : WfIRContext OpCode) (op : OperationPtr) (lhs rhs : ValuePtr)
-    (ext : Option IcmpExtOp)
-    (rop : Riscv) (hrop : Riscv.propertiesOf rop = Unit) (swap : Bool)
-    (ropImm : Riscv) (hropImm : Riscv.propertiesOf ropImm = RISCVImmediateProperties) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let (ctx, pre, a, b) ← icmpCastExtLocal ctx lhs rhs ext
-  let (u, v) := if swap then (b, a) else (a, b)
-  let (ctx, cmpOp) ← WfRewriter.createOp! ctx rop #[RegisterType.mk] #[u, v]
-    #[] #[] (cast hrop.symm ()) none
-  let (ctx, immOp) ← WfRewriter.createOp! ctx ropImm #[RegisterType.mk]
-    #[cmpOp.getResult 0] #[] #[] (cast hropImm.symm icmpOneImm) none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (immOp.getResult 0)
-  some (ctx, some (pre ++ #[cmpOp, immOp, castBackOp], #[castBackOp.getResult 0]))
-
-/-- `icmp` arm emitting `sltiu a 1` (`seqz`) on the left comparison register: the `eq`-against-zero
-    peephole. -/
-def icmpEmitSeqzLocal (ctx : WfIRContext OpCode) (op : OperationPtr) (lhs rhs : ValuePtr)
-    (ext : Option IcmpExtOp) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let (ctx, pre, a, _) ← icmpCastExtLocal ctx lhs rhs ext
-  let (ctx, immOp) ← WfRewriter.createOp! ctx Riscv.sltiu #[RegisterType.mk] #[a]
-    #[] #[] icmpOneImm none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (immOp.getResult 0)
-  some (ctx, some (pre ++ #[immOp, castBackOp], #[castBackOp.getResult 0]))
-
-/-- `icmp` arm emitting `sltu 0 a` (`snez`) on the left comparison register: the `ne`-against-zero
-    peephole. The `riscv.li 0` becomes `x0` under `riscv-combine` (see `li_zero_to_x0`). -/
-def icmpEmitSnezLocal (ctx : WfIRContext OpCode) (op : OperationPtr) (lhs rhs : ValuePtr)
-    (ext : Option IcmpExtOp) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let (ctx, pre, a, _) ← icmpCastExtLocal ctx lhs rhs ext
-  let (ctx, liOp) ← WfRewriter.createOp! ctx Riscv.li #[RegisterType.mk] #[]
-    #[] #[] icmpZeroImm none
-  let (ctx, cmpOp) ← WfRewriter.createOp! ctx Riscv.sltu #[RegisterType.mk]
-    #[liOp.getResult 0, a] #[] #[] () none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (cmpOp.getResult 0)
-  some (ctx, some (pre ++ #[liOp, cmpOp, castBackOp], #[castBackOp.getResult 0]))
-
-/-- `icmp` arm emitting `sltu 0 (xor b a)` (`snez` of the difference): the generic `ne`. -/
-def icmpEmitXorSnezLocal (ctx : WfIRContext OpCode) (op : OperationPtr) (lhs rhs : ValuePtr)
-    (ext : Option IcmpExtOp) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let (ctx, pre, a, b) ← icmpCastExtLocal ctx lhs rhs ext
-  let (ctx, xorOp) ← WfRewriter.createOp! ctx Riscv.xor #[RegisterType.mk] #[b, a]
-    #[] #[] () none
-  let (ctx, liOp) ← WfRewriter.createOp! ctx Riscv.li #[RegisterType.mk] #[]
-    #[] #[] icmpZeroImm none
-  let (ctx, cmpOp) ← WfRewriter.createOp! ctx Riscv.sltu #[RegisterType.mk]
-    #[liOp.getResult 0, xorOp.getResult 0] #[] #[] () none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (cmpOp.getResult 0)
-  some (ctx, some (pre ++ #[xorOp, liOp, cmpOp, castBackOp], #[castBackOp.getResult 0]))
-
 /-- The sign-extension instruction needed to compare two `bw`-wide operands in a register, if any. -/
-def icmpExtOf (bw : Nat) : Option IcmpExtOp :=
-  if bw = 32 then some ⟨.sextw, rfl⟩ else if bw = 8 then some ⟨.sextb, rfl⟩ else none
+def icmpExtOf (bw : Nat) : Option (Σ extOp : Riscv, propertiesOf (OpCode.riscv extOp)) :=
+  if bw = 32 then some ⟨.sextw, ()⟩ else if bw = 8 then some ⟨.sextb, ()⟩ else none
 
-/-- The width of an `icmp` operand once it is in a register: integers keep their width, and an
-    `!llvm.ptr` is a full 64-bit register, compared exactly like an `i64`. -/
-def icmpOperandWidth? (v : ValuePtr) (ctx : IRContext OpCode) : Option Nat :=
-  match (v.getType! ctx).val with
+/-- The width of an `icmp` operand of type `t` once it is in a register: integers keep their
+    width, and an `!llvm.ptr` is a full 64-bit register, compared exactly like an `i64`. -/
+def icmpTypeWidth? (t : TypeAttr) : Option Nat :=
+  match t.val with
   | .integerType t => some t.bitwidth
   | .llvmPointerType _ => some 64
   | _ => none
 
-/-- llvm.icmp -> riscv comparison sequence (see the arms above). -/
-def icmp_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, property) := matchIcmp op ctx.raw | return (ctx, none)
-  /- support `i64`, `i32`, `i8` and `!llvm.ptr` -/
-  let some lwidth := icmpOperandWidth? lhs ctx.raw | return (ctx, none)
-  if lwidth ≠ 64 ∧ lwidth ≠ 32 ∧ lwidth ≠ 8 then return (ctx, none)
-  let some rwidth := icmpOperandWidth? rhs ctx.raw | return (ctx, none)
-  if rwidth ≠ 64 ∧ rwidth ≠ 32 ∧ rwidth ≠ 8 then return (ctx, none)
-  /- The result is cast back for type consistency, so it must be an integer type. -/
-  let .integerType _ := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  let ext := icmpExtOf lwidth
-  /- Peephole for `eq`/`ne`: when the rhs is a constant `0`, the `xor` is unnecessary and the
-     comparison is against the left register directly (`seqz`/`snez`). Canonicalization runs before
-     isel and moves the constant to the rhs, so we only check that side.
-     LLVM: `Pat<(riscv_seteq GPR:$rs1), (SLTIU GPR:$rs1, 1)>` and
-     `Pat<(riscv_setne GPR:$rs1), (SLTU (XLenVT X0), GPR:$rs1)>`.
-     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1649 -/
-  let rhsIsZero := (matchConstantZero rhs ctx.raw).isSome
-  match property.predicate with
-  | .eq =>
-    if rhsIsZero then icmpEmitSeqzLocal ctx op lhs rhs ext
-    else icmpEmitCmpImmLocal ctx op lhs rhs ext .xor rfl true .sltiu rfl
-  | .ne =>
-    if rhsIsZero then icmpEmitSnezLocal ctx op lhs rhs ext
-    else icmpEmitXorSnezLocal ctx op lhs rhs ext
-  | .slt => icmpEmitCmpLocal ctx op lhs rhs ext .slt rfl false
-  | .sgt => icmpEmitCmpLocal ctx op lhs rhs ext .slt rfl true
-  | .ult => icmpEmitCmpLocal ctx op lhs rhs ext .sltu rfl false
-  | .ugt => icmpEmitCmpLocal ctx op lhs rhs ext .sltu rfl true
-  | .sge => icmpEmitCmpImmLocal ctx op lhs rhs ext .slt rfl false .xori rfl
-  | .sle => icmpEmitCmpImmLocal ctx op lhs rhs ext .slt rfl true .xori rfl
-  | .uge => icmpEmitCmpImmLocal ctx op lhs rhs ext .sltu rfl false .xori rfl
-  | .ule => icmpEmitCmpImmLocal ctx op lhs rhs ext .sltu rfl true .xori rfl
+/-- Whether an `llvm.mlir.constant` with result type `type` and properties `props` is the integer
+    `0` (as `matchConstantZero`). -/
+def isConstantZero (type : TypeAttr) (props : LLVMConstantProperties) : Bool :=
+  match type.val, props.value with
+  | .integerType t, .integer attr => (BitVec.ofInt t.bitwidth attr.value).toInt = 0
+  | _, _ => false
 
-/-- llvm.icmp -> riscv comparison sequence (see `icmp_local`). -/
-def icmp (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite icmp_local rewriter op opInBounds
+/--
+  Shared prologue of every `llvm.icmp` arm: cast both operands into registers and, when `ext` is
+  `some e`, sign-extend each register with `e` (`riscv.sextw` for `i32`, `riscv.sextb` for `i8`).
+  The cast zero-extends into the register, so without the fixup a negative narrow operand
+  would look positive to the 64-bit signed comparison; sign-extension also preserves the unsigned
+  order, so the unsigned comparisons stay correct too.
+
+  Returns the two registers to compare.
+-/
+def icmpCastExt (regType : Handle OpCode .type)
+    (lhs rhs : Handle OpCode .value)
+    (ext : Option (Σ extOp : Riscv, propertiesOf (OpCode.riscv extOp))) :
+    CreateProg.Builder
+      (Handle OpCode .value × Handle OpCode .value) := do
+  let lcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+  let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+      #[lhs] #[regType] lcastProps
+  let rcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+  let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+      #[rhs] #[regType] rcastProps
+  match ext with
+  | none => pure (lcastOp.res[0]!, rcastOp.res[0]!)
+  | some ⟨extOp, extProps'⟩ => do
+    let extProps ← CreateProg.property (.riscv extOp) extProps'
+    let lextOp ← CreateProg.operation (.riscv extOp)
+        #[lcastOp.res[0]!] #[regType] extProps
+    let rextOp ← CreateProg.operation (.riscv extOp)
+        #[rcastOp.res[0]!] #[regType] extProps
+    pure (lextOp.res[0]!, rextOp.res[0]!)
+
+/--
+  `icmp` arm emitting a register-register comparison `rop` (`slt`/`sltu`/`xor`), whose operands
+  are the two comparison registers, swapped when `swap` is set, optionally followed by the
+  immediate op `ropImm` applied to its result with the immediate `1`.
+  - `slt`/`sgt`/`ult`/`ugt`: just the comparison.
+  - `sle`/`sge`/`ule`/`uge`: `slt`/`sltu` then `xori _ 1`.
+  - the generic `eq`: `xor` then `sltiu _ 1`.
+-/
+def icmpEmitCmp (regType : Handle OpCode .type) (a b : Handle OpCode .value)
+    (rop : Riscv) (ropProps : propertiesOf (OpCode.riscv rop)) (swap : Bool)
+    (ropImm : Option (Σ immOp : Riscv, propertiesOf (OpCode.riscv immOp)) := none) :
+    CreateProg.Builder CreatedOpHandle := do
+  let (u, v) := if swap then (b, a) else (a, b)
+  let cmpProps ← CreateProg.property (.riscv rop) ropProps
+  let cmpOp ← CreateProg.operation (.riscv rop) #[u, v] #[regType] cmpProps
+  match ropImm with
+  | none => pure cmpOp
+  | some ⟨immOp, immProps'⟩ => do
+    let immProps ← CreateProg.property (.riscv immOp) immProps'
+    CreateProg.operation (.riscv immOp) #[cmpOp.res[0]!] #[regType] immProps
+
+/-- The comparison sequence of the `icmp` arm for `pred` on the comparison registers `a` and `b`.
+    `zeroRhs` selects the `eq`/`ne`-against-zero peepholes, which only use `a`. -/
+def icmpEmit (regType : Handle OpCode .type) (pred : Data.LLVM.IntPred)
+    (zeroRhs : Bool) (a b : Handle OpCode .value) :
+    CreateProg.Builder CreatedOpHandle :=
+  match pred, zeroRhs with
+  /- `seqz`: `sltiu a 1`, the `eq`-against-zero peephole. -/
+  | .eq, true => do
+    let sltiuProps ← CreateProg.property (.riscv .sltiu) icmpOneImm
+    CreateProg.operation (.riscv .sltiu) #[a] #[regType] sltiuProps
+  | .eq, false => icmpEmitCmp regType a b .xor () true (some ⟨.sltiu, icmpOneImm⟩)
+  /- `snez`: `sltu 0 a`, the `ne`-against-zero peephole. The `riscv.li 0` becomes `x0` under
+     `riscv-combine` (see `li_zero_to_x0`). -/
+  | .ne, true => do
+    let liProps ← CreateProg.property (.riscv .li) icmpZeroImm
+    let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
+    let sltuProps ← CreateProg.property (.riscv .sltu) ()
+    CreateProg.operation (.riscv .sltu) #[liOp.res[0]!, a] #[regType] sltuProps
+  /- `sltu 0 (xor b a)` (`snez` of the difference): the generic `ne`. -/
+  | .ne, false => do
+    let xorProps ← CreateProg.property (.riscv .xor) ()
+    let xorOp ← CreateProg.operation (.riscv .xor) #[b, a] #[regType] xorProps
+    let liProps ← CreateProg.property (.riscv .li) icmpZeroImm
+    let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
+    let sltuProps ← CreateProg.property (.riscv .sltu) ()
+    CreateProg.operation (.riscv .sltu)
+        #[liOp.res[0]!, xorOp.res[0]!] #[regType] sltuProps
+  | .slt, _ => icmpEmitCmp regType a b .slt () false
+  | .sgt, _ => icmpEmitCmp regType a b .slt () true
+  | .ult, _ => icmpEmitCmp regType a b .sltu () false
+  | .ugt, _ => icmpEmitCmp regType a b .sltu () true
+  | .sge, _ => icmpEmitCmp regType a b .slt () false (some ⟨.xori, icmpOneImm⟩)
+  | .sle, _ => icmpEmitCmp regType a b .slt () true (some ⟨.xori, icmpOneImm⟩)
+  | .uge, _ => icmpEmitCmp regType a b .sltu () false (some ⟨.xori, icmpOneImm⟩)
+  | .ule, _ => icmpEmitCmp regType a b .sltu () true (some ⟨.xori, icmpOneImm⟩)
+
+/--
+  `llvm.icmp pred` whose lhs is `lhsWidth` bits wide once in a register (`i64`/`!llvm.ptr`,
+  `i32`, or `i8`). When `zeroRhs` is set, the rhs must be the constant `0`.
+-/
+def lowerIcmp (pred : Data.LLVM.IntPred) (lhsWidth : Nat) (zeroRhs : Bool) :
+    Pattern OpCode :=
+  Pattern.Builder
+    (do
+      /- support `i64`, `i32`, `i8` and `!llvm.ptr` -/
+      let lhsType ← MatchProg.type (Attr := TypeAttr)
+          (fun t => icmpTypeWidth? t = some lhsWidth)
+      let rhsType ← MatchProg.type (Attr := TypeAttr)
+          (fun t => (icmpTypeWidth? t).any (· ∈ [64, 32, 8]))
+      /- The result is cast back for type consistency, so it must be an integer type. -/
+      let resType ← MatchProg.type (Attr := IntegerType)
+      let lhs ← MatchProg.value lhsType
+      let rhs ← if zeroRhs then do
+          let zeroOp ← MatchProg.operation (.llvm .mlir__constant) #[] #[rhsType]
+          MatchProg.matchNative (rhsType, zeroOp.properties)
+              fun (type, props) => isConstantZero type props
+          pure zeroOp.res[0]!
+        else
+          MatchProg.value rhsType
+      let _ ← MatchProg.root (.llvm .icmp) #[lhs, rhs] #[resType]
+          (fun props => props.predicate = pred)
+      return (resType, lhs, rhs))
+    (fun (resType, lhs, rhs) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let (a, b) ← icmpCastExt regType lhs rhs (icmpExtOf lhsWidth)
+      let cmpOp ← icmpEmit regType pred zeroRhs a b
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[cmpOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
+
+/--
+  llvm.icmp -> riscv comparison sequence (see the arms above).
+
+  Peephole for `eq`/`ne`: when the rhs is a constant `0`, the `xor` is unnecessary and the
+  comparison is against the left register directly (`seqz`/`snez`). These patterns come first, so
+  they take priority over the generic arms. Canonicalization runs before isel and moves the
+  constant to the rhs, so we only check that side.
+  LLVM: `Pat<(riscv_seteq GPR:$rs1), (SLTIU GPR:$rs1, 1)>` and
+  `Pat<(riscv_setne GPR:$rs1), (SLTU (XLenVT X0), GPR:$rs1)>`.
+  https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1649
+-/
+def icmp : Array (Puddle.CompiledPattern OpCode) :=
+  let widths := #[64, 32, 8]
+  let preds : Array Data.LLVM.IntPred :=
+    #[.eq, .ne, .slt, .sgt, .ult, .ugt, .sge, .sle, .uge, .ule]
+  let peepholes := widths.flatMap fun w =>
+    #[Data.LLVM.IntPred.eq, .ne].map fun pred => lowerIcmp pred w true
+  let generic := widths.flatMap fun w => preds.map fun pred => lowerIcmp pred w false
+  (peepholes ++ generic).map (·.compile)
 
 /-- llvm.or -> riscv.or (bitwise, so one instruction for every legal width) -/
 def or : Puddle.CompiledPattern OpCode := or_pattern.compile
@@ -752,63 +828,74 @@ def zext16 : Puddle.CompiledPattern OpCode := zext16_pattern.compile
 
 def zext32 : Puddle.CompiledPattern OpCode := zext32_pattern.compile
 /--
-  llvm.trunc %x iX to iY -> builtin_unrealized_conversion_cast (!riscv.reg) : iY
-  where `iY`'s width is smaller than `iX`'s.
-  Also accepts the byte type.
+  Whether `llvm.trunc` from `opType` to `resType` is lowered: both are integer types or both are
+  byte types, and the result is strictly narrower than the operand.
+
+  The operand is held in a 64-bit register, so an operand wider than 64 bits would lose bits in
+  the round trip. Every narrower pair of widths is sound (see `trunc_refinement_le64`), including
+  odd ones such as `i1`: the result's upper register bits are whatever the operand left there,
+  and `reconcile-cast` zero-extends the value wherever it is used as a register again.
 -/
-def trunc_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (operand, _) := matchTrunc op ctx.raw | return (ctx, none)
-  let opType := (operand.getType! ctx.raw)
-  let resType := ((op.getResult 0).get! ctx.raw).type
+def isLegalTrunc (opType resType : TypeAttr) : Bool :=
   let shouldTruncate := match opType.val, resType.val with
     | .integerType _, .integerType _ => true
     | .byteType _, .byteType _ => true
     | _, _ => false
-  if !shouldTruncate
-  then return (ctx, none)
-  let some opBw := getIntByteTypeBitwidth opType | return (ctx, none)
-  let some resBw := getIntByteTypeBitwidth resType | return (ctx, none)
-  if opBw ≤ resBw then return (ctx, none)
-  /- The operand is held in a 64-bit register, so an operand wider than 64 bits would lose bits in
-     the round trip. Every narrower pair of widths is sound (see `trunc_refinement_le64`), including
-     odd ones such as `i1`: the result's upper register bits are whatever the operand left there,
-     and `reconcile-cast` zero-extends the value wherever it is used as a register again. -/
-  if opBw > 64 then return (ctx, none)
-  /- First, cast the operand to registers -/
-  let (ctx, opCastOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[RegisterType.mk] #[operand]
-      #[] #[] () none
-  /- Then, cast register to expected output width. -/
-  let (ctx, castOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[resType] #[opCastOp.getResult 0]
-      #[] #[] () none
-  some (ctx, some (#[opCastOp, castOp], #[castOp.getResult 0]))
+  match getIntByteTypeBitwidth opType, getIntByteTypeBitwidth resType with
+  | some opBw, some resBw => shouldTruncate && resBw < opBw && opBw ≤ 64
+  | _, _ => false
 
 /--
-  llvm.trunc -> builtin_unrealized_conversion_cast (see `trunc_local`).
+  Shared shape of the lowerings of single-operand LLVM ops that are no-ops on registers
+  (`trunc`/`bitcast`/`freeze`): when `legal` accepts the operand and result types, cast the operand to a
+  register, then cast the register to the result type.
 -/
-def trunc (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite trunc_local rewriter op opInBounds
+def lowerRegCast (llvmOp : Llvm) (legal : TypeAttr → TypeAttr → Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let opType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := TypeAttr)
+      let x ← MatchProg.value opType
+      let _ ← MatchProg.root (.llvm llvmOp) #[x] #[resType]
+      MatchProg.matchNative (opType, resType)
+          fun (opType, resType) => legal opType resType
+      return (resType, x))
+    (fun (resType, x) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      /- First, cast the operand to registers -/
+      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[x] #[regType] castProps
+      /- Then, cast register to expected output type. -/
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[castOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
+
+/--
+  llvm.trunc %x iX to iY -> builtin_unrealized_conversion_cast (!riscv.reg) : iY
+  where `iY`'s width is smaller than `iX`'s (see `isLegalTrunc`).
+  Also accepts the byte type.
+-/
+def trunc_pattern : Pattern OpCode := lowerRegCast .trunc isLegalTrunc
+
+/--
+  llvm.trunc -> builtin_unrealized_conversion_cast (see `trunc_pattern`).
+-/
+def trunc : Puddle.CompiledPattern OpCode := trunc_pattern.compile
 
 /-- llvm.shl -> riscv.sll -/
-def shl_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerByteBinaryWLocal matchShl .sll .sllw () () ctx op
+def shl64 : Puddle.CompiledPattern OpCode := shl64_pattern.compile
 
-/-- llvm.shl -> riscv.sll -/
-def shl (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite shl_local rewriter op opInBounds
+/-- llvm.shl -> riscv.sllw -/
+def shl32 : Puddle.CompiledPattern OpCode := shl32_pattern.compile
 
-/-- llvm.lshr -> riscv.srl (riscv.srlw for i32) -/
-def lshr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerByteBinaryWLocal matchLshr .srl .srlw () () ctx op
+/-- llvm.lshr -> riscv.srl -/
+def lshr64 : Puddle.CompiledPattern OpCode := lshr64_pattern.compile
 
-/-- llvm.shl -> riscv.srl -/
-def lshr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite lshr_local rewriter op opInBounds
+/-- llvm.lshr -> riscv.srlw -/
+def lshr32 : Puddle.CompiledPattern OpCode := lshr32_pattern.compile
 
 def checkBitcastType (t : TypeAttr) : Bool :=
   match t.val with
@@ -823,46 +910,43 @@ def isBitcastByteToPtr (opType resType : TypeAttr) : Bool :=
   | .byteType _, .llvmPointerType _ => true
   | _, _ => false
 
+/-- Whether `llvm.bitcast` from `opType` to `resType` is lowered: both are integer, byte, or
+    pointer types of width 8, 16, 32, or 64, and it is not a `byte -> ptr` bitcast. -/
+def isLegalBitcast (opType resType : TypeAttr) : Bool :=
+  checkBitcastType opType && checkBitcastType resType && !isBitcastByteToPtr opType resType &&
+    match Attribute.bitwidthOfType opType, Attribute.bitwidthOfType resType with
+    | some opBw, some resBw => opBw ∈ [8, 16, 32, 64] && resBw ∈ [8, 16, 32, 64]
+    | _, _ => false
+
 /--
   llvm.bitcast t1 %x to t2 -> builtin_unrealized_conversion_cast
   Integers, bytes, and pointers are all lowered to !riscv.reg, making this basically a no-op.
-  The `byte -> ptr` case is excluded.
+  The `byte -> ptr` case is excluded (see `isLegalBitcast`).
 -/
-def bitcast_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (operand, _) := matchBitcast op ctx.raw | return (ctx, none)
-  let opType := operand.getType! ctx.raw
-  let resType := ((op.getResult 0).get! ctx.raw).type
-  if ¬ checkBitcastType opType ∨ ¬ checkBitcastType resType then return (ctx, none)
-  if isBitcastByteToPtr opType resType then return (ctx, none)
-  let some opBw := Attribute.bitwidthOfType opType | return (ctx, none)
-  let some resBw := Attribute.bitwidthOfType resType | return (ctx, none)
-  if opBw ∉ [8, 16, 32, 64] ∨ resBw ∉ [8, 16, 32, 64] then return (ctx, none)
-  /- First, cast the operand to registers -/
-  let (ctx, opCastOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[RegisterType.mk] #[operand]
-      #[] #[] () none
-  /- Then, cast register to expected output type. -/
-  let (ctx, castOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[resType] #[opCastOp.getResult 0]
-      #[] #[] () none
-  some (ctx, some (#[opCastOp, castOp], #[castOp.getResult 0]))
+def bitcast_pattern : Pattern OpCode := lowerRegCast .bitcast isLegalBitcast
 
-def bitcast (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite bitcast_local rewriter op opInBounds
+/-- llvm.bitcast -> builtin_unrealized_conversion_cast (see `bitcast_pattern`). -/
+def bitcast : Puddle.CompiledPattern OpCode := bitcast_pattern.compile
 
 /--
   Lower LLVM lifetime instructions to nothing. This is a refinement that we can
   revisit later if we want to perform certain stack slot optimizations.
 -/
-def lifetime_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  match op.getOpType! ctx.raw with
-  | .llvm .intr__lifetime__start | .llvm .intr__lifetime__end =>
-    some (ctx, some (#[], #[]))
-  | _ => some (ctx, none)
+def lowerLifetime (llvmOp : Llvm) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let ptrType ← MatchProg.type (Attr := TypeAttr)
+      let ptr ← MatchProg.value ptrType
+      let _ ← MatchProg.root (.llvm llvmOp) #[ptr] #[]
+      return ())
+    pure
+    (fun () => ⟨#[]⟩)
 
-/-- Erase `llvm.intr.lifetime.start` and `llvm.intr.lifetime.end`. -/
-def lifetime := RewritePattern.fromLocalRewrite lifetime_local
+/-- Erase `llvm.intr.lifetime.start`. -/
+def lifetimeStart : Puddle.CompiledPattern OpCode := (lowerLifetime .intr__lifetime__start).compile
+
+/-- Erase `llvm.intr.lifetime.end`. -/
+def lifetimeEnd : Puddle.CompiledPattern OpCode := (lowerLifetime .intr__lifetime__end).compile
 
 /--
   Lower a constant-count entry-block allocation to a fixed RISC-V stack object.
@@ -910,9 +994,9 @@ private partial def lookupGlobal? (ctx : IRContext OpCode) (op : OperationPtr)
   let block ← (body.get! ctx).firstBlock
   let mut candidate := (block.get! ctx).firstOp
   while let some target := candidate do
-    if target.getOpType! ctx == .llvm .mlir__global then
+    if target.getOpType! ctx = .llvm .mlir__global then
       let props := target.getProperties! ctx Llvm.mlir__global
-      if props.sym_name.value == name then return props
+      if props.sym_name.value = name then return props
     candidate := (target.get! ctx).next
   none
 
@@ -924,7 +1008,7 @@ def addressof_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if let some global := lookupGlobal? ctx.raw op name then
     -- An undefined weak symbol resolves to zero, which a PC-relative `la`
     -- cannot always reach. Leave it until GOT-based address lowering is supported.
-    if global.isThreadLocal || global.linkage.value == "extern_weak" then return (ctx, none)
+    if global.isThreadLocal || global.linkage.value = "extern_weak" then return (ctx, none)
   let (ctx, laOp) ← WfRewriter.createOp! ctx Riscv.la #[RegisterType.mk]
       #[] #[] #[] (RISCVSymbolProperties.mk properties.global_name) none
   let (ctx, castBackOp) ← replaceWithRegLocal ctx op (laOp.getResult 0)
@@ -936,24 +1020,20 @@ def addressof (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   RewritePattern.fromLocalRewrite addressof_local rewriter op opInBounds
 
 /--
-  Split a load/store address into a base register operand and a signed 12-bit
-  immediate offset, mirroring the `isBaseWithConstantOffset` case of LLVM's
+  The signed 12-bit immediate offset of a load/store address `getelementptr base, c`, with
+  properties `gep` and a constant `i64` index `c` with properties `idx`, when it can be folded
+  into the access, mirroring the `isBaseWithConstantOffset` case of LLVM's
   [`RISCVDAGToDAGISel::SelectAddrRegImm`](https://github.com/llvm/llvm-project/blob/llvmorg-22.1.8/llvm/lib/Target/RISCV/RISCVISelDAGToDAG.cpp#L3175-L3206).
 -/
-def selectAddrRegImm (ptr : ValuePtr) (ctx : IRContext OpCode) : ValuePtr × Int :=
-  let folded : Option (ValuePtr × Int) := do
-    let gepOp ← ptr.definingOp?
-    let (base, idx, properties) ← matchGetelementptr gepOp ctx
-    /- A single dynamic index with no trailing constant indices, as in `getelementptr_local`. -/
-    guard (properties.rawConstantIndices.values = #[(-2147483648 : Int)])
-    let .integerType itype := (idx.getType! ctx).val | none
-    guard (itype.bitwidth = 64)
-    let c ← matchConstantIntVal idx ctx
-    let scale ← DataLayout.riscv64.getTypeAllocSize properties.elem_type.val
-    let offset := c * (scale : Int)
-    guard (-2048 ≤ offset ∧ offset ≤ 2047)
-    return (base, offset)
-  folded.getD (ptr, 0)
+def selectAddrRegImm (gep : GetelementptrProperties) (idx : LLVMConstantProperties) :
+    Option Int := do
+  /- A single dynamic index with no trailing constant indices, as in `getelementptr`. -/
+  guard (gep.rawConstantIndices.values = #[(-2147483648 : Int)])
+  let .integer c := idx.value | none
+  let scale ← DataLayout.riscv64.getTypeAllocSize gep.elem_type.val
+  let offset := (BitVec.ofInt 64 c.value).toInt * (scale : Int)
+  guard (-2048 ≤ offset ∧ offset ≤ 2047)
+  return offset
 
 /-- The width in bytes of a load or store of a value of `type`, for the integers
   and pointers whose data-layout size fits one `l*`/`s*` instruction. An integer
@@ -985,135 +1065,299 @@ def createStoreLocal (ctx : WfIRContext OpCode) (width : Nat) (val addr : ValueP
   | 4 => WfRewriter.createOp! ctx Riscv.sw #[] #[val, addr] #[] #[] props none
   | _ => WfRewriter.createOp! ctx Riscv.sd #[] #[val, addr] #[] #[] props none
 
-/-- llvm.load -> riscv.ld (i64, ptr) / riscv.lw (i32) / riscv.lh (i16) / riscv.lb (i8) -/
-def load_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (ptr, llvmProps) := matchLoad op ctx.raw | return (ctx, none)
-  /- support `i64`, `i32`, `i16`, `i8` and `!llvm.ptr` (the loaded value type) -/
-  let type := ((op.getResult 0).get! ctx.raw).type
-  let some width := memAccessWidth? type | return (ctx, none)
-  /- Split the address into a base register and a signed 12-bit offset. -/
-  let (base, offset) := selectAddrRegImm ptr ctx.raw
-  /- cast base (!llvm.ptr) -> register -/
-  let (ctx, pcastOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[RegisterType.mk] #[base]
-      #[] #[] () none
-  /- Volatility carries over from the `llvm.load`: the riscv op encodes the same, but the
-     flag keeps later passes from deleting or duplicating the access. -/
-  let immProps := RISCVMemProperties.mk (BitVec.ofInt 64 offset) llvmProps.volatile_
-  let (ctx, ldOp) ← createLoadLocal ctx width (pcastOp.getResult 0) immProps
-  let (ctx, castOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[type] #[ldOp.getResult 0]
-      #[] #[] () none
-  some (ctx, some (#[pcastOp, ldOp, castOp], #[castOp.getResult 0]))
+/--
+  llvm.load -> riscv.ld (i64, ptr) / riscv.lw (i32) / riscv.lh (i16) / riscv.lb (i8), for a
+  `width`-byte load with `riscvOp`. When `folded` is set, the address must be a
+  `getelementptr base, c` whose constant offset folds into the immediate (see
+  `selectAddrRegImm`); otherwise the address itself is the base, at offset `0`.
+-/
+def lowerLoad (folded : Bool) (width : Nat) (riscvOp : Riscv)
+    (h : propertiesOf (OpCode.riscv riscvOp) = RISCVMemProperties := by rfl) :
+    Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let baseType ← MatchProg.type (Attr := TypeAttr)
+      let base ← MatchProg.value baseType
+      /- Split the address into a base register and a signed 12-bit offset. -/
+      let (addr, gep?) ← if folded then do
+          let idxType ← MatchProg.type (Attr := IntegerType)
+              (fun t => t.bitwidth = 64)
+          let idxOp ← MatchProg.operation (.llvm .mlir__constant) #[] #[idxType]
+          let addrType ← MatchProg.type (Attr := TypeAttr)
+          let gepOp ← MatchProg.operation (.llvm .getelementptr)
+              #[base, idxOp.res[0]!] #[addrType]
+          MatchProg.matchNative (gepOp.properties, idxOp.properties)
+              fun (gep, idx) => (selectAddrRegImm gep idx).isSome
+          pure (gepOp.res[0]!, some (gepOp.properties, idxOp.properties))
+        else
+          pure (base, none)
+      /- support `i64`, `i32`, `i16`, `i8` and `!llvm.ptr` (the loaded value type) -/
+      let resType ← MatchProg.type (Attr := TypeAttr)
+          (fun t => memAccessWidth? t = some width)
+      let root ← MatchProg.root (.llvm .load) #[addr] #[resType]
+      return (resType, base, gep?, root.properties))
+    (fun (resType, base, gep?, loadProps) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      /- cast base (!llvm.ptr) -> register -/
+      let baseCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let baseCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[base] #[regType] baseCastProps
+      /- Volatility carries over from the `llvm.load`: the riscv op encodes the same, but the
+         flag keeps later passes from deleting or duplicating the access. -/
+      let memProps ← match gep? with
+        | some (gepProps, idxProps) =>
+          CreateProg.applyNative
+              (Outputs := Handle OpCode (.prop (.riscv riscvOp)))
+              (gepProps, idxProps, loadProps)
+              fun (gep, idx, load) => (selectAddrRegImm gep idx).map fun offset =>
+                cast h.symm (RISCVMemProperties.mk (BitVec.ofInt 64 offset) load.volatile_)
+        | none =>
+          CreateProg.applyNative
+              (Outputs := Handle OpCode (.prop (.riscv riscvOp))) loadProps
+              fun load => some (cast h.symm (RISCVMemProperties.mk 0 load.volatile_))
+      let ldOp ← CreateProg.operation (.riscv riscvOp)
+          #[baseCastOp.res[0]!] #[regType] memProps
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[ldOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
-/-- llvm.load -> riscv.ld (i64, ptr) / riscv.lw (i32) / riscv.lh (i16) / riscv.lb (i8) -/
-def load (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite load_local rewriter op opInBounds
+/--
+  llvm.load -> riscv.ld (i64, ptr) / riscv.lw (i32) / riscv.lh (i16) / riscv.lb (i8).
+  The patterns folding a constant `getelementptr` offset into the immediate come first.
+-/
+def load : Array (Puddle.CompiledPattern OpCode) :=
+  #[true, false].flatMap fun folded =>
+    #[lowerLoad folded 1 .lb, lowerLoad folded 2 .lh, lowerLoad folded 4 .lw,
+      lowerLoad folded 8 .ld].map (·.compile)
 
-/-- llvm.store -> riscv.sd (i64, ptr) / riscv.sw (i32) / riscv.sh (i16) / riscv.sb (i8) -/
-def store_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (arg, ptr, llvmProps) := matchStore op ctx.raw | return (ctx, none)
-  /- support `i64`, `i32`, `i16`, `i8` and `!llvm.ptr` (the stored value type) -/
-  let type := arg.getType! ctx.raw
-  let some width := memAccessWidth? type | return (ctx, none)
-  /- Split the address into a base register and a signed 12-bit offset. -/
-  let (base, offset) := selectAddrRegImm ptr ctx.raw
-  /- cast base (!llvm.ptr) -> register -/
-  let (ctx, pcastOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[RegisterType.mk] #[base]
-      #[] #[] () none
-  /- cast value (i64/i32/i16/i8/ptr) -> register -/
-  let (ctx, valcastOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[RegisterType.mk] #[arg]
-      #[] #[] () none
-  /- The store writes the low `width` bytes of the value register. Volatility carries over
-     from the `llvm.store`, as in `load_local`. -/
-  let immProps := RISCVMemProperties.mk (BitVec.ofInt 64 offset) llvmProps.volatile_
-  let (ctx, sdOp) ← createStoreLocal ctx width (valcastOp.getResult 0) (pcastOp.getResult 0) immProps
-  some (ctx, some (#[pcastOp, valcastOp, sdOp], #[]))
+/--
+  llvm.store -> riscv.sd (i64, ptr) / riscv.sw (i32) / riscv.sh (i16) / riscv.sb (i8), for a
+  `width`-byte store with `riscvOp`. The address is split as in `lowerLoad`.
+-/
+def lowerStore (folded : Bool) (width : Nat) (riscvOp : Riscv)
+    (h : propertiesOf (OpCode.riscv riscvOp) = RISCVMemProperties := by rfl) :
+    Pattern OpCode :=
+  Pattern.Builder
+    (do
+      /- support `i64`, `i32`, `i16`, `i8` and `!llvm.ptr` (the stored value type) -/
+      let valType ← MatchProg.type (Attr := TypeAttr)
+          (fun t => memAccessWidth? t = some width)
+      let val ← MatchProg.value valType
+      let baseType ← MatchProg.type (Attr := TypeAttr)
+      let base ← MatchProg.value baseType
+      /- Split the address into a base register and a signed 12-bit offset. -/
+      let (addr, gep?) ← if folded then do
+          let idxType ← MatchProg.type (Attr := IntegerType)
+              (fun t => t.bitwidth = 64)
+          let idxOp ← MatchProg.operation (.llvm .mlir__constant) #[] #[idxType]
+          let addrType ← MatchProg.type (Attr := TypeAttr)
+          let gepOp ← MatchProg.operation (.llvm .getelementptr)
+              #[base, idxOp.res[0]!] #[addrType]
+          MatchProg.matchNative (gepOp.properties, idxOp.properties)
+              fun (gep, idx) => (selectAddrRegImm gep idx).isSome
+          pure (gepOp.res[0]!, some (gepOp.properties, idxOp.properties))
+        else
+          pure (base, none)
+      let root ← MatchProg.root (.llvm .store) #[val, addr] #[]
+      return (val, base, gep?, root.properties))
+    (fun (val, base, gep?, storeProps) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      /- cast base (!llvm.ptr) -> register -/
+      let baseCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let baseCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[base] #[regType] baseCastProps
+      /- cast value (i64/i32/i16/i8/ptr) -> register -/
+      let valCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[val] #[regType] valCastProps
+      /- The store writes the low `width` bytes of the value register. Volatility carries over
+         from the `llvm.store`, as in `lowerLoad`. -/
+      let memProps ← match gep? with
+        | some (gepProps, idxProps) =>
+          CreateProg.applyNative
+              (Outputs := Handle OpCode (.prop (.riscv riscvOp)))
+              (gepProps, idxProps, storeProps)
+              fun (gep, idx, store) => (selectAddrRegImm gep idx).map fun offset =>
+                cast h.symm (RISCVMemProperties.mk (BitVec.ofInt 64 offset) store.volatile_)
+        | none =>
+          CreateProg.applyNative
+              (Outputs := Handle OpCode (.prop (.riscv riscvOp))) storeProps
+              fun store => some (cast h.symm (RISCVMemProperties.mk 0 store.volatile_))
+      let _ ← CreateProg.operation (.riscv riscvOp)
+          #[valCastOp.res[0]!, baseCastOp.res[0]!] #[] memProps
+      return ())
+    (fun () => ⟨#[]⟩)
 
-/-- llvm.store -> riscv.sd (i64, ptr) / riscv.sw (i32) / riscv.sh (i16) / riscv.sb (i8) -/
-def store (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite store_local rewriter op opInBounds
+/--
+  llvm.store -> riscv.sd (i64, ptr) / riscv.sw (i32) / riscv.sh (i16) / riscv.sb (i8).
+  The patterns folding a constant `getelementptr` offset into the immediate come first.
+-/
+def store : Array (Puddle.CompiledPattern OpCode) :=
+  #[true, false].flatMap fun folded =>
+    #[lowerStore folded 1 .sb, lowerStore folded 2 .sh, lowerStore folded 4 .sw,
+      lowerStore folded 8 .sd].map (·.compile)
+
+/--
+  Lower a single-dynamic-index `llvm.getelementptr` computing `ptr + idx * scale`, where `scale`
+  is the allocation size (ABI stride) of the element type, for a `scale` of 1, 2, 4, or 8:
+  `ptr + idx` or `(idx << log2 scale) + ptr` with `riscv.sh{1,2,3}add`.
+-/
+def lowerGetelementptr (scale : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let ptrType ← MatchProg.type (Attr := TypeAttr)
+      /- The index must be `i64`. -/
+      let idxType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
+      let resType ← MatchProg.type (Attr := TypeAttr)
+      let ptr ← MatchProg.value ptrType
+      let idx ← MatchProg.value idxType
+      /- Bail unless it's a single dynamic index with no trailing constant indices. -/
+      let root ← MatchProg.root (.llvm .getelementptr) #[ptr, idx] #[resType]
+          (fun props => props.rawConstantIndices.values = #[(-2147483648 : Int)])
+      MatchProg.matchNative root.properties fun gep =>
+        (DataLayout.riscv64.getTypeAllocSize gep.elem_type.val).any (· = scale)
+      return (resType, ptr, idx, root.properties))
+    (fun (resType, ptr, idx, _) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let ptrCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let ptrCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[ptr] #[regType] ptrCastProps
+      let idxCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let idxCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[idx] #[regType] idxCastProps
+      let addOp ←
+        if scale = 1 then do
+          /- ptr + idx -/
+          let addProps ← CreateProg.property (.riscv .add) ()
+          CreateProg.operation (.riscv .add)
+              #[ptrCastOp.res[0]!, idxCastOp.res[0]!] #[regType] addProps
+        else if scale = 2 then do
+          /- (idx << 1) + ptr -/
+          let addProps ← CreateProg.property (.riscv .sh1add) ()
+          CreateProg.operation (.riscv .sh1add)
+              #[idxCastOp.res[0]!, ptrCastOp.res[0]!] #[regType] addProps
+        else if scale = 4 then do
+          /- (idx << 2) + ptr -/
+          let addProps ← CreateProg.property (.riscv .sh2add) ()
+          CreateProg.operation (.riscv .sh2add)
+              #[idxCastOp.res[0]!, ptrCastOp.res[0]!] #[regType] addProps
+        else do
+          /- (idx << 3) + ptr -/
+          let addProps ← CreateProg.property (.riscv .sh3add) ()
+          CreateProg.operation (.riscv .sh3add)
+              #[idxCastOp.res[0]!, ptrCastOp.res[0]!] #[regType] addProps
+      /- Cast the resulting register back to `!llvm.ptr`. -/
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[addOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
+
+/--
+  `getelementptr` whose `scale` is any other power of two: `ptr + (idx << log2 scale)`.
+
+  `0 < scale` excludes zero-sized element types (`i0`, `!llvm.array<0 x _>`), for which
+  `scale &&& (scale - 1) = 0` also holds but `Nat.log2 0 = 0` would emit `idx << 0`, i.e.
+  `ptr + idx` rather than `ptr`. `Nat.log2 scale < 64` excludes element sizes of `2^64` and
+  beyond, whose shift amount does not fit the 6-bit immediate. Both fall through to the
+  `li`/`mul` form of `getelementptrMul_pattern`, which truncates modulo `2^64` exactly as the
+  source does.
+-/
+def getelementptrShift_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let ptrType ← MatchProg.type (Attr := TypeAttr)
+      /- The index must be `i64`. -/
+      let idxType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
+      let resType ← MatchProg.type (Attr := TypeAttr)
+      let ptr ← MatchProg.value ptrType
+      let idx ← MatchProg.value idxType
+      /- Bail unless it's a single dynamic index with no trailing constant indices. -/
+      let root ← MatchProg.root (.llvm .getelementptr) #[ptr, idx] #[resType]
+          (fun props => props.rawConstantIndices.values = #[(-2147483648 : Int)])
+      MatchProg.matchNative root.properties fun gep =>
+        (DataLayout.riscv64.getTypeAllocSize gep.elem_type.val).any fun scale =>
+          scale ∉ [1, 2, 4, 8] ∧ 0 < scale ∧ scale &&& (scale - 1) = 0 ∧ Nat.log2 scale < 64
+      return (resType, ptr, idx, root.properties))
+    (fun (resType, ptr, idx, gepProps) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let ptrCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let ptrCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[ptr] #[regType] ptrCastProps
+      let idxCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let idxCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[idx] #[regType] idxCastProps
+      let slliProps ← CreateProg.applyNative
+          (Outputs := Handle OpCode (.prop (.riscv .slli))) gepProps
+          fun gep => (DataLayout.riscv64.getTypeAllocSize gep.elem_type.val).map fun scale =>
+            RISCVImmediateProperties.mk (BitVec.ofInt 64 (Nat.log2 scale))
+      let slliOp ← CreateProg.operation (.riscv .slli)
+          #[idxCastOp.res[0]!] #[regType] slliProps
+      let addProps ← CreateProg.property (.riscv .add) ()
+      let addOp ← CreateProg.operation (.riscv .add)
+          #[ptrCastOp.res[0]!, slliOp.res[0]!] #[regType] addProps
+      /- Cast the resulting register back to `!llvm.ptr`. -/
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[addOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
+
+/--
+  `getelementptr` with an arbitrary `scale` (see `getelementptrShift_pattern`):
+  `ptr + idx * scale`.
+-/
+def getelementptrMul_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let ptrType ← MatchProg.type (Attr := TypeAttr)
+      /- The index must be `i64`. -/
+      let idxType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
+      let resType ← MatchProg.type (Attr := TypeAttr)
+      let ptr ← MatchProg.value ptrType
+      let idx ← MatchProg.value idxType
+      /- Bail unless it's a single dynamic index with no trailing constant indices. -/
+      let root ← MatchProg.root (.llvm .getelementptr) #[ptr, idx] #[resType]
+          (fun props => props.rawConstantIndices.values = #[(-2147483648 : Int)])
+      MatchProg.matchNative root.properties fun gep =>
+        (DataLayout.riscv64.getTypeAllocSize gep.elem_type.val).any fun scale =>
+          scale ∉ [1, 2, 4, 8] ∧ ¬ (0 < scale ∧ scale &&& (scale - 1) = 0 ∧ Nat.log2 scale < 64)
+      return (resType, ptr, idx, root.properties))
+    (fun (resType, ptr, idx, gepProps) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let ptrCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let ptrCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[ptr] #[regType] ptrCastProps
+      let idxCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let idxCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[idx] #[regType] idxCastProps
+      let liProps ← CreateProg.applyNative
+          (Outputs := Handle OpCode (.prop (.riscv .li))) gepProps
+          fun gep => (DataLayout.riscv64.getTypeAllocSize gep.elem_type.val).map fun scale =>
+            RISCVImmediateProperties.mk (BitVec.ofInt 64 scale)
+      let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
+      let mulProps ← CreateProg.property (.riscv .mul) ()
+      let mulOp ← CreateProg.operation (.riscv .mul)
+          #[idxCastOp.res[0]!, liOp.res[0]!] #[regType] mulProps
+      let addProps ← CreateProg.property (.riscv .add) ()
+      let addOp ← CreateProg.operation (.riscv .add)
+          #[ptrCastOp.res[0]!, mulOp.res[0]!] #[regType] addProps
+      /- Cast the resulting register back to `!llvm.ptr`. -/
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[addOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
 /--
   Lower a single-dynamic-index `llvm.getelementptr` computing `ptr + idx * scale`,
   where `scale` is the allocation size (ABI stride) of the element type.
 -/
-def getelementptr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (ptr, idx, properties) := matchGetelementptr op ctx.raw | return (ctx, none)
-  /- Bail unless it's a single dynamic index with no trailing constant indices. -/
-  if properties.rawConstantIndices.values ≠ #[(-2147483648 : Int)] then return (ctx, none)
-  /- The index must be `i64`. -/
-  let .integerType itype := (idx.getType! ctx.raw).val | return (ctx, none)
-  if itype.bitwidth ≠ 64 then return (ctx, none)
-  let some scale := DataLayout.riscv64.getTypeAllocSize properties.elem_type.val
-    | return (ctx, none)
-  let type := ((op.getResult 0).get! ctx.raw).type
-  let (ctx, pcastOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[RegisterType.mk] #[ptr]
-      #[] #[] () none
-  let (ctx, icastOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[RegisterType.mk] #[idx]
-      #[] #[] () none
-  let pReg := pcastOp.getResult 0
-  let iReg := icastOp.getResult 0
-  let (ctx, gepOps, retOp) ← match scale with
-    | 1 =>
-      /- ptr + idx -/
-      let (ctx, addOp) ← WfRewriter.createOp! ctx Riscv.add #[RegisterType.mk] #[pReg, iReg]
-        #[] #[] () none
-      pure (ctx, #[addOp], addOp)
-    | 2 =>
-      /- (idx << 1) + ptr -/
-      let (ctx, addOp) ← WfRewriter.createOp! ctx Riscv.sh1add #[RegisterType.mk] #[iReg, pReg]
-        #[] #[] () none
-      pure (ctx, #[addOp], addOp)
-    | 4 =>
-      /- (idx << 2) + ptr -/
-      let (ctx, addOp) ← WfRewriter.createOp! ctx Riscv.sh2add #[RegisterType.mk] #[iReg, pReg]
-        #[] #[] () none
-      pure (ctx, #[addOp], addOp)
-    | 8 =>
-      /- (idx << 3) + ptr -/
-      let (ctx, addOp) ← WfRewriter.createOp! ctx Riscv.sh3add #[RegisterType.mk] #[iReg, pReg]
-        #[] #[] () none
-      pure (ctx, #[addOp], addOp)
-    | _ =>
-      /- `0 < scale` excludes zero-sized element types (`i0`, `!llvm.array<0 x _>`), for which
-         `scale &&& (scale - 1) == 0` also holds but `Nat.log2 0 = 0` would emit `idx << 0`, i.e.
-         `ptr + idx` rather than `ptr`. `Nat.log2 scale < 64` excludes element sizes of `2^64` and
-         beyond, whose shift amount does not fit the 6-bit immediate. Both fall through to the
-         `li`/`mul` form below, which truncates modulo `2^64` exactly as the source does. -/
-      if 0 < scale ∧ scale &&& (scale - 1) = 0 ∧ Nat.log2 scale < 64 then
-        /- scale is a power of two: ptr + (idx << log2 scale) -/
-        let k := RISCVImmediateProperties.mk (BitVec.ofInt 64 (Nat.log2 scale))
-        let (ctx, slliOp) ← WfRewriter.createOp! ctx Riscv.slli #[RegisterType.mk] #[iReg]
-          #[] #[] k none
-        let (ctx, addOp) ← WfRewriter.createOp! ctx Riscv.add #[RegisterType.mk] #[pReg, slliOp.getResult 0]
-          #[] #[] () none
-        pure (ctx, #[slliOp, addOp], addOp)
-      else
-        /- arbitrary scale: ptr + idx * scale -/
-        let s := RISCVImmediateProperties.mk (BitVec.ofInt 64 scale)
-        let (ctx, liOp) ← WfRewriter.createOp! ctx Riscv.li #[RegisterType.mk] #[]
-          #[] #[] s none
-        let (ctx, mulOp) ← WfRewriter.createOp! ctx Riscv.mul #[RegisterType.mk] #[iReg, liOp.getResult 0]
-          #[] #[] () none
-        let (ctx, addOp) ← WfRewriter.createOp! ctx Riscv.add #[RegisterType.mk] #[pReg, mulOp.getResult 0]
-          #[] #[] () none
-        pure (ctx, #[liOp, mulOp, addOp], addOp)
-  /- Cast the resulting register back to `!llvm.ptr`. -/
-  let (ctx, castOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[type] #[retOp.getResult 0]
-      #[] #[] () none
-  some (ctx, some (#[pcastOp, icastOp] ++ gepOps ++ #[castOp], #[castOp.getResult 0]))
-
-/--
-  Lower a single-dynamic-index `llvm.getelementptr` computing `ptr + idx * scale`,
-  where `scale` is the allocation size (ABI stride) of the element type.
--/
-def getelementptr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite getelementptr_local rewriter op opInBounds
+def getelementptr : Array (Puddle.CompiledPattern OpCode) :=
+  #[lowerGetelementptr 1, lowerGetelementptr 2, lowerGetelementptr 4, lowerGetelementptr 8,
+    getelementptrShift_pattern, getelementptrMul_pattern].map (·.compile)
 
 /-! ## Zicond branchless `select` lowering
 
@@ -1132,78 +1376,131 @@ def getelementptr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /--
   `select c t 0` -> `riscv.czeroeqz t c`.
 -/
-def selectCzeroeqz_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (cond, tval, fval) := matchSelect op ctx.raw | return (ctx, none)
-  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
-  let some _ := matchConstantZero fval ctx.raw | return (ctx, none)
-  let (ctx, tCastOp) ← castToRegLocal ctx tval
-  let (ctx, condCastOp) ← castToRegLocal ctx cond
-  let (ctx, czOp) ← WfRewriter.createOp! ctx Riscv.czeroeqz #[RegisterType.mk] #[tCastOp.getResult 0, condCastOp.getResult 0]
-      #[] #[] () none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (czOp.getResult 0)
-  some (ctx, some (#[tCastOp, condCastOp, czOp, castBackOp], #[castBackOp.getResult 0]))
+def selectCzeroeqz_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let condType ← MatchProg.type (Attr := TypeAttr)
+      let valType ← MatchProg.type (Attr := TypeAttr)
+      let zeroType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := IntegerType)
+          (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32)
+      let cond ← MatchProg.value condType
+      let val ← MatchProg.value valType
+      let zeroOp ← MatchProg.operation (.llvm .mlir__constant) #[] #[zeroType]
+      MatchProg.matchNative (zeroType, zeroOp.properties)
+          fun (type, props) => isConstantZero type props
+      let _ ← MatchProg.root (.llvm .select) #[cond, val, zeroOp.res[0]!] #[resType]
+      return (resType, cond, val))
+    (fun (resType, cond, val) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let valCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[val] #[regType] valCastProps
+      let condCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let condCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[cond] #[regType] condCastProps
+      let czProps ← CreateProg.property (.riscv .czeroeqz) ()
+      let czOp ← CreateProg.operation (.riscv .czeroeqz)
+          #[valCastOp.res[0]!, condCastOp.res[0]!] #[regType] czProps
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[czOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
 /--
   `select c t 0` -> `riscv.czeroeqz t c`.
 -/
-def selectCzeroeqz (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite selectCzeroeqz_local rewriter op opInBounds
+def selectCzeroeqz : Puddle.CompiledPattern OpCode := selectCzeroeqz_pattern.compile
 
 /--
   `select c 0 f` -> `riscv.czeronez f c`.
 -/
-def selectCzeronez_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (cond, tval, fval) := matchSelect op ctx.raw | return (ctx, none)
-  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
-  let some _ := matchConstantZero tval ctx.raw | return (ctx, none)
-  let (ctx, fCastOp) ← castToRegLocal ctx fval
-  let (ctx, condCastOp) ← castToRegLocal ctx cond
-  let (ctx, czOp) ← WfRewriter.createOp! ctx Riscv.czeronez #[RegisterType.mk] #[fCastOp.getResult 0, condCastOp.getResult 0]
-      #[] #[] () none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (czOp.getResult 0)
-  some (ctx, some (#[fCastOp, condCastOp, czOp, castBackOp], #[castBackOp.getResult 0]))
+def selectCzeronez_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let condType ← MatchProg.type (Attr := TypeAttr)
+      let valType ← MatchProg.type (Attr := TypeAttr)
+      let zeroType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := IntegerType)
+          (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32)
+      let cond ← MatchProg.value condType
+      let val ← MatchProg.value valType
+      let zeroOp ← MatchProg.operation (.llvm .mlir__constant) #[] #[zeroType]
+      MatchProg.matchNative (zeroType, zeroOp.properties)
+          fun (type, props) => isConstantZero type props
+      let _ ← MatchProg.root (.llvm .select) #[cond, zeroOp.res[0]!, val] #[resType]
+      return (resType, cond, val))
+    (fun (resType, cond, val) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let valCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[val] #[regType] valCastProps
+      let condCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let condCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[cond] #[regType] condCastProps
+      let czProps ← CreateProg.property (.riscv .czeronez) ()
+      let czOp ← CreateProg.operation (.riscv .czeronez)
+          #[valCastOp.res[0]!, condCastOp.res[0]!] #[regType] czProps
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[czOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
 /--
   `select c 0 f` -> `riscv.czeronez f c`.
 -/
-def selectCzeronez (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite selectCzeronez_local rewriter op opInBounds
+def selectCzeronez : Puddle.CompiledPattern OpCode := selectCzeronez_pattern.compile
 
 /--
   General branchless select:
   `select c t f` -> `or (czero.eqz t c) (czero.nez f c)`.
 -/
-def selectGeneral_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (cond, tval, fval) := matchSelect op ctx.raw | return (ctx, none)
-  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 ∧ t.bitwidth ≠ 1 then return (ctx, none)
-  let (ctx, tCastOp) ← castToRegLocal ctx tval
-  let (ctx, fCastOp) ← castToRegLocal ctx fval
-  let (ctx, condCastOp) ← castToRegLocal ctx cond
-  let (ctx, eqzOp) ← WfRewriter.createOp! ctx Riscv.czeroeqz #[RegisterType.mk] #[tCastOp.getResult 0, condCastOp.getResult 0]
-      #[] #[] () none
-  let (ctx, nezOp) ← WfRewriter.createOp! ctx Riscv.czeronez #[RegisterType.mk] #[fCastOp.getResult 0, condCastOp.getResult 0]
-      #[] #[] () none
-  let (ctx, orOp) ← WfRewriter.createOp! ctx Riscv.or #[RegisterType.mk]
-      #[eqzOp.getResult 0, nezOp.getResult 0]
-      #[] #[] () none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (orOp.getResult 0)
-  some (ctx, some (#[tCastOp, fCastOp, condCastOp, eqzOp, nezOp, orOp, castBackOp], #[castBackOp.getResult 0]))
+def selectGeneral_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let condType ← MatchProg.type (Attr := TypeAttr)
+      let tType ← MatchProg.type (Attr := TypeAttr)
+      let fType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := IntegerType)
+          (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32 ∨ t.bitwidth = 1)
+      let cond ← MatchProg.value condType
+      let tval ← MatchProg.value tType
+      let fval ← MatchProg.value fType
+      let _ ← MatchProg.root (.llvm .select) #[cond, tval, fval] #[resType]
+      return (resType, cond, tval, fval))
+    (fun (resType, cond, tval, fval) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let tCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let tCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[tval] #[regType] tCastProps
+      let fCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let fCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[fval] #[regType] fCastProps
+      let condCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let condCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[cond] #[regType] condCastProps
+      let eqzProps ← CreateProg.property (.riscv .czeroeqz) ()
+      let eqzOp ← CreateProg.operation (.riscv .czeroeqz)
+          #[tCastOp.res[0]!, condCastOp.res[0]!] #[regType] eqzProps
+      let nezProps ← CreateProg.property (.riscv .czeronez) ()
+      let nezOp ← CreateProg.operation (.riscv .czeronez)
+          #[fCastOp.res[0]!, condCastOp.res[0]!] #[regType] nezProps
+      let orProps ← CreateProg.property (.riscv .or) ()
+      let orOp ← CreateProg.operation (.riscv .or)
+          #[eqzOp.res[0]!, nezOp.res[0]!] #[regType] orProps
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[orOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
 /--
   General branchless select:
   `select c t f` -> `or (czero.eqz t c) (czero.nez f c)`.
 -/
-def selectGeneral (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite selectGeneral_local rewriter op opInBounds
+def selectGeneral : Puddle.CompiledPattern OpCode := selectGeneral_pattern.compile
 
 /-! ## Zbb min/max and rotate intrinsics
 
@@ -1258,299 +1555,427 @@ def fshl32 : Puddle.CompiledPattern OpCode := fshl32_pattern.compile
   (LLVM commit d9906882fc61).
 -/
 
-def signedSatSelectLocal (ctx : WfIRContext OpCode) (op : OperationPtr)
-    (wrapped overflow sat : ValuePtr) :
-    Option (WfIRContext OpCode × Array OperationPtr × Array ValuePtr) := do
-  let (ctx, wrappedOrZero) ← WfRewriter.createOp! ctx Riscv.czeronez #[RegisterType.mk]
-      #[wrapped, overflow] #[] #[] () none
-  let (ctx, satOrZero) ← WfRewriter.createOp! ctx Riscv.czeroeqz #[RegisterType.mk]
-      #[sat, overflow] #[] #[] () none
-  let (ctx, selectOp) ← WfRewriter.createOp! ctx Riscv.or #[RegisterType.mk]
-      #[satOrZero.getResult 0, wrappedOrZero.getResult 0] #[] #[] () none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (selectOp.getResult 0)
-  return (ctx, #[wrappedOrZero, satOrZero, selectOp, castBackOp], #[castBackOp.getResult 0])
+/-- The Zicond select `or (czero.eqz sat overflow) (czero.nez wrapped overflow)` of the signed
+    saturating lowerings, returning the `or`. -/
+def signedSatSelect (regType : Handle OpCode .type)
+    (wrapped overflow sat : Handle OpCode .value) :
+    CreateProg.Builder CreatedOpHandle := do
+  let wrappedOrZeroProps ← CreateProg.property (.riscv .czeronez) ()
+  let wrappedOrZeroOp ← CreateProg.operation (.riscv .czeronez)
+      #[wrapped, overflow] #[regType] wrappedOrZeroProps
+  let satOrZeroProps ← CreateProg.property (.riscv .czeroeqz) ()
+  let satOrZeroOp ← CreateProg.operation (.riscv .czeroeqz)
+      #[sat, overflow] #[regType] satOrZeroProps
+  let selectProps ← CreateProg.property (.riscv .or) ()
+  CreateProg.operation (.riscv .or)
+      #[satOrZeroOp.res[0]!, wrappedOrZeroOp.res[0]!] #[regType] selectProps
 
 /-- llvm.intr.sadd.sat.i64 -> LLVM's RV64+Zicond signed saturating-add sequence.
     Wrapped `add` + SADDO overflow `(rhs >>u 63) ^ (sum <s lhs)`
     (TargetLowering.cpp:12432 `expandAddSubSat`, overflow at 13072
     `expandSADDSUBO` add branch; sat endpoint `(sum >>s 63) ^ INT_MIN` at 12554). -/
-def saddSat_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs) := matchSaddSat op ctx.raw | return (ctx, none)
-  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 then return (ctx, none)
-  let (ctx, lCastOp) ← castToRegLocal ctx lhs
-  let (ctx, rCastOp) ← castToRegLocal ctx rhs
-  let lReg := lCastOp.getResult 0
-  let rReg := rCastOp.getResult 0
-  let (ctx, minusOne) ← createRISCVImmLocal ctx .li rfl #[] (-1)
-  let (ctx, sum) ← createRISCVUnitLocal ctx .add rfl #[lReg, rReg]
-  let (ctx, rhsSign) ← createRISCVImmLocal ctx .srli rfl #[rReg] 63
-  let (ctx, carryLike) ← createRISCVUnitLocal ctx .slt rfl #[sum.getResult 0, lReg]
-  let (ctx, sumSign) ← createRISCVImmLocal ctx .srai rfl #[sum.getResult 0] 63
-  let (ctx, intMin) ← createRISCVImmLocal ctx .slli rfl #[minusOne.getResult 0] 63
-  let (ctx, overflow) ← createRISCVUnitLocal ctx .xor rfl #[rhsSign.getResult 0, carryLike.getResult 0]
-  let (ctx, sat) ← createRISCVUnitLocal ctx .xor rfl #[sumSign.getResult 0, intMin.getResult 0]
-  let (ctx, selectOps, newValues) ←
-    signedSatSelectLocal ctx op (sum.getResult 0) (overflow.getResult 0) (sat.getResult 0)
-  some (ctx, some (#[lCastOp, rCastOp, minusOne, sum, rhsSign, carryLike, sumSign, intMin,
-      overflow, sat] ++ selectOps, newValues))
+def saddSat_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let lhsType ← MatchProg.type (Attr := TypeAttr)
+      let rhsType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
+      let lhs ← MatchProg.value lhsType
+      let rhs ← MatchProg.value rhsType
+      let _ ← MatchProg.root (.llvm .intr__sadd__sat) #[lhs, rhs] #[resType]
+      return (resType, lhs, rhs))
+    (fun (resType, lhs, rhs) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let lCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[lhs] #[regType] lCastProps
+      let rCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let rCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[rhs] #[regType] rCastProps
+      let minusOneProps ← CreateProg.property (.riscv .li) (mkRISCVImm (-1))
+      let minusOneOp ← CreateProg.operation (.riscv .li)
+          #[] #[regType] minusOneProps
+      let sumProps ← CreateProg.property (.riscv .add) ()
+      let sumOp ← CreateProg.operation (.riscv .add)
+          #[lCastOp.res[0]!, rCastOp.res[0]!] #[regType] sumProps
+      let rhsSignProps ← CreateProg.property (.riscv .srli) (mkRISCVImm 63)
+      let rhsSignOp ← CreateProg.operation (.riscv .srli)
+          #[rCastOp.res[0]!] #[regType] rhsSignProps
+      let carryLikeProps ← CreateProg.property (.riscv .slt) ()
+      let carryLikeOp ← CreateProg.operation (.riscv .slt)
+          #[sumOp.res[0]!, lCastOp.res[0]!] #[regType] carryLikeProps
+      let sumSignProps ← CreateProg.property (.riscv .srai) (mkRISCVImm 63)
+      let sumSignOp ← CreateProg.operation (.riscv .srai)
+          #[sumOp.res[0]!] #[regType] sumSignProps
+      let intMinProps ← CreateProg.property (.riscv .slli) (mkRISCVImm 63)
+      let intMinOp ← CreateProg.operation (.riscv .slli)
+          #[minusOneOp.res[0]!] #[regType] intMinProps
+      let overflowProps ← CreateProg.property (.riscv .xor) ()
+      let overflowOp ← CreateProg.operation (.riscv .xor)
+          #[rhsSignOp.res[0]!, carryLikeOp.res[0]!] #[regType] overflowProps
+      let satProps ← CreateProg.property (.riscv .xor) ()
+      let satOp ← CreateProg.operation (.riscv .xor)
+          #[sumSignOp.res[0]!, intMinOp.res[0]!] #[regType] satProps
+      let selectOp ← signedSatSelect regType sumOp.res[0]! overflowOp.res[0]! satOp.res[0]!
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[selectOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
 /-- llvm.intr.sadd.sat.i64 -> LLVM's RV64+Zicond signed saturating-add sequence.
     Wrapped `add` + SADDO overflow `(rhs >>u 63) ^ (sum <s lhs)`
     (TargetLowering.cpp:12432 `expandAddSubSat`, overflow at 13072
     `expandSADDSUBO` add branch; sat endpoint `(sum >>s 63) ^ INT_MIN` at 12554). -/
-def saddSat (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite saddSat_local rewriter op opInBounds
+def saddSat : Puddle.CompiledPattern OpCode := saddSat_pattern.compile
 
 /-- llvm.intr.ssub.sat.i64 -> LLVM's RV64+Zicond signed saturating-sub sequence.
     Wrapped `sub` + SSUBO overflow `(lhs <s rhs) ^ (diff >>u 63)`
     (TargetLowering.cpp:12432 `expandAddSubSat`, overflow at 13082
     `expandSADDSUBO` sub branch; sat endpoint `(diff >>s 63) ^ INT_MIN` at 12554). -/
-def ssubSat_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs) := matchSsubSat op ctx.raw | return (ctx, none)
-  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 then return (ctx, none)
-  let (ctx, lCastOp) ← castToRegLocal ctx lhs
-  let (ctx, rCastOp) ← castToRegLocal ctx rhs
-  let lReg := lCastOp.getResult 0
-  let rReg := rCastOp.getResult 0
-  let (ctx, minusOne) ← createRISCVImmLocal ctx .li rfl #[] (-1)
-  let (ctx, diff) ← createRISCVUnitLocal ctx .sub rfl #[lReg, rReg]
-  let (ctx, cmp) ← createRISCVUnitLocal ctx .slt rfl #[lReg, rReg]
-  let (ctx, diffSignBit) ← createRISCVImmLocal ctx .srli rfl #[diff.getResult 0] 63
-  let (ctx, diffSign) ← createRISCVImmLocal ctx .srai rfl #[diff.getResult 0] 63
-  let (ctx, intMin) ← createRISCVImmLocal ctx .slli rfl #[minusOne.getResult 0] 63
-  let (ctx, overflow) ← createRISCVUnitLocal ctx .xor rfl #[cmp.getResult 0, diffSignBit.getResult 0]
-  let (ctx, sat) ← createRISCVUnitLocal ctx .xor rfl #[diffSign.getResult 0, intMin.getResult 0]
-  let (ctx, selectOps, newValues) ←
-    signedSatSelectLocal ctx op (diff.getResult 0) (overflow.getResult 0) (sat.getResult 0)
-  some (ctx, some (#[lCastOp, rCastOp, minusOne, diff, cmp, diffSignBit, diffSign, intMin,
-      overflow, sat] ++ selectOps, newValues))
+def ssubSat_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let lhsType ← MatchProg.type (Attr := TypeAttr)
+      let rhsType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
+      let lhs ← MatchProg.value lhsType
+      let rhs ← MatchProg.value rhsType
+      let _ ← MatchProg.root (.llvm .intr__ssub__sat) #[lhs, rhs] #[resType]
+      return (resType, lhs, rhs))
+    (fun (resType, lhs, rhs) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let lCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[lhs] #[regType] lCastProps
+      let rCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let rCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[rhs] #[regType] rCastProps
+      let minusOneProps ← CreateProg.property (.riscv .li) (mkRISCVImm (-1))
+      let minusOneOp ← CreateProg.operation (.riscv .li)
+          #[] #[regType] minusOneProps
+      let diffProps ← CreateProg.property (.riscv .sub) ()
+      let diffOp ← CreateProg.operation (.riscv .sub)
+          #[lCastOp.res[0]!, rCastOp.res[0]!] #[regType] diffProps
+      let cmpProps ← CreateProg.property (.riscv .slt) ()
+      let cmpOp ← CreateProg.operation (.riscv .slt)
+          #[lCastOp.res[0]!, rCastOp.res[0]!] #[regType] cmpProps
+      let diffSignBitProps ← CreateProg.property (.riscv .srli) (mkRISCVImm 63)
+      let diffSignBitOp ← CreateProg.operation (.riscv .srli)
+          #[diffOp.res[0]!] #[regType] diffSignBitProps
+      let diffSignProps ← CreateProg.property (.riscv .srai) (mkRISCVImm 63)
+      let diffSignOp ← CreateProg.operation (.riscv .srai)
+          #[diffOp.res[0]!] #[regType] diffSignProps
+      let intMinProps ← CreateProg.property (.riscv .slli) (mkRISCVImm 63)
+      let intMinOp ← CreateProg.operation (.riscv .slli)
+          #[minusOneOp.res[0]!] #[regType] intMinProps
+      let overflowProps ← CreateProg.property (.riscv .xor) ()
+      let overflowOp ← CreateProg.operation (.riscv .xor)
+          #[cmpOp.res[0]!, diffSignBitOp.res[0]!] #[regType] overflowProps
+      let satProps ← CreateProg.property (.riscv .xor) ()
+      let satOp ← CreateProg.operation (.riscv .xor)
+          #[diffSignOp.res[0]!, intMinOp.res[0]!] #[regType] satProps
+      let selectOp ← signedSatSelect regType diffOp.res[0]! overflowOp.res[0]! satOp.res[0]!
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[selectOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
 /-- llvm.intr.ssub.sat.i64 -> LLVM's RV64+Zicond signed saturating-sub sequence.
     Wrapped `sub` + SSUBO overflow `(lhs <s rhs) ^ (diff >>u 63)`
     (TargetLowering.cpp:12432 `expandAddSubSat`, overflow at 13082
     `expandSADDSUBO` sub branch; sat endpoint `(diff >>s 63) ^ INT_MIN` at 12554). -/
-def ssubSat (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite ssubSat_local rewriter op opInBounds
+def ssubSat : Puddle.CompiledPattern OpCode := ssubSat_pattern.compile
 
 /-- llvm.intr.uadd.sat.i64 -> not rhs; minu lhs, not-rhs; add rhs.
     `uadd.sat(a,b) -> umin(a, ~b) + b` (TargetLowering.cpp:12462
     `expandAddSubSat`, UADDSAT/UMIN idiom). -/
-def uaddSat_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs) := matchUaddSat op ctx.raw | return (ctx, none)
-  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 then return (ctx, none)
-  let (ctx, lCastOp) ← castToRegLocal ctx lhs
-  let (ctx, rCastOp) ← castToRegLocal ctx rhs
-  let lReg := lCastOp.getResult 0
-  let rReg := rCastOp.getResult 0
-  let (ctx, notRhs) ← createRISCVImmLocal ctx .xori rfl #[rReg] (-1)
-  let (ctx, minuOp) ← createRISCVUnitLocal ctx .minu rfl #[lReg, notRhs.getResult 0]
-  let (ctx, addOp) ← createRISCVUnitLocal ctx .add rfl #[minuOp.getResult 0, rReg]
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (addOp.getResult 0)
-  some (ctx, some (#[lCastOp, rCastOp, notRhs, minuOp, addOp, castBackOp],
-      #[castBackOp.getResult 0]))
+def uaddSat_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let lhsType ← MatchProg.type (Attr := TypeAttr)
+      let rhsType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
+      let lhs ← MatchProg.value lhsType
+      let rhs ← MatchProg.value rhsType
+      let _ ← MatchProg.root (.llvm .intr__uadd__sat) #[lhs, rhs] #[resType]
+      return (resType, lhs, rhs))
+    (fun (resType, lhs, rhs) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let lCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[lhs] #[regType] lCastProps
+      let rCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let rCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[rhs] #[regType] rCastProps
+      let notRhsProps ← CreateProg.property (.riscv .xori) (mkRISCVImm (-1))
+      let notRhsOp ← CreateProg.operation (.riscv .xori)
+          #[rCastOp.res[0]!] #[regType] notRhsProps
+      let minuProps ← CreateProg.property (.riscv .minu) ()
+      let minuOp ← CreateProg.operation (.riscv .minu)
+          #[lCastOp.res[0]!, notRhsOp.res[0]!] #[regType] minuProps
+      let addProps ← CreateProg.property (.riscv .add) ()
+      let addOp ← CreateProg.operation (.riscv .add)
+          #[minuOp.res[0]!, rCastOp.res[0]!] #[regType] addProps
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[addOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
 /-- llvm.intr.uadd.sat.i64 -> not rhs; minu lhs, not-rhs; add rhs.
     `uadd.sat(a,b) -> umin(a, ~b) + b` (TargetLowering.cpp:12462
     `expandAddSubSat`, UADDSAT/UMIN idiom). -/
-def uaddSat (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite uaddSat_local rewriter op opInBounds
+def uaddSat : Puddle.CompiledPattern OpCode := uaddSat_pattern.compile
 
 /-- llvm.intr.usub.sat.i64 -> maxu lhs, rhs; sub rhs.
     `usub.sat(a,b) -> umax(a, b) - b` (TargetLowering.cpp:12442
     `expandAddSubSat`, USUBSAT/UMAX idiom). -/
-def usubSat_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs) := matchUsubSat op ctx.raw | return (ctx, none)
-  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 then return (ctx, none)
-  let (ctx, lCastOp) ← castToRegLocal ctx lhs
-  let (ctx, rCastOp) ← castToRegLocal ctx rhs
-  let lReg := lCastOp.getResult 0
-  let rReg := rCastOp.getResult 0
-  let (ctx, maxuOp) ← createRISCVUnitLocal ctx .maxu rfl #[lReg, rReg]
-  let (ctx, subOp) ← createRISCVUnitLocal ctx .sub rfl #[maxuOp.getResult 0, rReg]
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (subOp.getResult 0)
-  some (ctx, some (#[lCastOp, rCastOp, maxuOp, subOp, castBackOp], #[castBackOp.getResult 0]))
+def usubSat_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let lhsType ← MatchProg.type (Attr := TypeAttr)
+      let rhsType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
+      let lhs ← MatchProg.value lhsType
+      let rhs ← MatchProg.value rhsType
+      let _ ← MatchProg.root (.llvm .intr__usub__sat) #[lhs, rhs] #[resType]
+      return (resType, lhs, rhs))
+    (fun (resType, lhs, rhs) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let lCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[lhs] #[regType] lCastProps
+      let rCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let rCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[rhs] #[regType] rCastProps
+      let maxuProps ← CreateProg.property (.riscv .maxu) ()
+      let maxuOp ← CreateProg.operation (.riscv .maxu)
+          #[lCastOp.res[0]!, rCastOp.res[0]!] #[regType] maxuProps
+      let subProps ← CreateProg.property (.riscv .sub) ()
+      let subOp ← CreateProg.operation (.riscv .sub)
+          #[maxuOp.res[0]!, rCastOp.res[0]!] #[regType] subProps
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[subOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
 /-- llvm.intr.usub.sat.i64 -> maxu lhs, rhs; sub rhs.
     `usub.sat(a,b) -> umax(a, b) - b` (TargetLowering.cpp:12442
     `expandAddSubSat`, USUBSAT/UMAX idiom). -/
-def usubSat (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite usubSat_local rewriter op opInBounds
+def usubSat : Puddle.CompiledPattern OpCode := usubSat_pattern.compile
 
 /-- llvm.intr.sshl.sat.i64 -> LLVM's RV64+Zicond signed saturating-shl sequence.
     `overflow = lhs != (lhs << rhs) >>s rhs`, saturate to
     `select(lhs<0, INT_MIN, INT_MAX)` folded to `(lhs >>s 63) ^ INT_MAX`
     (TargetLowering.cpp:12598 `expandShlSat`, signed branch at 12626-12632). -/
-def sshlSat_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs) := matchSshlSat op ctx.raw | return (ctx, none)
-  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 then return (ctx, none)
-  let (ctx, lCastOp) ← castToRegLocal ctx lhs
-  let (ctx, rCastOp) ← castToRegLocal ctx rhs
-  let lReg := lCastOp.getResult 0
-  let rReg := rCastOp.getResult 0
-  let (ctx, shifted) ← createRISCVUnitLocal ctx .sll rfl #[lReg, rReg]
-  let (ctx, minusOne) ← createRISCVImmLocal ctx .li rfl #[] (-1)
-  let (ctx, unshifted) ← createRISCVUnitLocal ctx .sra rfl #[shifted.getResult 0, rReg]
-  let (ctx, sign) ← createRISCVImmLocal ctx .srai rfl #[lReg] 63
-  let (ctx, intMax) ← createRISCVImmLocal ctx .srli rfl #[minusOne.getResult 0] 1
-  let (ctx, overflow) ← createRISCVUnitLocal ctx .xor rfl #[lReg, unshifted.getResult 0]
-  let (ctx, sat) ← createRISCVUnitLocal ctx .xor rfl #[sign.getResult 0, intMax.getResult 0]
-  let (ctx, selectOps, newValues) ←
-    signedSatSelectLocal ctx op (shifted.getResult 0) (overflow.getResult 0) (sat.getResult 0)
-  some (ctx, some (#[lCastOp, rCastOp, shifted, minusOne, unshifted, sign, intMax,
-      overflow, sat] ++ selectOps, newValues))
+def sshlSat_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let lhsType ← MatchProg.type (Attr := TypeAttr)
+      let rhsType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
+      let lhs ← MatchProg.value lhsType
+      let rhs ← MatchProg.value rhsType
+      let _ ← MatchProg.root (.llvm .intr__sshl__sat) #[lhs, rhs] #[resType]
+      return (resType, lhs, rhs))
+    (fun (resType, lhs, rhs) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let lCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[lhs] #[regType] lCastProps
+      let rCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let rCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[rhs] #[regType] rCastProps
+      let shiftedProps ← CreateProg.property (.riscv .sll) ()
+      let shiftedOp ← CreateProg.operation (.riscv .sll)
+          #[lCastOp.res[0]!, rCastOp.res[0]!] #[regType] shiftedProps
+      let minusOneProps ← CreateProg.property (.riscv .li) (mkRISCVImm (-1))
+      let minusOneOp ← CreateProg.operation (.riscv .li)
+          #[] #[regType] minusOneProps
+      let unshiftedProps ← CreateProg.property (.riscv .sra) ()
+      let unshiftedOp ← CreateProg.operation (.riscv .sra)
+          #[shiftedOp.res[0]!, rCastOp.res[0]!] #[regType] unshiftedProps
+      let signProps ← CreateProg.property (.riscv .srai) (mkRISCVImm 63)
+      let signOp ← CreateProg.operation (.riscv .srai)
+          #[lCastOp.res[0]!] #[regType] signProps
+      let intMaxProps ← CreateProg.property (.riscv .srli) (mkRISCVImm 1)
+      let intMaxOp ← CreateProg.operation (.riscv .srli)
+          #[minusOneOp.res[0]!] #[regType] intMaxProps
+      let overflowProps ← CreateProg.property (.riscv .xor) ()
+      let overflowOp ← CreateProg.operation (.riscv .xor)
+          #[lCastOp.res[0]!, unshiftedOp.res[0]!] #[regType] overflowProps
+      let satProps ← CreateProg.property (.riscv .xor) ()
+      let satOp ← CreateProg.operation (.riscv .xor)
+          #[signOp.res[0]!, intMaxOp.res[0]!] #[regType] satProps
+      let selectOp ← signedSatSelect regType shiftedOp.res[0]! overflowOp.res[0]! satOp.res[0]!
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[selectOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
 /-- llvm.intr.sshl.sat.i64 -> LLVM's RV64+Zicond signed saturating-shl sequence.
     `overflow = lhs != (lhs << rhs) >>s rhs`, saturate to
     `select(lhs<0, INT_MIN, INT_MAX)` folded to `(lhs >>s 63) ^ INT_MAX`
     (TargetLowering.cpp:12598 `expandShlSat`, signed branch at 12626-12632). -/
-def sshlSat (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite sshlSat_local rewriter op opInBounds
+def sshlSat : Puddle.CompiledPattern OpCode := sshlSat_pattern.compile
 
 /-- llvm.intr.ushl.sat.i64 -> LLVM's RV64 unsigned saturating-shl sequence.
     `overflow = lhs != (lhs << rhs) >>u rhs`, saturate to all-ones;
     the `select(overflow, ~0, shifted)` becomes the `sltiu`/`addi`/`or`
     mask idiom (TargetLowering.cpp:12598 `expandShlSat`, unsigned branch
     at 12630-12633). -/
-def ushlSat_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs) := matchUshlSat op ctx.raw | return (ctx, none)
-  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 then return (ctx, none)
-  let (ctx, lCastOp) ← castToRegLocal ctx lhs
-  let (ctx, rCastOp) ← castToRegLocal ctx rhs
-  let lReg := lCastOp.getResult 0
-  let rReg := rCastOp.getResult 0
-  let (ctx, shifted) ← createRISCVUnitLocal ctx .sll rfl #[lReg, rReg]
-  let (ctx, unshifted) ← createRISCVUnitLocal ctx .srl rfl #[shifted.getResult 0, rReg]
-  let (ctx, lostBits) ← createRISCVUnitLocal ctx .xor rfl #[lReg, unshifted.getResult 0]
-  let (ctx, noOverflow) ← createRISCVImmLocal ctx .sltiu rfl #[lostBits.getResult 0] 1
-  let (ctx, overflowMask) ← createRISCVImmLocal ctx .addi rfl #[noOverflow.getResult 0] (-1)
-  let (ctx, orOp) ← createRISCVUnitLocal ctx .or rfl #[overflowMask.getResult 0, shifted.getResult 0]
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (orOp.getResult 0)
-  some (ctx, some (#[lCastOp, rCastOp, shifted, unshifted, lostBits, noOverflow, overflowMask,
-      orOp, castBackOp], #[castBackOp.getResult 0]))
+def ushlSat_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let lhsType ← MatchProg.type (Attr := TypeAttr)
+      let rhsType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
+      let lhs ← MatchProg.value lhsType
+      let rhs ← MatchProg.value rhsType
+      let _ ← MatchProg.root (.llvm .intr__ushl__sat) #[lhs, rhs] #[resType]
+      return (resType, lhs, rhs))
+    (fun (resType, lhs, rhs) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let lCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[lhs] #[regType] lCastProps
+      let rCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let rCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[rhs] #[regType] rCastProps
+      let shiftedProps ← CreateProg.property (.riscv .sll) ()
+      let shiftedOp ← CreateProg.operation (.riscv .sll)
+          #[lCastOp.res[0]!, rCastOp.res[0]!] #[regType] shiftedProps
+      let unshiftedProps ← CreateProg.property (.riscv .srl) ()
+      let unshiftedOp ← CreateProg.operation (.riscv .srl)
+          #[shiftedOp.res[0]!, rCastOp.res[0]!] #[regType] unshiftedProps
+      let lostBitsProps ← CreateProg.property (.riscv .xor) ()
+      let lostBitsOp ← CreateProg.operation (.riscv .xor)
+          #[lCastOp.res[0]!, unshiftedOp.res[0]!] #[regType] lostBitsProps
+      let noOverflowProps ← CreateProg.property (.riscv .sltiu) (mkRISCVImm 1)
+      let noOverflowOp ← CreateProg.operation (.riscv .sltiu)
+          #[lostBitsOp.res[0]!] #[regType] noOverflowProps
+      let overflowMaskProps ← CreateProg.property (.riscv .addi) (mkRISCVImm (-1))
+      let overflowMaskOp ← CreateProg.operation (.riscv .addi)
+          #[noOverflowOp.res[0]!] #[regType] overflowMaskProps
+      let orProps ← CreateProg.property (.riscv .or) ()
+      let orOp ← CreateProg.operation (.riscv .or)
+          #[overflowMaskOp.res[0]!, shiftedOp.res[0]!] #[regType] orProps
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[orOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
 /-- llvm.intr.ushl.sat.i64 -> LLVM's RV64 unsigned saturating-shl sequence.
     `overflow = lhs != (lhs << rhs) >>u rhs`, saturate to all-ones;
     the `select(overflow, ~0, shifted)` becomes the `sltiu`/`addi`/`or`
     mask idiom (TargetLowering.cpp:12598 `expandShlSat`, unsigned branch
     at 12630-12633). -/
-def ushlSat (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite ushlSat_local rewriter op opInBounds
+def ushlSat : Puddle.CompiledPattern OpCode := ushlSat_pattern.compile
 
 /-- llvm.intr.abs.i64 -> `max(x, -x)` via Zbb `neg`/`max`.
     LLVM's RV64+Zbb lowering (`neg a1, a0; max a0, a0, a1`). The `neg` wraps
     `intMin` back to `intMin`, so this is correct for both the
     `is_int_min_poison` and non-poison forms of the intrinsic. -/
-def abs_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some val := matchAbs op ctx.raw | return (ctx, none)
-  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 then return (ctx, none)
-  let (ctx, castOp) ← castToRegLocal ctx val
-  let xReg := castOp.getResult 0
-  let (ctx, negOp) ← createRISCVUnitLocal ctx .neg rfl #[xReg]
-  let (ctx, maxOp) ← createRISCVUnitLocal ctx .max rfl #[xReg, negOp.getResult 0]
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (maxOp.getResult 0)
-  some (ctx, some (#[castOp, negOp, maxOp, castBackOp], #[castBackOp.getResult 0]))
+def abs_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let valType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
+      let val ← MatchProg.value valType
+      let _ ← MatchProg.root (.llvm .intr__abs) #[val] #[resType]
+      return (resType, val))
+    (fun (resType, val) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[val] #[regType] castProps
+      let negProps ← CreateProg.property (.riscv .neg) ()
+      let negOp ← CreateProg.operation (.riscv .neg)
+          #[castOp.res[0]!] #[regType] negProps
+      let maxProps ← CreateProg.property (.riscv .max) ()
+      let maxOp ← CreateProg.operation (.riscv .max)
+          #[castOp.res[0]!, negOp.res[0]!] #[regType] maxProps
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[maxOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
-/-- llvm.intr.abs.i64 -> `max(x, -x)` via Zbb `neg`/`max`.
-    LLVM's RV64+Zbb lowering (`neg a1, a0; max a0, a0, a1`). The `neg` wraps
-    `intMin` back to `intMin`, so this is correct for both the
-    `is_int_min_poison` and non-poison forms of the intrinsic. -/
-def abs (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite abs_local rewriter op opInBounds
+/-- llvm.intr.abs.i64 -> `max(x, -x)` via Zbb `neg`/`max` (see `abs_pattern`). -/
+def abs : Puddle.CompiledPattern OpCode := abs_pattern.compile
 
 /-- llvm.intr.fshr with identical data operands is a rotate-right: -> riscv.ror (riscv.rorw for i32).
     The general (distinct-operand) funnel shift is left unselected. -/
 def fshr64 : Puddle.CompiledPattern OpCode := fshr64_pattern.compile
 
 def fshr32 : Puddle.CompiledPattern OpCode := fshr32_pattern.compile
-/-- llvm.intr.fshr with identical data operands and a constant shift amount is a
-    constant rotate-right: -> riscv.rori (mirrors `PatGprImm<rotr, RORI>`). -/
-def fshrConst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (a, b, amt) := matchFshr op ctx.raw | return (ctx, none)
-  if a ≠ b then return (ctx, none)
-  let some amtAttr := matchConstantIntVal amt ctx.raw | return (ctx, none)
-  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
-  let (ctx, valCastOp) ← castToRegLocal ctx a
-  if t.bitwidth = 32 then
-    let sh : Int := ((amtAttr % 32) + 32) % 32
-    let imm := RISCVImmediateProperties.mk (BitVec.ofInt 64 sh)
-    let (ctx, roriOp) ← WfRewriter.createOp! ctx Riscv.roriw #[RegisterType.mk] #[valCastOp.getResult 0]
-        #[] #[] imm none
-    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (roriOp.getResult 0)
-    some (ctx, some (#[valCastOp, roriOp, castBackOp], #[castBackOp.getResult 0]))
-  else
-    /- The funnel-shift amount is taken modulo the bit width. -/
-    let sh : Int := ((amtAttr % 64) + 64) % 64
-    let imm := RISCVImmediateProperties.mk (BitVec.ofInt 64 sh)
-    let (ctx, roriOp) ← WfRewriter.createOp! ctx Riscv.rori #[RegisterType.mk] #[valCastOp.getResult 0]
-        #[] #[] imm none
-    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (roriOp.getResult 0)
-    some (ctx, some (#[valCastOp, roriOp, castBackOp], #[castBackOp.getResult 0]))
+/--
+  `llvm.intr.fshl`/`llvm.intr.fshr` (`rotateLeft` set/unset) on `bw`-bit values with identical
+  data operands and a constant shift amount is a constant rotate: -> `riscv.rori` (`riscv.roriw`
+  for `i32`), mirroring `PatGprImm<rotr, RORI>`. There is no `roli`, so (like LLVM) a rotate-left
+  lowers to `rori` with the negated immediate `(bw - amt) mod bw`.
+-/
+def lowerFshConst (rotateLeft : Bool) (bw : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let valType ← MatchProg.type (Attr := TypeAttr)
+      let amtType ← MatchProg.type (Attr := IntegerType)
+      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
+      let val ← MatchProg.value valType
+      let amtOp ← MatchProg.operation (.llvm .mlir__constant) #[] #[amtType]
+          (fun props => props.value matches .integer _)
+      let _ ← MatchProg.root
+          (.llvm (if rotateLeft then .intr__fshl else .intr__fshr))
+          #[val, val, amtOp.res[0]!] #[resType]
+      return (resType, val, amtType, amtOp.properties))
+    (fun (resType, val, amtType, amtProps) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let valCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[val] #[regType] valCastProps
+      let imm := fun (type : TypeAttr) (props : LLVMConstantProperties) => do
+        let .integerType t := type.val | none
+        let .integer amt := props.value | none
+        /- The funnel-shift amount is taken modulo the bit width. -/
+        let sh : Int := (((BitVec.ofInt t.bitwidth amt.value).toInt % bw) + bw) % bw
+        /- rotate-left by `sh` = rotate-right by `bw - sh` (mod bw). -/
+        let imm : Int := if rotateLeft then (bw - sh) % bw else sh
+        some (RISCVImmediateProperties.mk (BitVec.ofInt 64 imm))
+      let roriOp ← if bw = 32 then do
+          let roriProps ← CreateProg.applyNative
+              (Outputs := Handle OpCode (.prop (.riscv .roriw))) (amtType, amtProps)
+              fun (type, props) => imm type props
+          CreateProg.operation (.riscv .roriw)
+              #[valCastOp.res[0]!] #[regType] roriProps
+        else do
+          let roriProps ← CreateProg.applyNative
+              (Outputs := Handle OpCode (.prop (.riscv .rori))) (amtType, amtProps)
+              fun (type, props) => imm type props
+          CreateProg.operation (.riscv .rori)
+              #[valCastOp.res[0]!] #[regType] roriProps
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[roriOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
 /-- llvm.intr.fshr with identical data operands and a constant shift amount is a
     constant rotate-right: -> riscv.rori (mirrors `PatGprImm<rotr, RORI>`). -/
-def fshrConst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite fshrConst_local rewriter op opInBounds
+def fshrConst64 : Puddle.CompiledPattern OpCode := (lowerFshConst false 64).compile
+
+def fshrConst32 : Puddle.CompiledPattern OpCode := (lowerFshConst false 32).compile
 
 /-- llvm.intr.fshl with identical data operands and a constant shift amount is a
     constant rotate-left. There is no `roli`, so (like LLVM) it lowers to
     `riscv.rori` with the negated immediate `(64 - amt) mod 64`. -/
-def fshlConst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (a, b, amt) := matchFshl op ctx.raw | return (ctx, none)
-  if a ≠ b then return (ctx, none)
-  let some amtAttr := matchConstantIntVal amt ctx.raw | return (ctx, none)
-  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
-  let (ctx, valCastOp) ← castToRegLocal ctx a
-  if t.bitwidth = 32 then
-    /- rotate-left by `sh` == rotate-right by `32 - sh` (mod 32). -/
-    let sh : Int := ((amtAttr % 32) + 32) % 32
-    let imm : Int := (32 - sh) % 32
-    let immProps := RISCVImmediateProperties.mk (BitVec.ofInt 64 imm)
-    let (ctx, roriOp) ← WfRewriter.createOp! ctx Riscv.roriw #[RegisterType.mk] #[valCastOp.getResult 0]
-        #[] #[] immProps none
-    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (roriOp.getResult 0)
-    some (ctx, some (#[valCastOp, roriOp, castBackOp], #[castBackOp.getResult 0]))
-  else
-    /- rotate-left by `sh` == rotate-right by `64 - sh` (mod 64). -/
-    let sh : Int := ((amtAttr % 64) + 64) % 64
-    let imm : Int := (64 - sh) % 64
-    let immProps := RISCVImmediateProperties.mk (BitVec.ofInt 64 imm)
-    let (ctx, roriOp) ← WfRewriter.createOp! ctx Riscv.rori #[RegisterType.mk] #[valCastOp.getResult 0]
-        #[] #[] immProps none
-    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (roriOp.getResult 0)
-    some (ctx, some (#[valCastOp, roriOp, castBackOp], #[castBackOp.getResult 0]))
+def fshlConst64 : Puddle.CompiledPattern OpCode := (lowerFshConst true 64).compile
 
-/-- llvm.intr.fshl with identical data operands and a constant shift amount is a
-    constant rotate-left. There is no `roli`, so (like LLVM) it lowers to
-    `riscv.rori` with the negated immediate `(64 - amt) mod 64`. -/
-def fshlConst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite fshlConst_local rewriter op opInBounds
+def fshlConst32 : Puddle.CompiledPattern OpCode := (lowerFshConst true 32).compile
 
 /-! ## General (distinct-operand) funnel shift
 
@@ -1575,154 +2000,197 @@ def fshlConst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   constant-amount special cases still select the cheaper `rol`/`ror`/`rori`. -/
 
 /-- General `llvm.intr.fshl x y z` -> `(x << z) | ((y >> 1) >> ~z)` (see the
-    section comment). Handles i64 and i32; the i32 form uses the `w` shifts. -/
-def fshlGeneral_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (a, b, amt) := matchFshl op ctx.raw | return (ctx, none)
-  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
-  let (ctx, xCastOp) ← castToRegLocal ctx a
-  let (ctx, yCastOp) ← castToRegLocal ctx b
-  let (ctx, zCastOp) ← castToRegLocal ctx amt
-  /- ~z, the inverse shift amount; the shift instruction masks it modulo `w`. -/
-  let notImm := RISCVImmediateProperties.mk (-1#64)
-  let (ctx, notzOp) ← WfRewriter.createOp! ctx Riscv.xori #[RegisterType.mk] #[zCastOp.getResult 0]
-      #[] #[] notImm none
-  let oneImm := RISCVImmediateProperties.mk 1#64
-  /- shx = x << z ; shy = (y >> 1) >> ~z ; result = shx | shy. The i32 form uses
-     the `w` shifts (only the low 32 bits of the `or` are observed). -/
-  if t.bitwidth = 32 then
-    let (ctx, shxOp) ← WfRewriter.createOp! ctx Riscv.sllw #[RegisterType.mk] #[xCastOp.getResult 0, zCastOp.getResult 0]
-        #[] #[] () none
-    let (ctx, y1Op) ← WfRewriter.createOp! ctx Riscv.srliw #[RegisterType.mk] #[yCastOp.getResult 0]
-        #[] #[] oneImm none
-    let (ctx, shyOp) ← WfRewriter.createOp! ctx Riscv.srlw #[RegisterType.mk] #[y1Op.getResult 0, notzOp.getResult 0]
-        #[] #[] () none
-    let (ctx, orOp) ← WfRewriter.createOp! ctx Riscv.or #[RegisterType.mk] #[shxOp.getResult 0, shyOp.getResult 0]
-        #[] #[] () none
-    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (orOp.getResult 0)
-    some (ctx, some (#[xCastOp, yCastOp, zCastOp, notzOp, shxOp, y1Op, shyOp, orOp, castBackOp],
-      #[castBackOp.getResult 0]))
-  else
-    let (ctx, shxOp) ← WfRewriter.createOp! ctx Riscv.sll #[RegisterType.mk] #[xCastOp.getResult 0, zCastOp.getResult 0]
-        #[] #[] () none
-    let (ctx, y1Op) ← WfRewriter.createOp! ctx Riscv.srli #[RegisterType.mk] #[yCastOp.getResult 0]
-        #[] #[] oneImm none
-    let (ctx, shyOp) ← WfRewriter.createOp! ctx Riscv.srl #[RegisterType.mk] #[y1Op.getResult 0, notzOp.getResult 0]
-        #[] #[] () none
-    let (ctx, orOp) ← WfRewriter.createOp! ctx Riscv.or #[RegisterType.mk] #[shxOp.getResult 0, shyOp.getResult 0]
-        #[] #[] () none
-    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (orOp.getResult 0)
-    some (ctx, some (#[xCastOp, yCastOp, zCastOp, notzOp, shxOp, y1Op, shyOp, orOp, castBackOp],
-      #[castBackOp.getResult 0]))
+    section comment), for `bw`-bit values. The i32 form uses the `w` shifts. -/
+def lowerFshlGeneral (bw : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let xType ← MatchProg.type (Attr := TypeAttr)
+      let yType ← MatchProg.type (Attr := TypeAttr)
+      let zType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
+      let x ← MatchProg.value xType
+      let y ← MatchProg.value yType
+      let z ← MatchProg.value zType
+      let _ ← MatchProg.root (.llvm .intr__fshl) #[x, y, z] #[resType]
+      return (resType, x, y, z))
+    (fun (resType, x, y, z) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let xCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let xCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[x] #[regType] xCastProps
+      let yCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let yCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[y] #[regType] yCastProps
+      let zCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let zCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[z] #[regType] zCastProps
+      /- ~z, the inverse shift amount; the shift instruction masks it modulo `w`. -/
+      let notzProps ← CreateProg.property (.riscv .xori)
+          (RISCVImmediateProperties.mk (-1#64))
+      let notzOp ← CreateProg.operation (.riscv .xori)
+          #[zCastOp.res[0]!] #[regType] notzProps
+      /- shx = x << z ; shy = (y >> 1) >> ~z ; result = shx | shy. The i32 form uses
+         the `w` shifts (only the low 32 bits of the `or` are observed). -/
+      let (shxOp, shyOp) ← if bw = 32 then do
+          let shxProps ← CreateProg.property (.riscv .sllw) ()
+          let shxOp ← CreateProg.operation (.riscv .sllw)
+              #[xCastOp.res[0]!, zCastOp.res[0]!] #[regType] shxProps
+          let y1Props ← CreateProg.property (.riscv .srliw) (RISCVImmediateProperties.mk 1#64)
+          let y1Op ← CreateProg.operation (.riscv .srliw)
+              #[yCastOp.res[0]!] #[regType] y1Props
+          let shyProps ← CreateProg.property (.riscv .srlw) ()
+          let shyOp ← CreateProg.operation (.riscv .srlw)
+              #[y1Op.res[0]!, notzOp.res[0]!] #[regType] shyProps
+          pure (shxOp, shyOp)
+        else do
+          let shxProps ← CreateProg.property (.riscv .sll) ()
+          let shxOp ← CreateProg.operation (.riscv .sll)
+              #[xCastOp.res[0]!, zCastOp.res[0]!] #[regType] shxProps
+          let y1Props ← CreateProg.property (.riscv .srli) (RISCVImmediateProperties.mk 1#64)
+          let y1Op ← CreateProg.operation (.riscv .srli)
+              #[yCastOp.res[0]!] #[regType] y1Props
+          let shyProps ← CreateProg.property (.riscv .srl) ()
+          let shyOp ← CreateProg.operation (.riscv .srl)
+              #[y1Op.res[0]!, notzOp.res[0]!] #[regType] shyProps
+          pure (shxOp, shyOp)
+      let orProps ← CreateProg.property (.riscv .or) ()
+      let orOp ← CreateProg.operation (.riscv .or)
+          #[shxOp.res[0]!, shyOp.res[0]!] #[regType] orProps
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[orOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
-/-- General `llvm.intr.fshl` -> shift/or expansion (see `fshlGeneral_local`). -/
-def fshlGeneral (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite fshlGeneral_local rewriter op opInBounds
+/-- General `llvm.intr.fshl` (`i64`) -> shift/or expansion (see `lowerFshlGeneral`). -/
+def fshlGeneral64 : Puddle.CompiledPattern OpCode := (lowerFshlGeneral 64).compile
+
+/-- General `llvm.intr.fshl` (`i32`) -> shift/or expansion (see `lowerFshlGeneral`). -/
+def fshlGeneral32 : Puddle.CompiledPattern OpCode := (lowerFshlGeneral 32).compile
 
 /-- General `llvm.intr.fshr x y z` -> `((x << 1) << ~z) | (y >> z)` (see the
-    section comment). Handles i64 and i32; the i32 form uses the `w` shifts. -/
-def fshrGeneral_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (a, b, amt) := matchFshr op ctx.raw | return (ctx, none)
-  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
-  let (ctx, xCastOp) ← castToRegLocal ctx a
-  let (ctx, yCastOp) ← castToRegLocal ctx b
-  let (ctx, zCastOp) ← castToRegLocal ctx amt
-  /- ~z, the inverse shift amount; the shift instruction masks it modulo `w`. -/
-  let notImm := RISCVImmediateProperties.mk (-1#64)
-  let (ctx, notzOp) ← WfRewriter.createOp! ctx Riscv.xori #[RegisterType.mk] #[zCastOp.getResult 0]
-      #[] #[] notImm none
-  let oneImm := RISCVImmediateProperties.mk 1#64
-  /- shx = (x << 1) << ~z ; shy = y >> z ; result = shx | shy. The i32 form uses
-     the `w` shifts (only the low 32 bits of the `or` are observed). -/
-  if t.bitwidth = 32 then
-    let (ctx, x1Op) ← WfRewriter.createOp! ctx Riscv.slliw #[RegisterType.mk] #[xCastOp.getResult 0]
-        #[] #[] oneImm none
-    let (ctx, shxOp) ← WfRewriter.createOp! ctx Riscv.sllw #[RegisterType.mk] #[x1Op.getResult 0, notzOp.getResult 0]
-        #[] #[] () none
-    let (ctx, shyOp) ← WfRewriter.createOp! ctx Riscv.srlw #[RegisterType.mk] #[yCastOp.getResult 0, zCastOp.getResult 0]
-        #[] #[] () none
-    let (ctx, orOp) ← WfRewriter.createOp! ctx Riscv.or #[RegisterType.mk] #[shxOp.getResult 0, shyOp.getResult 0]
-        #[] #[] () none
-    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (orOp.getResult 0)
-    some (ctx, some (#[xCastOp, yCastOp, zCastOp, notzOp, x1Op, shxOp, shyOp, orOp, castBackOp],
-      #[castBackOp.getResult 0]))
-  else
-    let (ctx, x1Op) ← WfRewriter.createOp! ctx Riscv.slli #[RegisterType.mk] #[xCastOp.getResult 0]
-        #[] #[] oneImm none
-    let (ctx, shxOp) ← WfRewriter.createOp! ctx Riscv.sll #[RegisterType.mk] #[x1Op.getResult 0, notzOp.getResult 0]
-        #[] #[] () none
-    let (ctx, shyOp) ← WfRewriter.createOp! ctx Riscv.srl #[RegisterType.mk] #[yCastOp.getResult 0, zCastOp.getResult 0]
-        #[] #[] () none
-    let (ctx, orOp) ← WfRewriter.createOp! ctx Riscv.or #[RegisterType.mk] #[shxOp.getResult 0, shyOp.getResult 0]
-        #[] #[] () none
-    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (orOp.getResult 0)
-    some (ctx, some (#[xCastOp, yCastOp, zCastOp, notzOp, x1Op, shxOp, shyOp, orOp, castBackOp],
-      #[castBackOp.getResult 0]))
+    section comment), for `bw`-bit values. The i32 form uses the `w` shifts. -/
+def lowerFshrGeneral (bw : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let xType ← MatchProg.type (Attr := TypeAttr)
+      let yType ← MatchProg.type (Attr := TypeAttr)
+      let zType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
+      let x ← MatchProg.value xType
+      let y ← MatchProg.value yType
+      let z ← MatchProg.value zType
+      let _ ← MatchProg.root (.llvm .intr__fshr) #[x, y, z] #[resType]
+      return (resType, x, y, z))
+    (fun (resType, x, y, z) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let xCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let xCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[x] #[regType] xCastProps
+      let yCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let yCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[y] #[regType] yCastProps
+      let zCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let zCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[z] #[regType] zCastProps
+      /- ~z, the inverse shift amount; the shift instruction masks it modulo `w`. -/
+      let notzProps ← CreateProg.property (.riscv .xori)
+          (RISCVImmediateProperties.mk (-1#64))
+      let notzOp ← CreateProg.operation (.riscv .xori)
+          #[zCastOp.res[0]!] #[regType] notzProps
+      /- shx = (x << 1) << ~z ; shy = y >> z ; result = shx | shy. The i32 form uses
+         the `w` shifts (only the low 32 bits of the `or` are observed). -/
+      let (shxOp, shyOp) ← if bw = 32 then do
+          let x1Props ← CreateProg.property (.riscv .slliw) (RISCVImmediateProperties.mk 1#64)
+          let x1Op ← CreateProg.operation (.riscv .slliw)
+              #[xCastOp.res[0]!] #[regType] x1Props
+          let shxProps ← CreateProg.property (.riscv .sllw) ()
+          let shxOp ← CreateProg.operation (.riscv .sllw)
+              #[x1Op.res[0]!, notzOp.res[0]!] #[regType] shxProps
+          let shyProps ← CreateProg.property (.riscv .srlw) ()
+          let shyOp ← CreateProg.operation (.riscv .srlw)
+              #[yCastOp.res[0]!, zCastOp.res[0]!] #[regType] shyProps
+          pure (shxOp, shyOp)
+        else do
+          let x1Props ← CreateProg.property (.riscv .slli) (RISCVImmediateProperties.mk 1#64)
+          let x1Op ← CreateProg.operation (.riscv .slli)
+              #[xCastOp.res[0]!] #[regType] x1Props
+          let shxProps ← CreateProg.property (.riscv .sll) ()
+          let shxOp ← CreateProg.operation (.riscv .sll)
+              #[x1Op.res[0]!, notzOp.res[0]!] #[regType] shxProps
+          let shyProps ← CreateProg.property (.riscv .srl) ()
+          let shyOp ← CreateProg.operation (.riscv .srl)
+              #[yCastOp.res[0]!, zCastOp.res[0]!] #[regType] shyProps
+          pure (shxOp, shyOp)
+      let orProps ← CreateProg.property (.riscv .or) ()
+      let orOp ← CreateProg.operation (.riscv .or)
+          #[shxOp.res[0]!, shyOp.res[0]!] #[regType] orProps
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[orOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
-/-- General `llvm.intr.fshr` -> shift/or expansion (see `fshrGeneral_local`). -/
-def fshrGeneral (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite fshrGeneral_local rewriter op opInBounds
+/-- General `llvm.intr.fshr` (`i64`) -> shift/or expansion (see `lowerFshrGeneral`). -/
+def fshrGeneral64 : Puddle.CompiledPattern OpCode := (lowerFshrGeneral 64).compile
+
+/-- General `llvm.intr.fshr` (`i32`) -> shift/or expansion (see `lowerFshrGeneral`). -/
+def fshrGeneral32 : Puddle.CompiledPattern OpCode := (lowerFshrGeneral 32).compile
 
 
 /-- llvm.mlir.poison -> riscv.li 0 -/
-def poisonConst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some _ := matchPoison op ctx.raw | return (ctx, none)
-  let imm := RISCVImmediateProperties.mk 0#64
-  let (ctx, liOp) ← WfRewriter.createOp! ctx Riscv.li #[RegisterType.mk] #[]
-      #[] #[] imm none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (liOp.getResult 0)
-  some (ctx, some (#[liOp, castBackOp], #[castBackOp.getResult 0]))
+def poisonConst_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let resType ← MatchProg.type (Attr := TypeAttr)
+      let _ ← MatchProg.root (.llvm .mlir__poison) #[] #[resType]
+      return resType)
+    (fun resType => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let liProps ← CreateProg.property (.riscv .li) (RISCVImmediateProperties.mk 0#64)
+      let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[liOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
 /-- llvm.mlir.zero of an integer up to 64 bits or a pointer -> riscv.li 0 -/
-def zeroConst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some _ := matchZero op ctx.raw | return (ctx, none)
-  let some width := icmpOperandWidth? (op.getResult 0) ctx.raw | return (ctx, none)
-  if width > 64 then return (ctx, none)
-  let imm := RISCVImmediateProperties.mk 0#64
-  let (ctx, liOp) ← WfRewriter.createOp! ctx Riscv.li #[RegisterType.mk] #[]
-      #[] #[] imm none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (liOp.getResult 0)
-  some (ctx, some (#[liOp, castBackOp], #[castBackOp.getResult 0]))
+def zeroConst_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let resType ← MatchProg.type (Attr := TypeAttr)
+          (fun t => (icmpTypeWidth? t).any (· ≤ 64))
+      let _ ← MatchProg.root (.llvm .mlir__zero) #[] #[resType]
+      return resType)
+    (fun resType => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let liProps ← CreateProg.property (.riscv .li) (RISCVImmediateProperties.mk 0#64)
+      let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[liOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
 
-/-- llvm.mlir.zero -> riscv.li 0 -/
-def zeroConst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite zeroConst_local rewriter op opInBounds
+/-- llvm.mlir.zero of an integer up to 64 bits or a pointer -> riscv.li 0 -/
+def zeroConst : Puddle.CompiledPattern OpCode := zeroConst_pattern.compile
 
 /-- llvm.mlir.poison -> riscv.li 0 -/
-def poisonConst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite poisonConst_local rewriter op opInBounds
+def poisonConst : Puddle.CompiledPattern OpCode := poisonConst_pattern.compile
 
 /-- llvm.freeze arg : Int w ->
   unrealized_conversion_cast (unrealized_conversion_cast arg : Int w -> Reg) : Reg -> Int w -/
-def freeze_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some operand := matchFreeze op ctx.raw | return (ctx, none)
-  let .integerType opType := (operand.getType! ctx.raw).val | return (ctx, none)
-  let type := ((op.getResult 0).get! ctx.raw).type
-  let .integerType retType := type.val | return (ctx, none)
-  if (opType.bitwidth ≠ 64 ∧ opType.bitwidth ≠ 32) ∨ (retType.bitwidth ≠ 64 ∧ retType.bitwidth ≠ 32) then return (ctx, none)
-  /- First, cast the operand to registers -/
-  let (ctx, opCastOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[RegisterType.mk] #[operand]
-      #[] #[] () none
-  /- Then, cast register to expected output width. -/
-  let (ctx, castOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[type] #[opCastOp.getResult 0]
-      #[] #[] () none
-  some (ctx, some (#[opCastOp, castOp], #[castOp.getResult 0]))
+def freeze_pattern : Pattern OpCode :=
+  lowerRegCast .freeze fun opType resType =>
+    match opType.val, resType.val with
+    | .integerType opType, .integerType resType =>
+      (opType.bitwidth = 64 ∨ opType.bitwidth = 32) ∧ (resType.bitwidth = 64 ∨ resType.bitwidth = 32)
+    | _, _ => false
 
 /-- llvm.freeze arg : Int w ->
   unrealized_conversion_cast (unrealized_conversion_cast arg : Int w -> Reg) : Reg -> Int w -/
-def freeze (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite freeze_local rewriter op opInBounds
+def freeze : Puddle.CompiledPattern OpCode := freeze_pattern.compile
 
 /-! # Memory intrinsics -/
 
@@ -1734,7 +2202,7 @@ def memMaxStores : Nat := 8
 def memArgAlign (props : LLVMMemIntrinsicProperties) (i : Nat) : Nat := Id.run do
   let some attrs := props.arg_attrs | return 1
   let some (.dictionaryAttr dict) := attrs.value[i]? | return 1
-  let some (_, .integerAttr align) := dict.entries.find? (·.1 == "llvm.align".toUTF8) | return 1
+  let some (_, .integerAttr align) := dict.entries.find? (·.1 = "llvm.align".toUTF8) | return 1
   return align.value.toNat
 
 /-- The `(offset, width)` accesses covering `len` bytes, widest first, each at most 8 bytes
@@ -1832,19 +2300,25 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     ExceptT String IO (WfIRContext OpCode) := do
   /- Early loop: address folding, fixed stack allocations and memory intrinsic
      expansion must inspect LLVM constants before the per-op lowerings consume them. -/
-  let early := RewritePattern.GreedyRewritePattern #[lifetime, alloca, memIntrinsic, load, store]
+  let early := RewritePattern.GreedyRewritePattern <|
+    #[lifetimeStart.run, lifetimeEnd.run, alloca, memIntrinsic] ++ load.map (·.run) ++
+    store.map (·.run)
   let ctx ← match RewritePattern.applyInContext early ctx with
   | none => throw "Error while applying early memory-lowering patterns"
   | some ctx => pure ctx
   /- Main loop: the existing per-op lowerings. -/
-  let pattern := RewritePattern.GreedyRewritePattern #[selectCzeroeqz, selectCzeronez, selectGeneral,
-    ctlz32.run, ctlz64.run, cttz32.run, cttz64.run, ctpop32.run, ctpop64.run, bswap, bitreverse,
-    constant, addressof, add32.run, add64.run, and.run, ashr, icmp, or.run, xor32.run, xor64.run, mul32.run, mul64.run,
+  let pattern := RewritePattern.GreedyRewritePattern <|
+    #[selectCzeroeqz.run, selectCzeronez.run, selectGeneral.run,
+    ctlz32.run, ctlz64.run, cttz32.run, cttz64.run, ctpop32.run, ctpop64.run, bswap64.run, bswap32.run, bitreverse64.run, bitreverse32.run,
+    constant.run, addressof, add32.run, add64.run, and.run, ashr64.run, ashr32.run, ashr8.run] ++
+    icmp.map (·.run) ++ #[or.run, xor32.run, xor64.run, mul32.run, mul64.run,
     sdiv32.run, sdiv64.run, udiv32.run, udiv64.run, srem32.run, srem64.run, urem32.run, urem64.run,
-    sext32.run, sext16.run, sext8.run, zext32.run, zext16.run, zext8.run, trunc, shl, lshr,
-    sub64.run, sub32.run, bitcast, load, getelementptr, store,
-    smax64.run, smax32.run, smin64.run, smin32.run, umax.run, umin.run, saddSat, ssubSat, uaddSat, usubSat, sshlSat, ushlSat, abs,
-    fshlConst, fshrConst, fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral, fshrGeneral, poisonConst, zeroConst, freeze]
+    sext32.run, sext16.run, sext8.run, zext32.run, zext16.run, zext8.run, trunc.run, shl64.run, shl32.run, lshr64.run, lshr32.run,
+    sub64.run, sub32.run, bitcast.run] ++
+    load.map (·.run) ++ getelementptr.map (·.run) ++ store.map (·.run) ++ #[
+    smax64.run, smax32.run, smin64.run, smin32.run, umax.run, umin.run, saddSat.run, ssubSat.run, uaddSat.run, usubSat.run, sshlSat.run, ushlSat.run, abs.run,
+    fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run, fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
+    poisonConst.run, zeroConst.run, freeze.run]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying main instruction-selection patterns"
   | some ctx => pure ctx

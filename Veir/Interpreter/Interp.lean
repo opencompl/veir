@@ -37,6 +37,7 @@ instance : Monad Interp where
     | .fail op => .fail op
     | .ub op => .ub op
     | .ok a => f a
+  map := Interp.map
 
 instance : MonadLift Option Interp where
   monadLift
@@ -104,6 +105,16 @@ theorem Interp.admissible_of_ub {α : Type} (P : Interp α → Prop) (hub : P (.
       | .ok a => f a := rfl
 @[simp, grind =] theorem Interp.liftOption_none : ((none : Option α) : Interp α) = .fail none := rfl
 @[simp, grind =] theorem Interp.liftOption_some (a : α) : ((some a : Option α) : Interp α) = .ok a := rfl
+
+instance : LawfulMonad Interp :=
+  LawfulMonad.mk' Interp
+    (id_map := fun x => by cases x <;> rfl)
+    (pure_bind := fun _ _ => rfl)
+    (bind_assoc := fun x _ _ => by cases x <;> rfl)
+
+theorem Interp.bind_eq_bind_iff {α β : Type} {x : Interp α} {f g : α → Interp β} :
+    (x >>= f) = (x >>= g) ↔ ∀ a, x = .ok a → f a = g a := by
+  cases x <;> simp [Interp.bind_def]
 
 /-- Binding is monotone, so a `partial_fixpoint` may recurse under `do` notation. -/
 instance : Lean.Order.MonoBind Interp where

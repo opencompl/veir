@@ -7,6 +7,7 @@ module
 
 public import QPFTypes.Theory.PFunctor.Multivariate.Comp
 public import QPFTypes.Theory.QPF.Basic
+public import QPFTypes.Theory.QPF.IsPolynomial
 
 /-!
 # The composition of QPFs is itself a QPF
@@ -87,6 +88,15 @@ instance inst [QPF F] [∀ i, QPF <| G i] : QPF (Comp F G) where
     rw [← abs_map]
     simp +unfoldPartialApp only [comp.get_map, map_map, TypeVec.comp,
       abs_map, map_mk]
+
+/-- Composition preserves polynomiality. -/
+instance instIsPolynomial {F : TypeVec.{u} n → Type u} {G : Fin n → TypeVec.{u} m → Type u}
+    [QPF F] [∀ i, QPF (G i)] [IsPolynomial F] [∀ i, IsPolynomial (G i)] :
+    IsPolynomial (Comp F G) where
+  repr_abs {β} p := by
+    set_option backward.isDefEq.respectTransparency false in
+    simp +unfoldPartialApp only [repr, abs, Function.comp_apply, Comp.get_mk, map_map, TypeVec.comp,
+      IsPolynomial.repr_abs, MvFunctor.id_map', MvPFunctor.comp.mk_get]
 
 end Comp
 

@@ -6,6 +6,7 @@ Authors: Jeremy Avigad, Simon Hudon
 module
 
 public import QPFTypes.Theory.QPF.Basic
+public import QPFTypes.Theory.QPF.IsPolynomial
 public import QPFTypes.Theory.PFunctor.Multivariate.M
 
 /-!
@@ -286,6 +287,35 @@ instance qpfCofix : QPF (Cofix F) where
   repr     := Cofix.repr
   abs_repr := Cofix.abs_repr
   abs_map  := by intros; rfl
+
+/-!
+### `Cofix` preserves polynomiality
+
+If the quotient of `F` is trivial, then so is the quotient of `Cofix F`: the
+weakest bisimulation `Mcongr` only identifies trees that `abs` already identifies,
+so `Cofix.repr` is a section of `Quot.mk Mcongr` on the nose. We show this by
+checking that `Cofix.repr ∘ Quot.mk Mcongr` commutes with `M.dest`, and appealing
+to finality of the M-type.
+-/
+
+set_option backward.isDefEq.respectTransparency false in
+/-- `Cofix.repr ∘ Cofix.abs` is a coalgebra morphism when `F` is polynomial. -/
+theorem Cofix.dest_repr_abs [IsPolynomial F] {α : TypeVec n} (m : q.P.M α) :
+    M.dest q.P (Cofix.repr (Cofix.abs (F := F) m))
+      = (id ::: fun m => Cofix.repr (Cofix.abs (F := F) m)) <$$> M.dest q.P m := by
+  rw [Cofix.repr, M.dest_corec]
+  show (id ::: _) <$$> QPF.repr ((id ::: Quot.mk Mcongr) <$$> QPF.abs (M.dest q.P m)) = _
+  rw [← abs_map, IsPolynomial.repr_abs, MvFunctor.map_map, ← appendFun_comp, id_comp]
+  rfl
+
+/-- When `F` is polynomial, `Cofix.repr` picks every tree as its own representative. -/
+theorem Cofix.repr_abs [IsPolynomial F] {α : TypeVec n} (m : q.P.M α) :
+    Cofix.repr (Cofix.abs (F := F) m) = m :=
+  M.eq_id_of_dest_comm q.P _ Cofix.dest_repr_abs m
+
+/-- Taking the greatest fixed point preserves polynomiality. -/
+instance Cofix.instIsPolynomial [IsPolynomial F] : IsPolynomial (Cofix F) where
+  repr_abs p := Cofix.repr_abs p
 
 end QPF
 

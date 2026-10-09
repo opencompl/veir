@@ -1296,6 +1296,7 @@ def Llvm.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpIn
     else none
   | _, _ => none
 
+@[expose]
 def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     (mem : MemoryState) (layout : DataLayout)
@@ -1574,8 +1575,8 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     | .int _ .poison => Interp.ub none
     | _ => none
   | .mlir__addressof => do
-    let some object := mem.globals[properties.global_name.value]? | none
-    return (#[.addr (.val ⟨object, 0⟩)], mem, none)
+    let some p := mem.pointerToGlobal properties.global_name.value | none
+    return (#[.addr (.val p)], mem, none)
   | .alloca => do
     let [.int _ (.val count)] := operands.toList | none
     /- `alloca T, N` reserves `N` strides of `T`, as in LLVM. -/
@@ -1616,7 +1617,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
        that `isel-riscv64` uses to lower this operation. -/
     let size ← layout.getTypeAllocSize properties.elem_type.val
     match ptr, idx with
-    | .val ptr, .val idx => return (#[.addr (.val ⟨ptr.object, UInt64.ofNat (ptr.offset.toNat + idx.toNat * size)⟩)], mem, none)
+    | .val ptr, .val idx => return (#[.addr (.val ⟨ptr.object, UInt64.ofNat (ptr.address.toNat + idx.toNat * size)⟩)], mem, none)
     | _, _ => return (#[.addr .poison], mem, none)
   | .freeze => do
     let [val] := operands.toList | none
@@ -1644,7 +1645,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
           if h : bw = 64 then .ok (.addr (mem.ptrFromInt (val'.cast h).toInt)) else .fail none
       | .addr val', .llvmPointerType _ => .ok (val)
       | .addr val', .byteType ⟨bw⟩ =>
-          if bw = 64 then .ok (.byte 64 (LLVM.Byte.fromInt (mem.intFromPtr val'))) else .fail none
+          if bw = 64 then .ok (.byte 64 val'.toByte) else .fail none
       | _, _ => none
     return (#[result], mem, none)
   | .inttoptr => do
@@ -1656,7 +1657,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let [.addr val] := operands.toList | none
     let [type] := resultTypes.toList | none
     let .integerType bw := type.val | none
-    if bw.bitwidth = 64 then return (#[.int 64 (mem.intFromPtr val)], mem, none) else .fail none
+    if bw.bitwidth = 64 then return (#[.int 64 val.toInt], mem, none) else .fail none
   | _ => none
 
 instance : HasOpInfo Llvm where
