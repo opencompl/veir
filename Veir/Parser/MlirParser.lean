@@ -6,6 +6,8 @@ public import Veir.Parser.DecidableInBounds
 import Veir.Rewriter.WellFormed
 import all Veir.IR.Basic
 public import Veir.Parser.StructuralBounds
+public import Veir.Parser.ValueBounds
+public import Veir.Parser.ResultGroups
 public import Veir.Rewriter.WfRewriter
 
 public section
@@ -89,10 +91,30 @@ structure MlirParserData (OpInfo : Type) [HasOpInfo OpInfo] where
   opLocations : Std.HashMap OperationPtr Location := {}
   deriving Inhabited
 
-/-- Parser block names carry erased bounds certificates. -/
+/-- Parser block names carry erased bounds certificates, and values carry an erased
+provenance predicate. Real definitions are disjoint from temporary operations used
+for forward references. -/
 structure MlirParserState (OpInfo : Type) [HasOpInfo OpInfo] extends MlirParserData OpInfo where
   blocksInBounds : ∀ (name : ByteArray) (entry : BlockEntry), blocks[name]? = some entry →
     entry.block.InBounds ctx.raw
+  realValues : ValuePtr → Prop
+  realInBounds : ∀ value, realValues value → value.InBounds ctx.raw
+  valuesReal : ∀ (name : ByteArray) (entry : Array ValuePtr × Location), values[name]? = some entry →
+    ∀ value ∈ entry.1, realValues value
+  forwardInBounds : ∀ (name : ByteArray) (fwd : ForwardValue), forwardValues[name]? = some fwd →
+    ∀ (index : Nat) (op : OperationPtr) (loc : Location), fwd.placeholders[index]? = some (op, loc) →
+      (ValuePtr.opResult (op.getResult 0)).InBounds ctx.raw
+  realNotPlaceholder : ∀ value, realValues value →
+    ∀ (name : ByteArray) (fwd : ForwardValue), forwardValues[name]? = some fwd →
+    ∀ (index : Nat) (op : OperationPtr) (loc : Location), fwd.placeholders[index]? = some (op, loc) →
+      match value with
+      | .opResult result => result.op ≠ op
+      | .blockArgument _ => True
+  forwardUnique : ∀ (name : ByteArray) (fwd : ForwardValue), forwardValues[name]? = some fwd →
+    ∀ (index : Nat) (op : OperationPtr) (loc : Location), fwd.placeholders[index]? = some (op, loc) →
+    ∀ (name' : ByteArray) (fwd' : ForwardValue), forwardValues[name']? = some fwd' →
+    ∀ (index' : Nat) (loc' : Location), fwd'.placeholders[index']? = some (op, loc') →
+      name = name' ∧ index = index'
 
 def MlirParserState.fromContext (ctx : WfIRContext OpInfo)
     (allowUnregisteredDialect : Bool := false) : MlirParserState OpInfo :=
@@ -104,18 +126,28 @@ def MlirParserState.fromContext (ctx : WfIRContext OpInfo)
     forwardValues := Std.HashMap.emptyWithCapacity 1
     blocks := Std.HashMap.emptyWithCapacity 1
     blocksInBounds := by simp
+    realValues := fun _ => False
+    realInBounds := by simp
+    valuesReal := by simp
+    forwardInBounds := by simp
+    realNotPlaceholder := by simp
+    forwardUnique := by simp
   }
 
 instance : Inhabited (MlirParserState OpInfo) := ⟨.fromContext default⟩
 
-/-- Transport the erased certificates without traversing the block name table. -/
+/-- Transport the erased certificates without traversing either name table. -/
 @[inline]
 def MlirParserState.withContext (s : MlirParserState OpInfo) (ctx : WfIRContext OpInfo)
+    (preserves : ∀ (value : ValuePtr), value.InBounds s.ctx.raw → value.InBounds ctx.raw)
     (structurePreserves : StructuralBoundsPreserved s.ctx.raw ctx.raw) :
     MlirParserState OpInfo :=
   { s with
     ctx
     blocksInBounds := fun name entry he => structurePreserves.blocks _ (s.blocksInBounds name entry he)
+    realInBounds := fun value h => preserves value (s.realInBounds value h)
+    forwardInBounds := fun name fwd hf index op loc hp =>
+      preserves _ (s.forwardInBounds name fwd hf index op loc hp)
   }
 
 /-- Byte-array names use structural equality in the parser's hash tables. -/
@@ -128,6 +160,136 @@ local instance : LawfulBEq ByteArray where
     intro a b h
     apply ByteArray.ext
     exact eq_of_beq (show (a.data == b.data) = true from h)
+
+/-- Extend the erased set of real definitions. -/
+@[inline]
+def MlirParserState.addRealValues (s : MlirParserState OpInfo) (values : Array ValuePtr)
+    (hBounds : ∀ value ∈ values, value.InBounds s.ctx.raw)
+    (hDifferent : ∀ value ∈ values,
+      ∀ (name : ByteArray) (fwd : ForwardValue), s.forwardValues[name]? = some fwd →
+      ∀ (index : Nat) (op : OperationPtr) (loc : Location),
+        fwd.placeholders[index]? = some (op, loc) →
+        match value with
+        | .opResult result => result.op ≠ op
+        | .blockArgument _ => True) : MlirParserState OpInfo :=
+  { s with
+    realValues := fun value => s.realValues value ∨ value ∈ values
+    realInBounds := by
+      intro value h
+      exact h.elim (s.realInBounds value) (hBounds value)
+    valuesReal := by
+      intro name entry he value hv
+      exact .inl (s.valuesReal name entry he value hv)
+    realNotPlaceholder := by
+      intro value h name fwd hf index op loc hp
+      exact h.elim
+        (fun hv => s.realNotPlaceholder value hv name fwd hf index op loc hp)
+        (fun hv => hDifferent value hv name fwd hf index op loc hp)
+  }
+
+/-- Register a fresh operation as a forward reference placeholder. -/
+@[inline]
+def MlirParserState.insertForwardPlaceholder (s : MlirParserState OpInfo)
+    (name : ByteArray) (index : Nat) (op : OperationPtr) (loc : Location)
+    (hBounds : (ValuePtr.opResult (op.getResult 0)).InBounds s.ctx.raw)
+    (hReal : ∀ value, s.realValues value → match value with
+      | .opResult result => result.op ≠ op
+      | .blockArgument _ => True)
+    (hOthers : ∀ (name' : ByteArray) (fwd : ForwardValue),
+      s.forwardValues[name']? = some fwd →
+      ∀ (index' : Nat) (op' : OperationPtr) (loc' : Location),
+        fwd.placeholders[index']? = some (op', loc') → op' ≠ op) : MlirParserState OpInfo := by
+  let fwd := s.forwardValues[name]?.getD { placeholders := {}, loc }
+  let updated := { fwd with placeholders := fwd.placeholders.insert index (op, loc) }
+  let table := s.forwardValues.insert name updated
+  have lookup : ∀ (name' : ByteArray) (fwd' : ForwardValue), table[name']? = some fwd' →
+      ∀ (index' : Nat) (op' : OperationPtr) (loc' : Location),
+      fwd'.placeholders[index']? = some (op', loc') →
+      (name' = name ∧ index' = index ∧ op' = op ∧ loc' = loc) ∨
+      ∃ old : ForwardValue, s.forwardValues[name']? = some old ∧
+        old.placeholders[index']? = some (op', loc') := by
+    intro name' fwd' hf index' op' loc' hp
+    cases ho : s.forwardValues[name]? <;>
+      grind
+  exact { s with
+    forwardValues := table
+    forwardInBounds := by
+      intro name' fwd' hf index' op' loc' hp
+      rcases lookup name' fwd' hf index' op' loc' hp with hn | ⟨old, ho, hp⟩
+      · rcases hn with ⟨rfl, rfl, rfl, rfl⟩
+        exact hBounds
+      · exact s.forwardInBounds name' old ho index' op' loc' hp
+    realNotPlaceholder := by
+      intro value hv name' fwd' hf index' op' loc' hp
+      rcases lookup name' fwd' hf index' op' loc' hp with hn | ⟨old, ho, hp⟩
+      · rcases hn with ⟨rfl, rfl, rfl, rfl⟩
+        exact hReal value hv
+      · exact s.realNotPlaceholder value hv name' old ho index' op' loc' hp
+    forwardUnique := by
+      intro name' fwd' hf index' op' loc' hp name'' fwd'' hf' index'' loc'' hp'
+      have h1 := lookup name' fwd' hf index' op' loc' hp
+      have h2 := lookup name'' fwd'' hf' index'' op' loc'' hp'
+      rcases h1 with hn1 | ⟨old1, ho1, hp1⟩ <;>
+        rcases h2 with hn2 | ⟨old2, ho2, hp2⟩
+      · grind
+      · have := hOthers name'' old2 ho2 index'' op' loc'' hp2
+        grind
+      · have := hOthers name' old1 ho1 index' op' loc' hp1
+        grind
+      · exact s.forwardUnique name' old1 ho1 index' op' loc' hp1
+          name'' old2 ho2 index'' loc'' hp2
+  }
+
+/-- Remove a resolved placeholder and transport the certificates through its erasure. -/
+@[inline]
+def MlirParserState.eraseForwardPlaceholder (s : MlirParserState OpInfo)
+    (name : ByteArray) (fwd : ForwardValue) (hf : s.forwardValues[name]? = some fwd)
+    (index : Nat) (op : OperationPtr) (loc : Location)
+    (hp : fwd.placeholders[index]? = some (op, loc)) (ctx' : WfIRContext OpInfo)
+    (hBounds : ∀ (value : ValuePtr),
+      (match value with
+      | .opResult result => result.op ≠ op
+      | .blockArgument _ => True) →
+      value.InBounds s.ctx.raw → value.InBounds ctx'.raw)
+    (structurePreserves : StructuralBoundsPreserved s.ctx.raw ctx'.raw) : MlirParserState OpInfo := by
+  let updated := { fwd with placeholders := fwd.placeholders.erase index }
+  let table := s.forwardValues.insert name updated
+  have lookup : ∀ (name' : ByteArray) (fwd' : ForwardValue), table[name']? = some fwd' →
+      ∀ (index' : Nat) (op' : OperationPtr) (loc' : Location),
+      fwd'.placeholders[index']? = some (op', loc') →
+      ∃ old : ForwardValue, s.forwardValues[name']? = some old ∧
+        old.placeholders[index']? = some (op', loc') ∧ (name' = name → index' ≠ index) := by
+    intro name' fwd' hf' index' op' loc' hp'
+    grind
+  exact { s with
+    ctx := ctx'
+    blocksInBounds := fun name entry he => structurePreserves.blocks _ (s.blocksInBounds name entry he)
+    forwardValues := table
+    realInBounds := by
+      intro value hv
+      exact hBounds value (s.realNotPlaceholder value hv name fwd hf index op loc hp)
+        (s.realInBounds value hv)
+    forwardInBounds := by
+      intro name' fwd' hf' index' op' loc' hp'
+      obtain ⟨old, ho, hpold, hslot⟩ := lookup name' fwd' hf' index' op' loc' hp'
+      have hne : op' ≠ op := by
+        intro he
+        subst op'
+        have hu := s.forwardUnique name fwd hf index op loc hp name' old ho index' loc' hpold
+        grind
+      have hb := s.forwardInBounds name' old ho index' op' loc' hpold
+      have := hBounds (.opResult (op'.getResult 0)) (by simpa using hne) (by simpa using hb)
+      simpa using this
+    realNotPlaceholder := by
+      intro value hv name' fwd' hf' index' op' loc' hp'
+      obtain ⟨old, ho, hpold, _⟩ := lookup name' fwd' hf' index' op' loc' hp'
+      exact s.realNotPlaceholder value hv name' old ho index' op' loc' hpold
+    forwardUnique := by
+      intro name' fwd' hf' index' op' loc' hp' name'' fwd'' hf'' index'' loc'' hp''
+      obtain ⟨old1, ho1, hp1, _⟩ := lookup name' fwd' hf' index' op' loc' hp'
+      obtain ⟨old2, ho2, hp2, _⟩ := lookup name'' fwd'' hf'' index'' op' loc'' hp''
+      exact s.forwardUnique name' old1 ho1 index' op' loc' hp1 name'' old2 ho2 index'' loc'' hp2
+  }
 
 abbrev MlirParserM (OpInfo : Type) [HasOpInfo OpInfo] :=
   StateT (MlirParserState OpInfo) (EStateM ParserError ParserState)
@@ -183,13 +345,19 @@ def inChildScope {α : Type} (m : MlirParserM OpInfo α) : MlirParserM OpInfo α
 
   /- Pop the scope. -/
   modify fun (s : MlirParserState OpInfo) => Id.run do
-    let mut values := s.values
+    let mut values : { table : Std.HashMap ByteArray (Array ValuePtr × Location) //
+        ∀ (name : ByteArray) (entry : Array ValuePtr × Location), table[name]? = some entry → ∀ value ∈ entry.1, s.realValues value } :=
+      ⟨s.values, s.valuesReal⟩
     /- Erase each variable defined in the last scope. -/
     for name in s.definitionsPerScope.back! do
-      values := values.erase name
+      values := ⟨values.val.erase name, by
+        intro key entry h value hv
+        have := values.property
+        grind⟩
     { s with
-      values
-      definitionsPerScope := s.definitionsPerScope.pop }
+      values := values.val
+      definitionsPerScope := s.definitionsPerScope.pop
+      valuesReal := values.property }
 
   return result
 
@@ -203,48 +371,84 @@ private def modifyParserStateM'
   set s'
   return result
 
-/-- Replace a placeholder, retaining the block and region certificates. -/
+/-- Remove a completed forward-reference name without traversing the table. -/
+private def MlirParserState.eraseForwardName (s : MlirParserState OpInfo) (name : ByteArray) :
+    MlirParserState OpInfo :=
+  { s with
+    forwardValues := s.forwardValues.erase name
+    forwardInBounds := by
+      intro key fwd hf index op loc hp
+      exact s.forwardInBounds key fwd (by grind) index op loc hp
+    realNotPlaceholder := by
+      intro value hv key fwd hf index op loc hp
+      exact s.realNotPlaceholder value hv key fwd (by grind) index op loc hp
+    forwardUnique := by
+      intro key fwd hf index op loc hp key' fwd' hf' index' loc' hp'
+      exact s.forwardUnique key fwd (by grind) index op loc hp key' fwd' (by grind) index' loc' hp'
+  }
+
+/-- Replace a placeholder using the certificates belonging to its table entry and target. -/
 private def rewirePlaceholderState (s : MlirParserState OpInfo)
-    (placeholderOp : OperationPtr) (target : ValuePtr) :
+    (name : ByteArray) (fwd : ForwardValue) (hf : s.forwardValues[name]? = some fwd)
+    (index : Nat) (placeholderOp : OperationPtr) (useLoc : Location)
+    (hp : fwd.placeholders[index]? = some (placeholderOp, useLoc))
+    (target : ValuePtr) (ht : s.realValues target) :
     EStateM ParserError ParserState { s' : MlirParserState OpInfo //
-      StructuralBoundsPreserved s.ctx.raw s'.ctx.raw } := do
+      s'.realValues = s.realValues ∧ StructuralBoundsPreserved s.ctx.raw s'.ctx.raw } := do
   let placeholderValue : ValuePtr := placeholderOp.getResult 0
-  let ⟨hOld⟩ ← checkValueInBounds placeholderValue s.ctx.raw
-  let ⟨hNew⟩ ← checkValueInBounds target s.ctx.raw
+  let hOld := s.forwardInBounds name fwd hf index placeholderOp useLoc hp
+  let hNew := s.realInBounds target ht
   let ⟨hNe⟩ ← checkValuesNe placeholderValue target
   let ctx := WfRewriter.replaceValue s.ctx placeholderValue target hNe hOld hNew
   let hStructure := WfRewriter.replaceValue_structuralBoundsPreserved
     (ctx := s.ctx) (oldValue := placeholderValue) (newValue := target)
     (ne := hNe) (oldIn := hOld) (newIn := hNew)
-  let next := s.withContext ctx hStructure
-  let ⟨hOpIn⟩ ← checkOpInBounds placeholderOp next.ctx.raw
-  let ⟨hNoRegions⟩ ← checkOpNoRegions placeholderOp next.ctx.raw
-  let ⟨hNoUses⟩ ← checkOpNoUses placeholderOp next.ctx.raw
-  let ctx' := WfRewriter.eraseOp next.ctx placeholderOp hNoRegions hNoUses hOpIn
-  let hErase := WfRewriter.eraseOp_structuralBoundsPreserved
-    (ctx := next.ctx) (op := placeholderOp) (noRegions := hNoRegions)
-    (noUses := hNoUses) (hop := hOpIn)
-  return ⟨next.withContext ctx' hErase, hStructure.trans hErase⟩
+  let s := s.withContext ctx (fun value h => by
+    have := WfRewriter.replaceValue_inBounds (ptr := .value value) (ctx := s.ctx) (oldValue := placeholderValue) (newValue := target) (ne := hNe) (oldIn := hOld) (newIn := hNew)
+    grind) hStructure
+  let hOpIn := OperationPtr.inBounds_of_result_value_inBounds
+    (s.forwardInBounds name fwd hf index placeholderOp useLoc hp)
+  let ⟨hNoRegions⟩ ← checkOpNoRegions placeholderOp s.ctx.raw
+  let ⟨hNoUses⟩ ← checkOpNoUses placeholderOp s.ctx.raw
+  let ctx := WfRewriter.eraseOp s.ctx placeholderOp hNoRegions hNoUses hOpIn
+  let s' := s.eraseForwardPlaceholder name fwd hf index placeholderOp useLoc hp ctx
+    (fun value hDifferent hBounds =>
+      (WfRewriter.eraseOp_valueInBounds_iff (by cases value <;> exact hDifferent)).mpr hBounds)
+    WfRewriter.eraseOp_structuralBoundsPreserved
+  return ⟨s', rfl, hStructure.trans WfRewriter.eraseOp_structuralBoundsPreserved⟩
 
-/-- Resolve definitions while retaining the block and region certificates. -/
+/-- Resolve definitions while explicitly transporting their erased provenance. -/
 private def registerValueDefsState (s : MlirParserState OpInfo)
-    (name : ByteArray) (pos : Location) (values : Array ValuePtr) :
+    (name : ByteArray) (pos : Location) (values : Array ValuePtr)
+    (hValues : ∀ value ∈ values, s.realValues value) :
     EStateM ParserError ParserState { s' : MlirParserState OpInfo //
-      StructuralBoundsPreserved s.ctx.raw s'.ctx.raw } := do
-  let mut current : { s' : MlirParserState OpInfo // StructuralBoundsPreserved s.ctx.raw s'.ctx.raw } := ⟨s, .refl _⟩
+      s'.realValues = s.realValues ∧ StructuralBoundsPreserved s.ctx.raw s'.ctx.raw } := do
+  let mut current : { s' : MlirParserState OpInfo // s'.realValues = s.realValues ∧ StructuralBoundsPreserved s.ctx.raw s'.ctx.raw } := ⟨s, rfl, .refl _⟩
   if let some fwd := s.forwardValues[name]? then
-    for (index, (placeholderOp, useLoc)) in fwd.placeholders do
-      let some realValue := values[index]?
-        | throw (({ msg := s!"definition of value %{String.fromUTF8! name} provides {values.size} results, but result #{index} was used", pos := some pos } : ParserError).addNote useLoc "value used here")
-      let placeholderValue : ValuePtr := placeholderOp.getResult 0
-      let usedType := placeholderValue.getType! current.val.ctx.raw
-      let definedType := realValue.getType! current.val.ctx.raw
-      if usedType ≠ definedType then
-        throw (({ msg := s!"definition of value %{String.fromUTF8! name}#{index} has type {definedType} but was used with type {usedType}",
-                  pos := some pos } : ParserError).addNote useLoc "value used here")
-      let updated ← rewirePlaceholderState current.val placeholderOp realValue
-      current := ⟨updated.val, current.property.trans updated.property⟩
-    current := ⟨{ current.val with forwardValues := current.val.forwardValues.erase name }, current.property⟩
+    for (index, _) in fwd.placeholders do
+      match hf : current.val.forwardValues[name]? with
+      | none => pure ()
+      | some liveFwd =>
+        match hp : liveFwd.placeholders[index]? with
+        | none => pure ()
+        | some (placeholderOp, useLoc) =>
+          let real ← match hValue : values[index]? with
+            | none => throw (({ msg := s!"definition of value %{String.fromUTF8! name} provides {values.size} results, but result #{index} was used", pos := some pos } : ParserError).addNote useLoc "value used here")
+            | some value => pure (⟨value, by grind⟩ : { value : ValuePtr // value ∈ values })
+          let realValue := real.val
+          let hReal : current.val.realValues realValue := by
+            rw [current.property.1]
+            exact hValues realValue real.property
+          let placeholderValue : ValuePtr := placeholderOp.getResult 0
+          let usedType := placeholderValue.getType current.val.ctx.raw
+            (current.val.forwardInBounds name liveFwd hf index placeholderOp useLoc hp)
+          let definedType := realValue.getType current.val.ctx.raw (current.val.realInBounds realValue hReal)
+          if usedType ≠ definedType then
+            throw (({ msg := s!"definition of value %{String.fromUTF8! name}#{index} has type {definedType} but was used with type {usedType}",
+                      pos := some pos } : ParserError).addNote useLoc "value used here")
+          let updated ← rewirePlaceholderState current.val name liveFwd hf index placeholderOp useLoc hp realValue hReal
+          current := ⟨updated.val, updated.property.1.trans current.property.1, current.property.2.trans updated.property.2⟩
+    current := ⟨current.val.eraseForwardName name, current.property⟩
   if let some (_, existingPos) := current.val.values[name]? then
     let error := ParserError.mk s!"value %{String.fromUTF8! name} has already been defined" pos []
     throw (error.addNote existingPos "previously defined here")
@@ -254,6 +458,14 @@ private def registerValueDefsState (s : MlirParserState OpInfo)
       values := currentState.values.insert name (values, pos)
       definitionsPerScope := currentState.definitionsPerScope.modify
         (currentState.definitionsPerScope.size - 1) (·.insert name)
+      valuesReal := by
+        intro key entry h value hv
+        have hOld := currentState.valuesReal
+        have hNew : ∀ value ∈ values, currentState.realValues value := by
+          intro value hv
+          rw [current.property.1]
+          exact hValues value hv
+        grind
     }
   return ⟨result, current.property⟩
 
@@ -290,8 +502,8 @@ def parseOpResults : MlirParserM OpInfo (Array (ByteArray × Nat × Location)) :
 /--
   An operand whose type has not yet been resolved.
   This is used during parsing to allow parsing operands before their types.
-  Once the operation type is known, operand resolution produces an SSA value and
-  checks that its type matches previous uses.
+  Once the operation type is known, operand resolution produces an SSA value with its
+  bounds certificate and checks that its type matches previous uses.
 
   `index` is used for the `%name#index` syntax to refer to an indexed result
   when multiple are defined for the same value.
@@ -346,10 +558,13 @@ def parseOperand : MlirParserM OpInfo UnresolvedOperand := do
 def parseOperands : MlirParserM OpInfo (Array UnresolvedOperand) := do
   parseDelimitedList .paren parseOperand
 
-/-- A resolved value and the context transition that preserves structural certificates. -/
+/-- A resolved value and the context transition that preserves earlier operand certificates. -/
 private structure ResolvedOperand (s : MlirParserState OpInfo) where
   value : ValuePtr
   state : MlirParserState OpInfo
+  inBounds : value.InBounds state.ctx.raw
+  realValues_eq : state.realValues = s.realValues
+  preserves : ∀ (value : ValuePtr), value.InBounds s.ctx.raw → value.InBounds state.ctx.raw
   preservesStructure : StructuralBoundsPreserved s.ctx.raw state.ctx.raw
 
 private def createForwardOperandState (s : MlirParserState OpInfo)
@@ -360,14 +575,27 @@ private def createForwardOperandState (s : MlirParserState OpInfo)
       #[expectedType] #[] #[] #[] default none with
   | none => throwAt operand.pos "internal error: failed to create forward-reference placeholder"
   | some (ctx', op) =>
+    let hPreserves : ∀ (value : ValuePtr), value.InBounds s.ctx.raw → value.InBounds ctx'.raw :=
+      fun _ h => WfRewriter.createOp_valueInBounds_mono hCreated h
     let hStructure := WfRewriter.createOp_structuralBoundsPreserved hCreated
-    let next := s.withContext ctx' hStructure
-    let fwd := next.forwardValues[operand.name]?.getD { placeholders := {}, loc := operand.pos }
-    let updated := { fwd with placeholders := fwd.placeholders.insert idx (op, operand.pos) }
-    let result := { next with forwardValues := next.forwardValues.insert operand.name updated }
+    let next := s.withContext ctx' hPreserves hStructure
+    let result := next.insertForwardPlaceholder operand.name idx op operand.pos
+      (by simpa [next, MlirParserState.withContext] using WfRewriter.createOp_result_inBounds hCreated 0 (by simp))
+      (by
+        intro value hv
+        have h := WfRewriter.createOp_existingValue_not_result hCreated (s.realInBounds value hv)
+        cases value <;> exact h)
+      (by
+        intro name fwd hf index oldOp loc hp
+        have hOld := s.forwardInBounds name fwd hf index oldOp loc hp
+        have hDifferent := WfRewriter.createOp_existingValue_not_result hCreated hOld
+        simpa using hDifferent)
     return {
       value := op.getResult 0
       state := result
+      inBounds := by simpa [result, MlirParserState.insertForwardPlaceholder, next, MlirParserState.withContext] using WfRewriter.createOp_result_inBounds hCreated 0 (by simp)
+      realValues_eq := rfl
+      preserves := hPreserves
       preservesStructure := hStructure
     }
 
@@ -375,63 +603,87 @@ private def resolveForwardOperandState (s : MlirParserState OpInfo)
     (operand : UnresolvedOperand) (expectedType : TypeAttr) :
     EStateM ParserError ParserState (ResolvedOperand s) := do
   let idx := operand.indexD
-  match s.forwardValues[operand.name]? with
+  match hf : s.forwardValues[operand.name]? with
   | none => createForwardOperandState s operand expectedType
   | some fwd =>
-    match fwd.placeholders[idx]? with
+    match hp : fwd.placeholders[idx]? with
     | none => createForwardOperandState s operand expectedType
     | some (placeholderOp, useLoc) =>
       let placeholderValue : ValuePtr := placeholderOp.getResult 0
-      let parsedType := placeholderValue.getType! s.ctx.raw
+      let parsedType := placeholderValue.getType s.ctx.raw
+        (s.forwardInBounds operand.name fwd hf idx placeholderOp useLoc hp)
       if parsedType ≠ expectedType then
         throw (({ msg := s!"type mismatch for value {operand}: expected {expectedType}, got {parsedType}",
                   pos := some operand.pos } : ParserError).addNote useLoc "value first used here")
       return {
         value := placeholderValue
         state := s
+        inBounds := s.forwardInBounds operand.name fwd hf idx placeholderOp useLoc hp
+        realValues_eq := rfl
+        preserves := fun _ h => h
         preservesStructure := .refl _
       }
 
 private def resolveOperandState (s : MlirParserState OpInfo)
     (operand : UnresolvedOperand) (expectedType : TypeAttr) :
     EStateM ParserError ParserState (ResolvedOperand s) := do
-  match s.values[operand.name]? with
+  match hValues : s.values[operand.name]? with
   | none => resolveForwardOperandState s operand expectedType
   | some (values, defPos) =>
-    let some value := values[operand.indexD]?
-      | throw (({ msg := s!"invalid result index {operand.indexD} for %{operand.nameString}", pos := some operand.pos } : ParserError).addNote defPos "value defined here")
-    let parsedType := value.getType! s.ctx.raw
+    let real ← match hValue : values[operand.indexD]? with
+      | none => throw (({ msg := s!"invalid result index {operand.indexD} for %{operand.nameString}", pos := some operand.pos } : ParserError).addNote defPos "value defined here")
+      | some value => pure (⟨value, by grind⟩ : { value : ValuePtr // value ∈ values })
+    let value := real.val
+    let hBounds := s.realInBounds value (s.valuesReal operand.name (values, defPos) hValues value real.property)
+    let parsedType := value.getType s.ctx.raw hBounds
     if parsedType ≠ expectedType then
       throw (({ msg := s!"type mismatch for value {operand}: expected {expectedType}, got {parsedType}",
                 pos := some operand.pos } : ParserError).addNote defPos "value defined here")
     return {
       value
       state := s
+      inBounds := hBounds
+      realValues_eq := rfl
+      preserves := fun _ h => h
       preservesStructure := .refl _
     }
 
 private structure ResolvedOperands (s : MlirParserState OpInfo) where
   values : Array ValuePtr
   state : MlirParserState OpInfo
+  inBounds : ∀ value ∈ values, value.InBounds state.ctx.raw
+  realValues_eq : state.realValues = s.realValues
+  preserves : ∀ (value : ValuePtr), value.InBounds s.ctx.raw → value.InBounds state.ctx.raw
   preservesStructure : StructuralBoundsPreserved s.ctx.raw state.ctx.raw
 
 /-- Resolve operands with a fixed initial state so the runtime loop remains tail recursive. -/
 private def resolveOperandsFrom (initial state : MlirParserState OpInfo)
     (operands : List (UnresolvedOperand × TypeAttr)) (values : Array ValuePtr)
+    (hValues : ∀ value ∈ values, value.InBounds state.ctx.raw)
+    (hReal : state.realValues = initial.realValues)
+    (hPreserves : ∀ (value : ValuePtr), value.InBounds initial.ctx.raw → value.InBounds state.ctx.raw)
     (hStructure : StructuralBoundsPreserved initial.ctx.raw state.ctx.raw) :
     EStateM ParserError ParserState (ResolvedOperands initial) := do
   match operands with
-  | [] => return ⟨values, state, hStructure⟩
+  | [] => return ⟨values, state, hValues, hReal, hPreserves, hStructure⟩
   | (operand, ty) :: rest =>
     let resolved ← resolveOperandState state operand ty
     let nextValues := values.push resolved.value
-    resolveOperandsFrom initial resolved.state rest nextValues
+    let hNext : ∀ value ∈ nextValues, value.InBounds resolved.state.ctx.raw := by
+      intro value hv
+      have hOld := fun value hv => resolved.preserves value (hValues value hv)
+      have hNew := resolved.inBounds
+      grind
+    resolveOperandsFrom initial resolved.state rest nextValues hNext
+      (resolved.realValues_eq.trans hReal)
+      (fun value h => resolved.preserves value (hPreserves value h))
       (hStructure.trans resolved.preservesStructure)
 
 private def resolveOperandsState (state : MlirParserState OpInfo)
-    (operands : List (UnresolvedOperand × TypeAttr)) (values : Array ValuePtr) :
+    (operands : List (UnresolvedOperand × TypeAttr)) (values : Array ValuePtr)
+    (hValues : ∀ value ∈ values, value.InBounds state.ctx.raw) :
     EStateM ParserError ParserState (ResolvedOperands state) :=
-  resolveOperandsFrom state state operands values (.refl _)
+  resolveOperandsFrom state state operands values hValues rfl (fun _ h => h) (.refl _)
 
 /-- The attribute parser state derived from the current parser state. -/
 def attrParserState : MlirParserM OpInfo AttrParserState := do
@@ -591,7 +843,7 @@ private def defineBlockState (s : MlirParserState OpInfo) (name : ByteArray)
     | none => throwAt loc "internal error: failed to insert block"
     | some ctx =>
       let hs := WfRewriter.insertBlock_structuralBoundsPreserved hc
-      let next := s.withContext ctx hs
+      let next := s.withContext ctx (fun _ h => WfRewriter.insertBlock_valueInBounds_mono hc h) hs
       let hb := hs.blocks block hb
       return ⟨block, next.insertBlockName name (.Defined block loc) hb, hb, hs⟩
   | none =>
@@ -599,7 +851,7 @@ private def defineBlockState (s : MlirParserState OpInfo) (name : ByteArray)
     | none => throwAt loc "internal error: failed to create block"
     | some (ctx, block) =>
       let hs := WfRewriter.createBlock_structuralBoundsPreserved hc
-      let next := s.withContext ctx hs
+      let next := s.withContext ctx (fun _ h => WfRewriter.createBlock_valueInBounds_mono hc h) hs
       let hb := WfRewriter.createBlock_new_inBounds hc
       return ⟨block, next.insertBlockName name (.Defined block loc) hb, hb, hs⟩
 
@@ -612,7 +864,7 @@ private def defineBlockUseState (s : MlirParserState OpInfo) (name : ByteArray) 
     | none => throwAt loc "internal error: failed to create block"
     | some (ctx, block) =>
       let hs := WfRewriter.createBlock_structuralBoundsPreserved hc
-      let next := s.withContext ctx hs
+      let next := s.withContext ctx (fun _ h => WfRewriter.createBlock_valueInBounds_mono hc h) hs
       let hb := WfRewriter.createBlock_new_inBounds hc
       return ⟨block, next.insertBlockName name (.ForwardDeclared block loc) hb, hb, hs⟩
 
@@ -666,24 +918,56 @@ private def parseOptionalBlockLabelState (s : MlirParserState OpInfo)
   let ctx' := WfRewriter.setBlockArguments ctx block argTypes h_block_InBounds
     (by grind [BlockPtr.getArguments!.mem_iff_exists_index])
   let hStructure := WfRewriter.setBlockArguments_structuralBoundsPreserved
-  let next := state.withContext ctx' hStructure
-  let mut current : { state : MlirParserState OpInfo //
-      StructuralBoundsPreserved next.ctx.raw state.ctx.raw } := ⟨next, .refl _⟩
+  let next := state.withContext ctx' (fun _ hv =>
+    WfRewriter.setBlockArguments_valueInBounds_mono h_block_NoArgs hv) hStructure
+  let argumentValues : Array ValuePtr := Array.ofFn fun i : Fin arguments.size =>
+    .blockArgument { block, index := i.val }
+  let next := next.addRealValues argumentValues
+    (by
+      intro value hv
+      rcases Array.mem_ofFn.mp hv with ⟨i, rfl⟩
+      have h := WfRewriter.setBlockArguments_inBounds_iff
+        (ptr := .value (.blockArgument { block, index := i.val }))
+        (ctx := ctx) (blockPtr := block) (types := argTypes)
+        (hblock := h_block_InBounds)
+        (noUses := by grind [BlockPtr.getArguments!.mem_iff_exists_index])
+      exact (GenericPtr.iff_value _).mp (h.mpr (by simp [argTypes])))
+    (by
+      intro value hv name fwd hf index op loc hp
+      rcases Array.mem_ofFn.mp hv with ⟨i, rfl⟩
+      trivial)
+  let mut current : { state : MlirParserState OpInfo // state.realValues = next.realValues ∧
+      StructuralBoundsPreserved next.ctx.raw state.ctx.raw } := ⟨next, rfl, .refl _⟩
   for i in List.finRange arguments.size do
     let (argName, _, tokenPos) := arguments[i]
     let value : ValuePtr := .blockArgument { block, index := i.val }
+    let hReal : current.val.realValues value := by
+      rw [current.property.1]
+      exact Or.inr (Array.mem_ofFn.mpr ⟨i, rfl⟩)
     let registered ← registerValueDefsState current.val argName tokenPos #[value]
-    current := ⟨registered.val, current.property.trans registered.property⟩
-  let hs := parsed.preserves.trans (hStructure.trans current.property)
+      (by
+        intro v hv
+        simp only [Array.mem_singleton] at hv
+        subst v
+        exact hReal)
+    current := ⟨registered.val, registered.property.1.trans current.property.1,
+      current.property.2.trans registered.property.2⟩
+  let hs := parsed.preserves.trans (hStructure.trans current.property.2)
   return ⟨some block, current.val,
-    (by simpa using current.property.blocks block (hStructure.blocks block h_block_InBounds)), hs⟩
+    (by simpa using current.property.2.blocks block (hStructure.blocks block h_block_InBounds)), hs⟩
 
-/-- Remove the names introduced in the innermost scope. -/
+/-- Remove the names introduced in the innermost scope, retaining erased provenance. -/
 private def scopeValues (s : MlirParserState OpInfo) :
-    Std.HashMap ByteArray (Array ValuePtr × Location) := Id.run do
-  let mut values := s.values
+    { table : Std.HashMap ByteArray (Array ValuePtr × Location) //
+      ∀ (name : ByteArray) (entry : Array ValuePtr × Location), table[name]? = some entry → ∀ value ∈ entry.1, s.realValues value } := Id.run do
+  let mut values := (⟨s.values, s.valuesReal⟩ :
+    { table : Std.HashMap ByteArray (Array ValuePtr × Location) //
+      ∀ (name : ByteArray) (entry : Array ValuePtr × Location), table[name]? = some entry → ∀ value ∈ entry.1, s.realValues value })
   for name in s.definitionsPerScope.back! do
-    values := values.erase name
+    values := ⟨values.val.erase name, by
+      intro key entry h value hv
+      have := values.property
+      grind⟩
   return values
 
 private def parseEntryBlockLabelState (s : MlirParserState OpInfo)
@@ -750,12 +1034,13 @@ private partial def parseOptionalOpState (initial : MlirParserState OpInfo)
   let state := regions.state
   let attrs ← readSyntax state parseOpAttributes
   let (inputTypes, outputTypes) ← readSyntax state parseOperationType
-  let numResults := results.foldl (· + ·.2.1) 0
-  if outputTypes.size ≠ numResults then
-    throwAt opNameStart s!"operation '{opNameStr}' declares {outputTypes.size} result types, but {numResults} result values were provided"
+  let numResults := (results.toList.map (fun result => result.2.1)).sum
+  let ⟨hCounts⟩ : PLift (outputTypes.size = numResults) ←
+    if h : outputTypes.size = numResults then pure ⟨h⟩
+    else throwAt opNameStart s!"operation '{opNameStr}' declares {outputTypes.size} result types, but {numResults} result values were provided"
   if inputTypes.size ≠ operands.size then
     throwAt opNameStart s!"operation '{opNameStr}' declares {inputTypes.size} operand types, but {operands.size} operands were provided"
-  let resolved ← resolveOperandsState state (operands.zip inputTypes).toList #[]
+  let resolved ← resolveOperandsState state (operands.zip inputTypes).toList #[] (by simp)
   let state := resolved.state
   let ctx := state.ctx
   let hblockOperands : ∀ b ∈ blockOperands.value, b.InBounds ctx.raw := fun b hb =>
@@ -768,27 +1053,51 @@ private partial def parseOptionalOpState (initial : MlirParserState OpInfo)
     cases block with
     | none => exact Option.maybe_none
     | some b => simpa [ip] using hs.blocks b (by simpa using hblock)
-  let ⟨hoper⟩ ← checkAllValuesInBounds resolved.values ctx.raw
   match hctx' : WfRewriter.createOp ctx opId outputTypes resolved.values blockOperands.value regions.value properties ip
-      hoper hblockOperands hregions hins with
+      resolved.inBounds hblockOperands hregions hins with
   | none => throwAt opNameStart "internal error: failed to create operation"
   | some (ctx', op) =>
     let ctx'' := WfRewriter.setAttributes ctx' op attrs
       (WfRewriter.createOp_new_inBounds op hctx')
     let hAttrs : StructuralBoundsPreserved ctx'.raw ctx''.raw := WfRewriter.setAttributes_structuralBoundsPreserved
     let hn := (WfRewriter.createOp_structuralBoundsPreserved hctx').trans hAttrs
-    let next := state.withContext ctx'' hn
-    let mut current : { state : MlirParserState OpInfo //
-        StructuralBoundsPreserved next.ctx.raw state.ctx.raw } := ⟨next, .refl _⟩
-    let mut index := 0
-    for (name, count, tokenPos) in results do
-      let values : Array ValuePtr := Array.ofFn fun i : Fin count => op.getResult (index + i.val)
-      let registered ← registerValueDefsState current.val name tokenPos values
-      current := ⟨registered.val, current.property.trans registered.property⟩
-      index := index + count
+    let contextState := state.withContext ctx'' (by
+      intro value hv
+      exact WfRewriter.setAttributes_valueInBounds_iff.mpr
+        (WfRewriter.createOp_valueInBounds_mono hctx' hv)) hn
+    let resultValues : Array ValuePtr := Array.ofFn fun i : Fin outputTypes.size => op.getResult i
+    let next := contextState.addRealValues resultValues
+      (by
+        intro value hv
+        rcases Array.mem_ofFn.mp hv with ⟨i, rfl⟩
+        have hResult := WfRewriter.createOp_result_inBounds hctx' i.val i.isLt
+        exact WfRewriter.setAttributes_valueInBounds_iff.mpr (by simpa using hResult))
+      (by
+        intro value hv name fwd hf index oldOp loc hp
+        rcases Array.mem_ofFn.mp hv with ⟨i, rfl⟩
+        have hOld := state.forwardInBounds name fwd hf index oldOp loc hp
+        have hDifferent := WfRewriter.createOp_existingValue_not_result hctx' hOld
+        simpa using Ne.symm hDifferent)
+    let mut current : { state : MlirParserState OpInfo // state.realValues = next.realValues ∧
+        StructuralBoundsPreserved next.ctx.raw state.ctx.raw } := ⟨next, rfl, .refl _⟩
+    for group in boundResultGroups results do
+      let values : Array ValuePtr := Array.ofFn fun i : Fin group.count => op.getResult (group.offset + i.val)
+      let hValues : ∀ value ∈ values, current.val.realValues value := by
+        intro value hv
+        rw [current.property.1]
+        apply Or.inr
+        rcases Array.mem_ofFn.mp hv with ⟨i, rfl⟩
+        apply Array.mem_ofFn.mpr
+        exact ⟨⟨group.offset + i.val, by
+          have := group.inBounds
+          have := i.isLt
+          omega⟩, rfl⟩
+      let registered ← registerValueDefsState current.val group.name group.pos values hValues
+      current := ⟨registered.val, registered.property.1.trans current.property.1,
+        current.property.2.trans registered.property.2⟩
     let final := { current.val with opLocations := current.val.opLocations.insert op opStart }
     return ⟨some op, final, trivial, hs.trans (hn.trans (by
-      simpa [next, MlirParserState.withContext] using current.property))⟩
+      simpa [next, contextState, MlirParserState.addRealValues, MlirParserState.withContext] using current.property.2))⟩
 
 private partial def parseBlockBodyState (initial s : MlirParserState OpInfo) (block : BlockPtr)
     (hb : block.InBounds s.ctx.raw) (hs : StructuralBoundsPreserved initial.ctx.raw s.ctx.raw) :
@@ -839,7 +1148,7 @@ private partial def parseRegionState (initial : MlirParserState OpInfo) :
   | none => throwAtCurrentPos "internal error: failed to create region"
   | some (ctx, region) =>
     let hs := WfRewriter.createRegion_structuralBoundsPreserved hc
-    let next := state.withContext ctx hs
+    let next := state.withContext ctx (fun _ h => WfRewriter.createRegion_valueInBounds_mono hc h) hs
     let hr := WfRewriter.createRegion_new_inBounds hc
     let parsed ← if ← readSyntax next (parseOptionalPunctuation "}") then
       pure (⟨region, next, hr, hs⟩ : ParsedRegion initial)
@@ -854,7 +1163,8 @@ private partial def parseRegionState (initial : MlirParserState OpInfo) :
       pure body
     let values := scopeValues parsed.state
     let final : MlirParserState OpInfo := { parsed.state with
-      values := values
+      values := values.val
+      valuesReal := values.property
       definitionsPerScope := parsed.state.definitionsPerScope.pop
       blocks := oldBlocks
       blocksInBounds := fun name entry he =>

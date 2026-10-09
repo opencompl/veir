@@ -54,6 +54,12 @@ theorem BlockInsertPoint.inBounds_of_structuralBoundsPreserved
     simp only [BlockInsertPoint.inBounds_atEnd] at hip ⊢
     exact h.regions region hip
 
+@[grind .]
+theorem OperationPtr.inBounds_of_result_value_inBounds
+    {raw : IRContext OpInfo} {op : OperationPtr} {index : Nat}
+    (h : (ValuePtr.opResult (op.getResult index)).InBounds raw) : op.InBounds raw := by
+  grind
+
 @[grind →]
 theorem WfRewriter.createBlock_structuralBoundsPreserved
     (h : WfRewriter.createBlock ctx types ip hip = some (ctx', newBlock)) :
