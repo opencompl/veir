@@ -178,7 +178,7 @@ least/greatest fixpoint of its last argument. `FixNat` is the fixpoint of the
 binary constant functor on `Nat`, which ignores the recursive argument.
 -/
 
-run_meta addDecls (mkFix (mkConstant 0 2 (mkConst ``Nat))) `QPFTypes.Test.FixNat []
+run_meta addDecls (← mkFix (mkConstant 0 2 (mkConst ``Nat))) `QPFTypes.Test.FixNat []
 
 /-- info: QPFTypes.Test.FixNat : CurriedTypeFun 1 -/
 #guard_msgs in #check FixNat
@@ -201,7 +201,7 @@ example : FixNat.Uncurried = QPF.Fix (QPF.Const 2 Nat) := rfl
 
 -- The greatest fixpoint behaves the same way.
 
-run_meta addDecls (mkCofix (mkConstant 0 2 (mkConst ``Nat))) `QPFTypes.Test.CofixNat []
+run_meta addDecls (← mkCofix (mkConstant 0 2 (mkConst ``Nat))) `QPFTypes.Test.CofixNat []
 
 /-- info: QPFTypes.Test.CofixNat : CurriedTypeFun 1 -/
 #guard_msgs in #check CofixNat
@@ -227,7 +227,7 @@ example : CofixNat.Uncurried = QPF.Cofix (QPF.Const 2 Nat) := rfl
 run_meta do
   let F := mkProj 0 (1 : Fin 2)
   let Gs := #v[mkProj 0 (0 : Fin 2), mkProj 0 (1 : Fin 2)]
-  addDecls (mkFix (← mkComp F Gs)) `QPFTypes.Test.FixComp []
+  addDecls (← mkFix (← mkComp F Gs)) `QPFTypes.Test.FixComp []
 
 /-- info: QPFTypes.Test.FixComp.Uncurried : TypeFun 1 -/
 #guard_msgs in #check FixComp.Uncurried

@@ -104,7 +104,7 @@ variables, `q` must be a closed expression.
 The instances are registered with the given `attrKind` (global, by default).
 The definitions themselves are always added to the environment.
 -/
-meta def addDecls (q : QPFExpr u n) (declName : Name) (levelParams : List Name)
+meta def addDecls (q : QPFExpr n) (declName : Name) (levelParams : List Name)
     (deadVars : Array Expr := #[]) (attrKind : AttributeKind := .global) : MetaM Unit :=
   let decl := (.const declName (levelParams.map Level.param))
   withTraceNode `QPFTypes (fun _ => return m!"adding QPF declarations for '{decl}'") do
@@ -115,6 +115,9 @@ meta def addDecls (q : QPFExpr u n) (declName : Name) (levelParams : List Name)
     let polyInstName := declName ++ `instIsPolynomial
     let levels := levelParams.map Level.param
     let n := toExpr n
+    -- Typefun.curry requires a homogeneous QPF
+    let q ← q.unifyLevels
+    let u := q.domLevel
 
     trace[QPFTypes] "Using level parameters: {levelParams}"
     trace[QPFTypes] "Using dead variables: {deadVars}"

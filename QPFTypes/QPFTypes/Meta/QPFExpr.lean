@@ -9,9 +9,9 @@ public import QPFTypes.Meta.QPFExpr.OfTypeExpr
 # QPFExpr
 
 Main definitions:
-  * `QPFExpr u n`, the type of Lean expressions of an `n`-ary type function,
+  * `QPFExpr n`, the type of Lean expressions of an `n`-ary type function,
     bundled with a corresponding QPF instance.
-  * `QPFTupleExpr u n m`, the type of Lean expressions of an `m`-tuple of
+  * `QPFTupleExpr n m`, the type of Lean expressions of an `m`-tuple of
     `n`-ary type functions, with corresponding QPF instances.
   * `QPFExpr.addDecl`, add a type function and its corresponding QPF instance
     to the environment, in both curried and uncurried forms.
