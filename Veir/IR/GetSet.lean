@@ -1,7 +1,8 @@
 module
 
-public import Veir.IR.Basic
+public import Veir.IR.Setters
 import all Veir.IR.Basic
+import all Veir.IR.Setters
 
 namespace Veir
 
