@@ -1,16 +1,16 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI_CHECK
+// RUN: ALIVE_EXEC_CHECK
 
 // `%past` has `%p`'s provenance and `%q`'s address, so a store through it is
 // out of bounds, as in `alloca_out_of_bounds.mlir`. Through an integer and
 // back, the address is decoded into the object that covers it, the store
 // finds `%q`, and a load from `%q` sees it.
 //
-// LLUBI: reports undefined behaviour, since for it the reconstructed pointer
-// may not reach `%q`.
-//
-// ALIVE_EXEC: returns poison: its layout need not place `%q` sixteen bytes
-// past `%p`, and its provenance rule only lets an integer reach an exposed
-// object.
+// llubi reports undefined behaviour, since for it the reconstructed pointer
+// may not reach `%q`. alive-exec returns poison: its layout need not place
+// `%q` sixteen bytes past `%p`, and its provenance rule only lets an integer
+// reach an exposed object.
 
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i64 ()>}> ({
@@ -29,3 +29,5 @@
 }) : () -> ()
 
 // CHECK: Program output: #[0x0000000000000007#64]
+// ALIVE_EXEC: Program output: #[poison]
+// LLUBI: Undefined behavior

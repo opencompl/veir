@@ -25,10 +25,7 @@ namespace CSE
 
 /-- Here we package up an opcode with its UB flags; we don't want to
     mix up, e.g., "add" and "add nsw". -/
-abbrev Kind := (op : OpCode) × propertiesOf op
-
-instance : Hashable Kind where
-  hash k := mixHash (hash k.fst) (hash k.snd)
+abbrev Kind := OpKind OpCode
 
 /-- This is the basis for CSE: if two instructions have the same Key,
     then they compute the same ordered sequence of result values. If A

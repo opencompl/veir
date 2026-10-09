@@ -2,7 +2,7 @@
 // RUN: LLUBI
 
 // Branching on a poison i1 is undefined behaviour.
-// ALIVE_EXEC: does not terminate on a branch on poison.
+// alive-exec does not terminate on a branch on poison.
 
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i32 ()>}> ({

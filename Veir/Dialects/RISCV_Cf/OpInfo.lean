@@ -114,12 +114,17 @@ instance : IsOpCode Riscv_Cf where
   fromAttrDict := Riscv_Cf.fromAttrDict
   toAttrDict := Riscv_Cf.toAttrDict
 
+def Riscv_Cf.symbolInterface? (op : Riscv_Cf) :
+    Option (SymbolOpInterface (Riscv_Cf.propertiesOf op)) :=
+  match op with
+  | .func => some { getSymName := fun props => some props.sym_name }
+  | _ => none
+
 def Riscv_Cf.functionInterface? (op : Riscv_Cf) :
     Option (FunctionOpInterface (Riscv_Cf.propertiesOf op)) :=
   match op with
   | .func => some
-      { getSymName := fun props => props.sym_name
-        getFunctionType := fun props => props.function_type
+      { getFunctionType := fun props => props.function_type
         setFunctionType := fun props functionType => { props with function_type := functionType } }
   | _ => none
 
@@ -449,6 +454,7 @@ instance : HasOpInfo Riscv_Cf where
   getEffects := Riscv_Cf.getEffects
   isConstantLike := Riscv_Cf.isConstantLike
   branchOpInterface? := Riscv_Cf.branchOpInterface?
+  symbolInterface? := Riscv_Cf.symbolInterface?
   functionInterface? := Riscv_Cf.functionInterface?
   hasSSADominance := Riscv_Cf.hasSSADominance
   isTerminator := Riscv_Cf.isTerminator

@@ -557,12 +557,17 @@ instance : IsOpCode Llvm where
   fromAttrDict := Llvm.fromAttrDict
   toAttrDict := Llvm.toAttrDict
 
+def Llvm.symbolInterface? (op : Llvm) : Option (SymbolOpInterface (Llvm.propertiesOf op)) :=
+  match op with
+  | .func | .mlir__global | .mlir__alias | .comdat | .comdat_selector =>
+    some { getSymName := fun props => some props.sym_name }
+  | _ => none
+
 def Llvm.functionInterface? (op : Llvm) : Option (FunctionOpInterface (Llvm.propertiesOf op)) :=
   match op with
   | .func =>
     some
-      { getSymName := fun props => props.sym_name
-        getFunctionType := fun props => props.function_type
+      { getFunctionType := fun props => props.function_type
         setFunctionType := fun props functionType =>
           { props with function_type := functionType } }
   | _ => none
@@ -734,35 +739,65 @@ def TypeAttr.verifyLLVMVectorType (ty : TypeAttr) (errMsg : String) :
     throw s!"Expected an LLVM-compatible vector element type, but got {vectorType.elementType}"
   return vectorType
 
+/-- Whether the attribute represents an LLVM struct as text rather than parsed fields. -/
+private def isOpaqueLLVMStruct : Attribute → Bool
+  | .unregisteredAttr attr => attr.isType && attr.value.startsWith "!llvm.struct"
+  | _ => false
+
+/--
+  Compare aggregate element types using their known structure. An opaque struct
+  or unresolved reference may match another struct, but cannot match a scalar
+  or array.
+-/
+private partial def aggregateElementTypesMatch : Attribute → Attribute → Bool
+  | .llvmArrayType lhs, .llvmArrayType rhs =>
+    lhs.size = rhs.size && aggregateElementTypesMatch lhs.type rhs.type
+  | .llvmStructType lhs, .llvmStructType rhs =>
+    lhs.name = rhs.name && lhs.packed = rhs.packed && lhs.body.size = rhs.body.size &&
+      (lhs.body.zip rhs.body).all (fun (l, r) => aggregateElementTypesMatch l r)
+  | lhs, rhs =>
+    if isOpaqueLLVMStruct lhs then
+      isOpaqueLLVMStruct rhs || (rhs matches .llvmStructType _)
+    else if isOpaqueLLVMStruct rhs then
+      lhs matches .llvmStructType _
+    else
+      lhs = rhs
+
 /--
   Walk `position` through an aggregate type, as MLIR does for `insertvalue` and
-  `extractvalue`, and return the element type it reaches. Arrays are modelled,
-  so their indices and element types are checked. Struct bodies are opaque, so
-  the walk stops at a struct with indices left and returns `none`.
+  `extractvalue`, and return the element type it reaches. Arrays and structs with
+  a body are modelled, so their indices and element types are checked. Opaque
+  structs and references to identified structs are kept unregistered, so the walk
+  stops at one with indices left and returns `none`. When the position is fully
+  resolved, return the reached type even if it contains unresolved references;
+  `aggregateElementTypesMatch` checks its known structure.
 -/
 def Llvm.verifyAggregatePosition (containerType : TypeAttr) (position : DenseArrayAttr) :
     Except String (Option Attribute) := do
-  let isStruct : Attribute → Bool
-    | .unregisteredAttr attr => attr.isType && attr.value.startsWith "!llvm.struct"
-    | _ => false
-  let isArray : Attribute → Bool
-    | .llvmArrayType _ => true
-    | _ => false
+  let isAggregate : Attribute → Bool
+    | .llvmArrayType _ | .llvmStructType _ => true
+    | attr => isOpaqueLLVMStruct attr
   if position.elementType.bitwidth ≠ 64 then
     throw "Expected 'position' to be an i64 dense array attribute"
-  if !(isArray containerType.val || isStruct containerType.val) then
+  if !isAggregate containerType.val then
     throw s!"Expected an aggregate container, but got {containerType}"
   for index in position.values do
     if index < 0 then
       throw s!"position out of bounds: {index}"
   let mut current := containerType.val
   for index in position.values do
-    let .llvmArrayType arrType := current
-      | if isStruct current then return none
-        throw s!"Expected LLVM IR structure/array type, got: {current}"
-    if index ≥ arrType.size then
-      throw s!"position out of bounds: {index}"
-    current := arrType.type
+    match current with
+    | .llvmArrayType arrType =>
+      if index ≥ arrType.size then
+        throw s!"position out of bounds: {index}"
+      current := arrType.type
+    | .llvmStructType structType =>
+      let some field := structType.body[index.toNat]?
+        | throw s!"position out of bounds: {index}"
+      current := field
+    | _ =>
+      if isOpaqueLLVMStruct current then return none
+      throw s!"Expected LLVM IR structure/array type, got: {current}"
   return some current
 
 /--
@@ -1102,7 +1137,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.verifyResultTypeMatches ctx containerType "Expected the result to have the container type"
     let elementType? ← Llvm.verifyAggregatePosition containerType props.position
     if let some elementType := elementType? then
-      if elementType ≠ valueType.val then
+      if !aggregateElementTypesMatch elementType valueType.val then
         throw s!"Type mismatch: cannot insert {valueType} into {containerType}"
   | .extractvalue => do
     op.checkIsNonNullIntegerType ctx opIn
@@ -1112,7 +1147,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     let resultType := ((op.getResult 0).get! ctx.raw).type
     let elementType? ← Llvm.verifyAggregatePosition containerType props.position
     if let some elementType := elementType? then
-      if elementType ≠ resultType.val then
+      if !aggregateElementTypesMatch elementType resultType.val then
         throw s!"Type mismatch: extracting from {containerType} should produce {elementType} \
           but this op returns {resultType}"
   | .comdat => do
@@ -1267,6 +1302,7 @@ def Llvm.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpIn
     else none
   | _, _ => none
 
+@[expose]
 def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     (mem : MemoryState) (layout : DataLayout)
@@ -1545,8 +1581,8 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     | .int _ .poison => Interp.ub none
     | _ => none
   | .mlir__addressof => do
-    let some object := mem.globals[properties.global_name.value]? | none
-    return (#[.addr (.val ⟨object, 0⟩)], mem, none)
+    let some p := mem.pointerToGlobal properties.global_name.value | none
+    return (#[.addr (.val p)], mem, none)
   | .alloca => do
     let [.int _ (.val count)] := operands.toList | none
     /- `alloca T, N` reserves `N` strides of `T`, as in LLVM. -/
@@ -1587,7 +1623,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
        that `isel-riscv64` uses to lower this operation. -/
     let size ← layout.getTypeAllocSize properties.elem_type.val
     match ptr, idx with
-    | .val ptr, .val idx => return (#[.addr (.val ⟨ptr.object, UInt64.ofNat (ptr.offset.toNat + idx.toNat * size)⟩)], mem, none)
+    | .val ptr, .val idx => return (#[.addr (.val ⟨ptr.object, UInt64.ofNat (ptr.address.toNat + idx.toNat * size)⟩)], mem, none)
     | _, _ => return (#[.addr .poison], mem, none)
   | .freeze => do
     let [val] := operands.toList | none
@@ -1615,7 +1651,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
           if h : bw = 64 then .ok (.addr (mem.ptrFromInt (val'.cast h).toInt)) else .fail none
       | .addr val', .llvmPointerType _ => .ok (val)
       | .addr val', .byteType ⟨bw⟩ =>
-          if bw = 64 then .ok (.byte 64 (LLVM.Byte.fromInt (mem.intFromPtr val'))) else .fail none
+          if bw = 64 then .ok (.byte 64 val'.toByte) else .fail none
       | _, _ => none
     return (#[result], mem, none)
   | .inttoptr => do
@@ -1627,7 +1663,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let [.addr val] := operands.toList | none
     let [type] := resultTypes.toList | none
     let .integerType bw := type.val | none
-    if bw.bitwidth = 64 then return (#[.int 64 (mem.intFromPtr val)], mem, none) else .fail none
+    if bw.bitwidth = 64 then return (#[.int 64 val.toInt], mem, none) else .fail none
   | _ => none
 
 instance : HasOpInfo Llvm where
@@ -1636,6 +1672,7 @@ instance : HasOpInfo Llvm where
   propagatesPoison := Llvm.propagatesPoison
   getEffects := Llvm.getEffects
   isConstantLike := Llvm.isConstantLike
+  symbolInterface? := Llvm.symbolInterface?
   functionInterface? := Llvm.functionInterface?
   branchOpInterface? := Llvm.branchOpInterface?
   hasSSADominance := Llvm.hasSSADominance

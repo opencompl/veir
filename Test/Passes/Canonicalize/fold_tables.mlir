@@ -84,13 +84,12 @@
     ^bb0():
       // CHECK-LABEL: func.func @poison_beats_operand() -> i32
       %poison = "llvm.mlir.poison"() : () -> i32
-      // CHECK: %[[ORIGINAL:.*]] = "llvm.mlir.poison"() : () -> i32
+      // CHECK-NEXT: %[[POISON:.*]] = "llvm.mlir.poison"() : () -> i32
       %c0 = "llvm.mlir.constant"() <{"value" = 0 : i32}> : () -> i32
       %sum = "llvm.add"(%poison, %c0) : (i32, i32) -> i32
-      // CHECK-NEXT: %[[FOLDED:.*]] = "llvm.mlir.poison"() : () -> i32
       "test.test"(%poison) : (i32) -> ()
-      // CHECK-NEXT: "test.test"(%[[ORIGINAL]]) : (i32) -> ()
-      // CHECK-NEXT: "func.return"(%[[FOLDED]]) : (i32) -> ()
+      // CHECK-NEXT: "test.test"(%[[POISON]]) : (i32) -> ()
+      // CHECK-NEXT: "func.return"(%[[POISON]]) : (i32) -> ()
       "func.return"(%sum) : (i32) -> ()
   }) : () -> ()
 }) : () -> ()

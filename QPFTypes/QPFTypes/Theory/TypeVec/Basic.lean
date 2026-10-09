@@ -172,3 +172,11 @@ protected theorem casesCons_append1 (n : Nat) {β : TypeVec (n + 1) → Sort _}
 def «repeat» : ∀ (n : Nat), Type u → TypeVec n
   | 0, _ => Fin.elim0
   | Nat.succ i, t => append1 («repeat» i t) t
+
+
+/-! ### Literal Notation -/
+
+/-- TypeVec literal notation -/
+macro "#t[" ts:term,* "]" : term => do
+  let nil ← `(TypeVec.nil)
+  ts.getElems.foldlM (fun a b => `(TypeVec.append1 $a $b)) nil

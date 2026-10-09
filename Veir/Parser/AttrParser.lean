@@ -1044,6 +1044,9 @@ inductive LLVMFuncParam
   | type (ty : TypeAttr)
   | ellipsis
 
+/-- The error for an opaque LLVM struct, which VeIR rejects. -/
+private def opaqueStructError := "opaque LLVM struct types are not supported"
+
 mutual
 
 /--
@@ -1107,32 +1110,52 @@ partial def parseOptionalFunctionType : AttrParserM (Option FunctionType) := do
   Its syntax is `!llvm.struct<...>`, or (exclusively) the shorter form
   `struct<...>` if the corresponding argument is set.
 
-  LIMITATION: the struct is parsed *opaquely* as an `UnregisteredAttr` holding the
-  body as text. There is no structured representation: the struct name (for
-  identified structs like `struct<"name", (...)>`), the element list, and the
-  packed flag all live only as a substring of the stored text, so VeIR cannot
-  compare struct types semantically, resolve a recursive reference
-  (`struct<"node">`) against its definition, or inspect fields.
+  A struct with a body, literal (`struct<packed? (...)>`) or identified
+  (`struct<"name", packed? (...)>`), becomes an `LLVM.StructType` when its
+  fields can be parsed. Otherwise, preserve its text as an `UnregisteredAttr`.
 
-  A proper fix would introduce a dedicated `LLVM.StructType` (mirroring the
-  existing `LLVM.ArrayType`): an inductive constructor carrying the literal vs.
-  identified distinction, the packed flag, and the element list, with the
-  identity/recursion handling that identified structs require. That is a larger
-  change and unnecessary until a pass needs to reason about struct layout or
-  identity; until then the opaque representation parses and roundtrips correctly,
-  which is all that is currently required.
+  Opaque identified structs (`struct<"name", opaque>`) are rejected.
+
+  LIMITATION: a bare reference to an identified struct (`struct<"name">`, used
+  for recursive types) is kept opaquely as an `UnregisteredAttr` holding its
+  text, so VeIR cannot resolve such a reference against its definition.
 -/
 partial def parseOptionalLLVMStructType (short := false) : AttrParserM (Option TypeAttr) := do
   if !(← parseOptionalTypeName "llvm.struct" short) then return none
-  -- Capture the `struct<...>` body opaquely and normalize to the full
-  -- `!llvm.struct<...>` spelling, so both forms produce identical output.
   let startPos ← getPos
   parsePunctuation "<"
-  let _ ← parseUnregisteredAttrBody
-  let endPos := (← peekToken).slice.stop
-  parsePunctuation ">"
-  let body := (Slice.mk startPos endPos).of (← getThe ParserState).input
-  return some ⟨UnregisteredAttr.mk ("!llvm.struct" ++ String.fromUTF8! body) true none, by grind⟩
+  let bodyState ← getThe ParserState
+  let name ← parseOptionalStringLiteral
+  /- A bare reference: keep the text, normalized to the full `!llvm.struct<...>`
+     spelling, so both forms produce identical output. -/
+  let isReference ← if name.isNone then pure false else do
+    if ← parseOptionalPunctuation "," then
+      if ← parseOptionalKeyword "opaque".toByteArray then
+        throwAt startPos opaqueStructError
+      pure false
+    else
+      pure true
+  if isReference then
+    let endPos := (← peekToken).slice.stop
+    parsePunctuation ">"
+    let body := (Slice.mk startPos endPos).of (← getThe ParserState).input
+    return some ⟨UnregisteredAttr.mk ("!llvm.struct" ++ String.fromUTF8! body) true none, by grind⟩
+  try
+    let packed ← parseOptionalKeyword "packed".toByteArray
+    let body ← parseDelimitedList .paren parseLLVMType
+    parsePunctuation ">"
+    return some (LLVM.StructType.mk name packed (body.map (·.val)))
+  catch err =>
+    /- A nested opaque struct must not be hidden by the fallback below. -/
+    if err.msg == opaqueStructError then throw err
+    /- Preserve the old opaque parsing for fields VeIR cannot yet model, such
+       as address-space pointers and scalable vectors. -/
+    set bodyState
+    let _ ← parseUnregisteredAttrBody
+    let endPos := (← peekToken).slice.stop
+    parsePunctuation ">"
+    let body := (Slice.mk startPos endPos).of (← getThe ParserState).input
+    return some ⟨UnregisteredAttr.mk ("!llvm.struct" ++ String.fromUTF8! body) true none, by grind⟩
 
 /--
   Parse a type within an LLVM-dialect type body, accepting the LLVM "pretty-print"

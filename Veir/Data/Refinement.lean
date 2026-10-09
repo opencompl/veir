@@ -35,3 +35,9 @@ theorem isRefinedBy_refl {w : Nat} (i : Veir.Data.LLVM.Int w) : i ⊒ i := by
 theorem isRefinedBy_trans {w : Nat} {i j k : Veir.Data.LLVM.Int w}
     (h₁ : i ⊒ j) (h₂ : j ⊒ k) : i ⊒ k := by
   grind [isRefinedBy, cases Veir.Data.LLVM.Int]
+
+/-- Poison is refined by any value. -/
+@[simp, grind .]
+theorem poison_isRefinedBy {w : Nat} (i : Veir.Data.LLVM.Int w) :
+    Veir.Data.LLVM.Int.poison ⊒ i := by
+  simp [isRefinedBy]

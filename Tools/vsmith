@@ -242,6 +242,8 @@ def format_llubi_field(field: str) -> str:
         return "poison"
     if field in ("T", "F"):
         return "0x1#1" if field == "T" else "0x0#1"
+    if re.fullmatch(r"ptr\s+(?:null|0x[0-9A-Fa-f]+(?:\s+\[[^\]]*\])?)", field):
+        return "ptr"
     m = re.fullmatch(r"i(\d+)\s+(-?\d+)", field)
     if not m:
         raise ValueError(f"unsupported llubi struct field: {field}")
@@ -280,6 +282,14 @@ def classify_llubi_output(log: str) -> tuple[str, str]:
                 llubi_values[name] = assignment.group(2)
             continue
 
+        # A pointer prints as its address and object; only that it is one matters here.
+        ptr_assignment = re.search(
+            r"^\s*(%[-A-Za-z0-9_.$]+)\s*=.*[-=]>\s*(ptr\s+0x[0-9A-Fa-f]+(?:\s+\[[^\]]*\])?)\s*$", line)
+        if ptr_assignment:
+            values[ptr_assignment.group(1)] = "ptr"
+            llubi_values[ptr_assignment.group(1)] = ptr_assignment.group(2)
+            continue
+
         bool_assignment = re.search(r"^\s*(%[-A-Za-z0-9_.$]+)\s*=.*[-=]>\s*([TF])\s*$", line)
         if bool_assignment:
             values[bool_assignment.group(1)] = "0x1#1" if bool_assignment.group(2) == "T" else "0x0#1"
@@ -292,18 +302,21 @@ def classify_llubi_output(log: str) -> tuple[str, str]:
             value = int(ret_const.group(2))
             return f"Program output: #[{format_int_output(width, value)}]", f"i{width} {value}"
 
-        if re.fullmatch(r"\s*ret\s+i\d+\s+poison\s*", line):
+        if re.fullmatch(r"\s*ret\s+(?:i\d+|ptr)\s+poison\s*", line):
             return "Program output: #[poison]", "poison"
+
+        if re.fullmatch(r"\s*ret\s+ptr\s+null\s*", line):
+            return "Program output: #[ptr]", "null"
 
         ret_bool = re.search(r"^\s*ret\s+i1\s+(true|false)\s*$", line)
         if ret_bool:
             value = ret_bool.group(1)
             return f"Program output: #[{'0x1#1' if value == 'true' else '0x0#1'}]", value
 
-        ret_value = re.search(r"^\s*ret\s+i(\d+)\s+(%[-A-Za-z0-9_.$]+)\s*$", line)
+        ret_value = re.search(r"^\s*ret\s+(?:i\d+|ptr)\s+(%[-A-Za-z0-9_.$]+)\s*$", line)
         if ret_value:
-            value = values.get(ret_value.group(2))
-            llubi_value = llubi_values.get(ret_value.group(2))
+            value = values.get(ret_value.group(1))
+            llubi_value = llubi_values.get(ret_value.group(1))
             if value is None:
                 raise ValueError(f"llubi return value was not recorded:\n{log}")
             if llubi_value is None:
@@ -338,6 +351,8 @@ def classify_alive_exec_output(log: str, return_type: str | None = None) -> tupl
     fields of its own, which cannot be told from real fields otherwise."""
     if "UB triggered!" in log:
         return "Undefined behavior", "UB triggered"
+    if "ERROR: program returned poison" in log:
+        return "Program output: #[poison]", "poison"
 
     final_line: str | None = None
     for line in log.splitlines():
@@ -400,6 +415,9 @@ def classify_alive_exec_output(log: str, return_type: str | None = None) -> tupl
               else int(mask_digits, 16 if mask_radix == "x" else 2) == 0)
     if poison:
         return "Program output: #[poison]", "poison"
+    # A pointer prints as its encoding; only that it is one matters here.
+    if return_type == "ptr":
+        return "Program output: #[ptr]", final_line
     width = 4 * len(digits) if radix == "x" else len(digits)
     return f"Program output: #[{format_int_output(width, unsigned)}]", final_line
 
