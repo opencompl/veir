@@ -1,6 +1,6 @@
 module
 
-public import Veir.IR.Basic
+public import Veir.IR.Mutators
 import Veir.IR.InBounds
 import Veir.IR.GetSet
 
