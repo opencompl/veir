@@ -6,39 +6,6 @@ public import Veir.Rewriter.WfRewriter.GetSetTactic
 
 import all Veir.Rewriter.WfRewriter.Basic
 
-/-
-The getters we consider are:
-* BlockPtr.get! with optionally special cases for:
-  * Block.prev
-  * Block.next
-  * Block.parent
-  * Block.firstOp
-  * Block.lastOp
-* OperationPtr.get! with optionally special cases for:
-  * Operation.prev
-  * Operation.next
-  * Operation.parent
-  * Operation.attrs
-* OperationPtr.getOpType!
-* OperationPtr.getProperties!
-* OperationPtr.getNumResults!
-* OperationPtr.getNumOperands!
-* OperationPtr.getOperand!
-* OperationPtr.getOperands!
-* OperationPtr.getNumSuccessors!
-* OperationPtr.getSuccessor!
-* OperationPtr.getSuccessors!
-* OperationPtr.getNumRegions!
-* OperationPtr.getRegion!
-* BlockPtr.getNumArguments!
-* RegionPtr.get! with optionally special cases for:
-  * firstBlock
-  * lastBlock
-  * parent
-* ValuePtr.getType!
-* OperationPtr.getResultTypes!
--/
-
 public section
 namespace Veir
 
@@ -231,6 +198,16 @@ theorem OperationPtr.getNumSuccessors!_WfRewriter_createOp :
   grind (gen := 20)
 
 @[grind =>, simp_getset]
+theorem OperationPtr.getBlockOperands!_WfRewriter_createOp :
+    WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
+    operation.getBlockOperands! ctx'.raw =
+    if operation = newOp then Array.map operation.getBlockOperand (Array.range blockOperands.size)
+    else operation.getBlockOperands! ctx.raw := by
+  simp only [OperationPtr.getBlockOperands!_def]
+  grind
+
+@[grind =>, simp_getset]
 theorem OperationPtr.getSuccessor!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
@@ -270,6 +247,15 @@ theorem BlockPtr.getNumArguments!_WfRewriter_createOp :
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
     block.getNumArguments! ctx'.raw = block.getNumArguments! ctx.raw := by
   grind (gen := 20)
+
+@[simp, grind =>, simp_getset]
+theorem BlockPtr.getBlockArguments!_WfRewriter_createOp :
+    WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
+    block.getBlockArguments! ctx'.raw =
+    block.getBlockArguments! ctx.raw := by
+  simp only [BlockPtr.getBlockArguments!_def]
+  grind
 
 @[simp, grind =>, simp_getset]
 theorem RegionPtr.firstBlock!_WfRewriter_createOp :
@@ -436,6 +422,14 @@ theorem OperationPtr.getNumSuccessors!_wfRewriter_insertOp :
   grind
 
 @[simp, grind =>, simp_getset]
+theorem OperationPtr.getBlockOperands!_wfRewriter_insertOp :
+    WfRewriter.insertOp ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    operation.getBlockOperands! ctx'.raw =
+    operation.getBlockOperands! ctx.raw := by
+  simp only [OperationPtr.getBlockOperands!_def]
+  grind
+
+@[simp, grind =>, simp_getset]
 theorem OperationPtr.getSuccessor!_wfRewriter_insertOp :
     WfRewriter.insertOp ctx newOp insertionPoint newOpIn insIn = some ctx' →
     operation.getSuccessor! ctx'.raw index = operation.getSuccessor! ctx.raw index := by
@@ -463,6 +457,14 @@ theorem OperationPtr.getRegion!_wfRewriter_insertOp :
 theorem BlockPtr.getNumArguments!_wfRewriter_insertOp :
     WfRewriter.insertOp ctx newOp insertionPoint newOpIn insIn = some ctx' →
     block.getNumArguments! ctx'.raw = block.getNumArguments! ctx.raw := by
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockPtr.getBlockArguments!_wfRewriter_insertOp :
+    WfRewriter.insertOp ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    block.getBlockArguments! ctx'.raw =
+    block.getBlockArguments! ctx.raw := by
+  simp only [BlockPtr.getBlockArguments!_def]
   grind
 
 @[simp, grind =>, simp_getset]
@@ -634,6 +636,14 @@ theorem OperationPtr.getNumSuccessors!_wfRewriter_eraseOp :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getBlockOperands!_wfRewriter_eraseOp :
+    operation.InBounds (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw →
+    operation.getBlockOperands! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw =
+    operation.getBlockOperands! ctx.raw := by
+  simp only [OperationPtr.getBlockOperands!_def]
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getSuccessor!_wfRewriter_eraseOp :
     operation.InBounds (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw →
     operation.getSuccessor! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw index =
@@ -665,6 +675,13 @@ theorem OperationPtr.getRegion!_wfRewriter_eraseOp :
 theorem BlockPtr.getNumArguments!_wfRewriter_eraseOp :
     block.getNumArguments! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw =
     block.getNumArguments! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getBlockArguments!_wfRewriter_eraseOp :
+    block.getBlockArguments! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw =
+    block.getBlockArguments! ctx.raw := by
+  simp only [BlockPtr.getBlockArguments!_def]
   grind
 
 @[simp, grind =]
@@ -826,6 +843,13 @@ theorem OperationPtr.getNumSuccessors!_WfRewriter_replaceValue :
   fun_induction WfRewriter.replaceValue <;> grind
 
 @[simp, grind =]
+theorem OperationPtr.getBlockOperands!_WfRewriter_replaceValue :
+    operation.getBlockOperands! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw =
+    operation.getBlockOperands! ctx.raw := by
+  simp only [OperationPtr.getBlockOperands!_def]
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getSuccessor!_WfRewriter_replaceValue :
     operation.getSuccessor! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw index =
     operation.getSuccessor! ctx.raw index := by
@@ -854,6 +878,13 @@ theorem BlockPtr.getNumArguments!_WfRewriter_replaceValue :
     block.getNumArguments! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw =
     block.getNumArguments! ctx.raw := by
   fun_induction WfRewriter.replaceValue <;> grind
+
+@[simp, grind =]
+theorem BlockPtr.getBlockArguments!_WfRewriter_replaceValue :
+    block.getBlockArguments! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw =
+    block.getBlockArguments! ctx.raw := by
+  simp only [BlockPtr.getBlockArguments!_def]
+  grind
 
 @[simp, grind =]
 theorem RegionPtr.firstBlock!_WfRewriter_replaceValue :
@@ -995,6 +1026,13 @@ theorem OperationPtr.getNumSuccessors!_wfRewriter_setAttributes {op' : Operation
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getBlockOperands!_wfRewriter_setAttributes {op' : OperationPtr} :
+    op'.getBlockOperands! (WfRewriter.setAttributes ctx op newAttrs opIn).raw =
+    op'.getBlockOperands! ctx.raw := by
+  simp only [OperationPtr.getBlockOperands!_def]
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getSuccessor!_wfRewriter_setAttributes {op' : OperationPtr} :
     op'.getSuccessor! (WfRewriter.setAttributes ctx op newAttrs opIn).raw index =
     op'.getSuccessor! ctx.raw index := by
@@ -1028,6 +1066,13 @@ theorem OperationPtr.getRegion!_wfRewriter_setAttributes {op' : OperationPtr} :
 theorem BlockPtr.getNumArguments!_wfRewriter_setAttributes {block : BlockPtr} :
     block.getNumArguments! (WfRewriter.setAttributes ctx op newAttrs opIn).raw =
     block.getNumArguments! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getBlockArguments!_wfRewriter_setAttributes {block : BlockPtr} :
+    block.getBlockArguments! (WfRewriter.setAttributes ctx op newAttrs opIn).raw =
+    block.getBlockArguments! ctx.raw := by
+  simp only [BlockPtr.getBlockArguments!_def]
   grind
 
 @[simp, grind =]
@@ -1179,6 +1224,13 @@ theorem OperationPtr.getNumSuccessors!_wfRewriter_setProperties {op' : Operation
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getBlockOperands!_wfRewriter_setProperties {op' : OperationPtr} :
+    op'.getBlockOperands! (WfRewriter.setProperties ctx op opCode newProps opIn hprop).raw =
+    op'.getBlockOperands! ctx.raw := by
+  simp only [OperationPtr.getBlockOperands!_def]
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getSuccessor!_wfRewriter_setProperties {op' : OperationPtr} :
     op'.getSuccessor! (WfRewriter.setProperties ctx op opCode newProps opIn hprop).raw index =
     op'.getSuccessor! ctx.raw index := by
@@ -1218,6 +1270,13 @@ theorem OperationPtr.getRegion!_wfRewriter_setProperties {op' : OperationPtr} :
 theorem BlockPtr.getNumArguments!_wfRewriter_setProperties {block : BlockPtr} :
     block.getNumArguments! (WfRewriter.setProperties ctx op opCode newProps opIn).raw =
     block.getNumArguments! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getBlockArguments!_wfRewriter_setProperties {block : BlockPtr} :
+    block.getBlockArguments! (WfRewriter.setProperties ctx op opCode newProps opIn).raw =
+    block.getBlockArguments! ctx.raw := by
+  simp only [BlockPtr.getBlockArguments!_def]
   grind
 
 @[simp, grind =]
@@ -1351,6 +1410,13 @@ theorem OperationPtr.getNumSuccessors!_wfRewriter_setType :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getBlockOperands!_wfRewriter_setType :
+    operation.getBlockOperands! (WfRewriter.setType ctx setValue newType hValue).raw =
+    operation.getBlockOperands! ctx.raw := by
+  simp only [OperationPtr.getBlockOperands!_def]
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getSuccessor!_wfRewriter_setType :
     operation.getSuccessor! (WfRewriter.setType ctx setValue newType hValue).raw index =
     operation.getSuccessor! ctx.raw index := by
@@ -1378,6 +1444,13 @@ theorem OperationPtr.getRegion!_wfRewriter_setType :
 theorem BlockPtr.getNumArguments!_wfRewriter_setType :
     block.getNumArguments! (WfRewriter.setType ctx setValue newType hValue).raw =
     block.getNumArguments! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getBlockArguments!_wfRewriter_setType :
+    block.getBlockArguments! (WfRewriter.setType ctx setValue newType hValue).raw =
+    block.getBlockArguments! ctx.raw := by
+  simp only [BlockPtr.getBlockArguments!_def]
   grind
 
 @[simp, grind =]
