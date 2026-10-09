@@ -6,39 +6,6 @@ public import Veir.Rewriter.WfRewriter.GetSetTactic
 
 import all Veir.Rewriter.WfRewriter.Basic
 
-/-
-The getters we consider are:
-* BlockPtr.get! with optionally special cases for:
-  * Block.prev
-  * Block.next
-  * Block.parent
-  * Block.firstOp
-  * Block.lastOp
-* OperationPtr.get! with optionally special cases for:
-  * Operation.prev
-  * Operation.next
-  * Operation.parent
-  * Operation.attrs
-* OperationPtr.getOpType!
-* OperationPtr.getProperties!
-* OperationPtr.getNumResults!
-* OperationPtr.getNumOperands!
-* OperationPtr.getOperand!
-* OperationPtr.getOperands!
-* OperationPtr.getNumSuccessors!
-* OperationPtr.getSuccessor!
-* OperationPtr.getSuccessors!
-* OperationPtr.getNumRegions!
-* OperationPtr.getRegion!
-* BlockPtr.getNumArguments!
-* RegionPtr.get! with optionally special cases for:
-  * firstBlock
-  * lastBlock
-  * parent
-* ValuePtr.getType!
-* OperationPtr.getResultTypes!
--/
-
 public section
 namespace Veir
 
