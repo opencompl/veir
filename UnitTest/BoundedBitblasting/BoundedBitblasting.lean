@@ -427,3 +427,53 @@ example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
 example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
     (x.shiftLeftZeroExtend 1).setWidth w = x <<< 1 := by
   pbv_decide 4
+
+/-- And absorbs or -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
+    x &&& (x ||| y) = x := by
+  pbv_decide 4
+
+/-- And with the complement is zero -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x &&& ~~~x = 0 := by
+  pbv_decide 4
+
+/-- Or with the complement is all ones -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x ||| ~~~x = -1 := by
+  pbv_decide 4
+
+/-- Xoring twice with the same value is identity -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
+    x ^^^ y ^^^ y = x := by
+  pbv_decide 4
+
+/-- De Morgan's law -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
+    ~~~(x &&& y) = ~~~x ||| ~~~y := by
+  pbv_decide 4
+
+/-- Complement is negation minus one -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    ~~~x = -x - 1 := by
+  pbv_decide 4
+
+/-- Addition is xor plus the shifted carries -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
+    x + y = (x ^^^ y) + ((x &&& y) <<< 1) := by
+  pbv_decide 4
+
+/-- And commutes with zero extension -/
+example {w v : Nat} (x y : BitVec w) (hwv : w ≤ v) (hv : v ≤ 4) :
+    (x &&& y).zeroExtend v = x.zeroExtend v &&& y.zeroExtend v := by
+  pbv_decide 4
+
+/-- Complementing flips the sign bit -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) (hw0 : 0 < w) :
+    (~~~x).msb = !x.msb := by
+  pbv_decide 4
+
+/-- Extracting is masking -/
+example {w v : Nat} (x : BitVec w) (hw : w ≤ 4) (hv : v ≤ w):
+    x.extractLsb' 0 v = (x &&& ((1#w <<< BitVec.ofNat w v) - 1)).setWidth v := by
+  pbv_decide 4
