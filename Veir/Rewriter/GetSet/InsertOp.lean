@@ -8,45 +8,6 @@ import Veir.Rewriter.WfRewriter.GetSetTactic
 
 public section
 
-/-
- - The getters we consider are:
- - * BlockPtr.get! optionally replaced by the following special cases:
- -   * Block.firstUse
- -   * Block.prev
- -   * Block.next
- -   * Block.parent
- -   * Block.firstOp
- -   * Block.lastOp
- - * OperationPtr.get! optionally replaced by the following special cases:
- -   * Operation.prev
- -   * Operation.next
- -   * Operation.parent
- -   * OperationPtr.getOpType!
- -   * Operation.attrs
- - * OperationPtr.getProperties!
- - * OperationPtr.getNumResults!
- - * OpResultPtr.get!
- - * OperationPtr.getNumOperands!
- - * OpOperandPtr.get! optionally replaced by the following special case:
- - * OperationPtr.getOperands!
- - * OperationPtr.getNumSuccessors!
- - * BlockOperandPtr.get!
- - * OperationPtr.getSuccessor!
- - * OperationPtr.getSuccessors!
- - * OperationPtr.getNumRegions!
- - * OperationPtr.getRegion!
- - * BlockOperandPtrPtr.get!
- - * BlockPtr.getNumArguments!
- - * BlockArgumentPtr.get!
- - * RegionPtr.get! with optionally special cases for:
- -   * firstBlock
- -   * lastBlock
- -   * parent
- - * ValuePtr.getFirstUse!
- - * ValuePtr.getType!
- - * OpOperandPtrPtr.get!
- -/
-
 namespace Veir
 
 variable {OpInfo} [HasOpInfo OpInfo]
@@ -223,6 +184,50 @@ grind_pattern OpResultPtr.get!_insertOp =>
   Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, opResult.get! newCtx
 
 @[simp, simp_getset]
+theorem OpResultPtr.getIndex!_insertOp {opResult : OpResultPtr} :
+    Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx →
+    opResult.getIndex! newCtx =
+    opResult.getIndex! ctx := by
+  simp only [OpResultPtr.getIndex!_def]
+  grind
+
+grind_pattern OpResultPtr.getIndex!_insertOp =>
+  Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, opResult.getIndex! newCtx
+
+@[simp, simp_getset]
+theorem OpResultPtr.getType!_insertOp {opResult : OpResultPtr} :
+    Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx →
+    opResult.getType! newCtx =
+    opResult.getType! ctx := by
+  simp only [OpResultPtr.getType!_def]
+  grind
+
+grind_pattern OpResultPtr.getType!_insertOp =>
+  Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, opResult.getType! newCtx
+
+@[simp, simp_getset]
+theorem OpResultPtr.getFirstUse!_insertOp {opResult : OpResultPtr} :
+    Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx →
+    opResult.getFirstUse! newCtx =
+    opResult.getFirstUse! ctx := by
+  simp only [OpResultPtr.getFirstUse!_def]
+  grind
+
+grind_pattern OpResultPtr.getFirstUse!_insertOp =>
+  Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, opResult.getFirstUse! newCtx
+
+@[simp, simp_getset]
+theorem OpResultPtr.getOwner!_insertOp {opResult : OpResultPtr} :
+    Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx →
+    opResult.getOwner! newCtx =
+    opResult.getOwner! ctx := by
+  simp only [OpResultPtr.getOwner!_def]
+  grind
+
+grind_pattern OpResultPtr.getOwner!_insertOp =>
+  Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, opResult.getOwner! newCtx
+
+@[simp, simp_getset]
 theorem OperationPtr.getNumOperands!_insertOp {operation : OperationPtr} :
     Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx →
     operation.getNumOperands! newCtx = operation.getNumOperands! ctx := by
@@ -241,6 +246,50 @@ theorem OpOperandPtr.get!_insertOp {operand : OpOperandPtr} :
 
 grind_pattern OpOperandPtr.get!_insertOp =>
   Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, operand.get! newCtx
+
+@[simp, simp_getset]
+theorem OpOperandPtr.getNextUse!_insertOp {operand : OpOperandPtr} :
+    Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx →
+    operand.getNextUse! newCtx =
+    operand.getNextUse! ctx := by
+  simp only [OpOperandPtr.getNextUse!_def]
+  grind
+
+grind_pattern OpOperandPtr.getNextUse!_insertOp =>
+  Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, operand.getNextUse! newCtx
+
+@[simp, simp_getset]
+theorem OpOperandPtr.getBack!_insertOp {operand : OpOperandPtr} :
+    Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx →
+    operand.getBack! newCtx =
+    operand.getBack! ctx := by
+  simp only [OpOperandPtr.getBack!_def]
+  grind
+
+grind_pattern OpOperandPtr.getBack!_insertOp =>
+  Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, operand.getBack! newCtx
+
+@[simp, simp_getset]
+theorem OpOperandPtr.getOwner!_insertOp {operand : OpOperandPtr} :
+    Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx →
+    operand.getOwner! newCtx =
+    operand.getOwner! ctx := by
+  simp only [OpOperandPtr.getOwner!_def]
+  grind
+
+grind_pattern OpOperandPtr.getOwner!_insertOp =>
+  Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, operand.getOwner! newCtx
+
+@[simp, simp_getset]
+theorem OpOperandPtr.getValue!_insertOp {operand : OpOperandPtr} :
+    Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx →
+    operand.getValue! newCtx =
+    operand.getValue! ctx := by
+  simp only [OpOperandPtr.getValue!_def]
+  grind
+
+grind_pattern OpOperandPtr.getValue!_insertOp =>
+  Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, operand.getValue! newCtx
 
 @[simp, simp_getset]
 theorem OperationPtr.getOperands!_insertOp {operation : OperationPtr} :
@@ -263,6 +312,17 @@ grind_pattern OperationPtr.getNumSuccessors!_insertOp =>
   Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, operation.getNumSuccessors! newCtx
 
 @[simp, simp_getset]
+theorem OperationPtr.getBlockOperands!_insertOp {operation : OperationPtr} :
+    Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx →
+    operation.getBlockOperands! newCtx =
+    operation.getBlockOperands! ctx := by
+  simp only [OperationPtr.getBlockOperands!_def]
+  grind
+
+grind_pattern OperationPtr.getBlockOperands!_insertOp =>
+  Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, operation.getBlockOperands! newCtx
+
+@[simp, simp_getset]
 theorem BlockOperandPtr.get!_insertOp {operand : BlockOperandPtr} :
     Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx →
     operand.get! newCtx = operand.get! ctx := by
@@ -271,6 +331,50 @@ theorem BlockOperandPtr.get!_insertOp {operand : BlockOperandPtr} :
 
 grind_pattern BlockOperandPtr.get!_insertOp =>
   Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, operand.get! newCtx
+
+@[simp, simp_getset]
+theorem BlockOperandPtr.getNextUse!_insertOp {operand : BlockOperandPtr} :
+    Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx →
+    operand.getNextUse! newCtx =
+    operand.getNextUse! ctx := by
+  simp only [BlockOperandPtr.getNextUse!_def]
+  grind
+
+grind_pattern BlockOperandPtr.getNextUse!_insertOp =>
+  Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, operand.getNextUse! newCtx
+
+@[simp, simp_getset]
+theorem BlockOperandPtr.getBack!_insertOp {operand : BlockOperandPtr} :
+    Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx →
+    operand.getBack! newCtx =
+    operand.getBack! ctx := by
+  simp only [BlockOperandPtr.getBack!_def]
+  grind
+
+grind_pattern BlockOperandPtr.getBack!_insertOp =>
+  Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, operand.getBack! newCtx
+
+@[simp, simp_getset]
+theorem BlockOperandPtr.getOwner!_insertOp {operand : BlockOperandPtr} :
+    Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx →
+    operand.getOwner! newCtx =
+    operand.getOwner! ctx := by
+  simp only [BlockOperandPtr.getOwner!_def]
+  grind
+
+grind_pattern BlockOperandPtr.getOwner!_insertOp =>
+  Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, operand.getOwner! newCtx
+
+@[simp, simp_getset]
+theorem BlockOperandPtr.getValue!_insertOp {operand : BlockOperandPtr} :
+    Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx →
+    operand.getValue! newCtx =
+    operand.getValue! ctx := by
+  simp only [BlockOperandPtr.getValue!_def]
+  grind
+
+grind_pattern BlockOperandPtr.getValue!_insertOp =>
+  Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, operand.getValue! newCtx
 
 @[simp, simp_getset]
 theorem OperationPtr.getSuccessor!_insertOp {operation : OperationPtr} :
@@ -331,6 +435,17 @@ grind_pattern BlockPtr.getNumArguments!_insertOp =>
   Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, block.getNumArguments! newCtx
 
 @[simp, simp_getset]
+theorem BlockPtr.getBlockArguments!_insertOp {block : BlockPtr} :
+    Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx →
+    block.getBlockArguments! newCtx =
+    block.getBlockArguments! ctx := by
+  simp only [BlockPtr.getBlockArguments!_def]
+  grind
+
+grind_pattern BlockPtr.getBlockArguments!_insertOp =>
+  Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, block.getBlockArguments! newCtx
+
+@[simp, simp_getset]
 theorem BlockArgumentPtr.get!_insertOp {blockArg : BlockArgumentPtr} :
     Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx →
     blockArg.get! newCtx = blockArg.get! ctx := by
@@ -341,6 +456,60 @@ grind_pattern BlockArgumentPtr.get!_insertOp =>
   Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, blockArg.get! newCtx
 
 @[simp, simp_getset]
+theorem BlockArgumentPtr.getType!_insertOp {blockArg : BlockArgumentPtr} :
+    Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx →
+    blockArg.getType! newCtx =
+    blockArg.getType! ctx := by
+  simp only [BlockArgumentPtr.getType!_def]
+  grind
+
+grind_pattern BlockArgumentPtr.getType!_insertOp =>
+  Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, blockArg.getType! newCtx
+
+@[simp, simp_getset]
+theorem BlockArgumentPtr.getFirstUse!_insertOp {blockArg : BlockArgumentPtr} :
+    Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx →
+    blockArg.getFirstUse! newCtx =
+    blockArg.getFirstUse! ctx := by
+  simp only [BlockArgumentPtr.getFirstUse!_def]
+  grind
+
+grind_pattern BlockArgumentPtr.getFirstUse!_insertOp =>
+  Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, blockArg.getFirstUse! newCtx
+
+@[simp, simp_getset]
+theorem BlockArgumentPtr.getIndex!_insertOp {blockArg : BlockArgumentPtr} :
+    Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx →
+    blockArg.getIndex! newCtx =
+    blockArg.getIndex! ctx := by
+  simp only [BlockArgumentPtr.getIndex!_def]
+  grind
+
+grind_pattern BlockArgumentPtr.getIndex!_insertOp =>
+  Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, blockArg.getIndex! newCtx
+
+@[simp, simp_getset]
+theorem BlockArgumentPtr.getLoc!_insertOp {blockArg : BlockArgumentPtr} :
+    Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx →
+    blockArg.getLoc! newCtx =
+    blockArg.getLoc! ctx := by
+  simp only [BlockArgumentPtr.getLoc!_def] <;> grind
+
+grind_pattern BlockArgumentPtr.getLoc!_insertOp =>
+  Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, blockArg.getLoc! newCtx
+
+@[simp, simp_getset]
+theorem BlockArgumentPtr.getOwner!_insertOp {blockArg : BlockArgumentPtr} :
+    Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx →
+    blockArg.getOwner! newCtx =
+    blockArg.getOwner! ctx := by
+  simp only [BlockArgumentPtr.getOwner!_def]
+  grind
+
+grind_pattern BlockArgumentPtr.getOwner!_insertOp =>
+  Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, blockArg.getOwner! newCtx
+
+@[simp, simp_getset]
 theorem RegionPtr.get!_insertOp {region : RegionPtr} :
     Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx →
     region.get! newCtx = region.get! ctx := by
@@ -349,6 +518,39 @@ theorem RegionPtr.get!_insertOp {region : RegionPtr} :
 
 grind_pattern RegionPtr.get!_insertOp =>
   Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, region.get! newCtx
+
+@[simp, simp_getset]
+theorem RegionPtr.getParent!_insertOp {region : RegionPtr} :
+    Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx →
+    region.getParent! newCtx =
+    region.getParent! ctx := by
+  simp only [RegionPtr.getParent!_def]
+  grind
+
+grind_pattern RegionPtr.getParent!_insertOp =>
+  Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, region.getParent! newCtx
+
+@[simp, simp_getset]
+theorem RegionPtr.getFirstBlock!_insertOp {region : RegionPtr} :
+    Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx →
+    region.getFirstBlock! newCtx =
+    region.getFirstBlock! ctx := by
+  simp only [RegionPtr.getFirstBlock!_def]
+  grind
+
+grind_pattern RegionPtr.getFirstBlock!_insertOp =>
+  Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, region.getFirstBlock! newCtx
+
+@[simp, simp_getset]
+theorem RegionPtr.getLastBlock!_insertOp {region : RegionPtr} :
+    Rewriter.insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx →
+    region.getLastBlock! newCtx =
+    region.getLastBlock! ctx := by
+  simp only [RegionPtr.getLastBlock!_def]
+  grind
+
+grind_pattern RegionPtr.getLastBlock!_insertOp =>
+  Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, region.getLastBlock! newCtx
 
 @[simp, simp_getset]
 theorem ValuePtr.getFirstUse!_insertOp {value : ValuePtr} :

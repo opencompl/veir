@@ -5,43 +5,6 @@ import all Veir.Rewriter.LinkedList.Basic
 
 public section
 
-/-
- - The getters we consider are:
- - * BlockPtr.get! optionally replaced by the following special cases:
- -   * Block.firstUse
- -   * Block.prev
- -   * Block.next
- -   * Block.parent
- -   * Block.firstOp
- -   * Block.lastOp
- - * OperationPtr.get! optionally replaced by the following special cases:
- -   * Operation.prev
- -   * Operation.next
- -   * Operation.parent
- -   * Operation.attrs
- -   * Operation.properties
- - * OperationPtr.getOpType!
- - * OperationPtr.getProperties!
- - * OperationPtr.getNumResults!
- - * OpResultPtr.get!
- - * OperationPtr.getNumOperands!
- - * OpOperandPtr.get! optionally replaced by the following special case:
- - * OperationPtr.getOperands!
- - * OperationPtr.getNumSuccessors!
- - * BlockOperandPtr.get!
- - * OperationPtr.getNumRegions!
- - * OperationPtr.getRegion!
- - * BlockOperandPtrPtr.get!
- - * BlockPtr.getNumArguments!
- - * BlockArgumentPtr.get!
- - * RegionPtr.get! optionally replaced by the following special cases:
- -   * firstBlock
- -   * lastBlock
- -   * parent
- - * ValuePtr.getFirstUse!
- - * ValuePtr.getType!
- - * OpOperandPtrPtr.get!
- -/
 namespace Veir
 
 variable {op op' operation operation' : OperationPtr}
@@ -147,6 +110,36 @@ theorem OpResultPtr.get!_OpOperandPtr_removeFromCurrent {opResult : OpResultPtr}
   grind
 
 @[simp, grind =]
+theorem OpResultPtr.getIndex!_OpOperandPtr_removeFromCurrent {opResult : OpResultPtr} :
+    opResult.getIndex! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    opResult.getIndex! ctx := by
+  simp only [OpResultPtr.getIndex!_def]
+  grind
+
+@[simp, grind =]
+theorem OpResultPtr.getType!_OpOperandPtr_removeFromCurrent {opResult : OpResultPtr} :
+    opResult.getType! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    opResult.getType! ctx := by
+  simp only [OpResultPtr.getType!_def]
+  grind
+
+@[grind =]
+theorem OpResultPtr.getFirstUse!_OpOperandPtr_removeFromCurrent {opResult : OpResultPtr} :
+    opResult.getFirstUse! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    if (opOperand'.get! ctx).back = OpOperandPtrPtr.valueFirstUse (ValuePtr.opResult opResult) then
+      opOperand'.getNextUse! ctx
+    else opResult.getFirstUse! ctx := by
+  simp only [OpResultPtr.getFirstUse!_def, OpOperandPtr.getNextUse!_def]
+  grind
+
+@[simp, grind =]
+theorem OpResultPtr.getOwner!_OpOperandPtr_removeFromCurrent {opResult : OpResultPtr} :
+    opResult.getOwner! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    opResult.getOwner! ctx := by
+  simp only [OpResultPtr.getOwner!_def]
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getNumOperands!_OpOperandPtr_removeFromCurrent {operation : OperationPtr} :
     operation.getNumOperands! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
     operation.getNumOperands! ctx := by
@@ -186,6 +179,35 @@ theorem OpOperandPtr.get!_OpOperandPtr_removeFromCurrent {opOperand : OpOperandP
         · simp only [get!_OpOperandPtrPtr_set, ite_eq_right_iff]
           grind
 
+@[grind =]
+theorem OpOperandPtr.getNextUse!_OpOperandPtr_removeFromCurrent {opOperand : OpOperandPtr} :
+    opOperand.getNextUse! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    if opOperand'.getBack! ctx = OpOperandPtrPtr.operandNextUse opOperand then opOperand'.getNextUse! ctx
+    else opOperand.getNextUse! ctx := by
+  simp only [OpOperandPtr.getNextUse!_def, OpOperandPtr.getBack!_def]
+  grind
+
+@[grind =]
+theorem OpOperandPtr.getBack!_OpOperandPtr_removeFromCurrent {opOperand : OpOperandPtr} :
+    opOperand.getBack! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    if opOperand'.getNextUse! ctx = some opOperand then opOperand'.getBack! ctx else opOperand.getBack! ctx := by
+  simp only [OpOperandPtr.getBack!_def, OpOperandPtr.getNextUse!_def]
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.getOwner!_OpOperandPtr_removeFromCurrent {opOperand : OpOperandPtr} :
+    opOperand.getOwner! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    opOperand.getOwner! ctx := by
+  simp only [OpOperandPtr.getOwner!_def]
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.getValue!_OpOperandPtr_removeFromCurrent {opOperand : OpOperandPtr} :
+    opOperand.getValue! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    opOperand.getValue! ctx := by
+  simp only [OpOperandPtr.getValue!_def]
+  grind
+
 @[simp, grind =]
 theorem OperationPtr.getOperands!_OpOperandPtr_removeFromCurrent {operation : OperationPtr} :
     operation.getOperands! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
@@ -200,9 +222,44 @@ theorem OperationPtr.getNumSuccessors!_OpOperandPtr_removeFromCurrent {operation
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getBlockOperands!_OpOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    operation.getBlockOperands! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    operation.getBlockOperands! ctx := by
+  simp only [OperationPtr.getBlockOperands!_def]
+  grind
+
+@[simp, grind =]
 theorem BlockOperandPtr.get!_OpOperandPtr_removeFromCurrent {blockOperand : BlockOperandPtr} :
     blockOperand.get! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
     blockOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtr.getNextUse!_OpOperandPtr_removeFromCurrent {blockOperand : BlockOperandPtr} :
+    blockOperand.getNextUse! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    blockOperand.getNextUse! ctx := by
+  simp only [BlockOperandPtr.getNextUse!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtr.getBack!_OpOperandPtr_removeFromCurrent {blockOperand : BlockOperandPtr} :
+    blockOperand.getBack! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    blockOperand.getBack! ctx := by
+  simp only [BlockOperandPtr.getBack!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtr.getOwner!_OpOperandPtr_removeFromCurrent {blockOperand : BlockOperandPtr} :
+    blockOperand.getOwner! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    blockOperand.getOwner! ctx := by
+  simp only [BlockOperandPtr.getOwner!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtr.getValue!_OpOperandPtr_removeFromCurrent {blockOperand : BlockOperandPtr} :
+    blockOperand.getValue! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    blockOperand.getValue! ctx := by
+  simp only [BlockOperandPtr.getValue!_def]
   grind
 
 @[simp, grind =]
@@ -229,6 +286,13 @@ theorem BlockPtr.getNumArguments!_OpOperandPtr_removeFromCurrent {block : BlockP
     block.getNumArguments! ctx := by
   grind
 
+@[simp, grind =]
+theorem BlockPtr.getBlockArguments!_OpOperandPtr_removeFromCurrent {block : BlockPtr} {hop} :
+    block.getBlockArguments! (opOperand'.removeFromCurrent ctx newOperands hop) =
+    block.getBlockArguments! ctx := by
+  simp only [BlockPtr.getBlockArguments!_def]
+  grind
+
 @[grind =]
 theorem BlockArgumentPtr.get!_OpOperandPtr_removeFromCurrent {blockArg : BlockArgumentPtr} :
     blockArg.get! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
@@ -239,9 +303,66 @@ theorem BlockArgumentPtr.get!_OpOperandPtr_removeFromCurrent {blockArg : BlockAr
   grind
 
 @[simp, grind =]
+theorem BlockArgumentPtr.getType!_OpOperandPtr_removeFromCurrent {blockArg : BlockArgumentPtr} :
+    blockArg.getType! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    blockArg.getType! ctx := by
+  simp only [BlockArgumentPtr.getType!_def]
+  grind
+
+@[grind =]
+theorem BlockArgumentPtr.getFirstUse!_OpOperandPtr_removeFromCurrent {blockArg : BlockArgumentPtr} :
+    blockArg.getFirstUse! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    if (opOperand'.get! ctx).back = OpOperandPtrPtr.valueFirstUse (ValuePtr.blockArgument blockArg) then
+      opOperand'.getNextUse! ctx
+    else blockArg.getFirstUse! ctx := by
+  simp only [BlockArgumentPtr.getFirstUse!_def, OpOperandPtr.getNextUse!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.getIndex!_OpOperandPtr_removeFromCurrent {blockArg : BlockArgumentPtr} :
+    blockArg.getIndex! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    blockArg.getIndex! ctx := by
+  simp only [BlockArgumentPtr.getIndex!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.getLoc!_OpOperandPtr_removeFromCurrent {blockArg : BlockArgumentPtr} :
+    blockArg.getLoc! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    blockArg.getLoc! ctx := by
+  simp only [BlockArgumentPtr.getLoc!_def] <;> grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.getOwner!_OpOperandPtr_removeFromCurrent {blockArg : BlockArgumentPtr} :
+    blockArg.getOwner! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    blockArg.getOwner! ctx := by
+  simp only [BlockArgumentPtr.getOwner!_def]
+  grind
+
+@[simp, grind =]
 theorem RegionPtr.get!_OpOperandPtr_removeFromCurrent {region : RegionPtr} :
     region.get! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
     region.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.getParent!_OpOperandPtr_removeFromCurrent {region : RegionPtr} :
+    region.getParent! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    region.getParent! ctx := by
+  simp only [RegionPtr.getParent!_def]
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.getFirstBlock!_OpOperandPtr_removeFromCurrent {region : RegionPtr} :
+    region.getFirstBlock! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    region.getFirstBlock! ctx := by
+  simp only [RegionPtr.getFirstBlock!_def]
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.getLastBlock!_OpOperandPtr_removeFromCurrent {region : RegionPtr} :
+    region.getLastBlock! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    region.getLastBlock! ctx := by
+  simp only [RegionPtr.getLastBlock!_def]
   grind
 
 @[grind =]
@@ -359,6 +480,34 @@ theorem OpResultPtr.get!_OpOperandPtr_insertIntoCurrent {opResult : OpResultPtr}
   grind
 
 @[simp, grind =]
+theorem OpResultPtr.getIndex!_OpOperandPtr_insertIntoCurrent {opResult : OpResultPtr} :
+    opResult.getIndex! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
+    opResult.getIndex! ctx := by
+  simp only [OpResultPtr.getIndex!_def]
+  grind
+
+@[simp, grind =]
+theorem OpResultPtr.getType!_OpOperandPtr_insertIntoCurrent {opResult : OpResultPtr} :
+    opResult.getType! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
+    opResult.getType! ctx := by
+  simp only [OpResultPtr.getType!_def]
+  grind
+
+@[grind =]
+theorem OpResultPtr.getFirstUse!_OpOperandPtr_insertIntoCurrent {opResult : OpResultPtr} :
+    opResult.getFirstUse! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
+    if (opOperand'.get! ctx).value = ValuePtr.opResult opResult then some opOperand' else opResult.getFirstUse! ctx := by
+  simp only [OpResultPtr.getFirstUse!_def]
+  grind
+
+@[simp, grind =]
+theorem OpResultPtr.getOwner!_OpOperandPtr_insertIntoCurrent {opResult : OpResultPtr} :
+    opResult.getOwner! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
+    opResult.getOwner! ctx := by
+  simp only [OpResultPtr.getOwner!_def]
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getNumOperands!_OpOperandPtr_insertIntoCurrent {operation : OperationPtr} :
     operation.getNumOperands! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
     operation.getNumOperands! ctx := by
@@ -405,6 +554,37 @@ theorem OpOperandPtr.get!_OpOperandPtr_insertIntoCurrent {opOperand : OpOperandP
         --grind    -- Why does 'grind' not work here?
         simp only [h, ↓reduceIte]
 
+@[grind =]
+theorem OpOperandPtr.getNextUse!_OpOperandPtr_insertIntoCurrent {opOperand : OpOperandPtr} :
+    opOperand.getNextUse! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
+    if opOperand' = opOperand then (opOperand'.getValue! ctx).getFirstUse! ctx else opOperand.getNextUse! ctx := by
+  simp only [OpOperandPtr.getNextUse!_def, OpOperandPtr.getValue!_def]
+  grind
+
+@[grind =]
+theorem OpOperandPtr.getBack!_OpOperandPtr_insertIntoCurrent {opOperand : OpOperandPtr} :
+    opOperand.getBack! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
+    if (opOperand'.getValue! ctx).getFirstUse! ctx = some opOperand then OpOperandPtrPtr.operandNextUse opOperand'
+    else
+      if opOperand' = opOperand then OpOperandPtrPtr.valueFirstUse (opOperand'.getValue! ctx)
+      else opOperand.getBack! ctx := by
+  simp only [OpOperandPtr.getBack!_def, OpOperandPtr.getValue!_def]
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.getOwner!_OpOperandPtr_insertIntoCurrent {opOperand : OpOperandPtr} :
+    opOperand.getOwner! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
+    opOperand.getOwner! ctx := by
+  simp only [OpOperandPtr.getOwner!_def]
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.getValue!_OpOperandPtr_insertIntoCurrent {opOperand : OpOperandPtr} :
+    opOperand.getValue! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
+    opOperand.getValue! ctx := by
+  simp only [OpOperandPtr.getValue!_def]
+  grind
+
 @[simp, grind =]
 theorem OperationPtr.getOperands!_OpOperandPtr_insertIntoCurrent {operation : OperationPtr} :
     operation.getOperands! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
@@ -419,9 +599,44 @@ theorem OperationPtr.getNumSuccessors!_OpOperandPtr_insertIntoCurrent {operation
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getBlockOperands!_OpOperandPtr_insertIntoCurrent {operation : OperationPtr} :
+    operation.getBlockOperands! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
+    operation.getBlockOperands! ctx := by
+  simp only [OperationPtr.getBlockOperands!_def]
+  grind
+
+@[simp, grind =]
 theorem BlockOperandPtr.get!_OpOperandPtr_insertIntoCurrent {blockOperand : BlockOperandPtr} :
     blockOperand.get! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
     blockOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtr.getNextUse!_OpOperandPtr_insertIntoCurrent {blockOperand : BlockOperandPtr} :
+    blockOperand.getNextUse! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
+    blockOperand.getNextUse! ctx := by
+  simp only [BlockOperandPtr.getNextUse!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtr.getBack!_OpOperandPtr_insertIntoCurrent {blockOperand : BlockOperandPtr} :
+    blockOperand.getBack! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
+    blockOperand.getBack! ctx := by
+  simp only [BlockOperandPtr.getBack!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtr.getOwner!_OpOperandPtr_insertIntoCurrent {blockOperand : BlockOperandPtr} :
+    blockOperand.getOwner! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
+    blockOperand.getOwner! ctx := by
+  simp only [BlockOperandPtr.getOwner!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtr.getValue!_OpOperandPtr_insertIntoCurrent {blockOperand : BlockOperandPtr} :
+    blockOperand.getValue! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
+    blockOperand.getValue! ctx := by
+  simp only [BlockOperandPtr.getValue!_def]
   grind
 
 @[simp, grind =]
@@ -448,6 +663,13 @@ theorem BlockPtr.getNumArguments!_OpOperandPtr_insertIntoCurrent {block : BlockP
     block.getNumArguments! ctx := by
   grind
 
+@[simp, grind =]
+theorem BlockPtr.getBlockArguments!_OpOperandPtr_insertIntoCurrent {block : BlockPtr} {hop} :
+    block.getBlockArguments! (opOperand'.insertIntoCurrent ctx newOperands hop) =
+    block.getBlockArguments! ctx := by
+  simp only [BlockPtr.getBlockArguments!_def]
+  grind
+
 @[grind =]
 theorem BlockArgumentPtr.get!_OpOperandPtr_insertIntoCurrent {blockArg : BlockArgumentPtr} :
     blockArg.get! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
@@ -458,9 +680,65 @@ theorem BlockArgumentPtr.get!_OpOperandPtr_insertIntoCurrent {blockArg : BlockAr
   grind
 
 @[simp, grind =]
+theorem BlockArgumentPtr.getType!_OpOperandPtr_insertIntoCurrent {blockArg : BlockArgumentPtr} :
+    blockArg.getType! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
+    blockArg.getType! ctx := by
+  simp only [BlockArgumentPtr.getType!_def]
+  grind
+
+@[grind =]
+theorem BlockArgumentPtr.getFirstUse!_OpOperandPtr_insertIntoCurrent {blockArg : BlockArgumentPtr} :
+    blockArg.getFirstUse! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
+    if (opOperand'.get! ctx).value = ValuePtr.blockArgument blockArg then some opOperand'
+    else blockArg.getFirstUse! ctx := by
+  simp only [BlockArgumentPtr.getFirstUse!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.getIndex!_OpOperandPtr_insertIntoCurrent {blockArg : BlockArgumentPtr} :
+    blockArg.getIndex! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
+    blockArg.getIndex! ctx := by
+  simp only [BlockArgumentPtr.getIndex!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.getLoc!_OpOperandPtr_insertIntoCurrent {blockArg : BlockArgumentPtr} :
+    blockArg.getLoc! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
+    blockArg.getLoc! ctx := by
+  simp only [BlockArgumentPtr.getLoc!_def] <;> grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.getOwner!_OpOperandPtr_insertIntoCurrent {blockArg : BlockArgumentPtr} :
+    blockArg.getOwner! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
+    blockArg.getOwner! ctx := by
+  simp only [BlockArgumentPtr.getOwner!_def]
+  grind
+
+@[simp, grind =]
 theorem RegionPtr.get!_OpOperandPtr_insertIntoCurrent {region : RegionPtr} :
     region.get! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
     region.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.getParent!_OpOperandPtr_insertIntoCurrent {region : RegionPtr} :
+    region.getParent! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
+    region.getParent! ctx := by
+  simp only [RegionPtr.getParent!_def]
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.getFirstBlock!_OpOperandPtr_insertIntoCurrent {region : RegionPtr} :
+    region.getFirstBlock! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
+    region.getFirstBlock! ctx := by
+  simp only [RegionPtr.getFirstBlock!_def]
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.getLastBlock!_OpOperandPtr_insertIntoCurrent {region : RegionPtr} :
+    region.getLastBlock! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
+    region.getLastBlock! ctx := by
+  simp only [RegionPtr.getLastBlock!_def]
   grind
 
 @[grind =]
@@ -581,6 +859,34 @@ theorem OpResultPtr.get!_BlockOperandPtr_removeFromCurrent {opResult : OpResultP
   grind
 
 @[simp, grind =]
+theorem OpResultPtr.getIndex!_BlockOperandPtr_removeFromCurrent {opResult : OpResultPtr} :
+    opResult.getIndex! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    opResult.getIndex! ctx := by
+  simp only [OpResultPtr.getIndex!_def]
+  grind
+
+@[simp, grind =]
+theorem OpResultPtr.getType!_BlockOperandPtr_removeFromCurrent {opResult : OpResultPtr} :
+    opResult.getType! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    opResult.getType! ctx := by
+  simp only [OpResultPtr.getType!_def]
+  grind
+
+@[simp, grind =]
+theorem OpResultPtr.getFirstUse!_BlockOperandPtr_removeFromCurrent {opResult : OpResultPtr} :
+    opResult.getFirstUse! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    opResult.getFirstUse! ctx := by
+  simp only [OpResultPtr.getFirstUse!_def]
+  grind
+
+@[simp, grind =]
+theorem OpResultPtr.getOwner!_BlockOperandPtr_removeFromCurrent {opResult : OpResultPtr} :
+    opResult.getOwner! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    opResult.getOwner! ctx := by
+  simp only [OpResultPtr.getOwner!_def]
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getNumOperands!_BlockOperandPtr_removeFromCurrent {operation : OperationPtr} :
     operation.getNumOperands! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
     operation.getNumOperands! ctx := by
@@ -590,6 +896,34 @@ theorem OperationPtr.getNumOperands!_BlockOperandPtr_removeFromCurrent {operatio
 theorem OpOperandPtr.get!_BlockOperandPtr_removeFromCurrent {opOperand : OpOperandPtr} :
     opOperand.get! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
     opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.getNextUse!_BlockOperandPtr_removeFromCurrent {opOperand : OpOperandPtr} :
+    opOperand.getNextUse! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    opOperand.getNextUse! ctx := by
+  simp only [OpOperandPtr.getNextUse!_def]
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.getBack!_BlockOperandPtr_removeFromCurrent {opOperand : OpOperandPtr} :
+    opOperand.getBack! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    opOperand.getBack! ctx := by
+  simp only [OpOperandPtr.getBack!_def]
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.getOwner!_BlockOperandPtr_removeFromCurrent {opOperand : OpOperandPtr} :
+    opOperand.getOwner! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    opOperand.getOwner! ctx := by
+  simp only [OpOperandPtr.getOwner!_def]
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.getValue!_BlockOperandPtr_removeFromCurrent {opOperand : OpOperandPtr} :
+    opOperand.getValue! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    opOperand.getValue! ctx := by
+  simp only [OpOperandPtr.getValue!_def]
   grind
 
 @[simp, grind =]
@@ -603,6 +937,13 @@ theorem OperationPtr.getOperands!_BlockOperandPtr_removeFromCurrent {operation :
 theorem OperationPtr.getNumSuccessors!_BlockOperandPtr_removeFromCurrent {operation : OperationPtr} :
     operation.getNumSuccessors! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
     operation.getNumSuccessors! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getBlockOperands!_BlockOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    operation.getBlockOperands! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    operation.getBlockOperands! ctx := by
+  simp only [OperationPtr.getBlockOperands!_def]
   grind
 
 @[grind =]
@@ -639,6 +980,36 @@ theorem BlockOperandPtr.get!_BlockOperandPtr_removeFromCurrent {blockOperand : B
         · simp only [get!_BlockOperandPtrPtr_set, ite_eq_right_iff]
           grind
 
+@[grind =]
+theorem BlockOperandPtr.getNextUse!_BlockOperandPtr_removeFromCurrent {blockOperand : BlockOperandPtr} :
+    blockOperand.getNextUse! (blockOperand'.removeFromCurrent ctx hblockOperand' ctxInBounds) =
+    if blockOperand'.getBack! ctx = BlockOperandPtrPtr.blockOperandNextUse blockOperand then
+      blockOperand'.getNextUse! ctx
+    else blockOperand.getNextUse! ctx := by
+  simp only [BlockOperandPtr.getNextUse!_def, BlockOperandPtr.getBack!_def]
+  grind
+
+@[grind =]
+theorem BlockOperandPtr.getBack!_BlockOperandPtr_removeFromCurrent {blockOperand : BlockOperandPtr} :
+    blockOperand.getBack! (blockOperand'.removeFromCurrent ctx hblockOperand' ctxInBounds) =
+    if blockOperand'.getNextUse! ctx = some blockOperand then blockOperand'.getBack! ctx else blockOperand.getBack! ctx := by
+  simp only [BlockOperandPtr.getBack!_def, BlockOperandPtr.getNextUse!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtr.getOwner!_BlockOperandPtr_removeFromCurrent {blockOperand : BlockOperandPtr} :
+    blockOperand.getOwner! (blockOperand'.removeFromCurrent ctx hblockOperand' ctxInBounds) =
+    blockOperand.getOwner! ctx := by
+  simp only [BlockOperandPtr.getOwner!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtr.getValue!_BlockOperandPtr_removeFromCurrent {blockOperand : BlockOperandPtr} :
+    blockOperand.getValue! (blockOperand'.removeFromCurrent ctx hblockOperand' ctxInBounds) =
+    blockOperand.getValue! ctx := by
+  simp only [BlockOperandPtr.getValue!_def]
+  grind
+
 @[simp, grind =]
 theorem OperationPtr.getNumRegions!_BlockOperandPtr_removeFromCurrent {operation : OperationPtr} :
     operation.getNumRegions! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
@@ -667,15 +1038,77 @@ theorem BlockPtr.getNumArguments!_BlockOperandPtr_removeFromCurrent {block : Blo
   grind
 
 @[simp, grind =]
+theorem BlockPtr.getBlockArguments!_BlockOperandPtr_removeFromCurrent {block : BlockPtr} {hop} :
+    block.getBlockArguments! (blockOperand'.removeFromCurrent ctx newOperands hop) =
+    block.getBlockArguments! ctx := by
+  simp only [BlockPtr.getBlockArguments!_def]
+  grind
+
+@[simp, grind =]
 theorem BlockArgumentPtr.get!_BlockOperandPtr_removeFromCurrent {blockArg : BlockArgumentPtr} :
     blockArg.get! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
     blockArg.get! ctx := by
   grind
 
 @[simp, grind =]
+theorem BlockArgumentPtr.getType!_BlockOperandPtr_removeFromCurrent {blockArg : BlockArgumentPtr} :
+    blockArg.getType! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    blockArg.getType! ctx := by
+  simp only [BlockArgumentPtr.getType!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.getFirstUse!_BlockOperandPtr_removeFromCurrent {blockArg : BlockArgumentPtr} :
+    blockArg.getFirstUse! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    blockArg.getFirstUse! ctx := by
+  simp only [BlockArgumentPtr.getFirstUse!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.getIndex!_BlockOperandPtr_removeFromCurrent {blockArg : BlockArgumentPtr} :
+    blockArg.getIndex! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    blockArg.getIndex! ctx := by
+  simp only [BlockArgumentPtr.getIndex!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.getLoc!_BlockOperandPtr_removeFromCurrent {blockArg : BlockArgumentPtr} :
+    blockArg.getLoc! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    blockArg.getLoc! ctx := by
+  simp only [BlockArgumentPtr.getLoc!_def] <;> grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.getOwner!_BlockOperandPtr_removeFromCurrent {blockArg : BlockArgumentPtr} :
+    blockArg.getOwner! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    blockArg.getOwner! ctx := by
+  simp only [BlockArgumentPtr.getOwner!_def]
+  grind
+
+@[simp, grind =]
 theorem RegionPtr.get!_BlockOperandPtr_removeFromCurrent {region : RegionPtr} :
     region.get! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
     region.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.getParent!_BlockOperandPtr_removeFromCurrent {region : RegionPtr} :
+    region.getParent! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    region.getParent! ctx := by
+  simp only [RegionPtr.getParent!_def]
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.getFirstBlock!_BlockOperandPtr_removeFromCurrent {region : RegionPtr} :
+    region.getFirstBlock! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    region.getFirstBlock! ctx := by
+  simp only [RegionPtr.getFirstBlock!_def]
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.getLastBlock!_BlockOperandPtr_removeFromCurrent {region : RegionPtr} :
+    region.getLastBlock! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    region.getLastBlock! ctx := by
+  simp only [RegionPtr.getLastBlock!_def]
   grind
 
 @[simp, grind =]
@@ -790,6 +1223,34 @@ theorem OpResultPtr.get!_BlockOperandPtr_insertIntoCurrent {opResult : OpResultP
   grind
 
 @[simp, grind =]
+theorem OpResultPtr.getIndex!_BlockOperandPtr_insertIntoCurrent {opResult : OpResultPtr} :
+    opResult.getIndex! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    opResult.getIndex! ctx := by
+  simp only [OpResultPtr.getIndex!_def]
+  grind
+
+@[simp, grind =]
+theorem OpResultPtr.getType!_BlockOperandPtr_insertIntoCurrent {opResult : OpResultPtr} :
+    opResult.getType! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    opResult.getType! ctx := by
+  simp only [OpResultPtr.getType!_def]
+  grind
+
+@[simp, grind =]
+theorem OpResultPtr.getFirstUse!_BlockOperandPtr_insertIntoCurrent {opResult : OpResultPtr} :
+    opResult.getFirstUse! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    opResult.getFirstUse! ctx := by
+  simp only [OpResultPtr.getFirstUse!_def]
+  grind
+
+@[simp, grind =]
+theorem OpResultPtr.getOwner!_BlockOperandPtr_insertIntoCurrent {opResult : OpResultPtr} :
+    opResult.getOwner! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    opResult.getOwner! ctx := by
+  simp only [OpResultPtr.getOwner!_def]
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getNumOperands!_BlockOperandPtr_insertIntoCurrent {operation : OperationPtr} :
     operation.getNumOperands! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
     operation.getNumOperands! ctx := by
@@ -799,6 +1260,34 @@ theorem OperationPtr.getNumOperands!_BlockOperandPtr_insertIntoCurrent {operatio
 theorem OpOperandPtr.get!_BlockOperandPtr_insertIntoCurrent {opOperand : OpOperandPtr} :
     opOperand.get! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
     opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.getNextUse!_BlockOperandPtr_insertIntoCurrent {opOperand : OpOperandPtr} :
+    opOperand.getNextUse! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    opOperand.getNextUse! ctx := by
+  simp only [OpOperandPtr.getNextUse!_def]
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.getBack!_BlockOperandPtr_insertIntoCurrent {opOperand : OpOperandPtr} :
+    opOperand.getBack! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    opOperand.getBack! ctx := by
+  simp only [OpOperandPtr.getBack!_def]
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.getOwner!_BlockOperandPtr_insertIntoCurrent {opOperand : OpOperandPtr} :
+    opOperand.getOwner! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    opOperand.getOwner! ctx := by
+  simp only [OpOperandPtr.getOwner!_def]
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.getValue!_BlockOperandPtr_insertIntoCurrent {opOperand : OpOperandPtr} :
+    opOperand.getValue! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    opOperand.getValue! ctx := by
+  simp only [OpOperandPtr.getValue!_def]
   grind
 
 @[simp, grind =]
@@ -812,6 +1301,13 @@ theorem OperationPtr.getOperands!_BlockOperandPtr_insertIntoCurrent {operation :
 theorem OperationPtr.getNumSuccessors!_BlockOperandPtr_insertIntoCurrent {operation : OperationPtr} :
     operation.getNumSuccessors! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
     operation.getNumSuccessors! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getBlockOperands!_BlockOperandPtr_insertIntoCurrent {operation : OperationPtr} :
+    operation.getBlockOperands! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    operation.getBlockOperands! ctx := by
+  simp only [OperationPtr.getBlockOperands!_def]
   grind
 
 @[grind =]
@@ -854,6 +1350,38 @@ theorem BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent {blockOperand : B
         --grind    -- Why does 'grind' not work here?
         simp only [h, ↓reduceIte]
 
+@[grind =]
+theorem BlockOperandPtr.getNextUse!_BlockOperandPtr_insertIntoCurrent {blockOperand : BlockOperandPtr} :
+    blockOperand.getNextUse! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    if blockOperand' = blockOperand then (blockOperand'.getValue! ctx).getFirstUse! ctx else blockOperand.getNextUse! ctx := by
+  simp only [BlockOperandPtr.getNextUse!_def, BlockOperandPtr.getValue!_def, BlockPtr.getFirstUse!_def]
+  grind
+
+@[grind =]
+theorem BlockOperandPtr.getBack!_BlockOperandPtr_insertIntoCurrent {blockOperand : BlockOperandPtr} :
+    blockOperand.getBack! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    if (blockOperand'.getValue! ctx).getFirstUse! ctx = some blockOperand then
+      BlockOperandPtrPtr.blockOperandNextUse blockOperand'
+    else
+      if blockOperand' = blockOperand then BlockOperandPtrPtr.blockFirstUse (blockOperand'.getValue! ctx)
+      else blockOperand.getBack! ctx := by
+  simp only [BlockOperandPtr.getBack!_def, BlockOperandPtr.getValue!_def, BlockPtr.getFirstUse!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtr.getOwner!_BlockOperandPtr_insertIntoCurrent {blockOperand : BlockOperandPtr} :
+    blockOperand.getOwner! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    blockOperand.getOwner! ctx := by
+  simp only [BlockOperandPtr.getOwner!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtr.getValue!_BlockOperandPtr_insertIntoCurrent {blockOperand : BlockOperandPtr} :
+    blockOperand.getValue! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    blockOperand.getValue! ctx := by
+  simp only [BlockOperandPtr.getValue!_def]
+  grind
+
 @[simp, grind =]
 theorem OperationPtr.getNumRegions!_BlockOperandPtr_insertIntoCurrent {operation : OperationPtr} :
     operation.getNumRegions! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
@@ -884,15 +1412,77 @@ theorem BlockPtr.getNumArguments!_BlockOperandPtr_insertIntoCurrent {block : Blo
   grind
 
 @[simp, grind =]
+theorem BlockPtr.getBlockArguments!_BlockOperandPtr_insertIntoCurrent {block : BlockPtr} {hop} :
+    block.getBlockArguments! (blockOperand'.insertIntoCurrent ctx newOperands hop) =
+    block.getBlockArguments! ctx := by
+  simp only [BlockPtr.getBlockArguments!_def]
+  grind
+
+@[simp, grind =]
 theorem BlockArgumentPtr.get!_BlockOperandPtr_insertIntoCurrent {blockArg : BlockArgumentPtr} :
     blockArg.get! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
     blockArg.get! ctx := by
   grind
 
 @[simp, grind =]
+theorem BlockArgumentPtr.getType!_BlockOperandPtr_insertIntoCurrent {blockArg : BlockArgumentPtr} :
+    blockArg.getType! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    blockArg.getType! ctx := by
+  simp only [BlockArgumentPtr.getType!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.getFirstUse!_BlockOperandPtr_insertIntoCurrent {blockArg : BlockArgumentPtr} :
+    blockArg.getFirstUse! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    blockArg.getFirstUse! ctx := by
+  simp only [BlockArgumentPtr.getFirstUse!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.getIndex!_BlockOperandPtr_insertIntoCurrent {blockArg : BlockArgumentPtr} :
+    blockArg.getIndex! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    blockArg.getIndex! ctx := by
+  simp only [BlockArgumentPtr.getIndex!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.getLoc!_BlockOperandPtr_insertIntoCurrent {blockArg : BlockArgumentPtr} :
+    blockArg.getLoc! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    blockArg.getLoc! ctx := by
+  simp only [BlockArgumentPtr.getLoc!_def] <;> grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.getOwner!_BlockOperandPtr_insertIntoCurrent {blockArg : BlockArgumentPtr} :
+    blockArg.getOwner! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    blockArg.getOwner! ctx := by
+  simp only [BlockArgumentPtr.getOwner!_def]
+  grind
+
+@[simp, grind =]
 theorem RegionPtr.get!_BlockOperandPtr_insertIntoCurrent {region : RegionPtr} :
     region.get! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
     region.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.getParent!_BlockOperandPtr_insertIntoCurrent {region : RegionPtr} :
+    region.getParent! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    region.getParent! ctx := by
+  simp only [RegionPtr.getParent!_def]
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.getFirstBlock!_BlockOperandPtr_insertIntoCurrent {region : RegionPtr} :
+    region.getFirstBlock! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    region.getFirstBlock! ctx := by
+  simp only [RegionPtr.getFirstBlock!_def]
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.getLastBlock!_BlockOperandPtr_insertIntoCurrent {region : RegionPtr} :
+    region.getLastBlock! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    region.getLastBlock! ctx := by
+  simp only [RegionPtr.getLastBlock!_def]
   grind
 
 @[simp, grind =]
@@ -924,6 +1514,48 @@ theorem BlockPtr.get!_OperationPtr_linkBetween {block : BlockPtr} :
     block.get! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
     block.get! ctx := by
   simp only [OperationPtr.linkBetween]
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getParent!_OperationPtr_linkBetween {block : BlockPtr} :
+    block.getParent! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    block.getParent! ctx := by
+  simp only [BlockPtr.getParent!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getFirstUse!_OperationPtr_linkBetween {block : BlockPtr} :
+    block.getFirstUse! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    block.getFirstUse! ctx := by
+  simp only [BlockPtr.getFirstUse!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getFirstOp!_OperationPtr_linkBetween {block : BlockPtr} :
+    block.getFirstOp! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    block.getFirstOp! ctx := by
+  simp only [BlockPtr.getFirstOp!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getLastOp!_OperationPtr_linkBetween {block : BlockPtr} :
+    block.getLastOp! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    block.getLastOp! ctx := by
+  simp only [BlockPtr.getLastOp!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNextBlock!_OperationPtr_linkBetween {block : BlockPtr} :
+    block.getNextBlock! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    block.getNextBlock! ctx := by
+  simp only [BlockPtr.getNextBlock!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getPrevBlock!_OperationPtr_linkBetween {block : BlockPtr} :
+    block.getPrevBlock! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    block.getPrevBlock! ctx := by
+  simp only [BlockPtr.getPrevBlock!_def]
   grind
 
 @[grind =]
@@ -994,6 +1626,34 @@ theorem OpResultPtr.get!_OperationPtr_linkBetween {opResult : OpResultPtr} :
   grind
 
 @[simp, grind =]
+theorem OpResultPtr.getIndex!_OperationPtr_linkBetween {opResult : OpResultPtr} :
+    opResult.getIndex! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    opResult.getIndex! ctx := by
+  simp only [OpResultPtr.getIndex!_def]
+  grind
+
+@[simp, grind =]
+theorem OpResultPtr.getType!_OperationPtr_linkBetween {opResult : OpResultPtr} :
+    opResult.getType! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    opResult.getType! ctx := by
+  simp only [OpResultPtr.getType!_def]
+  grind
+
+@[simp, grind =]
+theorem OpResultPtr.getFirstUse!_OperationPtr_linkBetween {opResult : OpResultPtr} :
+    opResult.getFirstUse! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    opResult.getFirstUse! ctx := by
+  simp only [OpResultPtr.getFirstUse!_def]
+  grind
+
+@[simp, grind =]
+theorem OpResultPtr.getOwner!_OperationPtr_linkBetween {opResult : OpResultPtr} :
+    opResult.getOwner! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    opResult.getOwner! ctx := by
+  simp only [OpResultPtr.getOwner!_def]
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getNumOperands!_OperationPtr_linkBetween {operation : OperationPtr} :
     operation.getNumOperands! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
     operation.getNumOperands! ctx := by
@@ -1005,6 +1665,34 @@ theorem OpOperandPtr.get!_OperationPtr_linkBetween {opOperand : OpOperandPtr} :
     opOperand.get! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
     opOperand.get! ctx := by
   simp only [OperationPtr.linkBetween]
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.getNextUse!_OperationPtr_linkBetween {opOperand : OpOperandPtr} :
+    opOperand.getNextUse! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    opOperand.getNextUse! ctx := by
+  simp only [OpOperandPtr.getNextUse!_def]
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.getBack!_OperationPtr_linkBetween {opOperand : OpOperandPtr} :
+    opOperand.getBack! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    opOperand.getBack! ctx := by
+  simp only [OpOperandPtr.getBack!_def]
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.getOwner!_OperationPtr_linkBetween {opOperand : OpOperandPtr} :
+    opOperand.getOwner! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    opOperand.getOwner! ctx := by
+  simp only [OpOperandPtr.getOwner!_def]
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.getValue!_OperationPtr_linkBetween {opOperand : OpOperandPtr} :
+    opOperand.getValue! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    opOperand.getValue! ctx := by
+  simp only [OpOperandPtr.getValue!_def]
   grind
 
 @[simp, grind =]
@@ -1022,10 +1710,45 @@ theorem OperationPtr.getNumSuccessors!_OperationPtr_linkBetween {operation : Ope
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getBlockOperands!_OperationPtr_linkBetween {operation : OperationPtr} :
+    operation.getBlockOperands! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    operation.getBlockOperands! ctx := by
+  simp only [OperationPtr.getBlockOperands!_def]
+  grind
+
+@[simp, grind =]
 theorem BlockOperandPtr.get!_OperationPtr_linkBetween {blockOperand : BlockOperandPtr} :
     blockOperand.get! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
     blockOperand.get! ctx := by
   simp only [OperationPtr.linkBetween]
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtr.getNextUse!_OperationPtr_linkBetween {blockOperand : BlockOperandPtr} :
+    blockOperand.getNextUse! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    blockOperand.getNextUse! ctx := by
+  simp only [BlockOperandPtr.getNextUse!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtr.getBack!_OperationPtr_linkBetween {blockOperand : BlockOperandPtr} :
+    blockOperand.getBack! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    blockOperand.getBack! ctx := by
+  simp only [BlockOperandPtr.getBack!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtr.getOwner!_OperationPtr_linkBetween {blockOperand : BlockOperandPtr} :
+    blockOperand.getOwner! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    blockOperand.getOwner! ctx := by
+  simp only [BlockOperandPtr.getOwner!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtr.getValue!_OperationPtr_linkBetween {blockOperand : BlockOperandPtr} :
+    blockOperand.getValue! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    blockOperand.getValue! ctx := by
+  simp only [BlockOperandPtr.getValue!_def]
   grind
 
 @[simp, grind =]
@@ -1057,6 +1780,13 @@ theorem BlockPtr.getNumArguments!_OperationPtr_linkBetween {block : BlockPtr} :
   grind
 
 @[simp, grind =]
+theorem BlockPtr.getBlockArguments!_OperationPtr_linkBetween {block : BlockPtr} :
+    block.getBlockArguments! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    block.getBlockArguments! ctx := by
+  simp only [BlockPtr.getBlockArguments!_def]
+  grind
+
+@[simp, grind =]
 theorem BlockArgumentPtr.get!_OperationPtr_linkBetween {blockArg : BlockArgumentPtr} :
     blockArg.get! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
     blockArg.get! ctx := by
@@ -1064,10 +1794,65 @@ theorem BlockArgumentPtr.get!_OperationPtr_linkBetween {blockArg : BlockArgument
   grind
 
 @[simp, grind =]
+theorem BlockArgumentPtr.getType!_OperationPtr_linkBetween {blockArg : BlockArgumentPtr} :
+    blockArg.getType! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    blockArg.getType! ctx := by
+  simp only [BlockArgumentPtr.getType!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.getFirstUse!_OperationPtr_linkBetween {blockArg : BlockArgumentPtr} :
+    blockArg.getFirstUse! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    blockArg.getFirstUse! ctx := by
+  simp only [BlockArgumentPtr.getFirstUse!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.getIndex!_OperationPtr_linkBetween {blockArg : BlockArgumentPtr} :
+    blockArg.getIndex! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    blockArg.getIndex! ctx := by
+  simp only [BlockArgumentPtr.getIndex!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.getLoc!_OperationPtr_linkBetween {blockArg : BlockArgumentPtr} :
+    blockArg.getLoc! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    blockArg.getLoc! ctx := by
+  simp only [BlockArgumentPtr.getLoc!_def] <;> grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.getOwner!_OperationPtr_linkBetween {blockArg : BlockArgumentPtr} :
+    blockArg.getOwner! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    blockArg.getOwner! ctx := by
+  simp only [BlockArgumentPtr.getOwner!_def]
+  grind
+
+@[simp, grind =]
 theorem RegionPtr.get!_OperationPtr_linkBetween {region : RegionPtr} :
     region.get! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
     region.get! ctx := by
   simp only [OperationPtr.linkBetween]
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.getParent!_OperationPtr_linkBetween {region : RegionPtr} :
+    region.getParent! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    region.getParent! ctx := by
+  simp only [RegionPtr.getParent!_def]
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.getFirstBlock!_OperationPtr_linkBetween {region : RegionPtr} :
+    region.getFirstBlock! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    region.getFirstBlock! ctx := by
+  simp only [RegionPtr.getFirstBlock!_def]
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.getLastBlock!_OperationPtr_linkBetween {region : RegionPtr} :
+    region.getLastBlock! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    region.getLastBlock! ctx := by
+  simp only [RegionPtr.getLastBlock!_def]
   grind
 
 @[simp, grind =]
@@ -1106,6 +1891,72 @@ theorem BlockPtr.get!_OperationPtr_setParentWithCheck {block : BlockPtr} :
 
 grind_pattern BlockPtr.get!_OperationPtr_setParentWithCheck =>
   op'.setParentWithCheck ctx newParent selfIn, some newCtx, block.get! newCtx
+
+@[simp]
+theorem BlockPtr.getParent!_OperationPtr_setParentWithCheck {block : BlockPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    (block.getParent! newCtx) =
+    block.getParent! ctx := by
+  simp only [BlockPtr.getParent!_def]
+  grind
+
+grind_pattern BlockPtr.getParent!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, block.getParent! newCtx
+
+@[simp]
+theorem BlockPtr.getFirstUse!_OperationPtr_setParentWithCheck {block : BlockPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    (block.getFirstUse! newCtx) =
+    block.getFirstUse! ctx := by
+  simp only [BlockPtr.getFirstUse!_def]
+  grind
+
+grind_pattern BlockPtr.getFirstUse!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, block.getFirstUse! newCtx
+
+@[simp]
+theorem BlockPtr.getFirstOp!_OperationPtr_setParentWithCheck {block : BlockPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    (block.getFirstOp! newCtx) =
+    block.getFirstOp! ctx := by
+  simp only [BlockPtr.getFirstOp!_def]
+  grind
+
+grind_pattern BlockPtr.getFirstOp!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, block.getFirstOp! newCtx
+
+@[simp]
+theorem BlockPtr.getLastOp!_OperationPtr_setParentWithCheck {block : BlockPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    (block.getLastOp! newCtx) =
+    block.getLastOp! ctx := by
+  simp only [BlockPtr.getLastOp!_def]
+  grind
+
+grind_pattern BlockPtr.getLastOp!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, block.getLastOp! newCtx
+
+@[simp]
+theorem BlockPtr.getNextBlock!_OperationPtr_setParentWithCheck {block : BlockPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    (block.getNextBlock! newCtx) =
+    block.getNextBlock! ctx := by
+  simp only [BlockPtr.getNextBlock!_def]
+  grind
+
+grind_pattern BlockPtr.getNextBlock!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, block.getNextBlock! newCtx
+
+@[simp]
+theorem BlockPtr.getPrevBlock!_OperationPtr_setParentWithCheck {block : BlockPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    (block.getPrevBlock! newCtx) =
+    block.getPrevBlock! ctx := by
+  simp only [BlockPtr.getPrevBlock!_def]
+  grind
+
+grind_pattern BlockPtr.getPrevBlock!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, block.getPrevBlock! newCtx
 
 @[simp]
 theorem OperationPtr.prev!_OperationPtr_setParentWithCheck {operation : OperationPtr} :
@@ -1191,6 +2042,50 @@ grind_pattern OpResultPtr.get!_OperationPtr_setParentWithCheck =>
   op'.setParentWithCheck ctx newParent selfIn, some newCtx, opResult.get! newCtx
 
 @[simp]
+theorem OpResultPtr.getIndex!_OperationPtr_setParentWithCheck {opResult : OpResultPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    opResult.getIndex! newCtx =
+    opResult.getIndex! ctx := by
+  simp only [OpResultPtr.getIndex!_def]
+  grind
+
+grind_pattern OpResultPtr.getIndex!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, opResult.getIndex! newCtx
+
+@[simp]
+theorem OpResultPtr.getType!_OperationPtr_setParentWithCheck {opResult : OpResultPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    opResult.getType! newCtx =
+    opResult.getType! ctx := by
+  simp only [OpResultPtr.getType!_def]
+  grind
+
+grind_pattern OpResultPtr.getType!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, opResult.getType! newCtx
+
+@[simp]
+theorem OpResultPtr.getFirstUse!_OperationPtr_setParentWithCheck {opResult : OpResultPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    opResult.getFirstUse! newCtx =
+    opResult.getFirstUse! ctx := by
+  simp only [OpResultPtr.getFirstUse!_def]
+  grind
+
+grind_pattern OpResultPtr.getFirstUse!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, opResult.getFirstUse! newCtx
+
+@[simp]
+theorem OpResultPtr.getOwner!_OperationPtr_setParentWithCheck {opResult : OpResultPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    opResult.getOwner! newCtx =
+    opResult.getOwner! ctx := by
+  simp only [OpResultPtr.getOwner!_def]
+  grind
+
+grind_pattern OpResultPtr.getOwner!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, opResult.getOwner! newCtx
+
+@[simp]
 theorem OperationPtr.getNumOperands!_OperationPtr_setParentWithCheck {operation : OperationPtr} :
     op'.setParentWithCheck ctx newParent selfIn = some newCtx →
     operation.getNumOperands! newCtx = operation.getNumOperands! ctx := by
@@ -1207,6 +2102,50 @@ theorem OpOperandPtr.get!_OperationPtr_setParentWithCheck {operand : OpOperandPt
 
 grind_pattern OpOperandPtr.get!_OperationPtr_setParentWithCheck =>
   op'.setParentWithCheck ctx newParent selfIn, some newCtx, operand.get! newCtx
+
+@[simp]
+theorem OpOperandPtr.getNextUse!_OperationPtr_setParentWithCheck {operand : OpOperandPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    operand.getNextUse! newCtx =
+    operand.getNextUse! ctx := by
+  simp only [OpOperandPtr.getNextUse!_def]
+  grind
+
+grind_pattern OpOperandPtr.getNextUse!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, operand.getNextUse! newCtx
+
+@[simp]
+theorem OpOperandPtr.getBack!_OperationPtr_setParentWithCheck {operand : OpOperandPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    operand.getBack! newCtx =
+    operand.getBack! ctx := by
+  simp only [OpOperandPtr.getBack!_def]
+  grind
+
+grind_pattern OpOperandPtr.getBack!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, operand.getBack! newCtx
+
+@[simp]
+theorem OpOperandPtr.getOwner!_OperationPtr_setParentWithCheck {operand : OpOperandPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    operand.getOwner! newCtx =
+    operand.getOwner! ctx := by
+  simp only [OpOperandPtr.getOwner!_def]
+  grind
+
+grind_pattern OpOperandPtr.getOwner!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, operand.getOwner! newCtx
+
+@[simp]
+theorem OpOperandPtr.getValue!_OperationPtr_setParentWithCheck {operand : OpOperandPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    operand.getValue! newCtx =
+    operand.getValue! ctx := by
+  simp only [OpOperandPtr.getValue!_def]
+  grind
+
+grind_pattern OpOperandPtr.getValue!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, operand.getValue! newCtx
 
 @[simp]
 theorem OperationPtr.getOperands!_OperationPtr_setParentWithCheck {operation : OperationPtr} :
@@ -1228,6 +2167,17 @@ grind_pattern OperationPtr.getNumSuccessors!_OperationPtr_setParentWithCheck =>
   op'.setParentWithCheck ctx newParent selfIn, some newCtx, operation.getNumSuccessors! newCtx
 
 @[simp]
+theorem OperationPtr.getBlockOperands!_OperationPtr_setParentWithCheck {operation : OperationPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    operation.getBlockOperands! newCtx =
+    operation.getBlockOperands! ctx := by
+  simp only [OperationPtr.getBlockOperands!_def]
+  grind
+
+grind_pattern OperationPtr.getBlockOperands!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, operation.getBlockOperands! newCtx
+
+@[simp]
 theorem BlockOperandPtr.get!_OperationPtr_setParentWithCheck {operand : BlockOperandPtr} :
     op'.setParentWithCheck ctx newParent selfIn = some newCtx →
     operand.get! newCtx = operand.get! ctx := by
@@ -1235,6 +2185,50 @@ theorem BlockOperandPtr.get!_OperationPtr_setParentWithCheck {operand : BlockOpe
 
 grind_pattern BlockOperandPtr.get!_OperationPtr_setParentWithCheck =>
   op'.setParentWithCheck ctx newParent selfIn, some newCtx, operand.get! newCtx
+
+@[simp]
+theorem BlockOperandPtr.getNextUse!_OperationPtr_setParentWithCheck {operand : BlockOperandPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    operand.getNextUse! newCtx =
+    operand.getNextUse! ctx := by
+  simp only [BlockOperandPtr.getNextUse!_def]
+  grind
+
+grind_pattern BlockOperandPtr.getNextUse!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, operand.getNextUse! newCtx
+
+@[simp]
+theorem BlockOperandPtr.getBack!_OperationPtr_setParentWithCheck {operand : BlockOperandPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    operand.getBack! newCtx =
+    operand.getBack! ctx := by
+  simp only [BlockOperandPtr.getBack!_def]
+  grind
+
+grind_pattern BlockOperandPtr.getBack!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, operand.getBack! newCtx
+
+@[simp]
+theorem BlockOperandPtr.getOwner!_OperationPtr_setParentWithCheck {operand : BlockOperandPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    operand.getOwner! newCtx =
+    operand.getOwner! ctx := by
+  simp only [BlockOperandPtr.getOwner!_def]
+  grind
+
+grind_pattern BlockOperandPtr.getOwner!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, operand.getOwner! newCtx
+
+@[simp]
+theorem BlockOperandPtr.getValue!_OperationPtr_setParentWithCheck {operand : BlockOperandPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    operand.getValue! newCtx =
+    operand.getValue! ctx := by
+  simp only [BlockOperandPtr.getValue!_def]
+  grind
+
+grind_pattern BlockOperandPtr.getValue!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, operand.getValue! newCtx
 
 @[simp]
 theorem OperationPtr.getNumRegions!_OperationPtr_setParentWithCheck {operation : OperationPtr} :
@@ -1273,6 +2267,17 @@ grind_pattern BlockPtr.getNumArguments!_OperationPtr_setParentWithCheck =>
   op'.setParentWithCheck ctx newParent selfIn, some newCtx, block.getNumArguments! newCtx
 
 @[simp]
+theorem BlockPtr.getBlockArguments!_OperationPtr_setParentWithCheck {block : BlockPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    block.getBlockArguments! newCtx =
+    block.getBlockArguments! ctx := by
+  simp only [BlockPtr.getBlockArguments!_def]
+  grind
+
+grind_pattern BlockPtr.getBlockArguments!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, block.getBlockArguments! newCtx
+
+@[simp]
 theorem BlockArgumentPtr.get!_OperationPtr_setParentWithCheck {blockArg : BlockArgumentPtr} :
     op'.setParentWithCheck ctx newParent selfIn = some newCtx →
     blockArg.get! newCtx = blockArg.get! ctx := by
@@ -1282,6 +2287,60 @@ grind_pattern BlockArgumentPtr.get!_OperationPtr_setParentWithCheck =>
   op'.setParentWithCheck ctx newParent selfIn, some newCtx, blockArg.get! newCtx
 
 @[simp]
+theorem BlockArgumentPtr.getType!_OperationPtr_setParentWithCheck {blockArg : BlockArgumentPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    blockArg.getType! newCtx =
+    blockArg.getType! ctx := by
+  simp only [BlockArgumentPtr.getType!_def]
+  grind
+
+grind_pattern BlockArgumentPtr.getType!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, blockArg.getType! newCtx
+
+@[simp]
+theorem BlockArgumentPtr.getFirstUse!_OperationPtr_setParentWithCheck {blockArg : BlockArgumentPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    blockArg.getFirstUse! newCtx =
+    blockArg.getFirstUse! ctx := by
+  simp only [BlockArgumentPtr.getFirstUse!_def]
+  grind
+
+grind_pattern BlockArgumentPtr.getFirstUse!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, blockArg.getFirstUse! newCtx
+
+@[simp]
+theorem BlockArgumentPtr.getIndex!_OperationPtr_setParentWithCheck {blockArg : BlockArgumentPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    blockArg.getIndex! newCtx =
+    blockArg.getIndex! ctx := by
+  simp only [BlockArgumentPtr.getIndex!_def]
+  grind
+
+grind_pattern BlockArgumentPtr.getIndex!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, blockArg.getIndex! newCtx
+
+@[simp]
+theorem BlockArgumentPtr.getLoc!_OperationPtr_setParentWithCheck {blockArg : BlockArgumentPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    blockArg.getLoc! newCtx =
+    blockArg.getLoc! ctx := by
+  simp only [BlockArgumentPtr.getLoc!_def] <;> grind
+
+grind_pattern BlockArgumentPtr.getLoc!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, blockArg.getLoc! newCtx
+
+@[simp]
+theorem BlockArgumentPtr.getOwner!_OperationPtr_setParentWithCheck {blockArg : BlockArgumentPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    blockArg.getOwner! newCtx =
+    blockArg.getOwner! ctx := by
+  simp only [BlockArgumentPtr.getOwner!_def]
+  grind
+
+grind_pattern BlockArgumentPtr.getOwner!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, blockArg.getOwner! newCtx
+
+@[simp]
 theorem RegionPtr.get!_OperationPtr_setParentWithCheck {region : RegionPtr} :
     op'.setParentWithCheck ctx newParent selfIn = some newCtx →
     region.get! newCtx = region.get! ctx := by
@@ -1289,6 +2348,39 @@ theorem RegionPtr.get!_OperationPtr_setParentWithCheck {region : RegionPtr} :
 
 grind_pattern RegionPtr.get!_OperationPtr_setParentWithCheck =>
   op'.setParentWithCheck ctx newParent selfIn, some newCtx, region.get! newCtx
+
+@[simp]
+theorem RegionPtr.getParent!_OperationPtr_setParentWithCheck {region : RegionPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    region.getParent! newCtx =
+    region.getParent! ctx := by
+  simp only [RegionPtr.getParent!_def]
+  grind
+
+grind_pattern RegionPtr.getParent!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, region.getParent! newCtx
+
+@[simp]
+theorem RegionPtr.getFirstBlock!_OperationPtr_setParentWithCheck {region : RegionPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    region.getFirstBlock! newCtx =
+    region.getFirstBlock! ctx := by
+  simp only [RegionPtr.getFirstBlock!_def]
+  grind
+
+grind_pattern RegionPtr.getFirstBlock!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, region.getFirstBlock! newCtx
+
+@[simp]
+theorem RegionPtr.getLastBlock!_OperationPtr_setParentWithCheck {region : RegionPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    region.getLastBlock! newCtx =
+    region.getLastBlock! ctx := by
+  simp only [RegionPtr.getLastBlock!_def]
+  grind
+
+grind_pattern RegionPtr.getLastBlock!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, region.getLastBlock! newCtx
 
 @[simp]
 theorem ValuePtr.getFirstUse!_OperationPtr_setParentWithCheck {value : ValuePtr} :
@@ -1480,6 +2572,50 @@ grind_pattern OpResultPtr.get!_OperationPtr_linkBetweenWithParent =>
   op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, opResult.get! newCtx
 
 @[simp]
+theorem OpResultPtr.getIndex!_OperationPtr_linkBetweenWithParent {opResult : OpResultPtr} :
+    op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    opResult.getIndex! newCtx =
+    opResult.getIndex! ctx := by
+  simp only [OpResultPtr.getIndex!_def]
+  grind
+
+grind_pattern OpResultPtr.getIndex!_OperationPtr_linkBetweenWithParent =>
+  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, opResult.getIndex! newCtx
+
+@[simp]
+theorem OpResultPtr.getType!_OperationPtr_linkBetweenWithParent {opResult : OpResultPtr} :
+    op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    opResult.getType! newCtx =
+    opResult.getType! ctx := by
+  simp only [OpResultPtr.getType!_def]
+  grind
+
+grind_pattern OpResultPtr.getType!_OperationPtr_linkBetweenWithParent =>
+  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, opResult.getType! newCtx
+
+@[simp]
+theorem OpResultPtr.getFirstUse!_OperationPtr_linkBetweenWithParent {opResult : OpResultPtr} :
+    op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    opResult.getFirstUse! newCtx =
+    opResult.getFirstUse! ctx := by
+  simp only [OpResultPtr.getFirstUse!_def]
+  grind
+
+grind_pattern OpResultPtr.getFirstUse!_OperationPtr_linkBetweenWithParent =>
+  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, opResult.getFirstUse! newCtx
+
+@[simp]
+theorem OpResultPtr.getOwner!_OperationPtr_linkBetweenWithParent {opResult : OpResultPtr} :
+    op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    opResult.getOwner! newCtx =
+    opResult.getOwner! ctx := by
+  simp only [OpResultPtr.getOwner!_def]
+  grind
+
+grind_pattern OpResultPtr.getOwner!_OperationPtr_linkBetweenWithParent =>
+  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, opResult.getOwner! newCtx
+
+@[simp]
 theorem OperationPtr.getNumOperands!_OperationPtr_linkBetweenWithParent {operation : OperationPtr} :
     op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
     operation.getNumOperands! newCtx = operation.getNumOperands! ctx := by
@@ -1496,6 +2632,50 @@ theorem OpOperandPtr.get!_OperationPtr_linkBetweenWithParent {operand : OpOperan
 
 grind_pattern OpOperandPtr.get!_OperationPtr_linkBetweenWithParent =>
   op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operand.get! newCtx
+
+@[simp]
+theorem OpOperandPtr.getNextUse!_OperationPtr_linkBetweenWithParent {operand : OpOperandPtr} :
+    op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    operand.getNextUse! newCtx =
+    operand.getNextUse! ctx := by
+  simp only [OpOperandPtr.getNextUse!_def]
+  grind
+
+grind_pattern OpOperandPtr.getNextUse!_OperationPtr_linkBetweenWithParent =>
+  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operand.getNextUse! newCtx
+
+@[simp]
+theorem OpOperandPtr.getBack!_OperationPtr_linkBetweenWithParent {operand : OpOperandPtr} :
+    op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    operand.getBack! newCtx =
+    operand.getBack! ctx := by
+  simp only [OpOperandPtr.getBack!_def]
+  grind
+
+grind_pattern OpOperandPtr.getBack!_OperationPtr_linkBetweenWithParent =>
+  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operand.getBack! newCtx
+
+@[simp]
+theorem OpOperandPtr.getOwner!_OperationPtr_linkBetweenWithParent {operand : OpOperandPtr} :
+    op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    operand.getOwner! newCtx =
+    operand.getOwner! ctx := by
+  simp only [OpOperandPtr.getOwner!_def]
+  grind
+
+grind_pattern OpOperandPtr.getOwner!_OperationPtr_linkBetweenWithParent =>
+  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operand.getOwner! newCtx
+
+@[simp]
+theorem OpOperandPtr.getValue!_OperationPtr_linkBetweenWithParent {operand : OpOperandPtr} :
+    op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    operand.getValue! newCtx =
+    operand.getValue! ctx := by
+  simp only [OpOperandPtr.getValue!_def]
+  grind
+
+grind_pattern OpOperandPtr.getValue!_OperationPtr_linkBetweenWithParent =>
+  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operand.getValue! newCtx
 
 @[simp]
 theorem OperationPtr.getOperands!_OperationPtr_linkBetweenWithParent {operation : OperationPtr} :
@@ -1517,6 +2697,17 @@ grind_pattern OperationPtr.getNumSuccessors!_OperationPtr_linkBetweenWithParent 
   op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operation.getNumSuccessors! newCtx
 
 @[simp]
+theorem OperationPtr.getBlockOperands!_OperationPtr_linkBetweenWithParent {operation : OperationPtr} :
+    op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    operation.getBlockOperands! newCtx =
+    operation.getBlockOperands! ctx := by
+  simp only [OperationPtr.getBlockOperands!_def]
+  grind
+
+grind_pattern OperationPtr.getBlockOperands!_OperationPtr_linkBetweenWithParent =>
+  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operation.getBlockOperands! newCtx
+
+@[simp]
 theorem BlockOperandPtr.get!_OperationPtr_linkBetweenWithParent {operand : BlockOperandPtr} :
     op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
     operand.get! newCtx = operand.get! ctx := by
@@ -1524,6 +2715,50 @@ theorem BlockOperandPtr.get!_OperationPtr_linkBetweenWithParent {operand : Block
 
 grind_pattern BlockOperandPtr.get!_OperationPtr_linkBetweenWithParent =>
   op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operand.get! newCtx
+
+@[simp]
+theorem BlockOperandPtr.getNextUse!_OperationPtr_linkBetweenWithParent {operand : BlockOperandPtr} :
+    op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    operand.getNextUse! newCtx =
+    operand.getNextUse! ctx := by
+  simp only [BlockOperandPtr.getNextUse!_def]
+  grind
+
+grind_pattern BlockOperandPtr.getNextUse!_OperationPtr_linkBetweenWithParent =>
+  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operand.getNextUse! newCtx
+
+@[simp]
+theorem BlockOperandPtr.getBack!_OperationPtr_linkBetweenWithParent {operand : BlockOperandPtr} :
+    op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    operand.getBack! newCtx =
+    operand.getBack! ctx := by
+  simp only [BlockOperandPtr.getBack!_def]
+  grind
+
+grind_pattern BlockOperandPtr.getBack!_OperationPtr_linkBetweenWithParent =>
+  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operand.getBack! newCtx
+
+@[simp]
+theorem BlockOperandPtr.getOwner!_OperationPtr_linkBetweenWithParent {operand : BlockOperandPtr} :
+    op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    operand.getOwner! newCtx =
+    operand.getOwner! ctx := by
+  simp only [BlockOperandPtr.getOwner!_def]
+  grind
+
+grind_pattern BlockOperandPtr.getOwner!_OperationPtr_linkBetweenWithParent =>
+  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operand.getOwner! newCtx
+
+@[simp]
+theorem BlockOperandPtr.getValue!_OperationPtr_linkBetweenWithParent {operand : BlockOperandPtr} :
+    op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    operand.getValue! newCtx =
+    operand.getValue! ctx := by
+  simp only [BlockOperandPtr.getValue!_def]
+  grind
+
+grind_pattern BlockOperandPtr.getValue!_OperationPtr_linkBetweenWithParent =>
+  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operand.getValue! newCtx
 
 @[simp]
 theorem OperationPtr.getNumRegions!_OperationPtr_linkBetweenWithParent {operation : OperationPtr} :
@@ -1562,6 +2797,17 @@ grind_pattern BlockPtr.getNumArguments!_OperationPtr_linkBetweenWithParent =>
   op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, block.getNumArguments! newCtx
 
 @[simp]
+theorem BlockPtr.getBlockArguments!_OperationPtr_linkBetweenWithParent {block : BlockPtr} :
+    op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    block.getBlockArguments! newCtx =
+    block.getBlockArguments! ctx := by
+  simp only [BlockPtr.getBlockArguments!_def]
+  grind
+
+grind_pattern BlockPtr.getBlockArguments!_OperationPtr_linkBetweenWithParent =>
+  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, block.getBlockArguments! newCtx
+
+@[simp]
 theorem BlockArgumentPtr.get!_OperationPtr_linkBetweenWithParent {blockArg : BlockArgumentPtr} :
     op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
     blockArg.get! newCtx = blockArg.get! ctx := by
@@ -1571,6 +2817,60 @@ grind_pattern BlockArgumentPtr.get!_OperationPtr_linkBetweenWithParent =>
   op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, blockArg.get! newCtx
 
 @[simp]
+theorem BlockArgumentPtr.getType!_OperationPtr_linkBetweenWithParent {blockArg : BlockArgumentPtr} :
+    op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    blockArg.getType! newCtx =
+    blockArg.getType! ctx := by
+  simp only [BlockArgumentPtr.getType!_def]
+  grind
+
+grind_pattern BlockArgumentPtr.getType!_OperationPtr_linkBetweenWithParent =>
+  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, blockArg.getType! newCtx
+
+@[simp]
+theorem BlockArgumentPtr.getFirstUse!_OperationPtr_linkBetweenWithParent {blockArg : BlockArgumentPtr} :
+    op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    blockArg.getFirstUse! newCtx =
+    blockArg.getFirstUse! ctx := by
+  simp only [BlockArgumentPtr.getFirstUse!_def]
+  grind
+
+grind_pattern BlockArgumentPtr.getFirstUse!_OperationPtr_linkBetweenWithParent =>
+  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, blockArg.getFirstUse! newCtx
+
+@[simp]
+theorem BlockArgumentPtr.getIndex!_OperationPtr_linkBetweenWithParent {blockArg : BlockArgumentPtr} :
+    op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    blockArg.getIndex! newCtx =
+    blockArg.getIndex! ctx := by
+  simp only [BlockArgumentPtr.getIndex!_def]
+  grind
+
+grind_pattern BlockArgumentPtr.getIndex!_OperationPtr_linkBetweenWithParent =>
+  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, blockArg.getIndex! newCtx
+
+@[simp]
+theorem BlockArgumentPtr.getLoc!_OperationPtr_linkBetweenWithParent {blockArg : BlockArgumentPtr} :
+    op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    blockArg.getLoc! newCtx =
+    blockArg.getLoc! ctx := by
+  simp only [BlockArgumentPtr.getLoc!_def] <;> grind
+
+grind_pattern BlockArgumentPtr.getLoc!_OperationPtr_linkBetweenWithParent =>
+  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, blockArg.getLoc! newCtx
+
+@[simp]
+theorem BlockArgumentPtr.getOwner!_OperationPtr_linkBetweenWithParent {blockArg : BlockArgumentPtr} :
+    op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    blockArg.getOwner! newCtx =
+    blockArg.getOwner! ctx := by
+  simp only [BlockArgumentPtr.getOwner!_def]
+  grind
+
+grind_pattern BlockArgumentPtr.getOwner!_OperationPtr_linkBetweenWithParent =>
+  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, blockArg.getOwner! newCtx
+
+@[simp]
 theorem RegionPtr.get!_OperationPtr_linkBetweenWithParent {region : RegionPtr} :
     op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
     region.get! newCtx = region.get! ctx := by
@@ -1578,6 +2878,39 @@ theorem RegionPtr.get!_OperationPtr_linkBetweenWithParent {region : RegionPtr} :
 
 grind_pattern RegionPtr.get!_OperationPtr_linkBetweenWithParent =>
   op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, region.get! newCtx
+
+@[simp]
+theorem RegionPtr.getParent!_OperationPtr_linkBetweenWithParent {region : RegionPtr} :
+    op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    region.getParent! newCtx =
+    region.getParent! ctx := by
+  simp only [RegionPtr.getParent!_def]
+  grind
+
+grind_pattern RegionPtr.getParent!_OperationPtr_linkBetweenWithParent =>
+  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, region.getParent! newCtx
+
+@[simp]
+theorem RegionPtr.getFirstBlock!_OperationPtr_linkBetweenWithParent {region : RegionPtr} :
+    op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    region.getFirstBlock! newCtx =
+    region.getFirstBlock! ctx := by
+  simp only [RegionPtr.getFirstBlock!_def]
+  grind
+
+grind_pattern RegionPtr.getFirstBlock!_OperationPtr_linkBetweenWithParent =>
+  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, region.getFirstBlock! newCtx
+
+@[simp]
+theorem RegionPtr.getLastBlock!_OperationPtr_linkBetweenWithParent {region : RegionPtr} :
+    op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    region.getLastBlock! newCtx =
+    region.getLastBlock! ctx := by
+  simp only [RegionPtr.getLastBlock!_def]
+  grind
+
+grind_pattern RegionPtr.getLastBlock!_OperationPtr_linkBetweenWithParent =>
+  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, region.getLastBlock! newCtx
 
 @[simp]
 theorem ValuePtr.getFirstUse!_OperationPtr_linkBetweenWithParent {value : ValuePtr} :
@@ -1680,6 +3013,34 @@ theorem OperationPtr.get!_BlockPtr_linkBetween {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getNextOp!_BlockPtr_linkBetween {operation : OperationPtr} :
+    operation.getNextOp! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    operation.getNextOp! ctx := by
+  simp only [OperationPtr.getNextOp!_def]
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getPrevOp!_BlockPtr_linkBetween {operation : OperationPtr} :
+    operation.getPrevOp! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    operation.getPrevOp! ctx := by
+  simp only [OperationPtr.getPrevOp!_def]
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getParent!_BlockPtr_linkBetween {operation : OperationPtr} :
+    operation.getParent! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    operation.getParent! ctx := by
+  simp only [OperationPtr.getParent!_def]
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getAttributes!_BlockPtr_linkBetween {operation : OperationPtr} :
+    operation.getAttributes! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    operation.getAttributes! ctx := by
+  simp only [OperationPtr.getAttributes!_def]
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getOpType!_BlockPtr_linkBetween {operation : OperationPtr} :
     operation.getOpType! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
     operation.getOpType! ctx := by
@@ -1700,6 +3061,34 @@ theorem OpResultPtr.get!_BlockPtr_linkBetween {opResult : OpResultPtr} :
   grind
 
 @[simp, grind =]
+theorem OpResultPtr.getIndex!_BlockPtr_linkBetween {opResult : OpResultPtr} :
+    opResult.getIndex! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    opResult.getIndex! ctx := by
+  simp only [OpResultPtr.getIndex!_def]
+  grind
+
+@[simp, grind =]
+theorem OpResultPtr.getType!_BlockPtr_linkBetween {opResult : OpResultPtr} :
+    opResult.getType! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    opResult.getType! ctx := by
+  simp only [OpResultPtr.getType!_def]
+  grind
+
+@[simp, grind =]
+theorem OpResultPtr.getFirstUse!_BlockPtr_linkBetween {opResult : OpResultPtr} :
+    opResult.getFirstUse! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    opResult.getFirstUse! ctx := by
+  simp only [OpResultPtr.getFirstUse!_def]
+  grind
+
+@[simp, grind =]
+theorem OpResultPtr.getOwner!_BlockPtr_linkBetween {opResult : OpResultPtr} :
+    opResult.getOwner! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    opResult.getOwner! ctx := by
+  simp only [OpResultPtr.getOwner!_def]
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getNumOperands!_BlockPtr_linkBetween {operation : OperationPtr} :
     operation.getNumOperands! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
     operation.getNumOperands! ctx := by
@@ -1711,6 +3100,34 @@ theorem OpOperandPtr.get!_BlockPtr_linkBetween {opOperandPtr : OpOperandPtr} :
     opOperandPtr.get! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
     opOperandPtr.get! ctx := by
   simp only [BlockPtr.linkBetween]
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.getNextUse!_BlockPtr_linkBetween {opOperandPtr : OpOperandPtr} :
+    opOperandPtr.getNextUse! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    opOperandPtr.getNextUse! ctx := by
+  simp only [OpOperandPtr.getNextUse!_def]
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.getBack!_BlockPtr_linkBetween {opOperandPtr : OpOperandPtr} :
+    opOperandPtr.getBack! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    opOperandPtr.getBack! ctx := by
+  simp only [OpOperandPtr.getBack!_def]
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.getOwner!_BlockPtr_linkBetween {opOperandPtr : OpOperandPtr} :
+    opOperandPtr.getOwner! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    opOperandPtr.getOwner! ctx := by
+  simp only [OpOperandPtr.getOwner!_def]
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.getValue!_BlockPtr_linkBetween {opOperandPtr : OpOperandPtr} :
+    opOperandPtr.getValue! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    opOperandPtr.getValue! ctx := by
+  simp only [OpOperandPtr.getValue!_def]
   grind
 
 @[simp, grind =]
@@ -1728,10 +3145,45 @@ theorem OperationPtr.getNumSuccessors!_BlockPtr_linkBetween {operation : Operati
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getBlockOperands!_BlockPtr_linkBetween {operation : OperationPtr} :
+    operation.getBlockOperands! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    operation.getBlockOperands! ctx := by
+  simp only [OperationPtr.getBlockOperands!_def]
+  grind
+
+@[simp, grind =]
 theorem BlockOperandPtr.get!_BlockPtr_linkBetween {blockOperand : BlockOperandPtr} :
     blockOperand.get! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
     blockOperand.get! ctx := by
   simp only [BlockPtr.linkBetween]
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtr.getNextUse!_BlockPtr_linkBetween {blockOperand : BlockOperandPtr} :
+    blockOperand.getNextUse! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    blockOperand.getNextUse! ctx := by
+  simp only [BlockOperandPtr.getNextUse!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtr.getBack!_BlockPtr_linkBetween {blockOperand : BlockOperandPtr} :
+    blockOperand.getBack! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    blockOperand.getBack! ctx := by
+  simp only [BlockOperandPtr.getBack!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtr.getOwner!_BlockPtr_linkBetween {blockOperand : BlockOperandPtr} :
+    blockOperand.getOwner! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    blockOperand.getOwner! ctx := by
+  simp only [BlockOperandPtr.getOwner!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtr.getValue!_BlockPtr_linkBetween {blockOperand : BlockOperandPtr} :
+    blockOperand.getValue! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    blockOperand.getValue! ctx := by
+  simp only [BlockOperandPtr.getValue!_def]
   grind
 
 @[simp, grind =]
@@ -1763,6 +3215,13 @@ theorem BlockPtr.getNumArguments!_BlockPtr_linkBetween {block : BlockPtr} :
   grind
 
 @[simp, grind =]
+theorem BlockPtr.getBlockArguments!_BlockPtr_linkBetween {block : BlockPtr} :
+    block.getBlockArguments! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    block.getBlockArguments! ctx := by
+  simp only [BlockPtr.getBlockArguments!_def]
+  grind
+
+@[simp, grind =]
 theorem BlockArgumentPtr.get!_BlockPtr_linkBetween {blockArg : BlockArgumentPtr} :
     blockArg.get! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
     blockArg.get! ctx := by
@@ -1770,10 +3229,65 @@ theorem BlockArgumentPtr.get!_BlockPtr_linkBetween {blockArg : BlockArgumentPtr}
   grind
 
 @[simp, grind =]
+theorem BlockArgumentPtr.getType!_BlockPtr_linkBetween {blockArg : BlockArgumentPtr} :
+    blockArg.getType! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    blockArg.getType! ctx := by
+  simp only [BlockArgumentPtr.getType!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.getFirstUse!_BlockPtr_linkBetween {blockArg : BlockArgumentPtr} :
+    blockArg.getFirstUse! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    blockArg.getFirstUse! ctx := by
+  simp only [BlockArgumentPtr.getFirstUse!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.getIndex!_BlockPtr_linkBetween {blockArg : BlockArgumentPtr} :
+    blockArg.getIndex! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    blockArg.getIndex! ctx := by
+  simp only [BlockArgumentPtr.getIndex!_def]
+  grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.getLoc!_BlockPtr_linkBetween {blockArg : BlockArgumentPtr} :
+    blockArg.getLoc! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    blockArg.getLoc! ctx := by
+  simp only [BlockArgumentPtr.getLoc!_def] <;> grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.getOwner!_BlockPtr_linkBetween {blockArg : BlockArgumentPtr} :
+    blockArg.getOwner! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    blockArg.getOwner! ctx := by
+  simp only [BlockArgumentPtr.getOwner!_def]
+  grind
+
+@[simp, grind =]
 theorem RegionPtr.get!_BlockPtr_linkBetween {region : RegionPtr} :
     region.get! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
     region.get! ctx := by
   simp only [BlockPtr.linkBetween]
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.getParent!_BlockPtr_linkBetween {region : RegionPtr} :
+    region.getParent! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    region.getParent! ctx := by
+  simp only [RegionPtr.getParent!_def]
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.getFirstBlock!_BlockPtr_linkBetween {region : RegionPtr} :
+    region.getFirstBlock! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    region.getFirstBlock! ctx := by
+  simp only [RegionPtr.getFirstBlock!_def]
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.getLastBlock!_BlockPtr_linkBetween {region : RegionPtr} :
+    region.getLastBlock! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    region.getLastBlock! ctx := by
+  simp only [RegionPtr.getLastBlock!_def]
   grind
 
 @[simp, grind =]
@@ -1873,6 +3387,50 @@ grind_pattern OperationPtr.get!_BlockPtr_setParentWithCheck =>
   block'.setParentWithCheck ctx newParent selfIn, some newCtx, operation.get! newCtx
 
 @[simp]
+theorem OperationPtr.getNextOp!_BlockPtr_setParentWithCheck {operation : OperationPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    operation.getNextOp! newCtx =
+    operation.getNextOp! ctx := by
+  simp only [OperationPtr.getNextOp!_def]
+  grind
+
+grind_pattern OperationPtr.getNextOp!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, operation.getNextOp! newCtx
+
+@[simp]
+theorem OperationPtr.getPrevOp!_BlockPtr_setParentWithCheck {operation : OperationPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    operation.getPrevOp! newCtx =
+    operation.getPrevOp! ctx := by
+  simp only [OperationPtr.getPrevOp!_def]
+  grind
+
+grind_pattern OperationPtr.getPrevOp!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, operation.getPrevOp! newCtx
+
+@[simp]
+theorem OperationPtr.getParent!_BlockPtr_setParentWithCheck {operation : OperationPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    operation.getParent! newCtx =
+    operation.getParent! ctx := by
+  simp only [OperationPtr.getParent!_def]
+  grind
+
+grind_pattern OperationPtr.getParent!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, operation.getParent! newCtx
+
+@[simp]
+theorem OperationPtr.getAttributes!_BlockPtr_setParentWithCheck {operation : OperationPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    operation.getAttributes! newCtx =
+    operation.getAttributes! ctx := by
+  simp only [OperationPtr.getAttributes!_def]
+  grind
+
+grind_pattern OperationPtr.getAttributes!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, operation.getAttributes! newCtx
+
+@[simp]
 theorem OperationPtr.getOpType!_BlockPtr_setParentWithCheck {operation : OperationPtr} :
     block'.setParentWithCheck ctx newParent selfIn = some newCtx →
     operation.getOpType! newCtx = operation.getOpType! ctx := by
@@ -1900,6 +3458,50 @@ grind_pattern OpResultPtr.get!_BlockPtr_setParentWithCheck =>
   block'.setParentWithCheck ctx newParent selfIn, some newCtx, opResult.get! newCtx
 
 @[simp]
+theorem OpResultPtr.getIndex!_BlockPtr_setParentWithCheck {opResult : OpResultPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    opResult.getIndex! newCtx =
+    opResult.getIndex! ctx := by
+  simp only [OpResultPtr.getIndex!_def]
+  grind
+
+grind_pattern OpResultPtr.getIndex!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, opResult.getIndex! newCtx
+
+@[simp]
+theorem OpResultPtr.getType!_BlockPtr_setParentWithCheck {opResult : OpResultPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    opResult.getType! newCtx =
+    opResult.getType! ctx := by
+  simp only [OpResultPtr.getType!_def]
+  grind
+
+grind_pattern OpResultPtr.getType!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, opResult.getType! newCtx
+
+@[simp]
+theorem OpResultPtr.getFirstUse!_BlockPtr_setParentWithCheck {opResult : OpResultPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    opResult.getFirstUse! newCtx =
+    opResult.getFirstUse! ctx := by
+  simp only [OpResultPtr.getFirstUse!_def]
+  grind
+
+grind_pattern OpResultPtr.getFirstUse!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, opResult.getFirstUse! newCtx
+
+@[simp]
+theorem OpResultPtr.getOwner!_BlockPtr_setParentWithCheck {opResult : OpResultPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    opResult.getOwner! newCtx =
+    opResult.getOwner! ctx := by
+  simp only [OpResultPtr.getOwner!_def]
+  grind
+
+grind_pattern OpResultPtr.getOwner!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, opResult.getOwner! newCtx
+
+@[simp]
 theorem OperationPtr.getNumOperands!_BlockPtr_setParentWithCheck {operation : OperationPtr} :
     block'.setParentWithCheck ctx newParent selfIn = some newCtx →
     operation.getNumOperands! newCtx = operation.getNumOperands! ctx := by
@@ -1916,6 +3518,50 @@ theorem OpOperandPtr.get!_BlockPtr_setParentWithCheck {operand : OpOperandPtr} :
 
 grind_pattern OpOperandPtr.get!_BlockPtr_setParentWithCheck =>
   block'.setParentWithCheck ctx newParent selfIn, some newCtx, operand.get! newCtx
+
+@[simp]
+theorem OpOperandPtr.getNextUse!_BlockPtr_setParentWithCheck {operand : OpOperandPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    operand.getNextUse! newCtx =
+    operand.getNextUse! ctx := by
+  simp only [OpOperandPtr.getNextUse!_def]
+  grind
+
+grind_pattern OpOperandPtr.getNextUse!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, operand.getNextUse! newCtx
+
+@[simp]
+theorem OpOperandPtr.getBack!_BlockPtr_setParentWithCheck {operand : OpOperandPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    operand.getBack! newCtx =
+    operand.getBack! ctx := by
+  simp only [OpOperandPtr.getBack!_def]
+  grind
+
+grind_pattern OpOperandPtr.getBack!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, operand.getBack! newCtx
+
+@[simp]
+theorem OpOperandPtr.getOwner!_BlockPtr_setParentWithCheck {operand : OpOperandPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    operand.getOwner! newCtx =
+    operand.getOwner! ctx := by
+  simp only [OpOperandPtr.getOwner!_def]
+  grind
+
+grind_pattern OpOperandPtr.getOwner!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, operand.getOwner! newCtx
+
+@[simp]
+theorem OpOperandPtr.getValue!_BlockPtr_setParentWithCheck {operand : OpOperandPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    operand.getValue! newCtx =
+    operand.getValue! ctx := by
+  simp only [OpOperandPtr.getValue!_def]
+  grind
+
+grind_pattern OpOperandPtr.getValue!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, operand.getValue! newCtx
 
 @[simp]
 theorem OperationPtr.getOperands!_BlockPtr_setParentWithCheck {operation : OperationPtr} :
@@ -1937,6 +3583,17 @@ grind_pattern OperationPtr.getNumSuccessors!_BlockPtr_setParentWithCheck =>
   block'.setParentWithCheck ctx newParent selfIn, some newCtx, operation.getNumSuccessors! newCtx
 
 @[simp]
+theorem OperationPtr.getBlockOperands!_BlockPtr_setParentWithCheck {operation : OperationPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    operation.getBlockOperands! newCtx =
+    operation.getBlockOperands! ctx := by
+  simp only [OperationPtr.getBlockOperands!_def]
+  grind
+
+grind_pattern OperationPtr.getBlockOperands!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, operation.getBlockOperands! newCtx
+
+@[simp]
 theorem BlockOperandPtr.get!_BlockPtr_setParentWithCheck {operand : BlockOperandPtr} :
     block'.setParentWithCheck ctx newParent selfIn = some newCtx →
     operand.get! newCtx = operand.get! ctx := by
@@ -1944,6 +3601,50 @@ theorem BlockOperandPtr.get!_BlockPtr_setParentWithCheck {operand : BlockOperand
 
 grind_pattern BlockOperandPtr.get!_BlockPtr_setParentWithCheck =>
   block'.setParentWithCheck ctx newParent selfIn, some newCtx, operand.get! newCtx
+
+@[simp]
+theorem BlockOperandPtr.getNextUse!_BlockPtr_setParentWithCheck {operand : BlockOperandPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    operand.getNextUse! newCtx =
+    operand.getNextUse! ctx := by
+  simp only [BlockOperandPtr.getNextUse!_def]
+  grind
+
+grind_pattern BlockOperandPtr.getNextUse!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, operand.getNextUse! newCtx
+
+@[simp]
+theorem BlockOperandPtr.getBack!_BlockPtr_setParentWithCheck {operand : BlockOperandPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    operand.getBack! newCtx =
+    operand.getBack! ctx := by
+  simp only [BlockOperandPtr.getBack!_def]
+  grind
+
+grind_pattern BlockOperandPtr.getBack!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, operand.getBack! newCtx
+
+@[simp]
+theorem BlockOperandPtr.getOwner!_BlockPtr_setParentWithCheck {operand : BlockOperandPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    operand.getOwner! newCtx =
+    operand.getOwner! ctx := by
+  simp only [BlockOperandPtr.getOwner!_def]
+  grind
+
+grind_pattern BlockOperandPtr.getOwner!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, operand.getOwner! newCtx
+
+@[simp]
+theorem BlockOperandPtr.getValue!_BlockPtr_setParentWithCheck {operand : BlockOperandPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    operand.getValue! newCtx =
+    operand.getValue! ctx := by
+  simp only [BlockOperandPtr.getValue!_def]
+  grind
+
+grind_pattern BlockOperandPtr.getValue!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, operand.getValue! newCtx
 
 @[simp]
 theorem OperationPtr.getNumRegions!_BlockPtr_setParentWithCheck {operation : OperationPtr} :
@@ -1982,6 +3683,17 @@ grind_pattern BlockPtr.getNumArguments!_BlockPtr_setParentWithCheck =>
   block'.setParentWithCheck ctx newParent selfIn, some newCtx, block.getNumArguments! newCtx
 
 @[simp]
+theorem BlockPtr.getBlockArguments!_BlockPtr_setParentWithCheck {block : BlockPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    block.getBlockArguments! newCtx =
+    block.getBlockArguments! ctx := by
+  simp only [BlockPtr.getBlockArguments!_def]
+  grind
+
+grind_pattern BlockPtr.getBlockArguments!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, block.getBlockArguments! newCtx
+
+@[simp]
 theorem BlockArgumentPtr.get!_BlockPtr_setParentWithCheck {blockArg : BlockArgumentPtr} :
     block'.setParentWithCheck ctx newParent selfIn = some newCtx →
     blockArg.get! newCtx = blockArg.get! ctx := by
@@ -1991,6 +3703,60 @@ grind_pattern BlockArgumentPtr.get!_BlockPtr_setParentWithCheck =>
   block'.setParentWithCheck ctx newParent selfIn, some newCtx, blockArg.get! newCtx
 
 @[simp]
+theorem BlockArgumentPtr.getType!_BlockPtr_setParentWithCheck {blockArg : BlockArgumentPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    blockArg.getType! newCtx =
+    blockArg.getType! ctx := by
+  simp only [BlockArgumentPtr.getType!_def]
+  grind
+
+grind_pattern BlockArgumentPtr.getType!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, blockArg.getType! newCtx
+
+@[simp]
+theorem BlockArgumentPtr.getFirstUse!_BlockPtr_setParentWithCheck {blockArg : BlockArgumentPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    blockArg.getFirstUse! newCtx =
+    blockArg.getFirstUse! ctx := by
+  simp only [BlockArgumentPtr.getFirstUse!_def]
+  grind
+
+grind_pattern BlockArgumentPtr.getFirstUse!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, blockArg.getFirstUse! newCtx
+
+@[simp]
+theorem BlockArgumentPtr.getIndex!_BlockPtr_setParentWithCheck {blockArg : BlockArgumentPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    blockArg.getIndex! newCtx =
+    blockArg.getIndex! ctx := by
+  simp only [BlockArgumentPtr.getIndex!_def]
+  grind
+
+grind_pattern BlockArgumentPtr.getIndex!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, blockArg.getIndex! newCtx
+
+@[simp]
+theorem BlockArgumentPtr.getLoc!_BlockPtr_setParentWithCheck {blockArg : BlockArgumentPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    blockArg.getLoc! newCtx =
+    blockArg.getLoc! ctx := by
+  simp only [BlockArgumentPtr.getLoc!_def] <;> grind
+
+grind_pattern BlockArgumentPtr.getLoc!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, blockArg.getLoc! newCtx
+
+@[simp]
+theorem BlockArgumentPtr.getOwner!_BlockPtr_setParentWithCheck {blockArg : BlockArgumentPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    blockArg.getOwner! newCtx =
+    blockArg.getOwner! ctx := by
+  simp only [BlockArgumentPtr.getOwner!_def]
+  grind
+
+grind_pattern BlockArgumentPtr.getOwner!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, blockArg.getOwner! newCtx
+
+@[simp]
 theorem RegionPtr.get!_BlockPtr_setParentWithCheck {region : RegionPtr} :
     block'.setParentWithCheck ctx newParent selfIn = some newCtx →
     region.get! newCtx = region.get! ctx := by
@@ -1998,6 +3764,39 @@ theorem RegionPtr.get!_BlockPtr_setParentWithCheck {region : RegionPtr} :
 
 grind_pattern RegionPtr.get!_BlockPtr_setParentWithCheck =>
   block'.setParentWithCheck ctx newParent selfIn, some newCtx, region.get! newCtx
+
+@[simp]
+theorem RegionPtr.getParent!_BlockPtr_setParentWithCheck {region : RegionPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    region.getParent! newCtx =
+    region.getParent! ctx := by
+  simp only [RegionPtr.getParent!_def]
+  grind
+
+grind_pattern RegionPtr.getParent!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, region.getParent! newCtx
+
+@[simp]
+theorem RegionPtr.getFirstBlock!_BlockPtr_setParentWithCheck {region : RegionPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    region.getFirstBlock! newCtx =
+    region.getFirstBlock! ctx := by
+  simp only [RegionPtr.getFirstBlock!_def]
+  grind
+
+grind_pattern RegionPtr.getFirstBlock!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, region.getFirstBlock! newCtx
+
+@[simp]
+theorem RegionPtr.getLastBlock!_BlockPtr_setParentWithCheck {region : RegionPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    region.getLastBlock! newCtx =
+    region.getLastBlock! ctx := by
+  simp only [RegionPtr.getLastBlock!_def]
+  grind
+
+grind_pattern RegionPtr.getLastBlock!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, region.getLastBlock! newCtx
 
 @[simp]
 theorem ValuePtr.getFirstUse!_BlockPtr_setParentWithCheck {value : ValuePtr} :
@@ -2116,6 +3915,46 @@ theorem OperationPtr.get!_BlockPtr_linkBetweenWithParent {operation : OperationP
 grind_pattern OperationPtr.get!_BlockPtr_linkBetweenWithParent =>
   block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operation.get! newCtx
 
+theorem OperationPtr.getNextOp!_BlockPtr_linkBetweenWithParent {operation : OperationPtr} :
+    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    (operation.getNextOp! newCtx) =
+    operation.getNextOp! ctx := by
+  simp only [OperationPtr.getNextOp!_def]
+  grind
+
+grind_pattern OperationPtr.getNextOp!_BlockPtr_linkBetweenWithParent =>
+  block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operation.getNextOp! newCtx
+
+theorem OperationPtr.getPrevOp!_BlockPtr_linkBetweenWithParent {operation : OperationPtr} :
+    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    (operation.getPrevOp! newCtx) =
+    operation.getPrevOp! ctx := by
+  simp only [OperationPtr.getPrevOp!_def]
+  grind
+
+grind_pattern OperationPtr.getPrevOp!_BlockPtr_linkBetweenWithParent =>
+  block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operation.getPrevOp! newCtx
+
+theorem OperationPtr.getParent!_BlockPtr_linkBetweenWithParent {operation : OperationPtr} :
+    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    (operation.getParent! newCtx) =
+    operation.getParent! ctx := by
+  simp only [OperationPtr.getParent!_def]
+  grind
+
+grind_pattern OperationPtr.getParent!_BlockPtr_linkBetweenWithParent =>
+  block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operation.getParent! newCtx
+
+theorem OperationPtr.getAttributes!_BlockPtr_linkBetweenWithParent {operation : OperationPtr} :
+    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    (operation.getAttributes! newCtx) =
+    operation.getAttributes! ctx := by
+  simp only [OperationPtr.getAttributes!_def]
+  grind
+
+grind_pattern OperationPtr.getAttributes!_BlockPtr_linkBetweenWithParent =>
+  block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operation.getAttributes! newCtx
+
 theorem OperationPtr.getOpType!_BlockPtr_linkBetweenWithParent {operation : OperationPtr} :
     block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
     operation.getOpType! newCtx = operation.getOpType! ctx := by
@@ -2144,6 +3983,50 @@ grind_pattern OpResultPtr.get!_BlockPtr_linkBetweenWithParent =>
   block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, opResult.get! newCtx
 
 @[simp]
+theorem OpResultPtr.getIndex!_BlockPtr_linkBetweenWithParent {opResult : OpResultPtr} :
+    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    opResult.getIndex! newCtx =
+    opResult.getIndex! ctx := by
+  simp only [OpResultPtr.getIndex!_def]
+  grind
+
+grind_pattern OpResultPtr.getIndex!_BlockPtr_linkBetweenWithParent =>
+  block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, opResult.getIndex! newCtx
+
+@[simp]
+theorem OpResultPtr.getType!_BlockPtr_linkBetweenWithParent {opResult : OpResultPtr} :
+    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    opResult.getType! newCtx =
+    opResult.getType! ctx := by
+  simp only [OpResultPtr.getType!_def]
+  grind
+
+grind_pattern OpResultPtr.getType!_BlockPtr_linkBetweenWithParent =>
+  block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, opResult.getType! newCtx
+
+@[simp]
+theorem OpResultPtr.getFirstUse!_BlockPtr_linkBetweenWithParent {opResult : OpResultPtr} :
+    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    opResult.getFirstUse! newCtx =
+    opResult.getFirstUse! ctx := by
+  simp only [OpResultPtr.getFirstUse!_def]
+  grind
+
+grind_pattern OpResultPtr.getFirstUse!_BlockPtr_linkBetweenWithParent =>
+  block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, opResult.getFirstUse! newCtx
+
+@[simp]
+theorem OpResultPtr.getOwner!_BlockPtr_linkBetweenWithParent {opResult : OpResultPtr} :
+    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    opResult.getOwner! newCtx =
+    opResult.getOwner! ctx := by
+  simp only [OpResultPtr.getOwner!_def]
+  grind
+
+grind_pattern OpResultPtr.getOwner!_BlockPtr_linkBetweenWithParent =>
+  block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, opResult.getOwner! newCtx
+
+@[simp]
 theorem OperationPtr.getNumOperands!_BlockPtr_linkBetweenWithParent {operation : OperationPtr} :
     block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
     operation.getNumOperands! newCtx = operation.getNumOperands! ctx := by
@@ -2160,6 +4043,50 @@ theorem OpOperandPtr.get!_BlockPtr_linkBetweenWithParent {operand : OpOperandPtr
 
 grind_pattern OpOperandPtr.get!_BlockPtr_linkBetweenWithParent =>
   block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operand.get! newCtx
+
+@[simp]
+theorem OpOperandPtr.getNextUse!_BlockPtr_linkBetweenWithParent {operand : OpOperandPtr} :
+    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    operand.getNextUse! newCtx =
+    operand.getNextUse! ctx := by
+  simp only [OpOperandPtr.getNextUse!_def]
+  grind
+
+grind_pattern OpOperandPtr.getNextUse!_BlockPtr_linkBetweenWithParent =>
+  block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operand.getNextUse! newCtx
+
+@[simp]
+theorem OpOperandPtr.getBack!_BlockPtr_linkBetweenWithParent {operand : OpOperandPtr} :
+    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    operand.getBack! newCtx =
+    operand.getBack! ctx := by
+  simp only [OpOperandPtr.getBack!_def]
+  grind
+
+grind_pattern OpOperandPtr.getBack!_BlockPtr_linkBetweenWithParent =>
+  block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operand.getBack! newCtx
+
+@[simp]
+theorem OpOperandPtr.getOwner!_BlockPtr_linkBetweenWithParent {operand : OpOperandPtr} :
+    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    operand.getOwner! newCtx =
+    operand.getOwner! ctx := by
+  simp only [OpOperandPtr.getOwner!_def]
+  grind
+
+grind_pattern OpOperandPtr.getOwner!_BlockPtr_linkBetweenWithParent =>
+  block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operand.getOwner! newCtx
+
+@[simp]
+theorem OpOperandPtr.getValue!_BlockPtr_linkBetweenWithParent {operand : OpOperandPtr} :
+    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    operand.getValue! newCtx =
+    operand.getValue! ctx := by
+  simp only [OpOperandPtr.getValue!_def]
+  grind
+
+grind_pattern OpOperandPtr.getValue!_BlockPtr_linkBetweenWithParent =>
+  block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operand.getValue! newCtx
 
 @[simp]
 theorem OperationPtr.getOperands!_BlockPtr_linkBetweenWithParent {operation : OperationPtr} :
@@ -2181,6 +4108,17 @@ grind_pattern OperationPtr.getNumSuccessors!_BlockPtr_linkBetweenWithParent =>
   block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operation.getNumSuccessors! newCtx
 
 @[simp]
+theorem OperationPtr.getBlockOperands!_BlockPtr_linkBetweenWithParent {operation : OperationPtr} :
+    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    operation.getBlockOperands! newCtx =
+    operation.getBlockOperands! ctx := by
+  simp only [OperationPtr.getBlockOperands!_def]
+  grind
+
+grind_pattern OperationPtr.getBlockOperands!_BlockPtr_linkBetweenWithParent =>
+  block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operation.getBlockOperands! newCtx
+
+@[simp]
 theorem BlockOperandPtr.get!_BlockPtr_linkBetweenWithParent {operand : BlockOperandPtr} :
     block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
     operand.get! newCtx = operand.get! ctx := by
@@ -2188,6 +4126,50 @@ theorem BlockOperandPtr.get!_BlockPtr_linkBetweenWithParent {operand : BlockOper
 
 grind_pattern BlockOperandPtr.get!_BlockPtr_linkBetweenWithParent =>
   block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operand.get! newCtx
+
+@[simp]
+theorem BlockOperandPtr.getNextUse!_BlockPtr_linkBetweenWithParent {operand : BlockOperandPtr} :
+    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    operand.getNextUse! newCtx =
+    operand.getNextUse! ctx := by
+  simp only [BlockOperandPtr.getNextUse!_def]
+  grind
+
+grind_pattern BlockOperandPtr.getNextUse!_BlockPtr_linkBetweenWithParent =>
+  block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operand.getNextUse! newCtx
+
+@[simp]
+theorem BlockOperandPtr.getBack!_BlockPtr_linkBetweenWithParent {operand : BlockOperandPtr} :
+    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    operand.getBack! newCtx =
+    operand.getBack! ctx := by
+  simp only [BlockOperandPtr.getBack!_def]
+  grind
+
+grind_pattern BlockOperandPtr.getBack!_BlockPtr_linkBetweenWithParent =>
+  block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operand.getBack! newCtx
+
+@[simp]
+theorem BlockOperandPtr.getOwner!_BlockPtr_linkBetweenWithParent {operand : BlockOperandPtr} :
+    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    operand.getOwner! newCtx =
+    operand.getOwner! ctx := by
+  simp only [BlockOperandPtr.getOwner!_def]
+  grind
+
+grind_pattern BlockOperandPtr.getOwner!_BlockPtr_linkBetweenWithParent =>
+  block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operand.getOwner! newCtx
+
+@[simp]
+theorem BlockOperandPtr.getValue!_BlockPtr_linkBetweenWithParent {operand : BlockOperandPtr} :
+    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    operand.getValue! newCtx =
+    operand.getValue! ctx := by
+  simp only [BlockOperandPtr.getValue!_def]
+  grind
+
+grind_pattern BlockOperandPtr.getValue!_BlockPtr_linkBetweenWithParent =>
+  block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operand.getValue! newCtx
 
 @[simp]
 theorem OperationPtr.getNumRegions!_BlockPtr_linkBetweenWithParent {operation : OperationPtr} :
@@ -2226,6 +4208,17 @@ grind_pattern BlockPtr.getNumArguments!_BlockPtr_linkBetweenWithParent =>
   block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, block.getNumArguments! newCtx
 
 @[simp]
+theorem BlockPtr.getBlockArguments!_BlockPtr_linkBetweenWithParent {block : BlockPtr} :
+    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    block.getBlockArguments! newCtx =
+    block.getBlockArguments! ctx := by
+  simp only [BlockPtr.getBlockArguments!_def]
+  grind
+
+grind_pattern BlockPtr.getBlockArguments!_BlockPtr_linkBetweenWithParent =>
+  block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, block.getBlockArguments! newCtx
+
+@[simp]
 theorem BlockArgumentPtr.get!_BlockPtr_linkBetweenWithParent {blockArg : BlockArgumentPtr} :
     block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
     blockArg.get! newCtx = blockArg.get! ctx := by
@@ -2233,6 +4226,60 @@ theorem BlockArgumentPtr.get!_BlockPtr_linkBetweenWithParent {blockArg : BlockAr
 
 grind_pattern BlockArgumentPtr.get!_BlockPtr_linkBetweenWithParent =>
   block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, blockArg.get! newCtx
+
+@[simp]
+theorem BlockArgumentPtr.getType!_BlockPtr_linkBetweenWithParent {blockArg : BlockArgumentPtr} :
+    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    blockArg.getType! newCtx =
+    blockArg.getType! ctx := by
+  simp only [BlockArgumentPtr.getType!_def]
+  grind
+
+grind_pattern BlockArgumentPtr.getType!_BlockPtr_linkBetweenWithParent =>
+  block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, blockArg.getType! newCtx
+
+@[simp]
+theorem BlockArgumentPtr.getFirstUse!_BlockPtr_linkBetweenWithParent {blockArg : BlockArgumentPtr} :
+    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    blockArg.getFirstUse! newCtx =
+    blockArg.getFirstUse! ctx := by
+  simp only [BlockArgumentPtr.getFirstUse!_def]
+  grind
+
+grind_pattern BlockArgumentPtr.getFirstUse!_BlockPtr_linkBetweenWithParent =>
+  block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, blockArg.getFirstUse! newCtx
+
+@[simp]
+theorem BlockArgumentPtr.getIndex!_BlockPtr_linkBetweenWithParent {blockArg : BlockArgumentPtr} :
+    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    blockArg.getIndex! newCtx =
+    blockArg.getIndex! ctx := by
+  simp only [BlockArgumentPtr.getIndex!_def]
+  grind
+
+grind_pattern BlockArgumentPtr.getIndex!_BlockPtr_linkBetweenWithParent =>
+  block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, blockArg.getIndex! newCtx
+
+@[simp]
+theorem BlockArgumentPtr.getLoc!_BlockPtr_linkBetweenWithParent {blockArg : BlockArgumentPtr} :
+    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    blockArg.getLoc! newCtx =
+    blockArg.getLoc! ctx := by
+  simp only [BlockArgumentPtr.getLoc!_def] <;> grind
+
+grind_pattern BlockArgumentPtr.getLoc!_BlockPtr_linkBetweenWithParent =>
+  block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, blockArg.getLoc! newCtx
+
+@[simp]
+theorem BlockArgumentPtr.getOwner!_BlockPtr_linkBetweenWithParent {blockArg : BlockArgumentPtr} :
+    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    blockArg.getOwner! newCtx =
+    blockArg.getOwner! ctx := by
+  simp only [BlockArgumentPtr.getOwner!_def]
+  grind
+
+grind_pattern BlockArgumentPtr.getOwner!_BlockPtr_linkBetweenWithParent =>
+  block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, blockArg.getOwner! newCtx
 
 @[simp]
 theorem RegionPtr.firstBlock!_BlockPtr_linkBetweenWithParent {region : RegionPtr} :
