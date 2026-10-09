@@ -525,36 +525,6 @@ theorem OpResultPtr.getOwner!_initOpResults {opResult : OpResultPtr} {index : Na
 
 attribute [simp_getset] OpResultPtr.get!_initOpResults
 
-@[grind =, simp_getset]
-theorem OpResultPtr.type!_initOpResults {opResult : OpResultPtr} {index : Nat} {hidx} :
-    opResult.getType! (Rewriter.initOpResults ctx op types index hop hidx) =
-    if h : opResult.op = op ∧ opResult.index < types.size ∧ op.getNumResults! ctx ≤ opResult.index then
-      types[opResult.index]
-    else (opResult.getType! ctx) := by
-  grind
-
-@[grind =, simp_getset]
-theorem OpResultPtr.firstUse!_initOpResults {opResult : OpResultPtr} {index : Nat} {hidx} :
-    opResult.getFirstUse! (Rewriter.initOpResults ctx op types index hop hidx) =
-    if opResult.op = op ∧ opResult.index < types.size ∧ op.getNumResults! ctx ≤ opResult.index then none
-    else (opResult.getFirstUse! ctx) := by
-  grind
-
-@[grind =, simp_getset]
-theorem OpResultPtr.index!_initOpResults {opResult : OpResultPtr} {index : Nat} {hidx} :
-    opResult.getIndex! (Rewriter.initOpResults ctx op types index hop hidx) =
-    if opResult.op = op ∧ opResult.index < types.size ∧ op.getNumResults! ctx ≤ opResult.index then
-      opResult.index
-    else (opResult.getIndex! ctx) := by
-  grind
-
-@[grind =, simp_getset]
-theorem OpResultPtr.owner!_initOpResults {opResult : OpResultPtr} {index : Nat} {hidx} :
-    opResult.getOwner! (Rewriter.initOpResults ctx op types index hop hidx) =
-    if opResult.op = op ∧ opResult.index < types.size ∧ op.getNumResults! ctx ≤ opResult.index then op
-    else (opResult.getOwner! ctx) := by
-  grind
-
 @[simp, grind =, simp_getset]
 theorem OperationPtr.getNumOperands!_initOpResults {operation : OperationPtr} :
     operation.getNumOperands! (Rewriter.initOpResults ctx op types index hop hidx) = operation.getNumOperands! ctx := by

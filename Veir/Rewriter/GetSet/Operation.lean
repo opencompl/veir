@@ -85,42 +85,6 @@ theorem BlockPtr.getPrevBlock!_setAttributes {block : BlockPtr} :
   simp only [BlockPtr.getPrevBlock!_def]
   grind
 
-@[simp, grind =, simp_getset]
-theorem BlockPtr.firstUse!_setAttributes {block : BlockPtr} :
-    block.getFirstUse! (Rewriter.setAttributes ctx op newAttrs opIn) =
-    block.getFirstUse! ctx := by
-  grind
-
-@[simp, grind =, simp_getset]
-theorem BlockPtr.prev!_setAttributes {block : BlockPtr} :
-    block.getPrevBlock! (Rewriter.setAttributes ctx op newAttrs opIn) =
-    block.getPrevBlock! ctx := by
-  grind
-
-@[simp, grind =, simp_getset]
-theorem BlockPtr.next!_setAttributes {block : BlockPtr} :
-    block.getNextBlock! (Rewriter.setAttributes ctx op newAttrs opIn) =
-    block.getNextBlock! ctx := by
-  grind
-
-@[simp, grind =, simp_getset]
-theorem BlockPtr.parent!_setAttributes {block : BlockPtr} :
-    block.getParent! (Rewriter.setAttributes ctx op newAttrs opIn) =
-    block.getParent! ctx := by
-  grind
-
-@[simp, grind =, simp_getset]
-theorem BlockPtr.firstOp!_setAttributes {block : BlockPtr} :
-    block.getFirstOp! (Rewriter.setAttributes ctx op newAttrs opIn) =
-    block.getFirstOp! ctx := by
-  grind
-
-@[simp, grind =, simp_getset]
-theorem BlockPtr.lastOp!_setAttributes {block : BlockPtr} :
-    block.getLastOp! (Rewriter.setAttributes ctx op newAttrs opIn) =
-    block.getLastOp! ctx := by
-  grind
-
 @[grind =, simp_getset]
 private theorem OperationPtr.get!_setAttributes {op' : OperationPtr} :
     op'.get! (Rewriter.setAttributes ctx op newAttrs opIn) =
@@ -159,33 +123,9 @@ theorem OperationPtr.getAttributes!_setAttributes {op' : OperationPtr} :
   grind
 
 @[simp, grind =, simp_getset]
-theorem OperationPtr.prev!_setAttributes {op' : OperationPtr} :
-    op'.getPrevOp! (Rewriter.setAttributes ctx op newAttrs opIn) =
-    op'.getPrevOp! ctx := by
-  grind
-
-@[simp, grind =, simp_getset]
-theorem OperationPtr.next!_setAttributes {op' : OperationPtr} :
-    op'.getNextOp! (Rewriter.setAttributes ctx op newAttrs opIn) =
-    op'.getNextOp! ctx := by
-  grind
-
-@[simp, grind =, simp_getset]
-theorem OperationPtr.parent!_setAttributes {op' : OperationPtr} :
-    op'.getParent! (Rewriter.setAttributes ctx op newAttrs opIn) =
-    op'.getParent! ctx := by
-  grind
-
-@[simp, grind =, simp_getset]
 theorem OperationPtr.getOpType!_setAttributes {op' : OperationPtr} :
     op'.getOpType! (Rewriter.setAttributes ctx op newAttrs opIn) =
     op'.getOpType! ctx := by
-  grind
-
-@[grind =, simp_getset]
-theorem OperationPtr.attrs!_setAttributes {op' : OperationPtr} :
-    op'.getAttributes! (Rewriter.setAttributes ctx op newAttrs opIn) =
-    if op' = op then newAttrs else (op'.getAttributes! ctx)  := by
   grind
 
 @[simp, grind =, simp_getset]
@@ -424,24 +364,6 @@ theorem RegionPtr.getLastBlock!_setAttributes {region : RegionPtr} :
   grind
 
 @[simp, grind =, simp_getset]
-theorem RegionPtr.firstBlock!_setAttributes {region : RegionPtr} :
-    region.getFirstBlock! (Rewriter.setAttributes ctx op newAttrs opIn) =
-    region.getFirstBlock! ctx := by
-  grind
-
-@[simp, grind =, simp_getset]
-theorem RegionPtr.lastBlock!_setAttributes {region : RegionPtr} :
-    region.getLastBlock! (Rewriter.setAttributes ctx op newAttrs opIn) =
-    region.getLastBlock! ctx := by
-  grind
-
-@[simp, grind =, simp_getset]
-theorem RegionPtr.parent!_setAttributes {region : RegionPtr} :
-    region.getParent! (Rewriter.setAttributes ctx op newAttrs opIn) =
-    region.getParent! ctx := by
-  grind
-
-@[simp, grind =, simp_getset]
 theorem ValuePtr.getFirstUse!_setAttributes {value : ValuePtr} :
     value.getFirstUse! (Rewriter.setAttributes ctx op newAttrs opIn)  =
     value.getFirstUse! ctx := by
@@ -517,42 +439,6 @@ theorem BlockPtr.getPrevBlock!_setProperties {block : BlockPtr} :
   simp only [BlockPtr.getPrevBlock!_def]
   grind
 
-@[simp, grind =, simp_getset]
-theorem BlockPtr.firstUse!_setProperties {block : BlockPtr} :
-    block.getFirstUse! (Rewriter.setProperties ctx op opCode newProps opIn hprop) =
-    block.getFirstUse! ctx := by
-  grind
-
-@[simp, grind =, simp_getset]
-theorem BlockPtr.prev!_setProperties {block : BlockPtr} :
-    block.getPrevBlock! (Rewriter.setProperties ctx op opCode newProps opIn hprop) =
-    block.getPrevBlock! ctx := by
-  grind
-
-@[simp, grind =, simp_getset]
-theorem BlockPtr.next!_setProperties {block : BlockPtr} :
-    block.getNextBlock! (Rewriter.setProperties ctx op opCode newProps opIn hprop) =
-    block.getNextBlock! ctx := by
-  grind
-
-@[simp, grind =, simp_getset]
-theorem BlockPtr.parent!_setProperties {block : BlockPtr} :
-    block.getParent! (Rewriter.setProperties ctx op opCode newProps opIn hprop) =
-    block.getParent! ctx := by
-  grind
-
-@[simp, grind =, simp_getset]
-theorem BlockPtr.firstOp!_setProperties {block : BlockPtr} :
-    block.getFirstOp! (Rewriter.setProperties ctx op opCode newProps opIn hprop) =
-    block.getFirstOp! ctx := by
-  grind
-
-@[simp, grind =, simp_getset]
-theorem BlockPtr.lastOp!_setProperties {block : BlockPtr} :
-    block.getLastOp! (Rewriter.setProperties ctx op opCode newProps opIn hprop) =
-    block.getLastOp! ctx := by
-  grind
-
 @[grind =, simp_getset]
 private theorem OperationPtr.get!_setProperties {operation : OperationPtr} :
     operation.get! (Rewriter.setProperties ctx op opCode newProps opIn hprop) =
@@ -593,33 +479,9 @@ theorem OperationPtr.getAttributes!_setProperties {operation : OperationPtr} :
   grind
 
 @[simp, grind =, simp_getset]
-theorem OperationPtr.prev!_setProperties {op' : OperationPtr} :
-    op'.getPrevOp! (Rewriter.setProperties ctx op opCode newProps opIn) =
-    op'.getPrevOp! ctx := by
-  grind
-
-@[simp, grind =, simp_getset]
-theorem OperationPtr.next!_setProperties {op' : OperationPtr} :
-    op'.getNextOp! (Rewriter.setProperties ctx op opCode newProps opIn) =
-    op'.getNextOp! ctx := by
-  grind
-
-@[simp, grind =, simp_getset]
-theorem OperationPtr.parent!_setProperties {op' : OperationPtr} :
-    op'.getParent! (Rewriter.setProperties ctx op opCode newProps opIn) =
-    op'.getParent! ctx := by
-  grind
-
-@[simp, grind =, simp_getset]
 theorem OperationPtr.getOpType!_setProperties {op' : OperationPtr} :
     op'.getOpType! (Rewriter.setProperties ctx op opCode newProps opIn) =
     op'.getOpType! ctx := by
-  grind
-
-@[simp ,grind =, simp_getset]
-theorem OperationPtr.attrs!_setProperties {op' : OperationPtr} :
-    op'.getAttributes! (Rewriter.setProperties ctx op opCode newProps opIn) =
-    op'.getAttributes! ctx := by
   grind
 
 @[grind =, simp_getset]
@@ -867,24 +729,6 @@ theorem RegionPtr.getLastBlock!_setProperties {region : RegionPtr} :
     region.getLastBlock! (Rewriter.setProperties ctx op opCode newProps opIn) =
     region.getLastBlock! ctx := by
   simp only [RegionPtr.getLastBlock!_def]
-  grind
-
-@[simp, grind =, simp_getset]
-theorem RegionPtr.firstBlock!_setProperties {region : RegionPtr} :
-    region.getFirstBlock! (Rewriter.setProperties ctx op opCode newProps opIn) =
-    region.getFirstBlock! ctx := by
-  grind
-
-@[simp, grind =, simp_getset]
-theorem RegionPtr.lastBlock!_setProperties {region : RegionPtr} :
-    region.getLastBlock! (Rewriter.setProperties ctx op opCode newProps opIn) =
-    region.getLastBlock! ctx := by
-  grind
-
-@[simp, grind =, simp_getset]
-theorem RegionPtr.parent!_setProperties {region : RegionPtr} :
-    region.getParent! (Rewriter.setProperties ctx op opCode newProps opIn) =
-    region.getParent! ctx := by
   grind
 
 @[simp, grind =, simp_getset]
