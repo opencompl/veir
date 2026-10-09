@@ -141,7 +141,7 @@ theorem interpretOp_equationLemmaAt {ctx : WfIRContext OpCode} {opInBounds} {sta
     (opRegionSSA : region.hasSSADominance ctx)
     (opReachable : op.HierarchicallyReachable ctx)
     (stateWf : state.EquationLemmaAt (InsertPoint.before op) opInBounds)
-    (opHasParent : (op.get! ctx.raw).parent = some block) :
+    (opHasParent : op.getParent! ctx.raw = some block) :
     interpretOp op state = .ok (state', controlFlow) →
     state'.EquationLemmaAt (InsertPoint.after op ctx.raw block) := by
   intro hInterp
@@ -201,7 +201,7 @@ value dominating the point *after* `op` is available in the resulting state. -/
 theorem interpretOp_DefinesDominating {ctx : WfIRContext OpCode} {opInBounds}
     {state state' : InterpreterState ctx}
     (stateDom : state.DefinesDominating (InsertPoint.before op) opInBounds)
-    (opHasParent : (op.get! ctx.raw).parent = some block) :
+    (opHasParent : op.getParent! ctx.raw = some block) :
     interpretOp op state = .ok (state', controlFlow) →
     state'.DefinesDominating (InsertPoint.after op ctx.raw block) := by
   intro hinterp
@@ -222,8 +222,8 @@ the predecessor's exit. -/
 theorem InterpreterState.DefinesDominating.setArgumentValues?_succ_entry
     {exitState : InterpreterState ctx}
     {block : BlockPtr} (blockInBounds : block.InBounds ctx.raw)
-    (blockParent : (block.get! ctx.raw).parent = some region)
-    (succParent : (succ.get! ctx.raw).parent = some region)
+    (blockParent : block.getParent! ctx.raw = some region)
+    (succParent : succ.getParent! ctx.raw = some region)
     (regionSSA : region.hasSSADominance ctx)
     (hsucc : succ ∈ block.getSuccessors! ctx.raw)
     (hExit : exitState.DefinesDominating (InsertPoint.atEnd block))
@@ -239,7 +239,7 @@ theorem InterpreterState.DefinesDominating.setArgumentValues?_succ_entry
 arguments, provided `succ` is hierarchically reachable. -/
 theorem InterpreterState.EquationHolds.setArgumentValues?_of_dominatesIp (ctxDom : ctx.Dom root)
     {region : RegionPtr}
-    (succParent : (succ.get! ctx.raw).parent = some region)
+    (succParent : succ.getParent! ctx.raw = some region)
     (ssa : region.hasSSADominance ctx = true)
     (succRooted : succ.RootedAt root ctx)
     (succReachable : succ.HierarchicallyReachable ctx)
@@ -266,9 +266,9 @@ theorem InterpreterState.EquationHolds.setArgumentValues?_of_dominatesIp (ctxDom
 the predecessor's exit, provided the successor is hierarchically reachable. -/
 theorem InterpreterState.EquationLemmaAt.setArgumentValues?_succ_entry (ctxDom : ctx.Dom root)
     {block : BlockPtr} {region : RegionPtr} (blockInBounds : block.InBounds ctx.raw)
-    (blockParent : (block.get! ctx.raw).parent = some region)
+    (blockParent : block.getParent! ctx.raw = some region)
     (hsucc : succ ∈ block.getSuccessors! ctx.raw)
-    (succParent : (succ.get! ctx.raw).parent = some region)
+    (succParent : succ.getParent! ctx.raw = some region)
     (ssa : region.hasSSADominance ctx = true)
     (succRooted : succ.RootedAt root ctx)
     (succReachable : succ.HierarchicallyReachable ctx)
@@ -337,7 +337,7 @@ keeps the equation lemma valid at the point *after* the chain. -/
 theorem interpretOpList_equationLemmaAt {ctx : WfIRContext OpCode}
     {state state' : InterpreterState ctx} (ctxDom : ctx.Dom root)
     {block : BlockPtr} (blockRooted : block.RootedAt root ctx)
-    (blockParent : (block.get! ctx.raw).parent = some region)
+    (blockParent : block.getParent! ctx.raw = some region)
     (regionSSA : region.hasSSADominance ctx)
     (blockReachable : block.HierarchicallyReachable ctx)
     (hChain : block.OpChainSlice ctx.raw ops)

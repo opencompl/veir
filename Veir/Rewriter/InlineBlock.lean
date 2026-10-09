@@ -47,12 +47,12 @@ theorem Rewriter.detachOp.operationList_size
   {hctx} {op} {hin} {hparent} {block : BlockPtr}
   (blockIn : block.InBounds ctx) (ctxWf : ctx.WellFormed) :
   (block.operationList (Rewriter.detachOp ctx op hctx hin hparent) (by grind [Rewriter.detachOp_WellFormed]) (by grind)).size =
-  if (op.get! ctx).parent = block then
+  if op.getParent! ctx = block then
     (block.operationList ctx ctxWf blockIn).size - 1
   else
     (block.operationList ctx ctxWf blockIn).size := by
   have ⟨array, hArray⟩ := ctxWf.opChain block (by grind)
-  cases hparent : (op.get! ctx).parent; grind
+  cases hparent : (op.getParent! ctx); grind
   rename_i block'
   by_cases heq : block' = block
   · subst block'
@@ -67,7 +67,7 @@ theorem Rewriter.detachOp.operationList_size
     simp [BlockPtr.operationList_iff_BlockPtr_OpChain.mp hArray]
 
 @[grind =]
-theorem InsertPoint.block!_detachOp_of_ne {ip : InsertPoint} (ipBlock : ip.block! ctx ≠ (op.get! ctx).parent) :
+theorem InsertPoint.block!_detachOp_of_ne {ip : InsertPoint} (ipBlock : ip.block! ctx ≠ op.getParent! ctx) :
     ip.block! (Rewriter.detachOp ctx op hctx hin hparent) = ip.block! ctx := by
   grind [cases InsertPoint]
 
@@ -83,12 +83,12 @@ theorem Rewriter.detachOp.operationList
   {block : BlockPtr}
   (blockIn : block.InBounds ctx) (ctxWf : ctx.WellFormed) :
   block.operationList (Rewriter.detachOp ctx op hctx hin hparent) (by grind [Rewriter.detachOp_WellFormed]) (by grind) =
-  if (op.get! ctx).parent = block then
+  if op.getParent! ctx = block then
     (block.operationList ctx ctxWf blockIn).erase op
   else
     block.operationList ctx ctxWf blockIn := by
   have ⟨array, hArray⟩ := ctxWf.opChain block (by grind)
-  cases hparent : (op.get! ctx).parent; grind
+  cases hparent : (op.getParent! ctx); grind
   rename_i block'
   by_cases heq : block' = block
   · subst block'
@@ -105,12 +105,12 @@ theorem Rewriter.insertOp_detachOp_operationList {block : BlockPtr}
   (blockIn : block.InBounds ctx) (ctxWf : ctx.WellFormed)
   (ipIn' : ip.InBounds ctx)
   (hwf : ip.block! ctx = some block')
-  (hparent' : (op.get! ctx).parent ≠ some block')
+  (hparent' : op.getParent! ctx ≠ some block')
   (h : Rewriter.insertOp (Rewriter.detachOp ctx op hctx hin hparent) op ip opIn ipIn ctxIn = some ctx') :
   block.operationList ctx' (by grind) (by grind) =
   if h: block = block' then
     (block.operationList ctx ctxWf blockIn).insertIdx (ip.idxIn ctx block' (by grind) (by grind) (by grind)) op (by apply InsertPoint.idxIn.le_size_array; grind)
-  else if (op.get! ctx).parent = block then
+  else if op.getParent! ctx = block then
     (block.operationList ctx ctxWf blockIn).erase op
   else
     block.operationList ctx ctxWf blockIn := by
@@ -123,7 +123,7 @@ theorem InsertPoint.idxIn_insertOp_detachOp
   (ctxWf : ctx.WellFormed)
   (ipIn' : ip.InBounds ctx)
   (hwf : ip.block! ctx = some blockTo)
-  (hparent' : (op.get! ctx).parent ≠ some blockTo)
+  (hparent' : op.getParent! ctx ≠ some blockTo)
   (h : Rewriter.insertOp (Rewriter.detachOp ctx op hctx hin hparent) op ip opIn ipIn ctxIn = some ctx') :
   ip.idxIn ctx' blockTo inBounds parent wf =
   (ip.idxIn ctx blockTo (by grind) (by grind) (by grind)) + 1 := by sorry
@@ -134,7 +134,7 @@ def Rewriter.inlineBlock (ctx : IRContext OpInfo) (block : BlockPtr)
     (blockNe : block ≠ block' := by grind)
     (blockIn : block.InBounds ctx := by grind)
     (ctxWf : ctx.WellFormed := by grind) := do
-  match h: (block.get ctx).firstOp with
+  match h: block.getFirstOp ctx with
   | none => some ctx
   | some firstOpPtr => do
   let ctx₀ := detachOp ctx firstOpPtr (by grind) (by grind) (by grind [IRContext.WellFormed])
@@ -143,7 +143,7 @@ def Rewriter.inlineBlock (ctx : IRContext OpInfo) (block : BlockPtr)
     (by cases ip <;> grind [cases InsertPoint])
     (block' := block')
     (by
-      have : (firstOpPtr.get! ctx).parent = block := by grind [IRContext.WellFormed]
+      have : firstOpPtr.getParent! ctx = block := by grind [IRContext.WellFormed]
       grind [cases InsertPoint]
     )
     (by grind)
@@ -154,7 +154,7 @@ decreasing_by
   rw [Rewriter.insertOp.operationList (h := hctx) (block' := block')]
   · simp only [blockNe, ↓reduceDIte, ctx₀]
     rw [Rewriter.detachOp.operationList_size (block := block)]
-    · have : (firstOpPtr.get! ctx).parent = block := by grind [IRContext.WellFormed]
+    · have : firstOpPtr.getParent! ctx = block := by grind [IRContext.WellFormed]
       simp only [this, ↓reduceIte, gt_iff_lt]
       apply Nat.sub_one_lt
       have ⟨array, hArray⟩ := ctxWf.opChain block (by grind)
@@ -163,7 +163,7 @@ decreasing_by
     · grind
   · grind
   · grind [Rewriter.insertOp_WellFormed, Rewriter.detachOp_WellFormed]
-  · have : (firstOpPtr.get! ctx).parent = block := by grind [IRContext.WellFormed]
+  · have : firstOpPtr.getParent! ctx = block := by grind [IRContext.WellFormed]
     grind
 
 theorem Rewriter.inlineBlock_wellFormed :
@@ -176,7 +176,7 @@ theorem Rewriter.inlineBlock_wellFormed :
     unfold inlineBlock at h
     have ⟨array, hArray⟩ := ctxWf.opChain block blockIn
     have : array = #[] := by grind
-    have : (block.get! ctx).firstOp = none := by grind [BlockPtr.OpChain]
+    have : block.getFirstOp! ctx = none := by grind [BlockPtr.OpChain]
     grind
   case succ n ih =>
     intro h
@@ -191,7 +191,7 @@ theorem Rewriter.inlineBlock_wellFormed :
         rw [Rewriter.insertOp.operationList (h := h') (block' := block')]
         · simp only [blockNe, ↓reduceDIte]
           rw [Rewriter.detachOp.operationList_size]
-          · have : (firstOpPtr.get! ctx).parent = block := by grind [BlockPtr.OpChain, IRContext.WellFormed]
+          · have : firstOpPtr.getParent! ctx = block := by grind [BlockPtr.OpChain, IRContext.WellFormed]
             simp only [this, ↓reduceIte]
             grind
           · grind
@@ -211,7 +211,7 @@ theorem Rewriter.inlineBlock_inBounds_block :
     unfold inlineBlock at h
     have ⟨array, hArray⟩ := ctxWf.opChain block blockIn
     have : array = #[] := by grind
-    have : (block.get! ctx).firstOp = none := by grind [BlockPtr.OpChain]
+    have : block.getFirstOp! ctx = none := by grind [BlockPtr.OpChain]
     grind
   case succ n ih =>
     unfold inlineBlock at h
@@ -227,7 +227,7 @@ theorem Rewriter.inlineBlock_inBounds_block :
         rw [Rewriter.insertOp.operationList (h := h') (block' := block')]
         · simp only [blockNe, ↓reduceDIte]
           rw [Rewriter.detachOp.operationList_size]
-          · have : (firstOpPtr.get! ctx).parent = block := by grind [BlockPtr.OpChain, IRContext.WellFormed]
+          · have : firstOpPtr.getParent! ctx = block := by grind [BlockPtr.OpChain, IRContext.WellFormed]
             simp only [this, ↓reduceIte]
             grind
           · grind
@@ -249,11 +249,11 @@ theorem BlockPtr.operationList_Rewriter_inlineBlock_from
     unfold Rewriter.inlineBlock at hNewCtx
     have ⟨array, hArray⟩ := ctxWf.opChain blockFrom blockIn
     have : array = #[] := by grind
-    have : (blockFrom.get! ctx).firstOp = none := by grind [BlockPtr.OpChain]
+    have : blockFrom.getFirstOp! ctx = none := by grind [BlockPtr.OpChain]
     grind
   case succ n ih =>
     simp only [BlockPtr.operationList_iff_BlockPtr_OpChain.mp hArray] at hind
-    cases hFirst: (blockFrom.get ctx).firstOp; grind [BlockPtr.OpChain]
+    cases hFirst: (blockFrom.getFirstOp ctx); grind [BlockPtr.OpChain]
     rename_i firstOpPtr
     unfold Rewriter.inlineBlock at hNewCtx
     split at hNewCtx; grind
@@ -307,7 +307,7 @@ theorem BlockPtr.operationList_Rewriter_inlineBlock_to
     unfold Rewriter.inlineBlock at hNewCtx
     have ⟨array, hArray⟩ := ctxWf.opChain blockFrom blockIn
     have : array = #[] := by grind
-    have : (blockFrom.get! ctx).firstOp = none := by grind [BlockPtr.OpChain]
+    have : blockFrom.getFirstOp! ctx = none := by grind [BlockPtr.OpChain]
     simp only [Array.take_eq_extract, Array.drop_eq_extract, Array.append_assoc]
     subst array
     simp only [BlockPtr.operationList_iff_BlockPtr_OpChain.mp hArray, Array.empty_append,
@@ -317,7 +317,7 @@ theorem BlockPtr.operationList_Rewriter_inlineBlock_to
     have ⟨array, hArray⟩ := ctxWf.opChain blockFrom blockIn
     simp only
     simp only [BlockPtr.operationList_iff_BlockPtr_OpChain.mp hArray] at hind
-    cases hFirst: (blockFrom.get ctx).firstOp; grind [BlockPtr.OpChain]
+    cases hFirst: (blockFrom.getFirstOp ctx); grind [BlockPtr.OpChain]
     rename_i firstOpPtr
     unfold Rewriter.inlineBlock at hNewCtx
     split at hNewCtx; grind
@@ -327,7 +327,7 @@ theorem BlockPtr.operationList_Rewriter_inlineBlock_to
     have ctx₀Wf : ctx₀.WellFormed := by grind
     have ctx₁Wf : (Rewriter.detachOp ctx firstOpPtr (by grind) (by grind) (by grind)).WellFormed := by grind [Rewriter.detachOp_WellFormed]
     have ⟨arrayFrom, hArrayFrom⟩ := ctx₀Wf.opChain blockFrom (by grind)
-    have hparent : (firstOpPtr.get! ctx).parent = some blockFrom := by grind
+    have hparent : firstOpPtr.getParent! ctx = some blockFrom := by grind
     have : (blockFrom.operationList ctx₀ (by grind) (by grind)).size = n := by
       have := @Rewriter.insertOp_detachOp_operationList _ _ ctx blockTo firstOpPtr (by grind) (by grind) (by grind) ip (by grind) (by grind) (by grind) ctx₀ blockFrom (by grind) (by grind) (by grind) (by grind) (by grind) h'
       rw [this]
@@ -368,12 +368,12 @@ theorem BlockPtr.operationList_Rewriter_inlineBlock_other
     unfold Rewriter.inlineBlock at hNewCtx
     have ⟨array, hArray⟩ := ctxWf.opChain blockFrom (by grind)
     have : array = #[] := by grind
-    have : (blockFrom.get! ctx).firstOp = none := by grind [BlockPtr.OpChain]
+    have : blockFrom.getFirstOp! ctx = none := by grind [BlockPtr.OpChain]
     grind
   case succ n ih =>
     have ⟨array, hArray⟩ := ctxWf.opChain blockFrom (by grind)
     simp only [BlockPtr.operationList_iff_BlockPtr_OpChain.mp hArray] at hind
-    cases hFirst: (blockFrom.get ctx).firstOp; grind [BlockPtr.OpChain]
+    cases hFirst: (blockFrom.getFirstOp ctx); grind [BlockPtr.OpChain]
     rename_i firstOpPtr
     unfold Rewriter.inlineBlock at hNewCtx
     split at hNewCtx; grind
@@ -383,7 +383,7 @@ theorem BlockPtr.operationList_Rewriter_inlineBlock_other
     have ctx₀Wf : ctx₀.WellFormed := by grind
     have ctx₁Wf : (Rewriter.detachOp ctx firstOpPtr (by grind) (by grind) (by grind)).WellFormed := by grind [Rewriter.detachOp_WellFormed]
     have ⟨arrayFrom, hArrayFrom⟩ := ctx₀Wf.opChain blockFrom (by grind)
-    have hparent : (firstOpPtr.get! ctx).parent = some blockFrom := by grind
+    have hparent : firstOpPtr.getParent! ctx = some blockFrom := by grind
     have : (blockFrom.operationList ctx₀ (by grind) (by grind)).size = n := by
       have := @Rewriter.insertOp_detachOp_operationList _ _ ctx blockTo firstOpPtr (by grind) (by grind) (by grind) ip (by grind) (by grind) (by grind) ctx₀ blockFrom (by grind) (by grind) (by grind) (by grind) (by grind) h'
       rw [this]

@@ -33,16 +33,16 @@ order, appended to `acc`. `op` itself is not included.
 partial def nestedConstantOps (op : OperationPtr) (ctx : IRContext OpCode)
     (acc : Array OperationPtr := #[]) : Array OperationPtr := Id.run do
   let mut acc := acc
-  for region in (op.get! ctx).regions do
-    let mut block? := (region.get! ctx).firstBlock
+  for region in op.getRegions! ctx do
+    let mut block? := region.getFirstBlock! ctx
     while let some block := block? do
-      let mut inner? := (block.get! ctx).firstOp
+      let mut inner? := block.getFirstOp! ctx
       while let some inner := inner? do
         if (inner.getOpType! ctx).isConstantLike then
           acc := acc.push inner
         acc := nestedConstantOps inner ctx acc
-        inner? := (inner.get! ctx).next
-      block? := (block.get! ctx).next
+        inner? := inner.getNextOp! ctx
+      block? := block.getNextBlock! ctx
   return acc
 
 /-- Unique and hoist every constant-like operation nested under `top`. -/
@@ -66,11 +66,10 @@ public def run (ctx : WfIRContext OpCode) (top : OperationPtr) :
     canonical := canonical.insert key op
     let ip := match lastHoisted[scope]? with
       | some last =>
-        let lastData := last.get! ctx.raw
-        match lastData.next with
+        match last.getNextOp! ctx.raw with
         | some next => .before next
-        | none => .atEnd lastData.parent.get!
-      | none => InsertPoint.atStart! (scope.get! ctx.raw).firstBlock.get! ctx.raw
+        | none => .atEnd (last.getParent! ctx.raw).get!
+      | none => InsertPoint.atStart! (scope.getFirstBlock! ctx.raw).get! ctx.raw
     lastHoisted := lastHoisted.insert scope op
     if ip ≠ .before op then
       ctx := WfRewriter.detachOp! ctx op

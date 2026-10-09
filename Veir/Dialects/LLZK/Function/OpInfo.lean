@@ -219,14 +219,14 @@ def LLZK.Function.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       if !type.isSupportedLLZKFunctionType then
         throw s!"function.def: expected a supported LLZK type, got {type}"
     let body := op.getRegion! ctx.raw 0
-    match (body.get! ctx.raw).firstBlock with
+    match body.getFirstBlock! ctx.raw with
     | none => pure ()
     | some entry =>
       let inputs := props.function_type.inputs
       if entry.getNumArguments! ctx.raw ≠ inputs.size then
         throw s!"function.def: entry block expected {inputs.size} argument(s), got {entry.getNumArguments! ctx.raw}"
       for i in [0:inputs.size] do
-        let argType := ((entry.getArgument i).get! ctx.raw).type
+        let argType := (entry.getArgument i).getType! ctx.raw
         if !Attribute.branchArgCompatible inputs[i]! argType.val then
           throw s!"function.def: entry block argument {i} type does not match the function's declared input type"
   | .return => do

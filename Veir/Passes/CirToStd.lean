@@ -293,18 +293,18 @@ def lowerUnreachable (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 -/
 def convertCirBlock (ctx : WfIRContext OpCode) (block : BlockPtr) : WfIRContext OpCode := Id.run do
   let mut ctx := ctx
-  if (block.get! ctx.raw).firstUse == none then return ctx
+  if block.getFirstUse! ctx.raw == none then return ctx
   let coercible := (List.range (block.getNumArguments! ctx.raw)).any fun i =>
     (cirTypeToStd ((ValuePtr.blockArgument { block, index := i }).getType! ctx.raw)).isSome
   if !coercible then return ctx
   -- Collect the predecessors first: rewriting them mutates the use chain.
   let mut predOps : Array OperationPtr := #[]
-  let mut currentPredUse := (block.get! ctx.raw).firstUse
+  let mut currentPredUse := block.getFirstUse! ctx.raw
   while let some blockop := currentPredUse do
-    let blockOperand := blockop.get! ctx.raw
-    currentPredUse := blockOperand.nextUse
-    if !predOps.contains blockOperand.owner then
-      predOps := predOps.push blockOperand.owner
+    currentPredUse := blockop.getNextUse! ctx.raw
+    let owner := blockop.getOwner! ctx.raw
+    if !predOps.contains owner then
+      predOps := predOps.push owner
   for predOp in predOps do
     for j in List.range (predOp.getNumOperands! ctx.raw) do
       let opVal := predOp.getOperand! ctx.raw j
