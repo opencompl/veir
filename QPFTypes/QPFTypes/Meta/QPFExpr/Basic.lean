@@ -233,6 +233,6 @@ public meta def mkComp (F : QPFExpr u n) (Gs : Vector (QPFExpr u m) n) :
     isPolynomial? := do
       let FisPoly ← F.isPolynomial?
       let GisPoly ← G.isPolynomial?
-      return mkApp8 (mkConst ``QPF.Comp.instIsPolynomial [u])
+      return mkApp8 (mkConst ``QPF.Comp.instIsPolynomial [u, u])
         n m F.typefun G.typefun F.qpf G.qpf FisPoly GisPoly
   }

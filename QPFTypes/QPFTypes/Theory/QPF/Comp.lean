@@ -90,7 +90,7 @@ instance inst [QPF F] [∀ i, QPF <| G i] : QPF (Comp F G) where
       abs_map, map_mk]
 
 /-- Composition preserves polynomiality. -/
-instance instIsPolynomial {F : TypeVec.{u} n → Type u} {G : Fin n → TypeVec.{u} m → Type u}
+instance instIsPolynomial {F : TypeVec.{u} n → Type v} {G : Fin n → TypeVec.{u} m → Type u}
     [QPF F] [∀ i, QPF (G i)] [IsPolynomial F] [∀ i, IsPolynomial (G i)] :
     IsPolynomial (Comp F G) where
   repr_abs {β} p := by
