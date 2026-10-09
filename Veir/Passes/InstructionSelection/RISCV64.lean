@@ -8,6 +8,7 @@ import Veir.Interfaces.ConstantLikeInterfaces
 import Veir.Interfaces.FunctionInterfaces
 import Veir.Passes.Matching.LLVM.Basic
 import Veir.Passes.InstructionSelection.Common
+import Veir.Passes.Legalization.RISCV64LegalizerInfo
 import Veir.PatternRewriter.Puddle.Builders
 import Veir.PatternRewriter.Puddle.Execution
 
@@ -173,8 +174,118 @@ def lowerBinary (llvmOp : Llvm) (typeMatcher : IntegerType → Bool) (riscvOp : 
       return castBackOp)
     (fun castBackOp => castBackOp)
 
-/-- `llvm.add` (`i64`) -> `riscv.add`. -/
-def add64_pattern : Pattern OpCode := lowerBinary .add (fun t => t.bitwidth = 64) .add ()
+/-- Legal `gmir.g_add` -> `riscv.add`. -/
+def gmirAdd_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let opType ← MatchProg.type (Attr := TypeAttr)
+      let lhs ← MatchProg.value opType
+      let rhs ← MatchProg.value opType
+      let root ← MatchProg.root (.gmir .g_add) #[lhs, rhs] #[opType]
+      MatchProg.matchNative (opType, root.properties) fun (opType, properties) =>
+        riscv64LegalizerInfo.isLegal .g_add #[opType] properties
+      return (opType, lhs, rhs))
+    (fun (opType, lhs, rhs) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[lhs] #[regType] castProps
+      let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[rhs] #[regType] castProps
+      let addProps ← CreateProg.property (.riscv .add) ()
+      let addOp ← CreateProg.operation (.riscv .add)
+          #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType] addProps
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[addOp.res[0]!] #[opType] castProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
+
+/-- The uses of `value`, each given by its user and the operand index of the use. -/
+private def directUses (ctx : IRContext OpCode) (value : ValuePtr) :
+    Array (OperationPtr × Nat) := Id.run do
+  let mut uses := #[]
+  let mut maybeUse := value.getFirstUse! ctx
+  while let some use := maybeUse do
+    uses := uses.push ((use.get! ctx).owner, use.index)
+    maybeUse := (use.get! ctx).nextUse
+  return uses
+
+/--
+  The uses of `value`, looking through chains of `builtin.unrealized_conversion_cast`s: a selected
+  RISC-V instruction reads `value` through casts to `!riscv.reg` (and a selected `llvm.trunc` is
+  itself a pair of casts).
+-/
+private def usesThroughCasts (ctx : IRContext OpCode) (value : ValuePtr) :
+    Array (OperationPtr × Nat) := Id.run do
+  let mut uses := #[]
+  let mut worklist := directUses ctx value
+  while let some (user, index) := worklist.back? do
+    worklist := worklist.pop
+    if user.getOpType! ctx == .builtin .unrealized_conversion_cast then
+      worklist := worklist ++ directUses ctx (user.getResult 0)
+    else
+      uses := uses.push (user, index)
+  return uses
+
+/-- The number of bits needed to represent `value`, as LLVM's `bit_width`. -/
+private def bitWidth (value : BitVec 64) : Nat :=
+  if value = 0 then 0 else value.toNat.log2 + 1
+
+/--
+  Whether every user of `value` only reads its low `bits` bits. This is LLVM's
+  `RISCVInstructionSelector::hasAllNBitUsers`, and `binop_allwusers` calls it with `bits = 32` to
+  select an `i64` operation as its `*w` variant.
+
+  As in LLVM, only users that are already selected RISC-V instructions are understood. Any other
+  user, including a gMIR or LLVM operation that has not been selected yet, is assumed to read all
+  bits. `depth` bounds the recursion, as LLVM's `MaxRecursionDepth`.
+-/
+def hasAllNBitUsers (ctx : IRContext OpCode) (value : ValuePtr) (bits : Nat) :
+    (depth : Nat := 6) → Bool
+  | 0 => false
+  | depth + 1 => (usesThroughCasts ctx value).all fun (user, index) =>
+    let recCheck := hasAllNBitUsers ctx (user.getResult 0) bits depth
+    match user.getOpType! ctx with
+    | .riscv .addw | .riscv .addiw | .riscv .subw | .riscv .sextw | .riscv .negw => bits ≥ 32
+    -- Shift amount operands only use log2(XLen) bits.
+    | .riscv .sll | .riscv .sra | .riscv .srl => index = 1 && bits ≥ 6
+    -- `slli` only uses the lower (XLen - ShAmt) bits.
+    | .riscv .slli => bits ≥ 64 - (user.getProperties! ctx Riscv.slli).value.toNat
+    | .riscv .andi => bits ≥ bitWidth (user.getProperties! ctx Riscv.andi).value || recCheck
+    | .riscv .and | .riscv .or | .riscv .xor => recCheck
+    -- If we shift right by less than `bits`, and the users do not read any of the bits that were
+    -- shifted into the low `bits` bits, this is a `bits`-bit user.
+    | .riscv .srli =>
+      let shamt := (user.getProperties! ctx Riscv.srli).value.toNat
+      bits > shamt && hasAllNBitUsers ctx (user.getResult 0) (bits - shamt) depth
+    | _ => false
+
+/-- Whether every user of `value` only reads its low 32 bits, as LLVM's `hasAllWUsers`. -/
+def hasAllWUsers (ctx : IRContext OpCode) (value : ValuePtr) : Bool :=
+  hasAllNBitUsers ctx value 32
+
+/--
+  Legal `gmir.g_add` (`i64`) whose users only read the low 32 bits -> `riscv.addw`. This is
+  LLVM's `binop_allwusers<add>` selection pattern.
+-/
+def gmirAddw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (operands, properties) := matchOp op ctx.raw GMIR.g_add 2 | return (ctx, none)
+  let type := ((op.getResult 0).get! ctx.raw).type
+  let .integerType ⟨64, _⟩ := type.val | return (ctx, none)
+  unless riscv64LegalizerInfo.isLegal .g_add #[type] properties do return (ctx, none)
+  unless hasAllWUsers ctx.raw (op.getResult 0) do return (ctx, none)
+  let (ctx, lhsOp) ← castToRegLocal ctx operands[0]!
+  let (ctx, rhsOp) ← castToRegLocal ctx operands[1]!
+  let (ctx, addwOp) ← createRISCVUnitLocal ctx .addw rfl
+      #[lhsOp.getResult 0, rhsOp.getResult 0]
+  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (addwOp.getResult 0)
+  some (ctx, some (#[lhsOp, rhsOp, addwOp, castBackOp], #[castBackOp.getResult 0]))
+
+/-- See `gmirAddw_local`. -/
+def gmirAddw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite gmirAddw_local rewriter op opInBounds
 
 /-- `llvm.add` (`i32`) -> `riscv.addw` (keeps the result sign-extended). -/
 def add32_pattern : Pattern OpCode := lowerBinary .add (fun t => t.bitwidth = 32) .addw ()
@@ -502,8 +613,8 @@ def constant_pattern : Pattern OpCode :=
 /-- llvm.constant -> riscv.li -/
 def constant : Puddle.CompiledPattern OpCode := constant_pattern.compile
 
-/-- llvm.add -> riscv.add -/
-def add64 : Puddle.CompiledPattern OpCode := add64_pattern.compile
+/-- Legal gmir.g_add -> riscv.add -/
+def gmirAdd : Puddle.CompiledPattern OpCode := gmirAdd_pattern.compile
 
 /-- llvm.add -> riscv.addw (riscv.addw for i32, keeps the result sign-extended) -/
 def add32 : Puddle.CompiledPattern OpCode := add32_pattern.compile
@@ -2310,7 +2421,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   let pattern := RewritePattern.GreedyRewritePattern <|
     #[selectCzeroeqz.run, selectCzeronez.run, selectGeneral.run,
     ctlz32.run, ctlz64.run, cttz32.run, cttz64.run, ctpop32.run, ctpop64.run, bswap64.run, bswap32.run, bitreverse64.run, bitreverse32.run,
-    constant.run, addressof, add32.run, add64.run, and.run, ashr64.run, ashr32.run, ashr8.run] ++
+    constant.run, addressof, add32.run, and.run, ashr64.run, ashr32.run, ashr8.run] ++
     icmp.map (·.run) ++ #[or.run, xor32.run, xor64.run, mul32.run, mul64.run,
     sdiv32.run, sdiv64.run, udiv32.run, udiv64.run, srem32.run, srem64.run, urem32.run, urem64.run,
     sext32.run, sext16.run, sext8.run, zext32.run, zext16.run, zext8.run, trunc.run, shl64.run, shl32.run, lshr64.run, lshr32.run,
@@ -2319,8 +2430,14 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     smax64.run, smax32.run, smin64.run, smin32.run, umax.run, umin.run, saddSat.run, ssubSat.run, uaddSat.run, usubSat.run, sshlSat.run, ushlSat.run, abs.run,
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run, fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
     poisonConst.run, zeroConst.run, freeze.run]
-  match RewritePattern.applyInContext pattern ctx with
+  let ctx ← match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying main instruction-selection patterns"
+  | some ctx => pure ctx
+  /- Late loop: `binop_allwusers` selections inspect the users of an operation, so they run once
+     the users are selected, as in LLVM's bottom-up selection. -/
+  let late := RewritePattern.GreedyRewritePattern #[gmirAddw, gmirAdd.run]
+  match RewritePattern.applyInContext late ctx with
+  | none => throw "Error while applying late instruction-selection patterns"
   | some ctx => pure ctx
 
 public def IselRISCV64 : Pass OpCode :=
