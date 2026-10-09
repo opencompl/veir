@@ -286,8 +286,9 @@ inductive OperationPtr.ProperlyDominates (dominator dominated : OperationPtr)
 Dominance relation between `dominator` and `dominated` across regions.
 It is defined as the reflexive closure of `OperationPtr.ProperlyDominates`.
 -/
-def OperationPtr.Dominates (dominator dominated : OperationPtr) (ctx : WfIRContext OpInfo) : Prop :=
-  dominator = dominated ∨ dominator.ProperlyDominates dominated ctx true
+def OperationPtr.Dominates (dominator dominated : OperationPtr) (ctx : WfIRContext OpInfo)
+    (enclosingOk : Bool := true) : Prop :=
+  dominator = dominated ∨ dominator.ProperlyDominates dominated ctx enclosingOk
 
 /--
 Proper dominance relation between an operation and a block.
