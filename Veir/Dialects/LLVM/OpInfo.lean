@@ -366,6 +366,9 @@ def Llvm.toAttrDict
       dict := dict.insert "invariant".toUTF8 (.unitAttr UnitAttr.mk)
     if props.invariantGroup then
       dict := dict.insert "invariantGroup".toUTF8 (.unitAttr UnitAttr.mk)
+    if props.ordering ≠ .not_atomic then
+      let ordering := IntegerAttr.mk (Int.ofNat props.ordering.toNat) (IntegerType.signless 64)
+      dict := dict.insert "ordering".toUTF8 (Attribute.integerAttr ordering)
     if let some syncscope := props.syncscope then
       dict := dict.insert "syncscope".toUTF8 (.stringAttr syncscope)
     if props.access_groups.value.size ≠ 0 then
@@ -386,6 +389,9 @@ def Llvm.toAttrDict
       dict := dict.insert "nontemporal".toUTF8 (.unitAttr UnitAttr.mk)
     if props.invariantGroup then
       dict := dict.insert "invariantGroup".toUTF8 (.unitAttr UnitAttr.mk)
+    if props.ordering ≠ .not_atomic then
+      let ordering := IntegerAttr.mk (Int.ofNat props.ordering.toNat) (IntegerType.signless 64)
+      dict := dict.insert "ordering".toUTF8 (Attribute.integerAttr ordering)
     if let some syncscope := props.syncscope then
       dict := dict.insert "syncscope".toUTF8 (.stringAttr syncscope)
     if props.access_groups.value.size ≠ 0 then
@@ -456,8 +462,12 @@ def Llvm.toAttrDict
 def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :=
   match op, props with
   | .alloca, _ => .allocate
-  | .load, props => if props.volatile_ then .readWrite else .read
-  | .store, props => if props.volatile_ then .readWrite else .write
+  /- As in MLIR, a volatile access, or an atomic one that is `monotonic` or stronger, also counts
+     as reading and writing other memory, so that it is neither removed nor reordered. -/
+  | .load, props =>
+    if props.volatile_ || props.ordering.isMonotonicOrStronger then .readWrite else .read
+  | .store, props =>
+    if props.volatile_ || props.ordering.isMonotonicOrStronger then .readWrite else .write
   | .mlir__constant, _ | .mlir__poison, _ | .mlir__undef, _ | .mlir__zero, _
   | .mlir__addressof, _
   | .and, _ | .or, _ | .xor, _
@@ -795,6 +805,32 @@ def Llvm.verifyAggregatePosition (containerType : TypeAttr) (position : DenseArr
   return some current
 
 /--
+Checks the atomic part of an `llvm.load` or `llvm.store`, as MLIR does: an atomic access needs an
+alignment, a value of an integer, floating-point or pointer type whose size is a power of two of at
+least 8 bits, and an ordering other than those in `unsupported`; a non-atomic access cannot have a
+`syncscope`. MLIR asks for an `alignment` attribute to be present, while here a missing one reads
+as 0, so an alignment of 0 is rejected.
+-/
+def Llvm.verifyAtomicAccess (opName : String) (ordering : Data.LLVM.AtomicOrdering)
+    (alignment : IntegerAttr) (syncscope : Option StringAttr) (valueType : TypeAttr)
+    (unsupported : List Data.LLVM.AtomicOrdering) : Except String Unit := do
+  if ordering = .not_atomic then
+    if syncscope.isSome then
+      throw s!"'{opName}' op expected syncscope to be null for non-atomic access"
+    return
+  let size? := match valueType.val with
+    | .integerType _ | .floatType _ | .llvmPointerType _ => Attribute.bitwidthOfType valueType.val
+    | _ => none
+  let some size := size?
+    | throw s!"'{opName}' op unsupported type {valueType} for atomic access"
+  if size < 8 || size &&& (size - 1) ≠ 0 then
+    throw s!"'{opName}' op unsupported type {valueType} for atomic access"
+  if ordering ∈ unsupported then
+    throw s!"'{opName}' op unsupported ordering '{ordering}'"
+  if alignment.value = 0 then
+    throw s!"'{opName}' op expected alignment for atomic access"
+
+/--
 Verify the local invariants of an `llvm` operation in any operation-info type
 containing the `llvm` dialect.
 -/
@@ -1102,14 +1138,18 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     let properties := op.getProperties! ctx.raw Llvm.load
     if properties.alignment.type.bitwidth ≠ 64 then
       throw "'llvm.load' op attribute 'alignment' failed to satisfy constraint: 64-bit integer attribute"
-    pure ()
+    let valueType := ((op.getResult 0).get! ctx.raw).type
+    Llvm.verifyAtomicAccess "llvm.load" properties.ordering properties.alignment
+      properties.syncscope valueType [.release, .acq_rel]
   | .store => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 2 0
     let properties := op.getProperties! ctx.raw Llvm.store
     if properties.alignment.type.bitwidth ≠ 64 then
       throw "'llvm.store' op attribute 'alignment' failed to satisfy constraint: 64-bit integer attribute"
-    pure ()
+    let valueType := (op.getOperand! ctx.raw 0).getType! ctx.raw
+    Llvm.verifyAtomicAccess "llvm.store" properties.ordering properties.alignment
+      properties.syncscope valueType [.acquire, .acq_rel]
   | .insertelement => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 3 1

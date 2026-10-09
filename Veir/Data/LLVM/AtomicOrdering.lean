@@ -29,6 +29,21 @@ def AtomicOrdering.fromNat (s : Nat) : Option AtomicOrdering :=
   | 7 => some .seq_cst
   | _ => none
 
+/-- Whether the ordering is `monotonic` or stronger. -/
+def AtomicOrdering.isMonotonicOrStronger : AtomicOrdering → Bool
+  | .not_atomic | .unordered => false
+  | _ => true
+
+instance : ToString AtomicOrdering where
+  toString
+    | .not_atomic => "not_atomic"
+    | .unordered => "unordered"
+    | .monotonic => "monotonic"
+    | .acquire => "acquire"
+    | .release => "release"
+    | .acq_rel => "acq_rel"
+    | .seq_cst => "seq_cst"
+
 def AtomicOrdering.toNat : AtomicOrdering → Nat
   | .not_atomic => 0
   | .unordered => 1
