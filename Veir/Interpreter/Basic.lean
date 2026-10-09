@@ -10,7 +10,7 @@ public import Veir.Data.Felt
 
 import Veir.Data.Comb.Basic
 import Veir.Data.HW.Basic
-import Veir.Data.Casting
+public import Veir.Data.Casting
 public import Veir.Interfaces.FunctionInterfaces
 
 public section
@@ -39,6 +39,7 @@ variable {ctx : WfIRContext OpInfo}
   If any error occurs during interpretation (e.g., unknown operation, missing variable),
   returns `none`.
 -/
+@[expose]
 def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     (mem : MemoryState) (layout : DataLayout := .riscv64)
@@ -78,6 +79,8 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     return (#[], mem, some (.return operands))
   | .cir .return => do
     return (#[], mem, some (.return operands))
+  | .gmir gmirOp => do
+    GMIR.interpretOp' gmirOp properties resultTypes operands blockOperands mem
   | .builtin .unrealized_conversion_cast => do
     let some resType := resultTypes[0]? | none
     match resType.val, operands.toList with
@@ -88,7 +91,7 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     | .registerType _, [.addr val] =>
       /- A register has no poison to carry. Like a poison integer, a poison pointer
          may become any register value; the interpreter picks 0. -/
-      return (#[.reg (LLVM.Int.toReg (mem.intFromPtr val))], mem, none)
+      return (#[.reg (LLVM.Int.toReg val.toInt)], mem, none)
     | .integerType _bw, [.reg val] =>
       let .integerType resBw := resType.val | none
       return (#[.int resBw.bitwidth (RISCV.Reg.toInt val resBw.bitwidth)], mem, none)

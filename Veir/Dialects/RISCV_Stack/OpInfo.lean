@@ -88,7 +88,7 @@ def Riscv_Stack.interpretOp' (opType : Veir.Riscv_Stack) (properties : propertie
   match opType with
   | .alloca => do
     let (mem, addr) ← mem.alloc properties.size.toNat.toUInt64
-    return (#[.reg (LLVM.Int.toReg (mem.intFromPtr (.val addr)))], mem, none)
+    return (#[.reg (LLVM.Int.toReg (Data.LLVM.Ptr.toInt (.val addr)))], mem, none)
 
 instance : HasOpInfo Riscv_Stack where
   verifyLocalInvariants := Riscv_Stack.verifyLocalInvariants

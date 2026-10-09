@@ -1,7 +1,5 @@
 module
 
-import all Veir.Dialects.RISCV.OpInfo
-import all Veir.Interpreter.Basic
 public import Veir.Interpreter.Lemmas
 
 public section

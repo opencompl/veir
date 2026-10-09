@@ -142,6 +142,13 @@ theorem InsertPoint.block!_atEnd_eq :
     InsertPoint.block! (atEnd blockPtr) ctx =
     blockPtr := by rfl
 
+/-- The insertion point at a block's start belongs to that block, including when it is empty. -/
+@[simp, grind =]
+theorem InsertPoint.block!_atStart!_eq {block : BlockPtr} (ctxWf : ctx.WellFormed)
+    (blockInBounds : block.InBounds ctx) :
+    (InsertPoint.atStart! block ctx).block! ctx = some block := by
+  grind [InsertPoint.atStart!]
+
 def InsertPoint.prev (ip : InsertPoint) (ctx : IRContext OpInfo) (inBounds : ip.InBounds ctx) : Option OperationPtr :=
   match ip with
   | before op => (op.get ctx).prev

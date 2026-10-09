@@ -312,6 +312,7 @@ grind_pattern ancestor_of_parent_descendant =>
 
 end ProperAncestor
 
+@[grind →]
 theorem Ancestor.of_ancestor_parent_of_parent_descendant {ancestor : IRNode}
     (hAncestor : ancestor.Ancestor parent ctx)
     (hParent : descendant.parent! ctx = some parent) :
@@ -347,7 +348,51 @@ theorem RootedAt.root_parent_eq {node root: IRNode} (hRooted : node.RootedAt roo
     root.parent! ctx = none :=
   hRooted.2
 
+/-- An ancestor of a rooted node is rooted at the same root. -/
+theorem RootedAt.of_ancestor {node ancestor : IRNode}
+    (hRooted : node.RootedAt root ctx) (hAncestor : ancestor.Ancestor node ctx) :
+    ancestor.RootedAt root ctx := by
+  obtain ⟨nodes, path⟩ := hAncestor.exists_parentPath
+  clear hAncestor
+  induction path with
+  | single => exact hRooted
+  | @cons ancestor descendant parent nodes immediate tail ih =>
+    apply ih
+    refine ⟨?_, hRooted.2⟩
+    have hNe : root ≠ descendant := by grind [RootedAt]
+    exact (hRooted.1.toProperAncestor hNe).ancestor_of_parent_descendant immediate
+
+/-- Nodes with the same parent share a root. -/
+theorem RootedAt.of_same_parent {node sibling parent : IRNode}
+    (hRooted : node.RootedAt root ctx)
+    (hParent : node.parent! ctx = some parent)
+    (hSiblingParent : sibling.parent! ctx = some parent) :
+    sibling.RootedAt root ctx := by
+  have parentRooted := hRooted.of_ancestor (Ancestor.of_parent hParent)
+  exact ⟨Ancestor.of_ancestor_parent_of_parent_descendant parentRooted.1 hSiblingParent,
+    parentRooted.2⟩
+
+/-- A child of a rooted node is rooted at the same root. -/
+theorem RootedAt.of_parent {node parent : IRNode}
+    (hRooted : parent.RootedAt root ctx) (hParent : node.parent! ctx = some parent) :
+    node.RootedAt root ctx :=
+  ⟨Ancestor.of_ancestor_parent_of_parent_descendant hRooted.1 hParent, hRooted.2⟩
+
+grind_pattern RootedAt.of_parent =>
+    parent.RootedAt root ctx, node.parent! ctx where
+  guard node.parent! ctx = some parent
+
 end IRNode
+
+@[simp, grind]
+abbrev OperationPtr.Ancestor (ancestor : OperationPtr) (descendant : IRNode) (ctx : WfIRContext OpInfo) : Prop :=
+  IRNode.Ancestor (.operation ancestor) descendant ctx
+
+abbrev BlockPtr.Ancestor (ancestor : BlockPtr) (descendant : IRNode) (ctx : WfIRContext OpInfo) : Prop :=
+  IRNode.Ancestor (.block ancestor) descendant ctx
+
+abbrev RegionPtr.Ancestor (ancestor : RegionPtr) (descendant : IRNode) (ctx : WfIRContext OpInfo) : Prop :=
+  IRNode.Ancestor (.region ancestor) descendant ctx
 
 @[simp, grind]
 abbrev OperationPtr.RootedAt (op : OperationPtr) (root : IRNode) (ctx : WfIRContext OpInfo) : Prop :=
