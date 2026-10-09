@@ -275,3 +275,110 @@ theorem ValueMapping.ReflectsResults.not_mem_getResults
   simp only [OperationPtr.getResults!.mem_iff_exists_index] at hmem
   have ⟨index, hindex, heq⟩ := hmem
   grind [OperationPtr.getResults!.mem_iff_exists_index, hReflect val valIn index heq.symm]
+
+/-! ## Greatest lower bound under refinement -/
+
+section GreatestLowerBound
+open Veir.Data.LLVM
+
+/-- The least value both refine to, if there is one. -/
+@[expose] def RuntimeValue.glb? : RuntimeValue → RuntimeValue → Option RuntimeValue
+  | .int w x, .int w' y =>
+    if h : w = w' then
+      match x.cast h, y with
+      | .poison, y => some (.int w' y)
+      | x, .poison => some (.int w' x)
+      | .val a, .val b => if a = b then some (.int w' (.val a)) else none
+    else none
+  | .byte w x, .byte w' y =>
+    if h : w = w' then ((x.cast h).glb? y).map (.byte w') else none
+  | .addr p, .addr q =>
+    match p, q with
+    | .poison, q => some (.addr q)
+    | p, .poison => some (.addr p)
+    | .val a, .val b => if a = b then some (.addr (.val a)) else none
+  | c, d => if c = d then some c else none
+
+/-- `RuntimeValue.glb?` is a lower bound: what it returns refines both values. -/
+theorem RuntimeValue.glb?_isRefinedBy {c d m : RuntimeValue} (h : c.glb? d = some m) :
+    c ⊒ m ∧ d ⊒ m := by
+  cases c <;> cases d <;> simp only [RuntimeValue.glb?] at h
+  case int.int w x w' y =>
+    split at h
+    · next hw =>
+      subst hw
+      simp only [Data.LLVM.Int.cast_self] at h
+      split at h <;> (try split at h) <;> cases h <;>
+        simp_all [RuntimeValue.isRefinedBy, _root_.isRefinedBy_eq, Data.LLVM.Int.cast_self]
+    · cases h
+  case byte.byte w x w' y =>
+    split at h
+    · next hw =>
+      subst hw
+      simp only [Byte.cast_self, Option.map_eq_some_iff] at h
+      obtain ⟨m, hm, rfl⟩ := h
+      obtain ⟨hx, hy⟩ := Byte.glb?_isRefinedBy hm
+      exact ⟨⟨rfl, by simpa using hx⟩, ⟨rfl, by simpa using hy⟩⟩
+    · cases h
+  case addr.addr p q =>
+    split at h <;> (try split at h) <;> cases h <;>
+      simp_all [RuntimeValue.isRefinedBy] <;> split <;> simp_all
+  all_goals
+    split at h
+    · next he =>
+      cases h; cases he <;>
+        exact ⟨RuntimeValue.isRefinedBy_refl _, RuntimeValue.isRefinedBy_refl _⟩
+    · cases h
+
+/--
+`RuntimeValue.glb?` is the greatest lower bound: every value that refines both refines what
+`glb?` returns.
+-/
+theorem RuntimeValue.glb?_greatest {c d e : RuntimeValue} (hc : c ⊒ e) (hd : d ⊒ e) :
+    ∃ m, c.glb? d = some m ∧ m ⊒ e := by
+  cases c <;> cases d <;> cases e <;> simp only [RuntimeValue.isRefinedBy] at hc hd <;>
+    (try exact hc.elim) <;> (try exact hd.elim)
+  case int.int.int w x w' y we z =>
+    obtain ⟨rfl, hx⟩ := hc; obtain ⟨rfl, hy⟩ := hd
+    simp only [Data.LLVM.Int.cast_self] at hx hy
+    cases x <;> cases y <;> cases z <;>
+      simp_all [RuntimeValue.glb?, RuntimeValue.isRefinedBy, _root_.isRefinedBy_eq,
+        Data.LLVM.Int.cast_self]
+  case byte.byte.byte w x w' y we z =>
+    obtain ⟨rfl, hx⟩ := hc; obtain ⟨rfl, hy⟩ := hd
+    simp only [Byte.cast_self] at hx hy
+    obtain ⟨m, hm, hme⟩ := Byte.glb?_greatest hx hy
+    exact ⟨.byte _ m, by simp [RuntimeValue.glb?, hm], rfl, by simpa using hme⟩
+  case addr.addr.addr p q r =>
+    cases p <;> cases q <;> cases r <;> simp_all [RuntimeValue.glb?, RuntimeValue.isRefinedBy]
+  case reg.reg.reg =>
+    subst hc; subst hd; exact ⟨_, by simp [RuntimeValue.glb?], RuntimeValue.isRefinedBy_refl _⟩
+  case felt.felt.felt =>
+    obtain ⟨rfl, rfl⟩ := hc; obtain ⟨rfl, rfl⟩ := hd
+    exact ⟨_, by simp [RuntimeValue.glb?], RuntimeValue.isRefinedBy_refl _⟩
+  case float.float.float =>
+    split at hc <;> split at hd <;> (try exact hc.elim) <;> (try exact hd.elim)
+    subst_vars
+    exact ⟨_, by simp [RuntimeValue.glb?], RuntimeValue.isRefinedBy_refl _⟩
+
+/-- Two runtime values that refine each other are equal. -/
+theorem RuntimeValue.isRefinedBy_antisymm {c d : RuntimeValue} (h₁ : c ⊒ d) (h₂ : d ⊒ c) :
+    c = d := by
+  cases c <;> cases d <;> simp only [RuntimeValue.isRefinedBy] at h₁ h₂ <;>
+    (try exact h₁.elim) <;> (try exact h₂.elim)
+  case int.int w x w' y =>
+    obtain ⟨rfl, h₁⟩ := h₁; obtain ⟨_, h₂⟩ := h₂
+    simp only [Data.LLVM.Int.cast_self] at h₁ h₂
+    cases x <;> cases y <;> simp_all [_root_.isRefinedBy_eq]
+  case byte.byte w x w' y =>
+    obtain ⟨rfl, h₁⟩ := h₁; obtain ⟨_, h₂⟩ := h₂
+    simp only [Byte.cast_self] at h₁ h₂
+    rw [Byte.isRefinedBy_antisymm h₁ h₂]
+  case addr.addr p q => cases p <;> cases q <;> simp_all
+  case reg.reg => rw [h₁]
+  case felt.felt => obtain ⟨rfl, rfl⟩ := h₁; rfl
+  case float.float =>
+    split at h₁ <;> (try exact h₁.elim)
+    subst_vars; rfl
+
+end GreatestLowerBound

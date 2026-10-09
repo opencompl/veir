@@ -5,6 +5,7 @@ import all Veir.Interpreter.VariableState
 import all Veir.Interpreter.Basic
 public import Veir.Interpreter.Refinement.Basic
 public import Veir.Interpreter.Refinement.Lemmas
+import Veir.Dominance.Lemmas
 
 
 namespace Veir
@@ -414,14 +415,19 @@ theorem VariableState.setResultValues?_setArgumentValues?_comm :
   grind [getVar?_setResultValues?, getVar?_setArgumentValues?]
 
 theorem VariableState.getVar?_setResultValues?_operand_of_dominates
-    (ctxDom : ctx.DomAll) (hdom : op'.Dominates op ctx) :
+    (ctxDom : ctx.Dom root) (op'Rooted : op'.RootedAt root ctx) (hdom : op'.Dominates op ctx false)
+    (opRegion : op.getParentRegion! ctx.raw = some region)
+    (opRegionSSA : region.hasSSADominance ctx)
+    (opReachable : op.HierarchicallyReachable ctx) :
     value ∈ op'.getOperands! ctx.raw →
     varState.setResultValues? op resValues inBounds = some varState' →
     varState'.getVar? value =
     varState.getVar? value := by
   intro valueInOperands h
   simp only [VariableState.getVar?_setResultValues? h]
-  have := IRContext.DomAll.value_not_in_results_of_forall_in_operands_of_dominates ctxDom hdom value valueInOperands
+  have : value ∉ op.getResults! ctx.raw := by
+    obtain ⟨region', op'Region⟩ := hdom.exists_parentRegion opRegion
+    grind [WfIRContext.Dom.not_mem_results_of_mem_operands]
   cases value
   case blockArgument blockArg => grind
   case opResult opRes =>
@@ -432,7 +438,10 @@ theorem VariableState.getVar?_setResultValues?_operand_of_dominates
 
 @[grind =>]
 theorem VariableState.getOperandValues_setResultValues?_of_dominates
-    (ctxDom : ctx.DomAll) (hdom : op'.Dominates op ctx) :
+    (ctxDom : ctx.Dom root) (op'Rooted : op'.RootedAt root ctx) (hdom : op'.Dominates op ctx false)
+    (opRegion : op.getParentRegion! ctx.raw = some region)
+    (opRegionSSA : region.hasSSADominance ctx)
+    (opReachable : op.HierarchicallyReachable ctx) :
     varState.setResultValues? op resValues inBounds = some varState' →
     varState'.getOperandValues op' = varState.getOperandValues op' := by
   intro h
@@ -441,10 +450,17 @@ theorem VariableState.getOperandValues_setResultValues?_of_dominates
 
 @[grind =>]
 theorem VariableState.getOperandValues_setResultValues?_self
-    (ctxDom : ctx.DomAll) :
+    (ctxDom : ctx.Dom root) (opRooted : op.RootedAt root ctx)
+    (opRegion : op.getParentRegion! ctx.raw = some region)
+    (opReachable : op.LocallyReachable region ctx)
+    (opRegionSSA : region.hasSSADominance ctx) :
     (varState.setResultValues? op resValues inBounds) = varState' →
     varState'.getOperandValues op = varState.getOperandValues op := by
-  exact getOperandValues_setResultValues?_of_dominates ctxDom OperationPtr.dominates_refl
+  intro h
+  have hNotDom := OperationPtr.not_properlyDominates_self opRooted opRegion opRegionSSA
+  apply VariableState.getOperandValues_eq_of_getVar?_eq
+  grind [WfIRContext.Dom.not_mem_results_of_mem_operands,
+    VariableState.getVar?_setResultValues?_of_notMem_getResults!]
 
 @[grind =>]
 theorem VariableState.setResultValues?_setResultValues?_self :

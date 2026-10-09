@@ -145,6 +145,138 @@ theorem isRefinedBy_trans {w : Nat} {i j k : Byte w}
     (h₁ : i ⊒ j) (h₂ : j ⊒ k) : i ⊒ k := by
   grind
 
+/-- The all-poison byte is refined by any byte. -/
+@[simp, grind .]
+theorem allPoison_isRefinedBy {w : Nat} (b : Byte w) : (allPoison : Byte w) ⊒ b := by
+  simp [allPoison]
+
+/-! ## Greatest lower bound under refinement -/
+
+/-- Per-bit form of a bit-vector equation. -/
+private theorem getLsbD_congr {w : Nat} {a b : BitVec w} (h : a = b) (i : Nat) :
+    a.getLsbD i = b.getLsbD i := congrArg (·.getLsbD i) h
+
+/-- Two bytes are compatible if they agree on every bit both define. -/
+@[expose] def Compatible {w : Nat} (x y : Byte w) : Prop :=
+  (x.val ^^^ y.val) &&& ~~~x.poison &&& ~~~y.poison = 0
+
+instance {w : Nat} (x y : Byte w) : Decidable (Compatible x y) :=
+  inferInstanceAs (Decidable (_ = _))
+
+/-- `merge` keeps the byte invariant: a poisoned bit has value 0. -/
+theorem merge_and_eq_zero {w : Nat} (x y : Byte w) :
+    (x.val ||| y.val) &&& (x.poison &&& y.poison) = 0 := by
+  apply BitVec.eq_of_getLsbD_eq; intro i hi
+  have hx := getLsbD_congr x.h i; have hy := getLsbD_congr y.h i
+  simp only [BitVec.getLsbD_and, BitVec.getLsbD_or] at *
+  generalize x.val.getLsbD i = a at *; generalize x.poison.getLsbD i = b at *
+  generalize y.val.getLsbD i = c at *; generalize y.poison.getLsbD i = d at *
+  cases a <;> cases b <;> cases c <;> cases d <;> simp_all
+
+/--
+Building block of `glb?`: poison only where both bytes are poison, elsewhere the defined value.
+It is the greatest lower bound only for compatible bytes; use `glb?`.
+-/
+@[expose] def merge {w : Nat} (x y : Byte w) : Byte w :=
+  ⟨x.val ||| y.val, x.poison &&& y.poison, merge_and_eq_zero x y⟩
+
+/-- For compatible bytes, `merge x y` refines `x`: it only fills in poisoned bits of `x`. -/
+private theorem isRefinedBy_merge_left {w : Nat} (x y : Byte w) (h : Compatible x y) :
+    x ⊒ merge x y := by
+  simp only [isRefinedBy, merge, Compatible] at *
+  apply BitVec.eq_of_getLsbD_eq; intro i hi
+  have h1 := getLsbD_congr h i; have hx := getLsbD_congr x.h i; have hy := getLsbD_congr y.h i
+  simp only [BitVec.getLsbD_and, BitVec.getLsbD_or, BitVec.getLsbD_xor, BitVec.getLsbD_not,
+    BitVec.getLsbD_allOnes, hi, decide_true] at *
+  generalize x.val.getLsbD i = a at *; generalize x.poison.getLsbD i = b at *
+  generalize y.val.getLsbD i = c at *; generalize y.poison.getLsbD i = d at *
+  cases a <;> cases b <;> cases c <;> cases d <;> simp_all
+
+/-- For compatible bytes, `merge x y` refines `y`. -/
+private theorem isRefinedBy_merge_right {w : Nat} (x y : Byte w) (h : Compatible x y) :
+    y ⊒ merge x y := by
+  simp only [isRefinedBy, merge, Compatible] at *
+  apply BitVec.eq_of_getLsbD_eq; intro i hi
+  have h1 := getLsbD_congr h i; have hx := getLsbD_congr x.h i; have hy := getLsbD_congr y.h i
+  simp only [BitVec.getLsbD_and, BitVec.getLsbD_or, BitVec.getLsbD_xor, BitVec.getLsbD_not,
+    BitVec.getLsbD_allOnes, hi, decide_true] at *
+  generalize x.val.getLsbD i = a at *; generalize x.poison.getLsbD i = b at *
+  generalize y.val.getLsbD i = c at *; generalize y.poison.getLsbD i = d at *
+  cases a <;> cases b <;> cases c <;> cases d <;> simp_all
+
+/-- Two bytes with a common refinement are compatible: they cannot disagree on a defined bit. -/
+private theorem compatible_of_isRefinedBy {w : Nat} {x y e : Byte w} (hx : x ⊒ e) (hy : y ⊒ e) :
+    Compatible x y := by
+  simp only [isRefinedBy, Compatible] at *
+  apply BitVec.eq_of_getLsbD_eq; intro i hi
+  have h1 := getLsbD_congr hx i; have h2 := getLsbD_congr hy i; have he := getLsbD_congr e.h i
+  simp only [BitVec.getLsbD_and, BitVec.getLsbD_or, BitVec.getLsbD_xor, BitVec.getLsbD_not,
+    BitVec.getLsbD_allOnes, hi, decide_true] at *
+  generalize x.val.getLsbD i = a at *; generalize x.poison.getLsbD i = b at *
+  generalize y.val.getLsbD i = c at *; generalize y.poison.getLsbD i = d at *
+  generalize e.val.getLsbD i = f at *; generalize e.poison.getLsbD i = g at *
+  cases a <;> cases b <;> cases c <;> cases d <;> cases f <;> cases g <;> simp_all
+
+/-- Every common refinement of `x` and `y` refines `merge x y`. -/
+private theorem merge_isRefinedBy {w : Nat} {x y e : Byte w} (hx : x ⊒ e) (hy : y ⊒ e) :
+    merge x y ⊒ e := by
+  simp only [isRefinedBy, merge] at *
+  apply BitVec.eq_of_getLsbD_eq; intro i hi
+  have h1 := getLsbD_congr hx i; have h2 := getLsbD_congr hy i; have he := getLsbD_congr e.h i
+  have hx' := getLsbD_congr x.h i; have hy' := getLsbD_congr y.h i
+  simp only [BitVec.getLsbD_and, BitVec.getLsbD_or, BitVec.getLsbD_xor, BitVec.getLsbD_not,
+    BitVec.getLsbD_allOnes, hi, decide_true] at *
+  generalize x.val.getLsbD i = a at *; generalize x.poison.getLsbD i = b at *
+  generalize y.val.getLsbD i = c at *; generalize y.poison.getLsbD i = d at *
+  generalize e.val.getLsbD i = f at *; generalize e.poison.getLsbD i = g at *
+  cases a <;> cases b <;> cases c <;> cases d <;> cases f <;> cases g <;> simp_all
+
+/-- Two bytes that refine each other are equal. -/
+theorem isRefinedBy_antisymm {w : Nat} {x y : Byte w} (h₁ : x ⊒ y) (h₂ : y ⊒ x) :
+    x = y := by
+  have hx := x.h; have hy := y.h
+  obtain ⟨xv, xp, _⟩ := x; obtain ⟨yv, yp, _⟩ := y
+  simp only [isRefinedBy, Byte.mk.injEq] at *
+  constructor
+  all_goals
+    apply BitVec.eq_of_getLsbD_eq; intro i hi
+    have a1 := getLsbD_congr h₁ i; have a2 := getLsbD_congr h₂ i
+    have a3 := getLsbD_congr hx i; have a4 := getLsbD_congr hy i
+    simp only [BitVec.getLsbD_and, BitVec.getLsbD_or, BitVec.getLsbD_xor, BitVec.getLsbD_not,
+      BitVec.getLsbD_allOnes, hi, decide_true] at *
+    generalize xv.getLsbD i = a at *; generalize xp.getLsbD i = b at *
+    generalize yv.getLsbD i = c at *; generalize yp.getLsbD i = d at *
+    cases a <;> cases b <;> cases c <;> cases d <;> simp_all
+
+/--
+The greatest lower bound of two bytes under refinement: the least defined byte both refine
+to, or `none` if no byte refines both (some bit is defined in both with different values).
+-/
+@[expose] def glb? {w : Nat} (x y : Byte w) : Option (Byte w) :=
+  if Compatible x y then some (merge x y) else none
+
+/-- `glb?` is a lower bound: what it returns refines both bytes. -/
+theorem glb?_isRefinedBy {w : Nat} {x y m : Byte w} (h : x.glb? y = some m) :
+    x ⊒ m ∧ y ⊒ m := by
+  unfold glb? at h
+  split at h
+  · next hc => cases h; exact ⟨isRefinedBy_merge_left x y hc, isRefinedBy_merge_right x y hc⟩
+  · cases h
+
+/--
+`glb?` is the greatest lower bound: every byte that refines both refines what `glb?` returns.
+-/
+theorem glb?_greatest {w : Nat} {x y e : Byte w} (hx : x ⊒ e) (hy : y ⊒ e) :
+    ∃ m, x.glb? y = some m ∧ m ⊒ e :=
+  ⟨merge x y, by simp [glb?, compatible_of_isRefinedBy hx hy], merge_isRefinedBy hx hy⟩
+
+/-- If `glb?` returns `none`, no byte refines both. -/
+theorem glb?_eq_none {w : Nat} {x y : Byte w} (h : x.glb? y = none) :
+    ¬ ∃ e, x ⊒ e ∧ y ⊒ e := by
+  rintro ⟨e, hx, hy⟩
+  obtain ⟨m, hm, _⟩ := glb?_greatest hx hy
+  simp [hm] at h
+
 end Byte
 
 end

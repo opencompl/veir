@@ -1,13 +1,14 @@
 module
 
 public import Veir.Dominance.Lemmas.Path
+public import Veir.Interfaces.RegionKindInterfaces
 
 import all Veir.Dominance.Basic
 
 /-!
 # Block Dominance Lemmas
 
-Lemmas connecting region-local proper dominance with ordinary block dominance.
+Lemmas about block dominance, block reachability, and dominance at block entries and exits.
 -/
 
 public section
@@ -99,5 +100,64 @@ theorem predecessor_of_dominates_successor
         properAncestry (by grind) (by grind)
 
 end BlockPtr.Dominates
+
+/-! ## Block reachability -/
+
+variable {region : RegionPtr} {block succ : BlockPtr} {op : OperationPtr}
+variable {root : IRNode} {value : ValuePtr}
+
+/-- A hierarchically reachable block is locally reachable in some parent region. -/
+@[grind .]
+axiom BlockPtr.HierarchicallyReachable.exists_locallyReachable {block : BlockPtr} :
+  block.HierarchicallyReachable ctx →
+  (block.get! ctx.raw).parent = some region →
+  ∃ region, block.LocallyReachable region ctx
+
+/-- A locally reachable block in the same region as a hierarchically reachable block
+is hierarchically reachable, since their enclosing blocks coincide. -/
+axiom BlockPtr.HierarchicallyReachable.of_same_region {source target : BlockPtr}
+    (reachable : target.HierarchicallyReachable ctx)
+    (localReachable : source.LocallyReachable region ctx)
+    (targetParent : (target.get! ctx.raw).parent = some region) :
+    source.HierarchicallyReachable ctx
+
+/-! ## Dominance at block insertion points -/
+
+/-- In an SSA region, a value dominating a successor block's entry dominates the
+predecessor's exit or is an argument of the successor. -/
+axiom ValuePtr.DominatesIp.predecessor_exit_of_successor_entry {value : ValuePtr}
+    (blockParent : (block.get! ctx.raw).parent = some region)
+    (succParent : (succ.get! ctx.raw).parent = some region)
+    (regionSSA : region.hasSSADominance ctx)
+    (hsucc : succ ∈ block.getSuccessors! ctx.raw) :
+    value.DominatesIp (InsertPoint.atStart! succ ctx.raw) ctx →
+    value.DominatesIp (.atEnd block) ctx ∨ value ∈ succ.getArguments! ctx.raw
+
+/-- In an SSA region, an operation dominating a successor block's entry also dominates
+the predecessor's exit. No CFG reachability is required. -/
+axiom OperationPtr.DominatesIp.predecessor_exit_of_successor_entry
+    (blockParent : (block.get! ctx.raw).parent = some region)
+    (succParent : (succ.get! ctx.raw).parent = some region)
+    (regionSSA : region.hasSSADominance ctx)
+    (hsucc : succ ∈ block.getSuccessors! ctx.raw) :
+    op.DominatesIp (InsertPoint.atStart! succ ctx.raw) ctx →
+    op.DominatesIp (.atEnd block) ctx
+
+/-- An argument of an in-bounds block dominates the entry of that block. -/
+axiom BlockPtr.argument_dominatesIp_atStart
+    (blockInBounds : block.InBounds ctx.raw)
+    (hMem : value ∈ block.getArguments! ctx.raw) :
+    value.DominatesIp (InsertPoint.atStart! block ctx.raw) ctx
+/-- An argument of a rooted, locally reachable block in an SSA region cannot dominate
+the point before an operation that dominates the block entry. Reachability in enclosing
+regions is not required. -/
+@[grind →]
+axiom BlockPtr.argument_not_dominatesIp_before_of_dominatesIp_atStart
+    (regionSSA : region.hasSSADominance ctx)
+    (blockRooted : block.RootedAt root ctx)
+    (blockReachable : block.LocallyReachable region ctx)
+    (opDom : op.DominatesIp (InsertPoint.atStart! block ctx.raw) ctx)
+    (hMem : value ∈ block.getArguments! ctx.raw) :
+    ¬ value.DominatesIp (.before op) ctx
 
 end Veir
