@@ -243,8 +243,24 @@ theorem OperationPtr.DominatesIp.before_iff :
 grind_pattern OperationPtr.DominatesIp.before_iff => op₁.DominatesIp (.before op₂) ctx enclosingOk
 
 /-- A value dominates the point before an operation exactly when it properly dominates its user. -/
-axiom ValuePtr.DominatesIp.before_iff {value : ValuePtr} :
-    value.DominatesIp (.before op) ctx ↔ value.ProperlyDominates op ctx
+theorem ValuePtr.DominatesIp.before_iff {value : ValuePtr} :
+    value.DominatesIp (.before op) ctx ↔ value.ProperlyDominates op ctx := by
+  cases value with
+  | opResult result =>
+    constructor
+    · intro dominance
+      cases dominance with
+      | OpResult dominance => exact OperationPtr.DominatesIp.before_iff.mp dominance
+    · intro dominance
+      exact .OpResult (.Before dominance)
+  | blockArgument argument =>
+    constructor
+    · intro dominance
+      cases dominance with
+      | BlockArg parentEq dominance =>
+        exact ⟨_, by simpa only [InsertPoint.block!_before_eq] using parentEq, dominance⟩
+    · rintro ⟨parent, parentEq, dominance⟩
+      exact .BlockArg (by simpa only [InsertPoint.block!_before_eq] using parentEq) dominance
 
 /--
 A value dominating the program point before an operation `op₁` also dominates the program
