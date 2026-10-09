@@ -3,6 +3,7 @@ module
 public import Veir.Rewriter.Basic
 
 import all Veir.Rewriter.Basic
+import all Veir.Rewriter.LinkedList.GetSet
 import Veir.Rewriter.WfRewriter.GetSetTactic
 
 
@@ -25,69 +26,69 @@ attribute [local grind] Rewriter.detachBlockOperands.loop
 -- this point, likely on `BlockPtr.DefUse` directly.
 
 @[simp, grind =, simp_getset]
-theorem BlockPtr.prev!_detachBlockOperands_loop {block : BlockPtr} :
-    (block.get! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex)).prev = (block.get! ctx).prev := by
+theorem BlockPtr.getPrevBlock!_detachBlockOperands_loop {block : BlockPtr} :
+    block.getPrevBlock! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex) = block.getPrevBlock! ctx := by
   induction index generalizing ctx
   · grind [Rewriter.detachBlockOperands.loop]
   · simp only [Rewriter.detachBlockOperands.loop]
     grind
 
 @[simp, grind =, simp_getset]
-theorem BlockPtr.next!_detachBlockOperands_loop {block : BlockPtr} :
-    (block.get! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex)).next = (block.get! ctx).next := by
+theorem BlockPtr.getNextBlock!_detachBlockOperands_loop {block : BlockPtr} :
+    block.getNextBlock! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex) = block.getNextBlock! ctx := by
   induction index generalizing ctx
   · grind [Rewriter.detachBlockOperands.loop]
   · simp only [Rewriter.detachBlockOperands.loop]
     grind
 
 @[simp, grind =, simp_getset]
-theorem BlockPtr.parent!_detachBlockOperands_loop {block : BlockPtr} :
-    (block.get! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex)).parent = (block.get! ctx).parent := by
+theorem BlockPtr.getParent!_detachBlockOperands_loop {block : BlockPtr} :
+    block.getParent! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex) = block.getParent! ctx := by
   induction index generalizing ctx
   · grind [Rewriter.detachBlockOperands.loop]
   · simp only [Rewriter.detachBlockOperands.loop]
     grind
 
 @[grind =, simp_getset]
-theorem BlockPtr.firstOp!_detachBlockOperands_loop {block : BlockPtr} :
-    (block.get! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex)).firstOp =
-    (block.get! ctx).firstOp := by
+theorem BlockPtr.getFirstOp!_detachBlockOperands_loop {block : BlockPtr} :
+    block.getFirstOp! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex) =
+    block.getFirstOp! ctx := by
   induction index generalizing ctx
   · grind [Rewriter.detachBlockOperands.loop]
   · simp only [Rewriter.detachBlockOperands.loop]
     grind
 
 @[grind =, simp_getset]
-theorem BlockPtr.lastOp!_detachBlockOperands_loop {block : BlockPtr} :
-    (block.get! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex)).lastOp =
-    (block.get! ctx).lastOp := by
+theorem BlockPtr.getLastOp!_detachBlockOperands_loop {block : BlockPtr} :
+    block.getLastOp! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex) =
+    block.getLastOp! ctx := by
   induction index generalizing ctx
   · grind [Rewriter.detachBlockOperands.loop]
   · simp only [Rewriter.detachBlockOperands.loop]
     grind
 
 @[grind =, simp_getset]
-theorem OperationPtr.prev!_detachBlockOperands_loop {operation : OperationPtr} :
-    (operation.get! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex)).prev =
-    (operation.get! ctx).prev := by
+theorem OperationPtr.getPrevOp!_detachBlockOperands_loop {operation : OperationPtr} :
+    operation.getPrevOp! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex) =
+    operation.getPrevOp! ctx := by
   induction index generalizing ctx
   · grind [Rewriter.detachBlockOperands.loop]
   · simp only [Rewriter.detachBlockOperands.loop]
     grind
 
 @[grind =, simp_getset]
-theorem OperationPtr.next!_detachBlockOperands_loop {operation : OperationPtr} :
-    (operation.get! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex)).next =
-    (operation.get! ctx).next := by
+theorem OperationPtr.getNextOp!_detachBlockOperands_loop {operation : OperationPtr} :
+    operation.getNextOp! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex) =
+    operation.getNextOp! ctx := by
   induction index generalizing ctx
   · grind [Rewriter.detachBlockOperands.loop]
   · simp only [Rewriter.detachBlockOperands.loop]
     grind
 
 @[grind =, simp_getset]
-theorem OperationPtr.parent!_detachBlockOperands_loop {operation : OperationPtr} :
-    (operation.get! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex)).parent =
-    (operation.get! ctx).parent := by
+theorem OperationPtr.getParent!_detachBlockOperands_loop {operation : OperationPtr} :
+    operation.getParent! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex) =
+    operation.getParent! ctx := by
   induction index generalizing ctx
   · grind [Rewriter.detachBlockOperands.loop]
   · simp only [Rewriter.detachBlockOperands.loop]
@@ -103,9 +104,9 @@ theorem OperationPtr.getOpType!_detachBlockOperands_loop {operation : OperationP
     grind
 
 @[simp, grind =, simp_getset]
-theorem OperationPtr.attrs!_detachBlockOperands_loop {operation : OperationPtr} :
-    (operation.get! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex)).attrs =
-    (operation.get! ctx).attrs := by
+theorem OperationPtr.getAttributes!_detachBlockOperands_loop {operation : OperationPtr} :
+    operation.getAttributes! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex) =
+    operation.getAttributes! ctx := by
   induction index generalizing ctx
   · grind [Rewriter.detachBlockOperands.loop]
   · simp only [Rewriter.detachBlockOperands.loop]
@@ -130,7 +131,7 @@ theorem OperationPtr.getNumResults!_detachBlockOperands_loop {operation : Operat
     grind
 
 @[simp, grind =, simp_getset]
-theorem OpResultPtr.get!_detachBlockOperands_loop {opResult : OpResultPtr} :
+private theorem OpResultPtr.get!_detachBlockOperands_loop {opResult : OpResultPtr} :
     opResult.get! (Rewriter.detachBlockOperands.loop ctx op' idx hCtx hOp hIdx) =
     opResult.get! ctx := by
   induction idx generalizing ctx
@@ -175,7 +176,7 @@ theorem OperationPtr.getNumOperands!_detachBlockOperands_loop {operation : Opera
     grind
 
 @[simp, grind =, simp_getset]
-theorem OpOperandPtr.get!_detachBlockOperands_loop {opOperand : OpOperandPtr} :
+private theorem OpOperandPtr.get!_detachBlockOperands_loop {opOperand : OpOperandPtr} :
     opOperand.get! (Rewriter.detachBlockOperands.loop ctx op' idx hCtx hOp hIdx) =
     opOperand.get! ctx := by
   induction idx generalizing ctx
@@ -281,7 +282,7 @@ theorem BlockPtr.getNumArguments!_detachBlockOperands_loop {block : BlockPtr} :
     grind
 
 @[simp, grind =, simp_getset]
-theorem BlockArgumentPtr.get!_detachBlockOperands_loop {blockArg : BlockArgumentPtr} :
+private theorem BlockArgumentPtr.get!_detachBlockOperands_loop {blockArg : BlockArgumentPtr} :
     blockArg.get! (Rewriter.detachBlockOperands.loop ctx op' idx hCtx hOp hIdx) =
     blockArg.get! ctx := by
   induction idx generalizing ctx
@@ -324,7 +325,7 @@ theorem BlockArgumentPtr.getOwner!_detachBlockOperands_loop {blockArg : BlockArg
   grind
 
 @[simp, grind =, simp_getset]
-theorem RegionPtr.get!_detachBlockOperands_loop {region : RegionPtr} :
+private theorem RegionPtr.get!_detachBlockOperands_loop {region : RegionPtr} :
     region.get! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex) =
     region.get! ctx := by
   induction index generalizing ctx
@@ -372,7 +373,7 @@ theorem ValuePtr.getType!_detachBlockOperands_loop {value : ValuePtr} :
     grind
 
 @[simp, grind =, simp_getset]
-theorem OpOperandPtrPtr.get!_detachBlockOperands_loop {opOperandPtr : OpOperandPtrPtr} :
+private theorem OpOperandPtrPtr.get!_detachBlockOperands_loop {opOperandPtr : OpOperandPtrPtr} :
     opOperandPtr.get! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex) =
     opOperandPtr.get! ctx := by
   induction index generalizing ctx
@@ -392,48 +393,48 @@ attribute [local grind] Rewriter.detachBlockOperands
 -- this point, likely on `BlockPtr.DefUse` directly.
 
 @[simp, grind =, simp_getset]
-theorem BlockPtr.prev!_detachBlockOperands {block : BlockPtr} :
-    (block.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp)).prev = (block.get! ctx).prev := by
+theorem BlockPtr.getPrevBlock!_detachBlockOperands {block : BlockPtr} :
+    block.getPrevBlock! (Rewriter.detachBlockOperands ctx op' hCtx hOp) = block.getPrevBlock! ctx := by
   grind
 
 @[simp, grind =, simp_getset]
-theorem BlockPtr.next!_detachBlockOperands {block : BlockPtr} :
-    (block.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp)).next = (block.get! ctx).next := by
+theorem BlockPtr.getNextBlock!_detachBlockOperands {block : BlockPtr} :
+    block.getNextBlock! (Rewriter.detachBlockOperands ctx op' hCtx hOp) = block.getNextBlock! ctx := by
   grind
 
 @[simp, grind =, simp_getset]
-theorem BlockPtr.parent!_detachBlockOperands {block : BlockPtr} :
-    (block.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp)).parent = (block.get! ctx).parent := by
+theorem BlockPtr.getParent!_detachBlockOperands {block : BlockPtr} :
+    block.getParent! (Rewriter.detachBlockOperands ctx op' hCtx hOp) = block.getParent! ctx := by
   grind
 
 @[simp, grind =, simp_getset]
-theorem BlockPtr.firstOp!_detachBlockOperands {block : BlockPtr} :
-    (block.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp)).firstOp =
-    (block.get! ctx).firstOp := by
+theorem BlockPtr.getFirstOp!_detachBlockOperands {block : BlockPtr} :
+    block.getFirstOp! (Rewriter.detachBlockOperands ctx op' hCtx hOp) =
+    block.getFirstOp! ctx := by
   grind
 
 @[simp, grind =, simp_getset]
-theorem BlockPtr.lastOp!_detachBlockOperands {block : BlockPtr} :
-    (block.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp)).lastOp =
-    (block.get! ctx).lastOp := by
+theorem BlockPtr.getLastOp!_detachBlockOperands {block : BlockPtr} :
+    block.getLastOp! (Rewriter.detachBlockOperands ctx op' hCtx hOp) =
+    block.getLastOp! ctx := by
   grind
 
 @[simp, grind =, simp_getset]
-theorem OperationPtr.prev!_detachBlockOperands {operation : OperationPtr} :
-    (operation.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp)).prev =
-    (operation.get! ctx).prev := by
+theorem OperationPtr.getPrevOp!_detachBlockOperands {operation : OperationPtr} :
+    operation.getPrevOp! (Rewriter.detachBlockOperands ctx op' hCtx hOp) =
+    operation.getPrevOp! ctx := by
   grind
 
 @[simp, grind =, simp_getset]
-theorem OperationPtr.next!_detachBlockOperands {operation : OperationPtr} :
-    (operation.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp)).next =
-    (operation.get! ctx).next := by
+theorem OperationPtr.getNextOp!_detachBlockOperands {operation : OperationPtr} :
+    operation.getNextOp! (Rewriter.detachBlockOperands ctx op' hCtx hOp) =
+    operation.getNextOp! ctx := by
   grind
 
 @[simp, grind =, simp_getset]
-theorem OperationPtr.parent!_detachBlockOperands {operation : OperationPtr} :
-    (operation.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp)).parent =
-    (operation.get! ctx).parent := by
+theorem OperationPtr.getParent!_detachBlockOperands {operation : OperationPtr} :
+    operation.getParent! (Rewriter.detachBlockOperands ctx op' hCtx hOp) =
+    operation.getParent! ctx := by
   grind
 
 @[simp, grind =, simp_getset]
@@ -443,9 +444,9 @@ theorem OperationPtr.getOpType!_detachBlockOperands {operation : OperationPtr} :
   grind
 
 @[simp, grind =, simp_getset]
-theorem OperationPtr.attrs!_detachBlockOperands {operation : OperationPtr} :
-    (operation.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp)).attrs =
-    (operation.get! ctx).attrs := by
+theorem OperationPtr.getAttributes!_detachBlockOperands {operation : OperationPtr} :
+    operation.getAttributes! (Rewriter.detachBlockOperands ctx op' hCtx hOp) =
+    operation.getAttributes! ctx := by
   grind
 
 @[simp, grind =, simp_getset]
@@ -461,7 +462,7 @@ theorem OperationPtr.getNumResults!_detachBlockOperands {operation : OperationPt
   grind
 
 @[simp, grind =, simp_getset]
-theorem OpResultPtr.get!_detachBlockOperands {opResult : OpResultPtr} :
+private theorem OpResultPtr.get!_detachBlockOperands {opResult : OpResultPtr} :
     opResult.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp) =
     opResult.get! ctx := by
   grind
@@ -500,7 +501,7 @@ theorem OperationPtr.getNumOperands!_detachBlockOperands {operation : OperationP
   grind
 
 @[simp, grind =, simp_getset]
-theorem OpOperandPtr.get!_detachBlockOperands {opOperand : OpOperandPtr} :
+private theorem OpOperandPtr.get!_detachBlockOperands {opOperand : OpOperandPtr} :
     opOperand.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp) =
     opOperand.get! ctx := by
   grind
@@ -585,7 +586,7 @@ theorem BlockPtr.getNumArguments!_detachBlockOperands {block : BlockPtr} :
   grind
 
 @[simp, grind =, simp_getset]
-theorem BlockArgumentPtr.get!_detachBlockOperands {blockArg : BlockArgumentPtr} :
+private theorem BlockArgumentPtr.get!_detachBlockOperands {blockArg : BlockArgumentPtr} :
     blockArg.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp) =
     blockArg.get! ctx := by
   grind
@@ -625,7 +626,7 @@ theorem BlockArgumentPtr.getOwner!_detachBlockOperands {blockArg : BlockArgument
   grind
 
 @[simp, grind =, simp_getset]
-theorem RegionPtr.get!_detachBlockOperands {region : RegionPtr} :
+private theorem RegionPtr.get!_detachBlockOperands {region : RegionPtr} :
     region.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp) =
     region.get! ctx := by
   grind
@@ -663,7 +664,7 @@ theorem ValuePtr.getType!_detachBlockOperands {value : ValuePtr} :
     value.getType! ctx := by
   grind
 
-theorem OpOperandPtrPtr.get!_detachBlockOperands {opOperandPtr : OpOperandPtrPtr} :
+private theorem OpOperandPtrPtr.get!_detachBlockOperands {opOperandPtr : OpOperandPtrPtr} :
     opOperandPtr.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp) =
     opOperandPtr.get! ctx := by
   grind

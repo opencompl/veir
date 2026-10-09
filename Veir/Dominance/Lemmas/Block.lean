@@ -25,7 +25,7 @@ variable {dominator middle dominated : BlockPtr} {region : RegionPtr}
 /-- A proper SSA dominator occurs on every entry-to-target path. -/
 theorem mem_of_path
     (dominance : dominator.ProperlyDominatesInSSACFGRegion dominated region ctx)
-    (entry : (region.get! ctx.raw).firstBlock = some entryBlock)
+    (entry : region.getFirstBlock! ctx.raw = some entryBlock)
     (path : region.Path ctx entryBlock dominated blocks) :
     dominator ∈ blocks := by
   obtain ⟨_, _, _, _, everyPath⟩ := dominance
@@ -90,7 +90,7 @@ variable {dominator dominated source predecessor successor : BlockPtr} {region :
 @[grind →]
 theorem parent_dominator :
     dominator.ProperlyDominatesInRegion dominated region ctx →
-    (dominator.get! ctx.raw).parent = region := by
+    dominator.getParent! ctx.raw = region := by
   rintro (_|_)
   · grind [ProperlyDominatesInSSACFGRegion]
   · grind [ProperlyDominatesInGraphRegion]
@@ -98,7 +98,7 @@ theorem parent_dominator :
 @[grind →]
 theorem parent_dominated :
     dominator.ProperlyDominatesInRegion dominated region ctx →
-    (dominated.get! ctx.raw).parent = region := by
+    dominated.getParent! ctx.raw = region := by
   rintro (_|_)
   · grind [ProperlyDominatesInSSACFGRegion]
   · grind [ProperlyDominatesInGraphRegion]
@@ -110,10 +110,10 @@ a distinct predecessor of that successor edge.
 theorem predecessor_of_dominates_successor
     (sourceNeTarget : source ≠ target)
     (successorEdge : successor ∈ target.getSuccessors! ctx.raw)
-    (targetParent : (target.get! ctx.raw).parent = some region)
+    (targetParent : target.getParent! ctx.raw = some region)
     (sourceDominatesSuccessor : source.ProperlyDominatesInRegion successor region ctx) :
     source.ProperlyDominatesInRegion target region ctx := by
-  have sourceParent : (source.get! ctx.raw).parent = some region := by grind
+  have sourceParent : source.getParent! ctx.raw = some region := by grind
   cases sourceDominatesSuccessor with
   | Graph graphDominance =>
     apply Graph
@@ -138,8 +138,8 @@ of that successor edge.
 -/
 theorem predecessor_of_dominates_successor
     (predecessorParent :
-      (predecessor.get! ctx.raw).parent = some region)
-    (successorParent : (successor.get! ctx.raw).parent = some region)
+      predecessor.getParent! ctx.raw = some region)
+    (successorParent : successor.getParent! ctx.raw = some region)
     (sourceNeSuccessor : source ≠ successor)
     (successorEdge : successor ∈ predecessor.getSuccessors! ctx.raw)
     (sourceDominatesSuccessor : source.Dominates successor ctx) :
@@ -175,7 +175,7 @@ variable {root : IRNode} {value : ValuePtr}
 @[grind .]
 theorem BlockPtr.HierarchicallyReachable.exists_locallyReachable {block : BlockPtr} :
   block.HierarchicallyReachable ctx →
-  (block.get! ctx.raw).parent = some region →
+  block.getParent! ctx.raw = some region →
   ∃ region, block.LocallyReachable region ctx := by
   intro reachable parent
   exact ⟨region, reachable.locallyReachable parent⟩
@@ -185,7 +185,7 @@ is hierarchically reachable, since their enclosing blocks coincide. -/
 theorem BlockPtr.HierarchicallyReachable.of_same_region {source target : BlockPtr}
     (reachable : target.HierarchicallyReachable ctx)
     (localReachable : source.LocallyReachable region ctx)
-    (targetParent : (target.get! ctx.raw).parent = some region) :
+    (targetParent : target.getParent! ctx.raw = some region) :
     source.HierarchicallyReachable ctx := by
   intro ancestor ancestry ancestorRegion parent
   by_cases same : ancestor = source
@@ -218,8 +218,8 @@ theorem BlockPtr.ProperlyDominatesInSSACFGRegion.hierarchicallyReachable_dominat
 /-- In an SSA region, a value dominating a successor block's entry dominates the
 predecessor's exit or is an argument of the successor. -/
 axiom ValuePtr.DominatesIp.predecessor_exit_of_successor_entry {value : ValuePtr}
-    (blockParent : (block.get! ctx.raw).parent = some region)
-    (succParent : (succ.get! ctx.raw).parent = some region)
+    (blockParent : block.getParent! ctx.raw = some region)
+    (succParent : succ.getParent! ctx.raw = some region)
     (regionSSA : region.hasSSADominance ctx)
     (hsucc : succ ∈ block.getSuccessors! ctx.raw) :
     value.DominatesIp (InsertPoint.atStart! succ ctx.raw) ctx →
@@ -228,8 +228,8 @@ axiom ValuePtr.DominatesIp.predecessor_exit_of_successor_entry {value : ValuePtr
 /-- In an SSA region, an operation dominating a successor block's entry also dominates
 the predecessor's exit. No CFG reachability is required. -/
 axiom OperationPtr.DominatesIp.predecessor_exit_of_successor_entry
-    (blockParent : (block.get! ctx.raw).parent = some region)
-    (succParent : (succ.get! ctx.raw).parent = some region)
+    (blockParent : block.getParent! ctx.raw = some region)
+    (succParent : succ.getParent! ctx.raw = some region)
     (regionSSA : region.hasSSADominance ctx)
     (hsucc : succ ∈ block.getSuccessors! ctx.raw) :
     op.DominatesIp (InsertPoint.atStart! succ ctx.raw) ctx →

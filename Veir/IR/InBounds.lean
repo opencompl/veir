@@ -31,8 +31,9 @@ section operation
 @[grind →]
 theorem OperationPtr.in_bounds_of_parent_eq_some
     {op : OperationPtr} {block : BlockPtr} {ctx : IRContext OpInfo}
-    (parentEq : (op.get! ctx).parent = some block) :
+    (parentEq : op.getParent! ctx = some block) :
     op.InBounds ctx := by
+  simp only [OperationPtr.getParent!_def] at *
   grind [Operation.default_parent_eq]
 
 variable {op : OperationPtr} (h : op.InBounds ctx)
@@ -308,7 +309,7 @@ attribute [local grind] OpOperandPtr.setNextUse OpOperandPtr.setBack OpOperandPt
 variable {opOperand : OpOperandPtr} (h : opOperand.InBounds ctx)
 
 @[grind =]
-theorem OpOperandPtr.get_set {op : OperationPtr} (hop : op.InBounds (opOperand.set ctx x h)) :
+private theorem OpOperandPtr.get_set {op : OperationPtr} (hop : op.InBounds (opOperand.set ctx x h)) :
     (op.get (opOperand.set ctx x)).operands =
       if heq : op = opOperand.op
         then (op.get ctx).operands.set opOperand.index x (by grind)

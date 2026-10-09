@@ -58,11 +58,11 @@ private def ctx := parsed.1.raw
 
 /-- The first operation in the body of `op`. -/
 private def Veir.OperationPtr.body! (op : OperationPtr) : OperationPtr :=
-  (((op.getRegion! ctx 0).get! ctx).firstBlock.get!.get! ctx).firstOp.get!
+  (((op.getRegion! ctx 0).getFirstBlock! ctx).get!.getFirstOp! ctx).get!
 
 /-- The operation following `op` in its block. -/
 private def Veir.OperationPtr.next! (op : OperationPtr) : OperationPtr :=
-  (op.get! ctx).next.get!
+  (op.getNextOp! ctx).get!
 
 private def moduleOp := parsed.2
 private def caller := moduleOp.body!

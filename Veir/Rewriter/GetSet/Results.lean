@@ -3,6 +3,7 @@ module
 public import Veir.Rewriter.Basic
 
 import all Veir.Rewriter.Basic
+import all Veir.Rewriter.LinkedList.GetSet
 import Veir.Rewriter.WfRewriter.GetSetTactic
 
 
@@ -23,7 +24,7 @@ variable {op : OperationPtr}
 attribute [local grind] Rewriter.pushResult
 
 @[simp, grind =, simp_getset]
-theorem BlockPtr.get!_pushResult {block : BlockPtr} :
+private theorem BlockPtr.get!_pushResult {block : BlockPtr} :
     block.get! (Rewriter.pushResult ctx op type hop) =
     block.get! ctx := by
   grind
@@ -71,21 +72,21 @@ theorem BlockPtr.getPrevBlock!_pushResult {block : BlockPtr} :
   grind
 
 @[simp, grind =, simp_getset]
-theorem OperationPtr.prev!_pushResult {operation : OperationPtr} :
-    (operation.get! (Rewriter.pushResult ctx op type hop)).prev =
-    (operation.get! ctx).prev := by
+theorem OperationPtr.getPrevOp!_pushResult {operation : OperationPtr} :
+    operation.getPrevOp! (Rewriter.pushResult ctx op type hop) =
+    operation.getPrevOp! ctx := by
   grind
 
 @[simp, grind =, simp_getset]
-theorem OperationPtr.next!_pushResult {operation : OperationPtr} :
-    (operation.get! (Rewriter.pushResult ctx op type hop)).next =
-    (operation.get! ctx).next := by
+theorem OperationPtr.getNextOp!_pushResult {operation : OperationPtr} :
+    operation.getNextOp! (Rewriter.pushResult ctx op type hop) =
+    operation.getNextOp! ctx := by
   grind
 
 @[simp, grind =, simp_getset]
-theorem OperationPtr.parent!_pushResult {operation : OperationPtr} :
-    (operation.get! (Rewriter.pushResult ctx op type hop)).parent =
-    (operation.get! ctx).parent := by
+theorem OperationPtr.getParent!_pushResult {operation : OperationPtr} :
+    operation.getParent! (Rewriter.pushResult ctx op type hop) =
+    operation.getParent! ctx := by
   grind
 
 @[simp, grind =, simp_getset]
@@ -95,9 +96,9 @@ theorem OperationPtr.getOpType!_pushResult {operation : OperationPtr} :
   grind
 
 @[simp, grind =, simp_getset]
-theorem OperationPtr.attrs!_pushResult {operation : OperationPtr} :
-    (operation.get! (Rewriter.pushResult ctx op type hop)).attrs =
-    (operation.get! ctx).attrs := by
+theorem OperationPtr.getAttributes!_pushResult {operation : OperationPtr} :
+    operation.getAttributes! (Rewriter.pushResult ctx op type hop) =
+    operation.getAttributes! ctx := by
   grind
 
 @[simp, grind =, simp_getset]
@@ -114,7 +115,7 @@ theorem OperationPtr.getNumResults!_pushResult {operation : OperationPtr} :
   grind
 
 @[grind =, simp_getset]
-theorem OpResultPtr.get!_pushResult {opResult : OpResultPtr} :
+private theorem OpResultPtr.get!_pushResult {opResult : OpResultPtr} :
     opResult.get! (Rewriter.pushResult ctx op type hop) =
     if opResult = op.nextResult ctx then
       { type := type, firstUse := none, index := op.getNumResults! ctx, owner := op }
@@ -157,7 +158,7 @@ theorem OperationPtr.getNumOperands!_pushResult {operation : OperationPtr} :
   grind
 
 @[simp, grind =, simp_getset]
-theorem OpOperandPtr.get!_pushResult {opOperand : OpOperandPtr} :
+private theorem OpOperandPtr.get!_pushResult {opOperand : OpOperandPtr} :
     opOperand.get! (Rewriter.pushResult ctx op type hop) =
     opOperand.get! ctx := by
   grind
@@ -203,7 +204,7 @@ theorem OperationPtr.getNumSuccessors!_pushResult {operation : OperationPtr} :
   grind
 
 @[simp, grind =, simp_getset]
-theorem BlockOperandPtr.get!_pushResult {blockOperand : BlockOperandPtr} :
+private theorem BlockOperandPtr.get!_pushResult {blockOperand : BlockOperandPtr} :
     blockOperand.get! (Rewriter.pushResult ctx op type hop) =
     blockOperand.get! ctx := by
   grind
@@ -261,7 +262,7 @@ theorem OperationPtr.getRegion!_pushResult {operation : OperationPtr} :
   grind
 
 @[simp, grind =, simp_getset]
-theorem BlockOperandPtrPtr.get!_pushResult {blockOperandPtr : BlockOperandPtrPtr} :
+private theorem BlockOperandPtrPtr.get!_pushResult {blockOperandPtr : BlockOperandPtrPtr} :
     blockOperandPtr.get! (Rewriter.pushResult ctx op type hop) =
     blockOperandPtr.get! ctx := by
   grind
@@ -273,7 +274,7 @@ theorem BlockPtr.getNumArguments!_pushResult {block : BlockPtr} :
   grind
 
 @[simp, grind =, simp_getset]
-theorem BlockArgumentPtr.get!_pushResult {blockArg : BlockArgumentPtr} :
+private theorem BlockArgumentPtr.get!_pushResult {blockArg : BlockArgumentPtr} :
     blockArg.get! (Rewriter.pushResult ctx op type hop) =
     blockArg.get! ctx := by
   grind
@@ -313,7 +314,7 @@ theorem BlockArgumentPtr.getOwner!_pushResult {blockArg : BlockArgumentPtr} :
   grind
 
 @[simp, grind =, simp_getset]
-theorem RegionPtr.get!_pushResult {region : RegionPtr} :
+private theorem RegionPtr.get!_pushResult {region : RegionPtr} :
     region.get! (Rewriter.pushResult ctx op type hop) =
     region.get! ctx := by
   grind
@@ -358,7 +359,7 @@ theorem ValuePtr.getType!_pushResult {value : ValuePtr} :
   grind
 
 @[grind =, simp_getset]
-theorem OpOperandPtrPtr.get!_pushResult {opOperandPtr : OpOperandPtrPtr} :
+private theorem OpOperandPtrPtr.get!_pushResult {opOperandPtr : OpOperandPtrPtr} :
     opOperandPtr.get! (Rewriter.pushResult ctx op type hop) =
     if opOperandPtr = OpOperandPtrPtr.valueFirstUse (op.nextResult ctx) then
       none
@@ -376,7 +377,7 @@ variable {op : OperationPtr}
 attribute [local grind] Rewriter.initOpResults
 
 @[simp, grind =, simp_getset]
-theorem BlockPtr.get!_initOpResults {block : BlockPtr} :
+private theorem BlockPtr.get!_initOpResults {block : BlockPtr} :
     block.get! (Rewriter.initOpResults ctx op types index hop hidx) = block.get! ctx := by
   fun_induction Rewriter.initOpResults <;> grind
 
@@ -424,21 +425,21 @@ theorem BlockPtr.getPrevBlock!_initOpResults {block : BlockPtr} :
 
 
 @[simp, grind =, simp_getset]
-theorem OperationPtr.prev!_initOpResults {operation : OperationPtr} :
-    (operation.get! (Rewriter.initOpResults ctx op types index hop hidx)).prev =
-    (operation.get! ctx).prev := by
+theorem OperationPtr.getPrevOp!_initOpResults {operation : OperationPtr} :
+    operation.getPrevOp! (Rewriter.initOpResults ctx op types index hop hidx) =
+    operation.getPrevOp! ctx := by
   fun_induction Rewriter.initOpResults <;> grind
 
 @[simp, grind =, simp_getset]
-theorem OperationPtr.next!_initOpResults {operation : OperationPtr} :
-    (operation.get! (Rewriter.initOpResults ctx op types index hop hidx)).next =
-    (operation.get! ctx).next := by
+theorem OperationPtr.getNextOp!_initOpResults {operation : OperationPtr} :
+    operation.getNextOp! (Rewriter.initOpResults ctx op types index hop hidx) =
+    operation.getNextOp! ctx := by
   fun_induction Rewriter.initOpResults <;> grind
 
 @[simp, grind =, simp_getset]
-theorem OperationPtr.parent!_initOpResults {operation : OperationPtr} :
-    (operation.get! (Rewriter.initOpResults ctx op types index hop hidx)).parent =
-    (operation.get! ctx).parent := by
+theorem OperationPtr.getParent!_initOpResults {operation : OperationPtr} :
+    operation.getParent! (Rewriter.initOpResults ctx op types index hop hidx) =
+    operation.getParent! ctx := by
   fun_induction Rewriter.initOpResults <;> grind
 
 @[simp, grind =, simp_getset]
@@ -448,9 +449,9 @@ theorem OperationPtr.getOpType!_initOpResults {operation : OperationPtr} :
   fun_induction Rewriter.initOpResults <;> grind
 
 @[simp, grind =, simp_getset]
-theorem OperationPtr.attrs!_initOpResults {operation : OperationPtr} :
-    (operation.get! (Rewriter.initOpResults ctx op types index hop hidx)).attrs =
-    (operation.get! ctx).attrs := by
+theorem OperationPtr.getAttributes!_initOpResults {operation : OperationPtr} :
+    operation.getAttributes! (Rewriter.initOpResults ctx op types index hop hidx) =
+    operation.getAttributes! ctx := by
   fun_induction Rewriter.initOpResults <;> grind
 
 @[simp, grind =, simp_getset]
@@ -466,7 +467,7 @@ theorem OperationPtr.getNumResults!_initOpResults {operation : OperationPtr} :
   fun_induction Rewriter.initOpResults <;> grind
 
 @[local grind =]
-theorem OpResultPtr.get!_initOpResults {opResult : OpResultPtr} {index : Nat} {hidx} :
+private theorem OpResultPtr.get!_initOpResults {opResult : OpResultPtr} {index : Nat} {hidx} :
     opResult.get! (Rewriter.initOpResults ctx op types index hop hidx) =
     if h : opResult.op = op ∧ opResult.index < types.size ∧ op.getNumResults! ctx ≤ opResult.index then
       { type := types[opResult.index], firstUse := none, index := opResult.index, owner := op }
@@ -510,32 +511,32 @@ attribute [simp_getset] OpResultPtr.get!_initOpResults
 
 @[grind =, simp_getset]
 theorem OpResultPtr.type!_initOpResults {opResult : OpResultPtr} {index : Nat} {hidx} :
-    (opResult.get! (Rewriter.initOpResults ctx op types index hop hidx)).type =
+    opResult.getType! (Rewriter.initOpResults ctx op types index hop hidx) =
     if h : opResult.op = op ∧ opResult.index < types.size ∧ op.getNumResults! ctx ≤ opResult.index then
       types[opResult.index]
-    else (opResult.get! ctx).type := by
+    else (opResult.getType! ctx) := by
   grind
 
 @[grind =, simp_getset]
 theorem OpResultPtr.firstUse!_initOpResults {opResult : OpResultPtr} {index : Nat} {hidx} :
-    (opResult.get! (Rewriter.initOpResults ctx op types index hop hidx)).firstUse =
+    opResult.getFirstUse! (Rewriter.initOpResults ctx op types index hop hidx) =
     if opResult.op = op ∧ opResult.index < types.size ∧ op.getNumResults! ctx ≤ opResult.index then none
-    else (opResult.get! ctx).firstUse := by
+    else (opResult.getFirstUse! ctx) := by
   grind
 
 @[grind =, simp_getset]
 theorem OpResultPtr.index!_initOpResults {opResult : OpResultPtr} {index : Nat} {hidx} :
-    (opResult.get! (Rewriter.initOpResults ctx op types index hop hidx)).index =
+    opResult.getIndex! (Rewriter.initOpResults ctx op types index hop hidx) =
     if opResult.op = op ∧ opResult.index < types.size ∧ op.getNumResults! ctx ≤ opResult.index then
       opResult.index
-    else (opResult.get! ctx).index := by
+    else (opResult.getIndex! ctx) := by
   grind
 
 @[grind =, simp_getset]
 theorem OpResultPtr.owner!_initOpResults {opResult : OpResultPtr} {index : Nat} {hidx} :
-    (opResult.get! (Rewriter.initOpResults ctx op types index hop hidx)).owner =
+    opResult.getOwner! (Rewriter.initOpResults ctx op types index hop hidx) =
     if opResult.op = op ∧ opResult.index < types.size ∧ op.getNumResults! ctx ≤ opResult.index then op
-    else (opResult.get! ctx).owner := by
+    else (opResult.getOwner! ctx) := by
   grind
 
 @[simp, grind =, simp_getset]
@@ -544,7 +545,7 @@ theorem OperationPtr.getNumOperands!_initOpResults {operation : OperationPtr} :
   fun_induction Rewriter.initOpResults <;> grind
 
 @[simp, grind =, simp_getset]
-theorem OpOperandPtr.get!_initOpResults {opOperand : OpOperandPtr} {index} {hidx} :
+private theorem OpOperandPtr.get!_initOpResults {opOperand : OpOperandPtr} {index} {hidx} :
     opOperand.get! (Rewriter.initOpResults ctx op types index hop hidx) = opOperand.get! ctx := by
   fun_induction Rewriter.initOpResults <;> grind
 
@@ -588,7 +589,7 @@ theorem OperationPtr.getNumSuccessors!_initOpResults {operation : OperationPtr} 
   fun_induction Rewriter.initOpResults <;> grind
 
 @[simp, grind =, simp_getset]
-theorem BlockOperandPtr.get!_initOpResults {blockOperand : BlockOperandPtr} {index} {hidx} :
+private theorem BlockOperandPtr.get!_initOpResults {blockOperand : BlockOperandPtr} {index} {hidx} :
     blockOperand.get! (Rewriter.initOpResults ctx op types index hop hidx) =
     blockOperand.get! ctx := by
   fun_induction Rewriter.initOpResults <;> grind
@@ -647,7 +648,7 @@ theorem OperationPtr.getRegion!_initOpResults {operation : OperationPtr} :
   fun_induction Rewriter.initOpResults <;> grind
 
 @[simp, grind =, simp_getset]
-theorem BlockOperandPtrPtr.get!_initOpResults {blockOperandPtr : BlockOperandPtrPtr} :
+private theorem BlockOperandPtrPtr.get!_initOpResults {blockOperandPtr : BlockOperandPtrPtr} :
     blockOperandPtr.get! (Rewriter.initOpResults ctx op types index hop hidx) =
     blockOperandPtr.get! ctx := by
   fun_induction Rewriter.initOpResults <;> grind
@@ -659,7 +660,7 @@ theorem BlockPtr.getNumArguments!_initOpResults {block : BlockPtr} :
   fun_induction Rewriter.initOpResults <;> grind
 
 @[simp, grind =, simp_getset]
-theorem BlockArgumentPtr.get!_initOpResults {blockArg : BlockArgumentPtr} {index} {hidx} :
+private theorem BlockArgumentPtr.get!_initOpResults {blockArg : BlockArgumentPtr} {index} {hidx} :
     blockArg.get! (Rewriter.initOpResults ctx op types index hop hidx) =
     blockArg.get! ctx := by
   fun_induction Rewriter.initOpResults <;> grind
@@ -699,7 +700,7 @@ theorem BlockArgumentPtr.getOwner!_initOpResults {blockArg : BlockArgumentPtr} {
   grind
 
 @[simp, grind =, simp_getset]
-theorem RegionPtr.get!_initOpResults {region : RegionPtr} :
+private theorem RegionPtr.get!_initOpResults {region : RegionPtr} :
     region.get! (Rewriter.initOpResults ctx op types index hop hidx) =
     region.get! ctx := by
   fun_induction Rewriter.initOpResults <;> grind
@@ -752,12 +753,12 @@ theorem ValuePtr.getType!_initOpResults {value : ValuePtr} :
   · cases value <;> grind [cases OpResultPtr, cases ValuePtr]
 
 @[grind =, simp_getset]
-theorem OpOperandPtrPtr.get!_initOpResults {opOperandPtr : OpOperandPtrPtr} :
+private theorem OpOperandPtrPtr.get!_initOpResults {opOperandPtr : OpOperandPtrPtr} :
     opOperandPtr.get! (Rewriter.initOpResults ctx op types index hop hidx) =
     match opOperandPtr with
     | .valueFirstUse (.opResult opRes) =>
       if _ : opRes.op = op ∧ opRes.index < types.size ∧ op.getNumResults! ctx ≤ opRes.index then none
-      else (opRes.get! ctx).firstUse
+      else opRes.getFirstUse! ctx
     | _ => opOperandPtr.get! ctx := by
   cases opOperandPtr
   · grind
