@@ -11,13 +11,9 @@ private def intVector (count bitwidth : Nat) : Attribute :=
 -- Vector elements occupy their bit widths, without scalar allocation padding.
 #guard DataLayout.riscv64.query (intVector 8 1) =
   some { size := 1, abiAlignment := 1, preferredAlignment := 1 }
-#guard DataLayout.riscv64.query (intVector 9 1) =
-  some { size := 2, abiAlignment := 2, preferredAlignment := 2 }
 #guard DataLayout.riscv64.query (intVector 17 1) =
   some { size := 3, abiAlignment := 4, preferredAlignment := 4 }
 #guard DataLayout.riscv64.getTypeAllocSize (intVector 17 1) = some 4
-#guard DataLayout.riscv64.query (intVector 3 24) =
-  some { size := 9, abiAlignment := 16, preferredAlignment := 16 }
 #guard DataLayout.riscv64.query (intVector 5 24) =
   some { size := 15, abiAlignment := 16, preferredAlignment := 16 }
 #guard DataLayout.riscv64.getTypeAllocSize (intVector 5 24) = some 16

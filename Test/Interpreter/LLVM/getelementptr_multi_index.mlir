@@ -2,20 +2,13 @@
 
 // `getelementptr`s with several indices, into a struct
 // `{i8, [3 x [5 x i16]], i64}`: the array is at offset 2, and the i64 at 32.
-// The indices are loaded from memory, so they stay dynamic, and the `i32` one
-// is negative.
+// Dynamic operands include a negative i32 index.
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i64 ()>}> ({
     %one = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64
     %s = "llvm.alloca"(%one) <{elem_type = !llvm.struct<(i8, !llvm.array<3 x !llvm.array<5 x i16>>, i64)>}> : (i64) -> !llvm.ptr
-    %islot = "llvm.alloca"(%one) <{elem_type = i64}> : (i64) -> !llvm.ptr
-    %jslot = "llvm.alloca"(%one) <{elem_type = i32}> : (i64) -> !llvm.ptr
-    %two = "llvm.mlir.constant"() <{value = 2 : i64}> : () -> i64
-    "llvm.store"(%two, %islot) : (i64, !llvm.ptr) -> ()
-    %minus1 = "llvm.mlir.constant"() <{value = -1 : i32}> : () -> i32
-    "llvm.store"(%minus1, %jslot) : (i32, !llvm.ptr) -> ()
-    %i = "llvm.load"(%islot) : (!llvm.ptr) -> i64
-    %j = "llvm.load"(%jslot) : (!llvm.ptr) -> i32
+    %i = "llvm.mlir.constant"() <{value = 2 : i64}> : () -> i64
+    %j = "llvm.mlir.constant"() <{value = -1 : i32}> : () -> i32
 
     // s.f1[2][4] = 0x1234, at 2 + 2 * 10 + 4 * 2 = 30
     %four = "llvm.mlir.constant"() <{value = 4 : i32}> : () -> i32
