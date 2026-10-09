@@ -1,14 +1,41 @@
-// RUN: veir-opt %s -p=legalize-riscv64,isel-riscv64,reconcile-cast | filecheck %s
+// RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
+
+// An `i64` `gmir.g_add` is selected as `riscv.addw` when all its users only read the low 32 bits,
+// as LLVM's `binop_allwusers`.
 
 "builtin.module"() ({
-  "llvm.func"() <{sym_name = "main", function_type = !llvm.func<void ()>}> ({
-    %x = "llvm.mlir.constant"() <{value = 1 : i32}> : () -> i32
-    // An `i32` `g_add` is legalized to an `i64` `g_add` followed by `g_trunc` + `g_sext`, which is
-    // selected as a single `addw`.
-    %add = "gmir.g_add"(%x, %x) : (i32, i32) -> i32
-    // CHECK: "riscv.addw"({{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-    // CHECK-NOT: "riscv.sextw"
-    "test.test"(%add) : (i32) -> ()
-    "llvm.return"() : () -> ()
+  // The only user is an `addw`, which reads the low 32 bits.
+  // CHECK-LABEL: @w_user
+  "func.func"() <{function_type = (i64, i64) -> i32, sym_name = "w_user"}> ({
+  ^bb(%a: i64, %b: i64):
+    %s = "gmir.g_add"(%a, %b) : (i64, i64) -> i64
+    // CHECK:     "riscv.addw"
+    // CHECK-NOT: "riscv.add"(
+    %t = "llvm.trunc"(%s) : (i64) -> i32
+    %u = "llvm.add"(%t, %t) : (i32, i32) -> i32
+    // CHECK:     "riscv.addw"
+    "func.return"(%u) : (i32) -> ()
+  }) : () -> ()
+
+  // The only user is a shift amount, which reads the low 6 bits.
+  // CHECK-LABEL: @shamt_user
+  "func.func"() <{function_type = (i64, i64) -> i64, sym_name = "shamt_user"}> ({
+  ^bb(%a: i64, %b: i64):
+    %s = "gmir.g_add"(%a, %b) : (i64, i64) -> i64
+    // CHECK:     "riscv.addw"
+    %r = "llvm.shl"(%a, %s) : (i64, i64) -> i64
+    // CHECK:     "riscv.sll"
+    "func.return"(%r) : (i64) -> ()
+  }) : () -> ()
+
+  // `func.return` reads all 64 bits.
+  // CHECK-LABEL: @full_user
+  "func.func"() <{function_type = (i64, i64) -> (i32, i64), sym_name = "full_user"}> ({
+  ^bb(%a: i64, %b: i64):
+    %s = "gmir.g_add"(%a, %b) : (i64, i64) -> i64
+    // CHECK:     "riscv.add"(
+    // CHECK-NOT: "riscv.addw"
+    %t = "llvm.trunc"(%s) : (i64) -> i32
+    "func.return"(%t, %s) : (i32, i64) -> ()
   }) : () -> ()
 }) : () -> ()
