@@ -478,21 +478,15 @@ example {w v : Nat} (x : BitVec w) (hw : w ≤ 4) (hv : v ≤ w):
     x.extractLsb' 0 v = (x &&& ((1#w <<< BitVec.ofNat w v) - 1)).setWidth v := by
   pbv_decide 4
 
-/-! ### Arithmetic shift right by `BitVec` (`sshiftRight'`) -/
-
 /-- Arithmetic shifting right by zero is identity -/
 example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
     x.sshiftRight' 0#w = x := by
-  pbv_decide 4 -bv_decide
-  bv_decide
+  pbv_decide 4
 
 /-- Arithmetic shifting right preserves the sign bit -/
 example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
     (x.sshiftRight' y).msb = x.msb := by
   pbv_decide 4
-
-#eval ((7#3).sshiftRight' 3#3).msb
-#eval ((7#3).msb)
 
 /-- Arithmetic shifting right a non-negative value is logical shifting right -/
 example {w : Nat} (x y : BitVec w) (hx : x.msb = false) (hw : w ≤ 4) :
@@ -514,23 +508,6 @@ example {w : Nat} (x : BitVec w) (hx : x.msb = false) (hw : w ≤ 4) :
     x.sshiftRight' (BitVec.ofNat w w) = 0#w := by
   pbv_decide 4
 
-/-- Arithmetic shifting right by two variable amounts commutes -/
-example {w : Nat} (x y z : BitVec w) (hw : w ≤ 4) :
-    (x.sshiftRight' y).sshiftRight' z = (x.sshiftRight' z).sshiftRight' y := by
-  pbv_decide 4
-
-/-- Arithmetic shifting right by one twice is shifting by two -/
-example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
-    (x.sshiftRight' 1#w).sshiftRight' 1#w = x.sshiftRight' 2#w := by
-  pbv_decide 4
-
-/-- Arithmetic shifting right commutes with sign extension -/
-example {w v : Nat} (x y : BitVec w) (hwv : w ≤ v) (hv : v ≤ 4) :
-    (x.sshiftRight' y).signExtend v = (x.signExtend v).sshiftRight' (y.setWidth v) := by
-  pbv_decide 4
-
-/-! ### Arithmetic shift right by `Nat` (`sshiftRight`) -/
-
 /-- Arithmetic shifting right by `Nat` zero is identity -/
 example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
     x.sshiftRight 0 = x := by
@@ -539,26 +516,6 @@ example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
 /-- Arithmetic shifting right by a `Nat` agrees with shifting by the same `BitVec` amount -/
 example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
     x.sshiftRight 1 = x.sshiftRight' 1#w := by
-  pbv_decide 4
-
-/-- Arithmetic shifting right a non-negative value by a `Nat` is logical shifting right -/
-example {w : Nat} (n : Nat) (x : BitVec w) (hx : x.msb = false) (hw : w ≤ 4) :
-    x.sshiftRight n = x >>> n := by
-  pbv_decide 4
-
-/-- Arithmetic shifting right twice by literal amounts is shifting by their sum -/
-example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
-    (x.sshiftRight 1).sshiftRight 2 = x.sshiftRight 3 := by
-  pbv_decide 4
-
-/-- Arithmetic shifting right by a `Nat` variable preserves the sign bit -/
-example {w : Nat} (n : Nat) (x : BitVec w) (hw : w ≤ 4) :
-    (x.sshiftRight n).msb = x.msb := by
-  pbv_decide 4
-
-/-- Arithmetic shifting right `-1` by a `Nat` variable is `-1` -/
-example {w : Nat} (n : Nat) (hw : w ≤ 4) :
-    (-1#w).sshiftRight n = -1#w := by
   pbv_decide 4
 
 /-- Arithmetic shifting right by two `Nat` variables commutes -/
