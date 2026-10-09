@@ -1,4 +1,14 @@
-# Verified Intermediate Representation
+# VeIR Mono-Repo
+
+This is the VeIR mono-repo, which besides the Verified Intermediate Representation
+project described below, also contains the following subprojects:
+
+* [lean-ctrees](./lean-ctrees/README.md), a Lean implementation of the Choice Trees data structure, and
+* [QPFTypes](./QPFTypes/README.md), a Lean library for defining coinductive types.
+
+See the relevant subproject's README for more details.
+
+## Verified Intermediate Representation
 
 VeIR is a compiler infrastructure written in Lean that offers both an
 [MLIR](https://mlir.llvm.org/)-style imperative design and
