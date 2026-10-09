@@ -21,6 +21,8 @@ open Puddle in
 /--
 Computes a 32-bit `opcode` operation on 64 bits and sign-extends the result from bit 31, so that
 `addw` and `subw` can be selected. This is the `G_ADD`/`G_SUB` case of LLVM's `legalizeCustom`.
+LLVM sign-extends in place with `G_SEXT_INREG`; here we use the equivalent `g_trunc` to `i32`
+followed by `g_sext` back to `i64`.
 -/
 def customLegalizeAddSub (opcode : GMIR) (noFlags : propertiesOf (OpCode.gmir opcode)) :
     Pattern OpCode :=
@@ -29,9 +31,9 @@ def customLegalizeAddSub (opcode : GMIR) (noFlags : propertiesOf (OpCode.gmir op
     (fun (type, lhs, rhs) => do
       let wideType ← CreateProg.type (IntegerType.signless 64)
       let wide ← buildWideBinop opcode noFlags wideType lhs rhs
-      let sextProps ← CreateProg.property (.gmir .g_sext_inreg) ⟨32⟩
-      let sext ← CreateProg.operation (.gmir .g_sext_inreg) #[wide] #[wideType] sextProps
-      buildTrunc sext.res[0]! type)
+      let low ← buildTrunc wide type
+      let sext ← buildExt low.res[0]! wideType .g_sext ()
+      buildTrunc sext type)
     (fun trunc => trunc)
 
 /-- A pointer in address space 0, as LLVM's `p0`. -/
@@ -58,20 +60,12 @@ def riscv64LegalizerInfo : LegalizerInfo where
       -- In LLVM, extensions from other widths never reach these rules: their operands are always
       -- the result of a  `g_trunc`, and the artifact combiner turns them into `g_sext_inreg`
       -- or `g_and`.
-      -- FIXME: Add `g_sext_inreg`, `g_and` and these folds. Until then, other widths always legal.
+      -- FIXME: We do not have `g_sext_inreg` and `g_and` yet, so other widths are always legal.
       .legalForTypePairs [(32, 16), (64, 16), (64, 32)],
       .alwaysLegal
     ]
     | .g_trunc => [
       .alwaysLegal,
-    ]
-    | .g_sext_inreg => [
-      -- Sizes 8 and 16 need Zbb, which this backend already assumes.
-      -- TODO: Lower other sizes to `g_shl` and `g_ashr`, as LLVM's `lower` does.
-      .legalIf (.all [
-        .typeIs (.type 0) 64,
-        fun query => [8, 16, 32].contains query.properties.sz.toNat,
-      ]),
     ]
   legalizeCustom
     | .g_add => customLegalizeAddSub .g_add ⟨false, false⟩

@@ -2346,31 +2346,28 @@ def matchLegalCast (opcode : GMIR) (opType resType : Handle OpCode .type)
   MatchProg.matchNative (opType, resType, properties) fun (opType, resType, properties) =>
     riscv64LegalizerInfo.isLegal opcode #[resType, opType] properties
 
-/-- Requires a legal `gmir.g_sext_inreg` that keeps the low `sz` bits. -/
-def matchSextInReg (sz : Nat) (type : Handle OpCode .type)
-    (properties : Handle OpCode (.prop (.gmir .g_sext_inreg))) : MatchProg.Builder Unit := do
-  matchLegal .g_sext_inreg type properties
-  MatchProg.matchNative properties fun properties => properties.sz.toNat == sz
-
 /-- `gmir.g_add` (`i64`) -> `riscv.add`. -/
 def gmirAdd_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_add) (·.bitwidth = 64) .add () (guard := matchLegal .g_add)
 
 /--
-  `gmir.g_sext_inreg (gmir.g_add x, y)` with `sz = 32` -> `riscv.addw`. This is the shape that
-  `customLegalizeAddSub` produces for an `i32` `g_add`, and mirrors LLVM's
-  `(sext_inreg (add x, y), i32) -> ADDW` selection pattern.
+  `gmir.g_sext (gmir.g_trunc (gmir.g_add x, y))` from `i64` through `i32` -> `riscv.addw`. This is
+  the shape that `customLegalizeAddSub` produces for an `i32` `g_add`, and plays the role of LLVM's
+  `ADDW` selection for an `i64` add whose result is sign-extended from bit 31.
 -/
-def gmirSextInRegAdd32_pattern : Pattern OpCode :=
+def gmirSextTruncAdd32_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
       let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let narrowType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 32)
       let lhs ← MatchProg.value type
       let rhs ← MatchProg.value type
       let addOp ← MatchProg.operation (.gmir .g_add) #[lhs, rhs] #[type]
       matchLegal .g_add type addOp.properties
-      let root ← MatchProg.root (.gmir .g_sext_inreg) #[addOp.res[0]!] #[type]
-      matchSextInReg 32 type root.properties
+      let truncOp ← MatchProg.operation (.gmir .g_trunc) #[addOp.res[0]!] #[narrowType]
+      matchLegalCast .g_trunc type narrowType truncOp.properties
+      let root ← MatchProg.root (.gmir .g_sext) #[truncOp.res[0]!] #[type]
+      matchLegalCast .g_sext narrowType type root.properties
       return (type, lhs, rhs))
     (fun (type, lhs, rhs) => do
       let regType ← CreateProg.type (RegisterType.mk none)
@@ -2465,7 +2462,7 @@ def gmirSext16 : Puddle.CompiledPattern OpCode := gmirSext16_pattern.compile
 def gmirZext16 : Puddle.CompiledPattern OpCode := gmirZext16_pattern.compile
 def gmirSextShiftPair : Puddle.CompiledPattern OpCode := gmirSextShiftPair_pattern.compile
 def gmirZextShiftPair : Puddle.CompiledPattern OpCode := gmirZextShiftPair_pattern.compile
-def gmirSextInRegAdd32 : Puddle.CompiledPattern OpCode := gmirSextInRegAdd32_pattern.compile
+def gmirSextTruncAdd32 : Puddle.CompiledPattern OpCode := gmirSextTruncAdd32_pattern.compile
 def gmirTrunc : Puddle.CompiledPattern OpCode := gmirTrunc_pattern.compile
 def gmirAnyext : Puddle.CompiledPattern OpCode := gmirAnyext_pattern.compile
 
@@ -2483,7 +2480,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   | some ctx => pure ctx
   /- gMIR multi-operation selections: these must run before the main loop, which would otherwise
      select the inner operations on their own first. -/
-  let gmirFused := RewritePattern.GreedyRewritePattern #[gmirSextInRegAdd32.run]
+  let gmirFused := RewritePattern.GreedyRewritePattern #[gmirSextTruncAdd32.run]
   let ctx ← match RewritePattern.applyInContext gmirFused ctx with
   | none => throw "Error while applying gMIR multi-operation selection patterns"
   | some ctx => pure ctx
