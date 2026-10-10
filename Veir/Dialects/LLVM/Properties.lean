@@ -462,13 +462,31 @@ def AllocaProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
   let inallocaAttr ← getUnitAttr "inalloca" attrDict
   return { alignment := alignAttr, elem_type := typeAttr.asType, inalloca := inallocaAttr }
 
+/--
+Reads the `ordering` property of `llvm.load` and `llvm.store`. Unlike for `llvm.fence`, it is
+optional: an access without one is not atomic.
+-/
+def getAtomicOrdering (opName : String) (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String Data.LLVM.AtomicOrdering := do
+  let some attr := attrDict["ordering".toUTF8]?
+    | return .not_atomic
+  let .integerAttr intAttr := attr
+    | throw s!"{opName}: expected 'ordering' to be an integer attribute, but got {attr}"
+  if intAttr.type.bitwidth ≠ 64 then
+    throw s!"{opName}: expected 'ordering' to be an i64 integer attribute, but got {attr}"
+  if intAttr.value < 0 then
+    throw s!"{opName}: invalid ordering {intAttr.value}"
+  let some ordering := Data.LLVM.AtomicOrdering.fromNat intAttr.value.toNat
+    | throw s!"{opName}: invalid ordering {intAttr.value}"
+  return ordering
+
 structure LoadProperties where
   alignment : IntegerAttr
   volatile_ : Bool
   nontemporal : Bool
   invariant : Bool
   invariantGroup : Bool
-  --ordering
+  ordering : Data.LLVM.AtomicOrdering := .not_atomic
   syncscope : Option StringAttr
   --dereferenceable
   access_groups : ArrayAttr
@@ -487,6 +505,7 @@ def LoadProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
   let nontemporalAttr ← getUnitAttr "nontemporal" attrDict
   let invariantAttr ← getUnitAttr "invariant" attrDict
   let invariantGroupAttr ← getUnitAttr "invariantGroup" attrDict
+  let ordering ← getAtomicOrdering "llvm.load" attrDict
   let syncscopeAttr ← match attrDict["syncscope".toUTF8]? with
     | some (.stringAttr syncscopeAttr) => .ok (some syncscopeAttr)
     | some attr => .error s!"expected 'syncscope' to be an optional string attribute, but got {attr}"
@@ -503,14 +522,14 @@ def LoadProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
   let tbaaAttr := attrDict["tbaa".toUTF8]?.getD (.arrayAttr .empty)
   let .arrayAttr tbaaAttr := tbaaAttr
     | throw s!"store: expected 'tbaa' to be an array attribute, but got {tbaaAttr}"
-  return { alignment := alignAttr, volatile_ := volatileAttr, nontemporal := nontemporalAttr, invariant := invariantAttr, invariantGroup := invariantGroupAttr, syncscope := syncscopeAttr, access_groups := accessAttr, alias_scopes := aliasAttr, noalias_scopes := noaliasAttr, tbaa := tbaaAttr }
+  return { alignment := alignAttr, volatile_ := volatileAttr, nontemporal := nontemporalAttr, invariant := invariantAttr, invariantGroup := invariantGroupAttr, ordering, syncscope := syncscopeAttr, access_groups := accessAttr, alias_scopes := aliasAttr, noalias_scopes := noaliasAttr, tbaa := tbaaAttr }
 
 structure StoreProperties where
   alignment : IntegerAttr
   volatile_ : Bool
   nontemporal : Bool
   invariantGroup : Bool
-  --ordering
+  ordering : Data.LLVM.AtomicOrdering := .not_atomic
   syncscope : Option StringAttr
   access_groups : ArrayAttr
   alias_scopes : ArrayAttr
@@ -527,6 +546,7 @@ def StoreProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
   let volatileAttr ← getUnitAttr "volatile_" attrDict
   let nontemporalAttr ← getUnitAttr "nontemporal" attrDict
   let invariantGroupAttr ← getUnitAttr "invariantGroup" attrDict
+  let ordering ← getAtomicOrdering "llvm.store" attrDict
   let syncscopeAttr ← match attrDict["syncscope".toUTF8]? with
     | some (.stringAttr syncscopeAttr) => .ok (some syncscopeAttr)
     | some attr => .error s!"expected 'syncscope' to be an optional string attribute, but got {attr}"
@@ -543,7 +563,7 @@ def StoreProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
   let tbaaAttr := attrDict["tbaa".toUTF8]?.getD (.arrayAttr .empty)
   let .arrayAttr tbaaAttr := tbaaAttr
     | throw s!"store: expected 'tbaa' to be an array attribute, but got {tbaaAttr}"
-  return { alignment := alignAttr, volatile_ := volatileAttr, nontemporal := nontemporalAttr, invariantGroup := invariantGroupAttr, syncscope := syncscopeAttr, access_groups := accessAttr, alias_scopes := aliasAttr, noalias_scopes := noaliasAttr, tbaa := tbaaAttr }
+  return { alignment := alignAttr, volatile_ := volatileAttr, nontemporal := nontemporalAttr, invariantGroup := invariantGroupAttr, ordering, syncscope := syncscopeAttr, access_groups := accessAttr, alias_scopes := aliasAttr, noalias_scopes := noaliasAttr, tbaa := tbaaAttr }
 
 /--
   Properties of the `llvm.getelementptr` operation

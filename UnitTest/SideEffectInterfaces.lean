@@ -10,6 +10,12 @@ private def volatileLoadProperties : LoadProperties :=
 private def volatileStoreProperties : StoreProperties :=
   { (default : StoreProperties) with volatile_ := true }
 
+private def atomicLoadProperties (ordering : Data.LLVM.AtomicOrdering) : LoadProperties :=
+  { (default : LoadProperties) with ordering }
+
+private def atomicStoreProperties (ordering : Data.LLVM.AtomicOrdering) : StoreProperties :=
+  { (default : StoreProperties) with ordering }
+
 private def volatileMemProperties : RISCVMemProperties :=
   { (default : RISCVMemProperties) with volatile_ := true }
 
@@ -18,6 +24,14 @@ private def volatileMemProperties : RISCVMemProperties :=
 
 #guard OpCode.getEffects (.llvm .store) (default : StoreProperties) == .write
 #guard OpCode.getEffects (.llvm .store) volatileStoreProperties == .readWrite
+
+/- As in MLIR, an `unordered` atomic access is still a plain read or write, but a `monotonic` or
+   stronger one also reads and writes other memory. -/
+#guard OpCode.getEffects (.llvm .load) (atomicLoadProperties .unordered) == .read
+#guard OpCode.getEffects (.llvm .load) (atomicLoadProperties .monotonic) == .readWrite
+#guard OpCode.getEffects (.llvm .load) (atomicLoadProperties .seq_cst) == .readWrite
+#guard OpCode.getEffects (.llvm .store) (atomicStoreProperties .unordered) == .write
+#guard OpCode.getEffects (.llvm .store) (atomicStoreProperties .release) == .readWrite
 
 #guard OpCode.getEffects (.llvm .alloca) (default : AllocaProperties) == .allocate
 
