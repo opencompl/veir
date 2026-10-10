@@ -360,18 +360,14 @@ private def visit
 Build a sparse forward analysis over one abstract value domain.
 
 Sparse facts default to `⊥`. Whenever control flow loses precision, the framework
-conservatively joins the entry state into the affected values. The entry state defaults
-to `⊤`; analyses only need to override it when they have a more precise analysis-specific
-state.
+conservatively joins the analysis specific entry state into the affected values.
 -/
 def new
     (kind : FactKind)
     [SparseFactSpec kind Domain]
-    [Top Domain]
     (analysisKind : AnalysisKind)
     (transfer : TransferFn Domain)
-    (entryState : EntryStateFn Domain := fun _ _ => ⊤)
-    : DataFlowAnalysis :=
+    (entryState : EntryStateFn Domain) : DataFlowAnalysis :=
   { kind := analysisKind
     init := init kind analysisKind entryState transfer
     visit := visit kind analysisKind entryState transfer }
