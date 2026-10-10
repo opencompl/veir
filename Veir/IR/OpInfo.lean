@@ -190,6 +190,11 @@ class HasOpInfo (opCode: Type)
   nested regions.
   -/
   isIsolatedFromAbove : opCode → Bool := fun _ => false
+  /--
+  Whether this operation has MLIR's `SymbolTable` trait: the symbols in its single region can be
+  looked up by name.
+  -/
+  isSymbolTable : opCode → Bool := fun _ => false
 
 attribute [get_effects] HasOpInfo.getEffects
 attribute [is_terminator] HasOpInfo.isTerminator
