@@ -587,9 +587,9 @@ private def Llvm.getSwitchSuccessorOperands?
       (init := 0) fun acc value => acc + value.toNat
   return { forwardedOperands := operands.extract caseStart (caseStart + caseCount) }
 
-private def Llvm.getSwitchSuccessorForOperands?
-    (props : LLVMSwitchProperties) (operands : Array (Option RuntimeValue))
-    (successors : Array BlockPtr) : Option BlockPtr := do
+private def Llvm.getSwitchSuccessorIndexForOperands?
+    (props : LLVMSwitchProperties) (operands : Array (Option RuntimeValue)) :
+    Option Nat := do
   let caseValues ← props.caseValues?
   if caseValues.size ≠ props.case_operand_segments.values.size then
     none
@@ -597,32 +597,35 @@ private def Llvm.getSwitchSuccessorForOperands?
     let some (.int bitwidth (.val value)) ← operands[0]? | none
     for i in [0:caseValues.size] do
       if value = BitVec.ofInt bitwidth caseValues[i]! then
-        let some successor := successors[i + 1]? | none
-        return successor
-    successors[0]?
+        return i + 1
+    some 0
 
-def Llvm.branchOpInterface? (op : Llvm) : Option (BranchOpInterface (Llvm.propertiesOf op)) :=
+def Llvm.branchOpInterface? (op : Llvm) : Option (BranchOpInterface Llvm (Llvm.propertiesOf op)) :=
   match op with
   | .br =>
     some {
       getSuccessorOperandsImpl? := fun _ operands successorIndex => do
         guard (successorIndex = 0)
         some { forwardedOperands := operands }
-      getSuccessorForOperandsImpl? := fun _ _ successors => successors[0]?
+      getSuccessorIndexForOperandsImpl? := fun _ _ => some 0
     }
   | .cond_br =>
     some {
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           1 props.operandSegmentSizes.values operands successorIndex
-      getSuccessorForOperandsImpl? := fun _ operands successors => do
+      getSuccessorIndexForOperandsImpl? := fun _ operands => do
         let some (.int _ (.val condition)) ← operands[0]? | none
-        BranchOpInterface.getConditionalSuccessor? successors (condition ≠ 0)
+        some (BranchOpInterface.getConditionalSuccessorIndex (condition ≠ 0))
+      getUnconditionalBranchImpl? := fun props =>
+        some ⟨.br, ({ loop_annotation := props.loop_annotation } : LLVMBrProperties)⟩
     }
   | .switch =>
     some {
       getSuccessorOperandsImpl? := Llvm.getSwitchSuccessorOperands?
-      getSuccessorForOperandsImpl? := Llvm.getSwitchSuccessorForOperands?
+      getSuccessorIndexForOperandsImpl? := Llvm.getSwitchSuccessorIndexForOperands?
+      getUnconditionalBranchImpl? := fun _ =>
+        some ⟨.br, ({ loop_annotation := none } : LLVMBrProperties)⟩
     }
   | _ => none
 

@@ -5,6 +5,7 @@ public import Veir.PatternRewriter.Basic
 import Veir.Analysis.DataFlow.SparseConstantPropagationAnalysis
 import Veir.Analysis.DataFlow.DeadCodeAnalysis
 import Veir.Interfaces.FoldInterfaces
+import Veir.Interfaces.ControlFlowInterfaces
 import Veir.Passes.Matching
 import Veir.Passes.Canonicalize.UniqueConstants
 
@@ -14,7 +15,8 @@ namespace Veir
   # Canonicalize pass
 
   Rewrites operations into canonical forms, including propagating constants,
-  folding operations, moving constants to the right side of commutative operations,
+  folding operations, turning branches with constant conditions into unconditional
+  branches, moving constants to the right side of commutative operations,
   and reducing modular constants to their canonical representatives.
 -/
 
@@ -54,6 +56,22 @@ def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPt
   let (rewriter, newOp) ← rewriter.createOp! opType resultTypes reordered
     #[] #[] properties (some $ .before op)
   return rewriter.replaceOp! op newOp
+
+/-- Replace a branch whose constant operands select a single successor with an
+    unconditional branch to that successor. -/
+def simplifyConstantBranch (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some ⟨brOpCode, brProperties⟩ :=
+      BranchOpInterface.getUnconditionalBranch? op rewriter.ctx.raw
+    | return rewriter
+  let operands := (op.getOperands! rewriter.ctx.raw).map (·.constantValue rewriter.ctx.raw)
+  let some index := BranchOpInterface.getSuccessorIndexForOperands? op operands rewriter.ctx.raw
+    | return rewriter
+  let forwarded := (BranchOpInterface.getSuccessorOperands? op index rewriter.ctx.raw).get!
+  let successor := op.getSuccessor! rewriter.ctx.raw index
+  let (rewriter, _) ← rewriter.createOp! brOpCode #[] forwarded.forwardedOperands
+    #[successor] #[] brProperties (some (.before op))
+  return rewriter.eraseOp! op
 
 /-! ## Pass implementation -/
 
@@ -99,6 +117,8 @@ def CanonicalizePass.impl (options : PassOptions) (ctx : WfIRContext OpCode)
       | throw "Error while propagating constants"
     ctx := propagated
     patterns := patterns.push foldOperation
+  if (options.get? "constant-branch").getD true then
+    patterns := patterns.push simplifyConstantBranch
   if (options.get? "mod-arith-constant").getD true then
     patterns := patterns.push canonicalizeModArithConstant
   if (options.get? "commutative-constant-rhs").getD true then
@@ -117,6 +137,9 @@ public def CanonicalizePass : Pass OpCode :=
     options := .ofList [
       ("sccp",
         { description := "Propagate constants, then fold operations to constants or operands."
+          defaultValue := true }),
+      ("constant-branch",
+        { description := "Replace branches with constant conditions by unconditional branches."
           defaultValue := true }),
       ("mod-arith-constant",
         { description := "Reduce modular constants to their canonical representatives."

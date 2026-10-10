@@ -21,10 +21,9 @@ def OperationPtr.isBranchLike {OpInfo : Type} [HasOpInfo OpInfo]
 
 namespace BranchOpInterface
 
-/-- Return the true or false successor of a conditional branch. -/
-def getConditionalSuccessor?
-    (successors : Array BlockPtr) (condition : Bool) : Option BlockPtr :=
-  if condition then successors[0]? else successors[1]?
+/-- Return the index of the true or false successor of a conditional branch. -/
+def getConditionalSuccessorIndex (condition : Bool) : Nat :=
+  if condition then 0 else 1
 
 /--
 Return the operands in the successor segment of an operation whose fixed operands
@@ -62,6 +61,22 @@ def getSuccessorOperand? {OpInfo : Type} [HasOpInfo OpInfo]
     operands[blockArgumentIndex]?
 
 /--
+Return the index of the successor selected by the known constant operands of a
+branch operation. An operand is `none` when its value is unknown. Returns `none`
+when the operation is not a supported branch or a single successor cannot be
+determined.
+-/
+def getSuccessorIndexForOperands? {OpInfo : Type} [HasOpInfo OpInfo]
+    (branchOp : OperationPtr) (operands : Array (Option RuntimeValue))
+    (raw : IRContext OpInfo) : Option Nat := do
+  let opType := branchOp.getOpType! raw
+  let some interface := HasOpInfo.branchOpInterface? opType | none
+  let index ← interface.getSuccessorIndexForOperandsImpl?
+    (branchOp.getProperties! raw opType) operands
+  guard (index < branchOp.getNumSuccessors! raw)
+  return index
+
+/--
 Return the successor selected by the known constant operands of a branch operation.
 An operand is `none` when its value is unknown. Returns `none` when the operation is
 not a supported branch or a single successor cannot be determined.
@@ -69,10 +84,20 @@ not a supported branch or a single successor cannot be determined.
 def getSuccessorForOperands? {OpInfo : Type} [HasOpInfo OpInfo]
     (branchOp : OperationPtr) (operands : Array (Option RuntimeValue))
     (raw : IRContext OpInfo) : Option BlockPtr := do
+  let index ← getSuccessorIndexForOperands? branchOp operands raw
+  (branchOp.getSuccessors! raw)[index]?
+
+/--
+Return the unconditional branch, with its properties, that replaces a branch
+operation once its successor is known. Returns `none` when the operation is not
+a supported branch or has no unconditional replacement.
+-/
+def getUnconditionalBranch? {OpInfo : Type} [HasOpInfo OpInfo]
+    (branchOp : OperationPtr) (raw : IRContext OpInfo) :
+    Option (Σ op : OpInfo, propertiesOf op) := do
   let opType := branchOp.getOpType! raw
   let some interface := HasOpInfo.branchOpInterface? opType | none
-  interface.getSuccessorForOperandsImpl? (branchOp.getProperties! raw opType) operands
-    (branchOp.getSuccessors! raw)
+  interface.getUnconditionalBranchImpl? (branchOp.getProperties! raw opType)
 
 end BranchOpInterface
 

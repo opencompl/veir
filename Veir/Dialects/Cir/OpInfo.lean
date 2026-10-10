@@ -131,23 +131,24 @@ def Cir.functionInterface? (op : Cir) : Option (FunctionOpInterface (Cir.propert
           { props with function_type := { functionType } } }
   | _ => none
 
-def Cir.branchOpInterface? (op : Cir) : Option (BranchOpInterface (Cir.propertiesOf op)) :=
+def Cir.branchOpInterface? (op : Cir) : Option (BranchOpInterface Cir (Cir.propertiesOf op)) :=
   match op with
   | .br =>
     some {
       getSuccessorOperandsImpl? := fun _ operands successorIndex => do
         guard (successorIndex = 0)
         some { forwardedOperands := operands }
-      getSuccessorForOperandsImpl? := fun _ _ successors => successors[0]?
+      getSuccessorIndexForOperandsImpl? := fun _ _ => some 0
     }
   | .brcond =>
     some {
       getSuccessorOperandsImpl? := fun props operands successorIndex =>
         BranchOpInterface.getSegmentedSuccessorOperands?
           1 props.operandSegmentSizes.values operands successorIndex
-      getSuccessorForOperandsImpl? := fun _ operands successors => do
+      getSuccessorIndexForOperandsImpl? := fun _ operands => do
         let some (.int _ (.val condition)) ← operands[0]? | none
-        BranchOpInterface.getConditionalSuccessor? successors (condition ≠ 0)
+        some (BranchOpInterface.getConditionalSuccessorIndex (condition ≠ 0))
+      getUnconditionalBranchImpl? := fun _ => some ⟨.br, ()⟩
     }
   | _ => none
 
