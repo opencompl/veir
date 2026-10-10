@@ -69,7 +69,7 @@ instance : IsOpCode Cf where
   fromAttrDict := Cf.fromAttrDict
   toAttrDict := Cf.toAttrDict
 
-def Cf.branchOpInterface? (op : Cf) : Option (BranchOpInterface (Cf.propertiesOf op)) :=
+def Cf.branchOpInterface? (op : Cf) : Option (BranchOpInterface Cf (Cf.propertiesOf op)) :=
   match op with
   | .br =>
     some {
@@ -86,6 +86,7 @@ def Cf.branchOpInterface? (op : Cf) : Option (BranchOpInterface (Cf.propertiesOf
       getSuccessorIndexForOperandsImpl? := fun _ operands => do
         let some (.int _ (.val condition)) ← operands[0]? | none
         some (BranchOpInterface.getConditionalSuccessorIndex (condition ≠ 0))
+      getUnconditionalBranchImpl? := fun _ => some ⟨.br, ()⟩
     }
 
 /--

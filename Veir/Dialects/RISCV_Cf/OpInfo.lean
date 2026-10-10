@@ -129,7 +129,7 @@ def Riscv_Cf.functionInterface? (op : Riscv_Cf) :
   | _ => none
 
 def Riscv_Cf.branchOpInterface?
-    (op : Riscv_Cf) : Option (BranchOpInterface (Riscv_Cf.propertiesOf op)) :=
+    (op : Riscv_Cf) : Option (BranchOpInterface Riscv_Cf (Riscv_Cf.propertiesOf op)) :=
   match op with
   | .branch =>
     some {
@@ -146,6 +146,7 @@ def Riscv_Cf.branchOpInterface?
       getSuccessorIndexForOperandsImpl? := fun _ operands => do
         let some (.reg condition) ← operands[0]? | none
         some (BranchOpInterface.getConditionalSuccessorIndex (condition.val = 0#64))
+      getUnconditionalBranchImpl? := fun _ => some ⟨.branch, ()⟩
     }
   | .bnez =>
     some {
@@ -155,6 +156,7 @@ def Riscv_Cf.branchOpInterface?
       getSuccessorIndexForOperandsImpl? := fun _ operands => do
         let some (.reg condition) ← operands[0]? | none
         some (BranchOpInterface.getConditionalSuccessorIndex (condition.val ≠ 0#64))
+      getUnconditionalBranchImpl? := fun _ => some ⟨.branch, ()⟩
     }
   | .beq =>
     some {
@@ -165,6 +167,7 @@ def Riscv_Cf.branchOpInterface?
         let some (.reg lhs) ← operands[0]? | none
         let some (.reg rhs) ← operands[1]? | none
         some (BranchOpInterface.getConditionalSuccessorIndex (lhs = rhs))
+      getUnconditionalBranchImpl? := fun _ => some ⟨.branch, ()⟩
     }
   | .bne =>
     some {
@@ -175,6 +178,7 @@ def Riscv_Cf.branchOpInterface?
         let some (.reg lhs) ← operands[0]? | none
         let some (.reg rhs) ← operands[1]? | none
         some (BranchOpInterface.getConditionalSuccessorIndex (lhs ≠ rhs))
+      getUnconditionalBranchImpl? := fun _ => some ⟨.branch, ()⟩
     }
   | .blt =>
     some {
@@ -185,6 +189,7 @@ def Riscv_Cf.branchOpInterface?
         let some (.reg lhs) ← operands[0]? | none
         let some (.reg rhs) ← operands[1]? | none
         some (BranchOpInterface.getConditionalSuccessorIndex (BitVec.slt lhs.val rhs.val))
+      getUnconditionalBranchImpl? := fun _ => some ⟨.branch, ()⟩
     }
   | .bge =>
     some {
@@ -195,6 +200,7 @@ def Riscv_Cf.branchOpInterface?
         let some (.reg lhs) ← operands[0]? | none
         let some (.reg rhs) ← operands[1]? | none
         some (BranchOpInterface.getConditionalSuccessorIndex (!BitVec.slt lhs.val rhs.val))
+      getUnconditionalBranchImpl? := fun _ => some ⟨.branch, ()⟩
     }
   | .bltu =>
     some {
@@ -205,6 +211,7 @@ def Riscv_Cf.branchOpInterface?
         let some (.reg lhs) ← operands[0]? | none
         let some (.reg rhs) ← operands[1]? | none
         some (BranchOpInterface.getConditionalSuccessorIndex (BitVec.ult lhs.val rhs.val))
+      getUnconditionalBranchImpl? := fun _ => some ⟨.branch, ()⟩
     }
   | .bgeu =>
     some {
@@ -215,6 +222,7 @@ def Riscv_Cf.branchOpInterface?
         let some (.reg lhs) ← operands[0]? | none
         let some (.reg rhs) ← operands[1]? | none
         some (BranchOpInterface.getConditionalSuccessorIndex (!BitVec.ult lhs.val rhs.val))
+      getUnconditionalBranchImpl? := fun _ => some ⟨.branch, ()⟩
     }
   | .func | .unreachable | .call | .return => none
 

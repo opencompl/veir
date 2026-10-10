@@ -600,7 +600,7 @@ private def Llvm.getSwitchSuccessorIndexForOperands?
         return i + 1
     some 0
 
-def Llvm.branchOpInterface? (op : Llvm) : Option (BranchOpInterface (Llvm.propertiesOf op)) :=
+def Llvm.branchOpInterface? (op : Llvm) : Option (BranchOpInterface Llvm (Llvm.propertiesOf op)) :=
   match op with
   | .br =>
     some {
@@ -617,11 +617,15 @@ def Llvm.branchOpInterface? (op : Llvm) : Option (BranchOpInterface (Llvm.proper
       getSuccessorIndexForOperandsImpl? := fun _ operands => do
         let some (.int _ (.val condition)) ← operands[0]? | none
         some (BranchOpInterface.getConditionalSuccessorIndex (condition ≠ 0))
+      getUnconditionalBranchImpl? := fun props =>
+        some ⟨.br, ({ loop_annotation := props.loop_annotation } : LLVMBrProperties)⟩
     }
   | .switch =>
     some {
       getSuccessorOperandsImpl? := Llvm.getSwitchSuccessorOperands?
       getSuccessorIndexForOperandsImpl? := Llvm.getSwitchSuccessorIndexForOperands?
+      getUnconditionalBranchImpl? := fun _ =>
+        some ⟨.br, ({ loop_annotation := none } : LLVMBrProperties)⟩
     }
   | _ => none
 
