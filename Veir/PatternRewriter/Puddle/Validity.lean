@@ -742,6 +742,23 @@ macro "simpPuddleSemantics" : tactic =>
     /- Elementwise array refinement -/
     RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.arrayIsRefinedBy_refl])
 
+namespace PuddleCbv
+
+/-
+Lean 4.35's cbv simproc for `if True` has a bug that prevents it from being used with `cbv`.
+This `cbv_eval` rule will prevent this `if True` from appearing in puddle proofs.
+-/
+@[scoped cbv_eval]
+theorem guard_eq_cond {condition : Prop} [Decidable condition] :
+    (guard condition : Option Unit) = cond (decide condition) (some ()) none := by
+  cases ‹Decidable condition› <;> rfl
+
+/- Evaluate arrays through their list representation even when Array.Basic's
+implementation is hidden by module imports. -/
+attribute [scoped cbv_eval ←] List.toArray_range
+
+end PuddleCbv
+
 /-- Discharge structural obligations and expose a pattern's assignment-free semantic proposition. -/
 macro "provePuddleValid" : tactic =>
   `(tactic| (
@@ -749,7 +766,7 @@ macro "provePuddleValid" : tactic =>
     constructor
     · provePuddleSupported
     · cbv
-    · native_decide
+    · open scoped PuddleCbv in cbv
     simpPuddleSemantics
   ))
 
