@@ -17,6 +17,7 @@ import UnitTest.DataFlowFramework.ModArithRangeAnalysis
 import UnitTest.ConstantValue
 import UnitTest.Evaluate
 import UnitTest.Interp
+import UnitTest.CollectingSemantics
 import UnitTest.RuntimeValueSimp
 import UnitTest.FoldDecision
 import UnitTest.SideEffectInterfaces
@@ -27,4 +28,5 @@ import UnitTest.BoundedBitblasting.BoundedBitblasting
 import UnitTest.BoundedBitblasting.Elab
 import UnitTest.BoundedBitblasting.CounterExamples
 import UnitTest.DataFlowFramework.SparseConstantPropagation
+import UnitTest.DataFlowFramework.SCCPChecker
 import UnitTest.MemoryLayout

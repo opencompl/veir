@@ -7,3 +7,4 @@ public import Veir.Analysis.DataFlow.Printer
 public import Veir.Analysis.DataFlow.ModArithRangeAnalysis
 public import Veir.Analysis.DataFlow.SparseForwardDataFlowAnalysis
 public import Veir.Analysis.DataFlow.SparseConstantPropagationAnalysis
+public import Veir.Analysis.DataFlow.SCCPRefinement
