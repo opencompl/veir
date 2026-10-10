@@ -17,102 +17,78 @@ Kennedy algorithm described in their paper "A Simple, Fast Dominance Algorithm."
 Like the algorithm in that paper, we initialize the entry block to dominate
 itself, process reachable blocks in reverse postorder, and iteratively refine
 each block's immediate dominator by intersecting the dominator chains of its
-already processed predecessors. The `intersect` helper uses cached postorder
-indices of two blocks as pointers into their dominator chains. The lower
-ranked pointer is moved upward until both pointers meet at their nearest
-common dominator. `computeImmediateDominator` implements the
-paper's update step by choosing the first predecessor whose immediate
-dominator is already known as an initial candidate, then repeatedly
-intersects that candidate with the other predecessors whose immediate
-dominator is already known. The resulting candidate is the current
-immediate dominator estimate for the block. As more predecessor dominator
-facts become available, the worklist revisits the block and recomputes that
-estimate. Each recomputation either preserves the estimate or moves it upward
-in the dominator tree (note that this is monotonic!), and the process repeats
-until the facts reach a fixpoint.
+already processed predecessors. The `intersect` helper uses dense reverse postorder
+indices as pointers into cached immediate dominator chains. The lower ranked
+pointer is moved upward until both pointers meet at their nearest common dominator
+`computeImmediateDominator` implements the paper's update step by choosing the first
+predecessor whose immediate dominator is already known as an initial candidate, then
+repeatedly intersects that candidate with the other predecessors whose immediate
+dominator is already known. The resulting candidate is the current immediate
+dominator estimate for the block. Each reverse postorder sweep either preserves the
+estimates or moves them upward in the dominator tree (note that this is monotonic!),
+and the process repeats until the facts reach a fixpoint.
 
-In VeIR, dominator facts are attached to `BlockPtr`s. A separate
-region metadata fact stores the postorder numbering needed by `intersect`, and
-the ordinary dataflow worklist is used to revisit dependent successors until the
-immediate dominator facts reach a fixpoint.
+In VeIR, one dominance fact attached to the entry block stores the result for an
+entire region. It caches the reverse postorder, maps blocks to dense indices, and
+stores the immediate dominator and predecessor indices used by `intersect`. A
+region's entry point is its dataflow work item. Each visit performs exactly one
+complete reverse postorder sweep, then re-enqueues the entry point when another
+sweep is required.
 -/
-
-namespace BlockPtr
-
-/--
-Look up the dominator fact stored on `block`.
-
-Returns `none` when dominance analysis has not attached a dominator fact to the block.
--/
-def getDominatorFact? [FactSpec .dominator]
-    (block : BlockPtr) (dfCtx : DataFlowContext) : Option DominatorFact :=
-  dfCtx.getFact? .dominator (.BlockPtr block)
-
-/--
-Return the immediate dominator currently recorded for `block`.
-
-This is just `block.getDominatorFact?` projected to its `iDom` field, so it
-returns `none` when the fact is missing or when the fact has no immediate
-dominator yet.
--/
-def getIDom? [FactSpec .dominator]
-    (block : BlockPtr) (dfCtx : DataFlowContext) : Option BlockPtr :=
-  block.getDominatorFact? dfCtx >>= (·.iDom)
-
-/--
-Did the dominance analysis reach `block` from the entry of its enclosing region?
--/
-def isReachable [FactSpec .dominator]
-    (block : BlockPtr) (dfCtx : DataFlowContext) : Bool :=
-  (block.getDominatorFact? dfCtx).isSome
-
-end BlockPtr
 
 namespace RegionPtr
 
 /--
-Look up the region metadata fact stored at the entry block of `region`.
+Look up the region dominance fact stored at the entry block of `region`.
 
-Returns `none` when the region has no entry block or when region metadata has
-not been attached to that entry block.
+Returns `none` when the region has no entry block or when dominance analysis has
+not attached a fact to that entry block.
 -/
-def getRegionMetadataFact? [FactSpec .regionMetadata] (region : RegionPtr) (dfCtx : DataFlowContext)
-    (irCtx : WfIRContext OpCode) : Option RegionMetadataFact :=
-  (region.get! irCtx.raw).firstBlock >>= dfCtx.getFact? .regionMetadata ∘ .BlockPtr
+def getRegionDominanceFact? [FactSpec .regionDominance]
+    (region : RegionPtr)
+    (dfCtx : DataFlowContext)
+    (irCtx : WfIRContext OpCode) : Option RegionDominanceFact :=
+  (region.get! irCtx.raw).firstBlock >>= dfCtx.getFact? .regionDominance ∘ .BlockPtr
 
 end RegionPtr
 
-namespace DominatorFact
+namespace BlockPtr
 
-def mkDefault : DominatorFact :=
+/--
+Did the dominance analysis reach `block` from the entry of its enclosing region?
+
+Reachable blocks have an index and an initialized immediate dominator index in
+their enclosing region's dominance fact.
+-/
+def isReachable [FactSpec .regionDominance]
+    (block : BlockPtr)
+    (dfCtx : DataFlowContext)
+    (irCtx : WfIRContext OpCode) : Bool := Id.run do
+  let some region := (block.get! irCtx.raw).parent
+    | return false
+  let some dominance := region.getRegionDominanceFact? dfCtx irCtx
+    | return false
+  let some index := dominance.blockIndex.get? block
+    | return false
+  return decide (dominance.immediateDominators[index]! < dominance.immediateDominators.size)
+
+end BlockPtr
+
+namespace RegionDominanceFact
+
+def mkDefault : RegionDominanceFact :=
   { dependents := #[]
-    payload := { iDom := none } }
+    payload := {} }
 
-def propagate (fact : DominatorFact) (_anchor : LatticeAnchor) 
+def propagate (fact : RegionDominanceFact) (_anchor : LatticeAnchor)
     (dfCtx : DataFlowContext) (_irCtx : WfIRContext OpCode) : DataFlowContext :=
   { dfCtx with workList := fact.enqueueDependents dfCtx.workList }
 
-instance : FactSpec .dominator where
-  mkDefault := DominatorFact.mkDefault
-  propagate := DominatorFact.propagate
+instance : FactSpec .regionDominance where
+  mkDefault := RegionDominanceFact.mkDefault
+  propagate := RegionDominanceFact.propagate
 
-end DominatorFact
-
-namespace RegionMetadataFact
-
-def mkDefault : RegionMetadataFact :=
-  { dependents := #[]
-    payload := { postOrderIndex := {} } }
-
-def propagate (_fact : RegionMetadataFact) (_anchor : LatticeAnchor) 
-    (dfCtx : DataFlowContext) (_irCtx : WfIRContext OpCode) : DataFlowContext :=
-  dfCtx
-
-instance : FactSpec .regionMetadata where
-  mkDefault := RegionMetadataFact.mkDefault
-  propagate := RegionMetadataFact.propagate
-
-end RegionMetadataFact
+end RegionDominanceFact
 
 namespace DominanceAnalysis
 
@@ -120,16 +96,14 @@ def kind : AnalysisKind :=
   .dominance
 
 /--
-The returned array is CFG in postorder, and the map assigns each block a
-postorder index used by `intersect`.
+The returned array is the CFG in postorder.
 -/
 private def collectPostOrder
     (region : RegionPtr)
-    (irCtx : WfIRContext OpCode) : Array BlockPtr × HashMap BlockPtr Nat := Id.run do
+    (irCtx : WfIRContext OpCode) : Array BlockPtr := Id.run do
   let mut postOrder : Array BlockPtr := #[]
-  let mut postOrderIndex : HashMap BlockPtr Nat := {}
   let some entry := (region.get! irCtx.raw).firstBlock
-    | return (postOrder, postOrderIndex)
+    | return postOrder
   let mut stack : Array (BlockPtr × Bool) := #[(entry, false)]
   let mut seen : HashSet BlockPtr := ∅
 
@@ -139,7 +113,6 @@ private def collectPostOrder
 
     if visited then
       postOrder := postOrder.push block
-      postOrderIndex := postOrderIndex.insert block postOrder.size
     else if seen.contains block then
       continue
     else
@@ -150,9 +123,28 @@ private def collectPostOrder
         for succ in terminator.getSuccessors! irCtx.raw do
           if !seen.contains succ then
             stack := stack.push (succ, false)
-  (postOrder, postOrderIndex)
+  postOrder
 
-/-- Initialize the dominators and enqueue them in reverse post order. -/
+/-- Cache reachable predecessor indices once, outside the iterative solver. -/
+private def collectPredecessors
+    (reversePostOrder : Array BlockPtr)
+    (blockIndex : HashMap BlockPtr Nat)
+    (irCtx : WfIRContext OpCode) : Array (Array Nat) := Id.run do
+  let mut predecessors := #[]
+  for block in reversePostOrder do
+    let mut preds := #[]
+    let mut currentUse := (block.get! irCtx.raw).firstUse
+    while let some predUse := currentUse do
+      let use := predUse.get! irCtx.raw
+      currentUse := use.nextUse
+      let some predBlock := (use.owner.get! irCtx.raw).parent
+        | continue
+      if let some index := blockIndex.get? predBlock then
+        preds := preds.push index
+    predecessors := predecessors.push preds
+  predecessors
+
+/-- Initialize a region dominance fact and enqueue its first reverse postorder sweep. -/
 private def initializeRegion
     (region : RegionPtr)
     (dfCtx : DataFlowContext)
@@ -160,25 +152,23 @@ private def initializeRegion
   let mut dfCtx := dfCtx
   let some entry := (region.get! irCtx.raw).firstBlock
     | return dfCtx
-  let (postOrder, postOrderIndex) := collectPostOrder region irCtx
-  let reversePostOrder := postOrder.reverse
-  dfCtx :=
-    dfCtx.modifyFact .regionMetadata (.BlockPtr entry) fun fact =>
-      fact.setPostOrderIndex postOrderIndex
-
+  let reversePostOrder := (collectPostOrder region irCtx).reverse
+  let mut blockIndex : HashMap BlockPtr Nat := {}
+  let mut index := 0
   for block in reversePostOrder do
-    let mut dependents := #[]
-    if let some terminator := (block.get! irCtx.raw).lastOp then
-      for succ in terminator.getSuccessors! irCtx.raw do
-        dependents := dependents.push (InsertPoint.atStart! succ irCtx.raw, kind)
-    dfCtx := dfCtx.modifyFact .dominator (.BlockPtr block) fun fact =>
-      (fact.setDependents dependents).setIDom
-        (if block = entry then some entry else none)
-    dfCtx := dfCtx.enqueue (InsertPoint.atStart! block irCtx.raw, kind)
-  dfCtx
+    blockIndex := blockIndex.insert block index
+    index := index + 1
+  let predecessors := collectPredecessors reversePostOrder blockIndex irCtx
+  let mut immediateDominators := Array.replicate reversePostOrder.size reversePostOrder.size
+  immediateDominators := immediateDominators.set! 0 0
+  dfCtx :=
+    dfCtx.modifyFactAndPropagate .regionDominance (.BlockPtr entry) (fun fact =>
+      ({ fact with payload :=
+          { reversePostOrder, blockIndex, predecessors, immediateDominators } }, true)) irCtx
+  dfCtx.enqueue (InsertPoint.atStart! entry irCtx.raw, kind)
 
 /-- Recursively initialize the analysis on nested regions. -/
-partial def initializeRecursively
+partial def init
     (op : OperationPtr)
     (dfCtx : DataFlowContext)
     (irCtx : WfIRContext OpCode) : DataFlowContext := Id.run do
@@ -191,94 +181,100 @@ partial def initializeRecursively
     while let some block := currentBlock do
       let mut currentOp := (block.get! irCtx.raw).firstOp
       while let some nestedOp := currentOp do
-        dfCtx := initializeRecursively nestedOp dfCtx irCtx
+        dfCtx := init nestedOp dfCtx irCtx
         currentOp := (nestedOp.get! irCtx.raw).next
       currentBlock := (block.get! irCtx.raw).next
 
   dfCtx
-
-def init
-    (top : OperationPtr)
-    (dfCtx : DataFlowContext)
-    (irCtx : WfIRContext OpCode) : DataFlowContext :=
-  initializeRecursively top dfCtx irCtx
-
 /--
-Find the nearest common dominator of `block1` and `block2`.
+Find the nearest common dominator of two reverse postorder indices.
 
-On each step, the cursor with the smaller postorder index is moved upward until
-both cursors coincide.
+On each step, the finger with the larger reverse postorder index is moved upward
+until both fingers coincide.
 -/
 private def intersect
-    (block1 block2 : BlockPtr)
-    (postOrderIndex : HashMap BlockPtr Nat)
-    (dfCtx : DataFlowContext) : BlockPtr := Id.run do
-  let mut finger1 := block1
-  let mut finger2 := block2
+    (index1 index2 : Nat)
+    (immediateDominators : Array Nat) : Nat := Id.run do
+  let mut finger1 := index1
+  let mut finger2 := index2
   while finger1 ≠ finger2 do
-    while postOrderIndex[finger1]! < postOrderIndex[finger2]! do
-      finger1 := (finger1.getIDom? dfCtx).get!
-    while postOrderIndex[finger2]! < postOrderIndex[finger1]! do
-      finger2 := (finger2.getIDom? dfCtx).get!
+    while finger1 > finger2 do
+      finger1 := immediateDominators[finger1]!
+    while finger2 > finger1 do
+      finger2 := immediateDominators[finger2]!
   finger1
 
 /--
 Compute the next immediate dominator candidate for `block`.
 
 The entry block dominates itself. For every other block, we scan its predecessors,
-pick the first one whose dominator fact has already been computed, and then
+pick the first one whose working immediate dominator has already been computed, and then
 repeatedly `intersect` that candidate with each other processed predecessor.
+
+The boolean result reports whether a reachable predecessor is still waiting for
+its first immediate dominator value, in which case the region needs another sweep.
 -/
 private def computeImmediateDominator
-    (block : BlockPtr)
-    (dfCtx : DataFlowContext)
-    (irCtx : WfIRContext OpCode) : Option BlockPtr := do
-  let region := ((block.get! irCtx.raw).parent).get!
-  let entry := ((region.get! irCtx.raw).firstBlock).get!
-  let metadata ← region.getRegionMetadataFact? dfCtx irCtx
-  if block = entry then 
-    return entry
+    (blockIndex : Nat)
+    (predecessors : Array (Array Nat))
+    (immediateDominators : Array Nat) : Option Nat × Bool := Id.run do
+  if blockIndex = 0 then
+    return (some 0, false)
 
-  let mut currentPredUse := (block.get! irCtx.raw).firstUse
-  let mut newIDom : Option BlockPtr := none
+  let mut newIDomIndex : Option Nat := none
+  let mut waiting := false -- Waiting for reachable predecessor
 
-  while let some predUse := currentPredUse do
-    let predUseStruct := predUse.get! irCtx.raw
-    currentPredUse := predUseStruct.nextUse
-    let predOp := predUseStruct.owner
-    let some predBlock := (predOp.get! irCtx.raw).parent
-      | continue
-    let some _ := predBlock.getIDom? dfCtx
-      | continue
-    newIDom :=
-      match newIDom with
-      | none => predBlock
-      | some idom =>
-          intersect predBlock idom metadata.postOrderIndex dfCtx
+  for predIndex in predecessors[blockIndex]! do
+    if immediateDominators[predIndex]! = immediateDominators.size then
+      waiting := true
+      continue
+    newIDomIndex :=
+      match newIDomIndex with
+      | none => predIndex
+      | some idomIndex => intersect predIndex idomIndex immediateDominators
 
-  newIDom
+  (newIDomIndex, waiting)
 
 /--
-Visit one dominator work item.
+Perform one complete Cooper-Harvey-Kennedy reverse postorder sweep.
 
-Only block entry insertion points schedule dominance work. Non-entry insertion points are ignored.
-For a block entry, recompute the block's current immediate dominator candidate and update the fact
-stored on that block when the candidate changes.
+If an initialized immediate dominator changes, or a reachable predecessor is
+still uninitialized, the region entry is re-enqueued for another sweep.
 -/
 def visit
     (point : InsertPoint)
     (dfCtx : DataFlowContext)
-    (irCtx : WfIRContext OpCode) : DataFlowContext :=
+    (irCtx : WfIRContext OpCode) : DataFlowContext := Id.run do
   if point.prev! irCtx.raw ≠ none then
-    -- Dominance facts are attached only to block-entry insertion points.
-    dfCtx
-  else
-    let block := (point.block! irCtx.raw).get!
-    match computeImmediateDominator block dfCtx irCtx with
-    | none => dfCtx
-    | some newIDom => 
-      dfCtx.modifyFactAndPropagate .dominator (.BlockPtr block) (fun fact =>
-       (fact.setIDom (some newIDom), some newIDom ≠ fact.iDom)) irCtx
+    return dfCtx
+  let block := (point.block! irCtx.raw).get!
+  let region := ((block.get! irCtx.raw).parent).get!
+  let entry := ((region.get! irCtx.raw).firstBlock).get!
+  let some dominance := region.getRegionDominanceFact? dfCtx irCtx
+    | return dfCtx
+  let mut dfCtx := dfCtx
+  let mut immediateDominators := dominance.immediateDominators
+  let mut immediateDominatorsChanged := false
+  let mut needsSweep := false
+  for blockIndex in [:dominance.reversePostOrder.size] do
+    let (newIDomIndex?, waiting) :=
+      computeImmediateDominator blockIndex dominance.predecessors immediateDominators
+    needsSweep := needsSweep || waiting
+    if let some newIDomIndex := newIDomIndex? then
+      let oldIDomIndex := immediateDominators[blockIndex]!
+      if oldIDomIndex ≠ newIDomIndex then
+        -- Initializing a fact cannot invalidate an earlier chain traversal: no
+        -- traversal can pass through a block before that block has an iDom.
+        -- A refinement of an existing fact can, so it requires another sweep.
+        needsSweep := needsSweep || oldIDomIndex ≠ immediateDominators.size
+        immediateDominatorsChanged := true
+        immediateDominators := immediateDominators.set! blockIndex newIDomIndex
+  if immediateDominatorsChanged then
+    dfCtx := dfCtx.modifyFactAndPropagate .regionDominance (.BlockPtr entry) (fun fact =>
+      (fact.setImmediateDominators immediateDominators, true)) irCtx
+  if needsSweep then
+    dfCtx := dfCtx.enqueue (InsertPoint.atStart! entry irCtx.raw, kind)
+  dfCtx
 
 end DominanceAnalysis
 

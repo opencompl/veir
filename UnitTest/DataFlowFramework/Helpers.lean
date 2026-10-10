@@ -148,9 +148,10 @@ render any test mismatches produced by `check`.
 def runWithAnalyses
     (mlir : String)
     (analyses : Array DataFlowAnalysis)
-    (check : OperationPtr -> DataFlowContext -> WfIRContext OpCode -> MismatchReport) :
+    (check : OperationPtr -> DataFlowContext -> WfIRContext OpCode -> MismatchReport)
+    (verifyAfterParse : Bool := true) :
     String := Id.run do
-  match parseSourceString mlir.toUTF8 with
+  match parseSourceString mlir.toUTF8 (verifyAfterParse := verifyAfterParse) with
   | .error err =>
       return s!"parse failed: {err}"
   | .ok (ctx, top, _) =>

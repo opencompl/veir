@@ -81,8 +81,7 @@ deriving BEq, Hashable, Repr, DecidableEq
 Tags to match on for different fact types.
 -/
 inductive FactKind where
-  | dominator
-  | regionMetadata
+  | regionDominance
   | liveness
   /-- Sparse fact tag reserved for dataflow framework unit tests. -/
   | test
@@ -131,18 +130,18 @@ def dequeue? (workList : WorkList) : Option (WorkItem × WorkList) := do
 end WorkList
 
 /--
-The immediate dominator fact attached to a block entry.
--/
-structure DominatorPayload where
-  iDom : Option BlockPtr := none
-
-/--
-Caches the post ordering of a region's blocks.
+Represents the dominance information for all reachable blocks in a region as
+dense reverse postorder indexed arrays. The predecessor indices support the
+analysis's iterative updates; `immediateDominators` is the resulting abstract
+value exposed to clients.
 
 Stored in the entry block of each region.
 -/
-structure RegionMetadataPayload where
-  postOrderIndex : HashMap BlockPtr Nat := {}
+structure RegionDominancePayload where
+  reversePostOrder : Array BlockPtr := #[]
+  blockIndex : HashMap BlockPtr Nat := {}
+  predecessors : Array (Array Nat) := #[]
+  immediateDominators : Array Nat := #[]
 
 /-- A sparse dataflow fact payload with analysis specific metadata. -/
 structure SparsePayload (Domain : Type) (Metadata : Type := Unit) where
@@ -160,8 +159,7 @@ structure LivenessPayload where
 The fact specific data stored for each fact kind.
 -/
 @[expose] def FactPayload : FactKind → Type
-  | .dominator => DominatorPayload
-  | .regionMetadata => RegionMetadataPayload
+  | .regionDominance => RegionDominancePayload
   | .liveness => LivenessPayload
   | .test => SparsePayload TestDomain Unit
   | .sparseConstant => SparsePayload AbstractConstant (Option OpCode)
@@ -173,8 +171,8 @@ A dataflow fact stored by the framework.
 
 Each fact associates with a lattice anchor (some location in the program), has
 an array of dependents (other facts that "depend" on this fact's current state in
-some fashion), has an array of analysis subscribers (similar to dependents except 
-it's entire analyses that depend on this fact's current state), and has the fact 
+some fashion), has an array of analysis subscribers (similar to dependents except
+it's entire analyses that depend on this fact's current state), and has the fact
 specific payload determined by its `FactKind`.
 -/
 structure Fact (kind : FactKind) where
@@ -219,18 +217,21 @@ def enqueueDependents (fact : Fact kind) (workList : WorkList) : WorkList :=
       workList := workList.enqueue workItem
     workList
 
-def iDom (fact : Fact .dominator) : Option BlockPtr :=
-  fact.payload.iDom
+def reversePostOrder (fact : Fact .regionDominance) : Array BlockPtr :=
+  fact.payload.reversePostOrder
 
-def setIDom (fact : Fact .dominator) (iDom : Option BlockPtr) : Fact .dominator :=
-  { fact with payload := { fact.payload with iDom := iDom } }
+def blockIndex (fact : Fact .regionDominance) : HashMap BlockPtr Nat :=
+  fact.payload.blockIndex
 
-def postOrderIndex (fact : Fact .regionMetadata) : HashMap BlockPtr Nat :=
-  fact.payload.postOrderIndex
+def predecessors (fact : Fact .regionDominance) : Array (Array Nat) :=
+  fact.payload.predecessors
 
-def setPostOrderIndex (fact : Fact .regionMetadata)
-    (postOrderIndex : HashMap BlockPtr Nat) : Fact .regionMetadata :=
-  { fact with payload := { fact.payload with postOrderIndex := postOrderIndex } }
+def immediateDominators (fact : Fact .regionDominance) : Array Nat :=
+  fact.payload.immediateDominators
+
+def setImmediateDominators (fact : Fact .regionDominance)
+    (immediateDominators : Array Nat) : Fact .regionDominance :=
+  { fact with payload := { fact.payload with immediateDominators } }
 
 def live (fact : Fact .liveness) : Bool :=
   match fact.payload.latticeElement with
@@ -245,9 +246,7 @@ def setToLive (fact : Fact .liveness) : Fact .liveness :=
 
 end Fact
 
-abbrev DominatorFact := Fact .dominator
-
-abbrev RegionMetadataFact := Fact .regionMetadata
+abbrev RegionDominanceFact := Fact .regionDominance
 
 abbrev LivenessFact := Fact .liveness
 
