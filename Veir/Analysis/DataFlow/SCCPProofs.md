@@ -37,6 +37,141 @@ theorem checked_module_refines
 The earlier `function_refines` and `module_refines` remain available for clients
 that establish `Facts.Valid` directly.
 
+## Roadmap for understanding and reviewing the work
+
+Read the definitions and theorem statements first, then return to the proofs in
+the order below. The reading order follows the argument, rather than the order
+of declarations in each file. The central question is how one concrete execution
+is covered by the combined SSA-value and CFG-executability facts, and how that
+coverage justifies a rewrite of the entire function.
+
+1. **Start with the conclusion and its three premises.** In
+   [SCCPRefinement.lean](SCCPRefinement.lean), read `checked_rewrite_refines`,
+   `Rewrite`, and `checked_module_refines`. Then inspect `FunctionOp.isRefinedBy`,
+   `FunctionResult.isRefinedBy`, and `Interp.isRefinedBy` in the existing
+   [Refinement/Basic.lean](../../Interpreter/Refinement/Basic.lean).
+   Distinguish the Boolean acceptance premise from the two semantic premises:
+   transfer soundness and a local rewrite simulation. Neither semantic premise
+   has been instantiated for the complete canonicalizer. Check the conclusion's
+   treatment of memories, related input arguments, UB, and interpreter failure
+   before reviewing how it is proved.
+
+2. **Understand the concrete execution being collected.** In
+   [CollectingSemantics.lean](../../Interpreter/CollectingSemantics.lean), read
+   `Entry`, `Entry.run`, `Step`, `Reachable`, `reachable_iff`, and
+   `Reachable.invariant`. An entry contains a block, pending incoming arguments,
+   an SSA environment, and memory. Control follows the CFG while the environment
+   records SSA values; these are parts of the same concrete state. Next read
+   `Prefix`, `AtOperation`, and the `Values`, `Blocks`, and `Edges` projections.
+   Check that loops can bind the same static value repeatedly, that arguments
+   are bound simultaneously from the pending array, and that observations before
+   later UB are retained. For now, read only the statement of
+   `executes_iff_interpretBlockCFG`; its proof can wait until step 5.
+
+3. **Understand what the analysis facts claim.** In
+   [SCCPSoundness.lean](SCCPSoundness.lean), read `Facts`, `CoversState`,
+   `CoversEntry`, `Facts.Valid`, and `Facts.Sound`. The distinction between
+   `Valid` and `Sound` is central: `Valid` gives local inductive obligations;
+   `Sound` describes all collected executions. Follow `covers_operation`,
+   `covers_step`, and `covers_reachable` into `facts_sound`. Then read
+   `constant_refines` and `dead_block_unreachable`. Consult `AbstractConstant.γ`
+   and `γ_monotone` in [ConstantDomain.lean](Domains/ConstantDomain.lean) to check
+   the direction of refinement: a fact `constant 5` also covers same-width
+   poison. The invariant covers retained bindings from earlier iterations; it
+   does not claim their original defining equations still hold.
+
+4. **Review the replacement for a solver-correctness proof.** In
+   [SCCPChecker.lean](SCCPChecker.lean), read `Candidate`, `Candidate.toFacts`,
+   `Absorbs`, and `absorbs_iff`, followed by `EntryClosed`, `OperationClosed`,
+   and `checkFacts`. Check the executable transfer queries `resultUpdates`,
+   `enabledSuccessors`, and `argumentUpdate` against those constraints.
+   `checkFacts_closed` establishes abstract closure without a transfer-soundness
+   hypothesis. Now read both fields of `TransfersSound`: they are the remaining
+   connection to the interpreter. Follow `covers_binding` and `covers_execution`
+   into `checkFacts_sound` to see how closure and those contracts establish
+   `Facts.Valid`. Pay particular attention to initialization, duplicate successor
+   occurrences, retained live edges, and the literal-operand difference described
+   in [Checking after solving](#checking-after-solving).
+
+5. **Review how local reasoning reaches complete executions.** In
+   [CollectingRefinement.lean](../../Interpreter/CollectingRefinement.lean), read
+   `Simulation`, `Simulation.executes`, and `Simulation.refines`. The induction
+   follows finite returning executions and uses invariant preservation at each
+   CFG edge. Return to `executes_iff_interpretBlockCFG` in
+   [CollectingSemantics.lean](../../Interpreter/CollectingSemantics.lean) and its
+   two directions: this is the connection to the existing interpreter, rather
+   than an independently invented notion of successful execution. Its reverse
+   direction uses partial-fixpoint induction and is the most technical proof to
+   leave until this point. Finally, read `FunctionBody`, `Initial`, and
+   `evaluate_start` to check how a function invocation initializes that execution.
+
+6. **Reassemble the top-level theorem.** Return to
+   [SCCPRefinement.lean](SCCPRefinement.lean). Read
+   `Facts.CoversState.constant_refines` as the lemma a local substitution proof
+   can use, then follow `function_refines_with`, `function_refines`, and
+   `checked_rewrite_refines`. Read `CheckedFunctionCertificate` and
+   `CheckedModuleCertificate` before the short `checked_module_refines` proof.
+   Check that facts stay attached to the source program, that no premise assumes
+   whole-function refinement, and that `Rewrite` still requires matching effects
+   and control flow. Constant knowledge alone does not discharge that premise.
+
+7. **Use the examples to challenge the definitions.** Read
+   [UnitTest/CollectingSemantics.lean](../../../UnitTest/CollectingSemantics.lean)
+   for concrete reachability witnesses, swapping loop arguments, and observations
+   before UB. Its `pessimisticValid` proof shows that all-top/all-live facts satisfy
+   the semantic validity obligations. Then read
+   [UnitTest/DataFlowFramework/SCCPChecker.lean](../../../UnitTest/DataFlowFramework/SCCPChecker.lean)
+   for actual solver outputs and deliberately corrupted candidates. Those tests
+   exercise executable acceptance; they do not prove the dialect contracts in
+   `TransfersSound`. Finish with
+   [Proof boundary and next obligations](#proof-boundary-and-next-obligations).
+
+### How the proofs fit together
+
+The arrows below describe proof dependencies, not the compiler's execution order.
+`TransfersSound` and `Rewrite` are supplied hypotheses; the arrows connecting
+them to the conclusions are proved.
+
+```mermaid
+flowchart TD
+  accepted["checkFacts = true"] --> closed["Abstract closure: checkFacts_closed"]
+  closed --> valid["Local validity: checkFacts_sound"]
+  transfers["TransfersSound: interpreter contracts"] --> valid
+  valid --> sound["Collecting soundness: facts_sound"]
+  sound --> values["Collected constants refine values; dead blocks are unreachable"]
+  valid --> function["Function refinement: checked_rewrite_refines"]
+  rewrite["Rewrite: initialization and local block simulation"] --> function
+  simulation["Simulation.refines + interpreter adequacy"] --> function
+  function --> module["Per-function certificates imply checked_module_refines"]
+```
+
+There are two uses of local validity here. `facts_sound` gives the statement about
+the collecting semantics that explains the analysis. The function-refinement
+proof uses `Valid.initial` and `Valid.covers_step` directly to preserve its source
+invariant; it does not route through `facts_sound` or require the rewrite to
+preserve the source facts on the target. This is why the local substitution lemma
+is also available on arbitrary states satisfying `CoversState`.
+
+### Trace one branch through the argument
+
+Consider a function entry block that computes `%a = 5` and branches to a block with
+argument `%x`, forwarding `%a`. Suppose the candidate says both values are
+`constant 5` and marks the source block, destination block, and edge live.
+
+| Concrete event | Checked constraint | Semantic justification |
+| --- | --- | --- |
+| The source block is entered | Entry is live; external arguments cover `top` | `checkFacts_sound` establishes the initial invariant. |
+| The constant operation binds `%a` | Its transfer result is absorbed by the fact for `%a` | `TransfersSound.results` and `Absorbs.covers` establish coverage of the new binding. |
+| The terminator branches with an argument array | The enabled edge and destination are live; `%a`'s fact is absorbed by `%x`'s fact | `TransfersSound.branch` connects the interface's successor occurrence and forwarded facts to the actual branch. |
+| The destination binds `%x` | The incoming fact is already covered by the candidate | `covers_binding` establishes coverage after argument assignment, preserving other bindings. |
+
+The same argument applies on a loop backedge. If different iterations give `%x`
+the defined values 5 and 7, the candidate must cover both; `constant 5` cannot
+pass the conflicting incoming constraint. This is where the SSA and CFG parts
+of SCCP meet: an executable edge transports facts into SSA block arguments.
+Replacing a use of `%x` then uses the value-refinement lemma inside a separate
+`Rewrite` proof, which must also justify the surrounding execution and effects.
+
 ## Checking after solving
 
 [`SCCPChecker.lean`](SCCPChecker.lean) implements an executable checker over one
