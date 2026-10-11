@@ -92,38 +92,61 @@ end SymbolOp
 def OperationPtr.isSymbolTable (op : OperationPtr) (ctx : IRContext OpCode) : Bool :=
   HasOpInfo.isSymbolTable (op.getOpType! ctx)
 
+/-- An operation that has the `SymbolTable` trait. -/
+structure SymbolTableOp (ctx : IRContext OpCode) (op : OperationPtr) : Type where
+  isSymbolTable : HasOpInfo.isSymbolTable (op.getOpType! ctx)
+
+namespace SymbolTableOp
+
+/--
+The `SymbolTableOp` view of `op`, or `none` if it does not have the `SymbolTable` trait.
+
+This is equivalent to `op->hasTrait<OpTrait::SymbolTable>()` in MLIR.
+-/
+@[inline]
+def of? (op : OperationPtr) (ctx : IRContext OpCode) : Option (SymbolTableOp ctx op) :=
+  if h : HasOpInfo.isSymbolTable (op.getOpType! ctx) then some ⟨h⟩ else none
+
+@[simp]
+theorem of?_eq_some {op : OperationPtr} {ctx : IRContext OpCode}
+    (symbolTableOp : SymbolTableOp ctx op) : of? op ctx = some symbolTableOp := by
+  cases symbolTableOp; grind [of?]
+
+/-- The `SymbolTableOp` view of an operation with the `SymbolTable` trait. -/
+@[inline]
+def of (op : OperationPtr) (ctx : IRContext OpCode) (h : op.isSymbolTable ctx := by grind) :
+    SymbolTableOp ctx op :=
+  (of? op ctx).get (by grind [of?, OperationPtr.isSymbolTable])
+
 /-- The first operation from `op` onward in its block that defines the symbol `name`. -/
-private def OperationPtr.findSymbolFrom? (op : OperationPtr) (ctx : IRContext OpCode)
+private def findSymbolFrom? (op : OperationPtr) (ctx : IRContext OpCode)
     (name : StringAttr) : Option OperationPtr := do
   if (SymbolOp.of? op ctx).map (·.getSymName) = some name then
     return op
   let next ← (op.get! ctx).next
-  next.findSymbolFrom? ctx name
+  findSymbolFrom? next ctx name
 partial_fixpoint
 
-/-- Returns the symbol named `name` defined directly in the symbol table `op`. -/
-def OperationPtr.lookupSymbolIn? (op : OperationPtr) (ctx : IRContext OpCode)
-    (name : StringAttr) (_hst : op.isSymbolTable ctx := by grind) : Option OperationPtr := do
+variable {ctx : IRContext OpCode} {op : OperationPtr}
+
+/-- Returns the symbol named `name` defined directly in the symbol table. -/
+def lookupSymbol? (_symbolTableOp : SymbolTableOp ctx op) (name : StringAttr) :
+    Option OperationPtr := do
   let region ← (op.get! ctx).regions[0]?
   let block ← (region.get! ctx).firstBlock
   let firstOp ← (block.get! ctx).firstOp
-  firstOp.findSymbolFrom? ctx name
+  findSymbolFrom? firstOp ctx name
+
+end SymbolTableOp
 
 /--
 Returns the symbol named `name` defined directly in `op`, panicking if `op` is not a symbol table.
 -/
 def OperationPtr.lookupSymbolIn! (op : OperationPtr) (ctx : IRContext OpCode)
     (name : StringAttr) : Option OperationPtr :=
-  if hst : op.isSymbolTable ctx then
-    op.lookupSymbolIn? ctx name hst
-  else
-    panic "OperationPtr.lookupSymbolIn! failed: operation is not a symbol table"
-
-@[grind =_, eq_bang ←]
-theorem OperationPtr.lookupSymbolIn!_eq_lookupSymbolIn? {op : OperationPtr}
-    {ctx : IRContext OpCode} {name : StringAttr} (hst : op.isSymbolTable ctx) :
-    op.lookupSymbolIn! ctx name = op.lookupSymbolIn? ctx name hst := by
-  simp [lookupSymbolIn!, hst]
+  match SymbolTableOp.of? op ctx with
+  | some symbolTableOp => symbolTableOp.lookupSymbol? name
+  | none => panic "OperationPtr.lookupSymbolIn! failed: operation is not a symbol table"
 
 /--
 Returns the closest symbol table containing `op`, which is `op` itself if it is a symbol table.
@@ -131,20 +154,18 @@ Returns the closest symbol table containing `op`, which is `op` itself if it is 
 This differs from upstream MLIR in that an unregistered operation does not end the search.
 -/
 def OperationPtr.getNearestSymbolTable? (op : OperationPtr) (ctx : IRContext OpCode) :
-    Option {table : OperationPtr // table.isSymbolTable ctx} := do
-  if h : op.isSymbolTable ctx then
-    return ⟨op, h⟩
+    Option ((table : OperationPtr) × SymbolTableOp ctx table) := do
+  if let some symbolTableOp := SymbolTableOp.of? op ctx then
+    return ⟨op, symbolTableOp⟩
   let parent ← op.getParentOp! ctx
   parent.getNearestSymbolTable? ctx
 partial_fixpoint
 
-/--
-Returns the symbol named `name` in the closest symbol table containing `op`.
--/
+/-- Returns the symbol named `name` in the closest symbol table containing `op`. -/
 def OperationPtr.lookupNearestSymbolFrom? (op : OperationPtr) (ctx : IRContext OpCode)
     (name : StringAttr) : Option OperationPtr := do
-  let ⟨table, hst⟩ ← op.getNearestSymbolTable? ctx
-  table.lookupSymbolIn? ctx name hst
+  let ⟨_, symbolTableOp⟩ ← op.getNearestSymbolTable? ctx
+  symbolTableOp.lookupSymbol? name
 
 end
 

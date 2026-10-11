@@ -87,9 +87,9 @@ private def selector := comdat.body!
 
 -- An operation is its own nearest symbol table if it is one.
 
-#guard (callOp.getNearestSymbolTable? ctx).map (·.val) = some moduleOp
-#guard (selector.getNearestSymbolTable? ctx).map (·.val) = some comdat
-#guard (comdat.getNearestSymbolTable? ctx).map (·.val) = some comdat
+#guard (callOp.getNearestSymbolTable? ctx).map (·.1) = some moduleOp
+#guard (selector.getNearestSymbolTable? ctx).map (·.1) = some comdat
+#guard (comdat.getNearestSymbolTable? ctx).map (·.1) = some comdat
 
 -- Lookup uses the nearest symbol table only, so `callee` is not visible from the comdat.
 
