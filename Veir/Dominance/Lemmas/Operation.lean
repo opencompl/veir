@@ -1,6 +1,7 @@
 module
 
 public import Veir.Dominance.Basic
+public import Veir.Dominance.Lemmas.Path
 public import Veir.Interfaces.RegionKindInterfaces
 
 import all Veir.Dominance.Basic
@@ -103,10 +104,15 @@ axiom OperationPtr.HierarchicallyReachable.of_dominates :
 
 /-- A hierarchically reachable operation is locally reachable in some parent region. -/
 @[grind .]
-axiom OperationPtr.HierarchicallyReachable.exists_locallyReachable :
+theorem OperationPtr.HierarchicallyReachable.exists_locallyReachable :
   op.HierarchicallyReachable ctx →
   op.getParentRegion! ctx.raw = some region →
-  ∃ region, op.LocallyReachable region ctx
+  ∃ region, op.LocallyReachable region ctx := by
+  intro reachable parentRegion
+  obtain ⟨block, opParent, blockParent⟩ :=
+    OperationPtr.getParentRegion!_eq_some_iff.mp parentRegion
+  exact ⟨region, OperationPtr.LocallyReachable.of_parent_block
+    ((reachable.parent_block opParent).locallyReachable blockParent) opParent⟩
 
 /-- A hierarchically reachable operation has a hierarchically reachable parent block. -/
 @[grind .]
@@ -117,9 +123,14 @@ axiom OperationPtr.HierarchicallyReachable.exists_parent :
     block.HierarchicallyReachable ctx
 
 /-- An operation enclosing a hierarchically reachable block is hierarchically reachable. -/
-axiom OperationPtr.HierarchicallyReachable.of_ancestor_block
+theorem OperationPtr.HierarchicallyReachable.of_ancestor_block
     (reachable : block.HierarchicallyReachable ctx) (ancestry : op.Ancestor block ctx) :
-    op.HierarchicallyReachable ctx
+    op.HierarchicallyReachable ctx := by
+  intro parent opParent
+  have parentAncestry : (IRNode.block parent).Ancestor op ctx :=
+    IRNode.Ancestor.of_parent (by
+      simp only [IRNode.parent!_operation, opParent, Option.map_some])
+  exact reachable.of_ancestor (parentAncestry.trans ancestry)
 
 /-- An operation dominating the entry of a hierarchically reachable block in an SSA region
 is itself hierarchically reachable. -/

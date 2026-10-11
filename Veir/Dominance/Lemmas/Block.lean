@@ -108,18 +108,34 @@ variable {root : IRNode} {value : ValuePtr}
 
 /-- A hierarchically reachable block is locally reachable in some parent region. -/
 @[grind .]
-axiom BlockPtr.HierarchicallyReachable.exists_locallyReachable {block : BlockPtr} :
+theorem BlockPtr.HierarchicallyReachable.exists_locallyReachable {block : BlockPtr} :
   block.HierarchicallyReachable ctx →
   (block.get! ctx.raw).parent = some region →
-  ∃ region, block.LocallyReachable region ctx
+  ∃ region, block.LocallyReachable region ctx := by
+  intro reachable parent
+  exact ⟨region, reachable.locallyReachable parent⟩
 
 /-- A locally reachable block in the same region as a hierarchically reachable block
 is hierarchically reachable, since their enclosing blocks coincide. -/
-axiom BlockPtr.HierarchicallyReachable.of_same_region {source target : BlockPtr}
+theorem BlockPtr.HierarchicallyReachable.of_same_region {source target : BlockPtr}
     (reachable : target.HierarchicallyReachable ctx)
     (localReachable : source.LocallyReachable region ctx)
     (targetParent : (target.get! ctx.raw).parent = some region) :
-    source.HierarchicallyReachable ctx
+    source.HierarchicallyReachable ctx := by
+  intro ancestor ancestry ancestorRegion parent
+  by_cases same : ancestor = source
+  · subst ancestor
+    have regionEq : ancestorRegion = region :=
+      Option.some.inj (parent.symm.trans localReachable.parent)
+    subst ancestorRegion
+    exact localReachable
+  · have targetAncestry := IRNode.Ancestor.of_same_parent_of_properAncestor
+      (ancestry.toProperAncestor (by simpa using same))
+      (show (IRNode.block source).parent! ctx = some (.region region) by
+        simp only [IRNode.parent!_block, localReachable.parent, Option.map_some])
+      (show (IRNode.block target).parent! ctx = some (.region region) by
+        simp only [IRNode.parent!_block, targetParent, Option.map_some])
+    exact reachable ancestor targetAncestry ancestorRegion parent
 
 /-! ## Dominance at block insertion points -/
 

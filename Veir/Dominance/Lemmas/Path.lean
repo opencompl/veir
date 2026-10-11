@@ -219,4 +219,29 @@ theorem OperationPtr.HierarchicallyReachable.of_parent_block
   subst parentBlock
   exact reachable
 
+/-- Every ancestor block of a hierarchically reachable block is hierarchically reachable. -/
+theorem BlockPtr.HierarchicallyReachable.of_ancestor
+    {block ancestor : BlockPtr}
+    (reachable : block.HierarchicallyReachable ctx)
+    (ancestry : (IRNode.block ancestor).Ancestor block ctx) :
+    ancestor.HierarchicallyReachable ctx := by
+  intro enclosing enclosingAncestry region parent
+  exact reachable enclosing (enclosingAncestry.trans ancestry) region parent
+
+/-- A hierarchically reachable block is locally reachable in its parent region. -/
+theorem BlockPtr.HierarchicallyReachable.locallyReachable
+    {block : BlockPtr} {region : RegionPtr}
+    (reachable : block.HierarchicallyReachable ctx)
+    (parent : (block.get! ctx.raw).parent = some region) :
+    block.LocallyReachable region ctx :=
+  reachable block IRNode.Ancestor.refl region parent
+
+/-- The parent block of a hierarchically reachable operation is hierarchically reachable. -/
+theorem OperationPtr.HierarchicallyReachable.parent_block
+    {op : OperationPtr} {block : BlockPtr}
+    (reachable : op.HierarchicallyReachable ctx)
+    (parent : (op.get! ctx.raw).parent = some block) :
+    block.HierarchicallyReachable ctx :=
+  reachable block parent
+
 end Veir
