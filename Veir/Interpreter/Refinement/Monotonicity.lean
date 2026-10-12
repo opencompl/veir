@@ -110,19 +110,19 @@ theorem interpretOp_monotone
   -- If the source interpretation fails, then the refinement is trivial
   by_cases hsource : (interpretOp op state opIn).isFail
   · rcases h : interpretOp op state opIn with _ | _ | _ <;> simp_all [Interp.isRefinedBy]
-  -- Source/target operands are defined, and memory is equal.
+  -- Source/target operands are defined, and effect state is equal.
   have ⟨operands, hSrcOps⟩ : ∃ operands, state.variables.getOperandValues op = some operands := by
     grind [interpretOp]
   obtain ⟨operands', hTgtOps, hOpsRef⟩ :=
     VariableState.getOperandValues_isRefinedBy hState.2 opIn hPreserves.operands hSrcOps
-  have hMem : state.memory = state'.memory := hState.1
+  have hEs : state.toEffectState = state'.toEffectState := hState.1
   -- Add the refinement of `interpretOp'` on `op` with `operands` and `operands'`
   have hPR1 := interpretOp'_monotone (op.getOpType! ctx.raw)
     (op.getProperties! ctx.raw (op.getOpType! ctx.raw)) (op.getResultTypes! ctx.raw)
-    operands operands' (op.getSuccessors! ctx.raw) state.memory hOpsRef
+    operands operands' (op.getSuccessors! ctx.raw) state.toEffectState hOpsRef
   -- Add the equality between `interpretOp'` on `operands'`
-  have hInterp'Eq : op'.interpret ctx'.raw operands' state'.memory =
-                    op.interpret ctx.raw operands' state.memory := by
+  have hInterp'Eq : op'.interpret ctx'.raw operands' state'.toEffectState =
+                    op.interpret ctx.raw operands' state.toEffectState := by
      grind [interpretOp'_opType_cast, cases ValueMapping.PreservesOperation]
   /- Do a case analysis on the source interpretation -/
   rcases hsrc : interpretOp op state opIn with _ | _ | ⟨state₂, act⟩

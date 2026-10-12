@@ -51,8 +51,8 @@ theorem Riscv.interpretOp'_monotone {operands operands' : Array RuntimeValue} :
     · rw [heq]; apply Interp.isRefinedBy_refl_operationResult
 
 instance (opType : Riscv) : InterpretOp'Monotone (.riscv opType) where
-  monotone _ _ _ _ _ _ h := by
+  monotone _ _ _ _ _ es h := by
     simp only [interpretOp']
-    exact Riscv.interpretOp'_monotone h
+    exact Interp.isRefinedBy_operationResult_withMemory es (Riscv.interpretOp'_monotone h)
 
 end Veir
