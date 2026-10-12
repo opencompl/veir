@@ -3,6 +3,7 @@ module
 public import Veir.IR.OpInfo
 public import Veir.Verifier.Basic
 meta import Veir.Meta.OpCode
+public import Veir.Interpreter.EffectState
 
 namespace Veir
 
@@ -143,6 +144,52 @@ def Io.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpInf
     op.verifyPlainOpCounts ctx opIn 2 1
     Io.verifyBufferOperands op ctx 0 instrName
     Io.verifyStatusResult op ctx instrName
+
+def Io.interpretOp' (opType : Veir.Io) (properties : propertiesOf opType)
+    (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
+    (_blockOperands : Array BlockPtr) (em : EffectState)
+    : Interp ((Array RuntimeValue) × EffectState × Option ControlFlowAction) :=
+  match opType with
+  | .self => do
+    return (#[.ioAddr em.network.selfAddress], em, none)
+  | .send => do
+    let [.ioAddr dest, .addr ptr, .int _ len] := operands.toList | none
+    let .val len := len | Interp.ub none
+    let .val ptr := ptr | Interp.ub none
+    let lenNat := len.toNat
+    if lenNat ≥ UInt64.size then Interp.ub none
+    let len : UInt64 := UInt64.ofNat lenNat
+    if ← em.memory.hasPoison ptr len then Interp.ub none
+    let buf ← em.memory.load ptr len
+    let ns' := em.network.sendMessage dest buf
+    return (#[.int 64 (.val buf.size)], {em with network := ns'}, none)
+  | .recv => do
+    let [.addr ptr, .int _ len] := operands.toList | none
+    let .val len := len | Interp.ub none
+    let .val ptr := ptr | Interp.ub none
+    let len := len.toNat
+    -- `status` is the number of bytes written, or an `Io.Error` code.
+    -- `src` is the source address of the message, or 0 if no message was received.
+    let (status, src, em') ← match em.network.consumeMessage with
+      | none => pure (Io.Error.exhausted, 0, em)
+      | some (ns', msg) =>
+        if msg.payload.size > len then
+          -- Leave the message in flight so a larger buffer can retry.
+          pure (Io.Error.messageTooLong, 0, em)
+        else do
+          let mem' ← em.memory.store ptr msg.payload
+          pure ((msg.payload.size : Int), msg.src, {em with network := ns', memory := mem'})
+    return (#[.int 64 (.val (BitVec.ofInt 64 status)), .ioAddr src], em', none)
+  | .rand => do
+    let [.addr addr, .int _ len] := operands.toList | none
+    let .val len := len | Interp.ub none
+    let .val addr := addr | Interp.ub none
+    let lenNat := len.toNat
+    if lenNat ≥ UInt64.size then Interp.ub none
+    let len : UInt64 := UInt64.ofNat lenNat
+    let ⟨es', buf⟩ ← em.entropy.entropyLoad len
+    let mem' ← em.memory.store addr buf
+    return  (#[.int 64 (.val len.toNat)], {em with entropy := es', memory := mem'}, none)
 
 instance : HasOpInfo Io where
   verifyLocalInvariants := Io.verifyLocalInvariants
