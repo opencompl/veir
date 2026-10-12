@@ -123,12 +123,9 @@ example (p w : Nat) (x : BitVec p) (hp : p ≤ 8) (hwp : w < p) :
 
 -- A "potentially spurious" counterexample can still be genuine: at `w = 0`, `1#0 = 0#0`
 /--
-error: `pbv_decide` found a potentially spurious counterexample.
-  The following expressions were abstracted as opaque variables:
-    - BitVec.ofBool (BitVec.setWidth w x + 1#w == BitVec.setWidth w x) = 0x1#1
-Consider the following assignment:
-  w = 4  	(m_w0 = 0xf#4)
-  x = 0xf#4
+error: `pbv_decide` found a counterexample, consider the following assignment:
+  w = 0  	(m_w0 = 0x0#4)
+  x = 0x0#0
 -/
 #guard_msgs in
 example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
