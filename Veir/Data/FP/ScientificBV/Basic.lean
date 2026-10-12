@@ -10,11 +10,11 @@ public section
 floating-point number with `e` bits for the exponent, and
 `s` bits for the significand.
 
-The scientific bv `s` is interpreted as the rational number
+The scientific bv `f` is interpreted as the rational number
 given by the formula:
 
 ```
-(-1)^s.sign * 2^(s.ex.toInt) * (1 + s.sig.toNat / 2^s)
+(-1)^f.sign * 2^(f.ex.toInt) * (1 + f.sig.toNat / 2^s)
 ```
 
 Crucially, this means that we can only represent *non-zero*
@@ -38,15 +38,15 @@ namespace ScientificBV
 Treat a significand bitvector as a rational number in [1, 2),
 where the leading bit is implicitly 1 and the trailing bits are interpreted as a fraction.
 -/
-def sigToRat (s : BitVec s) : Rat :=
-  1 + s.toNat / (2 ^ s.toNat)
+def sigToRat {s : Nat} (sig : BitVec s) : Rat :=
+  1 + sig.toNat / (2 ^ s)
 
 /--
 Treat an exponent bitvector as a rational number,
 power of two where the exponent is the bitvector interpreted as an integer.
 -/
-def exToRat (e : BitVec e) : Rat :=
-  2 ^ e.toInt
+def exToRat {e : Nat} (ex : BitVec e) : Rat :=
+  2 ^ ex.toInt
 
 /--
 Convert a scientific bv to a rational number.
