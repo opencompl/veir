@@ -410,6 +410,80 @@ info: "builtin.module"() ({
   "test.test"(%a) : (i32) -> ()
 }) : () -> ()"#
 
+/-! ## Block and region bounds across context changes -/
+
+-- An outer forward block reference survives nested blocks with the same names,
+-- and subsequent lookups use the restored outer block table.
+/--
+  info: "builtin.module"() ({
+  ^4():
+    "test.test"() [^5] ({
+      ^7():
+        "test.test"() [^8] : () -> ()
+      ^8():
+        "test.test"() [^7] : () -> ()
+    }) : () -> ()
+    "test.test"() [^5] : () -> ()
+  ^5():
+    "test.test"() [^4] : () -> ()
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+^entry:
+  "test.test"() [^later] ({
+  ^entry:
+    "test.test"() [^later] : () -> ()
+  ^later:
+    "test.test"() [^entry] : () -> ()
+  }) : () -> ()
+  "test.test"() [^later] : () -> ()
+^later:
+  "test.test"() [^entry] : () -> ()
+}) : () -> ()"#
+
+-- Earlier regions survive later region creation and nested placeholder erasure;
+-- resolving the parent operands then creates another placeholder after all regions.
+/--
+  info: "builtin.module"() ({
+  ^4():
+    %16 = "test.test"(%17) ({}, {
+      ^7():
+        "test.test"(%10) : (i64) -> ()
+        %10 = "test.test"() : () -> i64
+    }, {}, {
+      ^13():
+        "test.test"() : () -> ()
+    }) : (i32) -> i32
+    %17 = "test.test"() : () -> i32
+    "test.test"(%16, %17) : (i32, i32) -> ()
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+  %result = "test.test"(%forward) ({}, {
+    "test.test"(%nested) : (i64) -> ()
+    %nested = "test.test"() : () -> i64
+  }, {}, {
+    "test.test"() : () -> ()
+  }) : (i32) -> i32
+  %forward = "test.test"() : () -> i32
+  "test.test"(%result, %forward) : (i32, i32) -> ()
+}) : () -> ()"#
+
+-- Lists reject a trailing comma instead of treating the closing delimiter as
+-- an absent block or region.
+/-- error: block name expected -/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+^entry:
+  "test.test"() [^entry,] : () -> ()
+}) : () -> ()"#
+
+/-- error: Expected punctuation '{' -/
+#guard_msgs in
+#eval! testParseOp r#""test.test"() ({},) : () -> ()"#
+
 /-! ## Type aliases -/
 
 /--
