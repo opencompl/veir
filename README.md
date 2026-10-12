@@ -25,7 +25,10 @@ manager and all native and Python dependencies needed by those Make targets.
 Executable targets like `veir-opt` and `veir-interpret` can be run with `nix run
 .#veir-opt`, `nix run .#veir-interpret`, etc. For convenience, makefile targets
 are also exposed as flake apps with `nix run .#build` and `nix run .#tests`;
-`nix run .` displays the Makefile help. 
+`nix run .` displays the Makefile help.
+If both [`direnv`](https://direnv.net) and Nix are installed, run `direnv allow`
+to automatically activate the development shell whenever you enter the project
+directory.
 
 Our testing framework is split into two parts: unit tests written in Lean and
 [FileCheck](https://llvm.org/docs/CommandGuide/FileCheck.html) tests for the
