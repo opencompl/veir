@@ -17,6 +17,23 @@ described in "A Simple, Fast Dominance Algorithm."
 Each region is solved independently with a local boolean fixpoint loop. Once it converges, the
 stable result is published as facts in the supplied `DataFlowContext` for use by the dominance
 query API.
+
+PROOF DEFINITIONS:
+Let A be the current array of immediate dominator candidates for blocks.
+Let R be the set of blocks reachable from the region entry.
+For b ∈ R:
+* If b is uninitialized, Dom(A, b) = R.
+* Dom(A, entry) = {entry}
+* else, Dom(A, b) = ∪ Dom(A, candidateIDom(A, b))
+A block d is the semantic dominator of b when d properly dominates b and
+every other proper dominator of b dominates d.
+A block x is an A-ancestor of b if x = b or x is encountered by repeatedly
+applying candidateIDom(A, ·) starting from b.
+A proper A-ancestor is an A-ancestor different from b.
+Dom(A, b) is the set of all A-ancestors of b.
+
+We must prove, that upon reaching fixpoint, ∀ b ∈ R, Dom(A, b) = the set created by
+finding all d ∈ R where BlockPtr.Dominates(d, b) is true.
 -/
 
 namespace BlockPtr
@@ -105,7 +122,43 @@ private def collectPredecessors
     preds := preds.push blockPreds
   preds
 
-/-- Find the nearest common dominator of two reverse postorder indices. -/
+/-- 
+Find the nearest common dominator of two reverse postorder indices. 
+
+PROOF:
+In laymans terms, we are proving that this algorithm does in fact compute
+the intersection.
+
+We must prove that, if x and y are initialized, then
+Dom(A, intersect(x, y, A)) = Dom(A, x) ∩ Dom(A, y). Let f₁ and f₂ be two fingers.
+The following loop invartiant must be maintained: Dom(A, f₁) ∩ Dom(A, f₂) = Dom(A, x) ∩ Dom(A, y).
+Initially, it holds because f₁ = x and f₂ = y.
+Suppose f₁ > f₂. Since every proper A-ancestor has a smaller RPO index [LEMMA NEEDED], f₁ > f₂ implies
+that f₁ cannot be  the ancestor of f₂. Therefore, f₁ ∉ Dom(A, f₂) [LEMMA NEEDED?]. Moving f₁ to its parent in
+the iDom chain only removes f₁ from its ancestor set:
+Dom(A, candidateIDom(f₁)) = Dom(f₁) \ {f₁}.
+Because f₁ ∉ Dom(A, f₂), removing f₁ does not change the intersection:
+Dom(A, candidateIDom(A, f₁)) ∩ Dom(A, f₂)
+  = (Dom(A, f₁) \ {f₁}) ∩ Dom(A, f₂)
+  = Dom(A, f₁) ∩ Dom(A, f₂).
+Therefore advancing f₁ preserves the loop invariant. The same reasoning applies when f₂ > f₁.
+
+Each advancement replaces a finger with a strictly smaller RPO index. When the fingers differ, 
+one is larger and is advanced, so their sum strictly decreases. The loop therefore terminates.
+
+At termination, f₁ = f₂ = q. Applying the loop invariatn gives us:
+Dom(A, x) ∩ Dom(A, y)
+  = Dom(A, q) ∩ Dom(A, q)
+  = Dom(A, q).
+
+Since q is the result of `intersect`, we know:
+Dom(A, intersect(x, y, A)) = Dom(A, q) 
+Dom(A, x) ∩ Dom(A, y). = Dom(A, q) ∩ Dom(A, q) = Dom(A, q)
+
+Therefore,
+Dom(A, intersect(x, y, A)) = Dom(A, x) ∩ Dom(A, y).
+∎
+-/
 private def intersect
     (index1 index2 : Nat)
     (iDoms : Array Nat) : Nat := Id.run do
@@ -118,7 +171,58 @@ private def intersect
       finger2 := iDoms[finger2]!
   finger1
 
-/-- CHK fixpoint loop -/
+/--
+CHK fixpoint loop
+
+PROOF (for predecessor loop):
+Fix some non entry block b. Let P be the prefix of predecessors of b processed so far.
+The loop invariant is:
+- if `newIDom = none`, every predecessor in the prefix P is uninitialized. Therefore,
+  ∩_{p ∈ P} Dom(A, p) = R.
+- if `newIDom = some q`, then
+  Dom(A, q) = ∩_{p ∈ P} Dom(A, p).
+The following cases occur:
+- Initially, P is empty and `newIDom = none`. The intersection is thus R.
+- If the next predecessor is uninitialized, then it has Dom(A, p) = R. 
+  The code skips this, which is valid because, for some set S, S ∩ R = S.
+- The first initialized predecessor changes `newIDom` from `none` to `some p`.
+  For the prefix P right before p, we have:
+  R ∩ Dom(A, p) = Dom(A, p).
+- else, suppose `newIDom = some q` before processing an initialized predecessor p.
+  The code replaces `newIDom` by `some (intersect(p, q, A))`. Let P be the old processed 
+  prefix before p. Let Dom(A, q) = ⋂_{r ∈ P} Dom(A, r). After processing p, we get the prefix
+  P' = P followed by p. The intersection for P' therefore is:
+  ⋂_{r ∈ P'} Dom(A, r) = (⋂_{r ∈ P} Dom(A, r)) ∩ Dom(A, p).
+  Using the `intersect` proof,
+  this gives us:
+  Dom(A, intersect(p, q, A)) 
+    = Dom(A, p) ∩ Dom(A, q) 
+    = Dom(A, p) ∩ (⋂_{r ∈ P} Dom(A, r))
+    = (⋂_{r ∈ P} Dom(A, r)) ∩ Dom(A, p)
+    = ⋂_{r ∈ P'} Dom(A, r)
+  This clearly shows the preservation of the invariant.
+After the predecessor loop, P = predecessors(b).
+- If `newIDom = none`, the code does not change A [maybe need to elaborate why this is okay?].
+- else, let `newIDom = some q`. The loop invariant gives:
+  Dom(A, q) = ⋂_{p ∈ predecessors(b)} Dom(A, p).
+Let A' = A[b ↦ q], i.e. we are setting b's candidate immediate dominator to q.
+By the definition of Dom:
+Dom(A', b) = {b} ∪ Dom(A', q).
+
+Note:
+The final candidate q has a smaller RPO index than b [LEMMA NEEDED].
+Since immediate dominator candidate edges always point to smaller indices,
+q's immediate dominator candidate chain cannot contain b.
+Updating A at b therefore does not affect Dom(A, q) [LEMMA NEEDED?], so
+Dom(A', q) = Dom(A, q).
+
+Therefore,
+Dom(A', b)
+  = {b} ∪ Dom(A', q)
+  = {b} ∪ Dom(A, q)
+  = {b} ∪ ⋂_{p ∈ predecessors(b)} Dom(A, p).
+where P is all predecessors of b.
+-/
 private def fixpoint
     (reversePostOrder : Array BlockPtr)
     (preds : Array (Array Nat)) : Array Nat := Id.run do
