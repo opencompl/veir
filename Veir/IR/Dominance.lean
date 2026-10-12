@@ -1,6 +1,6 @@
 module
 
-public import Veir.Analysis.DataFlow.DominanceAnalysis
+public import Veir.Analysis.DominanceAnalysis
 public import Veir.Interfaces.RegionKindInterfaces
 
 public section
@@ -31,31 +31,26 @@ private partial def normalizeInsertPoint
 Check dominance between two blocks that are already known
 to lie in the same region.
 
-This follows dense immediate dominator indices from `block` upward until it
-either reaches `dominator` or the chain ends.
+This follows the immediate dominator chain from `block` upward until it either
+reaches `dominator` or the chain ends.
 -/
 private def BlockPtr.dominatesWithinRegion
     (dominator block : BlockPtr)
-    (dfCtx : DataFlowContext)
-    (irCtx : WfIRContext OpCode) : Bool := Id.run do
+    (dfCtx : DataFlowContext) : Bool := Id.run do
   if dominator = block then
     return true
-  let some region := block.getParent! irCtx.raw
-    | return false
-  let some dominance := region.getRegionDominanceFact? dfCtx irCtx
-    | return true
   -- Preserve the convention that reachable blocks dominate unreachable ones.
-  let some blockIndex := dominance.blockIndex.get? block
-    | return true
-  let some dominatorIndex := dominance.blockIndex.get? dominator
-    | return false
-  let mut currentIndex := blockIndex
-  while currentIndex ≠ dominatorIndex do
-    let immediateDominator := dominance.immediateDominators[currentIndex]!
-    if immediateDominator ≥ dominance.immediateDominators.size ||
-        immediateDominator = currentIndex then
+  if (block.getIDom? dfCtx).isNone then
+    return true
+  if (dominator.getIDom? dfCtx).isNone then
+    return false
+  let mut current := block
+  while current ≠ dominator do
+    let some immediateDominator := current.getIDom? dfCtx
+      | return false
+    if immediateDominator = current then
       return false
-    currentIndex := immediateDominator
+    current := immediateDominator
   true
 
 
@@ -170,7 +165,7 @@ private def properlyDominates
   if dominatorBlock = pointBlock then
     return !hasSSADominance || dominator.dominatesWithinBlock point irCtx positions
   else
-    return dominatorBlock.dominatesWithinRegion pointBlock dfCtx irCtx
+    return dominatorBlock.dominatesWithinRegion pointBlock dfCtx
 
 /--
 Dominance query between two insertion points.
@@ -196,25 +191,21 @@ Immediate dominator for the block entry, if the dominance analysis has
 initialized this block's region.
 -/
 def immediateDominator?
-    [FactSpec .regionDominance]
+    [FactSpec .dominator]
     (block : BlockPtr)
-    (dfCtx : DataFlowContext)
-    (irCtx : WfIRContext OpCode) : Option BlockPtr := do
-  let region ← block.getParent! irCtx.raw
-  let dominance ← region.getRegionDominanceFact? dfCtx irCtx
-  let blockIndex ← dominance.blockIndex.get? block
-  let immediateDominatorIndex := dominance.immediateDominators[blockIndex]!
-  dominance.reversePostOrder[immediateDominatorIndex]?
+    (dfCtx : DataFlowContext) : Option BlockPtr :=
+  block.getIDom? dfCtx
 
 /--
 Dominance query between two blocks, where a block dominates itself.
 -/
 def dominates
-    [FactSpec .regionDominance]
+    [FactSpec .dominator]
     (dominator block : BlockPtr)
     (dfCtx : DataFlowContext)
     (irCtx : WfIRContext OpCode) : Bool :=
-  (InsertPoint.atStart! dominator irCtx.raw).dominates (InsertPoint.atStart! block irCtx.raw) dfCtx irCtx
+  (InsertPoint.atStart! dominator irCtx.raw).dominates
+    (InsertPoint.atStart! block irCtx.raw) dfCtx irCtx
 
 /--
 Proper dominance query between two blocks. A block does not properly dominate
@@ -222,7 +213,7 @@ itself in an SSACFG region, while the sole block of a graph region properly
 dominates itself.
 -/
 def properlyDominates
-    [FactSpec .regionDominance]
+    [FactSpec .dominator]
     (dominator block : BlockPtr)
     (dfCtx : DataFlowContext)
     (irCtx : WfIRContext OpCode) : Bool :=
@@ -259,9 +250,7 @@ def properlyDominates
   (InsertPoint.before dominator).properlyDominates (InsertPoint.before op) dfCtx irCtx
     enclosingOk positions
 
-/-- Collect nested operations in reverse postorder. Unreachable blocks
-are omitted. A region with no dominance fact (including an empty
-region, or one the analysis never reached) contributes no operations.
+/-- Collect nested operations in reverse postorder. Unreachable blocks are omitted.
 TODO: Replace this with an iterator, which should be more efficient.
 -/
 partial def opsInDominanceOrder
@@ -270,15 +259,16 @@ partial def opsInDominanceOrder
     (irCtx : WfIRContext OpCode) : Array OperationPtr := Id.run do
   let mut ops := #[]
   for region in op.getRegions! irCtx.raw do
-    let mut blocks := #[]
-    if let some dominance := region.getRegionDominanceFact? dfCtx irCtx then
-      blocks := dominance.reversePostOrder
-    for block in blocks do
+    let mut currentBlock := region.getFirstBlock! irCtx.raw
+    while let some block := currentBlock do
+      let some dominatorFact := block.getDominatorFact? dfCtx
+        | break
       let mut currentOp := block.getFirstOp! irCtx.raw
       while let some innerOp := currentOp do
         ops := ops.push innerOp
         ops := ops ++ innerOp.opsInDominanceOrder dfCtx irCtx
         currentOp := innerOp.getNextOp! irCtx.raw
+      currentBlock := dominatorFact.nextInReversePostOrder
   return ops
 
 end OperationPtr

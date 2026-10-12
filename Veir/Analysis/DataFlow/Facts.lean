@@ -6,7 +6,7 @@ public import Veir.Analysis.DataFlow.Domains.LivenessDomain
 public import Veir.Rewriter.InsertPoint
 public import Veir.Analysis.DataFlow.Domains.ConstantDomain
 
-open Std (HashMap HashSet Queue)
+open Std (HashSet Queue)
 
 public section
 
@@ -68,7 +68,6 @@ deriving BEq, DecidableEq, Repr
 Tags to match on for different `DataFlowAnalysis` types.
 -/
 inductive AnalysisKind where
-  | dominance
   | deadCode
   /-- Analysis tag reserved for dataflow framework unit tests. -/
   | test
@@ -81,7 +80,7 @@ deriving BEq, Hashable, Repr, DecidableEq
 Tags to match on for different fact types.
 -/
 inductive FactKind where
-  | regionDominance
+  | dominator
   | liveness
   /-- Sparse fact tag reserved for dataflow framework unit tests. -/
   | test
@@ -134,19 +133,10 @@ def dequeue? (workList : WorkList) : Option WorkItem × WorkList :=
 
 end WorkList
 
-/--
-Represents the dominance information for all reachable blocks in a region as
-dense reverse postorder indexed arrays. The predecessor indices support the
-analysis's iterative updates; `immediateDominators` is the resulting abstract
-value exposed to clients.
-
-Stored in the entry block of each region.
--/
-structure RegionDominancePayload where
-  reversePostOrder : Array BlockPtr := #[]
-  blockIndex : HashMap BlockPtr Nat := {}
-  predecessors : Array (Array Nat) := #[]
-  immediateDominators : Array Nat := #[]
+/-- Dominance information attached to a block. -/
+structure DominatorPayload where
+  iDom : Option BlockPtr := none
+  nextInReversePostOrder : Option BlockPtr := none
 
 /-- A sparse dataflow fact payload with analysis specific metadata. -/
 structure SparsePayload (Domain : Type) (Metadata : Type := Unit) where
@@ -164,7 +154,7 @@ structure LivenessPayload where
 The fact specific data stored for each fact kind.
 -/
 @[expose] def FactPayload : FactKind → Type
-  | .regionDominance => RegionDominancePayload
+  | .dominator => DominatorPayload
   | .liveness => LivenessPayload
   | .test => SparsePayload TestDomain Unit
   | .sparseConstant => SparsePayload AbstractConstant (Option OpCode)
@@ -222,21 +212,19 @@ def enqueueDependents (fact : Fact kind) (workList : WorkList) : WorkList :=
       workList := workList.enqueue workItem
     workList
 
-def reversePostOrder (fact : Fact .regionDominance) : Array BlockPtr :=
-  fact.payload.reversePostOrder
+def iDom (fact : Fact .dominator) : Option BlockPtr :=
+  fact.payload.iDom
 
-def blockIndex (fact : Fact .regionDominance) : HashMap BlockPtr Nat :=
-  fact.payload.blockIndex
+def setIDom (fact : Fact .dominator) (iDom : BlockPtr) : Fact .dominator :=
+  { fact with payload := { fact.payload with iDom := some iDom } }
 
-def predecessors (fact : Fact .regionDominance) : Array (Array Nat) :=
-  fact.payload.predecessors
+def nextInReversePostOrder (fact : Fact .dominator) : Option BlockPtr :=
+  fact.payload.nextInReversePostOrder
 
-def immediateDominators (fact : Fact .regionDominance) : Array Nat :=
-  fact.payload.immediateDominators
-
-def setImmediateDominators (fact : Fact .regionDominance)
-    (immediateDominators : Array Nat) : Fact .regionDominance :=
-  { fact with payload := { fact.payload with immediateDominators } }
+def setNextInReversePostOrder
+    (fact : Fact .dominator)
+    (next : Option BlockPtr) : Fact .dominator :=
+  { fact with payload := { fact.payload with nextInReversePostOrder := next } }
 
 def live (fact : Fact .liveness) : Bool :=
   match fact.payload.latticeElement with
@@ -251,7 +239,7 @@ def setToLive (fact : Fact .liveness) : Fact .liveness :=
 
 end Fact
 
-abbrev RegionDominanceFact := Fact .regionDominance
+abbrev DominatorFact := Fact .dominator
 
 abbrev LivenessFact := Fact .liveness
 
