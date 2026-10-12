@@ -118,10 +118,11 @@ theorem interpretOp_monotone
   -- Add the refinement of `interpretOp'` on `op` with `operands` and `operands'`
   have hPR1 := interpretOp'_monotone (op.getOpType! ctx.raw)
     (op.getProperties! ctx.raw (op.getOpType! ctx.raw)) (op.getResultTypes! ctx.raw)
-    operands operands' (op.getSuccessors! ctx.raw) state.memory state'.memory hOpsRef hState.1
+    operands operands' (op.getSuccessors! ctx.raw) state.toEffectState state'.toEffectState
+    hOpsRef hState.1
   -- Add the equality between `interpretOp'` on `operands'`
-  have hInterp'Eq : op'.interpret ctx'.raw operands' state'.memory =
-                    op.interpret ctx.raw operands' state'.memory := by
+  have hInterp'Eq : op'.interpret ctx'.raw operands' state'.toEffectState =
+                    op.interpret ctx.raw operands' state'.toEffectState := by
      grind [interpretOp'_opType_cast, cases ValueMapping.PreservesOperation]
   /- Do a case analysis on the source interpretation -/
   rcases hsrc : interpretOp op state opIn with _ | _ | ⟨state₂, act⟩
@@ -134,7 +135,7 @@ theorem interpretOp_monotone
     simp only [Interp.isRefinedBy_ok_target_iff, Prod.exists]
     have ⟨resValues, hinterp', hResValues⟩ :=
       (interpretOp_ok_iff_of_getOperandValues_eq_some hSrcOps).mp hsrc
-    simp only [hinterp', Interp.isRefinedBy_ok_target_iff, OperationResult.isRefinedBy,
+    simp only [hinterp', Interp.isRefinedBy_ok_target_iff, OperationResult.effectIsRefinedBy,
       Prod.exists] at hPR1
     have ⟨resValues', memory'₂, act', hinterp'Tgt, ⟨resValuesRef, memoryRef, actRef⟩⟩ := hPR1
     simp only [← hInterp'Eq] at hinterp'Tgt

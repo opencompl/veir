@@ -128,9 +128,10 @@ def initializeGlobal (ctx : WfIRContext OpCode) (op : OperationPtr) (ptr : Data.
       match region.getFirstBlock ctx.raw with
       | none => pure mem
       | some _ => do
+        let initial : InterpreterState ctx := ⟨{ EffectState.empty with memory := mem }, .empty ctx⟩
         let (state, results) ← expectOk name <|
-          if useCTree then (CTree.interpretRegion region #[] (ctx := ctx) ⟨.empty ctx, mem⟩).run
-          else interpretRegion region #[] (ctx := ctx) ⟨.empty ctx, mem⟩
+          if useCTree then (CTree.interpretRegion region #[] (ctx := ctx) initial).run
+          else interpretRegion region #[] (ctx := ctx) initial
         let some value := results[0]? | pure state.memory
         expectOk name (state.memory.llvmStore ptr value)
 
@@ -189,7 +190,8 @@ def main (args : List String) : IO Unit := do
       if useCTree then
         (CTree.interpretFunction (ctx := ctx) mainOp.val #[] mem (by sorry)).run
       else
-        bind (interpretFunction (ctx := ctx) mainFunc #[] mem (by sorry)) (fun (_, r) => pure r)
+        let es := { EffectState.empty with memory := mem }
+        bind (interpretFunction (ctx := ctx) mainFunc #[] es (by sorry)) (fun (_, r) => pure r)
     match result with
     | .ok results => IO.println s!"Program output: {results}"
     | .ub op? =>

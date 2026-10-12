@@ -74,7 +74,31 @@ theorem MemoryState.isRefinedBy_of_eq {source target : MemoryState} (same : sour
   exact MemoryState.isRefinedBy_refl source
 
 @[simp, grind .]
-theorem FunctionResult.isRefinedBy_refl (r : MemoryState × Array RuntimeValue) : r ⊒ r := by
+theorem EntropyState.isRefinedBy_refl (e : EntropyState) :
+    e ⊒ e := by
+  simp only [isRefinedBy]
+  grind
+
+@[simp, grind .]
+theorem Message.isRefinedBy_refl (m : Message) :
+    m ⊒ m := by
+  simp only [isRefinedBy]
+  grind
+
+@[simp, grind .]
+theorem NetworkState.isRefinedBy_refl (n : NetworkState) :
+    n ⊒ n := by
+  simp only [isRefinedBy]
+  grind
+
+@[simp, grind .]
+theorem EffectState.isRefinedBy_refl (e : EffectState) :
+    e ⊒ e := by
+  simp only [isRefinedBy]
+  grind
+
+@[simp, grind .]
+theorem FunctionResult.isRefinedBy_refl (r : EffectState × Array RuntimeValue) : r ⊒ r := by
   simp [FunctionResult.isRefinedBy]
 
 @[simp, grind .]
@@ -154,9 +178,28 @@ theorem RuntimeValue.arrayIsRefinedBy_trans {a b c : Array RuntimeValue}
     (h12 : a ⊒ b) (h23 : b ⊒ c) : a ⊒ c := by
   grind [RuntimeValue.arrayIsRefinedBy, RuntimeValue.isRefinedBy_trans]
 
-theorem FunctionResult.isRefinedBy_trans {r₁ r₂ r₃ : MemoryState × Array RuntimeValue}
+theorem EntropyState.isRefinedBy_trans {e1 e2 e3 : EntropyState}
+    (h12 : e1 ⊒ e2) (h23 : e2 ⊒ e3) : e1 ⊒ e3 :=
+  ⟨h12.1.trans h23.1, fun addr => (h12.2 addr).trans (h23.2 addr)⟩
+
+theorem Message.isRefinedBy_trans {m1 m2 m3 : Message}
+    (h12 : m1 ⊒ m2) (h23 : m2 ⊒ m3) : m1 ⊒ m3 :=
+  ⟨h12.1.trans h23.1, h12.2.1.trans h23.2.1, h12.2.2.1.trans h23.2.2.1,
+    fun addr => (h12.2.2.2 addr).trans (h23.2.2.2 addr)⟩
+
+theorem NetworkState.isRefinedBy_trans {n1 n2 n3 : NetworkState}
+    (h12 : n1 ⊒ n2) (h23 : n2 ⊒ n3) : n1 ⊒ n3 :=
+  ⟨h12.1.trans h23.1, h12.2.1.trans h23.2.1, fun idx hidx =>
+    Message.isRefinedBy_trans (h12.2.2 idx hidx) (h23.2.2 idx (h12.2.1 ▸ hidx))⟩
+
+theorem EffectState.isRefinedBy_trans {e1 e2 e3 : EffectState}
+    (h12 : e1 ⊒ e2) (h23 : e2 ⊒ e3) : e1 ⊒ e3 :=
+  ⟨MemoryState.isRefinedBy_trans h12.1 h23.1, EntropyState.isRefinedBy_trans h12.2.1 h23.2.1,
+    NetworkState.isRefinedBy_trans h12.2.2 h23.2.2⟩
+
+theorem FunctionResult.isRefinedBy_trans {r₁ r₂ r₃ : EffectState × Array RuntimeValue}
     (h12 : r₁ ⊒ r₂) (h23 : r₂ ⊒ r₃) : r₁ ⊒ r₃ := by
-  exact ⟨MemoryState.isRefinedBy_trans h12.1 h23.1, RuntimeValue.arrayIsRefinedBy_trans h12.2 h23.2⟩
+  exact ⟨EffectState.isRefinedBy_trans h12.1 h23.1, RuntimeValue.arrayIsRefinedBy_trans h12.2 h23.2⟩
 
 theorem ControlFlowAction.isRefinedBy_trans {a b c : ControlFlowAction}
     (ab : a ⊒ b) (bc : b ⊒ c) : a ⊒ c := by
@@ -417,6 +460,8 @@ theorem RuntimeValue.glb?_greatest {c d e : RuntimeValue} (hc : c ⊒ e) (hd : d
     exact ⟨.addr m, by simp [RuntimeValue.glb?, hm], hme⟩
   case reg.reg.reg =>
     subst hc; subst hd; exact ⟨_, by simp [RuntimeValue.glb?], RuntimeValue.isRefinedBy_refl _⟩
+  case ioAddr.ioAddr.ioAddr =>
+    subst hc; subst hd; exact ⟨_, by simp [RuntimeValue.glb?], RuntimeValue.isRefinedBy_refl _⟩
   case felt.felt.felt =>
     obtain ⟨rfl, rfl⟩ := hc; obtain ⟨rfl, rfl⟩ := hd
     exact ⟨_, by simp [RuntimeValue.glb?], RuntimeValue.isRefinedBy_refl _⟩
@@ -440,6 +485,7 @@ theorem RuntimeValue.isRefinedBy_antisymm {c d : RuntimeValue} (h₁ : c ⊒ d) 
     rw [Byte.isRefinedBy_antisymm h₁ h₂]
   case addr.addr p q => rw [Data.LLVM.Ptr.isRefinedBy_antisymm h₁ h₂]
   case reg.reg => rw [h₁]
+  case ioAddr.ioAddr => rw [h₁]
   case felt.felt => obtain ⟨rfl, rfl⟩ := h₁; rfl
   case float.float =>
     split at h₁ <;> (try exact h₁.elim)
