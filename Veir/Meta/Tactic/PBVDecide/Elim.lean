@@ -88,7 +88,7 @@ meta def getOrCreateWidthMask (g : MVarId) (widthTm : WidthTm) (infos : WidthInf
     return (g, info, infos)
   -- Otherwise, recurse through the term to create it
   match widthTm with
-  | .widthAtom _ => introMaskWidth g widthTm infos
+  | .widthAtom _ | .widthFVar _ _ => introMaskWidth g widthTm infos
   | .widthLit _ => introMaskLit g widthTm infos
   | .widthAdd v w => do
     -- Get or create masks of the children
@@ -156,12 +156,12 @@ public meta def WidthProps.translateToMask (this : WidthProps) (g : MVarId) (wid
 Given the width terms in the formula, translate all `Nat` widths into `BitVec`
 masks and introduce the hypotheses that model the masks.
 -/
-public meta def introMaskWidths (g : MVarId) (widthTms : WidthTms) (blastWidth : Nat)
+public meta def introMaskWidths (g : MVarId) (widthTms : WidthTms) (env : TmWidthEnv) (blastWidth : Nat)
   : MetaM (MVarId × WidthInfos)
   := g.withContext do
   -- Intro all the masks
   widthTms.terms.foldM
-    (init := (g, { env := widthTms.env, blastWidth }))
+    (init := (g, { env, blastWidth }))
     fun (g, widthInfos) widthTm => do
       let (g, _, infos) ← getOrCreateWidthMask g widthTm widthInfos
       return (g, infos)

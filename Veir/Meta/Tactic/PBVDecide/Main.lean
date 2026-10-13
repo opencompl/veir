@@ -26,30 +26,43 @@ meta def dropNatReferences (g : MVarId) (infos : WidthInfos) : MetaM MVarId := g
     let g ← g.clear info.widthMaskHypFvar
     return g
 
+/-- Everything found while reifying the goal and context. -/
+structure Collected where
+  widthTms : WidthTms
+  bvs : BitVecFVarsToRevert
+  props : WidthProps
+  blastWidth : Nat
+
+abbrev ContextM := ReaderT PbvDecideContext WidthEnvM
+
+meta def collect (g : MVarId) : ContextM (Collected) := g.withContext do
+  -- Find `BitVec`s and reify their widths
+  let (widthTms, bvsToRevert) ← visitExprRec {} {} (← g.getType)
+  -- Find `BitVec`s in the hypotheses that will be reverted along with them
+  let (widthTms, bvsToRevert) ← visitDependentHyps widthTms bvsToRevert
+  -- Traverse the context to find props on widths (preconditions)
+  let widthProps ← reifyPreconditions
+  -- Compute the blast width
+  let blastWidth := (widthTms.getWidthUpperBound (← read)).max
+                    <| widthProps.getWidthUpperBound (← read)
+
+  return ({ widthTms, bvs := bvsToRevert, props := widthProps, blastWidth })
+
 /--
 Translate the provided parametric `BitVec` goal into a concrete width goal using
 the provided context. Returns the modified goal and any generate side-goals.
 -/
 meta def pbvTranslate (g : MVarId) (ctx : PbvDecideContext) : MetaM (MVarId × List MVarId × WidthInfos × BitVecInfos)
   := g.withContext do
-  -- Construct the width environment
-  let widthEnv ← createWidthEnv g
-  -- Find `BitVec`s and reify their widths
-  let (widthTms, bvsToRevert) ← visitExprRec { env := widthEnv } {} (← g.getType)
-  -- Find `BitVec`s in the hypotheses that will be reverted along with them
-  let (widthTms, bvsToRevert) ← visitDependentHyps widthTms bvsToRevert
-  -- Traverse the context to find props on widths (preconditions)
-  let widthProps ← reifyPreconditions widthEnv
-  -- Compute the blast width
-  let blastWidth := (widthTms.getWidthUpperBound ctx).max <| widthProps.getWidthUpperBound ctx
+  let (collected, env) ← ((collect g).run ctx).run {}
   -- Introduce the width masks, bounded by the blast width
-  let (g, widthInfos) ← introMaskWidths g widthTms blastWidth
+  let (g, widthInfos) ← introMaskWidths g collected.widthTms env collected.blastWidth
   -- Translate props on the width vars into props on the masks
-  let (g, widthInfos) ← widthProps.translateToMask g widthInfos
+  let (g, widthInfos) ← collected.props.translateToMask g widthInfos
   -- Intro the `BitVec`s
-  let (g, bvInfos) ← introMaskedBitvectors bvsToRevert g widthInfos
+  let (g, bvInfos) ← introMaskedBitvectors collected.bvs g widthInfos
   -- Lift the goal to the blast width and push the `setWidth`s in
-  let g ← liftToBlastWidth g blastWidth widthInfos bvInfos
+  let g ← liftToBlastWidth g collected.blastWidth widthInfos bvInfos
   -- Drop references to `Nat` width variables
   let g ← dropNatReferences g widthInfos
   -- Run grind on subgoals
