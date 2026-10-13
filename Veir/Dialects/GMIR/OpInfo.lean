@@ -113,7 +113,7 @@ private def OperationPtr.verifyGMIRICmp {OpInfo : Type} [IsOpCode OpInfo]
   for i in [0, 1]  do
     ((op.getOperand! ctx.raw i).getType! ctx.raw).verifyIntegerOrPointerType
       s!"{instrName}: Expected operand {i} to have integer or pointer type"
-  let resultType := ((op.getResult 0).get! ctx.raw).type
+  let resultType := (op.getResult 0).getType! ctx.raw
   resultType.verifyIntegerType s!"{instrName}: Expected result to have integer type"
 
 

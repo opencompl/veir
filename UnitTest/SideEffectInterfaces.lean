@@ -66,7 +66,7 @@ private def opWithType {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpCode D
     OperationPtr × IRContext OpCode :=
   let (ctx, moduleOp) := WfIRContext.create! OpCode
   let moduleRegion := moduleOp.getRegion! ctx.raw 0
-  let moduleBlock := (moduleRegion.get! ctx.raw).firstBlock.get!
+  let moduleBlock := (moduleRegion.getFirstBlock! ctx.raw).get!
   let (ctx, op) :=
     (WfRewriter.createOp! ctx opType #[] #[] #[] #[] properties
       (some (.atEnd moduleBlock))).get!

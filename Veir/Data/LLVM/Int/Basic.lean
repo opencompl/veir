@@ -7,7 +7,7 @@ public section
 /--
 The `Int` type can have any bitwidth `w`. It is either a two's complement
 integer value of width `w` or a poison value indicating delayed undefined
-bahavior.
+behavior.
 -/
 inductive Int (w : Nat) where
 /-- A two's complement integer value of width `w`. -/

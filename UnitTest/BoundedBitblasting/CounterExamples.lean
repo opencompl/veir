@@ -190,3 +190,12 @@ Consider the following assignment:
 example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
     x + (1 : BitVec (w + 0)) = 1 + x := by
   pbv_decide 4
+
+/--
+error: Failed to reify width expr: v - 1 - 0 + 1
+-/
+#guard_msgs in
+example {v : Nat} (x : BitVec w) (hw : w ≤ 8) (hv : v ≤ w) (hv1 : v > 0):
+    (x.extractLsb (v-1) 0).cast (by lia) = (x &&& ((1#w <<< BitVec.ofNat w v) - 1)).setWidth v := by
+  pbv_decide 8 -bv_decide
+

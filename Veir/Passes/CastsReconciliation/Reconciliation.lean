@@ -55,7 +55,7 @@ def reconcilePairingCastLocal (legal : TypeAttr → TypeAttr → Bool) (ctx : Wf
   let some input := matchCastOp op ctx.raw | return (ctx, none)
   /- Note that reconciliation matches on the second casting operation, so the input type of this op would be the intermediate type -/
   let interType := input.getType! ctx.raw
-  let resultType := ((op.getResult 0).get! ctx.raw).type
+  let resultType := (op.getResult 0).getType! ctx.raw
   /- If the operand's parent is a cast operation -/
   let .opResult op' := input | return (ctx, none)
   let some parentInput := matchCastOp op'.op ctx.raw | return (ctx, none)
@@ -76,7 +76,7 @@ def reconcileRegIntCastLocal (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some input := matchCastOp op ctx.raw | return (ctx, none)
   /- Note that reconciliation matches on the second casting operation, so the input type of this op would be the intermediate type -/
   let interType := input.getType! ctx.raw
-  let resultType := ((op.getResult 0).get! ctx.raw).type
+  let resultType := (op.getResult 0).getType! ctx.raw
   /- If the operand's parent is a cast operation -/
   let .opResult op' := input | return (ctx, none)
   let some parentInput := matchCastOp op'.op ctx.raw | return (ctx, none)

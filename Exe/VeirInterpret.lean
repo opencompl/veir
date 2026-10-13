@@ -33,11 +33,11 @@ partial def scanEntryPoints (ctx : IRContext OpCode) (op : Option OperationPtr)
   | some op =>
     if hIsFunc : op.isFunctionLike ctx then
       let entryPoints := if isZeroArgMainFunc ctx op then ⟨op, hIsFunc⟩ :: entryPoints else entryPoints
-      scanEntryPoints ctx (op.get! ctx).next entryPoints
+      scanEntryPoints ctx (op.getNextOp! ctx) entryPoints
     else
       match op.getOpType! ctx with
       | .llvm .module_flags | .llvm .mlir__global =>
-        scanEntryPoints ctx (op.get! ctx).next entryPoints
+        scanEntryPoints ctx (op.getNextOp! ctx) entryPoints
       | _ =>
         IO.eprintln "Error: unsupported top-level operation; expected a function, llvm.mlir.global, or llvm.module_flags"
         IO.Process.exit 1
@@ -47,9 +47,9 @@ def resolveEntryPoint (ctx : IRContext OpCode) (moduleOp : OperationPtr) :
     IO {op : OperationPtr // op.isFunctionLike ctx} := do
   let region := moduleOp.getRegion! ctx 0
   let entryPoints ←
-    match (region.get! ctx).firstBlock with
+    match region.getFirstBlock! ctx with
     | none => pure []
-    | some blockPtr => scanEntryPoints ctx (blockPtr.get! ctx).firstOp
+    | some blockPtr => scanEntryPoints ctx (blockPtr.getFirstOp! ctx)
   match entryPoints with
   | [] =>
     IO.eprintln "Error: No entry point: define a zero-argument function named 'main'"
@@ -95,7 +95,7 @@ partial def allocateGlobals (ctx : WfIRContext OpCode) (op : Option OperationPtr
         let (mem, ptr) ← expectOk name (mem.alloc 0)
         pure ({ mem with globals := mem.globals.insert name ptr.object }, pending)
       | none => pure (mem, pending)
-  allocateGlobals ctx (op.get! raw).next mem pending
+  allocateGlobals ctx (op.getNextOp! raw) mem pending
 
 /--
   Fill the object of a global with its `value`, or with what its initializer
@@ -117,7 +117,7 @@ def initializeGlobal (ctx : WfIRContext OpCode) (op : OperationPtr) (ptr : Data.
     else if h : op.getNumRegions ctx.raw ≠ 1 then pure mem
     else
       let region := op.getRegion ctx.raw 0
-      match (region.get ctx.raw).firstBlock with
+      match region.getFirstBlock ctx.raw with
       | none => pure mem
       | some _ => do
         let (state, results) ← expectOk name
@@ -150,8 +150,8 @@ def main (args : List String) : IO Unit := do
     let rawCtx : IRContext OpCode := ctx
     let mainOp ← resolveEntryPoint rawCtx op
     let mainFunc := FunctionOp.of mainOp.val rawCtx mainOp.property
-    let firstOp := ((op.getRegion! rawCtx 0).get! rawCtx).firstBlock.bind
-      fun b => (b.get! rawCtx).firstOp
+    let firstOp := ((op.getRegion! rawCtx 0).getFirstBlock! rawCtx).bind
+      fun b => b.getFirstOp! rawCtx
     let mem ← materializeGlobals ctx firstOp MemoryState.empty
     let result := bind (interpretFunction (ctx := ctx) mainFunc #[] mem (by sorry))
                        (fun (_, r) => pure r)

@@ -108,7 +108,7 @@ def Io.verifyBufferOperands {OpInfo : Type} [IsOpCode OpInfo]
 def Io.verifyStatusResult {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo) (instrName : String) :
     Except String PUnit :=
-  ((op.getResult 0).get! ctx.raw).type.verifyI64
+  ((op.getResult 0).getType! ctx.raw).verifyI64
     s!"{instrName}: Expected result 0 to have i64 type"
 
 /--
@@ -125,7 +125,7 @@ def Io.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpInf
   match opType with
   | .self =>
     op.verifyPlainOpCounts ctx opIn 0 1
-    ((op.getResult 0).get! ctx.raw).type.verifyIoAddressType
+    ((op.getResult 0).getType! ctx.raw).verifyIoAddressType
       s!"{instrName}: Expected result 0 to have !io.address type"
   | .send =>
     op.verifyPlainOpCounts ctx opIn 3 1
@@ -137,7 +137,7 @@ def Io.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpInf
     op.verifyPlainOpCounts ctx opIn 2 2
     Io.verifyBufferOperands op ctx 0 instrName
     Io.verifyStatusResult op ctx instrName
-    ((op.getResult 1).get! ctx.raw).type.verifyIoAddressType
+    ((op.getResult 1).getType! ctx.raw).verifyIoAddressType
       s!"{instrName}: Expected result 1 to have !io.address type"
   | .rand =>
     op.verifyPlainOpCounts ctx opIn 2 1
