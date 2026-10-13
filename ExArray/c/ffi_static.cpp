@@ -110,7 +110,6 @@ static inline lean_obj_res buffed_ex_array_ensure_capacity(lean_obj_arg a, size_
     if (min_cap <= cap) {
         return a;
     } else {
-        printf("\n\nIncreasing size, needed %zu but I'm %zu!\n\n", min_cap, cap);
         return buffed_copy_ex_array(a, exact ? min_cap : min_cap * 2);
     }
 }
@@ -120,7 +119,6 @@ lean_obj_res buffed_ex_array_ensure_exclusive(lean_obj_arg a) {
     if (buffed_is_exclusive(a)) {
         return a;
     } else {
-        printf("\n\nNON EXCLUSIVE ARRAY!\n\n");
         return buffed_copy_ex_array(a, buffed_sarray_capacity(a));
     }
 }
