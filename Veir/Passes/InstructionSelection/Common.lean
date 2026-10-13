@@ -54,7 +54,7 @@ def createRISCVUnitLocal (ctx : WfIRContext OpCode)
       (cast h.symm ()) none
 
 /-- The uses of `value`, each given by its user and the operand index of the use. -/
-private def directUses (ctx : IRContext OpCode) (value : ValuePtr) :
+def directUses (ctx : IRContext OpCode) (value : ValuePtr) :
     Array (OperationPtr × Nat) := Id.run do
   let mut uses := #[]
   let mut maybeUse := value.getFirstUse! ctx
@@ -68,7 +68,7 @@ private def directUses (ctx : IRContext OpCode) (value : ValuePtr) :
   RISC-V instruction reads `value` through casts to `!riscv.reg` (and a selected `llvm.trunc` is
   itself a pair of casts).
 -/
-private def usesThroughCasts (ctx : IRContext OpCode) (value : ValuePtr) :
+def usesThroughCasts (ctx : IRContext OpCode) (value : ValuePtr) :
     Array (OperationPtr × Nat) := Id.run do
   let mut uses := #[]
   let mut worklist := directUses ctx value
@@ -81,7 +81,7 @@ private def usesThroughCasts (ctx : IRContext OpCode) (value : ValuePtr) :
   return uses
 
 /-- The number of bits needed to represent `value`, as LLVM's `bit_width`. -/
-private def bitWidth (value : BitVec 64) : Nat :=
+def bitWidth (value : BitVec 64) : Nat :=
   if value = 0 then 0 else value.toNat.log2 + 1
 
 /-- What a use demands of the value it reads, relative to a number of bits `bits`. -/
@@ -203,5 +203,52 @@ termination_by worklist => (fuel, worklist.length)
 def hasAllNBitUsers (ctx : IRContext OpCode) (value : ValuePtr) (bits : Nat)
     (fuel : Nat := (ctx.operations.size + 1) * (max bits 64 + 1)) : Bool :=
   hasAllNBitUsers.go ctx fuel ∅ [(value, bits)]
+
+/-! ## Lemmas about `hasAllNBitUsers` -/
+
+/-- A use only forwards to a width of at most `max bits 63`. -/
+theorem nBitUse_forward_le {ctx : IRContext OpCode} {user : OperationPtr}
+    {index bits bits' : Nat} (h : nBitUse ctx user index bits = .forward bits') :
+    bits' ≤ max bits 63 := by
+  unfold nBitUse at h
+  generalize user.getOpType! ctx = op at h
+  cases op with
+  | riscv op => cases op <;> simp at h <;> (repeat' split at h) <;> (try simp_all) <;> omega
+  | _ => simp at h
+
+/-- Each pair forwarded by `forwardedNBitUses` comes from a use that forwards it. -/
+theorem forwardedNBitUses_mem {ctx : IRContext OpCode} {value : ValuePtr} {bits : Nat}
+    {forwarded : List (ValuePtr × Nat)} (h : forwardedNBitUses ctx value bits = some forwarded)
+    {value' : ValuePtr} {bits' : Nat} (hmem : (value', bits') ∈ forwarded) :
+    ∃ user index, (user, index) ∈ usesThroughCasts ctx value ∧
+      nBitUse ctx user index bits = .forward bits' ∧ value' = user.getResult 0 := by
+  unfold forwardedNBitUses at h
+  simp only [← Array.mem_toList_iff]
+  generalize (usesThroughCasts ctx value).toList = uses at h ⊢
+  induction uses generalizing forwarded with
+  | nil => simp_all
+  | cons use uses ih =>
+    simp only [List.foldrM_cons, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+    obtain ⟨acc, hacc, h⟩ := h
+    split at h
+    · cases h
+      obtain ⟨user, index, huse, hforward, rfl⟩ := ih hmem hacc
+      exact ⟨user, index, .tail _ huse, hforward, rfl⟩
+    · cases h
+    · next bits'' hforward =>
+      cases h
+      rcases List.mem_cons.mp hmem with h | hmem
+      · cases h
+        exact ⟨use.1, use.2, .head _, hforward, rfl⟩
+      · obtain ⟨user, index, huse, hforward, rfl⟩ := ih hmem hacc
+        exact ⟨user, index, .tail _ huse, hforward, rfl⟩
+
+/-- All pairs forwarded by `forwardedNBitUses` have a width of at most `max bits 63`. -/
+theorem forwardedNBitUses_le {ctx : IRContext OpCode} {value : ValuePtr} {bits : Nat}
+    {forwarded : List (ValuePtr × Nat)} (h : forwardedNBitUses ctx value bits = some forwarded)
+    {value' : ValuePtr} {bits' : Nat} (hmem : (value', bits') ∈ forwarded) :
+    bits' ≤ max bits 63 :=
+  have ⟨_, _, _, hforward, _⟩ := forwardedNBitUses_mem h hmem
+  nBitUse_forward_le hforward
 
 end Veir
