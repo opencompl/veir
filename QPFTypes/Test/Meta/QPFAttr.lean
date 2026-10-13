@@ -274,6 +274,16 @@ variable (A : Type v)
 end
 
 /-!
+## Point-free
+-/
+
+@[qpf] def AlsoFst : liveParam Type → liveParam Type → Type :=
+  Fst
+
+#gsynth QPF (@TypeFun.ofCurried 2 AlsoFst)
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 2 AlsoFst)
+
+/-!
 ## Rejected targets
 -/
 
@@ -325,21 +335,20 @@ note that the head, after applying it to zero or more of the arguments, must be 
 #guard_msgs in
 @[qpf] def FailsNotAQpf (α : liveParam Type) := NotAQpf α
 
+-- set_option trace.QPFTypes true
+
 -- A target that is not a type at all. The `let` keeps `ofTypeDef` from treating
 -- the lambda's binder as just another (dead) parameter.
 /--
 error: While deriving a QPF from definition:
   FailsNotAType
 
-The expression:
-  have f := fun x => α;
-  f
-has type
-  Nat → liveParam Type
-but is expected to have type
-  Type
+non-live parameter:
+  a✝ : Nat
+occurs after live parameter:
+  α : liveParam Type
 
-Note that the result of a QPF must live in the same type universe as it's arguments
+Note that all non-live parameters must precede the live parameters.
 -/
 #guard_msgs in
 @[qpf] def FailsNotAType (α : liveParam Type) : Nat → Type :=
