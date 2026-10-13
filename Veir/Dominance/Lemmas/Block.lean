@@ -112,12 +112,10 @@ theorem rootedAt_iff
   constructor
   · intro rooted
     exact rooted.of_same_parent (parent := .region region)
-      (by simp only [IRNode.parent!_block, dominatorParent, Option.map_some])
-      (by simp only [IRNode.parent!_block, dominatedParent, Option.map_some])
+      (by grind) (by grind)
   · intro rooted
     exact rooted.of_same_parent (parent := .region region)
-      (by simp only [IRNode.parent!_block, dominatedParent, Option.map_some])
-      (by simp only [IRNode.parent!_block, dominatorParent, Option.map_some])
+      (by grind) (by grind)
 
 /--
 If a `source` block properly dominates a distinct `target`, then it properly dominates

@@ -155,26 +155,20 @@ theorem OperationPtr.ProperlyDominatesInRegion.rootedAt_iff
     constructor
     · intro rooted
       exact rooted.of_same_parent (parent := .block block)
-        (by simp only [IRNode.parent!_operation, parents.1, Option.map_some])
-        (by simp only [IRNode.parent!_operation, parents.2, Option.map_some])
+        (by grind) (by grind)
     · intro rooted
       exact rooted.of_same_parent (parent := .block block)
-        (by simp only [IRNode.parent!_operation, parents.2, Option.map_some])
-        (by simp only [IRNode.parent!_operation, parents.1, Option.map_some])
+        (by grind) (by grind)
   | @BlockDominance dominatorBlock dominatedBlock dominatorParent dominatedParent dominance =>
     constructor
     · intro rooted
       have parentRooted : dominatorBlock.RootedAt root ctx :=
-        rooted.of_ancestor (IRNode.Ancestor.of_parent (by
-          simp only [IRNode.parent!_operation, dominatorParent, Option.map_some]))
-      exact (dominance.rootedAt_iff.mp parentRooted).of_parent (by
-        simp only [IRNode.parent!_operation, dominatedParent, Option.map_some])
+        rooted.of_ancestor (IRNode.Ancestor.of_parent (by grind))
+      exact (dominance.rootedAt_iff.mp parentRooted).of_parent (by grind)
     · intro rooted
       have parentRooted : dominatedBlock.RootedAt root ctx :=
-        rooted.of_ancestor (IRNode.Ancestor.of_parent (by
-          simp only [IRNode.parent!_operation, dominatedParent, Option.map_some]))
-      exact (dominance.rootedAt_iff.mpr parentRooted).of_parent (by
-        simp only [IRNode.parent!_operation, dominatorParent, Option.map_some])
+        rooted.of_ancestor (IRNode.Ancestor.of_parent (by grind))
+      exact (dominance.rootedAt_iff.mpr parentRooted).of_parent (by grind)
 
 /-- Operations related by proper dominance share a root, independently of reachability. -/
 theorem OperationPtr.ProperlyDominates.rootedAt_iff
@@ -354,8 +348,7 @@ theorem OperationPtr.ProperlyDominatesBlock.rootedAt_dominator
   cases dominance with
   | Ancestor ancestry => exact blockRooted.of_ancestor ancestry
   | SameRegion dominatorParent dominance =>
-    exact (dominance.rootedAt_iff.mpr blockRooted).of_parent (by
-      simp only [IRNode.parent!_operation, dominatorParent, Option.map_some])
+    exact (dominance.rootedAt_iff.mpr blockRooted).of_parent (by grind)
   | AncestorOpDominated ancestry dominance =>
     exact dominance.rootedAt_iff.mpr (blockRooted.of_ancestor ancestry)
 
@@ -367,15 +360,12 @@ theorem OperationPtr.DominatesIp.rootedAt_dominator {ip : InsertPoint}
     op.RootedAt root ctx := by
   cases dominance with
   | Before dominance =>
-    simp only [InsertPoint.block!_before_eq] at ipParent
     apply dominance.rootedAt_iff.mpr
-    exact blockRooted.of_parent (by
-      simp only [IRNode.parent!_operation, ipParent, Option.map_some])
+    exact blockRooted.of_parent (by grind)
   | AtEndSameBlock dominatorParent =>
     simp only [InsertPoint.block!_atEnd_eq, Option.some.injEq] at ipParent
     subst block
-    exact blockRooted.of_parent (by
-      simp only [IRNode.parent!_operation, dominatorParent, Option.map_some])
+    exact blockRooted.of_parent (by grind)
   | AtEndOtherBlock dominance =>
     simp only [InsertPoint.block!_atEnd_eq, Option.some.injEq] at ipParent
     subst block
@@ -393,7 +383,7 @@ theorem OperationPtr.RootedAt.of_dominatesIp_atStart
     have blockInBounds : block.InBounds ctx.raw := by
       grind [BlockPtr.getFirstOp!, BlockPtr.get!_of_not_inBounds, Block.default_firstOp_eq]
     have firstParent : firstOp.getParent! ctx.raw = some block := by grind
-    exact opDom.rootedAt_dominator (by simpa using firstParent) blockRooted
+    exact opDom.rootedAt_dominator (by grind) blockRooted
   | none =>
     simp only [InsertPoint.atStart!, first] at opDom
     exact opDom.rootedAt_dominator rfl blockRooted
