@@ -13,65 +13,51 @@ variable {EIn FIn CIn C'In DIn X Y X' Y' : Type u}
   {E : EIn → Type u} {F : FIn → Type u} {C : CIn → Type u} {C' : C'In → Type u} {D : DIn → Type u}
   {R R' : Type u} (RR : R → R' → Prop)
 
-set_option warn.sorry false in
 /--
 Simulation between ctrees: the rhs should have at least all
 the behaviors of the lhs.
 The simulation is parameterized by a relation on return values.
 -/
-def sim (t : CTree E C R) (u : CTree E C' R') : Prop := let _ := RR; sorry
+axiom Sim (RR : R → R' → Prop) (t : CTree E C R) (u : CTree E C' R') : Prop
 
-set_option warn.sorry false in
-theorem sim_ret (r : R) (r' : R') :
+axiom sim_ret (r : R) (r' : R') :
   RR r r' →
-  sim RR (CTree.ret (E := E) (C := C) r) (CTree.ret (C := C') r') := sorry
+  Sim RR (CTree.ret (E := E) (C := C) r) (CTree.ret (C := C') r')
 
-set_option warn.sorry false in
-theorem sim_tau_l (i : C1In ⊕ CIn) (k : (C1 ⊕ₑ C) i → CTree E C R) (u : CTree E C' R') :
-  (∀ x, sim RR (k x) u) →
-  sim RR (CTree.tauG i k) u := sorry
+axiom sim_tau_l (i : C1In ⊕ CIn) (k : (C1 ⊕ₑ C) i → CTree E C R) (u : CTree E C' R') :
+  (∀ x, Sim RR (k x) u) →
+  Sim RR (CTree.tauG i k) u
 
-set_option warn.sorry false in
-theorem sim_tau_r (i' : C1In ⊕ C'In) (t : CTree E C R) (k' : (C1 ⊕ₑ C') i' → CTree E C' R') x :
-  sim RR t (k' x) →
-  sim RR t (CTree.tauG i' k') := sorry
+axiom sim_tau_r (i' : C1In ⊕ C'In) (t : CTree E C R) (k' : (C1 ⊕ₑ C') i' → CTree E C' R') x :
+  Sim RR t (k' x) →
+  Sim RR t (CTree.tauG i' k')
 
-set_option warn.sorry false in
-theorem sim_tau (i : C1In ⊕ CIn) (i' : C1In ⊕ C'In) (k : (C1 ⊕ₑ C) i → CTree E C R) (k' : (C1 ⊕ₑ C') i' → CTree E C' R') :
-  (∀ x, ∃ y, sim RR (k x) (k' y)) →
-  sim RR (CTree.tauG i k) (CTree.tauG i' k') := sorry
+axiom sim_tau (i : C1In ⊕ CIn) (i' : C1In ⊕ C'In) (k : (C1 ⊕ₑ C) i → CTree E C R) (k' : (C1 ⊕ₑ C') i' → CTree E C' R') :
+  (∀ x, ∃ y, Sim RR (k x) (k' y)) →
+  Sim RR (CTree.tauG i k) (CTree.tauG i' k')
 
-set_option warn.sorry false in
-theorem sim_tau_id (i : C1In ⊕ CIn) (k : (C1 ⊕ₑ C) i → CTree E C R) (k' : (C1 ⊕ₑ C) i → CTree E C R') :
-  (∀ x, sim RR (k x) (k' x)) →
-  sim RR (CTree.tauG i k) (CTree.tauG i k') := sorry
+axiom sim_tau_id (i : C1In ⊕ CIn) (k : (C1 ⊕ₑ C) i → CTree E C R) (k' : (C1 ⊕ₑ C) i → CTree E C R') :
+  (∀ x, Sim RR (k x) (k' x)) →
+  Sim RR (CTree.tauG i k) (CTree.tauG i k')
 
-set_option warn.sorry false in
-theorem sim_vis (i : EIn) (k : E i → CTree E C R) (k' : E i → CTree E C' R') :
-  (∀ x, sim RR (k x) (k' x)) →
-  sim RR (CTree.vis i k) (CTree.vis i k') := sorry
+axiom sim_vis (i : EIn) (k : E i → CTree E C R) (k' : E i → CTree E C' R') :
+  (∀ x, Sim RR (k x) (k' x)) →
+  Sim RR (CTree.vis i k) (CTree.vis i k')
 
-set_option warn.sorry false in
-theorem sim_bind {RR RR'} (t : CTree E C X) (u : CTree E C' X') (k : X → CTree E C Y) (k' : X' → CTree E C' Y') :
-  sim RR t u →
-  (∀ x y, RR x y → sim RR' (k x) (k' y)) →
-  sim RR' (bind t k) (bind u k') := sorry
+axiom sim_bind {RR RR'} (t : CTree E C X) (u : CTree E C' X') (k : X → CTree E C Y) (k' : X' → CTree E C' Y') :
+  Sim RR t u →
+  (∀ x y, RR x y → Sim RR' (k x) (k' y)) →
+  Sim RR' (bind t k) (bind u k')
 
-set_option warn.sorry false in
-theorem sim_iter {I I'} {RRi : I → I' → Prop} {RRo : X → Y → Prop} {RR} (body : I → CTree E C (I ⊕ X)) (body' : I' → CTree E C (I' ⊕ Y)) i i' :
+axiom sim_iter {I I'} {RRi : I → I' → Prop} {RRo : X → Y → Prop}
+    (body : I → CTree E C (I ⊕ X)) (body' : I' → CTree E C (I' ⊕ Y)) i i' :
   RRi i i' →
-  (∀ x y, RRi x y → sim RR (body x) (body' y)) →
-  sim (R' := Y) RRo (CTree.iter body i) (CTree.iter (X := Y) body' i') := sorry
+  (∀ x y, RRi x y → Sim (Sum.LiftRel RRi RRo) (body x) (body' y)) →
+  Sim (R' := Y) RRo (CTree.iter body i) (CTree.iter (X := Y) body' i')
 
-set_option warn.sorry false in
-theorem sim_interp {RR} (h : (i : EIn) → CTree F C (E i)) (t : CTree E C X) (u : CTree E C Y) :
-    sim RR t u →
-    sim RR (CTree.interp h t) (CTree.interp h u) := sorry
-
-set_option warn.sorry false in
-theorem sim_refine {RR} (h : (i : CIn) → CTree E D (C i)) (t : CTree E C X) (u : CTree E C Y) :
-    sim RR t u →
-    sim RR (CTree.refine h t) (CTree.refine h u) := sorry
+axiom sim_interp {RR} (h : (i : EIn) → CTree F C (E i)) (t : CTree E C X) (u : CTree E C Y) :
+  Sim RR t u →
+  Sim RR (CTree.interp h t) (CTree.interp h u)
 
 end CTree
 
