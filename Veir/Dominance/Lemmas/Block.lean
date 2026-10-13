@@ -244,11 +244,22 @@ axiom OperationPtr.DominatesIp.predecessor_exit_of_successor_entry
     op.DominatesIp (InsertPoint.atStart! succ ctx.raw) ctx →
     op.DominatesIp (.atEnd block) ctx
 
+/-- An argument of a block dominates any insertion point belonging to that block. -/
+theorem BlockPtr.argument_dominatesIp {ip : InsertPoint}
+    (ipParent : ip.block! ctx.raw = some block)
+    (hMem : value ∈ block.getArguments! ctx.raw) :
+    value.DominatesIp ip ctx := by
+  obtain ⟨index, _, rfl⟩ := BlockPtr.getArguments!.mem_iff_exists_index.mp hMem
+  exact .BlockArg ipParent (Or.inl BlockPtr.getArgument_block)
+
 /-- An argument of an in-bounds block dominates the entry of that block. -/
-axiom BlockPtr.argument_dominatesIp_atStart
+theorem BlockPtr.argument_dominatesIp_atStart
     (blockInBounds : block.InBounds ctx.raw)
     (hMem : value ∈ block.getArguments! ctx.raw) :
-    value.DominatesIp (InsertPoint.atStart! block ctx.raw) ctx
+    value.DominatesIp (InsertPoint.atStart! block ctx.raw) ctx := by
+  exact BlockPtr.argument_dominatesIp
+    (InsertPoint.block!_atStart!_eq (by grind) blockInBounds) hMem
+
 /-- An argument of a rooted, locally reachable block in an SSA region cannot dominate
 the point before an operation that dominates the block entry. Reachability in enclosing
 regions is not required. -/
