@@ -14,7 +14,6 @@ Lake uses Lean's bundled compiler, archiver, and linker to build the native C co
 LTO.
 Override the compiler and archiver with `LEAN_CC` and `LEAN_AR`, using tools
 compatible with the linker for LTO.
-Use `direnv` or `nix develop` from the repository root to supply dependencies via nix.
 
 To test, run `lake exe test` from this directory or `make tests` from the parent
 directory to run alongside VeIR's test suites.
