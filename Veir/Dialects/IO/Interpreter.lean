@@ -17,6 +17,7 @@ namespace Veir
 
 /-- Input type for an IO effect -/
 inductive IoEIn where
+  | selfAddrE
   | sendE (msg : Message)
   | recvE
   | randE (len : Nat)
@@ -24,6 +25,7 @@ inductive IoEIn where
 /-- Output type for an IO effect -/
 abbrev IoE (e : IoEIn) :=
   match e with
+  | .selfAddrE => Nat
   | .sendE _ => Unit
   | .recvE => Option Message
   | .randE _ => ByteArray
@@ -34,6 +36,8 @@ def ioSend [IoE -< E] (msg : Message) : CTree E C Unit := CTree.trigger (SubE :=
 def ioRecv [IoE -< E] : CTree E C (Option Message) := CTree.trigger (SubE := IoE) (.recvE)
 /-- Emit an IO random number generation effect -/
 def ioRand [IoE -< E] (len : Nat) : CTree E C ByteArray := CTree.trigger (SubE := IoE) (.randE len)
+/-- Emit an effect representing getting this process's network address -/
+def ioSelfAddress [IoE -< E] : CTree E C Nat := CTree.trigger (SubE := IoE) (.selfAddrE)
 
 def Io.interpretOpCTree [ErrorE -< E] [UBE -< E] [IoE -< E] (opType : Veir.Io)
     (properties : propertiesOf opType)
@@ -42,7 +46,8 @@ def Io.interpretOpCTree [ErrorE -< E] [UBE -< E] [IoE -< E] (opType : Veir.Io)
     : CTree E C ((Array RuntimeValue) × EffectState × Option ControlFlowAction) :=
   match opType with
   | .self => do
-    return (#[.ioAddr em.network.selfAddress], em, none)
+    let selfAddress ← ioSelfAddress
+    return (#[.ioAddr selfAddress], em, none)
   | .send => do
     let [.ioAddr dest, .addr ptr, .int _ len] := operands.toList | ub
     let .val len := len | ub
