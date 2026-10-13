@@ -1,64 +1,14 @@
 module
 
 public meta import Lean
-public meta import Std
 public import Veir.Data.PBV
-public meta import Veir.Meta.Tactic.PBVDecide.Config
-public meta import Veir.Meta.Tactic.PBVDecide.Reify
+public meta import Veir.Meta.Tactic.PBVDecide.Info
 
 open Lean Meta Std
 
 open Veir.Data.PBV
 
 namespace Veir.Meta.Tactic.PBVDecide
-
-/--
-Information about the width variable and associated hypotheses.
--/
-public structure WidthInfo where
-  /-- The `Tm` corresponding to this width. -/
-  widthTm : Tm .width
-  /-- The FVarId of the mask. -/
-  widthMaskFVar : FVarId
-  /-- The FVarId of the pure-BV hypothesis that this width is a mask variable. -/
-  widthMaskHypFvar : FVarId
-  /-- The proof obligation that the width variable is less than or equal to
-      the blast bound. -/
-  hypWidthLeBoundMVarId : Option MVarId
-  /-- The hypothesis that the width variable is less than or equal to the blast
-      bound. -/
-  hypWidthLeBoundNote : FVarId
-
-public meta def WidthInfo.name (this : WidthInfo) : Name :=
-  this.widthTm.toName
-
-public structure WidthInfos where
-  /-- One WidthInfo per width -/
-  infos : HashMap Name WidthInfo := {}
-  /-- Width environment. -/
-  env : TmWidthEnv
-  /-- Width at which the bit-blasting occurs. -/
-  blastWidth : Nat
-
-meta def WidthInfos.push (this : WidthInfos) (info : WidthInfo) : WidthInfos :=
-  { this with infos := this.infos.insert (info.widthTm.toName) info }
-
-/--
-Get WidthInfo from a Term.
--/
-public meta def WidthInfos.getFromTm? (this : WidthInfos) (wTm : Tm .width) : Option WidthInfo :=
-  this.infos[wTm.toName]?
-
-/--
-Get WidthInfo from an Expr.
--/
-meta def WidthInfos.getFromExpr? (this : WidthInfos) (wExpr : Expr)
-    : MetaM (Option WidthInfo) := do
-  -- Reduce the expression (allows for cases such as (w + 0) to be reduced to w).
-  let reducedExpr ← whnf wExpr
-  -- Reify the expr using the env and then look for it in the Hashmap.
-  let some reified ← Tm.reifyWidth this.env reducedExpr | pure none
-  return this.infos[reified.toName]?
 
 /--
 Given a width term (`widthTm`), introduce a `BitVec` variable corresponding
@@ -132,7 +82,6 @@ meta def introMaskLit (g : MVarId) (widthLit : Tm .width) (infos : WidthInfos) :
   }
 
   return (g, info, infos.push info)
-
 
 /--
 Recurse through a `.width Tm`, converting `Nat` term into a `BitVec` mask, and
@@ -222,5 +171,45 @@ public meta def introMaskWidths (g : MVarId) (widthTms : WidthTms) (blastWidth :
     fun (g, widthInfos) _ widthTm => do
       let (g, _, infos) ← getOrCreateWidthMask g widthTm.term widthInfos
       return (g, infos)
+
+/--
+Analyze a single bitvector FVarId, and introduce it as a `BitVec` variable in
+our larger universe. `Unchecked` because `widthTm` is trusted to be the width of
+`bvFVarId`; it is not re-derived from the local context.
+-/
+meta def introBitvecFVarUnchecked (widthInfos : WidthInfos) (g : MVarId)
+      (bvInfos : BitVecInfos) (bvFVarId : FVarId) (widthTm : WidthTm) :
+      MetaM (MVarId × BitVecInfos) := g.withContext do
+  -- Revert any hypothesis in the local context that depend on this bitvec var.
+  let g ← (← getLCtx).foldlM (init := g) fun g' ldecl => do
+    if ← localDeclDependsOn ldecl bvFVarId then
+      let (#[_hyp], g') ← g'.revert #[ldecl.fvarId]
+        | throwError m!"Reverting {ldecl.toExpr} should produce a single var."
+      return g'
+    return g'
+  -- Revert to expose forall with the BitVec.
+  let (#[oldVar], g) ← g.revert #[bvFVarId]
+    | throwError m!"Reverting {g} should produce a var."
+  let wExpr := widthTm.term.toExpr widthInfos.env
+  -- Apply ``var_elim.
+  let some infos := widthInfos.getFromTm? widthTm.term
+    | throwError m!"{wExpr} should have been defined in widthInfos."
+  let [g] ← g.withContext <| g.apply <| ← mkAppM ``var_elim #[.fvar infos.hypWidthLeBoundNote, .fvar infos.widthMaskHypFvar]
+    | throwError m!"{``var_elim} should generate a single goal. Produced {g}"
+
+  let name ← oldVar.getUserName
+  let (#[bvVar, bvHyp], g) ← g.withContext <| g.introN 2
+    [name, Name.mkSimple s!"h_{name}_maskOfWidth_{widthTm.term.toName}"]
+    | throwError m!"Expecting two intros from {g}"
+
+  return (g, bvInfos.push { bvVar, bvHyp, bvWidthTm := widthTm.term })
+
+/--
+Eliminate the bitvector variables to introduce the masked versions.
+-/
+public meta def introMaskedBitvectors (bvs : BitVecFVarsToRevert) (g : MVarId)
+    (widthInfos : WidthInfos) : MetaM (MVarId × BitVecInfos) := do
+  bvs.bvs.foldM (init := (g, {})) fun (g, bvInfos) bvFvarId widthTm => do
+    introBitvecFVarUnchecked widthInfos g bvInfos bvFvarId widthTm
 
 end Veir.Meta.Tactic.PBVDecide

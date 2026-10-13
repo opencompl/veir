@@ -3,79 +3,19 @@ module
 public meta import Lean
 public meta import Std
 public import Veir.Data.PBV
-public import Lean.Meta.Tactic.BVDecide.Main
 public meta import Veir.Meta.Tactic.PBVDecide.Config
 public meta import Veir.Meta.Tactic.PBVDecide.Reify
-public meta import Veir.Meta.Tactic.PBVDecide.WidthInfo
-public meta import Veir.Meta.Tactic.PBVDecide.BitVecInfo
+public meta import Veir.Meta.Tactic.PBVDecide.Info
+public meta import Veir.Meta.Tactic.PBVDecide.Elim
 public meta import Veir.Meta.Tactic.PBVDecide.CounterExample
+public meta import Veir.Meta.Tactic.PBVDecide.Push
 public import Veir.Meta.Tactic.PBVDecide.PBVPushSimp
 
-open Lean Elab Tactic Meta Simp Std Tactic.BVDecide
+open Lean Elab Tactic Meta
 
 namespace Veir.Meta.Tactic.PBVDecide
 
 open Veir.Data.PBV
-
-/--
-Add `eq_iff` with the blast width pre-filled, which lifts equalities to the
-blast width by wrapping both sides in a `setWidth`.
--/
-meta def addEqIff (g : MVarId) (blastWidth : Nat) (simp : SimpTheoremsArray) :
-    MetaM SimpTheoremsArray := g.withContext do
-  let liftThms ← labelled `pbv_lift
-  liftThms.foldlM (init := simp) fun simp name => do
-    simp.addTheorem (.other name) <| ← mkAppM name #[mkNatLit blastWidth]
-
-/--
-Add theorems to the Simp theorem context that push the `setWidth`s in.
--/
-meta def addPushTheorems (g : MVarId) (blastWidth : Nat) (simp : SimpTheoremsArray) :
-    MetaM SimpTheoremsArray := g.withContext do
-  -- Push theorems which require specifying the blastWidth explicitly.
-  let simp ← (← labelled `pbv_push_bound).foldlM (init := simp) fun simps name => do
-    return ← simps.addTheorem (.other name) (← mkAppM name #[mkNatLit blastWidth])
-  -- Push theorems.
-  let some pushExt ← getSimpExtension? `pbv_push
-    | throwError "Failed to obtain `pbv_push simp set."
-
-  return simp.push <| ← pushExt.getTheorems
-
-/--
-Add the mask hypotheses of the translated `BitVec`s to the Simp theorem context.
-These simplify the final formula by removing redundant masking operations; they
-are not strictly necessary for `bv_decide` to decide the resulting formula.
--/
-meta def addBvInfos (g : MVarId) (bvInfos : BitVecInfos)
-  (simp : SimpTheoremsArray) : MetaM SimpTheoremsArray := g.withContext do
-  let mut simp := simp
-  for info in bvInfos.infos do
-      simp ← simp.addTheorem (.other info.bvHyp.name) (mkFVar info.bvHyp)
-  return simp
-
-/--
-Add the hypotheses bounding each width by the blast width to the simp set.
--/
-meta def addWidthInfosSimpLemmas (g : MVarId) (widthInfos : WidthInfos)
-  (simp : SimpTheoremsArray) : MetaM SimpTheoremsArray := g.withContext do
-  let mut simp := simp
-  for (_wexpr, widthInfo) in widthInfos.infos do
-    simp ← simp.addTheorem (.other widthInfo.hypWidthLeBoundNote.name)
-        (mkFVar widthInfo.hypWidthLeBoundNote)
-    simp ← simp.addTheorem (.other widthInfo.widthMaskHypFvar.name)
-      (← mkEqSymm <| .fvar widthInfo.widthMaskHypFvar)
-  return simp
-
-/--
-Run simp on an MVarId given a set of simp theorems.
-Throws if `simp` closes the goal outright.
--/
-meta def applySimp (g : MVarId) (simp : SimpTheoremsArray)
-    (config : Simp.Config := { decide := false }) : MetaM MVarId := g.withContext do
-  let simpCtx ← Simp.mkContext (config := config) (simpTheorems := simp)
-  let (some g, _) ← g.withContext do simpTarget g simpCtx
-    | throwError "goal solved by simp"
-  return g
 
 /--
 Clear `FVar`s relating masks to the original `Nat` widths.
@@ -108,16 +48,8 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvDecideContext) : MetaM (MVarId × L
   let (g, widthInfos) ← widthProps.translateToMask g widthInfos
   -- Intro the `BitVec`s
   let (g, bvInfos) ← introMaskedBitvectors bvsToRevert g widthInfos
-  -- Lift equalities to the blast width. A single pass applies `eq_iff` once:
-  -- otherwise the lifted equality, now at the blast width, gets lifted again.
-  let eqThms ← addEqIff g blastWidth <| ← addWidthInfosSimpLemmas g widthInfos #[]
-  let g ← applySimp g eqThms { decide := false, singlePass := true }
-  -- Create simp set to push the `setWidth`s in
-  let thms := ← addPushTheorems g blastWidth
-           <| ← addBvInfos g bvInfos
-           <| ← addWidthInfosSimpLemmas g widthInfos #[]
-  -- Run simp
-  let g ← applySimp g thms
+  -- Lift the goal to the blast width and push the `setWidth`s in
+  let g ← liftToBlastWidth g blastWidth widthInfos bvInfos
   -- Drop references to `Nat` width variables
   let g ← dropNatReferences g widthInfos
   -- Run grind on subgoals

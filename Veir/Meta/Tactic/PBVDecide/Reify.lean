@@ -236,3 +236,73 @@ meta def reifyPreconditions (env : TmWidthEnv)
     if let some prop ← Tm.reifyProp env (ldecl.type) then
       return ← props.pushProp prop ldecl.toExpr
     return props
+
+/--
+A plan of the bitvector fvars to be reverted, and their corresponding widths.
+-/
+structure BitVecFVarsToRevert where
+  bvs : HashMap FVarId WidthTm := {}
+
+meta def BitVecFVarsToRevert.push (this : BitVecFVarsToRevert) (fvar : FVarId) (widthTm : WidthTm) : BitVecFVarsToRevert :=
+  if this.bvs.contains fvar then this
+  else { bvs := this.bvs.insert fvar widthTm }
+
+/--
+Given an expression, if it is of `BitVec w` type then create a term `Tm` for the
+width `w`. If it is also an FVar then it is a variable, and hence has to be
+added to the set of FVars to be reverted.
+-/
+meta def visitExprNonrec (g : MVarId)
+    (widthTms : WidthTms) (bvs : BitVecFVarsToRevert)
+    (e : Expr) :
+    MetaM (MVarId × WidthTms × BitVecFVarsToRevert) := g.withContext do
+  let te ← g.withContext do inferType e
+  if let some wExpr := getBitvecType? te then
+    let (g, widthTm, widthTms) ← widthTms.getOrCreateTm g wExpr
+    if let some fvarId := e.fvarId? then
+      return (g, widthTms, bvs.push fvarId widthTm)
+    else
+      return (g, widthTms, bvs)
+  else
+    return (g, widthTms, bvs)
+
+/--
+Visit an expression, collecting all widths and all bitvectors `FVars` that
+correspond to individual bitvector variables.
+-/
+meta partial def visitExprRec (g : MVarId)
+    (widthTms : WidthTms) (bvs : BitVecFVarsToRevert)
+    (e : Expr) :
+    MetaM (MVarId × WidthTms × BitVecFVarsToRevert) := g.withContext do
+  let (g, widthTms, bvs) ← visitExprNonrec g widthTms bvs e
+  if e.isApp then
+    let (f, args) := (e.getAppFn, e.getAppArgs)
+    let (g, widthTms, bvs) ← g.withContext do
+      args.foldlM (init := (g, widthTms, bvs)) fun (g, widthTms, bvs) arg =>
+      g.withContext do visitExprRec g widthTms bvs arg
+    visitExprRec g widthTms bvs f
+  else
+    return (g, widthTms, bvs)
+
+/--
+Visit the hypotheses that depend on the collected `BitVec` variables. These are
+reverted into the goal when the variables are eliminated, so the `BitVec`s and
+widths they mention must be collected too. Repeat until no new variables are found.
+-/
+meta partial def visitDependentHyps (g : MVarId)
+    (widthTms : WidthTms) (bvs : BitVecFVarsToRevert)
+    (visited : FVarIdSet := {}) :
+    MetaM (MVarId × WidthTms × BitVecFVarsToRevert) := g.withContext do
+  let (g, widthTms, newBvs, visited) ← (← getLCtx).foldlM
+    (init := (g, widthTms, bvs, visited)) fun (g, widthTms, newBvs, visited) ldecl => do
+      if ldecl.isImplementationDetail || visited.contains ldecl.fvarId then
+        return (g, widthTms, newBvs, visited)
+      unless ← bvs.bvs.toList.anyM (fun (fvar, _) => localDeclDependsOn ldecl fvar) do
+        return (g, widthTms, newBvs, visited)
+      let (g, widthTms, newBvs) ← visitExprRec g widthTms newBvs ldecl.type
+      return (g, widthTms, newBvs, visited.insert ldecl.fvarId)
+  if newBvs.bvs.size == bvs.bvs.size then
+    return (g, widthTms, newBvs)
+  visitDependentHyps g widthTms newBvs visited
+
+end Veir.Meta.Tactic.PBVDecide

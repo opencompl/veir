@@ -4,8 +4,7 @@ public meta import Lean
 public meta import Std
 public import Lean.Meta.Tactic.BVDecide.Main
 public meta import Veir.Meta.Tactic.PBVDecide.Reify
-public meta import Veir.Meta.Tactic.PBVDecide.WidthInfo
-public meta import Veir.Meta.Tactic.PBVDecide.BitVecInfo
+public meta import Veir.Meta.Tactic.PBVDecide.Info
 
 open Lean Elab Tactic Meta Std Tactic.BVDecide
 
