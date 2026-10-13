@@ -1,14 +1,11 @@
 module
 
 public import Veir.Interpreter.RuntimeValue
-public import Veir.Interpreter.Memory
-public import Veir.Interpreter.EffectState
 public import Veir.Interpreter.CTree
 
 public section
 
 open CTree
-open Veir.Data
 /-!
   # CTree-based IO Interpreter
 
