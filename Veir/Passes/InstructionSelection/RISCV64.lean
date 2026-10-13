@@ -271,7 +271,7 @@ def hasAllWUsers (ctx : IRContext OpCode) (value : ValuePtr) : Bool :=
 def gmirAddw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (operands, properties) := matchOp op ctx.raw GMIR.g_add 2 | return (ctx, none)
-  let type := ((op.getResult 0).get! ctx.raw).type
+  let type := ((op.getResult 0).getType! ctx.raw)
   let .integerType ⟨64, _⟩ := type.val | return (ctx, none)
   unless riscv64LegalizerInfo.isLegal .g_add #[type] properties do return (ctx, none)
   unless hasAllWUsers ctx.raw (op.getResult 0) do return (ctx, none)
