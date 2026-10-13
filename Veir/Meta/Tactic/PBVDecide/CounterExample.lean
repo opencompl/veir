@@ -10,13 +10,11 @@ open Lean Elab Tactic Meta Std Tactic.BVDecide
 
 namespace Veir.Meta.Tactic.PBVDecide
 
-/-- Width counterexample to hold information to be displayed. -/
 meta structure WidthMaskCex where
   /-- Original counterexample. -/
   counterExample : Expr × BVExpr.PackedBitVec
   /-- Width expression the mask encodes. -/
   widthNatExpr : Expr
-  /-- Width term this mask corresponds to. -/
   widthTm : Tm .width
   /-- User facing name of the mask. -/
   name : Name
@@ -25,12 +23,11 @@ meta structure WidthMaskCex where
 meta def WidthMaskCex.val (self : WidthMaskCex) : Nat :=
   BitVec.cpop self.counterExample.snd.bv |> BitVec.toNat
 
-abbrev WidthMaskCexs := HashMap Name WidthMaskCex
+abbrev WidthMaskCexs := HashMap WidthTm WidthMaskCex
 
 meta instance : ToMessageData WidthMaskCex where
   toMessageData f := m!"{f.widthNatExpr} = {f.val}  \t({f.name} = {f.counterExample.snd.bv})"
 
-/-- BitVec counterexample to hold information to be displayed. -/
 meta structure BitVecCex where
   /-- Original counterexample. -/
   counterExample : Expr × BVExpr.PackedBitVec
@@ -61,7 +58,7 @@ in the error message. Warn if any masks were not assigned a value.
 meta def getWidthCounterExamples (widthInfos : WidthInfos) (counterExample : CounterExample) : MetaM WidthMaskCexs := do
   let mut widthMaskCexs : WidthMaskCexs := {}
 
-  for (name, winfo) in widthInfos.infos do
+  for (wTm, winfo) in widthInfos.infos do
     let originalNatWidth := winfo.widthTm.toExpr widthInfos.env
     match findFVarIdInCounterExample? counterExample winfo.widthMaskFVar with
     | some (eq, bv) => do
@@ -72,14 +69,14 @@ meta def getWidthCounterExamples (widthInfos : WidthInfos) (counterExample : Cou
                         {bv.bv}, {winfo.name} &&& {winfo.name} + 1 = {isMask} != 0."
 
       let username ← counterExample.goal.withContext do eq.fvarId!.getUserName
-      widthMaskCexs := widthMaskCexs.insert name {
+      widthMaskCexs := widthMaskCexs.insert wTm {
           counterExample := (eq, bv),
           widthNatExpr := originalNatWidth,
           name := username,
           widthTm := winfo.widthTm
       }
     | none =>
-      logWarning m!"No assignment found in the counterexample for mask {name} of width {originalNatWidth}."
+      logWarning m!"No assignment found in the counterexample for mask {wTm.toName} of width {originalNatWidth}."
 
   return widthMaskCexs
 
@@ -92,7 +89,7 @@ meta def getBitVecCounterExamples (bvInfos : BitVecInfos) (widthCexs: WidthMaskC
     let name ← bvinfo.bvVar.getUserName
     match findFVarIdInCounterExample? counterExample bvinfo.bvVar with
     | some (eq, bv) => do
-      let some widthCex := widthCexs[bvinfo.bvWidthTm.toName]?
+      let some widthCex := widthCexs[bvinfo.bvWidthTm]?
         | throwError m!"Width ({bvinfo.bvWidthTm.toName}) of BitVec {name} is missing from the generated counterexamples."
       return {counterExample := (eq, bv), width := widthCex, name}
     | none =>

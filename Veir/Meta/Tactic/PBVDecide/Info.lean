@@ -11,13 +11,8 @@ public section
 
 namespace Veir.Meta.Tactic.PBVDecide
 
-/--
-Information about the width variable and associated hypotheses.
--/
 structure WidthInfo where
-  /-- The `Tm` corresponding to this width. -/
   widthTm : Tm .width
-  /-- The FVarId of the mask. -/
   widthMaskFVar : FVarId
   /-- The FVarId of the pure-BV hypothesis that this width is a mask variable. -/
   widthMaskHypFvar : FVarId
@@ -32,32 +27,15 @@ meta def WidthInfo.name (this : WidthInfo) : Name :=
   this.widthTm.toName
 
 structure WidthInfos where
-  /-- One WidthInfo per width -/
-  infos : HashMap Name WidthInfo := {}
-  /-- Width environment. -/
+  infos : HashMap WidthTm WidthInfo := {}
   env : TmWidthEnv
-  /-- Width at which the bit-blasting occurs. -/
   blastWidth : Nat
 
 meta def WidthInfos.push (this : WidthInfos) (info : WidthInfo) : WidthInfos :=
-  { this with infos := this.infos.insert (info.widthTm.toName) info }
+  { this with infos := this.infos.insert info.widthTm info }
 
-/--
-Get WidthInfo from a Term.
--/
 meta def WidthInfos.getFromTm? (this : WidthInfos) (wTm : Tm .width) : Option WidthInfo :=
-  this.infos[wTm.toName]?
-
-/--
-Get WidthInfo from an Expr.
--/
-meta def WidthInfos.getFromExpr? (this : WidthInfos) (wExpr : Expr)
-    : MetaM (Option WidthInfo) := do
-  -- Reduce the expression (allows for cases such as (w + 0) to be reduced to w).
-  let reducedExpr ← whnf wExpr
-  -- Reify the expr using the env and then look for it in the Hashmap.
-  let some reified ← Tm.reifyWidth this.env reducedExpr | pure none
-  return this.infos[reified.toName]?
+  this.infos[wTm]?
 
 /--
 The `BitVec` variable that a parametric-width variable was converted into,
@@ -68,14 +46,9 @@ meta structure BitVecInfo where
   bvVar : FVarId
   /-- The FVarId of the hypothesis encoding the mask constraint on the variable. -/
   bvHyp : FVarId
-  /-- The `Tm` corresponding to this BitVec's width. -/
-  bvWidthTm : Tm .width
+  bvWidthTm : WidthTm
 
-/--
-Store information for all translated `BitVec`s.
--/
 meta structure BitVecInfos where
-  /-- The Array containing facts about each variable. -/
   infos : Array BitVecInfo := #[]
 
 meta def BitVecInfos.push (this : BitVecInfos) (val : BitVecInfo) : BitVecInfos :=
