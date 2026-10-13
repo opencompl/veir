@@ -42,12 +42,12 @@ def ioSelfAddress [IoE -< E] : CTree E C Nat := CTree.trigger (SubE := IoE) (.se
 def Io.interpretOpCTree [ErrorE -< E] [UBE -< E] [IoE -< E] (opType : Veir.Io)
     (properties : propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
-    (_blockOperands : Array BlockPtr) (em : EffectState)
-    : CTree E C ((Array RuntimeValue) × EffectState × Option ControlFlowAction) :=
+    (_blockOperands : Array BlockPtr) (mem : MemoryState)
+    : CTree E C ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
   match opType with
   | .self => do
     let selfAddress ← ioSelfAddress
-    return (#[.ioAddr selfAddress], em, none)
+    return (#[.ioAddr selfAddress], mem, none)
   | .send => do
     let [.ioAddr dest, .addr ptr, .int _ len] := operands.toList | ub
     let .val len := len | ub
@@ -55,34 +55,32 @@ def Io.interpretOpCTree [ErrorE -< E] [UBE -< E] [IoE -< E] (opType : Veir.Io)
     let lenNat := len.toNat
     if lenNat ≥ UInt64.size then ub
     let len : UInt64 := UInt64.ofNat lenNat
-    if ← monadLift $ em.memory.hasPoison ptr len then ub
-    let buf ← monadLift $ em.memory.load ptr len
-    -- note that we update the CTree but not the EffectState's NetworkState
-    ioSend { src := em.network.selfAddress, dest, payload := buf }
-    return (#[.int 64 (.val buf.size)], em, none)
+    if ← monadLift $ mem.hasPoison ptr len then ub
+    let buf ← monadLift $ mem.load ptr len
+    let selfAddress ← ioSelfAddress
+    ioSend { src := selfAddress, dest, payload := buf }
+    return (#[.int 64 (.val buf.size)], mem, none)
   | .recv => do
     let [.addr ptr, .int _ len] := operands.toList | ub
     let .val len := len | ub
     let .val ptr := ptr | ub
     let len := len.toNat
-    -- note that we use the CTree to receive a message without using EffectState's NetworkState
     let optResult ← ioRecv
-    let (status, src, em') ← match optResult with
-    | none => pure (Io.Error.exhausted, 0, em)
+    let (status, src, mem') ← match optResult with
+    | none => pure (Io.Error.exhausted, 0, mem)
     | some { src := src, dest := _, payload := payload } =>
       if payload.size > len then
-        pure (Io.Error.messageTooLong, 0, em)
+        pure (Io.Error.messageTooLong, 0, mem)
       else do
-        let mem' ← monadLift $ em.memory.store ptr payload
-        pure (payload.size, src, {em with memory := mem'})
-    return (#[.int 64 (.val (BitVec.ofInt 64 status)), .ioAddr src], em', none)
+        let mem' ← monadLift $ mem.store ptr payload
+        pure (payload.size, src, mem')
+    return (#[.int 64 (.val (BitVec.ofInt 64 status)), .ioAddr src], mem', none)
   | .rand => do
     let [.addr addr, .int _ len] := operands.toList | ub
     let .val len := len | ub
     let .val addr := addr | ub
     let lenNat := len.toNat
     if lenNat ≥ UInt64.size then ub
-    -- note that we use the CTree to obtain a buffer with random data without using EffectState's EntropyState
     let buf ← ioRand lenNat
-    let mem' ← monadLift $ em.memory.store addr buf
-    return  (#[.int 64 (.val len.toNat)], {em with memory := mem'}, none)
+    let mem' ← monadLift $ mem.store addr buf
+    return  (#[.int 64 (.val len.toNat)], mem', none)
