@@ -45,9 +45,6 @@ jobs:
           sed -i 's/^buildType = "release"$/buildType = "debug"/' lakefile.toml
           grep -qx 'buildType = "debug"' lakefile.toml
 
-      - name: Source environment variables
-        run: source .envrc
-
       - name: Add LLVM apt repository
         uses: gerlero/add-apt-repository@397d907a67c29d276af289f5e9574375b8fc7481 # v1.1.0
         with:

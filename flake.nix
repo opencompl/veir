@@ -3,7 +3,7 @@
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
-  outputs = { self, nixpkgs, ... }:
+  outputs = { nixpkgs, ... }:
     let
       systems = [
         "aarch64-darwin"
@@ -40,8 +40,6 @@
             runtimeInputs = developmentPackages pkgs;
             runtimeEnv = developmentEnvironment pkgs;
             text = ''
-              export LEAN_AR="${(llvmPackages pkgs).llvm}/bin/llvm-ar"
-              export LEAN_CC="${self}/ExArray/compiler"
               exec ${command} "$@"
             '';
           };
@@ -62,8 +60,6 @@
             runtimeInputs = developmentPackages pkgs;
             runtimeEnv = developmentEnvironment pkgs;
             text = ''
-              export LEAN_AR="${(llvmPackages pkgs).llvm}/bin/llvm-ar"
-              export LEAN_CC="${self}/ExArray/compiler"
               exec lake exe ${target} "$@"
             '';
           };
@@ -85,11 +81,6 @@
             buildInputs = nixpkgs.lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
               (pkgs.darwinMinVersionHook "15.0")
             ];
-
-            # ExArray uses Clang LTO and therefore needs its compiler wrapper
-            # together with LLVM's archiver.
-            LEAN_AR = "${(llvmPackages pkgs).llvm}/bin/llvm-ar";
-            LEAN_CC = "${self}/ExArray/compiler";
           } // developmentEnvironment pkgs);
         });
 
