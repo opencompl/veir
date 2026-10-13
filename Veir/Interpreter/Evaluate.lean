@@ -31,7 +31,7 @@ def foldEvaluate (opCode : OpCode) (properties : propertiesOf opCode)
     : Interp (Array RuntimeValue) := do
   if !isFoldEvaluationCandidate opCode properties then none else
   let (results, _mem, action) ←
-    interpretOp' opCode properties resultTypes operands #[] MemoryState.empty
+    interpretOp' opCode properties resultTypes operands #[] EffectState.empty
   if action.isSome then none
   else return results
 

@@ -44,6 +44,7 @@ def RuntimeValue.isRefinedBy (source target : RuntimeValue) : Prop :=
         s = h ▸ t
       else
         False
+  | .ioAddr s, .ioAddr t => s = t
   | _, _ => False
 
 @[inherit_doc] infix:50 " ⊒ " => RuntimeValue.isRefinedBy
@@ -78,11 +79,55 @@ def MemoryState.isRefinedBy (source target : MemoryState) : Prop :=
 @[inherit_doc] infix:50 " ⊒ " => MemoryState.isRefinedBy
 
 /--
+Refinement of entropy states, which asserts byte-wise equality of the underlying entropy sources.
+-/
+@[expose]
+def EntropyState.isRefinedBy (source target : EntropyState) : Prop :=
+  source.entropySource.size = target.entropySource.size ∧
+  ∀ addr, source.entropySource.getD addr 0 = target.entropySource.getD addr 0
+
+@[inherit_doc] infix:50 " ⊒ " => EntropyState.isRefinedBy
+
+/--
+Refinement of network messages, which asserts equality of the source and destination addresses and byte-wise equality of the payloads.
+-/
+@[expose]
+def Message.isRefinedBy (source target : Message) : Prop :=
+  source.src = target.src ∧
+  source.dest = target.dest ∧
+  source.payload.size = target.payload.size ∧
+  ∀ addr, source.payload.getD addr 0 = target.payload.getD addr 0
+
+@[inherit_doc] infix:50 " ⊒ " => Message.isRefinedBy
+
+/--
+Refinement of network states, which asserts refinement of the underlying state components.
+-/
+@[expose]
+def NetworkState.isRefinedBy (source target : NetworkState) : Prop :=
+  source.selfAddress = target.selfAddress ∧
+  source.messages.length = target.messages.length ∧
+  ∀ idx < source.messages.length, source.messages[idx]! ⊒ target.messages[idx]!
+
+@[inherit_doc] infix:50 " ⊒ " => NetworkState.isRefinedBy
+
+/--
+Refinement of effect states, which asserts refinement of the underlying state components.
+-/
+@[expose]
+def EffectState.isRefinedBy (source target : EffectState) : Prop :=
+  source.memory ⊒ target.memory ∧
+  source.entropy ⊒ target.entropy ∧
+  source.network ⊒ target.network
+
+@[inherit_doc] infix:50 " ⊒ " => EffectState.isRefinedBy
+
+/--
 A function interpretation `source` is refined by `target`. This asserts that the final memories
 are equal, and the returned values refine pointwise.
 -/
 @[expose]
-def FunctionResult.isRefinedBy (source target : MemoryState × Array RuntimeValue) : Prop :=
+def FunctionResult.isRefinedBy (source target : EffectState × Array RuntimeValue) : Prop :=
   source.1 = target.1 ∧ source.2 ⊒ target.2
 
 @[inherit_doc] infix:50 " ⊒ " => FunctionResult.isRefinedBy
@@ -127,28 +172,29 @@ def ControlFlowAction.optionIsRefinedBy : Option ControlFlowAction → Option Co
 
 /--
 The result of interpreting a single operation. `source` is refined by `target`
-when values refine pointwise, memories are equal, and actions refine.
+when values refine pointwise, states are equal, and actions refine. The state `σ` is the
+`EffectState` for `interpretOp'`, and the `MemoryState` for a dialect that only touches memory.
 -/
 @[expose]
-def OperationResult.isRefinedBy (source target :
-    Array RuntimeValue × MemoryState × Option ControlFlowAction) : Prop :=
+def OperationResult.isRefinedBy {σ : Type} (source target :
+    Array RuntimeValue × σ × Option ControlFlowAction) : Prop :=
   source.1 ⊒ target.1 ∧ source.2.1 = target.2.1 ∧
     ControlFlowAction.optionIsRefinedBy source.2.2 target.2.2
 
 /--
 The function `func₁` (in `ctx₁`) is *refined by* `func₂` (in `ctx₂`) when, for every argument
-`values` and initial memory `mem`, interpreting `func₁` is refined by interpreting `func₂`.
+`values` and initial effect state `es`, interpreting `func₁` is refined by interpreting `func₂`.
 -/
 @[expose]
 def FunctionOp.isRefinedBy {ctx₁ ctx₂ : WfIRContext OpCode} {op₁ op₂ : OperationPtr}
     (func₁ : FunctionOp ctx₁.raw op₁) (func₂ : FunctionOp ctx₂.raw op₂)
     (op₁In : op₁.InBounds ctx₁.raw := by grind)
     (op₂In : op₂.InBounds ctx₂.raw := by grind) : Prop :=
-  ∀ (valuesSource valuesTarget : Array RuntimeValue) (mem : MemoryState),
+  ∀ (valuesSource valuesTarget : Array RuntimeValue) (es : EffectState),
     valuesSource ⊒ valuesTarget →
     Interp.isRefinedBy FunctionResult.isRefinedBy
-      (interpretFunction func₁ valuesSource mem op₁In)
-      (interpretFunction func₂ valuesTarget mem op₂In)
+      (interpretFunction func₁ valuesSource es op₁In)
+      (interpretFunction func₂ valuesTarget es op₂In)
 
 /--
 The function-like operation `op₁` (in `ctx₁`) is *refined by* the function-like operation `op₂`
@@ -242,14 +288,14 @@ def VariableState.isRefinedBy {ctx ctx' : WfIRContext OpInfo}
 
 /--
 An interpreter state `state` is refined by `state'` through the value mapping
-`mapping`: they have the same memory, and the variable state of `state` is refined by the variable
-state of `state'` through `mapping`.
+`mapping`: they have the same effect state, and the variable state of `state` is refined by the
+variable state of `state'` through `mapping`.
 -/
 @[expose]
 def InterpreterState.isRefinedBy {ctx ctx' : WfIRContext OpInfo}
     (state : InterpreterState ctx) (state' : InterpreterState ctx')
     (mapping : ValueMapping ctx ctx') : Prop :=
-  state.memory = state'.memory ∧
+  state.toEffectState = state'.toEffectState ∧
   state.variables.isRefinedBy state'.variables mapping
 
 /-!

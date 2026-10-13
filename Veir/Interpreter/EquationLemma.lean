@@ -47,12 +47,12 @@ namespace OperationPtr.Pure
 variable {op : OperationPtr} {ctx : IRContext OpCode}
 
 theorem interpretOp'_eq_interpretOp'_other_memory
-    (opPure : op.Pure ctx) (memory₂ : MemoryState) :
+    (opPure : op.Pure ctx) (es₂ : EffectState) :
       interpretOp' (op.getOpType! ctx) (op.getProperties! ctx (op.getOpType! ctx))
-        (op.getResultTypes! ctx) operands (op.getSuccessors! ctx) memory₁ =
+        (op.getResultTypes! ctx) operands (op.getSuccessors! ctx) es₁ =
       (interpretOp' (op.getOpType! ctx) (op.getProperties! ctx (op.getOpType! ctx))
-        (op.getResultTypes! ctx) operands (op.getSuccessors! ctx) memory₂ |>.map
-      (fun (r, _, cf) => (r, memory₁, cf))) := by
+        (op.getResultTypes! ctx) operands (op.getSuccessors! ctx) es₂ |>.map
+      (fun (r, _, cf) => (r, es₁, cf))) := by
   grind [Pure]
 
 theorem interpretOp'_eq_ok_implies_memory_eq (h : op.Pure ctx) :
@@ -228,7 +228,7 @@ theorem InterpreterState.DefinesDominating.setArgumentValues?_succ_entry
     (hsucc : succ ∈ block.getSuccessors! ctx.raw)
     (hExit : exitState.DefinesDominating (InsertPoint.atEnd block))
     (hArgs : exitState.variables.setArgumentValues? succ res succInBounds = some newVars) :
-    InterpreterState.DefinesDominating ⟨newVars, exitState.memory⟩ (InsertPoint.atStart! succ ctx.raw) := by
+    InterpreterState.DefinesDominating ⟨exitState.toEffectState, newVars⟩ (InsertPoint.atStart! succ ctx.raw) := by
   intro value valueInBounds valueDom
   cases ValuePtr.DominatesIp.predecessor_exit_of_successor_entry
     blockParent succParent regionSSA hsucc valueDom
@@ -246,7 +246,7 @@ theorem InterpreterState.EquationHolds.setArgumentValues?_of_dominatesIp (ctxDom
     (opDom : op.DominatesIp (InsertPoint.atStart! succ ctx.raw) ctx)
     {exitState : InterpreterState ctx} (hEq : exitState.EquationHolds op opIn)
     (hArgs : exitState.variables.setArgumentValues? succ res succInBounds = some newVars) :
-    InterpreterState.EquationHolds ⟨newVars, exitState.memory⟩ op := by
+    InterpreterState.EquationHolds ⟨exitState.toEffectState, newVars⟩ op := by
   simp only [InterpreterState.EquationHolds] at hEq ⊢
   obtain ⟨cf, hinterp⟩ := hEq
   simp only [interpretOp_some_iff] at hinterp ⊢
@@ -275,7 +275,7 @@ theorem InterpreterState.EquationLemmaAt.setArgumentValues?_succ_entry (ctxDom :
     {exitState : InterpreterState ctx}
     (hExit : exitState.EquationLemmaAt (InsertPoint.atEnd block))
     (hArgs : exitState.variables.setArgumentValues? succ res succInBounds = some newVars) :
-    InterpreterState.EquationLemmaAt ⟨newVars, exitState.memory⟩
+    InterpreterState.EquationLemmaAt ⟨exitState.toEffectState, newVars⟩
       (InsertPoint.atStart! succ ctx.raw) := by
   intro op opIn hPure hDom
   have opDomAtEnd : op.DominatesIp (InsertPoint.atEnd block) ctx := by
@@ -297,8 +297,8 @@ theorem InterpreterState.DefinesDominating.interpretOp_ne_fail
   simp only [hOperandValues]
   have hconforms : RuntimeValue.ArrayConforms operandValues (op.getOperandTypes! ctx.raw) := by
     grind [VariableState.getOperandValues_conforms]
-  have hne := interpretOp'_ne_fail opVerif hconforms state.memory
-  rcases hresValues : op.interpret ctx operandValues state.memory with _ | _ | ⟨resValues, mem', act⟩
+  have hne := interpretOp'_ne_fail opVerif hconforms state.toEffectState
+  rcases hresValues : op.interpret ctx operandValues state.toEffectState with _ | _ | ⟨resValues, es', act⟩
   · simp [hresValues] at hne
   · simp
   · simp only [liftM, monadLift, MonadLift.monadLift]

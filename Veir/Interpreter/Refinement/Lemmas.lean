@@ -56,7 +56,31 @@ theorem MemoryState.isRefinedBy_refl (m : MemoryState) :
   ⟨rfl, fun _ => MemoryObject.isRefinedBy_refl _⟩
 
 @[simp, grind .]
-theorem FunctionResult.isRefinedBy_refl (r : MemoryState × Array RuntimeValue) : r ⊒ r := by
+theorem EntropyState.isRefinedBy_refl (e : EntropyState) :
+    e ⊒ e := by
+  simp only [isRefinedBy]
+  grind
+
+@[simp, grind .]
+theorem Message.isRefinedBy_refl (m : Message) :
+    m ⊒ m := by
+  simp only [isRefinedBy]
+  grind
+
+@[simp, grind .]
+theorem NetworkState.isRefinedBy_refl (n : NetworkState) :
+    n ⊒ n := by
+  simp only [isRefinedBy]
+  grind
+
+@[simp, grind .]
+theorem EffectState.isRefinedBy_refl (e : EffectState) :
+    e ⊒ e := by
+  simp only [isRefinedBy]
+  grind
+
+@[simp, grind .]
+theorem FunctionResult.isRefinedBy_refl (r : EffectState × Array RuntimeValue) : r ⊒ r := by
   simp [FunctionResult.isRefinedBy]
 
 @[simp, grind .]
@@ -88,16 +112,29 @@ theorem ControlFlowAction.optionIsRefinedBy_refl (cf : Option ControlFlowAction)
   | some a => cases a <;> simp [ControlFlowAction.optionIsRefinedBy, ControlFlowAction.isRefinedBy]
 
 @[simp, grind .]
-theorem OperationResult.isRefinedBy_refl
-    (r : Array RuntimeValue × MemoryState × Option ControlFlowAction) :
+theorem OperationResult.isRefinedBy_refl {σ : Type}
+    (r : Array RuntimeValue × σ × Option ControlFlowAction) :
     OperationResult.isRefinedBy r r := by
   simp [OperationResult.isRefinedBy, ControlFlowAction.optionIsRefinedBy_refl]
 
 @[grind .]
-theorem Interp.isRefinedBy_refl_operationResult
-    (x : Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction)) :
+theorem Interp.isRefinedBy_refl_operationResult {σ : Type}
+    (x : Interp (Array RuntimeValue × σ × Option ControlFlowAction)) :
     Interp.isRefinedBy OperationResult.isRefinedBy x x := by
   cases x <;> simp [Interp.isRefinedBy]
+
+/--
+Lifting the result of a dialect that only touches memory into an effect state, as `interpretOp'`
+does, preserves refinement.
+-/
+theorem Interp.isRefinedBy_operationResult_withMemory (es : EffectState)
+    {x y : Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction)}
+    (h : Interp.isRefinedBy OperationResult.isRefinedBy x y) :
+    Interp.isRefinedBy OperationResult.isRefinedBy
+      (do let (vals, mem, act) ← x; return (vals, {es with memory := mem}, act))
+      (do let (vals, mem, act) ← y; return (vals, {es with memory := mem}, act)) := by
+  rcases x with _ | _ | ⟨vals, mem, act⟩ <;> rcases y with _ | _ | ⟨vals', mem', act'⟩ <;>
+    simp_all [Interp.isRefinedBy, OperationResult.isRefinedBy]
 
 /-! ## Transitivity -/
 
@@ -126,7 +163,7 @@ theorem RuntimeValue.arrayIsRefinedBy_trans {a b c : Array RuntimeValue}
     (h12 : a ⊒ b) (h23 : b ⊒ c) : a ⊒ c := by
   grind [RuntimeValue.arrayIsRefinedBy, RuntimeValue.isRefinedBy_trans]
 
-theorem FunctionResult.isRefinedBy_trans {r₁ r₂ r₃ : MemoryState × Array RuntimeValue}
+theorem FunctionResult.isRefinedBy_trans {r₁ r₂ r₃ : EffectState × Array RuntimeValue}
     (h12 : r₁ ⊒ r₂) (h23 : r₂ ⊒ r₃) : r₁ ⊒ r₃ := by
   grind [FunctionResult.isRefinedBy, RuntimeValue.arrayIsRefinedBy_trans]
 
@@ -216,6 +253,12 @@ registers are refined only by themselves.
 theorem RuntimeValue.eq_of_arrayIsRefinedBy_of_regs {a b : Array RuntimeValue}
     (h : a ⊒ b) (hregs : ∀ v ∈ a, ∃ r, v = .reg r) : b = a := by
   grind [arrayIsRefinedBy, reg_of_isRefinedBy, Array.getElem_mem]
+
+/-- A runtime value `tv` that refines an I/O address runtime value `v` is equal to it. -/
+theorem RuntimeValue.ioAddr_of_isRefinedBy {v : Nat} {tv : RuntimeValue}
+    (h : RuntimeValue.ioAddr v ⊒ tv) :
+    tv = RuntimeValue.ioAddr v := by
+  cases tv <;> grind [RuntimeValue.isRefinedBy]
 
 /-! ## Interp refinements -/
 
@@ -353,6 +396,8 @@ theorem RuntimeValue.glb?_greatest {c d e : RuntimeValue} (hc : c ⊒ e) (hd : d
     cases p <;> cases q <;> cases r <;> simp_all [RuntimeValue.glb?, RuntimeValue.isRefinedBy]
   case reg.reg.reg =>
     subst hc; subst hd; exact ⟨_, by simp [RuntimeValue.glb?], RuntimeValue.isRefinedBy_refl _⟩
+  case ioAddr.ioAddr.ioAddr =>
+    subst hc; subst hd; exact ⟨_, by simp [RuntimeValue.glb?], RuntimeValue.isRefinedBy_refl _⟩
   case felt.felt.felt =>
     obtain ⟨rfl, rfl⟩ := hc; obtain ⟨rfl, rfl⟩ := hd
     exact ⟨_, by simp [RuntimeValue.glb?], RuntimeValue.isRefinedBy_refl _⟩
@@ -376,6 +421,7 @@ theorem RuntimeValue.isRefinedBy_antisymm {c d : RuntimeValue} (h₁ : c ⊒ d) 
     rw [Byte.isRefinedBy_antisymm h₁ h₂]
   case addr.addr p q => cases p <;> cases q <;> simp_all
   case reg.reg => rw [h₁]
+  case ioAddr.ioAddr => rw [h₁]
   case felt.felt => obtain ⟨rfl, rfl⟩ := h₁; rfl
   case float.float =>
     split at h₁ <;> (try exact h₁.elim)

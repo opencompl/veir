@@ -2,6 +2,7 @@ module
 
 public import Veir.Interpreter.RuntimeValue
 public import Veir.Interpreter.Memory
+public import Veir.Interpreter.EffectState
 public import Veir.IR.WellFormed
 
 public section
@@ -49,15 +50,14 @@ def VariableState.empty (ctx : WfIRContext OpInfo) : VariableState ctx :=
   It includes a mapping from IR values to their runtime values.
 -/
 @[ext]
-structure InterpreterState (ctx : WfIRContext OpInfo) where
+structure InterpreterState (ctx : WfIRContext OpInfo) extends EffectState where
   variables : VariableState ctx
-  memory : MemoryState
 
 /--
   Create an interpreter state with no variables defined.
 -/
 def InterpreterState.empty (ctx : WfIRContext OpInfo) : InterpreterState ctx :=
-  { variables := .empty ctx, memory := .empty }
+  ⟨ .empty, .empty ctx ⟩
 
 /--
   Set the runtime value of a variable.

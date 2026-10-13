@@ -121,7 +121,7 @@ def initializeGlobal (ctx : WfIRContext OpCode) (op : OperationPtr) (ptr : Data.
       | none => pure mem
       | some _ => do
         let (state, results) ← expectOk name
-          (interpretRegion region #[] (ctx := ctx) ⟨.empty ctx, mem⟩)
+          (interpretRegion region #[] (ctx := ctx) ⟨{EffectState.empty with memory := mem}, .empty ctx⟩)
         let some value := results[0]? | pure state.memory
         expectOk name (state.memory.llvmStore ptr value)
 
@@ -153,7 +153,8 @@ def main (args : List String) : IO Unit := do
     let firstOp := ((op.getRegion! rawCtx 0).get! rawCtx).firstBlock.bind
       fun b => (b.get! rawCtx).firstOp
     let mem ← materializeGlobals ctx firstOp MemoryState.empty
-    let result := bind (interpretFunction (ctx := ctx) mainFunc #[] mem (by sorry))
+    let es := {EffectState.empty with memory := mem}
+    let result := bind (interpretFunction (ctx := ctx) mainFunc #[] es (by sorry))
                        (fun (_, r) => pure r)
     match result with
     | .ok results => IO.println s!"Program output: {results}"
