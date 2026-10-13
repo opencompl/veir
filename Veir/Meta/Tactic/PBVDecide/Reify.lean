@@ -24,7 +24,7 @@ meta def getIdOrPush (width : Expr) : ReifyM Nat := do
 Reify a `Nat` width: fvars, literals and `+` become the corresponding `Tm`
 constructors, anything else becomes an opaque atom.
 -/
-meta partial def Tm.reifyWidth (e : Expr) : ReifyM WidthTm := do
+public meta partial def Tm.reifyWidth (e : Expr) : ReifyM WidthTm := do
   if let some fvarid := e.fvarId? then
     return .widthFVar (← getIdOrPush e) fvarid
   else if let some val := e.nat? then
@@ -90,31 +90,36 @@ meta def pushProp (prop : Tm .prop) (expr : Expr) : ReifyM Unit := do
 /--
 Traverse the local context and try to reify `Prop`s on width terms.
 -/
-meta def reifyPreconditions : ReifyM Unit := do
+meta def reifyPreconditions (visitedFvars : HashMap FVarId LocalDecl) : ReifyM Unit := do
   (← getLCtx).forM fun ldecl => do
-    unless ← (← get).dependsOnBvs ldecl do
+    unless visitedFvars.contains ldecl.fvarId do
       if let some prop ← Tm.reifyProp (ldecl.type) then
         pushProp prop ldecl.toExpr
 
 /--
 Given an expression, if it is of `BitVec w` type then create a term `Tm` for the
 width `w`. If it is also an FVar then it is a variable, and hence has to be
-added to the set of FVars to be reverted.
+added to the set of FVars to be reverted. A let-bound FVar is not a variable:
+its value is returned instead, for the caller to visit.
 -/
-meta def visitExprNonrec (e : Expr) : ReifyM Unit := do
+meta def visitExprNonrec (e : Expr) : ReifyM (Option Expr) := do
   let te ← inferType e
-  let some wExpr := getBitvecType? te | return
+  let some wExpr := getBitvecType? te | return none
   let widthTm ← Tm.reifyWidth wExpr
   modify fun s => { s with widthTms := s.widthTms.insert widthTm }
   if let some fvarId := e.fvarId? then
-    modify fun s => { s with bvs := s.bvs.insert fvarId widthTm }
-
+    if let some value ← fvarId.getValue? then
+      return value
+    else
+      modify fun s => { s with bvs := s.bvs.insert fvarId widthTm }
+  return none
 /--
 Visit an expression, collecting all widths and all bitvectors `FVars` that
 correspond to individual bitvector variables.
 -/
 meta partial def visitExprRec (e : Expr) : ReifyM Unit := do
-  visitExprNonrec e
+  if let some e' ← visitExprNonrec e then
+    visitExprRec e'
   if e.isApp then
     let (f, args) := (e.getAppFn, e.getAppArgs)
     -- ExtractLsb takes a width expression as input which does not appear as a
@@ -132,38 +137,52 @@ meta partial def visitExprRec (e : Expr) : ReifyM Unit := do
     visitExprRec β
 
 /--
-Visit the hypotheses that depend on the collected `BitVec` variables. These are
-reverted into the goal when the variables are eliminated, so the `BitVec`s and
-widths they mention must be collected too. Repeat until no new variables are found.
+Collect the local declarations to revert into the goal: those that depend on the
+collected `BitVec` variables, and those mentioning a `BitVec` whose width shares a
+width variable or atom with the widths collected so far. The `BitVec`s and widths
+they mention are collected too. Repeat until no new variables or widths are found.
 -/
-meta partial def visitDependentHyps (visited : FVarIdSet := {}) : ReifyM Unit := do
-  let oldBvs := (← get).bvs.size
+meta partial def getBvLocalDecls (visited : HashMap FVarId LocalDecl := {}) : ReifyM (HashMap FVarId LocalDecl) := do
+  let oldState := (← get)
   let visited ← (← getLCtx).foldlM
     (init := visited) fun visited ldecl => do
       if ldecl.isImplementationDetail || visited.contains ldecl.fvarId then
         return visited
-      unless ← (← get).dependsOnBvs ldecl do
-        return visited
-      visitExprRec ldecl.type
-      return visited.insert ldecl.fvarId
-  if oldBvs != (← get).bvs.size then
-    visitDependentHyps visited
-
+      if ← (← get).dependsOnBvs ldecl then
+        visitExprRec ldecl.type
+        return visited.insert ldecl.fvarId ldecl
+      else
+        -- Run reification on the local decl to extract width terms
+        let (_, reified) ← (visitExprRec (ldecl.type)).run { (← get) with widthTms := {} }
+        let rec atoms : WidthTm → Std.HashSet WidthTm
+          | .widthLit _ => {}
+          | t@(.widthAtom _) | t@(.widthFVar _ _) => {t}
+          | .widthAdd a b | .widthSub a b => (atoms a).union (atoms b)
+        let newAtoms := reified.widthTms.fold (init := {}) fun (acc : HashSet WidthTm) t => acc.union (atoms t)
+        let oldAtoms := (← get).widthTms.fold (init := {}) fun (acc : HashSet WidthTm) t => acc.union (atoms t)
+        -- Only if the term contains widths variables which also exist in the main goal
+        -- then it should be reverted into the goal and translated
+        if (newAtoms.inter oldAtoms).size > 0 then
+          modify fun s => { reified with widthTms := s.widthTms.union reified.widthTms }
+          return visited.insert ldecl.fvarId ldecl
+        else
+          return visited
+  if oldState.bvs.size != (← get).bvs.size || oldState.widthTms.size != (← get).widthTms.size then
+    return ← getBvLocalDecls visited
+  return visited
 
 /--
 Reify the goal: collect the widths of the `BitVec`s in the goal and in the
 hypotheses that depend on them, and the props on widths in the local context.
-Returns the blast width, the upper bound on all the collected widths.
+Returns the local declarations to revert into the goal.
 -/
-public meta def reifyWidths (g : MVarId) : ReifyM Nat := g.withContext do
+public meta def reifyWidths (g : MVarId) : ReifyM (HashMap FVarId LocalDecl) := g.withContext do
   -- Find `BitVec`s and reify their widths
   visitExprRec (← g.getType)
   -- Find `BitVec`s in the hypotheses that will be reverted along with them
-  visitDependentHyps
+  let ldecls ← getBvLocalDecls
   -- Traverse the context to find props on widths (preconditions)
-  reifyPreconditions
-  -- Compute the blast width
-  return ((← get).props.getUpperBound (← read).bmcBound).max
-          <| (← get).widthTms.getUpperBound (← read).bmcBound
+  reifyPreconditions ldecls
+  return ldecls
 
 end Veir.Meta.Tactic.PBVDecide
