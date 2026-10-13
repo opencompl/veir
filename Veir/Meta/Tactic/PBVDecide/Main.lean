@@ -78,6 +78,7 @@ which can be decided using `bv_decide`. Discharge any generated goals based on
 the provided context.
 -/
 public meta def runPbvDecide (g : MVarId) (ctx : PbvDecideContext) : TacticM Unit := do
+  let (_, g) ← g.intros
   let (blastWidth, reifiedState) ← ReifyM.run ctx <| reifyWidths g
   let (g, translated) ← TranslateM.run { reifiedState with blastWidth } <| pbvTranslate g
 

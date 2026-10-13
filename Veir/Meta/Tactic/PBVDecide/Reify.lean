@@ -127,6 +127,9 @@ meta partial def visitExprRec (e : Expr) : ReifyM Unit := do
     args.forM fun arg =>
       visitExprRec arg
     visitExprRec f
+  else if let some (α, β) := e.arrow? then
+    visitExprRec α
+    visitExprRec β
 
 /--
 Visit the hypotheses that depend on the collected `BitVec` variables. These are
