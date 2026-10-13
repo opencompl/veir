@@ -71,8 +71,10 @@ def MemoryState.arenaSize : UInt64 := 0x10000
   non-deterministic.
 -/
 def MemoryState.nextBase (mem : MemoryState) : UInt64 :=
-  let past := mem.objects.foldl (init := arenaSize) fun past obj =>
-    max past (obj.base + obj.size.toUInt64 + 1)
+  -- `alloc` places each object past all earlier ones, so the last object ends last.
+  let past := match mem.objects.back? with
+    | some obj => max arenaSize (obj.base + obj.size.toUInt64 + 1)
+    | none => arenaSize
   (past + objectAlignment - 1) / objectAlignment * objectAlignment
 
 /--
