@@ -42,7 +42,7 @@ axiom tau_id (i : C1In ⊕ CIn) (k : (C1 ⊕ₑ C) i → CTree E C R) (k' : (C1 
   (∀ x, Sim RR (k x) (k' x)) →
   Sim RR (CTree.tauG i k) (CTree.tauG i k')
 
-axiom vis (i : EIn) (k : E i → CTree E C R) (k' : E i → CTree E C' R') :
+axiom vis (i : EIn) [Inhabited (E i)] (k : E i → CTree E C R) (k' : E i → CTree E C' R') :
   (∀ x, Sim RR (k x) (k' x)) →
   Sim RR (CTree.vis i k) (CTree.vis i k')
 
