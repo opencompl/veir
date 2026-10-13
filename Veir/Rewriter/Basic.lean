@@ -306,7 +306,7 @@ variable {opCode : Dialect}
 
 /--
 Set the properties of an operation of type `opCode`.
-The implicitely passed `opCode` can either be of the global `OpInfo` type, or the dialect-specific
+The implicitly passed `opCode` can either be of the global `OpInfo` type, or the dialect-specific
 `Dialect` type. The `OpInfo` version is often the one used when manipulating generic operations,
 while the `Dialect` version is often easier to use when manipulating dialect-specific operations.
 -/

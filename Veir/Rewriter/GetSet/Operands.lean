@@ -204,7 +204,7 @@ theorem OpOperandPtr.getValue!_pushOperand {operand : OpOperandPtr} :
   grind
 
 /-
-This version of the theorem has if/else branches that are sometimes more convenient for reasonning.
+This version of the theorem has if/else branches that are sometimes more convenient for reasoning.
 -/
 private theorem OpOperandPtr.get!_pushOperand'
     (valuePtr : ValuePtr) valuePtrInBounds (operandPtr : OpOperandPtr) :

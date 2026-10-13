@@ -208,7 +208,7 @@ For instance, live variables may not occur in the *domain* of an arrow type,
 only in the codomain.
 Furthermore, when applying a type function `G` to an argument containing a free
 variable, the type function has to be a QPF (that is, an instance of
-`QPF (TypeFun.ofCurried G)` must be syntesizable).
+`QPF (TypeFun.ofCurried G)` must be synthesizable).
 See the `liveParam` gadget for more details.
 
 For example, `ofTypeExpr #v['α, 'β] ${ α → β }` (using pseudo quotation syntax)

@@ -421,7 +421,7 @@ def CreateDecl.run (decl : CreateDecl OpInfo) (assignment : Assignment OpInfo)
     let assignment ← Assignment.bindProperty assignment result value
     return (ctx, #[], assignment)
   | .operation opCode operandHandles resultTypeHandles properties opHandle resultHandles =>
-    /- Get the operands, result types, and properties of the new operaiton. -/
+    /- Get the operands, result types, and properties of the new operation. -/
     let operands ← Assignment.getValues assignment operandHandles
     let resultTypes ← Assignment.getTypes assignment resultTypeHandles
     let properties ← Assignment.getProperty assignment properties

@@ -207,7 +207,7 @@ def setProperties (op : OperationPtr) (ctx : IRContext OpInfo) (opCode : Dialect
 
 /--
 Set the properties of an operation of type `opCode`.
-The implicitely passed `opCode` can either be of the global `OpInfo` type, or the dialect-specific
+The implicitly passed `opCode` can either be of the global `OpInfo` type, or the dialect-specific
 `Dialect` type. The `OpInfo` version is often the one used when manipulating generic operations,
 while the `Dialect` version is often easier to use when manipulating dialect-specific operations.
 
@@ -889,7 +889,7 @@ def IRContext.empty (OpInfo : Type) [IsOpCode OpInfo] : IRContext OpInfo := {
   }
 
 /--
-  Macro to mark all get/set defitinions as local grind lemmas
+  Macro to mark all get/set definitions as local grind lemmas
   This should only be used inside `Core/`, as the other files in this folder
   should define all the necessary lemmas without having to unfold these definitions.
 -/
