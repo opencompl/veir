@@ -17,6 +17,8 @@ easy to combine MLIR and VeIR tools.
 
 ## Building and testing
 
+Building VeIR requires [Lean 4 and its build tool Lake](https://lean-lang.org/install/).
+
 Common tasks are wrapped in the [`Makefile`](Makefile): `make build` to build and
 `make tests` to run the tests. Run `make` to list every target.
 
