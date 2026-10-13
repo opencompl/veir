@@ -10,16 +10,11 @@ namespace Veir.Meta.Tactic.PBVDecide
 
 meta def Expr.isNat (e : Expr) : Bool := e.isConstOf ``Nat
 
-/--
-Match on an expression, and if it is a `BitVec w`, return the `w`.
-Otherwise, return `none`.
--/
 meta def getBitvecType? (e : Expr) : Option Expr :=
   match_expr e with
   | BitVec w => some w
   | _ => none
 
-/-- Given `a b : Nat`, return `a < b`. -/
 meta def mkNatLT (a b : Expr) : Expr :=
   mkApp2 (mkApp2 (mkConst ``LT.lt [0]) Nat.mkType Nat.mkInstLT) a b
 
@@ -55,10 +50,7 @@ inductive TmKind
 | width
 | prop
 
-/--
-Inductive data structure to express the terms that this tactic reasons about.
--/
-inductive Tm : TmKind → Type
+meta inductive Tm : TmKind → Type
 | widthLit (val : Nat) : Tm .width
 | widthAtom (id : Nat) : Tm .width
 | widthAdd (v w : Tm .width) : Tm .width
@@ -66,13 +58,12 @@ inductive Tm : TmKind → Type
 | widthLe (v w : Tm .width) : Tm .prop
 | widthEq (v w : Tm .width) : Tm .prop
 | and (v w : Tm .prop) : Tm .prop
+deriving BEq, Hashable
 
-/--
-Function to reify an `Expr` into a `Tm`. This function constructs the tree holding
-the width term. The environment holds the 'atom' `Expr`s which are the building
-blocks of the terms.
--/
-meta partial def Tm.reifyWidth (env : TmWidthEnv) (e : Expr) : MetaM (Option (Tm .width)) := do
+abbrev WidthTm := Tm .width
+abbrev WidthProp := Tm .prop
+
+meta partial def Tm.reifyWidth (env : TmWidthEnv) (e : Expr) : MetaM (Option WidthTm) := do
   if let some id := env.width2expr.idxOf? e then
     -- An atom is an expression that is present in the Env.
     return some (.widthAtom id)
@@ -103,10 +94,6 @@ meta def matchWidthRel (e : Expr) :
   | Eq ty ea eb          => if Expr.isNat ty then some (.widthEq, ea, eb) else none
   | _ => none
 
-/--
-Reify an `Expr` into a `Tm .prop`. Returns `none` if the expression is not a
-supported prop, or if the subterms fail to reify as `Tm .width`s.
--/
 meta partial def Tm.reifyProp (env : TmWidthEnv) (e : Expr) : MetaM (Option (Tm .prop)) := do
   if let some (rel, ea, eb) := matchWidthRel e then
     let some wa ← Tm.reifyWidth env ea | return none
@@ -120,9 +107,6 @@ meta partial def Tm.reifyProp (env : TmWidthEnv) (e : Expr) : MetaM (Option (Tm 
       return some (.and pa pb)
     | _ => return none
 
-/--
-Convert a `Tm` into an `Expr` given an environment.
--/
 meta def Tm.toExpr {k : TmKind} (this : Tm k) (env : TmWidthEnv) : Expr :=
   match this with
   | .widthLit val => mkNatLit val
@@ -163,69 +147,34 @@ meta def Tm.getWidthUpperBound {k : TmKind} (tm : Tm k) (ctx : PbvDecideContext)
   | .widthEq  v w
   | .and      v w => (v.getWidthUpperBound ctx).max (w.getWidthUpperBound ctx)
 
-/--
-Structure to hold a width term.
--/
-structure WidthTm where
-  term : Tm .width
-
-/--
-Collect width terms into one data structure.
--/
 structure WidthTms where
-  /-- The width environment mapping `.atoms` to `Expr`. -/
   env : TmWidthEnv
-  /-- The HashMap mapping a Name to a `WidthTm`. -/
-  terms : HashMap Name WidthTm := {}
+  /-- The set of width terms found in the goal. -/
+  terms : HashSet WidthTm := {}
 
 meta def WidthTms.push (this : WidthTms) (width : WidthTm) : WidthTms :=
-{ terms := this.terms.insert (width.term.toName) width, env := this.env }
-
-/--
-Reify the width `Expr`, then either return the term already stored under that
-name, or create and store a new one.
--/
-meta def WidthTms.getOrCreateTm (g : MVarId) (this : WidthTms) (wExpr : Expr)
-  : MetaM (MVarId × WidthTm × WidthTms) := g.withContext do
-  let some reified ← Tm.reifyWidth this.env wExpr
-    | throwError m!"Failed to reify width expr: {wExpr}"
-  if let some info := this.terms[reified.toName]? then
-    return (g, info, this)
-  else
-    let widthTm := { term := reified }
-    return (g, widthTm, this.push widthTm)
+{ this with terms := this.terms.insert width }
 
 /-- Get the maximum width needed for blasting across all widths. -/
 meta def WidthTms.getWidthUpperBound (this : WidthTms)
     (ctx : PbvDecideContext) : Nat :=
-  this.terms.fold (fun val _e wTm =>
-    val.max (wTm.term.getWidthUpperBound ctx)) ctx.bmcBound
+  this.terms.fold (fun val wTm =>
+    val.max (wTm.getWidthUpperBound ctx)) ctx.bmcBound
 
-/--
-A `Tm .prop` together with the proof of the `Nat` prop it was reified from.
--/
-structure WidthProp where
-  /-- Reified term for this width prop. -/
-  term : Tm .prop
-  /-- The proof of the corresponding `Nat` prop. -/
-  proof : Expr
-
-/--
-Store the width `props` that have been reified.
--/
 structure WidthProps where
   env : TmWidthEnv
-  props : HashMap Name WidthProp := {}
+  /-- A map from a `Tm .prop` to the `Nat` proof it was reified from -/
+  props : HashMap WidthProp Expr := {}
 
 /-- Insert a `WidthProp`, checking that the type of `expr` matches the `Tm`. -/
 meta def WidthProps.pushProp (this : WidthProps) (prop : Tm .prop) (expr : Expr) : MetaM WidthProps := do
   unless ← isDefEq (← inferType expr) (prop.toExpr this.env)
     do throwError m!"Cannot insert prop {prop.toExpr this.env}: it doesn't match the type of the corresponding fvar: {← inferType expr}"
-  return { this with props := this.props.insert prop.toName {term := prop, proof := expr} }
+  return { this with props := this.props.insert prop expr }
 
 meta def WidthProps.getWidthUpperBound (this : WidthProps) (ctx : PbvDecideContext) : Nat :=
-  this.props.fold (fun val _e wTm =>
-    val.max (wTm.term.getWidthUpperBound ctx)) ctx.bmcBound
+  this.props.fold (fun val wTm _ =>
+    val.max (wTm.getWidthUpperBound ctx)) ctx.bmcBound
 
 /--
 Traverse the local context and try to reify `Prop`s on width terms.
@@ -237,9 +186,6 @@ meta def reifyPreconditions (env : TmWidthEnv)
       return ← props.pushProp prop ldecl.toExpr
     return props
 
-/--
-A plan of the bitvector fvars to be reverted, and their corresponding widths.
--/
 structure BitVecFVarsToRevert where
   bvs : HashMap FVarId WidthTm := {}
 
@@ -252,57 +198,53 @@ Given an expression, if it is of `BitVec w` type then create a term `Tm` for the
 width `w`. If it is also an FVar then it is a variable, and hence has to be
 added to the set of FVars to be reverted.
 -/
-meta def visitExprNonrec (g : MVarId)
+meta def visitExprNonrec
     (widthTms : WidthTms) (bvs : BitVecFVarsToRevert)
     (e : Expr) :
-    MetaM (MVarId × WidthTms × BitVecFVarsToRevert) := g.withContext do
-  let te ← g.withContext do inferType e
-  if let some wExpr := getBitvecType? te then
-    let (g, widthTm, widthTms) ← widthTms.getOrCreateTm g wExpr
-    if let some fvarId := e.fvarId? then
-      return (g, widthTms, bvs.push fvarId widthTm)
-    else
-      return (g, widthTms, bvs)
-  else
-    return (g, widthTms, bvs)
+    MetaM (WidthTms × BitVecFVarsToRevert) := do
+  let te ← inferType e
+  let some wExpr := getBitvecType? te
+    | return (widthTms, bvs)
+  let some widthTm ← Tm.reifyWidth widthTms.env wExpr
+    | throwError m!"Failed to reify width expr: {wExpr}"
+  let widthTms := widthTms.push widthTm
+  let some fvarId := e.fvarId?
+    | return (widthTms, bvs)
+  return (widthTms, bvs.push fvarId widthTm)
 
 /--
 Visit an expression, collecting all widths and all bitvectors `FVars` that
 correspond to individual bitvector variables.
 -/
-meta partial def visitExprRec (g : MVarId)
-    (widthTms : WidthTms) (bvs : BitVecFVarsToRevert)
-    (e : Expr) :
-    MetaM (MVarId × WidthTms × BitVecFVarsToRevert) := g.withContext do
-  let (g, widthTms, bvs) ← visitExprNonrec g widthTms bvs e
+meta partial def visitExprRec (widthTms : WidthTms) (bvs : BitVecFVarsToRevert)
+    (e : Expr) : MetaM (WidthTms × BitVecFVarsToRevert) := do
+  let (widthTms, bvs) ← visitExprNonrec widthTms bvs e
   if e.isApp then
     let (f, args) := (e.getAppFn, e.getAppArgs)
-    let (g, widthTms, bvs) ← g.withContext do
-      args.foldlM (init := (g, widthTms, bvs)) fun (g, widthTms, bvs) arg =>
-      g.withContext do visitExprRec g widthTms bvs arg
-    visitExprRec g widthTms bvs f
+    let (widthTms, bvs) ←
+      args.foldlM (init := (widthTms, bvs)) fun (widthTms, bvs) arg =>
+        visitExprRec widthTms bvs arg
+    visitExprRec widthTms bvs f
   else
-    return (g, widthTms, bvs)
+    return (widthTms, bvs)
 
 /--
 Visit the hypotheses that depend on the collected `BitVec` variables. These are
 reverted into the goal when the variables are eliminated, so the `BitVec`s and
 widths they mention must be collected too. Repeat until no new variables are found.
 -/
-meta partial def visitDependentHyps (g : MVarId)
-    (widthTms : WidthTms) (bvs : BitVecFVarsToRevert)
-    (visited : FVarIdSet := {}) :
-    MetaM (MVarId × WidthTms × BitVecFVarsToRevert) := g.withContext do
-  let (g, widthTms, newBvs, visited) ← (← getLCtx).foldlM
-    (init := (g, widthTms, bvs, visited)) fun (g, widthTms, newBvs, visited) ldecl => do
+meta partial def visitDependentHyps (widthTms : WidthTms) (bvs : BitVecFVarsToRevert)
+    (visited : FVarIdSet := {}) : MetaM (WidthTms × BitVecFVarsToRevert) := do
+  let (widthTms, newBvs, visited) ← (← getLCtx).foldlM
+    (init := (widthTms, bvs, visited)) fun (widthTms, newBvs, visited) ldecl => do
       if ldecl.isImplementationDetail || visited.contains ldecl.fvarId then
-        return (g, widthTms, newBvs, visited)
+        return (widthTms, newBvs, visited)
       unless ← bvs.bvs.toList.anyM (fun (fvar, _) => localDeclDependsOn ldecl fvar) do
-        return (g, widthTms, newBvs, visited)
-      let (g, widthTms, newBvs) ← visitExprRec g widthTms newBvs ldecl.type
-      return (g, widthTms, newBvs, visited.insert ldecl.fvarId)
+        return (widthTms, newBvs, visited)
+      let (widthTms, newBvs) ← visitExprRec widthTms newBvs ldecl.type
+      return (widthTms, newBvs, visited.insert ldecl.fvarId)
   if newBvs.bvs.size == bvs.bvs.size then
-    return (g, widthTms, newBvs)
-  visitDependentHyps g widthTms newBvs visited
+    return (widthTms, newBvs)
+  visitDependentHyps widthTms newBvs visited
 
 end Veir.Meta.Tactic.PBVDecide
