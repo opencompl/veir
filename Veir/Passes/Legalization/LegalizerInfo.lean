@@ -135,11 +135,11 @@ def alwaysLegal : LegalizeRule opcode :=
   legalIf fun _ => true
 
 /-- Use the target's `legalizeCustom` pattern if `predicate` is true. -/
-def customIf (predicate : LegalityQuery → Bool) : LegalizeRule :=
+def customIf (predicate : LegalityPredicate opcode) : LegalizeRule opcode :=
   fun query => if predicate query then some .custom else none
 
 /-- Use the target's `legalizeCustom` pattern when type group 0 is any type in `types`. -/
-def customFor (types : List LLT) : LegalizeRule :=
+def customFor (types : List LLT) : LegalizeRule opcode :=
   customIf fun query => types.contains (query.getLLT! (.type 0))
 
 /-- Widen the scalar to the one selected by `mutation` if `predicate` is true. -/
