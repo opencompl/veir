@@ -413,9 +413,6 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw s!"{instrName}: type mismatch: expected {expected}, got {type}"
   -- Verify opcode-specific type invariants
   match opCode with
-  | .g_add | .g_sub =>
-    opPtr.checkIsNonNullIntegerType ctx opIn
-    opPtr.verifyIntegerBinop ctx opIn
   | .g_icmp =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyGMIRICmp ctx opIn
@@ -425,7 +422,7 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .g_trunc =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyTruncTypes ctx opIn (allowByte := false)
-  | .g_mul | .g_and | .g_or | .g_xor | .g_sdiv | .g_udiv | .g_srem | .g_urem
+  | .g_add | .g_sub | .g_mul | .g_and | .g_or | .g_xor | .g_sdiv | .g_udiv | .g_srem | .g_urem
   | .g_shl | .g_lshr | .g_ashr
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs | .g_bitreverse
