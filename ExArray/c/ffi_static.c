@@ -1,4 +1,3 @@
-#include <cstring>
 #include <stdint.h>
 #include <lean/lean.h>
 #include <lean/lean_gmp.h>
@@ -6,12 +5,10 @@
 typedef size_t usize;
 typedef uint8_t uint8;
 
-extern "C" {
-
 __attribute__((always_inline))
 lean_object * buffed_zalloc_object(size_t sz) {
     void * r = mi_zalloc(sz);
-    if (r == nullptr) lean_internal_panic_out_of_memory();
+    if (r == NULL) lean_internal_panic_out_of_memory();
     lean_object * o = (lean_object*)r;
     // not a small object
     o->m_cs_sz = 0;
@@ -99,7 +96,7 @@ lean_obj_res buffed_copy_ex_array(lean_obj_arg a, size_t cap) {
     lean_object * r     = buffed_alloc_ex_array(esz, sz, cap);
     uint8 * it     = buffed_ex_array_cptr(a);
     uint8 * dest   = buffed_ex_array_cptr(r);
-    memcpy(dest, it, esz*sz);
+    __builtin_memcpy(dest, it, esz*sz);
     lean_dec(a);
     return r;
 }
@@ -110,7 +107,6 @@ static inline lean_obj_res buffed_ex_array_ensure_capacity(lean_obj_arg a, size_
     if (min_cap <= cap) {
         return a;
     } else {
-        printf("\n\nIncreasing size, needed %zu but I'm %zu!\n\n", min_cap, cap);
         return buffed_copy_ex_array(a, exact ? min_cap : min_cap * 2);
     }
 }
@@ -120,7 +116,7 @@ lean_obj_res buffed_ex_array_ensure_exclusive(lean_obj_arg a) {
     if (buffed_is_exclusive(a)) {
         return a;
     } else {
-        printf("\n\nNON EXCLUSIVE ARRAY!\n\n");
+        __builtin_printf("\n\nNON EXCLUSIVE ARRAY!\n\n");
         return buffed_copy_ex_array(a, buffed_sarray_capacity(a));
     }
 }
@@ -158,10 +154,10 @@ lean_obj_res buffed_ex_array_size(b_lean_obj_arg a) {
 __attribute__((always_inline))
 lean_obj_res buffed_ex_array_push(lean_obj_arg a, uint8 b) {
     lean_object * r = buffed_ex_array_ensure_exclusive(buffed_ex_array_ensure_capacity(a, buffed_sarray_size(a) + 1, /* exact */ false));
-    size_t & sz  = buffed_to_ex_array(r)->m_size;
+    size_t sz = buffed_to_ex_array(r)->m_size;
     uint8 * it   = buffed_ex_array_cptr(r) + sz;
     *it = b;
-    sz++;
+    buffed_to_ex_array(r)->m_size = sz + 1;
     return r;
 }
 
@@ -220,7 +216,7 @@ lean_obj_res buffed_ex_array_blit(b_lean_obj_arg *w, lean_obj_arg a, size_t offs
         p[i] = (uint8_t)(val >> 8*i);
       }
     } else {
-      mpz_object *nat = (mpz_object *)o;
+      struct mpz_object *nat = (struct mpz_object *)o;
       mpz_t temp;
       mpz_init(temp);
       for (int i = 0; i < len; i++) {
@@ -232,6 +228,4 @@ lean_obj_res buffed_ex_array_blit(b_lean_obj_arg *w, lean_obj_arg a, size_t offs
     }
 
     return r;
-}
-
 }
