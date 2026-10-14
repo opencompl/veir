@@ -184,7 +184,6 @@ private def OperationPtr.verifyGMIRICmp {OpInfo : Type} [IsOpCode OpInfo]
   let resultType := (op.getResult 0).getType! ctx.raw
   resultType.verifyIntegerType s!"{instrName}: Expected result to have integer type"
 
-
 /--
 Converts a shift amount (type group 1) to the width `w` of the shifted value (type group 0).
 An amount that does not fit in `w` bits is out of range, so it is replaced by the all-ones value,
