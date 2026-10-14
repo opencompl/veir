@@ -6,7 +6,7 @@ public section
 
 /--
 The `Reg` type is a `BitVec 64` representing the content of a register.
-We design the type following Lean's stle, e.g., with UInt/SInt types.
+We design the type following Lean's style, e.g., with UInt/SInt types.
 -/
 structure Reg where
   val : BitVec 64

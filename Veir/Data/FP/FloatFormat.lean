@@ -55,7 +55,7 @@ def biasedExp (e : Nat) (n : Int) (k : Int) : Int :=
   (bias e : Int) + unbiasedExp n k
 
 /--
-Left shift required to `n` such that when interprted as a `s`bit bitvector,
+Left shift required to `n` such that when interpreted as an `s`-bit bitvector,
 the leading `1` is in the `msb` position.
 
 Suppose `n = 3 ~ 00011#5 (i.e. s = 5)`

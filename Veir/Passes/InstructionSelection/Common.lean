@@ -30,7 +30,7 @@ def castToRegLocal (ctx : WfIRContext OpCode) (v : ValuePtr) :
 -/
 def replaceWithRegLocal (ctx : WfIRContext OpCode) (op : OperationPtr) (reg : ValuePtr) :
     Option (WfIRContext OpCode × OperationPtr) :=
-  let type := ((op.getResult 0).get! ctx.raw).type
+  let type := (op.getResult 0).getType! ctx.raw
   WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast
       #[type] #[reg] #[] #[] () none
 

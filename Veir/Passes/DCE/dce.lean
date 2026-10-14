@@ -23,5 +23,5 @@ def DCEPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
 
 public def DCEPass : Pass OpCode :=
   { name := "dce"
-    description := "Eliminate dead code by removing operations whose results are unused."
+    description := "Eliminate trivially dead operations: no regions, no used results, no memory writes, and not a block terminator."
     run := fun _ => DCEPass.impl }

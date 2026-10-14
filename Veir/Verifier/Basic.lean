@@ -70,7 +70,7 @@ def OperationPtr.verifyBranchSuccessorArgTypes
     Except String PUnit := do
   for j in [0:dest.getNumArguments! ctx.raw] do
     let opTy := (op.getOperand! ctx.raw (operandBase + j)).getType! ctx.raw
-    let argTy := ((dest.getArgument j).get! ctx.raw).type
+    let argTy := (dest.getArgument j).getType! ctx.raw
     if !Attribute.branchArgCompatible opTy.val argTy.val then
       throw s!"{errPrefix} argument {j} type mismatch: operand has type {opTy}, block argument has type {argTy}"
 
@@ -250,7 +250,7 @@ def OperationPtr.verifyOperandTypesMatch (op : OperationPtr)
 def OperationPtr.verifyResultTypeMatches (op : OperationPtr)
     (ctx : WfIRContext OpInfo)
     (expectedType : TypeAttr) (errMsg : String) : Except String PUnit := do
-  if ((op.getResult 0).get! ctx.raw).type.val ≠ expectedType.val then
+  if ((op.getResult 0).getType! ctx.raw).val ≠ expectedType.val then
     throw errMsg
 
 def OperationPtr.verifyIntegerBinop (op : OperationPtr)
@@ -316,7 +316,7 @@ def OperationPtr.verifyFCmp (op : OperationPtr) (ctx : WfIRContext OpInfo)
     s!"{instrName}: Expected operand 1 to have floating point type"
   let _ ← op.verifyOperandTypesMatch ctx 0 1
     s!"{instrName}: Expected operands to have the same type"
-  ((op.getResult 0).get! ctx.raw).type.verifyI1 s!"{instrName}: Expected i1 result"
+  ((op.getResult 0).getType! ctx.raw).verifyI1 s!"{instrName}: Expected i1 result"
 
 def OperationPtr.verifyIntegerTernop (op : OperationPtr)
     (ctx : WfIRContext OpInfo)
@@ -357,7 +357,7 @@ def OperationPtr.verifyICmp (op : OperationPtr) (ctx : WfIRContext OpInfo)
     s!"{instrName}: Expected operand 1 to have integer type"
   let _ ← op.verifyOperandTypesMatch ctx 0 1
     s!"{instrName}: Expected operands to have the same type"
-  ((op.getResult 0).get! ctx.raw).type.verifyI1 s!"{instrName}: Expected i1 result"
+  ((op.getResult 0).getType! ctx.raw).verifyI1 s!"{instrName}: Expected i1 result"
 
 def OperationPtr.verifySelectTypes (op : OperationPtr)
     (ctx : WfIRContext OpInfo)
@@ -376,7 +376,7 @@ def OperationPtr.verifyTruncTypes (op : OperationPtr)
   op.verifyPlainOpCounts ctx opIn 1 1
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
-  let resultType := ((op.getResult 0).get! ctx.raw).type
+  let resultType := (op.getResult 0).getType! ctx.raw
   match operandType.val, resultType.val, allowByte with
   | .integerType ⟨bw1, _⟩, .integerType ⟨bw2, _⟩, _ =>
     if bw1 ≤ bw2 then
@@ -397,7 +397,7 @@ def OperationPtr.verifyIntToFloatTypes (op : OperationPtr)
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType
     s!"{instrName}: Expected operand 0 to have integer type"
-  ((op.getResult 0).get! ctx.raw).type.verifyFloatType
+  ((op.getResult 0).getType! ctx.raw).verifyFloatType
     s!"{instrName}: Expected floating point result type"
 
 def OperationPtr.verifyFloatToIntTypes (op : OperationPtr)
@@ -407,7 +407,7 @@ def OperationPtr.verifyFloatToIntTypes (op : OperationPtr)
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyFloatType
     s!"{instrName}: Expected operand 0 to have floating point type"
-  ((op.getResult 0).get! ctx.raw).type.verifyIntegerType
+  ((op.getResult 0).getType! ctx.raw).verifyIntegerType
     s!"{instrName}: Expected integer result type"
 
 /--
@@ -421,7 +421,7 @@ def OperationPtr.verifyFloatExtTypes (op : OperationPtr)
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyFloatType
     s!"{instrName}: Expected operand 0 to have floating point type"
-  ((op.getResult 0).get! ctx.raw).type.verifyFloatType
+  ((op.getResult 0).getType! ctx.raw).verifyFloatType
     s!"{instrName}: Expected floating point result type"
 
 def OperationPtr.verifyIntegerExtTypes (op : OperationPtr)
@@ -430,7 +430,7 @@ def OperationPtr.verifyIntegerExtTypes (op : OperationPtr)
   op.verifyPlainOpCounts ctx opIn 1 1
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
-  let resultType := ((op.getResult 0).get! ctx.raw).type
+  let resultType := (op.getResult 0).getType! ctx.raw
   let .integerType operandInt := operandType.val
     | throw s!"{instrName}: Expected operand 0 to have integer type"
   let .integerType resultInt := resultType.val
@@ -464,7 +464,7 @@ def OperationPtr.verifyLLVMCompatibleTypes (op : OperationPtr)
     if !(opTypes[i]!).val.isLLVMCompatibleType then
       throw s!"{instrName}: operand {i} must be an LLVM dialect-compatible type, but got {opTypes[i]!}"
   for i in [0:op.getNumResults ctx.raw opIn] do
-    let type := ((op.getResult i).get! ctx.raw).type
+    let type := (op.getResult i).getType! ctx.raw
     if !type.val.isLLVMCompatibleType then
       throw s!"{instrName}: result {i} must be an LLVM dialect-compatible type, but got {type}"
 
@@ -486,7 +486,7 @@ def OperationPtr.checkIsNonNullIntegerType (op : OperationPtr)
       if intType.signedness ≠ .signless then
         throw s!"{instrName}: operand {i} must be a signless integer, but got {intType}"
   for i in [0:op.getNumResults ctx.raw opIn] do
-    if let .integerType intType := ((op.getResult i).get! ctx.raw).type.val then
+    if let .integerType intType := ((op.getResult i).getType! ctx.raw).val then
       if intType.bitwidth = 0 then
         throw s!"{instrName}: result {i} has forbidden i0 type"
       if intType.signedness ≠ .signless then
@@ -516,7 +516,7 @@ def denseElementsElementType? (typeStr : String) : Option String :=
 def WfIRContext.successorsHaveSameParent (ctx : WfIRContext OpInfo) : Bool :=
   ctx.raw.blocks.keys.all fun block =>
     (block.getSuccessors! ctx.raw).all fun successor =>
-      (successor.get! ctx.raw).parent = (block.get! ctx.raw).parent
+      successor.getParent! ctx.raw = block.getParent! ctx.raw
 
 end
 

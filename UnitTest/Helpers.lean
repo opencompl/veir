@@ -6,8 +6,8 @@ open Veir
 
 /-- The first operation in the body of `op`. -/
 def Veir.OperationPtr.body! (op : OperationPtr) (ctx : IRContext OpCode) : OperationPtr :=
-  (((op.getRegion! ctx 0).get! ctx).firstBlock.get!.get! ctx).firstOp.get!
+  (((op.getRegion! ctx 0).getFirstBlock! ctx).get!.getFirstOp! ctx).get!
 
 /-- The operation following `op` in its block. -/
 def Veir.OperationPtr.next! (op : OperationPtr) (ctx : IRContext OpCode) : OperationPtr :=
-  (op.get! ctx).next.get!
+  (op.getNextOp! ctx).get!

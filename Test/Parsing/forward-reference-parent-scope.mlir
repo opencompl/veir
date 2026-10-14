@@ -1,6 +1,6 @@
 // RUN: veir-opt %s --disable-verifiers | filecheck %s
 // RUN: not veir-opt %s 2>&1 | filecheck %s --check-prefix=VERIFY
-// RUN: MLIR_INVALID
+// RUN: MLIR_UNREGISTERED_INVALID
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> ()}> ({

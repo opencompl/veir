@@ -1,5 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
-// RUN: MLIR_INVALID
+// RUN: MLIR_UNREGISTERED_INVALID
 
 // The top-level operation is detached. Its result is resolved through a
 // forward reference from inside the nested module, but therefore has no parent

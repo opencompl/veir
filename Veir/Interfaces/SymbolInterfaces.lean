@@ -123,7 +123,7 @@ private def findSymbolFrom? (op : OperationPtr) (ctx : IRContext OpCode)
     (name : StringAttr) : Option OperationPtr := do
   if (SymbolOp.of? op ctx).map (·.getSymName) = some name then
     return op
-  let next ← (op.get! ctx).next
+  let next ← op.getNextOp! ctx
   findSymbolFrom? next ctx name
 partial_fixpoint
 
@@ -132,9 +132,9 @@ variable {ctx : IRContext OpCode} {op : OperationPtr}
 /-- Returns the symbol named `name` defined directly in the symbol table. -/
 def lookupSymbol? (_symbolTableOp : SymbolTableOp ctx op) (name : StringAttr) :
     Option OperationPtr := do
-  let region ← (op.get! ctx).regions[0]?
-  let block ← (region.get! ctx).firstBlock
-  let firstOp ← (block.get! ctx).firstOp
+  let region ← (op.getRegions! ctx)[0]?
+  let block ← region.getFirstBlock! ctx
+  let firstOp ← block.getFirstOp! ctx
   findSymbolFrom? firstOp ctx name
 
 end SymbolTableOp
