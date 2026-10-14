@@ -146,6 +146,26 @@ theorem add_eq_shift_sum_of_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ m₃ : Bi
       BitVec.ofNat_add_ofNat, BitVec.shiftLeft_ofNat_eq, BitVec.shiftLeft_eq_mul_twoPow,
       BitVec.one_mul, Nat.mod_eq_of_lt (by grind[Nat.lt_pow_self]), maskOfWidth_eq_twoPow_sub_one h₁₂]
 
+/-- Subtracting widths becomes shifting of masks. -/
+theorem sub_eq_shift_sum_of_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ m₃ : BitVec o}
+    (h₁ : w₁ ≤ o) (h₂ : w₂ ≤ o) (h₁₂ : w₁ - w₂ ≤ o)
+    (hm₁ : m₁ = maskOfWidth o w₁) (hm₂ : m₂ = maskOfWidth o w₂)
+    (hm₃ : m₃ = maskOfWidth o (w₁ - w₂)) :
+    m₃ = m₁ >>> BitVec.cpop m₂ := by
+  subst m₃
+  by_cases h₁₂zero : w₂ ≤ w₁
+  · apply BitVec.eq_of_toNat_eq
+    rw [cpop_eq_width_of_maskOfWidth h₂ hm₂, toNat_maskOfWidth, BitVec.ushiftRight_eq', BitVec.toNat_ofNat,
+        BitVec.toNat_ushiftRight, hm₁, toNat_maskOfWidth, Nat.mod_eq_of_lt (a := w₂) (by grind[Nat.lt_two_pow_self]),
+        Nat.shiftRight_eq_div_pow, Nat.div_eq_of_lt_le]
+    all_goals grind [Nat.mul_sub_right_distrib, Nat.pow_sub_mul_pow 2 h₁₂zero]
+  · rw [cpop_eq_width_of_maskOfWidth h₂ hm₂, BitVec.ushiftRight_eq', BitVec.toNat_ofNat, Nat.mod_eq_of_lt, Nat.sub_eq_zero_of_le (by grind), maskOfWidth_zero]
+    apply BitVec.eq_of_toNat_eq
+    rw [hm₁, BitVec.toNat_ushiftRight, toNat_maskOfWidth h₁, Nat.shiftRight_eq_zero, BitVec.toNat_zero]
+    have : w₁ < w₂ := by grind
+    grind[Nat.pow_lt_pow_right (a := 2) (by decide) this]
+    grind[Nat.lt_two_pow_self]
+
 /-! ## The sign bit helpers -/
 
 /-- `signBitOfMask m` keeps only the top bit of the mask `m`.
