@@ -96,7 +96,7 @@ def abiExtOf (entries : Array (ByteArray × Attribute)) (key : String) (i : Nat)
 private def abiAttrEntries (ctx : IRContext OpCode) (op : OperationPtr) :
     Array (ByteArray × Attribute) :=
   let opType := op.getOpType! ctx
-  (Properties.toAttrDict opType (op.getProperties! ctx opType)).toArray ++ (op.get! ctx).attrs.entries
+  (Properties.toAttrDict opType (op.getProperties! ctx opType)).toArray ++ (op.getAttributes! ctx).entries
 
 private def supportsFunctionAbi (ctx : IRContext OpCode) (op : OperationPtr) : Bool :=
   !(abiAttrEntries ctx op).any isUnsupportedAbiAttr
@@ -166,7 +166,7 @@ def lowerReturn : LocalRewritePattern OpCode := fun ctx op => do
 -/
 def lowerCall (callee : Option FlatSymbolRefAttr) (extra : DictionaryAttr) :
     LocalRewritePattern OpCode := fun ctx op => do
-  if hasUnsupportedAttrs extra.entries (op.get! ctx.raw).attrs.entries isUnsupportedCallAttr then
+  if hasUnsupportedAttrs extra.entries (op.getAttributes! ctx.raw).entries isUnsupportedCallAttr then
     return (ctx, none)
   let mut calleeEntries := #[]
   if callee.isSome then
@@ -181,7 +181,7 @@ def lowerCall (callee : Option FlatSymbolRefAttr) (extra : DictionaryAttr) :
   if !operands.all (fun v => isRegPassed (v.getType! ctx.raw)) || !resultTypes.all isRegPassed then
     return (ctx, none)
   -- The call site's extension attribute, or else the callee's, like `CallBase::paramHasAttr`.
-  let callEntries := extra.entries ++ (op.get! ctx.raw).attrs.entries
+  let callEntries := extra.entries ++ (op.getAttributes! ctx.raw).entries
   let argExt (i : Nat) : AbiExt :=
     if i < numTargets then .none else
     match abiExtOf callEntries "arg_attrs" (i - numTargets) with
