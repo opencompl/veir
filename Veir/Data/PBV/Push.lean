@@ -98,7 +98,7 @@ namespace Veir.Data.PBV
 public section
 
 attribute [pbv_push] signBitOfMask_eq maskOfWidth_zero BitVec.setWidth_zero
-  BitVec.ofNat_eq_ofNat BitVec.setWidth_cast BitVec.shiftLeftZeroExtend_eq
+  BitVec.ofNat_eq_ofNat BitVec.setWidth_cast BitVec.shiftLeftZeroExtend_eq BitVec.setWidth_and Nat.sub_zero
 
 attribute [pbv_push low] BitVec.setWidth_eq
 
@@ -378,6 +378,10 @@ theorem setWidth_extractLsb' {o w len start : Nat} (a : BitVec w) (hlen : len â‰
     apply BitVec.eq_of_toNat_eq
     simp only [BitVec.toNat_setWidth, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_zero (hn := this),
       Nat.zero_mod, BitVec.toNat_and, BitVec.toNat_ushiftRight, Nat.zero_and]
+
+@[pbv_push]
+theorem extractLsb_eq_extractLsb' {w hi lo : Nat} (a : BitVec w) :
+  (a.extractLsb hi lo) = (a.extractLsb' lo (hi - lo + 1)) := by grind[BitVec.extractLsb'_eq_extractLsb]
 
 /-! ## Push `setWidth` into bitwise ops -/
 

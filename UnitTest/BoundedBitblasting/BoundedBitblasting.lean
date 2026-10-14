@@ -473,6 +473,12 @@ example {w v : Nat} (x : BitVec w) (hw : w ≤ 4) (hv : v ≤ w) :
     x.extractLsb' 0 v = (x &&& ((1#w <<< BitVec.ofNat w v) - 1)).setWidth v := by
   pbv_decide 4
 
+/-- Extracting is masking with composite widths -/
+example {w : Nat} (a : BitVec (w + w)) (hw4 : w + w ≤ 4):
+  a.extractLsb w 0 = (a &&& ((1#((w + w)) <<< BitVec.ofNat (w + w) (w + 1)) - 1)).setWidth (w + 1)
+  := by
+  pbv_decide 4
+
 /-- Arithmetic shifting right by zero is identity -/
 example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
     x.sshiftRight' 0#w = x := by
