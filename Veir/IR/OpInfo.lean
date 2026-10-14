@@ -1,6 +1,7 @@
 module
 
 public import Veir.IR.OpCode
+public import Veir.IR.OperationDefinition
 public import Veir.IR.WellFormed
 public import Veir.FoldDecision
 
@@ -81,6 +82,11 @@ structure BranchOpInterface (Properties : Type) where
 
 class HasOpInfo (opCode: Type)
     extends IsOpCode opCode where
+  /--
+  Return static syntax metadata for an operation, when it has named fields.
+  Operations without this metadata can only be parsed/printed in generic syntax.
+  -/
+  operationDefinition? : opCode → Option OperationDefinition := fun _ => none
   /--
   Verify the local invariants of an operation. This typically includes checking
   that the number of operands, successors, results, and regions match the
