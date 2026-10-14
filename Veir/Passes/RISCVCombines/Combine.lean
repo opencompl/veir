@@ -54,7 +54,6 @@ def right_identity_zero_add_pattern : Puddle.Pattern OpCode :=
       let _ <- Puddle.MatchProg.root (.riscv .add) #[x, li_res] #[resultType]
       return x
   ) pure (fun x => x)
-    -- your match, creation, and replacement phases here
 
 def right_identity_zero_add : RewritePattern OpCode :=
   right_identity_zero_add_pattern.compile.run
