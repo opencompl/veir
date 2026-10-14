@@ -374,7 +374,7 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let .integerType resBw := resType.val | none
     return (#[.int resBw.bitwidth (resizeCount resBw.bitwidth (Data.LLVM.Int.ctpop x))], mem, none)
   | .g_bitcast => do
-    /- only for int type -/
+    /- Only for the int type. -/
     let [.int bw x] := operands.toList | none
     let some resType := resultTypes[0]? | none
     let .integerType resBw := resType.val | none
