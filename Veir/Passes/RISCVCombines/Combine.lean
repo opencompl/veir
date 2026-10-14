@@ -48,10 +48,10 @@ def right_identity_zero_add_pattern : Puddle.Pattern OpCode :=
       let lhsType ← Puddle.MatchProg.type (Attr := RegisterType)
       let rhsType ← Puddle.MatchProg.type (Attr := RegisterType)
       let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
-      let x <- Puddle.MatchProg.value lhsType
-      let li <- Puddle.MatchProg.operation (.riscv .li) #[] #[rhsType] (fun props => props.value == 0#64)
+      let x ← Puddle.MatchProg.value lhsType
+      let li ← Puddle.MatchProg.operation (.riscv .li) #[] #[rhsType] (fun props => props.value == 0#64)
       let li_res := li.res[0]!
-      let _ <- Puddle.MatchProg.root (.riscv .add) #[x, li_res] #[resultType]
+      let _ ← Puddle.MatchProg.root (.riscv .add) #[x, li_res] #[resultType]
       return x
   ) pure (fun x => x)
 
