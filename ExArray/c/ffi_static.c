@@ -107,7 +107,6 @@ static inline lean_obj_res buffed_ex_array_ensure_capacity(lean_obj_arg a, size_
     if (min_cap <= cap) {
         return a;
     } else {
-        __builtin_printf("\n\nIncreasing size, needed %zu but I'm %zu!\n\n", min_cap, cap);
         return buffed_copy_ex_array(a, exact ? min_cap : min_cap * 2);
     }
 }
