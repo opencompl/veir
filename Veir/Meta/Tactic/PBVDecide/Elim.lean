@@ -10,13 +10,30 @@ open Veir.Data.PBV
 
 namespace Veir.Meta.Tactic.PBVDecide
 
+public structure ProofObligations where
+  mvars : HashMap WidthProp (Expr × MVarId) := {}
+
+meta def ProofObligations.push (this : ProofObligations) (prop : WidthProp)
+    (e : Expr) (mvar : MVarId) : ProofObligations :=
+  { this with mvars := this.mvars.insert prop (e, mvar) }
+
+public abbrev FreshMVarM := StateRefT ProofObligations MetaM
+
+meta def getOrCreateFreshMVar (g : MVarId)
+  (prop : WidthProp) (env : TmWidthEnv) : FreshMVarM Expr := do
+  if let some (expr, _) := (← get).mvars.get? prop then
+    return expr
+  else
+    let freshMVar ← g.withContext do mkFreshExprMVar (prop.toExpr env)
+    modifyGet (fun proofs => (freshMVar, proofs.push prop freshMVar freshMVar.mvarId!))
+
 /--
 Given a width term (`widthTm`), introduce a `BitVec` variable corresponding
 to the mask of that width. Then introduce a hypothesis bounding the width to the
 provided `blastWidth` and enforce it as a mask with `and_add_one_eq_zero_of_maskOfWidth`.
 -/
 meta def introMaskWidth (g : MVarId) (widthTm : WidthTm) (infos : WidthInfos)
-  : MetaM (MVarId × WidthInfo × WidthInfos) := g.withContext do
+  : FreshMVarM (MVarId × WidthInfo × WidthInfos) := g.withContext do
     -- Apply width_elim
     let [g] ← g.apply <| ← mkAppM ``width_elim
         #[mkNatLit infos.blastWidth, widthTm.toExpr infos.env, ← g.getType]
@@ -27,12 +44,7 @@ meta def introMaskWidth (g : MVarId) (widthTm : WidthTm) (infos : WidthInfos)
     let (#[mask, maskHyp], g) ← g.introN 2 [maskName, Name.mkSimple s!"h_{maskName}"]
       | throwError m!"Failed to intro {``width_elim}"
     -- Introduce width bound on the variable.
-    let hypWidthLeBound ← g.withContext do
-      mkFreshExprMVar (mkAppN (Expr.const ``LE.le [.zero])
-        #[mkConst ``Nat,
-          mkConst ``instLENat,
-          widthTm.toExpr infos.env,
-          mkNatLit infos.blastWidth])
+    let hypWidthLeBound ← getOrCreateFreshMVar g (.widthLe widthTm (.widthLit infos.blastWidth)) infos.env
     let (hypWidthLeBoundNote, g) ← g.note (Name.mkSimple s!"h_{maskName}_le_blast") hypWidthLeBound
     -- Assert the BitVec mask constraint.
     let hypExpr ← g.withContext do mkAppM ``and_add_one_eq_zero_of_maskOfWidth #[mkFVar maskHyp]
@@ -41,7 +53,6 @@ meta def introMaskWidth (g : MVarId) (widthTm : WidthTm) (infos : WidthInfos)
     let info : WidthInfo := {
       widthMaskFVar := mask,
       widthMaskHypFvar := maskHyp
-      hypWidthLeBoundMVarId := some hypWidthLeBound.mvarId!,
       hypWidthLeBoundNote
     }
     return (g, info, infos.push widthTm info)
@@ -72,7 +83,6 @@ meta def introMaskLit (g : MVarId) (widthLit : WidthTm) (infos : WidthInfos) : M
     widthMaskFVar := mask,
     widthMaskHypFvar := maskHyp,
     hypWidthLeBoundNote := hypWidthLeBound,
-    hypWidthLeBoundMVarId := none
   }
 
   return (g, info, infos.push widthLit info)
@@ -82,7 +92,7 @@ Recurse through a `.width Tm`, converting `Nat` term into a `BitVec` mask, and
 translating relations on the terms into relations on the `BitVec` (eg. add).
 -/
 meta def getOrCreateWidthMask (g : MVarId) (widthTm : WidthTm) (infos : WidthInfos)
-  : MetaM (MVarId × WidthInfo × WidthInfos) := do
+  : FreshMVarM (MVarId × WidthInfo × WidthInfos) := do
   -- Check if this width term is already in widthInfos
   if let some info := infos.getFromTm? widthTm then
     return (g, info, infos)
@@ -114,12 +124,12 @@ Given a `Tm .prop` and the `Expr` it was reified from, construct the expr that
 corresponds to the `Prop` expressed in terms of the masks.
 -/
 meta def getMaskedExprFromProp (g : MVarId) (prop : WidthProp) (proof : Expr)
-    (widthInfos : WidthInfos) : MetaM (MVarId × WidthInfos × Expr) := g.withContext do
+    (widthInfos : WidthInfos) : FreshMVarM (MVarId × WidthInfos × Expr) := g.withContext do
   -- Ensure the proof and prop match.
   unless ← isDefEq (← inferType proof) (prop.toExpr widthInfos.env)
     do throwError m!"Prop : {prop.toExpr widthInfos.env} doesn't match the proof : {← inferType proof}"
   -- Helper to apply a theorem for a binary operation on widths.
-  let applyPropBinop (thm : Name) (v w : WidthTm) : MetaM (MVarId × WidthInfos × Expr) := do
+  let applyPropBinop (thm : Name) (v w : WidthTm) : FreshMVarM (MVarId × WidthInfos × Expr) := do
     let (g, vInfo, widthInfos) ← getOrCreateWidthMask g v widthInfos
     let (g, wInfo, widthInfos) ← getOrCreateWidthMask g w widthInfos
     let expr ← g.withContext <| mkAppM thm #[
@@ -144,7 +154,7 @@ meta def getMaskedExprFromProp (g : MVarId) (prop : WidthProp) (proof : Expr)
     return (g, widthInfos, expr)
 
 /-- Construct the mask `Expr` for each `WidthProp` and add it to the context. -/
-public meta def WidthProps.translateToMask (this : WidthProps) (g : MVarId) (widthInfos : WidthInfos) : MetaM (MVarId × WidthInfos) := do
+public meta def WidthProps.translateToMask (this : WidthProps) (g : MVarId) (widthInfos : WidthInfos) : FreshMVarM (MVarId × WidthInfos) := do
   this.props.foldM (init := (g, widthInfos)) fun (g, infos) widthProp proof => do
     -- Obtain the `Expr` of the prop in terms of the mask.
     let (g, infos, expr) ← getMaskedExprFromProp g widthProp proof infos
@@ -157,7 +167,7 @@ Given the width terms in the formula, translate all `Nat` widths into `BitVec`
 masks and introduce the hypotheses that model the masks.
 -/
 public meta def introMaskWidths (g : MVarId) (widthTms : WidthTms) (env : TmWidthEnv) (blastWidth : Nat)
-  : MetaM (MVarId × WidthInfos)
+  : FreshMVarM (MVarId × WidthInfos)
   := g.withContext do
   -- Intro all the masks
   widthTms.terms.foldM
