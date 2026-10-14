@@ -10,6 +10,7 @@ import all Veir.Data.RISCV.Reg.Basic
 import all Veir.Data.RISCV.Reg.Lemmas
 import all Veir.Dialects.RISCV.OpInfo
 import all Veir.ForLean
+import Veir.PatternRewriter.Puddle.Validity
 
 namespace Veir.RISCV
 
@@ -41,17 +42,23 @@ def isConstantPowerOfTwo (v : ValuePtr) (ctx : IRContext OpCode) : Option Nat :=
   return log2Aux n n
 
 /-- riscv.add x 0 -> x -/
-def right_identity_zero_add_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := matchRVAdd op ctx.raw | return (ctx, none)
-  let some liOp := rhs.definingOp? | return (ctx, none)
-  let some cst := matchRVLi liOp ctx.raw | return (ctx, none)
-  if cst.value ≠ 0#64 then return (ctx, none)
-  some (ctx, some (#[], #[lhs]))
+def right_identity_zero_add_pattern : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let lhsType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let rhsType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let x <- Puddle.MatchProg.value lhsType
+      let li <- Puddle.MatchProg.operation (.riscv .li) #[] #[rhsType] (fun props => props.value == 0#64)
+      let li_res := li.res[0]!
+      let _ <- Puddle.MatchProg.root (.riscv .add) #[x, li_res] #[resultType]
+      return x
+  ) pure (fun x => x)
+    -- your match, creation, and replacement phases here
 
-def right_identity_zero_add (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite right_identity_zero_add_local rewriter op opInBounds
+def right_identity_zero_add : RewritePattern OpCode :=
+  right_identity_zero_add_pattern.compile.run
+
 
 /-! ### select_same_val :  (c ? x : x) → x -/
 
